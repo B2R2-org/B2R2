@@ -42,8 +42,8 @@ let numI32PC n = BitVector.OfInt32 n 32<rt> |> AST.num
 let numI64 n = BitVector.OfInt64 n 16<rt> |> AST.num
 
 let exprToInt (n: Expr) =
-  match n.E with
-  | Num a -> a
+  match n with
+  | Num (a, _) -> a
   | _ -> Terminator.impossible()
 
 let bv1Check s =
@@ -231,8 +231,8 @@ let ofonAdd e1 e2 r =
 
 let add ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
-  match src.E with
-  | Num n ->
+  match src with
+  | Num (n, _) ->
     let ir = IRBuilder (8)
     let t1 = !+ir 8<rt>
     let t2 = !+ir 32<rt>
@@ -242,7 +242,7 @@ let add ins len ctxt =
     !!ir (t2 := t2 .+ t1)
     !!ir (dst := t2)
     !>ir len
-  | Var (_, _, s) ->
+  | Var (_, _, s, _) ->
     let oprSize = 32<rt>
     let ir = IRBuilder (8)
     let struct (t1, t2) = tmpVars2 ir oprSize
@@ -287,8 +287,8 @@ let addv ins len ctxt =
 
 let ``and`` ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
-  match src.E with
-  | Num n ->
+  match src with
+  | Num (n, _) ->
     let ir = IRBuilder (8)
     let t1 = !+ir 8<rt>
     let t2 = !+ir 32<rt>
@@ -298,7 +298,7 @@ let ``and`` ins len ctxt =
     !!ir (t2 := t2 .& t1)
     !!ir (dst := AST.xtlo 32<rt> t2)
     !>ir len
-  | Var (_, _, s) ->
+  | Var (_, _, s, _) ->
     let oprSize = 32<rt>
     let ir = IRBuilder 8
     let struct (t1,t2) = tmpVars2 ir oprSize
@@ -536,8 +536,8 @@ let clrt ins len ctxt =
 
 let cmpeq ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
-  match src.E with
-  | Num n ->
+  match src with
+  | Num (n, _) ->
     let ir = IRBuilder 8
     let r0 = !+ir 32<rt>
     let imm = !+ir 8<rt>
@@ -548,7 +548,7 @@ let cmpeq ins len ctxt =
     !!ir (t := r0 == imm)
     !!ir (!.ctxt R.T := AST.extract t 1<rt> 1)
     !>ir len
-  | Var (_, _, r) ->
+  | Var (_, _, r, _) ->
     let ir = IRBuilder (8)
     let struct (op1, op2) = tmpVars2 ir 32<rt>
     let t = !+ir 1<rt>
@@ -785,8 +785,8 @@ let extuw ins len ctxt =
 let fabs ins len ctxt =
   let dst = trsOneOpr ins ctxt
   let ir = IRBuilder (16)
-  match dst.E with
-  | Var (_, _, s) ->
+  match dst with
+  | Var (_, _, s, _) ->
     if s.StartsWith "fr" then
       let struct (sr, op1) = tmpVars2 ir 32<rt>
       !<ir ins.Address len
@@ -811,8 +811,8 @@ let fabs ins len ctxt =
 let fadd ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
-  match src.E with
-  | Var (_, _, s) ->
+  match src with
+  | Var (_, _, s, _) ->
     if s.StartsWith "fr" then
       let struct (sr, fps, op1, op2) = tmpVars4 ir 32<rt>
       !<ir ins.Address len
@@ -854,8 +854,8 @@ let fcmpeq ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let t = !+ir 1<rt>
-  match src.E with
-  | Var (_, _, s) ->
+  match src with
+  | Var (_, _, s, _) ->
     if s.StartsWith "fr" then
       let struct (sr, fps, op1, op2) = tmpVars4 ir 32<rt>
       !<ir ins.Address len
@@ -895,8 +895,8 @@ let fcmpgt ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let t = !+ir 1<rt>
-  match src.E with
-  | Var (_, _, s) ->
+  match src with
+  | Var (_, _, s, _) ->
     if s.StartsWith "fr" then
       let struct (sr, fps, op1, op2) = tmpVars4 ir 32<rt>
       !<ir ins.Address len
@@ -965,8 +965,8 @@ let fdiv ins len ctxt =
   let ir = IRBuilder (16)
   let struct (sr, fps) = tmpVars2 ir 32<rt>
   let struct (op1, op2) =
-    match src.E with
-    | Var (_, _, r) ->
+    match src with
+    | Var (_, _, r, _) ->
       if r.StartsWith "dr" then
         tmpVars2 ir 64<rt>
       else
@@ -1030,8 +1030,8 @@ let ``float`` ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let mode =
-    match dst.E with
-    | Var (_, _, r) ->
+    match dst with
+    | Var (_, _, r, _) ->
         if r.StartsWith "DR" then 64<rt> else 32<rt>
     | _ -> Terminator.impossible()
   let struct (fpul, sr, fps, op1) = tmpVars4 ir 32<rt>
@@ -1116,8 +1116,8 @@ let fmul ins len ctxt =
   let ir = IRBuilder (16)
   let struct (sr, fps) = tmpVars2 ir 32<rt>
   let struct (op1, op2) =
-    match src.E with
-    | Var (_, _, r) ->
+    match src with
+    | Var (_, _, r, _) ->
       if r.StartsWith "FR" then tmpVars2 ir 32<rt>
       else
         tmpVars2 ir 64<rt>
@@ -1144,8 +1144,8 @@ let fneg ins len ctxt =
   let sr = !+ir 32<rt>
   let fps = !+ir 32<rt>
   let mode =
-    match dst.E with
-    | Var (_, _, r) -> r.StartsWith "DR"
+    match dst with
+    | Var (_, _, r, _) -> r.StartsWith "DR"
     | _ -> Terminator.impossible()
   let op1 = if mode then !+ir 64<rt> else !+ir 32<rt>
   !<ir ins.Address len
@@ -1186,8 +1186,8 @@ let fsqrt ins len ctxt =
   let ir = IRBuilder (16)
   let struct (sr, fps) = tmpVars2 ir 32<rt>
   let mode =
-    match dst.E with
-    | Var (_, _, r) -> r.StartsWith "DR"
+    match dst with
+    | Var (_, _, r, _) -> r.StartsWith "DR"
     | _ -> Terminator.impossible()
   let op1 = if mode then !+ir 64<rt> else !+ir 32<rt>
   !<ir ins.Address len
@@ -1219,8 +1219,8 @@ let fsub ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
   let mode =
-    match dst.E with
-    | Var (_, _, r) -> r.StartsWith "DR"
+    match dst with
+    | Var (_, _, r, _) -> r.StartsWith "DR"
     | _ -> Terminator.impossible()
   let struct (sr, fps) = tmpVars2 ir 32<rt>
   let struct (op1, op2) =
@@ -1246,8 +1246,8 @@ let ftrc ins len ctxt =
   let ir = IRBuilder (16)
   let struct (sr, fps, fpul) = tmpVars3 ir 32<rt>
   let mode =
-    match dst.E with
-    | Var (_, _, r) -> r.StartsWith "DR"
+    match dst with
+    | Var (_, _, r, _) -> r.StartsWith "DR"
     | _ -> Terminator.impossible()
   let op1 = if mode then !+ir 64<rt> else !+ir 32<rt>
   !<ir ins.Address len
@@ -1311,8 +1311,8 @@ let jsr ins len ctxt =
 let ldc ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
-  match dst.E with
-  | Var (_, _, s) ->
+  match dst with
+  | Var (_, _, s, _) ->
     match s with
     | "gbr" ->
       let struct (op1, gbr) = tmpVars2 ir 32<rt>
@@ -1386,8 +1386,8 @@ let ldc ins len ctxt =
 let ldcl ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
-  match src.E with
-  | Var (_, _, s) ->
+  match src with
+  | Var (_, _, s, _) ->
     match s with
     | "gbr" ->
       let struct (op1, address, gbr) = tmpVars3 ir 32<rt>
@@ -1481,8 +1481,8 @@ let ldcl ins len ctxt =
 
 let lds ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
-  match dst.E with
-  | Var (_, _, s) ->
+  match dst with
+  | Var (_, _, s, _) ->
     match s with
     | "fpscr" ->
       let ir = IRBuilder (16)
@@ -1542,8 +1542,8 @@ let lds ins len ctxt =
 
 let ldsl ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
-  match dst.E with
-  | Var (_, _, s) ->
+  match dst with
+  | Var (_, _, s, _) ->
     match s with
     | "fpscr" ->
       let ir = IRBuilder (16)
@@ -1631,8 +1631,8 @@ let macl ins len ctxt =
   let result = !+ir 32<rt>
   let mac = !+ir 32<rt>
   let struct (m, n) =
-    match src.E, dst.E with
-    | Var (_, _, n1), Var (_, _, n2) ->
+    match src, dst with
+    | Var (_, _, n1, _), Var (_, _, n2, _) ->
       struct (numI32 (int (n1[1..2])), numI32 (int (n2[1..2])))
     | _ -> Terminator.impossible()
   !<ir ins.Address len
@@ -1680,8 +1680,8 @@ let macw ins len ctxt =
   let struct (value1, value2) = tmpVars2 ir 16<rt>
   let result = !+ir 32<rt>
   let struct (m, n) =
-    match src.E, dst.E with
-    | Var (_, _, n1), Var (_, _, n2) ->
+    match src, dst with
+    | Var (_, _, n1, _), Var (_, _, n2, _) ->
       struct (numI32 (int (n1[1..2])), numI32 (int (n2[1..2])))
     | _ -> Terminator.impossible()
   !<ir ins.Address len
@@ -1720,15 +1720,15 @@ let macw ins len ctxt =
 let mov ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
-  match src.E with
-  | Num s ->
+  match src with
+  | Num (s, _) ->
     let struct (imm, op2) = tmpVars2 ir 8<rt>
     !<ir ins.Address len
     !!ir (imm := AST.num s |> AST.sext 8<rt>)
     !!ir (op2 := imm)
     !!ir (dst := AST.xtlo 32<rt> op2)
     !>ir len
-  | Var (_, _, r) ->
+  | Var (_, _, r, _) ->
     let struct (op1, op2) = tmpVars2 ir 32<rt>
     !<ir ins.Address len
     !!ir (op1 := AST.zext 32<rt> src)
@@ -1824,8 +1824,8 @@ let movb ins len ctxt =
     let address = !+ir 32<rt>
     let op2 = !+ir 16<rt>
     let struct (m, n) =
-      match src.E, dst.E with
-      | Var (_, _, n1), Var (_, _, n2) ->
+      match src, dst with
+      | Var (_, _, n1, _), Var (_, _, n2, _) ->
         struct (numI32 (int (n1[1..2])), numI32 (int (n2[1..2])))
       | _ -> Terminator.impossible()
     !<ir ins.Address len
@@ -1948,8 +1948,8 @@ let movl ins len ctxt =
     let address = !+ir 32<rt>
     let op2 = !+ir 16<rt>
     let struct (m, n) =
-      match src.E, dst.E with
-      | Var (_, _, n1), Var (_, _, n2) ->
+      match src, dst with
+      | Var (_, _, n1, _), Var (_, _, n2, _) ->
         struct (numI32 (int (n1[1..2])), numI32 (int (n2[1..2])))
       | _ -> Terminator.impossible()
     !<ir ins.Address len
@@ -2087,8 +2087,8 @@ let movw ins len ctxt =
     let address = !+ir 32<rt>
     let op2 = !+ir 16<rt>
     let struct (m, n) =
-      match src.E, dst.E with
-      | Var (_, _, n1), Var (_, _, n2) ->
+      match src, dst with
+      | Var (_, _, n1, _), Var (_, _, n2, _) ->
         struct (numI32 (int (n1[1..2])), numI32 (int (n2[1..2])))
       | _ -> Terminator.impossible()
     !<ir ins.Address len
@@ -2266,7 +2266,7 @@ let ocbwb ins len ctxt =
 let ``or`` ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (8)
-  match src.E with
+  match src with
   | Num _ ->
     let r0 = !+ir 32<rt>
     let imm = !+ir 8<rt>
@@ -2582,8 +2582,8 @@ let stcl ins len ctxt =
 let sts ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
-  match src.E with
-  | Var (_, _, r) ->
+  match src with
+  | Var (_, _, r, _) ->
     if (r = "fpscr" || r = "fpul") then
       let struct (sr, fps, op1) = tmpVars3 ir 32<rt>
       !<ir ins.Address len
@@ -2605,8 +2605,8 @@ let sts ins len ctxt =
 let stsl ins len ctxt =
   let struct (src, dst) = trsTwoOpr ins ctxt
   let ir = IRBuilder (16)
-  match src.E with
-  | Var (_, _, r) ->
+  match src with
+  | Var (_, _, r, _) ->
     if (r = "fpscr" || r = "fpul") then
       let struct (sr, reg, op1, address) = tmpVars4 ir 32<rt>
       !<ir ins.Address len

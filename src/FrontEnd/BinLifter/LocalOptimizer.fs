@@ -30,9 +30,9 @@ open B2R2.BinIR.LowUIR
 module private Localizer =
   let rec breakByMark acc (stmts: Stmt []) idx =
     if idx < stmts.Length then
-      match stmts[idx].S with
-      | ISMark (_)
-      | LMark (_) ->
+      match stmts[idx] with
+      | ISMark _
+      | LMark _ ->
         let left, right = Array.splitAt idx stmts
         breakByMark (left :: acc) right 1
       | _ ->
@@ -47,8 +47,8 @@ module private Localizer =
 type LocalOptimizer =
   /// Remove unnecessary IEMark to ease the analysis.
   static member private TrimIEMark (stmts: Stmt []) =
-    let last = stmts[stmts.Length - 1].S
-    let secondLast = stmts[stmts.Length - 2].S
+    let last = stmts[stmts.Length - 1]
+    let secondLast = stmts[stmts.Length - 2]
     match secondLast, last with
     | InterJmp _, IEMark _
     | InterCJmp _, IEMark _ ->

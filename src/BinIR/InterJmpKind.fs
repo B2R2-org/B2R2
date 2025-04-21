@@ -22,26 +22,24 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ConcEval
+namespace B2R2.BinIR
 
-open B2R2.BinIR
-open B2R2.BinIR.LowUIR
-open System.Collections.Generic
-
-/// Store labels of LowUIR statements.
-type Labels (lbls) =
-  let lbls = lbls
-
-  new () = Labels (Dictionary<Label, int> ())
-
-  member _.Update stmts =
-    lbls.Clear ()
-    for i = 0 to Array.length stmts - 1 do
-      match stmts[i] with
-      | LMark (s, _) -> lbls.Add (s, i)
-      | _ -> ()
-
-  member _.Index sym = lbls[sym]
-
-  member _.Clone () =
-    Labels (Dictionary (lbls))
+/// The kind of an InterJmp. Multiple kinds can present for a jump instruction.
+[<System.Flags>]
+type InterJmpKind =
+  /// The base case, i.e., a simple jump instruction.
+  | Base = 0
+  /// A call to a function.
+  | IsCall = 1
+  /// A return from a function.
+  | IsRet = 2
+  /// An exit, which will terminate the process.
+  | IsExit = 4
+  /// A branch instruction that modifies the operation mode from Thumb to ARM.
+  | SwitchToARM = 8
+  /// A branch instruction that modifies the operation mode from ARM to Thumb.
+  | SwitchToThumb = 16
+  /// This is not a jump instruction. This is only useful in special cases such
+  /// as when representing a delay slot of MIPS, and should never be used in
+  /// other cases.
+  | NotAJmp = -1

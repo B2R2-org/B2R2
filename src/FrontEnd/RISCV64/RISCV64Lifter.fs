@@ -37,7 +37,7 @@ let inline getRegVar (ctxt: TranslationContext) reg =
 
 let inline (:=) dst src =
   match dst with
-  | { E = Var (_, rid, _) } when rid = Register.toRegID Register.X0 ->
+  | Var (_, rid, _, _) when rid = Register.toRegID Register.X0 ->
     dst := dst (* Prevent setting x0. Our optimizer will remove this anyways. *)
   | _ ->
     dst := src
@@ -279,7 +279,7 @@ let private maskForFCSR csr (opr1, opr2) =
 
 let private assignFCSR dst src ctxt ir =
   match dst with
-  | { E = BinOp _ } ->
+  | BinOp _ ->
     let lowSrc = AST.xtlo 32<rt> src
     !!ir (getRegVar ctxt R.FRM :=
       (lowSrc .& numU32 0b11100000u 32<rt>) >> numI32 5 32<rt>)
@@ -424,13 +424,13 @@ let dstAssignDoubleWithRound dst src rm ctxt ir =
     !!ir (dst := dynamicRoundingFl ir ctxt 64<rt> src)
 
 let getAddrFromMem x =
-  match x.E with
-  | Load (_, _, addr) -> addr
+  match x with
+  | Load (_, _, addr, _) -> addr
   | _ -> raise InvalidExprException
 
 let getAddrFromMemAndSize x =
-  match x.E with
-  | Load (_, rt, addr) -> addr, numI32 (RegType.toByteWidth rt) 64<rt>
+  match x with
+  | Load (_, rt, addr, _) -> addr, numI32 (RegType.toByteWidth rt) 64<rt>
   | _ -> raise InvalidExprException
 
 let isAligned rt expr =

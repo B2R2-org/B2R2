@@ -229,7 +229,7 @@ type CFGRecovery<'FnCtx,
         let srcVertex = getVertex ctx ppoint
         let srcBBL = srcVertex.VData
         let srcData = srcBBL :> ILowUIRBasicBlock
-        match srcData.Terminator.S with
+        match srcData.Terminator with
         | IEMark _ ->
           let last = srcData.LastInstruction
           let nextPPoint = ProgramPoint (last.Address + uint64 last.Length, 0)
@@ -238,28 +238,27 @@ type CFGRecovery<'FnCtx,
             connectEdge ctx srcVertex dstVertex FallThroughEdge
             ppQueue.Enqueue nextPPoint
           | Error _ -> () (* Ignore when a bad instruction follows *)
-        | Jmp { E = JmpDest lbl } ->
+        | Jmp (JmpDest (lbl, _), _) ->
           let dstPPoint = srcBBL.LabelMap[lbl]
           let dstVertex = getVertex ctx dstPPoint
           connectEdge ctx srcVertex dstVertex IntraJmpEdge
           ppQueue.Enqueue dstPPoint
-        | CJmp (_, { E = JmpDest tLbl }, { E = JmpDest fLbl }) ->
+        | CJmp (_, JmpDest (tLbl, _), JmpDest (fLbl, _), _) ->
           let tPPoint, fPPoint = srcBBL.LabelMap[tLbl], srcBBL.LabelMap[fLbl]
           let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
           connectEdge ctx srcVertex tVertex IntraCJmpTrueEdge
           connectEdge ctx srcVertex fVertex IntraCJmpFalseEdge
           ppQueue.Enqueue tPPoint
           ppQueue.Enqueue fPPoint
-        | InterJmp ({ E = PCVar _ }, InterJmpKind.Base) ->
+        | InterJmp (PCVar _, InterJmpKind.Base, _) ->
           let dstPPoint = ProgramPoint (ppoint.Address, 0)
           let dstVertex = getVertex ctx dstPPoint
           connectEdge ctx srcVertex dstVertex InterJmpEdge
-        | InterJmp ({ E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
-                                                   { E = Num n }) },
-                          InterJmpKind.Base) ->
+        | InterJmp (BinOp (BinOpType.ADD, _, PCVar _, Num (n, _), _),
+                    InterJmpKind.Base, _) ->
           let target = srcData.LastInstruction.Address + BitVector.ToUInt64 n
           jmpToDstAddr ctx ppQueue srcVertex target InterJmpEdge
-        | InterJmp ({ E = Num n }, InterJmpKind.Base) ->
+        | InterJmp (Num (n, _), InterJmpKind.Base, _) ->
           if useTailcallHeuristic then
             let dstAddr = BitVector.ToUInt64 n
             match ctx.ManagerChannel.GetBuildingContext dstAddr with
@@ -272,22 +271,19 @@ type CFGRecovery<'FnCtx,
           else
             let dstAddr = BitVector.ToUInt64 n
             jmpToDstAddr ctx ppQueue srcVertex dstAddr InterJmpEdge
-        | InterJmp ({ E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
-                                                   { E = Num n }) },
-                          InterJmpKind.IsCall) ->
+        | InterJmp (BinOp (BinOpType.ADD, _, PCVar _, Num (n, _), _),
+                    InterJmpKind.IsCall, _) ->
           let callsiteAddr = srcData.LastInstruction.Address
           let target = callsiteAddr + BitVector.ToUInt64 n
           let act = MakeCall (callsiteAddr, target, (UnknownNoRet, 0))
           result <- pushCallAction ctx srcData.PPoint callsiteAddr target act
-        | InterJmp ({ E = Num n }, InterJmpKind.IsCall) ->
+        | InterJmp (Num (n, _), InterJmpKind.IsCall, _) ->
           let callsiteAddr = srcData.LastInstruction.Address
           let target = BitVector.ToUInt64 n
           let act = MakeCall (callsiteAddr, target, (UnknownNoRet, 0))
           result <- pushCallAction ctx srcData.PPoint callsiteAddr target act
-        | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
-                                                       { E = Num tv }) },
-                        { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
-                                                       { E = Num fv }) }) ->
+        | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar _, Num (tv, _), _),
+                        BinOp (BinOpType.ADD, _, PCVar _, Num (fv, _), _), _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
           let tPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 tv)
           let fPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 fv)
@@ -296,9 +292,8 @@ type CFGRecovery<'FnCtx,
           connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
           ppQueue.Enqueue tPPoint
           ppQueue.Enqueue fPPoint
-        | InterCJmp (_, { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
-                                                       { E = Num tv }) },
-                        { E = PCVar _ }) ->
+        | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar _, Num (tv, _), _),
+                        PCVar _, _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
           let tPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 tv)
           let fPPoint = maskedPPoint ctx lastAddr
@@ -306,9 +301,8 @@ type CFGRecovery<'FnCtx,
           connectEdge ctx srcVertex tVertex InterCJmpTrueEdge
           connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
           ppQueue.Enqueue tPPoint
-        | InterCJmp (_, { E = PCVar _ },
-                        { E = BinOp (BinOpType.ADD, _, { E = PCVar _ },
-                                                       { E = Num fv }) }) ->
+        | InterCJmp (_, PCVar _,
+                        BinOp (BinOpType.ADD, _, PCVar _, Num (fv, _), _), _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
           let tPPoint = maskedPPoint ctx lastAddr
           let fPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 fv)
@@ -316,7 +310,7 @@ type CFGRecovery<'FnCtx,
           connectEdge ctx srcVertex tVertex InterCJmpTrueEdge
           connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
           ppQueue.Enqueue fPPoint
-        | InterCJmp (_, { E = Num tv }, { E = Num fv }) ->
+        | InterCJmp (_, Num (tv, _), Num (fv, _), _) ->
           let tPPoint = maskedPPoint ctx (BitVector.ToUInt64 tv)
           let fPPoint = maskedPPoint ctx (BitVector.ToUInt64 fv)
           let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
@@ -324,15 +318,15 @@ type CFGRecovery<'FnCtx,
           connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
           ppQueue.Enqueue tPPoint
           ppQueue.Enqueue fPPoint
-        | InterJmp (_, InterJmpKind.Base) -> (* Indirect jumps *)
+        | InterJmp (_, InterJmpKind.Base, _) -> (* Indirect jumps *)
           let insAddr = srcVertex.VData.Internals.LastInstruction.Address
           addCallerVertex ctx insAddr srcVertex
           actionQueue.Push prioritizer <| MakeIndEdges (ppoint.Address, insAddr)
-        | InterJmp (_, InterJmpKind.IsCall) -> (* Indirect calls *)
+        | InterJmp (_, InterJmpKind.IsCall, _) -> (* Indirect calls *)
           let callsiteAddr = srcData.LastInstruction.Address
           addCallerVertex ctx callsiteAddr srcVertex
           actionQueue.Push prioritizer <| MakeIndCall (callsiteAddr)
-        | SideEffect (Interrupt 0x80) | SideEffect SysCall ->
+        | SideEffect (Interrupt 0x80, _) | SideEffect (SysCall, _) ->
           let callsiteAddr = srcData.LastInstruction.Address
           let isExit = syscallAnalysis.IsExit (ctx, srcVertex)
           ctx.IntraCallTable.AddSystemCall callsiteAddr isExit
@@ -342,9 +336,9 @@ type CFGRecovery<'FnCtx,
         | CJmp _
         | InterJmp _
         | InterCJmp _
-        | SideEffect (Exception _)
-        | SideEffect Terminate
-        | SideEffect Breakpoint ->
+        | SideEffect (Exception _, _)
+        | SideEffect (Terminate, _)
+        | SideEffect (Breakpoint, _) ->
           ()
 #if DEBUG
         | ISMark _ | LMark _ -> Terminator.impossible ()

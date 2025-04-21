@@ -49,12 +49,12 @@ let private sTagCnt = ref 0u
    collected in the end. This will produce some garbage entries (with a null
    value). We could use MemoryCache to handle the problem, but the memory leak
    is not severe enough to trade-off the performance. *)
-let private exprs = ConcurrentDictionary<E, WeakReference<Expr>> ()
-let private stmts = ConcurrentDictionary<S, WeakReference<Stmt>> ()
-let private newETag () = Threading.Interlocked.Increment eTagCnt
-let private newSTag () = Threading.Interlocked.Increment sTagCnt
+let private exprs = ConcurrentDictionary<Expr, WeakReference<Expr>> ()
+let private stmts = ConcurrentDictionary<Stmt, WeakReference<Stmt>> ()
+let private newEID () = Threading.Interlocked.Increment eTagCnt
+let private newSID () = Threading.Interlocked.Increment sTagCnt
 
-let inline private tryGetExpr (k: E) =
+let inline private tryGetExpr (k: Expr) =
   match exprs.TryGetValue k with
   | true, e ->
     match e.TryGetTarget () with
@@ -62,7 +62,7 @@ let inline private tryGetExpr (k: E) =
     | false, _ -> Error true
   | _ -> Error false
 
-let inline private tryGetStmt (k: S) =
+let inline private tryGetStmt (k: Stmt) =
   match stmts.TryGetValue k with
   | true, s ->
     match s.TryGetTarget () with
@@ -75,64 +75,72 @@ let inline private tryGetStmt (k: S) =
 [<CompiledName("Num")>]
 let num bv =
 #if ! HASHCONS
-  Num (bv) |> ASTHelper.buildExpr
+  Num (bv, null)
 #else
-  let k = Num bv
-  match tryGetExpr k with
+  let hc = HashConsingInfo ()
+  let e = Num (bv, hc)
+  match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
-    let e' = { E = k; Tag = newETag (); HashKey = bv.GetHashCode () }
-    if isReclaimed then exprs[k].SetTarget e'
-    else exprs[k] <- WeakReference<Expr> e'
-    e'
+    hc.ID <- newEID ()
+    hc.Hash <- bv.GetHashCode ()
+    if isReclaimed then exprs[e].SetTarget e
+    else exprs[e] <- WeakReference<Expr> e
+    e
 #endif
 
 /// Construct a variable (Var).
 [<CompiledName("Var")>]
 let var t id name =
 #if ! HASHCONS
-  Var (t, id, name) |> ASTHelper.buildExpr
+  Var (t, id, name, null)
 #else
-  let k = Var (t, id, name)
-  match tryGetExpr k with
+  let hc = HashConsingInfo ()
+  let e = Var (t, id, name, hc)
+  match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
-    let e' = { E = k; Tag = newETag (); HashKey = E.HashVar t id }
-    if isReclaimed then exprs[k].SetTarget e'
-    else exprs[k] <- WeakReference<Expr> e'
-    e'
+    hc.ID <- newEID ()
+    hc.Hash <- Expr.HashVar t id
+    if isReclaimed then exprs[e].SetTarget e
+    else exprs[e] <- WeakReference<Expr> e
+    e
 #endif
 
 /// Construct a pc variable (PCVar).
 [<CompiledName("PCVar")>]
 let pcvar t name =
 #if ! HASHCONS
-  PCVar (t, name) |> ASTHelper.buildExpr
+  PCVar (t, name, null)
 #else
-  let k = PCVar (t, name)
-  match tryGetExpr k with
+  let hc = HashConsingInfo ()
+  let e = PCVar (t, name, hc)
+  match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
-    let e' = { E = k; Tag = newETag (); HashKey = E.HashPCVar t }
-    if isReclaimed then exprs[k].SetTarget e'
-    else exprs[k] <- WeakReference<Expr> e'
-    e'
+    hc.ID <- newEID ()
+    hc.Hash <- Expr.HashPCVar t
+    if isReclaimed then exprs[e].SetTarget e
+    else exprs[e] <- WeakReference<Expr> e
+    e
 #endif
 
 /// Construct a temporary variable (TempVar) with the given ID.
 [<CompiledName("TmpVar")>]
 let tmpvar t id =
 #if ! HASHCONS
-  TempVar (t, id) |> ASTHelper.buildExpr
+  TempVar (t, id, null)
 #else
-  let k = TempVar (t, id)
-  match tryGetExpr k with
+  let hc = HashConsingInfo ()
+  let e = TempVar (t, id, hc)
+  match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
-    let e' = { E = k; Tag = newETag (); HashKey = E.HashTempVar t id }
-    if isReclaimed then exprs[k].SetTarget e'
-    else exprs[k] <- WeakReference<Expr> e'
-    e'
+    hc.ID <- newEID ()
+    hc.Hash <- Expr.HashTempVar t id
+    if isReclaimed then exprs[e].SetTarget e
+    else exprs[e] <- WeakReference<Expr> e
+    e
 #endif
 
 /// Construct a symbol (for a label) from a string and a IDCounter.
@@ -143,54 +151,60 @@ let inline label name id addr =
 /// Construct an unary operator (UnOp).
 [<CompiledName("UnOp")>]
 let unop op e =
-  match e.E with
-  | Num n -> ValueOptimizer.unop n op |> num
+  match e with
+  | Num (n, _) -> ValueOptimizer.unop n op |> num
 #if ! HASHCONS
-  | _ -> UnOp (op, e) |> ASTHelper.buildExpr
+  | _ -> UnOp (op, e, null)
 #else
   | _ ->
-    let k = UnOp (op, e)
-    match tryGetExpr k with
+    let hc = HashConsingInfo ()
+    let e = UnOp (op, e, hc)
+    match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
-      let e' = { E = k; Tag = newETag (); HashKey = E.HashUnOp op e }
-      if isReclaimed then exprs[k].SetTarget e'
-      else exprs[k] <- WeakReference<Expr> e'
-      e'
+      hc.ID <- newEID ()
+      hc.Hash <- Expr.HashUnOp op e true
+      if isReclaimed then exprs[e].SetTarget e
+      else exprs[e] <- WeakReference<Expr> e
+      e
 #endif
 
 /// Construct a jump target (JmpDest).
 [<CompiledName("JmpDest")>]
 let jmpDest symb =
 #if ! HASHCONS
-  JmpDest symb |> ASTHelper.buildExpr
+  JmpDest (symb, null)
 #else
-  let k = JmpDest symb
-  match tryGetExpr k with
+  let hc = HashConsingInfo ()
+  let e = JmpDest (symb, hc)
+  match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
-    let e' = { E = k; Tag = newETag (); HashKey = E.HashName symb }
-    if isReclaimed then exprs[k].SetTarget e'
-    else exprs[k] <- WeakReference<Expr> e'
-    e'
+    hc.ID <- newEID ()
+    hc.Hash <- Expr.HashJmpDest symb
+    if isReclaimed then exprs[e].SetTarget e
+    else exprs[e] <- WeakReference<Expr> e
+    e
 #endif
 
 let private binopWithType op t e1 e2 =
-  match e1.E, e2.E with
-  | Num n1, Num n2 -> ValueOptimizer.binop n1 n2 op |> num
+  match e1, e2 with
+  | Num (n1, _), Num (n2, _) -> ValueOptimizer.binop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
-    BinOp (op, t, e1, e2) |> ASTHelper.buildExpr
+    BinOp (op, t, e1, e2, null)
 #else
   | _ ->
-    let k = BinOp (op, t, e1, e2)
-    match tryGetExpr k with
+    let hc = HashConsingInfo ()
+    let e = BinOp (op, t, e1, e2, hc)
+    match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
-      let e' = { E = k; Tag = newETag (); HashKey = E.HashBinOp op t e1 e2 }
-      if isReclaimed then exprs[k].SetTarget e'
-      else exprs[k] <- WeakReference<Expr> e'
-      e'
+      hc.ID <- newEID ()
+      hc.Hash <- Expr.HashBinOp op t e1 e2 true
+      if isReclaimed then exprs[e].SetTarget e
+      else exprs[e] <- WeakReference<Expr> e
+      e
 #endif
 
 /// Construct a binary operator (BinOp).
@@ -211,68 +225,66 @@ let binop op e1 e2 =
 [<CompiledName("Cons")>]
 let cons a b =
   let t = TypeCheck.typeOf a
-  match b.E with
+  match b with
   | Nil ->
 #if ! HASHCONS
-    BinOp (BinOpType.CONS, t, a, b) |> ASTHelper.buildExpr
+    BinOp (BinOpType.CONS, t, a, b, null)
 #else
-    let k = BinOp (BinOpType.CONS, t, a, b)
-    match tryGetExpr k with
+    let hc = HashConsingInfo ()
+    let e = BinOp (BinOpType.CONS, t, a, b, hc)
+    match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
-      let e' = { E = k; Tag = newETag ()
-                 HashKey = E.HashBinOp BinOpType.CONS t a b }
-      if isReclaimed then exprs[k].SetTarget e'
-      else exprs[k] <- WeakReference<Expr> e'
-      e'
+      hc.ID <- newEID ()
+      hc.Hash <- Expr.HashBinOp BinOpType.CONS t a b true
+      if isReclaimed then exprs[e].SetTarget e
+      else exprs[e] <- WeakReference<Expr> e
+      e
 #endif
   | _ -> binopWithType BinOpType.CONS t a b
 
 /// Nil.
 [<CompiledName("Nil")>]
-let nil =
-#if ! HASHCONS
-  Nil |> ASTHelper.buildExpr
-#else
-  { E = Nil; Tag = newETag (); HashKey = 0 }
-#endif
+let nil = Nil
 
 /// Function name.
 [<CompiledName("FuncName")>]
 let funcName name =
 #if ! HASHCONS
-  FuncName name |> ASTHelper.buildExpr
+  FuncName (name, null)
 #else
-  let k = FuncName (name)
-  match tryGetExpr k with
+  let hc = HashConsingInfo ()
+  let e = FuncName (name, hc)
+  match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
-    let e' = { E = k; Tag = newETag (); HashKey = E.HashFuncName name }
-    if isReclaimed then exprs[k].SetTarget e'
-    else exprs[k] <- WeakReference<Expr> e'
-    e'
+    hc.ID <- newEID ()
+    hc.Hash <- Expr.HashFuncName name
+    if isReclaimed then exprs[e].SetTarget e
+    else exprs[e] <- WeakReference<Expr> e
+    e
 #endif
 
 /// Construct a function application.
 [<CompiledName("App")>]
 let app name args retType =
-  let funName = funcName name
+  let fnName = funcName name
   List.reduceBack cons (args @ [ nil ])
 #if ! HASHCONS
   |> fun cons ->
-    BinOp (BinOpType.APP, retType, funName, cons)
-    |> ASTHelper.buildExpr
+    BinOp (BinOpType.APP, retType, fnName, cons, null)
 #else
   |> fun cons ->
-    let k = BinOp (BinOpType.APP, retType, funName, cons)
-    match tryGetExpr k with
+    let hc = HashConsingInfo ()
+    let e = BinOp (BinOpType.APP, retType, fnName, cons, hc)
+    match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
-      let e' = { E = k; Tag = newETag ()
-                 HashKey = E.HashBinOp BinOpType.APP retType funName cons }
-      if isReclaimed then exprs[k].SetTarget e'
-      else exprs[k] <- WeakReference<Expr> e'
-      e'
+      hc.ID <- newEID ()
+      hc.Hash <- Expr.HashBinOp BinOpType.APP retType fnName cons true
+      if isReclaimed then exprs[e].SetTarget e
+      else exprs[e] <- WeakReference<Expr> e
+      e
 #endif
 
 /// Construct a relative operator (RelOp).
@@ -281,43 +293,46 @@ let relop op e1 e2 =
 #if DEBUG
   TypeCheck.binop e1 e2 |> ignore
 #endif
-  match e1.E, e2.E with
-  | Num n1, Num n2 -> ValueOptimizer.relop n1 n2 op |> num
+  match e1, e2 with
+  | Num (n1, _), Num (n2, _) -> ValueOptimizer.relop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
-    RelOp (op, e1, e2) |> ASTHelper.buildExpr
+    RelOp (op, e1, e2, null)
 #else
   | _ ->
-    let k = RelOp (op, e1, e2)
-    match tryGetExpr k with
+    let hc = HashConsingInfo ()
+    let e = RelOp (op, e1, e2, hc)
+    match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
-      let e' = { E = k; Tag = newETag (); HashKey = E.HashRelOp op e1 e2 }
-      if isReclaimed then exprs[k].SetTarget e'
-      else exprs[k] <- WeakReference<Expr> e'
-      e'
+      hc.ID <- newEID ()
+      hc.Hash <- Expr.HashRelOp op e1 e2 true
+      if isReclaimed then exprs[e].SetTarget e
+      else exprs[e] <- WeakReference<Expr> e
+      e
 #endif
 
 /// Construct a load expression (Load).
 [<CompiledName("Load")>]
 let load endian rt addr =
 #if DEBUG
-  match addr.E with
+  match addr with
   | JmpDest _ -> raise InvalidExprException
   | _ ->
 #endif
 #if ! HASHCONS
-    Load (endian, rt, addr)
-    |> ASTHelper.buildExpr
+    Load (endian, rt, addr, null)
 #else
-    let k = Load (endian, rt, addr)
-    match tryGetExpr k with
+    let hc = HashConsingInfo ()
+    let e = Load (endian, rt, addr, hc)
+    match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
-      let e' = { E = k; Tag = newETag (); HashKey = E.HashLoad endian rt addr }
-      if isReclaimed then exprs[k].SetTarget e'
-      else exprs[k] <- WeakReference<Expr> e'
-      e'
+      hc.ID <- newEID ()
+      hc.Hash <- Expr.HashLoad endian rt addr true
+      if isReclaimed then exprs[e].SetTarget e
+      else exprs[e] <- WeakReference<Expr> e
+      e
 #endif
 
 /// Construct a load expression in little-endian.
@@ -335,41 +350,44 @@ let ite cond e1 e2 =
   TypeCheck.bool cond
   TypeCheck.checkEquivalence (TypeCheck.typeOf e1) (TypeCheck.typeOf e2)
 #endif
-  match cond.E with
-  | Num (n) -> if BitVector.IsOne n then e1 else e2 (* Assume valid cond *)
+  match cond with
+  | Num (n, _) -> if BitVector.IsZero n then e2 else e1
   | _ ->
 #if ! HASHCONS
-    Ite (cond, e1, e2) |> ASTHelper.buildExpr
+    Ite (cond, e1, e2, null)
 #else
-    let k = Ite (cond, e1, e2)
-    match tryGetExpr k with
+    let hc = HashConsingInfo ()
+    let e = Ite (cond, e1, e2, hc)
+    match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
-      let e' = { E = k; Tag = newETag (); HashKey = E.HashIte cond e1 e2 }
-      if isReclaimed then exprs[k].SetTarget e'
-      else exprs[k] <- WeakReference<Expr> e'
-      e'
+      hc.ID <- newEID ()
+      hc.Hash <- Expr.HashIte cond e1 e2 true
+      if isReclaimed then exprs[e].SetTarget e
+      else exprs[e] <- WeakReference<Expr> e
+      e
 #endif
-
 
 /// Construct a cast expression (Cast).
 [<CompiledName("Cast")>]
 let cast kind rt e =
-  match e.E with
-  | Num n -> ValueOptimizer.cast rt n kind |> num
+  match e with
+  | Num (n, _) -> ValueOptimizer.cast rt n kind |> num
   | _ ->
     if TypeCheck.canCast kind rt e then
 #if ! HASHCONS
-      Cast (kind, rt, e) |> ASTHelper.buildExpr
+      Cast (kind, rt, e, null)
 #else
-      let k = Cast (kind, rt, e)
-      match tryGetExpr k with
+      let hc = HashConsingInfo ()
+      let e = Cast (kind, rt, e, hc)
+      match tryGetExpr e with
       | Ok e -> e
       | Error isReclaimed ->
-        let e' = { E = k; Tag = newETag (); HashKey = E.HashCast kind rt e }
-        if isReclaimed then exprs[k].SetTarget e'
-        else exprs[k] <- WeakReference<Expr> e'
-        e'
+        hc.ID <- newEID ()
+        hc.Hash <- Expr.HashCast kind rt e true
+        if isReclaimed then exprs[e].SetTarget e
+        else exprs[e] <- WeakReference<Expr> e
+        e
 #endif
     else e (* Remove unnecessary casting . *)
 
@@ -380,50 +398,56 @@ let cast kind rt e =
 [<CompiledName("Extract")>]
 let extract expr rt pos =
   TypeCheck.extract rt pos (TypeCheck.typeOf expr)
-  match expr.E with
-  | Num n -> ValueOptimizer.extract n rt pos |> num
-  | Extract (e, _, p) ->
+  match expr with
+  | Num (n, _) -> ValueOptimizer.extract n rt pos |> num
+  | Extract (e, _, p, _) ->
     let pos = p + pos
 #if ! HASHCONS
-    Extract (e, rt, pos) |> ASTHelper.buildExpr
+    Extract (e, rt, pos, null)
 #else
-    let k = Extract (e, rt, pos)
-    match tryGetExpr k with
+    let hc = HashConsingInfo ()
+    let e = Extract (e, rt, pos, hc)
+    match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
-      let e' = { E = k; Tag = newETag (); HashKey = E.HashExtract e rt pos }
-      if isReclaimed then exprs[k].SetTarget e'
-      else exprs[k] <- WeakReference<Expr> e'
-      e'
+      hc.ID <- newEID ()
+      hc.Hash <- Expr.HashExtract e rt pos true
+      if isReclaimed then exprs[e].SetTarget e
+      else exprs[e] <- WeakReference<Expr> e
+      e
 #endif
   | _ ->
 #if ! HASHCONS
-    Extract (expr, rt, pos) |> ASTHelper.buildExpr
+    Extract (expr, rt, pos, null)
 #else
-    let k = Extract (expr, rt, pos)
-    match tryGetExpr k with
+    let hc = HashConsingInfo ()
+    let e = Extract (expr, rt, pos, hc)
+    match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
-      let e' = { E = k; Tag = newETag (); HashKey = E.HashExtract expr rt pos }
-      if isReclaimed then exprs[k].SetTarget e'
-      else exprs[k] <- WeakReference<Expr> e'
-      e'
+      hc.ID <- newEID ()
+      hc.Hash <- Expr.HashExtract expr rt pos true
+      if isReclaimed then exprs[e].SetTarget e
+      else exprs[e] <- WeakReference<Expr> e
+      e
 #endif
 
 /// Undefined expression.
 [<CompiledName("Undef")>]
 let undef rt s =
 #if ! HASHCONS
-  Undefined (rt, s) |> ASTHelper.buildExpr
+  Undefined (rt, s, null)
 #else
-  let k = Undefined (rt, s)
-  match tryGetExpr k with
+  let hc = HashConsingInfo ()
+  let e = Undefined (rt, s, hc)
+  match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
-    let e' = { E = k; Tag = newETag (); HashKey = E.HashUndef rt s }
-    if isReclaimed then exprs[k].SetTarget e'
-    else exprs[k] <- WeakReference<Expr> e'
-    e'
+    hc.ID <- newEID ()
+    hc.Hash <- Expr.HashUndef rt s
+    if isReclaimed then exprs[e].SetTarget e
+    else exprs[e] <- WeakReference<Expr> e
+    e
 #endif
 
 /// Construct a (Num 0) of size t.
@@ -467,9 +491,9 @@ let revConcat (arr: Expr[]) =
 /// Unwrap (casted) expression.
 [<CompiledName("Unwrap")>]
 let rec unwrap e =
-  match e.E with
-  | Cast (_, _, e)
-  | Extract (e, _, _) -> unwrap e
+  match e with
+  | Cast (_, _, e, _)
+  | Extract (e, _, _, _) -> unwrap e
   | _ -> e
 
 /// Zero-extend an expression.
@@ -833,77 +857,85 @@ let fatan e = unop UnOpType.FATAN e
 [<CompiledName("ISMark")>]
 let ismark nBytes =
 #if ! HASHCONS
-  ISMark nBytes |> ASTHelper.buildStmt
+  ISMark (nBytes, null)
 #else
-  let k = ISMark nBytes
-  match tryGetStmt k with
+  let hc = HashConsingInfo ()
+  let s = ISMark (nBytes, hc)
+  match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
-    let s' = { S = k; Tag = newSTag (); HashKey = S.HashISMark nBytes }
-    if isReclaimed then stmts[k].SetTarget s'
-    else stmts[k] <- WeakReference<Stmt> s'
-    s'
+    hc.ID <- newSID ()
+    hc.Hash <- Stmt.HashISMark nBytes
+    if isReclaimed then stmts[s].SetTarget s
+    else stmts[s] <- WeakReference<Stmt> s
+    s
 #endif
 
 /// An IEMark statement.
 [<CompiledName("IEMark")>]
 let iemark nBytes =
 #if ! HASHCONS
-  IEMark nBytes |> ASTHelper.buildStmt
+  IEMark (nBytes, null)
 #else
-  let k = IEMark nBytes
-  match tryGetStmt k with
+  let hc = HashConsingInfo ()
+  let s = IEMark (nBytes, hc)
+  match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
-    let s' = { S = k; Tag = newSTag (); HashKey = S.HashIEMark nBytes }
-    if isReclaimed then stmts[k].SetTarget s'
-    else stmts[k] <- WeakReference<Stmt> s'
-    s'
+    hc.ID <- newSID ()
+    hc.Hash <- Stmt.HashIEMark nBytes
+    if isReclaimed then stmts[s].SetTarget s
+    else stmts[s] <- WeakReference<Stmt> s
+    s
 #endif
 
 /// An LMark statement.
 [<CompiledName("LMark")>]
-let lmark s =
+let lmark label =
 #if ! HASHCONS
-  LMark s |> ASTHelper.buildStmt
+  LMark (label, null)
 #else
-  let k = LMark s
-  match tryGetStmt k with
+  let hc = HashConsingInfo ()
+  let s = LMark (label, hc)
+  match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
-    let s' = { S = k; Tag = newSTag (); HashKey = S.HashLMark s }
-    if isReclaimed then stmts[k].SetTarget s'
-    else stmts[k] <- WeakReference<Stmt> s'
-    s'
+    hc.ID <- newSID ()
+    hc.Hash <- Stmt.HashLMark label
+    if isReclaimed then stmts[s].SetTarget s
+    else stmts[s] <- WeakReference<Stmt> s
+    s
 #endif
 
 /// A Put statement.
 [<CompiledName("Put")>]
 let put dst src =
 #if ! HASHCONS
-  Put (dst, src) |> ASTHelper.buildStmt
+  Put (dst, src, null)
 #else
-  let k = Put (dst, src)
-  match tryGetStmt k with
+  let hc = HashConsingInfo ()
+  let s = Put (dst, src, hc)
+  match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
-    let s' = { S = k; Tag = newSTag (); HashKey = S.HashPut dst src }
-    if isReclaimed then stmts[k].SetTarget s'
-    else stmts[k] <- WeakReference<Stmt> s'
-    s'
+    hc.ID <- newSID ()
+    hc.Hash <- Stmt.HashPut dst src
+    if isReclaimed then stmts[s].SetTarget s
+    else stmts[s] <- WeakReference<Stmt> s
+    s
 #endif
 
 let private assignForExtractDst e1 e2 =
-  match e1.E with
-  | Extract ({ E = Var (t, _, _) } as e1, eTyp, 0)
-  | Extract ({ E = TempVar (t, _) } as e1, eTyp, 0) ->
+  match e1 with
+  | Extract (Var (t, _, _, _) as e1, eTyp, 0, _)
+  | Extract (TempVar (t, _, _) as e1, eTyp, 0, _) ->
     let nMask = RegType.getMask t - RegType.getMask eTyp
     let mask = BitVector.OfBInt nMask t |> num
     let src = cast CastKind.ZeroExt t e2
     put e1 (binopWithType BinOpType.OR t
               (binopWithType BinOpType.AND t e1 mask) src)
-  | Extract ({ E = Var (t, _, _) } as e1, eTyp, pos)
-  | Extract ({ E = TempVar (t, _) } as e1, eTyp, pos) ->
+  | Extract (Var (t, _, _, _) as e1, eTyp, pos, _)
+  | Extract (TempVar (t, _, _) as e1, eTyp, pos, _) ->
     let nMask = RegType.getMask t - (RegType.getMask eTyp <<< pos)
     let mask = BitVector.OfBInt nMask t |> num
     let src = cast CastKind.ZeroExt t e2
@@ -917,16 +949,18 @@ let private assignForExtractDst e1 e2 =
 [<CompiledName("Store")>]
 let store endian addr v =
 #if ! HASHCONS
-  Store (endian, addr, v) |> ASTHelper.buildStmt
+  Store (endian, addr, v, null)
 #else
-  let k = Store (endian, addr, v)
-  match tryGetStmt k with
+  let hc = HashConsingInfo ()
+  let s = Store (endian, addr, v, hc)
+  match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
-    let s' = { S = k; Tag = newSTag (); HashKey = S.HashStore endian addr v }
-    if isReclaimed then stmts[k].SetTarget s'
-    else stmts[k] <- WeakReference<Stmt> s'
-    s'
+    hc.ID <- newSID ()
+    hc.Hash <- Stmt.HashStore endian addr v
+    if isReclaimed then stmts[s].SetTarget s
+    else stmts[s] <- WeakReference<Stmt> s
+    s
 #endif
 
 /// An assignment statement.
@@ -935,9 +969,9 @@ let assign dst src =
 #if DEBUG
   TypeCheck.checkEquivalence (TypeCheck.typeOf dst) (TypeCheck.typeOf src)
 #endif
-  match dst.E with
+  match dst with
   | Var _ | TempVar _ | PCVar _ -> put dst src
-  | Load (endian, _, e) -> store endian e src
+  | Load (endian, _, e, _) -> store endian e src
   | Extract _ -> assignForExtractDst dst src
   | _ -> raise InvalidAssignmentException
 
@@ -945,176 +979,188 @@ let assign dst src =
 [<CompiledName("Jmp")>]
 let jmp target =
 #if ! HASHCONS
-  Jmp (target) |> ASTHelper.buildStmt
+  Jmp (target, null)
 #else
-  let k = Jmp (target)
-  match tryGetStmt k with
+  let hc = HashConsingInfo ()
+  let s = Jmp (target, hc)
+  match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
-    let s' = { S = k; Tag = newSTag (); HashKey = S.HashJmp target }
-    if isReclaimed then stmts[k].SetTarget s'
-    else stmts[k] <- WeakReference<Stmt> s'
-    s'
+    hc.ID <- newSID ()
+    hc.Hash <- Stmt.HashJmp target
+    if isReclaimed then stmts[s].SetTarget s
+    else stmts[s] <- WeakReference<Stmt> s
+    s
 #endif
 
 /// A CJmp statement.
 [<CompiledName("CJmp")>]
 let cjmp cond dst1 dst2 =
 #if ! HASHCONS
-  CJmp (cond, dst1, dst2) |> ASTHelper.buildStmt
+  CJmp (cond, dst1, dst2, null)
 #else
-  let k = CJmp (cond, dst1, dst2)
-  match tryGetStmt k with
+  let hc = HashConsingInfo ()
+  let s = CJmp (cond, dst1, dst2, hc)
+  match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
-    let s' = { S = k; Tag = newSTag (); HashKey = S.HashCJmp cond dst1 dst2 }
-    if isReclaimed then stmts[k].SetTarget s'
-    else stmts[k] <- WeakReference<Stmt> s'
-    s'
+    hc.ID <- newSID ()
+    hc.Hash <- Stmt.HashCJmp cond dst1 dst2
+    if isReclaimed then stmts[s].SetTarget s
+    else stmts[s] <- WeakReference<Stmt> s
+    s
 #endif
 
 /// An InterJmp statement.
 [<CompiledName("InterJmp")>]
 let interjmp dst kind =
 #if ! HASHCONS
-  InterJmp (dst, kind) |> ASTHelper.buildStmt
+  InterJmp (dst, kind, null)
 #else
-  let k = InterJmp (dst, kind)
-  match tryGetStmt k with
+  let hc = HashConsingInfo ()
+  let s = InterJmp (dst, kind, hc)
+  match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
-    let s' = { S = k; Tag = newSTag (); HashKey = S.HashInterJmp dst kind }
-    if isReclaimed then stmts[k].SetTarget s'
-    else stmts[k] <- WeakReference<Stmt> s'
-    s'
+    hc.ID <- newSID ()
+    hc.Hash <- Stmt.HashInterJmp dst kind
+    if isReclaimed then stmts[s].SetTarget s
+    else stmts[s] <- WeakReference<Stmt> s
+    s
 #endif
 
 /// A InterCJmp statement.
 [<CompiledName("InterCJmp")>]
 let intercjmp cond d1 d2 =
 #if ! HASHCONS
-  InterCJmp (cond, d1, d2) |> ASTHelper.buildStmt
+  InterCJmp (cond, d1, d2, null)
 #else
-  let k = InterCJmp (cond, d1, d2)
-  match tryGetStmt k with
+  let hc = HashConsingInfo ()
+  let s = InterCJmp (cond, d1, d2, hc)
+  match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
-    let s' = { S = k; Tag = newSTag (); HashKey = S.HashInterCJmp cond d1 d2 }
-    if isReclaimed then stmts[k].SetTarget s'
-    else stmts[k] <- WeakReference<Stmt> s'
-    s'
+    hc.ID <- newSID ()
+    hc.Hash <- Stmt.HashInterCJmp cond d1 d2
+    if isReclaimed then stmts[s].SetTarget s
+    else stmts[s] <- WeakReference<Stmt> s
+    s
 #endif
 
 /// External call.
 [<CompiledName("ExtCall")>]
 let extCall appExpr =
 #if ! HASHCONS
-  ExternalCall (appExpr) |> ASTHelper.buildStmt
+  ExternalCall (appExpr, null)
 #else
-  let k = ExternalCall appExpr
-  match tryGetStmt k with
+  let hc = HashConsingInfo ()
+  let s = ExternalCall (appExpr, hc)
+  match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
-    let s' = { S = k; Tag = newSTag (); HashKey = S.HashExtCall appExpr }
-    if isReclaimed then stmts[k].SetTarget s'
-    else stmts[k] <- WeakReference<Stmt> s'
-    s'
+    hc.ID <- newSID ()
+    hc.Hash <- Stmt.HashExtCall appExpr
+    if isReclaimed then stmts[s].SetTarget s
+    else stmts[s] <- WeakReference<Stmt> s
+    s
 #endif
 
 /// A SideEffect statement.
 [<CompiledName("SideEffect")>]
 let sideEffect eff =
 #if ! HASHCONS
-  SideEffect eff |> ASTHelper.buildStmt
+  SideEffect (eff, null)
 #else
-  let k = SideEffect eff
-  match tryGetStmt k with
+  let hc = HashConsingInfo ()
+  let s = SideEffect (eff, hc)
+  match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
-    let s' = { S = k; Tag = newSTag (); HashKey = S.HashSideEffect eff }
-    if isReclaimed then stmts[k].SetTarget s'
-    else stmts[k] <- WeakReference<Stmt> s'
-    s'
+    hc.ID <- newSID ()
+    hc.Hash <- Stmt.HashSideEffect eff
+    if isReclaimed then stmts[s].SetTarget s
+    else stmts[s] <- WeakReference<Stmt> s
+    s
 #endif
 
 /// Record the use of vars and tempvars from the given expression.
-let rec updateAllVarsUses (rset: RegisterSet) (tset: HashSet<int>) { E = e } =
+let rec updateAllVarsUses (rset: RegisterSet) (tset: HashSet<int>) e =
   match e with
   | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ ->
     ()
-  | Var (_, rid, _) ->
+  | Var (_, rid, _, _) ->
     rset.Add (int rid)
-  | TempVar (_, n) ->
+  | TempVar (_, n, _) ->
     tset.Add n |> ignore
-  | UnOp (_, e) ->
+  | UnOp (_, e, _) ->
     updateAllVarsUses rset tset e
-  | BinOp (_, _, lhs, rhs) ->
+  | BinOp (_, _, lhs, rhs, _) ->
     updateAllVarsUses rset tset lhs
     updateAllVarsUses rset tset rhs
-  | RelOp (_, lhs, rhs) ->
+  | RelOp (_, lhs, rhs, _) ->
     updateAllVarsUses rset tset lhs
     updateAllVarsUses rset tset rhs
-  | Load (_, _, e) ->
+  | Load (_, _, e, _) ->
     updateAllVarsUses rset tset e
-  | Ite (cond, e1, e2) ->
+  | Ite (cond, e1, e2, _) ->
     updateAllVarsUses rset tset cond
     updateAllVarsUses rset tset e1
     updateAllVarsUses rset tset e2
-  | Cast (_, _, e) ->
+  | Cast (_, _, e, _) ->
     updateAllVarsUses rset tset e
-  | Extract (e, _, _) ->
+  | Extract (e, _, _, _) ->
     updateAllVarsUses rset tset e
 
 /// Record the use of vars (registers) from the given expression.
-let rec updateRegsUses (rset: RegisterSet) { E = e } =
+let rec updateRegsUses (rset: RegisterSet) e =
   match e with
   | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | TempVar _ ->
     ()
-  | Var (_, rid, _) ->
+  | Var (_, rid, _, _) ->
     rset.Add (int rid)
-  | UnOp (_, e) ->
+  | UnOp (_, e, _) ->
     updateRegsUses rset e
-  | BinOp (_, _, lhs, rhs) ->
+  | BinOp (_, _, lhs, rhs, _) ->
     updateRegsUses rset lhs
     updateRegsUses rset rhs
-  | RelOp (_, lhs, rhs) ->
+  | RelOp (_, lhs, rhs, _) ->
     updateRegsUses rset lhs
     updateRegsUses rset rhs
-  | Load (_, _, e) ->
+  | Load (_, _, e, _) ->
     updateRegsUses rset e
-  | Ite (cond, e1, e2) ->
+  | Ite (cond, e1, e2, _) ->
     updateRegsUses rset cond
     updateRegsUses rset e1
     updateRegsUses rset e2
-  | Cast (_, _, e) ->
+  | Cast (_, _, e, _) ->
     updateRegsUses rset e
-  | Extract (e, _, _) ->
+  | Extract (e, _, _, _) ->
     updateRegsUses rset e
 
 /// Record the use of tempvars from the given expression.
-let rec updateTempsUses (tset: HashSet<int>) { E = e } =
+let rec updateTempsUses (tset: HashSet<int>) e =
   match e with
   | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | Var _ ->
     ()
-  | TempVar (_, n) ->
+  | TempVar (_, n, _) ->
     tset.Add n |> ignore
-  | UnOp (_, e) ->
+  | UnOp (_, e, _) ->
     updateTempsUses tset e
-  | BinOp (_, _, lhs, rhs) ->
+  | BinOp (_, _, lhs, rhs, _) ->
     updateTempsUses tset lhs
     updateTempsUses tset rhs
-  | RelOp (_, lhs, rhs) ->
+  | RelOp (_, lhs, rhs, _) ->
     updateTempsUses tset lhs
     updateTempsUses tset rhs
-  | Load (_, _, e) ->
+  | Load (_, _, e, _) ->
     updateTempsUses tset e
-  | Ite (cond, e1, e2) ->
+  | Ite (cond, e1, e2, _) ->
     updateTempsUses tset cond
     updateTempsUses tset e1
     updateTempsUses tset e2
-  | Cast (_, _, e) ->
+  | Cast (_, _, e, _) ->
     updateTempsUses tset e
-  | Extract (e, _, _) ->
+  | Extract (e, _, _, _) ->
     updateTempsUses tset e
 
 /// <summary>

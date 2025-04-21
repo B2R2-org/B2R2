@@ -35,12 +35,12 @@ type AVRRegisterFactory () =
   override _.GetAllRegNames () = Terminator.futureFeature ()
   override _.GetGeneralRegExprs () = Terminator.futureFeature ()
 
-  override _.RegIDFromRegExpr (e) =
-    match e.E with
-    | Var (_, id, _) -> id (* TODO *)
+  override _.RegIDFromRegExpr e =
+    match e with
+    | Var (_, id, _, _) -> id (* TODO *)
     | _ -> raise InvalidRegisterException
 
-  override _.RegIDToRegExpr (id) = Terminator.futureFeature ()
+  override _.RegIDToRegExpr _id = Terminator.futureFeature ()
   override _.StrToRegExpr _s = Terminator.futureFeature ()
   override _.RegIDFromString _s = Terminator.futureFeature ()
   override _.RegIDToString _ = Terminator.futureFeature ()

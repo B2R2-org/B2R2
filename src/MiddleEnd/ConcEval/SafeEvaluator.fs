@@ -45,19 +45,19 @@ let private unwrap = function
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let rec evalConcrete (st: EvalState) e =
-  match e.E with
-  | Num n -> Def n |> Ok
-  | Var (_, n, _) -> st.TryGetReg n |> Ok
-  | PCVar (t, _) -> BitVector.OfUInt64 st.PC t |> Def |> Ok
-  | TempVar (_, n) -> st.TryGetTmp n |> Ok
-  | UnOp (t, e) -> evalUnOp st e t
-  | BinOp (t, _, e1, e2) -> evalBinOp st e1 e2 t
-  | RelOp (t, e1, e2) -> evalRelOp st e1 e2 t
-  | Load (endian, t, addr) -> evalLoad st endian t addr
-  | Ite (cond, e1, e2) -> evalIte st cond e1 e2
-  | Cast (kind, t, e) -> evalCast st t e kind
-  | Extract (e, t, p) -> evalConcrete st e |> map2 BitVector.Extract t p
-  | Undefined (_) -> Ok Undef
+  match e with
+  | Num (n, _) -> Def n |> Ok
+  | Var (_, n, _, _) -> st.TryGetReg n |> Ok
+  | PCVar (t, _, _) -> BitVector.OfUInt64 st.PC t |> Def |> Ok
+  | TempVar (_, n, _) -> st.TryGetTmp n |> Ok
+  | UnOp (t, e, _) -> evalUnOp st e t
+  | BinOp (t, _, e1, e2, _) -> evalBinOp st e1 e2 t
+  | RelOp (t, e1, e2, _) -> evalRelOp st e1 e2 t
+  | Load (endian, t, addr, _) -> evalLoad st endian t addr
+  | Ite (cond, e1, e2, _) -> evalIte st cond e1 e2
+  | Cast (kind, t, e, _) -> evalCast st t e kind
+  | Extract (e, t, p, _) -> evalConcrete st e |> map2 BitVector.Extract t p
+  | Undefined _ -> Ok Undef
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 and private evalLoad st endian t addr =
@@ -150,8 +150,8 @@ and private evalRelOp st e1 e2 = function
 
 let private markUndefAfterFailure (st: EvalState) lhs =
   match lhs with
-  | Var (_, n, _) -> st.UnsetReg n
-  | TempVar (_, n) -> st.UnsetTmp n
+  | Var (_, n, _, _) -> st.UnsetReg n
+  | TempVar (_, n, _) -> st.UnsetTmp n
   | _ -> ()
 
 let private evalPCUpdate st rhs =
@@ -164,13 +164,13 @@ let private evalPCUpdate st rhs =
 let private evalPut st lhs rhs =
   match evalConcrete st rhs with
   | Ok (Def v) ->
-    match lhs.E with
-    | Var (_, n, _) -> st.SetReg n v |> Ok
-    | TempVar (_, n) -> st.SetTmp n v |> Ok
-    | PCVar (_) -> st.PC <- BitVector.ToUInt64 v; Ok ()
+    match lhs with
+    | Var (_, n, _, _) -> st.SetReg n v |> Ok
+    | TempVar (_, n, _) -> st.SetTmp n v |> Ok
+    | PCVar _ -> st.PC <- BitVector.ToUInt64 v; Ok ()
     | _ -> Error ErrorCase.InvalidExprEvaluation
   | _ ->
-    markUndefAfterFailure st lhs.E
+    markUndefAfterFailure st lhs
     Error ErrorCase.InvalidExprEvaluation
 
 let private evalStore st endian addr v =
@@ -183,8 +183,8 @@ let private evalStore st endian addr v =
   | Error e, _ | _, Error e -> Error e
 
 let private evalJmp (st: EvalState) target =
-  match target.E with
-  | JmpDest n -> st.GoToLabel n |> Ok
+  match target with
+  | JmpDest (n, _) -> st.GoToLabel n |> Ok
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let private evalCJmp st cond t f =
@@ -207,34 +207,36 @@ let rec concretizeArgs st acc = function
 
 let private evalArgs st args =
   match args with
-  | { E = BinOp (BinOpType.APP, _, _, args) } ->
+  | BinOp (BinOpType.APP, _, _, args, _) ->
     uncurryArgs [] args |> concretizeArgs st []
   | _ -> Terminator.impossible ()
 
 /// Evaluate an IR statement.
 let evalStmt (st: EvalState) = function
-  | ISMark (len) -> st.CurrentInsLen <- len; st.NextStmt () |> Ok
-  | IEMark (len) -> st.AdvancePC len; st.AbortInstr () |> Ok
+  | ISMark (len, _) -> st.CurrentInsLen <- len; st.NextStmt () |> Ok
+  | IEMark (len, _) -> st.AdvancePC len; st.AbortInstr () |> Ok
   | LMark _ -> st.NextStmt () |> Ok
-  | Put (lhs, rhs) -> evalPut st lhs rhs |> Result.map st.NextStmt
-  | Store (e, addr, v) -> evalStore st e addr v |> Result.map st.NextStmt
-  | Jmp target -> evalJmp st target
-  | CJmp (cond, t, f) -> evalCJmp st cond t f
-  | InterJmp (target, InterJmpKind.SwitchToARM) ->
+  | Put (lhs, rhs, _) -> evalPut st lhs rhs |> Result.map st.NextStmt
+  | Store (e, addr, v, _) -> evalStore st e addr v |> Result.map st.NextStmt
+  | Jmp (target, _) -> evalJmp st target
+  | CJmp (cond, t, f, _) -> evalCJmp st cond t f
+  | InterJmp (target, InterJmpKind.SwitchToARM, _) ->
     st.Mode <- ArchOperationMode.ARMMode
     evalPCUpdate st target |> Result.map st.AbortInstr
-  | InterJmp (target, InterJmpKind.SwitchToThumb) ->
+  | InterJmp (target, InterJmpKind.SwitchToThumb, _) ->
     st.Mode <- ArchOperationMode.ThumbMode
     evalPCUpdate st target |> Result.map st.AbortInstr
-  | InterJmp (target, _) -> evalPCUpdate st target |> Result.map st.AbortInstr
-  | InterCJmp (c, t, f) -> evalIntCJmp st c t f |> Result.map st.AbortInstr
-  | ExternalCall (args) ->
+  | InterJmp (target, _, _) ->
+    evalPCUpdate st target |> Result.map st.AbortInstr
+  | InterCJmp (c, t, f, _) ->
+    evalIntCJmp st c t f |> Result.map st.AbortInstr
+  | ExternalCall (args, _) ->
     evalArgs st args
     |> Result.map (fun args -> st.OnExternalCall args st |> st.NextStmt)
-  | SideEffect eff -> st.OnSideEffect eff st |> ignore |> Ok
+  | SideEffect (eff, _) -> st.OnSideEffect eff st |> ignore |> Ok
 
 let internal tryEvaluate stmt st =
-  match evalStmt st stmt.S with
+  match evalStmt st stmt with
   | Ok () -> Ok st
   | Error e ->
     if st.IgnoreUndef then st.NextStmt (); Ok st

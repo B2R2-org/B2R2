@@ -55,8 +55,8 @@ type S39064RegisterFactory (wordSize, r: RegExprs) =
       r.R8; r.R9; r.R10; r.R11; r.R12; r.R13; r.R14; r.R15 ]
 
   override _.RegIDFromRegExpr e =
-    match e.E with
-    | Var (_, id, _) -> id
+    match e with
+    | Var (_, id, _, _) -> id
     | PCVar _ -> Register.toRegID Register.PSW
     | _ -> raise InvalidRegisterException
 

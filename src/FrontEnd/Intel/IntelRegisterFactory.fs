@@ -92,9 +92,9 @@ type IntelRegisterFactory (wordSize, r: RegExprs) =
         r.OF; r.DF; r.IF; r.SF; r.ZF; r.AF; r.PF; r.CF ]
 
   override _.RegIDFromRegExpr (e) =
-    match e.E with
-    | Var (_,id, _) -> id
-    | PCVar (regT, _) ->
+    match e with
+    | Var (_,id, _, _) -> id
+    | PCVar (regT, _, _) ->
       if regT = 32<rt> then Register.toRegID EIP
       else Register.toRegID RIP
     | _ -> raise InvalidRegisterException

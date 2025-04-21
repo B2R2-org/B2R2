@@ -152,8 +152,8 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
     expToStringAux args sb
     variablesToString "OutVars" outVars sb
     variablesToString "InVars" inVars sb
-  | SideEffect (eff) ->
-    sb.Append ("SideEffect " + SideEffect.toString eff) |> ignore
+  | SideEffect eff ->
+    sb.Append ("SideEffect " + SideEffect.ToString eff) |> ignore
 
 let expToString expr =
   let sb = StringBuilder ()

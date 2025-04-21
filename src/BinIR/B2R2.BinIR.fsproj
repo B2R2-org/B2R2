@@ -16,11 +16,13 @@
     <Compile Include="RelOpType.fs" />
     <Compile Include="CastKind.fs" />
     <Compile Include="SideEffect.fs" />
+    <Compile Include="InterJmpKind.fs" />
+    <Compile Include="HashConsingInfo.fs" />
     <Compile Include="LowUIR\Expr.fs" />
     <Compile Include="LowUIR\Stmt.fs" />
     <Compile Include="LowUIR\Pp.fs" />
     <Compile Include="LowUIR\TypeCheck.fs" />
-    <Compile Include="LowUIR\ASTHelper.fs" />
+    <Compile Include="LowUIR\ValueOptimizer.fs" />
     <Compile Include="LowUIR\AST.fs" />
     <Compile Include="SSA\Variable.fs" />
     <Compile Include="SSA\Expr.fs" />

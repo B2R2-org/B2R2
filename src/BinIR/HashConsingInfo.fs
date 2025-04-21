@@ -22,26 +22,25 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ConcEval
+namespace B2R2.BinIR
 
-open B2R2.BinIR
-open B2R2.BinIR.LowUIR
-open System.Collections.Generic
+/// Represents the hash consing information of an object, which includes a
+/// unique ID (tag) and a hash value.
+[<AllowNullLiteral>]
+type HashConsingInfo (id, hash) =
+  let mutable id = id
+  let mutable hash = hash
 
-/// Store labels of LowUIR statements.
-type Labels (lbls) =
-  let lbls = lbls
+  /// <summary>
+  /// Creates a new instance of HashConsingInfo with default values.
+  /// </summary>
+  new () = HashConsingInfo (0u, 0)
 
-  new () = Labels (Dictionary<Label, int> ())
+  /// Unique ID of the hash consed object.
+  member _.ID with get(): uint32 = id and set(v) = id <- v
+  /// Hash value of the hash consed object.
+  member _.Hash with get(): int = hash and set(v) = hash <- v
 
-  member _.Update stmts =
-    lbls.Clear ()
-    for i = 0 to Array.length stmts - 1 do
-      match stmts[i] with
-      | LMark (s, _) -> lbls.Add (s, i)
-      | _ -> ()
-
-  member _.Index sym = lbls[sym]
-
-  member _.Clone () =
-    Labels (Dictionary (lbls))
+[<AutoOpen>]
+module internal HashConsingInfo =
+  let inline (===) a b = LanguagePrimitives.PhysicalEquality a b

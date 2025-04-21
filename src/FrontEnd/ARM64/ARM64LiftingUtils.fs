@@ -85,8 +85,8 @@ let getPseudoRegVarToArr ctxt reg eSize dataSize elems =
   else Array.init elems (fun i -> AST.extract regA eSize (i * pos))
 
 let private getMemExpr128 expr =
-  match expr.E with
-  | Load (e, 128<rt>, expr) ->
+  match expr with
+  | Load (e, 128<rt>, expr, _) ->
     AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> expr
   | _ -> raise InvalidOperandException
@@ -294,9 +294,9 @@ let transOprToExprFPImm ins eSize src =
   | _ -> raise InvalidOperandException
 
 let separateMemExpr expr =
-  match expr.E with
-  | Load (_, _, { E = BinOp (BinOpType.ADD, _, b, o) }) -> b, o
-  | Load (_, _, e) -> e, AST.num0 64<rt>
+  match expr with
+  | Load (_, _, BinOp (BinOpType.ADD, _, b, o, _), _) -> b, o
+  | Load (_, _, e, _) -> e, AST.num0 64<rt>
   | _ -> raise InvalidOperandException
 
 let transOneOpr ins ctxt addr =
@@ -616,8 +616,8 @@ let transOprToExprOfORR ins ctxt addr =
   | _ -> raise InvalidOperandException
 
 let unwrapReg e =
-  match e.E with
-  | Extract (e, 32<rt>, 0) -> e
+  match e with
+  | Extract (e, 32<rt>, 0, _) -> e
   | _ -> failwith "Invalid register"
 
 let transOprToExprOfSMSUBL ins ctxt addr =
@@ -1303,7 +1303,7 @@ let dstAssign oprSize dst src ir =
   let orgDst = AST.unwrap dst
   let orgDstSz = orgDst |> TypeCheck.typeOf
   match orgDst with
-  | { E = Var (_, rid, _) } when rid = Register.toRegID R.XZR ->
+  | Var (_, rid, _, _) when rid = Register.toRegID R.XZR ->
     !!ir (orgDst := AST.num0 orgDstSz)
   | _ ->
     if orgDstSz > oprSize then !!ir (orgDst := AST.zext orgDstSz src)

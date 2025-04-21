@@ -50,7 +50,7 @@ type BinIRTests () =
     Assert.AreNotEqual (e1, e2)
 #else
     Assert.AreEqual (e1, e2)
-    Assert.AreEqual (e1.GetHashCode (), e2.GetHashCode ())
+    Assert.AreEqual<int> (e1.GetHashCode (), e2.GetHashCode ())
 #endif
 
   [<TestMethod>]
@@ -64,7 +64,7 @@ type BinIRTests () =
     Assert.AreNotEqual (e1, e2)
 #else
     Assert.AreEqual (e1, e2)
-    Assert.AreEqual (e1.GetHashCode (), e2.GetHashCode ())
+    Assert.AreEqual<int> (e1.GetHashCode (), e2.GetHashCode ())
 #endif
 
   [<TestMethod>]

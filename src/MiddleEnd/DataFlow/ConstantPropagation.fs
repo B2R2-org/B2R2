@@ -86,14 +86,14 @@ type ConstantPropagation =
       | true, defVp -> (state: IDataFlowState<_, _>).GetAbsValue defVp
 
     let rec evaluateExpr state pp e =
-      match e.E with
-      | PCVar (rt, _) ->
+      match e with
+      | PCVar (rt, _, _) ->
         let addr = (pp: ProgramPoint).Address
         let bv = BitVector.OfUInt64 addr rt
         ConstantDomain.Const bv
-      | Num bv -> ConstantDomain.Const bv
+      | Num (bv, _) -> ConstantDomain.Const bv
       | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
-      | Load (_m, rt, addr) ->
+      | Load (_m, rt, addr, _) ->
         match state.StackPointerSubState.EvalExpr pp addr with
         | StackPointerDomain.ConstSP bv ->
           let addr = BitVector.ToUInt64 bv
@@ -107,26 +107,26 @@ type ConstantPropagation =
           | _ -> c
         | StackPointerDomain.NotConstSP -> ConstantDomain.NotAConst
         | StackPointerDomain.Undef -> ConstantDomain.Undef
-      | UnOp (op, e) ->
+      | UnOp (op, e, _) ->
         evaluateExpr state pp e
         |> ConstantPropagation.evalUnOp op
-      | BinOp (op, _, e1, e2) ->
+      | BinOp (op, _, e1, e2, _) ->
         let c1 = evaluateExpr state pp e1
         let c2 = evaluateExpr state pp e2
         ConstantPropagation.evalBinOp op c1 c2
-      | RelOp (op, e1, e2) ->
+      | RelOp (op, e1, e2, _) ->
         let c1 = evaluateExpr state pp e1
         let c2 = evaluateExpr state pp e2
         ConstantPropagation.evalRelOp op c1 c2
-      | Ite (e1, e2, e3) ->
+      | Ite (e1, e2, e3, _) ->
         let c1 = evaluateExpr state pp e1
         let c2 = evaluateExpr state pp e2
         let c3 = evaluateExpr state pp e3
         ConstantDomain.ite c1 c2 c3
-      | Cast (op, rt, e) ->
+      | Cast (op, rt, e, _) ->
         let c = evaluateExpr state pp e
         ConstantPropagation.evalCast op rt c
-      | Extract (e, rt, pos) ->
+      | Extract (e, rt, pos, _) ->
         let c = evaluateExpr state pp e
         ConstantDomain.extract c rt pos
       | FuncName _ | Nil | Undefined _ -> ConstantDomain.NotAConst

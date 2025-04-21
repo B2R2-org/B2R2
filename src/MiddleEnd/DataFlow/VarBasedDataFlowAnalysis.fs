@@ -58,30 +58,30 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | _ -> Error ErrorCase.InvalidExprEvaluation
 
   let rec updateGlobals globals varKill stackState pp expr =
-    match expr.E with
+    match expr with
     | Num _ | Undefined _ | FuncName _ | JmpDest _ | Nil | PCVar _ -> ()
-    | Var (_, rid, _) ->
+    | Var (_, rid, _, _) ->
       updateGlobalName globals varKill (Regular rid)
-    | TempVar (_, n) ->
+    | TempVar (_, n, _) ->
       updateGlobalName globals varKill (Temporary n)
-    | UnOp (_, e) -> updateGlobals globals varKill stackState pp e
-    | BinOp (_, _, lhs, rhs)
-    | RelOp (_, lhs, rhs) ->
+    | UnOp (_, e, _) -> updateGlobals globals varKill stackState pp e
+    | BinOp (_, _, lhs, rhs, _)
+    | RelOp (_, lhs, rhs, _) ->
       updateGlobals globals varKill stackState pp lhs
       updateGlobals globals varKill stackState pp rhs
-    | Load (_, _, e) ->
+    | Load (_, _, e, _) ->
       updateGlobals globals varKill stackState pp e
       getStackValue stackState pp e
       |> Result.iter (fun loc ->
         let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
         updateGlobalName globals varKill (StackLocal offset))
-    | Ite (cond, e1, e2) ->
+    | Ite (cond, e1, e2, _) ->
       updateGlobals globals varKill stackState pp cond
       updateGlobals globals varKill stackState pp e1
       updateGlobals globals varKill stackState pp e2
-    | Cast (_, _, e) ->
+    | Cast (_, _, e, _) ->
       updateGlobals globals varKill stackState pp e
-    | Extract (e, _, _) ->
+    | Extract (e, _, _, _) ->
       updateGlobals globals varKill stackState pp e
 
   let addDefSite (defSites: Dictionary<_, _>) vk blk =
@@ -98,13 +98,13 @@ type VarBasedDataFlowAnalysis<'Lattice>
     for v in (g: IDiGraph<_, _>).Vertices do
       varKill.Clear ()
       for (stmt, pp) in state.GetStmtInfos v do
-        match stmt.S with
-        | Put (dst, src) ->
+        match stmt with
+        | Put (dst, src, _) ->
           let vk = VarKind.ofIRExpr dst
           updateGlobals globals varKill stackState pp src
           varKill.Add vk |> ignore
           addDefSite defSites vk v
-        | Store (_, addr, value) ->
+        | Store (_, addr, value, _) ->
           updateGlobals globals varKill stackState pp value
           getStackValue stackState pp addr
           |> Result.iter (fun loc ->
@@ -190,43 +190,43 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | Undefined (_)
     | FuncName (_)
     | Nil -> ()
-    | Var (_rt, rid, _rstr) -> updateChains state (Regular rid) defs pp
-    | TempVar (_, n) -> updateChains state (Temporary n) defs pp
-    | Load (_, _, expr) ->
-      updateWithExpr state defs pp expr.E
+    | Var (_rt, rid, _rstr, _) -> updateChains state (Regular rid) defs pp
+    | TempVar (_, n, _) -> updateChains state (Temporary n) defs pp
+    | Load (_, _, expr, _) ->
+      updateWithExpr state defs pp expr
       getStackValue state.StackPointerSubState pp expr
       |> Result.iter (fun loc ->
         let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
         updateChains state (StackLocal offset) defs pp)
-      updateWithExpr state defs pp expr.E
-    | UnOp (_, expr) ->
-      updateWithExpr state defs pp expr.E
-    | BinOp (_, _, expr1, expr2) ->
-      updateWithExpr state defs pp expr1.E
-      updateWithExpr state defs pp expr2.E
-    | RelOp (_, expr1, expr2) ->
-      updateWithExpr state defs pp expr1.E
-      updateWithExpr state defs pp expr2.E
-    | Ite (expr1, expr2, expr3) ->
-      updateWithExpr state defs pp expr1.E
-      updateWithExpr state defs pp expr2.E
-      updateWithExpr state defs pp expr3.E
-    | Cast (_, _, expr) ->
-      updateWithExpr state defs pp expr.E
-    | Extract (expr, _, _) ->
-      updateWithExpr state defs pp expr.E
+      updateWithExpr state defs pp expr
+    | UnOp (_, expr, _) ->
+      updateWithExpr state defs pp expr
+    | BinOp (_, _, expr1, expr2, _) ->
+      updateWithExpr state defs pp expr1
+      updateWithExpr state defs pp expr2
+    | RelOp (_, expr1, expr2, _) ->
+      updateWithExpr state defs pp expr1
+      updateWithExpr state defs pp expr2
+    | Ite (expr1, expr2, expr3, _) ->
+      updateWithExpr state defs pp expr1
+      updateWithExpr state defs pp expr2
+      updateWithExpr state defs pp expr3
+    | Cast (_, _, expr, _) ->
+      updateWithExpr state defs pp expr
+    | Extract (expr, _, _, _) ->
+      updateWithExpr state defs pp expr
     | _ -> ()
 
   let updateWithJmp state defs pp = function
-    | Jmp ({ E = expr }) ->
+    | Jmp (expr, _) ->
       updateWithExpr state defs pp expr
-    | CJmp ({ E = expr }, { E = target1 }, { E = target2 }) ->
+    | CJmp (expr, target1, target2, _) ->
       updateWithExpr state defs pp expr
       updateWithExpr state defs pp target1
       updateWithExpr state defs pp target2
-    | InterJmp ({ E = expr }, _jmpKind) ->
+    | InterJmp (expr, _jmpKind, _) ->
       updateWithExpr state defs pp expr
-    | InterCJmp ({ E = cond }, { E = target1 }, { E = target2 }) ->
+    | InterCJmp (cond, target1, target2, _) ->
       updateWithExpr state defs pp cond
       updateWithExpr state defs pp target1
       updateWithExpr state defs pp target2
@@ -237,17 +237,17 @@ type VarBasedDataFlowAnalysis<'Lattice>
   /// including temporary variables, but the `outs` only stores the
   /// non-temporary variables.
   let updateWithStmt state (outs: byref<_>) (defs: byref<_>) stmt pp =
-    match stmt.S with
-    | Put (dst, { E = src }) ->
+    match stmt with
+    | Put (dst, src, _) ->
       updateWithExpr state defs pp src
       let kind = VarKind.ofIRExpr dst
       let vp = { ProgramPoint = pp; VarKind = kind }
       defs <- Map.add kind vp defs
       if not (VarKind.isTemporary kind) then outs <- Map.add kind vp outs
       else ()
-    | Store (_, addr, value) ->
-      updateWithExpr state defs pp addr.E
-      updateWithExpr state defs pp value.E
+    | Store (_, addr, value, _) ->
+      updateWithExpr state defs pp addr
+      updateWithExpr state defs pp value
       match getStackValue state.StackPointerSubState pp addr with
       | Ok loc ->
         let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
@@ -260,7 +260,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | Jmp _
     | CJmp _
     | InterJmp _
-    | InterCJmp _ -> updateWithJmp state defs pp stmt.S
+    | InterCJmp _ -> updateWithJmp state defs pp stmt
     | _ -> ()
 
   let isIntraEdge lbl =
@@ -391,8 +391,8 @@ type VarBasedDataFlowAnalysis<'Lattice>
         |> Seq.iter (fun vp -> subState.DefSiteQueue.Enqueue vp.ProgramPoint)
 
   let spTransfer (state: VarBasedDataFlowState<_>) (stmt, pp) =
-    match stmt.S with
-    | Put (dst, src) ->
+    match stmt with
+    | Put (dst, src, _) ->
       let varKind = VarKind.ofIRExpr dst
       let currConst =
         match varKind with
@@ -413,8 +413,8 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | _ -> ()
 
   let domainTransfer (state: VarBasedDataFlowState<_>) (stmt, pp) =
-    match stmt.S with
-    | Put (dst, src) ->
+    match stmt with
+    | Put (dst, src, _) ->
       let varKind = VarKind.ofIRExpr dst
       let vp = { ProgramPoint = pp; VarKind = varKind }
       let subState = state.DomainSubState
@@ -422,7 +422,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       let curr = analysis.EvalExpr state pp src
       let defUseMap = state.DefUseMap
       updateAbsValue subState defUseMap vp prev curr
-    | Store (_, addr, value) ->
+    | Store (_, addr, value, _) ->
       match state.StackPointerSubState.EvalExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
         let loc = BitVector.ToUInt64 bv

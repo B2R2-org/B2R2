@@ -30,19 +30,19 @@ open B2R2.BinIR
 
 /// Get the type of an expression.
 let rec typeOf e =
-  match e.E with
-  | Num n -> n.Length
-  | Var (t, _, _)
-  | PCVar (t, _)
-  | TempVar (t, _) -> t
-  | UnOp (_, e) -> typeOf e
-  | BinOp (_, t, _, _) -> t
-  | RelOp (_) -> 1<rt>
-  | Load (_, t, _) -> t
-  | Ite (_, e1, _) -> typeOf e1
-  | Cast (_, t, _) -> t
-  | Extract (_, t, _) -> t
-  | Undefined (t, _) -> t
+  match e with
+  | Num (n, _) -> n.Length
+  | Var (t, _, _, _)
+  | PCVar (t, _, _)
+  | TempVar (t, _, _) -> t
+  | UnOp (_, e, _) -> typeOf e
+  | BinOp (_, t, _, _, _) -> t
+  | RelOp _ -> 1<rt>
+  | Load (_, t, _, _) -> t
+  | Ite (_, e1, _, _) -> typeOf e1
+  | Cast (_, t, _, _) -> t
+  | Extract (_, t, _, _) -> t
+  | Undefined (t, _, _) -> t
   | FuncName _ | JmpDest _ | Nil -> raise InvalidExprException
 
 #if DEBUG
@@ -95,27 +95,27 @@ let internal extract (t: RegType) pos (t2: RegType) =
   else raise <| TypeCheckException "Inconsistent types."
 
 let rec expr e =
-  match e.E with
-  | UnOp (_, e) -> expr e
-  | BinOp (BinOpType.CONCAT, t, e1, e2) ->
+  match e with
+  | UnOp (_, e, _) -> expr e
+  | BinOp (BinOpType.CONCAT, t, e1, e2, _) ->
     expr e1 && expr e2 && concat e1 e2 = t
-  | BinOp (_, t, e1, e2) -> expr e1 && expr e2 && binop e1 e2 = t
-  | RelOp (_, e1, e2) -> expr e1 && expr e2 && typeOf e1 = typeOf e2
-  | Load (_, _, addr) -> expr addr
-  | Ite (cond, e1, e2) ->
+  | BinOp (_, t, e1, e2, _) -> expr e1 && expr e2 && binop e1 e2 = t
+  | RelOp (_, e1, e2, _) -> expr e1 && expr e2 && typeOf e1 = typeOf e2
+  | Load (_, _, addr, _) -> expr addr
+  | Ite (cond, e1, e2, _) ->
     typeOf cond = 1<rt> && expr e1 && expr e2 && typeOf e1 = typeOf e2
-  | Cast (CastKind.SignExt, t, e)
-  | Cast (CastKind.ZeroExt, t, e) -> expr e && t >= typeOf e
-  | Extract (e, t, p) ->
+  | Cast (CastKind.SignExt, t, e, _)
+  | Cast (CastKind.ZeroExt, t, e, _) -> expr e && t >= typeOf e
+  | Extract (e, t, p, _) ->
     expr e && ((t + LanguagePrimitives.Int32WithMeasure p) <= typeOf e)
   | _ -> true
 
 let stmt s =
-  match s.S with
-  | Put (v, e) -> (typeOf v) = (typeOf e)
-  | Store (_, a, v) -> expr a && expr v
-  | Jmp (a) -> expr a
-  | CJmp (cond, e1, e2) -> expr cond && expr e1 && expr e2
-  | InterJmp (addr, _) -> expr addr
-  | InterCJmp (cond, a1, a2) -> expr cond && expr a1 && expr a2
+  match s with
+  | Put (v, e, _) -> (typeOf v) = (typeOf e)
+  | Store (_, a, v, _) -> expr a && expr v
+  | Jmp (a, _) -> expr a
+  | CJmp (cond, e1, e2, _) -> expr cond && expr e1 && expr e2
+  | InterJmp (addr, _, _) -> expr addr
+  | InterCJmp (cond, a1, a2, _) -> expr cond && expr a1 && expr a2
   | _ -> true

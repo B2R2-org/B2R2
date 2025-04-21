@@ -133,8 +133,8 @@ let private popFPUStack ctxt ir =
   !?ir (clearFPReg R.ST7 ctxt)
 
 let inline private getLoadAddressExpr (src: Expr) =
-  match src.E with
-  | Load (_, _, addr) -> struct (addr, TypeCheck.typeOf addr)
+  match src with
+  | Load (_, _, addr, _) -> struct (addr, TypeCheck.typeOf addr)
   | _ -> Terminator.impossible ()
 
 let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
@@ -192,12 +192,12 @@ let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
         (AST.num0 64<rt>)
         (integerpart .| (significand << numI32 11 64<rt>)))
   | 80<rt> ->
-    match srcExpr.E with
-    | Load (_, _, addrExpr) ->
+    match srcExpr with
+    | Load (_, _, addrExpr, _) ->
       let addrSize = TypeCheck.typeOf addrExpr
       !!ir (tmpB := AST.loadLE 16<rt> (addrExpr .+ numI32 8 addrSize))
       !!ir (tmpA := AST.loadLE 64<rt> addrExpr)
-    | BinOp (_, _, { E = Var (_, r, _) }, { E = Var (_)}) ->
+    | BinOp (_, _, Var (_, r, _, _), Var _, _) ->
       let reg = Register.pseudoRegToReg (Register.ofRegID r)
       let struct (srcB, srcA) = getFPUPseudoRegVars ctxt reg
       !!ir (tmpB := srcB)

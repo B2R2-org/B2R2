@@ -67,14 +67,14 @@ type StackPointerPropagation =
       | true, defVp -> state.DomainSubState.GetAbsValue defVp
 
     let rec evaluateExpr (state: VarBasedDataFlowState<_>) pp e =
-      match e.E with
-      | Num bv -> StackPointerDomain.ConstSP bv
+      match e with
+      | Num (bv, _) -> StackPointerDomain.ConstSP bv
       | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
       | Nil -> StackPointerDomain.NotConstSP
       | Load _ -> StackPointerDomain.NotConstSP
       | UnOp _ -> StackPointerDomain.NotConstSP
       | FuncName _ -> StackPointerDomain.NotConstSP
-      | BinOp (op, _, e1, e2) ->
+      | BinOp (op, _, e1, e2, _) ->
         let c1 = evaluateExpr state pp e1
         let c2 = evaluateExpr state pp e2
         StackPointerPropagation.evalBinOp op c1 c2

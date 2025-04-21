@@ -37,11 +37,11 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap) =
   let mutable domJT = None
 
   let isTerminatingStmt stmt =
-    match stmt.S with
+    match stmt with
     | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _
-    | SideEffect SysCall
-    | SideEffect Terminate
-    | SideEffect (Interrupt _) -> true
+    | SideEffect (SysCall, _)
+    | SideEffect (Terminate, _)
+    | SideEffect (Interrupt _, _) -> true
     | _ -> false
 
   /// Return the `ILowUIRBasicBlock` interface to access the internal

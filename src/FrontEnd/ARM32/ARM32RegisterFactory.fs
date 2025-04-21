@@ -54,8 +54,8 @@ type ARM32RegisterFactory (r: RegExprs) =
       r.IP; r.SP; r.LR; r.PC; r.APSR; r.SPSR; r.CPSR ]
 
   override _.RegIDFromRegExpr (e) =
-    match e.E with
-    | Var (_, id, _) -> id
+    match e with
+    | Var (_, id, _, _) -> id
     | PCVar _ -> Register.toRegID PC
     | _ -> raise InvalidRegisterException
 

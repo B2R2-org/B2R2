@@ -67,27 +67,27 @@ module DataFlowChain =
     |> filterLastDefInBlock
 
   let rec private extractUseFromExpr e acc =
-    match e.E with
-    | Var (_, id, _) -> Regular id :: acc
-    | TempVar (_, n) -> Temporary n :: acc
-    | UnOp (_, e) -> extractUseFromExpr e acc
-    | BinOp (_, _, e1, e2) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
-    | RelOp (_, e1, e2) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
-    | Load (_, _, e) -> extractUseFromExpr e acc
-    | Ite (c, e1, e2) ->
+    match e with
+    | Var (_, id, _, _) -> Regular id :: acc
+    | TempVar (_, n, _) -> Temporary n :: acc
+    | UnOp (_, e, _) -> extractUseFromExpr e acc
+    | BinOp (_, _, e1, e2, _) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
+    | RelOp (_, e1, e2, _) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
+    | Load (_, _, e, _) -> extractUseFromExpr e acc
+    | Ite (c, e1, e2, _) ->
       extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 acc))
-    | Cast (_, _, e) -> extractUseFromExpr e acc
-    | Extract (e, _, _) -> extractUseFromExpr e acc
+    | Cast (_, _, e, _) -> extractUseFromExpr e acc
+    | Extract (e, _, _, _) -> extractUseFromExpr e acc
     | _ -> []
 
   let private extractUseFromStmt s =
-    match s.S with
-    | Put (_, e)
-    | Store (_, _, e)
-    | Jmp (e)
-    | CJmp (e, _, _)
-    | InterJmp (e, _) -> extractUseFromExpr e []
-    | InterCJmp (c, e1, e2) ->
+    match s with
+    | Put (_, e, _)
+    | Store (_, _, e, _)
+    | Jmp (e, _)
+    | CJmp (e, _, _, _)
+    | InterJmp (e, _, _) -> extractUseFromExpr e []
+    | InterCJmp (c, e1, e2, _) ->
       extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 []))
     | _ -> []
 

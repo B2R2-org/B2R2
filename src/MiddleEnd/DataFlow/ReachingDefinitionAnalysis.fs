@@ -51,11 +51,11 @@ type ReachingDefinitionAnalysis =
       |> Array.fold (fun list lifted ->
         lifted.Stmts
         |> Array.foldi (fun list idx stmt ->
-          match stmt.S with
-          | LowUIR.Put ({ LowUIR.E = LowUIR.TempVar (_, n) }, _) ->
+          match stmt with
+          | LowUIR.Put (LowUIR.TempVar (_, n, _), _, _) ->
             let pp = ProgramPoint (lifted.Original.Address, idx)
             { ProgramPoint = pp; VarKind = Temporary n } :: list
-          | LowUIR.Put ({ LowUIR.E = LowUIR.Var (_, id, _) }, _) ->
+          | LowUIR.Put (LowUIR.Var (_, id, _, _), _, _) ->
             let pp = ProgramPoint (lifted.Original.Address, idx)
             { ProgramPoint = pp; VarKind = Regular id } :: list
           | _ -> list) list

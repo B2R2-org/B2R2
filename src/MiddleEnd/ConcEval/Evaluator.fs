@@ -31,21 +31,21 @@ open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.ConcEval.EvalUtils
 
 let rec evalConcrete (st: EvalState) e =
-  match e.E with
-  | Num n -> n
-  | Var (_, n, _) -> st.GetReg n
-  | PCVar (t, _) -> BitVector.OfUInt64 st.PC t
-  | TempVar (_, n) -> st.GetTmp n
-  | UnOp (t, e) -> evalUnOp st e t
-  | BinOp (t, _, e1, e2) -> evalBinOp st e1 e2 t
-  | RelOp (t, e1, e2) -> evalRelOp st e1 e2 t
-  | Load (endian, t, addr) -> evalLoad st endian t addr
-  | Ite (cond, e1, e2) ->
+  match e with
+  | Num (n, _) -> n
+  | Var (_, n, _, _) -> st.GetReg n
+  | PCVar (t, _, _) -> BitVector.OfUInt64 st.PC t
+  | TempVar (_, n, _) -> st.GetTmp n
+  | UnOp (t, e, _) -> evalUnOp st e t
+  | BinOp (t, _, e1, e2, _) -> evalBinOp st e1 e2 t
+  | RelOp (t, e1, e2, _) -> evalRelOp st e1 e2 t
+  | Load (endian, t, addr, _) -> evalLoad st endian t addr
+  | Ite (cond, e1, e2, _) ->
     let cond = evalConcrete st cond
     if cond = tr then evalConcrete st e1 else evalConcrete st e2
-  | Cast (kind, t, e) -> evalCast st t e kind
-  | Extract (e, t, p) -> BitVector.Extract (evalConcrete st e, t, p)
-  | Undefined (_) -> raise UndefExpException
+  | Cast (kind, t, e, _) -> evalCast st t e kind
+  | Extract (e, t, p, _) -> BitVector.Extract (evalConcrete st e, t, p)
+  | Undefined _ -> raise UndefExpException
   | _ -> raise InvalidExprException
 
 and private evalLoad st endian t addr =
@@ -134,10 +134,10 @@ let private evalPCUpdate st rhs =
 let private evalPut st lhs rhs =
   try
     let v = evalConcrete st rhs
-    match lhs.E with
-    | Var (_, n, _) -> st.SetReg n v
-    | TempVar (_, n) -> st.SetTmp n v
-    | PCVar (_) -> st.PC <- BitVector.ToUInt64 v
+    match lhs with
+    | Var (_, n, _, _) -> st.SetReg n v
+    | TempVar (_, n, _) -> st.SetTmp n v
+    | PCVar _ -> st.PC <- BitVector.ToUInt64 v
     | _ -> raise InvalidExprException
   with
     | UndefExpException
@@ -149,8 +149,8 @@ let private evalStore st endian addr v =
   st.Memory.Write addr v endian
 
 let private evalJmp (st: EvalState) target =
-  match target.E with
-  | JmpDest n -> st.GoToLabel n
+  match target with
+  | JmpDest (n, _) -> st.GoToLabel n
   | _ -> raise InvalidExprException
 
 let private evalCJmp st cond t f =
@@ -169,32 +169,32 @@ let rec concretizeArgs st acc = function
 
 let private evalArgs st args =
   match args with
-  | { E = BinOp (BinOpType.APP, _, _, args) } ->
+  | BinOp (BinOpType.APP, _, _, args, _) ->
     uncurryArgs [] args |> concretizeArgs st []
   | _ -> Terminator.impossible ()
 
 let evalStmt (st: EvalState) s =
-  match s.S with
-  | ISMark (len) -> st.CurrentInsLen <- len; st.NextStmt ()
-  | IEMark (len) -> st.AdvancePC len; st.AbortInstr ()
+  match s with
+  | ISMark (len, _) -> st.CurrentInsLen <- len; st.NextStmt ()
+  | IEMark (len, _) -> st.AdvancePC len; st.AbortInstr ()
   | LMark _ -> st.NextStmt ()
-  | Put (_, { E = Undefined (_) }) -> st.NextStmt ()
-  | Put (lhs, rhs) -> evalPut st lhs rhs |> st.NextStmt
-  | Store (e, addr, v) -> evalStore st e addr v |> st.NextStmt
-  | Jmp target -> evalJmp st target
-  | CJmp (cond, t, f) -> evalCJmp st cond t f
-  | InterJmp (target, InterJmpKind.SwitchToARM) ->
+  | Put (_, Undefined _, _) -> st.NextStmt ()
+  | Put (lhs, rhs, _) -> evalPut st lhs rhs |> st.NextStmt
+  | Store (e, addr, v, _) -> evalStore st e addr v |> st.NextStmt
+  | Jmp (target, _) -> evalJmp st target
+  | CJmp (cond, t, f, _) -> evalCJmp st cond t f
+  | InterJmp (target, InterJmpKind.SwitchToARM, _) ->
     st.Mode <- ArchOperationMode.ARMMode
     evalPCUpdate st target |> st.AbortInstr
-  | InterJmp (target, InterJmpKind.SwitchToThumb) ->
+  | InterJmp (target, InterJmpKind.SwitchToThumb, _) ->
     st.Mode <- ArchOperationMode.ThumbMode
     evalPCUpdate st target |> st.AbortInstr
-  | InterJmp (target, _) ->
+  | InterJmp (target, _, _) ->
     evalPCUpdate st target |> st.AbortInstr
-  | InterCJmp (c, t, f) -> evalIntCJmp st c t f |> st.AbortInstr
-  | ExternalCall (args) ->
+  | InterCJmp (c, t, f, _) -> evalIntCJmp st c t f |> st.AbortInstr
+  | ExternalCall (args, _) ->
     st.OnExternalCall (evalArgs st args) st |> st.NextStmt
-  | SideEffect eff -> st.OnSideEffect eff st
+  | SideEffect (eff, _) -> st.OnSideEffect eff st
 
 let internal tryEvaluate stmt st =
   try evalStmt st stmt with

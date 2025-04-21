@@ -32,7 +32,6 @@ let tr = BitVector.One 1<rt>
 
 let rec uncurryArgs acc args =
   match args with
-  | { E = BinOp (BinOpType.CONS, _, arg, { E = Nil }) } -> arg :: acc
-  | { E = BinOp (BinOpType.CONS, _, arg, cons) } ->
-    uncurryArgs (arg :: acc) cons
+  | BinOp (BinOpType.CONS, _, arg, Nil, _) -> arg :: acc
+  | BinOp (BinOpType.CONS, _, arg, cons, _) -> uncurryArgs (arg :: acc) cons
   | _ -> Terminator.impossible ()

@@ -37,9 +37,9 @@ type EVMRegisterFactory () =
 
   override _.GetGeneralRegExprs () = Terminator.futureFeature ()
 
-  override _.RegIDFromRegExpr (e) =
-    match e.E with
-    | Var (_, id, _) -> id
+  override _.RegIDFromRegExpr e =
+    match e with
+    | Var (_, id, _, _) -> id
     | PCVar _ -> Register.toRegID Register.PC
     | _ -> raise InvalidRegisterException
 

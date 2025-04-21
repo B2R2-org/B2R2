@@ -78,8 +78,8 @@ type ARM64RegisterFactory (r: RegExprs) =
       r.N; r.Z; r.C ]
 
   override _.RegIDFromRegExpr (e) =
-    match e.E with
-    | Var (_, id, _) -> id
+    match e with
+    | Var (_, id, _, _) -> id
     | PCVar _ -> Register.toRegID PC
     | _ -> raise InvalidRegisterException
 

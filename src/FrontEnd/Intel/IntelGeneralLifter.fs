@@ -73,12 +73,12 @@ let private auxPush oprSize ctxt expr ir =
   !!ir (AST.loadLE oprSize sp := expr)
 
 let private computePopSize oprSize = function
-  | Var (_, id, _) when isSegReg (Register.ofRegID id) -> 16<rt>
+  | Var (_, id, _, _) when isSegReg (Register.ofRegID id) -> 16<rt>
   | _ -> oprSize
 
 let private auxPop oprSize ctxt dst ir =
   let sp = getStackPtr ctxt
-  !!ir (dst := AST.loadLE (computePopSize oprSize dst.E) sp)
+  !!ir (dst := AST.loadLE (computePopSize oprSize dst) sp)
   !!ir (sp := sp .+ (getStackWidth ctxt.WordBitSize oprSize))
 
 let private maskOffset offset oprSize =
@@ -91,11 +91,11 @@ let private maskOffset offset oprSize =
 
 let rec private isVar = function
   | Var _ | TempVar _ -> true
-  | Extract (e, _, _) -> isVar e.E
+  | Extract (e, _, _, _) -> isVar e
   | _ -> false
 
 let private calculateOffset offset oprSize =
-  match offset.E with
+  match offset with
   | Num _ ->
     numU32 0u oprSize , maskOffset offset oprSize
   | _ ->
@@ -613,15 +613,16 @@ let bswap (ins: InsInfo) insLen ctxt =
   !>ir insLen
 
 let private bit ins bitBase bitOffset oprSize =
-  match bitBase.E with
-  | Load (e, t, expr) ->
+  match bitBase with
+  | Load (e, t, expr, _) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
     AST.xtlo 1<rt> ((AST.load e t (expr .+ addrOffset)) >> bitOffset)
-  | _ -> if isVar bitBase.E
-         then AST.xtlo 1<rt> (bitBase >> maskOffset bitOffset oprSize)
-         else raise InvalidExprException
+  | _ ->
+    if isVar bitBase then
+      AST.xtlo 1<rt> (bitBase >> maskOffset bitOffset oprSize)
+    else raise InvalidExprException
 
 let bt (ins: InsInfo) insLen ctxt =
   let ir = !*ctxt
@@ -643,8 +644,8 @@ let bt (ins: InsInfo) insLen ctxt =
   !>ir insLen
 
 let private setBit ins bitBase bitOffset oprSize setValue =
-  match bitBase.E with
-  | Load (e, t, expr) ->
+  match bitBase with
+  | Load (e, t, expr, _) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
@@ -653,7 +654,7 @@ let private setBit ins bitBase bitOffset oprSize setValue =
     let loadMem = AST.load e t (expr .+ addrOffset)
     loadMem := (loadMem .& (getMask oprSize .- bit)) .| mask
   | _ ->
-    if isVar bitBase.E then
+    if isVar bitBase then
       let mask = setValue << maskOffset bitOffset oprSize
       let bit = (AST.zext oprSize AST.b1) << maskOffset bitOffset oprSize
       dstAssign oprSize bitBase ((bitBase .& (getMask oprSize .- bit)) .| mask)
@@ -987,8 +988,8 @@ let cmpxchg (ins: InsInfo) insLen ctxt =
 
 let private saveOprMem ir sz expr =
   let t = !+ir sz
-  match expr.E with
-  | Load (e, rt, expr) ->
+  match expr with
+  | Load (e, rt, expr, _) ->
     !!ir (t := AST.zext sz expr)
     AST.load e rt t
   | _ -> expr
@@ -1684,8 +1685,9 @@ let inc (ins: InsInfo) insLen ctxt =
 let interrupt ins insLen ctxt =
   let ir = !*ctxt
   match transOneOpr ir ins insLen ctxt with
-  | { E = Num n } ->
-    Interrupt (BitVector.ToInt32 n) |> sideEffects ctxt ins insLen
+  | Num (n, _) ->
+    Interrupt (BitVector.ToInt32 n)
+    |> sideEffects ctxt ins insLen
   | _ -> raise InvalidOperandException
 
 let private getCondOfJcc (ins: IntelInternalInstruction)
@@ -1821,7 +1823,7 @@ let jmp (ins: InsInfo) insLen ctxt =
   !>ir insLen
 
 let private convertSrc = function
-  | Load (_, _, expr) -> expr
+  | Load (_, _, expr, _) -> expr
   | _ -> Terminator.impossible ()
 
 let lahf (ins: InsInfo) insLen ctxt =
@@ -1861,7 +1863,7 @@ let lea (ins: InsInfo) insLen ctxt =
   !<ir ins.Address insLen
   let struct (dst, src) = transTwoOprs ir false ins insLen ctxt
   let oprSize = getOperationSize ins
-  let src = convertSrc src.E
+  let src = convertSrc src
   let addrSize = getEffAddrSz ins
   !!ir
     (match oprSize, addrSize with
@@ -2366,8 +2368,8 @@ let popf ins insLen ctxt =
   !>ir insLen
 
 let inline private padPushExpr oprSize opr =
-  match opr.E with
-  | Var (_, s, _) ->
+  match opr with
+  | Var (_, s, _, _) ->
     if isSegReg <| Register.ofRegID s then AST.zext oprSize opr
     else opr
   | Num (_) -> AST.sext oprSize opr

@@ -68,29 +68,27 @@ let inline getImmValue imm =
   | _ -> raise InvalidOperandException
 
 let inline isConst (e: Expr) =
-  match e.E with
+  match e with
   | Num _ -> true
   | _ -> false
 
 let private getMemExpr128 expr =
-  match expr.E with
-  | Load (e, 128<rt>, { E = BinOp (BinOpType.ADD, _, b, { E = Num n }) })
-  | Load (e, 128<rt>, { E = BinOp (BinOpType.ADD, _, { E = Num n }, b) })
-    ->
+  match expr with
+  | Load (e, 128<rt>, BinOp (BinOpType.ADD, _, b, Num (n, _), _), _)
+  | Load (e, 128<rt>, BinOp (BinOpType.ADD, _, Num (n, _), b, _), _) ->
     let off1 = AST.num n
     let off2 = BitVector.Add (n, BitVector.OfInt32 8 n.Length) |> AST.num
     AST.load e 64<rt> (b .+ off2),
     AST.load e 64<rt> (b .+ off1)
-  | Load (e, 128<rt>, expr) ->
+  | Load (e, 128<rt>, expr, _) ->
     AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> expr
   | _ -> raise InvalidOperandException
 
 let private getMemExpr256 expr =
-  match expr.E with
-  | Load (e, 256<rt>, { E = BinOp (BinOpType.ADD, _, b, { E = Num n }) })
-  | Load (e, 256<rt>, { E = BinOp (BinOpType.ADD, _, { E = Num n }, b) })
-    ->
+  match expr with
+  | Load (e, 256<rt>, BinOp (BinOpType.ADD, _, b, Num (n, _), _), _)
+  | Load (e, 256<rt>, BinOp (BinOpType.ADD, _, Num (n, _), b, _), _) ->
     let off1 = AST.num n
     let off2 = BitVector.Add (n, BitVector.OfInt32 8 n.Length) |> AST.num
     let off3 = BitVector.Add (n, BitVector.OfInt32 16 n.Length) |> AST.num
@@ -99,7 +97,7 @@ let private getMemExpr256 expr =
     AST.load e 64<rt> (b .+ off3),
     AST.load e 64<rt> (b .+ off2),
     AST.load e 64<rt> (b .+ off1)
-  | Load (e, 256<rt>, expr) ->
+  | Load (e, 256<rt>, expr, _) ->
     AST.load e 64<rt> (expr .+ numI32 24 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> (expr .+ numI32 16 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr)),
@@ -107,10 +105,9 @@ let private getMemExpr256 expr =
   | _ -> raise InvalidOperandException
 
 let private getMemExpr512 expr =
-  match expr.E with
-  | Load (e, 512<rt>, { E = BinOp (BinOpType.ADD, _, b, { E = Num n }) })
-  | Load (e, 512<rt>, { E = BinOp (BinOpType.ADD, _, { E = Num n }, b) })
-    ->
+  match expr with
+  | Load (e, 512<rt>, BinOp (BinOpType.ADD, _, b, Num (n, _), _), _)
+  | Load (e, 512<rt>, BinOp (BinOpType.ADD, _, Num (n, _), b, _), _) ->
     let off1 = AST.num n
     let off2 = BitVector.Add (n, BitVector.OfInt32 8 n.Length) |> AST.num
     let off3 = BitVector.Add (n, BitVector.OfInt32 16 n.Length) |> AST.num
@@ -127,7 +124,7 @@ let private getMemExpr512 expr =
     AST.load e 64<rt> (b .+ off3),
     AST.load e 64<rt> (b .+ off2),
     AST.load e 64<rt> (b .+ off1)
-  | Load (e, 512<rt>, expr) ->
+  | Load (e, 512<rt>, expr, _) ->
     AST.load e 64<rt> (expr .+ numI32 56 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> (expr .+ numI32 48 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> (expr .+ numI32 40 (TypeCheck.typeOf expr)),
@@ -139,16 +136,16 @@ let private getMemExpr512 expr =
   | _ -> raise InvalidOperandException
 
 let private getMemExprs expr =
-  match expr.E with
-  | Load (e, 128<rt>, expr) ->
+  match expr with
+  | Load (e, 128<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
       AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr)) ]
-  | Load (e, 256<rt>, expr) ->
+  | Load (e, 256<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
       AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr))
       AST.load e 64<rt> (expr .+ numI32 16 (TypeCheck.typeOf expr))
       AST.load e 64<rt> (expr .+ numI32 24 (TypeCheck.typeOf expr)) ]
-  | Load (e, 512<rt>, expr) ->
+  | Load (e, 512<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
       AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr))
       AST.load e 64<rt> (expr .+ numI32 16 (TypeCheck.typeOf expr))
@@ -526,8 +523,8 @@ let transOneOpr ir (ins: InsInfo) insLen ctxt =
 
 let transReg ir useTmpVar expr =
   if useTmpVar then
-    match expr.E with
-    | Extract (_, rt, _) ->
+    match expr with
+    | Extract (_, rt, _, _) ->
       let t = !+ir rt
       !!ir (t := expr)
       t
@@ -572,11 +569,14 @@ let dstAssign oprSize dst src =
 
 /// For x87 FPU Top register or x87 FPU Tag word sections.
 let extractDstAssign e1 e2 =
-  match e1.E with
-  | Extract ({ E = BinOp (BinOpType.SHR, 16<rt>,
-    { E = BinOp (BinOpType.AND, 16<rt>,
-      ({ E = Var (16<rt>, rId, _) } as e1), mask) }, amt) }, 8<rt>, 0)
-    when int rId = 0x4F (* FSW *) || int rId = 0x50 (* FTW *) ->
+  match e1 with
+  | Extract (BinOp (BinOpType.SHR, 16<rt>,
+                    BinOp (BinOpType.AND, 16<rt>,
+                           (Var (16<rt>, rId, _, _) as e1),
+                           mask, _),
+                    amt, _),
+             8<rt>, 0, _) when int rId = 0x4F (* FSW *)
+                            || int rId = 0x50 (* FTW *) ->
     e1 := (e1 .& (AST.not mask)) .| (((AST.zext 16<rt> e2) << amt) .& mask)
   | e -> printfn "%A" e; raise InvalidAssignmentException
 
@@ -590,8 +590,8 @@ let maxNum rt =
   |> AST.num
 
 let castNum newType e =
-  match e.E with
-  | Num n -> BitVector.Cast (n, newType) |> AST.num
+  match e with
+  | Num (n, _) -> BitVector.Cast (n, newType) |> AST.num
   | _ -> raise InvalidOperandException
 
 let getMask oprSize =
@@ -632,8 +632,8 @@ let buildAF ctxt e1 e2 r size =
   !.ctxt R.AF := t4 == t3
 
 let isExprZero e =
-  match e.E with
-  | Num bv when bv.IsZero () -> true
+  match e with
+  | Num (bv, _) when bv.IsZero () -> true
   | _ -> false
 
 let buildPF ctxt r size cond ir =

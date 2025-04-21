@@ -508,8 +508,8 @@ let private cmppCond ir ins insLen ctxt op3 isDbl c expr1 expr2 =
   let imm =
     transOprToExpr ir false ins insLen ctxt op3 |> AST.xtlo 8<rt>
     .& numI32 0x7 8<rt>
-  match imm.E with
-  | Num bv ->
+  match imm with
+  | Num (bv, _) ->
     match bv.SmallValue () with
     | 0UL -> !!ir (c := expr1 == expr2)
     | 1UL -> !!ir (c := AST.flt expr1 expr2)
@@ -1920,21 +1920,24 @@ and Return =
   | Mask
 
 let private getPcmpstrInfo opCode (imm: Expr) =
-  let immByte = match imm.E with
-                | Num n -> BitVector.GetValue n
-                | _ -> raise InvalidExprException
-  let agg = match (immByte >>> 2) &&& 3I with
-            | v when v = 0I -> EqualAny
-            | v when v = 1I -> Ranges
-            | v when v = 2I -> EqualEach
-            | v when v = 3I -> EqualOrdered
-            | _ -> Terminator.impossible ()
-  let pol = match (immByte >>> 4) &&& 3I with
-            | v when v = 0I -> PosPolarity
-            | v when v = 1I -> NegPolarity
-            | v when v = 2I -> PosMasked
-            | v when v = 3I -> NegMasked
-            | _ -> Terminator.impossible ()
+  let immByte =
+    match imm with
+    | Num (n, _) -> BitVector.GetValue n
+    | _ -> raise InvalidExprException
+  let agg =
+    match (immByte >>> 2) &&& 3I with
+    | v when v = 0I -> EqualAny
+    | v when v = 1I -> Ranges
+    | v when v = 2I -> EqualEach
+    | v when v = 3I -> EqualOrdered
+    | _ -> Terminator.impossible ()
+  let pol =
+    match (immByte >>> 4) &&& 3I with
+    | v when v = 0I -> PosPolarity
+    | v when v = 1I -> NegPolarity
+    | v when v = 2I -> PosMasked
+    | v when v = 3I -> NegMasked
+    | _ -> Terminator.impossible ()
   let size, nElem = if immByte &&& 1I = 0I then 8<rt>, 16u else 16<rt>, 8u
   let len, ret =
     match opCode with

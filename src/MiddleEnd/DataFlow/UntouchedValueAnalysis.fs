@@ -56,18 +56,18 @@ type UntouchedValueAnalysis =
       | true, defVp -> state.DomainSubState.GetAbsValue defVp
 
     let rec evaluateExpr state pp e =
-      match e.E with
+      match e with
       | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
-      | Load (_, _, addr) ->
+      | Load (_, _, addr, _) ->
         match state.StackPointerSubState.EvalExpr pp addr with
         | StackPointerDomain.ConstSP bv ->
           let addr = BitVector.ToUInt64 bv
           let offset = VarBasedDataFlowState<_>.ToFrameOffset addr
           evaluateVarPoint state pp (StackLocal offset)
         | _ -> UntouchedValueDomain.Touched
-      | Extract (e, _, _)
-      | Cast (CastKind.ZeroExt, _, e)
-      | Cast (CastKind.SignExt, _, e) -> evaluateExpr state pp e
+      | Extract (e, _, _, _)
+      | Cast (CastKind.ZeroExt, _, e, _)
+      | Cast (CastKind.SignExt, _, e, _) -> evaluateExpr state pp e
       | _ -> UntouchedValueDomain.Touched
 
     let analysis =

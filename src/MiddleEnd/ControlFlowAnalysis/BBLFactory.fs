@@ -93,7 +93,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
 
   let hasProperISMark (stmts: Stmt array) =
     match stmts[0] with
-    | { S = ISMark _ } -> true
+    | ISMark _ -> true
     | _ -> false
 
   /// The given list is reversed, so we fill the array in reverse order.
@@ -124,15 +124,15 @@ type BBLFactory (hdl: BinHandle, instrs) =
       if hasIntraFlow then intraLeaders.AddLast ((i, 0)) |> ignore else ()
       hasIntraFlow <- false
       for j = 0 to liftedIns.Stmts.Length - 1 do
-        match liftedIns.Stmts[j].S with
-        | LMark label ->
+        match liftedIns.Stmts[j] with
+        | LMark (label, _) ->
           let insAddr = liftedIns.Original.Address
           lblMap[label] <- ProgramPoint (insAddr, j)
           intraLeaders.AddLast ((i, j)) |> ignore
           hasIntraFlow <- true
-        | InterJmp ({ E = PCVar _ }, InterJmpKind.Base)
-        | InterCJmp (_, { E = PCVar _ }, _)
-        | InterCJmp (_, _, { E = PCVar _ }) ->
+        | InterJmp (PCVar _, InterJmpKind.Base, _)
+        | InterCJmp (_, PCVar _, _, _)
+        | InterCJmp (_, _, PCVar _, _) ->
           (* JMP PC means that the instruction jumps to itself. *)
           if i = 0 then () (* Ignore if it is the first lifted instruction. *)
           else addLeaderHead intraLeaders intraLeaders.Last i
@@ -161,14 +161,14 @@ type BBLFactory (hdl: BinHandle, instrs) =
       r
 
   let rec extractLabelInfo (lblMap: Dictionary<_, _>) liftedIns insAddr ndx =
-    match liftedIns.Stmts[ndx].S with
+    match liftedIns.Stmts[ndx] with
     | IEMark _ -> extractLabelInfo lblMap liftedIns insAddr (ndx - 1)
-    | Jmp { E = JmpDest label } -> [ KeyValuePair (label, lblMap[label]) ]
-    | CJmp (_, { E = JmpDest label1 }, { E = JmpDest label2 }) ->
+    | Jmp (JmpDest (label, _), _) -> [ KeyValuePair (label, lblMap[label]) ]
+    | CJmp (_, JmpDest (label1, _), JmpDest (label2, _), _) ->
       [ KeyValuePair (label1, lblMap[label1])
         KeyValuePair (label2, lblMap[label2]) ]
-    | CJmp (_, { E = JmpDest label }, _)
-    | CJmp (_, _, { E = JmpDest label }) ->
+    | CJmp (_, JmpDest (label, _), _, _)
+    | CJmp (_, _, JmpDest (label, _), _) ->
       [ KeyValuePair (label, lblMap[label]) ]
     | _ -> []
 

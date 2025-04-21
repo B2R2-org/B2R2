@@ -56,9 +56,9 @@ type PARISC64RegisterFactory (wordSize, r: RegExprs) =
       r.GR18;r.GR19; r.GR20; r.GR21; r.GR22; r.GR23; r.GR24; r.GR25; r.GR26
       r.GR27; r.GR28; r.GR29; r.GR30; r.GR31 ]
 
-  override _.RegIDFromRegExpr (e) =
-    match e.E with
-    | Var (_, id, _) -> id
+  override _.RegIDFromRegExpr e =
+    match e with
+    | Var (_, id, _, _) -> id
     | PCVar _ -> Register.toRegID Register.CR18
     | _ -> raise InvalidRegisterException
 

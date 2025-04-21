@@ -111,17 +111,17 @@ type VarBasedDataFlowState<'Lattice>
     | true, defVp -> spGetAbsValue defVp
 
   let rec spEvaluateExpr pp (e: Expr) =
-    match e.E with
-    | Num bv -> StackPointerDomain.ConstSP bv
+    match e with
+    | Num (bv, _) -> StackPointerDomain.ConstSP bv
     | Var _ | TempVar _ -> spEvaluateVar (VarKind.ofIRExpr e) pp
-    | Load (_, _, addr) ->
+    | Load (_, _, addr, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
         let offset =
           BitVector.ToUInt64 bv |> VarBasedDataFlowState<_>.ToFrameOffset
         spEvaluateVar (StackLocal offset) pp
       | c -> c
-    | BinOp (binOpType, _, e1, e2) ->
+    | BinOp (binOpType, _, e1, e2, _) ->
       let v1 = spEvaluateExpr pp e1
       let v2 = spEvaluateExpr pp e2
       match binOpType with
@@ -203,16 +203,16 @@ type VarBasedDataFlowState<'Lattice>
 
   /// Translates an IR expression to its SSA expression.
   let rec translateToSSAExpr (pp: ProgramPoint) e =
-    match e.E with
-    | Num bv -> SSA.Num bv
-    | PCVar (rt, _) ->
+    match e with
+    | Num (bv, _) -> SSA.Num bv
+    | PCVar (rt, _, _) ->
       assert (Option.isNone pp.CallSite)
       SSA.Num <| BitVector.OfUInt64 pp.Address rt
     | Var _ | TempVar _ ->
       let vk = VarKind.ofIRExpr e
       let ssaVar = getSSAVarFromUse pp vk
       SSA.Var ssaVar
-    | Load (_, rt, addr) ->
+    | Load (_, rt, addr, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
         let offset =
@@ -224,29 +224,29 @@ type VarBasedDataFlowState<'Lattice>
         let emptyMemVar = mkEmptySSAVar (Memory None)
         let e = translateToSSAExpr pp addr
         SSA.Load (emptyMemVar, rt, e)
-    | BinOp (binOpType, rt, e1, e2) ->
+    | BinOp (binOpType, rt, e1, e2, _) ->
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
       SSA.BinOp (binOpType, rt, e1, e2)
-    | RelOp (relOpType, e1, e2) ->
+    | RelOp (relOpType, e1, e2, _) ->
       let rt = TypeCheck.typeOf e1
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
       SSA.RelOp (relOpType, rt, e1, e2)
-    | Extract (e, rt, startPos) ->
+    | Extract (e, rt, startPos, _) ->
       let e = translateToSSAExpr pp e
       SSA.Extract (e, rt, startPos)
-    | UnOp (unOpType, e) ->
+    | UnOp (unOpType, e, _) ->
       let rt = TypeCheck.typeOf e
       let e = translateToSSAExpr pp e
       SSA.UnOp (unOpType, rt, e)
-    | Cast (castKind, rt, e) ->
+    | Cast (castKind, rt, e, _) ->
       let e = translateToSSAExpr pp e
       SSA.Cast (castKind, rt, e)
-    | FuncName s -> SSA.FuncName s
+    | FuncName (s, _) -> SSA.FuncName s
     | Nil -> SSA.Nil
-    | Undefined (rt, s) -> SSA.Undefined (rt, s)
-    | Ite (e1, e2, e3) ->
+    | Undefined (rt, s, _) -> SSA.Undefined (rt, s)
+    | Ite (e1, e2, e3, _) ->
       let rt = TypeCheck.typeOf e2
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
@@ -255,21 +255,21 @@ type VarBasedDataFlowState<'Lattice>
     | _ -> Terminator.impossible ()
 
   let translateLabel addr = function
-    | JmpDest lbl -> lbl
-    | Undefined (_, s) -> AST.label s -1 addr
+    | JmpDest (lbl, _) -> lbl
+    | Undefined (_, s, _) -> AST.label s -1 addr
     | _ -> raise InvalidExprException
 
   /// Translate a ordinary IR statement to an SSA statement. It returns a dummy
   /// exception statement if the given IR statement is invalid.
   let translateToSSAStmt pp stmt =
-    match stmt.S with
-    | Put (dst, src) ->
+    match stmt with
+    | Put (dst, src, _) ->
       let vk = VarKind.ofIRExpr dst
       let vp = { ProgramPoint = pp; VarKind = vk }
       let v = getSSAVar vp
       let e = translateToSSAExpr pp src
       SSA.Def (v, e)
-    | Store (_, addr, value) ->
+    | Store (_, addr, value, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
         let offset =
@@ -287,23 +287,23 @@ type VarBasedDataFlowState<'Lattice>
         let e2 = translateToSSAExpr pp value
         let e = SSA.Store (prevMemVar, rt, e1, e2)
         SSA.Def (newMemVar, e)
-    | Jmp (expr) ->
+    | Jmp (expr, _) ->
       let addr = 0x0UL (* use dummy address for simplicity *)
-      let label = translateLabel addr expr.E
+      let label = translateLabel addr expr
       let e = SSA.IntraJmp label
       SSA.Jmp e
-    | CJmp (expr, label1, label2) ->
+    | CJmp (expr, label1, label2, _) ->
       let addr = 0x0UL (* use dummy address for simplicity *)
       let expr = translateToSSAExpr pp expr
-      let label1 = translateLabel addr label1.E
-      let label2 = translateLabel addr label2.E
+      let label1 = translateLabel addr label1
+      let label2 = translateLabel addr label2
       let e = SSA.IntraCJmp (expr, label1, label2)
       SSA.Jmp e
-    | InterJmp (expr, _) ->
+    | InterJmp (expr, _, _) ->
       let expr = translateToSSAExpr pp expr
       let e = SSA.InterJmp (expr)
       SSA.Jmp e
-    | InterCJmp (expr1, expr2, expr3) ->
+    | InterCJmp (expr1, expr2, expr3, _) ->
       let expr1 = translateToSSAExpr pp expr1
       let expr2 = translateToSSAExpr pp expr2
       let expr3 = translateToSSAExpr pp expr3

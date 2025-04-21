@@ -31,6 +31,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel
 
 #if !EMULATION
+#if !HASHCONS
 [<TestClass>]
 type IntelLifterTests () =
   let test ctxt wordSize (expectedStmts: string[]) (bytes: byte[]) =
@@ -89,4 +90,5 @@ type IntelLifterTests () =
           "T_6:I32 := ((T_5:I32 >> 0x2:I32) ^ T_5:I32)"
           "PF := (~ (((T_6:I32 >> 0x1:I32) ^ T_6:I32)[0:0]))"
           "} // 5" |]
+#endif
 #endif

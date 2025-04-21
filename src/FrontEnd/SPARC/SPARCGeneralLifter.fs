@@ -3364,9 +3364,9 @@ let popc ins insLen ctxt =
   let oprSize = 64<rt>
   let max = numI32 (RegType.toBitWidth oprSize) 64<rt>
   let ir = IRBuilder (16)
-  let lblLoop = ir.NewSymbol "Loop"
-  let lblExit = ir.NewSymbol "Exit"
-  let lblLoopCond = ir.NewSymbol "LoopCond"
+  let lblLoop = ir.NewLabel "Loop"
+  let lblExit = ir.NewLabel "Exit"
+  let lblLoopCond = ir.NewLabel "LoopCond"
   let struct (i, count) = tmpVars2 ir oprSize
   !<ir ins.Address insLen
   !!ir (i := AST.num0 oprSize)

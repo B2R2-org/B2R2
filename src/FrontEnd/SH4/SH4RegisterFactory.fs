@@ -43,9 +43,9 @@ type SH4RegisterFactory (r: RegExprs) =
     [ r.R0; r.R1; r.R2; r.R3; r.R4; r.R5; r.R6; r.R7; r.R8; r.R9; r.R10; r.R11
       r.R12; r.R13; r.R14; r.R15 ]
 
-  override _.RegIDFromRegExpr (e) =
-    match e.E with
-    | Var (_, id, _) -> id
+  override _.RegIDFromRegExpr e =
+    match e with
+    | Var (_, id, _, _) -> id
     | PCVar (_) -> Register.toRegID Register.PC
     | _ -> raise InvalidRegisterException
 

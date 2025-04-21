@@ -28,13 +28,13 @@ module B2R2.BinIR.LowUIR.Pp
 open System
 open System.Text
 
-let expToString = Expr.toString
+let expToString = Expr.ToString
 
-let stmtToString = Stmt.toString
+let stmtToString = Stmt.ToString
 
 let stmtsToString stmts =
   let sb = StringBuilder()
   Array.iter (fun stmt ->
-    Stmt.appendToString stmt sb
+    Stmt.AppendToString stmt sb
     sb.Append (Environment.NewLine) |> ignore) stmts
   sb.ToString ()

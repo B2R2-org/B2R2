@@ -93,14 +93,3 @@ module internal ValueOptimizer =
     | _ -> Terminator.impossible ()
 
   let inline extract e t pos = BitVector.Extract (e, t, pos)
-
-#if ! HASHCONS
-[<RequireQualifiedAccess>]
-module internal ASTHelper =
-  let inline buildExpr e =
-    { E = e }
-
-  let inline buildStmt s =
-    { S = s }
-#endif
-

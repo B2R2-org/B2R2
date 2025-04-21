@@ -50,9 +50,9 @@ type MIPSRegisterFactory (wordSize, r: RegExprs) =
       r.R19; r.R20; r.R21; r.R22; r.R23; r.R24; r.R25; r.R26; r.R27; r.R28;
       r.R29; r.R30; r.R31 ]
 
-  override _.RegIDFromRegExpr (e) =
-    match e.E with
-    | Var (_, id, _) -> id
+  override _.RegIDFromRegExpr e =
+    match e with
+    | Var (_, id, _, _) -> id
     | PCVar _ -> Register.toRegID Register.PC
     | _ -> raise InvalidRegisterException
 

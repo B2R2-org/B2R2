@@ -49,9 +49,9 @@ type RISCV64RegisterFactory (wordSize, r: RegExprs) =
       r.X12; r.X13; r.X14; r.X15; r.X16; r.X17; r.X18; r.X19; r.X20; r.X21
       r.X22; r.X23; r.X24; r.X25; r.X26; r.X27; r.X28; r.X29; r.X30; r.X31 ]
 
-  override _.RegIDFromRegExpr (e) =
-    match e.E with
-    | Var (_, id, _) -> id
+  override _.RegIDFromRegExpr e =
+    match e with
+    | Var (_, id, _, _) -> id
     | PCVar (_) -> Register.toRegID Register.PC
     | _ -> raise InvalidRegisterException
 

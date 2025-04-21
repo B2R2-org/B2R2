@@ -65,15 +65,11 @@ type SideEffect =
   | FlagsUpdate
 #endif
 
-/// <summary>
-/// Provides functions to access <see cref='T:B2R2.BinIR.SideEffect'/>.
-/// </summary>
-[<RequireQualifiedAccess>]
-module SideEffect =
   /// <summary>
   /// Retrieves the string representation of the side effect.
   /// </summary>
-  let toString = function
+  static member ToString sideEffect =
+    match sideEffect with
     | Breakpoint -> "Breakpoint"
     | ClockCounter -> "CLK"
     | Fence -> "Fence"

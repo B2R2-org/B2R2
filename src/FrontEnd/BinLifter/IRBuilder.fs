@@ -55,9 +55,9 @@ type IRBuilder =
     AST.tmpvar rt this.TempVarCount
 
   /// <summary>
-  ///   Create a new symbol for a label.
+  ///   Create a new label.
   /// </summary>
-  member inline this.NewSymbol name =
+  member inline this.NewLabel name =
     this.LabelCount <- this.LabelCount + 1
     AST.label name this.LabelCount this.InsAddress
 

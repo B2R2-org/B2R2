@@ -49,9 +49,9 @@ and VarKind =
 
 module VarKind =
   let ofIRExpr (e: LowUIR.Expr) =
-    match e.E with
-    | LowUIR.Var (_, rid, _) -> Regular rid
-    | LowUIR.TempVar (_, n) -> Temporary n
+    match e with
+    | LowUIR.Var (_, rid, _, _) -> Regular rid
+    | LowUIR.TempVar (_, n, _) -> Temporary n
     | _ -> Terminator.impossible ()
 
   let ofSSAVarKind (kind: SSA.VariableKind) =
