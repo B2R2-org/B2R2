@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.BinGraph.Tests
 
+open System.Diagnostics
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinGraph.Dominance
@@ -43,8 +44,8 @@ type DominanceFrontierAlgorithm =
 
 [<TestClass>]
 type DominanceTests () =
-  let instantiate g domAlgo dfAlgo iStrat =
-    match domAlgo, dfAlgo, iStrat with
+  let instantiate g domAlgo dfAlgo algo =
+    match domAlgo, dfAlgo, algo with
     | DomIterative, DFCytron, _ ->
       IterativeDominance.create g (CytronDominanceFrontier ())
     | DomIterative, DFCooper, _ ->
@@ -65,12 +66,12 @@ type DominanceTests () =
       CooperDominance.create g (CytronDominanceFrontier ())
     | DomCooper, DFCooper, _ ->
       CooperDominance.create g (CooperDominanceFrontier ())
-    | DBS, DFCytron, Some strategy ->
-      DepthBasedSearchDominance.create g (CytronDominanceFrontier ()) strategy
-    | DBS, DFCooper, Some strategy ->
-      DepthBasedSearchDominance.create g (CooperDominanceFrontier ()) strategy
+    | DBS, DFCytron, Some sAlgo ->
+      DepthBasedSearchDominance.create g (CytronDominanceFrontier ()) sAlgo
+    | DBS, DFCooper, Some sAlgo ->
+      DepthBasedSearchDominance.create g (CooperDominanceFrontier ()) sAlgo
     | _ ->
-      failwithf "Invalid test: %A, %A, %A" domAlgo dfAlgo iStrat
+      failwithf "Invalid test: %A, %A, %A" domAlgo dfAlgo algo
 
   let getDominators dom g i =
     (g: IDiGraph<_, _>).FindVertexByData i
@@ -114,13 +115,13 @@ type DominanceTests () =
        [| box Imperative; box DomCooper; box DFCytron; box None |]
        [| box Imperative; box DomCooper; box DFCooper; box None |]
        [| box Persistent; box DBS; box DFCytron;
-          box (Some DepthBasedSearchDominance.DynamicInit) |]
+          box (Some DepthBasedSearchDominance.SemiNCA) |]
        [| box Persistent; box DBS; box DFCooper;
-          box (Some DepthBasedSearchDominance.DynamicInit) |]
+          box (Some DepthBasedSearchDominance.SemiNCA) |]
        [| box Imperative; box DBS; box DFCytron;
-          box (Some DepthBasedSearchDominance.DynamicInit) |]
+          box (Some DepthBasedSearchDominance.SemiNCA) |]
        [| box Imperative; box DBS; box DFCooper;
-          box (Some DepthBasedSearchDominance.DynamicInit) |] |]
+          box (Some DepthBasedSearchDominance.SemiNCA) |] |]
 
   static member ComparisonData =
     [| [| box DomLengauer
@@ -161,22 +162,22 @@ type DominanceTests () =
           box None |]
        [| box DBS
           box "99_objdump_clang_m32_O1_80b18d0.json"
-          box (Some DepthBasedSearchDominance.DynamicInit) |]
+          box (Some DepthBasedSearchDominance.SemiNCA) |]
        [| box DBS
           box "499_gcc_base.amd64-m32-ccr-Ofast_clang_m32_Of_81428e0.json"
-          box (Some DepthBasedSearchDominance.DynamicInit) |]
+          box (Some DepthBasedSearchDominance.SemiNCA) |]
        [| box DBS
           box "854_binutils-2.31.1_x86_gcc_nopie_o3_as-new_808b4e0.json"
-          box (Some DepthBasedSearchDominance.DynamicInit) |]
+          box (Some DepthBasedSearchDominance.SemiNCA) |]
        [| box DBS
           box "4152_find_clang_O0_433cd0.json"
-          box (Some DepthBasedSearchDominance.DynamicInit) |] |]
+          box (Some DepthBasedSearchDominance.SemiNCA) |] |]
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Dominator Test 1`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Dominator Test 1`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph1 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
@@ -192,9 +193,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominators Test 1`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominators Test 1`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph1 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
@@ -210,9 +211,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominance Frontier Test 1`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominance Frontier Test 1`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph1 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getDominanceFrontier dom g 2
@@ -228,9 +229,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Post-Dominator Test 1`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Post-Dominator Test 1`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph1 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.AreEqual<int> (2, v.VData)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
@@ -246,9 +247,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominators Test 1`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominators Test 1`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph1 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1; 2; 6 ] = pds)
     let pds = getPostDominators dom g 2
@@ -264,9 +265,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominance Frontier Test 1`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominance Frontier Test 1`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph1 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getPostDominanceFrontier dom g 2
@@ -282,9 +283,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Dominator Test 2`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Dominator Test 2`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph2 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
@@ -300,9 +301,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominators Test 2`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominators Test 2`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph2 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
@@ -318,9 +319,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominance Frontier Test 2`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominance Frontier Test 2`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph2 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getDominanceFrontier dom g 2
@@ -336,9 +337,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Post-Dominator Test 2`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Post-Dominator Test 2`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph2 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
@@ -354,9 +355,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominators Test 2`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominators Test 2`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph2 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = pds)
     let pds = getPostDominators dom g 2
@@ -372,9 +373,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominance Frontier Test 2`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominance Frontier Test 2`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph2 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getPostDominanceFrontier dom g 2
@@ -390,9 +391,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Dominator Test 3`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Dominator Test 3`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph3 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
@@ -406,9 +407,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominators Test 3`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominators Test 3`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph3 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
@@ -422,9 +423,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominance Frontier Test 3`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominance Frontier Test 3`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph3 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getDominanceFrontier dom g 2
@@ -438,9 +439,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Post-Dominator Test 3`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Post-Dominator Test 3`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph3 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
@@ -454,9 +455,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominators Test 3`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominators Test 3`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph3 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = pds)
     let pds = getPostDominators dom g 2
@@ -470,9 +471,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominance Frontier Test 3`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominance Frontier Test 3`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph3 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getPostDominanceFrontier dom g 2
@@ -486,9 +487,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Dominator Test 4`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Dominator Test 4`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph4 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
@@ -518,9 +519,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominators Test 4`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominators Test 4`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph4 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
@@ -550,9 +551,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominance Frontier Test 4`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominance Frontier Test 4`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph4 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getDominanceFrontier dom g 2
@@ -582,9 +583,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Post-Dominator Test 4`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Post-Dominator Test 4`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph4 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.AreEqual<int> (13, v.VData)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
@@ -614,9 +615,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominators Test 4`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominators Test 4`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph4 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1; 13 ] = pds)
     let pds = getPostDominators dom g 2
@@ -646,9 +647,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominance Frontier Test 4`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominance Frontier Test 4`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph4 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getPostDominanceFrontier dom g 2
@@ -678,9 +679,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Dominator Test 5`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Dominator Test 5`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph5 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
@@ -696,9 +697,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominators Test 5`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominators Test 5`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph5 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
@@ -714,9 +715,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominance Frontier Test 5`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominance Frontier Test 5`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph5 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = df)
     let df = getDominanceFrontier dom g 2
@@ -732,9 +733,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Post-Dominator Test 5`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Post-Dominator Test 5`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph5 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.AreEqual<int> (6, v.VData)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
@@ -750,9 +751,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominators Test 5`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominators Test 5`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph5 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1; 6 ] = pds)
     let pds = getPostDominators dom g 2
@@ -768,9 +769,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominance Frontier Test 5`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominance Frontier Test 5`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph5 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
     Assert.IsTrue (Set.ofList [ 6 ] = df)
     let df = getPostDominanceFrontier dom g 2
@@ -786,9 +787,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Dominator Test 6`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Dominator Test 6`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph6 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
@@ -838,9 +839,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominators Test 6`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominators Test 6`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph6 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
@@ -890,9 +891,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominance Frontier Test 6`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominance Frontier Test 6`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph6 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getDominanceFrontier dom g 2
@@ -942,9 +943,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Post-Dominator Test 6`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Post-Dominator Test 6`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph6 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
@@ -994,9 +995,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominators Test 6`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominators Test 6`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph6 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = pds)
     let pds = getPostDominators dom g 2
@@ -1046,9 +1047,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominance Frontier Test 6`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominance Frontier Test 6`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph6 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getPostDominanceFrontier dom g 2
@@ -1098,9 +1099,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Dominator Test 7`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Dominator Test 7`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph7 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
@@ -1114,9 +1115,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominators Test 7`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominators Test 7`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph7 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
@@ -1130,9 +1131,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominance Frontier Test 7`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominance Frontier Test 7`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph7 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getDominanceFrontier dom g 2
@@ -1146,9 +1147,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Post-Dominator Test 7`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Post-Dominator Test 7`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph7 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
@@ -1162,9 +1163,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominators Test 7`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominators Test 7`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph7 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = pds)
     let pds = getPostDominators dom g 2
@@ -1178,9 +1179,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominance Frontier Test 7`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominance Frontier Test 7`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph7 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getPostDominanceFrontier dom g 2
@@ -1194,9 +1195,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Dominator Test 8`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Dominator Test 8`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph8 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
@@ -1216,9 +1217,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominators Test 8`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominators Test 8`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph8 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
@@ -1238,9 +1239,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominance Frontier Test 8`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominance Frontier Test 8`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph8 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getDominanceFrontier dom g 2
@@ -1260,9 +1261,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Post-Dominator Test 8`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Post-Dominator Test 8`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph8 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.AreEqual<int> (2, v.VData)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
@@ -1282,9 +1283,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominators Test 8`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominators Test 8`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph8 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1; 2; 3; 4; 5; 6; 7; 8 ] = pds)
     let pds = getPostDominators dom g 2
@@ -1304,9 +1305,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominance Frontier Test 8`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominance Frontier Test 8`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph8 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
     Assert.IsTrue (Set.isEmpty df)
     let df = getPostDominanceFrontier dom g 2
@@ -1326,9 +1327,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Dominator Test 9`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Dominator Test 9`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph9 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
@@ -1348,9 +1349,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominators Test 9`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominators Test 9`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph9 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
@@ -1370,9 +1371,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominance Frontier Test 9`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominance Frontier Test 9`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph9 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = df)
     let df = getDominanceFrontier dom g 2
@@ -1392,9 +1393,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Post-Dominator Test 9`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Post-Dominator Test 9`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph9 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.AreEqual<int> (2, v.VData)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
@@ -1414,9 +1415,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominators Test 9`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominators Test 9`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph9 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1; 2; 6 ] = pds)
     let pds = getPostDominators dom g 2
@@ -1436,9 +1437,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominance Frontier Test 9`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominance Frontier Test 9`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph9 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
     Assert.IsTrue (Set.ofList [ 5 ] = df)
     let df = getPostDominanceFrontier dom g 2
@@ -1458,9 +1459,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Dominator Test 10`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Dominator Test 10`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph10 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
@@ -1470,9 +1471,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominators Test 10`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominators Test 10`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph10 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
@@ -1482,9 +1483,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominance Frontier Test 10`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominance Frontier Test 10`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph10 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = df)
     let df = getDominanceFrontier dom g 2
@@ -1494,9 +1495,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Post-Dominator Test 10`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Post-Dominator Test 10`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph10 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.AreEqual<int> (2, v.VData)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
@@ -1506,9 +1507,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominators Test 10`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominators Test 10`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph10 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1; 2; 3 ] = pds)
     let pds = getPostDominators dom g 2
@@ -1518,9 +1519,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominance Frontier Test 10`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominance Frontier Test 10`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph10 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
     Assert.IsTrue (Set.ofList [ 3 ] = df)
     let df = getPostDominanceFrontier dom g 2
@@ -1530,9 +1531,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Dominator Test 11`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Dominator Test 11`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph11 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsTrue (isNull v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
@@ -1556,9 +1557,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominators Test 11`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominators Test 11`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph11 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = ds)
     let ds = getDominators dom g 2
@@ -1582,9 +1583,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Dominance Frontier Test 11`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Dominance Frontier Test 11`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph11 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
     Assert.IsTrue (Set.ofList [ 1 ] = df)
     let df = getDominanceFrontier dom g 2
@@ -1608,9 +1609,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Immediate Post-Dominator Test 11`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Immediate Post-Dominator Test 11`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph11 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.AreEqual<int> (3, v.VData)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
@@ -1634,9 +1635,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominators Test 11`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominators Test 11`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph11 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
     Assert.IsTrue (Set.ofList [ 1; 3; 4; 7; 8 ] = pds)
     let pds = getPostDominators dom g 2
@@ -1660,9 +1661,9 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
-  member _.``Post-Dominance Frontier Test 11`` (t, domAlgo, dfAlgo, iStrat) =
+  member _.``Post-Dominance Frontier Test 11`` (t, domAlgo, dfAlgo, sAlgo) =
     let g, _ = digraph11 t
-    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo iStrat
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
     Assert.IsTrue (Set.ofList [ 9 ] = df)
     let df = getPostDominanceFrontier dom g 2
@@ -1686,12 +1687,12 @@ type DominanceTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.ComparisonData)>]
-  member _.``Comparison: Dominators Test`` (domAlgo, fileName, iStrat) =
+  member _.``Comparison: Dominators Test`` (domAlgo, fileName, sAlgo) =
     let constructor () = ImperativeDiGraph () :> IDiGraph<string, string>
     let json = System.IO.File.ReadAllText ("TestData/" + fileName)
     let g = Serializer.FromJson (json, constructor, id, id)
     let naiveDom: IDominance<_, _> = instantiate g DomIterative DFCytron None
-    let testDom: IDominance<_, _> = instantiate g domAlgo DFCytron iStrat
+    let testDom: IDominance<_, _> = instantiate g domAlgo DFCytron sAlgo
     for v in g.Vertices do
       let expected = naiveDom.Dominators v |> Set.ofSeq
       let actual = testDom.Dominators v |> Set.ofSeq
@@ -1700,12 +1701,12 @@ type DominanceTests () =
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.ComparisonData)>]
   member _.``Comparison: Immediate Dominator Test``
-    (domAlgo, fileName, iStrat) =
+    (domAlgo, fileName, sAlgo) =
     let constructor () = ImperativeDiGraph () :> IDiGraph<string, string>
     let json = System.IO.File.ReadAllText ("TestData/" + fileName)
     let g = Serializer.FromJson (json, constructor, id, id)
     let naiveDom: IDominance<_, _> = instantiate g DomIterative DFCytron None
-    let testDom: IDominance<_, _> = instantiate g domAlgo DFCytron iStrat
+    let testDom: IDominance<_, _> = instantiate g domAlgo DFCytron sAlgo
     for v in g.Vertices do
       let expected = naiveDom.ImmediateDominator v
       let actual = testDom.ImmediateDominator v

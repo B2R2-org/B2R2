@@ -79,11 +79,12 @@ let private prepareWithDummyRoot g info (dummyRoot: IVertex<_>) realRoots =
   info.DFNumMap.Add (dummyRoot.ID, 0)
   realRoots |> Array.map (fun v -> 0, v) |> Array.toList |> prepare g info 1
 
-let private getPreds g (dummyRoot: IVertex<_>) (realRoots: IVertex<_>[]) v =
-  if realRoots |> Array.contains v then
+let private getPreds g info (dummyRoot: IVertex<_>) realRoots v =
+  if (realRoots: IVertex<_>[]) |> Array.contains v then
     [| dummyRoot; yield! (g: IDiGraphAccessible<_, _>).GetPreds v |]
   else
     g.GetPreds v
+  |> Array.filter (fun v -> info.DFNumMap.ContainsKey v.ID)
 
 let rec private compress info v =
   let a = info.Ancestor[v]
@@ -127,7 +128,7 @@ let private computeDominatorInfo (g: IDiGraphAccessible<_, _>) =
   for i = n downto 1 do
     let v = info.Vertex[i]
     let p = info.Parent[i]
-    getPreds g dummyRoot realRoots v
+    getPreds g info dummyRoot realRoots v
     |> Array.map (dfnum info)
     |> Array.toList
     |> computeSemiDom info i
