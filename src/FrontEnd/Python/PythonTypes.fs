@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.Python
 
 open System.Runtime.CompilerServices
 open B2R2
+open B2R2.FrontEnd.BinFile.Python
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.Python.Tests")>]
 do ()
@@ -177,7 +178,7 @@ type Opcode =
 
 type internal Op = Opcode
 
-type Operand = int
+type Operand = int * PyCodeObject option
 
 type Operands =
   | NoOperand

@@ -35,7 +35,7 @@ open B2R2.FrontEnd.BinFile.FileHelper
 let defaultPyCodeCon = {
   FileName = "Default"
   Name = "Default"
-  QualName = PyREF (0, "")
+  QualName = "Default"
   Flags = 0
   Code = 0, PyNone
   FirstLineNo = 0
@@ -50,8 +50,6 @@ let defaultPyCodeCon = {
   StackSize = 0
   ExceptionTable = PyNone
 }
-
-let refs = [||]
 
 [<Literal>]
 let PyMagic = 0x0A0D0DCBu
@@ -126,7 +124,7 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
     let con = {
       FileName = pyObjToString filenames
       Name = pyObjToString name
-      QualName = qname
+      QualName = pyObjToString qname
       Flags = flags
       Code = codeOffset, code
       FirstLineNo = fstline
@@ -165,7 +163,7 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
           let contents, refs, offset = parsePyType bytes reader refs offset
           loop (contents :: acc) refs offset
       let tuples, refs, offset = loop [] refs offset
-      PyTuple (tuples |> List.toArray), refs, offset
+      PyTuple (tuples |> List.toArray |> Array.rev), refs, offset
     else PyTuple [||], refs, offset
   | PyType.TYPE_SHORT_ASCII | PyType.TYPE_SHORT_ASCII_INTERNED ->
     let n, offset = readAndOffset bytes reader offset 1
@@ -179,26 +177,36 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
 
 let parseCodeObject bytes reader =
   let pyObject, refs, _ = parsePyType bytes reader [||] 16
-  printfn "%A" pyObject
-  Array.iter (printf "%A, ") refs
-  printfn ""
+  //printfn "%A" pyObject
+  //Array.iteri (printf "[%d] %A, ") refs
+  //printfn ""
   pyObject
 
+let private isPyCode = function
+  | PyCode _ -> true
+  | _ -> false
+
 let parseConsts pyObj =
-  (*
-  let constsMap = Map.empty<int, PyCodeObject>
-  let rec unwrap acc offset = function
+  let constsMap = Map.empty<int, PyCodeObject[]>
+  let rec collectConst acc = function
     | PyCode code ->
-      let offset = fst code.Code
+      let addr = fst code.Code
+      let len =
+        match snd code.Code with
+        | PyString byte -> Array.length byte
+        | _ -> 0
+      let addRange = AddrRange (uint64 addr, uint64 (addr + len))
       match code.Consts with
       | PyTuple t ->
-        t |> Array.fold (fun cObj -> unwrap acc offset cObj) acc
-      | c -> unwrap acc offset c
-    | PyInt _ | PyNone as o -> Map.add offset o acc
+        if t[0] = PyNone then Map.add addr t acc // FIXME: Fixed?
+        else Array.fold (fun acc c -> collectConst acc c) acc t
+      | c -> collectConst acc c
     | _ -> acc
-  unwrap constsMap 0 pyObj
-  *)
-  0
+  collectConst constsMap pyObj
+
+let parseVarnames pyObj =
+  let varnamesMap = Map.empty<int, PyCodeObject[]>
+  varnamesMap
 
 let getSections codeObjs =
   let rec extractCodeInfo (pyObj: PyCodeObject) =

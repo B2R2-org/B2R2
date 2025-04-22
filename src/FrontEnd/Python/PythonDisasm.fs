@@ -24,8 +24,9 @@
 
 module B2R2.FrontEnd.Python.Disasm
 
-open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.Python
+open B2R2.FrontEnd.BinFile.Python
 
 let opcodeToStrings = function
   | Op.CACHE -> "cache"
@@ -174,15 +175,22 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let opcode = opcodeToStrings ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic opcode
 
+let toStringPyCodeObj = function
+  | PyNone -> ""
+  | PyInt i -> i.ToString()
+  | o -> failwithf "Invalid PyCodeObj %A" o
+
 let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
-  let consts = " "
   match ins.Operands with
   | NoOperand -> ()
-  | OneOperand opr ->
+  | OneOperand (idx, None) | OneOperand (idx, Some PyNone) ->
     builder.Accumulate AsmWordKind.String "\t\t"
-    builder.Accumulate AsmWordKind.Value (string opr)
+    builder.Accumulate AsmWordKind.Value (string idx)
+  | OneOperand (idx, Some cons) ->
+    builder.Accumulate AsmWordKind.String "\t\t"
+    builder.Accumulate AsmWordKind.Value (string idx)
     builder.Accumulate AsmWordKind.String " ("
-    builder.Accumulate AsmWordKind.Value consts
+    builder.Accumulate AsmWordKind.Value (toStringPyCodeObj cons)
     builder.Accumulate AsmWordKind.String ")"
   | TwoOperands _ -> ()
 

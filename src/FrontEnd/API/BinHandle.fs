@@ -104,7 +104,7 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt) =
   member _.RegisterFactory with get() = regFactory
 
   member _.NewLiftingUnit () =
-    let parser = GroundWork.CreateParser reader binFile.ISA
+    let parser = GroundWork.CreateParser binFile reader binFile.ISA
     match binFile.ISA.Arch, binFile.EntryPoint with
     | Architecture.ARMv7, Some entryPoint when entryPoint % 2UL <> 0UL ->
       let armParser = parser :?> ARM32.IModeSwitchable

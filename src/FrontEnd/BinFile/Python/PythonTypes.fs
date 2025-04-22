@@ -69,7 +69,7 @@ type PyType =
 type PyCodeConstructor = {
   FileName: string
   Name: string
-  QualName: PyCodeObject
+  QualName: string
   Flags: int
   Code: (int * PyCodeObject)
   FirstLineNo: int
