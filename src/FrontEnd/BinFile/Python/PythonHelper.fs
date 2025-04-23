@@ -187,7 +187,6 @@ let private isPyCode = function
   | _ -> false
 
 let parseConsts pyObj =
-  let constsMap = Map.empty<int, PyCodeObject[]>
   let rec collectConst acc = function
     | PyCode code ->
       let addr = fst code.Code
@@ -195,18 +194,39 @@ let parseConsts pyObj =
         match snd code.Code with
         | PyString byte -> Array.length byte
         | _ -> 0
-      let addRange = AddrRange (uint64 addr, uint64 (addr + len))
+      let addrRange = AddrRange (uint64 addr, uint64 (addr + len))
       match code.Consts with
       | PyTuple t ->
-        if t[0] = PyNone then Map.add addr t acc // FIXME: Fixed?
-        else Array.fold (fun acc c -> collectConst acc c) acc t
+        if t[0] = PyNone then (addrRange, t) :: acc // FIXME: Fixed?
+        else Array.fold collectConst acc t
       | c -> collectConst acc c
     | _ -> acc
-  collectConst constsMap pyObj
+  collectConst [] pyObj |> List.toArray
 
 let parseVarnames pyObj =
-  let varnamesMap = Map.empty<int, PyCodeObject[]>
-  varnamesMap
+  let varnames = [(AddrRange(0UL, 0UL), [| PyNone |])]
+  varnames |> List.toArray
+
+let parseNames pyObj =
+  let rec collectNames acc = function
+  | PyCode code ->
+    let addr = fst code.Code
+    let len =
+      match snd code.Code with
+      | PyString byte -> Array.length byte
+      | _ -> 0
+    let addrRange = AddrRange (uint64 addr, uint64 (addr + len))
+    let acc =
+      match code.Names with
+      | PyTuple t -> (addrRange, t) :: acc
+      | _ -> failwith "Invalid PyCodeObject"
+    match code.Consts with
+    | PyTuple t ->
+      if isPyCode t[0] then Array.fold collectNames acc t
+      else acc
+    | _ -> failwith "Invalid PyCodeObject"
+  | _ -> acc
+  collectNames [] pyObj |> List.toArray
 
 let getSections codeObjs =
   let rec extractCodeInfo (pyObj: PyCodeObject) =

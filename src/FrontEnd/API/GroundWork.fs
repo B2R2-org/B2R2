@@ -59,7 +59,7 @@ type GroundWork =
     | _ -> Terminator.futureFeature ()
 
   /// Creates a new parser (IInstructionParsable) for the given architecture.
-  static member CreateParser binFile reader isa =
+  static member CreateParser reader isa =
     match isa with
     | Intel ->
       Intel.IntelParser (isa.WordSize, reader) :> IInstructionParsable
@@ -87,8 +87,6 @@ type GroundWork =
       SPARC.SPARCParser (reader) :> IInstructionParsable
     | PARISC ->
       PARISC.PARISCParser (isa, reader) :> IInstructionParsable
-    | Python ->
-      Python.PythonParser (binFile, reader) :> IInstructionParsable
     | _ ->
       Terminator.futureFeature ()
 

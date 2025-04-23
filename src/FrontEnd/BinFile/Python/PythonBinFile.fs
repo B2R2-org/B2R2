@@ -39,6 +39,7 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
   let magic = parseMagic bytes reader
   let codeObject = parseCodeObject bytes reader
   let consts = parseConsts codeObject
+  let names = parseNames codeObject
   let varnames = parseVarnames codeObject
   let symbolMap = Dictionary<Addr, Symbol> ()
 
@@ -53,6 +54,9 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
   /// Varnames.
   member _.Varnames with get() = varnames
+
+  /// Names.
+  member _.Names with get() = names
 
   interface IBinFile with
     member _.Reader with get() = reader
@@ -153,7 +157,7 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
     member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
     member _.GetSections () =
-      printfn "consts %A" consts
+      printfn "%A" codeObject
       getSections codeObject
       |> Array.map (fun (offset, size, name) ->
         { Address = uint64 offset

@@ -178,6 +178,7 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
 let toStringPyCodeObj = function
   | PyNone -> ""
   | PyInt i -> i.ToString()
+  | PyREF (_, str) -> str
   | o -> failwithf "Invalid PyCodeObj %A" o
 
 let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
@@ -186,11 +187,11 @@ let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   | OneOperand (idx, None) | OneOperand (idx, Some PyNone) ->
     builder.Accumulate AsmWordKind.String "\t\t"
     builder.Accumulate AsmWordKind.Value (string idx)
-  | OneOperand (idx, Some cons) ->
+  | OneOperand (idx, Some var) ->
     builder.Accumulate AsmWordKind.String "\t\t"
     builder.Accumulate AsmWordKind.Value (string idx)
     builder.Accumulate AsmWordKind.String " ("
-    builder.Accumulate AsmWordKind.Value (toStringPyCodeObj cons)
+    builder.Accumulate AsmWordKind.Value (toStringPyCodeObj var)
     builder.Accumulate AsmWordKind.String ")"
   | TwoOperands _ -> ()
 
