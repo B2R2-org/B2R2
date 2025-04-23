@@ -39,7 +39,7 @@ type ParsingHelper (reader: IBinReader, binFile: PythonBinFile) =
 let private getTable (binFile: PythonBinFile) = function
   | Op.LOAD_CONST -> binFile.Consts
   | Op.STORE_NAME -> binFile.Names
-  | Op.STORE_FAST -> binFile.Varnames
+  | Op.STORE_FAST | Op.LOAD_FAST -> binFile.Varnames
   | o -> printfn "Invalid Opcode %A" o; [||]
 
 let private parseOperand opcode (span: ReadOnlySpan<byte>) (reader: IBinReader)

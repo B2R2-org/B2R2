@@ -157,7 +157,6 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
     member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
     member _.GetSections () =
-      printfn "%A" codeObject
       getSections codeObject
       |> Array.map (fun (offset, size, name) ->
         { Address = uint64 offset

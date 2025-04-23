@@ -179,6 +179,7 @@ let toStringPyCodeObj = function
   | PyNone -> ""
   | PyInt i -> i.ToString()
   | PyREF (_, str) -> str
+  | PyShortAsciiInterned str -> str
   | o -> failwithf "Invalid PyCodeObj %A" o
 
 let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =

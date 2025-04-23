@@ -177,9 +177,8 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
 
 let parseCodeObject bytes reader =
   let pyObject, refs, _ = parsePyType bytes reader [||] 16
-  //printfn "%A" pyObject
-  //Array.iteri (printf "[%d] %A, ") refs
-  //printfn ""
+  printfn "%A" pyObject
+  Array.iteri (printfn "[%d] %A") refs
   pyObject
 
 let private isPyCode = function
@@ -189,9 +188,9 @@ let private isPyCode = function
 let parseConsts pyObj =
   let rec collectConst acc = function
     | PyCode code ->
-      let addr = fst code.Code
+      let addr, bytes = code.Code
       let len =
-        match snd code.Code with
+        match bytes with
         | PyString byte -> Array.length byte
         | _ -> 0
       let addrRange = AddrRange (uint64 addr, uint64 (addr + len))
@@ -204,15 +203,33 @@ let parseConsts pyObj =
   collectConst [] pyObj |> List.toArray
 
 let parseVarnames pyObj =
-  let varnames = [(AddrRange(0UL, 0UL), [| PyNone |])]
-  varnames |> List.toArray
+  let rec collectVarames acc = function
+  | PyCode code ->
+    let addr, bytes = code.Code
+    let len =
+      match bytes with
+      | PyString byte -> Array.length byte
+      | _ -> 0
+    let addrRange = AddrRange (uint64 addr, uint64 (addr + len))
+    let acc =
+      match code.LocalPlusNames with
+      | PyTuple t -> (addrRange, t) :: acc
+      | PyREF _ as ref -> (addrRange, [| ref |]) :: acc
+      | _ -> failwith "Invalid PyCodeObject"
+    match code.Consts with
+    | PyTuple t ->
+      if isPyCode t[0] then Array.fold collectVarames acc t
+      else acc
+    | _ -> failwith "Invalid PyCodeObject"
+  | _ -> acc
+  collectVarames [] pyObj |> List.toArray
 
 let parseNames pyObj =
   let rec collectNames acc = function
   | PyCode code ->
-    let addr = fst code.Code
+    let addr, bytes = code.Code
     let len =
-      match snd code.Code with
+      match bytes with
       | PyString byte -> Array.length byte
       | _ -> 0
     let addrRange = AddrRange (uint64 addr, uint64 (addr + len))
