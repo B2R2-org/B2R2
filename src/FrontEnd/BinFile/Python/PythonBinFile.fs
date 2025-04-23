@@ -28,7 +28,6 @@ open System
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinFile.Python
 open B2R2.FrontEnd.BinFile.Python.Helper
 
 /// This class represents a Python binary file.
@@ -38,9 +37,9 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
   let reader = BinReader.Init Endian.Little
   let magic = parseMagic bytes reader
   let codeObject = parseCodeObject bytes reader
-  let consts = parseConsts codeObject
-  let names = parseNames codeObject
-  let varnames = parseVarnames codeObject
+  let consts = extractConsts codeObject
+  let names = extractNames codeObject
+  let varnames = extractVarNames codeObject
   let symbolMap = Dictionary<Addr, Symbol> ()
 
   /// Python magic

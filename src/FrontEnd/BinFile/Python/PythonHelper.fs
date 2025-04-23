@@ -24,20 +24,15 @@
 
 module internal B2R2.FrontEnd.BinFile.Python.Helper
 
-open System
-open System.Collections.Generic
 open B2R2
-open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinFile.FileHelper
 
 let defaultPyCodeCon = {
   FileName = "Default"
   Name = "Default"
   QualName = "Default"
   Flags = 0
-  Code = 0, PyNone
+  Code = 0UL, PyNone
   FirstLineNo = 0
   LineTable = PyNone
   Consts = PyNone
@@ -90,7 +85,7 @@ let readAndOffset (bytes: byte[]) (reader: IBinReader) offset size =
 let private appendRefs flag refs obj =
   if flag <> 0 then
     let refs = Array.append refs [| obj |]
-    //printfn "flag: %d, refcnt: %d, pyobj: %A" flag (Array.length refs) obj
+    printfn "flag: %X, refcnt: %d, pyobj: %A" flag (Array.length refs) obj
     refs
   else refs
 
@@ -109,7 +104,7 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
     let kwonposonlyArgCout, offset = readAndOffset bytes reader offset 4
     let stackSize, offset = readAndOffset bytes reader offset 4
     let flags, offset = readAndOffset bytes reader offset 4
-    let codeOffset = offset + 5
+    let codeOffset = offset + 5 |> uint64
     let code, refs, offset = parsePyType bytes reader refs offset
     let consts, refs, offset = parsePyType bytes reader refs offset
     let names, refs, offset = parsePyType bytes reader refs offset
@@ -177,89 +172,74 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
 
 let parseCodeObject bytes reader =
   let pyObject, refs, _ = parsePyType bytes reader [||] 16
-  printfn "%A" pyObject
-  Array.iteri (printfn "[%d] %A") refs
+  //printfn "%A" pyObject
+  //Array.iteri (printfn "[%d] %A") refs
   pyObject
 
-let private isPyCode = function
-  | PyCode _ -> true
-  | _ -> false
+let private getCodeLen = function
+  | PyString bytes -> Array.length bytes |> uint64
+  | _ -> 0UL
 
-let parseConsts pyObj =
-  let rec collectConst acc = function
+let extractConsts pyObj =
+  let rec collect acc = function
     | PyCode code ->
-      let addr, bytes = code.Code
-      let len =
-        match bytes with
-        | PyString byte -> Array.length byte
-        | _ -> 0
-      let addrRange = AddrRange (uint64 addr, uint64 (addr + len))
+      let addr, codeObj = code.Code
+      let len = getCodeLen codeObj
+      let addrRange = AddrRange (addr, addr + len)
       match code.Consts with
-      | PyTuple t ->
-        if t[0] = PyNone then (addrRange, t) :: acc // FIXME: Fixed?
-        else Array.fold collectConst acc t
-      | c -> collectConst acc c
+      | PyTuple t -> Array.fold collect ((addrRange, t) :: acc) t
+      | c -> collect acc c
     | _ -> acc
-  collectConst [] pyObj |> List.toArray
+  collect [] pyObj |> List.toArray
 
-let parseVarnames pyObj =
-  let rec collectVarames acc = function
-  | PyCode code ->
-    let addr, bytes = code.Code
-    let len =
-      match bytes with
-      | PyString byte -> Array.length byte
-      | _ -> 0
-    let addrRange = AddrRange (uint64 addr, uint64 (addr + len))
-    let acc =
-      match code.LocalPlusNames with
-      | PyTuple t -> (addrRange, t) :: acc
-      | PyREF _ as ref -> (addrRange, [| ref |]) :: acc
-      | _ -> failwith "Invalid PyCodeObject"
-    match code.Consts with
-    | PyTuple t ->
-      if isPyCode t[0] then Array.fold collectVarames acc t
-      else acc
-    | _ -> failwith "Invalid PyCodeObject"
-  | _ -> acc
-  collectVarames [] pyObj |> List.toArray
+let extractVarNames pyObj =
+  let rec collect acc = function
+    | PyCode code ->
+      let addr, codeObj = code.Code
+      let len = getCodeLen codeObj
+      let addrRange = AddrRange (addr, addr + len)
+      let acc =
+        match code.LocalPlusNames with
+        | PyTuple t -> (addrRange, t) :: acc
+        | PyREF _ as ref -> (addrRange, [| ref |]) :: acc
+        | o -> failwithf "Invalid PyCodeObject(%A)" o
+      match code.Consts with
+      | PyTuple t -> Array.fold collect acc t
+      | o -> failwithf "Invalid PyCodeObject(%A)" o
+    | _ -> acc
+  collect [] pyObj |> List.toArray
 
-let parseNames pyObj =
-  let rec collectNames acc = function
-  | PyCode code ->
-    let addr, bytes = code.Code
-    let len =
-      match bytes with
-      | PyString byte -> Array.length byte
-      | _ -> 0
-    let addrRange = AddrRange (uint64 addr, uint64 (addr + len))
-    let acc =
-      match code.Names with
-      | PyTuple t -> (addrRange, t) :: acc
-      | _ -> failwith "Invalid PyCodeObject"
-    match code.Consts with
-    | PyTuple t ->
-      if isPyCode t[0] then Array.fold collectNames acc t
-      else acc
-    | _ -> failwith "Invalid PyCodeObject"
-  | _ -> acc
-  collectNames [] pyObj |> List.toArray
+let extractNames pyObj =
+  let rec collect acc = function
+    | PyCode code ->
+      let addr, codeObj = code.Code
+      let len = getCodeLen codeObj
+      let addrRange = AddrRange (addr, addr + len)
+      let acc =
+        match code.Names with
+        | PyTuple t -> (addrRange, t) :: acc
+        | o -> failwithf "Invalid PyCodeObject(%A)" o
+      match code.Consts with
+      | PyTuple t -> Array.fold collect acc t
+      | o -> failwithf "Invalid PyCodeObject(%A)" o
+    | _ -> acc
+  collect [] pyObj |> List.toArray
 
 let getSections codeObjs =
   let rec extractCodeInfo (pyObj: PyCodeObject) =
     match pyObj with
     | PyCode code ->
       let current =
-        let (offset, pyObj) = code.Code
+        let (addr, pyObj) = code.Code
         match pyObj with
-        | PyString s -> offset, s.Length, code.Name
-        | _ -> failwithf "Invalid PyCode(%A)" pyObj
+        | PyString s -> addr, s.Length, code.Name
+        | o -> failwithf "Invalid PyCodeObject(%A)" o
       let nested =
         match code.Consts with
         | PyTuple t ->
           t |> Array.toList
           |> List.collect extractCodeInfo
-        | _ -> failwithf "Invalid PyTuple(%A)" pyObj
+        | o -> failwithf "Invalid PyCodeObject(%A)" o
       current :: nested
     | _ -> []
   extractCodeInfo codeObjs |> List.toArray

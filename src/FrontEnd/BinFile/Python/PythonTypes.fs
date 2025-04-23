@@ -24,8 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile.Python
 
-open B2R2.Collections
-open B2R2.FrontEnd.BinFile
+open B2R2
 
 /// <summary>
 ///   Python Type(Python 3.12).
@@ -71,7 +70,7 @@ type PyCodeConstructor = {
   Name: string
   QualName: string
   Flags: int
-  Code: (int * PyCodeObject)
+  Code: (Addr * PyCodeObject)
   FirstLineNo: int
   LineTable: PyCodeObject
   Consts: PyCodeObject

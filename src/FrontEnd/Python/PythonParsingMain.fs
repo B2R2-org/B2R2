@@ -37,21 +37,21 @@ type ParsingHelper (reader: IBinReader, binFile: PythonBinFile) =
   member __.BinFile with get() = binFile
 
 let private getTable (binFile: PythonBinFile) = function
-  | Op.LOAD_CONST -> binFile.Consts
+  | Op.LOAD_CONST | Op.RETURN_CONST -> binFile.Consts
   | Op.STORE_NAME -> binFile.Names
   | Op.STORE_FAST | Op.LOAD_FAST -> binFile.Varnames
-  | o -> printfn "Invalid Opcode %A" o; [||]
+  | o -> printfn "Unsupported Opcode %A" o; [||]
 
 let private parseOperand opcode (span: ReadOnlySpan<byte>) (reader: IBinReader)
   (binFile: PythonBinFile) addr instrLen =
   //printfn "Consts %A" binFile.Consts
   //printfn "addr %d" addr
   let tbl = getTable binFile opcode
-  printfn "[%A] %A" opcode tbl
+  //printfn "[%A] %A" opcode tbl
   let idx = reader.ReadUInt8 (span, 1) |> int
   let cons =
     Array.tryFind (fun (ar, _) ->
-      AddrRange.GetMin ar <= addr && AddrRange.GetMax ar > addr) tbl
+      AddrRange.GetMin ar <= addr && AddrRange.GetMax ar >= addr) tbl
   let opr =
     match cons with
     | Some (_, c) -> OneOperand (idx, Some <| c[idx])
