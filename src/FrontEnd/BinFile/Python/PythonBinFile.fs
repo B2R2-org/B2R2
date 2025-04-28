@@ -28,6 +28,7 @@ open System
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile.Python
 open B2R2.FrontEnd.BinFile.Python.Helper
 
 /// This class represents a Python binary file.
@@ -40,6 +41,7 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
   let consts = extractConsts codeObject
   let names = extractNames codeObject
   let varnames = extractVarNames codeObject
+  let operator = [||]
   let symbolMap = Dictionary<Addr, Symbol> ()
 
   /// Python magic
@@ -56,6 +58,9 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
   /// Names.
   member _.Names with get() = names
+
+  /// Operator.
+  member _.Operator with get() = operator
 
   interface IBinFile with
     member _.Reader with get() = reader
