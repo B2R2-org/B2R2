@@ -31,6 +31,24 @@ open BenchmarkDotNet.Configs
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinGraph.Dominance
 
+module DBS = DepthBasedSearchDominance
+
+let private buildTestPersistentGraphs fileName size =
+  let rng = System.Random 42
+  let rec loop acc (g: IDiGraph<_, _>) = function
+    | 0 -> g, acc
+    | i ->
+      let edges = g.Edges
+      let edge = edges[rng.Next(0, edges.Length)]
+      let h = g.RemoveEdge edge
+      loop ((g, edge) :: acc) h (i - 1)
+  let constructor () = PersistentDiGraph () :> IDiGraph<string, string>
+  let json =
+    System.IO.File.ReadAllText ("TestData/Benchmark/Vertex/" + fileName)
+  let g = Serializer.FromJson (json, constructor, id, id)
+  let h, testList = loop [] g size
+  g, h, testList
+
 [<BenchmarkCategory("Static Dominance")>]
 type StaticDoms () =
   let mutable g = null
@@ -94,10 +112,12 @@ type StaticDoms () =
 [<BenchmarkCategory("Dynamic Dominance")>]
 type DynamicDoms () =
   let mutable g = null
+  let mutable h = null
   let mutable testList = null
   let mutable initialDom = null
+  let mutable fwInfo = null
+  let mutable bwInfo = null
   let mutable fileName: string = null
-  let mutable rng = null
   let dfp = CytronDominanceFrontier ()
 
   [<Params(
@@ -115,51 +135,43 @@ type DynamicDoms () =
     "7431_10884_date_clang_m32_O0_8070750_2.json",
     "9603_13419_wrf_base_gcc_O0_403364_2.json"
   )>]
-  member _.FileName with get() = fileName and set(n) = fileName <- n
+  member __.FileName with get() = fileName and set(n) = fileName <- n
 
   [<GlobalSetup>]
   member __.GlobalSetup () =
-    rng <- System.Random 42
-    let rec buildTestList acc (g: IDiGraph<_, _>) = function
-      | 0 -> acc
-      | i ->
-        let edges =
-          g.Edges
-          |> Array.filter (fun e ->
-            let succCount = g.GetPredEdges e.Second |> Array.length
-            succCount > 1)
-        let edge = edges[rng.Next(0, edges.Length)]
-        let h = g.RemoveEdge edge
-        buildTestList ((h, edge) :: acc) h (i - 1)
-    let constructor () = ImperativeDiGraph () :> IDiGraph<_, _>
-    let json =
-      System.IO.File.ReadAllText ("TestData/Benchmark/Vertex/" + __.FileName)
-    g <- Serializer.FromJson (json, constructor, id, id)
-    testList <-  buildTestList [] g 10
-    let h = testList |> List.head |> fst
-    initialDom <- SemiNCADominance.create h dfp
+    let initG, finalG, testGraphs = buildTestPersistentGraphs __.FileName 30
+    g <- initG
+    h <- finalG
+    testList <- testGraphs
+    let dom, fw, bw = SemiNCADominance.createWithInfo h dfp
+    initialDom <- dom
+    fwInfo <- fw
+    bwInfo <- bw
 
   [<Benchmark(Baseline = true)>]
   member _.DepthBasedSearchAlgorithm () =
+    let fwInitInfo = DBS.createInfoFromDom h initialDom dfp DBS.SemiNCA true
+    let bwInitInfo =
+      Lazy (DBS.createInfoFromDom h initialDom dfp DBS.SemiNCA false)
     testList
-    |> List.fold (fun dom (h, edge) ->
-      let dom =
-        DepthBasedSearchDominance.insertEdge h dom dfp
-                                             DepthBasedSearchDominance.SemiNCA
-                                             edge
-      let v = h.Vertices[0]
+    |> List.fold (fun (fwInfo, bwInfo) (f, edge) ->
+      let updatedInfo = DBS.updateInfo f fwInfo edge
+      let dom = DBS.creatFromInfo f updatedInfo bwInfo dfp
+      let v = f.Vertices[0]
       dom.Dominators v |> ignore
-      dom
-    ) initialDom |> ignore
+      updatedInfo, bwInfo
+    ) (fwInitInfo, bwInitInfo) |> ignore
 
   [<Benchmark>]
   member _.SemiNCAAlgorithm () =
     testList
-    |> List.iter (fun (h, edge) ->
-      let dom = SemiNCADominance.create h dfp
-      let v = h.Vertices[0]
+    |> List.fold (fun (fwInfo, bwInfo) (f, edge) ->
+      let updatedInfo = SemiNCADominance.updateInfo f fwInfo edge
+      let dom = SemiNCADominance.creatFromInfo f updatedInfo bwInfo dfp
+      let v = f.Vertices[0]
       dom.Dominators v |> ignore
-    )
+      updatedInfo, bwInfo
+    ) (fwInfo, bwInfo) |> ignore
 
 [<BenchmarkCategory("Dominance Frontier")>]
 type DominanceFrontier () =
