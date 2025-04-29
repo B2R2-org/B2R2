@@ -178,7 +178,7 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   /// Initialize the current context by updating register values.
   member this.InitializeContext pc regs =
     this.PC <- pc
-    regs |> List.iter (fun (r, v) -> this.SetReg r v)
+    regs |> Array.iter (fun (r, v) -> this.SetReg r v)
 
   /// Go to the statement of the given label.
   member inline this.GoToLabel lbl =

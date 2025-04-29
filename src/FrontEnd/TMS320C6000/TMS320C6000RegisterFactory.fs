@@ -25,33 +25,47 @@
 namespace B2R2.FrontEnd.TMS320C6000
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd.BinLifter
 
-type TMS320C6000RegisterFactory () =
-  inherit RegisterFactory ()
+type RegisterFactory (_wordSize) =
+  interface IRegisterFactory with
+    member _.GetRegVar (id: RegisterID): Expr =
+      match Register.ofRegID id with
+      | _ -> raise UnhandledRegExprException
 
-  override _.GetAllRegExprs () = Terminator.futureFeature ()
+    member _.GetRegVar (_: string): Expr = Terminator.futureFeature ()
 
-  override _.GetAllRegNames () = Terminator.futureFeature ()
+    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
 
-  override _.GetGeneralRegExprs () = Terminator.futureFeature ()
+    member _.GetAllRegVars () = Terminator.futureFeature ()
 
-  override _.RegIDFromRegExpr e =
-    match e with
-    | Var (_, id, _, _) -> id
-    | PCVar _ -> Register.toRegID Register.PCE1
-    | _ -> raise InvalidRegisterException
+    member _.GetGeneralRegVars () = Terminator.futureFeature ()
 
-  override _.RegIDToRegExpr (id) = Terminator.futureFeature ()
-  override _.StrToRegExpr _s = Terminator.futureFeature ()
-  override _.RegIDFromString _s = Terminator.futureFeature ()
-  override _.RegIDToString _ = Terminator.futureFeature ()
-  override _.RegIDToRegType _ = Terminator.futureFeature ()
-  override _.GetRegisterAliases _ = Terminator.futureFeature ()
-  override _.ProgramCounter = Terminator.futureFeature ()
-  override _.StackPointer = Terminator.futureFeature ()
-  override _.FramePointer = Terminator.futureFeature ()
-  override _.IsProgramCounter _ = Terminator.futureFeature ()
-  override _.IsStackPointer _ = Terminator.futureFeature ()
-  override _.IsFramePointer _ = Terminator.futureFeature ()
+    member _.GetRegisterID e =
+      match e with
+      | Var (_, id, _, _) -> id
+      | PCVar _ -> Register.toRegID Register.PCE1
+      | _ -> raise InvalidRegisterException
+
+    member _.GetRegisterID (_: string): RegisterID = Terminator.futureFeature ()
+
+    member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
+
+    member _.GetRegString _ = Terminator.futureFeature ()
+
+    member _.GetAllRegStrings () = Terminator.futureFeature ()
+
+    member _.GetRegType _ = Terminator.futureFeature ()
+
+    member _.ProgramCounter = Terminator.futureFeature ()
+
+    member _.StackPointer = Terminator.futureFeature ()
+
+    member _.FramePointer = Terminator.futureFeature ()
+
+    member _.IsProgramCounter _ = Terminator.futureFeature ()
+
+    member _.IsStackPointer _ = Terminator.futureFeature ()
+
+    member _.IsFramePointer _ = Terminator.futureFeature ()

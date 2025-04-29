@@ -28,48 +28,12 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type CILRegisterFactory () =
-  inherit RegisterFactory ()
+type internal RegisterFactory () =
+  member _.PC with get() = AST.var 256<rt> (Register.toRegID Register.PC) "PC"
+  member _.SP with get() = AST.var 256<rt> (Register.toRegID Register.SP) "SP"
 
-  override _.GetAllRegExprs () = Terminator.futureFeature ()
-
-  override _.GetAllRegNames () = []
-
-  override _.GetGeneralRegExprs () = Terminator.futureFeature ()
-
-  override _.RegIDFromRegExpr e =
-    match e with
-    | Var (_, id, _, _) -> id
-    | PCVar _ -> Register.toRegID Register.PC
-    | _ -> raise InvalidRegisterException
-
-  override _.RegIDToRegExpr _id = Terminator.impossible ()
-
-  override _.StrToRegExpr _s = Terminator.impossible ()
-
-  override _.RegIDFromString str =
-    Register.ofString str |> Register.toRegID
-
-  override _.RegIDToString rid =
-    Register.ofRegID rid |> Register.toString
-
-  override _.RegIDToRegType rid =
-    Register.ofRegID rid |> Register.toRegType
-
-  override _.GetRegisterAliases _ = Terminator.futureFeature ()
-
-  override _.ProgramCounter =
-    Register.PC |> Register.toRegID
-
-  override _.StackPointer =
-    Register.SP |> Register.toRegID |> Some
-
-  override _.FramePointer = Terminator.futureFeature ()
-
-  override this.IsProgramCounter regid =
-    this.ProgramCounter = regid
-
-  override this.IsStackPointer regid =
-    (this.StackPointer |> Option.get) = regid
-
-  override _.IsFramePointer _ = false
+  member this.GetRegVar (name) =
+    match name with
+    | Register.PC -> this.PC
+    | Register.SP -> this.SP
+    | _ -> raise UnhandledRegExprException

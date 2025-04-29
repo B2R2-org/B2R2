@@ -45,13 +45,13 @@ module internal ExceptionInfo =
           Map.add i.Location i tbl) tbl
         ) tbl) Map.empty
 
-  let parse toolBox shdrs regFctOpt reloc =
+  let parse toolBox shdrs regFactory reloc =
     let hdr = toolBox.Header
     let cls = hdr.Class
     let isa = ISA.Init hdr.MachineType hdr.Endian
     let relocInfo =
       if hdr.ELFFileType = ELFFileType.ET_REL then Some reloc else None
-    let exns = ExceptionFrames.parse toolBox cls shdrs isa regFctOpt relocInfo
+    let exns = ExceptionFrames.parse toolBox cls shdrs isa regFactory relocInfo
     let lsdas = ELFGccExceptTable.parse toolBox cls shdrs
     match exns with
     | [] when isa.Arch = Architecture.ARMv7 ->

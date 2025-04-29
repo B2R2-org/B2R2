@@ -27,54 +27,75 @@ namespace B2R2.FrontEnd.BinLifter
 open B2R2
 open B2R2.BinIR.LowUIR
 
-/// RegisterFactory provides a useful interface for accessing register related
-/// information such as register names, register expressions, register types,
-/// and their IDs, in a platform-agnostic manner.
-[<AbstractClass>]
-type RegisterFactory () =
-  /// Return all register expressions.
-  abstract GetAllRegExprs: unit -> Expr list
+/// <summary>
+/// Provides a platform-agnostic interface for accessing register information.
+/// </summary>
+type IRegisterFactory =
+  /// <summary>
+  /// Get register expression from a given register ID.
+  /// </summary>
+  /// <param name="id">Register ID.</param>
+  /// <returns>
+  /// Returns an IR expression of a register.
+  /// </returns>
+  abstract GetRegVar: id: RegisterID -> Expr
 
-  /// Return all register names.
-  abstract GetAllRegNames: unit -> string list
+  /// <summary>
+  /// Get register expression from a given register name.
+  /// </summary>
+  /// <param name="name">Register name.</param>
+  /// <returns>
+  /// Returns an IR expression of a register.
+  /// </returns>
+  abstract GetRegVar: name: string -> Expr
+
+  /// <summary>
+  /// Get pseudo register expression from a given register ID and an index.
+  /// </summary>
+  /// <param name="id">Register ID.</param>
+  /// <param name="idx">Register index.</param>
+  /// <returns>
+  /// Returns an IR expression of a pseudo-register.
+  /// </returns>
+  abstract GetPseudoRegVar: id: RegisterID -> idx: int -> Expr
+
+  /// Return all register expressions.
+  abstract GetAllRegVars: unit -> Expr[]
 
   /// Return all general register expressions excluding FPU registers, vector
   /// registers, etc.
-  abstract GetGeneralRegExprs: unit -> Expr list
+  abstract GetGeneralRegVars: unit -> Expr[]
 
-  /// Return RegID from a given RegExpr.
-  abstract RegIDFromRegExpr: Expr -> RegisterID
-
-  /// Return RegExpr from a given RegID.
-  abstract RegIDToRegExpr: RegisterID -> Expr
-
-  /// Return RegExpr from a string.
-  abstract StrToRegExpr: string -> Expr
+  /// Return RegisterID from a given RegExpr.
+  abstract GetRegisterID: expr: Expr -> RegisterID
 
   /// <summary>
   /// Return RegisterID from a given register string. Depending on the
   /// underlying architecture of the BinHandle, we may have different
   /// RegisterID.
   /// </summary>
-  abstract RegIDFromString: string -> RegisterID
+  abstract GetRegisterID: name: string -> RegisterID
+
+  /// <summary>
+  /// Return an array of aliases of a given register based on the current
+  /// architecture of BinHandle.
+  /// </summary>
+  abstract GetRegisterIDAliases: RegisterID -> RegisterID[]
 
   /// <summary>
   /// Return a register string from a given RegisterID. Depending on the
   /// underlying architecture of the BinHandle, we may have a different string
   /// result.
   /// </summary>
-  abstract RegIDToString: RegisterID -> string
+  abstract GetRegString: RegisterID -> string
+
+  /// Return all register names.
+  abstract GetAllRegStrings: unit -> string[]
 
   /// <summary>
   /// Return a RegType from a given RegisterID.
   /// </summary>
-  abstract RegIDToRegType: RegisterID -> RegType
-
-  /// <summary>
-  /// Return an array of aliases of a given register based on the current
-  /// architecture of BinHandle.
-  /// </summary>
-  abstract GetRegisterAliases: RegisterID -> RegisterID[]
+  abstract GetRegType: RegisterID -> RegType
 
   /// <summary>
   /// Return a program counter register for a given BinHandle.

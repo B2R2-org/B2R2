@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\API\B2R2.FrontEnd.API.fsproj" />
+    <ProjectReference Include="..\S390\B2R2.FrontEnd.S390.fsproj" />
   </ItemGroup>
 
 </Project>

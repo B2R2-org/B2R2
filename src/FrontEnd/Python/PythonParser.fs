@@ -29,9 +29,8 @@ open B2R2.FrontEnd.BinLifter
 
 /// Parser for Python instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type Python64Parser (isa: ISA) =
+type Python64Parser (isa: ISA, reader) =
   let wordSize = int isa.WordSize
-  let reader = BinReader.Init isa.Endian
 
   interface IInstructionParsable with
     member _.Parse (span: ByteSpan, addr: Addr) =

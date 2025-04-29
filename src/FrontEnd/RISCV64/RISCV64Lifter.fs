@@ -30,10 +30,6 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
-open B2R2.FrontEnd.BinLifter.LiftingOperators
-
-let inline getRegVar (ctxt: TranslationContext) reg =
-  Register.toRegID reg |> ctxt.GetRegVar
 
 let inline (:=) dst src =
   match dst with
@@ -42,7 +38,7 @@ let inline (:=) dst src =
   | _ ->
     dst := src
 
-let inline getCSRReg (ctxt: TranslationContext) csr =
+let inline getCSRReg (bld: ILowUIRBuilder) csr =
   let csrReg =
     match csr with
     | 0001us -> Register.FFLAGS
@@ -215,12 +211,13 @@ let inline getCSRReg (ctxt: TranslationContext) csr =
     | _ ->
       eprintfn "%A" csr
       raise InvalidRegisterException
-  Register.toRegID csrReg |> ctxt.GetRegVar
+  Register.toRegID csrReg |> bld.GetRegVar
 
-let bvOfBaseAddr (ctxt: TranslationContext) addr = numU64 addr ctxt.WordBitSize
+let bvOfBaseAddr (bld: ILowUIRBuilder) addr =
+  numU64 addr bld.RegType
 
-let bvOfInstrLen (ctxt: TranslationContext) insInfo =
-  numU32 insInfo.NumBytes ctxt.WordBitSize
+let bvOfInstrLen (bld: ILowUIRBuilder) insInfo =
+  numU32 insInfo.NumBytes bld.RegType
 
 let getOneOpr insInfo =
   match insInfo.Operands with
@@ -247,25 +244,25 @@ let getFiveOprs insInfo =
   | FiveOperands (o1, o2, o3, o4, o5) -> o1, o2, o3, o4, o5
   | _ -> raise InvalidOperandException
 
-let transOprToExpr insInfo ctxt = function
-  | OpReg reg -> getRegVar ctxt reg
+let transOprToExpr insInfo bld = function
+  | OpReg reg -> regVar bld reg
   | OpImm imm
-  | OpShiftAmount imm -> numU64 imm ctxt.WordBitSize
+  | OpShiftAmount imm -> numU64 imm bld.RegType
   | OpMem (b, Some (Imm o), sz) ->
-    let reg = getRegVar ctxt b
-    let offset = numI64 o ctxt.WordBitSize
+    let reg = regVar bld b
+    let offset = numI64 o bld.RegType
     AST.loadLE sz (reg .+ offset)
-  | OpAddr (Relative o) -> numI64 (int64 insInfo.Address + o) ctxt.WordBitSize
+  | OpAddr (Relative o) -> numI64 (int64 insInfo.Address + o) bld.RegType
   | OpAddr (RelativeBase (b, imm)) ->
     if b = Register.X0 then
-      AST.num0 ctxt.WordBitSize
+      AST.num0 bld.RegType
     else
-      let target = getRegVar ctxt b .+ numI64 (int64 imm) ctxt.WordBitSize
+      let target = regVar bld b .+ numI64 (int64 imm) bld.RegType
       let mask = numI64 0xFFFFFFFF_FFFFFFFEL 64<rt>
       target .& mask
-  | OpMem (b, None, sz) -> AST.loadLE sz (getRegVar ctxt b)
+  | OpMem (b, None, sz) -> AST.loadLE sz (regVar bld b)
   | OpAtomMemOper (_) -> numU32 0u 32<rt> // FIXME:
-  | OpCSR (csr) -> getCSRReg ctxt csr
+  | OpCSR (csr) -> getCSRReg bld csr
   | _ -> raise InvalidOperandException
 
 let private maskForFCSR csr (opr1, opr2) =
@@ -277,14 +274,14 @@ let private maskForFCSR csr (opr1, opr2) =
     | _ -> opr2
   opr1, mask
 
-let private assignFCSR dst src ctxt ir =
+let private assignFCSR dst src bld =
   match dst with
   | BinOp _ ->
     let lowSrc = AST.xtlo 32<rt> src
-    !!ir (getRegVar ctxt R.FRM :=
+    bld <+ (regVar bld R.FRM :=
       (lowSrc .& numU32 0b11100000u 32<rt>) >> numI32 5 32<rt>)
-    !!ir (getRegVar ctxt R.FFLAGS := lowSrc .& numU32 0b11111u 32<rt>)
-  | _ -> !!ir (dst := src)
+    bld <+ (regVar bld R.FFLAGS := lowSrc .& numU32 0b11111u 32<rt>)
+  | _ -> bld <+ (dst := src)
 
 let roundingToCastFloat x =
   match x with
@@ -310,118 +307,118 @@ let roundingToCastInt x =
     | _ -> raise InvalidOperandException
   | _ -> raise InvalidOperandException
 
-let dynamicRoundingFl ir ctxt rt res =
-  let tmpVar = !+ir rt
-  let frm = (getRegVar ctxt Register.FRM) .& (numI32 7 32<rt>)
+let dynamicRoundingFl bld rt res =
+  let tmpVar = tmpVar bld rt
+  let frm = (regVar bld Register.FRM) .& (numI32 7 32<rt>)
   let condRNERMM = (frm == numI32 0 32<rt>) .| (frm == numI32 4 32<rt>)
   let condRTZ = frm == numI32 1 32<rt>
   let condRDN = frm == numI32 2 32<rt>
   let condRUP = frm == numI32 3 32<rt>
-  let lblD0 = !%ir "DF0"
-  let lblD1 = !%ir "DF1"
-  let lblD2 = !%ir "DF2"
-  let lblD3 = !%ir "DF3"
-  let lblD4 = !%ir "DF4"
-  let lblD5 = !%ir "DF6"
-  let lblD6 = !%ir "DF7"
-  let lblDException = !%ir "DFException"
-  let lblDEnd = !%ir "DFEnd"
-  !!ir (AST.cjmp condRNERMM (AST.jmpDest lblD0) (AST.jmpDest lblD1))
-  !!ir (AST.lmark lblD0)
-  !!ir (tmpVar := AST.cast CastKind.FtoFRound rt res)
-  !!ir (AST.jmp (AST.jmpDest lblDEnd))
-  !!ir (AST.lmark lblD1)
-  !!ir (AST.cjmp condRTZ (AST.jmpDest lblD2) (AST.jmpDest lblD3))
-  !!ir (AST.lmark lblD2)
-  !!ir (tmpVar := AST.cast CastKind.FtoFTrunc rt res)
-  !!ir (AST.jmp (AST.jmpDest lblDEnd))
-  !!ir (AST.lmark lblD3)
-  !!ir (AST.cjmp condRDN (AST.jmpDest lblD4) (AST.jmpDest lblD5))
-  !!ir (AST.lmark lblD4)
-  !!ir (tmpVar := AST.cast CastKind.FtoFFloor rt res)
-  !!ir (AST.jmp (AST.jmpDest lblDEnd))
-  !!ir (AST.lmark lblD5)
-  !!ir (AST.cjmp condRUP (AST.jmpDest lblD6) (AST.jmpDest lblDException))
-  !!ir (AST.lmark lblD6)
-  !!ir (tmpVar := AST.cast CastKind.FtoFCeil rt res)
-  !!ir (AST.jmp (AST.jmpDest lblDEnd))
-  !!ir (AST.lmark lblDException)
-  !!ir (AST.sideEffect (Exception "illegal instruction"))
-  !!ir (AST.lmark lblDEnd)
+  let lblD0 = label bld "DF0"
+  let lblD1 = label bld "DF1"
+  let lblD2 = label bld "DF2"
+  let lblD3 = label bld "DF3"
+  let lblD4 = label bld "DF4"
+  let lblD5 = label bld "DF6"
+  let lblD6 = label bld "DF7"
+  let lblDException = label bld "DFException"
+  let lblDEnd = label bld "DFEnd"
+  bld <+ (AST.cjmp condRNERMM (AST.jmpDest lblD0) (AST.jmpDest lblD1))
+  bld <+ (AST.lmark lblD0)
+  bld <+ (tmpVar := AST.cast CastKind.FtoFRound rt res)
+  bld <+ (AST.jmp (AST.jmpDest lblDEnd))
+  bld <+ (AST.lmark lblD1)
+  bld <+ (AST.cjmp condRTZ (AST.jmpDest lblD2) (AST.jmpDest lblD3))
+  bld <+ (AST.lmark lblD2)
+  bld <+ (tmpVar := AST.cast CastKind.FtoFTrunc rt res)
+  bld <+ (AST.jmp (AST.jmpDest lblDEnd))
+  bld <+ (AST.lmark lblD3)
+  bld <+ (AST.cjmp condRDN (AST.jmpDest lblD4) (AST.jmpDest lblD5))
+  bld <+ (AST.lmark lblD4)
+  bld <+ (tmpVar := AST.cast CastKind.FtoFFloor rt res)
+  bld <+ (AST.jmp (AST.jmpDest lblDEnd))
+  bld <+ (AST.lmark lblD5)
+  bld <+ (AST.cjmp condRUP (AST.jmpDest lblD6) (AST.jmpDest lblDException))
+  bld <+ (AST.lmark lblD6)
+  bld <+ (tmpVar := AST.cast CastKind.FtoFCeil rt res)
+  bld <+ (AST.jmp (AST.jmpDest lblDEnd))
+  bld <+ (AST.lmark lblDException)
+  bld <+ (AST.sideEffect (Exception "illegal instruction"))
+  bld <+ (AST.lmark lblDEnd)
   tmpVar
 
-let dynamicRoundingInt ir ctxt rt res =
-  let tmpVar = !+ir rt
-  let frm = (getRegVar ctxt Register.FRM) .& (numI32 7 32<rt>)
+let dynamicRoundingInt bld rt res =
+  let tmpVar = tmpVar bld rt
+  let frm = (regVar bld Register.FRM) .& (numI32 7 32<rt>)
   let condRNERMM = (frm == numI32 0 32<rt>) .| (frm == numI32 4 32<rt>)
   let condRTZ = frm == numI32 1 32<rt>
   let condRDN = frm == numI32 2 32<rt>
   let condRUP = frm == numI32 3 32<rt>
-  let lblD0 = !%ir "DI0"
-  let lblD1 = !%ir "DI1"
-  let lblD2 = !%ir "DI2"
-  let lblD3 = !%ir "DI3"
-  let lblD4 = !%ir "DI4"
-  let lblD5 = !%ir "DI6"
-  let lblD6 = !%ir "DI7"
-  let lblDException = !%ir "DIException"
-  let lblDEnd = !%ir "DIEnd"
-  !!ir (AST.cjmp condRNERMM (AST.jmpDest lblD0) (AST.jmpDest lblD1))
-  !!ir (AST.lmark lblD0)
-  !!ir (tmpVar := AST.cast (CastKind.FtoIRound) rt res)
-  !!ir (AST.jmp (AST.jmpDest lblDEnd))
-  !!ir (AST.lmark lblD1)
-  !!ir (AST.cjmp condRTZ (AST.jmpDest lblD2) (AST.jmpDest lblD3))
-  !!ir (AST.lmark lblD2)
-  !!ir (tmpVar := AST.cast (CastKind.FtoITrunc) rt res)
-  !!ir (AST.jmp (AST.jmpDest lblDEnd))
-  !!ir (AST.lmark lblD3)
-  !!ir (AST.cjmp condRDN (AST.jmpDest lblD4) (AST.jmpDest lblD5))
-  !!ir (AST.lmark lblD4)
-  !!ir (tmpVar := AST.cast (CastKind.FtoIFloor) rt res)
-  !!ir (AST.jmp (AST.jmpDest lblDEnd))
-  !!ir (AST.lmark lblD5)
-  !!ir (AST.cjmp condRUP (AST.jmpDest lblD6) (AST.jmpDest lblDException))
-  !!ir (AST.lmark lblD6)
-  !!ir (tmpVar := AST.cast (CastKind.FtoICeil) rt res)
-  !!ir (AST.jmp (AST.jmpDest lblDEnd))
-  !!ir (AST.lmark lblDException)
-  !!ir (AST.sideEffect (Exception "illegal instruction"))
-  !!ir (AST.lmark lblDEnd)
+  let lblD0 = label bld "DI0"
+  let lblD1 = label bld "DI1"
+  let lblD2 = label bld "DI2"
+  let lblD3 = label bld "DI3"
+  let lblD4 = label bld "DI4"
+  let lblD5 = label bld "DI6"
+  let lblD6 = label bld "DI7"
+  let lblDException = label bld "DIException"
+  let lblDEnd = label bld "DIEnd"
+  bld <+ (AST.cjmp condRNERMM (AST.jmpDest lblD0) (AST.jmpDest lblD1))
+  bld <+ (AST.lmark lblD0)
+  bld <+ (tmpVar := AST.cast (CastKind.FtoIRound) rt res)
+  bld <+ (AST.jmp (AST.jmpDest lblDEnd))
+  bld <+ (AST.lmark lblD1)
+  bld <+ (AST.cjmp condRTZ (AST.jmpDest lblD2) (AST.jmpDest lblD3))
+  bld <+ (AST.lmark lblD2)
+  bld <+ (tmpVar := AST.cast (CastKind.FtoITrunc) rt res)
+  bld <+ (AST.jmp (AST.jmpDest lblDEnd))
+  bld <+ (AST.lmark lblD3)
+  bld <+ (AST.cjmp condRDN (AST.jmpDest lblD4) (AST.jmpDest lblD5))
+  bld <+ (AST.lmark lblD4)
+  bld <+ (tmpVar := AST.cast (CastKind.FtoIFloor) rt res)
+  bld <+ (AST.jmp (AST.jmpDest lblDEnd))
+  bld <+ (AST.lmark lblD5)
+  bld <+ (AST.cjmp condRUP (AST.jmpDest lblD6) (AST.jmpDest lblDException))
+  bld <+ (AST.lmark lblD6)
+  bld <+ (tmpVar := AST.cast (CastKind.FtoICeil) rt res)
+  bld <+ (AST.jmp (AST.jmpDest lblDEnd))
+  bld <+ (AST.lmark lblDException)
+  bld <+ (AST.sideEffect (Exception "illegal instruction"))
+  bld <+ (AST.lmark lblDEnd)
   tmpVar
 
-let transOneOpr insInfo ctxt opr = transOprToExpr insInfo ctxt opr
+let transOneOpr insInfo bld opr = transOprToExpr insInfo bld opr
 
-let transTwoOprs insInfo ctxt (o1, o2) =
-  transOprToExpr insInfo ctxt o1, transOprToExpr insInfo ctxt o2
+let transTwoOprs insInfo bld (o1, o2) =
+  transOprToExpr insInfo bld o1, transOprToExpr insInfo bld o2
 
-let transThreeOprs insInfo ctxt (o1, o2, o3) =
-  transOprToExpr insInfo ctxt o1,
-  transOprToExpr insInfo ctxt o2,
-  transOprToExpr insInfo ctxt o3
+let transThreeOprs insInfo bld (o1, o2, o3) =
+  transOprToExpr insInfo bld o1,
+  transOprToExpr insInfo bld o2,
+  transOprToExpr insInfo bld o3
 
-let transFourOprs insInfo ctxt (o1, o2, o3, o4) =
-  transOprToExpr insInfo ctxt o1,
-  transOprToExpr insInfo ctxt o2,
-  transOprToExpr insInfo ctxt o3,
-  transOprToExpr insInfo ctxt o4
+let transFourOprs insInfo bld (o1, o2, o3, o4) =
+  transOprToExpr insInfo bld o1,
+  transOprToExpr insInfo bld o2,
+  transOprToExpr insInfo bld o3,
+  transOprToExpr insInfo bld o4
 
 let getNanBoxed e = (numU64 0xFFFFFFFF_00000000uL 64<rt>) .| (AST.zext 64<rt> e)
 
-let dstAssignSingleWithRound dst src rm ctxt ir =
+let dstAssignSingleWithRound dst src rm bld =
   let rtVal = getNanBoxed src
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    !!ir (dst := AST.cast rounding 64<rt> rtVal)
+    bld <+ (dst := AST.cast rounding 64<rt> rtVal)
   else
-    !!ir (dst := dynamicRoundingFl ir ctxt 64<rt> rtVal)
+    bld <+ (dst := dynamicRoundingFl bld 64<rt> rtVal)
 
-let dstAssignDoubleWithRound dst src rm ctxt ir =
+let dstAssignDoubleWithRound dst src rm bld =
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    !!ir (dst := AST.cast rounding 64<rt> src)
+    bld <+ (dst := AST.cast rounding 64<rt> src)
   else
-    !!ir (dst := dynamicRoundingFl ir ctxt 64<rt> src)
+    bld <+ (dst := dynamicRoundingFl bld 64<rt> src)
 
 let getAddrFromMem x =
   match x with
@@ -545,1300 +542,1204 @@ let private checkOverflowOnDMul e1 e2 =
   let cond = mask64 .- e1 .< e2
   AST.ite cond bit32 (AST.num0 64<rt>)
 
-let private mulWithOverflow src1 src2 ir (isSign, isUnsign) isLow =
-  let src1IsNeg = !+ir 1<rt>
-  let struct (tSrc1, tSrc2, hiSrc1, loSrc1) = tmpVars4 ir 64<rt>
-  let struct (hiSrc2, loSrc2, pMid1, pMid2) = tmpVars4 ir 64<rt>
-  let struct (pMid, pLow) = tmpVars2 ir 64<rt>
-  let struct (low, high) = tmpVars2 ir 64<rt>
-  let struct (src2IsNeg, signBit) = tmpVars2 ir 1<rt>
-  let struct (tLow, tHigh) = tmpVars2 ir 64<rt>
+let private mulWithOverflow src1 src2 bld (isSign, isUnsign) isLow =
+  let src1IsNeg = tmpVar bld 1<rt>
+  let struct (tSrc1, tSrc2, hiSrc1, loSrc1) = tmpVars4 bld 64<rt>
+  let struct (hiSrc2, loSrc2, pMid1, pMid2) = tmpVars4 bld 64<rt>
+  let struct (pMid, pLow) = tmpVars2 bld 64<rt>
+  let struct (low, high) = tmpVars2 bld 64<rt>
+  let struct (src2IsNeg, signBit) = tmpVars2 bld 1<rt>
+  let struct (tLow, tHigh) = tmpVars2 bld 64<rt>
   let n32 = numI32 32 64<rt>
   let mask32 = numI64 0xFFFFFFFFL 64<rt>
   let zero = numI32 0 64<rt>
   let one = numI32 1 64<rt>
   match isSign, isUnsign with
   | true, true ->
-    !!ir (src1IsNeg := AST.xthi 1<rt> src1)
-    !!ir (src2IsNeg := AST.xthi 1<rt> src2)
-    !!ir (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
-    !!ir (tSrc2 := AST.ite src2IsNeg (AST.neg src2) src2)
+    bld <+ (src1IsNeg := AST.xthi 1<rt> src1)
+    bld <+ (src2IsNeg := AST.xthi 1<rt> src2)
+    bld <+ (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
+    bld <+ (tSrc2 := AST.ite src2IsNeg (AST.neg src2) src2)
   | true, false ->
-    !!ir (src1IsNeg := AST.xthi 1<rt> src1)
-    !!ir (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
-    !!ir (tSrc2 := src2)
+    bld <+ (src1IsNeg := AST.xthi 1<rt> src1)
+    bld <+ (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
+    bld <+ (tSrc2 := src2)
   | _ ->
-    !!ir (tSrc1 := src1)
-    !!ir (tSrc2 := src2)
-  !!ir (hiSrc1 := (tSrc1 >> n32) .& mask32) (* SRC1[63:32] *)
-  !!ir (loSrc1 := tSrc1 .& mask32) (* SRC1[31:0] *)
-  !!ir (hiSrc2 := (tSrc2 >> n32) .& mask32) (* SRC2[63:32] *)
-  !!ir (loSrc2 := tSrc2 .& mask32) (* SRC2[31:0] *)
-  !!ir (pMid1 := hiSrc1 .* loSrc2)
-  !!ir (pMid2 := loSrc1 .* hiSrc2)
-  !!ir (pMid := pMid1 .+ pMid2)
-  !!ir (pLow := loSrc1 .* loSrc2)
-  !!ir (low := pLow .+ ((pMid .& mask32) << n32))
+    bld <+ (tSrc1 := src1)
+    bld <+ (tSrc2 := src2)
+  bld <+ (hiSrc1 := (tSrc1 >> n32) .& mask32) (* SRC1[63:32] *)
+  bld <+ (loSrc1 := tSrc1 .& mask32) (* SRC1[31:0] *)
+  bld <+ (hiSrc2 := (tSrc2 >> n32) .& mask32) (* SRC2[63:32] *)
+  bld <+ (loSrc2 := tSrc2 .& mask32) (* SRC2[31:0] *)
+  bld <+ (pMid1 := hiSrc1 .* loSrc2)
+  bld <+ (pMid2 := loSrc1 .* hiSrc2)
+  bld <+ (pMid := pMid1 .+ pMid2)
+  bld <+ (pLow := loSrc1 .* loSrc2)
+  bld <+ (low := pLow .+ ((pMid .& mask32) << n32))
   if not isLow then
     let overFlowBit = checkOverflowOnDMul pMid1 pMid2
-    !! ir (high :=
-      hiSrc1 .* hiSrc2 .+ ((pMid .+ (pLow >> n32)) >> n32) .+ overFlowBit)
+    bld
+    <+ (high := hiSrc1 .* hiSrc2
+             .+ ((pMid .+ (pLow >> n32)) >> n32)
+             .+ overFlowBit)
   if isSign then
-    !!ir (signBit := src1IsNeg <+> src2IsNeg)
-    !!ir (tLow := AST.ite signBit (AST.neg low) low)
+    bld <+ (signBit := src1IsNeg <+> src2IsNeg)
+    bld <+ (tLow := AST.ite signBit (AST.neg low) low)
     if not isLow then
       let carry = AST.ite (AST.``and`` signBit (tLow == zero)) one zero
-      !!ir (tHigh := AST.ite signBit (AST.not high) high .+ carry)
+      bld <+ (tHigh := AST.ite signBit (AST.not high) high .+ carry)
   else
     if not isLow then
-      !!ir (tHigh := high)
-    !!ir (tLow := low)
+      bld <+ (tHigh := high)
+    bld <+ (tLow := low)
   if isLow then tLow
   else tHigh
 
-let add insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 .+ rs2)
-  !>ir insLen
+let add insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 .+ rs2)
+  bld --!> insLen
 
-let addw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
+let addw insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
-  !!ir (rd := AST.sext 64<rt> (rs1 .+ rs2))
-  !>ir insLen
+  bld <+ (rd := AST.sext 64<rt> (rs1 .+ rs2))
+  bld --!> insLen
 
-let subw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
+let subw insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
-  !!ir (rd := AST.sext 64<rt> (rs1 .- rs2))
-  !>ir insLen
+  bld <+ (rd := AST.sext 64<rt> (rs1 .- rs2))
+  bld --!> insLen
 
-let sub insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 .- rs2)
-  !>ir insLen
+let sub insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 .- rs2)
+  bld --!> insLen
 
-let ``and`` insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 .& rs2)
-  !>ir insLen
+let ``and`` insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 .& rs2)
+  bld --!> insLen
 
-let ``or`` insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 .| rs2)
-  !>ir insLen
+let ``or`` insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 .| rs2)
+  bld --!> insLen
 
-let xor insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 <+> rs2)
-  !>ir insLen
+let xor insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 <+> rs2)
+  bld --!> insLen
 
-let slt insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let slt insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let cond = rs1 ?< rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  !<ir insInfo.Address insLen
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let sltu insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let sltu insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let cond = rs1 .< rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  !<ir insInfo.Address insLen
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let sll insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let sll insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 << shiftAmm)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 << shiftAmm)
+  bld --!> insLen
 
-let sllw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let sllw insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   let shiftAmm = rs2 .& numU32 0x1fu 32<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.sext 64<rt> (rs1 << shiftAmm))
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.sext 64<rt> (rs1 << shiftAmm))
+  bld --!> insLen
 
-let srl insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let srl insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 >> shiftAmm)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 >> shiftAmm)
+  bld --!> insLen
 
-let srlw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let srlw insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   let shiftAmm = rs2 .& numU32 0x1fu 32<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.sext 64<rt> (rs1 >> shiftAmm))
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.sext 64<rt> (rs1 >> shiftAmm))
+  bld --!> insLen
 
-let sra insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let sra insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 ?>> shiftAmm)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 ?>> shiftAmm)
+  bld --!> insLen
 
-let sraw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let sraw insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   let shiftAmm = rs2 .& numU32 0x1fu 32<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.sext 64<rt> (rs1 ?>> shiftAmm))
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.sext 64<rt> (rs1 ?>> shiftAmm))
+  bld --!> insLen
 
-let srai insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, shiftAmm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 ?>> shiftAmm)
-  !>ir insLen
+let srai insInfo insLen bld =
+  let rd, rs1, shiftAmm = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 ?>> shiftAmm)
+  bld --!> insLen
 
-let srli insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, shiftAmm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 >> shiftAmm)
-  !>ir insLen
+let srli insInfo insLen bld =
+  let rd, rs1, shiftAmm = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 >> shiftAmm)
+  bld --!> insLen
 
-let slli insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, shiftAmm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 << shiftAmm)
-  !>ir insLen
+let slli insInfo insLen bld =
+  let rd, rs1, shiftAmm = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 << shiftAmm)
+  bld --!> insLen
 
-let andi insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 .& imm)
-  !>ir insLen
+let andi insInfo insLen bld =
+  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 .& imm)
+  bld --!> insLen
 
-let addi insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 .+ imm)
-  !>ir insLen
+let addi insInfo insLen bld =
+  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 .+ imm)
+  bld --!> insLen
 
-let ori insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 .| imm)
-  !>ir insLen
+let ori insInfo insLen bld =
+  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 .| imm)
+  bld --!> insLen
 
-let xori insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1 <+> imm)
-  !>ir insLen
+let xori insInfo insLen bld =
+  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1 <+> imm)
+  bld --!> insLen
 
-let slti insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let slti insInfo insLen bld =
+  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let cond = rs1 ?< imm
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  !<ir insInfo.Address insLen
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let sltiu insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let sltiu insInfo insLen bld =
+  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let cond = rs1 .< imm
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  !<ir insInfo.Address insLen
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let nop insInfo insLen ctxt =
-  let ir = !*ctxt
-  !<ir insInfo.Address insLen
-  !>ir insLen
+let nop insInfo insLen bld =
+  bld <!-- (insInfo.Address, insLen)
+  bld --!> insLen
 
-let jal insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, jumpTarget = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
-  !<ir insInfo.Address insLen
-  !!ir (rd := r)
-  !!ir (AST.interjmp jumpTarget InterJmpKind.IsCall)
-  !>ir insLen
+let jal insInfo insLen bld =
+  let rd, jumpTarget = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  let r = bvOfBaseAddr bld insInfo.Address .+ bvOfInstrLen bld insInfo
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := r)
+  bld <+ (AST.interjmp jumpTarget InterJmpKind.IsCall)
+  bld --!> insLen
 
-let jalr insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, jumpTarget = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
-  let target = !+ir 64<rt>
-  let actualTarget = if target = AST.num0 ctxt.WordBitSize then rd else target
-  !<ir insInfo.Address insLen
-  !!ir (target := jumpTarget)
-  !!ir (rd := r)
-  !!ir (AST.interjmp actualTarget InterJmpKind.IsRet)
-  !>ir insLen
+let jalr insInfo insLen bld =
+  let rd, jumpTarget = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  let r = bvOfBaseAddr bld insInfo.Address .+ bvOfInstrLen bld insInfo
+  let target = tmpVar bld 64<rt>
+  let actualTarget = if target = AST.num0 bld.RegType then rd else target
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (target := jumpTarget)
+  bld <+ (rd := r)
+  bld <+ (AST.interjmp actualTarget InterJmpKind.IsRet)
+  bld --!> insLen
 
-let beq insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let beq insInfo insLen bld =
+  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let cond = rs1 == rs2
   let fallThrough =
-    bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
-  !<ir insInfo.Address insLen
-  !!ir (AST.intercjmp cond offset fallThrough)
-  !>ir insLen
+    bvOfBaseAddr bld insInfo.Address .+ bvOfInstrLen bld insInfo
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.intercjmp cond offset fallThrough)
+  bld --!> insLen
 
-let bne insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let bne insInfo insLen bld =
+  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let cond = rs1 != rs2
   let fallThrough =
-    bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
-  !<ir insInfo.Address insLen
-  !!ir (AST.intercjmp cond offset fallThrough)
-  !>ir insLen
+    bvOfBaseAddr bld insInfo.Address .+ bvOfInstrLen bld insInfo
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.intercjmp cond offset fallThrough)
+  bld --!> insLen
 
-let blt insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let blt insInfo insLen bld =
+  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let cond = rs1 ?< rs2
   let fallThrough =
-    bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
-  !<ir insInfo.Address insLen
-  !!ir (AST.intercjmp cond offset fallThrough)
-  !>ir insLen
+    bvOfBaseAddr bld insInfo.Address .+ bvOfInstrLen bld insInfo
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.intercjmp cond offset fallThrough)
+  bld --!> insLen
 
-let bge insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let bge insInfo insLen bld =
+  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let cond = rs1 ?>= rs2
   let fallThrough =
-    bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
-  !<ir insInfo.Address insLen
-  !!ir (AST.intercjmp cond offset fallThrough)
-  !>ir insLen
+    bvOfBaseAddr bld insInfo.Address .+ bvOfInstrLen bld insInfo
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.intercjmp cond offset fallThrough)
+  bld --!> insLen
 
-let bltu insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let bltu insInfo insLen bld =
+  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let cond = rs1 .< rs2
   let fallThrough =
-    bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
-  !<ir insInfo.Address insLen
-  !!ir (AST.intercjmp cond offset fallThrough)
-  !>ir insLen
+    bvOfBaseAddr bld insInfo.Address .+ bvOfInstrLen bld insInfo
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.intercjmp cond offset fallThrough)
+  bld --!> insLen
 
-let bgeu insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let bgeu insInfo insLen bld =
+  let rs1, rs2, offset = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let cond = rs1 .>= rs2
   let fallThrough =
-    bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
-  !<ir insInfo.Address insLen
-  !!ir (AST.intercjmp cond offset fallThrough)
-  !>ir insLen
+    bvOfBaseAddr bld insInfo.Address .+ bvOfInstrLen bld insInfo
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.intercjmp cond offset fallThrough)
+  bld --!> insLen
 
-let load insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.sext ctxt.WordBitSize mem)
-  !>ir insLen
+let load insInfo insLen bld =
+  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.sext bld.RegType mem)
+  bld --!> insLen
 
-let loadu insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.zext ctxt.WordBitSize mem)
-  !>ir insLen
+let loadu insInfo insLen bld =
+  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.zext bld.RegType mem)
+  bld --!> insLen
 
-let store insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+let store insInfo insLen bld =
+  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo bld
   let accessLength = getAccessLength (snd (getTwoOprs insInfo))
-  !<ir insInfo.Address insLen
-  if accessLength = 64<rt> then !!ir (mem := rd)
-  else !!ir (mem := AST.xtlo accessLength rd)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  if accessLength = 64<rt> then bld <+ (mem := rd)
+  else bld <+ (mem := AST.xtlo accessLength rd)
+  bld --!> insLen
 
-let sideEffects insInfo insLen ctxt name =
-  let ir = !*ctxt
-  !<ir insInfo.Address insLen
-  !!ir (AST.sideEffect name)
-  !>ir insLen
+let sideEffects insInfo insLen bld name =
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.sideEffect name)
+  bld --!> insLen
 
-let lui insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := imm << numI32 12 ctxt.WordBitSize)
-  !>ir insLen
+let lui insInfo insLen bld =
+  let rd, imm = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := imm << numI32 12 bld.RegType)
+  bld --!> insLen
 
-let auipc insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let pc = bvOfBaseAddr ctxt insInfo.Address
-  !<ir insInfo.Address insLen
-  !!ir (rd := pc .+ (imm << numI32 12 ctxt.WordBitSize))
-  !>ir insLen
+let auipc insInfo insLen bld =
+  let rd, imm = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  let pc = bvOfBaseAddr bld insInfo.Address
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := pc .+ (imm << numI32 12 bld.RegType))
+  bld --!> insLen
 
-let addiw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let addiw insInfo insLen bld =
+  let rd, rs1, imm = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.sext 64<rt> (lowBitsRs1 .+ AST.xtlo 32<rt> imm))
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.sext 64<rt> (lowBitsRs1 .+ AST.xtlo 32<rt> imm))
+  bld --!> insLen
 
-let slliw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let slliw insInfo insLen bld =
+  let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.sext 64<rt> (lowBitsRs1 << AST.xtlo 32<rt> shamt))
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.sext 64<rt> (lowBitsRs1 << AST.xtlo 32<rt> shamt))
+  bld --!> insLen
 
-let srliw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let srliw insInfo insLen bld =
+  let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.sext 64<rt> (lowBitsRs1 >> AST.xtlo 32<rt> shamt))
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.sext 64<rt> (lowBitsRs1 >> AST.xtlo 32<rt> shamt))
+  bld --!> insLen
 
-let sraiw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let sraiw insInfo insLen bld =
+  let rd, rs1, shamt = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.sext 64<rt> (lowBitsRs1 ?>> AST.xtlo 32<rt> shamt))
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.sext 64<rt> (lowBitsRs1 ?>> AST.xtlo 32<rt> shamt))
+  bld --!> insLen
 
-let mul insInfo insLen ctxt (isSign, isUnsign) =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  let low = mulWithOverflow rs1 rs2 ir (isSign, isUnsign) true
-  !!ir (rd := low)
-  !>ir insLen
+let mul insInfo insLen bld (isSign, isUnsign) =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  let low = mulWithOverflow rs1 rs2 bld (isSign, isUnsign) true
+  bld <+ (rd := low)
+  bld --!> insLen
 
-let mulhSignOrUnsign insInfo insLen ctxt (isSign, isUnsign) =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  let high = mulWithOverflow rs1 rs2 ir (isSign, isUnsign) false
-  !!ir (rd := high)
-  !>ir insLen
+let mulhSignOrUnsign insInfo insLen bld (isSign, isUnsign) =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  let high = mulWithOverflow rs1 rs2 bld (isSign, isUnsign) false
+  bld <+ (rd := high)
+  bld --!> insLen
 
-let mulw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let mulw insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let lowBitsRs1 = AST.xtlo 32<rt> rs1
   let lowBitsRs2 = AST.xtlo 32<rt> rs2
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.sext 64<rt> (lowBitsRs1 .* lowBitsRs2))
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.sext 64<rt> (lowBitsRs1 .* lowBitsRs2))
+  bld --!> insLen
 
-let div insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let div insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let condZero = rs2 == AST.num0 64<rt>
   let condOverflow =
     ((rs2 == numI32 -1 64<rt>) .& (rs1 == numI64 0x8000000000000000L 64<rt>))
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblL2 = !%ir "L2"
-  let lblL3 = !%ir "L3"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  !!ir (AST.lmark lblL2)
-  !!ir (rd := rs1)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL3)
-  !!ir (rd := rs1 ?/ rs2)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblL2 = label bld "L2"
+  let lblL3 = label bld "L3"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
+  bld <+ (AST.lmark lblL2)
+  bld <+ (rd := rs1)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL3)
+  bld <+ (rd := rs1 ?/ rs2)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let divw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let divw insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   let condZero = rs2 == AST.num0 32<rt>
   let condOverflow =
     ((rs2 == numI32 -1 32<rt>) .& (rs1 == numI32 0x80000000 32<rt>))
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblL2 = !%ir "L2"
-  let lblL3 = !%ir "L3"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  !!ir (AST.lmark lblL2)
-  !!ir (rd := AST.sext 64<rt> rs1)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL3)
-  !!ir (rd := AST.sext 64<rt> (rs1 ?/ rs2))
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblL2 = label bld "L2"
+  let lblL3 = label bld "L3"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
+  bld <+ (AST.lmark lblL2)
+  bld <+ (rd := AST.sext 64<rt> rs1)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL3)
+  bld <+ (rd := AST.sext 64<rt> (rs1 ?/ rs2))
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let divuw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let divuw insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   let condZero = rs2 == AST.num0 32<rt>
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := AST.sext 64<rt> (rs1 ./ rs2))
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (rd := AST.sext 64<rt> (rs1 ./ rs2))
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let divu insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let divu insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let condZero = rs2 == AST.num0 64<rt>
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := rs1 ./ rs2)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (rd := rs1 ./ rs2)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let remu insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let remu insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let condZero = rs2 == AST.num0 64<rt>
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := rs1)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := rs1 .% rs2)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := rs1)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (rd := rs1 .% rs2)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let rem insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let rem insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let condZero = rs2 == AST.num0 64<rt>
   let condOverflow =
     ((rs2 == numI32 -1 64<rt>) .& (rs1 == numI64 0x8000000000000000L 64<rt>))
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblL2 = !%ir "L2"
-  let lblL3 = !%ir "L3"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := rs1)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  !!ir (AST.lmark lblL2)
-  !!ir (rd := AST.num0 64<rt>)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL3)
-  !!ir (rd := rs1 ?% rs2)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblL2 = label bld "L2"
+  let lblL3 = label bld "L3"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := rs1)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
+  bld <+ (AST.lmark lblL2)
+  bld <+ (rd := AST.num0 64<rt>)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL3)
+  bld <+ (rd := rs1 ?% rs2)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let remw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let remw insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   let condZero = rs2 == AST.num0 32<rt>
   let condOverflow =
     ((rs2 == numI32 -1 32<rt>) .& (rs1 == numI32 0x80000000 32<rt>))
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblL2 = !%ir "L2"
-  let lblL3 = !%ir "L3"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := AST.sext 64<rt> rs1)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  !!ir (AST.lmark lblL2)
-  !!ir (rd := AST.num0 64<rt>)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL3)
-  !!ir (rd := AST.sext 64<rt> (rs1 ?% rs2))
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblL2 = label bld "L2"
+  let lblL3 = label bld "L3"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := AST.sext 64<rt> rs1)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3))
+  bld <+ (AST.lmark lblL2)
+  bld <+ (rd := AST.num0 64<rt>)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL3)
+  bld <+ (rd := AST.sext 64<rt> (rs1 ?% rs2))
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let remuw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let remuw insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = AST.xtlo 32<rt> rs1
   let rs2 = AST.xtlo 32<rt> rs2
   let condZero = rs2 == AST.num0 32<rt>
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := AST.sext 64<rt> rs1)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := AST.sext 64<rt> (rs1 .% rs2))
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := AST.sext 64<rt> rs1)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (rd := AST.sext 64<rt> (rs1 .% rs2))
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fld insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+let fld insInfo insLen bld =
+  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo bld
   let condAlign = isAligned 64<rt> (getAddrFromMem mem)
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect Lock)
-  !!ir (rd := AST.sext ctxt.WordBitSize mem)
-  !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := AST.sext ctxt.WordBitSize mem)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (AST.sideEffect Lock)
+  bld <+ (rd := AST.sext bld.RegType mem)
+  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (rd := AST.sext bld.RegType mem)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fsd insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+let fsd insInfo insLen bld =
+  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo bld
   let condAlign = isAligned 64<rt> (getAddrFromMem mem)
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect Lock)
-  !!ir (mem := rd)
-  !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (mem := rd)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (AST.sideEffect Lock)
+  bld <+ (mem := rd)
+  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (mem := rd)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fltdots insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let fltdots insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
   let checkNan = isNan 32<rt> rs1 .| isNan 32<rt> rs2
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
   let cond = AST.flt rs1 rs2
   let rtVal =
-    AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
-  let fflags = getRegVar ctxt R.FFLAGS
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fflags := fflags .| numU32 16u 32<rt>)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+    AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
+  let fflags = regVar bld R.FFLAGS
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := rtVal)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (rd := numU64 0uL 64<rt>)
+  bld <+ (fflags := fflags .| numU32 16u 32<rt>)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fledots insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let fledots insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
   let checkNan = isNan 32<rt> rs1 .| isNan 32<rt> rs2
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
   let cond = AST.fle rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  let fflags = getRegVar ctxt R.FFLAGS
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fflags := fflags .| numU32 16u 32<rt>)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let fflags = regVar bld R.FFLAGS
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := rtVal)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (rd := numU64 0uL 64<rt>)
+  bld <+ (fflags := fflags .| numU32 16u 32<rt>)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let feqdots insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let feqdots insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
   let isSNan = isSNan 32<rt> rs1 .| isSNan 32<rt> rs2
   let checkNan = isNan 32<rt> rs1 .| isNan 32<rt> rs2
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
   let cond = rs1 == rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  let fflags = getRegVar ctxt R.FFLAGS
+  let fflags = regVar bld R.FFLAGS
   let flagFscr = AST.ite (isSNan) (numU32 16u 32<rt>) (AST.num0 32<rt>)
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fflags := fflags .| flagFscr)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := rtVal)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (rd := numU64 0uL 64<rt>)
+  bld <+ (fflags := fflags .| flagFscr)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fclassdots insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+let fclassdots insInfo insLen bld =
+  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let plusZero = numU32 0u 32<rt>
   let negZero = numU32 0x80000000u 32<rt>
   let sign = AST.extract rs1 1<rt> 31
-  let lblPos = !%ir "Pos"
-  let lblNeg = !%ir "Neg"
-  let lblEnd = !%ir "End"
+  let lblPos = label bld "Pos"
+  let lblNeg = label bld "Neg"
+  let lblEnd = label bld "End"
   let condZero = (rs1 == plusZero) .| (rs1 == negZero)
   let condInf = isInf 32<rt> rs1
   let condSubnormal = isSubnormal 32<rt> rs1
   let condSNan = isSNan 32<rt> rs1
   let condQNan = isQNan 32<rt> rs1
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.num0 64<rt>)
-  !!ir (AST.cjmp sign (AST.jmpDest lblNeg) (AST.jmpDest lblPos))
-  !!ir (AST.lmark lblPos)
-  !!ir (rd := AST.ite condInf (numU32 (1u <<< 7) 64<rt>) rd)
-  !!ir (rd := AST.ite condZero (numU32 (1u <<< 4) 64<rt>) rd)
-  !!ir (rd := AST.ite condSubnormal (numU32 (1u <<< 5) 64<rt>) rd)
-  !!ir (rd := AST.ite condQNan (numU32 (1u <<< 9) 64<rt>) rd)
-  !!ir (rd := AST.ite condSNan (numU32 (1u <<< 8) 64<rt>) rd)
-  !!ir (rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 6) 64<rt>) rd)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblNeg)
-  !!ir (rd := AST.ite condInf (numU32 (1u <<< 0) 64<rt>) rd)
-  !!ir (rd := AST.ite condZero (numU32 (1u <<< 3) 64<rt>) rd)
-  !!ir (rd := AST.ite condSubnormal (numU32 (1u <<< 2) 64<rt>) rd)
-  !!ir (rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 1) 64<rt>) rd)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.num0 64<rt>)
+  bld <+ (AST.cjmp sign (AST.jmpDest lblNeg) (AST.jmpDest lblPos))
+  bld <+ (AST.lmark lblPos)
+  bld <+ (rd := AST.ite condInf (numU32 (1u <<< 7) 64<rt>) rd)
+  bld <+ (rd := AST.ite condZero (numU32 (1u <<< 4) 64<rt>) rd)
+  bld <+ (rd := AST.ite condSubnormal (numU32 (1u <<< 5) 64<rt>) rd)
+  bld <+ (rd := AST.ite condQNan (numU32 (1u <<< 9) 64<rt>) rd)
+  bld <+ (rd := AST.ite condSNan (numU32 (1u <<< 8) 64<rt>) rd)
+  bld <+ (rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 6) 64<rt>) rd)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblNeg)
+  bld <+ (rd := AST.ite condInf (numU32 (1u <<< 0) 64<rt>) rd)
+  bld <+ (rd := AST.ite condZero (numU32 (1u <<< 3) 64<rt>) rd)
+  bld <+ (rd := AST.ite condSubnormal (numU32 (1u <<< 2) 64<rt>) rd)
+  bld <+ (rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 1) 64<rt>) rd)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fclassdotd insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+let fclassdotd insInfo insLen bld =
+  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo bld
   let plusZero = numU64 0uL 64<rt>
   let negZero = numU64 0x8000000000000000uL 64<rt>
   let sign = AST.extract rs1 1<rt> 63
-  let lblPos = !%ir "Pos"
-  let lblNeg = !%ir "Neg"
-  let lblEnd = !%ir "End"
+  let lblPos = label bld "Pos"
+  let lblNeg = label bld "Neg"
+  let lblEnd = label bld "End"
   let condZero = (rs1 == plusZero) .| (rs1 == negZero)
   let condInf = isInf 64<rt> rs1
   let condSubnormal = isSubnormal 64<rt> rs1
   let condSNan = isSNan 64<rt> rs1
   let condQNan = isQNan 64<rt> rs1
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.num0 64<rt>)
-  !!ir (AST.cjmp sign (AST.jmpDest lblNeg) (AST.jmpDest lblPos))
-  !!ir (AST.lmark lblPos)
-  !!ir (rd := AST.ite condInf (numU32 (1u <<< 7) 64<rt>) rd)
-  !!ir (rd := AST.ite condZero (numU32 (1u <<< 4) 64<rt>) rd)
-  !!ir (rd := AST.ite condSubnormal (numU32 (1u <<< 5) 64<rt>) rd)
-  !!ir (rd := AST.ite condQNan (numU32 (1u <<< 9) 64<rt>) rd)
-  !!ir (rd := AST.ite condSNan (numU32 (1u <<< 8) 64<rt>) rd)
-  !!ir (rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 6) 64<rt>) rd)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblNeg)
-  !!ir (rd := AST.ite condInf (numU32 (1u <<< 0) 64<rt>) rd)
-  !!ir (rd := AST.ite condZero (numU32 (1u <<< 3) 64<rt>) rd)
-  !!ir (rd := AST.ite condSubnormal (numU32 (1u <<< 2) 64<rt>) rd)
-  !!ir (rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 1) 64<rt>) rd)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.num0 64<rt>)
+  bld <+ (AST.cjmp sign (AST.jmpDest lblNeg) (AST.jmpDest lblPos))
+  bld <+ (AST.lmark lblPos)
+  bld <+ (rd := AST.ite condInf (numU32 (1u <<< 7) 64<rt>) rd)
+  bld <+ (rd := AST.ite condZero (numU32 (1u <<< 4) 64<rt>) rd)
+  bld <+ (rd := AST.ite condSubnormal (numU32 (1u <<< 5) 64<rt>) rd)
+  bld <+ (rd := AST.ite condQNan (numU32 (1u <<< 9) 64<rt>) rd)
+  bld <+ (rd := AST.ite condSNan (numU32 (1u <<< 8) 64<rt>) rd)
+  bld <+ (rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 6) 64<rt>) rd)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblNeg)
+  bld <+ (rd := AST.ite condInf (numU32 (1u <<< 0) 64<rt>) rd)
+  bld <+ (rd := AST.ite condZero (numU32 (1u <<< 3) 64<rt>) rd)
+  bld <+ (rd := AST.ite condSubnormal (numU32 (1u <<< 2) 64<rt>) rd)
+  bld <+ (rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 1) 64<rt>) rd)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let flw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let tmp = !+ir 32<rt>
+let flw insInfo insLen bld =
+  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  let tmp = tmpVar bld 32<rt>
   let condAlign = isAligned 32<rt> (getAddrFromMem mem)
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect Lock)
-  !!ir (tmp := mem)
-  !!ir (rd := getNanBoxed tmp)
-  !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (tmp := mem)
-  !!ir (rd := getNanBoxed tmp)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (AST.sideEffect Lock)
+  bld <+ (tmp := mem)
+  bld <+ (rd := getNanBoxed tmp)
+  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (tmp := mem)
+  bld <+ (rd := getNanBoxed tmp)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fsw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+let fsw insInfo insLen bld =
+  let rd, mem = getTwoOprs insInfo |> transTwoOprs insInfo bld
   let condAlign = isAligned 32<rt> (getAddrFromMem mem)
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect Lock)
-  !!ir (mem := AST.xtlo 32<rt> rd)
-  !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (mem := AST.xtlo 32<rt> rd)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (AST.sideEffect Lock)
+  bld <+ (mem := AST.xtlo 32<rt> rd)
+  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (mem := AST.xtlo 32<rt> rd)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fltdotd insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let fltdotd insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let checkNan = isNan 64<rt> rs1 .| isNan 64<rt> rs2
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
   let cond = AST.flt rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  let fflags = getRegVar ctxt R.FFLAGS
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fflags := fflags .| numU32 16u 32<rt>)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let fflags = regVar bld R.FFLAGS
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := rtVal)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (rd := numU64 0uL 64<rt>)
+  bld <+ (fflags := fflags .| numU32 16u 32<rt>)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fledotd insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let fledotd insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let checkNan = isNan 64<rt> rs1 .| isNan 64<rt> rs2
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
   let cond = AST.fle rs1 rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  let fflags = getRegVar ctxt R.FFLAGS
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fflags := fflags .| numU32 16u 32<rt>)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let fflags = regVar bld R.FFLAGS
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := rtVal)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (rd := numU64 0uL 64<rt>)
+  bld <+ (fflags := fflags .| numU32 16u 32<rt>)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let feqdotd insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let feqdotd insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let isSNan = isSNan 64<rt> rs1 .| isSNan 64<rt> rs2
   let checkNan = isNan 64<rt> rs1 .| isNan 64<rt> rs2
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
   let cond = rs1 == rs2
   let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
-  let fflags = getRegVar ctxt R.FFLAGS
+  let fflags = regVar bld R.FFLAGS
   let flagFscr = AST.ite isSNan (numU32 16u 32<rt>) (AST.num0 32<rt>)
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
-  !!ir (AST.lmark lblL0)
-  !!ir (rd := rtVal)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (rd := numU64 0uL 64<rt>)
-  !!ir (fflags := fflags .| flagFscr)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rd := rtVal)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (rd := numU64 0uL 64<rt>)
+  bld <+ (fflags := fflags .| flagFscr)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fpArithmeticSingle insInfo insLen ctxt operator =
-  let ir = !*ctxt
+let fpArithmeticSingle insInfo insLen bld operator =
   let rd, rs1, rs2, _ = getFourOprs insInfo
-  let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
+  let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
-  !<ir insInfo.Address insLen
+  bld <!-- (insInfo.Address, insLen)
   let rtVal =
     let operation = operator rs1 rs2
     AST.ite (isNan 32<rt> operation) (fpDefaultNan 32<rt>) operation
-  !!ir (rd := getNanBoxed rtVal)
-  !>ir insLen
+  bld <+ (rd := getNanBoxed rtVal)
+  bld --!> insLen
 
-let fpArithmeticDouble insInfo insLen ctxt operator =
-  let ir = !*ctxt
+let fpArithmeticDouble insInfo insLen bld operator =
   let rd, rs1, rs2, _ = getFourOprs insInfo
-  let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo ctxt
-  !<ir insInfo.Address insLen
+  let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
   let rtVal =
     let operation = operator rs1 rs2
     AST.ite (isNan 64<rt> operation) (fpDefaultNan 64<rt>) operation
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let fsqrtdots insInfo insLen ctxt =
-  let ir = !*ctxt
+let fsqrtdots insInfo insLen bld =
   let rd, rs1, _ = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let rs1 = AST.xtlo 32<rt> rs1
-  !<ir insInfo.Address insLen
+  bld <!-- (insInfo.Address, insLen)
   let rtVal = AST.fsqrt rs1
-  !!ir (rd := getNanBoxed rtVal)
-  !>ir insLen
+  bld <+ (rd := getNanBoxed rtVal)
+  bld --!> insLen
 
-let fsqrtdotd insInfo insLen ctxt =
-  let ir = !*ctxt
+let fsqrtdotd insInfo insLen bld =
   let rd, rs1, _ = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
-  !<ir insInfo.Address insLen
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
   let rtVal = AST.fsqrt rs1
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let fmindots insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let fmindots insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
-  let rtVal = !+ir 32<rt>
+  let rtVal = tmpVar bld 32<rt>
   let cond = AST.flt rs1 rs2
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := AST.ite cond rs1 rs2)
-  !!ir (rd := getNanBoxed rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := AST.ite cond rs1 rs2)
+  bld <+ (rd := getNanBoxed rtVal)
+  bld --!> insLen
 
-let fmindotd insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let rtVal = !+ir 64<rt>
+let fmindotd insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  let rtVal = tmpVar bld 64<rt>
   let cond = AST.flt rs1 rs2
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := AST.ite cond rs1 rs2)
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := AST.ite cond rs1 rs2)
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let fmaxdots insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let fmaxdots insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
-  let rtVal = !+ir 32<rt>
+  let rtVal = tmpVar bld 32<rt>
   let cond = AST.flt rs1 rs2
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := AST.ite cond rs2 rs1)
-  !!ir (rd := getNanBoxed rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := AST.ite cond rs2 rs1)
+  bld <+ (rd := getNanBoxed rtVal)
+  bld --!> insLen
 
-let fmaxdotd insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let rtVal = !+ir 64<rt>
+let fmaxdotd insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  let rtVal = tmpVar bld 64<rt>
   let cond = AST.flt rs1 rs2
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := AST.ite cond rs2 rs1)
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := AST.ite cond rs2 rs1)
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let fmadddots insInfo insLen ctxt =
-  let ir = !*ctxt
+let fmadddots insInfo insLen bld =
   let rd, rs1, rs2, rs3, _ = getFiveOprs insInfo
-  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
+  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
   let rs3 = getFloat32FromReg rs3
-  !<ir insInfo.Address insLen
+  bld <!-- (insInfo.Address, insLen)
   let rtVal = AST.fadd (AST.fmul rs1 rs2) rs3
-  !!ir (rd := getNanBoxed rtVal)
-  !>ir insLen
+  bld <+ (rd := getNanBoxed rtVal)
+  bld --!> insLen
 
-let fmadddotd insInfo insLen ctxt =
-  let ir = !*ctxt
+let fmadddotd insInfo insLen bld =
   let rd, rs1, rs2, rs3, _ = getFiveOprs insInfo
-  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
-  !<ir insInfo.Address insLen
+  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
   let rtVal = AST.fadd (AST.fmul rs1 rs2) rs3
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let fmsubdots insInfo insLen ctxt =
-  let ir = !*ctxt
+let fmsubdots insInfo insLen bld =
   let rd, rs1, rs2, rs3, _ = getFiveOprs insInfo
-  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
+  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
   let rs3 = getFloat32FromReg rs3
-  !<ir insInfo.Address insLen
+  bld <!-- (insInfo.Address, insLen)
   let rtVal = AST.fsub (AST.fmul rs1 rs2) rs3
-  !!ir (rd := getNanBoxed rtVal)
-  !>ir insLen
+  bld <+ (rd := getNanBoxed rtVal)
+  bld --!> insLen
 
-let fmsubdotd insInfo insLen ctxt =
-  let ir = !*ctxt
+let fmsubdotd insInfo insLen bld =
   let rd, rs1, rs2, rs3, _ = getFiveOprs insInfo
-  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
-  !<ir insInfo.Address insLen
+  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
   let rtVal = AST.fsub (AST.fmul rs1 rs2) rs3
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let fnmsubdots insInfo insLen ctxt =
-  let ir = !*ctxt
+let fnmsubdots insInfo insLen bld =
   let rd, rs1, rs2, rs3, _ = getFiveOprs insInfo
-  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
+  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
   let rs3 = getFloat32FromReg rs3
-  !<ir insInfo.Address insLen
+  bld <!-- (insInfo.Address, insLen)
   let rtVal = AST.fadd (fpNeg 32<rt> <| AST.fmul rs1 rs2) rs3
-  !!ir (rd := getNanBoxed rtVal)
-  !>ir insLen
+  bld <+ (rd := getNanBoxed rtVal)
+  bld --!> insLen
 
-let fnmsubdotd insInfo insLen ctxt =
-  let ir = !*ctxt
+let fnmsubdotd insInfo insLen bld =
   let rd, rs1, rs2, rs3, _ = getFiveOprs insInfo
-  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.fadd (fpNeg 64<rt> <| AST.fmul rs1 rs2) rs3)
-  !>ir insLen
+  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.fadd (fpNeg 64<rt> <| AST.fmul rs1 rs2) rs3)
+  bld --!> insLen
 
-let fnmadddots insInfo insLen ctxt =
-  let ir = !*ctxt
+let fnmadddots insInfo insLen bld =
   let rd, rs1, rs2, rs3, _ = getFiveOprs insInfo
-  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
-  let lblValid = !%ir "Valid"
-  let lblInvalid = !%ir "Invalid operation"
-  let lblEnd = !%ir "End"
+  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo bld
+  let lblValid = label bld "Valid"
+  let lblInvalid = label bld "Invalid operation"
+  let lblEnd = label bld "End"
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
   let rs3 = getFloat32FromReg rs3
   let condOfNV1 = isInf 32<rt> rs1 .| isZero 32<rt> rs2
   let condOfNV2 = isZero 32<rt> rs1 .| isInf 32<rt> rs2
   let setNV = (condOfNV1 .| condOfNV2) .& isQNan 32<rt> rs3
-  let fflags = getRegVar ctxt R.FFLAGS
-  !<ir insInfo.Address insLen
+  let fflags = regVar bld R.FFLAGS
+  bld <!-- (insInfo.Address, insLen)
   let rtVal = AST.fsub (fpNeg 32<rt> <| AST.fmul rs1 rs2) rs3
-  !!ir (rd := getNanBoxed rtVal)
-  !!ir (AST.cjmp setNV (AST.jmpDest lblInvalid) (AST.jmpDest lblValid))
-  !!ir (AST.lmark lblValid)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblInvalid)
-  !!ir (fflags := fflags .| numU32 16u 32<rt>)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  bld <+ (rd := getNanBoxed rtVal)
+  bld <+ (AST.cjmp setNV (AST.jmpDest lblInvalid) (AST.jmpDest lblValid))
+  bld <+ (AST.lmark lblValid)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblInvalid)
+  bld <+ (fflags := fflags .| numU32 16u 32<rt>)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fnmadddotd insInfo insLen ctxt =
-  let ir = !*ctxt
+let fnmadddotd insInfo insLen bld =
   let rd, rs1, rs2, rs3, _ = getFiveOprs insInfo
-  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo ctxt
-  let lblValid = !%ir "Valid"
-  let lblInvalid = !%ir "Invalid operation"
-  let lblEnd = !%ir "End"
+  let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs insInfo bld
+  let lblValid = label bld "Valid"
+  let lblInvalid = label bld "Invalid operation"
+  let lblEnd = label bld "End"
   let condOfNV1 = isInf 64<rt> rs1 .| isZero 64<rt> rs2
   let condOfNV2 = isZero 64<rt> rs1 .| isInf 64<rt> rs2
   let setNV = (condOfNV1 .| condOfNV2) .& isQNan 64<rt> rs3
-  let fflags = getRegVar ctxt R.FFLAGS
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.fsub (fpNeg 64<rt> <| AST.fmul rs1 rs2) rs3)
-  !!ir (AST.cjmp setNV (AST.jmpDest lblInvalid) (AST.jmpDest lblValid))
-  !!ir (AST.lmark lblValid)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblInvalid)
-  !!ir (fflags := fflags .| numU32 16u 32<rt>)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let fflags = regVar bld R.FFLAGS
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.fsub (fpNeg 64<rt> <| AST.fmul rs1 rs2) rs3)
+  bld <+ (AST.cjmp setNV (AST.jmpDest lblInvalid) (AST.jmpDest lblValid))
+  bld <+ (AST.lmark lblValid)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblInvalid)
+  bld <+ (fflags := fflags .| numU32 16u 32<rt>)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fsgnjdots insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let fsgnjdots insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
-  let rtVal = !+ir 32<rt>
+  let rtVal = tmpVar bld 32<rt>
   let mask = numU32 0x7fffffffu 32<rt>
   let sign = getSignFloat 32<rt> rs2
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := (rs1 .& mask) .| sign)
-  !!ir (rd := getNanBoxed rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := (rs1 .& mask) .| sign)
+  bld <+ (rd := getNanBoxed rtVal)
+  bld --!> insLen
 
-let fsgnjdotd insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let rtVal = !+ir 64<rt>
+let fsgnjdotd insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  let rtVal = tmpVar bld 64<rt>
   let mask = numU64 0x7FFFFFFFFFFFFFFFuL 64<rt>
   let sign = getSignFloat 64<rt> rs2
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := (rs1 .& mask) .| sign)
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := (rs1 .& mask) .| sign)
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let fsgnjndots insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let fsgnjndots insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
-  let rtVal = !+ir 32<rt>
+  let rtVal = tmpVar bld 32<rt>
   let mask = numU32 0x7fffffffu 32<rt>
   let sign = getSignFloat 32<rt> rs2 <+> numU32 0x80000000u 32<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := (rs1 .& mask) .| sign)
-  !!ir (rd := getNanBoxed rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := (rs1 .& mask) .| sign)
+  bld <+ (rd := getNanBoxed rtVal)
+  bld --!> insLen
 
-let fsgnjndotd insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let rtVal = !+ir 64<rt>
+let fsgnjndotd insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  let rtVal = tmpVar bld 64<rt>
   let mask = numU64 0x7FFFFFFFFFFFFFFFuL 64<rt>
   let sign = getSignFloat 64<rt> rs2 <+> numU64 0x8000000000000000uL 64<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := (rs1 .& mask) .| sign)
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := (rs1 .& mask) .| sign)
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
-let fsgnjxdots insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let fsgnjxdots insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let rs2 = getFloat32FromReg rs2
-  let rtVal = !+ir 32<rt>
+  let rtVal = tmpVar bld 32<rt>
   let mask = numU32 0x7fffffffu 32<rt>
   let sign = (getSignFloat 32<rt> rs2) <+> (getSignFloat 32<rt> rs1)
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := (rs1 .& mask) .| sign)
-  !!ir (rd := getNanBoxed rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := (rs1 .& mask) .| sign)
+  bld <+ (rd := getNanBoxed rtVal)
+  bld --!> insLen
 
-let fsgnjxdotd insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let rtVal = !+ir 64<rt>
+let fsgnjxdotd insInfo insLen bld =
+  let rd, rs1, rs2 = getThreeOprs insInfo |> transThreeOprs insInfo bld
+  let rtVal = tmpVar bld 64<rt>
   let mask = numU64 0x7FFFFFFFFFFFFFFFuL 64<rt>
   let sign = getSignFloat 64<rt> rs2 <+> getSignFloat 64<rt> rs1
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := (rs1 .& mask) .| sign)
-  !!ir (rd := rtVal)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := (rs1 .& mask) .| sign)
+  bld <+ (rd := rtVal)
+  bld --!> insLen
 
 (* FIX ME: AQRL *)
-let amod insInfo insLen ctxt op =
-  let ir = !*ctxt
-  let rd, rs2, mem, _ = getFourOprs insInfo |> transFourOprs insInfo ctxt
+let amod insInfo insLen bld op =
+  let rd, rs2, mem, _ = getFourOprs insInfo |> transFourOprs insInfo bld
   let cond = isAligned 64<rt> (getAddrFromMem mem)
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  let tmp = !+ir 64<rt>
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect Lock)
-  !!ir (tmp := mem)
-  !!ir (mem := op tmp rs2)
-  !!ir (rd := tmp)
-  !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (AST.sideEffect (Exception "Address-misaligned exception"))
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
+  let tmp = tmpVar bld 64<rt>
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (AST.sideEffect Lock)
+  bld <+ (tmp := mem)
+  bld <+ (mem := op tmp rs2)
+  bld <+ (rd := tmp)
+  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (AST.sideEffect (Exception "Address-misaligned exception"))
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let amow insInfo insLen ctxt op =
-  let ir = !*ctxt
-  let rd, rs2, mem, _ = getFourOprs insInfo |> transFourOprs insInfo ctxt
+let amow insInfo insLen bld op =
+  let rd, rs2, mem, _ = getFourOprs insInfo |> transFourOprs insInfo bld
   let rs2 = AST.xtlo 32<rt> rs2
   let cond = isAligned 32<rt> (getAddrFromMem mem)
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
-  let lblEnd = !%ir "End"
-  let tmp = !+ir 32<rt>
-  !<ir insInfo.Address insLen
-  !!ir (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (AST.sideEffect Lock)
-  !!ir (tmp := mem)
-  !!ir (mem := op tmp rs2)
-  !!ir (rd := AST.sext 64<rt> tmp)
-  !!ir (AST.sideEffect Unlock)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblL1)
-  !!ir (AST.sideEffect (Exception "Address-misaligned exception"))
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblEnd = label bld "End"
+  let tmp = tmpVar bld 32<rt>
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (AST.sideEffect Lock)
+  bld <+ (tmp := mem)
+  bld <+ (mem := op tmp rs2)
+  bld <+ (rd := AST.sext 64<rt> tmp)
+  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (AST.sideEffect (Exception "Address-misaligned exception"))
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let fmvdotxdotw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
+let fmvdotxdotw insInfo insLen bld =
+  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.sext 64<rt> rs1)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.sext 64<rt> rs1)
+  bld --!> insLen
 
-let fmvdotwdotx insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := getNanBoxed (AST.xtlo 32<rt> rs1))
-  !>ir insLen
+let fmvdotwdotx insInfo insLen bld =
+  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := getNanBoxed (AST.xtlo 32<rt> rs1))
+  bld --!> insLen
 
-let fmvdotxdotd insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1)
-  !>ir insLen
+let fmvdotxdotd insInfo insLen bld =
+  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1)
+  bld --!> insLen
 
-let fmvdotddotx insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := rs1)
-  !>ir insLen
+let fmvdotddotx insInfo insLen bld =
+  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := rs1)
+  bld --!> insLen
 
-let csrrw insInfo insLen ctxt =
-  let ir = !*ctxt
+let csrrw insInfo insLen bld =
   let rd, csr, src = getThreeOprs insInfo
-  let csr, src = transTwoOprs insInfo ctxt (csr, src) |> maskForFCSR csr
-  !<ir insInfo.Address insLen
-  !!ir (AST.sideEffect Lock)
+  let csr, src = transTwoOprs insInfo bld (csr, src) |> maskForFCSR csr
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.sideEffect Lock)
   match rd with
-  | OpReg Register.X0 -> assignFCSR csr src ctxt ir
+  | OpReg Register.X0 -> assignFCSR csr src bld
   | _ ->
-    let rd = transOneOpr insInfo ctxt rd
-    let tmpVar = !+ir 64<rt>
-    !!ir (tmpVar := AST.zext 64<rt> csr)
-    assignFCSR csr src ctxt ir
-    !!ir (rd := tmpVar)
-  !!ir (AST.sideEffect Unlock)
-  !>ir insLen
+    let rd = transOneOpr insInfo bld rd
+    let tmpVar = tmpVar bld 64<rt>
+    bld <+ (tmpVar := AST.zext 64<rt> csr)
+    assignFCSR csr src bld
+    bld <+ (rd := tmpVar)
+  bld <+ (AST.sideEffect Unlock)
+  bld --!> insLen
 
-let csrrs insInfo insLen ctxt =
-  let ir = !*ctxt
+let csrrs insInfo insLen bld =
   let rd, csr, src = getThreeOprs insInfo
-  let rd = transOprToExpr insInfo ctxt rd
-  !<ir insInfo.Address insLen
-  !!ir (AST.sideEffect Lock)
+  let rd = transOprToExpr insInfo bld rd
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.sideEffect Lock)
   match src with
   | OpReg Register.X0 ->
-    let csr = transOprToExpr insInfo ctxt csr
-    !!ir (rd := AST.zext 64<rt> csr)
+    let csr = transOprToExpr insInfo bld csr
+    bld <+ (rd := AST.zext 64<rt> csr)
   | _ ->
-    let csr, src = transTwoOprs insInfo ctxt (csr, src) |> maskForFCSR csr
-    let tmpVar = !+ir 64<rt>
-    !!ir (tmpVar := AST.zext 64<rt> csr)
-    assignFCSR csr (csr .| src) ctxt ir
-    !!ir (rd := tmpVar)
-  !!ir (AST.sideEffect Unlock)
-  !>ir insLen
+    let csr, src = transTwoOprs insInfo bld (csr, src) |> maskForFCSR csr
+    let tmpVar = tmpVar bld 64<rt>
+    bld <+ (tmpVar := AST.zext 64<rt> csr)
+    assignFCSR csr (csr .| src) bld
+    bld <+ (rd := tmpVar)
+  bld <+ (AST.sideEffect Unlock)
+  bld --!> insLen
 
-let csrrc insInfo insLen ctxt =
-  let ir = !*ctxt
+let csrrc insInfo insLen bld =
   let rd, csr, src = getThreeOprs insInfo
-  let rd = transOprToExpr insInfo ctxt rd
-  !<ir insInfo.Address insLen
-  !!ir (AST.sideEffect Lock)
+  let rd = transOprToExpr insInfo bld rd
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.sideEffect Lock)
   match src with
   | OpReg Register.X0 ->
-    let csr = transOprToExpr insInfo ctxt csr
-    !!ir (rd := AST.zext 64<rt> csr)
+    let csr = transOprToExpr insInfo bld csr
+    bld <+ (rd := AST.zext 64<rt> csr)
   | _ ->
-    let csr, src = transTwoOprs insInfo ctxt (csr, src) |> maskForFCSR csr
-    let tmpVar = !+ir 64<rt>
-    !!ir (tmpVar := AST.zext 64<rt> csr)
-    assignFCSR csr (csr .& AST.neg src) ctxt ir
-    !!ir (rd := tmpVar)
-  !!ir (AST.sideEffect Unlock)
-  !>ir insLen
+    let csr, src = transTwoOprs insInfo bld (csr, src) |> maskForFCSR csr
+    let tmpVar = tmpVar bld 64<rt>
+    bld <+ (tmpVar := AST.zext 64<rt> csr)
+    assignFCSR csr (csr .& AST.neg src) bld
+    bld <+ (rd := tmpVar)
+  bld <+ (AST.sideEffect Unlock)
+  bld --!> insLen
 
-let fcvtdotldotd insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotldotd insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let llMaxInFloat = numU64 0x43e0000000000000uL 64<rt>
   let llMinInFloat = numU64 0xc3e0000000000000uL 64<rt>
   let llMax = numU64 0x7fffffffffffffffuL 64<rt>
@@ -1849,42 +1750,41 @@ let fcvtdotldotd insInfo insLen ctxt =
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
-    let rtVal = !+ir 64<rt>
-    !<ir insInfo.Address insLen
+    let rtVal = tmpVar bld 64<rt>
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    !!ir (rtVal := AST.cast rounding 64<rt> rs1)
-    !!ir (rd := AST.cast roundingInt 64<rt> rtVal)
+    bld <+ (rtVal := AST.cast rounding 64<rt> rs1)
+    bld <+ (rd := AST.cast roundingInt 64<rt> rtVal)
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal llMinInFloat) llMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal llMaxInFloat) llMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal llMinInFloat) llMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal llMaxInFloat) llMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN llMax rd)
+    bld <+ (rd := AST.ite condNaN llMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) llMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) llMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) llMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) llMin rd)
+    bld --!> insLen
   else
-    !<ir insInfo.Address insLen
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl ir ctxt 64<rt> rs1
-    let rdVal = dynamicRoundingInt ir ctxt 64<rt> rtVal
-    !!ir (rd := rdVal)
+    let rtVal = dynamicRoundingFl bld 64<rt> rs1
+    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    bld <+ (rd := rdVal)
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal llMinInFloat) llMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal llMaxInFloat) llMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal llMinInFloat) llMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal llMaxInFloat) llMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN llMax rd)
+    bld <+ (rd := AST.ite condNaN llMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) llMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) llMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) llMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) llMin rd)
+    bld --!> insLen
 
-let fcvtdotludotd insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotludotd insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let ullMaxInFloat = numU64 0x43f0000000000000uL 64<rt>
   let ullMinInFloat = numU64 0uL 64<rt>
   let ullMax = numU64 0xffffffffffffffffuL 64<rt>
@@ -1895,42 +1795,41 @@ let fcvtdotludotd insInfo insLen ctxt =
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
-    let rtVal = !+ir 64<rt>
-    !<ir insInfo.Address insLen
+    let rtVal = tmpVar bld 64<rt>
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    !!ir (rtVal := AST.cast rounding 64<rt> rs1)
-    !!ir (rd := AST.cast roundingInt 64<rt> rtVal)
+    bld <+ (rtVal := AST.cast rounding 64<rt> rs1)
+    bld <+ (rd := AST.cast roundingInt 64<rt> rtVal)
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal ullMinInFloat) ullMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal ullMaxInFloat) ullMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal ullMinInFloat) ullMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal ullMaxInFloat) ullMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN ullMax rd)
+    bld <+ (rd := AST.ite condNaN ullMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) ullMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) ullMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) ullMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) ullMin rd)
+    bld --!> insLen
   else
-    !<ir insInfo.Address insLen
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl ir ctxt 64<rt> rs1
-    let rdVal = dynamicRoundingInt ir ctxt 64<rt> rtVal
-    !!ir (rd := rdVal)
+    let rtVal = dynamicRoundingFl bld 64<rt> rs1
+    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    bld <+ (rd := rdVal)
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal ullMinInFloat) ullMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal ullMaxInFloat) ullMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal ullMinInFloat) ullMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal ullMaxInFloat) ullMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN ullMax rd)
+    bld <+ (rd := AST.ite condNaN ullMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) ullMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) ullMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) ullMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) ullMin rd)
+    bld --!> insLen
 
-let fcvtdotwdotd insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotwdotd insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
   let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
   let intMax = AST.sext 64<rt> (numU32 0x7fffffffu 32<rt>)
@@ -1941,42 +1840,41 @@ let fcvtdotwdotd insInfo insLen ctxt =
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
-    let rtVal = !+ir 64<rt>
-    !<ir insInfo.Address insLen
+    let rtVal = tmpVar bld 64<rt>
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    !!ir (rtVal := AST.cast rounding 64<rt> rs1)
-    !!ir (rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal))
+    bld <+ (rtVal := AST.cast rounding 64<rt> rs1)
+    bld <+ (rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal))
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal intMinInFloat) intMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal intMaxInFloat) intMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal intMinInFloat) intMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal intMaxInFloat) intMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN intMax rd)
+    bld <+ (rd := AST.ite condNaN intMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) intMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) intMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) intMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) intMin rd)
+    bld --!> insLen
   else
-    !<ir insInfo.Address insLen
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl ir ctxt 64<rt> rs1
-    let rdVal = dynamicRoundingInt ir ctxt 32<rt> rtVal
-    !!ir (rd := AST.sext 64<rt> rdVal)
+    let rtVal = dynamicRoundingFl bld 64<rt> rs1
+    let rdVal = dynamicRoundingInt bld 32<rt> rtVal
+    bld <+ (rd := AST.sext 64<rt> rdVal)
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal intMinInFloat) intMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal intMaxInFloat) intMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal intMinInFloat) intMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal intMaxInFloat) intMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN intMax rd)
+    bld <+ (rd := AST.ite condNaN intMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) intMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) intMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) intMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) intMin rd)
+    bld --!> insLen
 
-let fcvtdotwudotd insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotwudotd insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let uintMaxInFloat = numU64 0x41efffffffe00000uL 64<rt>
   let uintMinInFloat = numU64 0uL 64<rt>
   let uintMax = numU64 0xffffffffffffffffuL 64<rt>
@@ -1987,42 +1885,41 @@ let fcvtdotwudotd insInfo insLen ctxt =
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
-    let rtVal = !+ir 64<rt>
-    !<ir insInfo.Address insLen
+    let rtVal = tmpVar bld 64<rt>
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    !!ir (rtVal := AST.cast rounding 64<rt> rs1)
-    !!ir (rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal))
+    bld <+ (rtVal := AST.cast rounding 64<rt> rs1)
+    bld <+ (rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal))
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal uintMinInFloat) uintMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal uintMaxInFloat) uintMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal uintMinInFloat) uintMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal uintMaxInFloat) uintMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN uintMax rd)
+    bld <+ (rd := AST.ite condNaN uintMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) uintMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) uintMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) uintMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) uintMin rd)
+    bld --!> insLen
   else
-    !<ir insInfo.Address insLen
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl ir ctxt 64<rt> rs1
-    let rdVal = dynamicRoundingInt ir ctxt 32<rt> rtVal
-    !!ir (rd := AST.sext 64<rt> rdVal)
+    let rtVal = dynamicRoundingFl bld 64<rt> rs1
+    let rdVal = dynamicRoundingInt bld 32<rt> rtVal
+    bld <+ (rd := AST.sext 64<rt> rdVal)
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal uintMinInFloat) uintMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal uintMaxInFloat) uintMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal uintMinInFloat) uintMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal uintMaxInFloat) uintMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN uintMax rd)
+    bld <+ (rd := AST.ite condNaN uintMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) uintMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) uintMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) uintMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) uintMin rd)
+    bld --!> insLen
 
-let fcvtdotwdots insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotwdots insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let intMaxInFloat = numU32 0x4f000000u 32<rt>
   let intMinInFloat = numU32 0xcf000000u 32<rt>
@@ -2034,42 +1931,41 @@ let fcvtdotwdots insInfo insLen ctxt =
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
-    let rtVal = !+ir 32<rt>
-    !<ir insInfo.Address insLen
+    let rtVal = tmpVar bld 32<rt>
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    !!ir (rtVal := AST.cast rounding 32<rt> rs1)
-    !!ir (rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal))
+    bld <+ (rtVal := AST.cast rounding 32<rt> rs1)
+    bld <+ (rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal))
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal intMinInFloat) intMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal intMaxInFloat) intMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal intMinInFloat) intMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal intMaxInFloat) intMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN intMax rd)
+    bld <+ (rd := AST.ite condNaN intMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) intMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) intMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) intMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) intMin rd)
+    bld --!> insLen
   else
-    !<ir insInfo.Address insLen
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl ir ctxt 32<rt> rs1
-    let rdVal = dynamicRoundingInt ir ctxt 32<rt> rtVal
-    !!ir (rd := AST.sext 64<rt> rdVal)
+    let rtVal = dynamicRoundingFl bld 32<rt> rs1
+    let rdVal = dynamicRoundingInt bld 32<rt> rtVal
+    bld <+ (rd := AST.sext 64<rt> rdVal)
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal intMinInFloat) intMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal intMaxInFloat) intMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal intMinInFloat) intMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal intMaxInFloat) intMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN intMax rd)
+    bld <+ (rd := AST.ite condNaN intMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) intMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) intMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) intMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) intMin rd)
+    bld --!> insLen
 
-let fcvtdotwudots insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotwudots insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let uintMaxInFloat = numU32 0x4f800000u 32<rt>
   let uintMinInFloat = numU32 0x0u 32<rt>
@@ -2081,43 +1977,42 @@ let fcvtdotwudots insInfo insLen ctxt =
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
-    let rtVal = !+ir 32<rt>
-    !<ir insInfo.Address insLen
+    let rtVal = tmpVar bld 32<rt>
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    !!ir (rtVal := AST.cast rounding 32<rt> rs1)
-    !!ir (rd := AST.cast roundingInt 32<rt> rtVal)
-    !!ir (rd := AST.sext 64<rt> rd)
+    bld <+ (rtVal := AST.cast rounding 32<rt> rs1)
+    bld <+ (rd := AST.cast roundingInt 32<rt> rtVal)
+    bld <+ (rd := AST.sext 64<rt> rd)
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal uintMinInFloat) uintMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal uintMaxInFloat) uintMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal uintMinInFloat) uintMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal uintMaxInFloat) uintMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN uintMax rd)
+    bld <+ (rd := AST.ite condNaN uintMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) uintMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) uintMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) uintMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) uintMin rd)
+    bld --!> insLen
   else
-    !<ir insInfo.Address insLen
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl ir ctxt 32<rt> rs1
-    let rdVal = dynamicRoundingInt ir ctxt 32<rt> rtVal
-    !!ir (rd := AST.sext 64<rt> rdVal)
+    let rtVal = dynamicRoundingFl bld 32<rt> rs1
+    let rdVal = dynamicRoundingInt bld 32<rt> rtVal
+    bld <+ (rd := AST.sext 64<rt> rdVal)
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal uintMinInFloat) uintMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal uintMaxInFloat) uintMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal uintMinInFloat) uintMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal uintMaxInFloat) uintMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN uintMax rd)
+    bld <+ (rd := AST.ite condNaN uintMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) uintMax rd)
-    !!ir (rd := AST.ite (condInf .& sign) uintMin rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) uintMax rd)
+    bld <+ (rd := AST.ite (condInf .& sign) uintMin rd)
     (* -inf *)
-    !>ir insLen
+    bld --!> insLen
 
-let fcvtdotldots insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotldots insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let llMaxInFloat = numU64 0x43e0000000000000uL 64<rt>
   let llMinInFloat = numU64 0xc3e0000000000000uL 64<rt>
@@ -2127,46 +2022,45 @@ let fcvtdotldots insInfo insLen ctxt =
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
-    let t0 = !+ir 32<rt>
-    let rtVal = !+ir 64<rt>
-    !<ir insInfo.Address insLen
+    let t0 = tmpVar bld 32<rt>
+    let rtVal = tmpVar bld 64<rt>
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    !!ir (t0 := AST.cast rounding 32<rt> rs1)
-    !!ir (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
+    bld <+ (t0 := AST.cast rounding 32<rt> rs1)
+    bld <+ (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
     (* check for out-of-range *)
-    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) llMinInFloat rtVal)
-    !!ir (rtVal := AST.ite (AST.fge rtVal llMaxInFloat) llMaxInFloat rtVal)
+    bld <+ (rtVal := AST.ite (AST.fle rtVal llMinInFloat) llMinInFloat rtVal)
+    bld <+ (rtVal := AST.ite (AST.fge rtVal llMaxInFloat) llMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite condNaN llMaxInFloat rtVal)
+    bld <+ (rtVal := AST.ite condNaN llMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) llMaxInFloat rtVal)
+    bld <+ (rtVal := AST.ite (condInf .& (AST.not sign)) llMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (condInf .& sign) llMinInFloat rtVal)
-    !!ir (rd := AST.cast roundingInt 64<rt> rtVal)
-    !>ir insLen
+    bld <+ (rtVal := AST.ite (condInf .& sign) llMinInFloat rtVal)
+    bld <+ (rd := AST.cast roundingInt 64<rt> rtVal)
+    bld --!> insLen
   else
-    !<ir insInfo.Address insLen
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    let t0 = dynamicRoundingFl ir ctxt 32<rt> rs1
-    let rtVal = !+ir 64<rt>
+    let t0 = dynamicRoundingFl bld 32<rt> rs1
+    let rtVal = tmpVar bld 64<rt>
     (* check for out-of-range *)
-    !!ir (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
-    !!ir (rtVal := AST.ite (AST.fle rtVal llMinInFloat) llMinInFloat rtVal)
-    !!ir (rtVal := AST.ite (AST.fge rtVal llMaxInFloat) llMaxInFloat rtVal)
+    bld <+ (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
+    bld <+ (rtVal := AST.ite (AST.fle rtVal llMinInFloat) llMinInFloat rtVal)
+    bld <+ (rtVal := AST.ite (AST.fge rtVal llMaxInFloat) llMaxInFloat rtVal)
     (* NaN Check *)
-    !!ir (rtVal := AST.ite condNaN llMaxInFloat rtVal)
+    bld <+ (rtVal := AST.ite condNaN llMaxInFloat rtVal)
     (* +inf *)
-    !!ir (rtVal := AST.ite (condInf .& (AST.not sign)) llMaxInFloat rtVal)
+    bld <+ (rtVal := AST.ite (condInf .& (AST.not sign)) llMaxInFloat rtVal)
     (* -inf *)
-    !!ir (rtVal := AST.ite (condInf .& sign) llMinInFloat rtVal)
-    let rdVal = dynamicRoundingInt ir ctxt 64<rt> rtVal
-    !!ir (rd := rdVal)
-    !>ir insLen
+    bld <+ (rtVal := AST.ite (condInf .& sign) llMinInFloat rtVal)
+    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    bld <+ (rd := rdVal)
+    bld --!> insLen
 
-let fcvtdotludots insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotludots insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
   let llMaxInFloat = numU64 0x43e0000000000000uL 64<rt>
   let llMinInFloat = numU64 0uL 64<rt>
@@ -2178,218 +2072,206 @@ let fcvtdotludots insInfo insLen ctxt =
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
-    let t0 = !+ir 32<rt>
-    let rtVal = !+ir 64<rt>
-    !<ir insInfo.Address insLen
+    let t0 = tmpVar bld 32<rt>
+    let rtVal = tmpVar bld 64<rt>
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    !!ir (t0 := AST.cast rounding 32<rt> rs1)
-    !!ir (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
-    !!ir (rd := AST.cast roundingInt 64<rt> rtVal)
+    bld <+ (t0 := AST.cast rounding 32<rt> rs1)
+    bld <+ (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
+    bld <+ (rd := AST.cast roundingInt 64<rt> rtVal)
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal llMinInFloat) llMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal llMaxInFloat) llMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal llMinInFloat) llMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal llMaxInFloat) llMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN llMax rd)
+    bld <+ (rd := AST.ite condNaN llMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) llMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) llMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) llMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) llMin rd)
+    bld --!> insLen
   else
-    !<ir insInfo.Address insLen
+    bld <!-- (insInfo.Address, insLen)
     (* rounded value *)
-    let t0 = dynamicRoundingFl ir ctxt 32<rt> rs1
-    let rtVal = !+ir 64<rt>
+    let t0 = dynamicRoundingFl bld 32<rt> rs1
+    let rtVal = tmpVar bld 64<rt>
     (* check for out-of-range *)
-    !!ir (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
-    !!ir (rd := AST.cast CastKind.FloatCast 64<rt> rtVal)
+    bld <+ (rtVal := AST.cast CastKind.FloatCast 64<rt> t0)
+    bld <+ (rd := AST.cast CastKind.FloatCast 64<rt> rtVal)
     (* check for out-of-range *)
-    !!ir (rd := AST.ite (AST.fle rtVal llMinInFloat) llMin rd)
-    !!ir (rd := AST.ite (AST.fge rtVal llMaxInFloat) llMax rd)
+    bld <+ (rd := AST.ite (AST.fle rtVal llMinInFloat) llMin rd)
+    bld <+ (rd := AST.ite (AST.fge rtVal llMaxInFloat) llMax rd)
     (* NaN Check *)
-    !!ir (rd := AST.ite condNaN llMax rd)
+    bld <+ (rd := AST.ite condNaN llMax rd)
     (* +inf *)
-    !!ir (rd := AST.ite (condInf .& (AST.not sign)) llMax rd)
+    bld <+ (rd := AST.ite (condInf .& (AST.not sign)) llMax rd)
     (* -inf *)
-    !!ir (rd := AST.ite (condInf .& sign) llMin rd)
-    !>ir insLen
+    bld <+ (rd := AST.ite (condInf .& sign) llMin rd)
+    bld --!> insLen
 
-let fcvtdotsdotw insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotsdotw insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let rs1 = AST.xtlo 32<rt> rs1
-  let rtVal = !+ir 32<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := AST.cast CastKind.SIntToFloat 32<rt> rs1)
-  dstAssignSingleWithRound rd rtVal rm ctxt ir
-  !>ir insLen
+  let rtVal = tmpVar bld 32<rt>
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := AST.cast CastKind.SIntToFloat 32<rt> rs1)
+  dstAssignSingleWithRound rd rtVal rm bld
+  bld --!> insLen
 
-let fcvtdotsdotwu insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotsdotwu insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let rs1 = AST.xtlo 32<rt> rs1
-  let rtVal = !+ir 32<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := AST.cast CastKind.UIntToFloat 32<rt> rs1)
-  dstAssignSingleWithRound rd rtVal rm ctxt ir
-  !>ir insLen
+  let rtVal = tmpVar bld 32<rt>
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := AST.cast CastKind.UIntToFloat 32<rt> rs1)
+  dstAssignSingleWithRound rd rtVal rm bld
+  bld --!> insLen
 
-let fcvtdotsdotl insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotsdotl insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
-  let rtVal = !+ir 32<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := AST.cast CastKind.SIntToFloat 32<rt> rs1)
-  dstAssignSingleWithRound rd rtVal rm ctxt ir
-  !>ir insLen
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
+  let rtVal = tmpVar bld 32<rt>
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := AST.cast CastKind.SIntToFloat 32<rt> rs1)
+  dstAssignSingleWithRound rd rtVal rm bld
+  bld --!> insLen
 
-let fcvtdotsdotlu insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotsdotlu insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
-  let rtVal = !+ir 32<rt>
-  !<ir insInfo.Address insLen
-  !!ir (rtVal := AST.cast CastKind.UIntToFloat 32<rt> rs1)
-  dstAssignSingleWithRound rd rtVal rm ctxt ir
-  !>ir insLen
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
+  let rtVal = tmpVar bld 32<rt>
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rtVal := AST.cast CastKind.UIntToFloat 32<rt> rs1)
+  dstAssignSingleWithRound rd rtVal rm bld
+  bld --!> insLen
 
-let fcvtdotddotw insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.cast CastKind.SIntToFloat 64<rt> (AST.xtlo 32<rt> rs1))
-  !>ir insLen
+let fcvtdotddotw insInfo insLen bld =
+  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.cast CastKind.SIntToFloat 64<rt> (AST.xtlo 32<rt> rs1))
+  bld --!> insLen
 
-let fcvtdotddotwu insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.cast CastKind.UIntToFloat 64<rt> (AST.xtlo 32<rt> rs1))
-  !>ir insLen
+let fcvtdotddotwu insInfo insLen bld =
+  let rd, rs1 = getTwoOprs insInfo |> transTwoOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.cast CastKind.UIntToFloat 64<rt> (AST.xtlo 32<rt> rs1))
+  bld --!> insLen
 
-let fcvtdotddotl insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotddotl insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
-  !<ir insInfo.Address insLen
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
   let rtVal = AST.cast CastKind.SIntToFloat 64<rt> rs1
-  dstAssignDoubleWithRound rd rtVal rm ctxt ir
-  !>ir insLen
+  dstAssignDoubleWithRound rd rtVal rm bld
+  bld --!> insLen
 
-let fcvtdotddotlu insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotddotlu insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
-  !<ir insInfo.Address insLen
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
+  bld <!-- (insInfo.Address, insLen)
   let rtVal = AST.cast CastKind.UIntToFloat 64<rt> rs1
-  dstAssignDoubleWithRound rd rtVal rm ctxt ir
-  !>ir insLen
+  dstAssignDoubleWithRound rd rtVal rm bld
+  bld --!> insLen
 
-let fcvtdotsdotd insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotsdotd insInfo insLen bld =
   let rd, rs1, rm = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
-  let rtVal = !+ir 64<rt>
-  !<ir insInfo.Address insLen
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
+  let rtVal = tmpVar bld 64<rt>
+  bld <!-- (insInfo.Address, insLen)
   let rs1 =
     AST.cast CastKind.FloatCast 32<rt> rs1
     |> fun single -> AST.ite (isNan 32<rt> single) (fpDefaultNan 32<rt>) single
-  !!ir (rtVal := getNanBoxed rs1)
+  bld <+ (rtVal := getNanBoxed rs1)
   if rm <> OpRoundMode (RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
-    !!ir (rd := AST.cast rounding 64<rt> rtVal)
+    bld <+ (rd := AST.cast rounding 64<rt> rtVal)
   else
-    !!ir (rd := dynamicRoundingFl ir ctxt 64<rt> rtVal)
-  !>ir insLen
+    bld <+ (rd := dynamicRoundingFl bld 64<rt> rtVal)
+  bld --!> insLen
 
-let fcvtdotddots insInfo insLen ctxt =
-  let ir = !*ctxt
+let fcvtdotddots insInfo insLen bld =
   let rd, rs1, _ = getThreeOprs insInfo
-  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo ctxt
+  let rd, rs1 = (rd, rs1) |> transTwoOprs insInfo bld
   let rs1 = getFloat32FromReg rs1
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.cast CastKind.FloatCast 64<rt> rs1)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.cast CastKind.FloatCast 64<rt> rs1)
+  bld --!> insLen
 
-let lr insInfo insLen ctxt =
-  let ir = !*ctxt
-  let rd, mem, _ = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
+let lr insInfo insLen bld =
+  let rd, mem, _ = getThreeOprs insInfo |> transThreeOprs insInfo bld
   let addr, size = getAddrFromMemAndSize mem
-  !<ir insInfo.Address insLen
-  !!ir (AST.extCall <| AST.app "Acquire" [addr; size] 64<rt>)
-  !!ir (rd := AST.sext 64<rt> mem)
-  !>ir insLen
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (AST.extCall <| AST.app "Acquire" [addr; size] 64<rt>)
+  bld <+ (rd := AST.sext 64<rt> mem)
+  bld --!> insLen
 
-let sc insInfo insLen ctxt oprSz =
-  let ir = !*ctxt
-  let rd, rs2, mem, _ = getFourOprs insInfo |> transFourOprs insInfo ctxt
+let sc insInfo insLen bld oprSz =
+  let rd, rs2, mem, _ = getFourOprs insInfo |> transFourOprs insInfo bld
   let addr, size = getAddrFromMemAndSize mem
-  let rc = getRegVar ctxt R.RC
-  let lblRelease = !%ir "Release"
-  let lblEnd = !%ir "End"
-  !<ir insInfo.Address insLen
-  !!ir (rd := AST.num1 64<rt>)
-  !!ir (AST.extCall <| AST.app "IsAcquired" [addr; size] 64<rt>)
-  !!ir (AST.cjmp rc (AST.jmpDest lblRelease) (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblRelease)
-  !!ir (AST.extCall <| AST.app "Release" [addr; size] 64<rt>)
-  !!ir (mem := AST.xtlo oprSz rs2)
-  !!ir (rd := AST.num0 64<rt>)
-  !!ir (AST.lmark lblEnd)
-  !>ir insLen
+  let rc = regVar bld R.RC
+  let lblRelease = label bld "Release"
+  let lblEnd = label bld "End"
+  bld <!-- (insInfo.Address, insLen)
+  bld <+ (rd := AST.num1 64<rt>)
+  bld <+ (AST.extCall <| AST.app "IsAcquired" [addr; size] 64<rt>)
+  bld <+ (AST.cjmp rc (AST.jmpDest lblRelease) (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblRelease)
+  bld <+ (AST.extCall <| AST.app "Release" [addr; size] 64<rt>)
+  bld <+ (mem := AST.xtlo oprSz rs2)
+  bld <+ (rd := AST.num0 64<rt>)
+  bld <+ (AST.lmark lblEnd)
+  bld --!> insLen
 
-let translate insInfo insLen (ctxt: TranslationContext) =
+let translate insInfo insLen bld =
   match insInfo.Opcode with
   | Op.CdotMV
   | Op.CdotADD
-  | Op.ADD -> add insInfo insLen ctxt
+  | Op.ADD -> add insInfo insLen bld
   | Op.CdotADDW
-  | Op.ADDW -> addw insInfo insLen ctxt
+  | Op.ADDW -> addw insInfo insLen bld
   | Op.CdotSUBW
-  | Op.SUBW -> subw insInfo insLen ctxt
+  | Op.SUBW -> subw insInfo insLen bld
   | Op.CdotAND
-  | Op.AND -> ``and`` insInfo insLen ctxt
+  | Op.AND -> ``and`` insInfo insLen bld
   | Op.CdotOR
-  | Op.OR -> ``or`` insInfo insLen ctxt
+  | Op.OR -> ``or`` insInfo insLen bld
   | Op.CdotXOR
-  | Op.XOR -> xor insInfo insLen ctxt
+  | Op.XOR -> xor insInfo insLen bld
   | Op.CdotSUB
-  | Op.SUB -> sub insInfo insLen ctxt
-  | Op.SLT -> slt insInfo insLen ctxt
-  | Op.SLTU -> sltu insInfo insLen ctxt
-  | Op.SLL -> sll insInfo insLen ctxt
-  | Op.SLLW -> sllw insInfo insLen ctxt
-  | Op.SRA -> sra insInfo insLen ctxt
-  | Op.SRAW -> sraw insInfo insLen ctxt
-  | Op.SRL -> srl insInfo insLen ctxt
-  | Op.SRLW -> srlw insInfo insLen ctxt
+  | Op.SUB -> sub insInfo insLen bld
+  | Op.SLT -> slt insInfo insLen bld
+  | Op.SLTU -> sltu insInfo insLen bld
+  | Op.SLL -> sll insInfo insLen bld
+  | Op.SLLW -> sllw insInfo insLen bld
+  | Op.SRA -> sra insInfo insLen bld
+  | Op.SRAW -> sraw insInfo insLen bld
+  | Op.SRL -> srl insInfo insLen bld
+  | Op.SRLW -> srlw insInfo insLen bld
   | Op.CdotANDI
-  | Op.ANDI -> andi insInfo insLen ctxt
+  | Op.ANDI -> andi insInfo insLen bld
   | Op.CdotADDI16SP
   | Op.CdotLI
   | Op.CdotADDI
   | Op.CdotADDI4SPN
-  | Op.ADDI -> addi insInfo insLen ctxt
-  | Op.ORI -> ori insInfo insLen ctxt
-  | Op.XORI -> xori insInfo insLen ctxt
-  | Op.SLTI -> slti insInfo insLen ctxt
-  | Op.SLTIU -> sltiu insInfo insLen ctxt
+  | Op.ADDI -> addi insInfo insLen bld
+  | Op.ORI -> ori insInfo insLen bld
+  | Op.XORI -> xori insInfo insLen bld
+  | Op.SLTI -> slti insInfo insLen bld
+  | Op.SLTIU -> sltiu insInfo insLen bld
   | Op.CdotJ
-  | Op.JAL -> jal insInfo insLen ctxt
+  | Op.JAL -> jal insInfo insLen bld
   | Op.CdotJR
   | Op.CdotJALR
-  | Op.JALR -> jalr insInfo insLen ctxt
+  | Op.JALR -> jalr insInfo insLen bld
   | Op.CdotBEQZ
-  | Op.BEQ -> beq insInfo insLen ctxt
+  | Op.BEQ -> beq insInfo insLen bld
   | Op.CdotBNEZ
-  | Op.BNE -> bne insInfo insLen ctxt
-  | Op.BLT -> blt insInfo insLen ctxt
-  | Op.BGE -> bge insInfo insLen ctxt
-  | Op.BLTU -> bltu insInfo insLen ctxt
-  | Op.BGEU -> bgeu insInfo insLen ctxt
+  | Op.BNE -> bne insInfo insLen bld
+  | Op.BLT -> blt insInfo insLen bld
+  | Op.BGE -> bge insInfo insLen bld
+  | Op.BLTU -> bltu insInfo insLen bld
+  | Op.BGEU -> bgeu insInfo insLen bld
   | Op.CdotLW
   | Op.CdotLD
   | Op.CdotLWSP
@@ -2397,10 +2279,10 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.LB
   | Op.LH
   | Op.LW
-  | Op.LD -> load insInfo insLen ctxt
+  | Op.LD -> load insInfo insLen bld
   | Op.LBU
   | Op.LHU
-  | Op.LWU -> loadu insInfo insLen ctxt
+  | Op.LWU -> loadu insInfo insLen bld
   | Op.CdotSW
   | Op.CdotSD
   | Op.CdotSWSP
@@ -2408,143 +2290,143 @@ let translate insInfo insLen (ctxt: TranslationContext) =
   | Op.SB
   | Op.SH
   | Op.SW
-  | Op.SD -> store insInfo insLen ctxt
+  | Op.SD -> store insInfo insLen bld
   | Op.CdotEBREAK
-  | Op.EBREAK -> sideEffects insInfo insLen ctxt Breakpoint
-  | Op.ECALL -> sideEffects insInfo insLen ctxt SysCall
+  | Op.EBREAK -> sideEffects insInfo insLen bld Breakpoint
+  | Op.ECALL -> sideEffects insInfo insLen bld SysCall
   | Op.CdotSRAI
-  | Op.SRAI -> srai insInfo insLen ctxt
+  | Op.SRAI -> srai insInfo insLen bld
   | Op.CdotSLLI
-  | Op.SLLI -> slli insInfo insLen ctxt
+  | Op.SLLI -> slli insInfo insLen bld
   | Op.CdotSRLI
-  | Op.SRLI -> srli insInfo insLen ctxt
+  | Op.SRLI -> srli insInfo insLen bld
   | Op.CdotLUI
-  | Op.LUI -> lui insInfo insLen ctxt
-  | Op.AUIPC -> auipc insInfo insLen ctxt
+  | Op.LUI -> lui insInfo insLen bld
+  | Op.AUIPC -> auipc insInfo insLen bld
   | Op.CdotADDIW
-  | Op.ADDIW -> addiw insInfo insLen ctxt
-  | Op.SLLIW -> slliw insInfo insLen ctxt
-  | Op.SRLIW -> srliw insInfo insLen ctxt
-  | Op.SRAIW -> sraiw insInfo insLen ctxt
-  | Op.MUL -> mul insInfo insLen ctxt (true, true)
-  | Op.MULH -> mulhSignOrUnsign insInfo insLen ctxt (true, true)
-  | Op.MULHU -> mulhSignOrUnsign insInfo insLen ctxt (false, true)
-  | Op.MULHSU -> mulhSignOrUnsign insInfo insLen ctxt (true, false)
-  | Op.MULW -> mulw insInfo insLen ctxt
-  | Op.CdotNOP -> nop insInfo insLen ctxt
+  | Op.ADDIW -> addiw insInfo insLen bld
+  | Op.SLLIW -> slliw insInfo insLen bld
+  | Op.SRLIW -> srliw insInfo insLen bld
+  | Op.SRAIW -> sraiw insInfo insLen bld
+  | Op.MUL -> mul insInfo insLen bld (true, true)
+  | Op.MULH -> mulhSignOrUnsign insInfo insLen bld (true, true)
+  | Op.MULHU -> mulhSignOrUnsign insInfo insLen bld (false, true)
+  | Op.MULHSU -> mulhSignOrUnsign insInfo insLen bld (true, false)
+  | Op.MULW -> mulw insInfo insLen bld
+  | Op.CdotNOP -> nop insInfo insLen bld
   | Op.CdotFLD
   | Op.CdotFLDSP
-  | Op.FLD -> fld insInfo insLen ctxt
+  | Op.FLD -> fld insInfo insLen bld
   | Op.CdotFSD
   | Op.CdotFSDSP
-  | Op.FSD -> fsd insInfo insLen ctxt
-  | Op.FLTdotS -> fltdots insInfo insLen ctxt
-  | Op.FLTdotD -> fltdotd insInfo insLen ctxt
-  | Op.FLEdotS -> fledots insInfo insLen ctxt
-  | Op.FLEdotD -> fledotd insInfo insLen ctxt
-  | Op.FEQdotS -> feqdots insInfo insLen ctxt
-  | Op.FEQdotD -> feqdotd insInfo insLen ctxt
-  | Op.FLW -> flw insInfo insLen ctxt
-  | Op.FSW -> fsw insInfo insLen ctxt
-  | Op.FADDdotS -> fpArithmeticSingle insInfo insLen ctxt AST.fadd
-  | Op.FADDdotD -> fpArithmeticDouble insInfo insLen ctxt AST.fadd
-  | Op.FSUBdotS -> fpArithmeticSingle insInfo insLen ctxt AST.fsub
-  | Op.FSUBdotD -> fpArithmeticDouble insInfo insLen ctxt AST.fsub
-  | Op.FDIVdotS -> fpArithmeticSingle insInfo insLen ctxt AST.fdiv
-  | Op.FDIVdotD -> fpArithmeticDouble insInfo insLen ctxt AST.fdiv
-  | Op.FMULdotS -> fpArithmeticSingle insInfo insLen ctxt AST.fmul
-  | Op.FMULdotD -> fpArithmeticDouble insInfo insLen ctxt AST.fmul
-  | Op.FMINdotS -> fmindots insInfo insLen ctxt
-  | Op.FMINdotD -> fmindotd insInfo insLen ctxt
-  | Op.FMAXdotS -> fmaxdots insInfo insLen ctxt
-  | Op.FMAXdotD -> fmaxdotd insInfo insLen ctxt
-  | Op.FNMADDdotS -> fnmadddots insInfo insLen ctxt
-  | Op.FNMADDdotD -> fnmadddotd insInfo insLen ctxt
-  | Op.FNMSUBdotS -> fnmsubdots insInfo insLen ctxt
-  | Op.FNMSUBdotD -> fnmsubdotd insInfo insLen ctxt
-  | Op.FMADDdotS -> fmadddots insInfo insLen ctxt
-  | Op.FMADDdotD -> fmadddotd insInfo insLen ctxt
-  | Op.FMSUBdotS -> fmsubdots insInfo insLen ctxt
-  | Op.FMSUBdotD -> fmsubdotd insInfo insLen ctxt
-  | Op.FSQRTdotS -> fsqrtdots insInfo insLen ctxt
-  | Op.FSQRTdotD -> fsqrtdotd insInfo insLen ctxt
-  | Op.FCLASSdotS -> fclassdots insInfo insLen ctxt
-  | Op.FCLASSdotD -> fclassdotd insInfo insLen ctxt
-  | Op.FSGNJdotS -> fsgnjdots insInfo insLen ctxt
-  | Op.FSGNJdotD -> fsgnjdotd insInfo insLen ctxt
-  | Op.FSGNJNdotS -> fsgnjndots insInfo insLen ctxt
-  | Op.FSGNJNdotD -> fsgnjndotd insInfo insLen ctxt
-  | Op.FSGNJXdotS -> fsgnjxdots insInfo insLen ctxt
-  | Op.FSGNJXdotD -> fsgnjxdotd insInfo insLen ctxt
-  | Op.AMOADDdotW -> amow insInfo insLen ctxt (.+)
-  | Op.AMOADDdotD -> amod insInfo insLen ctxt (.+)
-  | Op.AMOANDdotW -> amow insInfo insLen ctxt (.&)
-  | Op.AMOANDdotD -> amod insInfo insLen ctxt (.&)
-  | Op.AMOXORdotW -> amow insInfo insLen ctxt (<+>)
-  | Op.AMOXORdotD -> amod insInfo insLen ctxt (<+>)
-  | Op.AMOORdotW -> amow insInfo insLen ctxt (.|)
-  | Op.AMOORdotD -> amod insInfo insLen ctxt (.|)
+  | Op.FSD -> fsd insInfo insLen bld
+  | Op.FLTdotS -> fltdots insInfo insLen bld
+  | Op.FLTdotD -> fltdotd insInfo insLen bld
+  | Op.FLEdotS -> fledots insInfo insLen bld
+  | Op.FLEdotD -> fledotd insInfo insLen bld
+  | Op.FEQdotS -> feqdots insInfo insLen bld
+  | Op.FEQdotD -> feqdotd insInfo insLen bld
+  | Op.FLW -> flw insInfo insLen bld
+  | Op.FSW -> fsw insInfo insLen bld
+  | Op.FADDdotS -> fpArithmeticSingle insInfo insLen bld AST.fadd
+  | Op.FADDdotD -> fpArithmeticDouble insInfo insLen bld AST.fadd
+  | Op.FSUBdotS -> fpArithmeticSingle insInfo insLen bld AST.fsub
+  | Op.FSUBdotD -> fpArithmeticDouble insInfo insLen bld AST.fsub
+  | Op.FDIVdotS -> fpArithmeticSingle insInfo insLen bld AST.fdiv
+  | Op.FDIVdotD -> fpArithmeticDouble insInfo insLen bld AST.fdiv
+  | Op.FMULdotS -> fpArithmeticSingle insInfo insLen bld AST.fmul
+  | Op.FMULdotD -> fpArithmeticDouble insInfo insLen bld AST.fmul
+  | Op.FMINdotS -> fmindots insInfo insLen bld
+  | Op.FMINdotD -> fmindotd insInfo insLen bld
+  | Op.FMAXdotS -> fmaxdots insInfo insLen bld
+  | Op.FMAXdotD -> fmaxdotd insInfo insLen bld
+  | Op.FNMADDdotS -> fnmadddots insInfo insLen bld
+  | Op.FNMADDdotD -> fnmadddotd insInfo insLen bld
+  | Op.FNMSUBdotS -> fnmsubdots insInfo insLen bld
+  | Op.FNMSUBdotD -> fnmsubdotd insInfo insLen bld
+  | Op.FMADDdotS -> fmadddots insInfo insLen bld
+  | Op.FMADDdotD -> fmadddotd insInfo insLen bld
+  | Op.FMSUBdotS -> fmsubdots insInfo insLen bld
+  | Op.FMSUBdotD -> fmsubdotd insInfo insLen bld
+  | Op.FSQRTdotS -> fsqrtdots insInfo insLen bld
+  | Op.FSQRTdotD -> fsqrtdotd insInfo insLen bld
+  | Op.FCLASSdotS -> fclassdots insInfo insLen bld
+  | Op.FCLASSdotD -> fclassdotd insInfo insLen bld
+  | Op.FSGNJdotS -> fsgnjdots insInfo insLen bld
+  | Op.FSGNJdotD -> fsgnjdotd insInfo insLen bld
+  | Op.FSGNJNdotS -> fsgnjndots insInfo insLen bld
+  | Op.FSGNJNdotD -> fsgnjndotd insInfo insLen bld
+  | Op.FSGNJXdotS -> fsgnjxdots insInfo insLen bld
+  | Op.FSGNJXdotD -> fsgnjxdotd insInfo insLen bld
+  | Op.AMOADDdotW -> amow insInfo insLen bld (.+)
+  | Op.AMOADDdotD -> amod insInfo insLen bld (.+)
+  | Op.AMOANDdotW -> amow insInfo insLen bld (.&)
+  | Op.AMOANDdotD -> amod insInfo insLen bld (.&)
+  | Op.AMOXORdotW -> amow insInfo insLen bld (<+>)
+  | Op.AMOXORdotD -> amod insInfo insLen bld (<+>)
+  | Op.AMOORdotW -> amow insInfo insLen bld (.|)
+  | Op.AMOORdotD -> amod insInfo insLen bld (.|)
   | Op.AMOMINdotW ->
-    amow insInfo insLen ctxt (fun a b -> AST.ite (a ?< b) (a) (b))
+    amow insInfo insLen bld (fun a b -> AST.ite (a ?< b) (a) (b))
   | Op.AMOMINdotD ->
-    amod insInfo insLen ctxt (fun a b -> AST.ite (a ?< b) (a) (b))
+    amod insInfo insLen bld (fun a b -> AST.ite (a ?< b) (a) (b))
   | Op.AMOMINUdotW ->
-    amow insInfo insLen ctxt (fun a b -> AST.ite (a .< b) (a) (b))
+    amow insInfo insLen bld (fun a b -> AST.ite (a .< b) (a) (b))
   | Op.AMOMINUdotD ->
-    amod insInfo insLen ctxt (fun a b -> AST.ite (a .< b) (a) (b))
+    amod insInfo insLen bld (fun a b -> AST.ite (a .< b) (a) (b))
   | Op.AMOMAXdotW ->
-    amow insInfo insLen ctxt (fun a b -> AST.ite (a ?> b) (a) (b))
+    amow insInfo insLen bld (fun a b -> AST.ite (a ?> b) (a) (b))
   | Op.AMOMAXdotD ->
-    amod insInfo insLen ctxt (fun a b -> AST.ite (a ?> b) (a) (b))
+    amod insInfo insLen bld (fun a b -> AST.ite (a ?> b) (a) (b))
   | Op.AMOMAXUdotW ->
-    amow insInfo insLen ctxt (fun a b -> AST.ite (a .> b) (a) (b))
+    amow insInfo insLen bld (fun a b -> AST.ite (a .> b) (a) (b))
   | Op.AMOMAXUdotD ->
-    amod insInfo insLen ctxt (fun a b -> AST.ite (a .> b) (a) (b))
-  | Op.AMOSWAPdotW -> amow insInfo insLen ctxt (fun _ b -> b)
-  | Op.AMOSWAPdotD -> amod insInfo insLen ctxt (fun _ b -> b)
-  | Op.FMVdotXdotW -> fmvdotxdotw insInfo insLen ctxt
-  | Op.FMVdotXdotD -> fmvdotxdotd insInfo insLen ctxt
-  | Op.FMVdotWdotX -> fmvdotwdotx insInfo insLen ctxt
-  | Op.FMVdotDdotX -> fmvdotddotx insInfo insLen ctxt
-  | Op.DIVW -> divw insInfo insLen ctxt
-  | Op.DIV -> div insInfo insLen ctxt
-  | Op.DIVU -> divu insInfo insLen ctxt
-  | Op.REM -> rem insInfo insLen ctxt
-  | Op.REMU -> remu insInfo insLen ctxt
-  | Op.REMW -> remw insInfo insLen ctxt
-  | Op.DIVUW -> divuw insInfo insLen ctxt
-  | Op.REMUW -> remuw insInfo insLen ctxt
-  | Op.FCVTdotWdotD -> fcvtdotwdotd insInfo insLen ctxt
-  | Op.FCVTdotWUdotD -> fcvtdotwudotd insInfo insLen ctxt
-  | Op.FCVTdotLdotD -> fcvtdotldotd insInfo insLen ctxt
-  | Op.FCVTdotLUdotD -> fcvtdotludotd insInfo insLen ctxt
-  | Op.FCVTdotWdotS -> fcvtdotwdots insInfo insLen ctxt
-  | Op.FCVTdotWUdotS -> fcvtdotwudots insInfo insLen ctxt
-  | Op.FCVTdotLdotS -> fcvtdotldots insInfo insLen ctxt
-  | Op.FCVTdotLUdotS -> fcvtdotludots insInfo insLen ctxt
+    amod insInfo insLen bld (fun a b -> AST.ite (a .> b) (a) (b))
+  | Op.AMOSWAPdotW -> amow insInfo insLen bld (fun _ b -> b)
+  | Op.AMOSWAPdotD -> amod insInfo insLen bld (fun _ b -> b)
+  | Op.FMVdotXdotW -> fmvdotxdotw insInfo insLen bld
+  | Op.FMVdotXdotD -> fmvdotxdotd insInfo insLen bld
+  | Op.FMVdotWdotX -> fmvdotwdotx insInfo insLen bld
+  | Op.FMVdotDdotX -> fmvdotddotx insInfo insLen bld
+  | Op.DIVW -> divw insInfo insLen bld
+  | Op.DIV -> div insInfo insLen bld
+  | Op.DIVU -> divu insInfo insLen bld
+  | Op.REM -> rem insInfo insLen bld
+  | Op.REMU -> remu insInfo insLen bld
+  | Op.REMW -> remw insInfo insLen bld
+  | Op.DIVUW -> divuw insInfo insLen bld
+  | Op.REMUW -> remuw insInfo insLen bld
+  | Op.FCVTdotWdotD -> fcvtdotwdotd insInfo insLen bld
+  | Op.FCVTdotWUdotD -> fcvtdotwudotd insInfo insLen bld
+  | Op.FCVTdotLdotD -> fcvtdotldotd insInfo insLen bld
+  | Op.FCVTdotLUdotD -> fcvtdotludotd insInfo insLen bld
+  | Op.FCVTdotWdotS -> fcvtdotwdots insInfo insLen bld
+  | Op.FCVTdotWUdotS -> fcvtdotwudots insInfo insLen bld
+  | Op.FCVTdotLdotS -> fcvtdotldots insInfo insLen bld
+  | Op.FCVTdotLUdotS -> fcvtdotludots insInfo insLen bld
   | Op.FENCE
   | Op.FENCEdotI
-  | Op.FENCEdotTSO -> nop insInfo insLen ctxt
+  | Op.FENCEdotTSO -> nop insInfo insLen bld
   | Op.LRdotW
-  | Op.LRdotD -> lr insInfo insLen ctxt
-  | Op.SCdotW -> sc insInfo insLen ctxt 32<rt>
-  | Op.SCdotD -> sc insInfo insLen ctxt 64<rt>
+  | Op.LRdotD -> lr insInfo insLen bld
+  | Op.SCdotW -> sc insInfo insLen bld 32<rt>
+  | Op.SCdotD -> sc insInfo insLen bld 64<rt>
   | Op.CSRRW
-  | Op.CSRRWI -> csrrw insInfo insLen ctxt
+  | Op.CSRRWI -> csrrw insInfo insLen bld
   | Op.CSRRS
-  | Op.CSRRSI -> csrrs insInfo insLen ctxt
+  | Op.CSRRSI -> csrrs insInfo insLen bld
   | Op.CSRRC
-  | Op.CSRRCI -> csrrc insInfo insLen ctxt
-  | Op.FCVTdotSdotW -> fcvtdotsdotw insInfo insLen ctxt
-  | Op.FCVTdotSdotL -> fcvtdotsdotl insInfo insLen ctxt
-  | Op.FCVTdotSdotD -> fcvtdotsdotd insInfo insLen ctxt
-  | Op.FCVTdotDdotS -> fcvtdotddots insInfo insLen ctxt
-  | Op.FCVTdotDdotW -> fcvtdotddotw insInfo insLen ctxt
-  | Op.FCVTdotDdotL -> fcvtdotddotl insInfo insLen ctxt
-  | Op.FCVTdotDdotWU -> fcvtdotddotwu insInfo insLen ctxt
-  | Op.FCVTdotDdotLU -> fcvtdotddotlu insInfo insLen ctxt
-  | Op.FCVTdotSdotWU -> fcvtdotsdotwu insInfo insLen ctxt
-  | Op.FCVTdotSdotLU -> fcvtdotsdotlu insInfo insLen ctxt
+  | Op.CSRRCI -> csrrc insInfo insLen bld
+  | Op.FCVTdotSdotW -> fcvtdotsdotw insInfo insLen bld
+  | Op.FCVTdotSdotL -> fcvtdotsdotl insInfo insLen bld
+  | Op.FCVTdotSdotD -> fcvtdotsdotd insInfo insLen bld
+  | Op.FCVTdotDdotS -> fcvtdotddots insInfo insLen bld
+  | Op.FCVTdotDdotW -> fcvtdotddotw insInfo insLen bld
+  | Op.FCVTdotDdotL -> fcvtdotddotl insInfo insLen bld
+  | Op.FCVTdotDdotWU -> fcvtdotddotwu insInfo insLen bld
+  | Op.FCVTdotDdotLU -> fcvtdotddotlu insInfo insLen bld
+  | Op.FCVTdotSdotWU -> fcvtdotsdotwu insInfo insLen bld
+  | Op.FCVTdotSdotLU -> fcvtdotsdotlu insInfo insLen bld
   | o ->
 #if DEBUG
     eprintfn "%A" o

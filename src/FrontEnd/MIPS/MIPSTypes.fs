@@ -801,9 +801,9 @@ type InsInfo = {
   /// Instruction length.
   NumBytes: uint32
   /// Condition.
-  Condition : Condition option
+  Condition: Condition option
   /// Floating Point Format.
-  Fmt : Fmt option
+  Fmt: Fmt option
   /// Opcode.
   Opcode: Opcode
   /// Operands.

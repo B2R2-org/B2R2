@@ -46,8 +46,8 @@ type FunctionSummarizer<'FnCtx,
   let stackPointerDef (hdl: BinHandle) unwindingAmount =
     match hdl.RegisterFactory.StackPointer with
     | Some sp ->
-      let rt = hdl.RegisterFactory.RegIDToRegType sp
-      let sp = hdl.RegisterFactory.RegIDToRegExpr sp
+      let rt = hdl.RegisterFactory.GetRegType sp
+      let sp = hdl.RegisterFactory.GetRegVar sp
       let retAddrSize = RegType.toByteWidth rt |> int64
       let adj = int64 unwindingAmount
       let shiftAmount = BitVector.OfInt64 (retAddrSize + adj) rt
@@ -57,7 +57,7 @@ type FunctionSummarizer<'FnCtx,
 
   let toRegExpr (hdl: BinHandle) register =
     Intel.Register.toRegID register
-    |> hdl.RegisterFactory.RegIDToRegExpr
+    |> hdl.RegisterFactory.GetRegVar
 
   let tryFindLiveRegFromGetPCThunk (hdl: BinHandle) (addr: Addr) =
     match hdl.ReadUInt (addr, 4) with
@@ -73,7 +73,7 @@ type FunctionSummarizer<'FnCtx,
   let genFreshStackVarExpr hdl =
     let rt = (hdl: BinHandle).File.ISA.WordSize |> WordSize.toRegType
     let spId = hdl.RegisterFactory.StackPointer.Value
-    let sp = hdl.RegisterFactory.RegIDToRegExpr spId
+    let sp = hdl.RegisterFactory.GetRegVar spId
     AST.load Endian.Little rt sp (* [rsp] *)
 
   let initializeLiveVarMap hdl funcAddr =
@@ -91,7 +91,7 @@ type FunctionSummarizer<'FnCtx,
     if ctx.IsExternal then
       let retReg =
         CallingConvention.returnRegister hdl
-        |> hdl.RegisterFactory.RegIDToRegExpr
+        |> hdl.RegisterFactory.GetRegVar
       let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
       let e = AST.undef rt "ret"
       [| (retReg, e)

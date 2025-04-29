@@ -40,9 +40,9 @@ type EVMLifterTests () =
 
   let isa = ISA.Init Architecture.EVM Endian.Little
 
-  let ctxt = EVMTranslationContext isa
+  let regFactory = RegisterFactory () :> IRegisterFactory
 
-  let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
+  let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
 
   let ( ++ ) byteString givenStmts =
     ByteArray.ofHexString byteString, givenStmts
@@ -50,9 +50,10 @@ type EVMLifterTests () =
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
   let test (bytes: byte[], givenStmts) =
-    let parser = EVMParser (isa) :> IInstructionParsable
+    let parser = EVMParser isa :> IInstructionParsable
+    let builder = ILowUIRBuilder.Default (isa, regFactory, LowUIRStream ())
     let ins = parser.Parse (bytes, 0UL)
-    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate ctxt)
+    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate builder)
 
   [<TestMethod>]
   member _.``[EVM] PUSH8 lift test`` () =

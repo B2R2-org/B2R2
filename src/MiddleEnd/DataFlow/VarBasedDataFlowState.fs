@@ -44,7 +44,7 @@ type VarBasedDataFlowState<'Lattice>
     match (hdl: BinHandle).RegisterFactory.StackPointer with
     | None -> None
     | Some rid ->
-      let rt = hdl.RegisterFactory.RegIDToRegType rid
+      let rt = hdl.RegisterFactory.GetRegType rid
       let varKind = Regular rid
       let bv = BitVector.OfUInt64 Constants.InitialStackPointer rt
       let c = StackPointerDomain.ConstSP bv
@@ -169,8 +169,8 @@ type VarBasedDataFlowState<'Lattice>
   let toSSAVarKind vk =
     match vk with
     | Regular rid ->
-      let rt = hdl.RegisterFactory.RegIDToRegType rid
-      let rname = hdl.RegisterFactory.RegIDToString rid
+      let rt = hdl.RegisterFactory.GetRegType rid
+      let rname = hdl.RegisterFactory.GetRegString rid
       SSA.RegVar (rt, rid, rname)
     | Memory (Some _) -> SSA.MemVar
     | Memory None -> SSA.MemVar

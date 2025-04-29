@@ -79,10 +79,10 @@ type PythonInstruction (addr, numBytes, insInfo) =
 
   override _.IsNop () = Terminator.futureFeature ()
 
-  override _.Translate ctxt =
+  override _.Translate _ =
     Terminator.futureFeature ()
 
-  override _.TranslateToList ctxt =
+  override _.TranslateToList _ =
     Terminator.futureFeature ()
 
   override _.Disasm (showAddr, _) =

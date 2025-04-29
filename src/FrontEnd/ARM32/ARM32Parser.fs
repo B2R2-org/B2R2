@@ -40,7 +40,7 @@ module private Parser =
 
 /// Parser for 32-bit ARM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type ARM32Parser (isa: ISA, mode) =
+type ARM32Parser (isa: ISA, mode, reader) =
 
   let oparsers = [|
     OprNo () :> OperandParser
@@ -357,8 +357,6 @@ type ARM32Parser (isa: ISA, mode) =
 
   let mutable mode: ArchOperationMode = mode
 
-  let reader = BinReader.Init isa.Endian
-
   let phlp = ParsingHelper (isa.Arch, reader, oparsers)
 
   let mutable itstate: byte list = []
@@ -380,6 +378,6 @@ type ARM32Parser (isa: ISA, mode) =
 
     member _.MaxInstructionSize = 4
 
-    member _.OperationMode with get() = mode and set(m) = mode <- m
+    member _.OperationMode with get () = mode and set m = mode <- m
 
 // vim: set tw=80 sts=2 sw=2:

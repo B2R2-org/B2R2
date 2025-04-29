@@ -710,5 +710,3 @@ let parse (span: ByteSpan) (reader: IBinReader) wordSize addr =
       Operands = operands
       OperationSize = 32<rt> }
   RISCV64Instruction (addr, instrLen, insInfo)
-
-// vim: set tw=80 sts=2 sw=2:

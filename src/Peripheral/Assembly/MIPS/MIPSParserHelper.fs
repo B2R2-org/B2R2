@@ -86,7 +86,7 @@ let getRealRegName = function
   | "ra" -> "R31"
   | other -> other.ToUpper ()
 
-let newInfo isa address opcode condition fmt operands =
+let newInfo (isa: ISA) address opcode condition fmt operands =
   { Address = address;
     NumBytes = 4u;
     Condition = condition;

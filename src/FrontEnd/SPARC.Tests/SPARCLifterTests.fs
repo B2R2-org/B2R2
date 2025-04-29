@@ -40,16 +40,20 @@ type SPARCLifterTest () =
 
   let isa = ISA.Init Architecture.SPARC Endian.Little
 
-  let ctxt = SPARCTranslationContext isa
+  let reader = BinReader.Init Endian.Little
 
-  let ( !. ) reg = Register.toRegID reg |> ctxt.GetRegVar
+  let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
+
+  let builder = ILowUIRBuilder.Default (isa, regFactory, LowUIRStream ())
+
+  let ( !. ) reg = Register.toRegID reg |> regFactory.GetRegVar
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
   let test (bytes: byte[], givenStmts) =
-    let parser = SPARCParser (isa) :> IInstructionParsable
+    let parser = SPARCParser (reader) :> IInstructionParsable
     let ins = parser.Parse (bytes, 0UL)
-    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate ctxt)
+    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate builder)
 
   let ( ++ ) byteString givenStmts =
     ByteArray.ofHexString byteString, givenStmts

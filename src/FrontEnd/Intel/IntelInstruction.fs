@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.Intel
 
 open B2R2
-open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for an Intel instruction used by our
@@ -161,11 +160,11 @@ type IntelInstruction
   override _.IsNop () =
     opcode = Opcode.NOP
 
-  override this.Translate ctxt =
-    (Lifter.translate this len ctxt).ToStmts ()
+  override this.Translate builder =
+    (Lifter.translate this len builder).Stream.ToStmts ()
 
-  override this.TranslateToList ctxt =
-    Lifter.translate this len ctxt
+  override this.TranslateToList builder =
+    (Lifter.translate this len builder).Stream
 
   override this.Disasm (showAddr, nameReader) =
     let resolveSymb = not (isNull nameReader)
@@ -184,8 +183,3 @@ type IntelInstruction
     builder.ToArray ()
 
   override _.IsInlinedAssembly () = false
-
-  interface ICacheableOperation<TranslationContext, BinIR.LowUIR.Stmt []> with
-    member this.Perform ctxt = (Lifter.translate this len ctxt).ToStmts ()
-
-// vim: set tw=80 sts=2 sw=2:

@@ -79,9 +79,9 @@ type TMS320C6000Instruction (addr, numBytes, insInfo) =
 
   override _.IsNop () = Terminator.futureFeature ()
 
-  override _.Translate _ctxt = Terminator.futureFeature ()
+  override _.Translate _ = Terminator.futureFeature ()
 
-  override _.TranslateToList _ctxt = Terminator.futureFeature ()
+  override _.TranslateToList _ = Terminator.futureFeature ()
 
   override this.Disasm (showAddr, _) =
     let builder =

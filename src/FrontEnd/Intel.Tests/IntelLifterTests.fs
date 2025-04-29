@@ -34,24 +34,29 @@ open B2R2.FrontEnd.Intel
 #if !HASHCONS
 [<TestClass>]
 type IntelLifterTests () =
-  let test ctxt wordSize (expectedStmts: string[]) (bytes: byte[]) =
-    let parser = IntelParser (wordSize) :> IInstructionParsable
+  let test builder wordSize (expectedStmts: string[]) (bytes: byte[]) =
+    let reader = BinReader.Init Endian.Little
+    let parser = IntelParser (wordSize, reader) :> IInstructionParsable
     let ins = parser.Parse (bytes, 0UL) :?> IntelInternalInstruction
-    let actual = ins.Translate ctxt |> Array.map Pp.stmtToString
+    let actual = ins.Translate builder |> Array.map Pp.stmtToString
     printfn "%A" actual
     CollectionAssert.AreEqual (expectedStmts, actual)
 
   let testX86 (hex: string) expectedStmts =
     let isa = ISA.Init Architecture.IntelX86 Endian.Little
-    let ctxt = IntelTranslationContext isa
+    let regFactory = RegisterFactory isa.WordSize
+    let stream = LowUIRStream ()
+    let builder = ILowUIRBuilder.Default (isa, regFactory, stream)
     ByteArray.ofHexString hex
-    |> test ctxt WordSize.Bit32 expectedStmts
+    |> test builder WordSize.Bit32 expectedStmts
 
   let testX64 (hex: string) expectedStmts =
     let isa = ISA.Init Architecture.IntelX64 Endian.Little
-    let ctxt = IntelTranslationContext isa
+    let regFactory = RegisterFactory isa.WordSize
+    let stream = LowUIRStream ()
+    let builder = ILowUIRBuilder.Default (isa, regFactory, stream)
     ByteArray.ofHexString hex
-    |> test ctxt WordSize.Bit64 expectedStmts
+    |> test builder WordSize.Bit64 expectedStmts
 
   [<TestMethod>]
   member _.``[X86] ADD instruction lift Test (1)`` () =

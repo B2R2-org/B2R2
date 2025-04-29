@@ -137,7 +137,9 @@ type ARM32ParserTests () =
   let test cond op (wback: bool) simd (oprs: Operands) (bytes: byte[]) =
     let mode = ArchOperationMode.ARMMode
     let isa = ISA.Init Architecture.ARMv7 Endian.Big
-    let parser = ARM32Parser (isa, mode) :> IInstructionParsable
+    let reader = BinReader.Init Endian.Big
+    let parser =
+      ARM32Parser (isa, mode, reader) :> IInstructionParsable
     let ins = parser.Parse (bytes, 0UL) :?> ARM32Instruction
     let cond' = ins.Condition
     let op' = ins.Opcode

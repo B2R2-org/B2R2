@@ -25,44 +25,46 @@
 namespace B2R2.FrontEnd.WASM
 
 open B2R2
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 
-type WASMRegisterFactory () =
-  inherit RegisterFactory ()
+type RegisterFactory () =
+  interface IRegisterFactory with
+    member _.GetRegVar rid: Expr =
+      match Register.ofRegID rid with
+      | _ -> raise UnhandledRegExprException
 
-  override _.GetAllRegExprs () = Terminator.futureFeature ()
+    member _.GetRegVar (_: string): Expr = Terminator.futureFeature ()
 
-  override _.GetAllRegNames () = []
+    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
 
-  override _.GetGeneralRegExprs () = Terminator.futureFeature ()
+    member _.GetAllRegVars () = Terminator.futureFeature ()
 
-  override _.RegIDFromRegExpr (_e) = Terminator.futureFeature ()
+    member _.GetGeneralRegVars () = Terminator.futureFeature ()
 
-  override _.RegIDToRegExpr (_id) = Terminator.impossible ()
+    member _.GetRegisterID (_: Expr): RegisterID = Terminator.futureFeature ()
 
-  override _.StrToRegExpr _s = Terminator.impossible ()
+    member _.GetRegisterID str =
+      Register.ofString str |> Register.toRegID
 
-  override _.RegIDFromString str =
-    Register.ofString str |> Register.toRegID
+    member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
 
-  override _.RegIDToString rid =
-    Register.ofRegID rid |> Register.toString
+    member _.GetRegString rid =
+      Register.ofRegID rid |> Register.toString
 
-  override _.RegIDToRegType rid =
-    Register.ofRegID rid |> Register.toRegType
+    member _.GetAllRegStrings () = [||]
 
-  override _.GetRegisterAliases _ = Terminator.futureFeature ()
+    member _.GetRegType rid =
+      Register.ofRegID rid |> Register.toRegType
 
-  override _.ProgramCounter = Terminator.impossible()
+    member _.ProgramCounter = Terminator.impossible()
 
-  override _.StackPointer = Terminator.futureFeature ()
+    member _.StackPointer = Terminator.futureFeature ()
 
-  override _.FramePointer = Terminator.impossible ()
+    member _.FramePointer = Terminator.impossible ()
 
-  override _.IsProgramCounter regid = Terminator.futureFeature ()
+    member _.IsProgramCounter _ = Terminator.futureFeature ()
 
-  override _.IsStackPointer regid = Terminator.futureFeature ()
+    member _.IsStackPointer _ = Terminator.futureFeature ()
 
-  override _.IsFramePointer _ = Terminator.impossible ()
-
-// vim: set tw=80 sts=2 sw=2:
+    member _.IsFramePointer _ = Terminator.impossible ()

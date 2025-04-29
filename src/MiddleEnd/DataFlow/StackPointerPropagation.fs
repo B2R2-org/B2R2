@@ -46,7 +46,7 @@ type StackPointerPropagation =
     let initialStackPointerValue =
       hdl.RegisterFactory.StackPointer
       |> Option.get
-      |> hdl.RegisterFactory.RegIDToRegType
+      |> hdl.RegisterFactory.GetRegType
       |> BitVector.OfUInt64 Constants.InitialStackPointer
       |> StackPointerDomain.ConstSP
 

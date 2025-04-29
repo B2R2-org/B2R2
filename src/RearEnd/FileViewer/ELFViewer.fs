@@ -345,7 +345,7 @@ let ruleToString (hdl: BinHandle) (rule: Rule) =
     match k with
     | ReturnAddress -> s + "(ra:" + Action.toString v + ")"
     | NormalReg rid ->
-      let reg = hdl.RegisterFactory.RegIDToString rid
+      let reg = hdl.RegisterFactory.GetRegString rid
       s + "(" + reg + ":" + Action.toString v + ")") ""
 
 let dumpEHFrame hdl (file: ELFBinFile) =

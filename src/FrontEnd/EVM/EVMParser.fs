@@ -46,5 +46,5 @@ type EVMParser (isa: ISA) =
 
     member _.MaxInstructionSize = 33
 
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member _.OperationMode with get () = ArchOperationMode.NoMode and set _ = ()
 

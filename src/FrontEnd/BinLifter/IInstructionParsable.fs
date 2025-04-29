@@ -25,9 +25,10 @@
 namespace B2R2.FrontEnd.BinLifter
 
 open B2R2
-open B2R2.FrontEnd
 
-/// A platform-independent binary instruction parser.
+/// <summary>
+/// Provides an interface for parsing binary instructions.
+/// </summary>
 type IInstructionParsable =
   /// Parse one instruction from the given byte array assuming that the address
   /// of the instruction is `addr`.

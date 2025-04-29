@@ -11,8 +11,8 @@
     <Compile Include="IntelRegister.fs" />
     <Compile Include="IntelOpcodes.fs" />
     <Compile Include="IntelTypes.fs" />
-    <Compile Include="IntelRegExprs.fs" />
     <Compile Include="IntelRegisterFactory.fs" />
+    <Compile Include="IntelLowUIRBuilder.fs" />
     <Compile Include="IntelHelper.fs" />
     <Compile Include="IntelOperands.fs" />
     <Compile Include="IntelDisasm.fs" />
@@ -27,7 +27,6 @@
     <Compile Include="IntelParsingHelper.fs" />
     <Compile Include="IntelParsingJob.fs" />
     <Compile Include="IntelParser.fs" />
-    <Compile Include="IntelTranslationContext.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

@@ -27,7 +27,6 @@ namespace B2R2.FrontEnd.BinLifter
 open System.Collections.Generic
 open System.Runtime.InteropServices
 open B2R2
-open B2R2.FrontEnd
 open B2R2.BinIR.LowUIR
 
 /// <summary>
@@ -218,21 +217,19 @@ type Instruction (addr, len, wordSize) =
   ///   Lift this instruction into a LowUIR statement array given a translation
   ///   context.
   /// </summary>
-  /// <param name="ctxt">Translation context.</param>
   /// <returns>
   ///   Returns an array of LowUIR statements.
   /// </returns>
-  abstract Translate: ctxt: TranslationContext -> Stmt[]
+  abstract Translate: ILowUIRBuilder -> Stmt[]
 
   /// <summary>
   ///   Lift this instruction into a LowUIR statement list given a translation
   ///   context.
   /// </summary>
-  /// <param name="ctxt">Translation context.</param>
   /// <returns>
   ///   Returns a list of LowUIR statements.
   /// </returns>
-  abstract TranslateToList: ctxt: TranslationContext -> List<Stmt>
+  abstract TranslateToList: ILowUIRBuilder -> List<Stmt>
 
   /// <summary>
   ///   Disassemble this instruction.

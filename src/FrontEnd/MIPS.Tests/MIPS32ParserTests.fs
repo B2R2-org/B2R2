@@ -56,9 +56,11 @@ module private MIPS32Shortcut =
 [<TestClass>]
 type MIPS32ParserTests () =
   let test arch endian opcode cond fmt (oprs: Operands) (bytes: byte[]) =
+    let isa = ISA.Init arch endian
     let reader = BinReader.Init endian
+    let parser = MIPSParser (isa, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
-    let ins = ParsingMain.parse span reader arch WordSize.Bit32 0UL
+    let ins = parser.Parse (span, 0UL) :?> MIPSInstruction
     let opcode' = ins.Info.Opcode
     let cond' = ins.Info.Condition
     let fmt' = ins.Info.Fmt

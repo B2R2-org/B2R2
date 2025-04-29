@@ -36,7 +36,6 @@ type AsmInterface (isa: ISA, startAddress) =
     | Architecture.MIPS32
     | Architecture.MIPS64
     | _ -> raise InvalidISAException
-  let ctxt = GroundWork.CreateTranslationContext isa
   let regFactory = GroundWork.CreateRegisterFactory isa
   let uirParser = LowUIR.LowUIRParser (isa, regFactory)
 
@@ -51,4 +50,4 @@ type AsmInterface (isa: ISA, startAddress) =
   /// simply parse the assembly instructions and return the corresponding AST.
   member _.LiftLowUIR isFromLowUIR asm =
     if isFromLowUIR then uirParser.Parse asm
-    else asmParser.Lift ctxt asm startAddress
+    else asmParser.Lift asm startAddress

@@ -30,111 +30,84 @@ open B2R2.FrontEnd.BinLifter
 /// The groundwork for the front-end. This module provides a set of functions
 /// to create fundamental components to use the front-end.
 type GroundWork =
-  /// Create a new translation context for the given architecture.
-  static member CreateTranslationContext isa =
+  static member CreateRegisterFactory (isa: ISA) =
     match isa.Arch with
     | Architecture.IntelX64
     | Architecture.IntelX86 ->
-      Intel.IntelTranslationContext isa :> TranslationContext
+      Intel.RegisterFactory isa.WordSize :> IRegisterFactory
     | Architecture.ARMv7 | Architecture.AARCH32 ->
-      ARM32.ARM32TranslationContext isa :> TranslationContext
+      ARM32.RegisterFactory () :> IRegisterFactory
     | Architecture.AARCH64 ->
-      ARM64.ARM64TranslationContext isa :> TranslationContext
-    | Architecture.AVR ->
-      AVR.AVRTranslationContext isa :> TranslationContext
-    | Architecture.EVM ->
-      EVM.EVMTranslationContext isa :> TranslationContext
-    | Architecture.TMS320C6000 ->
-      TMS320C6000.TMS320C6000TranslationContext isa :> TranslationContext
+      ARM64.RegisterFactory () :> IRegisterFactory
     | Architecture.MIPS32 | Architecture.MIPS64 ->
-      MIPS.MIPSTranslationContext isa :> TranslationContext
-    | Architecture.PPC32 ->
-      PPC32.PPC32TranslationContext isa :> TranslationContext
-    | Architecture.RISCV64 ->
-      RISCV64.RISCV64TranslationContext isa :> TranslationContext
-    | Architecture.S390 | Architecture.S390X ->
-      S390.S390TranslationContext isa :> TranslationContext
-    | Architecture.SH4 ->
-      SH4.SH4TranslationContext isa :> TranslationContext
-    | Architecture.SPARC ->
-      SPARC.SPARCTranslationContext isa :> TranslationContext
-    | Architecture.PARISC | Architecture.PARISC64 ->
-      PARISC.PARISCTranslationContext isa :> TranslationContext
-    | _ -> Terminator.futureFeature ()
-
-  /// Create a new register factory for the given architecture.
-  static member CreateRegisterFactory isa =
-    match isa.Arch with
-    | Architecture.IntelX64
-    | Architecture.IntelX86 ->
-      Intel.IntelRegisterFactory (isa.WordSize, Intel.RegExprs isa.WordSize)
-      :> RegisterFactory
-    | Architecture.ARMv7 | Architecture.AARCH32 ->
-      ARM32.ARM32RegisterFactory (ARM32.RegExprs ()) :> RegisterFactory
-    | Architecture.AARCH64 ->
-      ARM64.ARM64RegisterFactory (ARM64.RegExprs ()) :> RegisterFactory
-    | Architecture.AVR ->
-      AVR.AVRRegisterFactory () :> RegisterFactory
+      MIPS.RegisterFactory isa.WordSize :> IRegisterFactory
     | Architecture.EVM ->
-      EVM.EVMRegisterFactory () :> RegisterFactory
+      EVM.RegisterFactory () :> IRegisterFactory
     | Architecture.TMS320C6000 ->
-      TMS320C6000.TMS320C6000RegisterFactory () :> RegisterFactory
-    | Architecture.MIPS32 | Architecture.MIPS64 ->
-      MIPS.MIPSRegisterFactory (isa.WordSize, MIPS.RegExprs isa.WordSize)
-      :> RegisterFactory
-    | Architecture.PPC32 ->
-      PPC32.PPC32RegisterFactory (isa.WordSize, PPC32.RegExprs isa.WordSize)
-      :> RegisterFactory
-    | Architecture.RISCV64 ->
-      RISCV64.RISCV64RegisterFactory
-        (isa.WordSize, RISCV64.RegExprs isa.WordSize)
-      :> RegisterFactory
+      TMS320C6000.RegisterFactory () :> IRegisterFactory
+    | Architecture.AVR ->
+      AVR.RegisterFactory isa.WordSize
     | Architecture.S390 | Architecture.S390X ->
-      S390.S39064RegisterFactory
-        (isa.WordSize, S390.RegExprs isa.WordSize)
+      S390.RegisterFactory isa.WordSize :> IRegisterFactory
     | Architecture.SH4 ->
-      SH4.SH4RegisterFactory (SH4.RegExprs isa.WordSize)
-      :> RegisterFactory
+      SH4.RegisterFactory isa.WordSize :> IRegisterFactory
+    | Architecture.PPC32 ->
+      PPC32.RegisterFactory isa.WordSize :> IRegisterFactory
+    | Architecture.RISCV64 ->
+      RISCV64.RegisterFactory isa.WordSize :> IRegisterFactory
     | Architecture.SPARC ->
-      SPARC.SPARCRegisterFactory ()
-      :> RegisterFactory
+      SPARC.RegisterFactory isa.WordSize :> IRegisterFactory
     | Architecture.PARISC | Architecture.PARISC64 ->
-      PARISC.PARISC64RegisterFactory
-        (isa.WordSize, PARISC.RegExprs isa.WordSize)
-      :> RegisterFactory
-    | _ -> Terminator.futureFeature ()
+      PARISC.RegisterFactory isa.WordSize :> IRegisterFactory
+    | _ ->
+      Terminator.futureFeature ()
 
   /// Create a new parser (IInstructionParsable) for the given architecture.
-  static member CreateParser (isa: ISA) mode =
+  static member CreateParser reader registerFactory (isa: ISA) mode =
     match isa.Arch with
     | Architecture.IntelX64
     | Architecture.IntelX86 ->
-      Intel.IntelParser (isa.WordSize) :> IInstructionParsable
+      Intel.IntelParser (isa.WordSize, reader)
+      :> IInstructionParsable
     | Architecture.ARMv7 | Architecture.AARCH32 ->
-      ARM32.ARM32Parser (isa, mode) :> IInstructionParsable
+      ARM32.ARM32Parser (isa, mode, reader)
+      :> IInstructionParsable
     | Architecture.AARCH64 ->
-      ARM64.ARM64Parser (isa) :> IInstructionParsable
+      ARM64.ARM64Parser (reader) :> IInstructionParsable
     | Architecture.MIPS32 | Architecture.MIPS64 ->
-      MIPS.MIPSParser (isa) :> IInstructionParsable
+      MIPS.MIPSParser (isa, reader) :> IInstructionParsable
     | Architecture.EVM ->
       EVM.EVMParser (isa) :> IInstructionParsable
     | Architecture.TMS320C6000 ->
-      TMS320C6000.TMS320C6000Parser () :> IInstructionParsable
+      TMS320C6000.TMS320C6000Parser (reader) :> IInstructionParsable
     | Architecture.CILOnly ->
       CIL.CILParser () :> IInstructionParsable
     | Architecture.AVR ->
-      AVR.AVRParser () :> IInstructionParsable
+      AVR.AVRParser (reader) :> IInstructionParsable
     | Architecture.S390 | Architecture.S390X ->
-      S390.S39064Parser (isa) :> IInstructionParsable
+      S390.S390Parser (isa, reader) :> IInstructionParsable
     | Architecture.SH4 ->
-      SH4.SH4Parser (isa) :> IInstructionParsable
+      SH4.SH4Parser (reader) :> IInstructionParsable
     | Architecture.PPC32 ->
-      PPC32.PPC32Parser (isa) :> IInstructionParsable
+      PPC32.PPC32Parser (reader) :> IInstructionParsable
     | Architecture.RISCV64 ->
-      RISCV64.RISCV64Parser (isa) :> IInstructionParsable
+      RISCV64.RISCV64Parser (isa, reader)
+      :> IInstructionParsable
     | Architecture.SPARC ->
-      SPARC.SPARCParser (isa) :> IInstructionParsable
+      SPARC.SPARCParser (reader) :> IInstructionParsable
     | Architecture.PARISC | Architecture.PARISC64 ->
-      PARISC.PARISC64Parser (isa) :> IInstructionParsable
+      PARISC.PARISCParser (isa, reader) :> IInstructionParsable
     | _ ->
       Terminator.futureFeature ()
+
+  /// Create a new LowUIR builder for the given architecture.
+  static member CreateBuilder (isa: ISA) regFactory =
+    let stream = LowUIRStream ()
+    match isa.Arch with
+    | Architecture.IntelX64
+    | Architecture.IntelX86 ->
+      Intel.LowUIRBuilder (isa, regFactory, stream) :> ILowUIRBuilder
+    | Architecture.MIPS32 | Architecture.MIPS64 ->
+      MIPS.LowUIRBuilder (isa, regFactory, stream) :> ILowUIRBuilder
+    | _ ->
+      ILowUIRBuilder.Default (isa, regFactory, stream)

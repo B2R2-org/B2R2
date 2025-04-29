@@ -56,9 +56,11 @@ module private MIPS64Shortcut =
 [<TestClass>]
 type MIPS64ParserTests () =
   let test arch endian opcode (oprs: Operands) (bytes: byte[]) =
+    let isa = ISA.Init arch endian
     let reader = BinReader.Init endian
+    let parser = MIPSParser (isa, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
-    let ins = ParsingMain.parse span reader arch WordSize.Bit64 0UL
+    let ins = parser.Parse (span, 0UL) :?> MIPSInstruction
     let opcode' = ins.Info.Opcode
     let oprs' = ins.Info.Operands
     Assert.AreEqual<Opcode> (opcode, opcode')

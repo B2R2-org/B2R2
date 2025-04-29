@@ -202,11 +202,11 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
   override _.IsNop () =
     op = Op.NOP
 
-  override this.Translate ctxt =
-    (Lifter.translate this nb ctxt).ToStmts ()
+  override this.Translate builder =
+    (Lifter.translate this nb builder).Stream.ToStmts ()
 
-  override this.TranslateToList ctxt =
-    Lifter.translate this nb ctxt
+  override this.TranslateToList builder =
+    (Lifter.translate this nb builder).Stream
 
   override this.Disasm (showAddr, nameReader) =
     let resolveSymb = not (isNull nameReader)
@@ -232,5 +232,3 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
   override _.Equals (_) = Terminator.futureFeature ()
 
   override _.GetHashCode () = Terminator.futureFeature ()
-
-// vim: set tw=80 sts=2 sw=2:

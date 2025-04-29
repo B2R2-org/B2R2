@@ -28,8 +28,6 @@ open System.Runtime.InteropServices
 open System
 open System.Diagnostics
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 

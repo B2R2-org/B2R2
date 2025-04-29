@@ -29,7 +29,7 @@ open B2R2
 /// Shortcut for Register type.
 type internal R = Register
 
-/// This module exposes several useful functions to handle ARMv8 registers.
+/// This module exposes several useful functions to handle ARMv7 registers.
 [<RequireQualifiedAccess>]
 module Register =
   let toRegType = function

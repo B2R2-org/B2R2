@@ -22,16 +22,12 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.ARM32.IRHelper
+module internal B2R2.FrontEnd.ARM32.IRHelper
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
-
-let getRegVar (ctxt: TranslationContext) reg =
-  Register.toRegID reg |> ctxt.GetRegVar
 
 /// Returns TRUE if the implementation includes the Security Extensions,
 /// on page B1-1157. function : HaveSecurityExt()
@@ -106,8 +102,8 @@ let maskPSRForTbit = AST.num <| BitVector.OfBInt 32I 32<rt>
 let maskPSRForMbits = AST.num <| BitVector.OfBInt 31I 32<rt>
 
 /// Get PSR bits without shifting it.
-let internal getPSR ctxt reg psrType =
-  let psr = getRegVar ctxt reg
+let internal getPSR bld reg psrType =
+  let psr = regVar bld reg
   match psrType with
   | PSR.Cond -> psr .& maskPSRForCondbits
   | PSR.N -> psr .& maskPSRForNbit
@@ -127,13 +123,13 @@ let internal getPSR ctxt reg psrType =
   | PSR.M -> psr .& maskPSRForMbits
   | _ -> Terminator.impossible ()
 
-let isSetCPSRn ctxt = getPSR ctxt R.CPSR PSR.N == maskPSRForNbit
-let isSetCPSRz ctxt = getPSR ctxt R.CPSR PSR.Z == maskPSRForZbit
-let isSetCPSRc ctxt = getPSR ctxt R.CPSR PSR.C == maskPSRForCbit
-let isSetCPSRv ctxt = getPSR ctxt R.CPSR PSR.V == maskPSRForVbit
-let isSetCPSRj ctxt = getPSR ctxt R.CPSR PSR.J == maskPSRForJbit
-let isSetCPSRt ctxt = getPSR ctxt R.CPSR PSR.T == maskPSRForTbit
-let isSetCPSRm ctxt = getPSR ctxt R.CPSR PSR.M == maskPSRForMbits
+let isSetCPSRn bld = getPSR bld R.CPSR PSR.N == maskPSRForNbit
+let isSetCPSRz bld = getPSR bld R.CPSR PSR.Z == maskPSRForZbit
+let isSetCPSRc bld = getPSR bld R.CPSR PSR.C == maskPSRForCbit
+let isSetCPSRv bld = getPSR bld R.CPSR PSR.V == maskPSRForVbit
+let isSetCPSRj bld = getPSR bld R.CPSR PSR.J == maskPSRForJbit
+let isSetCPSRt bld = getPSR bld R.CPSR PSR.T == maskPSRForTbit
+let isSetCPSRm bld = getPSR bld R.CPSR PSR.M == maskPSRForMbits
 
 /// Test whether mode number is valid, on page B1-1142.
 /// function : BadMode()
@@ -159,8 +155,8 @@ let isBadMode modeM =
 
 /// Returns TRUE if current mode is User or System mode, on page B1-1142.
 /// function : CurrentModeIsUserOrSystem()
-let currentModeIsUserOrSystem ctxt =
-  let modeM = getPSR ctxt R.CPSR PSR.M
+let currentModeIsUserOrSystem bld =
+  let modeM = getPSR bld R.CPSR PSR.M
   let modeCond = isBadMode modeM
   let ite1 = modeM == (numI32 0b11111 32<rt>)
   let ite2 = AST.ite (modeM == (numI32 0b10000 32<rt>)) AST.b1 ite1
@@ -168,19 +164,19 @@ let currentModeIsUserOrSystem ctxt =
 
 /// Returns TRUE if current mode is Hyp mode, on page B1-1142.
 /// function : CurrentModeIsHyp()
-let currentModeIsHyp ctxt =
-  let modeM = getPSR ctxt R.CPSR PSR.M
+let currentModeIsHyp bld =
+  let modeM = getPSR bld R.CPSR PSR.M
   let modeCond = isBadMode modeM
   let ite1 = modeM == (numI32 0b11010 32<rt>)
   AST.ite modeCond (AST.undef 1<rt> "UNPREDICTABLE") ite1
 
 /// Is this ARM instruction set, on page A2-51.
-let isInstrSetARM ctxt =
-  AST.not (isSetCPSRj ctxt) .& AST.not (isSetCPSRt ctxt)
+let isInstrSetARM bld =
+  AST.not (isSetCPSRj bld) .& AST.not (isSetCPSRt bld)
 
 /// Is this Thumb instruction set, on page A2-51.
-let isInstrSetThumb ctxt = AST.not (isSetCPSRj ctxt) .& (isSetCPSRt ctxt)
+let isInstrSetThumb bld = AST.not (isSetCPSRj bld) .& (isSetCPSRt bld)
 
 /// Is this ThumbEE instruction set, on page A2-51.
-let isInstrSetThumbEE ctxt = (isSetCPSRj ctxt) .& (isSetCPSRt ctxt)
+let isInstrSetThumbEE bld = (isSetCPSRj bld) .& (isSetCPSRt bld)
 

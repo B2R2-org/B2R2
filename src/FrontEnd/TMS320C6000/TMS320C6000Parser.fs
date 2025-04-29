@@ -30,9 +30,8 @@ open B2R2.FrontEnd.BinLifter
 
 /// Parser for TMS320C6000 instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type TMS320C6000Parser () =
+type TMS320C6000Parser (reader) =
   let mutable inParallel = false
-  let reader = BinReader.Init Endian.Little
 
   interface IInstructionParsable with
     member _.Parse (bs: byte[], addr) =
@@ -44,4 +43,4 @@ type TMS320C6000Parser () =
 
     member _.MaxInstructionSize = 4
 
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member _.OperationMode with get () = ArchOperationMode.NoMode and set _ = ()

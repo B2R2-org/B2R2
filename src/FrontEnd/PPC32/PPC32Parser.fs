@@ -30,8 +30,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Parser for PPC32 instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type PPC32Parser (isa: ISA) =
-  let reader = BinReader.Init isa.Endian
+type PPC32Parser (reader) =
 
   interface IInstructionParsable with
     member _.Parse (span: ByteSpan, addr) =

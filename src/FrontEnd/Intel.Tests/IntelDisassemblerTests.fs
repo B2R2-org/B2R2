@@ -34,7 +34,8 @@ open type Opcode
 [<TestClass>]
 type IntelDisassemblerTests () =
   let test wordSize (bytes: byte[]) (instruction: string[]) =
-    let parser = IntelParser (wordSize) :> IInstructionParsable
+    let reader = BinReader.Init Endian.Little
+    let parser = IntelParser (wordSize, reader) :> IInstructionParsable
     let actualInstruction (syntax: DisasmSyntax) =
       setDisassemblyFlavor syntax
       parser.Parse (bytes, 0UL) :?> IntelInstruction

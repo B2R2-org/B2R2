@@ -79,9 +79,9 @@ type WASMInstruction (addr, numBytes, insInfo) =
 
   override _.IsNop () = Terminator.futureFeature ()
 
-  override _.Translate ctxt = Terminator.futureFeature()
+  override _.Translate _ = Terminator.futureFeature()
 
-  override _.TranslateToList ctxt = Terminator.futureFeature()
+  override _.TranslateToList _ = Terminator.futureFeature()
 
   override this.Disasm (showAddr, _) =
     let builder =

@@ -30,11 +30,10 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.ARM32.IRHelper
 
-let getPC ctxt = getRegVar ctxt R.PC
+let getPC bld = regVar bld R.PC
 
 /// Assert check condition. If not, raise an exception (exn).
 let assertByCond condition exn = if condition then () else raise exn
@@ -62,24 +61,13 @@ let regsToUInt32 regs = List.fold (fun acc reg -> acc + getRegNum reg) 0u regs
 
 let regsToExpr regs = numU32 (regsToUInt32 regs) 16<rt>
 
-let sfRegToExpr ctxt = function
-  | Vector reg -> getRegVar ctxt reg
-  | Scalar (reg, _) -> getRegVar ctxt reg
+let sfRegToExpr bld = function
+  | Vector reg -> regVar bld reg
+  | Scalar (reg, _) -> regVar bld reg
 
-let simdToExpr ctxt = function
-  | SFReg s -> sfRegToExpr ctxt s
-(*
-  | OneReg s -> sfRegToExpr ctxt s
-  | TwoRegs (s1, s2) -> [ sfRegToExpr ctxt s1; sfRegToExpr ctxt s2 ]
-  | ThreeRegs (s1, s2, s3) ->
-    [ sfRegToExpr ctxt s1; sfRegToExpr ctxt s2; sfRegToExpr ctxt s3 ]
-  | FourRegs (s1, s2, s3, s4) -> [ sfRegToExpr ctxt s1; sfRegToExpr ctxt s2;
-                                   sfRegToExpr ctxt s3; sfRegToExpr ctxt s4 ]
-*)
+let simdToExpr bld = function
+  | SFReg s -> sfRegToExpr bld s
   | _ -> raise InvalidOperandException
-
-let inline getPseudoRegVar (ctxt: TranslationContext) name pos =
-  ctxt.GetPseudoRegVar (Register.toRegID name) pos
 
 let getTwoOprs (ins: InsInfo) =
   match ins.Operands with
@@ -101,53 +89,50 @@ let getImmValue imm =
   | OprImm imm -> imm
   | _ -> raise InvalidOperandException
 
-let getPseudoRegVar128 ctxt r =
-  getPseudoRegVar ctxt r 2, getPseudoRegVar ctxt r 1
-
-let transOprToExpr128 ctxt = function
-  | OprSIMD (SFReg (Vector reg)) -> getPseudoRegVar128 ctxt reg
+let transOprToExpr128 bld = function
+  | OprSIMD (SFReg (Vector reg)) -> pseudoRegVar128 bld reg
   | _ -> raise InvalidOperandException
 
-let transOprToSclar ctxt = function
-  | OprSIMD (SFReg (Scalar (reg, Some idx))) -> getRegVar ctxt reg, int32 idx
+let transOprToSclar bld = function
+  | OprSIMD (SFReg (Scalar (reg, Some idx))) -> regVar bld reg, int32 idx
   | _ -> raise InvalidOperandException
 
-let transOprToExpr (ins: InsInfo) ctxt = function
+let transOprToExpr (ins: InsInfo) bld = function
   | OprSpecReg (reg, _)
-  | OprReg reg -> getRegVar ctxt reg
+  | OprReg reg -> regVar bld reg
   | OprRegList regs -> regsToExpr regs
-  | OprSIMD simd -> simdToExpr ctxt simd
+  | OprSIMD simd -> simdToExpr bld simd
   | OprImm imm ->
     let oprSize = if ins.OprSize = 128<rt> then 64<rt> else ins.OprSize
     numI64 imm oprSize
   | _ -> raise InvalidOperandException
 
-let transOneOpr (ins: InsInfo) ctxt =
+let transOneOpr (ins: InsInfo) bld =
   match ins.Operands with
-  | OneOperand opr -> transOprToExpr ins ctxt opr
+  | OneOperand opr -> transOprToExpr ins bld opr
   | _ -> raise InvalidOperandException
 
-let transTwoOprs (ins: InsInfo) ctxt =
+let transTwoOprs (ins: InsInfo) bld =
   match ins.Operands with
   | TwoOperands (opr1, opr2) ->
-    struct (transOprToExpr ins ctxt opr1, transOprToExpr ins ctxt opr2)
+    struct (transOprToExpr ins bld opr1, transOprToExpr ins bld opr2)
   | _ -> raise InvalidOperandException
 
-let transThreeOprs (ins: InsInfo) ctxt =
+let transThreeOprs (ins: InsInfo) bld =
   match ins.Operands with
   | ThreeOperands (opr1, opr2, opr3) ->
-    struct (transOprToExpr ins ctxt opr1,
-            transOprToExpr ins ctxt opr2,
-            transOprToExpr ins ctxt opr3)
+    struct (transOprToExpr ins bld opr1,
+            transOprToExpr ins bld opr2,
+            transOprToExpr ins bld opr3)
   | _ -> raise InvalidOperandException
 
-let transFourOprs (ins: InsInfo) ctxt =
+let transFourOprs (ins: InsInfo) bld =
   match ins.Operands with
   | FourOperands (o1, o2, o3, o4) ->
-    struct (transOprToExpr ins ctxt o1,
-            transOprToExpr ins ctxt o2,
-            transOprToExpr ins ctxt o3,
-            transOprToExpr ins ctxt o4)
+    struct (transOprToExpr ins bld o1,
+            transOprToExpr ins bld o2,
+            transOprToExpr ins bld o3,
+            transOprToExpr ins bld o4)
   | _ -> raise InvalidOperandException
 
 let bvOfBaseAddr addr = numU64 addr 32<rt>
@@ -156,12 +141,12 @@ let bvOfBaseAddr addr = numU64 addr 32<rt>
 /// NSACR bit[19]
 let maskNSACRForRFRbit = numI32 524288 32<rt>
 
-let getNSACR ctxt nsacrType =
-  let nsacr = getRegVar ctxt R.NSACR
+let getNSACR bld nsacrType =
+  let nsacr = regVar bld R.NSACR
   match nsacrType with
   | NSACR_RFR -> nsacr .& maskNSACRForRFRbit
 
-let isSetNSACRForRFR ctxt = getNSACR ctxt NSACR_RFR == maskNSACRForRFRbit
+let isSetNSACRForRFR bld = getNSACR bld NSACR_RFR == maskNSACRForRFRbit
 
 /// Gets the mask bits for fetching the AW bit from the SCR.
 /// SCR bit[5]
@@ -175,30 +160,31 @@ let maskSCRForFWbit = numI32 16 32<rt>
 /// SCR bit[0]
 let maskSCRForNSbit = AST.num1 32<rt>
 
-let getSCR ctxt scrType =
-  let scr = getRegVar ctxt R.SCR
+let getSCR bld scrType =
+  let scr = regVar bld R.SCR
   match scrType with
   | SCR_AW -> scr .& maskSCRForAWbit
   | SCR_FW -> scr .& maskSCRForFWbit
   | SCR_NS -> scr .& maskSCRForNSbit
 
-let isSetSCRForAW ctxt = getSCR ctxt SCR_AW == maskSCRForAWbit
-let isSetSCRForFW ctxt = getSCR ctxt SCR_FW == maskSCRForFWbit
-let isSetSCRForNS ctxt = getSCR ctxt SCR_NS == maskSCRForNSbit
+let isSetSCRForAW bld = getSCR bld SCR_AW == maskSCRForAWbit
+let isSetSCRForFW bld = getSCR bld SCR_FW == maskSCRForFWbit
+let isSetSCRForNS bld = getSCR bld SCR_NS == maskSCRForNSbit
 
 /// Gets the mask bits for fetching the NMFI bit from the SCTLR.
 /// SCTLR bit[27]
 let maskSCTLRForNMFIbit = AST.num <| BitVector.OfBInt 134217728I 32<rt>
 
-let getSCTLR ctxt sctlrType =
-  let sctlr = getRegVar ctxt R.SCTLR
+let getSCTLR bld sctlrType =
+  let sctlr = regVar bld R.SCTLR
   match sctlrType with
   | SCTLR_NMFI -> sctlr .& maskSCTLRForNMFIbit
 
-let isSetSCTLRForNMFI ctxt = getSCTLR ctxt SCTLR_NMFI == maskSCTLRForNMFIbit
+let isSetSCTLRForNMFI bld =
+  getSCTLR bld SCTLR_NMFI == maskSCTLRForNMFIbit
 
-let enablePSRBits ctxt reg psrType =
-  let psr = getRegVar ctxt reg
+let enablePSRBits bld reg psrType =
+  let psr = regVar bld reg
   match psrType with
   | PSR.Cond -> psr .| maskPSRForCondbits
   | PSR.N -> psr .| maskPSRForNbit
@@ -218,8 +204,8 @@ let enablePSRBits ctxt reg psrType =
   | PSR.M -> psr .| maskPSRForMbits
   | _ -> Terminator.impossible ()
 
-let disablePSRBits ctxt reg psrType =
-  let psr = getRegVar ctxt reg
+let disablePSRBits bld reg psrType =
+  let psr = regVar bld reg
   match psrType with
   | PSR.Cond -> psr .& AST.not maskPSRForCondbits
   | PSR.N -> psr .& AST.not maskPSRForNbit
@@ -259,12 +245,12 @@ let psrShift psrType expr =
   | PSR.M -> expr
   | _ -> Terminator.impossible ()
 
-let setPSR ctxt reg psrType expr =
-  disablePSRBits ctxt reg psrType
+let setPSR bld reg psrType expr =
+  disablePSRBits bld reg psrType
   .| (AST.zext 32<rt> expr |> psrShift psrType)
 
-let getCarryFlag ctxt =
-  getPSR ctxt R.CPSR PSR.C >> (numI32 29 32<rt>)
+let getCarryFlag bld =
+  getPSR bld R.CPSR PSR.C >> (numI32 29 32<rt>)
 
 let getZeroMask maskSize regType =
   BitVector.OfBInt (BigInteger.getMask maskSize) regType
@@ -278,11 +264,11 @@ let maskAndOR e1 e2 regType maskSize =
   let expr = e1 .& mask
   expr .| e2
 
-let getOverflowFlagOnAdd e1 e2 r (ir: IRBuilder) =
-  let struct (e1High, rHigh) = tmpVars2 ir 1<rt>
-  !!ir (e1High := AST.xthi 1<rt> e1)
+let getOverflowFlagOnAdd e1 e2 r bld =
+  let struct (e1High, rHigh) = tmpVars2 bld 1<rt>
+  bld <+ (e1High := AST.xthi 1<rt> e1)
   let e2High = AST.xthi 1<rt> e2
-  !!ir (rHigh := AST.xthi 1<rt> r)
+  bld <+ (rHigh := AST.xthi 1<rt> r)
   struct ((e1High == e2High) .& (e1High <+> rHigh), rHigh)
 
 let parseCond = function
@@ -306,18 +292,18 @@ let parseCond = function
 
 /// Returns TRUE if the current instruction needs to be executed. See page
 /// A8-289. function : ConditionPassed()
-let conditionPassed ctxt cond =
+let conditionPassed bld cond =
   let struct (cond1, cond2) = parseCond cond
   let result =
     match cond1 with
-    | 0b000 -> isSetCPSRz ctxt
-    | 0b001 -> isSetCPSRc ctxt
-    | 0b010 -> isSetCPSRn ctxt
-    | 0b011 -> isSetCPSRv ctxt
-    | 0b100 -> isSetCPSRc ctxt .& AST.not (isSetCPSRz ctxt)
-    | 0b101 -> isSetCPSRn ctxt == isSetCPSRv ctxt
+    | 0b000 -> isSetCPSRz bld
+    | 0b001 -> isSetCPSRc bld
+    | 0b010 -> isSetCPSRn bld
+    | 0b011 -> isSetCPSRv bld
+    | 0b100 -> isSetCPSRc bld .& AST.not (isSetCPSRz bld)
+    | 0b101 -> isSetCPSRn bld == isSetCPSRv bld
     | 0b110 ->
-      isSetCPSRn ctxt == isSetCPSRv ctxt .& AST.not (isSetCPSRz ctxt)
+      isSetCPSRn bld == isSetCPSRv bld .& AST.not (isSetCPSRz bld)
     | 0b111 -> AST.b1
     | _ -> raise InvalidOperandException
   if cond1 <> 0b111 && cond2 = 1 then AST.not result else result
@@ -487,76 +473,76 @@ let shift value regType shiftType amount carryIn =
 
 /// Addition of bitstrings, with carry input and carry/overflow outputs,
 /// on page A2-43. function : AddWithCarry()
-let addWithCarry src1 src2 carryIn (ir: IRBuilder) =
-  let result = !+ir 32<rt>
-  !!ir (result := src1 .+ src2 .+ carryIn)
+let addWithCarry src1 src2 carryIn bld =
+  let result = tmpVar bld 32<rt>
+  bld <+ (result := src1 .+ src2 .+ carryIn)
   let carryOut =
     AST.ite (carryIn == (numU32 1u 32<rt>))
       (AST.ge src1 (AST.not src2)) (AST.gt src1 (AST.not src2))
-  let struct (overflow, rHigh) = getOverflowFlagOnAdd src1 src2 result ir
+  let struct (overflow, rHigh) = getOverflowFlagOnAdd src1 src2 result bld
   struct (result, carryOut, overflow, rHigh)
 
 let addWithCarryOnlyResult src1 src2 carryIn = src1 .+ src2 .+ carryIn
 
 /// Sets the ARM instruction set, on page A2-51.
-let selectARMInstrSet ctxt (ir: IRBuilder) =
-  let cpsr = getRegVar ctxt R.CPSR
-  !!ir (cpsr := disablePSRBits ctxt R.CPSR PSR.J)
-  !!ir (cpsr := disablePSRBits ctxt R.CPSR PSR.T)
+let selectARMInstrSet bld =
+  let cpsr = regVar bld R.CPSR
+  bld <+ (cpsr := disablePSRBits bld R.CPSR PSR.J)
+  bld <+ (cpsr := disablePSRBits bld R.CPSR PSR.T)
 
 /// Sets the ARM instruction set, on page A2-51.
-let selectThumbInstrSet ctxt (ir: IRBuilder) =
-  let cpsr = getRegVar ctxt R.CPSR
-  !!ir (cpsr := disablePSRBits ctxt R.CPSR PSR.J)
-  !!ir (cpsr := enablePSRBits ctxt R.CPSR PSR.T)
+let selectThumbInstrSet bld =
+  let cpsr = regVar bld R.CPSR
+  bld <+ (cpsr := disablePSRBits bld R.CPSR PSR.J)
+  bld <+ (cpsr := enablePSRBits bld R.CPSR PSR.T)
 
 /// Sets the instruction set currently in use, on page A2-51.
 /// SelectInstrSet()
-let selectInstrSet ctxt ir = function
-  | ArchOperationMode.ARMMode -> selectARMInstrSet ctxt ir
-  | _ -> selectThumbInstrSet ctxt ir
+let selectInstrSet bld = function
+  | ArchOperationMode.ARMMode -> selectARMInstrSet bld
+  | _ -> selectThumbInstrSet bld
 
 /// Write value to R.PC, without interworking, on page A2-47.
 /// function : BranchWritePC()
-let branchWritePC ctxt (ins: InsInfo) addr jmpInfo =
+let branchWritePC bld (ins: InsInfo) addr jmpInfo =
   let addr = zMaskAnd addr 32<rt> 1
   match ins.Mode with
   | ArchOperationMode.ARMMode -> AST.interjmp addr jmpInfo
   | _ -> AST.interjmp addr jmpInfo
 
-let disableITStateForCondBranches ctxt isUnconditional (ir: IRBuilder) =
+let disableITStateForCondBranches bld isUnconditional =
   if isUnconditional then ()
   else
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := disablePSRBits ctxt R.CPSR PSR.IT10)
-    !!ir (cpsr := disablePSRBits ctxt R.CPSR PSR.IT72)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := disablePSRBits bld R.CPSR PSR.IT10)
+    bld <+ (cpsr := disablePSRBits bld R.CPSR PSR.IT72)
 
 /// Write value to R.PC, with interworking, on page A2-47.
 /// function : BXWritePC()
-let bxWritePC ctxt isUnconditional addr (ir: IRBuilder) =
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
+let bxWritePC bld isUnconditional addr =
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
   let cond1 = AST.xtlo 1<rt> addr == AST.b1
-  disableITStateForCondBranches ctxt isUnconditional ir
-  !!ir (AST.cjmp cond1 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  selectThumbInstrSet ctxt ir
-  !!ir (AST.interjmp (zMaskAnd addr 32<rt> 1) InterJmpKind.SwitchToThumb)
-  !!ir (AST.lmark lblL1)
-  selectARMInstrSet ctxt ir
-  !!ir (AST.interjmp addr InterJmpKind.SwitchToARM)
+  disableITStateForCondBranches bld isUnconditional
+  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  selectThumbInstrSet bld
+  bld <+ (AST.interjmp (zMaskAnd addr 32<rt> 1) InterJmpKind.SwitchToThumb)
+  bld <+ (AST.lmark lblL1)
+  selectARMInstrSet bld
+  bld <+ (AST.interjmp addr InterJmpKind.SwitchToARM)
 
 /// Write value to R.PC, with interworking for ARM only from ARMv7 on page
 /// A2-47. function : ALUWritePC()
-let aluWritePC ctxt (ins: InsInfo) isUnconditional addr ir =
+let aluWritePC bld (ins: InsInfo) isUnconditional addr =
   match ins.Mode with
-  | ArchOperationMode.ARMMode -> bxWritePC ctxt isUnconditional addr ir
-  | _ -> !!ir (branchWritePC ctxt ins addr InterJmpKind.Base)
+  | ArchOperationMode.ARMMode -> bxWritePC bld isUnconditional addr
+  | _ -> bld <+ (branchWritePC bld ins addr InterJmpKind.Base)
 
 /// Write value to R.PC, with interworking (without it before ARMv5T),
 /// on page A2-47. function : LoadWritePC()
-let loadWritePC ctxt isUnconditional ir result =
-  bxWritePC ctxt isUnconditional result ir
+let loadWritePC bld isUnconditional result =
+  bxWritePC bld isUnconditional result
 
 /// Position of rightmost 1 in a bitstring, on page AppxP-2653.
 /// function : LowestSetBit()
@@ -631,18 +617,18 @@ let memU addr size value = memUWithPriv addr size value
 
 /// Value stored when an ARM instruction stores the R.PC, on page A2-47.
 /// function : PCStoreValue()
-let pcStoreValue ctxt = getPC ctxt
+let pcStoreValue bld = getPC bld
 
 /// Returns TRUE in Secure state or if no Security Extensions, on page B1-1157.
 /// function : IsSecure()
-let isSecure ctxt =
-  AST.not (haveSecurityExt ()) .| AST.not (isSetSCRForNS ctxt) .|
-  (getPSR ctxt R.CPSR PSR.M == (numI32 0b10110 32<rt>))
+let isSecure bld =
+  AST.not (haveSecurityExt ()) .| AST.not (isSetSCRForNS bld) .|
+  (getPSR bld R.CPSR PSR.M == (numI32 0b10110 32<rt>))
 
 /// Return TRUE if current mode is executes at PL1 or higher, on page B1-1142.
 /// function : CurrentModeIsNotUser()
-let currentModeIsNotUser ctxt =
-  let modeM = getPSR ctxt R.CPSR PSR.M
+let currentModeIsNotUser bld =
+  let modeM = getPSR bld R.CPSR PSR.M
   let modeCond = isBadMode modeM
   let ite1 =
     AST.ite (modeM == (numI32 0b10000 32<rt>)) AST.b0 AST.b1
@@ -658,277 +644,274 @@ let replicate expr regType lsb width value =
 /// All-ones bitstring, on page AppxP-2652.
 let ones rt = BitVector.OfBInt (RegType.getMask rt) rt |> AST.num
 
-let writeModeBits ctxt value isExcptReturn (ir: IRBuilder) =
-  let lblL8 = !%ir "L8"
-  let lblL9 = !%ir "L9"
-  let lblL10 = !%ir "L10"
-  let lblL11 = !%ir "L11"
-  let lblL12 = !%ir "L12"
-  let lblL13 = !%ir "L13"
-  let lblL14 = !%ir "L14"
-  let lblL15 = !%ir "L15"
-  let lblL16 = !%ir "L16"
-  let lblL17 = !%ir "L17"
+let writeModeBits bld value isExcptReturn =
+  let lblL8 = label bld "L8"
+  let lblL9 = label bld "L9"
+  let lblL10 = label bld "L10"
+  let lblL11 = label bld "L11"
+  let lblL12 = label bld "L12"
+  let lblL13 = label bld "L13"
+  let lblL14 = label bld "L14"
+  let lblL15 = label bld "L15"
+  let lblL16 = label bld "L16"
+  let lblL17 = label bld "L17"
   let valueM = value .& maskPSRForMbits
-  let cpsrM = getPSR ctxt R.CPSR PSR.M
+  let cpsrM = getPSR bld R.CPSR PSR.M
   let num11010 = numI32 0b11010 32<rt>
-  let chkSecure = AST.not (isSecure ctxt)
+  let chkSecure = AST.not (isSecure bld)
   let cond1 = chkSecure .& (valueM == (numI32 0b10110 32<rt>))
-  let cond2 = chkSecure .& isSetNSACRForRFR ctxt .&
+  let cond2 = chkSecure .& isSetNSACRForRFR bld .&
               (valueM == (numI32 0b10001 32<rt>))
   let cond3 = chkSecure .& (valueM == num11010)
   let cond4 = chkSecure .& (cpsrM != num11010) .& (valueM == num11010)
   let cond5 = (cpsrM == num11010) .& (valueM != num11010)
-  !!ir (AST.cjmp cond1 (AST.jmpDest lblL8) (AST.jmpDest lblL9))
-  !!ir (AST.lmark lblL8)
-  !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
-  !!ir (AST.lmark lblL9)
-  !!ir (AST.cjmp cond2 (AST.jmpDest lblL10) (AST.jmpDest lblL11))
-  !!ir (AST.lmark lblL10)
-  !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
-  !!ir (AST.lmark lblL11)
-  !!ir (AST.cjmp cond3 (AST.jmpDest lblL12) (AST.jmpDest lblL13))
-  !!ir (AST.lmark lblL12)
-  !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
-  !!ir (AST.lmark lblL13)
-  !!ir (AST.cjmp cond4 (AST.jmpDest lblL14) (AST.jmpDest lblL15))
-  !!ir (AST.lmark lblL14)
-  !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
-  !!ir (AST.lmark lblL15)
-  !!ir (AST.cjmp cond5 (AST.jmpDest lblL16) (AST.jmpDest lblL17))
-  !!ir (AST.lmark lblL16)
+  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL8) (AST.jmpDest lblL9))
+  bld <+ (AST.lmark lblL8)
+  bld <+ (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
+  bld <+ (AST.lmark lblL9)
+  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL10) (AST.jmpDest lblL11))
+  bld <+ (AST.lmark lblL10)
+  bld <+ (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
+  bld <+ (AST.lmark lblL11)
+  bld <+ (AST.cjmp cond3 (AST.jmpDest lblL12) (AST.jmpDest lblL13))
+  bld <+ (AST.lmark lblL12)
+  bld <+ (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
+  bld <+ (AST.lmark lblL13)
+  bld <+ (AST.cjmp cond4 (AST.jmpDest lblL14) (AST.jmpDest lblL15))
+  bld <+ (AST.lmark lblL14)
+  bld <+ (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
+  bld <+ (AST.lmark lblL15)
+  bld <+ (AST.cjmp cond5 (AST.jmpDest lblL16) (AST.jmpDest lblL17))
+  bld <+ (AST.lmark lblL16)
   if Operators.not isExcptReturn then
-    !!ir (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
+    bld <+ (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
   else ()
-  !!ir (AST.lmark lblL17)
+  bld <+ (AST.lmark lblL17)
   let mValue = value .& maskPSRForMbits
-  !!ir
-    (getRegVar ctxt R.CPSR := disablePSRBits ctxt R.CPSR PSR.M .| mValue)
+  bld <+
+    (regVar bld R.CPSR := disablePSRBits bld R.CPSR PSR.M .| mValue)
 
-let transShiftOprs ins ctxt opr1 opr2 =
+let transShiftOprs ins bld opr1 opr2 =
   match opr1, opr2 with
   | OprReg _, OprShift (typ, Imm imm) ->
-    let e = transOprToExpr ins ctxt opr1
-    shift e 32<rt> typ imm (getCarryFlag ctxt)
+    let e = transOprToExpr ins bld opr1
+    shift e 32<rt> typ imm (getCarryFlag bld)
   | OprReg _, OprRegShift (typ, reg) ->
-    let e = transOprToExpr ins ctxt opr1
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
-    shiftForRegAmount e 32<rt> typ amount (getCarryFlag ctxt)
+    let e = transOprToExpr ins bld opr1
+    let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
+    shiftForRegAmount e 32<rt> typ amount (getCarryFlag bld)
   | _ -> raise InvalidOperandException
 
-let parseOprOfMVNS (ins: InsInfo) ctxt =
+let parseOprOfMVNS (ins: InsInfo) bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs ins ctxt
+  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs ins bld
   | ThreeOperands (opr1, opr2, opr3) ->
-    struct (transOprToExpr ins ctxt opr1, transShiftOprs ins ctxt opr2 opr3)
+    struct (transOprToExpr ins bld opr1, transShiftOprs ins bld opr2 opr3)
   | _ -> raise InvalidOperandException
 
-let transTwoOprsOfADC (ins: InsInfo) ctxt =
+let transTwoOprsOfADC (ins: InsInfo) bld =
   match ins.Operands with
   | TwoOperands (OprReg _, OprReg _) ->
-    let struct (e1, e2) = transTwoOprs ins ctxt
-    struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt))
+    let struct (e1, e2) = transTwoOprs ins bld
+    struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
-let transThreeOprsOfADC (ins: InsInfo) ctxt =
+let transThreeOprsOfADC (ins: InsInfo) bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> transThreeOprs ins ctxt
+  | ThreeOperands (_, _, OprImm _) -> transThreeOprs ins bld
   | ThreeOperands (OprReg _, OprReg _, OprReg _) ->
-    let carryIn = getCarryFlag ctxt
-    let struct (e1, e2, e3) = transThreeOprs ins ctxt
+    let carryIn = getCarryFlag bld
+    let struct (e1, e2, e3) = transThreeOprs ins bld
     e1, e2, shift e3 32<rt> SRTypeLSL 0u carryIn
   | _ -> raise InvalidOperandException
 
-let transFourOprsOfADC (ins: InsInfo) ctxt =
+let transFourOprsOfADC (ins: InsInfo) bld =
   match ins.Operands with
   | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
-    let e1, e2 = transOprToExpr ins ctxt opr1, transOprToExpr ins ctxt opr2
-    struct (e1, e2, transShiftOprs ins ctxt opr3 opr4)
+    let e1, e2 = transOprToExpr ins bld opr1, transOprToExpr ins bld opr2
+    struct (e1, e2, transShiftOprs ins bld opr3 opr4)
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
-    let e1 = transOprToExpr ins ctxt opr1
-    let e2 = transOprToExpr ins ctxt opr2
-    let e3 = transOprToExpr ins ctxt opr3
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
-    struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt))
+    let e1 = transOprToExpr ins bld opr1
+    let e2 = transOprToExpr ins bld opr2
+    let e3 = transOprToExpr ins bld opr3
+    let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
+    struct (e1, e2,
+            shiftForRegAmount e3 32<rt> typ amount (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
-let parseOprOfADC (ins: InsInfo) ctxt =
+let parseOprOfADC (ins: InsInfo) bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfADC ins ctxt
-  | ThreeOperands _ -> transThreeOprsOfADC ins ctxt
-  | FourOperands _ -> transFourOprsOfADC ins ctxt
+  | TwoOperands _ -> transTwoOprsOfADC ins bld
+  | ThreeOperands _ -> transThreeOprsOfADC ins bld
+  | FourOperands _ -> transFourOprsOfADC ins bld
   | _ -> raise InvalidOperandException
 
-let checkCondition (ins: InsInfo) ctxt isUnconditional (ir: IRBuilder) =
+let checkCondition (ins: InsInfo) bld isUnconditional =
   if isUnconditional then None
   else
-    let lblIgnore = !%ir "IgnoreExec"
-    let lblPass = !%ir "NeedToExec"
-    let cond = conditionPassed ctxt ins.Condition
-    !!ir (AST.cjmp cond (AST.jmpDest lblPass) (AST.jmpDest lblIgnore))
-    !!ir (AST.lmark lblPass)
+    let lblIgnore = label bld "IgnoreExec"
+    let lblPass = label bld "NeedToExec"
+    let cond = conditionPassed bld ins.Condition
+    bld <+ (AST.cjmp cond (AST.jmpDest lblPass) (AST.jmpDest lblIgnore))
+    bld <+ (AST.lmark lblPass)
     Some lblIgnore
 
 /// Update ITState after normal execution of an IT-block instruction. See A2-52
 /// function: ITAdvance().
-let itAdvance ctxt (ir: IRBuilder) =
-  let cond = !+ir 1<rt>
-  let struct (itstate, nextstate) = tmpVars2 ir 32<rt>
-  let lblThen = !%ir "LThen"
-  let lblElse = !%ir "LElse"
-  let lblEnd = !%ir "LEnd"
-  let cpsr = getRegVar ctxt R.CPSR
+let itAdvance bld =
+  let cond = tmpVar bld 1<rt>
+  let struct (itstate, nextstate) = tmpVars2 bld 32<rt>
+  let lblThen = label bld "LThen"
+  let lblElse = label bld "LElse"
+  let lblEnd = label bld "LEnd"
+  let cpsr = regVar bld R.CPSR
   let cpsrIT10 =
-    getPSR ctxt R.CPSR PSR.IT10 >> (numI32 25 32<rt>)
+    getPSR bld R.CPSR PSR.IT10 >> (numI32 25 32<rt>)
   let cpsrIT72 =
-    getPSR ctxt R.CPSR PSR.IT72 >> (numI32 8 32<rt>)
+    getPSR bld R.CPSR PSR.IT72 >> (numI32 8 32<rt>)
   let mask10 = numI32 0x3 32<rt> (* For ITSTATE[1:0] *)
   let mask20 = numI32 0x7 32<rt> (* For ITSTATE[2:0] *)
   let mask40 = numI32 0x1f 32<rt> (* For ITSTATE[4:0] *)
   let mask42 = numI32 0x1c 32<rt> (* For ITSTATE[4:2] *)
   let cpsrIT42 = cpsr .& (numI32 0xffffe3ff 32<rt>)
   let num8 = numI32 8 32<rt>
-  !!ir (itstate := cpsrIT72 .| cpsrIT10)
-  !!ir (cond := ((itstate .& mask20) == AST.num0 32<rt>))
-  !!ir (AST.cjmp cond (AST.jmpDest lblThen) (AST.jmpDest lblElse))
-  !!ir (AST.lmark lblThen)
-  !!ir (cpsr := disablePSRBits ctxt R.CPSR PSR.IT10)
-  !!ir (cpsr := disablePSRBits ctxt R.CPSR PSR.IT72)
-  !!ir (AST.jmp (AST.jmpDest lblEnd))
-  !!ir (AST.lmark lblElse)
-  !!ir (nextstate := (itstate .& mask40 << AST.num1 32<rt>))
-  !!ir (cpsr := nextstate .& mask10 |> setPSR ctxt R.CPSR PSR.IT10)
-  !!ir (cpsr := cpsrIT42 .| ((nextstate .& mask42) << num8))
-  !!ir (AST.lmark lblEnd)
+  bld <+ (itstate := cpsrIT72 .| cpsrIT10)
+  bld <+ (cond := ((itstate .& mask20) == AST.num0 32<rt>))
+  bld <+ (AST.cjmp cond (AST.jmpDest lblThen) (AST.jmpDest lblElse))
+  bld <+ (AST.lmark lblThen)
+  bld <+ (cpsr := disablePSRBits bld R.CPSR PSR.IT10)
+  bld <+ (cpsr := disablePSRBits bld R.CPSR PSR.IT72)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblElse)
+  bld <+ (nextstate := (itstate .& mask40 << AST.num1 32<rt>))
+  bld <+ (cpsr := nextstate .& mask10 |> setPSR bld R.CPSR PSR.IT10)
+  bld <+ (cpsr := cpsrIT42 .| ((nextstate .& mask42) << num8))
+  bld <+ (AST.lmark lblEnd)
 
-let putEndLabel ctxt lblIgnore ir =
+let putEndLabel bld lblIgnore =
   match lblIgnore with
   | Some lblIgnore ->
-    !!ir (AST.lmark lblIgnore)
-    itAdvance ctxt ir
+    bld <+ (AST.lmark lblIgnore)
+    itAdvance bld
   | None -> ()
 
-let putEndLabelForBranch ctxt lblIgnore (brIns: InsInfo) ir =
+let putEndLabelForBranch bld lblIgnore (brIns: InsInfo) =
   match lblIgnore with
   | Some lblIgnore ->
-    !!ir (AST.lmark lblIgnore)
-    itAdvance ctxt ir
+    bld <+ (AST.lmark lblIgnore)
+    itAdvance bld
     let target = numU64 (brIns.Address + uint64 brIns.Length) 32<rt>
-    !!ir (AST.interjmp target InterJmpKind.Base)
+    bld <+ (AST.interjmp target InterJmpKind.Base)
   | None -> ()
 
-let sideEffects (ins: InsInfo) insLen ctxt name =
-  let ir = !*ctxt
-  !<ir ins.Address insLen
-  !!ir (AST.sideEffect name)
-  !>ir insLen
+let sideEffects (ins: InsInfo) insLen bld name =
+  bld <!-- (ins.Address, insLen)
+  bld <+ (AST.sideEffect name)
+  bld --!> insLen
 
-let nop (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
-  !<ir ins.Address insLen
-  !>ir insLen
+let nop (ins: InsInfo) insLen bld =
+  bld <!-- (ins.Address, insLen)
+  bld --!> insLen
 
-let convertPCOpr (ins: InsInfo) insLen ctxt opr =
-  if opr = getPC ctxt then
+let convertPCOpr (ins: InsInfo) bld opr =
+  if opr = getPC bld then
     let rel = if ins.Mode = ArchOperationMode.ARMMode then 8 else 4
     opr .+ (numI32 rel 32<rt>)
   else opr
 
-let adc isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src1, src2) = parseOprOfADC ins ctxt
-  let src1 = convertPCOpr ins insLen ctxt src1
-  let src2 = convertPCOpr ins insLen ctxt src2
+let adc isSetFlags ins insLen bld =
+  let struct (dst, src1, src2) = parseOprOfADC ins bld
+  let src1 = convertPCOpr ins bld src1
+  let src2 = convertPCOpr ins bld src2
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   if isSetFlags then
-    let struct (t1, t2) = tmpVars2 ir 32<rt>
-    !!ir (t1 := src1)
-    !!ir (t2 := src2)
+    let struct (t1, t2) = tmpVars2 bld 32<rt>
+    bld <+ (t1 := src1)
+    bld <+ (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
-      addWithCarry t1 t2 (getCarryFlag ctxt) ir
-    !!ir (dst := result)
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+      addWithCarry t1 t2 (getCarryFlag bld) bld
+    bld <+ (dst := result)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := rHigh |> setPSR bld R.CPSR PSR.N)
+    bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+    bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
+    bld <+ (cpsr := overflow |> setPSR bld R.CPSR PSR.V)
   else
-    let result = !+ir 32<rt>
-    !!ir (result := addWithCarryOnlyResult src1 src2 (getCarryFlag ctxt))
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else !!ir (dst := result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let result = tmpVar bld 32<rt>
+    bld <+ (result := addWithCarryOnlyResult src1 src2 (getCarryFlag bld))
+    if dst = getPC bld then aluWritePC bld ins isUnconditional result
+    else bld <+ (dst := result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let transTwoOprsOfADD (ins: InsInfo) insLen ctxt =
+let transTwoOprsOfADD (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg _, OprImm _) ->
-    let struct (e1, e2) = transTwoOprs ins ctxt
+    let struct (e1, e2) = transTwoOprs ins bld
     struct (e1, e1, e2)
   | TwoOperands (OprReg _, OprReg _) ->
-    let struct (e1, e2) = transTwoOprs ins ctxt
-    struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt))
+    let struct (e1, e2) = transTwoOprs ins bld
+    struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
-let transThreeOprsOfADD (ins: InsInfo) insLen ctxt =
+let transThreeOprsOfADD (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> transThreeOprs ins ctxt
+  | ThreeOperands (_, _, OprImm _) -> transThreeOprs ins bld
   | ThreeOperands (OprReg _, OprReg _, OprReg _) ->
-    let carryIn = getCarryFlag ctxt
-    let struct (e1, e2, e3) = transThreeOprs ins ctxt
+    let carryIn = getCarryFlag bld
+    let struct (e1, e2, e3) = transThreeOprs ins bld
     struct (e1, e2, shift e3 32<rt> SRTypeLSL 0u carryIn)
   | _ -> raise InvalidOperandException
 
-let transFourOprsOfADD (ins: InsInfo) insLen ctxt =
+let transFourOprsOfADD (ins: InsInfo) insLen bld =
   match ins.Operands with
   | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ins ctxt opr1
-    let e2 = transOprToExpr ins ctxt opr2
-    struct (e1, e2, transShiftOprs ins ctxt opr3 opr4)
+    let e1 = transOprToExpr ins bld opr1
+    let e2 = transOprToExpr ins bld opr2
+    struct (e1, e2, transShiftOprs ins bld opr3 opr4)
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
-    let e1 = transOprToExpr ins ctxt opr1
-    let e2 = transOprToExpr ins ctxt opr2
-    let e3 = transOprToExpr ins ctxt opr3
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
-    struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt))
+    let e1 = transOprToExpr ins bld opr1
+    let e2 = transOprToExpr ins bld opr2
+    let e3 = transOprToExpr ins bld opr3
+    let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
+    struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
-let parseOprOfADD (ins: InsInfo) insLen ctxt =
+let parseOprOfADD (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfADD ins insLen ctxt
-  | ThreeOperands _ -> transThreeOprsOfADD ins insLen ctxt
-  | FourOperands _ -> transFourOprsOfADD ins insLen ctxt
+  | TwoOperands _ -> transTwoOprsOfADD ins insLen bld
+  | ThreeOperands _ -> transThreeOprsOfADD ins insLen bld
+  | FourOperands _ -> transFourOprsOfADD ins insLen bld
   | _ -> raise InvalidOperandException
 
-let add isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src1, src2) = parseOprOfADD ins insLen ctxt
-  let src1 = convertPCOpr ins insLen ctxt src1
-  let src2 = convertPCOpr ins insLen ctxt src2
+let add isSetFlags ins insLen bld =
+  let struct (dst, src1, src2) = parseOprOfADD ins insLen bld
+  let src1 = convertPCOpr ins bld src1
+  let src2 = convertPCOpr ins bld src2
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   if isSetFlags then
-    let struct (t1, t2) = tmpVars2 ir 32<rt>
-    !!ir (t1 := src1)
-    !!ir (t2 := src2)
+    let struct (t1, t2) = tmpVars2 bld 32<rt>
+    bld <+ (t1 := src1)
+    bld <+ (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
-      addWithCarry t1 t2 (AST.num0 32<rt>) ir
-    !!ir (dst := result)
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+      addWithCarry t1 t2 (AST.num0 32<rt>) bld
+    bld <+ (dst := result)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := rHigh |> setPSR bld R.CPSR PSR.N)
+    bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+    bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
+    bld <+ (cpsr := overflow |> setPSR bld R.CPSR PSR.V)
   else
-    let result = !+ir 32<rt>
-    !!ir (result := addWithCarryOnlyResult src1 src2 (AST.num0 32<rt>))
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else !!ir (dst := result)
-    putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let result = tmpVar bld 32<rt>
+    bld <+ (result := addWithCarryOnlyResult src1 src2 (AST.num0 32<rt>))
+    if dst = getPC bld then aluWritePC bld ins isUnconditional result
+    else bld <+ (dst := result)
+    putEndLabel bld lblIgnore
+  bld --!> insLen
 
 /// Align integer or bitstring to multiple of an integer, on page AppxP-2655
 /// function : Align()
@@ -964,41 +947,39 @@ let parseOprOfBL ins =
     struct (transLableOprsOfBL ins targetMode imm, targetMode, callKind)
   | _ -> raise InvalidOperandException
 
-let bl ins insLen ctxt =
-  let ir = !*ctxt
+let bl ins insLen bld =
   let struct (alignedAddr, targetMode, callKind) = parseOprOfBL ins
-  let lr = getRegVar ctxt R.LR
+  let lr = regVar bld R.LR
   let retAddr = bvOfBaseAddr ins.Address .+ (numI32 4 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  if ins.Mode = ArchOperationMode.ARMMode then !!ir (lr := retAddr)
-  else !!ir (lr := maskAndOR retAddr (AST.num1 32<rt>) 32<rt> 1)
-  selectInstrSet ctxt ir targetMode
-  !!ir (branchWritePC ctxt ins alignedAddr callKind)
-  putEndLabelForBranch ctxt lblIgnore ins ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  if ins.Mode = ArchOperationMode.ARMMode then bld <+ (lr := retAddr)
+  else bld <+ (lr := maskAndOR retAddr (AST.num1 32<rt>) 32<rt> 1)
+  selectInstrSet bld targetMode
+  bld <+ (branchWritePC bld ins alignedAddr callKind)
+  putEndLabelForBranch bld lblIgnore ins
+  bld --!> insLen
 
-let blxWithReg (ins: InsInfo) insLen reg ctxt =
-  let ir = !*ctxt
-  let lr = getRegVar ctxt R.LR
+let blxWithReg (ins: InsInfo) insLen reg bld =
+  let lr = regVar bld R.LR
   let addr = bvOfBaseAddr ins.Address
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   if ins.Mode = ArchOperationMode.ARMMode then
-    !!ir (lr := addr .+ (numI32 4 32<rt>))
+    bld <+ (lr := addr .+ (numI32 4 32<rt>))
   else
     let addr = addr .+ (numI32 2 32<rt>)
-    !!ir (lr := maskAndOR addr (AST.num1 32<rt>) 32<rt> 1)
-  bxWritePC ctxt isUnconditional (getRegVar ctxt reg) ir
-  putEndLabelForBranch ctxt lblIgnore ins ir
-  !>ir insLen
+    bld <+ (lr := maskAndOR addr (AST.num1 32<rt>) 32<rt> 1)
+  bxWritePC bld isUnconditional (regVar bld reg)
+  putEndLabelForBranch bld lblIgnore ins
+  bld --!> insLen
 
-let branchWithLink (ins: InsInfo) insLen ctxt =
+let branchWithLink (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | OneOperand (OprReg reg) -> blxWithReg ins insLen reg ctxt
-  | _ -> bl ins insLen ctxt
+  | OneOperand (OprReg reg) -> blxWithReg ins insLen reg bld
+  | _ -> bl ins insLen bld
 
 let parseOprOfPUSHPOP (ins: InsInfo) =
   match ins.Operands with
@@ -1006,46 +987,45 @@ let parseOprOfPUSHPOP (ins: InsInfo) =
   | OneOperand (OprRegList regs) -> regsToUInt32 regs
   | _ -> raise InvalidOperandException
 
-let pushLoop ctxt numOfReg addr (ir: IRBuilder) =
+let pushLoop bld numOfReg addr =
   let loop addr count =
     if (numOfReg >>> count) &&& 1u = 1u then
-      let t = !+ir 32<rt>
-      !!ir (t := addr)
+      let t = tmpVar bld 32<rt>
+      bld <+ (t := addr)
       if count = 13 && count <> lowestSetBit numOfReg 32 then
-        !!ir (AST.loadLE 32<rt> t := (AST.undef 32<rt> "UNKNOWN"))
+        bld <+ (AST.loadLE 32<rt> t := (AST.undef 32<rt> "UNKNOWN"))
       else
         let reg = count |> uint32 |> OperandHelper.getRegister
-        !!ir (AST.loadLE 32<rt> t := getRegVar ctxt reg)
+        bld <+ (AST.loadLE 32<rt> t := regVar bld reg)
       t .+ (numI32 4 32<rt>)
     else addr
   List.fold loop addr [ 0 .. 14 ]
 
-let push ins insLen ctxt =
-  let ir = !*ctxt
-  let t0 = !+ir 32<rt>
-  let sp = getRegVar ctxt R.SP
+let push ins insLen bld =
+  let t0 = tmpVar bld 32<rt>
+  let sp = regVar bld R.SP
   let numOfReg = parseOprOfPUSHPOP ins
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = sp .- (numI32 stackWidth 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t0 := addr)
-  let addr = pushLoop ctxt numOfReg t0 ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t0 := addr)
+  let addr = pushLoop bld numOfReg t0
   if (numOfReg >>> 15 &&& 1u) = 1u then
-    !!ir (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
+    bld <+ (AST.loadLE 32<rt> addr := pcStoreValue bld)
   else ()
-  !!ir (sp := t0)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (sp := t0)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 /// shared/functions/vector/SignedSatQ, on page Armv8 Pseudocode-7927
-let sSatQ ir i n =
+let sSatQ bld i n =
   let n1 = AST.num1 n
   let cond = n1 << (numI32 (RegType.toBitWidth n) n .- n1)
-  let struct (t1, t2) = tmpVars2 ir n
-  !!ir (t1 := i)
-  !!ir (t2 := cond)
+  let struct (t1, t2) = tmpVars2 bld n
+  bld <+ (t1 := i)
+  bld <+ (t2 := cond)
   let cond1 = t1 .> (t2 .- n1)
   let cond2 = t1 .< AST.not t2
   let r = (AST.ite cond1 (t2 .- n1) (AST.ite cond2 (AST.not t2) t1))
@@ -1053,571 +1033,554 @@ let sSatQ ir i n =
   let sat = AST.ite cond1 AST.b1 (AST.ite cond2 AST.b1 (AST.num0 1<rt>))
   struct (r, sat)
 
-let sSat ir i n =
-  let struct (r, _) = sSatQ ir i n
+let sSat bld i n =
+  let struct (r, _) = sSatQ bld i n
   r
 
-let qdadd (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let qdadd (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let struct (sat1,sat2) = tmpVars2 ir 1<rt>
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (dst, src1, src2) = transThreeOprs ins bld
+  let struct (sat1,sat2) = tmpVars2 bld 1<rt>
   let struct (dou, sat) =
-    sSatQ ir (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
-  !!ir (sat1 := sat)
+    sSatQ bld (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
+  bld <+ (sat1 := sat)
   let struct (r, sat) =
-    sSatQ ir (src1 .+ dou) (RegType.fromBitWidth 32)
-  !!ir (dst := r)
-  !!ir (sat2 := sat)
-  let cpsr = getRegVar ctxt R.CPSR
-  !!ir (cpsr := AST.ite (sat1 .| sat2) (enablePSRBits ctxt R.CPSR PSR.Q) cpsr)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    sSatQ bld (src1 .+ dou) (RegType.fromBitWidth 32)
+  bld <+ (dst := r)
+  bld <+ (sat2 := sat)
+  let cpsr = regVar bld R.CPSR
+  bld <+ (cpsr := AST.ite (sat1 .| sat2) (enablePSRBits bld R.CPSR PSR.Q) cpsr)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let qdsub (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let qdsub (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let struct (sat1,sat2) = tmpVars2 ir 1<rt>
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (dst, src1, src2) = transThreeOprs ins bld
+  let struct (sat1,sat2) = tmpVars2 bld 1<rt>
   let struct (dou, sat) =
-    sSatQ ir (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
-  !!ir (sat1 := sat)
-  let struct (r, sat) = sSatQ ir (src1 .- dou) (RegType.fromBitWidth 32)
-  !!ir (dst := r)
-  !!ir (sat2 := sat)
-  let cpsr = getRegVar ctxt R.CPSR
-  !!ir (cpsr := AST.ite (sat1 .| sat2) (enablePSRBits ctxt R.CPSR PSR.Q) cpsr)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    sSatQ bld (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
+  bld <+ (sat1 := sat)
+  let struct (r, sat) = sSatQ bld (src1 .- dou) (RegType.fromBitWidth 32)
+  bld <+ (dst := r)
+  bld <+ (sat2 := sat)
+  let cpsr = regVar bld R.CPSR
+  bld <+ (cpsr := AST.ite (sat1 .| sat2) (enablePSRBits bld R.CPSR PSR.Q) cpsr)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let qsax (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let qsax (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let struct (sum, diff) = tmpVars2 ir 16<rt>
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (dst, src1, src2) = transThreeOprs ins bld
+  let struct (sum, diff) = tmpVars2 bld 16<rt>
   let xtlo src = AST.xtlo 16<rt> src
   let xthi src = AST.xthi 16<rt> src
-  !!ir (sum := xtlo src1 .+ xthi src2)
-  !!ir (diff := xthi src1 .- xtlo src2)
-  !!ir (sum := sSat ir sum (RegType.fromBitWidth 16))
-  !!ir (diff := sSat ir diff (RegType.fromBitWidth 16))
-  !!ir (dst := AST.concat diff sum)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (sum := xtlo src1 .+ xthi src2)
+  bld <+ (diff := xthi src1 .- xtlo src2)
+  bld <+ (sum := sSat bld sum (RegType.fromBitWidth 16))
+  bld <+ (diff := sSat bld diff (RegType.fromBitWidth 16))
+  bld <+ (dst := AST.concat diff sum)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let qsub16 (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let qsub16 (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let struct (diff1, diff2) = tmpVars2 ir 16<rt>
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (dst, src1, src2) = transThreeOprs ins bld
+  let struct (diff1, diff2) = tmpVars2 bld 16<rt>
   let xtlo src = AST.xtlo 16<rt> src
   let xthi src = AST.xthi 16<rt> src
-  !!ir (diff1 := xtlo src1 .- xtlo src2)
-  !!ir (diff2 := xthi src1 .- xthi src2)
-  !!ir (diff1 := sSat ir diff1 (RegType.fromBitWidth 16))
-  !!ir (diff2 := sSat ir diff2 (RegType.fromBitWidth 16))
-  !!ir (dst := AST.concat diff2 diff1)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (diff1 := xtlo src1 .- xtlo src2)
+  bld <+ (diff2 := xthi src1 .- xthi src2)
+  bld <+ (diff1 := sSat bld diff1 (RegType.fromBitWidth 16))
+  bld <+ (diff2 := sSat bld diff2 (RegType.fromBitWidth 16))
+  bld <+ (dst := AST.concat diff2 diff1)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let sub isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src1, src2) = parseOprOfADD ins insLen ctxt
-  let src1 = convertPCOpr ins insLen ctxt src1
-  let src2 = convertPCOpr ins insLen ctxt src2
+let sub isSetFlags ins insLen bld =
+  let struct (dst, src1, src2) = parseOprOfADD ins insLen bld
+  let src1 = convertPCOpr ins bld src1
+  let src2 = convertPCOpr ins bld src2
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   if isSetFlags then
-    let struct (t1, t2) = tmpVars2 ir 32<rt>
-    !!ir (t1 := src1)
-    !!ir (t2 := src2)
+    let struct (t1, t2) = tmpVars2 bld 32<rt>
+    bld <+ (t1 := src1)
+    bld <+ (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
-      addWithCarry t1 (AST.not t2) (AST.num1 32<rt>) ir
-    !!ir (dst := result)
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+      addWithCarry t1 (AST.not t2) (AST.num1 32<rt>) bld
+    bld <+ (dst := result)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := rHigh |> setPSR bld R.CPSR PSR.N)
+    bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+    bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
+    bld <+ (cpsr := overflow |> setPSR bld R.CPSR PSR.V)
   else
-    let result = !+ir 32<rt>
-    !!ir (result :=
+    let result = tmpVar bld 32<rt>
+    bld <+ (result :=
       addWithCarryOnlyResult src1 (AST.not src2) (AST.num1 32<rt>))
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else !!ir (dst := result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    if dst = getPC bld then aluWritePC bld ins isUnconditional result
+    else bld <+ (dst := result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 /// B9.3.19 SUBS R.PC, R.LR (Thumb), on page B9-2008
-let subsPCLRThumb ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (_, _, src2) = parseOprOfADD ins insLen ctxt
-  let pc = getPC ctxt
+let subsPCLRThumb ins insLen bld =
+  let struct (_, _, src2) = parseOprOfADD ins insLen bld
+  let pc = getPC bld
   let struct (result, _, _, _) =
-    addWithCarry pc (AST.not src2) (AST.num1 32<rt>) ir
+    addWithCarry pc (AST.not src2) (AST.num1 32<rt>) bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (branchWritePC ctxt ins result InterJmpKind.IsRet)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (branchWritePC bld ins result InterJmpKind.IsRet)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseResultOfSUBAndRela (ins: InsInfo) ctxt =
+let parseResultOfSUBAndRela (ins: InsInfo) bld =
   match ins.Opcode with
   | Op.ANDS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
+    let struct (_, src1, src2) = parseOprOfADC ins bld
     src1.& src2
   | Op.EORS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
+    let struct (_, src1, src2) = parseOprOfADC ins bld
     src1 <+> src2
   | Op.SUBS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
+    let struct (_, src1, src2) = parseOprOfADC ins bld
     addWithCarryOnlyResult src1 (AST.not src2) (AST.num1 32<rt>)
   | Op.RSBS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
+    let struct (_, src1, src2) = parseOprOfADC ins bld
     addWithCarryOnlyResult (AST.not src1) src2 (AST.num1 32<rt>)
   | Op.ADDS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
+    let struct (_, src1, src2) = parseOprOfADC ins bld
     addWithCarryOnlyResult src1 src2 (AST.num0 32<rt>)
   | Op.ADCS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
-    addWithCarryOnlyResult src1 src2 (getCarryFlag ctxt)
+    let struct (_, src1, src2) = parseOprOfADC ins bld
+    addWithCarryOnlyResult src1 src2 (getCarryFlag bld)
   | Op.SBCS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
-    addWithCarryOnlyResult src1 (AST.not src2) (getCarryFlag ctxt)
+    let struct (_, src1, src2) = parseOprOfADC ins bld
+    addWithCarryOnlyResult src1 (AST.not src2) (getCarryFlag bld)
   | Op.RSCS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
-    addWithCarryOnlyResult (AST.not src1) src2 (getCarryFlag ctxt)
+    let struct (_, src1, src2) = parseOprOfADC ins bld
+    addWithCarryOnlyResult (AST.not src1) src2 (getCarryFlag bld)
   | Op.ORRS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
+    let struct (_, src1, src2) = parseOprOfADC ins bld
     src1 .| src2
   | Op.MOVS ->
-    let struct (_, src) = transTwoOprs ins ctxt
+    let struct (_, src) = transTwoOprs ins bld
     src
   | Op.ASRS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
-    shiftForRegAmount src1 32<rt> SRTypeASR src2 (getCarryFlag ctxt)
+    let struct (_, src1, src2) = parseOprOfADC ins bld
+    shiftForRegAmount src1 32<rt> SRTypeASR src2 (getCarryFlag bld)
   | Op.LSLS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
-    shiftForRegAmount src1 32<rt> SRTypeLSL src2 (getCarryFlag ctxt)
+    let struct (_, src1, src2) = parseOprOfADC ins bld
+    shiftForRegAmount src1 32<rt> SRTypeLSL src2 (getCarryFlag bld)
   | Op.LSRS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
-    shiftForRegAmount src1 32<rt> SRTypeLSR src2 (getCarryFlag ctxt)
+    let struct (_, src1, src2) = parseOprOfADC ins bld
+    shiftForRegAmount src1 32<rt> SRTypeLSR src2 (getCarryFlag bld)
   | Op.RORS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
-    shiftForRegAmount src1 32<rt> SRTypeROR src2 (getCarryFlag ctxt)
+    let struct (_, src1, src2) = parseOprOfADC ins bld
+    shiftForRegAmount src1 32<rt> SRTypeROR src2 (getCarryFlag bld)
   | Op.RRXS ->
-    let struct (_, src) = transTwoOprs ins ctxt
-    shiftForRegAmount src 32<rt> SRTypeRRX (AST.num1 32<rt>) (getCarryFlag ctxt)
+    let struct (_, src) = transTwoOprs ins bld
+    shiftForRegAmount src 32<rt> SRTypeRRX (AST.num1 32<rt>) (getCarryFlag bld)
   | Op.BICS ->
-    let struct (_, src1, src2) = parseOprOfADC ins ctxt
+    let struct (_, src1, src2) = parseOprOfADC ins bld
     src1 .& (AST.not src2)
   | Op.MVNS ->
-    let struct (_, src) = parseOprOfMVNS ins ctxt
+    let struct (_, src) = parseOprOfMVNS ins bld
     AST.not src
   | _ -> raise InvalidOperandException
 
 /// B9.3.20 SUBS R.PC, R.LR and related instruction (ARM), on page B9-2010
-let subsAndRelatedInstr (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
-  let result = !+ir 32<rt>
+let subsAndRelatedInstr (ins: InsInfo) insLen bld =
+  let result = tmpVar bld 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (result := parseResultOfSUBAndRela ins ctxt)
-  !!ir (branchWritePC ctxt ins result InterJmpKind.IsRet)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (result := parseResultOfSUBAndRela ins bld)
+  bld <+ (branchWritePC bld ins result InterJmpKind.IsRet)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let computeCarryOutFromImmCflag (ins: InsInfo) insLen ctxt =
+let computeCarryOutFromImmCflag (ins: InsInfo) insLen bld =
   match ins.Cflag with
   | Some v ->
     if v then BitVector.One 1<rt> |> AST.num
     else BitVector.Zero 1<rt> |> AST.num
-  | None -> getCarryFlag ctxt
+  | None -> getCarryFlag bld
 
-let translateLogicOp (ins: InsInfo) insLen ctxt (ir: IRBuilder) =
+let translateLogicOp (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg _, OprReg _) ->
-    let t = !+ir 32<rt>
-    let struct (e1, e2) = transTwoOprs ins ctxt
-    !!ir (t := e2)
-    let shifted, carryOut = shiftC t 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+    let t = tmpVar bld 32<rt>
+    let struct (e1, e2) = transTwoOprs ins bld
+    bld <+ (t := e2)
+    let shifted, carryOut = shiftC t 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     e1, e1, shifted, carryOut
   | ThreeOperands (_, _, OprImm _) ->
-    let struct (e1, e2, e3) = transThreeOprs ins ctxt
-    let carryOut = computeCarryOutFromImmCflag ins insLen ctxt
+    let struct (e1, e2, e3) = transThreeOprs ins bld
+    let carryOut = computeCarryOutFromImmCflag ins insLen bld
     e1, e2, e3, carryOut
   | ThreeOperands (OprReg _, OprReg _, OprReg _) ->
-    let t = !+ir 32<rt>
-    let struct (e1, e2, e3) = transThreeOprs ins ctxt
-    !!ir (t := e3)
-    let shifted, carryOut = shiftC t 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+    let t = tmpVar bld 32<rt>
+    let struct (e1, e2, e3) = transThreeOprs ins bld
+    bld <+ (t := e3)
+    let shifted, carryOut = shiftC t 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     e1, e2, shifted, carryOut
   | FourOperands (opr1, opr2, opr3, OprShift (typ, Imm imm)) ->
-    let t = !+ir 32<rt>
-    let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ins ctxt opr1
-    let src1 = transOprToExpr ins ctxt opr2
-    let rm = transOprToExpr ins ctxt opr3
-    !!ir (t := rm)
+    let t = tmpVar bld 32<rt>
+    let carryIn = getCarryFlag bld
+    let dst = transOprToExpr ins bld opr1
+    let src1 = transOprToExpr ins bld opr2
+    let rm = transOprToExpr ins bld opr3
+    bld <+ (t := rm)
     let shifted, carryOut = shiftC t 32<rt> typ imm carryIn
     dst, src1, shifted, carryOut
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
-    let t = !+ir 32<rt>
-    let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ins ctxt opr1
-    let src1 = transOprToExpr ins ctxt opr2
-    let rm = transOprToExpr ins ctxt opr3
-    !!ir (t := rm)
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
+    let t = tmpVar bld 32<rt>
+    let carryIn = getCarryFlag bld
+    let dst = transOprToExpr ins bld opr1
+    let src1 = transOprToExpr ins bld opr2
+    let rm = transOprToExpr ins bld opr3
+    bld <+ (t := rm)
+    let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount t 32<rt> typ amount carryIn
     dst, src1, shifted, carryOut
   | _ -> raise InvalidOperandException
 
-let logicalAnd isSetFlags (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let logicalAnd isSetFlags (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let dst, src1, src2, carryOut = translateLogicOp ins insLen ctxt ir
-  let result = !+ir 32<rt>
-  !!ir (result := src1 .& src2)
-  if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let dst, src1, src2, carryOut = translateLogicOp ins insLen bld
+  let result = tmpVar bld 32<rt>
+  bld <+ (result := src1 .& src2)
+  if dst = getPC bld then aluWritePC bld ins isUnconditional result
   else
-    !!ir (dst := result)
+    bld <+ (dst := result)
     if isSetFlags then
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+      let cpsr = regVar bld R.CPSR
+      bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+      bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+      bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
     else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprsOfMOV (ins: InsInfo) ctxt =
+let parseOprsOfMOV (ins: InsInfo) bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprs ins ctxt
+  | TwoOperands _ -> transTwoOprs ins bld
   | ThreeOperands (opr1, opr2, opr3) ->
-    struct (transOprToExpr ins ctxt opr1, transShiftOprs ins ctxt opr2 opr3)
+    struct (transOprToExpr ins bld opr1, transShiftOprs ins bld opr2 opr3)
   | _ -> raise InvalidOperandException
 
-let mov isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src) = parseOprsOfMOV ins ctxt
-  let result = !+ir 32<rt>
+let mov isSetFlags ins insLen bld =
+  let struct (dst, src) = parseOprsOfMOV ins bld
+  let result = tmpVar bld 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  let pc = getPC ctxt
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  if src = pc then !!ir (result := src .+ (numU64 (pcOffset ins) 32<rt>))
-  else !!ir (result := src)
-  if dst = pc then aluWritePC ctxt ins isUnconditional result ir
+  let pc = getPC bld
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  if src = pc then bld <+ (result := src .+ (numU64 (pcOffset ins) 32<rt>))
+  else bld <+ (result := src)
+  if dst = pc then aluWritePC bld ins isUnconditional result
   else
-    !!ir (dst := result)
+    bld <+ (dst := result)
     if isSetFlags then
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
+      let cpsr = regVar bld R.CPSR
+      bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+      bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
     else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let eor isSetFlags (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let eor isSetFlags (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let dst, src1, src2, carryOut = translateLogicOp ins insLen ctxt ir
-  let result = !+ir 32<rt>
-  !!ir (result := src1 <+> src2)
-  if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let dst, src1, src2, carryOut = translateLogicOp ins insLen bld
+  let result = tmpVar bld 32<rt>
+  bld <+ (result := src1 <+> src2)
+  if dst = getPC bld then aluWritePC bld ins isUnconditional result
   else
-    !!ir (dst := result)
+    bld <+ (dst := result)
     if isSetFlags then
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+      let cpsr = regVar bld R.CPSR
+      bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+      bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+      bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
     else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let transFourOprsOfRSB (ins: InsInfo) insLen ctxt =
+let transFourOprsOfRSB (ins: InsInfo) insLen bld =
   match ins.Operands with
   | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ins ctxt opr1
-    let e2 = transOprToExpr ins ctxt opr2
-    struct (e1, e2, transShiftOprs ins ctxt opr3 opr4)
+    let e1 = transOprToExpr ins bld opr1
+    let e2 = transOprToExpr ins bld opr2
+    struct (e1, e2, transShiftOprs ins bld opr3 opr4)
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
-    let e1 = transOprToExpr ins ctxt opr1
-    let e2 = transOprToExpr ins ctxt opr2
-    let e3 = transOprToExpr ins ctxt opr3
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
-    struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt))
+    let e1 = transOprToExpr ins bld opr1
+    let e2 = transOprToExpr ins bld opr2
+    let e3 = transOprToExpr ins bld opr3
+    let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
+    struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
-let parseOprOfRSB (ins: InsInfo) insLen ctxt =
+let parseOprOfRSB (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands _ -> transThreeOprs ins ctxt
-  | FourOperands _ -> transFourOprsOfRSB ins insLen ctxt
+  | ThreeOperands _ -> transThreeOprs ins bld
+  | FourOperands _ -> transFourOprsOfRSB ins insLen bld
   | _ -> raise InvalidOperandException
 
-let rsb isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src1, src2) = parseOprOfRSB ins insLen ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+let rsb isSetFlags ins insLen bld =
+  let struct (dst, src1, src2) = parseOprOfRSB ins insLen bld
+  let struct (t1, t2) = tmpVars2 bld 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   if isSetFlags then
-    !!ir (t1 := src1)
-    !!ir (t2 := src2)
+    bld <+ (t1 := src1)
+    bld <+ (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
-      addWithCarry (AST.not t1) t2 (AST.num1 32<rt>) ir
-    !!ir (dst := result)
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+      addWithCarry (AST.not t1) t2 (AST.num1 32<rt>) bld
+    bld <+ (dst := result)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := rHigh |> setPSR bld R.CPSR PSR.N)
+    bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+    bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
+    bld <+ (cpsr := overflow |> setPSR bld R.CPSR PSR.V)
   else
-    let result = !+ir 32<rt>
-    !!ir (result :=
+    let result = tmpVar bld 32<rt>
+    bld <+ (result :=
       addWithCarryOnlyResult (AST.not src1) src2 (AST.num1 32<rt>))
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else !!ir (dst := result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    if dst = getPC bld then aluWritePC bld ins isUnconditional result
+    else bld <+ (dst := result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let transTwoOprsOfSBC (ins: InsInfo) insLen ctxt =
+let transTwoOprsOfSBC (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg _, OprReg _) ->
-    let struct (e1, e2) = transTwoOprs ins ctxt
-    struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt))
+    let struct (e1, e2) = transTwoOprs ins bld
+    struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
-let transFourOprsOfSBC (ins: InsInfo) insLen ctxt =
+let transFourOprsOfSBC (ins: InsInfo) insLen bld =
   match ins.Operands with
   | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ins ctxt opr1
-    let e2 = transOprToExpr ins ctxt opr2
-    struct (e1, e2, transShiftOprs ins ctxt opr3 opr4)
+    let e1 = transOprToExpr ins bld opr1
+    let e2 = transOprToExpr ins bld opr2
+    struct (e1, e2, transShiftOprs ins bld opr3 opr4)
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
-    let e1 = transOprToExpr ins ctxt opr1
-    let e2 = transOprToExpr ins ctxt opr2
-    let e3 = transOprToExpr ins ctxt opr3
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
-    struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt))
+    let e1 = transOprToExpr ins bld opr1
+    let e2 = transOprToExpr ins bld opr2
+    let e3 = transOprToExpr ins bld opr3
+    let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
+    struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
-let parseOprOfSBC (ins: InsInfo) insLen ctxt =
+let parseOprOfSBC (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfSBC ins insLen ctxt
-  | ThreeOperands _ -> transThreeOprs ins ctxt
-  | FourOperands _ -> transFourOprsOfSBC ins insLen ctxt
+  | TwoOperands _ -> transTwoOprsOfSBC ins insLen bld
+  | ThreeOperands _ -> transThreeOprs ins bld
+  | FourOperands _ -> transFourOprsOfSBC ins insLen bld
   | _ -> raise InvalidOperandException
 
-let sbc isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src1, src2) = parseOprOfSBC ins insLen ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+let sbc isSetFlags ins insLen bld =
+  let struct (dst, src1, src2) = parseOprOfSBC ins insLen bld
+  let struct (t1, t2) = tmpVars2 bld 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   if isSetFlags then
-    !!ir (t1 := src1)
-    !!ir (t2 := src2)
+    bld <+ (t1 := src1)
+    bld <+ (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
-      addWithCarry t1 (AST.not t2) (getCarryFlag ctxt) ir
-    !!ir (dst := result)
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+      addWithCarry t1 (AST.not t2) (getCarryFlag bld) bld
+    bld <+ (dst := result)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := rHigh |> setPSR bld R.CPSR PSR.N)
+    bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+    bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
+    bld <+ (cpsr := overflow |> setPSR bld R.CPSR PSR.V)
   else
-    let result = !+ir 32<rt>
-    !!ir (result :=
-      addWithCarryOnlyResult src1 (AST.not src2) (getCarryFlag ctxt))
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else !!ir (dst := result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let result = tmpVar bld 32<rt>
+    bld <+ (result :=
+      addWithCarryOnlyResult src1 (AST.not src2) (getCarryFlag bld))
+    if dst = getPC bld then aluWritePC bld ins isUnconditional result
+    else bld <+ (dst := result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let transFourOprsOfRSC (ins: InsInfo) insLen ctxt =
+let transFourOprsOfRSC (ins: InsInfo) insLen bld =
   match ins.Operands with
   | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ins ctxt opr1
-    let e2 = transOprToExpr ins ctxt opr2
-    e1, e2, transShiftOprs ins ctxt opr3 opr4
+    let e1 = transOprToExpr ins bld opr1
+    let e2 = transOprToExpr ins bld opr2
+    e1, e2, transShiftOprs ins bld opr3 opr4
   | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
-    let e1 = transOprToExpr ins ctxt opr1
-    let e2 = transOprToExpr ins ctxt opr2
-    let e3 = transOprToExpr ins ctxt opr3
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt reg) |> AST.zext 32<rt>
-    e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt)
+    let e1 = transOprToExpr ins bld opr1
+    let e2 = transOprToExpr ins bld opr2
+    let e3 = transOprToExpr ins bld opr3
+    let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
+    e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag bld)
   | _ -> raise InvalidOperandException
 
-let parseOprOfRSC (ins: InsInfo) insLen ctxt =
+let parseOprOfRSC (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands _ -> transThreeOprs ins ctxt
-  | FourOperands _ -> transFourOprsOfRSB ins insLen ctxt
+  | ThreeOperands _ -> transThreeOprs ins bld
+  | FourOperands _ -> transFourOprsOfRSB ins insLen bld
   | _ -> raise InvalidOperandException
 
-let rsc isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src1, src2) = parseOprOfRSC ins insLen ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+let rsc isSetFlags ins insLen bld =
+  let struct (dst, src1, src2) = parseOprOfRSC ins insLen bld
+  let struct (t1, t2) = tmpVars2 bld 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   if isSetFlags then
-    !!ir (t1 := src1)
-    !!ir (t2 := src2)
+    bld <+ (t1 := src1)
+    bld <+ (t2 := src2)
     let struct (result, carryOut, overflow, rHigh) =
-      addWithCarry (AST.not t1) t2 (getCarryFlag ctxt) ir
-    !!ir (dst := result)
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-    !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-    !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
+      addWithCarry (AST.not t1) t2 (getCarryFlag bld) bld
+    bld <+ (dst := result)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := rHigh |> setPSR bld R.CPSR PSR.N)
+    bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+    bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
+    bld <+ (cpsr := overflow |> setPSR bld R.CPSR PSR.V)
   else
-    let result = !+ir 32<rt>
-    !!ir (result :=
-      addWithCarryOnlyResult (AST.not src1) src2 (getCarryFlag ctxt))
-    if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-    else !!ir (dst := result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let result = tmpVar bld 32<rt>
+    bld <+ (result :=
+      addWithCarryOnlyResult (AST.not src1) src2 (getCarryFlag bld))
+    if dst = getPC bld then aluWritePC bld ins isUnconditional result
+    else bld <+ (dst := result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let orr isSetFlags (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let orr isSetFlags (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let dst, src1, src2, carryOut = translateLogicOp ins insLen ctxt ir
-  let result = !+ir 32<rt>
-  !!ir (result := src1 .| src2)
-  if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let dst, src1, src2, carryOut = translateLogicOp ins insLen bld
+  let result = tmpVar bld 32<rt>
+  bld <+ (result := src1 .| src2)
+  if dst = getPC bld then aluWritePC bld ins isUnconditional result
   else
-    !!ir (dst := result)
+    bld <+ (dst := result)
     if isSetFlags then
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+      let cpsr = regVar bld R.CPSR
+      bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+      bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+      bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
     else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let orn isSetFlags (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let orn isSetFlags (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let dst, src1, src2, carryOut = translateLogicOp ins insLen ctxt ir
-  let result = !+ir 32<rt>
-  !!ir (result := src1 .| AST.not src2)
-  if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let dst, src1, src2, carryOut = translateLogicOp ins insLen bld
+  let result = tmpVar bld 32<rt>
+  bld <+ (result := src1 .| AST.not src2)
+  if dst = getPC bld then aluWritePC bld ins isUnconditional result
   else
-    !!ir (dst := result)
+    bld <+ (dst := result)
     if isSetFlags then
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+      let cpsr = regVar bld R.CPSR
+      bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+      bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+      bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
     else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let bic isSetFlags (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let bic isSetFlags (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let dst, src1, src2, carryOut = translateLogicOp ins insLen ctxt ir
-  let result = !+ir 32<rt>
-  !!ir (result := src1 .& (AST.not src2))
-  if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let dst, src1, src2, carryOut = translateLogicOp ins insLen bld
+  let result = tmpVar bld 32<rt>
+  bld <+ (result := src1 .& (AST.not src2))
+  if dst = getPC bld then aluWritePC bld ins isUnconditional result
   else
-    !!ir (dst := result)
+    bld <+ (dst := result)
     if isSetFlags then
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+      let cpsr = regVar bld R.CPSR
+      bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+      bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+      bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
     else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let transTwoOprsOfMVN (ins: InsInfo) insLen ctxt =
+let transTwoOprsOfMVN (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg _, OprImm _) ->
-    let struct (e1, e2) = transTwoOprs ins ctxt
-    struct (e1, e2, getCarryFlag ctxt)
+    let struct (e1, e2) = transTwoOprs ins bld
+    struct (e1, e2, getCarryFlag bld)
   | TwoOperands (OprReg _, OprReg _) ->
-    let struct (e1, e2) = transTwoOprs ins ctxt
-    let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+    let struct (e1, e2) = transTwoOprs ins bld
+    let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     struct (e1, shifted, carryOut)
   | _ -> raise InvalidOperandException
 
-let transThreeOprsOfMVN (ins: InsInfo) insLen ctxt =
+let transThreeOprsOfMVN (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
-    let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ins ctxt opr1
-    let src = transOprToExpr ins ctxt opr2
+    let carryIn = getCarryFlag bld
+    let dst = transOprToExpr ins bld opr1
+    let src = transOprToExpr ins bld opr2
     let shifted, carryOut = shiftC src 32<rt> typ imm carryIn
     struct (dst, shifted, carryOut)
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
-    let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ins ctxt opr1
-    let src = transOprToExpr ins ctxt opr2
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt rs) |> AST.zext 32<rt>
+    let carryIn = getCarryFlag bld
+    let dst = transOprToExpr ins bld opr1
+    let src = transOprToExpr ins bld opr2
+    let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount src 32<rt> typ amount carryIn
     struct (dst, shifted, carryOut)
   | _ -> raise InvalidOperandException
 
-let parseOprOfMVN (ins: InsInfo) insLen ctxt =
+let parseOprOfMVN (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfMVN ins insLen ctxt
-  | ThreeOperands _ -> transThreeOprsOfMVN ins insLen ctxt
+  | TwoOperands _ -> transTwoOprsOfMVN ins insLen bld
+  | ThreeOperands _ -> transThreeOprsOfMVN ins insLen bld
   | _ -> raise InvalidOperandException
 
-let mvn isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src, carryOut) = parseOprOfMVN ins insLen ctxt
-  let result = !+ir 32<rt>
+let mvn isSetFlags ins insLen bld =
+  let struct (dst, src, carryOut) = parseOprOfMVN ins insLen bld
+  let result = tmpVar bld 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (result := AST.not src)
-  if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (result := AST.not src)
+  if dst = getPC bld then aluWritePC bld ins isUnconditional result
   else
-    !!ir (dst := result)
+    bld <+ (dst := result)
     if isSetFlags then
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+      let cpsr = regVar bld R.CPSR
+      bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+      bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+      bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
     else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let svc (ins: InsInfo) insLen ctxt =
+let svc (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | OneOperand (OprImm n) -> sideEffects ins insLen ctxt (Interrupt (int n))
+  | OneOperand (OprImm n) -> sideEffects ins insLen bld (Interrupt (int n))
   | _ -> raise InvalidOperandException
 
 let getImmShiftFromShiftType imm = function
@@ -1626,594 +1589,575 @@ let getImmShiftFromShiftType imm = function
   | SRTypeASR -> if imm = 0ul then 32ul else imm
   | SRTypeRRX -> 1ul
 
-let transTwoOprsOfShiftInstr (ins: InsInfo) shiftTyp ctxt tmp =
+let transTwoOprsOfShiftInstr (ins: InsInfo) shiftTyp bld tmp =
   match ins.Operands with
   | TwoOperands (OprReg _, OprReg _) when shiftTyp = SRTypeRRX ->
-    let carryIn = getCarryFlag ctxt
-    let struct (e1, e2) = transTwoOprs ins ctxt
+    let carryIn = getCarryFlag bld
+    let struct (e1, e2) = transTwoOprs ins bld
     let result, carryOut = shiftC tmp 32<rt> shiftTyp 1ul carryIn
     e1, e2, result, carryOut
   | TwoOperands (OprReg _, OprReg _) ->
-    let carryIn = getCarryFlag ctxt
-    let struct (e1, e2) = transTwoOprs ins ctxt
+    let carryIn = getCarryFlag bld
+    let struct (e1, e2) = transTwoOprs ins bld
     let shiftN = AST.xtlo 8<rt> e2 |> AST.zext 32<rt>
     let result, carryOut = shiftCForRegAmount tmp 32<rt> shiftTyp shiftN carryIn
     e1, e1, result, carryOut
   | _ -> raise InvalidOperandException
 
-let transThreeOprsOfShiftInstr (ins: InsInfo) shiftTyp ctxt tmp =
+let transThreeOprsOfShiftInstr (ins: InsInfo) shiftTyp bld tmp =
   match ins.Operands with
   | ThreeOperands (opr1, opr2, OprImm imm) ->
-    let e1 = transOprToExpr ins ctxt opr1
-    let e2 = transOprToExpr ins ctxt opr2
+    let e1 = transOprToExpr ins bld opr1
+    let e2 = transOprToExpr ins bld opr2
     let shiftN = getImmShiftFromShiftType (uint32 imm) shiftTyp
     let shifted, carryOut =
-      shiftC tmp 32<rt> shiftTyp shiftN (getCarryFlag ctxt)
+      shiftC tmp 32<rt> shiftTyp shiftN (getCarryFlag bld)
     e1, e2, shifted, carryOut
   | ThreeOperands (_, _, OprReg _) ->
-    let carryIn = getCarryFlag ctxt
-    let struct (e1, e2, e3) = transThreeOprs ins ctxt
+    let carryIn = getCarryFlag bld
+    let struct (e1, e2, e3) = transThreeOprs ins bld
     let amount = AST.xtlo 8<rt> e3 |> AST.zext 32<rt>
     let shifted, carryOut =
       shiftCForRegAmount tmp 32<rt> shiftTyp amount carryIn
     e1, e2, shifted, carryOut
   | _ -> raise InvalidOperandException
 
-let parseOprOfShiftInstr (ins: InsInfo) shiftTyp ctxt tmp =
+let parseOprOfShiftInstr (ins: InsInfo) shiftTyp bld tmp =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfShiftInstr ins shiftTyp ctxt tmp
-  | ThreeOperands _ -> transThreeOprsOfShiftInstr ins shiftTyp ctxt tmp
+  | TwoOperands _ -> transTwoOprsOfShiftInstr ins shiftTyp bld tmp
+  | ThreeOperands _ -> transThreeOprsOfShiftInstr ins shiftTyp bld tmp
   | _ -> raise InvalidOperandException
 
-let shiftInstr isSetFlags ins insLen typ ctxt =
-  let ir = !*ctxt
-  let struct (srcTmp, result) = tmpVars2 ir 32<rt>
-  let dst, src, res, carryOut = parseOprOfShiftInstr ins typ ctxt srcTmp
+let shiftInstr isSetFlags ins insLen typ bld =
+  let struct (srcTmp, result) = tmpVars2 bld 32<rt>
+  let dst, src, res, carryOut = parseOprOfShiftInstr ins typ bld srcTmp
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (srcTmp := src)
-  !!ir (result := res)
-  if dst = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (srcTmp := src)
+  bld <+ (result := res)
+  if dst = getPC bld then aluWritePC bld ins isUnconditional result
   else
-    !!ir (dst := result)
+    bld <+ (dst := result)
     if isSetFlags then
-      let cpsr = getRegVar ctxt R.CPSR
-      !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-      !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-      !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
+      let cpsr = regVar bld R.CPSR
+      bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+      bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+      bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
     else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let subs isSetFlags (ins: InsInfo) insLen ctxt =
+let subs isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
     when ins.Mode = ArchOperationMode.ThumbMode ->
-    subsPCLRThumb ins insLen ctxt
+    subsPCLRThumb ins insLen bld
   | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> sub isSetFlags ins insLen ctxt
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> sub isSetFlags ins insLen bld
 
-let adds isSetFlags (ins: InsInfo) insLen ctxt =
+let adds isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> add isSetFlags ins insLen ctxt
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> add isSetFlags ins insLen bld
 
-let adcs isSetFlags (ins: InsInfo) insLen ctxt =
+let adcs isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> adc isSetFlags ins insLen ctxt
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> adc isSetFlags ins insLen bld
 
-let ands isSetFlags (ins: InsInfo) insLen ctxt =
+let ands isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> logicalAnd isSetFlags ins insLen ctxt
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> logicalAnd isSetFlags ins insLen bld
 
-let movs isSetFlags (ins: InsInfo) insLen ctxt =
+let movs isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg R.PC, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> mov isSetFlags ins insLen ctxt
+  | TwoOperands (OprReg R.PC, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> mov isSetFlags ins insLen bld
 
-let eors isSetFlags (ins: InsInfo) insLen ctxt =
-  match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> eor isSetFlags ins insLen ctxt
-
-let rsbs isSetFlags (ins: InsInfo) insLen ctxt =
+let eors isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> rsb isSetFlags ins insLen ctxt
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> eor isSetFlags ins insLen bld
 
-let sbcs isSetFlags (ins: InsInfo) insLen ctxt =
+let rsbs isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> sbc isSetFlags ins insLen ctxt
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> rsb isSetFlags ins insLen bld
 
-let rscs isSetFlags (ins: InsInfo) insLen ctxt =
+let sbcs isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> rsc isSetFlags ins insLen ctxt
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> sbc isSetFlags ins insLen bld
 
-let orrs isSetFlags (ins: InsInfo) insLen ctxt =
+let rscs isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> orr isSetFlags ins insLen ctxt
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> rsc isSetFlags ins insLen bld
 
-let orns isSetFlags (ins: InsInfo) insLen ctxt =
+let orrs isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> orn isSetFlags ins insLen ctxt
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> orr isSetFlags ins insLen bld
 
-let bics isSetFlags (ins: InsInfo) insLen ctxt =
+let orns isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> bic isSetFlags ins insLen ctxt
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> orn isSetFlags ins insLen bld
 
-let mvns isSetFlags (ins: InsInfo) insLen ctxt =
+let bics isSetFlags (ins: InsInfo) insLen bld =
+  match ins.Operands with
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> bic isSetFlags ins insLen bld
+
+let mvns isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg R.PC, _)
-  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> mvn isSetFlags ins insLen ctxt
+  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> mvn isSetFlags ins insLen bld
 
-let asrs isSetFlags (ins: InsInfo) insLen ctxt =
+let asrs isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> shiftInstr isSetFlags ins insLen SRTypeASR ctxt
+  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> shiftInstr isSetFlags ins insLen SRTypeASR bld
 
-let lsls isSetFlags (ins: InsInfo) insLen ctxt =
+let lsls isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> shiftInstr isSetFlags ins insLen SRTypeLSL ctxt
+  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> shiftInstr isSetFlags ins insLen SRTypeLSL bld
 
-let lsrs isSetFlags (ins: InsInfo) insLen ctxt =
+let lsrs isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> shiftInstr isSetFlags ins insLen SRTypeLSR ctxt
+  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> shiftInstr isSetFlags ins insLen SRTypeLSR bld
 
-let rors isSetFlags (ins: InsInfo) insLen ctxt =
+let rors isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> shiftInstr isSetFlags ins insLen SRTypeROR ctxt
+  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> shiftInstr isSetFlags ins insLen SRTypeROR bld
 
-let rrxs isSetFlags (ins: InsInfo) insLen ctxt =
+let rrxs isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg R.PC, _) -> subsAndRelatedInstr ins insLen ctxt
-  | _ -> shiftInstr isSetFlags ins insLen SRTypeRRX ctxt
+  | TwoOperands (OprReg R.PC, _) -> subsAndRelatedInstr ins insLen bld
+  | _ -> shiftInstr isSetFlags ins insLen SRTypeRRX bld
 
-let clz ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src) = transTwoOprs ins ctxt
-  let lblBoundCheck = !%ir "LBoundCheck"
-  let lblZeroCheck = !%ir "LZeroCheck"
-  let lblCount = !%ir "LCount"
-  let lblEnd = !%ir "LEnd"
+let clz ins insLen bld =
+  let struct (dst, src) = transTwoOprs ins bld
+  let lblBoundCheck = label bld "LBoundCheck"
+  let lblZeroCheck = label bld "LZeroCheck"
+  let lblCount = label bld "LCount"
+  let lblEnd = label bld "LEnd"
   let numSize = (numI32 32 32<rt>)
-  let t1 = !+ir 32<rt>
+  let t1 = tmpVar bld 32<rt>
   let cond1 = t1 == (AST.num0 32<rt>)
   let cond2 =
     src .& ((AST.num1 32<rt>) << (t1 .- AST.num1 32<rt>)) != (AST.num0 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t1 := numSize)
-  !!ir (AST.lmark lblBoundCheck)
-  !!ir (AST.cjmp cond1 (AST.jmpDest lblEnd) (AST.jmpDest lblZeroCheck))
-  !!ir (AST.lmark lblZeroCheck)
-  !!ir (AST.cjmp cond2 (AST.jmpDest lblEnd) (AST.jmpDest lblCount))
-  !!ir (AST.lmark lblCount)
-  !!ir (t1 := t1 .- (AST.num1 32<rt>))
-  !!ir (AST.jmp (AST.jmpDest lblBoundCheck))
-  !!ir (AST.lmark lblEnd)
-  !!ir (dst := numSize .- t1)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t1 := numSize)
+  bld <+ (AST.lmark lblBoundCheck)
+  bld <+ (AST.cjmp cond1 (AST.jmpDest lblEnd) (AST.jmpDest lblZeroCheck))
+  bld <+ (AST.lmark lblZeroCheck)
+  bld <+ (AST.cjmp cond2 (AST.jmpDest lblEnd) (AST.jmpDest lblCount))
+  bld <+ (AST.lmark lblCount)
+  bld <+ (t1 := t1 .- (AST.num1 32<rt>))
+  bld <+ (AST.jmp (AST.jmpDest lblBoundCheck))
+  bld <+ (AST.lmark lblEnd)
+  bld <+ (dst := numSize .- t1)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let transTwoOprsOfCMN (ins: InsInfo) insLen ctxt =
+let transTwoOprsOfCMN (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs ins ctxt
+  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs ins bld
   | TwoOperands (OprReg _, OprReg _) ->
-    let struct (e1, e2) = transTwoOprs ins ctxt
-    let shifted = shift e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+    let struct (e1, e2) = transTwoOprs ins bld
+    let shifted = shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     struct (e1, shifted)
   | _ -> raise InvalidOperandException
 
-let transThreeOprsOfCMN (ins: InsInfo) insLen ctxt =
+let transThreeOprsOfCMN (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
-    let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ins ctxt opr1
-    let src = transOprToExpr ins ctxt opr2
+    let carryIn = getCarryFlag bld
+    let dst = transOprToExpr ins bld opr1
+    let src = transOprToExpr ins bld opr2
     let shifted = shift src 32<rt> typ imm carryIn
     struct (dst, shifted)
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
-    let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ins ctxt opr1
-    let src = transOprToExpr ins ctxt opr2
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt rs) |> AST.zext 32<rt>
+    let carryIn = getCarryFlag bld
+    let dst = transOprToExpr ins bld opr1
+    let src = transOprToExpr ins bld opr2
+    let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
     let shifted = shiftForRegAmount src 32<rt> typ amount carryIn
     struct (dst, shifted)
   | _ -> raise InvalidOperandException
 
-let parseOprOfCMN (ins: InsInfo) insLen ctxt =
+let parseOprOfCMN (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfCMN ins insLen ctxt
-  | ThreeOperands _ -> transThreeOprsOfCMN ins insLen ctxt
+  | TwoOperands _ -> transTwoOprsOfCMN ins insLen bld
+  | ThreeOperands _ -> transThreeOprsOfCMN ins insLen bld
   | _ -> raise InvalidOperandException
 
-let cmn ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, src) = parseOprOfCMN ins insLen ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
-  let cpsr = getRegVar ctxt R.CPSR
+let cmn ins insLen bld =
+  let struct (dst, src) = parseOprOfCMN ins insLen bld
+  let struct (t1, t2) = tmpVars2 bld 32<rt>
+  let cpsr = regVar bld R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t1 := dst)
-  !!ir (t2 := src)
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t1 := dst)
+  bld <+ (t2 := src)
   let struct (result, carryOut, overflow, rHigh) =
-    addWithCarry t1 t2 (AST.num0 32<rt>) ir
-  !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-  !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-  !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-  !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    addWithCarry t1 t2 (AST.num0 32<rt>) bld
+  bld <+ (cpsr := rHigh |> setPSR bld R.CPSR PSR.N)
+  bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+  bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
+  bld <+ (cpsr := overflow |> setPSR bld R.CPSR PSR.V)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let mla isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rd, rn, rm, ra) = transFourOprs ins ctxt
-  let r = !+ir 32<rt>
+let mla isSetFlags ins insLen bld =
+  let struct (rd, rn, rm, ra) = transFourOprs ins bld
+  let r = tmpVar bld 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (r := AST.xtlo 32<rt> (AST.zext 64<rt> rn .* AST.zext 64<rt> rm .+
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (r := AST.xtlo 32<rt> (AST.zext 64<rt> rn .* AST.zext 64<rt> rm .+
                                      AST.zext 64<rt> ra))
-  !!ir (rd := r)
+  bld <+ (rd := r)
   if isSetFlags then
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := AST.xthi 1<rt> r |> setPSR ctxt R.CPSR PSR.N)
-    !!ir (cpsr := r == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := AST.xthi 1<rt> r |> setPSR bld R.CPSR PSR.N)
+    bld <+ (cpsr := r == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
   else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let transTwoOprsOfCMP (ins: InsInfo) insLen ctxt =
+let transTwoOprsOfCMP (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs ins ctxt
+  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs ins bld
   | TwoOperands (OprReg _, OprReg _) ->
-    let struct (e1, e2) = transTwoOprs ins ctxt
-    struct (e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt))
+    let struct (e1, e2) = transTwoOprs ins bld
+    struct (e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
-let transThreeOprsOfCMP (ins: InsInfo) insLen ctxt =
+let transThreeOprsOfCMP (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
-    let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ins ctxt opr1
-    let src = transOprToExpr ins ctxt opr2
+    let carryIn = getCarryFlag bld
+    let dst = transOprToExpr ins bld opr1
+    let src = transOprToExpr ins bld opr2
     struct (dst, shift src 32<rt> typ imm carryIn)
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
-    let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ins ctxt opr1
-    let src = transOprToExpr ins ctxt opr2
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt rs) |> AST.zext 32<rt>
+    let carryIn = getCarryFlag bld
+    let dst = transOprToExpr ins bld opr1
+    let src = transOprToExpr ins bld opr2
+    let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
     struct (dst, shiftForRegAmount src 32<rt> typ amount carryIn)
   | _ -> raise InvalidOperandException
 
-let parseOprOfCMP (ins: InsInfo) insLen ctxt =
+let parseOprOfCMP (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfCMP ins insLen ctxt
-  | ThreeOperands _ -> transThreeOprsOfCMP ins insLen ctxt
+  | TwoOperands _ -> transTwoOprsOfCMP ins insLen bld
+  | ThreeOperands _ -> transThreeOprsOfCMP ins insLen bld
   | _ -> raise InvalidOperandException
 
-let cmp ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rn, rm) = parseOprOfCMP ins insLen ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
-  let cpsr = getRegVar ctxt R.CPSR
+let cmp ins insLen bld =
+  let struct (rn, rm) = parseOprOfCMP ins insLen bld
+  let struct (t1, t2) = tmpVars2 bld 32<rt>
+  let cpsr = regVar bld R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t1 := rn)
-  !!ir (t2 := rm)
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t1 := rn)
+  bld <+ (t2 := rm)
   let struct (result, carryOut, overflow, rHigh) =
-    addWithCarry t1 (AST.not t2) (AST.num1 32<rt>) ir
-  !!ir (cpsr := rHigh |> setPSR ctxt R.CPSR PSR.N)
-  !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-  !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-  !!ir (cpsr := overflow |> setPSR ctxt R.CPSR PSR.V)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    addWithCarry t1 (AST.not t2) (AST.num1 32<rt>) bld
+  bld <+ (cpsr := rHigh |> setPSR bld R.CPSR PSR.N)
+  bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+  bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
+  bld <+ (cpsr := overflow |> setPSR bld R.CPSR PSR.V)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let umaal (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
-  !<ir ins.Address insLen
-  let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
+let umaal (ins: InsInfo) insLen bld =
+  bld <!-- (ins.Address, insLen)
+  let struct (rdLo, rdHi, rn, rm) = transFourOprs ins bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let res = !+ir 64<rt>
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let res = tmpVar bld 64<rt>
   let mul = AST.zext 64<rt> rn .* AST.zext 64<rt> rm
-  !!ir (res := mul .+ AST.zext 64<rt> rdHi .+ AST.zext 64<rt> rdLo)
-  !!ir (rdHi := AST.xthi 32<rt> res)
-  !!ir (rdLo := AST.xtlo 32<rt> res)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (res := mul .+ AST.zext 64<rt> rdHi .+ AST.zext 64<rt> rdLo)
+  bld <+ (rdHi := AST.xthi 32<rt> res)
+  bld <+ (rdLo := AST.xtlo 32<rt> res)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let umlal isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
-  let result = !+ir 64<rt>
+let umlal isSetFlags ins insLen bld =
+  let struct (rdLo, rdHi, rn, rm) = transFourOprs ins bld
+  let result = tmpVar bld 64<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+
     (result := AST.zext 64<rt> rn .* AST.zext 64<rt> rm .+ AST.concat rdHi rdLo)
-  !!ir (rdHi := AST.xthi 32<rt> result)
-  !!ir (rdLo := AST.xtlo 32<rt> result)
+  bld <+ (rdHi := AST.xthi 32<rt> result)
+  bld <+ (rdLo := AST.xtlo 32<rt> result)
   if isSetFlags then
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-    !!ir (cpsr := result == AST.num0 64<rt> |> setPSR ctxt R.CPSR PSR.Z)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+    bld <+ (cpsr := result == AST.num0 64<rt> |> setPSR bld R.CPSR PSR.Z)
   else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let umull isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
-  let result = !+ir 64<rt>
+let umull isSetFlags ins insLen bld =
+  let struct (rdLo, rdHi, rn, rm) = transFourOprs ins bld
+  let result = tmpVar bld 64<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (result := AST.zext 64<rt> rn .* AST.zext 64<rt> rm)
-  !!ir (rdHi := AST.xthi 32<rt> result)
-  !!ir (rdLo := AST.xtlo 32<rt> result)
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (result := AST.zext 64<rt> rn .* AST.zext 64<rt> rm)
+  bld <+ (rdHi := AST.xthi 32<rt> result)
+  bld <+ (rdLo := AST.xtlo 32<rt> result)
   if isSetFlags then
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-    !!ir (cpsr := result == AST.num0 64<rt> |> setPSR ctxt R.CPSR PSR.Z)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+    bld <+ (cpsr := result == AST.num0 64<rt> |> setPSR bld R.CPSR PSR.Z)
   else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let transOprsOfTEQ (ins: InsInfo) insLen ctxt =
+let transOprsOfTEQ (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg _, OprImm _) ->
-    let struct (rn, imm) = transTwoOprs ins ctxt
-    rn, imm, getCarryFlag ctxt
+    let struct (rn, imm) = transTwoOprs ins bld
+    rn, imm, getCarryFlag bld
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
-    let carryIn = getCarryFlag ctxt
-    let rn = transOprToExpr ins ctxt opr1
-    let rm = transOprToExpr ins ctxt opr2
+    let carryIn = getCarryFlag bld
+    let rn = transOprToExpr ins bld opr1
+    let rm = transOprToExpr ins bld opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     rn, shifted, carryOut
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
-    let carryIn = getCarryFlag ctxt
-    let rn = transOprToExpr ins ctxt opr1
-    let rm = transOprToExpr ins ctxt opr2
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt rs) |> AST.zext 32<rt>
+    let carryIn = getCarryFlag bld
+    let rn = transOprToExpr ins bld opr1
+    let rm = transOprToExpr ins bld opr2
+    let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount rm 32<rt> typ amount carryIn
     rn, shifted, carryOut
   | _ -> raise InvalidOperandException
 
-let teq ins insLen ctxt =
-  let ir = !*ctxt
-  let src1, src2, carryOut = transOprsOfTEQ ins insLen ctxt
-  let result = !+ir 32<rt>
-  let cpsr = getRegVar ctxt R.CPSR
+let teq ins insLen bld =
+  let src1, src2, carryOut = transOprsOfTEQ ins insLen bld
+  let result = tmpVar bld 32<rt>
+  let cpsr = regVar bld R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (result := src1 <+> src2)
-  !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-  !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-  !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (result := src1 <+> src2)
+  bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+  bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+  bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let mul isSetFlags ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
-  let result = !+ir 32<rt>
+let mul isSetFlags ins insLen bld =
+  let struct (rd, rn, rm) = transThreeOprs ins bld
+  let result = tmpVar bld 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+
     (result := AST.xtlo 32<rt> (AST.zext 64<rt> rn .* AST.zext 64<rt> rm))
-  !!ir (rd := result)
+  bld <+ (rd := result)
   if isSetFlags then
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-    !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+    bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
   else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let transOprsOfTST (ins: InsInfo) insLen ctxt =
+let transOprsOfTST (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg _, OprImm _) ->
-    let struct (rn, imm) = transTwoOprs ins ctxt
-    let carryOut = computeCarryOutFromImmCflag ins insLen ctxt
+    let struct (rn, imm) = transTwoOprs ins bld
+    let carryOut = computeCarryOutFromImmCflag ins insLen bld
     struct (rn, imm, carryOut)
   | TwoOperands (OprReg _, OprReg _) ->
-    let struct (e1, e2) = transTwoOprs ins ctxt
-    let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+    let struct (e1, e2) = transTwoOprs ins bld
+    let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     struct (e1, shifted, carryOut)
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
-    let carryIn = getCarryFlag ctxt
-    let rn = transOprToExpr ins ctxt opr1
-    let rm = transOprToExpr ins ctxt opr2
+    let carryIn = getCarryFlag bld
+    let rn = transOprToExpr ins bld opr1
+    let rm = transOprToExpr ins bld opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     struct (rn, shifted, carryOut)
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
-    let carryIn = getCarryFlag ctxt
-    let rn = transOprToExpr ins ctxt opr1
-    let rm = transOprToExpr ins ctxt opr2
-    let amount = AST.xtlo 8<rt> (getRegVar ctxt rs) |> AST.zext 32<rt>
+    let carryIn = getCarryFlag bld
+    let rn = transOprToExpr ins bld opr1
+    let rm = transOprToExpr ins bld opr2
+    let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount rm 32<rt> typ amount carryIn
     struct (rn, shifted, carryOut)
   | _ -> raise InvalidOperandException
 
-let tst ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (src1, src2, carryOut) = transOprsOfTST ins insLen ctxt
-  let result = !+ir 32<rt>
-  let cpsr = getRegVar ctxt R.CPSR
+let tst ins insLen bld =
+  let struct (src1, src2, carryOut) = transOprsOfTST ins insLen bld
+  let result = tmpVar bld 32<rt>
+  let cpsr = regVar bld R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (result := src1 .& src2)
-  !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-  !!ir (cpsr := result == AST.num0 32<rt> |> setPSR ctxt R.CPSR PSR.Z)
-  !!ir (cpsr := carryOut |> setPSR ctxt R.CPSR PSR.C)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (result := src1 .& src2)
+  bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+  bld <+ (cpsr := result == AST.num0 32<rt> |> setPSR bld R.CPSR PSR.Z)
+  bld <+ (cpsr := carryOut |> setPSR bld R.CPSR PSR.C)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let smulhalf ins insLen ctxt s1top s2top =
-  let ir = !*ctxt
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+let smulhalf ins insLen bld s1top s2top =
+  let struct (rd, rn, rm) = transThreeOprs ins bld
+  let struct (t1, t2) = tmpVars2 bld 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  if s1top then !!ir (t1 := AST.xthi 16<rt> rn |> AST.zext 32<rt>)
-  else !!ir (t1 := AST.xtlo 16<rt> rn |> AST.sext 32<rt>)
-  if s2top then !!ir (t2 := AST.xthi 16<rt> rm |> AST.zext 32<rt>)
-  else !!ir (t2 := AST.xtlo 16<rt> rm |> AST.sext 32<rt>)
-  !!ir (rd := t1 .* t2)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  if s1top then bld <+ (t1 := AST.xthi 16<rt> rn |> AST.zext 32<rt>)
+  else bld <+ (t1 := AST.xtlo 16<rt> rn |> AST.sext 32<rt>)
+  if s2top then bld <+ (t2 := AST.xthi 16<rt> rm |> AST.zext 32<rt>)
+  else bld <+ (t2 := AST.xtlo 16<rt> rm |> AST.sext 32<rt>)
+  bld <+ (rd := t1 .* t2)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let smmla (ins: InsInfo) insLen ctxt isRound =
-  let ir = !*ctxt
-  !<ir ins.Address insLen
-  let struct (dst, src1, src2, src3) = transFourOprs ins ctxt
-  let result = !+ir 64<rt>
+let smmla (ins: InsInfo) insLen bld isRound =
+  bld <!-- (ins.Address, insLen)
+  let struct (dst, src1, src2, src3) = transFourOprs ins bld
+  let result = tmpVar bld 64<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let lblIgnore = checkCondition ins bld isUnconditional
   let ra = (AST.sext 64<rt> src3) << numI32 32 64<rt>
-  !!ir (result := ra .+ AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
-  if isRound then !!ir (result := result .+ numU32 0x80000000u 64<rt>)
-  !!ir (dst := AST.xthi 32<rt> result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (result := ra .+ AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
+  if isRound then bld <+ (result := result .+ numU32 0x80000000u 64<rt>)
+  bld <+ (dst := AST.xthi 32<rt> result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let smmul (ins: InsInfo) insLen ctxt isRound =
-  let ir = !*ctxt
-  !<ir ins.Address insLen
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let result = !+ir 64<rt>
+let smmul (ins: InsInfo) insLen bld isRound =
+  bld <!-- (ins.Address, insLen)
+  let struct (dst, src1, src2) = transThreeOprs ins bld
+  let result = tmpVar bld 64<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (result := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
-  if isRound then !!ir (result := result .+ numU32 0x80000000u 64<rt>)
-  !!ir (dst := AST.xthi 32<rt> result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (result := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
+  if isRound then bld <+ (result := result .+ numU32 0x80000000u 64<rt>)
+  bld <+ (dst := AST.xthi 32<rt> result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 /// SMULL, SMLAL, etc.
-let smulandacc isSetFlags doAcc ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rdLo, rdHi, rn, rm) = transFourOprs ins ctxt
-  let struct (tmpresult, result) = tmpVars2 ir 64<rt>
+let smulandacc isSetFlags doAcc ins insLen bld =
+  let struct (rdLo, rdHi, rn, rm) = transFourOprs ins bld
+  let struct (tmpresult, result) = tmpVars2 bld 64<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (tmpresult := AST.sext 64<rt> rn .* AST.sext 64<rt> rm)
-  if doAcc then !!ir (result := tmpresult .+ AST.concat rdHi rdLo)
-  else !!ir (result := tmpresult)
-  !!ir (rdHi := AST.xthi 32<rt> result)
-  !!ir (rdLo := AST.xtlo 32<rt> result)
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (tmpresult := AST.sext 64<rt> rn .* AST.sext 64<rt> rm)
+  if doAcc then bld <+ (result := tmpresult .+ AST.concat rdHi rdLo)
+  else bld <+ (result := tmpresult)
+  bld <+ (rdHi := AST.xthi 32<rt> result)
+  bld <+ (rdLo := AST.xtlo 32<rt> result)
   if isSetFlags then
-    let cpsr = getRegVar ctxt R.CPSR
-    !!ir (cpsr := AST.xthi 1<rt> result |> setPSR ctxt R.CPSR PSR.N)
-    !!ir (cpsr := result == AST.num0 64<rt> |> setPSR ctxt R.CPSR PSR.Z)
+    let cpsr = regVar bld R.CPSR
+    bld <+ (cpsr := AST.xthi 1<rt> result |> setPSR bld R.CPSR PSR.N)
+    bld <+ (cpsr := result == AST.num0 64<rt> |> setPSR bld R.CPSR PSR.Z)
   else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let smulacclongdual (ins: InsInfo) insLen ctxt sign =
-  let ir = !*ctxt
+let smulacclongdual (ins: InsInfo) insLen bld sign =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst1, dst2, src1, src2) = transFourOprs ins ctxt
-  let o = !+ir 32<rt>
-  let struct (p1, p2, result) = tmpVars3 ir 64<rt>
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (dst1, dst2, src1, src2) = transFourOprs ins bld
+  let o = tmpVar bld 32<rt>
+  let struct (p1, p2, result) = tmpVars3 bld 64<rt>
   let rotated = shiftROR src2 32<rt> 16u
   let xtlo src = AST.xtlo 16<rt> src |> AST.sext 64<rt>
   let xthi src = AST.xthi 16<rt> src |> AST.sext 64<rt>
-  if sign then !!ir (o := rotated)
-  else !!ir (o := src2)
-  !!ir (p1 := xtlo src1 .* xtlo o)
-  !!ir (p2 := xthi src1 .* xthi o)
-  !!ir (result := p1 .+ p2 .+ AST.concat dst2 dst1)
-  !!ir (dst2 := AST.xthi 32<rt> result)
-  !!ir (dst1 := AST.xtlo 32<rt> result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  if sign then bld <+ (o := rotated)
+  else bld <+ (o := src2)
+  bld <+ (p1 := xtlo src1 .* xtlo o)
+  bld <+ (p2 := xthi src1 .* xthi o)
+  bld <+ (result := p1 .+ p2 .+ AST.concat dst2 dst1)
+  bld <+ (dst2 := AST.xthi 32<rt> result)
+  bld <+ (dst1 := AST.xtlo 32<rt> result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let smulaccwordbyhalf (ins: InsInfo) insLen ctxt sign =
-  let ir = !*ctxt
+let smulaccwordbyhalf (ins: InsInfo) insLen bld sign =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2, src3) = transFourOprs ins ctxt
-  let o = !+ir 32<rt>
-  let result = !+ir 64<rt>
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (dst, src1, src2, src3) = transFourOprs ins bld
+  let o = tmpVar bld 32<rt>
+  let result = tmpVar bld 64<rt>
   let sext src = AST.sext 64<rt> src
-  if sign then !!ir (o := AST.xthi 16<rt> src2 |> AST.sext 32<rt>)
-  else !!ir (o := AST.xtlo 16<rt> src2 |> AST.sext 32<rt>)
-  !!ir (result := sext src1 .* sext o .+ sext (src3 << numI32 16 32<rt>))
-  !!ir (dst := AST.extract result 32<rt> 16)
-  let cpsr = getRegVar ctxt R.CPSR
-  !!ir (cpsr := AST.ite ((result >> numI32 16 64<rt>) != sext dst)
-                           (enablePSRBits ctxt R.CPSR PSR.Q) cpsr)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  if sign then bld <+ (o := AST.xthi 16<rt> src2 |> AST.sext 32<rt>)
+  else bld <+ (o := AST.xtlo 16<rt> src2 |> AST.sext 32<rt>)
+  bld <+ (result := sext src1 .* sext o .+ sext (src3 << numI32 16 32<rt>))
+  bld <+ (dst := AST.extract result 32<rt> 16)
+  let cpsr = regVar bld R.CPSR
+  bld <+ (cpsr := AST.ite ((result >> numI32 16 64<rt>) != sext dst)
+                           (enablePSRBits bld R.CPSR PSR.Q) cpsr)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let smulacchalf ins insLen ctxt s1top s2top =
-  let ir = !*ctxt
-  let struct (rd, rn, rm, ra) = transFourOprs ins ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
+let smulacchalf ins insLen bld s1top s2top =
+  let struct (rd, rn, rm, ra) = transFourOprs ins bld
+  let struct (t1, t2) = tmpVars2 bld 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  if s1top then !!ir (t1 := AST.xthi 16<rt> rn |> AST.zext 32<rt>)
-  else !!ir (t1 := AST.xtlo 16<rt> rn |> AST.sext 32<rt>)
-  if s2top then !!ir (t2 := AST.xthi 16<rt> rm |> AST.zext 32<rt>)
-  else !!ir (t2 := AST.xtlo 16<rt> rm |> AST.sext 32<rt>)
-  !!ir (rd := (t1 .* t2) .+ AST.sext 32<rt> ra)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  if s1top then bld <+ (t1 := AST.xthi 16<rt> rn |> AST.zext 32<rt>)
+  else bld <+ (t1 := AST.xtlo 16<rt> rn |> AST.sext 32<rt>)
+  if s2top then bld <+ (t2 := AST.xthi 16<rt> rm |> AST.zext 32<rt>)
+  else bld <+ (t2 := AST.xtlo 16<rt> rm |> AST.sext 32<rt>)
+  bld <+ (rd := (t1 .* t2) .+ AST.sext 32<rt> ra)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let smulacclonghalf (ins: InsInfo) insLen ctxt s1top s2top =
-  let ir = !*ctxt
+let smulacclonghalf (ins: InsInfo) insLen bld s1top s2top =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst1, dst2, src1, src2) = transFourOprs ins ctxt
-  let struct (o1, o2, result) = tmpVars3 ir 64<rt>
-  if s1top then !!ir (o1 := AST.xthi 16<rt> src1 |> AST.sext 64<rt>)
-  else !!ir (o1 := AST.xtlo 16<rt> src1 |> AST.sext 64<rt>)
-  if s2top then !!ir (o2 := AST.xthi 16<rt> src2 |> AST.sext 64<rt>)
-  else !!ir (o2 := AST.xtlo 16<rt> src2 |> AST.sext 64<rt>)
-  !!ir (result := o1 .* o2 .+ AST.concat dst2 dst1)
-  !!ir (dst2 := AST.xthi 32<rt> result)
-  !!ir (dst1 := AST.xtlo 32<rt> result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (dst1, dst2, src1, src2) = transFourOprs ins bld
+  let struct (o1, o2, result) = tmpVars3 bld 64<rt>
+  if s1top then bld <+ (o1 := AST.xthi 16<rt> src1 |> AST.sext 64<rt>)
+  else bld <+ (o1 := AST.xtlo 16<rt> src1 |> AST.sext 64<rt>)
+  if s2top then bld <+ (o2 := AST.xthi 16<rt> src2 |> AST.sext 64<rt>)
+  else bld <+ (o2 := AST.xtlo 16<rt> src2 |> AST.sext 64<rt>)
+  bld <+ (result := o1 .* o2 .+ AST.concat dst2 dst1)
+  bld <+ (dst2 := AST.xthi 32<rt> result)
+  bld <+ (dst1 := AST.xtlo 32<rt> result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 let parseOprOfB (ins: InsInfo) =
   let addr = bvOfBaseAddr (ins.Address + pcOffset ins)
@@ -2222,26 +2166,24 @@ let parseOprOfB (ins: InsInfo) =
     addr .+ (numI64 imm 32<rt>)
   | _ -> raise InvalidOperandException
 
-let b ins insLen ctxt =
-  let ir = !*ctxt
+let b ins insLen bld =
   let e = parseOprOfB ins
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (branchWritePC ctxt ins e InterJmpKind.Base)
-  putEndLabelForBranch ctxt lblIgnore ins ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (branchWritePC bld ins e InterJmpKind.Base)
+  putEndLabelForBranch bld lblIgnore ins
+  bld --!> insLen
 
-let bx ins insLen ctxt =
-  let ir = !*ctxt
-  let rm = transOneOpr ins ctxt
+let bx ins insLen bld =
+  let rm = transOneOpr ins bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rm = convertPCOpr ins insLen ctxt rm
-  bxWritePC ctxt isUnconditional rm ir
-  putEndLabelForBranch ctxt lblIgnore ins ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rm = convertPCOpr ins bld rm
+  bxWritePC bld isUnconditional rm
+  putEndLabelForBranch bld lblIgnore ins
+  bld --!> insLen
 
 let movtAssign dst src =
   let maskHigh16In32 = AST.num <| BitVector.OfBInt 4294901760I 32<rt>
@@ -2249,74 +2191,71 @@ let movtAssign dst src =
   dst := clearHigh16In32 dst .|
          (src << (numI32 16 32<rt>))
 
-let movt ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (dst, res) = transTwoOprs ins ctxt
+let movt ins insLen bld =
+  let struct (dst, res) = transTwoOprs ins bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (movtAssign dst res)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (movtAssign dst res)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let transFourOprsWithBarrelShift (ins: InsInfo) ctxt =
+let transFourOprsWithBarrelShift (ins: InsInfo) bld =
   match ins.Operands with
   | FourOperands (opr1, opr2, opr3, OprShift (typ, Imm imm)) ->
-    let carryIn = getCarryFlag ctxt
-    let dst = transOprToExpr ins ctxt opr1
-    let src1 = transOprToExpr ins ctxt opr2
-    let src2 = transOprToExpr ins ctxt opr3
+    let carryIn = getCarryFlag bld
+    let dst = transOprToExpr ins bld opr1
+    let src1 = transOprToExpr ins bld opr2
+    let src2 = transOprToExpr ins bld opr3
     let shifted = shift src2 32<rt> typ imm carryIn
     struct (dst, src1, shifted)
   | _ -> raise InvalidOperandException
 
-let pkh (ins: InsInfo) insLen ctxt isTbform =
-  let ir = !*ctxt
-  !<ir ins.Address insLen
-  let struct (dst, src1, src2) = transFourOprsWithBarrelShift ins ctxt
+let pkh (ins: InsInfo) insLen bld isTbform =
+  bld <!-- (ins.Address, insLen)
+  let struct (dst, src1, src2) = transFourOprsWithBarrelShift ins bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let lblIgnore = checkCondition ins bld isUnconditional
   let src1H, src1L = AST.xthi 16<rt> src1, AST.xtlo 16<rt> src1
   let src2H, src2L = AST.xthi 16<rt> src2, AST.xtlo 16<rt> src2
   let res = if isTbform then AST.concat src1H src2L else AST.concat src2H src1L
-  !!ir (dst := res)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (dst := res)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let popLoop ctxt numOfReg addr (ir: IRBuilder) =
+let popLoop bld numOfReg addr =
   let loop addr count =
     if (numOfReg >>> count) &&& 1u = 1u then
       let reg = count |> uint32 |> OperandHelper.getRegister
-      !!ir (getRegVar ctxt reg := AST.loadLE 32<rt> addr)
+      bld <+ (regVar bld reg := AST.loadLE 32<rt> addr)
       (addr .+ (numI32 4 32<rt>))
     else addr
   List.fold loop addr [ 0 .. 14 ]
 
-let pop ins insLen ctxt =
-  let ir = !*ctxt
-  let t0 = !+ir 32<rt>
-  let sp = getRegVar ctxt R.SP
+let pop ins insLen bld =
+  let t0 = tmpVar bld 32<rt>
+  let sp = regVar bld R.SP
   let numOfReg = parseOprOfPUSHPOP ins
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = sp
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t0 := addr)
-  let addr = popLoop ctxt numOfReg t0 ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t0 := addr)
+  let addr = popLoop bld numOfReg t0
   if (numOfReg >>> 13 &&& 1u) = 0u then
-    !!ir (sp := sp .+ (numI32 stackWidth 32<rt>))
-  else !!ir (sp := (AST.undef 32<rt> "UNKNOWN"))
+    bld <+ (sp := sp .+ (numI32 stackWidth 32<rt>))
+  else bld <+ (sp := (AST.undef 32<rt> "UNKNOWN"))
   if (numOfReg >>> 15 &&& 1u) = 1u then
-    AST.loadLE 32<rt> addr |> loadWritePC ctxt isUnconditional ir
+    AST.loadLE 32<rt> addr |> loadWritePC bld isUnconditional
   else ()
-  putEndLabelForBranch ctxt lblIgnore ins ir
-  !>ir insLen
+  putEndLabelForBranch bld lblIgnore ins
+  bld --!> insLen
 
-let parseOprOfLDM (ins: InsInfo) ctxt =
+let parseOprOfLDM (ins: InsInfo) bld =
   match ins.Operands with
   | TwoOperands (OprReg reg, OprRegList regs) ->
-    struct (getRegVar ctxt reg, getRegNum reg, regsToUInt32 regs)
+    struct (regVar bld reg, getRegNum reg, regsToUInt32 regs)
   | _ -> raise InvalidOperandException
 
 let getLDMStartAddr rn stackWidth = function
@@ -2326,30 +2265,29 @@ let getLDMStartAddr rn stackWidth = function
   | Op.LDMIB -> rn .+ (numI32 4 32<rt>)
   | _ -> raise InvalidOpcodeException
 
-let ldm opcode ins insLen ctxt wbackop =
-  let ir = !*ctxt
-  let struct (t0, t1) = tmpVars2 ir 32<rt>
-  let struct (rn, numOfRn, numOfReg) = parseOprOfLDM ins ctxt
+let ldm opcode ins insLen bld wbackop =
+  let struct (t0, t1) = tmpVars2 bld 32<rt>
+  let struct (rn, numOfRn, numOfReg) = parseOprOfLDM ins bld
   let wback = ins.WriteBack
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = getLDMStartAddr t0 stackWidth opcode
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t0 := rn)
-  !!ir (t1 := addr)
-  let addr = popLoop ctxt numOfReg t1 ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t0 := rn)
+  bld <+ (t1 := addr)
+  let addr = popLoop bld numOfReg t1
   if (numOfReg >>> 15 &&& 1u) = 1u then
-    AST.loadLE 32<rt> addr |> loadWritePC ctxt isUnconditional ir
+    AST.loadLE 32<rt> addr |> loadWritePC bld isUnconditional
   else ()
   if wback && (numOfReg &&& numOfRn) = 0u then
-    !!ir (rn := wbackop t0 (numI32 stackWidth 32<rt>))
+    bld <+ (rn := wbackop t0 (numI32 stackWidth 32<rt>))
   else ()
   if wback && (numOfReg &&& numOfRn) = numOfRn then
-    !!ir (rn := (AST.undef 32<rt> "UNKNOWN"))
+    bld <+ (rn := (AST.undef 32<rt> "UNKNOWN"))
   else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 let getOffAddrWithExpr s r e = if s = Some Plus then r .+ e else r .- e
 
@@ -2359,15 +2297,15 @@ let getOffAddrWithImm s r imm =
   | Some Minus, Some i -> r .- (numI64 i 32<rt>)
   | _, _ -> r
 
-let parseMemOfLDR ins insLen ctxt = function
+let parseMemOfLDR ins insLen bld = function
   | OprMemory (OffsetMode (ImmOffset (rn, s, imm))) ->
-    let rn = getRegVar ctxt rn |> convertPCOpr ins insLen ctxt
+    let rn = regVar bld rn |> convertPCOpr ins bld
     struct (getOffAddrWithImm s rn imm, None)
   | OprMemory (PreIdxMode (ImmOffset (rn, s, imm))) ->
-    let rn = getRegVar ctxt rn
+    let rn = regVar bld rn
     struct (getOffAddrWithImm s rn imm, Some (rn, None))
   | OprMemory (PostIdxMode (ImmOffset (rn, s, imm))) ->
-    let rn = getRegVar ctxt rn
+    let rn = regVar bld rn
     struct (rn, Some (rn, Some (getOffAddrWithImm s rn imm)))
   | OprMemory (LiteralMode imm) ->
     let addr = bvOfBaseAddr ins.Address
@@ -2375,113 +2313,111 @@ let parseMemOfLDR ins insLen ctxt = function
     let rel = if ins.Mode = ArchOperationMode.ARMMode then 8u else 4u
     struct (pc .+ (numU32 rel 32<rt>) .+ (numI64 imm 32<rt>), None)
   | OprMemory (OffsetMode (RegOffset (n, _, m, None))) ->
-    let m = getRegVar ctxt m |> convertPCOpr ins insLen ctxt
-    let n = getRegVar ctxt n |> convertPCOpr ins insLen ctxt
-    struct (n .+ shift m 32<rt> SRTypeLSL 0u (getCarryFlag ctxt), None)
+    let m = regVar bld m |> convertPCOpr ins bld
+    let n = regVar bld n |> convertPCOpr ins bld
+    struct (n .+ shift m 32<rt> SRTypeLSL 0u (getCarryFlag bld), None)
   | OprMemory (PreIdxMode (RegOffset (n, s, m, None))) ->
-    let rn = getRegVar ctxt n
+    let rn = regVar bld n
     let offset =
-      shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+      shift (regVar bld m) 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     struct (getOffAddrWithExpr s rn offset, Some (rn, None))
   | OprMemory (PostIdxMode (RegOffset (n, s, m, None))) ->
-    let rn = getRegVar ctxt n
+    let rn = regVar bld n
     let offset =
-      shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+      shift (regVar bld m) 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     struct (rn, Some (rn, Some (getOffAddrWithExpr s rn offset)))
   | OprMemory (OffsetMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
-    let rn = getRegVar ctxt n |> convertPCOpr ins insLen ctxt
-    let rm = getRegVar ctxt m |> convertPCOpr ins insLen ctxt
-    let offset = shift rm 32<rt> t i (getCarryFlag ctxt)
+    let rn = regVar bld n |> convertPCOpr ins bld
+    let rm = regVar bld m |> convertPCOpr ins bld
+    let offset = shift rm 32<rt> t i (getCarryFlag bld)
     struct (getOffAddrWithExpr s rn offset, None)
   | OprMemory (PreIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
-    let rn = getRegVar ctxt n
-    let offset = shift (getRegVar ctxt m) 32<rt> t i (getCarryFlag ctxt)
+    let rn = regVar bld n
+    let offset = shift (regVar bld m) 32<rt> t i (getCarryFlag bld)
     struct (getOffAddrWithExpr s rn offset, Some (rn, None))
   | OprMemory (PostIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
-    let rn = getRegVar ctxt n
-    let offset = shift (getRegVar ctxt m) 32<rt> t i (getCarryFlag ctxt)
+    let rn = regVar bld n
+    let offset = shift (regVar bld m) 32<rt> t i (getCarryFlag bld)
     struct (rn, Some (rn, Some (getOffAddrWithExpr s rn offset)))
   | _ -> raise InvalidOperandException
 
-let parseOprOfLDR (ins: InsInfo) insLen ctxt =
+let parseOprOfLDR (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg rt, (OprMemory _ as mem)) ->
-    let struct (addr, writeback) = parseMemOfLDR ins insLen ctxt mem
-    struct (getRegVar ctxt rt, addr, writeback)
+    let struct (addr, writeback) = parseMemOfLDR ins insLen bld mem
+    struct (regVar bld rt, addr, writeback)
   | _ -> raise InvalidOperandException
 
 /// Load register
-let ldr ins insLen ctxt size ext =
-  let ir = !*ctxt
-  let data = !+ir 32<rt>
-  let struct (rt, addr, writeback) = parseOprOfLDR ins insLen ctxt
+let ldr ins insLen bld size ext =
+  let data = tmpVar bld 32<rt>
+  let struct (rt, addr, writeback) = parseOprOfLDR ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   match writeback with
   | Some (basereg, Some newoffset) ->
-    let struct (taddr, twriteback) = tmpVars2 ir 32<rt>
-    !!ir (taddr := addr)
-    !!ir (twriteback := newoffset)
-    !!ir (data := AST.loadLE size taddr |> ext 32<rt>)
-    !!ir (basereg := twriteback)
+    let struct (taddr, twriteback) = tmpVars2 bld 32<rt>
+    bld <+ (taddr := addr)
+    bld <+ (twriteback := newoffset)
+    bld <+ (data := AST.loadLE size taddr |> ext 32<rt>)
+    bld <+ (basereg := twriteback)
   | Some (basereg, None) ->
-    let taddr = !+ir 32<rt>
-    !!ir (taddr := addr)
-    !!ir (data := AST.loadLE size taddr |> ext 32<rt>)
-    !!ir (basereg := taddr)
+    let taddr = tmpVar bld 32<rt>
+    bld <+ (taddr := addr)
+    bld <+ (data := AST.loadLE size taddr |> ext 32<rt>)
+    bld <+ (basereg := taddr)
   | None ->
-    !!ir (data := AST.loadLE size addr |> ext 32<rt>)
-  if rt = getPC ctxt then loadWritePC ctxt isUnconditional ir data
-  else !!ir (rt := data)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (data := AST.loadLE size addr |> ext 32<rt>)
+  if rt = getPC bld then loadWritePC bld isUnconditional data
+  else bld <+ (rt := data)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseMemOfLDRD ins insLen ctxt = function
+let parseMemOfLDRD ins insLen bld = function
   | OprMemory (OffsetMode (RegOffset (n, s, m, None))) ->
-    struct (getOffAddrWithExpr s (getRegVar ctxt n) (getRegVar ctxt m), None)
+    struct (getOffAddrWithExpr s (regVar bld n) (regVar bld m), None)
   | OprMemory (PreIdxMode (RegOffset (n, s, m, None))) ->
-    let rn = getRegVar ctxt n
-    struct (getOffAddrWithExpr s rn (getRegVar ctxt m), Some (rn, None))
+    let rn = regVar bld n
+    struct (getOffAddrWithExpr s rn (regVar bld m), Some (rn, None))
   | OprMemory (PostIdxMode (RegOffset (n, s, m, None))) ->
-    let rn = getRegVar ctxt n
-    struct (rn, Some (rn, Some (getOffAddrWithExpr s rn (getRegVar ctxt m))))
-  | mem -> parseMemOfLDR ins insLen ctxt mem
+    let rn = regVar bld n
+    struct (rn, Some (rn, Some (getOffAddrWithExpr s rn (regVar bld m))))
+  | mem -> parseMemOfLDR ins insLen bld mem
 
-let parseOprOfLDRD (ins: InsInfo) insLen ctxt =
+let parseOprOfLDRD (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg t, OprReg t2, (OprMemory _ as mem)) ->
-    let struct (addr, stmt) = parseMemOfLDRD ins insLen ctxt mem
-    struct (getRegVar ctxt t, getRegVar ctxt t2, addr, stmt)
+    let struct (addr, stmt) = parseMemOfLDRD ins insLen bld mem
+    struct (regVar bld t, regVar bld t2, addr, stmt)
   | _ -> raise InvalidOperandException
 
-let ldrd ins insLen ctxt =
-  let ir = !*ctxt
-  let taddr = !+ir 32<rt>
-  let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins insLen ctxt
+let ldrd ins insLen bld =
+  let taddr = tmpVar bld 32<rt>
+  let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let n4 = numI32 4 32<rt>
   match writeback with
   | Some (basereg, Some newoffset) ->
-    let twriteback = !+ir 32<rt>
-    !!ir (taddr := addr)
-    !!ir (twriteback := newoffset)
-    !!ir (rt := AST.loadLE 32<rt> taddr)
-    !!ir (rt2 := AST.loadLE 32<rt> (taddr .+ n4))
-    !!ir (basereg := twriteback)
+    let twriteback = tmpVar bld 32<rt>
+    bld <+ (taddr := addr)
+    bld <+ (twriteback := newoffset)
+    bld <+ (rt := AST.loadLE 32<rt> taddr)
+    bld <+ (rt2 := AST.loadLE 32<rt> (taddr .+ n4))
+    bld <+ (basereg := twriteback)
   | Some (basereg, None) ->
-    !!ir (taddr := addr)
-    !!ir (rt := AST.loadLE 32<rt> taddr)
-    !!ir (rt2 := AST.loadLE 32<rt> (taddr .+ n4))
-    !!ir (basereg := taddr)
+    bld <+ (taddr := addr)
+    bld <+ (rt := AST.loadLE 32<rt> taddr)
+    bld <+ (rt2 := AST.loadLE 32<rt> (taddr .+ n4))
+    bld <+ (basereg := taddr)
   | None ->
-    !!ir (taddr := addr)
-    !!ir (rt := AST.loadLE 32<rt> taddr)
-    !!ir (rt2 := AST.loadLE 32<rt> (taddr .+ n4))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (taddr := addr)
+    bld <+ (rt := AST.loadLE 32<rt> taddr)
+    bld <+ (rt2 := AST.loadLE 32<rt> (taddr .+ n4))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 let sel8Bits r offset =
   AST.extract r 8<rt> offset |> AST.zext 32<rt>
@@ -2502,174 +2438,164 @@ let combineGEs ge0 ge1 ge2 ge3 =
   let n3 = numI32 3 32<rt>
   ge0 .| (ge1 << n1) .| (ge2 << n2) .| (ge3 << n3)
 
-let uadd8 ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
-  let struct (sum1, sum2, sum3, sum4) = tmpVars4 ir 32<rt>
-  let struct (ge0, ge1, ge2, ge3) = tmpVars4 ir 32<rt>
-  let cpsr = getRegVar ctxt R.CPSR
+let uadd8 ins insLen bld =
+  let struct (rd, rn, rm) = transThreeOprs ins bld
+  let struct (sum1, sum2, sum3, sum4) = tmpVars4 bld 32<rt>
+  let struct (ge0, ge1, ge2, ge3) = tmpVars4 bld 32<rt>
+  let cpsr = regVar bld R.CPSR
   let n100 = numI32 0x100 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (sum1 := sel8Bits rn 0 .+ sel8Bits rm 0)
-  !!ir (sum2 := sel8Bits rn 8 .+ sel8Bits rm 8)
-  !!ir (sum3 := sel8Bits rn 16 .+ sel8Bits rm 16)
-  !!ir (sum4 := sel8Bits rn 24 .+ sel8Bits rm 24)
-  !!ir (rd := combine8bitResults sum1 sum2 sum3 sum4)
-  !!ir (ge0 := AST.zext 32<rt> (AST.ge sum1 n100))
-  !!ir (ge1 := AST.zext 32<rt> (AST.ge sum2 n100))
-  !!ir (ge2 := AST.zext 32<rt> (AST.ge sum3 n100))
-  !!ir (ge3 := AST.zext 32<rt> (AST.ge sum4 n100))
-  !!ir (cpsr := combineGEs ge0 ge1 ge2 ge3 |> setPSR ctxt R.CPSR PSR.GE)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (sum1 := sel8Bits rn 0 .+ sel8Bits rm 0)
+  bld <+ (sum2 := sel8Bits rn 8 .+ sel8Bits rm 8)
+  bld <+ (sum3 := sel8Bits rn 16 .+ sel8Bits rm 16)
+  bld <+ (sum4 := sel8Bits rn 24 .+ sel8Bits rm 24)
+  bld <+ (rd := combine8bitResults sum1 sum2 sum3 sum4)
+  bld <+ (ge0 := AST.zext 32<rt> (AST.ge sum1 n100))
+  bld <+ (ge1 := AST.zext 32<rt> (AST.ge sum2 n100))
+  bld <+ (ge2 := AST.zext 32<rt> (AST.ge sum3 n100))
+  bld <+ (ge3 := AST.zext 32<rt> (AST.ge sum4 n100))
+  bld <+ (cpsr := combineGEs ge0 ge1 ge2 ge3 |> setPSR bld R.CPSR PSR.GE)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let sel ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (t1, t2, t3, t4) = tmpVars4 ir 32<rt>
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
+let sel ins insLen bld =
+  let struct (t1, t2, t3, t4) = tmpVars4 bld 32<rt>
+  let struct (rd, rn, rm) = transThreeOprs ins bld
   let n1 = AST.num1 32<rt>
   let n2 = numI32 2 32<rt>
   let n4 = numI32 4 32<rt>
   let n8 = numI32 8 32<rt>
-  let ge = getPSR ctxt R.CPSR PSR.GE >> (numI32 16 32<rt>)
+  let ge = getPSR bld R.CPSR PSR.GE >> (numI32 16 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t1 := AST.ite ((ge .& n1) == n1) (sel8Bits rn 0) (sel8Bits rm 0))
-  !!ir (t2 := AST.ite ((ge .& n2) == n2) (sel8Bits rn 8) (sel8Bits rm 8))
-  !!ir (t3 := AST.ite ((ge .& n4) == n4) (sel8Bits rn 16) (sel8Bits rm 16))
-  !!ir (t4 := AST.ite ((ge .& n8) == n8) (sel8Bits rn 24) (sel8Bits rm 24))
-  !!ir (rd := combine8bitResults t1 t2 t3 t4)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t1 := AST.ite ((ge .& n1) == n1) (sel8Bits rn 0) (sel8Bits rm 0))
+  bld <+ (t2 := AST.ite ((ge .& n2) == n2) (sel8Bits rn 8) (sel8Bits rm 8))
+  bld <+ (t3 := AST.ite ((ge .& n4) == n4) (sel8Bits rn 16) (sel8Bits rm 16))
+  bld <+ (t4 := AST.ite ((ge .& n8) == n8) (sel8Bits rn 24) (sel8Bits rm 24))
+  bld <+ (rd := combine8bitResults t1 t2 t3 t4)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let rbit ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (t1, t2) = tmpVars2 ir 32<rt>
-  let struct (rd, rm) = transTwoOprs ins ctxt
+let rbit ins insLen bld =
+  let struct (t1, t2) = tmpVars2 bld 32<rt>
+  let struct (rd, rm) = transTwoOprs ins bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t1 := rm)
-  !!ir (rd := rd <+> rd)
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t1 := rm)
+  bld <+ (rd := rd <+> rd)
   for i = 0 to 31 do
-    !!ir (t2 := (AST.extract t1 1<rt> i) |> AST.zext 32<rt>)
-    !!ir (rd := rd .| (t2 << (numI32 (31 - i) 32<rt>)))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (t2 := (AST.extract t1 1<rt> i) |> AST.zext 32<rt>)
+    bld <+ (rd := rd .| (t2 << (numI32 (31 - i) 32<rt>)))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let rev ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (t1, t2, t3, t4) = tmpVars4 ir 32<rt>
-  let struct (rd, rm) = transTwoOprs ins ctxt
+let rev ins insLen bld =
+  let struct (t1, t2, t3, t4) = tmpVars4 bld 32<rt>
+  let struct (rd, rm) = transTwoOprs ins bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t1 := sel8Bits rm 0)
-  !!ir (t2 := sel8Bits rm 8)
-  !!ir (t3 := sel8Bits rm 16)
-  !!ir (t4 := sel8Bits rm 24)
-  !!ir (rd := combine8bitResults t4 t3 t2 t1)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t1 := sel8Bits rm 0)
+  bld <+ (t2 := sel8Bits rm 8)
+  bld <+ (t3 := sel8Bits rm 16)
+  bld <+ (t4 := sel8Bits rm 24)
+  bld <+ (rd := combine8bitResults t4 t3 t2 t1)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let rev16 ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rd, rm) = transTwoOprs ins ctxt
+let rev16 ins insLen bld =
+  let struct (rd, rm) = transTwoOprs ins bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let r1 = AST.extract rm 8<rt> 16
   let r2 = AST.extract rm 8<rt> 24
   let r3 = AST.extract rm 8<rt> 0
   let r4 = AST.extract rm 8<rt> 8
-  !!ir (rd := AST.revConcat [| r4; r3; r2; r1 |])
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (rd := AST.revConcat [| r4; r3; r2; r1 |])
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let revsh ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rd, rm) = transTwoOprs ins ctxt
+let revsh ins insLen bld =
+  let struct (rd, rm) = transTwoOprs ins bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let r1 = (AST.xtlo 8<rt> rm |> AST.sext 32<rt>) << numI32 8 32<rt>
   let r2 = AST.extract rm 8<rt> 8 |> AST.zext 32<rt>
-  !!ir (rd := r1 .| r2)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (rd := r1 .| r2)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let rfedb (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let rfedb (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let dst = transOneOpr ins ctxt
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let dst = transOneOpr ins bld
   let wback = ins.WriteBack
-  let struct (addr, newPcValue, spsr) = tmpVars3 ir 32<rt>
-  !!ir (addr := dst .- numI32 8 32<rt>)
-  !!ir (newPcValue := AST.loadLE 32<rt> addr)
-  !!ir (spsr := AST.loadLE 32<rt> (addr .+ numI32 4 32<rt>))
+  let struct (addr, newPcValue, spsr) = tmpVars3 bld 32<rt>
+  bld <+ (addr := dst .- numI32 8 32<rt>)
+  bld <+ (newPcValue := AST.loadLE 32<rt> addr)
+  bld <+ (spsr := AST.loadLE 32<rt> (addr .+ numI32 4 32<rt>))
   match wback with
-  | true -> !!ir (dst := dst .- numI32 8 32<rt>)
-  | _ -> !!ir (dst := dst)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  | true -> bld <+ (dst := dst .- numI32 8 32<rt>)
+  | _ -> bld <+ (dst := dst)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 /// Store register.
-let str ins insLen ctxt size =
-  let ir = !*ctxt
-  let struct (rt, addr, writeback) = parseOprOfLDR ins insLen ctxt
+let str ins insLen bld size =
+  let struct (rt, addr, writeback) = parseOprOfLDR ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  if rt = getPC ctxt then !!ir (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
-  elif size = 32<rt> then !!ir (AST.loadLE 32<rt> addr := rt)
-  else !!ir (AST.loadLE size addr := AST.xtlo size rt)
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  if rt = getPC bld then bld <+ (AST.loadLE 32<rt> addr := pcStoreValue bld)
+  elif size = 32<rt> then bld <+ (AST.loadLE 32<rt> addr := rt)
+  else bld <+ (AST.loadLE size addr := AST.xtlo size rt)
   match writeback with
-  | Some (basereg, Some newoffset) -> !!ir (basereg := newoffset)
-  | Some (basereg, None) -> !!ir (basereg := addr)
+  | Some (basereg, Some newoffset) -> bld <+ (basereg := newoffset)
+  | Some (basereg, None) -> bld <+ (basereg := addr)
   | None -> ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let strex ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rd, rt, addr, writeback) = parseOprOfLDRD ins insLen ctxt
+let strex ins insLen bld =
+  let struct (rd, rt, addr, writeback) = parseOprOfLDRD ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  if rt = getPC ctxt then !!ir (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
-  else !!ir (AST.loadLE 32<rt> addr := rt)
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  if rt = getPC bld then bld <+ (AST.loadLE 32<rt> addr := pcStoreValue bld)
+  else bld <+ (AST.loadLE 32<rt> addr := rt)
   match writeback with
-  | Some (basereg, Some newoffset) -> !!ir (basereg := newoffset)
-  | Some (basereg, None) -> !!ir (basereg := addr)
+  | Some (basereg, Some newoffset) -> bld <+ (basereg := newoffset)
+  | Some (basereg, None) -> bld <+ (basereg := addr)
   | None -> ()
-  !!ir (rd := AST.num0 32<rt>) (* XXX: always succeeds for now *)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (rd := AST.num0 32<rt>) (* XXX: always succeeds for now *)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let strd ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins insLen ctxt
+let strd ins insLen bld =
+  let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (AST.loadLE 32<rt> addr := rt)
-  !!ir (AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)) := rt2)
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (AST.loadLE 32<rt> addr := rt)
+  bld <+ (AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)) := rt2)
   match writeback with
-  | Some (basereg, Some newoffset) -> !!ir (basereg := newoffset)
-  | Some (basereg, None) -> !!ir (basereg := addr)
+  | Some (basereg, Some newoffset) -> bld <+ (basereg := newoffset)
+  | Some (basereg, None) -> bld <+ (basereg := addr)
   | None -> ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprOfSTM (ins: InsInfo) insLen ctxt =
+let parseOprOfSTM (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg reg, OprRegList regs) ->
-    getRegVar ctxt reg, regsToUInt32 regs
+    regVar bld reg, regsToUInt32 regs
   | _ -> raise InvalidOperandException
 
 let getSTMStartAddr rn msize = function
@@ -2679,160 +2605,154 @@ let getSTMStartAddr rn msize = function
   | Op.STMIB -> rn .+ (numI32 4 32<rt>)
   | _ -> raise InvalidOpcodeException
 
-let stmLoop ctxt regs wback rn addr (ir: IRBuilder) =
+let stmLoop bld regs wback rn addr =
   let loop addr count =
     if (regs >>> count) &&& 1u = 1u then
-      let ri = count |> uint32 |> OperandHelper.getRegister |> getRegVar ctxt
+      let ri = count |> uint32 |> OperandHelper.getRegister |> regVar bld
       if ri = rn && wback && count <> lowestSetBit regs 32 then
-        !!ir (AST.loadLE 32<rt> addr := (AST.undef 32<rt> "UNKNOWN"))
+        bld <+ (AST.loadLE 32<rt> addr := (AST.undef 32<rt> "UNKNOWN"))
       else
-        !!ir (AST.loadLE 32<rt> addr := ri)
+        bld <+ (AST.loadLE 32<rt> addr := ri)
       addr .+ (numI32 4 32<rt>)
     else addr
   List.fold loop addr [ 0 .. 14 ]
 
-let stm opcode ins insLen ctxt wbop =
-  let ir = !*ctxt
-  let taddr = !+ir 32<rt>
-  let rn, regs = parseOprOfSTM ins insLen ctxt
+let stm opcode ins insLen bld wbop =
+  let taddr = tmpVar bld 32<rt>
+  let rn, regs = parseOprOfSTM ins insLen bld
   let wback = ins.WriteBack
   let msize = numI32 (4 * bitCount regs 16) 32<rt>
   let addr = getSTMStartAddr rn msize opcode
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (taddr := addr)
-  let addr = stmLoop ctxt regs wback rn taddr ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (taddr := addr)
+  let addr = stmLoop bld regs wback rn taddr
   if (regs >>> 15 &&& 1u) = 1u then
-    !!ir (AST.loadLE 32<rt> addr := pcStoreValue ctxt)
+    bld <+ (AST.loadLE 32<rt> addr := pcStoreValue bld)
   else ()
-  if wback then !!ir (rn := wbop rn msize) else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  if wback then bld <+ (rn := wbop rn msize) else ()
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprOfCBZ (ins: InsInfo) insLen ctxt =
+let parseOprOfCBZ (ins: InsInfo) bld =
   let pc = bvOfBaseAddr ins.Address
   let offset = pcOffset ins |> int64
   match ins.Operands with
   | TwoOperands (OprReg rn, (OprMemory (LiteralMode imm))) ->
-    getRegVar ctxt rn, pc .+ (numI64 (imm + offset) 32<rt>)
+    regVar bld rn, pc .+ (numI64 (imm + offset) 32<rt>)
   | _ -> raise InvalidOperandException
 
-let cbz nonZero ins insLen ctxt =
-  let ir = !*ctxt
-  let lblL0 = !%ir "L0"
-  let lblL1 = !%ir "L1"
+let cbz nonZero ins insLen bld =
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
   let n = if nonZero then AST.num1 1<rt> else AST.num0 1<rt>
-  let rn, pc = parseOprOfCBZ ins insLen ctxt
+  let rn, pc = parseOprOfCBZ ins bld
   let cond = n <+> (rn == AST.num0 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  !!ir (AST.lmark lblL0)
-  !!ir (branchWritePC ctxt ins pc InterJmpKind.Base)
-  !!ir (AST.lmark lblL1)
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (branchWritePC bld ins pc InterJmpKind.Base)
+  bld <+ (AST.lmark lblL1)
   let fallAddr = ins.Address + uint64 ins.Length
   let fallAddrExp = numU64 fallAddr 32<rt>
-  !!ir (AST.interjmp fallAddrExp InterJmpKind.Base)
-  putEndLabelForBranch ctxt lblIgnore ins ir
-  !>ir insLen
+  bld <+ (AST.interjmp fallAddrExp InterJmpKind.Base)
+  putEndLabelForBranch bld lblIgnore ins
+  bld --!> insLen
 
-let parseOprOfTableBranch (ins: InsInfo) insLen ctxt =
+let parseOprOfTableBranch (ins: InsInfo) insLen bld =
   match ins.Operands with
   | OneOperand (OprMemory (OffsetMode (RegOffset (rn, None, rm, None)))) ->
-    let rn = getRegVar ctxt rn |> convertPCOpr ins insLen ctxt
-    let rm = getRegVar ctxt rm |> convertPCOpr ins insLen ctxt
+    let rn = regVar bld rn |> convertPCOpr ins bld
+    let rm = regVar bld rm |> convertPCOpr ins bld
     let addr = rn .+ rm
     AST.loadLE 8<rt> addr |> AST.zext 32<rt>
   | OneOperand (OprMemory (OffsetMode (RegOffset (rn,
                                                   None,
                                                   rm, Some (_, Imm i))))) ->
-    let rn = getRegVar ctxt rn |> convertPCOpr ins insLen ctxt
-    let rm = getRegVar ctxt rm |> convertPCOpr ins insLen ctxt
+    let rn = regVar bld rn |> convertPCOpr ins bld
+    let rm = regVar bld rm |> convertPCOpr ins bld
     let addr = rn .+ (shiftLSL rm 32<rt> i)
     AST.loadLE 16<rt> addr |> AST.zext 32<rt>
   | _ -> raise InvalidOperandException
 
-let tableBranch (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let tableBranch (ins: InsInfo) insLen bld =
   let offset = if ins.Mode = ArchOperationMode.ARMMode then 8 else 4
   let pc = bvOfBaseAddr ins.Address .+ (numI32 offset 32<rt>)
-  let halfwords = parseOprOfTableBranch ins insLen ctxt
+  let halfwords = parseOprOfTableBranch ins insLen bld
   let numTwo = numI32 2 32<rt>
   let result = pc .+ (numTwo .* halfwords)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (branchWritePC ctxt ins result InterJmpKind.Base)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (branchWritePC bld ins result InterJmpKind.Base)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprOfBFC (ins: InsInfo) insLen ctxt =
+let parseOprOfBFC (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprReg rd, OprImm lsb, OprImm width) ->
-    getRegVar ctxt rd, Convert.ToInt32 lsb, Convert.ToInt32 width
+    regVar bld rd, Convert.ToInt32 lsb, Convert.ToInt32 width
   | _ -> raise InvalidOperandException
 
-let bfc (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
-  let rd, lsb, width = parseOprOfBFC ins insLen ctxt
+let bfc (ins: InsInfo) insLen bld =
+  let rd, lsb, width = parseOprOfBFC ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (rd := replicate rd 32<rt> lsb width 0)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (rd := replicate rd 32<rt> lsb width 0)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprOfRdRnLsbWidth (ins: InsInfo) insLen ctxt =
+let parseOprOfRdRnLsbWidth (ins: InsInfo) insLen bld =
   match ins.Operands with
   | FourOperands (OprReg rd, OprReg rn, OprImm lsb, OprImm width) ->
-    getRegVar ctxt rd, getRegVar ctxt rn,
+    regVar bld rd, regVar bld rn,
     Convert.ToInt32 lsb, Convert.ToInt32 width
   | _ -> raise InvalidOperandException
 
-let bfi ins insLen ctxt =
-  let ir = !*ctxt
-  let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins insLen ctxt
-  let struct (t0, t1) = tmpVars2 ir 32<rt>
+let bfi ins insLen bld =
+  let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins insLen bld
+  let struct (t0, t1) = tmpVars2 bld 32<rt>
   let n = rn .& (BitVector.OfBInt (BigInteger.getMask width) 32<rt> |> AST.num)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t0 := n << (numI32 lsb 32<rt>))
-  !!ir (t1 := replicate rd 32<rt> lsb width 0)
-  !!ir (rd := t0 .| t1)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t0 := n << (numI32 lsb 32<rt>))
+  bld <+ (t1 := replicate rd 32<rt> lsb width 0)
+  bld <+ (rd := t0 .| t1)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let bfx ins insLen ctxt signExtend =
-  let ir = !*ctxt
-  let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins insLen ctxt
+let bfx ins insLen bld signExtend =
+  let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   if lsb + width - 1 > 31 || width < 0 then raise InvalidOperandException
   else ()
   let v = BitVector.OfBInt (BigInteger.getMask width) 32<rt> |> AST.num
-  !!ir (rd := (rn >> (numI32 lsb 32<rt>)) .& v)
+  bld <+ (rd := (rn >> (numI32 lsb 32<rt>)) .& v)
   if signExtend && width > 1 then
-    let struct (msb, mask) = tmpVars2 ir 32<rt>
+    let struct (msb, mask) = tmpVars2 bld 32<rt>
     let msboffset = numI32 (lsb + width - 1) 32<rt>
     let shift = numI32 width 32<rt>
-    !!ir (msb := (rn >> msboffset) .& AST.num1 32<rt>)
-    !!ir (mask := (AST.not (msb .- AST.num1 32<rt>)) << shift)
-    !!ir (rd := rd .| mask)
+    bld <+ (msb := (rn >> msboffset) .& AST.num1 32<rt>)
+    bld <+ (mask := (AST.not (msb .- AST.num1 32<rt>)) << shift)
+    bld <+ (rd := rd .| mask)
   else ()
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprOfUqOpr ctxt = function
+let parseOprOfUqOpr bld = function
   | ThreeOperands (OprReg rd, OprReg rn, OprReg rm) ->
-    getRegVar ctxt rd, getRegVar ctxt rn, getRegVar ctxt rm
+    regVar bld rd, regVar bld rn, regVar bld rm
   | _ -> raise InvalidOperandException
 
-let createTemporaries (ir: IRBuilder) cnt regtype =
-  Array.init cnt (fun _ -> !+ir regtype)
+let createTemporaries bld cnt regtype =
+  Array.init cnt (fun _ -> tmpVar bld regtype)
 
 let extractUQOps r width =
   let typ = RegType.fromBitWidth width
@@ -2853,25 +2773,24 @@ let getUQAssignment tmps width =
        (AST.zext 32<rt> t) << (numI32 (idx * width) 32<rt>))
   |> Array.reduce (.|)
 
-let uqopr (ins: InsInfo) insLen ctxt width opr =
-  let ir = !*ctxt
-  let rd, rn, rm = parseOprOfUqOpr ctxt ins.Operands
-  let tmps = createTemporaries ir (32 / width) 32<rt>
-  let sats = createTemporaries ir (32 / width) (RegType.fromBitWidth width)
+let uqopr (ins: InsInfo) insLen bld width opr =
+  let rd, rn, rm = parseOprOfUqOpr bld ins.Operands
+  let tmps = createTemporaries bld (32 / width) 32<rt>
+  let sats = createTemporaries bld (32 / width) (RegType.fromBitWidth width)
   let rns = extractUQOps rn width
   let rms = extractUQOps rm width
   let diffs = Array.map2 opr rns rms
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  Array.iter2 (fun tmp diff -> !!ir (tmp := diff)) tmps diffs
-  Array.iter2 (fun s t -> !!ir (s := saturate t width)) sats tmps
-  !!ir (rd := getUQAssignment sats width)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  Array.iter2 (fun tmp diff -> bld <+ (tmp := diff)) tmps diffs
+  Array.iter2 (fun s t -> bld <+ (s := saturate t width)) sats tmps
+  bld <+ (rd := getUQAssignment sats width)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 /// ADR For ThumbMode (T1 case)
-let parseOprOfADR (ins: InsInfo) insLen ctxt =
+let parseOprOfADR (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg rd, OprMemory (LiteralMode imm)) ->
     let addr = bvOfBaseAddr ins.Address
@@ -2880,94 +2799,88 @@ let parseOprOfADR (ins: InsInfo) insLen ctxt =
     let pc = align addr (numI32 4 32<rt>)
     let imm = numI64 imm 32<rt>
     let pc = if ins.IsAdd then pc .+ imm else pc .- imm
-    getRegVar ctxt rd, pc
+    regVar bld rd, pc
   | _ -> raise InvalidOperandException
 
-let it (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
-  let cpsr = getRegVar ctxt R.CPSR
+let it (ins: InsInfo) insLen bld =
+  let cpsr = regVar bld R.CPSR
   let itState = numI32 (int ins.ITState) 32<rt>
   let mask10 = numI32 0b11 32<rt>
   let mask72 = (numI32 0b11111100 32<rt>)
   let itState10 = itState .& mask10
   let itState72 = (itState .& mask72) >> (numI32 2 32<rt>)
-  !<ir ins.Address insLen
-  !!ir (cpsr := itState10 |> setPSR ctxt R.CPSR PSR.IT10)
-  !!ir (cpsr := itState72 |> setPSR ctxt R.CPSR PSR.IT72)
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  bld <+ (cpsr := itState10 |> setPSR bld R.CPSR PSR.IT10)
+  bld <+ (cpsr := itState72 |> setPSR bld R.CPSR PSR.IT72)
+  bld --!> insLen
 
-let adr ins insLen ctxt =
-  let ir = !*ctxt
-  let rd, result = parseOprOfADR ins insLen ctxt
+let adr ins insLen bld =
+  let rd, result = parseOprOfADR ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  if rd = getPC ctxt then aluWritePC ctxt ins isUnconditional result ir
-  else !!ir (rd := result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  if rd = getPC bld then aluWritePC bld ins isUnconditional result
+  else bld <+ (rd := result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let mls ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rd, rn, rm, ra) = transFourOprs ins ctxt
-  let r = !+ir 32<rt>
+let mls ins insLen bld =
+  let struct (rd, rn, rm, ra) = transFourOprs ins bld
+  let r = tmpVar bld 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (r := AST.xtlo 32<rt> (AST.zext 64<rt> ra .- AST.zext 64<rt> rn .*
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (r := AST.xtlo 32<rt> (AST.zext 64<rt> ra .- AST.zext 64<rt> rn .*
                                      AST.zext 64<rt> rm))
-  !!ir (rd := r)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (rd := r)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprOfExtend (ins: InsInfo) insLen ctxt =
+let parseOprOfExtend (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg rd, OprReg rm) ->
-    getRegVar ctxt rd, getRegVar ctxt rm, 0u
+    regVar bld rd, regVar bld rm, 0u
   | ThreeOperands (OprReg rd, OprReg rm, OprShift (_, Imm i)) ->
-    getRegVar ctxt rd, getRegVar ctxt rm, i
+    regVar bld rd, regVar bld rm, i
   | _ -> raise InvalidOperandException
 
-let extend (ins: InsInfo) insLen ctxt extractfn amount =
-  let ir = !*ctxt
-  let rd, rm, rotation = parseOprOfExtend ins insLen ctxt
+let extend (ins: InsInfo) insLen bld extractfn amount =
+  let rd, rm, rotation = parseOprOfExtend ins insLen bld
   let rotated = shiftROR rm 32<rt> rotation
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (rd := extractfn 32<rt> (AST.xtlo amount rotated))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (rd := extractfn 32<rt> (AST.xtlo amount rotated))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let uxtb16 ins insLen ctxt =
-  let ir = !*ctxt
-  let rd, rm, rotation = parseOprOfExtend ins insLen ctxt
+let uxtb16 ins insLen bld =
+  let rd, rm, rotation = parseOprOfExtend ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let rotated = shiftROR rm 32<rt> rotation
   let r1 = AST.xtlo 8<rt> rotated |> AST.zext 32<rt>
   let r2 = (AST.extract rotated 8<rt> 16 |> AST.zext 32<rt>) << numI32 16 32<rt>
-  !!ir (rd := r2 .| r1)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (rd := r2 .| r1)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprOfXTA (ins: InsInfo) insLen ctxt =
+let parseOprOfXTA (ins: InsInfo) insLen bld =
   match ins.Operands with
   | FourOperands (OprReg rd, OprReg rn, OprReg rm, OprShift (_, Imm i)) ->
-    getRegVar ctxt rd, getRegVar ctxt rn, getRegVar ctxt rm, i
+    regVar bld rd, regVar bld rn, regVar bld rm, i
   | _ -> raise InvalidOperandException
 
-let extendAndAdd (ins: InsInfo) insLen ctxt amount =
-  let ir = !*ctxt
-  let rd, rn, rm, rotation = parseOprOfXTA ins insLen ctxt
+let extendAndAdd (ins: InsInfo) insLen bld amount =
+  let rd, rn, rm, rotation = parseOprOfXTA ins insLen bld
   let rotated = shiftROR rm 32<rt> rotation
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (rd := rn .+ AST.zext 32<rt> (AST.xtlo amount rotated))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (rd := rn .+ AST.zext 32<rt> (AST.xtlo amount rotated))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 let checkSingleReg = function
   | R.S0 | R.S1 | R.S2 | R.S3 | R.S4 | R.S5 | R.S6 | R.S7 | R.S8 | R.S9
@@ -2976,57 +2889,55 @@ let checkSingleReg = function
   | R.S28 | R.S29 | R.S30 | R.S31 -> true
   | _ -> false
 
-let parseOprOfVLDR (ins: InsInfo) insLen ctxt =
+let parseOprOfVLDR (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprSIMD (SFReg (Vector d)),
                  OprMemory (OffsetMode (ImmOffset (rn, s, imm)))) ->
-    let pc = getRegVar ctxt rn |> convertPCOpr ins insLen ctxt
+    let pc = regVar bld rn |> convertPCOpr ins bld
     let baseAddr = align pc (numI32 4 32<rt>)
-    getRegVar ctxt d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
+    regVar bld d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ -> raise InvalidOperandException
 
-let vldr ins insLen ctxt =
-  let ir = !*ctxt
-  let rd, addr, isSReg = parseOprOfVLDR ins insLen ctxt
+let vldr ins insLen bld =
+  let rd, addr, isSReg = parseOprOfVLDR ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   if isSReg then
-    let data = !+ir 32<rt>
-    !!ir (data := AST.loadLE 32<rt> addr)
-    !!ir (rd := data)
+    let data = tmpVar bld 32<rt>
+    bld <+ (data := AST.loadLE 32<rt> addr)
+    bld <+ (rd := data)
   else
-    let struct (d1, d2) = tmpVars2 ir 32<rt>
-    !!ir (d1 := AST.loadLE 32<rt> addr)
-    !!ir (d2 := AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)))
-    !!ir (rd := if ctxt.Endianness = Endian.Big then AST.concat d1 d2
-                else AST.concat d2 d1)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let struct (d1, d2) = tmpVars2 bld 32<rt>
+    bld <+ (d1 := AST.loadLE 32<rt> addr)
+    bld <+ (d2 := AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)))
+    bld <+ (rd := if bld.Endianness = Endian.Big then AST.concat d1 d2
+                  else AST.concat d2 d1)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprOfVSTR (ins: InsInfo) insLen ctxt =
+let parseOprOfVSTR (ins: InsInfo) bld =
   match ins.Operands with
   | TwoOperands (OprSIMD (SFReg (Vector d)),
                  OprMemory (OffsetMode (ImmOffset (rn, s, imm)))) ->
-    let baseAddr = getRegVar ctxt rn
-    getRegVar ctxt d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
+    let baseAddr = regVar bld rn
+    regVar bld d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ -> raise InvalidOperandException
 
-let vstr (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
-  let rd, addr, isSReg = parseOprOfVSTR ins insLen ctxt
+let vstr (ins: InsInfo) insLen bld =
+  let rd, addr, isSReg = parseOprOfVSTR ins bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  if isSReg then !!ir (AST.loadLE 32<rt> addr := rd)
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  if isSReg then bld <+ (AST.loadLE 32<rt> addr := rd)
   else
     let mem1 = AST.loadLE 32<rt> addr
     let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
-    let isbig = ctxt.Endianness = Endian.Big
-    !!ir (mem1 := if isbig then AST.xthi 32<rt> rd else AST.xtlo 32<rt> rd)
-    !!ir (mem2 := if isbig then AST.xtlo 32<rt> rd else AST.xthi 32<rt> rd)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let isbig = bld.Endianness = Endian.Big
+    bld <+ (mem1 := if isbig then AST.xthi 32<rt> rd else AST.xtlo 32<rt> rd)
+    bld <+ (mem2 := if isbig then AST.xtlo 32<rt> rd else AST.xthi 32<rt> rd)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 let parseOprOfVPUSHVPOP (ins: InsInfo) =
   match ins.Operands with
@@ -3114,12 +3025,12 @@ let parsePUSHPOPsubValue ins =
           else getVFPDRegisterToInt regs.Head
   d, imm, isSReg
 
-let vpopLoop ctxt d imm isSReg addr (ir: IRBuilder) =
+let vpopLoop bld d imm isSReg addr =
   let rec singleRegLoop r addr =
     if r < imm then
       let reg = d + r |> byte |> OperandHelper.getVFPSRegister
       let nextAddr = (addr .+ (numI32 4 32<rt>))
-      !!ir (getRegVar ctxt reg := AST.loadLE 32<rt> addr)
+      bld <+ (regVar bld reg := AST.loadLE 32<rt> addr)
       singleRegLoop (r + 1) nextAddr
     else ()
   let rec nonSingleRegLoop r addr =
@@ -3128,35 +3039,34 @@ let vpopLoop ctxt d imm isSReg addr (ir: IRBuilder) =
       let word1 = AST.loadLE 32<rt> addr
       let word2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
       let nextAddr = addr .+ (numI32 8 32<rt>)
-      let isbig = ctxt.Endianness = Endian.Big
-      !!ir (getRegVar ctxt reg := if isbig then AST.concat word1 word2
-                                  else AST.concat word2 word1)
+      let isbig = bld.Endianness = Endian.Big
+      bld <+ (regVar bld reg := if isbig then AST.concat word1 word2
+                                   else AST.concat word2 word1)
       nonSingleRegLoop (r + 1) nextAddr
     else ()
   let loopFn = if isSReg then singleRegLoop else nonSingleRegLoop
   loopFn 0 addr
 
-let vpop ins insLen ctxt =
-  let ir = !*ctxt // FIXME
-  let t0 = !+ir 32<rt>
-  let sp = getRegVar ctxt R.SP
+let vpop ins insLen bld =
+  let t0 = tmpVar bld 32<rt>
+  let sp = regVar bld R.SP
   let d, imm, isSReg = parsePUSHPOPsubValue ins
   let addr = sp
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t0 := addr)
-  !!ir (sp := addr .+ (numI32 (imm <<< 2) 32<rt>))
-  vpopLoop ctxt d imm isSReg t0 ir
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t0 := addr)
+  bld <+ (sp := addr .+ (numI32 (imm <<< 2) 32<rt>))
+  vpopLoop bld d imm isSReg t0
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vpushLoop ctxt d imm isSReg addr (ir: IRBuilder) =
+let vpushLoop bld d imm isSReg addr =
   let rec singleRegLoop r addr =
     if r < imm then
       let reg = d + r |> byte |> OperandHelper.getVFPSRegister
       let nextAddr = (addr .+ (numI32 4 32<rt>))
-      !!ir (AST.loadLE 32<rt> addr := getRegVar ctxt reg)
+      bld <+ (AST.loadLE 32<rt> addr := regVar bld reg)
       singleRegLoop (r + 1) nextAddr
     else ()
   let rec nonSingleRegLoop r addr =
@@ -3165,69 +3075,66 @@ let vpushLoop ctxt d imm isSReg addr (ir: IRBuilder) =
       let mem1 = AST.loadLE 32<rt> addr
       let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
       let nextAddr = addr .+ (numI32 8 32<rt>)
-      let isbig = ctxt.Endianness = Endian.Big
-      let data1 = AST.xthi 32<rt> (getRegVar ctxt reg)
-      let data2 = AST.xtlo 32<rt> (getRegVar ctxt reg)
-      !!ir (mem1 := if isbig then data1 else data2)
-      !!ir (mem2 := if isbig then data2 else data1)
+      let isbig = bld.Endianness = Endian.Big
+      let data1 = AST.xthi 32<rt> (regVar bld reg)
+      let data2 = AST.xtlo 32<rt> (regVar bld reg)
+      bld <+ (mem1 := if isbig then data1 else data2)
+      bld <+ (mem2 := if isbig then data2 else data1)
       nonSingleRegLoop (r + 1) nextAddr
     else ()
   let loopFn = if isSReg then singleRegLoop else nonSingleRegLoop
   loopFn 0 addr
 
-let vpush ins insLen ctxt =
-  let ir = !*ctxt // FIXME
-  let t0 = !+ir 32<rt>
-  let sp = getRegVar ctxt R.SP
+let vpush ins insLen bld =
+  let t0 = tmpVar bld 32<rt>
+  let sp = regVar bld R.SP
   let d, imm, isSReg = parsePUSHPOPsubValue ins
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  !!ir (t0 := sp .- (numI32 (imm <<< 2) 32<rt>))
-  !!ir (sp := t0)
-  vpushLoop ctxt d imm isSReg t0 ir
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (t0 := sp .- (numI32 (imm <<< 2) 32<rt>))
+  bld <+ (sp := t0)
+  vpushLoop bld d imm isSReg t0
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprOfVAND (ins: InsInfo) insLen ctxt =
+let parseOprOfVAND (ins: InsInfo) bld =
   match ins.Operands with
   | ThreeOperands
       (OprSIMD (SFReg (Vector r1)), OprSIMD (SFReg (Vector r2)),
         OprSIMD (SFReg (Vector r3))) ->
-            getRegVar ctxt r1, getRegVar ctxt r2, getRegVar ctxt r3
+            regVar bld r1, regVar bld r2, regVar bld r3
   | _ -> raise InvalidOperandException
 
-let vand (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vand (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
-    !!ir (dstA := src1A .& src2A)
-    !!ir (dstB := src1B .& src2B)
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
+    bld <+ (dstA := src1A .& src2A)
+    bld <+ (dstB := src1B .& src2B)
   | _ ->
-    let dst, src1, src2 = parseOprOfVAND ins insLen ctxt
-    !!ir (dst := src1 .& src2)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let dst, src1, src2 = parseOprOfVAND ins bld
+    bld <+ (dst := src1 .& src2)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vmrs ins insLen ctxt =
-  let ir = !*ctxt
-  let struct (rt, fpscr) = transTwoOprs ins ctxt
-  let cpsr = getRegVar ctxt R.CPSR
+let vmrs ins insLen bld =
+  let struct (rt, fpscr) = transTwoOprs ins bld
+  let cpsr = regVar bld R.CPSR
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  if rt <> cpsr then !!ir (rt := fpscr)
-  else !!ir (cpsr := disablePSRBits ctxt R.CPSR PSR.Cond .|
-                           getPSR ctxt R.FPSCR PSR.Cond)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  if rt <> cpsr then bld <+ (rt := fpscr)
+  else bld <+ (cpsr := disablePSRBits bld R.CPSR PSR.Cond .|
+                           getPSR bld R.FPSCR PSR.Cond)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 type ParsingInfo = {
   EBytes: int
@@ -3294,89 +3201,87 @@ let isUnsigned = function
   | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTyp64) -> false
   | _ -> raise InvalidOperandException
 
-let parseOprOfVMOV (ins: InsInfo) ctxt ir =
+let parseOprOfVMOV (ins: InsInfo) bld =
   match ins.Operands with
   (* VMOV (immediate) *)
   | TwoOperands (OprSIMD _, OprImm _) ->
     let struct (dst, imm) = getTwoOprs ins
     match ins.OprSize with
     | 128<rt> ->
-      let dstB, dstA = transOprToExpr128 ctxt dst
-      let imm = transOprToExpr ins ctxt imm
-      !!ir (dstB := imm)
-      !!ir (dstA := imm)
+      let struct (dstB, dstA) = transOprToExpr128 bld dst
+      let imm = transOprToExpr ins bld imm
+      bld <+ (dstB := imm)
+      bld <+ (dstA := imm)
     | _ ->
-      let dst = transOprToExpr ins ctxt dst
-      let imm = transOprToExpr ins ctxt imm
-      !!ir (dst := imm)
+      let dst = transOprToExpr ins bld dst
+      let imm = transOprToExpr ins bld imm
+      bld <+ (dst := imm)
   (* VMOV (general-purpose register to scalar) *)
   | TwoOperands (OprSIMD (SFReg (Scalar (_, Some element))), OprReg _) ->
-    let struct (dst, src) = transTwoOprs ins ctxt
+    let struct (dst, src) = transTwoOprs ins bld
     let p = getParsingInfo ins
     let index = int element
-    !!ir (elem dst index p.ESize := AST.xtlo p.RtESize src)
+    bld <+ (elem dst index p.ESize := AST.xtlo p.RtESize src)
   (* VMOV (scalar to general-purpose register) *)
   | TwoOperands (OprReg _, OprSIMD (SFReg (Scalar (_, Some element)))) ->
-    let struct (dst, src) = transTwoOprs ins ctxt
+    let struct (dst, src) = transTwoOprs ins bld
     let p = getParsingInfo ins
     let index = int element
     let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
-    !!ir (dst := extend 32<rt> (elem src index p.ESize))
+    bld <+ (dst := extend 32<rt> (elem src index p.ESize))
   (* VMOV (between general-purpose register and single-precision) *)
   | TwoOperands _ ->
-    let struct (dst, src) = transTwoOprs ins ctxt
-    !!ir (dst := src)
+    let struct (dst, src) = transTwoOprs ins bld
+    bld <+ (dst := src)
   (* VMOV (between two general-purpose registers and a doubleword
     floating-point register) *)
   | ThreeOperands (OprSIMD _, OprReg _, OprReg _) ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    !!ir (AST.xtlo 32<rt> dst := src1)
-    !!ir (AST.xthi 32<rt> dst := src2)
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    bld <+ (AST.xtlo 32<rt> dst := src1)
+    bld <+ (AST.xthi 32<rt> dst := src2)
   | ThreeOperands (OprReg _, OprReg _, OprSIMD _) ->
-    let struct (dst1, dst2, src) = transThreeOprs ins ctxt
-    !!ir (dst1 := AST.xtlo 32<rt> src)
-    !!ir (dst2 := AST.xthi 32<rt> src)
+    let struct (dst1, dst2, src) = transThreeOprs ins bld
+    bld <+ (dst1 := AST.xtlo 32<rt> src)
+    bld <+ (dst2 := AST.xthi 32<rt> src)
   (* VMOV (between two general-purpose registers and two single-precision
     registers) *)
   | FourOperands _ ->
-    let struct (dst1, dst2, src1, src2) = transFourOprs ins ctxt
-    !!ir (dst1 := src1)
-    !!ir (dst2 := src2)
+    let struct (dst1, dst2, src1, src2) = transFourOprs ins bld
+    bld <+ (dst1 := src1)
+    bld <+ (dst2 := src2)
   | _ -> raise InvalidOperandException
 
-let parseOprOfVMOVFP (ins: InsInfo) ctxt ir =
+let parseOprOfVMOVFP (ins: InsInfo) bld =
   match ins.Operands with
   (* VMOV (between general-purpose register and half-precision) *)
   | TwoOperands (OprSIMD _, OprReg _) | TwoOperands (OprReg _, OprSIMD _) ->
-    let struct (dst, src) = transTwoOprs ins ctxt
-    !!ir (dst := AST.zext 32<rt> (AST.xtlo 16<rt> src))
+    let struct (dst, src) = transTwoOprs ins bld
+    bld <+ (dst := AST.zext 32<rt> (AST.xtlo 16<rt> src))
   (* VMOV (register) *)
   | TwoOperands (OprSIMD _, OprSIMD _) ->
-    let struct (dst, src) = transTwoOprs ins ctxt
-    !!ir (dst := src)
+    let struct (dst, src) = transTwoOprs ins bld
+    bld <+ (dst := src)
   (* VMOV (immediate) *)
   | TwoOperands (OprSIMD _, OprImm _) ->
-    let struct (dst, imm) = transTwoOprs ins ctxt
-    !!ir (dst := AST.zext ins.OprSize imm)
-  | _ -> !!ir (AST.sideEffect UnsupportedFP)
+    let struct (dst, imm) = transTwoOprs ins bld
+    bld <+ (dst := AST.zext ins.OprSize imm)
+  | _ -> bld <+ (AST.sideEffect UnsupportedFP)
 
-let vmov (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vmov (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  parseOprOfVMOV ins ctxt ir
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  parseOprOfVMOV ins bld
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vmovfp (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vmovfp (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  parseOprOfVMOVFP ins ctxt ir
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  parseOprOfVMOVFP ins bld
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 (* VMOV(immediate)/VMOV(register) *)
 let isF32orF64 = function
@@ -3392,93 +3297,90 @@ let isF16orF32orF64 = function
 let private absExpr expr size =
   AST.ite (AST.slt expr (AST.num0 size)) (AST.neg expr) (expr)
 
-let vabs (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vabs (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src) = getTwoOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let srcB, srcA = transOprToExpr128 ctxt src
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (srcB, srcA) = transOprToExpr128 bld src
     for e in 0 .. p.Elements - 1 do
-      !!ir (elem dstB e p.ESize := absExpr (elem srcB e p.ESize) p.RtESize)
-      !!ir (elem dstA e p.ESize := absExpr (elem srcA e p.ESize) p.RtESize)
+      bld <+ (elem dstB e p.ESize := absExpr (elem srcB e p.ESize) p.RtESize)
+      bld <+ (elem dstA e p.ESize := absExpr (elem srcA e p.ESize) p.RtESize)
   | _ ->
-    let struct (dst, src) = transTwoOprs ins ctxt
+    let struct (dst, src) = transTwoOprs ins bld
     for e in 0 .. p.Elements - 1 do
-      !!ir (elem dst e p.ESize := absExpr (elem src e p.ESize) p.RtESize)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := absExpr (elem src e p.ESize) p.RtESize)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vaddsub (ins: InsInfo) insLen ctxt opFn =
-  let ir = !*ctxt
+let vaddsub (ins: InsInfo) insLen bld opFn =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   match ins.OprSize with
   (* FP, p.ESize 16 *)
   | 32<rt> when p.ESize = 16 ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    !!ir (dst :=
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    bld <+ (dst :=
       AST.zext 32<rt> (opFn (AST.xtlo 16<rt> src1) (AST.xtlo 16<rt> src2)))
   (* FP, p.ESize 32 *)
   | 32<rt> ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    !!ir (dst := opFn src1 src2)
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    bld <+ (dst := opFn src1 src2)
   (* FP, p.ESize 64 *)
   | 64<rt> when p.ESize = 64 ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    !!ir (dst := opFn src1 src2)
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    bld <+ (dst := opFn src1 src2)
   (* SIMD *)
   | 64<rt> ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    let struct (dst, src1, src2) = transThreeOprs ins bld
     for e in 0 .. p.Elements - 1 do
       let elem value = elem value e p.ESize
-      !!ir (elem dst := (opFn (elem src1) (elem src2)))
+      bld <+ (elem dst := (opFn (elem src1) (elem src2)))
   (* SIMD *)
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
     for e in 0 .. p.Elements - 1 do
       let elem expr = elem expr e p.ESize
-      !!ir (elem dstB := (opFn (elem src1B) (elem src2B)))
-      !!ir (elem dstA := (opFn (elem src1A) (elem src2A)))
+      bld <+ (elem dstB := (opFn (elem src1B) (elem src2B)))
+      bld <+ (elem dstA := (opFn (elem src1A) (elem src2A)))
   | _ -> raise InvalidOperandException
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vaddl (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vaddl (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let struct (dst, src1, src2) = getThreeOprs ins
-  let dstB, dstA = transOprToExpr128 ctxt dst
-  let src1 = transOprToExpr ins ctxt src1
-  let src2 = transOprToExpr ins ctxt src2
+  let struct (dstB, dstA) = transOprToExpr128 bld dst
+  let src1 = transOprToExpr ins bld src1
+  let src2 = transOprToExpr ins bld src2
   for e in 0 .. (p.Elements - 1) / 2 do
-    !!ir (elem dstA e (2 * p.ESize) :=
+    bld <+ (elem dstA e (2 * p.ESize) :=
       AST.zext (p.RtESize * 2) (elem src1 e p.ESize) .+
       AST.zext (p.RtESize * 2) (elem src2 e p.ESize))
-    !!ir (elem dstB e (2 * p.ESize) :=
+    bld <+ (elem dstB e (2 * p.ESize) :=
       AST.zext (p.RtESize * 2) (elem src1 (e + p.Elements / 2) p.ESize) .+
       AST.zext (p.RtESize * 2) (elem src2 (e + p.Elements / 2) p.ESize))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 let isDoubleToSingle = function
   | Some (TwoDT (SIMDTypF32, SIMDTypF64)) -> true
   | Some (TwoDT (SIMDTypF64, SIMDTypF32)) -> false
   | _ -> raise InvalidOperandException
 
-let parseOprOfVCVT (ins: InsInfo) ctxt ir =
+let parseOprOfVCVT (ins: InsInfo) bld =
   (* FIXME *)
   match ins.Operands with
   | TwoOperands(OprSIMD _, OprSIMD _) ->
@@ -3487,151 +3389,148 @@ let parseOprOfVCVT (ins: InsInfo) ctxt ir =
     (* VCVT (between half-precision and single-precision, Advanced SIMD) *)
     | 128<rt> ->
       let struct (dst, src) = getTwoOprs ins
-      let dstB, dstA = transOprToExpr128 ctxt dst
-      let src = transOprToExpr ins ctxt src
+      let struct (dstB, dstA) = transOprToExpr128 bld dst
+      let src = transOprToExpr ins bld src
       let p = getParsingInfo ins
-      let struct (tdstB, tdstA) = tmpVars2 ir 64<rt>
-      !!ir (tdstA := (dstB << numI32 63 64<rt>) .| (dstA >> AST.num1 64<rt>))
-      !!ir (tdstB := dstB >> AST.num1 64<rt>)
+      let struct (tdstB, tdstA) = tmpVars2 bld 64<rt>
+      bld <+ (tdstA := (dstB << numI32 63 64<rt>) .| (dstA >> AST.num1 64<rt>))
+      bld <+ (tdstB := dstB >> AST.num1 64<rt>)
       for e in 0 .. (p.Elements - 1) / 2 do
-        !!ir (elem tdstB e 32 :=
+        bld <+ (elem tdstB e 32 :=
           AST.cast CastKind.FloatCast 32<rt> (elem src (e + 2) 16))
-        !!ir (elem tdstA e 32 :=
+        bld <+ (elem tdstA e 32 :=
           AST.cast CastKind.FloatCast 32<rt> (elem src e 16))
-      !!ir (dstB := tdstB)
-      !!ir (dstA := tdstA)
+      bld <+ (dstB := tdstB)
+      bld <+ (dstA := tdstA)
     | 64<rt> ->
       let struct (dst, src) = getTwoOprs ins
-      let dst = transOprToExpr ins ctxt dst
-      let srcB, srcA = transOprToExpr128 ctxt src
+      let dst = transOprToExpr ins bld dst
+      let struct (srcB, srcA) = transOprToExpr128 bld src
       let p = getParsingInfo ins
-      let struct (tsrcB, tsrcA) = tmpVars2 ir 64<rt>
-      !!ir (tsrcA := (srcB << numI32 63 64<rt>) .| (srcA >> AST.num1 64<rt>))
-      !!ir (tsrcB := srcB >> AST.num1 64<rt>)
+      let struct (tsrcB, tsrcA) = tmpVars2 bld 64<rt>
+      bld <+ (tsrcA := (srcB << numI32 63 64<rt>) .| (srcA >> AST.num1 64<rt>))
+      bld <+ (tsrcB := srcB >> AST.num1 64<rt>)
       for e in 0 .. (p.Elements - 1) / 2 do
-        !!ir (elem dst (e + 2) 16 :=
+        bld <+ (elem dst (e + 2) 16 :=
           AST.cast CastKind.FloatCast 16<rt> (elem tsrcB e 32))
-        !!ir (elem dst e 16 :=
+        bld <+ (elem dst e 16 :=
           AST.cast CastKind.FloatCast 16<rt> (elem tsrcA e 32))
     (* VCVT (between double-precision and single-precision) *)
     | _ ->
-      let struct (dst, src) = transTwoOprs ins ctxt
+      let struct (dst, src) = transTwoOprs ins bld
       let cast =
         if isDoubleToSingle ins.SIMDTyp then AST.cast CastKind.FloatCast 32<rt>
         else AST.cast CastKind.FloatCast 64<rt>
-      !!ir (dst := cast src)
+      bld <+ (dst := cast src)
   | _ -> raise InvalidOperandException
 
-let vcvt (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vcvt (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  parseOprOfVCVT ins ctxt ir
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  parseOprOfVCVT ins bld
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprOfVDUP (ins: InsInfo) insLen ctxt esize =
+let parseOprOfVDUP (ins: InsInfo) insLen bld esize =
   match ins.Operands with
   | TwoOperands (OprSIMD (SFReg (Vector dst)),
                  OprSIMD (SFReg (Scalar (src, Some idx)))) ->
-    getRegVar ctxt dst, elem (getRegVar ctxt src) (int32 idx) esize
+    regVar bld dst, elem (regVar bld src) (int32 idx) esize
   | TwoOperands (OprSIMD (SFReg (Vector dst)), OprReg src) ->
-    getRegVar ctxt dst,
-    AST.xtlo (RegType.fromBitWidth esize) (getRegVar ctxt src)
+    regVar bld dst,
+    AST.xtlo (RegType.fromBitWidth esize) (regVar bld src)
   | _ -> raise InvalidOperandException
 
-let parseOprOfVDUP128 (ins: InsInfo) insLen ctxt esize =
+let parseOprOfVDUP128 (ins: InsInfo) bld esize =
   match ins.Operands with
   | TwoOperands (OprSIMD (SFReg (Vector dst)),
                  OprSIMD (SFReg (Scalar (src, Some idx)))) ->
-    getPseudoRegVar128 ctxt dst, elem (getRegVar ctxt src) (int32 idx) esize
+    let struct (rb, ra) = pseudoRegVar128 bld dst
+    struct (rb, ra, elem (regVar bld src) (int32 idx) esize)
   | TwoOperands (OprSIMD (SFReg (Vector dst)), OprReg src) ->
-    getPseudoRegVar128 ctxt dst,
-    AST.xtlo (RegType.fromBitWidth esize) (getRegVar ctxt src)
+    let struct (rb, ra) = pseudoRegVar128 bld dst
+    struct (rb, ra, AST.xtlo (RegType.fromBitWidth esize) (regVar bld src))
   | _ -> raise InvalidOperandException
 
-let vdiv (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vdiv (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   match p.ESize with
   | 16 ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    !!ir (dst :=
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    bld <+ (dst :=
       AST.zext 32<rt> (AST.fdiv (AST.xtlo 16<rt> src1) (AST.xtlo 16<rt> src2)))
   | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    !!ir (dst := AST.fdiv src1 src2)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    bld <+ (dst := AST.fdiv src1 src2)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vdup (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vdup (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   match ins.OprSize with
   | 128<rt> ->
-    let (dstB, dstA), scalar = parseOprOfVDUP128 ins insLen ctxt p.ESize
+    let struct (dstB, dstA, scalar) = parseOprOfVDUP128 ins bld p.ESize
     for e in 0 .. p.Elements - 1 do
-      !!ir (elem dstB e p.ESize := scalar)
-      !!ir (elem dstA e p.ESize := scalar)
+      bld <+ (elem dstB e p.ESize := scalar)
+      bld <+ (elem dstA e p.ESize := scalar)
   | _ ->
-    let dst, scalar = parseOprOfVDUP ins insLen ctxt p.ESize
-    for e in 0 .. p.Elements - 1 do !!ir (elem dst e p.ESize := scalar) done
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let dst, scalar = parseOprOfVDUP ins insLen bld p.ESize
+    for e in 0 .. p.Elements - 1 do bld <+ (elem dst e p.ESize := scalar) done
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let highestSetBitForIR dst src width oprSz (ir: IRBuilder) =
-  let lblLoop = !%ir "Loop"
-  let lblLoopCont = !%ir "LoopContinue"
-  let lblUpdateTmp = !%ir "UpdateTmp"
-  let lblEnd = !%ir "End"
-  let t = !+ir oprSz
+let highestSetBitForIR dst src width oprSz bld =
+  let lblLoop = label bld "Loop"
+  let lblLoopCont = label bld "LoopContinue"
+  let lblUpdateTmp = label bld "UpdateTmp"
+  let lblEnd = label bld "End"
+  let t = tmpVar bld oprSz
   let width = (numI32 (width - 1) oprSz)
-  !!ir (t := width)
-  !!ir (AST.lmark lblLoop)
-  !!ir (AST.cjmp (src >> t == AST.num1 oprSz)
+  bld <+ (t := width)
+  bld <+ (AST.lmark lblLoop)
+  bld <+ (AST.cjmp (src >> t == AST.num1 oprSz)
                        (AST.jmpDest lblEnd) (AST.jmpDest lblLoopCont))
-  !!ir (AST.lmark lblLoopCont)
-  !!ir (AST.cjmp (t == AST.num0 oprSz)
+  bld <+ (AST.lmark lblLoopCont)
+  bld <+ (AST.cjmp (t == AST.num0 oprSz)
                        (AST.jmpDest lblEnd) (AST.jmpDest lblUpdateTmp))
-  !!ir (AST.lmark lblUpdateTmp)
-  !!ir (t := t .- AST.num1 oprSz)
-  !!ir (AST.jmp (AST.jmpDest lblLoop))
-  !!ir (AST.lmark lblEnd)
-  !!ir (dst := width .- t)
+  bld <+ (AST.lmark lblUpdateTmp)
+  bld <+ (t := t .- AST.num1 oprSz)
+  bld <+ (AST.jmp (AST.jmpDest lblLoop))
+  bld <+ (AST.lmark lblEnd)
+  bld <+ (dst := width .- t)
 
-let countLeadingZeroBitsForIR dst src oprSize ir =
-  highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize ir
+let countLeadingZeroBitsForIR dst src oprSize bld =
+  highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize bld
 
-let vclz (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vclz (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src) = getTwoOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let srcB, srcA = transOprToExpr128 ctxt src
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (srcB, srcA) = transOprToExpr128 bld src
     for e in 0 .. p.Elements - 1 do
       countLeadingZeroBitsForIR (elem dstB e p.ESize)
-                                (elem srcB e p.ESize) p.RtESize ir
+                                (elem srcB e p.ESize) p.RtESize bld
       countLeadingZeroBitsForIR (elem dstA e p.ESize)
-                                (elem srcA e p.ESize) p.RtESize ir
+                                (elem srcA e p.ESize) p.RtESize bld
   | _ ->
-    let struct (dst, src) = transTwoOprs ins ctxt
+    let struct (dst, src) = transTwoOprs ins bld
     for e in 0 .. p.Elements - 1 do
       countLeadingZeroBitsForIR (elem dst e p.ESize)
-                                (elem src e p.ESize) p.RtESize ir
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+                                (elem src e p.ESize) p.RtESize bld
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 let maxExpr isUnsigned expr1 expr2 =
   let op = if isUnsigned then AST.gt else AST.sgt
@@ -3651,19 +3550,18 @@ let private unsignExtend (ins: InsInfo) p size expr1 expr2 amtOp =
   if isUnsigned ins.SIMDTyp then mulZExtend p size expr1 expr2 amtOp
   else mulSExtend p size expr1 expr2 amtOp
 
-let vmaxmin (ins: InsInfo) insLen ctxt maximum =
-  let ir = !*ctxt
+let vmaxmin (ins: InsInfo) insLen bld maximum =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let unsigned = isUnsigned ins.SIMDTyp
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
     for e in 0 .. p.Elements - 1 do
       let op1B, op2B = elem src1B e p.ESize, elem src2B e p.ESize
       let op1A, op2A = elem src1A e p.ESize, elem src2A e p.ESize
@@ -3673,31 +3571,30 @@ let vmaxmin (ins: InsInfo) insLen ctxt maximum =
       let result2 =
         if maximum then maxExpr unsigned op1A op2A
         else minExpr unsigned op1A op2A
-      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
-      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
+      bld <+ (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
+      bld <+ (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
   | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    let struct (dst, src1, src2) = transThreeOprs ins bld
     for e in 0 .. p.Elements - 1 do
       let op1 = elem src1 e p.ESize
       let op2 = elem src2 e p.ESize
       let result =
         if maximum then maxExpr unsigned op1 op2 else minExpr unsigned op1 op2
-      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := AST.xtlo p.RtESize result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let parseOprOfVSTLDM (ins: InsInfo) insLen ctxt =
+let parseOprOfVSTLDM (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg reg, OprRegList regs) ->
-    getRegVar ctxt reg, List.map (getRegVar ctxt) regs
+    regVar bld reg, List.map (regVar bld) regs
   | _ -> raise InvalidOperandException
 
-let vstm (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vstm (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rn, regList = parseOprOfVSTLDM ins insLen ctxt
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rn, regList = parseOprOfVSTLDM ins insLen bld
   let add =
     match ins.Opcode with
     | Op.VSTMIA -> true
@@ -3705,31 +3602,30 @@ let vstm (ins: InsInfo) insLen ctxt =
     | _ -> raise InvalidOpcodeException
   let regs = List.length regList
   let imm32 = numI32 ((regs * 2) <<< 2) 32<rt>
-  let addr = !+ir 32<rt>
+  let addr = tmpVar bld 32<rt>
   let updateRn rn =
     if ins.WriteBack then
       if add then rn .+ imm32 else rn .- imm32
     else rn
-  !!ir (addr := if add then rn else rn .- imm32)
-  !!ir (rn := updateRn rn)
+  bld <+ (addr := if add then rn else rn .- imm32)
+  bld <+ (rn := updateRn rn)
   for r in 0 .. (regs - 1) do
     let mem1 = AST.loadLE 32<rt> addr
     let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
     let data1 = AST.xtlo 32<rt> regList[r]
     let data2 = AST.xthi 32<rt> regList[r]
-    let isbig = ctxt.Endianness = Endian.Big
-    !!ir (mem1 := if isbig then data2 else data1)
-    !!ir (mem2 := if isbig then data1 else data2)
-    !!ir (addr := addr .+ (numI32 8 32<rt>))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let isbig = bld.Endianness = Endian.Big
+    bld <+ (mem1 := if isbig then data2 else data1)
+    bld <+ (mem2 := if isbig then data1 else data2)
+    bld <+ (addr := addr .+ (numI32 8 32<rt>))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vldm (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vldm (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rn, regList = parseOprOfVSTLDM ins insLen ctxt
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rn, regList = parseOprOfVSTLDM ins insLen bld
   let add =
     match ins.Opcode with
     | Op.VLDMIA -> true
@@ -3737,35 +3633,34 @@ let vldm (ins: InsInfo) insLen ctxt =
     | _ -> raise InvalidOpcodeException
   let regs = List.length regList
   let imm32 = numI32 ((regs * 2) <<< 2) 32<rt>
-  let addr = !+ir 32<rt>
+  let addr = tmpVar bld 32<rt>
   let updateRn rn =
     if ins.WriteBack then
       if add then rn .+ imm32 else rn .- imm32
     else rn
-  !!ir (addr := if add then rn else rn .- imm32)
-  !!ir (rn := updateRn rn)
+  bld <+ (addr := if add then rn else rn .- imm32)
+  bld <+ (rn := updateRn rn)
   for r in 0 .. (regs - 1) do
     let word1 = AST.loadLE 32<rt> addr
     let word2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
-    let isbig = ctxt.Endianness = Endian.Big
-    !!ir (regList[r] :=
+    let isbig = bld.Endianness = Endian.Big
+    bld <+ (regList[r] :=
            if isbig then AST.concat word1 word2 else AST.concat word2 word1)
-    !!ir (addr := addr .+ (numI32 8 32<rt>))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (addr := addr .+ (numI32 8 32<rt>))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vecMulAccOrSub (ins: InsInfo) insLen ctxt add =
-  let ir = !*ctxt
+let vecMulAccOrSub (ins: InsInfo) insLen bld add =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
     for e in 0 .. p.Elements - 1 do
       let sext1A = AST.sext p.RtESize (elem src1A e p.ESize)
       let sext1B = AST.sext p.RtESize (elem src1B e p.ESize)
@@ -3775,30 +3670,29 @@ let vecMulAccOrSub (ins: InsInfo) insLen ctxt add =
       let productB = sext1B .* sext2B
       let addendA, addendB =
         if add then productA, productB else AST.not productA, AST.not productB
-      !!ir (elem dstB e p.ESize := elem dstB e p.ESize .+ addendB)
-      !!ir (elem dstA e p.ESize := elem dstA e p.ESize .+ addendA)
+      bld <+ (elem dstB e p.ESize := elem dstB e p.ESize .+ addendB)
+      bld <+ (elem dstA e p.ESize := elem dstA e p.ESize .+ addendA)
   | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    let struct (dst, src1, src2) = transThreeOprs ins bld
     for e in 0 .. p.Elements - 1 do
       let sext1 = AST.sext p.RtESize (elem src1 e p.ESize)
       let sext2 = AST.sext p.RtESize (elem src2 e p.ESize)
       let product = sext1 .* sext2
       let addend = if add then product else AST.not product
-      !!ir (elem dst e p.ESize := elem dst e p.ESize .+ addend)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := elem dst e p.ESize .+ addend)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vecMulAccOrSubLong (ins: InsInfo) insLen ctxt add =
-  let ir = !*ctxt
+let vecMulAccOrSubLong (ins: InsInfo) insLen bld add =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let unsigned = isUnsigned ins.SIMDTyp
   let struct (dst, src1, src2) = getThreeOprs ins
-  let dstB, dstA = transOprToExpr128 ctxt dst
-  let src1 = transOprToExpr ins ctxt src1
-  let src2 = transOprToExpr ins ctxt src2
+  let struct (dstB, dstA) = transOprToExpr128 bld dst
+  let src1 = transOprToExpr ins bld src1
+  let src2 = transOprToExpr ins bld src2
   for e in 0 .. (p.Elements - 1) / 2 do
     let extend expr =
       if unsigned then AST.zext (p.RtESize * 2) expr
@@ -3808,52 +3702,50 @@ let vecMulAccOrSubLong (ins: InsInfo) insLen ctxt add =
                    extend (elem src2 (e + p.Elements / 2) p.ESize)
     let addendA, addendB =
       if add then productA, productB else AST.not productA, AST.not productB
-    !!ir (elem dstB e (p.ESize * 2) := elem dstB e (p.ESize * 2) .+ addendB)
-    !!ir (elem dstA e (p.ESize * 2) := elem dstA e (p.ESize * 2) .+ addendA)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (elem dstB e (p.ESize * 2) := elem dstB e (p.ESize * 2) .+ addendB)
+    bld <+ (elem dstA e (p.ESize * 2) := elem dstA e (p.ESize * 2) .+ addendA)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vecMulAccOrSubByScalar (ins: InsInfo) insLen ctxt add =
-  let ir = !*ctxt
+let vecMulAccOrSubByScalar (ins: InsInfo) insLen bld add =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let struct (dst, src1, src2) = getThreeOprs ins
-  let src2, index = transOprToSclar ctxt src2
+  let src2, index = transOprToSclar bld src2
   let op2Val = AST.sext p.RtESize (elem src2 index p.ESize)
   match ins.OprSize with
   | 128<rt> ->
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
     for e in 0 .. p.Elements - 1 do
       let op1valA = AST.sext p.RtESize (elem src1A e p.ESize)
       let op1valB = AST.sext p.RtESize (elem src1B e p.ESize)
       let addendA, addendB =
         if add then op1valA .* op2Val, op1valB .* op2Val
         else AST.not (op1valA .* op2Val), AST.not (op1valB .* op2Val)
-      !!ir (elem dstB e p.ESize := elem dstB e p.ESize .+ addendB)
-      !!ir (elem dstA e p.ESize := elem dstA e p.ESize .+ addendA)
+      bld <+ (elem dstB e p.ESize := elem dstB e p.ESize .+ addendB)
+      bld <+ (elem dstA e p.ESize := elem dstA e p.ESize .+ addendA)
   | _ ->
-    let dst = transOprToExpr ins ctxt dst
-    let src1 = transOprToExpr ins ctxt src1
+    let dst = transOprToExpr ins bld dst
+    let src1 = transOprToExpr ins bld src1
     for e in 0 .. p.Elements - 1 do
       let op1val = AST.sext p.RtESize (elem src1 e p.ESize)
       let addend =
         if add then op1val .* op2Val else AST.not (op1val .* op2Val)
-      !!ir (elem dst e p.ESize := elem dst e p.ESize .+ addend)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := elem dst e p.ESize .+ addend)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vecMulAccOrSubLongByScalar (ins: InsInfo) insLen ctxt add =
-  let ir = !*ctxt
+let vecMulAccOrSubLongByScalar (ins: InsInfo) insLen bld add =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let struct (dst, src1, src2) = getThreeOprs ins
-  let dstB, dstA = transOprToExpr128 ctxt dst
-  let src1 = transOprToExpr ins ctxt src1
-  let src2, index = transOprToSclar ctxt src2
+  let struct (dstB, dstA) = transOprToExpr128 bld dst
+  let src1 = transOprToExpr ins bld src1
+  let src2, index = transOprToSclar bld src2
   let p = getParsingInfo ins
   let ext = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
   let op2val = ext (p.RtESize * 2) (elem src2 index p.ESize)
@@ -3863,41 +3755,41 @@ let vecMulAccOrSubLongByScalar (ins: InsInfo) insLen ctxt add =
     let addendA, addendB =
       if add then op1valA .* op2val, op1valB .* op2val
       else AST.not (op1valA .* op2val), AST.not (op1valB .* op2val)
-    !!ir (elem dstB e (p.ESize * 2) := elem dstB e (p.ESize * 2) .+ addendB)
-    !!ir (elem dstA e (p.ESize * 2) := elem dstA e (p.ESize * 2) .+ addendA)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (elem dstB e (p.ESize * 2) := elem dstB e (p.ESize * 2) .+ addendB)
+    bld <+ (elem dstA e (p.ESize * 2) := elem dstA e (p.ESize * 2) .+ addendA)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vmla (ins: InsInfo) insLen ctxt =
+let vmla (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
-    vecMulAccOrSub ins insLen ctxt true
+    vecMulAccOrSub ins insLen bld true
   | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
-    vecMulAccOrSubByScalar ins insLen ctxt true
+    vecMulAccOrSubByScalar ins insLen bld true
   | _ -> raise InvalidOperandException
 
-let vmlal (ins: InsInfo) insLen ctxt =
+let vmlal (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
-    vecMulAccOrSubLong ins insLen ctxt true
+    vecMulAccOrSubLong ins insLen bld true
   | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
-    vecMulAccOrSubLongByScalar ins insLen ctxt true
+    vecMulAccOrSubLongByScalar ins insLen bld true
   | _ -> raise InvalidOperandException
 
-let vmls (ins: InsInfo) insLen ctxt =
+let vmls (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
-    vecMulAccOrSub ins insLen ctxt false
+    vecMulAccOrSub ins insLen bld false
   | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
-    vecMulAccOrSubByScalar ins insLen ctxt false
+    vecMulAccOrSubByScalar ins insLen bld false
   | _ -> raise InvalidOperandException
 
-let vmlsl (ins: InsInfo) insLen ctxt =
+let vmlsl (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
-    vecMulAccOrSubLong ins insLen ctxt false
+    vecMulAccOrSubLong ins insLen bld false
   | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
-    vecMulAccOrSubLongByScalar ins insLen ctxt false
+    vecMulAccOrSubLongByScalar ins insLen bld false
   | _ -> raise InvalidOperandException
 
 let isPolynomial = function
@@ -3905,166 +3797,162 @@ let isPolynomial = function
   | _ -> false
 
 /// shared/functions/vector/PolynomialMult, in page Armv8 Pseudocode-7927
-let polynomialMult op1 op2 size rtsize res (ir: IRBuilder) =
+let polynomialMult op1 op2 size rtsize res bld =
   let extendedOP2 = AST.zext rtsize op2
   for i = 0 to size - 1 do
     let cond = AST.extract op1 1<rt> i
-    !!ir (res := AST.ite cond (res <+> (extendedOP2 << numI32 i rtsize)) res)
+    bld <+ (res := AST.ite cond (res <+> (extendedOP2 << numI32 i rtsize)) res)
 
-let polynomialMultP64 op1 op2 size rtsize resA resB (ir: IRBuilder) =
+let polynomialMultP64 op1 op2 size rtsize resA resB bld =
   for i = 0 to size - 1 do
     let cond = AST.extract op1 1<rt> i
-    !!ir (resA := AST.ite cond (resA <+> (op2 << numI32 i rtsize)) resA)
-    !!ir (resB := AST.ite cond (resB <+> (op2 >> numI32 (64 - i) rtsize)) resB)
+    bld <+ (resA := AST.ite cond (resA <+> (op2 << numI32 i rtsize)) resA)
+    bld <+ (resB := AST.ite cond (resB <+> (op2 >> numI32 (64 - i) rtsize)) resB)
 
-let vecMul (ins: InsInfo) insLen ctxt opFn =
-  let ir = !*ctxt
+let vecMul (ins: InsInfo) insLen bld opFn =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let polynomial = isPolynomial ins.SIMDTyp
-  let struct (resultA, resultB) = tmpVars2 ir (p.RtESize * 2)
+  let struct (resultA, resultB) = tmpVars2 bld (p.RtESize * 2)
   match ins.OprSize with
   (* FP, p.ESize 16 *)
   | 32<rt> when p.ESize = 16 ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    !!ir (dst :=
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    bld <+ (dst :=
       AST.zext 32<rt> (opFn (AST.xtlo 16<rt> src1) (AST.xtlo 16<rt> src2)))
   (* FP, p.ESize 32 *)
   | 32<rt> ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    !!ir (dst := opFn src1 src2)
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    bld <+ (dst := opFn src1 src2)
   (* FP, p.ESize 64 *)
   | 64<rt> when p.ESize = 64 ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    !!ir (dst := opFn src1 src2)
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    bld <+ (dst := opFn src1 src2)
   (* SIMD *)
   | 64<rt> ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    let struct (dst, src1, src2) = transThreeOprs ins bld
     for e in 0 .. p.Elements - 1 do
       let struct (op1, op2) = elem src1 e p.ESize, elem src2 e p.ESize
       if polynomial then
-        polynomialMult op1 op2 p.ESize (p.RtESize * 2) resultA ir
-      else !!ir (resultA := mulSExtend p 2 op1 op2 opFn)
-      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize resultA)
+        polynomialMult op1 op2 p.ESize (p.RtESize * 2) resultA bld
+      else bld <+ (resultA := mulSExtend p 2 op1 op2 opFn)
+      bld <+ (elem dst e p.ESize := AST.xtlo p.RtESize resultA)
   (* SIMD *)
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
     for e in 0 .. p.Elements - 1 do
       let struct (op1A, op2A, op1B, op2B) =
         elem src1A e p.ESize, elem src2A e p.ESize,
         elem src1B e p.ESize, elem src2B e p.ESize
       if polynomial then
-        polynomialMult op1A op2A p.ESize (p.RtESize * 2) resultA ir
-        polynomialMult op1B op2B p.ESize (p.RtESize * 2) resultB ir
+        polynomialMult op1A op2A p.ESize (p.RtESize * 2) resultA bld
+        polynomialMult op1B op2B p.ESize (p.RtESize * 2) resultB bld
       else
-        !!ir (resultA := mulSExtend p 2 op1A op2A opFn)
-        !!ir (resultB := mulSExtend p 2 op1B op2B opFn)
-      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize resultA)
-      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize resultB)
+        bld <+ (resultA := mulSExtend p 2 op1A op2A opFn)
+        bld <+ (resultB := mulSExtend p 2 op1B op2B opFn)
+      bld <+ (elem dstA e p.ESize := AST.xtlo p.RtESize resultA)
+      bld <+ (elem dstB e p.ESize := AST.xtlo p.RtESize resultB)
   | _ -> raise InvalidOperandException
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vecMulLong (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vecMulLong (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let polynomial = isPolynomial ins.SIMDTyp
   let struct (dst, src1, src2) = getThreeOprs ins
-  let dstB, dstA = transOprToExpr128 ctxt dst
-  let src1 = transOprToExpr ins ctxt src1
-  let src2 = transOprToExpr ins ctxt src2
+  let struct (dstB, dstA) = transOprToExpr128 bld dst
+  let src1 = transOprToExpr ins bld src1
+  let src2 = transOprToExpr ins bld src2
   let isPolyAndE64 = polynomial && p.ESize = 64
   let struct (regSize, eSize) =
     if isPolyAndE64 then p.RtESize, p.ESize
     else p.RtESize * 2, p.ESize * 2
-  let struct (resA, resB) = tmpVars2 ir regSize
+  let struct (resA, resB) = tmpVars2 bld regSize
   for e in 0 .. (p.Elements - 1) / 2 do
     let struct (op1A, op2A, op1B, op2B) =
       elem src1 e p.ESize, elem src2 e p.ESize,
       elem src1 (e + p.Elements / 2) p.ESize,
       elem src2 (e + p.Elements / 2) p.ESize
     if isPolyAndE64 then
-      polynomialMultP64 op1A op2A p.ESize p.RtESize resA resB ir
+      polynomialMultP64 op1A op2A p.ESize p.RtESize resA resB bld
     elif polynomial then
-      polynomialMult op1A op2A p.ESize (p.RtESize * 2) resA ir
-      polynomialMult op1A op2A p.ESize (p.RtESize * 2) resB ir
+      polynomialMult op1A op2A p.ESize (p.RtESize * 2) resA bld
+      polynomialMult op1A op2A p.ESize (p.RtESize * 2) resB bld
     else
-      !!ir (resA := unsignExtend ins p 2 op1A op2A (.*))
-      !!ir (resB := unsignExtend ins p 2 op1B op2B (.*))
-    !!ir (elem dstB e eSize := AST.xtlo regSize resB)
-    !!ir (elem dstA e eSize := AST.xtlo regSize resA)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (resA := unsignExtend ins p 2 op1A op2A (.*))
+      bld <+ (resB := unsignExtend ins p 2 op1B op2B (.*))
+    bld <+ (elem dstB e eSize := AST.xtlo regSize resB)
+    bld <+ (elem dstA e eSize := AST.xtlo regSize resA)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vecMulByScalar (ins: InsInfo) insLen ctxt opFn =
-  let ir = !*ctxt
+let vecMulByScalar (ins: InsInfo) insLen bld opFn =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let struct (dst, src1, src2) = getThreeOprs ins
-  let src2, index = transOprToSclar ctxt src2
+  let src2, index = transOprToSclar bld src2
   let op2val = elem src2 index p.ESize
   match ins.OprSize with
   | 128<rt> ->
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
     for e in 0 .. p.Elements - 1 do
       let resA = mulSExtend p 1 (elem src1A e p.ESize) op2val opFn
       let resB = mulSExtend p 1 (elem src1B e p.ESize) op2val opFn
-      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize resB)
-      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize resA)
+      bld <+ (elem dstB e p.ESize := AST.xtlo p.RtESize resB)
+      bld <+ (elem dstA e p.ESize := AST.xtlo p.RtESize resA)
   | _ ->
-    let dst = transOprToExpr ins ctxt dst
-    let src1 = transOprToExpr ins ctxt src1
+    let dst = transOprToExpr ins bld dst
+    let src1 = transOprToExpr ins bld src1
     for e in 0 .. p.Elements - 1 do
       let res = mulSExtend p 1 (elem src1 e p.ESize) op2val opFn
-      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize res)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := AST.xtlo p.RtESize res)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vecMulLongByScalar (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vecMulLongByScalar (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let struct (dst, src1, src2) = getThreeOprs ins
-  let dstB, dstA = transOprToExpr128 ctxt dst
-  let src1 = transOprToExpr ins ctxt src1
-  let src2, index = transOprToSclar ctxt src2
+  let struct (dstB, dstA) = transOprToExpr128 bld dst
+  let src1 = transOprToExpr ins bld src1
+  let src2, index = transOprToSclar bld src2
   let p = getParsingInfo ins
   let op2val = elem src2 index p.ESize
   let pele2 = p.Elements / 2
   for e in 0 .. (p.Elements - 1) / 2 do
     let resA = unsignExtend ins p 2 (elem src1 e p.ESize) op2val (.*)
     let resB = unsignExtend ins p 2 (elem src1 (e + pele2) p.ESize) op2val (.*)
-    !!ir (elem dstB e (p.ESize * 2) := AST.xtlo (p.RtESize * 2) resB)
-    !!ir (elem dstA e (p.ESize * 2) := AST.xtlo (p.RtESize * 2) resA)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (elem dstB e (p.ESize * 2) := AST.xtlo (p.RtESize * 2) resB)
+    bld <+ (elem dstA e (p.ESize * 2) := AST.xtlo (p.RtESize * 2) resA)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vmul (ins: InsInfo) insLen ctxt opFn =
+let vmul (ins: InsInfo) insLen bld opFn =
   match ins.Operands with
   | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
-    vecMul ins insLen ctxt opFn
+    vecMul ins insLen bld opFn
   | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
-    vecMulByScalar ins insLen ctxt opFn
+    vecMulByScalar ins insLen bld opFn
   | _ -> raise InvalidOperandException
 
-let vmull (ins: InsInfo) insLen ctxt =
+let vmull (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
-    vecMulLong ins insLen ctxt
+    vecMulLong ins insLen bld
   | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
-    vecMulLongByScalar ins insLen ctxt
+    vecMulLongByScalar ins insLen bld
   | _ -> raise InvalidOperandException
 
 let getSizeStartFromI16 = function
@@ -4079,179 +3967,172 @@ let getSizeStartFrom16 = function
   | Some (OneDT SIMDTyp64) -> 0b10
   | _ -> raise InvalidOperandException
 
-let vmovn (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vmovn (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let struct (dst, src) = getTwoOprs ins
-  let dst = transOprToExpr ins ctxt dst
-  let srcB, srcA = transOprToExpr128 ctxt src
+  let dst = transOprToExpr ins bld dst
+  let struct (srcB, srcA) = transOprToExpr128 bld src
   let esize = 8 <<< getSizeStartFrom16 ins.SIMDTyp
   let rtEsz = RegType.fromBitWidth esize
   let elements = 64 / esize
   for e in 0 .. (elements - 1) / 2 do
-    !!ir (elem dst e esize := AST.xtlo rtEsz (elem srcB e esize))
-    !!ir (elem dst (e + elements / 2) esize :=
+    bld <+ (elem dst e esize := AST.xtlo rtEsz (elem srcB e esize))
+    bld <+ (elem dst (e + elements / 2) esize :=
          AST.xtlo rtEsz (elem srcA e esize))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vneg (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vneg (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src) = getTwoOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let srcB, srcA = transOprToExpr128 ctxt src
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (srcB, srcA) = transOprToExpr128 bld src
     for e in 0 .. p.Elements - 1 do
       let result1 = AST.neg <| AST.sext p.RtESize (elem srcB e p.ESize)
       let result2 = AST.neg <| AST.sext p.RtESize (elem srcA e p.ESize)
-      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
-      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
+      bld <+ (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
+      bld <+ (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
   | _ ->
-    let struct (dst, src) = transTwoOprs ins ctxt
+    let struct (dst, src) = transTwoOprs ins bld
     for e in 0 .. p.Elements - 1 do
       let result = AST.neg <| AST.sext p.RtESize (elem src e p.ESize)
-      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := AST.xtlo p.RtESize result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vpadd (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vpadd (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (rd, rn, rm) = transThreeOprs ins ctxt
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (rd, rn, rm) = transThreeOprs ins bld
   let p = getParsingInfo ins
   let h = p.Elements / 2
-  let dest = !+ir 64<rt>
+  let dest = tmpVar bld 64<rt>
   for e in 0 .. h - 1 do
     let addPair expr =
       elem expr (2 * e) p.ESize .+ elem expr (2 * e + 1) p.ESize
-    !!ir (elem dest e p.ESize := addPair rn)
-    !!ir (elem dest (e + h) p.ESize := addPair rm)
-  !!ir (rd := dest)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (elem dest e p.ESize := addPair rn)
+    bld <+ (elem dest (e + h) p.ESize := addPair rm)
+  bld <+ (rd := dest)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vrshr (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vrshr (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src, imm) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let srcB, srcA = transOprToExpr128 ctxt src
-    let imm = AST.zext 64<rt> (transOprToExpr ins ctxt imm)
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (srcB, srcA) = transOprToExpr128 bld src
+    let imm = AST.zext 64<rt> (transOprToExpr ins bld imm)
     let roundConst = AST.num1 64<rt> << (imm .- AST.num1 64<rt>)
     for e in 0 .. p.Elements - 1 do
       let result1 = (extend 64<rt> (elem srcB e p.ESize) .+ roundConst) >> imm
       let result2 = (extend 64<rt> (elem srcA e p.ESize) .+ roundConst) >> imm
-      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
-      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
+      bld <+ (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
+      bld <+ (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
   | _ ->
-    let struct (dst, src, imm) = transThreeOprs ins ctxt
+    let struct (dst, src, imm) = transThreeOprs ins bld
     let imm = AST.zext 64<rt> imm
     let roundConst = AST.num1 64<rt> << (imm .- AST.num1 64<rt>)
     for e in 0 .. p.Elements - 1 do
       let result = (extend 64<rt> (elem src e p.ESize) .+ roundConst) >> imm
-      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := AST.xtlo p.RtESize result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vshlImm (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vshlImm (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src, imm) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let srcB, srcA = transOprToExpr128 ctxt src
-    let imm = AST.zext p.RtESize (transOprToExpr ins ctxt imm)
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (srcB, srcA) = transOprToExpr128 bld src
+    let imm = AST.zext p.RtESize (transOprToExpr ins bld imm)
     for e in 0 .. p.Elements - 1 do
-      !!ir (elem dstB e p.ESize := elem srcB e p.ESize << imm)
-      !!ir (elem dstA e p.ESize := elem srcA e p.ESize << imm)
+      bld <+ (elem dstB e p.ESize := elem srcB e p.ESize << imm)
+      bld <+ (elem dstA e p.ESize := elem srcA e p.ESize << imm)
   | _ ->
-    let struct (dst, src, imm) = transThreeOprs ins ctxt
+    let struct (dst, src, imm) = transThreeOprs ins bld
     let imm = AST.zext p.RtESize imm
     for e in 0 .. p.Elements - 1 do
-      !!ir (elem dst e p.ESize := elem src e p.ESize << imm)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := elem src e p.ESize << imm)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vshlReg (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vshlReg (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
     for e in 0 .. p.Elements - 1 do
       let shift1 = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2B e p.ESize))
       let shift2 = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2A e p.ESize))
       let result1 = extend 64<rt> (elem src1B e p.ESize) << shift1
       let result2 = extend 64<rt> (elem src1A e p.ESize) << shift2
-      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
-      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
+      bld <+ (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
+      bld <+ (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
   | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    let struct (dst, src1, src2) = transThreeOprs ins bld
     for e in 0 .. p.Elements - 1 do
       let shift = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2 e p.ESize))
       let result = extend 64<rt> (elem src1 e p.ESize) << shift
-      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := AST.xtlo p.RtESize result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vshl (ins: InsInfo) insLen ctxt =
+let vshl (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vshlImm ins insLen ctxt
-  | ThreeOperands (_, _, OprSIMD _) -> vshlReg ins insLen ctxt
+  | ThreeOperands (_, _, OprImm _) -> vshlImm ins insLen bld
+  | ThreeOperands (_, _, OprSIMD _) -> vshlReg ins insLen bld
   | _ -> raise InvalidOperandException
 
-let vshr (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vshr (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let extend = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src, imm) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let srcB, srcA = transOprToExpr128 ctxt dst
-    let imm = AST.zext 64<rt> (transOprToExpr ins ctxt imm)
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (srcB, srcA) = transOprToExpr128 bld dst
+    let imm = AST.zext 64<rt> (transOprToExpr ins bld imm)
     for e in 0 .. p.Elements - 1 do
       let result1 = extend 64<rt> (elem srcB e p.ESize) >> imm
       let result2 = extend 64<rt> (elem srcA e p.ESize) >> imm
-      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
-      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
+      bld <+ (elem dstB e p.ESize := AST.xtlo p.RtESize result1)
+      bld <+ (elem dstA e p.ESize := AST.xtlo p.RtESize result2)
   | _ ->
-    let struct (dst, src, imm) = transThreeOprs ins ctxt
+    let struct (dst, src, imm) = transThreeOprs ins bld
     let imm = AST.zext 64<rt> imm
     for e in 0 .. p.Elements - 1 do
       let result = extend 64<rt> (elem src e p.ESize) >> imm
-      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize result)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := AST.xtlo p.RtESize result)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 let parseVectors = function
   | OneReg (Vector d) -> [ d ]
@@ -4260,262 +4141,253 @@ let parseVectors = function
   | FourRegs (Vector d1, Vector d2, Vector d3, Vector d4) -> [ d1; d2; d3; d4 ]
   | _ -> raise InvalidOperandException
 
-let parseOprOfVecTbl (ins: InsInfo) insLen ctxt =
+let parseOprOfVecTbl (ins: InsInfo) insLen bld =
   match ins.Operands with
   | ThreeOperands (OprSIMD (SFReg (Vector rd)), OprSIMD regs,
                    OprSIMD (SFReg (Vector rm))) ->
-    getRegVar ctxt rd, parseVectors regs, getRegVar ctxt rm
+    regVar bld rd, parseVectors regs, regVar bld rm
   | _ -> raise InvalidOperandException
 
-let vecTbl (ins: InsInfo) insLen ctxt isVtbl =
-  let ir = !*ctxt
+let vecTbl (ins: InsInfo) insLen bld isVtbl =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rd, list, rm = parseOprOfVecTbl ins insLen ctxt
-  let vectors = list |> List.map (getRegVar ctxt)
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rd, list, rm = parseOprOfVecTbl ins insLen bld
+  let vectors = list |> List.map (regVar bld)
   let length = List.length list
   let table = AST.revConcat (List.toArray vectors) |> AST.zext 256<rt>
   for i in 0 .. 7 do
     let index = elem rm i 8
     let cond = AST.lt index (numI32 (8 * length) 8<rt>)
     let e = if isVtbl then AST.num0 8<rt> else elem rd i 8
-    !!ir (elem rd i 8 := AST.ite cond (elemForIR table 256<rt> index 8) e)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (elem rd i 8 := AST.ite cond (elemForIR table 256<rt> index 8) e)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 let isImm = function
   | Num _ -> true
   | _ -> false
 
-let vectorCompareImm (ins: InsInfo) insLen ctxt cmp =
-  let ir = !*ctxt
+let vectorCompareImm (ins: InsInfo) insLen bld cmp =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let num0 = AST.num0 p.RtESize
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
     for e in 0 .. p.Elements - 1 do
       let t1 = cmp (elem src1B e p.ESize) num0
       let t2 = cmp (elem src1A e p.ESize) num0
-      !!ir (elem dstB e p.ESize := AST.ite t1 (ones p.RtESize) num0)
-      !!ir (elem dstA e p.ESize := AST.ite t2 (ones p.RtESize) num0)
+      bld <+ (elem dstB e p.ESize := AST.ite t1 (ones p.RtESize) num0)
+      bld <+ (elem dstA e p.ESize := AST.ite t2 (ones p.RtESize) num0)
   | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    let struct (dst, src1, src2) = transThreeOprs ins bld
     for e in 0 .. p.Elements - 1 do
       let t = cmp (elem src1 e p.ESize) num0
-      !!ir (elem dst e p.ESize := AST.ite t (ones p.RtESize) num0)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := AST.ite t (ones p.RtESize) num0)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vectorCompareReg (ins: InsInfo) insLen ctxt cmp =
-  let ir = !*ctxt
+let vectorCompareReg (ins: InsInfo) insLen bld cmp =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let num0 = AST.num0 p.RtESize
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
     for e in 0 .. p.Elements - 1 do
       let t1 = cmp (elem src1B e p.ESize) (elem src2B e p.ESize)
       let t2 = cmp (elem src1A e p.ESize) (elem src2A e p.ESize)
-      !!ir (elem dstB e p.ESize := AST.ite t1 (ones p.RtESize) num0)
-      !!ir (elem dstA e p.ESize := AST.ite t2 (ones p.RtESize) num0)
+      bld <+ (elem dstB e p.ESize := AST.ite t1 (ones p.RtESize) num0)
+      bld <+ (elem dstA e p.ESize := AST.ite t2 (ones p.RtESize) num0)
   | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    let struct (dst, src1, src2) = transThreeOprs ins bld
     for e in 0 .. p.Elements - 1 do
       let t = cmp (elem src1 e p.ESize) (elem src2 e p.ESize)
-      !!ir (elem dst e p.ESize := AST.ite t (ones p.RtESize) num0)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := AST.ite t (ones p.RtESize) num0)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 let getCmp (ins: InsInfo) unsigned signed =
   if isUnsigned ins.SIMDTyp then unsigned else signed
 
-let vceq (ins: InsInfo) insLen ctxt =
+let vceq (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen ctxt (==)
-  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen ctxt (==)
+  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen bld (==)
+  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen bld (==)
   | _ -> raise InvalidOperandException
 
-let vcge (ins: InsInfo) insLen ctxt =
+let vcge (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen ctxt
+  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen bld
                                         (getCmp ins AST.ge AST.sge)
-  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen ctxt
+  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
                                          (getCmp ins AST.ge AST.sge)
   | _ -> raise InvalidOperandException
 
-let vcgt (ins: InsInfo) insLen ctxt =
+let vcgt (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen ctxt
+  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen bld
                                         (getCmp ins AST.gt AST.sgt)
-  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen ctxt
+  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
                                          (getCmp ins AST.gt AST.sgt)
   | _ -> raise InvalidOperandException
 
-let vcle (ins: InsInfo) insLen ctxt =
+let vcle (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen ctxt
+  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen bld
                                         (getCmp ins AST.le AST.sle)
-  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen ctxt
+  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
                                          (getCmp ins AST.le AST.sle)
   | _ -> raise InvalidOperandException
 
-let vclt (ins: InsInfo) insLen ctxt =
+let vclt (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen ctxt
+  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen bld
                                         (getCmp ins AST.lt AST.slt)
-  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen ctxt
+  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
                                          (getCmp ins AST.lt AST.slt)
   | _ -> raise InvalidOperandException
 
-let vtst (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vtst (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   let n0 = AST.num0 p.RtESize
   let n1 = AST.num1 p.RtESize
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
     for e in 0 .. p.Elements - 1 do
       let c = (elem src1B e p.ESize .& elem src2B e p.ESize) != n0
       let c2 = (elem src1A e p.ESize .& elem src2A e p.ESize) != n0
-      !!ir (elem dstB e p.ESize := AST.ite c n1 n0)
-      !!ir (elem dstA e p.ESize := AST.ite c2 n1 n0)
+      bld <+ (elem dstB e p.ESize := AST.ite c n1 n0)
+      bld <+ (elem dstA e p.ESize := AST.ite c2 n1 n0)
   | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    let struct (dst, src1, src2) = transThreeOprs ins bld
     for e in 0 .. p.Elements - 1 do
       let c = (elem src1 e p.ESize .& elem src2 e p.ESize) != n0
-      !!ir (elem dst e p.ESize := AST.ite c n1 n0)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := AST.ite c n1 n0)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vrshrn (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vrshrn (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let esize = 8 <<< getSizeStartFromI16 ins.SIMDTyp
   let rtEsz = RegType.fromBitWidth esize
   let elements = 64 / esize
   let struct (dst, src, imm) = getThreeOprs ins
-  let dst = transOprToExpr ins ctxt dst
-  let srcB, srcA = transOprToExpr128 ctxt src
-  let imm = AST.zext (rtEsz * 2) (transOprToExpr ins ctxt imm)
+  let dst = transOprToExpr ins bld dst
+  let struct (srcB, srcA) = transOprToExpr128 bld src
+  let imm = AST.zext (rtEsz * 2) (transOprToExpr ins bld imm)
   let roundConst = AST.num1 (rtEsz * 2) << (imm .- AST.num1 (rtEsz * 2))
   for e in 0 .. (elements / 2) - 1 do
     let result1 = (elem srcB e (esize * 2) .+ roundConst) >> imm
     let result2 = (elem srcA e (esize * 2) .+ roundConst) >> imm
-    !!ir (elem dst e esize := AST.xtlo rtEsz result1)
-    !!ir (elem dst e esize := AST.xtlo rtEsz result2)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (elem dst e esize := AST.xtlo rtEsz result1)
+    bld <+ (elem dst e esize := AST.xtlo rtEsz result2)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vorrReg (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vorrReg (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
-    !!ir (dstB := src1B .| src2B)
-    !!ir (dstA := src1A .| src2A)
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
+    bld <+ (dstB := src1B .| src2B)
+    bld <+ (dstA := src1A .| src2A)
   | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    !!ir (dst := src1 .| src2)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    bld <+ (dst := src1 .| src2)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vorrImm (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vorrImm (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, imm) = getTwoOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
     let imm =
-      AST.concat (transOprToExpr ins ctxt imm) (transOprToExpr ins ctxt imm)
-    !!ir (dstB := dstB .| imm)
-    !!ir (dstA := dstA .| imm)
+      AST.concat (transOprToExpr ins bld imm) (transOprToExpr ins bld imm)
+    bld <+ (dstB := dstB .| imm)
+    bld <+ (dstA := dstA .| imm)
   | _ ->
-    let struct (dst, imm) = transTwoOprs ins ctxt
+    let struct (dst, imm) = transTwoOprs ins bld
     let imm = AST.concat imm imm // FIXME: A8-975
-    !!ir (dst := dst .| imm)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (dst := dst .| imm)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vorr (ins: InsInfo) insLen ctxt =
+let vorr (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands _ -> vorrReg ins insLen ctxt
-  | TwoOperands _ -> vorrImm ins insLen ctxt
+  | ThreeOperands _ -> vorrReg ins insLen bld
+  | TwoOperands _ -> vorrImm ins insLen bld
   | _ -> raise InvalidOperandException
 
-let vornReg (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vornReg (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
-    !!ir (dstB := src1B .| (AST.not <| src2B))
-    !!ir (dstA := src1A .| (AST.not <| src2A))
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
+    bld <+ (dstB := src1B .| (AST.not <| src2B))
+    bld <+ (dstA := src1A .| (AST.not <| src2A))
   | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    !!ir (dst := src1 .| (AST.not <| src2))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    bld <+ (dst := src1 .| (AST.not <| src2))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vornImm (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vornImm (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, imm) = getTwoOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
     let imm =
-      AST.concat (transOprToExpr ins ctxt imm) (transOprToExpr ins ctxt imm)
-    !!ir (dstB := dstB .| AST.not imm)
-    !!ir (dstA := dstA .| AST.not imm)
+      AST.concat (transOprToExpr ins bld imm) (transOprToExpr ins bld imm)
+    bld <+ (dstB := dstB .| AST.not imm)
+    bld <+ (dstA := dstA .| AST.not imm)
   | _ ->
-    let struct (dst, imm) = transTwoOprs ins ctxt
+    let struct (dst, imm) = transTwoOprs ins bld
     let imm = AST.concat imm imm // FIXME: A8-975
-    !!ir (dst := dst .| AST.not imm)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (dst := dst .| AST.not imm)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vorn (ins: InsInfo) insLen ctxt =
+let vorn (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands _ -> vornReg ins insLen ctxt
-  | TwoOperands _ -> vornImm ins insLen ctxt
+  | ThreeOperands _ -> vornReg ins insLen bld
+  | TwoOperands _ -> vornImm ins insLen bld
   | _ -> raise InvalidOperandException
 
 let parseDstList = function
@@ -4536,21 +4408,21 @@ let parseDstList = function
     [ d1; d2; d3; d4 ]
   | _ -> raise InvalidOperandException
 
-let getRnAndRm ctxt = function
+let getRnAndRm bld = function
   | TwoOperands (_, OprMemory (OffsetMode (AlignOffset (rn, _, _))))
   | TwoOperands (_, OprMemory (PreIdxMode (AlignOffset (rn, _, _)))) ->
-    getRegVar ctxt rn, None
+    regVar bld rn, None
   | TwoOperands (_, OprMemory (PostIdxMode (AlignOffset (rn, _, Some rm)))) ->
-    getRegVar ctxt rn, getRegVar ctxt rm |> Some
+    regVar bld rn, regVar bld rm |> Some
   | _ -> raise InvalidOperandException
 
-let assignByEndian (ctxt: TranslationContext) dst src ir =
-  let isbig = ctxt.Endianness = Endian.Big
-  !!ir (dst := if isbig then AST.xthi 32<rt> src else AST.xtlo 32<rt> src)
+let assignByEndian (bld: ILowUIRBuilder) dst src =
+  let isbig = bld.Endianness = Endian.Big
+  bld <+ (dst := if isbig then AST.xthi 32<rt> src else AST.xtlo 32<rt> src)
 
-let parseOprOfVecStAndLd ctxt (ins: InsInfo) =
-  let rdList = parseDstList ins.Operands |> List.map (getRegVar ctxt)
-  let rn, rm = getRnAndRm ctxt ins.Operands
+let parseOprOfVecStAndLd bld (ins: InsInfo) =
+  let rdList = parseDstList ins.Operands |> List.map (regVar bld)
+  let rn, rm = getRnAndRm bld ins.Operands
   rdList, rn, rm
 
 let updateRn (ins: InsInfo) rn (rm: Expr option) n (regIdx: bool option) =
@@ -4559,456 +4431,437 @@ let updateRn (ins: InsInfo) rn (rm: Expr option) n (regIdx: bool option) =
 
 let incAddr addr n = addr .+ (numI32 n 32<rt>)
 
-let vst1Multi (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vst1Multi (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
   let regs = getRegs ins.Operands
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (8 * regs) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (8 * regs) p.RegIndex)
   for r in 0 .. (regs - 1) do
     for e in 0 .. (p.Elements - 1) do
       if p.EBytes <> 8 then
         let mem = AST.loadLE p.RtESize addr
-        !!ir (mem := elem rdList[r] e p.ESize)
+        bld <+ (mem := elem rdList[r] e p.ESize)
       else
         let mem1 = AST.loadLE 32<rt> addr
         let mem2 = AST.loadLE 32<rt> (incAddr addr 4)
         let reg = elem rdList[r] e p.ESize
-        assignByEndian ctxt mem1 reg ir
-        assignByEndian ctxt mem2 reg ir
-      !!ir (addr := addr .+ (numI32 p.EBytes 32<rt>))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+        assignByEndian bld mem1 reg
+        assignByEndian bld mem2 reg
+      bld <+ (addr := addr .+ (numI32 p.EBytes 32<rt>))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vst1Single (ins: InsInfo) insLen ctxt index =
-  let ir = !*ctxt
+let vst1Single (ins: InsInfo) insLen bld index =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rd, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rd, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm p.EBytes p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm p.EBytes p.RegIndex)
   let mem = AST.loadLE p.RtESize addr
-  !!ir (mem := elem rd[0] (int32 index) p.ESize)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (mem := elem rd[0] (int32 index) p.ESize)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vst1 (ins: InsInfo) insLen ctxt =
+let vst1 (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprSIMD (OneReg (Scalar (_, Some index))), _) ->
-    vst1Single ins insLen ctxt index
+    vst1Single ins insLen bld index
   | TwoOperands (OprSIMD (OneReg _), _)
   | TwoOperands (OprSIMD (TwoRegs _), _)
   | TwoOperands (OprSIMD (ThreeRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vst1Multi ins insLen ctxt
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vst1Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
-let vld1SingleOne (ins: InsInfo) insLen ctxt index =
-  let ir = !*ctxt
+let vld1SingleOne (ins: InsInfo) insLen bld index =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rd, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rd, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm p.EBytes p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm p.EBytes p.RegIndex)
   let mem = AST.loadLE p.RtESize addr
-  !!ir (elem rd[0] (int32 index) p.ESize := mem)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (elem rd[0] (int32 index) p.ESize := mem)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld1SingleAll (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vld1SingleAll (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm p.EBytes p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm p.EBytes p.RegIndex)
   let mem = AST.loadLE p.RtESize addr
   let repElem = Array.replicate p.Elements mem |> AST.revConcat
   for r in 0 .. (List.length rdList - 1) do
-    !!ir (rdList[r] := repElem) done
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (rdList[r] := repElem) done
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld1Multi (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vld1Multi (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
   let regs = getRegs ins.Operands
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (8 * regs) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (8 * regs) p.RegIndex)
   for r in 0 .. (regs - 1) do
     for e in 0 .. (p.Elements - 1) do
       if p.EBytes <> 8 then
-        let data = !+ir p.RtESize
-        !!ir (data := AST.loadLE p.RtESize addr)
-        !!ir (elem rdList[r] e p.ESize := data)
+        let data = tmpVar bld p.RtESize
+        bld <+ (data := AST.loadLE p.RtESize addr)
+        bld <+ (elem rdList[r] e p.ESize := data)
       else
-        let struct (data1, data2) = tmpVars2 ir 32<rt>
+        let struct (data1, data2) = tmpVars2 bld 32<rt>
         let mem1 = AST.loadLE 32<rt> addr
         let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
-        let isbig = ctxt.Endianness = Endian.Big
-        !!ir (data1 := if isbig then mem2 else mem1)
-        !!ir (data2 := if isbig then mem1 else mem1)
-        !!ir (elem rdList[r] e p.ESize := AST.concat data2 data1)
-      !!ir (addr := incAddr addr p.EBytes)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+        let isbig = bld.Endianness = Endian.Big
+        bld <+ (data1 := if isbig then mem2 else mem1)
+        bld <+ (data2 := if isbig then mem1 else mem1)
+        bld <+ (elem rdList[r] e p.ESize := AST.concat data2 data1)
+      bld <+ (addr := incAddr addr p.EBytes)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld1 (ins: InsInfo) insLen ctxt =
+let vld1 (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprSIMD (OneReg (Scalar (_, Some index))), _) ->
-    vld1SingleOne ins insLen ctxt index
+    vld1SingleOne ins insLen bld index
   | TwoOperands (OprSIMD (OneReg (Scalar _)), _)
   | TwoOperands (OprSIMD (TwoRegs (Scalar _, Scalar _)), _) ->
-    vld1SingleAll ins insLen ctxt
+    vld1SingleAll ins insLen bld
   | TwoOperands (OprSIMD (OneReg _), _)
   | TwoOperands (OprSIMD (TwoRegs _), _)
   | TwoOperands (OprSIMD (ThreeRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vld1Multi ins insLen ctxt
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vld1Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
-let vst2Multi (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vst2Multi (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let regs = getRegs ins.Operands / 2
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (16 * regs) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (16 * regs) p.RegIndex)
   for r in 0 .. (regs - 1) do
     let rd1 = rdList[r * 2]
     let rd2 = rdList[r * 2 + 1]
     for e in 0 .. (p.Elements - 1) do
       let mem1 = AST.loadLE p.RtESize addr
       let mem2 = AST.loadLE p.RtESize (addr .+ (numI32 p.EBytes 32<rt>))
-      !!ir (mem1 := elem rd1 e p.ESize)
-      !!ir (mem2 := elem rd2 e p.ESize)
-      !!ir (addr := addr .+ (numI32 (2 * p.EBytes) 32<rt>))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (mem1 := elem rd1 e p.ESize)
+      bld <+ (mem2 := elem rd2 e p.ESize)
+      bld <+ (addr := addr .+ (numI32 (2 * p.EBytes) 32<rt>))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vst2Single (ins: InsInfo) insLen ctxt index =
-  let ir = !*ctxt
+let vst2Single (ins: InsInfo) insLen bld index =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (16 * p.EBytes) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (16 * p.EBytes) p.RegIndex)
   let mem1 = AST.loadLE p.RtESize addr
   let mem2 = AST.loadLE p.RtESize (addr .+ (numI32 p.EBytes 32<rt>))
-  !!ir (mem1 := elem rdList[0] index p.ESize)
-  !!ir (mem2 := elem rdList[1] index p.ESize)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (mem1 := elem rdList[0] index p.ESize)
+  bld <+ (mem2 := elem rdList[1] index p.ESize)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vst2 (ins: InsInfo) insLen ctxt =
+let vst2 (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprSIMD (TwoRegs (Scalar (_, Some index), _)), _) ->
-    vst2Single ins insLen ctxt (int32 index)
+    vst2Single ins insLen bld (int32 index)
   | TwoOperands (OprSIMD (OneReg _), _)
   | TwoOperands (OprSIMD (TwoRegs _), _)
   | TwoOperands (OprSIMD (ThreeRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vst2Multi ins insLen ctxt
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vst2Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
-let vst3Multi (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vst3Multi (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm 24 p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm 24 p.RegIndex)
   for e in 0 .. (p.Elements - 1) do
     let mem1 = AST.loadLE p.RtESize addr
     let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
     let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
-    !!ir (mem1 := elem rdList[0] e p.ESize)
-    !!ir (mem2 := elem rdList[1] e p.ESize)
-    !!ir (mem3 := elem rdList[2] e p.ESize)
-    !!ir (addr := incAddr addr (3 * p.EBytes))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (mem1 := elem rdList[0] e p.ESize)
+    bld <+ (mem2 := elem rdList[1] e p.ESize)
+    bld <+ (mem3 := elem rdList[2] e p.ESize)
+    bld <+ (addr := incAddr addr (3 * p.EBytes))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vst3Single (ins: InsInfo) insLen ctxt index =
-  let ir = !*ctxt
+let vst3Single (ins: InsInfo) insLen bld index =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex)
   let mem1 = AST.loadLE p.RtESize addr
   let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
   let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
-  !!ir (mem1 := elem rdList[0] index p.ESize)
-  !!ir (mem2 := elem rdList[1] index p.ESize)
-  !!ir (mem3 := elem rdList[2] index p.ESize)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (mem1 := elem rdList[0] index p.ESize)
+  bld <+ (mem2 := elem rdList[1] index p.ESize)
+  bld <+ (mem3 := elem rdList[2] index p.ESize)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vst3 (ins: InsInfo) insLen ctxt =
+let vst3 (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprSIMD (ThreeRegs (Scalar (_, Some index), _, _)), _) ->
-    vst3Single ins insLen ctxt (int32 index)
+    vst3Single ins insLen bld (int32 index)
   | TwoOperands (OprSIMD (OneReg _), _)
   | TwoOperands (OprSIMD (TwoRegs _), _)
   | TwoOperands (OprSIMD (ThreeRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vst3Multi ins insLen ctxt
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vst3Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
-let vst4Multi (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vst4Multi (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm 32 p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm 32 p.RegIndex)
   for e in 0 .. (p.Elements - 1) do
     let mem1 = AST.loadLE p.RtESize addr
     let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
     let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
     let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
-    !!ir (mem1 := elem rdList[0] e p.ESize)
-    !!ir (mem2 := elem rdList[1] e p.ESize)
-    !!ir (mem3 := elem rdList[2] e p.ESize)
-    !!ir (mem4 := elem rdList[3] e p.ESize)
-    !!ir (addr := incAddr addr (4 * p.EBytes))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (mem1 := elem rdList[0] e p.ESize)
+    bld <+ (mem2 := elem rdList[1] e p.ESize)
+    bld <+ (mem3 := elem rdList[2] e p.ESize)
+    bld <+ (mem4 := elem rdList[3] e p.ESize)
+    bld <+ (addr := incAddr addr (4 * p.EBytes))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vst4Single (ins: InsInfo) insLen ctxt index =
-  let ir = !*ctxt
+let vst4Single (ins: InsInfo) insLen bld index =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex)
   let mem1 = AST.loadLE p.RtESize addr
   let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
   let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
   let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
-  !!ir (mem1 := elem rdList[0] index p.ESize)
-  !!ir (mem2 := elem rdList[1] index p.ESize)
-  !!ir (mem3 := elem rdList[2] index p.ESize)
-  !!ir (mem4 := elem rdList[3] index p.ESize)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (mem1 := elem rdList[0] index p.ESize)
+  bld <+ (mem2 := elem rdList[1] index p.ESize)
+  bld <+ (mem3 := elem rdList[2] index p.ESize)
+  bld <+ (mem4 := elem rdList[3] index p.ESize)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vst4 (ins: InsInfo) insLen ctxt =
+let vst4 (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprSIMD (FourRegs (Scalar (_, Some index), _, _, _)), _) ->
-    vst4Single ins insLen ctxt (int32 index)
+    vst4Single ins insLen bld (int32 index)
   | TwoOperands (OprSIMD (OneReg _), _)
   | TwoOperands (OprSIMD (TwoRegs _), _)
   | TwoOperands (OprSIMD (ThreeRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vst4Multi ins insLen ctxt
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vst4Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
-let vld2SingleOne (ins: InsInfo) insLen ctxt index =
-  let ir = !*ctxt
+let vld2SingleOne (ins: InsInfo) insLen bld index =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (2 * p.EBytes) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (2 * p.EBytes) p.RegIndex)
   let mem1 = AST.loadLE p.RtESize addr
   let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-  !!ir (elem rdList[0] (int32 index) p.ESize := mem1)
-  !!ir (elem rdList[1] (int32 index) p.ESize := mem2)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (elem rdList[0] (int32 index) p.ESize := mem1)
+  bld <+ (elem rdList[1] (int32 index) p.ESize := mem2)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld2SingleAll (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vld2SingleAll (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (2 * p.EBytes) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (2 * p.EBytes) p.RegIndex)
   let mem1 = AST.loadLE p.RtESize addr
   let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
   let repElem1 = Array.replicate p.Elements mem1 |> AST.revConcat
   let repElem2 = Array.replicate p.Elements mem2 |> AST.revConcat
-  !!ir (rdList[0] := repElem1)
-  !!ir (rdList[1] := repElem2)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (rdList[0] := repElem1)
+  bld <+ (rdList[1] := repElem2)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld2Multi (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vld2Multi (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
   let regs = getRegs ins.Operands / 2
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (16 * regs) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (16 * regs) p.RegIndex)
   for r in 0 .. (regs - 1) do
     let rd1 = rdList[r * 2]
     let rd2 = rdList[r * 2 + 1]
     for e in 0 .. (p.Elements - 1) do
       let mem1 = AST.loadLE p.RtESize addr
       let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-      !!ir (elem rd1 e p.ESize := mem1)
-      !!ir (elem rd2 e p.ESize := mem2)
-      !!ir (addr := incAddr addr (2 * p.EBytes))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem rd1 e p.ESize := mem1)
+      bld <+ (elem rd2 e p.ESize := mem2)
+      bld <+ (addr := incAddr addr (2 * p.EBytes))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld2 (ins: InsInfo) insLen ctxt =
+let vld2 (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprSIMD (TwoRegs (Scalar (_, Some index), _)), _) ->
-    vld2SingleOne ins insLen ctxt index
+    vld2SingleOne ins insLen bld index
   | TwoOperands (OprSIMD (TwoRegs (Scalar _, Scalar _)), _) ->
-    vld2SingleAll ins insLen ctxt
+    vld2SingleAll ins insLen bld
   | TwoOperands (OprSIMD (TwoRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vld2Multi ins insLen ctxt
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vld2Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
-let vld3SingleOne (ins: InsInfo) insLen ctxt index =
-  let ir = !*ctxt
+let vld3SingleOne (ins: InsInfo) insLen bld index =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex)
   let mem1 = AST.loadLE p.RtESize addr
   let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
   let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
-  !!ir (elem rdList[0] (int32 index) p.ESize := mem1)
-  !!ir (elem rdList[1] (int32 index) p.ESize := mem2)
-  !!ir (elem rdList[2] (int32 index) p.ESize := mem3)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (elem rdList[0] (int32 index) p.ESize := mem1)
+  bld <+ (elem rdList[1] (int32 index) p.ESize := mem2)
+  bld <+ (elem rdList[2] (int32 index) p.ESize := mem3)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld3SingleAll (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vld3SingleAll (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex)
   let mem1 = AST.loadLE p.RtESize addr
   let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
   let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
   let repElem1 = Array.replicate p.Elements mem1 |> AST.revConcat
   let repElem2 = Array.replicate p.Elements mem2 |> AST.revConcat
   let repElem3 = Array.replicate p.Elements mem3 |> AST.revConcat
-  !!ir (rdList[0] := repElem1)
-  !!ir (rdList[1] := repElem2)
-  !!ir (rdList[2] := repElem3)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (rdList[0] := repElem1)
+  bld <+ (rdList[1] := repElem2)
+  bld <+ (rdList[2] := repElem3)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld3Multi (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vld3Multi (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm 24 p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm 24 p.RegIndex)
   for e in 0 .. (p.Elements - 1) do
     let mem1 = AST.loadLE p.RtESize addr
     let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
     let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
-    !!ir (elem rdList[0] e p.ESize := mem1)
-    !!ir (elem rdList[1] e p.ESize := mem2)
-    !!ir (elem rdList[2] e p.ESize := mem3)
-    !!ir (addr := addr .+ (numI32 (3 * p.EBytes) 32<rt>))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (elem rdList[0] e p.ESize := mem1)
+    bld <+ (elem rdList[1] e p.ESize := mem2)
+    bld <+ (elem rdList[2] e p.ESize := mem3)
+    bld <+ (addr := addr .+ (numI32 (3 * p.EBytes) 32<rt>))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld3 (ins: InsInfo) insLen ctxt =
+let vld3 (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprSIMD (ThreeRegs (Scalar (_, Some index), _, _)), _) ->
-    vld3SingleOne ins insLen ctxt index
+    vld3SingleOne ins insLen bld index
   | TwoOperands (OprSIMD (ThreeRegs (Scalar (_, None), _, _)), _) ->
-    vld3SingleAll ins insLen ctxt
-  | TwoOperands (OprSIMD (ThreeRegs _), _) -> vld3Multi ins insLen ctxt
+    vld3SingleAll ins insLen bld
+  | TwoOperands (OprSIMD (ThreeRegs _), _) -> vld3Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
-let vld4SingleOne (ins: InsInfo) insLen ctxt index =
-  let ir = !*ctxt
+let vld4SingleOne (ins: InsInfo) insLen bld index =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex)
   let mem1 = AST.loadLE p.RtESize addr
   let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
   let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
   let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
-  !!ir (elem rdList[0] (int32 index) p.ESize := mem1)
-  !!ir (elem rdList[1] (int32 index) p.ESize := mem2)
-  !!ir (elem rdList[2] (int32 index) p.ESize := mem3)
-  !!ir (elem rdList[3] (int32 index) p.ESize := mem4)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (elem rdList[0] (int32 index) p.ESize := mem1)
+  bld <+ (elem rdList[1] (int32 index) p.ESize := mem2)
+  bld <+ (elem rdList[2] (int32 index) p.ESize := mem3)
+  bld <+ (elem rdList[3] (int32 index) p.ESize := mem4)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld4SingleAll (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vld4SingleAll (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex)
   let mem1 = AST.loadLE p.RtESize addr
   let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
   let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
@@ -5017,545 +4870,534 @@ let vld4SingleAll (ins: InsInfo) insLen ctxt =
   let repElem2 = Array.replicate p.Elements mem2 |> AST.revConcat
   let repElem3 = Array.replicate p.Elements mem3 |> AST.revConcat
   let repElem4 = Array.replicate p.Elements mem4 |> AST.revConcat
-  !!ir (rdList[0] := repElem1)
-  !!ir (rdList[1] := repElem2)
-  !!ir (rdList[2] := repElem3)
-  !!ir (rdList[3] := repElem4)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (rdList[0] := repElem1)
+  bld <+ (rdList[1] := repElem2)
+  bld <+ (rdList[2] := repElem3)
+  bld <+ (rdList[3] := repElem4)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld4Multi (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vld4Multi (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let rdList, rn, rm = parseOprOfVecStAndLd ctxt ins
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let rdList, rn, rm = parseOprOfVecStAndLd bld ins
   let p = getParsingInfo ins
-  let addr = !+ir 32<rt>
-  !!ir (addr := rn)
-  !!ir (rn := updateRn ins rn rm 24 p.RegIndex)
+  let addr = tmpVar bld 32<rt>
+  bld <+ (addr := rn)
+  bld <+ (rn := updateRn ins rn rm 24 p.RegIndex)
   for e in 0 .. (p.Elements - 1) do
     let mem1 = AST.loadLE p.RtESize addr
     let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
     let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
     let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
-    !!ir (elem rdList[0] e p.ESize := mem1)
-    !!ir (elem rdList[1] e p.ESize := mem2)
-    !!ir (elem rdList[2] e p.ESize := mem3)
-    !!ir (elem rdList[3] e p.ESize := mem4)
-    !!ir (addr := addr .+ (numI32 (4 * p.EBytes) 32<rt>))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    bld <+ (elem rdList[0] e p.ESize := mem1)
+    bld <+ (elem rdList[1] e p.ESize := mem2)
+    bld <+ (elem rdList[2] e p.ESize := mem3)
+    bld <+ (elem rdList[3] e p.ESize := mem4)
+    bld <+ (addr := addr .+ (numI32 (4 * p.EBytes) 32<rt>))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vld4 (ins: InsInfo) insLen ctxt =
+let vld4 (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprSIMD (FourRegs (Scalar (_, Some index), _, _, _)), _) ->
-    vld4SingleOne ins insLen ctxt index
+    vld4SingleOne ins insLen bld index
   | TwoOperands (OprSIMD (FourRegs (Scalar (_, None), _, _, _)), _) ->
-    vld4SingleAll ins insLen ctxt
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vld4Multi ins insLen ctxt
+    vld4SingleAll ins insLen bld
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vld4Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
-let udf (ins: InsInfo) insLen ctxt =
+let udf (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | OneOperand (OprImm n) -> sideEffects ins insLen ctxt (Interrupt (int n))
+  | OneOperand (OprImm n) -> sideEffects ins insLen bld (Interrupt (int n))
   | _ -> raise InvalidOperandException
 
-let uasx (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let uasx (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let cpsr = getRegVar ctxt R.CPSR
-  let struct (diff, sum) = tmpVars2 ir 32<rt>
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (dst, src1, src2) = transThreeOprs ins bld
+  let cpsr = regVar bld R.CPSR
+  let struct (diff, sum) = tmpVars2 bld 32<rt>
   let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
   let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
-  let struct (ge10, ge32) = tmpVars2 ir 32<rt>
+  let struct (ge10, ge32) = tmpVars2 bld 32<rt>
   let numI32 n = numI32 n 32<rt>
-  !!ir (diff := xtlo src1 .- xthi src2)
-  !!ir (sum := xthi src1 .+ xtlo src2)
-  !!ir (dst := AST.concat (AST.xtlo 16<rt> sum) (AST.xtlo 16<rt> diff))
-  !!ir (ge10 := AST.ite (diff .>= numI32 0) (numI32 0xC0000) (numI32 0))
-  !!ir (ge32 := AST.ite (sum .>= numI32 0x10000) (numI32 0x30000) (numI32 0))
-  !!ir (cpsr := (cpsr .& (numI32 0xFFF0FFFF)) .| (ge32 .| ge10))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (diff := xtlo src1 .- xthi src2)
+  bld <+ (sum := xthi src1 .+ xtlo src2)
+  bld <+ (dst := AST.concat (AST.xtlo 16<rt> sum) (AST.xtlo 16<rt> diff))
+  bld <+ (ge10 := AST.ite (diff .>= numI32 0) (numI32 0xC0000) (numI32 0))
+  bld <+ (ge32 := AST.ite (sum .>= numI32 0x10000) (numI32 0x30000) (numI32 0))
+  bld <+ (cpsr := (cpsr .& (numI32 0xFFF0FFFF)) .| (ge32 .| ge10))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let uhsub16 (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let uhsub16 (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let struct (diff1, diff2) = tmpVars2 ir 32<rt>
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (dst, src1, src2) = transThreeOprs ins bld
+  let struct (diff1, diff2) = tmpVars2 bld 32<rt>
   let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
   let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
   let n1 = AST.num1 32<rt>
-  !!ir (diff1 := xtlo src1 .- xtlo src2)
-  !!ir (diff2 := xthi src1 .- xthi src2)
-  !!ir (dst :=
+  bld <+ (diff1 := xtlo src1 .- xtlo src2)
+  bld <+ (diff2 := xthi src1 .- xthi src2)
+  bld <+ (dst :=
     AST.concat (AST.xtlo 16<rt> (diff2 >> n1)) (AST.xtlo 16<rt> (diff1 >> n1)))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let uqsax (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let uqsax (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let struct (sum, diff) = tmpVars2 ir 32<rt>
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (dst, src1, src2) = transThreeOprs ins bld
+  let struct (sum, diff) = tmpVars2 bld 32<rt>
   let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
   let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
-  !!ir (sum := xtlo src1 .+ xthi src2)
-  !!ir (diff := xthi src1 .- xtlo src2)
-  !!ir (dst := AST.concat (AST.xtlo 16<rt> diff) (AST.xtlo 16<rt> sum))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (sum := xtlo src1 .+ xthi src2)
+  bld <+ (diff := xthi src1 .- xtlo src2)
+  bld <+ (dst := AST.concat (AST.xtlo 16<rt> diff) (AST.xtlo 16<rt> sum))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let usax (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let usax (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  let struct (dst, src1, src2) = transThreeOprs ins ctxt
-  let cpsr = getRegVar ctxt R.CPSR
-  let struct (sum, diff) = tmpVars2 ir 32<rt>
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let struct (dst, src1, src2) = transThreeOprs ins bld
+  let cpsr = regVar bld R.CPSR
+  let struct (sum, diff) = tmpVars2 bld 32<rt>
   let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
   let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
-  let struct (ge10, ge32) = tmpVars2 ir 32<rt>
+  let struct (ge10, ge32) = tmpVars2 bld 32<rt>
   let numI32 n = numI32 n 32<rt>
-  !!ir (sum := xtlo src1 .+ xthi src2)
-  !!ir (diff := xthi src1 .- xtlo src2)
-  !!ir (dst := AST.concat (AST.xtlo 16<rt> diff) (AST.xtlo 16<rt> sum))
-  !!ir (ge10 := AST.ite (sum .>= numI32 0x10000) (numI32 0x30000) (numI32 0))
-  !!ir (ge32 := AST.ite (diff .>= numI32 0) (numI32 0xC0000) (numI32 0))
-  !!ir (cpsr := (cpsr .& (numI32 0xFFF0FFFF)) .| (ge10 .| ge32))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+  bld <+ (sum := xtlo src1 .+ xthi src2)
+  bld <+ (diff := xthi src1 .- xtlo src2)
+  bld <+ (dst := AST.concat (AST.xtlo 16<rt> diff) (AST.xtlo 16<rt> sum))
+  bld <+ (ge10 := AST.ite (sum .>= numI32 0x10000) (numI32 0x30000) (numI32 0))
+  bld <+ (ge32 := AST.ite (diff .>= numI32 0) (numI32 0xC0000) (numI32 0))
+  bld <+ (cpsr := (cpsr .& (numI32 0xFFF0FFFF)) .| (ge10 .| ge32))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vext (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vext (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let struct (dst, src1, src2, imm) = getFourOprs ins
   let imm = getImmValue imm
   let rightAmt = numI64 ((8L * imm) % 64L) 64<rt>
   let leftAmt = numI64 (64L - ((8L * imm) % 64L)) 64<rt>
   match ins.OprSize with
   | 128<rt> ->
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
-    let struct (tSrc1B, tSrc1A, tSrc2B, tSrc2A) = tmpVars4 ir 64<rt>
-    !!ir (tSrc1A := src1A)
-    !!ir (tSrc1B := src1B)
-    !!ir (tSrc2A := src2A)
-    !!ir (tSrc2B := src2B)
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
+    let struct (tSrc1B, tSrc1A, tSrc2B, tSrc2A) = tmpVars4 bld 64<rt>
+    bld <+ (tSrc1A := src1A)
+    bld <+ (tSrc1B := src1B)
+    bld <+ (tSrc2A := src2A)
+    bld <+ (tSrc2B := src2B)
     if 8L * imm < 64 then
-      !!ir (dstA := (tSrc1B << leftAmt) .| (tSrc1A >> rightAmt))
-      !!ir (dstB := (tSrc2A << leftAmt) .| (tSrc1B >> rightAmt))
+      bld <+ (dstA := (tSrc1B << leftAmt) .| (tSrc1A >> rightAmt))
+      bld <+ (dstB := (tSrc2A << leftAmt) .| (tSrc1B >> rightAmt))
     else
-      !!ir (dstA := (tSrc2A << leftAmt) .| (tSrc1B >> rightAmt))
-      !!ir (dstB := (tSrc2B << leftAmt) .| (tSrc2A >> rightAmt))
+      bld <+ (dstA := (tSrc2A << leftAmt) .| (tSrc1B >> rightAmt))
+      bld <+ (dstB := (tSrc2B << leftAmt) .| (tSrc2A >> rightAmt))
   | _ ->
-    let struct (dst, src1, src2, _imm) = transFourOprs ins ctxt
-    let struct (tSrc2, tSrc1) = tmpVars2 ir 64<rt>
-    !!ir (tSrc1 := src1)
-    !!ir (tSrc2 := src2)
-    !!ir (dst := (tSrc2 << leftAmt) .| (tSrc1 >> rightAmt))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+    let struct (dst, src1, src2, _imm) = transFourOprs ins bld
+    let struct (tSrc2, tSrc1) = tmpVars2 bld 64<rt>
+    bld <+ (tSrc1 := src1)
+    bld <+ (tSrc2 := src2)
+    bld <+ (dst := (tSrc2 << leftAmt) .| (tSrc1 >> rightAmt))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vhaddsub (ins: InsInfo) insLen ctxt opFn =
-  let ir = !*ctxt
+let vhaddsub (ins: InsInfo) insLen bld opFn =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
-    let struct (op1B, op2B, op1A, op2A) = tmpVars4 ir p.RtESize
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
+    let struct (op1B, op2B, op1A, op2A) = tmpVars4 bld p.RtESize
     for e in 0 .. p.Elements - 1 do
-      !!ir (op1B := elem src1B e p.ESize)
-      !!ir (op2B := elem src2B e p.ESize)
-      !!ir (op1A := elem src1A e p.ESize)
-      !!ir (op2A := elem src2A e p.ESize)
-      !!ir (elem dstB e p.ESize := (opFn op1B op2B) >> (AST.num1 p.RtESize))
-      !!ir (elem dstA e p.ESize := (opFn op1A op2A) >> (AST.num1 p.RtESize))
+      bld <+ (op1B := elem src1B e p.ESize)
+      bld <+ (op2B := elem src2B e p.ESize)
+      bld <+ (op1A := elem src1A e p.ESize)
+      bld <+ (op2A := elem src2A e p.ESize)
+      bld <+ (elem dstB e p.ESize := (opFn op1B op2B) >> (AST.num1 p.RtESize))
+      bld <+ (elem dstA e p.ESize := (opFn op1A op2A) >> (AST.num1 p.RtESize))
   | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
-    let struct (op1, op2) = tmpVars2 ir p.RtESize
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let struct (op1, op2) = tmpVars2 bld p.RtESize
     for e in 0 .. p.Elements - 1 do
-      !!ir (op1 := elem src1 e p.ESize)
-      !!ir (op2 := elem src2 e p.ESize)
-      !!ir (elem dst e p.ESize := (opFn op1 op2) >> (AST.num1 p.RtESize))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (op1 := elem src1 e p.ESize)
+      bld <+ (op2 := elem src2 e p.ESize)
+      bld <+ (elem dst e p.ESize := (opFn op1 op2) >> (AST.num1 p.RtESize))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vrhadd (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vrhadd (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
-  let struct (op1, op2) = tmpVars2 ir p.RtESize
+  let struct (op1, op2) = tmpVars2 bld p.RtESize
   let n1 = AST.num1 p.RtESize
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src1, src2) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let src1B, src1A = transOprToExpr128 ctxt src1
-    let src2B, src2A = transOprToExpr128 ctxt src2
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (src1B, src1A) = transOprToExpr128 bld src1
+    let struct (src2B, src2A) = transOprToExpr128 bld src2
     for e in 0 .. (64 / p.ESize) - 1 do
-      !!ir (op1 := elem src1B e p.ESize .+ elem src2B e p.ESize .+ n1)
-      !!ir (op2 := elem src1A e p.ESize .+ elem src2A e p.ESize .+ n1)
-      !!ir (elem dstB e p.ESize := AST.xtlo p.RtESize (op1 >> n1))
-      !!ir (elem dstA e p.ESize := AST.xtlo p.RtESize (op2 >> n1))
+      bld <+ (op1 := elem src1B e p.ESize .+ elem src2B e p.ESize .+ n1)
+      bld <+ (op2 := elem src1A e p.ESize .+ elem src2A e p.ESize .+ n1)
+      bld <+ (elem dstB e p.ESize := AST.xtlo p.RtESize (op1 >> n1))
+      bld <+ (elem dstA e p.ESize := AST.xtlo p.RtESize (op2 >> n1))
   | _ ->
-    let struct (dst, src1, src2) = transThreeOprs ins ctxt
+    let struct (dst, src1, src2) = transThreeOprs ins bld
     for e in 0 .. (64 / p.ESize) - 1 do
-      !!ir (op1 := elem src1 e p.ESize)
-      !!ir (op2 := elem src2 e p.ESize)
+      bld <+ (op1 := elem src1 e p.ESize)
+      bld <+ (op2 := elem src2 e p.ESize)
       let result = op1 .+ op2 .+ n1
-      !!ir (elem dst e p.ESize := AST.xtlo p.RtESize (result >> n1))
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (elem dst e p.ESize := AST.xtlo p.RtESize (result >> n1))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vsra (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vsra (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
-  let struct (result1, result2, shfAmt) = tmpVars3 ir p.RtESize
+  let struct (result1, result2, shfAmt) = tmpVars3 bld p.RtESize
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src, imm) = getThreeOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let srcB, srcA = transOprToExpr128 ctxt src
-    let imm = transOprToExpr ins ctxt imm
-    !!ir (shfAmt := if p.RtESize = 64<rt> then AST.zext p.RtESize imm
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (srcB, srcA) = transOprToExpr128 bld src
+    let imm = transOprToExpr ins bld imm
+    bld <+ (shfAmt := if p.RtESize = 64<rt> then AST.zext p.RtESize imm
                     else AST.xtlo p.RtESize imm)
     for e in 0 .. p.Elements - 1 do
-      !!ir (result1 := srcB >> shfAmt)
-      !!ir (result2 := srcA >> shfAmt)
-      !!ir (dstB := dstB .+ result1)
-      !!ir (dstA := dstA .+ result2)
+      bld <+ (result1 := srcB >> shfAmt)
+      bld <+ (result2 := srcA >> shfAmt)
+      bld <+ (dstB := dstB .+ result1)
+      bld <+ (dstA := dstA .+ result2)
   | _ ->
-    let struct (dst, src, imm) = transThreeOprs ins ctxt
-    !!ir (shfAmt := if p.RtESize = 64<rt> then AST.zext p.RtESize imm
+    let struct (dst, src, imm) = transThreeOprs ins bld
+    bld <+ (shfAmt := if p.RtESize = 64<rt> then AST.zext p.RtESize imm
                     else AST.xtlo p.RtESize imm)
     for e in 0 .. p.Elements - 1 do
-      !!ir (result1 := src >> shfAmt)
-      !!ir (dst := dst .+ result1)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+      bld <+ (result1 := src >> shfAmt)
+      bld <+ (dst := dst .+ result1)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
-let vuzp (ins: InsInfo) insLen ctxt =
-  let ir = !*ctxt
+let vuzp (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir ins.Address insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
   let p = getParsingInfo ins
-  let struct (zip1B, zip1A, zip2B, zip2A) = tmpVars4 ir 64<rt>
+  let struct (zip1B, zip1A, zip2B, zip2A) = tmpVars4 bld 64<rt>
   let elements = (p.Elements - 1) / 2
   match ins.OprSize with
   | 128<rt> ->
     let struct (dst, src) = getTwoOprs ins
-    let dstB, dstA = transOprToExpr128 ctxt dst
-    let srcB, srcA = transOprToExpr128 ctxt src
+    let struct (dstB, dstA) = transOprToExpr128 bld dst
+    let struct (srcB, srcA) = transOprToExpr128 bld src
     if dstB = srcB && dstA = srcA then
-      !!ir (dstB := AST.undef 64<rt> "UNKNOWN")
-      !!ir (dstA := AST.undef 64<rt> "UNKNOWN")
-      !!ir (srcB := AST.undef 64<rt> "UNKNOWN")
-      !!ir (srcA := AST.undef 64<rt> "UNKNOWN")
+      bld <+ (dstB := AST.undef 64<rt> "UNKNOWN")
+      bld <+ (dstA := AST.undef 64<rt> "UNKNOWN")
+      bld <+ (srcB := AST.undef 64<rt> "UNKNOWN")
+      bld <+ (srcA := AST.undef 64<rt> "UNKNOWN")
     else
-      !!ir (zip1B := srcB)
-      !!ir (zip1A := srcA)
-      !!ir (zip2B := dstB)
-      !!ir (zip2A := dstA)
+      bld <+ (zip1B := srcB)
+      bld <+ (zip1A := srcA)
+      bld <+ (zip2B := dstB)
+      bld <+ (zip2A := dstA)
       for e in 0 .. elements do
         let pos = e + p.Elements / 2
-        !!ir (elem dstB pos p.ESize := elem zip1B (e * 2) p.ESize)
-        !!ir (elem srcB pos p.ESize := elem zip1B (e * 2 + 1) p.ESize)
-        !!ir (elem dstB e p.ESize := elem zip1A (e * 2) p.ESize)
-        !!ir (elem srcB e p.ESize := elem zip1A (e * 2 + 1) p.ESize)
-        !!ir (elem dstA pos p.ESize := elem zip2B (e * 2) p.ESize)
-        !!ir (elem srcA pos p.ESize := elem zip2B (e * 2 + 1) p.ESize)
-        !!ir (elem dstA e p.ESize := elem zip2A (e * 2) p.ESize)
-        !!ir (elem srcA e p.ESize := elem zip2A (e * 2 + 1) p.ESize)
+        bld <+ (elem dstB pos p.ESize := elem zip1B (e * 2) p.ESize)
+        bld <+ (elem srcB pos p.ESize := elem zip1B (e * 2 + 1) p.ESize)
+        bld <+ (elem dstB e p.ESize := elem zip1A (e * 2) p.ESize)
+        bld <+ (elem srcB e p.ESize := elem zip1A (e * 2 + 1) p.ESize)
+        bld <+ (elem dstA pos p.ESize := elem zip2B (e * 2) p.ESize)
+        bld <+ (elem srcA pos p.ESize := elem zip2B (e * 2 + 1) p.ESize)
+        bld <+ (elem dstA e p.ESize := elem zip2A (e * 2) p.ESize)
+        bld <+ (elem srcA e p.ESize := elem zip2A (e * 2 + 1) p.ESize)
   | _ ->
-    let struct (dst, src) = transTwoOprs ins ctxt
+    let struct (dst, src) = transTwoOprs ins bld
     if dst = src then
-      !!ir (dst := AST.undef ins.OprSize "UNKNOWN")
-      !!ir (src := AST.undef ins.OprSize "UNKNOWN")
+      bld <+ (dst := AST.undef ins.OprSize "UNKNOWN")
+      bld <+ (src := AST.undef ins.OprSize "UNKNOWN")
     else
-      !!ir (zip1B := src)
-      !!ir (zip1A := dst)
+      bld <+ (zip1B := src)
+      bld <+ (zip1A := dst)
       for e in 0 .. elements do
         let pos = e + p.Elements / 2
-        !!ir (elem dst e p.ESize := elem zip1B (e * 2) p.ESize)
-        !!ir (elem src e p.ESize := elem zip1B (e * 2 + 1) p.ESize)
-        !!ir (elem dst pos p.ESize := elem zip1A (e * 2) p.ESize)
-        !!ir (elem src pos p.ESize := elem zip1A (e * 2 + 1) p.ESize)
-  putEndLabel ctxt lblIgnore ir
-  !>ir insLen
+        bld <+ (elem dst e p.ESize := elem zip1B (e * 2) p.ESize)
+        bld <+ (elem src e p.ESize := elem zip1B (e * 2 + 1) p.ESize)
+        bld <+ (elem dst pos p.ESize := elem zip1A (e * 2) p.ESize)
+        bld <+ (elem src pos p.ESize := elem zip1A (e * 2 + 1) p.ESize)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
 
 /// Translate IR.
-let translate (ins: ARM32InternalInstruction) insLen ctxt =
+let translate (ins: ARM32InternalInstruction) insLen bld =
   match ins.Opcode with
-  | Op.ADC -> adc false ins insLen ctxt
-  | Op.ADCS -> adcs true ins insLen ctxt
-  | Op.ADD | Op.ADDW -> add false ins insLen ctxt
-  | Op.ADDS -> adds true ins insLen ctxt
-  | Op.ADR -> adr ins insLen ctxt // for Thumb mode
-  | Op.AND -> logicalAnd false ins insLen ctxt
-  | Op.ANDS -> ands true ins insLen ctxt
-  | Op.ASR -> shiftInstr false ins insLen SRTypeASR ctxt
-  | Op.ASRS -> asrs true ins insLen ctxt
-  | Op.B -> b ins insLen ctxt
-  | Op.BFC -> bfc ins insLen ctxt
-  | Op.BFI -> bfi ins insLen ctxt
-  | Op.BIC -> bic false ins insLen ctxt
-  | Op.BICS -> bics true ins insLen ctxt
-  | Op.BKPT -> sideEffects ins insLen ctxt Breakpoint
-  | Op.BL -> bl ins insLen ctxt
-  | Op.BLX -> branchWithLink ins insLen ctxt
-  | Op.BX -> bx ins insLen ctxt
-  | Op.BXJ -> bx ins insLen ctxt
-  | Op.CBNZ -> cbz true ins insLen ctxt
-  | Op.CBZ -> cbz false ins insLen ctxt
+  | Op.ADC -> adc false ins insLen bld
+  | Op.ADCS -> adcs true ins insLen bld
+  | Op.ADD | Op.ADDW -> add false ins insLen bld
+  | Op.ADDS -> adds true ins insLen bld
+  | Op.ADR -> adr ins insLen bld // for Thumb mode
+  | Op.AND -> logicalAnd false ins insLen bld
+  | Op.ANDS -> ands true ins insLen bld
+  | Op.ASR -> shiftInstr false ins insLen SRTypeASR bld
+  | Op.ASRS -> asrs true ins insLen bld
+  | Op.B -> b ins insLen bld
+  | Op.BFC -> bfc ins insLen bld
+  | Op.BFI -> bfi ins insLen bld
+  | Op.BIC -> bic false ins insLen bld
+  | Op.BICS -> bics true ins insLen bld
+  | Op.BKPT -> sideEffects ins insLen bld Breakpoint
+  | Op.BL -> bl ins insLen bld
+  | Op.BLX -> branchWithLink ins insLen bld
+  | Op.BX -> bx ins insLen bld
+  | Op.BXJ -> bx ins insLen bld
+  | Op.CBNZ -> cbz true ins insLen bld
+  | Op.CBZ -> cbz false ins insLen bld
   | Op.CDP | Op.CDP2 | Op.LDC | Op.LDC2 | Op.LDC2L | Op.LDCL | Op.MCR | Op.MCR2
   | Op.MCRR | Op.MCRR2 | Op.MRC | Op.MRC2 | Op.MRRC | Op.MRRC2 | Op.STC
   | Op.STC2 | Op.STC2L | Op.STCL ->
     (* coprocessor instructions *)
-    sideEffects ins insLen ctxt UnsupportedExtension
-  | Op.CLZ -> clz ins insLen ctxt
-  | Op.CMN -> cmn ins insLen ctxt
-  | Op.CMP -> cmp ins insLen ctxt
-  | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop ins insLen ctxt
-  | Op.EOR -> eor false ins insLen ctxt
-  | Op.EORS -> eors true ins insLen ctxt
-  | Op.ERET -> sideEffects ins insLen ctxt UnsupportedExtension
+    sideEffects ins insLen bld UnsupportedExtension
+  | Op.CLZ -> clz ins insLen bld
+  | Op.CMN -> cmn ins insLen bld
+  | Op.CMP -> cmp ins insLen bld
+  | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop ins insLen bld
+  | Op.EOR -> eor false ins insLen bld
+  | Op.EORS -> eors true ins insLen bld
+  | Op.ERET -> sideEffects ins insLen bld UnsupportedExtension
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE | Op.ITEE | Op.ITTTT
   | Op.ITETT | Op.ITTET | Op.ITEET | Op.ITTTE | Op.ITETE | Op.ITTEE
-  | Op.ITEEE -> it ins insLen ctxt
-  | Op.LDM -> ldm Op.LDM ins insLen ctxt (.+)
-  | Op.LDMDA -> ldm Op.LDMDA ins insLen ctxt (.-)
-  | Op.LDMDB -> ldm Op.LDMDB ins insLen ctxt (.-)
-  | Op.LDMIA -> ldm Op.LDMIA ins insLen ctxt (.+)
-  | Op.LDMIB -> ldm Op.LDMIB ins insLen ctxt (.+)
-  | Op.LDR -> ldr ins insLen ctxt 32<rt> AST.zext
-  | Op.LDRB -> ldr ins insLen ctxt 8<rt> AST.zext
-  | Op.LDRBT -> ldr ins insLen ctxt 8<rt> AST.zext
-  | Op.LDRD -> ldrd ins insLen ctxt
-  | Op.LDREX -> ldr ins insLen ctxt 32<rt> AST.zext
-  | Op.LDRH -> ldr ins insLen ctxt 16<rt> AST.zext
-  | Op.LDRHT -> ldr ins insLen ctxt 16<rt> AST.zext
-  | Op.LDRSB -> ldr ins insLen ctxt 8<rt> AST.sext
-  | Op.LDRSBT -> ldr ins insLen ctxt 8<rt> AST.sext
-  | Op.LDRSH -> ldr ins insLen ctxt 16<rt> AST.sext
-  | Op.LDRSHT -> ldr ins insLen ctxt 16<rt> AST.sext
-  | Op.LDRT -> ldr ins insLen ctxt 32<rt> AST.zext
-  | Op.LSL -> shiftInstr false ins insLen SRTypeLSL ctxt
-  | Op.LSLS -> lsls true ins insLen ctxt
-  | Op.LSR -> shiftInstr false ins insLen SRTypeLSR ctxt
-  | Op.LSRS -> lsrs true ins insLen ctxt
-  | Op.MLA -> mla false ins insLen ctxt
-  | Op.MLAS -> mla true ins insLen ctxt
-  | Op.MLS -> mls ins insLen ctxt
-  | Op.MOV | Op.MOVW -> mov false ins insLen ctxt
-  | Op.MOVS -> movs true ins insLen ctxt
-  | Op.MOVT -> movt ins insLen ctxt
-  | Op.MSR | Op.MRS -> sideEffects ins insLen ctxt UndefinedInstr
-  | Op.MUL -> mul false ins insLen ctxt
-  | Op.MULS -> mul true ins insLen ctxt
-  | Op.MVN -> mvn false ins insLen ctxt
-  | Op.MVNS -> mvns true ins insLen ctxt
-  | Op.NOP -> nop ins insLen ctxt
-  | Op.ORN -> orn false ins insLen ctxt
-  | Op.ORNS -> orns true ins insLen ctxt
-  | Op.ORR -> orr false ins insLen ctxt
-  | Op.ORRS -> orrs true ins insLen ctxt
-  | Op.PKHBT -> pkh ins insLen ctxt false
-  | Op.PKHTB -> pkh ins insLen ctxt true
-  | Op.POP -> pop ins insLen ctxt
-  | Op.PUSH -> push ins insLen ctxt
-  | Op.QDADD -> qdadd ins insLen ctxt
-  | Op.QDSUB -> qdsub ins insLen ctxt
-  | Op.QSAX -> qsax ins insLen ctxt
-  | Op.QSUB16 -> qsub16 ins insLen ctxt
-  | Op.RBIT -> rbit ins insLen ctxt
-  | Op.REV -> rev ins insLen ctxt
-  | Op.REV16 -> rev16 ins insLen ctxt
-  | Op.REVSH -> revsh ins insLen ctxt
-  | Op.RFEDB -> rfedb ins insLen ctxt
-  | Op.ROR -> shiftInstr false ins insLen SRTypeROR ctxt
-  | Op.RORS -> rors true ins insLen ctxt
-  | Op.RRX -> shiftInstr false ins insLen SRTypeRRX ctxt
-  | Op.RRXS -> rrxs true ins insLen ctxt
-  | Op.RSB -> rsb false ins insLen ctxt
-  | Op.RSBS -> rsbs true ins insLen ctxt
-  | Op.RSC -> rsc false ins insLen ctxt
-  | Op.RSCS -> rscs true ins insLen ctxt
-  | Op.SBC -> sbc false ins insLen ctxt
-  | Op.SBCS -> sbcs true ins insLen ctxt
-  | Op.SBFX -> bfx ins insLen ctxt true
-  | Op.SEL -> sel ins insLen ctxt
-  | Op.SMLABB -> smulacchalf ins insLen ctxt false false
-  | Op.SMLABT -> smulacchalf ins insLen ctxt false true
-  | Op.SMLAL -> smulandacc false true ins insLen ctxt
-  | Op.SMLALS -> smulandacc true true ins insLen ctxt
-  | Op.SMLATB -> smulacchalf ins insLen ctxt true false
-  | Op.SMLATT -> smulacchalf ins insLen ctxt true true
-  | Op.SMLALBT -> smulacclonghalf ins insLen ctxt false true
-  | Op.SMLALTT -> smulacclonghalf ins insLen ctxt true true
-  | Op.SMLALD -> smulacclongdual ins insLen ctxt false
-  | Op.SMLALDX -> smulacclongdual ins insLen ctxt true
-  | Op.SMLAWB -> smulaccwordbyhalf ins insLen ctxt false
-  | Op.SMLAWT -> smulaccwordbyhalf ins insLen ctxt true
-  | Op.SMMLA -> smmla ins insLen ctxt false
-  | Op.SMMLAR -> smmla ins insLen ctxt true
-  | Op.SMMUL -> smmul ins insLen ctxt false
-  | Op.SMMULR -> smmul ins insLen ctxt true
-  | Op.SMULBB -> smulhalf ins insLen ctxt false false
-  | Op.SMULBT -> smulhalf ins insLen ctxt false true
-  | Op.SMULL -> smulandacc false false ins insLen ctxt
-  | Op.SMULLS -> smulandacc true false ins insLen ctxt
-  | Op.SMULTB -> smulhalf ins insLen ctxt true false
-  | Op.SMULTT -> smulhalf ins insLen ctxt true true
-  | Op.STM -> stm Op.STM ins insLen ctxt (.+)
-  | Op.STMDA -> stm Op.STMDA ins insLen ctxt (.-)
-  | Op.STMDB -> stm Op.STMDB ins insLen ctxt (.-)
-  | Op.STMEA -> stm Op.STMIA ins insLen ctxt (.+)
-  | Op.STMIA -> stm Op.STMIA ins insLen ctxt (.+)
-  | Op.STMIB -> stm Op.STMIB ins insLen ctxt (.+)
-  | Op.STR -> str ins insLen ctxt 32<rt>
-  | Op.STRB -> str ins insLen ctxt 8<rt>
-  | Op.STRBT -> str ins insLen ctxt 8<rt>
-  | Op.STRD -> strd ins insLen ctxt
-  | Op.STREX -> strex ins insLen ctxt
-  | Op.STRH -> str ins insLen ctxt 16<rt>
-  | Op.STRHT -> str ins insLen ctxt 16<rt>
-  | Op.STRT -> str ins insLen ctxt 32<rt>
-  | Op.SUB | Op.SUBW -> sub false ins insLen ctxt
-  | Op.SUBS -> subs true ins insLen ctxt
-  | Op.SVC -> svc ins insLen ctxt
-  | Op.SXTB -> extend ins insLen ctxt AST.sext 8<rt>
-  | Op.SXTH -> extend ins insLen ctxt AST.sext 16<rt>
-  | Op.TBH | Op.TBB -> tableBranch ins insLen ctxt
-  | Op.TEQ -> teq ins insLen ctxt
-  | Op.TST -> tst ins insLen ctxt
-  | Op.UADD8 -> uadd8 ins insLen ctxt
-  | Op.UASX -> uasx ins insLen ctxt
-  | Op.UBFX -> bfx ins insLen ctxt false
-  | Op.UDF -> udf ins insLen ctxt
-  | Op.UHSUB16 -> uhsub16 ins insLen ctxt
-  | Op.UMAAL -> umaal ins insLen ctxt
-  | Op.UMLAL -> umlal false ins insLen ctxt
-  | Op.UMLALS -> umlal true ins insLen ctxt
-  | Op.UMULL -> umull false ins insLen ctxt
-  | Op.UMULLS -> umull true ins insLen ctxt
-  | Op.UQADD16 -> uqopr ins insLen ctxt 16 (.+)
-  | Op.UQADD8 -> uqopr ins insLen ctxt 8 (.+)
-  | Op.UQSAX -> uqsax ins insLen ctxt
-  | Op.UQSUB16 -> uqopr ins insLen ctxt 16 (.-)
-  | Op.UQSUB8 -> uqopr ins insLen ctxt 8 (.-)
-  | Op.USAX -> usax ins insLen ctxt
-  | Op.UXTAB -> extendAndAdd ins insLen ctxt 8<rt>
-  | Op.UXTAH -> extendAndAdd ins insLen ctxt 16<rt>
-  | Op.UXTB -> extend ins insLen ctxt AST.zext 8<rt>
-  | Op.UXTB16 -> uxtb16 ins insLen ctxt
-  | Op.UXTH -> extend ins insLen ctxt AST.zext 16<rt>
+  | Op.ITEEE -> it ins insLen bld
+  | Op.LDM -> ldm Op.LDM ins insLen bld (.+)
+  | Op.LDMDA -> ldm Op.LDMDA ins insLen bld (.-)
+  | Op.LDMDB -> ldm Op.LDMDB ins insLen bld (.-)
+  | Op.LDMIA -> ldm Op.LDMIA ins insLen bld (.+)
+  | Op.LDMIB -> ldm Op.LDMIB ins insLen bld (.+)
+  | Op.LDR -> ldr ins insLen bld 32<rt> AST.zext
+  | Op.LDRB -> ldr ins insLen bld 8<rt> AST.zext
+  | Op.LDRBT -> ldr ins insLen bld 8<rt> AST.zext
+  | Op.LDRD -> ldrd ins insLen bld
+  | Op.LDREX -> ldr ins insLen bld 32<rt> AST.zext
+  | Op.LDRH -> ldr ins insLen bld 16<rt> AST.zext
+  | Op.LDRHT -> ldr ins insLen bld 16<rt> AST.zext
+  | Op.LDRSB -> ldr ins insLen bld 8<rt> AST.sext
+  | Op.LDRSBT -> ldr ins insLen bld 8<rt> AST.sext
+  | Op.LDRSH -> ldr ins insLen bld 16<rt> AST.sext
+  | Op.LDRSHT -> ldr ins insLen bld 16<rt> AST.sext
+  | Op.LDRT -> ldr ins insLen bld 32<rt> AST.zext
+  | Op.LSL -> shiftInstr false ins insLen SRTypeLSL bld
+  | Op.LSLS -> lsls true ins insLen bld
+  | Op.LSR -> shiftInstr false ins insLen SRTypeLSR bld
+  | Op.LSRS -> lsrs true ins insLen bld
+  | Op.MLA -> mla false ins insLen bld
+  | Op.MLAS -> mla true ins insLen bld
+  | Op.MLS -> mls ins insLen bld
+  | Op.MOV | Op.MOVW -> mov false ins insLen bld
+  | Op.MOVS -> movs true ins insLen bld
+  | Op.MOVT -> movt ins insLen bld
+  | Op.MSR | Op.MRS -> sideEffects ins insLen bld UndefinedInstr
+  | Op.MUL -> mul false ins insLen bld
+  | Op.MULS -> mul true ins insLen bld
+  | Op.MVN -> mvn false ins insLen bld
+  | Op.MVNS -> mvns true ins insLen bld
+  | Op.NOP -> nop ins insLen bld
+  | Op.ORN -> orn false ins insLen bld
+  | Op.ORNS -> orns true ins insLen bld
+  | Op.ORR -> orr false ins insLen bld
+  | Op.ORRS -> orrs true ins insLen bld
+  | Op.PKHBT -> pkh ins insLen bld false
+  | Op.PKHTB -> pkh ins insLen bld true
+  | Op.POP -> pop ins insLen bld
+  | Op.PUSH -> push ins insLen bld
+  | Op.QDADD -> qdadd ins insLen bld
+  | Op.QDSUB -> qdsub ins insLen bld
+  | Op.QSAX -> qsax ins insLen bld
+  | Op.QSUB16 -> qsub16 ins insLen bld
+  | Op.RBIT -> rbit ins insLen bld
+  | Op.REV -> rev ins insLen bld
+  | Op.REV16 -> rev16 ins insLen bld
+  | Op.REVSH -> revsh ins insLen bld
+  | Op.RFEDB -> rfedb ins insLen bld
+  | Op.ROR -> shiftInstr false ins insLen SRTypeROR bld
+  | Op.RORS -> rors true ins insLen bld
+  | Op.RRX -> shiftInstr false ins insLen SRTypeRRX bld
+  | Op.RRXS -> rrxs true ins insLen bld
+  | Op.RSB -> rsb false ins insLen bld
+  | Op.RSBS -> rsbs true ins insLen bld
+  | Op.RSC -> rsc false ins insLen bld
+  | Op.RSCS -> rscs true ins insLen bld
+  | Op.SBC -> sbc false ins insLen bld
+  | Op.SBCS -> sbcs true ins insLen bld
+  | Op.SBFX -> bfx ins insLen bld true
+  | Op.SEL -> sel ins insLen bld
+  | Op.SMLABB -> smulacchalf ins insLen bld false false
+  | Op.SMLABT -> smulacchalf ins insLen bld false true
+  | Op.SMLAL -> smulandacc false true ins insLen bld
+  | Op.SMLALS -> smulandacc true true ins insLen bld
+  | Op.SMLATB -> smulacchalf ins insLen bld true false
+  | Op.SMLATT -> smulacchalf ins insLen bld true true
+  | Op.SMLALBT -> smulacclonghalf ins insLen bld false true
+  | Op.SMLALTT -> smulacclonghalf ins insLen bld true true
+  | Op.SMLALD -> smulacclongdual ins insLen bld false
+  | Op.SMLALDX -> smulacclongdual ins insLen bld true
+  | Op.SMLAWB -> smulaccwordbyhalf ins insLen bld false
+  | Op.SMLAWT -> smulaccwordbyhalf ins insLen bld true
+  | Op.SMMLA -> smmla ins insLen bld false
+  | Op.SMMLAR -> smmla ins insLen bld true
+  | Op.SMMUL -> smmul ins insLen bld false
+  | Op.SMMULR -> smmul ins insLen bld true
+  | Op.SMULBB -> smulhalf ins insLen bld false false
+  | Op.SMULBT -> smulhalf ins insLen bld false true
+  | Op.SMULL -> smulandacc false false ins insLen bld
+  | Op.SMULLS -> smulandacc true false ins insLen bld
+  | Op.SMULTB -> smulhalf ins insLen bld true false
+  | Op.SMULTT -> smulhalf ins insLen bld true true
+  | Op.STM -> stm Op.STM ins insLen bld (.+)
+  | Op.STMDA -> stm Op.STMDA ins insLen bld (.-)
+  | Op.STMDB -> stm Op.STMDB ins insLen bld (.-)
+  | Op.STMEA -> stm Op.STMIA ins insLen bld (.+)
+  | Op.STMIA -> stm Op.STMIA ins insLen bld (.+)
+  | Op.STMIB -> stm Op.STMIB ins insLen bld (.+)
+  | Op.STR -> str ins insLen bld 32<rt>
+  | Op.STRB -> str ins insLen bld 8<rt>
+  | Op.STRBT -> str ins insLen bld 8<rt>
+  | Op.STRD -> strd ins insLen bld
+  | Op.STREX -> strex ins insLen bld
+  | Op.STRH -> str ins insLen bld 16<rt>
+  | Op.STRHT -> str ins insLen bld 16<rt>
+  | Op.STRT -> str ins insLen bld 32<rt>
+  | Op.SUB | Op.SUBW -> sub false ins insLen bld
+  | Op.SUBS -> subs true ins insLen bld
+  | Op.SVC -> svc ins insLen bld
+  | Op.SXTB -> extend ins insLen bld AST.sext 8<rt>
+  | Op.SXTH -> extend ins insLen bld AST.sext 16<rt>
+  | Op.TBH | Op.TBB -> tableBranch ins insLen bld
+  | Op.TEQ -> teq ins insLen bld
+  | Op.TST -> tst ins insLen bld
+  | Op.UADD8 -> uadd8 ins insLen bld
+  | Op.UASX -> uasx ins insLen bld
+  | Op.UBFX -> bfx ins insLen bld false
+  | Op.UDF -> udf ins insLen bld
+  | Op.UHSUB16 -> uhsub16 ins insLen bld
+  | Op.UMAAL -> umaal ins insLen bld
+  | Op.UMLAL -> umlal false ins insLen bld
+  | Op.UMLALS -> umlal true ins insLen bld
+  | Op.UMULL -> umull false ins insLen bld
+  | Op.UMULLS -> umull true ins insLen bld
+  | Op.UQADD16 -> uqopr ins insLen bld 16 (.+)
+  | Op.UQADD8 -> uqopr ins insLen bld 8 (.+)
+  | Op.UQSAX -> uqsax ins insLen bld
+  | Op.UQSUB16 -> uqopr ins insLen bld 16 (.-)
+  | Op.UQSUB8 -> uqopr ins insLen bld 8 (.-)
+  | Op.USAX -> usax ins insLen bld
+  | Op.UXTAB -> extendAndAdd ins insLen bld 8<rt>
+  | Op.UXTAH -> extendAndAdd ins insLen bld 16<rt>
+  | Op.UXTB -> extend ins insLen bld AST.zext 8<rt>
+  | Op.UXTB16 -> uxtb16 ins insLen bld
+  | Op.UXTH -> extend ins insLen bld AST.zext 16<rt>
   | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen ctxt UnsupportedFP
-  | Op.VABS -> vabs ins insLen ctxt
-  | Op.VADD when isF16orF32orF64 ins.SIMDTyp -> vaddsub ins insLen ctxt AST.fadd
-  | Op.VADD -> vaddsub ins insLen ctxt (.+)
-  | Op.VADDL -> vaddl ins insLen ctxt
-  | Op.VAND -> vand ins insLen ctxt
+    sideEffects ins insLen bld UnsupportedFP
+  | Op.VABS -> vabs ins insLen bld
+  | Op.VADD when isF16orF32orF64 ins.SIMDTyp -> vaddsub ins insLen bld AST.fadd
+  | Op.VADD -> vaddsub ins insLen bld (.+)
+  | Op.VADDL -> vaddl ins insLen bld
+  | Op.VAND -> vand ins insLen bld
   | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
-    when isF32orF64 ins.SIMDTyp -> sideEffects ins insLen ctxt UnsupportedFP
-  | Op.VCEQ -> vceq ins insLen ctxt
-  | Op.VCGE -> vcge ins insLen ctxt
-  | Op.VCGT -> vcgt ins insLen ctxt
-  | Op.VCLE -> vcle ins insLen ctxt
-  | Op.VCLT -> vclt ins insLen ctxt
-  | Op.VCLZ -> vclz ins insLen ctxt
-  | Op.VCMLA -> sideEffects ins insLen ctxt UnsupportedFP
+    when isF32orF64 ins.SIMDTyp -> sideEffects ins insLen bld UnsupportedFP
+  | Op.VCEQ -> vceq ins insLen bld
+  | Op.VCGE -> vcge ins insLen bld
+  | Op.VCGT -> vcgt ins insLen bld
+  | Op.VCLE -> vcle ins insLen bld
+  | Op.VCLT -> vclt ins insLen bld
+  | Op.VCLZ -> vclz ins insLen bld
+  | Op.VCMLA -> sideEffects ins insLen bld UnsupportedFP
   | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR
   | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR | Op.VNMLA | Op.VNMLS
-  | Op.VNMUL | Op.VSQRT -> sideEffects ins insLen ctxt UnsupportedFP
-  | Op.VCVT -> vcvt ins insLen ctxt
-  | Op.VDIV -> vdiv ins insLen ctxt
-  | Op.VDUP -> vdup ins insLen ctxt
-  | Op.VEXT -> vext ins insLen ctxt
-  | Op.VHADD -> vhaddsub ins insLen ctxt (.+)
-  | Op.VHSUB -> vhaddsub ins insLen ctxt (.-)
-  | Op.VLD1 -> vld1 ins insLen ctxt
-  | Op.VLD2 -> vld2 ins insLen ctxt
-  | Op.VLD3 -> vld3 ins insLen ctxt
-  | Op.VLD4 -> vld4 ins insLen ctxt
-  | Op.VLDM | Op.VLDMIA | Op.VLDMDB -> vldm ins insLen ctxt
-  | Op.VLDR -> vldr ins insLen ctxt
+  | Op.VNMUL | Op.VSQRT -> sideEffects ins insLen bld UnsupportedFP
+  | Op.VCVT -> vcvt ins insLen bld
+  | Op.VDIV -> vdiv ins insLen bld
+  | Op.VDUP -> vdup ins insLen bld
+  | Op.VEXT -> vext ins insLen bld
+  | Op.VHADD -> vhaddsub ins insLen bld (.+)
+  | Op.VHSUB -> vhaddsub ins insLen bld (.-)
+  | Op.VLD1 -> vld1 ins insLen bld
+  | Op.VLD2 -> vld2 ins insLen bld
+  | Op.VLD3 -> vld3 ins insLen bld
+  | Op.VLD4 -> vld4 ins insLen bld
+  | Op.VLDM | Op.VLDMIA | Op.VLDMDB -> vldm ins insLen bld
+  | Op.VLDR -> vldr ins insLen bld
   | Op.VMAX | Op.VMIN when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen ctxt UnsupportedFP
-  | Op.VMAX -> vmaxmin ins insLen ctxt true
-  | Op.VMIN -> vmaxmin ins insLen ctxt false
+    sideEffects ins insLen bld UnsupportedFP
+  | Op.VMAX -> vmaxmin ins insLen bld true
+  | Op.VMIN -> vmaxmin ins insLen bld false
   | Op.VMLA | Op.VMLS when isF16orF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen ctxt UnsupportedFP
-  | Op.VMLA -> vmla ins insLen ctxt
-  | Op.VMLAL -> vmlal ins insLen ctxt
-  | Op.VMLS -> vmls ins insLen ctxt
-  | Op.VMLSL -> vmlsl ins insLen ctxt
-  | Op.VMOV when isF16orF32orF64 ins.SIMDTyp -> vmovfp ins insLen ctxt
-  | Op.VMOV -> vmov ins insLen ctxt
-  | Op.VMOVN -> vmovn ins insLen ctxt
-  | Op.VMRS -> vmrs ins insLen ctxt
-  | Op.VMUL when isF16orF32orF64 ins.SIMDTyp -> vmul ins insLen ctxt AST.fmul
-  | Op.VMUL -> vmul ins insLen ctxt (.*)
-  | Op.VMULL -> vmull ins insLen ctxt
+    sideEffects ins insLen bld UnsupportedFP
+  | Op.VMLA -> vmla ins insLen bld
+  | Op.VMLAL -> vmlal ins insLen bld
+  | Op.VMLS -> vmls ins insLen bld
+  | Op.VMLSL -> vmlsl ins insLen bld
+  | Op.VMOV when isF16orF32orF64 ins.SIMDTyp -> vmovfp ins insLen bld
+  | Op.VMOV -> vmov ins insLen bld
+  | Op.VMOVN -> vmovn ins insLen bld
+  | Op.VMRS -> vmrs ins insLen bld
+  | Op.VMUL when isF16orF32orF64 ins.SIMDTyp -> vmul ins insLen bld AST.fmul
+  | Op.VMUL -> vmul ins insLen bld (.*)
+  | Op.VMULL -> vmull ins insLen bld
   | Op.VNEG when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen ctxt UnsupportedFP
-  | Op.VNEG -> vneg ins insLen ctxt
-  | Op.VORN -> vorn ins insLen ctxt
-  | Op.VORR -> vorr ins insLen ctxt
+    sideEffects ins insLen bld UnsupportedFP
+  | Op.VNEG -> vneg ins insLen bld
+  | Op.VORN -> vorn ins insLen bld
+  | Op.VORR -> vorr ins insLen bld
   | Op.VPADD when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen ctxt UnsupportedFP
-  | Op.VPADD -> vpadd ins insLen ctxt
-  | Op.VPOP -> vpop ins insLen ctxt
-  | Op.VPUSH -> vpush ins insLen ctxt
-  | Op.VRHADD -> vrhadd ins insLen ctxt
-  | Op.VRINTP -> sideEffects ins insLen ctxt UnsupportedFP
-  | Op.VRSHR -> vrshr ins insLen ctxt
-  | Op.VRSHRN -> vrshrn ins insLen ctxt
-  | Op.VSHL -> vshl ins insLen ctxt
-  | Op.VSHR -> vshr ins insLen ctxt
-  | Op.VSRA -> vsra ins insLen ctxt
-  | Op.VST1 -> vst1 ins insLen ctxt
-  | Op.VST2 -> vst2 ins insLen ctxt
-  | Op.VST3 -> vst3 ins insLen ctxt
-  | Op.VST4 -> vst4 ins insLen ctxt
-  | Op.VSTM | Op.VSTMIA | Op.VSTMDB -> vstm ins insLen ctxt
-  | Op.VSTR -> vstr ins insLen ctxt
-  | Op.VSUB when isF16orF32orF64 ins.SIMDTyp -> vaddsub ins insLen ctxt AST.fsub
-  | Op.VSUB -> vaddsub ins insLen ctxt (.-)
-  | Op.VTBL -> vecTbl ins insLen ctxt true
-  | Op.VTBX -> vecTbl ins insLen ctxt false
-  | Op.VTST -> vtst ins insLen ctxt
-  | Op.VUZP -> vuzp ins insLen ctxt
+    sideEffects ins insLen bld UnsupportedFP
+  | Op.VPADD -> vpadd ins insLen bld
+  | Op.VPOP -> vpop ins insLen bld
+  | Op.VPUSH -> vpush ins insLen bld
+  | Op.VRHADD -> vrhadd ins insLen bld
+  | Op.VRINTP -> sideEffects ins insLen bld UnsupportedFP
+  | Op.VRSHR -> vrshr ins insLen bld
+  | Op.VRSHRN -> vrshrn ins insLen bld
+  | Op.VSHL -> vshl ins insLen bld
+  | Op.VSHR -> vshr ins insLen bld
+  | Op.VSRA -> vsra ins insLen bld
+  | Op.VST1 -> vst1 ins insLen bld
+  | Op.VST2 -> vst2 ins insLen bld
+  | Op.VST3 -> vst3 ins insLen bld
+  | Op.VST4 -> vst4 ins insLen bld
+  | Op.VSTM | Op.VSTMIA | Op.VSTMDB -> vstm ins insLen bld
+  | Op.VSTR -> vstr ins insLen bld
+  | Op.VSUB when isF16orF32orF64 ins.SIMDTyp ->
+    vaddsub ins insLen bld AST.fsub
+  | Op.VSUB -> vaddsub ins insLen bld (.-)
+  | Op.VTBL -> vecTbl ins insLen bld true
+  | Op.VTBX -> vecTbl ins insLen bld false
+  | Op.VTST -> vtst ins insLen bld
+  | Op.VUZP -> vuzp ins insLen bld
   | Op.InvalidOP -> raise InvalidOpcodeException
   | o ->
 #if DEBUG
          eprintfn "%A" o
 #endif
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
-
-// vim: set tw=80 sts=2 sw=2:

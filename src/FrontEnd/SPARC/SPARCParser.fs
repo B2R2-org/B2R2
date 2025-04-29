@@ -30,9 +30,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Parser for SPARC instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type SPARCParser (isa: ISA) =
-  let reader = BinReader.Init isa.Endian
-
+type SPARCParser (reader) =
   interface IInstructionParsable with
     member _.Parse (span: ByteSpan, addr) =
       ParsingMain.parse span reader addr :> Instruction

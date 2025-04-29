@@ -28,8 +28,7 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-type SH4Parser (isa: ISA) =
-  let reader = BinReader.Init isa.Endian
+type SH4Parser (reader) =
 
   interface IInstructionParsable with
     member _.Parse (bs: byte[], addr: Addr) =

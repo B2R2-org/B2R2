@@ -30,8 +30,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Parser for AVR instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type AVRParser () =
-  let reader = BinReader.Init Endian.Little
+type AVRParser (reader) =
 
   interface IInstructionParsable with
     member _.Parse (bs: byte[], addr) =
@@ -43,5 +42,5 @@ type AVRParser () =
 
     member _.MaxInstructionSize = 4
 
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member _.OperationMode with get () = ArchOperationMode.NoMode and set _ = ()
 

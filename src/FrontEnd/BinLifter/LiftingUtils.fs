@@ -26,7 +26,6 @@ module B2R2.FrontEnd.BinLifter.LiftingUtils
 
 open B2R2
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinLifter.LiftingOperators
 
 let inline numU32 n t = BitVector.OfUInt32 n t |> AST.num
 
@@ -36,14 +35,80 @@ let inline numU64 n t = BitVector.OfUInt64 n t |> AST.num
 
 let inline numI64 n t = BitVector.OfInt64 n t |> AST.num
 
-let inline tmpVars2 ir t =
-  struct (!+ir t, !+ir t)
+let inline tmpVar (builder: ILowUIRBuilder) rt =
+  builder.Stream.NewTempVar rt
 
-let inline tmpVars3 ir t =
-  struct (!+ir t, !+ir t, !+ir t)
+let inline tmpVars2 (builder: ILowUIRBuilder) rt =
+  struct (tmpVar builder rt, tmpVar builder rt)
 
-let inline tmpVars4 ir t =
-  struct (!+ir t, !+ir t, !+ir t, !+ir t)
+let inline tmpVars3 (builder: ILowUIRBuilder) rt =
+  struct (tmpVar builder rt, tmpVar builder rt, tmpVar builder rt)
+
+let inline tmpVars4 (builder: ILowUIRBuilder) rt =
+  struct (tmpVar builder rt,
+          tmpVar builder rt,
+          tmpVar builder rt,
+          tmpVar builder rt)
+
+let inline label (builder: ILowUIRBuilder) name =
+  builder.Stream.NewLabel name
+
+/// Create a new register variable with the given register enum.
+let inline regVar (builder: ILowUIRBuilder) reg =
+  LanguagePrimitives.EnumToValue reg
+  |> RegisterID.create
+  |> builder.GetRegVar
+
+/// Create a new pseudo-register variable with the given register enum.
+let inline pseudoRegVar (builder: ILowUIRBuilder) reg pos =
+  let rid = LanguagePrimitives.EnumToValue reg |> RegisterID.create
+  builder.GetPseudoRegVar rid pos
+
+/// Create two new pseudo-register variables for a 128-bit register of the given
+/// register enum.
+let inline pseudoRegVar128 (builder: ILowUIRBuilder) reg =
+  struct (pseudoRegVar builder reg 2, pseudoRegVar builder reg 1)
+
+/// Create four new pseudo-register variables for a 256-bit register of the
+/// given register enum.
+let inline pseudoRegVar256 (builder: ILowUIRBuilder) reg =
+  struct (pseudoRegVar builder reg 4,
+          pseudoRegVar builder reg 3,
+          pseudoRegVar builder reg 2,
+          pseudoRegVar builder reg 1)
+
+/// Create eight new pseudo-register variables for a 512-bit register of the
+/// given register enum.
+let inline pseudoRegVar512 (builder: ILowUIRBuilder) reg =
+  struct (pseudoRegVar builder reg 8,
+          pseudoRegVar builder reg 7,
+          pseudoRegVar builder reg 6,
+          pseudoRegVar builder reg 5,
+          pseudoRegVar builder reg 4,
+          pseudoRegVar builder reg 3,
+          pseudoRegVar builder reg 2,
+          pseudoRegVar builder reg 1)
+
+/// Append a statement to the given builder. A builder is defined for each
+/// different CPU architecture, so this function is only useful if the builder
+/// implements the `Stream` member.
+let inline (<+) (builder: ILowUIRBuilder) stmt =
+  builder.Stream.Append stmt
+
+/// Mark the start of an instruction by appending an ISMark statement to the
+/// given builder. A builder is defined for each different CPU architecture,
+/// so this function is only useful if the builder implements the `Stream`
+/// member.
+let inline (<!--) (builder: ILowUIRBuilder) (addr, insLen) =
+  builder.Stream.MarkStart (addr, insLen)
+
+/// Mark the end of an instruction by appending an IEMark statement to the
+/// given builder. A builder is defined for each different CPU architecture,
+/// so this function is only useful if the builder implements the `Stream`
+/// member.
+let inline (--!>) (builder: ILowUIRBuilder) insLen =
+  builder.Stream.MarkEnd insLen
+  builder
 
 module IEEE754Single =
   open B2R2.BinIR.LowUIR.AST.InfixOp

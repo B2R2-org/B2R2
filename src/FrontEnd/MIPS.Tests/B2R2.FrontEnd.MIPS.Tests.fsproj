@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\API\B2R2.FrontEnd.API.fsproj" />
+    <ProjectReference Include="..\MIPS\B2R2.FrontEnd.MIPS.fsproj" />
   </ItemGroup>
 
 </Project>

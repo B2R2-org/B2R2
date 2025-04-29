@@ -233,8 +233,8 @@ let computeConnectedVars chain v =
 
 let getVarNames (hdl: BinHandle) = function
   | Regular v ->
-    hdl.RegisterFactory.GetRegisterAliases v
-    |> Array.map (hdl.RegisterFactory.RegIDToString)
+    hdl.RegisterFactory.GetRegisterIDAliases v
+    |> Array.map (hdl.RegisterFactory.GetRegString)
   | _ -> [||]
 
 let handleDataflow req resp arbiter (args: string) =
@@ -245,7 +245,7 @@ let handleDataflow req resp arbiter (args: string) =
   let tag = args[2] (* either variable or value. *)
   match tag with
   | "variable" ->
-    let var = args[3] |> brew.BinHandle.RegisterFactory.RegIDFromString
+    let var = args[3] |> brew.BinHandle.RegisterFactory.GetRegisterID
     try
       let cfg = brew.Functions[entry].CFG
       let chain = DataFlowChain.init cfg true

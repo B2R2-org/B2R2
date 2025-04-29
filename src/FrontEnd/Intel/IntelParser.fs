@@ -34,7 +34,7 @@ open type Prefix
 
 /// Parser for Intel (x86 or x86-64) instructions. Parser will return a
 /// platform-agnostic instruction type (Instruction).
-type IntelParser (wordSz) =
+type IntelParser (wordSz, reader) =
   let oparsers =
     [| OpRmGpr () :> OperandParser
        OpRmSeg () :> OperandParser
@@ -514,7 +514,7 @@ type IntelParser (wordSz) =
        0x0u
        0x000d0000u (* 111xxxxx = f0/f2/f3 is possible *) |]
 
-  let rhlp = ReadHelper (wordSz, oparsers, szcomputers)
+  let rhlp = ReadHelper (reader, wordSz, oparsers, szcomputers)
 
   member inline private _.ParsePrefix (span: ByteSpan) =
     let mutable pos = 0

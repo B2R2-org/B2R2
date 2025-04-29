@@ -40,17 +40,20 @@ type ARM64LifterTests () =
 
   let isa = ISA.Init Architecture.AARCH64 Endian.Big
 
-  let ctxt = ARM64TranslationContext isa
+  let reader = BinReader.Init Endian.Big
 
-  let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
+  let regFactory = RegisterFactory () :> IRegisterFactory
+
+  let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
 
   let ( ++ ) (byteStr: string) (givenStmts: Stmt[]) =
     ByteArray.ofHexString byteStr, givenStmts
 
   let test (bytes: byte[], givenStmts) =
-    let parser = ARM64Parser (isa) :> IInstructionParsable
+    let parser = ARM64Parser reader :> IInstructionParsable
+    let builder = ILowUIRBuilder.Default (isa, regFactory, LowUIRStream ())
     let ins = parser.Parse (bytes, 0UL)
-    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate ctxt)
+    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate builder)
 
   [<TestMethod>]
   member _.``[AArch64] ADD (immedate) lift test`` () =

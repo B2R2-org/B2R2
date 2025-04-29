@@ -128,10 +128,10 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
       | None -> false
     | _ -> false
 
-  override _.Translate ctxt =
+  override _.Translate _ =
     Terminator.futureFeature ()
 
-  override _.TranslateToList ctxt =
+  override _.TranslateToList _ =
     Terminator.futureFeature ()
 
   override this.Disasm (showAddr: bool, nameReader: INameReadable) =

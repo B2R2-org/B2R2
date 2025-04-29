@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\API\B2R2.FrontEnd.API.fsproj" />
+    <ProjectReference Include="..\SPARC\B2R2.FrontEnd.SPARC.fsproj" />
   </ItemGroup>
 
 </Project>

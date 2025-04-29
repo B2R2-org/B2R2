@@ -24,7 +24,6 @@
 
 module internal B2R2.FrontEnd.Intel.Helper
 
-open System
 open LanguagePrimitives
 open B2R2
 open B2R2.FrontEnd.BinLifter
@@ -48,8 +47,8 @@ and [<AbstractClass>] InsSizeComputer () =
     rhlp.RegSize <- 0<rt>
     rhlp.OperationSize <- 0<rt>
 
-and ReadHelper (addr, cpos, pref, rex, vex, wordSz, ops, szs) =
-  let reader = BinReader.Init Endian.Little
+and ReadHelper (reader: IBinReader,
+                addr, cpos, pref, rex, vex, wordSz, ops, szs) =
   let mutable addr: Addr = addr
   let mutable cpos: int = cpos (* current position *)
   let mutable pref: Prefix = pref
@@ -62,25 +61,25 @@ and ReadHelper (addr, cpos, pref, rex, vex, wordSz, ops, szs) =
   let mutable regSz = 0<rt>
   let mutable operationSz = 0<rt>
   let mutable tupleType = TupleType.NA
-  new (wordSz, oparsers, szcomputers) =
-    ReadHelper (0UL, 0, Prefix.PrxNone, REXPrefix.NOREX, None,
+  new (reader, wordSz, oparsers, szcomputers) =
+    ReadHelper (reader, 0UL, 0, Prefix.PrxNone, REXPrefix.NOREX, None,
                 wordSz, oparsers, szcomputers)
-  member _.InsAddr with get(): Addr = addr and set(a) = addr <- a
-  member _.CurrPos with get() = cpos and set(p) = cpos <- p
+  member _.InsAddr with get (): Addr = addr and set a = addr <- a
+  member _.CurrPos with get () = cpos and set p = cpos <- p
   member _.IncPos () = cpos <- cpos + 1
-  member _.Prefixes with get() = pref and set(p) = pref <- p
-  member _.REXPrefix with get(): REXPrefix = rex and set(r) = rex <- r
-  member _.VEXInfo with get(): VEXInfo option = vex and set(v) = vex <- v
-  member _.WordSize with get(): WordSize = wordSize and set(w) = wordSize <- w
-  member _.OprParsers with get(): OperandParser [] = ops
-  member _.SzComputers with get(): InsSizeComputer [] = szs
-  member _.MemEffOprSize with get() = memOprSz and set(s) = memOprSz <- s
-  member _.MemEffAddrSize with get() = memAddrSz and set(s) = memAddrSz <- s
-  member _.MemEffRegSize with get() = memRegSz and set(s) = memRegSz <- s
-  member _.RegSize with get() = regSz and set(s) = regSz <- s
-  member _.OperationSize with get() = operationSz and set(s) = operationSz <- s
+  member _.Prefixes with get () = pref and set p = pref <- p
+  member _.REXPrefix with get (): REXPrefix = rex and set r = rex <- r
+  member _.VEXInfo with get (): VEXInfo option = vex and set v = vex <- v
+  member _.WordSize with get (): WordSize = wordSize and set w = wordSize <- w
+  member _.OprParsers with get (): OperandParser[] = ops
+  member _.SzComputers with get (): InsSizeComputer[] = szs
+  member _.MemEffOprSize with get () = memOprSz and set s = memOprSz <- s
+  member _.MemEffAddrSize with get () = memAddrSz and set s = memAddrSz <- s
+  member _.MemEffRegSize with get () = memRegSz and set s = memRegSz <- s
+  member _.RegSize with get () = regSz and set(s) = regSz <- s
+  member _.OperationSize with get () = operationSz and set s = operationSz <- s
   member _.TupleType
-    with get(): TupleType = tupleType and set(t) = tupleType <- t
+    with get (): TupleType = tupleType and set t = tupleType <- t
 
   member inline private _.ModCPos i = cpos <- cpos + i
 

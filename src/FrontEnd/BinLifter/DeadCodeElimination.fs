@@ -29,7 +29,7 @@ open System.Collections.Generic
 open B2R2.Collections
 open B2R2.BinIR.LowUIR
 
-type DeadCodeRemovalContext = {
+type private DeadCodeRemovalContext = {
   UseRegisters: RegisterSet
   OutRegisters: RegisterSet
   UseTempVar: HashSet<int>
@@ -37,7 +37,7 @@ type DeadCodeRemovalContext = {
   mutable IsLastBlock: bool
 }
 
-let rec createLoop (outs: Stmt[]) (ins: Stmt[]) (used: bool[]) iIdx oIdx =
+let rec private createLoop (outs: _[]) (ins: _[]) (used: bool[]) iIdx oIdx =
   if oIdx < outs.Length then
     if used[iIdx] then
       outs[oIdx] <- ins[iIdx]
@@ -45,69 +45,69 @@ let rec createLoop (outs: Stmt[]) (ins: Stmt[]) (used: bool[]) iIdx oIdx =
     else createLoop outs ins used (iIdx + 1) oIdx
   else outs
 
-let createReducedStmts (stmts: Stmt[]) reducedLen (used: bool[]) =
+let inline private createReducedStmts stmts reducedLen (used: bool[]) =
   createLoop (Array.zeroCreate reducedLen) stmts used 0 0
 
-let rec optimizeLoop (stmts: Stmt[]) (used: bool[]) idx len ctxt =
+let rec private optimizeLoop (stmts: Stmt[]) (used: bool[]) idx len ctx =
   if idx >= 0 then
     match stmts[idx] with
     | Store (_, e1, e2, _) ->
-      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e1
-      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e2
-      optimizeLoop stmts used (idx - 1) len ctxt
+      AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar e1
+      AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar e2
+      optimizeLoop stmts used (idx - 1) len ctx
     | InterJmp (e, _, _) ->
-      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e
-      optimizeLoop stmts used (idx - 1) len ctxt
+      AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar e
+      optimizeLoop stmts used (idx - 1) len ctx
     | InterCJmp (e, e1, e2, _) ->
-      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e
-      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e1
-      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e2
-      optimizeLoop stmts used (idx - 1) len ctxt
+      AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar e
+      AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar e1
+      AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar e2
+      optimizeLoop stmts used (idx - 1) len ctx
     | Jmp (e, _) ->
-      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e
-      optimizeLoop stmts used (idx - 1) len ctxt
+      AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar e
+      optimizeLoop stmts used (idx - 1) len ctx
     | CJmp (e, e1, e2, _) ->
-      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e
-      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e1
-      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e2
-      optimizeLoop stmts used (idx - 1) len ctxt
+      AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar e
+      AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar e1
+      AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar e2
+      optimizeLoop stmts used (idx - 1) len ctx
     | Put (v, e, _) when v = e ->
       used[idx] <- false
-      optimizeLoop stmts used (idx - 1) (len - 1) ctxt
+      optimizeLoop stmts used (idx - 1) (len - 1) ctx
     | Put (Var (_, rid, _, _), rhs, _) ->
-      let isUsed = ctxt.UseRegisters.Contains (int rid)
-      if isUsed then ctxt.UseRegisters.Remove (int rid) else ()
-      if not isUsed && ctxt.OutRegisters.Contains (int rid) then
+      let isUsed = ctx.UseRegisters.Contains (int rid)
+      if isUsed then ctx.UseRegisters.Remove (int rid) else ()
+      if not isUsed && ctx.OutRegisters.Contains (int rid) then
         used[idx] <- false
-        optimizeLoop stmts used (idx - 1) (len - 1) ctxt
+        optimizeLoop stmts used (idx - 1) (len - 1) ctx
       else
-        ctxt.OutRegisters.Add (int rid)
-        AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar rhs
-        optimizeLoop stmts used (idx - 1) len ctxt
+        ctx.OutRegisters.Add (int rid)
+        AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar rhs
+        optimizeLoop stmts used (idx - 1) len ctx
     | Put (TempVar (_, n, _), rhs, _) ->
-      let isUsed = ctxt.UseTempVar.Contains n
-      if isUsed then ctxt.UseTempVar.Remove n |> ignore else ()
-      if not isUsed && (ctxt.IsLastBlock || ctxt.OutTempVar.Contains n) then
+      let isUsed = ctx.UseTempVar.Contains n
+      if isUsed then ctx.UseTempVar.Remove n |> ignore else ()
+      if not isUsed && (ctx.IsLastBlock || ctx.OutTempVar.Contains n) then
         used[idx] <- false
-        optimizeLoop stmts used (idx - 1) (len - 1) ctxt
+        optimizeLoop stmts used (idx - 1) (len - 1) ctx
       else
-        ctxt.OutTempVar.Add n |> ignore
-        AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar rhs
-        optimizeLoop stmts used (idx - 1) len ctxt
+        ctx.OutTempVar.Add n |> ignore
+        AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar rhs
+        optimizeLoop stmts used (idx - 1) len ctx
     | ExternalCall (e, _) ->
-      AST.updateAllVarsUses ctxt.UseRegisters ctxt.UseTempVar e
-      optimizeLoop stmts used (idx - 1) len ctxt
+      AST.updateAllVarsUses ctx.UseRegisters ctx.UseTempVar e
+      optimizeLoop stmts used (idx - 1) len ctx
     | LMark _ ->
-      ctxt.IsLastBlock <- false
-      optimizeLoop stmts used (idx - 1) len ctxt
+      ctx.IsLastBlock <- false
+      optimizeLoop stmts used (idx - 1) len ctx
     | ISMark _ ->
-      ctxt.IsLastBlock <- false
-      optimizeLoop stmts used (idx - 1) len ctxt
+      ctx.IsLastBlock <- false
+      optimizeLoop stmts used (idx - 1) len ctx
     | IEMark _ ->
-      ctxt.IsLastBlock <- true
-      optimizeLoop stmts used (idx - 1) len ctxt
+      ctx.IsLastBlock <- true
+      optimizeLoop stmts used (idx - 1) len ctx
     | _ ->
-      optimizeLoop stmts used (idx - 1) len ctxt
+      optimizeLoop stmts used (idx - 1) len ctx
   else createReducedStmts stmts len used
 
 /// Assuming that the stmts are localized, i.e., those stmts represent a basic
@@ -115,10 +115,10 @@ let rec optimizeLoop (stmts: Stmt[]) (used: bool[]) idx len ctxt =
 let optimize (stmts: Stmt []) =
   let used = Array.init stmts.Length (fun _ -> true)
   let len = stmts.Length
-  let ctxt =
+  let ctx =
     { UseRegisters = RegisterSet ()
       OutRegisters = RegisterSet ()
       UseTempVar = HashSet<int> ()
       OutTempVar= HashSet<int> ()
       IsLastBlock = false }
-  optimizeLoop stmts used (len - 1) len ctxt
+  optimizeLoop stmts used (len - 1) len ctx

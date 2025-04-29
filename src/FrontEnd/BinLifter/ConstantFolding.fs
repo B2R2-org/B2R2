@@ -30,7 +30,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
-type Context = {
+type private VarMaps = {
   VarMap: Dictionary<RegisterID, Expr>
   TempVarMap: Dictionary<int, Expr>
 }
@@ -101,18 +101,18 @@ let private concretizeCast castType rt bv =
   | CastKind.FloatCast -> BitVector.FCast (bv, rt)
   | _ -> Terminator.impossible ()
 
-let rec replace ctxt expr =
+let rec private replace maps expr =
   match expr with
   | Var (_, name, _, _) ->
-    match ctxt.VarMap.TryGetValue name with
+    match maps.VarMap.TryGetValue name with
     | true, e -> struct (true, e)
     | _  -> struct (false, expr)
   | TempVar (_, name, _) ->
-    match ctxt.TempVarMap.TryGetValue name with
+    match maps.TempVarMap.TryGetValue name with
     | (true, e) -> struct (true, e)
     | _  -> struct (false, expr)
   | UnOp (t, e, _) ->
-    let struct (changed, e) = replace ctxt e
+    let struct (changed, e) = replace maps e
     if changed then
       match e with
       | Num (bv, _) -> struct (true, AST.num <| concretizeUnOp t bv)
@@ -120,15 +120,15 @@ let rec replace ctxt expr =
     else struct (false, expr)
   | BinOp (BinOpType.ADD, _, e, Num (bv, _), _)
   | BinOp (BinOpType.ADD, _, Num (bv, _), e, _) when BitVector.IsZero bv ->
-    let struct (changed, e') = replace ctxt e
+    let struct (changed, e') = replace maps e
     if changed then struct (true, e') else struct (true, e)
   | BinOp (BinOpType.MUL, _, e, Num (bv, _), _)
   | BinOp (BinOpType.MUL, _, Num (bv, _), e, _) when BitVector.IsOne bv ->
-    let struct (changed, e') = replace ctxt e
+    let struct (changed, e') = replace maps e
     if changed then struct (true, e') else struct (true, e)
   | BinOp (t, _, e1, e2, _) ->
-    let struct (changed1, e1) = replace ctxt e1
-    let struct (changed2, e2) = replace ctxt e2
+    let struct (changed1, e1) = replace maps e1
+    let struct (changed2, e2) = replace maps e2
     match e1, e2 with
     | Num (bv1, _), Num (bv2, _) ->
       struct (true, AST.num <| concretizeBinOp t bv1 bv2)
@@ -136,8 +136,8 @@ let rec replace ctxt expr =
       if changed1 || changed2 then struct (true, AST.binop t e1 e2)
       else struct (false, expr)
   | RelOp (t, e1, e2, _) ->
-    let struct (changed1, e1) = replace ctxt e1
-    let struct (changed2, e2) = replace ctxt e2
+    let struct (changed1, e1) = replace maps e1
+    let struct (changed2, e2) = replace maps e2
     match e1, e2 with
     | Num (bv1, _), Num (bv2, _) ->
       struct (true, AST.num <| concretizeRelOp t bv1 bv2)
@@ -145,13 +145,13 @@ let rec replace ctxt expr =
       if changed1 || changed2 then struct (true, AST.relop t e1 e2)
       else struct (false, expr)
   | Load (endian, rt, e, _) ->
-    let struct (changed, e') = replace ctxt e
+    let struct (changed, e') = replace maps e
     if changed then struct (true, AST.load endian rt e')
     else struct (false, expr)
   | Ite (cond, e1, e2, _) ->
-    let struct (changed0, cond) = replace ctxt cond
-    let struct (changed1, e1) = replace ctxt e1
-    let struct (changed2, e2) = replace ctxt e2
+    let struct (changed0, cond) = replace maps cond
+    let struct (changed1, e1) = replace maps e1
+    let struct (changed2, e2) = replace maps e2
     if changed0 || changed1 || changed2 then
       match cond with
       | Num (bv, _) ->
@@ -160,14 +160,14 @@ let rec replace ctxt expr =
       | _ -> struct (true, AST.ite cond e1 e2)
     else struct (false, expr)
   | Cast (kind, rt, e, _) ->
-    let struct (changed, e) = replace ctxt e
+    let struct (changed, e) = replace maps e
     if changed then
       match e with
       | Num (bv, _) -> struct (true, AST.num <| concretizeCast kind rt bv)
       | _ -> struct (true, AST.cast kind rt e)
     else struct (false, expr)
   | Extract (e, rt, pos, _) ->
-    let struct (changed, e) = replace ctxt e
+    let struct (changed, e) = replace maps e
     if changed then
       match e with
       | Num (bv, _) -> struct (true, AST.num <| BitVector.Extract (bv, rt, pos))
@@ -175,30 +175,30 @@ let rec replace ctxt expr =
     else struct (false, expr)
   | _ -> struct (false, expr)
 
-let updateContextAtDef ctxt dst src =
+let private updateMapsAtDef maps dst src =
   match dst, src with
-  | Var (_, r, _, _), Num _ -> ctxt.VarMap.TryAdd (r, src) |> ignore
-  | Var (_, r, _, _), _ -> ctxt.VarMap.Remove (r) |> ignore
-  | TempVar (_, n, _), Num _ -> ctxt.TempVarMap.TryAdd (n, src) |> ignore
-  | TempVar (_, n, _), _ -> ctxt.TempVarMap.Remove (n) |> ignore
+  | Var (_, r, _, _), Num _ -> maps.VarMap.TryAdd (r, src) |> ignore
+  | Var (_, r, _, _), _ -> maps.VarMap.Remove (r) |> ignore
+  | TempVar (_, n, _), Num _ -> maps.TempVarMap.TryAdd (n, src) |> ignore
+  | TempVar (_, n, _), _ -> maps.TempVarMap.Remove (n) |> ignore
   | _ -> ()
 
-let rec optimizeLoop (stmts: Stmt []) idx ctxt =
+let rec private optimizeLoop (stmts: Stmt []) idx maps =
   if Array.length stmts > idx then
     match stmts[idx] with
     | Store (endian, e1, e2, _) ->
-      let struct (c1, e1) = replace ctxt e1
-      let struct (c2, e2) = replace ctxt e2
+      let struct (c1, e1) = replace maps e1
+      let struct (c2, e2) = replace maps e2
       if c1 || c2 then stmts[idx] <- AST.store endian e1 e2 else ()
-      optimizeLoop stmts (idx + 1) ctxt
+      optimizeLoop stmts (idx + 1) maps
     | InterJmp (e, t, _) ->
-      let struct (changed, e) = replace ctxt e
+      let struct (changed, e) = replace maps e
       if changed then stmts[idx] <- AST.interjmp e t else ()
-      optimizeLoop stmts (idx + 1) ctxt
+      optimizeLoop stmts (idx + 1) maps
     | InterCJmp (cond, e1, e2, _) ->
-      let struct (c0, cond) = replace ctxt cond
-      let struct (c1, e1) = replace ctxt e1
-      let struct (c2, e2) = replace ctxt e2
+      let struct (c0, cond) = replace maps cond
+      let struct (c1, e1) = replace maps e1
+      let struct (c2, e2) = replace maps e2
       if c0 || c1 || c2 then
         stmts[idx] <-
           match cond with
@@ -207,15 +207,15 @@ let rec optimizeLoop (stmts: Stmt []) idx ctxt =
           | Num _ -> AST.interjmp e2 InterJmpKind.Base
           | _ -> AST.intercjmp cond e1 e2
       else ()
-      optimizeLoop stmts (idx + 1) ctxt
+      optimizeLoop stmts (idx + 1) maps
     | Jmp (e, _) ->
-      let struct (changed, e) = replace ctxt e
+      let struct (changed, e) = replace maps e
       if changed then stmts[idx] <- AST.jmp e else ()
-      optimizeLoop stmts (idx + 1) ctxt
+      optimizeLoop stmts (idx + 1) maps
     | CJmp (cond, e1, e2, _) ->
-      let struct (c0, cond) = replace ctxt cond
-      let struct (c1, e1) = replace ctxt e1
-      let struct (c2, e2) = replace ctxt e2
+      let struct (c0, cond) = replace maps cond
+      let struct (c1, e1) = replace maps e1
+      let struct (c2, e2) = replace maps e2
       if c0 || c1 || c2 then
         stmts[idx] <-
           match cond with
@@ -223,16 +223,16 @@ let rec optimizeLoop (stmts: Stmt []) idx ctxt =
           | Num (_) -> AST.jmp e2
           | _ -> AST.cjmp cond e1 e2
       else ()
-      optimizeLoop stmts (idx + 1) ctxt
-    | LMark _ -> optimizeLoop stmts (idx + 1) ctxt
+      optimizeLoop stmts (idx + 1) maps
+    | LMark _ -> optimizeLoop stmts (idx + 1) maps
     | Put (lhs, rhs, _) ->
-      let rhs = match replace ctxt rhs with
+      let rhs = match replace maps rhs with
                 | true, rhs -> stmts[idx] <- AST.put lhs rhs; rhs
                 | _ -> rhs
-      updateContextAtDef ctxt lhs rhs
-      optimizeLoop stmts (idx + 1) ctxt
+      updateMapsAtDef maps lhs rhs
+      optimizeLoop stmts (idx + 1) maps
     | ISMark _ | IEMark _ | ExternalCall _ | SideEffect _ ->
-      optimizeLoop stmts (idx + 1) ctxt
+      optimizeLoop stmts (idx + 1) maps
   else stmts
 
 /// Assuming that the stmts are localized, i.e., those stmts represent a basic

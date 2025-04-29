@@ -72,7 +72,8 @@ module private IntelShortcut =
 [<TestClass>]
 type IntelParserTests () =
   let test prefs segment wordSize opcode (oprs: Operands) bytes =
-    let parser = IntelParser wordSize :> IInstructionParsable
+    let reader = BinReader.Init Endian.Little
+    let parser = IntelParser (wordSize, reader) :> IInstructionParsable
     let ins = parser.Parse (bs=bytes, addr=0UL) :?> IntelInternalInstruction
     Assert.AreEqual<Prefix> (ins.Prefixes, prefs)
     Assert.AreEqual<Register option> (Helper.getSegment ins.Prefixes, segment)

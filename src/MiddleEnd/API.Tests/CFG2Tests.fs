@@ -31,7 +31,6 @@ open B2R2.MiddleEnd
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 [<TestClass>]
 type CFG2Tests () =
@@ -67,8 +66,6 @@ type CFG2Tests () =
   let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
   let exnInfo = ExceptionInfo hdl
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
-  let funcId = FunctionIdentification (hdl, exnInfo)
-  let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; CFGRecovery () |]
 
   [<TestMethod>]
   member _.``InstructionCollection Test 1`` () =
@@ -100,6 +97,7 @@ type CFG2Tests () =
       |> Array.concat
     CollectionAssert.AreEqual (expected, actual)
 
+#if ! EMULATION
   [<TestMethod>]
   member _.``BBLFactory Test 2`` () =
     let bblFactory = BBLFactory (hdl, instrs)
@@ -118,6 +116,7 @@ type CFG2Tests () =
                       (0x24UL, 0x27UL) |]
     let actual = [| for pp in pps do extractBBLRange bblFactory pp |]
     CollectionAssert.AreEqual (expected, actual)
+#endif
 
   [<TestMethod>]
   member _.``Functions Test 1`` () =
@@ -157,6 +156,7 @@ type CFG2Tests () =
       |> Array.sortBy fst
     CollectionAssert.AreEqual (expected, actual)
 
+#if ! EMULATION
   [<TestMethod>]
   member _.``CFG Vertex Test: _start`` () =
     let brew = BinaryBrew hdl
@@ -200,6 +200,7 @@ type CFG2Tests () =
       [| FallThroughEdge; IntraCJmpFalseEdge
          IntraCJmpTrueEdge; InterJmpEdge; InterJmpEdge |]
     CollectionAssert.AreEqual (expected, actual)
+#endif
 
   [<TestMethod>]
   member _.``DisasmCFG Test: _start`` () =

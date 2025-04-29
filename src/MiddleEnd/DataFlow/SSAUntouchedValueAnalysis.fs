@@ -35,11 +35,11 @@ type SSAUntouchedValueAnalysis =
 
   new (hdl: BinHandle) =
     let initRegisters (state: SSAVarBasedDataFlowState<_>) =
-      hdl.RegisterFactory.GetGeneralRegExprs ()
-      |> List.iter (fun regExpr ->
-        let rid = hdl.RegisterFactory.RegIDFromRegExpr regExpr
-        let rt = hdl.RegisterFactory.RegIDToRegType rid
-        let str = hdl.RegisterFactory.RegIDToString rid
+      hdl.RegisterFactory.GetGeneralRegVars ()
+      |> Array.iter (fun regExpr ->
+        let rid = hdl.RegisterFactory.GetRegisterID regExpr
+        let rt = hdl.RegisterFactory.GetRegType rid
+        let str = hdl.RegisterFactory.GetRegString rid
         let var = { Kind = RegVar (rt, rid, str); Identifier = 0 }
         let vkind = VarKind.ofSSAVarKind var.Kind
         state.SetRegValueWithoutAdding var
@@ -47,8 +47,8 @@ type SSAUntouchedValueAnalysis =
       )
       match hdl.RegisterFactory.StackPointer with
       | Some sp ->
-        let rt = hdl.RegisterFactory.RegIDToRegType sp
-        let str = hdl.RegisterFactory.RegIDToString sp
+        let rt = hdl.RegisterFactory.GetRegType sp
+        let str = hdl.RegisterFactory.GetRegString sp
         let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
         state.SetRegValueWithoutAdding var UntouchedValueDomain.Touched
         state

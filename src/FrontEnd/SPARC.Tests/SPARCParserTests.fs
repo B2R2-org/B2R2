@@ -50,10 +50,12 @@ module private SPARCShortcut =
 
 [<TestClass>]
 type SPARCParserTests () =
+  let reader = BinReader.Init Endian.Little
+  let parser = SPARCParser (reader) :> IInstructionParsable
+
   let test (bytes: byte[]) (opcode, oprs: Operands) =
-    let reader = BinReader.Init Endian.Little
     let span = System.ReadOnlySpan bytes
-    let ins = ParsingMain.parse span reader 0UL
+    let ins = parser.Parse (span, 0UL) :?> SPARCInstruction
     Assert.AreEqual<Opcode> (opcode, ins.Info.Opcode)
     Assert.AreEqual<Operands> (oprs, ins.Info.Operands)
 

@@ -30,9 +30,9 @@ open B2R2.FrontEnd.BinLifter
 
 /// Parser for RISCV64 instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type RISCV64Parser (isa: ISA) =
+type RISCV64Parser (isa: ISA, reader) =
+
   let wordSize = int isa.WordSize
-  let reader = BinReader.Init isa.Endian
 
   interface IInstructionParsable with
     member _.Parse (span: ByteSpan, addr) =

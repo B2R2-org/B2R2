@@ -36,19 +36,22 @@ open type Register
 type AVRLifterTests () =
   let isa = ISA.Init Architecture.AVR Endian.Little
 
-  let ctxt = AVRTranslationContext isa
+  let reader = BinReader.Init Endian.Little
+
+  let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
   let ( ++ ) (byteStr: string) givenStmts =
     ByteArray.ofHexString byteStr, givenStmts
 
-  let ( !. ) reg = Register.toRegID reg |> ctxt.GetRegVar
+  let ( !. ) reg = Register.toRegID reg |> regFactory.GetRegVar
 
   let test (bytes: byte[], givenStmts: Stmt[])  =
-    let parser = AVRParser () :> IInstructionParsable
+    let parser = AVRParser (reader) :> IInstructionParsable
+    let builder = ILowUIRBuilder.Default (isa, regFactory, LowUIRStream ())
     let ins = parser.Parse (bytes, 0UL)
-    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate ctxt)
+    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate builder)
 
   [<TestMethod>]
   member _.``[AVR] Instructions with start and end statements lift Test`` () =

@@ -104,11 +104,11 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override _.IsNop () = false
 
-  override this.Translate ctxt =
-    (Lifter.translate this.Info ctxt).ToStmts ()
+  override this.Translate builder =
+    (Lifter.translate this.Info builder).Stream.ToStmts ()
 
-  override this.TranslateToList ctxt =
-    Lifter.translate this.Info ctxt
+  override this.TranslateToList builder =
+    (Lifter.translate this.Info builder).Stream
 
   override this.Disasm (showAddr, _) =
     let builder =

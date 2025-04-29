@@ -36,6 +36,8 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
 
   let binFile = FileFactory.load path bytes fmt isa regFactory baseAddrOpt
 
+  let reader = binFile.Reader
+
   /// Subdivide the given range into in-file and not-in-file ranges. This
   /// function returns (AddrRange * bool) list where the bool value indicates
   /// whether the range is in-file or not-in-file.
@@ -54,18 +56,18 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
 
   let readIntBySize size (span: ByteSpan) =
     match size with
-    | 1 -> binFile.Reader.ReadInt8 (span, 0) |> int64 |> Ok
-    | 2 -> binFile.Reader.ReadInt16 (span, 0) |> int64 |> Ok
-    | 4 -> binFile.Reader.ReadInt32 (span, 0) |> int64 |> Ok
-    | 8 -> binFile.Reader.ReadInt64 (span, 0) |> Ok
+    | 1 -> reader.ReadInt8 (span, 0) |> int64 |> Ok
+    | 2 -> reader.ReadInt16 (span, 0) |> int64 |> Ok
+    | 4 -> reader.ReadInt32 (span, 0) |> int64 |> Ok
+    | 8 -> reader.ReadInt64 (span, 0) |> Ok
     | _ -> Error ErrorCase.InvalidMemoryRead
 
   let readUIntBySize size (span: ByteSpan) =
     match size with
-    | 1 -> binFile.Reader.ReadUInt8 (span, 0) |> uint64 |> Ok
-    | 2 -> binFile.Reader.ReadUInt16 (span, 0) |> uint64 |> Ok
-    | 4 -> binFile.Reader.ReadUInt32 (span, 0) |> uint64 |> Ok
-    | 8 -> binFile.Reader.ReadUInt64 (span, 0) |> Ok
+    | 1 -> reader.ReadUInt8 (span, 0) |> uint64 |> Ok
+    | 2 -> reader.ReadUInt16 (span, 0) |> uint64 |> Ok
+    | 4 -> reader.ReadUInt32 (span, 0) |> uint64 |> Ok
+    | 8 -> reader.ReadUInt64 (span, 0) |> Ok
     | _ -> Error ErrorCase.InvalidMemoryRead
 
   let rec readAscii acc offset =
@@ -100,10 +102,9 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
   new (isa) =
     BinHandle ([||], isa, NoMode, None, false)
 
-  /// Return the `IBinFile` object.
   member _.File with get(): IBinFile = binFile
 
-  member _.RegisterFactory with get(): RegisterFactory = regFactory
+  member _.RegisterFactory with get() = regFactory
 
   member _.NewLiftingUnit () =
     let mode =
@@ -112,8 +113,9 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
         if entryPoint % 2UL <> 0UL then ThumbMode
         else ARMMode
       | _ -> mode
-    let parser = GroundWork.CreateParser binFile.ISA mode
-    LiftingUnit (binFile, parser)
+    let parser = GroundWork.CreateParser reader regFactory binFile.ISA mode
+    let builder = GroundWork.CreateBuilder binFile.ISA regFactory
+    LiftingUnit (binFile, parser, builder)
 
   member _.TryReadBytes (addr: Addr, nBytes) =
     let range = AddrRange (addr, addr + uint64 nBytes - 1UL)

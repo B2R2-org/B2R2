@@ -26,14 +26,17 @@ namespace B2R2.FrontEnd.EVM.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.EVM
 open type BitVector
 
 [<TestClass>]
 type EVMParserTests () =
   let test (bytes: byte[]) (opcode: Opcode) =
+    let isa = ISA.Init Architecture.EVM Endian.Big
+    let parser = EVMParser (isa) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
-    let ins = ParsingMain.parse span 0UL WordSize.Bit64 0UL
+    let ins = parser.Parse (span, 0UL) :?> EVMInstruction
     let opcode' = ins.Info.Opcode
     Assert.AreEqual<Opcode> (opcode, opcode')
 

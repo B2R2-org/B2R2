@@ -30,9 +30,9 @@ open B2R2.FrontEnd.BinLifter
 
 /// Lifting unit is responsible for parsing/lifting binary instructions. To
 /// lift a binary file in parallel, one needs to create multiple lifting units.
-type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
-  let ctxt = GroundWork.CreateTranslationContext binFile.ISA
-
+type LiftingUnit (binFile: IBinFile,
+                  parser: IInstructionParsable,
+                  builder: ILowUIRBuilder) =
   let toReversedArray cnt lst =
     let arr = Array.zeroCreate cnt
     let mutable idx = cnt - 1
@@ -72,9 +72,6 @@ type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
 
   /// Parser of this lifting unit.
   member _.Parser with get() = parser
-
-  /// Translation context.
-  member _.TranslationContext with get() = ctxt
 
   /// <summary>
   ///   Parse one instruction at the given address (addr), and return the
@@ -166,7 +163,7 @@ type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
   /// </returns>
   member _.LiftInstruction (addr: Addr) =
     let ins = parser.Parse (binFile.Slice addr, addr)
-    ins.Translate ctxt
+    ins.Translate builder
 
   /// <summary>
   ///   Lift an instruction at the given address (addr) and return the lifted
@@ -181,8 +178,8 @@ type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
   /// </returns>
   member _.LiftInstruction (addr: Addr, optimize) =
     let ins = parser.Parse (binFile.Slice addr, addr)
-    if optimize then ins.Translate ctxt |> LocalOptimizer.Optimize
-    else ins.Translate ctxt
+    if optimize then ins.Translate builder |> LocalOptimizer.Optimize
+    else ins.Translate builder
 
   /// <summary>
   ///   Lift an instruction pointed to by the given pointer and return the
@@ -195,7 +192,8 @@ type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
   member _.LiftInstruction (ptr: BinFilePointer) =
     let span = binFile.Slice ptr.Offset
     let ins = parser.Parse (span, ptr.Addr)
-    if BinFilePointer.IsValidAccess ptr (int ins.Length) then ins.Translate ctxt
+    if BinFilePointer.IsValidAccess ptr (int ins.Length) then
+      ins.Translate builder
     else raise ParsingFailureException
 
   /// <summary>
@@ -213,8 +211,8 @@ type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
     let span = binFile.Slice ptr.Offset
     let ins = parser.Parse (span, ptr.Addr)
     if BinFilePointer.IsValidAccess ptr (int ins.Length) then
-      if optimize then ins.Translate ctxt |> LocalOptimizer.Optimize
-      else ins.Translate ctxt
+      if optimize then ins.Translate builder |> LocalOptimizer.Optimize
+      else ins.Translate builder
     else raise ParsingFailureException
 
   /// <summary>
@@ -225,7 +223,7 @@ type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
   ///   Lifted IR statements.
   /// </returns>
   member _.LiftInstruction (ins: Instruction) =
-    ins.Translate ctxt
+    ins.Translate builder
 
   /// <summary>
   ///   Lift the given instruction and return the lifted IR statements.
@@ -238,8 +236,8 @@ type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
   ///   Lifted IR statements.
   /// </returns>
   member _.LiftInstruction (ins: Instruction, optimize) =
-    if optimize then ins.Translate ctxt |> LocalOptimizer.Optimize
-    else ins.Translate ctxt
+    if optimize then ins.Translate builder |> LocalOptimizer.Optimize
+    else ins.Translate builder
 
   /// <summary>
   ///   Lift a basic block starting from the given address (addr) and return
@@ -253,9 +251,9 @@ type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
   member _.LiftBBlock (addr: Addr) =
     match parseBBLByAddr addr 0 [] with
     | Ok instrs ->
-      instrs |> Array.collect (fun i -> i.Translate ctxt) |> Ok
+      instrs |> Array.collect (fun i -> i.Translate builder) |> Ok
     | Error instrs ->
-      instrs |> Array.collect (fun i -> i.Translate ctxt) |> Error
+      instrs |> Array.collect (fun i -> i.Translate builder) |> Error
 
   /// <summary>
   ///   Lift a basic block starting from the given pointer (ptr) and return the
@@ -269,9 +267,9 @@ type LiftingUnit (binFile: IBinFile, parser: IInstructionParsable) =
   member _.LiftBBlock (ptr: BinFilePointer) =
     match parseBBLByPtr ptr 0 [] with
     | Ok instrs ->
-      instrs |> Array.collect (fun i -> i.Translate ctxt) |> Ok
+      instrs |> Array.collect (fun i -> i.Translate builder) |> Ok
     | Error instrs ->
-      instrs |> Array.collect (fun i -> i.Translate ctxt) |> Error
+      instrs |> Array.collect (fun i -> i.Translate builder) |> Error
 
   /// <summary>
   ///   Disassemble the given instruction and return the disassembled string.

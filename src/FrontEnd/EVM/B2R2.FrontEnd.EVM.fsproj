@@ -9,14 +9,12 @@
 
   <ItemGroup>
     <Compile Include="EVMTypes.fs" />
-    <Compile Include="EVMRegExprs.fs" />
     <Compile Include="EVMRegisterFactory.fs" />
     <Compile Include="EVMDisasm.fs" />
     <Compile Include="EVMLifter.fs" />
     <Compile Include="EVMInstruction.fs" />
     <Compile Include="EVMParsingMain.fs" />
     <Compile Include="EVMParser.fs" />
-    <Compile Include="EVMTranslationContext.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

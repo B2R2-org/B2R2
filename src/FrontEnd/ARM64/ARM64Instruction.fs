@@ -151,11 +151,11 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
   override this.IsNop () =
     this.Info.Opcode = Opcode.NOP
 
-  override this.Translate ctxt =
-    (Lifter.translate this.Info numBytes ctxt).ToStmts ()
+  override this.Translate builder =
+    (Lifter.translate this.Info numBytes builder).Stream.ToStmts ()
 
-  override this.TranslateToList ctxt =
-    Lifter.translate this.Info numBytes ctxt
+  override this.TranslateToList builder =
+    (Lifter.translate this.Info numBytes builder).Stream
 
   override this.Disasm (showAddr, _) =
     let builder =

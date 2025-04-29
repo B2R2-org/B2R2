@@ -65,7 +65,7 @@ type SSALifter () =
     let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
     match hdl.RegisterFactory.StackPointer with
     | Some rid ->
-      let spName = hdl.RegisterFactory.RegIDToString rid
+      let spName = hdl.RegisterFactory.GetRegString rid
       let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
       let spRegKind = RegVar (rt, rid, spName)
       match findLastStackDef ssaCFG v spRegKind with

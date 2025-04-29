@@ -45,20 +45,20 @@ let private stackAddr t = BitVector.OfUInt64 InitialStackPointer t
 
 let private obtainStackDef (hdl: BinHandle) =
   match hdl.RegisterFactory.StackPointer with
-  | Some r -> [ r, hdl.File.ISA.WordSize |> WordSize.toRegType |> stackAddr ]
-  | None -> []
+  | Some r -> [| r, hdl.File.ISA.WordSize |> WordSize.toRegType |> stackAddr |]
+  | None -> [||]
 
 let private obtainFramePointerDef (hdl: BinHandle) =
   match hdl.RegisterFactory.FramePointer with
   | Some r ->
-    [ r, hdl.File.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero ]
-  | None -> []
+    [| r, hdl.File.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero |]
+  | None -> [||]
 
 let private initState hdl pc =
   let st = EvalState true
   st.LoadFailureEventHandler <- memoryReader hdl
-  [ obtainStackDef hdl; obtainFramePointerDef hdl ]
-  |> List.concat
+  [| obtainStackDef hdl; obtainFramePointerDef hdl |]
+  |> Array.concat
   |> st.InitializeContext pc
   st
 

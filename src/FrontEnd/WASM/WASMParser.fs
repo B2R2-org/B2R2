@@ -30,8 +30,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Parser for WASM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type WASMParser (_wordSize) =
-  let reader = BinReader.Init Endian.Little
+type WASMParser (reader) =
 
   interface IInstructionParsable with
     member _.Parse (bs: byte[], addr) =
@@ -43,4 +42,4 @@ type WASMParser (_wordSize) =
 
     member _.MaxInstructionSize = 9
 
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member _.OperationMode with get () = ArchOperationMode.NoMode and set _ = ()

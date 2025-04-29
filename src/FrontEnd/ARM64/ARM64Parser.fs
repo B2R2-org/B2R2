@@ -30,8 +30,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Parser for 64-bit ARM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type ARM64Parser (isa) =
-  let reader = BinReader.Init isa.Endian
+type ARM64Parser (reader) =
 
   interface IInstructionParsable with
     member _.Parse (bs: byte[], addr) =
@@ -43,4 +42,4 @@ type ARM64Parser (isa) =
 
     member _.MaxInstructionSize = 4
 
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+    member _.OperationMode with get () = ArchOperationMode.NoMode and set _ = ()

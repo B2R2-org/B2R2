@@ -27,121 +27,122 @@ module internal B2R2.FrontEnd.PARISC.Helper
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.BitData
+open type Register
 
 let getRegister = function
-  | 0x0u -> R.GR0
-  | 0x1u -> R.GR1
-  | 0x2u -> R.GR2
-  | 0x3u -> R.GR3
-  | 0x4u -> R.GR4
-  | 0x5u -> R.GR5
-  | 0x6u -> R.GR6
-  | 0x7u -> R.GR7
-  | 0x8u -> R.GR8
-  | 0x9u -> R.GR9
-  | 0xAu -> R.GR10
-  | 0xBu -> R.GR11
-  | 0xCu -> R.GR12
-  | 0xDu -> R.GR13
-  | 0xEu -> R.GR14
-  | 0xFu -> R.GR15
-  | 0x10u -> R.GR16
-  | 0x11u -> R.GR17
-  | 0x12u -> R.GR18
-  | 0x13u -> R.GR19
-  | 0x14u -> R.GR20
-  | 0x15u -> R.GR21
-  | 0x16u -> R.GR22
-  | 0x17u -> R.GR23
-  | 0x18u -> R.GR24
-  | 0x19u -> R.GR25
-  | 0x1Au -> R.GR26
-  | 0x1Bu -> R.GR27
-  | 0x1Cu -> R.GR28
-  | 0x1Du -> R.GR29
-  | 0x1Eu -> R.GR30
-  | 0x1Fu -> R.GR31
+  | 0x0u -> GR0
+  | 0x1u -> GR1
+  | 0x2u -> GR2
+  | 0x3u -> GR3
+  | 0x4u -> GR4
+  | 0x5u -> GR5
+  | 0x6u -> GR6
+  | 0x7u -> GR7
+  | 0x8u -> GR8
+  | 0x9u -> GR9
+  | 0xAu -> GR10
+  | 0xBu -> GR11
+  | 0xCu -> GR12
+  | 0xDu -> GR13
+  | 0xEu -> GR14
+  | 0xFu -> GR15
+  | 0x10u -> GR16
+  | 0x11u -> GR17
+  | 0x12u -> GR18
+  | 0x13u -> GR19
+  | 0x14u -> GR20
+  | 0x15u -> GR21
+  | 0x16u -> GR22
+  | 0x17u -> GR23
+  | 0x18u -> GR24
+  | 0x19u -> GR25
+  | 0x1Au -> GR26
+  | 0x1Bu -> GR27
+  | 0x1Cu -> GR28
+  | 0x1Du -> GR29
+  | 0x1Eu -> GR30
+  | 0x1Fu -> GR31
   | _ -> raise InvalidRegisterException
 
 let getFRegister = function
-  | 0x0u -> R.FPR0
-  | 0x1u -> R.FPR1
-  | 0x2u -> R.FPR2
-  | 0x3u -> R.FPR3
-  | 0x4u -> R.FPR4
-  | 0x5u -> R.FPR5
-  | 0x6u -> R.FPR6
-  | 0x7u -> R.FPR7
-  | 0x8u -> R.FPR8
-  | 0x9u -> R.FPR9
-  | 0xAu -> R.FPR10
-  | 0xBu -> R.FPR11
-  | 0xCu -> R.FPR12
-  | 0xDu -> R.FPR13
-  | 0xEu -> R.FPR14
-  | 0xFu -> R.FPR15
-  | 0x10u -> R.FPR16
-  | 0x11u -> R.FPR17
-  | 0x12u -> R.FPR18
-  | 0x13u -> R.FPR19
-  | 0x14u -> R.FPR20
-  | 0x15u -> R.FPR21
-  | 0x16u -> R.FPR22
-  | 0x17u -> R.FPR23
-  | 0x18u -> R.FPR24
-  | 0x19u -> R.FPR25
-  | 0x1Au -> R.FPR26
-  | 0x1Bu -> R.FPR27
-  | 0x1Cu -> R.FPR28
-  | 0x1Du -> R.FPR29
-  | 0x1Eu -> R.FPR30
-  | 0x1Fu -> R.FPR31
+  | 0x0u -> FPR0
+  | 0x1u -> FPR1
+  | 0x2u -> FPR2
+  | 0x3u -> FPR3
+  | 0x4u -> FPR4
+  | 0x5u -> FPR5
+  | 0x6u -> FPR6
+  | 0x7u -> FPR7
+  | 0x8u -> FPR8
+  | 0x9u -> FPR9
+  | 0xAu -> FPR10
+  | 0xBu -> FPR11
+  | 0xCu -> FPR12
+  | 0xDu -> FPR13
+  | 0xEu -> FPR14
+  | 0xFu -> FPR15
+  | 0x10u -> FPR16
+  | 0x11u -> FPR17
+  | 0x12u -> FPR18
+  | 0x13u -> FPR19
+  | 0x14u -> FPR20
+  | 0x15u -> FPR21
+  | 0x16u -> FPR22
+  | 0x17u -> FPR23
+  | 0x18u -> FPR24
+  | 0x19u -> FPR25
+  | 0x1Au -> FPR26
+  | 0x1Bu -> FPR27
+  | 0x1Cu -> FPR28
+  | 0x1Du -> FPR29
+  | 0x1Eu -> FPR30
+  | 0x1Fu -> FPR31
   | _ -> raise InvalidRegisterException
 
 let getSRegister = function
-  | 0x0u -> R.SR0
-  | 0x1u -> R.SR1
-  | 0x2u -> R.SR2
-  | 0x3u -> R.SR3
-  | 0x4u -> R.SR4
-  | 0x5u -> R.SR5
-  | 0x6u -> R.SR6
-  | 0x7u -> R.SR7
+  | 0x0u -> SR0
+  | 0x1u -> SR1
+  | 0x2u -> SR2
+  | 0x3u -> SR3
+  | 0x4u -> SR4
+  | 0x5u -> SR5
+  | 0x6u -> SR6
+  | 0x7u -> SR7
   | _ -> raise InvalidRegisterException
 
 let getCRegister = function
-  | 0x0u -> R.CR0
-  | 0x1u -> R.CR1
-  | 0x2u -> R.CR2
-  | 0x3u -> R.CR3
-  | 0x4u -> R.CR4
-  | 0x5u -> R.CR5
-  | 0x6u -> R.CR6
-  | 0x7u -> R.CR7
-  | 0x8u -> R.CR8
-  | 0x9u -> R.CR9
-  | 0xAu -> R.CR10
-  | 0xBu -> R.CR11
-  | 0xCu -> R.CR12
-  | 0xDu -> R.CR13
-  | 0xEu -> R.CR14
-  | 0xFu -> R.CR15
-  | 0x10u -> R.CR16
-  | 0x11u -> R.CR17
-  | 0x12u -> R.CR18
-  | 0x13u -> R.CR19
-  | 0x14u -> R.CR20
-  | 0x15u -> R.CR21
-  | 0x16u -> R.CR22
-  | 0x17u -> R.CR23
-  | 0x18u -> R.CR24
-  | 0x19u -> R.CR25
-  | 0x1Au -> R.CR26
-  | 0x1Bu -> R.CR27
-  | 0x1Cu -> R.CR28
-  | 0x1Du -> R.CR29
-  | 0x1Eu -> R.CR30
-  | 0x1Fu -> R.CR31
+  | 0x0u -> CR0
+  | 0x1u -> CR1
+  | 0x2u -> CR2
+  | 0x3u -> CR3
+  | 0x4u -> CR4
+  | 0x5u -> CR5
+  | 0x6u -> CR6
+  | 0x7u -> CR7
+  | 0x8u -> CR8
+  | 0x9u -> CR9
+  | 0xAu -> CR10
+  | 0xBu -> CR11
+  | 0xCu -> CR12
+  | 0xDu -> CR13
+  | 0xEu -> CR14
+  | 0xFu -> CR15
+  | 0x10u -> CR16
+  | 0x11u -> CR17
+  | 0x12u -> CR18
+  | 0x13u -> CR19
+  | 0x14u -> CR20
+  | 0x15u -> CR21
+  | 0x16u -> CR22
+  | 0x17u -> CR23
+  | 0x18u -> CR24
+  | 0x19u -> CR25
+  | 0x1Au -> CR26
+  | 0x1Bu -> CR27
+  | 0x1Cu -> CR28
+  | 0x1Du -> CR29
+  | 0x1Eu -> CR30
+  | 0x1Fu -> CR31
   | _ -> raise InvalidRegisterException
 
 let getAddCondition = function
@@ -639,18 +640,18 @@ let getExtRs1Rs2Imm b imm wordSz =
 
 let getFrs2Frs1Imm b imm = ThreeOperands (frs2 b, frs1 b, OpImm imm)
 
-let getRs1Rs2SarRd b = FourOperands (rs1 b, rs2 b, OpReg R.CR11, rd b)
+let getRs1Rs2SarRd b = FourOperands (rs1 b, rs2 b, OpReg CR11, rd b)
 
-let getRs1SarImm b imm = ThreeOperands (rs1 b, OpReg R.CR11, OpImm imm)
+let getRs1SarImm b imm = ThreeOperands (rs1 b, OpReg CR11, OpImm imm)
 
 let getRs2SarLenRs1 b clen =
-  FourOperands (rs2 b, OpReg R.CR11, OpImm clen, rs1 b)
+  FourOperands (rs2 b, OpReg CR11, OpImm clen, rs1 b)
 
 let getRs1SarLenRs2 b clen =
-  FourOperands (rs1 b, OpReg R.CR11, OpImm clen, rs2 b)
+  FourOperands (rs1 b, OpReg CR11, OpImm clen, rs2 b)
 
 let getImmSarLenRs2 b imm clen =
-  FourOperands (OpImm imm, OpReg R.CR11, OpImm clen, rs2 b)
+  FourOperands (OpImm imm, OpReg CR11, OpImm clen, rs2 b)
 
 let getImmCCposLenRs2 b imm cp cpos len =
   FourOperands (OpImm imm, cCpos cp cpos, OpImm len, rs2 b)
@@ -682,7 +683,7 @@ let getMemBase b wordSz =
   OneOperand (OpMem (br b, None, None, wordSz))
 
 let getMemBaseRP b wordSz =
-  TwoOperands (OpMem (br b, None, None, wordSz), OpReg R.GR2)
+  TwoOperands (OpMem (br b, None, None, wordSz), OpReg GR2)
 
 let getMemBaseOffRs1 b offset wordSz =
   TwoOperands (OpMem (br b, None, Some (Imm offset), wordSz), rs1 b)
@@ -695,7 +696,7 @@ let getMemSpaceOff b space offset wordSz =
 
 let getMemSpaceOffSr0R31 b space offset wordSz =
   ThreeOperands (OpMem (br b, Some space, Some (Imm offset), wordSz),
-    OpReg R.SR0, OpReg R.GR31)
+    OpReg SR0, OpReg GR31)
 
 let getMemSpaceRegOff b space offset wordSz =
   OneOperand (OpMem (br b, Some space, Some (Reg offset), wordSz))

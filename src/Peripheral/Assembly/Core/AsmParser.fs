@@ -24,12 +24,17 @@
 
 namespace B2R2.Peripheral.Assembly
 
+open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 
 /// Assembly code parser interface.
 [<AbstractClass>]
-type AsmParser (isa, mode) =
-  let parser = GroundWork.CreateParser isa mode
+type AsmParser (isa: ISA, mode) =
+  let reader = BinReader.Init isa.Endian
+  let regFactory = GroundWork.CreateRegisterFactory isa
+  let parser = GroundWork.CreateParser reader regFactory isa mode
+  let builder = GroundWork.CreateBuilder isa regFactory
 
   /// Run parsing from a given assembly string, and assemble binary code.
   abstract Assemble: string -> Result<byte [] list, string>
@@ -37,13 +42,13 @@ type AsmParser (isa, mode) =
   member _.Parser with get() = parser
 
   /// Run parsing from a given assembly string, and lift it to LowUIR code.
-  member this.Lift ctxt asm addr =
+  member this.Lift asm addr =
     this.Assemble asm
     |> Result.bind (fun bins ->
       bins
       |> List.fold (fun acc bs ->
         let ins = parser.Parse (bs, addr)
-        ins.Translate ctxt :: acc
+        ins.Translate builder :: acc
       ) []
       |> List.rev
       |> Array.concat

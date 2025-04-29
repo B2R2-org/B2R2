@@ -30,7 +30,6 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.MIPS
 open type Register
 
@@ -47,20 +46,23 @@ type MIPSLifterTests () =
   let ( ++ ) (byteStr: string) (givenStmts: Stmt[]) =
     ByteArray.ofHexString byteStr, givenStmts
 
-  let test isa ctxt (bytes: byte[], givenStmts) =
-    let parser = MIPSParser (isa) :> IInstructionParsable
+  let test (isa: ISA) (bytes: byte[], givenStmts) =
+    let reader = BinReader.Init isa.Endian
+    let regFactory = RegisterFactory isa.WordSize
+    let builder = LowUIRBuilder (isa, regFactory, LowUIRStream ())
+    let parser = MIPSParser (isa, reader) :> IInstructionParsable
     let ins = parser.Parse (bytes, 0UL)
-    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate ctxt)
+    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate builder)
 
   [<TestMethod>]
   member _.``[MIPS64] ADD lift test`` () =
     let isa = ISA.Init Architecture.MIPS64 Endian.Big
-    let ctxt = MIPSTranslationContext isa
-    let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
-    let ir = IRBuilder (241)
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
+    let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let stream = LowUIRStream ()
+    let lblL0 = stream.NewLabel "L0"
+    let lblL1 = stream.NewLabel "L1"
+    let lblEnd = stream.NewLabel "End"
     let signExtLo64 = AST.sext 64<rt> <| AST.xtlo 32<rt> (!.R1 .+ !.R2)
     let cond = checkOverflowOnAdd !.R1 !.R2 signExtLo64
     "00220820"
@@ -71,17 +73,17 @@ type MIPSLifterTests () =
           AST.lmark lblL1
           !.R1 := AST.sext 64<rt> <| AST.xtlo 32<rt> (!.R1 .+ !.R2)
           AST.lmark lblEnd |]
-    |> test isa ctxt
+    |> test isa
 
   [<TestMethod>]
   member _.``[MIPS32] ADD lift test`` () =
     let isa = ISA.Init Architecture.MIPS32 Endian.Big
-    let ctxt = MIPSTranslationContext isa
-    let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
-    let ir = IRBuilder 241
-    let lblL0 = !%ir "L0"
-    let lblL1 = !%ir "L1"
-    let lblEnd = !%ir "End"
+    let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let stream = LowUIRStream ()
+    let lblL0 = stream.NewLabel "L0"
+    let lblL1 = stream.NewLabel "L1"
+    let lblEnd = stream.NewLabel "End"
     let cond = checkOverflowOnAdd !.R1 !.R2 (!.R1 .+ !.R2)
     "00220820"
     ++ [| AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1)
@@ -91,4 +93,4 @@ type MIPSLifterTests () =
           AST.lmark lblL1
           !.R1 := !.R1 .+ !.R2
           AST.lmark lblEnd |]
-    |> test isa ctxt
+    |> test isa

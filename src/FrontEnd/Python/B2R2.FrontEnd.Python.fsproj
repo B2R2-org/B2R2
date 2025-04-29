@@ -12,7 +12,6 @@
     <Compile Include="PythonInstruction.fs" />
     <Compile Include="PythonParsingMain.fs" />
     <Compile Include="PythonParser.fs" />
-    <Compile Include="PythonTranslationContext.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

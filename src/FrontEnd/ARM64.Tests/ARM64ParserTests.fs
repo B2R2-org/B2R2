@@ -109,10 +109,12 @@ module private ARM64Shortcut =
 /// - C4.6 Data processing - SIMD and floating point
 [<TestClass>]
 type ARM64ParserTests () =
+  let reader = BinReader.Init Endian.Big
+  let parser = ARM64Parser (reader) :> IInstructionParsable
+
   let test (bytes: byte[]) (opcode, oprs: Operands) =
-    let reader = BinReader.Init Endian.Big
     let span = System.ReadOnlySpan bytes
-    let ins = ParsingMain.parse span reader 0UL
+    let ins = parser.Parse (span, 0UL) :?> ARM64Instruction
     let opcode' = ins.Info.Opcode
     let oprs' = ins.Info.Operands
     Assert.AreEqual<Opcode> (opcode, opcode')

@@ -25,56 +25,54 @@
 namespace B2R2.FrontEnd.BinLifter
 
 open System.Collections
-open B2R2
 open B2R2.BinIR.LowUIR
 
-/// IRBuilder accumulates IR statements while lifting, and emits them into an
-/// array of statements at the end of a lifting process.
-type IRBuilder =
-  inherit Generic.List<Stmt>
+/// <summary>
+/// Provides a stream for building LowUIR statements. This will accumulate
+/// LowUIR statements and return them as an array when requested. It also
+/// maintains internal counters for temporary variables and labels to avoid
+/// name collisions.
+/// </summary>
+type LowUIRStream (capacity) =
+  inherit Generic.List<Stmt> (capacity=capacity)
 
-  val mutable TempVarCount: int
-  val mutable LabelCount: int
-  val mutable InsAddress: Addr
+  let mutable tempVarCount = 0
+  let mutable labelCount = 0
+  let mutable insAddress = 0UL
 
   /// <summary>
-  ///   Initialize an IR statement builder of internal buffer size n.
+  /// Create a new LowUIRStream.
   /// </summary>
-  /// <param name="n">The size of the internal buffer.</param>
-  new (n: int) =
-    { inherit Generic.List<Stmt>(n)
-      TempVarCount = 0
-      LabelCount = 0
-      InsAddress = 0UL }
+  new () = LowUIRStream 241
 
   /// <summary>
   ///   Create a new temporary variable of RegType (rt).
   /// </summary>
-  member inline this.NewTempVar rt =
-    this.TempVarCount <- this.TempVarCount + 1
-    AST.tmpvar rt this.TempVarCount
+  member _.NewTempVar rt =
+    tempVarCount <- tempVarCount + 1
+    AST.tmpvar rt tempVarCount
 
   /// <summary>
   ///   Create a new label.
   /// </summary>
-  member inline this.NewLabel name =
-    this.LabelCount <- this.LabelCount + 1
-    AST.label name this.LabelCount this.InsAddress
+  member _.NewLabel name =
+    labelCount <- labelCount + 1
+    AST.label name labelCount insAddress
 
   /// <summary>
   ///   Append a new IR statement to the builder and set the instruction
   ///   address. This is used for the very first statement of an instruction.
   /// </summary>
   /// <param name="stmt">IR statement to add.</param>
-  member this.Append (addr, stmt) =
-    this.InsAddress <- addr
-    this.Add stmt
+  member _.Append (addr, stmt) =
+    insAddress <- addr
+    base.Add stmt
 
   /// <summary>
   ///   Append a new IR statement to the builder.
   /// </summary>
   /// <param name="stmt">IR statement to add.</param>
-  member this.Append stmt = this.Add stmt
+  member _.Append stmt = base.Add stmt
 
   /// <summary>
   ///   Create an array of IR statements from the buffer. This function will
@@ -83,10 +81,25 @@ type IRBuilder =
   /// <returns>
   ///   Returns an array of IR statements.
   /// </returns>
-  member this.ToStmts () =
+  member _.ToStmts () =
 #if EMULATION
-    this.TempVarCount <- 0
+    tempVarCount <- 0
 #endif
-    let stmts = this.ToArray ()
-    this.Clear ()
+    let stmts = base.ToArray ()
+    base.Clear ()
     stmts
+
+  /// <summary>
+  /// Starts a new instruction located at the given address. This is used for
+  /// the very first statement of an instruction to create an ISMark statement.
+  /// </summary>
+  member _.MarkStart (addr, insLen: uint32) =
+    insAddress <- addr
+    base.Add (AST.ismark insLen)
+
+  /// <summary>
+  /// Finishes the current instruction. This is used for the last statement of
+  /// an instruction to create an IEMark statement.
+  /// </summary>
+  member _.MarkEnd insLen =
+    base.Add (AST.iemark insLen)

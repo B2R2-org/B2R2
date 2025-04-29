@@ -62,7 +62,7 @@ type SyscallAnalysis () =
       | FileFormat.ELFBinary ->
         let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
         let rid = CallingConvention.returnRegister hdl
-        let reg = hdl.RegisterFactory.RegIDToRegExpr rid
+        let reg = hdl.RegisterFactory.GetRegVar rid
         let e = LowUIR.AST.undef rt "ret"
         let rundown = [| LowUIR.AST.put reg e |]
         FunctionAbstraction (addr, 0, rundown, true, returningStatus)

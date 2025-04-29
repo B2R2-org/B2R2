@@ -30,10 +30,9 @@ open B2R2.FrontEnd.BinLifter
 
 /// Parser for MIPS instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type MIPSParser (isa: ISA) =
+type MIPSParser (isa: ISA, reader) =
   let wordSize = isa.WordSize
   let arch = isa.Arch
-  let reader = BinReader.Init isa.Endian
 
   interface IInstructionParsable with
     member _.Parse (bs: byte[], addr) =

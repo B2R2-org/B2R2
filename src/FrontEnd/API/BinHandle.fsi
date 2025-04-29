@@ -74,7 +74,7 @@ type BinHandle =
   member File: IBinFile
 
   /// Register factory.
-  member RegisterFactory: RegisterFactory
+  member RegisterFactory: IRegisterFactory
 
   /// Get a new instance of lifting unit.
   member NewLiftingUnit: unit -> LiftingUnit

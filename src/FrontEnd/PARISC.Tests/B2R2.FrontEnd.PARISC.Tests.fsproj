@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\API\B2R2.FrontEnd.API.fsproj" />
+    <ProjectReference Include="..\PARISC\B2R2.FrontEnd.PARISC.fsproj" />
   </ItemGroup>
 
 </Project>

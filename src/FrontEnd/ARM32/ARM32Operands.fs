@@ -945,7 +945,7 @@ module OperandParsingHelper =
 type [<AbstractClass>] OperandParser () =
   abstract Render: uint32 -> struct (Operands * bool * bool option * RegType)
 
-and ParsingHelper (arch, mode, rd, addr, oprs, len, cond, isAdd) =
+and ParsingHelper (arch, mode, reader, addr, oprs, len, cond, isAdd) =
   let isARMv7 = (arch = Architecture.ARMv7)
   let mutable mode: ArchOperationMode = mode
   let mutable addr: Addr = addr
@@ -957,7 +957,7 @@ and ParsingHelper (arch, mode, rd, addr, oprs, len, cond, isAdd) =
                    reader, 0UL, oparsers, 0u, Condition.UN, true)
   member _.Arch with get(): Architecture = arch
   member _.Mode with get() = mode and set (m) = mode <- m
-  member _.BinReader with get(): IBinReader = rd
+  member _.BinReader with get(): IBinReader = reader
   member _.InsAddr with get() = addr and set(a) = addr <- a
   member _.OprParsers with get(): OperandParser [] = oprs
   member _.Len with get() = len and set (l) = len <- l

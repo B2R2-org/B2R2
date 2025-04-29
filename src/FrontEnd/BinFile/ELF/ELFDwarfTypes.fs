@@ -455,8 +455,8 @@ module DWRegister =
     | Architecture.SH4 -> toSH4Register regnum
     | _ -> Terminator.futureFeature ()
 
-  let toRegisterExpr isa (regFactory: RegisterFactory) regnum =
-    toRegID isa regnum |> regFactory.RegIDToRegExpr
+  let toRegisterExpr isa (regFactory: IRegisterFactory) regnum =
+    toRegID isa regnum |> regFactory.GetRegVar
 
 /// The CFA. Machine-independent representation of the current frame address.
 /// For example, (esp+8) on x86.
@@ -466,12 +466,12 @@ type CanonicalFrameAddress =
   | UnknownCFA
 
 module CanonicalFrameAddress =
-  let regPlusOffset isa regFactory regnum offset =
+  let regPlusOffset isa regnum offset =
     RegPlusOffset (DWRegister.toRegID isa regnum, offset)
 
-  let toString (regFactory: RegisterFactory) = function
+  let toString (regFactory: IRegisterFactory) = function
   | RegPlusOffset (rid, offset) ->
-    regFactory.RegIDToString rid + (offset.ToString ("+0;-#"))
+    regFactory.GetRegString rid + (offset.ToString ("+0;-#"))
   | Expression exp ->
     LowUIR.Pp.expToString exp
   | UnknownCFA -> "unknown"

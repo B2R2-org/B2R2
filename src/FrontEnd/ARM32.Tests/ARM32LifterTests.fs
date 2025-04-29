@@ -27,7 +27,6 @@ namespace B2R2.FrontEnd.ARM32.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.ARM32
 open B2R2.BinIR.LowUIR.AST.InfixOp
@@ -43,18 +42,20 @@ type ARM32LifterTests () =
 
   let isa = ISA.Init Architecture.ARMv7 Endian.Big
 
-  let ctxt = ARM32TranslationContext isa
+  let reader = BinReader.Init Endian.Big
 
-  let ( !. ) name = Register.toRegID name |> ctxt.GetRegVar
+  let regFactory = RegisterFactory () :> IRegisterFactory
+
+  let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
 
   let ( ++ ) (byteStr: string) givenStmts =
     ByteArray.ofHexString byteStr, givenStmts
 
   let test mode (bytes: byte[]) (givenStmts: Stmt[]) =
-    let parser = ARM32Parser (isa, mode) :> IInstructionParsable
-    let ctxt = GroundWork.CreateTranslationContext isa
+    let parser = ARM32Parser (isa, mode, reader) :> IInstructionParsable
+    let builder = ILowUIRBuilder.Default (isa, regFactory, LowUIRStream ())
     let ins = parser.Parse (bytes, 0UL)
-    let liftInstr = ins.Translate ctxt
+    let liftInstr = ins.Translate builder
     CollectionAssert.AreEqual (givenStmts, unwrapStmts liftInstr)
 
   let testARM (bytes: byte[], givenStmts: Stmt[]) =

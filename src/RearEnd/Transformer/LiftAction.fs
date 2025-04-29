@@ -36,7 +36,7 @@ type LiftAction () =
     if BinFilePointer.IsValid ptr then
       match lifter.TryParseInstruction (ptr) with
       | Ok instr ->
-        let s = instr.Translate lifter.TranslationContext |> Pp.stmtsToString
+        let s = lifter.LiftInstruction instr |> Pp.stmtsToString
         let ptr = BinFilePointer.Advance ptr (int instr.Length)
         lift (sb.Append s) lifter ptr
       | Error _ -> "Bad instruction found"

@@ -28,7 +28,6 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 
@@ -88,10 +87,10 @@ type OptimizerTests () =
 
   [<TestMethod>]
   member _.``[ConstantFolding] Condition jump replacement test`` () =
-    let ir = IRBuilder 42
-    let lblTarget = !%ir "Target"
-    let lblImpossible = !%ir "Impossible"
-    let lblEnd = !%ir "End"
+    let stream = LowUIRStream ()
+    let lblTarget = stream.NewLabel "Target"
+    let lblImpossible = stream.NewLabel "Impossible"
+    let lblEnd = stream.NewLabel "End"
     ([ varA := num 1u
        AST.jmp (AST.jmpDest lblTarget)
        AST.lmark lblImpossible

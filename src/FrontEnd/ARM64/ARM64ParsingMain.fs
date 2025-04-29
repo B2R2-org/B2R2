@@ -3385,6 +3385,6 @@ let parse (span: ByteSpan) (reader: IBinReader) addr =
       Operands = operands
       OprSize = oprSize
     }
-  ARM64Instruction (addr, 4u, insInfo, WordSize.Bit64 (* FIXME *))
+  ARM64Instruction (addr, 4u, insInfo, WordSize.Bit64)
 
 // vim: set tw=80 sts=2 sw=2:

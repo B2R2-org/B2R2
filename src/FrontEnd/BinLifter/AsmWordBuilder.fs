@@ -41,5 +41,5 @@ type AsmWordBuilder =
   /// </summary>
   /// <param name="stmt">AsmWord to add.</param>
   member this.Append stmt =
-    this.Add (stmt)
+    this.Add stmt
     this

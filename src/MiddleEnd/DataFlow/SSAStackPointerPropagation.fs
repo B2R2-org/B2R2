@@ -88,8 +88,8 @@ type SSAStackPointerPropagation =
           member _.OnInitialize state =
             match hdl.RegisterFactory.StackPointer with
             | Some sp ->
-              let rt = hdl.RegisterFactory.RegIDToRegType sp
-              let str = hdl.RegisterFactory.RegIDToString sp
+              let rt = hdl.RegisterFactory.GetRegType sp
+              let str = hdl.RegisterFactory.GetRegString sp
               let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
               let spVal = BitVector.OfUInt64 InitialStackPointer rt
               state.SetRegValueWithoutAdding var

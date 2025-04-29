@@ -22,21 +22,46 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.MIPS
+namespace B2R2.FrontEnd.BinLifter
 
-open B2R2
-open B2R2.FrontEnd.BinLifter
-
-/// Translation context for MIPS instructions.
-type MIPSTranslationContext (isa) =
-  inherit TranslationContext (isa)
-
-  let regExprs = RegExprs (isa.WordSize)
-
-  member _.RegExprs with get() = regExprs
-
-  override _.GetRegVar id =
-    Register.ofRegID id |> regExprs.GetRegVar
-
-  override _.GetPseudoRegVar _id _pos =
-    Terminator.impossible ()
+/// Lazily remembered lastly used opcode.
+type ConditionCodeOp =
+  /// Indicator for the start of a trace.
+  | TraceStart = 0x1
+  /// Indicator for EFLAGS computation. This is set only when EFLAGS computation
+  /// is complete.
+  | EFlags = 0x2
+  | SUBB = 0x3
+  | SUBW = 0x4
+  | SUBD = 0x5
+  | SUBQ = 0x6
+  | LOGICB = 0x7
+  | LOGICW = 0x8
+  | LOGICD = 0x9
+  | LOGICQ = 0xA
+  | ADDB = 0xB
+  | ADDW = 0xC
+  | ADDD = 0xD
+  | ADDQ = 0xE
+  | SHLB = 0xF
+  | SHLW = 0x10
+  | SHLD = 0x11
+  | SHLQ = 0x12
+  | SHRB = 0x13
+  | SHRW = 0x14
+  | SHRD = 0x15
+  | SHRQ = 0x16
+  | SARB = 0x17
+  | SARW = 0x18
+  | SARD = 0x19
+  | SARQ = 0x1A
+  | INCB = 0x1B
+  | INCW = 0x1C
+  | INCD = 0x1D
+  | INCQ = 0x1E
+  | DECB = 0x1F
+  | DECW = 0x20
+  | DECD = 0x21
+  | DECQ = 0x22
+  /// XOR of the same operands.
+  | XORXX = 0x23
