@@ -71,7 +71,8 @@ module DataFlowChain =
     | Var (_, id, _, _) -> Regular id :: acc
     | TempVar (_, n, _) -> Temporary n :: acc
     | UnOp (_, e, _) -> extractUseFromExpr e acc
-    | BinOp (_, _, e1, e2, _) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
+    | BinOp (_, _, e1, e2, _) ->
+      extractUseFromExpr e1 (extractUseFromExpr e2 acc)
     | RelOp (_, e1, e2, _) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
     | Load (_, _, e, _) -> extractUseFromExpr e acc
     | Ite (c, e1, e2, _) ->

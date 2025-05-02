@@ -204,7 +204,8 @@ let parseLoadStoreOffset bin wordSz =
 
 let parseIndexShortLoadStoreInstruction bin wordSz =
   if Bits.pick bin 12u = 0u then
-    let cmplt = getIndexedCompleter (Bits.pick bin 13u <<< 1 ||| Bits.pick bin 5u)
+    let cmplt =
+      getIndexedCompleter (Bits.pick bin 13u <<< 1 ||| Bits.pick bin 5u)
     let cond = Bits.extract bin 11u 10u |> getLoadCacheHints
     let offset = getRegFromRange bin 20u 16u
     let oprs = getMemRegOffRd bin offset wordSz
@@ -216,10 +217,12 @@ let parseIndexShortLoadStoreInstruction bin wordSz =
     | 0b0011u -> Op.LDD, cmplt, cond, spaceOprs
     | 0b0100u -> Op.LDDA, cmplt, cond, oprs
     | 0b0101u ->
-      Op.LDCD, cmplt, Bits.extract bin 11u 10u |> getLoadCWordCacheHints, spaceOprs
+      Op.LDCD, cmplt, Bits.extract bin 11u 10u
+      |> getLoadCWordCacheHints, spaceOprs
     | 0b0110u -> Op.LDWA, cmplt, cond, oprs
     | 0b0111u ->
-      Op.LDCW, cmplt, Bits.extract bin 11u 10u |> getLoadCWordCacheHints, spaceOprs
+      Op.LDCW, cmplt, Bits.extract bin 11u 10u
+      |> getLoadCWordCacheHints, spaceOprs
     | _ -> raise ParsingFailureException
   else
     let a = Bits.pick bin 13u
@@ -640,16 +643,19 @@ let parseSpecialFunctionInstruction bin =
   let cmplt = if Bits.pick bin 5u = 0b0u then None else Some [| N |]
   match Bits.extract bin 10u 9u with
   | 0b00u ->
-    let sop = Bits.extract bin 25u 11u <<< 5 ||| Bits.extract bin 4u 0u |> uint64
+    let sop =
+      Bits.extract bin 25u 11u <<< 5 ||| Bits.extract bin 4u 0u |> uint64
     Op.SPOP0, cmplt, Some [| sfu; sop |], NoOperand
   | 0b01u ->
     let sop = Bits.extract bin 25u 11u |> uint64
     Op.SPOP1, cmplt, Some [| sfu; sop |], getRd bin
   | 0b10u ->
-    let sop = Bits.extract bin 20u 11u <<< 5 ||| Bits.extract bin 4u 0u |> uint64
+    let sop =
+      Bits.extract bin 20u 11u <<< 5 ||| Bits.extract bin 4u 0u |> uint64
     Op.SPOP2, cmplt, Some [| sfu; sop |], getRs2 bin
   | 0b11u ->
-    let sop = Bits.extract bin 15u 11u <<< 5 ||| Bits.extract bin 4u 0u |> uint64
+    let sop =
+      Bits.extract bin 15u 11u <<< 5 ||| Bits.extract bin 4u 0u |> uint64
     Op.SPOP3, cmplt, Some [| sfu; sop |], getRs1Rs2 bin
   | _ -> raise ParsingFailureException
 
@@ -732,7 +738,8 @@ let parseMultipleOperationInstruction bin =
      ra |> getFRegister |> OpReg,
      ta |> getFRegister |> OpReg)
     |> FiveOperands
-  if Bits.extract bin 31u 26u = 0b000110u then Op.FMPYADD, oprs else Op.FMPYSUB, oprs
+  if Bits.extract bin 31u 26u = 0b000110u then Op.FMPYADD, oprs
+  else Op.FMPYSUB, oprs
 
 let private parseInstruction bin wordSz =
   let opcode = Bits.extract bin 31u 26u

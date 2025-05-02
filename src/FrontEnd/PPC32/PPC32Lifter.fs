@@ -560,7 +560,8 @@ let bclr ins insLen bld lk =
           if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 32<rt>))
   bld <+ (ctrOk := bo2 .| ((ctr != AST.num0 32<rt>) <+> bo3))
   bld <+ (condOk := bo0 .| (cr <+> AST.not bo1))
-  bld <+ (temp := AST.ite (ctrOk .& condOk) (lr .& numI32 0xfffffffc 32<rt>) nia)
+  bld <+ (temp := AST.ite (ctrOk .& condOk)
+                          (lr .& numI32 0xfffffffc 32<rt>) nia)
   if lk then bld <+ (lr := AST.ite (ctrOk .& condOk) nia lr)
   bld <+ (AST.interjmp temp InterJmpKind.Base)
   bld --!> insLen
@@ -1792,7 +1793,8 @@ let sthbrx ins insLen bld =
   let ea = transEAWithIndexReg o2 o3 bld
   let revtmp = tmpVar bld 16<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (revtmp := AST.concat (AST.extract rs 8<rt> 0) (AST.extract rs 8<rt> 8))
+  bld <+ (revtmp := AST.concat (AST.extract rs 8<rt> 0)
+                               (AST.extract rs 8<rt> 8))
   bld <+ (loadNative bld 16<rt> ea := revtmp)
   bld --!> insLen
 

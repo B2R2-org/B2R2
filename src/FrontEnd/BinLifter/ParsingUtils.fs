@@ -41,7 +41,8 @@ module Bits =
   let pick (binary: uint32) (pos: uint32) =
     binary >>> int pos &&& 0b1u
 
-  /// Concatenate n1 and n2 by shifting n1 to the left by the given shift amount.
+  /// Concatenate n1 and n2 by shifting n1 to the left by the given shift
+  //amount.
   let concat (n1: uint32) (n2: uint32) shiftAmount =
     (n1 <<< shiftAmount) + n2
 

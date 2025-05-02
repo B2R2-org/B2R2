@@ -519,7 +519,8 @@ let frs2 b = getFRegFromRange b 25u 21u |> OpReg
 
 let cr b = getCRegFromRange b 25u 21u |> OpReg
 
-let sa b spos size = Bits.extract b (spos + size) spos |> uint64 |> OpShiftAmount
+let sa b spos size =
+  Bits.extract b (spos + size) spos |> uint64 |> OpShiftAmount
 
 let cCpos cp cpos = 63u - (cp <<< 5 ||| cpos) |> uint64 |> OpShiftAmount
 

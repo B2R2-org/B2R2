@@ -85,5 +85,5 @@ type ILowUIRBuilder =
         member _.StackPointer with get () = regFactory.StackPointer
         member _.FramePointer with get () = regFactory.FramePointer
         member _.IsProgramCounter id = regFactory.IsProgramCounter id
-        member _.IsStackPointer id = regFactory.IsStackPointer id 
+        member _.IsStackPointer id = regFactory.IsStackPointer id
         member _.IsFramePointer id = regFactory.IsFramePointer id }

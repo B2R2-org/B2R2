@@ -2000,7 +2000,8 @@ let pcmpstr (ins: InsInfo) insLen bld =
     initIntRes AST.b0 intRes1
     for i in 0 .. upperBound do
       for j in 0 .. 2 .. upperBound do
-        bld <+ (intRes1[i] := intRes1[i] .| (boolRes[j, i] .& boolRes[j + 1, i]))
+        bld
+        <+ (intRes1[i] := intRes1[i] .| (boolRes[j, i] .& boolRes[j + 1, i]))
       done
     done
   | EqualEach ->

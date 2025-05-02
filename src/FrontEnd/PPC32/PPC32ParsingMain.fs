@@ -1049,7 +1049,8 @@ let parseMFTB bin =
     let tbr =
       getTBRRegister (Bits.concat (Bits.extract bin 15u 11u)
                                   (Bits.extract bin 20u 16u) 5)
-    match Bits.concat (Bits.extract bin 15u 11u) (Bits.extract bin 20u 16u) 5 with
+    match Bits.concat (Bits.extract bin 15u 11u)
+                      (Bits.extract bin 20u 16u) 5 with
     (* mftbu rd = mftb rd,269 *)
     | 0x10du -> struct (Op.MFTBU, OneOperand rd)
     (* mftb rd = mftb rd,268 *)

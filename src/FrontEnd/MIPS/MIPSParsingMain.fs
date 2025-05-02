@@ -347,7 +347,8 @@ let parseSPECIAL3 binary =
     if b6 = 0u then Op.LL, None, None, getRtMemBaseOff9 binary 64<rt>
     else raise ParsingFailureException
   | 0b111011u ->
-    if Bits.extract binary 10u 9u = 0u then Op.RDHWR, None, None, getRtRdSel binary
+    if Bits.extract binary 10u 9u = 0u then
+      Op.RDHWR, None, None, getRtRdSel binary
     else raise ParsingFailureException
   | _ -> raise ParsingFailureException
 

@@ -47,14 +47,14 @@ type RegisterFactory (wordSize) =
   let r13 = AST.var rt (Register.toRegID R.R13) "R13"
   let r14 = AST.var rt (Register.toRegID R.R14) "R14"
   let r15 = AST.var rt (Register.toRegID R.R15) "R15"
-  let r0_BANK = AST.var rt (Register.toRegID R.R0_BANK) "R0_BANK"
-  let r1_BANK = AST.var rt (Register.toRegID R.R1_BANK) "R1_BANK"
-  let r2_BANK = AST.var rt (Register.toRegID R.R2_BANK) "R2_BANK"
-  let r3_BANK = AST.var rt (Register.toRegID R.R3_BANK) "R3_BANK"
-  let r4_BANK = AST.var rt (Register.toRegID R.R4_BANK) "R4_BANK"
-  let r5_BANK = AST.var rt (Register.toRegID R.R5_BANK) "R5_BANK"
-  let r6_BANK = AST.var rt (Register.toRegID R.R6_BANK) "R6_BANK"
-  let r7_BANK = AST.var rt (Register.toRegID R.R7_BANK) "R7_BANK"
+  let r0BANK = AST.var rt (Register.toRegID R.R0_BANK) "R0_BANK"
+  let r1BANK = AST.var rt (Register.toRegID R.R1_BANK) "R1_BANK"
+  let r2BANK = AST.var rt (Register.toRegID R.R2_BANK) "R2_BANK"
+  let r3BANK = AST.var rt (Register.toRegID R.R3_BANK) "R3_BANK"
+  let r4BANK = AST.var rt (Register.toRegID R.R4_BANK) "R4_BANK"
+  let r5BANK = AST.var rt (Register.toRegID R.R5_BANK) "R5_BANK"
+  let r6BANK = AST.var rt (Register.toRegID R.R6_BANK) "R6_BANK"
+  let r7BANK = AST.var rt (Register.toRegID R.R7_BANK) "R7_BANK"
   let sr = AST.var rt (Register.toRegID R.SR) "SR"
   let gbr = AST.var rt (Register.toRegID R.GBR) "GBR"
   let ssr = AST.var rt (Register.toRegID R.SSR) "SSR"
@@ -158,14 +158,14 @@ type RegisterFactory (wordSize) =
   let iMASK = AST.var rt (Register.toRegID R.IMASK) "IMASK"
   let s = AST.var rt (Register.toRegID R.S) "S"
   let t = AST.var rt (Register.toRegID R.T) "T"
-  let fpscr_RM = AST.var rt (Register.toRegID R.FPSCR_RM) "FPSCR_RM"
-  let fpscr_FLAG = AST.var rt (Register.toRegID R.FPSCR_FLAG) "FPSCR_FLAG"
-  let fpscr_ENABLE = AST.var rt (Register.toRegID R.FPSCR_ENABLE) "FPSCR_ENABLE"
-  let fpscr_CAUSE = AST.var rt (Register.toRegID R.FPSCR_CAUSE) "FPSCR_CAUSE"
-  let fpscr_DN = AST.var rt (Register.toRegID R.FPSCR_DN) "FPSCR_DN"
-  let fpscr_PR = AST.var rt (Register.toRegID R.FPSCR_PR) "FPSCR_PR"
-  let fpscr_SZ = AST.var rt (Register.toRegID R.FPSCR_SZ) "FPSCR_SZ"
-  let fpscr_FR = AST.var rt (Register.toRegID R.FPSCR_FR) "FPSCR_FR"
+  let fpscrRM = AST.var rt (Register.toRegID R.FPSCR_RM) "FPSCR_RM"
+  let fpscrFLAG = AST.var rt (Register.toRegID R.FPSCR_FLAG) "FPSCR_FLAG"
+  let fpscrENABLE = AST.var rt (Register.toRegID R.FPSCR_ENABLE) "FPSCR_ENABLE"
+  let fpscrCAUSE = AST.var rt (Register.toRegID R.FPSCR_CAUSE) "FPSCR_CAUSE"
+  let fpscrDN = AST.var rt (Register.toRegID R.FPSCR_DN) "FPSCR_DN"
+  let fpscrPR = AST.var rt (Register.toRegID R.FPSCR_PR) "FPSCR_PR"
+  let fpscrSZ = AST.var rt (Register.toRegID R.FPSCR_SZ) "FPSCR_SZ"
+  let fpscrFR = AST.var rt (Register.toRegID R.FPSCR_FR) "FPSCR_FR"
 
   interface IRegisterFactory with
     member _.GetRegVar id =
@@ -186,14 +186,14 @@ type RegisterFactory (wordSize) =
       | R.R13 -> r13
       | R.R14 -> r14
       | R.R15 -> r15
-      | R.R0_BANK -> r0_BANK
-      | R.R1_BANK -> r1_BANK
-      | R.R2_BANK -> r2_BANK
-      | R.R3_BANK -> r3_BANK
-      | R.R4_BANK -> r4_BANK
-      | R.R5_BANK -> r5_BANK
-      | R.R6_BANK -> r6_BANK
-      | R.R7_BANK -> r7_BANK
+      | R.R0_BANK -> r0BANK
+      | R.R1_BANK -> r1BANK
+      | R.R2_BANK -> r2BANK
+      | R.R3_BANK -> r3BANK
+      | R.R4_BANK -> r4BANK
+      | R.R5_BANK -> r5BANK
+      | R.R6_BANK -> r6BANK
+      | R.R7_BANK -> r7BANK
       | R.SR -> sr
       | R.GBR -> gbr
       | R.SSR -> ssr
@@ -297,14 +297,14 @@ type RegisterFactory (wordSize) =
       | R.IMASK -> iMASK
       | R.S -> s
       | R.T -> t
-      | R.FPSCR_RM -> fpscr_RM
-      | R.FPSCR_FLAG -> fpscr_FLAG
-      | R.FPSCR_ENABLE -> fpscr_ENABLE
-      | R.FPSCR_CAUSE -> fpscr_CAUSE
-      | R.FPSCR_DN -> fpscr_DN
-      | R.FPSCR_PR -> fpscr_PR
-      | R.FPSCR_SZ -> fpscr_SZ
-      | R.FPSCR_FR -> fpscr_FR
+      | R.FPSCR_RM -> fpscrRM
+      | R.FPSCR_FLAG -> fpscrFLAG
+      | R.FPSCR_ENABLE -> fpscrENABLE
+      | R.FPSCR_CAUSE -> fpscrCAUSE
+      | R.FPSCR_DN -> fpscrDN
+      | R.FPSCR_PR -> fpscrPR
+      | R.FPSCR_SZ -> fpscrSZ
+      | R.FPSCR_FR -> fpscrFR
       | _ -> raise UnhandledRegExprException
 
     member _.GetRegVar (name: string) =

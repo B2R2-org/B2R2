@@ -1300,14 +1300,16 @@ let getCtrlReg crHi crLo =
 
 /// Control Register to Register
 let parseCtrlRegToReg bin opcode unit =
-  let o1 = getCtrlReg (Bits.extract bin 17u 13u) (Bits.extract bin 22u 18u) |> OpReg
+  let o1 =
+    getCtrlReg (Bits.extract bin 17u 13u) (Bits.extract bin 22u 18u) |> OpReg
   let o2 = translateOperand unit (OperandInfo (Bits.extract bin 27u 23u, UInt))
   struct (opcode, unit, TwoOperands (o1, o2))
 
 /// Register to Control Register
 let parseRegToCtrlReg bin opcode unit =
   let o1 = translateOperand unit (OperandInfo (Bits.extract bin 22u 18u, XUInt))
-  let o2 = getCtrlReg (Bits.extract bin 17u 13u) (Bits.extract bin 27u 23u) |> OpReg
+  let o2 =
+    getCtrlReg (Bits.extract bin 17u 13u) (Bits.extract bin 27u 23u) |> OpReg
   struct (opcode, unit, TwoOperands (o1, o2))
 
 let private getDUnit s x =

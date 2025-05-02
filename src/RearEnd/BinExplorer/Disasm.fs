@@ -41,25 +41,25 @@ type CmdDisasm () =
     try Ok (count, Convert.ToUInt64 (str, 16))
     with _ -> Error "[*] Invalid address is given."
 
-  let rec disasmLoop acc builder (instrs: InstructionCollection) addr count =
+  let rec disasmLoop acc bld (instrs: InstructionCollection) addr count =
     if count <= 0 then List.rev acc |> List.toArray
     else
       match instrs.TryFind (addr, ArchOperationMode.NoMode) with
       | Ok ins ->
-        let d = ins.Disasm builder
-        disasmLoop (d :: acc) builder instrs (addr + uint64 ins.Length) (count - 1)
+        let d = ins.Disasm bld
+        disasmLoop (d :: acc) bld instrs (addr + uint64 ins.Length) (count - 1)
       | Error _ ->
-        disasmLoop ("(invalid)" :: acc) builder instrs (addr + 1UL) (count - 1)
+        disasmLoop ("(invalid)" :: acc) bld instrs (addr + 1UL) (count - 1)
 
-  let render builder instrs = function
-    | Ok (count, addr: uint64) -> disasmLoop [] builder instrs addr count
+  let render bld instrs = function
+    | Ok (count, addr: uint64) -> disasmLoop [] bld instrs addr count
     | Error str -> [| str |]
 
   let disasm (hdl: BinHandle) instrs count addr =
-    let builder = StringDisasmBuilder (true, hdl.File, hdl.File.ISA.WordSize)
+    let bld = StringDisasmBuilder (true, hdl.File, hdl.File.ISA.WordSize)
     convertCount count
     |> Result.bind (convertAddr addr)
-    |> render builder instrs
+    |> render bld instrs
 
   override _.CmdName = "disasm"
 

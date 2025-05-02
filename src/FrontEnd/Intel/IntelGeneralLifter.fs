@@ -1937,7 +1937,8 @@ let lzcnt ins insLen bld =
     bld <+ (x := x .+ (x >> numI32 8 64<rt>))
     bld <+ (x := x .+ (x >> numI32 16 64<rt>))
     bld <+ (x := x .+ (x >> numI32 32 64<rt>))
-    bld <+ (dstAssign oprSize dst (numI32 64 64<rt> .- (x .& numI32 127 64<rt>)))
+    bld
+    <+ (dstAssign oprSize dst (numI32 64 64<rt> .- (x .& numI32 127 64<rt>)))
   | _ -> raise InvalidOperandSizeException
   let oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
   bld <+ (regVar bld R.CF := dst == oprSize)
@@ -2628,7 +2629,8 @@ let shift (ins: InsInfo) insLen bld =
     bld <+ (dstAssign oprSize dst (tDst >> cnt))
     if isCntConst then () else bld <+ (tCnt := cnt .- n1)
     bld <+ (cF := AST.ite cond2 cF (AST.xtlo 1<rt> (tDst >> tCnt)))
-    bld <+ (oF := AST.ite cond1 (AST.xthi 1<rt> tDst) (AST.ite cond2 oF undefOF))
+    bld <+ (oF := AST.ite cond1
+                          (AST.xthi 1<rt> tDst) (AST.ite cond2 oF undefOF))
 #endif
   | Opcode.SAR ->
 #if EMULATION
@@ -2816,7 +2818,8 @@ let inline shiftDblPrec (ins: InsInfo) insLen bld fnDst fnSrc isShl =
 #endif
 #if !EMULATION
   bld <+ (sf := AST.ite cond1 sf (AST.ite cond2 undefSF (AST.xthi 1<rt> dst)))
-  bld <+ (zf := AST.ite cond1 zf (AST.ite cond2 undefZF (dst == AST.num0 oprSz)))
+  bld <+ (zf := AST.ite cond1
+                        zf (AST.ite cond2 undefZF (dst == AST.num0 oprSz)))
 #else
   bld <+ (sf := AST.ite (cond1 .| cond2) sf (AST.xthi 1<rt> dst))
   bld <+ (zf := AST.ite (cond1 .| cond2) zf (dst == AST.num0 oprSz))

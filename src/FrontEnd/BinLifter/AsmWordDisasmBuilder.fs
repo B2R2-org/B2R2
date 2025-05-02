@@ -62,7 +62,7 @@ type AsmWordDisasmBuilder (showAddr, symbolReader: INameReadable, wordSz) =
 
     member this.ToString () =
       (this :> IDisasmBuilder).ToAsmWords ()
-      |> Array.map (fun word -> AsmWord.ToString word)
+      |> Array.map AsmWord.ToString
       |> String.concat ""
 
     member _.ToAsmWords () =

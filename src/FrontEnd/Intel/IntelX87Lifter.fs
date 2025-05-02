@@ -670,7 +670,8 @@ let fdivr (ins: InsInfo) insLen bld doPop =
   | NoOperand ->
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars bld R.ST1
-    bld <+ (AST.cjmp (isZero st0b st0a) (AST.jmpDest lblErr) (AST.jmpDest lblChk))
+    bld <+ (AST.cjmp (isZero st0b st0a)
+                     (AST.jmpDest lblErr) (AST.jmpDest lblChk))
     bld <+ (AST.lmark lblErr)
     bld <+ (AST.sideEffect (Exception "DivErr"))
     bld <+ (AST.lmark lblChk)
@@ -682,7 +683,8 @@ let fdivr (ins: InsInfo) insLen bld doPop =
     let oprExpr = transOneOpr bld ins insLen
     let oprSize = TypeCheck.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
-    bld <+ (AST.cjmp (isZero st0b st0a) (AST.jmpDest lblErr) (AST.jmpDest lblChk))
+    bld <+ (AST.cjmp (isZero st0b st0a)
+                     (AST.jmpDest lblErr) (AST.jmpDest lblChk))
     bld <+ (AST.lmark lblErr)
     bld <+ (AST.sideEffect (Exception "DivErr"))
     bld <+ (AST.lmark lblChk)
@@ -1345,27 +1347,30 @@ let fldcw (ins: InsInfo) insLen bld =
 #endif
   bld --!> insLen
 
+let inline private storeLE addr v =
+  AST.store Endian.Little addr v
+
 let private m14fstenv dstAddr addrSize bld =
   let fiplo = AST.xtlo 16<rt> (regVar bld R.FIP)
   let fdplo = AST.xtlo 16<rt> (regVar bld R.FDP)
-  bld <+ (AST.store Endian.Little (dstAddr) (regVar bld R.FCW))
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 2 addrSize) (regVar bld R.FSW))
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 4 addrSize) (regVar bld R.FTW))
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 6 addrSize) fiplo)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 8 addrSize) (regVar bld R.FCS))
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 10 addrSize) fdplo)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 12 addrSize) (regVar bld R.FDS))
+  bld <+ (storeLE (dstAddr) (regVar bld R.FCW))
+  bld <+ (storeLE (dstAddr .+ numI32 2 addrSize) (regVar bld R.FSW))
+  bld <+ (storeLE (dstAddr .+ numI32 4 addrSize) (regVar bld R.FTW))
+  bld <+ (storeLE (dstAddr .+ numI32 6 addrSize) fiplo)
+  bld <+ (storeLE (dstAddr .+ numI32 8 addrSize) (regVar bld R.FCS))
+  bld <+ (storeLE (dstAddr .+ numI32 10 addrSize) fdplo)
+  bld <+ (storeLE (dstAddr .+ numI32 12 addrSize) (regVar bld R.FDS))
 
 let private m28fstenv dstAddr addrSize bld =
   let n0 = numI32 0 16<rt>
-  bld <+ (AST.store Endian.Little (dstAddr) (regVar bld R.FCW))
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 2 addrSize) n0)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 4 addrSize) (regVar bld R.FSW))
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 6 addrSize) n0)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 8 addrSize) (regVar bld R.FTW))
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 10 addrSize) n0)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 12 addrSize) (regVar bld R.FIP))
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 20 addrSize) (regVar bld R.FDP))
+  bld <+ (storeLE (dstAddr) (regVar bld R.FCW))
+  bld <+ (storeLE (dstAddr .+ numI32 2 addrSize) n0)
+  bld <+ (storeLE (dstAddr .+ numI32 4 addrSize) (regVar bld R.FSW))
+  bld <+ (storeLE (dstAddr .+ numI32 6 addrSize) n0)
+  bld <+ (storeLE (dstAddr .+ numI32 8 addrSize) (regVar bld R.FTW))
+  bld <+ (storeLE (dstAddr .+ numI32 10 addrSize) n0)
+  bld <+ (storeLE (dstAddr .+ numI32 12 addrSize) (regVar bld R.FIP))
+  bld <+ (storeLE (dstAddr .+ numI32 20 addrSize) (regVar bld R.FDP))
 
 let fnstenv (ins: InsInfo) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1407,29 +1412,29 @@ let fldenv (ins: InsInfo) insLen bld =
 
 let private stSts dstAddr addrSize offset bld =
   let struct (stb, sta) = getFPUPseudoRegVars bld R.ST0
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset) addrSize) sta)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 8) addrSize) stb)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset) addrSize) sta)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 8) addrSize) stb)
   let struct (stb, sta) = getFPUPseudoRegVars bld R.ST1
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 10) addrSize) sta)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 18) addrSize) stb)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 10) addrSize) sta)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 18) addrSize) stb)
   let struct (stb, sta) = getFPUPseudoRegVars bld R.ST2
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 20) addrSize) sta)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 28) addrSize) stb)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 20) addrSize) sta)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 28) addrSize) stb)
   let struct (stb, sta) = getFPUPseudoRegVars bld R.ST3
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 30) addrSize) sta)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 38) addrSize) stb)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 30) addrSize) sta)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 38) addrSize) stb)
   let struct (stb, sta) = getFPUPseudoRegVars bld R.ST4
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 40) addrSize) sta)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 48) addrSize) stb)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 40) addrSize) sta)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 48) addrSize) stb)
   let struct (stb, sta) = getFPUPseudoRegVars bld R.ST5
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 50) addrSize) sta)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 58) addrSize) stb)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 50) addrSize) sta)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 58) addrSize) stb)
   let struct (stb, sta) = getFPUPseudoRegVars bld R.ST6
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 60) addrSize) sta)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 68) addrSize) stb)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 60) addrSize) sta)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 68) addrSize) stb)
   let struct (stb, sta) = getFPUPseudoRegVars bld R.ST7
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 70) addrSize) sta)
-  bld <+ (AST.store Endian.Little (dstAddr .+ numI32 (offset + 78) addrSize) stb)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 70) addrSize) sta)
+  bld <+ (storeLE (dstAddr .+ numI32 (offset + 78) addrSize) stb)
 
 let fnsave (ins: InsInfo) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1511,9 +1516,6 @@ let fnop (ins: InsInfo) insLen bld =
   allCFlagsUndefined bld
 #endif
   bld --!> insLen
-
-let inline private storeLE addr v =
-  AST.store Endian.Little addr v
 
 let private fxsaveInternal bld dstAddr addrSize is64bit =
   bld <+ (storeLE (dstAddr) (regVar bld R.FCW))
@@ -1613,9 +1615,10 @@ let private fxrstoreInternal bld srcAddr addrSz is64bit =
   bld <+ (regVar bld R.FOP := AST.loadLE 16<rt> (srcAddr .+ (numI32 6 addrSz)))
   bld <+ (regVar bld R.FIP := AST.loadLE 64<rt> (srcAddr .+ (numI32 8 addrSz)))
   bld <+ (regVar bld R.FDP := AST.loadLE 64<rt> (srcAddr .+ (numI32 16 addrSz)))
-  bld <+ (regVar bld R.MXCSR := AST.loadLE 32<rt> (srcAddr .+ (numI32 24 addrSz)))
-  bld <+ (regVar bld R.MXCSRMASK := AST.loadLE 32<rt>
-                                          (srcAddr .+ (numI32 28 addrSz)))
+  bld <+ (regVar bld R.MXCSR :=
+            AST.loadLE 32<rt> (srcAddr .+ (numI32 24 addrSz)))
+  bld <+ (regVar bld R.MXCSRMASK :=
+            AST.loadLE 32<rt> (srcAddr .+ (numI32 28 addrSz)))
   let struct (stb, sta) = getFPUPseudoRegVars bld R.ST0
   bld <+ (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 32 addrSz)))
   bld <+ (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 40 addrSz)))

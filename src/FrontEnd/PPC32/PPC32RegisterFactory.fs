@@ -97,38 +97,38 @@ type RegisterFactory (wordSize) =
   let f29 = AST.var 64<rt> (Register.toRegID F29) "F29"
   let f30 = AST.var 64<rt> (Register.toRegID F30) "F30"
   let f31 = AST.var 64<rt> (Register.toRegID F31) "F31"
-  let cr0_0 = AST.var 1<rt> (Register.toRegID CR0_0) "CR0_0"
-  let cr0_1 = AST.var 1<rt> (Register.toRegID CR0_1) "CR0_1"
-  let cr0_2 = AST.var 1<rt> (Register.toRegID CR0_2) "CR0_2"
-  let cr0_3 = AST.var 1<rt> (Register.toRegID CR0_3) "CR0_3"
-  let cr1_0 = AST.var 1<rt> (Register.toRegID CR1_0) "CR1_0"
-  let cr1_1 = AST.var 1<rt> (Register.toRegID CR1_1) "CR1_1"
-  let cr1_2 = AST.var 1<rt> (Register.toRegID CR1_2) "CR1_2"
-  let cr1_3 = AST.var 1<rt> (Register.toRegID CR1_3) "CR1_3"
-  let cr2_0 = AST.var 1<rt> (Register.toRegID CR2_0) "CR2_0"
-  let cr2_1 = AST.var 1<rt> (Register.toRegID CR2_1) "CR2_1"
-  let cr2_2 = AST.var 1<rt> (Register.toRegID CR2_2) "CR2_2"
-  let cr2_3 = AST.var 1<rt> (Register.toRegID CR2_3) "CR2_3"
-  let cr3_0 = AST.var 1<rt> (Register.toRegID CR3_0) "CR3_0"
-  let cr3_1 = AST.var 1<rt> (Register.toRegID CR3_1) "CR3_1"
-  let cr3_2 = AST.var 1<rt> (Register.toRegID CR3_2) "CR3_2"
-  let cr3_3 = AST.var 1<rt> (Register.toRegID CR3_3) "CR3_3"
-  let cr4_0 = AST.var 1<rt> (Register.toRegID CR4_0) "CR4_0"
-  let cr4_1 = AST.var 1<rt> (Register.toRegID CR4_1) "CR4_1"
-  let cr4_2 = AST.var 1<rt> (Register.toRegID CR4_2) "CR4_2"
-  let cr4_3 = AST.var 1<rt> (Register.toRegID CR4_3) "CR4_3"
-  let cr5_0 = AST.var 1<rt> (Register.toRegID CR5_0) "CR5_0"
-  let cr5_1 = AST.var 1<rt> (Register.toRegID CR5_1) "CR5_1"
-  let cr5_2 = AST.var 1<rt> (Register.toRegID CR5_2) "CR5_2"
-  let cr5_3 = AST.var 1<rt> (Register.toRegID CR5_3) "CR5_3"
-  let cr6_0 = AST.var 1<rt> (Register.toRegID CR6_0) "CR6_0"
-  let cr6_1 = AST.var 1<rt> (Register.toRegID CR6_1) "CR6_1"
-  let cr6_2 = AST.var 1<rt> (Register.toRegID CR6_2) "CR6_2"
-  let cr6_3 = AST.var 1<rt> (Register.toRegID CR6_3) "CR6_3"
-  let cr7_0 = AST.var 1<rt> (Register.toRegID CR7_0) "CR7_0"
-  let cr7_1 = AST.var 1<rt> (Register.toRegID CR7_1) "CR7_1"
-  let cr7_2 = AST.var 1<rt> (Register.toRegID CR7_2) "CR7_2"
-  let cr7_3 = AST.var 1<rt> (Register.toRegID CR7_3) "CR7_3"
+  let cr00 = AST.var 1<rt> (Register.toRegID CR0_0) "CR0_0"
+  let cr01 = AST.var 1<rt> (Register.toRegID CR0_1) "CR0_1"
+  let cr02 = AST.var 1<rt> (Register.toRegID CR0_2) "CR0_2"
+  let cr03 = AST.var 1<rt> (Register.toRegID CR0_3) "CR0_3"
+  let cr10 = AST.var 1<rt> (Register.toRegID CR1_0) "CR1_0"
+  let cr11 = AST.var 1<rt> (Register.toRegID CR1_1) "CR1_1"
+  let cr12 = AST.var 1<rt> (Register.toRegID CR1_2) "CR1_2"
+  let cr13 = AST.var 1<rt> (Register.toRegID CR1_3) "CR1_3"
+  let cr20 = AST.var 1<rt> (Register.toRegID CR2_0) "CR2_0"
+  let cr21 = AST.var 1<rt> (Register.toRegID CR2_1) "CR2_1"
+  let cr22 = AST.var 1<rt> (Register.toRegID CR2_2) "CR2_2"
+  let cr23 = AST.var 1<rt> (Register.toRegID CR2_3) "CR2_3"
+  let cr30 = AST.var 1<rt> (Register.toRegID CR3_0) "CR3_0"
+  let cr31 = AST.var 1<rt> (Register.toRegID CR3_1) "CR3_1"
+  let cr32 = AST.var 1<rt> (Register.toRegID CR3_2) "CR3_2"
+  let cr33 = AST.var 1<rt> (Register.toRegID CR3_3) "CR3_3"
+  let cr40 = AST.var 1<rt> (Register.toRegID CR4_0) "CR4_0"
+  let cr41 = AST.var 1<rt> (Register.toRegID CR4_1) "CR4_1"
+  let cr42 = AST.var 1<rt> (Register.toRegID CR4_2) "CR4_2"
+  let cr43 = AST.var 1<rt> (Register.toRegID CR4_3) "CR4_3"
+  let cr50 = AST.var 1<rt> (Register.toRegID CR5_0) "CR5_0"
+  let cr51 = AST.var 1<rt> (Register.toRegID CR5_1) "CR5_1"
+  let cr52 = AST.var 1<rt> (Register.toRegID CR5_2) "CR5_2"
+  let cr53 = AST.var 1<rt> (Register.toRegID CR5_3) "CR5_3"
+  let cr60 = AST.var 1<rt> (Register.toRegID CR6_0) "CR6_0"
+  let cr61 = AST.var 1<rt> (Register.toRegID CR6_1) "CR6_1"
+  let cr62 = AST.var 1<rt> (Register.toRegID CR6_2) "CR6_2"
+  let cr63 = AST.var 1<rt> (Register.toRegID CR6_3) "CR6_3"
+  let cr70 = AST.var 1<rt> (Register.toRegID CR7_0) "CR7_0"
+  let cr71 = AST.var 1<rt> (Register.toRegID CR7_1) "CR7_1"
+  let cr72 = AST.var 1<rt> (Register.toRegID CR7_2) "CR7_2"
+  let cr73 = AST.var 1<rt> (Register.toRegID CR7_3) "CR7_3"
   let fpscr = AST.var 32<rt> (Register.toRegID FPSCR) "FPSCR"
   let xer = AST.var 32<rt> (Register.toRegID XER) "XER"
   let lr = AST.var rt (Register.toRegID LR) "LR"
@@ -203,38 +203,38 @@ type RegisterFactory (wordSize) =
       | Register.F29 -> f29
       | Register.F30 -> f30
       | Register.F31 -> f31
-      | Register.CR0_0 -> cr0_0
-      | Register.CR0_1 -> cr0_1
-      | Register.CR0_2 -> cr0_2
-      | Register.CR0_3 -> cr0_3
-      | Register.CR1_0 -> cr1_0
-      | Register.CR1_1 -> cr1_1
-      | Register.CR1_2 -> cr1_2
-      | Register.CR1_3 -> cr1_3
-      | Register.CR2_0 -> cr2_0
-      | Register.CR2_1 -> cr2_1
-      | Register.CR2_2 -> cr2_2
-      | Register.CR2_3 -> cr2_3
-      | Register.CR3_0 -> cr3_0
-      | Register.CR3_1 -> cr3_1
-      | Register.CR3_2 -> cr3_2
-      | Register.CR3_3 -> cr3_3
-      | Register.CR4_0 -> cr4_0
-      | Register.CR4_1 -> cr4_1
-      | Register.CR4_2 -> cr4_2
-      | Register.CR4_3 -> cr4_3
-      | Register.CR5_0 -> cr5_0
-      | Register.CR5_1 -> cr5_1
-      | Register.CR5_2 -> cr5_2
-      | Register.CR5_3 -> cr5_3
-      | Register.CR6_0 -> cr6_0
-      | Register.CR6_1 -> cr6_1
-      | Register.CR6_2 -> cr6_2
-      | Register.CR6_3 -> cr6_3
-      | Register.CR7_0 -> cr7_0
-      | Register.CR7_1 -> cr7_1
-      | Register.CR7_2 -> cr7_2
-      | Register.CR7_3 -> cr7_3
+      | Register.CR0_0 -> cr00
+      | Register.CR0_1 -> cr01
+      | Register.CR0_2 -> cr02
+      | Register.CR0_3 -> cr03
+      | Register.CR1_0 -> cr10
+      | Register.CR1_1 -> cr11
+      | Register.CR1_2 -> cr12
+      | Register.CR1_3 -> cr13
+      | Register.CR2_0 -> cr20
+      | Register.CR2_1 -> cr21
+      | Register.CR2_2 -> cr22
+      | Register.CR2_3 -> cr23
+      | Register.CR3_0 -> cr30
+      | Register.CR3_1 -> cr31
+      | Register.CR3_2 -> cr32
+      | Register.CR3_3 -> cr33
+      | Register.CR4_0 -> cr40
+      | Register.CR4_1 -> cr41
+      | Register.CR4_2 -> cr42
+      | Register.CR4_3 -> cr43
+      | Register.CR5_0 -> cr50
+      | Register.CR5_1 -> cr51
+      | Register.CR5_2 -> cr52
+      | Register.CR5_3 -> cr53
+      | Register.CR6_0 -> cr60
+      | Register.CR6_1 -> cr61
+      | Register.CR6_2 -> cr62
+      | Register.CR6_3 -> cr63
+      | Register.CR7_0 -> cr70
+      | Register.CR7_1 -> cr71
+      | Register.CR7_2 -> cr72
+      | Register.CR7_3 -> cr73
       | Register.FPSCR -> fpscr
       | Register.XER -> xer
       | Register.LR -> lr
@@ -309,38 +309,38 @@ type RegisterFactory (wordSize) =
       | "f29" -> f29
       | "f30" -> f30
       | "f31" -> f31
-      | "cr0_0" -> cr0_0
-      | "cr0_1" -> cr0_1
-      | "cr0_2" -> cr0_2
-      | "cr0_3" -> cr0_3
-      | "cr1_0" -> cr1_0
-      | "cr1_1" -> cr1_1
-      | "cr1_2" -> cr1_2
-      | "cr1_3" -> cr1_3
-      | "cr2_0" -> cr2_0
-      | "cr2_1" -> cr2_1
-      | "cr2_2" -> cr2_2
-      | "cr2_3" -> cr2_3
-      | "cr3_0" -> cr3_0
-      | "cr3_1" -> cr3_1
-      | "cr3_2" -> cr3_2
-      | "cr3_3" -> cr3_3
-      | "cr4_0" -> cr4_0
-      | "cr4_1" -> cr4_1
-      | "cr4_2" -> cr4_2
-      | "cr4_3" -> cr4_3
-      | "cr5_0" -> cr5_0
-      | "cr5_1" -> cr5_1
-      | "cr5_2" -> cr5_2
-      | "cr5_3" -> cr5_3
-      | "cr6_0" -> cr6_0
-      | "cr6_1" -> cr6_1
-      | "cr6_2" -> cr6_2
-      | "cr6_3" -> cr6_3
-      | "cr7_0" -> cr7_0
-      | "cr7_1" -> cr7_1
-      | "cr7_2" -> cr7_2
-      | "cr7_3" -> cr7_3
+      | "cr0_0" -> cr00
+      | "cr0_1" -> cr01
+      | "cr0_2" -> cr02
+      | "cr0_3" -> cr03
+      | "cr1_0" -> cr10
+      | "cr1_1" -> cr11
+      | "cr1_2" -> cr12
+      | "cr1_3" -> cr13
+      | "cr2_0" -> cr20
+      | "cr2_1" -> cr21
+      | "cr2_2" -> cr22
+      | "cr2_3" -> cr23
+      | "cr3_0" -> cr30
+      | "cr3_1" -> cr31
+      | "cr3_2" -> cr32
+      | "cr3_3" -> cr33
+      | "cr4_0" -> cr40
+      | "cr4_1" -> cr41
+      | "cr4_2" -> cr42
+      | "cr4_3" -> cr43
+      | "cr5_0" -> cr50
+      | "cr5_1" -> cr51
+      | "cr5_2" -> cr52
+      | "cr5_3" -> cr53
+      | "cr6_0" -> cr60
+      | "cr6_1" -> cr61
+      | "cr6_2" -> cr62
+      | "cr6_3" -> cr63
+      | "cr7_0" -> cr70
+      | "cr7_1" -> cr71
+      | "cr7_2" -> cr72
+      | "cr7_3" -> cr73
       | _ -> raise UnhandledRegExprException
 
     member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
@@ -410,38 +410,38 @@ type RegisterFactory (wordSize) =
          f29
          f30
          f31
-         cr0_0
-         cr0_1
-         cr0_2
-         cr0_3
-         cr1_0
-         cr1_1
-         cr1_2
-         cr1_3
-         cr2_0
-         cr2_1
-         cr2_2
-         cr2_3
-         cr3_0
-         cr3_2
-         cr3_2
-         cr3_3
-         cr4_0
-         cr4_1
-         cr4_2
-         cr4_3
-         cr5_0
-         cr5_1
-         cr5_2
-         cr5_3
-         cr6_0
-         cr6_1
-         cr6_2
-         cr6_3
-         cr7_0
-         cr7_1
-         cr7_2
-         cr7_3 |]
+         cr00
+         cr01
+         cr02
+         cr03
+         cr10
+         cr11
+         cr12
+         cr13
+         cr20
+         cr21
+         cr22
+         cr23
+         cr30
+         cr32
+         cr32
+         cr33
+         cr40
+         cr41
+         cr42
+         cr43
+         cr50
+         cr51
+         cr52
+         cr53
+         cr60
+         cr61
+         cr62
+         cr63
+         cr70
+         cr71
+         cr72
+         cr73 |]
 
     member _.GetGeneralRegVars () =
       [| r0

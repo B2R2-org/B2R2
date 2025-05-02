@@ -385,13 +385,13 @@ type RegisterFactory () =
   /// EL0 Read/Write Software Thread ID ARM64.
   let tpidrel0 = AST.var 64<rt> (Register.toRegID TPIDREL0) "TPIDR_EL0"
   /// S<op0>_<op1>_<Cn>_<Cm>_<op2>.
-  let s3_5_c3_c2_0 =
+  let ``s3_5_c3_c2_0`` =
     AST.var 64<rt> (Register.toRegID S3_5_C3_C2_0) "S3_5_C3_C2_0"
-  let s3_7_c2_c2_7 =
+  let ``s3_7_c2_c2_7`` =
     AST.var 64<rt> (Register.toRegID S3_7_C2_C2_7) "S3_7_C2_C2_7"
-  let s0_0_c2_c9_3 =
+  let ``s0_0_c2_c9_3`` =
     AST.var 64<rt> (Register.toRegID S0_0_C2_C9_3) "S0_0_C2_C9_3"
-  let s2_7_c12_c7_6 =
+  let ``s2_7_c12_c7_6`` =
     AST.var 64<rt> (Register.toRegID S2_7_C12_C7_6) "S2_7_C12_C7_6"
 
   (* Extra pseudo registers. *)

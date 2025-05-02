@@ -2166,7 +2166,8 @@ let rbit ins insLen bld addr =
     bld <!-- (ins.Address, insLen)
     bld <+ (tmp := numI32 0 ins.OprSize)
     for i in 0 .. (datasize - 1) do
-      bld <+ (AST.extract tmp 1<rt> (datasize - 1 - i) := AST.extract src 1<rt> i)
+      bld
+      <+ (AST.extract tmp 1<rt> (datasize - 1 - i) := AST.extract src 1<rt> i)
     dstAssign ins.OprSize dst tmp bld
   | _ ->
     let struct (dst, src) = getTwoOprs ins
@@ -2210,7 +2211,8 @@ let rev ins insLen bld addr =
     let dst, src = transTwoOprs ins bld addr
     bld <+ (t := numI32 0 ins.OprSize)
     for i in 0 .. e do
-      bld <+ (AST.extract t 8<rt> ((e - i) * 8) := AST.extract src 8<rt> (i * 8))
+      bld
+      <+ (AST.extract t 8<rt> ((e - i) * 8) := AST.extract src 8<rt> (i * 8))
     dstAssign ins.OprSize dst t bld
   bld --!> insLen
 

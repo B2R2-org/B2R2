@@ -232,31 +232,31 @@ let getConditionCodeMulscc res src src1 =
   let sign32 = AST.extract src 1<rt> 31
   let sign321 = AST.extract src1 1<rt> 31
   let ressign32 = AST.extract res 1<rt> 31
-  let iccn = (ressign32)
-  let iccz = ((res32) == AST.num0 32<rt>)
-  let iccv = ((sign32 .& sign321 .& AST.not ressign32) .|
+  let iccn = ressign32
+  let iccz = res32 == AST.num0 32<rt>
+  let iccv = (sign32 .& sign321 .& AST.not ressign32 .|
     (AST.not sign32 .& AST.not sign321 .& ressign32))
   let iccc = (sign32 .& sign321) .| ((AST.not ressign32)
     .& (sign32 .| sign321))
   AST.revConcat [| iccc; iccv; iccz; iccn |]
 
 let getNextReg bld reg =
-  if (reg = regVar bld Register.G0) then Register.G1
-  elif (reg = regVar bld Register.G2) then Register.G3
-  elif (reg = regVar bld Register.G4) then Register.G5
-  elif (reg = regVar bld Register.G6) then Register.G7
-  elif (reg = regVar bld Register.O0) then Register.O1
-  elif (reg = regVar bld Register.O2) then Register.O3
-  elif (reg = regVar bld Register.O4) then Register.O5
-  elif (reg = regVar bld Register.O6) then Register.O7
-  elif (reg = regVar bld Register.L0) then Register.L1
-  elif (reg = regVar bld Register.L2) then Register.L3
-  elif (reg = regVar bld Register.L4) then Register.L5
-  elif (reg = regVar bld Register.L6) then Register.L7
-  elif (reg = regVar bld Register.I0) then Register.I1
-  elif (reg = regVar bld Register.I2) then Register.I3
-  elif (reg = regVar bld Register.I4) then Register.I5
-  elif (reg = regVar bld Register.I6) then Register.I7
+  if reg = regVar bld Register.G0 then Register.G1
+  elif reg = regVar bld Register.G2 then Register.G3
+  elif reg = regVar bld Register.G4 then Register.G5
+  elif reg = regVar bld Register.G6 then Register.G7
+  elif reg = regVar bld Register.O0 then Register.O1
+  elif reg = regVar bld Register.O2 then Register.O3
+  elif reg = regVar bld Register.O4 then Register.O5
+  elif reg = regVar bld Register.O6 then Register.O7
+  elif reg = regVar bld Register.L0 then Register.L1
+  elif reg = regVar bld Register.L2 then Register.L3
+  elif reg = regVar bld Register.L4 then Register.L5
+  elif reg = regVar bld Register.L6 then Register.L7
+  elif reg = regVar bld Register.I0 then Register.I1
+  elif reg = regVar bld Register.I2 then Register.I3
+  elif reg = regVar bld Register.I4 then Register.I5
+  elif reg = regVar bld Register.I6 then Register.I7
   else raise InvalidRegisterException
 
 let getFloatClass bld freg =
@@ -281,22 +281,22 @@ let getFloatClass bld freg =
   else raise InvalidRegisterException
 
 let getDFloatNext bld freg =
-  if (freg = regVar bld Register.F0) then Register.F1
-  elif (freg = regVar bld Register.F2) then Register.F3
-  elif (freg = regVar bld Register.F4) then Register.F5
-  elif (freg = regVar bld Register.F6) then Register.F7
-  elif (freg = regVar bld Register.F8) then Register.F9
-  elif (freg = regVar bld Register.F10) then Register.F11
-  elif (freg = regVar bld Register.F12) then Register.F13
-  elif (freg = regVar bld Register.F14) then Register.F15
-  elif (freg = regVar bld Register.F16) then Register.F17
-  elif (freg = regVar bld Register.F18) then Register.F19
-  elif (freg = regVar bld Register.F20) then Register.F21
-  elif (freg = regVar bld Register.F22) then Register.F23
-  elif (freg = regVar bld Register.F24) then Register.F25
-  elif (freg = regVar bld Register.F26) then Register.F27
-  elif (freg = regVar bld Register.F28) then Register.F29
-  elif (freg = regVar bld Register.F30) then Register.F31
+  if freg = regVar bld Register.F0 then Register.F1
+  elif freg = regVar bld Register.F2 then Register.F3
+  elif freg = regVar bld Register.F4 then Register.F5
+  elif freg = regVar bld Register.F6 then Register.F7
+  elif freg = regVar bld Register.F8 then Register.F9
+  elif freg = regVar bld Register.F10 then Register.F11
+  elif freg = regVar bld Register.F12 then Register.F13
+  elif freg = regVar bld Register.F14 then Register.F15
+  elif freg = regVar bld Register.F16 then Register.F17
+  elif freg = regVar bld Register.F18 then Register.F19
+  elif freg = regVar bld Register.F20 then Register.F21
+  elif freg = regVar bld Register.F22 then Register.F23
+  elif freg = regVar bld Register.F24 then Register.F25
+  elif freg = regVar bld Register.F26 then Register.F27
+  elif freg = regVar bld Register.F28 then Register.F29
+  elif freg = regVar bld Register.F30 then Register.F31
   else raise InvalidRegisterException
 
 let movFregD bld src dst =
@@ -506,7 +506,7 @@ let add ins insLen bld =
   let res = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .+ src1)
-  if (dst = regVar bld Register.G0) then
+  if dst = regVar bld Register.G0 then
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
@@ -524,7 +524,7 @@ let addcc ins insLen bld =
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
-  bld <+ (byte := (getConditionCodeAdd res src src1))
+  bld <+ (byte := getConditionCodeAdd res src src1)
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
 
@@ -535,7 +535,7 @@ let addC ins insLen bld =
   let ccr = regVar bld Register.CCR
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .+ src1 .+ AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
-  if (dst = regVar bld Register.G0) then
+  if dst = regVar bld Register.G0 then
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
@@ -549,7 +549,7 @@ let addCcc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .+ src1 .+ AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
-  if (dst = regVar bld Register.G0) then
+  if dst = regVar bld Register.G0 then
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
@@ -563,7 +563,7 @@ let ``and`` ins insLen bld =
   let res = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .& src1)
-  if (dst = regVar bld Register.G0) then
+  if dst = regVar bld Register.G0 then
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
@@ -577,7 +577,7 @@ let andcc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .& src1)
-  if (dst = regVar bld Register.G0) then
+  if dst = regVar bld Register.G0 then
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
@@ -591,7 +591,7 @@ let andn ins insLen bld =
   let res = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .& (AST.not src1))
-  if (dst = regVar bld Register.G0) then
+  if dst = regVar bld Register.G0 then
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
@@ -605,7 +605,7 @@ let andncc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .& (AST.not src1))
-  if (dst = regVar bld Register.G0) then
+  if dst = regVar bld Register.G0 then
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
@@ -628,7 +628,7 @@ let branchpr ins insLen bld =
     | Opcode.BRGEZ -> (src ?>= AST.num0 oprSize)
     | _ -> raise InvalidOpcodeException
   let annoffset =
-    if (AST.extract an 1<rt> 0 = AST.b1) then numI32PC 4
+    if AST.extract an 1<rt> 0 = AST.b1 then numI32PC 4
     else numI32PC 0
   let fallThrough = pc .+ numI32PC 4 .+ annoffset
   let jumpTarget = pc .+ AST.zext 64<rt> label
@@ -673,10 +673,10 @@ let branchicc ins insLen bld =
     else numI32PC 0
   let fallThrough = pc .+ numI32PC 4 .+ annoffset
   let jumpTarget = pc .+ AST.zext 64<rt> label
-  if (ins.Opcode = Opcode.BA) then
+  if ins.Opcode = Opcode.BA then
     bld <+ (AST.interjmp jumpTarget InterJmpKind.Base)
     bld --!> insLen
-  elif (ins.Opcode = Opcode.BN) then
+  elif ins.Opcode = Opcode.BN then
     bld --!> insLen
   else
     bld <+ (AST.intercjmp branchCond jumpTarget fallThrough)
@@ -792,7 +792,6 @@ let call ins insLen bld =
 
 let casa ins insLen bld =
   let struct (src, asi, src1, dst) = transFourOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
@@ -807,7 +806,6 @@ let casa ins insLen bld =
 
 let casxa ins insLen bld =
   let struct (src, asi, src1, dst) = transFourOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
@@ -1142,17 +1140,16 @@ let fbranchpfcc ins insLen bld =
 
 let fcmps ins insLen bld =
   let struct (cc, src, src1) = transThreeOprs ins insLen bld
-  let pc = regVar bld Register.PC
   let fsr = regVar bld Register.FSR
   let fcc0 = getCCVar bld ConditionCode.Fcc0
   let fcc1 = getCCVar bld ConditionCode.Fcc1
   let fcc2 = getCCVar bld ConditionCode.Fcc2
   let fcc3 = getCCVar bld ConditionCode.Fcc3
   let pos =
-    if (cc = fcc0) then 10
-    elif (cc = fcc1) then 32
-    elif (cc = fcc2) then 34
-    elif (cc = fcc3) then 36
+    if cc = fcc0 then 10
+    elif cc = fcc1 then 32
+    elif cc = fcc2 then 34
+    elif cc = fcc3 then 36
     else raise InvalidOperandException
   let op = AST.extract src 32<rt> 0
   let op1 = AST.extract src1 32<rt> 0
@@ -1195,10 +1192,10 @@ let fcmpd ins insLen bld =
   let fcc2 = getCCVar bld ConditionCode.Fcc2
   let fcc3 = getCCVar bld ConditionCode.Fcc3
   let pos =
-    if (cc = fcc0) then 10
-    elif (cc = fcc1) then 32
-    elif (cc = fcc2) then 34
-    elif (cc = fcc3) then 36
+    if cc = fcc0 then 10
+    elif cc = fcc1 then 32
+    elif cc = fcc2 then 34
+    elif cc = fcc3 then 36
     else raise InvalidOperandException
   let op = tmpVar bld regSize
   let op1 = tmpVar bld regSize
@@ -1212,9 +1209,9 @@ let fcmpd ins insLen bld =
   bld <!-- (ins.Address, insLen)
   getDFloatOp bld src op
   getDFloatOp bld src1 op1
-  let cond0 = (AST.feq op op1)
-  let cond1 = ((AST.flt op op1) == AST.b1)
-  let cond2 = ((AST.fgt op op1) == AST.b1)
+  let cond0 = AST.feq op op1
+  let cond1 = AST.flt op op1 == AST.b1
+  let cond2 = AST.fgt op op1 == AST.b1
   bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
   bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 0 2<rt>))
@@ -1426,7 +1423,6 @@ let fdivq ins insLen bld =
 
 let fmovscc ins insLen bld =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let ccr = regVar bld Register.CCR
   let offset =
     if (cc = getCCVar bld ConditionCode.Icc) then 0
@@ -1510,7 +1506,6 @@ let fmovdcc ins insLen bld =
 
 let fmovqcc ins insLen bld =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let ccr = regVar bld Register.CCR
   let offset =
     if (cc = getCCVar bld ConditionCode.Icc) then 0
@@ -1555,7 +1550,6 @@ let fmovqcc ins insLen bld =
 
 let fmovfscc ins insLen bld =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let fsr = regVar bld Register.FSR
   let pos =
     if (cc = getCCVar bld ConditionCode.Fcc0) then 10
@@ -1600,7 +1594,6 @@ let fmovfscc ins insLen bld =
 
 let fmovfdcc ins insLen bld =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let fsr = regVar bld Register.FSR
   let pos =
     if (cc = getCCVar bld ConditionCode.Fcc0) then 10
@@ -1650,7 +1643,6 @@ let fmovfdcc ins insLen bld =
 
 let fmovfqcc ins insLen bld =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let fsr = regVar bld Register.FSR
   let pos =
     if (cc = getCCVar bld ConditionCode.Fcc0) then 10
@@ -2279,25 +2271,21 @@ let fstoq ins insLen bld =
 
 let fdtos ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   bld --!> insLen
 
 let fdtoq ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   bld --!> insLen
 
 let fqtos ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   bld --!> insLen
 
 let fqtod ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   bld --!> insLen
 
@@ -2570,7 +2558,6 @@ let fxtoq ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
   let oprSize = 64<rt>
   let op = tmpVar bld oprSize
-  let op64 = tmpVar bld oprSize
   let rounded = tmpVar bld 64<rt>
   let res1 = tmpVar bld oprSize
   let res2 = tmpVar bld oprSize
@@ -2729,7 +2716,6 @@ let membar ins insLen bld = (* FIXME *)
 
 let movcc ins insLen bld =
   let struct (cc, src, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let ccr = regVar bld Register.CCR
   let fsr = regVar bld Register.FSR
   bld <!-- (ins.Address, insLen)
@@ -2833,8 +2819,6 @@ let movcc ins insLen bld =
           let cond = (c == AST.b0)
           bld <+ (dst := AST.ite (cond) (src) (dst))
       | Opcode.MOVCS ->
-        let lblL1 = label bld "L1"
-        let lblEnd = label bld "End"
         let ccr = regVar bld Register.CCR
         if (cc = getCCVar bld ConditionCode.Icc) then
           let c = AST.extract ccr 1<rt> 0
@@ -3167,7 +3151,6 @@ let mulscc ins insLen bld =
 
 let mulx ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
@@ -3260,14 +3243,12 @@ let popc ins insLen bld =
 
 let rd ins insLen bld =
   let struct (reg, dst) = transTwoOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (dst := reg)
   bld --!> insLen
 
 let restore ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (dst := src .+ src1)
   bld --!> insLen
@@ -3303,7 +3284,6 @@ let retry ins insLen bld =
 
 let save ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (dst := src .+ src1)
   bld --!> insLen
@@ -3327,7 +3307,6 @@ let saved ins insLen bld =
 
 let sdiv ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let lblL0 = label bld "L0"
   let lblL1 = label bld "L1"
   let lblEnd = label bld "End"
@@ -3374,7 +3353,6 @@ let sdiv ins insLen bld =
 
 let sdivcc ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let lblL0 = label bld "L0"
   let lblL1 = label bld "L1"
   let lblEnd = label bld "End"
@@ -3421,7 +3399,6 @@ let sdivcc ins insLen bld =
 
 let sdivx ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let cond = (src1 == AST.num0 64<rt>)
   let lblL0 = label bld "L0"
   let lblL1 = label bld "L1"
@@ -3449,7 +3426,6 @@ let sdivx ins insLen bld =
 
 let sethi ins insLen bld =
   let struct (imm, dst) = transTwoOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   if (dst <> regVar bld Register.G0) then
     bld <+ (dst := AST.concat (AST.zext 32<rt> AST.b0)
@@ -3458,7 +3434,6 @@ let sethi ins insLen bld =
 
 let sll ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
@@ -3469,7 +3444,6 @@ let sll ins insLen bld =
 let smul ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
   let yreg  = regVar bld Register.Y
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
@@ -3484,7 +3458,6 @@ let smulcc ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
   let yreg  = regVar bld Register.Y
   let ccr  = regVar bld Register.CCR
-  let oprSize = 64<rt>
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   if (dst = regVar bld Register.G0) then
@@ -3500,7 +3473,6 @@ let smulcc ins insLen bld =
 
 let sra ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
@@ -3510,7 +3482,6 @@ let sra ins insLen bld =
 
 let srl ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
@@ -3520,16 +3491,18 @@ let srl ins insLen bld =
 
 let st ins insLen bld =
   let struct (src, addr) = transTwooprsAddr ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   match ins.Opcode with
-  | Opcode.STB -> bld <+ ((AST.loadBE 8<rt> addr) := (AST.extract src 8<rt> 0))
-  | Opcode.STH -> bld <+ ((AST.loadBE 16<rt> addr) := (AST.extract src 16<rt> 0))
-  | Opcode.STW -> bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
-  | Opcode.STX -> bld <+ ((AST.loadBE 64<rt> addr) := (AST.extract src 64<rt> 0))
+  | Opcode.STB ->
+    bld <+ ((AST.loadBE 8<rt> addr) := (AST.extract src 8<rt> 0))
+  | Opcode.STH ->
+    bld <+ ((AST.loadBE 16<rt> addr) := (AST.extract src 16<rt> 0))
+  | Opcode.STW ->
+    bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
+  | Opcode.STX ->
+    bld <+ ((AST.loadBE 64<rt> addr) := (AST.extract src 64<rt> 0))
   | Opcode.STD ->
     if (src = regVar bld Register.G0) then
-      let nxt = regVar bld Register.G1
       bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
     else
       let nxt = regVar bld (getNextReg bld src)
@@ -3541,7 +3514,6 @@ let st ins insLen bld =
 
 let sta ins insLen bld =
   let struct (src, src1, asi, dst) = transFourOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   let addr = src .+ src1
   match ins.Opcode with
@@ -3555,7 +3527,6 @@ let sta ins insLen bld =
                           := (AST.extract src 64<rt> 0))
   | Opcode.STDA ->
     if (src = regVar bld Register.G0) then
-      let nxt = regVar bld Register.G1
       bld <+ ((AST.loadBE 32<rt> (addr .+ asi)) := (AST.extract src 32<rt> 0))
     else
       let nxt = regVar bld (getNextReg bld src)
@@ -3570,7 +3541,8 @@ let stf ins insLen bld =
   let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   match ins.Opcode with
-  | Opcode.STF -> bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
+  | Opcode.STF ->
+    bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
   | Opcode.STDF ->
     let op = tmpVar bld oprSize
     getDFloatOp bld src op
@@ -3645,7 +3617,6 @@ let subC ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
   let oprSize = 64<rt>
   let res = tmpVar bld oprSize
-  let byte = tmpVar bld 8<rt>
   let ccr = regVar bld Register.CCR
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .- src1 .- AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
@@ -3690,7 +3661,6 @@ let swapa ins insLen bld =
 
 let udiv ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let lblL0 = label bld "L0"
   let lblL1 = label bld "L1"
   let lblEnd = label bld "End"
@@ -3726,7 +3696,6 @@ let udiv ins insLen bld =
 
 let udivcc ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let lblL0 = label bld "L0"
   let lblL1 = label bld "L1"
   let lblEnd = label bld "End"
@@ -3773,7 +3742,6 @@ let udivcc ins insLen bld =
 
 let udivx ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   let cond = (src1 == AST.num0 64<rt>)
   let lblL0 = label bld "L0"
   let lblL1 = label bld "L1"
@@ -3802,7 +3770,6 @@ let udivx ins insLen bld =
 let umul ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
   let yreg  = regVar bld Register.Y
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
@@ -3817,7 +3784,6 @@ let umulcc ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
   let yreg  = regVar bld Register.Y
   let ccr = regVar bld Register.CCR
-  let oprSize = 64<rt>
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   if (dst = regVar bld Register.G0) then
@@ -3833,7 +3799,6 @@ let umulcc ins insLen bld =
 
 let wr ins insLen bld =
   let struct (src, src1, reg) = transThreeOprs ins insLen bld
-  let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (reg := src <+> src1)
   bld --!> insLen

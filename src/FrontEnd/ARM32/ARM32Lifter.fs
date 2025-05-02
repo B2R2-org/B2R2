@@ -3807,7 +3807,8 @@ let polynomialMultP64 op1 op2 size rtsize resA resB bld =
   for i = 0 to size - 1 do
     let cond = AST.extract op1 1<rt> i
     bld <+ (resA := AST.ite cond (resA <+> (op2 << numI32 i rtsize)) resA)
-    bld <+ (resB := AST.ite cond (resB <+> (op2 >> numI32 (64 - i) rtsize)) resB)
+    bld <+ (resB := AST.ite cond
+                            (resB <+> (op2 >> numI32 (64 - i) rtsize)) resB)
 
 let vecMul (ins: InsInfo) insLen bld opFn =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition

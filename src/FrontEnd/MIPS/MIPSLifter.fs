@@ -1806,7 +1806,8 @@ let storeConditional insInfo insLen width bld =
   let llbit = regVar bld R.LLBit
   bld <!-- (insInfo.Address, insLen)
   bld <+ (AST.extCall <| AST.app "GetLLBit" [] bld.RegType)
-  bld <+ (AST.cjmp (llbit == AST.b1) (AST.jmpDest lblInRMW) (AST.jmpDest lblEnd))
+  bld <+ (AST.cjmp (llbit == AST.b1)
+                   (AST.jmpDest lblInRMW) (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblInRMW)
   bld <+ (mem := AST.xtlo width rt)
   bld <+ (AST.lmark lblEnd)

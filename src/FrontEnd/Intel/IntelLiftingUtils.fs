@@ -464,7 +464,8 @@ let assignPackedInstr bld useTmpVar ins insLen packNum oprSize dst result =
     bld <+ (dstA := Array.sub result 0 packNum |> AST.revConcat)
     bld <+ (dstB := Array.sub result packNum packNum |> AST.revConcat)
   | 256<rt> ->
-    let struct (dstD, dstC, dstB, dstA) = transOprToExpr256 bld false ins insLen dst
+    let struct (dstD, dstC, dstB, dstA) =
+      transOprToExpr256 bld false ins insLen dst
     bld <+ (dstA := Array.sub result 0 packNum |> AST.revConcat)
     bld <+ (dstB := Array.sub result (1 * packNum) packNum |> AST.revConcat)
     bld <+ (dstC := Array.sub result (2 * packNum) packNum |> AST.revConcat)

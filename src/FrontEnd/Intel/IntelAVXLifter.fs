@@ -495,7 +495,8 @@ let vmovmskps ins insLen bld =
       let b5 = (srcC >> (numI32 58 64<rt>) .& (numI32 0b100000 64<rt>))
       let b6 = (srcD >> (numI32 25 64<rt>) .& (numI32 0b1000000 64<rt>))
       let b7 = (srcD >> (numI32 56 64<rt>) .& (numI32 0b10000000 64<rt>))
-      bld <+ (dstAssign oprSz dst (b7 .| b6 .| b5 .| b4 .| b3 .| b2 .| b1 .| b0))
+      bld
+      <+ (dstAssign oprSz dst (b7 .| b6 .| b5 .| b4 .| b3 .| b2 .| b1 .| b0))
       bld --!> insLen
     | _ -> raise InvalidOperandException
   match src with
@@ -654,8 +655,10 @@ let vshufi32x4 (ins: InsInfo) insLen bld =
     let tDstB = Array.init halfPNum (fun _ -> tmpVar bld packSz)
     let imm0 (* imm8[0] *) = imm8 &&& 0b1L |> int
     let imm1 (* imm8[1] *) = (imm8 >>> 1) &&& 0b1L |> int
-    Array.iteri (fun idx e -> bld <+ (e := src1[ (imm0 * halfPNum) + idx ])) tDstA
-    Array.iteri (fun idx e -> bld <+ (e := src2[ (imm1 * halfPNum) + idx ])) tDstB
+    Array.iteri (fun idx e ->
+      bld <+ (e := src1[ (imm0 * halfPNum) + idx ])) tDstA
+    Array.iteri (fun idx e ->
+      bld <+ (e := src2[ (imm1 * halfPNum) + idx ])) tDstB
     let tDst = Array.append tDstA tDstB
     let result = makeAssignWithMask bld ePrx k oprSize packSz orgDst tDst false
     assignPackedInstr bld false ins insLen packNum oprSize dst result
@@ -673,8 +676,10 @@ let vshufi32x4 (ins: InsInfo) insLen bld =
     let ctrl3 = (imm8 >>> 6) &&& 0b11L |> int
     Array.iteri (fun idx e -> bld <+ (e := src1[ (ctrl0 * pNum) + idx ])) tDstA
     Array.iteri (fun idx e -> bld <+ (e := src1[ (ctrl1 * pNum) + idx ])) tDstB
-    Array.iteri (fun idx e -> bld <+ (e := tmpSrc2[ (ctrl2 * pNum) + idx ])) tDstC
-    Array.iteri (fun idx e -> bld <+ (e := tmpSrc2[ (ctrl3 * pNum) + idx ])) tDstD
+    Array.iteri (fun idx e ->
+      bld <+ (e := tmpSrc2[ (ctrl2 * pNum) + idx ])) tDstC
+    Array.iteri (fun idx e ->
+      bld <+ (e := tmpSrc2[ (ctrl3 * pNum) + idx ])) tDstD
     let tDst = Array.concat [| tDstA; tDstB; tDstC; tDstD |]
     let result = makeAssignWithMask bld ePrx k oprSize packSz orgDst tDst false
     assignPackedInstr bld false ins insLen packNum oprSize dst result

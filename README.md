@@ -261,7 +261,7 @@ Let's try to use B2R2 APIs.
       let hdl = BinHandle (bytes, isa)
       let lifter = hdl.NewLiftingUnit ()
       let ins = lifter.ParseInstruction 0UL // parse the instruction at offset 0
-      ins.Translate lifter.TranslationContext |> printfn "%A"
+      lifter.LiftInstruction ins |> printfn "%A"
       0
     ```
 
