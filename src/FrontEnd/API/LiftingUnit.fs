@@ -31,8 +31,19 @@ open B2R2.FrontEnd.BinLifter
 /// Lifting unit is responsible for parsing/lifting binary instructions. To
 /// lift a binary file in parallel, one needs to create multiple lifting units.
 type LiftingUnit (binFile: IBinFile,
-                  parser: IInstructionParsable,
-                  builder: ILowUIRBuilder) =
+                  regFactory: IRegisterFactory,
+                  parser: IInstructionParsable) =
+
+  let irBuilder = GroundWork.CreateBuilder binFile.ISA regFactory
+
+  let strDisasm =
+    StringDisasmBuilder (true, binFile, binFile.ISA.WordSize)
+    :> IDisasmBuilder
+
+  let asmwordDisasm =
+    AsmWordDisasmBuilder (false, binFile, binFile.ISA.WordSize)
+    :> IDisasmBuilder
+
   let toReversedArray cnt lst =
     let arr = Array.zeroCreate cnt
     let mutable idx = cnt - 1
@@ -163,7 +174,7 @@ type LiftingUnit (binFile: IBinFile,
   /// </returns>
   member _.LiftInstruction (addr: Addr) =
     let ins = parser.Parse (binFile.Slice addr, addr)
-    ins.Translate builder
+    ins.Translate irBuilder
 
   /// <summary>
   ///   Lift an instruction at the given address (addr) and return the lifted
@@ -178,8 +189,8 @@ type LiftingUnit (binFile: IBinFile,
   /// </returns>
   member _.LiftInstruction (addr: Addr, optimize) =
     let ins = parser.Parse (binFile.Slice addr, addr)
-    if optimize then ins.Translate builder |> LocalOptimizer.Optimize
-    else ins.Translate builder
+    if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
+    else ins.Translate irBuilder
 
   /// <summary>
   ///   Lift an instruction pointed to by the given pointer and return the
@@ -193,7 +204,7 @@ type LiftingUnit (binFile: IBinFile,
     let span = binFile.Slice ptr.Offset
     let ins = parser.Parse (span, ptr.Addr)
     if BinFilePointer.IsValidAccess ptr (int ins.Length) then
-      ins.Translate builder
+      ins.Translate irBuilder
     else raise ParsingFailureException
 
   /// <summary>
@@ -211,8 +222,8 @@ type LiftingUnit (binFile: IBinFile,
     let span = binFile.Slice ptr.Offset
     let ins = parser.Parse (span, ptr.Addr)
     if BinFilePointer.IsValidAccess ptr (int ins.Length) then
-      if optimize then ins.Translate builder |> LocalOptimizer.Optimize
-      else ins.Translate builder
+      if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
+      else ins.Translate irBuilder
     else raise ParsingFailureException
 
   /// <summary>
@@ -223,7 +234,7 @@ type LiftingUnit (binFile: IBinFile,
   ///   Lifted IR statements.
   /// </returns>
   member _.LiftInstruction (ins: Instruction) =
-    ins.Translate builder
+    ins.Translate irBuilder
 
   /// <summary>
   ///   Lift the given instruction and return the lifted IR statements.
@@ -236,8 +247,8 @@ type LiftingUnit (binFile: IBinFile,
   ///   Lifted IR statements.
   /// </returns>
   member _.LiftInstruction (ins: Instruction, optimize) =
-    if optimize then ins.Translate builder |> LocalOptimizer.Optimize
-    else ins.Translate builder
+    if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
+    else ins.Translate irBuilder
 
   /// <summary>
   ///   Lift a basic block starting from the given address (addr) and return
@@ -251,9 +262,9 @@ type LiftingUnit (binFile: IBinFile,
   member _.LiftBBlock (addr: Addr) =
     match parseBBLByAddr addr 0 [] with
     | Ok instrs ->
-      instrs |> Array.collect (fun i -> i.Translate builder) |> Ok
+      instrs |> Array.collect (fun i -> i.Translate irBuilder) |> Ok
     | Error instrs ->
-      instrs |> Array.collect (fun i -> i.Translate builder) |> Error
+      instrs |> Array.collect (fun i -> i.Translate irBuilder) |> Error
 
   /// <summary>
   ///   Lift a basic block starting from the given pointer (ptr) and return the
@@ -267,27 +278,34 @@ type LiftingUnit (binFile: IBinFile,
   member _.LiftBBlock (ptr: BinFilePointer) =
     match parseBBLByPtr ptr 0 [] with
     | Ok instrs ->
-      instrs |> Array.collect (fun i -> i.Translate builder) |> Ok
+      instrs |> Array.collect (fun i -> i.Translate irBuilder) |> Ok
     | Error instrs ->
-      instrs |> Array.collect (fun i -> i.Translate builder) |> Error
+      instrs |> Array.collect (fun i -> i.Translate irBuilder) |> Error
+
+  /// <summary>
+  ///   Configure the disassembly output format for each disassembled
+  ///   instruction to show the address of the instruction or not.
+  /// </summary>
+  member _.ConfigureDisassembly (showAddr) =
+    strDisasm.ShowAddress <- showAddr
+
+  /// <summary>
+  ///   Configure the disassembly output format for each disassembled
+  ///   instruction. Subsequent disassembly will use the configured format.
+  /// </summary>
+  member _.ConfigureDisassembly (showAddr, showSymbol) =
+    strDisasm.ShowAddress <- showAddr
+    strDisasm.ShowSymbol <- showSymbol
 
   /// <summary>
   ///   Disassemble the given instruction and return the disassembled string.
   /// </summary>
   /// <param name="ins">The instruction to disassemble.</param>
-  /// <param name="showAddr">
-  ///   Whether to show the address of the instruction in the output or not.
-  /// </param>
-  /// <param name="resolveSymbol">
-  ///   Whether to resolve the symbols of references (e.g., jump target) in the
-  ///   output or not.
-  /// </param>
   /// <returns>
   ///   Disassembled string.
   /// </returns>
-  member _.DisasmInstruction (ins: Instruction, showAddr, resolveSymbol) =
-    let reader = if resolveSymbol then binFile :> INameReadable else null
-    ins.Disasm (showAddr, reader)
+  member _.DisasmInstruction (ins: Instruction) =
+    ins.Disasm strDisasm
 
   /// <summary>
   ///   Disassemble an instruction at the given address (addr) and return the
@@ -315,4 +333,42 @@ type LiftingUnit (binFile: IBinFile,
     let span = binFile.Slice ptr.Offset
     let ins = parser.Parse (span, ptr.Addr)
     if BinFilePointer.IsValidAccess ptr (int ins.Length) then ins.Disasm ()
+    else raise ParsingFailureException
+
+  /// <summary>
+  ///   Decompose the given instruction and return the disassembled sequence of
+  ///   AsmWords.
+  /// </summary>
+  /// <param name="ins">The instruction to decompose.</param>
+  /// <returns>
+  ///   Decomposed AsmWords.
+  /// </returns>
+  member _.DecomposeInstruction (ins: Instruction) =
+    ins.Decompose asmwordDisasm
+
+  /// <summary>
+  ///   Decompose an instruction at the given address (addr) and return the
+  ///   disassembled sequence of AsmWords.
+  /// </summary>
+  /// <param name="addr">The instruction address.</param>
+  /// <returns>
+  ///   Decomposed AsmWords.
+  /// </returns>
+  member _.DecomposeInstruction (addr: Addr) =
+    let ins = parser.Parse (binFile.Slice addr, addr)
+    ins.Decompose asmwordDisasm
+
+  /// <summary>
+  ///   Decompose an instruction pointed to by the given pointer (ptr) and
+  ///   return the disassembled sequence of AsmWords.
+  /// </summary>
+  /// <param name="ptr">The binary file pointer.</param>
+  /// <returns>
+  ///   Decomposed AsmWords.
+  /// </returns>
+  member _.DecomposeInstruction (ptr: BinFilePointer) =
+    let span = binFile.Slice ptr.Offset
+    let ins = parser.Parse (span, ptr.Addr)
+    if BinFilePointer.IsValidAccess ptr (int ins.Length) then
+      ins.Decompose asmwordDisasm
     else raise ParsingFailureException

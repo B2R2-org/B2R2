@@ -27,7 +27,7 @@ module B2R2.FrontEnd.Intel.Disasm
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-type Disasm = delegate of INameReadable * DisasmBuilder * InsInfo -> unit
+type Disasm = delegate of IDisasmBuilder * InsInfo -> unit
 
 let opCodeToString = function
   | Opcode.AAA -> "aaa"
@@ -1420,10 +1420,10 @@ let opCodeToString = function
   | Opcode.XTEST -> "xtest"
   | _ -> raise InvalidOpcodeException
 
-let inline private iToHexStr (i: int64) (builder: DisasmBuilder) =
+let inline private iToHexStr (i: int64) (builder: IDisasmBuilder) =
   builder.Accumulate AsmWordKind.Value (HexString.ofInt64 i)
 
-let inline private uToHexStr (i: uint64) (builder: DisasmBuilder) =
+let inline private uToHexStr (i: uint64) (builder: IDisasmBuilder) =
   builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 i)
 
 let inline private getMask sz =
@@ -1433,7 +1433,7 @@ let inline private getMask sz =
   | 32<rt> -> 0xFFFFFFFFL
   | _ -> 0xFFFFFFFFFFFFFFFFL
 
-let inline private buildPref (prefs: Prefix) (builder: DisasmBuilder) =
+let inline private buildPref (prefs: Prefix) (builder: IDisasmBuilder) =
   if prefs = Prefix.PrxNone then ()
   elif (prefs &&& Prefix.PrxLOCK) <> Prefix.PrxNone then
     builder.Accumulate AsmWordKind.String "lock "
@@ -1445,13 +1445,13 @@ let inline private buildPref (prefs: Prefix) (builder: DisasmBuilder) =
     builder.Accumulate AsmWordKind.String "bnd "
   else ()
 
-let inline private buildOpcode opcode (builder: DisasmBuilder) =
+let inline private buildOpcode opcode (builder: IDisasmBuilder) =
   builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
 
-let private buildDisplacement showSign (disp: Disp) (builder: DisasmBuilder) =
-  let mask = WordSize.toRegType builder.WordSize |> RegType.getMask |> uint64
+let private buildDisplacement showSign (disp: Disp) wordSize builder =
+  let mask = WordSize.toRegType wordSize |> RegType.getMask |> uint64
   if showSign && disp < 0L then
-    builder.Accumulate AsmWordKind.String "-"
+    (builder: IDisasmBuilder).Accumulate AsmWordKind.String "-"
     iToHexStr (- disp) builder
   elif showSign then
     builder.Accumulate AsmWordKind.String "+"
@@ -1464,58 +1464,56 @@ let inline private buildAbsAddr selector (offset: Addr) builder =
   builder.Accumulate AsmWordKind.String ":"
   uToHexStr offset builder
 
-let private buildComment (reader: INameReadable) targetAddr builder =
-  if (builder: DisasmBuilder).ResolveSymbol then
-    match reader.TryFindFunctionName targetAddr with
-    | Error _ ->
-      (builder: DisasmBuilder).Accumulate AsmWordKind.String " ; "
-      uToHexStr targetAddr builder
-    | Ok "" -> ()
-    | Ok name ->
-      builder.Accumulate AsmWordKind.String " ; <"
-      builder.Accumulate AsmWordKind.Value name
-      builder.Accumulate AsmWordKind.String ">"
-  else ()
+let private prefix = { AsmWordKind = AsmWordKind.String; AsmWordValue = " ; <" }
+let private suffix = { AsmWordKind = AsmWordKind.String; AsmWordValue = ">" }
 
-let inline private buildRelAddr offset reader (builder: DisasmBuilder) =
+let private mapNoSymbol addr =
+  [| { AsmWordKind = AsmWordKind.String; AsmWordValue = " ; " }
+     { AsmWordKind = AsmWordKind.Value
+       AsmWordValue = HexString.ofUInt64 addr } |]
+
+let private buildComment (builder: IDisasmBuilder) targetAddr =
+  builder.AccumulateSymbol (targetAddr, prefix, suffix, mapNoSymbol)
+
+let inline private buildRelAddr offset (builder: IDisasmBuilder) addr =
   if offset < 0L then builder.Accumulate AsmWordKind.String "-"
   else builder.Accumulate AsmWordKind.String "+"
   iToHexStr (abs offset) builder
-  buildComment reader (builder.Address + uint64 offset) builder
+  buildComment builder (addr + uint64 offset)
 
 /// Zeroing/Merging (EVEX.z)
-let inline buildEVEXZ ev (builder: DisasmBuilder) =
+let inline buildEVEXZ ev (builder: IDisasmBuilder) =
   if ev.Z = Zeroing then builder.Accumulate AsmWordKind.String "{z}"
   else ()
 
 module private IntelSyntax = begin
 
-  let inline private memDispToStr showSign disp builder =
+  let inline private memDispToStr showSign disp wordSize builder =
     match disp with
     | None -> ()
-    | Some d -> buildDisplacement showSign d builder
+    | Some d -> buildDisplacement showSign d wordSize builder
 
-  let inline scaleToString (scale: Scale) (builder: DisasmBuilder) =
+  let inline scaleToString (scale: Scale) (builder: IDisasmBuilder) =
     if scale = Scale.X1 then ()
     else
       builder.Accumulate AsmWordKind.String "*"
       builder.Accumulate AsmWordKind.Value ((int scale).ToString())
 
-  let private memScaleDispToStr emptyBase si d builder =
+  let private memScaleDispToStr emptyBase si d wordSize builder =
     match si with
-    | None -> memDispToStr (not emptyBase) d builder
+    | None -> memDispToStr (not emptyBase) d wordSize builder
     | Some (i, scale) ->
       if emptyBase then () else builder.Accumulate AsmWordKind.String "+"
       builder.Accumulate AsmWordKind.Variable (Register.toString i)
       scaleToString scale builder
-      memDispToStr true d builder
+      memDispToStr true d wordSize builder
 
-  let private memAddrToStr b si disp builder =
+  let private memAddrToStr b si disp wordSize builder =
     match b with
-    | None -> memScaleDispToStr true si disp builder
+    | None -> memScaleDispToStr true si disp wordSize builder
     | Some b ->
       builder.Accumulate AsmWordKind.Variable (Register.toString b)
-      memScaleDispToStr false si disp builder
+      memScaleDispToStr false si disp wordSize builder
 
   let inline private isFar (ins: InsInfo) =
     match ins.Opcode with
@@ -1535,24 +1533,24 @@ module private IntelSyntax = begin
     | 224<rt> | 864<rt> -> "" (* x87 FPU state *)
     | _ -> Terminator.impossible ()
 
-  let mToString (ins: InsInfo) (builder: DisasmBuilder) b si d oprSz =
+  let mToString (ins: InsInfo) (builder: IDisasmBuilder) b si d oprSz =
     let ptrDirective = ptrDirectiveString (isFar ins) oprSz
     match Helper.getSegment ins.Prefixes with
     | None ->
       builder.Accumulate AsmWordKind.String ptrDirective
       builder.Accumulate AsmWordKind.String (" [")
-      memAddrToStr b si d builder
+      memAddrToStr b si d ins.WordSize builder
       builder.Accumulate AsmWordKind.String "]"
     | Some seg ->
       builder.Accumulate AsmWordKind.String ptrDirective
       builder.Accumulate AsmWordKind.String (" [")
       builder.Accumulate AsmWordKind.Variable (Register.toString seg)
       builder.Accumulate AsmWordKind.String ":"
-      memAddrToStr b si d builder
+      memAddrToStr b si d ins.WordSize builder
       builder.Accumulate AsmWordKind.String "]"
 
   /// Opmask register
-  let buildOpMask ePrx (builder: DisasmBuilder) =
+  let buildOpMask ePrx (builder: IDisasmBuilder) =
     if ePrx.AAA = 0uy then ()
     else
       builder.Accumulate AsmWordKind.String "{"
@@ -1567,7 +1565,7 @@ module private IntelSyntax = begin
       buildEVEXZ ePrx builder
     | _ -> ()
 
-  let buildBroadcast (ins: InsInfo) (builder: DisasmBuilder) memSz =
+  let buildBroadcast (ins: InsInfo) (builder: IDisasmBuilder) memSz =
     match ins.VEXInfo with
     | Some { EVEXPrx = Some ePrx; VectorLength = vl } ->
       if ePrx.B = 1uy then
@@ -1577,7 +1575,7 @@ module private IntelSyntax = begin
       else ()
     | _ -> ()
 
-  let buildRoundingControl (ins: InsInfo) (builder: DisasmBuilder) =
+  let buildRoundingControl (ins: InsInfo) (builder: IDisasmBuilder) =
     match ins.VEXInfo with
     | Some { EVEXPrx = Some ePrx }->
       if ePrx.B = 1uy then
@@ -1587,7 +1585,7 @@ module private IntelSyntax = begin
       else ()
     | _ -> ()
 
-  let oprToString ins reader opr (builder: DisasmBuilder) =
+  let oprToString ins opr (builder: IDisasmBuilder) =
     match opr with
     | OprReg reg ->
       builder.Accumulate AsmWordKind.Variable (Register.toString reg)
@@ -1596,111 +1594,109 @@ module private IntelSyntax = begin
     | OprImm (imm, _) ->
       iToHexStr (imm &&& getMask ins.MainOperationSize) builder
     | OprDirAddr (Absolute (sel, offset, _)) -> buildAbsAddr sel offset builder
-    | OprDirAddr (Relative (offset)) -> buildRelAddr offset reader builder
+    | OprDirAddr (Relative (offset)) ->
+      buildRelAddr offset builder ins.Address
     | Label _ -> Terminator.impossible ()
 
-  let buildOprs (ins: InsInfo) reader (builder: DisasmBuilder) =
+  let buildOprs (ins: InsInfo) (builder: IDisasmBuilder) =
     match ins.Operands with
     | NoOperand -> ()
     | OneOperand (OprMem (Some Register.RIP, None, Some off, 64<rt>)) ->
       builder.Accumulate AsmWordKind.String (" ")
       mToString ins builder (Some Register.RIP) None (Some off) 64<rt>
-      buildComment reader
-        (builder.Address + uint64 builder.InsLength + uint64 off) builder
+      buildComment builder (ins.Address + uint64 ins.Length + uint64 off)
     | OneOperand opr ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins reader opr builder
+      oprToString ins opr builder
     | TwoOperands (OprMem (Some R.RIP, None, Some disp, sz), opr) ->
       builder.Accumulate AsmWordKind.String " "
       mToString ins builder (Some Register.RIP) None (Some disp) sz
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr builder
-      buildComment reader
-        (builder.Address + uint64 builder.InsLength + uint64 disp) builder
+      oprToString ins opr builder
+      buildComment builder (ins.Address + uint64 ins.Length + uint64 disp)
     | TwoOperands (opr, OprMem (Some R.RIP, None, Some disp, sz)) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins reader opr builder
+      oprToString ins opr builder
       builder.Accumulate AsmWordKind.String ", "
       mToString ins builder (Some Register.RIP) None (Some disp) sz
-      buildComment reader
-        (builder.Address + uint64 builder.InsLength + uint64 disp) builder
+      buildComment builder (ins.Address + uint64 ins.Length + uint64 disp)
     | TwoOperands (opr1, (OprMem (_, _, _, memSz) as opr2)) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins reader opr1 builder
+      oprToString ins opr1 builder
       buildMask ins builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr2 builder
+      oprToString ins opr2 builder
       buildBroadcast ins builder memSz
     | TwoOperands (opr1, opr2) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins reader opr1 builder
+      oprToString ins opr1 builder
       buildMask ins builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr2 builder
+      oprToString ins opr2 builder
     | ThreeOperands (opr1, opr2, (OprMem (_, _, _, memSz) as opr3)) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins reader opr1 builder
+      oprToString ins opr1 builder
       buildMask ins builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr2 builder
+      oprToString ins opr2 builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr3 builder
+      oprToString ins opr3 builder
       buildBroadcast ins builder memSz
     | ThreeOperands (opr1, opr2, (OprReg _ as opr3)) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins reader opr1 builder
+      oprToString ins opr1 builder
       buildMask ins builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr2 builder
+      oprToString ins opr2 builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr3 builder
+      oprToString ins opr3 builder
       buildRoundingControl ins builder
     | ThreeOperands (opr1, opr2, opr3) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins reader opr1 builder
+      oprToString ins opr1 builder
       buildMask ins builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr2 builder
+      oprToString ins opr2 builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr3 builder
+      oprToString ins opr3 builder
     | FourOperands (opr1, opr2, (OprMem (_, _, _, memSz) as opr3), opr4) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins reader opr1 builder
+      oprToString ins opr1 builder
       buildMask ins builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr2 builder
+      oprToString ins opr2 builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr3 builder
+      oprToString ins opr3 builder
       buildBroadcast ins builder memSz
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr4 builder
+      oprToString ins opr4 builder
     | FourOperands (opr1, opr2, opr3, opr4) ->
       builder.Accumulate AsmWordKind.String " "
-      oprToString ins reader opr1 builder
+      oprToString ins opr1 builder
       buildMask ins builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr2 builder
+      oprToString ins opr2 builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr3 builder
+      oprToString ins opr3 builder
       builder.Accumulate AsmWordKind.String ", "
-      oprToString ins reader opr4 builder
+      oprToString ins opr4 builder
 
-  let disasm reader (builder: DisasmBuilder) ins =
-    if builder.ShowAddr then builder.AccumulateAddr () else ()
-    buildPref (ins: InsInfo).Prefixes builder
+  let disasm (builder: IDisasmBuilder) (ins: InsInfo) =
+    builder.AccumulateAddrMarker ins.Address
+    buildPref ins.Prefixes builder
     buildOpcode ins.Opcode builder
-    buildOprs ins reader builder
+    buildOprs ins builder
 
 end
 
 module private ATTSyntax = begin
 
-  let buildDisp disp showSign builder =
+  let buildDisp disp showSign wordSize builder =
     match disp with
-    | Some d -> buildDisplacement showSign d builder
+    | Some d -> buildDisplacement showSign d wordSize builder
     | None -> ()
 
-  let buildScaledIndex si (builder: DisasmBuilder) =
+  let buildScaledIndex si (builder: IDisasmBuilder) =
     match si with
     | None -> ()
     | Some (i, Scale.X1) ->
@@ -1712,20 +1708,20 @@ module private ATTSyntax = begin
       builder.Accumulate AsmWordKind.String ", "
       builder.Accumulate AsmWordKind.Value ((int scale).ToString())
 
-  let buildSeg seg (builder: DisasmBuilder) =
+  let buildSeg seg (builder: IDisasmBuilder) =
     builder.Accumulate AsmWordKind.String "%"
     builder.Accumulate AsmWordKind.Variable (Register.toString seg)
     builder.Accumulate AsmWordKind.String ":"
 
-  let buildBasedMemory b si d builder =
-    buildDisp d true builder
+  let buildBasedMemory b si d wordSize builder =
+    buildDisp d true wordSize builder
     builder.Accumulate AsmWordKind.String "(%"
     builder.Accumulate AsmWordKind.Variable (Register.toString b)
     buildScaledIndex si builder
     builder.Accumulate AsmWordKind.String ")"
 
-  let buildNobaseMemory (i, s) d builder =
-    buildDisp d true builder
+  let buildNobaseMemory (i, s) d wordSize builder =
+    buildDisp d true wordSize builder
     match s with
     | Scale.X1 ->
       builder.Accumulate AsmWordKind.String "(%"
@@ -1737,28 +1733,28 @@ module private ATTSyntax = begin
       builder.Accumulate AsmWordKind.Value ((int s).ToString())
     builder.Accumulate AsmWordKind.String ")"
 
-  let buildMemOp (ins: InsInfo) (builder: DisasmBuilder) b si d oprSz isFst =
+  let buildMemOp (ins: InsInfo) wordSize builder b si d isFst =
     if ins.IsBranch () then
-      builder.Accumulate AsmWordKind.String " *"
+      (builder: IDisasmBuilder).Accumulate AsmWordKind.String " *"
     elif isFst then
       builder.Accumulate AsmWordKind.String " "
     else
       builder.Accumulate AsmWordKind.String ", "
     match Helper.getSegment ins.Prefixes, b, si with
     | None, Some b, _ ->
-      buildBasedMemory b si d builder
+      buildBasedMemory b si d wordSize builder
     | None, None, None ->
-      buildDisp d false builder
+      buildDisp d false wordSize builder
     | None, None, Some si ->
-      buildNobaseMemory si d builder
+      buildNobaseMemory si d wordSize builder
     | Some seg, Some b, _ ->
       buildSeg seg builder
-      buildBasedMemory b si d builder
+      buildBasedMemory b si d wordSize builder
     | Some seg, None, _ ->
       buildSeg seg builder
-      buildDisp d false builder
+      buildDisp d false wordSize builder
 
-  let buildMask (ins: InsInfo) (builder: DisasmBuilder) =
+  let buildMask (ins: InsInfo) (builder: IDisasmBuilder) =
     match ins.VEXInfo with
     | Some { EVEXPrx = Some ePrx }->
       if ePrx.AAA = 0uy then ()
@@ -1770,7 +1766,7 @@ module private ATTSyntax = begin
       buildEVEXZ ePrx builder
     | _ -> ()
 
-  let buildOpr (ins: InsInfo) reader isFst (builder: DisasmBuilder) opr =
+  let buildOpr (ins: InsInfo) wordSize isFst (builder: IDisasmBuilder) opr =
     match opr with
     | OprReg reg ->
       if isFst then
@@ -1779,7 +1775,7 @@ module private ATTSyntax = begin
       else builder.Accumulate AsmWordKind.String ", %"
       builder.Accumulate AsmWordKind.Variable (Register.toString reg)
     | OprMem (b, si, disp, oprSz) ->
-      buildMemOp ins builder b si disp oprSz isFst
+      buildMemOp ins wordSize builder b si disp isFst
     | OprImm (imm, _) ->
       if isFst then builder.Accumulate AsmWordKind.String " $"
       else builder.Accumulate AsmWordKind.String ", $"
@@ -1789,10 +1785,10 @@ module private ATTSyntax = begin
       buildAbsAddr sel offset builder
     | OprDirAddr (Relative (offset)) ->
       builder.Accumulate AsmWordKind.String " "
-      buildRelAddr offset reader builder
+      buildRelAddr offset builder ins.Address
     | Label _ -> Terminator.impossible ()
 
-  let addOpSuffix (builder: DisasmBuilder) = function
+  let addOpSuffix (builder: IDisasmBuilder) = function
     | 8<rt> -> builder.Accumulate AsmWordKind.Mnemonic "b"
     | 16<rt> -> builder.Accumulate AsmWordKind.Mnemonic "w"
     | 32<rt> -> builder.Accumulate AsmWordKind.Mnemonic "l"
@@ -1814,52 +1810,53 @@ module private ATTSyntax = begin
     | FourOperands (_, _, _, OprMem (_, _, _, sz)) -> addOpSuffix builder sz
     | _ -> ()
 
-  let buildSrcSizeSuffix operands builder =
+  let buildSrcSizeSuffix operands wordSize builder =
     match operands with
     | TwoOperands (_, OprMem (_, _, _, sz)) -> addOpSuffix builder sz
-    | TwoOperands (_, OprReg dst) ->
-      Register.toRegType builder.WordSize dst |> addOpSuffix builder
+    | TwoOperands (_, OprReg src) ->
+      Register.toRegType wordSize src |> addOpSuffix builder
     | _ -> Terminator.impossible ()
 
-  let buildDstSizeSuffix operands (builder: DisasmBuilder) =
+  let buildDstSizeSuffix operands wordSize builder =
     match operands with
     | TwoOperands (OprReg dst, _) ->
-      Register.toRegType builder.WordSize dst |> addOpSuffix builder
+      Register.toRegType wordSize dst |> addOpSuffix builder
     | _ -> Terminator.impossible ()
 
-  let buildOprs (ins: InsInfo) reader (builder: DisasmBuilder) =
+  let buildOprs (ins: InsInfo) (builder: IDisasmBuilder) =
     match ins.Operands with
     | NoOperand -> ()
     | OneOperand opr ->
-      buildOpr ins reader true builder opr
+      buildOpr ins ins.WordSize true builder opr
     | TwoOperands (opr1, opr2) ->
-      buildOpr ins reader true builder opr2
-      buildOpr ins reader false builder opr1
+      buildOpr ins ins.WordSize true builder opr2
+      buildOpr ins ins.WordSize false builder opr1
       buildMask ins builder
     | ThreeOperands (opr1, opr2, opr3) ->
-      buildOpr ins reader true builder opr3
-      buildOpr ins reader false builder opr2
-      buildOpr ins reader false builder opr1
+      buildOpr ins ins.WordSize true builder opr3
+      buildOpr ins ins.WordSize false builder opr2
+      buildOpr ins ins.WordSize false builder opr1
       buildMask ins builder
     | FourOperands (opr1, opr2, opr3, opr4) ->
-      buildOpr ins reader true builder opr4
-      buildOpr ins reader false builder opr3
-      buildOpr ins reader false builder opr2
-      buildOpr ins reader false builder opr1
+      buildOpr ins ins.WordSize true builder opr4
+      buildOpr ins ins.WordSize false builder opr3
+      buildOpr ins ins.WordSize false builder opr2
+      buildOpr ins ins.WordSize false builder opr1
       buildMask ins builder
 
-  let disasm reader (builder: DisasmBuilder) ins =
-    if builder.ShowAddr then builder.AccumulateAddr () else ()
-    buildPref (ins: InsInfo).Prefixes builder
+  let disasm (builder: IDisasmBuilder) (ins: InsInfo) =
+    let wordSize = ins.WordSize
+    builder.AccumulateAddrMarker ins.Address
+    buildPref ins.Prefixes builder
     match ins.Opcode with
     | Opcode.MOVSX ->
       builder.Accumulate AsmWordKind.Mnemonic "movs"
-      buildSrcSizeSuffix ins.Operands builder
-      buildDstSizeSuffix ins.Operands builder
+      buildSrcSizeSuffix ins.Operands wordSize builder
+      buildDstSizeSuffix ins.Operands wordSize builder
     | Opcode.MOVZX ->
       builder.Accumulate AsmWordKind.Mnemonic "movz"
-      buildSrcSizeSuffix ins.Operands builder
-      buildDstSizeSuffix ins.Operands builder
+      buildSrcSizeSuffix ins.Operands wordSize builder
+      buildDstSizeSuffix ins.Operands wordSize builder
     | Opcode.MOVSXD ->
       builder.Accumulate AsmWordKind.Mnemonic "movslq"
     (* Below are the list of opcodes that should not be used with a suffix. *)
@@ -1960,7 +1957,7 @@ module private ATTSyntax = begin
     | opcode ->
       buildOpcode opcode builder
       buildOpSuffix ins.Operands builder
-    buildOprs ins reader builder
+    buildOprs ins builder
 
 end
 

@@ -88,11 +88,9 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override _.DirectBranchTarget (_addr: byref<Addr>) = false
 
-  override _.IndirectTrampolineAddr (_addr: byref<Addr>) =
-    // FIXME
-    false
+  override _.IndirectTrampolineAddr (_addr: byref<Addr>) = false
 
-  override _.Immediate (_) = false
+  override _.Immediate _ = false
 
   override this.GetNextInstrAddrs () =
     let fallthrough = this.Address + uint64 this.Length
@@ -110,27 +108,22 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   override this.TranslateToList builder =
     (Lifter.translate this.Info builder).Stream
 
-  override this.Disasm (showAddr, _) =
-    let builder =
-      DisasmStringBuilder (showAddr, false, WordSize.Bit256, addr, numBytes)
+  override this.Disasm builder =
     Disasm.disasm this.Info builder
     builder.ToString ()
 
   override this.Disasm () =
-    let builder =
-      DisasmStringBuilder (false, false, WordSize.Bit256, addr, numBytes)
+    let builder = StringDisasmBuilder (false, null, WordSize.Bit256)
     Disasm.disasm this.Info builder
     builder.ToString ()
 
-  override this.Decompose (showAddr) =
-    let builder =
-      DisasmWordBuilder (showAddr, false, WordSize.Bit256, addr, numBytes, 8)
+  override this.Decompose builder =
     Disasm.disasm this.Info builder
-    builder.ToArray ()
+    builder.ToAsmWords ()
 
   override _.IsInlinedAssembly () = false
 
-  override _.Equals (_) = Terminator.futureFeature ()
+  override _.Equals _ = Terminator.futureFeature ()
 
   override _.GetHashCode () = Terminator.futureFeature ()
 

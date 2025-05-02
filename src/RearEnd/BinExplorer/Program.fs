@@ -27,6 +27,7 @@ module B2R2.RearEnd.BinExplorer.Program
 open System.IO
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -209,7 +210,9 @@ let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _>) =
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
     if isNull func.CFG then ()
     else
-      let disasmcfg = DisasmCFG func.CFG
+      let file = brew.BinHandle.File
+      let disasmBuilder = StringDisasmBuilder (true, file, file.ISA.WordSize)
+      let disasmcfg = DisasmCFG (disasmBuilder, func.CFG)
       let s = Serializer.ToJson disasmcfg
       File.WriteAllText (disasmJsonPath, s))
 

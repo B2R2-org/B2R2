@@ -150,15 +150,15 @@ let opCodeToString = function
   | Opcode.InvalidOp -> "(invalid)"
   | _ -> Terminator.impossible ()
 
-let prependDelimiter delimiter (builder: DisasmBuilder) =
+let prependDelimiter delimiter (builder: IDisasmBuilder) =
   match delimiter with
   | None -> ()
   | Some delim -> builder.Accumulate AsmWordKind.String delim
 
-let immToString imm  (builder: DisasmBuilder) =
+let immToString imm  (builder: IDisasmBuilder) =
   builder.Accumulate AsmWordKind.Value (HexString.ofInt32 imm)
 
-let addrToString shift addr (builder: DisasmBuilder) =
+let addrToString shift addr (builder: IDisasmBuilder) =
   let relAddr = int(addr) + shift + 2
   if shift>=0 then
     builder.Accumulate AsmWordKind.String ".+"
@@ -171,7 +171,7 @@ let addrToString shift addr (builder: DisasmBuilder) =
       builder.Accumulate AsmWordKind.String "     ; "
       builder.Accumulate AsmWordKind.Value (HexString.ofInt32 relAddr)
 
-let memToString addrMode (builder: DisasmBuilder) =
+let memToString addrMode (builder: IDisasmBuilder) =
   match addrMode with
   | DispMode (reg,c) ->
     let reg = Register.toString reg
@@ -190,7 +190,7 @@ let memToString addrMode (builder: DisasmBuilder) =
     let reg = Register.toString reg
     builder.Accumulate AsmWordKind.Variable reg
 
-let buildReg ins reg (builder: DisasmBuilder) =
+let buildReg ins reg (builder: IDisasmBuilder) =
   let reg = Register.toString reg
   builder.Accumulate AsmWordKind.Variable reg
 
@@ -209,7 +209,7 @@ let oprToString ins addr operand delim builder =
     prependDelimiter delim builder
     memToString addrMode builder
 
-let buildComment opr1 opr2 (builder: DisasmBuilder) =
+let buildComment opr1 opr2 (builder: IDisasmBuilder) =
   match opr1, opr2 with
   | OprImm imm, _ | _, OprImm imm ->
     builder.Accumulate AsmWordKind.String "     ; "
@@ -232,12 +232,12 @@ let buildOprs ins pc builder =
     oprToString ins pc opr2 (Some ", ") builder
     buildComment opr1 opr2 builder
 
-let inline buildOpcode ins (builder: DisasmBuilder) =
+let inline buildOpcode ins (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let disasm insInfo (builder: DisasmBuilder) =
+let disasm insInfo (builder: IDisasmBuilder) =
   let pc = insInfo.Address
-  if builder.ShowAddr then builder.AccumulateAddr () else ()
+  builder.AccumulateAddrMarker insInfo.Address
   buildOpcode insInfo builder
   buildOprs insInfo pc builder

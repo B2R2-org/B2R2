@@ -33,7 +33,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Disassembly-based CFG, where each node contains disassembly code. This is
 /// the most user-friendly CFG, although we do not use this for internal
 /// analyses. Therefore, this class does not provide ways to modify the CFG.
-type DisasmCFG (ircfg: LowUIRCFG) =
+type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
   let addEdgeToDisasmVertex (vMap: DisasmVMap) addr succ =
     match succ with
     | Some (succAddr, edge) ->
@@ -175,7 +175,7 @@ type DisasmCFG (ircfg: LowUIRCFG) =
     vMap |> Seq.fold (fun (g: IDiGraph<_, _>) (KeyValue (addr, tmpV)) ->
       let ppoint = ProgramPoint (addr, 0)
       let instrs = tmpV.Instructions.Values |> Seq.toArray
-      let bbl = DisasmBasicBlock (ppoint, instrs)
+      let bbl = DisasmBasicBlock (disasmBuilder, ppoint, instrs)
       let v, g = g.AddVertex bbl
       tmpV.Vertex <- v
       g) newGraph

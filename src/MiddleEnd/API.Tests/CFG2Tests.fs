@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -206,7 +207,8 @@ type CFG2Tests () =
   member _.``DisasmCFG Test: _start`` () =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
-    let dcfg = DisasmCFG cfg
+    let disasm = StringDisasmBuilder (false, null, hdl.File.ISA.WordSize)
+    let dcfg = DisasmCFG (disasm, cfg)
     Assert.AreEqual<int> (1, dcfg.Size)
     let vMap = dcfg.FoldVertex (fun m v ->
       Map.add v.VData.Internals.PPoint.Address v m) Map.empty

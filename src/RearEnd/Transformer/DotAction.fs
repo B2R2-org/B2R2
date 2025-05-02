@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
@@ -34,7 +35,9 @@ type DOTAction () =
     let addr = v.VData.Internals.BlockAddress.ToString "x"
     let instrs =
       v.VData.Internals.Instructions
-      |> Array.map (fun ins -> ins.Disasm (true, null))
+      |> Array.map (fun ins ->
+        let bld = StringDisasmBuilder (true, null, ins.WordSize)
+        ins.Disasm bld)
       |> String.concat "\\l"
     $"[label=\"[{addr:x}]\\l{instrs}\\l\"]"
 

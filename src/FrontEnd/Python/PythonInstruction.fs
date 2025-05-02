@@ -85,13 +85,13 @@ type PythonInstruction (addr, numBytes, insInfo) =
   override _.TranslateToList _ =
     Terminator.futureFeature ()
 
-  override _.Disasm (showAddr, _) =
+  override _.Disasm _builder =
     Terminator.futureFeature ()
 
   override _.Disasm () =
     Terminator.futureFeature ()
 
-  override _.Decompose (showAddr) =
+  override _.Decompose _builder =
     Terminator.futureFeature ()
 
   override _.IsInlinedAssembly () = false

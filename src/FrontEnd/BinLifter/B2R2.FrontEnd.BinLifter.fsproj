@@ -16,10 +16,11 @@
     <Compile Include="LowUIRStream.fs" />
     <Compile Include="ILowUIRBuilder.fs" />
     <Compile Include="AsmWord.fs" />
-    <Compile Include="AsmWordBuilder.fs" />
     <Compile Include="AsmLine.fs" />
     <Compile Include="DisasmSyntax.fs" />
-    <Compile Include="DisasmBuilder.fs" />
+    <Compile Include="IDisasmBuilder.fs" />
+    <Compile Include="StringDisasmBuilder.fs" />
+    <Compile Include="AsmWordDisasmBuilder.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="IInstructionParsable.fs" />
     <Compile Include="BitData.fs" />

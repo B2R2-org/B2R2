@@ -74,7 +74,7 @@ module ROPValue =
   let dummy32 = ofUInt32 0xdeadbeefu
 
   let strFolder (liftingUnit: LiftingUnit) acc (ins: Instruction) =
-    let acc = acc + "  " + liftingUnit.DisasmInstruction (ins, true, false)
+    let acc = acc + "  " + liftingUnit.DisasmInstruction ins
     acc + Environment.NewLine
 
   let toString liftingUnit binBase = function

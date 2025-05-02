@@ -114,8 +114,7 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
         else ARMMode
       | _ -> mode
     let parser = GroundWork.CreateParser reader regFactory binFile.ISA mode
-    let builder = GroundWork.CreateBuilder binFile.ISA regFactory
-    LiftingUnit (binFile, parser, builder)
+    LiftingUnit (binFile, regFactory, parser)
 
   member _.TryReadBytes (addr: Addr, nBytes) =
     let range = AddrRange (addr, addr + uint64 nBytes - 1UL)

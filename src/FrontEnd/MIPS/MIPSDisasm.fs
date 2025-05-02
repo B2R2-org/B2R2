@@ -241,11 +241,11 @@ let inline appendFmt insInfo opcode =
   | None -> opcode
   | Some f -> opcode + fmtToString f
 
-let inline buildOpcode ins (builder: DisasmBuilder) =
+let inline buildOpcode ins (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode |> appendCond ins |> appendFmt ins
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let inline relToString pc offset (builder: DisasmBuilder) =
+let inline relToString pc offset (builder: IDisasmBuilder) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
 
@@ -254,7 +254,7 @@ let inline regToString ins reg =
   | 64<rt> -> Register.toString reg WordSize.Bit64
   | _ -> Register.toString reg WordSize.Bit32
 
-let oprToString insInfo opr delim (builder: DisasmBuilder) =
+let oprToString insInfo opr delim (builder: IDisasmBuilder) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
@@ -281,7 +281,7 @@ let oprToString insInfo opr delim (builder: DisasmBuilder) =
   // Never gets matched. Only used in intermediate stage mips assembly parser.
   | GoToLabel _ -> raise InvalidOperandException
 
-let buildOprs insInfo (builder: DisasmBuilder) =
+let buildOprs insInfo (builder: IDisasmBuilder) =
   match insInfo.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
@@ -299,8 +299,8 @@ let buildOprs insInfo (builder: DisasmBuilder) =
     oprToString insInfo opr3 ", " builder
     oprToString insInfo opr4 ", " builder
 
-let disasm wordSize insInfo (builder: DisasmBuilder) =
-  if builder.ShowAddr then builder.AccumulateAddr () else ()
+let disasm insInfo (builder: IDisasmBuilder) =
+  builder.AccumulateAddrMarker insInfo.Address
   buildOpcode insInfo builder
   buildOprs insInfo builder
 

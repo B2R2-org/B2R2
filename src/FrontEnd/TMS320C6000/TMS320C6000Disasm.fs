@@ -277,14 +277,14 @@ let inline appendUnit insInfo opcode =
   | D2XUnit -> opcode + ".D2X"
   | NoUnit -> opcode
 
-let buildParallelPipe ins (builder: DisasmBuilder) =
+let buildParallelPipe ins (builder: IDisasmBuilder) =
   if ins.IsParallel then builder.Accumulate AsmWordKind.String "|| " else ()
 
-let inline buildOpcode ins (builder: DisasmBuilder) =
+let inline buildOpcode ins (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode |> appendUnit ins
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let buildMemBase (builder: DisasmBuilder) baseR = function
+let buildMemBase (builder: IDisasmBuilder) baseR = function
   | NegativeOffset ->
     builder.Accumulate AsmWordKind.String "-"
     builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
@@ -304,14 +304,14 @@ let buildMemBase (builder: DisasmBuilder) baseR = function
     builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
     builder.Accumulate AsmWordKind.String "++"
 
-let private offsetToString (builder: DisasmBuilder) offset =
+let private offsetToString (builder: IDisasmBuilder) offset =
   match offset with
   | UCst5 i -> builder.Accumulate AsmWordKind.Value (i.ToString())
   | UCst15 i -> builder.Accumulate AsmWordKind.Value (i.ToString())
   | OffsetR r ->
     builder.Accumulate AsmWordKind.Variable (Register.toString r)
 
-let private buildMemOffset (builder: DisasmBuilder) offset =
+let private buildMemOffset (builder: IDisasmBuilder) offset =
   match offset with
   | UCst5 0UL -> ()
   | offset ->
@@ -323,7 +323,7 @@ let memToString builder baseR modification offset =
   buildMemBase builder baseR modification
   buildMemOffset builder offset
 
-let oprToString opr delim (builder: DisasmBuilder) =
+let oprToString opr delim (builder: IDisasmBuilder) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
@@ -359,8 +359,8 @@ let buildOprs insInfo builder =
     oprToString opr3 ", " builder
     oprToString opr4 ", " builder
 
-let disasm insInfo (builder: DisasmBuilder) =
-  if builder.ShowAddr then builder.AccumulateAddr () else ()
+let disasm insInfo (builder: IDisasmBuilder) =
+  builder.AccumulateAddrMarker insInfo.Address
   buildParallelPipe insInfo builder
   buildOpcode insInfo builder
   buildOprs insInfo builder

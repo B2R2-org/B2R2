@@ -28,7 +28,9 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
-type DisasmBasicBlock (ppoint: ProgramPoint, instrs: Instruction[]) =
+type DisasmBasicBlock (disasmBuilder: IDisasmBuilder,
+                       ppoint: ProgramPoint,
+                       instrs: Instruction[]) =
   /// Return the `IDisasmBasicBlock` interface.
   member this.Internals with get() = this :> IDisasmBasicBlock
 
@@ -52,9 +54,7 @@ type DisasmBasicBlock (ppoint: ProgramPoint, instrs: Instruction[]) =
 
     member _.Visualize () =
       instrs
-      |> Array.mapi (fun idx ins ->
-        if idx = Array.length instrs - 1 then ins.Decompose (true)
-        else ins.Decompose (true))
+      |> Array.map (fun ins -> ins.Decompose disasmBuilder)
 
 /// Interface for a basic block containing disassembled instructions.
 and IDisasmBasicBlock =

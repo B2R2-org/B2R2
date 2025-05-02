@@ -30,6 +30,7 @@ open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
@@ -145,11 +146,13 @@ let cfgToJSON cfgType (brew: BinaryBrew<_, _>) (g: LowUIRCFG) =
       let roots = g.Roots |> Seq.toList
       Visualizer.getJSONFromGraph g roots
     | CFGType.DisasmCFG ->
-      let g = DisasmCFG g
+      let file = brew.BinHandle.File
+      let disasmBuilder = AsmWordDisasmBuilder (true, file, file.ISA.WordSize)
+      let g = DisasmCFG (disasmBuilder, g)
       let roots = g.Roots |> Seq.toList
       Visualizer.getJSONFromGraph g roots
     | CFGType.SSACFG ->
-      let factory = SSA.SSALifterFactory.Create (brew.BinHandle)
+      let factory = SSA.SSALifterFactory.Create brew.BinHandle
       let ssaCFG = factory.Lift g
       let roots = ssaCFG.Roots |> List.ofArray
       Visualizer.getJSONFromGraph ssaCFG roots

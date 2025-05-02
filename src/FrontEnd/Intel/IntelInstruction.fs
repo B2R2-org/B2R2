@@ -166,20 +166,17 @@ type IntelInstruction
   override this.TranslateToList builder =
     (Lifter.translate this len builder).Stream
 
-  override this.Disasm (showAddr, nameReader) =
-    let resolveSymb = not (isNull nameReader)
-    let builder = DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len)
-    Disasm.disasm.Invoke (nameReader, builder, this)
+  override this.Disasm builder =
+    Disasm.disasm.Invoke (builder, this)
     builder.ToString ()
 
   override this.Disasm () =
-    let builder = DisasmStringBuilder (false, false, wordSz, addr, len)
-    Disasm.disasm.Invoke (null, builder, this)
+    let builder = StringDisasmBuilder (false, null, wordSz)
+    Disasm.disasm.Invoke (builder, this)
     builder.ToString ()
 
-  override this.Decompose (showAddr) =
-    let builder = DisasmWordBuilder (showAddr, false, wordSz, addr, len, 8)
-    Disasm.disasm.Invoke (null, builder, this)
-    builder.ToArray ()
+  override this.Decompose builder =
+    Disasm.disasm.Invoke (builder, this)
+    builder.ToAsmWords ()
 
   override _.IsInlinedAssembly () = false

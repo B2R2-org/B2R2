@@ -208,24 +208,18 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
   override this.TranslateToList builder =
     (Lifter.translate this nb builder).Stream
 
-  override this.Disasm (showAddr, nameReader) =
-    let resolveSymb = not (isNull nameReader)
-    let builder =
-      DisasmStringBuilder (showAddr, resolveSymb, WordSize.Bit32, addr, nb)
-    Disasm.disasm nameReader this builder
+  override this.Disasm builder =
+    Disasm.disasm this builder
     builder.ToString ()
 
   override this.Disasm () =
-    let builder =
-      DisasmStringBuilder (false, false, WordSize.Bit32, addr, nb)
-    Disasm.disasm null this builder
+    let builder = StringDisasmBuilder (false, null, WordSize.Bit32)
+    Disasm.disasm this builder
     builder.ToString ()
 
-  override this.Decompose (showAddr) =
-    let builder =
-      DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, nb, 8)
-    Disasm.disasm null this builder
-    builder.ToArray ()
+  override this.Decompose builder =
+    Disasm.disasm this builder
+    builder.ToAsmWords ()
 
   override _.IsInlinedAssembly () = false
 

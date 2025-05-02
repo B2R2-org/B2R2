@@ -366,18 +366,18 @@ let inline attachPrefixer insInfo opcode =
     else baseOpcode + formatCompleter cond
   | None, None -> baseOpcode
 
-let inline buildOpcode ins (builder: DisasmBuilder) =
+let inline buildOpcode ins (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode |> attachPrefixer ins
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let inline relToString pc offset (builder: DisasmBuilder) =
+let inline relToString pc offset (builder: IDisasmBuilder) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
 
 let printSpace space =
   space <> Some Register.SR0 && space <> None
 
-let oprToString insInfo opr delim (builder: DisasmBuilder) =
+let oprToString insInfo opr delim (builder: IDisasmBuilder) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
@@ -447,7 +447,7 @@ let buildOprs insInfo builder =
     oprToString insInfo opr4 ", " builder
     oprToString insInfo opr5 ", " builder
 
-let disasm insInfo (builder: DisasmBuilder) =
-  if builder.ShowAddr then builder.AccumulateAddr () else ()
+let disasm insInfo (builder: IDisasmBuilder) =
+  builder.AccumulateAddrMarker insInfo.Address
   buildOpcode insInfo builder
   buildOprs insInfo builder

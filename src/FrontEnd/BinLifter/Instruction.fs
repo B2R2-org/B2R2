@@ -234,23 +234,22 @@ type Instruction (addr, len, wordSize) =
   /// <summary>
   ///   Disassemble this instruction.
   /// </summary>
-  /// <param name="showAddr">
-  ///   Whether to show the instruction address in the resulting disassembly.
-  /// </param>
-  /// <param name="nameReader">
+  /// <param name="builder">
   ///   When this parameter is given, we disassemble the instruction with the
-  ///   given name reader to resolve symbols in the instruction. For example,
-  ///   when there is a call target, the disassembled string will show the
-  ///   target function name if this parameter is given and the corresponding
-  ///   symbol information exists. This parameter can be null.
+  ///   given name builder to disassemble the instruction. It can resolve
+  ///   symbols depending on the implementation of the builder.
   /// </param>
   /// <returns>
   ///   Returns a disassembled string.
   /// </returns>
-  abstract Disasm: showAddr: bool * nameReader: INameReadable -> string
+  abstract Disasm: builder: IDisasmBuilder -> string
 
   /// <summary>
-  ///   Disassemble this instruction without resolving symbols.
+  ///   Disassemble this instruction. This function is a convenience method,
+  ///   which internally creates a default disassembly builder and uses it to
+  ///   disassemble the instruction. Hence, this is not as efficient as the
+  ///   previous method and should be avoided if disassembly performance is a
+  ///   concern.
   /// </summary>
   /// <returns>
   ///   Returns a disassembled string.
@@ -263,7 +262,7 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns an array of AsmWords.
   /// </returns>
-  abstract Decompose: bool -> AsmWord []
+  abstract Decompose: builder: IDisasmBuilder -> AsmWord []
 
   /// <summary>
   ///   Is this a virtual instruction that represents an inlined assembly code?

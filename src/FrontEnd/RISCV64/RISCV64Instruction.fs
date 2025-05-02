@@ -85,23 +85,18 @@ type RISCV64Instruction (addr, numBytes, insInfo) =
   override this.TranslateToList builder =
     (Lifter.translate this.Info numBytes builder).Stream
 
-  override this.Disasm (showAddr, _) =
-    let builder =
-      DisasmStringBuilder (showAddr, false, WordSize.Bit64, addr, numBytes)
+  override this.Disasm builder =
     Disasm.disasm this.Info builder
     builder.ToString ()
 
   override this.Disasm () =
-    let builder =
-      DisasmStringBuilder (false, false, WordSize.Bit64, addr, numBytes)
+    let builder = StringDisasmBuilder (false, null, WordSize.Bit64)
     Disasm.disasm this.Info builder
     builder.ToString ()
 
-  override this.Decompose (showAddr) =
-    let builder =
-      DisasmWordBuilder (showAddr, false, WordSize.Bit64, addr, numBytes, 8)
+  override this.Decompose builder =
     Disasm.disasm this.Info builder
-    builder.ToArray ()
+    builder.ToAsmWords ()
 
   override _.IsInlinedAssembly () = false
 

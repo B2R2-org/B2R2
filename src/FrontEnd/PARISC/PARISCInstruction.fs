@@ -85,23 +85,18 @@ type PARISCInstruction (addr, numBytes, insInfo, wordSize) =
   override _.TranslateToList _ =
     Terminator.futureFeature ()
 
-  override this.Disasm (showAddr, _) =
-    let builder =
-      DisasmStringBuilder (showAddr, false, wordSize, addr, numBytes)
+  override this.Disasm builder =
     Disasm.disasm this.Info builder
     builder.ToString ()
 
   override this.Disasm () =
-    let builder =
-      DisasmStringBuilder (false, false, wordSize, addr, numBytes)
+    let builder = StringDisasmBuilder (false, null, wordSize)
     Disasm.disasm this.Info builder
     builder.ToString ()
 
-  override this.Decompose (showAddr) =
-    let builder =
-      DisasmWordBuilder (showAddr, false, wordSize, addr, numBytes, 8)
+  override this.Decompose builder =
     Disasm.disasm this.Info builder
-    builder.ToArray ()
+    builder.ToAsmWords ()
 
   override _.IsInlinedAssembly () = false
 

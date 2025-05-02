@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -197,7 +198,8 @@ type CFG1Tests () =
     let expected =
       [ (0x00UL, 0x3eUL); (0x3fUL, 0x47UL); (0x48UL, 0x54UL); (0x55UL, 0x5eUL) ]
       |> List.toArray
-    let actual = getDisasmVertexRanges cfg
+    let disasm = StringDisasmBuilder (false, null, hdl.File.ISA.WordSize)
+    let actual = getDisasmVertexRanges disasm cfg
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -205,7 +207,8 @@ type CFG1Tests () =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x62UL].CFG
     let expected = [| (0x62UL, 0x70UL) |]
-    let actual = getDisasmVertexRanges cfg
+    let disasm = StringDisasmBuilder (false, null, hdl.File.ISA.WordSize)
+    let actual = getDisasmVertexRanges disasm cfg
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -213,7 +216,8 @@ type CFG1Tests () =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x71UL].CFG
     let expected = [| (0x71UL, 0x80UL) |]
-    let actual = getDisasmVertexRanges cfg
+    let disasm = StringDisasmBuilder (false, null, hdl.File.ISA.WordSize)
+    let actual = getDisasmVertexRanges disasm cfg
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]

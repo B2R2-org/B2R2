@@ -57,7 +57,7 @@ module Gadget =
     let sb = sb.Append (sprintf "[*] Offset = %x\n" gadget.Offset)
     gadget.Instrs
     |> List.fold (fun (sb: Text.StringBuilder) i ->
-      let disasm = liftingUnit.DisasmInstruction (i, true, false)
+      let disasm = liftingUnit.DisasmInstruction i
       sb.Append(disasm).Append(Environment.NewLine)) sb
     |> fun sb -> sb.ToString ()
 

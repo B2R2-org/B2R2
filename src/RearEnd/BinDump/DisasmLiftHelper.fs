@@ -117,8 +117,8 @@ let printRegularDisasm disasmStr wordSize addr bytes cfg =
   out.PrintRow (false, cfg, [ addrStr; hexStr; disasmStr ])
 
 let regularDisPrinter hdl liftingUnit wordSize showSymbs ptr ins cfg =
-  let disasmStr =
-    (liftingUnit: LiftingUnit).DisasmInstruction (ins, false, showSymbs)
+  (liftingUnit: LiftingUnit).ConfigureDisassembly (false, showSymbs)
+  let disasmStr = liftingUnit.DisasmInstruction (ins=ins)
   let bytes = (hdl: BinHandle).ReadBytes (ptr=ptr, nBytes=int ins.Length)
   printRegularDisasm disasmStr wordSize ptr.Addr bytes cfg
 
@@ -147,8 +147,9 @@ let printColorDisasm words wordSize addr bytes cfg =
   colorout.PrintRow (false, cfg,
     [ [ Green, addrStr ]; [ NoColor, hexStr ]; disasStr ])
 
-let colorDisPrinter (hdl: BinHandle) _ wordSize _ ptr (ins: Instruction) cfg =
-  let words = ins.Decompose (false)
+let colorDisPrinter (hdl: BinHandle) liftingUnit wordSize _ ptr ins cfg =
+  (liftingUnit: LiftingUnit).ConfigureDisassembly false
+  let words = liftingUnit.DecomposeInstruction (ins=ins)
   let bytes = hdl.ReadBytes (ptr=ptr, nBytes=int ins.Length)
   printColorDisasm words wordSize ptr.Addr bytes cfg
 

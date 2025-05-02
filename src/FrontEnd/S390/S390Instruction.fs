@@ -134,24 +134,18 @@ type S390Instruction (addr, numBytes, insInfo, wordSize) =
   override _.TranslateToList _ =
     Terminator.futureFeature ()
 
-  override this.Disasm (showAddr: bool, nameReader: INameReadable) =
-    let resolveSymb = not (isNull nameReader)
-    let builder =
-      DisasmStringBuilder (showAddr, resolveSymb, wordSize, addr, numBytes)
-    Disasm.disasm nameReader this.Info builder
+  override this.Disasm builder =
+    Disasm.disasm this.Info builder
     builder.ToString ()
 
   override this.Disasm () =
-    let builder =
-      DisasmStringBuilder (false, false, wordSize, addr, numBytes)
-    Disasm.disasm null this.Info builder
+    let builder = StringDisasmBuilder (false, null, wordSize)
+    Disasm.disasm this.Info builder
     builder.ToString ()
 
-  override this.Decompose showAddr =
-    let builder =
-      DisasmWordBuilder (showAddr, false, wordSize, addr, numBytes, 8)
-    Disasm.disasm null this.Info builder
-    builder.ToArray ()
+  override this.Decompose builder =
+    Disasm.disasm this.Info builder
+    builder.ToAsmWords ()
 
   override _.IsInlinedAssembly () = false
 
