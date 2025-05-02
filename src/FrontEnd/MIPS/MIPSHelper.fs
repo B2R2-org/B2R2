@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.MIPS.Helper
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.BitData
+open B2R2.FrontEnd.BinLifter.ParsingUtils
 
 let isMIPS32 arch = arch = Architecture.MIPS32
 let isMIPS64 arch = arch = Architecture.MIPS64
@@ -125,29 +125,29 @@ let gprLen = function
   | Architecture.MIPS64 -> 64
   | _ -> Terminator.impossible ()
 
-let num9 b = extract b 15u 7u
+let num9 b = Bits.extract b 15u 7u
 
-let num16 b = extract b 15u 0u
+let num16 b = Bits.extract b 15u 0u
 
-let num26 b = extract b 25u 0u
+let num26 b = Bits.extract b 25u 0u
 
-let getRegFrom2521 b = getRegister (extract b 25u 21u |> byte)
+let getRegFrom2521 b = getRegister (Bits.extract b 25u 21u |> byte)
 
-let getRegFrom2016 b = getRegister (extract b 20u 16u |> byte)
+let getRegFrom2016 b = getRegister (Bits.extract b 20u 16u |> byte)
 
-let getRegFrom1511 b = getRegister (extract b 15u 11u |> byte)
+let getRegFrom1511 b = getRegister (Bits.extract b 15u 11u |> byte)
 
-let getFRegFrom2521 b = getFRegister (extract b 25u 21u |> byte)
+let getFRegFrom2521 b = getFRegister (Bits.extract b 25u 21u |> byte)
 
-let getFRegFrom2016 b = getFRegister (extract b 20u 16u |> byte)
+let getFRegFrom2016 b = getFRegister (Bits.extract b 20u 16u |> byte)
 
-let getFRegFrom2018 b = getFRegister (extract b 20u 18u |> byte)
+let getFRegFrom2018 b = getFRegister (Bits.extract b 20u 18u |> byte)
 
-let getFRegFrom1511 b = getFRegister (extract b 15u 11u |> byte)
+let getFRegFrom1511 b = getFRegister (Bits.extract b 15u 11u |> byte)
 
-let getFRegFrom106 b = getFRegister (extract b 10u 6u |> byte)
+let getFRegFrom106 b = getFRegister (Bits.extract b 10u 6u |> byte)
 
-let getFRegFrom108 b = getFRegister (extract b 10u 8u |> byte)
+let getFRegFrom108 b = getFRegister (Bits.extract b 10u 8u |> byte)
 
 let rs b = getRegFrom2521 b |> OpReg
 
@@ -163,70 +163,72 @@ let fd b = getFRegFrom106 b |> OpReg
 
 let fr b = getFRegFrom2521 b |> OpReg
 
-let cc10 b = extract b 10u 8u |> uint64 |> OpImm
+let cc10 b = Bits.extract b 10u 8u |> uint64 |> OpImm
 
-let cc20 b = extract b 20u 18u |> uint64 |> OpImm
+let cc20 b = Bits.extract b 20u 18u |> uint64 |> OpImm
 
-let sa b = extract b 10u 6u |> uint64 |> OpShiftAmount
+let sa b = Bits.extract b 10u 6u |> uint64 |> OpShiftAmount
 
-let bp b = extract b 7u 6u |> uint64 |> OpImm
+let bp b = Bits.extract b 7u 6u |> uint64 |> OpImm
 
-let bp64 b = extract b 8u 6u |> uint64 |> OpImm
+let bp64 b = Bits.extract b 8u 6u |> uint64 |> OpImm
 
-let hint b = extract b 20u 16u |> uint64 |> OpImm (* FIMXE: hint on page 420 *)
+(* FIMXE: hint on page 420 *)
+let hint b = Bits.extract b 20u 16u |> uint64 |> OpImm
 
-let sel b = extract b 8u 6u |> uint64 |> OpImm (* FIXME: sel on page 432 *)
+(* FIXME: sel on page 432 *)
+let sel b = Bits.extract b 8u 6u |> uint64 |> OpImm
 
 let rel16 b =
-  let off = num16 b |> uint64 <<< 2 |> signExtend 18 64 |> int64
+  let off = num16 b |> uint64 <<< 2 |> Bits.signExtend 18 64 |> int64
   off + 4L |> Relative |> OpAddr
 
 let region b =
   num26 b <<< 2 |> uint64 |> OpImm (* FIXME: PC-region on page 268 *)
 
 let stype b =
-  extract b 10u 6u |> uint64 |> OpImm (* FIXME: SType Field on page 533 *)
+  Bits.extract b 10u 6u |> uint64 |> OpImm (* FIXME: SType Field on page 533 *)
 
 let imm16 b = num16 b |> uint64 |> OpImm
 
-let imm16SignExt b = num16 b |> uint64 |> signExtend 16 64 |> OpImm
+let imm16SignExt b = num16 b |> uint64 |> Bits.signExtend 16 64 |> OpImm
 
 let memBaseOff b num accLength =
-  let offset = num b |> uint64 |> signExtend 16 64 |> int64
+  let offset = num b |> uint64 |> Bits.signExtend 16 64 |> int64
   OpMem (getRegFrom2521 b, Imm offset, accLength)
 
 let memBaseIdx b accLength =
   OpMem (getRegFrom2521 b, Reg (getRegFrom2016 b), accLength)
 
 let posSize b =
-  let msb = extract b 15u 11u
-  let lsb = extract b 10u 6u
+  let msb = Bits.extract b 15u 11u
+  let lsb = Bits.extract b 10u 6u
   lsb |> uint64 |> OpImm, msb + 1u - lsb |> uint64 |> OpImm
 
 let posSize2 b =
-  let msbd = extract b 15u 11u
-  let lsb = extract b 10u 6u
+  let msbd = Bits.extract b 15u 11u
+  let lsb = Bits.extract b 10u 6u
   lsb |> uint64 |> OpImm, msbd + 1u |> uint64 |> OpImm
 
 let posSize3 b =
-  let msbminus32 = extract b 15u 11u
-  let lsb = extract b 10u 6u
+  let msbminus32 = Bits.extract b 15u 11u
+  let lsb = Bits.extract b 10u 6u
   lsb |> uint64 |> OpImm, msbminus32 + 33u - lsb |> uint64 |> OpImm
 
 let posSize4 b =
-  let msbminus32 = extract b 15u 11u
-  let lsbminus32 = extract b 10u 6u
+  let msbminus32 = Bits.extract b 15u 11u
+  let lsbminus32 = Bits.extract b 10u 6u
   let pos = lsbminus32 + 32u
   pos |> uint64 |> OpImm, msbminus32 + 33u - pos |> uint64 |> OpImm
 
 let posSize5 b =
-  let msbdminus32 = extract b 15u 11u
-  let lsb = extract b 10u 6u
+  let msbdminus32 = Bits.extract b 15u 11u
+  let lsb = Bits.extract b 10u 6u
   lsb |> uint64 |> OpImm, msbdminus32 + 33u |> uint64 |> OpImm
 
 let posSize6 b =
-  let msbd = extract b 15u 11u
-  let lsbminus32 = extract b 10u 6u
+  let msbd = Bits.extract b 15u 11u
+  let lsbminus32 = Bits.extract b 10u 6u
   lsbminus32 + 32u |> uint64 |> OpImm, msbd + 1u |> uint64 |> OpImm
 
 let getRel16 b = OneOperand (rel16 b)
@@ -302,7 +304,7 @@ let getRtRsPosSize6 b = let p, s = posSize6 b in FourOperands (rt b, rs b, p, s)
 let getRtFs b = TwoOperands (rt b, fs b)
 
 let getCcOff b =
-  match extract b 20u 18u with
+  match Bits.extract b 20u 18u with
   | 0u -> OneOperand (rel16 b)
   | a -> TwoOperands (a |> uint64 |> OpImm, rel16 b)
 

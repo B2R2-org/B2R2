@@ -26,11 +26,11 @@ module internal B2R2.FrontEnd.MIPS.ParsingMain
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.BitData
+open B2R2.FrontEnd.BinLifter.ParsingUtils
 open B2R2.FrontEnd.MIPS.Helper
 
 let parseNOP binary =
-  match extract binary 10u 6u with
+  match Bits.extract binary 10u 6u with
   | 0u -> Op.NOP, None, None, NoOperand
   | 1u -> Op.SSNOP, None, None, NoOperand
   | 3u -> Op.EHB, None, None, NoOperand
@@ -38,13 +38,14 @@ let parseNOP binary =
   | _ -> raise ParsingFailureException
 
 let parseSLL binary =
-  match extract binary 25u 11u with
+  match Bits.extract binary 25u 11u with
   | 0u -> parseNOP binary
-  | _ when extract binary 25u 21u = 0u -> Op.SLL, None, None, getRdRtSa binary
+  | _ when Bits.extract binary 25u 21u = 0u ->
+    Op.SLL, None, None, getRdRtSa binary
   | _ -> raise ParsingFailureException
 
 let parseJALR binary =
-  match extract binary 15u 11u, pickBit binary 10u with
+  match Bits.extract binary 15u 11u, Bits.pick binary 10u with
   | 0u, 0u -> Op.JR, None, None, getRs binary
   | 31u, 0u -> Op.JALR, None, None, getRs binary
   | 31u, 1u -> Op.JALRHB, None, None, getRs binary
@@ -53,59 +54,59 @@ let parseJALR binary =
   | _ -> raise ParsingFailureException
 
 let parseJR binary =
-  match pickBit binary 10u with
+  match Bits.pick binary 10u with
   | 0u -> Op.JR, None, None, getRs binary
   | _ -> Op.JRHB, None, None, getRs binary
 
 let parseDIVU binary =
-  match extract binary 15u 11u, extract binary 10u 6u with
+  match Bits.extract binary 15u 11u, Bits.extract binary 10u 6u with
   | 0u, 0u -> Op.DIVU, None, None, getRsRt binary
   | _, 0b00010u -> Op.DIVU, None, None, getRdRsRt binary
   | _ -> raise ParsingFailureException
 
 let parseR2CLZ binary =
-  match extract binary 10u 6u with
+  match Bits.extract binary 10u 6u with
   | 0u -> Op.CLZ, None, None, getRdRs binary
   | _ -> raise ParsingFailureException
 
 let parseR6CLZ binary =
-  match extract binary 20u 16u with
+  match Bits.extract binary 20u 16u with
   | 0u -> Op.CLZ, None, None, getRdRs binary
   | _ -> raise ParsingFailureException
 
 let parseMFHI binary =
-  match extract binary 25u 16u, extract binary 10u 6u with
+  match Bits.extract binary 25u 16u, Bits.extract binary 10u 6u with
   | 0u, 0u -> Op.MFHI, None, None, getRd binary
   | _, 1u -> parseR6CLZ binary
   | _ -> raise ParsingFailureException
 
 let parseR2DCLZ binary =
-  match extract binary 10u 6u with
+  match Bits.extract binary 10u 6u with
   | 0u -> Op.DCLZ, None, None, getRdRs binary
   | _ -> raise ParsingFailureException
 
 let parseR6DCLZ binary =
-  match extract binary 20u 16u with
+  match Bits.extract binary 20u 16u with
   | 0u -> Op.DCLZ, None, None, getRdRs binary
   | _ -> raise ParsingFailureException
 
 let parseMFLO binary =
-  match extract binary 25u 16u, extract binary 10u 6u with
+  match Bits.extract binary 25u 16u, Bits.extract binary 10u 6u with
   | 0u, 0u -> Op.MFLO, None, None, getRd binary
   | _, 1u -> parseR6DCLZ binary
   | _ -> raise ParsingFailureException
 
 /// Table A.3 MIPS64 SEPCIAL Opcode Encoding of Function Field
 let parseSPECIAL bin =
-  let b25to21 = extract bin 25u 21u
-  let b20to6 = extract bin 20u 6u
-  let b15to6 = extract bin 15u 6u
-  let b10to6 = extract bin 10u 6u
-  match extract bin 5u 0u with
+  let b25to21 = Bits.extract bin 25u 21u
+  let b20to6 = Bits.extract bin 20u 6u
+  let b15to6 = Bits.extract bin 15u 6u
+  let b10to6 = Bits.extract bin 10u 6u
+  match Bits.extract bin 5u 0u with
   | 0b000000u -> parseSLL bin
   | 0b000001u ->
     if b10to6 = 0u then
-      let ztf = extract bin 17u 16u
+      let ztf = Bits.extract bin 17u 16u
       if ztf = 0b00u then Op.MOVF, None, None, getRdRsCc bin
       elif ztf = 0b01u then Op.MOVT, None, None, getRdRsCc bin
       else raise ParsingFailureException
@@ -139,7 +140,7 @@ let parseSPECIAL bin =
   | 0b001100u -> Op.SYSCALL, None, None, NoOperand
   | 0b001101u -> Op.BREAK, None, None, NoOperand
   | 0b001111u ->
-    if extract bin 25u 11u = 0u then Op.SYNC, None, None, getStype bin
+    if Bits.extract bin 25u 11u = 0u then Op.SYNC, None, None, getStype bin
     else raise ParsingFailureException
   | 0b010000u -> parseMFHI bin
   | 0b010001u ->
@@ -241,13 +242,13 @@ let parseSPECIAL bin =
   | _ -> raise ParsingFailureException
 
 let parseBAL binary =
-  match extract binary 25u 21u with
+  match Bits.extract binary 25u 21u with
   | 0u -> Op.BAL, None, None, getRel16 binary
   | _ -> Op.BGEZAL, None, None, getRsRel16 binary
 
 /// Table A.4 MIPS64 REGIMM Encoding of rt Field
 let parseREGIMM binary =
-  match extract binary 20u 16u with
+  match Bits.extract binary 20u 16u with
   | 0b00000u -> Op.BLTZ, None, None, getRsRel16 binary
   | 0b00001u -> Op.BGEZ, None, None, getRsRel16 binary
   | 0b01100u -> Op.TEQI, None, None, getRsImm16s binary
@@ -257,9 +258,9 @@ let parseREGIMM binary =
 
 /// Table A.5 MIPS64 SEPCIAL2 Encoding of Function Field
 let parseSPECIAL2 bin =
-  let b15to6 = extract bin 15u 6u
-  let b10to6 = extract bin 10u 6u
-  match extract bin 5u 0u with
+  let b15to6 = Bits.extract bin 15u 6u
+  let b10to6 = Bits.extract bin 10u 6u
+  match Bits.extract bin 5u 0u with
   | 0b000000u ->
     if b15to6 = 0u then Op.MADD, None, None, getRsRt bin
     else raise ParsingFailureException
@@ -281,8 +282,8 @@ let parseSPECIAL2 bin =
 
 /// Table A.13 MIPS64 BSHFL and DBSHFL Encoding of sa Field
 let parseBSHFL binary =
-  let b25to21 = extract binary 25u 21u
-  match extract binary 10u 6u with
+  let b25to21 = Bits.extract binary 25u 21u
+  match Bits.extract binary 10u 6u with
   | 0b000000u ->
     if b25to21 = 0u then Op.BITSWAP, None, None, getRdRt binary
     else raise ParsingFailureException
@@ -300,8 +301,8 @@ let parseBSHFL binary =
   | _ -> raise ParsingFailureException
 
 let parseDBSHFL binary =
-  let b25to21 = extract binary 25u 21u
-  match extract binary 10u 6u with
+  let b25to21 = Bits.extract binary 25u 21u
+  match Bits.extract binary 10u 6u with
   | 0b000000u ->
     if b25to21 = 0u then Op.DBITSWAP, None, None, getRdRt binary
     else raise ParsingFailureException
@@ -318,8 +319,8 @@ let parseDBSHFL binary =
 /// Table A.6 MIPS64 SEPCIAL3 Encoding of Function Field for Release of the
 /// Architecture
 let parseSPECIAL3 binary =
-  let b6 = pickBit binary 6u
-  match extract binary 5u 0u with
+  let b6 = Bits.pick binary 6u
+  match Bits.extract binary 5u 0u with
   | 0b000000u -> Op.EXT, None, None, getRtRsPosSize2 binary
   | 0b000001u -> Op.DEXTM, None, None, getRtRsPosSize5 binary
   | 0b000010u -> Op.DEXTU, None, None, getRtRsPosSize6 binary
@@ -346,43 +347,43 @@ let parseSPECIAL3 binary =
     if b6 = 0u then Op.LL, None, None, getRtMemBaseOff9 binary 64<rt>
     else raise ParsingFailureException
   | 0b111011u ->
-    if extract binary 10u 9u = 0u then Op.RDHWR, None, None, getRtRdSel binary
+    if Bits.extract binary 10u 9u = 0u then Op.RDHWR, None, None, getRtRdSel binary
     else raise ParsingFailureException
   | _ -> raise ParsingFailureException
 
 /// The MIPS64 Instruction Set Reference Manual, Revision 6.06
 /// on page 70, 93
 let parseBEQ binary =
-  match extract binary 25u 16u with
+  match Bits.extract binary 25u 16u with
   | 0u -> Op.B, None, None, getRel16 binary
   | _ -> Op.BEQ, None, None, getRsRtRel16 binary
 
 /// The MIPS64 Instruction Set Reference Manual, Revision 6.06
 /// on page 58, 295
 let parseLUIAUI binary =
-  match extract binary 25u 21u with
+  match Bits.extract binary 25u 21u with
   | 0u -> Op.LUI, None, None, getRtImm16 binary
   | _ -> Op.AUI, None, None, getRtRsImm16s binary
 
 /// The MIPS64 Instruction Set Reference Manual, Revision 6.06
 /// on page 89, 94, 105
 let parsePOP06 binary =
-  match extract binary 20u 16u with
+  match Bits.extract binary 20u 16u with
   | 0u -> Op.BLEZ, None, None, getRsRel16 binary
   | _ -> raise ParsingFailureException
 
 /// The MIPS64 Instruction Set Reference Manual, Revision 6.06
 /// on page 89, 94, 105
 let parsePOP07 binary =
-  match extract binary 20u 16u with
+  match Bits.extract binary 20u 16u with
   | 0u -> Op.BGTZ, None, None, getRsRel16 binary
   | _ -> raise ParsingFailureException
 
 /// Table A.18 MIPS64 COP1 Encoding of Function Field When rs=S, Revision 6.06
 let parseCOP1WhenRsS binary =
-  let b20to16 = extract binary 20u 16u
-  let b17to16 = extract binary 17u 16u (* 0:tf *)
-  match extract binary 5u 0u with
+  let b20to16 = Bits.extract binary 20u 16u
+  let b17to16 = Bits.extract binary 17u 16u (* 0:tf *)
+  match Bits.extract binary 5u 0u with
   | 0b000000u -> Op.ADD, None, Some Fmt.S, getFdFsFt binary
   | 0b000001u -> Op.SUB, None, Some Fmt.S, getFdFsFt binary
   | 0b000010u -> Op.MUL, None, Some Fmt.S, getFdFsFt binary
@@ -413,17 +414,17 @@ let parseCOP1WhenRsS binary =
     if b20to16 = 0u then Op.CVTD, None, Some Fmt.S, getFdFs binary
     else raise ParsingFailureException
   | b when b &&& 0b110000u = 0b110000u ->
-    let cc = extract binary 10u 8u
+    let cc = Bits.extract binary 10u 8u
     let oprFn = if cc = 0u then getFsFt else getCcFsFt
-    let cond = getCondition (extract binary 3u 0u) |> Some
+    let cond = getCondition (Bits.extract binary 3u 0u) |> Some
     Op.C, cond, Some Fmt.S, oprFn binary
   | _ -> raise ParsingFailureException
 
 /// Table A.19 MIPS64 COP1 Encoding of Function Field When rs=D, Revision 6.06
 let parseCOP1WhenRsD binary =
-  let b20to16 = extract binary 20u 16u
-  let b17to16 = extract binary 17u 16u (* 0:tf *)
-  match extract binary 5u 0u with
+  let b20to16 = Bits.extract binary 20u 16u
+  let b17to16 = Bits.extract binary 17u 16u (* 0:tf *)
+  match Bits.extract binary 5u 0u with
   | 0b000000u -> Op.ADD, None, Some Fmt.D, getFdFsFt binary
   | 0b000001u -> Op.SUB, None, Some Fmt.D, getFdFsFt binary
   | 0b000010u -> Op.MUL, None, Some Fmt.D, getFdFsFt binary
@@ -454,17 +455,17 @@ let parseCOP1WhenRsD binary =
     if b20to16 = 0u then Op.CVTS, None, Some Fmt.D, getFdFs binary
     else raise ParsingFailureException
   | b when b &&& 0b110000u = 0b110000u ->
-    let cc = extract binary 10u 8u
+    let cc = Bits.extract binary 10u 8u
     let oprFn = if cc = 0u then getFsFt else getCcFsFt
-    let cond = getCondition (extract binary 3u 0u) |> Some
+    let cond = getCondition (Bits.extract binary 3u 0u) |> Some
     Op.C, cond, Some Fmt.D, oprFn binary
   | _ -> raise ParsingFailureException
 
 /// Table A.20 MIPS64 COP1 Encoding of Function Field When rs=W or L,
 /// Revision 6.06
 let parseCOP1WhenRsW binary =
-  let b20to16 = extract binary 20u 16u
-  match extract binary 5u 0u with
+  let b20to16 = Bits.extract binary 20u 16u
+  match Bits.extract binary 5u 0u with
   | 0b100000u ->
     if b20to16 = 0u then Op.CVTS, None, Some Fmt.W, getFdFs binary
     else raise ParsingFailureException
@@ -476,8 +477,8 @@ let parseCOP1WhenRsW binary =
 /// Table A.20 MIPS64 COP1 Encoding of Function Field When rs=W or L,
 /// Revision 6.06
 let parseCOP1WhenRsL binary =
-  let b20to16 = extract binary 20u 16u
-  match extract binary 5u 0u with
+  let b20to16 = Bits.extract binary 20u 16u
+  match Bits.extract binary 5u 0u with
   | 0b100000u ->
     if b20to16 = 0u then Op.CVTS, None, Some Fmt.L, getFdFs binary
     else raise ParsingFailureException
@@ -487,9 +488,9 @@ let parseCOP1WhenRsL binary =
   | _ -> raise ParsingFailureException
 
 let parseCOP1 arch binary =
-  let b10to0 = extract binary 10u 0u
-  let b17to16 = extract binary 17u 16u (* nd:tf *)
-  match extract binary 25u 21u with
+  let b10to0 = Bits.extract binary 10u 0u
+  let b17to16 = Bits.extract binary 17u 16u (* nd:tf *)
+  match Bits.extract binary 25u 21u with
   | 0b00000u ->
     if b10to0 = 0u then Op.MFC1, None, None, getRtFs binary
     else raise ParsingFailureException
@@ -527,14 +528,14 @@ let parseCOP1 arch binary =
 /// Table A.24 MIPS64 COP1X6R1 Encoding of Function Field on page 588,
 /// Revision 6.06.
 let parseCOP1X binary =
-  let b15to11 = extract binary 15u 11u
-  let b10to6 = extract binary 10u 6u
-  match extract binary 5u 0u with
+  let b15to11 = Bits.extract binary 15u 11u
+  let b10to6 = Bits.extract binary 10u 6u
+  match Bits.extract binary 5u 0u with
   | 0b000000u ->
     if b15to11 = 0u then Op.LWXC1, None, None, getFdMemBaseIdx binary 32<rt>
     else raise ParsingFailureException
   | 0b000001u ->
-    let b15to11 = extract binary 15u 11u
+    let b15to11 = Bits.extract binary 15u 11u
     if b15to11 = 0u then Op.LDXC1, None, None, getFdMemBaseIdx binary 64<rt>
     else raise ParsingFailureException
   | 0b001000u ->
@@ -560,7 +561,7 @@ let parseCOP1X binary =
 /// The MIPS64 Instrecutin Set Reference Manual, MD00087, Revision 6.06
 /// Table A.2 MIPS64 Encoding of the Opcode Field
 let parseOpcodeField arch binary wordSize =
-  match extract binary 31u 26u with
+  match Bits.extract binary 31u 26u with
   | 0b000000u -> parseSPECIAL binary
   | 0b000001u -> parseREGIMM binary
   | 0b000010u -> Op.J, None, None, getTarget binary

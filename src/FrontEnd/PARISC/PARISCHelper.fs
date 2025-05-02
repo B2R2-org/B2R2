@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.PARISC.Helper
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.BitData
+open B2R2.FrontEnd.BinLifter.ParsingUtils
 open type Register
 
 let getRegister = function
@@ -490,16 +490,16 @@ let getFloatTestCondition = function
   | _ -> None
 
 let getRegFromRange bin high low =
-  extract bin high low |> uint32 |> getRegister
+  Bits.extract bin high low |> uint32 |> getRegister
 
 let getSRegFromRange bin high low =
-  extract bin high low |> uint32 |> getSRegister
+  Bits.extract bin high low |> uint32 |> getSRegister
 
 let getCRegFromRange bin high low =
-  extract bin high low |> uint32 |> getCRegister
+  Bits.extract bin high low |> uint32 |> getCRegister
 
 let getFRegFromRange bin high low =
-  extract bin high low |> uint32 |> getFRegister
+  Bits.extract bin high low |> uint32 |> getFRegister
 
 let br b = getRegFromRange b 25u 21u
 
@@ -519,23 +519,24 @@ let frs2 b = getFRegFromRange b 25u 21u |> OpReg
 
 let cr b = getCRegFromRange b 25u 21u |> OpReg
 
-let sa b spos size = extract b (spos + size) spos |> uint64 |> OpShiftAmount
+let sa b spos size = Bits.extract b (spos + size) spos |> uint64 |> OpShiftAmount
 
 let cCpos cp cpos = 63u - (cp <<< 5 ||| cpos) |> uint64 |> OpShiftAmount
 
-let pos0to4 b = extract b 4u 0u |> uint64 |> OpImm
+let pos0to4 b = Bits.extract b 4u 0u |> uint64 |> OpImm
 
-let pos5to9 b = extract b 9u 5u |> uint64 |> OpImm
+let pos5to9 b = Bits.extract b 9u 5u |> uint64 |> OpImm
 
-let posP5to9 b = pickBit b 11u <<< 5 ||| extract b 9u 5u |> uint64 |> OpImm
+let posP5to9 b =
+  Bits.pick b 11u <<< 5 ||| Bits.extract b 9u 5u |> uint64 |> OpImm
 
-let pos13to25 b = extract b 25u 13u |> uint64 |> OpImm
+let pos13to25 b = Bits.extract b 25u 13u |> uint64 |> OpImm
 
-let pos16to20 b = extract b 20u 16u |> uint64 |> OpImm
+let pos16to20 b = Bits.extract b 20u 16u |> uint64 |> OpImm
 
-let pos16to25 b = extract b 25u 16u |> uint64 |> OpImm
+let pos16to25 b = Bits.extract b 25u 16u |> uint64 |> OpImm
 
-let pos21to25 b = extract b 25u 21u |> uint64 |> OpImm
+let pos21to25 b = Bits.extract b 25u 21u |> uint64 |> OpImm
 
 let getRs1 b = OneOperand (rs1 b)
 
@@ -564,12 +565,12 @@ let getRs1Cr b = TwoOperands (rs1 b, cr b)
 let getCrRd b = TwoOperands (cr b, rd b)
 
 let getImmediate bin high low =
-  extract bin high low |> uint64
+  Bits.extract bin high low |> uint64
 
 let getImmLowSignExt bin high low wordSz =
-  let imm = extract bin high low |> uint64
+  let imm = Bits.extract bin high low |> uint64
   let extended = (imm >>> 1) - (imm &&& 1UL <<< int (high - low))
-  signExtend (int (high - low + 1u)) (RegType.toBitWidth wordSz) extended
+  Bits.signExtend (int (high - low + 1u)) (RegType.toBitWidth wordSz) extended
   |> int64
 
 let internal signExtend32 originalSize targetSize value =
@@ -582,7 +583,7 @@ let internal signExtend32 originalSize targetSize value =
     ~~~((1UL <<< targetSize) - 1UL) ||| ~~~((1UL <<< originalSize) - 1UL)
     ||| valueMasked
 
-let getImmAssemble3 bin = pickBit bin 13u <<< 2 ||| extract bin 15u 14u
+let getImmAssemble3 bin = Bits.pick bin 13u <<< 2 ||| Bits.extract bin 15u 14u
 
 let srImm3 b = getImmAssemble3 b |> getSRegister
 
@@ -592,22 +593,22 @@ let getImmAssemble6 (x: uint32) (clen: uint32) =
 let getImmAssembleExtDWord cl clen = (cl + 1u) * 32u - clen |> uint64
 
 let getImmAssemble12 bin =
-  let w1 = extract bin 12u 3u
-  let bit10 = pickBit bin 2u
+  let w1 = Bits.extract bin 12u 3u
+  let bit10 = Bits.pick bin 2u
   let imm = w1 ||| (bit10 <<< 10) ||| (bin &&& 0x1u <<< 11) |> uint64
   signExtend32 12 32 imm <<< 2
 
 let getImmAssemble16 bin =
-  let bit0 = pickBit bin 0u
-  let bit13to1 = extract bin 13u 1u
+  let bit0 = Bits.pick bin 0u
+  let bit13to1 = Bits.extract bin 13u 1u
   let imm =
     bit13to1 ||| (bit0 <<< 15) ||| (bit0 <<< 14) ||| (bit0 <<< 13) |> uint64
   signExtend32 16 32 imm |> int64
 
 let getImmAssemble17 bin =
-  let w = extract bin 12u 3u
-  let w2 = pickBit bin 2u <<< 10
-  let w3 = extract bin 20u 16u <<< 11
+  let w = Bits.extract bin 12u 3u
+  let w2 = Bits.pick bin 2u <<< 10
+  let w3 = Bits.extract bin 20u 16u <<< 11
   let w4 = bin &&& 1u <<< 16
   let v = w ||| w2 ||| w3 ||| w4
   signExtend32 17 32 (uint64 v) <<< 2
@@ -615,22 +616,22 @@ let getImmAssemble17 bin =
 let getImmAssemble21 bin =
   let word = bin &&& 0x1FFFFFu
   let word = word <<< 11
-  let w1 = pickBit word 11u
-  let w2 = extract word 22u 12u
-  let w3 = extract word 26u 25u
-  let w4 = extract word 31u 27u
-  let w5 = extract word 24u 23u
+  let w1 = Bits.pick word 11u
+  let w2 = Bits.extract word 22u 12u
+  let w3 = Bits.extract word 26u 25u
+  let w4 = Bits.extract word 31u 27u
+  let w5 = Bits.extract word 24u 23u
   let assemble21 =
     w1 <<< 20 ||| (w2 <<< 9) ||| (w3 <<< 7) ||| (w4 <<< 2) ||| w5 |> uint64
   signExtend32 21 32 assemble21 <<< 11
 
 let getImmAssemble22 bin =
   let imm =
-    extract bin 12u 3u |||
-    (pickBit bin 2u <<< 10) |||
-    (extract bin 20u 16u <<< 11) |||
-    (extract bin 25u 21u <<< 16) |||
-    (pickBit bin 0u <<< 21)
+    Bits.extract bin 12u 3u |||
+    (Bits.pick bin 2u <<< 10) |||
+    (Bits.extract bin 20u 16u <<< 11) |||
+    (Bits.extract bin 25u 21u <<< 16) |||
+    (Bits.pick bin 0u <<< 21)
     |> uint64
   signExtend32 22 32 imm <<< 2
 
@@ -771,6 +772,6 @@ let getFe2Fe1Cbit b cbit =
   ThreeOperands (frs2 b, frs1 b, OpImm cbit)
 
 let getFrs2Frs1FraFrd b =
-  let ra = extract b 15u 13u <<< 2 ||| extract b 10u 9u
+  let ra = Bits.extract b 15u 13u <<< 2 ||| Bits.extract b 10u 9u
   let fra = ra |> getFRegister |> OpReg
   FourOperands (frs2 b, frs1 b, fra, frd b)

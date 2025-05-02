@@ -110,6 +110,7 @@ let inline (--!>) (builder: ILowUIRBuilder) insLen =
   builder.Stream.MarkEnd insLen
   builder
 
+[<RequireQualifiedAccess>]
 module IEEE754Single =
   open B2R2.BinIR.LowUIR.AST.InfixOp
 
@@ -142,6 +143,7 @@ module IEEE754Single =
     let mask = numU32 0x7fffffffu 32<rt>
     AST.eq (x .& mask) (AST.num0 32<rt>)
 
+[<RequireQualifiedAccess>]
 module IEEE754Double =
   open B2R2.BinIR.LowUIR.AST.InfixOp
 

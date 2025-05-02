@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.TMS320C6000.ParsingMain
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.BitData
+open B2R2.FrontEnd.BinLifter.ParsingUtils
 
 /// Table 3-1. Instruction Operation and Execution Notations.
 type OperandType =
@@ -248,8 +248,8 @@ let private parseAddrMode unit offset mode baseR =
   | _ -> Terminator.impossible ()
 
 let private parseMem oprVal unit =
-  parseReg (extract oprVal 13u 9u) false unit (* Base register *)
-  |> parseAddrMode unit (extract oprVal 8u 4u) (extract oprVal 3u 0u)
+  parseReg (Bits.extract oprVal 13u 9u) false unit (* Base register *)
+  |> parseAddrMode unit (Bits.extract oprVal 8u 4u) (Bits.extract oprVal 3u 0u)
   |> OprMem
 
 let private assertEvenNumber v =
@@ -260,16 +260,16 @@ let private assertEvenNumber v =
 
 let getSide sBit = if sBit = 0b0u then SideA else SideB
 
-let private xBit bin = pickBit bin 12u
-let private yBit bin = pickBit bin 7u
-let private sBit bin = pickBit bin 1u
-let private pBit bin = pickBit bin 0u
+let private xBit bin = Bits.pick bin 12u
+let private yBit bin = Bits.pick bin 7u
+let private sBit bin = Bits.pick bin 1u
+let private pBit bin = Bits.pick bin 0u
 
-let private isSrc1Zero bin = extract bin 17u 13u = 0u
-let private isSrc111111 bin = extract bin 17u 13u = 0b11111u
-let private isSrc100010 bin = extract bin 17u 13u = 0b000010u
+let private isSrc1Zero bin = Bits.extract bin 17u 13u = 0u
+let private isSrc111111 bin = Bits.extract bin 17u 13u = 0b11111u
+let private isSrc100010 bin = Bits.extract bin 17u 13u = 0b000010u
 let private isEqualSrc1Src2 bin =
-  xBit bin = 0u && extract bin 22u 18u = extract bin 17u 13u
+  xBit bin = 0u && Bits.extract bin 22u 18u = Bits.extract bin 17u 13u
 
 let private parseRegPair v unit isCPath =
   let high, low = if v &&& 0b1u = 0b0u then v + 1u, v else v, v - 1u
@@ -309,951 +309,951 @@ let private parseFourOprs unit o1 o2 o3 o4 =
 
 /// scst21
 let private parseSc21 bin opcode unit =
-  let o = OperandInfo (extract bin 27u 7u, SConst)
+  let o = OperandInfo (Bits.extract bin 27u 7u, SConst)
   struct (opcode, unit, parseOneOpr unit o)
 
 /// xuint
 let private parseXUi bin opcode unit =
-  let o = OperandInfo (extract bin 22u 18u, XUInt)
+  let o = OperandInfo (Bits.extract bin 22u 18u, XUInt)
   struct (opcode, unit, parseOneOpr unit o)
 
 /// ucst4 (NOP)
 let private parseUc4 bin opcode unit =
-  let o = OperandInfo (extract bin 16u 13u + 1u, UConst)
+  let o = OperandInfo (Bits.extract bin 16u 13u + 1u, UConst)
   struct (opcode, unit, parseOneOpr unit o)
 
 /// slong
 let private parseSl bin opcode unit =
-  let o = OperandInfo (extract bin 27u 23u, SLong)
+  let o = OperandInfo (Bits.extract bin 27u 23u, SLong)
   struct (opcode, unit, parseOneOpr unit o)
 
 /// sint
 let private parseSi bin opcode unit =
-  let o = OperandInfo (extract bin 27u 23u, SInt)
+  let o = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseOneOpr unit o)
 
 /// xsint, sint
 let private parseXSiSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o2 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// slong, slong
 let private parseSlSl bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, SLong)
-  let o2 = OperandInfo (extract bin 27u 23u, SLong)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, SLong)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SLong)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// dp, dp
 let private parseXDpDp bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XDP)
-  let o2 = OperandInfo (extract bin 27u 23u, DP)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XDP)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, DP)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xsp, sp
 let private parseXSpSp bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XSP)
-  let o2 = OperandInfo (extract bin 27u 23u, SP)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XSP)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SP)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// scst16, uint
 let private parseSc16Ui bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 7u, SConst)
-  let o2 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 7u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// dp, sint
 let private parseDpSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, DP)
-  let o2 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, DP)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// dp, sp
 let private parseDpSp bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, DP)
-  let o2 = OperandInfo (extract bin 27u 23u, SP)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, DP)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SP)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xsint, dp
 let private parseXSiDp bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o2 = OperandInfo (extract bin 27u 23u, DP)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, DP)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xuint, dp
 let private parseXUiDp bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o2 = OperandInfo (extract bin 27u 23u, DP)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, DP)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xsint, sp
 let private parseXSiSp bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o2 = OperandInfo (extract bin 27u 23u, SP)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SP)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xuint, sp
 let private parseXUiSp bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o2 = OperandInfo (extract bin 27u 23u, SP)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SP)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xs2, s2
 let private parseXs2S2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XS2)
-  let o2 = OperandInfo (extract bin 27u 23u, S2)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, S2)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// scst10, int
 let private parseSc10Int bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 13u, SConst)
-  let o2 = OperandInfo (extract bin 27u 23u, Int)
+  let o1 = OperandInfo (Bits.extract bin 22u 13u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, Int)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xu4, u4
 let private parseXU4U4 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XU4)
-  let o2 = OperandInfo (extract bin 27u 23u, U4)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XU4)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, U4)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xuint, uint
 let private parseXUiUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o2 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// scst12, ucst3
 let private parseSc12Uc3 bin opcode unit =
-  let o1 = OperandInfo (extract bin 27u 16u, SConst)
-  let o2 = OperandInfo (extract bin 15u 13u, UConst)
+  let o1 = OperandInfo (Bits.extract bin 27u 16u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 15u 13u, UConst)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xuint, ucst3
 let private parseXUiUc3 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o2 = OperandInfo (extract bin 15u 13u, UConst)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o2 = OperandInfo (Bits.extract bin 15u 13u, UConst)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// sint, sint
 let private parseSiSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, SInt)
-  let o2 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, SInt)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xint, int
 let private parseXiInt bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XInt)
-  let o2 = OperandInfo (extract bin 27u 23u, Int)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XInt)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, Int)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// scst16, sint
 let private parseSc16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 7u, SConst)
-  let o2 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 7u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// scst5 (22-18), sint
 let private parseSc5Si1 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, SConst)
-  let o2 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// scst5 (17-13), sint
 let private parseSc5Si2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SConst)
-  let o2 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xsint, uint
 let private parseXSiUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o2 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// slong, uint
 let private parseSlUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, SLong)
-  let o2 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, SLong)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// dp, dp
 let private parseDpDp bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, DP)
-  let o2 = OperandInfo (extract bin 27u 23u, DP)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, DP)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, DP)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// slong, sint
 let private parseSlSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, SLong)
-  let o2 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, SLong)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xsp, dp
 let private parseXSpDp bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XSP)
-  let o2 = OperandInfo (extract bin 27u 23u, DP)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XSP)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, DP)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xsp, sint
 let private parseXSpSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XSP)
-  let o2 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XSP)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xu4, u2
 let private parseXU4U2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XU4)
-  let o2 = OperandInfo (extract bin 27u 23u, U2)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XU4)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, U2)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// s2, s2
 let private parseS2S2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, S2)
-  let o2 = OperandInfo (extract bin 27u 23u, S2)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, S2)
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, S2)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// uscst16, sint
 let private parseUSc16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 7u, UConst) // FIXME
-  let o2 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 7u, UConst) // FIXME
+  let o2 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// sint, xsint, sint
 let private parseSiXSiSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SInt)
-  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, xsint, slong
 let private parseSiXSiSl bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SInt)
-  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SLong)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SLong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsint, slong, slong
 let private parseXSiSlSl bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, XSInt)
-  let o2 = OperandInfo (extract bin 22u 18u, SLong)
-  let o3 = OperandInfo (extract bin 27u 23u, SLong)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, XSInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, SLong)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SLong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, xsint, sint
 let private parseSc5XSiSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SConst)
-  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, slong, slong
 let private parseSc5SlSl bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SConst)
-  let o2 = OperandInfo (extract bin 22u 18u, SLong)
-  let o3 = OperandInfo (extract bin 27u 23u, SLong)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, SLong)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SLong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, sint, sint
 let private parseSiSiSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, SInt)
-  let o2 = OperandInfo (extract bin 17u 13u, SInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, SInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, SInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, ucst5, sint
 let private parseSiUc5Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, SInt)
-  let o2 = OperandInfo (extract bin 17u 13u, UConst)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, SInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sp, xsp, sp
 let parseSpXSpSp bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SP)
-  let o2 = OperandInfo (extract bin 22u 18u, XSP)
-  let o3 = OperandInfo (extract bin 27u 23u, SP)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SP)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSP)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SP)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// dp, xdp, dp
 let parseDpXDpDp bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, DP)
-  let o2 = OperandInfo (extract bin 22u 18u, XDP)
-  let o3 = OperandInfo (extract bin 27u 23u, DP)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, DP)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XDP)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DP)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// uint, xuint, ulong
 let parseUiXUiUl bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, UInt)
-  let o2 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o3 = OperandInfo (extract bin 27u 23u, ULong)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, ULong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xuint, ulong, ulong
 let parseXUiUlUl bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, XUInt)
-  let o2 = OperandInfo (extract bin 22u 18u, ULong)
-  let o3 = OperandInfo (extract bin 27u 23u, ULong)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, XUInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, ULong)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, ULong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// uint, xuint, uint
 let parseUiXUiUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, UInt)
-  let o2 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, xuint, uint
 let parseSc5XUiUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SConst)
-  let o2 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xuint, uint, uint
 let parseXUiUiUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o2 = OperandInfo (extract bin 17u 13u, UInt)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, xsint, uint
 let parseSiXSiUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SInt)
-  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, xsint, uint
 let parseSc5XSiUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SConst)
-  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsint, slong, uint
 let parseXSiSlUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, XSInt)
-  let o2 = OperandInfo (extract bin 22u 18u, SLong)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, XSInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, SLong)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, slong, uint
 let parseSc5SlUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SConst)
-  let o2 = OperandInfo (extract bin 22u 18u, SLong)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, SLong)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// dp, xdp, sint
 let parseDpXDpSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, DP)
-  let o2 = OperandInfo (extract bin 22u 18u, XDP)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, DP)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XDP)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sp, xsp, sint
 let parseSpXSpSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SP)
-  let o2 = OperandInfo (extract bin 22u 18u, XSP)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SP)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSP)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ucst4, xuint, uint
 let parseUc4XUiUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, UConst)
-  let o2 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xuint, ulong, uint
 let parseXUiUlUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, XUInt)
-  let o2 = OperandInfo (extract bin 22u 18u, ULong)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, XUInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, ULong)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ucst4, ulong, uint
 let parseUc4UlUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, UConst)
-  let o2 = OperandInfo (extract bin 22u 18u, ULong)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, ULong)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsint, uint, sint
 let parseXSiUiSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o2 = OperandInfo (extract bin 17u 13u, UInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// cst5, xuint, uint
 let parseC5XUiUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, Const)
-  let o2 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, Const)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// slsb16, xslsb16, sint
 let parseSlsb16XSlsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SLsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XSLsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SLsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSLsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, xslsb16, sint
 let parseSc5XSlsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SConst)
-  let o2 = OperandInfo (extract bin 22u 18u, XSLsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSLsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst7, ucst3, uint
 let parseSc7Uc3Ui bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 16u, SConst)
-  let o2 = OperandInfo (extract bin 15u 13u, UConst)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 16u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 15u 13u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, xsint, dint
 let parseSiXSiDi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SInt)
-  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o3 = OperandInfo (extract bin 27u 23u, DInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// i4, xi4, i4
 let parseI4Xi4I4 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, I4)
-  let o2 = OperandInfo (extract bin 22u 18u, XI4)
-  let o3 = OperandInfo (extract bin 27u 23u, I4)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, I4)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XI4)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, I4)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// B14/B15, ucst15, sint
 let parseB14B15Uc15Si bin opcode unit =
-  let o1 = OperandInfo (pickBit bin 7u, B14B15)
-  let o2 = OperandInfo (extract bin 22u 8u, UConst)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.pick bin 7u, B14B15)
+  let o2 = OperandInfo (Bits.extract bin 22u 8u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// i2, xi2, i2
 let parseI2Xi2I2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, I2)
-  let o2 = OperandInfo (extract bin 22u 18u, XI2)
-  let o3 = OperandInfo (extract bin 27u 23u, I2)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, I2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XI2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, I2)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s2, xs2, s2
 let parseS2XS2S2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S2)
-  let o2 = OperandInfo (extract bin 22u 18u, XS2)
-  let o3 = OperandInfo (extract bin 27u 23u, S2)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, S2)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// u4, xu4, u4
 let parseU4XU4U4 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, U4)
-  let o2 = OperandInfo (extract bin 22u 18u, XU4)
-  let o3 = OperandInfo (extract bin 27u 23u, U4)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, U4)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XU4)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, U4)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s2, xs2, bv2
 let parseS2XS2Bv2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S2)
-  let o2 = OperandInfo (extract bin 22u 18u, XS2)
-  let o3 = OperandInfo (extract bin 27u 23u, BVec2)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, BVec2)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s4, xs4, bv4
 let parseS4XS4Bv4 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S4)
-  let o2 = OperandInfo (extract bin 22u 18u, XS4)
-  let o3 = OperandInfo (extract bin 27u 23u, BVec4)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S4)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS4)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, BVec4)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// u4, xu4, bv4
 let parseU4XU4Bv4 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, U4)
-  let o2 = OperandInfo (extract bin 22u 18u, XU4)
-  let o3 = OperandInfo (extract bin 27u 23u, BVec4)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, U4)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XU4)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, BVec4)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s2, xs2, dint
 let parseS2XS2Di bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S2)
-  let o2 = OperandInfo (extract bin 22u 18u, XS2)
-  let o3 = OperandInfo (extract bin 27u 23u, DInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s2, xs4, dint
 let parseS2XS4Di bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S2)
-  let o2 = OperandInfo (extract bin 22u 18u, XS4)
-  let o3 = OperandInfo (extract bin 27u 23u, DInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS4)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ds2, xs2, dint
 let parseDS2XS2Di bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, DS2)
-  let o2 = OperandInfo (extract bin 22u 18u, XS2)
-  let o3 = OperandInfo (extract bin 27u 23u, DInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, DS2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ds2, xs2, s2
 let parseDS2XS2S2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, DS2)
-  let o2 = OperandInfo (extract bin 22u 18u, XS2)
-  let o3 = OperandInfo (extract bin 27u 23u, S2)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, DS2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, S2)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s2, xs2, int
 let parseS2XS2Int bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S2)
-  let o2 = OperandInfo (extract bin 22u 18u, XS2)
-  let o3 = OperandInfo (extract bin 27u 23u, Int)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, Int)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s2, xs2, sllong
 let parseS2XS2Sll bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S2)
-  let o2 = OperandInfo (extract bin 22u 18u, XS2)
-  let o3 = OperandInfo (extract bin 27u 23u, SLLong)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SLLong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s2, xu2, int
 let parseS2XU2Int bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S2)
-  let o2 = OperandInfo (extract bin 22u 18u, XU2)
-  let o3 = OperandInfo (extract bin 27u 23u, Int)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XU2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, Int)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s4, xu4, int
 let parseS4XU4Int bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S4)
-  let o2 = OperandInfo (extract bin 22u 18u, XU4)
-  let o3 = OperandInfo (extract bin 27u 23u, Int)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S4)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XU4)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, Int)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// u4, xu4, uint
 let parseU4XU4Ui bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, U4)
-  let o2 = OperandInfo (extract bin 22u 18u, XU4)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, U4)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XU4)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// uint, uint, uint
 let parseUiUiUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, UInt)
-  let o2 = OperandInfo (extract bin 22u 18u, UInt)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, UInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// smsb16, xsmsb16, sint
 let parseSmsb16XSmsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SMsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XSMsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SMsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSMsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// int, xint, sllong
 let parseIntXiSll bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, Int)
-  let o2 = OperandInfo (extract bin 22u 18u, XInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SLLong)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, Int)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SLLong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// int, xint, int
 let parseIntXiInt bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, Int)
-  let o2 = OperandInfo (extract bin 22u 18u, XInt)
-  let o3 = OperandInfo (extract bin 27u 23u, Int)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, Int)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, Int)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// smsb16, xslsb16, sint
 let parseSmsb16XSlsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SMsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XSLsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SMsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSLsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// umsb16, xulsb16, uint
 let parseUmsb16XUlsb16Ui bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, UMsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XULsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, UMsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XULsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// smsb16, xulsb16, sint
 let parseSmsb16XUlsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SMsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XULsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SMsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XULsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// smsb16, xumsb16, sint
 let parseSmsb16XUmsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SMsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XUMsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SMsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XUMsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// umsb16, xumsb16, uint
 let parseUmsb16XUmsb16Ui bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, UMsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XUMsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, UMsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XUMsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// umsb16, xslsb16, sint
 let parseUmsb16XSlsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, UMsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XSLsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, UMsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSLsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// umsb16, xsmsb16, sint
 let parseUmsb16XSmsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, UMsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XSMsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, UMsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSMsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// cst5, xsint, sint
 let parseC5XSiSi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, Const)
-  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, Const)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, xsint, sdint
 let parseSiXSiSDi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SInt)
-  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SDInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SDInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// cst5, xsint, sdint
 let parseC5XSiSDi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, Const)
-  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SDInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, Const)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SDInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// slsb16, xsmsb16, sint
 let parseSlsb16XSmsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SLsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XSMsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SLsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSMsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ulsb16, xumsb16, uint
 let parseUlsb16XUmsb16Ui bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, ULsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XUMsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, ULsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XUMsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// slsb16, xumsb16, sint
 let parseSlsb16XUmsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SLsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XUMsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SLsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XUMsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ulsb16, xsmsb16, sint
 let parseUlsb16XSmsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, ULsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XSMsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, ULsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSMsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sp, xdp, dp
 let parseSpXDpDp bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SP)
-  let o2 = OperandInfo (extract bin 22u 18u, XDP)
-  let o3 = OperandInfo (extract bin 27u 23u, DP)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SP)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XDP)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DP)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sp, xsp, dp
 let parseSpXSpDp bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SP)
-  let o2 = OperandInfo (extract bin 22u 18u, XSP)
-  let o3 = OperandInfo (extract bin 27u 23u, DP)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SP)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSP)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DP)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// slsb16, xulsb16, sint
 let parseSlsb16XUlsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SLsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XULsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SLsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XULsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, xulsb16, sint
 let parseSc5XUlsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SConst)
-  let o2 = OperandInfo (extract bin 22u 18u, XULsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SConst)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XULsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s4, xu4, dws4
 let parseS4XU4DWS4 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S4)
-  let o2 = OperandInfo (extract bin 22u 18u, XU4)
-  let o3 = OperandInfo (extract bin 27u 23u, DWS4)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S4)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XU4)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DWS4)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ulsb16, xulsb16, uint
 let parseUlsb16XUlsb16Ui bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, ULsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XULsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, ULsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XULsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// u4, xu4, dwu4
 let parseU4XU4DWU4 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, U4)
-  let o2 = OperandInfo (extract bin 22u 18u, XU4)
-  let o3 = OperandInfo (extract bin 27u 23u, DWU4)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, U4)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XU4)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DWU4)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ulsb16, xslsb16, sint
 let parseUlsb16XSlsb16Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, ULsb16)
-  let o2 = OperandInfo (extract bin 22u 18u, XSLsb16)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, ULsb16)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSLsb16)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s2, xs2, ullong
 let parseS2XS2Ull bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S2)
-  let o2 = OperandInfo (extract bin 22u 18u, XS2)
-  let o3 = OperandInfo (extract bin 27u 23u, ULLong)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, ULLong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// int, xint, dint
 let parseIntXiDi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, Int)
-  let o2 = OperandInfo (extract bin 22u 18u, XInt)
-  let o3 = OperandInfo (extract bin 27u 23u, DInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, Int)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// int, xuint, dint
 let parseIntXUiDi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, Int)
-  let o2 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o3 = OperandInfo (extract bin 27u 23u, DInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, Int)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// uint, xuint, duint
 let parseUiXUiDUi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, UInt)
-  let o2 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o3 = OperandInfo (extract bin 27u 23u, DUInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DUInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// uint, xint, dint
 let parseUiXiDi bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, UInt)
-  let o2 = OperandInfo (extract bin 22u 18u, XInt)
-  let o3 = OperandInfo (extract bin 27u 23u, DInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xuint, ucst5, uint
 let parseXUiUc5Ui bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o2 = OperandInfo (extract bin 17u 13u, UConst)
-  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, xsint, s2
 let parseSiXSiS2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, SInt)
-  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o3 = OperandInfo (extract bin 27u 23u, S2)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, SInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, S2)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// u2, xs2, u2
 let parseU2XS2U2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, U2)
-  let o2 = OperandInfo (extract bin 22u 18u, XS2)
-  let o3 = OperandInfo (extract bin 27u 23u, U2)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, U2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, U2)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// slong, uint, slong
 let parseSlUiSl bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, SLong)
-  let o2 = OperandInfo (extract bin 17u 13u, UInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SLong)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, SLong)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SLong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xuint, uint, ulong
 let parseXUiUiUl1 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, XUInt)
-  let o2 = OperandInfo (extract bin 22u 18u, UInt)
-  let o3 = OperandInfo (extract bin 27u 23u, ULong)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, XUInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, UInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, ULong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xuint, uint, ulong
 let parseXUiUiUl2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o2 = OperandInfo (extract bin 17u 13u, UInt)
-  let o3 = OperandInfo (extract bin 27u 23u, ULong)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, ULong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsint, ucst5, sint
 let parseXSiUc5Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o2 = OperandInfo (extract bin 17u 13u, UConst)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// slong, ucst5, slong
 let parseSlUc5Sl bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, SLong)
-  let o2 = OperandInfo (extract bin 17u 13u, UConst)
-  let o3 = OperandInfo (extract bin 27u 23u, SLong)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, SLong)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SLong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xuint, ucst5, ulong
 let parseXUiUc5Ul bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XUInt)
-  let o2 = OperandInfo (extract bin 17u 13u, UConst)
-  let o3 = OperandInfo (extract bin 27u 23u, ULong)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XUInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, ULong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xs2, uint, s2
 let parseXS2UiS2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XS2)
-  let o2 = OperandInfo (extract bin 17u 13u, UInt)
-  let o3 = OperandInfo (extract bin 27u 23u, S2)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, S2)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xs2, ucst5, s2
 let parseXS2Uc5S2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XS2)
-  let o2 = OperandInfo (extract bin 17u 13u, UConst)
-  let o3 = OperandInfo (extract bin 27u 23u, S2)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, S2)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ulong, uint, ulong
 let parseUlUiUl bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, ULong)
-  let o2 = OperandInfo (extract bin 17u 13u, UInt)
-  let o3 = OperandInfo (extract bin 27u 23u, ULong)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, ULong)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, ULong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ulong, ucst5, ulong
 let parseUlUc5Ul bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, ULong)
-  let o2 = OperandInfo (extract bin 17u 13u, UConst)
-  let o3 = OperandInfo (extract bin 27u 23u, ULong)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, ULong)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, ULong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xu2, uint, u2
 let parseXU2UiU2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XU2)
-  let o2 = OperandInfo (extract bin 17u 13u, UInt)
-  let o3 = OperandInfo (extract bin 27u 23u, U2)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XU2)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, U2)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xu2, ucst5, u2
 let parseXU2Uc5U2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XU2)
-  let o2 = OperandInfo (extract bin 17u 13u, UConst)
-  let o3 = OperandInfo (extract bin 27u 23u, U2)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XU2)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, U2)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// int, xint, s2
 let parseIntXiS2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, Int)
-  let o2 = OperandInfo (extract bin 22u 18u, XInt)
-  let o3 = OperandInfo (extract bin 27u 23u, S2)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, Int)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, S2)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// s2, xs2, u4
 let parseS2XS2U4 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, S2)
-  let o2 = OperandInfo (extract bin 22u 18u, XS2)
-  let o3 = OperandInfo (extract bin 27u 23u, U4)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, S2)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, XS2)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, U4)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsint, sint, sint
 let parseXSiSiSi1 bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, XSInt)
-  let o2 = OperandInfo (extract bin 22u 18u, SInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, XSInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, SInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsint, sint, sint
 let parseXSiSiSi2 bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XSInt)
-  let o2 = OperandInfo (extract bin 17u 13u, SInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XSInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, SInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xint, int, int
 let parseXiIntInt bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, XInt)
-  let o2 = OperandInfo (extract bin 17u 13u, Int)
-  let o3 = OperandInfo (extract bin 27u 23u, Int)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, XInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, Int)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, Int)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsint, sint, slong
 let parseXSiSiSl bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, XSInt)
-  let o2 = OperandInfo (extract bin 22u 18u, SInt)
-  let o3 = OperandInfo (extract bin 27u 23u, SLong)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, XSInt)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, SInt)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SLong)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xdp, dp, dp
 let parseXDpDpDp bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, XDP)
-  let o2 = OperandInfo (extract bin 22u 18u, DP)
-  let o3 = OperandInfo (extract bin 27u 23u, DP)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, XDP)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, DP)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, DP)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsp, sp, sp
 let parseXSpSpSp bin opcode unit =
-  let o1 = OperandInfo (extract bin 17u 13u, XSP)
-  let o2 = OperandInfo (extract bin 22u 18u, SP)
-  let o3 = OperandInfo (extract bin 27u 23u, SP)
+  let o1 = OperandInfo (Bits.extract bin 17u 13u, XSP)
+  let o2 = OperandInfo (Bits.extract bin 22u 18u, SP)
+  let o3 = OperandInfo (Bits.extract bin 27u 23u, SP)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// unit, ucst5, ucst5, uint
 let parseUiUc5Uc5Ui bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, UInt)
-  let o2 = OperandInfo (extract bin 17u 13u, UConst)
-  let o3 = OperandInfo (extract bin 12u 8u, UConst)
-  let o4 = OperandInfo (extract bin 27u 23u, UInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, UInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 12u 8u, UConst)
+  let o4 = OperandInfo (Bits.extract bin 27u 23u, UInt)
   struct (opcode, unit, parseFourOprs unit o1 o2 o3 o4)
 
 /// snit, ucst5, ucst5, sint
 let parseSiUc5Uc5Si bin opcode unit =
-  let o1 = OperandInfo (extract bin 22u 18u, SInt)
-  let o2 = OperandInfo (extract bin 17u 13u, UConst)
-  let o3 = OperandInfo (extract bin 12u 8u, UConst)
-  let o4 = OperandInfo (extract bin 27u 23u, SInt)
+  let o1 = OperandInfo (Bits.extract bin 22u 18u, SInt)
+  let o2 = OperandInfo (Bits.extract bin 17u 13u, UConst)
+  let o3 = OperandInfo (Bits.extract bin 12u 8u, UConst)
+  let o4 = OperandInfo (Bits.extract bin 27u 23u, SInt)
   struct (opcode, unit, parseFourOprs unit o1 o2 o3 o4)
 
 /// mem [offsetR/ucst5]
 let parseDUnitLSBasicOperands bin opcode unit order =
-  let mem = parseMem (extract bin 22u 9u) unit
+  let mem = parseMem (Bits.extract bin 22u 9u) unit
   let reg =
-    parseRegBySide (extract bin 27u 23u) (getSide (sBit bin)) |> OpReg
+    parseRegBySide (Bits.extract bin 27u 23u) (getSide (sBit bin)) |> OpReg
   struct (opcode, unit, buildMemOperand reg mem order)
 
 /// mem [ucst15]
 let parseDUnitLSLongImmOperands bin opcode unit order =
   let baseReg = getB14orB15 (yBit bin)
   let mem =
-    OprMem (baseReg, PositiveOffset, UCst15 (uint64 (extract bin 22u 8u)))
+    OprMem (baseReg, PositiveOffset, UCst15 (uint64 (Bits.extract bin 22u 8u)))
   let reg =
-    parseRegBySide (extract bin 27u 23u) (getSide (sBit bin)) |> OpReg
+    parseRegBySide (Bits.extract bin 27u 23u) (getSide (sBit bin)) |> OpReg
   struct (opcode, unit, buildMemOperand reg mem order)
 
 /// mem, regPair
 let parseDUnitDWordOperands bin opcode unit order =
-  let mem = parseMem (extract bin 22u 9u) unit
-  let v = extract bin 27u 23u
+  let mem = parseMem (Bits.extract bin 22u 9u) unit
+  let v = Bits.extract bin 27u 23u
   let regPair =
     let high, low = if v &&& 0b1u = 0b0u then v + 1u, v else v, v - 1u
     let side = getSide (sBit bin)
@@ -1300,14 +1300,14 @@ let getCtrlReg crHi crLo =
 
 /// Control Register to Register
 let parseCtrlRegToReg bin opcode unit =
-  let o1 = getCtrlReg (extract bin 17u 13u) (extract bin 22u 18u) |> OpReg
-  let o2 = translateOperand unit (OperandInfo (extract bin 27u 23u, UInt))
+  let o1 = getCtrlReg (Bits.extract bin 17u 13u) (Bits.extract bin 22u 18u) |> OpReg
+  let o2 = translateOperand unit (OperandInfo (Bits.extract bin 27u 23u, UInt))
   struct (opcode, unit, TwoOperands (o1, o2))
 
 /// Register to Control Register
 let parseRegToCtrlReg bin opcode unit =
-  let o1 = translateOperand unit (OperandInfo (extract bin 22u 18u, XUInt))
-  let o2 = getCtrlReg (extract bin 17u 13u) (extract bin 27u 23u) |> OpReg
+  let o1 = translateOperand unit (OperandInfo (Bits.extract bin 22u 18u, XUInt))
+  let o2 = getCtrlReg (Bits.extract bin 17u 13u) (Bits.extract bin 27u 23u) |> OpReg
   struct (opcode, unit, TwoOperands (o1, o2))
 
 let private getDUnit s x =
@@ -1320,7 +1320,7 @@ let private getDUnit s x =
 /// Appendix C. page 724. Fig. C-1
 let private parseDUnitSrcs bin =
   let unit = getDUnit (sBit bin) 0u
-  match extract bin 12u 7u with
+  match Bits.extract bin 12u 7u with
   | 0b000000u -> parseSc5Si2 bin Op.MVK unit
   | 0b010000u -> parseSiSiSi bin Op.ADD unit
   | 0b010001u -> parseSiSiSi bin Op.SUB unit
@@ -1346,7 +1346,7 @@ let private parseDUnitSrcs bin =
 /// Appendix C. page 724. Fig. C-2
 let private parseDUnitSrcsExt bin =
   let unit = getDUnit (sBit bin) (xBit bin)
-  match extract bin 9u 6u with
+  match Bits.extract bin 9u 6u with
   | 0b0000u -> parseUiXUiUi bin Op.ANDN unit
   | 0b0010u -> parseUiXUiUi bin Op.OR unit
   | 0b0011u when isSrc1Zero bin -> parseXUiUi bin Op.MV unit
@@ -1366,7 +1366,7 @@ let private parseDUnitSrcsExt bin =
 /// Appendix C. page 724. Fig. C-3
 let private parseDUnitADDLongImm bin =
   let unit = getDUnit (sBit bin) 0u
-  match extract bin 6u 4u with
+  match Bits.extract bin 6u 4u with
   | 0b011u -> parseB14B15Uc15Si bin Op.ADDAB unit
   | 0b101u -> parseB14B15Uc15Si bin Op.ADDAH unit
   | 0b111u -> parseB14B15Uc15Si bin Op.ADDAW unit
@@ -1375,7 +1375,7 @@ let private parseDUnitADDLongImm bin =
 /// Appendix C. page 724. Fig. C-4
 let private parseDUnitLSBasic bin =
   let unit = getDUnit (yBit bin) 0u
-  match extract bin 6u 4u with
+  match Bits.extract bin 6u 4u with
   | 0b000u -> parseDUnitLSBasicOperands bin Op.LDHU unit MemReg
   | 0b001u -> parseDUnitLSBasicOperands bin Op.LDBU unit MemReg
   | 0b010u -> parseDUnitLSBasicOperands bin Op.LDB unit MemReg
@@ -1388,7 +1388,7 @@ let private parseDUnitLSBasic bin =
 
 /// Appendix C. page 724. Fig. C-5
 let private parseDUnitLSLongImm bin =
-  match extract bin 6u 4u with
+  match Bits.extract bin 6u 4u with
   | 0b000u -> parseDUnitLSLongImmOperands bin Op.LDHU D2Unit MemReg
   | 0b001u -> parseDUnitLSLongImmOperands bin Op.LDBU D2Unit MemReg
   | 0b010u -> parseDUnitLSLongImmOperands bin Op.LDB D2Unit MemReg
@@ -1426,7 +1426,7 @@ let private parseLUnitSrcs bin = struct (Op.InvalOP, NoUnit, NoOperand)
 /// Appendix D. page 735. Fig. D-2
 let private parseLUnitUnary bin =
   let unit = getLUnit (sBit bin) (xBit bin)
-  match extract bin 17u 13u with
+  match Bits.extract bin 17u 13u with
   | 0b00000u -> parseXSiSi bin Op.ABS unit
   | 0b00001u -> parseXU4U4 bin Op.SWAP4 unit
   | 0b00010u -> parseXU4U2 bin Op.UNPKLU4 unit
@@ -1448,7 +1448,7 @@ let private getMUnit s x =
 /// Appendix E. page 743. Fig. E-1
 let private parseMUnitCompound bin =
   let unit = getMUnit (sBit bin) (xBit bin)
-  match extract bin 10u 6u with
+  match Bits.extract bin 10u 6u with
   | 0b00000u -> parseS2XS2Ull bin Op.MPY2 unit
   | 0b00001u -> parseS2XS2Sll bin Op.SMPY2 unit
   | 0b00010u -> parseS4XU4Int bin Op.DOTPSU4 unit (* DOTPUS4 *)
@@ -1480,7 +1480,7 @@ let private parseMUnitCompound bin =
 /// Appendix E. page 743. Fig. E-2
 let private parseMUnitUnaryExt bin =
   let unit = getMUnit (sBit bin) (xBit bin)
-  match extract bin 17u 13u with
+  match Bits.extract bin 17u 13u with
   | 0b11010u -> parseXiInt bin Op.MVD unit
   | 0b11000u -> parseXUiUi bin Op.XPND4 unit
   | 0b11001u -> parseXUiUi bin Op.XPND2 unit
@@ -1493,7 +1493,7 @@ let private parseMUnitUnaryExt bin =
 /// Appendix E. page 743. Fig. E-3
 let private parseMUnitNonCond bin =
   let unit = getMUnit (sBit bin) (xBit bin)
-  match extract bin 10u 6u with
+  match Bits.extract bin 10u 6u with
   | 0b01010u -> parseS2XS2Di bin Op.CMPY unit
   | 0b01011u -> parseS2XS2S2 bin Op.CMPYR unit
   | 0b01100u -> parseS2XS2S2 bin Op.CMPYR1 unit
@@ -1511,7 +1511,7 @@ let private parseMUnitNonCond bin =
 /// Appendix E. page 743. Fig. E-4
 let private parseMUnitMPY bin =
   let unit = getMUnit (sBit bin) (xBit bin)
-  match extract bin 11u 7u with
+  match Bits.extract bin 11u 7u with
   | 0b00001u -> parseSmsb16XSmsb16Si bin Op.MPYH unit
   | 0b00010u -> parseSmsb16XSmsb16Si bin Op.SMPYH unit
   | 0b00011u -> parseSmsb16XUmsb16Si bin Op.MPYHSU unit
@@ -1548,7 +1548,7 @@ let private parseMUnitMPY bin =
 /// Appendix F. page 747. Fig. F-1
 let private parseSUnitSrcs bin =
   let unit = getSUnit (sBit bin) (xBit bin)
-  match extract bin 11u 6u with
+  match Bits.extract bin 11u 6u with
   | 0b000001u -> parseI2Xi2I2 bin Op.ADD2 unit
   | 0b000010u -> parseXSpDp bin Op.SPDP unit
   | 0b000110u when isSrc1Zero bin -> parseXSiSi bin Op.MV unit
@@ -1624,7 +1624,7 @@ let private parseSUnitADDKPC bin =
 /// Appendix F. page 748. Fig. F-5
 let private parseSUnitSrcsExt bin =
   let unit = getSUnit (sBit bin) (xBit bin)
-  match extract bin 9u 6u with
+  match Bits.extract bin 9u 6u with
   | 0b0000u -> parseS2XS2S2 bin Op.SADD2 unit
   | 0b0001u -> parseU2XS2U2 bin Op.SADDUS2 unit (* SADDSU2 *)
   | 0b0010u -> parseIntXiS2 bin Op.SPACK2 unit
@@ -1656,7 +1656,7 @@ let private parseSUnitBrPointer bin = struct (Op.InvalOP, NoUnit, NoOperand)
 /// Appendix F. page 748. Fig. F-9
 let private parseSUnitBdecBpos bin =
   let unit = getSUnit (sBit bin) 0u
-  match pickBit bin 12u with
+  match Bits.pick bin 12u with
   | 0b1u -> parseSc10Int bin Op.BDEC unit
   | _ (* 0b0u *) -> parseSc10Int bin Op.BPOS unit
 
@@ -1674,21 +1674,21 @@ let private parseSUnitNonCondImm bin =
 
 /// Appendix F. page 749. Fig. F-13
 let private parseSUnitMoveConst bin =
-  match pickBit bin 6u with
+  match Bits.pick bin 6u with
   | 0b0u -> parseSc16Si bin Op.MVK (getSUnit (sBit bin) 0u)
   | _ (* 0b01 *) -> parseUSc16Si bin Op.MVKH (getSUnit (sBit bin) 0u) // FIXME
 
 /// Appendix F. page 749. Fig. F-14
 let private parseSUnitNonCond bin =
   let unit = getSUnit (sBit bin) (xBit bin)
-  match extract bin 9u 6u with
+  match Bits.extract bin 9u 6u with
   | 0b1011u -> parseSiXSiS2 bin Op.RPACK2 unit
   | _ -> Terminator.impossible ()
 
 /// Appendix F. page 749. Fig. F-15
 let private parseSUnitUnary bin =
   let unit = getSUnit (sBit bin) (xBit bin)
-  match extract bin 17u 13u with
+  match Bits.extract bin 17u 13u with
   | 0b00000u -> parseXSpSp bin Op.ABSSP unit
   | 0b00010u -> parseXU4U2 bin Op.UNPKLU4 unit
   | 0b00011u -> parseXU4U2 bin Op.UNPKHU4 unit
@@ -1696,7 +1696,7 @@ let private parseSUnitUnary bin =
 
 /// Appendix F. page 749. Fig. F-16
 let private parseSUnitFieldOps bin =
-  match extract bin 7u 6u with
+  match Bits.extract bin 7u 6u with
   | 0b00u -> parseUiUc5Uc5Ui bin Op.EXTU (getSUnit (sBit bin) 0u)
   | 0b01u -> parseSiUc5Uc5Si bin Op.EXT (getSUnit (sBit bin) 0u)
   | 0b10u -> parseUiUc5Uc5Ui bin Op.SET (getSUnit (sBit bin) 0u)
@@ -1705,7 +1705,7 @@ let private parseSUnitFieldOps bin =
 
 /// Appendix H. page 765. Fig. H-1
 let private parseNoUnitDINT bin =
-  match extract bin 16u 13u with
+  match Bits.extract bin 16u 13u with
   | 0b0000u -> struct (Op.SWE, NoUnit, NoOperand)
   | 0b0001u -> struct (Op.SWENR, NoUnit, NoOperand)
   | 0b0010u -> struct (Op.DINT, NoUnit, NoOperand)
@@ -1714,7 +1714,7 @@ let private parseNoUnitDINT bin =
 
 /// Appendix H. page 765. Fig. H-2
 let private parseNoUnitIdleNop bin =
-  match extract bin 16u 13u with
+  match Bits.extract bin 16u 13u with
   | 0b1111u -> struct (Op.IDLE, NoUnit, NoOperand)
   | _ -> parseUc4 bin Op.NOP NoUnit
 
@@ -1725,48 +1725,48 @@ let private parseNoUnitLoopNonCond bin = struct (Op.InvalOP, NoUnit, NoOperand)
 let private parseNoUnitLoop bin = struct (Op.InvalOP, NoUnit, NoOperand)
 
 let private parseNoUnitCase0 bin =
-  match extract bin 31u 28u with
+  match Bits.extract bin 31u 28u with
   | 0b0000u -> parseNoUnitIdleNop bin
   | 0b0001u -> parseNoUnitDINT bin
   | _ -> Terminator.impossible ()
 
 let private parseNoUnitCase1 bin =
-  match extract bin 31u 28u with
+  match Bits.extract bin 31u 28u with
   | 0b0000u -> parseNoUnitLoopNonCond bin
   | _ -> parseNoUnitLoop bin
 
 let private parseNoUnit bin =
-  match pickBit bin 17u with
+  match Bits.pick bin 17u with
   | 0b0u -> parseNoUnitCase0 bin
   | _ (* 0b1u *) -> parseNoUnitCase1 bin
 
 let private parseCase00000 bin =
-  match extract bin 12u 7u with
+  match Bits.extract bin 12u 7u with
   | 0b000000u -> parseNoUnit bin
   | _ -> parseMUnitMPY bin
 
 let private parseCase0000 bin =
-  match pickBit bin 6u with
+  match Bits.pick bin 6u with
   | 0b1u -> parseDUnitSrcs bin
   | _ (* 0b0u *) -> parseCase00000 bin
 
 let private parseCase00100 bin =
-  match extract bin 31u 28u with
+  match Bits.extract bin 31u 28u with
   | 0b0001u -> parseSUnitNonCondImm bin
   | _ -> parseSUnitBrDisp bin
 
 let private parseCase0100 bin =
-  match pickBit bin 6u with
+  match Bits.pick bin 6u with
   | 0b0u -> parseCase00100 bin
   | _ (* 0b1u *) -> parseSUnitADDK bin
 
 let private parseSUnitBrReg bin =
-  match pickBit bin 23u with
+  match Bits.pick bin 23u with
   | 0b0u -> parseSUnitBrRegWithoutNOP bin
   | _ (* 0b1u *) -> parseSUnitBrRegNOP bin
 
 let private parseCase1000 bin =
-  match extract bin 11u 6u with
+  match Bits.extract bin 11u 6u with
   | 0b000000u -> parseSUnitBdecBpos bin
   | 0b000011u -> parseSUnitBrPointer bin
   | 0b000100u -> parseSUnitBrDispNOP bin
@@ -1776,46 +1776,46 @@ let private parseCase1000 bin =
   | _ -> parseSUnitSrcs bin
 
 let parseMUnitSub bin =
-  match extract bin 31u 28u with
+  match Bits.extract bin 31u 28u with
   | 0b0001u -> parseMUnitNonCond bin
   | _ -> parseMUnitCompound bin
 
 let private parseMUnit bin =
-  match extract bin 10u 6u with
+  match Bits.extract bin 10u 6u with
   | 0b00011u -> parseMUnitUnaryExt bin
   | _ -> parseMUnitSub bin
 
 let parseCase111100 bin =
-  match extract bin 31u 28u with
+  match Bits.extract bin 31u 28u with
   | 0b0001u -> parseSUnitNonCond bin
   | _ -> parseSUnitSrcsExt bin
 
 let private parseCase11100 bin =
-  match pickBit bin 10u with
+  match Bits.pick bin 10u with
   | 0b0u -> parseDUnitSrcsExt bin
   | _ (* 0b1u *) -> parseCase111100 bin
 
 let private parseCase1100 bin =
-  match pickBit bin 11u with
+  match Bits.pick bin 11u with
   | 0b0u -> parseMUnit bin
   | _ (* 0b1u *) -> parseCase11100 bin
 
 let private parseCase00 bin =
-  match extract bin 5u 4u with
+  match Bits.extract bin 5u 4u with
   | 0b00u -> parseCase0000 bin
   | 0b01u -> parseCase0100 bin
   | 0b10u -> parseCase1000 bin
   | _ (* 0b11 *) -> parseCase1100 bin
 
 let private parseCase010 bin =
-  match pickBit bin 5u with
+  match Bits.pick bin 5u with
   | 0b0u -> parseSUnitFieldOps bin
   | _ (* 0b1u *) -> parseSUnitMoveConst bin
 
 let private parseCase110 bin =
   let x, s = xBit bin, sBit bin
-  let creg = extract bin 31u 29u
-  match extract bin 11u 5u with
+  let creg = Bits.extract bin 31u 29u
+  match Bits.extract bin 11u 5u with
   | 0b0011010u -> parseLUnitUnary bin
   (* parseLUnitNonCond, D-3 *)
   | 0b0001110u when creg = 0b0001u ->
@@ -1938,13 +1938,13 @@ let private parseCase110 bin =
   | _ -> Terminator.impossible ()
 
 let private parseCase10 bin =
-  match pickBit bin 4u with
+  match Bits.pick bin 4u with
   | 0b0u -> parseCase010 bin
   | _ (* 0b1u *) -> parseCase110 bin
 
 let private parseDUnitDWord bin =
   let unit = getDUnit (yBit bin) 0u
-  match extract bin 6u 4u with
+  match Bits.extract bin 6u 4u with
   (* parseDUnitLSBasic, C-4. Exceptional case. *)
   | 0b011u -> parseDUnitLSBasicOperands bin Op.LDNW unit MemReg
   | 0b101u -> parseDUnitLSBasicOperands bin Op.STNW unit RegMem
@@ -1957,17 +1957,17 @@ let private parseDUnitDWord bin =
   | _ -> Terminator.impossible ()
 
 let private parseDUnitLoadStore bin =
-  match pickBit bin 8u with
+  match Bits.pick bin 8u with
   | 0b1u -> parseDUnitDWord bin
   | _ (* 0b0u *) -> parseDUnitLSBasic bin
 
 let private parseDUnitLongImm bin =
-  match extract bin 31u 28u with
+  match Bits.extract bin 31u 28u with
   | 0b0001u -> parseDUnitADDLongImm bin
   | _ -> parseDUnitLSLongImm bin
 
 let private parseInstruction bin =
-  match extract bin 3u 2u with
+  match Bits.extract bin 3u 2u with
   | 0b00u -> parseCase00 bin
   | 0b10u -> parseCase10 bin
   | 0b01u -> parseDUnitLoadStore bin

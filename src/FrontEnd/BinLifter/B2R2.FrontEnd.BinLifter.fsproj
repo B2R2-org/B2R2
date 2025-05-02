@@ -23,7 +23,7 @@
     <Compile Include="AsmWordDisasmBuilder.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="IInstructionParsable.fs" />
-    <Compile Include="BitData.fs" />
+    <Compile Include="ParsingUtils.fs" />
     <Compile Include="LiftingUtils.fs" />
     <Compile Include="ConstantFolding.fs" />
     <Compile Include="DeadCodeElimination.fs" />

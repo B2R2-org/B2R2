@@ -26,7 +26,7 @@ module B2R2.FrontEnd.RISCV64.Helper
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.BitData
+open B2R2.FrontEnd.BinLifter.ParsingUtils
 
 let getRm = function
   | 0u -> RoundMode.RNE
@@ -129,51 +129,51 @@ let getFCompRegister = function
   | 0x7uy -> Register.F15
   | _ -> Terminator.impossible ()
 
-let getRegFrom117 b = getRegister (extract b 11u 7u |> byte)
-let getFRegFrom117 b = getFRegister (extract b 11u 7u |> byte)
-let getRegFrom1915 b = getRegister (extract b 19u 15u |> byte)
-let getFRegFrom1915 b = getFRegister (extract b 19u 15u |> byte)
-let getRegFrom2420 b = getRegister (extract b 24u 20u |> byte)
-let getFRegFrom2420 b = getFRegister (extract b 24u 20u |> byte)
-let getRegFrom3127 b = getRegister (extract b 31u 27u |> byte)
-let getFRegFrom3127 b = getFRegister (extract b 31u 27u |> byte)
-let getRegFrom62 b = getRegister (extract b 6u 2u |> byte)
-let getFRegFrom62 b = getFRegister (extract b 6u 2u |> byte)
-let getCompRegFrom42 b = getCompRegister (extract b 4u 2u |> byte)
-let getFCompRegFrom42 b = getFCompRegister (extract b 4u 2u |> byte)
-let getCompRegFrom97 b = getCompRegister (extract b 9u 7u |> byte)
+let getRegFrom117 b = getRegister (Bits.extract b 11u 7u |> byte)
+let getFRegFrom117 b = getFRegister (Bits.extract b 11u 7u |> byte)
+let getRegFrom1915 b = getRegister (Bits.extract b 19u 15u |> byte)
+let getFRegFrom1915 b = getFRegister (Bits.extract b 19u 15u |> byte)
+let getRegFrom2420 b = getRegister (Bits.extract b 24u 20u |> byte)
+let getFRegFrom2420 b = getFRegister (Bits.extract b 24u 20u |> byte)
+let getRegFrom3127 b = getRegister (Bits.extract b 31u 27u |> byte)
+let getFRegFrom3127 b = getFRegister (Bits.extract b 31u 27u |> byte)
+let getRegFrom62 b = getRegister (Bits.extract b 6u 2u |> byte)
+let getFRegFrom62 b = getFRegister (Bits.extract b 6u 2u |> byte)
+let getCompRegFrom42 b = getCompRegister (Bits.extract b 4u 2u |> byte)
+let getFCompRegFrom42 b = getFCompRegister (Bits.extract b 4u 2u |> byte)
+let getCompRegFrom97 b = getCompRegister (Bits.extract b 9u 7u |> byte)
 
 let getUImm b wordSize =
-  let imm = extract b 31u 12u |> uint64
-  signExtend 20 wordSize imm
+  let imm = Bits.extract b 31u 12u |> uint64
+  Bits.signExtend 20 wordSize imm
 
 let getBImm b wordSize =
-  let from4to1 = (extract b 11u 8u) <<< 1
-  let from10to5 = (extract b 30u 25u) <<< 5
-  let from11to11 = (pickBit b 7u) <<< 11
-  let from12to12 = (pickBit b 31u) <<< 12
+  let from4to1 = (Bits.extract b 11u 8u) <<< 1
+  let from10to5 = (Bits.extract b 30u 25u) <<< 5
+  let from11to11 = (Bits.pick b 7u) <<< 11
+  let from12to12 = (Bits.pick b 31u) <<< 12
   let imm = from12to12 ||| from11to11 ||| from10to5 ||| from4to1 ||| 0b0u
             |> uint64
-  signExtend 13 wordSize imm
+  Bits.signExtend 13 wordSize imm
 
 let getIImm b wordSize =
-  let imm = extract b 31u 20u |> uint64
-  signExtend 12 wordSize imm
+  let imm = Bits.extract b 31u 20u |> uint64
+  Bits.signExtend 12 wordSize imm
 
 let getSImm b wordSize =
-  let from4to0 = extract b 11u 7u
-  let from11to5 = extract b 31u 25u <<< 5
+  let from4to0 = Bits.extract b 11u 7u
+  let from11to5 = Bits.extract b 31u 25u <<< 5
   let imm = from11to5 ||| from4to0 |> uint64
-  signExtend 12 wordSize imm
+  Bits.signExtend 12 wordSize imm
 
 let getJImm bin wordSize =
-  let from10to1 = (extract bin 30u 21u) <<< 1
-  let from11to11 = (pickBit bin 20u) <<< 11
-  let from19to12 = (extract bin 19u 12u) <<< 12
-  let from20to20 = (pickBit bin 31u) <<< 20
+  let from10to1 = (Bits.extract bin 30u 21u) <<< 1
+  let from11to11 = (Bits.pick bin 20u) <<< 11
+  let from19to12 = (Bits.extract bin 19u 12u) <<< 12
+  let from20to20 = (Bits.pick bin 31u) <<< 20
   let imm = 0b0u ||| from10to1 ||| from11to11 ||| from19to12 ||| from20to20
             |> uint64
-  signExtend 21 wordSize imm |> int64
+  Bits.signExtend 21 wordSize imm |> int64
 
 let rd b = getRegFrom117 b |> OpReg
 let frd b = getFRegFrom117 b |> OpReg
@@ -183,10 +183,10 @@ let rs2 b = getRegFrom2420 b |> OpReg
 let frs2 b = getFRegFrom2420 b |> OpReg
 let rs3 b = getRegFrom3127 b |> OpReg
 let frs3 b = getFRegFrom3127 b |> OpReg
-let rm b = getRm (extract b 14u 12u) |> OpRoundMode
-let csr b = extract b 31u 20u |> uint16 |> OpCSR
-let uimm b = extract b 19u 15u |> uint64 |> OpImm
-let shamt b = extract b 25u 20u |> uint64 |> OpShiftAmount
+let rm b = getRm (Bits.extract b 14u 12u) |> OpRoundMode
+let csr b = Bits.extract b 31u 20u |> uint16 |> OpCSR
+let uimm b = Bits.extract b 19u 15u |> uint64 |> OpImm
+let shamt b = Bits.extract b 25u 20u |> uint64 |> OpShiftAmount
 let crd b = getRegFrom117 b |> OpReg
 let cfrd b = getFRegFrom117 b |> OpReg
 let crs2 b = getRegFrom62 b |> OpReg
@@ -197,9 +197,9 @@ let crdComp b = getCompRegFrom42 b |> OpReg
 let cfrdComp b = getFCompRegFrom42 b |> OpReg
 let crs1Comp b = getCompRegFrom97 b |> OpReg
 
-let getPred bin = extract bin 27u 24u |> uint8
-let getSucc bin = extract bin 23u 20u |> uint8
-let getAqRl bin = OpAtomMemOper(pickBit bin 26u > 0u, pickBit bin 25u > 0u)
+let getPred bin = Bits.extract bin 27u 24u |> uint8
+let getSucc bin = Bits.extract bin 23u 20u |> uint8
+let getAqRl bin = OpAtomMemOper(Bits.pick bin 26u > 0u, Bits.pick bin 25u > 0u)
 let getRdImm20 b wordSz = TwoOperands (rd b, getUImm b wordSz |> OpImm)
 let getPCRdImm20 b wordSz = TwoOperands (rd b, getUImm b wordSz |> OpImm)
 let getRs1Rs2BImm b wordSz =
@@ -223,9 +223,9 @@ let getRdRs1Rs2 b = ThreeOperands(rd b, rs1 b, rs2 b)
 let getFRdRs1Rs2 b = ThreeOperands(frd b, frs1 b, frs2 b)
 let getFNRdRs1Rs2 b = ThreeOperands(rd b, frs1 b, frs2 b)
 let getPredSucc b = OneOperand ((getPred b, getSucc b) |> OpFenceMask)
-let getFunc3 b = extract b 14u 12u
-let getFunc7 b = extract b 31u 25u
-let getRs2 b = extract b 24u 20u
+let getFunc3 b = Bits.extract b 14u 12u
+let getFunc7 b = Bits.extract b 31u 25u
+let getRs2 b = Bits.extract b 24u 20u
 let getRdRs1AqRlAcc b acc =
   ThreeOperands (rd b, OpMem (getRegFrom1915 b, None, acc), getAqRl b)
 let getRdRs1Rs2AqRlAcc b acc =

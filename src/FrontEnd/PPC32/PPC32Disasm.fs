@@ -26,7 +26,7 @@ module B2R2.FrontEnd.PPC32.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.BitData
+open B2R2.FrontEnd.BinLifter.ParsingUtils
 open B2R2.FrontEnd.PPC32.OperandHelper
 
 let opCodeToString = function
@@ -501,7 +501,7 @@ let inline relToString pc offset (builder: IDisasmBuilder) =
   builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
 
 let inline getCond bi =
-  match extract bi 1u 0u with
+  match Bits.extract bi 1u 0u with
   | 0b00u -> Condition.LT
   | 0b01u -> Condition.GT
   | 0b10u -> Condition.EQ
@@ -525,7 +525,7 @@ let oprToString insInfo opr delim (builder: IDisasmBuilder) =
     builder.Accumulate AsmWordKind.String delim
     relToString insInfo.Address addr builder
   | OprBI imm ->
-    let cr = extract imm 4u 2u |> getCondRegister
+    let cr = Bits.extract imm 4u 2u |> getCondRegister
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (HexString.ofUInt32 4u)
     builder.Accumulate AsmWordKind.String " * "
@@ -558,7 +558,7 @@ let buildOprs insInfo builder =
     oprToString insInfo opr5 ", " builder
 
 let buildSimpleMnemonic opcode bi addr insInfo (builder: IDisasmBuilder) =
-  let cr = extract bi 4u 2u |> getCondRegister
+  let cr = Bits.extract bi 4u 2u |> getCondRegister
   builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
   builder.Accumulate AsmWordKind.String " "
   builder.Accumulate AsmWordKind.Variable (Register.toString cr)
@@ -566,7 +566,7 @@ let buildSimpleMnemonic opcode bi addr insInfo (builder: IDisasmBuilder) =
   relToString insInfo.Address addr builder
 
 let buildCrMnemonic opcode bi (builder: IDisasmBuilder) =
-  let cr = extract bi 4u 2u |> getCondRegister
+  let cr = Bits.extract bi 4u 2u |> getCondRegister
   builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
   builder.Accumulate AsmWordKind.String " "
   builder.Accumulate AsmWordKind.Variable (Register.toString cr)
