@@ -41,8 +41,6 @@ type CFGBuildingContext<'FnCtx,
   FunctionAddress: Addr
   /// Function name.
   FunctionName: string
-  /// Function operation mode (for ARM Thumb).
-  FunctionMode: ArchOperationMode
   /// The binary handle.
   BinHandle: BinHandle
   /// The exception information of the binary.
@@ -113,8 +111,8 @@ with
   /// returns a sequence of divided edges created by discovering new basic
   /// blocks. By discovering new basic blocks, existing blocks can be divided
   /// into multiple blocks.
-  member this.ScanBBLs mode entryPoints =
-    this.BBLFactory.ScanBBLs (mode, entryPoints)
+  member this.ScanBBLs entryPoints =
+    this.BBLFactory.ScanBBLs entryPoints
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
@@ -192,7 +190,7 @@ with
       | None -> None
 
   member private this.AddOrIgnore acc gapStart gapEnd =
-    match this.ScanBBLs this.FunctionMode [ gapStart ] with
+    match this.ScanBBLs [ gapStart ] with
     | Ok _dividedEdges ->
       let bbl = this.BBLFactory.Find <| ProgramPoint (gapStart, 0)
       if bbl.Internals.Range.Max > gapEnd then acc
@@ -246,7 +244,6 @@ and [<AllowNullLiteral>]
   abstract AddDependency:
        caller: Addr
      * callee: Addr
-     * ArchOperationMode
     -> BuildingCtxMsg<'FnCtx, 'GlCtx>
 
   /// Get the non-returning status of a function located at `addr`.

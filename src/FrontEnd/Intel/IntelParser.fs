@@ -566,5 +566,3 @@ type IntelParser (wordSz, reader) =
       oneByteParsers[int (rhlp.ReadByte span)].Run (span, rhlp) :> Instruction
 
     member _.MaxInstructionSize = 15
-
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

@@ -945,18 +945,16 @@ module OperandParsingHelper =
 type [<AbstractClass>] OperandParser () =
   abstract Render: uint32 -> struct (Operands * bool * bool option * RegType)
 
-and ParsingHelper (arch, mode, reader, addr, oprs, len, cond, isAdd) =
-  let isARMv7 = (arch = Architecture.ARMv7)
-  let mutable mode: ArchOperationMode = mode
+and ParsingHelper (arch, isThumb, reader, addr, oprs, len, cond, isAdd) =
+  let mutable isThumb: bool = isThumb
   let mutable addr: Addr = addr
   let mutable len: uint32 = len
   let mutable cond: Condition = cond
   let mutable isAdd: bool = isAdd
+  let isARMv7 = arch = Architecture.ARMv7
   new (arch, reader, oparsers) =
-    ParsingHelper (arch, ArchOperationMode.ARMMode,
-                   reader, 0UL, oparsers, 0u, Condition.UN, true)
-  member _.Arch with get(): Architecture = arch
-  member _.Mode with get() = mode and set (m) = mode <- m
+    ParsingHelper (arch, false, reader, 0UL, oparsers, 0u, Condition.UN, true)
+  member _.IsThumb with get() = isThumb and set v = isThumb <- v
   member _.BinReader with get(): IBinReader = reader
   member _.InsAddr with get() = addr and set(a) = addr <- a
   member _.OprParsers with get(): OperandParser [] = oprs

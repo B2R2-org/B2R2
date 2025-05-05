@@ -44,5 +44,3 @@ type PARISCParser (isa: ISA, reader) =
       ParsingMain.parse span reader arch wordSize addr :> Instruction
 
     member _.MaxInstructionSize = 4
-
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

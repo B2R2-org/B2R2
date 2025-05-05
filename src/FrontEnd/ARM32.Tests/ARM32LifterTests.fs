@@ -51,18 +51,18 @@ type ARM32LifterTests () =
   let ( ++ ) (byteStr: string) givenStmts =
     ByteArray.ofHexString byteStr, givenStmts
 
-  let test mode (bytes: byte[]) (givenStmts: Stmt[]) =
-    let parser = ARM32Parser (isa, mode, reader) :> IInstructionParsable
+  let test isThumb (bytes: byte[]) (givenStmts: Stmt[]) =
+    let parser = ARM32Parser (isa, isThumb, reader) :> IInstructionParsable
     let builder = ILowUIRBuilder.Default (isa, regFactory, LowUIRStream ())
     let ins = parser.Parse (bytes, 0UL)
     let liftInstr = ins.Translate builder
     CollectionAssert.AreEqual (givenStmts, unwrapStmts liftInstr)
 
   let testARM (bytes: byte[], givenStmts: Stmt[]) =
-    test ArchOperationMode.ARMMode bytes givenStmts
+    test false bytes givenStmts
 
   let testThumb (bytes: byte[], givenStmts: Stmt[]) =
-    test ArchOperationMode.ThumbMode bytes givenStmts
+    test true bytes givenStmts
 
   [<TestMethod>]
   member _.``[ARMv7] ADD (shifted register) lift test`` () =

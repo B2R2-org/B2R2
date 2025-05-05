@@ -43,10 +43,9 @@ open type Register
 [<TestClass>]
 type ARMThumbParserTests () =
   let test c op (wback: bool) q (s: SIMDDataTypes option) (oprs: Operands) bs =
-    let mode = ArchOperationMode.ThumbMode
     let isa = ISA.Init Architecture.ARMv7 Endian.Big
     let reader = BinReader.Init Endian.Big
-    let parser = ARM32Parser (isa, mode, reader) :> IInstructionParsable
+    let parser = ARM32Parser (isa, true, reader) :> IInstructionParsable
     let ins = parser.Parse (bs=bs, addr=0UL) :?> ARM32Instruction
     let cond' = ins.Condition
     let opcode' = ins.Opcode

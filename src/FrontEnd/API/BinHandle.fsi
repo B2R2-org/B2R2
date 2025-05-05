@@ -28,43 +28,36 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
-/// The main handle for reading/parsing a binary code. `BinHandle` essentially
-/// provides an interface for a chunk of binary code for parsing instructions,
-/// lifting instructions, or reading data from it.
+/// <summary>
+/// Represents the main data structure for accessing a chunk of binary code. We
+/// can read data/metadata, parse instructions, and lift instructions from
+/// binaries using this.
+/// </summary>
 type BinHandle =
-  /// Construct a BinHandle from a given file path, ISA, optional base
-  /// address (baseAddrOpt), and ArchOperationMode. File format will be
-  /// automatically detected.
+  /// Construct a BinHandle from a given file path, ISA, optional base address
+  /// (baseAddrOpt). File format will be automatically detected from the file.
   new: path: string
      * isa: ISA
-     * mode: ArchOperationMode
      * baseAddrOpt: Addr option
     -> BinHandle
 
-  /// Construct a BinHandle from a given file path, ISA, and optional base
-  /// address (baseAddrOpt). ArchOperationMode is set to NoMode.
-  new: path: string * isa: ISA * baseAddrOpt: Addr option -> BinHandle
-
-  /// Construct a BinHandle from a given file path and ISA. ArchOperationMode
-  /// is set to NoMode.
+  /// Construct a BinHandle from a given file path and ISA.
   new: path: string * isa: ISA -> BinHandle
 
   /// Construct a BinHandle from a given file path. ISA is set to
-  /// `ISA.DefaultISA` and ArchOperationMode is set to NoMode.
+  /// `ISA.DefaultISA`.
   new: path: string -> BinHandle
 
   /// Construct a BinHandle from a given byte array. File format detection is
   /// performed only if detectFormat is set to true.
   new: bytes: byte[]
      * isa: ISA
-     * mode: ArchOperationMode
      * baseAddrOpt: Addr option
      * detectFormat: bool
     -> BinHandle
 
-  /// Construct a BinHandle from a given byte array and ISA. ArchOperationMode
-  /// is set to NoMode, base address is set to 0UL, and file format detection
-  /// is disabled.
+  /// Construct a BinHandle from a given byte array and ISA. The base address is
+  /// set to 0UL, and file format detection is disabled.
   new: bytes: byte[] * isa: ISA -> BinHandle
 
   /// Construct an empty BinHandle.

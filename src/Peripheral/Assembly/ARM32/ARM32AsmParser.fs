@@ -36,7 +36,7 @@ type Parser<'A> = Parser<'A, unit>
 type AsmParser (startAddress: Addr) =
 
   let mutable address = startAddress
-  let mutable opMode: ArchOperationMode = ArchOperationMode.ARMMode
+  let mutable isThumb: bool = false
   let mutable wBackFlag = false
 
   (* Helper functions for updating the status of the parser. *)
@@ -48,8 +48,8 @@ type AsmParser (startAddress: Addr) =
 
   let pOpModeSwitcher =
     pchar '.' >>.
-    (pstringCI "arm" |>> (fun _ -> opMode <- ArchOperationMode.ARMMode) <|>
-      (pstringCI "thumb" |>> (fun _ -> opMode <- ArchOperationMode.ThumbMode)))
+    (pstringCI "arm" |>> (fun _ -> isThumb <- false) <|>
+      (pstringCI "thumb" |>> (fun _ -> isThumb <- true)))
 
   let checkWrightBack =
     opt (pchar '!') |>> fun x -> if x.IsNone then () else wBackFlag <- true
@@ -60,15 +60,12 @@ type AsmParser (startAddress: Addr) =
   let clearWBackFlag = wBackFlag <- false; preturn ()
 
   let getInsLength () =
-    match opMode with
-    | ArchOperationMode.ARMMode -> 4u
-    | ArchOperationMode.ThumbMode -> 2u
-    | _ -> failwith "Operation mode must be one of thumb or arm"
+    if isThumb then 2u else 4u
 
   let incrementAddress =
     preturn ()
     |>> (fun _ ->
-          if (opMode = ArchOperationMode.ARMMode) then address <- address + 4UL
+          if not isThumb then address <- address + 4UL
           else address <- address + 2UL)
 
   let isWhitespace c = [ ' '; '\t'; '\f' ] |> List.contains c
@@ -328,7 +325,7 @@ type AsmParser (startAddress: Addr) =
               let qual = match qual with | Some W -> W | _ -> N
               newInsInfo
                  address opcode cond 0uy wBackFlag qual simd
-                 operands (getInsLength ()) opMode None )
+                 operands (getInsLength ()) isThumb None )
       .>> clearWBackFlag
 
   let pInstructionLine =

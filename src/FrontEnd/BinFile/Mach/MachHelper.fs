@@ -94,7 +94,7 @@ let machSymbolToSymbol secText vis sym =
     Kind = machTypeToSymbKind sym secText
     Visibility = vis
     LibraryName = Symbol.getSymbolLibName sym
-    ArchOperationMode = ArchOperationMode.NoMode }
+    ARMLinkerSymbol = ARMLinkerSymbol.None }
 
 let getStaticSymbols secs symInfo =
   let secText = Section.getTextSectionIndex secs

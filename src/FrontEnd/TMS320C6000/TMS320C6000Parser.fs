@@ -42,5 +42,3 @@ type TMS320C6000Parser (reader) =
       ParsingMain.parse span reader &inParallel addr :> Instruction
 
     member _.MaxInstructionSize = 4
-
-    member _.OperationMode with get () = ArchOperationMode.NoMode and set _ = ()

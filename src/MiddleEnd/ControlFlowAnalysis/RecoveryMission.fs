@@ -75,12 +75,12 @@ and private TaskManager<'FnCtx,
     match strategy.FindCandidates builders.Values with
     | [||] -> scheduler.Terminate ()
     | candidates ->
-      for (addr, mode) in candidates do
-        let builder = builders.GetOrCreateBuilder managerMsgbox addr mode
+      for addr in candidates do
+        let builder = builders.GetOrCreateBuilder managerMsgbox addr
         if builder.IsExternal then ()
         else builders.Reload builder managerMsgbox
       (* Tasks should be added at last to avoid a race for builders. *)
-      for (addr, mode) in candidates do scheduler.StartBuilding addr mode done
+      for addr in candidates do scheduler.StartBuilding addr done
     waitForWorkers ()
     for builder in builders.Values do (* Update callers of each builder. *)
       depMap.GetConfirmedCallers builder.EntryPoint

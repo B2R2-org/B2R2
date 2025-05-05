@@ -22,7 +22,6 @@
     <Compile Include="Endian.fs" />
     <Compile Include="OS.fs" />
     <Compile Include="Architecture.fs" />
-    <Compile Include="ArchOperationMode.fs" />
     <Compile Include="Addr.fs" />
     <Compile Include="AddrRange.fsi" />
     <Compile Include="AddrRange.fs" />

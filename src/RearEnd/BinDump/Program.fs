@@ -107,7 +107,7 @@ let dumpHex (opts: BinDumpOpts) (sec: Section) (hdl: BinHandle) =
   out.PrintLine ()
 
 let private createBinHandleFromPath (opts: BinDumpOpts) filePath =
-  BinHandle (filePath, opts.ISA, opts.ArchOperationMode, opts.BaseAddress)
+  BinHandle (filePath, opts.ISA, opts.BaseAddress)
 
 let private isRawBinary (hdl: BinHandle) =
   match hdl.File.Format with
@@ -135,20 +135,20 @@ let private initHandleForTableOutput (printer: BinPrinter) =
   (* For ARM PLTs, we just assume the ARM mode (if no symbol is given). *)
   | Architecture.ARMv7
   | Architecture.AARCH32 ->
-    printer.LiftingUnit.Parser.OperationMode <- ArchOperationMode.ARMMode
+    printer.ModeSwitch.IsThumb <- false
   | _ -> ()
 
 let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
   let codeprn = makeCodePrinter hdl cfg opts
   let tableprn = makeTablePrinter hdl cfg opts
-  let initialMode = codeprn.LiftingUnit.Parser.OperationMode
+  let initialMode = codeprn.ModeSwitch.IsThumb
   sections
   |> Seq.iter (fun s ->
     if s.Size > 0u then
       out.PrintSectionTitle (String.wrapParen s.Name)
       match s.Kind with
       | SectionKind.CodeSection ->
-        codeprn.LiftingUnit.Parser.OperationMode <- initialMode
+        codeprn.ModeSwitch.IsThumb <- initialMode
         match hdl.File with
         | :? WasmBinFile as file ->
           match file.WASM.CodeSection with
@@ -191,8 +191,8 @@ let dumpFileMode files (opts: BinDumpOpts) =
   | _, errs ->
     Printer.PrintErrorToConsole ("File(s) " + errs.ToString() + " not found!")
 
-let private assertBinaryLength isa mode hexstr =
-  let multiplier = getInstructionAlignment isa mode
+let private assertBinaryLength isa isThumb hexstr =
+  let multiplier = getInstructionAlignment isa isThumb
   if (Array.length hexstr) % multiplier = 0 then ()
   else
     Printer.PrintErrorToConsole <|
@@ -200,12 +200,13 @@ let private assertBinaryLength isa mode hexstr =
     exit 1
 
 let dumpHexStringMode (opts: BinDumpOpts) =
-  let isa, mode = opts.ISA, opts.ArchOperationMode
-  let hdl = BinHandle (opts.InputHexStr, isa, mode, opts.BaseAddress, false)
+  let isa, isThumb = opts.ISA, opts.ThumbMode
+  let hdl = BinHandle (opts.InputHexStr, isa, opts.BaseAddress, false)
   let cfg = getTableConfig hdl.File.ISA opts.ShowLowUIR
-  assertBinaryLength isa mode opts.InputHexStr
+  assertBinaryLength isa isThumb opts.InputHexStr
   opts.ShowColor <- true
   let printer = makeCodePrinter hdl cfg opts
+  printer.ModeSwitch.IsThumb <- isThumb
   let baseAddr = defaultArg opts.BaseAddress 0UL
   let ptr = BinFilePointer (baseAddr, 0, opts.InputHexStr.Length - 1)
   printer.Print ptr

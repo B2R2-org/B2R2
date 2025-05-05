@@ -43,7 +43,6 @@ type ExternalFnCFGBuilder<'FnCtx,
   let ctx =
     { FunctionAddress = entryPoint
       FunctionName = name
-      FunctionMode = ArchOperationMode.NoMode
       BinHandle = hdl
       ExnInfo = exnInfo
       Vertices = null
@@ -71,8 +70,6 @@ type ExternalFnCFGBuilder<'FnCtx,
     member _.EntryPoint with get(): Addr = entryPoint
 
     member _.NextFunctionAddress with get() = None and set(_) = ()
-
-    member _.Mode with get() = Terminator.impossible ()
 
     member _.Context with get() = ctx
 

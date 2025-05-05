@@ -32,8 +32,8 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 [<AutoOpen>]
 module Helper =
-  let scanBBLs (bblFactory: BBLFactory) mode addrs =
-    bblFactory.ScanBBLs (mode, addrs)
+  let scanBBLs (bblFactory: BBLFactory) addrs =
+    bblFactory.ScanBBLs addrs
     |> Async.AwaitTask
     |> Async.RunSynchronously
     |> ignore

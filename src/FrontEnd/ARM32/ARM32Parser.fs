@@ -40,7 +40,7 @@ module private Parser =
 
 /// Parser for 32-bit ARM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type ARM32Parser (isa: ISA, mode, reader) =
+type ARM32Parser (isa: ISA, isThumb, reader) =
 
   let oparsers = [|
     OprNo () :> OperandParser
@@ -355,22 +355,21 @@ type ARM32Parser (isa: ISA, mode, reader) =
     OprSPSPRm () :> OperandParser
     OprSregRnT () :> OperandParser |]
 
-  let mutable mode: ArchOperationMode = mode
+  let mutable isThumb: bool = isThumb
 
   let phlp = ParsingHelper (isa.Arch, reader, oparsers)
 
   let mutable itstate: byte list = []
 
+  interface IModeSwitchable with
+    member _.IsThumb with get () = isThumb and set v = isThumb <- v
+
   interface IInstructionParsable with
     member _.Parse (span: ByteSpan, addr) =
-      phlp.Mode <- mode
+      phlp.IsThumb <- isThumb
       phlp.InsAddr <- addr
-      match mode with
-      | ArchOperationMode.ThumbMode ->
-        Parser.parseThumb span phlp &itstate :> Instruction
-      | ArchOperationMode.ARMMode ->
-        Parser.parseARM span phlp :> Instruction
-      | _-> raise InvalidTargetArchModeException
+      if isThumb then Parser.parseThumb span phlp &itstate :> Instruction
+      else Parser.parseARM span phlp :> Instruction
 
     member this.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan bs
@@ -378,6 +377,6 @@ type ARM32Parser (isa: ISA, mode, reader) =
 
     member _.MaxInstructionSize = 4
 
-    member _.OperationMode with get () = mode and set m = mode <- m
-
-// vim: set tw=80 sts=2 sw=2:
+and IModeSwitchable =
+  /// Will this parser return Thumb instructions or ARM instructions?
+  abstract IsThumb: bool with get, set

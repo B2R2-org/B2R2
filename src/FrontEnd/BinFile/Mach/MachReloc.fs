@@ -88,7 +88,7 @@ module internal Reloc =
       Kind = SymNoType (* FIXME *)
       Visibility = SymbolVisibility.DynamicSymbol
       LibraryName = ""
-      ArchOperationMode = ArchOperationMode.NoMode }
+      ARMLinkerSymbol = ARMLinkerSymbol.None }
 
   let parse { Bytes = bytes; Reader = reader } symInfo secs =
     let numRelocs = countRelocs secs

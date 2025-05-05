@@ -71,8 +71,8 @@ type TaskScheduler<'FnCtx,
   let terminateWorkers () =
     taskStream.Close ()
 
-  let scheduleCFGBuilding entryPoint mode =
-    StartBuilding (entryPoint, mode) |> msgbox.Post
+  let scheduleCFGBuilding entryPoint =
+    StartBuilding entryPoint |> msgbox.Post
 
   let resetBuilder (builder: ICFGBuildable<_, _>) =
     dependenceMap.RemoveCallEdgesFrom builder.EntryPoint
@@ -81,7 +81,7 @@ type TaskScheduler<'FnCtx,
   /// Restart = reset and reschedule builder.
   let restartBuilder (builder: ICFGBuildable<_, _>) =
     resetBuilder builder
-    scheduleCFGBuilding builder.EntryPoint builder.Mode
+    scheduleCFGBuilding builder.EntryPoint
 
   /// Conditionally restart (reset and reload) builder based on its state. If
   /// the builder is currently building, then it will send a delayed request to
@@ -229,7 +229,7 @@ type TaskScheduler<'FnCtx,
           dbglog ManagerTid "Restart" $"{builder.EntryPoint:x}"
 #endif
           builder.ReInitialize ()
-          scheduleCFGBuilding builder.EntryPoint builder.Mode)
+          scheduleCFGBuilding builder.EntryPoint)
       | YetDone ->
         checkAndResolveCyclicDependencies ()
     else ()
@@ -269,7 +269,7 @@ type TaskScheduler<'FnCtx,
          making our switch table identification wrong (e.g., the switch table
          size is over-approximated or it has a wrong base address). *)
       if builder.HasJumpTable then restartBuilder builder
-      else scheduleCFGBuilding builder.EntryPoint builder.Mode
+      else scheduleCFGBuilding builder.EntryPoint
 
   /// Returns true if there was a consumed request.
   let consumeDelayedRequests (builder: ICFGBuildable<_, _>) =
@@ -300,7 +300,7 @@ type TaskScheduler<'FnCtx,
         if isBuilderFinished caller then caller.ReInitialize () else ()
         caller.Context.ActionQueue.Push strategy.ActionPrioritizer
         <| UpdateCallEdges (calleeAddr, calleeInfo)
-        scheduleCFGBuilding caller.EntryPoint caller.Mode
+        scheduleCFGBuilding caller.EntryPoint
     else
 #if CFGDEBUG
       dbglog ManagerTid "ReloadDueCalleeChange"
@@ -494,8 +494,8 @@ type TaskScheduler<'FnCtx,
   let rec schedule (inbox: IAgentMessageReceivable<_>) =
     while not inbox.IsCancelled do
       match inbox.Receive () with
-      | StartBuilding (entryPoint, mode) ->
-        let builder = builders.GetOrCreateBuilder msgbox entryPoint mode
+      | StartBuilding entryPoint ->
+        let builder = builders.GetOrCreateBuilder msgbox entryPoint
         if builder.BuilderState = InProgress ||
            builder.BuilderState = Invalid ||
            builder.BuilderState = ForceFinished ||
@@ -503,10 +503,10 @@ type TaskScheduler<'FnCtx,
         else
           workingSet.Add entryPoint |> ignore
           assignCFGBuildingTaskNow builder
-      | AddDependency (caller, callee, mode, ch) ->
+      | AddDependency (caller, callee, ch) ->
         dependenceMap.AddDependency (caller, callee, not <| isFinished callee)
         let builder = builders.TryGetBuilder callee
-        if Result.isOk builder then () else scheduleCFGBuilding callee mode
+        if Result.isOk builder then () else scheduleCFGBuilding callee
         toBuilderMessage builder |> ch.Reply
       | ReportCFGResult (entryPoint, result) ->
         try handleResult entryPoint result
@@ -551,8 +551,8 @@ type TaskScheduler<'FnCtx,
 
   /// Post a `StartBuilding` message to the msgbox to start building this
   /// function.
-  member _.StartBuilding entryPoint mode =
-    scheduleCFGBuilding entryPoint mode
+  member _.StartBuilding entryPoint =
+    scheduleCFGBuilding entryPoint
 
   /// Post a command to the msgbox.
   member _.PostCommand cmd =

@@ -37,8 +37,8 @@ type BL = byte list
 let render (phlp: ParsingHelper) (itstate: byref<BL>) it isInIT bin op dt q o =
   let struct (oprs, wback, cflags, oSz) = phlp.OprParsers.[int o].Render bin
   if isInIT then updateITSTATE &itstate else ()
-  ARM32Instruction (phlp.InsAddr, phlp.Len, phlp.Cond, op, oprs,
-                    (byte it), wback, q, dt, phlp.Mode, cflags, oSz, phlp.IsAdd)
+  ARM32Instruction (phlp.InsAddr, phlp.Len, phlp.Cond, op, oprs, (byte it),
+                    wback, q, dt, phlp.IsThumb, cflags, oSz, phlp.IsAdd)
 
 /// Add, subtract (three low registers) on page F3-4153.
 let parseAddSubThreeLowReg (phlp: ParsingHelper) (itstate: byref<BL>) isInIT b =

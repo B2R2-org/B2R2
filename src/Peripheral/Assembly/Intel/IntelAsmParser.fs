@@ -36,7 +36,7 @@ open System
 type LabelDefs = Map<string, int>
 
 type IntelAsmParser (isa, baseAddr: Addr) =
-  inherit AsmParser (isa, ArchOperationMode.NoMode)
+  inherit AsmParser (isa)
 
   let mutable inferredPrefix = Prefix.PrxNone
   let defaultRegType = isa.WordSize |> WordSize.toRegType

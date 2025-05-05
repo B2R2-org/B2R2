@@ -34,8 +34,8 @@ open B2R2.FrontEnd.ARM32.ARMValidator
 
 let render (phlp: ParsingHelper) bin opcode dt oidx =
   let struct (oprs, wback, cflags, oSz) = phlp.OprParsers.[int oidx].Render bin
-  ARM32Instruction (phlp.InsAddr, phlp.Len, phlp.Cond, opcode,
-                    oprs, 0uy, wback, N, dt, phlp.Mode, cflags, oSz, phlp.IsAdd)
+  ARM32Instruction (phlp.InsAddr, phlp.Len, phlp.Cond, opcode, oprs,
+                    0uy, wback, N, dt, phlp.IsThumb, cflags, oSz, phlp.IsAdd)
 
 /// Load/Store Dual, Half, Signed Byte (register) on page F4-4221.
 let parseLoadStoreReg (phlp: ParsingHelper) bin =

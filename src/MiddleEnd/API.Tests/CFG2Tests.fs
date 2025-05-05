@@ -64,7 +64,7 @@ type CFG2Tests () =
         0x8buy; 0x04uy; 0x24uy; 0xc3uy; |]
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
-  let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
+  let hdl = BinHandle (binary, isa, None, false)
   let exnInfo = ExceptionInfo hdl
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
 
@@ -86,7 +86,7 @@ type CFG2Tests () =
   member _.``BBLFactory Test 1`` () =
     let bblFactory = BBLFactory (hdl, instrs)
     let bblAddrs = [| 0x00UL; 0x0cUL; 0x24UL |]
-    scanBBLs bblFactory ArchOperationMode.NoMode bblAddrs
+    scanBBLs bblFactory bblAddrs
     let expected =
       [| (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x02UL, 0x00UL); (0x07UL, 0x00UL)
          (0x0cUL, 0x0cUL); (0x11UL, 0x0cUL); (0x14UL, 0x0cUL); (0x16UL, 0x0cUL)
@@ -110,7 +110,7 @@ type CFG2Tests () =
                  ProgramPoint (0x1cUL, 8)
                  ProgramPoint (0x1eUL, 0)
                  ProgramPoint (0x24UL, 0) |]
-    scanBBLs bblFactory ArchOperationMode.NoMode bblAddrs
+    scanBBLs bblFactory bblAddrs
     Assert.AreEqual<int> (7, bblFactory.Count)
     let expected = [| (0x00UL, 0x0bUL); (0x0cUL, 0x1bUL); (0x1cUL, 0x1dUL)
                       (0x1cUL, 0x1dUL); (0x1cUL, 0x1dUL); (0x1eUL, 0x23UL);

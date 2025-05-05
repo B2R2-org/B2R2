@@ -48,8 +48,8 @@ type BinDumpOpts () =
   /// Input hexstring from command line.
   member val InputHexStr: byte [] = [||] with get, set
 
-  /// ArchOperationMode
-  member val ArchOperationMode = ArchOperationMode.NoMode with get, set
+  /// Thumb mode.
+  member val ThumbMode = false with get, set
 
   /// Whether to show addresses or not
   member val ShowAddress = false with get, set
@@ -137,11 +137,12 @@ type BinDumpOpts () =
     CmdOpts.New (descr = "Specify an input <hexstring> from command line",
                  extra = 1, callback = cb, short = "-s")
 
-  /// "-m" or "--mode" option for specifying ArchOperationMode.
+  /// "-m" or "--mode" option for specifying Thumb mode.
   static member OptArchMode () =
     let cb opts (arg: string []) =
-      (BinDumpOpts.ToThis opts).ArchOperationMode <-
-        ArchOperationMode.ofString arg[0]
+      match arg[0].ToLowerInvariant () with
+      | "thumb" -> (BinDumpOpts.ToThis opts).ThumbMode <- true
+      | _ -> ()
       opts
     CmdOpts.New (
       descr = "Specify <operation mode> (e.g., thumb/arm) from cmdline",

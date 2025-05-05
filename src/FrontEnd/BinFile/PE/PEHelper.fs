@@ -106,7 +106,7 @@ let pdbSymbolToSymbol (sym: PESymbol) =
     Kind = pdbTypeToSymbKind sym.Flags
     Visibility = SymbolVisibility.StaticSymbol
     LibraryName = ""
-    ArchOperationMode = ArchOperationMode.NoMode }
+    ARMLinkerSymbol = ARMLinkerSymbol.None }
 
 let inline getStaticSymbols pe =
   pe.SymbolInfo.SymbolArray
@@ -126,14 +126,14 @@ let getImportSymbols pe =
         Kind = SymExternFunctionType
         Visibility = SymbolVisibility.DynamicSymbol
         LibraryName = dllname
-        ArchOperationMode = ArchOperationMode.NoMode } :: acc
+        ARMLinkerSymbol = ARMLinkerSymbol.None } :: acc
     | ImportByName (_, funname, dllname) ->
       { Address = addrFromRVA pe.BaseAddr rva
         Name = funname
         Kind = SymExternFunctionType
         Visibility = SymbolVisibility.DynamicSymbol
         LibraryName = dllname
-        ArchOperationMode = ArchOperationMode.NoMode } :: acc
+        ARMLinkerSymbol = ARMLinkerSymbol.None } :: acc
   pe.ImportMap
   |> Map.fold conv []
   |> List.rev
@@ -145,14 +145,14 @@ let getExportSymbols pe =
       Kind = kind
       Visibility = SymbolVisibility.DynamicSymbol
       LibraryName = ""
-      ArchOperationMode = ArchOperationMode.NoMode }
+      ARMLinkerSymbol = ARMLinkerSymbol.None }
   let makeForwardedExportSymbol name (fwdBin, fwdFunc) =
     { Address = 0UL
       Name = name
       Kind = SymForwardType (fwdBin, fwdFunc)
       Visibility = SymbolVisibility.DynamicSymbol
       LibraryName = ""
-      ArchOperationMode = ArchOperationMode.NoMode }
+      ARMLinkerSymbol = ARMLinkerSymbol.None }
   let localExportFolder accSymbols addr names =
     let rva = int (addr - pe.BaseAddr)
     match pe.FindSectionIdxFromRVA rva with
@@ -193,7 +193,7 @@ let getRelocationSymbols pe =
     Kind = SymNoType
     Visibility = SymbolVisibility.DynamicSymbol
     LibraryName = String.Empty
-    ArchOperationMode = ArchOperationMode.NoMode })
+    ARMLinkerSymbol = ARMLinkerSymbol.None })
   |> Seq.toArray
 
 let hasRelocationSymbols pe addr = (* FIXME: linear lookup is bad *)

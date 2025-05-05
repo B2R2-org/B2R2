@@ -43,7 +43,6 @@ and SideEffectEventHandler =
 and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   let mutable pc = 0UL
   let mutable stmtIdx = 0
-  let mutable mode = ArchOperationMode.NoMode
   let mutable currentInsLen = 0u
   let mutable isInstrTerminated = false
   let mutable needToEvaluateIEMark = false
@@ -86,9 +85,6 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   /// machine instruction. This index behaves like a PC for statements of an
   /// instruction.
   member _.StmtIdx with get() = stmtIdx and set(i) = stmtIdx <- i
-
-  /// Architecture mode.
-  member _.Mode with get() = mode and set(m) = mode <- m
 
   /// Current instruction length.
   member _.CurrentInsLen
@@ -221,7 +217,6 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
                ignoreUndef,
                PC=pc,
                StmtIdx=stmtIdx,
-               Mode=mode,
                CurrentInsLen=currentInsLen,
                IsInstrTerminated=isInstrTerminated,
                NeedToEvaluateIEMark=needToEvaluateIEMark,

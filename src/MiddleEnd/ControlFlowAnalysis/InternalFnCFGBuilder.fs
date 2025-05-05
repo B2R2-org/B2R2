@@ -52,9 +52,9 @@ type InternalFnCFGBuilder<'FnCtx,
 
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
-        member _.AddDependency (caller, callee, mode) =
+        member _.AddDependency (caller, callee) =
           manager.PostAndReply (fun _ ch ->
-            AddDependency (caller, callee, mode, ch))
+            AddDependency (caller, callee, ch))
 
         member _.GetNonReturningStatus (addr) =
           manager.PostAndReply (fun _ ch -> GetNonReturningStatus (addr, ch))
@@ -109,7 +109,6 @@ type InternalFnCFGBuilder<'FnCtx,
        exnInfo,
        instrs,
        entryPoint,
-       mode,
        manager) =
     let name =
       match hdl.File.TryFindFunctionName entryPoint with
@@ -123,7 +122,6 @@ type InternalFnCFGBuilder<'FnCtx,
     let ctx =
       { FunctionAddress = entryPoint
         FunctionName = name
-        FunctionMode = mode
         BinHandle = hdl
         ExnInfo = exnInfo
         Vertices = Dictionary ()
@@ -154,8 +152,6 @@ type InternalFnCFGBuilder<'FnCtx,
     member _.NextFunctionAddress
       with get() = nextFnAddr
        and set(v) = nextFnAddr <- v
-
-    member _.Mode with get() = ctx.FunctionMode
 
     member _.Context with get() = ctx
 

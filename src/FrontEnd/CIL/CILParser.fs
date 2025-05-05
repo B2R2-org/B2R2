@@ -37,5 +37,3 @@ type CILParser () =
 
     member _.MaxInstructionSize =
       Terminator.futureFeature ()
-
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

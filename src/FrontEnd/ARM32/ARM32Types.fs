@@ -1300,7 +1300,7 @@ type Operands =
 /// Basic information for a single ARMv7 instruction obtained after parsing.
 [<AbstractClass>]
 type ARM32InternalInstruction
-  (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, isAdd) =
+  (addr, nb, cond, op, opr, its, wb, q, s, isThumb, cf, oSz, isAdd) =
   inherit Instruction (addr, nb, WordSize.Bit32)
 
   /// Condition.
@@ -1325,7 +1325,7 @@ type ARM32InternalInstruction
   member _.SIMDTyp with get(): SIMDDataTypes option = s
 
   /// Target architecture mode.
-  member _.Mode with get(): ArchOperationMode = m
+  member _.IsThumb with get(): bool = isThumb
 
   /// Carry Flag from decoding instruction.
   member _.Cflag with get(): bool option = cf
@@ -1344,7 +1344,7 @@ type ARM32InternalInstruction
       WriteBack: {wb}{System.Environment.NewLine}\
       Qualifier: {q}{System.Environment.NewLine}\
       SIMD: {s}{System.Environment.NewLine}\
-      Mode: {m}{System.Environment.NewLine}\
+      IsThumb: {isThumb}{System.Environment.NewLine}\
       Cflag: {cf}{System.Environment.NewLine}\"
       OprSize: {oSz}{System.Environment.NewLine}\"
       IsAdd: {isAdd}{System.Environment.NewLine}"

@@ -33,7 +33,7 @@ type Binary = Binary of byte[] * Architecture
 
 let loadOne (Binary (code, arch)) =
   let isa = ISA.Init arch Endian.Little
-  let hdl = BinHandle (code, isa, ArchOperationMode.NoMode, None, false)
+  let hdl = BinHandle (code, isa, None, false)
   BinaryBrew hdl
 
 (*

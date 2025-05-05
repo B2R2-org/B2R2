@@ -94,7 +94,7 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override this.GetNextInstrAddrs () =
     let fallthrough = this.Address + uint64 this.Length
-    let acc = [| (fallthrough, ArchOperationMode.NoMode) |]
+    let acc = [| fallthrough |]
     if this.IsExit () then [||]
     else acc
 

@@ -63,14 +63,14 @@ type GroundWork =
       Terminator.futureFeature ()
 
   /// Create a new parser (IInstructionParsable) for the given architecture.
-  static member CreateParser reader registerFactory (isa: ISA) mode =
+  static member CreateParser reader registerFactory (isa: ISA) =
     match isa.Arch with
     | Architecture.IntelX64
     | Architecture.IntelX86 ->
       Intel.IntelParser (isa.WordSize, reader)
       :> IInstructionParsable
     | Architecture.ARMv7 | Architecture.AARCH32 ->
-      ARM32.ARM32Parser (isa, mode, reader)
+      ARM32.ARM32Parser (isa, false, reader)
       :> IInstructionParsable
     | Architecture.AARCH64 ->
       ARM64.ARM64Parser (reader) :> IInstructionParsable

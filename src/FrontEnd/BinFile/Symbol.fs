@@ -53,6 +53,14 @@ type SymbolVisibility =
   /// Dynamic symbols cannot be stripped off. This should be visible to externs.
   | DynamicSymbol = 2
 
+/// ELF-specific symbol types for ARM32, which are used to distinguish between
+/// ARM and Thumb instructions. For other CPU architectures, this will be set to
+/// None.
+type ARMLinkerSymbol =
+  | ARM = 1
+  | Thumb = 2
+  | None = 3
+
 /// A symbol object defined in a file-format-agnostic way.
 type Symbol = {
   /// Address of the symbol.
@@ -65,7 +73,7 @@ type Symbol = {
   Visibility: SymbolVisibility
   /// Corresponding library name.
   LibraryName: string
-  /// Corresponding ArchOperationMode for this symbol, which is only meaningful
-  /// for ARM.
-  ArchOperationMode: ArchOperationMode
+  /// ARM32-specific linker symbol. For other architectures, this will be set to
+  /// None.
+  ARMLinkerSymbol: ARMLinkerSymbol
 }

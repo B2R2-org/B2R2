@@ -38,7 +38,7 @@ type AsmInsInfo = {
   WriteBack: bool
   Qualifier: Qualifier
   SIMDTyp: SIMDDataTypes option
-  Mode: ArchOperationMode
+  IsThumb: bool
   Cflag: bool option
 }
 
@@ -202,7 +202,7 @@ let makeSIMDOperand = function
 
 let getOpCode fourTuple = fst (fst (fst fourTuple))
 
-let newInsInfo addr opcode c it w q simd oprs iLen mode cflag =
+let newInsInfo addr opcode c it w q simd oprs iLen isThumb cflag =
   { Address = addr
     NumBytes = iLen
     Condition  = c
@@ -212,7 +212,7 @@ let newInsInfo addr opcode c it w q simd oprs iLen mode cflag =
     WriteBack = w
     Qualifier = q
     SIMDTyp = simd
-    Mode = mode
+    IsThumb = isThumb
     Cflag = cflag }
 
 let checkIfInstructionLine = function

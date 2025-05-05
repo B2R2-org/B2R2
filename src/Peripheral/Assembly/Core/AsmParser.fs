@@ -30,10 +30,10 @@ open B2R2.FrontEnd.BinLifter
 
 /// Assembly code parser interface.
 [<AbstractClass>]
-type AsmParser (isa: ISA, mode) =
+type AsmParser (isa: ISA) =
   let reader = BinReader.Init isa.Endian
   let regFactory = GroundWork.CreateRegisterFactory isa
-  let parser = GroundWork.CreateParser reader regFactory isa mode
+  let parser = GroundWork.CreateParser reader regFactory isa
   let builder = GroundWork.CreateBuilder isa regFactory
 
   /// Run parsing from a given assembly string, and assemble binary code.

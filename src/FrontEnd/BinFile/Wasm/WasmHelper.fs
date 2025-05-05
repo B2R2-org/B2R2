@@ -28,11 +28,6 @@ open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 
-let defaultISA =
-  { Arch = Architecture.WASM
-    Endian = Endian.Little;
-    WordSize = WordSize.Bit32 }
-
 let fileTypeOf wm =
   match wm.StartSection with
   | Some _ -> FileType.ExecutableFile
@@ -65,7 +60,7 @@ let importEntryToSymbol (importEntry: Import) =
     Kind = importDescToSymKind importEntry.Desc
     Visibility = SymbolVisibility.DynamicSymbol
     LibraryName = importEntry.ModuleName
-    ArchOperationMode = ArchOperationMode.NoMode }
+    ARMLinkerSymbol = ARMLinkerSymbol.None }
 
 let exportDescToSymKind desc =
   match desc with
@@ -80,7 +75,7 @@ let exportEntryToSymbol (exportEntry: Export) =
     Kind = exportDescToSymKind exportEntry.Desc
     Visibility = SymbolVisibility.DynamicSymbol
     LibraryName = ""
-    ArchOperationMode = ArchOperationMode.NoMode }
+    ARMLinkerSymbol = ARMLinkerSymbol.None }
 
 let getDynamicSymbols wm excludeImported =
   let excludeImported = defaultArg excludeImported false

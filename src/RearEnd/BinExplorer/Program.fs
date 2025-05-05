@@ -217,8 +217,7 @@ let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _>) =
       File.WriteAllText (disasmJsonPath, s))
 
 let initBinHdl isa (name: string) =
-  let autoDetect = (isa.Arch <> Architecture.EVM)
-  BinHandle (name, isa, ArchOperationMode.NoMode, None)
+  BinHandle (name, isa, None)
 
 let interactiveMain files (opts: BinExplorerOpts) =
   if List.isEmpty files then

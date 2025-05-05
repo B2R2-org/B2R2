@@ -43,5 +43,3 @@ type RISCV64Parser (isa: ISA, reader) =
       ParsingMain.parse span reader wordSize addr :> Instruction
 
     member _.MaxInstructionSize = 4
-
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

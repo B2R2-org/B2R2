@@ -54,7 +54,7 @@ type CFGBuilderTable<'FnCtx,
     updateNextFunctionOfPrevBuilder idx addr
     updateNextFunctionOfNewBuilder newBuilder idx
 
-  let getOrCreateInternalBuilder managerMsgbox addr mode =
+  let getOrCreateInternalBuilder managerMsgbox addr =
     match builders.TryGetValue addr with
     | true, builder -> builder
     | false, _ ->
@@ -63,7 +63,6 @@ type CFGBuilderTable<'FnCtx,
                               exnInfo,
                               instrs,
                               addr,
-                              mode,
                               managerMsgbox) :> ICFGBuildable<'FnCtx, 'GlCtx>
       builders[addr] <- builder
       updateNextFunctionAddrs builder addr
@@ -77,8 +76,7 @@ type CFGBuilderTable<'FnCtx,
         (* We create a mapping from a PLT address to an internal function
            address because some static binaries have a PLT entry for an internal
            function. *)
-        let mode = ArchOperationMode.NoMode
-        let builder = getOrCreateInternalBuilder null fnAddr mode
+        let builder = getOrCreateInternalBuilder null fnAddr
         builders[fnAddr] <- builder
       | Error _ ->
         let addr, name = entry.TrampolineAddress, entry.FuncName
@@ -113,9 +111,9 @@ type CFGBuilderTable<'FnCtx,
   member _.GetTerminationStatus () =
     getTerminationStatus builders.Values [] (builders.Count - 1)
 
-  /// Get or create a function builder by its address and operation mode.
-  member _.GetOrCreateBuilder managerMsgbox addr mode =
-    getOrCreateInternalBuilder managerMsgbox addr mode
+  /// Get or create a function builder by its address.
+  member _.GetOrCreateBuilder managerMsgbox addr =
+    getOrCreateInternalBuilder managerMsgbox addr
 
   /// Update existing function builder to have a new manager msgbox.
   member _.Reload (builder: ICFGBuildable<_, _>) managerMsgbox =

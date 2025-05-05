@@ -41,5 +41,3 @@ type WASMParser (reader) =
       ParsingMain.parse span reader addr :> Instruction
 
     member _.MaxInstructionSize = 9
-
-    member _.OperationMode with get () = ArchOperationMode.NoMode and set _ = ()

@@ -82,7 +82,7 @@ type CFG1Tests () =
         0x00uy; 0x0fuy; 0x05uy; 0x90uy; 0x5duy; 0xc3uy; |]
 
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
-  let hdl = BinHandle (binary, isa, ArchOperationMode.NoMode, None, false)
+  let hdl = BinHandle (binary, isa, None, false)
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
 
   [<TestMethod>]
@@ -106,7 +106,7 @@ type CFG1Tests () =
   member _.``BBLFactory Test 1`` () =
     let bblFactory = BBLFactory (hdl, instrs)
     let bblAddrs = [| 0x00UL; 0x62UL |]
-    scanBBLs bblFactory ArchOperationMode.NoMode bblAddrs
+    scanBBLs bblFactory bblAddrs
     let expected =
       [| (0x00UL, 0x00UL); (0x01UL, 0x00UL); (0x04UL, 0x00UL); (0x08UL, 0x00UL)
          (0x0fUL, 0x00UL); (0x14UL, 0x00UL); (0x62UL, 0x62UL); (0x63UL, 0x62UL)
@@ -122,7 +122,7 @@ type CFG1Tests () =
   member _.``BBLFactory Test 2`` () =
     let bblFactory = BBLFactory (hdl, instrs)
     let bblAddrs = [| 0x00UL; 0x62UL |]
-    scanBBLs bblFactory ArchOperationMode.NoMode bblAddrs
+    scanBBLs bblFactory bblAddrs
     Assert.AreEqual<int> (2, bblFactory.Count)
     let expected = [| (0x00UL, 0x18UL); (0x62UL, 0x70UL) |]
     let actual =

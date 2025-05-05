@@ -809,7 +809,7 @@ let offsetToString ins addrMode offset builder =
 
 let processAddrExn32 (ins: InsInfo) addr =
   let pc =
-    if ins.Mode = ArchOperationMode.ThumbMode then addr + 4UL else addr + 8UL
+    if ins.IsThumb then addr + 4UL else addr + 8UL
   match ins.Opcode with
   | Op.CBZ | Op.CBNZ
   | Op.B | Op.BX -> pc

@@ -183,12 +183,6 @@ let evalStmt (st: EvalState) s =
   | Store (e, addr, v, _) -> evalStore st e addr v |> st.NextStmt
   | Jmp (target, _) -> evalJmp st target
   | CJmp (cond, t, f, _) -> evalCJmp st cond t f
-  | InterJmp (target, InterJmpKind.SwitchToARM, _) ->
-    st.Mode <- ArchOperationMode.ARMMode
-    evalPCUpdate st target |> st.AbortInstr
-  | InterJmp (target, InterJmpKind.SwitchToThumb, _) ->
-    st.Mode <- ArchOperationMode.ThumbMode
-    evalPCUpdate st target |> st.AbortInstr
   | InterJmp (target, _, _) ->
     evalPCUpdate st target |> st.AbortInstr
   | InterCJmp (c, t, f, _) -> evalIntCJmp st c t f |> st.AbortInstr

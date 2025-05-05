@@ -36,14 +36,6 @@ type FunctionIdentification<'FnCtx,
                                     and 'GlCtx: (new: unit -> 'GlCtx)>
   public (hdl: BinHandle, exnInfo: ExceptionInfo) =
 
-  let getFunctionOperationMode entry =
-    match hdl.File.ISA.Arch with
-    | Architecture.ARMv7 ->
-      if entry &&& 1UL = 1UL then
-        entry - 1UL, ArchOperationMode.ThumbMode
-      else entry, ArchOperationMode.ARMMode
-    | _ -> entry, ArchOperationMode.NoMode
-
   /// This function returns an initial sequence of entry points obtained from
   /// the binary itself (e.g., from its symbol information). Therefore, if the
   /// binary is stripped, the returned sequence will be incomplete, and we need
@@ -59,7 +51,6 @@ type FunctionIdentification<'FnCtx,
       if file.Type = FileType.LibFile && addr = 0UL then acc
       else Set.add addr acc) entries
     |> Set.toArray
-    |> Array.map getFunctionOperationMode
 
   interface ICFGBuildingStrategy<'FnCtx, 'GlCtx> with
     member _.ActionPrioritizer with get() =

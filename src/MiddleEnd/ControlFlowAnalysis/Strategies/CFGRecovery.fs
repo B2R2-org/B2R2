@@ -74,8 +74,8 @@ type CFGRecovery<'FnCtx,
           | StartTblRec _ -> 0
           | EndTblRec _ -> 0 }
 
-  let scanBBLs (ctx: CFGBuildingContext<_, _>) mode entryPoints =
-    ctx.ScanBBLs mode entryPoints
+  let scanBBLs (ctx: CFGBuildingContext<_, _>) entryPoints =
+    ctx.ScanBBLs entryPoints
 
   let getVertex ctx ppoint =
     match ctx.Vertices.TryGetValue ppoint with
@@ -186,7 +186,6 @@ type CFGRecovery<'FnCtx,
        abs-vertex multiple times. So we'd better check duplicates here. *)
     if doesAbsVertexExist ctx callsiteAddr calleeAddr then MoveOn
     elif isExecutableAddr ctx calleeAddr then
-      let mode = ctx.FunctionMode
       let fnAddr = ctx.FunctionAddress
       let actionQueue = ctx.ActionQueue
       addCallerVertex ctx callsiteAddr (getVertex ctx srcPp)
@@ -194,7 +193,7 @@ type CFGRecovery<'FnCtx,
       if fnAddr = calleeAddr then (* self-recursion *)
         actionQueue.Push prioritizer action
       else
-        match ctx.ManagerChannel.AddDependency (fnAddr, calleeAddr, mode) with
+        match ctx.ManagerChannel.AddDependency (fnAddr, calleeAddr) with
         (* Wait for the callee to finish *)
         | StillBuilding _
         | FailedBuilding -> postponeActionOnCallee ctx calleeAddr action
@@ -393,7 +392,7 @@ type CFGRecovery<'FnCtx,
     callee, callsiteAddr + uint64 callIns.Length
 
   let scanBBLsAndConnect ctx queue src dstAddr edgeKind =
-    match scanBBLs ctx ctx.FunctionMode [ dstAddr ] with
+    match scanBBLs ctx [ dstAddr ] with
     | Ok dividedEdges ->
       let dstPPoint = ProgramPoint (dstAddr, 0)
       let dstVertex = getVertex ctx dstPPoint
@@ -639,19 +638,19 @@ type CFGRecovery<'FnCtx,
     member _.FindCandidates (builders) =
       builders
       |> Array.choose (fun b ->
-        if not b.Context.IsExternal then Some <| (b.EntryPoint, b.Mode)
+        if not b.Context.IsExternal then Some <| b.EntryPoint
         else None)
 
     member _.OnAction (ctx, queue, action) =
       try
         match action with
         | InitiateCFG ->
-          let fnAddr, mode = ctx.FunctionAddress, ctx.FunctionMode
+          let fnAddr = ctx.FunctionAddress
 #if CFGDEBUG
           dbglog ctx.ThreadID (nameof InitiateCFG) $"{fnAddr:x}"
 #endif
           let pp = ProgramPoint (fnAddr, 0)
-          match scanBBLs ctx mode [ fnAddr ] with
+          match scanBBLs ctx [ fnAddr ] with
           | Ok _ -> buildCFG ctx queue [| pp |]
           | Error e -> FailStop e
         | ExpandCFG addrs ->

@@ -45,6 +45,3 @@ type EVMParser (isa: ISA) =
       ParsingMain.parse span codeOffset wordSize addr :> Instruction
 
     member _.MaxInstructionSize = 33
-
-    member _.OperationMode with get () = ArchOperationMode.NoMode and set _ = ()
-

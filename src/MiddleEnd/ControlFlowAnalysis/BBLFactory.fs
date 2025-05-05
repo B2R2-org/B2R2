@@ -44,19 +44,17 @@ type BBLFactory (hdl: BinHandle, instrs) =
   let interProceduralLeaders = ConcurrentDictionary<Addr, unit> ()
   let bbls = ConcurrentDictionary<ProgramPoint, LowUIRBasicBlock> ()
 
-  let rec parseBlock (channel: BufferBlock<_>) acc insCount addr leader mode =
-    match (instrs: InstructionCollection).TryFind (addr, mode) with
+  let rec parseBlock (channel: BufferBlock<_>) acc insCount addr leader =
+    match (instrs: InstructionCollection).TryFind addr with
     | Ok ins ->
       let nextAddr = addr + uint64 ins.Length
       if ins.IsTerminator () || interProceduralLeaders.ContainsKey nextAddr then
         channel.Post (leader, ins :: acc, insCount + 1) |> ignore
         if ins.IsCall () then Ok [||]
         else
-          ins.GetNextInstrAddrs ()
-          |> Array.choose (fun (nextAddr, nextMode) ->
-            if nextMode = mode then Some nextAddr else None)
+          ins.GetNextInstrAddrs () (* TODO: ARM mode switch *)
           |> Ok
-      else parseBlock channel (ins :: acc) (insCount + 1) nextAddr leader mode
+      else parseBlock channel (ins :: acc) (insCount + 1) nextAddr leader
     | Error e ->
 #if CFGDEBUG
       dbglog ManagerTid (nameof BBLFactory)
@@ -67,13 +65,13 @@ type BBLFactory (hdl: BinHandle, instrs) =
   /// Parse from the given address and return reachable addresses. If there
   /// exists a BBL at the given address, then simply return an empty array. When
   /// parsing fails, this function can return an error result.
-  let tryParse channel addr mode =
+  let tryParse channel addr =
     if interProceduralLeaders.ContainsKey addr then Ok [||]
-    else parseBlock channel [] 0 addr addr mode
+    else parseBlock channel [] 0 addr addr
 
   let visited = ConcurrentDictionary<Addr, unit> ()
 
-  let instrProducer channel mode addrs =
+  let instrProducer channel addrs =
     let queue = Queue<Addr> (collection=addrs)
     task {
       while queue.Count <> 0 do
@@ -81,7 +79,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
         if visited.ContainsKey addr then ()
         else
           visited.TryAdd (addr, ()) |> ignore
-          match tryParse channel addr mode with
+          match tryParse channel addr with
           | Ok nextAddrs ->
             nextAddrs |> Array.iter queue.Enqueue
           | Error _e ->
@@ -305,11 +303,11 @@ type BBLFactory (hdl: BinHandle, instrs) =
   /// When the `allowOverlap` argument is true, however, we do not split BBLs
   /// and allow overlapping BBLs. This is useful when we analyze EVM binaries,
   /// for instance.
-  member _.ScanBBLs (mode, addrs,
+  member _.ScanBBLs (addrs,
                      [<Optional; DefaultParameterValue(false)>] allowOverlap) =
     task {
       let channel = BufferBlock<Addr * Instruction list * int> ()
-      instrProducer channel mode addrs |> ignore
+      instrProducer channel addrs |> ignore
       let! isSuccessful = bblLifter channel
       if isSuccessful then
         return if allowOverlap then Ok (List ()) else commit ()

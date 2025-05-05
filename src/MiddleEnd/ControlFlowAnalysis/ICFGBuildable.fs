@@ -43,9 +43,6 @@ type ICFGBuildable<'FnCtx,
   /// The address of the next function if there is any. Otherwise, this is None.
   abstract NextFunctionAddress: Addr option with get, set
 
-  /// Return the operation mode of the function.
-  abstract Mode: ArchOperationMode
-
   /// Return the current building context.
   abstract Context: CFGBuildingContext<'FnCtx, 'GlCtx>
 
@@ -144,7 +141,7 @@ and ICFGBuildingStrategy<'FnCtx,
   /// a list of candidate functions to analyze based on the given list of
   /// function builders.
   abstract FindCandidates:
-    ICFGBuildable<'FnCtx, 'GlCtx>[] -> (Addr * ArchOperationMode)[]
+    ICFGBuildable<'FnCtx, 'GlCtx>[] -> Addr[]
 
   /// This is a callback that is called for every CFGAction generated for a
   /// function. Each action may discover a new basic block, add a new edge, etc.

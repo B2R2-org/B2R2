@@ -30,19 +30,19 @@ open B2R2.FrontEnd
 
 /// The `load` action.
 type LoadAction () =
-  let load isa mode parseFileFormat s =
+  let load isa parseFileFormat s =
     if File.Exists (path=s) then
-      lazy BinHandle (s, isa, mode, None)
+      lazy BinHandle (s, isa, None)
       |> Binary.PlainInit
       |> box
       |> Array.singleton
     elif Directory.Exists (path=s) then
       Directory.GetFiles s
       |> Array.map (fun f ->
-        lazy BinHandle (f, isa, mode, None)
+        lazy BinHandle (f, isa, None)
         |> Binary.PlainInit |> box)
     else
-      lazy BinHandle (ByteArray.ofHexString s, isa, mode, None, false)
+      lazy BinHandle (ByteArray.ofHexString s, isa, None, false)
       |> Binary.PlainInit
       |> box
       |> Array.singleton
@@ -50,7 +50,7 @@ type LoadAction () =
   interface IAction with
     member _.ActionID with get() = "load"
     member _.Signature
-      with get() = "unit * <str> * [isa] * [mode]: string -> Binary"
+      with get() = "unit * <str> * [isa] : string -> Binary"
     member _.Description with get() = """
     Take in a string <str> and return a binary object. The given input string
     can either represent a file path or a hexstring. If the given string
@@ -60,23 +60,17 @@ type LoadAction () =
     a hexstring, and return the corresponding binary.
 
       - [isa] : parse the binary for the given ISA.
-      - [mode]: parse the binary for the given operation mode.
 """
     member _.Transform args collection =
       if collection.Values |> Array.forall isNull then ()
       else invalidArg (nameof collection) "Invalid argument type."
       match args with
-      | s :: isa :: mode :: "raw" :: [] ->
+      | s :: isa :: "raw" :: [] ->
         let isa = ISA.OfString isa
-        let mode = ArchOperationMode.ofString mode
-        { Values = load isa mode false s }
-      | s :: isa :: mode :: [] ->
-        let isa = ISA.OfString isa
-        let mode = ArchOperationMode.ofString mode
-        { Values = load isa mode true s }
+        { Values = load isa false s }
       | s :: isa :: [] ->
         let isa = ISA.OfString isa
-        { Values = load isa ArchOperationMode.NoMode true s }
+        { Values = load isa true s }
       | s :: [] ->
-        { Values = load ISA.DefaultISA ArchOperationMode.NoMode true s }
+        { Values = load ISA.DefaultISA true s }
       | _ -> invalidArg (nameof args) "Invalid arguments given."

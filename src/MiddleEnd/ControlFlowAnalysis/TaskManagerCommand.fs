@@ -34,11 +34,10 @@ type TaskManagerCommand<'FnCtx,
                                 and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Start building a CFG for a function at the given address using the given
   /// operation mode.
-  | StartBuilding of Addr * ArchOperationMode
+  | StartBuilding of Addr
   /// Add a dependency between two functions.
   | AddDependency of caller: Addr
                    * callee: Addr
-                   * ArchOperationMode
                    * AgentReplyChannel<BuildingCtxMsg<'FnCtx, 'GlCtx>>
   /// Report the result of a task.
   | ReportCFGResult of Addr * CFGResult

@@ -498,17 +498,15 @@ let selectThumbInstrSet bld =
 
 /// Sets the instruction set currently in use, on page A2-51.
 /// SelectInstrSet()
-let selectInstrSet bld = function
-  | ArchOperationMode.ARMMode -> selectARMInstrSet bld
-  | _ -> selectThumbInstrSet bld
+let selectInstrSet bld isThumb =
+  if isThumb then selectThumbInstrSet bld
+  else selectARMInstrSet bld
 
 /// Write value to R.PC, without interworking, on page A2-47.
 /// function : BranchWritePC()
-let branchWritePC bld (ins: InsInfo) addr jmpInfo =
+let branchWritePC addr jmpInfo =
   let addr = zMaskAnd addr 32<rt> 1
-  match ins.Mode with
-  | ArchOperationMode.ARMMode -> AST.interjmp addr jmpInfo
-  | _ -> AST.interjmp addr jmpInfo
+  AST.interjmp addr jmpInfo
 
 let disableITStateForCondBranches bld isUnconditional =
   if isUnconditional then ()
@@ -535,9 +533,8 @@ let bxWritePC bld isUnconditional addr =
 /// Write value to R.PC, with interworking for ARM only from ARMv7 on page
 /// A2-47. function : ALUWritePC()
 let aluWritePC bld (ins: InsInfo) isUnconditional addr =
-  match ins.Mode with
-  | ArchOperationMode.ARMMode -> bxWritePC bld isUnconditional addr
-  | _ -> bld <+ (branchWritePC bld ins addr InterJmpKind.Base)
+  if ins.IsThumb then bld <+ (branchWritePC addr InterJmpKind.Base)
+  else bxWritePC bld isUnconditional addr
 
 /// Write value to R.PC, with interworking (without it before ARMv5T),
 /// on page A2-47. function : LoadWritePC()
@@ -815,7 +812,7 @@ let nop (ins: InsInfo) insLen bld =
 
 let convertPCOpr (ins: InsInfo) bld opr =
   if opr = getPC bld then
-    let rel = if ins.Mode = ArchOperationMode.ARMMode then 8 else 4
+    let rel = if not ins.IsThumb then 8 else 4
     opr .+ (numI32 rel 32<rt>)
   else opr
 
@@ -918,46 +915,42 @@ let add isSetFlags ins insLen bld =
 let align e1 e2 = e2 .* (e1 ./ e2)
 
 let pcOffset (ins: InsInfo) =
-  if ins.Mode = ArchOperationMode.ARMMode then 8UL else 4UL
+  if not ins.IsThumb then 8UL else 4UL
 
-let transLableOprsOfBL ins targetMode imm =
+let transLableOprsOfBL ins isThumb imm =
   let offset = pcOffset ins
   let pc =
-    match targetMode with
-    | ArchOperationMode.ARMMode ->
+    if isThumb then bvOfBaseAddr (ins.Address + offset)
+    else
       let addr = bvOfBaseAddr (ins.Address + offset)
       align addr (numI32 4 32<rt>)
-    | ArchOperationMode.ThumbMode -> bvOfBaseAddr (ins.Address + offset)
-    | _ -> raise InvalidTargetArchModeException
   pc .+ (numI64 imm 32<rt>)
 
 let targetModeOfBL (ins: InsInfo) =
-  match ins.Opcode, ins.Mode with
-  | Op.BL, mode -> struct (mode, InterJmpKind.IsCall)
-  | Op.BLX, ArchOperationMode.ARMMode ->
-    struct (ArchOperationMode.ThumbMode, InterJmpKind.SwitchToThumb)
-  | Op.BLX, ArchOperationMode.ThumbMode ->
-    struct (ArchOperationMode.ARMMode, InterJmpKind.SwitchToARM)
-  | _ -> raise InvalidTargetArchModeException
+  match ins.Opcode, ins.IsThumb with
+  | Op.BL, isThumb -> struct (isThumb, InterJmpKind.IsCall)
+  | Op.BLX, false -> struct (true, InterJmpKind.SwitchToThumb)
+  | Op.BLX, true -> struct (false, InterJmpKind.SwitchToARM)
+  | _ -> raise InvalidOpcodeException
 
 let parseOprOfBL ins =
-  let struct (targetMode, callKind) = targetModeOfBL ins
+  let struct (isThumb, callKind) = targetModeOfBL ins
   match ins.Operands with
   | OneOperand (OprMemory (LiteralMode imm)) ->
-    struct (transLableOprsOfBL ins targetMode imm, targetMode, callKind)
+    struct (transLableOprsOfBL ins isThumb imm, isThumb, callKind)
   | _ -> raise InvalidOperandException
 
 let bl ins insLen bld =
-  let struct (alignedAddr, targetMode, callKind) = parseOprOfBL ins
+  let struct (alignedAddr, isThumb, callKind) = parseOprOfBL ins
   let lr = regVar bld R.LR
   let retAddr = bvOfBaseAddr ins.Address .+ (numI32 4 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
-  if ins.Mode = ArchOperationMode.ARMMode then bld <+ (lr := retAddr)
+  if not ins.IsThumb then bld <+ (lr := retAddr)
   else bld <+ (lr := maskAndOR retAddr (AST.num1 32<rt>) 32<rt> 1)
-  selectInstrSet bld targetMode
-  bld <+ (branchWritePC bld ins alignedAddr callKind)
+  selectInstrSet bld isThumb
+  bld <+ (branchWritePC alignedAddr callKind)
   putEndLabelForBranch bld lblIgnore ins
   bld --!> insLen
 
@@ -967,7 +960,7 @@ let blxWithReg (ins: InsInfo) insLen reg bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
-  if ins.Mode = ArchOperationMode.ARMMode then
+  if not ins.IsThumb then
     bld <+ (lr := addr .+ (numI32 4 32<rt>))
   else
     let addr = addr .+ (numI32 2 32<rt>)
@@ -1141,7 +1134,7 @@ let subsPCLRThumb ins insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
-  bld <+ (branchWritePC bld ins result InterJmpKind.IsRet)
+  bld <+ (branchWritePC result InterJmpKind.IsRet)
   putEndLabel bld lblIgnore
   bld --!> insLen
 
@@ -1207,7 +1200,7 @@ let subsAndRelatedInstr (ins: InsInfo) insLen bld =
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
   bld <+ (result := parseResultOfSUBAndRela ins bld)
-  bld <+ (branchWritePC bld ins result InterJmpKind.IsRet)
+  bld <+ (branchWritePC result InterJmpKind.IsRet)
   putEndLabel bld lblIgnore
   bld --!> insLen
 
@@ -1650,8 +1643,7 @@ let shiftInstr isSetFlags ins insLen typ bld =
 
 let subs isSetFlags (ins: InsInfo) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-    when ins.Mode = ArchOperationMode.ThumbMode ->
+  | ThreeOperands (OprReg R.PC, _, _) when ins.IsThumb ->
     subsPCLRThumb ins insLen bld
   | ThreeOperands (OprReg R.PC, _, _)
   | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
@@ -2171,7 +2163,7 @@ let b ins insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
-  bld <+ (branchWritePC bld ins e InterJmpKind.Base)
+  bld <+ (branchWritePC e InterJmpKind.Base)
   putEndLabelForBranch bld lblIgnore ins
   bld --!> insLen
 
@@ -2310,7 +2302,7 @@ let parseMemOfLDR ins insLen bld = function
   | OprMemory (LiteralMode imm) ->
     let addr = bvOfBaseAddr ins.Address
     let pc = align addr (numI32 4 32<rt>)
-    let rel = if ins.Mode = ArchOperationMode.ARMMode then 8u else 4u
+    let rel = if not ins.IsThumb then 8u else 4u
     struct (pc .+ (numU32 rel 32<rt>) .+ (numI64 imm 32<rt>), None)
   | OprMemory (OffsetMode (RegOffset (n, _, m, None))) ->
     let m = regVar bld m |> convertPCOpr ins bld
@@ -2654,7 +2646,7 @@ let cbz nonZero ins insLen bld =
   let lblIgnore = checkCondition ins bld isUnconditional
   bld <+ (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
-  bld <+ (branchWritePC bld ins pc InterJmpKind.Base)
+  bld <+ (branchWritePC pc InterJmpKind.Base)
   bld <+ (AST.lmark lblL1)
   let fallAddr = ins.Address + uint64 ins.Length
   let fallAddrExp = numU64 fallAddr 32<rt>
@@ -2679,7 +2671,7 @@ let parseOprOfTableBranch (ins: InsInfo) insLen bld =
   | _ -> raise InvalidOperandException
 
 let tableBranch (ins: InsInfo) insLen bld =
-  let offset = if ins.Mode = ArchOperationMode.ARMMode then 8 else 4
+  let offset = if not ins.IsThumb then 8 else 4
   let pc = bvOfBaseAddr ins.Address .+ (numI32 offset 32<rt>)
   let halfwords = parseOprOfTableBranch ins insLen bld
   let numTwo = numI32 2 32<rt>
@@ -2687,7 +2679,7 @@ let tableBranch (ins: InsInfo) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
-  bld <+ (branchWritePC bld ins result InterJmpKind.Base)
+  bld <+ (branchWritePC result InterJmpKind.Base)
   putEndLabel bld lblIgnore
   bld --!> insLen
 
@@ -2794,7 +2786,7 @@ let parseOprOfADR (ins: InsInfo) insLen bld =
   match ins.Operands with
   | TwoOperands (OprReg rd, OprMemory (LiteralMode imm)) ->
     let addr = bvOfBaseAddr ins.Address
-    let rel = if ins.Mode = ArchOperationMode.ARMMode then 8 else 4
+    let rel = if not ins.IsThumb then 8 else 4
     let addr = addr .+ (numI32 rel 32<rt>)
     let pc = align addr (numI32 4 32<rt>)
     let imm = numI64 imm 32<rt>

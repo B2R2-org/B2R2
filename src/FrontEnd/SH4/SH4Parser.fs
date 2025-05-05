@@ -40,5 +40,3 @@ type SH4Parser (reader) =
 
     member _.MaxInstructionSize = 2
 
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
-

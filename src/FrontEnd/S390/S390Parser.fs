@@ -43,5 +43,3 @@ type S390Parser (isa: ISA, reader) =
       ParsingMain.parse span reader arch wordSize addr :> Instruction
 
     member _.MaxInstructionSize = 6
-
-    member _.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()

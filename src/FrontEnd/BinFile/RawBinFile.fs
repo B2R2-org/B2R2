@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// This class represents a raw binary file (containing only binary code and
 /// data without file format).
-type RawBinFile (path, bytes: byte[], isa, baseAddrOpt) =
+type RawBinFile (path, bytes: byte[], isa: ISA, baseAddrOpt) =
   let size = bytes.Length
   let baseAddr = defaultArg baseAddrOpt 0UL
   let symbolMap = Dictionary<Addr, Symbol> ()

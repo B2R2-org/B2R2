@@ -44,7 +44,7 @@ type CmdDisasm () =
   let rec disasmLoop acc bld (instrs: InstructionCollection) addr count =
     if count <= 0 then List.rev acc |> List.toArray
     else
-      match instrs.TryFind (addr, ArchOperationMode.NoMode) with
+      match instrs.TryFind addr with
       | Ok ins ->
         let d = ins.Disasm bld
         disasmLoop (d :: acc) bld instrs (addr + uint64 ins.Length) (count - 1)

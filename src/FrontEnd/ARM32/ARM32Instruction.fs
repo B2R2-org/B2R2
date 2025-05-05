@@ -29,9 +29,10 @@ open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for an ARM32 instruction used by our
 /// disassembler and lifter.
-type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
+type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s,
+                       isThumb, cf, oSz, a) =
   inherit ARM32InternalInstruction (addr, nb, cond, op, opr,
-                                    its, wb, q, s, m, cf, oSz, a)
+                                    its, wb, q, s, isThumb, cf, oSz, a)
 
   override _.IsBranch () =
     match op with
@@ -138,7 +139,7 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
       | OneOperand (OprMemory (LiteralMode target)) ->
         (* The PC value of an instruction is its address plus 4 for a Thumb
            instruction, or plus 8 for an ARM instruction. *)
-        let offset = if m = ArchOperationMode.ARMMode then 8L else 4L
+        let offset = if not isThumb then 8L else 4L
         let pc = (int64 this.Address + offset) / 4L * 4L (* Align by 4 *)
         addr <- ((pc + target) &&& 0xFFFFFFFFL) |> uint64
         true
@@ -173,23 +174,13 @@ type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf, oSz, a) =
     | SixOperands (_, _, _, _, _, OprImm c) -> v <- c; true
     | _ -> false
 
-  member private _.GetNextMode () =
-    match op with
-    | Opcode.BLX
-    | Opcode.BX ->
-      if m = ArchOperationMode.ARMMode then
-        ArchOperationMode.ThumbMode
-      else ArchOperationMode.ARMMode
-    | _ -> m
-
   member private this.AddBranchTargetIfExist addrs =
     match this.DirectBranchTarget () with
     | false, _ -> addrs
-    | true, target ->
-      [| (target, this.GetNextMode ()) |] |> Array.append addrs
+    | true, target -> [| target |] |> Array.append addrs
 
   override this.GetNextInstrAddrs () =
-    let acc = [| (this.Address + uint64 this.Length, m) |]
+    let acc = [| this.Address + uint64 this.Length |]
     if this.IsCall () then acc |> this.AddBranchTargetIfExist
     elif this.IsBranch () then
       if this.IsCondBranch () then acc |> this.AddBranchTargetIfExist

@@ -74,19 +74,16 @@ let makeArchModeDic (hdl: BinHandle) =
   | FileFormat.ELFBinary, Architecture.AARCH32 ->
     hdl.File.GetSymbols ()
     |> Seq.iter (fun s ->
-      if s.ArchOperationMode <> ArchOperationMode.NoMode then
-        modes[s.Address] <- s.ArchOperationMode
+      if s.ARMLinkerSymbol <> ARMLinkerSymbol.None then
+        modes[s.Address] <- s.ARMLinkerSymbol
       else ())
   | _ -> ()
   modes
 
-let getInstructionAlignment (isa: ISA) mode =
+let getInstructionAlignment (isa: ISA) isThumb =
   match isa.Arch with
   | Architecture.IntelX86 | Architecture.IntelX64 -> 1
-  | Architecture.ARMv7 | Architecture.AARCH32 ->
-    match mode with
-    | ArchOperationMode.ThumbMode -> 2
-    | _ -> 4
+  | Architecture.ARMv7 | Architecture.AARCH32 -> if isThumb then 2 else 4
   | Architecture.AARCH64 -> 4
   | Architecture.MIPS32 | Architecture.MIPS64 -> 4
   | Architecture.EVM -> 1
@@ -153,9 +150,9 @@ let colorDisPrinter (hdl: BinHandle) liftingUnit wordSize _ ptr ins cfg =
   let bytes = hdl.ReadBytes (ptr=ptr, nBytes=int ins.Length)
   printColorDisasm words wordSize ptr.Addr bytes cfg
 
-let handleInvalidIns hdl mode ptr isLift cfg =
+let handleInvalidIns hdl (modeSwitch: ARM32.IModeSwitchable) ptr isLift cfg =
   let wordSize = (hdl: BinHandle).File.ISA.WordSize
-  let align = getInstructionAlignment hdl.File.ISA mode
+  let align = getInstructionAlignment hdl.File.ISA modeSwitch.IsThumb
   let bytes = hdl.ReadBytes (ptr=ptr, nBytes=align)
   if isLift then printLowUIR IllegalStr bytes cfg
   else printRegularDisasm IllegalStr wordSize ptr.Addr bytes cfg
@@ -168,14 +165,21 @@ let printFuncSymbol (dict: Dictionary<Addr, string>) addr =
     out.PrintLine (String.wrapAngleBracket name)
   | false, _ -> ()
 
-let updateMode dict (liftingUnit: LiftingUnit) addr =
-  match (dict: Dictionary<Addr, ArchOperationMode>).TryGetValue addr with
-  | true, mode -> liftingUnit.Parser.OperationMode <- mode
-  | false, _ -> ()
+let updateMode dict (modeSwitch: ARM32.IModeSwitchable) addr =
+  match (dict: Dictionary<Addr, ARMLinkerSymbol>).TryGetValue addr with
+  | true, ARMLinkerSymbol.ARM -> modeSwitch.IsThumb <- false
+  | true, ARMLinkerSymbol.Thumb -> modeSwitch.IsThumb <- true
+  | _ -> ()
 
 [<AbstractClass>]
 type BinPrinter (hdl: BinHandle, cfg, isLift) =
   let liftingUnit = hdl.NewLiftingUnit ()
+  let modeSwitch =
+    if hdl.File.ISA.Arch = Architecture.ARMv7 then
+      liftingUnit.Parser :?> ARM32.IModeSwitchable
+    else
+      { new ARM32.IModeSwitchable with
+          member _.IsThumb with get () = false and set _ = () }
 
   abstract PrintFuncSymbol: Addr -> unit
 
@@ -183,7 +187,9 @@ type BinPrinter (hdl: BinHandle, cfg, isLift) =
 
   abstract UpdateMode: LiftingUnit -> Addr -> unit
 
-  member _.LiftingUnit with get() = liftingUnit
+  member _.LiftingUnit with get () = liftingUnit
+
+  member _.ModeSwitch with get () = modeSwitch
 
   member this.Print ptr =
     if BinFilePointer.IsValid ptr then
@@ -195,8 +201,7 @@ type BinPrinter (hdl: BinHandle, cfg, isLift) =
         let ptr' = BinFilePointer.Advance ptr (int ins.Length)
         this.Print ptr'
       | Error _ ->
-        let mode = liftingUnit.Parser.OperationMode
-        this.Print (handleInvalidIns hdl mode ptr isLift cfg)
+        this.Print (handleInvalidIns hdl modeSwitch ptr isLift cfg)
     else ()
 
 [<AbstractClass>]
@@ -245,14 +250,14 @@ type ContextSensitiveCodeDisasmPrinter (hdl, cfg, showSym, showColor) =
   let archmodes = makeArchModeDic hdl
   override this.PrintInstr hdl ptr ins =
     disPrinter hdl this.LiftingUnit wordSize showSym ptr ins cfg
-  override _.UpdateMode hdl addr = updateMode archmodes hdl addr
+  override _.UpdateMode hdl addr = updateMode archmodes base.ModeSwitch addr
 
 type ContextSensitiveCodeIRPrinter (hdl, cfg, optimizer) =
   inherit BinFuncPrinter (hdl, cfg, true)
   let archmodes = makeArchModeDic hdl
   override this.PrintInstr hdl ptr ins =
     regularIRPrinter hdl this.LiftingUnit optimizer ptr ins cfg
-  override _.UpdateMode hdl addr = updateMode archmodes hdl addr
+  override _.UpdateMode hdl addr = updateMode archmodes base.ModeSwitch addr
 
 type ContextSensitiveTableDisasmPrinter (hdl, cfg) =
   inherit BinTablePrinter (hdl, cfg, false)
@@ -260,11 +265,11 @@ type ContextSensitiveTableDisasmPrinter (hdl, cfg) =
   let wordSize = hdl.File.ISA.WordSize
   override this.PrintInstr hdl ptr ins =
     regularDisPrinter hdl this.LiftingUnit wordSize true ptr ins cfg
-  override _.UpdateMode hdl addr = updateMode archmodes hdl addr
+  override _.UpdateMode hdl addr = updateMode archmodes base.ModeSwitch addr
 
 type ContextSensitiveTableIRPrinter (hdl, cfg, optimizer) =
   inherit BinTablePrinter (hdl, cfg, true)
   let archmodes = makeArchModeDic hdl
   override this.PrintInstr hdl ptr ins =
     regularIRPrinter hdl this.LiftingUnit optimizer ptr ins cfg
-  override _.UpdateMode hdl addr = updateMode archmodes hdl addr
+  override _.UpdateMode hdl addr = updateMode archmodes base.ModeSwitch addr

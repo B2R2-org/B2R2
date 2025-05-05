@@ -130,8 +130,8 @@ type ELFSymbol = {
   ParentSection: ELFSection option
   /// Version information.
   VerInfo: SymVerInfo option
-  /// ArchOperationMode.
-  ArchOperationMode: ArchOperationMode
+  /// ARM32-specific linker symbol type.
+  ARMLinkerSymbol: ARMLinkerSymbol
 }
 
 /// Main data structure for storing symbol information.
@@ -166,7 +166,7 @@ module internal Symbol =
       Kind = getSymbKind symb.SecHeaderIndex symb.SymType
       Visibility = vis
       LibraryName = versionToLibName symb.VerInfo
-      ArchOperationMode = symb.ArchOperationMode }
+      ARMLinkerSymbol = symb.ARMLinkerSymbol }
 
   let verName (strTab: ByteSpan) vnaNameOffset =
     if vnaNameOffset >= strTab.Length then ""
@@ -265,14 +265,13 @@ module internal Symbol =
       else symAddr
     |> adjustSymAddr baseAddr
 
-  let computeArchOpMode hdr symbolName =
+  let computeLinkerSymbolKind hdr symbolName =
     if hdr.MachineType = Architecture.ARMv7
-      || hdr.MachineType = Architecture.AARCH32
-    then
-      if symbolName = "$a" then ArchOperationMode.ARMMode
-      elif symbolName = "$t" then ArchOperationMode.ThumbMode
-      else ArchOperationMode.NoMode
-    else ArchOperationMode.NoMode
+      || hdr.MachineType = Architecture.AARCH32 then
+      if symbolName = "$a" then ARMLinkerSymbol.ARM
+      elif symbolName = "$t" then ARMLinkerSymbol.Thumb
+      else ARMLinkerSymbol.None
+    else ARMLinkerSymbol.None
 
   let parseVersData (reader: IBinReader) symIdx verInfoTbl =
     let pos = symIdx * 2
@@ -308,7 +307,7 @@ module internal Symbol =
       SecHeaderIndex = secIdx
       ParentSection = parent
       VerInfo = verInfo
-      ArchOperationMode = computeArchOpMode toolBox.Header sname }
+      ARMLinkerSymbol = computeLinkerSymbolKind toolBox.Header sname }
 
   let nextSymOffset cls offset =
     offset + pickNum cls 16 24

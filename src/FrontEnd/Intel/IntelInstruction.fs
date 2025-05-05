@@ -137,10 +137,10 @@ type IntelInstruction
   member private this.AddBranchTargetIfExist addrs =
     match this.DirectBranchTarget () with
     | false, _ -> addrs
-    | true, target -> (target, ArchOperationMode.NoMode) :: addrs
+    | true, target -> target :: addrs
 
   override this.GetNextInstrAddrs () =
-    let acc = [ (this.Address + uint64 this.Length, ArchOperationMode.NoMode) ]
+    let acc = [ this.Address + uint64 this.Length ]
     if this.IsBranch () then
       if this.IsCondBranch () then acc |> this.AddBranchTargetIfExist
       else this.AddBranchTargetIfExist []

@@ -29,9 +29,8 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open type FileFormat
-open type ArchOperationMode
 
-type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
+type BinHandle private (path, bytes, fmt, isa, baseAddrOpt) =
   let regFactory = GroundWork.CreateRegisterFactory isa
 
   let binFile = FileFactory.load path bytes fmt isa regFactory baseAddrOpt
@@ -75,45 +74,41 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
     if b = 0uy then List.rev (b :: acc) |> List.toArray
     else readAscii (b :: acc) (offset + 1)
 
-  new (path, isa, mode, baseAddrOpt) =
+  new (path, isa, baseAddrOpt) =
     let bytes = File.ReadAllBytes path
     let struct (fmt, isa) = FormatDetector.identify bytes isa
-    BinHandle (path, bytes, fmt, isa, mode, baseAddrOpt)
-
-  new (path, isa, baseAddrOpt) =
-    BinHandle (path=path, isa=isa, mode=NoMode, baseAddrOpt=baseAddrOpt)
+    BinHandle (path, bytes, fmt, isa, baseAddrOpt)
 
   new (path, isa) =
-    BinHandle (path=path, isa=isa, mode=NoMode, baseAddrOpt=None)
+    BinHandle (path=path, isa=isa, baseAddrOpt=None)
 
   new (path) =
-    BinHandle (path=path, isa=ISA.DefaultISA, mode=NoMode, baseAddrOpt=None)
+    BinHandle (path=path, isa=ISA.DefaultISA, baseAddrOpt=None)
 
-  new (bytes, isa, mode, baseAddrOpt, detectFormat) =
+  new (bytes, isa, baseAddrOpt, detectFormat) =
     if detectFormat then
       let struct (fmt, isa) = FormatDetector.identify bytes isa
-      BinHandle ("", bytes, fmt, isa, mode, baseAddrOpt)
+      BinHandle ("", bytes, fmt, isa, baseAddrOpt)
     else
-      BinHandle ("", bytes, RawBinary, isa, mode, baseAddrOpt)
+      BinHandle ("", bytes, RawBinary, isa, baseAddrOpt)
 
   new (bytes, isa) =
-    BinHandle ("", bytes, RawBinary, isa, NoMode, None)
+    BinHandle ("", bytes, RawBinary, isa, None)
 
   new (isa) =
-    BinHandle ([||], isa, NoMode, None, false)
+    BinHandle ([||], isa, None, false)
 
   member _.File with get(): IBinFile = binFile
 
   member _.RegisterFactory with get() = regFactory
 
   member _.NewLiftingUnit () =
-    let mode =
-      match binFile.ISA.Arch, binFile.EntryPoint, mode with
-      | Architecture.ARMv7, Some entryPoint, ArchOperationMode.NoMode ->
-        if entryPoint % 2UL <> 0UL then ThumbMode
-        else ARMMode
-      | _ -> mode
-    let parser = GroundWork.CreateParser reader regFactory binFile.ISA mode
+    let parser = GroundWork.CreateParser reader regFactory binFile.ISA
+    match binFile.ISA.Arch, binFile.EntryPoint with
+    | Architecture.ARMv7, Some entryPoint when entryPoint % 2UL <> 0UL ->
+      let armParser = parser :?> ARM32.IModeSwitchable
+      armParser.IsThumb <- true
+    | _ -> ()
     LiftingUnit (binFile, regFactory, parser)
 
   member _.TryReadBytes (addr: Addr, nBytes) =
@@ -202,9 +197,9 @@ type BinHandle private (path, bytes, fmt, isa, mode, baseAddrOpt) =
     ByteArray.extractCString bs 0
 
   member _.MakeNew (bs: byte[]) =
-    BinHandle (path, bs, fmt, isa, mode, baseAddrOpt)
+    BinHandle (path, bs, fmt, isa, baseAddrOpt)
 
   member _.MakeNew (bs: byte[], baseAddr) =
-    BinHandle (path, bs, fmt, isa, mode, Some baseAddr)
+    BinHandle (path, bs, fmt, isa, Some baseAddr)
 
 // vim: set tw=80 sts=2 sw=2:
