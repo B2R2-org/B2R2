@@ -498,7 +498,7 @@ let getM16D20M32D36 b =
 
 let getVR8QUImm16 b = TwoOperands (vr8Q b, gr16to31UImmQ b)
 
-let GRL9QGRL12Q b =
+let grl9QGRL12Q b =
   TwoOperands (OpStoreLen (gr9to11UHWQ b + 1us, base16Q b, disp20Q b)
   , OpStoreLen (gr12to15UHWQ b + 1us, base32Q b, disp36Q b))
 

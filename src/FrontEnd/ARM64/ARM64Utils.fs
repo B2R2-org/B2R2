@@ -67,7 +67,7 @@ let zeroExtend bitSize extSize (imm: uint32) =
 // Return TRUE if UBFX or SBFX is the preferred disassembly of a
 // UBFM or SBFM bitfield instruction. Must exclude more specific
 // aliases UBFIZ, SBFIZ, UXT[BH], SXT[BHW], LSL, LSR and ASR.
-let BFXPreferred sf uns imms immr =
+let bfxPreferred sf uns imms immr =
   if imms < immr then false
   else if imms = (concat sf 0b11111u 5) then false
   else if immr = 0b000000u then
@@ -92,7 +92,7 @@ let zeroExtendOnes m _ = (1L <<< m) - 1L
 
 // ROR()
 // =====
-let RORZeroExtendOnes m n r =
+let rorZeroExtendOnes m n r =
   let value = zeroExtendOnes m n
   if r = 0 then value
   else ((value >>> r) &&& ((1L <<< (n - r)) - 1L)) |||
@@ -120,12 +120,12 @@ let decodeBitMasks immN imms immr isImm oprSize =
   let s = imms &&& levels
   let r = immr &&& levels
 
-  replicate (RORZeroExtendOnes (int s + 1) eSize (int r)) eSize oprSize
+  replicate (rorZeroExtendOnes (int s + 1) eSize (int r)) eSize oprSize
 
 // aarch64/instrs/system/sysops/sysop/SysOp
 // SysOp()
 // =======
-let SysOp bin =
+let sysOp bin =
   match extract bin 18u 5u with
   | 0b00001111000000u -> SysAT // S1E1R
   | 0b10001111000000u -> SysAT // S1E2R

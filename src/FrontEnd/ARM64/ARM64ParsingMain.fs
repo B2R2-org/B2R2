@@ -457,7 +457,7 @@ let changeToAliasOfBitfield bin instr =
     let lsb = (RegType.toBitWidth oSz |> int64) - immr
     Op.SBFIZ, FourOperands (rd, rn, OprImm lsb, OprImm (imms + 1L)), oSz
   | Op.SBFM, FourOperands (rd, rn, OprImm r, OprImm s), oSz
-      when BFXPreferred sf 0u (uint32 s) (uint32 r) ->
+      when bfxPreferred sf 0u (uint32 s) (uint32 r) ->
     Op.SBFX, FourOperands (rd, rn, OprImm r, OprImm (s - r + 1L)), oSz
   | Op.SBFM, FourOperands (rd, _, OprImm immr, OprImm imms), oprSz
       when (immr = 0b000000L) && (imms = 0b000111L) ->
@@ -501,7 +501,7 @@ let changeToAliasOfBitfield bin instr =
     Op.UBFIZ, FourOperands (rd, rn, OprImm lsb, OprImm (imms + 1L)),
     oprSize
   | Op.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
-      when BFXPreferred sf 1u (uint32 imms) (uint32 immr) ->
+      when bfxPreferred sf 1u (uint32 imms) (uint32 immr) ->
     Op.UBFX,
     FourOperands (rd, rn, OprImm immr, OprImm (imms - immr + 1L)), oprSize
   | Op.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
@@ -692,7 +692,7 @@ let private getDCInstruction bin =
 let changeToAliasOfSystem bin instr =
   match instr with
   | Op.SYS, FiveOperands (_, OprRegister cn, _, _, xt), oSz
-      when cn = R.C7 && SysOp bin = SysDC ->
+      when cn = R.C7 && sysOp bin = SysDC ->
     getDCInstruction bin, OneOperand xt, oSz
   | _ -> instr
 

@@ -561,7 +561,7 @@ let condToString = function
   | Condition.UN | Condition.AL -> ""
   | _ -> raise ParsingFailureException
 
-let SIMDTypToStr = function
+let simdTypeToStr = function
   | SIMDTyp8 -> ".8"
   | SIMDTyp16 -> ".16"
   | SIMDTyp32 -> ".32"
@@ -595,9 +595,9 @@ let inline appendQualifier (ins: InsInfo) (sb: StringBuilder) =
 let inline appendSIMDDataTypes (ins: InsInfo) (sb: StringBuilder) =
   match ins.SIMDTyp with
   | None -> sb
-  | Some (OneDT dt) -> sb.Append (SIMDTypToStr dt)
+  | Some (OneDT dt) -> sb.Append (simdTypeToStr dt)
   | Some (TwoDT (dt1, dt2)) ->
-    (sb.Append (SIMDTypToStr dt1)).Append (SIMDTypToStr dt2)
+    (sb.Append (simdTypeToStr dt1)).Append (simdTypeToStr dt2)
 
 let inline buildOpcode (ins: InsInfo) (builder: IDisasmBuilder) =
   let sb = StringBuilder ()

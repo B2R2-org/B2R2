@@ -384,14 +384,15 @@ type RegisterFactory () =
   let midrel1 = AST.var 64<rt> (Register.toRegID MIDREL1) "MIDR_EL1"
   /// EL0 Read/Write Software Thread ID ARM64.
   let tpidrel0 = AST.var 64<rt> (Register.toRegID TPIDREL0) "TPIDR_EL0"
-  /// S<op0>_<op1>_<Cn>_<Cm>_<op2>.
-  let ``s3_5_c3_c2_0`` =
+
+  (* S<op0>_<op1>_<Cn>_<Cm>_<op2> *)
+  let s35c3c20 =
     AST.var 64<rt> (Register.toRegID S3_5_C3_C2_0) "S3_5_C3_C2_0"
-  let ``s3_7_c2_c2_7`` =
+  let s37c2c27 =
     AST.var 64<rt> (Register.toRegID S3_7_C2_C2_7) "S3_7_C2_C2_7"
-  let ``s0_0_c2_c9_3`` =
+  let s00c2c93 =
     AST.var 64<rt> (Register.toRegID S0_0_C2_C9_3) "S0_0_C2_C9_3"
-  let ``s2_7_c12_c7_6`` =
+  let s27c12c76 =
     AST.var 64<rt> (Register.toRegID S2_7_C12_C7_6) "S2_7_C12_C7_6"
 
   (* Extra pseudo registers. *)
@@ -606,10 +607,10 @@ type RegisterFactory () =
       | R.DCZIDEL0 -> dczidel0
       | R.MIDREL1 -> midrel1
       | R.TPIDREL0 -> tpidrel0
-      | R.S3_5_C3_C2_0 -> s3_5_c3_c2_0
-      | R.S3_7_C2_C2_7 -> s3_7_c2_c2_7
-      | R.S0_0_C2_C9_3 -> s0_0_c2_c9_3
-      | R.S2_7_C12_C7_6 -> s2_7_c12_c7_6
+      | R.S3_5_C3_C2_0 -> s35c3c20
+      | R.S3_7_C2_C2_7 -> s37c2c27
+      | R.S0_0_C2_C9_3 -> s00c2c93
+      | R.S2_7_C12_C7_6 -> s27c12c76
       | R.ERET -> eret
       | _ -> raise UnhandledRegExprException
 

@@ -777,15 +777,15 @@ let parseInstLenThree (bin: uint64) =
     | 0xEEus -> Op.PLO, getGR9QM16D20GR12QM32D36 bin, Fmt.SS
     | 0xEFus -> Op.LMD, getGR9QM16D20GR12QM32D36 bin, Fmt.SS
     | 0xF0us -> Op.SRP, getGRL9QM32D36UImm4 bin, Fmt.SS
-    | 0xF1us -> Op.MVO, GRL9QGRL12Q bin, Fmt.SS
-    | 0xF2us -> Op.PACK, GRL9QGRL12Q bin, Fmt.SS
-    | 0xF3us -> Op.UNPK, GRL9QGRL12Q bin, Fmt.SS
-    | 0xF8us -> Op.ZAP, GRL9QGRL12Q bin, Fmt.SS
-    | 0xF9us -> Op.CP, GRL9QGRL12Q bin, Fmt.SS
-    | 0xFAus -> Op.AP, GRL9QGRL12Q bin, Fmt.SS
-    | 0xFBus -> Op.SP, GRL9QGRL12Q bin, Fmt.SS
-    | 0xFCus -> Op.MP, GRL9QGRL12Q bin, Fmt.SS
-    | 0xFDus -> Op.DP, GRL9QGRL12Q bin, Fmt.SS
+    | 0xF1us -> Op.MVO, grl9QGRL12Q bin, Fmt.SS
+    | 0xF2us -> Op.PACK, grl9QGRL12Q bin, Fmt.SS
+    | 0xF3us -> Op.UNPK, grl9QGRL12Q bin, Fmt.SS
+    | 0xF8us -> Op.ZAP, grl9QGRL12Q bin, Fmt.SS
+    | 0xF9us -> Op.CP, grl9QGRL12Q bin, Fmt.SS
+    | 0xFAus -> Op.AP, grl9QGRL12Q bin, Fmt.SS
+    | 0xFBus -> Op.SP, grl9QGRL12Q bin, Fmt.SS
+    | 0xFCus -> Op.MP, grl9QGRL12Q bin, Fmt.SS
+    | 0xFDus -> Op.DP, grl9QGRL12Q bin, Fmt.SS
     | _ ->
       match opcode1 <<< 4 ||| (extract48 bin 12 15 |> uint16) with
       | 0xC80us -> Op.MVCOS, getM16D20M32D36GR8Q bin, Fmt.SSF
