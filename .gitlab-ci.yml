@@ -5,13 +5,10 @@ stages:
 lint:
     image: mcr.microsoft.com/dotnet/sdk:9.0
     stage: build
-    before_script:
-        - LATEST_COMMIT=$(git ls-remote https://gitlab-ci-token:${CI_JOB_TOKEN}@softsec.kaist.ac.kr:8000/B2R2/B2R2.git HEAD | awk '{print $1}')
-        - CHANGES=$(if [ "$LATEST_COMMIT" == "$CI_COMMIT_SHA" ]; then git diff-tree --diff-filter=ACM --no-commit-id --name-only -r $LATEST_COMMIT; else git diff-tree --diff-filter=ACM --no-commit-id --name-only -r $LATEST_COMMIT -r $CI_COMMIT_SHA; fi | sed '/.fs$/!d' | sed '/CFG.Tests.fs/d')
     script:
-        - dotnet tool install --global dotnet-fsharplint
-        - echo $CHANGES
-        - for f in $CHANGES; do echo $f; /root/.dotnet/tools/dotnet-fsharplint lint $f; done
+        - git clone https://github.com/B2R2-org/FSLint.git
+        - dotnet build FSLint
+        - dotnet run --project FSLint -- src/
     tags:
         - b2r2
 
