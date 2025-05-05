@@ -14,21 +14,8 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 9.0.x
-    - name: Restore dependencies
-      run: dotnet tool restore
-    - name: Get changed files
-      id: changed-files
-      uses: tj-actions/changed-files@v46.0.3
-      with:
-        files: |
-          **/*.{fs,fsi}
-        files_ignore: |
-          **/CFG?Tests.fs
-    - name: Lint changed files
-      env:
-        CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+    - name: Lint files
       run: |
-        for file in ${CHANGED_FILES}; do
-          echo $file
-          DOTNET_ROLL_FORWARD=latestMajor dotnet fsharplint lint $file
-        done
+        git clone --depth 1 https://github.com/B2R2-org/FSLint.git
+        dotnet build FSLint
+        dotnet run --project FSLint -- src/
