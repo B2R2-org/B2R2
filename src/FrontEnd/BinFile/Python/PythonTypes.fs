@@ -88,7 +88,9 @@ and PyCodeObject =
   | PyCode of PyCodeConstructor
   | PyTuple of PyCodeObject[]
   | PyInt of int
+  | PyAscii of string
   | PyShortAsciiInterned of string
   | PyShortAscii of string
   | PyREF of int * string
+  | PyFalse
   | PyNone

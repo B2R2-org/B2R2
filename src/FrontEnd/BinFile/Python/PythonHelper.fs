@@ -67,7 +67,7 @@ let getFlagAndPyType (bytes: byte[]) (reader: IBinReader) offset =
 
 let rec pyObjToString = function
   | PyString s ->  System.Text.Encoding.ASCII.GetString s
-  | PyShortAsciiInterned str | PyShortAscii str -> str
+  | PyAscii str | PyShortAsciiInterned str | PyShortAscii str -> str
   | PyInt i -> i.ToString()
   | PyREF (n, r) -> r.ToString() + "(" + (n.ToString()) + ")"
   | PyTuple t ->
@@ -85,7 +85,7 @@ let readAndOffset (bytes: byte[]) (reader: IBinReader) offset size =
 let private appendRefs flag refs obj =
   if flag <> 0 then
     let refs = Array.append refs [| obj |]
-    printfn "flag: %X, refcnt: %d, pyobj: %A" flag (Array.length refs) obj
+    //printfn "flag: %X, refcnt: %d, pyobj: %A" flag (Array.length refs) obj
     refs
   else refs
 
@@ -160,6 +160,10 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
       let tuples, refs, offset = loop [] refs offset
       PyTuple (tuples |> List.toArray |> Array.rev), refs, offset
     else PyTuple [||], refs, offset
+  | PyType.TYPE_ASCII ->
+    let n, offset = readAndOffset bytes reader offset 4
+    let str = Array.sub bytes offset n |> System.Text.Encoding.ASCII.GetString
+    PyAscii str, appendRefs flag refs str, offset + n
   | PyType.TYPE_SHORT_ASCII | PyType.TYPE_SHORT_ASCII_INTERNED ->
     let n, offset = readAndOffset bytes reader offset 1
     let str = Array.sub bytes offset n |> System.Text.Encoding.ASCII.GetString
@@ -168,6 +172,7 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
     let n, offset = readAndOffset bytes reader offset 4
     //printfn "[TYPE_REF] len %d, n %d, %A" (Array.length refs) n refs
     PyREF (n, refs[n]), refs, offset
+  | PyType.TYPE_FALSE -> PyFalse, appendRefs flag refs "PyFalse", offset
   | _ -> printf "%A " pyType; failwith "Invalid parsePyType"
 
 let parseCodeObject bytes reader =
@@ -205,6 +210,7 @@ let extractVarNames pyObj =
         | o -> failwithf "Invalid PyCodeObject(%A)" o
       match code.Consts with
       | PyTuple t -> Array.fold collect acc t
+      | PyREF _ as ref -> (addrRange, [| ref |]) :: acc
       | o -> failwithf "Invalid PyCodeObject(%A)" o
     | _ -> acc
   collect [] pyObj |> List.toArray
@@ -218,9 +224,11 @@ let extractNames pyObj =
       let acc =
         match code.Names with
         | PyTuple t -> (addrRange, t) :: acc
+        | PyREF _ as ref -> (addrRange, [| ref |]) :: acc
         | o -> failwithf "Invalid PyCodeObject(%A)" o
       match code.Consts with
       | PyTuple t -> Array.fold collect acc t
+      | PyREF _ as ref -> (addrRange, [| ref |]) :: acc
       | o -> failwithf "Invalid PyCodeObject(%A)" o
     | _ -> acc
   collect [] pyObj |> List.toArray
@@ -239,6 +247,7 @@ let getSections codeObjs =
         | PyTuple t ->
           t |> Array.toList
           |> List.collect extractCodeInfo
+        | PyREF _ -> []
         | o -> failwithf "Invalid PyCodeObject(%A)" o
       current :: nested
     | _ -> []

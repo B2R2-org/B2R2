@@ -175,13 +175,17 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let opcode = opcodeToStrings ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic opcode
 
-let toStringPyCodeObj = function
+let rec toStringPyCodeObj = function
   | PyNone -> "None"
   | PyInt i -> i.ToString()
   | PyREF (_, str) -> str
-  | PyShortAsciiInterned str -> str
+  | PyAscii str | PyShortAscii str | PyShortAsciiInterned str -> str
   | PyCode c ->
     $"<code object {c.Name}, file \"{c.FileName}\", line {c.FirstLineNo}>"
+  | PyTuple t ->
+    let t = Array.map toStringPyCodeObj t
+    String.concat ", " t
+  | PyFalse -> "False"
   | o -> failwithf "Invalid PyCodeObj %A" o
 
 let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =

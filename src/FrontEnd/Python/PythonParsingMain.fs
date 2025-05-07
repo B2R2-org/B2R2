@@ -32,13 +32,27 @@ open B2R2.FrontEnd.Python
 
 type Op = Opcode
 
+let intrinsic = [|
+  "INTRINSIC_1_INVALID"
+  "INTRINSIC_PRINT"
+  "INTRINSIC_IMPORT_STAR"
+  "INTRINSIC_STOPITERATION_ERROR"
+  "INTRINSIC_ASYNC_GEN_WRAP"
+  "INTRINSIC_UNARY_POSITIVE"
+  "INTRINSIC_LIST_TO_TUPLE"
+  "INTRINSIC_TYPEVAR"
+  "INTRINSIC_PARAMSPEC"
+  "INTRINSIC_TYPEVARTUPLE"
+  "INTRINSIC_SUBSCRIPT_GENERIC"
+  "INTRINSIC_TYPEALIAS" |]
+
 type ParsingHelper (reader: IBinReader, binFile: PythonBinFile) =
   member __.Reader with get() = reader
   member __.BinFile with get() = binFile
 
 let private getTable (binFile: PythonBinFile) = function
   | Op.LOAD_CONST | Op.RETURN_CONST -> binFile.Consts
-  | Op.STORE_NAME -> binFile.Names
+  | Op.STORE_NAME | Op.IMPORT_NAME -> binFile.Names
   | Op.STORE_FAST | Op.LOAD_FAST -> binFile.Varnames
   | o -> printfn "Unsupported Opcode %A" o; [||]
 
@@ -107,7 +121,7 @@ let private parseInstruction (span: ReadOnlySpan<byte>) (reader: IBinReader)
   | 0x5Cuy -> parseOperand Op.UNPACK_SEQUENCE span reader bFile addr 2u
   | 0x5Duy -> parseOperand Op.FOR_ITER span reader bFile addr 2u
   | 0x5Euy -> parseOperand Op.UNPACK_EX span reader bFile addr 2u
-  | 0x5Fuy -> parseOperand Op.STORE_ATTR span reader bFile addr 2u
+  | 0x5Fuy -> parseOperand Op.STORE_ATTR span reader bFile addr 10u
   | 0x60uy -> parseOperand Op.DELETE_ATTR span reader bFile addr 2u
   | 0x61uy -> parseOperand Op.STORE_GLOBAL span reader bFile addr 2u
   | 0x62uy -> parseOperand Op.DELETE_GLOBAL span reader bFile addr 2u
@@ -118,7 +132,7 @@ let private parseInstruction (span: ReadOnlySpan<byte>) (reader: IBinReader)
   | 0x67uy -> parseOperand Op.BUILD_LIST span reader bFile addr 2u
   | 0x68uy -> parseOperand Op.BUILD_SET span reader bFile addr 2u
   | 0x69uy -> parseOperand Op.BUILD_MAP span reader bFile addr 2u
-  | 0x6Auy -> parseOperand Op.LOAD_ATTR span reader bFile addr 2u
+  | 0x6Auy -> parseOperand Op.LOAD_ATTR span reader bFile addr 20u
   | 0x6Buy -> parseOperand Op.COMPARE_OP span reader bFile addr 2u
   | 0x6Cuy -> parseOperand Op.IMPORT_NAME span reader bFile addr 2u
   | 0x6Duy -> parseOperand Op.IMPORT_FROM span reader bFile addr 2u

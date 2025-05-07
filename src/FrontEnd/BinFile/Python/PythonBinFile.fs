@@ -28,7 +28,6 @@ open System
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinFile.Python
 open B2R2.FrontEnd.BinFile.Python.Helper
 
 /// This class represents a Python binary file.
