@@ -6,7 +6,15 @@
       "version": "20.0.1",
       "commands": [
         "fsdocs"
-      ]
+      ],
+      "rollForward": false
+    },
+    "b2r2.fslint": {
+      "version": "0.1.0",
+      "commands": [
+        "fslint"
+      ],
+      "rollForward": false
     }
   }
 }
