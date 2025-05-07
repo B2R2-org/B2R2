@@ -264,7 +264,7 @@ let opToStr ins addr op delim builder =
     prepDelim delim builder
     addrToStr s addr builder
 
-let buildOp ins pc builder =
+let buildOp (ins: Instruction) pc builder =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
@@ -277,7 +277,7 @@ let buildOp ins pc builder =
     opToStr ins pc opr2 (Some ",") builder
     opToStr ins pc opr3 (Some ",") builder
 
-let inline buildOpcode ins (builder: IDisasmBuilder) =
+let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
   if String.length str = 2 then builder.Accumulate AsmWordKind.String "      "
@@ -287,8 +287,8 @@ let inline buildOpcode ins (builder: IDisasmBuilder) =
   elif String.length str = 6 then builder.Accumulate AsmWordKind.String "  "
   else builder.Accumulate AsmWordKind.String ""
 
-let disas insInfo (builder: IDisasmBuilder) =
-  let pc = insInfo.Address
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
+  let pc = ins.Address
   builder.AccumulateAddrMarker pc
-  buildOpcode insInfo builder
-  buildOp insInfo pc builder
+  buildOpcode ins builder
+  buildOp ins pc builder

@@ -168,7 +168,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
       (opt pFmt) .>>.
       (whitespace >>. operands)
       |>> (fun (((opcode, cond), fmt), operands) ->
-              newInfo mipsISA address opcode cond fmt operands )
+              newAssemblyIns mipsISA address opcode cond fmt operands )
 
   let statement =
     opt pLabelDef >>. spaces >>. pInsInfo  .>> incrementAddress
@@ -177,5 +177,5 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
 
   member _.Run assembly =
     match runParserOnString statements Map.empty<string, Addr> "" assembly with
-    | Success (result, us, _) -> SecondPass.updateInsInfos result us
+    | Success (result, us, _) -> SecondPass.updateInstructions result us
     | Failure (str, _, _) -> printfn "Parser failed!\n%s" str; []

@@ -59,24 +59,6 @@ let extract128 (bin: UInt128) ofs1 ofs2 =
   |> List.fold (fun acc i -> acc <<< 1 ||| (bin >>> 127 - i &&& UInt128.One))
     UInt128.Zero
 
-let private extractMask = function
-  | OpMask op -> Some op
-  | _ -> None
-
-let getMaskVal (opr: Operands) =
-  match opr with
-  | NoOperand -> None
-  | OneOperand op1 -> extractMask op1
-  | TwoOperands (op1, op2) -> [| op1; op2 |] |> Array.tryPick extractMask
-  | ThreeOperands (op1, op2, op3) ->
-    [| op1; op2; op3 |] |> Array.tryPick extractMask
-  |  FourOperands (op1, op2, op3, op4) ->
-    [| op1; op2; op3; op4 |] |> Array.tryPick extractMask
-  | FiveOperands (op1, op2, op3, op4, op5) ->
-    [| op1; op2; op3; op4; op5 |] |> Array.tryPick extractMask
-  | SixOperands (op1, op2, op3, op4, op5, op6) ->
-    [| op1; op2; op3; op4; op5; op6 |] |> Array.tryPick extractMask
-
 let getR (bin: uint16) =
   match bin with
   | 0us -> Register.R0

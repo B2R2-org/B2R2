@@ -610,7 +610,7 @@ let buildComment5 opr1 opr2 opr3 opr4 opr5 (builder: IDisasmBuilder) =
     | _ -> ()
   | _ -> ()
 
-let buildOprs ins pc builder =
+let buildOprs (ins: Instruction) pc builder =
   let pcValue = int32 pc
   match ins.Operands with
   | NoOperand -> ()
@@ -830,12 +830,12 @@ let buildOprs ins pc builder =
     oprToString ins pc opr5 (Some ", ") builder
     buildComment5 opr1 opr2 opr3 opr4 opr5 builder
 
-let inline buildOpcode ins (builder: IDisasmBuilder) =
+let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let disasm insInfo (builder: IDisasmBuilder) =
-  let pc = insInfo.Address
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
+  let pc = ins.Address
   builder.AccumulateAddrMarker pc
-  buildOpcode insInfo builder
-  buildOprs insInfo pc builder
+  buildOpcode ins builder
+  buildOprs ins pc builder

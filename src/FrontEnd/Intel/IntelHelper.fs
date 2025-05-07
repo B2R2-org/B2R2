@@ -48,7 +48,7 @@ and [<AbstractClass>] InsSizeComputer () =
     rhlp.OperationSize <- 0<rt>
 
 and ReadHelper (reader: IBinReader,
-                addr, cpos, pref, rex, vex, wordSz, ops, szs) =
+                addr, cpos, pref, rex, vex, wordSz, ops, szs, lifter) =
   let mutable addr: Addr = addr
   let mutable cpos: int = cpos (* current position *)
   let mutable pref: Prefix = pref
@@ -61,9 +61,9 @@ and ReadHelper (reader: IBinReader,
   let mutable regSz = 0<rt>
   let mutable operationSz = 0<rt>
   let mutable tupleType = TupleType.NA
-  new (reader, wordSz, oparsers, szcomputers) =
+  new (reader, wordSz, oparsers, szcomputers, lifter) =
     ReadHelper (reader, 0UL, 0, Prefix.PrxNone, REXPrefix.NOREX, None,
-                wordSz, oparsers, szcomputers)
+                wordSz, oparsers, szcomputers, lifter)
   member _.InsAddr with get (): Addr = addr and set a = addr <- a
   member _.CurrPos with get () = cpos and set p = cpos <- p
   member _.IncPos () = cpos <- cpos + 1
@@ -80,6 +80,7 @@ and ReadHelper (reader: IBinReader,
   member _.OperationSize with get () = operationSz and set s = operationSz <- s
   member _.TupleType
     with get (): TupleType = tupleType and set t = tupleType <- t
+  member _.Lifter with get (): ILiftable = lifter
 
   member inline private _.ModCPos i = cpos <- cpos + i
 
@@ -205,24 +206,6 @@ let getSegment pref =
   elif (pref &&& Prefix.PrxSS) <> Prefix.PrxNone then Some R.SS
   else None
 
-let isBranch = function
-  | Opcode.CALLFar | Opcode.CALLNear
-  | Opcode.JMPFar | Opcode.JMPNear
-  | Opcode.RETFar | Opcode.RETFarImm | Opcode.RETNear | Opcode.RETNearImm
-  | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
-  | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL | Opcode.JNO
-  | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP
-  | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE
-  | Opcode.LOOPNE -> true
-  | _ -> false
-
-let isCETInstr = function
-  | Opcode.INCSSPD | Opcode.INCSSPQ | Opcode.RDSSPD | Opcode.RDSSPQ
-  | Opcode.SAVEPREVSSP | Opcode.RSTORSSP | Opcode.WRSSD | Opcode.WRSSQ
-  | Opcode.WRUSSD | Opcode.WRUSSQ | Opcode.SETSSBSY | Opcode.CLRSSBSY -> true
-  | _ -> false
-
-///////////////////////////////
 let getOprSize size sizeCond =
   if sizeCond = SzCond.F64 ||
     (size = 32<rt> && sizeCond = SzCond.D64) then 64<rt>

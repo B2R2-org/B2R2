@@ -52,11 +52,11 @@ type TMS320ParserTests () =
   let test (funit: FunctionalUnit) (bytes: byte[]) (opcode, oprs: Operands) =
     let reader = BinReader.Init Endian.Little
     let span = System.ReadOnlySpan bytes
-    let mutable inpar = false
-    let ins = ParsingMain.parse span reader &inpar 0UL
-    Assert.AreEqual<Opcode> (opcode, ins.Info.Opcode)
-    Assert.AreEqual<FunctionalUnit> (funit, ins.Info.FunctionalUnit)
-    Assert.AreEqual<Operands> (oprs, ins.Info.Operands)
+    let parser = TMS320C6000Parser (reader) :> IInstructionParsable
+    let ins = parser.Parse (span, 0UL) :?> Instruction
+    Assert.AreEqual<Opcode> (opcode, ins.Opcode)
+    Assert.AreEqual<FunctionalUnit> (funit, ins.FunctionalUnit)
+    Assert.AreEqual<Operands> (oprs, ins.Operands)
 
   let operandsFromArray oprList =
     let oprs = Array.ofList oprList

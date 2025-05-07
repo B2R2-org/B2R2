@@ -172,8 +172,8 @@ let opcodeToStrings = function
   | INVALID -> struct("invalid", None)
   | SELFDESTRUCT -> struct("selfdestruct", None)
 
-let inline buildOpcode insInfo (builder: IDisasmBuilder) =
-  let struct (opcode, extra) = opcodeToStrings insInfo.Opcode
+let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
+  let struct (opcode, extra) = opcodeToStrings ins.Opcode
   match extra with
   | None -> builder.Accumulate AsmWordKind.Mnemonic opcode
   | Some extra ->
@@ -181,8 +181,8 @@ let inline buildOpcode insInfo (builder: IDisasmBuilder) =
     builder.Accumulate AsmWordKind.String " "
     builder.Accumulate AsmWordKind.Value extra
 
-let disasm insInfo (builder: IDisasmBuilder) =
-  builder.AccumulateAddrMarker insInfo.Address
-  buildOpcode insInfo builder
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
+  builder.AccumulateAddrMarker ins.Address
+  buildOpcode ins builder
 
 // vim: set tw=80 sts=2 sw=2:

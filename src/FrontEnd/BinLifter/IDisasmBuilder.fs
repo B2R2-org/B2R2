@@ -30,6 +30,9 @@ open B2R2
 /// disassembly strings and return them as a single string or an array of
 /// AsmWords when requested.
 type IDisasmBuilder =
+  /// Word size of the target architecture.
+  abstract WordSize: WordSize
+
   /// Whether to show the address in the disassembly.
   abstract ShowAddress: bool with get, set
 

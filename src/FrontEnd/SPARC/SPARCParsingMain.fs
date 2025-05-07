@@ -3685,14 +3685,9 @@ let parseTwoBits bin =
   | 0b11u -> parse11 bin
   | _ -> struct (Opcode.InvalidOp, NoOperand)
 
-let parse (span: ByteSpan) (reader: IBinReader) addr =
+let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadInt32 (span, 0)
   let struct (op, operands) = uint32 bin |> parseTwoBits
-  let insInfo =
-    { Address = addr
-      NumBytes = 4u
-      Opcode = op
-      Operands = operands }
-  SPARCInstruction (addr, 4u, insInfo)
+  Instruction (addr, 4u, op, operands, lifter)
 
 // vim: set tw=80 sts=2 sw=2:

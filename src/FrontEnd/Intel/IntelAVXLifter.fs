@@ -89,7 +89,7 @@ let private buildPackedFPInstr ins insLen bld packSz opFn =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let private vexedScalarFPBinOp (ins: InsInfo) insLen bld sz op =
+let private vexedScalarFPBinOp (ins: Instruction) insLen bld sz op =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -142,7 +142,7 @@ let vsqrtpd ins insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
 
-let private vsqrts (ins: InsInfo) insLen bld sz =
+let private vsqrts (ins: Instruction) insLen bld sz =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -214,7 +214,7 @@ let vdivss ins insLen bld =
 let vdivsd ins insLen bld =
   vexedScalarFPBinOp ins insLen bld 64<rt> AST.fdiv
 
-let vcvtsi2ss (ins: InsInfo) insLen bld =
+let vcvtsi2ss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -226,7 +226,7 @@ let vcvtsi2ss (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
 
-let vcvtsi2sd (ins: InsInfo) insLen bld =
+let vcvtsi2sd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -237,7 +237,7 @@ let vcvtsi2sd (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
 
-let vcvtsd2ss (ins: InsInfo) insLen bld =
+let vcvtsd2ss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -249,7 +249,7 @@ let vcvtsd2ss (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
 
-let vcvtss2sd (ins: InsInfo) insLen bld =
+let vcvtss2sd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -260,7 +260,7 @@ let vcvtss2sd (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
 
-let vmovd (ins: InsInfo) insLen bld =
+let vmovd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let oprSize = getOperationSize ins
@@ -278,7 +278,7 @@ let vmovd (ins: InsInfo) insLen bld =
   | _ -> raise InvalidOperandSizeException
   bld --!> insLen
 
-let vmovq (ins: InsInfo) insLen bld =
+let vmovq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let oprSize = getOperationSize ins
@@ -315,7 +315,7 @@ let vmovq (ins: InsInfo) insLen bld =
   | _ -> raise InvalidOperandException
   bld --!> insLen
 
-let private buildVectorMove (ins: InsInfo) insLen bld packSz =
+let private buildVectorMove (ins: Instruction) insLen bld packSz =
   bld <!-- (ins.Address, insLen)
   let oprSz = getOperationSize ins
   let isAVX512 = haveEVEXPrx ins.VEXInfo
@@ -337,7 +337,7 @@ let private buildVectorMove (ins: InsInfo) insLen bld packSz =
 let vmovapd ins insLen bld = buildVectorMove ins insLen bld 64<rt>
 let vmovaps ins insLen bld = buildVectorMove ins insLen bld 32<rt>
 
-let private buildVectorMoveAVX512 (ins: InsInfo) insLen bld packSz =
+let private buildVectorMoveAVX512 (ins: Instruction) insLen bld packSz =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / packSz
@@ -367,7 +367,7 @@ let vmovntdq ins insLen bld =
 let vmovups ins insLen bld = buildVectorMove ins insLen bld 32<rt>
 let vmovupd ins insLen bld = buildVectorMove ins insLen bld 64<rt>
 
-let vmovddup (ins: InsInfo) insLen bld =
+let vmovddup (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let oprSize = getOperationSize ins
@@ -396,7 +396,7 @@ let vmovntps ins insLen bld =
 let vmovntpd ins insLen bld =
   buildMove ins insLen bld
 
-let vmovhlps (ins: InsInfo) insLen bld =
+let vmovhlps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -407,7 +407,7 @@ let vmovhlps (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
 
-let vmovhpd (ins: InsInfo) insLen bld =
+let vmovhpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   match ins.Operands with
   | TwoOperands (dst, src) ->
@@ -426,7 +426,7 @@ let vmovhpd (ins: InsInfo) insLen bld =
   | _ -> raise InvalidOperandException
   bld --!> insLen
 
-let vmovlhps (ins: InsInfo) insLen bld =
+let vmovlhps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -437,7 +437,7 @@ let vmovlhps (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
 
-let vmovlpd (ins: InsInfo) insLen bld =
+let vmovlpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   match ins.Operands with
   | TwoOperands (dst, src) ->
@@ -503,7 +503,7 @@ let vmovmskps ins insLen bld =
   | OprReg r -> mskpd r
   | _ -> raise InvalidOperandSizeException
 
-let vmovsd (ins: InsInfo) insLen bld =
+let vmovsd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   match ins.Operands with
   | TwoOperands (OprMem _, _) -> movsd ins insLen bld
@@ -582,7 +582,7 @@ let vmovsldup ins insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vmovss (ins: InsInfo) insLen bld =
+let vmovss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   match ins.Operands with
   | TwoOperands (OprMem _, _) -> movss ins insLen bld
@@ -625,7 +625,7 @@ let vorps ins insLen bld =
 let vorpd ins insLen bld =
   buildPackedFPInstr ins insLen bld 64<rt> (.|)
 
-let vshufi32x4 (ins: InsInfo) insLen bld =
+let vshufi32x4 (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packSz = 32<rt>
@@ -697,7 +697,7 @@ let private doShuf bld cond dst e1 e2 =
 let private makeShufCond imm shfAmt =
   ((AST.xtlo 8<rt> imm) >> (numI32 shfAmt 8<rt>)) .& (numI32 0b11 8<rt>)
 
-let vshufps (ins: InsInfo) insLen bld =
+let vshufps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2, imm) = getFourOprs ins
   let imm = transOprToExpr bld false ins insLen imm
@@ -730,7 +730,7 @@ let vshufps (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vshufpd (ins: InsInfo) insLen bld =
+let vshufpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2, imm) = getFourOprs ins
   let imm = transOprToExpr bld false ins insLen imm
@@ -761,7 +761,7 @@ let vshufpd (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vunpckhps (ins: InsInfo) insLen bld =
+let vunpckhps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let oprSize = getOperationSize ins
@@ -794,7 +794,7 @@ let vunpckhps (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vunpckhpd (ins: InsInfo) insLen bld =
+let vunpckhpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let oprSize = getOperationSize ins
@@ -821,7 +821,7 @@ let vunpckhpd (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vunpcklps (ins: InsInfo) insLen bld =
+let vunpcklps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let oprSize = getOperationSize ins
@@ -854,7 +854,7 @@ let vunpcklps (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vunpcklpd (ins: InsInfo) insLen bld =
+let vunpcklpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let oprSize = getOperationSize ins
@@ -880,7 +880,7 @@ let vunpcklpd (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vxorps (ins: InsInfo) insLen bld =
+let vxorps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSz = getOperationSize ins
   let packSz = 32<rt>
@@ -903,7 +903,7 @@ let vxorps (ins: InsInfo) insLen bld =
 let vxorpd ins insLen bld =
   buildPackedFPInstr ins insLen bld 64<rt> (<+>)
 
-let vbroadcasti128 (ins: InsInfo) insLen bld =
+let vbroadcasti128 (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dstD, dstC, dstB, dstA) =
@@ -916,7 +916,7 @@ let vbroadcasti128 (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
 
-let vbroadcastss (ins: InsInfo) insLen bld =
+let vbroadcastss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let src = transOprToExpr32 bld false ins insLen src
@@ -948,7 +948,7 @@ let vbroadcastss (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vextracti32x8 (ins: InsInfo) insLen bld =
+let vextracti32x8 (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packSz = 32<rt>
@@ -968,7 +968,7 @@ let vextracti32x8 (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vextracti128 (ins: InsInfo) insLen bld =
+let vextracti128 (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, imm) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -982,7 +982,7 @@ let vextracti128 (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
 
-let vextracti64x4 (ins: InsInfo) insLen bld =
+let vextracti64x4 (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, imm) = getThreeOprs ins
   let ePrx = getEVEXPrx ins.VEXInfo
@@ -1021,7 +1021,7 @@ let vextracti64x4 (ins: InsInfo) insLen bld =
   | _ -> raise InvalidOperandException
   bld --!> insLen
 
-let vinserti128 (ins: InsInfo) insLen bld =
+let vinserti128 (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2, imm) = getFourOprs ins
   let struct (dstD, dstC, dstB, dstA) =
@@ -1044,7 +1044,7 @@ let vpaddb ins insLen bld =
 let vpmullw ins insLen bld =
   buildPackedInstr ins insLen bld true 16<rt> MMXLifter.opPmullw
 
-let vpaddd (ins: InsInfo) insLen bld =
+let vpaddd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSz = getOperationSize ins
   let packSz = 32<rt>
@@ -1067,7 +1067,7 @@ let vpaddd (ins: InsInfo) insLen bld =
 let vpaddq ins insLen bld =
   buildPackedInstr ins insLen bld true 64<rt> (opP (.+))
 
-let vpalignr (ins: InsInfo) insLen bld =
+let vpalignr (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSz = getOperationSize ins
   let packSz = 8<rt>
@@ -1107,7 +1107,7 @@ let vpand ins insLen bld =
 let vpandn ins insLen bld =
   buildPackedInstr ins insLen bld true 64<rt> opPandn
 
-let vblendvpd (ins: InsInfo) insLen bld =
+let vblendvpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 64<rt>
@@ -1120,7 +1120,7 @@ let vblendvpd (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vblendvps (ins: InsInfo) insLen bld =
+let vblendvps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 32<rt>
@@ -1133,7 +1133,7 @@ let vblendvps (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vpblendd (ins: InsInfo) insLen bld =
+let vpblendd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 32<rt>
@@ -1146,7 +1146,7 @@ let vpblendd (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vpblendw (ins: InsInfo) insLen bld =
+let vpblendw (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 16<rt>
@@ -1159,7 +1159,7 @@ let vpblendw (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vpblendvb (ins: InsInfo) insLen bld =
+let vpblendvb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 8<rt>
@@ -1172,7 +1172,7 @@ let vpblendvb (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vpackusdw (ins: InsInfo) insLen bld =
+let vpackusdw (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 32<rt>
@@ -1202,7 +1202,7 @@ let private saturateSignedWordToUnsignedByte bld expr = (* FIXME: MMXLifter *)
   let maxNum = numU32 0xffu 8<rt>
   AST.ite checkMin minNum (AST.ite checkMax maxNum (AST.xtlo 8<rt> tExpr))
 
-let vpackuswb (ins: InsInfo) insLen bld =
+let vpackuswb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 16<rt>
@@ -1229,7 +1229,7 @@ let vpavgb ins insLen bld =
 let vpavgw ins insLen bld =
   buildPackedInstr ins insLen bld true 16<rt> SSELifter.opPavgw
 
-let vpbroadcast (ins: InsInfo) insLen bld packSz =
+let vpbroadcast (ins: Instruction) insLen bld packSz =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / packSz
@@ -1279,7 +1279,7 @@ let vpcmpeqq ins insLen bld =
 let vpcmpgtb ins insLen bld =
   buildPackedInstr ins insLen bld true 8<rt> opPcmpgtb
 
-let vpinsrb (ins: InsInfo) insLen bld =
+let vpinsrb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2, count) = getFourOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1383,7 +1383,7 @@ let vpermd ins insLen bld =
   getSrc tmp (xthi dstD) tmp1A tmp2A tmp1B tmp2B tmp1C tmp2C tmp1D tmp2D bld
   bld --!> insLen
 
-let vpermq (ins: InsInfo) insLen bld =
+let vpermq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let struct (dst, src, imm) = getThreeOprs ins
@@ -1394,7 +1394,7 @@ let vpermq (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vpinsrd (ins: InsInfo) insLen bld =
+let vpinsrd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2, count) = getFourOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1411,7 +1411,7 @@ let vpinsrd (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
 
-let vpinsrq (ins: InsInfo) insLen bld =
+let vpinsrq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2, count) = getFourOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1428,7 +1428,7 @@ let vpinsrq (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
 
-let vpinsrw (ins: InsInfo) insLen bld =
+let vpinsrw (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let packSz = 16<rt>
   let packNum = 64<rt> / packSz
@@ -1458,7 +1458,7 @@ let vpminsb ins insLen bld =
 let vpminsd ins insLen bld =
   buildPackedInstr ins insLen bld true 32<rt> SSELifter.opPmins
 
-let vpmovx (ins: InsInfo) insLen bld srcSz dstSz isSignExt =
+let vpmovx (ins: Instruction) insLen bld srcSz dstSz isSignExt =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / dstSz
@@ -1505,7 +1505,7 @@ let vpmovx (ins: InsInfo) insLen bld srcSz dstSz isSignExt =
   | _ -> raise InvalidOperandSizeException
   bld --!> insLen
 
-let vpmovd2m (ins: InsInfo) insLen bld =
+let vpmovd2m (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packSize = 32<rt>
@@ -1538,12 +1538,12 @@ let private opVpmulld _ = opPmul AST.xtlo AST.sext 32<rt> 32<rt>
 let vpmulld ins insLen bld =
   buildPackedInstr ins insLen bld true 32<rt> opVpmulld
 
-let vpor (ins: InsInfo) insLen bld =
+let vpor (ins: Instruction) insLen bld =
   match getOperationSize ins with
   | 512<rt> -> GeneralLifter.nop ins.Address insLen bld
   | _ -> buildPackedInstr ins insLen bld true 64<rt> opPor
 
-let vpshufb (ins: InsInfo) insLen bld =
+let vpshufb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSz = getOperationSize ins
   let packSz = 8<rt>
@@ -1580,7 +1580,7 @@ let vpshufb (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
 
-let vpshufd (ins: InsInfo) insLen bld =
+let vpshufd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packSize = 32<rt>
@@ -1614,7 +1614,7 @@ let private opShiftVpackedDataLogical packSz shf src1 src2 =
   let shifted expr = AST.extract (shf (AST.zext 64<rt> expr) count) packSz 0
   Array.map (fun e -> AST.ite cond (AST.num0 packSz) (shifted e)) src1
 
-let private vpsll (ins: InsInfo) insLen bld packSz =
+let private vpsll (ins: Instruction) insLen bld packSz =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / packSz
@@ -1639,7 +1639,7 @@ let vpslld ins insLen bld =
 
 let vpsllq ins insLen bld = vpsll ins insLen bld 64<rt>
 
-let vpslldq (ins: InsInfo) insLen bld =
+let vpslldq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, cnt) = getThreeOprs ins
   let cnt = getImmValue cnt
@@ -1693,7 +1693,7 @@ let vpslldq (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let private shiftPackedDataRight (ins: InsInfo) insLen bld packSize shf =
+let private shiftPackedDataRight (ins: Instruction) insLen bld packSize shf =
   bld <!-- (ins.Address, insLen)
   let oprSz = getOperationSize ins
   let packNum = 64<rt> / packSize
@@ -1717,7 +1717,7 @@ let private shiftPackedDataRight (ins: InsInfo) insLen bld packSize shf =
 let vpsrad ins insLen bld = shiftPackedDataRight ins insLen bld 32<rt> (?>>)
 let vpsraw ins insLen bld = shiftPackedDataRight ins insLen bld 16<rt> (?>>)
 
-let vpsravd (ins: InsInfo) insLen bld =
+let vpsravd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSz = getOperationSize ins
   let packSize = 32<rt>
@@ -1736,7 +1736,7 @@ let vpsravd (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
 
-let vpsrlq (ins: InsInfo) insLen bld =
+let vpsrlq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packSz = 64<rt>
@@ -1753,7 +1753,7 @@ let vpsrlq (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vpsrldq (ins: InsInfo) insLen bld =
+let vpsrldq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, cnt) = getThreeOprs ins
   let cnt = getImmValue cnt
@@ -1856,7 +1856,7 @@ let vpunpckldq ins insLen bld =
 let vpunpcklqdq ins insLen bld =
   buildPackedInstr ins insLen bld true 64<rt> opUnpackLowData
 
-let vpxor (ins: InsInfo) insLen bld =
+let vpxor (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let oprSize = getOperationSize ins
@@ -1882,7 +1882,7 @@ let vpxor (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst 128<rt> 512
   bld --!> insLen
 
-let vpxord (ins: InsInfo) insLen bld =
+let vpxord (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSz = getOperationSize ins
   let packSz = 32<rt>
@@ -1902,7 +1902,7 @@ let vpxord (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
 
-let vzeroupper (ins: InsInfo) insLen bld =
+let vzeroupper (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let n0 = AST.num0 64<rt>
   bld <+ (pseudoRegVar bld R.YMM0 3 := n0)
@@ -1940,7 +1940,7 @@ let vzeroupper (ins: InsInfo) insLen bld =
     bld <+ (pseudoRegVar bld R.YMM15 4 := n0)
   bld --!> insLen
 
-let vfmadd132sd (ins: InsInfo) insLen bld =
+let vfmadd132sd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src2, src3) = getThreeOprs ins
   let struct (_dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1952,7 +1952,7 @@ let vfmadd132sd (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst 128<rt> 512
   bld --!> insLen
 
-let vfmadd213sd (ins: InsInfo) insLen bld =
+let vfmadd213sd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src2, src3) = getThreeOprs ins
   let struct (_dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1964,7 +1964,7 @@ let vfmadd213sd (ins: InsInfo) insLen bld =
   fillZeroFromVLToMaxVL bld dst 128<rt> 512
   bld --!> insLen
 
-let vfmadd231sd (ins: InsInfo) insLen bld =
+let vfmadd231sd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src2, src3) = getThreeOprs ins
   let struct (_dstB, dstA) = transOprToExpr128 bld false ins insLen dst

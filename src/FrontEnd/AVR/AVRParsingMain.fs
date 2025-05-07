@@ -278,7 +278,7 @@ let parseFourBytes b1=
   | 0b10010010000u -> Opcode.STS, parseTwoOpr b1 getConst16 getRegD32
   | _ -> Opcode.InvalidOp, NoOperand
 
-let parse (span: ByteSpan) (reader: IBinReader) addr =
+let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt16 (span, 0)
   let struct ((op, operands), instrLen) =
     match isTwoBytes bin with
@@ -289,9 +289,4 @@ let parse (span: ByteSpan) (reader: IBinReader) addr =
       let b2 = reader.ReadUInt16 (span, 2)
       let bin = ((uint32 bin) <<< 16) + (uint32 b2)
       struct (bin |> parseFourBytes, 4u)
-  let insInfo =
-    { Address = addr
-      NumBytes = instrLen
-      Opcode = op
-      Operands = operands }
-  AVRInstruction (addr, instrLen, insInfo)
+  Instruction (addr, instrLen, op, operands, lifter)

@@ -11,10 +11,10 @@
     <Compile Include="S390Register.fs" />
     <Compile Include="S390RegisterFactory.fs" />
     <Compile Include="S390Types.fs" />
+    <Compile Include="S390Instruction.fs" />
     <Compile Include="S390Disasm.fs" />
     <Compile Include="S390Helper.fs" />
     <Compile Include="S390Lifter.fs" />
-    <Compile Include="S390Instruction.fs" />
     <Compile Include="S390ParsingMain.fs" />
     <Compile Include="S390Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

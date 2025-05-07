@@ -34,26 +34,16 @@ open B2R2.BinIR.LowUIR
 ///   platform-independent manner. It provides useful methods for accessing
 ///   useful information about the instruction.
 /// </summary>
-[<AbstractClass>]
-type Instruction (addr, len, wordSize) =
+type IInstruction =
   /// <summary>
   ///   The address of this instruction.
   /// </summary>
-  member _.Address with get(): Addr = addr
+  abstract Address: Addr
 
   /// <summary>
   ///   The length of this instruction in bytes.
   /// </summary>
-  member _.Length with get(): uint32 = len
-
-  /// <summary>
-  ///   The word size used for translating this instruction. Some architectures
-  ///   have several representations of their instruction sets depending on the
-  ///   word size. For example, Intel can be represented as either x86 or x86-64
-  ///   depending on the word size used. We store this information per
-  ///   instruction to distinguish specific instruction sets used.
-  /// </summary>
-  member _.WordSize with get(): WordSize = wordSize
+  abstract Length: uint32
 
   /// <summary>
   ///   Is this a branch instruction? A branch instruction includes any kinds of
@@ -171,6 +161,11 @@ type Instruction (addr, len, wordSize) =
   abstract IsNop: unit -> bool
 
   /// <summary>
+  ///   Is this a virtual instruction that represents an inlined assembly code?
+  /// </summary>
+  abstract IsInlinedAssembly: unit -> bool
+
+  /// <summary>
   ///   Return a branch target address if we can directly compute it, i.e., for
   ///   direct branches.
   /// </summary>
@@ -261,11 +256,4 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns an array of AsmWords.
   /// </returns>
-  abstract Decompose: builder: IDisasmBuilder -> AsmWord []
-
-  /// <summary>
-  ///   Is this a virtual instruction that represents an inlined assembly code?
-  /// </summary>
-  abstract IsInlinedAssembly: unit -> bool
-
-// vim: set tw=80 sts=2 sw=2:
+  abstract Decompose: builder: IDisasmBuilder -> AsmWord[]

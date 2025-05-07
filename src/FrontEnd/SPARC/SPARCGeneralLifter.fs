@@ -55,7 +55,7 @@ let transOprToExpr ins insLen bld = function
   | OprPriReg prireg -> regVar bld prireg
   | _ -> Terminator.impossible ()
 
-let isRegOpr ins insLen bld =
+let isRegOpr (ins: Instruction) insLen bld =
   match ins.Operands with
   | ThreeOperands (_, o2, _) ->
     match o2 with
@@ -63,34 +63,34 @@ let isRegOpr ins insLen bld =
     | _ -> false
   | _ -> raise InvalidOperandException
 
-let getOneOpr insInfo =
-  match insInfo.Operands with
+let getOneOpr (ins: Instruction) =
+  match ins.Operands with
   | OneOperand opr -> opr
   | _ -> raise InvalidOperandException
 
-let getTwoOprs insInfo =
-  match insInfo.Operands with
+let getTwoOprs (ins: Instruction) =
+  match ins.Operands with
   | TwoOperands (o1, o2) -> o1, o2
   | _ -> raise InvalidOperandException
 
-let getThreeOprs insInfo =
-  match insInfo.Operands with
+let getThreeOprs (ins: Instruction) =
+  match ins.Operands with
   | ThreeOperands (o1, o2, o3) -> o1, o2, o3
   | _ -> raise InvalidOperandException
 
-let transOneOpr (ins: InsInfo) insLen bld =
+let transOneOpr (ins: Instruction) insLen bld =
   match ins.Operands with
   | OneOperand o1 -> transOprToExpr ins insLen bld o1
   | _ -> raise InvalidOperandException
 
-let transTwoOprs (ins: InsInfo) insLen bld =
+let transTwoOprs (ins: Instruction) insLen bld =
   match ins.Operands with
   | TwoOperands (o1, o2) ->
     struct (transOprToExpr ins insLen bld o1,
             transOprToExpr ins insLen bld o2)
   | _ -> raise InvalidOperandException
 
-let transThreeOprs (ins: InsInfo) insLen bld =
+let transThreeOprs (ins: Instruction) insLen bld =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
     struct (transOprToExpr ins insLen bld o1,
@@ -98,7 +98,7 @@ let transThreeOprs (ins: InsInfo) insLen bld =
             transOprToExpr ins insLen bld o3)
   | _ -> raise InvalidOperandException
 
-let transFourOprs (ins: InsInfo) insLen bld =
+let transFourOprs (ins: Instruction) insLen bld =
   match ins.Operands with
   | FourOperands (o1, o2, o3, o4) ->
     struct (transOprToExpr ins insLen bld o1,
@@ -107,7 +107,7 @@ let transFourOprs (ins: InsInfo) insLen bld =
             transOprToExpr ins insLen bld o4)
   | _ -> raise InvalidOperandException
 
-let transAddrThreeOprs (ins: InsInfo) insLen bld =
+let transAddrThreeOprs (ins: Instruction) insLen bld =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
     struct (transOprToExpr ins insLen bld o1 .+
@@ -115,7 +115,7 @@ let transAddrThreeOprs (ins: InsInfo) insLen bld =
             transOprToExpr ins insLen bld o3)
   | _ -> raise InvalidOperandException
 
-let transAddrFourOprs (ins: InsInfo) insLen bld =
+let transAddrFourOprs (ins: Instruction) insLen bld =
   match ins.Operands with
   | FourOperands (o1, o2, o3, o4) ->
     struct (transOprToExpr ins insLen bld o1 .+
@@ -124,7 +124,7 @@ let transAddrFourOprs (ins: InsInfo) insLen bld =
             transOprToExpr ins insLen bld o4)
   | _ -> raise InvalidOperandException
 
-let transTwooprsAddr (ins: InsInfo) insLen bld =
+let transTwooprsAddr (ins: Instruction) insLen bld =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
     struct (transOprToExpr ins insLen bld o1,
@@ -132,7 +132,7 @@ let transTwooprsAddr (ins: InsInfo) insLen bld =
             transOprToExpr ins insLen bld o3)
   | _ -> raise InvalidOperandException
 
-let transThroprsAddr (ins: InsInfo) insLen bld =
+let transThroprsAddr (ins: Instruction) insLen bld =
   match ins.Operands with
   | FourOperands (o1, o2, o3, o4) ->
     struct (transOprToExpr ins insLen bld o1,
@@ -817,7 +817,7 @@ let casxa ins insLen bld =
   bld <+ (dst := src1)
   bld --!> insLen
 
-let ``done`` ins insLen bld =
+let ``done`` (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (regVar bld Register.PC := regVar bld Register.TNPC)
   bld <+ (regVar bld Register.NPC := regVar bld Register.TNPC .+ numI32PC 4)
@@ -3158,7 +3158,7 @@ let mulx ins insLen bld =
     bld <+ (dst := src .* src1)
   bld --!> insLen
 
-let nop ins insLen bld =
+let nop (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   bld --!> insLen
 
@@ -3253,7 +3253,7 @@ let restore ins insLen bld =
   bld <+ (dst := src .+ src1)
   bld --!> insLen
 
-let restored ins insLen bld =
+let restored (ins: Instruction) insLen bld =
   let cs = regVar bld Register.CANSAVE
   let cr = regVar bld Register.CANRESTORE
   let ow = regVar bld Register.OTHERWIN
@@ -3276,7 +3276,7 @@ let ret ins insLen bld =
   bld <+ (regVar bld Register.PC := (src .+ src1))
   bld --!> insLen
 
-let retry ins insLen bld =
+let retry (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (regVar bld Register.PC := regVar bld Register.TPC)
   bld <+ (regVar bld Register.NPC := regVar bld Register.TNPC)
@@ -3288,7 +3288,7 @@ let save ins insLen bld =
   bld <+ (dst := src .+ src1)
   bld --!> insLen
 
-let saved ins insLen bld =
+let saved (ins: Instruction) insLen bld =
   let cs = regVar bld Register.CANSAVE
   let cr = regVar bld Register.CANRESTORE
   let ow = regVar bld Register.OTHERWIN

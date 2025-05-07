@@ -2831,4 +2831,23 @@ type Opcode =
   /// Invalid Opcode.
   | InvalOP = 1393
 
+[<RequireQualifiedAccess>]
+module Opcode =
+  let isBranch = function
+    | Opcode.CALLFar | Opcode.CALLNear
+    | Opcode.JMPFar | Opcode.JMPNear
+    | Opcode.RETFar | Opcode.RETFarImm | Opcode.RETNear | Opcode.RETNearImm
+    | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
+    | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL | Opcode.JNO
+    | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP
+    | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE
+    | Opcode.LOOPNE -> true
+    | _ -> false
+
+  let isCETInstr = function
+    | Opcode.INCSSPD | Opcode.INCSSPQ | Opcode.RDSSPD | Opcode.RDSSPQ
+    | Opcode.SAVEPREVSSP | Opcode.RSTORSSP | Opcode.WRSSD | Opcode.WRSSQ
+    | Opcode.WRUSSD | Opcode.WRUSSQ | Opcode.SETSSBSY | Opcode.CLRSSBSY -> true
+    | _ -> false
+
 // vim: set tw=80 sts=2 sw=2:

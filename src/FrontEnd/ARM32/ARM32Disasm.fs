@@ -589,17 +589,17 @@ let qualifierToStr = function
   | W -> ".w"
   | N -> ""
 
-let inline appendQualifier (ins: InsInfo) (sb: StringBuilder) =
+let inline appendQualifier (ins: Instruction) (sb: StringBuilder) =
   sb.Append (qualifierToStr ins.Qualifier)
 
-let inline appendSIMDDataTypes (ins: InsInfo) (sb: StringBuilder) =
+let inline appendSIMDDataTypes (ins: Instruction) (sb: StringBuilder) =
   match ins.SIMDTyp with
   | None -> sb
   | Some (OneDT dt) -> sb.Append (simdTypeToStr dt)
   | Some (TwoDT (dt1, dt2)) ->
     (sb.Append (simdTypeToStr dt1)).Append (simdTypeToStr dt2)
 
-let inline buildOpcode (ins: InsInfo) (builder: IDisasmBuilder) =
+let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let sb = StringBuilder ()
   let sb = sb.Append (opCodeToString ins.Opcode)
   let sb = sb.Append (condToString ins.Condition)
@@ -616,7 +616,7 @@ let isRFEorSRS = function
   | Op.SRS | Op.SRSDA | Op.SRSDB | Op.SRSIA | Op.SRSIB -> true
   | _ -> false
 
-let buildReg (ins: InsInfo) isRegList reg (builder: IDisasmBuilder) =
+let buildReg (ins: Instruction) isRegList reg (builder: IDisasmBuilder) =
   let reg = Register.toString reg
   match ins.WriteBack with
   | true when existRegList ins.Operands && not isRegList ->
@@ -807,7 +807,7 @@ let offsetToString ins addrMode offset builder =
   | AlignOffset (bReg, align, reg) ->
     alignOffsetToString ins (bReg, align, reg) builder
 
-let processAddrExn32 (ins: InsInfo) addr =
+let processAddrExn32 (ins: Instruction) addr =
   let pc =
     if ins.IsThumb then addr + 4UL else addr + 8UL
   match ins.Opcode with
@@ -819,7 +819,7 @@ let processAddrExn32 (ins: InsInfo) addr =
   | Op.PLDW | Op.PLI | Op.VLDR -> ParseUtils.align pc 4UL
   | _ -> addr
 
-let calculateRelativePC (ins: InsInfo) lbl addr =
+let calculateRelativePC (ins: Instruction) lbl addr =
   let addr = if ins.IsAdd then addr + uint64 lbl else addr - uint64 lbl
   addr |> uint32 |> uint64
 
@@ -850,7 +850,7 @@ let memToString ins addr addrMode (builder: IDisasmBuilder) =
   | LiteralMode lbl ->
     let addr = processAddrExn32 ins addr |> calculateRelativePC ins lbl
     let addrStr = "0x" + addr.ToString "x"
-    if ins.IsBranch () then
+    if (ins :> IInstruction).IsBranch () then
       builder.Accumulate AsmWordKind.Value addrStr
       builder.AccumulateSymbol (addr, prefix, suffix, mapNoSymbol)
     else
@@ -930,7 +930,7 @@ let oprToString ins addr operand delim builder =
     builder.Accumulate AsmWordKind.String (condToString c)
   | GoToLabel _ -> ()
 
-let buildOprs (ins: InsInfo) pc builder =
+let buildOprs (ins: Instruction) pc builder =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
@@ -961,7 +961,7 @@ let buildOprs (ins: InsInfo) pc builder =
     oprToString ins pc opr5 (Some ", ") builder
     oprToString ins pc opr6 (Some ", ") builder
 
-let disasm (ins: InsInfo) (builder: IDisasmBuilder) =
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   let pc = ins.Address
   builder.AccumulateAddrMarker pc
   buildOpcode ins builder

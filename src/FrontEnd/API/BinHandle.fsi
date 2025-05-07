@@ -29,9 +29,12 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
 /// <summary>
-/// Represents the main data structure for accessing a chunk of binary code. We
-/// can read data/metadata, parse instructions, and lift instructions from
-/// binaries using this.
+/// Represents the main data structure for accessing a chunk of binary code.
+/// It provides ways to read raw data from the binary through addresses, and
+/// binary file metadata through the <see
+/// cref='T:B2R2.FrontEnd.BinFile.IBinFile'/> interface. It also provides ways
+/// to parse/lift instructions from the binary through <see
+/// cref='T:B2R2.FrontEnd.LiftingUnit'/>.
 /// </summary>
 type BinHandle =
   /// Construct a BinHandle from a given file path, ISA, optional base address

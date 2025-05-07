@@ -59,7 +59,7 @@ let isNan isDouble expr =
   let zero = if isDouble then AST.num0 64<rt> else AST.num0 32<rt>
   (exponent == e) .& (mantissa != zero)
 
-let addsubpd (ins: InsInfo) insLen bld =
+let addsubpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -68,7 +68,7 @@ let addsubpd (ins: InsInfo) insLen bld =
   bld <+ (dstB := AST.fadd dstB srcB)
   bld --!> insLen
 
-let addsubps (ins: InsInfo) insLen bld =
+let addsubps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -82,7 +82,7 @@ let addsubps (ins: InsInfo) insLen bld =
   bld <+ (dstB := AST.concat t4 t3)
   bld --!> insLen
 
-let buildMove (ins: InsInfo) insLen bld =
+let buildMove (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 64<rt>
@@ -105,7 +105,7 @@ let movups ins insLen bld = buildMove ins insLen bld
 
 let movupd ins insLen bld = buildMove ins insLen bld
 
-let movhps (ins: InsInfo) insLen bld =
+let movhps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
@@ -118,7 +118,7 @@ let movhps (ins: InsInfo) insLen bld =
   | _ -> raise InvalidOperandException
   bld --!> insLen
 
-let movhpd (ins: InsInfo) insLen bld =
+let movhpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
@@ -131,7 +131,7 @@ let movhpd (ins: InsInfo) insLen bld =
   | _ -> raise InvalidOperandException
   bld --!> insLen
 
-let movhlps (ins: InsInfo) insLen bld =
+let movhlps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (_, dst) = transOprToExpr128 bld false ins insLen dst
@@ -139,7 +139,7 @@ let movhlps (ins: InsInfo) insLen bld =
   bld <+ (dst := src)
   bld --!> insLen
 
-let movlpd (ins: InsInfo) insLen bld =
+let movlpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
@@ -154,7 +154,7 @@ let movlpd (ins: InsInfo) insLen bld =
 
 let movlps ins insLen bld = movlpd ins insLen bld
 
-let movlhps (ins: InsInfo) insLen bld =
+let movlhps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst, _) = transOprToExpr128 bld false ins insLen dst
@@ -162,7 +162,7 @@ let movlhps (ins: InsInfo) insLen bld =
   bld <+ (dst := src)
   bld --!> insLen
 
-let movmskps (ins: InsInfo) insLen bld =
+let movmskps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr bld false ins insLen dst
@@ -175,7 +175,7 @@ let movmskps (ins: InsInfo) insLen bld =
   bld <+ (dstAssign oprSize dst (b3 .| b2 .| b1 .| b0))
   bld --!> insLen
 
-let movmskpd (ins: InsInfo) insLen bld =
+let movmskpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr bld false ins insLen dst
@@ -186,7 +186,7 @@ let movmskpd (ins: InsInfo) insLen bld =
   bld <+ (dstAssign oprSize dst (src63 .| src127))
   bld --!> insLen
 
-let movss (ins: InsInfo) insLen bld =
+let movss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
@@ -206,7 +206,7 @@ let movss (ins: InsInfo) insLen bld =
   | _ -> raise InvalidOperandException
   bld --!> insLen
 
-let movsd (ins: InsInfo) insLen bld =
+let movsd (ins: Instruction) insLen bld =
   if ins.Operands = NoOperand then
     GeneralLifter.movs ins insLen bld
   else
@@ -247,7 +247,7 @@ let private getTwoSrcOperands = function
   | ThreeOperands (_op1, op2, op3) -> (op2, op3)
   | _ -> raise InvalidOperandException
 
-let private handleScalarFPOp (ins: InsInfo) insLen bld sz op =
+let private handleScalarFPOp (ins: Instruction) insLen bld sz op =
   bld <!-- (ins.Address, insLen)
   let struct (_dst2, dst1) =
     ins.Operands |> getFstOperand |> transOprToExpr128 bld false ins insLen
@@ -308,7 +308,7 @@ let divss ins insLen bld =
 let divsd ins insLen bld =
   handleScalarFPOp ins insLen bld 64<rt> AST.fdiv
 
-let rcpps (ins: InsInfo) insLen bld =
+let rcpps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (opr1, opr2) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen opr1
@@ -325,7 +325,7 @@ let rcpps (ins: InsInfo) insLen bld =
   bld <+ (dst2b := AST.fdiv flt1 src2b)
   bld --!> insLen
 
-let rcpss (ins: InsInfo) insLen bld =
+let rcpss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (opr1, opr2) = getTwoOprs ins
   let dst = transOprToExpr32 bld false ins insLen opr1
@@ -345,7 +345,7 @@ let sqrtps ins insLen bld =
   assignPackedInstr bld false ins insLen packNum oprSize dst result
   bld --!> insLen
 
-let sqrtpd (ins: InsInfo) insLen bld =
+let sqrtpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (opr1, opr2) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen opr1
@@ -354,7 +354,7 @@ let sqrtpd (ins: InsInfo) insLen bld =
   bld <+ (dst2 := AST.unop UnOpType.FSQRT src2)
   bld --!> insLen
 
-let sqrtss (ins: InsInfo) insLen bld =
+let sqrtss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (opr1, opr2) = getTwoOprs ins
   let dst = transOprToExpr32 bld false ins insLen opr1
@@ -362,7 +362,7 @@ let sqrtss (ins: InsInfo) insLen bld =
   bld <+ (dst := AST.unop UnOpType.FSQRT src)
   bld --!> insLen
 
-let sqrtsd (ins: InsInfo) insLen bld =
+let sqrtsd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (opr1, opr2) = getTwoOprs ins
   let dst = transOprToExpr64 bld false ins insLen opr1
@@ -370,7 +370,7 @@ let sqrtsd (ins: InsInfo) insLen bld =
   bld <+ (dst := AST.unop UnOpType.FSQRT src)
   bld --!> insLen
 
-let rsqrtps (ins: InsInfo) insLen bld =
+let rsqrtps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (opr1, opr2) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen opr1
@@ -391,7 +391,7 @@ let rsqrtps (ins: InsInfo) insLen bld =
   bld <+ (dst2b := AST.fdiv flt1 tmp)
   bld --!> insLen
 
-let rsqrtss (ins: InsInfo) insLen bld =
+let rsqrtss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (opr1, opr2) = getTwoOprs ins
   let dst = transOprToExpr32 bld false ins insLen opr1
@@ -402,7 +402,7 @@ let rsqrtss (ins: InsInfo) insLen bld =
   bld <+ (dst := AST.fdiv flt1 tmp)
   bld --!> insLen
 
-let private minMaxPS (ins: InsInfo) insLen bld compare =
+let private minMaxPS (ins: Instruction) insLen bld compare =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -422,7 +422,7 @@ let private minMaxPS (ins: InsInfo) insLen bld compare =
   bld <+ (dst2B := val4)
   bld --!> insLen
 
-let private minMaxPD (ins: InsInfo) insLen bld compare =
+let private minMaxPD (ins: Instruction) insLen bld compare =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -434,7 +434,7 @@ let private minMaxPD (ins: InsInfo) insLen bld compare =
   bld <+ (dst2 := val2)
   bld --!> insLen
 
-let private minMaxSS (ins: InsInfo) insLen bld compare =
+let private minMaxSS (ins: Instruction) insLen bld compare =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr32 bld false ins insLen dst
@@ -444,7 +444,7 @@ let private minMaxSS (ins: InsInfo) insLen bld compare =
   bld <+ (dst := tmp)
   bld --!> insLen
 
-let private minMaxSD (ins: InsInfo) insLen bld compare =
+let private minMaxSD (ins: Instruction) insLen bld compare =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 bld false ins insLen dst
@@ -496,7 +496,7 @@ let private cmppCond bld ins insLen op3 isDbl c expr1 expr2 =
     | _ -> bld <+ (c := AST.b0)
   | _ -> Terminator.impossible ()
 
-let cmpps (ins: InsInfo) insLen bld =
+let cmpps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (op1, op2, op3) = getThreeOprs ins
   let struct (dst1, dst2) = transOprToExpr128 bld false ins insLen op1
@@ -514,7 +514,7 @@ let cmpps (ins: InsInfo) insLen bld =
   bld <+ (dst2B := AST.ite cond4 (maxNum 32<rt>) (AST.num0 32<rt>))
   bld --!> insLen
 
-let cmppd (ins: InsInfo) insLen bld =
+let cmppd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (op1, op2, op3) = getThreeOprs ins
   let struct (dst1, dst2) = transOprToExpr128 bld false ins insLen op1
@@ -526,7 +526,7 @@ let cmppd (ins: InsInfo) insLen bld =
   bld <+ (dst2 := AST.ite cond2 (maxNum 64<rt>) (AST.num0 64<rt>))
   bld --!> insLen
 
-let cmpss (ins: InsInfo) insLen bld =
+let cmpss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, imm) = getThreeOprs ins
   let dst = transOprToExpr32 bld false ins insLen dst
@@ -537,7 +537,7 @@ let cmpss (ins: InsInfo) insLen bld =
   bld <+ (dst := AST.ite cond max32 (AST.num0 32<rt>))
   bld --!> insLen
 
-let cmpsd (ins: InsInfo) insLen bld =
+let cmpsd (ins: Instruction) insLen bld =
   match ins.Operands with
   | NoOperand -> GeneralLifter.cmps ins insLen bld
   | ThreeOperands (dst, src, imm) ->
@@ -551,7 +551,7 @@ let cmpsd (ins: InsInfo) insLen bld =
     bld --!> insLen
   | _ -> raise InvalidOperandException
 
-let comiss (ins: InsInfo) insLen bld =
+let comiss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (opr1, opr2) = getTwoOprs ins
   let opr1 = transOprToExpr32 bld false ins insLen opr1
@@ -579,7 +579,7 @@ let comiss (ins: InsInfo) insLen bld =
 #endif
   bld --!> insLen
 
-let comisd (ins: InsInfo) insLen bld =
+let comisd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (opr1, opr2) = getTwoOprs ins
   let opr1 = transOprToExpr64 bld false ins insLen opr1
@@ -607,7 +607,7 @@ let comisd (ins: InsInfo) insLen bld =
 #endif
   bld --!> insLen
 
-let ucomiss (ins: InsInfo) insLen bld =
+let ucomiss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (opr1, opr2) = getTwoOprs ins
   let opr1 = transOprToExpr32 bld false ins insLen opr1
@@ -635,7 +635,7 @@ let ucomiss (ins: InsInfo) insLen bld =
 #endif
   bld --!> insLen
 
-let ucomisd (ins: InsInfo) insLen bld =
+let ucomisd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (opr1, opr2) = getTwoOprs ins
   let opr1 = transOprToExpr64 bld false ins insLen opr1
@@ -689,7 +689,7 @@ let xorps ins insLen bld =
 let xorpd ins insLen bld =
   buildPackedInstr ins insLen bld false 64<rt> opPxor
 
-let shufps (ins: InsInfo) insLen bld =
+let shufps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, imm) = getThreeOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -718,7 +718,7 @@ let shufps (ins: InsInfo) insLen bld =
   bld <+ (dst2B := tmp4)
   bld --!> insLen
 
-let shufpd (ins: InsInfo) insLen bld =
+let shufpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, imm) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -735,7 +735,7 @@ let shufpd (ins: InsInfo) insLen bld =
   bld <+ (dstB := AST.ite cond2 src2B src2A)
   bld --!> insLen
 
-let unpckhps (ins: InsInfo) insLen bld =
+let unpckhps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -749,7 +749,7 @@ let unpckhps (ins: InsInfo) insLen bld =
   bld <+ (dst2B := src2B)
   bld --!> insLen
 
-let unpckhpd (ins: InsInfo) insLen bld =
+let unpckhpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -758,7 +758,7 @@ let unpckhpd (ins: InsInfo) insLen bld =
   bld <+ (dst2 := src2)
   bld --!> insLen
 
-let unpcklps (ins: InsInfo) insLen bld =
+let unpcklps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -771,7 +771,7 @@ let unpcklps (ins: InsInfo) insLen bld =
   bld <+ (dstB := AST.concat (AST.xthi 32<rt> tSrc2A) (AST.xthi 32<rt> tSrc1A))
   bld --!> insLen
 
-let unpcklpd (ins: InsInfo) insLen bld =
+let unpcklpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -779,7 +779,7 @@ let unpcklpd (ins: InsInfo) insLen bld =
   bld <+ (dst2 := src1)
   bld --!> insLen
 
-let cvtpi2ps (ins: InsInfo) insLen bld =
+let cvtpi2ps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 bld false ins insLen dst
@@ -791,7 +791,7 @@ let cvtpi2ps (ins: InsInfo) insLen bld =
   bld <+ (AST.xthi 32<rt> dst := AST.cast CastKind.SIntToFloat 32<rt> tmp2)
   bld --!> insLen
 
-let cvtdq2pd (ins: InsInfo) insLen bld =
+let cvtdq2pd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -805,7 +805,7 @@ let cvtdq2pd (ins: InsInfo) insLen bld =
 
 let cvtpi2pd ins insLen bld = cvtdq2pd ins insLen bld
 
-let cvtsi2ss (ins: InsInfo) insLen bld =
+let cvtsi2ss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 bld false ins insLen dst
@@ -813,7 +813,7 @@ let cvtsi2ss (ins: InsInfo) insLen bld =
   bld <+ (AST.xtlo 32<rt> dst := AST.cast CastKind.SIntToFloat 32<rt> src)
   bld --!> insLen
 
-let cvtsi2sd (ins: InsInfo) insLen bld =
+let cvtsi2sd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 bld false ins insLen dst
@@ -821,7 +821,7 @@ let cvtsi2sd (ins: InsInfo) insLen bld =
   bld <+ (dst := AST.cast CastKind.SIntToFloat 64<rt> src)
   bld --!> insLen
 
-let cvtps2pi (ins: InsInfo) insLen bld rounded =
+let cvtps2pi (ins: Instruction) insLen bld rounded =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr bld false ins insLen dst
@@ -835,7 +835,7 @@ let cvtps2pi (ins: InsInfo) insLen bld rounded =
   fillOnesToMMXHigh16 bld ins
   bld --!> insLen
 
-let cvtps2pd (ins: InsInfo) insLen bld =
+let cvtps2pd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -847,7 +847,7 @@ let cvtps2pd (ins: InsInfo) insLen bld =
   bld <+ (dst2 := AST.cast CastKind.FloatCast 64<rt> tmp2)
   bld --!> insLen
 
-let cvtpd2ps (ins: InsInfo) insLen bld =
+let cvtpd2ps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -857,7 +857,7 @@ let cvtpd2ps (ins: InsInfo) insLen bld =
   bld <+ (dst2 := AST.num0 64<rt>)
   bld --!> insLen
 
-let cvtpd2pi (ins: InsInfo) insLen bld rounded =
+let cvtpd2pi (ins: Instruction) insLen bld rounded =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr bld false ins insLen dst
@@ -868,7 +868,7 @@ let cvtpd2pi (ins: InsInfo) insLen bld rounded =
   fillOnesToMMXHigh16 bld ins
   bld --!> insLen
 
-let cvtpd2dq (ins: InsInfo) insLen bld rounded =
+let cvtpd2dq (ins: Instruction) insLen bld rounded =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -879,7 +879,7 @@ let cvtpd2dq (ins: InsInfo) insLen bld rounded =
   bld <+ (dst2 := AST.num0 64<rt>)
   bld --!> insLen
 
-let cvtdq2ps (ins: InsInfo) insLen bld =
+let cvtdq2ps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -895,7 +895,7 @@ let cvtdq2ps (ins: InsInfo) insLen bld =
   bld <+ (AST.xthi 32<rt> dst2 := AST.cast CastKind.SIntToFloat 32<rt> tmp4)
   bld --!> insLen
 
-let cvtps2dq (ins: InsInfo) insLen bld rounded =
+let cvtps2dq (ins: Instruction) insLen bld rounded =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -912,7 +912,7 @@ let cvtps2dq (ins: InsInfo) insLen bld rounded =
   bld <+ (AST.xthi 32<rt> dst2 := AST.cast castKind 32<rt> tmp4)
   bld --!> insLen
 
-let cvtss2si (ins: InsInfo) insLen bld rounded =
+let cvtss2si (ins: Instruction) insLen bld rounded =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let struct (dst, src) = getTwoOprs ins
@@ -927,7 +927,7 @@ let cvtss2si (ins: InsInfo) insLen bld rounded =
     bld <+ (dstAssign 32<rt> dst tmp)
   bld --!> insLen
 
-let cvtss2sd (ins: InsInfo) insLen bld =
+let cvtss2sd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 bld false ins insLen dst
@@ -935,7 +935,7 @@ let cvtss2sd (ins: InsInfo) insLen bld =
   bld <+ (dst := AST.cast CastKind.FloatCast 64<rt> src)
   bld --!> insLen
 
-let cvtsd2ss (ins: InsInfo) insLen bld =
+let cvtsd2ss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 bld false ins insLen dst
@@ -943,7 +943,7 @@ let cvtsd2ss (ins: InsInfo) insLen bld =
   bld <+ (AST.xtlo 32<rt> dst := AST.cast CastKind.FloatCast 32<rt> src)
   bld --!> insLen
 
-let cvtsd2si (ins: InsInfo) insLen bld rounded =
+let cvtsd2si (ins: Instruction) insLen bld rounded =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let struct (dst, src) = getTwoOprs ins
@@ -958,7 +958,7 @@ let cvtsd2si (ins: InsInfo) insLen bld rounded =
     bld <+ (dstAssign 32<rt> dst tmp)
   bld --!> insLen
 
-let extractps (ins: InsInfo) insLen bld =
+let extractps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let struct (dst, src, imm8) = getThreeOprs ins
@@ -980,13 +980,13 @@ let haddpd ins insLen bld =
 let haddps ins insLen bld =
   packedHorizon ins insLen bld 32<rt> (opP AST.fadd)
 
-let ldmxcsr (ins: InsInfo) insLen bld =
+let ldmxcsr (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let src = transOneOpr bld ins insLen
   bld <+ (regVar bld R.MXCSR := src)
   bld --!> insLen
 
-let stmxcsr (ins: InsInfo) insLen bld =
+let stmxcsr (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let dst = transOneOpr bld ins insLen
   bld <+ (dst := regVar bld R.MXCSR)
@@ -1009,7 +1009,7 @@ let opPavgw _ = opAveragePackedInt 16<rt>
 let pavgw ins insLen bld =
   buildPackedInstr ins insLen bld false 16<rt> opPavgw
 
-let pextrb (ins: InsInfo) insLen bld =
+let pextrb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, count) = getThreeOprs ins
   let count = getImmValue count
@@ -1028,7 +1028,7 @@ let pextrb (ins: InsInfo) insLen bld =
   | _ -> raise InvalidOperandException
   bld --!> insLen
 
-let pextrd (ins: InsInfo) insLen bld =
+let pextrd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, count) = getThreeOprs ins
   let dst = transOprToExpr bld false ins insLen dst
@@ -1048,7 +1048,7 @@ let pextrd (ins: InsInfo) insLen bld =
   | _ -> raise InvalidOperandException
   bld --!> insLen
 
-let pextrq (ins: InsInfo) insLen bld =
+let pextrq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, count) = getThreeOprs ins
   let dst = transOprToExpr bld false ins insLen dst
@@ -1089,7 +1089,7 @@ let pextrw ins insLen bld =
     bld <+ (dstAssign oprSize d src[idx])
   bld --!> insLen
 
-let pinsrw (ins: InsInfo) insLen bld =
+let pinsrw (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let packSz = 16<rt>
   let pNum = 64<rt> / packSz
@@ -1172,7 +1172,7 @@ let private concatBits (bitExprs: Expr[]) =
   ) (AST.zext rt head)
   |> fst
 
-let pmovmskb (ins: InsInfo) insLen bld =
+let pmovmskb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let struct (dst, src) = getTwoOprs ins
@@ -1226,7 +1226,7 @@ let packedMove bld srcSz packSz dstA dstB src isSignExt =
   bld <+ (dstA := tDstA |> AST.revConcat)
   bld <+ (dstB := tDstB |> AST.revConcat)
 
-let pmovbw (ins: InsInfo) insLen bld packSz isSignExt =
+let pmovbw (ins: Instruction) insLen bld packSz isSignExt =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   match src with
@@ -1241,7 +1241,7 @@ let pmovbw (ins: InsInfo) insLen bld packSz isSignExt =
   | _ -> raise InvalidOperandException
   bld --!> insLen
 
-let pmovbd (ins: InsInfo) insLen bld packSz isSignExt =
+let pmovbd (ins: Instruction) insLen bld packSz isSignExt =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   match src with
@@ -1256,7 +1256,7 @@ let pmovbd (ins: InsInfo) insLen bld packSz isSignExt =
   | _ -> raise InvalidOperandException
   bld --!> insLen
 
-let pmovbq (ins: InsInfo) insLen bld packSz isSignExt =
+let pmovbq (ins: Instruction) insLen bld packSz isSignExt =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   match src with
@@ -1297,7 +1297,7 @@ let private opPsadbw oprSize e1 e2 =
     Array.concat [| [| res1 |]; zeros; [| res2 |]; zeros |]
   | _ -> raise InvalidOperandSizeException
 
-let psadbw (ins: InsInfo) insLen bld =
+let psadbw (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let sPackSz = 8<rt> (* SRC Pack size *)
@@ -1311,7 +1311,7 @@ let psadbw (ins: InsInfo) insLen bld =
   assignPackedInstr bld false ins insLen dPackNum oprSize dst result
   bld --!> insLen
 
-let pshufw (ins: InsInfo) insLen bld =
+let pshufw (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, ord) = transThreeOprs bld false ins insLen
   let oprSize = getOperationSize ins
@@ -1329,7 +1329,7 @@ let pshufw (ins: InsInfo) insLen bld =
   fillOnesToMMXHigh16 bld ins
   bld --!> insLen
 
-let pshufd (ins: InsInfo) insLen bld =
+let pshufd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, ord) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1353,7 +1353,7 @@ let pshufd (ins: InsInfo) insLen bld =
   bld <+ (dstB := AST.concat (src 3) (src 2))
   bld --!> insLen
 
-let pshuflw (ins: InsInfo) insLen bld =
+let pshuflw (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, imm) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1371,7 +1371,7 @@ let pshuflw (ins: InsInfo) insLen bld =
   bld <+ (dstB := srcB)
   bld --!> insLen
 
-let pshufhw (ins: InsInfo) insLen bld =
+let pshufhw (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, imm) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1389,7 +1389,7 @@ let pshufhw (ins: InsInfo) insLen bld =
   bld <+ (dstB := AST.revConcat tmps)
   bld --!> insLen
 
-let pshufb (ins: InsInfo) insLen bld =
+let pshufb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packSize = 8<rt>
@@ -1432,7 +1432,7 @@ let movdqa ins insLen bld =
 let movdqu ins insLen bld =
   buildMove ins insLen bld
 
-let movq2dq (ins: InsInfo) insLen bld =
+let movq2dq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1441,7 +1441,7 @@ let movq2dq (ins: InsInfo) insLen bld =
   bld <+ (dstB := AST.num0 64<rt>)
   bld --!> insLen
 
-let movdq2q (ins: InsInfo) insLen bld =
+let movdq2q (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr bld false ins insLen dst
@@ -1463,7 +1463,7 @@ let paddq ins insLen bld =
 let psubq ins insLen bld =
   buildPackedInstr ins insLen bld false 64<rt> (opP (.-))
 
-let pslldq (ins: InsInfo) insLen bld =
+let pslldq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, cnt) = getTwoOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1485,7 +1485,7 @@ let pslldq (ins: InsInfo) insLen bld =
     bld <+ (dstB := AST.num0 64<rt>)
   bld --!> insLen
 
-let psrldq (ins: InsInfo) insLen bld =
+let psrldq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, cnt) = getTwoOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1525,7 +1525,7 @@ let movnti ins insLen bld = buildMove ins insLen bld
 
 let lddqu ins insLen bld = buildMove ins insLen bld
 
-let movshdup (ins: InsInfo) insLen bld =
+let movshdup (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -1539,7 +1539,7 @@ let movshdup (ins: InsInfo) insLen bld =
   bld <+ (AST.xthi 32<rt> dst2 := tmp2)
   bld --!> insLen
 
-let movsldup (ins: InsInfo) insLen bld =
+let movsldup (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
@@ -1553,7 +1553,7 @@ let movsldup (ins: InsInfo) insLen bld =
   bld <+ (AST.xthi 32<rt> dst2 := tmp2)
   bld --!> insLen
 
-let movddup (ins: InsInfo) insLen bld =
+let movddup (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   let struct (dst1, dst0) = transOprToExpr128 bld false ins insLen dst
@@ -1574,7 +1574,7 @@ let packWithSaturation bld packSz src =
   bld <+ (tmp := AST.ite (tSrc ?> f32) f16 tmp)
   tmp
 
-let packusdw (ins: InsInfo) insLen bld =
+let packusdw (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 32<rt>
@@ -1586,7 +1586,7 @@ let packusdw (ins: InsInfo) insLen bld =
   assignPackedInstr bld false ins insLen (packNum * 2) oprSize dst result
   bld --!> insLen
 
-let palignr (ins: InsInfo) insLen bld =
+let palignr (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, imm) = getThreeOprs ins
   let imm8 = getImmValue imm
@@ -1630,7 +1630,7 @@ let palignr (ins: InsInfo) insLen bld =
   | _ -> raise InvalidOperandSizeException
   bld --!> insLen
 
-let roundsd (ins: InsInfo) insLen bld =
+let roundsd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, imm) = getThreeOprs ins
   let dst = transOprToExpr64 bld false ins insLen dst
@@ -1647,7 +1647,7 @@ let roundsd (ins: InsInfo) insLen bld =
   bld <+ (dst := AST.ite (tmp == numI32 3 8<rt>) (cster CastKind.FtoFTrunc) dst)
   bld --!> insLen
 
-let pinsrb (ins: InsInfo) insLen bld =
+let pinsrb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, count) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1672,7 +1672,7 @@ let private packedSign bld packSz control inputVal =
   bld <+ (cond2 := tControl == n0)
   AST.ite cond1 (AST.neg tInputVal) (AST.ite cond2 n0 tInputVal)
 
-let psign (ins: InsInfo) insLen bld packSz =
+let psign (ins: Instruction) insLen bld packSz =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / packSz
@@ -1683,7 +1683,7 @@ let psign (ins: InsInfo) insLen bld packSz =
   assignPackedInstr bld false ins insLen packNum oprSize dst result
   bld --!> insLen
 
-let ptest (ins: InsInfo) insLen bld =
+let ptest (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (src1, src2) = getTwoOprs ins
   let struct (src1B, src1A) = transOprToExpr128 bld false ins insLen src1
@@ -1716,7 +1716,7 @@ let packedBlend src1 src2 imm =
 let packedVblend src1 src2 (mask: Expr []) =
   Array.mapi2 (fun i e1 e2 -> AST.ite (AST.xthi 1<rt> mask[i]) e1 e2) src1 src2
 
-let blendpd (ins: InsInfo) insLen bld =
+let blendpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, imm) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1728,7 +1728,7 @@ let blendpd (ins: InsInfo) insLen bld =
   bld <+ (dstB := AST.ite cond2 srcB dstB)
   bld --!> insLen
 
-let blendps (ins: InsInfo) insLen bld =
+let blendps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 32<rt>
@@ -1740,7 +1740,7 @@ let blendps (ins: InsInfo) insLen bld =
   assignPackedInstr bld false ins insLen packNum oprSize dst result
   bld --!> insLen
 
-let blendvpd (ins: InsInfo) insLen bld =
+let blendvpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, xmm0) = getThreeOprs ins
   let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
@@ -1752,7 +1752,7 @@ let blendvpd (ins: InsInfo) insLen bld =
   bld <+ (dstB := AST.ite cond2 srcB dstB)
   bld --!> insLen
 
-let blendvps (ins: InsInfo) insLen bld =
+let blendvps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 32<rt>
@@ -1764,7 +1764,7 @@ let blendvps (ins: InsInfo) insLen bld =
   assignPackedInstr bld false ins insLen packNum oprSize dst result
   bld --!> insLen
 
-let pblendvb (ins: InsInfo) insLen bld =
+let pblendvb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 8<rt>
@@ -1776,7 +1776,7 @@ let pblendvb (ins: InsInfo) insLen bld =
   assignPackedInstr bld false ins insLen packNum oprSize dst result
   bld --!> insLen
 
-let pblendw (ins: InsInfo) insLen bld =
+let pblendw (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let packNum = 64<rt> / 16<rt>
@@ -1940,7 +1940,7 @@ let private overrideIfDataInvalid bld ctrl aInval bInval boolRes =
     let cond2 = (aInval .& AST.not bInval) .| (aInval .& bInval)
     bld <+ (boolRes := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b1 boolRes))
 
-let pcmpstr (ins: InsInfo) insLen bld =
+let pcmpstr (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (s1, s2, imm) = getThreeOprs ins
   let imm = transOprToExpr bld false ins insLen imm

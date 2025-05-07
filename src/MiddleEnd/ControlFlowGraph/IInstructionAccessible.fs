@@ -29,10 +29,10 @@ open B2R2.FrontEnd.BinLifter
 /// Interface for a basic block containing a sequence of instructions.
 type IInstructionAccessible =
   /// Instructions in the basic block.
-  abstract Instructions: Instruction[]
+  abstract Instructions: IInstruction[]
 
   /// Last instruction in the basic block.
-  abstract LastInstruction: Instruction
+  abstract LastInstruction: IInstruction
 
   /// Disassembled instruction strings.
   abstract Disassemblies: string[]

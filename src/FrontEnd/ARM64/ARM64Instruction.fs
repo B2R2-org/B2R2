@@ -27,32 +27,12 @@ namespace B2R2.FrontEnd.ARM64
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// The internal representation for an ARM64 instruction used by our
-/// disassembler and lifter.
-type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
-  inherit Instruction (addr, numBytes, wordSize)
+/// Instruction for ARM64.
+type Instruction
+  internal (addr, nb, cond, op, opr, oprSize, lifter: ILiftable) =
 
-  /// Basic instruction information.
-  member val Info: InsInfo = insInfo
-
-  override this.IsBranch () =
-    match this.Info.Opcode with
-    (* Conditional branch *)
-    | Opcode.BEQ | Opcode.BCS | Opcode.BMI | Opcode.BVS | Opcode.BHI
-    | Opcode.BGE | Opcode.BGT | Opcode.BNE | Opcode.BCC | Opcode.BPL
-    | Opcode.BVC | Opcode.BLS | Opcode.BLT | Opcode.BLE
-    | Opcode.CBNZ | Opcode.CBZ | Opcode.TBNZ | Opcode.TBZ
-    (* Unconditional branch (immediate) *)
-    | Opcode.B | Opcode.BL
-    (* Unconditional branch (register) *)
-    | Opcode.BLR | Opcode.BR | Opcode.RET
-      -> true
-    | _ -> false
-
-  override _.IsModeChanging () = false
-
-  member this.HasConcJmpTarget () =
-    match this.Info.Operands with
+  let hasConcJmpTarget () =
+    match opr with
     (* All other instructions *)
     | OneOperand (OprMemory (LiteralMode _)) -> true
     (* CBNZ and CBZ *)
@@ -61,119 +41,155 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     | ThreeOperands (_, _, OprMemory (LiteralMode _)) -> true
     | _ -> false
 
-  override this.IsDirectBranch () =
-    this.IsBranch () && this.HasConcJmpTarget ()
+  /// Address of this instruction.
+  member _.Address with get (): Addr = addr
 
-  override this.IsIndirectBranch () =
-    this.IsBranch () && (not <| this.HasConcJmpTarget ())
+  /// Length of this instruction in bytes.
+  member _.Length with get (): uint32 = nb
 
-  override this.IsCondBranch () =
-    match this.Info.Opcode with
-    | Opcode.BEQ | Opcode.BCS | Opcode.BMI | Opcode.BVS | Opcode.BHI
-    | Opcode.BGE | Opcode.BGT | Opcode.BNE | Opcode.BCC | Opcode.BPL
-    | Opcode.BVC | Opcode.BLS | Opcode.BLT | Opcode.BLE
-    | Opcode.CBNZ | Opcode.CBZ | Opcode.TBNZ | Opcode.TBZ -> true
-    | _ -> false
+  /// Condition.
+  member _.Condition with get (): Condition option = cond
 
-  override this.IsCJmpOnTrue () =
-    match this.Info.Opcode with
-    | Opcode.BEQ | Opcode.BCS | Opcode.BMI | Opcode.BVS | Opcode.BHI
-    | Opcode.BGE | Opcode.BGT | Opcode.BCC | Opcode.BPL | Opcode.BVC
-    | Opcode.BLS | Opcode.BLT | Opcode.BLE | Opcode.CBZ | Opcode.TBZ -> true
-    | _ -> false
+  /// Opcode.
+  member _.Opcode with get (): Opcode = op
 
-  override this.IsCall () =
-    match this.Info.Opcode with
-    | Opcode.BL | Opcode.BLR -> true
-    | _ -> false
+  /// Operands.
+  member _.Operands with get (): Operands = opr
 
-  override this.IsRET () =
-    this.Info.Opcode = Opcode.RET
+  /// Operation size.
+  member _.OprSize with get (): RegType = oprSize
 
-  override this.IsInterrupt () =
-    match this.Info.Opcode with
-    | Opcode.SVC | Opcode.HVC | Opcode.SMC -> true
-    | _ -> false
+  interface IInstruction with
 
-  override this.IsExit () =
-    match this.Info.Opcode with
-    | Opcode.HLT
-    | Opcode.ERET -> true
-    | _ -> false
+    member _.Address with get () = addr
 
-  override this.IsTerminator () =
-       this.IsBranch ()
-    || this.IsInterrupt ()
-    || this.IsExit ()
+    member _.Length with get () = nb
 
-  override this.DirectBranchTarget (addr: byref<Addr>) =
-    if this.IsBranch () then
-      match this.Info.Operands with
-      | OneOperand (OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
-        addr <- (this.Address + uint64 offset)
-        true
-      | TwoOperands (_, OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
-        addr <- (this.Address + uint64 offset)
-        true
-      | ThreeOperands (_, _, OprMemory (LiteralMode (ImmOffset (Lbl offs)))) ->
-        addr <- (this.Address + uint64 offs)
-        true
+    member this.IsBranch () =
+      match this.Opcode with
+      (* Conditional branch *)
+      | Opcode.BEQ | Opcode.BCS | Opcode.BMI | Opcode.BVS | Opcode.BHI
+      | Opcode.BGE | Opcode.BGT | Opcode.BNE | Opcode.BCC | Opcode.BPL
+      | Opcode.BVC | Opcode.BLS | Opcode.BLT | Opcode.BLE
+      | Opcode.CBNZ | Opcode.CBZ | Opcode.TBNZ | Opcode.TBZ
+      (* Unconditional branch (immediate) *)
+      | Opcode.B | Opcode.BL
+      (* Unconditional branch (register) *)
+      | Opcode.BLR | Opcode.BR | Opcode.RET
+        -> true
       | _ -> false
-    else false
 
-  override this.IndirectTrampolineAddr (_addr: byref<Addr>) =
-    if this.IsIndirectBranch () then Terminator.futureFeature ()
-    else false
+    member _.IsModeChanging () = false
 
-  override this.Immediate (v: byref<int64>) =
-    match this.Info.Operands with
-    | OneOperand (OprImm c)
-    | TwoOperands (OprImm c, _)
-    | TwoOperands (_, OprImm c)
-    | ThreeOperands (OprImm c, _, _)
-    | ThreeOperands (_, OprImm c, _)
-    | ThreeOperands (_, _, OprImm c)
-    | FourOperands (OprImm c, _, _, _)
-    | FourOperands (_, OprImm c, _, _)
-    | FourOperands (_, _, OprImm c, _)
-    | FourOperands (_, _, _, OprImm c)
-    | FiveOperands (OprImm c, _, _, _, _)
-    | FiveOperands (_, OprImm c, _, _, _)
-    | FiveOperands (_, _, OprImm c, _, _)
-    | FiveOperands (_, _, _, OprImm c, _)
-    | FiveOperands (_, _, _, _, OprImm c) -> v <- c; true
-    | _ -> false
+    member this.IsDirectBranch () =
+      (this :> IInstruction).IsBranch () && hasConcJmpTarget ()
 
-  override _.GetNextInstrAddrs () = Terminator.futureFeature ()
+    member this.IsIndirectBranch () =
+      (this :> IInstruction).IsBranch () && (not <| hasConcJmpTarget ())
 
-  override _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+    member _.IsCondBranch () =
+      match op with
+      | Opcode.BEQ | Opcode.BCS | Opcode.BMI | Opcode.BVS | Opcode.BHI
+      | Opcode.BGE | Opcode.BGT | Opcode.BNE | Opcode.BCC | Opcode.BPL
+      | Opcode.BVC | Opcode.BLS | Opcode.BLT | Opcode.BLE
+      | Opcode.CBNZ | Opcode.CBZ | Opcode.TBNZ | Opcode.TBZ -> true
+      | _ -> false
 
-  override this.IsNop () =
-    this.Info.Opcode = Opcode.NOP
+    member _.IsCJmpOnTrue () =
+      match op with
+      | Opcode.BEQ | Opcode.BCS | Opcode.BMI | Opcode.BVS | Opcode.BHI
+      | Opcode.BGE | Opcode.BGT | Opcode.BCC | Opcode.BPL | Opcode.BVC
+      | Opcode.BLS | Opcode.BLT | Opcode.BLE | Opcode.CBZ | Opcode.TBZ -> true
+      | _ -> false
 
-  override this.Translate builder =
-    (Lifter.translate this.Info numBytes builder).Stream.ToStmts ()
+    member _.IsCall () =
+      match op with
+      | Opcode.BL | Opcode.BLR -> true
+      | _ -> false
 
-  override this.TranslateToList builder =
-    (Lifter.translate this.Info numBytes builder).Stream
+    member _.IsRET () =
+      op = Opcode.RET
 
-  override this.Disasm builder =
-    Disasm.disasm this.Info builder
-    builder.ToString ()
+    member _.IsInterrupt () =
+      match op with
+      | Opcode.SVC | Opcode.HVC | Opcode.SMC -> true
+      | _ -> false
 
-  override this.Disasm () =
-    let builder = StringDisasmBuilder (false, null, WordSize.Bit64)
-    Disasm.disasm this.Info builder
-    builder.ToString ()
+    member _.IsExit () =
+      match op with
+      | Opcode.HLT
+      | Opcode.ERET -> true
+      | _ -> false
 
-  override this.Decompose builder =
-    Disasm.disasm this.Info builder
-    builder.ToAsmWords ()
+    member this.IsTerminator () =
+      let ins = this :> IInstruction
+      ins.IsBranch () || ins.IsInterrupt () || ins.IsExit ()
 
-  override _.IsInlinedAssembly () = false
+    member _.IsNop () =
+      op = Opcode.NOP
 
-  override _.Equals (_) = Terminator.futureFeature ()
+    member _.IsInlinedAssembly () = false
 
-  override _.GetHashCode () = Terminator.futureFeature ()
+    member this.DirectBranchTarget (addr: byref<Addr>) =
+      if (this :> IInstruction).IsBranch () then
+        match opr with
+        | OneOperand (OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
+          addr <- (this.Address + uint64 offset)
+          true
+        | TwoOperands (_, OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
+          addr <- (this.Address + uint64 offset)
+          true
+        | ThreeOperands (_, _,
+                         OprMemory (LiteralMode (ImmOffset (Lbl offs)))) ->
+          addr <- (this.Address + uint64 offs)
+          true
+        | _ -> false
+      else false
 
-// vim: set tw=80 sts=2 sw=2:
+    member this.IndirectTrampolineAddr (_addr: byref<Addr>) =
+      if (this :> IInstruction).IsIndirectBranch () then
+        Terminator.futureFeature ()
+      else false
+
+    member _.Immediate (v: byref<int64>) =
+      match opr with
+      | OneOperand (OprImm c)
+      | TwoOperands (OprImm c, _)
+      | TwoOperands (_, OprImm c)
+      | ThreeOperands (OprImm c, _, _)
+      | ThreeOperands (_, OprImm c, _)
+      | ThreeOperands (_, _, OprImm c)
+      | FourOperands (OprImm c, _, _, _)
+      | FourOperands (_, OprImm c, _, _)
+      | FourOperands (_, _, OprImm c, _)
+      | FourOperands (_, _, _, OprImm c)
+      | FiveOperands (OprImm c, _, _, _, _)
+      | FiveOperands (_, OprImm c, _, _, _)
+      | FiveOperands (_, _, OprImm c, _, _)
+      | FiveOperands (_, _, _, OprImm c, _)
+      | FiveOperands (_, _, _, _, OprImm c) -> v <- c; true
+      | _ -> false
+
+    member _.GetNextInstrAddrs () = Terminator.futureFeature ()
+
+    member _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+
+    member this.Translate builder =
+      (lifter.Lift this builder).Stream.ToStmts ()
+
+    member this.TranslateToList builder =
+      (lifter.Lift this builder).Stream
+
+    member this.Disasm builder =
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Disasm () =
+      let builder = StringDisasmBuilder (false, null, WordSize.Bit64)
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Decompose builder =
+      (lifter.Disasm this builder).ToAsmWords ()
+
+and internal ILiftable =
+  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder

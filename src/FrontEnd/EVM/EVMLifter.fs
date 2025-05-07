@@ -35,14 +35,14 @@ let inline private updateGas bld gas =
   let gasReg = regVar bld R.GAS
   bld <+ (gasReg := gasReg .+ numI32 gas 64<rt>)
 
-let sideEffects insInfo name bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let sideEffects (ins: Instruction) name bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   bld <+ AST.sideEffect name
-  bld --!> insInfo.NumBytes
+  bld --!> ins.NumBytes
 
-let nop insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
-  bld --!> insInfo.NumBytes
+let nop (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
+  bld --!> ins.NumBytes
 
 let private getSPSize size = numI32 (32 * size) 256<rt>
 
@@ -81,201 +81,201 @@ let private swapStack bld pos =
   bld <+ (AST.store Endian.Big (spReg .- (getSPSize pos)) tmp1)
   bld <+ (AST.store Endian.Big spReg tmp2)
 
-let startBasicOperation insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let startBasicOperation (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
 
-let endBasicOperation bld opFn src1 src2 insInfo =
+let endBasicOperation bld opFn src1 src2 (ins: Instruction) =
   pushToStack bld (opFn src1 src2)
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
 /// Binary operations and relative operations.
-let basicOperation insInfo bld opFn =
-  startBasicOperation insInfo bld
+let basicOperation ins bld opFn =
+  startBasicOperation ins bld
   let src1, src2 = popFromStack bld, popFromStack bld
-  endBasicOperation bld opFn src1 src2 insInfo
+  endBasicOperation bld opFn src1 src2 ins
 
 /// Shift operations. They use the flipped order of operands.
-let shiftOperation insInfo bld opFn =
-  startBasicOperation insInfo bld
+let shiftOperation ins bld opFn =
+  startBasicOperation ins bld
   let src1, src2 = popFromStack bld, popFromStack bld
-  endBasicOperation bld opFn src2 src1 insInfo
+  endBasicOperation bld opFn src2 src1 ins
 
-let add insInfo bld = basicOperation insInfo bld (.+)
-let mul insInfo bld = basicOperation insInfo bld (.*)
-let sub insInfo bld = basicOperation insInfo bld (.-)
-let div insInfo bld = basicOperation insInfo bld (./)
-let sdiv insInfo bld = basicOperation insInfo bld (?/)
-let modu insInfo bld = basicOperation insInfo bld (.%)
-let smod insInfo bld = basicOperation insInfo bld (?%)
-let lt insInfo bld = basicOperation insInfo bld AST.lt
-let gt insInfo bld = basicOperation insInfo bld AST.gt
-let slt insInfo bld = basicOperation insInfo bld AST.slt
-let sgt insInfo bld = basicOperation insInfo bld AST.sgt
-let eq insInfo bld = basicOperation insInfo bld (==)
-let logAnd insInfo bld = basicOperation insInfo bld (.&)
-let logOr insInfo bld = basicOperation insInfo bld (.|)
-let xor insInfo bld = basicOperation insInfo bld (<+>)
-let shl insInfo bld = shiftOperation insInfo bld (<<)
-let shr insInfo bld = shiftOperation insInfo bld (>>)
-let sar insInfo bld = shiftOperation insInfo bld (?>>)
+let add ins bld = basicOperation ins bld (.+)
+let mul ins bld = basicOperation ins bld (.*)
+let sub ins bld = basicOperation ins bld (.-)
+let div ins bld = basicOperation ins bld (./)
+let sdiv ins bld = basicOperation ins bld (?/)
+let modu ins bld = basicOperation ins bld (.%)
+let smod ins bld = basicOperation ins bld (?%)
+let lt ins bld = basicOperation ins bld AST.lt
+let gt ins bld = basicOperation ins bld AST.gt
+let slt ins bld = basicOperation ins bld AST.slt
+let sgt ins bld = basicOperation ins bld AST.sgt
+let eq ins bld = basicOperation ins bld (==)
+let logAnd ins bld = basicOperation ins bld (.&)
+let logOr ins bld = basicOperation ins bld (.|)
+let xor ins bld = basicOperation ins bld (<+>)
+let shl ins bld = shiftOperation ins bld (<<)
+let shr ins bld = shiftOperation ins bld (>>)
+let sar ins bld = shiftOperation ins bld (?>>)
 
-let addmod insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let addmod (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let src1 = popFromStack bld
   let src2 = popFromStack bld
   let src3 = popFromStack bld
   let expr = (src1 .+ src2) .% src3
   pushToStack bld expr
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let mulmod insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let mulmod (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let src1 = popFromStack bld
   let src2 = popFromStack bld
   let src3 = popFromStack bld
   let expr = (src1 .* src2) .% src3
   pushToStack bld expr
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
 let private makeNum i = numI32 i OperationSize.regType
 
-let signextend insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let signextend (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let b = popFromStack bld
   let x = popFromStack bld
   let expr = x .& (makeNum 1 << ((b .+ makeNum 1) .* makeNum 8) .- makeNum 1)
   let sext = AST.sext 256<rt> expr
   pushToStack bld sext
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let iszero insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let iszero (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let cond = popFromStack bld
   let rt = OperationSize.regType
   let expr = AST.zext rt (cond == AST.num0 rt)
   pushToStack bld expr
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let not insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let not (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let e = popFromStack bld
   let expr = AST.zext OperationSize.regType (AST.not e)
   pushToStack bld expr
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let byte insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let byte (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let n = popFromStack bld
   let x = popFromStack bld
   let expr = (x >> (makeNum 248 .- n .* makeNum 8)) .& makeNum 0xff
   pushToStack bld expr
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let pop insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let pop (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   popFromStack bld |> ignore
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let mload insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let mload (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let addr = popFromStack bld
   let expr = AST.loadBE OperationSize.regType addr
   pushToStack bld expr
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let mstore insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let mstore (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let addr = popFromStack bld
   let value = popFromStack bld
   bld <+ AST.store Endian.Big addr value
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let mstore8 insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let mstore8 (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let addr = popFromStack bld
   let value = popFromStack bld
   let lsb = AST.extract value 8<rt> 0
   bld <+ AST.store Endian.Big addr lsb
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let jump insInfo bld =
+let jump (ins: Instruction) bld =
   try
-    bld <!-- (insInfo.Address, insInfo.NumBytes)
+    bld <!-- (ins.Address, ins.NumBytes)
     let dst = popFromStack bld
-    let dstAddr = dst .+ (numU64 insInfo.Offset 256<rt>)
-    updateGas bld insInfo.GAS
+    let dstAddr = dst .+ (numU64 ins.Offset 256<rt>)
+    updateGas bld ins.GAS
     bld <+ AST.interjmp dstAddr InterJmpKind.Base
-    bld --!> insInfo.NumBytes
+    bld --!> ins.NumBytes
   with
     | :? System.InvalidOperationException -> (* Special case: terminate func. *)
-      sideEffects insInfo Terminate bld
+      sideEffects ins Terminate bld
 
-let jumpi insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let jumpi (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let dst = popFromStack bld
-  let dstAddr = dst .+ (numU64 insInfo.Offset 256<rt>)
+  let dstAddr = dst .+ (numU64 ins.Offset 256<rt>)
   let cond = popFromStack bld
-  let fall = numU64 (insInfo.Address + 1UL) 64<rt>
-  updateGas bld insInfo.GAS
+  let fall = numU64 (ins.Address + 1UL) 64<rt>
+  updateGas bld ins.GAS
   bld <+ AST.intercjmp (AST.xtlo 1<rt> cond) dstAddr fall
-  bld --!> insInfo.NumBytes
+  bld --!> ins.NumBytes
 
-let getpc insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let getpc (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let expr = regVar bld R.PC |> AST.zext OperationSize.regType
   pushToStack bld expr
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let gas insInfo bld =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let gas (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
   let expr = AST.zext OperationSize.regType (regVar bld R.GAS)
   pushToStack bld expr
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let push insInfo bld imm =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let push (ins: Instruction) bld imm =
+  bld <!-- (ins.Address, ins.NumBytes)
   let expr = BitVector.Cast (imm, 256<rt>) |> AST.num
   pushToStack bld expr
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let dup insInfo bld pos =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let dup (ins: Instruction) bld pos =
+  bld <!-- (ins.Address, ins.NumBytes)
   let src = peekStack bld pos
   pushToStack bld src
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let swap insInfo bld pos =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let swap (ins: Instruction) bld pos =
+  bld <!-- (ins.Address, ins.NumBytes)
   swapStack bld pos
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let callExternFunc insInfo bld name argCount doesRet =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let callExternFunc (ins: Instruction) bld name argCount doesRet =
+  bld <!-- (ins.Address, ins.NumBytes)
   let args = List.init argCount (fun _ -> popFromStack bld)
   let expr = AST.app name args OperationSize.regType
   if doesRet then pushToStack bld expr
   else bld <+ (AST.extCall expr)
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let call insInfo bld fname =
-  bld <!-- (insInfo.Address, insInfo.NumBytes)
+let call (ins: Instruction) bld fname =
+  bld <!-- (ins.Address, ins.NumBytes)
   let gas = popFromStack bld
   let addr = popFromStack bld
   let value = popFromStack bld
@@ -286,159 +286,159 @@ let call insInfo bld fname =
   let args = [ gas; addr; value; argsOffset; argsLength; retOffset; retLength ]
   let expr = AST.app fname args OperationSize.regType
   pushToStack bld expr
-  updateGas bld insInfo.GAS
-  bld --!> insInfo.NumBytes
+  updateGas bld ins.GAS
+  bld --!> ins.NumBytes
 
-let ret insInfo bld =
+let ret ins bld =
   popFromStack bld |> ignore
   popFromStack bld |> ignore
-  sideEffects insInfo Terminate bld
+  sideEffects ins Terminate bld
 
-let selfdestruct insInfo bld =
+let selfdestruct ins bld =
   popFromStack bld |> ignore
-  sideEffects insInfo Terminate bld
+  sideEffects ins Terminate bld
 
-let translate insInfo bld =
-  match insInfo.Opcode with
-  | STOP -> sideEffects insInfo Terminate bld
-  | ADD -> add insInfo bld
-  | MUL -> mul insInfo bld
-  | SUB -> sub insInfo bld
-  | DIV -> div insInfo bld
-  | SDIV -> sdiv insInfo bld
-  | MOD -> modu insInfo bld
-  | SMOD -> smod insInfo bld
-  | ADDMOD -> addmod insInfo bld
-  | MULMOD -> mulmod insInfo bld
-  | EXP -> callExternFunc insInfo bld "exp" 2 true
-  | SIGNEXTEND -> signextend insInfo bld
-  | LT -> lt insInfo bld
-  | GT -> gt insInfo bld
-  | SLT -> slt insInfo bld
-  | SGT -> sgt insInfo bld
-  | EQ -> eq insInfo bld
-  | ISZERO -> iszero insInfo bld
-  | AND -> logAnd insInfo bld
-  | OR -> logOr insInfo bld
-  | XOR -> xor insInfo bld
-  | NOT -> not insInfo bld
-  | BYTE -> byte insInfo bld
-  | SHL -> shl insInfo bld
-  | SHR -> shr insInfo bld
-  | SAR -> sar insInfo bld
-  | SHA3 -> callExternFunc insInfo bld "keccak256" 2 true
-  | ADDRESS -> callExternFunc insInfo bld "address" 0 true
-  | BALANCE -> callExternFunc insInfo bld "balance" 1 true
-  | ORIGIN -> callExternFunc insInfo bld "tx.origin" 0 true
-  | CALLER -> callExternFunc insInfo bld "msg.sender" 0 true
-  | CALLVALUE -> callExternFunc insInfo bld "msg.value" 0 true
-  | CALLDATALOAD -> callExternFunc insInfo bld "msg.data" 1 true
-  | CALLDATASIZE -> callExternFunc insInfo bld "msg.data.size" 0 true
-  | CALLDATACOPY -> callExternFunc insInfo bld "calldatacopy" 3 false
-  | CODESIZE -> callExternFunc insInfo bld "codesize" 0 true
-  | CODECOPY -> callExternFunc insInfo bld "codecopy" 3 false
-  | GASPRICE -> callExternFunc insInfo bld "tx.gasprice" 0 true
-  | EXTCODESIZE -> callExternFunc insInfo bld "extcodesize" 1 true
-  | EXTCODECOPY -> callExternFunc insInfo bld "extcodecopy" 4 false
-  | RETURNDATASIZE -> callExternFunc insInfo bld "returndatasize" 0 true
-  | RETURNDATACOPY -> callExternFunc insInfo bld "returndatacopy" 3 false
-  | EXTCODEHASH -> callExternFunc insInfo bld "extcodehash" 1 true
-  | BLOCKHASH -> callExternFunc insInfo bld "blockhash" 1 true
-  | COINBASE -> callExternFunc insInfo bld "block.coinbase" 0 true
-  | TIMESTAMP -> callExternFunc insInfo bld "block.timestamp" 0 true
-  | NUMBER -> callExternFunc insInfo bld "block.number" 0 true
-  | DIFFICULTY -> callExternFunc insInfo bld "block.difficulty" 0 true
-  | GASLIMIT -> callExternFunc insInfo bld "block.gaslimit" 0 true
-  | CHAINID -> callExternFunc insInfo bld "chainid" 0 true
-  | SELFBALANCE -> callExternFunc insInfo bld "selfbalance" 0 true
-  | BASEFEE -> callExternFunc insInfo bld "basefee" 0 true
-  | POP -> pop insInfo bld
-  | MLOAD -> mload insInfo bld
-  | MSTORE -> mstore insInfo bld
-  | MSTORE8 -> mstore8 insInfo bld
-  | SLOAD -> callExternFunc insInfo bld "sload" 1 true
-  | SSTORE -> callExternFunc insInfo bld "sstore" 2 false
-  | JUMP -> jump insInfo bld
-  | JUMPI -> jumpi insInfo bld
-  | GETPC -> getpc insInfo bld
-  | MSIZE -> callExternFunc insInfo bld "msize" 0 true
-  | GAS -> gas insInfo bld
-  | JUMPDEST -> nop insInfo bld
-  | PUSH1 imm -> push insInfo bld imm
-  | PUSH2 imm -> push insInfo bld imm
-  | PUSH3 imm -> push insInfo bld imm
-  | PUSH4 imm -> push insInfo bld imm
-  | PUSH5 imm -> push insInfo bld imm
-  | PUSH6 imm -> push insInfo bld imm
-  | PUSH7 imm -> push insInfo bld imm
-  | PUSH8 imm -> push insInfo bld imm
-  | PUSH9 imm -> push insInfo bld imm
-  | PUSH10 imm -> push insInfo bld imm
-  | PUSH11 imm -> push insInfo bld imm
-  | PUSH12 imm -> push insInfo bld imm
-  | PUSH13 imm -> push insInfo bld imm
-  | PUSH14 imm -> push insInfo bld imm
-  | PUSH15 imm -> push insInfo bld imm
-  | PUSH16 imm -> push insInfo bld imm
-  | PUSH17 imm -> push insInfo bld imm
-  | PUSH18 imm -> push insInfo bld imm
-  | PUSH19 imm -> push insInfo bld imm
-  | PUSH20 imm -> push insInfo bld imm
-  | PUSH21 imm -> push insInfo bld imm
-  | PUSH22 imm -> push insInfo bld imm
-  | PUSH23 imm -> push insInfo bld imm
-  | PUSH24 imm -> push insInfo bld imm
-  | PUSH25 imm -> push insInfo bld imm
-  | PUSH26 imm -> push insInfo bld imm
-  | PUSH27 imm -> push insInfo bld imm
-  | PUSH28 imm -> push insInfo bld imm
-  | PUSH29 imm -> push insInfo bld imm
-  | PUSH30 imm -> push insInfo bld imm
-  | PUSH31 imm -> push insInfo bld imm
-  | PUSH32 imm -> push insInfo bld imm
-  | DUP1 -> dup insInfo bld 1
-  | DUP2 -> dup insInfo bld 2
-  | DUP3 -> dup insInfo bld 3
-  | DUP4 -> dup insInfo bld 4
-  | DUP5 -> dup insInfo bld 5
-  | DUP6 -> dup insInfo bld 6
-  | DUP7 -> dup insInfo bld 7
-  | DUP8 -> dup insInfo bld 8
-  | DUP9 -> dup insInfo bld 9
-  | DUP10 -> dup insInfo bld 10
-  | DUP11 -> dup insInfo bld 11
-  | DUP12 -> dup insInfo bld 12
-  | DUP13 -> dup insInfo bld 13
-  | DUP14 -> dup insInfo bld 14
-  | DUP15 -> dup insInfo bld 15
-  | DUP16 -> dup insInfo bld 16
-  | SWAP1 -> swap insInfo bld 1
-  | SWAP2 -> swap insInfo bld 2
-  | SWAP3 -> swap insInfo bld 3
-  | SWAP4 -> swap insInfo bld 4
-  | SWAP5 -> swap insInfo bld 5
-  | SWAP6 -> swap insInfo bld 6
-  | SWAP7 -> swap insInfo bld 7
-  | SWAP8 -> swap insInfo bld 8
-  | SWAP9 -> swap insInfo bld 9
-  | SWAP10 -> swap insInfo bld 10
-  | SWAP11 -> swap insInfo bld 11
-  | SWAP12 -> swap insInfo bld 12
-  | SWAP13 -> swap insInfo bld 13
-  | SWAP14 -> swap insInfo bld 14
-  | SWAP15 -> swap insInfo bld 15
-  | SWAP16 -> swap insInfo bld 16
-  | RETURN | REVERT -> ret insInfo bld
-  | CALL -> callExternFunc insInfo bld "call" 7 true
-  | CALLCODE -> callExternFunc insInfo bld "callcode" 7 true
-  | LOG0 -> callExternFunc insInfo bld "log0" 2 false
-  | LOG1 -> callExternFunc insInfo bld "log1" 3 false
-  | LOG2 -> callExternFunc insInfo bld "log2" 4 false
-  | LOG3 -> callExternFunc insInfo bld "log3" 5 false
-  | LOG4 -> callExternFunc insInfo bld "log4" 6 false
-  | CREATE -> callExternFunc insInfo bld "create" 3 true
-  | DELEGATECALL -> callExternFunc insInfo bld "delegatecall" 6 true
-  | CREATE2 -> callExternFunc insInfo bld "create2" 4 true
-  | STATICCALL -> callExternFunc insInfo bld "staticcall" 6 true
-  | INVALID -> sideEffects insInfo Terminate bld
-  | SELFDESTRUCT -> selfdestruct insInfo bld
+let translate (ins: Instruction) bld =
+  match ins.Opcode with
+  | STOP -> sideEffects ins Terminate bld
+  | ADD -> add ins bld
+  | MUL -> mul ins bld
+  | SUB -> sub ins bld
+  | DIV -> div ins bld
+  | SDIV -> sdiv ins bld
+  | MOD -> modu ins bld
+  | SMOD -> smod ins bld
+  | ADDMOD -> addmod ins bld
+  | MULMOD -> mulmod ins bld
+  | EXP -> callExternFunc ins bld "exp" 2 true
+  | SIGNEXTEND -> signextend ins bld
+  | LT -> lt ins bld
+  | GT -> gt ins bld
+  | SLT -> slt ins bld
+  | SGT -> sgt ins bld
+  | EQ -> eq ins bld
+  | ISZERO -> iszero ins bld
+  | AND -> logAnd ins bld
+  | OR -> logOr ins bld
+  | XOR -> xor ins bld
+  | NOT -> not ins bld
+  | BYTE -> byte ins bld
+  | SHL -> shl ins bld
+  | SHR -> shr ins bld
+  | SAR -> sar ins bld
+  | SHA3 -> callExternFunc ins bld "keccak256" 2 true
+  | ADDRESS -> callExternFunc ins bld "address" 0 true
+  | BALANCE -> callExternFunc ins bld "balance" 1 true
+  | ORIGIN -> callExternFunc ins bld "tx.origin" 0 true
+  | CALLER -> callExternFunc ins bld "msg.sender" 0 true
+  | CALLVALUE -> callExternFunc ins bld "msg.value" 0 true
+  | CALLDATALOAD -> callExternFunc ins bld "msg.data" 1 true
+  | CALLDATASIZE -> callExternFunc ins bld "msg.data.size" 0 true
+  | CALLDATACOPY -> callExternFunc ins bld "calldatacopy" 3 false
+  | CODESIZE -> callExternFunc ins bld "codesize" 0 true
+  | CODECOPY -> callExternFunc ins bld "codecopy" 3 false
+  | GASPRICE -> callExternFunc ins bld "tx.gasprice" 0 true
+  | EXTCODESIZE -> callExternFunc ins bld "extcodesize" 1 true
+  | EXTCODECOPY -> callExternFunc ins bld "extcodecopy" 4 false
+  | RETURNDATASIZE -> callExternFunc ins bld "returndatasize" 0 true
+  | RETURNDATACOPY -> callExternFunc ins bld "returndatacopy" 3 false
+  | EXTCODEHASH -> callExternFunc ins bld "extcodehash" 1 true
+  | BLOCKHASH -> callExternFunc ins bld "blockhash" 1 true
+  | COINBASE -> callExternFunc ins bld "block.coinbase" 0 true
+  | TIMESTAMP -> callExternFunc ins bld "block.timestamp" 0 true
+  | NUMBER -> callExternFunc ins bld "block.number" 0 true
+  | DIFFICULTY -> callExternFunc ins bld "block.difficulty" 0 true
+  | GASLIMIT -> callExternFunc ins bld "block.gaslimit" 0 true
+  | CHAINID -> callExternFunc ins bld "chainid" 0 true
+  | SELFBALANCE -> callExternFunc ins bld "selfbalance" 0 true
+  | BASEFEE -> callExternFunc ins bld "basefee" 0 true
+  | POP -> pop ins bld
+  | MLOAD -> mload ins bld
+  | MSTORE -> mstore ins bld
+  | MSTORE8 -> mstore8 ins bld
+  | SLOAD -> callExternFunc ins bld "sload" 1 true
+  | SSTORE -> callExternFunc ins bld "sstore" 2 false
+  | JUMP -> jump ins bld
+  | JUMPI -> jumpi ins bld
+  | GETPC -> getpc ins bld
+  | MSIZE -> callExternFunc ins bld "msize" 0 true
+  | GAS -> gas ins bld
+  | JUMPDEST -> nop ins bld
+  | PUSH1 imm -> push ins bld imm
+  | PUSH2 imm -> push ins bld imm
+  | PUSH3 imm -> push ins bld imm
+  | PUSH4 imm -> push ins bld imm
+  | PUSH5 imm -> push ins bld imm
+  | PUSH6 imm -> push ins bld imm
+  | PUSH7 imm -> push ins bld imm
+  | PUSH8 imm -> push ins bld imm
+  | PUSH9 imm -> push ins bld imm
+  | PUSH10 imm -> push ins bld imm
+  | PUSH11 imm -> push ins bld imm
+  | PUSH12 imm -> push ins bld imm
+  | PUSH13 imm -> push ins bld imm
+  | PUSH14 imm -> push ins bld imm
+  | PUSH15 imm -> push ins bld imm
+  | PUSH16 imm -> push ins bld imm
+  | PUSH17 imm -> push ins bld imm
+  | PUSH18 imm -> push ins bld imm
+  | PUSH19 imm -> push ins bld imm
+  | PUSH20 imm -> push ins bld imm
+  | PUSH21 imm -> push ins bld imm
+  | PUSH22 imm -> push ins bld imm
+  | PUSH23 imm -> push ins bld imm
+  | PUSH24 imm -> push ins bld imm
+  | PUSH25 imm -> push ins bld imm
+  | PUSH26 imm -> push ins bld imm
+  | PUSH27 imm -> push ins bld imm
+  | PUSH28 imm -> push ins bld imm
+  | PUSH29 imm -> push ins bld imm
+  | PUSH30 imm -> push ins bld imm
+  | PUSH31 imm -> push ins bld imm
+  | PUSH32 imm -> push ins bld imm
+  | DUP1 -> dup ins bld 1
+  | DUP2 -> dup ins bld 2
+  | DUP3 -> dup ins bld 3
+  | DUP4 -> dup ins bld 4
+  | DUP5 -> dup ins bld 5
+  | DUP6 -> dup ins bld 6
+  | DUP7 -> dup ins bld 7
+  | DUP8 -> dup ins bld 8
+  | DUP9 -> dup ins bld 9
+  | DUP10 -> dup ins bld 10
+  | DUP11 -> dup ins bld 11
+  | DUP12 -> dup ins bld 12
+  | DUP13 -> dup ins bld 13
+  | DUP14 -> dup ins bld 14
+  | DUP15 -> dup ins bld 15
+  | DUP16 -> dup ins bld 16
+  | SWAP1 -> swap ins bld 1
+  | SWAP2 -> swap ins bld 2
+  | SWAP3 -> swap ins bld 3
+  | SWAP4 -> swap ins bld 4
+  | SWAP5 -> swap ins bld 5
+  | SWAP6 -> swap ins bld 6
+  | SWAP7 -> swap ins bld 7
+  | SWAP8 -> swap ins bld 8
+  | SWAP9 -> swap ins bld 9
+  | SWAP10 -> swap ins bld 10
+  | SWAP11 -> swap ins bld 11
+  | SWAP12 -> swap ins bld 12
+  | SWAP13 -> swap ins bld 13
+  | SWAP14 -> swap ins bld 14
+  | SWAP15 -> swap ins bld 15
+  | SWAP16 -> swap ins bld 16
+  | RETURN | REVERT -> ret ins bld
+  | CALL -> callExternFunc ins bld "call" 7 true
+  | CALLCODE -> callExternFunc ins bld "callcode" 7 true
+  | LOG0 -> callExternFunc ins bld "log0" 2 false
+  | LOG1 -> callExternFunc ins bld "log1" 3 false
+  | LOG2 -> callExternFunc ins bld "log2" 4 false
+  | LOG3 -> callExternFunc ins bld "log3" 5 false
+  | LOG4 -> callExternFunc ins bld "log4" 6 false
+  | CREATE -> callExternFunc ins bld "create" 3 true
+  | DELEGATECALL -> callExternFunc ins bld "delegatecall" 6 true
+  | CREATE2 -> callExternFunc ins bld "create2" 4 true
+  | STATICCALL -> callExternFunc ins bld "staticcall" 6 true
+  | INVALID -> sideEffects ins Terminate bld
+  | SELFDESTRUCT -> selfdestruct ins bld

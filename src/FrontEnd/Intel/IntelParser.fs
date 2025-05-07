@@ -514,7 +514,14 @@ type IntelParser (wordSz, reader) =
        0x0u
        0x000d0000u (* 111xxxxx = f0/f2/f3 is possible *) |]
 
-  let rhlp = ReadHelper (reader, wordSz, oparsers, szcomputers)
+  let lifter =
+    { new ILiftable with
+        member _.Lift ins builder =
+          Lifter.translate ins ins.Length builder
+        member _.Disasm ins builder =
+          Disasm.disasm.Invoke (builder, ins); builder }
+
+  let rhlp = ReadHelper (reader, wordSz, oparsers, szcomputers, lifter)
 
   member inline private _.ParsePrefix (span: ByteSpan) =
     let mutable pos = 0
@@ -563,6 +570,6 @@ type IntelParser (wordSz, reader) =
 #if LCACHE
       rhlp.MarkPrefixEnd (prefEndPos)
 #endif
-      oneByteParsers[int (rhlp.ReadByte span)].Run (span, rhlp) :> Instruction
+      oneByteParsers[int (rhlp.ReadByte span)].Run (span, rhlp) :> IInstruction
 
     member _.MaxInstructionSize = 15

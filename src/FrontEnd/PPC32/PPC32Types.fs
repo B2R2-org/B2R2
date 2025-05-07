@@ -515,10 +515,13 @@ type Operand =
   | OprImm of Imm
   | OprAddr of TargetAddr
   | OprBI of uint32
+
 /// Immediate field specifying a 16-bit signed two's complement integer that is
 /// sign-extended to 32 bits.
 and D = int32
+
 and Imm = uint64
+
 /// Used to specify a CR bit to be used as the condition of a branch conditional
 /// instruction.
 and TargetAddr = uint64
@@ -530,41 +533,3 @@ type Operands =
   | ThreeOperands of Operand * Operand * Operand
   | FourOperands of Operand * Operand * Operand * Operand
   | FiveOperands of Operand * Operand * Operand * Operand * Operand
-
-type internal Instruction = Opcode * Operands
-
-/// Basic information obtained by parsing a PPC32 instruction.
-[<NoComparison; CustomEquality>]
-type InsInfo = {
-  /// Address.
-  Address: Addr
-  /// Instruction length.
-  NumBytes: uint32
-  /// Opcode.
-  Opcode: Opcode
-  /// Operands.
-  Operands: Operands
-  /// Operation Size.
-  OperationSize: RegType
-  /// Effective address.
-  EffectiveAddress: Addr
-}
-with
-  override this.GetHashCode () =
-    hash (this.Address,
-          this.NumBytes,
-          this.Opcode,
-          this.Operands,
-          this.OperationSize)
-
-  override this.Equals (i) =
-    match i with
-    | :? InsInfo as i ->
-      i.Address = this.Address
-      && i.NumBytes = this.NumBytes
-      && i.Opcode = this.Opcode
-      && i.Operands = this.Operands
-      && i.OperationSize = this.OperationSize
-    | _ -> false
-
-// vim: set tw=80 sts=2 sw=2:

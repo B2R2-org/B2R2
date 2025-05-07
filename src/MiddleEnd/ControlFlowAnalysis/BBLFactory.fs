@@ -208,7 +208,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
     else
       gatherIntraBBLs arr lblMap 0 0 (Seq.toList intraLeaders)
 
-  let bblLifter (channel: BufferBlock<Addr * Instruction list * int>) =
+  let bblLifter (channel: BufferBlock<Addr * IInstruction list * int>) =
     let liftingUnit = hdl.NewLiftingUnit ()
     let mutable isSuccessful = true
     let mutable canContinue = true
@@ -306,7 +306,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
   member _.ScanBBLs (addrs,
                      [<Optional; DefaultParameterValue(false)>] allowOverlap) =
     task {
-      let channel = BufferBlock<Addr * Instruction list * int> ()
+      let channel = BufferBlock<Addr * IInstruction list * int> ()
       instrProducer channel addrs |> ignore
       let! isSuccessful = bblLifter channel
       if isSuccessful then

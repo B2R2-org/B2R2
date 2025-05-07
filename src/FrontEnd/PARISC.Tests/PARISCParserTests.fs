@@ -58,12 +58,12 @@ module private PARISCShortcut =
     let reader = BinReader.Init isa.Endian
     let parser = PARISCParser (isa, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan (bytes: byte[])
-    let ins = parser.Parse (span, 0UL) :?> PARISCInstruction
-    let opcode' = ins.Info.Opcode
-    let completer' = ins.Info.Completer
-    let condition' = ins.Info.Condition
-    let uid' = ins.Info.ID
-    let oprs' = ins.Info.Operands
+    let ins = parser.Parse (span, 0UL) :?> Instruction
+    let opcode' = ins.Opcode
+    let completer' = ins.Completer
+    let condition' = ins.Condition
+    let uid' = ins.ID
+    let oprs' = ins.Operands
     Assert.AreEqual<Opcode> (opcode, opcode')
     Assert.AreEqual<Operands> (opr, oprs')
     Assert.AreEqual (completer, completer')

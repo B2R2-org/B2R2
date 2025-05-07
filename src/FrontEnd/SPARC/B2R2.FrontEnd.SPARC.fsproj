@@ -10,10 +10,10 @@
   <ItemGroup>
     <Compile Include="SPARCRegisterFactory.fs" />
     <Compile Include="SPARCTypes.fs" />
+    <Compile Include="SPARCInstruction.fs" />
     <Compile Include="SPARCDisasm.fs" />
     <Compile Include="SPARCGeneralLifter.fs" />
     <Compile Include="SPARCLifter.fs" />
-    <Compile Include="SPARCInstruction.fs" />
     <Compile Include="SPARCParsingMain.fs" />
     <Compile Include="SPARCParser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

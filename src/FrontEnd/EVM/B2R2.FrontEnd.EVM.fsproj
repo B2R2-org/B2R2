@@ -9,10 +9,10 @@
 
   <ItemGroup>
     <Compile Include="EVMTypes.fs" />
+    <Compile Include="EVMInstruction.fs" />
     <Compile Include="EVMRegisterFactory.fs" />
     <Compile Include="EVMDisasm.fs" />
     <Compile Include="EVMLifter.fs" />
-    <Compile Include="EVMInstruction.fs" />
     <Compile Include="EVMParsingMain.fs" />
     <Compile Include="EVMParser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

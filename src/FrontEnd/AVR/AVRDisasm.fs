@@ -222,7 +222,7 @@ let buildComment opr1 opr2 (builder: IDisasmBuilder) =
     | _ -> ()
   | _ -> ()
 
-let buildOprs ins pc builder =
+let buildOprs (ins: Instruction) pc builder =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
@@ -232,12 +232,12 @@ let buildOprs ins pc builder =
     oprToString ins pc opr2 (Some ", ") builder
     buildComment opr1 opr2 builder
 
-let inline buildOpcode ins (builder: IDisasmBuilder) =
+let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
 
-let disasm insInfo (builder: IDisasmBuilder) =
-  let pc = insInfo.Address
-  builder.AccumulateAddrMarker insInfo.Address
-  buildOpcode insInfo builder
-  buildOprs insInfo pc builder
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
+  let pc = ins.Address
+  builder.AccumulateAddrMarker ins.Address
+  buildOpcode ins builder
+  buildOprs ins pc builder

@@ -7,9 +7,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PythonTypes.fs" />
+    <Compile Include="PythonInstruction.fs" />
     <Compile Include="PythonDisasm.fs" />
     <Compile Include="PythonLifter.fs" />
-    <Compile Include="PythonInstruction.fs" />
     <Compile Include="PythonParsingMain.fs" />
     <Compile Include="PythonParser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

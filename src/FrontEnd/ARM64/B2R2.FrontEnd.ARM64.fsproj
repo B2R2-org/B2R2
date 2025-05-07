@@ -12,12 +12,12 @@
     <Compile Include="ARM64Register.fs" />
     <Compile Include="ARM64RegisterFactory.fs" />
     <Compile Include="ARM64Types.fs" />
+    <Compile Include="ARM64Instruction.fs" />
     <Compile Include="ARM64Utils.fs" />
     <Compile Include="ARM64OperandHelper.fs" />
     <Compile Include="ARM64Disasm.fs" />
     <Compile Include="ARM64LiftingUtils.fs" />
     <Compile Include="ARM64Lifter.fs" />
-    <Compile Include="ARM64Instruction.fs" />
     <Compile Include="ARM64ParsingMain.fs" />
     <Compile Include="ARM64Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

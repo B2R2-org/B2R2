@@ -357,7 +357,14 @@ type ARM32Parser (isa: ISA, isThumb, reader) =
 
   let mutable isThumb: bool = isThumb
 
-  let phlp = ParsingHelper (isa.Arch, reader, oparsers)
+  let lifter =
+    { new ILiftable with
+        member _.Lift ins builder =
+          Lifter.translate ins ins.Length builder
+        member _.Disasm ins builder =
+          Disasm.disasm ins builder; builder }
+
+  let phlp = ParsingHelper (isa.Arch, reader, oparsers, lifter)
 
   let mutable itstate: byte list = []
 
@@ -368,8 +375,8 @@ type ARM32Parser (isa: ISA, isThumb, reader) =
     member _.Parse (span: ByteSpan, addr) =
       phlp.IsThumb <- isThumb
       phlp.InsAddr <- addr
-      if isThumb then Parser.parseThumb span phlp &itstate :> Instruction
-      else Parser.parseARM span phlp :> Instruction
+      if isThumb then Parser.parseThumb span phlp &itstate :> IInstruction
+      else Parser.parseARM span phlp :> IInstruction
 
     member this.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan bs

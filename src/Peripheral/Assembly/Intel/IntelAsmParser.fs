@@ -175,7 +175,7 @@ type IntelAsmParser (isa, baseAddr: Addr) =
   let pOprMem = opt (pMemOprSize .>> spaces) >>= pMemOpr
 
   let pOprDirAddr opc =
-    check opc Helper.isBranch >>. pJumpTarget |>> OprDirAddr
+    check opc Opcode.isBranch >>. pJumpTarget |>> OprDirAddr
 
   (* We just put dummy regsize here, as immediates will be replaced according to
      the decoding rules anyways. *)

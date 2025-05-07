@@ -41,13 +41,13 @@ type IFunctionSummarizable<'FnCtx,
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
      * retStatus: NonReturningStatus
      * unwindingBytes: int
-     * ins: Instruction
+     * ins: IInstruction
     -> FunctionAbstraction<LowUIR.Stmt>
 
   /// Make a dummy function abstraction for an unknown function.
   abstract MakeUnknownFunctionAbstraction:
        hdl: BinHandle
-     * ins: Instruction
+     * ins: IInstruction
     -> FunctionAbstraction<LowUIR.Stmt>
 
   /// Compute the stack unwinding amount of a function based on the given

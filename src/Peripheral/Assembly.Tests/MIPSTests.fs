@@ -36,7 +36,7 @@ type MIPSTests () =
         Endian = Endian.Big
         WordSize = WordSize.Bit32 }
   let assembler = MIPS.AsmParser (mips, 0UL)
-  let newInfo = MIPS.ParserHelper.newInfo
+  let newInfo = MIPS.ParserHelper.newAssemblyIns
 
   [<TestMethod>]
   member _.``[MipsAssembly] Test add with and three operands ``() =

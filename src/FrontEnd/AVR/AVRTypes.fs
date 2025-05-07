@@ -290,31 +290,3 @@ type Operands =
   | NoOperand
   | OneOperand of Operand
   | TwoOperands of Operand * Operand
-
-/// Basic information obtained by parsing a AVR instruction.
-[<NoComparison; CustomEquality>]
-type InsInfo = {
-  /// Address.
-  Address: Addr
-  /// Instruction length.
-  NumBytes: uint32
-  /// Opcode.
-  Opcode: Opcode
-  /// Operands
-  Operands: Operands
-}
-with
-  override this.GetHashCode () =
-    hash (this.Address,
-          this.NumBytes,
-          this.Opcode)
-
-  override this.Equals (i) =
-    match i with
-    | :? InsInfo as i ->
-      i.Address = this.Address
-      && i.NumBytes = this.NumBytes
-      && i.Opcode = this.Opcode
-    | _ -> false
-
-// vim: set tw=80 sts=2 sw=2:

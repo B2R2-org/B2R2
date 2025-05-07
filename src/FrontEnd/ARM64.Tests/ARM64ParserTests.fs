@@ -114,9 +114,9 @@ type ARM64ParserTests () =
 
   let test (bytes: byte[]) (opcode, oprs: Operands) =
     let span = System.ReadOnlySpan bytes
-    let ins = parser.Parse (span, 0UL) :?> ARM64Instruction
-    let opcode' = ins.Info.Opcode
-    let oprs' = ins.Info.Operands
+    let ins = parser.Parse (span, 0UL) :?> Instruction
+    let opcode' = ins.Opcode
+    let oprs' = ins.Operands
     Assert.AreEqual<Opcode> (opcode, opcode')
     Assert.AreEqual<Operands> (oprs, oprs')
 

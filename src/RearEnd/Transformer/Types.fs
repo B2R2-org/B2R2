@@ -77,7 +77,7 @@ with
 
 /// Instruction tagged with its corresponding bytes.
 type Instruction =
-  | ValidInstruction of FrontEnd.BinLifter.Instruction * byte[]
+  | ValidInstruction of BinLifter.IInstruction * byte[]
   | BadInstruction of Addr * byte[]
 with
   override this.ToString () =

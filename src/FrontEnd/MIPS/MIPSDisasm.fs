@@ -231,17 +231,17 @@ let opCodeToString = function
   | Op.XORI -> "xori"
   | _ -> failwith "Unknown opcode encountered."
 
-let inline appendCond insInfo opcode =
-  match insInfo.Condition with
+let inline appendCond (ins: Instruction) opcode =
+  match ins.Condition with
   | None -> opcode
   | Some c -> opcode + condToString c
 
-let inline appendFmt insInfo opcode =
-  match insInfo.Fmt with
+let inline appendFmt (ins: Instruction) opcode =
+  match ins.Fmt with
   | None -> opcode
   | Some f -> opcode + fmtToString f
 
-let inline buildOpcode ins (builder: IDisasmBuilder) =
+let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode |> appendCond ins |> appendFmt ins
   builder.Accumulate AsmWordKind.Mnemonic str
 
@@ -249,16 +249,16 @@ let inline relToString pc offset (builder: IDisasmBuilder) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
 
-let inline regToString ins reg =
+let inline regToString (ins: Instruction) reg =
   match ins.OperationSize with
   | 64<rt> -> Register.toString reg WordSize.Bit64
   | _ -> Register.toString reg WordSize.Bit32
 
-let oprToString insInfo opr delim (builder: IDisasmBuilder) =
+let oprToString ins opr delim (builder: IDisasmBuilder) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (regToString insInfo reg)
+    builder.Accumulate AsmWordKind.Variable (regToString ins reg)
   | OpImm imm
   | OpShiftAmount imm ->
     builder.Accumulate AsmWordKind.String delim
@@ -267,41 +267,41 @@ let oprToString insInfo opr delim (builder: IDisasmBuilder) =
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
     builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (regToString insInfo b)
+    builder.Accumulate AsmWordKind.Variable (regToString ins b)
     builder.Accumulate AsmWordKind.String ")"
   | OpMem (b, Reg off, _) ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (regToString insInfo off)
+    builder.Accumulate AsmWordKind.Variable (regToString ins off)
     builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (regToString insInfo b)
+    builder.Accumulate AsmWordKind.Variable (regToString ins b)
     builder.Accumulate AsmWordKind.String ")"
   | OpAddr (Relative offset) ->
     builder.Accumulate AsmWordKind.String delim
-    relToString insInfo.Address offset builder
+    relToString ins.Address offset builder
   // Never gets matched. Only used in intermediate stage mips assembly parser.
   | GoToLabel _ -> raise InvalidOperandException
 
-let buildOprs insInfo (builder: IDisasmBuilder) =
-  match insInfo.Operands with
+let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
+  match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
-    oprToString insInfo opr " " builder
+    oprToString ins opr " " builder
   | TwoOperands (opr1, opr2) ->
-    oprToString insInfo opr1 " " builder
-    oprToString insInfo opr2 ", " builder
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
   | ThreeOperands (opr1, opr2, opr3) ->
-    oprToString insInfo opr1 " " builder
-    oprToString insInfo opr2 ", " builder
-    oprToString insInfo opr3 ", " builder
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
+    oprToString ins opr3 ", " builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
-    oprToString insInfo opr1 " " builder
-    oprToString insInfo opr2 ", " builder
-    oprToString insInfo opr3 ", " builder
-    oprToString insInfo opr4 ", " builder
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
+    oprToString ins opr3 ", " builder
+    oprToString ins opr4 ", " builder
 
-let disasm insInfo (builder: IDisasmBuilder) =
-  builder.AccumulateAddrMarker insInfo.Address
-  buildOpcode insInfo builder
-  buildOprs insInfo builder
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
+  builder.AccumulateAddrMarker ins.Address
+  buildOpcode ins builder
+  buildOprs ins builder
 
 // vim: set tw=80 sts=2 sw=2:

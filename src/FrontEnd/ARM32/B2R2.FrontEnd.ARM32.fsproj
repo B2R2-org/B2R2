@@ -12,12 +12,12 @@
     <Compile Include="ARM32Register.fs" />
     <Compile Include="ARM32RegisterFactory.fs" />
     <Compile Include="ARM32Types.fs" />
+    <Compile Include="ARM32Instruction.fs" />
     <Compile Include="ARM32ParseUtils.fs" />
     <Compile Include="ARM32OperandHelper.fs" />
     <Compile Include="ARM32Disasm.fs" />
     <Compile Include="ARM32IRHelper.fs" />
     <Compile Include="ARM32Lifter.fs" />
-    <Compile Include="ARM32Instruction.fs" />
     <Compile Include="ARM32Operands.fs" />
     <Compile Include="ARM32Validator.fs" />
     <Compile Include="ARM32ARMParser.fs" />

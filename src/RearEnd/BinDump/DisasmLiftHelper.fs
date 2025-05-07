@@ -183,7 +183,7 @@ type BinPrinter (hdl: BinHandle, cfg, isLift) =
 
   abstract PrintFuncSymbol: Addr -> unit
 
-  abstract PrintInstr: BinHandle -> BinFilePointer -> Instruction -> unit
+  abstract PrintInstr: BinHandle -> BinFilePointer -> IInstruction -> unit
 
   abstract UpdateMode: LiftingUnit -> Addr -> unit
 

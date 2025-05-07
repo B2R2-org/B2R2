@@ -10,10 +10,10 @@
   <ItemGroup>
     <Compile Include="PPC32RegisterFactory.fs" />
     <Compile Include="PPC32Types.fs" />
+    <Compile Include="PPC32Instruction.fs" />
     <Compile Include="PPC32OperandHelper.fs" />
     <Compile Include="PPC32Disasm.fs" />
     <Compile Include="PPC32Lifter.fs" />
-    <Compile Include="PPC32Instruction.fs" />
     <Compile Include="PPC32ParsingMain.fs" />
     <Compile Include="PPC32Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

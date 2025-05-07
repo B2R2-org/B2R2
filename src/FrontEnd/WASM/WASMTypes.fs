@@ -594,8 +594,6 @@ type Opcode =
 
 type internal Op = Opcode
 
-type internal Instruction = Opcode
-
 type Operand =
   | I32 of uint32
   | I64 of uint64
@@ -616,33 +614,3 @@ type Operands =
   | TwoOperands of Operand * Operand
   | ThreeOperands of Operand * Operand * Operand
   | Operands of Operand list
-
-/// Basic information obtained by parsing a WASM instruction.
-[<NoComparison; CustomEquality>]
-type InsInfo = {
-  /// Address.
-  Address: Addr
-  /// Instruction length.
-  NumBytes: uint32
-  /// Opcode.
-  Opcode: Opcode
-  /// Operands.
-  Operands: Operands
-}
-with
-  override this.GetHashCode () =
-    hash (this.Address,
-          this.NumBytes,
-          this.Opcode,
-          this.Operands)
-
-  override this.Equals (i) =
-    match i with
-    | :? InsInfo as i ->
-      i.Address = this.Address
-      && i.NumBytes = this.NumBytes
-      && i.Opcode = this.Opcode
-      && i.Operands = this.Operands
-    | _ -> false
-
-// vim: set tw=80 sts=2 sw=2:

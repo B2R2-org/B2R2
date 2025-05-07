@@ -45,7 +45,7 @@ let numOprSize = function
 let inline is64bit (bld: ILowUIRBuilder) =
   bld.RegType = 64<rt>
 
-let is64REXW bld (ins: InsInfo) =
+let is64REXW bld (ins: Instruction) =
   is64bit bld && hasREXW ins.REXPrefix
 
 #if DEBUG
@@ -53,9 +53,9 @@ let assert32 bld =
   if is64bit bld then raise InvalidISAException else ()
 #endif
 
-let inline getOperationSize (i: InsInfo) = i.MainOperationSize
+let inline getOperationSize (i: Instruction) = i.MainOperationSize
 
-let inline getEffAddrSz (i: InsInfo) = i.PointerSize
+let inline getEffAddrSz (i: Instruction) = i.PointerSize
 
 let inline getImmValue imm =
   match imm with
@@ -184,13 +184,13 @@ let private segRegToBase = function
   | R.SS -> R.SSBase
   | _ -> Terminator.impossible ()
 
-let private ldMem (ins: InsInfo) bld oprSize e =
+let private ldMem (ins: Instruction) bld oprSize e =
   match getSegment ins.Prefixes with
   | Some s -> regVar bld (segRegToBase s) .+ e
   | None -> e
   |> AST.loadLE oprSize
 
-let private numOfAddrSz (ins: InsInfo) (bld: ILowUIRBuilder) n =
+let private numOfAddrSz (ins: Instruction) (bld: ILowUIRBuilder) n =
   let pref = ins.Prefixes
   let sz =
     if bld.RegType = 32<rt> then if hasAddrSz pref then 16<rt> else 32<rt>
@@ -222,7 +222,7 @@ let private transMem bld useTmpVar ins insLen b index disp oprSize =
     | Some R.RIP, None, Some d -> (* RIP-relative addressing *)
       let pc =
 #if EMULATION
-        numOfAddrSz ins bld (int64 (ins: InsInfo).Address)
+        numOfAddrSz ins bld (int64 (ins: Instruction).Address)
 #else
         regVar bld R.RIP
 #endif
@@ -323,7 +323,7 @@ let transOprToExpr512 bld useTmpVar ins insLen opr =
 
 /// Return a tuple (jump target expr, is pc-relative?)
 let transJumpTargetOpr (bld: ILowUIRBuilder) useTmpVar ins pc insLen =
-  match (ins: InsInfo).Operands with
+  match (ins: Instruction).Operands with
   | OneOperand (OprDirAddr (Absolute (_, addr, _))) ->
     struct (numU64 addr bld.RegType, false)
   | OneOperand (OprDirAddr (Relative offset)) ->
@@ -443,7 +443,7 @@ let private convMMXToST = function
   | OprReg R.MM7 -> R.ST7
   | _ -> raise InvalidOperandException
 
-let fillOnesToMMXHigh16 bld (ins: InsInfo) =
+let fillOnesToMMXHigh16 bld (ins: Instruction) =
   match ins.Operands with
   | TwoOperands (OprReg _ as o, _)
   | ThreeOperands (OprReg _ as o, _, _) ->
@@ -483,22 +483,22 @@ let assignPackedInstr bld useTmpVar ins insLen packNum oprSize dst result =
     bld <+ (dstH := Array.sub result (7 * packNum) packNum |> AST.revConcat)
   | _ -> raise InvalidOperandSizeException
 
-let getTwoOprs (ins: InsInfo) =
+let getTwoOprs (ins: Instruction) =
   match ins.Operands with
   | TwoOperands (o1, o2) -> struct (o1, o2)
   | _ -> raise InvalidOperandException
 
-let getThreeOprs (ins: InsInfo) =
+let getThreeOprs (ins: Instruction) =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) -> struct (o1, o2, o3)
   | _ -> raise InvalidOperandException
 
-let getFourOprs (ins: InsInfo) =
+let getFourOprs (ins: Instruction) =
   match ins.Operands with
   | FourOperands (o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
   | _ -> raise InvalidOperandException
 
-let transOneOpr bld (ins: InsInfo) insLen =
+let transOneOpr bld (ins: Instruction) insLen =
   match ins.Operands with
   | OneOperand opr -> transOprToExpr bld true ins insLen opr
   | _ -> raise InvalidOperandException
@@ -513,7 +513,7 @@ let transReg bld useTmpVar expr =
     | _ -> expr
   else expr
 
-let transTwoOprs bld useTmpVar (ins: InsInfo) insLen =
+let transTwoOprs bld useTmpVar (ins: Instruction) insLen =
   match ins.Operands with
   | TwoOperands (o1, o2) ->
     let o1 = transOprToExpr bld useTmpVar ins insLen o1
@@ -521,7 +521,7 @@ let transTwoOprs bld useTmpVar (ins: InsInfo) insLen =
     struct (o1, o2)
   | _ -> raise InvalidOperandException
 
-let transThreeOprs bld useTmpVar (ins: InsInfo) insLen =
+let transThreeOprs bld useTmpVar (ins: Instruction) insLen =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
     struct (transOprToExpr bld useTmpVar ins insLen o1,
@@ -584,7 +584,7 @@ let getMask oprSize =
   | 64<rt> -> numI64 0xffffffffffffffffL oprSize
   | _ -> raise InvalidOperandSizeException
 
-let sideEffects bld (ins: InsInfo) insLen name =
+let sideEffects bld (ins: Instruction) insLen name =
   bld <!-- (ins.Address, insLen)
 #if EMULATION
   if bld.ConditionCodeOp <> ConditionCodeOp.TraceStart then
@@ -595,7 +595,7 @@ let sideEffects bld (ins: InsInfo) insLen name =
   bld <+ (AST.sideEffect name)
   bld --!> insLen
 
-let hasStackPtr (ins: InsInfo) =
+let hasStackPtr (ins: Instruction) =
   match ins.Operands with
   | OneOperand (OprReg Register.ESP)
   | OneOperand (OprReg Register.RSP)

@@ -1356,19 +1356,9 @@ let parseByFmt (span: ByteSpan) (reader: IBinReader) bin =
     |> parseInstLenThree, 6u
   | _ -> Terminator.impossible ()
 
-let parse (span: ByteSpan) (reader: IBinReader) arch wordSize addr =
+let parse lifter (span: ByteSpan) (reader: IBinReader) wordSize addr =
   let bin = reader.ReadUInt16 (span, 0)
   let (opcode, operand, fmt), numBytes = parseByFmt span reader bin
-
-  let insInfo: InsInfo = {
-    Address = addr
-    NumBytes = numBytes
-    Fmt = fmt
-    Opcode = opcode
-    Operands = operand
-    Arch = arch
-  }
-
-  S390Instruction (addr, numBytes, insInfo, wordSize)
+  Instruction (addr, numBytes, fmt, opcode, operand, wordSize, lifter)
 
 // vim: set tw=80 sts=2 sw=2:

@@ -32,14 +32,20 @@ open B2R2.FrontEnd.BinLifter
 /// instruction type (Instruction).
 type S390Parser (isa: ISA, reader) =
   let wordSize = isa.WordSize
-  let arch = isa.Arch
+
+  let lifter =
+    { new ILiftable with
+        member _.Lift _ _ =
+          Terminator.futureFeature ()
+        member _.Disasm ins builder =
+          Disasm.disasm ins builder; builder }
 
   interface IInstructionParsable with
     member _.Parse (span: ByteSpan, addr: Addr) =
-      ParsingMain.parse span reader arch wordSize addr :> Instruction
+      ParsingMain.parse lifter span reader wordSize addr :> IInstruction
 
     member _.Parse (bs: byte[], addr: Addr) =
       let span = ReadOnlySpan bs
-      ParsingMain.parse span reader arch wordSize addr :> Instruction
+      ParsingMain.parse lifter span reader wordSize addr :> IInstruction
 
     member _.MaxInstructionSize = 6

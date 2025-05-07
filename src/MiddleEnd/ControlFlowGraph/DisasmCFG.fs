@@ -301,7 +301,7 @@ type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
 
 /// Temporarily stores vertex information for creating DisasmCFG.
 and private TemporaryDisasmVertex = {
-  Instructions: SortedList<Addr, Instruction>
+  Instructions: SortedList<Addr, IInstruction>
   Successors: List<Addr * CFGEdgeKind>
   mutable Vertex: IVertex<DisasmBasicBlock>
 }

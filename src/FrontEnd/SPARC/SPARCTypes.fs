@@ -825,31 +825,3 @@ type Operands =
   | ThreeOperands of Operand * Operand * Operand
   | FourOperands of Operand * Operand * Operand * Operand
   | FiveOperands of Operand * Operand * Operand * Operand * Operand
-
-/// Basic information obtained by parsing a SPARC instruction.
-[<NoComparison; CustomEquality>]
-type InsInfo = {
-  /// Address.
-  Address: Addr
-  /// Instruction length.
-  NumBytes: uint32
-  /// Opcode.
-  Opcode: Opcode
-  /// Operands
-  Operands: Operands
-}
-with
-  override this.GetHashCode () =
-    hash (this.Address,
-          this.NumBytes,
-          this.Opcode,
-          this.Operands)
-
-  override this.Equals (i) =
-    match i with
-    | :? InsInfo as i ->
-      i.Address = this.Address
-      && i.NumBytes = this.NumBytes
-      && i.Opcode = this.Opcode
-      && i.Operands = this.Operands
-    | _ -> false

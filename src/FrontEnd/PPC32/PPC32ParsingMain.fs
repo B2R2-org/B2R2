@@ -1979,16 +1979,9 @@ let private parseInstruction bin addr =
   | 0x3Fu -> parse3F bin
   | _ -> raise ParsingFailureException
 
-let parse (span: ByteSpan) (reader: IBinReader) addr =
+let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt32 (span, 0)
   let struct (opcode, operands) = parseInstruction bin addr
-  let insInfo =
-    { Address = addr
-      NumBytes = 4u
-      Opcode = opcode
-      Operands = operands
-      OperationSize = 32<rt>
-      EffectiveAddress = 0UL }
-  PPC32Instruction (addr, 4u, insInfo)
+  Instruction (addr, 4u, opcode, operands, 32<rt>, 0UL, lifter)
 
 // vim: set tw=80 sts=2 sw=2:

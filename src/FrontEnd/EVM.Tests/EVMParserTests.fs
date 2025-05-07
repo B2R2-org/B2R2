@@ -36,8 +36,8 @@ type EVMParserTests () =
     let isa = ISA.Init Architecture.EVM Endian.Big
     let parser = EVMParser (isa) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
-    let ins = parser.Parse (span, 0UL) :?> EVMInstruction
-    let opcode' = ins.Info.Opcode
+    let ins = parser.Parse (span, 0UL) :?> Instruction
+    let opcode' = ins.Opcode
     Assert.AreEqual<Opcode> (opcode, opcode')
 
   let ( ++ ) byteString op = (ByteArray.ofHexString byteString, op)

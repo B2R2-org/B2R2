@@ -1065,12 +1065,7 @@ let parseNow b16 =
         | _ -> twoOpParse1111 b16
   | _ -> Terminator.futureFeature()
 
-let parse (span: ByteSpan) (reader: IBinReader) addr =
+let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt16 (span, 0)
   let op, operands = parseNow bin
-  let insInfo =
-    { Address = addr
-      NumBytes = 2u
-      Opcode = op
-      Operands = operands }
-  SH4Instruction (addr, 2u, insInfo)
+  Instruction (addr, 2u, op, operands, lifter)

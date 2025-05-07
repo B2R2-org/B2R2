@@ -11,11 +11,11 @@
     <Compile Include="AVRRegister.fs" />
     <Compile Include="AVRRegisterFactory.fs" />
     <Compile Include="AVRTypes.fs" />
+    <Compile Include="AVRInstruction.fs" />
     <Compile Include="AVROperandHelper.fs" />
     <Compile Include="AVRDisasm.fs" />
     <Compile Include="AVRGeneralLifter.fs" />
     <Compile Include="AVRLifter.fs" />
-    <Compile Include="AVRInstruction.fs" />
     <Compile Include="AVRParsingMain.fs" />
     <Compile Include="AVRParser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

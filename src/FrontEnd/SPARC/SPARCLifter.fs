@@ -29,7 +29,7 @@ open B2R2.FrontEnd.SPARC
 open B2R2.FrontEnd.SPARC.GeneralLifter
 
 /// Translate IR.
-let translate (ins: InsInfo) insLen bld =
+let translate (ins: Instruction) insLen bld =
   match ins.Opcode with
   | Opcode.ADD -> add ins insLen bld
   | Opcode.ADDcc -> addcc ins insLen bld

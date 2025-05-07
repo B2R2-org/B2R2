@@ -29,10 +29,10 @@ open B2R2.FrontEnd.BinLifter
 
 type CILParser () =
   interface IInstructionParsable with
-    member _.Parse (_: byte[], _: Addr): Instruction =
+    member _.Parse (_: byte[], _: Addr): IInstruction =
       Terminator.futureFeature ()
 
-    member _.Parse (_: ByteSpan, _: Addr): Instruction =
+    member _.Parse (_: ByteSpan, _: Addr): IInstruction =
       Terminator.futureFeature ()
 
     member _.MaxInstructionSize =

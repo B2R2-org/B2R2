@@ -11,6 +11,7 @@
     <Compile Include="IntelRegister.fs" />
     <Compile Include="IntelOpcodes.fs" />
     <Compile Include="IntelTypes.fs" />
+    <Compile Include="IntelInstruction.fs" />
     <Compile Include="IntelRegisterFactory.fs" />
     <Compile Include="IntelLowUIRBuilder.fs" />
     <Compile Include="IntelHelper.fs" />
@@ -23,7 +24,6 @@
     <Compile Include="IntelAVXLifter.fs" />
     <Compile Include="IntelX87Lifter.fs" />
     <Compile Include="IntelLifter.fs" />
-    <Compile Include="IntelInstruction.fs" />
     <Compile Include="IntelParsingHelper.fs" />
     <Compile Include="IntelParsingJob.fs" />
     <Compile Include="IntelParser.fs" />

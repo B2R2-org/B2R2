@@ -30,7 +30,7 @@ open B2R2.FrontEnd.AVR
 open B2R2.FrontEnd.AVR.GeneralLifter
 
 /// Translate IR.
-let translate (ins: InsInfo) insLen builder =
+let translate (ins: Instruction) insLen builder =
   match ins.Opcode with
   | Opcode.ADC -> adc ins insLen builder
   | Opcode.ADD -> add ins insLen builder

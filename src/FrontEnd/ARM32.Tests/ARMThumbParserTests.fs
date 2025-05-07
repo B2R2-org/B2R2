@@ -46,7 +46,7 @@ type ARMThumbParserTests () =
     let isa = ISA.Init Architecture.ARMv7 Endian.Big
     let reader = BinReader.Init Endian.Big
     let parser = ARM32Parser (isa, true, reader) :> IInstructionParsable
-    let ins = parser.Parse (bs=bs, addr=0UL) :?> ARM32Instruction
+    let ins = parser.Parse (bs=bs, addr=0UL) :?> Instruction
     let cond' = ins.Condition
     let opcode' = ins.Opcode
     let wback' = ins.WriteBack

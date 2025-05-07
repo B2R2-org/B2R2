@@ -35,6 +35,8 @@ type AsmWordDisasmBuilder (showAddr, symbolReader: INameReadable, wordSz) =
   let mutable showAddr = showAddr
 
   interface IDisasmBuilder with
+    member _.WordSize with get () = wordSz
+
     member _.ShowAddress with get () = showAddr and set v = showAddr <- v
 
     member _.ShowSymbol with get () = showSymb and set v = showSymb <- v

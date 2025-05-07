@@ -9,9 +9,9 @@
 
   <ItemGroup>
     <Compile Include="WASMTypes.fs" />
+    <Compile Include="WASMInstruction.fs" />
     <Compile Include="WASMRegisterFactory.fs" />
     <Compile Include="WASMDisasm.fs" />
-    <Compile Include="WASMInstruction.fs" />
     <Compile Include="WASMParsingMain.fs" />
     <Compile Include="WASMParser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

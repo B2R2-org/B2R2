@@ -38,7 +38,7 @@ type FunctionSummarizer<'FnCtx,
                         'GlCtx when 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
                                 and 'GlCtx: (new: unit -> 'GlCtx)> () =
-  let retrieveStackAdjustment (ins: Instruction) =
+  let retrieveStackAdjustment (ins: IInstruction) =
     match ins.Immediate () with
     | true, v -> int v
     | false, _ -> 0
@@ -123,7 +123,7 @@ type FunctionSummarizer<'FnCtx,
   /// Summarize the function using LowUIR.
   abstract Summarize:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
-     * Instruction
+     * IInstruction
      * unwindingAmount: int
     -> Rundown<LowUIR.Stmt>
 

@@ -8,12 +8,12 @@
   <ItemGroup>
     <Compile Include="SH4Opcodes.fs" />
     <Compile Include="SH4Types.fs" />
+    <Compile Include="SH4Instruction.fs" />
     <Compile Include="SH4OperandHelper.fs" />
     <Compile Include="SH4RegisterFactory.fs" />
     <Compile Include="SH4Disasm.fs" />
     <Compile Include="SH4GeneralLifter.fs" />
     <Compile Include="SH4Lifter.fs" />
-    <Compile Include="SH4Instruction.fs" />
     <Compile Include="SH4ParsingMain.fs" />
     <Compile Include="SH4Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

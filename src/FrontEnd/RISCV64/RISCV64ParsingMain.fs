@@ -693,7 +693,7 @@ let private parseInstruction wordSize bin =
   | 0b1010011u -> parseFloatArith bin
   | _ -> raise ParsingFailureException
 
-let parse (span: ByteSpan) (reader: IBinReader) wordSize addr =
+let parse lifter (span: ByteSpan) (reader: IBinReader) wordSize addr =
   let bin = reader.ReadUInt16 (span, 0)
   let wordSz = int wordSize
   let struct (op, operands, instrLen) =
@@ -707,10 +707,4 @@ let parse (span: ByteSpan) (reader: IBinReader) wordSize addr =
       let bin = ((uint32 b2) <<< 16) + (uint32 bin)
       let struct (op, operands) = bin |> parseInstruction wordSz
       struct (op, operands, 4u)
-  let insInfo =
-    { Address = addr
-      NumBytes = instrLen
-      Opcode = op
-      Operands = operands
-      OperationSize = 32<rt> }
-  RISCV64Instruction (addr, instrLen, insInfo)
+  Instruction (addr, instrLen, op, operands, 32<rt>, lifter)

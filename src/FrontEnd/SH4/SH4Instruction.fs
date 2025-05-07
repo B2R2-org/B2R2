@@ -27,52 +27,60 @@ namespace B2R2.FrontEnd.SH4
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// The internal representation for a SH4 instruction used by our disassembler
-/// and lifter.
-type SH4Instruction (addr, numBytes, insInfo) =
-  inherit Instruction (addr, numBytes, WordSize())
+/// Instruction for SH4.
+type Instruction
+  internal (addr, numBytes, op, opr, lifter: ILiftable) =
 
-  member val Info: InsInfo = insInfo
+  /// Address of this instruction.
+  member _.Address with get (): Addr = addr
 
-  override _.IsBranch () = Terminator.futureFeature ()
-  override _.IsModeChanging () = false
-  override _.IsDirectBranch () = Terminator.futureFeature ()
-  override _.IsIndirectBranch () = Terminator.futureFeature ()
-  override _.IsCondBranch () = Terminator.futureFeature ()
-  override _.IsCJmpOnTrue () = Terminator.futureFeature ()
-  override _.IsCall () = Terminator.futureFeature ()
-  override _.IsRET () = Terminator.futureFeature ()
-  override _.IsInterrupt () = Terminator.futureFeature ()
-  override _.IsExit () = Terminator.futureFeature ()
-  override _.IsTerminator () = Terminator.futureFeature ()
-  override _.DirectBranchTarget (_) = Terminator.futureFeature ()
-  override _.IndirectTrampolineAddr (_) = Terminator.futureFeature ()
-  override _.Immediate (_) = Terminator.futureFeature ()
-  override _.GetNextInstrAddrs () = Terminator.futureFeature ()
-  override _.InterruptNum (_) = Terminator.futureFeature ()
-  override _.IsNop () = Terminator.futureFeature ()
+  /// Length of this instruction in bytes.
+  member _.Length with get (): uint32 = numBytes
 
-  override this.Translate builder =
-    (Lifter.translate this.Info numBytes builder).Stream.ToStmts ()
+  //// Opcode.
+  member _.Opcode with get (): Opcode = op
 
-  override this.TranslateToList builder =
-    (Lifter.translate this.Info numBytes builder).Stream
+  //// Operands.
+  member _.Operands with get (): Operands = opr
 
-  override this.Disasm builder =
-    Disasm.disas this.Info builder
-    builder.ToString ()
+  interface IInstruction with
+    member _.Address with get () = addr
+    member _.Length with get () = numBytes
+    member _.IsBranch () = Terminator.futureFeature ()
+    member _.IsModeChanging () = false
+    member _.IsDirectBranch () = Terminator.futureFeature ()
+    member _.IsIndirectBranch () = Terminator.futureFeature ()
+    member _.IsCondBranch () = Terminator.futureFeature ()
+    member _.IsCJmpOnTrue () = Terminator.futureFeature ()
+    member _.IsCall () = Terminator.futureFeature ()
+    member _.IsRET () = Terminator.futureFeature ()
+    member _.IsInterrupt () = Terminator.futureFeature ()
+    member _.IsExit () = Terminator.futureFeature ()
+    member _.IsTerminator () = Terminator.futureFeature ()
+    member _.IsNop () = Terminator.futureFeature ()
+    member _.IsInlinedAssembly () = false
+    member _.DirectBranchTarget (_) = Terminator.futureFeature ()
+    member _.IndirectTrampolineAddr (_) = Terminator.futureFeature ()
+    member _.Immediate (_) = Terminator.futureFeature ()
+    member _.GetNextInstrAddrs () = Terminator.futureFeature ()
+    member _.InterruptNum (_) = Terminator.futureFeature ()
 
-  override this.Disasm () =
-    let builder = StringDisasmBuilder (false, null, WordSize.Bit32)
-    Disasm.disas this.Info builder
-    builder.ToString ()
+    member this.Translate builder =
+      (lifter.Lift this builder).Stream.ToStmts ()
 
-  override this.Decompose builder =
-    Disasm.disas this.Info builder
-    builder.ToAsmWords ()
+    member this.TranslateToList builder =
+      (lifter.Lift this builder).Stream
 
-  override _.IsInlinedAssembly () = false
+    member this.Disasm builder =
+      (lifter.Disasm this builder).ToString ()
 
-  override _.Equals (_) = Terminator.futureFeature ()
+    member this.Disasm () =
+      let builder = StringDisasmBuilder (false, null, WordSize.Bit32)
+      (lifter.Disasm this builder).ToString ()
 
-  override _.GetHashCode () = Terminator.futureFeature ()
+    member this.Decompose builder =
+      (lifter.Disasm this builder).ToAsmWords ()
+
+and internal ILiftable =
+  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder

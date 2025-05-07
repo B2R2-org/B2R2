@@ -38,7 +38,7 @@ type IntelDisassemblerTests () =
     let parser = IntelParser (wordSize, reader) :> IInstructionParsable
     let actualInstruction (syntax: DisasmSyntax) =
       setDisassemblyFlavor syntax
-      parser.Parse (bytes, 0UL) :?> IntelInstruction
+      parser.Parse (bytes, 0UL)
       |> fun instruction -> (instruction.Disasm ()).ToLowerInvariant ()
     Assert.AreEqual<string> (instruction[0], actualInstruction DefaultSyntax)
     Assert.AreEqual<string> (instruction[1], actualInstruction ATTSyntax)

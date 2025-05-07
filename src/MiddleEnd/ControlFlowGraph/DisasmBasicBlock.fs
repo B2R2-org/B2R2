@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
 type DisasmBasicBlock (disasmBuilder: IDisasmBuilder,
                        ppoint: ProgramPoint,
-                       instrs: Instruction[]) =
+                       instrs: IInstruction[]) =
   /// Return the `IDisasmBasicBlock` interface.
   member this.Internals with get() = this :> IDisasmBasicBlock
 
@@ -43,7 +43,7 @@ type DisasmBasicBlock (disasmBuilder: IDisasmBuilder,
       let last = instrs[instrs.Length - 1]
       AddrRange (ppoint.Address, last.Address + uint64 last.Length - 1UL)
 
-    member _.Instructions with get(): Instruction[] = instrs
+    member _.Instructions with get(): IInstruction[] = instrs
 
     member _.LastInstruction with get() = instrs[instrs.Length - 1]
 

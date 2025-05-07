@@ -52,19 +52,19 @@ let trsOprToExpr bld = function
   | OpReg (Imm n) -> numI32PC n
   | _ -> Terminator.impossible()
 
-let trsOneOpr ins bld =
+let trsOneOpr (ins: Instruction) bld =
   match ins.Operands with
   | OneOperand r -> trsOprToExpr bld r
   | _ -> raise InvalidOperandException
 
-let trsTwoOpr ins bld =
+let trsTwoOpr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands (o1, o2) ->
     struct (trsOprToExpr bld o1,
             trsOprToExpr bld o2)
   | _ -> raise InvalidOperandException
 
-let trsThreeOpr ins bld =
+let trsThreeOpr (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
     struct (trsOprToExpr bld o1,
@@ -72,7 +72,7 @@ let trsThreeOpr ins bld =
             trsOprToExpr bld o3)
   | _ -> raise InvalidOperandException
 
-let trsMemOpr1toExpr ins bld =
+let trsMemOpr1toExpr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands (OpReg (PreDec r1), OpReg (Regdir r2))
     -> struct (regVar bld r1, regVar bld r2, -1)
@@ -82,7 +82,7 @@ let trsMemOpr1toExpr ins bld =
     -> struct (regVar bld r1, regVar bld r2, 0)
   | _ -> Terminator.impossible()
 
-let trsMemOpr2toExpr ins bld =
+let trsMemOpr2toExpr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands (OpReg (Regdir r1), OpReg (PreDec r2))
     -> (regVar bld r1, regVar bld r2, -1)
@@ -92,19 +92,19 @@ let trsMemOpr2toExpr ins bld =
     -> (regVar bld r1, regVar bld r2, 0)
   | _ -> Terminator.impossible()
 
-let trsMemOpr3toExpr ins bld =
+let trsMemOpr3toExpr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands (OpReg (RegDisp (imm, r1)), OpReg (Regdir r2))
     -> struct (regVar bld r1, regVar bld r2, numI32 imm)
   | _ -> Terminator.impossible()
 
-let trsMemOpr4toExpr ins bld =
+let trsMemOpr4toExpr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands (OpReg (Regdir r1), OpReg (RegDisp (imm, r2)))
     -> struct (regVar bld r1, regVar bld r2, numI32 imm)
   | _ -> Terminator.impossible()
 
-let illSlot1 ins bld len =
+let illSlot1 (ins: Instruction) bld len =
   bld <!-- (ins.Address, len)
   bld <+ (regVar bld R.SPC := regVar bld R.PC .- numI32 2)
   bld <+ (regVar bld R.SSR := regVar bld R.SR)
@@ -335,7 +335,7 @@ let bfsHelper bld ins len =
   bld <+ (regVar bld R.PC .+ numI32 2 := AST.xtlo 32<rt> delayedPC)
   bld --!> len
 
-let bfs ins len bld =
+let bfs (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld --!> len
 
@@ -351,7 +351,7 @@ let braHelper bld ins len =
   bld <+ (regVar bld R.PC .+ (numI32 2) := AST.xtlo 32<rt> delayedPC)
   bld --!> len
 
-let bra ins len bld =
+let bra (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   braHelper bld ins len
 
@@ -366,7 +366,7 @@ let brafHelper bld ins len =
   bld <+ (regVar bld R.PC .+ (numI32 2) := AST.xtlo 32<rt> delayedPC)
   bld --!> len
 
-let braf ins len bld =
+let braf (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   brafHelper bld ins len
 
@@ -384,7 +384,7 @@ let bsrHelper bld ins len =
   bld <+ (regVar bld R.PC := AST.xtlo 32<rt> delayedPC)
   bld --!> len
 
-let bsr ins len bld =
+let bsr (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bsrHelper bld ins len
 
@@ -402,7 +402,7 @@ let bsrfHelper bld ins len =
   bld <+ (regVar bld R.PC := AST.xtlo 32<rt> delayedPC)
   bld --!> len
 
-let bsrf ins len bld =
+let bsrf (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bsrfHelper bld ins len
 
@@ -442,11 +442,11 @@ let btsHelper bld ins len =
   bld <+ (regVar bld R.PC .+ numI32 2 := AST.xtlo 32<rt> delayedPC)
   bld --!> len
 
-let bts ins len bld =
+let bts (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   btsHelper bld ins len
 
-let clrmac ins len bld =
+let clrmac (ins: Instruction) len bld =
   let struct (macl, mach) = tmpVars2 bld 1<rt>
   bld <!-- (ins.Address, len)
   bld <+ (macl := AST.b0)
@@ -455,14 +455,14 @@ let clrmac ins len bld =
   bld <+ (regVar bld R.MACH := AST.zext 32<rt> mach)
   bld --!> len
 
-let clrs ins len bld =
+let clrs (ins: Instruction) len bld =
   let s = tmpVar bld 1<rt>
   bld <!-- (ins.Address, len)
   bld <+ (s := AST.b0)
   bld <+ (regVar bld R.S := AST.extract s 1<rt> 1)
   bld --!> len
 
-let clrt ins len bld =
+let clrt (ins: Instruction) len bld =
   let t = tmpVar bld 1<rt>
   bld <!-- (ins.Address, len)
   bld <+ (t := AST.b0)
@@ -587,7 +587,7 @@ let div0s ins len bld =
   bld <+ (regVar bld R.T := AST.extract t 1<rt> 1)
   bld --!> len
 
-let div0u ins len bld =
+let div0u (ins: Instruction) len bld =
   let struct (q, m, t) = tmpVars3 bld 1<rt>
   bld <!-- (ins.Address, len)
   bld <+ (q := AST.b0)
@@ -1037,7 +1037,7 @@ let fneg ins len bld =
   bld <+ (dst := op1)
   bld --!> len
 
-let frchg ins len bld =
+let frchg (ins: Instruction) len bld =
   let sr = tmpVar bld 32<rt>
   let fr = tmpVar bld 1<rt>
   bld <!-- (ins.Address, len)
@@ -1047,7 +1047,7 @@ let frchg ins len bld =
   bld <+ (regVar bld R.FPSCR_FR := AST.extract fr 1<rt> 1)
   bld --!> len
 
-let fschg ins len bld =
+let fschg (ins: Instruction) len bld =
   let sr = tmpVar bld 32<rt>
   let fr = tmpVar bld 1<rt>
   bld <!-- (ins.Address, len)
@@ -1588,7 +1588,7 @@ let mova ins len bld =
   bld <+ (regVar bld R.R0 := AST.xtlo 32<rt> r0)
   bld --!> len
 
-let movb ins len bld =
+let movb (ins: Instruction) len bld =
   match ins.Operands with
   | TwoOperands (OpReg (Regdir _), OpReg (RegIndir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
@@ -1711,7 +1711,7 @@ let movb ins len bld =
     bld --!> len
   | _ -> Terminator.impossible()
 
-let movl ins len bld =
+let movl (ins: Instruction) len bld =
   match ins.Operands with
   | TwoOperands (OpReg (Regdir _), OpReg (RegIndir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
@@ -1847,7 +1847,7 @@ let movl ins len bld =
     bld --!> len
   | _ -> Terminator.impossible()
 
-let movw ins len bld =
+let movw (ins: Instruction) len bld =
   match ins.Operands with
   | TwoOperands (OpReg (Regdir _), OpReg (RegIndir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
@@ -2056,7 +2056,7 @@ let negc ins len bld =
   bld <+ (regVar bld R.T := AST.extract t 1<rt> 1)
   bld --!> len
 
-let nop ins len bld =
+let nop (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld --!> len
 
@@ -2069,15 +2069,15 @@ let ``not`` ins len bld =
   bld <+ (dst := AST.xtlo 32<rt> op2)
   bld --!> len
 
-let ocbi ins len bld =
+let ocbi (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld --!> len
 
-let ocbp ins len bld =
+let ocbp (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld --!> len
 
-let ocbwb ins len bld =
+let ocbwb (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld --!> len
 
@@ -2171,7 +2171,7 @@ let rotr ins len bld =
   bld <+ (regVar bld R.T := AST.extract t 1<rt> 1)
   bld --!> len
 
-let rte ins len bld =
+let rte (ins: Instruction) len bld =
   let md = tmpVar bld 1<rt>
   let struct (ssr, pc, target, delayedPC) = tmpVars4 bld 32<rt>
   bld <!-- (ins.Address, len)
@@ -2184,7 +2184,7 @@ let rte ins len bld =
   bld <+ (regVar bld R.PC .+ numI32 2 := AST.xtlo 32<rt> delayedPC)
   bld --!> len
 
-let rts ins len bld =
+let rts (ins: Instruction) len bld =
   let struct (pr, target, delayedPC) = tmpVars3 bld 32<rt>
   bld <!-- (ins.Address, len)
   bld <+ (pr := regVar bld R.PR |> AST.sext 32<rt>)
@@ -2193,14 +2193,14 @@ let rts ins len bld =
   bld <+ (regVar bld R.PC .+ numI32 2 := AST.xtlo 32<rt> delayedPC)
   bld --!> len
 
-let sets ins len bld =
+let sets (ins: Instruction) len bld =
   let s = tmpVar bld 1<rt>
   bld <!-- (ins.Address, len)
   bld <+ (s := AST.b1)
   bld <+ (regVar bld R.S := AST.extract s 1<rt> 1)
   bld --!> len
 
-let sett ins len bld =
+let sett (ins: Instruction) len bld =
   let t = tmpVar bld 1<rt>
   bld <!-- (ins.Address, len)
   bld <+ (t := AST.b1)
@@ -2337,7 +2337,7 @@ let shlr16 ins len bld =
   bld <+ (dst := AST.xtlo 32<rt> op1)
   bld --!> len
 
-let sleep ins len bld =
+let sleep (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld --!> len
 

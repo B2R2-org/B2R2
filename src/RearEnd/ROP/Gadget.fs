@@ -38,7 +38,7 @@ type Offset = uint64
 
 /// ROP gadget is a list of instructions.
 type Gadget = {
-  Instrs: Instruction list
+  Instrs: IInstruction list
   Offset: Offset
   NextOff: Offset
 }

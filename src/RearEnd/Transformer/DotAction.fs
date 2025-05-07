@@ -36,7 +36,7 @@ type DOTAction () =
     let instrs =
       v.VData.Internals.Instructions
       |> Array.map (fun ins ->
-        let bld = StringDisasmBuilder (true, null, ins.WordSize)
+        let bld = StringDisasmBuilder (true, null, WordSize.Bit64)
         ins.Disasm bld)
       |> String.concat "\\l"
     $"[label=\"[{addr:x}]\\l{instrs}\\l\"]"

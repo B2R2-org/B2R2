@@ -27,81 +27,90 @@ namespace B2R2.FrontEnd.PPC32
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// The internal representation for a PPC32 instruction used by our
-/// disassembler and lifter.
-type PPC32Instruction (addr, numBytes, insInfo) =
-  inherit Instruction (addr, numBytes, WordSize.Bit32)
+/// Instruction for PPC32.
+type Instruction
+  internal (addr, numBytes, op, opr, oprSize, ea, lifter: ILiftable) =
 
-  /// Basic instruction information.
-  member val Info: InsInfo = insInfo
+  /// Address of this instruction.
+  member _.Address with get (): Addr = addr
 
-  override this.IsBranch () =
-    match this.Info.Opcode with
-    | _ -> false
+  /// Length of this instruction in bytes.
+  member _.Length with get (): uint32 = numBytes
 
-  override _.IsModeChanging () = false
+  /// Opcode.
+  member _.Opcode with get (): Opcode = op
 
-  member _.HasConcJmpTarget () = Terminator.futureFeature ()
+  /// Operands.
+  member _.Operands with get (): Operands = opr
 
-  override this.IsDirectBranch () =
-    this.IsBranch () && this.HasConcJmpTarget ()
+  /// Operation Size.
+  member _.OperationSize with get (): RegType = oprSize
 
-  override this.IsIndirectBranch () =
-    this.IsBranch () && (not <| this.HasConcJmpTarget ())
+  /// Effective address.
+  member _.EffectiveAddress with get (): Addr = ea
 
-  override _.IsCondBranch () = Terminator.futureFeature ()
+  interface IInstruction with
 
-  override _.IsCJmpOnTrue () = Terminator.futureFeature ()
+    member this.Address with get() = this.Address
 
-  override _.IsCall () = Terminator.futureFeature ()
+    member this.Length with get() = this.Length
 
-  override _.IsRET () = Terminator.futureFeature ()
+    member _.IsBranch () =
+      match op with
+      | _ -> false
 
-  override _.IsInterrupt () = Terminator.futureFeature ()
+    member _.IsModeChanging () = false
 
-  override _.IsExit () = Terminator.futureFeature ()
+    member _.IsDirectBranch () = Terminator.futureFeature ()
 
-  override this.IsTerminator () =
-    this.IsDirectBranch () ||
-    this.IsIndirectBranch ()
+    member _.IsIndirectBranch () = Terminator.futureFeature ()
 
-  override _.DirectBranchTarget (_addr: byref<Addr>) =
-    Terminator.futureFeature ()
+    member _.IsCondBranch () = Terminator.futureFeature ()
 
-  override _.IndirectTrampolineAddr (_addr: byref<Addr>) =
-    Terminator.futureFeature ()
+    member _.IsCJmpOnTrue () = Terminator.futureFeature ()
 
-  override _.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
+    member _.IsCall () = Terminator.futureFeature ()
 
-  override _.GetNextInstrAddrs () = Terminator.futureFeature ()
+    member _.IsRET () = Terminator.futureFeature ()
 
-  override _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+    member _.IsInterrupt () = Terminator.futureFeature ()
 
-  override _.IsNop () = Terminator.futureFeature ()
+    member _.IsExit () = Terminator.futureFeature ()
 
-  override this.Translate builder =
-    (Lifter.translate this.Info numBytes builder).Stream.ToStmts ()
+    member this.IsTerminator () = Terminator.futureFeature ()
 
-  override this.TranslateToList builder =
-    (Lifter.translate this.Info numBytes builder).Stream
+    member _.DirectBranchTarget (_addr: byref<Addr>) =
+      Terminator.futureFeature ()
 
-  override this.Disasm builder =
-    Disasm.disasm this.Info builder
-    builder.ToString ()
+    member _.IndirectTrampolineAddr (_addr: byref<Addr>) =
+      Terminator.futureFeature ()
 
-  override this.Disasm () =
-    let builder = StringDisasmBuilder (false, null, WordSize.Bit32)
-    Disasm.disasm this.Info builder
-    builder.ToString ()
+    member _.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
 
-  override this.Decompose builder =
-    Disasm.disasm this.Info builder
-    builder.ToAsmWords ()
+    member _.GetNextInstrAddrs () = Terminator.futureFeature ()
 
-  override _.IsInlinedAssembly () = false
+    member _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
-  override _.Equals (_) = Terminator.futureFeature ()
+    member _.IsNop () = Terminator.futureFeature ()
 
-  override _.GetHashCode () = Terminator.futureFeature ()
+    member _.IsInlinedAssembly () = false
 
-// vim: set tw=80 sts=2 sw=2:
+    member this.Translate builder =
+      (lifter.Lift this builder).Stream.ToStmts ()
+
+    member this.TranslateToList builder =
+      (lifter.Lift this builder).Stream
+
+    member this.Disasm builder =
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Disasm () =
+      let builder = StringDisasmBuilder (false, null, WordSize.Bit32)
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Decompose builder =
+      (lifter.Disasm this builder).ToAsmWords ()
+
+and internal ILiftable =
+  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder

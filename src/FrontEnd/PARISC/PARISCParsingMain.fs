@@ -854,21 +854,10 @@ let getOperationSize opcode wordSz =
   | Op.STD -> 64<rt>
   | _ -> WordSize.toRegType wordSz
 
-let parse (span: ByteSpan) (reader: IBinReader) arch wordSize addr =
+let parse lifter (span: ByteSpan) (reader: IBinReader) wordSize addr =
   let bin = reader.ReadUInt32 (span, 0)
   let wordSz = WordSize.toRegType wordSize
-  let opcode, completer, (cond: option<Completer>), id, operands =
-    parseInstruction bin wordSz
-  let insInfo =
-    { Address = addr
-      NumBytes = 4u
-      Completer = completer
-      Condition = cond
-      ID = id
-      Opcode = opcode
-      Operands = operands
-      OperationSize = getOperationSize opcode wordSize
-      Arch = arch }
-  PARISCInstruction (addr, 4u, insInfo, wordSize)
-
-// vim: set tw=80 sts=2 sw=2:
+  let opcode, completer, cond, id, operands = parseInstruction bin wordSz
+  let oprSize = getOperationSize opcode wordSize
+  Instruction (addr, 4u,
+               completer, cond, id, opcode, operands, oprSize, wordSize, lifter)

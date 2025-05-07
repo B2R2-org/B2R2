@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.SSA
 open System.Collections.Generic
 open B2R2
 open B2R2.BinIR.SSA
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
@@ -57,10 +58,10 @@ type IDStack = Dictionary<VariableKind, int list>
 
 module private SSALifterFactory =
   /// Lift the given LowUIR statements to SSA statements.
-  let liftStmts stmtProcessor (liftedInstrs: LiftedInstruction[]) =
-    liftedInstrs
+  let liftStmts (stmtProcessor: IStmtPostProcessor) liftedInstrs =
+    (liftedInstrs: LiftedInstruction[])
     |> Array.collect (fun liftedIns ->
-      let wordSize = liftedIns.Original.WordSize |> WordSize.toRegType
+      let wordSize = stmtProcessor.WordSize |> WordSize.toRegType
       let stmts = liftedIns.Stmts
       let address = liftedIns.Original.Address
       AST.translateStmts wordSize address stmtProcessor stmts)
@@ -387,9 +388,12 @@ module private SSALifterFactory =
 /// The factory for SSA lifter.
 type SSALifterFactory =
   /// Create an SSA lifter with a binary handle.
-  static member Create (hdl) =
+  static member Create (hdl: BinHandle) =
+    let wordSize = hdl.File.ISA.WordSize
     SSALifterFactory.create hdl
-      { new IStmtPostProcessor with member _.PostProcess stmt = stmt }
+      { new IStmtPostProcessor with
+          member _.WordSize with get () = wordSize
+          member _.PostProcess stmt = stmt }
       { new ISSAVertexCallback with member _.OnVertexCreation _ _ _ = () }
 
   /// Create an SSA lifter with a binary handle and a statement processor.
@@ -399,9 +403,12 @@ type SSALifterFactory =
 
   /// Create an SSA lifter with a binary handle and a callback for SSA vertex
   /// creation.
-  static member Create (hdl, callback) =
+  static member Create (hdl: BinHandle, callback) =
+    let wordSize = hdl.File.ISA.WordSize
     SSALifterFactory.create hdl
-      { new IStmtPostProcessor with member _.PostProcess stmt = stmt }
+      { new IStmtPostProcessor with
+          member _.WordSize with get () = wordSize
+          member _.PostProcess stmt = stmt }
       callback
 
   /// Create an SSA lifter with a binary handle, a statement processor, and a

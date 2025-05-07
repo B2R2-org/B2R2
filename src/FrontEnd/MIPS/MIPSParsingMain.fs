@@ -645,16 +645,8 @@ let getOperationSize opcode wordSz =
   | Op.SD -> 64<rt>
   | _ -> WordSize.toRegType wordSz
 
-let parse span (reader: IBinReader) arch wordSize addr =
+let parse lifter span (reader: IBinReader) arch wordSize addr =
   let bin = reader.ReadUInt32 (span=span, offset=0)
   let opcode, cond, fmt, operands = parseOpcodeField arch bin wordSize
-  let insInfo =
-    { Address = addr
-      NumBytes = 4u
-      Condition = cond
-      Fmt = fmt
-      Opcode = opcode
-      Operands = operands
-      OperationSize = getOperationSize opcode wordSize
-      Arch = arch }
-  MIPSInstruction (addr, 4u, insInfo, wordSize)
+  let oprSize = getOperationSize opcode wordSize
+  Instruction (addr, 4u, cond, fmt, opcode, operands, oprSize, wordSize, lifter)

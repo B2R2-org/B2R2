@@ -12,10 +12,10 @@
     <Compile Include="MIPSRegisterFactory.fs" />
     <Compile Include="MIPSLowUIRBuilder.fs" />
     <Compile Include="MIPSTypes.fs" />
+    <Compile Include="MIPSInstruction.fs" />
     <Compile Include="MIPSHelper.fs" />
     <Compile Include="MIPSDisasm.fs" />
     <Compile Include="MIPSLifter.fs" />
-    <Compile Include="MIPSInstruction.fs" />
     <Compile Include="MIPSParsingMain.fs" />
     <Compile Include="MIPSParser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

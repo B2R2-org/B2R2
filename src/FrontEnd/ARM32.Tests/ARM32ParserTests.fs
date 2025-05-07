@@ -139,7 +139,7 @@ type ARM32ParserTests () =
     let reader = BinReader.Init Endian.Big
     let parser =
       ARM32Parser (isa, false, reader) :> IInstructionParsable
-    let ins = parser.Parse (bytes, 0UL) :?> ARM32Instruction
+    let ins = parser.Parse (bytes, 0UL) :?> Instruction
     let cond' = ins.Condition
     let op' = ins.Opcode
     let wback' = ins.WriteBack

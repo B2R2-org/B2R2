@@ -32,12 +32,19 @@ open B2R2.FrontEnd.BinLifter
 /// instruction type (Instruction).
 type PPC32Parser (reader) =
 
+  let lifter =
+    { new ILiftable with
+        member _.Lift ins builder =
+          Lifter.translate ins ins.Length builder
+        member _.Disasm ins builder =
+          Disasm.disasm ins builder; builder }
+
   interface IInstructionParsable with
     member _.Parse (span: ByteSpan, addr) =
-      ParsingMain.parse span reader addr :> Instruction
+      ParsingMain.parse lifter span reader addr :> IInstruction
 
     member _.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan bs
-      ParsingMain.parse span reader addr :> Instruction
+      ParsingMain.parse lifter span reader addr :> IInstruction
 
     member _.MaxInstructionSize = 4

@@ -1252,7 +1252,7 @@ let opCodeToString = function
   | Op.InvalOp -> "(illegal)"
   | _ -> Terminator.impossible ()
 
-let extendMnemonic (insInfo: InsInfo) (builder: IDisasmBuilder) =
+let extendMnemonic (ins: Instruction) (builder: IDisasmBuilder) =
   Terminator.futureFeature()
 
 let binaryMaskString (mask: Mask) =
@@ -1265,8 +1265,8 @@ let hexDispString (disp: Displacement) =
   | DispS20 bitvec -> bitvec.ToString ()
   | DispU12 bitvec -> bitvec.ToString ()
 
-let inline buildOpcode (insInfo: InsInfo) (builder: IDisasmBuilder) =
-  let opcode = insInfo.Opcode
+let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
+  let opcode = ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
 
 let prefix = { AsmWordKind = AsmWordKind.String; AsmWordValue = " ; <" }
@@ -1280,7 +1280,7 @@ let private mapNoSymbol addr =
 let private buildComment targetAddr (builder: IDisasmBuilder) =
   builder.AccumulateSymbol (targetAddr, prefix, suffix, mapNoSymbol)
 
-let oprToString insInfo opr delim (builder: IDisasmBuilder) =
+let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
@@ -1323,7 +1323,7 @@ let oprToString insInfo opr delim (builder: IDisasmBuilder) =
       else
         builder.Accumulate AsmWordKind.String "+"
         builder.Accumulate AsmWordKind.Value (HexString.ofInt64 offset)
-      let targetAddr = int64 insInfo.Address + offset |> uint64
+      let targetAddr = int64 ins.Address + offset |> uint64
       buildComment targetAddr builder
     | ImmS32 value ->
       builder.Accumulate AsmWordKind.String delim
@@ -1334,7 +1334,7 @@ let oprToString insInfo opr delim (builder: IDisasmBuilder) =
       else
         builder.Accumulate AsmWordKind.String "+"
         builder.Accumulate AsmWordKind.Value (HexString.ofInt64 offset)
-      let targetAddr = int64 insInfo.Address + offset |> uint64
+      let targetAddr = int64 ins.Address + offset |> uint64
       buildComment targetAddr builder
     | _ -> printfn "%A" immTyp; failwith "Invalid immType"
   | OpMask mask ->
@@ -1360,42 +1360,42 @@ let oprToString insInfo opr delim (builder: IDisasmBuilder) =
     builder.Accumulate AsmWordKind.Variable (Register.toString baseReg)
     builder.Accumulate AsmWordKind.String ")"
 
-let inline buildOprs (insInfo: InsInfo) (builder: IDisasmBuilder) =
-  match insInfo.Operands with
+let inline buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
+  match ins.Operands with
   | NoOperand -> ()
   | OneOperand op1 ->
-    oprToString insInfo op1 " " builder
+    oprToString ins op1 " " builder
   | TwoOperands (op1, op2) ->
-    oprToString insInfo op1 " " builder
-    oprToString insInfo op2 ", " builder
+    oprToString ins op1 " " builder
+    oprToString ins op2 ", " builder
   | ThreeOperands (op1, op2, op3) ->
-    oprToString insInfo op1 " " builder
-    if insInfo.Fmt <> Fmt.RS then
-      oprToString insInfo op2 ", " builder
-      oprToString insInfo op3 ", " builder
+    oprToString ins op1 " " builder
+    if ins.Fmt <> Fmt.RS then
+      oprToString ins op2 ", " builder
+      oprToString ins op3 ", " builder
     else
-      oprToString insInfo op3 ", " builder
-      oprToString insInfo op2 ", " builder
+      oprToString ins op3 ", " builder
+      oprToString ins op2 ", " builder
   | FourOperands (op1, op2, op3, op4) ->
-    oprToString insInfo op1 " " builder
-    oprToString insInfo op2 ", " builder
-    oprToString insInfo op3 ", " builder
-    oprToString insInfo op4 ", " builder
+    oprToString ins op1 " " builder
+    oprToString ins op2 ", " builder
+    oprToString ins op3 ", " builder
+    oprToString ins op4 ", " builder
   | FiveOperands (op1, op2, op3, op4, op5) ->
-    oprToString insInfo op1 " " builder
-    oprToString insInfo op2 ", " builder
-    oprToString insInfo op3 ", " builder
-    oprToString insInfo op4 ", " builder
-    oprToString insInfo op5 ", " builder
+    oprToString ins op1 " " builder
+    oprToString ins op2 ", " builder
+    oprToString ins op3 ", " builder
+    oprToString ins op4 ", " builder
+    oprToString ins op5 ", " builder
   | SixOperands (op1, op2, op3, op4, op5, op6) ->
-    oprToString insInfo op1 " " builder
-    oprToString insInfo op2 ", " builder
-    oprToString insInfo op3 ", " builder
-    oprToString insInfo op4 ", " builder
-    oprToString insInfo op5 ", " builder
-    oprToString insInfo op6 ", " builder
+    oprToString ins op1 " " builder
+    oprToString ins op2 ", " builder
+    oprToString ins op3 ", " builder
+    oprToString ins op4 ", " builder
+    oprToString ins op5 ", " builder
+    oprToString ins op6 ", " builder
 
-let disasm (insInfo: InsInfo) (builder: IDisasmBuilder) =
-  builder.AccumulateAddrMarker insInfo.Address
-  buildOpcode insInfo builder
-  buildOprs insInfo builder
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
+  builder.AccumulateAddrMarker ins.Address
+  buildOpcode ins builder
+  buildOprs ins builder

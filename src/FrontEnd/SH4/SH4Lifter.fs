@@ -28,7 +28,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.SH4.GeneralLifter
 
 /// Translate IR.
-let translate (ins: InsInfo) insLen bld =
+let translate (ins: Instruction) insLen bld =
   match ins.Opcode with
   | Opcode.ADD ->  add ins insLen bld
   | Opcode.ADDC -> addc ins insLen bld

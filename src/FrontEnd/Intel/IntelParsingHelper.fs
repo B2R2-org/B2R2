@@ -163,17 +163,18 @@ module internal ParsingHelper = begin
     exceptionalOperationSize opcode rhlp
     exceptionUD opcode rhlp
 
-  let inline newInsInfo (rhlp: ReadHelper) opcode oprs =
-    IntelInstruction (rhlp.InsAddr,
-                      uint32 (rhlp.ParsedLen ()),
-                      rhlp.WordSize,
-                      rhlp.Prefixes,
-                      rhlp.REXPrefix,
-                      rhlp.VEXInfo,
-                      opcode,
-                      oprs,
-                      rhlp.OperationSize,
-                      rhlp.MemEffAddrSize)
+  let inline newInstruction (rhlp: ReadHelper) opcode oprs =
+    Instruction (rhlp.InsAddr,
+                 uint32 (rhlp.ParsedLen ()),
+                 rhlp.WordSize,
+                 rhlp.Prefixes,
+                 rhlp.REXPrefix,
+                 rhlp.VEXInfo,
+                 opcode,
+                 oprs,
+                 rhlp.OperationSize,
+                 rhlp.MemEffAddrSize,
+                 rhlp.Lifter)
 
   (* Table A-7/15 of Volume 2
      (D8/DC Opcode Map When ModR/M Byte is within 00H to BFH) *)
@@ -6358,15 +6359,16 @@ module internal ParsingHelper = begin
     | _ -> (rhlp: ReadHelper).SzComputers[int sidx].Render rhlp szCond
     exceptionHandling opcode rhlp
     let oprs = rhlp.OprParsers[int oidx].Render (span, rhlp)
-    newInsInfo rhlp opcode oprs
+    newInstruction rhlp opcode oprs
 
   /// Parse group Opcodes: Vol.2C A-19 Table A-6. Opcode Extensions for One- and
   /// Two-byte Opcodes by Group Number.
   let parseGrpOp span rhlp grp oidx sidx =
     let struct (op, oidx, szidx, szCond) =
       parseGrpOpKind span rhlp oidx sidx grp
-    if isBranch op then addBND rhlp |> ignore
-    elif isCETInstr op then rhlp.Prefixes <- ClearGrp1PrefMask &&& rhlp.Prefixes
+    if Opcode.isBranch op then addBND rhlp |> ignore
+    elif Opcode.isCETInstr op then
+      rhlp.Prefixes <- ClearGrp1PrefMask &&& rhlp.Prefixes
     else ()
     render span rhlp op szCond oidx szidx
 
@@ -6508,10 +6510,10 @@ module internal ParsingHelper = begin
       rhlp.MemEffOprSize <- effOprSize
       rhlp.MemEffRegSize <- effOprSize
       let o = OperandParsingHelper.parseMemory modRM span rhlp
-      newInsInfo rhlp op (OneOperand o)
+      newInstruction rhlp op (OneOperand o)
     else
       let opcode, oprs = getOpOut modRM
-      newInsInfo rhlp opcode oprs
+      newInstruction rhlp opcode oprs
 
   /// When the first two bytes are 0F38.
   /// Table A-4 of Volume 2 (Three-byte Opcode Map : First Two Bytes are 0F 38H)

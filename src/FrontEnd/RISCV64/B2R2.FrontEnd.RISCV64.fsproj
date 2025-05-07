@@ -9,10 +9,10 @@
     <Compile Include="RISCV64Register.fs" />
     <Compile Include="RISCV64RegisterFactory.fs" />
     <Compile Include="RISCV64Types.fs" />
+    <Compile Include="RISCV64Instruction.fs" />
     <Compile Include="RISCV64Helper.fs" />
     <Compile Include="RISCV64Disasm.fs" />
     <Compile Include="RISCV64Lifter.fs" />
-    <Compile Include="RISCV64Instruction.fs" />
     <Compile Include="RISCV64ParsingMain.fs" />
     <Compile Include="RISCV64Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

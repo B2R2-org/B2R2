@@ -10,9 +10,9 @@
   <ItemGroup>
     <Compile Include="TMS320C6000RegisterFactory.fs" />
     <Compile Include="TMS320C6000Types.fs" />
+    <Compile Include="TMS320C6000Instruction.fs" />
     <Compile Include="TMS320C6000Utils.fs" />
     <Compile Include="TMS320C6000Disasm.fs" />
-    <Compile Include="TMS320C6000Instruction.fs" />
     <Compile Include="TMS320C6000ParsingMain.fs" />
     <Compile Include="TMS320C6000Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

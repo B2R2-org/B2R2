@@ -735,11 +735,6 @@ let private parseInstruction (span: ByteSpan) (reader: IBinReader) =
   | 0xd2uy -> parseIndex span reader 1 RefFunc
   | _ -> raise ParsingFailureException
 
-let parse (span: ByteSpan) (reader: IBinReader) addr =
+let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let struct (opcode, operands, instrLen) = parseInstruction span reader
-  let insInfo =
-    { Address = addr
-      NumBytes = instrLen
-      Opcode = opcode
-      Operands = operands }
-  WASMInstruction (addr, instrLen, insInfo)
+  Instruction (addr, instrLen, opcode, operands, lifter)

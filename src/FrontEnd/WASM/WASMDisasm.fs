@@ -549,8 +549,8 @@ let opcodeToString = function
   | I64AtomicRmw16CmpxchgU -> "i64.atomic.rmw16.cmpxchg_u"
   | I64AtomicRmw32CmpxchgU -> "i64.atomic.rmw32.cmpxchg_u"
 
-let inline buildOpcode insInfo (builder: IDisasmBuilder) =
-  let opcode = opcodeToString insInfo.Opcode
+let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
+  let opcode = opcodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic opcode
 
 let oprToString opr delim (builder: IDisasmBuilder) =
@@ -599,8 +599,8 @@ let oprToString opr delim (builder: IDisasmBuilder) =
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (reftype |> string)
 
-let buildOperands insInfo (builder: IDisasmBuilder) =
-  match insInfo.Operands with
+let buildOperands (ins: Instruction) (builder: IDisasmBuilder) =
+  match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
     oprToString opr " " builder
@@ -619,9 +619,9 @@ let buildOperands insInfo (builder: IDisasmBuilder) =
         auxOprsToString (List.tail oprs) builder
     auxOprsToString oprs builder
 
-let disasm insInfo (builder: IDisasmBuilder) =
-  builder.AccumulateAddrMarker insInfo.Address
-  buildOpcode insInfo builder
-  buildOperands insInfo builder
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
+  builder.AccumulateAddrMarker ins.Address
+  buildOpcode ins builder
+  buildOperands ins builder
 
 // vim: set tw=80 sts=2 sw=2:

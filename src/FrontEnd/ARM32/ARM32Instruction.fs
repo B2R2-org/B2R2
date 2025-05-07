@@ -27,193 +27,234 @@ namespace B2R2.FrontEnd.ARM32
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// The internal representation for an ARM32 instruction used by our
-/// disassembler and lifter.
-type ARM32Instruction (addr, nb, cond, op, opr, its, wb, q, s,
-                       isThumb, cf, oSz, a) =
-  inherit ARM32InternalInstruction (addr, nb, cond, op, opr,
-                                    its, wb, q, s, isThumb, cf, oSz, a)
+/// Instruction for ARM32.
+type Instruction
+  internal (addr, nb, cond, op, opr, its, wb, q, s, isThumb, cf, oSz,
+            isAdd, lifter: ILiftable) =
 
-  override _.IsBranch () =
-    match op with
-    | Op.B | Op.BL | Op.BLX | Op.BX | Op.BXJ
-    | Op.CBNZ | Op.CBZ
-    | Op.TBB | Op.TBH -> true
-    | Op.LDR ->
-      match opr with
-      | TwoOperands (OprReg R.PC, _) -> true
-      | _ -> false
-    | Op.POP ->
-      match opr with
-      | OneOperand (OprRegList regs) -> List.contains R.PC regs
-      | _ -> false
-    | Op.ADD ->
-      match opr with
-      | FourOperands (OprReg R.PC, _, _, _) -> true
-      | _ -> false
-    | _ -> false
-
-  override _.IsModeChanging () =
-    match op with
-    | Op.BLX -> true
-    | _ -> false
-
-  member _.HasConcJmpTarget () =
+  let hasConcJmpTarget () =
     match opr with
     | OneOperand (OprMemory (LiteralMode _)) -> true
     | _ -> false
 
-  override this.IsDirectBranch () =
-    this.IsBranch () && this.HasConcJmpTarget ()
+  /// Address of this instruction.
+  member _.Address with get (): Addr = addr
 
-  override this.IsIndirectBranch () =
-    this.IsBranch () && (not <| this.HasConcJmpTarget ())
+  /// Length of this instruction in bytes.
+  member _.Length with get (): uint32 = nb
 
-  override _.IsCondBranch () =
-    match op, cond, opr with
-    | Op.B, Condition.AL, _ -> false
-    | Op.B, Condition.NV, _ -> false
-    | Op.B, Condition.UN, _ -> false
-    | Op.B, _, _ -> true
-    | Op.BX, Condition.AL, _ -> false
-    | Op.BX, Condition.NV, _ -> false
-    | Op.BX, Condition.UN, _ -> false
-    | Op.BX, _, _ -> true
-    | Op.LDR, Condition.AL, TwoOperands (OprReg R.PC, _)
-    | Op.LDR, Condition.NV, TwoOperands (OprReg R.PC, _)
-    | Op.LDR, Condition.UN, TwoOperands (OprReg R.PC, _) -> false
-    | Op.LDR, _, TwoOperands (OprReg R.PC, _) -> true
-    | Op.POP, Condition.AL, OneOperand (OprRegList regs)
-    | Op.POP, Condition.NV, OneOperand (OprRegList regs)
-    | Op.POP, Condition.UN, OneOperand (OprRegList regs)
-      when List.contains R.PC regs -> false
-    | Op.POP, _, OneOperand (OprRegList regs)
-      when List.contains R.PC regs -> true
-    | Op.ADD, Condition.AL, FourOperands (OprReg R.PC, _, _, _)
-    | Op.ADD, Condition.NV, FourOperands (OprReg R.PC, _, _, _)
-    | Op.ADD, Condition.UN, FourOperands (OprReg R.PC, _, _, _) -> false
-    | Op.ADD, _, FourOperands (OprReg R.PC, OprReg R.PC, _, _) -> true
-    | _ -> false
+  /// Condition.
+  member _.Condition with get (): Condition = cond
 
-  override _.IsCJmpOnTrue () =
-    match op, cond with
-    | Op.B, Condition.CS | Op.B, Condition.CC
-    | Op.B, Condition.MI | Op.B, Condition.PL
-    | Op.B, Condition.VS | Op.B, Condition.VC
-    | Op.B, Condition.HI | Op.B, Condition.LS
-    | Op.B, Condition.GE | Op.B, Condition.LT
-    | Op.B, Condition.GT | Op.B, Condition.LE
-    | Op.B, Condition.EQ -> true
-    | _ -> false
+  /// Opcode.
+  member _.Opcode with get (): Opcode = op
 
-  override _.IsCall () =
-    match op with
-    | Opcode.BL | Opcode.BLX -> true
-    | _ -> false
+  /// Operands.
+  member _.Operands with get (): Operands = opr
 
-  override _.IsRET () =
-    match op, opr with
-    | Op.POP, OneOperand (OprRegList regs) when List.contains R.PC regs -> true
-    | _ -> false
+  /// IT state for this instruction (used only for IT instructions).
+  member _.ITState with get (): byte = its
 
-  override _.IsInterrupt () =
-    match op with
-    | Op.SVC | Op.HVC | Op.SMC -> true
-    | _ -> false
+  /// Write back.
+  member _.WriteBack with get (): bool = wb
 
-  override _.IsExit () =
-    match op with
-    | Opcode.HLT
-    | Opcode.UDF
-    | Opcode.ERET -> true
-    | _ -> false
+  /// Qualifier.
+  member _.Qualifier with get (): Qualifier = q
 
-  override this.IsTerminator () =
-       this.IsBranch ()
-    || this.IsInterrupt ()
-    || this.IsExit ()
+  /// SIMD data type.
+  member _.SIMDTyp with get (): SIMDDataTypes option = s
 
-  override this.DirectBranchTarget (addr: byref<Addr>) =
-    if this.IsBranch () then
-      match opr with
-      | OneOperand (OprMemory (LiteralMode target)) ->
-        (* The PC value of an instruction is its address plus 4 for a Thumb
-           instruction, or plus 8 for an ARM instruction. *)
-        let offset = if not isThumb then 8L else 4L
-        let pc = (int64 this.Address + offset) / 4L * 4L (* Align by 4 *)
-        addr <- ((pc + target) &&& 0xFFFFFFFFL) |> uint64
-        true
-      | _ -> false
-    else false
+  /// Is a Thumb mode instruction?
+  member _.IsThumb with get (): bool = isThumb
 
-  override _.IndirectTrampolineAddr (_: byref<Addr>) =
-    false
+  /// Carry Flag from decoding instruction.
+  member _.Cflag with get (): bool option = cf
 
-  override _.Immediate (v: byref<int64>) =
-    match opr with
-    | OneOperand (OprImm c)
-    | TwoOperands (OprImm c, _)
-    | TwoOperands (_, OprImm c)
-    | ThreeOperands (OprImm c, _, _)
-    | ThreeOperands (_, OprImm c, _)
-    | ThreeOperands (_, _, OprImm c)
-    | FourOperands (OprImm c, _, _, _)
-    | FourOperands (_, OprImm c, _, _)
-    | FourOperands (_, _, OprImm c, _)
-    | FourOperands (_, _, _, OprImm c)
-    | FiveOperands (OprImm c, _, _, _, _)
-    | FiveOperands (_, OprImm c, _, _, _)
-    | FiveOperands (_, _, OprImm c, _, _)
-    | FiveOperands (_, _, _, OprImm c, _)
-    | FiveOperands (_, _, _, _, OprImm c)
-    | SixOperands (OprImm c, _, _, _, _, _)
-    | SixOperands (_, OprImm c, _, _, _, _)
-    | SixOperands (_, _, OprImm c, _, _, _)
-    | SixOperands (_, _, _, OprImm c, _, _)
-    | SixOperands (_, _, _, _, OprImm c, _)
-    | SixOperands (_, _, _, _, _, OprImm c) -> v <- c; true
-    | _ -> false
+  /// Operation size.
+  member _.OprSize with get (): RegType = oSz
+
+  /// Add or subtract offsets.
+  member _.IsAdd with get (): bool = isAdd
 
   member private this.AddBranchTargetIfExist addrs =
-    match this.DirectBranchTarget () with
+    match (this :> IInstruction).DirectBranchTarget () with
     | false, _ -> addrs
     | true, target -> [| target |] |> Array.append addrs
 
-  override this.GetNextInstrAddrs () =
-    let acc = [| this.Address + uint64 this.Length |]
-    if this.IsCall () then acc |> this.AddBranchTargetIfExist
-    elif this.IsBranch () then
-      if this.IsCondBranch () then acc |> this.AddBranchTargetIfExist
-      else this.AddBranchTargetIfExist [||]
-    elif op = Opcode.HLT then [||]
-    else acc
+  interface IInstruction with
 
-  override _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+    member _.Address with get() = addr
 
-  override _.IsNop () =
-    op = Op.NOP
+    member _.Length with get() = nb
 
-  override this.Translate builder =
-    (Lifter.translate this nb builder).Stream.ToStmts ()
+    member this.IsBranch () =
+      match this.Opcode with
+      | Op.B | Op.BL | Op.BLX | Op.BX | Op.BXJ
+      | Op.CBNZ | Op.CBZ
+      | Op.TBB | Op.TBH -> true
+      | Op.LDR ->
+        match this.Operands with
+        | TwoOperands (OprReg R.PC, _) -> true
+        | _ -> false
+      | Op.POP ->
+        match this.Operands with
+        | OneOperand (OprRegList regs) -> List.contains R.PC regs
+        | _ -> false
+      | Op.ADD ->
+        match this.Operands with
+        | FourOperands (OprReg R.PC, _, _, _) -> true
+        | _ -> false
+      | _ -> false
 
-  override this.TranslateToList builder =
-    (Lifter.translate this nb builder).Stream
+    member this.IsModeChanging () =
+      match this.Opcode with
+      | Op.BLX -> true
+      | _ -> false
 
-  override this.Disasm builder =
-    Disasm.disasm this builder
-    builder.ToString ()
+    member this.IsDirectBranch () =
+      (this :> IInstruction).IsBranch () && hasConcJmpTarget ()
 
-  override this.Disasm () =
-    let builder = StringDisasmBuilder (false, null, WordSize.Bit32)
-    Disasm.disasm this builder
-    builder.ToString ()
+    member this.IsIndirectBranch () =
+      (this :> IInstruction).IsBranch () && (not <| hasConcJmpTarget ())
 
-  override this.Decompose builder =
-    Disasm.disasm this builder
-    builder.ToAsmWords ()
+    member this.IsCondBranch () =
+      match this.Opcode, this.Condition, this.Operands with
+      | Op.B, Condition.AL, _ -> false
+      | Op.B, Condition.NV, _ -> false
+      | Op.B, Condition.UN, _ -> false
+      | Op.B, _, _ -> true
+      | Op.BX, Condition.AL, _ -> false
+      | Op.BX, Condition.NV, _ -> false
+      | Op.BX, Condition.UN, _ -> false
+      | Op.BX, _, _ -> true
+      | Op.LDR, Condition.AL, TwoOperands (OprReg R.PC, _)
+      | Op.LDR, Condition.NV, TwoOperands (OprReg R.PC, _)
+      | Op.LDR, Condition.UN, TwoOperands (OprReg R.PC, _) -> false
+      | Op.LDR, _, TwoOperands (OprReg R.PC, _) -> true
+      | Op.POP, Condition.AL, OneOperand (OprRegList regs)
+      | Op.POP, Condition.NV, OneOperand (OprRegList regs)
+      | Op.POP, Condition.UN, OneOperand (OprRegList regs)
+        when List.contains R.PC regs -> false
+      | Op.POP, _, OneOperand (OprRegList regs)
+        when List.contains R.PC regs -> true
+      | Op.ADD, Condition.AL, FourOperands (OprReg R.PC, _, _, _)
+      | Op.ADD, Condition.NV, FourOperands (OprReg R.PC, _, _, _)
+      | Op.ADD, Condition.UN, FourOperands (OprReg R.PC, _, _, _) -> false
+      | Op.ADD, _, FourOperands (OprReg R.PC, OprReg R.PC, _, _) -> true
+      | _ -> false
 
-  override _.IsInlinedAssembly () = false
+    member this.IsCJmpOnTrue () =
+      match this.Opcode, this.Condition with
+      | Op.B, Condition.CS | Op.B, Condition.CC
+      | Op.B, Condition.MI | Op.B, Condition.PL
+      | Op.B, Condition.VS | Op.B, Condition.VC
+      | Op.B, Condition.HI | Op.B, Condition.LS
+      | Op.B, Condition.GE | Op.B, Condition.LT
+      | Op.B, Condition.GT | Op.B, Condition.LE
+      | Op.B, Condition.EQ -> true
+      | _ -> false
 
-  override _.Equals (_) = Terminator.futureFeature ()
+    member this.IsCall () =
+      match this.Opcode with
+      | Opcode.BL | Opcode.BLX -> true
+      | _ -> false
 
-  override _.GetHashCode () = Terminator.futureFeature ()
+    member this.IsRET () =
+      match this.Opcode, this.Operands with
+      | Op.POP, OneOperand (OprRegList regs) when List.contains R.PC regs ->
+        true
+      | _ -> false
+
+    member this.IsInterrupt () =
+      match this.Opcode with
+      | Op.SVC | Op.HVC | Op.SMC -> true
+      | _ -> false
+
+    member this.IsExit () =
+      match this.Opcode with
+      | Opcode.HLT
+      | Opcode.UDF
+      | Opcode.ERET -> true
+      | _ -> false
+
+    member this.IsTerminator () =
+      let ins = this :> IInstruction
+      ins.IsBranch () || ins.IsInterrupt () || ins.IsExit ()
+
+    member this.IsNop () =
+      this.Opcode = Op.NOP
+
+    member _.IsInlinedAssembly () = false
+
+    member this.DirectBranchTarget (addr: byref<Addr>) =
+      if (this :> IInstruction).IsBranch () then
+        match this.Operands with
+        | OneOperand (OprMemory (LiteralMode target)) ->
+          (* The PC value of an instruction is its address plus 4 for a Thumb
+             instruction, or plus 8 for an ARM instruction. *)
+          let offset = if not this.IsThumb then 8L else 4L
+          let pc = (int64 this.Address + offset) / 4L * 4L (* Align by 4 *)
+          addr <- ((pc + target) &&& 0xFFFFFFFFL) |> uint64
+          true
+        | _ -> false
+      else false
+
+    member _.IndirectTrampolineAddr (_: byref<Addr>) =
+      false
+
+    member this.Immediate (v: byref<int64>) =
+      match this.Operands with
+      | OneOperand (OprImm c)
+      | TwoOperands (OprImm c, _)
+      | TwoOperands (_, OprImm c)
+      | ThreeOperands (OprImm c, _, _)
+      | ThreeOperands (_, OprImm c, _)
+      | ThreeOperands (_, _, OprImm c)
+      | FourOperands (OprImm c, _, _, _)
+      | FourOperands (_, OprImm c, _, _)
+      | FourOperands (_, _, OprImm c, _)
+      | FourOperands (_, _, _, OprImm c)
+      | FiveOperands (OprImm c, _, _, _, _)
+      | FiveOperands (_, OprImm c, _, _, _)
+      | FiveOperands (_, _, OprImm c, _, _)
+      | FiveOperands (_, _, _, OprImm c, _)
+      | FiveOperands (_, _, _, _, OprImm c)
+      | SixOperands (OprImm c, _, _, _, _, _)
+      | SixOperands (_, OprImm c, _, _, _, _)
+      | SixOperands (_, _, OprImm c, _, _, _)
+      | SixOperands (_, _, _, OprImm c, _, _)
+      | SixOperands (_, _, _, _, OprImm c, _)
+      | SixOperands (_, _, _, _, _, OprImm c) -> v <- c; true
+      | _ -> false
+
+    member this.GetNextInstrAddrs () =
+      let acc = [| this.Address + uint64 this.Length |]
+      let ins = this :> IInstruction
+      if ins.IsCall () then acc |> this.AddBranchTargetIfExist
+      elif ins.IsBranch () then
+        if ins.IsCondBranch () then acc |> this.AddBranchTargetIfExist
+        else this.AddBranchTargetIfExist [||]
+      elif this.Opcode = Opcode.HLT then [||]
+      else acc
+
+    member _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+
+    member this.Translate builder =
+      (lifter.Lift this builder).Stream.ToStmts ()
+
+    member this.TranslateToList builder =
+      (lifter.Lift this builder).Stream
+
+    member this.Disasm builder =
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Disasm () =
+      let builder = StringDisasmBuilder (false, null, WordSize.Bit32)
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Decompose builder =
+      (lifter.Disasm this builder).ToAsmWords ()
+
+and internal ILiftable =
+  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder

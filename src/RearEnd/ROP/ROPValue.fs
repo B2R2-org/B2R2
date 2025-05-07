@@ -63,17 +63,17 @@ type ROPValue =
   | Gadget of Gadget
 
 module ROPValue =
-  let inline ofGadget g = ROPValue.Gadget g
+  let inline ofGadget g = Gadget g
 
-  let inline ofExpr e = ROPValue.Expr e
+  let inline ofExpr e = Expr e
 
-  let inline ofUInt32 num = ROPExpr.ofUInt32 num |> ROPValue.Expr
+  let inline ofUInt32 num = ROPExpr.ofUInt32 num |> Expr
 
-  let inline ofUInt64 num = ROPExpr.ofUInt64 num |> ROPValue.Expr
+  let inline ofUInt64 num = ROPExpr.ofUInt64 num |> Expr
 
   let dummy32 = ofUInt32 0xdeadbeefu
 
-  let strFolder (liftingUnit: LiftingUnit) acc (ins: Instruction) =
+  let strFolder (liftingUnit: LiftingUnit) acc (ins: IInstruction) =
     let acc = acc + "  " + liftingUnit.DisasmInstruction ins
     acc + Environment.NewLine
 

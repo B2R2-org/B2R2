@@ -33,17 +33,17 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.PPC32
 open B2R2.FrontEnd.PPC32.OperandHelper
 
-let getOneOpr (ins: InsInfo) =
+let getOneOpr (ins: Instruction) =
   match ins.Operands with
   | OneOperand o -> o
   | _ -> raise InvalidOperandException
 
-let getTwoOprs (ins: InsInfo) =
+let getTwoOprs (ins: Instruction) =
   match ins.Operands with
   | TwoOperands (o1, o2) -> struct (o1, o2)
   | _ -> raise InvalidOperandException
 
-let getThreeOprs (ins: InsInfo) =
+let getThreeOprs (ins: Instruction) =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) -> struct (o1, o2, o3)
   | _ -> raise InvalidOperandException
@@ -110,18 +110,18 @@ let transOpr bld = function
     numI64 (int64 addr) bld.RegType
   | OprBI bi -> getCRbitRegister bi |> regVar bld
 
-let transOneOpr (ins: InsInfo) bld =
+let transOneOpr (ins: Instruction) bld =
   match ins.Operands with
   | OneOperand o -> transOpr bld o
   | _ -> raise InvalidOperandException
 
-let transTwoOprs (ins: InsInfo) bld =
+let transTwoOprs (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands (o1, o2) ->
     struct (transOpr bld o1, transOpr bld o2)
   | _ -> raise InvalidOperandException
 
-let transThreeOprs (ins: InsInfo) bld =
+let transThreeOprs (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
     struct (transOpr bld o1,
@@ -129,7 +129,7 @@ let transThreeOprs (ins: InsInfo) bld =
             transOpr bld o3)
   | _ -> raise InvalidOperandException
 
-let transFourOprs (ins: InsInfo) bld =
+let transFourOprs (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands (o1, o2, o3, o4) ->
     struct (transOpr bld o1,
@@ -138,7 +138,7 @@ let transFourOprs (ins: InsInfo) bld =
             transOpr bld o4)
   | _ -> raise InvalidOperandException
 
-let transFiveOprs (ins: InsInfo) bld =
+let transFiveOprs (ins: Instruction) bld =
   match ins.Operands with
   | FiveOperands (o1, o2, o3, o4, o5) ->
     struct (transOpr bld o1,
@@ -192,7 +192,7 @@ let transCRxToExpr bld reg =
     regVar bld Register.CR7_3
   | _ -> raise InvalidOperandException
 
-let transCmpOprs (ins: InsInfo) bld =
+let transCmpOprs (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands (OprReg o1, o2, o3) ->
     struct (transCRxToExpr bld o1,
@@ -205,19 +205,19 @@ let transCmpOprs (ins: InsInfo) bld =
             transOpr bld o4)
   | _ -> raise InvalidOperandException
 
-let transCondOneOpr (ins: InsInfo) bld =
+let transCondOneOpr (ins: Instruction) bld =
   match ins.Operands with
   | OneOperand (OprReg o) ->
     transCRxToExpr bld o
   | _ -> raise InvalidOperandException
 
-let transCondTwoOprs (ins: InsInfo) bld =
+let transCondTwoOprs (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands (OprReg o1, OprReg o2) ->
     struct (transCRxToExpr bld o1, transCRxToExpr bld o2)
   | _ -> raise InvalidOperandException
 
-let transCondThreeOprs (ins: InsInfo) bld =
+let transCondThreeOprs (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands (OprReg o1, OprReg o2, OprReg o3) ->
     struct (transCRxToExpr bld o1,
@@ -225,13 +225,13 @@ let transCondThreeOprs (ins: InsInfo) bld =
             transCRxToExpr bld o3)
   | _ -> raise InvalidOperandException
 
-let transBranchTwoOprs (ins: InsInfo) bld =
+let transBranchTwoOprs (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands (OprImm o1, OprBI o2) ->
     struct (uint32 o1, getCRbitRegister o2 |> regVar bld)
   | _ -> raise InvalidOperandException
 
-let transBranchThreeOprs (ins: InsInfo) bld =
+let transBranchThreeOprs (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands (OprImm o1, OprBI o2, OprAddr o3) ->
     struct (uint32 o1,
@@ -383,7 +383,7 @@ let isUnsignedDivOV bld expA expB =
   bld <+ (xerOV := checkOF)
   bld <+ (xerSO := checkOF .& xerSO)
 
-let sideEffects (ins: InsInfo) insLen bld name =
+let sideEffects (ins: Instruction) insLen bld name =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.sideEffect name)
   bld --!> insLen
@@ -1342,7 +1342,7 @@ let mflr ins insLen bld =
   bld <+ (dst := lr)
   bld --!> insLen
 
-let mfspr ins insLen bld =
+let mfspr (ins: Instruction) insLen bld =
   let struct (dst, spr) =
     match ins.Operands with
     | TwoOperands (o1, OprImm o2) ->
@@ -1389,7 +1389,7 @@ let mtfsfi ins insLen updateCond bld =
     bld <+ (AST.extract fpscr 1<rt> pos := AST.extract imm 1<rt> 0)
   bld --!> insLen
 
-let mtspr ins insLen bld =
+let mtspr (ins: Instruction) insLen bld =
   let struct (spr, rs) =
     match ins.Operands with
     | TwoOperands (OprImm o1, o2) ->
@@ -1524,7 +1524,7 @@ let nor ins insLen updateCond bld =
   if updateCond then setCR0Reg bld dst else ()
   bld --!> insLen
 
-let nop ins insLen bld =
+let nop (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   bld --!> insLen
 
@@ -1998,7 +1998,7 @@ let subfze ins insLen updateCond ovCond bld =
   if updateCond then setCR0Reg bld dst else ()
   bld --!> insLen
 
-let trap ins insLen bld =
+let trap (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.sideEffect (Interrupt 0))
   bld --!> insLen
@@ -2036,7 +2036,7 @@ let xoris ins insLen bld =
   bld --!> insLen
 
 /// Translate IR.
-let translate (ins: InsInfo) insLen bld =
+let translate (ins: Instruction) insLen bld =
   match ins.Opcode with
   | Op.ADD -> add ins insLen false false bld
   | Op.ADDdot -> add ins insLen true false bld

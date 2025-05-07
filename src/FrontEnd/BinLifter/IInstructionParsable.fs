@@ -35,8 +35,8 @@ type IInstructionParsable =
 
   /// Parse one instruction from the given byte array assuming that the address
   /// of the instruction is `addr`.
-  abstract Parse: bs: byte[] * addr: Addr -> Instruction
+  abstract Parse: bs: byte[] * addr: Addr -> IInstruction
 
   /// Parse one instruction from the given byte span assuming that the address
   /// of the instruction is `addr`.
-  abstract Parse: span: ByteSpan * addr: Addr -> Instruction
+  abstract Parse: span: ByteSpan * addr: Addr -> IInstruction

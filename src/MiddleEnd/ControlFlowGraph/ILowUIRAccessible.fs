@@ -41,7 +41,7 @@ type ILowUIRAccessible =
 /// A lifted instruction.
 and LiftedInstruction = {
   /// Original assembly instruction.
-  Original: Instruction
+  Original: IInstruction
   /// IR statements.
   Stmts: LowUIR.Stmt[]
   /// Corresponding BBL's address.

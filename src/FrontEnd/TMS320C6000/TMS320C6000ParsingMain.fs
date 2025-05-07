@@ -1975,19 +1975,10 @@ let private parseInstruction bin =
   | 0b01u -> parseDUnitLoadStore bin
   | _ (* 0b11u *) -> parseDUnitLongImm bin
 
-let parse (span: ByteSpan) reader (inParallel: byref<bool>) addr =
+let parse lifter (span: ByteSpan) reader (inParallel: byref<bool>) addr =
   let bin = (reader: IBinReader).ReadUInt32 (span, 0)
   let struct (opcode, unit, operands) = parseInstruction bin
-  let insInfo =
-    { Address = addr
-      NumBytes = 4u
-      Opcode = opcode
-      Operands = operands
-      FunctionalUnit = unit
-      OperationSize = 32<rt> // FIXME
-      IsParallel = inParallel
-      EffectiveAddress = 0UL }
   inParallel <- pBit bin <> 0u
-  TMS320C6000Instruction (addr, 4u, insInfo)
+  Instruction (addr, 4u, opcode, operands, unit, 32<rt>, inParallel, lifter)
 
 // vim: set tw=80 sts=2 sw=2:

@@ -33,12 +33,19 @@ open B2R2.FrontEnd.BinLifter
 type TMS320C6000Parser (reader) =
   let mutable inParallel = false
 
+  let lifter =
+    { new ILiftable with
+        member _.Lift _ins _builder =
+          Terminator.futureFeature ()
+        member _.Disasm ins builder =
+          Disasm.disasm ins builder; builder }
+
   interface IInstructionParsable with
     member _.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan bs
-      ParsingMain.parse span reader &inParallel addr :> Instruction
+      ParsingMain.parse lifter span reader &inParallel addr :> IInstruction
 
     member _.Parse (span: ByteSpan, addr) =
-      ParsingMain.parse span reader &inParallel addr :> Instruction
+      ParsingMain.parse lifter span reader &inParallel addr :> IInstruction
 
     member _.MaxInstructionSize = 4

@@ -27,130 +27,154 @@ namespace B2R2.FrontEnd.S390
 open B2R2
 open B2R2.FrontEnd.S390
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.S390.Helper
 
-/// The internal representation for a S390 instruction used by our
-/// disassembler and lifter.
-type S390Instruction (addr, numBytes, insInfo, wordSize) =
-  inherit Instruction (addr, numBytes, WordSize.Bit32)
+/// Instruction for S390.
+type Instruction
+  internal (addr, numBytes, fmt, op, opr, wordSize, lifter: ILiftable) =
 
-  /// Basic instruction information.
-  member val Info: InsInfo = insInfo
+  let extractMask = function
+    | OpMask op -> Some op
+    | _ -> None
 
-  override this.IsBranch () =
-    match this.Info.Opcode with
-    | Opcode.BALR | Opcode.BAL | Opcode.BASR | Opcode.BAS
-    | Opcode.BASSM | Opcode.BSM | Opcode.BIC | Opcode.BCR
-    | Opcode.BC | Opcode.BCTR | Opcode.BCTGR | Opcode.BCT
-    | Opcode.BCTG | Opcode.BXH | Opcode.BXHG | Opcode.BXLE
-    | Opcode.BXLEG | Opcode.BPP | Opcode.BPRP | Opcode.BRAS
-    | Opcode.BRASL | Opcode.BRC | Opcode.BRCL | Opcode.BRCT
-    | Opcode.BRCTG | Opcode.BRCTH | Opcode.BRXH | Opcode.BRXHG
-    | Opcode.BRXLE | Opcode.BRXLG -> true
-    | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
-    | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
-    | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
-      when not (this.IsNop()) -> true
-    | _ -> false
+  let getMaskVal (opr: Operands) =
+    match opr with
+    | NoOperand -> None
+    | OneOperand op1 -> extractMask op1
+    | TwoOperands (op1, op2) -> [| op1; op2 |] |> Array.tryPick extractMask
+    | ThreeOperands (op1, op2, op3) ->
+      [| op1; op2; op3 |] |> Array.tryPick extractMask
+    |  FourOperands (op1, op2, op3, op4) ->
+      [| op1; op2; op3; op4 |] |> Array.tryPick extractMask
+    | FiveOperands (op1, op2, op3, op4, op5) ->
+      [| op1; op2; op3; op4; op5 |] |> Array.tryPick extractMask
+    | SixOperands (op1, op2, op3, op4, op5, op6) ->
+      [| op1; op2; op3; op4; op5; op6 |] |> Array.tryPick extractMask
 
-  override _.IsModeChanging () = false
+  /// Address of this instruction.
+  member _.Address with get (): Addr = addr
 
-  member _.HasConcJmpTarget () = Terminator.futureFeature ()
+  /// Length of this instruction in bytes.
+  member _.Length with get (): uint32 = numBytes
 
-  override this.IsDirectBranch () =
-    this.IsBranch () && this.HasConcJmpTarget ()
+  /// Instruction format.
+  member _.Fmt with get (): Fmt = fmt
 
-  override this.IsIndirectBranch () =
-    this.IsBranch () && not <| this.HasConcJmpTarget ()
+  /// Opcode.
+  member _.Opcode with get (): Opcode = op
 
-  override this.IsCondBranch () =
-    match this.Info.Opcode with
-    | Opcode.BC | Opcode.BCR | Opcode.BIC -> true
-    | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
-    | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
-    | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
-      when not (this.IsNop()) -> true
-    | _ -> false
+  /// Operands.
+  member _.Operands with get (): Operands = opr
 
-  override _.IsCJmpOnTrue () = Terminator.futureFeature ()
+  interface IInstruction with
 
-  override this.IsCall () =
-    match this.Info.Opcode with
-    | Opcode.BAL | Opcode.BALR | Opcode.BAS | Opcode.BASR
-    | Opcode.BASSM | Opcode.BSM -> true
-    | Opcode.BC | Opcode.BCR when getMaskVal this.Info.Operands = Some(15us) ->
-      true
-    | _ -> false
+    member _.Address with get() = addr
 
-  override this.IsRET () =
-    match this.Info.Opcode with
-    | Opcode.BCR | Opcode.BASR | Opcode.BCTR ->
-      match this.Info.Operands with
-      | TwoOperands (_, OpReg Register.R14) -> true
+    member _.Length with get() = numBytes
+
+    member this.IsBranch () =
+      match op with
+      | Opcode.BALR | Opcode.BAL | Opcode.BASR | Opcode.BAS
+      | Opcode.BASSM | Opcode.BSM | Opcode.BIC | Opcode.BCR
+      | Opcode.BC | Opcode.BCTR | Opcode.BCTGR | Opcode.BCT
+      | Opcode.BCTG | Opcode.BXH | Opcode.BXHG | Opcode.BXLE
+      | Opcode.BXLEG | Opcode.BPP | Opcode.BPRP | Opcode.BRAS
+      | Opcode.BRASL | Opcode.BRC | Opcode.BRCL | Opcode.BRCT
+      | Opcode.BRCTG | Opcode.BRCTH | Opcode.BRXH | Opcode.BRXHG
+      | Opcode.BRXLE | Opcode.BRXLG -> true
+      | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
+      | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
+      | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
+        when not ((this :> IInstruction).IsNop ()) -> true
       | _ -> false
-    | _ -> false
 
-  override _.IsInterrupt () = Terminator.futureFeature ()
+    member _.IsModeChanging () = false
 
-  override _.IsExit () = Terminator.futureFeature ()
+    member _.IsDirectBranch () = Terminator.futureFeature ()
 
-  override this.IsTerminator () =
-    this.IsDirectBranch () || this.IsIndirectBranch ()
+    member _.IsIndirectBranch () = Terminator.futureFeature ()
 
-  override _.DirectBranchTarget (_addr: byref<Addr>) =
-    Terminator.futureFeature ()
+    member this.IsCondBranch () =
+      match op with
+      | Opcode.BC | Opcode.BCR | Opcode.BIC -> true
+      | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
+      | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
+      | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
+        when not ((this :> IInstruction).IsNop ()) -> true
+      | _ -> false
 
-  override _.IndirectTrampolineAddr (_addr: byref<Addr>) =
-    Terminator.futureFeature ()
+    member _.IsCJmpOnTrue () = Terminator.futureFeature ()
 
-  override _.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
+    member _.IsCall () =
+      match op with
+      | Opcode.BAL | Opcode.BALR | Opcode.BAS | Opcode.BASR
+      | Opcode.BASSM | Opcode.BSM -> true
+      | Opcode.BC | Opcode.BCR when getMaskVal opr = Some(15us) -> true
+      | _ -> false
 
-  override _.GetNextInstrAddrs () = Terminator.futureFeature ()
+    member _.IsRET () =
+      match op with
+      | Opcode.BCR | Opcode.BASR | Opcode.BCTR ->
+        match opr with
+        | TwoOperands (_, OpReg Register.R14) -> true
+        | _ -> false
+      | _ -> false
 
-  override _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+    member _.IsInterrupt () = Terminator.futureFeature ()
 
-  override this.IsNop () =
-    let opr = this.Info.Operands
-    match this.Info.Opcode with
-    | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
-    | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
-    | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
-    | Opcode.CRT | Opcode.CGRT | Opcode.CIT | Opcode.CGIT
-    | Opcode.CLRT | Opcode.CLGRT | Opcode.CLFIT | Opcode.CLGIT ->
-      match getMaskVal opr with
-      | Some value -> uint16 value &&& 0b1110us = 0us
-      | None -> false
-    | Opcode.LOCR | Opcode.LOCGR | Opcode.LOC | Opcode.LOCG
-    | Opcode.LOCFHR | Opcode.LOCFH | Opcode.STOC | Opcode.STOCG
-    | Opcode.STOCFH ->
-      match getMaskVal opr with
-      | Some value -> uint16 value &&& 0b1111us = 0us
-      | None -> false
-    | _ -> false
+    member _.IsExit () = Terminator.futureFeature ()
 
-  override _.Translate _ =
-    Terminator.futureFeature ()
+    member this.IsTerminator () =
+      let ins = this :> IInstruction
+      ins.IsBranch () || ins.IsInterrupt () || ins.IsExit ()
 
-  override _.TranslateToList _ =
-    Terminator.futureFeature ()
+    member this.IsNop () =
+      match op with
+      | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
+      | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
+      | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
+      | Opcode.CRT | Opcode.CGRT | Opcode.CIT | Opcode.CGIT
+      | Opcode.CLRT | Opcode.CLGRT | Opcode.CLFIT | Opcode.CLGIT ->
+        match getMaskVal opr with
+        | Some value -> uint16 value &&& 0b1110us = 0us
+        | None -> false
+      | Opcode.LOCR | Opcode.LOCGR | Opcode.LOC | Opcode.LOCG
+      | Opcode.LOCFHR | Opcode.LOCFH | Opcode.STOC | Opcode.STOCG
+      | Opcode.STOCFH ->
+        match getMaskVal opr with
+        | Some value -> uint16 value &&& 0b1111us = 0us
+        | None -> false
+      | _ -> false
 
-  override this.Disasm builder =
-    Disasm.disasm this.Info builder
-    builder.ToString ()
+    member _.IsInlinedAssembly () = false
 
-  override this.Disasm () =
-    let builder = StringDisasmBuilder (false, null, wordSize)
-    Disasm.disasm this.Info builder
-    builder.ToString ()
+    member _.DirectBranchTarget (_addr: byref<Addr>) =
+      Terminator.futureFeature ()
 
-  override this.Decompose builder =
-    Disasm.disasm this.Info builder
-    builder.ToAsmWords ()
+    member _.IndirectTrampolineAddr (_addr: byref<Addr>) =
+      Terminator.futureFeature ()
 
-  override _.IsInlinedAssembly () = false
+    member _.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
 
-  override _.Equals _ = Terminator.futureFeature ()
+    member _.GetNextInstrAddrs () = Terminator.futureFeature ()
 
-  override _.GetHashCode () = Terminator.futureFeature ()
+    member _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
-// vim: set tw=80 sts=2 sw=2:
+    member this.Translate builder =
+      (lifter.Lift this builder).Stream.ToStmts ()
+
+    member this.TranslateToList builder =
+      (lifter.Lift this builder).Stream
+
+    member this.Disasm builder =
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Disasm () =
+      let builder = StringDisasmBuilder (false, null, wordSize)
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Decompose builder =
+      (lifter.Disasm this builder).ToAsmWords ()
+
+and internal ILiftable =
+  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder

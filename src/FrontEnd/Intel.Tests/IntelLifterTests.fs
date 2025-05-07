@@ -37,7 +37,7 @@ type IntelLifterTests () =
   let test builder wordSize (expectedStmts: string[]) (bytes: byte[]) =
     let reader = BinReader.Init Endian.Little
     let parser = IntelParser (wordSize, reader) :> IInstructionParsable
-    let ins = parser.Parse (bytes, 0UL) :?> IntelInternalInstruction
+    let ins = parser.Parse (bytes, 0UL)
     let actual = ins.Translate builder |> Array.map Pp.stmtToString
     printfn "%A" actual
     CollectionAssert.AreEqual (expectedStmts, actual)

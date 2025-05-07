@@ -233,7 +233,7 @@ type LiftingUnit (binFile: IBinFile,
   /// <returns>
   ///   Lifted IR statements.
   /// </returns>
-  member _.LiftInstruction (ins: Instruction) =
+  member _.LiftInstruction (ins: IInstruction) =
     ins.Translate irBuilder
 
   /// <summary>
@@ -246,7 +246,7 @@ type LiftingUnit (binFile: IBinFile,
   /// <returns>
   ///   Lifted IR statements.
   /// </returns>
-  member _.LiftInstruction (ins: Instruction, optimize) =
+  member _.LiftInstruction (ins: IInstruction, optimize) =
     if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
     else ins.Translate irBuilder
 
@@ -304,7 +304,7 @@ type LiftingUnit (binFile: IBinFile,
   /// <returns>
   ///   Disassembled string.
   /// </returns>
-  member _.DisasmInstruction (ins: Instruction) =
+  member _.DisasmInstruction (ins: IInstruction) =
     ins.Disasm strDisasm
 
   /// <summary>
@@ -343,7 +343,7 @@ type LiftingUnit (binFile: IBinFile,
   /// <returns>
   ///   Decomposed AsmWords.
   /// </returns>
-  member _.DecomposeInstruction (ins: Instruction) =
+  member _.DecomposeInstruction (ins: IInstruction) =
     ins.Decompose asmwordDisasm
 
   /// <summary>

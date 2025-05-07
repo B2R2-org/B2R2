@@ -27,104 +27,108 @@ namespace B2R2.FrontEnd.EVM
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// The internal representation for a EVM instruction used by our
-/// disassembler and lifter.
-type EVMInstruction (addr, numBytes, insInfo, wordSize) =
-  inherit Instruction (addr, numBytes, wordSize)
+/// Instruction for EVM.
+type Instruction
 
-  /// Basic instruction information.
-  member val Info: InsInfo = insInfo
+  internal (addr, numBytes, offset, opcode, gas, lifter: ILiftable) =
 
-  override this.IsBranch () =
-    match this.Info.Opcode with
-    | Opcode.JUMP
-    | Opcode.JUMPI -> true
-    | _ -> false
+  /// Address.
+  member _.Address with get (): Addr = addr
 
-  override _.IsModeChanging () = false
+  /// Instruction length.
+  member _.NumBytes with get (): uint32 = numBytes
 
-  member _.HasConcJmpTarget () = false
+  /// Offset of the instruction. When codecopy (or similar) is used, we should
+  /// adjust the address of the copied instructions using this offset.
+  member _.Offset with get (): Addr = offset
 
-  override this.IsDirectBranch () =
-    this.IsBranch () && this.HasConcJmpTarget ()
+  /// Opcode.
+  member _.Opcode with get (): Opcode = opcode
 
-  override this.IsIndirectBranch () =
-    this.IsBranch () && (not <| this.HasConcJmpTarget ())
+  /// Gas.
+  member _.GAS with get (): int = gas
 
-  override this.IsCondBranch () =
-    match this.Info.Opcode with
-    | Opcode.JUMPI -> true
-    | _ -> false
+  interface IInstruction with
 
-  override this.IsCJmpOnTrue () =
-    match this.Info.Opcode with
-    | Opcode.JUMPI -> true
-    | _ -> false
+    member _.Address with get () = addr
 
-  override _.IsCall () = false
+    member _.Length with get () = numBytes
 
-  override this.IsRET () =
-    match this.Info.Opcode with
-    | Opcode.RETURN -> true
-    | _ -> false
+    member _.IsBranch () =
+      match opcode with
+      | JUMP
+      | JUMPI -> true
+      | _ -> false
 
-  override _.IsInterrupt () = Terminator.futureFeature ()
+    member _.IsModeChanging () = false
 
-  override this.IsExit () =
-    this.Info.Opcode = Opcode.REVERT
-    || this.Info.Opcode = Opcode.RETURN
-    || this.Info.Opcode = Opcode.SELFDESTRUCT
-    || this.Info.Opcode = Opcode.INVALID
-    || this.Info.Opcode = Opcode.STOP
+    member _.IsDirectBranch () = false
 
-  override this.IsTerminator () =
-    this.IsDirectBranch ()
-    || this.IsIndirectBranch ()
-    || this.Info.Opcode = Opcode.REVERT
-    || this.Info.Opcode = Opcode.RETURN
-    || this.Info.Opcode = Opcode.SELFDESTRUCT
-    || this.Info.Opcode = Opcode.INVALID
-    || this.Info.Opcode = Opcode.STOP
+    member this.IsIndirectBranch () =
+      (this :> IInstruction).IsBranch ()
 
-  override _.DirectBranchTarget (_addr: byref<Addr>) = false
+    member _.IsCondBranch () =
+      match opcode with
+      | JUMPI -> true
+      | _ -> false
 
-  override _.IndirectTrampolineAddr (_addr: byref<Addr>) = false
+    member _.IsCJmpOnTrue () =
+      match opcode with
+      | JUMPI -> true
+      | _ -> false
 
-  override _.Immediate _ = false
+    member _.IsCall () = false
 
-  override this.GetNextInstrAddrs () =
-    let fallthrough = this.Address + uint64 this.Length
-    let acc = [| fallthrough |]
-    if this.IsExit () then [||]
-    else acc
+    member _.IsRET () =
+      match opcode with
+      | RETURN -> true
+      | _ -> false
 
-  override _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+    member _.IsInterrupt () = Terminator.futureFeature ()
 
-  override _.IsNop () = false
+    member _.IsExit () =
+      match opcode with
+      | REVERT | RETURN | SELFDESTRUCT | INVALID | STOP -> true
+      | _ -> false
 
-  override this.Translate builder =
-    (Lifter.translate this.Info builder).Stream.ToStmts ()
+    member this.IsTerminator () =
+      let ins = this :> IInstruction
+      ins.IsIndirectBranch () || ins.IsExit ()
 
-  override this.TranslateToList builder =
-    (Lifter.translate this.Info builder).Stream
+    member _.IsNop () = false
 
-  override this.Disasm builder =
-    Disasm.disasm this.Info builder
-    builder.ToString ()
+    member _.IsInlinedAssembly () = false
 
-  override this.Disasm () =
-    let builder = StringDisasmBuilder (false, null, WordSize.Bit256)
-    Disasm.disasm this.Info builder
-    builder.ToString ()
+    member _.DirectBranchTarget (_addr: byref<Addr>) = false
 
-  override this.Decompose builder =
-    Disasm.disasm this.Info builder
-    builder.ToAsmWords ()
+    member _.IndirectTrampolineAddr (_addr: byref<Addr>) = false
 
-  override _.IsInlinedAssembly () = false
+    member _.Immediate _ = false
 
-  override _.Equals _ = Terminator.futureFeature ()
+    member this.GetNextInstrAddrs () =
+      let fallthrough = this.Address + uint64 numBytes
+      let acc = [| fallthrough |]
+      if (this :> IInstruction).IsExit () then [||]
+      else acc
 
-  override _.GetHashCode () = Terminator.futureFeature ()
+    member _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
 
-// vim: set tw=80 sts=2 sw=2:
+    member this.Translate builder =
+      (lifter.Lift this builder).Stream.ToStmts ()
+
+    member this.TranslateToList builder =
+      (lifter.Lift this builder).Stream
+
+    member this.Disasm builder =
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Disasm () =
+      let builder = StringDisasmBuilder (false, null, WordSize.Bit256)
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Decompose builder =
+      (lifter.Disasm this builder).ToAsmWords ()
+
+and internal ILiftable =
+  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder

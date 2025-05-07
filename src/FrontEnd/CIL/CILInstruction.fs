@@ -27,34 +27,31 @@ namespace B2R2.FrontEnd.CIL
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// The internal representation for a CIL instruction used by our disassembler
-/// and lifter.
-type CILInstruction (addr, numBytes, wordSize) =
-  inherit Instruction (addr, numBytes, wordSize)
-
-  override _.IsBranch () = Terminator.futureFeature ()
-  override _.IsModeChanging () = false
-  override _.IsDirectBranch () = Terminator.futureFeature ()
-  override _.IsIndirectBranch () = Terminator.futureFeature ()
-  override _.IsCondBranch () = Terminator.futureFeature ()
-  override _.IsCJmpOnTrue () = Terminator.futureFeature ()
-  override _.IsCall () = Terminator.futureFeature ()
-  override _.IsRET () = Terminator.futureFeature ()
-  override _.IsInterrupt () = Terminator.futureFeature ()
-  override _.IsExit () = Terminator.futureFeature ()
-  override _.IsTerminator () = Terminator.futureFeature ()
-  override _.DirectBranchTarget _ = Terminator.futureFeature ()
-  override _.IndirectTrampolineAddr _ = Terminator.futureFeature ()
-  override _.Immediate _ = Terminator.futureFeature ()
-  override _.GetNextInstrAddrs () = Terminator.futureFeature ()
-  override _.InterruptNum _ = Terminator.futureFeature ()
-  override _.IsNop () = Terminator.futureFeature ()
-  override _.Translate _ = Terminator.futureFeature ()
-  override _.TranslateToList _ = Terminator.futureFeature ()
-  override _.Disasm _ = Terminator.futureFeature ()
-  override _.Disasm () = Terminator.futureFeature ()
-  override _.Decompose _ = Terminator.futureFeature ()
-  override _.IsInlinedAssembly () = false
-
-  override _.Equals _ = Terminator.futureFeature ()
-  override _.GetHashCode () = Terminator.futureFeature ()
+/// Instruction for CIL.
+type Instruction internal (addr, numBytes) =
+  interface IInstruction with
+    member _.Address with get () = addr
+    member _.Length with get () = numBytes
+    member _.IsBranch () = Terminator.futureFeature ()
+    member _.IsModeChanging () = false
+    member _.IsDirectBranch () = Terminator.futureFeature ()
+    member _.IsIndirectBranch () = Terminator.futureFeature ()
+    member _.IsCondBranch () = Terminator.futureFeature ()
+    member _.IsCJmpOnTrue () = Terminator.futureFeature ()
+    member _.IsCall () = Terminator.futureFeature ()
+    member _.IsRET () = Terminator.futureFeature ()
+    member _.IsInterrupt () = Terminator.futureFeature ()
+    member _.IsExit () = Terminator.futureFeature ()
+    member _.IsTerminator () = Terminator.futureFeature ()
+    member _.DirectBranchTarget _ = Terminator.futureFeature ()
+    member _.IndirectTrampolineAddr _ = Terminator.futureFeature ()
+    member _.Immediate _ = Terminator.futureFeature ()
+    member _.GetNextInstrAddrs () = Terminator.futureFeature ()
+    member _.InterruptNum _ = Terminator.futureFeature ()
+    member _.IsNop () = Terminator.futureFeature ()
+    member _.Translate _ = Terminator.futureFeature ()
+    member _.TranslateToList _ = Terminator.futureFeature ()
+    member _.Disasm _ = Terminator.futureFeature ()
+    member _.Disasm () = Terminator.futureFeature ()
+    member _.Decompose _ = Terminator.futureFeature ()
+    member _.IsInlinedAssembly () = false

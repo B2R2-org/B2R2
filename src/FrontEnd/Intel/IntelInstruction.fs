@@ -27,156 +27,196 @@ namespace B2R2.FrontEnd.Intel
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// The internal representation for an Intel instruction used by our
-/// disassembler and lifter.
-type IntelInstruction
-  (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz) =
-  inherit IntelInternalInstruction
-    (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz)
+/// Instruction for Intel x86 and x86-64.
+type Instruction
+  internal (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz,
+            lifter: ILiftable) =
 
-  override _.IsBranch () =
-    Helper.isBranch opcode
-
-  override _.IsModeChanging () = false
-
-  member _.HasConcJmpTarget () =
+  let hasConcJmpTarget () =
     match oprs with
     | OneOperand (OprDirAddr _) -> true
     | _ -> false
 
-  override this.IsDirectBranch () =
-    this.IsBranch () && this.HasConcJmpTarget ()
+  /// Address of this instruction.
+  member _.Address with get (): Addr = addr
 
-  override this.IsIndirectBranch () =
-    this.IsBranch () && (not <| this.HasConcJmpTarget ())
+  /// Length of this instruction in bytes.
+  member _.Length with get (): uint32 = len
 
-  override _.IsCondBranch () =
-    match opcode with
-    | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
-    | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL | Opcode.JNO
-    | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP
-    | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE
-    | Opcode.LOOPNE -> true
-    | _ -> false
+  /// Prefixes.
+  member _.Prefixes with get(): Prefix = pref
 
-  override _.IsCJmpOnTrue () =
-    match opcode with
-    | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
-    | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP
-    | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE ->
-      true
-    | _ -> false
+  /// REX Prefix.
+  member _.REXPrefix with get(): REXPrefix = rex
 
-  override _.IsCall () =
-    match opcode with
-    | Opcode.CALLFar | Opcode.CALLNear -> true
-    | _ -> false
+  /// VEX information.
+  member _.VEXInfo with get(): VEXInfo option = vex
 
-  override _.IsRET () =
-    match opcode with
-    | Opcode.RETFar | Opcode.RETFarImm | Opcode.RETNear | Opcode.RETNearImm ->
-      true
-    | _ -> false
+  /// Opcode.
+  member _.Opcode with get(): Opcode = opcode
 
-  override _.IsInterrupt () =
-    match opcode with
-    | Opcode.INT | Opcode.INT3 | Opcode.INTO | Opcode.SYSCALL | Opcode.SYSENTER
-      -> true
-    | _ -> false
+  /// Operands.
+  member _.Operands with get(): Operands = oprs
 
-  override _.IsExit () =
-    match opcode with
-    (* In kernel code, HLT is often preceded by CLI to shut down the machine.
-       In user code, compilers insert HLT to raise a fault and exit. *)
-    | Opcode.HLT
-    | Opcode.UD2
-    | Opcode.SYSEXIT | Opcode.SYSRET
-    | Opcode.IRET | Opcode.IRETW | Opcode.IRETD | Opcode.IRETQ -> true
-    | _ -> false
+  /// Size of the main operation performed by the instruction. This field is
+  /// mainly used by our lifter, and we suggest not to use this field for
+  /// analyzing binaries because there is some ambiguity in deciding the
+  /// operation size when the instruction semantics are complex. We use this
+  /// only for the purpose of optimizing the lifting process.
+  member _.MainOperationSize with get(): RegType = opsz
 
-  override this.IsTerminator () =
-       this.IsBranch ()
-    || this.IsInterrupt ()
-    || this.IsExit ()
-
-  override this.DirectBranchTarget (addr: byref<Addr>) =
-    if this.IsBranch () then
-      match oprs with
-      | OneOperand (OprDirAddr (Absolute (_))) -> Terminator.futureFeature ()
-      | OneOperand (OprDirAddr (Relative offset)) ->
-        addr <- (int64 this.Address + offset) |> uint64
-        true
-      | _ -> false
-    else false
-
-  override this.IndirectTrampolineAddr (addr: byref<Addr>) =
-    if this.IsIndirectBranch () then
-      match oprs with
-      | OneOperand (OprMem (None, None, Some disp, _)) ->
-        addr <- uint64 disp; true
-      | OneOperand (OprMem (Some Register.RIP, None, Some disp, _)) ->
-        addr <- this.Address + uint64 this.Length + uint64 disp
-        true
-      | _ -> false
-    else false
-
-  override _.Immediate (v: byref<int64>) =
-    match oprs with
-    | OneOperand (OprImm (c, _))
-    | TwoOperands (OprImm (c, _), _)
-    | TwoOperands (_, OprImm (c, _))
-    | ThreeOperands (OprImm (c, _), _, _)
-    | ThreeOperands (_, OprImm (c, _), _)
-    | ThreeOperands (_, _, OprImm (c, _))
-    | FourOperands (OprImm (c, _), _, _, _)
-    | FourOperands (_, OprImm (c, _), _, _)
-    | FourOperands (_, _, OprImm (c, _), _)
-    | FourOperands (_, _, _, OprImm (c, _)) -> v <- c; true
-    | _ -> false
+  /// Size of the memory pointer in the instruction, i.e., how many bytes are
+  /// required to represent a memory address. This field may hold a dummy value
+  /// if there's no memory operand. This is mainly used for the lifting purpose
+  /// along with the MainOperationSize.
+  member _.PointerSize with get(): RegType = psz
 
   member private this.AddBranchTargetIfExist addrs =
-    match this.DirectBranchTarget () with
+    match (this :> IInstruction).DirectBranchTarget () with
     | false, _ -> addrs
     | true, target -> target :: addrs
 
-  override this.GetNextInstrAddrs () =
-    let acc = [ this.Address + uint64 this.Length ]
-    if this.IsBranch () then
-      if this.IsCondBranch () then acc |> this.AddBranchTargetIfExist
-      else this.AddBranchTargetIfExist []
-    elif opcode = Opcode.HLT || opcode = Opcode.UD2 then []
-    else acc
-    |> List.toArray
+  interface IInstruction with
 
-  override _.InterruptNum (num: byref<int64>) =
-    if opcode = Opcode.INT then
-      match oprs with
-      | OneOperand (OprImm (n, _)) ->
-        num <- n
+    member _.Address with get () = addr
+
+    member _.Length with get () = len
+
+    member _.IsBranch () = Opcode.isBranch opcode
+
+    member _.IsModeChanging () = false
+
+    member _.IsDirectBranch () =
+      Opcode.isBranch opcode && hasConcJmpTarget ()
+
+    member _.IsIndirectBranch () =
+      Opcode.isBranch opcode && (not <| hasConcJmpTarget ())
+
+    member _.IsCondBranch () =
+      match opcode with
+      | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
+      | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL
+      | Opcode.JNO | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO
+      | Opcode.JP | Opcode.JRCXZ | Opcode.JS | Opcode.JZ
+      | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> true
+      | _ -> false
+
+    member _.IsCJmpOnTrue () =
+      match opcode with
+      | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
+      | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP
+      | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE ->
         true
       | _ -> false
-    else false
 
-  override _.IsNop () =
-    opcode = Opcode.NOP
+    member _.IsCall () =
+      match opcode with
+      | Opcode.CALLFar | Opcode.CALLNear -> true
+      | _ -> false
 
-  override this.Translate builder =
-    (Lifter.translate this len builder).Stream.ToStmts ()
+    member _.IsRET () =
+      match opcode with
+      | Opcode.RETFar | Opcode.RETFarImm
+      | Opcode.RETNear | Opcode.RETNearImm ->
+        true
+      | _ -> false
 
-  override this.TranslateToList builder =
-    (Lifter.translate this len builder).Stream
+    member _.IsInterrupt () =
+      match opcode with
+      | Opcode.INT | Opcode.INT3 | Opcode.INTO
+      | Opcode.SYSCALL | Opcode.SYSENTER
+        -> true
+      | _ -> false
 
-  override this.Disasm builder =
-    Disasm.disasm.Invoke (builder, this)
-    builder.ToString ()
+    member _.IsExit () =
+      match opcode with
+      (* In kernel code, HLT is often preceded by CLI to shut down the machine.
+         In user code, compilers insert HLT to raise a fault and exit. *)
+      | Opcode.HLT
+      | Opcode.UD2
+      | Opcode.SYSEXIT | Opcode.SYSRET
+      | Opcode.IRET | Opcode.IRETW | Opcode.IRETD | Opcode.IRETQ -> true
+      | _ -> false
 
-  override this.Disasm () =
-    let builder = StringDisasmBuilder (false, null, wordSz)
-    Disasm.disasm.Invoke (builder, this)
-    builder.ToString ()
+    member this.IsTerminator () =
+      let ins = this :> IInstruction
+      ins.IsBranch () || ins.IsInterrupt () || ins.IsExit ()
 
-  override this.Decompose builder =
-    Disasm.disasm.Invoke (builder, this)
-    builder.ToAsmWords ()
+    member _.IsNop () =
+      opcode = Opcode.NOP
 
-  override _.IsInlinedAssembly () = false
+    member _.IsInlinedAssembly () = false
+
+    member this.DirectBranchTarget (addr: byref<Addr>) =
+      if (this :> IInstruction).IsBranch () then
+        match oprs with
+        | OneOperand (OprDirAddr (Absolute (_))) -> Terminator.futureFeature ()
+        | OneOperand (OprDirAddr (Relative offset)) ->
+          addr <- (int64 this.Address + offset) |> uint64
+          true
+        | _ -> false
+      else false
+
+    member this.IndirectTrampolineAddr (addr: byref<Addr>) =
+      if (this :> IInstruction).IsIndirectBranch () then
+        match oprs with
+        | OneOperand (OprMem (None, None, Some disp, _)) ->
+          addr <- uint64 disp; true
+        | OneOperand (OprMem (Some Register.RIP, None, Some disp, _)) ->
+          addr <- this.Address + uint64 this.Length + uint64 disp
+          true
+        | _ -> false
+      else false
+
+    member _.Immediate (v: byref<int64>) =
+      match oprs with
+      | OneOperand (OprImm (c, _))
+      | TwoOperands (OprImm (c, _), _)
+      | TwoOperands (_, OprImm (c, _))
+      | ThreeOperands (OprImm (c, _), _, _)
+      | ThreeOperands (_, OprImm (c, _), _)
+      | ThreeOperands (_, _, OprImm (c, _))
+      | FourOperands (OprImm (c, _), _, _, _)
+      | FourOperands (_, OprImm (c, _), _, _)
+      | FourOperands (_, _, OprImm (c, _), _)
+      | FourOperands (_, _, _, OprImm (c, _)) -> v <- c; true
+      | _ -> false
+
+    member this.GetNextInstrAddrs () =
+      let acc = [ this.Address + uint64 this.Length ]
+      let ins = this :> IInstruction
+      if ins.IsBranch () then
+        if ins.IsCondBranch () then acc |> this.AddBranchTargetIfExist
+        else this.AddBranchTargetIfExist []
+      elif opcode = Opcode.HLT || opcode = Opcode.UD2 then []
+      else acc
+      |> List.toArray
+
+    member _.InterruptNum (num: byref<int64>) =
+      if opcode = Opcode.INT then
+        match oprs with
+        | OneOperand (OprImm (n, _)) ->
+          num <- n
+          true
+        | _ -> false
+      else false
+
+    member this.Translate builder =
+      (lifter.Lift this builder).Stream.ToStmts ()
+
+    member this.TranslateToList builder =
+      (lifter.Lift this builder).Stream
+
+    member this.Disasm builder =
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Disasm () =
+      let builder = StringDisasmBuilder (false, null, wordSz)
+      (lifter.Disasm this builder).ToString ()
+
+    member this.Decompose builder =
+      (lifter.Disasm this builder).ToAsmWords ()
+
+and internal ILiftable =
+  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder

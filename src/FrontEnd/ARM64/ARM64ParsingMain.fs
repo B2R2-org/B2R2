@@ -3373,18 +3373,9 @@ let parseByGroupOfB64 bin =
   | op0 when op0 &&& 0b1111u = 0b1111u -> parse64Group6 bin
   | _ -> raise InvalidOpcodeException
 
-let parse (span: ByteSpan) (reader: IBinReader) addr =
+let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt32 (span, 0)
   let opcode, operands, oprSize = parseByGroupOfB64 bin
-  let insInfo =
-    {
-      Address = addr
-      NumBytes = 4u
-      Condition = None
-      Opcode = opcode
-      Operands = operands
-      OprSize = oprSize
-    }
-  ARM64Instruction (addr, 4u, insInfo, WordSize.Bit64)
+  Instruction (addr, 4u, None, opcode, operands, oprSize, lifter)
 
 // vim: set tw=80 sts=2 sw=2:

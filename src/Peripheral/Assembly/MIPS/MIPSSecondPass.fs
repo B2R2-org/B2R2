@@ -26,11 +26,12 @@ module B2R2.Peripheral.Assembly.MIPS.SecondPass
 
 open B2R2
 open B2R2.FrontEnd.MIPS
+open B2R2.Peripheral.Assembly.MIPS.ParserHelper
 
 let updateOperands insAddress operandList labelToAddress =
   let rec doChecking operands (mapping: Map<string, Addr>) result =
     match operands with
-    | [] -> ParserHelper.extractOperands (List.rev result)
+    | [] -> extractOperands (List.rev result)
     | hd :: tail ->
       match hd with
       | GoToLabel (a1) ->
@@ -43,16 +44,16 @@ let updateOperands insAddress operandList labelToAddress =
       | _ -> doChecking tail mapping (hd :: result)
   doChecking operandList labelToAddress []
 
-/// This is the second pass. UpdateInsInfos replaces every occurance of Labels
-/// coming as operands by their relative address values.
-let updateInsInfos (insInfoList: InsInfo List) labelToAddress =
-  let rec doUpdate insInfos mapping result =
-    match insInfos with
+/// This is the second pass. UpdateInstructions replaces every occurance of
+/// Labels coming as operands by their relative address values.
+let updateInstructions (insList: AsmInsInfo list) labelToAddress =
+  let rec doUpdate inss mapping result =
+    match inss with
     | [] -> List.rev result
     | hd :: tail ->
       let operands = hd.Operands
-      let operands = ParserHelper.getOperandsAsList operands
+      let operands = getOperandsAsList operands
       let operands = updateOperands hd.Address operands mapping
-      let newInsInfo = {hd with Operands = operands}
-      doUpdate tail mapping (newInsInfo :: result)
-  doUpdate insInfoList labelToAddress []
+      let newInstruction = { hd with Operands = operands }
+      doUpdate tail mapping (newInstruction :: result)
+  doUpdate insList labelToAddress []

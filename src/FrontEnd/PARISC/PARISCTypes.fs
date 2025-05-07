@@ -470,17 +470,25 @@ type Operand =
   | OpAtomMemOper of Aq * Rl
   | OpCSR of uint16
   | OpCond of Completer
+
 and Aq = bool
+
 and Rl = bool
+
 and Imm = uint64
+
 and JumpTarget =
   | Relative of int64
   | RelativeBase of Base * Imm
+
 and Offset =
   | Imm of int64
   | Reg of Register
+
 and AccessLength = RegType
+
 and Base = Register
+
 and Space = Register
 
 type Operands =
@@ -490,47 +498,3 @@ type Operands =
   | ThreeOperands of Operand * Operand * Operand
   | FourOperands of Operand * Operand * Operand * Operand
   | FiveOperands of Operand * Operand * Operand * Operand * Operand
-
-type internal Instruction = Opcode * Operands
-
-/// Basic information obtained by parsing a PARISC instruction.
-[<NoComparison; CustomEquality>]
-type InsInfo = {
-  /// Address.
-  Address: Addr
-  /// Instruction length.
-  NumBytes: uint32
-  /// Completer.
-  Completer: Completer array option
-  /// Completer condition or fmt.
-  Condition: Completer option
-  /// Completer swap and uid.
-  ID: uint64[] option
-  /// Opcode.
-  Opcode: Opcode
-  /// Operands.
-  Operands: Operands
-  /// Operation Size.
-  OperationSize: RegType
-  /// PA-RISC architecture.
-  Arch: Architecture
-}
-with
-  override this.GetHashCode () =
-    hash (this.Address,
-          this.NumBytes,
-          this.Opcode,
-          this.Operands,
-          this.OperationSize)
-
-  override this.Equals (i) =
-    match i with
-    | :? InsInfo as i ->
-      i.Address = this.Address
-      && i.NumBytes = this.NumBytes
-      && i.Opcode = this.Opcode
-      && i.Operands = this.Operands
-      && i.OperationSize = this.OperationSize
-    | _ -> false
-
-// vim: set tw=80 sts=2 sw=2:

@@ -81,28 +81,3 @@ type Operands =
   | OneOperand of Operand
   | TwoOperands of Operand * Operand
   | ThreeOperands of Operand * Operand * Operand
-
-[<NoComparison; CustomEquality>]
-type InsInfo = {
-  // Address.
-  Address: Addr
-  // Instruction Length.
-  NumBytes: uint32
-  // Opcode.
-  Opcode: Opcode
-  // Operands.
-  Operands: Operands
-}
-with
-  override this.GetHashCode () =
-    hash (this.Address,
-          this.NumBytes,
-          this.Opcode)
-
-  override this.Equals (i) =
-    match i with
-    | :? InsInfo as i ->
-      i.Address = this.Address
-      && i.NumBytes = this.NumBytes
-      && i.Opcode = this.Opcode
-    | _ -> false

@@ -59,7 +59,7 @@ let transOprToExpr bld = function
 | OprAddr addr -> numI32PC addr
 | _ -> Terminator.impossible ()
 
-let transMemOprToExpr ins bld =
+let transMemOprToExpr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg reg, OprMemory (PreIdxMode (reg1)))
     -> regVar bld reg, regVar bld reg1,-1
@@ -69,7 +69,7 @@ let transMemOprToExpr ins bld =
     -> regVar bld reg, regVar bld reg1, 0
   | _ -> Terminator.impossible ()
 
-let transMemOprToExpr2 ins bld =
+let transMemOprToExpr2 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprMemory (PreIdxMode (reg1)), OprReg reg)
     -> regVar bld reg1, regVar bld reg, -1
@@ -79,24 +79,24 @@ let transMemOprToExpr2 ins bld =
     -> regVar bld reg1, regVar bld reg, 0
   | _ -> Terminator.impossible ()
 
-let transMemOprToExpr1 ins bld =
+let transMemOprToExpr1 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg reg, OprMemory (DispMode (reg1, imm)))
     -> regVar bld reg, regVar bld reg1, numI32PC imm
   | _ -> Terminator.impossible ()
 
-let transMemOprToExpr3 ins bld =
+let transMemOprToExpr3 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprMemory (DispMode (reg1, imm)), OprReg reg)
     -> regVar bld reg1,regVar bld reg, numI32PC imm
   | _ -> Terminator.impossible ()
 
-let transOneOpr (ins: InsInfo) bld =
+let transOneOpr (ins: Instruction) bld =
   match ins.Operands with
   | OneOperand o1 -> transOprToExpr bld o1
   | _ -> raise InvalidOperandException
 
-let transTwoOprs (ins: InsInfo) bld =
+let transTwoOprs (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands (o1, o2) ->
     struct (transOprToExpr bld o1,
@@ -108,7 +108,7 @@ let sideEffects insAddr insLen name bld =
   bld <+ (AST.sideEffect name)
   bld --!> insLen
 
-let getIndAdrReg ins bld =
+let getIndAdrReg (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands (_, OprReg reg1) ->
     let dst = reg1 |> regVar bld
@@ -155,7 +155,7 @@ let add ins len bld =
   bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld --!> len
 
-let adiw ins len bld =
+let adiw (ins: Instruction) len bld =
   let struct (t1, t2) = tmpVars2 bld 8<rt>
   let t3 = tmpVar bld 16<rt>
   let struct (dst, dst1, src) =
@@ -251,22 +251,22 @@ let call ins len bld =
   bld <+ (sp := sp .- numI32PC 2)
   bld --!> len
 
-let clc ins len bld =
+let clc (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld <+ (regVar bld CF := AST.b0)
   bld --!> len
 
-let clh ins len bld =
+let clh (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld <+ (regVar bld HF := AST.b0)
   bld --!> len
 
-let cli ins len bld =
+let cli (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld <+ (regVar bld IF := AST.b0)
   bld --!> len
 
-let cln ins len bld =
+let cln (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld <+ (regVar bld NF := AST.b0)
   bld --!> len
@@ -281,22 +281,22 @@ let clr ins len bld =
   bld <+ (regVar bld ZF := AST.b1)
   bld --!> len
 
-let cls ins len bld =
+let cls (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld <+ (regVar bld SF := AST.b0)
   bld --!> len
 
-let clt ins len bld =
+let clt (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld <+ (regVar bld TF := AST.b0)
   bld --!> len
 
-let clv ins len bld =
+let clv (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld <+ (regVar bld VF := AST.b0)
   bld --!> len
 
-let clz ins len bld =
+let clz (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld <+ (regVar bld ZF := AST.b0)
   bld --!> len
@@ -434,11 +434,11 @@ let fmulsu ins len bld =
   bld <+ (regVar bld ZF := t4 == (AST.num0 oprSize))
   bld --!> len
 
-let eicall ins len bld = (* FIXME *)
+let eicall (ins: Instruction) len bld = (* FIXME *)
   bld <!-- (ins.Address, len)
   bld --!> len
 
-let eijmp ins len bld = (* FIXME *)
+let eijmp (ins: Instruction) len bld = (* FIXME *)
   bld <!-- (ins.Address, len)
   bld --!> len
 
@@ -453,7 +453,7 @@ let eor ins len bld =
   bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld --!> len
 
-let icall ins len bld =  (* ADD 22bit PC *)
+let icall (ins: Instruction) len bld =  (* ADD 22bit PC *)
   let pc = regVar bld PC
   let sp = regVar bld SP
   bld <!-- (ins.Address, len)
@@ -462,7 +462,7 @@ let icall ins len bld =  (* ADD 22bit PC *)
   bld <+ (sp := sp .- numI32PC 2)
   bld --!> len
 
-let ijmp ins len bld =   (* ADD 22bit PC *)
+let ijmp (ins: Instruction) len bld =   (* ADD 22bit PC *)
   let pc = regVar bld PC
   bld <!-- (ins.Address, len)
   bld <+ (pc := regVar bld Z)
@@ -535,7 +535,7 @@ let mov ins len bld =
   bld <+ (dst := src)
   bld --!> len
 
-let movw ins len bld =
+let movw (ins: Instruction) len bld =
   let struct (dst, dst1, src, src1) =
     match ins.Operands with
     | TwoOperands (OprReg reg1, OprReg reg2) ->
@@ -607,7 +607,7 @@ let sbc ins len bld =
   bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld --!> len
 
-let sbiw ins len bld =
+let sbiw (ins: Instruction) len bld =
   let struct (t1, t2) = tmpVars2 bld 8<rt>
   let t3 = tmpVar bld 16<rt>
   let struct (dst, dst1, src) =
@@ -632,7 +632,7 @@ let sbiw ins len bld =
   bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld --!> len
 
-let sf ins len bld =
+let sf (ins: Instruction) len bld =
   let setFlag =
     match ins.Opcode with
     | Opcode.SEC -> regVar bld CF := AST.b1

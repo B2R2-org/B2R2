@@ -338,10 +338,10 @@ let shtostring = function
   | SHIFTST.SARSHFT -> "sar"
   | _ -> failwith "invalid sarshift"
 
-let inline attachPrefixer insInfo opcode =
+let inline attachPrefixer (ins: Instruction) opcode =
   let formatCompleter c = "," + condToString c
   let baseOpcode =
-    match insInfo.ID with
+    match ins.ID with
     | Some arr when arr.Length > 0 ->
       opcode + "," + (arr |> Array.map string |> String.concat ",")
     | _ -> opcode
@@ -351,7 +351,7 @@ let inline attachPrefixer insInfo opcode =
       cmpltArr
       |> Array.map formatCompleter
       |> String.concat ""
-  match insInfo.Completer, insInfo.Condition with
+  match ins.Completer, ins.Condition with
   | Some cmpltArr, Some cond ->
     let cmpltStr =
       formatCompleterArray (Array.filter ((<>) Completer.NEVER) cmpltArr)
@@ -366,7 +366,7 @@ let inline attachPrefixer insInfo opcode =
     else baseOpcode + formatCompleter cond
   | None, None -> baseOpcode
 
-let inline buildOpcode ins (builder: IDisasmBuilder) =
+let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode |> attachPrefixer ins
   builder.Accumulate AsmWordKind.Mnemonic str
 
@@ -377,7 +377,7 @@ let inline relToString pc offset (builder: IDisasmBuilder) =
 let printSpace space =
   space <> Some Register.SR0 && space <> None
 
-let oprToString insInfo opr delim (builder: IDisasmBuilder) =
+let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
   match opr with
   | OpReg reg ->
     builder.Accumulate AsmWordKind.String delim
@@ -403,7 +403,7 @@ let oprToString insInfo opr delim (builder: IDisasmBuilder) =
     builder.Accumulate AsmWordKind.String ")"
   | OpAddr (Relative offset) ->
     builder.Accumulate AsmWordKind.String delim
-    relToString insInfo.Address offset builder
+    relToString ins.Address offset builder
   | OpAddr (RelativeBase (b, off)) ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
@@ -423,31 +423,31 @@ let oprToString insInfo opr delim (builder: IDisasmBuilder) =
     builder.Accumulate AsmWordKind.String ","
     builder.Accumulate AsmWordKind.String (condToString cond)
 
-let buildOprs insInfo builder =
-  match insInfo.Operands with
+let buildOprs (ins: Instruction) builder =
+  match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
-    oprToString insInfo opr " " builder
+    oprToString ins opr " " builder
   | TwoOperands (opr1, opr2) ->
-    oprToString insInfo opr1 " " builder
-    oprToString insInfo opr2 ", " builder
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
   | ThreeOperands (opr1, opr2, opr3) ->
-    oprToString insInfo opr1 " " builder
-    oprToString insInfo opr2 ", " builder
-    oprToString insInfo opr3 ", " builder
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
+    oprToString ins opr3 ", " builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
-    oprToString insInfo opr1 " " builder
-    oprToString insInfo opr2 ", " builder
-    oprToString insInfo opr3 ", " builder
-    oprToString insInfo opr4 ", " builder
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
+    oprToString ins opr3 ", " builder
+    oprToString ins opr4 ", " builder
   | FiveOperands (opr1, opr2, opr3, opr4, opr5) ->
-    oprToString insInfo opr1 " " builder
-    oprToString insInfo opr2 ", " builder
-    oprToString insInfo opr3 ", " builder
-    oprToString insInfo opr4 ", " builder
-    oprToString insInfo opr5 ", " builder
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
+    oprToString ins opr3 ", " builder
+    oprToString ins opr4 ", " builder
+    oprToString ins opr5 ", " builder
 
-let disasm insInfo (builder: IDisasmBuilder) =
-  builder.AccumulateAddrMarker insInfo.Address
-  buildOpcode insInfo builder
-  buildOprs insInfo builder
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
+  builder.AccumulateAddrMarker ins.Address
+  buildOpcode ins builder
+  buildOprs ins builder

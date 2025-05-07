@@ -60,9 +60,9 @@ type MIPS64ParserTests () =
     let reader = BinReader.Init endian
     let parser = MIPSParser (isa, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
-    let ins = parser.Parse (span, 0UL) :?> MIPSInstruction
-    let opcode' = ins.Info.Opcode
-    let oprs' = ins.Info.Operands
+    let ins = parser.Parse (span, 0UL) :?> Instruction
+    let opcode' = ins.Opcode
+    let oprs' = ins.Operands
     Assert.AreEqual<Opcode> (opcode, opcode')
     Assert.AreEqual<Operands> (oprs, oprs')
 

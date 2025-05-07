@@ -257,8 +257,8 @@ let opCodeToString = function
   | Op.ZERO -> "ZERO"
   | _ -> Terminator.impossible ()
 
-let inline appendUnit insInfo opcode =
-  match insInfo.FunctionalUnit with
+let inline appendUnit (ins: Instruction) opcode =
+  match ins.FunctionalUnit with
   | L1Unit -> opcode + ".L1"
   | L2Unit -> opcode + ".L2"
   | L1XUnit -> opcode + ".L1X"
@@ -277,10 +277,10 @@ let inline appendUnit insInfo opcode =
   | D2XUnit -> opcode + ".D2X"
   | NoUnit -> opcode
 
-let buildParallelPipe ins (builder: IDisasmBuilder) =
+let buildParallelPipe (ins: Instruction) (builder: IDisasmBuilder) =
   if ins.IsParallel then builder.Accumulate AsmWordKind.String "|| " else ()
 
-let inline buildOpcode ins (builder: IDisasmBuilder) =
+let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode |> appendUnit ins
   builder.Accumulate AsmWordKind.Mnemonic str
 
@@ -341,8 +341,8 @@ let oprToString opr delim (builder: IDisasmBuilder) =
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
 
-let buildOprs insInfo builder =
-  match insInfo.Operands with
+let buildOprs (ins: Instruction) builder =
+  match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
     oprToString opr " " builder
@@ -359,8 +359,8 @@ let buildOprs insInfo builder =
     oprToString opr3 ", " builder
     oprToString opr4 ", " builder
 
-let disasm insInfo (builder: IDisasmBuilder) =
-  builder.AccumulateAddrMarker insInfo.Address
-  buildParallelPipe insInfo builder
-  buildOpcode insInfo builder
-  buildOprs insInfo builder
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
+  builder.AccumulateAddrMarker ins.Address
+  buildParallelPipe ins builder
+  buildOpcode ins builder
+  buildOprs ins builder

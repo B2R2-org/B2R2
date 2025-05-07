@@ -10,9 +10,9 @@
   <ItemGroup>
     <Compile Include="PARISCRegisterFactory.fs" />
     <Compile Include="PARISCTypes.fs" />
+    <Compile Include="PARISCInstruction.fs" />
     <Compile Include="PARISCDisasm.fs" />
     <Compile Include="PARISCLifter.fs" />
-    <Compile Include="PARISCInstruction.fs" />
     <Compile Include="PARISCHelper.fs" />
     <Compile Include="PARISCParsingMain.fs" />
     <Compile Include="PARISCParser.fs" />

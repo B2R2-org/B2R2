@@ -27,7 +27,6 @@ module internal B2R2.FrontEnd.ARM64.Disasm
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-
 let condToString = function
   | Some EQ -> "eq"
   | Some NE -> "ne"
@@ -1692,7 +1691,7 @@ let delimPostIdx = function
   | PostIdxMode _ -> "], "
   | _ -> ", "
 
-let processAddrExn64 ins addr =
+let processAddrExn64 (ins: Instruction) addr =
   match ins.Opcode with
   | Opcode.ADRP -> addr &&& 0xFFFFFFFFFFFFF000UL
   | _ -> addr
@@ -1736,13 +1735,13 @@ let offsetToString i addr mode offset builder =
     regOffsetToString mode (r1, r2, offset) builder
     postBracket mode builder
 
-let memToString insInfo addr mode builder =
+let memToString ins addr mode builder =
   match mode with
   | LiteralMode offset ->
-    offsetToString insInfo addr mode offset builder
+    offsetToString ins addr mode offset builder
   | BaseMode off | PreIdxMode off | PostIdxMode off ->
     builder.Accumulate AsmWordKind.String "["
-    offsetToString insInfo addr mode off builder
+    offsetToString ins addr mode off builder
 
 let optToString = function
   | SY -> "sy"
@@ -1792,7 +1791,7 @@ let idxToString = function
 let lsbToString = function
   | l -> "#" + string l
 
-let isRET ins = ins.Opcode = Opcode.RET
+let isRET (ins: Instruction) = ins.Opcode = Opcode.RET
 
 let oprToString i addr opr delim builder =
   match opr with
@@ -1840,35 +1839,35 @@ let oprToString i addr opr delim builder =
     prependDelimiter delim builder
     builder.Accumulate AsmWordKind.Variable (lsbToString ui8)
 
-let inline buildOpcode ins (builder: IDisasmBuilder) =
+let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let opcode = opCodeToString ins.Opcode + condToString ins.Condition
   builder.Accumulate AsmWordKind.Mnemonic opcode
 
-let buildOprs insInfo pc builder =
-  match insInfo.Operands with
+let buildOprs (ins: Instruction) pc builder =
+  match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
-    oprToString insInfo pc opr (Some " ") builder
+    oprToString ins pc opr (Some " ") builder
   | TwoOperands (opr1, opr2) ->
-    oprToString insInfo pc opr1 (Some " ") builder
-    oprToString insInfo pc opr2 (Some ", ") builder
+    oprToString ins pc opr1 (Some " ") builder
+    oprToString ins pc opr2 (Some ", ") builder
   | ThreeOperands (opr1, opr2, opr3) ->
-    oprToString insInfo pc opr1 (Some " ") builder
-    oprToString insInfo pc opr2 (Some ", ") builder
-    oprToString insInfo pc opr3 (Some ", ") builder
+    oprToString ins pc opr1 (Some " ") builder
+    oprToString ins pc opr2 (Some ", ") builder
+    oprToString ins pc opr3 (Some ", ") builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
-    oprToString insInfo pc opr1 (Some " ") builder
-    oprToString insInfo pc opr2 (Some ", ") builder
-    oprToString insInfo pc opr3 (Some ", ") builder
-    oprToString insInfo pc opr4 (Some ", ") builder
+    oprToString ins pc opr1 (Some " ") builder
+    oprToString ins pc opr2 (Some ", ") builder
+    oprToString ins pc opr3 (Some ", ") builder
+    oprToString ins pc opr4 (Some ", ") builder
   | FiveOperands (opr1, opr2, opr3, opr4, opr5) ->
-    oprToString insInfo pc opr1 (Some " ") builder
-    oprToString insInfo pc opr2 (Some ", ") builder
-    oprToString insInfo pc opr3 (Some ", ") builder
-    oprToString insInfo pc opr4 (Some ", ") builder
-    oprToString insInfo pc opr5 (Some ", ") builder
+    oprToString ins pc opr1 (Some " ") builder
+    oprToString ins pc opr2 (Some ", ") builder
+    oprToString ins pc opr3 (Some ", ") builder
+    oprToString ins pc opr4 (Some ", ") builder
+    oprToString ins pc opr5 (Some ", ") builder
 
-let disasm ins (builder: IDisasmBuilder) =
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   let pc = ins.Address
   builder.AccumulateAddrMarker pc
   buildOpcode ins builder

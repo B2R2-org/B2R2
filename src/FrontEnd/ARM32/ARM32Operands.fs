@@ -945,15 +945,17 @@ module OperandParsingHelper =
 type [<AbstractClass>] OperandParser () =
   abstract Render: uint32 -> struct (Operands * bool * bool option * RegType)
 
-and ParsingHelper (arch, isThumb, reader, addr, oprs, len, cond, isAdd) =
+and internal ParsingHelper (arch, isThumb, reader, addr, oprs, len, cond, isAdd,
+                            lifter) =
   let mutable isThumb: bool = isThumb
   let mutable addr: Addr = addr
   let mutable len: uint32 = len
   let mutable cond: Condition = cond
   let mutable isAdd: bool = isAdd
   let isARMv7 = arch = Architecture.ARMv7
-  new (arch, reader, oparsers) =
-    ParsingHelper (arch, false, reader, 0UL, oparsers, 0u, Condition.UN, true)
+  new (arch, reader, oparsers, lifter) =
+    ParsingHelper (arch,
+                   false, reader, 0UL, oparsers, 0u, Condition.UN, true, lifter)
   member _.IsThumb with get() = isThumb and set v = isThumb <- v
   member _.BinReader with get(): IBinReader = reader
   member _.InsAddr with get() = addr and set(a) = addr <- a
@@ -962,6 +964,7 @@ and ParsingHelper (arch, isThumb, reader, addr, oprs, len, cond, isAdd) =
   member _.Cond with get() = cond and set (c) = cond <- c
   member _.IsAdd with get() = isAdd and set (a) = isAdd <- a
   member _.IsARMv7 with get() = isARMv7
+  member _.Lifter with get (): ILiftable = lifter
 
 type internal OprNo () =
   inherit OperandParser ()

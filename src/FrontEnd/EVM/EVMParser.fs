@@ -32,16 +32,22 @@ open B2R2.FrontEnd.BinLifter
 /// instruction type (Instruction).
 type EVMParser (isa: ISA) =
   let mutable codeOffset: Addr = 0UL
-  let wordSize = isa.WordSize
+
+  let lifter =
+    { new ILiftable with
+        member _.Lift ins builder =
+          Lifter.translate ins builder
+        member _.Disasm ins builder =
+          Disasm.disasm ins builder; builder }
 
   member _.CodeOffset with get() = codeOffset and set(o) = codeOffset <- o
 
   interface IInstructionParsable with
     member _.Parse (bs: byte[], addr) =
       let span = ReadOnlySpan (bs)
-      ParsingMain.parse span codeOffset wordSize addr :> Instruction
+      ParsingMain.parse lifter span codeOffset addr :> IInstruction
 
     member _.Parse (span: ByteSpan, addr) =
-      ParsingMain.parse span codeOffset wordSize addr :> Instruction
+      ParsingMain.parse lifter span codeOffset addr :> IInstruction
 
     member _.MaxInstructionSize = 33

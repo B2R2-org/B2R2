@@ -27,6 +27,16 @@ module B2R2.Peripheral.Assembly.MIPS.ParserHelper
 open B2R2
 open B2R2.FrontEnd.MIPS
 
+type AsmInsInfo = {
+  Address: Addr
+  Length: uint32
+  Opcode: Opcode
+  Operands: Operands
+  Condition: Condition option
+  Fmt: Fmt option
+  OperationSize: RegType
+}
+
 let extractOperands = function
   | [] -> NoOperand
   | [op1] -> OneOperand op1
@@ -86,12 +96,12 @@ let getRealRegName = function
   | "ra" -> "R31"
   | other -> other.ToUpper ()
 
-let newInfo (isa: ISA) address opcode condition fmt operands =
-  { Address = address;
-    NumBytes = 4u;
-    Condition = condition;
-    Fmt = fmt;
-    Opcode = opcode;
-    Operands = operands;
-    OperationSize = getOperationSize opcode isa.WordSize
-    Arch = isa.Arch }
+let newAssemblyIns (isa: ISA) address opcode condition fmt operands =
+  let oprSize = getOperationSize opcode isa.WordSize
+  { Address = address
+    Length = 4u
+    Opcode = opcode
+    Operands = operands
+    Condition = condition
+    Fmt = fmt
+    OperationSize = oprSize }

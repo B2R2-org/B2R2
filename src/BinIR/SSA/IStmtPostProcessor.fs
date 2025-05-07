@@ -24,8 +24,13 @@
 
 namespace B2R2.BinIR.SSA
 
+open B2R2
+
 /// SSA statement post-processor.
 type IStmtPostProcessor =
+  /// The word size of the target architecture.
+  abstract WordSize: WordSize
+
   /// This is a callback function that is called after lifting SSA stmts.
   abstract PostProcess: Stmt -> Stmt
 

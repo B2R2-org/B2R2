@@ -30,7 +30,7 @@ open B2R2.BinIR
 type OP = Opcode (* Just to make it concise. *)
 
 /// Translate IR.
-let translate (ins: IntelInternalInstruction) insLen bld =
+let translate (ins: Instruction) insLen bld =
   match ins.Opcode with
   | OP.AAA -> GeneralLifter.aaa ins insLen bld
   | OP.AAD -> GeneralLifter.aad ins insLen bld

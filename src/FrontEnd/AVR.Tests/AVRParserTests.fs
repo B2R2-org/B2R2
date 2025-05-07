@@ -56,9 +56,9 @@ type AVRParserTests () =
     let reader = BinReader.Init Endian.Little
     let parser = AVRParser (reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
-    let ins = parser.Parse (span, 0UL) :?> AVRInstruction
-    Assert.AreEqual<Opcode> (opcode, ins.Info.Opcode)
-    Assert.AreEqual<Operands> (oprs, ins.Info.Operands)
+    let ins = parser.Parse (span, 0UL) :?> Instruction
+    Assert.AreEqual<Opcode> (opcode, ins.Opcode)
+    Assert.AreEqual<Operands> (oprs, ins.Operands)
 
   let operandsFromArray oprList =
     let oprs = Array.ofList oprList

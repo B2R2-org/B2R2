@@ -55,9 +55,9 @@ type SPARCParserTests () =
 
   let test (bytes: byte[]) (opcode, oprs: Operands) =
     let span = System.ReadOnlySpan bytes
-    let ins = parser.Parse (span, 0UL) :?> SPARCInstruction
-    Assert.AreEqual<Opcode> (opcode, ins.Info.Opcode)
-    Assert.AreEqual<Operands> (oprs, ins.Info.Operands)
+    let ins = parser.Parse (span, 0UL) :?> Instruction
+    Assert.AreEqual<Opcode> (opcode, ins.Opcode)
+    Assert.AreEqual<Operands> (oprs, ins.Operands)
 
   let operandsFromArray oprList =
     let oprs = Array.ofList oprList

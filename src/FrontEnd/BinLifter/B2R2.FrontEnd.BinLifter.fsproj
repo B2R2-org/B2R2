@@ -21,7 +21,7 @@
     <Compile Include="IDisasmBuilder.fs" />
     <Compile Include="StringDisasmBuilder.fs" />
     <Compile Include="AsmWordDisasmBuilder.fs" />
-    <Compile Include="Instruction.fs" />
+    <Compile Include="IInstruction.fs" />
     <Compile Include="IInstructionParsable.fs" />
     <Compile Include="ParsingUtils.fs" />
     <Compile Include="LiftingUtils.fs" />

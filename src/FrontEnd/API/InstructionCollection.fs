@@ -67,8 +67,8 @@ type InstructionCollection (collector: IInstructionCollectable) =
 /// There could be two instructions at the same address, one for ARM and the
 /// other for Thumb mode.
 and InstructionCandidate =
-  | OnlyOne of Instruction
-  | MaybeTwo of Instruction option * Instruction option (* arm or thumb *)
+  | OnlyOne of IInstruction
+  | MaybeTwo of IInstruction option * IInstruction option (* arm or thumb *)
 
 /// Interface for collecting instructions.
 and IInstructionCollectable =
