@@ -9,11 +9,11 @@
 
   <ItemGroup>
     <Compile Include="IntelRegister.fs" />
+    <Compile Include="IntelRegisterFactory.fs" />
+    <Compile Include="IntelLowUIRBuilder.fs" />
     <Compile Include="IntelOpcodes.fs" />
     <Compile Include="IntelTypes.fs" />
     <Compile Include="IntelInstruction.fs" />
-    <Compile Include="IntelRegisterFactory.fs" />
-    <Compile Include="IntelLowUIRBuilder.fs" />
     <Compile Include="IntelHelper.fs" />
     <Compile Include="IntelOperands.fs" />
     <Compile Include="IntelDisasm.fs" />

@@ -26,7 +26,6 @@ namespace B2R2.FrontEnd.Intel
 
 open System.Runtime.CompilerServices
 open B2R2
-open B2R2.FrontEnd.BinLifter
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.Intel.Tests")>]
 [<assembly: InternalsVisibleTo("B2R2.Peripheral.Assembly.Intel")>]

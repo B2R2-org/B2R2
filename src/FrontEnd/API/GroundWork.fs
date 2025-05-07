@@ -63,7 +63,7 @@ type GroundWork =
       Terminator.futureFeature ()
 
   /// Create a new parser (IInstructionParsable) for the given architecture.
-  static member CreateParser reader registerFactory (isa: ISA) =
+  static member CreateParser reader (isa: ISA) =
     match isa.Arch with
     | Architecture.IntelX64
     | Architecture.IntelX86 ->

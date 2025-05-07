@@ -37,7 +37,7 @@ type IntelDisassemblerTests () =
     let reader = BinReader.Init Endian.Little
     let parser = IntelParser (wordSize, reader) :> IInstructionParsable
     let actualInstruction (syntax: DisasmSyntax) =
-      setDisassemblyFlavor syntax
+      (parser :?> IntelParser).SetDisassemblySyntax syntax
       parser.Parse (bytes, 0UL)
       |> fun instruction -> (instruction.Disasm ()).ToLowerInvariant ()
     Assert.AreEqual<string> (instruction[0], actualInstruction DefaultSyntax)

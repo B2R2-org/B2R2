@@ -69,6 +69,9 @@ type BinDumpOpts () =
   /// Display only disassembly.
   member val OnlyDisasm = false with get, set
 
+  /// Disasembly syntax.
+  member val DisassemblySyntax = DefaultSyntax with get, set
+
   /// Perform basic block optimization or not?
   member val DoOptimization = NoOptimize with get, set
 
@@ -115,7 +118,7 @@ type BinDumpOpts () =
   /// "--att" for using AT&T syntax.
   static member OptATTSyntax () =
     let cb opts _ =
-      Intel.Disasm.setDisassemblyFlavor ATTSyntax
+      (BinDumpOpts.ToThis opts).DisassemblySyntax <- ATTSyntax
       opts
     CmdOpts.New (descr = "Use AT&T syntax for disassembling Intel instructions",
                  callback = cb, long = "--att")

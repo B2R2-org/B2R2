@@ -66,7 +66,10 @@ let private makeCodePrinter hdl cfg (opts: BinDumpOpts) =
     if opts.ShowLowUIR then BinCodeIRPrinter (hdl, cfg, opti) :> BinPrinter
     else
       let showSymb, showColor = opts.ShowSymbols, opts.ShowColor
-      BinCodeDisasmPrinter (hdl, cfg, showSymb, showColor) :> BinPrinter
+      let printer =
+        BinCodeDisasmPrinter (hdl, cfg, showSymb, showColor) :> BinPrinter
+      printer.LiftingUnit.SetDisassemblySyntax opts.DisassemblySyntax
+      printer
 
 let private makeTablePrinter hdl cfg (opts: BinDumpOpts) =
   let opti = getOptimizer opts

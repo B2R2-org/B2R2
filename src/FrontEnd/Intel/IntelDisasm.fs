@@ -22,12 +22,12 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.Intel.Disasm
+module internal B2R2.FrontEnd.Intel.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-type Disasm = delegate of IDisasmBuilder * Instruction -> unit
+type Delegate = delegate of IDisasmBuilder * Instruction -> unit
 
 let opCodeToString = function
   | Opcode.AAA -> "aaa"
@@ -1486,7 +1486,7 @@ let inline buildEVEXZ ev (builder: IDisasmBuilder) =
   if ev.Z = Zeroing then builder.Accumulate AsmWordKind.String "{z}"
   else ()
 
-module private IntelSyntax = begin
+module IntelSyntax = begin
 
   let inline private memDispToStr showSign disp wordSize builder =
     match disp with
@@ -1689,7 +1689,7 @@ module private IntelSyntax = begin
 
 end
 
-module private ATTSyntax = begin
+module ATTSyntax = begin
 
   let buildDisp disp showSign wordSize builder =
     match disp with
@@ -1961,9 +1961,3 @@ module private ATTSyntax = begin
     buildOprs ins builder
 
 end
-
-let mutable disasm = Disasm IntelSyntax.disasm
-
-let setDisassemblyFlavor = function
-  | DefaultSyntax -> disasm <- Disasm IntelSyntax.disasm
-  | ATTSyntax -> disasm <- Disasm ATTSyntax.disasm

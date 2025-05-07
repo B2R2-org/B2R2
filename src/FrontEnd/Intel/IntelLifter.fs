@@ -707,6 +707,3 @@ let translate (ins: Instruction) insLen bld =
          eprintfn "%A" ins
 #endif
          LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
-         // raise <| NotImplementedIRException (Disasm.opCodeToString o)
-
-// vim: set tw=80 sts=2 sw=2:

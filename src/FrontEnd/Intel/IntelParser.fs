@@ -514,14 +514,21 @@ type IntelParser (wordSz, reader) =
        0x0u
        0x000d0000u (* 111xxxxx = f0/f2/f3 is possible *) |]
 
+  let mutable disasm = Disasm.Delegate Disasm.IntelSyntax.disasm
+
   let lifter =
     { new ILiftable with
         member _.Lift ins builder =
           Lifter.translate ins ins.Length builder
         member _.Disasm ins builder =
-          Disasm.disasm.Invoke (builder, ins); builder }
+          disasm.Invoke (builder, ins); builder }
 
   let rhlp = ReadHelper (reader, wordSz, oparsers, szcomputers, lifter)
+
+  member _.SetDisassemblySyntax syntax =
+    match syntax with
+    | DefaultSyntax -> disasm <- Disasm.Delegate Disasm.IntelSyntax.disasm
+    | ATTSyntax -> disasm <- Disasm.Delegate Disasm.ATTSyntax.disasm
 
   member inline private _.ParsePrefix (span: ByteSpan) =
     let mutable pos = 0
