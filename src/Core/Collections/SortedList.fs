@@ -22,7 +22,10 @@
   SOFTWARE.
 *)
 
-/// Extended `SortedList`.
+/// <summary>
+/// Provides extended functionality for the <see
+/// cref='T:System.Collections.SortedList'/> collection.
+/// </summary>
 [<RequireQualifiedAccess>]
 module B2R2.Collections.SortedList
 

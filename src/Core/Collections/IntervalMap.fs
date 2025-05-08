@@ -40,32 +40,36 @@ type private IntervalMapElem<'V> (k, v) =
                          Priority(Prio(this.Key.Max)))
 
 /// <summary>
-/// This is an interval map, which is a map based on an interval tree. This maps
-/// an interval (i.e., AddrRange) to a value of type 'V. We currently implement
-/// this using the functional finger tree. Intervals in this map are not
-/// necessarily disjoint and can overlap. To disallow overlapping intervals,
-/// consider using NoOverlapIntervalMap instead.
+/// Represents an interval map, which is a map based on an interval tree. This
+/// maps an interval (i.e., <see cref='T:B2R2.AddrRange'/>) to a value of type
+/// 'V. We currently implement this using the functional finger tree. Intervals
+/// in this map are not necessarily disjoint and can overlap. To disallow
+/// overlapping intervals, consider using NoOverlapIntervalMap instead.
 /// </summary>
 type IntervalMap<'V> =
   private
     IntervalMap of FingerTree<InterMonoid<Addr>, IntervalMapElem<'V>>
 
-/// Helper module for IntervalMap.
+/// <summary>
+/// Provides functions for creating or manipulating interval maps.
+/// </summary>
+[<RequireQualifiedAccess>]
 module IntervalMap =
 
   /// Empty interval tree.
+  [<CompiledName("Empty")>]
   let empty: IntervalMap<'V> = IntervalMap Empty
 
+  /// Checks if the given interval tree is empty.
+  [<CompiledName("IsEmpty")>]
   let isEmpty (m: IntervalMap<'V>) = m = IntervalMap Empty
 
-  /// Add an item to the interval tree.
+  /// Adds an item to the interval tree.
+  [<CompiledName("Add")>]
   let add (i: AddrRange) v (IntervalMap m) =
     let l, r =
       Op.Split (fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin ()) m
     IntervalMap <| Op.Concat l (Op.Cons (IntervalMapElem (i, v)) r)
-
-  /// Add an item to the interval tree.
-  let addByTuple (il, ih) v m = add (AddrRange (il, ih)) v m
 
   let private findAllwithPredicate (range: AddrRange) (IntervalMap m) pred =
     let il = range.Min
@@ -81,16 +85,20 @@ module IntervalMap =
     Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih < elt.GetMin ()) m
     |> matches
 
-  /// Find all overlapping intervals.
+  /// Finds all overlapping intervals in the given range.
+  [<CompiledName("FindAll")>]
   let findAll range m =
     findAllwithPredicate range m (fun _ -> true)
 
-  /// Find exactly matching interval.
+  /// Finds the first interval that exactly matches the given range.
+  [<CompiledName("TryFind")>]
   let tryFind range (m: IntervalMap<'V>) =
     findAllwithPredicate range m (fun k -> k = range)
     |> List.tryHead
 
-  /// Find an interval that has the same low bound (Min) as the given address.
+  /// Finds an interval that has the same low bound (Min) as the given address.
+  /// If there is no such interval, this function returns None.
+  [<CompiledName("TryFindByMin")>]
   let tryFindByMin (addr: Addr) (IntervalMap m) =
     let comp (elt: InterMonoid<Addr>) = Key addr <= elt.GetMin ()
     if Prio addr <= ((m :> IMeasured<_>).Measurement).GetMax () then
@@ -99,8 +107,9 @@ module IntervalMap =
       if x.Min = addr then Some (x.Val) else None
     else None
 
-  /// Check whether the given address interval is included in any of the
+  /// Checks whether the given address interval is included in any of the
   /// intervals in the interval map.
+  [<CompiledName("IncludeRange")>]
   let includeRange (range: AddrRange) (IntervalMap m) =
     let il = range.Min
     let ih = range.Max
@@ -111,16 +120,21 @@ module IntervalMap =
       x.Min <= ih
     else false
 
-  /// Check whether the given address exists in the interval tree.
+  /// Checks whether the given address exists in the interval tree.
+  [<CompiledName("ContainsAddr")>]
   let containsAddr addr m = includeRange (AddrRange (addr, addr)) m
 
-  /// Check whether the exact range exists in the interval tree.
+  /// Checks whether the exact range exists in the interval tree.
+  [<CompiledName("Contains")>]
   let contains (range: AddrRange) (m: IntervalMap<'V>) =
     match tryFind range m with
     | None -> false
     | _ -> true
 
-  /// Replace the exactly matched interval from the map to the given one.
+  /// Replaces the item in the interval tree that exactly matches the given
+  /// range with the new value. This function will raise an exception if there
+  /// is no exactly matching interval.
+  [<CompiledName("Replace")>]
   let replace (i: AddrRange) (v: 'V) (IntervalMap m) =
     let l, r =
       Op.Split (fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin ()) m
@@ -135,13 +149,16 @@ module IntervalMap =
         else raise InvalidAddrRangeException
     IntervalMap <| replaceLoop l r
 
-  /// Add a new mapping to the IntervalMap when there is no exactly matching
-  /// interval. If there is, replace the mapping with the new value.
+  /// Adds a new mapping to the IntervalMap in case there is no exactly matching
+  /// interval. If there is a matching interval, this function will replace the
+  /// existing mapping with the new one.
+  [<CompiledName("AddOrReplace")>]
   let addOrReplace (i: AddrRange) (v: 'V) m =
     if contains i m then replace i v m
     else add i v m
 
-  /// Remove the exactly matched interval from the map.
+  /// Removes the exactly matched interval from the map.
+  [<CompiledName("Remove")>]
   let remove (i: AddrRange) (IntervalMap m) =
     let l, r =
       Op.Split (fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin ()) m
@@ -156,11 +173,11 @@ module IntervalMap =
         else raise InvalidAddrRangeException
     IntervalMap <| rmLoop l r
 
-  /// Fold the map.
+  /// Folds the elements of the interval map.
+  [<CompiledName("Fold")>]
   let fold fn acc (IntervalMap m) =
     foldl (fun acc (elt: IntervalMapElem<'V>) -> fn acc elt.Key elt.Val) acc m
 
-  /// Iterate the map.
+  /// Iterates the elements of the interval map.
+  [<CompiledName("Iter")>]
   let iter fn m = fold (fun _ range elt -> fn range elt) () m
-
-// vim: set tw=80 sts=2 sw=2:

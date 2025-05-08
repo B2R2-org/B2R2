@@ -30,7 +30,8 @@ open System.Threading
 open System.Runtime.InteropServices
 open B2R2
 
-/// Least Recently Used Cache that does not support concurrency.
+/// Represents a Least Recently Used (LRU) cache that does not support
+/// concurrency.
 type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
   let dict = Dictionary<'K, DoublyLinkedKeyValue<'K, 'V>> ()
   let mutable head: DoublyLinkedKeyValue<'K, 'V> = null
@@ -85,13 +86,13 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
     tail <- null
     size <- 0
 
-/// This is a cacheable operation, which will be executed when there's no
+/// Represents a cacheable operation, which will be executed when there's no
 /// already cached item.
 type ICacheableOperation<'Arg, 'V when 'V: equality> =
   abstract Perform: 'Arg -> 'V
 
-/// Least Recently Used Cache supporting concurrency. The capacity decides how
-/// many entries to store.
+/// Represents Least Recently Used (LRU) cache supporting concurrency. The
+/// capacity decides how many entries to store.
 type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
   (capacity: int) =
   let dict = Dictionary<'K, DoublyLinkedKeyValue<'K, 'V>> ()

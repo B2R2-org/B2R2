@@ -28,9 +28,8 @@
 ///
 /// <namespacedoc>
 ///   <summary>
-///   Functionality related to data collections. B2R2 provides extended
-///   functionality for existing data structures and also implements new
-///   data structures that are useful for binary analysis.
+///   Contains types that define various collections of objects used for binary
+///   analysis, such as interval sets and interval maps.
 ///   </summary>
 /// </namespacedoc>
 [<RequireQualifiedAccess>]

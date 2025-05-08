@@ -28,7 +28,7 @@ open B2R2
 open B2R2.Collections.FingerTree
 
 /// An element for our interval set.
-type IntervalSetElem (interval) =
+type private IntervalSetElem (interval) =
   member val Val: AddrRange = interval
 with
   member this.Min = this.Val.Min
@@ -39,26 +39,31 @@ with
       InterMonoid<Addr> (Ordered(Key(this.Val.Min)),
                          Priority(Prio(this.Val.Max)))
 
-/// Interval tree-based set, which stores intervals (AddrRange) that can
-/// overlap unlike ARMap.
+/// <summary>
+/// Represents an interval-tree-based set, which stores intervals (<see
+/// cref='T:B2R2.AddrRange'/>) that can overlap unlike ARMap.
+/// </summary>
 type IntervalSet =
   private
     IntervalSet of FingerTree<InterMonoid<Addr>, IntervalSetElem>
 
-/// Helper module for IntervalSet.
+/// Provides functions for creating or manipulating interval sets.
 module IntervalSet =
 
   /// Empty interval tree.
+  [<CompiledName("Empty")>]
   let empty: IntervalSet = IntervalSet Empty
 
-  /// Add an item to the interval tree.
+  /// Adds an item to the interval tree.
+  [<CompiledName("Add")>]
   let add (i: AddrRange) (IntervalSet m) =
     let l, r =
       Op.Split (fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin ()) m
     IntervalSet <| Op.Concat l (Op.Cons (IntervalSetElem i) r)
 
-  /// Check whether the given address interval is included in any of the
+  /// Checks whether the given address interval is included in any of the
   /// intervals in the interval set.
+  [<CompiledName("IncludeRange")>]
   let includeRange (range: AddrRange) (IntervalSet s) =
     let il = range.Min
     let ih = range.Max
@@ -69,7 +74,8 @@ module IntervalSet =
       x.Min <= ih
     else false
 
-  /// Find all overlapping intervals.
+  /// Finds all overlapping intervals in the given range.
+  [<CompiledName("FindAll")>]
   let findAll (range: AddrRange) (IntervalSet s) =
     let il = range.Min
     let ih = range.Max
@@ -82,19 +88,23 @@ module IntervalSet =
     Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih < elt.GetMin ()) s
     |> matches []
 
-  /// Find and return the first matching interval from the given range.
+  /// Finds and returns the first matching interval from the given range.
+  [<CompiledName("TryFind")>]
   let tryFind range s =
     findAll range s
     |> List.tryHead
 
-  /// Find and return the first matching interval from the given address.
+  /// Finds and returns the first matching interval from the given address.
+  [<CompiledName("TryFindByAddr")>]
   let tryFindByAddr addr s =
     tryFind (AddrRange (addr, addr)) s
 
-  /// Check whether the given address exists in the interval set.
+  /// Checks whether the given address exists in the interval set.
+  [<CompiledName("ContainsAddr")>]
   let containsAddr addr s = includeRange (AddrRange (addr, addr)) s
 
-  /// Check whether the exact interval exists in the interval set.
+  /// Checks whether the exact interval exists in the interval set.
+  [<CompiledName("Contains")>]
   let contains (i: AddrRange) (IntervalSet s) =
     let _, r =
       Op.Split (fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin ()) s
@@ -107,7 +117,9 @@ module IntervalSet =
         else false
     containLoop r
 
-  /// Assuming the given AddrRange is in the set, remove the range.
+  /// Removes the given range assuming it is in the set. Raises an exception if
+  /// the range is not in the set.
+  [<CompiledName("Remove")>]
   let remove (range: AddrRange) (IntervalSet s) =
     let l, r =
       Op.Split (fun (e: InterMonoid<Addr>) -> Key range.Min <= e.GetMin ()) s
@@ -122,11 +134,11 @@ module IntervalSet =
         else raise InvalidAddrRangeException
     IntervalSet <| rmLoop l r
 
-  /// Fold the set.
+  /// Folds the elements in the interval set.
+  [<CompiledName("Fold")>]
   let fold fn acc (IntervalSet s) =
     foldl (fun acc (elt: IntervalSetElem) -> fn acc elt.Val) acc s
 
-  /// Iterate the set.
+  /// Iterates the elements in the interval set.
+  [<CompiledName("Iter")>]
   let iter fn s = fold (fun _ elt -> fn elt) () s
-
-// vim: set tw=80 sts=2 sw=2:

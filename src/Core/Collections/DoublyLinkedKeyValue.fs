@@ -24,7 +24,10 @@
 
 namespace B2R2.Collections
 
-/// Doubly-linked key-value node.
+/// <summary>
+/// Represents a doubly-linked key-value node that is used in the
+/// <see cref='T:B2R2.Collections.LRUCache`2'/>.
+/// </summary>
 [<AllowNullLiteral>]
 type DoublyLinkedKeyValue<'K, 'V when 'K: equality and 'V: equality>
   (prev, next, key, value) =

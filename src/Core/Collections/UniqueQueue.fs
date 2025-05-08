@@ -27,7 +27,7 @@ namespace B2R2.Collections
 open System.Collections.Generic
 open System.Runtime.InteropServices
 
-/// A queue that only stores unique elements.
+/// Represents a queue that only stores unique elements.
 type UniqueQueue<'T> () =
   let queue = Queue<'T> ()
   let set = HashSet<'T> ()

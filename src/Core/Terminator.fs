@@ -37,7 +37,8 @@ module B2R2.Terminator
 open System
 open System.Diagnostics
 
-/// Not implemented features encountered, so raise an exception and die.
+/// Terminates the program with a message indicating that the program is
+/// not implemented yet and will be implemented in the future.
 [<StackTraceHidden>]
 let futureFeature () =
   let trace = StackTrace (true)
@@ -45,7 +46,8 @@ let futureFeature () =
   trace.ToString () |> printfn "%s"
   raise <| NotImplementedException ()
 
-/// Fatal error. This should never happen.
+/// Terminates the program with a message indicating this should never happen.
+/// This is a bug and should be reported.
 [<StackTraceHidden>]
 let impossible () =
   let trace = StackTrace (true)
@@ -53,7 +55,8 @@ let impossible () =
   trace.ToString () |> printfn "%s"
   raise <| InvalidOperationException ()
 
-/// Exit the whole program with a fatal error message.
+/// Exits the whole program including any child processes with a fatal error
+/// message.
 let fatalExit (msg: string) =
   Console.Error.WriteLine msg
   exit 1

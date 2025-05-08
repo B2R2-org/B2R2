@@ -27,16 +27,17 @@ namespace B2R2.Collections
 open B2R2
 
 /// <summary>
-/// This is a non-overlapping interval map. By interval map, we mean a map based
-/// on an interval tree, which maps an interval (i.e., AddrRange) to a value. We
-/// currently implement this using a red-black tree, which follows the
+/// Represents a non-overlapping interval map. By interval map, we mean a map
+/// based on an interval tree, which maps an interval (i.e., AddrRange) to a
+/// value. We currently implement this using a red-black tree, which follows the
 /// implementation of the paper written by Kimball Germane and Matthew Might:
 /// "Deletion: The Curse of the Red-Black Tree", Journal of Functional
 /// Programming, vol. 24, no. 4, 2014.
 /// </summary>
 type NoOverlapIntervalMap<'V>
 
-/// This is a helper class for manipulating an NoOverlapIntervalMap.
+/// Provides functions for creating or manipulating non-overlapping interval
+/// maps.
 [<RequireQualifiedAccess>]
 module NoOverlapIntervalMap =
   /// Return an empty map.

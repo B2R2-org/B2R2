@@ -24,10 +24,12 @@
 
 namespace B2R2.Collections
 
-/// Persistent queue using two lists.
+/// Represents a persistent queue. We internally use two lists to represent the
+/// queue.
 type PersistentQueue<'T> =
   private PQ of 'T list * 'T list
 
+/// Provides functions to create or manipulate persistent queues.
 [<RequireQualifiedAccess>]
 module PersistentQueue =
 
