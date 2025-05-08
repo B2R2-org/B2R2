@@ -90,7 +90,7 @@ type FunctionSummarizer<'FnCtx,
     let hdl = ctx.BinHandle
     if ctx.IsExternal then
       let retReg =
-        CallingConvention.returnRegister hdl
+        CallingConvention.ReturnRegister hdl
         |> hdl.RegisterFactory.GetRegVar
       let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
       let e = AST.undef rt "ret"

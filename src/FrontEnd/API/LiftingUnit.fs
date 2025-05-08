@@ -28,8 +28,11 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
-/// Lifting unit is responsible for parsing/lifting binary instructions. To
-/// lift a binary file in parallel, one needs to create multiple lifting units.
+/// <summary>
+/// Represents a basic unit for lifting binaries, which can be used to parse,
+/// disassemble, and lift instructions. To lift a binary in parallel, one needs
+/// to create multiple lifting units.
+/// </summary>
 type LiftingUnit (binFile: IBinFile,
                   regFactory: IRegisterFactory,
                   parser: IInstructionParsable) =

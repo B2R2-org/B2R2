@@ -29,8 +29,10 @@ open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.ELF
 
-/// ExceptionInfo holds parsed exception information of a binary code (given by
-/// the BinHandle).
+/// <summary>
+/// Represents parsed exception information of a binary code. We currently only
+/// support ELF binaries.
+/// </summary>
 type ExceptionInfo (liftingUnit: LiftingUnit) =
   let loadCallSiteTable lsdaPointer lsdas =
     let lsda = Map.find lsdaPointer lsdas
@@ -96,14 +98,14 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
   new (hdl: BinHandle) =
     ExceptionInfo (hdl.NewLiftingUnit ())
 
-  /// Return the exception handler mapping.
+  /// Returns the exception handler mapping.
   member _.ExceptionMap with get() = exnTbl
 
-  /// Return a set of function entry points that are visible from exception
+  /// Returns a set of function entry points that are visible from exception
   /// table information.
   member _.FunctionEntryPoints with get() = funcEntryPoints
 
-  /// For a given instruction address, find the landing pad (exception target)
-  /// of the instruction.
+  /// Finds the exception target (landing pad) for a given instruction address.
+  /// If the address is not in the exception table, it returns None.
   member _.TryFindExceptionTarget insAddr =
     NoOverlapIntervalMap.tryFindByAddr insAddr exnTbl

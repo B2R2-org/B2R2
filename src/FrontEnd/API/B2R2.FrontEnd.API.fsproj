@@ -13,7 +13,6 @@
     <Compile Include="LiftingUnit.fs" />
     <Compile Include="BinHandle.fsi" />
     <Compile Include="BinHandle.fs" />
-    <Compile Include="CallingConvention.fsi" />
     <Compile Include="CallingConvention.fs" />
     <Compile Include="InstructionCollection.fs" />
     <Compile Include="ExceptionInfo.fs" />

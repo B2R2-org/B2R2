@@ -29,9 +29,10 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 
-/// Collection of lifted instructions. When this class is instantiated, it will
-/// automatically lift all possible instructions from the given binary, and
-/// store them in the internal collection. This is shared across all functions.
+/// Represents a collection of lifted instructions. When this class is
+/// instantiated, it will automatically lift all possible instructions from the
+/// given binary, and store them in the internal collection. This is shared
+/// across all functions.
 [<AllowNullLiteral>]
 type InstructionCollection (collector: IInstructionCollectable) =
   let dict = ConcurrentDictionary<Addr, InstructionCandidate> ()
@@ -64,26 +65,28 @@ type InstructionCollection (collector: IInstructionCollectable) =
     | OnlyOne ins -> ins
     | _ -> raise ParsingFailureException
 
-/// There could be two instructions at the same address, one for ARM and the
-/// other for Thumb mode.
+/// Represents one or more candidate instructions located at the same address.
+/// There could be two instructions at the same address when considering the
+/// operation mode of ARM CPU: one for ARM and the other for Thumb mode.
 and InstructionCandidate =
   | OnlyOne of IInstruction
   | MaybeTwo of IInstruction option * IInstruction option (* arm or thumb *)
 
-/// Interface for collecting instructions.
+/// Provides an interface for collecting instructions.
 and IInstructionCollectable =
-  /// Collect instructions from the binary. The `updateFn` is called for each
+  /// Collects instructions from the binary. The `updateFn` is called for each
   /// instruction that is parsed.
   abstract Collect:
        updateFn: (Addr * InstructionCandidate -> unit)
     -> unit
 
-  /// Parse one or more instruction candidates from the given address.
+  /// Parses one or more instruction candidates from the given address.
   abstract ParseInstructionCandidate:
        Addr
     -> Result<InstructionCandidate, ErrorCase>
 
-/// Perform linear sweep to collect instructions.
+/// Represents a linear sweep instruction collector, which is the most basic
+/// instruction collector performing linear sweep disassembly.
 type LinearSweepInstructionCollector (hdl: BinHandle,
                                       liftingUnit: LiftingUnit) =
   let rec update updateFn shift ptr =

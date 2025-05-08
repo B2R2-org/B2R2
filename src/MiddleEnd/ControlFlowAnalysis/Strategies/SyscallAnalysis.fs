@@ -46,7 +46,7 @@ type SyscallAnalysis () =
         let exitSyscall = LinuxSyscall.toNumber isa LinuxSyscall.Exit
         let exitGrpSyscall = LinuxSyscall.toNumber isa LinuxSyscall.ExitGroup
         let sigretSyscall = LinuxSyscall.toNumber isa LinuxSyscall.RtSigreturn
-        let reg = CallingConvention.returnRegister hdl
+        let reg = CallingConvention.ReturnRegister hdl
         match st.TryGetReg reg with
         | Def v ->
           let n = BitVector.ToInt32 v
@@ -62,7 +62,7 @@ type SyscallAnalysis () =
       | FileFormat.RawBinary
       | FileFormat.ELFBinary ->
         let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
-        let rid = CallingConvention.returnRegister hdl
+        let rid = CallingConvention.ReturnRegister hdl
         let reg = hdl.RegisterFactory.GetRegVar rid
         let e = LowUIR.AST.undef rt "ret"
         let rundown = [| LowUIR.AST.put reg e |]

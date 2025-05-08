@@ -23,7 +23,7 @@
 *)
 
 [<RequireQualifiedAccess>]
-module B2R2.FrontEnd.ConstantFolding
+module B2R2.FrontEnd.BinLifter.ConstantFolding
 
 open System.Collections.Generic
 open B2R2

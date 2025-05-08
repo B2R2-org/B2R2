@@ -23,7 +23,7 @@
 *)
 
 [<RequireQualifiedAccess>]
-module B2R2.FrontEnd.DeadCodeElimination
+module B2R2.FrontEnd.BinLifter.DeadCodeElimination
 
 open System.Collections.Generic
 open B2R2.Collections

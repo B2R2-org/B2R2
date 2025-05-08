@@ -27,9 +27,19 @@ namespace B2R2.FrontEnd
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// The groundwork for the front-end. This module provides a set of functions
-/// to create fundamental components to use the front-end.
+/// <namespacedoc>
+///   <summary>
+///   Contains the APIs for the B2R2 front-end, which is responsible for
+///   parsing, disassembling, and lifting binaries.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
+/// Provides a set of functions to create fundamental components, such as
+/// parsers and IR builders, to use the B2R2 front-end.
+/// </summary>
 type GroundWork =
+  /// Creates a new architecture-specific register factory for the given
+  /// architecture.
   static member CreateRegisterFactory isa =
     match isa with
     | Intel -> Intel.RegisterFactory isa.WordSize :> IRegisterFactory
@@ -47,7 +57,7 @@ type GroundWork =
     | EVM -> EVM.RegisterFactory () :> IRegisterFactory
     | _ -> Terminator.futureFeature ()
 
-  /// Create a new parser (IInstructionParsable) for the given architecture.
+  /// Creates a new parser (IInstructionParsable) for the given architecture.
   static member CreateParser reader isa =
     match isa with
     | Intel ->
@@ -79,7 +89,7 @@ type GroundWork =
     | _ ->
       Terminator.futureFeature ()
 
-  /// Create a new LowUIR builder for the given architecture.
+  /// Creates a new LowUIR builder for the given architecture.
   static member CreateBuilder isa regFactory =
     let stream = LowUIRStream ()
     match isa with
