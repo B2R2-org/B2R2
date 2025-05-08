@@ -135,10 +135,9 @@ module private ARM32Shortcut =
 [<TestClass>]
 type ARM32ParserTests () =
   let test cond op (wback: bool) simd (oprs: Operands) (bytes: byte[]) =
-    let isa = ISA.Init Architecture.ARMv7 Endian.Big
+    let isa = ISA (Architecture.ARMv7, Endian.Big)
     let reader = BinReader.Init Endian.Big
-    let parser =
-      ARM32Parser (isa, false, reader) :> IInstructionParsable
+    let parser = ARM32Parser (isa, false, reader) :> IInstructionParsable
     let ins = parser.Parse (bytes, 0UL) :?> Instruction
     let cond' = ins.Condition
     let op' = ins.Opcode

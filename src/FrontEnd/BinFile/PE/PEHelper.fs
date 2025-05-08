@@ -303,37 +303,33 @@ let inline getNotInFileIntervals pe range =
   |> List.toArray
   |> Array.map range.Slice
 
-let machineToArch = function
-  | Machine.I386 -> Architecture.IntelX86
-  | Machine.Amd64 | Machine.IA64 -> Architecture.IntelX64
-  | Machine.Arm -> Architecture.ARMv7
-  | Machine.Arm64 -> Architecture.AARCH64
+let peMachineToISA = function
+  | Machine.I386 -> ISA (Architecture.Intel, WordSize.Bit32)
+  | Machine.Amd64 | Machine.IA64 -> ISA (Architecture.Intel, WordSize.Bit64)
+  | Machine.Arm -> ISA (Architecture.ARMv7, WordSize.Bit32)
+  | Machine.Arm64 -> ISA (Architecture.ARMv8, WordSize.Bit64)
   | _ -> raise InvalidISAException
 
-let peHeadersToArch (peHeaders: PEHeaders) =
+let peHeadersToISA (peHeaders: PEHeaders) =
   let corHeader = peHeaders.CorHeader
   if isNull corHeader then
-    peHeaders.CoffHeader.Machine |> machineToArch
+    peHeaders.CoffHeader.Machine |> peMachineToISA
   else
-    if corHeader.Flags = CorFlags.ILOnly then Architecture.CILOnly
+    if corHeader.Flags = CorFlags.ILOnly then ISA CILKind.CILOnly
     else
       match peHeaders.CoffHeader.Machine with
-      | Machine.I386 -> Architecture.CILIntel32
-      | Machine.Amd64 | Machine.IA64 -> Architecture.CILIntel64
+      | Machine.I386 -> ISA CILKind.CILx86
+      | Machine.Amd64 | Machine.IA64 -> ISA CILKind.CILx64
       | _ -> raise InvalidISAException
 
 /// Return Architecture from the PE header. If the given binary is invalid,
 /// return an Error.
-let getPEArch (bytes: byte[]) =
+let getISA (bytes: byte[]) =
   try
     use stream = new MemoryStream (bytes)
     use reader = new PEReader (stream, PEStreamOptions.Default)
-    peHeadersToArch reader.PEHeaders |> Ok
+    peHeadersToISA reader.PEHeaders |> Ok
   with _ ->
     Error ErrorCase.InvalidFormat
-
-let getISA pe =
-  let arch = peHeadersToArch pe.PEHeaders
-  ISA.Init arch Endian.Little
 
 // vim: set tw=80 sts=2 sw=2:

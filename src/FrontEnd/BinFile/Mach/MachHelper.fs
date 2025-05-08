@@ -44,9 +44,9 @@ type MachVMProt =
 let getISA hdr =
   let cputype = hdr.CPUType
   let cpusubtype = hdr.CPUSubType
-  let arch = CPUType.toArch cputype cpusubtype
+  let arch, wordSize = CPUType.toArchWordSizeTuple cputype cpusubtype
   let endian = Header.magicToEndian hdr.Magic
-  ISA.Init arch endian
+  ISA (arch, endian, wordSize)
 
 let convFileType = function
   | MachFileType.MH_EXECUTE -> FileType.ExecutableFile

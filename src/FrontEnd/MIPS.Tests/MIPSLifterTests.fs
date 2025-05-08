@@ -56,7 +56,7 @@ type MIPSLifterTests () =
 
   [<TestMethod>]
   member _.``[MIPS64] ADD lift test`` () =
-    let isa = ISA.Init Architecture.MIPS64 Endian.Big
+    let isa = ISA (Architecture.MIPS, Endian.Big, WordSize.Bit64)
     let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
     let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
     let stream = LowUIRStream ()
@@ -77,7 +77,7 @@ type MIPSLifterTests () =
 
   [<TestMethod>]
   member _.``[MIPS32] ADD lift test`` () =
-    let isa = ISA.Init Architecture.MIPS32 Endian.Big
+    let isa = ISA (Architecture.MIPS, Endian.Big, WordSize.Bit32)
     let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
     let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
     let stream = LowUIRStream ()

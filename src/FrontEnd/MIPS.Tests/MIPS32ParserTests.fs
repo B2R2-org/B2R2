@@ -55,8 +55,8 @@ module private MIPS32Shortcut =
 
 [<TestClass>]
 type MIPS32ParserTests () =
-  let test arch endian opcode cond fmt (oprs: Operands) (bytes: byte[]) =
-    let isa = ISA.Init arch endian
+  let test endian opcode cond fmt (oprs: Operands) (bytes: byte[]) =
+    let isa = ISA (Architecture.MIPS, endian, WordSize.Bit32)
     let reader = BinReader.Init endian
     let parser = MIPSParser (isa, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
@@ -71,13 +71,13 @@ type MIPS32ParserTests () =
     Assert.AreEqual<Operands> (oprs, oprs')
 
   let test32R2 cond fmt (bs: byte[]) (opcode, oprs) =
-    test Architecture.MIPS32 Endian.Big opcode (Some cond) (Some fmt) oprs bs
+    test Endian.Big opcode (Some cond) (Some fmt) oprs bs
 
   let test32R2NoCond fmt (bytes: byte[]) (opcode, oprs) =
-    test Architecture.MIPS32 Endian.Big opcode None (Some fmt) oprs bytes
+    test Endian.Big opcode None (Some fmt) oprs bytes
 
   let test32R2NoCondNofmt (bytes: byte[]) (opcode, oprs) =
-    test Architecture.MIPS32 Endian.Big  opcode None None oprs bytes
+    test Endian.Big  opcode None None oprs bytes
 
   let operandsFromArray oprList =
     let oprArray = Array.ofList oprList

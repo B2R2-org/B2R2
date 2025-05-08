@@ -29,19 +29,27 @@ open B2R2.FrontEnd.Intel
 open B2R2.Peripheral.Assembly.Intel.ParserHelper
 
 let isReg8 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 8<rt>
+
 let isReg16 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 16<rt>
+
 let isReg32 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 32<rt>
+
 let isReg64 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 64<rt>
+
 let isMMXReg reg = Register.Kind.MMX = Register.getKind reg
+
 let isXMMReg reg = Register.Kind.XMM = Register.getKind reg
+
 let isYMMReg reg = Register.Kind.YMM = Register.getKind reg
+
 let isSegReg reg = Register.Kind.Segment = Register.getKind reg
+
 let isFPUReg reg = Register.Kind.FPU = Register.getKind reg
 
 let private isHalfSplit (ctx: EncContext) reg =
-  match ctx.Arch, Register.toRegType ctx.WordSize reg with
-  | Architecture.IntelX64, 32<rt> -> true
-  | Architecture.IntelX86, 16<rt> -> true
+  match ctx.WordSize, Register.toRegType ctx.WordSize reg with
+  | WordSize.Bit64, 32<rt> -> true
+  | WordSize.Bit32, 16<rt> -> true
   | _ -> false
 
 let private isAddrSize ctx = function
@@ -116,12 +124,12 @@ let encodeRexB reg = if isExtendReg reg then 0x41uy else 0x0uy
 
 let convVEXRexByte rexByte = (~~~ rexByte) &&& 0b111uy
 
-let encodeVEXRexRB arch r1 r2 =
-  if arch = Architecture.IntelX86 then 0b101uy
+let encodeVEXRexRB wordSize r1 r2 =
+  if wordSize = WordSize.Bit32 then 0b101uy
   else convVEXRexByte (encodeRexR r1 ||| encodeRexB r2)
 
-let encodeVEXRexRXB arch reg rmOrSBase sIdx =
-  if arch = Architecture.IntelX86 then 0b111uy
+let encodeVEXRexRXB wordSize reg rmOrSBase sIdx =
+  if wordSize = WordSize.Bit32 then 0b111uy
   else
     match rmOrSBase, sIdx with
     | Some r1, Some (r2, _) ->
@@ -183,8 +191,8 @@ let encodeRexRXB ctx isMR = function
   | o -> printfn "Inavlid Operand (%A)" o; Terminator.futureFeature ()
 
 let encodeREXPref ins (ctx: EncContext) (rexPrx: EncREXPrefix) =
-  if ctx.Arch = Architecture.IntelX86 then [||]
-  else (* Arch.IntelX64 *)
+  if ctx.WordSize = WordSize.Bit32 then [||]
+  else (* IntelX64 *)
     let rexW = if rexPrx.RexW then 0x48uy else 0uy
     let rxb = encodeRexRXB ctx rexPrx.IsMemReg ins.Operands
     if rxb = 0uy && rexW = 0uy then [||] else [| Normal (rexW ||| rxb) |]

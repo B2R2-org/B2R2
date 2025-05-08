@@ -31,11 +31,11 @@ open B2R2.Peripheral.Assembly.Intel.ParserHelper
 open B2R2.Peripheral.Assembly.Intel.AsmOpcode
 
 type AssemblyInfo = {
-  Index         : int
-  PC            : Addr
-  ByteStr       : string
-  AsmComponents : AsmComponent []
-  AsmLabel      : string option
+  Index: int
+  PC: Addr
+  ByteStr: string
+  AsmComponents: AsmComponent []
+  AsmLabel: string option
 }
 
 type UserState = {
@@ -317,7 +317,7 @@ let normalToByte = function
   | Normal b -> b
   | comp -> printfn "%A" comp; Terminator.impossible ()
 
-let finalize arch parserState realLenArr baseAddr myIdx comp =
+let finalize wordSize parserState realLenArr baseAddr myIdx comp =
   match comp with
   | [| CompOp (_, OneOperand (Label (lbl, _)), bs, _); IncompLabel sz |] ->
     let labelIdx = Map.find lbl parserState.LabelMap
@@ -329,19 +329,19 @@ let finalize arch parserState realLenArr baseAddr myIdx comp =
        IncompLabel sz |] ->
     let labelIdx = Map.find lbl parserState.LabelMap
     let addr =
-      if arch = Architecture.IntelX86 then computeAddr labelIdx realLenArr
+      if wordSize = WordSize.Bit32 then computeAddr labelIdx realLenArr
       else computeDistance myIdx labelIdx realLenArr
     [| yield! bs; yield! concretizeLabel sz (addr  + int64 baseAddr)
        yield! getImm imm |]
   | _ -> comp |> Array.map normalToByte
 
-let assemble parserState isa (baseAddr: Addr) (instrs: AsmInsInfo list) =
-  let ctxt = EncContext (isa)
+let assemble parserState wordSize (baseAddr: Addr) (instrs: AsmInsInfo list) =
+  let ctxt = EncContext wordSize
   let components = instrs |> List.map (fun ins -> encodeInstruction ins ctxt)
   let maxLenArr = computeMaxLen components
   let components' = components |> List.mapi (decideOp parserState maxLenArr)
   let realLenArr = computeRealLen components'
   components'
-  |> List.mapi (finalize isa.Arch parserState realLenArr baseAddr)
+  |> List.mapi (finalize wordSize parserState realLenArr baseAddr)
 
 // vim: set tw=80 sts=2 sw=2:

@@ -25,15 +25,14 @@
 module B2R2.FrontEnd.CallingConvention
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 
 [<CompiledName("VolatileRegisters")>]
 let volatileRegisters (hdl: BinHandle) =
-  match hdl.File.ISA.Arch with
-  | Architecture.IntelX86 ->
+  match hdl.File.ISA with
+  | X86 ->
     [ Intel.Register.EAX; Intel.Register.ECX; Intel.Register.EDX ]
     |> List.map Intel.Register.toRegID
-  | Architecture.IntelX64 ->
+  | X64 ->
     [ Intel.Register.RAX
       Intel.Register.RCX
       Intel.Register.RDX
@@ -42,14 +41,13 @@ let volatileRegisters (hdl: BinHandle) =
       Intel.Register.R10
       Intel.Register.R11 ]
     |> List.map Intel.Register.toRegID
-  | Architecture.ARMv7
-  | Architecture.AARCH32 ->
+  | ARM32 ->
     [ ARM32.Register.R0
       ARM32.Register.R1
       ARM32.Register.R2
       ARM32.Register.R3 ]
     |> List.map ARM32.Register.toRegID
-  | Architecture.AARCH64 ->
+  | AArch64 ->
     [ ARM64.Register.X9
       ARM64.Register.X10
       ARM64.Register.X11
@@ -58,8 +56,7 @@ let volatileRegisters (hdl: BinHandle) =
       ARM64.Register.X14
       ARM64.Register.X15 ]
     |> List.map ARM64.Register.toRegID
-  | Architecture.MIPS32
-  | Architecture.MIPS64 ->
+  | MIPS ->
     [ MIPS.Register.R8
       MIPS.Register.R9
       MIPS.Register.R10
@@ -73,40 +70,28 @@ let volatileRegisters (hdl: BinHandle) =
 
 [<CompiledName("ReturnRegister")>]
 let returnRegister (hdl: BinHandle) =
-  match hdl.File.ISA.Arch with
-  | Architecture.IntelX86 ->
-    Intel.Register.EAX |> Intel.Register.toRegID
-  | Architecture.IntelX64 ->
-    Intel.Register.RAX |> Intel.Register.toRegID
-  | Architecture.ARMv7
-  | Architecture.AARCH32 ->
-    ARM32.Register.R0 |> ARM32.Register.toRegID
-  | Architecture.AARCH64 ->
-    ARM64.Register.X0 |> ARM64.Register.toRegID
-  | Architecture.MIPS32 | Architecture.MIPS64 ->
-    MIPS.Register.R2 |> MIPS.Register.toRegID
+  match hdl.File.ISA with
+  | X86 -> Intel.Register.EAX |> Intel.Register.toRegID
+  | X64 -> Intel.Register.RAX |> Intel.Register.toRegID
+  | ARM32 -> ARM32.Register.R0 |> ARM32.Register.toRegID
+  | AArch64 -> ARM64.Register.X0 |> ARM64.Register.toRegID
+  | MIPS -> MIPS.Register.R2 |> MIPS.Register.toRegID
   | _ -> Terminator.futureFeature ()
 
 [<CompiledName("SyscallNumRegister")>]
 let syscallNumRegister (hdl: BinHandle) =
-  match hdl.File.ISA.Arch with
-  | Architecture.IntelX86 ->
-    Intel.Register.EAX |> Intel.Register.toRegID
-  | Architecture.IntelX64 ->
-    Intel.Register.RAX |> Intel.Register.toRegID
-  | Architecture.ARMv7
-  | Architecture.AARCH32 ->
-    ARM32.Register.R7 |> ARM32.Register.toRegID
-  | Architecture.AARCH64 ->
-    ARM64.Register.X8 |> ARM64.Register.toRegID
-  | Architecture.MIPS32 | Architecture.MIPS64 ->
-    MIPS.Register.R2 |> MIPS.Register.toRegID
+  match hdl.File.ISA with
+  | X86 -> Intel.Register.EAX |> Intel.Register.toRegID
+  | X64 -> Intel.Register.RAX |> Intel.Register.toRegID
+  | ARM32 -> ARM32.Register.R7 |> ARM32.Register.toRegID
+  | AArch64 -> ARM64.Register.X8 |> ARM64.Register.toRegID
+  | MIPS -> MIPS.Register.R2 |> MIPS.Register.toRegID
   | _ -> Terminator.futureFeature ()
 
 [<CompiledName("SyscallArgRegister")>]
 let syscallArgRegister (hdl: BinHandle) os num =
-  match os, hdl.File.ISA.Arch with
-  | OS.Linux, Architecture.IntelX86 ->
+  match os, hdl.File.ISA with
+  | OS.Linux, X86 ->
     match num with
     | 1 -> Intel.Register.EBX |> Intel.Register.toRegID
     | 2 -> Intel.Register.ECX |> Intel.Register.toRegID
@@ -115,7 +100,7 @@ let syscallArgRegister (hdl: BinHandle) os num =
     | 5 -> Intel.Register.EDI |> Intel.Register.toRegID
     | 6 -> Intel.Register.EBP |> Intel.Register.toRegID
     | _ -> Terminator.impossible ()
-  | OS.Linux, Architecture.IntelX64 ->
+  | OS.Linux, X64 ->
     match num with
     | 1 -> Intel.Register.RDI |> Intel.Register.toRegID
     | 2 -> Intel.Register.RSI |> Intel.Register.toRegID
@@ -124,8 +109,7 @@ let syscallArgRegister (hdl: BinHandle) os num =
     | 5 -> Intel.Register.R8 |> Intel.Register.toRegID
     | 6 -> Intel.Register.R9 |> Intel.Register.toRegID
     | _ -> Terminator.impossible ()
-  | OS.Linux, Architecture.ARMv7
-  | OS.Linux, Architecture.AARCH32 ->
+  | OS.Linux, ARM32 ->
     match num with
     | 1 -> ARM32.Register.R0 |> ARM32.Register.toRegID
     | 2 -> ARM32.Register.R1 |> ARM32.Register.toRegID
@@ -134,7 +118,7 @@ let syscallArgRegister (hdl: BinHandle) os num =
     | 5 -> ARM32.Register.R4 |> ARM32.Register.toRegID
     | 6 -> ARM32.Register.R5 |> ARM32.Register.toRegID
     | _ -> Terminator.impossible ()
-  | OS.Linux, Architecture.AARCH64 ->
+  | OS.Linux, AArch64 ->
     match num with
     | 1 -> ARM64.Register.X0 |> ARM64.Register.toRegID
     | 2 -> ARM64.Register.X1 |> ARM64.Register.toRegID
@@ -143,7 +127,7 @@ let syscallArgRegister (hdl: BinHandle) os num =
     | 5 -> ARM64.Register.X4 |> ARM64.Register.toRegID
     | 6 -> ARM64.Register.X5 |> ARM64.Register.toRegID
     | _ -> Terminator.impossible ()
-  | OS.Linux, Architecture.MIPS32 | OS.Linux, Architecture.MIPS64 ->
+  | OS.Linux, MIPS ->
     match num with
     | 1 -> MIPS.Register.R4 |> MIPS.Register.toRegID
     | 2 -> MIPS.Register.R5 |> MIPS.Register.toRegID
@@ -156,13 +140,13 @@ let syscallArgRegister (hdl: BinHandle) os num =
 
 [<CompiledName("FunctionArgRegister")>]
 let functionArgRegister (hdl: BinHandle) os num =
-  match os, hdl.File.ISA.Arch with
-  | OS.Windows, Architecture.IntelX86 -> (* fast call *)
+  match os, hdl.File.ISA with
+  | OS.Windows, X86 -> (* fast call *)
     match num with
     | 1 -> Intel.Register.ECX |> Intel.Register.toRegID
     | 2 -> Intel.Register.EDX |> Intel.Register.toRegID
     | _ -> Terminator.impossible ()
-  | OS.Linux, Architecture.IntelX64 -> (* System V *)
+  | OS.Linux, X64 -> (* System V *)
     match num with
     | 1 -> Intel.Register.RDI |> Intel.Register.toRegID
     | 2 -> Intel.Register.RSI |> Intel.Register.toRegID
@@ -171,7 +155,7 @@ let functionArgRegister (hdl: BinHandle) os num =
     | 5 -> Intel.Register.R8 |> Intel.Register.toRegID
     | 6 -> Intel.Register.R9 |> Intel.Register.toRegID
     | _ -> Terminator.impossible ()
-  | OS.Windows, Architecture.IntelX64 ->
+  | OS.Windows, X64 ->
     match num with
     | 1 -> Intel.Register.RCX |> Intel.Register.toRegID
     | 2 -> Intel.Register.RDX |> Intel.Register.toRegID
@@ -182,13 +166,13 @@ let functionArgRegister (hdl: BinHandle) os num =
 
 [<CompiledName("IsNonVolatile")>]
 let isNonVolatile (hdl: BinHandle) os rid =
-  match os, hdl.File.ISA.Arch with
-  | OS.Linux, Architecture.IntelX86 -> (* CDECL *)
+  match os, hdl.File.ISA with
+  | OS.Linux, X86 -> (* CDECL *)
     rid = (Intel.Register.EBP |> Intel.Register.toRegID)
     || rid = (Intel.Register.EBX |> Intel.Register.toRegID)
     || rid = (Intel.Register.ESI |> Intel.Register.toRegID)
     || rid = (Intel.Register.EDI |> Intel.Register.toRegID)
-  | OS.Linux, Architecture.IntelX64 -> (* CDECL *)
+  | OS.Linux, X64 -> (* CDECL *)
     rid = (Intel.Register.RBX |> Intel.Register.toRegID)
     || rid = (Intel.Register.RSP |> Intel.Register.toRegID)
     || rid = (Intel.Register.RBP |> Intel.Register.toRegID)
@@ -196,7 +180,7 @@ let isNonVolatile (hdl: BinHandle) os rid =
     || rid = (Intel.Register.R13 |> Intel.Register.toRegID)
     || rid = (Intel.Register.R14 |> Intel.Register.toRegID)
     || rid = (Intel.Register.R15 |> Intel.Register.toRegID)
-  | OS.Linux, Architecture.ARMv7 -> (* EABI *)
+  | OS.Linux, ARM32 -> (* EABI *)
     rid = (ARM32.Register.R4 |> ARM32.Register.toRegID)
     || rid = (ARM32.Register.R5 |> ARM32.Register.toRegID)
     || rid = (ARM32.Register.R6 |> ARM32.Register.toRegID)
@@ -204,7 +188,7 @@ let isNonVolatile (hdl: BinHandle) os rid =
     || rid = (ARM32.Register.R8 |> ARM32.Register.toRegID)
     || rid = (ARM32.Register.SL |> ARM32.Register.toRegID)
     || rid = (ARM32.Register.FP |> ARM32.Register.toRegID)
-  | OS.Linux, Architecture.AARCH64 -> (* EABI *)
+  | OS.Linux, AArch64 -> (* EABI *)
     rid = (ARM64.Register.X19 |> ARM64.Register.toRegID)
     || rid = (ARM64.Register.X20 |> ARM64.Register.toRegID)
     || rid = (ARM64.Register.X21 |> ARM64.Register.toRegID)
@@ -216,7 +200,7 @@ let isNonVolatile (hdl: BinHandle) os rid =
     || rid = (ARM64.Register.X27 |> ARM64.Register.toRegID)
     || rid = (ARM64.Register.X28 |> ARM64.Register.toRegID)
     || rid = (ARM64.Register.X29 |> ARM64.Register.toRegID)
-  | OS.Linux, Architecture.MIPS32 | OS.Linux, Architecture.MIPS64 ->
+  | OS.Linux, MIPS ->
     rid = (MIPS.Register.R16 |> MIPS.Register.toRegID)
     || rid = (MIPS.Register.R17 |> MIPS.Register.toRegID)
     || rid = (MIPS.Register.R18 |> MIPS.Register.toRegID)
@@ -226,7 +210,7 @@ let isNonVolatile (hdl: BinHandle) os rid =
     || rid = (MIPS.Register.R22 |> MIPS.Register.toRegID)
     || rid = (MIPS.Register.R23 |> MIPS.Register.toRegID)
     || rid = (MIPS.Register.R30 |> MIPS.Register.toRegID)
-  | OS.Windows, Architecture.IntelX64 -> (* Microsoft x64 *)
+  | OS.Windows, X64 -> (* Microsoft x64 *)
     rid = (Intel.Register.RBX |> Intel.Register.toRegID)
     || rid = (Intel.Register.RSP |> Intel.Register.toRegID)
     || rid = (Intel.Register.RBP |> Intel.Register.toRegID)

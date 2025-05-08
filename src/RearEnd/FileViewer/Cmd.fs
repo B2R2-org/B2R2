@@ -41,7 +41,7 @@ type FileViewerOpts () =
   /// BinHandle will automatically detect file format by default. When a fat
   /// binary is given, we need to choose which architecture to explorer with
   /// this option.
-  member val ISA = ISA.DefaultISA with get, set
+  member val ISA = ISA Architecture.Intel with get, set
 
   /// Base address to use. By default, it is zero (0).
   member val BaseAddress: Addr option = None with get, set

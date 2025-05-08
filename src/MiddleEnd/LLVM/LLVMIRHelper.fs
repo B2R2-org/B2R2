@@ -28,11 +28,11 @@ open B2R2
 
 /// Initialize the context for the given ISA.
 let initializeContext isa =
-  match isa.Arch with
-  | Architecture.IntelX64 -> X64Context.init ()
-  | Architecture.IntelX86 -> X86Context.init ()
-  | Architecture.ARMv7 | Architecture.AARCH32 -> ARM32Context.init ()
-  | Architecture.AARCH64 -> ARM64Context.init ()
-  | Architecture.MIPS32 -> MIPS32Context.init ()
-  | Architecture.MIPS64 -> MIPS64Context.init ()
+  match isa with
+  | X64 -> X64Context.init ()
+  | X86 -> X86Context.init ()
+  | ARM32 -> ARM32Context.init ()
+  | AArch64 -> ARM64Context.init ()
+  | MIPS32 -> MIPS32Context.init ()
+  | MIPS64 -> MIPS64Context.init ()
   | _ -> Terminator.futureFeature ()

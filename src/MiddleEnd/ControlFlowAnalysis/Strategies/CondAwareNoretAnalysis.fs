@@ -107,11 +107,11 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
 
   let tryGetConnectedArgumentFromIRCFG ctx state pp nth =
     let callSite = (pp: ProgramPoint).CallSite |> Option.get
-    let arch = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA.Arch
+    let isa = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA
     match ctx.IntraCallTable.TryGetFrameDistance callSite with
-    | true, frameDist when arch = Architecture.IntelX86 ->
+    | true, frameDist when isa.IsX86 ->
       untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth
-    | true, _ when arch = Architecture.IntelX64 ->
+    | true, _ when isa.IsX64 ->
       untouchedArgIndexX64FromIRCFG ctx.BinHandle ctx pp state nth
     | _ -> None
 
@@ -165,11 +165,11 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     let callSite = (pp: ProgramPoint).CallSite |> Option.get
     let callerSSAV = findSSAVertexByAddr ssa callSite
     let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
-    let arch = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA.Arch
+    let isa = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA
     match ctx.IntraCallTable.TryGetFrameDistance callSite with
-    | true, frameDist when arch = Architecture.IntelX86 ->
+    | true, frameDist when isa.IsX86 ->
       untouchedArgIndexX86FromSSACFG ssa frameDist absSSAV state nth
-    | true, _ when arch = Architecture.IntelX64 ->
+    | true, _ when isa.IsX64 ->
       untouchedArgIndexX64FromSSACFG ctx.BinHandle ssa absSSAV state nth
     | _ -> None
 
@@ -282,7 +282,7 @@ module CondAwareNoretAnalysis =
   /// (defined by the current ABI) is non-zero.
   let hasNonZero (hdl: BinHandle) caller nth =
     let st = CFGEvaluator.evalBlockFromScratch hdl caller
-    match hdl.File.ISA.Arch with
-    | Architecture.IntelX86 -> hasNonZeroOnX86 st nth
-    | Architecture.IntelX64 -> hasNonZeroOnX64 hdl st nth
+    match hdl.File.ISA with
+    | X86 -> hasNonZeroOnX86 st nth
+    | X64 -> hasNonZeroOnX64 hdl st nth
     | _ -> false

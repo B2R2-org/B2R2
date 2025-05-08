@@ -27,9 +27,9 @@ namespace B2R2
 /// Raised when unknown OS type is detected.
 exception UnknownOSException
 
-/// Operating System (OS) type.
+/// Represents the target operating system type that the binary is compiled for.
 type OS =
-  /// windows.
+  /// Windows.
   | Windows = 1
   /// Linux.
   | Linux = 2
@@ -38,13 +38,13 @@ type OS =
   /// Unknown
   | UnknownOS = 4
 
-/// A helper module for OS type.
+/// Provides functions to work with OS types.
 [<RequireQualifiedAccess>]
 module OS =
   open System.IO
 
-  /// Test if the given program name is runnable in the current environment
-  /// by analyzing the PATH environment variable.
+  /// Checks if the given program name is runnable in the current environment by
+  /// analyzing the PATH environment variable.
   [<CompiledName "IsRunnable">]
   let isRunnable progName =
     let testPath path =
@@ -55,7 +55,7 @@ module OS =
     else let vars = System.Environment.GetEnvironmentVariable "PATH"
          vars.Split (Path.PathSeparator) |> Array.exists testPath
 
-  /// Obtain an OS type from the given string.
+  /// Obtains an OS type from the given string.
   [<CompiledName "OfString">]
   let ofString (s: string) =
     match s.ToLowerInvariant () with
@@ -65,7 +65,7 @@ module OS =
     | "unknown" -> OS.UnknownOS
     | _ -> invalidArg (nameof s) "Unknown OS string"
 
-  /// Return a string representation from the given OS type.
+  /// Returns a string representation from the given OS type.
   [<CompiledName "ToString">]
   let toString os =
     match os with

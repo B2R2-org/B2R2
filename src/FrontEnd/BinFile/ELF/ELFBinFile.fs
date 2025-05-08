@@ -91,7 +91,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.Format with get() = FileFormat.ELFBinary
 
-    member _.ISA with get() = ISA.Init hdr.MachineType hdr.Endian
+    member _.ISA with get() = toolBox.ISA
 
     member _.Type with get() = toFileType hdr.ELFFileType
 

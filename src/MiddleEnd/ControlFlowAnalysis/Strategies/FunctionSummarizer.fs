@@ -77,8 +77,8 @@ type FunctionSummarizer<'FnCtx,
     AST.load Endian.Little rt sp (* [rsp] *)
 
   let initializeLiveVarMap hdl funcAddr =
-    match (hdl: BinHandle).File.ISA.Arch with
-    | Architecture.IntelX86 ->
+    match (hdl: BinHandle).File.ISA with
+    | X86 ->
       match tryFindLiveRegFromGetPCThunk hdl funcAddr with
       | Some var ->
         let e = genFreshStackVarExpr hdl

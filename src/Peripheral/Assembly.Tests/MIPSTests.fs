@@ -31,10 +31,7 @@ open B2R2.FrontEnd.MIPS
 
 [<TestClass>]
 type MIPSTests () =
-  let mips =
-      { Arch = Architecture.MIPS32
-        Endian = Endian.Big
-        WordSize = WordSize.Bit32 }
+  let mips = ISA (Architecture.MIPS, WordSize.Bit32)
   let assembler = MIPS.AsmParser (mips, 0UL)
   let newInfo = MIPS.ParserHelper.newAssemblyIns
 

@@ -29,10 +29,10 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 
-type Binary = Binary of byte[] * Architecture
+type Binary = Binary of byte[] * Architecture * WordSize
 
-let loadOne (Binary (code, arch)) =
-  let isa = ISA.Init arch Endian.Little
+let loadOne (Binary (code, arch, wordSize)) =
+  let isa = ISA (arch, wordSize)
   let hdl = BinHandle (code, isa, None, false)
   BinaryBrew hdl
 
@@ -79,7 +79,7 @@ let private code1 =
      0x4Auy; 0x8Duy; 0x04uy; 0x31uy; 0x8Duy; 0x31uy; 0x8Buy; 0xC8uy; 0x83uy;
      0xEAuy; 0x01uy; 0x75uy; 0xF4uy; 0x5Euy; 0xC3uy |]
 
-let sample1 = Binary (code1, Architecture.IntelX86)
+let sample1 = Binary (code1, Architecture.Intel, WordSize.Bit32)
 
 (*
   Example 2: Constant Propagation Test (from Dragon Book, p636)
@@ -132,7 +132,7 @@ let private code2 =
      0x00uy; 0x00uy; 0x8Buy; 0x55uy; 0xF4uy; 0x8Buy; 0x45uy; 0xF8uy; 0x01uy;
      0xD0uy; 0x89uy; 0x45uy; 0xFCuy; 0x90uy; 0x5Duy; 0xC3uy |]
 
-let sample2 = Binary (code2, Architecture.IntelX64)
+let sample2 = Binary (code2, Architecture.Intel, WordSize.Bit64)
 
 (*
   Example 3: Untouched Value Propagation Test
@@ -186,4 +186,4 @@ let private code3 =
      0x8buy; 0x75uy; 0xf4uy; 0x8buy; 0x45uy; 0xf0uy; 0x89uy; 0xc7uy;
      0xc9uy; 0xc3uy; |]
 
-let sample3 = Binary (code3, Architecture.IntelX64)
+let sample3 = Binary (code3, Architecture.Intel, WordSize.Bit64)

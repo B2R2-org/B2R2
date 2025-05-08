@@ -35,10 +35,7 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
   let wm = Parser.parse bytes
   let baseAddr = defaultArg baseAddrOpt 0UL
   let reader = BinReader.Init Endian.Little
-  let isa =
-    { Arch = Architecture.WASM
-      Endian = Endian.Little
-      WordSize = WordSize.Bit32 }
+  let isa = ISA Architecture.WASM
 
   new (path, bytes) = WasmBinFile (path, bytes, None)
 

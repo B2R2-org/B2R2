@@ -52,7 +52,6 @@ module private AVRShortcut =
 
 type AVRParserTests () =
   let test (bytes: byte[]) (opcode, oprs: Operands) =
-    let isa = ISA.Init Architecture.AVR Endian.Little
     let reader = BinReader.Init Endian.Little
     let parser = AVRParser (reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes

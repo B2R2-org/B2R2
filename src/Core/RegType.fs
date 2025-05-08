@@ -24,19 +24,23 @@
 
 namespace B2R2
 
-/// This exception is raised when an invalid RegType is encountered.
+/// Raised when an invalid RegType is encountered.
 exception InvalidRegTypeException
 
-/// A unit for RegType.
+/// A unit of measure for register types.
 [<Measure>]
 type rt
 
-/// Types that a register can have. This essentially means how many bits are in
-/// the register.
+/// <summary>
+/// Represents a register type in terms of its bit width. We use a unit of
+/// measure to represent the bit width of a register. For example, a 32-bit
+/// register is represented as <c>32&lt;rt&gt;</c>, and a 64-bit register is
+/// represented as <c>64&lt;rt&gt;</c>.
+/// </summary>
 type RegType = int<rt>
 
 /// <summary>
-///   A helper for <see cref="T:B2R2.RegType"/>.
+/// Provides several helper functions to deal with <see cref="T:B2R2.RegType"/>.
 /// </summary>
 [<RequireQualifiedAccess>]
 module RegType =
@@ -47,12 +51,12 @@ module RegType =
 #endif
 
   /// <summary>
-  ///   Convert <see cref="T:B2R2.RegType"/> to string.
+  /// Convert <see cref="T:B2R2.RegType"/> to string.
   /// </summary>
   /// <param name="t">RegType.</param>
   /// <returns>
-  ///   A string representation for RegType. For example, I32 means a 32-bit
-  ///   integer type.
+  /// A string representation for RegType. For example, I32 means a 32-bit
+  /// integer type.
   /// </returns>
   [<CompiledName "ToString">]
   let toString (t: RegType) =
@@ -62,11 +66,11 @@ module RegType =
     "I" + t.ToString ()
 
   /// <summary>
-  ///   Convert a <see cref="T:B2R2.RegType"/> to an integer of bit width.
+  /// Convert a <see cref="T:B2R2.RegType"/> to an integer of bit width.
   /// </summary>
   /// <param name="t">RegType.</param>
   /// <returns>
-  ///   A bit width in integer of the given RegType.
+  /// A bit width in integer of the given RegType.
   /// </returns>
   [<CompiledName "ToBitWidth">]
   let toBitWidth (t: RegType) =
@@ -76,11 +80,11 @@ module RegType =
     int t
 
   /// <summary>
-  ///   Get a byte width from a RegType.
+  /// Get a byte width from a RegType.
   /// </summary>
   /// <param name="t">RegType.</param>
   /// <returns>
-  ///   A byte width in integer of the given RegType.
+  /// A byte width in integer of the given RegType.
   /// </returns>
   [<CompiledName "ToByteWidth">]
   let toByteWidth t =
@@ -89,11 +93,11 @@ module RegType =
     else raise InvalidRegTypeException
 
   /// <summary>
-  ///   Get the corresponding integer RegType from the given bit width.
+  /// Get the corresponding integer RegType from the given bit width.
   /// </summary>
   /// <param name="n">Bit width in integer.</param>
   /// <returns>
-  ///   A <see cref="T:B2R2.RegType"/>.
+  /// A <see cref="T:B2R2.RegType"/>.
   /// </returns>
   [<CompiledName "FromBitWidth">]
   let inline fromBitWidth n =
@@ -104,20 +108,20 @@ module RegType =
     t
 
   /// <summary>
-  ///   Get the corresponding integer RegType from the given byte width.
+  /// Get the corresponding integer RegType from the given byte width.
   /// </summary>
   /// <param name="n">Byte width in integer.</param>
   /// <returns>
-  ///   A <see cref="T:B2R2.RegType"/>.
+  /// A <see cref="T:B2R2.RegType"/>.
   /// </returns>
   [<CompiledName "FromByteWidth">]
   let fromByteWidth n = fromBitWidth (n * 8)
 
   /// <summary>
-  ///   Get a bitmask (in integer) from the given RegType.
+  /// Get a bitmask (in integer) from the given RegType.
   /// </summary>
   /// <returns>
-  ///   A bit mask in big integer.
+  /// A bit mask in big integer.
   /// </returns>
   [<CompiledName "GetMask">]
   let getMask t =

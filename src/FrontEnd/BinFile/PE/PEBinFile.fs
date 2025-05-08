@@ -32,6 +32,7 @@ open B2R2.FrontEnd.BinFile.PE.Helper
 /// This class represents a PE binary file.
 type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
   let pe = Parser.parse path bytes baseAddrOpt rawpdb
+  let isa = peHeadersToISA pe.PEHeaders
 
   new (path, bytes) = PEBinFile (path, bytes, None, [||])
 
@@ -52,7 +53,7 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.Format with get() = FileFormat.PEBinary
 
-    member _.ISA with get() = getISA pe
+    member _.ISA with get() = isa
 
     member _.Type with get() = getFileType pe
 

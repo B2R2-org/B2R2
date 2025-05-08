@@ -48,7 +48,6 @@ type CmdBinInfo () =
   override _.CallBack _ brew _args =
     let file = brew.BinHandle.File
     let isa = brew.BinHandle.File.ISA
-    let machine = isa.Arch |> ISA.ArchToString
     let fmt = brew.BinHandle.File.Format |> FileFormat.toString
     let entry = file.EntryPoint |> String.entryPointToString
     let secNum = file.GetSections () |> Seq.length
@@ -58,7 +57,7 @@ type CmdBinInfo () =
     let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
     [| "[*] Binary information:\n"
        sprintf "- Executable Path: %s" file.Path
-       sprintf "- Machine: %s" machine
+       sprintf "- Machine: %s" (isa.ToString ())
        sprintf "- File Format: %s" fmt
        sprintf "- File Type: %s" fileType
        sprintf "- Entry Point Address: %s" entry

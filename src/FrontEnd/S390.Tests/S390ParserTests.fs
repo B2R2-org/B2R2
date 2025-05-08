@@ -49,8 +49,8 @@ type O =
 
 [<TestClass>]
 type S390ParserTests () =
-  let test arch endian opcode (oprs: Operands) (bytes: byte[]) =
-    let isa = ISA.Init arch endian
+  let test endian opcode (oprs: Operands) (bytes: byte[]) =
+    let isa = ISA (Architecture.S390, endian=endian)
     let reader = BinReader.Init endian
     let parser = S390Parser (isa, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
@@ -61,7 +61,7 @@ type S390ParserTests () =
     Assert.AreEqual<Operands> (oprs', oprs)
 
   let test32 (bytes: byte[]) (opcode, operands) =
-    test Architecture.S390 Endian.Big opcode operands bytes
+    test Endian.Big opcode operands bytes
 
   let operandsFromArray oprList =
     let oprArray = Array.ofList oprList

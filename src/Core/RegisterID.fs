@@ -24,9 +24,12 @@
 
 namespace B2R2
 
-/// This class stores an identifier for a register. Each register in B2R2 has
-/// its own ID, which is essentially an integer value. However, one needs to go
-/// through this class to use a RegisterID.
+/// <summary>
+/// Provides a function to create a <see cref='T:B2R2.RegisterID'/>. Although
+/// it is essentially an integer, we internally use a "unit of measure" to
+/// represent it, meaning that one needs to go through this module in order to
+/// create a new ID.
+/// </summary>
 [<RequireQualifiedAccess>]
 module RegisterID =
 
@@ -36,5 +39,7 @@ module RegisterID =
   /// Create a platform-independent register ID representation.
   let inline create n: int<T> = LanguagePrimitives.Int32WithMeasure (n)
 
-/// RegisterID is a platform-independent representation of a register.
+/// <summary>
+/// Represents a platform-independent identifier for a register.
+/// </summary>
 type RegisterID = int<RegisterID.T>

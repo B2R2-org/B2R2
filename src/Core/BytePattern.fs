@@ -41,12 +41,20 @@ open System
 /// </summary>
 type BytePattern = ByteValue[]
 
+/// <summary>
+/// Represents a single byte value in a BytePattern. It can be either AnyByte,
+/// which matches any byte, or OneByte, which matches a specific byte value.
+/// </summary>
 and ByteValue =
   /// This matches any byte, i.e., it is like a Kleene star.
   | AnyByte
   /// This matches only one single byte value.
   | OneByte of byte
 
+/// <summary>
+/// Provides functions to work with BytePattern. It includes functions to
+/// match a byte array or a span against a BytePattern.
+/// </summary>
 [<RequireQualifiedAccess>]
 module BytePattern =
   let private isEqual bv v =

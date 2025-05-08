@@ -26,7 +26,7 @@ module B2R2.FrontEnd.BinFile.Tests.ZIPReader
 
 open System.IO
 open System.IO.Compression
-open B2R2
+open B2R2.FrontEnd.BinFile
 open type FileFormat
 
 let private baseDir = System.AppDomain.CurrentDomain.BaseDirectory

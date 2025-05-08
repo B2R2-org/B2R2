@@ -266,7 +266,8 @@ let batchRun opts paths fstParam restParams fn =
          fn cmdMap opts file fstParam restParams) arr)
 
 let runCommand cmdMap opts file cmd args =
-  let hdl = initBinHdl ISA.DefaultISA file
+  let isa = ISA Architecture.Intel
+  let hdl = initBinHdl isa file
   let exnInfo = ExceptionInfo hdl
   let funcId = Strategies.FunctionIdentification (hdl, exnInfo)
   let cfgRecovery = Strategies.CFGRecovery ()
@@ -290,7 +291,8 @@ let parseAndRunBatchMode opts (beforeOpts, afterOpts) =
 
 [<EntryPoint>]
 let main args =
-  let opts = BinExplorerOpts (ISA.DefaultISA)
+  let isa = ISA Architecture.Intel (* default ISA *)
+  let opts = BinExplorerOpts isa
   match Array.tryFindIndex (fun a -> a = "--batch") args with
   | Some idx -> Array.splitAt idx args |> parseAndRunBatchMode opts
   | None ->

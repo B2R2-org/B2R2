@@ -40,7 +40,7 @@ type ARM32LifterTests () =
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
-  let isa = ISA.Init Architecture.ARMv7 Endian.Big
+  let isa = ISA (Architecture.ARMv7, Endian.Big)
 
   let reader = BinReader.Init Endian.Big
 

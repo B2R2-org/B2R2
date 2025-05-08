@@ -59,8 +59,10 @@ module Fat =
       archs[i] <- readFatArch span reader (i * 20)
     archs
 
-  let private matchingISA isa fatArch =
-    isa.Arch = CPUType.toArch fatArch.CPUType fatArch.CPUSubType
+  let private matchingISA (isa: ISA) fatArch =
+    let arch, wordSize =
+      CPUType.toArchWordSizeTuple fatArch.CPUType fatArch.CPUSubType
+    isa.Arch = arch && isa.WordSize = wordSize
 
   let loadArch bytes isa =
     loadFatArchs bytes

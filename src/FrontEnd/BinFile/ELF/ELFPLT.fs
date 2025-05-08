@@ -737,22 +737,23 @@ type NullPLTParser () =
 
 let initPLTParser hdr shdrs relocInfo symbInfo =
   match hdr.MachineType with
-  | Architecture.IntelX86 ->
+  | ELFMachineType.EM_386 ->
     X86PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
-  | Architecture.IntelX64 ->
+  | ELFMachineType.EM_X86_64 ->
     X64PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
-  | Architecture.ARMv7 | Architecture.AARCH32 ->
+  | ELFMachineType.EM_ARM ->
     ARMv7PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
-  | Architecture.AARCH64 ->
+  | ELFMachineType.EM_AARCH64 ->
     AARCH64PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
-  | Architecture.MIPS32 | Architecture.MIPS64 ->
+  | ELFMachineType.EM_MIPS
+  | ELFMachineType.EM_MIPS_RS3_LE ->
     MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) :> PLTParser
-  | Architecture.PPC32 ->
+  | ELFMachineType.EM_PPC ->
     PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) :> PLTParser
-  | Architecture.RISCV64 ->
+  | ELFMachineType.EM_RISCV ->
     let rtype = RelocationRISCV RelocationRISCV.R_RISCV_JUMP_SLOT
     GeneralPLTParser (shdrs, relocInfo, symbInfo, 32UL, rtype) :> PLTParser
-  | Architecture.SH4 ->
+  | ELFMachineType.EM_SH ->
     let rtype = RelocationSH4 RelocationSH4.R_SH_JMP_SLOT
     GeneralPLTParser (shdrs, relocInfo, symbInfo, 28UL, rtype) :> PLTParser
   | _ -> NullPLTParser () :> PLTParser

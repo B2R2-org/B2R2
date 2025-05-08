@@ -24,10 +24,12 @@
 
 namespace B2R2
 
-/// A program point (ProgramPoint) is a specific location in a lifted program.
-/// We represent it as a three-tuple: (Address of the instruction, Index of the
-/// IR stmt for the instruction, Address of a callsite). The third element is
-/// optional and only meaningful for abstract vertices.
+/// <summary>
+/// Represents a specific location in a lifted program. We represent this as a
+/// three-tuple: (address of the instruction, index of the IR stmt for the
+/// instruction, address of a callsite). The third element is optional and only
+/// meaningful for abstract vertices.
+/// </summary>
 type ProgramPoint private (addr, pos, callsite) =
 
   new (addr, pos: int) = ProgramPoint (addr, pos, None)
@@ -44,7 +46,7 @@ type ProgramPoint private (addr, pos, callsite) =
   /// vertex.
   member _.CallSite with get(): Addr option = callsite
 
-  /// Compare against another program point.
+  /// Compares against another program point.
   member this.CompareTo (rhs: ProgramPoint) =
     let result = compare this.Address rhs.Address
     if result <> 0 then result
@@ -70,11 +72,12 @@ type ProgramPoint private (addr, pos, callsite) =
     | Some callsite -> $"{callsite:x}-{addr:x}"
     | None -> $"{addr:x}:{pos}"
 
-  /// Get a fake program point to represent a fake vertex, which does not exist
+  /// Gets a fake program point to represent a fake vertex, which does not exist
   /// in a CFG. Fake vertices are useful for representing external function
   /// calls and their nodes in the SCFG.
   static member GetFake () = ProgramPoint (0UL, -1)
 
+  /// Checks if the given program point is a fake one.
   static member IsFake (p: ProgramPoint) = p.Address = 0UL && p.Position = -1
 
   static member Next (p: ProgramPoint) =

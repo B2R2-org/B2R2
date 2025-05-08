@@ -30,7 +30,7 @@ open B2R2.RearEnd.Utils
 type ReplOpts () =
   inherit CmdOpts ()
 
-  member val ISA = ISA.DefaultISA with get, set
+  member val ISA = ISA Architecture.Intel with get, set
   member val ShowTemp = false with get, set
 
   static member private ToThis (opts: CmdOpts) =

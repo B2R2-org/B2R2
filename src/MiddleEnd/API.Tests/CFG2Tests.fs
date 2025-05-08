@@ -63,7 +63,7 @@ type CFG2Tests () =
         0xffuy; 0xf3uy; 0xa4uy; 0x83uy; 0xc4uy; 0x20uy; 0x5euy; 0x5fuy; 0xc3uy;
         0x8buy; 0x04uy; 0x24uy; 0xc3uy; |]
 
-  let isa = ISA.Init Architecture.IntelX86 Endian.Little
+  let isa = ISA (Architecture.Intel, WordSize.Bit32)
   let hdl = BinHandle (binary, isa, None, false)
   let exnInfo = ExceptionInfo hdl
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)

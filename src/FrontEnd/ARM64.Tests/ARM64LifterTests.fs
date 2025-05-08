@@ -38,7 +38,7 @@ type ARM64LifterTests () =
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
-  let isa = ISA.Init Architecture.AARCH64 Endian.Big
+  let isa = ISA (Architecture.ARMv8, Endian.Big)
 
   let reader = BinReader.Init Endian.Big
 

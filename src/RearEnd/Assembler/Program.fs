@@ -82,9 +82,9 @@ let rec private asmFromStdin (console: FsReadLine.Console) printer str =
 let showBasicInfo (opts: AssemblerOpts) =
   match opts.Mode with
   | GeneralMode (isa) ->
-    out.PrintLine [ Blue, ISA.ArchToString isa.Arch; Green, " General Mode" ]
+    out.PrintLine [ Blue, isa.ToString (); Green, " General Mode" ]
   | LowUIRMode (isa) ->
-    out.PrintLine [ Blue, ISA.ArchToString isa.Arch ; Green, " LowUIR Mode" ]
+    out.PrintLine [ Blue, isa.ToString (); Green, " LowUIR Mode" ]
 
 let private asmFromFiles files printer =
   files

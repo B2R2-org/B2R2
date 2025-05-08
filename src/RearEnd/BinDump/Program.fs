@@ -42,15 +42,14 @@ let private getTableConfig (isa: ISA) isLift =
   else
     let addrWidth = WordSize.toByteWidth isa.WordSize * 2
     let binaryWidth =
-      match isa.Arch with
-      | Architecture.IntelX86 | Architecture.IntelX64 -> 36
+      match isa with
+      | Intel -> 36
       | _ -> 16
     [ LeftAligned addrWidth; LeftAligned binaryWidth; LeftAligned 10 ]
 
 let private isARM32 (hdl: BinHandle) =
-  match hdl.File.ISA.Arch with
-  | Architecture.ARMv7
-  | Architecture.AARCH32 -> true
+  match hdl.File.ISA with
+  | ARM32 -> true
   | _ -> false
 
 let private makeCodePrinter hdl cfg (opts: BinDumpOpts) =
@@ -134,11 +133,9 @@ let private printWasmCode (printer: BinPrinter) (code: Wasm.Code) =
   out.PrintLine ()
 
 let private initHandleForTableOutput (printer: BinPrinter) =
-  match printer.LiftingUnit.File.ISA.Arch with
+  match printer.LiftingUnit.File.ISA with
   (* For ARM PLTs, we just assume the ARM mode (if no symbol is given). *)
-  | Architecture.ARMv7
-  | Architecture.AARCH32 ->
-    printer.ModeSwitch.IsThumb <- false
+  | ARM32 -> printer.ModeSwitch.IsThumb <- false
   | _ -> ()
 
 let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =

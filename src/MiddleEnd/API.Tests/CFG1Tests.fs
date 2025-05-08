@@ -81,7 +81,7 @@ type CFG1Tests () =
         0x89uy; 0x7duy; 0xfcuy; 0x48uy; 0xc7uy; 0xc0uy; 0x3cuy; 0x00uy; 0x00uy;
         0x00uy; 0x0fuy; 0x05uy; 0x90uy; 0x5duy; 0xc3uy; |]
 
-  let isa = ISA.Init Architecture.IntelX64 Endian.Little
+  let isa = ISA (Architecture.Intel, WordSize.Bit64)
   let hdl = BinHandle (binary, isa, None, false)
   let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
 

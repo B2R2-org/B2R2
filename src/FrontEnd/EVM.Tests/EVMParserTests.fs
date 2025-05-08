@@ -33,7 +33,7 @@ open type BitVector
 [<TestClass>]
 type EVMParserTests () =
   let test (bytes: byte[]) (opcode: Opcode) =
-    let isa = ISA.Init Architecture.EVM Endian.Big
+    let isa = ISA Architecture.EVM
     let parser = EVMParser (isa) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
     let ins = parser.Parse (span, 0UL) :?> Instruction

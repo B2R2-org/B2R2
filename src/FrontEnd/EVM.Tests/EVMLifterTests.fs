@@ -38,7 +38,7 @@ type EVMLifterTests () =
 
   let bigint v = BitVector.OfBInt v 256<rt> |> AST.num
 
-  let isa = ISA.Init Architecture.EVM Endian.Little
+  let isa = ISA Architecture.EVM
 
   let regFactory = RegisterFactory () :> IRegisterFactory
 

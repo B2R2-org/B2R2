@@ -73,13 +73,13 @@ type CmdROP () =
 
   override this.CallBack _ ess args =
     let hdl = ess.BinHandle
-    match hdl.File.ISA.Arch with
-    | Architecture.IntelX86 ->
+    match hdl.File.ISA with
+    | X86 ->
       let rop = ROPHandle.init hdl 0UL
       this.HandleSubCmd rop args
       |> Array.map OutputNormal
-    | arch ->
-      [| "[*] We currently do not support " + (ISA.ArchToString arch) |]
+    | isa ->
+      [| $"[*] We currently do not support {isa}" |]
       |> Array.map OutputNormal
 
   member private this.HandleSubCmd rop args =

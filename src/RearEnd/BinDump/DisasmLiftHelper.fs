@@ -69,9 +69,8 @@ let makeLinkageTblSymbolDic (hdl: BinHandle) =
 
 let makeArchModeDic (hdl: BinHandle) =
   let modes = Dictionary ()
-  match hdl.File.Format, hdl.File.ISA.Arch with
-  | FileFormat.ELFBinary, Architecture.ARMv7
-  | FileFormat.ELFBinary, Architecture.AARCH32 ->
+  match hdl.File.Format, hdl.File.ISA with
+  | FileFormat.ELFBinary, ARM32 ->
     hdl.File.GetSymbols ()
     |> Seq.iter (fun s ->
       if s.ARMLinkerSymbol <> ARMLinkerSymbol.None then
@@ -81,20 +80,20 @@ let makeArchModeDic (hdl: BinHandle) =
   modes
 
 let getInstructionAlignment (isa: ISA) isThumb =
-  match isa.Arch with
-  | Architecture.IntelX86 | Architecture.IntelX64 -> 1
-  | Architecture.ARMv7 | Architecture.AARCH32 -> if isThumb then 2 else 4
-  | Architecture.AARCH64 -> 4
-  | Architecture.MIPS32 | Architecture.MIPS64 -> 4
-  | Architecture.EVM -> 1
-  | Architecture.TMS320C6000 -> 4
-  | Architecture.AVR -> 2
-  | Architecture.SH4 -> 2
-  | Architecture.PPC32 -> 4
-  | Architecture.RISCV64 -> 2
-  | Architecture.WASM -> 1
-  | Architecture.SPARC -> 2
-  | Architecture.PARISC | Architecture.PARISC64 -> 4
+  match isa with
+  | Intel -> 1
+  | ARM32 -> if isThumb then 2 else 4
+  | AArch64 -> 4
+  | MIPS -> 4
+  | EVM -> 1
+  | TMS320C6000 -> 4
+  | AVR -> 2
+  | SH4 -> 2
+  | PPC32 -> 4
+  | RISCV64 -> 2
+  | WASM -> 1
+  | SPARC -> 2
+  | PARISC -> 4
   | _ -> Terminator.futureFeature ()
 
 let convertToHexStr bytes =

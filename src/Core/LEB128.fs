@@ -58,6 +58,11 @@ module private LEB128Helper =
     else
       currentValue
 
+/// <summary>
+/// Provides functions for encoding/decoding LEB128 integers. LEB128 is a
+/// variable-length encoding scheme that is designed to compactly represent
+/// integers.
+/// </summary>
 type LEB128 =
   static member Max32 = 5
   static member Max64 = 10

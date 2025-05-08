@@ -445,14 +445,14 @@ module DWRegister =
     SH4.Register.toRegID (EnumOfValue (int n))
 
   let toRegID isa regnum =
-    match isa.Arch with
-    | Architecture.IntelX86 -> toIntelx86Register regnum
-    | Architecture.IntelX64 -> toIntelx64Register regnum
-    | Architecture.AARCH64 -> toAArch64Register regnum
-    | Architecture.MIPS32 | Architecture.MIPS64 -> toMIPSRegister regnum
-    | Architecture.RISCV64 -> toRISCVRegister regnum
-    | Architecture.PPC32 -> toPPC32Register regnum
-    | Architecture.SH4 -> toSH4Register regnum
+    match isa with
+    | X86 -> toIntelx86Register regnum
+    | X64 -> toIntelx64Register regnum
+    | AArch64 -> toAArch64Register regnum
+    | MIPS -> toMIPSRegister regnum
+    | RISCV64 -> toRISCVRegister regnum
+    | PPC32 -> toPPC32Register regnum
+    | SH4 -> toSH4Register regnum
     | _ -> Terminator.futureFeature ()
 
   let toRegisterExpr isa (regFactory: IRegisterFactory) regnum =

@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -41,10 +42,10 @@ type SyscallAnalysis () =
       | FileFormat.RawBinary
       | FileFormat.ELFBinary ->
         let st = CFGEvaluator.evalBlockFromScratch hdl v
-        let arch = hdl.File.ISA.Arch
-        let exitSyscall = LinuxSyscall.toNumber arch LinuxSyscall.Exit
-        let exitGrpSyscall = LinuxSyscall.toNumber arch LinuxSyscall.ExitGroup
-        let sigretSyscall = LinuxSyscall.toNumber arch LinuxSyscall.RtSigreturn
+        let isa = hdl.File.ISA
+        let exitSyscall = LinuxSyscall.toNumber isa LinuxSyscall.Exit
+        let exitGrpSyscall = LinuxSyscall.toNumber isa LinuxSyscall.ExitGroup
+        let sigretSyscall = LinuxSyscall.toNumber isa LinuxSyscall.RtSigreturn
         let reg = CallingConvention.returnRegister hdl
         match st.TryGetReg reg with
         | Def v ->

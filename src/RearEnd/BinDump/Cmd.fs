@@ -26,7 +26,6 @@ namespace B2R2.RearEnd.BinDump
 
 open System
 open B2R2
-open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.RearEnd.Utils
 
@@ -37,7 +36,7 @@ type OptOption =
 type BinDumpOpts () =
   inherit CmdOpts ()
   /// ISA
-  member val ISA = ISA.DefaultISA with get, set
+  member val ISA = ISA Architecture.Intel with get, set
 
   /// Base address
   member val BaseAddress: Addr option = None with get, set

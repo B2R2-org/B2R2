@@ -27,22 +27,22 @@ namespace B2R2
 /// Raised when an invalid Endian value is used.
 exception InvalidEndianException
 
-/// Endianness.
+/// Represents the endianness used in a binary.
 type Endian =
   /// Little endian
   | Little = 1
   /// Big endian
   | Big = 2
 
-/// A helper module for Endian type.
+/// Provides functions to work with Endian.
 [<RequireQualifiedAccess>]
 module Endian =
   /// <summary>
-  ///   Get Endian from a string.
+  /// Get Endian from a string.
   /// </summary>
   /// <param name="str">The given string.</param>
   /// <returns>
-  ///   Endian.
+  /// Endian.
   /// </returns>
   [<CompiledName "OfString">]
   let ofString (str: string) =
@@ -52,10 +52,10 @@ module Endian =
     | _     -> failwith "Wrong endian specified."
 
   /// <summary>
-  ///   Get the string representation from an Endian.
+  /// Get the string representation from an Endian.
   /// </summary>
   [<CompiledName "ToString">]
   let toString = function
-    | Endian.Little -> "Little"
-    | Endian.Big -> "Big"
+    | Endian.Little -> "Little Endian"
+    | Endian.Big -> "Big Endian"
     | _ -> raise InvalidEndianException

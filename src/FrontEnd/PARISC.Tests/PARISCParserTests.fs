@@ -54,7 +54,7 @@ module private PARISCShortcut =
     static member Mem (b, r: Register, rt, space) =
       OpMem (b, Some space, Some (Reg r), rt)
 
-  let test isa opcode (opr: Operands) completer condition uid bytes =
+  let test (isa: ISA) opcode (opr: Operands) completer condition uid bytes =
     let reader = BinReader.Init isa.Endian
     let parser = PARISCParser (isa, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan (bytes: byte[])
@@ -72,9 +72,7 @@ module private PARISCShortcut =
 
   let testPARISC wordSz bytes
     ((opcode, operands), cmplt: array<Completer>, cond, uid) =
-    let isa =
-      if wordSz = WordSize.Bit64 then ISA.Init Architecture.PARISC64 Endian.Big
-      else ISA.Init Architecture.PARISC Endian.Big
+    let isa = ISA (Architecture.PARISC, Endian.Big, wordSz)
     match cmplt with
     | [||] -> test isa opcode operands None cond uid bytes
     | _ -> test isa opcode operands (Some cmplt) cond uid bytes

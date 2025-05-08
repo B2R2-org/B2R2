@@ -31,8 +31,8 @@ open System.Runtime.InteropServices
 
 /// <summary>
 /// Represents an array of bytes, often used to read raw binary data. This is
-/// really an alias for <c>byte[]</c>, but we define it here to provide several
-/// useful functions to deal with byte arrays in <see
+/// just an alias for <c>byte[]</c>, but we define it here to provide several
+/// useful functions to deal with byte arrays in the <see
 /// cref='T:B2R2.ByteArrayModule'/> module.
 /// </summary>
 type ByteArray = byte[]

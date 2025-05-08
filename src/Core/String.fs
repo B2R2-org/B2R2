@@ -22,29 +22,29 @@
   SOFTWARE.
 *)
 
-/// Module offering functions for handling a `string` value.
+/// Provides useful functions for handling <c>string</c> values.
 [<RequireQualifiedAccess>]
 module B2R2.String
 
-/// Convert a string to a byte array.
+/// Converts a string to a byte array.
 [<CompiledName "ToBytes">]
 let toBytes (str: string) = str.ToCharArray () |> Array.map byte
 
-/// Convert a byte array to a string.
+/// Converts a byte array to a string.
 [<CompiledName "FromBytes">]
 let fromBytes (bs: byte []) = Array.map char bs |> System.String
 
-/// Wrap a string with a pair of parentheses.
+/// Wraps a string with a pair of parentheses.
 [<CompiledName "WrapParen">]
 let wrapParen s =
   "(" + s + ")"
 
-/// Wrap a string with a pair of square brackets.
+/// Wraps a string with a pair of square brackets.
 [<CompiledName "WrapSqrdBracket">]
 let wrapSqrdBracket s =
   "[" + s + "]"
 
-/// Wrap a string with a pair of curly brackets.
+/// Wraps a string with a pair of curly brackets.
 [<CompiledName "WrapCurlyBracket">]
 let wrapAngleBracket s =
   "<" + s + ">"

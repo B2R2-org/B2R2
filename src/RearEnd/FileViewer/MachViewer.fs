@@ -268,11 +268,12 @@ let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
     |> Array.iteri (fun idx fat ->
       let cpu = fat.CPUType
       let cpusub = fat.CPUSubType
-      let arch = Mach.CPUType.toArch cpu cpusub
+      let arch, wordSize = Mach.CPUType.toArchWordSizeTuple cpu cpusub
+      let isa = ISA (arch, wordSize)
       out.PrintSubsectionTitle ("Architecture #" + idx.ToString ())
       out.PrintTwoCols "CPU Type:" (cpu.ToString ())
       out.PrintTwoCols "CPU Subtype:" ("0x" + (uint32 cpusub).ToString ("x"))
-      out.PrintTwoCols "Architecture:" (ISA.ArchToString arch)
+      out.PrintTwoCols "Architecture:" (isa.ToString ())
       out.PrintTwoCols "Offset:" ("0x" + fat.Offset.ToString ("x"))
       out.PrintTwoCols "Size:" (fat.Size.ToString ())
     )

@@ -36,18 +36,18 @@ let filter = function
 let private toTail bytes = { Pattern = bytes }
 
 let private instrMaxLen (liftingUnit: LiftingUnit) =
-  match liftingUnit.File.ISA.Arch with
-  | Architecture.IntelX86 | Architecture.IntelX64 -> 15UL
-  | Architecture.AARCH32 | Architecture.AARCH64 | Architecture.ARMv7 -> 4UL
+  match liftingUnit.File.ISA with
+  | Intel -> 15UL
+  | ARMv7 | AArch64 -> 4UL
   | _ -> raise InvalidISAException
 
 let getTailPatterns (liftingUnit: LiftingUnit) =
-  match liftingUnit.File.ISA.Arch, liftingUnit.File.ISA.Endian with
-  | Architecture.IntelX86, Endian.Little ->
+  match liftingUnit.File.ISA with
+  | X86 ->
     [ [| 0xC3uy |] (* RET *)
       [| 0xCDuy; 0x80uy |] (* INT 0x80 *)
       [| 0xCDuy; 0x80uy; 0xC3uy |] (* INT 0x80; RET *) ]
-  | Architecture.IntelX64, Endian.Little ->
+  | X64 ->
     [ [| 0xC3uy |] (* RET *)
       [| 0x0Fuy; 0x05uy |] (* SYSCALL *)
       [| 0x0Fuy; 0x05uy; 0xC3uy |] (* SYSCALL; RET *) ]

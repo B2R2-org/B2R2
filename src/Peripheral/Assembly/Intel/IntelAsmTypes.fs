@@ -92,9 +92,8 @@ type EncVEXPrefix =
   end
 
 /// Assembly encoding context.
-type EncContext (isa: ISA) =
-  member _.Arch with get() = isa.Arch
-  member _.WordSize with get() = isa.WordSize
+type EncContext (wordSize: WordSize) =
+  member _.WordSize with get() = wordSize
   member _.PrefNormal with get() = EncPrefix (PrxNone, false, false, true)
   member _.PrefREP with get() = EncPrefix (PrxNone, false, true, true)
   member _.PrefREP66 with get() = EncPrefix (PrxOPSIZE, false, true, true)

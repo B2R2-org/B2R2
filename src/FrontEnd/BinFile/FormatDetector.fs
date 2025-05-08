@@ -35,10 +35,8 @@ let private identifyELF bytes =
   | _ -> None
 
 let private identifyPE bytes =
-  match PE.Helper.getPEArch bytes with
-  | Ok arch ->
-    let isa = ISA.Init arch Endian.Little
-    Some struct (FileFormat.PEBinary, isa)
+  match PE.Helper.getISA bytes with
+  | Ok isa -> Some struct (FileFormat.PEBinary, isa)
   | Error _ -> None
 
 let private identifyMach bytes isa =

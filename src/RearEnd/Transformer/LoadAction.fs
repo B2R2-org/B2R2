@@ -72,5 +72,6 @@ type LoadAction () =
         let isa = ISA.OfString isa
         { Values = load isa true s }
       | s :: [] ->
-        { Values = load ISA.DefaultISA true s }
+        let isa = ISA Architecture.Intel
+        { Values = load isa true s }
       | _ -> invalidArg (nameof args) "Invalid arguments given."

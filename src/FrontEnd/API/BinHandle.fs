@@ -83,7 +83,8 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt) =
     BinHandle (path=path, isa=isa, baseAddrOpt=None)
 
   new (path) =
-    BinHandle (path=path, isa=ISA.DefaultISA, baseAddrOpt=None)
+    let defaultISA = ISA (Architecture.Intel, WordSize.Bit64)
+    BinHandle (path=path, isa=defaultISA, baseAddrOpt=None)
 
   new (bytes, isa, baseAddrOpt, detectFormat) =
     if detectFormat then

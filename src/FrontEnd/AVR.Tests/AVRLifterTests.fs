@@ -34,7 +34,7 @@ open type Register
 
 [<TestClass>]
 type AVRLifterTests () =
-  let isa = ISA.Init Architecture.AVR Endian.Little
+  let isa = ISA Architecture.AVR
 
   let reader = BinReader.Init Endian.Little
 

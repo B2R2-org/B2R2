@@ -45,7 +45,7 @@ type AssemblerOpts () =
   inherit CmdOpts()
 
   /// Mode
-  member val Mode = GeneralMode ISA.DefaultISA with get, set
+  member val Mode = GeneralMode (ISA Architecture.Intel) with get, set
 
   /// Base address
   member val BaseAddress: Addr = 0UL with get, set

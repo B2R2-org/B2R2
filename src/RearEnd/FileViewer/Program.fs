@@ -35,7 +35,7 @@ let dumpBasic (file: IBinFile) =
     ColoredSegment (Green, String.entryPointToString file.EntryPoint)
   out.PrintSectionTitle "Basic Information"
   out.PrintTwoCols "File format:" (FileFormat.toString file.Format)
-  out.PrintTwoCols "Architecture:" (ISA.ArchToString file.ISA.Arch)
+  out.PrintTwoCols "Architecture:" (file.ISA.ToString ())
   out.PrintTwoCols "Endianness:" (Endian.toString file.ISA.Endian)
   out.PrintTwoCols "Word size:" (WordSize.toString file.ISA.WordSize + " bit")
   out.PrintTwoCols "File type:" (FileType.toString file.Type)

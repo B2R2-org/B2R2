@@ -140,7 +140,7 @@ module internal ExceptionFrames =
       |> List.rev, offset + int len
     else [], offset
 
-  let num isa n =
+  let num (isa: ISA) n =
     let rt = isa.WordSize |> WordSize.toRegType
     AST.num (BitVector.OfUInt64 n rt)
 
@@ -179,12 +179,12 @@ module internal ExceptionFrames =
     let exprs = AST.binop BinOpType.ADD fst n :: exprs
     struct (exprs, idx + cnt)
 
-  let parseRel isa op exprs =
+  let parseRel (isa: ISA) op exprs =
     let struct (fst, snd, exprs) = pop2 exprs
     let rt = isa.WordSize |> WordSize.toRegType
     AST.cast CastKind.ZeroExt rt (AST.relop op snd fst) :: exprs
 
-  let parseLoad isa exprs =
+  let parseLoad (isa: ISA) exprs =
     let struct (addr, exprs) = pop exprs
     let rt = isa.WordSize |> WordSize.toRegType
     AST.loadLE rt addr :: exprs

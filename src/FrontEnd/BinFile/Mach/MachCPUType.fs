@@ -60,19 +60,19 @@ type CPUSubType =
   | MIPSR2000A = 4
 
 module CPUType =
-  let private toMIPSArch = function
+  let private isKnownMIPS = function
     | CPUSubType.MIPSAll
     | CPUSubType.MIPSR2300
     | CPUSubType.MIPSR2600
     | CPUSubType.MIPSR2800
-    | CPUSubType.MIPSR2000A -> Architecture.MIPS32 (* MIPS32R2 *)
-    | _ -> raise InvalidISAException
+    | CPUSubType.MIPSR2000A -> (* MIPS32R2 *) true
+    | _ -> false
 
-  let toArch cputype subtype =
+  let toArchWordSizeTuple cputype subtype =
     match cputype with
-    | CPUType.I386 -> Architecture.IntelX86
-    | CPUType.X64 -> Architecture.IntelX64
-    | CPUType.ARM -> Architecture.ARMv7
-    | CPUType.ARM64 -> Architecture.AARCH64
-    | CPUType.MIPS -> toMIPSArch subtype
-    | _ -> Architecture.UnknownISA
+    | CPUType.I386 -> Architecture.Intel, WordSize.Bit32
+    | CPUType.X64 -> Architecture.Intel, WordSize.Bit64
+    | CPUType.ARM -> Architecture.ARMv7, WordSize.Bit32
+    | CPUType.ARM64 -> Architecture.ARMv8, WordSize.Bit64
+    | CPUType.MIPS when isKnownMIPS subtype -> Architecture.MIPS, WordSize.Bit32
+    | _ -> raise InvalidISAException

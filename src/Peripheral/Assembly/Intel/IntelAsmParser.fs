@@ -222,6 +222,8 @@ type IntelAsmParser (isa, baseAddr: Addr) =
     let st = { LabelMap = Map.empty; CurIndex = -1 }
     match runParserOnString statements st "" assembly with
     | Success (result, us, _) ->
-      filterInstructionLines result |> assemble us isa baseAddr |> Result.Ok
+      filterInstructionLines result
+      |> assemble us isa.WordSize baseAddr
+      |> Result.Ok
     | Failure (str, _, _) ->
       Result.Error (str)

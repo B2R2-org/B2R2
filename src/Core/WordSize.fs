@@ -24,11 +24,12 @@
 
 namespace B2R2
 
-/// This exception is raised when an invalid WordSize is encountered.
+/// Raised when an invalid WordSize is encountered.
 exception InvalidWordSizeException
 
 /// <summary>
-/// B2R2 represents the word size of a CPU with <see cref='T:B2R2.WordSize'/>.
+/// Represents the word size of a CPU. The word size is the number of bits that
+/// the CPU can naturally process in a single operation.
 /// </summary>
 type WordSize =
   /// 8-bit word size.
@@ -45,13 +46,13 @@ type WordSize =
   | Bit256 = 256
 
 /// <summary>
-/// This module provides helper functions for handling the <see
-/// cref='T:B2R2.WordSize'/> type.
+/// Provides helper functions for handling the <see cref='T:B2R2.WordSize'/>
+/// type.
 /// </summary>
 [<RequireQualifiedAccess>]
 module WordSize =
   /// <summary>
-  /// Transform a <c>string</c> into a word size (<see
+  /// Transforms a <c>string</c> into a word size (<see
   /// cref='T:B2R2.WordSize'/>).
   /// </summary>
   [<CompiledName "OfString">]
@@ -65,13 +66,13 @@ module WordSize =
     | _ -> raise InvalidWordSizeException
 
   /// <summary>
-  /// Transform a word size (<see cref='T:B2R2.WordSize'/>) into a byte length.
+  /// Transforms a word size (<see cref='T:B2R2.WordSize'/>) into a byte length.
   /// </summary>
   [<CompiledName "ToByteWidth">]
   let toByteWidth (wordSize: WordSize) = int32 wordSize / 8
 
   /// <summary>
-  /// Transform a word size (<see cref='T:B2R2.WordSize'/>) into a RegType.
+  /// Transforms a word size (<see cref='T:B2R2.WordSize'/>) into a RegType.
   /// </summary>
   [<CompiledName "ToRegType">]
   let toRegType = function
@@ -84,24 +85,24 @@ module WordSize =
     | _ -> raise InvalidWordSizeException
 
   /// <summary>
-  /// Transform a word size (<see cref='T:B2R2.WordSize'/>) into a
+  /// Transforms a word size (<see cref='T:B2R2.WordSize'/>) into a
   /// <c>string</c>.
   /// </summary>
   [<CompiledName "ToString">]
   let toString wordSz = (toRegType wordSz).ToString ()
 
-  /// Is the given word size 32 bit?
+  /// Checks if the given word size is 32 bit.
   [<CompiledName "Is32">]
   let is32 wordSz = wordSz = WordSize.Bit32
 
-  /// Is the given word size 64 bit?
+  /// Checks if the given word size is 64 bit.
   [<CompiledName "Is64">]
   let is64 wordSz = wordSz = WordSize.Bit64
 
-  /// Is the given word size 128 bit?
+  /// Checks if the given word size is 128 bit.
   [<CompiledName "Is128">]
   let is128 wordSz = wordSz = WordSize.Bit128
 
-  /// Is the given word size 256 bit?
+  /// Checks if the given word size is 256 bit.
   [<CompiledName "Is256">]
   let is256 wordSz = wordSz = WordSize.Bit256

@@ -27,7 +27,7 @@ namespace B2R2
 /// Raised when unhandled syscall is encountered.
 exception UnhandledSyscallException
 
-/// Linux syscall type.
+/// Represents Linux syscalls.
 type LinuxSyscall =
   | Accept = 0
   | Accept4 = 1
@@ -526,6 +526,8 @@ type LinuxSyscall =
   | Writev = 494
   | Xtensa = 495
 
+/// Provides functions to convert Linux syscall numbers to their corresponding
+/// syscall types and vice versa.
 [<RequireQualifiedAccess>]
 module LinuxSyscall =
   let private getX86Number = function
@@ -3330,16 +3332,16 @@ module LinuxSyscall =
 
   /// Gets the syscall number for the given syscall at the given architecture.
   [<CompiledName "ToNumber">]
-  let toNumber arch syscall =
-    match arch with
-    | Architecture.IntelX86 -> getX86Number syscall
-    | Architecture.IntelX64 -> getX64Number syscall
-    | Architecture.ARMv7 | Architecture.AARCH32-> getARMEABINumber syscall
-    | Architecture.AARCH64 -> getAARCH64Number syscall
-    | Architecture.MIPS32 -> getMIPSO32Number syscall
-    | Architecture.MIPS64 -> getMIPSN64Number syscall
-    | Architecture.PPC32 -> getPPC32Number syscall
-    | Architecture.RISCV64 -> getRISCV64Number syscall
+  let toNumber isa syscall =
+    match isa with
+    | X86 -> getX86Number syscall
+    | X64 -> getX64Number syscall
+    | ARMv7 -> getARMEABINumber syscall
+    | AArch64 -> getAARCH64Number syscall
+    | MIPS32 -> getMIPSO32Number syscall
+    | MIPS64 -> getMIPSN64Number syscall
+    | PPC32 -> getPPC32Number syscall
+    | RISCV64 -> getRISCV64Number syscall
     | _ -> raise UnhandledSyscallException
 
   let private getX86Syscall = function
@@ -6202,14 +6204,14 @@ module LinuxSyscall =
   [<CompiledName "OfNumber">]
   let ofNumber arch num =
     match arch with
-    | Architecture.IntelX86 -> getX86Syscall num
-    | Architecture.IntelX64 -> getX64Syscall num
-    | Architecture.ARMv7 | Architecture.AARCH32 -> getARMEABISyscall num
-    | Architecture.AARCH64 -> getAARCH64Syscall num
-    | Architecture.MIPS32 -> getMIPSO32Syscall num
-    | Architecture.MIPS64 -> getMIPSN64Syscall num
-    | Architecture.PPC32 -> getPPC32Syscall num
-    | Architecture.RISCV64 -> getRISCV64Syscall num
+    | X86 -> getX86Syscall num
+    | X64 -> getX64Syscall num
+    | ARMv7 -> getARMEABISyscall num
+    | AArch64 -> getAARCH64Syscall num
+    | MIPS32 -> getMIPSO32Syscall num
+    | MIPS64 -> getMIPSN64Syscall num
+    | PPC32 -> getPPC32Syscall num
+    | RISCV64 -> getRISCV64Syscall num
     | _ -> raise UnhandledSyscallException
 
   /// Transform a LinuxSyscall to a string.

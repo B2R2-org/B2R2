@@ -22,9 +22,11 @@
   SOFTWARE.
 *)
 
-namespace B2R2
+namespace B2R2.FrontEnd.BinFile
 
-/// Types of binary file format.
+/// <summary>
+/// Represents the file format of a binary.
+/// </summary>
 type FileFormat =
   /// Raw binary without any specific file format: a sequence of bytes.
   | RawBinary = 1
@@ -37,10 +39,13 @@ type FileFormat =
   /// Wasm binary.
   | WasmBinary = 5
 
-/// A helper module for FileFormat type.
+/// <summary>
+/// Provides functions to work with <see
+/// cref='T:B2R2.FrontEnd.BinFile.FileFormat'/>.
+/// </summary>
 [<RequireQualifiedAccess>]
 module FileFormat =
-  /// Transform a string into a FileFormat.
+  /// Transforms a string into a FileFormat.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -50,7 +55,7 @@ module FileFormat =
     | "wasm" -> FileFormat.WasmBinary
     | _ -> FileFormat.RawBinary
 
-  /// Transform a FileFormat into a string.
+  /// Transforms a FileFormat into a string.
   [<CompiledName "ToString">]
   let toString fmt =
     match fmt with
@@ -61,14 +66,14 @@ module FileFormat =
     | FileFormat.WasmBinary -> "Wasm"
     | _ -> invalidArg (nameof fmt) "Unknown FileFormat used."
 
-  /// Check whether the given format is ELF.
+  /// Checks whether the given format is ELF.
   [<CompiledName "IsELF">]
   let isELF fmt = fmt = FileFormat.ELFBinary
 
-  /// Check whether the given format is PE.
+  /// Checks whether the given format is PE.
   [<CompiledName "IsPE">]
   let isPE fmt = fmt = FileFormat.PEBinary
 
-  /// Check whether the given format is Mach-O.
+  /// Checks whether the given format is Mach-O.
   [<CompiledName "IsMach">]
   let isMach fmt = fmt = FileFormat.MachBinary

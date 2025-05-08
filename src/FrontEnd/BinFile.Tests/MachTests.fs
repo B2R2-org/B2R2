@@ -31,10 +31,10 @@ open type FileFormat
 
 [<TestClass>]
 type MachTests () =
-  static let parseFile fileName arch =
+  static let parseFile fileName arch wsz =
     let zipFile = fileName + ".zip"
     let bytes = ZIPReader.readBytes MachBinary zipFile fileName
-    let isa = ISA.Init arch Endian.Little
+    let isa = ISA (arch, Endian.Little, wsz)
     MachBinFile (fileName, bytes, isa, None) :> IBinFile
 
   let assertExistenceOfFlag (file: IBinFile) flags =
@@ -46,11 +46,14 @@ type MachTests () =
     |> Seq.map (fun record -> record.SecAddr, record.SecName)
     |> assertExistenceOfPair (address, sectionName)
 
-  static let x86File = parseFile "mach_x86_rm_stripped" Architecture.IntelX86
+  static let x86File =
+    parseFile "mach_x86_rm_stripped" Architecture.Intel WordSize.Bit32
 
-  static let x64File = parseFile "mach_x64_wc" Architecture.IntelX64
+  static let x64File =
+    parseFile "mach_x64_wc" Architecture.Intel WordSize.Bit64
 
-  static let x64SFile = parseFile "mach_x64_wc_stripped" Architecture.IntelX64
+  static let x64SFile =
+    parseFile "mach_x64_wc_stripped" Architecture.Intel WordSize.Bit64
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped EntryPoint test`` () =

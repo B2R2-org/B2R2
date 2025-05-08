@@ -38,7 +38,7 @@ type SPARCLifterTest () =
 
   let t64 id = AST.tmpvar 64<rt> id
 
-  let isa = ISA.Init Architecture.SPARC Endian.Little
+  let isa = ISA (Architecture.SPARC, Endian.Little)
 
   let reader = BinReader.Init Endian.Little
 

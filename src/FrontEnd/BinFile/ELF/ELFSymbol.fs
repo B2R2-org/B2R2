@@ -266,8 +266,7 @@ module internal Symbol =
     |> adjustSymAddr baseAddr
 
   let computeLinkerSymbolKind hdr symbolName =
-    if hdr.MachineType = Architecture.ARMv7
-      || hdr.MachineType = Architecture.AARCH32 then
+    if hdr.MachineType = ELFMachineType.EM_ARM then
       if symbolName = "$a" then ARMLinkerSymbol.ARM
       elif symbolName = "$t" then ARMLinkerSymbol.Thumb
       else ARMLinkerSymbol.None

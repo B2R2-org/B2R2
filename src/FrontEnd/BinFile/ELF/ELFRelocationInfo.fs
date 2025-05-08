@@ -681,27 +681,26 @@ type RelocationType =
 with
   static member FromNum arch n =
     match arch with
-    | Architecture.IntelX86 ->
+    | ELFMachineType.EM_386 ->
       RelocationX86 <| LanguagePrimitives.EnumOfValue n
-    | Architecture.IntelX64 ->
+    | ELFMachineType.EM_X86_64 ->
       RelocationX64 <| LanguagePrimitives.EnumOfValue n
-    | Architecture.ARMv7 ->
+    | ELFMachineType.EM_ARM ->
       RelocationARMv7 <| LanguagePrimitives.EnumOfValue n
-    | Architecture.AARCH32
-    | Architecture.AARCH64 ->
+    | ELFMachineType.EM_AARCH64 ->
       RelocationARMv8 <| LanguagePrimitives.EnumOfValue n
-    | Architecture.MIPS32
-    | Architecture.MIPS64 ->
+    | ELFMachineType.EM_MIPS
+    | ELFMachineType.EM_MIPS_RS3_LE ->
       RelocationMIPS <| LanguagePrimitives.EnumOfValue n
-    | Architecture.S390 | Architecture.S390X ->
+    | ELFMachineType.EM_S390 ->
       RelocationS390 <| LanguagePrimitives.EnumOfValue n
-    | Architecture.SH4 ->
+    | ELFMachineType.EM_SH ->
       RelocationSH4 <| LanguagePrimitives.EnumOfValue n
-    | Architecture.RISCV64 ->
+    | ELFMachineType.EM_RISCV ->
       RelocationRISCV <| LanguagePrimitives.EnumOfValue n
-    | Architecture.PPC32 ->
+    | ELFMachineType.EM_PPC ->
       RelocationPPC32 <| LanguagePrimitives.EnumOfValue n
-    | Architecture.PARISC | Architecture.PARISC64 ->
+    | ELFMachineType.EM_PARISC ->
       RelocationPARISC <| LanguagePrimitives.EnumOfValue n
     | _ -> invalidArg (nameof arch) "Unsupported architecture for relocation."
 
@@ -742,8 +741,8 @@ type RelocationInfo = {
 module internal RelocationInfo =
   let private readInfoWithArch { Reader = reader; Header = hdr } span =
     let info = readNative span reader hdr.Class 4 8
-    match hdr.MachineType with
-    | Architecture.MIPS64 ->
+    match hdr.MachineType, hdr.Class with
+    | ELFMachineType.EM_MIPS, WordSize.Bit64 ->
       (* MIPS64el has a a 32-bit LE symbol index followed by four individual
          byte fields. *)
       if hdr.Endian = Endian.Little then

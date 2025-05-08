@@ -24,7 +24,10 @@
 
 namespace B2R2
 
-/// Useful functions in handling hexademical strings.
+/// Provides helper functions to construct hexadecimal strings from integers.
+/// The hexadecimal string is prefixed with "0x" and is in lowercase. We use
+/// these functions to consistently format integer values in hexadecimal
+/// representation.
 [<RequireQualifiedAccess>]
 module HexString =
   /// Convert an int16 value to a hex string.

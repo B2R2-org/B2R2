@@ -29,12 +29,8 @@ open B2R2.FrontEnd
 
 type AsmInterface (isa: ISA, startAddress) =
   let asmParser =
-    match isa.Arch with
-    | Architecture.IntelX64
-    | Architecture.IntelX86 ->
-      Intel.IntelAsmParser (isa, startAddress) :> AsmParser
-    | Architecture.MIPS32
-    | Architecture.MIPS64
+    match isa with
+    | Intel -> Intel.IntelAsmParser (isa, startAddress) :> AsmParser
     | _ -> raise InvalidISAException
   let regFactory = GroundWork.CreateRegisterFactory isa
   let uirParser = LowUIR.LowUIRParser (isa, regFactory)

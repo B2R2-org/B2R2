@@ -378,8 +378,6 @@ type LiftingUnit (binFile: IBinFile,
   /// is affected by this setting.
   /// </summary>
   member _.SetDisassemblySyntax syntax =
-    match binFile.ISA.Arch with
-    | Architecture.IntelX86
-    | Architecture.IntelX64 ->
-      (parser :?> Intel.IntelParser).SetDisassemblySyntax syntax
+    match binFile.ISA with
+    | Intel -> (parser :?> Intel.IntelParser).SetDisassemblySyntax syntax
     | _ -> ()

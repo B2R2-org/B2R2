@@ -30,11 +30,11 @@ open B2R2.Peripheral.Assembly.Intel.ParserHelper
 open B2R2.Peripheral.Assembly.Intel.AsmPrefix
 open B2R2.Peripheral.Assembly.Intel.AsmOperands
 
-let no32Arch arch =
-  if arch = Architecture.IntelX86 then raise InvalidISAException else ()
+let no32Arch wordSz =
+  if wordSz = WordSize.Bit32 then raise InvalidISAException else ()
 
-let no64Arch arch =
-  if arch = Architecture.IntelX64 then raise InvalidISAException else ()
+let no64Arch wordSz =
+  if wordSz = WordSize.Bit64 then raise InvalidISAException else ()
 
 let isInt8 i = 0xFFFFFFFFFFFFFF80L <= i && i <= 0x7FL
 let isInt16 i = 0xFFFFFFFFFFFF8000L <= i && i <= 0x7FFFL
@@ -186,28 +186,28 @@ let inline encMRI ins ctx pref rex op b s d r i immSz =
      yield! mem b s d
      yield! immediate i immSz |]
 
-let inline encVexRRR ins arch vvvv vex op r1 r3 =
-  let rexRXB = encodeVEXRexRB arch r1 r3
+let inline encVexRRR ins wordSz vvvv vex op r1 r3 =
+  let rexRXB = encodeVEXRexRB wordSz r1 r3
   [| yield! encodeVEXPref rexRXB vvvv vex
      yield! Array.map Normal op
      modrmRR r1 r3 |]
 
-let inline encVexRRM ins arch vvvv vex op r b s d =
-  let rexRXB = encodeVEXRexRXB arch r b s
+let inline encVexRRM ins wordSz vvvv vex op r b s d =
+  let rexRXB = encodeVEXRexRXB wordSz r b s
   [| yield! encodeVEXPref rexRXB vvvv vex
      yield! Array.map Normal op
      modrmRM r b s d
      yield! mem b s d |]
 
-let inline encVexRRRI ins arch vvvv vex op r1 r3 i immSz =
-  let rexRXB = encodeVEXRexRB arch r1 r3
+let inline encVexRRRI ins wordSz vvvv vex op r1 r3 i immSz =
+  let rexRXB = encodeVEXRexRB wordSz r1 r3
   [| yield! encodeVEXPref rexRXB vvvv vex
      yield! Array.map Normal op
      modrmRR r1 r3
      yield! immediate i immSz |]
 
-let inline encVexRRMI ins arch vvvv vex op r b s d i immSz =
-  let rexRXB = encodeVEXRexRXB arch r b s
+let inline encVexRRMI ins wordSz vvvv vex op r b s d i immSz =
+  let rexRXB = encodeVEXRexRXB wordSz r b s
   [| yield! encodeVEXPref rexRXB vvvv vex
      yield! Array.map Normal op
      modrmRM r b s d
@@ -215,23 +215,23 @@ let inline encVexRRMI ins arch vvvv vex op r b s d i immSz =
      yield! immediate i immSz |]
 
 let aaa (ctx: EncContext) = function
-  | NoOperand -> no64Arch ctx.Arch; [| Normal 0x37uy |]
+  | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x37uy |]
   | _ -> raise NotEncodableException
 
 let aad (ctx: EncContext) = function
-  | NoOperand -> no64Arch ctx.Arch; [| Normal 0xD5uy; Normal 0x0Auy |]
+  | NoOperand -> no64Arch ctx.WordSize; [| Normal 0xD5uy; Normal 0x0Auy |]
   | OneOperand (OprImm (imm, _)) ->
-    no64Arch ctx.Arch; [| Normal 0xD5uy; yield! immediate imm 8<rt> |]
+    no64Arch ctx.WordSize; [| Normal 0xD5uy; yield! immediate imm 8<rt> |]
   | _ -> raise NotEncodableException
 
 let aam (ctx: EncContext) = function
-  | NoOperand -> no64Arch ctx.Arch; [| Normal 0xD4uy; Normal 0x0Auy |]
+  | NoOperand -> no64Arch ctx.WordSize; [| Normal 0xD4uy; Normal 0x0Auy |]
   | OneOperand (OprImm (imm, _)) ->
-    no64Arch ctx.Arch; [| Normal 0xD4uy; yield! immediate imm 8<rt> |]
+    no64Arch ctx.WordSize; [| Normal 0xD4uy; yield! immediate imm 8<rt> |]
   | _ -> raise NotEncodableException
 
 let aas (ctx: EncContext) = function
-  | NoOperand -> no64Arch ctx.Arch; [| Normal 0x3Fuy |]
+  | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x3Fuy |]
   | _ -> raise NotEncodableException
 
 let adc (ctx: EncContext) ins =
@@ -244,7 +244,7 @@ let adc (ctx: EncContext) ins =
   | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encImm ins ctx ctx.PrefNormal ctx.RexNormal [| 0x15uy |] imm 32<rt>
   | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encImm ins ctx ctx.PrefNormal ctx.RexW [| 0x15uy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 ctx r && isInt8 imm ->
@@ -252,7 +252,7 @@ let adc (ctx: EncContext) ins =
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 ctx r && isInt8 imm ->
     encRI ins ctx ctx.PrefNormal ctx.RexNormal [| 0x83uy |] r 0b010uy imm 8<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r && isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx ctx.PrefNormal ctx.RexW [| 0x83uy |] r 0b010uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
   | TwoOperands (Label _, OprImm (imm, _)) when isInt8 imm ->
@@ -264,7 +264,7 @@ let adc (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] b s d 0b010uy imm 8<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] b s d 0b010uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
@@ -278,7 +278,7 @@ let adc (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] r 0b010uy imm 32<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] r 0b010uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
@@ -294,7 +294,7 @@ let adc (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] b s d 0b010uy imm 32<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch;
+    no32Arch ctx.WordSize;
     encMI ins ctx ctx.PrefNormal ctx.RexW [| 0x81uy |] b s d 0b010uy imm 32<rt>
   (* Mem - Reg *)
   | TwoOperands (Label _, OprReg r) ->
@@ -306,7 +306,7 @@ let adc (ctx: EncContext) ins =
   | TwoOperands (OprMem (b, s, d, 32<rt>), OprReg r) when isReg32 ctx r ->
     encMR ins ctx ctx.PrefNormal ctx.RexNormal [| 0x11uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx ctx.PrefNormal ctx.RexW [| 0x11uy |] b s d r
   (* Reg - Reg *)
   | TwoOperands (OprReg r1, OprReg r2) when isReg8 ctx r1 && isReg8 ctx r2 ->
@@ -316,7 +316,7 @@ let adc (ctx: EncContext) ins =
   | TwoOperands (OprReg r1, OprReg r2) when isReg32 ctx r1 && isReg32 ctx r2 ->
     encRR ins ctx ctx.PrefNormal ctx.RexNormal [| 0x13uy |] r1 r2
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx ctx.PrefNormal ctx.RexW [| 0x13uy |] r1 r2
   (* Reg - Mem *)
   | TwoOperands (OprReg r, Label _) ->
@@ -328,7 +328,7 @@ let adc (ctx: EncContext) ins =
   | TwoOperands (OprReg r, OprMem (b, s, d, 32<rt>)) when isReg32 ctx r ->
     encRM ins ctx ctx.PrefNormal ctx.RexNormal [| 0x13uy |] r b s d
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx ctx.PrefNormal ctx.RexW [| 0x13uy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
 
@@ -345,7 +345,7 @@ let add (ctx: EncContext) ins =
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x05uy |] imm 32<rt>
   | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x05uy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
@@ -356,7 +356,7 @@ let add (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] r 0b000uy imm 8<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r && isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] r 0b000uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
@@ -369,7 +369,7 @@ let add (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] b s d 0b000uy imm 8<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] b s d 0b000uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
@@ -383,7 +383,7 @@ let add (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] r 0b000uy imm 32<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] r 0b000uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
@@ -399,7 +399,7 @@ let add (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] b s d 0b000uy imm 32<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch;
+    no32Arch ctx.WordSize;
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] b s d 0b000uy imm 32<rt>
   (* Mem - Reg *)
@@ -415,7 +415,7 @@ let add (ctx: EncContext) ins =
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x01uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x01uy |] b s d r
   (* Reg - Reg *)
@@ -429,7 +429,7 @@ let add (ctx: EncContext) ins =
     encRR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x03uy |] r1 r2
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x03uy |] r1 r2
   (* Reg - Mem *)
@@ -445,7 +445,7 @@ let add (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x03uy |] r b s d
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x03uy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
@@ -503,7 +503,7 @@ let logAnd (ctx: EncContext) ins =
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x25uy |] imm 32<rt>
   | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x25uy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
@@ -514,7 +514,7 @@ let logAnd (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] r 0b100uy imm 8<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r && isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] r 0b100uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
@@ -527,7 +527,7 @@ let logAnd (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] b s d 0b100uy imm 8<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] b s d 0b100uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
@@ -541,7 +541,7 @@ let logAnd (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] r 0b100uy imm 32<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] r 0b100uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
@@ -557,7 +557,7 @@ let logAnd (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] b s d 0b100uy imm 32<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch;
+    no32Arch ctx.WordSize;
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] b s d 0b100uy imm 32<rt>
   (* Mem - Reg *)
@@ -573,7 +573,7 @@ let logAnd (ctx: EncContext) ins =
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x21uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x21uy |] b s d r
   (* Reg - Reg *)
@@ -587,7 +587,7 @@ let logAnd (ctx: EncContext) ins =
     encRR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x23uy |] r1 r2
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x23uy |] r1 r2
   (* Reg - Mem *)
@@ -603,7 +603,7 @@ let logAnd (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x23uy |] r b s d
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x23uy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
@@ -643,11 +643,11 @@ let bsr (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xBDuy |] r b s d
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBDuy |] r1 r2
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBDuy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
@@ -661,7 +661,7 @@ let bt (ctx: EncContext) ins =
     encRR ins ctx
       ctx.PrefNormal ctx.RexMR [| 0x0Fuy; 0xA3uy |] r2 r1
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexWAndMR [| 0x0Fuy; 0xA3uy |] r2 r1
   | TwoOperands (Label _, OprReg r) ->
@@ -673,7 +673,7 @@ let bt (ctx: EncContext) ins =
     encMR ins ctx
       ctx.PrefNormal ctx.RexMR [| 0x0Fuy; 0xA3uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexWAndMR [| 0x0Fuy; 0xA3uy |] b s d r
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 ctx r ->
@@ -683,7 +683,7 @@ let bt (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xBAuy |] r 0b100uy imm 8<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBAuy |] r 0b100uy imm 8<rt>
   | TwoOperands (Label _, OprImm (imm, _)) ->
@@ -695,7 +695,7 @@ let bt (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xBAuy |] b s d 0b100uy i 8<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBAuy |] b s d 0b100uy imm 8<rt>
   | o -> printfn "%A" o; raise NotEncodableException
@@ -703,7 +703,7 @@ let bt (ctx: EncContext) ins =
 let call (ctx: EncContext) ins =
   match ins.Operands with
   | OneOperand (OprDirAddr (Relative rel))
-    when isInt16 rel && ctx.Arch = Architecture.IntelX86 ->
+    when isInt16 rel && ctx.WordSize = WordSize.Bit32 ->
     encD ins ctx
       ctx.Pref66 ctx.RexNormal [| 0xE8uy |] rel 16<rt>
   | OneOperand (OprDirAddr (Relative rel))
@@ -713,27 +713,27 @@ let call (ctx: EncContext) ins =
   | OneOperand (Label _) ->
     encLbl ins
   | OneOperand (OprMem (b, s, d, 16<rt>)) ->
-    no64Arch ctx.Arch
+    no64Arch ctx.WordSize
     encM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0xFFuy |] b s d 0b010uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
-    no64Arch ctx.Arch
+    no64Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] b s d 0b010uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] b s d 0b010uy
   | OneOperand (OprReg r) when isReg16 ctx r ->
-    no64Arch ctx.Arch
+    no64Arch ctx.WordSize
     encR ins ctx
       ctx.Pref66 ctx.RexNormal [| 0xFFuy |] r 0b010uy
   | OneOperand (OprReg r) when isReg32 ctx r ->
-    no64Arch ctx.Arch
+    no64Arch ctx.WordSize
     encR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] r 0b010uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] r 0b010uy
   | o -> printfn "%A" o; raise NotEncodableException
@@ -747,7 +747,7 @@ let cdq _ctx = function
   | _ -> raise NotEncodableException
 
 let cdqe (ctx: EncContext) = function
-  | NoOperand -> no32Arch ctx.Arch; [| Normal 0x48uy; Normal 0x98uy |]
+  | NoOperand -> no32Arch ctx.WordSize; [| Normal 0x48uy; Normal 0x98uy |]
   | _ -> raise NotEncodableException
 
 let cmovcc (ctx: EncContext) ins opcode =
@@ -759,7 +759,7 @@ let cmovcc (ctx: EncContext) ins opcode =
     encRR ins ctx
       ctx.PrefNormal ctx.RexNormal opcode r1 r2
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW opcode r1 r2
   | TwoOperands (Label _, OprReg r) ->
@@ -771,7 +771,7 @@ let cmovcc (ctx: EncContext) ins opcode =
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal opcode b s d r
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW opcode b s d r
   | o -> printfn "%A" o; raise NotEncodableException
@@ -806,7 +806,7 @@ let cmp (ctx: EncContext) ins =
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x3Duy |] imm 32<rt>
   | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x3Duy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
@@ -817,7 +817,7 @@ let cmp (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] r 0b111uy imm 8<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r && isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] r 0b111uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
@@ -830,7 +830,7 @@ let cmp (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] b s d 0b111uy imm 8<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] b s d 0b111uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
@@ -844,7 +844,7 @@ let cmp (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] r 0b111uy imm 32<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] r 0b111uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
@@ -860,7 +860,7 @@ let cmp (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] b s d 0b111uy imm 32<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch;
+    no32Arch ctx.WordSize;
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] b s d 0b111uy imm 32<rt>
   (* Mem - Reg *)
@@ -876,7 +876,7 @@ let cmp (ctx: EncContext) ins =
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x39uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x39uy |] b s d r
   (* Reg - Reg *)
@@ -890,7 +890,7 @@ let cmp (ctx: EncContext) ins =
     encRR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x3Buy |] r1 r2
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x3Buy |] r1 r2
   (* Reg - Mem *)
@@ -906,7 +906,7 @@ let cmp (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x3Buy |] r b s d
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x3Buy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
@@ -930,7 +930,7 @@ let cmpxchg (ctx: EncContext) ins =
     encRR ins ctx
       ctx.PrefNormal ctx.RexMR [| 0x0Fuy; 0xB1uy |] r2 r1
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexWAndMR [| 0x0Fuy; 0xB1uy |] r2 r1
   | TwoOperands (Label _, OprReg r) ->
@@ -945,7 +945,7 @@ let cmpxchg (ctx: EncContext) ins =
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xB1uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xB1uy |] b s d r
   | o -> printfn "%A" o; raise NotEncodableException
@@ -960,7 +960,7 @@ let cmpxchg8b (ctx: EncContext) ins =
 let cmpxchg16b (ctx: EncContext) ins =
   match ins.Operands with
   | OneOperand (OprMem (b, s, d, 128<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xC7uy |] b s d 0b001uy
   | o -> printfn "%A" o; raise NotEncodableException
@@ -1050,22 +1050,22 @@ let dec (ctx: EncContext) ins =
   | OneOperand (OprMem (b, s, d, 8<rt>)) ->
     encM ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFEuy |] b s d 1uy
   | OneOperand (OprReg r) when isReg16 ctx r ->
-    if isClassicGPReg r && ctx.Arch = Architecture.IntelX86 then
+    if isClassicGPReg r && ctx.WordSize = WordSize.Bit32 then
       encClassicR true 0x48uy (regTo3Bit r)
     else encR ins ctx ctx.Pref66 ctx.RexNormal [| 0xFFuy |] r 1uy
   | OneOperand (OprMem (b, s, d, 16<rt>)) ->
     encM ins ctx ctx.Pref66 ctx.RexNormal [| 0xFFuy |] b s d 1uy
   | OneOperand (OprReg r) when isReg32 ctx r ->
-    if isClassicGPReg r && ctx.Arch = Architecture.IntelX86 then
+    if isClassicGPReg r && ctx.WordSize = WordSize.Bit32 then
       encClassicR false 0x48uy (regTo3Bit r)
     else encR ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] r 1uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
     encM ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] b s d 1uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encR ins ctx ctx.PrefNormal ctx.RexW [| 0xFFuy |] r 1uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexW [| 0xFFuy |] b s d 1uy
   | o -> printfn "%A" o; raise NotEncodableException
 
@@ -1090,11 +1090,11 @@ let div (ctx: EncContext) ins =
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xF7uy |] b s d 0b110uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encR ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] r 0b110uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b110uy
   | o -> printfn "%A" o; raise NotEncodableException
@@ -1329,11 +1329,11 @@ let idiv (ctx: EncContext) ins =
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xF7uy |] b s d 0b111uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encR ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] r 0b111uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b111uy
   | o -> printfn "%A" o; raise NotEncodableException
@@ -1359,11 +1359,11 @@ let imul (ctx: EncContext) ins =
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xF7uy |] b s d 0b101uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encR ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] r 0b101uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b101uy
   | TwoOperands (OprReg r1, OprReg r2) when isReg16 ctx r1 && isReg16 ctx r2 ->
@@ -1406,12 +1406,12 @@ let imul (ctx: EncContext) ins =
       ctx.PrefNormal ctx.RexNormal [| 0x6Buy |] r b s d imm 8<rt>
   | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg64 ctx r1 && isReg64 ctx r2 && isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x6Buy |] r1 r2 imm 8<rt>
   | ThreeOperands (OprReg r, OprMem (b, s, d, 64<rt>), OprImm (imm, _))
     when isReg64 ctx r && isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x6Buy |] r b s d imm 8<rt>
   | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
@@ -1434,12 +1434,12 @@ let imul (ctx: EncContext) ins =
       ctx.PrefNormal ctx.RexNormal [| 0x69uy |] r b s d imm 32<rt>
   | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x69uy |] r1 r2 imm 32<rt>
   | ThreeOperands (OprReg r, OprMem (b, s, d, 64<rt>), OprImm (imm, _))
     when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x69uy |] r b s d imm 32<rt>
   | o -> printfn "%A" o; raise NotEncodableException
@@ -1451,22 +1451,22 @@ let inc (ctx: EncContext) ins =
   | OneOperand (OprMem (b, s, d, 8<rt>)) ->
     encM ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFEuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg16 ctx r ->
-    if isClassicGPReg r && ctx.Arch = Architecture.IntelX86 then
+    if isClassicGPReg r && ctx.WordSize = WordSize.Bit32 then
       encClassicR true 0x40uy (regTo3Bit r)
     else encR ins ctx ctx.Pref66 ctx.RexNormal [| 0xFFuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 16<rt>)) ->
     encM ins ctx ctx.Pref66 ctx.RexNormal [| 0xFFuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg32 ctx r ->
-    if isClassicGPReg r && ctx.Arch = Architecture.IntelX86 then
+    if isClassicGPReg r && ctx.WordSize = WordSize.Bit32 then
       encClassicR false 0x40uy (regTo3Bit r)
     else encR ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
     encM ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encR ins ctx ctx.PrefNormal ctx.RexW [| 0xFFuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexW [| 0xFFuy |] b s d 0uy
   | o -> printfn "%A" o; raise NotEncodableException
 
@@ -1486,7 +1486,7 @@ let jcc (ctx: EncContext) ins op8Byte opByte op =
     encD ins ctx
       ctx.PrefNormal ctx.RexNormal [| op8Byte |] rel 8<rt>
   | OneOperand (OprDirAddr (Relative rel))
-    when isInt16 rel && ctx.Arch = Architecture.IntelX86 ->
+    when isInt16 rel && ctx.WordSize = WordSize.Bit32 ->
     encD ins ctx
       ctx.Pref66 ctx.RexNormal opByte rel 16<rt>
   | OneOperand (OprDirAddr (Relative rel)) when isInt32 rel ->
@@ -1522,25 +1522,25 @@ let jmp (ctx: EncContext) ins =
     encD ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xE9uy |] rel 32<rt>
   | OneOperand (OprReg r) when isReg32 ctx r ->
-    no64Arch ctx.Arch (* N.S. *)
+    no64Arch ctx.WordSize (* N.S. *)
     encR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] r 0b100uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
-    no64Arch ctx.Arch (* N.S. *)
+    no64Arch ctx.WordSize (* N.S. *)
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] b s d 0b100uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] r 0b100uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] b s d 0b100uy
   | o -> printfn "%A" o; raise NotEncodableException
 
 let lahf (ctx: EncContext) = function
-  | NoOperand -> no64Arch ctx.Arch; [| Normal 0x9Fuy |]
+  | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x9Fuy |]
   | _ -> raise NotEncodableException
 
 let lea (ctx: EncContext) ins =
@@ -1554,13 +1554,13 @@ let lea (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x8Duy |] r b s d
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x8Duy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
 
 let leave (ctx: EncContext) = function
-  | NoOperand -> no64Arch ctx.Arch; [| Normal 0xC9uy |]
+  | NoOperand -> no64Arch ctx.WordSize; [| Normal 0xC9uy |]
   | _ -> raise NotEncodableException
 
 let mov (ctx: EncContext) ins =
@@ -1592,7 +1592,7 @@ let mov (ctx: EncContext) ins =
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x89uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x89uy |] b s d r
   (* Reg - Reg *)
@@ -1606,7 +1606,7 @@ let mov (ctx: EncContext) ins =
     encRR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x8Buy |] r1 r2
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x8Buy |] r1 r2
   (* Reg - Mem *)
@@ -1622,7 +1622,7 @@ let mov (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x8Buy |] r b s d
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x8Buy |] r b s d
   (* Reg - Imm (Opcode reg field) *)
@@ -1636,11 +1636,11 @@ let mov (ctx: EncContext) ins =
     encOI ins ctx
       ctx.PrefNormal ctx.RexNormal 0xB8uy r imm 32<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r && isInt32 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xC7uy |] r 0b000uy imm 32<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encOI ins ctx
       ctx.PrefNormal ctx.RexW 0xB8uy r imm 64<rt>
   (* Mem - Imm *)
@@ -1656,7 +1656,7 @@ let mov (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xC7uy |] b s d 0b000uy imm 32<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch;
+    no32Arch ctx.WordSize;
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xC7uy |] b s d 0b000uy imm 32<rt>
   | o -> printfn "%A" o; raise NotEncodableException
@@ -1769,11 +1769,11 @@ let movsx (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xBEuy |] r b s d
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg8 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBEuy |] r1 r2
   | TwoOperands (OprReg r, OprMem (b, s, d, 8<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBEuy |] r b s d
   | TwoOperands (OprReg r1, OprReg r2) when isReg32 ctx r1 && isReg16 ctx r2 ->
@@ -1783,11 +1783,11 @@ let movsx (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xBFuy |] r b s d
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg16 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBFuy |] r1 r2
   | TwoOperands (OprReg r, OprMem (b, s, d, 16<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBFuy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
@@ -1795,13 +1795,13 @@ let movsx (ctx: EncContext) ins =
 let movsxd (ctx: EncContext) ins =
   match ins.Operands with
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg32 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x63uy |] r1 r2
   | TwoOperands (OprReg r, Label _) ->
     encRL ctx ins r [||] [| 0x63uy |]
   | TwoOperands (OprReg r, OprMem (b, s, d, 32<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x63uy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
@@ -1836,11 +1836,11 @@ let movzx (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xB6uy |] r b s d
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg8 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xB6uy |] r1 r2
   | TwoOperands (OprReg r, OprMem (b, s, d, 8<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xB6uy |] r b s d
   | TwoOperands (OprReg r1, OprReg r2) when isReg32 ctx r1 && isReg16 ctx r2 ->
@@ -1850,11 +1850,11 @@ let movzx (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xB7uy |] r b s d
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg16 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xB7uy |] r1 r2
   | TwoOperands (OprReg r, OprMem (b, s, d, 16<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xB7uy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
@@ -1880,11 +1880,11 @@ let mul (ctx: EncContext) ins =
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xF7uy |] b s d 0b100uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encR ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] r 0b100uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b100uy
   | o -> printfn "%A" o; raise NotEncodableException
@@ -1930,11 +1930,11 @@ let neg (ctx: EncContext) ins =
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xF7uy |] b s d 0b011uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encR ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] r 0b011uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b011uy
   | o -> printfn "%A" o; raise NotEncodableException
@@ -1977,11 +1977,11 @@ let not (ctx: EncContext) ins =
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xF7uy |] b s d 0b010uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encR ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] r 0b010uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b010uy
   | o -> printfn "%A" o; raise NotEncodableException
@@ -1999,7 +1999,7 @@ let logOr (ctx: EncContext) ins =
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Duy |] imm 32<rt>
   | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Duy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
@@ -2010,7 +2010,7 @@ let logOr (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] r 0b001uy imm 8<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r && isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] r 0b001uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
@@ -2023,7 +2023,7 @@ let logOr (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] b s d 0b001uy imm 8<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] b s d 0b001uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
@@ -2037,7 +2037,7 @@ let logOr (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] r 0b001uy imm 32<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] r 0b001uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
@@ -2053,7 +2053,7 @@ let logOr (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] b s d 0b001uy imm 32<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch;
+    no32Arch ctx.WordSize;
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] b s d 0b001uy imm 32<rt>
   (* Mem - Reg *)
@@ -2069,7 +2069,7 @@ let logOr (ctx: EncContext) ins =
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x09uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x09uy |] b s d r
   (* Reg - Reg *)
@@ -2083,7 +2083,7 @@ let logOr (ctx: EncContext) ins =
     encRR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Buy |] r1 r2
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Buy |] r1 r2
   (* Reg - Mem *)
@@ -2099,7 +2099,7 @@ let logOr (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Buy |] r b s d
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Buy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
@@ -2150,9 +2150,12 @@ let palignr (ctx: EncContext) ins =
 
 let pop (ctx: EncContext) ins =
   match ins.Operands with
-  | OneOperand (OprReg Register.DS) -> no64Arch ctx.Arch; [| Normal 0x1Fuy |]
-  | OneOperand (OprReg Register.ES) -> no64Arch ctx.Arch; [| Normal 0x07uy |]
-  | OneOperand (OprReg Register.SS) -> no64Arch ctx.Arch; [| Normal 0x17uy |]
+  | OneOperand (OprReg Register.DS) ->
+    no64Arch ctx.WordSize; [| Normal 0x1Fuy |]
+  | OneOperand (OprReg Register.ES) ->
+    no64Arch ctx.WordSize; [| Normal 0x07uy |]
+  | OneOperand (OprReg Register.SS) ->
+    no64Arch ctx.WordSize; [| Normal 0x17uy |]
   | OneOperand (OprReg Register.FS) -> [| Normal 0x0Fuy; Normal 0xA1uy |]
   | OneOperand (OprReg Register.GS) -> [| Normal 0x0Fuy; Normal 0xA9uy |]
   | OneOperand (OprReg r) when isReg16 ctx r ->
@@ -2161,18 +2164,18 @@ let pop (ctx: EncContext) ins =
   | OneOperand (OprMem (b, s, d, 16<rt>)) ->
     encM ins ctx ctx.Pref66 ctx.RexNormal [| 0x8Fuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg32 ctx r ->
-    no64Arch ctx.Arch
+    no64Arch ctx.WordSize
     if isClassicGPReg r then encClassicR false 0x58uy (regTo3Bit r)
     else encR ins ctx ctx.PrefNormal ctx.RexNormal [| 0x8Fuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
-    no64Arch ctx.Arch
+    no64Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexNormal [| 0x8Fuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     if isClassicGPReg r then encClassicR false 0x58uy (regTo3Bit r)
     else encR ins ctx ctx.PrefNormal ctx.RexW [| 0x8Fuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexW [| 0x8Fuy |] b s d 0uy
   | o -> printfn "%A" o; raise NotEncodableException
 
@@ -2206,10 +2209,14 @@ let punpckldq (ctx: EncContext) ins =
 
 let push (ctx: EncContext) ins =
   match ins.Operands with
-  | OneOperand (OprReg Register.CS) -> no64Arch ctx.Arch; [| Normal 0x0Euy |]
-  | OneOperand (OprReg Register.SS) -> no64Arch ctx.Arch; [| Normal 0x16uy |]
-  | OneOperand (OprReg Register.DS) -> no64Arch ctx.Arch; [| Normal 0x1Euy |]
-  | OneOperand (OprReg Register.ES) -> no64Arch ctx.Arch; [| Normal 0x06uy |]
+  | OneOperand (OprReg Register.CS) ->
+    no64Arch ctx.WordSize; [| Normal 0x0Euy |]
+  | OneOperand (OprReg Register.SS) ->
+    no64Arch ctx.WordSize; [| Normal 0x16uy |]
+  | OneOperand (OprReg Register.DS) ->
+    no64Arch ctx.WordSize; [| Normal 0x1Euy |]
+  | OneOperand (OprReg Register.ES) ->
+    no64Arch ctx.WordSize; [| Normal 0x06uy |]
   | OneOperand (OprReg Register.FS) -> [| Normal 0x0Fuy; Normal 0xA0uy |]
   | OneOperand (OprReg Register.GS) -> [| Normal 0x0Fuy; Normal 0xA8uy |]
   | OneOperand (OprReg r) when isReg16 ctx r ->
@@ -2218,20 +2225,20 @@ let push (ctx: EncContext) ins =
   | OneOperand (OprMem (b, s, d, 16<rt>)) ->
     encM ins ctx ctx.Pref66 ctx.RexNormal [| 0xFFuy |] b s d 0b110uy
   | OneOperand (OprReg r) when isReg32 ctx r ->
-    no64Arch ctx.Arch
+    no64Arch ctx.WordSize
     if isClassicGPReg r then encClassicR false 0x50uy (regTo3Bit r)
     else
       encR ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] r 0b110uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
-    no64Arch ctx.Arch
+    no64Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] b s d 0b110uy
   | OneOperand (OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     if isClassicGPReg r then encClassicR false 0x50uy (regTo3Bit r)
     else
       encR ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] r 0b110uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] b s d 0b110uy
   | OneOperand (OprImm (imm, _)) when isInt8 imm ->
     encImm ins ctx ctx.PrefNormal ctx.RexNormal [| 0x6Auy |] imm 8<rt>
@@ -2316,27 +2323,27 @@ let rotateOrShift (ctx: EncContext) ins regConstr =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xC1uy |] b s d regConstr imm 8<rt>
   | TwoOperands (OprReg r, OprImm (1L as imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xD1uy |] r regConstr imm 8<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (1L as imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xD1uy |] b s d regConstr imm 8<rt>
   | TwoOperands (OprReg r, OprReg Register.CL) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRC ins ctx
       ctx.PrefNormal ctx.RexWAndMR [| 0xD3uy |] r regConstr
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg Register.CL) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMC ins ctx
       ctx.PrefNormal ctx.RexW [| 0xD3uy |] b s d regConstr
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xC1uy |] r regConstr imm 8<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xC1uy |] b s d regConstr imm 8<rt>
   | o -> printfn "%A" o; raise NotEncodableException
@@ -2362,7 +2369,7 @@ let shl ctx ins = rotateOrShift ctx ins 0b100uy
 let shr ctx ins = rotateOrShift ctx ins 0b101uy
 
 let sahf (ctx: EncContext) = function
-  | NoOperand -> no64Arch ctx.Arch; [| Normal 0x9Euy |]
+  | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x9Euy |]
   | _ -> raise NotEncodableException
 
 let sbb (ctx: EncContext) ins =
@@ -2378,7 +2385,7 @@ let sbb (ctx: EncContext) ins =
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x1Duy |] imm 32<rt>
   | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x1Duy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
@@ -2389,7 +2396,7 @@ let sbb (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] r 0b011uy imm 8<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r && isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] r 0b011uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
@@ -2402,7 +2409,7 @@ let sbb (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] b s d 0b011uy imm 8<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] b s d 0b011uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
@@ -2416,7 +2423,7 @@ let sbb (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] r 0b011uy imm 32<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] r 0b011uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
@@ -2432,7 +2439,7 @@ let sbb (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] b s d 0b011uy imm 32<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch;
+    no32Arch ctx.WordSize;
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] b s d 0b011uy imm 32<rt>
   (* Mem - Reg *)
@@ -2448,7 +2455,7 @@ let sbb (ctx: EncContext) ins =
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x19uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x19uy |] b s d r
   (* Reg - Reg *)
@@ -2462,7 +2469,7 @@ let sbb (ctx: EncContext) ins =
     encRR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x1Buy |] r1 r2
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x1Buy |] r1 r2
   (* Reg - Mem *)
@@ -2478,7 +2485,7 @@ let sbb (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x1Buy |] r b s d
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x1Buy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
@@ -2500,7 +2507,7 @@ let scasd (ctx: EncContext) ins =
 let scasq (ctx: EncContext) ins =
   match ins.Operands with
   | NoOperand ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encNP ins ctx
       ctx.PrefREP ctx.RexW [| 0xAFuy |]
   | o -> printfn "%A" o; raise NotEncodableException
@@ -2575,22 +2582,22 @@ let shld (ctx: EncContext) ins =
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xA5uy |] b s d r
   | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xA4uy |] r1 r2 imm 8<rt>
   | ThreeOperands (OprMem (b, s, d, 64<rt>), OprReg r, OprImm (imm, _))
     when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xA4uy |] b s d r imm 8<rt>
   | ThreeOperands (OprReg r1, OprReg r2, OprReg Register.CL)
     when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xA5uy |] r1 r2
   | ThreeOperands (OprMem (b, s, d, 64<rt>), OprReg r, OprReg Register.CL)
     when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xA5uy |] b s d r
   | o -> printfn "%A" o; raise NotEncodableException
@@ -2612,7 +2619,7 @@ let stosd (ctx: EncContext) ins =
 let stosq (ctx: EncContext) ins =
   match ins.Operands with
   | NoOperand ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encNP ins ctx
       ctx.PrefREP ctx.RexW [| 0xABuy |]
   | o -> printfn "%A" o; raise NotEncodableException
@@ -2637,7 +2644,7 @@ let sub (ctx: EncContext) ins =
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x2Duy |] imm 32<rt>
   | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x2Duy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
@@ -2648,7 +2655,7 @@ let sub (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] r 0b101uy imm 8<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r && isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] r 0b101uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
@@ -2661,7 +2668,7 @@ let sub (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] b s d 0b101uy imm 8<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] b s d 0b101uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
@@ -2675,7 +2682,7 @@ let sub (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] r 0b101uy imm 32<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] r 0b101uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
@@ -2691,7 +2698,7 @@ let sub (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] b s d 0b101uy imm 32<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch;
+    no32Arch ctx.WordSize;
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] b s d 0b011uy imm 32<rt>
   (* Mem - Reg *)
@@ -2707,7 +2714,7 @@ let sub (ctx: EncContext) ins =
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x29uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x29uy |] b s d r
   (* Reg - Reg *)
@@ -2721,7 +2728,7 @@ let sub (ctx: EncContext) ins =
     encRR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x2Buy |] r1 r2
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x2Buy |] r1 r2
   (* Reg - Mem *)
@@ -2737,7 +2744,7 @@ let sub (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x2Buy |] r b s d
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x2Buy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
@@ -2775,7 +2782,7 @@ let test (ctx: EncContext) ins =
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xA9uy |] imm 32<rt>
   | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0xA9uy |] imm 32<rt>
   (* Reg - Imm *)
@@ -2789,7 +2796,7 @@ let test (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xF7uy |] r 0b000uy imm 32<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] r 0b000uy imm 32<rt>
   (* Mem - Imm *)
@@ -2805,7 +2812,7 @@ let test (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xF7uy |] b s d 0b000uy imm 32<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch;
+    no32Arch ctx.WordSize;
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b000uy imm 32<rt>
   (* Reg - Reg *)
@@ -2819,7 +2826,7 @@ let test (ctx: EncContext) ins =
     encRR ins ctx
       ctx.PrefNormal ctx.RexMR [| 0x85uy |] r2 r1
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexWAndMR [| 0x85uy |] r2 r1
   (* Mem - Reg *)
@@ -2835,7 +2842,7 @@ let test (ctx: EncContext) ins =
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x85uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x85uy |] b s d r
   | o -> printfn "%A" o; raise NotEncodableException
@@ -2854,52 +2861,52 @@ let vaddpd (ctx: EncContext) ins =
   match ins.Operands with
   | ThreeOperands (OprReg r1, OprReg r2, OprReg r3)
     when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
-    encVexRRR ins ctx.Arch (Some r2) ctx.VEX128n66n0F [| 0x58uy |] r1 r3
+    encVexRRR ins ctx.WordSize (Some r2) ctx.VEX128n66n0F [| 0x58uy |] r1 r3
   | ThreeOperands (OprReg r1, OprReg r2, OprReg r3)
     when isYMMReg r1 && isYMMReg r2 && isYMMReg r3 ->
-    encVexRRR ins ctx.Arch (Some r2) ctx.VEX256n66n0F [| 0x58uy |] r1 r3
+    encVexRRR ins ctx.WordSize (Some r2) ctx.VEX256n66n0F [| 0x58uy |] r1 r3
   | ThreeOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 128<rt>))
     when isXMMReg r1 && isXMMReg r2 ->
-    encVexRRM ins ctx.Arch (Some r2) ctx.VEX128n66n0F [| 0x58uy |] r1 b s d
+    encVexRRM ins ctx.WordSize (Some r2) ctx.VEX128n66n0F [| 0x58uy |] r1 b s d
   | ThreeOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 256<rt>))
     when isYMMReg r1 && isYMMReg r2 ->
-    encVexRRM ins ctx.Arch (Some r2) ctx.VEX256n66n0F [| 0x58uy |] r1 b s d
+    encVexRRM ins ctx.WordSize (Some r2) ctx.VEX256n66n0F [| 0x58uy |] r1 b s d
   | o -> printfn "%A" o; raise NotEncodableException
 
 let vaddps (ctx: EncContext) ins =
   match ins.Operands with
   | ThreeOperands (OprReg r1, OprReg r2, OprReg r3)
     when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
-    encVexRRR ins ctx.Arch (Some r2) ctx.VEX128n0F [| 0x58uy |] r1 r3
+    encVexRRR ins ctx.WordSize (Some r2) ctx.VEX128n0F [| 0x58uy |] r1 r3
   | ThreeOperands (OprReg r1, OprReg r2, OprReg r3)
     when isYMMReg r1 && isYMMReg r2 && isYMMReg r3 ->
-    encVexRRR ins ctx.Arch (Some r2) ctx.VEX256n0F [| 0x58uy |] r1 r3
+    encVexRRR ins ctx.WordSize (Some r2) ctx.VEX256n0F [| 0x58uy |] r1 r3
   | ThreeOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 128<rt>))
     when isXMMReg r1 && isXMMReg r2 ->
-    encVexRRM ins ctx.Arch (Some r2) ctx.VEX128n0F [| 0x58uy |] r1 b s d
+    encVexRRM ins ctx.WordSize (Some r2) ctx.VEX128n0F [| 0x58uy |] r1 b s d
   | ThreeOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 256<rt>))
     when isYMMReg r1 && isYMMReg r2 ->
-    encVexRRM ins ctx.Arch (Some r2) ctx.VEX256n0F [| 0x58uy |] r1 b s d
+    encVexRRM ins ctx.WordSize (Some r2) ctx.VEX256n0F [| 0x58uy |] r1 b s d
   | o -> printfn "%A" o; raise NotEncodableException
 
 let vaddsd (ctx: EncContext) ins =
   match ins.Operands with
   | ThreeOperands (OprReg r1, OprReg r2, OprReg r3)
     when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
-    encVexRRR ins ctx.Arch (Some r2) ctx.VEX128nF2n0F [| 0x58uy |] r1 r3
+    encVexRRR ins ctx.WordSize (Some r2) ctx.VEX128nF2n0F [| 0x58uy |] r1 r3
   | ThreeOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 64<rt>))
     when isXMMReg r1 && isXMMReg r2 ->
-    encVexRRM ins ctx.Arch (Some r2) ctx.VEX128nF2n0F [| 0x58uy |] r1 b s d
+    encVexRRM ins ctx.WordSize (Some r2) ctx.VEX128nF2n0F [| 0x58uy |] r1 b s d
   | o -> printfn "%A" o; raise NotEncodableException
 
 let vaddss (ctx: EncContext) ins =
   match ins.Operands with
   | ThreeOperands (OprReg r1, OprReg r2, OprReg r3)
     when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
-    encVexRRR ins ctx.Arch (Some r2) ctx.VEX128nF3n0F [| 0x58uy |] r1 r3
+    encVexRRR ins ctx.WordSize (Some r2) ctx.VEX128nF3n0F [| 0x58uy |] r1 r3
   | ThreeOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 32<rt>))
     when isXMMReg r1 && isXMMReg r2 ->
-    encVexRRM ins ctx.Arch (Some r2) ctx.VEX128nF3n0F [| 0x58uy |] r1 b s d
+    encVexRRM ins ctx.WordSize (Some r2) ctx.VEX128nF3n0F [| 0x58uy |] r1 b s d
   | o -> printfn "%A" o; raise NotEncodableException
 
 let vpalignr (ctx: EncContext) ins =
@@ -2907,22 +2914,22 @@ let vpalignr (ctx: EncContext) ins =
   (* Reg - Reg - Reg - Imm8 *)
   | FourOperands (OprReg r1, OprReg r2, OprReg r3, OprImm (imm, _))
     when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
-    encVexRRRI ins ctx.Arch
+    encVexRRRI ins ctx.WordSize
       (Some r2) ctx.VEX128n66n0F3A [| 0x0Fuy |] r1 r3 imm 8<rt>
   | FourOperands (OprReg r1, OprReg r2, OprReg r3, OprImm (imm, _))
     when isYMMReg r1 && isYMMReg r2 && isYMMReg r3 ->
-    encVexRRRI ins ctx.Arch
+    encVexRRRI ins ctx.WordSize
       (Some r2) ctx.VEX256n66n0F3A [| 0x0Fuy |] r1 r3 imm 8<rt>
   (* Reg - Reg - Mem - Imm8 *)
   | FourOperands (OprReg r1, OprReg r2,
                   OprMem (b, s, d, 128<rt>), OprImm (imm, _))
     when isXMMReg r1 && isXMMReg r2 ->
-    encVexRRMI ins ctx.Arch
+    encVexRRMI ins ctx.WordSize
       (Some r2) ctx.VEX128n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>
   | FourOperands (OprReg r1, OprReg r2,
                   OprMem (b, s, d, 256<rt>), OprImm (imm, _))
     when isYMMReg r1 && isYMMReg r2 ->
-    encVexRRMI ins ctx.Arch
+    encVexRRMI ins ctx.WordSize
       (Some r2) ctx.VEX256n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>
   | o -> printfn "%A" o; raise NotEncodableException
 
@@ -2936,7 +2943,7 @@ let xchg (ctx: EncContext) ins =
     encO ins ctx ctx.PrefNormal ctx.RexNormal 0x90uy r
   | TwoOperands (OprReg Register.RAX, OprReg r)
   | TwoOperands (OprReg r, OprReg Register.RAX) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encO ins ctx ctx.PrefNormal ctx.RexW 0x90uy r
   | o -> printfn "%A" o; raise NotEncodableException
 
@@ -2953,7 +2960,7 @@ let xor (ctx: EncContext) ins =
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x35uy |] imm 32<rt>
   | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encImm ins ctx
       ctx.PrefNormal ctx.RexW [| 0x35uy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
@@ -2964,7 +2971,7 @@ let xor (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] r 0b110uy imm 8<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r && isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] r 0b110uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
@@ -2975,7 +2982,7 @@ let xor (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x83uy |] b s d 0b110uy imm 8<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x83uy |] b s d 0b110uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
@@ -2989,7 +2996,7 @@ let xor (ctx: EncContext) ins =
     encRI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] r 0b110uy imm 32<rt>
   | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] r 0b110uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
@@ -3003,7 +3010,7 @@ let xor (ctx: EncContext) ins =
     encMI ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x81uy |] b s d 0b110uy imm 32<rt>
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
-    no32Arch ctx.Arch;
+    no32Arch ctx.WordSize;
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x81uy |] b s d 0b110uy imm 32<rt>
   (* Mem - Reg *)
@@ -3017,7 +3024,7 @@ let xor (ctx: EncContext) ins =
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x31uy |] b s d r
   | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x31uy |] b s d r
   (* Reg - Reg *)
@@ -3031,7 +3038,7 @@ let xor (ctx: EncContext) ins =
     encRR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x33uy |] r1 r2
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg64 ctx r2 ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x33uy |] r1 r2
   (* Reg - Mem *)
@@ -3045,7 +3052,7 @@ let xor (ctx: EncContext) ins =
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x33uy |] r b s d
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 ctx r ->
-    no32Arch ctx.Arch
+    no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x33uy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException

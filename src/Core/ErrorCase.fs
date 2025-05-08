@@ -24,7 +24,7 @@
 
 namespace B2R2
 
-/// Error cases and corresponding numbers for B2R2.
+/// Represents common error cases found in B2R2.
 type ErrorCase =
   /// Failed to parse instruction(s), or encoded data.
   | ParsingFailure = 0
@@ -62,6 +62,9 @@ type ErrorCase =
   /// Encountered unexpected error.
   | UnexpectedError = 16
 
+/// <summary>
+/// Provides functions to work with <see cref='T:B2R2.ErrorCase'/>.
+/// </summary>
 [<RequireQualifiedAccess>]
 module ErrorCase =
   /// Convert an error case type to a string.

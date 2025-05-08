@@ -43,7 +43,7 @@ type IntelLifterTests () =
     CollectionAssert.AreEqual (expectedStmts, actual)
 
   let testX86 (hex: string) expectedStmts =
-    let isa = ISA.Init Architecture.IntelX86 Endian.Little
+    let isa = ISA (Architecture.Intel, WordSize.Bit32)
     let regFactory = RegisterFactory isa.WordSize
     let stream = LowUIRStream ()
     let builder = ILowUIRBuilder.Default (isa, regFactory, stream)
@@ -51,7 +51,7 @@ type IntelLifterTests () =
     |> test builder WordSize.Bit32 expectedStmts
 
   let testX64 (hex: string) expectedStmts =
-    let isa = ISA.Init Architecture.IntelX64 Endian.Little
+    let isa = ISA (Architecture.Intel, WordSize.Bit64)
     let regFactory = RegisterFactory isa.WordSize
     let stream = LowUIRStream ()
     let builder = ILowUIRBuilder.Default (isa, regFactory, stream)
