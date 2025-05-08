@@ -217,14 +217,14 @@ let binop op e1 e2 =
 #if DEBUG
       TypeCheck.binop e1 e2
 #else
-      TypeCheck.typeOf e1
+      Expr.TypeOf e1
 #endif
   binopWithType op t e1 e2
 
 /// Consing two expr.
 [<CompiledName("Cons")>]
 let cons a b =
-  let t = TypeCheck.typeOf a
+  let t = Expr.TypeOf a
   match b with
   | Nil ->
 #if ! HASHCONS
@@ -348,7 +348,7 @@ let loadBE t expr = load Endian.Big t expr
 let ite cond e1 e2 =
 #if DEBUG
   TypeCheck.bool cond
-  TypeCheck.checkEquivalence (TypeCheck.typeOf e1) (TypeCheck.typeOf e2)
+  TypeCheck.checkEquivalence (Expr.TypeOf e1) (Expr.TypeOf e2)
 #endif
   match cond with
   | Num (n, _) -> if BitVector.IsZero n then e2 else e1
@@ -397,7 +397,7 @@ let cast kind rt e =
 /// </summary>
 [<CompiledName("Extract")>]
 let extract expr rt pos =
-  TypeCheck.extract rt pos (TypeCheck.typeOf expr)
+  TypeCheck.extract rt pos (Expr.TypeOf expr)
   match expr with
   | Num (n, _) -> ValueOptimizer.extract n rt pos |> num
   | Extract (e, _, p, _) ->
@@ -512,7 +512,7 @@ let xtlo addrSize expr =
 /// Take the high half bits of an expression.
 [<CompiledName("XtHi")>]
 let xthi addrSize expr =
-  extract expr addrSize (int (TypeCheck.typeOf expr - addrSize))
+  extract expr addrSize (int (Expr.TypeOf expr - addrSize))
 
 /// Add two expressions.
 [<CompiledName("Add")>]
@@ -521,7 +521,7 @@ let add e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.ADD t e1 e2
@@ -537,7 +537,7 @@ let sub e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.SUB t e1 e2
 
@@ -548,7 +548,7 @@ let mul e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.MUL t e1 e2
@@ -564,7 +564,7 @@ let div e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.DIV t e1 e2
 
@@ -575,7 +575,7 @@ let sdiv e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.SDIV t e1 e2
 
@@ -586,7 +586,7 @@ let ``mod`` e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.MOD t e1 e2
 
@@ -597,7 +597,7 @@ let smod e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.SMOD t e1 e2
 
@@ -660,7 +660,7 @@ let ``and`` e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.AND t e1 e2
 
@@ -671,7 +671,7 @@ let ``or`` e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.OR t e2 e1
@@ -687,7 +687,7 @@ let xor e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.XOR t e2 e1
@@ -703,7 +703,7 @@ let sar e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.SAR t e1 e2
 
@@ -714,7 +714,7 @@ let shr e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.SHR t e1 e2
 
@@ -725,7 +725,7 @@ let shl e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.SHL t e1 e2
 
@@ -744,7 +744,7 @@ let fadd e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.FADD t e1 e2
@@ -760,7 +760,7 @@ let fsub e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.FSUB t e1 e2
 
@@ -771,7 +771,7 @@ let fmul e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.FMUL t e1 e2
@@ -787,7 +787,7 @@ let fdiv e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.FDIV t e1 e2
 
@@ -818,7 +818,7 @@ let fpow e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.FPOW t e1 e2
 
@@ -829,7 +829,7 @@ let flog e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    TypeCheck.typeOf e1
+    Expr.TypeOf e1
 #endif
   binopWithType BinOpType.FLOG t e1 e2
 
@@ -967,7 +967,7 @@ let store endian addr v =
 [<CompiledName("Assign")>]
 let assign dst src =
 #if DEBUG
-  TypeCheck.checkEquivalence (TypeCheck.typeOf dst) (TypeCheck.typeOf src)
+  TypeCheck.checkEquivalence (Expr.TypeOf dst) (Expr.TypeOf src)
 #endif
   match dst with
   | Var _ | TempVar _ | PCVar _ -> put dst src

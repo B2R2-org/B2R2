@@ -75,7 +75,7 @@ let getPseudoRegVarToArr bld reg eSize dataSize elems =
 let private getMemExpr128 expr =
   match expr with
   | Load (e, 128<rt>, expr, _) ->
-    struct (AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr)),
+    struct (AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr)),
             AST.load e 64<rt> expr)
   | _ -> raise InvalidOperandException
 
@@ -1222,7 +1222,7 @@ let fpDiv bld dataSize src1 src2 =
 /// FPToFixed()
 /// ======
 let fpToFixed dstSz src fbits unsigned round bld =
-  let srcSz = src |> TypeCheck.typeOf
+  let srcSz = src |> Expr.TypeOf
   let sign = AST.xthi 1<rt> src
   let trunc = AST.cast CastKind.FtoFTrunc srcSz src
   let convertBit =
@@ -1292,7 +1292,7 @@ let bitCount bitSize x =
 /// 64-bit result in the destination general-purpose register.
 let dstAssign oprSize dst src bld =
   let orgDst = AST.unwrap dst
-  let orgDstSz = orgDst |> TypeCheck.typeOf
+  let orgDstSz = orgDst |> Expr.TypeOf
   match orgDst with
   | Var (_, rid, _, _) when rid = Register.toRegID R.XZR ->
     bld <+ (orgDst := AST.num0 orgDstSz)

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-/// Pretty printer for SSA.
+/// Provides the functionality to pretty-print SSA expressions and statements.
 module B2R2.BinIR.SSA.Pp
 
 open System
@@ -155,16 +155,19 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
   | SideEffect eff ->
     sb.Append ("SideEffect " + SideEffect.ToString eff) |> ignore
 
+/// Pretty-prints an SSA expression to a string.
 let expToString expr =
   let sb = StringBuilder ()
   expToStringAux expr sb
   sb.ToString ()
 
+/// Pretty-prints an SSA statement to a string.
 let stmtToString expr =
   let sb = StringBuilder ()
   stmtToStringAux expr sb
   sb.ToString ()
 
+/// Pretty-prints an array of SSA statements to a string.
 let stmtsToString stmts =
   let sb = StringBuilder()
   Array.iter (fun stmt -> stmtToStringAux stmt sb

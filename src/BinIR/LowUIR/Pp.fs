@@ -22,7 +22,8 @@
   SOFTWARE.
 *)
 
-/// Wrapper of pretty printer for LowUIR.
+/// Provides several pretty printer functions for LowUIR.
+[<RequireQualifiedAccess>]
 module B2R2.BinIR.LowUIR.Pp
 
 open System

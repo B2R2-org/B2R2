@@ -22,29 +22,17 @@
   SOFTWARE.
 *)
 
+/// <summary>
+/// Provides a set of functions for constructing SSA expressions and statements.
+/// <remarks>
+/// Any SSA AST construction must be done through the functions in this module.
+/// </remarks>
+/// </summary>
 [<RequireQualifiedAccess>]
 module B2R2.BinIR.SSA.AST
 
 open B2R2
 open B2R2.BinIR
-
-let rec typeOf = function
-  | Num bv -> BitVector.GetType bv
-  | Var { Kind = RegVar (rt, _, _) }
-  | Var { Kind = PCVar rt }
-  | Var { Kind = TempVar (rt, _) }
-  | Var { Kind = StackVar (rt, _) }
-  | Var { Kind = GlobalVar (rt, _) } -> rt
-  | Load (_, rt, _) -> rt
-  | Store (_, rt, _, _) -> rt
-  | UnOp (_, rt, _) -> rt
-  | BinOp (_, rt, _, _) -> rt
-  | RelOp (_, rt, _, _) -> rt
-  | Ite (_, rt, _, _) -> rt
-  | Cast (_, rt, _) -> rt
-  | Extract (_, rt, _) -> rt
-  | Undefined (rt, _) -> rt
-  | e -> raise InvalidExprException
 
 let rec private translateDest = function
   | LowUIR.Var (ty, r, n, _) -> { Kind = RegVar (ty, r, n); Identifier = -1 }
@@ -64,7 +52,7 @@ let rec translateExpr (e: LowUIR.Expr) =
   | (LowUIR.PCVar _ as e)
   | (LowUIR.TempVar _ as e) -> Var <| translateDest e
   | LowUIR.UnOp (op, e, _) ->
-    let ty = LowUIR.TypeCheck.typeOf e
+    let ty = LowUIR.Expr.TypeOf e
     UnOp (op, ty, translateExpr e)
   | LowUIR.FuncName (s, _) -> FuncName s
   | LowUIR.BinOp (op, ty, e1, e2, _) ->
@@ -74,7 +62,7 @@ let rec translateExpr (e: LowUIR.Expr) =
   | LowUIR.Load (_, ty, e, _) ->
     Load ({ Kind = MemVar; Identifier = -1 }, ty, translateExpr e)
   | LowUIR.Ite (e1, e2, e3, _) ->
-    let ty = LowUIR.TypeCheck.typeOf e2
+    let ty = LowUIR.Expr.TypeOf e2
     Ite (translateExpr e1, ty, translateExpr e2, translateExpr e3)
   | LowUIR.Cast (op, ty, e, _) -> Cast (op, ty, translateExpr e)
   | LowUIR.Extract (e, ty, pos, _) -> Extract (translateExpr e, ty, pos)
@@ -95,7 +83,7 @@ let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
     let expr = translateExpr expr
     Def (dest, expr) |> Some
   | LowUIR.Store (_, addr, expr, _) ->
-    let ty = LowUIR.TypeCheck.typeOf expr
+    let ty = LowUIR.Expr.TypeOf expr
     let addr = translateExpr addr
     let expr = translateExpr expr
     let srcMem = { Kind = MemVar; Identifier = -1 }

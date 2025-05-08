@@ -26,8 +26,8 @@ namespace B2R2.BinIR
 
 /// <namespacedoc>
 ///   <summary>
-///   BinIR is the namespace for intermediate representations used in B2R2.
-///   There are two types of IRs we currently use: LowUIR and SSA.
+///   Contains types that define intermediate representations (IRs) used in
+///   B2R2 including LowUIR and SSA.
 ///   </summary>
 /// </namespacedoc>
 /// <summary>

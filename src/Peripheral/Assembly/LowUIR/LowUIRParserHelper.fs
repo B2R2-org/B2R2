@@ -32,5 +32,5 @@ let typeCheck st =
   else fail "Type check failed."
 
 let updateExpectedType e =
-  updateUserState (fun _ -> TypeCheck.typeOf e)
+  updateUserState (fun _ -> Expr.TypeOf e)
   >>. preturn e

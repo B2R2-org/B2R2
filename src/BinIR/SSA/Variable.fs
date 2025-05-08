@@ -26,7 +26,15 @@ namespace B2R2.BinIR.SSA
 
 open B2R2
 
-/// SSA variables always have their own identifier.
+/// <namespacedoc>
+///   <summary>
+///   Contains the definition of the SSA (Static Single Assignment) IR used in
+///   B2R2, which can be translated from LowUIR.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
+/// Represents SSA variables that always have their own identifier.
+/// </summary>
 type Variable = {
   Kind: VariableKind
   mutable Identifier: int
@@ -40,7 +48,7 @@ with
     | PCVar (_) -> true
     | _ -> false
 
-/// Type representing destination of an assignment.
+/// Represents the destination of an assignment statement.
 and VariableKind =
   /// Register.
   | RegVar of RegType * RegisterID * string

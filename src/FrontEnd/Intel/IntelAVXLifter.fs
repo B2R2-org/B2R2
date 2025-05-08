@@ -462,7 +462,7 @@ let vmovmskpd ins insLen bld =
     | Register.Kind.YMM ->
       bld <!-- (ins.Address, insLen)
       let dst = transOprToExpr bld false ins insLen dst
-      let dstSz = TypeCheck.typeOf dst
+      let dstSz = Expr.TypeOf dst
       let struct (src4, src3, src2, src1) =
         transOprToExpr256 bld false ins insLen src
       let src63 = AST.sext dstSz (AST.xthi 1<rt> src1)

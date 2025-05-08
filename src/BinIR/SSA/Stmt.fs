@@ -26,7 +26,7 @@ namespace B2R2.BinIR.SSA
 
 open B2R2.BinIR
 
-/// IR Statements.
+/// Represents an SSA statement.
 type Stmt =
   /// A label (as in an assembly language). LMark is only valid within a
   /// machine instruction.
@@ -47,6 +47,7 @@ type Stmt =
   /// This represents an instruction with side effects such as a system call.
   | SideEffect of SideEffect
 
+/// Represents a jump kind of SSA's Jmp statement.
 and JmpType =
   /// Jump to a label.
   | IntraJmp of Label

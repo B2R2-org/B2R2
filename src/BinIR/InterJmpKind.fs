@@ -24,7 +24,9 @@
 
 namespace B2R2.BinIR
 
-/// The kind of an InterJmp. Multiple kinds can present for a jump instruction.
+/// Represents the kind of an InterJmp (inter-instruction jump) statement, such
+/// as a call, return, etc. A jump statement can have a combination of these
+/// kinds.
 [<System.Flags>]
 type InterJmpKind =
   /// The base case, i.e., a simple jump instruction.

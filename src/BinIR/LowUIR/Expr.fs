@@ -30,9 +30,9 @@ open B2R2.BinIR
 
 /// <namespacedoc>
 ///   <summary>
-///   LowUIR is the namespace for the LowUIR intermediate representation, which
-///   is the main IR used in B2R2. LowUIR is used to represent the semantics of
-///   instructions in a platform-independent way.
+///   Contains the definition of the LowUIR intermediate representation (IR)
+///   used in B2R2, which is the main IR used to represent the semantics of
+///   instructions in a platform-agnostic way.
 ///   </summary>
 /// </namespacedoc>
 /// <summary>
@@ -290,6 +290,23 @@ with
     let sb = StringBuilder ()
     Expr.AppendToString expr sb
     sb.ToString ()
+
+  /// Gets the type of an expression.
+  static member TypeOf expr =
+    match expr with
+    | Num (n, _) -> n.Length
+    | Var (t, _, _, _)
+    | PCVar (t, _, _)
+    | TempVar (t, _, _) -> t
+    | UnOp (_, e, _) -> Expr.TypeOf e
+    | BinOp (_, t, _, _, _) -> t
+    | RelOp _ -> 1<rt>
+    | Load (_, t, _, _) -> t
+    | Ite (_, e1, _, _) -> Expr.TypeOf e1
+    | Cast (_, t, _, _) -> t
+    | Extract (_, t, _, _) -> t
+    | Undefined (t, _, _) -> t
+    | FuncName _ | JmpDest _ | Nil -> raise InvalidExprException
 
   interface System.IComparable with
     member this.CompareTo rhs =

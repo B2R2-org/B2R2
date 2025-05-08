@@ -88,8 +88,10 @@ type JmpTableAnalysis<'FnCtx,
     | RelOp (op, rt, e1, e2) -> RelOp (op, rt, simplify e1, simplify e2)
     | Ite (c, rt, e1, e2) -> Ite (simplify c, rt, simplify e1, simplify e2)
     | Cast (k, rt, e) -> Cast (k, rt, simplify e)
-    | Extract (Cast (CastKind.ZeroExt, _, e), rt, 0) when AST.typeOf e = rt -> e
-    | Extract (Cast (CastKind.SignExt, _, e), rt, 0) when AST.typeOf e = rt -> e
+    | Extract (Cast (CastKind.ZeroExt, _, e), rt, 0) when Expr.TypeOf e = rt ->
+      e
+    | Extract (Cast (CastKind.SignExt, _, e), rt, 0) when Expr.TypeOf e = rt ->
+      e
     | Extract (e, rt, pos) -> Extract (simplify e, rt, pos)
     | expr -> expr
 

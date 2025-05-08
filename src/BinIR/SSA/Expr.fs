@@ -27,7 +27,8 @@ namespace B2R2.BinIR.SSA
 open B2R2
 open B2R2.BinIR
 
-/// Basic expressions similar to LowUIR.Expr.
+/// Represents the SSA IR (Static Single Assignment IR) expressions, which are
+/// mostly similar to LowUIR expressions.
 type Expr =
   /// A number. For example, (0x42:I32) is a 32-bit number 0x42
   | Num of BitVector
@@ -78,4 +79,23 @@ type Expr =
   /// encode a label that should not really jump to (e.g., divide-by-zero
   /// case).
   | Undefined of RegType * string
-
+with
+  /// Returns the type of an SSA expression.
+  static member TypeOf expr =
+    match expr with
+    | Num bv -> BitVector.GetType bv
+    | Var { Kind = RegVar (rt, _, _) }
+    | Var { Kind = PCVar rt }
+    | Var { Kind = TempVar (rt, _) }
+    | Var { Kind = StackVar (rt, _) }
+    | Var { Kind = GlobalVar (rt, _) } -> rt
+    | Load (_, rt, _) -> rt
+    | Store (_, rt, _, _) -> rt
+    | UnOp (_, rt, _) -> rt
+    | BinOp (_, rt, _, _) -> rt
+    | RelOp (_, rt, _, _) -> rt
+    | Ite (_, rt, _, _) -> rt
+    | Cast (_, rt, _) -> rt
+    | Extract (_, rt, _) -> rt
+    | Undefined (rt, _) -> rt
+    | _ -> raise InvalidExprException

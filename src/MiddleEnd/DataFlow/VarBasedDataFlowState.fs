@@ -229,7 +229,7 @@ type VarBasedDataFlowState<'Lattice>
       let e2 = translateToSSAExpr pp e2
       SSA.BinOp (binOpType, rt, e1, e2)
     | RelOp (relOpType, e1, e2, _) ->
-      let rt = TypeCheck.typeOf e1
+      let rt = Expr.TypeOf e1
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
       SSA.RelOp (relOpType, rt, e1, e2)
@@ -237,7 +237,7 @@ type VarBasedDataFlowState<'Lattice>
       let e = translateToSSAExpr pp e
       SSA.Extract (e, rt, startPos)
     | UnOp (unOpType, e, _) ->
-      let rt = TypeCheck.typeOf e
+      let rt = Expr.TypeOf e
       let e = translateToSSAExpr pp e
       SSA.UnOp (unOpType, rt, e)
     | Cast (castKind, rt, e, _) ->
@@ -247,7 +247,7 @@ type VarBasedDataFlowState<'Lattice>
     | Nil -> SSA.Nil
     | Undefined (rt, s, _) -> SSA.Undefined (rt, s)
     | Ite (e1, e2, e3, _) ->
-      let rt = TypeCheck.typeOf e2
+      let rt = Expr.TypeOf e2
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
       let e3 = translateToSSAExpr pp e3
@@ -282,7 +282,7 @@ type VarBasedDataFlowState<'Lattice>
       | _ ->
         let prevMemVar = mkEmptySSAVar (Memory None) (* empty one *)
         let newMemVar = getSSAVar { ProgramPoint = pp; VarKind = Memory None }
-        let rt = TypeCheck.typeOf value
+        let rt = Expr.TypeOf value
         let e1 = translateToSSAExpr pp addr
         let e2 = translateToSSAExpr pp value
         let e = SSA.Store (prevMemVar, rt, e1, e2)

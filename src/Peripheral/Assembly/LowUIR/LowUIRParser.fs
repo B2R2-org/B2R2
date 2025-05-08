@@ -285,7 +285,6 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
   let pInterJmp =
     pstring "ijmp" .>> ws >>. pExpr
     |>> (fun expr ->
-      let rt = TypeCheck.typeOf expr
       AST.interjmp expr InterJmpKind.Base)
 
   let pInterCJmp =
@@ -295,7 +294,6 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
     .>> pstring "ijmp" .>> ws .>>. pExpr .>> ws
     .>> pstring "else" .>> ws .>> pstring "ijmp" .>> ws .>>. pExpr
     |>> (fun ((cond, tExp), fExp) ->
-      let rt = TypeCheck.typeOf tExp
       AST.intercjmp cond tExp fExp)
 
   let comma = pstring ","

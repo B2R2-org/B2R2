@@ -49,7 +49,7 @@ let private getSPSize size = numI32 (32 * size) 256<rt>
 /// Pushes an element to stack.
 let private pushToStack bld expr =
   let spReg = regVar bld R.SP
-  let expr = if OperationSize.regType = TypeCheck.typeOf expr then expr
+  let expr = if OperationSize.regType = Expr.TypeOf expr then expr
              else AST.zext OperationSize.regType expr
   bld <+ (spReg := (spReg .+ (getSPSize 1))) (* SP := SP + 32 *)
   bld <+ (AST.store Endian.Big spReg expr) (* [SP] := expr *)

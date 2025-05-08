@@ -22,32 +22,18 @@
   SOFTWARE.
 *)
 
+/// <summary>
+/// Provides functions for type checking LowUIR.
+/// </summary>
 [<RequireQualifiedAccess>]
 module B2R2.BinIR.LowUIR.TypeCheck
 
 open B2R2
 open B2R2.BinIR
 
-/// Get the type of an expression.
-let rec typeOf e =
-  match e with
-  | Num (n, _) -> n.Length
-  | Var (t, _, _, _)
-  | PCVar (t, _, _)
-  | TempVar (t, _, _) -> t
-  | UnOp (_, e, _) -> typeOf e
-  | BinOp (_, t, _, _, _) -> t
-  | RelOp _ -> 1<rt>
-  | Load (_, t, _, _) -> t
-  | Ite (_, e1, _, _) -> typeOf e1
-  | Cast (_, t, _, _) -> t
-  | Extract (_, t, _, _) -> t
-  | Undefined (t, _, _) -> t
-  | FuncName _ | JmpDest _ | Nil -> raise InvalidExprException
-
 #if DEBUG
 let internal bool e =
-  let t = typeOf e
+  let t = Expr.TypeOf e
   if t <> 1<rt> then
     raise <| TypeCheckException (Pp.expToString e + "must be boolean.")
   else ()
@@ -57,11 +43,11 @@ let inline internal checkEquivalence t1 t2 =
   if t1 = t2 then ()
   else raise <| TypeCheckException "Inconsistent types."
 
-let internal concat e1 e2 = typeOf e1 + typeOf e2
+let internal concat e1 e2 = Expr.TypeOf e1 + Expr.TypeOf e2
 
 let internal binop e1 e2 =
-  let t1 = typeOf e1
-  let t2 = typeOf e2
+  let t1 = Expr.TypeOf e1
+  let t2 = Expr.TypeOf e2
   checkEquivalence t1 t2
   t1
 
@@ -75,7 +61,7 @@ let private isValidFloatType = function
   | _ -> false
 
 let internal canCast kind newType e =
-  let oldType = typeOf e
+  let oldType = Expr.TypeOf e
   match kind with
   | CastKind.SignExt
   | CastKind.ZeroExt ->
@@ -94,25 +80,29 @@ let internal extract (t: RegType) pos (t2: RegType) =
   if (RegType.toBitWidth t + pos) <= RegType.toBitWidth t2 && pos >= 0 then ()
   else raise <| TypeCheckException "Inconsistent types."
 
+/// Type-checks a LowUIR expression.
 let rec expr e =
   match e with
   | UnOp (_, e, _) -> expr e
   | BinOp (BinOpType.CONCAT, t, e1, e2, _) ->
     expr e1 && expr e2 && concat e1 e2 = t
   | BinOp (_, t, e1, e2, _) -> expr e1 && expr e2 && binop e1 e2 = t
-  | RelOp (_, e1, e2, _) -> expr e1 && expr e2 && typeOf e1 = typeOf e2
+  | RelOp (_, e1, e2, _) ->
+    expr e1 && expr e2 && Expr.TypeOf e1 = Expr.TypeOf e2
   | Load (_, _, addr, _) -> expr addr
   | Ite (cond, e1, e2, _) ->
-    typeOf cond = 1<rt> && expr e1 && expr e2 && typeOf e1 = typeOf e2
+    Expr.TypeOf cond = 1<rt> && expr e1 && expr e2
+    && Expr.TypeOf e1 = Expr.TypeOf e2
   | Cast (CastKind.SignExt, t, e, _)
-  | Cast (CastKind.ZeroExt, t, e, _) -> expr e && t >= typeOf e
+  | Cast (CastKind.ZeroExt, t, e, _) -> expr e && t >= Expr.TypeOf e
   | Extract (e, t, p, _) ->
-    expr e && ((t + LanguagePrimitives.Int32WithMeasure p) <= typeOf e)
+    expr e && ((t + LanguagePrimitives.Int32WithMeasure p) <= Expr.TypeOf e)
   | _ -> true
 
+/// Type-checks a LowUIR statement.
 let stmt s =
   match s with
-  | Put (v, e, _) -> (typeOf v) = (typeOf e)
+  | Put (v, e, _) -> (Expr.TypeOf v) = (Expr.TypeOf e)
   | Store (_, a, v, _) -> expr a && expr v
   | Jmp (a, _) -> expr a
   | CJmp (cond, e1, e2, _) -> expr cond && expr e1 && expr e2
