@@ -18,4 +18,4 @@ jobs:
       run: |
         git clone --depth 1 https://github.com/B2R2-org/FSLint.git
         dotnet build FSLint
-        dotnet run --project FSLint -- src/
+        dotnet run --project FSLint/src/FSLint -- src/
