@@ -58,10 +58,7 @@ let private getTable (binFile: PythonBinFile) = function
 
 let private parseOperand opcode (span: ReadOnlySpan<byte>) (reader: IBinReader)
   (binFile: PythonBinFile) addr instrLen =
-  //printfn "Consts %A" binFile.Consts
-  //printfn "addr %d" addr
   let tbl = getTable binFile opcode
-  //printfn "[%A] %A" opcode tbl
   let idx = reader.ReadUInt8 (span, 1) |> int
   let cons =
     Array.tryFind (fun (ar, _) ->

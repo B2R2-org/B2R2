@@ -65,28 +65,28 @@ type PyType =
   | WFERR_NESTEDTOODEEP = 0x2
   | WFERR_NOMEMORY = 0x3
 
-type PyCodeConstructor = {
+type PyCodeObject = {
   FileName: string
   Name: string
   QualName: string
   Flags: int
-  Code: (Addr * PyCodeObject)
+  Code: Addr * PyObject
   FirstLineNo: int
-  LineTable: PyCodeObject
-  Consts: PyCodeObject
-  Names: PyCodeObject
-  LocalPlusNames: PyCodeObject
-  LocalPlusKinds: PyCodeObject
+  LineTable: PyObject
+  Consts: PyObject
+  Names: PyObject
+  LocalPlusNames: PyObject
+  LocalPlusKinds: PyObject
   ArgCount: int
   PosonlyArgCount: int
   KwonlyArgCount: int
   StackSize: int
-  ExceptionTable: PyCodeObject
+  ExceptionTable: PyObject
 }
-and PyCodeObject =
+and PyObject =
   | PyString of byte[]
-  | PyCode of PyCodeConstructor
-  | PyTuple of PyCodeObject[]
+  | PyCode of PyCodeObject
+  | PyTuple of PyObject[]
   | PyInt of int
   | PyAscii of string
   | PyShortAsciiInterned of string

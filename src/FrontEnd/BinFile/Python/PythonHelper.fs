@@ -83,19 +83,11 @@ let readAndOffset (bytes: byte[]) (reader: IBinReader) offset size =
   | _ -> failwithf "Invalid size %d" size
 
 let private appendRefs flag refs obj =
-  if flag <> 0 then
-    let refs = Array.append refs [| obj |]
-    //printfn "flag: %X, refcnt: %d, pyobj: %A" flag (Array.length refs) obj
-    refs
+  if flag <> 0 then Array.append refs [| obj |]
   else refs
 
 let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
-  //printfn "offset in 0x%X(%d)(%d), refs %d"
-  //  offset offset (offset - 16) (Array.length refs)
   let flag, pyType, offset = getFlagAndPyType bytes reader offset
-  //printfn "offset out 0x%X, type 0x%X, flag %x" offset (int pyType) flag
-  //Array.iteri (printf"[%d] %A; ") refs
-  //printfn "\n"
   match pyType with
   | PyType.TYPE_CODE ->
     let refs = appendRefs flag refs "None" (* Reserve *)
@@ -170,15 +162,12 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
     PyShortAsciiInterned str, appendRefs flag refs str, offset + n
   | PyType.TYPE_REF ->
     let n, offset = readAndOffset bytes reader offset 4
-    //printfn "[TYPE_REF] len %d, n %d, %A" (Array.length refs) n refs
     PyREF (n, refs[n]), refs, offset
   | PyType.TYPE_FALSE -> PyFalse, appendRefs flag refs "PyFalse", offset
   | _ -> printf "%A " pyType; failwith "Invalid parsePyType"
 
 let parseCodeObject bytes reader =
-  let pyObject, refs, _ = parsePyType bytes reader [||] 16
-  //printfn "%A" pyObject
-  //Array.iteri (printfn "[%d] %A") refs
+  let pyObject, _, _ = parsePyType bytes reader [||] 16
   pyObject
 
 let private getCodeLen = function
@@ -234,7 +223,7 @@ let extractNames pyObj =
   collect [] pyObj |> List.toArray
 
 let getSections codeObjs =
-  let rec extractCodeInfo (pyObj: PyCodeObject) =
+  let rec extractCodeInfo (pyObj: PyObject) =
     match pyObj with
     | PyCode code ->
       let current =

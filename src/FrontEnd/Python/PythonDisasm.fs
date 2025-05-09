@@ -175,7 +175,7 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let opcode = opcodeToStrings ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic opcode
 
-let rec toStringPyCodeObj = function
+let rec toStringPyObj = function
   | PyNone -> "None"
   | PyInt i -> i.ToString()
   | PyREF (_, str) -> str
@@ -183,7 +183,7 @@ let rec toStringPyCodeObj = function
   | PyCode c ->
     $"<code object {c.Name}, file \"{c.FileName}\", line {c.FirstLineNo}>"
   | PyTuple t ->
-    let t = Array.map toStringPyCodeObj t
+    let t = Array.map toStringPyObj t
     String.concat ", " t
   | PyFalse -> "False"
   | o -> failwithf "Invalid PyCodeObj %A" o
@@ -198,7 +198,7 @@ let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
     builder.Accumulate AsmWordKind.String "\t\t"
     builder.Accumulate AsmWordKind.Value (string idx)
     builder.Accumulate AsmWordKind.String " ("
-    builder.Accumulate AsmWordKind.Value (toStringPyCodeObj var)
+    builder.Accumulate AsmWordKind.Value (toStringPyObj var)
     builder.Accumulate AsmWordKind.String ")"
   | TwoOperands _ -> ()
 

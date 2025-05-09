@@ -178,7 +178,7 @@ type Opcode =
 
 type internal Op = Opcode
 
-type Operand = int * PyCodeObject option
+type Operand = int * PyObject option
 
 type Operands =
   | NoOperand
