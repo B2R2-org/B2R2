@@ -29,8 +29,10 @@ open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// This class represents a raw binary file (containing only binary code and
-/// data without file format).
+/// <summary>
+/// Represents a raw binary file (containing only binary code and data without
+/// file format).
+/// </summary>
 type RawBinFile (path, bytes: byte[], isa: ISA, baseAddrOpt) =
   let size = bytes.Length
   let baseAddr = defaultArg baseAddrOpt 0UL

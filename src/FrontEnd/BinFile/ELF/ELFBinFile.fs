@@ -30,9 +30,7 @@ open B2R2.Collections
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinFile.ELF.Helper
 
-/// <summary>
-///   This class represents an ELF binary file.
-/// </summary>
+/// Represents an ELF binary file.
 type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   let toolBox = Header.parse baseAddrOpt bytes
   let hdr = toolBox.Header
@@ -162,12 +160,12 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.ToBinFilePointer addr =
       getSectionsByAddr shdrs.Value addr
       |> Seq.tryHead
-      |> BinFilePointer.OfSectionOpt
+      |> BinFilePointer.OfSection
 
     member _.ToBinFilePointer name =
       getSectionsByName shdrs.Value name
       |> Seq.tryHead
-      |> BinFilePointer.OfSectionOpt
+      |> BinFilePointer.OfSection
 
     member _.TryFindFunctionName (addr) =
       tryFindFuncSymb symbInfo.Value addr

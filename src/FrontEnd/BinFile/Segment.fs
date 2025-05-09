@@ -26,8 +26,9 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// A segment is a block of code/data that is loaded in the real memory at
-/// runtime. A segment can contain multiple sections in it.
+/// Represents a segment of a binary, which is a block of code/data that is
+/// loaded in the real memory at runtime. A segment can contain multiple
+/// sections in it.
 type Segment = {
   /// Address of the segment.
   Address: Addr

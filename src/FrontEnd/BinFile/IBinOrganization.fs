@@ -27,7 +27,8 @@ namespace B2R2.FrontEnd.BinFile
 open System.Runtime.InteropServices
 open B2R2
 
-/// Organization of a binary file, such as sections, segments, and functions.
+/// Represents an interface for accessing the binary file organization, such as
+/// sections, segments, and functions.
 type IBinOrganization =
   /// <summary>
   ///   Return a list of all the sections from the binary.

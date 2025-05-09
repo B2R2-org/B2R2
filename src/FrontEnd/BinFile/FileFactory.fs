@@ -24,10 +24,27 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open B2R2
-
+/// <summary>
+/// Provides low-level functions to create a binary file object. This is used by
+/// the <see cref='T:B2R2.FrontEnd.BinHandle'/> module internally, and hence, it
+/// is recommended to use the <see cref='T:B2R2.FrontEnd.BinHandle'/> module
+/// instead, in most cases.
+/// </summary>
 [<RequireQualifiedAccess>]
 module FileFactory =
+
+  /// <summary>
+  /// Creates a binary file object from the given path and byte array
+  /// representing the raw content of the file.
+  /// <param name="path">The path to the binary file.</param>
+  /// <param name="bytes">The raw content of the binary file.</param>
+  /// <param name="fmt">The file format of the binary file.</param>
+  /// <param name="isa">The target ISA of the binary file.</param>
+  /// <param name="regFactory">The register factory for the target ISA.</param>
+  /// <param name="baseAddrOpt">An optional base address for the binary
+  /// file.
+  /// </param>
+  /// </summary>
   let load path bytes fmt isa regFactory baseAddrOpt =
     match fmt with
     | FileFormat.ELFBinary ->
@@ -41,5 +58,8 @@ module FileFactory =
     | _ ->
       RawBinFile (path, bytes, isa, baseAddrOpt) :> IBinFile
 
+  /// <summary>
+  /// Creates an ELF binary file object.
+  /// </summary>
   let loadELF path bytes regFactory baseAddrOpt =
     ELFBinFile (path, bytes, baseAddrOpt, Some regFactory)

@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.Wasm
 open B2R2.FrontEnd.BinFile.Wasm.Helper
 
-/// This class represents a Web Assembly (Wasm Module) binary file.
+/// Represents a Web Assembly (Wasm) binary file.
 type WasmBinFile (path, bytes, baseAddrOpt) =
   let wm = Parser.parse bytes
   let baseAddr = defaultArg baseAddrOpt 0UL
@@ -121,10 +121,10 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
       FileHelper.getNotInFileIntervals 0UL (uint64 bytes.LongLength) range
 
     member _.ToBinFilePointer addr =
-      BinFilePointer.OfSectionOpt (getSectionsByAddr wm addr |> Seq.tryHead)
+      BinFilePointer.OfSection (getSectionsByAddr wm addr |> Seq.tryHead)
 
     member _.ToBinFilePointer name =
-      BinFilePointer.OfSectionOpt (getSectionsByName wm name |> Seq.tryHead)
+      BinFilePointer.OfSection (getSectionsByName wm name |> Seq.tryHead)
 
     member _.TryFindFunctionName (addr) = tryFindFunSymName wm addr
 

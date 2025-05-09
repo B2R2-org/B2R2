@@ -26,8 +26,11 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// Linkage table entry object.
-type LinkageTableEntry = {
+/// Represents a linkage table, which basically refers to a PLT or an IAT.
+type LinkageTable = LinkageTableEntry[]
+
+/// Represents an entry of a linkage table.
+and LinkageTableEntry = {
   /// Target function name for dynamic linking.
   FuncName: string
   /// Corresponding library name.
@@ -37,6 +40,3 @@ type LinkageTableEntry = {
   /// The address of the table that stores the actual target address, e.g., GOT.
   TableAddress: Addr
 }
-
-/// Linkage table, which basically refers to a PLT or an IAT.
-type LinkageTable = LinkageTableEntry[]

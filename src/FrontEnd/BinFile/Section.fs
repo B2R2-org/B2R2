@@ -26,23 +26,8 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// Kinds of sections.
-type SectionKind =
-  /// Executable code section.
-  | CodeSection = 1
-  /// Linkage table, such as PLT, section.
-  | LinkageTableSection = 2
-  /// Data section that contains initialized data, e.g., .data section.
-  | InitializedDataSection = 3
-  /// Data section that contains uninitialized data, e.g., .bss section.
-  | UninitializedDataSection = 4
-  /// Read-only data section, e.g., .rodata section.
-  | ReadOnlyDataSection = 5
-  /// Extra section that does not fit into the above categories.
-  | ExtraSection = 6
-
-/// A section object defined in a file-format-agnostic way. A Section in B2R2
-/// should be located inside a segment.
+/// Represents a section object defined in a file-format-agnostic way. A Section
+/// in B2R2 should be located inside a segment.
 type Section = {
   /// Address of the section.
   Address: Addr
@@ -65,3 +50,19 @@ with
     $"Section [{this.Name}] ({this.Kind}) \
       @ {this.Address:x}-{(this.Address + uint64 this.Size):x} \
       @ {this.FileOffset:x}"
+
+/// Represents the kind of a section, which is used to classify sections in a
+/// binary file in a file-format-agnostic way.
+and SectionKind =
+  /// Executable code section.
+  | CodeSection = 1
+  /// Linkage table, such as PLT, section.
+  | LinkageTableSection = 2
+  /// Data section that contains initialized data, e.g., .data section.
+  | InitializedDataSection = 3
+  /// Data section that contains uninitialized data, e.g., .bss section.
+  | UninitializedDataSection = 4
+  /// Read-only data section, e.g., .rodata section.
+  | ReadOnlyDataSection = 5
+  /// Extra section that does not fit into the above categories.
+  | ExtraSection = 6

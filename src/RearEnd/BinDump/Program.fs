@@ -87,7 +87,7 @@ let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
   prn.Print ptr
   out.PrintLine ()
 
-let printHexdump (opts: BinDumpOpts) sec (hdl: BinHandle) =
+let printHexdump (opts: BinDumpOpts) (sec: Section) (hdl: BinHandle) =
   let ptr = BinFilePointer.OfSection sec
   let bytes = hdl.ReadBytes (ptr=ptr, nBytes=int sec.Size)
   let chunkSz = if opts.ShowWide then 32 else 16
@@ -119,7 +119,7 @@ let private isRawBinary (hdl: BinHandle) =
   | FileFormat.WasmBinary -> false
   | _ -> true
 
-let private printCodeOrTable (printer: BinPrinter) sec =
+let private printCodeOrTable (printer: BinPrinter) (sec: Section) =
   printer.Print (BinFilePointer.OfSection sec)
   out.PrintLine ()
 

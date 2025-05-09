@@ -26,7 +26,7 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// Relocation table in a binary file.
+/// Represents an interface for accessing the relocation table in a binary file.
 type IRelocationTable =
   /// <summary>
   ///   Return a list of all symbols for relocatable entries in the binary.

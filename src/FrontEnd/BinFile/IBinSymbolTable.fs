@@ -27,7 +27,9 @@ namespace B2R2.FrontEnd.BinFile
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Symbol table of a binary file.
+/// <summary>
+/// Represents a symbol table of a binary file.
+/// </summary>
 type IBinSymbolTable =
   inherit INameReadable
 

@@ -26,38 +26,10 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// FileType represents categories for binary files.
-type FileType =
-  /// Executable.
-  | ExecutableFile = 1
-  /// Core (core dump).
-  | CoreFile = 2
-  /// Library.
-  | LibFile = 3
-  /// Object.
-  | ObjFile = 4
-  /// Other types.
-  | UnknownFile = 5
-
-module FileType =
-  /// <summary>
-  ///   Convert <see cref="T:B2R2.FrontEnd.BinFile.FileType">FileType</see> to
-  ///   string.
-  /// </summary>
-  /// <param name="ty">A FileType to convert.</param>
-  /// <returns>
-  ///   A converted string.
-  /// </returns>
-  [<CompiledName ("ToString")>]
-  let toString ty =
-    match ty with
-    | FileType.ExecutableFile -> "Executable"
-    | FileType.CoreFile -> "Core dump"
-    | FileType.LibFile -> "Library"
-    | FileType.ObjFile -> "Object"
-    | _ -> "Unknown"
-
-/// Basic metadata of a binary file.
+/// <summary>
+/// Represents an interface for accessing binary file metadata, such as its
+/// path, and file format.
+/// </summary>
 type IBinMetadata =
   /// The file path where this file is located.
   abstract Path: string

@@ -26,8 +26,8 @@ namespace B2R2.FrontEnd.BinFile
 
 open System
 
-/// File permission. Each permission corresponds to a bit, and thus, multiple
-/// permissions can be OR-ed.
+/// Represents a file permission. Each permission corresponds to a bit, and
+/// thus, multiple permissions can be OR-ed.
 [<Flags>]
 type Permission =
   /// File is readable.
@@ -37,6 +37,11 @@ type Permission =
   /// File is executable.
   | Executable = 1
 
+/// <summary>
+/// Provides functions to work with <see
+/// cref='T:B2R2.FrontEnd.BinFile.Permission'/>.
+/// </summary>
+[<RequireQualifiedAccess>]
 module Permission =
   /// Permission to string.
   [<CompiledName ("ToString")>]

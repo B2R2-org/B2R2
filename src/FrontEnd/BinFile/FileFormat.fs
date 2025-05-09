@@ -24,6 +24,13 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+/// <namespacedoc>
+///   <summary>
+///   Contains APIs for working with the file format of a binary, allowing
+///   access to the file metadata and structure.
+///   </summary>
+/// </namespacedoc>
+///
 /// <summary>
 /// Represents the file format of a binary.
 /// </summary>

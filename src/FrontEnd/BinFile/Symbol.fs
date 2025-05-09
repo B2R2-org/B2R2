@@ -26,8 +26,27 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// Kinds of a symbol.
-type SymbolKind =
+/// <summary>
+/// Represents a symbol object defined in a file-format-agnostic way.
+/// </summary>
+type Symbol = {
+  /// Address of the symbol.
+  Address: Addr
+  /// Symbol name.
+  Name: string
+  /// Symbol kind.
+  Kind: SymbolKind
+  /// Symbol visibility (static or dynamic).
+  Visibility: SymbolVisibility
+  /// Corresponding library name.
+  LibraryName: string
+  /// ARM32-specific linker symbol. For other architectures, this will be set to
+  /// None.
+  ARMLinkerSymbol: ARMLinkerSymbol
+}
+
+/// Represents a kind of symbol.
+and SymbolKind =
   /// The symbol type is not specified.
   | SymNoType
   /// The symbol is associated with a data object, such as a variable.
@@ -45,35 +64,19 @@ type SymbolKind =
   /// The symbol is associated with a forwarding entry.
   | SymForwardType of bin: string * func: string
 
-/// Does the symbol need to be visible by external modules?
-type SymbolVisibility =
+/// Represents the visibility of a symbol, which indicates whether the symbol is
+/// visible by external modules or not.
+and SymbolVisibility =
   /// Static symbols do not need to be visible by external modules, and can be
   /// stripped off.
   | StaticSymbol = 1
   /// Dynamic symbols cannot be stripped off. This should be visible to externs.
   | DynamicSymbol = 2
 
-/// ELF-specific symbol types for ARM32, which are used to distinguish between
-/// ARM and Thumb instructions. For other CPU architectures, this will be set to
-/// None.
-type ARMLinkerSymbol =
+/// Represents an ARM-specific symbol type for ELF binaries, which are used to
+/// distinguish between ARM and Thumb instructions. For other CPU architectures,
+/// this will be set to None.
+and ARMLinkerSymbol =
   | ARM = 1
   | Thumb = 2
   | None = 3
-
-/// A symbol object defined in a file-format-agnostic way.
-type Symbol = {
-  /// Address of the symbol.
-  Address: Addr
-  /// Symbol name.
-  Name: string
-  /// Symbol kind.
-  Kind: SymbolKind
-  /// Symbol visibility (static or dynamic).
-  Visibility: SymbolVisibility
-  /// Corresponding library name.
-  LibraryName: string
-  /// ARM32-specific linker symbol. For other architectures, this will be set to
-  /// None.
-  ARMLinkerSymbol: ARMLinkerSymbol
-}

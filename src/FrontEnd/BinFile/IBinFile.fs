@@ -26,7 +26,9 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2.FrontEnd.BinLifter
 
-/// IBinFile describes a binary file in a format-agnostic way.
+/// <summary>
+/// Represents a format-agnostic binary file interface.
+/// </summary>
 type IBinFile =
   inherit IBinMetadata
   inherit IBinProperty
@@ -36,13 +38,11 @@ type IBinFile =
   inherit IRelocationTable
   inherit ILinkageTable
 
-  /// <summary>
-  ///   Return a reader for this binary file.
-  /// </summary>
+  /// Returns a reader for this binary file.
   abstract Reader: IBinReader
 
-  /// The raw file content as a byte array.
+  /// Returns the raw file content as a byte array.
   abstract RawBytes: byte[]
 
-  /// The size of the associated binary file.
+  /// Returns the size of the associated binary file.
   abstract Length: int

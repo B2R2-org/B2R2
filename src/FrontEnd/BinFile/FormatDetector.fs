@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-/// Binary file format detector.
+/// Provides a function to detect the file format of a binary.
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.FormatDetector
 
@@ -53,10 +53,11 @@ let private identifyWASM bytes isa =
   else None
 
 /// <summary>
-///   Given a binary bytes, identify its binary file format (B2R2.FileFormat)
-///   and its underlying ISA (B2R2.ISA). For FAT binaries, this function will
-///   select an ISA only when there is a match with the given input ISA.
-///   Otherwise, this function will raise InvalidISAException.
+/// Given an array of bytes, identify its binary file format (<see
+/// cref='T:B2R2.FrontEnd.BinFile.FileFormat'/>) and its underlying ISA
+/// (<see cref='T:B2R2.ISA'/>). For FAT binaries, this function will select an
+/// ISA only when there is a match with the given input ISA. Otherwise, this
+/// function will raise InvalidISAException.
 /// </summary>
 [<CompiledName("Identify")>]
 let identify bytes isa =

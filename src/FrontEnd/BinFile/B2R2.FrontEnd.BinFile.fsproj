@@ -9,13 +9,14 @@
 
   <ItemGroup>
     <Compile Include="FileFormat.fs" />
-    <Compile Include="BinFileExceptions.fs" />
+    <Compile Include="Exceptions.fs" />
     <Compile Include="Symbol.fs" />
     <Compile Include="Section.fs" />
     <Compile Include="Permission.fs" />
     <Compile Include="Segment.fs" />
     <Compile Include="LinkageTable.fs" />
     <Compile Include="BinFilePointer.fs" />
+    <Compile Include="FileType.fs" />
     <Compile Include="IBinMetadata.fs" />
     <Compile Include="IBinProperty.fs" />
     <Compile Include="IContentAddressable.fs" />

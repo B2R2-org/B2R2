@@ -27,9 +27,9 @@ namespace B2R2.FrontEnd.BinFile
 open B2R2
 open System
 
-/// A pointer to binary, which is used to exclusively point to a portion of a
-/// binary, e.g., a section. It holds both the virtual address as well as the
-/// file offset. Both Offset and MaxOffset are inclusive.
+/// Represents a pointer to binary, which is used to exclusively point to a
+/// portion of a binary, e.g., a section. It holds both the virtual address as
+/// well as the file offset. Both Offset and MaxOffset are inclusive.
 type BinFilePointer =
   struct
     /// Virtual address.
@@ -43,27 +43,37 @@ type BinFilePointer =
     new (addr, offset, max) = { Addr = addr; Offset = offset; MaxOffset = max }
   end
 with
+  /// Returns a null pointer.
   static member Null = BinFilePointer (0UL, 0, 0)
 
+  /// Checks if the pointer is valid. A pointer is valid if its offset is within
+  /// the range of [0, MaxOffset].
   static member inline IsValid (ptr: BinFilePointer) =
     ptr.Offset <= ptr.MaxOffset
 
+  /// Checks if the pointer is valid for a given size. A pointer is valid if
+  /// its offset + size - 1 is within the range of [0, MaxOffset].
   static member inline IsValidAccess (ptr: BinFilePointer) size =
     (ptr.Offset + size - 1) <= ptr.MaxOffset
 
-  static member OfSection (s: Section) =
-    BinFilePointer (s.Address,
-      Convert.ToInt32 s.FileOffset,
-      Convert.ToInt32 s.FileOffset + Convert.ToInt32 s.Size - 1)
+  /// Returns a pointer that can exclusively point to the given section.
+  static member OfSection (section: Section) =
+    BinFilePointer (section.Address,
+      Convert.ToInt32 section.FileOffset,
+      Convert.ToInt32 section.FileOffset + Convert.ToInt32 section.Size - 1)
 
-  static member OfSectionOpt section =
-    match section with
+  /// Returns a pointer that can exclusively point to the given section. If
+  /// the section is None, it returns a null pointer.
+  static member OfSection (sectionOpt: Section option) =
+    match sectionOpt with
     | Some s -> BinFilePointer.OfSection s
     | None -> BinFilePointer.Null
 
+  /// Checks if the pointer is null.
   static member IsNull ptr =
     ptr = BinFilePointer.Null
 
+  /// Advances the pointer by a given amount.
   static member Advance (p: BinFilePointer) amount =
     BinFilePointer (p.Addr + uint64 amount, p.Offset + amount, p.MaxOffset)
 

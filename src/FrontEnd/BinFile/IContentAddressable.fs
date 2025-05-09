@@ -27,8 +27,10 @@ namespace B2R2.FrontEnd.BinFile
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Can be used to access the binary content of a file via a virtual address or
-/// a file offset.
+/// <summary>
+/// Represents an interface for accessing the raw binary content of a file
+/// either via a virtual address or a file offset.
+/// </summary>
 type IContentAddressable =
   /// <summary>
   ///   Translate a virtual address into a relative offset to the binary file.

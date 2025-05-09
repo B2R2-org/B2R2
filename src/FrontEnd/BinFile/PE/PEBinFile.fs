@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinFile.PE
 open B2R2.FrontEnd.BinFile.PE.Helper
 
-/// This class represents a PE binary file.
+/// Represents a PE binary file.
 type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
   let pe = Parser.parse path bytes baseAddrOpt rawpdb
   let isa = peHeadersToISA pe.PEHeaders
@@ -112,10 +112,10 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
     member _.GetNotInFileIntervals range = getNotInFileIntervals pe range
 
     member _.ToBinFilePointer addr =
-      BinFilePointer.OfSectionOpt (getSectionsByAddr pe addr |> Seq.tryHead)
+      BinFilePointer.OfSection (getSectionsByAddr pe addr |> Seq.tryHead)
 
     member _.ToBinFilePointer name =
-      BinFilePointer.OfSectionOpt (getSectionsByName pe name |> Seq.tryHead)
+      BinFilePointer.OfSection (getSectionsByName pe name |> Seq.tryHead)
 
     member _.TryFindFunctionName (addr) = tryFindFuncSymb pe addr
 

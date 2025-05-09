@@ -30,9 +30,7 @@ open B2R2.Collections
 open B2R2.FrontEnd.BinFile.Mach
 open B2R2.FrontEnd.BinFile.Mach.Helper
 
-/// <summary>
-///   This class represents a Mach-O binary file.
-/// </summary>
+/// Represents a Mach-O binary file.
 type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
   let toolBox = Header.parse bytes baseAddrOpt isa
   let cmds = lazy LoadCommand.parse toolBox
@@ -133,12 +131,12 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
     member _.ToBinFilePointer addr =
       getSectionsByAddr secs.Value segMap.Value addr
       |> Seq.tryHead
-      |> BinFilePointer.OfSectionOpt
+      |> BinFilePointer.OfSection
 
     member _.ToBinFilePointer name =
       getSectionsByName secs.Value segMap.Value name
       |> Seq.tryHead
-      |> BinFilePointer.OfSectionOpt
+      |> BinFilePointer.OfSection
 
     member _.TryFindFunctionName (addr) =
       tryFindFuncSymb symInfo.Value addr

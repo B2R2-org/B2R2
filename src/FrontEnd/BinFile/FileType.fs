@@ -24,24 +24,38 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open B2R2
+/// Represents the category of a binary file.
+type FileType =
+  /// Executable.
+  | ExecutableFile = 1
+  /// Core (core dump).
+  | CoreFile = 2
+  /// Library.
+  | LibFile = 3
+  /// Object.
+  | ObjFile = 4
+  /// Other types.
+  | UnknownFile = 5
 
 /// <summary>
-/// Represents an interface for accessing the linkage table of a binary file.
+/// Provides functions to work with <see
+/// cref='T:B2R2.FrontEnd.BinFile.FileType'/>.
 /// </summary>
-type ILinkageTable =
+[<RequireQualifiedAccess>]
+module FileType =
   /// <summary>
-  ///   Return a list of all the linkage table entries from the binary.
+  ///   Convert <see cref="T:B2R2.FrontEnd.BinFile.FileType">FileType</see> to
+  ///   string.
   /// </summary>
+  /// <param name="ty">A FileType to convert.</param>
   /// <returns>
-  ///   An array of linkage table entries, e.g., PLT entries for ELF files.
+  ///   A converted string.
   /// </returns>
-  abstract GetLinkageTableEntries: unit -> LinkageTableEntry[]
-
-  /// <summary>
-  ///   Return if a given address is an address of a linkage table entry.
-  /// </summary>
-  /// <returns>
-  ///   True if the address is a linkage table address, false otherwise.
-  /// </returns>
-  abstract IsLinkageTable: Addr -> bool
+  [<CompiledName ("ToString")>]
+  let toString ty =
+    match ty with
+    | FileType.ExecutableFile -> "Executable"
+    | FileType.CoreFile -> "Core dump"
+    | FileType.LibFile -> "Library"
+    | FileType.ObjFile -> "Object"
+    | _ -> "Unknown"

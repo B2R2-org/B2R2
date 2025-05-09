@@ -24,7 +24,9 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-/// Basic properties of a binary file.
+/// <summary>
+/// Represents an interface for accessing the basic properties of a binary file.
+/// </summary>
 type IBinProperty =
   /// Is this binary stripped?
   abstract IsStripped: bool
