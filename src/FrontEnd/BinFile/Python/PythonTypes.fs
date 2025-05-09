@@ -27,9 +27,10 @@ namespace B2R2.FrontEnd.BinFile.Python
 open B2R2
 
 /// <summary>
-///   Python Type(Python 3.12).
+/// Represents the type of PyObject used when marshalling Python objects.
+/// (currently from Python 3.12).
 /// </summary>
-type PyType =
+type MarshalledType =
   | TYPE_NULL = 0x60 (* '0' *)
   | TYPE_NONE = 0x4E (* 'N' *)
   | TYPE_FALSE = 0x46 (* 'F' *)
@@ -65,6 +66,9 @@ type PyType =
   | WFERR_NESTEDTOODEEP = 0x2
   | WFERR_NOMEMORY = 0x3
 
+/// <summary>
+/// PyCodeObject is a compiled piece of Python code.
+/// </summary>
 type PyCodeObject = {
   FileName: string
   Name: string
@@ -83,6 +87,11 @@ type PyCodeObject = {
   StackSize: int
   ExceptionTable: PyObject
 }
+
+/// <summary>
+/// PyObject is the base type of all Python objects, including integers,
+/// strings, etc.
+/// </summary>
 and PyObject =
   | PyString of byte[]
   | PyCode of PyCodeObject

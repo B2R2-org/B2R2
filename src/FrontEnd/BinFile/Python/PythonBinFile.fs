@@ -35,8 +35,8 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
   let size = bytes.Length
   let baseAddr = defaultArg baseAddrOpt 0UL
   let reader = BinReader.Init Endian.Little
-  let magic = parseMagic bytes reader
-  let codeObject = parseCodeObject bytes reader
+  let magic = reader.ReadUInt32 (bytes, 0)
+  let codeObject, _, _ = parse bytes reader [||] 16
   let consts = extractConsts codeObject
   let names = extractNames codeObject
   let varnames = extractVarNames codeObject
@@ -76,7 +76,7 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.Type with get() = FileType.UnknownFile
 
-    member _.EntryPoint = getEntryPoint ()
+    member _.EntryPoint = Some 0UL
 
     member _.BaseAddress with get() = 0UL
 

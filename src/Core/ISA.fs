@@ -69,7 +69,8 @@ type ISA (arch, endian, wordSize, flags) =
     | Architecture.AVR -> ISA (arch, Endian.Little, WordSize.Bit8)
     | Architecture.TMS320C6000 -> ISA (arch, Endian.Little, WordSize.Bit32)
     | Architecture.EVM -> ISA (arch, Endian.Big, WordSize.Bit256)
-    | Architecture.Python -> ISA (arch, Endian.Little, WordSize.Bit32)
+    | Architecture.Python ->
+      ISA (arch, Endian.Little, WordSize.Bit32, int PythonVersion.Python312)
     | Architecture.WASM -> ISA (arch, Endian.Little, WordSize.Bit32)
     | Architecture.CIL -> ISA (arch, Endian.Little, WordSize.Bit64)
     | _ -> ISA (Architecture.UnknownISA, Endian.Little, WordSize.Bit64)

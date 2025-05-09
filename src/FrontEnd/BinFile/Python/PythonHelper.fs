@@ -27,56 +27,31 @@ module internal B2R2.FrontEnd.BinFile.Python.Helper
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-let defaultPyCodeCon = {
-  FileName = "Default"
-  Name = "Default"
-  QualName = "Default"
-  Flags = 0
-  Code = 0UL, PyNone
-  FirstLineNo = 0
-  LineTable = PyNone
-  Consts = PyNone
-  Names = PyNone
-  LocalPlusNames = PyNone
-  LocalPlusKinds = PyNone
-  ArgCount = 0
-  PosonlyArgCount = 0
-  KwonlyArgCount = 0
-  StackSize = 0
-  ExceptionTable = PyNone
-}
-
-[<Literal>]
-let PyMagic = 0x0A0D0DCBu
-
-let getEntryPoint () = Some 0UL
+/// Magic value.
+let [<Literal>] PyMagic = 0x0A0D0DCBu
 
 let isPython (bytes: byte[]) (reader: IBinReader) =
   if bytes.Length >= 4 then reader.ReadUInt32 (bytes, 0) = PyMagic
   else false
 
-let parseMagic (bytes: byte[]) (reader: IBinReader) =
-  reader.ReadUInt32 (bytes, 0)
-
-let getFlagAndPyType (bytes: byte[]) (reader: IBinReader) offset =
-  let byte = reader.ReadUInt8 (bytes, offset) |> int
-  let flag = byte &&& 0x80
-  let pyType =
-    (byte &&& (~~~ 0x80)) |> LanguagePrimitives.EnumOfValue
-  flag, pyType, offset + 1
+let readFlagAndMarshalledType (bytes: byte[]) (reader: IBinReader) offset =
+  let b = reader.ReadUInt8 (bytes, offset) |> int
+  let flag = b &&& 0x80
+  let typ: MarshalledType = (b &&& (~~~ 0x80)) |> LanguagePrimitives.EnumOfValue
+  struct (flag, typ , offset + 1)
 
 let rec pyObjToString = function
   | PyString s ->  System.Text.Encoding.ASCII.GetString s
   | PyAscii str | PyShortAsciiInterned str | PyShortAscii str -> str
-  | PyInt i -> i.ToString()
-  | PyREF (n, r) -> r.ToString() + "(" + (n.ToString()) + ")"
+  | PyInt i -> i.ToString ()
+  | PyREF (n, r) -> r.ToString () + "(" + (n.ToString ()) + ")"
   | PyTuple t ->
     let t = Array.map pyObjToString t
     String.concat ", " t
   | PyNone -> "None"
   | o -> failwithf "Error PyObjToString (%A)" o
 
-let readAndOffset (bytes: byte[]) (reader: IBinReader) offset size =
+let readInt (bytes: byte[]) (reader: IBinReader) offset size =
   match size with
   | 1 -> reader.ReadUInt8 (bytes, offset) |> int, offset + size
   | 4 -> reader.ReadUInt32 (bytes, offset) |> int, offset + size
@@ -86,59 +61,60 @@ let private appendRefs flag refs obj =
   if flag <> 0 then Array.append refs [| obj |]
   else refs
 
-let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
-  let flag, pyType, offset = getFlagAndPyType bytes reader offset
+let rec parse (bytes: byte[]) (reader: IBinReader) refs offset =
+  let struct (flag, pyType, offset) =
+    readFlagAndMarshalledType bytes reader offset
   match pyType with
-  | PyType.TYPE_CODE ->
+  | MarshalledType.TYPE_CODE ->
     let refs = appendRefs flag refs "None" (* Reserve *)
-    let argCout, offset = readAndOffset bytes reader offset 4
-    let posonlyArgCout, offset = readAndOffset bytes reader offset 4
-    let kwonposonlyArgCout, offset = readAndOffset bytes reader offset 4
-    let stackSize, offset = readAndOffset bytes reader offset 4
-    let flags, offset = readAndOffset bytes reader offset 4
+    let argCnt, offset = readInt bytes reader offset 4
+    let posonlyArgCnt, offset = readInt bytes reader offset 4
+    let kwonposonlyArgCnt, offset = readInt bytes reader offset 4
+    let stackSize, offset = readInt bytes reader offset 4
+    let flags, offset = readInt bytes reader offset 4
     let codeOffset = offset + 5 |> uint64
-    let code, refs, offset = parsePyType bytes reader refs offset
-    let consts, refs, offset = parsePyType bytes reader refs offset
-    let names, refs, offset = parsePyType bytes reader refs offset
-    let localsplusnames, refs, offset = parsePyType bytes reader refs offset
-    let localspluskinds, refs, offset = parsePyType bytes reader refs offset
-    let filenames, refs, offset = parsePyType bytes reader refs offset
-    let name, refs, offset = parsePyType bytes reader refs offset
-    let qname, refs, offset = parsePyType bytes reader refs offset
-    let fstline, offset = readAndOffset bytes reader offset 4
-    let linetbl, refs, offset = parsePyType bytes reader refs offset
-    let exceptbl, refs, offset = parsePyType bytes reader refs offset
-    let con = {
-      FileName = pyObjToString filenames
-      Name = pyObjToString name
-      QualName = pyObjToString qname
-      Flags = flags
-      Code = codeOffset, code
-      FirstLineNo = fstline
-      LineTable = linetbl
-      Consts = consts
-      Names = names
-      LocalPlusNames = localsplusnames
-      LocalPlusKinds = localspluskinds
-      ArgCount = argCout
-      PosonlyArgCount = posonlyArgCout
-      KwonlyArgCount = kwonposonlyArgCout
-      StackSize = stackSize
-      ExceptionTable = exceptbl }
-    PyCode con, refs, offset
-  | PyType.TYPE_STRING ->
-    let size, offset = readAndOffset bytes reader offset 4
+    let code, refs, offset = parse bytes reader refs offset
+    let consts, refs, offset = parse bytes reader refs offset
+    let names, refs, offset = parse bytes reader refs offset
+    let localsplusnames, refs, offset = parse bytes reader refs offset
+    let localspluskinds, refs, offset = parse bytes reader refs offset
+    let filenames, refs, offset = parse bytes reader refs offset
+    let name, refs, offset = parse bytes reader refs offset
+    let qname, refs, offset = parse bytes reader refs offset
+    let fstline, offset = readInt bytes reader offset 4
+    let linetbl, refs, offset = parse bytes reader refs offset
+    let exceptbl, refs, offset = parse bytes reader refs offset
+    let codeObject =
+      { FileName = pyObjToString filenames
+        Name = pyObjToString name
+        QualName = pyObjToString qname
+        Flags = flags
+        Code = codeOffset, code
+        FirstLineNo = fstline
+        LineTable = linetbl
+        Consts = consts
+        Names = names
+        LocalPlusNames = localsplusnames
+        LocalPlusKinds = localspluskinds
+        ArgCount = argCnt
+        PosonlyArgCount = posonlyArgCnt
+        KwonlyArgCount = kwonposonlyArgCnt
+        StackSize = stackSize
+        ExceptionTable = exceptbl }
+    PyCode codeObject, refs, offset
+  | MarshalledType.TYPE_STRING ->
+    let size, offset = readInt bytes reader offset 4
     let bytes = Array.sub bytes offset size
     let str =
       Array.map (sprintf "0x%X") bytes
       |> String.concat ", "
     PyString bytes, appendRefs flag refs str, offset + size
-  | PyType.TYPE_INT ->
-    let i, offset = readAndOffset bytes reader offset 4
+  | MarshalledType.TYPE_INT ->
+    let i, offset = readInt bytes reader offset 4
     PyInt i, appendRefs flag refs (i.ToString()), offset
-  | PyType.TYPE_NONE -> PyNone, refs, offset
-  | PyType.TYPE_SMALL_TUPLE ->
-    let size, offset = readAndOffset bytes reader offset 1
+  | MarshalledType.TYPE_NONE -> PyNone, refs, offset
+  | MarshalledType.TYPE_SMALL_TUPLE ->
+    let size, offset = readInt bytes reader offset 1
     let str =
       if size = 0 then "()"
       else Array.create size "<Null>" |> String.concat ", "
@@ -147,28 +123,25 @@ let rec parsePyType (bytes: byte[]) (reader: IBinReader) refs offset =
       let rec loop acc refs offset =
         if List.length acc = size then acc, refs, offset
         else
-          let contents, refs, offset = parsePyType bytes reader refs offset
+          let contents, refs, offset = parse bytes reader refs offset
           loop (contents :: acc) refs offset
       let tuples, refs, offset = loop [] refs offset
       PyTuple (tuples |> List.toArray |> Array.rev), refs, offset
     else PyTuple [||], refs, offset
-  | PyType.TYPE_ASCII ->
-    let n, offset = readAndOffset bytes reader offset 4
+  | MarshalledType.TYPE_ASCII ->
+    let n, offset = readInt bytes reader offset 4
     let str = Array.sub bytes offset n |> System.Text.Encoding.ASCII.GetString
     PyAscii str, appendRefs flag refs str, offset + n
-  | PyType.TYPE_SHORT_ASCII | PyType.TYPE_SHORT_ASCII_INTERNED ->
-    let n, offset = readAndOffset bytes reader offset 1
+  | MarshalledType.TYPE_SHORT_ASCII
+  | MarshalledType.TYPE_SHORT_ASCII_INTERNED ->
+    let n, offset = readInt bytes reader offset 1
     let str = Array.sub bytes offset n |> System.Text.Encoding.ASCII.GetString
     PyShortAsciiInterned str, appendRefs flag refs str, offset + n
-  | PyType.TYPE_REF ->
-    let n, offset = readAndOffset bytes reader offset 4
+  | MarshalledType.TYPE_REF ->
+    let n, offset = readInt bytes reader offset 4
     PyREF (n, refs[n]), refs, offset
-  | PyType.TYPE_FALSE -> PyFalse, appendRefs flag refs "PyFalse", offset
-  | _ -> printf "%A " pyType; failwith "Invalid parsePyType"
-
-let parseCodeObject bytes reader =
-  let pyObject, _, _ = parsePyType bytes reader [||] 16
-  pyObject
+  | MarshalledType.TYPE_FALSE -> PyFalse, appendRefs flag refs "PyFalse", offset
+  | _ -> printf "%A " pyType; failwith "Invalid parse"
 
 let private getCodeLen = function
   | PyString bytes -> Array.length bytes |> uint64
