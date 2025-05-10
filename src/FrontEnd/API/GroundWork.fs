@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile
 
 /// <namespacedoc>
 ///   <summary>
@@ -55,10 +56,11 @@ type GroundWork =
     | SPARC -> SPARC.RegisterFactory isa.WordSize :> IRegisterFactory
     | PARISC -> PARISC.RegisterFactory isa.WordSize :> IRegisterFactory
     | EVM -> EVM.RegisterFactory () :> IRegisterFactory
+    | Python -> Python.RegisterFactory () :> IRegisterFactory
     | _ -> Terminator.futureFeature ()
 
   /// Creates a new parser (IInstructionParsable) for the given architecture.
-  static member CreateParser reader isa =
+  static member CreateParser (reader, isa: ISA) =
     match isa with
     | Intel ->
       Intel.IntelParser (isa.WordSize, reader) :> IInstructionParsable
@@ -88,6 +90,14 @@ type GroundWork =
       PARISC.PARISCParser (isa, reader) :> IInstructionParsable
     | _ ->
       Terminator.futureFeature ()
+
+  /// Create a new parser (IInstructionParsable) for the given file.
+  static member CreateParser (binFile: IBinFile) =
+    match binFile.ISA with
+    | Python ->
+      Python.PythonParser (binFile, binFile.Reader) :> IInstructionParsable
+    | _ ->
+      GroundWork.CreateParser (binFile.Reader, binFile.ISA)
 
   /// Creates a new LowUIR builder for the given architecture.
   static member CreateBuilder isa regFactory =

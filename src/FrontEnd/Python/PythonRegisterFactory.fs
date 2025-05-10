@@ -22,34 +22,44 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Peripheral.Assembly
+namespace B2R2.FrontEnd.Python
 
 open B2R2
-open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
+open B2R2.BinIR.LowUIR
 
-/// Assembly code parser interface.
-[<AbstractClass>]
-type AsmParser (isa: ISA) =
-  let reader = BinReader.Init isa.Endian
-  let regFactory = GroundWork.CreateRegisterFactory isa
-  let parser = GroundWork.CreateParser (reader, isa)
-  let builder = GroundWork.CreateBuilder isa regFactory
+type RegisterFactory () =
+  interface IRegisterFactory with
+    member _.GetRegVar (_: RegisterID): Expr = Terminator.futureFeature ()
 
-  /// Run parsing from a given assembly string, and assemble binary code.
-  abstract Assemble: string -> Result<byte [] list, string>
+    member _.GetRegVar (_: string): Expr = Terminator.futureFeature ()
 
-  member _.Parser with get() = parser
+    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
 
-  /// Run parsing from a given assembly string, and lift it to LowUIR code.
-  member this.Lift asm addr =
-    this.Assemble asm
-    |> Result.bind (fun bins ->
-      bins
-      |> List.fold (fun acc bs ->
-        let ins = parser.Parse (bs, addr)
-        ins.Translate builder :: acc
-      ) []
-      |> List.rev
-      |> Array.concat
-      |> Ok)
+    member _.GetAllRegVars () = Terminator.futureFeature ()
+
+    member _.GetGeneralRegVars () = Terminator.futureFeature ()
+
+    member _.GetRegisterID (_: Expr): RegisterID = Terminator.futureFeature ()
+
+    member _.GetRegisterID (_: string): RegisterID = Terminator.futureFeature ()
+
+    member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
+
+    member _.GetRegString _rid = Terminator.futureFeature ()
+
+    member _.GetAllRegStrings () = [||]
+
+    member _.GetRegType _rid = Terminator.futureFeature ()
+
+    member _.ProgramCounter = Terminator.futureFeature ()
+
+    member _.StackPointer = Terminator.futureFeature ()
+
+    member _.FramePointer = Terminator.futureFeature ()
+
+    member _.IsProgramCounter _regid = Terminator.futureFeature ()
+
+    member _.IsStackPointer _regid = Terminator.futureFeature ()
+
+    member _.IsFramePointer _ = false

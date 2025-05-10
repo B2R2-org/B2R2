@@ -6,6 +6,7 @@
     <Description>B2R2 Python frontend.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="PythonRegisterFactory.fs" />
     <Compile Include="PythonTypes.fs" />
     <Compile Include="PythonInstruction.fs" />
     <Compile Include="PythonDisasm.fs" />
@@ -19,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
     <ProjectReference Include="..\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
   </ItemGroup>
 </Project>

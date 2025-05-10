@@ -55,6 +55,8 @@ module FileFactory =
       MachBinFile (path, bytes, isa, baseAddrOpt) :> IBinFile
     | FileFormat.WasmBinary ->
       WasmBinFile (path, bytes) :> IBinFile
+    | FileFormat.PythonBinary ->
+      PythonBinFile (path, bytes, baseAddrOpt) :> IBinFile
     | _ ->
       RawBinFile (path, bytes, isa, baseAddrOpt) :> IBinFile
 
