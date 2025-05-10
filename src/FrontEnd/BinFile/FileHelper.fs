@@ -28,22 +28,30 @@ open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 
-/// Pick a number based on the word size.
-let inline pickNum wordSize o32 o64 =
-  if wordSize = WordSize.Bit32 then o32 else o64
+/// Selects a number based on the word size.
+let inline selectByWordSize wordSize v32 v64 =
+  if wordSize = WordSize.Bit32 then v32 else v64
 
-let readUIntOfType (span: ByteSpan) (reader: IBinReader) cls o =
-  if cls = WordSize.Bit32 then reader.ReadUInt32 (span, o) |> uint64
-  else reader.ReadUInt64 (span, o)
+/// Reads either 32-bit or 64-bit value based on the word size from the given
+/// offset of the given byte span. This function always returns a 64-bit value.
+let readUIntByWordSize (span: ByteSpan) (reader: IBinReader) wordSize offset =
+  if wordSize = WordSize.Bit32 then reader.ReadUInt32 (span, offset) |> uint64
+  else reader.ReadUInt64 (span, offset)
 
-let readNative span reader cls d32 d64 =
-  readUIntOfType span reader cls (pickNum cls d32 d64)
+/// Reads either 32-bit or 64-bit value based on the word size from either of
+/// the given offset of the given byte span. This function always returns a
+/// 64-bit value. The first offset is used for 32-bit and the second offset is
+/// used for 64-bit.
+let readUIntByWordSizeAndOffset span reader wordSize offset32 offset64 =
+  readUIntByWordSize span reader wordSize
+    (selectByWordSize wordSize offset32 offset64)
 
 let rec private cstrLoop (span: ByteSpan) acc pos =
   let byte = span[pos]
   if byte = 0uy then List.rev (0uy :: acc) |> List.toArray
   else cstrLoop span (byte :: acc) (pos + 1)
 
+/// Reads a C string from the given byte span starting at the given offset.
 let readCString (span: ByteSpan) offset =
   let bs = cstrLoop span [] offset
   ByteArray.extractCString bs 0

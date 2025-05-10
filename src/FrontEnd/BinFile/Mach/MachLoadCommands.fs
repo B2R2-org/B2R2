@@ -321,16 +321,16 @@ module internal LoadCommand =
     let cls = toolBox.Header.Class
     { Cmd = cmdType
       CmdSize = uint32 cmdSize
-      SecOff = cmdOffset + pickNum cls 56 72
+      SecOff = cmdOffset + selectByWordSize cls 56 72
       SegCmdName = readCString span 8
-      VMAddr = readNative span reader cls 24 24 + toolBox.BaseAddress
-      VMSize = readNative span reader cls 28 32
-      FileOff = readNative span reader cls 32 40
-      FileSize = readNative span reader cls 36 48
-      MaxProt = reader.ReadInt32 (span, pickNum cls 40 56)
-      InitProt = reader.ReadInt32 (span, pickNum cls 44 60)
-      NumSecs = reader.ReadUInt32 (span, pickNum cls 48 64)
-      SegFlag = reader.ReadUInt32 (span, pickNum cls 52 68) }
+      VMAddr = readUIntByWordSize span reader cls 24 + toolBox.BaseAddress
+      VMSize = readUIntByWordSizeAndOffset span reader cls 28 32
+      FileOff = readUIntByWordSizeAndOffset span reader cls 32 40
+      FileSize = readUIntByWordSizeAndOffset span reader cls 36 48
+      MaxProt = reader.ReadInt32 (span, selectByWordSize cls 40 56)
+      InitProt = reader.ReadInt32 (span, selectByWordSize cls 44 60)
+      NumSecs = reader.ReadUInt32 (span, selectByWordSize cls 48 64)
+      SegFlag = reader.ReadUInt32 (span, selectByWordSize cls 52 68) }
 
   let parseSymCmd toolBox cmdType cmdSize (span: ByteSpan) =
     let reader = toolBox.Reader
@@ -437,7 +437,8 @@ module internal LoadCommand =
     struct (command, uint64 cmdSize)
 
   let parse ({ Header = hdr } as toolBox) =
-    let mutable cmdOffset = pickNum hdr.Class 28UL 32UL + toolBox.MachOffset
+    let mutable cmdOffset =
+      selectByWordSize hdr.Class 28UL 32UL + toolBox.MachOffset
     let numCmds = Convert.ToInt32 hdr.NumCmds
     let cmds = Array.zeroCreate numCmds
     for i = 0 to numCmds - 1 do

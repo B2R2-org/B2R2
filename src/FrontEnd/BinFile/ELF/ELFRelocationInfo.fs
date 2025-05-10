@@ -740,7 +740,7 @@ type RelocationInfo = {
 
 module internal RelocationInfo =
   let private readInfoWithArch { Reader = reader; Header = hdr } span =
-    let info = readNative span reader hdr.Class 4 8
+    let info = readUIntByWordSizeAndOffset span reader hdr.Class 4 8
     match hdr.MachineType, hdr.Class with
     | ELFMachineType.EM_MIPS, WordSize.Bit64 ->
       (* MIPS64el has a a 32-bit LE symbol index followed by four individual
@@ -762,10 +762,11 @@ module internal RelocationInfo =
     let reader = toolBox.Reader
     let info = readInfoWithArch toolBox span
     let cls = hdr.Class
-    { RelOffset = readUIntOfType span reader cls 0 + toolBox.BaseAddress
+    { RelOffset = readUIntByWordSize span reader cls 0 + toolBox.BaseAddress
       RelType = typMask &&& info |> RelocationType.FromNum hdr.MachineType
       RelSymbol = Array.tryItem (getRelocSIdx hdr info |> int) symTbl
-      RelAddend = if hasAddend then readNative span reader cls 8 16 else 0UL
+      RelAddend = if not hasAddend then 0UL
+                  else readUIntByWordSizeAndOffset span reader cls 8 16
       RelSecNumber = sec.SecNum }
 
   let private tryFindSymbTable idx symbInfo =
@@ -783,7 +784,7 @@ module internal RelocationInfo =
   let private parseRelocSection toolBox symbInfo relInfo sec (span: ByteSpan) =
     let hdr = toolBox.Header
     let hasAddend = sec.SecType = SectionType.SHT_RELA
-    let typMask = pickNum hdr.Class 0xFFUL 0xFFFFFFFFUL
+    let typMask = selectByWordSize hdr.Class 0xFFUL 0xFFFFFFFFUL
     let entrySize =
       if hasAddend then (uint64 <| WordSize.toByteWidth hdr.Class * 3)
       else (uint64 <| WordSize.toByteWidth hdr.Class * 2)

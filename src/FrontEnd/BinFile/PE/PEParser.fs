@@ -196,7 +196,7 @@ let parseILT (bytes: byte[]) (reader: IBinReader) secs wordSize map idt =
   let skip = if wordSize = WordSize.Bit32 then 4 else 8
   let mask = computeRVAMaskForILT wordSize
   let rec loop map rvaOffset pos =
-    let rva = readUIntOfType (ReadOnlySpan bytes) reader wordSize pos
+    let rva = readUIntByWordSize (ReadOnlySpan bytes) reader wordSize pos
     if rva = 0UL then map
     else
       let entry = parseILTEntry bytes reader secs idt mask rva

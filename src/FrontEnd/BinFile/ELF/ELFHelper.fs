@@ -206,7 +206,7 @@ let getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo section =
   let lst = List<Addr> ()
   let addr = translateOffsetToAddr loadables shdrs section.SecOffset
   for ofs in [| 0 .. entrySize .. secSize - entrySize |] do
-    readUIntOfType span toolBox.Reader readType ofs
+    readUIntByWordSize span toolBox.Reader readType ofs
     |> (fun fnAddr ->
       if fnAddr = 0UL then
         match getRelocatedAddr relocInfo (addr + uint64 ofs) with

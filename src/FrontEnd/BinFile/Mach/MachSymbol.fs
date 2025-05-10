@@ -205,6 +205,7 @@ module internal Symbol =
 
   let private parseNList toolBox libs strTab symTab offset =
     let reader = toolBox.Reader
+    let header = toolBox.Header
     let strIdx = reader.ReadInt32 (span=symTab, offset=offset) (* n_strx *)
     let nDesc = reader.ReadInt16 (symTab, offset + 6) (* n_desc *)
     let nType = symTab[offset + 4] |> int (* n_type *)
@@ -213,8 +214,8 @@ module internal Symbol =
       IsExternal = nType &&& 0x1 = 0x1
       SecNum = symTab[offset + 5] |> int (* n_sect *)
       SymDesc = nDesc
-      VerInfo = getLibraryVerInfo toolBox.Header.Flags libs nDesc
-      SymAddr = readUIntOfType symTab reader toolBox.Header.Class (offset + 8)
+      VerInfo = getLibraryVerInfo header.Flags libs nDesc
+      SymAddr = readUIntByWordSize symTab reader header.Class (offset + 8)
                 |> adjustSymVal toolBox }
 
   let private parseSymTable ({ Bytes = bytes } as toolBox) libs symTabCmds =

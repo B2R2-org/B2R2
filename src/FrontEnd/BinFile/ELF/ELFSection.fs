@@ -236,8 +236,9 @@ module internal Section =
     let shAddrPtr = secPtr + shAddrOffset (* pointer to sh_offset *)
     let shAddrSize = ptrSize * 2 (* sh_offset, sh_size *)
     let span = ReadOnlySpan (toolBox.Bytes, int shAddrPtr, shAddrSize)
-    let offset = readUIntOfType span reader hdr.Class 0
-    let size = readUIntOfType span reader hdr.Class (pickNum hdr.Class 4 8)
+    let offset = readUIntByWordSize span reader hdr.Class 0
+    let size =
+      readUIntByWordSize span reader hdr.Class (selectByWordSize hdr.Class 4 8)
     ReadOnlySpan (toolBox.Bytes, int offset, int size)
 
   let peekSecType (span: ByteSpan) (reader: IBinReader) =
@@ -245,24 +246,25 @@ module internal Section =
     |> LanguagePrimitives.EnumOfValue: SectionType
 
   let peekSecFlags span reader cls =
-    readUIntOfType span reader cls 8
+    readUIntByWordSize span reader cls 8
     |> LanguagePrimitives.EnumOfValue: SectionFlag
 
   let parseSectionHdr toolBox num nameTbl (secHdr: ByteSpan) =
     let reader = toolBox.Reader
     let nameOffset = reader.ReadInt32 (secHdr, 0)
     let cls = toolBox.Header.Class
+    let baseAddr = toolBox.BaseAddress
     { SecNum = num
       SecName = ByteArray.extractCStringFromSpan nameTbl nameOffset
       SecType = peekSecType secHdr reader
       SecFlags = peekSecFlags secHdr reader cls
-      SecAddr = readNative secHdr reader cls 12 16 + toolBox.BaseAddress
-      SecOffset = readNative secHdr reader cls 16 24
-      SecSize = readNative secHdr reader cls 20 32
-      SecLink = reader.ReadUInt32 (secHdr, pickNum cls 24 40)
-      SecInfo = reader.ReadUInt32 (secHdr, pickNum cls 28 44)
-      SecAlignment = readNative secHdr reader cls 32 48
-      SecEntrySize = readNative secHdr reader cls 36 56 }
+      SecAddr = readUIntByWordSizeAndOffset secHdr reader cls 12 16 + baseAddr
+      SecOffset = readUIntByWordSizeAndOffset secHdr reader cls 16 24
+      SecSize = readUIntByWordSizeAndOffset secHdr reader cls 20 32
+      SecLink = reader.ReadUInt32 (secHdr, selectByWordSize cls 24 40)
+      SecInfo = reader.ReadUInt32 (secHdr, selectByWordSize cls 28 44)
+      SecAlignment = readUIntByWordSizeAndOffset secHdr reader cls 32 48
+      SecEntrySize = readUIntByWordSizeAndOffset secHdr reader cls 36 56 }
 
   let parse ({ Bytes = bytes } as toolBox) =
     let hdr = toolBox.Header

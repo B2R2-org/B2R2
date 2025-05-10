@@ -114,24 +114,25 @@ type ProgramHeader = {
 
 module ProgramHeader =
   let peekPHdrFlags (span: ByteSpan) (reader: IBinReader) cls =
-    reader.ReadInt32 (span, pickNum cls 24 4)
+    reader.ReadInt32 (span, selectByWordSize cls 24 4)
     |> LanguagePrimitives.EnumOfValue
 
   let parseProgHeader toolBox (span: ByteSpan) =
     let reader, cls = toolBox.Reader, toolBox.Header.Class
     let phType = reader.ReadUInt32 (span, 0)
+    let baseAddr = toolBox.BaseAddress
     { PHType = LanguagePrimitives.EnumOfValue phType
       PHFlags = peekPHdrFlags span reader cls
-      PHOffset = readNative span reader cls 4 8
-      PHAddr = readNative span reader cls 8 16 + toolBox.BaseAddress
-      PHPhyAddr = readNative span reader cls 12 24
-      PHFileSize = readNative span reader cls 16 32
-      PHMemSize = readNative span reader cls 20 40
-      PHAlignment = readNative span reader cls 28 48 }
+      PHOffset = readUIntByWordSizeAndOffset span reader cls 4 8
+      PHAddr = readUIntByWordSizeAndOffset span reader cls 8 16 + baseAddr
+      PHPhyAddr = readUIntByWordSizeAndOffset span reader cls 12 24
+      PHFileSize = readUIntByWordSizeAndOffset span reader cls 16 32
+      PHMemSize = readUIntByWordSizeAndOffset span reader cls 20 40
+      PHAlignment = readUIntByWordSizeAndOffset span reader cls 28 48 }
 
   /// Parse program headers and returns them as an array.
   let parse ({ Bytes = bytes; Header = hdr } as toolBox) =
-    let entrySize = pickNum hdr.Class 32 56
+    let entrySize = selectByWordSize hdr.Class 32 56
     let numEntries = int hdr.PHdrNum
     let progHeaders = Array.zeroCreate numEntries
     for i = 0 to numEntries - 1 do

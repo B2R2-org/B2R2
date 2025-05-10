@@ -135,19 +135,19 @@ module internal Section =
     let cls = toolBox.Header.Class
     let reader = toolBox.Reader
     let span = span.Slice offset
-    let secFlag = reader.ReadInt32 (span, pickNum cls 56 64)
+    let secFlag = reader.ReadInt32 (span, selectByWordSize cls 56 64)
     { SecName = readCString span 0
       SegName = readCString span 16
-      SecAddr = readUIntOfType span reader cls 32 + toolBox.BaseAddress
-      SecSize = readNative span reader cls 36 40
-      SecOffset = reader.ReadUInt32 (span, pickNum cls 40 48)
-      SecAlignment = reader.ReadUInt32 (span, pickNum cls 44 52)
-      SecRelOff = reader.ReadUInt32 (span, pickNum cls 48 56)
-      SecNumOfReloc = reader.ReadInt32 (span, pickNum cls 52 60)
+      SecAddr = readUIntByWordSize span reader cls 32 + toolBox.BaseAddress
+      SecSize = readUIntByWordSizeAndOffset span reader cls 36 40
+      SecOffset = reader.ReadUInt32 (span, selectByWordSize cls 40 48)
+      SecAlignment = reader.ReadUInt32 (span, selectByWordSize cls 44 52)
+      SecRelOff = reader.ReadUInt32 (span, selectByWordSize cls 48 56)
+      SecNumOfReloc = reader.ReadInt32 (span, selectByWordSize cls 52 60)
       SecType = secFlag &&& 0xFF |> LanguagePrimitives.EnumOfValue
       SecAttrib = secFlag &&& 0xFFFFFF00 |> LanguagePrimitives.EnumOfValue
-      SecReserved1 = reader.ReadInt32 (span, pickNum cls 60 68)
-      SecReserved2 = reader.ReadInt32 (span, pickNum cls 64 72) }
+      SecReserved1 = reader.ReadInt32 (span, selectByWordSize cls 60 68)
+      SecReserved2 = reader.ReadInt32 (span, selectByWordSize cls 64 72) }
 
   let private countSections segCmds =
     segCmds
@@ -158,7 +158,7 @@ module internal Section =
     let sections = Array.zeroCreate numSections
     let mutable idx = 0
     for seg in segCmds do
-      let entrySize = pickNum hdr.Class 68 80
+      let entrySize = selectByWordSize hdr.Class 68 80
       let sectionSize = entrySize * int seg.NumSecs
       let sectionOffset = int toolBox.MachOffset + seg.SecOff
       let sectionSpan = ReadOnlySpan (bytes, sectionOffset, sectionSize)

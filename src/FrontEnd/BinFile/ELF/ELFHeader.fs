@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 open System
-open System.IO
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
@@ -571,20 +570,20 @@ module internal Header =
         OSABIVersion = span[8] |> uint32
         ELFFileType = ftype
         MachineType = getELFMachineType span reader
-        EntryPoint = readNative span reader cls 24 24 + baseAddr
-        PHdrTblOffset = readNative span reader cls 28 32
-        SHdrTblOffset = readNative span reader cls 32 40
-        ELFFlags = reader.ReadUInt32 (span, pickNum cls 36 48)
-        HeaderSize = reader.ReadUInt16 (span, pickNum cls 40 52)
-        PHdrEntrySize = reader.ReadUInt16 (span, pickNum cls 42 54)
-        PHdrNum = reader.ReadUInt16 (span, pickNum cls 44 56)
-        SHdrEntrySize = reader.ReadUInt16 (span, pickNum cls 46 58)
-        SHdrNum = reader.ReadUInt16 (span, pickNum cls 48 60)
-        SHdrStrIdx = reader.ReadUInt16 (span, pickNum cls 50 62) }
+        EntryPoint = readUIntByWordSize span reader cls 24 + baseAddr
+        PHdrTblOffset = readUIntByWordSizeAndOffset span reader cls 28 32
+        SHdrTblOffset = readUIntByWordSizeAndOffset span reader cls 32 40
+        ELFFlags = reader.ReadUInt32 (span, selectByWordSize cls 36 48)
+        HeaderSize = reader.ReadUInt16 (span, selectByWordSize cls 40 52)
+        PHdrEntrySize = reader.ReadUInt16 (span, selectByWordSize cls 42 54)
+        PHdrNum = reader.ReadUInt16 (span, selectByWordSize cls 44 56)
+        SHdrEntrySize = reader.ReadUInt16 (span, selectByWordSize cls 46 58)
+        SHdrNum = reader.ReadUInt16 (span, selectByWordSize cls 48 60)
+        SHdrStrIdx = reader.ReadUInt16 (span, selectByWordSize cls 50 62) }
     struct (hdr, baseAddr)
 
   let private getELFFlags span (reader: IBinReader) cls =
-    reader.ReadUInt32 (span=span, offset=pickNum cls 36 48)
+    reader.ReadUInt32 (span=span, offset=selectByWordSize cls 36 48)
 
   let private getMIPSISA span reader cls =
     match getELFFlags span reader cls &&& 0xf0000000u with

@@ -158,8 +158,8 @@ type DynamicSectionEntry = {
 
 module internal DynamicSection =
   let private readDynamicEntry reader cls span =
-    let dtag = readUIntOfType span reader cls 0
-    let dval = readUIntOfType span reader cls (pickNum cls 4 8)
+    let dtag = readUIntByWordSize span reader cls 0
+    let dval = readUIntByWordSize span reader cls (selectByWordSize cls 4 8)
     { DTag = LanguagePrimitives.EnumOfValue dtag; DVal = dval }
 
   let private parseDynamicSection ({ Bytes = bytes } as toolBox) sec =

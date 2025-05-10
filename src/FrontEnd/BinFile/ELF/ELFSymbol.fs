@@ -252,7 +252,7 @@ module internal Symbol =
     else addr + baseAddr
 
   let readSymAddr baseAddr span reader cls parent txtOffset =
-    let symAddr = readUIntOfType span reader cls (pickNum cls 4 8)
+    let symAddr = readUIntByWordSize span reader cls (selectByWordSize cls 4 8)
     match (parent: ELFSection option) with
     | None -> symAddr
     | Some sec ->
@@ -291,15 +291,15 @@ module internal Symbol =
     let reader = toolBox.Reader
     let nameIdx = reader.ReadUInt32 (span=symbol, offset=0)
     let sname = ByteArray.extractCStringFromSpan strTbl (int nameIdx)
-    let info = symbol[pickNum cls 12 4]
-    let other = symbol[pickNum cls 13 5]
-    let ndx =  reader.ReadUInt16 (symbol, pickNum cls 14 6) |> int
+    let info = symbol[selectByWordSize cls 12 4]
+    let other = symbol[selectByWordSize cls 13 5]
+    let ndx =  reader.ReadUInt16 (symbol, selectByWordSize cls 14 6) |> int
     let parent = Array.tryItem ndx shdrs
     let secIdx = SectionHeaderIdx.IndexFromInt ndx
     let verInfo = getVerInfo toolBox verTbl verInfoTbl symIdx
     { Addr = readSymAddr toolBox.BaseAddress symbol reader cls parent txtOffset
       SymName = sname
-      Size = readUIntOfType symbol reader cls (pickNum cls 8 16)
+      Size = readUIntByWordSize symbol reader cls (selectByWordSize cls 8 16)
       Bind = info >>> 4 |> LanguagePrimitives.EnumOfValue
       SymType = info &&& 0xfuy |> LanguagePrimitives.EnumOfValue
       Vis = other &&& 0x3uy |> LanguagePrimitives.EnumOfValue
@@ -309,7 +309,7 @@ module internal Symbol =
       ARMLinkerSymbol = computeLinkerSymbolKind toolBox.Header sname }
 
   let nextSymOffset cls offset =
-    offset + pickNum cls 16 24
+    offset + selectByWordSize cls 16 24
 
   let getTextSectionOffset shdrs =
     match shdrs |> Array.tryFind (fun s -> s.SecName = Section.SecText) with
@@ -328,10 +328,10 @@ module internal Symbol =
     let verInfoTbl = (* symbol versioning is only valid for dynamic symbols. *)
       if symTblSec.SecType = SectionType.SHT_DYNSYM then verInfoTbl else None
     let symTbl = ReadOnlySpan (toolBox.Bytes, offset, size)
-    let numEntries = int symTblSec.SecSize / (pickNum cls 16 24)
+    let numEntries = int symTblSec.SecSize / (selectByWordSize cls 16 24)
     let symbols = Array.zeroCreate numEntries
     for i = 0 to numEntries - 1 do
-      let offset = i * (pickNum cls 16 24)
+      let offset = i * (selectByWordSize cls 16 24)
       let entry = symTbl.Slice offset
       let sym = getSymbol toolBox shdrs strTbl verTbl entry verInfoTbl txt i
       symbols[i] <- sym
