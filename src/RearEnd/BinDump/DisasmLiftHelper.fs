@@ -191,8 +191,8 @@ type BinPrinter (hdl: BinHandle, cfg, isLift) =
 
   member _.ModeSwitch with get () = modeSwitch
 
-  member this.Print ptr =
-    if BinFilePointer.IsValid ptr then
+  member this.Print (ptr: BinFilePointer) =
+    if ptr.IsValid then
       this.PrintFuncSymbol ptr.Addr
       this.UpdateMode liftingUnit ptr.Addr
       match liftingUnit.TryParseInstruction (ptr=ptr) with

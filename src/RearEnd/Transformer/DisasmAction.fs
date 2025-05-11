@@ -30,17 +30,18 @@ open B2R2.FrontEnd.BinFile
 
 /// The `disasm` action.
 type DisasmAction () =
-  let rec disasm acc (lifter: LiftingUnit) ptr =
-    if BinFilePointer.IsValid ptr then
+  let rec disasm acc (lifter: LiftingUnit) (ptr: BinFilePointer) =
+    if ptr.IsValid then
       match lifter.TryParseInstruction ptr with
       | Ok instr ->
         let insLen = int instr.Length
-        let insBytes = lifter.File.Slice(ptr.Addr, insLen).ToArray()
+        let insBytes =
+          IBinFile.Slice(lifter.File, ptr.Offset, insLen).ToArray ()
         let ptr = BinFilePointer.Advance ptr insLen
         let acc = ValidInstruction (instr, insBytes) :: acc
         disasm acc lifter ptr
       | Error _ ->
-        let badbyte = [| lifter.File.ReadByte ptr.Offset |]
+        let badbyte = [| lifter.File.RawBytes[ptr.Offset] |]
         let acc = BadInstruction (ptr.Addr, badbyte) :: acc
         let ptr = BinFilePointer.Advance ptr 1
         disasm acc lifter ptr
@@ -52,7 +53,8 @@ type DisasmAction () =
     let hdl = Binary.Handle bin
     let lifter = hdl.NewLiftingUnit ()
     let baddr = hdl.File.BaseAddress
-    let ptr = BinFilePointer (baddr, 0, hdl.File.Length - 1)
+    let len = hdl.File.Length
+    let ptr = BinFilePointer (baddr, baddr + uint64 len - 1UL, 0, len - 1)
     disasm [] lifter ptr
     |> box
 

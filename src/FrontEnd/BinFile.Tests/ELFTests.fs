@@ -78,7 +78,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X86 sections length test`` () =
-    Assert.AreEqual<int> (31, x86File.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (31, (x86File :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86 static symbols length test`` () =
@@ -150,7 +150,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped sections length test`` () =
-    Assert.AreEqual<int> (29, x86SFile.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (29, (x86SFile :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped static symbols length test`` () =
@@ -222,7 +222,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X64 sections length test`` () =
-    Assert.AreEqual<int> (38, x64File.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (38, (x64File :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64 static symbols length test`` () =
@@ -294,7 +294,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped sections length test`` () =
-    Assert.AreEqual<int> (29, x64SFile.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (29, (x64SFile :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped static symbols length test`` () =
@@ -366,7 +366,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] arm32 sections length test`` () =
-    Assert.AreEqual<int> (38, arm32File.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (38, (arm32File :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32 static symbols length test`` () =
@@ -438,7 +438,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped sections length test`` () =
-    Assert.AreEqual<int> (28, arm32SFile.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (28, (arm32SFile :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped static symbols length test`` () =
@@ -510,7 +510,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] thumb sections length test`` () =
-    Assert.AreEqual<int> (38, thumbFile.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (38, (thumbFile :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb static symbols length test`` () =
@@ -582,7 +582,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped sections length test`` () =
-    Assert.AreEqual<int> (28, thumbSFile.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (28, (thumbSFile :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped static symbols length test`` () =
@@ -654,7 +654,8 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] aarch64 sections length test`` () =
-    Assert.AreEqual<int> (37, aarch64File.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (37,
+                          (aarch64File :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 static symbols length test`` () =
@@ -726,7 +727,8 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped sections length test`` () =
-    Assert.AreEqual<int> (27, aarch64SFile.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (27,
+                          (aarch64SFile :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped static symbols length test`` () =
@@ -798,7 +800,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped sections length test`` () =
-    Assert.AreEqual<int> (34, mips32File.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (34, (mips32File :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped static symbols length test`` () =
@@ -862,7 +864,8 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le sections length test`` () =
-    Assert.AreEqual<int> (34, mips32leFile.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (34,
+                          (mips32leFile :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le static symbols length test`` () =
@@ -926,7 +929,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped sections length test`` () =
-    Assert.AreEqual<int> (32, mips64File.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (32, (mips64File :?> ELFBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped static symbols length test`` () =

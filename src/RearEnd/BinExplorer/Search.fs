@@ -36,11 +36,12 @@ type CmdSearch () =
   let toResult (idx: uint64) = $"Found @ {idx:x}"
 
   let search (hdl: BinHandle) pattern =
-    hdl.File.GetSegments (Permission.Readable)
-    |> Seq.collect (fun s ->
-      hdl.ReadBytes (s.Address, int s.Size)
+    hdl.File.GetVMMappedRegions Permission.Readable
+    |> Seq.collect (fun reg ->
+      let size = reg.Max - reg.Min + 1UL
+      hdl.ReadBytes (reg.Min, int size)
       |> ByteArray.findIdxs 0UL pattern
-      |> List.map (fun idx -> idx + s.Address))
+      |> List.map (fun idx -> idx + reg.Min))
     |> Seq.map toResult
     |> Seq.toList
 

@@ -64,17 +64,3 @@ let addLastInvalidRange wordSize (set, saddr) =
   let laddr =
     if wordSize = WordSize.Bit32 then 0xFFFFFFFFUL else 0xFFFFFFFFFFFFFFFFUL
   IntervalSet.add (AddrRange (saddr, laddr)) set
-
-let getNotInFileIntervals fileBase fileSize (range: AddrRange) =
-  let lastAddr = fileBase + fileSize - 1UL
-  if range.Max < fileBase then [| range |]
-  elif range.Max <= lastAddr && range.Min < fileBase then
-    [| AddrRange (range.Min, fileBase - 1UL) |]
-  elif range.Max > lastAddr && range.Min < fileBase then
-    [| AddrRange (range.Min, fileBase - 1UL)
-       AddrRange (lastAddr + 1UL, range.Max) |]
-  elif range.Max > lastAddr && range.Min <= lastAddr then
-    [| AddrRange (lastAddr + 1UL, range.Max) |]
-  elif range.Max > lastAddr && range.Min > lastAddr then [| range |]
-  else [||]
-

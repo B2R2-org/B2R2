@@ -54,12 +54,12 @@ let getTailPatterns (liftingUnit: LiftingUnit) =
   | _ -> failwith "Unsupported arch."
   |> List.map toTail
 
-let private getExecutableSegs (liftingUnit: LiftingUnit) =
+let private getExecutableRanges (liftingUnit: LiftingUnit) =
   let file = liftingUnit.File
   let rxRanges =
-    file.GetSegments (Permission.Readable ||| Permission.Executable)
+    file.GetVMMappedRegions (Permission.Readable ||| Permission.Executable)
   if not file.IsNXEnabled then
-    file.GetSegments (Permission.Readable)
+    file.GetVMMappedRegions (Permission.Readable)
     |> Seq.append rxRanges
     |> Seq.distinct
   else
@@ -100,8 +100,8 @@ let parseTail (liftingUnit: LiftingUnit) addr bytes =
     else List.rev acc
   parseLoop [] addr
 
-let private buildGadgetMap hdl (liftingUnit: LiftingUnit) tail map seg =
-  let minAddr = (seg: Segment).Address
+let private buildGadgetMap hdl (liftingUnit: LiftingUnit) tail map vmRange =
+  let minAddr = (vmRange: AddrRange).Min
   let build map idx =
     let sGadget = parseTail liftingUnit idx tail.Pattern |> Gadget.create idx
     Map.add idx sGadget map
@@ -109,14 +109,14 @@ let private buildGadgetMap hdl (liftingUnit: LiftingUnit) tail map seg =
                      (min 0UL (minAddr - instrMaxLen liftingUnit))
                      (idx - 1UL)
                      idx
-  (hdl: BinHandle).ReadBytes (seg.Address, int (seg.Size))
+  (hdl: BinHandle).ReadBytes (minAddr, int (vmRange.Max - vmRange.Min + 1UL))
   |> ByteArray.findIdxs minAddr tail.Pattern
   |> List.fold build map
 
 let findGadgets (hdl: BinHandle) =
   let liftingUnit = hdl.NewLiftingUnit ()
-  let segs = getExecutableSegs liftingUnit
+  let vmRanges = getExecutableRanges liftingUnit
   let buildGadgetMapPerTail acc tail =
-    Seq.fold (buildGadgetMap hdl liftingUnit tail) acc segs
+    Seq.fold (buildGadgetMap hdl liftingUnit tail) acc vmRanges
   getTailPatterns liftingUnit
   |> List.fold buildGadgetMapPerTail GadgetMap.empty

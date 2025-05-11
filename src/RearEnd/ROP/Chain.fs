@@ -181,19 +181,20 @@ module ROPHandle =
     | None -> None
 
   let private findBytes rop bytes =
-    let chooser (seg: Segment) =
-      let min = seg.Address
-      rop.BinHdl.ReadBytes (min, int seg.Size)
+    let chooser (vmRange: AddrRange) =
+      let min = vmRange.Min
+      let size = vmRange.Max - vmRange.Min + 1UL
+      rop.BinHdl.ReadBytes (min, int size)
       |> ByteArray.tryFindIdx min bytes
-    (getFileInfo rop).GetSegments Permission.Readable
+    (getFileInfo rop).GetVMMappedRegions Permission.Readable
     |> Seq.tryPick chooser
 
 
   let private getWritableAddr rop =
-    let seg =
-      (getFileInfo rop).GetSegments Permission.Writable
-      |> Seq.maxBy (fun seg -> seg.Size)
-    seg.Address + rop.BinBase
+    let vmRange =
+      (getFileInfo rop).GetVMMappedRegions Permission.Writable
+      |> Array.maxBy (fun range -> range.Max - range.Min + 1UL)
+    vmRange.Min + rop.BinBase
 
   let private toUInt32Arr (src: byte[]) =
     let srcLen = Array.length src

@@ -73,7 +73,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped sections length test`` () =
-    Assert.AreEqual<int> (9, x86File.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (9, (x86File :?> MachBinFile).Sections.Length)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped static symbols length test`` () =
@@ -135,7 +135,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X64 sections length test`` () =
-    Assert.AreEqual<int> (13, x64File.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (13, (x64File :?> MachBinFile).Sections.Length)
 
   [<TestMethod>]
   member _.``[Mach] X64 static symbols length test`` () =
@@ -196,7 +196,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped sections length test`` () =
-    Assert.AreEqual<int> (13, x64SFile.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (13, (x64SFile :?> MachBinFile).Sections.Length)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped static symbols length test`` () =

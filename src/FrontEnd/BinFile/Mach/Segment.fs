@@ -25,7 +25,6 @@
 module internal B2R2.FrontEnd.BinFile.Mach.Segment
 
 open B2R2.Collections
-open B2R2.FrontEnd.BinFile
 
 let private chooser = function
   | Segment s -> Some s
@@ -33,18 +32,6 @@ let private chooser = function
 
 let extract cmds =
   Array.choose chooser cmds
-
-let segCmdToSegment seg =
-  { Address = seg.VMAddr
-    Offset = uint32 seg.FileOff
-    Size = uint32 seg.VMSize
-    SizeInFile = uint32 seg.FileSize
-    Permission = seg.MaxProt |> LanguagePrimitives.EnumOfValue }
-
-let toArray segCmds isLoadable =
-  if isLoadable then segCmds |> Array.filter (fun s -> s.FileSize > 0UL)
-  else segCmds
-  |> Array.map segCmdToSegment
 
 let buildMap segs =
   segs

@@ -60,7 +60,7 @@ type WasmTests () =
 
   [<TestMethod>]
   member _.``[Wasm] sections length test`` () =
-    Assert.AreEqual<int> (12, file.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (12, (file :?> WasmBinFile).Sections.Length)
 
   [<TestMethod>]
   member _.``[Wasm] linkageTableEntries length test`` () =

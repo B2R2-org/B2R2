@@ -44,12 +44,12 @@ type FileType =
 [<RequireQualifiedAccess>]
 module FileType =
   /// <summary>
-  ///   Convert <see cref="T:B2R2.FrontEnd.BinFile.FileType">FileType</see> to
-  ///   string.
+  /// Convert <see cref="T:B2R2.FrontEnd.BinFile.FileType">FileType</see> to
+  /// string.
   /// </summary>
   /// <param name="ty">A FileType to convert.</param>
   /// <returns>
-  ///   A converted string.
+  /// A converted string.
   /// </returns>
   [<CompiledName ("ToString")>]
   let toString ty =

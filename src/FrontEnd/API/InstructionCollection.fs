@@ -89,8 +89,8 @@ and IInstructionCollectable =
 /// instruction collector performing linear sweep disassembly.
 type LinearSweepInstructionCollector (hdl: BinHandle,
                                       liftingUnit: LiftingUnit) =
-  let rec update updateFn shift ptr =
-    if BinFilePointer.IsValid ptr then
+  let rec update updateFn shift (ptr: BinFilePointer) =
+    if ptr.IsValid then
       match liftingUnit.TryParseInstruction (ptr=ptr) with
       | Ok ins ->
         updateFn (ptr.Addr, OnlyOne ins) |> ignore
@@ -104,10 +104,7 @@ type LinearSweepInstructionCollector (hdl: BinHandle,
 
   interface IInstructionCollectable with
     member _.Collect updateFn =
-      let ptr =
-        liftingUnit.File.EntryPoint
-        |> Option.defaultValue 0UL
-        |> liftingUnit.File.ToBinFilePointer
+      let ptr = liftingUnit.File.GetTextSectionPointer ()
       let shiftAmount = 1 (* FIXME *)
       update updateFn shiftAmount ptr
 

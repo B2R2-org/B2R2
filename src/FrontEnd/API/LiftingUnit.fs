@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
@@ -55,30 +56,21 @@ type LiftingUnit (binFile: IBinFile,
       idx <- idx - 1
     arr
 
-  let rec parseBBLByAddr addr cnt acc =
-    let parsed =
-      try parser.Parse (binFile.Slice (addr=addr), addr) |> Ok
-      with _ -> Error ErrorCase.ParsingFailure
-    match parsed with
-    | Ok ins ->
-      if ins.IsTerminator () then Ok <| toReversedArray (cnt + 1) (ins :: acc)
-      else parseBBLByAddr (addr + uint64 ins.Length) (cnt + 1) (ins :: acc)
-    | Error _ -> Error <| toReversedArray cnt acc
-
   let rec parseBBLByPtr (ptr: BinFilePointer) cnt acc =
     let parsed =
       try
-        let span = binFile.Slice ptr.Offset
-        let ins = parser.Parse (span, ptr.Addr)
-        if BinFilePointer.IsValidAccess ptr (int ins.Length) then Ok ins
-        else Error ErrorCase.ParsingFailure
+        let len = ptr.MaxOffset - ptr.Offset + 1
+        let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
+        Ok <| parser.Parse (span, ptr.Addr)
       with _ -> Error ErrorCase.ParsingFailure
     match parsed with
     | Ok ins ->
-      if ins.IsTerminator () then Ok <| toReversedArray (cnt + 1) (ins :: acc)
+      if ins.IsTerminator () then
+        Ok <| toReversedArray (cnt + 1) (ins :: acc)
       else
         let ptr = BinFilePointer.Advance ptr (int ins.Length)
-        parseBBLByPtr ptr (cnt + 1) (ins :: acc)
+        if ptr.IsValid then parseBBLByPtr ptr (cnt + 1) (ins :: acc)
+        else Error <| toReversedArray (cnt + 1) (ins :: acc)
     | Error _ -> Error <| toReversedArray cnt acc
 
   /// Binary file to be lifted.
@@ -91,13 +83,19 @@ type LiftingUnit (binFile: IBinFile,
   /// Parse one instruction at the given address (addr), and return the
   /// corresponding instruction. This function raises an exception if the
   /// parsing process fails.
+  /// <remark>
+  /// It is recommended to use the same method that takes in a pointer when
+  /// the performance is a concern.
+  /// </remark>
   /// </summary>
   /// <param name="addr">The instruction address.</param>
   /// <returns>
   /// Parsed instruction.
   /// </returns>
   member _.ParseInstruction (addr: Addr) =
-    parser.Parse (binFile.Slice addr, addr)
+    let ptr = binFile.GetBoundedPointer addr
+    let len = ptr.MaxOffset - ptr.Offset + 1
+    parser.Parse (ReadOnlySpan (binFile.RawBytes, ptr.Offset, len), addr)
 
   /// <summary>
   /// Parse one instruction pointed to by the binary file pointer (ptr), and
@@ -109,10 +107,8 @@ type LiftingUnit (binFile: IBinFile,
   /// Parsed instruction.
   /// </returns>
   member _.ParseInstruction (ptr: BinFilePointer) =
-    let span = binFile.Slice ptr.Offset
-    let ins = parser.Parse (span, ptr.Addr)
-    if BinFilePointer.IsValidAccess ptr (int ins.Length) then ins
-    else raise ParsingFailureException
+    let len = ptr.MaxOffset - ptr.Offset + 1
+    parser.Parse (ReadOnlySpan (binFile.RawBytes, ptr.Offset, len), ptr.Addr)
 
   /// <summary>
   /// Try to parse one instruction at the given address (addr), and return the
@@ -122,8 +118,8 @@ type LiftingUnit (binFile: IBinFile,
   /// <returns>
   /// Parsed instruction if succeeded, ErrorCase if otherwise.
   /// </returns>
-  member _.TryParseInstruction (addr: Addr) =
-    try parser.Parse (binFile.Slice (addr=addr), addr) |> Ok
+  member this.TryParseInstruction (addr: Addr) =
+    try this.ParseInstruction addr |> Ok
     with _ -> Error ErrorCase.ParsingFailure
 
   /// <summary>
@@ -134,26 +130,26 @@ type LiftingUnit (binFile: IBinFile,
   /// <returns>
   /// Parsed instruction if succeeded, ErrorCase if otherwise.
   /// </returns>
-  member _.TryParseInstruction (ptr: BinFilePointer) =
-    try
-      let span = binFile.Slice ptr.Offset
-      let ins = parser.Parse (span, ptr.Addr)
-      if BinFilePointer.IsValidAccess ptr (int ins.Length) then Ok ins
-      else Error ErrorCase.ParsingFailure
-    with _ ->
-      Error ErrorCase.ParsingFailure
+  member this.TryParseInstruction (ptr: BinFilePointer) =
+    try this.ParseInstruction ptr |> Ok
+    with _ -> Error ErrorCase.ParsingFailure
 
   /// <summary>
   /// Parse a basic block starting from the given address (addr), and return the
   /// corresponding array of instructions. This function returns an incomplete
   /// list of instructions if the parsing process fails.
+  /// <remark>
+  /// It is recommended to use the same method that takes in a pointer when
+  /// the performance is a concern.
+  /// </remark>
   /// </summary>
   /// <param name="addr">The basic block address.</param>
   /// <returns>
   /// Parsed basic block (i.e., an array of instructions).
   /// </returns>
   member _.ParseBBlock (addr: Addr) =
-    parseBBLByAddr addr 0 []
+    let ptr = binFile.GetBoundedPointer addr
+    parseBBLByPtr ptr 0 []
 
   /// <summary>
   /// Parse a basic block pointed to by the given binary file pointer (ptr), and
@@ -169,19 +165,26 @@ type LiftingUnit (binFile: IBinFile,
 
   /// <summary>
   /// Lift an instruction at the given address (addr) and return the lifted IR
-  /// statements.
+  /// statements without optimization.
+  /// <remark>
+  /// It is recommended to use the same method that takes in a pointer when
+  /// the performance is a concern.
+  /// </remark>
   /// </summary>
   /// <param name="addr">The instruction address.</param>
   /// <returns>
   /// Lifted IR statements.
   /// </returns>
-  member _.LiftInstruction (addr: Addr) =
-    let ins = parser.Parse (binFile.Slice addr, addr)
-    ins.Translate irBuilder
+  member this.LiftInstruction (addr: Addr) =
+    this.LiftInstruction (addr, false)
 
   /// <summary>
   /// Lift an instruction at the given address (addr) and return the lifted IR
   /// statements.
+  /// <remark>
+  /// It is recommended to use the same method that takes in a pointer when
+  /// the performance is a concern.
+  /// </remark>
   /// </summary>
   /// <param name="addr">The instruction address.</param>
   /// <param name="optimize">
@@ -191,7 +194,10 @@ type LiftingUnit (binFile: IBinFile,
   /// Lifted IR statements.
   /// </returns>
   member _.LiftInstruction (addr: Addr, optimize) =
-    let ins = parser.Parse (binFile.Slice addr, addr)
+    let ptr = binFile.GetBoundedPointer addr
+    let len = ptr.MaxOffset - ptr.Offset + 1
+    let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
+    let ins = parser.Parse (span, addr)
     if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
     else ins.Translate irBuilder
 
@@ -204,11 +210,10 @@ type LiftingUnit (binFile: IBinFile,
   /// Lifted IR statements.
   /// </returns>
   member _.LiftInstruction (ptr: BinFilePointer) =
-    let span = binFile.Slice ptr.Offset
+    let len = ptr.MaxOffset - ptr.Offset + 1
+    let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
     let ins = parser.Parse (span, ptr.Addr)
-    if BinFilePointer.IsValidAccess ptr (int ins.Length) then
-      ins.Translate irBuilder
-    else raise ParsingFailureException
+    ins.Translate irBuilder
 
   /// <summary>
   /// Lift an instruction pointed to by the given pointer and return the lifted
@@ -222,12 +227,11 @@ type LiftingUnit (binFile: IBinFile,
   /// Lifted IR statements.
   /// </returns>
   member _.LiftInstruction (ptr: BinFilePointer, optimize) =
-    let span = binFile.Slice ptr.Offset
+    let len = ptr.MaxOffset - ptr.Offset + 1
+    let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
     let ins = parser.Parse (span, ptr.Addr)
-    if BinFilePointer.IsValidAccess ptr (int ins.Length) then
-      if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
-      else ins.Translate irBuilder
-    else raise ParsingFailureException
+    if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
+    else ins.Translate irBuilder
 
   /// <summary>
   /// Lift the given instruction and return the lifted IR statements.
@@ -263,7 +267,8 @@ type LiftingUnit (binFile: IBinFile,
   /// Lifted IR statements.
   /// </returns>
   member _.LiftBBlock (addr: Addr) =
-    match parseBBLByAddr addr 0 [] with
+    let ptr = binFile.GetBoundedPointer addr
+    match parseBBLByPtr ptr 0 [] with
     | Ok instrs ->
       instrs |> Array.collect (fun i -> i.Translate irBuilder) |> Ok
     | Error instrs ->
@@ -320,7 +325,10 @@ type LiftingUnit (binFile: IBinFile,
   /// Disassembled string.
   /// </returns>
   member _.DisasmInstruction (addr: Addr) =
-    let ins = parser.Parse (binFile.Slice addr, addr)
+    let ptr = binFile.GetBoundedPointer addr
+    let len = ptr.MaxOffset - ptr.Offset + 1
+    let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
+    let ins = parser.Parse (span, addr)
     ins.Disasm ()
 
   /// <summary>
@@ -333,10 +341,10 @@ type LiftingUnit (binFile: IBinFile,
   /// Disassembled string.
   /// </returns>
   member _.DisasmInstruction (ptr: BinFilePointer) =
-    let span = binFile.Slice ptr.Offset
+    let len = ptr.MaxOffset - ptr.Offset + 1
+    let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
     let ins = parser.Parse (span, ptr.Addr)
-    if BinFilePointer.IsValidAccess ptr (int ins.Length) then ins.Disasm ()
-    else raise ParsingFailureException
+    ins.Disasm ()
 
   /// <summary>
   /// Decompose the given instruction and return the disassembled sequence of
@@ -358,7 +366,10 @@ type LiftingUnit (binFile: IBinFile,
   ///   Decomposed AsmWords.
   /// </returns>
   member _.DecomposeInstruction (addr: Addr) =
-    let ins = parser.Parse (binFile.Slice addr, addr)
+    let ptr = binFile.GetBoundedPointer addr
+    let len = ptr.MaxOffset - ptr.Offset + 1
+    let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
+    let ins = parser.Parse (span, addr)
     ins.Decompose asmwordDisasm
 
   /// <summary>
@@ -370,11 +381,10 @@ type LiftingUnit (binFile: IBinFile,
   /// Decomposed AsmWords.
   /// </returns>
   member _.DecomposeInstruction (ptr: BinFilePointer) =
-    let span = binFile.Slice ptr.Offset
+    let len = ptr.MaxOffset - ptr.Offset + 1
+    let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
     let ins = parser.Parse (span, ptr.Addr)
-    if BinFilePointer.IsValidAccess ptr (int ins.Length) then
-      ins.Decompose asmwordDisasm
-    else raise ParsingFailureException
+    ins.Decompose asmwordDisasm
 
   /// <summary>
   /// Sets the disassembly syntax for the disassembler. Only Intel architecture

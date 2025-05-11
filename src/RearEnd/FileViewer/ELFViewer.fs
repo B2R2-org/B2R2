@@ -35,8 +35,8 @@ let badAccess _ _ =
   raise InvalidFileFormatException
 
 let computeMagicBytes (file: IBinFile) =
-  let slice = file.Slice (offset=0, size=16)
-  slice.ToArray () |> ColoredString.ofBytes
+  let span = System.ReadOnlySpan (file.RawBytes, 0, 16)
+  span.ToArray () |> ColoredString.ofBytes
 
 let computeEntryPoint (hdr: ELF.Header) =
   [ ColoredSegment (Green, HexString.ofUInt64 hdr.EntryPoint) ]
@@ -92,13 +92,13 @@ let dumpSectionHeaders (opts: FileViewerOpts) (elf: ELFBinFile) =
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
     out.PrintRow (true, cfg, [ "Num"; "Start"; "End"; "Name" ])
     out.PrintLine "  ---"
-    file.GetSections ()
+    elf.SectionHeaders
     |> Seq.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.ISA.WordSize s.Address)
-          (Addr.toString file.ISA.WordSize (s.Address + uint64 s.Size - 1UL))
-          normalizeEmpty s.Name ]))
+          (Addr.toString file.ISA.WordSize s.SecAddr)
+          (Addr.toString file.ISA.WordSize (s.SecAddr + uint64 s.SecSize - 1UL))
+          normalizeEmpty s.SecName]))
 
 let dumpSectionDetails (secname: string) (file: ELFBinFile) =
   match file.TryFindSection secname with
@@ -225,7 +225,7 @@ let makeStringTableReader (file: IBinFile) dynEntries =
   ) (None, None)
   ||> Option.map2 (fun addr len ->
     fun v ->
-      let strtab = file.Slice (addr=addr, size=int len)
+      let strtab = IBinFile.Slice (file, file.GetOffset addr, int len)
       let buf = strtab.Slice (int v)
       ByteArray.extractCStringFromSpan buf 0)
 
@@ -273,7 +273,7 @@ let dumpSegments (opts: FileViewerOpts) (elf: ELFBinFile) =
         [ String.wrapSqrdBracket (idx.ToString ())
           (Addr.toString wordSize ph.PHAddr)
           (Addr.toString wordSize (ph.PHAddr + ph.PHMemSize - uint64 1))
-          (Permission.toString ph.PHFlags)
+          (Permission.toString (ELF.ProgramHeader.flagsToPerm ph.PHFlags))
           ph.PHType.ToString ()
           HexString.ofUInt64 ph.PHOffset
           HexString.ofUInt64 ph.PHAddr
@@ -285,13 +285,13 @@ let dumpSegments (opts: FileViewerOpts) (elf: ELFBinFile) =
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 10 ]
     out.PrintRow (true, cfg, [ "Num"; "Start"; "End"; "Permission" ])
     out.PrintLine "  ---"
-    file.GetSegments ()
-    |> Seq.iteri (fun idx s ->
+    elf.ProgramHeaders
+    |> Array.iteri (fun idx ph ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.ISA.WordSize s.Address)
-          (Addr.toString file.ISA.WordSize (s.Address + uint64 s.Size - 1UL))
-          (Permission.toString s.Permission) ]))
+          (Addr.toString file.ISA.WordSize ph.PHAddr)
+          (Addr.toString file.ISA.WordSize (ph.PHAddr + ph.PHMemSize - 1UL))
+          (Permission.toString (ELF.ProgramHeader.flagsToPerm ph.PHFlags)) ]))
 
 let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned

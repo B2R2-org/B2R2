@@ -60,14 +60,6 @@ let getEntryPoint pe =
 let inline addrFromRVA baseAddr rva =
   uint64 rva + baseAddr
 
-let secFlagToSectionKind (flags: SectionCharacteristics) =
-  if flags.HasFlag SectionCharacteristics.MemExecute then
-    SectionKind.CodeSection
-  elif flags.HasFlag SectionCharacteristics.MemWrite then
-    SectionKind.InitializedDataSection
-  else
-    SectionKind.ExtraSection
-
 /// Some PE files have a section header indicating that the corresponding
 /// section's size is zero even if it contains actual data, i.e.,
 /// sHdr.VirtualSize = 0, but sHdr.SizeOfRawData <> 0. Thus, we should use this
@@ -75,18 +67,6 @@ let secFlagToSectionKind (flags: SectionCharacteristics) =
 let getVirtualSectionSize (sec: SectionHeader) =
   let virtualSize = sec.VirtualSize
   if virtualSize = 0 then sec.SizeOfRawData else virtualSize
-
-let secHdrToSection pe (sec: SectionHeader) =
-  { Address = addrFromRVA pe.BaseAddr sec.VirtualAddress
-    FileOffset = uint32 sec.PointerToRawData
-    Kind = secFlagToSectionKind sec.SectionCharacteristics
-    Size = uint32 sec.SizeOfRawData
-    Name = sec.Name }
-
-let getSectionsByName pe name =
-  match pe.SectionHeaders |> Seq.tryFind (fun sec -> sec.Name = name) with
-  | None -> [||]
-  | Some sec -> [| secHdrToSection pe sec |]
 
 let inline translateAddr pe addr =
   let rva = int (addr - pe.BaseAddr)
@@ -204,22 +184,6 @@ let hasRelocationSymbols pe addr = (* FIXME: linear lookup is bad *)
       uint64 (block.PageRVA + uint32 entry.Offset) = addr)
   )
 
-let getSections pe =
-  pe.SectionHeaders
-  |> Array.map (secHdrToSection pe)
-
-let getSectionsByAddr pe addr =
-  let rva = int (addr - pe.BaseAddr)
-  match pe.FindSectionIdxFromRVA rva with
-  | -1 -> [||]
-  | idx ->
-    [| pe.SectionHeaders[idx] |> secHdrToSection pe |]
-
-let getTextSection pe =
-  match pe.SectionHeaders |> Seq.tryFind (fun sec -> sec.Name = SecText) with
-  | Some sec -> secHdrToSection pe sec
-  | None -> raise SectionNotFoundException
-
 let getImportTable pe =
   pe.ImportMap
   |> Map.fold (fun acc addr info ->
@@ -246,16 +210,6 @@ let getSecPermission (chr: SectionCharacteristics) =
   let w = if chr.HasFlag SectionCharacteristics.MemWrite then 2 else 0
   let r = if chr.HasFlag SectionCharacteristics.MemRead then 4 else 0
   r + w + x |> LanguagePrimitives.EnumOfValue
-
-let getSegments pe =
-  let secToSegment (sec: SectionHeader) =
-    { Address = uint64 sec.VirtualAddress + pe.BaseAddr
-      Offset = uint32 sec.PointerToRawData
-      Size = getVirtualSectionSize sec |> uint32
-      SizeInFile = uint32 sec.SizeOfRawData
-      Permission = getSecPermission sec.SectionCharacteristics }
-  pe.SectionHeaders
-  |> Array.map secToSegment
 
 let private findSymFromIAT addr pe =
   let rva = int (addr - pe.BaseAddr)
@@ -289,19 +243,14 @@ let inline isValidAddr pe addr =
 let inline isValidRange pe range =
   IntervalSet.findAll range pe.InvalidAddrRanges |> List.isEmpty
 
-let inline isInFileAddr pe addr =
+let inline isAddrMappedToFile pe addr =
   IntervalSet.containsAddr addr pe.NotInFileRanges |> not
 
-let inline isInFileRange pe range =
+let inline isRangeMappedToFile pe range =
   IntervalSet.findAll range pe.NotInFileRanges |> List.isEmpty
 
 let inline isExecutableAddr pe addr =
   IntervalSet.containsAddr addr pe.ExecutableRanges
-
-let inline getNotInFileIntervals pe range =
-  IntervalSet.findAll range pe.NotInFileRanges
-  |> List.toArray
-  |> Array.map range.Slice
 
 let peMachineToISA = function
   | Machine.I386 -> ISA (Architecture.Intel, WordSize.Bit32)

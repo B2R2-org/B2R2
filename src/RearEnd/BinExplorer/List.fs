@@ -43,33 +43,18 @@ type CmdList () =
     |> Seq.map (createFuncString brew.BinHandle)
     |> Seq.toArray
 
-  let createSegmentString wordSize (seg: Segment) =
+  let createRegionString wordSize (region: AddrRange) =
+    let size = region.Max - region.Min + 1UL
     "- "
-    + Addr.toString wordSize seg.Address
+    + Addr.toString wordSize region.Min
     + ":"
-    + Addr.toString wordSize (seg.Address + uint64 seg.Size)
-    + " (" + seg.Size.ToString () + ") ("
-    + Permission.toString seg.Permission + ")"
+    + Addr.toString wordSize region.Max
+    + " (" + size.ToString () + ")"
 
   let listSegments (hdl: BinHandle) =
     let wordSize = hdl.File.ISA.WordSize
-    hdl.File.GetSegments ()
-    |> Seq.map (createSegmentString wordSize)
-    |> Seq.toArray
-
-  let createSectionString wordSize (idx: int) (sec: Section) =
-    idx.ToString ("D2")
-    + ". "
-    + Addr.toString wordSize sec.Address
-    + ":"
-    + Addr.toString wordSize (sec.Address + uint64 sec.Size)
-    + " (" + sec.Size.ToString ("D6") + ")"
-    + " [" + sec.Name + "] "
-
-  let listSections (hdl: BinHandle) =
-    let wordSize = hdl.File.ISA.WordSize
-    hdl.File.GetSections ()
-    |> Seq.mapi (createSectionString wordSize)
+    hdl.File.GetVMMappedRegions ()
+    |> Seq.map (createRegionString wordSize)
     |> Seq.toArray
 
   override _.CmdName = "list"
@@ -93,8 +78,6 @@ type CmdList () =
     | "funcs" :: _ -> listFunctions brew
     | "segments" :: _
     | "segs" :: _ -> listSegments brew.BinHandle
-    | "sections" :: _
-    | "secs" :: _ -> listSections brew.BinHandle
     | _ -> [| "[*] Unknown list cmd is given." |]
     |> Array.map OutputNormal
 

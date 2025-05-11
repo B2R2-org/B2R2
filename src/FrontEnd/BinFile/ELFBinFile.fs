@@ -52,14 +52,6 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   member _.DynamicSectionEntries with get() =
     DynamicSection.readEntries toolBox shdrs.Value
 
-  /// Try to find a section by its name.
-  member _.TryFindSection (name: string) =
-    shdrs.Value |> Array.tryFind (fun s -> s.SecName = name)
-
-  /// Find a section by its index.
-  member _.FindSection (idx: int) =
-    shdrs.Value[idx]
-
   /// ELF program headers.
   member _.ProgramHeaders with get() = phdrs.Value
 
@@ -77,6 +69,23 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   /// Relocation information.
   member _.RelocationInfo with get() = relocs.Value
+
+  /// Try to find a section by its name.
+  member _.TryFindSection (name: string) =
+    shdrs.Value |> Array.tryFind (fun s -> s.SecName = name)
+
+  /// Find a section by its index.
+  member _.FindSection (idx: int) =
+    shdrs.Value[idx]
+
+  /// Is this a PLT section?
+  member _.IsPLT (sec: Section) =
+    PLT.isPLTSectionName sec.SecName
+
+  /// Is this section contains executable code?
+  member _.HasCode (sec: Section) =
+    sec.SecFlags.HasFlag SectionFlag.SHF_EXECINSTR
+    && not (PLT.isPLTSectionName sec.SecName)
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
@@ -107,65 +116,57 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.GetOffset addr =
       translateAddrToOffset loadables.Value shdrs.Value addr |> Convert.ToInt32
 
-    member this.Slice (addr, size) =
-      let offset = (this :> IContentAddressable).GetOffset addr
-      (this :> IContentAddressable).Slice (offset=offset, size=size)
-
-    member this.Slice (addr) =
-      let offset = (this :> IContentAddressable).GetOffset addr
-      (this :> IContentAddressable).Slice (offset=offset)
-
-    member _.Slice (offset: int, size) =
-      ReadOnlySpan (bytes, offset, size)
-
-    member _.Slice (offset: int) =
-      ReadOnlySpan(bytes).Slice offset
-
-    member _.Slice (ptr: BinFilePointer, size) =
-      ReadOnlySpan (bytes, ptr.Offset, size)
-
-    member _.Slice (ptr: BinFilePointer) =
-      ReadOnlySpan(bytes).Slice ptr.Offset
-
-    member this.ReadByte (addr: Addr) =
-      let offset = (this :> IContentAddressable).GetOffset addr
-      bytes[offset]
-
-    member _.ReadByte (offset: int) =
-      bytes[offset]
-
-    member _.ReadByte (ptr: BinFilePointer) =
-      bytes[ptr.Offset]
-
     member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
 
     member _.IsValidRange range =
       IntervalSet.findAll range notInMemRanges.Value |> List.isEmpty
 
-    member _.IsInFileAddr addr =
+    member _.IsAddrMappedToFile addr =
       IntervalSet.containsAddr addr notInFileRanges.Value |> not
 
-    member _.IsInFileRange range =
+    member _.IsRangeMappedToFile range =
       IntervalSet.findAll range notInFileRanges.Value |> List.isEmpty
 
     member _.IsExecutableAddr addr =
       IntervalSet.containsAddr addr executableRanges.Value
 
-    member _.GetNotInFileIntervals range =
-      IntervalSet.findAll range notInFileRanges.Value
-      |> List.toArray
-      |> Array.map range.Slice
+    member _.GetBoundedPointer addr =
+      let phdrs = phdrs.Value
+      let mutable found = false
+      let mutable idx = 0
+      let mutable maxAddr = 0UL
+      let mutable offset = 0
+      let mutable maxOffset = 0
+      while not found && idx < phdrs.Length do
+        let ph = phdrs[idx]
+        if addr >= ph.PHAddr && addr < ph.PHAddr + ph.PHMemSize then
+          found <- true
+          if addr < ph.PHAddr + ph.PHFileSize then
+            offset <- int ph.PHOffset + int (addr - ph.PHAddr)
+            maxOffset <- int ph.PHOffset + int ph.PHFileSize - 1
+            maxAddr <- ph.PHAddr + ph.PHFileSize - 1UL
+          else
+            offset <- int ph.PHOffset + int (addr - ph.PHAddr)
+            maxOffset <- int ph.PHOffset + int ph.PHMemSize - 1
+            maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
+        else idx <- idx + 1
+      BinFilePointer (addr, maxAddr, offset, maxOffset)
 
-    member _.ToBinFilePointer addr =
-      getSectionsByAddr shdrs.Value addr
-      |> Seq.tryHead
-      |> BinFilePointer.OfSection
+    member _.GetVMMappedRegions () =
+      phdrs.Value
+      |> Array.choose (fun ph ->
+        if ph.PHMemSize > 0UL then
+          Some <| AddrRange (ph.PHAddr, ph.PHAddr + ph.PHMemSize - 1UL)
+        else None)
 
-    member _.ToBinFilePointer name =
-      getSectionsByName shdrs.Value name
-      |> Seq.tryHead
-      |> BinFilePointer.OfSection
+    member _.GetVMMappedRegions (perm) =
+      phdrs.Value
+      |> Array.choose (fun ph ->
+        let phPerm = ProgramHeader.flagsToPerm ph.PHFlags
+        if (phPerm &&& perm = perm) && ph.PHMemSize > 0UL then
+          Some <| AddrRange (ph.PHAddr, ph.PHAddr + ph.PHMemSize - 1UL)
+        else None)
 
     member _.TryFindFunctionName (addr) =
       tryFindFuncSymb symbInfo.Value addr
@@ -195,26 +196,34 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
-    member _.GetSections () = getSections shdrs.Value
+    member _.GetTextSectionPointer () =
+      shdrs.Value
+      |> Array.tryFind (fun sec -> sec.SecName = Section.SecText)
+      |> function
+        | Some s ->
+          BinFilePointer (s.SecAddr, s.SecAddr + uint64 s.SecSize - 1UL,
+                          int s.SecOffset, int s.SecOffset + int s.SecSize - 1)
+        | None -> BinFilePointer.Null
 
-    member _.GetSections (addr) = getSectionsByAddr shdrs.Value addr
+    member _.GetSectionPointer name =
+      shdrs.Value
+      |> Array.tryFind (fun sec -> sec.SecName = name)
+      |> function
+        | Some sec ->
+          BinFilePointer (sec.SecAddr,
+                          sec.SecAddr + uint64 sec.SecSize - 1UL,
+                          int sec.SecOffset,
+                          int sec.SecOffset + int sec.SecSize - 1)
+        | None -> BinFilePointer.Null
 
-    member _.GetSections (name) = getSectionsByName shdrs.Value name
-
-    member _.GetTextSection () = getTextSection shdrs.Value
-
-    member _.GetSegments (isLoadable) =
-      if isLoadable then getSegments loadables.Value
-      else getSegments phdrs.Value
-
-    member this.GetSegments (addr) =
-      (this :> IBinFile).GetSegments ()
-      |> Array.filter (fun s -> (addr >= s.Address)
-                             && (addr < s.Address + uint64 s.Size))
-
-    member this.GetSegments (perm) =
-      (this :> IBinFile).GetSegments ()
-      |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
+    member _.IsInTextOrDataOnlySection addr =
+      shdrs.Value
+      |> Array.tryFind (fun sec ->
+        addr >= sec.SecAddr && addr < sec.SecAddr + uint64 sec.SecSize)
+      |> function
+        | Some sec ->
+          sec.SecName = Section.SecText || sec.SecName = Section.SecROData
+        | None -> false
 
     member this.GetFunctionAddresses () =
       (this :> IBinFile).GetFunctionSymbols ()

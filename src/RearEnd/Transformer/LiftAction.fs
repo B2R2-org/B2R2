@@ -32,9 +32,9 @@ open B2R2.FrontEnd.BinFile
 
 /// The `lift` action.
 type LiftAction () =
-  let rec lift (sb: StringBuilder) (lifter: LiftingUnit) ptr =
-    if BinFilePointer.IsValid ptr then
-      match lifter.TryParseInstruction (ptr) with
+  let rec lift (sb: StringBuilder) (lifter: LiftingUnit) (ptr: BinFilePointer) =
+    if ptr.IsValid then
+      match lifter.TryParseInstruction ptr with
       | Ok instr ->
         let s = lifter.LiftInstruction instr |> Pp.stmtsToString
         let ptr = BinFilePointer.Advance ptr (int instr.Length)
@@ -48,7 +48,8 @@ type LiftAction () =
     let hdl = Binary.Handle bin
     let lifter = hdl.NewLiftingUnit ()
     let baddr = hdl.File.BaseAddress
-    let ptr = BinFilePointer (baddr, 0, hdl.File.Length - 1)
+    let len = hdl.File.Length
+    let ptr = BinFilePointer (baddr, baddr + uint64 len - 1UL, 0, len - 1)
     let sb = StringBuilder ()
     lift sb lifter ptr
     |> box

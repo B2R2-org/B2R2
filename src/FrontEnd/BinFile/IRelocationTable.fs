@@ -29,27 +29,27 @@ open B2R2
 /// Represents an interface for accessing the relocation table in a binary file.
 type IRelocationTable =
   /// <summary>
-  ///   Return a list of all symbols for relocatable entries in the binary.
+  /// Return a list of all symbols for relocatable entries in the binary.
   /// </summary>
   /// <returns>
-  ///   An array of relocation symbols.
+  /// An array of relocation symbols.
   /// </returns>
   abstract GetRelocationInfos: unit -> Symbol[]
 
   /// <summary>
-  ///   Check if the given address has a relocation information.
+  /// Check if the given address has a relocation information.
   /// </summary>
   /// <returns>
-  ///   True if the address has a relocation information, false otherwise.
+  /// True if the address has a relocation information, false otherwise.
   /// </returns>
   abstract HasRelocationInfo: Addr -> bool
 
   /// <summary>
-  ///   Return a relocation target address of the given virtual address if there
-  ///   is a corresponding relocation entry.
+  /// Return a relocation target address of the given virtual address if there
+  /// is a corresponding relocation entry.
   /// </summary>
   /// <param name="relocAddr">Virtual address be relocated.</param>
   /// <returns>
-  ///   Returns a relocated address for a given virtual address.
+  /// Returns a relocated address for a given virtual address.
   /// </returns>
   abstract GetRelocatedAddr: relocAddr: Addr -> Result<Addr, ErrorCase>

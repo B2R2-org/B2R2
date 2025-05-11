@@ -73,7 +73,7 @@ type PETests () =
 
   [<TestMethod>]
   member _.``[PE] X86 sections length test`` () =
-    Assert.AreEqual<int> (5, x86File.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (5, (x86File :?> PEBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[PE] X86 static symbols length test`` () =
@@ -149,7 +149,7 @@ type PETests () =
 
   [<TestMethod>]
   member _.``[PE] X64 sections length test`` () =
-    Assert.AreEqual<int> (6, x64File.GetSections () |> Seq.length)
+    Assert.AreEqual<int> (6, (x64File :?> PEBinFile).SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[PE] X64 static symbols length test`` () =

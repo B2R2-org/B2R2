@@ -24,7 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open System
+open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.FrontEnd.BinFile.PE
 open B2R2.FrontEnd.BinFile.PE.Helper
@@ -38,9 +38,14 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   new (path, bytes, rawpdb) = PEBinFile (path, bytes, None, rawpdb)
 
-  member _.PE with get() = pe
+  member _.PE with get () = pe
+
+  member _.SectionHeaders with get () = pe.SectionHeaders
 
   member _.RawPDB = rawpdb
+
+  member _.HasCode (sec: SectionHeader) =
+    sec.SectionCharacteristics.HasFlag SectionCharacteristics.MemExecute
 
   interface IBinFile with
     member _.Reader with get() = pe.BinReader
@@ -69,53 +74,58 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.GetOffset addr = translateAddr pe addr
 
-    member this.Slice (addr, size) =
-      let offset = translateAddr pe addr |> Convert.ToInt32
-      (this :> IBinFile).Slice (offset=offset, size=size)
-
-    member this.Slice (addr) =
-      let offset = translateAddr pe addr |> Convert.ToInt32
-      (this :> IBinFile).Slice (offset=offset)
-
-    member _.Slice (offset: int, size) =
-      ReadOnlySpan (bytes, offset, size)
-
-    member _.Slice (offset: int) =
-      ReadOnlySpan(bytes).Slice offset
-
-    member _.Slice (ptr: BinFilePointer, size) =
-      ReadOnlySpan (bytes, ptr.Offset, size)
-
-    member _.Slice (ptr: BinFilePointer) =
-      ReadOnlySpan(bytes).Slice ptr.Offset
-
-    member _.ReadByte (addr: Addr) =
-      let offset = translateAddr pe addr |> Convert.ToInt32
-      bytes[offset]
-
-    member _.ReadByte (offset: int) =
-      bytes[offset]
-
-    member _.ReadByte (ptr: BinFilePointer) =
-      bytes[ptr.Offset]
-
     member _.IsValidAddr addr = isValidAddr pe addr
 
     member _.IsValidRange range = isValidRange pe range
 
-    member _.IsInFileAddr addr = isInFileAddr pe addr
+    member _.IsAddrMappedToFile addr = isAddrMappedToFile pe addr
 
-    member _.IsInFileRange range = isInFileRange pe range
+    member _.IsRangeMappedToFile range = isRangeMappedToFile pe range
 
     member _.IsExecutableAddr addr = isExecutableAddr pe addr
 
-    member _.GetNotInFileIntervals range = getNotInFileIntervals pe range
+    member _.GetBoundedPointer addr =
+      let hdrs = pe.SectionHeaders
+      let mutable found = false
+      let mutable idx = 0
+      let mutable maxAddr = 0UL
+      let mutable offset = 0
+      let mutable maxOffset = 0
+      while not found && idx < hdrs.Length do
+        let sec = hdrs[idx]
+        let vma = uint64 sec.VirtualAddress + pe.BaseAddr
+        let vmaSize = getVirtualSectionSize sec
+        if addr >= vma && addr < vma + uint64 vmaSize then
+          found <- true
+          if addr < vma + uint64 sec.SizeOfRawData then
+            offset <- sec.PointerToRawData + int (addr - vma)
+            maxOffset <- sec.PointerToRawData + sec.SizeOfRawData - 1
+            maxAddr <- vma + uint64 sec.SizeOfRawData - 1UL
+          else
+            offset <- sec.PointerToRawData + int (addr - vma)
+            maxOffset <- sec.PointerToRawData + vmaSize - 1
+            maxAddr <- vma + uint64 vmaSize - 1UL
+        else idx <- idx + 1
+      BinFilePointer (addr, maxAddr, offset, maxOffset)
 
-    member _.ToBinFilePointer addr =
-      BinFilePointer.OfSection (getSectionsByAddr pe addr |> Seq.tryHead)
+    member _.GetVMMappedRegions () =
+      pe.SectionHeaders
+      |> Array.choose (fun sec ->
+        let secSize = getVirtualSectionSize sec
+        if secSize > 0 then
+          let addr = uint64 sec.VirtualAddress + pe.BaseAddr
+          Some <| AddrRange (addr, addr + uint64 secSize - 1UL)
+        else None)
 
-    member _.ToBinFilePointer name =
-      BinFilePointer.OfSection (getSectionsByName pe name |> Seq.tryHead)
+    member _.GetVMMappedRegions perm =
+      pe.SectionHeaders
+      |> Array.choose (fun sec ->
+        let secPerm = getSecPermission sec.SectionCharacteristics
+        let secSize = getVirtualSectionSize sec
+        if (secPerm &&& perm = perm) && secSize > 0 then
+          let addr = uint64 sec.VirtualAddress + pe.BaseAddr
+          Some <| AddrRange (addr, addr + uint64 secSize - 1UL)
+        else None)
 
     member _.TryFindFunctionName (addr) = tryFindFuncSymb pe addr
 
@@ -137,24 +147,35 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
-    member _.GetSections () = getSections pe
+    member _.GetTextSectionPointer () =
+      pe.SectionHeaders
+      |> Array.tryFind (fun sec -> sec.Name = SecText)
+      |> function
+        | Some sec ->
+          let addr = addrFromRVA pe.BaseAddr sec.VirtualAddress
+          let size = sec.SizeOfRawData
+          BinFilePointer (addr, addr + uint64 size - 1UL,
+                          sec.PointerToRawData,
+                          sec.PointerToRawData + size - 1)
+        | None -> BinFilePointer.Null
 
-    member _.GetSections (addr) = getSectionsByAddr pe addr
+    member _.GetSectionPointer name =
+      pe.SectionHeaders
+      |> Array.tryFind (fun sec -> sec.Name = name)
+      |> function
+        | Some sec ->
+          let addr = addrFromRVA pe.BaseAddr sec.VirtualAddress
+          let size = sec.SizeOfRawData
+          BinFilePointer (addr, addr + uint64 size - 1UL,
+                          sec.PointerToRawData,
+                          sec.PointerToRawData + size - 1)
+        | None -> BinFilePointer.Null
 
-    member _.GetSections (name) = getSectionsByName pe name
-
-    member _.GetTextSection () = getTextSection pe
-
-    member _.GetSegments (_isLoadable: bool) = getSegments pe
-
-    member this.GetSegments (addr) =
-      (this :> IBinFile).GetSegments ()
-      |> Array.filter (fun s -> (addr >= s.Address)
-                             && (addr < s.Address + uint64 s.Size))
-
-    member this.GetSegments (perm) =
-      (this :> IBinFile).GetSegments ()
-      |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
+    member _.IsInTextOrDataOnlySection addr =
+      let rva = int (addr - pe.BaseAddr)
+      match pe.FindSectionIdxFromRVA rva with
+      | -1 -> false
+      | idx -> pe.SectionHeaders[idx].Name = SecText
 
     member this.GetFunctionAddresses () =
       (this :> IBinFile).GetFunctionSymbols ()

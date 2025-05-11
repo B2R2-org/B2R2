@@ -318,18 +318,11 @@ type JmpTableAnalysis<'FnCtx,
       findSymbPattern expandPhiFromSSACFG findConst findDef fnAddr insAddr 0 exp
     | Error e -> Error e
 
-  /// Jump table always belongs to either code or read-only data section.
-  let checkBelongingSection ctx (addr: Addr) =
-    ctx.BinHandle.File.GetSections addr
-    |> Array.exists (fun sec ->
-      sec.Kind = SectionKind.CodeSection ||
-      sec.Kind = SectionKind.ReadOnlyDataSection)
-
   let checkValidity (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) result =
     match result with
     | Ok info ->
       let tblAddr = info.TableAddress
-      if checkBelongingSection ctx tblAddr then Ok info
+      if ctx.BinHandle.File.IsInTextOrDataOnlySection tblAddr then Ok info
       else Error ErrorCase.InvalidMemoryRead
     | Error e -> Error e
 

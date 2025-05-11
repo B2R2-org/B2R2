@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open System
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinFile.Mach
@@ -50,6 +49,22 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
   member _.Sections with get() = secs.Value
 
   member _.SymbolInfo with get() = symInfo.Value
+
+  member _.IsPLT (sec: MachSection) =
+    match sec.SecType with
+    | SectionType.S_NON_LAZY_SYMBOL_POINTERS
+    | SectionType.S_LAZY_SYMBOL_POINTERS
+    | SectionType.S_SYMBOL_STUBS -> true
+    | _ -> false
+
+  member _.HasCode (sec: MachSection) =
+    match sec.SecType with
+    | SectionType.S_NON_LAZY_SYMBOL_POINTERS
+    | SectionType.S_LAZY_SYMBOL_POINTERS
+    | SectionType.S_SYMBOL_STUBS -> false
+    | _ ->
+      let seg = NoOverlapIntervalMap.findByAddr sec.SecAddr segMap.Value
+      seg.InitProt &&& int MachVMProt.Executable > 0
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
@@ -78,65 +93,57 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.GetOffset addr = translateAddr segMap.Value addr
 
-    member this.Slice (addr, size) =
-      let offset = translateAddr segMap.Value addr |> Convert.ToInt32
-      (this :> IBinFile).Slice (offset=offset, size=size)
-
-    member this.Slice (addr) =
-      let offset = translateAddr segMap.Value addr |> Convert.ToInt32
-      (this :> IBinFile).Slice (offset=offset)
-
-    member _.Slice (offset: int, size) =
-      ReadOnlySpan (bytes, offset, size)
-
-    member _.Slice (offset: int) =
-      ReadOnlySpan(bytes).Slice offset
-
-    member _.Slice (ptr: BinFilePointer, size) =
-      ReadOnlySpan (bytes, ptr.Offset, size)
-
-    member _.Slice (ptr: BinFilePointer) =
-      ReadOnlySpan(bytes).Slice ptr.Offset
-
-    member _.ReadByte (addr: Addr) =
-      let offset = translateAddr segMap.Value addr |> Convert.ToInt32
-      bytes[offset]
-
-    member _.ReadByte (offset: int) =
-      bytes[offset]
-
-    member _.ReadByte (ptr: BinFilePointer) =
-      bytes[ptr.Offset]
-
     member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
 
     member _.IsValidRange range =
       IntervalSet.findAll range notInMemRanges.Value |> List.isEmpty
 
-    member _.IsInFileAddr addr =
+    member _.IsAddrMappedToFile addr =
       IntervalSet.containsAddr addr notInFileRanges.Value |> not
 
-    member _.IsInFileRange range =
+    member _.IsRangeMappedToFile range =
       IntervalSet.findAll range notInFileRanges.Value |> List.isEmpty
 
     member _.IsExecutableAddr addr =
       IntervalSet.containsAddr addr executableRanges.Value
 
-    member _.GetNotInFileIntervals range =
-      IntervalSet.findAll range notInFileRanges.Value
-      |> List.toArray
-      |> Array.map range.Slice
+    member _.GetBoundedPointer addr =
+      let segCmds = segCmds.Value
+      let mutable found = false
+      let mutable idx = 0
+      let mutable maxAddr = 0UL
+      let mutable offset = 0
+      let mutable maxOffset = 0
+      while not found && idx < segCmds.Length do
+        let seg = segCmds[idx]
+        if addr >= seg.VMAddr && addr < seg.VMAddr + seg.VMSize then
+          found <- true
+          if addr < seg.VMAddr + seg.FileSize then
+            offset <- int seg.FileOff + int (addr - seg.VMAddr)
+            maxOffset <- int seg.FileOff + int seg.FileSize - 1
+            maxAddr <- seg.VMAddr + seg.FileSize - 1UL
+          else
+            offset <- int seg.FileOff + int (addr - seg.VMAddr)
+            maxOffset <- int seg.FileOff + int seg.VMSize - 1
+            maxAddr <- seg.VMAddr + seg.VMSize - 1UL
+        else idx <- idx + 1
+      BinFilePointer (addr, maxAddr, offset, maxOffset)
 
-    member _.ToBinFilePointer addr =
-      getSectionsByAddr secs.Value segMap.Value addr
-      |> Seq.tryHead
-      |> BinFilePointer.OfSection
+    member _.GetVMMappedRegions () =
+      segCmds.Value
+      |> Array.choose (fun seg ->
+        if seg.VMSize > 0UL then
+          Some <| AddrRange (seg.VMAddr, seg.VMAddr + seg.VMSize - 1UL)
+        else None)
 
-    member _.ToBinFilePointer name =
-      getSectionsByName secs.Value segMap.Value name
-      |> Seq.tryHead
-      |> BinFilePointer.OfSection
+    member _.GetVMMappedRegions perm =
+      segCmds.Value
+      |> Array.choose (fun seg ->
+        let segPerm: Permission = LanguagePrimitives.EnumOfValue seg.MaxProt
+        if (segPerm &&& perm = perm) && seg.VMSize > 0UL then
+          Some <| AddrRange (seg.VMAddr, seg.VMAddr + seg.VMSize - 1UL)
+        else None)
 
     member _.TryFindFunctionName (addr) =
       tryFindFuncSymb symInfo.Value addr
@@ -161,27 +168,33 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
-    member _.GetSections () = getSections secs.Value segMap.Value
+    member _.GetTextSectionPointer () =
+      let secs = secs.Value
+      let secText = Section.getTextSectionIndex secs
+      let sec = secs[secText]
+      BinFilePointer (sec.SecAddr,
+                      sec.SecAddr + sec.SecSize - 1UL,
+                      int sec.SecOffset,
+                      int sec.SecOffset + int sec.SecSize - 1)
 
-    member _.GetSections (addr) =
-      getSectionsByAddr secs.Value segMap.Value addr
+    member _.GetSectionPointer name =
+      secs.Value
+      |> Array.tryFind (fun sec -> sec.SecName = name)
+      |> function
+        | Some sec ->
+          BinFilePointer (sec.SecAddr,
+                          sec.SecAddr + sec.SecSize - 1UL,
+                          int sec.SecOffset,
+                          int sec.SecOffset + int sec.SecSize - 1)
+        | None -> BinFilePointer.Null
 
-    member _.GetSections (name) =
-      getSectionsByName secs.Value segMap.Value name
-
-    member _.GetTextSection () = getTextSection secs.Value segMap.Value
-
-    member _.GetSegments (isLoadable) =
-      Segment.toArray segCmds.Value isLoadable
-
-    member this.GetSegments (addr) =
-      (this :> IBinFile).GetSegments ()
-      |> Array.filter (fun s -> (addr >= s.Address)
-                             && (addr < s.Address + uint64 s.Size))
-
-    member this.GetSegments (perm) =
-      (this :> IBinFile).GetSegments ()
-      |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
+    member _.IsInTextOrDataOnlySection addr =
+      secs.Value
+      |> Array.tryFind (fun sec ->
+        addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+      |> function
+        | Some sec -> sec.SecName = Section.SecText
+        | None -> false
 
     member this.GetFunctionAddresses () =
       (this :> IBinFile).GetFunctionSymbols ()

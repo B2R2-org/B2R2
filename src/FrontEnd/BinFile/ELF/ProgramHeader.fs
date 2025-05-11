@@ -92,7 +92,7 @@ type ProgramHeader = {
   /// Program header type.
   PHType: ProgramHeaderType
   /// Flags relevant to the segment.
-  PHFlags: Permission
+  PHFlags: int
   /// An offset from the beginning of the file at which the first byte of the
   /// segment resides in memory.
   PHOffset: uint64
@@ -112,23 +112,23 @@ type ProgramHeader = {
   PHAlignment: uint64
 }
 
+[<RequireQualifiedAccess>]
 module ProgramHeader =
-  let peekPHdrFlags (span: ByteSpan) (reader: IBinReader) cls =
-    reader.ReadInt32 (span, selectByWordSize cls 24 4)
-    |> LanguagePrimitives.EnumOfValue
-
   let parseProgHeader toolBox (span: ByteSpan) =
     let reader, cls = toolBox.Reader, toolBox.Header.Class
     let phType = reader.ReadUInt32 (span, 0)
     let baseAddr = toolBox.BaseAddress
     { PHType = LanguagePrimitives.EnumOfValue phType
-      PHFlags = peekPHdrFlags span reader cls
+      PHFlags = reader.ReadInt32 (span, selectByWordSize cls 24 4)
       PHOffset = readUIntByWordSizeAndOffset span reader cls 4 8
       PHAddr = readUIntByWordSizeAndOffset span reader cls 8 16 + baseAddr
       PHPhyAddr = readUIntByWordSizeAndOffset span reader cls 12 24
       PHFileSize = readUIntByWordSizeAndOffset span reader cls 16 32
       PHMemSize = readUIntByWordSizeAndOffset span reader cls 20 40
       PHAlignment = readUIntByWordSizeAndOffset span reader cls 28 48 }
+
+  let inline flagsToPerm (flag: int): Permission =
+    flag &&& 7 |> LanguagePrimitives.EnumOfValue
 
   /// Parse program headers and returns them as an array.
   let parse ({ Bytes = bytes; Header = hdr } as toolBox) =
@@ -144,10 +144,3 @@ module ProgramHeader =
   let getLoadableProgHeaders (progHeaders: ProgramHeader[]) =
     progHeaders
     |> Array.filter (fun ph -> ph.PHType = ProgramHeaderType.PT_LOAD)
-
-  let toSegment phdr =
-    { Address = phdr.PHAddr
-      Offset = uint32 phdr.PHOffset
-      Size = uint32 phdr.PHMemSize
-      SizeInFile = uint32 phdr.PHFileSize
-      Permission = phdr.PHFlags }

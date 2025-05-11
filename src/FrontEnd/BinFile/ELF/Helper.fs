@@ -41,7 +41,9 @@ let toFileType = function
 let isNXEnabled progHeaders =
   let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK
   match Array.tryFind predicate progHeaders with
-  | Some s -> s.PHFlags.HasFlag Permission.Executable |> not
+  | Some s ->
+    let perm = ProgramHeader.flagsToPerm s.PHFlags
+    perm.HasFlag Permission.Executable |> not
   | _ -> false
 
 let isRelocatable toolBox secHeaders =
@@ -131,53 +133,6 @@ let getRelocSymbols relocInfo =
   relocInfo.RelocByName.Values
   |> Seq.choose translate
   |> Seq.toArray
-
-let secFlagToSectionKind sec =
-  if sec.SecFlags &&& SectionFlag.SHF_EXECINSTR = SectionFlag.SHF_EXECINSTR then
-    if PLT.isPLTSectionName sec.SecName then SectionKind.LinkageTableSection
-    else SectionKind.CodeSection
-  elif sec.SecFlags &&& SectionFlag.SHF_WRITE = SectionFlag.SHF_WRITE then
-    if sec.SecName = Section.SecBSS then SectionKind.UninitializedDataSection
-    else SectionKind.InitializedDataSection
-  elif sec.SecName = Section.SecROData then SectionKind.ReadOnlyDataSection
-  else
-    SectionKind.ExtraSection
-
-let elfSectionToSection sec =
-  { Address = sec.SecAddr
-    FileOffset = uint32 sec.SecOffset
-    Kind = secFlagToSectionKind sec
-    Size = uint32 sec.SecSize
-    Name = sec.SecName }
-
-let getSections shdrs =
-  shdrs
-  |> Array.map elfSectionToSection
-
-let getSectionsByAddr shdrs addr =
-  shdrs
-  |> Array.filter (fun section ->
-    section.SecAddr <= addr && addr < section.SecAddr + section.SecSize)
-  |> Array.map elfSectionToSection
-
-let getSectionsByName shdrs name =
-  shdrs
-  |> Array.filter (fun section -> section.SecName = name)
-  |> Array.map elfSectionToSection
-
-let getTextSection shdrs =
-  shdrs
-  |> Array.filter (fun sec ->
-    (SectionFlag.SHF_EXECINSTR &&& sec.SecFlags = SectionFlag.SHF_EXECINSTR)
-    && sec.SecName.StartsWith Section.SecText)
-  |> Array.tryExactlyOne
-  |> function
-    | Some sec -> elfSectionToSection sec
-    | None -> raise SectionNotFoundException
-
-let getSegments segments =
-  segments
-  |> Array.map ProgramHeader.toSegment
 
 let getRelocatedAddr relocInfo relocAddr =
   match relocInfo.RelocByAddr.TryGetValue relocAddr with
@@ -319,6 +274,7 @@ let executableRanges shdrs loadables =
   else
     loadables
     |> Array.filter (fun seg ->
-      seg.PHFlags &&& Permission.Executable = Permission.Executable)
+      let perm = ProgramHeader.flagsToPerm seg.PHFlags
+      perm.HasFlag Permission.Executable)
     |> Array.fold (fun set seg ->
       addExecutableInterval rodata seg set) IntervalSet.empty

@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.BinFile.Tests
 
-open B2R2
 open B2R2.FrontEnd.BinFile
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open type FileFormat
@@ -37,8 +36,8 @@ module Helper =
     | Error _ -> Assert.Fail ()
 
   let getTextSectionAddr (file: IBinFile) =
-    let sec = file.GetTextSection ()
-    sec.Address
+    let ptr = file.GetTextSectionPointer ()
+    ptr.Addr
 
   let assertExistenceOfPair pair pairSequence =
     pairSequence

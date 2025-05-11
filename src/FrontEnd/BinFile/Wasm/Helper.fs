@@ -100,35 +100,6 @@ let getDynamicSymbols wm excludeImported =
 let getSymbols wm =
   getDynamicSymbols wm None
 
-let sectionIdToKind id =
-  match id with
-  | SectionId.Table
-  | SectionId.Memory
-  | SectionId.Global -> SectionKind.InitializedDataSection
-  | SectionId.Code -> SectionKind.CodeSection
-  | _ -> SectionKind.ExtraSection
-
-let secSummaryToGenericSection (secSumm: SectionSummary) =
-  { Address = uint64 secSumm.Offset
-    FileOffset = uint32 secSumm.Offset
-    Kind = sectionIdToKind secSumm.Id
-    Size = secSumm.HeaderSize + secSumm.ContentsSize
-    Name = secSumm.Name }
-
-let getSections wm =
-  wm.SectionsInfo.SecArray
-  |> Array.map secSummaryToGenericSection
-
-let getSectionsByAddr wm addr =
-  match NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr with
-  | Some s -> [| secSummaryToGenericSection s |]
-  | None -> [||]
-
-let getSectionsByName wm name =
-  match Map.tryFind name wm.SectionsInfo.SecByName with
-  | Some s -> [| secSummaryToGenericSection s |]
-  | None -> [||]
-
 let importToLinkageTableEntry (entry: Import) =
   { FuncName = entry.Name
     LibraryName = entry.ModuleName

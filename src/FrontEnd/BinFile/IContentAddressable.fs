@@ -25,140 +25,115 @@
 namespace B2R2.FrontEnd.BinFile
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 
 /// <summary>
-/// Represents an interface for accessing the raw binary content of a file
-/// either via a virtual address or a file offset.
+/// Represents an interface for accessing the raw binary content of a file via a
+/// virtual address.
 /// </summary>
 type IContentAddressable =
   /// <summary>
-  ///   Translate a virtual address into a relative offset to the binary file.
+  /// Translates a virtual address into a relative offset to the binary file.
   /// </summary>
   /// <param name="addr">Virtual address.</param>
   /// <returns>
-  ///   Returns an offset to the binary for a given virtual address.
+  /// Returns an offset to the binary for a given virtual address.
   /// </returns>
   /// <exception cref="T:B2R2.FrontEnd.BinFile.InvalidAddrReadException">
-  ///   Thrown when the given address is out of a valid address range.
+  /// Thrown when the given address is out of a valid address range.
   /// </exception>
   abstract GetOffset: addr: Addr -> int
 
-  /// Slice a portion of the associated binary file based on the given virtual
-  /// `addr` and its `size`.
-  abstract Slice: addr: Addr * size: int -> ByteSpan
-
-  /// Slice a maximum possible portion of the associated binary file based on
-  /// the given virtual `addr`.
-  abstract Slice: addr: Addr -> ByteSpan
-
-  /// Slice a portion of the associated binary file based on the given file
-  /// `offset` and its `size`.
-  abstract Slice: offset: int * size: int -> ByteSpan
-
-  /// Slice a maximum possible portion of the associated binary file based on
-  /// the given file `offset`.
-  abstract Slice: offset: int -> ByteSpan
-
-  /// Slice a portion of the associated binary file based on the given pointer
-  /// `ptr` and its `size`.
-  abstract Slice: ptr: BinFilePointer * size: int -> ByteSpan
-
-  /// Slice a maximum possible portion of the associated binary file based on
-  /// the given virtual `addr`.
-  abstract Slice: ptr: BinFilePointer -> ByteSpan
-
-  /// Read a byte at the given virtual address.
-  abstract ReadByte: addr: Addr -> byte
-
-  /// Read a byte pointed to by the given file `offset`.
-  abstract ReadByte: offset: int -> byte
-
-  /// Read a byte pointed to by the given binary file pointer.
-  abstract ReadByte: ptr: BinFilePointer -> byte
-
   /// <summary>
-  ///   Check if the given address is valid for the associated binary. We say a
-  ///   given address is valid for the binary if the address is within the range
-  ///   of statically computable segment ranges.
+  /// Checks if the given address is valid for the associated binary. We say a
+  /// given address is valid for the binary if the address is within the range
+  /// of statically computable segment ranges.
   /// </summary>
   /// <returns>
-  ///   Returns true if the address is within a valid range, false otherwise.
+  /// Returns true if the address is within a valid range, false otherwise.
   /// </returns>
   abstract IsValidAddr: Addr -> bool
 
   /// <summary>
-  ///   Check if the given address range is valid. This function returns true
-  ///   only if the whole range of the addressess are valid (for every address
-  ///   in the range, IsValidAddr should return true).
+  /// Checks if the given address range is valid. This function returns true
+  /// only if the whole range of the addressess are valid (for every address in
+  /// the range, IsValidAddr should return true).
   /// </summary>
   /// <returns>
-  ///   Returns true if the whole range of addresses is within a valid range,
-  ///   false otherwise.
+  /// Returns true if the whole range of addresses is within a valid range,
+  /// false otherwise.
   /// </returns>
   abstract IsValidRange: AddrRange -> bool
 
   /// <summary>
-  ///   Check if the given address is valid and there is an actual mapping from
-  ///   the associated binary file to the corresponding memory. Unlike
-  ///   IsValidAddr, this function checks if we can decide the actual value of
-  ///   the given address from the binary. For example, a program header of an
-  ///   ELF file may contain 100 bytes in size, but when it is mapped to a
-  ///   segment in memory, the size of the segment can be larger than the size
-  ///   of the program header. This function checks if the given address is in
-  ///   the range of the segment that has a direct mapping to the file's program
-  ///   header.
+  /// Checks if the given address is valid and there is an actual mapping from
+  /// the associated binary file to the corresponding memory. Unlike
+  /// IsValidAddr, this function checks if we can decide the actual value of the
+  /// given address from the binary. For example, a program header of an ELF
+  /// file may contain 100 bytes in size, but when it is mapped to a segment in
+  /// memory, the size of the segment can be larger than the size of the program
+  /// header. This function checks if the given address is in the range of the
+  /// segment that has a direct mapping to the file's program header.
   /// </summary>
   /// <returns>
-  ///   Returns true if the address is within a mapped address range, false
-  ///   otherwise.
+  /// Returns true if the address is within a mapped address range, false
+  /// otherwise.
   /// </returns>
-  abstract IsInFileAddr: Addr -> bool
+  abstract IsAddrMappedToFile: Addr -> bool
 
   /// <summary>
-  ///   Check if the given address range is valid and there exists a
-  ///   corresponding region in the actual binary file. This function returns
-  ///   true only if the whole range of the addressess are valid (for every
-  ///   address in the range, IsInFileAddr should return true).
+  /// Checks if the given address range is valid and there exists a
+  /// corresponding region in the actual binary file. This function returns true
+  /// only if the whole range of the addressess are valid (for every address in
+  /// the range, IsAddrMappedToFile should return true).
   /// </summary>
   /// <returns>
-  ///   Returns true if the whole range of addresses is within a valid range,
-  ///   false otherwise.
+  /// Returns true if the whole range of addresses is within a valid range,
+  /// false otherwise.
   /// </returns>
-  abstract IsInFileRange: AddrRange -> bool
+  abstract IsRangeMappedToFile: AddrRange -> bool
 
   /// <summary>
-  ///   Check if the given address is executable address for this binary. We say
-  ///   a given address is executable if the address is within an executable
-  ///   segment. Note we consider the addresses of known read-only sections
-  ///   (such as .rodata) as non-executable, even though those sections are
-  ///   within an executable segment. For object files, we simply consider a
-  ///   .text section's address range as executable.
+  /// Checks if the given address is executable address for this binary. We say
+  /// a given address is executable if the address is within an executable
+  /// segment. Note we consider the addresses of known read-only sections (such
+  /// as .rodata) as non-executable, even though those sections are within an
+  /// executable segment. For object files, we simply consider a .text section's
+  /// address range as executable.
   /// </summary>
   /// <returns>
-  ///   Returns true if the address is executable, false otherwise.
+  /// Returns true if the address is executable, false otherwise.
   /// </returns>
   abstract IsExecutableAddr: Addr -> bool
 
   /// <summary>
-  ///   Given a range r, return a list of address ranges (intervals) that are
-  ///   within r and not in-file.
+  /// Retrieves a file pointer that has its boundary aligned to the regions
+  /// defined by file structures. Specifically, we split four types of regions
+  /// in a binary file: (1) VM and file-mapped regions, (2) VM-only regions, and
+  /// (3) file-only regions, and (4) unmapped regions. A returned pointer will
+  /// exclusively point to one of the first two regions, or it will be a null
+  /// pointer for the rest cases. To retrieve a pointer for (3), use
+  /// format-specific member functions.
+  /// <remark>
+  /// Case (1) is the most common case, where the address is mapped to a file
+  /// offset. Case (2) is a region that has its virtual address but not mapped
+  /// to the file. For example, segments in ELF files often have such a region
+  /// that is only available in the VMA.
+  /// </remark>
   /// </summary>
-  /// <returns>
-  ///   Returns an empty list when the given range r is valid, i.e.,
-  ///   `IsInFileRange r = true`.
-  /// </returns>
-  abstract GetNotInFileIntervals: AddrRange -> AddrRange[]
+  abstract GetBoundedPointer: addr: Addr -> BinFilePointer
 
   /// <summary>
-  ///   Convert the section at the address (Addr) into a binary pointer, which
-  ///   can exclusively point to binary contents of the section.
+  /// Returns an array of VM-mapped regions. By a VM-mapped region, we mean a
+  /// consecutive region that has a corresponding mapping in the virtual memory.
+  /// For example, an entire segment of an ELF file is considered a VM-mapped
+  /// region.
   /// </summary>
-  abstract ToBinFilePointer: Addr -> BinFilePointer
+  abstract GetVMMappedRegions: unit -> AddrRange[]
 
   /// <summary>
-  ///   Convert the section of the name (string) into a binary pointer, which
-  ///   can exclusively point to binary contents of the section.
+  /// Returns an array of VM-mapped regions that have the given permission. By
+  /// a VM-mapped region, we mean a region that has a corresponding mapping in
+  /// the virtual memory. For example, an entire segment of an ELF file is
+  /// considered a VM-mapped region.
   /// </summary>
-  abstract ToBinFilePointer: string -> BinFilePointer
-
+  abstract GetVMMappedRegions: perm: Permission -> AddrRange[]

@@ -36,7 +36,8 @@ let private memoryReader (hdl: BinHandle) _pc addr typ _e =
   let len = RegType.toByteWidth typ
   let file = hdl.File
   if addr < UInt64.MaxValue && file.IsValidAddr addr then
-    match hdl.TryReadBytes (addr, len) with
+    let ptr = hdl.File.GetBoundedPointer addr
+    match hdl.TryReadBytes (ptr, len) with
     | Ok v -> Ok (BitVector.OfArr v)
     | Error e -> Error e
   else Error ErrorCase.InvalidMemoryRead

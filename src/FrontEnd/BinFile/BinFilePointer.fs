@@ -25,57 +25,65 @@
 namespace B2R2.FrontEnd.BinFile
 
 open B2R2
-open System
 
 /// Represents a pointer to binary, which is used to exclusively point to a
-/// portion of a binary, e.g., a section. It holds both the virtual address as
-/// well as the file offset. Both Offset and MaxOffset are inclusive.
+/// region of a binary that is (1) mapped to both VM and file, (2) mapped to VM
+/// only, or (3) mapped to file only. For the other cases, the pointer is
+/// considered invalid (null). The pointer internally holds inclusive ranges of
+/// the virtual addresses and the file offsets.
 type BinFilePointer =
   struct
     /// Virtual address.
     val Addr: Addr
+    /// Max virtual address.
+    val MaxAddr: Addr
     /// File offset.
     val Offset: int
     /// Max offset that this pointer can point to.
     val MaxOffset: int
 
     /// Initializer
-    new (addr, offset, max) = { Addr = addr; Offset = offset; MaxOffset = max }
+    new (addr, maxAddr, offset, maxOffset) =
+      { Addr = addr
+        MaxAddr = maxAddr
+        Offset = offset
+        MaxOffset = maxOffset }
   end
 with
-  /// Returns a null pointer.
-  static member Null = BinFilePointer (0UL, 0, 0)
+  /// Checks if the pointer is a VM-only pointer, meaning that there is no
+  /// corresponding file offset.
+  member inline this.IsVMOnly with get () =
+    this.Offset = this.MaxOffset
 
-  /// Checks if the pointer is valid. A pointer is valid if its offset is within
-  /// the range of [0, MaxOffset].
-  static member inline IsValid (ptr: BinFilePointer) =
-    ptr.Offset <= ptr.MaxOffset
-
-  /// Checks if the pointer is valid for a given size. A pointer is valid if
-  /// its offset + size - 1 is within the range of [0, MaxOffset].
-  static member inline IsValidAccess (ptr: BinFilePointer) size =
-    (ptr.Offset + size - 1) <= ptr.MaxOffset
-
-  /// Returns a pointer that can exclusively point to the given section.
-  static member OfSection (section: Section) =
-    BinFilePointer (section.Address,
-      Convert.ToInt32 section.FileOffset,
-      Convert.ToInt32 section.FileOffset + Convert.ToInt32 section.Size - 1)
-
-  /// Returns a pointer that can exclusively point to the given section. If
-  /// the section is None, it returns a null pointer.
-  static member OfSection (sectionOpt: Section option) =
-    match sectionOpt with
-    | Some s -> BinFilePointer.OfSection s
-    | None -> BinFilePointer.Null
+  /// Checks if the pointer is valid.
+  member inline this.IsValid with get () =
+    this.Addr <= this.MaxAddr && this.Offset <= this.MaxOffset
 
   /// Checks if the pointer is null.
-  static member IsNull ptr =
-    ptr = BinFilePointer.Null
+  member inline this.IsNull with get () =
+    this.Addr = 0UL
+    && this.MaxAddr = 0UL
+    && this.Offset = 0
+    && this.MaxOffset = 0
+
+  /// Returns the amount of bytes that can be read from the pointer.
+  member inline this.ReadableAmount with get () =
+    int (this.MaxAddr - this.Addr + 1UL)
+
+  /// Checks if the pointer can read the given size of bytes.
+  member inline this.CanRead (size: int) =
+    this.Addr + uint64 size - 1UL <= this.MaxAddr
+
+  /// Returns a null pointer.
+  static member Null = BinFilePointer (0UL, 0UL, 0, 0)
 
   /// Advances the pointer by a given amount.
   static member Advance (p: BinFilePointer) amount =
-    BinFilePointer (p.Addr + uint64 amount, p.Offset + amount, p.MaxOffset)
+    BinFilePointer (
+      p.Addr + uint64 amount,
+      p.MaxAddr,
+      min p.MaxOffset (p.Offset + amount),
+      p.MaxOffset)
 
   override this.ToString () =
-    $"{this.Addr:x} ({this.Offset:x} of {this.MaxOffset:x})"
+    $"{this.Addr:x}-{this.MaxAddr:x} ({this.Offset:x} of {this.MaxOffset:x})"

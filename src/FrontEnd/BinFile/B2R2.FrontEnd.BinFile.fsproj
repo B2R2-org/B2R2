@@ -11,9 +11,7 @@
     <Compile Include="FileFormat.fs" />
     <Compile Include="Exceptions.fs" />
     <Compile Include="Symbol.fs" />
-    <Compile Include="Section.fs" />
     <Compile Include="Permission.fs" />
-    <Compile Include="Segment.fs" />
     <Compile Include="LinkageTable.fs" />
     <Compile Include="BinFilePointer.fs" />
     <Compile Include="FileType.fs" />

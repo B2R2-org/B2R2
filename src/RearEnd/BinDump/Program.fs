@@ -24,6 +24,7 @@
 
 module B2R2.RearEnd.BinDump.Program
 
+open System
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
@@ -82,30 +83,30 @@ let private makeTablePrinter hdl cfg (opts: BinDumpOpts) =
     else BinTableDisasmPrinter (hdl, cfg) :> BinPrinter
 
 let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
-  let ptr = hdl.File.ToBinFilePointer hdl.File.BaseAddress
+  let ptr = hdl.File.GetBoundedPointer hdl.File.BaseAddress
   let prn = makeCodePrinter hdl cfg opts
   prn.Print ptr
   out.PrintLine ()
 
-let printHexdump (opts: BinDumpOpts) (sec: Section) (hdl: BinHandle) =
-  let ptr = BinFilePointer.OfSection sec
-  let bytes = hdl.ReadBytes (ptr=ptr, nBytes=int sec.Size)
+let printHexdump (opts: BinDumpOpts) (hdl: BinHandle) ptr =
+  let bytes = hdl.ReadBytes (ptr=ptr, nBytes=ptr.MaxOffset - ptr.Offset + 1)
   let chunkSz = if opts.ShowWide then 32 else 16
   HexDumper.dump chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
   |> Array.iter out.PrintLine
 
-let private hasNoContent (sec: Section) (file: IBinFile) =
+let private hasNoContent (file: IBinFile) secName =
   match file with
   | :? ELFBinFile as file ->
-    match file.TryFindSection sec.Name with
+    match file.TryFindSection secName with
     | Some section -> section.SecType = ELF.SectionType.SHT_NOBITS
     | None -> true
   | _ -> false
 
-let dumpHex (opts: BinDumpOpts) (sec: Section) (hdl: BinHandle) =
-  if hasNoContent sec hdl.File then
+let dumpHex (hdl: BinHandle) (opts: BinDumpOpts) ptr secName =
+  out.PrintSectionTitle (String.wrapParen secName)
+  if hasNoContent hdl.File secName then
     out.PrintTwoCols "" "NOBITS section."
-  else printHexdump opts sec hdl
+  else printHexdump opts hdl ptr
   out.PrintLine ()
 
 let private createBinHandleFromPath (opts: BinDumpOpts) filePath =
@@ -120,60 +121,76 @@ let private isRawBinary (hdl: BinHandle) =
   | FileFormat.PythonBinary -> false
   | _ -> true
 
-let private printCodeOrTable (printer: BinPrinter) (sec: Section) =
-  printer.Print (BinFilePointer.OfSection sec)
-  out.PrintLine ()
-
-let private printWasmCode (printer: BinPrinter) (code: Wasm.Code) =
-  let locals = code.Locals
-  let localsSize = List.sumBy (fun (l: Wasm.LocalDecl) -> l.LocalDeclLen) locals
-  let offset = code.Offset + code.LenFieldSize + localsSize + 1
-  let maxOffset = code.Offset + code.LenFieldSize + int32 code.CodeSize - 1
-  let ptr = BinFilePointer (uint64 offset, offset, maxOffset)
+let private printCodeOrTable (printer: BinPrinter) ptr =
   printer.Print ptr
   out.PrintLine ()
 
-let private initHandleForTableOutput (printer: BinPrinter) =
-  match printer.LiftingUnit.File.ISA with
-  (* For ARM PLTs, we just assume the ARM mode (if no symbol is given). *)
-  | ARM32 -> printer.ModeSwitch.IsThumb <- false
-  | _ -> ()
+let private dumpOneSection (prn: BinPrinter) name ptr =
+  out.PrintSectionTitle (String.wrapParen name)
+  printCodeOrTable prn ptr
 
-let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
-  let codeprn = makeCodePrinter hdl cfg opts
-  let tableprn = makeTablePrinter hdl cfg opts
-  let initialMode = codeprn.ModeSwitch.IsThumb
-  sections
-  |> Seq.iter (fun s ->
-    if s.Size > 0u then
-      out.PrintSectionTitle (String.wrapParen s.Name)
-      match s.Kind with
-      | SectionKind.CodeSection ->
-        codeprn.ModeSwitch.IsThumb <- initialMode
-        match hdl.File with
-        | :? WasmBinFile as file ->
-          match file.WASM.CodeSection with
-          | Some sec ->
-            match sec.Contents with
-            | Some conts -> Seq.iter (printWasmCode codeprn) conts.Elements
-            | None -> printCodeOrTable codeprn s
-          | None -> printCodeOrTable codeprn s
-        | _ -> printCodeOrTable codeprn s
-      | SectionKind.LinkageTableSection ->
-        initHandleForTableOutput tableprn
-        printCodeOrTable tableprn s
-      | _ ->
-        if opts.OnlyDisasm then printCodeOrTable codeprn s
-        else dumpHex opts s hdl
-    else ())
+let private dumpELFSection hdl opts elf tableprn codeprn (sec: ELF.Section) =
+  if sec.SecSize > 0UL then
+    let name = sec.SecName
+    let ptr = (hdl: BinHandle).File.GetSectionPointer name
+    if (elf: ELFBinFile).IsPLT sec then dumpOneSection tableprn name ptr
+    elif elf.HasCode sec then dumpOneSection codeprn name ptr
+    elif (opts: BinDumpOpts).OnlyDisasm then dumpOneSection codeprn name ptr
+    else dumpHex hdl opts ptr name
+  else ()
+
+let private dumpPESection (hdl: BinHandle) opts pe _tableprn codeprn sec =
+  let name = (sec: Reflection.PortableExecutable.SectionHeader).Name
+  let ptr = (hdl: BinHandle).File.GetSectionPointer name
+  if (pe: PEBinFile).HasCode sec then dumpOneSection codeprn name ptr
+  elif (opts: BinDumpOpts).OnlyDisasm then dumpOneSection codeprn name ptr
+  else dumpHex hdl opts ptr name
+
+let private dumpMachSection (hdl: BinHandle) opts mach tableprn codeprn sec =
+  let name = (sec: Mach.MachSection).SecName
+  let ptr = (hdl: BinHandle).File.GetSectionPointer name
+  if (mach: MachBinFile).IsPLT sec then dumpOneSection tableprn name ptr
+  elif mach.HasCode sec then dumpOneSection codeprn name ptr
+  elif (opts: BinDumpOpts).OnlyDisasm then dumpOneSection codeprn name ptr
+  else dumpHex hdl opts ptr name
+
+let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
+  match hdl.File with
+  | :? ELFBinFile as elf ->
+    elf.TryFindSection name
+    |> function
+      | Some sec -> dumpELFSection hdl opts elf tableprn codeprn sec
+      | None -> ()
+  | :? PEBinFile as pe ->
+    pe.SectionHeaders |> Array.tryFind (fun sec -> sec.Name = name)
+    |> function
+      | Some sec -> dumpPESection hdl opts pe tableprn codeprn sec
+      | None -> ()
+  | :? MachBinFile as mach ->
+    mach.Sections |> Array.tryFind (fun sec -> sec.SecName = name)
+    |> function
+      | Some sec -> dumpMachSection hdl opts mach tableprn codeprn sec
+      | None -> ()
+  | _ -> Terminator.futureFeature ()
 
 let private dumpRegularFile (hdl: BinHandle) (opts: BinDumpOpts) cfg =
+  let codeprn = makeCodePrinter hdl cfg opts
+  let tableprn = makeTablePrinter hdl cfg opts
   opts.ShowSymbols <- true
   match opts.InputSecName with
-  | Some secname ->
-    dumpSections hdl opts (hdl.File.GetSections (secname)) cfg
+  | Some secName -> dumpOneSectionOfName hdl opts codeprn tableprn secName
   | None ->
-    dumpSections hdl opts (hdl.File.GetSections ()) cfg
+    match hdl.File with
+    | :? ELFBinFile as elf ->
+      for sec in elf.SectionHeaders do
+        dumpELFSection hdl opts elf tableprn codeprn sec
+    | :? PEBinFile as pe ->
+      for sec in pe.SectionHeaders do
+        dumpPESection hdl opts pe tableprn codeprn sec
+    | :? MachBinFile as mach ->
+      for sec in mach.Sections do
+        dumpMachSection hdl opts mach tableprn codeprn sec
+    | _ -> Terminator.futureFeature ()
 
 let dumpFile (opts: BinDumpOpts) filepath =
   opts.ShowAddress <- true
@@ -184,7 +201,7 @@ let dumpFile (opts: BinDumpOpts) filepath =
   else dumpRegularFile hdl opts cfg
 
 let dumpFileMode files (opts: BinDumpOpts) =
-  match List.partition System.IO.File.Exists files with
+  match List.partition IO.File.Exists files with
   | [], [] ->
     Printer.PrintErrorToConsole "File(s) must be given."
     CmdOpts.PrintUsage ToolName UsageTail Cmd.spec
@@ -209,13 +226,14 @@ let dumpHexStringMode (opts: BinDumpOpts) =
   let printer = makeCodePrinter hdl cfg opts
   printer.ModeSwitch.IsThumb <- isThumb
   let baseAddr = defaultArg opts.BaseAddress 0UL
-  let ptr = BinFilePointer (baseAddr, 0, opts.InputHexStr.Length - 1)
+  let len = opts.InputHexStr.Length
+  let ptr = BinFilePointer (baseAddr, baseAddr + uint64 len - 1UL, 0, len - 1)
   printer.Print ptr
   out.PrintLine ()
 
 let private dump files (opts: BinDumpOpts) =
 #if DEBUG
-  let sw = System.Diagnostics.Stopwatch.StartNew ()
+  let sw = Diagnostics.Stopwatch.StartNew ()
 #endif
   CmdOpts.SanitizeRestArgs files
   try

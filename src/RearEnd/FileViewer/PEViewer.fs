@@ -131,12 +131,13 @@ let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
     out.PrintRow (true, cfg, [ "Num"; "Start"; "End"; "Name" ])
     out.PrintLine "  ---"
-    file.GetSections ()
-    |> Seq.iteri (fun idx s ->
+    pe.SectionHeaders
+    |> Array.iteri (fun idx s ->
+      let addr = uint64 s.VirtualAddress + file.BaseAddress
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.ISA.WordSize s.Address)
-          (Addr.toString file.ISA.WordSize (s.Address + uint64 s.Size - 1UL))
+          (Addr.toString file.ISA.WordSize addr)
+          (Addr.toString file.ISA.WordSize (addr + uint64 s.VirtualSize - 1UL))
           normalizeEmpty s.Name ]))
 
 let dumpSectionDetails (secname: string) (file: PEBinFile) =

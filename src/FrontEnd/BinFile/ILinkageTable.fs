@@ -31,17 +31,17 @@ open B2R2
 /// </summary>
 type ILinkageTable =
   /// <summary>
-  ///   Return a list of all the linkage table entries from the binary.
+  /// Return a list of all the linkage table entries from the binary.
   /// </summary>
   /// <returns>
-  ///   An array of linkage table entries, e.g., PLT entries for ELF files.
+  /// An array of linkage table entries, e.g., PLT entries for ELF files.
   /// </returns>
   abstract GetLinkageTableEntries: unit -> LinkageTableEntry[]
 
   /// <summary>
-  ///   Return if a given address is an address of a linkage table entry.
+  /// Return if a given address is an address of a linkage table entry.
   /// </summary>
   /// <returns>
-  ///   True if the address is a linkage table address, false otherwise.
+  /// True if the address is a linkage table address, false otherwise.
   /// </returns>
   abstract IsLinkageTable: Addr -> bool

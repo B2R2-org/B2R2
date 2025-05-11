@@ -24,8 +24,8 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open System
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.Wasm
 open B2R2.FrontEnd.BinFile.Wasm.Helper
@@ -40,6 +40,8 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
   new (path, bytes) = WasmBinFile (path, bytes, None)
 
   member _.WASM with get() = wm
+
+  member _.Sections with get () = wm.SectionsInfo.SecArray
 
   interface IBinFile with
     member _.Reader with get() = reader
@@ -68,40 +70,6 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
     member _.GetOffset addr = int addr
 
-    member _.Slice (addr: Addr, size) =
-      let span = ReadOnlySpan bytes
-      span.Slice (int addr, size)
-
-    member _.Slice (addr: Addr) =
-      let span = ReadOnlySpan bytes
-      span.Slice (int addr)
-
-    member _.Slice (offset: int, size) =
-      let span = ReadOnlySpan bytes
-      span.Slice (offset, size)
-
-    member _.Slice (offset: int) =
-      let span = ReadOnlySpan bytes
-      span.Slice offset
-
-    member _.Slice (ptr: BinFilePointer, size) =
-      let span = ReadOnlySpan bytes
-      span.Slice (ptr.Offset, size)
-
-    member _.Slice (ptr: BinFilePointer) =
-      let span = ReadOnlySpan bytes
-      span.Slice ptr.Offset
-
-    member this.ReadByte (addr: Addr) =
-      let offset = (this :> IContentAddressable).GetOffset addr
-      bytes[offset]
-
-    member _.ReadByte (offset: int) =
-      bytes[offset]
-
-    member _.ReadByte (ptr: BinFilePointer) =
-      bytes[ptr.Offset]
-
     member _.IsValidAddr (addr) =
       addr >= 0UL && addr < (uint64 bytes.LongLength)
 
@@ -109,22 +77,26 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
       (this :> IContentAddressable).IsValidAddr range.Min
       && (this :> IContentAddressable).IsValidAddr range.Max
 
-    member this.IsInFileAddr addr =
+    member this.IsAddrMappedToFile addr =
       (this :> IContentAddressable).IsValidAddr addr
 
-    member this.IsInFileRange range =
+    member this.IsRangeMappedToFile range =
       (this :> IContentAddressable).IsValidRange range
 
     member _.IsExecutableAddr _addr = Terminator.futureFeature ()
 
-    member _.GetNotInFileIntervals range =
-      FileHelper.getNotInFileIntervals 0UL (uint64 bytes.LongLength) range
+    member _.GetBoundedPointer addr =
+      NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr
+      |> function
+        | Some s ->
+          let size = s.HeaderSize + s.ContentsSize
+          let maxAddr = uint64 s.Offset + uint64 size - 1UL
+          BinFilePointer (addr, maxAddr, int addr, int maxAddr)
+        | None -> BinFilePointer.Null
 
-    member _.ToBinFilePointer addr =
-      BinFilePointer.OfSection (getSectionsByAddr wm addr |> Seq.tryHead)
+    member _.GetVMMappedRegions () = [||]
 
-    member _.ToBinFilePointer name =
-      BinFilePointer.OfSection (getSectionsByName wm name |> Seq.tryHead)
+    member _.GetVMMappedRegions _permission = [||]
 
     member _.TryFindFunctionName (addr) = tryFindFunSymName wm addr
 
@@ -138,27 +110,18 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
     member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
-    member _.GetSections () = getSections wm
+    member _.GetTextSectionPointer () =
+      match wm.CodeSection with
+      | Some sec ->
+        BinFilePointer (uint64 sec.Offset,
+                        uint64 sec.Offset + uint64 sec.Size - 1UL,
+                        int sec.Offset,
+                        int sec.Offset + int sec.Size - 1)
+      | None -> BinFilePointer.Null
 
-    member _.GetSections (addr) = getSectionsByAddr wm addr
+    member _.GetSectionPointer _addr = Terminator.futureFeature ()
 
-    member _.GetSections (name) = getSectionsByName wm name
-
-    member _.GetTextSection () =
-      wm.CodeSection
-      |> Option.map (fun sec ->
-        { Address = uint64 sec.Offset
-          FileOffset = uint32 sec.Offset
-          Kind = sectionIdToKind SectionId.Code
-          Size = sec.Size
-          Name = "" })
-      |> function Some s -> s | None -> raise SectionNotFoundException
-
-    member _.GetSegments (_isLoadable: bool): Segment[] = [||]
-
-    member _.GetSegments (_addr: Addr): Segment[] = [||]
-
-    member _.GetSegments (_perm: Permission): Segment[] = [||]
+    member _.IsInTextOrDataOnlySection _ = Terminator.futureFeature ()
 
     member _.GetFunctionAddresses () = Terminator.futureFeature ()
 

@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open System
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
@@ -88,40 +87,6 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.GetOffset addr = int addr
 
-    member _.Slice (addr: Addr, size) =
-      let span = ReadOnlySpan bytes
-      span.Slice (int addr, size)
-
-    member _.Slice (addr: Addr) =
-      let span = ReadOnlySpan bytes
-      span.Slice (int addr)
-
-    member _.Slice (offset: int, size) =
-      let span = ReadOnlySpan bytes
-      span.Slice (offset, size)
-
-    member _.Slice (offset: int) =
-      let span = ReadOnlySpan bytes
-      span.Slice offset
-
-    member _.Slice (ptr: BinFilePointer, size) =
-      let span = ReadOnlySpan bytes
-      span.Slice (ptr.Offset, size)
-
-    member _.Slice (ptr: BinFilePointer) =
-      let span = ReadOnlySpan bytes
-      span.Slice ptr.Offset
-
-    member this.ReadByte (addr: Addr) =
-      let offset = (this :> IContentAddressable).GetOffset addr
-      bytes[offset]
-
-    member _.ReadByte (offset: int) =
-      bytes[offset]
-
-    member _.ReadByte (ptr: BinFilePointer) =
-      bytes[ptr.Offset]
-
     member _.IsValidAddr (addr) =
       addr >= 0UL && addr < (uint64 bytes.LongLength)
 
@@ -129,27 +94,26 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
       (this :> IContentAddressable).IsValidAddr range.Min
       && (this :> IContentAddressable).IsValidAddr range.Max
 
-    member this.IsInFileAddr addr =
+    member this.IsAddrMappedToFile addr =
       (this :> IContentAddressable).IsValidAddr addr
 
-    member this.IsInFileRange range =
+    member this.IsRangeMappedToFile range =
       (this :> IContentAddressable).IsValidRange range
 
     member _.IsExecutableAddr _addr = Terminator.futureFeature ()
 
-    member _.GetNotInFileIntervals range =
-      FileHelper.getNotInFileIntervals 0UL (uint64 bytes.LongLength) range
+    member _.GetBoundedPointer (_addr: Addr) = BinFilePointer.Null
 
-    member _.ToBinFilePointer (_addr: Addr) = BinFilePointer.Null
+    member _.GetVMMappedRegions () = [||]
 
-    member _.ToBinFilePointer (_name: string) = BinFilePointer.Null
+    member _.GetVMMappedRegions _permission = [||]
 
-    member _.TryFindFunctionName (_addr) =
-      if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
+    member _.TryFindFunctionName (addr) =
+      if symbolMap.ContainsKey(addr) then Ok symbolMap[addr].Name
       else Error ErrorCase.SymbolNotFound
 
     member _.GetSymbols () =
-      Seq.map (fun (KeyValue(k, v)) -> v) symbolMap |> Seq.toArray
+      symbolMap.Values |> Seq.toArray
 
     member this.GetStaticSymbols () = (this :> IBinFile).GetSymbols ()
 
@@ -159,39 +123,13 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
 
-    member _.GetSections () =
-      getSections codeObject
-      |> Array.map (fun (offset, size, name) ->
-        { Address = uint64 offset
-          FileOffset = uint32 offset
-          Kind = SectionKind.CodeSection
-          Size = uint32 size
-          Name = name })
+    member _.GetTextSectionPointer () =
+      Terminator.futureFeature ()
 
-    member this.GetSections (addr: Addr) =
-      if addr >= baseAddr && addr < (baseAddr + uint64 size) then
-        (this :> IBinFile).GetSections ()
-      else [||]
+    member _.GetSectionPointer _ =
+      Terminator.futureFeature ()
 
-    member _.GetSections (_: string): Section[] = [||]
-
-    member _.GetTextSection () = Terminator.futureFeature ()
-
-    member _.GetSegments (_isLoadable: bool) =
-      [| { Address = baseAddr
-           Offset = 0u
-           Size = uint32 size
-           SizeInFile = uint32 size
-           Permission = Permission.Readable ||| Permission.Executable } |]
-
-    member this.GetSegments (addr: Addr) =
-      (this :> IBinFile).GetSegments ()
-      |> Array.filter (fun s -> (addr >= s.Address)
-                             && (addr < s.Address + uint64 s.Size))
-
-    member this.GetSegments (perm: Permission) =
-      (this :> IBinFile).GetSegments ()
-      |> Array.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0u)
+    member _.IsInTextOrDataOnlySection _ = Terminator.futureFeature ()
 
     member this.GetFunctionAddresses () =
       (this :> IBinFile).GetFunctionSymbols ()

@@ -126,13 +126,13 @@ let dumpSectionHeaders (opts: FileViewerOpts) (mach: MachBinFile) =
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
     out.PrintRow (true, cfg, [ "Num"; "Start"; "End"; "Name" ])
     out.PrintLine "  ---"
-    file.GetSections ()
-    |> Seq.iteri (fun idx s ->
+    mach.Sections
+    |> Array.iteri (fun idx s ->
       out.PrintRow (true, cfg,
         [ String.wrapSqrdBracket (idx.ToString ())
-          (Addr.toString file.ISA.WordSize s.Address)
-          (Addr.toString file.ISA.WordSize (s.Address + uint64 s.Size - 1UL))
-          normalizeEmpty s.Name ]))
+          (Addr.toString file.ISA.WordSize s.SecAddr)
+          (Addr.toString file.ISA.WordSize (s.SecAddr + uint64 s.SecSize - 1UL))
+          normalizeEmpty s.SecName]))
 
 let dumpSectionDetails (secName: string) (file: MachBinFile) =
   match file.Sections |> Array.tryFind (fun s -> s.SecName = secName) with
@@ -262,7 +262,7 @@ let dumpArchiveHeader (opts: FileViewerOpts) (file: MachBinFile) =
   Terminator.futureFeature ()
 
 let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
-  let bytes = (mach :> IBinFile).Slice(0, 4).ToArray()
+  let bytes = IBinFile.Slice(mach, 0, 4).ToArray()
   if Mach.Header.isFat bytes then
     Mach.FatArch.loadAll bytes
     |> Array.iteri (fun idx fat ->

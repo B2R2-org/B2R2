@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd
 
+open System
 open System.IO
 open B2R2
 open B2R2.FrontEnd.BinFile
@@ -37,23 +38,7 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt) =
 
   let reader = binFile.Reader
 
-  /// Subdivide the given range into in-file and not-in-file ranges. This
-  /// function returns (AddrRange * bool) list where the bool value indicates
-  /// whether the range is in-file or not-in-file.
-  let classifyRanges myrange =
-    binFile.GetNotInFileIntervals myrange (* not-in-file ranges *)
-    |> Seq.fold (fun (infiles, saddr) r ->
-         let l = AddrRange.GetMin r
-         let h = AddrRange.GetMax r
-         if saddr = l then (r, false) :: infiles, h
-         else (r, false) :: ((AddrRange (saddr, l), true) :: infiles), h
-       ) ([], AddrRange.GetMin myrange)
-    |> (fun (infiles, saddr) ->
-         if saddr = myrange.Max then infiles
-         else ((AddrRange (saddr, myrange.Max), true) :: infiles))
-    |> List.rev
-
-  let readIntBySize size (span: ByteSpan) =
+  let tryReadIntBySize size (span: ByteSpan) =
     match size with
     | 1 -> reader.ReadInt8 (span, 0) |> int64 |> Ok
     | 2 -> reader.ReadInt16 (span, 0) |> int64 |> Ok
@@ -61,7 +46,16 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt) =
     | 8 -> reader.ReadInt64 (span, 0) |> Ok
     | _ -> Error ErrorCase.InvalidMemoryRead
 
-  let readUIntBySize size (span: ByteSpan) =
+  let readIntBySize size (span: ByteSpan) =
+    match size with
+    | 1 -> reader.ReadInt8 (span, 0) |> int64
+    | 2 -> reader.ReadInt16 (span, 0) |> int64
+    | 4 -> reader.ReadInt32 (span, 0) |> int64
+    | 8 -> reader.ReadInt64 (span, 0)
+    | _ ->
+      invalidArg (nameof size) (ErrorCase.toString ErrorCase.InvalidMemoryRead)
+
+  let tryReadUIntBySize size (span: ByteSpan) =
     match size with
     | 1 -> reader.ReadUInt8 (span, 0) |> uint64 |> Ok
     | 2 -> reader.ReadUInt16 (span, 0) |> uint64 |> Ok
@@ -69,10 +63,51 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt) =
     | 8 -> reader.ReadUInt64 (span, 0) |> Ok
     | _ -> Error ErrorCase.InvalidMemoryRead
 
-  let rec readAscii acc offset =
-    let b = binFile.ReadByte (offset=offset)
-    if b = 0uy then List.rev (b :: acc) |> List.toArray
-    else readAscii (b :: acc) (offset + 1)
+  let readUIntBySize size (span: ByteSpan) =
+    match size with
+    | 1 -> reader.ReadUInt8 (span, 0) |> uint64
+    | 2 -> reader.ReadUInt16 (span, 0) |> uint64
+    | 4 -> reader.ReadUInt32 (span, 0) |> uint64
+    | 8 -> reader.ReadUInt64 (span, 0)
+    | _ ->
+      invalidArg (nameof size) (ErrorCase.toString ErrorCase.InvalidMemoryRead)
+
+  let rec readAscii acc (ptr: BinFilePointer) =
+    if ptr.IsValid then
+      let b = binFile.RawBytes[ptr.Offset]
+      if b = 0uy then List.rev (b :: acc) |> List.toArray
+      else readAscii (b :: acc) (BinFilePointer.Advance ptr 1)
+    else List.rev acc |> List.toArray
+
+  let readOrPartialReadBytes (ptr: BinFilePointer) nBytes =
+    let len = ptr.MaxOffset - ptr.Offset + 1
+    let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
+    let arr = span.Slice(0, nBytes).ToArray ()
+    if ptr.CanRead nBytes then Ok arr (* full result *)
+    else Error arr (* partial result *)
+
+  let rec tryReadBytes (ptr: BinFilePointer) nBytes =
+    if ptr.IsValid then
+      match readOrPartialReadBytes ptr nBytes with
+      | Ok bs -> Ok bs
+      | Error bs ->
+        let rest = nBytes - bs.Length
+        let nextPtr = binFile.GetBoundedPointer (ptr.MaxAddr + 1UL)
+        match tryReadBytes nextPtr rest with
+        | Ok restBytes -> Ok <| Array.append bs restBytes
+        | Error e -> Error e
+    else Error ErrorCase.InvalidMemoryRead
+
+  let rec readBytes (ptr: BinFilePointer) nBytes =
+    if ptr.IsValid then
+      match readOrPartialReadBytes ptr nBytes with
+      | Ok bs -> bs
+      | Error bs ->
+        let rest = nBytes - bs.Length
+        let nextPtr = binFile.GetBoundedPointer (ptr.MaxAddr + 1UL)
+        Array.append bs (readBytes nextPtr rest)
+    else
+      invalidArg (nameof ptr) (ErrorCase.toString ErrorCase.InvalidMemoryRead)
 
   new (path, isa, baseAddrOpt) =
     let bytes = File.ReadAllBytes path
@@ -112,89 +147,60 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt) =
     | _ -> ()
     LiftingUnit (binFile, regFactory, parser)
 
-  member _.TryReadBytes (addr: Addr, nBytes) =
-    let range = AddrRange (addr, addr + uint64 nBytes - 1UL)
-    if binFile.IsInFileRange range then
-      let slice = binFile.Slice (addr, nBytes)
-      slice.ToArray () |> Ok
-    elif binFile.IsValidRange range then
-      classifyRanges range
-      |> List.fold (fun bs (range, isInFile) ->
-           let len = (range.Max - range.Min |> int) + 1
-           if isInFile then
-             let slice = binFile.Slice (range.Min, len)
-             Array.append bs (slice.ToArray ())
-           else Array.create len 0uy |> Array.append bs
-         ) [||]
-      |> Ok
-    else Error ErrorCase.InvalidMemoryRead
-
   member _.TryReadBytes (ptr: BinFilePointer, nBytes) =
-    if BinFilePointer.IsValidAccess ptr nBytes then
-      let slice = binFile.Slice (ptr, nBytes)
-      slice.ToArray () |> Ok
-    else Error ErrorCase.InvalidMemoryRead
+    tryReadBytes ptr nBytes
 
-  member this.ReadBytes (addr: Addr, nBytes) =
-    match this.TryReadBytes (addr, nBytes) with
-    | Ok bs -> bs
-    | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
+  member _.TryReadBytes (addr: Addr, nBytes) =
+    let ptr = binFile.GetBoundedPointer addr
+    tryReadBytes ptr nBytes
 
-  member this.ReadBytes (ptr: BinFilePointer, nBytes) =
-    match this.TryReadBytes (ptr, nBytes) with
-    | Ok bs -> bs
-    | Error e -> invalidArg (nameof ptr) (ErrorCase.toString e)
+  member _.ReadBytes (ptr: BinFilePointer, nBytes) =
+    readBytes ptr nBytes
 
-  member _.TryReadInt (addr: Addr, size) =
-    let pos = binFile.GetOffset addr
-    if (pos + size) > binFile.Length || (pos < 0) then
-      Error ErrorCase.InvalidMemoryRead
-    else
-      readIntBySize size (binFile.Slice (offset=pos))
+  member _.ReadBytes (addr: Addr, nBytes) =
+    let ptr = binFile.GetBoundedPointer addr
+    readBytes ptr nBytes
 
   member _.TryReadInt (ptr: BinFilePointer, size) =
-    if BinFilePointer.IsValidAccess ptr size then
-      readIntBySize size (binFile.Slice (offset=ptr.Offset))
-    else Error ErrorCase.InvalidMemoryRead
+    match tryReadBytes ptr size with
+    | Ok bs -> tryReadIntBySize size (ReadOnlySpan bs)
+    | _ -> Error ErrorCase.InvalidMemoryRead
+
+  member this.TryReadInt (addr: Addr, size) =
+    let ptr = binFile.GetBoundedPointer addr
+    this.TryReadInt (ptr, size)
+
+  member _.ReadInt (ptr: BinFilePointer, size) =
+    let bs = readBytes ptr size
+    readIntBySize size (ReadOnlySpan bs)
 
   member this.ReadInt (addr: Addr, size) =
-    match this.TryReadInt (addr, size) with
-    | Ok i -> i
-    | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
-
-  member this.ReadInt (ptr: BinFilePointer, size) =
-    match this.TryReadInt (ptr, size) with
-    | Ok i -> i
-    | Error e -> invalidArg (nameof ptr) (ErrorCase.toString e)
-
-  member _.TryReadUInt (addr: Addr, size) =
-    let pos = binFile.GetOffset addr
-    if (pos + size) > binFile.Length || (pos < 0) then
-      Error ErrorCase.InvalidMemoryRead
-    else
-      readUIntBySize size (binFile.Slice (offset=pos))
+    let ptr = binFile.GetBoundedPointer addr
+    this.ReadInt (ptr, size)
 
   member _.TryReadUInt (ptr: BinFilePointer, size) =
-    if BinFilePointer.IsValidAccess ptr size then
-      readUIntBySize size (binFile.Slice (offset=ptr.Offset))
-    else Error ErrorCase.InvalidMemoryRead
+    match tryReadBytes ptr size with
+    | Ok bs -> tryReadUIntBySize size (ReadOnlySpan bs)
+    | _ -> Error ErrorCase.InvalidMemoryRead
+
+  member this.TryReadUInt (addr: Addr, size) =
+    let ptr = binFile.GetBoundedPointer addr
+    this.TryReadUInt (ptr, size)
+
+  member _.ReadUInt (ptr: BinFilePointer, size) =
+    let bs = readBytes ptr size
+    readUIntBySize size (ReadOnlySpan bs)
 
   member this.ReadUInt (addr: Addr, size) =
-    match this.TryReadUInt (addr, size) with
-    | Ok i -> i
-    | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
-
-  member this.ReadUInt (ptr: BinFilePointer, size) =
-    match this.TryReadUInt (ptr, size) with
-    | Ok i -> i
-    | Error e -> invalidArg (nameof ptr) (ErrorCase.toString e)
+    let ptr = binFile.GetBoundedPointer addr
+    this.ReadUInt (ptr, size)
 
   member _.ReadASCII (addr: Addr) =
-    let bs = binFile.GetOffset addr |> readAscii []
+    let bs = binFile.GetBoundedPointer addr |> readAscii []
     ByteArray.extractCString bs 0
 
   member _.ReadASCII (ptr: BinFilePointer) =
-    let bs = readAscii [] ptr.Offset
+    let bs = readAscii [] ptr
     ByteArray.extractCString bs 0
 
   member _.MakeNew (bs: byte[]) =

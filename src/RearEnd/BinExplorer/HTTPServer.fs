@@ -198,9 +198,10 @@ let handleFunctions req resp arbiter =
 
 let handleHexview req resp arbiter =
   let brew = Protocol.getBinaryBrew arbiter
-  brew.BinHandle.File.GetSegments ()
-  |> Seq.map (fun seg ->
-    let bs = brew.BinHandle.ReadBytes (seg.Address, int (seg.Size))
+  brew.BinHandle.File.GetVMMappedRegions ()
+  |> Seq.map (fun reg ->
+    let size = reg.Max - reg.Min + 1UL
+    let bs = brew.BinHandle.ReadBytes (reg.Min, int size)
     let coloredHex = bs |> Array.map ColoredSegment.hexOfByte
     let coloredAscii = bs |> Array.map ColoredSegment.asciiOfByte
     let cha = (* DataColoredHexAscii *)
@@ -208,7 +209,7 @@ let handleHexview req resp arbiter =
         { Color = Color.toString c
           Hex = h
           Ascii = a }) coloredHex coloredAscii
-    { SegAddr = seg.Address; SegBytes = bs; SegColoredHexAscii = cha })
+    { SegAddr = reg.Min; SegBytes = bs; SegColoredHexAscii = cha })
   |> json<seq<JsonSegInfo>>
   |> defaultEnc.GetBytes
   |> Some

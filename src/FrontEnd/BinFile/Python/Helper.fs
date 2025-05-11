@@ -194,23 +194,3 @@ let extractNames pyObj =
       | o -> failwithf "Invalid PyCodeObject(%A)" o
     | _ -> acc
   collect [] pyObj |> List.toArray
-
-let getSections codeObjs =
-  let rec extractCodeInfo (pyObj: PyObject) =
-    match pyObj with
-    | PyCode code ->
-      let current =
-        let (addr, pyObj) = code.Code
-        match pyObj with
-        | PyString s -> addr, s.Length, code.Name
-        | o -> failwithf "Invalid PyCodeObject(%A)" o
-      let nested =
-        match code.Consts with
-        | PyTuple t ->
-          t |> Array.toList
-          |> List.collect extractCodeInfo
-        | PyREF _ -> []
-        | o -> failwithf "Invalid PyCodeObject(%A)" o
-      current :: nested
-    | _ -> []
-  extractCodeInfo codeObjs |> List.toArray
