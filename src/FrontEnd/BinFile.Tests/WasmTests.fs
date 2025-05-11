@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.BinFile.Tests
 
-open B2R2
 open B2R2.FrontEnd.BinFile
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open type FileFormat

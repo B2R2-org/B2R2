@@ -261,11 +261,11 @@ type Data = {
 
 type DataSection = Section<Vector<Data>>
 
-type WasmFormatVersion =
+type FormatVersion =
   | One = 0x00000001u
 
-type WasmModule = {
-  FormatVersion: WasmFormatVersion
+type Module = {
+  FormatVersion: FormatVersion
   CustomSections: CustomSection list
   TypeSection: TypeSection option
   ImportSection: ImportSection option

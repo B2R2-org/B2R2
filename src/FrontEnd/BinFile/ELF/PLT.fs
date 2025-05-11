@@ -82,12 +82,12 @@ type PLTParser () =
 
   /// Parse the given PLT section.
   abstract ParseSection:
-    ELFToolbox * ELFSection * NoOverlapIntervalMap<LinkageTableEntry>
+    ELFToolbox * ELF.Section * NoOverlapIntervalMap<LinkageTableEntry>
     -> NoOverlapIntervalMap<LinkageTableEntry>
 
   /// Parse the given PLT section.
   abstract ParseEntry:
-    addr: Addr * idx: int * ELFSection * PLTDescriptor * IBinReader * ByteSpan
+    addr: Addr * idx: int * ELF.Section * PLTDescriptor * IBinReader * ByteSpan
     -> PLTEntryInfo
 
 let [<Literal>] private SecRelPLT = ".rel.plt"
@@ -737,23 +737,23 @@ type NullPLTParser () =
 
 let initPLTParser hdr shdrs relocInfo symbInfo =
   match hdr.MachineType with
-  | ELFMachineType.EM_386 ->
+  | MachineType.EM_386 ->
     X86PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
-  | ELFMachineType.EM_X86_64 ->
+  | MachineType.EM_X86_64 ->
     X64PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
-  | ELFMachineType.EM_ARM ->
+  | MachineType.EM_ARM ->
     ARMv7PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
-  | ELFMachineType.EM_AARCH64 ->
+  | MachineType.EM_AARCH64 ->
     AARCH64PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
-  | ELFMachineType.EM_MIPS
-  | ELFMachineType.EM_MIPS_RS3_LE ->
+  | MachineType.EM_MIPS
+  | MachineType.EM_MIPS_RS3_LE ->
     MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) :> PLTParser
-  | ELFMachineType.EM_PPC ->
+  | MachineType.EM_PPC ->
     PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) :> PLTParser
-  | ELFMachineType.EM_RISCV ->
+  | MachineType.EM_RISCV ->
     let rtype = RelocationRISCV RelocationRISCV.R_RISCV_JUMP_SLOT
     GeneralPLTParser (shdrs, relocInfo, symbInfo, 32UL, rtype) :> PLTParser
-  | ELFMachineType.EM_SH ->
+  | MachineType.EM_SH ->
     let rtype = RelocationSH4 RelocationSH4.R_SH_JMP_SLOT
     GeneralPLTParser (shdrs, relocInfo, symbInfo, 28UL, rtype) :> PLTParser
   | _ -> NullPLTParser () :> PLTParser

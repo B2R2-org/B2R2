@@ -91,7 +91,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.ISA with get() = toolBox.ISA
 
-    member _.Type with get() = toFileType hdr.ELFFileType
+    member _.Type with get() = toFileType hdr.ELFType
 
     member _.EntryPoint = Some hdr.EntryPoint
 

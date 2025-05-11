@@ -225,7 +225,7 @@ module Header =
 
   let private computeMachOffset bytes isa =
     if isFat bytes then
-      let fatArch = Fat.loadArch bytes isa
+      let fatArch = FatArch.loadOne bytes isa
       uint64 fatArch.Offset
     else 0UL
 

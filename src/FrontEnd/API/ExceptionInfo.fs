@@ -27,7 +27,6 @@ namespace B2R2.FrontEnd
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinFile.ELF
 
 /// <summary>
 /// Represents parsed exception information of a binary code. We currently only
@@ -35,12 +34,12 @@ open B2R2.FrontEnd.BinFile.ELF
 /// </summary>
 type ExceptionInfo (liftingUnit: LiftingUnit) =
   let loadCallSiteTable lsdaPointer lsdas =
-    let lsda = Map.find lsdaPointer lsdas
+    let lsda: ELF.LanguageSpecificDataArea = Map.find lsdaPointer lsdas
     lsda.CallSiteTable
 
   /// If a landing pad has a direct branch to another function, then we consider
   /// the frame containing the lading pad as a non-function FDE.
-  let checkIfFDEIsFunction fde landingPad =
+  let checkIfFDEIsFunction (fde: ELF.FrameDescriptionEntry) landingPad =
     match liftingUnit.ParseBBlock (addr=landingPad) with
     | Ok (blk) ->
       let last = blk[blk.Length - 1]
@@ -51,9 +50,10 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
       else true
     | _ -> true
 
-  let rec loopCallSiteTable fde isFDEFunc acc = function
+  let rec loopCallSiteTable (fde: ELF.FrameDescriptionEntry) isFDEFunc acc rs =
+    match rs with
     | [] -> acc, isFDEFunc
-    | csrec :: rest ->
+    | (csrec: ELF.CallSiteRecord) :: rest ->
       let blockStart = fde.PCBegin + csrec.Position
       let blockEnd = fde.PCBegin + csrec.Position + csrec.Length - 1UL
       let landingPad =
@@ -65,7 +65,7 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
         let isFDEFunc = checkIfFDEIsFunction fde landingPad
         loopCallSiteTable fde isFDEFunc acc rest
 
-  let buildExceptionTable fde lsdas tbl =
+  let buildExceptionTable (fde: ELF.FrameDescriptionEntry) lsdas tbl =
     match fde.LSDAPointer with
     | None -> tbl, true
     | Some lsdaPointer ->
@@ -82,8 +82,8 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
 
   let computeExceptionTable excframes lsdas =
     excframes
-    |> List.fold (fun acc frame ->
-      accumulateExceptionTableInfo acc frame.FDERecord lsdas
+    |> List.fold (fun acc (cfi: ELF.CallFrameInformation) ->
+      accumulateExceptionTableInfo acc cfi.FDERecord lsdas
     ) (NoOverlapIntervalMap.empty, Set.empty)
 
   let buildELF (elf: ELFBinFile) =

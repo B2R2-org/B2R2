@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 open System
-open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// ELF dynamic tags.

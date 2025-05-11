@@ -264,7 +264,7 @@ let dumpArchiveHeader (opts: FileViewerOpts) (file: MachBinFile) =
 let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
   let bytes = (mach :> IBinFile).Slice(0, 4).ToArray()
   if Mach.Header.isFat bytes then
-    Mach.Fat.loadFatArchs bytes
+    Mach.FatArch.loadAll bytes
     |> Array.iteri (fun idx fat ->
       let cpu = fat.CPUType
       let cpusub = fat.CPUSubType

@@ -32,10 +32,10 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
 let toFileType = function
-  | ELFFileType.ET_EXEC -> FileType.ExecutableFile
-  | ELFFileType.ET_DYN -> FileType.LibFile
-  | ELFFileType.ET_CORE -> FileType.CoreFile
-  | ELFFileType.ET_REL -> FileType.ObjFile
+  | ELFType.ET_EXEC -> FileType.ExecutableFile
+  | ELFType.ET_DYN -> FileType.LibFile
+  | ELFType.ET_CORE -> FileType.CoreFile
+  | ELFType.ET_REL -> FileType.ObjFile
   | _ -> FileType.UnknownFile
 
 let isNXEnabled progHeaders =
@@ -46,7 +46,7 @@ let isNXEnabled progHeaders =
 
 let isRelocatable toolBox secHeaders =
   let pred (e: DynamicSectionEntry) = e.DTag = DynamicTag.DT_DEBUG
-  toolBox.Header.ELFFileType = ELFFileType.ET_DYN
+  toolBox.Header.ELFType = ELFType.ET_DYN
   && DynamicSection.readEntries toolBox secHeaders |> Array.exists pred
 
 let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =

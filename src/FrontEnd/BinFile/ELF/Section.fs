@@ -191,7 +191,7 @@ type SectionFlag =
   | SHF_X86_64_LARGE = 0x10000000UL
 
 /// ELF Section
-type ELFSection = {
+type Section = {
   /// Unique section number.
   SecNum: int
   /// The name of the section.

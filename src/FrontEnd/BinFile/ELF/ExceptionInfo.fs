@@ -50,7 +50,7 @@ module internal ExceptionInfo =
     let cls = hdr.Class
     let isa = toolBox.ISA
     let relocInfo =
-      if hdr.ELFFileType = ELFFileType.ET_REL then Some reloc else None
+      if hdr.ELFType = ELFType.ET_REL then Some reloc else None
     let exns = ExceptionFrames.parse toolBox cls shdrs isa regFactory relocInfo
     let lsdas = ELFGccExceptTable.parse toolBox cls shdrs
     match exns with

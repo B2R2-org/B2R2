@@ -38,7 +38,8 @@ type FatArch = {
   Align: int
 }
 
-module Fat =
+[<RequireQualifiedAccess>]
+module FatArch =
   let private readFatArch (span: ByteSpan) (reader: IBinReader) offset =
     let cpuType = reader.ReadInt32 (span, offset)
     let cpuSubType = reader.ReadInt32 (span, offset + 4)
@@ -48,7 +49,7 @@ module Fat =
       Size = reader.ReadInt32 (span, offset + 12)
       Align = reader.ReadInt32 (span, offset + 16) }
 
-  let loadFatArchs (bytes: byte[]) =
+  let loadAll (bytes: byte[]) =
     let reader = BinReader.Init Endian.Big
     let magic = reader.ReadUInt32 (bytes, 0)
     let nArch = reader.ReadInt32 (bytes, 4)
@@ -64,7 +65,7 @@ module Fat =
       CPUType.toArchWordSizeTuple fatArch.CPUType fatArch.CPUSubType
     isa.Arch = arch && isa.WordSize = wordSize
 
-  let loadArch bytes isa =
-    loadFatArchs bytes
+  let loadOne bytes isa =
+    loadAll bytes
     |> Array.tryFind (matchingISA isa)
     |> function Some arch -> arch | None -> raise InvalidISAException

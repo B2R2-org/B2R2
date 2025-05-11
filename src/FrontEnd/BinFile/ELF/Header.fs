@@ -30,8 +30,8 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
-/// File type.
-type ELFFileType =
+/// ELF file type.
+type ELFType =
   /// No file type.
   | ET_NONE = 0x0us
   /// Relocatable file.
@@ -43,12 +43,12 @@ type ELFFileType =
   /// Core file.
   | ET_CORE = 0x4us
 
-module ELFFileType =
+module ELFType =
   let toString = function
-    | ELFFileType.ET_REL -> "Relocatable"
-    | ELFFileType.ET_EXEC -> "Executable"
-    | ELFFileType.ET_DYN -> "Shared Object"
-    | ELFFileType.ET_CORE -> "Core"
+    | ELFType.ET_REL -> "Relocatable"
+    | ELFType.ET_EXEC -> "Executable"
+    | ELFType.ET_DYN -> "Shared Object"
+    | ELFType.ET_CORE -> "Core"
     | _ -> "Unknown"
 
 /// ABI type.
@@ -103,7 +103,7 @@ module OSABI =
     | _ -> "Unknown"
 
 /// Machine type.
-type ELFMachineType =
+type MachineType =
   /// No machine
   | EM_NONE = 0x0s
   /// AT&T WE 32100
@@ -479,7 +479,7 @@ type ELFMachineType =
   | EM_NFP = 0xFAs
 
 /// ELF header.
-type ELFHeader = {
+type Header = {
   /// 32-bit or 64-bit.
   Class: WordSize
   /// Little or big endian.
@@ -491,9 +491,9 @@ type ELFHeader = {
   /// ABI version.
   OSABIVersion: uint32
   /// ELF file type (e_type).
-  ELFFileType: ELFFileType
+  ELFType: ELFType
   /// Target instruction set architecture (e_machine).
-  MachineType: ELFMachineType
+  MachineType: MachineType
   /// Entry point address (e_entry).
   EntryPoint: uint64
   /// Program header table offset (e_phoff).
@@ -522,7 +522,7 @@ type ELFToolbox = {
   Bytes: byte[]
   Reader: IBinReader
   BaseAddress: Addr
-  Header: ELFHeader
+  Header: Header
   ISA: ISA
 }
 
@@ -545,30 +545,30 @@ module internal Header =
     | 0x2uy -> WordSize.Bit64
     | _ -> raise InvalidWordSizeException
 
-  let private getELFFileType (span: ByteSpan) (reader: IBinReader) =
+  let private getELFType (span: ByteSpan) (reader: IBinReader) =
     reader.ReadUInt16 (span, 16)
-    |> LanguagePrimitives.EnumOfValue: ELFFileType
+    |> LanguagePrimitives.EnumOfValue: ELFType
 
-  let private computeNewBaseAddr ftype baseAddr =
-    match ftype with
-    | ELFFileType.ET_EXEC -> 0UL (* Non-PIEs must have zero base. *)
+  let private computeNewBaseAddr etype baseAddr =
+    match etype with
+    | ELFType.ET_EXEC -> 0UL (* Non-PIEs must have zero base. *)
     | _ -> defaultArg baseAddr 0UL
 
   let private getELFMachineType (span: ByteSpan) (reader: IBinReader) =
     reader.ReadInt16 (span, 18)
-    |> LanguagePrimitives.EnumOfValue: ELFMachineType
+    |> LanguagePrimitives.EnumOfValue: MachineType
 
   let parseFromSpan span (reader: IBinReader) endian baseAddrOpt =
     let cls = getClass span
-    let ftype = getELFFileType span reader
-    let baseAddr = computeNewBaseAddr ftype baseAddrOpt
+    let etype = getELFType span reader
+    let baseAddr = computeNewBaseAddr etype baseAddrOpt
     let hdr =
       { Class = cls
         Endian = endian
         Version = reader.ReadUInt32 (span, 6)
         OSABI = span[7] |> LanguagePrimitives.EnumOfValue
         OSABIVersion = span[8] |> uint32
-        ELFFileType = ftype
+        ELFType = etype
         MachineType = getELFMachineType span reader
         EntryPoint = readUIntByWordSize span reader cls 24 + baseAddr
         PHdrTblOffset = readUIntByWordSizeAndOffset span reader cls 28 32
@@ -601,29 +601,29 @@ module internal Header =
     | c -> failwithf "invalid MIPS arch (%02x)" c
 
   let private toISA (span: ByteSpan) (reader: IBinReader) cls = function
-    | ELFMachineType.EM_386 -> ISA (Architecture.Intel, WordSize.Bit32)
-    | ELFMachineType.EM_X86_64 -> ISA (Architecture.Intel, WordSize.Bit64)
-    | ELFMachineType.EM_ARM ->
+    | MachineType.EM_386 -> ISA (Architecture.Intel, WordSize.Bit32)
+    | MachineType.EM_X86_64 -> ISA (Architecture.Intel, WordSize.Bit64)
+    | MachineType.EM_ARM ->
       ISA (Architecture.ARMv7, reader.Endianness, WordSize.Bit32)
-    | ELFMachineType.EM_AARCH64 ->
+    | MachineType.EM_AARCH64 ->
       ISA (Architecture.ARMv8, reader.Endianness, WordSize.Bit64)
-    | ELFMachineType.EM_MIPS
-    | ELFMachineType.EM_MIPS_RS3_LE -> getMIPSISA span reader cls
-    | ELFMachineType.EM_PPC ->
+    | MachineType.EM_MIPS
+    | MachineType.EM_MIPS_RS3_LE -> getMIPSISA span reader cls
+    | MachineType.EM_PPC ->
       ISA (Architecture.PPC, reader.Endianness, WordSize.Bit32)
-    | ELFMachineType.EM_PPC64 ->
+    | MachineType.EM_PPC64 ->
       ISA (Architecture.PPC, reader.Endianness, WordSize.Bit64)
-    | ELFMachineType.EM_RISCV ->
+    | MachineType.EM_RISCV ->
       ISA (Architecture.RISCV, reader.Endianness, WordSize.Bit64)
-    | ELFMachineType.EM_SPARCV9 ->
+    | MachineType.EM_SPARCV9 ->
       ISA (Architecture.SPARC, reader.Endianness, WordSize.Bit64)
-    | ELFMachineType.EM_S390 ->
+    | MachineType.EM_S390 ->
       ISA (Architecture.S390, reader.Endianness, cls)
-    | ELFMachineType.EM_SH ->
+    | MachineType.EM_SH ->
       ISA (Architecture.SH4, reader.Endianness)
-    | ELFMachineType.EM_PARISC ->
+    | MachineType.EM_PARISC ->
       ISA (Architecture.PARISC, cls)
-    | ELFMachineType.EM_AVR ->
+    | MachineType.EM_AVR ->
       ISA Architecture.AVR
     | _ -> raise InvalidISAException
 

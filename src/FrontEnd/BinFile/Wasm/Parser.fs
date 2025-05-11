@@ -281,7 +281,7 @@ let private parseWasmModule (bs: byte[]) (reader: IBinReader) offset =
   }
   parsingLoop wasmModule wasmModule.SectionsInfo secsSummary
 
-let buildFuncIndexMap (wm: WasmModule) =
+let buildFuncIndexMap (wm: Module) =
   let makeFuncIdxInfo secOff idx elemOff =
     { SecOffset = secOff
       Index = idx

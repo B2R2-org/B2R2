@@ -28,7 +28,6 @@ open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinFile.ELF
 open B2R2.RearEnd.FileViewer.Helper
 open B2R2.RearEnd.Utils
 
@@ -39,7 +38,7 @@ let computeMagicBytes (file: IBinFile) =
   let slice = file.Slice (offset=0, size=16)
   slice.ToArray () |> ColoredString.ofBytes
 
-let computeEntryPoint (hdr: ELFHeader) =
+let computeEntryPoint (hdr: ELF.Header) =
   [ ColoredSegment (Green, HexString.ofUInt64 hdr.EntryPoint) ]
 
 let dumpFileHeader (_: FileViewerOpts) (file: ELFBinFile) =
@@ -48,9 +47,9 @@ let dumpFileHeader (_: FileViewerOpts) (file: ELFBinFile) =
   out.PrintTwoCols "Class:" ("ELF" + WordSize.toString hdr.Class)
   out.PrintTwoCols "Data:" (Endian.toString hdr.Endian + " endian")
   out.PrintTwoCols "Version:" (hdr.Version.ToString ())
-  out.PrintTwoCols "ABI:" (OSABI.toString hdr.OSABI)
+  out.PrintTwoCols "ABI:" (ELF.OSABI.toString hdr.OSABI)
   out.PrintTwoCols "ABI version:" (hdr.OSABIVersion.ToString ())
-  out.PrintTwoCols "Type:" (ELFFileType.toString hdr.ELFFileType)
+  out.PrintTwoCols "Type:" (ELF.ELFType.toString hdr.ELFType)
   out.PrintTwoCols "Machine:" (hdr.MachineType.ToString ())
   out.PrintTwoColsWithColorOnSnd "Entry point:" (computeEntryPoint hdr)
   out.PrintTwoCols "PHdr table offset:" (HexString.ofUInt64 hdr.PHdrTblOffset)
@@ -117,10 +116,10 @@ let dumpSectionDetails (secname: string) (file: ELFBinFile) =
     out.PrintTwoCols "Alignment:" (HexString.ofUInt64 section.SecAlignment)
   | None -> out.PrintLine "Not found."
 
-let printSymbolInfoVerbose (file: IBinFile) s (elfSymbol: ELFSymbol) cfg =
+let printSymbolInfoVerbose (file: IBinFile) s (elfSymbol: ELF.ELFSymbol) cfg =
   let sectionIndex =
     match elfSymbol.SecHeaderIndex with
-    | SectionIndex idx -> idx.ToString ()
+    | ELF.SectionIndex idx -> idx.ToString ()
     | idx -> idx.ToString ()
   out.PrintRow (true, cfg,
     [ visibilityString s
@@ -200,7 +199,7 @@ let dumpRelocs (_opts: FileViewerOpts) (elf: ELFBinFile) =
       | _ -> "(n/a)"
     out.PrintRow (true, cfg, [
       Addr.toString (elf :> IBinFile).ISA.WordSize reloc.RelOffset
-      RelocationType.ToString reloc.RelType
+      ELF.RelocationType.ToString reloc.RelType
       reloc.RelAddend.ToString ("x")
       symbol
     ])
@@ -218,10 +217,10 @@ let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
 
 let makeStringTableReader (file: IBinFile) dynEntries =
   dynEntries
-  |> Array.fold (fun (addr, len) (ent: DynamicSectionEntry) ->
+  |> Array.fold (fun (addr, len) (ent: ELF.DynamicSectionEntry) ->
     match ent.DTag with
-    | DynamicTag.DT_STRTAB -> Some ent.DVal, len
-    | DynamicTag.DT_STRSZ -> addr, Some ent.DVal
+    | ELF.DynamicTag.DT_STRTAB -> Some ent.DVal, len
+    | ELF.DynamicTag.DT_STRSZ -> addr, Some ent.DVal
     | _ -> addr, len
   ) (None, None)
   ||> Option.map2 (fun addr len ->
@@ -240,16 +239,16 @@ let dumpDynamicSection _ (file: ELFBinFile) =
   |> Array.iter (fun ent ->
     let tag = ent.DTag
     match tag, strtabReader with
-    | DynamicTag.DT_NEEDED, Some reader ->
+    | ELF.DynamicTag.DT_NEEDED, Some reader ->
       out.PrintRow (true, cfg, [ $"{tag}"
                                  $"Shared library: [{reader ent.DVal}]" ])
-    | DynamicTag.DT_SONAME, Some reader ->
+    | ELF.DynamicTag.DT_SONAME, Some reader ->
       out.PrintRow (true, cfg, [ $"{tag}"
                                  $"Library soname: [{reader ent.DVal}]" ])
-    | DynamicTag.DT_RPATH, Some reader ->
+    | ELF.DynamicTag.DT_RPATH, Some reader ->
       out.PrintRow (true, cfg, [ $"{tag}"
                                  $"Library rpath: [{reader ent.DVal}]" ])
-    | DynamicTag.DT_RUNPATH, Some reader ->
+    | ELF.DynamicTag.DT_RUNPATH, Some reader ->
       out.PrintRow (true, cfg, [ $"{tag}"
                                  $"Library runpath: [{reader ent.DVal}]" ])
     | _ ->
@@ -337,16 +336,16 @@ let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =
           (toLibString >> normalizeEmpty) e.LibraryName ]))
 
 let cfaToString (hdl: BinHandle) cfa =
-  CanonicalFrameAddress.toString hdl.RegisterFactory cfa
+  ELF.CanonicalFrameAddress.toString hdl.RegisterFactory cfa
 
-let ruleToString (hdl: BinHandle) (rule: Rule) =
+let ruleToString (hdl: BinHandle) (rule: ELF.Rule) =
   rule
   |> Map.fold (fun s k v ->
     match k with
-    | ReturnAddress -> s + "(ra:" + Action.toString v + ")"
-    | NormalReg rid ->
+    | ELF.ReturnAddress -> s + "(ra:" + ELF.Action.toString v + ")"
+    | ELF.NormalReg rid ->
       let reg = hdl.RegisterFactory.GetRegString rid
-      s + "(" + reg + ":" + Action.toString v + ")") ""
+      s + "(" + reg + ":" + ELF.Action.toString v + ")") ""
 
 let dumpEHFrame hdl (file: ELFBinFile) =
   let addrColumn = columnWidthOfAddr file |> LeftAligned

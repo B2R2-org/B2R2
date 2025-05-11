@@ -127,7 +127,7 @@ type ELFSymbol = {
   /// The index of the relevant section with regard to this symbol.
   SecHeaderIndex: SectionHeaderIdx
   /// Parent section of this section.
-  ParentSection: ELFSection option
+  ParentSection: ELF.Section option
   /// Version information.
   VerInfo: SymVerInfo option
   /// ARM32-specific linker symbol type.
@@ -253,7 +253,7 @@ module internal Symbol =
 
   let readSymAddr baseAddr span reader cls parent txtOffset =
     let symAddr = readUIntByWordSize span reader cls (selectByWordSize cls 4 8)
-    match (parent: ELFSection option) with
+    match (parent: ELF.Section option) with
     | None -> symAddr
     | Some sec ->
       (* This is to give a meaningful address to static symbols in a relocatable
@@ -266,7 +266,7 @@ module internal Symbol =
     |> adjustSymAddr baseAddr
 
   let computeLinkerSymbolKind hdr symbolName =
-    if hdr.MachineType = ELFMachineType.EM_ARM then
+    if hdr.MachineType = MachineType.EM_ARM then
       if symbolName = "$a" then ARMLinkerSymbol.ARM
       elif symbolName = "$t" then ARMLinkerSymbol.Thumb
       else ARMLinkerSymbol.None
