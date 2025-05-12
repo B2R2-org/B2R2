@@ -32,8 +32,6 @@ open B2R2.MiddleEnd.BinGraph
 type LTDomInfo<'V when 'V: equality> = {
   /// Vertex ID -> DFPre
   DFPre: Dictionary<VertexID, int>
-  /// Vertex ID -> DFPost
-  DFPost: Dictionary<VertexID, int>
   /// Number of reachable vertices
   mutable MaxNum: int
   /// DFPre -> Vertex
@@ -60,7 +58,6 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.Size + 1
   { DFPre = Dictionary<VertexID, int> ()
-    DFPost = Dictionary<VertexID, int> ()
     MaxNum = 0
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
@@ -107,9 +104,7 @@ let rec private prepare (g: IDiGraphAccessible<_, _>) info n = function
   | [] -> n - 1
 
 let private prepareWithDummyRoot g info =
-  info.DFPost.Add (info.DummyRoot.ID, 0)
   info.DFPre.Add (info.DummyRoot.ID, 0)
-  computePostorder g info.DFPost
   info.Roots |> Array.map (fun v -> 0, v) |> Array.toList |> prepare g info 1
 
 let private getPreds g info v =
