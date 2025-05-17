@@ -102,6 +102,33 @@ type SymbolVisibility =
   /// would interpose by the default rules.
   | STV_PROTECTED = 0x03uy
 
+/// Every symbol table entry is defined in relation to some section.
+/// This member holds the relevant section header table index.
+type SectionHeaderIdx =
+  /// The symbol is undefined. Linker should update references to this symbol
+  /// with the actual definition from another file.
+  | SHN_UNDEF
+  /// The symbol has an absolute value that will not change because of
+  /// relocation.
+  | SHN_ABS
+  /// The symbol labels a common block that has not yet been allocated.
+  | SHN_COMMON
+  /// An escape value indicating that the actual section header index is too
+  /// large to fit in the containing field. The header section index is found in
+  /// another location specific to the structure where it appears.
+  | SHN_XINDEX
+  /// The upper boundary of the range of the reserved range.
+  | SHN_HIRESERVE
+  /// This symbol index holds an index into the section header table.
+  | SectionIndex of int
+with
+  static member IndexFromInt n =
+    match n with
+    | 0x00 -> SHN_UNDEF
+    | 0xfff1 -> SHN_ABS
+    | 0xfff2 -> SHN_COMMON
+    | n -> SectionIndex n
+
 /// Symbol version information.
 type SymVerInfo = {
   /// Is this a hidden symbol? This is a GNU-specific extension indicated as

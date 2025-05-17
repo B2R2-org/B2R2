@@ -32,11 +32,11 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 
 /// Represents an ELF binary file.
 type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
-  let toolBox = Header.parse baseAddrOpt bytes
+  let toolBox = Header.parse baseAddrOpt bytes |> Toolbox.Init bytes
   let hdr = toolBox.Header
   let phdrs = lazy ProgramHeader.parse toolBox
   let shdrs = lazy Section.parse toolBox
-  let loadables = lazy ProgramHeader.getLoadableProgHeaders phdrs.Value
+  let loadables = lazy ProgramHeader.getLoadables phdrs.Value
   let symbInfo = lazy Symbol.parse toolBox shdrs.Value
   let relocs = lazy RelocationInfo.parse toolBox shdrs.Value symbInfo.Value
   let plt = lazy PLT.parse toolBox shdrs.Value symbInfo.Value relocs.Value
@@ -50,7 +50,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   /// List of dynamic section entries.
   member _.DynamicSectionEntries with get() =
-    DynamicSection.readEntries toolBox shdrs.Value
+    DynamicArrayEntry.parse toolBox shdrs.Value
 
   /// ELF program headers.
   member _.ProgramHeaders with get() = phdrs.Value
@@ -84,7 +84,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   /// Is this section contains executable code?
   member _.HasCode (sec: Section) =
-    sec.SecFlags.HasFlag SectionFlag.SHF_EXECINSTR
+    sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
     && not (PLT.isPLTSectionName sec.SecName)
 
   interface IBinFile with
@@ -163,7 +163,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.GetVMMappedRegions (perm) =
       phdrs.Value
       |> Array.choose (fun ph ->
-        let phPerm = ProgramHeader.flagsToPerm ph.PHFlags
+        let phPerm = ProgramHeader.FlagsToPerm ph.PHFlags
         if (phPerm &&& perm = perm) && ph.PHMemSize > 0UL then
           Some <| AddrRange (ph.PHAddr, ph.PHAddr + ph.PHMemSize - 1UL)
         else None)

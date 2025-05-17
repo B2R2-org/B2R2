@@ -72,7 +72,7 @@ type LanguageSpecificDataArea = {
 }
 
 [<RequireQualifiedAccess>]
-module ELFGccExceptTable =
+module internal ELFGccExceptTable =
   let [<Literal>] GccExceptTable = ".gcc_except_table"
 
   let parseLSDAHeader cls (span: ByteSpan) reader sAddr offset =

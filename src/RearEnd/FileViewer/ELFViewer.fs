@@ -217,10 +217,10 @@ let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
 
 let makeStringTableReader (file: IBinFile) dynEntries =
   dynEntries
-  |> Array.fold (fun (addr, len) (ent: ELF.DynamicSectionEntry) ->
+  |> Array.fold (fun (addr, len) (ent: ELF.DynamicArrayEntry) ->
     match ent.DTag with
-    | ELF.DynamicTag.DT_STRTAB -> Some ent.DVal, len
-    | ELF.DynamicTag.DT_STRSZ -> addr, Some ent.DVal
+    | ELF.DTag.DT_STRTAB -> Some ent.DVal, len
+    | ELF.DTag.DT_STRSZ -> addr, Some ent.DVal
     | _ -> addr, len
   ) (None, None)
   ||> Option.map2 (fun addr len ->
@@ -239,16 +239,16 @@ let dumpDynamicSection _ (file: ELFBinFile) =
   |> Array.iter (fun ent ->
     let tag = ent.DTag
     match tag, strtabReader with
-    | ELF.DynamicTag.DT_NEEDED, Some reader ->
+    | ELF.DTag.DT_NEEDED, Some reader ->
       out.PrintRow (true, cfg, [ $"{tag}"
                                  $"Shared library: [{reader ent.DVal}]" ])
-    | ELF.DynamicTag.DT_SONAME, Some reader ->
+    | ELF.DTag.DT_SONAME, Some reader ->
       out.PrintRow (true, cfg, [ $"{tag}"
                                  $"Library soname: [{reader ent.DVal}]" ])
-    | ELF.DynamicTag.DT_RPATH, Some reader ->
+    | ELF.DTag.DT_RPATH, Some reader ->
       out.PrintRow (true, cfg, [ $"{tag}"
                                  $"Library rpath: [{reader ent.DVal}]" ])
-    | ELF.DynamicTag.DT_RUNPATH, Some reader ->
+    | ELF.DTag.DT_RUNPATH, Some reader ->
       out.PrintRow (true, cfg, [ $"{tag}"
                                  $"Library runpath: [{reader ent.DVal}]" ])
     | _ ->
@@ -273,7 +273,7 @@ let dumpSegments (opts: FileViewerOpts) (elf: ELFBinFile) =
         [ String.wrapSqrdBracket (idx.ToString ())
           (Addr.toString wordSize ph.PHAddr)
           (Addr.toString wordSize (ph.PHAddr + ph.PHMemSize - uint64 1))
-          (Permission.toString (ELF.ProgramHeader.flagsToPerm ph.PHFlags))
+          (Permission.toString (ELF.ProgramHeader.FlagsToPerm ph.PHFlags))
           ph.PHType.ToString ()
           HexString.ofUInt64 ph.PHOffset
           HexString.ofUInt64 ph.PHAddr
@@ -291,7 +291,7 @@ let dumpSegments (opts: FileViewerOpts) (elf: ELFBinFile) =
         [ String.wrapSqrdBracket (idx.ToString ())
           (Addr.toString file.ISA.WordSize ph.PHAddr)
           (Addr.toString file.ISA.WordSize (ph.PHAddr + ph.PHMemSize - 1UL))
-          (Permission.toString (ELF.ProgramHeader.flagsToPerm ph.PHFlags)) ]))
+          (Permission.toString (ELF.ProgramHeader.FlagsToPerm ph.PHFlags)) ]))
 
 let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned

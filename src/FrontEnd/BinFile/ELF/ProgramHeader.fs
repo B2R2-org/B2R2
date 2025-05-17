@@ -30,10 +30,39 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
-/// This member tells what kind of segment this array element describes or
-/// how to interpret the array element's information. A segment is also known as
-/// a 'program header'.
-type ProgramHeaderType =
+/// Represents a program header in ELF. A program header describes a segment of
+/// the program.
+type ProgramHeader = {
+  /// Program header type.
+  PHType: ProgramHeaderType
+  /// Flags relevant to the segment.
+  PHFlags: int
+  /// An offset from the beginning of the file at which the first byte of the
+  /// segment resides in memory.
+  PHOffset: uint64
+  /// The virtual address at which the first byte of the segment resides in
+  /// memory.
+  PHAddr: Addr
+  /// The physical address of the segment. This is reserved for systems using
+  /// physical addresses.
+  PHPhyAddr: Addr
+  /// The number of bytes in the file image of the segment.
+  PHFileSize: uint64
+  /// The number of bytes in the memory image of the segment. This can be
+  /// greater than PHFileSize as some sections (w/ SHTNoBits type) occupy
+  /// nothing in the binary file, but can be mapped in the segment at runtime.
+  PHMemSize: uint64
+  /// The value to which the segments are aligned in memory and in the file.
+  PHAlignment: uint64
+}
+with
+  /// Converts the PHFlags field of a program header to a Permission value.
+  static member inline FlagsToPerm (flag: int): Permission =
+    flag &&& 7 |> LanguagePrimitives.EnumOfValue
+
+/// Represents what kind of segment this array element describes or how to
+/// interpret the array element's information.
+and ProgramHeaderType =
   /// This program header is not used.
   | PT_NULL = 0x00u
   /// This is a loadable segment.
@@ -82,38 +111,8 @@ type ProgramHeaderType =
   /// The upper bound of processor-specific program header type.
   | PT_HIPROC = 0x7fffffffu
 
-/// An executable or shared object file's program header table is an array of
-/// structures, each of which describes a segment or the other information a
-/// system needs to prepare for execution. An object file segment contains one
-/// or more sections. Program headers are meaningful only for executable and
-/// shared object files. A file specifies its own program header size with
-/// the ELF header's members.
-type ProgramHeader = {
-  /// Program header type.
-  PHType: ProgramHeaderType
-  /// Flags relevant to the segment.
-  PHFlags: int
-  /// An offset from the beginning of the file at which the first byte of the
-  /// segment resides in memory.
-  PHOffset: uint64
-  /// The virtual address at which the first byte of the segment resides in
-  /// memory.
-  PHAddr: Addr
-  /// The physical address of the segment. This is reserved for systems using
-  /// physical addresses.
-  PHPhyAddr: Addr
-  /// The number of bytes in the file image of the segment.
-  PHFileSize: uint64
-  /// The number of bytes in the memory image of the segment. This can be
-  /// greater than PHFileSize as some sections (w/ SHTNoBits type) occupy
-  /// nothing in the binary file, but can be mapped in the segment at runtime.
-  PHMemSize: uint64
-  /// The value to which the segments are aligned in memory and in the file.
-  PHAlignment: uint64
-}
-
 [<RequireQualifiedAccess>]
-module ProgramHeader =
+module internal ProgramHeader =
   let parseProgHeader toolBox (span: ByteSpan) =
     let reader, cls = toolBox.Reader, toolBox.Header.Class
     let phType = reader.ReadUInt32 (span, 0)
@@ -127,9 +126,6 @@ module ProgramHeader =
       PHMemSize = readUIntByWordSizeAndOffset span reader cls 20 40
       PHAlignment = readUIntByWordSizeAndOffset span reader cls 28 48 }
 
-  let inline flagsToPerm (flag: int): Permission =
-    flag &&& 7 |> LanguagePrimitives.EnumOfValue
-
   /// Parse program headers and returns them as an array.
   let parse ({ Bytes = bytes; Header = hdr } as toolBox) =
     let entrySize = selectByWordSize hdr.Class 32 56
@@ -141,6 +137,6 @@ module ProgramHeader =
       progHeaders[i] <- parseProgHeader toolBox span
     progHeaders
 
-  let getLoadableProgHeaders (progHeaders: ProgramHeader[]) =
+  let getLoadables (progHeaders: ProgramHeader[]) =
     progHeaders
     |> Array.filter (fun ph -> ph.PHType = ProgramHeaderType.PT_LOAD)

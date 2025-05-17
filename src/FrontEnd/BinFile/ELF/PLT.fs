@@ -78,11 +78,11 @@ type PLTSectionType =
 type PLTParser () =
   /// Parse PLT entries. This function returns a mapping from a PLT entry
   /// address range to LinkageTableEntry.
-  abstract Parse: ELFToolbox -> NoOverlapIntervalMap<LinkageTableEntry>
+  abstract Parse: Toolbox -> NoOverlapIntervalMap<LinkageTableEntry>
 
   /// Parse the given PLT section.
   abstract ParseSection:
-    ELFToolbox * ELF.Section * NoOverlapIntervalMap<LinkageTableEntry>
+    Toolbox * ELF.Section * NoOverlapIntervalMap<LinkageTableEntry>
     -> NoOverlapIntervalMap<LinkageTableEntry>
 
   /// Parse the given PLT section.
@@ -551,13 +551,13 @@ let rec private parseMIPSStubEntries map offset maxOffset tbl reader span =
 type MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) =
   inherit PLTParser ()
 
-  let isMIPSGOTSym t = t.DTag = DynamicTag.DT_MIPS_GOTSYM
+  let isMIPSGOTSym t = t.DTag = DTag.DT_MIPS_GOTSYM
 
   member _.ParseMIPSStubs toolBox =
     match Array.tryFind (fun s -> s.SecName = SecMIPSStubs) shdrs with
     | Some sec ->
       let bytes, reader = toolBox.Bytes, toolBox.Reader
-      let entries = DynamicSection.readEntries toolBox shdrs
+      let entries = DynamicArrayEntry.parse toolBox shdrs
       let offset = 0
       let maxOffset = int sec.SecSize
       let span = ReadOnlySpan (bytes, int sec.SecOffset, int sec.SecSize)
@@ -633,8 +633,8 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
     p.ParseSection (toolBox, sec, map)
 
   member private _.ComputeGLinkAddrWithGOT toolBox =
-    let tags = DynamicSection.readEntries toolBox shdrs
-    match Array.tryFind (fun t -> t.DTag = DynamicTag.DT_PPC_GOT) tags with
+    let tags = DynamicArrayEntry.parse toolBox shdrs
+    match Array.tryFind (fun t -> t.DTag = DTag.DT_PPC_GOT) tags with
     | Some tag ->
       let gotAddr = tag.DVal
       match Array.tryFind (fun s -> s.SecName = SecGOT) shdrs with
@@ -723,7 +723,7 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
 
   override this.Parse toolBox =
     match Array.tryFind (fun s -> s.SecName = SecPLT) shdrs with
-    | Some sec when sec.SecFlags.HasFlag SectionFlag.SHF_EXECINSTR ->
+    | Some sec when sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR ->
       (* The given binary uses the classic format. *)
       parseSections this toolBox NoOverlapIntervalMap.empty [ sec ]
     | _ -> this.ParseWithGLink toolBox

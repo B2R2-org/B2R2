@@ -30,9 +30,13 @@
     <Compile Include="Wasm\Section.fs" />
     <Compile Include="Wasm\Parser.fs" />
     <Compile Include="Wasm\Helper.fs" />
+    <Compile Include="ELF\ELFType.fs" />
+    <Compile Include="ELF\OSABI.fs" />
+    <Compile Include="ELF\MachineType.fs" />
     <Compile Include="ELF\Header.fs" />
+    <Compile Include="ELF\Toolbox.fs" />
     <Compile Include="ELF\Section.fs" />
-    <Compile Include="ELF\DynamicSection.fs" />
+    <Compile Include="ELF\DynamicArrayEntry.fs" />
     <Compile Include="ELF\ProgramHeader.fs" />
     <Compile Include="ELF\Symbol.fs" />
     <Compile Include="ELF\RelocationInfo.fs" />

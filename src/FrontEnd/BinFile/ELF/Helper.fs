@@ -42,14 +42,14 @@ let isNXEnabled progHeaders =
   let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK
   match Array.tryFind predicate progHeaders with
   | Some s ->
-    let perm = ProgramHeader.flagsToPerm s.PHFlags
+    let perm = ProgramHeader.FlagsToPerm s.PHFlags
     perm.HasFlag Permission.Executable |> not
   | _ -> false
 
 let isRelocatable toolBox secHeaders =
-  let pred (e: DynamicSectionEntry) = e.DTag = DynamicTag.DT_DEBUG
+  let pred (e: DynamicArrayEntry) = e.DTag = DTag.DT_DEBUG
   toolBox.Header.ELFType = ELFType.ET_DYN
-  && DynamicSection.readEntries toolBox secHeaders |> Array.exists pred
+  && DynamicArrayEntry.parse toolBox secHeaders |> Array.exists pred
 
 let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
   if offsetToAddr then ptr + delta
@@ -66,7 +66,7 @@ let translateWithSecs offsetToAddr ptr sections =
       if offsetToAddr then s.SecOffset
       else s.SecOffset - txtOffset + s.SecAddr
     s.SecType = SectionType.SHT_PROGBITS
-    && s.SecFlags.HasFlag SectionFlag.SHF_EXECINSTR
+    && s.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
     && secBase <= ptr && (secBase + s.SecSize) > ptr)
   |> function
     | None -> raise InvalidAddrReadException
@@ -231,7 +231,7 @@ let private computeExecutableRangesFromSections shdrs =
   shdrs
   |> Array.fold (fun set sec ->
     if sec.SecType = SectionType.SHT_PROGBITS
-      && sec.SecFlags.HasFlag SectionFlag.SHF_EXECINSTR
+      && sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
     then
       let offset = sec.SecOffset - txtOffset
       let addr = sec.SecAddr + offset
@@ -274,7 +274,7 @@ let executableRanges shdrs loadables =
   else
     loadables
     |> Array.filter (fun seg ->
-      let perm = ProgramHeader.flagsToPerm seg.PHFlags
+      let perm = ProgramHeader.FlagsToPerm seg.PHFlags
       perm.HasFlag Permission.Executable)
     |> Array.fold (fun set seg ->
       addExecutableInterval rodata seg set) IntervalSet.empty

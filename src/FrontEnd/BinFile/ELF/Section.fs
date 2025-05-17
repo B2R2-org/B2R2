@@ -29,8 +29,40 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
-/// This member categorizes the section's contents and semantics.
-type SectionType =
+/// Represents a section in ELF.
+type Section = {
+  /// Unique section number.
+  SecNum: int
+  /// The name of the section (sh_name).
+  SecName: string
+  /// Categorizes the section's contents and semantics (sh_type).
+  SecType: SectionType
+  /// Misc. attributes about the section (sh_flags).
+  SecFlags: SectionFlags
+  /// The address at which the section's first byte should reside. If this
+  /// section will not appear in the process memory, this value is 0.
+  SecAddr: Addr
+  /// Byte offset from the beginning of the file to the first byte in the
+  /// section (sh_offset).
+  SecOffset: uint64
+  /// The section's size in bytes (sh_size).
+  SecSize: uint64
+  /// A section header table index link. The interpretation of this field
+  /// depends on the section type (sh_link).
+  SecLink: uint32
+  /// Extra information. The interpretation of this info depends on the section
+  /// type.
+  SecInfo: uint32
+  /// Some sections have address alignment constraints.
+  SecAlignment: uint64
+  /// Some sections hold a table of fixed-size entries, such as a symbol
+  /// table. For such a section, this member gives the size in bytes of each
+  /// entry.
+  SecEntrySize: uint64
+}
+
+/// Represents the ELF section header type.
+and SectionType =
   /// This section is inactive.
   | SHT_NULL = 0x00u
   /// This section holds information defined by the program, whose format and
@@ -68,8 +100,7 @@ type SectionType =
   | SHT_GROUP = 0x11u
   /// This section holds section indexes.
   | SHT_SYMTAB_SHNDX = 0x12u
-  /// This section marks the start of processor-specific section type.
-  | SHT_LOPROC = 0x70000000u
+  (* The start of processor-specific section type = 0x70000000u *)
   /// ARM unwind section.
   | SHT_ARM_EXIDX = 0x70000001u
   /// Preemption details.
@@ -86,12 +117,9 @@ type SectionType =
   | SHT_MIPS_OPTIONS = 0x7000000du
   /// ABI related flags section.
   | SHT_MIPS_ABIFLAGS = 0x7000002au
-  /// This section marks the end of processor-specific section type.
-  | SHT_HIPROC = 0x7fffffffu
-  /// This section specifies the lower bound of program-specific section type.
-  | SHT_LOUSER = 0x80000000u
-  /// This section specifies the upper bound of program-specific section type.
-  | SHT_HIUSER = 0xffffffffu
+  (* The end of processor-specific section type = 0x7fffffffu *)
+  (* The lower bound of program-specific section type = 0x80000000u *)
+  (* The upper bound of program-specific section type = 0xffffffffu *)
   /// Object attributes.
   | SHT_GNU_ATTRIBUTES = 0x6ffffff5u
   /// GNU-style hash table.
@@ -110,47 +138,8 @@ type SectionType =
   /// as the dynamic symbol table.
   | SHT_GNU_versym = 0x6fffffffu
 
-/// Every symbol table entry is defined in relation to some section.
-/// This member holds the relevant section header table index.
-type SectionHeaderIdx =
-  /// This is the start of the reserved range.
-  | SHN_LORESERVE
-  /// The symbol is undefined. Linker should update references to this symbol
-  /// with the actual definition from another file.
-  | SHN_UNDEF
-  /// The lower bound of processor-specific section index value.
-  | SHN_LOPROC
-  /// The upper bound of processor-specific section index value.
-  | SHN_HIPROC
-  /// The lower bound of OS-specific section index value.
-  | SHN_LOOS
-  /// The upper bound of OS-specific section index value.
-  | SHN_HIOS
-  /// The symbol has an absolute value that will not change because of
-  /// relocation.
-  | SHN_ABS
-  /// The symbol labels a common block that has not yet been allocated.
-  | SHN_COMMON
-  /// An escape value indicating that the actual section header index is too
-  /// large to fit in the containing field. The header section index is found in
-  /// another location specific to the structure where it appears.
-  | SHN_XINDEX
-  /// The upper boundary of the range of the reserved range.
-  | SHN_HIRESERVE
-  /// This symbol index holds an index into the section header table.
-  | SectionIndex of int
-with
-  static member IndexFromInt n =
-    match n with
-    | 0x00 -> SHN_UNDEF
-    | 0xff00 -> SHN_LORESERVE
-    | 0xfff1 -> SHN_ABS
-    | 0xfff2 -> SHN_COMMON
-    | n -> SectionIndex n
-
-/// Sections support 1-bit flags that describe miscellaneous attributes.
-[<FlagsAttribute>]
-type SectionFlag =
+/// Represents miscellaneous attributes of a section.
+and [<FlagsAttribute>] SectionFlags =
   /// This section contains data that should be writable during process
   /// execution.
   | SHF_WRITE = 0x1UL
@@ -190,38 +179,6 @@ type SectionFlag =
   /// This section can hold more than 2GB.
   | SHF_X86_64_LARGE = 0x10000000UL
 
-/// ELF Section
-type Section = {
-  /// Unique section number.
-  SecNum: int
-  /// The name of the section.
-  SecName: string
-  /// Categorizes the section's contents and semantics.
-  SecType: SectionType
-  /// Misc. attributes about the section.
-  SecFlags: SectionFlag
-  /// The address at which the section's first byte should reside. If this
-  /// section will not appear in the process memory, this value is 0.
-  SecAddr: Addr
-  /// Byte offset from the beginning of the file to the first byte in the
-  /// section.
-  SecOffset: uint64
-  /// The section's size in bytes.
-  SecSize: uint64
-  /// A section header table index link. The interpretation of this field
-  /// depends on the section type.
-  SecLink: uint32
-  /// Extra information. The interpretation of this info depends on the section
-  /// type.
-  SecInfo: uint32
-  /// Some sections have address alignment constraints.
-  SecAlignment: uint64
-  /// Some sections hold a table of fixed-size entries, such as a symbol
-  /// table. For such a section, this member gives the size in bytes of each
-  /// entry.
-  SecEntrySize: uint64
-}
-
 module internal Section =
   let [<Literal>] SecText = ".text"
   let [<Literal>] SecBSS = ".bss"
@@ -247,7 +204,7 @@ module internal Section =
 
   let peekSecFlags span reader cls =
     readUIntByWordSize span reader cls 8
-    |> LanguagePrimitives.EnumOfValue: SectionFlag
+    |> LanguagePrimitives.EnumOfValue: SectionFlags
 
   let parseSectionHdr toolBox num nameTbl (secHdr: ByteSpan) =
     let reader = toolBox.Reader

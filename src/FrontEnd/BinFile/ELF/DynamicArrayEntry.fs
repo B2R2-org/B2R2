@@ -27,32 +27,80 @@ namespace B2R2.FrontEnd.BinFile.ELF
 open System
 open B2R2.FrontEnd.BinFile.FileHelper
 
-/// ELF dynamic tags.
-type DynamicTag =
+/// Represents a dynamic array entry in the .dynamic section of ELF binaries.
+type DynamicArrayEntry = {
+  /// Kind of entry, which is defined by the d_tag field in the ELF
+  /// specification.
+  DTag: DTag
+  /// Value associated with the entry, which can be a simple value or a pointer
+  /// (address). This is defined as a union of d_val and d_ptr in the ELF
+  /// specification.
+  DVal: uint64
+}
+
+/// Represents the dyanmic array entry kinds.
+and DTag =
+  /// Marks the end of the dynamic array.
   | DT_NULL = 0UL
+  /// Holds the string table offset of a string that contains the name of a
+  /// needed library.
   | DT_NEEDED = 1UL
+  /// Holds the size of the PLT relocation entries.
   | DT_PLTRELSZ = 2UL
+  /// Holds the address of the PLT GOT.
   | DT_PLTGOT = 3UL
+  /// Holds the address of the hash table.
   | DT_HASH = 4UL
+  /// Holds the address of the string table.
   | DT_STRTAB = 5UL
+  /// Holds the address of the symbol table.
   | DT_SYMTAB = 6UL
+  /// Holds the address of a relocation table.
   | DT_RELA = 7UL
+  /// Holds the size of the DT_RELA relocation table.
   | DT_RELASZ = 8UL
+  /// Holds the size of a single relocation entry in the DT_RELA table.
   | DT_RELAENT = 9UL
+  /// Holds the size of the string table.
   | DT_STRSZ = 10UL
+  /// Holds the size of a single symbol table entry.
   | DT_SYMENT = 11UL
+  /// Holds the address of the initialization function.
   | DT_INIT = 12UL
+  /// Holds the address of the termination function.
   | DT_FINI = 13UL
+  /// Holds the string table offset of a string that contains the name of the
+  /// shared object.
   | DT_SONAME = 14UL
+  /// Holds the string table offset of a string that contains the library search
+  /// path.
   | DT_RPATH = 15UL
+  /// This element's presence in a shared object library alters the dynamic
+  /// linker's symbol resolution algorithm for references within the library.
+  /// Instead of starting a symbol search with the executable file, the dynamic
+  /// linker starts from the shared object itself. If the shared object fails to
+  /// supply the referenced symbol, the dynamic linker then searches the
+  /// executable file and other shared objects as usual.
   | DT_SYMBOLIC = 16UL
+  /// Holds the address of the relocation table without addends.
   | DT_REL = 17UL
+  /// Holds the size of the DT_REL relocation table.
   | DT_RELSZ = 18UL
+  /// Holds the size of a single relocation entry in the DT_REL table.
   | DT_RELENT = 19UL
+  /// Holds either DT_REL or DT_RELA.
   | DT_PLTREL = 20UL
+  /// Used for debugging.
   | DT_DEBUG = 21UL
+  /// This member's absence signifies that no relocation entry should cause a
+  /// modification to a non-writable segment, as specified by the segment
+  /// permissions in the program header table.
   | DT_TEXTREL = 22UL
+  /// Holds the address of relocation entries associated solely with the
+  /// procedure linkage table.
   | DT_JMPREL = 23UL
+  /// Instructs the dynamic linker to process all relocations for the object
+  /// containing this entry before transferring control to the program.
   | DT_BIND_NOW = 24UL
   | DT_INIT_ARRAY = 25UL
   | DT_FINI_ARRAY = 26UL
@@ -65,8 +113,6 @@ type DynamicTag =
   | DT_MAXPOSTAGS = 34UL
   | DT_FLAGS_1 = 0x6ffffffbUL
   | DT_RELACOUNT = 0x6ffffff9UL
-  | DT_LOOS = 0x6000000dUL
-  | DT_HIOS = 0x6ffff000UL
   | DT_VERSYM = 0x6ffffff0UL
   | DT_VERNEED = 0x6ffffffeUL
   | DT_VERNEEDNUM = 0x6fffffffUL
@@ -149,13 +195,8 @@ type DynamicTag =
   | DT_MIPS_RWPLT = 0x70000034UL
   | DT_MIPS_RLD_MAP_REL = 0x70000035UL
 
-/// Dynamic section entry.
-type DynamicSectionEntry = {
-  DTag: DynamicTag
-  DVal: uint64
-}
-
-module internal DynamicSection =
+[<RequireQualifiedAccess>]
+module internal DynamicArrayEntry =
   let private readDynamicEntry reader cls span =
     let dtag = readUIntByWordSize span reader cls 0
     let dval = readUIntByWordSize span reader cls (selectByWordSize cls 4 8)
@@ -172,11 +213,11 @@ module internal DynamicSection =
         let span = ReadOnlySpan (bytes, offset, int sec.SecEntrySize)
         let ent = readDynamicEntry reader cls span
         entries[n] <- ent
-        if ent.DTag = DynamicTag.DT_NULL && ent.DVal = 0UL then entries[0..n]
+        if ent.DTag = DTag.DT_NULL && ent.DVal = 0UL then entries[0..n]
         else parseLoop (n + 1) (offset + int sec.SecEntrySize)
     parseLoop 0 (int sec.SecOffset)
 
-  let readEntries toolBox secHeaders =
+  let parse toolBox secHeaders =
     let dynamicSection =
       secHeaders |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_DYNAMIC)
     match dynamicSection with
