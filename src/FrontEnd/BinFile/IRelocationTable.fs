@@ -29,14 +29,6 @@ open B2R2
 /// Represents an interface for accessing the relocation table in a binary file.
 type IRelocationTable =
   /// <summary>
-  /// Return a list of all symbols for relocatable entries in the binary.
-  /// </summary>
-  /// <returns>
-  /// An array of relocation symbols.
-  /// </returns>
-  abstract GetRelocationInfos: unit -> Symbol[]
-
-  /// <summary>
   /// Check if the given address has a relocation information.
   /// </summary>
   /// <returns>

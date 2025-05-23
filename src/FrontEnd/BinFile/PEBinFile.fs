@@ -129,24 +129,6 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.TryFindFunctionName (addr) = tryFindFuncSymb pe addr
 
-    member _.GetSymbols () = getSymbols pe
-
-    member _.GetStaticSymbols () = getStaticSymbols pe
-
-    member this.GetFunctionSymbols () =
-      let self = this :> IBinFile
-      let staticSymbols =
-        self.GetStaticSymbols ()
-        |> Array.filter (fun s -> s.Kind = SymFunctionType)
-      let dynamicSymbols =
-        self.GetDynamicSymbols (true)
-        |> Array.filter (fun s -> s.Kind = SymFunctionType)
-      Array.append staticSymbols dynamicSymbols
-
-    member _.GetDynamicSymbols (?exc) = getDynamicSymbols pe exc
-
-    member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
-
     member _.GetTextSectionPointer () =
       pe.SectionHeaders
       |> Array.tryFind (fun sec -> sec.Name = SecText)
@@ -177,14 +159,18 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
       | -1 -> false
       | idx -> pe.SectionHeaders[idx].Name = SecText
 
-    member this.GetFunctionAddresses () =
-      (this :> IBinFile).GetFunctionSymbols ()
-      |> Array.map (fun s -> s.Address)
+    member _.GetFunctionAddresses () =
+      let staticAddrs =
+        [| for s in pe.SymbolInfo.SymbolArray do
+             if s.Flags.HasFlag SymFlags.Function then s.Address |]
+      let dynamicAddrs =
+        [| for addr in pe.ExportMap.Keys do
+             let idx = pe.FindSectionIdxFromRVA (int (addr - pe.BaseAddr))
+             if idx <> -1 && isSectionExecutableByIndex pe idx then addr |]
+      Array.concat [| staticAddrs; dynamicAddrs |]
 
     member this.GetFunctionAddresses (_) =
       (this :> IBinFile).GetFunctionAddresses ()
-
-    member _.GetRelocationInfos () = getRelocationSymbols pe
 
     member _.HasRelocationInfo addr = hasRelocationSymbols pe addr
 

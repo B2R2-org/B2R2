@@ -10,7 +10,6 @@
   <ItemGroup>
     <Compile Include="FileFormat.fs" />
     <Compile Include="Exceptions.fs" />
-    <Compile Include="Symbol.fs" />
     <Compile Include="Permission.fs" />
     <Compile Include="LinkageTable.fs" />
     <Compile Include="BinFilePointer.fs" />
@@ -18,7 +17,6 @@
     <Compile Include="IBinMetadata.fs" />
     <Compile Include="IBinProperty.fs" />
     <Compile Include="IContentAddressable.fs" />
-    <Compile Include="IBinSymbolTable.fs" />
     <Compile Include="IBinOrganization.fs" />
     <Compile Include="ILinkageTable.fs" />
     <Compile Include="IRelocationTable.fs" />

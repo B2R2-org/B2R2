@@ -76,35 +76,14 @@ let computeEntryPoint segs cmds =
   if mainOffset = 0UL then None
   else Some (mainOffset + getTextSegOffset segs)
 
-let machTypeToSymbKind sym secText =
-  if (sym.SymType = SymbolType.N_FUN && sym.SymName.Length > 0)
-    || (sym.SymType.HasFlag SymbolType.N_SECT
-      && sym.SecNum = (secText + 1)
-      && sym.SymDesc = 0s) then
-    SymFunctionType
-  elif sym.SymType = SymbolType.N_SO
-    || sym.SymType = SymbolType.N_OSO then
-    SymFileType
-  else
-    SymNoType
-
-let machSymbolToSymbol secText vis sym =
-  { Address = sym.SymAddr
-    Name = sym.SymName
-    Kind = machTypeToSymbKind sym secText
-    Visibility = vis
-    LibraryName = Symbol.getSymbolLibName sym
-    ARMLinkerSymbol = ARMLinkerSymbol.None }
-
-let getStaticSymbols secs symInfo =
-  let secText = Section.getTextSectionIndex secs
+let getStaticSymbols symInfo =
   symInfo.Symbols
   |> Array.filter Symbol.isStatic
-  |> Array.map (machSymbolToSymbol secText SymbolVisibility.StaticSymbol)
 
 let isStripped secs symInfo =
-  getStaticSymbols secs symInfo
-  |> Array.exists (fun s -> s.Kind = SymFunctionType)
+  let secText = Section.getTextSectionIndex secs
+  getStaticSymbols symInfo
+  |> Array.exists (fun s -> Symbol.isFunc secText s)
   |> not
 
 let isNXEnabled hdr =
@@ -153,19 +132,3 @@ let tryFindFuncSymb symInfo addr =
   match Map.tryFind addr symInfo.SymbolMap with
   | Some s -> Ok s.SymName
   | None -> Error ErrorCase.SymbolNotFound
-
-let getDynamicSymbols excludeImported secs symInfo =
-  let secText = Section.getTextSectionIndex secs
-  let excludeImported = defaultArg excludeImported false
-  let filter = Array.filter (fun (s: MachSymbol) -> s.SymAddr > 0UL)
-  symInfo.Symbols
-  |> Array.filter Symbol.isDynamic
-  |> fun arr -> if excludeImported then filter arr else arr
-  |> Array.map (machSymbolToSymbol secText SymbolVisibility.DynamicSymbol)
-
-let getSymbols secs symInfo =
-  let s = getStaticSymbols secs symInfo
-  let d = getDynamicSymbols None secs symInfo
-  Array.append s d
-
-// vim: set tw=80 sts=2 sw=2:

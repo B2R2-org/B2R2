@@ -67,6 +67,14 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   /// ELF symbol information.
   member _.SymbolInfo with get() = symbInfo.Value
 
+  /// ELF static symbols.
+  member _.StaticSymbols with get() =
+    Symbol.getStaticSymArray shdrs.Value symbInfo.Value.SecNumToSymbTbls
+
+  /// ELF dynamic symbols.
+  member _.DynamicSymbols with get() =
+    Symbol.getDynamicSymArray shdrs.Value symbInfo.Value.SecNumToSymbTbls
+
   /// Relocation information.
   member _.RelocationInfo with get() = relocs.Value
 
@@ -171,31 +179,6 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.TryFindFunctionName (addr) =
       tryFindFuncSymb symbInfo.Value addr
 
-    member _.GetSymbols () = getSymbols shdrs.Value symbInfo.Value
-
-    member _.GetStaticSymbols () = getStaticSymbols shdrs.Value symbInfo.Value
-
-    member this.GetFunctionSymbols () =
-      let dict = Collections.Generic.Dictionary<Addr, Symbol> ()
-      let f = this :> IBinFile
-      f.GetStaticSymbols ()
-      |> Seq.iter (fun s ->
-        if s.Kind = SymFunctionType then dict[s.Address] <- s
-        elif s.Kind = SymNoType (* This is to handle ppc's PLT symbols. *)
-          && s.Address > 0UL && s.Name.Contains "pic32."
-        then dict[s.Address] <- s
-        else ())
-      f.GetDynamicSymbols (true) |> Seq.iter (fun s ->
-        if dict.ContainsKey s.Address then ()
-        elif s.Kind = SymFunctionType then dict[s.Address] <- s
-        else ())
-      dict.Values |> Seq.toArray
-
-    member _.GetDynamicSymbols (?exc) =
-      getDynamicSymbols exc shdrs.Value symbInfo.Value
-
-    member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
-
     member _.GetTextSectionPointer () =
       shdrs.Value
       |> Array.tryFind (fun sec -> sec.SecName = Section.SecText)
@@ -226,19 +209,22 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
         | None -> false
 
     member this.GetFunctionAddresses () =
-      (this :> IBinFile).GetFunctionSymbols ()
-      |> Seq.map (fun s -> s.Address)
-      |> addExtraFunctionAddrs toolBox shdrs.Value loadables.Value
-                               relocs.Value None
+      (this :> IBinFile).GetFunctionAddresses false
 
-    member this.GetFunctionAddresses (useExcInfo) =
-      let exnInfo = if useExcInfo then Some exnInfo.Value else None
-      (this :> IBinFile).GetFunctionSymbols ()
-      |> Seq.map (fun s -> s.Address)
-      |> addExtraFunctionAddrs toolBox shdrs.Value loadables.Value
-                               relocs.Value exnInfo
-
-    member _.GetRelocationInfos () = getRelocSymbols relocs.Value
+    member _.GetFunctionAddresses (useExcInfo) =
+      let exnOpt = if useExcInfo then Some exnInfo.Value else None
+      let symbtbl = symbInfo.Value.SecNumToSymbTbls
+      let staticFuncs =
+        [| for s in Symbol.getStaticSymArray shdrs.Value symbtbl do
+             if Symbol.isFunc s && s.SecHeaderIndex <> SHN_UNDEF then s.Addr |]
+      let dynamicFuncs =
+        [| for s in Symbol.getDynamicSymArray shdrs.Value symbtbl do
+             if Symbol.isFunc s && s.SecHeaderIndex <> SHN_UNDEF then s.Addr |]
+      let extraFuncs =
+        findExtraFnAddrs toolBox shdrs.Value loadables.Value relocs.Value exnOpt
+      Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
+      |> Set.ofArray
+      |> Set.toArray
 
     member _.HasRelocationInfo addr =
       relocs.Value.RelocByAddr.ContainsKey addr

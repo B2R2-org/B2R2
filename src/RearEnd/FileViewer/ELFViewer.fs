@@ -116,31 +116,36 @@ let dumpSectionDetails (secname: string) (file: ELFBinFile) =
     out.PrintTwoCols "Alignment:" (HexString.ofUInt64 section.SecAlignment)
   | None -> out.PrintLine "Not found."
 
-let printSymbolInfoVerbose (file: IBinFile) s (elfSymbol: ELF.ELFSymbol) cfg =
+let verInfoToString (verInfo: ELF.SymVerInfo option) =
+  match verInfo with
+  | Some version -> (toLibString >> normalizeEmpty) version.VerName
+  | None -> ""
+
+let printSymbolInfoVerbose (file: IBinFile) (symb: ELF.ELFSymbol) vis cfg =
   let sectionIndex =
-    match elfSymbol.SecHeaderIndex with
+    match symb.SecHeaderIndex with
     | ELF.SectionIndex idx -> idx.ToString ()
     | idx -> idx.ToString ()
   out.PrintRow (true, cfg,
-    [ visibilityString s
-      Addr.toString file.ISA.WordSize s.Address
-      normalizeEmpty s.Name
-      (toLibString >> normalizeEmpty) s.LibraryName
-      HexString.ofUInt64 elfSymbol.Size
-      elfSymbol.SymType.ToString ()
-      elfSymbol.Bind.ToString ()
-      elfSymbol.Vis.ToString ()
+    [ vis
+      Addr.toString file.ISA.WordSize symb.Addr
+      normalizeEmpty symb.SymName
+      verInfoToString symb.VerInfo
+      HexString.ofUInt64 symb.Size
+      symb.SymType.ToString ()
+      symb.Bind.ToString ()
+      symb.Vis.ToString ()
       String.wrapSqrdBracket sectionIndex ])
 
-let printSymbolInfoNone (file: IBinFile) s cfg =
+let printSymbolInfoNonVerbose (file: IBinFile) (symb: ELF.ELFSymbol) vis cfg =
   out.PrintRow (true, cfg,
-    [ visibilityString s
-      Addr.toString file.ISA.WordSize s.Address
-      normalizeEmpty s.Name
-      (toLibString >> normalizeEmpty) s.LibraryName
-      "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)" ])
+    [ vis
+      $"{symb.SymType}"
+      Addr.toString file.ISA.WordSize symb.Addr
+      normalizeEmpty symb.SymName
+      verInfoToString symb.VerInfo ])
 
-let printSymbolInfo isVerbose (elf: ELFBinFile) (symbols: seq<Symbol>) =
+let printSymbolInfo isVerbose (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   if isVerbose then
     let cfg = [ LeftAligned 4; addrColumn; LeftAligned 55; LeftAligned 15
@@ -150,40 +155,30 @@ let printSymbolInfo isVerbose (elf: ELFBinFile) (symbols: seq<Symbol>) =
                                "Size"; "Type"; "Bind"; "Visibility"
                                "SectionIndex" ])
     out.PrintLine "  ---"
-    symbols
-    |> Seq.sortBy (fun s -> s.Name)
-    |> Seq.sortBy (fun s -> s.Address)
-    |> Seq.sortBy (fun s -> s.Visibility)
-    |> Seq.iter (fun s ->
-      match elf.SymbolInfo.AddrToSymbTable.TryGetValue s.Address with
-      | true, elfSymbol -> printSymbolInfoVerbose elf s elfSymbol cfg
-      | false, _ ->
-        match elf.RelocationInfo.RelocByName.TryGetValue s.Name with
-        | true, reloc ->
-          match reloc.RelSymbol with
-          | Some elfSymbol -> printSymbolInfoVerbose elf s elfSymbol cfg
-          | None -> printSymbolInfoNone elf s cfg
-        | false, _ -> printSymbolInfoNone elf s cfg)
+    elf.StaticSymbols
+    |> Array.sortBy (fun s -> s.SymName)
+    |> Array.sortBy (fun s -> s.Addr)
+    |> Array.iter (fun s -> printSymbolInfoVerbose elf s "(s)" cfg)
+    elf.DynamicSymbols
+    |> Array.sortBy (fun s -> s.SymName)
+    |> Array.sortBy (fun s -> s.Addr)
+    |> Array.iter (fun s -> printSymbolInfoVerbose elf s "(d)" cfg)
   else
     let cfg = [ LeftAligned 3; LeftAligned 10
                 addrColumn; LeftAligned 75; LeftAligned 15 ]
     out.PrintRow (true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
     out.PrintLine "  ---"
-    symbols
-    |> Seq.sortBy (fun s -> s.Name)
-    |> Seq.sortBy (fun s -> s.Address)
-    |> Seq.sortBy (fun s -> s.Visibility)
-    |> Seq.iter (fun s ->
-      out.PrintRow (true, cfg,
-        [ visibilityString s
-          symbolKindString s
-          Addr.toString (elf :> IBinFile).ISA.WordSize s.Address
-          normalizeEmpty s.Name
-          (toLibString >> normalizeEmpty) s.LibraryName ]))
+    elf.StaticSymbols
+    |> Array.sortBy (fun s -> s.SymName)
+    |> Array.sortBy (fun s -> s.Addr)
+    |> Array.iter (fun s -> printSymbolInfoNonVerbose elf s "(s)" cfg)
+    elf.DynamicSymbols
+    |> Array.sortBy (fun s -> s.SymName)
+    |> Array.sortBy (fun s -> s.Addr)
+    |> Array.iter (fun s -> printSymbolInfoNonVerbose elf s "(d)" cfg)
 
 let dumpSymbols (opts: FileViewerOpts) (elf: ELFBinFile) =
-  (elf :> IBinFile).GetSymbols ()
-  |> printSymbolInfo opts.Verbose elf
+  printSymbolInfo opts.Verbose elf
 
 let dumpRelocs (_opts: FileViewerOpts) (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
@@ -205,9 +200,14 @@ let dumpRelocs (_opts: FileViewerOpts) (elf: ELFBinFile) =
     ])
   )
 
-let dumpFunctions (opts: FileViewerOpts) (elf: ELFBinFile) =
-  (elf :> IBinFile).GetFunctionSymbols ()
-  |> printSymbolInfo opts.Verbose elf
+let dumpFunctions (_: FileViewerOpts) (elf: ELFBinFile) =
+  let addrColumn = columnWidthOfAddr elf |> LeftAligned
+  let cfg = [ LeftAligned 3; LeftAligned 10
+              addrColumn; LeftAligned 75; LeftAligned 15 ]
+  for addr in (elf :> IBinFile).GetFunctionAddresses () do
+    match elf.SymbolInfo.AddrToSymbTable.TryGetValue addr with
+    | true, symb -> printSymbolInfoNonVerbose elf symb "" cfg
+    | false, _ -> ()
 
 let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
   let exnInfo = ExceptionInfo (hdl=hdl)

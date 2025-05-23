@@ -27,7 +27,6 @@ namespace B2R2.FrontEnd.BinFile.Mach
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinFile
 
 type RelocSymbol =
   | SymIndex of int (* Symbol table index *)
@@ -46,6 +45,11 @@ type RelocationInfo = {
   /// Is this address part of an instruction that uses PC-relative addressing?
   IsPCRel: bool
 }
+with
+  member this.GetName (symbols: MachSymbol[], sections: MachSection[]) =
+    match this.RelocSymbol with
+    | SymIndex n -> symbols[n].SymName
+    | SecOrdinal n -> sections[n-1].SecName
 
 module internal Reloc =
   let private parseRelocSymbol data =
@@ -74,23 +78,7 @@ module internal Reloc =
       RelocSection = sec
       IsPCRel = rel }
 
-  let private translateRelocAddr reloc =
-    reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
-
-  let private translateRelocSymbol (symbols: _[]) (secs: MachSection[]) reloc =
-    match reloc.RelocSymbol with
-    | SymIndex (n) -> symbols[n].SymName
-    | SecOrdinal (n) -> secs[n - 1].SecName
-
-  let private toSymbol symbols secs reloc =
-    { Address = translateRelocAddr reloc
-      Name = translateRelocSymbol symbols secs reloc
-      Kind = SymNoType (* FIXME *)
-      Visibility = SymbolVisibility.DynamicSymbol
-      LibraryName = ""
-      ARMLinkerSymbol = ARMLinkerSymbol.None }
-
-  let parse { Bytes = bytes; Reader = reader } symInfo secs =
+  let parse { Bytes = bytes; Reader = reader } secs =
     let numRelocs = countRelocs secs
     let relocs = Array.zeroCreate numRelocs
     let mutable i = 0
@@ -102,5 +90,3 @@ module internal Reloc =
         relocs[i] <- parseReloc (relSpan.Slice offset) reader sec
         i <- i + 1
     relocs
-    |> Seq.toArray
-    |> Array.map (toSymbol symInfo.Symbols secs)

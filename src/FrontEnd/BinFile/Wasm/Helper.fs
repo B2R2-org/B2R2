@@ -24,8 +24,6 @@
 
 module internal B2R2.FrontEnd.BinFile.Wasm.Helper
 
-open B2R2
-open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 
 let fileTypeOf wm =
@@ -47,59 +45,6 @@ let entryPointOf wm =
     | None -> None
   | None -> None
 
-let importDescToSymKind desc =
-  match desc with
-  | ImpFunc _ -> SymExternFunctionType
-  | ImpTable _
-  | ImpMem _
-  | ImpGlobal _ -> SymObjectType
-
-let importEntryToSymbol (importEntry: Import) =
-  { Address = uint64 importEntry.Offset
-    Name = importEntry.Name
-    Kind = importDescToSymKind importEntry.Desc
-    Visibility = SymbolVisibility.DynamicSymbol
-    LibraryName = importEntry.ModuleName
-    ARMLinkerSymbol = ARMLinkerSymbol.None }
-
-let exportDescToSymKind desc =
-  match desc with
-  | ExpFunc _ -> SymFunctionType
-  | ExpTable _
-  | ExpMem _
-  | ExpGlobal _ -> SymObjectType
-
-let exportEntryToSymbol (exportEntry: Export) =
-  { Address = uint64 exportEntry.Offset
-    Name = exportEntry.Name
-    Kind = exportDescToSymKind exportEntry.Desc
-    Visibility = SymbolVisibility.DynamicSymbol
-    LibraryName = ""
-    ARMLinkerSymbol = ARMLinkerSymbol.None }
-
-let getDynamicSymbols wm excludeImported =
-  let excludeImported = defaultArg excludeImported false
-  let imports =
-    if not excludeImported then
-      match wm.ImportSection with
-      | Some is ->
-        match is.Contents with
-        | Some iv -> iv.Elements |> Array.map importEntryToSymbol
-        | None -> [||]
-      | None -> [||]
-    else [||]
-  let exports =
-    match wm.ExportSection with
-    | Some es ->
-      match es.Contents with
-      | Some ev -> ev.Elements |> Array.map exportEntryToSymbol
-      | None -> [||]
-    | None -> [||]
-  Array.append imports exports
-
-let getSymbols wm =
-  getDynamicSymbols wm None
-
 let importToLinkageTableEntry (entry: Import) =
   { FuncName = entry.Name
     LibraryName = entry.ModuleName
@@ -119,15 +64,3 @@ let getImports wm =
       |> Array.map importToLinkageTableEntry
     | None -> [||]
   | None -> [||]
-
-let tryFindFunSymName wm addr =
-  let sym =
-    getSymbols wm
-    |> Seq.filter (fun s ->
-      s.Address = addr
-      && (s.Kind = SymExternFunctionType || s.Kind = SymFunctionType)
-    )
-    |> Seq.tryHead
-  match sym with
-  | Some s -> Ok s.Name
-  | None -> Error ErrorCase.SymbolNotFound

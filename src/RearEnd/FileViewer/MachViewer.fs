@@ -183,35 +183,42 @@ let toVersionString (v: uint32) =
   let minor2 = v &&& uint32 0x000000FF
   major.ToString () + "." + minor1.ToString () + "." + minor2.ToString ()
 
-let printSymbolInfoVerbose file s (machSymbol: Mach.MachSymbol) cfg =
-  let externLibVerinfo =
-    match machSymbol.VerInfo with
-    | Some info ->
-      info.DyLibName
-      + String.wrapParen
-        "compatibility version " + toVersionString info.DyLibCmpVer + ", "
-        + "current version" + toVersionString info.DyLibCurVer
-    | None -> "(n/a)"
-  out.PrintRow (true, cfg,
-    [ visibilityString s
-      Addr.toString (file: IBinFile).ISA.WordSize s.Address
-      normalizeEmpty s.Name
-      (toLibString >> normalizeEmpty) s.LibraryName
-      machSymbol.SymType.ToString ()
-      machSymbol.SymDesc.ToString ()
-      machSymbol.IsExternal.ToString ()
-      externLibVerinfo
-      String.wrapSqrdBracket (machSymbol.SecNum.ToString ()); ""; ""; "" ])
+let getSymbolLibName (symbol: Mach.MachSymbol) =
+  match symbol.VerInfo with
+  | None -> ""
+  | Some v -> toLibString v.DyLibName |> normalizeEmpty
 
-let printSymbolInfoNone file s cfg =
-  out.PrintRow (true, cfg,
-    [ visibilityString s
-      Addr.toString (file: IBinFile).ISA.WordSize s.Address
-      normalizeEmpty s.Name
-      (toLibString >> normalizeEmpty) s.LibraryName
-      "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)" ])
+let getLibName (symb: Mach.MachSymbol) =
+  match symb.VerInfo with
+  | Some info ->
+    info.DyLibName
+    + String.wrapParen
+      "compatibility version " + toVersionString info.DyLibCmpVer + ", "
+      + "current version" + toVersionString info.DyLibCurVer
+  | None -> "(n/a)"
 
-let printSymbolInfo isVerbose (mach: MachBinFile) (symbols: seq<Symbol>) =
+let printSymbolInfoVerbose file (symb: Mach.MachSymbol) vis cfg =
+  out.PrintRow (true, cfg,
+    [ vis
+      Addr.toString (file: IBinFile).ISA.WordSize symb.SymAddr
+      normalizeEmpty symb.SymName
+      getSymbolLibName symb
+      symb.SymType.ToString ()
+      symb.SymDesc.ToString ()
+      symb.IsExternal.ToString ()
+      getLibName symb
+      String.wrapSqrdBracket (symb.SecNum.ToString ()); ""; ""; "" ])
+
+
+let printSymbolInfoNonVerbose mach (symb: Mach.MachSymbol) vis cfg =
+  out.PrintRow (true, cfg,
+    [ vis
+      $"{symb.SymType}"
+      Addr.toString (mach :> IBinFile).ISA.WordSize symb.SymAddr
+      normalizeEmpty symb.SymName
+      getLibName symb ])
+
+let printSymbolInfo isVerbose (mach: MachBinFile) =
   let addrColumn = columnWidthOfAddr mach |> LeftAligned
   if isVerbose then
     let cfg = [ LeftAligned 3; addrColumn; LeftAligned 40; LeftAligned 35
@@ -221,42 +228,53 @@ let printSymbolInfo isVerbose (mach: MachBinFile) (symbols: seq<Symbol>) =
                                "Type"; "Description"; "External"; "Version"
                                "SectionIndex" ])
     out.PrintLine "  ---"
-    symbols
-    |> Seq.sortBy (fun s -> s.Name)
-    |> Seq.sortBy (fun s -> s.Address)
-    |> Seq.sortBy (fun s -> s.Visibility)
-    |> Seq.iter (fun s ->
-      match mach.SymbolInfo.SymbolMap.TryFind s.Address with
-      | Some machSymbol -> printSymbolInfoVerbose mach s machSymbol cfg
-      | None -> printSymbolInfoNone mach s cfg)
+    mach.StaticSymbols
+    |> Array.sortBy (fun s -> s.SymName)
+    |> Array.sortBy (fun s -> s.SymAddr)
+    |> Array.iter (fun s -> printSymbolInfoVerbose mach s "(s)" cfg)
+    mach.DynamicSymbols
+    |> Array.sortBy (fun s -> s.SymName)
+    |> Array.sortBy (fun s -> s.SymAddr)
+    |> Array.iter (fun s -> printSymbolInfoVerbose mach s "(d)" cfg)
   else
     let cfg = [ LeftAligned 3; LeftAligned 10
                 addrColumn; LeftAligned 55; LeftAligned 15 ]
     out.PrintRow (true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
     out.PrintLine "  ---"
-    symbols
-    |> Seq.sortBy (fun s -> s.Name)
-    |> Seq.sortBy (fun s -> s.Address)
-    |> Seq.sortBy (fun s -> s.Visibility)
-    |> Seq.iter (fun s ->
-      out.PrintRow (true, cfg,
-        [ visibilityString s
-          symbolKindString s
-          Addr.toString (mach :> IBinFile).ISA.WordSize s.Address
-          normalizeEmpty s.Name
-          (toLibString >> normalizeEmpty) s.LibraryName ]))
+    mach.StaticSymbols
+    |> Array.sortBy (fun s -> s.SymName)
+    |> Array.sortBy (fun s -> s.SymAddr)
+    |> Array.iter (fun s -> printSymbolInfoNonVerbose mach s "(s)" cfg)
+    mach.DynamicSymbols
+    |> Array.sortBy (fun s -> s.SymName)
+    |> Array.sortBy (fun s -> s.SymAddr)
+    |> Array.iter (fun s -> printSymbolInfoNonVerbose mach s "(d)" cfg)
 
 let dumpSymbols (opts: FileViewerOpts) (mach: MachBinFile) =
-  (mach :> IBinFile).GetSymbols ()
-  |> printSymbolInfo opts.Verbose mach
+  printSymbolInfo opts.Verbose mach
 
-let dumpRelocs (opts: FileViewerOpts) (mach: MachBinFile) =
-  (mach :> IBinFile).GetRelocationInfos ()
-  |> printSymbolInfo opts.Verbose mach
+let dumpRelocs (_: FileViewerOpts) (mach: MachBinFile) =
+  let addrColumn = columnWidthOfAddr mach |> LeftAligned
+  let cfg = [ addrColumn; LeftAligned 55; LeftAligned 15 ]
+  out.PrintRow (true, cfg, [ "Address"; "Name"; "Length" ])
+  for reloc in mach.Relocations do
+    let addr = reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
+    let name = reloc.GetName (mach.SymbolInfo.Symbols, mach.Sections)
+    let len = reloc.RelocAddr
+    out.PrintRow (true, cfg, [
+      Addr.toString (mach :> IBinFile).ISA.WordSize addr
+      name
+      $"{len}"
+    ])
 
 let dumpFunctions (opts: FileViewerOpts) (mach: MachBinFile) =
-  (mach :> IBinFile).GetFunctionSymbols ()
-  |> printSymbolInfo opts.Verbose mach
+  let addrColumn = columnWidthOfAddr mach |> LeftAligned
+  let cfg = [ LeftAligned 3; LeftAligned 10
+              addrColumn; LeftAligned 55; LeftAligned 15 ]
+  for addr in (mach :> IBinFile).GetFunctionAddresses () do
+    match mach.SymbolInfo.SymbolMap.TryFind addr with
+    | Some symb -> printSymbolInfoNonVerbose mach symb "" cfg
+    | None -> ()
 
 let dumpArchiveHeader (opts: FileViewerOpts) (file: MachBinFile) =
   Terminator.futureFeature ()

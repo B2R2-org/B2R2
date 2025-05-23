@@ -34,7 +34,7 @@ type ELFTests () =
   static let parseFile fileName =
     let zipFile = fileName + ".zip"
     let bytes = ZIPReader.readBytes ELFBinary zipFile fileName
-    ELFBinFile (fileName, bytes, None, None) :> IBinFile
+    ELFBinFile (fileName, bytes, None, None)
 
   let assertExistenceOfRelocation (file: IBinFile) offset symbolName =
     (file :?> ELFBinFile).RelocationInfo.RelocByAddr
@@ -62,35 +62,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X86 EntryPoint test`` () =
-    Assert.AreEqual (Some 0x8049CD0UL, x86File.EntryPoint)
+    Assert.AreEqual<uint64> (0x8049CD0UL, x86File.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] X86 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, x86File.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (x86File :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] X86 IsStripped test`` () =
-    Assert.AreEqual<bool> (false, x86File.IsStripped)
+    Assert.AreEqual<bool> (false, (x86File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] X86 IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, x86File.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (x86File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] X86 sections length test`` () =
-    Assert.AreEqual<int> (31, (x86File :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (31, x86File.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86 static symbols length test`` () =
-    Assert.AreEqual<int> (793, x86File.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (793, x86File.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (131, x86File.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (131, x86File.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86 linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (114, x86File.GetLinkageTableEntries().Length)
+    let f = x86File :> IBinFile
+    Assert.AreEqual<int> (114, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] X86 text section address test`` () =
@@ -98,7 +99,8 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X86 isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit32, x86File.ISA.WordSize)
+    let f = x86File :> IBinFile
+    Assert.AreEqual (WordSize.Bit32, f.ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] X86 function symbol test (1)`` () =
@@ -134,35 +136,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped EntryPoint test`` () =
-    Assert.AreEqual (Some 0x8049CD0UL, x86SFile.EntryPoint)
+    Assert.AreEqual<uint64> (0x8049CD0UL, x86SFile.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, x86SFile.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (x86SFile :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped IsStripped test`` () =
-    Assert.AreEqual<bool> (true, x86SFile.IsStripped)
+    Assert.AreEqual<bool> (true, (x86SFile :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, x86SFile.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (x86SFile :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped sections length test`` () =
-    Assert.AreEqual<int> (29, (x86SFile :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (29, x86SFile.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, x86SFile.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (0, x86SFile.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (131, x86SFile.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (131, x86SFile.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (114, x86SFile.GetLinkageTableEntries().Length)
+    let f = x86SFile :> IBinFile
+    Assert.AreEqual<int> (114, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped text section address test`` () =
@@ -170,7 +173,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit32, x86SFile.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit32, (x86SFile :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped function symbol test (1)`` () =
@@ -206,35 +209,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X64 EntryPoint test`` () =
-    Assert.AreEqual (Some 0x404050UL, x64File.EntryPoint)
+    Assert.AreEqual<uint64> (0x404050UL, x64File.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] X64 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, x64File.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (x64File :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] X64 IsStripped test`` () =
-    Assert.AreEqual<bool> (false, x64File.IsStripped)
+    Assert.AreEqual<bool> (false, (x64File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] X64 IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, x64File.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (x64File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] X64 sections length test`` () =
-    Assert.AreEqual<int> (38, (x64File :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (38, x64File.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64 static symbols length test`` () =
-    Assert.AreEqual<int> (635, x64File.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (635, x64File.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (126, x64File.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (126, x64File.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64 linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (110, x64File.GetLinkageTableEntries().Length)
+    let f = x64File :> IBinFile
+    Assert.AreEqual<int> (110, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] X64 text section address test`` () =
@@ -242,7 +246,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X64 isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit64, x64File.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit64, (x64File :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] X64 function symbol test (1)`` () =
@@ -278,35 +282,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped EntryPoint test`` () =
-    Assert.AreEqual (Some 0x404050UL, x64SFile.EntryPoint)
+    Assert.AreEqual<uint64> (0x404050UL, x64SFile.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, x64SFile.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (x64SFile :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped IsStripped test`` () =
-    Assert.AreEqual<bool> (true, x64SFile.IsStripped)
+    Assert.AreEqual<bool> (true, (x64SFile :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, x64SFile.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (x64SFile :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped sections length test`` () =
-    Assert.AreEqual<int> (29, (x64SFile :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (29, x64SFile.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, x64SFile.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (0, x64SFile.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (126, x64SFile.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (126, x64SFile.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (110, x64SFile.GetLinkageTableEntries().Length)
+    let f = x64SFile :> IBinFile
+    Assert.AreEqual<int> (110, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped text section address test`` () =
@@ -314,7 +319,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit64, x64SFile.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit64, (x64SFile :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped function symbol test (1)`` () =
@@ -350,35 +355,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] arm32 EntryPoint test`` () =
-    Assert.AreEqual (Some 0x00013D0CUL, arm32File.EntryPoint)
+    Assert.AreEqual<uint64> (0x00013D0CUL, arm32File.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] arm32 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, arm32File.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (arm32File :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] arm32 IsStripped test`` () =
-    Assert.AreEqual<bool> (false, arm32File.IsStripped)
+    Assert.AreEqual<bool> (false, (arm32File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] arm32 IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, arm32File.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (arm32File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] arm32 sections length test`` () =
-    Assert.AreEqual<int> (38, (arm32File :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (38, arm32File.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32 static symbols length test`` () =
-    Assert.AreEqual<int> (1299, arm32File.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (1299, arm32File.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, arm32File.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (136, arm32File.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32 linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (121, arm32File.GetLinkageTableEntries().Length)
+    let f = arm32File :> IBinFile
+    Assert.AreEqual<int> (121, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32 text section address test`` () =
@@ -386,7 +392,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] arm32 isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit32, arm32File.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit32, (arm32File :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] arm32 function symbol test (1)`` () =
@@ -422,35 +428,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped EntryPoint test`` () =
-    Assert.AreEqual (Some 0x00013D0CUL, arm32SFile.EntryPoint)
+    Assert.AreEqual<uint64> (0x00013D0CUL, arm32SFile.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, arm32SFile.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (arm32SFile :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped IsStripped test`` () =
-    Assert.AreEqual<bool> (true, arm32SFile.IsStripped)
+    Assert.AreEqual<bool> (true, (arm32SFile :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, arm32SFile.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (arm32SFile :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped sections length test`` () =
-    Assert.AreEqual<int> (28, (arm32SFile :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (28, arm32SFile.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, arm32SFile.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (0, arm32SFile.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, arm32SFile.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (136, arm32SFile.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (121, arm32SFile.GetLinkageTableEntries().Length)
+    let f = arm32SFile :> IBinFile
+    Assert.AreEqual<int> (121, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped text section address test`` () =
@@ -458,7 +465,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit32, arm32SFile.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit32, (arm32SFile :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped function symbol test (1)`` () =
@@ -494,35 +501,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] thumb EntryPoint test`` () =
-    Assert.AreEqual (Some 0x00013605UL, thumbFile.EntryPoint)
+    Assert.AreEqual<uint64> (0x00013605UL, thumbFile.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] thumb file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, thumbFile.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (thumbFile :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] thumb IsStripped test`` () =
-    Assert.AreEqual<bool> (false, thumbFile.IsStripped)
+    Assert.AreEqual<bool> (false, (thumbFile :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] thumb IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, thumbFile.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (thumbFile :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] thumb sections length test`` () =
-    Assert.AreEqual<int> (38, (thumbFile :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (38, thumbFile.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb static symbols length test`` () =
-    Assert.AreEqual<int> (1088, thumbFile.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (1088, thumbFile.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, thumbFile.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (136, thumbFile.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (121, thumbFile.GetLinkageTableEntries().Length)
+    let f = thumbFile :> IBinFile
+    Assert.AreEqual<int> (121, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb text section address test`` () =
@@ -530,7 +538,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] thumb isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit32, thumbFile.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit32, (thumbFile :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] thumb function symbol test (1)`` () =
@@ -566,35 +574,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped EntryPoint test`` () =
-    Assert.AreEqual (Some 0x00013605UL, thumbSFile.EntryPoint)
+    Assert.AreEqual<uint64> (0x00013605UL, thumbSFile.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, thumbSFile.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (thumbSFile :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped IsStripped test`` () =
-    Assert.AreEqual<bool> (true, thumbSFile.IsStripped)
+    Assert.AreEqual<bool> (true, (thumbSFile :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, thumbSFile.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (thumbSFile :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped sections length test`` () =
-    Assert.AreEqual<int> (28, (thumbSFile :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (28, thumbSFile.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, thumbSFile.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (0, thumbSFile.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, thumbSFile.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (136, thumbSFile.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (121, thumbSFile.GetLinkageTableEntries().Length)
+    let f = thumbSFile :> IBinFile
+    Assert.AreEqual<int> (121, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped text section address test`` () =
@@ -602,7 +611,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit32, thumbSFile.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit32, (thumbSFile :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped function symbol test (1)`` () =
@@ -638,36 +647,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] aarch64 EntryPoint test`` () =
-    Assert.AreEqual (Some 0x00404788UL, aarch64File.EntryPoint)
+    Assert.AreEqual<uint64> (0x00404788UL, aarch64File.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, aarch64File.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (aarch64File :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 IsStripped test`` () =
-    Assert.AreEqual<bool> (false, aarch64File.IsStripped)
+    Assert.AreEqual<bool> (false, (aarch64File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, aarch64File.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (aarch64File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 sections length test`` () =
-    Assert.AreEqual<int> (37,
-                          (aarch64File :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (37, aarch64File.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 static symbols length test`` () =
-    Assert.AreEqual<int> (935, aarch64File.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (935, aarch64File.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, aarch64File.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (136, aarch64File.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (121, aarch64File.GetLinkageTableEntries().Length)
+    let f = aarch64File :> IBinFile
+    Assert.AreEqual<int> (121, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 text section address test`` () =
@@ -675,7 +684,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] aarch64 isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit64, aarch64File.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit64, (aarch64File :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 function symbol test (1)`` () =
@@ -711,36 +720,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped EntryPoint test`` () =
-    Assert.AreEqual (Some 0x00404788UL, aarch64SFile.EntryPoint)
+    Assert.AreEqual<uint64> (0x00404788UL, aarch64SFile.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, aarch64SFile.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (aarch64SFile :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped IsStripped test`` () =
-    Assert.AreEqual<bool> (true, aarch64SFile.IsStripped)
+    Assert.AreEqual<bool> (true, (aarch64SFile :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, aarch64SFile.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (aarch64SFile :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped sections length test`` () =
-    Assert.AreEqual<int> (27,
-                          (aarch64SFile :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (27, aarch64SFile.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, aarch64SFile.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (0, aarch64SFile.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, aarch64SFile.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (136, aarch64SFile.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (121, aarch64SFile.GetLinkageTableEntries().Length)
+    let f = aarch64SFile :> IBinFile
+    Assert.AreEqual<int> (121, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped text section address test`` () =
@@ -748,7 +757,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit64, aarch64SFile.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit64, (aarch64SFile :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped function symbol test (1)`` () =
@@ -784,35 +793,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped EntryPoint test`` () =
-    Assert.AreEqual (Some 0x00004C80UL, mips32File.EntryPoint)
+    Assert.AreEqual<uint64> (0x00004C80UL, mips32File.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped file type test`` () =
-    Assert.AreEqual (FileType.LibFile, mips32File.Type)
+    Assert.AreEqual (FileType.LibFile, (mips32File :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped IsStripped test`` () =
-    Assert.AreEqual<bool> (true, mips32File.IsStripped)
+    Assert.AreEqual<bool> (true, (mips32File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (false, mips32File.IsNXEnabled)
+    Assert.AreEqual<bool> (false, (mips32File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped sections length test`` () =
-    Assert.AreEqual<int> (34, (mips32File :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (34, mips32File.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, mips32File.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (0, mips32File.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (232, mips32File.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (232, mips32File.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (106, mips32File.GetLinkageTableEntries().Length)
+    let f = mips32File :> IBinFile
+    Assert.AreEqual<int> (106, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped text section address test`` () =
@@ -820,7 +830,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit32, mips32File.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit32, (mips32File :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped function symbol test (1)`` () =
@@ -848,36 +858,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le EntryPoint test`` () =
-    Assert.AreEqual (Some 0x00004C80UL, mips32leFile.EntryPoint)
+    Assert.AreEqual<uint64> (0x00004C80UL, mips32leFile.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le file type test`` () =
-    Assert.AreEqual (FileType.LibFile, mips32leFile.Type)
+    Assert.AreEqual (FileType.LibFile, (mips32leFile :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le IsStripped test`` () =
-    Assert.AreEqual<bool> (true, mips32leFile.IsStripped)
+    Assert.AreEqual<bool> (true, (mips32leFile :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (false, mips32leFile.IsNXEnabled)
+    Assert.AreEqual<bool> (false, (mips32leFile :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le sections length test`` () =
-    Assert.AreEqual<int> (34,
-                          (mips32leFile :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (34, mips32leFile.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le static symbols length test`` () =
-    Assert.AreEqual<int> (0, mips32leFile.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (0, mips32leFile.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le dynamic symbols length test`` () =
-    Assert.AreEqual<int> (232, mips32leFile.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (232, mips32leFile.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (106, mips32leFile.GetLinkageTableEntries().Length)
+    let f = mips32leFile :> IBinFile
+    Assert.AreEqual<int> (106, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le text section address test`` () =
@@ -885,7 +895,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit32, mips32leFile.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit32, (mips32leFile :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le function symbol test (1)`` () =
@@ -913,35 +923,36 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped EntryPoint test`` () =
-    Assert.AreEqual (Some 0x0000ADE0UL, mips64File.EntryPoint)
+    Assert.AreEqual<uint64> (0x0000ADE0UL, mips64File.Header.EntryPoint)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped file type test`` () =
-    Assert.AreEqual (FileType.LibFile, mips64File.Type)
+    Assert.AreEqual (FileType.LibFile, (mips64File :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped IsStripped test`` () =
-    Assert.AreEqual<bool> (true, mips64File.IsStripped)
+    Assert.AreEqual<bool> (true, (mips64File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (false, mips64File.IsNXEnabled)
+    Assert.AreEqual<bool> (false, (mips64File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped sections length test`` () =
-    Assert.AreEqual<int> (32, (mips64File :?> ELFBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (32, mips64File.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, mips64File.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (0, mips64File.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (232, mips64File.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (232, mips64File.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (106, mips64File.GetLinkageTableEntries().Length)
+    let f = mips64File :> IBinFile
+    Assert.AreEqual<int> (106, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped text section address test`` () =
@@ -949,7 +960,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit64, mips64File.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit64, (mips64File :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped function symbol test (1)`` () =

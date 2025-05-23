@@ -40,7 +40,6 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
   let names = extractNames codeObject
   let varnames = extractVarNames codeObject
   let operator = [||]
-  let symbolMap = Dictionary<Addr, Symbol> ()
 
   /// Python magic
   member _.Magic with get() = magic
@@ -108,20 +107,8 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.GetVMMappedRegions _permission = [||]
 
-    member _.TryFindFunctionName (addr) =
-      if symbolMap.ContainsKey(addr) then Ok symbolMap[addr].Name
-      else Error ErrorCase.SymbolNotFound
-
-    member _.GetSymbols () =
-      symbolMap.Values |> Seq.toArray
-
-    member this.GetStaticSymbols () = (this :> IBinFile).GetSymbols ()
-
-    member this.GetFunctionSymbols () = (this :> IBinFile).GetStaticSymbols ()
-
-    member _.GetDynamicSymbols (?_excludeImported) = [||]
-
-    member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
+    member _.TryFindFunctionName _ =
+      Error ErrorCase.SymbolNotFound
 
     member _.GetTextSectionPointer () =
       Terminator.futureFeature ()
@@ -131,15 +118,10 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.IsInTextOrDataOnlySection _ = Terminator.futureFeature ()
 
-    member this.GetFunctionAddresses () =
-      (this :> IBinFile).GetFunctionSymbols ()
-      |> Array.filter (fun s -> s.Kind = SymFunctionType)
-      |> Array.map (fun s -> s.Address)
+    member _.GetFunctionAddresses () = Terminator.futureFeature ()
 
     member this.GetFunctionAddresses (_) =
       (this :> IBinFile).GetFunctionAddresses ()
-
-    member _.GetRelocationInfos () = [||]
 
     member _.HasRelocationInfo _addr = false
 

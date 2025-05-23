@@ -98,17 +98,8 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
     member _.GetVMMappedRegions _permission = [||]
 
-    member _.TryFindFunctionName (addr) = tryFindFunSymName wm addr
-
-    member _.GetSymbols () = getSymbols wm
-
-    member _.GetStaticSymbols () = [||]
-
-    member _.GetFunctionSymbols () = Terminator.futureFeature ()
-
-    member _.GetDynamicSymbols (?exc) = getDynamicSymbols wm exc
-
-    member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
+    member _.TryFindFunctionName _addr =
+      Terminator.futureFeature ()
 
     member _.GetTextSectionPointer () =
       match wm.CodeSection with
@@ -126,8 +117,6 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
     member _.GetFunctionAddresses () = Terminator.futureFeature ()
 
     member _.GetFunctionAddresses (_) = Terminator.futureFeature ()
-
-    member _.GetRelocationInfos () = [||]
 
     member _.HasRelocationInfo _addr = false
 

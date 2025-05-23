@@ -185,35 +185,75 @@ let dumpSectionDetails (secname: string) (file: PEBinFile) =
     |> List.iter (fun str -> out.PrintTwoCols "" str)
   | None -> out.PrintTwoCols "" "Not found."
 
-let printSymbolInfo (pe: PEBinFile) (symbols: seq<Symbol>) =
+let printSymbolRow pe cfg vis flags addr name libName =
+  out.PrintRow (true, cfg,
+    [ vis
+      flags
+      Addr.toString (pe :> IBinFile).ISA.WordSize addr
+      normalizeEmpty name
+      libName ])
+
+let printSymbolInfo (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
   let cfg = [ LeftAligned 3; LeftAligned 10
               addrColumn; LeftAligned 50; LeftAligned 15 ]
   out.PrintRow (true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
   out.PrintLine "  ---"
-  symbols
-  |> Seq.sortBy (fun s -> s.Name)
-  |> Seq.sortBy (fun s -> s.Address)
-  |> Seq.sortBy (fun s -> s.Visibility)
-  |> Seq.iter (fun s ->
-    out.PrintRow (true, cfg,
-      [ visibilityString s
-        symbolKindString s
-        Addr.toString (pe :> IBinFile).ISA.WordSize s.Address
-        normalizeEmpty s.Name
-        (toLibString >> normalizeEmpty) s.LibraryName ]))
+  for s in pe.PE.SymbolInfo.SymbolArray do
+    printSymbolRow pe cfg "(s)" $"{s.Flags}" s.Address s.Name ""
+  pe.PE.ImportMap
+  |> Map.iter (fun rva imp ->
+    let addr = pe.PE.BaseAddr + uint64 rva
+    match imp with
+    | PE.ImportByOrdinal (ord, dllname) ->
+      printSymbolRow pe cfg "(d)" $"{ord}" addr $"#{ord}" dllname
+    | PE.ImportByName (hint, fn, dllname) ->
+      printSymbolRow pe cfg "(d)" $"{hint}" addr fn dllname
+  )
+  pe.PE.ExportMap
+  |> Map.iter (fun addr names ->
+    for name in names do
+      let rva = int (addr - pe.PE.BaseAddr)
+      let idx = pe.PE.FindSectionIdxFromRVA rva
+      if idx = -1 then ()
+      else
+        let schr = pe.PE.SectionHeaders[idx].SectionCharacteristics
+        printSymbolRow pe cfg "(d)" $"{schr}" addr name ""
+  )
+  pe.PE.ForwardMap
+  |> Map.iter (fun name (fwdBin, fwdFunc) ->
+    printSymbolRow pe cfg "(d)" $"{fwdBin},{fwdFunc}" 0UL name ""
+  )
 
 let dumpSymbols _ (pe: PEBinFile) =
-  (pe :> IBinFile).GetSymbols ()
-  |> printSymbolInfo pe
+  printSymbolInfo pe
 
 let dumpRelocs _ (pe: PEBinFile) =
-  (pe :> IBinFile).GetRelocationInfos ()
-  |> printSymbolInfo pe
+  let addrColumn = columnWidthOfAddr pe |> LeftAligned
+  let cfg = [ addrColumn; LeftAligned 50 ]
+  out.PrintRow (true, cfg, [ "Address"; "Relocation Type" ])
+  out.PrintLine " ---"
+  for block in pe.PE.RelocBlocks do
+    for entry in block.Entries do
+      let addr = uint64 block.PageRVA + uint64 entry.Offset
+      out.PrintRow (true, cfg, [
+        Addr.toString (pe :> IBinFile).ISA.WordSize addr
+        $"{entry.Type}"
+      ])
 
 let dumpFunctions _ (pe: PEBinFile) =
-  (pe :> IBinFile).GetFunctionSymbols ()
-  |> printSymbolInfo pe
+  let addrColumn = columnWidthOfAddr pe |> LeftAligned
+  let cfg = [ addrColumn; LeftAligned 50 ]
+  out.PrintRow (true, cfg, [ "Address"; "Function" ])
+  out.PrintLine " ---"
+  for addr in (pe :> IBinFile).GetFunctionAddresses () do
+    match (pe :> IBinFile).TryFindFunctionName addr with
+    | Ok name ->
+      out.PrintRow (true, cfg, [
+        Addr.toString (pe :> IBinFile).ISA.WordSize addr
+        name
+      ])
+    | Error _ -> ()
 
 let inline addrFromRVA baseAddr rva =
   uint64 rva + baseAddr

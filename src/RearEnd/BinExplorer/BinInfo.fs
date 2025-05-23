@@ -50,8 +50,6 @@ type CmdBinInfo () =
     let isa = brew.BinHandle.File.ISA
     let fmt = brew.BinHandle.File.Format |> FileFormat.toString
     let entry = file.EntryPoint |> String.entryPointToString
-    let staticSymNum = file.GetStaticSymbols () |> Seq.length
-    let dynamicSymNum = file.GetDynamicSymbols () |> Seq.length
     let fileType = file.Type |> FileType.toString
     let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
     [| "[*] Binary information:\n"
@@ -60,8 +58,6 @@ type CmdBinInfo () =
        sprintf "- File Format: %s" fmt
        sprintf "- File Type: %s" fileType
        sprintf "- Entry Point Address: %s" entry
-       sprintf "- Number of Static Symbols: %d" staticSymNum
-       sprintf "- Number of Dynamic Symbols: %d" dynamicSymNum
        sprintf "- NX bit: %s" nx |]
     |> Array.map OutputNormal
 

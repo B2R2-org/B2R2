@@ -37,18 +37,28 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
   let segMap = lazy Segment.buildMap segCmds.Value
   let secs = lazy Section.parse toolBox segCmds.Value
   let symInfo = lazy Symbol.parse toolBox cmds.Value secs.Value
-  let relocs = lazy Reloc.parse toolBox symInfo.Value secs.Value
+  let relocs = lazy Reloc.parse toolBox secs.Value
   let notInMemRanges = lazy invalidRangesByVM toolBox segCmds.Value
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
   let executableRanges = lazy executableRanges segCmds.Value
 
-  member _.Header with get() = toolBox.Header
+  member _.Header with get () = toolBox.Header
 
-  member _.Commands with get() = cmds.Value
+  member _.Commands with get () = cmds.Value
 
-  member _.Sections with get() = secs.Value
+  member _.Sections with get () = secs.Value
 
-  member _.SymbolInfo with get() = symInfo.Value
+  member _.SymbolInfo with get () = symInfo.Value
+
+  member _.StaticSymbols with get () =
+    symInfo.Value.Symbols
+    |> Array.filter Symbol.isStatic
+
+  member _.DynamicSymbols with get () =
+    symInfo.Value.Symbols
+    |> Array.filter (Symbol.isStatic >> not)
+
+  member _.Relocations with get () = relocs.Value
 
   member _.IsPLT (sec: MachSection) =
     match sec.SecType with
@@ -148,26 +158,6 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
     member _.TryFindFunctionName (addr) =
       tryFindFuncSymb symInfo.Value addr
 
-    member _.GetSymbols () = getSymbols secs.Value symInfo.Value
-
-    member _.GetStaticSymbols () =
-      getStaticSymbols secs.Value symInfo.Value
-
-    member this.GetFunctionSymbols () =
-      let f = this :> IBinFile
-      let staticSymbols =
-        f.GetStaticSymbols ()
-        |> Array.filter (fun s -> s.Kind = SymFunctionType)
-      let dynamicSymbols =
-        f.GetDynamicSymbols (true)
-        |> Array.filter (fun s -> s.Kind = SymFunctionType)
-      Array.append staticSymbols dynamicSymbols
-
-    member _.GetDynamicSymbols (?e) =
-      getDynamicSymbols e secs.Value symInfo.Value
-
-    member _.AddSymbol _addr _symbol = Terminator.futureFeature ()
-
     member _.GetTextSectionPointer () =
       let secs = secs.Value
       let secText = Section.getTextSectionIndex secs
@@ -196,18 +186,18 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
         | Some sec -> sec.SecName = Section.SecText
         | None -> false
 
-    member this.GetFunctionAddresses () =
-      (this :> IBinFile).GetFunctionSymbols ()
-      |> Array.map (fun s -> s.Address)
+    member _.GetFunctionAddresses () =
+      let secText = Section.getTextSectionIndex secs.Value
+      [| for s in symInfo.Value.Symbols do
+           if Symbol.isFunc secText s && s.SymAddr > 0UL then s.SymAddr |]
 
     member this.GetFunctionAddresses (_) =
       (this :> IBinFile).GetFunctionAddresses ()
 
-    member _.GetRelocationInfos () = relocs.Value
-
     member _.HasRelocationInfo addr =
       relocs.Value
-      |> Array.exists (fun r -> r.Address = addr)
+      |> Array.exists (fun r ->
+        (r.RelocSection.SecAddr + uint64 r.RelocAddr) = addr)
 
     member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 

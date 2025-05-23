@@ -94,45 +94,12 @@ let translateAddrToOffset loadableSegs sections addr =
 let translateOffsetToAddr loadableSegs sections offset =
   translate loadableSegs sections true offset
 
-let isFuncSymb s =
-  s.SymType = SymbolType.STT_FUNC || s.SymType = SymbolType.STT_GNU_IFUNC
-
 let inline tryFindFuncSymb symbolInfo addr =
   match symbolInfo.AddrToSymbTable.TryGetValue addr with
   | true, s ->
-    if isFuncSymb s then Ok s.SymName
+    if Symbol.isFunc s then Ok s.SymName
     else Error ErrorCase.SymbolNotFound
   | false, _ -> Error ErrorCase.SymbolNotFound
-
-let getStaticSymbols shdrs symbols =
-  Symbol.getStaticSymArray shdrs symbols.SecNumToSymbTbls
-  |> Array.map (Symbol.toB2R2Symbol SymbolVisibility.StaticSymbol)
-
-let getDynamicSymbols excludeImported shdrs symbols =
-  let excludeImported = defaultArg excludeImported false
-  let alwaysTrue = fun _ -> true
-  let filter =
-    if excludeImported then (fun s -> s.SecHeaderIndex <> SHN_UNDEF)
-    else alwaysTrue
-  Symbol.getDynamicSymArray shdrs symbols.SecNumToSymbTbls
-  |> Array.filter filter
-  |> Array.map (Symbol.toB2R2Symbol SymbolVisibility.DynamicSymbol)
-
-let getSymbols shdrs symbols =
-  let s = getStaticSymbols shdrs symbols
-  let d = getDynamicSymbols None shdrs symbols
-  Array.append s d
-
-let getRelocSymbols relocInfo =
-  let translate reloc =
-    reloc.RelSymbol
-    |> Option.bind (fun s ->
-         { s with Addr = reloc.RelOffset }
-         |> Symbol.toB2R2Symbol SymbolVisibility.DynamicSymbol
-         |> Some)
-  relocInfo.RelocByName.Values
-  |> Seq.choose translate
-  |> Seq.toArray
 
 let getRelocatedAddr relocInfo relocAddr =
   match relocInfo.RelocByAddr.TryGetValue relocAddr with
@@ -168,46 +135,49 @@ let getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo section =
         | Ok relocatedAddr -> lst.Add relocatedAddr
         | Error _ -> ()
       else lst.Add fnAddr)
-  lst |> seq
+  lst.ToArray ()
 
 let getAddrsFromInitArray toolBox shdrs loadables relocInfo =
   match Array.tryFind (fun s -> s.SecName = ".init_array") shdrs with
   | Some s ->
     let span = ReadOnlySpan (toolBox.Bytes, int s.SecOffset, int s.SecSize)
     getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
-  | None -> Seq.empty
+  | None -> [||]
 
 let getAddrsFromFiniArray toolBox shdrs loadables relocInfo =
   match Array.tryFind (fun s -> s.SecName = ".fini_array") shdrs with
   | Some s ->
     let span = ReadOnlySpan (toolBox.Bytes, int s.SecOffset, int s.SecSize)
     getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
-  | None -> Seq.empty
+  | None -> [||]
 
 let getAddrsFromSpecialSections shdrs =
-  [ ".init"; ".fini" ]
-  |> Seq.choose (fun secName ->
+  [| ".init"; ".fini" |]
+  |> Array.choose (fun secName ->
     match Array.tryFind (fun s -> s.SecName = secName) shdrs with
     | Some sec -> Some sec.SecAddr
     | None -> None)
 
-let addExtraFunctionAddrs toolBox shdrs loadables relocInfo exnInfoOpt addrs =
-  let addrSet =
-    [ addrs
-      getAddrsFromInitArray toolBox shdrs loadables relocInfo
-      getAddrsFromFiniArray toolBox shdrs loadables relocInfo
-      getAddrsFromSpecialSections shdrs ]
-    |> Seq.concat
-    |> Set.ofSeq
+let findFunctionsFromExceptionFrame exnInfo =
+  let lst = List ()
+  for cfi in exnInfo.ExceptionFrames do
+    for fde in cfi.FDERecord do
+      lst.Add fde.PCBegin
+  lst.ToArray ()
+
+let findExtraFnAddrs toolBox shdrs loadables relocInfo exnInfoOpt =
   match exnInfoOpt with
   | Some exnInfo ->
-    exnInfo.ExceptionFrames
-    |> List.fold (fun set cfi ->
-      cfi.FDERecord
-      |> Array.fold (fun set fde -> Set.add fde.PCBegin set) set
-    ) addrSet
-    |> Set.toArray
-  | None -> addrSet |> Set.toArray
+    [ getAddrsFromInitArray toolBox shdrs loadables relocInfo
+      getAddrsFromFiniArray toolBox shdrs loadables relocInfo
+      getAddrsFromSpecialSections shdrs
+      findFunctionsFromExceptionFrame exnInfo ]
+    |> Array.concat
+  | None ->
+    [ getAddrsFromInitArray toolBox shdrs loadables relocInfo
+      getAddrsFromFiniArray toolBox shdrs loadables relocInfo
+      getAddrsFromSpecialSections shdrs ]
+    |> Array.concat
 
 let private computeInvalidRanges wordSize phdrs getNextStartAddr =
   phdrs

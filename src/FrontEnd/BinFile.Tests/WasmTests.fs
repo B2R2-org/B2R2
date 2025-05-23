@@ -55,21 +55,9 @@ type WasmTests () =
     Assert.AreEqual<uint64> (0x154UL, getTextSectionAddr file)
 
   [<TestMethod>]
-  member _.``[Wasm] symbols length test`` () =
-    Assert.AreEqual<int> (9, file.GetSymbols () |> Seq.length)
-
-  [<TestMethod>]
   member _.``[Wasm] sections length test`` () =
     Assert.AreEqual<int> (12, (file :?> WasmBinFile).Sections.Length)
 
   [<TestMethod>]
   member _.``[Wasm] linkageTableEntries length test`` () =
     Assert.AreEqual<int> (4, file.GetLinkageTableEntries () |> Seq.length)
-
-  [<TestMethod>]
-  member _.``[Wasm] function symbol test (1)`` () =
-    assertFuncSymbolExistence file 0x0000007AUL "putc_js"
-
-  [<TestMethod>]
-  member _.``[Wasm] function symbol test (2)`` () =
-    assertFuncSymbolExistence file 0x00000116UL "writev_c"

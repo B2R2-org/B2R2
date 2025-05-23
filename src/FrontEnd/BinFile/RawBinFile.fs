@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile
 
 open System
-open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -36,7 +35,6 @@ open B2R2.FrontEnd.BinLifter
 type RawBinFile (path, bytes: byte[], isa: ISA, baseAddrOpt) =
   let size = bytes.Length
   let baseAddr = defaultArg baseAddrOpt 0UL
-  let symbolMap = Dictionary<Addr, Symbol> ()
   let reader = BinReader.Init isa.Endian
 
   interface IBinFile with
@@ -96,19 +94,7 @@ type RawBinFile (path, bytes: byte[], isa: ISA, baseAddrOpt) =
       [| AddrRange (baseAddr, baseAddr + uint64 size - 1UL) |]
 
     member _.TryFindFunctionName (_addr) =
-      if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
-      else Error ErrorCase.SymbolNotFound
-
-    member _.GetSymbols () =
-      Seq.map (fun (KeyValue(k, v)) -> v) symbolMap |> Seq.toArray
-
-    member this.GetStaticSymbols () = (this :> IBinFile).GetSymbols ()
-
-    member this.GetFunctionSymbols () = (this :> IBinFile).GetStaticSymbols ()
-
-    member _.GetDynamicSymbols (?_excludeImported) = [||]
-
-    member _.AddSymbol addr symbol = symbolMap[addr] <- symbol
+      Error ErrorCase.SymbolNotFound
 
     member _.GetTextSectionPointer () =
       BinFilePointer (baseAddr, baseAddr + uint64 size - 1UL, 0, size - 1)
@@ -118,15 +104,9 @@ type RawBinFile (path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.IsInTextOrDataOnlySection _ = true
 
-    member this.GetFunctionAddresses () =
-      (this :> IBinFile).GetFunctionSymbols ()
-      |> Array.filter (fun s -> s.Kind = SymFunctionType)
-      |> Array.map (fun s -> s.Address)
+    member _.GetFunctionAddresses () = [||]
 
-    member this.GetFunctionAddresses (_) =
-      (this :> IBinFile).GetFunctionAddresses ()
-
-    member _.GetRelocationInfos () = [||]
+    member _.GetFunctionAddresses (_) = [||]
 
     member _.HasRelocationInfo _ = false
 

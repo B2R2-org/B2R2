@@ -47,8 +47,10 @@ let getOptimizer (opts: BinDumpOpts) =
 
 let makeFuncSymbolDic (hdl: BinHandle) =
   let funcs = Dictionary ()
-  hdl.File.GetFunctionSymbols ()
-  |> Seq.iter (fun s -> funcs.TryAdd (s.Address, s.Name) |> ignore)
+  for addr in hdl.File.GetFunctionAddresses () do
+    match hdl.File.TryFindFunctionName addr with
+    | Ok name -> funcs.TryAdd (addr, name) |> ignore
+    | Error _ -> ()
   hdl.File.GetFunctionAddresses ()
   |> Seq.iter (fun a ->
     if funcs.ContainsKey a then ()
@@ -71,11 +73,11 @@ let makeArchModeDic (hdl: BinHandle) =
   let modes = Dictionary ()
   match hdl.File.Format, hdl.File.ISA with
   | FileFormat.ELFBinary, ARM32 ->
-    hdl.File.GetSymbols ()
-    |> Seq.iter (fun s ->
-      if s.ARMLinkerSymbol <> ARMLinkerSymbol.None then
-        modes[s.Address] <- s.ARMLinkerSymbol
-      else ())
+    let elf = hdl.File :?> ELFBinFile
+    for s in elf.StaticSymbols do
+      if s.ARMLinkerSymbol <> ELF.ARMLinkerSymbol.None then
+        modes[s.Addr] <- s.ARMLinkerSymbol
+      else ()
   | _ -> ()
   modes
 
@@ -166,9 +168,9 @@ let printFuncSymbol (dict: Dictionary<Addr, string>) addr =
   | false, _ -> ()
 
 let updateMode dict (modeSwitch: ARM32.IModeSwitchable) addr =
-  match (dict: Dictionary<Addr, ARMLinkerSymbol>).TryGetValue addr with
-  | true, ARMLinkerSymbol.ARM -> modeSwitch.IsThumb <- false
-  | true, ARMLinkerSymbol.Thumb -> modeSwitch.IsThumb <- true
+  match (dict: Dictionary<Addr, ELF.ARMLinkerSymbol>).TryGetValue addr with
+  | true, ELF.ARMLinkerSymbol.ARM -> modeSwitch.IsThumb <- false
+  | true, ELF.ARMLinkerSymbol.Thumb -> modeSwitch.IsThumb <- true
   | _ -> ()
 
 [<AbstractClass>]

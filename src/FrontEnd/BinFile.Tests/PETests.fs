@@ -38,7 +38,7 @@ type PETests () =
     let pdbBytes =
       if pdbFileName.Length = 0 then [||]
       else ZIPReader.readBytes PEBinary zipFile pdbFileName
-    PEBinFile (fileNameInZip, bytes, None, pdbBytes) :> IBinFile
+    PEBinFile (fileNameInZip, bytes, None, pdbBytes)
 
   let assertExistenceOfRelocBlock (file: IBinFile) pageRVA blockSize =
     (file :?> PEBinFile).PE.RelocBlocks
@@ -57,31 +57,32 @@ type PETests () =
 
   [<TestMethod>]
   member _.``[PE] X86 EntryPoint test`` () =
-    Assert.AreEqual (Some 0x0040140cUL, x86File.EntryPoint)
+    Assert.AreEqual (Some 0x0040140cUL, (x86File :> IBinFile).EntryPoint)
 
   [<TestMethod>]
   member _.``[PE] X86 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, x86File.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (x86File :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[PE] X86 IsStripped test`` () =
-    Assert.AreEqual<bool> (false, x86File.IsStripped)
+    Assert.AreEqual<bool> (false, (x86File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[PE] X86 IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, x86File.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (x86File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[PE] X86 sections length test`` () =
-    Assert.AreEqual<int> (5, (x86File :?> PEBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (5, x86File.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[PE] X86 static symbols length test`` () =
-    Assert.AreEqual<int> (239, x86File.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (239, x86File.PE.SymbolInfo.SymbolArray.Length)
 
   [<TestMethod>]
   member _.``[PE] X86 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (41, x86File.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (41, x86File.PE.ImportMap.Count)
+    Assert.AreEqual<int> (0, x86File.PE.ExportMap.Count)
 
   [<TestMethod>]
   member _.``[PE] X86 text section address test`` () =
@@ -89,7 +90,7 @@ type PETests () =
 
   [<TestMethod>]
   member _.``[PE] X86 isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit32, x86File.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit32, (x86File :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[PE] X86 function symbol test (1)`` () =
@@ -133,31 +134,32 @@ type PETests () =
 
   [<TestMethod>]
   member _.``[PE] X64 EntryPoint test`` () =
-    Assert.AreEqual (Some 0x1400014b4UL, x64File.EntryPoint)
+    Assert.AreEqual (Some 0x1400014b4UL, (x64File :> IBinFile).EntryPoint)
 
   [<TestMethod>]
   member _.``[PE] X64 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, x64File.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (x64File :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[PE] X64 IsStripped test`` () =
-    Assert.AreEqual<bool> (false, x64File.IsStripped)
+    Assert.AreEqual<bool> (false, (x64File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[PE] X64 IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, x64File.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (x64File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[PE] X64 sections length test`` () =
-    Assert.AreEqual<int> (6, (x64File :?> PEBinFile).SectionHeaders.Length)
+    Assert.AreEqual<int> (6, x64File.SectionHeaders.Length)
 
   [<TestMethod>]
   member _.``[PE] X64 static symbols length test`` () =
-    Assert.AreEqual<int> (240, x64File.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (240, x64File.PE.SymbolInfo.SymbolArray.Length)
 
   [<TestMethod>]
   member _.``[PE] X64 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (43, x64File.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (43, x64File.PE.ImportMap.Count)
+    Assert.AreEqual<int> (0, x64File.PE.ExportMap.Count)
 
   [<TestMethod>]
   member _.``[PE] X64 text section address test`` () =
@@ -165,7 +167,7 @@ type PETests () =
 
   [<TestMethod>]
   member _.``[PE] X64 isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit64, x64File.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit64, (x64File :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[PE] X64 function symbol test (1)`` () =

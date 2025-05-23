@@ -148,6 +148,12 @@ type SymInfo = {
 }
 
 module internal Symbol =
+  let inline isFunc secText s =
+    (s.SymType = SymbolType.N_FUN && s.SymName.Length > 0) ||
+    (s.SymType.HasFlag SymbolType.N_SECT
+      && s.SecNum = (secText + 1)
+      && s.SymDesc = 0s)
+
   let [<Literal>] private IndirectSymbolLocal = 0x80000000
 
   let [<Literal>] private IndirectSymbolABS = 0x40000000

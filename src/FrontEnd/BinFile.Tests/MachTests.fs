@@ -35,7 +35,7 @@ type MachTests () =
     let zipFile = fileName + ".zip"
     let bytes = ZIPReader.readBytes MachBinary zipFile fileName
     let isa = ISA (arch, Endian.Little, wsz)
-    MachBinFile (fileName, bytes, isa, None) :> IBinFile
+    MachBinFile (fileName, bytes, isa, None)
 
   let assertExistenceOfFlag (file: IBinFile) flags =
     (file :?> MachBinFile).Header.Flags.ToString () = flags
@@ -57,35 +57,36 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped EntryPoint test`` () =
-    Assert.AreEqual (Some 0x00002050UL, x86File.EntryPoint)
+    Assert.AreEqual (Some 0x00002050UL, (x86File :> IBinFile).EntryPoint)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, x86File.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (x86File :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped IsStripped test`` () =
-    Assert.AreEqual<bool> (true, x86File.IsStripped)
+    Assert.AreEqual<bool> (true, (x86File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, x86File.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (x86File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped sections length test`` () =
-    Assert.AreEqual<int> (9, (x86File :?> MachBinFile).Sections.Length)
+    Assert.AreEqual<int> (9, x86File.Sections.Length)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, x86File.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (0, x86File.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (59, x86File.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (59, x86File.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (45, x86File.GetLinkageTableEntries () |> Seq.length)
+    let f = x86File :> IBinFile
+    Assert.AreEqual<int> (45, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped text section address test`` () =
@@ -93,7 +94,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit32, x86File.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit32, (x86File :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped function symbol test (1)`` () =
@@ -119,35 +120,36 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X64 EntryPoint test`` () =
-    Assert.AreEqual (Some 0x100000E90UL, x64File.EntryPoint)
+    Assert.AreEqual (Some 0x100000E90UL, (x64File :> IBinFile).EntryPoint)
 
   [<TestMethod>]
   member _.``[Mach] X64 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, x64File.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (x64File :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[Mach] X64 IsStripped test`` () =
-    Assert.AreEqual<bool> (false, x64File.IsStripped)
+    Assert.AreEqual<bool> (false, (x64File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[Mach] X64 IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, x64File.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (x64File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[Mach] X64 sections length test`` () =
-    Assert.AreEqual<int> (13, (x64File :?> MachBinFile).Sections.Length)
+    Assert.AreEqual<int> (13, x64File.Sections.Length)
 
   [<TestMethod>]
   member _.``[Mach] X64 static symbols length test`` () =
-    Assert.AreEqual<int> (885, x64File.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (885, x64File.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[Mach] X64 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (190, x64File.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (190, x64File.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[Mach] X64 linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (72, x64File.GetLinkageTableEntries () |> Seq.length)
+    let f = x64File :> IBinFile
+    Assert.AreEqual<int> (72, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[Mach] X64 text section address test`` () =
@@ -155,7 +157,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X64 isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit64, x64File.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit64, (x64File :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[Mach] X64 function symbol test (1)`` () =
@@ -180,35 +182,36 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped EntryPoint test`` () =
-    Assert.AreEqual (Some 0x100000E90UL, x64SFile.EntryPoint)
+    Assert.AreEqual (Some 0x100000E90UL, (x64SFile :> IBinFile).EntryPoint)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, x64SFile.Type)
+    Assert.AreEqual (FileType.ExecutableFile, (x64SFile :> IBinFile).Type)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped IsStripped test`` () =
-    Assert.AreEqual<bool> (true, x64SFile.IsStripped)
+    Assert.AreEqual<bool> (true, (x64SFile :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped IsNXEnabled test`` () =
-    Assert.AreEqual<bool> (true, x64SFile.IsNXEnabled)
+    Assert.AreEqual<bool> (true, (x64SFile :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped sections length test`` () =
-    Assert.AreEqual<int> (13, (x64SFile :?> MachBinFile).Sections.Length)
+    Assert.AreEqual<int> (13, x64SFile.Sections.Length)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, x64SFile.GetStaticSymbols () |> Seq.length)
+    Assert.AreEqual<int> (0, x64SFile.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (190, x64SFile.GetDynamicSymbols () |> Seq.length)
+    Assert.AreEqual<int> (190, x64SFile.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (72, x64SFile.GetLinkageTableEntries () |> Seq.length)
+    let f = x64SFile :> IBinFile
+    Assert.AreEqual<int> (72, f.GetLinkageTableEntries().Length)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped text section address test`` () =
@@ -216,7 +219,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped isa wordSize test`` () =
-    Assert.AreEqual (WordSize.Bit64, x64SFile.ISA.WordSize)
+    Assert.AreEqual (WordSize.Bit64, (x64SFile :> IBinFile).ISA.WordSize)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped function symbol test (1)`` () =

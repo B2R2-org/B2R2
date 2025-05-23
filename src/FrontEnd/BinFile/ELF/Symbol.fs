@@ -161,6 +161,14 @@ type ELFSymbol = {
   ARMLinkerSymbol: ARMLinkerSymbol
 }
 
+/// Represents an ARM-specific symbol type for ELF binaries, which are used to
+/// distinguish between ARM and Thumb instructions. For other CPU architectures,
+/// this will be set to None.
+and ARMLinkerSymbol =
+  | ARM = 1
+  | Thumb = 2
+  | None = 3
+
 /// Main data structure for storing symbol information.
 type ELFSymbolInfo = {
   /// Linux-specific symbol version table containing versions required to link.
@@ -172,28 +180,13 @@ type ELFSymbolInfo = {
 }
 
 module internal Symbol =
-  let getSymbKind ndx = function
-    | SymbolType.STT_OBJECT -> SymObjectType
-    | SymbolType.STT_GNU_IFUNC
-    | SymbolType.STT_FUNC ->
-      if ndx = SHN_UNDEF then SymNoType
-      else SymFunctionType
-    | SymbolType.STT_SECTION -> SymSectionType
-    | SymbolType.STT_FILE ->SymFileType
-    | _ -> SymNoType
+  let inline isFunc s =
+    s.SymType = SymbolType.STT_FUNC || s.SymType = SymbolType.STT_GNU_IFUNC
 
   let versionToLibName version =
     match version with
     | Some version -> version.VerName
     | None -> ""
-
-  let toB2R2Symbol vis (symb: ELFSymbol) =
-    { Address = symb.Addr
-      Name = symb.SymName
-      Kind = getSymbKind symb.SecHeaderIndex symb.SymType
-      Visibility = vis
-      LibraryName = versionToLibName symb.VerInfo
-      ARMLinkerSymbol = symb.ARMLinkerSymbol }
 
   let verName (strTab: ByteSpan) vnaNameOffset =
     if vnaNameOffset >= strTab.Length then ""

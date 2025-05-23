@@ -24,7 +24,6 @@
 
 module internal B2R2.FrontEnd.BinFile.PE.Helper
 
-open System
 open System.IO
 open B2R2
 open B2R2.Collections
@@ -76,105 +75,9 @@ let inline translateAddr pe addr =
     let sHdr = pe.SectionHeaders[idx]
     rva + sHdr.PointerToRawData - sHdr.VirtualAddress
 
-let pdbTypeToSymbKind = function
-  | SymFlags.Function -> SymFunctionType
-  | _ -> SymNoType
-
-let pdbSymbolToSymbol (sym: PESymbol) =
-  { Address = sym.Address
-    Name = sym.Name
-    Kind = pdbTypeToSymbKind sym.Flags
-    Visibility = SymbolVisibility.StaticSymbol
-    LibraryName = ""
-    ARMLinkerSymbol = ARMLinkerSymbol.None }
-
-let inline getStaticSymbols pe =
-  pe.SymbolInfo.SymbolArray
-  |> Array.map pdbSymbolToSymbol
-
-let getSymbolKindBySectionIndex pe idx =
-  let ch = pe.SectionHeaders[idx].SectionCharacteristics
-  if ch.HasFlag SectionCharacteristics.MemExecute then SymFunctionType
-  else SymObjectType
-
-let getImportSymbols pe =
-  let conv acc rva imp =
-    match imp with
-    | ImportByOrdinal (ord, dllname) ->
-      { Address = addrFromRVA pe.BaseAddr rva
-        Name = "#" + ord.ToString()
-        Kind = SymExternFunctionType
-        Visibility = SymbolVisibility.DynamicSymbol
-        LibraryName = dllname
-        ARMLinkerSymbol = ARMLinkerSymbol.None } :: acc
-    | ImportByName (_, funname, dllname) ->
-      { Address = addrFromRVA pe.BaseAddr rva
-        Name = funname
-        Kind = SymExternFunctionType
-        Visibility = SymbolVisibility.DynamicSymbol
-        LibraryName = dllname
-        ARMLinkerSymbol = ARMLinkerSymbol.None } :: acc
-  pe.ImportMap
-  |> Map.fold conv []
-  |> List.rev
-
-let getExportSymbols pe =
-  let makeLocalExportSymbol addr kind name =
-    { Address = addr
-      Name = name
-      Kind = kind
-      Visibility = SymbolVisibility.DynamicSymbol
-      LibraryName = ""
-      ARMLinkerSymbol = ARMLinkerSymbol.None }
-  let makeForwardedExportSymbol name (fwdBin, fwdFunc) =
-    { Address = 0UL
-      Name = name
-      Kind = SymForwardType (fwdBin, fwdFunc)
-      Visibility = SymbolVisibility.DynamicSymbol
-      LibraryName = ""
-      ARMLinkerSymbol = ARMLinkerSymbol.None }
-  let localExportFolder accSymbols addr names =
-    let rva = int (addr - pe.BaseAddr)
-    match pe.FindSectionIdxFromRVA rva with
-    | -1 -> accSymbols
-    | idx ->
-      let kind = getSymbolKindBySectionIndex pe idx
-      let innerFolder acc name = makeLocalExportSymbol addr kind name :: acc
-      List.fold innerFolder accSymbols names
-  let forwardedExportFolder accSymbols name (fwdBin, fwdFunc) =
-    makeForwardedExportSymbol name (fwdBin, fwdFunc) :: accSymbols
-  Map.fold localExportFolder [] pe.ExportMap
-  |> Map.fold forwardedExportFolder <| pe.ForwardMap
-  |> List.toArray
-
-let getAllDynamicSymbols pe =
-  let isym = getImportSymbols pe
-  let esym = getExportSymbols pe
-  Seq.append isym esym
-  |> Seq.toArray
-
-let getDynamicSymbols pe excludeImported =
-  let excludeImported = defaultArg excludeImported false
-  if excludeImported then getExportSymbols pe
-  else getAllDynamicSymbols pe
-
-let getSymbols pe =
-  let s = getStaticSymbols pe
-  let d = getAllDynamicSymbols pe
-  Array.append s d
-
-let getRelocationSymbols pe =
-  pe.RelocBlocks
-  |> Seq.collect (fun block ->
-    block.Entries |> Seq.map (fun entry -> (block, entry)))
-  |> Seq.map (fun (block, entry) -> {
-    Address = uint64 (block.PageRVA + uint32 entry.Offset)
-    Name = String.Empty
-    Kind = SymNoType
-    Visibility = SymbolVisibility.DynamicSymbol
-    LibraryName = String.Empty
-    ARMLinkerSymbol = ARMLinkerSymbol.None })
-  |> Seq.toArray
+let inline isSectionExecutableByIndex pe idx =
+  pe.SectionHeaders[idx].SectionCharacteristics.HasFlag
+  <| SectionCharacteristics.MemExecute
 
 let hasRelocationSymbols pe addr = (* FIXME: linear lookup is bad *)
   pe.RelocBlocks

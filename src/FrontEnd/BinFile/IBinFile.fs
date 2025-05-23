@@ -35,7 +35,7 @@ type IBinFile =
   inherit IBinMetadata
   inherit IBinProperty
   inherit IContentAddressable
-  inherit IBinSymbolTable
+  inherit INameReadable
   inherit IBinOrganization
   inherit IRelocationTable
   inherit ILinkageTable
