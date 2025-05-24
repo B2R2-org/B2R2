@@ -30,7 +30,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
-/// Relocation type for x86.
+/// Represents a relocation type for x86.
 type RelocationX86 =
   /// No relocation.
   | R_386_NONE = 0UL
@@ -101,7 +101,7 @@ type RelocationX86 =
   /// (A - S).
   | R_386_SUB32 = 46UL
 
-/// Relocation type for x86-64.
+/// Represents a relocation type for x86-64.
 type RelocationX64 =
   /// No relocation.
   | R_X86_64_None = 0UL
@@ -158,7 +158,7 @@ type RelocationX64 =
   /// Adjust indirectly by program base.
   | R_X86_64_IRELATIVE = 37UL
 
-/// Relocation type for ARMv7.
+/// Represents a relocation type for ARMv7.
 type RelocationARMv7 =
   /// No reloc.
   | R_ARM_None = 0UL
@@ -193,7 +193,7 @@ type RelocationARMv7 =
   /// 32-bit PLT address.
   | R_ARM_PLT32 = 27UL
 
-/// Relocation type for ARMv8.
+/// Represents a relocation type for ARMv8.
 type RelocationARMv8 =
   /// No reloc.
   | R_AARCH64_NONE = 0UL
@@ -222,7 +222,7 @@ type RelocationARMv8 =
   /// Delta(S) + A.
   | R_AARCH64_RELATIVE = 1027UL
 
-/// Relocation type for MIPS.
+/// Represents a relocation type for MIPS.
 type RelocationMIPS =
   /// No reloc.
   | R_MIPS_NONE = 0UL
@@ -326,7 +326,7 @@ type RelocationMIPS =
   /// 32-bit PC-relative.
   | R_MIPS_PC32 = 248UL
 
-/// Relocation type for S390.
+/// Represents a relocation type for S390.
 type RelocationS390 =
   | R_S390_NONE = 0UL
   | R_390_8 = 1UL
@@ -348,7 +348,7 @@ type RelocationS390 =
   | R_390_PC16DBL = 17UL
   | R_390_PLT16DBL = 18UL
 
-/// Relocation type for SH4.
+/// Represents a relocation type for SH4.
 type RelocationSH4 =
   | R_SH_NONE = 0UL
   | R_SH_DIR32 = 1UL
@@ -461,7 +461,7 @@ type RelocationSH4 =
   | R_SH_64 = 254UL
   | R_SH_64_PCREL = 255UL
 
-/// Relocation type for RISCV.
+/// Represents a relocation type for RISCV.
 type RelocationRISCV =
   | R_RISCV_NONE = 0UL
   | R_RISCV_32 = 1UL
@@ -518,7 +518,7 @@ type RelocationRISCV =
   | R_RISCV_SET32 = 56UL
   | R_RISCV_32_PCREL = 57UL
 
-/// Relocation type for PPC32.
+/// Represents a relocation type for PPC.
 type RelocationPPC32 =
   | R_PPC_NONE = 0UL
   | R_PPC_ADDR32 = 1UL
@@ -616,7 +616,7 @@ type RelocationPPC32 =
   | R_PPC_REL16_HA = 252UL
   | R_PPC_TOC16 = 255UL
 
-/// Relocation type for PARISC.
+/// Represents a relocation type for PARISC.
 type RelocationPARISC =
   | R_PARISC_NONE = 0UL
   | R_PARISC_DIR32 = 1UL
@@ -722,7 +722,7 @@ type RelocationEntry = {
   /// The location at which to apply the relocation action.
   RelOffset: uint64
   /// Relocation symbol. Symbol can be None when only the addend is used.
-  RelSymbol: ELFSymbol option
+  RelSymbol: Symbol option
   /// Relocation type.
   RelType: RelocationType
   /// A constant addend used to compute the value to be stored into the
@@ -769,10 +769,10 @@ module internal RelocationInfo =
                   else readUIntByWordSizeAndOffset span reader cls 8 16
       RelSecNumber = sec.SecNum }
 
-  let private tryFindSymbTable idx symbInfo =
-    match symbInfo.SecNumToSymbTbls.TryGetValue idx with
-    | true, tbl -> tbl
-    | false, _ -> [||]
+  let private tryFindSymbTable idx (symbs: SymbolStore) =
+    match symbs.TryFindSymbolTable idx with
+    | Ok tbl -> tbl
+    | Error _ -> [||]
 
   let private accumulateRelocInfo relInfo rel =
     match rel.RelSymbol with
@@ -781,7 +781,7 @@ module internal RelocationInfo =
       relInfo.RelocByAddr[rel.RelOffset] <- rel
       relInfo.RelocByName[name.SymName] <- rel
 
-  let private parseRelocSection toolBox symbInfo relInfo sec (span: ByteSpan) =
+  let private parseRelocSection toolBox symbs relInfo sec (span: ByteSpan) =
     let hdr = toolBox.Header
     let hasAddend = sec.SecType = SectionType.SHT_RELA
     let typMask = selectByWordSize hdr.Class 0xFFUL 0xFFFFFFFFUL
@@ -790,12 +790,12 @@ module internal RelocationInfo =
       else (uint64 <| WordSize.toByteWidth hdr.Class * 2)
     let numEntries = int (sec.SecSize / entrySize)
     for i = 0 to (numEntries - 1) do
-      let symTbl = tryFindSymbTable (int sec.SecLink) symbInfo
+      let symTbl = tryFindSymbTable (int sec.SecLink) symbs
       let offset = i * int entrySize
       getRelocEntry toolBox hasAddend typMask symTbl (span.Slice offset) sec
       |> accumulateRelocInfo relInfo
 
-  let parse toolBox shdrs symbInfo =
+  let parse toolBox shdrs symbs =
     let relInfo = { RelocByAddr = Dictionary (); RelocByName = Dictionary () }
     for sec in shdrs do
       match sec.SecType with
@@ -805,6 +805,6 @@ module internal RelocationInfo =
         else
           let offset, size = int sec.SecOffset, int sec.SecSize
           let span = ReadOnlySpan (toolBox.Bytes, offset, size)
-          parseRelocSection toolBox symbInfo relInfo sec span
+          parseRelocSection toolBox symbs relInfo sec span
       | _ -> ()
     relInfo

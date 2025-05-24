@@ -24,12 +24,11 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.Python.Helper
 
-/// This class represents a Python binary file.
+/// Represents a Python binary file.
 type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
   let size = bytes.Length
   let baseAddr = defaultArg baseAddrOpt 0UL

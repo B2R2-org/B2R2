@@ -129,8 +129,8 @@ let private dumpOneSection (prn: BinPrinter) name ptr =
   out.PrintSectionTitle (String.wrapParen name)
   printCodeOrTable prn ptr
 
-let private dumpELFSection hdl opts elf tableprn codeprn (sec: ELF.Section) =
-  if sec.SecSize > 0UL then
+let private dumpELFSection hdl opts elf tableprn codeprn sec =
+  if (sec: ELF.SectionHeader).SecSize > 0UL then
     let name = sec.SecName
     let ptr = (hdl: BinHandle).File.GetSectionPointer name
     if (elf: ELFBinFile).IsPLT sec then dumpOneSection tableprn name ptr

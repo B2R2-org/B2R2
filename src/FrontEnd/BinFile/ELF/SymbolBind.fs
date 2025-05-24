@@ -24,23 +24,35 @@
 
 namespace B2R2.FrontEnd.BinFile.ELF
 
-open B2R2
-open B2R2.FrontEnd.BinLifter
+/// Represents a symbol's binding, which determines the linkage visibility and
+/// behavior.
+type SymbolBind =
+  /// Local symbols are not visible outside. Local symbols of the same name may
+  /// exist in multiple files without interfering with each other.
+  | STB_LOCAL = 0uy
+  /// Global symbols are visible to all object files being combined.
+  | STB_GLOBAL = 1uy
+  /// Weak symbols resemble global symbols, but their definitions have lower
+  /// precedence.
+  | STB_WEAK = 2uy
+  /// The lower bound of OS-specific binding type.
+  | STB_LOOS = 10uy
+  /// The upper bound of OS-specific binding type.
+  | STB_HIOS = 12uy
+  /// The lower bound of processor-specific binding type.
+  | STB_LOPROC = 13uy
+  /// The upper bound of processor-specific binding type.
+  | STB_HIPROC = 15uy
 
-/// Represents a basic toolbox for parsing ELF, which is used by other parsing
-/// functions.
-type internal Toolbox = {
-  Bytes: byte[]
-  Reader: IBinReader
-  BaseAddress: Addr
-  Header: Header
-  ISA: ISA
-}
-with
-  /// Initializes a toolbox.
-  static member Init bytes (struct (hdr, reader, baseAddr, isa)) =
-    { Bytes = bytes
-      Reader = reader
-      BaseAddress = baseAddr
-      Header = hdr
-      ISA = isa }
+/// Provides functions to convert a SymbolBind to a string and vice versa.
+[<RequireQualifiedAccess>]
+module SymbolBind =
+  open B2R2
+
+  [<CompiledName "ToString">]
+  /// Converts a SymbolBind to a string.
+  let toString = function
+    | SymbolBind.STB_LOCAL -> "LOCAL"
+    | SymbolBind.STB_GLOBAL -> "GLOBAL"
+    | SymbolBind.STB_WEAK -> "WEAK"
+    | _ -> Terminator.futureFeature ()

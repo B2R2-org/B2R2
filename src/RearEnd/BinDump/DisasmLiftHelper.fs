@@ -74,7 +74,7 @@ let makeArchModeDic (hdl: BinHandle) =
   match hdl.File.Format, hdl.File.ISA with
   | FileFormat.ELFBinary, ARM32 ->
     let elf = hdl.File :?> ELFBinFile
-    for s in elf.StaticSymbols do
+    for s in elf.Symbols.StaticSymbols do
       if s.ARMLinkerSymbol <> ELF.ARMLinkerSymbol.None then
         modes[s.Addr] <- s.ARMLinkerSymbol
       else ()

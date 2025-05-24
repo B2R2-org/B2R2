@@ -196,7 +196,7 @@ and DTag =
   | DT_MIPS_RLD_MAP_REL = 0x70000035UL
 
 [<RequireQualifiedAccess>]
-module internal DynamicArrayEntry =
+module internal DynamicArray =
   let private readDynamicEntry reader cls span =
     let dtag = readUIntByWordSize span reader cls 0
     let dval = readUIntByWordSize span reader cls (selectByWordSize cls 4 8)

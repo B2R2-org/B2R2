@@ -60,59 +60,8 @@ with
   static member inline FlagsToPerm (flag: int): Permission =
     flag &&& 7 |> LanguagePrimitives.EnumOfValue
 
-/// Represents what kind of segment this array element describes or how to
-/// interpret the array element's information.
-and ProgramHeaderType =
-  /// This program header is not used.
-  | PT_NULL = 0x00u
-  /// This is a loadable segment.
-  | PT_LOAD = 0x01u
-  /// This segment contains dynamic linking information.
-  | PT_DYNAMIC = 0x02u
-  /// This segment contains the location and size of a null-terminated path name
-  /// to invoke an interpreter. This segment type is meaningful only for
-  /// executable files, but not for shared objects. This segment may not occur
-  /// more than once in a file. If it is present, it must precede any loadable
-  /// segment entry.
-  | PT_INTERP = 0x03u
-  /// This segment contains the location and size of auxiliary information.
-  | PT_NOTE = 0x04u
-  /// This segment type is reserved but has unspecified semantics.
-  | PT_SHLIB = 0x05u
-  /// This segment specifies the location and size of the program header table
-  /// itself, It may occur only if the program header table is part of the
-  /// memory image of the program. If it is present, it must precede any
-  /// loadable segment entry.
-  | PT_PHDR = 0x06u
-  /// This segment contains the Thread-Local Storage template.
-  | PT_TLS = 0x07u
-  /// The lower bound of OS-specific program header type.
-  | PT_LOOS = 0x60000000u
-  /// The upper bound of OS-specific program header type.
-  | PT_HIOS = 0x6fffffffu
-  /// This segment specifies the location and size of the exception handling
-  /// information as defined by the .eh_frame_hdr section.
-  | PT_GNU_EH_FRAME = 0x6474e550u
-  /// This segment specifies the permissions on the segment containing the stack
-  /// and is used to indicate weather the stack should be executable. The
-  /// absence of this header indicates that the stack will be executable.
-  | PT_GNU_STACK = 0x6474e551u
-  /// This segment specifies the location and size of a segment which may be
-  /// made read-only after relocations have been processed.
-  | PT_GNU_RELRO = 0x6474e552u
-  /// This segment contains PAX flags.
-  | PT_PAX_FLAGS = 0x65041580u
-  /// The lower bound of processor-specific program header type.
-  | PT_LOPROC = 0x70000000u
-  /// The exception unwind table.
-  | PT_ARM_EXIDX = 0x70000001u
-  /// MIPS ABI flags.
-  | PT_MIPS_ABIFLAGS = 0x70000003u
-  /// The upper bound of processor-specific program header type.
-  | PT_HIPROC = 0x7fffffffu
-
 [<RequireQualifiedAccess>]
-module internal ProgramHeader =
+module internal ProgramHeaders =
   let parseProgHeader toolBox (span: ByteSpan) =
     let reader, cls = toolBox.Reader, toolBox.Header.Class
     let phType = reader.ReadUInt32 (span, 0)
@@ -137,6 +86,6 @@ module internal ProgramHeader =
       progHeaders[i] <- parseProgHeader toolBox span
     progHeaders
 
-  let getLoadables (progHeaders: ProgramHeader[]) =
+  let filterLoadables (progHeaders: ProgramHeader[]) =
     progHeaders
     |> Array.filter (fun ph -> ph.PHType = ProgramHeaderType.PT_LOAD)

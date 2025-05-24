@@ -34,12 +34,12 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   let toolBox = Header.parse baseAddrOpt bytes |> Toolbox.Init bytes
   let hdr = toolBox.Header
-  let phdrs = lazy ProgramHeader.parse toolBox
-  let shdrs = lazy Section.parse toolBox
-  let loadables = lazy ProgramHeader.getLoadables phdrs.Value
-  let symbInfo = lazy Symbol.parse toolBox shdrs.Value
-  let relocs = lazy RelocationInfo.parse toolBox shdrs.Value symbInfo.Value
-  let plt = lazy PLT.parse toolBox shdrs.Value symbInfo.Value relocs.Value
+  let phdrs = lazy ProgramHeaders.parse toolBox
+  let shdrs = lazy SectionHeaders.parse toolBox
+  let loadables = lazy ProgramHeaders.filterLoadables phdrs.Value
+  let symbs = lazy SymbolStore (toolBox, shdrs.Value)
+  let relocs = lazy RelocationInfo.parse toolBox shdrs.Value symbs.Value
+  let plt = lazy PLT.parse toolBox shdrs.Value symbs.Value relocs.Value
   let exnInfo = lazy ExceptionInfo.parse toolBox shdrs.Value rfOpt relocs.Value
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
   let notInFileRanges = lazy invalidRangesByFileBounds hdr loadables.Value
@@ -49,8 +49,8 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   member _.Header with get() = hdr
 
   /// List of dynamic section entries.
-  member _.DynamicSectionEntries with get() =
-    DynamicArrayEntry.parse toolBox shdrs.Value
+  member _.DynamicArrayEntries with get() =
+    DynamicArray.parse toolBox shdrs.Value
 
   /// ELF program headers.
   member _.ProgramHeaders with get() = phdrs.Value
@@ -65,15 +65,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   member _.ExceptionInfo with get() = exnInfo.Value
 
   /// ELF symbol information.
-  member _.SymbolInfo with get() = symbInfo.Value
-
-  /// ELF static symbols.
-  member _.StaticSymbols with get() =
-    Symbol.getStaticSymArray shdrs.Value symbInfo.Value.SecNumToSymbTbls
-
-  /// ELF dynamic symbols.
-  member _.DynamicSymbols with get() =
-    Symbol.getDynamicSymArray shdrs.Value symbInfo.Value.SecNumToSymbTbls
+  member _.Symbols with get() = symbs.Value
 
   /// Relocation information.
   member _.RelocationInfo with get() = relocs.Value
@@ -87,11 +79,11 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     shdrs.Value[idx]
 
   /// Is this a PLT section?
-  member _.IsPLT (sec: Section) =
+  member _.IsPLT sec =
     PLT.isPLTSectionName sec.SecName
 
   /// Is this section contains executable code?
-  member _.HasCode (sec: Section) =
+  member _.HasCode sec =
     sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
     && not (PLT.isPLTSectionName sec.SecName)
 
@@ -177,11 +169,11 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
         else None)
 
     member _.TryFindFunctionName (addr) =
-      tryFindFuncSymb symbInfo.Value addr
+      tryFindFuncSymb symbs.Value addr
 
     member _.GetTextSectionPointer () =
       shdrs.Value
-      |> Array.tryFind (fun sec -> sec.SecName = Section.SecText)
+      |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
       |> function
         | Some s ->
           BinFilePointer (s.SecAddr, s.SecAddr + uint64 s.SecSize - 1UL,
@@ -204,8 +196,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Array.tryFind (fun sec ->
         addr >= sec.SecAddr && addr < sec.SecAddr + uint64 sec.SecSize)
       |> function
-        | Some sec ->
-          sec.SecName = Section.SecText || sec.SecName = Section.SecROData
+        | Some sec -> sec.SecName = Section.Text || sec.SecName = Section.ROData
         | None -> false
 
     member this.GetFunctionAddresses () =
@@ -213,13 +204,12 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.GetFunctionAddresses (useExcInfo) =
       let exnOpt = if useExcInfo then Some exnInfo.Value else None
-      let symbtbl = symbInfo.Value.SecNumToSymbTbls
       let staticFuncs =
-        [| for s in Symbol.getStaticSymArray shdrs.Value symbtbl do
-             if Symbol.isFunc s && s.SecHeaderIndex <> SHN_UNDEF then s.Addr |]
+        [| for s in symbs.Value.StaticSymbols do
+             if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr |]
       let dynamicFuncs =
-        [| for s in Symbol.getDynamicSymArray shdrs.Value symbtbl do
-             if Symbol.isFunc s && s.SecHeaderIndex <> SHN_UNDEF then s.Addr |]
+        [| for s in symbs.Value.DynamicSymbols do
+             if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr |]
       let extraFuncs =
         findExtraFnAddrs toolBox shdrs.Value loadables.Value relocs.Value exnOpt
       Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]

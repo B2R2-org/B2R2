@@ -82,12 +82,17 @@ type PLTParser () =
 
   /// Parse the given PLT section.
   abstract ParseSection:
-    Toolbox * ELF.Section * NoOverlapIntervalMap<LinkageTableEntry>
+    Toolbox * SectionHeader * NoOverlapIntervalMap<LinkageTableEntry>
     -> NoOverlapIntervalMap<LinkageTableEntry>
 
   /// Parse the given PLT section.
   abstract ParseEntry:
-    addr: Addr * idx: int * ELF.Section * PLTDescriptor * IBinReader * ByteSpan
+      addr: Addr
+    * idx: int
+    * SectionHeader
+    * PLTDescriptor
+    * IBinReader
+    * ByteSpan
     -> PLTEntryInfo
 
 let [<Literal>] private SecRelPLT = ".rel.plt"
@@ -151,9 +156,9 @@ let private findPLTSections shdrs =
 let private makePLTEntry symbs addr relocAddr (r: RelocationEntry) =
   match r.RelSymbol with
   | Some symb ->
-    symbs.AddrToSymbTable[addr] <- symb (* Update the symbol table. *)
+    (symbs: SymbolStore).AddSymbol (addr, symb) (* Update the symbol table. *)
     { FuncName = symb.SymName
-      LibraryName = Symbol.versionToLibName symb.VerInfo
+      LibraryName = symb.LibName
       TrampolineAddress = addr
       TableAddress = r.RelOffset }
   | None ->
@@ -189,7 +194,7 @@ let rec private parseSections p toolBox map = function
 /// This uses relocation information to parse PLT entries. This can be a general
 /// parser, but it is rather slow compared to platform-specific parsers. RISCV64
 /// relies on this.
-type GeneralPLTParser (shdrs, relocInfo, symbInfo, pltHdrSize, relType) =
+type GeneralPLTParser (shdrs, relocInfo, symbs, pltHdrSize, relType) =
   inherit PLTParser ()
 
   let relocs =
@@ -225,7 +230,7 @@ type GeneralPLTParser (shdrs, relocInfo, symbInfo, pltHdrSize, relType) =
       let bytes = toolBox.Bytes
       let reader = toolBox.Reader
       let span = ReadOnlySpan (bytes, int sec.SecOffset, int sec.SecSize)
-      parseEntries this sec span reader desc symbInfo relocInfo map eAddr sAddr
+      parseEntries this sec span reader desc symbs relocInfo map eAddr sAddr
     | UnknownPLT -> map
 
   override this.Parse toolBox =
@@ -233,7 +238,7 @@ type GeneralPLTParser (shdrs, relocInfo, symbInfo, pltHdrSize, relType) =
     parseSections this toolBox NoOverlapIntervalMap.empty pltSections
 
 /// Intel x86 PLT parser.
-type X86PLTParser (shdrs, relocInfo, symbInfo) =
+type X86PLTParser (shdrs, relocInfo, symbs) =
   inherit PLTParser ()
 
   let gotAddrOpt = tryFindGOTAddr shdrs
@@ -322,7 +327,7 @@ type X86PLTParser (shdrs, relocInfo, symbInfo) =
       else
         let sAddr, eAddr = sec.SecAddr, sec.SecAddr + sec.SecSize
         let r = toolBox.Reader
-        parseEntries this sec span r desc symbInfo relocInfo map eAddr sAddr
+        parseEntries this sec span r desc symbs relocInfo map eAddr sAddr
     | UnknownPLT -> map
 
   override this.Parse toolBox =
@@ -332,7 +337,7 @@ type X86PLTParser (shdrs, relocInfo, symbInfo) =
     else NoOverlapIntervalMap.empty
 
 /// Intel x86-64 PLT parser.
-type X64PLTParser (shdrs, relocInfo, symbInfo) =
+type X64PLTParser (shdrs, relocInfo, symbs) =
   inherit PLTParser ()
 
   let gotAddrOpt = tryFindGOTAddr shdrs
@@ -409,7 +414,7 @@ type X64PLTParser (shdrs, relocInfo, symbInfo) =
       else
         let sAddr, eAddr = sec.SecAddr, sec.SecAddr + sec.SecSize
         let r = toolBox.Reader
-        parseEntries this sec span r desc symbInfo relocInfo map eAddr sAddr
+        parseEntries this sec span r desc symbs relocInfo map eAddr sAddr
     | UnknownPLT -> map
 
   override this.Parse toolBox =
@@ -442,7 +447,7 @@ let private computeARMPLTEntrySize reader (span: ByteSpan) hdrSize delta =
     else Error ErrorCase.InvalidFormat
 
 /// ARMv7 PLT parser.
-type ARMv7PLTParser (shdrs, relocInfo, symbInfo) =
+type ARMv7PLTParser (shdrs, relocInfo, symbs) =
   inherit PLTParser ()
 
   let baseAddrOpt = tryFindFirstEntryAddrWithRelPLT relocInfo shdrs
@@ -478,7 +483,7 @@ type ARMv7PLTParser (shdrs, relocInfo, symbInfo) =
     | PLT desc ->
       let sAddr, eAddr = desc.ExtraOffset, sec.SecAddr + sec.SecSize
       let r = toolBox.Reader
-      parseEntries this sec span r desc symbInfo relocInfo map eAddr sAddr
+      parseEntries this sec span r desc symbs relocInfo map eAddr sAddr
     | UnknownPLT -> map
 
   override this.Parse toolBox =
@@ -488,7 +493,7 @@ type ARMv7PLTParser (shdrs, relocInfo, symbInfo) =
     else NoOverlapIntervalMap.empty
 
 /// AARCH64 PLT parser.
-type AARCH64PLTParser (shdrs, relocInfo, symbInfo) =
+type AARCH64PLTParser (shdrs, relocInfo, symbs) =
   inherit PLTParser ()
 
   let baseAddrOpt = tryFindFirstEntryAddrWithRelocation relocInfo
@@ -504,7 +509,7 @@ type AARCH64PLTParser (shdrs, relocInfo, symbInfo) =
     let sAddr, eAddr = desc.ExtraOffset, sec.SecAddr + sec.SecSize
     let bytes, r = toolBox.Bytes, toolBox.Reader
     let span = ReadOnlySpan (bytes, int sec.SecOffset, int sec.SecSize)
-    parseEntries this sec span r desc symbInfo relocInfo map eAddr sAddr
+    parseEntries this sec span r desc symbs relocInfo map eAddr sAddr
 
   override this.Parse toolBox =
     let pltSections = findPLTSections shdrs
@@ -536,10 +541,10 @@ let rec private parseMIPSStubEntries map offset maxOffset tbl reader span =
       let insBytes = reader.ReadUInt32 (span, offset + 12)
       (* FIXME: we could just get the index from .dynamic DT_MIPS_GOTSYM *)
       let index = int (insBytes &&& 0xffffu)
-      let symbol = (tbl: ELFSymbol[])[index]
+      let symbol = (tbl: Symbol[])[index]
       let entry =
         { FuncName = symbol.SymName
-          LibraryName = Symbol.versionToLibName symbol.VerInfo
+          LibraryName = symbol.LibName
           TrampolineAddress = symbol.Addr
           TableAddress = 0UL }
       let ar = AddrRange (symbol.Addr, symbol.Addr + 15UL)
@@ -548,7 +553,7 @@ let rec private parseMIPSStubEntries map offset maxOffset tbl reader span =
     else map
 
 /// MIPS PLT parser.
-type MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) =
+type MIPSPLTParser (hdr, shdrs, relocInfo, symbs: SymbolStore) =
   inherit PLTParser ()
 
   let isMIPSGOTSym t = t.DTag = DTag.DT_MIPS_GOTSYM
@@ -557,14 +562,13 @@ type MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) =
     match Array.tryFind (fun s -> s.SecName = SecMIPSStubs) shdrs with
     | Some sec ->
       let bytes, reader = toolBox.Bytes, toolBox.Reader
-      let entries = DynamicArrayEntry.parse toolBox shdrs
+      let entries = DynamicArray.parse toolBox shdrs
       let offset = 0
       let maxOffset = int sec.SecSize
       let span = ReadOnlySpan (bytes, int sec.SecOffset, int sec.SecSize)
       match Array.tryFind isMIPSGOTSym entries with
       | Some tag ->
-        let n = Symbol.getDynamicSymbolSectionNumbers shdrs|> Array.head
-        let tbl = symbInfo.SecNumToSymbTbls[n]
+        let tbl = symbs.DynamicSymbols
         assert (tbl.Length > int tag.DVal)
         let map = NoOverlapIntervalMap.empty
         parseMIPSStubEntries map offset maxOffset tbl reader span
@@ -602,7 +606,7 @@ type MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) =
     let startAddr = sec.SecAddr + headerSize
     let desc = newDesc DontCare AnyBinding false 16UL 0UL startAddr
     let sAddr, eAddr = desc.ExtraOffset, sec.SecAddr + sec.SecSize
-    parseEntries this sec span reader desc symbInfo relocInfo map eAddr sAddr
+    parseEntries this sec span reader desc symbs relocInfo map eAddr sAddr
 
   override this.Parse toolBox =
     let pltSections = findPLTSections shdrs
@@ -610,8 +614,8 @@ type MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) =
     else parseSections this toolBox NoOverlapIntervalMap.empty pltSections
 
 /// Classic PPC that uses the .plt section. Modern PPC binaries use the "glink".
-type PPCClassicPLTParser (shdrs, relocInfo, symbInfo, pltHdrSize, relType) =
-  inherit GeneralPLTParser (shdrs, relocInfo, symbInfo, pltHdrSize, relType)
+type PPCClassicPLTParser (shdrs, relocInfo, symbs, pltHdrSize, relType) =
+  inherit GeneralPLTParser (shdrs, relocInfo, symbs, pltHdrSize, relType)
 
   override this.ParseEntry (_addr, idx, _sec, _desc, _rdr, _span) =
     let nextIdx = idx + 1
@@ -622,18 +626,18 @@ type PPCClassicPLTParser (shdrs, relocInfo, symbInfo, pltHdrSize, relType) =
       NextEntryAddr = nextEntryAddr }
 
 /// PPC PLT parser.
-type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
+type PPCPLTParser (hdr, shdrs, relocInfo, symbs) =
   inherit PLTParser ()
 
   override _.ParseEntry (_, _, _, _, _, _) = Terminator.impossible ()
 
   override _.ParseSection (toolBox, sec, map) =
     let rtyp = RelocationPPC32 RelocationPPC32.R_PPC_JMP_SLOT
-    let p = PPCClassicPLTParser (shdrs, relocInfo, symbInfo, 0x48UL, rtyp)
+    let p = PPCClassicPLTParser (shdrs, relocInfo, symbs, 0x48UL, rtyp)
     p.ParseSection (toolBox, sec, map)
 
   member private _.ComputeGLinkAddrWithGOT toolBox =
-    let tags = DynamicArrayEntry.parse toolBox shdrs
+    let tags = DynamicArray.parse toolBox shdrs
     match Array.tryFind (fun t -> t.DTag = DTag.DT_PPC_GOT) tags with
     | Some tag ->
       let gotAddr = tag.DVal
@@ -676,7 +680,7 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) =
     if idx >= 0 then
       let reloc = (relocs: RelocationEntry[])[idx]
       let ar = AddrRange (addr, addr + delta - 1UL)
-      let entry = makePLTEntry symbInfo addr addr reloc
+      let entry = makePLTEntry symbs addr addr reloc
       let map = NoOverlapIntervalMap.add ar entry map
       this.ReadEntryLoop relocs delta (idx - 1) map (addr - delta)
     else map
@@ -735,29 +739,29 @@ type NullPLTParser () =
   override _.ParseSection (_, _, _) = Terminator.impossible ()
   override _.Parse _ = NoOverlapIntervalMap.empty
 
-let initPLTParser hdr shdrs relocInfo symbInfo =
+let initPLTParser hdr shdrs relocInfo symbs =
   match hdr.MachineType with
   | MachineType.EM_386 ->
-    X86PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
+    X86PLTParser (shdrs, relocInfo, symbs) :> PLTParser
   | MachineType.EM_X86_64 ->
-    X64PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
+    X64PLTParser (shdrs, relocInfo, symbs) :> PLTParser
   | MachineType.EM_ARM ->
-    ARMv7PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
+    ARMv7PLTParser (shdrs, relocInfo, symbs) :> PLTParser
   | MachineType.EM_AARCH64 ->
-    AARCH64PLTParser (shdrs, relocInfo, symbInfo) :> PLTParser
+    AARCH64PLTParser (shdrs, relocInfo, symbs) :> PLTParser
   | MachineType.EM_MIPS
   | MachineType.EM_MIPS_RS3_LE ->
-    MIPSPLTParser (hdr, shdrs, relocInfo, symbInfo) :> PLTParser
+    MIPSPLTParser (hdr, shdrs, relocInfo, symbs) :> PLTParser
   | MachineType.EM_PPC ->
-    PPCPLTParser (hdr, shdrs, relocInfo, symbInfo) :> PLTParser
+    PPCPLTParser (hdr, shdrs, relocInfo, symbs) :> PLTParser
   | MachineType.EM_RISCV ->
     let rtype = RelocationRISCV RelocationRISCV.R_RISCV_JUMP_SLOT
-    GeneralPLTParser (shdrs, relocInfo, symbInfo, 32UL, rtype) :> PLTParser
+    GeneralPLTParser (shdrs, relocInfo, symbs, 32UL, rtype) :> PLTParser
   | MachineType.EM_SH ->
     let rtype = RelocationSH4 RelocationSH4.R_SH_JMP_SLOT
-    GeneralPLTParser (shdrs, relocInfo, symbInfo, 28UL, rtype) :> PLTParser
+    GeneralPLTParser (shdrs, relocInfo, symbs, 28UL, rtype) :> PLTParser
   | _ -> NullPLTParser () :> PLTParser
 
-let parse toolBox shdrs symbInfo relocInfo =
-  let parser = initPLTParser toolBox.Header shdrs relocInfo symbInfo
+let parse toolBox shdrs symbs relocInfo =
+  let parser = initPLTParser toolBox.Header shdrs relocInfo symbs
   parser.Parse toolBox

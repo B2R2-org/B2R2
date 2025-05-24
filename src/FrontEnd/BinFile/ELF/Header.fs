@@ -69,8 +69,9 @@ type Header = {
   SHdrStrIdx: uint16
 }
 
+[<RequireQualifiedAccess>]
 module internal Header =
-  /// Check if the file has a valid ELF header.
+  /// Checks if the file has a valid ELF header.
   let private isELF (span: ByteSpan) =
     let elfMagicNumber = [| 0x7fuy; 0x45uy; 0x4cuy; 0x46uy |]
     span.Length > 4
@@ -101,7 +102,7 @@ module internal Header =
     reader.ReadInt16 (span, 18)
     |> LanguagePrimitives.EnumOfValue: MachineType
 
-  let parseFromSpan span (reader: IBinReader) endian baseAddrOpt =
+  let private parseFromSpan span (reader: IBinReader) endian baseAddrOpt =
     let cls = getClass span
     let etype = getELFType span reader
     let baseAddr = computeNewBaseAddr etype baseAddrOpt
@@ -170,8 +171,9 @@ module internal Header =
       ISA Architecture.AVR
     | _ -> raise InvalidISAException
 
-  /// Parse the ELF header and return a toolbox, which includes ELF header,
-  /// preferred base address, and IBinReader.
+  /// Parses the ELF header and return the parsed header information along with
+  /// other data types to read the rest of the ELF file, such as BinReader, its
+  /// base address, and the ISA.
   let parse baseAddrOpt (bytes: byte[]) =
     let span = ReadOnlySpan bytes
     if not <| isELF span then raise InvalidFileFormatException
@@ -180,9 +182,9 @@ module internal Header =
       let reader = BinReader.Init endian
       let struct (hdr, baseAddr) = parseFromSpan span reader endian baseAddrOpt
       let isa = toISA span reader hdr.Class hdr.MachineType
-      struct (reader, baseAddr, hdr, isa)
+      struct (hdr, reader, baseAddr, isa)
 
-  /// Check if the file has a valid ELF header, and return an ISA.
+  /// Checks if the file has a valid ELF header, and returns an ISA if valid.
   let getISA (bytes: byte[]) =
     let span = ReadOnlySpan bytes
     if isELF span then

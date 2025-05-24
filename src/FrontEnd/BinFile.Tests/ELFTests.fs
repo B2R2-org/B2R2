@@ -82,11 +82,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X86 static symbols length test`` () =
-    Assert.AreEqual<int> (793, x86File.StaticSymbols.Length)
+    Assert.AreEqual<int> (793, x86File.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (131, x86File.DynamicSymbols.Length)
+    Assert.AreEqual<int> (131, x86File.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86 linkageTableEntries length test`` () =
@@ -156,11 +156,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, x86SFile.StaticSymbols.Length)
+    Assert.AreEqual<int> (0, x86SFile.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (131, x86SFile.DynamicSymbols.Length)
+    Assert.AreEqual<int> (131, x86SFile.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped linkageTableEntries length test`` () =
@@ -229,11 +229,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X64 static symbols length test`` () =
-    Assert.AreEqual<int> (635, x64File.StaticSymbols.Length)
+    Assert.AreEqual<int> (635, x64File.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (126, x64File.DynamicSymbols.Length)
+    Assert.AreEqual<int> (126, x64File.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64 linkageTableEntries length test`` () =
@@ -302,11 +302,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, x64SFile.StaticSymbols.Length)
+    Assert.AreEqual<int> (0, x64SFile.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (126, x64SFile.DynamicSymbols.Length)
+    Assert.AreEqual<int> (126, x64SFile.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped linkageTableEntries length test`` () =
@@ -375,11 +375,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] arm32 static symbols length test`` () =
-    Assert.AreEqual<int> (1299, arm32File.StaticSymbols.Length)
+    Assert.AreEqual<int> (1299, arm32File.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, arm32File.DynamicSymbols.Length)
+    Assert.AreEqual<int> (136, arm32File.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32 linkageTableEntries length test`` () =
@@ -448,11 +448,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, arm32SFile.StaticSymbols.Length)
+    Assert.AreEqual<int> (0, arm32SFile.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, arm32SFile.DynamicSymbols.Length)
+    Assert.AreEqual<int> (136, arm32SFile.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped linkageTableEntries length test`` () =
@@ -521,11 +521,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] thumb static symbols length test`` () =
-    Assert.AreEqual<int> (1088, thumbFile.StaticSymbols.Length)
+    Assert.AreEqual<int> (1088, thumbFile.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, thumbFile.DynamicSymbols.Length)
+    Assert.AreEqual<int> (136, thumbFile.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb linkageTableEntries length test`` () =
@@ -594,11 +594,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, thumbSFile.StaticSymbols.Length)
+    Assert.AreEqual<int> (0, thumbSFile.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, thumbSFile.DynamicSymbols.Length)
+    Assert.AreEqual<int> (136, thumbSFile.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped linkageTableEntries length test`` () =
@@ -667,11 +667,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] aarch64 static symbols length test`` () =
-    Assert.AreEqual<int> (935, aarch64File.StaticSymbols.Length)
+    Assert.AreEqual<int> (935, aarch64File.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, aarch64File.DynamicSymbols.Length)
+    Assert.AreEqual<int> (136, aarch64File.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 linkageTableEntries length test`` () =
@@ -740,11 +740,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, aarch64SFile.StaticSymbols.Length)
+    Assert.AreEqual<int> (0, aarch64SFile.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (136, aarch64SFile.DynamicSymbols.Length)
+    Assert.AreEqual<int> (136, aarch64SFile.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped linkageTableEntries length test`` () =
@@ -813,11 +813,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, mips32File.StaticSymbols.Length)
+    Assert.AreEqual<int> (0, mips32File.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (232, mips32File.DynamicSymbols.Length)
+    Assert.AreEqual<int> (232, mips32File.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped linkageTableEntries length test`` () =
@@ -878,11 +878,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le static symbols length test`` () =
-    Assert.AreEqual<int> (0, mips32leFile.StaticSymbols.Length)
+    Assert.AreEqual<int> (0, mips32leFile.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le dynamic symbols length test`` () =
-    Assert.AreEqual<int> (232, mips32leFile.DynamicSymbols.Length)
+    Assert.AreEqual<int> (232, mips32leFile.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le linkageTableEntries length test`` () =
@@ -943,11 +943,11 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped static symbols length test`` () =
-    Assert.AreEqual<int> (0, mips64File.StaticSymbols.Length)
+    Assert.AreEqual<int> (0, mips64File.Symbols.StaticSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped dynamic symbols length test`` () =
-    Assert.AreEqual<int> (232, mips64File.DynamicSymbols.Length)
+    Assert.AreEqual<int> (232, mips64File.Symbols.DynamicSymbols.Length)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped linkageTableEntries length test`` () =

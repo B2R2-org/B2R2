@@ -49,7 +49,7 @@ let isNXEnabled progHeaders =
 let isRelocatable toolBox secHeaders =
   let pred (e: DynamicArrayEntry) = e.DTag = DTag.DT_DEBUG
   toolBox.Header.ELFType = ELFType.ET_DYN
-  && DynamicArrayEntry.parse toolBox secHeaders |> Array.exists pred
+  && DynamicArray.parse toolBox secHeaders |> Array.exists pred
 
 let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
   if offsetToAddr then ptr + delta
@@ -57,7 +57,7 @@ let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
 
 let translateWithSecs offsetToAddr ptr sections =
   let txtOffset =
-    match Array.tryFind (fun s -> s.SecName = Section.SecText) sections with
+    match Array.tryFind (fun s -> s.SecName = Section.Text) sections with
     | Some text -> text.SecOffset
     | None -> 0UL
   sections
@@ -94,12 +94,12 @@ let translateAddrToOffset loadableSegs sections addr =
 let translateOffsetToAddr loadableSegs sections offset =
   translate loadableSegs sections true offset
 
-let inline tryFindFuncSymb symbolInfo addr =
-  match symbolInfo.AddrToSymbTable.TryGetValue addr with
-  | true, s ->
-    if Symbol.isFunc s then Ok s.SymName
+let inline tryFindFuncSymb (symbs: SymbolStore) addr =
+  match symbs.TryFindSymbol addr with
+  | Ok s ->
+    if Symbol.IsFunction s then Ok s.SymName
     else Error ErrorCase.SymbolNotFound
-  | false, _ -> Error ErrorCase.SymbolNotFound
+  | Error _ -> Error ErrorCase.SymbolNotFound
 
 let getRelocatedAddr relocInfo relocAddr =
   match relocInfo.RelocByAddr.TryGetValue relocAddr with
@@ -195,7 +195,7 @@ let invalidRangesByFileBounds hdr phdrs =
 
 let private computeExecutableRangesFromSections shdrs =
   let txtOffset =
-    match Array.tryFind (fun s -> s.SecName = Section.SecText) shdrs with
+    match Array.tryFind (fun s -> s.SecName = Section.Text) shdrs with
     | Some text -> text.SecOffset
     | None -> 0UL
   shdrs
@@ -237,7 +237,7 @@ let private addExecutableInterval excludingSection s set =
 let executableRanges shdrs loadables =
   (* Exclude .rodata even though it is included within an executable segment. *)
   let rodata =
-    match Array.tryFind (fun s -> s.SecName = Section.SecROData) shdrs with
+    match Array.tryFind (fun s -> s.SecName = Section.ROData) shdrs with
     | Some rodata when rodata.SecAddr <> 0UL -> Some rodata
     | _ -> None
   if Array.isEmpty loadables then computeExecutableRangesFromSections shdrs
