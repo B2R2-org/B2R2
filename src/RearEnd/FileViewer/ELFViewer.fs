@@ -185,7 +185,7 @@ let dumpRelocs (_opts: FileViewerOpts) (elf: ELFBinFile) =
   let cfg = [ addrColumn; LeftAligned 24; RightAligned 8; LeftAligned 12 ]
   out.PrintRow (true, cfg, [ "Address"; "Type"; "Addended"; "Symbol" ])
   out.PrintLine "  ---"
-  elf.RelocationInfo.RelocByAddr.Values
+  elf.RelocationInfo.Values
   |> Seq.sortBy (fun reloc -> reloc.RelOffset)
   |> Seq.iter (fun reloc ->
     let symbol =
@@ -194,7 +194,7 @@ let dumpRelocs (_opts: FileViewerOpts) (elf: ELFBinFile) =
       | _ -> "(n/a)"
     out.PrintRow (true, cfg, [
       Addr.toString (elf :> IBinFile).ISA.WordSize reloc.RelOffset
-      RelocationType.ToString reloc.RelType
+      RelocationKind.ToString reloc.RelKind
       reloc.RelAddend.ToString ("x")
       symbol
     ])
@@ -305,8 +305,8 @@ let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =
     out.PrintLine "  ---"
     file.GetLinkageTableEntries ()
     |> Seq.iter (fun e ->
-      match elf.RelocationInfo.RelocByAddr.TryGetValue e.TableAddress with
-      | true, reloc ->
+      match elf.RelocationInfo.TryFind e.TableAddress with
+      | Ok reloc ->
         out.PrintRow (true, cfg,
           [ (Addr.toString file.ISA.WordSize e.TrampolineAddress)
             (Addr.toString file.ISA.WordSize e.TableAddress)
@@ -314,8 +314,8 @@ let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =
             (toLibString >> normalizeEmpty) e.LibraryName
             reloc.RelAddend.ToString ()
             reloc.RelSecNumber.ToString ()
-            reloc.RelType.ToString () ])
-      | false, _ ->
+            RelocationKind.ToString reloc.RelKind ])
+      | _ ->
         out.PrintRow (true, cfg,
           [ (Addr.toString file.ISA.WordSize e.TrampolineAddress)
             (Addr.toString file.ISA.WordSize e.TableAddress)

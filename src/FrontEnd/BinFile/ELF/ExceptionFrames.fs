@@ -703,11 +703,11 @@ module internal ExceptionFrames =
     let endAddr = beginAddr + range
     match (relOpt: RelocationInfo option) with
     | Some relInfo ->
-      let found, rentry = relInfo.RelocByAddr.TryGetValue beginAddr
-      if found then
+      match relInfo.TryFind beginAddr with
+      | Ok rentry ->
         let beginAddr = addr + rentry.RelAddend
         struct (beginAddr, beginAddr + range, offset)
-      else struct (beginAddr, endAddr, offset)
+      | Error _ -> struct (beginAddr, endAddr, offset)
     | None -> struct (beginAddr, endAddr, offset)
 
   let parseLSDA cls span reader sAddr aug offset =

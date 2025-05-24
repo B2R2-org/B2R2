@@ -22,16 +22,19 @@
   SOFTWARE.
 *)
 
-/// Provides constants for ELF section names.
-[<RequireQualifiedAccess>]
-module B2R2.FrontEnd.BinFile.ELF.Section
+namespace B2R2.FrontEnd.BinFile.ELF
 
-/// The name of the section that contains executable code: ".text".
-let [<Literal>] Text = ".text"
-
-/// The name of the section that contains staticly allocated, but not
-/// initialized data: ".bss".
-let [<Literal>] BSS = ".bss"
-
-/// The name of the section that contains initialized read-only data: ".rodata".
-let [<Literal>] ROData = ".rodata"
+/// Relocation entry.
+type RelocationEntry = {
+  /// The location at which to apply the relocation action.
+  RelOffset: uint64
+  /// Relocation symbol. Symbol can be None when only the addend is used.
+  RelSymbol: Symbol option
+  /// Relocation kind.
+  RelKind: RelocationKind
+  /// A constant addend used to compute the value to be stored into the
+  /// relocatable field.
+  RelAddend: uint64
+  /// The number of the section that defines this relocation.
+  RelSecNumber: int
+}

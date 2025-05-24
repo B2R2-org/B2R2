@@ -81,8 +81,6 @@ and SectionHeaderIdx =
   /// large to fit in the containing field. The header section index is found in
   /// another location specific to the structure where it appears.
   | SHN_XINDEX
-  /// The upper boundary of the range of the reserved range.
-  | SHN_HIRESERVE
   /// This symbol index holds an index into the section header table.
   | SectionIndex of int
 with
@@ -101,7 +99,6 @@ with
     | SHN_ABS -> "ABS"
     | SHN_COMMON -> "COMMON"
     | SHN_XINDEX -> "XINDEX"
-    | SHN_HIRESERVE -> "HIRESERVE"
     | SectionIndex n -> $"{n}"
 
 /// Represents the version information of a symbol.

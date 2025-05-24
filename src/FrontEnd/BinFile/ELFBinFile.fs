@@ -38,7 +38,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   let shdrs = lazy SectionHeaders.parse toolBox
   let loadables = lazy ProgramHeaders.filterLoadables phdrs.Value
   let symbs = lazy SymbolStore (toolBox, shdrs.Value)
-  let relocs = lazy RelocationInfo.parse toolBox shdrs.Value symbs.Value
+  let relocs = lazy RelocationInfo (toolBox, shdrs.Value, symbs.Value)
   let plt = lazy PLT.parse toolBox shdrs.Value symbs.Value relocs.Value
   let exnInfo = lazy ExceptionInfo.parse toolBox shdrs.Value rfOpt relocs.Value
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
@@ -217,7 +217,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Set.toArray
 
     member _.HasRelocationInfo addr =
-      relocs.Value.RelocByAddr.ContainsKey addr
+      relocs.Value.Contains addr
 
     member _.GetRelocatedAddr relocAddr =
       getRelocatedAddr relocs.Value relocAddr

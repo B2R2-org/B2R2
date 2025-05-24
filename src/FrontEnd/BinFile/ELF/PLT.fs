@@ -124,10 +124,10 @@ let private tryFindGOTAddr shdrs =
     | Some s -> Some s.SecAddr
     | None -> None
 
-let private tryFindFirstEntryAddrWithRelPLT reloc shdrs =
+let private tryFindFirstEntryAddrWithRelPLT (reloc: RelocationInfo) shdrs =
   match Array.tryFind (fun s -> s.SecName = SecRelPLT) shdrs with
   | Some s ->
-    reloc.RelocByAddr.Values
+    reloc.Values
     |> Seq.fold (fun minval r ->
       if r.RelSecNumber = s.SecNum then
         if r.RelOffset < minval then r.RelOffset else minval
@@ -135,11 +135,11 @@ let private tryFindFirstEntryAddrWithRelPLT reloc shdrs =
     |> Some
   | None -> None
 
-let private tryFindFirstEntryAddrWithRelocation reloc =
-  reloc.RelocByAddr.Values
+let private tryFindFirstEntryAddrWithRelocation (reloc: RelocationInfo) =
+  reloc.Values
   |> Seq.fold (fun minval r ->
-    match r.RelType with
-    | RelocationARMv8 RelocationARMv8.R_AARCH64_JUMP_SLOT ->
+    match r.RelKind with
+    | RelocationKindARMv8 RelocationARMv8.R_AARCH64_JUMP_SLOT ->
       if r.RelOffset < minval then r.RelOffset else minval
     | _ -> minval) UInt64.MaxValue
   |> fun addr -> if addr = UInt64.MaxValue then None else Some addr
@@ -173,13 +173,13 @@ let rec parseEntryLoop p sec rdr span desc symbs rel map idx eAddr addr =
     let entry =
       (p: PLTParser).ParseEntry (addr, idx, sec, desc, rdr, span)
     let nextAddr = entry.NextEntryAddr
-    match rel.RelocByAddr.TryGetValue entry.EntryRelocAddr with
-    | true, r ->
+    match (rel: RelocationInfo).TryFind entry.EntryRelocAddr with
+    | Ok r ->
       let entry = makePLTEntry symbs addr entry.EntryRelocAddr r
       let ar = AddrRange (addr, nextAddr - 1UL)
       let map = NoOverlapIntervalMap.add ar entry map
       parseEntryLoop p sec rdr span desc symbs rel map (idx + 1) eAddr nextAddr
-    | _ ->
+    | Error _ ->
       parseEntryLoop p sec rdr span desc symbs rel map (idx + 1) eAddr nextAddr
 
 let private parseEntries p sec span reader desc symbs rel map eAddr addr =
@@ -194,12 +194,12 @@ let rec private parseSections p toolBox map = function
 /// This uses relocation information to parse PLT entries. This can be a general
 /// parser, but it is rather slow compared to platform-specific parsers. RISCV64
 /// relies on this.
-type GeneralPLTParser (shdrs, relocInfo, symbs, pltHdrSize, relType) =
+type GeneralPLTParser (shdrs, relocInfo, symbs, pltHdrSize, relKind) =
   inherit PLTParser ()
 
   let relocs =
-    relocInfo.RelocByAddr.Values
-    |> Seq.filter (fun r -> r.RelType = relType)
+    (relocInfo: RelocationInfo).Values
+    |> Seq.filter (fun r -> r.RelKind = relKind)
     |> Seq.toArray
 
   member internal _.Relocs with get() = relocs
@@ -614,8 +614,8 @@ type MIPSPLTParser (hdr, shdrs, relocInfo, symbs: SymbolStore) =
     else parseSections this toolBox NoOverlapIntervalMap.empty pltSections
 
 /// Classic PPC that uses the .plt section. Modern PPC binaries use the "glink".
-type PPCClassicPLTParser (shdrs, relocInfo, symbs, pltHdrSize, relType) =
-  inherit GeneralPLTParser (shdrs, relocInfo, symbs, pltHdrSize, relType)
+type PPCClassicPLTParser (shdrs, relocInfo, symbs, pltHdrSize, relKind) =
+  inherit GeneralPLTParser (shdrs, relocInfo, symbs, pltHdrSize, relKind)
 
   override this.ParseEntry (_addr, idx, _sec, _desc, _rdr, _span) =
     let nextIdx = idx + 1
@@ -632,8 +632,8 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbs) =
   override _.ParseEntry (_, _, _, _, _, _) = Terminator.impossible ()
 
   override _.ParseSection (toolBox, sec, map) =
-    let rtyp = RelocationPPC32 RelocationPPC32.R_PPC_JMP_SLOT
-    let p = PPCClassicPLTParser (shdrs, relocInfo, symbs, 0x48UL, rtyp)
+    let rKind = RelocationKind.Create RelocationPPC32.R_PPC_JMP_SLOT
+    let p = PPCClassicPLTParser (shdrs, relocInfo, symbs, 0x48UL, rKind)
     p.ParseSection (toolBox, sec, map)
 
   member private _.ComputeGLinkAddrWithGOT toolBox =
@@ -688,10 +688,10 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbs) =
   /// Read from the last PLT entry to the first. This is possible because we
   /// have computed the delta between the last entry to the glink stub.
   member private this.ReadPLTEntriesBackwards (glinkAddr, delta, count) =
-    let rtype = RelocationPPC32 RelocationPPC32.R_PPC_JMP_SLOT
+    let rKind = RelocationKind.Create RelocationPPC32.R_PPC_JMP_SLOT
     let relocs =
-      relocInfo.RelocByAddr.Values
-      |> Seq.filter (fun r -> r.RelType = rtype)
+      relocInfo.Values
+      |> Seq.filter (fun r -> r.RelKind = rKind)
       |> Seq.toArray
     assert (relocs.Length = count)
     let addr = glinkAddr - delta
@@ -755,11 +755,11 @@ let initPLTParser hdr shdrs relocInfo symbs =
   | MachineType.EM_PPC ->
     PPCPLTParser (hdr, shdrs, relocInfo, symbs) :> PLTParser
   | MachineType.EM_RISCV ->
-    let rtype = RelocationRISCV RelocationRISCV.R_RISCV_JUMP_SLOT
-    GeneralPLTParser (shdrs, relocInfo, symbs, 32UL, rtype) :> PLTParser
+    let rKind = RelocationKind.Create RelocationRISCV.R_RISCV_JUMP_SLOT
+    GeneralPLTParser (shdrs, relocInfo, symbs, 32UL, rKind) :> PLTParser
   | MachineType.EM_SH ->
-    let rtype = RelocationSH4 RelocationSH4.R_SH_JMP_SLOT
-    GeneralPLTParser (shdrs, relocInfo, symbs, 28UL, rtype) :> PLTParser
+    let rKind = RelocationKind.Create RelocationSH4.R_SH_JMP_SLOT
+    GeneralPLTParser (shdrs, relocInfo, symbs, 28UL, rKind) :> PLTParser
   | _ -> NullPLTParser () :> PLTParser
 
 let parse toolBox shdrs symbs relocInfo =

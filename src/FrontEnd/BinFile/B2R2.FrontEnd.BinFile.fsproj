@@ -45,6 +45,8 @@
     <Compile Include="ELF\SymbolVisibility.fs" />
     <Compile Include="ELF\Symbol.fs" />
     <Compile Include="ELF\SymbolStore.fs" />
+    <Compile Include="ELF\RelocationKind.fs" />
+    <Compile Include="ELF\RelocationEntry.fs" />
     <Compile Include="ELF\RelocationInfo.fs" />
     <Compile Include="ELF\PLT.fs" />
     <Compile Include="ELF\DwarfTypes.fs" />

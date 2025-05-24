@@ -37,7 +37,7 @@ type ELFTests () =
     ELFBinFile (fileName, bytes, None, None)
 
   let assertExistenceOfRelocation (file: IBinFile) offset symbolName =
-    (file :?> ELFBinFile).RelocationInfo.RelocByAddr
+    (file :?> ELFBinFile).RelocationInfo.KeyValuePairs
     |> Seq.map (fun pair -> pair.Key, pair.Value.RelSymbol.Value.SymName)
     |> assertExistenceOfPair (offset, symbolName)
 

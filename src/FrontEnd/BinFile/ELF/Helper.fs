@@ -101,22 +101,22 @@ let inline tryFindFuncSymb (symbs: SymbolStore) addr =
     else Error ErrorCase.SymbolNotFound
   | Error _ -> Error ErrorCase.SymbolNotFound
 
-let getRelocatedAddr relocInfo relocAddr =
-  match relocInfo.RelocByAddr.TryGetValue relocAddr with
-  | true, rel ->
-    match rel.RelType with
-    | RelocationX86 RelocationX86.R_386_32
-    | RelocationX64 RelocationX64.R_X86_64_64 ->
+let getRelocatedAddr (relocInfo: RelocationInfo) relocAddr =
+  match relocInfo.TryFind relocAddr with
+  | Ok rel ->
+    match rel.RelKind with
+    | RelocationKindX86 RelocationX86.R_386_32
+    | RelocationKindX64 RelocationX64.R_X86_64_64 ->
       match rel.RelSymbol with
       | Some sym -> sym.Addr + rel.RelAddend |> Ok
       | _ -> Error ErrorCase.ItemNotFound
-    | RelocationX86 RelocationX86.R_386_JUMP_SLOT
-    | RelocationX64 RelocationX64.R_X86_64_JUMP_SLOT ->
+    | RelocationKindX86 RelocationX86.R_386_JUMP_SLOT
+    | RelocationKindX64 RelocationX64.R_X86_64_JUMP_SLOT ->
       match rel.RelSymbol with
       | Some sym -> sym.Addr |> Ok
       | _ -> Error ErrorCase.ItemNotFound
-    | RelocationX86 RelocationX86.R_386_IRELATIVE
-    | RelocationX64 RelocationX64.R_X86_64_IRELATIVE ->
+    | RelocationKindX86 RelocationX86.R_386_IRELATIVE
+    | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE ->
       Ok rel.RelAddend
     | _ -> Error ErrorCase.ItemNotFound
   | _ -> Error ErrorCase.ItemNotFound

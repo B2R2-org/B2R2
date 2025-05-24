@@ -75,6 +75,7 @@ type ProgramHeaderType =
   /// The upper bound of processor-specific program header type.
   | PT_HIPROC = 0x7fffffffu
 
+/// Provides functions to convert program header type to a string
 [<RequireQualifiedAccess>]
 module ProgramHeaderType =
   open B2R2
