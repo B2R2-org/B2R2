@@ -185,7 +185,7 @@ let dumpRelocs (_opts: FileViewerOpts) (elf: ELFBinFile) =
   let cfg = [ addrColumn; LeftAligned 24; RightAligned 8; LeftAligned 12 ]
   out.PrintRow (true, cfg, [ "Address"; "Type"; "Addended"; "Symbol" ])
   out.PrintLine "  ---"
-  elf.RelocationInfo.Values
+  elf.RelocationInfo.Entries
   |> Seq.sortBy (fun reloc -> reloc.RelOffset)
   |> Seq.iter (fun reloc ->
     let symbol =
@@ -336,16 +336,16 @@ let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =
           (toLibString >> normalizeEmpty) e.LibraryName ]))
 
 let cfaToString (hdl: BinHandle) cfa =
-  CanonicalFrameAddress.toString hdl.RegisterFactory cfa
+  CanonicalFrameAddress.ToString (hdl.RegisterFactory, cfa)
 
-let ruleToString (hdl: BinHandle) (rule: Rule) =
+let ruleToString (hdl: BinHandle) (rule: UnwindingRule) =
   rule
   |> Map.fold (fun s k v ->
     match k with
-    | ReturnAddress -> s + "(ra:" + Action.toString v + ")"
+    | ReturnAddress -> s + "(ra:" + UnwindingAction.ToString v + ")"
     | NormalReg rid ->
       let reg = hdl.RegisterFactory.GetRegString rid
-      s + "(" + reg + ":" + Action.toString v + ")") ""
+      s + "(" + reg + ":" + UnwindingAction.ToString v + ")") ""
 
 let dumpEHFrame hdl (file: ELFBinFile) =
   let addrColumn = columnWidthOfAddr file |> LeftAligned

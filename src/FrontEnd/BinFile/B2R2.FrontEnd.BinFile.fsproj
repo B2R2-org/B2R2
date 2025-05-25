@@ -49,7 +49,13 @@
     <Compile Include="ELF\RelocationEntry.fs" />
     <Compile Include="ELF\RelocationInfo.fs" />
     <Compile Include="ELF\PLT.fs" />
-    <Compile Include="ELF\DwarfTypes.fs" />
+    <Compile Include="ELF\ExceptionHeaderValue.fs" />
+    <Compile Include="ELF\ExceptionHeader.fs" />
+    <Compile Include="ELF\CFAInstruction.fs" />
+    <Compile Include="ELF\DWOperation.fs" />
+    <Compile Include="ELF\DWRegister.fs" />
+    <Compile Include="ELF\CanonicalFrameAddress.fs" />
+    <Compile Include="ELF\UnwindingEntry.fs" />
     <Compile Include="ELF\ExceptionFrames.fs" />
     <Compile Include="ELF\GccExceptTable.fs" />
     <Compile Include="ELF\ARMExceptionHandler.fs" />

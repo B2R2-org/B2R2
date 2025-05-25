@@ -127,7 +127,7 @@ let private tryFindGOTAddr shdrs =
 let private tryFindFirstEntryAddrWithRelPLT (reloc: RelocationInfo) shdrs =
   match Array.tryFind (fun s -> s.SecName = SecRelPLT) shdrs with
   | Some s ->
-    reloc.Values
+    reloc.Entries
     |> Seq.fold (fun minval r ->
       if r.RelSecNumber = s.SecNum then
         if r.RelOffset < minval then r.RelOffset else minval
@@ -136,7 +136,7 @@ let private tryFindFirstEntryAddrWithRelPLT (reloc: RelocationInfo) shdrs =
   | None -> None
 
 let private tryFindFirstEntryAddrWithRelocation (reloc: RelocationInfo) =
-  reloc.Values
+  reloc.Entries
   |> Seq.fold (fun minval r ->
     match r.RelKind with
     | RelocationKindARMv8 RelocationARMv8.R_AARCH64_JUMP_SLOT ->
@@ -198,7 +198,7 @@ type GeneralPLTParser (shdrs, relocInfo, symbs, pltHdrSize, relKind) =
   inherit PLTParser ()
 
   let relocs =
-    (relocInfo: RelocationInfo).Values
+    (relocInfo: RelocationInfo).Entries
     |> Seq.filter (fun r -> r.RelKind = relKind)
     |> Seq.toArray
 
@@ -690,7 +690,7 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbs) =
   member private this.ReadPLTEntriesBackwards (glinkAddr, delta, count) =
     let rKind = RelocationKind.Create RelocationPPC32.R_PPC_JMP_SLOT
     let relocs =
-      relocInfo.Values
+      relocInfo.Entries
       |> Seq.filter (fun r -> r.RelKind = rKind)
       |> Seq.toArray
     assert (relocs.Length = count)

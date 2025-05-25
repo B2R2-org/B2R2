@@ -101,11 +101,8 @@ module private RelocMap =
 type RelocationInfo internal (toolBox, shdrs, symbs) =
   let relocMap = RelocMap.parse toolBox shdrs symbs
 
-  /// Returns relocation entries as a key-value pair array.
-  member _.KeyValuePairs with get () = relocMap |> Seq.toArray
-
   /// Returns all relocation entries.
-  member _.Values with get () =
+  member _.Entries with get () =
     relocMap.Values
 
   /// Checks if there exists a relocation entry at the given address.

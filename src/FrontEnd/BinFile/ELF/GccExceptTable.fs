@@ -27,7 +27,6 @@ namespace B2R2.FrontEnd.BinFile.ELF
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinFile.ELF.ExceptionHeaderEncoding
 
 /// Language Specific Data Area header.
 type LSDAHeader = {
@@ -78,24 +77,25 @@ module internal ELFGccExceptTable =
   let parseLSDAHeader cls (span: ByteSpan) reader sAddr offset =
     let b = span[offset]
     let offset = offset + 1
-    let struct (lpv, lpapp) = parseEncoding b
+    let struct (lpv, lpapp) = ExceptionHeader.parseEncoding b
     let struct (lpstart, offset) =
       if lpv = ExceptionHeaderValue.DW_EH_PE_omit then struct (None, offset)
       else
-        let struct (cv, offset) = computeValue cls span reader lpv offset
+        let struct (cv, offset) =
+          ExceptionHeaderValue.read cls span reader lpv offset
         struct (Some (sAddr + uint64 offset + cv), offset)
     let b = span[offset]
     let offset = offset + 1
-    let struct (ttv, ttapp) = parseEncoding b
+    let struct (ttv, ttapp) = ExceptionHeader.parseEncoding b
     let struct (ttbase, offset) =
       if ttv = ExceptionHeaderValue.DW_EH_PE_omit then struct (None, offset)
       else
-        let cv, offset = parseULEB128 span offset
+        let cv, offset = ExceptionFrames.readULEB128 span offset
         struct (Some (sAddr + uint64 offset + cv), offset)
     let b = span[offset]
     let offset = offset + 1
-    let struct (csv, csapp) = parseEncoding b
-    let cstsz, offset = parseULEB128 span offset
+    let struct (csv, csapp) = ExceptionHeader.parseEncoding b
+    let cstsz, offset = ExceptionFrames.readULEB128 span offset
     { LPValueEncoding = lpv
       LPAppEncoding = lpapp
       LPStart = lpstart
@@ -113,10 +113,13 @@ module internal ELFGccExceptTable =
     if offset >= (span: ByteSpan).Length - 3 then
       List.rev acc, hasAction
     else
-      let struct (start, offset) = computeValue cls span reader csv offset
-      let struct (length, offset) = computeValue cls span reader csv offset
-      let struct (landingPad, offset) = computeValue cls span reader csv offset
-      let actionOffset, offset = parseULEB128 span offset
+      let struct (start, offset) =
+        ExceptionHeaderValue.read cls span reader csv offset
+      let struct (length, offset) =
+        ExceptionHeaderValue.read cls span reader csv offset
+      let struct (landingPad, offset) =
+        ExceptionHeaderValue.read cls span reader csv offset
+      let actionOffset, offset = ExceptionFrames.readULEB128 span offset
       let acc =
         if start = 0UL && length = 0UL && landingPad = 0UL && actionOffset = 0UL
         then acc (* This can appear due to the miscalculation issue above. *)
@@ -130,8 +133,9 @@ module internal ELFGccExceptTable =
 
   let rec parseActionEntries acc span offset actOffset =
     if actOffset > 0 then
-      let tfilter, offset = parseSLEB128 span (actOffset - 1 + offset)
-      let next, offset = parseSLEB128 span offset
+      let tfilter, offset =
+        ExceptionFrames.readSLEB128 span (actOffset - 1 + offset)
+      let next, offset = ExceptionFrames.readSLEB128 span offset
       let acc = tfilter :: acc
       parseActionEntries acc span offset (int next)
     else List.rev acc
