@@ -82,12 +82,18 @@ We always use unix-style (LF) line-endings for every file.
 
 #### Specific Rules
 
-##### List Literals
+##### List/Array Literals
 
-We prefer to have space chars for list literals. For example,
+We prefer to have space chars for list/array literals. For example,
 ```fsharp
 [ 1; 2; 3 ] // Good
 [1; 2; 3]   // Bad
+```
+
+For arrays, the same spacing rules apply:
+```fsharp
+[| 1; 2; 3 |] // Good
+[|1; 2; 3|]   // Bad
 ```
 
 When we use a range operator:
@@ -97,10 +103,35 @@ When we use a range operator:
 [ 1..10 ]   // Bad
 ```
 
+Element spacing must be exactly one space after semicolons:
+```fsharp
+[ 1; 2; 3 ]  // Good
+[ 1;2; 3 ]   // Bad
+[ 1;  2; 3 ] // Bad
+```
+
 When there is no element:
 ```fsharp
-[]   // Good
-[ ]  // Bad
+[]  // Good
+[ ] // Bad
+```
+
+For nested literals, outer containers have internal spacing:
+```fsharp
+[ [ 1; 2 ]; [ 3; 4 ] ] // Good
+[[ 1; 2 ]; [ 3; 4 ]]   // Bad
+```
+
+For multiline literals, prefer single-line unless exceeding 80 characters:
+```fsharp
+let good = [ elements ]
+```
+
+When multiline format is required, use only this structure:
+```fsharp
+let good =
+  [ element
+    element ]
 ```
 
 When pattern matching on a list:
