@@ -33,13 +33,13 @@ open B2R2.FrontEnd.BinFile
 /// support ELF binaries.
 /// </summary>
 type ExceptionInfo (liftingUnit: LiftingUnit) =
-  let loadCallSiteTable lsdaPointer lsdas =
-    let lsda: ELF.LanguageSpecificDataArea = Map.find lsdaPointer lsdas
+  let loadCallSiteTable lsdaPointer lsdaTbl =
+    let lsda: ELF.LSDA = Map.find lsdaPointer lsdaTbl
     lsda.CallSiteTable
 
   /// If a landing pad has a direct branch to another function, then we consider
   /// the frame containing the lading pad as a non-function FDE.
-  let checkIfFDEIsFunction (fde: ELF.FrameDescriptionEntry) landingPad =
+  let checkIfFDEIsFunction (fde: ELF.FDE) landingPad =
     match liftingUnit.ParseBBlock (addr=landingPad) with
     | Ok (blk) ->
       let last = blk[blk.Length - 1]
@@ -50,7 +50,7 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
       else true
     | _ -> true
 
-  let rec loopCallSiteTable (fde: ELF.FrameDescriptionEntry) isFDEFunc acc rs =
+  let rec loopCallSiteTable (fde: ELF.FDE) isFDEFunc acc rs =
     match rs with
     | [] -> acc, isFDEFunc
     | (csrec: ELF.CallSiteRecord) :: rest ->
@@ -65,30 +65,29 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
         let isFDEFunc = checkIfFDEIsFunction fde landingPad
         loopCallSiteTable fde isFDEFunc acc rest
 
-  let buildExceptionTable (fde: ELF.FrameDescriptionEntry) lsdas tbl =
+  let buildExceptionTable (fde: ELF.FDE) lsdaTbl tbl =
     match fde.LSDAPointer with
     | None -> tbl, true
     | Some lsdaPointer ->
-      loopCallSiteTable fde true tbl (loadCallSiteTable lsdaPointer lsdas)
+      loopCallSiteTable fde true tbl (loadCallSiteTable lsdaPointer lsdaTbl)
 
-  let accumulateExceptionTableInfo acc fde lsdas =
+  let accumulateExceptionTableInfo acc fde lsdaTbl =
     fde
     |> Array.fold (fun (exnTbl, fnEntryPoints) fde ->
-       let exnTbl, isFDEFunction = buildExceptionTable fde lsdas exnTbl
+       let exnTbl, isFDEFunction = buildExceptionTable fde lsdaTbl exnTbl
        let fnEntryPoints =
         if isFDEFunction then Set.add fde.PCBegin fnEntryPoints
         else fnEntryPoints
        exnTbl, fnEntryPoints) acc
 
-  let computeExceptionTable excframes lsdas =
+  let computeExceptionTable excframes lsdaTbl =
     excframes
-    |> List.fold (fun acc (cfi: ELF.CallFrameInformation) ->
-      accumulateExceptionTableInfo acc cfi.FDERecord lsdas
+    |> List.fold (fun acc (cfi: ELF.CFI) ->
+      accumulateExceptionTableInfo acc cfi.FDEs lsdaTbl
     ) (NoOverlapIntervalMap.empty, Set.empty)
 
   let buildELF (elf: ELFBinFile) =
-    let exn = elf.ExceptionInfo
-    computeExceptionTable exn.ExceptionFrames exn.LSDAs
+    computeExceptionTable elf.ExceptionFrame elf.LSDATable
 
   let exnTbl, funcEntryPoints =
     match liftingUnit.File.Format with

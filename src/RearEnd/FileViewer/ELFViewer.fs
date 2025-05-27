@@ -350,15 +350,14 @@ let ruleToString (hdl: BinHandle) (rule: UnwindingRule) =
 let dumpEHFrame hdl (file: ELFBinFile) =
   let addrColumn = columnWidthOfAddr file |> LeftAligned
   let cfg = [ addrColumn; LeftAligned 10; LeftAligned 50 ]
-  file.ExceptionInfo.ExceptionFrames
+  file.ExceptionFrame
   |> List.iter (fun cfi ->
     out.PrintLine ("- CIE: \"{0}\" cf={1} df={2}",
-      cfi.CIERecord.AugmentationString,
-      cfi.CIERecord.CodeAlignmentFactor.ToString ("+0;-#"),
-      cfi.CIERecord.DataAlignmentFactor.ToString ("+0;-#"))
+      cfi.CIE.AugmentationString,
+      cfi.CIE.CodeAlignmentFactor.ToString ("+0;-#"),
+      cfi.CIE.DataAlignmentFactor.ToString ("+0;-#"))
     out.PrintLine ()
-    cfi.FDERecord
-    |> Array.iter (fun fde ->
+    for fde in cfi.FDEs do
       out.PrintLine ("  FDE pc={0}..{1}",
         HexString.ofUInt64 fde.PCBegin,
         HexString.ofUInt64 fde.PCEnd)
@@ -373,7 +372,6 @@ let dumpEHFrame hdl (file: ELFBinFile) =
             cfaToString hdl i.CanonicalFrameAddress
             ruleToString hdl i.Rule ]))
       out.PrintLine ()
-    )
   )
 
 let dumpGccExceptTable _hdl (elf: ELFBinFile) =
@@ -381,13 +379,13 @@ let dumpGccExceptTable _hdl (elf: ELFBinFile) =
   let file = elf :> IBinFile
   let cfg = [ addrColumn; LeftAligned 15; LeftAligned 15; addrColumn ]
   out.PrintRow (true, cfg, [ "Address"; "LP App"; "LP Val"; "TT End" ])
-  elf.ExceptionInfo.LSDAs
+  elf.LSDATable
   |> Map.iter (fun lsdaAddr lsda ->
-    let ttbase = lsda.LSDAHeader.TTBase |> Option.defaultValue 0UL
+    let ttbase = lsda.TTBase |> Option.defaultValue 0UL
     out.PrintRow (true, cfg,
       [ Addr.toString file.ISA.WordSize lsdaAddr
-        lsda.LSDAHeader.LPAppEncoding.ToString ()
-        lsda.LSDAHeader.LPValueEncoding.ToString ()
+        lsda.LPAppEncoding.ToString ()
+        lsda.LPValueEncoding.ToString ()
         ttbase |> Addr.toString file.ISA.WordSize ])
   )
 

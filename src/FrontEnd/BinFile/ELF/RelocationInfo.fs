@@ -97,7 +97,8 @@ module private RelocMap =
       | _ -> ()
     relocMap
 
-/// Represents relocation information.
+/// Represents relocation information, which internally stores a collection of
+/// relocation entries indexed by their addresses.
 type RelocationInfo internal (toolBox, shdrs, symbs) =
   let relocMap = RelocMap.parse toolBox shdrs symbs
 

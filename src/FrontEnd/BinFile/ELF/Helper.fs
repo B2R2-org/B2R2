@@ -160,8 +160,8 @@ let getAddrsFromSpecialSections shdrs =
 
 let findFunctionsFromExceptionFrame exnInfo =
   let lst = List ()
-  for cfi in exnInfo.ExceptionFrames do
-    for fde in cfi.FDERecord do
+  for cfi in exnInfo.ExceptionFrame do
+    for fde in cfi.FDEs do
       lst.Add fde.PCBegin
   lst.ToArray ()
 

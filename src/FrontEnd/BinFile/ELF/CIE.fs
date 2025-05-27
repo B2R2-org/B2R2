@@ -24,86 +24,49 @@
 
 namespace B2R2.FrontEnd.BinFile.ELF
 
-open System
 open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 
-/// Raised when an unhandled eh_frame version is encountered.
-exception UnhandledEHFrameVersionException
-
-/// Raised when an unhandled augment string is encountered.
-exception UnhandledAugStringException
-
-/// Raised when CIE is not found by FDE
-exception CIENotFoundByFDEException
-
-/// Raised when invalid sequence of dwarf instructions encountered.
-exception InvalidDWInstructionExpException
-
-/// This tells how augmetation data is handled.
-type Augmentation = {
-  Format: char
-  ValueEncoding: ExceptionHeaderValue
-  ApplicationEncoding: ExceptionHeaderApplication
-  PersonalityRoutionPointer: byte []
-}
-
-/// CIE. Common Information Entry.
-type CommonInformationEntry = {
+/// Represents the Common Information Entry (CIE).
+type CIE = {
+  /// Version assigned to the call frame information structure.
   Version: uint8
+  /// This value is a NUL terminated string that identifies the augmentation to
+  /// the CIE or to the FDEs associated with this CIE
   AugmentationString: string
+  /// This value shall be multiplied by the delta argument of an adavance
+  /// location instruction to obtain the new location value.
   CodeAlignmentFactor: uint64
+  /// This value shall be multiplied by the register offset argument of an
+  /// offset instruction to obtain the new offset value.
   DataAlignmentFactor: int64
+  /// Register that holds the return address.
   ReturnAddressRegister: byte
+  /// Initial set of unwinding actions (i.e., call frame instructions).
   InitialRule: UnwindingRule
+  /// Initial CFA register.
   InitialCFARegister: byte
+  /// Initial Canonical Frame Address (CFA).
   InitialCFA: CanonicalFrameAddress
+  /// Augmentation data.
   Augmentations: Augmentation list
 }
 
-/// FDE. Frame Description Entry.
-type FrameDescriptionEntry = {
-  PCBegin: Addr
-  PCEnd: Addr
-  LSDAPointer: Addr option
-  UnwindingInfo: UnwindingEntry list
-}
-
-/// The main information block of .eh_frame. This exists roughly for every
-/// object file, although one object file may have multiple CFIs.
-type CallFrameInformation = {
-  CIERecord: CommonInformationEntry
-  FDERecord: FrameDescriptionEntry[]
+/// Represents the CIE augmetation data.
+and Augmentation = {
+  Format: char
+  ValueEncoding: ExceptionHeaderValue
+  ApplicationEncoding: ExceptionHeaderApplication
+  PersonalityRoutionPointer: byte[]
 }
 
 [<RequireQualifiedAccess>]
-module internal ExceptionFrames =
-  let [<Literal>] Ehframe = ".eh_frame"
-
-  let readULEB128 (span: ByteSpan) offset =
-    let v, cnt = LEB128.DecodeUInt64 (span.Slice offset)
-    v, offset + cnt
-
-  let readSLEB128 (span: ByteSpan) offset =
-    let v, cnt = LEB128.DecodeSInt64 (span.Slice offset)
-    v, offset + cnt
-
-  let getTarget isa returnAddressReg (reg: byte) =
-    if returnAddressReg = reg then ReturnAddress
-    else DWRegister.toRegID isa reg |> NormalReg
-
-  let getOffset isa rr reg v =
-    getTarget isa rr reg, Offset v
-
-  let computeNextOffset (span: ByteSpan) (reader: IBinReader) offset len =
-    if len = -1 then
-      let len = reader.ReadUInt64 (span, offset)
-      let offset = offset + 8
-      int len + offset, offset
-    else len + offset, offset
+module internal CIE =
+  /// Raised when invalid sequence of dwarf instructions encountered.
+  exception InvalidDWInstructionExpException
 
   let parseReturnRegister toolBox (span: ByteSpan) version offset =
     if version = 1uy then span[offset], offset + 1
@@ -139,7 +102,7 @@ module internal ExceptionFrames =
         ApplicationEncoding = app
         PersonalityRoutionPointer = [||] } :: data, offset + 1
     | 'S' -> data, offset (* This is a signal frame. *)
-    | _ -> raise UnhandledAugStringException
+    | _ -> Terminator.futureFeature ()
 
   let parseAugmentationData toolBox (span: ByteSpan) offset addrSize augstr =
     if (augstr: string).StartsWith ('z') then
@@ -494,6 +457,13 @@ module internal ExceptionFrames =
     | Some oldVal -> Map.add target oldVal currentRule
     | None -> Map.remove target currentRule
 
+  let getTarget isa returnAddressReg (reg: byte) =
+    if returnAddressReg = reg then ReturnAddress
+    else DWRegister.toRegID isa reg |> NormalReg
+
+  let getOffset isa rr reg v =
+    getTarget isa rr reg, Offset v
+
   let rec getUnwind acc cfa irule rst rule isa regs lr cf df rr span i loc =
     if i >= (span: ByteSpan).Length then
       { Location = loc
@@ -667,7 +637,7 @@ module internal ExceptionFrames =
     | [ row ] -> row.Rule
     | _ -> Map.empty
 
-  let parseCIE toolBox (secChunk: ByteSpan) cls isa regs offset nextOffset =
+  let parse toolBox (secChunk: ByteSpan) cls isa regs offset nextOffset =
     let version = secChunk[offset]
     let offset = offset + 1
     if version = 1uy || version = 3uy then
@@ -699,117 +669,4 @@ module internal ExceptionFrames =
           InitialCFA = cfa
           Augmentations = augs }
     else
-      raise UnhandledEHFrameVersionException
-
-  let tryFindAugmentation cie format =
-    cie.Augmentations |> List.tryFind (fun aug -> aug.Format = format)
-
-  let adjustAddr app myAddr addr =
-    match app with
-    | ExceptionHeaderApplication.DW_EH_PE_pcrel -> addr + myAddr
-    | _ -> addr
-
-  let parsePCInfo cls span reader sAddr relOpt venc aenc offset =
-    let myAddr = sAddr + uint64 offset
-    let struct (addr, offset) =
-      ExceptionHeaderValue.read cls span reader venc offset
-    let struct (range, offset) =
-      ExceptionHeaderValue.read cls span reader venc offset
-    let beginAddr = adjustAddr aenc myAddr addr
-    let endAddr = beginAddr + range
-    match (relOpt: RelocationInfo option) with
-    | Some relInfo ->
-      match relInfo.TryFind beginAddr with
-      | Ok rentry ->
-        let beginAddr = addr + rentry.RelAddend
-        struct (beginAddr, beginAddr + range, offset)
-      | Error _ -> struct (beginAddr, endAddr, offset)
-    | None -> struct (beginAddr, endAddr, offset)
-
-  let parseLSDA cls span reader sAddr aug offset =
-    let _, offset = readULEB128 span offset
-    let myAddr = sAddr + uint64 offset
-    let struct (addr, offset) =
-      ExceptionHeaderValue.read cls span reader aug.ValueEncoding offset
-    Some (adjustAddr aug.ApplicationEncoding myAddr addr), offset
-
-  let parseCallFrameInstrs cie isa registerFactory span offset nextOffset loc =
-    let span = (span: ByteSpan).Slice (offset, nextOffset - offset)
-    let insarr = span.ToArray ()
-    if Array.forall (fun b -> b = 0uy) insarr then []
-    else
-      let cf = cie.CodeAlignmentFactor
-      let df = cie.DataAlignmentFactor
-      let rr = cie.ReturnAddressRegister
-      let ir = cie.InitialCFARegister
-      let r = cie.InitialRule
-      let cfa = cie.InitialCFA
-      let info, _, _ =
-        getUnwind [] cfa r [] r isa registerFactory ir cf df rr span 0 loc
-      info
-
-  let parseFDE cls isa regs span reader sAddr offset nextOffset reloc cie =
-    match cie with
-    | Some cie ->
-      let venc, aenc =
-        match tryFindAugmentation cie 'R' with
-        | Some aug -> aug.ValueEncoding, aug.ApplicationEncoding
-        | None -> ExceptionHeaderValue.DW_EH_PE_absptr,
-                  ExceptionHeaderApplication.DW_EH_PE_omit
-      let struct (b, e, offset) =
-        parsePCInfo cls span reader sAddr reloc venc aenc offset
-      let lsdaPointer, offset =
-        match tryFindAugmentation cie 'L' with
-        | Some aug -> parseLSDA cls span reader sAddr aug offset
-        | None -> None, offset
-      let info = parseCallFrameInstrs cie isa regs span offset nextOffset b
-      { PCBegin = b
-        PCEnd = e
-        LSDAPointer = lsdaPointer
-        UnwindingInfo = info }
-    | None -> raise CIENotFoundByFDEException
-
-  let accumulateCFIs cfis cie fdes =
-    match cie with
-    | Some cie ->
-      { CIERecord = cie
-        FDERecord = List.rev fdes |> List.toArray } :: cfis
-    | None -> cfis
-
-  let private parseCFI toolBox cls isa reloc regs sec =
-    let secAddr, secOffset, secSize = sec.SecAddr, sec.SecOffset, sec.SecSize
-    let reader = toolBox.Reader
-    let rec parseLoop cie cies fdes offset cfis =
-      let secChunk = ReadOnlySpan (toolBox.Bytes, int secOffset, int secSize)
-      if offset >= secChunk.Length then
-        accumulateCFIs cfis cie fdes
-      else
-        let originalOffset = offset
-        let len, offset = reader.ReadInt32 (secChunk, offset), offset + 4
-        if len = 0 then accumulateCFIs cfis cie fdes
-        else
-          let nextOfs, offset = computeNextOffset secChunk reader offset len
-          let mybase = offset
-          let id, offset = reader.ReadInt32 (secChunk, offset), offset + 4
-          if id = 0 then
-            let cfis = accumulateCFIs cfis cie fdes
-            let cie = parseCIE toolBox secChunk cls isa regs offset nextOfs
-            let cies = Map.add originalOffset cie cies
-            let cie = Some cie
-            parseLoop cie cies [] nextOfs cfis
-          else
-            let cieOffset = mybase - id (* id = a CIE pointer, when id <> 0 *)
-            let fde =
-              parseFDE
-                cls isa regs secChunk reader secAddr offset nextOfs reloc
-                (Map.tryFind cieOffset cies)
-            let fdes = fde :: fdes
-            parseLoop cie cies fdes nextOfs cfis
-    parseLoop None Map.empty [] 0 []
-
-  let parse toolBox cls shdrs isa regFactoryOpt reloc =
-    match Array.tryFind (fun s -> s.SecName = Ehframe) shdrs, regFactoryOpt with
-    | Some sec, Some registerFactory ->
-      parseCFI toolBox cls isa reloc registerFactory sec
-      |> List.rev
-    | _ -> []
+      Terminator.futureFeature ()

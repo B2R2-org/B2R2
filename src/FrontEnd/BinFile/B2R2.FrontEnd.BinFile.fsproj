@@ -56,10 +56,13 @@
     <Compile Include="ELF\DWRegister.fs" />
     <Compile Include="ELF\CanonicalFrameAddress.fs" />
     <Compile Include="ELF\UnwindingEntry.fs" />
-    <Compile Include="ELF\ExceptionFrames.fs" />
-    <Compile Include="ELF\GccExceptTable.fs" />
-    <Compile Include="ELF\ARMExceptionHandler.fs" />
-    <Compile Include="ELF\ExceptionInfo.fs" />
+    <Compile Include="ELF\CIE.fs" />
+    <Compile Include="ELF\FDE.fs" />
+    <Compile Include="ELF\ExceptionFrame.fs" />
+    <Compile Include="ELF\LSDA.fs" />
+    <Compile Include="ELF\LSDATable.fs" />
+    <Compile Include="ELF\ARMExceptionData.fs" />
+    <Compile Include="ELF\ExceptionData.fs" />
     <Compile Include="ELF\Helper.fs" />
     <Compile Include="Mach\Magic.fs" />
     <Compile Include="Mach\CPUType.fs" />

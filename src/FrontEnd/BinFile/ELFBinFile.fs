@@ -40,7 +40,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   let symbs = lazy SymbolStore (toolBox, shdrs.Value)
   let relocs = lazy RelocationInfo (toolBox, shdrs.Value, symbs.Value)
   let plt = lazy PLT.parse toolBox shdrs.Value symbs.Value relocs.Value
-  let exnInfo = lazy ExceptionInfo.parse toolBox shdrs.Value rfOpt relocs.Value
+  let exn = lazy ExceptionData.parse toolBox shdrs.Value rfOpt relocs.Value
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
   let notInFileRanges = lazy invalidRangesByFileBounds hdr loadables.Value
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
@@ -62,7 +62,13 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   member _.PLT with get() = plt.Value
 
   /// Exception information.
-  member _.ExceptionInfo with get() = exnInfo.Value
+  member _.ExceptionFrame with get () = exn.Value.ExceptionFrame
+
+  /// LSDA table.
+  member _.LSDATable with get () = exn.Value.LSDATable
+
+  /// Unwinding table.
+  member _.UnwindingTable with get () = exn.Value.UnwindingTbl
 
   /// ELF symbol information.
   member _.Symbols with get() = symbs.Value
@@ -203,7 +209,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
       (this :> IBinFile).GetFunctionAddresses false
 
     member _.GetFunctionAddresses (useExcInfo) =
-      let exnOpt = if useExcInfo then Some exnInfo.Value else None
+      let exnOpt = if useExcInfo then Some exn.Value else None
       let staticFuncs =
         [| for s in symbs.Value.StaticSymbols do
              if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr |]

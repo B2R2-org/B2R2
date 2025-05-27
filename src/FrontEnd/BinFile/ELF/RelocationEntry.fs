@@ -24,7 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile.ELF
 
-/// Relocation entry.
+/// Represents a relocation entry.
 type RelocationEntry = {
   /// The location at which to apply the relocation action.
   RelOffset: uint64

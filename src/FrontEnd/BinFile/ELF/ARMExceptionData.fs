@@ -23,7 +23,7 @@ SOFTWARE.
 *)
 
 [<RequireQualifiedAccess>]
-module internal B2R2.FrontEnd.BinFile.ELF.ELFARMExceptionHandler
+module internal B2R2.FrontEnd.BinFile.ELF.ARMExceptionData
 
 open System
 open B2R2
@@ -79,7 +79,7 @@ let private computeLSDAOffset currentOffset (n: int) =
     let msb = (n >>> 24) &&& 0xff (* This means the number of words to parse. *)
     currentOffset + 4 + msb * 4
 
-/// Read LSDA if the personality routine in a custom model.
+/// Reads LSDA if the personality routine is a custom model.
 let private readLSDAFromCustom reader cls span (sAddr: Addr) addr =
   let offset = Convert.ToInt32 (addr - sAddr)
   let n = (reader: IBinReader).ReadInt32 (span=span, offset=offset)
@@ -88,8 +88,7 @@ let private readLSDAFromCustom reader cls span (sAddr: Addr) addr =
     let offset = offset + 4
     let n = reader.ReadInt32 (span, offset)
     let lsdaOffset = computeLSDAOffset offset n
-    let struct (lsda, _) =
-      ELFGccExceptTable.parseLSDA cls span reader sAddr lsdaOffset
+    let struct (lsda, _) = LSDA.parse cls span reader sAddr lsdaOffset
     let lsdaAddr = sAddr + uint64 lsdaOffset
     Some (lsda, lsdaAddr)
   elif (n &&& 0xF0000000) = 0x80000000 then (* Compact model. *) None
@@ -130,9 +129,9 @@ let private parseExnTable toolBox cls exnTblSection entries =
       Augmentations = [] }
   let fdes, lsdas =
     readExnTableEntry ([], Map.empty) toolBox.Reader cls span secAddr entries
-  struct ([ { CIERecord = cie; FDERecord = List.toArray fdes } ], lsdas )
+  struct ([ { CIE = cie; FDEs = List.toArray fdes } ], lsdas )
 
-/// Parse ARM-specific exception handler. The specification is found @
+/// Parses ARM-specific exception handler. The specification is found @
 /// https://github.com/ARM-software/abi-aa/blob/main/ehabi32/ehabi32.rst
 let parse toolBox cls shdrs =
   match Array.tryFind (fun s -> s.SecName = ARMIndexTable) shdrs,

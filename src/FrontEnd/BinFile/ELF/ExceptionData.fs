@@ -26,21 +26,21 @@ namespace B2R2.FrontEnd.BinFile.ELF
 
 open B2R2
 
-/// Exception information.
-type ExceptionInfo = {
+/// Represents exception information.
+type internal ExceptionData = {
   /// Exception frames.
-  ExceptionFrames: CallFrameInformation list
-  /// LSDAs (Language Specific Data Areas).
-  LSDAs: Map<Addr, LanguageSpecificDataArea>
+  ExceptionFrame: ExceptionFrame
+  /// LSDA (Language Specific Data Area) table is a collection of LSDAs.
+  LSDATable: LSDATable
   /// Unwinding info table.
   UnwindingTbl: Map<Addr, UnwindingEntry>
 }
 
-module internal ExceptionInfo =
+module internal ExceptionData =
   let private computeUnwindingTable exns =
     exns
-    |> List.fold (fun tbl (f: CallFrameInformation) ->
-      f.FDERecord |> Array.fold (fun tbl fde ->
+    |> List.fold (fun tbl (f: CFI) ->
+      f.FDEs |> Array.fold (fun tbl fde ->
         fde.UnwindingInfo |> List.fold (fun tbl i ->
           Map.add i.Location i tbl) tbl
         ) tbl) Map.empty
@@ -51,13 +51,13 @@ module internal ExceptionInfo =
     let isa = toolBox.ISA
     let relocInfo =
       if hdr.ELFType = ELFType.ET_REL then Some reloc else None
-    let exns = ExceptionFrames.parse toolBox cls shdrs isa regFactory relocInfo
-    let lsdas = ELFGccExceptTable.parse toolBox cls shdrs
+    let exns = ExceptionFrame.parse toolBox cls shdrs isa regFactory relocInfo
+    let lsdas = LSDATable.parse toolBox cls shdrs
     match exns with
     | [] when isa.Arch = Architecture.ARMv7 ->
-      let struct (exns, lsdas) = ELFARMExceptionHandler.parse toolBox cls shdrs
-      { ExceptionFrames = exns; LSDAs = lsdas; UnwindingTbl = Map.empty }
+      let struct (exns, lsdas) = ARMExceptionData.parse toolBox cls shdrs
+      { ExceptionFrame = exns; LSDATable = lsdas; UnwindingTbl = Map.empty }
     | _ ->
       let unwinds = computeUnwindingTable exns
-      { ExceptionFrames = exns; LSDAs = lsdas; UnwindingTbl = unwinds }
+      { ExceptionFrame = exns; LSDATable = lsdas; UnwindingTbl = unwinds }
 

@@ -56,6 +56,18 @@ let readCString (span: ByteSpan) offset =
   let bs = cstrLoop span [] offset
   ByteArray.extractCString bs 0
 
+/// Reads LEB128 unsigned integer from the given byte span starting at the
+/// given offset.
+let readULEB128 (span: ByteSpan) offset =
+  let v, cnt = LEB128.DecodeUInt64 (span.Slice offset)
+  v, offset + cnt
+
+/// Reads LEB128 signed integer from the given byte span starting at the given
+/// offset.
+let readSLEB128 (span: ByteSpan) offset =
+  let v, cnt = LEB128.DecodeSInt64 (span.Slice offset)
+  v, offset + cnt
+
 let addInvalidRange set saddr eaddr =
   if saddr = eaddr then set
   else IntervalSet.add (AddrRange (saddr, eaddr - 1UL)) set
