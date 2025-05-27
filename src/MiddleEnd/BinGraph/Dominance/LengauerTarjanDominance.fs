@@ -30,9 +30,9 @@ module B2R2.MiddleEnd.BinGraph.Dominance.LengauerTarjanDominance
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-type private DomInfo<'V when 'V: equality> = {
+type private LTDomInfo<'V when 'V: equality> = {
   /// Vertex ID -> DFNum
-  DFNumMap: Dictionary<VertexID, int>
+  DFPre: Dictionary<VertexID, int>
   /// DFNum -> Vertex
   Vertex: IVertex<'V>[]
   /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
@@ -60,12 +60,16 @@ type private DomInfo<'V when 'V: equality> = {
   IDom: int[]
   /// Length of the arrays.
   MaxLength: int
+  /// Real roots of graph
+  Roots: IVertex<'V>[]
+  /// Dummy root
+  DummyRoot: IVertex<'V>
 }
 
 let private initDomInfo (g: IDiGraphAccessible<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.Size + 1
-  { DFNumMap = Dictionary<VertexID, int> ()
+  { DFPre = Dictionary<VertexID, int> ()
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
     Parent = Array.create len 0
@@ -80,14 +84,16 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
 #endif
     Size = Array.create len 1
     IDom = Array.create len 0
-    MaxLength = len }
+    MaxLength = len
+    Roots = g.GetRoots ()
+    DummyRoot = GraphUtils.makeDummyVertex () }
 
-let inline private dfnum (info: DomInfo<_>) (v: IVertex<_>) =
-  info.DFNumMap[v.ID]
+let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) =
+  info.DFPre[v.ID]
 
 let rec private prepare (g: IDiGraphAccessible<_, _>) info n = function
-  | (p, v : IVertex<_>) :: stack when not <| info.DFNumMap.ContainsKey v.ID ->
-    info.DFNumMap.Add (v.ID, n)
+  | (p, v : IVertex<_>) :: stack when not <| info.DFPre.ContainsKey v.ID ->
+    info.DFPre.Add (v.ID, n)
     info.Semi[n] <- n
     info.Vertex[n] <- v
     info.Label[n] <- n
@@ -97,15 +103,14 @@ let rec private prepare (g: IDiGraphAccessible<_, _>) info n = function
   | _ :: stack -> prepare g info n stack
   | [] -> n - 1
 
-let private prepareWithDummyRoot g info (dummyRoot: IVertex<_>) realRoots =
-  info.DFNumMap.Add (dummyRoot.ID, 0)
-  realRoots |> Array.map (fun v -> 0, v) |> Array.toList |> prepare g info 1
+let private prepareWithDummyRoot g info =
+  info.DFPre.Add (info.DummyRoot.ID, 0)
+  info.Roots |> Array.map (fun v -> 0, v) |> Array.toList |> prepare g info 1
 
-let private getPreds g (dummyRoot: IVertex<_>) (realRoots: IVertex<_>[]) v =
-  if realRoots |> Array.contains v then
-    [| dummyRoot; yield! (g: IDiGraphAccessible<_, _>).GetPreds v |]
-  else
-    g.GetPreds v
+let private getPreds g info v =
+  if info.Roots |> Array.contains v then
+    [| info.DummyRoot; yield! (g: IDiGraphAccessible<_, _>).GetPreds v |]
+  else g.GetPreds v
 
 let rec private compress info v =
   let a = info.Ancestor[v]
@@ -182,17 +187,18 @@ let private computeDom info v =
     computeDomAux info w v
 #endif
 
-let private computeDominatorInfo (g: IDiGraphAccessible<_, _>) =
+let private prepareDomInfo (g: IDiGraphAccessible<_, _>) =
   let info = initDomInfo g
-  let dummyRoot = GraphUtils.makeDummyVertex ()
-  let realRoots = g.GetRoots ()
-  let n = prepareWithDummyRoot g info dummyRoot realRoots
+  let n = prepareWithDummyRoot g info
+  info, n
+
+let private computeIDom g info n =
   for i = n downto 1 do
     computeDom info i
     let v = info.Vertex[i]
     let p = info.Parent[i]
-    getPreds g dummyRoot realRoots v
-    |> Array.map (dfnum info)
+    getPreds g info v
+    |> Array.map (dfpre info)
     |> Array.toList
     |> computeSemiDom info i
 #if LT_USE_SET_BUCKET
@@ -210,87 +216,88 @@ let private computeDominatorInfo (g: IDiGraphAccessible<_, _>) =
   done
   info
 
+let private computeDomInfo g =
+  let info, n = prepareDomInfo g
+  computeIDom g info n
+
 let rec private domsAux acc v info =
-  if info.DFNumMap.ContainsKey (v: IVertex<'V>).ID then
-    let id = info.IDom[dfnum info v]
+  if info.DFPre.ContainsKey (v: IVertex<'V>).ID then
+    let id = info.IDom[dfpre info v]
     if id > 0 then domsAux (info.Vertex[id] :: acc) info.Vertex[id] info
     else acc |> List.toArray
   else acc |> List.toArray
 
 let private idomAux info v =
-  if info.DFNumMap.ContainsKey (v: IVertex<'V>).ID then
-    let id = info.IDom[dfnum info v]
+  if info.DFPre.ContainsKey (v: IVertex<'V>).ID then
+    let id = info.IDom[dfpre info v]
     if id >= 1 then info.Vertex[id] else null
   else null
 
-let private createDomInfo g =
-  let domInfo = computeDominatorInfo g
-  let domTree = lazy DominatorTree (g, idomAux domInfo)
-  domInfo, domTree
-
-type private LengauerTarjanDominance<'V, 'E when 'V: equality and 'E: equality>
-  (g, dfp: IDominanceFrontierProvider<_, _>) =
-  let forward = createDomInfo g
-  let backwardG = lazy (GraphUtils.findExits g |> g.Reverse)
-  let backward = lazy (createDomInfo backwardG.Value)
+let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
+                            (fwDT: Lazy<DominatorTree<_,_>>)
+                            (bwInfo: Lazy<LTDomInfo<_>>)
+                            (bwDT: Lazy<DominatorTree<_,_>>)
+                            (dfp: IDominanceFrontierProvider<_, _>) =
   let mutable dfProvider = null
   let mutable pdfProvider = null
-  interface IDominance<'V, 'E> with
-    member _.Dominators v =
+  { new IDominance<'V, 'E> with
+    member __.Dominators v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph fwG v
 #endif
-      let domInfo, _ = forward
-      domsAux [v] v domInfo
+      domsAux [v] v fwInfo
 
     member _.ImmediateDominator v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph fwG v
 #endif
-      let domInfo, _ = forward
-      idomAux domInfo v
+      idomAux fwInfo v
 
-    member _.DominatorTree =
-      let _, domTree = forward
-      domTree.Value
+    member __.DominatorTree =
+      fwDT.Value
 
-    member this.DominanceFrontier v =
+    member __.DominanceFrontier v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph fwG v
 #endif
       if isNull pdfProvider then
-        pdfProvider <- dfp.CreateIDominanceFrontier (g, this, false)
+        pdfProvider <- dfp.CreateIDominanceFrontier (fwG, __, false)
       else ()
       pdfProvider.DominanceFrontier v
 
     member _.PostDominators v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph bwG.Value v
 #endif
-      let domInfo, _ = backward.Value
-      domsAux [v] v domInfo
+      domsAux [v] v bwInfo.Value
 
     member _.ImmediatePostDominator v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph bwG.Value v
 #endif
-      let domInfo, _ = backward.Value
-      idomAux domInfo v
+      idomAux bwInfo.Value v
 
-    member _.PostDominatorTree =
-      let _, domTree = backward.Value
-      domTree.Value
+    member __.PostDominatorTree =
+      bwDT.Value
 
-    member this.PostDominanceFrontier v =
+    member __.PostDominanceFrontier v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph g v
+      GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       if isNull dfProvider then
-        dfProvider <-
-          dfp.CreateIDominanceFrontier (backwardG.Value, this, true)
+        dfProvider <- dfp.CreateIDominanceFrontier (bwG.Value, __, true)
       else ()
-      dfProvider.DominanceFrontier v
+      dfProvider.DominanceFrontier v }
+
+let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
+  let fwInfo = computeDomInfo g
+  let fwDT = lazy DominatorTree (g, idomAux fwInfo)
+  let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
+  let bwInfo = lazy (computeDomInfo bwG.Value)
+  let bwDT = lazy DominatorTree (bwG.Value, idomAux bwInfo.Value)
+  createDominance g bwG fwInfo fwDT bwInfo bwDT dfp, fwInfo, bwInfo
 
 [<CompiledName "Create">]
 let create g (dfp: IDominanceFrontierProvider<_, _>) =
-  LengauerTarjanDominance (g, dfp) :> IDominance<_, _>
+  let dom, _, _ = computeDominance g dfp
+  dom

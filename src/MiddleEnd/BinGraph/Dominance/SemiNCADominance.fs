@@ -32,8 +32,6 @@ open B2R2.MiddleEnd.BinGraph
 type LTDomInfo<'V when 'V: equality> = {
   /// Vertex ID -> DFPre
   DFPre: Dictionary<VertexID, int>
-  /// Number of reachable vertices
-  mutable MaxNum: int
   /// DFPre -> Vertex
   Vertex: IVertex<'V>[]
   /// DFPre -> DFPre in the ancestor chain s.t. DFPre of its Semi is minimal.
@@ -58,7 +56,6 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.Size + 1
   { DFPre = Dictionary<VertexID, int> ()
-    MaxNum = 0
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
     Parent = Array.create len 0
@@ -111,7 +108,6 @@ let private getPreds g info v =
   if info.Roots |> Array.contains v then
     [| info.DummyRoot; yield! (g: IDiGraphAccessible<_, _>).GetPreds v |]
   else g.GetPreds v
-  |> Array.filter (fun v -> info.DFPre.ContainsKey v.ID)
 
 let rec private compress info v =
   let a = info.Ancestor[v]
@@ -149,8 +145,7 @@ let rec private computeDom info p s =
 let private prepareDomInfo (g: IDiGraphAccessible<_, _>) =
   let info = initDomInfo g
   let n = prepareWithDummyRoot g info
-  info.MaxNum <- n
-  info
+  info, n
 
 let private computeIDom g info n =
   for i = n downto 1 do
@@ -162,7 +157,7 @@ let private computeIDom g info n =
     |> computeSemiDom info i
     link info p i (* Link the parent (p) to the forest. *)
   done
-  for i = 1 to info.MaxNum do
+  for i = 1 to n do
     let p = info.Parent[i]
     let s = info.Semi[i]
     info.IDom[i] <- computeDom info p s
@@ -170,8 +165,8 @@ let private computeIDom g info n =
   info
 
 let private computeDomInfo g =
-  let info = prepareDomInfo g
-  computeIDom g info info.MaxNum
+  let info, n = prepareDomInfo g
+  computeIDom g info n
 
 let rec private domsAux acc v info =
   if info.DFPre.ContainsKey (v: IVertex<'V>).ID then
