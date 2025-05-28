@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 
-/// Usage of the file.
+/// Represents the usage of the Mach-O file.
 type MachFileType =
   /// Intermediate object files.
   | MH_OBJECT = 0x1
@@ -225,7 +225,7 @@ module Header =
 
   let private computeMachOffset bytes isa =
     if isFat bytes then
-      let fatArch = FatArch.loadOne bytes isa
+      let fatArch = Fat.parseArch bytes isa
       uint64 fatArch.Offset
     else 0UL
 

@@ -22,40 +22,22 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile
+namespace B2R2.FrontEnd.BinFile.Mach
 
-/// Represents the category of a binary file.
-type FileType =
-  /// Executable.
-  | ExecutableFile = 1
-  /// Core (core dump).
-  | CoreFile = 2
-  /// Library.
-  | LibFile = 3
-  /// Object.
-  | ObjFile = 4
-  /// Other types.
-  | UnknownFile = 5
+/// Represents the exact model of a CPU.
+type CPUSubType =
+  | MIPSAll = 0
+  | MIPSR2300 = 1
+  | MIPSR2600 = 2
+  | MIPSR2800 = 3
+  | MIPSR2000A = 4
 
-/// <summary>
-/// Provides functions to work with <see
-/// cref='T:B2R2.FrontEnd.BinFile.FileType'/>.
-/// </summary>
 [<RequireQualifiedAccess>]
-module FileType =
-  /// <summary>
-  /// Convert <see cref="T:B2R2.FrontEnd.BinFile.FileType">FileType</see> to
-  /// string.
-  /// </summary>
-  /// <param name="ty">A FileType to convert.</param>
-  /// <returns>
-  /// A converted string.
-  /// </returns>
-  [<CompiledName ("ToString")>]
-  let toString ty =
-    match ty with
-    | FileType.ExecutableFile -> "Executable"
-    | FileType.CoreFile -> "Core dump"
-    | FileType.LibFile -> "Library"
-    | FileType.ObjFile -> "Object"
-    | _ -> "Unknown"
+module internal CPUSubType =
+  let isKnownMIPS = function
+    | CPUSubType.MIPSAll
+    | CPUSubType.MIPSR2300
+    | CPUSubType.MIPSR2600
+    | CPUSubType.MIPSR2800
+    | CPUSubType.MIPSR2000A -> (* MIPS32R2 *) true
+    | _ -> false

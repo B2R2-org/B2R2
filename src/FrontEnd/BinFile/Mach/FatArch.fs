@@ -24,48 +24,17 @@
 
 namespace B2R2.FrontEnd.BinFile.Mach
 
-open System
-open B2R2
-open B2R2.FrontEnd.BinLifter
-
-/// Describes the location within the binary of an object file targeted at a
-/// single architecture (fat_arch).
+/// Represents the location of an object file targeted at a specific
+/// architecture in a Mach-O FAT binary (fat_arch).
 type FatArch = {
+  /// CPU family.
   CPUType: CPUType
+  /// Specific CPU module.
   CPUSubType: CPUSubType
+  /// Offset to the beginning of the data for this architecture.
   Offset: int
+  /// Size of the object file in bytes.
   Size: int
+  /// Alignment of the object file in bytes.
   Align: int
 }
-
-[<RequireQualifiedAccess>]
-module FatArch =
-  let private readFatArch (span: ByteSpan) (reader: IBinReader) offset =
-    let cpuType = reader.ReadInt32 (span, offset)
-    let cpuSubType = reader.ReadInt32 (span, offset + 4)
-    { CPUType = cpuType |> LanguagePrimitives.EnumOfValue
-      CPUSubType = cpuSubType |> LanguagePrimitives.EnumOfValue
-      Offset = reader.ReadInt32 (span, offset + 8)
-      Size = reader.ReadInt32 (span, offset + 12)
-      Align = reader.ReadInt32 (span, offset + 16) }
-
-  let loadAll (bytes: byte[]) =
-    let reader = BinReader.Init Endian.Big
-    let magic = reader.ReadUInt32 (bytes, 0)
-    let nArch = reader.ReadInt32 (bytes, 4)
-    assert (LanguagePrimitives.EnumOfValue magic = Magic.FAT_MAGIC)
-    let span = ReadOnlySpan (bytes, 8, 20 * nArch)
-    let archs = Array.zeroCreate nArch
-    for i = 0 to nArch - 1 do
-      archs[i] <- readFatArch span reader (i * 20)
-    archs
-
-  let private matchingISA (isa: ISA) fatArch =
-    let arch, wordSize =
-      CPUType.toArchWordSizeTuple fatArch.CPUType fatArch.CPUSubType
-    isa.Arch = arch && isa.WordSize = wordSize
-
-  let loadOne bytes isa =
-    loadAll bytes
-    |> Array.tryFind (matchingISA isa)
-    |> function Some arch -> arch | None -> raise InvalidISAException

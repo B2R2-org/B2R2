@@ -49,8 +49,6 @@ type RawBinFile (path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.ISA with get () = isa
 
-    member _.Type with get () = FileType.UnknownFile
-
     member _.EntryPoint with get () = Some baseAddr
 
     member _.BaseAddress with get () = baseAddr

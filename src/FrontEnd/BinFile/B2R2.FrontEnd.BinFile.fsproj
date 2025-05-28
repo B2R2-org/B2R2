@@ -13,7 +13,6 @@
     <Compile Include="Permission.fs" />
     <Compile Include="LinkageTable.fs" />
     <Compile Include="BinFilePointer.fs" />
-    <Compile Include="FileType.fs" />
     <Compile Include="IBinMetadata.fs" />
     <Compile Include="IBinProperty.fs" />
     <Compile Include="IContentAddressable.fs" />
@@ -65,8 +64,10 @@
     <Compile Include="ELF\ExceptionData.fs" />
     <Compile Include="ELF\Helper.fs" />
     <Compile Include="Mach\Magic.fs" />
+    <Compile Include="Mach\CPUSubType.fs" />
     <Compile Include="Mach\CPUType.fs" />
     <Compile Include="Mach\FatArch.fs" />
+    <Compile Include="Mach\Fat.fs" />
     <Compile Include="Mach\Header.fs" />
     <Compile Include="Mach\LoadCommands.fs" />
     <Compile Include="Mach\Segment.fs" />

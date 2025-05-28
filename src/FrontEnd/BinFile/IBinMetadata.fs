@@ -40,9 +40,6 @@ type IBinMetadata =
   /// The ISA that this file expects to run on.
   abstract ISA: ISA
 
-  /// What kind of binary is this?
-  abstract Type: FileType
-
   /// The entry point of this binary (the start address that this binary runs
   /// at). Note that some binaries (e.g., PE DLL files) do not have a specific
   /// entry point, and EntryPoint will return None in such a case.

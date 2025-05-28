@@ -33,12 +33,6 @@ open System.Reflection.PortableExecutable
 
 let [<Literal>] SecText = ".text"
 
-let getFileType pe =
-  let c = pe.PEHeaders.CoffHeader.Characteristics
-  if c.HasFlag Characteristics.Dll then FileType.LibFile
-  elif c.HasFlag Characteristics.ExecutableImage then FileType.ExecutableFile
-  else FileType.ObjFile
-
 let isNXEnabled pe =
   let hdrs = pe.PEHeaders
   if hdrs.IsCoffOnly then false

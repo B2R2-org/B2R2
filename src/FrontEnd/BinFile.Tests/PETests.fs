@@ -24,9 +24,10 @@
 
 namespace B2R2.FrontEnd.BinFile.Tests
 
+open System.Reflection.PortableExecutable
+open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinFile
-open Microsoft.VisualStudio.TestTools.UnitTesting
 open type FileFormat
 
 [<TestClass>]
@@ -61,7 +62,8 @@ type PETests () =
 
   [<TestMethod>]
   member _.``[PE] X86 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (x86File :> IBinFile).Type)
+    let flg = Characteristics.ExecutableImage
+    Assert.IsTrue (x86File.PE.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
 
   [<TestMethod>]
   member _.``[PE] X86 IsStripped test`` () =
@@ -138,7 +140,8 @@ type PETests () =
 
   [<TestMethod>]
   member _.``[PE] X64 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (x64File :> IBinFile).Type)
+    let flg = Characteristics.ExecutableImage
+    Assert.IsTrue (x64File.PE.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
 
   [<TestMethod>]
   member _.``[PE] X64 IsStripped test`` () =

@@ -24,9 +24,10 @@
 
 namespace B2R2.FrontEnd.BinFile.Tests
 
+open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinFile
-open Microsoft.VisualStudio.TestTools.UnitTesting
+open B2R2.FrontEnd.BinFile.Mach
 open type FileFormat
 
 [<TestClass>]
@@ -61,7 +62,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (x86File :> IBinFile).Type)
+    Assert.AreEqual (MachFileType.MH_EXECUTE, x86File.Header.FileType)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped IsStripped test`` () =
@@ -124,7 +125,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X64 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (x64File :> IBinFile).Type)
+    Assert.AreEqual (MachFileType.MH_EXECUTE, x64File.Header.FileType)
 
   [<TestMethod>]
   member _.``[Mach] X64 IsStripped test`` () =
@@ -186,7 +187,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (x64SFile :> IBinFile).Type)
+    Assert.AreEqual (MachFileType.MH_EXECUTE, x64SFile.Header.FileType)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped IsStripped test`` () =

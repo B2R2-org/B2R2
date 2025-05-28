@@ -48,7 +48,7 @@ type FunctionIdentification<'FnCtx,
       |> Set.union exnInfo.FunctionEntryPoints
     file.EntryPoint
     |> Option.fold (fun acc addr ->
-      if file.Type = FileType.LibFile && addr = 0UL then acc
+      if file.Format <> FileFormat.RawBinary && addr = 0UL then acc
       else Set.add addr acc) entries
     |> Set.toArray
 

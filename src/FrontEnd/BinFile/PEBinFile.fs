@@ -60,8 +60,6 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.ISA with get() = isa
 
-    member _.Type with get() = getFileType pe
-
     member _.EntryPoint = getEntryPoint pe
 
     member _.BaseAddress with get() = pe.BaseAddr

@@ -66,7 +66,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X86 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (x86File :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_EXEC, (x86File.Header.ELFType))
 
   [<TestMethod>]
   member _.``[ELF] X86 IsStripped test`` () =
@@ -140,7 +140,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (x86SFile :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_EXEC, x86SFile.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped IsStripped test`` () =
@@ -213,7 +213,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X64 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (x64File :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_EXEC, x64File.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] X64 IsStripped test`` () =
@@ -286,7 +286,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (x64SFile :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_EXEC, x64SFile.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped IsStripped test`` () =
@@ -359,7 +359,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] arm32 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (arm32File :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_EXEC, arm32File.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] arm32 IsStripped test`` () =
@@ -432,7 +432,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (arm32SFile :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_EXEC, arm32SFile.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped IsStripped test`` () =
@@ -505,7 +505,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] thumb file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (thumbFile :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_EXEC, thumbFile.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] thumb IsStripped test`` () =
@@ -578,7 +578,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (thumbSFile :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_EXEC, thumbSFile.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped IsStripped test`` () =
@@ -651,7 +651,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] aarch64 file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (aarch64File :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_EXEC, aarch64File.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 IsStripped test`` () =
@@ -724,7 +724,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, (aarch64SFile :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_EXEC, aarch64SFile.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped IsStripped test`` () =
@@ -797,7 +797,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped file type test`` () =
-    Assert.AreEqual (FileType.LibFile, (mips32File :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_DYN, mips32File.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped IsStripped test`` () =
@@ -862,7 +862,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le file type test`` () =
-    Assert.AreEqual (FileType.LibFile, (mips32leFile :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_DYN, mips32leFile.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le IsStripped test`` () =
@@ -927,7 +927,7 @@ type ELFTests () =
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped file type test`` () =
-    Assert.AreEqual (FileType.LibFile, (mips64File :> IBinFile).Type)
+    Assert.AreEqual (ELF.ELFType.ET_DYN, mips64File.Header.ELFType)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped IsStripped test`` () =

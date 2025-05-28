@@ -26,11 +26,6 @@ module internal B2R2.FrontEnd.BinFile.Wasm.Helper
 
 open B2R2.FrontEnd.BinFile
 
-let fileTypeOf wm =
-  match wm.StartSection with
-  | Some _ -> FileType.ExecutableFile
-  | None -> FileType.LibFile
-
 let entryPointOf wm =
   match wm.StartSection with
   | Some ss ->

@@ -26,7 +26,7 @@ namespace B2R2.FrontEnd.BinFile.Mach
 
 open B2R2
 
-/// CPUType indicates the architecture.
+/// Represents the CPU type.
 type CPUType =
   | Any = 0xFFFFFFFF
   | VAX = 0x00000001
@@ -51,28 +51,13 @@ type CPUType =
   | VEO = 0x000000FF
   | ARM64 = 0x0100000C
 
-/// CPUSubType specifies the exact model of the CPU.
-type CPUSubType =
-  | MIPSAll = 0
-  | MIPSR2300 = 1
-  | MIPSR2600 = 2
-  | MIPSR2800 = 3
-  | MIPSR2000A = 4
-
-module CPUType =
-  let private isKnownMIPS = function
-    | CPUSubType.MIPSAll
-    | CPUSubType.MIPSR2300
-    | CPUSubType.MIPSR2600
-    | CPUSubType.MIPSR2800
-    | CPUSubType.MIPSR2000A -> (* MIPS32R2 *) true
-    | _ -> false
-
+module internal CPUType =
   let toArchWordSizeTuple cputype subtype =
     match cputype with
     | CPUType.I386 -> Architecture.Intel, WordSize.Bit32
     | CPUType.X64 -> Architecture.Intel, WordSize.Bit64
     | CPUType.ARM -> Architecture.ARMv7, WordSize.Bit32
     | CPUType.ARM64 -> Architecture.ARMv8, WordSize.Bit64
-    | CPUType.MIPS when isKnownMIPS subtype -> Architecture.MIPS, WordSize.Bit32
+    | CPUType.MIPS when CPUSubType.isKnownMIPS subtype ->
+      Architecture.MIPS, WordSize.Bit32
     | _ -> raise InvalidISAException

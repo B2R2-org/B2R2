@@ -56,8 +56,6 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
     member _.ISA with get() = isa
 
-    member _.Type with get() = fileTypeOf wm
-
     member _.EntryPoint = entryPointOf wm
 
     member _.BaseAddress with get() = baseAddr

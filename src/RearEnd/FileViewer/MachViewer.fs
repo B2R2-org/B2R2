@@ -282,16 +282,13 @@ let dumpArchiveHeader (opts: FileViewerOpts) (file: MachBinFile) =
 let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
   let bytes = IBinFile.Slice(mach, 0, 4).ToArray()
   if Mach.Header.isFat bytes then
-    Mach.FatArch.loadAll bytes
+    Mach.Fat.parseArchs bytes
     |> Array.iteri (fun idx fat ->
       let cpu = fat.CPUType
       let cpusub = fat.CPUSubType
-      let arch, wordSize = Mach.CPUType.toArchWordSizeTuple cpu cpusub
-      let isa = ISA (arch, wordSize)
       out.PrintSubsectionTitle ("Architecture #" + idx.ToString ())
       out.PrintTwoCols "CPU Type:" (cpu.ToString ())
       out.PrintTwoCols "CPU Subtype:" ("0x" + (uint32 cpusub).ToString ("x"))
-      out.PrintTwoCols "Architecture:" (isa.ToString ())
       out.PrintTwoCols "Offset:" ("0x" + fat.Offset.ToString ("x"))
       out.PrintTwoCols "Size:" (fat.Size.ToString ())
     )

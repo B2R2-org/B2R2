@@ -24,7 +24,6 @@
 
 namespace B2R2.RearEnd.BinExplorer
 
-open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.Utils
 
@@ -50,13 +49,11 @@ type CmdBinInfo () =
     let isa = brew.BinHandle.File.ISA
     let fmt = brew.BinHandle.File.Format |> FileFormat.toString
     let entry = file.EntryPoint |> String.entryPointToString
-    let fileType = file.Type |> FileType.toString
     let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
     [| "[*] Binary information:\n"
        sprintf "- Executable Path: %s" file.Path
        sprintf "- Machine: %s" (isa.ToString ())
        sprintf "- File Format: %s" fmt
-       sprintf "- File Type: %s" fileType
        sprintf "- Entry Point Address: %s" entry
        sprintf "- NX bit: %s" nx |]
     |> Array.map OutputNormal

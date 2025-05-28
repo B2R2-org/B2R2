@@ -38,7 +38,6 @@ let dumpBasic (file: IBinFile) =
   out.PrintTwoCols "Architecture:" (file.ISA.ToString ())
   out.PrintTwoCols "Endianness:" (Endian.toString file.ISA.Endian)
   out.PrintTwoCols "Word size:" (WordSize.toString file.ISA.WordSize + " bit")
-  out.PrintTwoCols "File type:" (FileType.toString file.Type)
   out.PrintTwoColsWithColorOnSnd "Entry point:" [ entry ]
   out.PrintLine ()
 

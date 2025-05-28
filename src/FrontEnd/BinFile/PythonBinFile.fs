@@ -71,8 +71,6 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.ISA with get() = ISA (Architecture.Python, Endian.Little)
 
-    member _.Type with get() = FileType.UnknownFile
-
     member _.EntryPoint = Some 0UL
 
     member _.BaseAddress with get() = 0UL

@@ -48,14 +48,6 @@ let getISA hdr =
   let endian = Header.magicToEndian hdr.Magic
   ISA (arch, endian, wordSize)
 
-let convFileType = function
-  | MachFileType.MH_EXECUTE -> FileType.ExecutableFile
-  | MachFileType.MH_OBJECT -> FileType.ObjFile
-  | MachFileType.MH_DYLIB
-  | MachFileType.MH_FVMLIB -> FileType.LibFile
-  | MachFileType.MH_CORE -> FileType.CoreFile
-  | _ -> FileType.UnknownFile
-
 let isMainCmd = function
   | Main _ -> true
   | _ -> false

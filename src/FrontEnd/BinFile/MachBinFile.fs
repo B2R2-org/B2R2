@@ -89,8 +89,6 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.ISA with get() = getISA toolBox.Header
 
-    member _.Type with get() = convFileType toolBox.Header.FileType
-
     member _.EntryPoint = computeEntryPoint segCmds.Value cmds.Value
 
     member _.BaseAddress with get() = toolBox.BaseAddress

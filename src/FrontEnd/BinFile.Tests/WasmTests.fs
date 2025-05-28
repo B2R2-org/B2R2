@@ -43,10 +43,6 @@ type WasmTests () =
     Assert.AreEqual (Some 0x15AUL, file.EntryPoint)
 
   [<TestMethod>]
-  member _.``[Wasm] file type test`` () =
-    Assert.AreEqual (FileType.ExecutableFile, file.Type)
-
-  [<TestMethod>]
   member _.``[Wasm] IsStripped test`` () =
     Assert.IsFalse (file.IsStripped)
 

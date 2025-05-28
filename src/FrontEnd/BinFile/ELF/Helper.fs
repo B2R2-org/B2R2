@@ -31,13 +31,6 @@ open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let toFileType = function
-  | ELFType.ET_EXEC -> FileType.ExecutableFile
-  | ELFType.ET_DYN -> FileType.LibFile
-  | ELFType.ET_CORE -> FileType.CoreFile
-  | ELFType.ET_REL -> FileType.ObjFile
-  | _ -> FileType.UnknownFile
-
 let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
   if offsetToAddr then ptr + delta
   else (* Addr to offset *) ptr - delta
