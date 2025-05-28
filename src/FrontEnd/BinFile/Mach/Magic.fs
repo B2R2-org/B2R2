@@ -26,7 +26,15 @@ namespace B2R2.FrontEnd.BinFile.Mach
 
 open B2R2.FrontEnd.BinLifter
 
-/// Magic number for Mach-O header.
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with Mach-O file types.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Represents the magic number for Mach-O binaries.
+/// </summary>
 type Magic =
   /// The file is intended for use on a CPU with the same endianness as the
   /// computer on which the compiler is running (32-bit CPU).

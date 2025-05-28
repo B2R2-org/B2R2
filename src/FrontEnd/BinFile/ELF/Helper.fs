@@ -38,19 +38,6 @@ let toFileType = function
   | ELFType.ET_REL -> FileType.ObjFile
   | _ -> FileType.UnknownFile
 
-let isNXEnabled progHeaders =
-  let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK
-  match Array.tryFind predicate progHeaders with
-  | Some s ->
-    let perm = ProgramHeader.FlagsToPerm s.PHFlags
-    perm.HasFlag Permission.Executable |> not
-  | _ -> false
-
-let isRelocatable toolBox secHeaders =
-  let pred (e: DynamicArrayEntry) = e.DTag = DTag.DT_DEBUG
-  toolBox.Header.ELFType = ELFType.ET_DYN
-  && DynamicArray.parse toolBox secHeaders |> Array.exists pred
-
 let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
   if offsetToAddr then ptr + delta
   else (* Addr to offset *) ptr - delta

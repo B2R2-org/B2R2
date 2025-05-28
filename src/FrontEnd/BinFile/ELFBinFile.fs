@@ -115,12 +115,24 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.IsStripped =
       shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
 
-    member _.IsNXEnabled = isNXEnabled phdrs.Value
+    member _.IsNXEnabled =
+      let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK
+      match Array.tryFind predicate phdrs.Value with
+      | Some s ->
+        let perm = ProgramHeader.FlagsToPerm s.PHFlags
+        perm.HasFlag Permission.Executable |> not
+      | _ -> false
 
-    member _.IsRelocatable = isRelocatable toolBox shdrs.Value
+    member _.IsRelocatable =
+      let pred e = e.DTag = DTag.DT_DEBUG
+      toolBox.Header.ELFType = ELFType.ET_DYN
+      && DynamicArray.parse toolBox shdrs.Value |> Array.exists pred
 
-    member _.GetOffset addr =
-      translateAddrToOffset loadables.Value shdrs.Value addr |> Convert.ToInt32
+    member _.Slice (addr, len) =
+      let offset =
+        translateAddrToOffset loadables.Value shdrs.Value addr
+        |> Convert.ToInt32
+      ReadOnlySpan (bytes, offset, len)
 
     member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not

@@ -83,7 +83,8 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.IsRelocatable = false
 
-    member _.GetOffset addr = int addr
+    member _.Slice (addr, len) =
+      System.ReadOnlySpan (bytes, int addr, len)
 
     member _.IsValidAddr (addr) =
       addr >= 0UL && addr < (uint64 bytes.LongLength)

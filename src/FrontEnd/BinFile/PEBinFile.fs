@@ -72,7 +72,8 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.IsRelocatable = isRelocatable pe
 
-    member _.GetOffset addr = translateAddr pe addr
+    member _.Slice (addr, len) =
+      System.ReadOnlySpan (bytes, translateAddr pe addr, len)
 
     member _.IsValidAddr addr = isValidAddr pe addr
 

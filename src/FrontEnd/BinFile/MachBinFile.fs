@@ -101,7 +101,9 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.IsRelocatable = toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
 
-    member _.GetOffset addr = translateAddr segMap.Value addr
+    member _.Slice (addr, len) =
+      let offset = translateAddr segMap.Value addr
+      System.ReadOnlySpan (bytes, offset, len)
 
     member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not

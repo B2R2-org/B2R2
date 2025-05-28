@@ -225,7 +225,7 @@ let makeStringTableReader (file: IBinFile) dynEntries =
   ) (None, None)
   ||> Option.map2 (fun addr len ->
     fun v ->
-      let strtab = IBinFile.Slice (file, file.GetOffset addr, int len)
+      let strtab = file.Slice (addr, int len)
       let buf = strtab.Slice (int v)
       ByteArray.extractCStringFromSpan buf 0)
 

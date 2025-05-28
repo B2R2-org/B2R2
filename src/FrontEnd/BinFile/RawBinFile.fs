@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -62,7 +61,9 @@ type RawBinFile (path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.IsRelocatable with get () = false
 
-    member _.GetOffset addr = Convert.ToInt32 (addr - baseAddr)
+    member _.Slice (addr, len) =
+      let offset = System.Convert.ToInt32 (addr - baseAddr)
+      System.ReadOnlySpan (bytes, offset, len)
 
     member _.IsValidAddr addr =
       addr >= baseAddr && addr < (baseAddr + uint64 size)

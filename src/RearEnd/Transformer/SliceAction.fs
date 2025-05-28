@@ -26,7 +26,6 @@ namespace B2R2.RearEnd.Transformer
 
 open System
 open B2R2
-open B2R2.FrontEnd.BinFile
 
 /// The `slice` action.
 type SliceAction () =
@@ -37,8 +36,7 @@ type SliceAction () =
       || not (hdl.File.IsAddrMappedToFile a2) then
       invalidArg (nameof hdl) "Address out of range."
     else
-      let offset = hdl.File.GetOffset a1
-      let slice = IBinFile.Slice (hdl.File, offset, int (a2 - a1 + 1UL))
+      let slice = hdl.File.Slice (a1, int (a2 - a1 + 1UL))
       let bs = slice.ToArray ()
       lazy hdl.MakeNew bs
       |> Binary.Init (Binary.MakeAnnotation "Sliced from " bin)

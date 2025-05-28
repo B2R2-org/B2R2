@@ -32,16 +32,13 @@ open B2R2
 /// </summary>
 type IContentAddressable =
   /// <summary>
-  /// Translates a virtual address into a relative offset to the binary file.
+  /// Slices the raw binary content into a read-only span of bytes of the
+  /// specified length starting from the specified address.
   /// </summary>
-  /// <param name="addr">Virtual address.</param>
   /// <returns>
-  /// Returns an offset to the binary for a given virtual address.
+  /// Returns a read-only span of bytes starting from the specified address.
   /// </returns>
-  /// <exception cref="T:B2R2.FrontEnd.BinFile.InvalidAddrReadException">
-  /// Thrown when the given address is out of a valid address range.
-  /// </exception>
-  abstract GetOffset: addr: Addr -> int
+  abstract Slice: addr: Addr * len: int -> System.ReadOnlySpan<byte>
 
   /// <summary>
   /// Checks if the given address is valid for the associated binary. We say a
