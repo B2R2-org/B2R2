@@ -62,7 +62,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped file type test`` () =
-    Assert.AreEqual (MachFileType.MH_EXECUTE, x86File.Header.FileType)
+    Assert.AreEqual (FileType.MH_EXECUTE, x86File.Header.FileType)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped IsStripped test`` () =
@@ -125,7 +125,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X64 file type test`` () =
-    Assert.AreEqual (MachFileType.MH_EXECUTE, x64File.Header.FileType)
+    Assert.AreEqual (FileType.MH_EXECUTE, x64File.Header.FileType)
 
   [<TestMethod>]
   member _.``[Mach] X64 IsStripped test`` () =
@@ -187,7 +187,7 @@ type MachTests () =
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped file type test`` () =
-    Assert.AreEqual (MachFileType.MH_EXECUTE, x64SFile.Header.FileType)
+    Assert.AreEqual (FileType.MH_EXECUTE, x64SFile.Header.FileType)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped IsStripped test`` () =

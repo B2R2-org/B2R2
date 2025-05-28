@@ -31,12 +31,13 @@ open B2R2.FrontEnd.BinFile.Mach.Helper
 
 /// Represents a Mach-O binary file.
 type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
-  let toolBox = Header.parse bytes baseAddrOpt isa
-  let cmds = lazy LoadCommand.parse toolBox
+  let toolBox = Header.parse bytes baseAddrOpt isa |> Toolbox.Init bytes
+  let cmds = lazy LoadCommands.parse toolBox
   let segCmds = lazy Segment.extract cmds.Value
   let segMap = lazy Segment.buildMap segCmds.Value
   let secs = lazy Section.parse toolBox segCmds.Value
-  let symInfo = lazy Symbol.parse toolBox cmds.Value secs.Value
+  let syms = lazy SymbolStore.parse toolBox cmds.Value secs.Value
+  let exports = lazy ExportedSymbols.parse toolBox cmds.Value
   let relocs = lazy Reloc.parse toolBox secs.Value
   let notInMemRanges = lazy invalidRangesByVM toolBox segCmds.Value
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
@@ -48,26 +49,28 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
   member _.Sections with get () = secs.Value
 
-  member _.SymbolInfo with get () = symInfo.Value
+  member _.Symbols with get () = syms.Value
 
   member _.StaticSymbols with get () =
-    symInfo.Value.Symbols
-    |> Array.filter Symbol.isStatic
+    syms.Value.Values
+    |> Array.filter Symbol.IsStatic
 
   member _.DynamicSymbols with get () =
-    symInfo.Value.Symbols
-    |> Array.filter (Symbol.isStatic >> not)
+    syms.Value.Values
+    |> Array.filter (Symbol.IsStatic >> not)
+
+  member _.ExportedSymbols with get () = exports.Value
 
   member _.Relocations with get () = relocs.Value
 
-  member _.IsPLT (sec: MachSection) =
+  member _.IsPLT (sec: Section) =
     match sec.SecType with
     | SectionType.S_NON_LAZY_SYMBOL_POINTERS
     | SectionType.S_LAZY_SYMBOL_POINTERS
     | SectionType.S_SYMBOL_STUBS -> true
     | _ -> false
 
-  member _.HasCode (sec: MachSection) =
+  member _.HasCode (sec: Section) =
     match sec.SecType with
     | SectionType.S_NON_LAZY_SYMBOL_POINTERS
     | SectionType.S_LAZY_SYMBOL_POINTERS
@@ -87,13 +90,13 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.Format with get() = FileFormat.MachBinary
 
-    member _.ISA with get() = getISA toolBox.Header
+    member _.ISA with get() = toolBox.ISA
 
     member _.EntryPoint = computeEntryPoint segCmds.Value cmds.Value
 
     member _.BaseAddress with get() = toolBox.BaseAddress
 
-    member _.IsStripped = isStripped secs.Value symInfo.Value
+    member _.IsStripped = isStripped secs.Value syms.Value
 
     member _.IsNXEnabled = isNXEnabled toolBox.Header
 
@@ -156,7 +159,7 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
         else None)
 
     member _.TryFindFunctionName (addr) =
-      tryFindFuncSymb symInfo.Value addr
+      tryFindFuncSymb syms.Value addr
 
     member _.GetTextSectionPointer () =
       let secs = secs.Value
@@ -188,8 +191,8 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.GetFunctionAddresses () =
       let secText = Section.getTextSectionIndex secs.Value
-      [| for s in symInfo.Value.Symbols do
-           if Symbol.isFunc secText s && s.SymAddr > 0UL then s.SymAddr |]
+      [| for s in syms.Value.Values do
+           if Symbol.IsFunc secText s && s.SymAddr > 0UL then s.SymAddr |]
 
     member this.GetFunctionAddresses (_) =
       (this :> IBinFile).GetFunctionAddresses ()
@@ -201,6 +204,6 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 
-    member _.GetLinkageTableEntries () = getPLT symInfo.Value
+    member _.GetLinkageTableEntries () = getPLT syms.Value
 
-    member _.IsLinkageTable addr = isPLT symInfo.Value addr
+    member _.IsLinkageTable addr = isPLT syms.Value addr

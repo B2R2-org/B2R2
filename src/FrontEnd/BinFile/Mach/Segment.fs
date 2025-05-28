@@ -27,7 +27,7 @@ module internal B2R2.FrontEnd.BinFile.Mach.Segment
 open B2R2.Collections
 
 let private chooser = function
-  | Segment s -> Some s
+  | Segment (_, _, s) -> Some s
   | _ -> None
 
 let extract cmds =
@@ -39,3 +39,4 @@ let buildMap segs =
        NoOverlapIntervalMap.addRange s.VMAddr (s.VMAddr + s.VMSize - 1UL) s map
   ) NoOverlapIntervalMap.empty
 
+let [<Literal>] Text = "__TEXT"

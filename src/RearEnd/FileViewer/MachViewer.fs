@@ -183,12 +183,12 @@ let toVersionString (v: uint32) =
   let minor2 = v &&& uint32 0x000000FF
   major.ToString () + "." + minor1.ToString () + "." + minor2.ToString ()
 
-let getSymbolLibName (symbol: Mach.MachSymbol) =
+let getSymbolLibName (symbol: Mach.Symbol) =
   match symbol.VerInfo with
   | None -> ""
   | Some v -> toLibString v.DyLibName |> normalizeEmpty
 
-let getLibName (symb: Mach.MachSymbol) =
+let getLibName (symb: Mach.Symbol) =
   match symb.VerInfo with
   | Some info ->
     info.DyLibName
@@ -197,7 +197,7 @@ let getLibName (symb: Mach.MachSymbol) =
       + "current version" + toVersionString info.DyLibCurVer
   | None -> "(n/a)"
 
-let printSymbolInfoVerbose file (symb: Mach.MachSymbol) vis cfg =
+let printSymbolInfoVerbose file (symb: Mach.Symbol) vis cfg =
   out.PrintRow (true, cfg,
     [ vis
       Addr.toString (file: IBinFile).ISA.WordSize symb.SymAddr
@@ -210,7 +210,7 @@ let printSymbolInfoVerbose file (symb: Mach.MachSymbol) vis cfg =
       String.wrapSqrdBracket (symb.SecNum.ToString ()); ""; ""; "" ])
 
 
-let printSymbolInfoNonVerbose mach (symb: Mach.MachSymbol) vis cfg =
+let printSymbolInfoNonVerbose mach (symb: Mach.Symbol) vis cfg =
   out.PrintRow (true, cfg,
     [ vis
       $"{symb.SymType}"
@@ -259,7 +259,7 @@ let dumpRelocs (_: FileViewerOpts) (mach: MachBinFile) =
   out.PrintRow (true, cfg, [ "Address"; "Name"; "Length" ])
   for reloc in mach.Relocations do
     let addr = reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
-    let name = reloc.GetName (mach.SymbolInfo.Symbols, mach.Sections)
+    let name = reloc.GetName (mach.Symbols.Values, mach.Sections)
     let len = reloc.RelocAddr
     out.PrintRow (true, cfg, [
       Addr.toString (mach :> IBinFile).ISA.WordSize addr
@@ -272,7 +272,7 @@ let dumpFunctions (opts: FileViewerOpts) (mach: MachBinFile) =
   let cfg = [ LeftAligned 3; LeftAligned 10
               addrColumn; LeftAligned 55; LeftAligned 15 ]
   for addr in (mach :> IBinFile).GetFunctionAddresses () do
-    match mach.SymbolInfo.SymbolMap.TryFind addr with
+    match mach.Symbols.SymbolMap.TryFind addr with
     | Some symb -> printSymbolInfoNonVerbose mach symb "" cfg
     | None -> ()
 
@@ -281,7 +281,7 @@ let dumpArchiveHeader (opts: FileViewerOpts) (file: MachBinFile) =
 
 let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
   let bytes = IBinFile.Slice(mach, 0, 4).ToArray()
-  if Mach.Header.isFat bytes then
+  if Mach.Header.IsFat bytes then
     Mach.Fat.parseArchs bytes
     |> Array.iteri (fun idx fat ->
       let cpu = fat.CPUType
@@ -294,116 +294,116 @@ let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
     )
   else printfn "Not a FAT binary."
 
-let printSegCmd (segCmd: Mach.SegCmd) idx =
+let printSegCmd cmd size (seg: Mach.SegCmd) idx =
   out.PrintSubsectionTitle ("Load command " + idx.ToString ())
-  out.PrintTwoCols "Cmd:" (segCmd.Cmd.ToString ())
-  out.PrintTwoCols "CmdSize:" (segCmd.CmdSize.ToString ())
-  out.PrintTwoCols "SegCmdName:" segCmd.SegCmdName
-  out.PrintTwoCols "VMAddr:" (HexString.ofUInt64 segCmd.VMAddr)
-  out.PrintTwoCols "VMSize:" (HexString.ofUInt64 segCmd.VMSize)
-  out.PrintTwoCols "FileOff:" (segCmd.FileOff.ToString ())
-  out.PrintTwoCols "FileSize:" (segCmd.FileSize.ToString ())
-  out.PrintTwoCols "MaxProt:" (HexString.ofUInt64 (uint64 segCmd.MaxProt))
-  out.PrintTwoCols "InitProt:" (HexString.ofUInt64 (uint64 segCmd.InitProt))
-  out.PrintTwoCols "NumSecs:" (segCmd.NumSecs.ToString ())
-  out.PrintTwoCols "SegFlag:" (HexString.ofUInt64 (uint64 segCmd.SegFlag))
+  out.PrintTwoCols "Cmd:" (cmd.ToString ())
+  out.PrintTwoCols "CmdSize:" (size.ToString ())
+  out.PrintTwoCols "SegCmdName:" seg.SegCmdName
+  out.PrintTwoCols "VMAddr:" (HexString.ofUInt64 seg.VMAddr)
+  out.PrintTwoCols "VMSize:" (HexString.ofUInt64 seg.VMSize)
+  out.PrintTwoCols "FileOff:" (seg.FileOff.ToString ())
+  out.PrintTwoCols "FileSize:" (seg.FileSize.ToString ())
+  out.PrintTwoCols "MaxProt:" (HexString.ofUInt64 (uint64 seg.MaxProt))
+  out.PrintTwoCols "InitProt:" (HexString.ofUInt64 (uint64 seg.InitProt))
+  out.PrintTwoCols "NumSecs:" (seg.NumSecs.ToString ())
+  out.PrintTwoCols "SegFlag:" (HexString.ofUInt64 (uint64 seg.SegFlag))
 
-let printSymTabCmd (symTabCmd: Mach.SymTabCmd) idx =
+let printSymTabCmd cmd size (symtab: Mach.SymTabCmd) idx =
   out.PrintSubsectionTitle ("Load command " + idx.ToString ())
-  out.PrintTwoCols "Cmd:" (symTabCmd.Cmd.ToString ())
-  out.PrintTwoCols "CmdSize:" (symTabCmd.CmdSize.ToString ())
-  out.PrintTwoCols "SymOff:" (HexString.ofUInt64 (uint64 symTabCmd.SymOff))
-  out.PrintTwoCols "NumOfSym:" (symTabCmd.NumOfSym.ToString ())
-  out.PrintTwoCols "StrOff:" (HexString.ofUInt64 (uint64 symTabCmd.StrOff))
-  out.PrintTwoCols "StrSize:" (toNBytes (uint64 symTabCmd.StrSize))
+  out.PrintTwoCols "Cmd:" (cmd.ToString ())
+  out.PrintTwoCols "CmdSize:" (size.ToString ())
+  out.PrintTwoCols "SymOff:" (HexString.ofUInt64 (uint64 symtab.SymOff))
+  out.PrintTwoCols "NumOfSym:" (symtab.NumOfSym.ToString ())
+  out.PrintTwoCols "StrOff:" (HexString.ofUInt64 (uint64 symtab.StrOff))
+  out.PrintTwoCols "StrSize:" (toNBytes (uint64 symtab.StrSize))
 
-let printDySymTabCmd (dySymTabCmd: Mach.DySymTabCmd) idx =
+let printDySymTabCmd cmd size (dysymtab: Mach.DySymTabCmd) idx =
   out.PrintSubsectionTitle ("Load command " + idx.ToString ())
-  out.PrintTwoCols "Cmd:" (dySymTabCmd.Cmd.ToString ())
-  out.PrintTwoCols "CmdSize:" (dySymTabCmd.CmdSize.ToString ())
-  out.PrintTwoCols "IdxLocalSym:" (dySymTabCmd.IdxLocalSym.ToString ())
-  out.PrintTwoCols "NumLocalSym:" (dySymTabCmd.NumLocalSym.ToString ())
-  out.PrintTwoCols "IdxExtSym:" (dySymTabCmd.IdxExtSym.ToString ())
-  out.PrintTwoCols "NumExtSym:" (dySymTabCmd.NumExtSym.ToString ())
-  out.PrintTwoCols "IdxUndefSym:" (dySymTabCmd.IdxUndefSym.ToString ())
-  out.PrintTwoCols "NumUndefSym:" (dySymTabCmd.NumUndefSym.ToString ())
-  out.PrintTwoCols "TOCOffset:" (dySymTabCmd.TOCOffset.ToString ())
-  out.PrintTwoCols "NumTOCContents:" (dySymTabCmd.NumTOCContents.ToString ())
-  out.PrintTwoCols "ModTabOff:" (dySymTabCmd.ModTabOff.ToString ())
-  out.PrintTwoCols "NumModTab:" (dySymTabCmd.NumModTab.ToString ())
-  out.PrintTwoCols "ExtRefSymOff:" (dySymTabCmd.ExtRefSymOff.ToString ())
-  out.PrintTwoCols "NumExtRefSym:" (dySymTabCmd.NumExtRefSym.ToString ())
-  out.PrintTwoCols "IndirectSymOff:" (dySymTabCmd.IndirectSymOff.ToString ())
-  out.PrintTwoCols "NumIndirectSym:" (dySymTabCmd.NumIndirectSym.ToString ())
-  out.PrintTwoCols "ExtRelOff:" (dySymTabCmd.ExtRelOff.ToString ())
-  out.PrintTwoCols "NumExtRel:" (dySymTabCmd.NumExtRel.ToString ())
-  out.PrintTwoCols "LocalRelOff:" (dySymTabCmd.LocalRelOff.ToString ())
-  out.PrintTwoCols "NumLocalRel:" (dySymTabCmd.NumLocalRel.ToString ())
+  out.PrintTwoCols "Cmd:" (cmd.ToString ())
+  out.PrintTwoCols "CmdSize:" (size.ToString ())
+  out.PrintTwoCols "IdxLocalSym:" (dysymtab.IdxLocalSym.ToString ())
+  out.PrintTwoCols "NumLocalSym:" (dysymtab.NumLocalSym.ToString ())
+  out.PrintTwoCols "IdxExtSym:" (dysymtab.IdxExtSym.ToString ())
+  out.PrintTwoCols "NumExtSym:" (dysymtab.NumExtSym.ToString ())
+  out.PrintTwoCols "IdxUndefSym:" (dysymtab.IdxUndefSym.ToString ())
+  out.PrintTwoCols "NumUndefSym:" (dysymtab.NumUndefSym.ToString ())
+  out.PrintTwoCols "TOCOffset:" (dysymtab.TOCOffset.ToString ())
+  out.PrintTwoCols "NumTOCContents:" (dysymtab.NumTOCContents.ToString ())
+  out.PrintTwoCols "ModTabOff:" (dysymtab.ModTabOff.ToString ())
+  out.PrintTwoCols "NumModTab:" (dysymtab.NumModTab.ToString ())
+  out.PrintTwoCols "ExtRefSymOff:" (dysymtab.ExtRefSymOff.ToString ())
+  out.PrintTwoCols "NumExtRefSym:" (dysymtab.NumExtRefSym.ToString ())
+  out.PrintTwoCols "IndirectSymOff:" (dysymtab.IndirectSymOff.ToString ())
+  out.PrintTwoCols "NumIndirectSym:" (dysymtab.NumIndirectSym.ToString ())
+  out.PrintTwoCols "ExtRelOff:" (dysymtab.ExtRelOff.ToString ())
+  out.PrintTwoCols "NumExtRel:" (dysymtab.NumExtRel.ToString ())
+  out.PrintTwoCols "LocalRelOff:" (dysymtab.LocalRelOff.ToString ())
+  out.PrintTwoCols "NumLocalRel:" (dysymtab.NumLocalRel.ToString ())
 
 let toTimeStampString (v: uint32) =
   ((DateTime.UnixEpoch.AddSeconds (float v)).ToLocalTime ()).ToString ()
   + TimeZoneInfo.Local.ToString ()
 
-let printDyLibCmd (dyLibCmd: Mach.DyLibCmd) idx =
+let printDyLibCmd cmd size (dylib: Mach.DyLibCmd) idx =
   out.PrintSubsectionTitle ("Load command " + idx.ToString ())
-  out.PrintTwoCols "Cmd:" (dyLibCmd.Cmd.ToString ())
-  out.PrintTwoCols "CmdSize:" (dyLibCmd.CmdSize.ToString ())
-  out.PrintTwoCols "DyLibName:" dyLibCmd.DyLibName
-  out.PrintTwoCols "DyLibTimeStamp:" (toTimeStampString dyLibCmd.DyLibTimeStamp)
-  out.PrintTwoCols "DyLibCurVer:" (toVersionString dyLibCmd.DyLibCurVer)
-  out.PrintTwoCols "DyLibCmpVer:" (toVersionString dyLibCmd.DyLibCmpVer)
+  out.PrintTwoCols "Cmd:" (cmd.ToString ())
+  out.PrintTwoCols "CmdSize:" (size.ToString ())
+  out.PrintTwoCols "DyLibName:" dylib.DyLibName
+  out.PrintTwoCols "DyLibTimeStamp:" (toTimeStampString dylib.DyLibTimeStamp)
+  out.PrintTwoCols "DyLibCurVer:" (toVersionString dylib.DyLibCurVer)
+  out.PrintTwoCols "DyLibCmpVer:" (toVersionString dylib.DyLibCmpVer)
 
-let printDyLdInfoCmd (dyLdInfoCmd: Mach.DyLdInfoCmd) idx =
+let printDyLdInfoCmd cmd size (ldinfo: Mach.DyLdInfoCmd) idx =
   out.PrintSubsectionTitle ("Load command " + idx.ToString ())
-  out.PrintTwoCols "Cmd:" (dyLdInfoCmd.Cmd.ToString ())
-  out.PrintTwoCols "CmdSize:" (dyLdInfoCmd.CmdSize.ToString ())
-  out.PrintTwoCols "RebaseOff:" (dyLdInfoCmd.RebaseOff.ToString ())
-  out.PrintTwoCols "RebaseSize:" (dyLdInfoCmd.RebaseSize.ToString ())
-  out.PrintTwoCols "BindOff:" (dyLdInfoCmd.BindOff.ToString ())
-  out.PrintTwoCols "BindSize:" (dyLdInfoCmd.BindSize.ToString ())
-  out.PrintTwoCols "WeakBindOff:" (dyLdInfoCmd.WeakBindOff.ToString ())
-  out.PrintTwoCols "WeakBindSize:" (dyLdInfoCmd.WeakBindSize.ToString ())
-  out.PrintTwoCols "LazyBindOff:" (dyLdInfoCmd.LazyBindOff.ToString ())
-  out.PrintTwoCols "LazyBindSize:" (dyLdInfoCmd.LazyBindSize.ToString ())
-  out.PrintTwoCols "ExportOff:" (dyLdInfoCmd.ExportOff.ToString ())
-  out.PrintTwoCols "ExportSize:" (dyLdInfoCmd.ExportSize.ToString ())
+  out.PrintTwoCols "Cmd:" (cmd.ToString ())
+  out.PrintTwoCols "CmdSize:" (size.ToString ())
+  out.PrintTwoCols "RebaseOff:" (ldinfo.RebaseOff.ToString ())
+  out.PrintTwoCols "RebaseSize:" (ldinfo.RebaseSize.ToString ())
+  out.PrintTwoCols "BindOff:" (ldinfo.BindOff.ToString ())
+  out.PrintTwoCols "BindSize:" (ldinfo.BindSize.ToString ())
+  out.PrintTwoCols "WeakBindOff:" (ldinfo.WeakBindOff.ToString ())
+  out.PrintTwoCols "WeakBindSize:" (ldinfo.WeakBindSize.ToString ())
+  out.PrintTwoCols "LazyBindOff:" (ldinfo.LazyBindOff.ToString ())
+  out.PrintTwoCols "LazyBindSize:" (ldinfo.LazyBindSize.ToString ())
+  out.PrintTwoCols "ExportOff:" (ldinfo.ExportOff.ToString ())
+  out.PrintTwoCols "ExportSize:" (ldinfo.ExportSize.ToString ())
 
-let printFuncStartsCmd (funcStartsCmd: Mach.FuncStartsCmd) idx =
+let printFuncStartsCmd (fnstart: Mach.FuncStartsCmd) idx =
   out.PrintSubsectionTitle ("Load command " + idx.ToString ())
-  out.PrintTwoCols "DataOffset:" (funcStartsCmd.DataOffset.ToString ())
-  out.PrintTwoCols "DataSize:" (funcStartsCmd.DataSize.ToString ())
+  out.PrintTwoCols "DataOffset:" (fnstart.DataOffset.ToString ())
+  out.PrintTwoCols "DataSize:" (fnstart.DataSize.ToString ())
 
-let printMainCmd (mainCmd: Mach.MainCmd) idx =
+let printMainCmd cmd size (main: Mach.MainCmd) idx =
   out.PrintSubsectionTitle ("Load command " + idx.ToString ())
-  out.PrintTwoCols "Cmd:" (mainCmd.Cmd.ToString ())
-  out.PrintTwoCols "CmdSize:" (mainCmd.CmdSize.ToString ())
-  out.PrintTwoCols "EntryOff:" (mainCmd.EntryOff.ToString ())
-  out.PrintTwoCols "StackSize:" (mainCmd.StackSize.ToString ())
+  out.PrintTwoCols "Cmd:" (cmd.ToString ())
+  out.PrintTwoCols "CmdSize:" (size.ToString ())
+  out.PrintTwoCols "EntryOff:" (main.EntryOff.ToString ())
+  out.PrintTwoCols "StackSize:" (main.StackSize.ToString ())
 
-let printUnhandledCmd (unhandledCmd: Mach.UnhandledCommand) idx =
+let printUnhandledCmd cmd size idx =
   out.PrintSubsectionTitle ("Load command " + idx.ToString ())
-  out.PrintTwoCols "Cmd:" (unhandledCmd.Cmd.ToString ())
-  out.PrintTwoCols "CmdSize:" (unhandledCmd.CmdSize.ToString ())
+  out.PrintTwoCols "Cmd:" (cmd.ToString ())
+  out.PrintTwoCols "CmdSize:" (size.ToString ())
 
 let dumpLoadCommands _ (file: MachBinFile) =
   file.Commands
   |> Array.iteri (fun idx cmd ->
     match cmd with
-    | Mach.Segment segCmd ->
-      printSegCmd segCmd idx
+    | Mach.Segment (cmd, size, seg) ->
+      printSegCmd cmd size seg idx
       file.Sections
       |> Array.iter (fun s ->
-        if s.SegName = segCmd.SegCmdName then
+        if s.SegName = seg.SegCmdName then
           out.PrintLine ()
           out.PrintSubsubsectionTitle (String.wrapSqrdBracket "Section")
           dumpSectionDetails s.SecName file)
-    | Mach.SymTab symTabCmd -> printSymTabCmd symTabCmd idx
-    | Mach.DySymTab dySymTabCmd -> printDySymTabCmd dySymTabCmd idx
-    | Mach.DyLib dyLibCmd -> printDyLibCmd dyLibCmd idx
-    | Mach.DyLdInfo dyLdInfoCmd ->printDyLdInfoCmd dyLdInfoCmd idx
-    | Mach.FuncStarts funcStartsCmd -> printFuncStartsCmd funcStartsCmd idx
-    | Mach.Main mainCmd -> printMainCmd mainCmd idx
-    | Mach.Unhandled unhandledCmd -> printUnhandledCmd unhandledCmd idx
+    | Mach.SymTab (cmd, size, symtab) -> printSymTabCmd cmd size symtab idx
+    | Mach.DySymTab (cmd, size, dysym) -> printDySymTabCmd cmd size dysym idx
+    | Mach.DyLib (cmd, size, dylib) -> printDyLibCmd cmd size dylib idx
+    | Mach.DyLdInfo (cmd, size, ldinfo) -> printDyLdInfoCmd cmd size ldinfo idx
+    | Mach.FuncStarts (_, _, fnstart) -> printFuncStartsCmd fnstart idx
+    | Mach.Main (cmd, size, main) -> printMainCmd cmd size main idx
+    | Mach.Unhandled (cmd, size) -> printUnhandledCmd cmd size idx
     out.PrintLine ())
 
 let dumpSharedLibs _ (file: MachBinFile) =
@@ -412,7 +412,7 @@ let dumpSharedLibs _ (file: MachBinFile) =
   file.Commands
   |> Array.iter (fun cmd ->
     match cmd with
-    | Mach.DyLib dyLibCmd ->
+    | Mach.DyLib (_, _, dyLibCmd) ->
       out.PrintRow (true, cfg,
         [ dyLibCmd.DyLibName
           toVersionString dyLibCmd.DyLibCurVer

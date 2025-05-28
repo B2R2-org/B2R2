@@ -41,24 +41,17 @@ type MachVMProt =
   /// File is executable.
   | Executable = 4
 
-let getISA hdr =
-  let cputype = hdr.CPUType
-  let cpusubtype = hdr.CPUSubType
-  let arch, wordSize = CPUType.toArchWordSizeTuple cputype cpusubtype
-  let endian = Header.magicToEndian hdr.Magic
-  ISA (arch, endian, wordSize)
-
 let isMainCmd = function
   | Main _ -> true
   | _ -> false
 
 let getMainOffset cmds =
   match cmds |> Array.tryFind isMainCmd with
-  | Some (Main m) -> m.EntryOff
+  | Some (Main (_, _, m)) -> m.EntryOff
   | _ -> 0UL
 
 let getTextSegOffset segs =
-  let isTextSegment s = s.SegCmdName = LoadCommand.TextSegName
+  let isTextSegment s = s.SegCmdName = Segment.Text
   match segs |> Array.tryFind isTextSegment with
   | Some s -> s.VMAddr
   | _ -> raise InvalidFileFormatException
@@ -69,13 +62,13 @@ let computeEntryPoint segs cmds =
   else Some (mainOffset + getTextSegOffset segs)
 
 let getStaticSymbols symInfo =
-  symInfo.Symbols
-  |> Array.filter Symbol.isStatic
+  symInfo.Values
+  |> Array.filter Symbol.IsStatic
 
 let isStripped secs symInfo =
   let secText = Section.getTextSectionIndex secs
   getStaticSymbols symInfo
-  |> Array.exists (fun s -> Symbol.isFunc secText s)
+  |> Array.exists (fun s -> Symbol.IsFunc secText s)
   |> not
 
 let isNXEnabled hdr =

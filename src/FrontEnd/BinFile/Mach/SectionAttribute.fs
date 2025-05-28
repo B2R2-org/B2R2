@@ -1,4 +1,4 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,25 +22,30 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
+namespace B2R2.FrontEnd.BinFile.Mach
 
-open B2R2
-open B2R2.FrontEnd.BinLifter
+open System
 
-/// Represents a basic toolbox for parsing ELF, which is used by other parsing
-/// functions.
-type internal Toolbox = {
-  Bytes: byte[]
-  Reader: IBinReader
-  BaseAddress: Addr
-  Header: Header
-  ISA: ISA
-}
-with
-  /// Initializes a toolbox for ELF files.
-  static member Init bytes (struct (hdr, reader, baseAddr, isa)) =
-    { Bytes = bytes
-      Reader = reader
-      BaseAddress = baseAddr
-      Header = hdr
-      ISA = isa }
+/// Represents the attributes of Mach-O section.
+[<FlagsAttribute>]
+type SectionAttribute =
+  /// Section contains only true machine instructions.
+  | S_ATTR_PURE_INSTRUCTIONS = 0x80000000
+  /// Section contains coalesced symbols that are not to be in a ranlib table of
+  /// contents.
+  | S_ATTR_NO_TOC = 0x40000000
+  /// OK to strip static symbols in this section in files with the MH_DYLDLINK
+  /// flag.
+  | S_ATTR_STRIP_STATIC_SYMS = 0x20000000
+  /// No dead stripping.
+  | S_ATTR_NO_DEAD_STRIP = 0x10000000
+  /// Blocks are live if they reference live blocks.
+  | S_ATTR_LIVE_SUPPORT = 0x08000000
+  /// Used with i386 code stubs written on by dyld.
+  | S_ATTR_SELF_MODIFYING_CODE = 0x04000000
+  /// Debug section.
+  | S_ATTR_DEBUG = 0x02000000
+  /// Section has external relocation entries.
+  | S_ATTR_EXT_RELOC = 0x00000200
+  /// Section has local relocation entries.
+  | S_ATTR_LOC_RELOC = 0x00000100

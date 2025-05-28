@@ -28,11 +28,13 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
+/// Represents a relocation symbol, which can either be a symbol index or a
+/// section ordinal.
 type RelocSymbol =
-  | SymIndex of int (* Symbol table index *)
-  | SecOrdinal of int (* Section number *)
+  | SymIndex of idx: int (* Symbol table index *)
+  | SecOrdinal of num: int (* Section number *)
 
-/// Reloc info.
+/// Represents relocation information in a Mach-O binary file.
 type RelocationInfo = {
   /// Offset in the section to what is being relocated.
   RelocAddr: int
@@ -41,12 +43,12 @@ type RelocationInfo = {
   /// Relocation length.
   RelocLength: RegType
   /// Parent section
-  RelocSection: MachSection
+  RelocSection: Section
   /// Is this address part of an instruction that uses PC-relative addressing?
   IsPCRel: bool
 }
 with
-  member this.GetName (symbols: MachSymbol[], sections: MachSection[]) =
+  member this.GetName (symbols: Symbol[], sections: Section[]) =
     match this.RelocSymbol with
     | SymIndex n -> symbols[n].SymName
     | SecOrdinal n -> sections[n-1].SecName

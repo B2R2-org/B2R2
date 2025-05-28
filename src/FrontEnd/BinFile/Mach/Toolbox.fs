@@ -1,4 +1,4 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,25 +22,34 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
+namespace B2R2.FrontEnd.BinFile.Mach
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Represents a basic toolbox for parsing ELF, which is used by other parsing
-/// functions.
+/// Represents a basic toolbox for parsing Mach-O files, which is used by other
+/// parsing functions.
 type internal Toolbox = {
+  /// Raw bytes of the Mach-O file.
   Bytes: byte[]
+  /// Binary reader for reading the Mach-O file.
   Reader: IBinReader
+  /// Base address.
   BaseAddress: Addr
+  /// Mach-O header.
   Header: Header
+  /// Offset from the start of the file to the Mach-O file format header. This
+  /// is only meaningful for universal binaries.
+  MachOffset: uint64
+  /// ISA.
   ISA: ISA
 }
 with
-  /// Initializes a toolbox for ELF files.
-  static member Init bytes (struct (hdr, reader, baseAddr, isa)) =
+  /// Initializes a toolbox for Mach-O files.
+  static member Init bytes (struct (hdr, reader, baseAddr, machOffset, isa)) =
     { Bytes = bytes
       Reader = reader
       BaseAddress = baseAddr
       Header = hdr
+      MachOffset = machOffset
       ISA = isa }

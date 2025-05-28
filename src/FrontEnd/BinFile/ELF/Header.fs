@@ -184,7 +184,7 @@ module internal Header =
       let isa = toISA span reader hdr.Class hdr.MachineType
       struct (hdr, reader, baseAddr, isa)
 
-  /// Checks if the file has a valid ELF header, and returns an ISA if valid.
+  /// Checks if the file has a valid ELF header and returns the ISA if it does.
   let getISA (bytes: byte[]) =
     let span = ReadOnlySpan bytes
     if isELF span then

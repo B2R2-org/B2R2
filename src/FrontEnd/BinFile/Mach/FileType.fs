@@ -22,25 +22,29 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
+namespace B2R2.FrontEnd.BinFile.Mach
 
-open B2R2
-open B2R2.FrontEnd.BinLifter
-
-/// Represents a basic toolbox for parsing ELF, which is used by other parsing
-/// functions.
-type internal Toolbox = {
-  Bytes: byte[]
-  Reader: IBinReader
-  BaseAddress: Addr
-  Header: Header
-  ISA: ISA
-}
-with
-  /// Initializes a toolbox for ELF files.
-  static member Init bytes (struct (hdr, reader, baseAddr, isa)) =
-    { Bytes = bytes
-      Reader = reader
-      BaseAddress = baseAddr
-      Header = hdr
-      ISA = isa }
+/// Represents the usage of the Mach-O file.
+type FileType =
+  /// Intermediate object files.
+  | MH_OBJECT = 0x1
+  /// Standard executable programs.
+  | MH_EXECUTE = 0x2
+  /// Fixed VM shared library file.
+  | MH_FVMLIB = 0x3
+  /// Core file.
+  | MH_CORE = 0x4
+  /// Preloaded executable file.
+  | MH_PRELOAD = 0x5
+  /// Dynamically bound shared library file.
+  | MH_DYLIB = 0x6
+  /// Dynamically bound shared library file.
+  | MH_DYLINKER = 0x7
+  /// Dynamically bound bundle file.
+  | MH_BUNDLE = 0x8
+  /// Shared library stub for static linking only, no section contents.
+  | MH_DYLIB_STUB = 0x9
+  /// Companion file with only debug sections.
+  | MH_DSYM = 0xa
+  /// x86_64 kexts.
+  | MH_KEXT_BUNDLE = 0xb

@@ -147,7 +147,7 @@ let private dumpPESection (hdl: BinHandle) opts pe _tableprn codeprn sec =
   else dumpHex hdl opts ptr name
 
 let private dumpMachSection (hdl: BinHandle) opts mach tableprn codeprn sec =
-  let name = (sec: Mach.MachSection).SecName
+  let name = (sec: Mach.Section).SecName
   let ptr = (hdl: BinHandle).File.GetSectionPointer name
   if (mach: MachBinFile).IsPLT sec then dumpOneSection tableprn name ptr
   elif mach.HasCode sec then dumpOneSection codeprn name ptr

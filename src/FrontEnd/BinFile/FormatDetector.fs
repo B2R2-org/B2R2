@@ -41,9 +41,9 @@ let private identifyPE bytes =
 
 let private identifyMach bytes isa =
   if Mach.Header.isMach bytes 0UL then
-    let toolBox = Mach.Header.parse bytes None isa
-    let isa = Mach.Helper.getISA toolBox.Header
-    Some struct (FileFormat.MachBinary, isa)
+    match Mach.Header.getISA bytes isa with
+    | Ok isa -> Some struct (FileFormat.MachBinary, isa)
+    | _ -> None
   else None
 
 let private identifyWASM bytes isa =
