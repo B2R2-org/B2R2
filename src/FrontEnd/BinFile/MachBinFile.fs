@@ -158,8 +158,10 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
           Some <| AddrRange (seg.VMAddr, seg.VMAddr + seg.VMSize - 1UL)
         else None)
 
-    member _.TryFindFunctionName (addr) =
-      tryFindFuncSymb syms.Value addr
+    member _.TryFindName (addr) =
+      match Map.tryFind addr syms.Value.SymbolMap with
+      | Some s -> Ok s.SymName
+      | None -> Error ErrorCase.SymbolNotFound
 
     member _.GetTextSectionPointer () =
       let secs = secs.Value

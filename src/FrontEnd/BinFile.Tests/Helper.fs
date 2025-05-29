@@ -31,7 +31,7 @@ open type FileFormat
 [<AutoOpen>]
 module Helper =
   let assertFuncSymbolExistence (file: IBinFile) address (symbolName: string) =
-    match file.TryFindFunctionName address with
+    match file.TryFindName address with
     | Ok n -> Assert.AreEqual<string> (n, symbolName)
     | Error _ -> Assert.Fail ()
 

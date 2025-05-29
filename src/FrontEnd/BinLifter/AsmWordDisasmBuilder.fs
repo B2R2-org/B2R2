@@ -46,7 +46,7 @@ type AsmWordDisasmBuilder (showAddr, symbolReader: INameReadable, wordSz) =
 
     member _.AccumulateSymbol (addr, prefix, suffix, noSymbolMapper) =
       if hasSymbolReader && showSymb then
-        match symbolReader.TryFindFunctionName addr with
+        match symbolReader.TryFindName addr with
         | Ok name when name.Length > 0 ->
           lst.Add prefix
           lst.Add { AsmWordKind = AsmWordKind.Value; AsmWordValue = name }

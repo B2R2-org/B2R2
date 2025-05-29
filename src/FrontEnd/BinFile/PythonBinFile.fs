@@ -105,7 +105,7 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.GetVMMappedRegions _permission = [||]
 
-    member _.TryFindFunctionName _ =
+    member _.TryFindName _ =
       Error ErrorCase.SymbolNotFound
 
     member _.GetTextSectionPointer () =

@@ -112,8 +112,3 @@ let getPLT symInfo =
 let isPLT symInfo addr =
   symInfo.LinkageTable
   |> List.exists (fun entry -> entry.TrampolineAddress = addr)
-
-let tryFindFuncSymb symInfo addr =
-  match Map.tryFind addr symInfo.SymbolMap with
-  | Some s -> Ok s.SymName
-  | None -> Error ErrorCase.SymbolNotFound

@@ -97,7 +97,7 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
     member _.GetVMMappedRegions _permission = [||]
 
-    member _.TryFindFunctionName _addr =
+    member _.TryFindName _addr =
       Terminator.futureFeature ()
 
     member _.GetTextSectionPointer () =

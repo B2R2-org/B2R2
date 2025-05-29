@@ -159,10 +159,6 @@ let tryFindSymbolFromPDB pe addr =
   | None -> Error ErrorCase.SymbolNotFound
   | Some s -> Ok s.Name
 
-let tryFindFuncSymb pe addr =
-  if pe.Symbols.SymbolArray.Length = 0 then tryFindSymbolFromBinary pe addr
-  else tryFindSymbolFromPDB pe addr
-
 let inline isValidAddr pe addr =
   IntervalSet.containsAddr addr pe.InvalidAddrRanges |> not
 

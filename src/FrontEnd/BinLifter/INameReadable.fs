@@ -30,10 +30,10 @@ open B2R2
 [<AllowNullLiteral>]
 type INameReadable =
   /// <summary>
-  ///   Find the corresponding function name for a given address.
+  ///   Finds the corresponding symbol name for a given address.
   /// </summary>
   /// <returns>
   ///   Returns a name if the corresponding symbol exists, otherwise returns
   ///   an Error value.
   /// </returns>
-  abstract TryFindFunctionName: Addr -> Result<string, ErrorCase>
+  abstract TryFindName: Addr -> Result<string, ErrorCase>

@@ -147,7 +147,9 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
           Some <| AddrRange (addr, addr + uint64 secSize - 1UL)
         else None)
 
-    member _.TryFindFunctionName (addr) = tryFindFuncSymb pe addr
+    member _.TryFindName (addr) =
+      if pe.Symbols.SymbolArray.Length = 0 then tryFindSymbolFromBinary pe addr
+      else tryFindSymbolFromPDB pe addr
 
     member _.GetTextSectionPointer () =
       pe.SectionHeaders

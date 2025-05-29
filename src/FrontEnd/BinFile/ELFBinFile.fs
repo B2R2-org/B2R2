@@ -184,8 +184,9 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
           Some <| AddrRange (ph.PHAddr, ph.PHAddr + ph.PHMemSize - 1UL)
         else None)
 
-    member _.TryFindFunctionName (addr) =
-      tryFindFuncSymb symbs.Value addr
+    member _.TryFindName (addr) =
+      symbs.Value.TryFindSymbol addr
+      |> Result.map (fun s -> s.SymName)
 
     member _.GetTextSectionPointer () =
       shdrs.Value

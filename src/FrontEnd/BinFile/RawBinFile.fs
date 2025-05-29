@@ -92,7 +92,7 @@ type RawBinFile (path, bytes: byte[], isa: ISA, baseAddrOpt) =
     member _.GetVMMappedRegions _permission =
       [| AddrRange (baseAddr, baseAddr + uint64 size - 1UL) |]
 
-    member _.TryFindFunctionName (_addr) =
+    member _.TryFindName (_addr) =
       Error ErrorCase.SymbolNotFound
 
     member _.GetTextSectionPointer () =

@@ -111,7 +111,7 @@ type InternalFnCFGBuilder<'FnCtx,
        entryPoint,
        manager) =
     let name =
-      match hdl.File.TryFindFunctionName entryPoint with
+      match hdl.File.TryFindName entryPoint with
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
     let cfg = LowUIRCFG Imperative

@@ -247,7 +247,7 @@ let dumpFunctions _ (pe: PEBinFile) =
   out.PrintRow (true, cfg, [ "Address"; "Function" ])
   out.PrintLine " ---"
   for addr in (pe :> IBinFile).GetFunctionAddresses () do
-    match (pe :> IBinFile).TryFindFunctionName addr with
+    match (pe :> IBinFile).TryFindName addr with
     | Ok name ->
       out.PrintRow (true, cfg, [
         Addr.toString (pe :> IBinFile).ISA.WordSize addr

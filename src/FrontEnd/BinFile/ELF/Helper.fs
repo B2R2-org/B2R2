@@ -74,13 +74,6 @@ let translateAddrToOffset loadableSegs sections addr =
 let translateOffsetToAddr loadableSegs sections offset =
   translate loadableSegs sections true offset
 
-let inline tryFindFuncSymb (symbs: SymbolStore) addr =
-  match symbs.TryFindSymbol addr with
-  | Ok s ->
-    if Symbol.IsFunction s then Ok s.SymName
-    else Error ErrorCase.SymbolNotFound
-  | Error _ -> Error ErrorCase.SymbolNotFound
-
 let getRelocatedAddr (relocInfo: RelocationInfo) relocAddr =
   match relocInfo.TryFind relocAddr with
   | Ok rel ->

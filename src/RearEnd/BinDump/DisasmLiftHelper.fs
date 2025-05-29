@@ -48,7 +48,7 @@ let getOptimizer (opts: BinDumpOpts) =
 let makeFuncSymbolDic (hdl: BinHandle) =
   let funcs = Dictionary ()
   for addr in hdl.File.GetFunctionAddresses () do
-    match hdl.File.TryFindFunctionName addr with
+    match hdl.File.TryFindName addr with
     | Ok name -> funcs.TryAdd (addr, name) |> ignore
     | Error _ -> ()
   hdl.File.GetFunctionAddresses ()

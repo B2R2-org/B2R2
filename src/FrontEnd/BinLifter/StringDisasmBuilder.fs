@@ -47,7 +47,7 @@ type StringDisasmBuilder (showAddr, symbolReader: INameReadable, wordSz) =
 
     member _.AccumulateSymbol (addr, prefix, suffix, noSymbolMapper) =
       if hasSymbolReader && showSymb then
-        match symbolReader.TryFindFunctionName addr with
+        match symbolReader.TryFindName addr with
         | Ok name when name.Length > 0 ->
           sb.Append prefix.AsmWordValue |> ignore
           sb.Append name |> ignore
