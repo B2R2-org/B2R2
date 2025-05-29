@@ -48,7 +48,7 @@ let translateChracteristics chars =
   loop [] chars enumChars
 
 let dumpFileHeader _ (file: PEBinFile) =
-  let hdr = file.PE.PEHeaders.CoffHeader
+  let hdr = file.PEHeaders.CoffHeader
   out.PrintTwoCols
     "Machine:"
     (HexString.ofUInt64 (uint64 hdr.Machine)
@@ -103,9 +103,9 @@ let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
         "RelocPtr"; "LineNPtr"; "RelocNum"; "LineNNum"
         "Characteristics" ])
     out.PrintLine "  ---"
-    pe.PE.SectionHeaders
+    pe.SectionHeaders
     |> Array.iteri (fun idx s ->
-      let startAddr = pe.PE.BaseAddr + uint64 s.VirtualAddress
+      let startAddr = pe.BaseAddress + uint64 s.VirtualAddress
       let size =
         uint64 (if s.VirtualSize = 0 then s.SizeOfRawData else s.VirtualSize)
       let characteristics = uint64 s.SectionCharacteristics
@@ -143,10 +143,10 @@ let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
 let dumpSectionDetails (secname: string) (file: PEBinFile) =
   let idx =
     Array.tryFindIndex (fun (s: SectionHeader) ->
-      s.Name = secname) file.PE.SectionHeaders
+      s.Name = secname) file.SectionHeaders
   match idx with
   | Some idx ->
-    let section = file.PE.SectionHeaders[idx]
+    let section = file.SectionHeaders[idx]
     let characteristics = uint64 section.SectionCharacteristics
     out.PrintTwoCols
       "Section number:"
@@ -199,28 +199,28 @@ let printSymbolInfo (pe: PEBinFile) =
               addrColumn; LeftAligned 50; LeftAligned 15 ]
   out.PrintRow (true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
   out.PrintLine "  ---"
-  for s in pe.PE.SymbolInfo.SymbolArray do
-    printSymbolRow pe cfg "(s)" $"{s.Flags}" s.Address s.Name ""
-  pe.PE.ImportMap
+  for s in pe.Symbols.SymbolArray do
+    printSymbolRow pe cfg "(s)" "" s.Address s.Name ""
+  pe.ImportedSymbols
   |> Map.iter (fun rva imp ->
-    let addr = pe.PE.BaseAddr + uint64 rva
+    let addr = pe.BaseAddress + uint64 rva
     match imp with
-    | PE.ImportByOrdinal (ord, dllname) ->
+    | PE.ByOrdinal (ord, dllname) ->
       printSymbolRow pe cfg "(d)" $"{ord}" addr $"#{ord}" dllname
-    | PE.ImportByName (hint, fn, dllname) ->
+    | PE.ByName (hint, fn, dllname) ->
       printSymbolRow pe cfg "(d)" $"{hint}" addr fn dllname
   )
-  pe.PE.ExportMap
+  pe.ExportedSymbols.Exports
   |> Map.iter (fun addr names ->
     for name in names do
-      let rva = int (addr - pe.PE.BaseAddr)
-      let idx = pe.PE.FindSectionIdxFromRVA rva
+      let rva = int (addr - pe.BaseAddress)
+      let idx = pe.FindSectionIdxFromRVA rva
       if idx = -1 then ()
       else
-        let schr = pe.PE.SectionHeaders[idx].SectionCharacteristics
+        let schr = pe.SectionHeaders[idx].SectionCharacteristics
         printSymbolRow pe cfg "(d)" $"{schr}" addr name ""
   )
-  pe.PE.ForwardMap
+  pe.ExportedSymbols.Forwards
   |> Map.iter (fun name (fwdBin, fwdFunc) ->
     printSymbolRow pe cfg "(d)" $"{fwdBin},{fwdFunc}" 0UL name ""
   )
@@ -233,7 +233,7 @@ let dumpRelocs _ (pe: PEBinFile) =
   let cfg = [ addrColumn; LeftAligned 50 ]
   out.PrintRow (true, cfg, [ "Address"; "Relocation Type" ])
   out.PrintLine " ---"
-  for block in pe.PE.RelocBlocks do
+  for block in pe.RelocBlocks do
     for entry in block.Entries do
       let addr = uint64 block.PageRVA + uint64 entry.Offset
       out.PrintRow (true, cfg, [
@@ -263,28 +263,28 @@ let dumpImports _ (file: PEBinFile) =
   out.PrintRow (true, cfg,
     [ "FunctionName"; "Lib Name"; "TableAddress" ])
   out.PrintLine "  ---"
-  file.PE.ImportMap
+  file.ImportedSymbols
   |> Map.iter (fun addr info ->
     match info with
-    | PE.ImportInfo.ImportByOrdinal (ordinal, dllname) ->
+    | PE.ImportedSymbol.ByOrdinal (ordinal, dllname) ->
       out.PrintRow (true, cfg,
         [ "#" + ordinal.ToString ()
           dllname
-          HexString.ofUInt64 (addrFromRVA file.PE.BaseAddr addr) ])
-    | PE.ImportInfo.ImportByName (_, fname, dllname) ->
+          HexString.ofUInt64 (addrFromRVA file.BaseAddress addr) ])
+    | PE.ImportedSymbol.ByName (_, fname, dllname) ->
       out.PrintRow (true, cfg,
         [ fname
           dllname
-          HexString.ofUInt64 (addrFromRVA file.PE.BaseAddr addr) ]))
+          HexString.ofUInt64 (addrFromRVA file.BaseAddress addr) ]))
 
 let dumpExports _ (file: PEBinFile) =
   let cfg = [ LeftAligned 45; LeftAligned 20 ]
   out.PrintRow (true, cfg, [ "FunctionName"; "TableAddress" ])
   out.PrintLine "  ---"
-  file.PE.ExportMap
+  file.ExportedSymbols.Exports
   |> Map.iter (fun addr names ->
-    let rva = int (addr - file.PE.BaseAddr)
-    match file.PE.FindSectionIdxFromRVA rva with
+    let rva = int (addr - file.BaseAddress)
+    match file.FindSectionIdxFromRVA rva with
     | -1 -> ()
     | idx ->
       names
@@ -293,7 +293,7 @@ let dumpExports _ (file: PEBinFile) =
   out.PrintLine ""
   out.PrintRow (true, cfg, [ "FunctionName"; "ForwardName" ])
   out.PrintLine "  ---"
-  file.PE.ForwardMap
+  file.ExportedSymbols.Forwards
   |> Map.iter (fun name (bin, func) ->
     out.PrintRow (true, cfg, [ name; bin + "!" + func ]))
 
@@ -316,7 +316,7 @@ let translateDllChracteristcs chars =
   loop [] chars enumChars
 
 let dumpOptionalHeader _ (file: PEBinFile) =
-  let hdr = file.PE.PEHeaders.PEHeader
+  let hdr = file.PEHeaders.PEHeader
   let imageBase = hdr.ImageBase
   let sizeOfImage = uint64 hdr.SizeOfImage
   let entryPoint =
@@ -498,7 +498,7 @@ let translateCorFlags flags =
   loop [] flags enumFlags
 
 let dumpCLRHeader _ (file: PEBinFile) =
-  let hdr = file.PE.PEHeaders.CorHeader
+  let hdr = file.PEHeaders.CorHeader
   if isNull hdr then
     out.PrintTwoCols "" "Not found."
   else

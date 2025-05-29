@@ -42,13 +42,13 @@ type PETests () =
     PEBinFile (fileNameInZip, bytes, None, pdbBytes)
 
   let assertExistenceOfRelocBlock (file: IBinFile) pageRVA blockSize =
-    (file :?> PEBinFile).PE.RelocBlocks
+    (file :?> PEBinFile).RelocBlocks
     |> List.map (fun pair -> pair.PageRVA, pair.BlockSize)
     |> Seq.ofList
     |> assertExistenceOfPair (pageRVA, blockSize)
 
   let assertExistenceOfSectionHeader (file: IBinFile) address headerName =
-    (file :?> PEBinFile).PE.SectionHeaders
+    (file :?> PEBinFile).SectionHeaders
     |> Array.map (fun record -> record.VirtualAddress, record.Name)
     |> assertExistenceOfPair (address, headerName)
 
@@ -63,7 +63,7 @@ type PETests () =
   [<TestMethod>]
   member _.``[PE] X86 file type test`` () =
     let flg = Characteristics.ExecutableImage
-    Assert.IsTrue (x86File.PE.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
+    Assert.IsTrue (x86File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
 
   [<TestMethod>]
   member _.``[PE] X86 IsStripped test`` () =
@@ -79,12 +79,12 @@ type PETests () =
 
   [<TestMethod>]
   member _.``[PE] X86 static symbols length test`` () =
-    Assert.AreEqual<int> (239, x86File.PE.SymbolInfo.SymbolArray.Length)
+    Assert.AreEqual<int> (239, x86File.Symbols.SymbolArray.Length)
 
   [<TestMethod>]
   member _.``[PE] X86 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (41, x86File.PE.ImportMap.Count)
-    Assert.AreEqual<int> (0, x86File.PE.ExportMap.Count)
+    Assert.AreEqual<int> (41, x86File.ImportedSymbols.Count)
+    Assert.AreEqual<int> (0, x86File.ExportedSymbols.Count)
 
   [<TestMethod>]
   member _.``[PE] X86 text section address test`` () =
@@ -141,7 +141,7 @@ type PETests () =
   [<TestMethod>]
   member _.``[PE] X64 file type test`` () =
     let flg = Characteristics.ExecutableImage
-    Assert.IsTrue (x64File.PE.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
+    Assert.IsTrue (x64File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
 
   [<TestMethod>]
   member _.``[PE] X64 IsStripped test`` () =
@@ -157,12 +157,12 @@ type PETests () =
 
   [<TestMethod>]
   member _.``[PE] X64 static symbols length test`` () =
-    Assert.AreEqual<int> (240, x64File.PE.SymbolInfo.SymbolArray.Length)
+    Assert.AreEqual<int> (240, x64File.Symbols.SymbolArray.Length)
 
   [<TestMethod>]
   member _.``[PE] X64 dynamic symbols length test`` () =
-    Assert.AreEqual<int> (43, x64File.PE.ImportMap.Count)
-    Assert.AreEqual<int> (0, x64File.PE.ExportMap.Count)
+    Assert.AreEqual<int> (43, x64File.ImportedSymbols.Count)
+    Assert.AreEqual<int> (0, x64File.ExportedSymbols.Count)
 
   [<TestMethod>]
   member _.``[PE] X64 text section address test`` () =

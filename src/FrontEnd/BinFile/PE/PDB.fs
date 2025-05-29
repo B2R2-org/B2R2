@@ -29,14 +29,101 @@ open System.Collections.Generic
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let private getMagicBytes () =
-  [| 'M'; 'i'; 'c'; 'r'; 'o'; 's'; 'o'; 'f';
-     't'; ' '; 'C'; '/'; 'C'; '+'; '+'; ' ';
-     'M'; 'S'; 'F'; ' '; '7'; '.'; '0'; '0';
-     '\013'; '\010'; '\026'; 'D'; 'S'; '\000'; '\000'; '\000' |]
+/// SuperBlock forms the header of a PDB file.
+type SuperBlock = {
+  /// The block size of the internal file system. PDB can be considered as a
+  /// file system within the file.
+  BlockSize: int
+  /// The index of a block within the file, at which begins a bit field
+  /// representing the set of all blocks within the file, which are free.
+  FreeBlockMapIdx: int
+  /// The total number of blocks in the file.
+  NumBlocks: int
+  /// The size of the stream directory, in bytes. The stream directory contains
+  /// information about each stream's size and the set of blocks that it
+  /// occupies.
+  NumDirectoryBytes: int
+  /// The index of a block within the MSF file.
+  BlockMapAddr: int
+}
 
-let isPDBHeader (span: ByteSpan) (reader: IBinReader) =
-  reader.ReadChars (span, 0, 32) = getMagicBytes ()
+/// The Stream Directory contains information about the other streams in an MSF
+/// file. MSF is a file system internally used in a PDB file, and a file in MSF
+/// is often called as a stream.
+type StreamDirectory = {
+  /// Number of streams.
+  NumStreams: int
+  /// The sizes of streams.
+  StreamSizes: int[]
+  /// The block indices for streams.
+  StreamBlocks: int[][]
+}
+
+/// DBI stream version.
+type DBIStreamVersion =
+  | VC41 = 930803
+  | V50 = 19960307
+  | V60 = 19970606
+  | V70 = 19990903
+  | V110 = 20091201
+
+/// DBI stream header.
+type DBIStreamHeader = {
+  /// Compiler version
+  DBIVersion: DBIStreamVersion
+  /// The index to the global stream.
+  GlobalStreamIdx: int
+  /// The index to the public stream.
+  PublicStreamIdx: int
+  /// The index to the stream containing all CodeView symbol records used by the
+  /// program.
+  SymRecordStreamIdx: int
+  /// Size of the module info substream.
+  ModInfoSize: int
+}
+
+/// Module information follows immediately after the DBI stream header (struct
+/// ModInfo).
+type ModuleInfo = {
+  /// The section in the binary which contains the code/data from this module.
+  SectionIndex: int
+  /// The index of the stream that contains symbol information for this module.
+  SymStreamIndex: int
+  /// Module name
+  ModuleName: string
+  /// Object file name.
+  ObjFileName: string
+}
+
+/// GSI (Global Symbol Information) hash header.
+type GSIHashHeader = {
+  VersionSignature: uint32
+  VersionHeader: uint32
+  HashRecordSize: uint32
+  NumBuckets: uint32
+}
+
+/// GSI (Global Symbol Information) hash record.
+type GSIHashRecord = {
+  /// An offset.
+  HROffset: int
+  /// A cross reference.
+  HRCRef: int
+}
+
+/// DBI stream is the fourth stream in the MSF file, which contains
+/// information about the debug information.
+let [<Literal>] DBIStreamIndex = 3
+
+/// Checks if the given span is a valid PDB header. The header is expected to
+/// start with a specific magic number.
+let isValidHeader (span: ByteSpan) (reader: IBinReader) =
+  let magicBytes =
+    [| 'M'; 'i'; 'c'; 'r'; 'o'; 's'; 'o'; 'f';
+       't'; ' '; 'C'; '/'; 'C'; '+'; '+'; ' ';
+       'M'; 'S'; 'F'; ' '; '7'; '.'; '0'; '0';
+       '\013'; '\010'; '\026'; 'D'; 'S'; '\000'; '\000'; '\000' |]
+  reader.ReadChars (span, 0, 32) = magicBytes
 
 let parseSuperBlock (span: ByteSpan) (reader: IBinReader) =
   { BlockSize = reader.ReadInt32 (span, 32)
@@ -104,7 +191,7 @@ let buildStreamMap span reader superBlock streamDir =
     lst.Add stream
   lst |> Seq.toArray
 
-let inline getStream (streamMap: (byte[] * int) []) idx =
+let inline getStream (streamMap: (byte[] * int) array) idx =
   streamMap[idx]
 
 let parseDBIHeader (reader: IBinReader) (dbiStream: byte[]) =
@@ -119,21 +206,20 @@ let rec parseSymbolRecord (bs: byte[]) reader offset modules streamMap =
   let sp = ReadOnlySpan bs
   let size = (reader: IBinReader).ReadUInt16 (sp, offset) |> int
   let typ = reader.ReadUInt16 (sp, offset + 2) |> LanguagePrimitives.EnumOfValue
-  let flg = reader.ReadInt32 (sp, offset + 4) |> LanguagePrimitives.EnumOfValue
   match typ with
-  | SymType.SPUB32 -> (* PUBSYM32 *)
-    { Flags = flg
-      Address = reader.ReadUInt32 (sp, offset + 8) |> uint64
+  | PDBSymbolKind.S_PUB32 -> (* DATASYM32 *)
+    { Address = reader.ReadUInt32 (sp, offset + 8) |> uint64
       Segment = reader.ReadUInt16 (sp, offset + 12)
-      Name = readCString sp (offset + 14) } |> Some
-  | SymType.SLPROC32
-  | SymType.SGPROC32 -> (* PROCSYM32 *)
-    { Flags = SymFlags.Function
-      Address = reader.ReadUInt32 (sp, offset + 32) |> uint64
+      Name = readCString sp (offset + 14)
+      IsFunction = false } |> Some
+  | PDBSymbolKind.S_LPROC32
+  | PDBSymbolKind.S_GPROC32 -> (* PROCSYM32 *)
+    { Address = reader.ReadUInt32 (sp, offset + 32) |> uint64
       Segment = reader.ReadUInt16 (sp, offset + 36)
-      Name = readCString sp (offset + 39) } |> Some
-  | SymType.SPROCREF
-  | SymType.SLPROCREF -> (* REFSYM2 *)
+      Name = readCString sp (offset + 39)
+      IsFunction = true } |> Some
+  | PDBSymbolKind.S_PROCREF
+  | PDBSymbolKind.S_LPROCREF -> (* REFSYM *)
     let modnum = reader.ReadUInt16 (sp, offset + 12) |> int
     let refOffset = reader.ReadInt32 (sp, offset + 8)
     let m = Array.get modules (modnum - 1)
@@ -207,7 +293,7 @@ let parse span reader =
   let superBlock = parseSuperBlock span reader
   let streamDir = parseStreamDirectory span reader superBlock
   let streamMap = buildStreamMap span reader superBlock streamDir
-  let dbiStream, _ = getStream streamMap 3
+  let dbiStream, _ = getStream streamMap DBIStreamIndex
   let dbi = parseDBIHeader reader dbiStream
   let modules = parseModuleInfo reader dbi dbiStream
   let _gsi = getStream streamMap dbi.GlobalStreamIdx |> parseGlobalSymb reader

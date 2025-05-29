@@ -32,7 +32,7 @@ open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Mach-specific virtual memory permission (for maxprot and initprot). Note
 /// that these values are different than the B2R2.Permission type.
-[<FlagsAttribute>]
+[<Flags>]
 type MachVMProt =
   /// File is readable.
   | Readable = 1

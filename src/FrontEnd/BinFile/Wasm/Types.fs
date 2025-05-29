@@ -25,13 +25,21 @@
 namespace B2R2.FrontEnd.BinFile.Wasm
 
 open B2R2.Collections
-open B2R2.FrontEnd.BinFile
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with Wasm file types.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Represents a vector of elements in WebAssembly.
+/// </summary>
 type Vector<'TElement> = {
   /// Length of encoded elements
   Length: uint32
   /// The actual elements sequence
-  Elements: 'TElement []
+  Elements: 'TElement[]
   /// Size of the vector in bytes
   Size: uint32
 }

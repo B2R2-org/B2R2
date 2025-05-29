@@ -128,10 +128,10 @@ let getCoffSymbol name v secnum typ storage =
 let toPESymbol symb =
   match symb.SymbType with
   | _, CoffSymbolTypeMSB.ImageSymDTypeFunction ->
-    Some { Flags = SymFlags.Function
-           Address = symb.SymbValue |> uint64
+    Some { Address = symb.SymbValue |> uint64
            Segment = symb.SecNumber |> uint16
-           Name = symb.SymbName }
+           Name = symb.SymbName
+           IsFunction = true }
   | _ -> None
 
 let buildSymbolMaps arr =

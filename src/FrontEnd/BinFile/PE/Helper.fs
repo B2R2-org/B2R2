@@ -25,11 +25,43 @@
 module internal B2R2.FrontEnd.BinFile.PE.Helper
 
 open System.IO
+open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.Collections
 open B2R2.Monads
 open B2R2.FrontEnd.BinFile
-open System.Reflection.PortableExecutable
+open B2R2.FrontEnd.BinFile.PE.PEUtils
+open B2R2.FrontEnd.BinLifter
+
+/// Main PE format representation.
+type PE = {
+  /// PE headers.
+  PEHeaders: PEHeaders
+  /// Image base address.
+  BaseAddr: Addr
+  /// Section headers.
+  SectionHeaders: SectionHeader[]
+  /// RVA to imported symbol.
+  ImportedSymbols: Map<int, ImportedSymbol>
+  /// Exported symbols.
+  ExportedSymbols: ExportedSymbolStore
+  /// List of relocation blocks
+  RelocBlocks: BaseRelocationBlock list
+  /// Word size for the binary.
+  WordSize: WordSize
+  /// Symbol information.
+  Symbols: SymbolStore
+  /// Invalid address ranges.
+  InvalidAddrRanges: IntervalSet
+  /// Not-in-file address ranges.
+  NotInFileRanges: IntervalSet
+  /// Executable address ranges.
+  ExecutableRanges: IntervalSet
+  /// A function for finding section index for a given rva (int).
+  FindSectionIdxFromRVA: int -> int
+  /// BinReader
+  BinReader: IBinReader
+}
 
 let [<Literal>] SecText = ".text"
 
@@ -49,9 +81,6 @@ let getEntryPoint pe =
     let entry = pe.PEHeaders.PEHeader.AddressOfEntryPoint
     if entry = 0 then None
     else uint64 entry + pe.BaseAddr |> Some
-
-let inline addrFromRVA baseAddr rva =
-  uint64 rva + baseAddr
 
 /// Some PE files have a section header indicating that the corresponding
 /// section's size is zero even if it contains actual data, i.e.,
@@ -82,15 +111,15 @@ let hasRelocationSymbols pe addr = (* FIXME: linear lookup is bad *)
   )
 
 let getImportTable pe =
-  pe.ImportMap
+  pe.ImportedSymbols
   |> Map.fold (fun acc addr info ->
        match info with
-       | ImportByOrdinal (ord, dllname) ->
+       | ByOrdinal (ord, dllname) ->
          { FuncName = "#" + ord.ToString()
            LibraryName = dllname
            TrampolineAddress = 0UL
            TableAddress = addrFromRVA pe.BaseAddr addr } :: acc
-       | ImportByName (_, fname, dllname) ->
+       | ByName (_, fname, dllname) ->
          { FuncName = fname
            LibraryName = dllname
            TrampolineAddress = 0UL
@@ -100,7 +129,7 @@ let getImportTable pe =
 
 let isImportTable pe addr =
   let rva = int (addr - pe.BaseAddr)
-  Map.containsKey rva pe.ImportMap
+  Map.containsKey rva pe.ImportedSymbols
 
 let getSecPermission (chr: SectionCharacteristics) =
   let x = if chr.HasFlag SectionCharacteristics.MemExecute then 1 else 0
@@ -110,12 +139,12 @@ let getSecPermission (chr: SectionCharacteristics) =
 
 let private findSymFromIAT addr pe =
   let rva = int (addr - pe.BaseAddr)
-  match Map.tryFind rva pe.ImportMap with
-  | Some (ImportByName (_, n, _)) -> Some n
+  match Map.tryFind rva pe.ImportedSymbols with
+  | Some (ByName (_, n, _)) -> Some n
   | _ -> None
 
 let private findSymFromEAT addr pe () =
-  match Map.tryFind addr pe.ExportMap with
+  match pe.ExportedSymbols.TryFind addr with
   | None -> None
   | Some [] -> None
   | Some (n :: _) -> Some n
@@ -126,12 +155,12 @@ let tryFindSymbolFromBinary pe addr =
   | Some s -> Ok s
 
 let tryFindSymbolFromPDB pe addr =
-  match Map.tryFind addr pe.SymbolInfo.SymbolByAddr with
+  match Map.tryFind addr pe.Symbols.SymbolByAddr with
   | None -> Error ErrorCase.SymbolNotFound
   | Some s -> Ok s.Name
 
 let tryFindFuncSymb pe addr =
-  if pe.SymbolInfo.SymbolArray.Length = 0 then tryFindSymbolFromBinary pe addr
+  if pe.Symbols.SymbolArray.Length = 0 then tryFindSymbolFromBinary pe addr
   else tryFindSymbolFromPDB pe addr
 
 let inline isValidAddr pe addr =

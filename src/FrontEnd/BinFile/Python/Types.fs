@@ -26,6 +26,12 @@ namespace B2R2.FrontEnd.BinFile.Python
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with Python bytecode files.
+///   </summary>
+/// </namespacedoc>
+///
 /// <summary>
 /// Represents the type of PyObject used when marshalling Python objects.
 /// (currently from Python 3.12).

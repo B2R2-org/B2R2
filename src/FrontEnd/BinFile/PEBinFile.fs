@@ -38,11 +38,32 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   new (path, bytes, rawpdb) = PEBinFile (path, bytes, None, rawpdb)
 
-  member _.PE with get () = pe
+  /// Returns the base address.
+  member _.BaseAddress with get () = pe.BaseAddr
 
+  /// Returns the PEHeaders.
+  member _.PEHeaders with get () = pe.PEHeaders
+
+  /// Returns the section headers.
   member _.SectionHeaders with get () = pe.SectionHeaders
 
-  member _.RawPDB = rawpdb
+  /// Returns the list of relocation blocks.
+  member _.RelocBlocks with get () = pe.RelocBlocks
+
+  /// Returns the symbol store.
+  member _.Symbols with get () = pe.Symbols
+
+  /// Returns the imported symbols.
+  member _.ImportedSymbols with get () = pe.ImportedSymbols
+
+  /// Returns the exported symbols.
+  member _.ExportedSymbols with get () = pe.ExportedSymbols
+
+  member _.RawPDB with get () = rawpdb
+
+  /// Finds the section index from the given RVA.
+  member _.FindSectionIdxFromRVA rva =
+    pe.FindSectionIdxFromRVA rva
 
   member _.HasCode (sec: SectionHeader) =
     sec.SectionCharacteristics.HasFlag SectionCharacteristics.MemExecute
@@ -64,7 +85,7 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.BaseAddress with get() = pe.BaseAddr
 
-    member _.IsStripped = Array.isEmpty pe.SymbolInfo.SymbolArray
+    member _.IsStripped = Array.isEmpty pe.Symbols.SymbolArray
 
     member _.IsNXEnabled = isNXEnabled pe
 
@@ -133,7 +154,7 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
       |> Array.tryFind (fun sec -> sec.Name = SecText)
       |> function
         | Some sec ->
-          let addr = addrFromRVA pe.BaseAddr sec.VirtualAddress
+          let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
           let size = sec.SizeOfRawData
           BinFilePointer (addr, addr + uint64 size - 1UL,
                           sec.PointerToRawData,
@@ -145,7 +166,7 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
       |> Array.tryFind (fun sec -> sec.Name = name)
       |> function
         | Some sec ->
-          let addr = addrFromRVA pe.BaseAddr sec.VirtualAddress
+          let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
           let size = sec.SizeOfRawData
           BinFilePointer (addr, addr + uint64 size - 1UL,
                           sec.PointerToRawData,
@@ -160,10 +181,10 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.GetFunctionAddresses () =
       let staticAddrs =
-        [| for s in pe.SymbolInfo.SymbolArray do
-             if s.Flags.HasFlag SymFlags.Function then s.Address |]
+        [| for s in pe.Symbols.SymbolArray do
+             if s.IsFunction then s.Address |]
       let dynamicAddrs =
-        [| for addr in pe.ExportMap.Keys do
+        [| for addr in pe.ExportedSymbols.Addresses do
              let idx = pe.FindSectionIdxFromRVA (int (addr - pe.BaseAddr))
              if idx <> -1 && isSectionExecutableByIndex pe idx then addr |]
       Array.concat [| staticAddrs; dynamicAddrs |]
