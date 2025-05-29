@@ -86,23 +86,22 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
       accumulateExceptionTableInfo acc cfi.FDEs lsdaTbl
     ) (NoOverlapIntervalMap.empty, Set.empty)
 
-  let buildELF (elf: ELFBinFile) =
-    computeExceptionTable elf.ExceptionFrame elf.LSDATable
-
   let exnTbl, funcEntryPoints =
     match liftingUnit.File.Format with
-    | FileFormat.ELFBinary -> buildELF (liftingUnit.File :?> ELFBinFile)
+    | FileFormat.ELFBinary ->
+      let elf = liftingUnit.File :?> ELFBinFile
+      computeExceptionTable elf.ExceptionFrame elf.LSDATable
     | _ -> NoOverlapIntervalMap.empty, Set.empty
 
   new (hdl: BinHandle) =
     ExceptionInfo (hdl.NewLiftingUnit ())
 
   /// Returns the exception handler mapping.
-  member _.ExceptionMap with get() = exnTbl
+  member _.ExceptionMap with get () = exnTbl
 
   /// Returns a set of function entry points that are visible from exception
   /// table information.
-  member _.FunctionEntryPoints with get() = funcEntryPoints
+  member _.FunctionEntryPoints with get () = funcEntryPoints
 
   /// Finds the exception target (landing pad) for a given instruction address.
   /// If the address is not in the exception table, it returns None.

@@ -46,20 +46,20 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
 
   /// ELF Header information.
-  member _.Header with get() = hdr
+  member _.Header with get () = hdr
 
   /// List of dynamic section entries.
-  member _.DynamicArrayEntries with get() =
+  member _.DynamicArrayEntries with get () =
     DynamicArray.parse toolBox shdrs.Value
 
   /// ELF program headers.
-  member _.ProgramHeaders with get() = phdrs.Value
+  member _.ProgramHeaders with get () = phdrs.Value
 
   /// ELF section headers.
-  member _.SectionHeaders with get() = shdrs.Value
+  member _.SectionHeaders with get () = shdrs.Value
 
   /// PLT.
-  member _.PLT with get() = plt.Value
+  member _.PLT with get () = plt.Value
 
   /// Exception information.
   member _.ExceptionFrame with get () = exn.Value.ExceptionFrame
@@ -71,10 +71,10 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   member _.UnwindingTable with get () = exn.Value.UnwindingTbl
 
   /// ELF symbol information.
-  member _.Symbols with get() = symbs.Value
+  member _.Symbols with get () = symbs.Value
 
   /// Relocation information.
-  member _.RelocationInfo with get() = relocs.Value
+  member _.RelocationInfo with get () = relocs.Value
 
   /// Try to find a section by its name.
   member _.TryFindSection (name: string) =
@@ -94,21 +94,21 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     && not (PLT.isPLTSectionName sec.SecName)
 
   interface IBinFile with
-    member _.Reader with get() = toolBox.Reader
+    member _.Reader with get () = toolBox.Reader
 
     member _.RawBytes = bytes
 
     member _.Length = bytes.Length
 
-    member _.Path with get() = path
+    member _.Path with get () = path
 
-    member _.Format with get() = FileFormat.ELFBinary
+    member _.Format with get () = FileFormat.ELFBinary
 
-    member _.ISA with get() = toolBox.ISA
+    member _.ISA with get () = toolBox.ISA
 
     member _.EntryPoint = Some hdr.EntryPoint
 
-    member _.BaseAddress with get() = toolBox.BaseAddress
+    member _.BaseAddress with get () = toolBox.BaseAddress
 
     member _.IsStripped =
       shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
@@ -215,11 +215,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
         | Some sec -> sec.SecName = Section.Text || sec.SecName = Section.ROData
         | None -> false
 
-    member this.GetFunctionAddresses () =
-      (this :> IBinFile).GetFunctionAddresses false
-
-    member _.GetFunctionAddresses (useExcInfo) =
-      let exnOpt = if useExcInfo then Some exn.Value else None
+    member _.GetFunctionAddresses () =
       let staticFuncs =
         [| for s in symbs.Value.StaticSymbols do
              if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr |]
@@ -227,7 +223,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
         [| for s in symbs.Value.DynamicSymbols do
              if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr |]
       let extraFuncs =
-        findExtraFnAddrs toolBox shdrs.Value loadables.Value relocs.Value exnOpt
+        findExtraFnAddrs toolBox shdrs.Value loadables.Value relocs.Value
       Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
       |> Set.ofArray
       |> Set.toArray

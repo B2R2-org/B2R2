@@ -118,53 +118,38 @@ let getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo section =
   lst.ToArray ()
 
 let getAddrsFromInitArray toolBox shdrs loadables relocInfo =
-  match Array.tryFind (fun s -> s.SecName = ".init_array") shdrs with
+  match Array.tryFind (fun s -> s.SecName = Section.InitArray) shdrs with
   | Some s ->
     let span = ReadOnlySpan (toolBox.Bytes, int s.SecOffset, int s.SecSize)
     getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
   | None -> [||]
 
 let getAddrsFromFiniArray toolBox shdrs loadables relocInfo =
-  match Array.tryFind (fun s -> s.SecName = ".fini_array") shdrs with
+  match Array.tryFind (fun s -> s.SecName = Section.FiniArray) shdrs with
   | Some s ->
     let span = ReadOnlySpan (toolBox.Bytes, int s.SecOffset, int s.SecSize)
     getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
   | None -> [||]
 
 let getAddrsFromSpecialSections shdrs =
-  [| ".init"; ".fini" |]
+  [| Section.Init; Section.Fini |]
   |> Array.choose (fun secName ->
     match Array.tryFind (fun s -> s.SecName = secName) shdrs with
     | Some sec -> Some sec.SecAddr
     | None -> None)
 
-let findFunctionsFromExceptionFrame exnInfo =
-  let lst = List ()
-  for cfi in exnInfo.ExceptionFrame do
-    for fde in cfi.FDEs do
-      lst.Add fde.PCBegin
-  lst.ToArray ()
-
-let findExtraFnAddrs toolBox shdrs loadables relocInfo exnInfoOpt =
-  match exnInfoOpt with
-  | Some exnInfo ->
-    [ getAddrsFromInitArray toolBox shdrs loadables relocInfo
-      getAddrsFromFiniArray toolBox shdrs loadables relocInfo
-      getAddrsFromSpecialSections shdrs
-      findFunctionsFromExceptionFrame exnInfo ]
-    |> Array.concat
-  | None ->
-    [ getAddrsFromInitArray toolBox shdrs loadables relocInfo
-      getAddrsFromFiniArray toolBox shdrs loadables relocInfo
-      getAddrsFromSpecialSections shdrs ]
-    |> Array.concat
+let findExtraFnAddrs toolBox shdrs loadables relocInfo =
+  [ getAddrsFromInitArray toolBox shdrs loadables relocInfo
+    getAddrsFromFiniArray toolBox shdrs loadables relocInfo
+    getAddrsFromSpecialSections shdrs ]
+  |> Array.concat
 
 let private computeInvalidRanges wordSize phdrs getNextStartAddr =
   phdrs
   |> Array.sortBy (fun seg -> seg.PHAddr)
   |> Array.fold (fun (set, saddr) seg ->
-       let n = getNextStartAddr seg
-       addInvalidRange set saddr seg.PHAddr, n) (IntervalSet.empty, 0UL)
+    let n = getNextStartAddr seg
+    addInvalidRange set saddr seg.PHAddr, n) (IntervalSet.empty, 0UL)
   |> addLastInvalidRange wordSize
 
 let invalidRangesByVM hdr phdrs =

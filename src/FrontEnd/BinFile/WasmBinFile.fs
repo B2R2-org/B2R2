@@ -115,8 +115,6 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
     member _.GetFunctionAddresses () = Terminator.futureFeature ()
 
-    member _.GetFunctionAddresses (_) = Terminator.futureFeature ()
-
     member _.HasRelocationInfo _addr = false
 
     member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()

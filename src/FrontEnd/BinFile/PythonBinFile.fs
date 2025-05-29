@@ -118,9 +118,6 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.GetFunctionAddresses () = Terminator.futureFeature ()
 
-    member this.GetFunctionAddresses (_) =
-      (this :> IBinFile).GetFunctionAddresses ()
-
     member _.HasRelocationInfo _addr = false
 
     member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()

@@ -59,16 +59,3 @@ type IBinOrganization =
   /// An array of function addresses.
   /// </returns>
   abstract GetFunctionAddresses: unit -> Addr[]
-
-  /// <summary>
-  /// Returns an array of local function addresses (excluding external
-  /// functions) from a given BinFile. If the argument is true, then this
-  /// funciton utilizes exception information of the binary to infer function
-  /// entries. Note that the inference process is not necessarily precise, so
-  /// this is really just an experimental feature, and will be removed in the
-  /// future.
-  /// </summary>
-  /// <returns>
-  /// An array of function addresses.
-  /// </returns>
-  abstract GetFunctionAddresses: bool -> Addr[]

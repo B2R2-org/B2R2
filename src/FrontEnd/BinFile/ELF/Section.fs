@@ -35,3 +35,19 @@ let [<Literal>] BSS = ".bss"
 
 /// The name of the section that contains initialized read-only data: ".rodata".
 let [<Literal>] ROData = ".rodata"
+
+/// The name of the section that contains function addresses that are executed
+/// when a program starts.
+let [<Literal>] InitArray = ".init_array"
+
+/// The name of the section that contains function addresses that are executed
+/// when a program exits.
+let [<Literal>] FiniArray = ".fini_array"
+
+/// The name of the section holding executtable instructions that contribute to
+/// the process initialization code.
+let [<Literal>] Init = ".init"
+
+/// The name of the section holding executtable instructions that contribute to
+/// the process termination code.
+let [<Literal>] Fini = ".fini"

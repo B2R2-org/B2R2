@@ -189,9 +189,6 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
              if idx <> -1 && isSectionExecutableByIndex pe idx then addr |]
       Array.concat [| staticAddrs; dynamicAddrs |]
 
-    member this.GetFunctionAddresses (_) =
-      (this :> IBinFile).GetFunctionAddresses ()
-
     member _.HasRelocationInfo addr = hasRelocationSymbols pe addr
 
     member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()

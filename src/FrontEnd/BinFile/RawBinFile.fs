@@ -105,8 +105,6 @@ type RawBinFile (path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.GetFunctionAddresses () = [||]
 
-    member _.GetFunctionAddresses (_) = [||]
-
     member _.HasRelocationInfo _ = false
 
     member _.GetRelocatedAddr _relocAddr = Terminator.impossible ()

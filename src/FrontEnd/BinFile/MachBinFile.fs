@@ -194,9 +194,6 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
       [| for s in syms.Value.Values do
            if Symbol.IsFunc secText s && s.SymAddr > 0UL then s.SymAddr |]
 
-    member this.GetFunctionAddresses (_) =
-      (this :> IBinFile).GetFunctionAddresses ()
-
     member _.HasRelocationInfo addr =
       relocs.Value
       |> Array.exists (fun r ->

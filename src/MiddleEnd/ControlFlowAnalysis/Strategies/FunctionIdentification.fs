@@ -42,14 +42,15 @@ type FunctionIdentification<'FnCtx,
   /// to expand it during the main recovery phase.
   let getInitialEntryPoints () =
     let file = hdl.File
-    let entries =
+    let addrs =
       file.GetFunctionAddresses ()
-      |> Set.ofSeq
-      |> Set.union exnInfo.FunctionEntryPoints
+      |> Array.fold (fun addrs addr ->
+        Set.add addr addrs
+      ) exnInfo.FunctionEntryPoints
     file.EntryPoint
     |> Option.fold (fun acc addr ->
       if file.Format <> FileFormat.RawBinary && addr = 0UL then acc
-      else Set.add addr acc) entries
+      else Set.add addr acc) addrs
     |> Set.toArray
 
   interface ICFGBuildingStrategy<'FnCtx, 'GlCtx> with
