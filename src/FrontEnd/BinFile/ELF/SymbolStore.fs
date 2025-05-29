@@ -27,7 +27,6 @@ namespace B2R2.FrontEnd.BinFile.ELF
 open System
 open System.Collections.Generic
 open B2R2
-open B2R2.Monads.Maybe
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
@@ -136,7 +135,8 @@ module private SymbolTables =
     | Some verInfoTbl ->
       let offset, size = int verInfoTbl.SecOffset, int verInfoTbl.SecSize
       let span = ReadOnlySpan (toolBox.Bytes, offset, size)
-      parseVersData toolBox.Reader symIdx span >>= retrieveVer verTbl
+      parseVersData toolBox.Reader symIdx span
+      |> Option.bind (retrieveVer verTbl)
     | None -> None
 
   let getSymbol toolBox shdrs strTbl verTbl symbol verInfoTbl txtOffset symIdx =

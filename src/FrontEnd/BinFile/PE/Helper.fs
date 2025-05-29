@@ -28,7 +28,6 @@ open System.IO
 open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.Collections
-open B2R2.Monads
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.PE.PEUtils
 open B2R2.FrontEnd.BinLifter
@@ -150,7 +149,8 @@ let private findSymFromEAT addr pe () =
   | Some (n :: _) -> Some n
 
 let tryFindSymbolFromBinary pe addr =
-  match findSymFromIAT addr pe |> OrElse.bind (findSymFromEAT addr pe) with
+  match findSymFromIAT addr pe
+        |> Option.orElseWith (findSymFromEAT addr pe) with
   | None -> Error ErrorCase.SymbolNotFound
   | Some s -> Ok s
 

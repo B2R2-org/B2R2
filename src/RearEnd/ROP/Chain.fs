@@ -269,11 +269,9 @@ module ROPHandle =
     | None -> None
 
   let execShell rop =
-    Monads.OrElse.orElse {
-      yield! shellWithSystem rop
-      yield! shellWithExecve rop
-      yield! findShellCode rop
-    }
+    shellWithSystem rop
+    |> Option.orElseWith (fun () -> shellWithExecve rop)
+    |> Option.orElseWith (fun () -> findShellCode rop)
 
   let private getRegSetter rop setterMap reg value =
     match findSetter setterMap (Set.ofList [reg]) Set.empty with

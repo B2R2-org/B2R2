@@ -67,11 +67,10 @@ let private identifyPython bytes isa =
 /// </summary>
 [<CompiledName("Identify")>]
 let identify bytes isa =
-  Monads.OrElse.orElse {
-    yield! identifyELF bytes
-    yield! identifyPE bytes
-    yield! identifyMach bytes isa
-    yield! identifyWASM bytes isa
-    yield! identifyPython bytes isa
-    yield! Some (FileFormat.RawBinary, isa)
-  } |> Option.get
+  identifyELF bytes
+  |> Option.orElseWith (fun () -> identifyPE bytes)
+  |> Option.orElseWith (fun () -> identifyMach bytes isa)
+  |> Option.orElseWith (fun () -> identifyWASM bytes isa)
+  |> Option.orElseWith (fun () -> identifyPython bytes isa)
+  |> Option.orElseWith (fun () -> Some (FileFormat.RawBinary, isa))
+  |> Option.get

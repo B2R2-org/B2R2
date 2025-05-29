@@ -30,7 +30,6 @@
     <Compile Include="ProgramPoint.fs" />
     <Compile Include="BytePattern.fs" />
     <Compile Include="LinuxSyscall.fs" />
-    <Compile Include="Monads.fs" />
     <Compile Include="Agent.fs" />
     <Compile Include="Logging\LogLevel.fs" />
     <Compile Include="Logging\ILogger.fs" />
