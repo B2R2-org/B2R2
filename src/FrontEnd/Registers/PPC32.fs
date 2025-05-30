@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.PPC32
 open B2R2
 
 /// <summary>
-/// Registers for PPC32.<para/>
+/// Represents registers for PPC32.<para/>
 /// </summary>
 type Register =
   | R0 = 0x0
@@ -180,14 +180,14 @@ type Register =
   /// Pseudo register for Reserve.
   | RES = 0x75
 
-/// Helper module for PPC32 registers.
+/// Provides functions to handle PPC32 registers.
 module Register =
-  /// Get the PPC32 register from a register ID.
+  /// Returns the PPC32 register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Get the PPC32 register from a string representation.
+  /// Returns the PPC32 register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -298,12 +298,12 @@ module Register =
     | "res" -> Register.RES
     | _ -> Terminator.impossible ()
 
-  /// Get the register ID of a PPC32 register.
+  /// Returns the register ID of a PPC32 register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-  /// Get the string representation of a PPC32 register.
+  /// Returns the string representation of a PPC32 register.
   [<CompiledName "ToString">]
   let toString reg =
     match reg with

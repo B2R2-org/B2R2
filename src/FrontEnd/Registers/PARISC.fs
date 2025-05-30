@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.PARISC
 open B2R2
 
 /// <summary>
-/// Registers for PA-RISC.<para/>
+/// Represents registers for PA-RISC.<para/>
 /// </summary>
 type Register =
   | GR0 = 0x0
@@ -140,14 +140,14 @@ type Register =
   | FPR30 = 0x6B
   | FPR31 = 0x6C
 
-/// Helper module for PARISC registers.
+/// Provides functions to handle PARISC registers.
 module Register =
-  /// Get the PARISC register from a register ID.
+  /// Returns the PARISC register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Get the PARISC register from a string representation.
+  /// Returns the PARISC register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -262,12 +262,12 @@ module Register =
     | "fr31" -> Register.FPR31
     | _ -> Terminator.impossible ()
 
-  /// Get the register ID of a PARISC register.
+  /// Returns the register ID of a PARISC register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-  /// Get the string representation of a PARISC register.
+  /// Returns the string representation of a PARISC register.
   [<CompiledName "ToString">]
   let toString reg =
     match reg with

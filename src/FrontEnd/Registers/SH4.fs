@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.SH4
 open B2R2
 
 /// <summary>
-/// Registers for SH4.<para/>
+/// Represents registers for SH4.<para/>
 /// </summary>
 type Register =
   | R0 = 0x0
@@ -166,14 +166,14 @@ type Register =
   | FPSCR_SZ = 0x85
   | FPSCR_FR = 0x86
 
-/// Helper module for SH4 registers.
+/// Provides functions to handle SH4 registers.
 module Register =
-  /// Get the SH4 register from a register ID.
+  /// Returns the SH4 register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Get the SH4 register from a string representation.
+  /// Returns the SH4 register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -314,12 +314,12 @@ module Register =
     | "fpscr_fr" -> Register.FPSCR_FR
     | _ -> Terminator.impossible ()
 
-  /// Get the register ID of a SH4 register.
+  /// Returns the register ID of a SH4 register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-  /// Get the string representation of a SH4 register.
+  /// Returns the string representation of a SH4 register.
   [<CompiledName "ToString">]
   let toString reg =
     match reg with

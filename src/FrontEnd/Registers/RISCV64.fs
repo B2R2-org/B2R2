@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.RISCV64
 open B2R2
 
 /// <summary>
-/// Registers for RISC-V.<para/>
+/// Represents registers for RISC-V.<para/>
 /// </summary>
 type Register =
   /// zero - Hard-wired zero.
@@ -333,14 +333,14 @@ type Register =
   /// Pseudo register for reservation check and follows the same format as ARM.
   | RC = 0x148
 
-/// Helper module for RISC-V registers.
+/// Provides functions to handle RISC-V registers.
 module Register =
-  /// Get the RISC-V register from a register ID.
+  /// Returns the RISC-V register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Get the RISC-V register from a string representation.
+  /// Returns the RISC-V register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -415,12 +415,12 @@ module Register =
     | "rc" -> Register.RC
     | _ -> Terminator.impossible ()
 
-  /// Get the register ID of a RISC-V register.
+  /// Returns the register ID of a RISC-V register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-  /// Get the string representation of a RISC-V register.
+  /// Returns the string representation of a RISC-V register.
   [<CompiledName "ToString">]
   let toString reg =
     match reg with

@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.ARM32
 open B2R2
 
 /// <summary>
-/// Registers for ARMv7, ARMv8 AArch32.<para/>
+/// Represents registers for ARMv7, ARMv8 AArch32.<para/>
 /// </summary>
 type Register =
   /// R0.
@@ -437,15 +437,15 @@ type Register =
   /// Q15B is the 2nd 64-bit chunk of Q15B.
   | Q15B = 0xCA
 
-/// Helper module for ARM32 registers.
+/// Provides functions to handle ARM32 registers.
 [<RequireQualifiedAccess>]
 module Register =
-  /// Get the ARM32 register from a register ID.
+  /// Returns the ARM32 register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Get the ARM32 register from a string representation.
+  /// Returns the ARM32 register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -654,12 +654,12 @@ module Register =
     | "fpscr" -> Register.FPSCR
     | _ -> Terminator.impossible ()
 
-  /// Get the register ID of an ARM32 register.
+  /// Returns the register ID of an ARM32 register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-  /// Get the string representation of an ARM32 register.
+  /// Returns the string representation of an ARM32 register.
   [<CompiledName "ToString">]
   let toString reg =
     match reg with

@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.AVR
 open B2R2
 
 /// <summary>
-/// Registers for AVR.<para/>
+/// Represents registers for AVR.<para/>
 /// </summary>
 type Register =
   | R0 = 0x0
@@ -76,15 +76,15 @@ type Register =
   | PC = 0x2B
   | SP = 0x2C
 
-/// Helper module for AVR registers.
+/// Provides functions to handle AVR registers.
 [<RequireQualifiedAccess>]
 module Register =
-  /// Get the AVR register from a register ID.
+  /// Returns the AVR register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Get the AVR register from a string representation.
+  /// Returns the AVR register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -132,12 +132,12 @@ module Register =
     | "SP" -> Register.SP
     | _ -> Terminator.impossible ()
 
-  /// Get the register ID of an AVR register.
+  /// Returns the register ID of an AVR register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-  /// Get the string representation of an AVR register.
+  /// Returns the string representation of an AVR register.
   [<CompiledName "ToString">]
   let toString reg =
     match reg with

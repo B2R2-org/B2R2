@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.S390
 open B2R2
 
 /// <summary>
-/// Registers for S390.<para/>
+/// Represents registers for S390.<para/>
 /// </summary>
 type Register =
   | R0 = 0
@@ -130,14 +130,14 @@ type Register =
   | BEAR = 97
   | PSW = 98
 
-/// Helper module for S390 registers.
+/// Provides functions to handle S390 registers.
 module Register =
-  /// Get the S390 register from a register ID.
+  /// Returns the S390 register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Get the S390 register from a string representation.
+  /// Returns the S390 register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -242,12 +242,12 @@ module Register =
     | "psw" -> Register.PSW
     | _ -> Terminator.impossible ()
 
-  /// Get the register ID of a S390 register.
+  /// Returns the register ID of a S390 register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue reg |> RegisterID.create
 
-  /// Get the string representation of a S390 register.
+  /// Returns the string representation of a S390 register.
   [<CompiledName "ToString">]
   let toString reg =
     match reg with

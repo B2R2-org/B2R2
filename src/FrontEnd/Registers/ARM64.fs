@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.ARM64
 open B2R2
 
 /// <summary>
-/// Registers for ARMv8 (AArch64).<para/>
+/// Represents registers for ARMv8 (AArch64).<para/>
 /// </summary>
 type Register =
   /// X0.
@@ -789,15 +789,15 @@ type Register =
   | S0_0_C2_C9_3 = 0x180
   | S2_7_C12_C7_6 = 0x181
 
-/// Helper module for ARM64 registers.
+/// Provides functions to handle ARM64 registers.
 [<RequireQualifiedAccess>]
 module Register =
-  /// Get the ARM64 register from a register ID.
+  /// Returns the ARM64 register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Get the ARM64 register from a string representation.
+  /// Returns the ARM64 register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -1183,12 +1183,12 @@ module Register =
     | "s2_7_c12_c7_6" -> Register.S2_7_C12_C7_6
     | _ -> Terminator.impossible ()
 
-  /// Get the register ID of an ARM64 register.
+  /// Returns the register ID of an ARM64 register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-  /// Get the string representation of an ARM64 register.
+  /// Returns the string representation of an ARM64 register.
   [<CompiledName "ToString">]
   let toString reg =
     match reg with

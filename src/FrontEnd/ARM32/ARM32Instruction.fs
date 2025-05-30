@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.ARM32
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for ARM32.
+/// Represents an ARM32 instruction.
 type Instruction
   internal (addr, nb, cond, op, opr, its, wb, q, s, isThumb, cf, oSz,
             isAdd, lifter: ILiftable) =

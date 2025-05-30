@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.MIPS
 open B2R2
 
 /// <summary>
-/// Registers for MIPS32 and MIPS64.<para/>
+/// Represents registers for MIPS32 and MIPS64.<para/>
 /// </summary>
 type Register =
   /// $zero or $r0 - Always zero
@@ -174,15 +174,15 @@ type Register =
   /// Floating Point Implementation Register.
   | FIR = 0x106
 
-/// Helper module for MIPS registers.
+/// Provides functions to handle MIPS registers.
 [<RequireQualifiedAccess>]
 module Register =
-  /// Get the MIPS register from a register ID.
+  /// Returns the MIPS register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Get the MIPS register from a string representation.
+  /// Returns the MIPS register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) wordSize =
     match str.ToLowerInvariant () with
@@ -262,12 +262,12 @@ module Register =
     | "fir" -> Register.FIR
     | _ -> Terminator.impossible ()
 
-  /// Get the register ID of a MIPS register.
+  /// Returns the register ID of a MIPS register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-  /// Get the string representation of a MIPS register.
+  /// Returns the string representation of a MIPS register.
   [<CompiledName "ToString">]
   let toString reg wordSize =
     match wordSize with

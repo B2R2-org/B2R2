@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.Intel
 open B2R2
 
 /// <summary>
-/// Registers for Intel x86 and x86-64.<para/>
+/// Represents registers for Intel x86 and x86-64.<para/>
 /// </summary>
 type Register =
   /// Accumulator for operands and results data (64bit).
@@ -760,15 +760,15 @@ type Register =
   | CCSRC2B = 0x16f
 #endif
 
-/// Helper module for Intel registers.
+/// Provides functions to handle Intel registers.
 [<RequireQualifiedAccess>]
 module Register =
-  /// Get the Intel register from a register ID.
+  /// Returns the Intel register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Get the Intel register from a string representation.
+  /// Returns the Intel register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -1128,12 +1128,12 @@ module Register =
     | "k7" -> Register.K7
     | _ -> Terminator.impossible ()
 
-  /// Get the register ID of an Intel register.
+  /// Returns the register ID of an Intel register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-  /// Get the string representation of an Intel register.
+  /// Returns the string representation of an Intel register.
   [<CompiledName "ToString">]
   let toString reg =
     match reg with

@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.SPARC
 open B2R2
 
 /// <summary>
-/// Registers for SPARC.<para/>
+/// Represents registers for SPARC.<para/>
 /// </summary>
 type Register =
   | G0 = 0x0
@@ -136,14 +136,14 @@ type Register =
   | F60 = 0x67
   | F62 = 0x68
 
-/// Helper module for SPARC registers.
+/// Provides functions to handle SPARC registers.
 module Register =
-  /// Get the SPARC register from a register ID.
+  /// Returns the SPARC register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Get the SPARC register from a string representation.
+  /// Returns the SPARC register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -254,12 +254,12 @@ module Register =
     | "f62" -> Register.F62
     | _ -> Terminator.impossible ()
 
-  /// Get the register ID of a SPARC register.
+  /// Returns the register ID of a SPARC register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-  /// Get the string representation of a SPARC register.
+  /// Returns the string representation of a SPARC register.
   [<CompiledName "ToString">]
   let toString reg =
     match reg with
