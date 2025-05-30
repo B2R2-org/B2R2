@@ -60,29 +60,17 @@ guideline](CONTRIBUTING.md).
 
 <table>
   <tr>
-    <th width="178px">Feature</th>
-    <th width="96px" class="text-center">x86</th>
-    <th width="96px" class="text-center">x86-64</th>
-    <th width="96px" class="text-center">ARMv7</th>
-    <th width="96px" class="text-center">ARMv8</th>
-    <th width="96px" class="text-center">MIPS32</th>
-    <th width="96px" class="text-center">MIPS64</th>
-    <th width="96px" class="text-center">EVM</th>
+    <th width="178px">CPU</th>
+    <th width="96px" class="text-center">Docs</th>
+    <th width="96px" class="text-center">Ins Parsing</th>
+    <th width="96px" class="text-center">Disasm</th>
+    <th width="96px" class="text-center">Lifting</th>
+    <th width="96px" class="text-center">CFG Recovery</th>
+    <th width="96px" class="text-center">Assembly</th>
   </tr>
   <tr>
-    <td>Instruction Parsing</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-  </tr>
-  <tr>
-    <td>Disassembly</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
+    <td><b>x86</b></td>
+    <td align="center">:first_quarter_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -90,9 +78,8 @@ guideline](CONTRIBUTING.md).
     <td align="center">:full_moon:</td>
   </tr>
   <tr>
-    <td>Lifting</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
+    <td><b>x86-64</b></td>
+    <td align="center">:first_quarter_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -100,106 +87,120 @@ guideline](CONTRIBUTING.md).
     <td align="center">:full_moon:</td>
   </tr>
   <tr>
-    <td>CFG Recovery</td>
+    <td><b>ARMv7</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:first_quarter_moon:</td>
+    <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
+    <td><b>ARMv8 (AArch64)</b></td>
     <td align="center">:first_quarter_moon:</td>
-    <td align="center">:first_quarter_moon:</td>
-    <td align="center">:first_quarter_moon:</td>
     <td align="center">:full_moon:</td>
-  </tr>
-  <tr>
-    <td>Instruction Emulation</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-  </tr>
-  <tr>
-    <td>Assembly</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:new_moon:</td>
-    <td align="center">:new_moon:</td>
-    <td align="center">:new_moon:</td>
-    <td align="center">:new_moon:</td>
-    <td align="center">:new_moon:</td>
-  </tr>
-</table>
-
-<table>
-  <tr>
-    <th width="178px">Feature</th>
-    <th width="96px" class="text-center">TMS320</th>
-    <th width="96px" class="text-center">AVR</th>
-    <th width="96px" class="text-center">PA-RISC</th>
-    <th width="96px" class="text-center">PPC</th>
-    <th width="96px" class="text-center">SPARC</th>
-    <th width="96px" class="text-center">SH4</th>
-    <th width="96px" class="text-center">RISC-V</th>
-  </tr>
-  <tr>
-    <td>Instruction Parsing</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:waxing_gibbous_moon:</td>
-    <td align="center">:full_moon:</td>
-  </tr>
-  <tr>
-    <td>Disassembly</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:waxing_gibbous_moon:</td>
-    <td align="center">:full_moon:</td>
-  </tr>
-  <tr>
-    <td>Lifting</td>
-    <td align="center">:new_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:new_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:new_moon:</td>
-    <td align="center">:full_moon:</td>
-  </tr>
-  <tr>
-    <td>CFG Recovery</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:first_quarter_moon:</td>
-    <td align="center">:first_quarter_moon:</td>
-    <td align="center">:first_quarter_moon:</td>
-    <td align="center">:first_quarter_moon:</td>
-    <td align="center">:full_moon:</td>
+    <td align="center">:new_moon:</td>
   </tr>
   <tr>
-    <td>Instruction Emulation</td>
+    <td><b>MIPS32</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
     <td align="center">:new_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:new_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:new_moon:</td>
-    <td align="center">:full_moon:</td>
   </tr>
   <tr>
-    <td>Assembly</td>
+    <td><b>MIPS64</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
     <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
+    <td><b>EVM</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
     <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
+    <td><b>TMS320C6000</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:new_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
     <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
+    <td><b>AVR</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
     <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
+    <td><b>PA-RISC</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:new_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
+    <td><b>PPC32</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
+    <td><b>SPARC</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
+    <td><b>SH4</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
+    <td><b>RISC-V</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
+    <td><b>S390</b></td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
     <td align="center">:new_moon:</td>
   </tr>
 </table>
