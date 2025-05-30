@@ -246,7 +246,7 @@ type RegisterFactory (wordSize) =
       | Register.WSTATE -> wstate
       | Register.FQ -> fq
       | Register.CLEANWIN -> cleanwin
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetRegVar (_: string): Expr = Terminator.futureFeature ()
 

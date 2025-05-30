@@ -26,7 +26,7 @@ namespace B2R2.FrontEnd.BinLifter
 
 open B2R2
 
-/// Represents an interface for reading names in a binary.
+/// Represents an interface for reading symbolic names in a binary.
 [<AllowNullLiteral>]
 type INameReadable =
   /// <summary>

@@ -22,54 +22,64 @@
   SOFTWARE.
 *)
 
+/// Provides several utility functions for lifting binary code to IR.
 module B2R2.FrontEnd.BinLifter.LiftingUtils
 
 open B2R2
 open B2R2.BinIR.LowUIR
 
+/// Creates a new number expression from a given uint32 value.
 let inline numU32 n t = BitVector.OfUInt32 n t |> AST.num
 
+/// Creates a new number expression from a given int32 value.
 let inline numI32 n t = BitVector.OfInt32 n t |> AST.num
 
+/// Creates a new number expression from a given uint64 value.
 let inline numU64 n t = BitVector.OfUInt64 n t |> AST.num
 
+/// Creates a new number expression from a given int64 value.
 let inline numI64 n t = BitVector.OfInt64 n t |> AST.num
 
+/// Creates a new temporary variable with the given type.
 let inline tmpVar (builder: ILowUIRBuilder) rt =
   builder.Stream.NewTempVar rt
 
+/// Creates two new temporary variables with the given type.
 let inline tmpVars2 (builder: ILowUIRBuilder) rt =
   struct (tmpVar builder rt, tmpVar builder rt)
 
+/// Creates three new temporary variables with the given type.
 let inline tmpVars3 (builder: ILowUIRBuilder) rt =
   struct (tmpVar builder rt, tmpVar builder rt, tmpVar builder rt)
 
+/// Creates four new temporary variables with the given type.
 let inline tmpVars4 (builder: ILowUIRBuilder) rt =
   struct (tmpVar builder rt,
           tmpVar builder rt,
           tmpVar builder rt,
           tmpVar builder rt)
 
+/// Creates a new label with the given name.
 let inline label (builder: ILowUIRBuilder) name =
   builder.Stream.NewLabel name
 
-/// Create a new register variable with the given register enum.
+/// Creates a new register variable with the given register enum.
 let inline regVar (builder: ILowUIRBuilder) reg =
   LanguagePrimitives.EnumToValue reg
   |> RegisterID.create
   |> builder.GetRegVar
 
-/// Create a new pseudo-register variable with the given register enum.
+/// Creates a new pseudo-register variable with the given register enum.
 let inline pseudoRegVar (builder: ILowUIRBuilder) reg pos =
   let rid = LanguagePrimitives.EnumToValue reg |> RegisterID.create
   builder.GetPseudoRegVar rid pos
 
-/// Create two new pseudo-register variables for a 128-bit register of the given
-/// register enum.
+/// Creates two new pseudo-register variables for a 128-bit register of the
+/// given register enum.
 let inline pseudoRegVar128 (builder: ILowUIRBuilder) reg =
   struct (pseudoRegVar builder reg 2, pseudoRegVar builder reg 1)
 
-/// Create four new pseudo-register variables for a 256-bit register of the
+/// Creates four new pseudo-register variables for a 256-bit register of the
 /// given register enum.
 let inline pseudoRegVar256 (builder: ILowUIRBuilder) reg =
   struct (pseudoRegVar builder reg 4,
@@ -77,7 +87,7 @@ let inline pseudoRegVar256 (builder: ILowUIRBuilder) reg =
           pseudoRegVar builder reg 2,
           pseudoRegVar builder reg 1)
 
-/// Create eight new pseudo-register variables for a 512-bit register of the
+/// Creates eight new pseudo-register variables for a 512-bit register of the
 /// given register enum.
 let inline pseudoRegVar512 (builder: ILowUIRBuilder) reg =
   struct (pseudoRegVar builder reg 8,
@@ -89,20 +99,20 @@ let inline pseudoRegVar512 (builder: ILowUIRBuilder) reg =
           pseudoRegVar builder reg 2,
           pseudoRegVar builder reg 1)
 
-/// Append a statement to the given builder. A builder is defined for each
+/// Appends a statement to the given builder. A builder is defined for each
 /// different CPU architecture, so this function is only useful if the builder
 /// implements the `Stream` member.
 let inline (<+) (builder: ILowUIRBuilder) stmt =
   builder.Stream.Append stmt
 
-/// Mark the start of an instruction by appending an ISMark statement to the
+/// Marks the start of an instruction by appending an ISMark statement to the
 /// given builder. A builder is defined for each different CPU architecture,
 /// so this function is only useful if the builder implements the `Stream`
 /// member.
 let inline (<!--) (builder: ILowUIRBuilder) (addr, insLen) =
   builder.Stream.MarkStart (addr, insLen)
 
-/// Mark the end of an instruction by appending an IEMark statement to the
+/// Marks the end of an instruction by appending an IEMark statement to the
 /// given builder. A builder is defined for each different CPU architecture,
 /// so this function is only useful if the builder implements the `Stream`
 /// member.

@@ -22,6 +22,7 @@
   SOFTWARE.
 *)
 
+/// Provides several utility functions to parse binary code.
 module B2R2.FrontEnd.BinLifter.ParsingUtils
 
 /// Provides several useful functions to access a 32-bit bit data represented as

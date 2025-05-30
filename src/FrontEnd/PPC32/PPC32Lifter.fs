@@ -258,7 +258,7 @@ let getSPRReg bld imm  =
   | 287u -> regVar bld Register.PVR
   | 18u | 19u | 22u | 25u | 26u | 27u | 272u | 273u | 274u | 275u | 282u | 528u
   | 529u | 530u | 531u | 532u | 533u | 534u | 535u | 536u | 537u | 538u | 539u
-  | 540u | 541u | 542u | 543u | 1013u -> raise UnhandledRegExprException
+  | 540u | 541u | 542u | 543u | 1013u -> raise InvalidRegisterException
   | _ -> raise InvalidOperandException
 
 let floatingNeg bld dst src rt =

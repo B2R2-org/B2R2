@@ -612,7 +612,7 @@ type RegisterFactory () =
       | R.S0_0_C2_C9_3 -> s00c2c93
       | R.S2_7_C12_C7_6 -> s27c12c76
       | R.ERET -> eret
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetRegVar name =
       match name with
@@ -945,7 +945,7 @@ type RegisterFactory () =
       | "Z" -> z
       | "C" -> c
       | "V" -> v
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar rid pos =
       match Register.ofRegID rid, pos with
@@ -1077,7 +1077,7 @@ type RegisterFactory () =
       | R.V30, 2 -> v30b
       | R.V31, 1 -> v31a
       | R.V31, 2 -> v31b
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetAllRegVars () =
       [| x0

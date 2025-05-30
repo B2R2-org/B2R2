@@ -231,7 +231,7 @@ type RegisterFactory (wordSize) =
       | R.AR15 -> ar15
       | R.BEAR -> bear
       | R.PSW -> psw
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetRegVar (name: string) =
       match name.ToUpperInvariant () with
@@ -334,7 +334,7 @@ type RegisterFactory (wordSize) =
       | "AR15" -> ar15
       | "BEAR" -> bear
       | "PSW" -> psw
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
 

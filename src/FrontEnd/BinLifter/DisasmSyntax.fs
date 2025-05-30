@@ -24,7 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter
 
-/// Disassembly syntax.
+/// Represents the disassembly syntax.
 type DisasmSyntax =
   /// Default syntax.
   | DefaultSyntax

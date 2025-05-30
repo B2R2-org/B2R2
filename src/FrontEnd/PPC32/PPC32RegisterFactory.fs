@@ -241,7 +241,7 @@ type RegisterFactory (wordSize) =
       | Register.CTR -> ctr
       | Register.PVR -> pvr
       | Register.RES -> res
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetRegVar (name: string) =
       match name.ToLowerInvariant () with
@@ -341,7 +341,7 @@ type RegisterFactory (wordSize) =
       | "cr7_1" -> cr71
       | "cr7_2" -> cr72
       | "cr7_3" -> cr73
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
 

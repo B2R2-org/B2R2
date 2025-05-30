@@ -27,7 +27,8 @@ namespace B2R2.FrontEnd.BinLifter
 open System.Collections.Generic
 open B2R2
 
-/// Disassembly builder that accumulates AsmWords.
+/// Represents a disassembly builder that accumulates <see
+/// cref='T:B2R2.FrontEnd.BinLifter.AsmWord'/>.
 type AsmWordDisasmBuilder (showAddr, symbolReader: INameReadable, wordSz) =
   let lst = List<AsmWord> ()
   let hasSymbolReader = isNull symbolReader |> not

@@ -305,7 +305,7 @@ type RegisterFactory (wordSize) =
       | R.FPSCR_PR -> fpscrPR
       | R.FPSCR_SZ -> fpscrSZ
       | R.FPSCR_FR -> fpscrFR
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetRegVar (name: string) =
       match name.ToLowerInvariant () with
@@ -326,7 +326,7 @@ type RegisterFactory (wordSize) =
       | "r14" -> r14
       | "r15" -> r15
       | "pc" -> pc
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
 

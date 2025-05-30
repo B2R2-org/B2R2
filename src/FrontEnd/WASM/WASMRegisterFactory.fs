@@ -32,7 +32,7 @@ type RegisterFactory () =
   interface IRegisterFactory with
     member _.GetRegVar rid: Expr =
       match Register.ofRegID rid with
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetRegVar (_: string): Expr = Terminator.futureFeature ()
 

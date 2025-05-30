@@ -180,7 +180,7 @@ type RegisterFactory (wordSize) =
       | R.F31 -> f31
       | R.FCSR -> fcsr
       | R.FIR -> fir
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member this.GetRegVar name =
       Register.ofString name wordSize

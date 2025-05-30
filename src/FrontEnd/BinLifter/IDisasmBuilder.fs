@@ -26,8 +26,8 @@ namespace B2R2.FrontEnd.BinLifter
 
 open B2R2
 
-/// Provides an interface for a disassembly builder, which is used to accumulate
-/// disassembly strings and return them as a single string or an array of
+/// Provides an interface for producing disassembly, which is used to accumulate
+/// disassembly strings and to return them as a single string or an array of
 /// AsmWords when requested.
 type IDisasmBuilder =
   /// Word size of the target architecture.

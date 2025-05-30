@@ -16,7 +16,6 @@
     <Compile Include="LowUIRStream.fs" />
     <Compile Include="ILowUIRBuilder.fs" />
     <Compile Include="AsmWord.fs" />
-    <Compile Include="AsmLine.fs" />
     <Compile Include="DisasmSyntax.fs" />
     <Compile Include="IDisasmBuilder.fs" />
     <Compile Include="StringDisasmBuilder.fs" />

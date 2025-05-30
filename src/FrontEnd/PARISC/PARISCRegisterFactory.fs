@@ -255,7 +255,7 @@ type RegisterFactory (wordSize) =
       | Register.FPR29 -> fpr29
       | Register.FPR30 -> fpr30
       | Register.FPR31 -> fpr31
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
 

@@ -29,118 +29,121 @@ open System.Buffers.Binary
 open System.Runtime.InteropServices
 open B2R2
 
-/// This is a type alias for `ReadOnlySpan<byte>`. We define this alias because
-/// B2R2 uses this type quite frequently.
+/// <summary>
+/// Represents a read-only span for byte arrays. This is a type alias for
+/// <c>ReadOnlySpan&lt;byte&gt;</c>. We define this alias because B2R2 uses this
+/// type quite frequently.
+/// </summary>
 type ByteSpan = ReadOnlySpan<byte>
 
-/// IBinReader provides an interface for reading byte sequences from a byte
-/// array (or a ByteSpan). The endianness is determined by the implementation
-/// of the interface.
+/// Provides an interface for reading byte sequences from a byte array (or a
+/// ByteSpan). The endianness is determined by the implementation of the
+/// interface.
 type IBinReader =
   /// The endianness of this reader.
   abstract Endianness: Endian
 
-  /// Read a single byte as an int8 from the given byte array.
+  /// Reads a single byte as an int8 from the given byte array.
   abstract ReadInt8: bs: byte[] * offset: int -> int8
 
-  /// Read a single byte as an int8 from the given byte span.
+  /// Reads a single byte as an int8 from the given byte span.
   abstract ReadInt8: span: ByteSpan * offset: int -> int8
 
-  /// Read a single byte as a uint8 from the given byte array.
+  /// Reads a single byte as a uint8 from the given byte array.
   abstract ReadUInt8: bs: byte[] * offset: int -> uint8
 
-  /// Read a single byte as a uint8 from the given byte array.
+  /// Reads a single byte as a uint8 from the given byte array.
   abstract ReadUInt8: span: ByteSpan * offset: int -> uint8
 
-  /// Read an int16 value from the given byte array.
+  /// Reads an int16 value from the given byte array.
   abstract ReadInt16: bs: byte[] * offset: int -> int16
 
-  /// Read an int16 value from the given byte span.
+  /// Reads an int16 value from the given byte span.
   abstract ReadInt16: span: ByteSpan * offset: int -> int16
 
-  /// Read a uint16 value from the given byte array.
+  /// Reads a uint16 value from the given byte array.
   abstract ReadUInt16: bs: byte[] * offset: int -> uint16
 
-  /// Read a uint16 value from the given byte span.
+  /// Reads a uint16 value from the given byte span.
   abstract ReadUInt16: span: ByteSpan * offset: int -> uint16
 
-  /// Read an int32 value from the given byte array.
+  /// Reads an int32 value from the given byte array.
   abstract ReadInt32: bs: byte[] * offset: int -> int32
 
-  /// Read an int32 value from the given byte span.
+  /// Reads an int32 value from the given byte span.
   abstract ReadInt32: span: ByteSpan * offset: int -> int32
 
-  /// Read a uint32 value from the given byte array.
+  /// Reads a uint32 value from the given byte array.
   abstract ReadUInt32: bs: byte[] * offset: int -> uint32
 
-  /// Read a uint32 value from the given byte span.
+  /// Reads a uint32 value from the given byte span.
   abstract ReadUInt32: span: ByteSpan * offset: int -> uint32
 
-  /// Read an int64 value from the given byte array.
+  /// Reads an int64 value from the given byte array.
   abstract ReadInt64: bs: byte[] * offset: int -> int64
 
-  /// Read an int64 value from the given byte span.
+  /// Reads an int64 value from the given byte span.
   abstract ReadInt64: span: ByteSpan * offset: int -> int64
 
-  /// Read a uint64 value from the given byte array.
+  /// Reads a uint64 value from the given byte array.
   abstract ReadUInt64: bs: byte[] * offset: int -> uint64
 
-  /// Read a uint64 value from the given byte span.
+  /// Reads a uint64 value from the given byte span.
   abstract ReadUInt64: span: ByteSpan * offset: int -> uint64
 
-  /// Read a character array of size n from the given byte array.
+  /// Reads a character array of size n from the given byte array.
   abstract ReadChars: bs: byte[] * offset: int * size: int -> char[]
 
-  /// Read a character array of `size` from the given byte span.
+  /// Reads a character array of `size` from the given byte span.
   abstract ReadChars:
     span: ByteSpan * offset: int * size: int -> char[]
 
-  /// Read a LEB128-encoded integer from the given byte array. This function
+  /// Reads a LEB128-encoded integer from the given byte array. This function
   /// returns a tuple of (the decoded int64, and the count of how many bytes
   /// were read).
   abstract ReadInt64LEB128: bs: byte[] * offset: int -> int64 * int
 
-  /// Read a LEB128-encoded integer from the given byte span. This function
+  /// Reads a LEB128-encoded integer from the given byte span. This function
   /// returns a tuple of (the decoded int64, and the count of how many bytes
   /// were read).
   abstract ReadInt64LEB128:
     span: ByteSpan * offset: int -> int64 * int
 
-  /// Read a LEB128-encoded integer from the given byte array. This function
+  /// Reads a LEB128-encoded integer from the given byte array. This function
   /// returns a tuple of (the decoded uint64, and the count of how many bytes
   /// were read).
   abstract ReadUInt64LEB128: bs: byte[] * offset: int -> uint64 * int
 
-  /// Read a LEB128-encoded integer from the given byte span. This function
+  /// Reads a LEB128-encoded integer from the given byte span. This function
   /// returns a tuple of (the decoded uint64, and the count of how many bytes
   /// were read).
   abstract ReadUInt64LEB128:
     span: ByteSpan * offset: int -> uint64 * int
 
-  /// Read a LEB128-encoded integer from the given byte array. This function
+  /// Reads a LEB128-encoded integer from the given byte array. This function
   /// returns a tuple of (the decoded int32, and the count of how many bytes
   /// were read).
   abstract ReadInt32LEB128: bs: byte[] * offset: int -> int32 * int
 
-  /// Read a LEB128-encoded integer from the given byte span. This function
+  /// Reads a LEB128-encoded integer from the given byte span. This function
   /// returns a tuple of (the decoded int32, and the count of how many bytes
   /// were read).
   abstract ReadInt32LEB128:
     span: ByteSpan * offset: int -> int32 * int
 
-  /// Read a LEB128-encoded integer from the given byte array. This function
+  /// Reads a LEB128-encoded integer from the given byte array. This function
   /// returns a tuple of (the decoded uint32, and the count of how many bytes
   /// were read).
   abstract ReadUInt32LEB128: bs: byte[] * offset: int -> uint32 * int
 
-  /// Read a LEB128-encoded integer from the given byte span. This function
+  /// Reads a LEB128-encoded integer from the given byte span. This function
   /// returns a tuple of (the decoded uint32, and the count of how many bytes
   /// were read).
   abstract ReadUInt32LEB128:
     span: ByteSpan * offset: int -> uint32 * int
 
 /// Little-endian binary reader.
-type BinReaderLE () =
+type private BinReaderLE () =
   interface IBinReader with
     member _.Endianness with get() = Endian.Little
 
@@ -235,7 +238,7 @@ type BinReaderLE () =
       LEB128.DecodeUInt32 (span.Slice offset)
 
 /// Big-endian binary reader.
-type BinReaderBE () =
+type private BinReaderBE () =
   interface IBinReader with
     member _.Endianness with get() = Endian.Big
 
@@ -329,10 +332,12 @@ type BinReaderBE () =
     member _.ReadUInt32LEB128 (span: ByteSpan, offset) =
       LEB128.DecodeUInt32 (span.Slice offset)
 
-/// A factory for creating a binary reader.
+/// Provides a function to instantiate a binary reader that implements <see
+/// cref='T:B2R2.FrontEnd.BinLifter.IBinReader'/>.
 type BinReader =
-  /// Create a binary reader with the given endianness. The default endianness
-  /// is little-endian.
+  /// Creates a binary reader that implements <see
+  /// cref='T:B2R2.FrontEnd.BinLifter.IBinReader'/> with the given endianness.
+  /// The default endianness is little-endian.
   static member Init ([<Optional;
                         DefaultParameterValue(Endian.Little)>] endian) =
     match endian with

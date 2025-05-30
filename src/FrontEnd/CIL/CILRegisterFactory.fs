@@ -36,4 +36,4 @@ type internal RegisterFactory () =
     match name with
     | Register.PC -> this.PC
     | Register.SP -> this.SP
-    | _ -> raise UnhandledRegExprException
+    | _ -> raise InvalidRegisterException

@@ -24,24 +24,32 @@
 
 namespace B2R2.FrontEnd.BinLifter
 
-/// The IR is not implemented yet.
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with parsing and lifting binary
+///   code. Every parser and lifter in B2R2 should open this namespace at least
+///   once.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Raised when the IR is not implemented yet.
+/// </summary>
 exception NotImplementedIRException of string
 
-/// Invalid use of operand has been encountered during parsing/lifting.
+/// Raised when an invalid operand has been encountered during parsing/lifting.
 exception InvalidOperandException
 
-/// Invalid operand size has been used during parsing/lifting.
+/// Raised when an invalid operand type has been encountered during
+/// parsing/lifting.
 exception InvalidOperandSizeException
 
-/// Invalid opcode has been used during parsing/lifting.
+/// Raised when an invalid opcode has been encountered during parsing/lifting.
 exception InvalidOpcodeException
 
-/// Invalid register has been used during parsing/lifting.
+/// Raised when an invalid register has been encountered during parsing/lifting.
 exception InvalidRegisterException
 
-/// Encountered register expression that is yet handled in our IR.
-exception UnhandledRegExprException
-
-/// This exception occurs when parsing binary code failed. This exception
-/// indicates a non-recoverable parsing failure.
+/// Raised when parsing binary code failed. This exception indicates a
+/// non-recoverable parsing failure.
 exception ParsingFailureException

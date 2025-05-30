@@ -30,9 +30,9 @@ open B2R2
 open B2R2.BinIR.LowUIR
 
 /// <summary>
-///   A high-level class representing a single machine instruction in a
-///   platform-independent manner. It provides useful methods for accessing
-///   useful information about the instruction.
+///   Represents a single machine instruction in a platform-independent manner.
+///   It provides useful methods for accessing useful information about the
+///   instruction.
 /// </summary>
 type IInstruction =
   /// <summary>

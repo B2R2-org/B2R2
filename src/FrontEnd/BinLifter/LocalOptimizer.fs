@@ -43,7 +43,7 @@ module private Localizer =
     if Array.isEmpty stmts then [| stmts |]
     else breakByMark [] stmts 1
 
-/// Intra-block local IR optimizer.
+/// Represents an intra-block local IR optimizer.
 type LocalOptimizer =
   /// Remove unnecessary IEMark to ease the analysis.
   static member private TrimIEMark (stmts: Stmt []) =

@@ -22,6 +22,9 @@
   SOFTWARE.
 *)
 
+/// Provides a function that performs a constant folding optimization for the
+/// lifted IR statements. This function assumes that the statements are
+/// localized, i.e., they represent a basic block.
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinLifter.ConstantFolding
 

@@ -46,9 +46,12 @@ type VisBBlock (blk: IVisualizable, isDummy) =
               AsmWordValue = $"# fake block @ {blk.BlockAddress:x}" } |] |]
     else block
 
-  let maxLine = visualizableAsm |> Array.maxBy (AsmLine.lineWidth)
+  let lineWidth asmLine =
+    asmLine |> Array.fold (fun width term -> width + AsmWord.Width term) 0
 
-  let maxLineWidth = AsmLine.lineWidth maxLine |> float
+  let maxLine = visualizableAsm |> Array.maxBy lineWidth
+
+  let maxLineWidth = lineWidth maxLine |> float
 
   /// This number (7.5) is empirically obtained with the current font. For some
   /// reasons, we cannot precisely determine the width of each text even though

@@ -254,7 +254,7 @@ type RegisterFactory () =
       | R.SCTLR -> sctlr
       | R.NSACR -> nsacr
       | R.FPSCR -> fpscr
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetRegVar name =
       match name with
@@ -377,7 +377,7 @@ type RegisterFactory () =
       | "SCTLR" -> sctlr
       | "SCR" -> scr
       | "NSACR" -> nsacr
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar rid pos =
       match Register.ofRegID rid, pos with
@@ -413,7 +413,7 @@ type RegisterFactory () =
       | R.Q14, 2 -> q14b
       | R.Q15, 1 -> q15a
       | R.Q15, 2 -> q15b
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetAllRegVars () =
       [| r0

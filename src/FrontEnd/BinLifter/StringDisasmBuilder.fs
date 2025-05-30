@@ -27,8 +27,8 @@ namespace B2R2.FrontEnd.BinLifter
 open System.Text
 open B2R2
 
-/// Disassembly builder that simply accumulates strings without any type
-/// annotation.
+/// Represents a disassembly builder that simply accumulates strings without any
+/// type annotation.
 type StringDisasmBuilder (showAddr, symbolReader: INameReadable, wordSz) =
   let sb = StringBuilder ()
   let hasSymbolReader = isNull symbolReader |> not

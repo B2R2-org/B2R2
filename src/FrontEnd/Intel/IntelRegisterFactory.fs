@@ -1051,7 +1051,7 @@ type RegisterFactory (wordSize) =
       | "DR3" -> dr3
       | "DR6" -> dr6
       | "DR7" -> dr7
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar rid pos =
       match Register.ofRegID rid, pos with
@@ -1751,7 +1751,7 @@ type RegisterFactory (wordSize) =
       | R.ST6, 2 -> st6b
       | R.ST7, 1 -> st7a
       | R.ST7, 2 -> st7b
-      | _ -> raise UnhandledRegExprException
+      | _ -> raise InvalidRegisterException
 
     member _.GetAllRegVars () =
       if WordSize.is32 wordSize then
