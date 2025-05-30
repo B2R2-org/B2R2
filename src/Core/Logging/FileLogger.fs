@@ -26,7 +26,8 @@ namespace B2R2.Logging
 
 open System.IO
 
-/// Log to a file.
+/// Represents an implementation of <see cref='T:B2R2.Logging.ILogger'/> that
+/// writes log messages to a file.
 type FileLogger (filepath, ?level: LogLevel) =
   let fs = File.CreateText (filepath, AutoFlush = true)
   let llev = defaultArg level LogLevel.L2

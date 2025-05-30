@@ -26,7 +26,8 @@ namespace B2R2.Logging
 
 open System
 
-/// Basic logging facility.
+/// Provides the interface for a logger that can be used to log messages with
+/// different verbosity levels.
 type ILogger =
   inherit IDisposable
 

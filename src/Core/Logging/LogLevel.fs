@@ -24,7 +24,15 @@
 
 namespace B2R2.Logging
 
-/// How verbose do we want to log messages?
+/// <namespacedoc>
+///   <summary>
+///   Contains logging-related types and functions.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Represents the verbosity level of logging messages.
+/// </summary>
 type LogLevel =
   /// Most succinct = level 1.
   | L1 = 1
@@ -35,10 +43,10 @@ type LogLevel =
   /// Most verbose = level 4.
   | L4 = 4
 
-/// Helper module for LogLevel
+/// Provides functions to convert between LogLevel and string.
 [<RequireQualifiedAccess>]
 module LogLevel =
-  /// Get LogLevel from a given string.
+  /// Gets LogLevel from a given string.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant () with
@@ -47,7 +55,7 @@ module LogLevel =
     | "4" | "l4" -> LogLevel.L4
     | _ -> LogLevel.L2
 
-  /// Return a string representing the given LogLevel.
+  /// Returns a string representing the given LogLevel.
   [<CompiledName "ToString">]
   let toString = function
     | LogLevel.L1 -> "L1"
