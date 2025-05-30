@@ -30,6 +30,7 @@ open B2R2
 open B2R2.FrontEnd.NameMangling.ItaniumTables
 open B2R2.FrontEnd.NameMangling.ItaniumUtils
 
+/// Represents a demangler for Itanium C++ names.
 type ItaniumDemangler () =
   let charListtoStr a = String (List.toArray a)
 

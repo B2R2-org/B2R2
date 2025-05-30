@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.NameMangling.MSUtils
+module internal B2R2.FrontEnd.NameMangling.MSUtils
 
 let getSpecialName n =
   match n with

@@ -24,9 +24,32 @@ SOFTWARE.
 
 namespace B2R2.FrontEnd.NameMangling
 
-module Demangler =
-  [<CompiledName ("Detect")>]
-  let detect str =
-    if MSDemangler.IsWellFormed str then MSMangler
-    elif ItaniumDemangler.IsWellFormed str then ItaniumMangler
-    else UnknownMangler
+open B2R2
+
+/// Represents a top-level module that provides functions for detecting and
+/// demangling mangled names.
+type Demangler =
+  /// Detects the mangling scheme of the given string.
+  static member Detect str =
+    if MSDemangler.IsWellFormed str then Ok MSMangler
+    elif ItaniumDemangler.IsWellFormed str then Ok ItaniumMangler
+    else Error ErrorCase.InvalidFormat
+
+  /// Creates a demangler instance based on the detected mangling scheme.
+  static member Create str =
+    if MSDemangler.IsWellFormed str then
+      MSDemangler () :> IDemanglable
+    elif ItaniumDemangler.IsWellFormed str then
+      ItaniumDemangler () :> IDemanglable
+    else
+      (* Simply return the same string. *)
+      { new IDemanglable with member _.Demangle s = Ok s }
+
+  /// Automatically detects the mangling scheme and demangles the string. If the
+  /// mangling scheme is unknown, it returns the original string.
+  static member Demangle str =
+    if MSDemangler.IsWellFormed str then
+      (MSDemangler () :> IDemanglable).Demangle str
+    elif ItaniumDemangler.IsWellFormed str then
+      (ItaniumDemangler () :> IDemanglable).Demangle str
+    else Ok str

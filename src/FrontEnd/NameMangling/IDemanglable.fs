@@ -26,7 +26,8 @@ namespace B2R2.FrontEnd.NameMangling
 
 open B2R2
 
-/// The main demangler interface.
+/// Represents the main interface for a demangler.
 type IDemanglable =
-  /// Take a string as input and return a demangled string as output.
+  /// Takes a "mangled" string as input and returns a demangled string as
+  /// output.
   abstract Demangle: string -> Result<string, ErrorCase>

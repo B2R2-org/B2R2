@@ -24,7 +24,7 @@
 
 namespace B2R2.FrontEnd.NameMangling
 
-type BuiltinTypeIndicator =
+type internal BuiltinTypeIndicator =
   | Void
   | WChar
   | Boolean
@@ -57,7 +57,7 @@ type BuiltinTypeIndicator =
   | Half
   | Unknown
 
-module BuiltinTypeIndicator =
+module internal BuiltinTypeIndicator =
   let ofString = function
     | "v" -> Void
     | "w" -> WChar
@@ -124,7 +124,7 @@ module BuiltinTypeIndicator =
     | Half -> "half"
     | Unknown -> "???"
 
-type Sxabbreviation =
+type internal Sxabbreviation =
   | Std
   | StdAllocator
   | StdBasicString
@@ -134,7 +134,7 @@ type Sxabbreviation =
   | StdBasicIOStream
   | Unknown
 
-module Sxabbreviation =
+module internal Sxabbreviation =
   let ofString = function
     | "St" -> Std
     | "Sa" -> StdAllocator
@@ -166,7 +166,7 @@ module Sxabbreviation =
     | StdBasicIOStream -> "basic_iostream"
     | _ -> ""
 
-type OperatorIndicator =
+type internal OperatorIndicator =
   | New
   | NewList
   | Delete
@@ -217,7 +217,7 @@ type OperatorIndicator =
   | Question
   | Unknown
 
-module OperatorIndicator =
+module internal OperatorIndicator =
   let ofString = function
     | "nw" -> New
     | "na" -> NewList
@@ -320,12 +320,12 @@ module OperatorIndicator =
     | Question -> "?"
     | Unknown -> "???"
 
-type ConstructorDestructor =
+type internal ConstructorDestructor =
   | Constructor
   | Destructor
   | Unknown
 
-module ConstructorDestructor =
+module internal ConstructorDestructor =
   let ofChar = function
     | 'C' -> Constructor
     | 'D' -> Destructor
@@ -337,13 +337,13 @@ module ConstructorDestructor =
     | Unknown -> "???"
 
 /// Qualifiers: const, volatile. ConstaVolatile defines const volatile together.
-type ConsTandVolatile =
+type internal ConsTandVolatile =
   | Const
   | Volatile
   | ConstaVolatile
   | Unknown
 
-module ConsTandVolatile =
+module internal ConsTandVolatile =
   let ofChar = function
     | ('K', None) -> Const
     | ('V', None) -> Volatile
@@ -360,7 +360,7 @@ module ConsTandVolatile =
 /// It is consisted of quadruple, restrict, optional const and volatile and
 /// pointer. Nothing implies no qualifier and pointer, JustPointer implies
 /// only pointer.
-type RestrictQualifier =
+type internal RestrictQualifier =
   | Nothing
   | Restrict
   | RestrictConst
@@ -368,7 +368,7 @@ type RestrictQualifier =
   | RestrictVolatileConst
   | Unknown
 
-module RestrictQualifier =
+module internal RestrictQualifier =
   let ofTuple = function
     | ("", None, None) -> Nothing
     | ("r", None, None) -> Restrict
@@ -385,13 +385,13 @@ module RestrictQualifier =
     | RestrictVolatileConst -> " const volatile __restrict__"
     | Unknown -> "???"
 
-type ReferenceQualifier =
+type internal ReferenceQualifier =
   | Empty
   | LValueReference
   | RvalueReference
   | Unknown
 
-module ReferenceQualifier =
+module internal ReferenceQualifier =
   let ofString = function
     | "" -> Empty
     | "R" -> LValueReference
@@ -404,14 +404,14 @@ module ReferenceQualifier =
     | Empty -> ""
     | Unknown -> "???"
 
-type RTTIVirtualTable =
+type internal RTTIVirtualTable =
   | VirtualTable
   | VTT
   | TypeInfo
   | TypeInfoName
   | Unknown
 
-module RTTIVirtualTable =
+module internal RTTIVirtualTable =
   let ofString = function
     | "TV" -> VirtualTable
     | "TT" -> VTT
@@ -426,12 +426,12 @@ module RTTIVirtualTable =
     | TypeInfoName -> "typeinfo name for "
     | Unknown -> "???"
 
-type CallOffSet =
+type internal CallOffSet =
   | NVoffSet
   | VoffSet
   | Unknown
 
-module CallOffSet =
+module internal CallOffSet =
   let ofString = function
     | 'h' -> NVoffSet
     | 'v' -> VoffSet
@@ -442,14 +442,14 @@ module CallOffSet =
     | VoffSet -> "virtual thunk to "
     | Unknown -> "???"
 
-type CasTing =
+type internal CasTing =
   | DynamicCast
   | StaticCast
   | ConstCast
   | ReinterpretCast
   | Unknown
 
-module CasTing =
+module internal CasTing =
   let ofString = function
     | "dc" -> DynamicCast
     | "sc" -> StaticCast
@@ -464,13 +464,13 @@ module CasTing =
     | ReinterpretCast -> "reinterpret_cast"
     | Unknown -> ""
 
-type MeasureType =
+type internal MeasureType =
   | TypeID
   | Sizeof
   | Alignof
   | Unknown
 
-module MeasureType =
+module internal MeasureType =
   let ofString = function
     | "ti" -> TypeID
     | "st" -> Sizeof
@@ -483,14 +483,14 @@ module MeasureType =
     | Alignof -> "alignof"
     | Unknown -> ""
 
-type MeasureExpr =
+type internal MeasureExpr =
   | ExprID
   | SizeofExpr
   | AlignofExpr
   | NoExcept
   | Unknown
 
-module MeasureExpr =
+module internal MeasureExpr =
   let ofString = function
     | "te" -> ExprID
     | "sz" -> SizeofExpr
@@ -505,7 +505,7 @@ module MeasureExpr =
     | NoExcept -> "noexcept"
     | Unknown -> ""
 
-type ItaniumExpr =
+type internal ItaniumExpr =
   /// Dummy type.
   | Dummy of string
 
@@ -704,7 +704,7 @@ type ItaniumExpr =
 
   | DeclType of ItaniumExpr
 
-type ItaniumUserState = {
+type internal ItaniumUserState = {
   Namelist: ItaniumExpr List
   TemplateArgList : ItaniumExpr list
   Carry : ItaniumExpr

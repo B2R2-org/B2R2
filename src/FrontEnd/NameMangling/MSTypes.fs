@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.NameMangling
 
 /// Indicates the data type in the Enum Type.
-type EnumTypeKind =
+type internal EnumTypeKind =
   | CharEnum
   | UnsignedCharEnum
   | ShortEnum
@@ -36,7 +36,7 @@ type EnumTypeKind =
   | UnsignedLongEnum
   | UnknownEnumType
 
-module EnumTypeKind =
+module internal EnumTypeKind =
   let fromChar = function
     | '0' -> CharEnum
     | '1' -> UnsignedCharEnum
@@ -61,7 +61,7 @@ module EnumTypeKind =
 
 
 /// Indicates the type of the complex type.
-type ComplexTypeKind =
+type internal ComplexTypeKind =
   | Union
   | Struct
   | Class
@@ -69,7 +69,7 @@ type ComplexTypeKind =
   | Coclass
   | UnknownComplexType
 
-module ComplexTypeKind =
+module internal ComplexTypeKind =
   let fromString = function
     | "T"  -> Union
     | "U"  -> Struct
@@ -88,7 +88,7 @@ module ComplexTypeKind =
 
 
 /// Indicates the calling convention.
-type CallConvention =
+type internal CallConvention =
   | Cdecl
   | Pascal
   | Thiscall
@@ -98,7 +98,7 @@ type CallConvention =
   | Free
   | UnknownCallConvention
 
-module CallConvention =
+module internal CallConvention =
   let fromChar = function
     | 'A' | 'B' -> Cdecl
     | 'C' | 'D' -> Pascal
@@ -120,7 +120,7 @@ module CallConvention =
     | UnknownCallConvention-> "???"
 
 /// Indicates the calling scope(access level).
-type CallScope =
+type internal CallScope =
   | PrivateAccess
   | PrivateStatic
   | PrivateVirtual
@@ -136,7 +136,7 @@ type CallScope =
   | FreeScope
   | UnknownCallScope
 
-module CallScope =
+module internal CallScope =
   let fromChar = function
     | 'A' | 'B' -> PrivateAccess
     | 'C' | 'D' -> PrivateStatic
@@ -152,7 +152,6 @@ module CallScope =
     | 'W' | 'X' | '4' | '5' -> PublicThunk
     | 'Y' | 'Z' -> FreeScope
     | _ -> UnknownCallScope
-
 
   let toString = function
     | PrivateAccess -> "private: "
@@ -171,7 +170,7 @@ module CallScope =
     | UnknownCallScope -> "???"
 
 /// Indicates modifier prefixes for a CV Modifier.
-type ModifierPrefix =
+type internal ModifierPrefix =
   | Ptr64Mod
   | UnalignedMod
   | ReferenceMod
@@ -179,7 +178,7 @@ type ModifierPrefix =
   | RestrictMod
   | UnknownPrefix
 
-module ModifierPrefix =
+module internal ModifierPrefix =
   let fromChar = function
     | 'E' -> Ptr64Mod
     | 'F' -> UnalignedMod
@@ -189,14 +188,14 @@ module ModifierPrefix =
     |  _  -> UnknownPrefix
 
 /// Indicates CV class modifier.
-type CVModifier =
+type internal CVModifier =
   | NoMod
   | Constant
   | Volatile
   | ConstantVolatile
   | UnknownMod
 
-module CVModifier =
+module internal CVModifier =
   let fromChar = function
     | 'A' | 'Q' | 'U' | 'Y' | 'M' | '2' -> NoMod
     | 'B' | 'J' | 'R' | 'V' | 'Z' | 'N' |'3'-> Constant
@@ -212,7 +211,7 @@ module CVModifier =
     | UnknownMod -> "???"
 
 /// Indicates the type of the pointer.
-type PointerTypeIndicator =
+type internal PointerTypeIndicator =
   | NormalPointer
   | VolatilePointer
   | ConstantPointer
@@ -224,7 +223,7 @@ type PointerTypeIndicator =
   | EmptyPointer
   | UnknownPointer
 
-module PointerTypeIndicator =
+module internal PointerTypeIndicator =
   let fromChar = function
     | 'A' -> NormalReference
     | 'B' -> VolatileReference
@@ -253,7 +252,7 @@ module PointerTypeIndicator =
     | _ -> "*"
 
 /// Built in types represented by a single letter.
-type NormalBuiltInType =
+type internal NormalBuiltInType =
   | EmptyReturn // @ symbol can be used as a return type.
   | SignedChar
   | Char
@@ -271,7 +270,7 @@ type NormalBuiltInType =
   | Ellipsis
   | UnknownNormalBuiltInType
 
-module NormalBuiltInType =
+module internal NormalBuiltInType =
   let fromChar = function
     | 'C' -> SignedChar
     | 'D' -> Char
@@ -308,7 +307,7 @@ module NormalBuiltInType =
     | _ -> "???"
 
 /// Built in types that are represented by an underscore (_), then a letter.
-type UnderscoredBuiltInType =
+type internal UnderscoredBuiltInType =
   | Int8
   | UnsignedInt8
   | Int16
@@ -325,7 +324,7 @@ type UnderscoredBuiltInType =
   | WCharT
   | UnknownUnderscoredBuiltInType
 
-module UnderscoredBuiltInType =
+module internal UnderscoredBuiltInType =
   let fromChar = function
     | 'D' -> Int8
     | 'E' -> UnsignedInt8
@@ -362,13 +361,13 @@ module UnderscoredBuiltInType =
 
 /// Not used while parsing. Only used during interpretation when a function
 /// returns a function pointer to accomodate the weird syntax.
-type InterpHelperString = string
+type internal InterpHelperString = string
 
 /// Indicates the dimension(length) of the array.
-type ArrayLength = int
+type internal ArrayLength = int
 
 /// AST for Microsoft mangled expressions.
-type MSExpr =
+type internal MSExpr =
   /// A name without type information.
   | Name of string
 
@@ -462,9 +461,8 @@ type MSExpr =
   /// Concatinates the demangled string of each MSExpr in the list.
   | ConcatT of MSExpr list
 
-
 /// Userstate to handle name and type substitutions.
-type MSUserState = {
+type internal MSUserState = {
   NameList: MSExpr list
   TypeList: MSExpr list
 }

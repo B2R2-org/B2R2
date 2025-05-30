@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.NameMangling.ItaniumTables
+module internal B2R2.FrontEnd.NameMangling.ItaniumTables
 
 let getTypeS = function
   | 'v' -> "void"

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.NameMangling.MSInterpreter
+module internal B2R2.FrontEnd.NameMangling.MSInterpreter
 
 open B2R2.FrontEnd.NameMangling.MSUtils
 

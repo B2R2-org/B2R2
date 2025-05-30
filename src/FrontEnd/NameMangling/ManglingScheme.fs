@@ -24,12 +24,19 @@
 
 namespace B2R2.FrontEnd.NameMangling
 
-/// Name mangling schemes.
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for demangling names in C++.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Represents supported name mangling schemes. Currently, we support two
+/// name mangling schemes: Microsoft Visual C++ and Itanium CXX.
+/// </summary>
 type ManglingScheme =
   /// Microsoft Visual C++ name mangling.
   | MSMangler
   /// Itanium CXX name mangling scheme used by GCC 3.x and higher, Clang 1.x and
   /// higher.
   | ItaniumMangler
-  /// Unknown mangling scheme.
-  | UnknownMangler

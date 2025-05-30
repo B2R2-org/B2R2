@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.NameMangling.ItaniumFunctionPointer
+module internal B2R2.FrontEnd.NameMangling.ItaniumFunctionPointer
 
 /// Getting return from string gained from interpreter for FunctionPointer in
 /// ItaniumInterpreter.fs.

@@ -23,7 +23,7 @@
 *)
 
 
-module B2R2.FrontEnd.NameMangling.ItaniumInterpreter
+module internal B2R2.FrontEnd.NameMangling.ItaniumInterpreter
 
 open B2R2.FrontEnd.NameMangling.ItaniumFunctionPointer
 

@@ -20,7 +20,7 @@
     <Compile Include="ItaniumUtils.fs" />
     <Compile Include="ItaniumInterpreter.fs" />
     <Compile Include="ItaniumDemangler.fs" />
-    <Compile Include="Demangle.fs" />
+    <Compile Include="Demangler.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

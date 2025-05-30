@@ -29,6 +29,7 @@ open FParsec
 open B2R2
 open B2R2.FrontEnd.NameMangling.MSUtils
 
+/// Represents the demangler for Microsoft mangled names.
 type MSDemangler () =
   (* Helper functions for updating the UserState. *)
   let addToNameList c =

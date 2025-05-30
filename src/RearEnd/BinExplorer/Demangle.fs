@@ -46,9 +46,4 @@ type CmdDemangle () =
 
   override this.CallBack _ _ args =
     let mangled = String.concat " " args
-    match Demangler.detect mangled with
-    | MSMangler ->
-      (MSDemangler () :> IDemanglable).Demangle mangled |> this.MapResult
-    | ItaniumMangler ->
-      (ItaniumDemangler () :> IDemanglable).Demangle mangled |> this.MapResult
-    | UnknownMangler -> [| OutputNormal "[*] Unknown mangling scheme." |]
+    Demangler.Demangle mangled |> this.MapResult
