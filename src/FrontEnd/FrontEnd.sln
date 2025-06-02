@@ -1,4 +1,4 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinLifter.Tests", "BinLifter.Tests\B2R2.FrontEnd.BinLifter.Tests.fsproj", "{D3B52A70-4CE9-452D-8C40-6D4C5223E5ED}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.BinIR", "..\BinIR\B2R2.BinIR.fsproj", "{EC38F0BC-3721-4AD8-8194-9C2D345A0382}"

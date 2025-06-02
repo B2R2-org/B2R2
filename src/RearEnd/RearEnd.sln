@@ -1,4 +1,4 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.Assembler", "Assembler\B2R2.RearEnd.Assembler.fsproj", "{732B7629-1582-4643-AC69-CC952A91C1E5}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.BinIR", "..\BinIR\B2R2.BinIR.fsproj", "{FEE3D61E-E94D-4C77-9D63-5F2E49F16024}"

@@ -1,4 +1,4 @@
-﻿(*
+(*
 B2R2 - the Next-Generation Reversing Platform
 
 Copyright (c) SoftSec Lab. @ KAIST, since 2016

@@ -1,4 +1,4 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.BinGraph.Tests", "BinGraph.Tests\B2R2.MiddleEnd.BinGraph.Tests.fsproj", "{4988D803-92BD-4859-A0F5-F5AD84C659D0}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.BinIR", "..\BinIR\B2R2.BinIR.fsproj", "{94F0DA74-0AA7-40A4-8F13-4116ECA74FD0}"
