@@ -127,7 +127,7 @@ type ItaniumDemangler () =
     (pCVqualifier <|> preturn (Name "")) .>>.
     (pReference <|> preturn (Name "")) |>> CVR
 
-  let unaryOplist () = ["ps"; "ng"; "ad"; "de"; "nt"; "co"; "pp"; "mm"]
+  let unaryOplist () = [ "ps"; "ng"; "ad"; "de"; "nt"; "co"; "pp"; "mm" ]
 
   let pUOperator =
     unaryOplist () |> List.map pstring |> choice |>> OperatorIndicator.ofString

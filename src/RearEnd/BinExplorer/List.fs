@@ -70,7 +70,7 @@ type CmdList () =
      - segments: List segments to be loaded.\n\
      - sections: List sections in the binary."
 
-  override _.SubCommands = [ "functions"; "segments"; ]
+  override _.SubCommands = [ "functions"; "segments" ]
 
   override _.CallBack _ brew args =
     match args with
