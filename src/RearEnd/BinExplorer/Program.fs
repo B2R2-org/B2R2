@@ -113,49 +113,49 @@ type BinExplorerOpts (isa) =
                   extra = 1, callback = cb, short = "-a", long= "--isa" )
 
   static member OptReadLine () =
-    let cb (opts: #CmdOpts) (_arg : string []) =
+    let cb (opts: #CmdOpts) (_arg: string []) =
       (BinExplorerOpts.ToThis opts).EnableReadLine <- false; opts
     CmdOpts.New (
       descr = "Disable readline feature for BinExplorer",
       callback = cb, long = "--no-readline")
 
   static member OptJsonDumpDir () =
-    let cb (opts: #CmdOpts) (arg : string []) =
+    let cb (opts: #CmdOpts) (arg: string []) =
       (BinExplorerOpts.ToThis opts).JsonDumpDir <- arg[0]; opts
     CmdOpts.New (
       descr = "Directory name to dump CFG json (no dump if empty)",
       extra = 1, callback = cb, short = "-j", long = "--jsondir")
 
   static member OptDisableNoReturn () =
-    let cb (opts: #CmdOpts) (_arg : string []) =
+    let cb (opts: #CmdOpts) (_arg: string []) =
       (BinExplorerOpts.ToThis opts).EnableNoReturn <- false; opts
     CmdOpts.New (
       descr = "Disable no-return analysis.",
       callback = cb, long = "--disable-no-return")
 
   static member OptDisableBranchRecovery () =
-    let cb (opts: #CmdOpts) (_arg : string []) =
+    let cb (opts: #CmdOpts) (_arg: string []) =
       (BinExplorerOpts.ToThis opts).EnableBranchRecovery <- false; opts
     CmdOpts.New (
       descr = "Disable indirect branch recovery analysis.",
       callback = cb, long = "--disable-branch-recovery")
 
   static member OptDisableSpeculativeGapCompletion () =
-    let cb (opts: #CmdOpts) (_arg : string []) =
+    let cb (opts: #CmdOpts) (_arg: string []) =
       (BinExplorerOpts.ToThis opts).EnableGapComp <- false; opts
     CmdOpts.New (
       descr = "Disable speculative gap completion.",
       callback = cb, long = "--disable-gap-completion")
 
   static member OptEVMAbiFile () =
-    let cb (opts: #CmdOpts) (arg : string []) =
+    let cb (opts: #CmdOpts) (arg: string []) =
       (BinExplorerOpts.ToThis opts).EVMAbiFile <- arg[0]; opts
     CmdOpts.New (
       descr = "ABI file path for EVM bytecode.",
       extra = 1, callback = cb, long = "--evmabi")
 
   static member OptDisableEVMAnalysis () =
-    let cb (opts: #CmdOpts) (_arg : string []) =
+    let cb (opts: #CmdOpts) (_arg: string []) =
       (BinExplorerOpts.ToThis opts).EnableEVMAnalysis <- false; opts
     CmdOpts.New (
       descr = "Disable EVM analyses (for code copy and trampoline).",

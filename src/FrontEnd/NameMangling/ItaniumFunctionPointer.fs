@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.NameMangling.ItaniumFunctionPointer
 
 /// Getting return from string gained from interpreter for FunctionPointer in
 /// ItaniumInterpreter.fs.
-let rec getReturn (input:string) index count res =
+let rec getReturn (input: string) index count res =
   if input[index] = ' ' && count = 0 && input[index + 1] = '(' then
     (res, index)
   elif input[index] = '<' then
@@ -37,7 +37,7 @@ let rec getReturn (input:string) index count res =
     getReturn input (index + 1) (count) (res + string(input[index]))
 
 /// Seperating argument part of each function pointer.
-let rec getArgs (input:string) index count res =
+let rec getArgs (input: string) index count res =
   let len = String.length input
   if index = len then
     (res, index)
@@ -51,7 +51,7 @@ let rec getArgs (input:string) index count res =
     getArgs input (index + 1) (count) (res + string(input[index]))
 
 /// Getting qualifiers.
-let getQualifier (input:string) index =
+let getQualifier (input: string) index =
   if input[index] = 'c' then
     ("const", index + 5)
   else

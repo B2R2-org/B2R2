@@ -51,7 +51,7 @@ let reverseString (input: string) =
 
 /// Turning given hexadecimal string to binary string.
 let turnHexToBinary (hexadecimalString: string) =
-  let rec doConversion (str : string) index res =
+  let rec doConversion (str: string) index res =
     if index = str.Length then res
     else doConversion str (index + 1) (res + hexToBinaryString str[index])
   doConversion hexadecimalString 0 ""

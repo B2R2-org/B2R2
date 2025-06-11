@@ -158,7 +158,7 @@ let makeTemplateArgs (lst: string list) =
 
 /// Gets the preModifierString and postModifierString.
 /// For modifiers that appear before and after the pointer symbol.
-let getPrefixModStr (prefixes : ModifierPrefix list) =
+let getPrefixModStr (prefixes: ModifierPrefix list) =
   let pre, post =
     List.fold (
       fun (pre, post) c ->
