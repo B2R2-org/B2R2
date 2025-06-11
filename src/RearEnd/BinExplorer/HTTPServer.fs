@@ -103,7 +103,7 @@ let json<'T> (obj: 'T) =
   (DataContractJsonSerializer(typeof<'T>)).WriteObject(ms, obj)
   Text.Encoding.Default.GetString (ms.ToArray ())
 
-let jsonParser<'T> (jsonString:string): 'T =
+let jsonParser<'T> (jsonString: string): 'T =
   use ms = new IO.MemoryStream (Text.Encoding.Default.GetBytes(jsonString))
   let obj = (DataContractJsonSerializer(typeof<'T>)).ReadObject(ms)
   obj :?> 'T

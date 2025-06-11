@@ -102,7 +102,7 @@ type CFGBuilderTable<'FnCtx,
      | _ -> ()
 
   /// Retrieve a function builder by its address.
-  member _.Item with get(addr:Addr) = builders[addr]
+  member _.Item with get(addr: Addr) = builders[addr]
 
   /// Retrieve all function builders.
   member _.Values with get() = builders.Values |> Seq.toArray
