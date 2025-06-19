@@ -110,6 +110,12 @@ type Instruction
     member _.IsRET () =
       op = Opcode.RET
 
+    member _.IsPush () =
+      Terminator.futureFeature ()
+
+    member _.IsPop () =
+      Terminator.futureFeature ()
+
     member _.IsInterrupt () =
       match op with
       | Opcode.SVC | Opcode.HVC | Opcode.SMC -> true

@@ -121,6 +121,20 @@ type Instruction
         true
       | _ -> false
 
+    member _.IsPush () =
+      match opcode with
+      | Opcode.PUSH
+      | Opcode.PUSHA | Opcode.PUSHAD
+      | Opcode.PUSHF | Opcode.PUSHFD | Opcode.PUSHFQ -> true
+      | _ -> false
+
+    member _.IsPop () =
+      match opcode with
+      | Opcode.POP
+      | Opcode.POPA | Opcode.POPAD
+      | Opcode.POPF | Opcode.POPFD | Opcode.POPFQ -> true
+      | _ -> false
+
     member _.IsInterrupt () =
       match opcode with
       | Opcode.INT | Opcode.INT3 | Opcode.INTO

@@ -165,6 +165,10 @@ type Instruction
         true
       | _ -> false
 
+    member _.IsPush () = Terminator.futureFeature ()
+
+    member _.IsPop () = Terminator.futureFeature ()
+
     member this.IsInterrupt () =
       match this.Opcode with
       | Op.SVC | Op.HVC | Op.SMC -> true

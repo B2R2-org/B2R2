@@ -54,6 +54,8 @@ type Instruction
     member _.IsCJmpOnTrue () = Terminator.futureFeature ()
     member _.IsCall () = Terminator.futureFeature ()
     member _.IsRET () = Terminator.futureFeature ()
+    member _.IsPush () = Terminator.futureFeature ()
+    member _.IsPop () = Terminator.futureFeature ()
     member _.IsInterrupt () = Terminator.futureFeature ()
     member _.IsExit () = Terminator.futureFeature ()
     member _.IsTerminator () = Terminator.futureFeature ()

@@ -119,6 +119,10 @@ type Instruction
         | _ -> false
       | _ -> false
 
+    member _.IsPush () = Terminator.futureFeature ()
+
+    member _.IsPop () = Terminator.futureFeature ()
+
     member _.IsInterrupt () = Terminator.futureFeature ()
 
     member _.IsExit () = Terminator.futureFeature ()

@@ -66,6 +66,10 @@ type Instruction internal (addr, numBytes, op, opr, lifter: ILiftable) =
 
     member _.IsRET () = Terminator.futureFeature ()
 
+    member _.IsPush () = Terminator.futureFeature ()
+
+    member _.IsPop () = Terminator.futureFeature ()
+
     member _.IsInterrupt () = Terminator.futureFeature ()
 
     member _.IsExit () = Terminator.futureFeature ()

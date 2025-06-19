@@ -112,6 +112,10 @@ type Instruction
         | _ -> false
       | _ -> false
 
+    member _.IsPush () = Terminator.futureFeature ()
+
+    member _.IsPop () = Terminator.futureFeature ()
+
     member _.IsInterrupt () =
       match op with
       | Opcode.SYSCALL | Opcode.WAIT -> true
