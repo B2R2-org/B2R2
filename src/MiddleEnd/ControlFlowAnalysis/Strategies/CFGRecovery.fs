@@ -170,6 +170,49 @@ type CFGRecovery<'FnCtx,
       | true, lst -> lst
     lst.Add action
 
+  let reconnectVertices ctx (dividedEdges: List<ProgramPoint * ProgramPoint>) =
+    for (srcPPoint, dstPPoint) in dividedEdges do
+      let preds, succs = tryRemoveVertexAt ctx srcPPoint
+      if Array.isEmpty preds && Array.isEmpty succs then
+        (* Don't reconnect previously unseen blocks, which can be introduced by
+           tail-calls. N.B. BBLFactory cannot see tail-calls. *)
+        ()
+      else
+        let srcVertex = getVertex ctx srcPPoint
+        let dstVertex = getVertex ctx dstPPoint
+#if CFGDEBUG
+        dbglog ctx.ThreadID "Reconnect" $"{srcPPoint} -> {dstPPoint}"
+#endif
+        let lastAddr = dstVertex.VData.Internals.LastInstruction.Address
+        if not <| ctx.CallerVertices.ContainsKey lastAddr then ()
+        else ctx.CallerVertices[lastAddr] <- dstVertex
+        connectEdge ctx srcVertex dstVertex FallThroughEdge
+        for e in preds do
+          connectEdge ctx e.First srcVertex e.Label
+        for e in succs do
+          if e.Second.VData.Internals.PPoint = srcPPoint then
+            connectEdge ctx dstVertex srcVertex e.Label
+          else
+            connectEdge ctx dstVertex e.Second e.Label
+
+  let addExpandCFGAction (queue: CFGActionQueue) addr =
+    queue.Push prioritizer <| ExpandCFG ([ addr ])
+
+  let scanBBLsAndConnect ctx queue src dstAddr edgeKind =
+    match scanBBLs ctx [ dstAddr ] with
+    | Ok dividedEdges ->
+      let dstPPoint = ProgramPoint (dstAddr, 0)
+      let dstVertex = getVertex ctx dstPPoint
+      connectEdge ctx src dstVertex edgeKind
+      reconnectVertices ctx dividedEdges
+      addExpandCFGAction queue dstAddr
+      Ok ()
+    | Error e -> Error e
+
+  let toCFGResult = function
+    | Ok _ -> MoveOn
+    | Error e -> FailStop e
+
   let addCallerVertex ctx callsiteAddr vertex =
     if ctx.CallerVertices.ContainsKey callsiteAddr then ()
     else ctx.CallerVertices.Add (callsiteAddr, vertex) |> ignore
@@ -178,17 +221,32 @@ type CFGRecovery<'FnCtx,
     getCalleePPoint callsiteAddr (Some calleeAddr)
     |> ctx.Vertices.ContainsKey
 
+  let isGetPCThunk (ctx: CFGBuildingContext<_, _>) srcBBL calleeAddr =
+    if ctx.BinHandle.File.ISA.IsX86 || ctx.BinHandle.File.ISA.IsX64 then
+      let ins = (srcBBL: ILowUIRBasicBlock).LastInstruction
+      let nextAddr = ins.Address + uint64 ins.Length
+      if calleeAddr = nextAddr then
+        match ctx.BBLFactory.PeekBBL calleeAddr with
+        | Ok bbl -> bbl[0].IsPop () (* call to pop *)
+        | Error _ -> false
+      else false
+    else false
+
   let isExecutableAddr (ctx: CFGBuildingContext<_, _>) targetAddr =
     ctx.BinHandle.File.IsExecutableAddr targetAddr
 
-  let pushCallAction ctx srcPp callsiteAddr calleeAddr action =
+  let handleCall ctx actionQueue srcVertex callsiteAddr calleeAddr action =
+    let srcBBL: ILowUIRBasicBlock = (srcVertex: IVertex<_>).VData
     (* When a caller node is split into multiple nodes, we can detect the same
        abs-vertex multiple times. So we'd better check duplicates here. *)
     if doesAbsVertexExist ctx callsiteAddr calleeAddr then MoveOn
+    elif isGetPCThunk ctx srcBBL calleeAddr then
+      scanBBLsAndConnect ctx actionQueue srcVertex calleeAddr InterJmpEdge
+      |> toCFGResult
     elif isExecutableAddr ctx calleeAddr then
       let fnAddr = ctx.FunctionAddress
       let actionQueue = ctx.ActionQueue
-      addCallerVertex ctx callsiteAddr (getVertex ctx srcPp)
+      addCallerVertex ctx callsiteAddr (getVertex ctx srcBBL.PPoint)
       ctx.IntraCallTable.AddRegularCall callsiteAddr calleeAddr
       if fnAddr = calleeAddr then (* self-recursion *)
         actionQueue.Push prioritizer action
@@ -258,29 +316,28 @@ type CFGRecovery<'FnCtx,
           let target = srcData.LastInstruction.Address + BitVector.ToUInt64 n
           jmpToDstAddr ctx ppQueue srcVertex target InterJmpEdge
         | InterJmp (Num (n, _), InterJmpKind.Base, _) ->
+          let target = BitVector.ToUInt64 n
           if useTailcallHeuristic then
-            let dstAddr = BitVector.ToUInt64 n
-            match ctx.ManagerChannel.GetBuildingContext dstAddr with
+            match ctx.ManagerChannel.GetBuildingContext target with
             | FailedBuilding -> (* function does not exist *)
-              jmpToDstAddr ctx ppQueue srcVertex dstAddr InterJmpEdge
+              jmpToDstAddr ctx ppQueue srcVertex target InterJmpEdge
             | _ ->
               let callSite = srcData.LastInstruction.Address
-              let act = MakeTlCall (callSite, dstAddr, (UnknownNoRet, 0))
-              result <- pushCallAction ctx srcData.PPoint callSite dstAddr act
+              let act = MakeTlCall (callSite, target, (UnknownNoRet, 0))
+              result <- handleCall ctx actionQueue srcVertex callSite target act
           else
-            let dstAddr = BitVector.ToUInt64 n
-            jmpToDstAddr ctx ppQueue srcVertex dstAddr InterJmpEdge
+            jmpToDstAddr ctx ppQueue srcVertex target InterJmpEdge
         | InterJmp (BinOp (BinOpType.ADD, _, PCVar _, Num (n, _), _),
                     InterJmpKind.IsCall, _) ->
           let callsiteAddr = srcData.LastInstruction.Address
           let target = callsiteAddr + BitVector.ToUInt64 n
           let act = MakeCall (callsiteAddr, target, (UnknownNoRet, 0))
-          result <- pushCallAction ctx srcData.PPoint callsiteAddr target act
+          result <- handleCall ctx actionQueue srcVertex callsiteAddr target act
         | InterJmp (Num (n, _), InterJmpKind.IsCall, _) ->
           let callsiteAddr = srcData.LastInstruction.Address
           let target = BitVector.ToUInt64 n
           let act = MakeCall (callsiteAddr, target, (UnknownNoRet, 0))
-          result <- pushCallAction ctx srcData.PPoint callsiteAddr target act
+          result <- handleCall ctx actionQueue srcVertex callsiteAddr target act
         | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar _, Num (tv, _), _),
                         BinOp (BinOpType.ADD, _, PCVar _, Num (fv, _), _), _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
@@ -346,34 +403,6 @@ type CFGRecovery<'FnCtx,
     done
     result
 
-  let reconnectVertices ctx (dividedEdges: List<ProgramPoint * ProgramPoint>) =
-    for (srcPPoint, dstPPoint) in dividedEdges do
-      let preds, succs = tryRemoveVertexAt ctx srcPPoint
-      if Array.isEmpty preds && Array.isEmpty succs then
-        (* Don't reconnect previously unseen blocks, which can be introduced by
-           tail-calls. N.B. BBLFactory cannot see tail-calls. *)
-        ()
-      else
-        let srcVertex = getVertex ctx srcPPoint
-        let dstVertex = getVertex ctx dstPPoint
-#if CFGDEBUG
-        dbglog ctx.ThreadID "Reconnect" $"{srcPPoint} -> {dstPPoint}"
-#endif
-        let lastAddr = dstVertex.VData.Internals.LastInstruction.Address
-        if not <| ctx.CallerVertices.ContainsKey lastAddr then ()
-        else ctx.CallerVertices[lastAddr] <- dstVertex
-        connectEdge ctx srcVertex dstVertex FallThroughEdge
-        for e in preds do
-          connectEdge ctx e.First srcVertex e.Label
-        for e in succs do
-          if e.Second.VData.Internals.PPoint = srcPPoint then
-            connectEdge ctx dstVertex srcVertex e.Label
-          else
-            connectEdge ctx dstVertex e.Second e.Label
-
-  let addExpandCFGAction (queue: CFGActionQueue) addr =
-    queue.Push prioritizer <| ExpandCFG ([ addr ])
-
   let getFunctionAbstraction ctx callIns calleeAddr calleeInfo =
     match ctx.ManagerChannel.GetBuildingContext calleeAddr with
     | FinalCtx calleeCtx
@@ -391,17 +420,6 @@ type CFGRecovery<'FnCtx,
     connectEdge ctx caller callee edgeKind
     callee, callsiteAddr + uint64 callIns.Length
 
-  let scanBBLsAndConnect ctx queue src dstAddr edgeKind =
-    match scanBBLs ctx [ dstAddr ] with
-    | Ok dividedEdges ->
-      let dstPPoint = ProgramPoint (dstAddr, 0)
-      let dstVertex = getVertex ctx dstPPoint
-      connectEdge ctx src dstVertex edgeKind
-      reconnectVertices ctx dividedEdges
-      addExpandCFGAction queue dstAddr
-      Ok ()
-    | Error e -> Error e
-
   let connectRet ctx queue (callee, fallthroughAddr) =
     scanBBLsAndConnect ctx queue callee fallthroughAddr RetEdge
 
@@ -412,10 +430,6 @@ type CFGRecovery<'FnCtx,
       let caller = ctx.CallerVertices[callsiteAddr]
       scanBBLsAndConnect ctx queue caller target ExceptionFallThroughEdge
     | None -> Ok ()
-
-  let toCFGResult = function
-    | Ok _ -> MoveOn
-    | Error e -> FailStop e
 
   let connectCallWithFT ctx caller calleeAddr calleeInfo queue =
     let lastIns =

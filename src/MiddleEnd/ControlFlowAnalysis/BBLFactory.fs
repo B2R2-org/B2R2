@@ -314,6 +314,24 @@ type BBLFactory (hdl: BinHandle, instrs) =
       else return Error ErrorCase.ParsingFailure
     }
 
+  /// Peek the BBL at the given address without caching it. This function is
+  /// useful when we want to check if an arbitrary address contains a meaningful
+  /// BBL without affecting the BBLFactory state.
+  member _.PeekBBL (addr) =
+    let rec parse acc addr =
+      match instrs.TryFind addr with
+      | Ok ins ->
+        let nextAddr = addr + uint64 ins.Length
+        if ins.IsTerminator () then Ok (List.rev acc)
+        else parse (ins :: acc) nextAddr
+      | Error _ ->
+#if CFGDEBUG
+        dbglog ManagerTid (nameof BBLFactory)
+        <| $"Failed to parse instruction at {addr:x}"
+#endif
+        Error (List.rev acc)
+    parse [] addr
+
   /// Check if there is a BBL at the given program point.
   member _.Contains (ppoint: ProgramPoint) = bbls.ContainsKey ppoint
 

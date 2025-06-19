@@ -107,10 +107,10 @@ with
     this.UnwindingBytes <- 0
     this.UserContext.Reset ()
 
-  /// Scan basic blocks starting from the given entry points. This function
-  /// returns a sequence of divided edges created by discovering new basic
-  /// blocks. By discovering new basic blocks, existing blocks can be divided
-  /// into multiple blocks.
+  /// Scan basic blocks starting from the given entry points. By discovering new
+  /// basic blocks, existing blocks can be divided into multiple blocks, in
+  /// which case this will return a sequence of divided edges created by
+  /// discovering new basic blocks.
   member this.ScanBBLs entryPoints =
     this.BBLFactory.ScanBBLs entryPoints
     |> Async.AwaitTask
