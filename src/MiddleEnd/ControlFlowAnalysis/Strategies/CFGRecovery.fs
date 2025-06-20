@@ -120,11 +120,13 @@ type CFGRecovery<'FnCtx,
     match ctx.Vertices.TryGetValue ppoint with
     | true, v -> Ok v
     | false, _ ->
-      let bbl = ctx.BBLFactory.Find ppoint
-      let fnAddr = ctx.FunctionAddress
-      let max = bbl.Internals.Range.Max
-      if isWithinFunction ctx fnAddr max then Ok (makeVertex ctx ppoint bbl)
-      else Error ErrorCase.ItemNotFound
+      match ctx.BBLFactory.TryFind ppoint with
+      | Ok bbl ->
+        let fnAddr = ctx.FunctionAddress
+        let max = bbl.Internals.Range.Max
+        if isWithinFunction ctx fnAddr max then Ok (makeVertex ctx ppoint bbl)
+        else Error ErrorCase.ItemNotFound
+      | Error _ -> Error ErrorCase.ItemNotFound
 
   let getCalleePPoint callsite calleeAddrOpt =
     match calleeAddrOpt with
@@ -241,7 +243,7 @@ type CFGRecovery<'FnCtx,
         connectEdge ctx src dstVertex edgeKind
         reconnectVertices ctx dividedEdges
         addExpandCFGAction queue dstAddr
-      | Error _ -> Ok ()
+      | Error e -> Error e
     | Error e -> Error e
 
   let toCFGResult = function
@@ -445,12 +447,17 @@ type CFGRecovery<'FnCtx,
     callee, callsiteAddr + uint64 callIns.Length
 
   let connectRet ctx queue (callee, fallthroughAddr) =
-    scanBBLsAndConnect ctx queue callee fallthroughAddr RetEdge
+    scanBBLsAndConnect ctx queue callee fallthroughAddr RetEdge |> ignore
+    (* Depending on the correctness of the noret analysis, there can always be
+       an invalid returning edge. In such cases, we won't connect the edge, but
+       we don't have to signal an error here. The rest of the process should
+       keep going. *)
+    Ok ()
 
   let connectExnEdge ctx queue (callsiteAddr: Addr) =
     match ctx.ExnInfo.TryFindExceptionTarget callsiteAddr with
     | Some target ->
-      (* necessary to lookup the caller again as bbls could be divided *)
+      (* Necessary to lookup the caller again as bbls could be divided *)
       let caller = ctx.CallerVertices[callsiteAddr]
       scanBBLsAndConnect ctx queue caller target ExceptionFallThroughEdge
     | None -> Ok ()

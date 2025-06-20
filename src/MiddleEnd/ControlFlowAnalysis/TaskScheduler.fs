@@ -131,11 +131,11 @@ type TaskScheduler<'FnCtx,
   let rec rollback (builder: ICFGBuildable<_, _>) =
     match builder.Context.JumpTableRecoveryStatus.TryPeek () with
     | true, (tblAddr, idx) ->
-      assert (idx > 0)
 #if CFGDEBUG
       dbglog ManagerTid "Rollback"
       <| $"{tblAddr:x}[{idx}] @ {builder.EntryPoint:x}"
 #endif
+      assert (idx > 0)
       jmptblNotes.SetPotentialEndPointByIndex tblAddr (idx - 1)
       restartBuilder builder
     | false, _ ->
@@ -480,7 +480,8 @@ type TaskScheduler<'FnCtx,
 
   let handleJumpTableRecoverySuccess fnAddr tblAddr idx nextJumpTarget =
 #if CFGDEBUG
-    dbglog ManagerTid "JumpTable success" $"{tblAddr:x}[{idx}] @ {fnAddr:x}"
+    dbglog ManagerTid "JumpTable success"
+    <| $"{tblAddr:x}[{idx}] @ {fnAddr:x} -> {nextJumpTarget:x}"
 #endif
     jmptblNotes.SetConfirmedEndPoint tblAddr idx
     if jmptblNotes.IsExpandable tblAddr (idx + 1) then
