@@ -1086,7 +1086,7 @@ let pextrw ins insLen bld =
     bld <+ (d := src[idx])
   | _ ->
     let idx = idx &&& (Array.length src - 1)
-    bld <+ (dstAssign oprSize d src[idx])
+    bld <+ (dstAssign oprSize d (AST.zext bld.RegType src[idx]))
   bld --!> insLen
 
 let pinsrw (ins: Instruction) insLen bld =
