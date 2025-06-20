@@ -44,6 +44,14 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap) =
     | SideEffect (Interrupt _, _) -> true
     | _ -> false
 
+  let rec isSemanticallyNop (stmts: Stmt[]) len idx =
+    if idx < len then
+      match stmts[idx] with
+      | ISMark _ | IEMark _ -> isSemanticallyNop stmts len (idx + 1)
+      | Put (d, s, _) when d = s -> isSemanticallyNop stmts len (idx + 1)
+      | _ -> false
+    else true
+
   /// Return the `ILowUIRBasicBlock` interface to access the internal
   /// representation of the basic block.
   member inline this.Internals with get() = this :> ILowUIRBasicBlock
@@ -100,6 +108,10 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap) =
       else funcAbs
 
     member _.LiftedInstructions with get() = liftedInss
+
+    member _.StartsWithNop with get () =
+      let stmts = liftedInss[0].Stmts
+      isSemanticallyNop stmts stmts.Length 0
 
     /// Terminator statement of the basic block.
     member _.Terminator with get() =

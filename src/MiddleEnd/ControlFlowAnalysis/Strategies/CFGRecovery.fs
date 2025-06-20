@@ -77,30 +77,56 @@ type CFGRecovery<'FnCtx,
   let scanBBLs (ctx: CFGBuildingContext<_, _>) entryPoints =
     ctx.ScanBBLs entryPoints
 
+  let makeVertex ctx ppoint (bbl: LowUIRBasicBlock) =
+    match ctx.JumpTableRecoveryStatus.TryPeek () with
+    | true, status -> bbl.DominatingJumpTableEntry <- Some status
+    | false, _ -> ()
+    let v = ctx.CFG.AddVertex bbl
+    ctx.Vertices[ppoint] <- v
+    markVertexAsPendingForAnalysis useSSA ctx v
+    v
+
+  /// Retrieves a vertex (which is either cached or newly created). This
+  /// function can raise an exception if the given program point has no
+  /// corresponding basic block in the BBL factory, i.e., bad instruction(s),
+  /// etc.
   let getVertex ctx ppoint =
     match ctx.Vertices.TryGetValue ppoint with
     | true, v -> v
     | false, _ ->
       let bbl = ctx.BBLFactory.Find ppoint
-      match ctx.JumpTableRecoveryStatus.TryPeek () with
-      | true, status -> bbl.DominatingJumpTableEntry <- Some status
-      | false, _ -> ()
-      let v = ctx.CFG.AddVertex bbl
-      ctx.Vertices[ppoint] <- v
-      markVertexAsPendingForAnalysis useSSA ctx v
-      v
+      makeVertex ctx ppoint bbl
 
+  /// Try to get a vertex (which is either cached or newly created).
   let tryGetVertex ctx ppoint =
     match ctx.Vertices.TryGetValue ppoint with
     | true, v -> Ok v
     | false, _ ->
       match ctx.BBLFactory.TryFind ppoint with
-      | Ok bbl ->
-        let v = ctx.CFG.AddVertex bbl
-        ctx.Vertices[ppoint] <- v
-        markVertexAsPendingForAnalysis useSSA ctx v
-        Ok v
+      | Ok bbl -> Ok (makeVertex ctx ppoint bbl)
       | Error _ -> Error ErrorCase.ItemNotFound
+
+  let isWithinFunction ctx fnAddr dstAddr =
+    match ctx.ManagerChannel.GetNextFunctionAddress fnAddr with
+    | Some nextFnAddr -> dstAddr < nextFnAddr
+    | None -> true
+
+  /// Retrieves a vertex (which is either cached or newly created) for the given
+  /// program point only if the vertex is valid, i.e., the vertex is within the
+  /// range of the current function. This function is more expensive than
+  /// `getVertex`, but needs to be used when the target program point is not
+  /// guaranteed to be valid.
+  let getValidVertex ctx ppoint =
+    match ctx.Vertices.TryGetValue ppoint with
+    | true, v -> Ok v
+    | false, _ ->
+      let bbl = ctx.BBLFactory.Find ppoint
+      if bbl.Internals.StartsWithNop then
+        let fnAddr = ctx.FunctionAddress
+        let max = bbl.Internals.Range.Max
+        if isWithinFunction ctx fnAddr max then Ok (makeVertex ctx ppoint bbl)
+        else Error ErrorCase.ItemNotFound
+      else Ok (makeVertex ctx ppoint bbl)
 
   let getCalleePPoint callsite calleeAddrOpt =
     match calleeAddrOpt with
@@ -146,6 +172,13 @@ type CFGRecovery<'FnCtx,
     dbglog ctx.ThreadID "ConnectEdge" $"{srcPPoint} -> {dstPPoint} ({edgeStr})"
 #endif
 
+  let connectEdgeIfValid ctx (ppQueue: Queue<_>) srcVertex edgeKind dstPPoint =
+    match getValidVertex ctx dstPPoint with
+    | Ok dstVertex ->
+      connectEdge ctx srcVertex dstVertex edgeKind
+      ppQueue.Enqueue dstPPoint
+    | Error _ -> ()
+
   let maskedPPoint ctx targetAddr =
     let rt = ctx.BinHandle.File.ISA.WordSize |> WordSize.toRegType
     let mask = BitVector.UnsignedMax rt |> BitVector.ToUInt64
@@ -153,9 +186,11 @@ type CFGRecovery<'FnCtx,
 
   let jmpToDstAddr ctx (ppQueue: Queue<_>) srcVertex dstAddr jmpKind =
     let dstPPoint = maskedPPoint ctx dstAddr
-    let dstVertex = getVertex ctx dstPPoint
-    connectEdge ctx srcVertex dstVertex jmpKind
-    ppQueue.Enqueue dstPPoint
+    match getValidVertex ctx dstPPoint with
+    | Ok dstVertex ->
+      connectEdge ctx srcVertex dstVertex jmpKind
+      ppQueue.Enqueue dstPPoint
+    | Error _ -> ()
 
   let postponeActionOnCallee ctx calleeAddr action =
     let pendingCallActions = ctx.PendingCallActions
@@ -269,9 +304,8 @@ type CFGRecovery<'FnCtx,
   let makeIntraFallThroughEdge ctx (ppQueue: Queue<_>) srcVertex =
     match ppQueue.TryPeek () with
     | true, nextPPoint ->
-      match tryGetVertex ctx nextPPoint with
-      | Ok dstVertex -> connectEdge ctx srcVertex dstVertex FallThroughEdge
-      | Error _ -> () (* Ignore when a bad instruction follows *)
+      let dstVertex = getVertex ctx nextPPoint
+      connectEdge ctx srcVertex dstVertex FallThroughEdge
     | false, _ -> ()
 
   /// Build a CFG starting from the given program points.
@@ -307,7 +341,7 @@ type CFGRecovery<'FnCtx,
           connectEdge ctx srcVertex fVertex IntraCJmpFalseEdge
           ppQueue.Enqueue tPPoint
           ppQueue.Enqueue fPPoint
-        | InterJmp (PCVar _, InterJmpKind.Base, _) ->
+        | InterJmp (PCVar _, InterJmpKind.Base, _) -> (* intra loop *)
           let dstPPoint = ProgramPoint (ppoint.Address, 0)
           let dstVertex = getVertex ctx dstPPoint
           connectEdge ctx srcVertex dstVertex InterJmpEdge
@@ -343,37 +377,27 @@ type CFGRecovery<'FnCtx,
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
           let tPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 tv)
           let fPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 fv)
-          let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
-          connectEdge ctx srcVertex tVertex InterCJmpTrueEdge
-          connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
-          ppQueue.Enqueue tPPoint
-          ppQueue.Enqueue fPPoint
+          connectEdgeIfValid ctx ppQueue srcVertex InterCJmpTrueEdge tPPoint
+          connectEdgeIfValid ctx ppQueue srcVertex InterCJmpFalseEdge fPPoint
         | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar _, Num (tv, _), _),
                         PCVar _, _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
           let tPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 tv)
           let fPPoint = maskedPPoint ctx lastAddr
-          let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
-          connectEdge ctx srcVertex tVertex InterCJmpTrueEdge
-          connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
-          ppQueue.Enqueue tPPoint
+          connectEdgeIfValid ctx ppQueue srcVertex InterCJmpTrueEdge tPPoint
+          connectEdge ctx srcVertex (getVertex ctx fPPoint) InterCJmpFalseEdge
         | InterCJmp (_, PCVar _,
                         BinOp (BinOpType.ADD, _, PCVar _, Num (fv, _), _), _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
           let tPPoint = maskedPPoint ctx lastAddr
           let fPPoint = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 fv)
-          let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
-          connectEdge ctx srcVertex tVertex InterCJmpTrueEdge
-          connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
-          ppQueue.Enqueue fPPoint
+          connectEdge ctx srcVertex (getVertex ctx tPPoint) InterCJmpTrueEdge
+          connectEdgeIfValid ctx ppQueue srcVertex InterCJmpFalseEdge fPPoint
         | InterCJmp (_, Num (tv, _), Num (fv, _), _) ->
           let tPPoint = maskedPPoint ctx (BitVector.ToUInt64 tv)
           let fPPoint = maskedPPoint ctx (BitVector.ToUInt64 fv)
-          let tVertex, fVertex = getVertex ctx tPPoint, getVertex ctx fPPoint
-          connectEdge ctx srcVertex tVertex InterCJmpTrueEdge
-          connectEdge ctx srcVertex fVertex InterCJmpFalseEdge
-          ppQueue.Enqueue tPPoint
-          ppQueue.Enqueue fPPoint
+          connectEdgeIfValid ctx ppQueue srcVertex InterCJmpTrueEdge tPPoint
+          connectEdgeIfValid ctx ppQueue srcVertex InterCJmpFalseEdge fPPoint
         | InterJmp (_, InterJmpKind.Base, _) -> (* Indirect jumps *)
           let insAddr = srcVertex.VData.Internals.LastInstruction.Address
           addCallerVertex ctx insAddr srcVertex
@@ -528,11 +552,6 @@ type CFGRecovery<'FnCtx,
     match ctx.ManagerChannel.GetBuildingContext calleeAddr with
     | FailedBuilding -> true
     | _ -> false
-
-  let isWithinFunction ctx fnAddr dstAddr =
-    match ctx.ManagerChannel.GetNextFunctionAddress fnAddr with
-    | Some nextFnAddr -> dstAddr < nextFnAddr
-    | None -> true
 
   let popOffJmpTblRecoveryAction ctx =
     match ctx.ActionQueue.Pop () with

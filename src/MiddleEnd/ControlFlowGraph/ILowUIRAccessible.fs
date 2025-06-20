@@ -38,6 +38,11 @@ type ILowUIRAccessible =
   /// Terminator statement of the basic block.
   abstract Terminator: LowUIR.Stmt
 
+  /// Does this basic block starts with a semantically no-op instruction? By
+  /// semantically no-op, we mean that the instruction does not change the
+  /// CPU state except for the program counter.
+  abstract StartsWithNop: bool
+
 /// A lifted instruction.
 and LiftedInstruction = {
   /// Original assembly instruction.
