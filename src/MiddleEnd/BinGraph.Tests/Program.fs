@@ -53,6 +53,7 @@ let private buildTestPersistentGraphs fileName size =
 type StaticDoms () =
   let mutable g = null
   let mutable fileName: string = null
+  let df = CytronDominanceFrontier ()
 
   [<Params(
     "99_150_gcc_base_clang_O0_6a37b0_28.json",
@@ -80,32 +81,31 @@ type StaticDoms () =
 
   [<Benchmark(Baseline = true)>]
   member _.IterativeAlgorithm () =
-    let dom = IterativeDominance.create g (CytronDominanceFrontier ())
+    let dom = IterativeDominance.create g df
     let v = g.Vertices[0]
     dom.Dominators v |> ignore
 
   [<Benchmark>]
   member _.LengauerTarjanAlgorithm () =
-    let dom = LengauerTarjanDominance.create g (CytronDominanceFrontier ())
+    let dom = LengauerTarjanDominance.create g df
     let v = g.Vertices[0]
     dom.Dominators v |> ignore
 
   [<Benchmark>]
   member _.SimpleLengauerTarjanAlgorithm () =
-    let dom = SimpleLengauerTarjanDominance.create g
-                                                   (CytronDominanceFrontier ())
+    let dom = SimpleLengauerTarjanDominance.create g df
     let v = g.Vertices[0]
     dom.Dominators v |> ignore
 
   [<Benchmark>]
   member _.SemiNCAAlgorithm () =
-    let dom = SemiNCADominance.create g (CytronDominanceFrontier ())
+    let dom = SemiNCADominance.create g df
     let v = g.Vertices[0]
     dom.Dominators v |> ignore
 
   [<Benchmark>]
   member _.CooperAlgorithm () =
-    let dom = CooperDominance.create g (CytronDominanceFrontier ())
+    let dom = CooperDominance.create g df
     let v = g.Vertices[0]
     dom.Dominators v |> ignore
 
