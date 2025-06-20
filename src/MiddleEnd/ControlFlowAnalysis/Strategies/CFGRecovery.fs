@@ -121,12 +121,10 @@ type CFGRecovery<'FnCtx,
     | true, v -> Ok v
     | false, _ ->
       let bbl = ctx.BBLFactory.Find ppoint
-      if bbl.Internals.StartsWithNop then
-        let fnAddr = ctx.FunctionAddress
-        let max = bbl.Internals.Range.Max
-        if isWithinFunction ctx fnAddr max then Ok (makeVertex ctx ppoint bbl)
-        else Error ErrorCase.ItemNotFound
-      else Ok (makeVertex ctx ppoint bbl)
+      let fnAddr = ctx.FunctionAddress
+      let max = bbl.Internals.Range.Max
+      if isWithinFunction ctx fnAddr max then Ok (makeVertex ctx ppoint bbl)
+      else Error ErrorCase.ItemNotFound
 
   let getCalleePPoint callsite calleeAddrOpt =
     match calleeAddrOpt with
@@ -232,16 +230,18 @@ type CFGRecovery<'FnCtx,
 
   let addExpandCFGAction (queue: CFGActionQueue) addr =
     queue.Push prioritizer <| ExpandCFG ([ addr ])
+    Ok ()
 
   let scanBBLsAndConnect ctx queue src dstAddr edgeKind =
     match scanBBLs ctx [ dstAddr ] with
     | Ok dividedEdges ->
       let dstPPoint = ProgramPoint (dstAddr, 0)
-      let dstVertex = getVertex ctx dstPPoint
-      connectEdge ctx src dstVertex edgeKind
-      reconnectVertices ctx dividedEdges
-      addExpandCFGAction queue dstAddr
-      Ok ()
+      match getValidVertex ctx dstPPoint with
+      | Ok dstVertex ->
+        connectEdge ctx src dstVertex edgeKind
+        reconnectVertices ctx dividedEdges
+        addExpandCFGAction queue dstAddr
+      | Error _ -> Ok ()
     | Error e -> Error e
 
   let toCFGResult = function
