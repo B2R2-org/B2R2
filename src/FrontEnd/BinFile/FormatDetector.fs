@@ -58,6 +58,20 @@ let private identifyPython bytes isa =
     Some struct (FileFormat.PythonBinary, isa)
   else None
 
+let private allInHexChar (bytes: byte[]) =
+  if bytes.Length >= 2 && bytes[0] = 0x30uy && bytes[1] = 0x78uy then
+    bytes[2..] (* if the input starts with "0x", then we discard it. *)
+  else bytes
+  |> Array.forall (fun b ->
+    b >= 0x30uy && b <= 0x39uy || (* 0-9 *)
+    b >= 0x41uy && b <= 0x46uy || (* A-F *)
+    b >= 0x61uy && b <= 0x66uy)   (* a-f *)
+
+let private identifyHexString (bytes: byte[]) isa =
+  if bytes.Length % 2 = 0 && allInHexChar bytes then
+    Some struct (FileFormat.HexBinary, isa)
+  else None
+
 /// <summary>
 /// Given an array of bytes, identify its binary file format (<see
 /// cref='T:B2R2.FrontEnd.BinFile.FileFormat'/>) and its underlying ISA
@@ -72,5 +86,6 @@ let identify bytes isa =
   |> Option.orElseWith (fun () -> identifyMach bytes isa)
   |> Option.orElseWith (fun () -> identifyWASM bytes isa)
   |> Option.orElseWith (fun () -> identifyPython bytes isa)
+  |> Option.orElseWith (fun () -> identifyHexString bytes isa)
   |> Option.orElseWith (fun () -> Some (FileFormat.RawBinary, isa))
   |> Option.get

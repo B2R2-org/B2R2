@@ -37,16 +37,19 @@ namespace B2R2.FrontEnd.BinFile
 type FileFormat =
   /// Raw binary without any specific file format: a sequence of bytes.
   | RawBinary = 1
+  /// Raw binary in hexadecimal format, which is a sequence of hexadecimal
+  /// digits (0-9, A-F) representing the binary data.
+  | HexBinary = 2
   /// ELF binary.
-  | ELFBinary = 2
+  | ELFBinary = 3
   /// PE binary.
-  | PEBinary = 3
+  | PEBinary = 4
   /// Mach-O binary.
-  | MachBinary = 4
+  | MachBinary = 5
   /// Wasm binary.
-  | WasmBinary = 5
+  | WasmBinary = 6
   /// Python binary.
-  | PythonBinary = 6
+  | PythonBinary = 7
 
 /// <summary>
 /// Provides functions to work with <see
@@ -63,6 +66,7 @@ module FileFormat =
     | "mach" | "mach-o" -> FileFormat.MachBinary
     | "wasm" -> FileFormat.WasmBinary
     | "python" -> FileFormat.PythonBinary
+    | "hex" -> FileFormat.HexBinary
     | _ -> FileFormat.RawBinary
 
   /// Transforms a FileFormat into a string.
@@ -75,6 +79,7 @@ module FileFormat =
     | FileFormat.MachBinary -> "Mach-O"
     | FileFormat.WasmBinary -> "Wasm"
     | FileFormat.PythonBinary -> "Python"
+    | FileFormat.HexBinary -> "Hex"
     | _ -> invalidArg (nameof fmt) "Unknown FileFormat used."
 
   /// Checks whether the given format is ELF.

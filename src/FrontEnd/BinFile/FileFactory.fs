@@ -32,6 +32,7 @@ namespace B2R2.FrontEnd.BinFile
 /// </summary>
 [<RequireQualifiedAccess>]
 module FileFactory =
+  open B2R2
 
   /// <summary>
   /// Creates a binary file object from the given path and byte array
@@ -57,6 +58,10 @@ module FileFactory =
       WasmBinFile (path, bytes) :> IBinFile
     | FileFormat.PythonBinary ->
       PythonBinFile (path, bytes, baseAddrOpt) :> IBinFile
+    | FileFormat.HexBinary ->
+      let str = System.Text.Encoding.ASCII.GetString bytes
+      let str = if str.StartsWith "0x" then str[2..] else str
+      RawBinFile (path, ByteArray.ofHexString str, isa, baseAddrOpt) :> IBinFile
     | _ ->
       RawBinFile (path, bytes, isa, baseAddrOpt) :> IBinFile
 
