@@ -22,10 +22,10 @@
   SOFTWARE.
 *)
 
-/// Lengauer-Tarjan dominance algorithm for dominator computation. A fast
+/// Simple Lengauer-Tarjan dominance algorithm for dominator computation. A fast
 /// algorithm for finding dominators in a flow graph, TOPLAS 1979.
-/// This sofisticated version balances when constructing the ancestor forest.
-module B2R2.MiddleEnd.BinGraph.Dominance.LengauerTarjanDominance
+/// This simple version does not balance when constructing the ancestor forest.
+module B2R2.MiddleEnd.BinGraph.Dominance.SimpleLengauerTarjanDominance
 
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
@@ -39,8 +39,6 @@ type private LTDomInfo<'V when 'V: equality> = {
   Label: int[]
   /// DFNum -> DFNum of the parent node (zero if not exists).
   Parent: int[]
-  /// DFNum -> DFNum of the child node (zero if not exists).
-  Child: int[]
   /// DFNum -> DFNum of an ancestor.
   Ancestor: int[]
   /// DFNum -> DFNum of a semidominator.
@@ -54,8 +52,6 @@ type private LTDomInfo<'V when 'V: equality> = {
   /// DFNum -> DFNum of the next node in the bucket.
   Next: int[]
 #endif
-  /// DFNum -> Size
-  Size: int[]
   /// DFNum -> DFNum of an immediate dominator.
   IDom: int[]
   /// Length of the arrays.
@@ -73,7 +69,6 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
     Parent = Array.create len 0
-    Child = Array.create len 0
     Ancestor = Array.create len 0
     Semi = Array.create len 0
 #if LT_USE_SET_BUCKET
@@ -82,7 +77,6 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     First = Array.create len -1
     Next = Array.create len -1
 #endif
-    Size = Array.create len 1
     IDom = Array.create len 0
     MaxLength = len
     Roots = g.GetRoots ()
@@ -138,26 +132,8 @@ let rec private computeSemiDom info v = function
   | [] -> ()
 
 let private link info v w =
-  let mutable s = w
-  while info.Semi[info.Label[w]] < info.Semi[info.Label[info.Child[s]]] do
-    if info.Size[s] + info.Size[info.Child[info.Child[s]]]
-       >= 2 * info.Size[info.Child[s]]
-    then info.Ancestor[info.Child[s]] <- s
-         info.Child[s] <- info.Child[info.Child[s]]
-    else info.Size[info.Child[s]] <- info.Size[s]
-         info.Ancestor[s] <- info.Child[s]
-         s <- info.Ancestor[s]
-  done
-  info.Label[s] <- info.Label[w]
-  info.Size[v] <- info.Size[v] + info.Size[w]
-  if info.Size[v] < 2 * info.Size[w] then
-    let t = s
-    s <- info.Child[v]
-    info.Child[v] <- t
-  while s <> 0 do
-    info.Ancestor[s] <- v
-    s <- info.Child[s]
-  done
+  info.Ancestor[w] <- v
+  info.Label[w] <- w
 
 #if LT_USE_SET_BUCKET
 let private computeDomAux info v =
@@ -247,7 +223,7 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
 #endif
       domsAux [v] v fwInfo
 
-    member _.ImmediateDominator v =
+    member __.ImmediateDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
 #endif
@@ -265,13 +241,13 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
       else ()
       pdfProvider.DominanceFrontier v
 
-    member _.PostDominators v =
+    member __.PostDominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       domsAux [v] v bwInfo.Value
 
-    member _.ImmediatePostDominator v =
+    member __.ImmediatePostDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif

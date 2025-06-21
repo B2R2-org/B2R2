@@ -24,8 +24,11 @@
     <Compile Include="SCC.fs" />
     <Compile Include="IDominance.fs" />
     <Compile Include="Dominance\IterativeDominance.fs" />
+    <Compile Include="Dominance\SimpleLengauerTarjanDominance.fs" />
     <Compile Include="Dominance\LengauerTarjanDominance.fs" />
+    <Compile Include="Dominance\SemiNCADominance.fs" />
     <Compile Include="Dominance\CooperDominance.fs" />
+    <Compile Include="Dominance\DepthBasedSearchDominance.fs" />
     <Compile Include="Dominance\CytronDominanceFrontier.fs" />
     <Compile Include="Dominance\CooperDominanceFrontier.fs" />
     <Compile Include="Loop.fs" />

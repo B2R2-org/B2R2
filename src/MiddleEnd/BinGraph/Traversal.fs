@@ -146,3 +146,57 @@ module DFS =
   let iterRevPostorder g fn =
     foldPostorder g (fun acc v -> v :: acc) []
     |> List.iter fn
+
+  /// Fold vertices of the graph in a depth-first postorder manner.
+  let foldPostorderWithRoots2 (g: IDiGraphAccessible<_, _>) roots fn acc =
+    let visited = HashSet<VertexID> ()
+    let mutable acc = acc
+    let rec visit (v: IVertex<_>) =
+      if visited.Add v.ID then
+        for s in g.GetSuccs v do
+          visit s
+        acc <- fn acc v
+    for r in roots do
+      if not (visited.Contains (r: IVertex<_>).ID) then
+        visit r
+    acc
+
+  /// Fold vertices of the graph in a depth-first postorder manner.
+  let foldPostorderWithRoots3 (g: IDiGraphAccessible<_, _>) roots fn acc =
+    let visited = HashSet<VertexID>()
+    let mutable acc = acc
+    let stack = Stack<IVertex<_> * bool>()
+    for root: IVertex<_> in roots do
+      if visited.Add root.ID then
+        stack.Push (root, false)
+        while stack.Count > 0 do
+          let v, visitedChildren = stack.Pop()
+          if visitedChildren then acc <- fn acc v
+          else
+            stack.Push (v, true)
+            for succ in Seq.rev (g.GetSuccs v) do
+              if visited.Add succ.ID then
+                stack.Push (succ, false)
+    acc
+
+/// Breadth-first traversal functions.
+module BFS =
+  /// Fold vertices of the graph in a reverse breadth-first traversal manner.
+  let reverseFoldWithRoots (g: IDiGraphAccessible<_, _>) roots fn acc =
+    let visited = HashSet<VertexID> ()
+    let queue = Queue<IVertex<_>> ()
+    let vertices = ResizeArray<IVertex<_>>()
+    for r in roots do
+      queue.Enqueue r
+      visited.Add r.ID |> ignore
+    while queue.Count > 0 do
+      let v = queue.Dequeue ()
+      vertices.Add v
+      for s in g.GetSuccs v do
+        if not (visited.Contains s.ID) then
+          queue.Enqueue s
+          visited.Add s.ID |> ignore
+    let mutable acc = acc
+    for v in Seq.rev vertices do
+      acc <- fn acc v
+    acc

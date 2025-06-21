@@ -22,41 +22,27 @@
   SOFTWARE.
 *)
 
-/// Lengauer-Tarjan dominance algorithm for dominator computation. A fast
-/// algorithm for finding dominators in a flow graph, TOPLAS 1979.
-/// This sofisticated version balances when constructing the ancestor forest.
-module B2R2.MiddleEnd.BinGraph.Dominance.LengauerTarjanDominance
+/// Semi-NCA algorithm for dominator computation. Finding dominators in
+/// practice, ESA 2004.
+module B2R2.MiddleEnd.BinGraph.Dominance.SemiNCADominance
 
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-type private LTDomInfo<'V when 'V: equality> = {
-  /// Vertex ID -> DFNum
+type LTDomInfo<'V when 'V: equality> = {
+  /// Vertex ID -> DFPre
   DFPre: Dictionary<VertexID, int>
-  /// DFNum -> Vertex
+  /// DFPre -> Vertex
   Vertex: IVertex<'V>[]
-  /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
+  /// DFPre -> DFPre in the ancestor chain s.t. DFPre of its Semi is minimal.
   Label: int[]
-  /// DFNum -> DFNum of the parent node (zero if not exists).
+  /// DFPre -> DFPre of the parent node (zero if not exists).
   Parent: int[]
-  /// DFNum -> DFNum of the child node (zero if not exists).
-  Child: int[]
-  /// DFNum -> DFNum of an ancestor.
+  /// DFPre -> DFPre of an ancestor.
   Ancestor: int[]
-  /// DFNum -> DFNum of a semidominator.
+  /// DFPre -> DFPre of a semidominator.
   Semi: int[]
-#if LT_USE_SET_BUCKET
-  /// DFNum -> set of DFNums (vertices that share the same sdom).
-  Bucket: Set<int>[]
-#else
-  /// DFNum -> DFNum of the first node in the bucket.
-  First: int[]
-  /// DFNum -> DFNum of the next node in the bucket.
-  Next: int[]
-#endif
-  /// DFNum -> Size
-  Size: int[]
-  /// DFNum -> DFNum of an immediate dominator.
+  /// DFPre -> DFPre of an immediate dominator.
   IDom: int[]
   /// Length of the arrays.
   MaxLength: int
@@ -73,23 +59,34 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
     Parent = Array.create len 0
-    Child = Array.create len 0
     Ancestor = Array.create len 0
     Semi = Array.create len 0
-#if LT_USE_SET_BUCKET
-    Bucket = Array.create len Set.empty
-#else
-    First = Array.create len -1
-    Next = Array.create len -1
-#endif
-    Size = Array.create len 1
-    IDom = Array.create len 0
+    IDom = Array.create len -1
     MaxLength = len
     Roots = g.GetRoots ()
     DummyRoot = GraphUtils.makeDummyVertex () }
 
 let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) =
   info.DFPre[v.ID]
+let rec private computePostorderAux g (post: Dictionary<_, _>) n = function
+  | v: IVertex<_> :: stack when not <| post.ContainsKey v.ID ->
+    post.Add (v.ID, -1)
+    let stack = v :: stack
+    let stack =
+      (g: IDiGraphAccessible<_, _>).GetSuccs v
+      |> Seq.fold (fun acc s -> s :: acc) stack
+    computePostorderAux g post n stack
+  | v: IVertex<_> :: stack ->
+    if post[v.ID] = -1 then
+      post[v.ID] <- n
+      computePostorderAux g post (n + 1) stack
+    else
+      computePostorderAux g post n stack
+  | [] -> ()
+
+let private computePostorder (g: IDiGraphAccessible<_, _>) order =
+  let stack = g.GetRoots () |> Array.toList
+  computePostorderAux g order 1 stack
 
 let rec private prepare (g: IDiGraphAccessible<_, _>) info n = function
   | (p, v : IVertex<_>) :: stack when not <| info.DFPre.ContainsKey v.ID ->
@@ -138,54 +135,12 @@ let rec private computeSemiDom info v = function
   | [] -> ()
 
 let private link info v w =
-  let mutable s = w
-  while info.Semi[info.Label[w]] < info.Semi[info.Label[info.Child[s]]] do
-    if info.Size[s] + info.Size[info.Child[info.Child[s]]]
-       >= 2 * info.Size[info.Child[s]]
-    then info.Ancestor[info.Child[s]] <- s
-         info.Child[s] <- info.Child[info.Child[s]]
-    else info.Size[info.Child[s]] <- info.Size[s]
-         info.Ancestor[s] <- info.Child[s]
-         s <- info.Ancestor[s]
-  done
-  info.Label[s] <- info.Label[w]
-  info.Size[v] <- info.Size[v] + info.Size[w]
-  if info.Size[v] < 2 * info.Size[w] then
-    let t = s
-    s <- info.Child[v]
-    info.Child[v] <- t
-  while s <> 0 do
-    info.Ancestor[s] <- v
-    s <- info.Child[s]
-  done
+  info.Ancestor[w] <- v
+  info.Label[w] <- w
 
-#if LT_USE_SET_BUCKET
-let private computeDomAux info v =
-  Set.iter (fun u ->
-    let w = eval info u
-    if info.Semi[w] < info.Semi[u] then info.IDom[u] <- w
-    else info.IDom[u] <- v) info.Bucket[v]
-#else
-let rec private computeDomAux info v s =
-  let u = eval info v
-  let w = info.Next[v]
-  if info.Semi[u] < info.Semi[v] then info.IDom[v] <- u
-  else info.IDom[v] <- s
-  if w = -1 then ()
-  else computeDomAux info w s
-#endif
-
-#if LT_USE_SET_BUCKET
-let private computeDom info v =
-  if info.Bucket[v].IsEmpty then ()
-  else computeDomAux info v
-#else
-let private computeDom info v =
-  let w = info.First[v]
-  if w = -1 then ()
-  else
-    computeDomAux info w v
-#endif
+let rec private computeDom info p s =
+  if p <= s then p
+  else computeDom info (info.IDom[p]) s
 
 let private prepareDomInfo (g: IDiGraphAccessible<_, _>) =
   let info = initDomInfo g
@@ -194,25 +149,18 @@ let private prepareDomInfo (g: IDiGraphAccessible<_, _>) =
 
 let private computeIDom g info n =
   for i = n downto 1 do
-    computeDom info i
     let v = info.Vertex[i]
     let p = info.Parent[i]
     getPreds g info v
     |> Array.map (dfpre info)
     |> Array.toList
     |> computeSemiDom info i
-#if LT_USE_SET_BUCKET
-    info.Bucket[info.Semi[i]] <- Set.add i info.Bucket[info.Semi[i]]
-#else
-    info.Next[i] <- info.First[info.Semi[i]]
-    info.First[info.Semi[i]] <- i
-#endif
     link info p i (* Link the parent (p) to the forest. *)
   done
   for i = 1 to n do
-    if info.IDom[i] <> info.Semi[i] then
-      info.IDom[i] <- info.IDom[info.IDom[i]]
-    else ()
+    let p = info.Parent[i]
+    let s = info.Semi[i]
+    info.IDom[i] <- computeDom info p s
   done
   info
 
@@ -247,7 +195,7 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
 #endif
       domsAux [v] v fwInfo
 
-    member _.ImmediateDominator v =
+    member __.ImmediateDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
 #endif
@@ -265,13 +213,13 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
       else ()
       pdfProvider.DominanceFrontier v
 
-    member _.PostDominators v =
+    member __.PostDominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       domsAux [v] v bwInfo.Value
 
-    member _.ImmediatePostDominator v =
+    member __.ImmediatePostDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
@@ -297,7 +245,28 @@ let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
   let bwDT = lazy DominatorTree (bwG.Value, idomAux bwInfo.Value)
   createDominance g bwG fwInfo fwDT bwInfo bwDT dfp, fwInfo, bwInfo
 
+let private checkUnreachable info (src: IVertex<_>) =
+  match info.DFPre.TryGetValue src.ID with
+  | false, _
+  | true, -1  -> true
+  | _ -> false
+
 [<CompiledName "Create">]
-let create g (dfp: IDominanceFrontierProvider<_, _>) =
+let create g dfp =
   let dom, _, _ = computeDominance g dfp
   dom
+
+let createWithInfo g dfp =
+  let dom, fw, bw = computeDominance g dfp
+  dom, fw, bw
+
+let creatFromInfo g fwInfo (bwInfo: Lazy<LTDomInfo<_>>) dfp =
+  let fwDT = lazy DominatorTree (g, idomAux fwInfo)
+  let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
+  let bwDT = lazy DominatorTree (bwG.Value, idomAux bwInfo.Value)
+  createDominance g bwG fwInfo fwDT bwInfo bwDT dfp
+
+let updateInfo g info (edge: Edge<_, _>) =
+  let src = edge.First
+  if checkUnreachable info src then info
+  else computeDomInfo g

@@ -14,7 +14,7 @@
     <Compile Include="DominanceTests.fs" />
     <Compile Include="LoopTests.fs" />
     <Compile Include="Program.fs" />
-    <None Include="TestData\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="TestData\**\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
