@@ -259,7 +259,7 @@ type CFGRecovery<'FnCtx,
     |> ctx.Vertices.ContainsKey
 
   let isGetPCThunk (ctx: CFGBuildingContext<_, _>) srcBBL calleeAddr =
-    if ctx.BinHandle.File.ISA.IsX86 || ctx.BinHandle.File.ISA.IsX64 then
+    if ctx.BinHandle.File.ISA.IsX86 then
       let ins = (srcBBL: ILowUIRBasicBlock).LastInstruction
       let nextAddr = ins.Address + uint64 ins.Length
       if calleeAddr = nextAddr then
