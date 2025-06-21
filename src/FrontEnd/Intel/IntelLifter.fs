@@ -703,7 +703,6 @@ let translate (ins: Instruction) insLen bld =
   | OP.FXRSTOR | OP.FXRSTOR64 -> X87Lifter.fxrstor ins insLen bld
   | o ->
 #if DEBUG
-         eprintfn "%A" o
-         eprintfn "%A" ins
+         eprintfn $"Unsupported: {Disasm.opCodeToString o}"
 #endif
          LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
