@@ -264,7 +264,7 @@ type CFGRecovery<'FnCtx,
       let nextAddr = ins.Address + uint64 ins.Length
       if calleeAddr = nextAddr then
         match ctx.BBLFactory.PeekBBL calleeAddr with
-        | Ok bbl -> bbl[0].IsPop () (* call to pop *)
+        | Ok bbl -> bbl[0].IsPop () (* Call to pop *)
         | Error _ -> false
       else false
     else false

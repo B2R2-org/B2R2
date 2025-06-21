@@ -322,7 +322,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
       match instrs.TryFind addr with
       | Ok ins ->
         let nextAddr = addr + uint64 ins.Length
-        if ins.IsTerminator () then Ok (List.rev acc)
+        if ins.IsTerminator () then Ok (List.rev (ins :: acc))
         else parse (ins :: acc) nextAddr
       | Error _ ->
 #if CFGDEBUG
