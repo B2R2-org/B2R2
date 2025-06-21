@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
@@ -42,16 +43,15 @@ type FunctionIdentification<'FnCtx,
   /// to expand it during the main recovery phase.
   let getInitialEntryPoints () =
     let file = hdl.File
-    let addrs =
-      file.GetFunctionAddresses ()
-      |> Array.fold (fun addrs addr ->
-        Set.add addr addrs
-      ) exnInfo.FunctionEntryPoints
+    let addrs = HashSet (file.GetFunctionAddresses ())
+    for addr in exnInfo.FunctionEntryPoints do addrs.Add addr |> ignore
     file.EntryPoint
-    |> Option.fold (fun acc addr ->
-      if file.Format <> FileFormat.RawBinary && addr = 0UL then acc
-      else Set.add addr acc) addrs
-    |> Set.toArray
+    |> Option.iter (fun addr ->
+      if file.Format <> FileFormat.RawBinary && addr = 0UL then ()
+      else addrs.Add addr |> ignore)
+    let output = Array.zeroCreate addrs.Count
+    addrs.CopyTo output
+    output
 
   interface ICFGBuildingStrategy<'FnCtx, 'GlCtx> with
     member _.ActionPrioritizer with get() =

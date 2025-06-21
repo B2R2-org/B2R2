@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd
 
+open System.Collections.Generic
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinFile
@@ -71,27 +72,30 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
     | Some lsdaPointer ->
       loopCallSiteTable fde true tbl (loadCallSiteTable lsdaPointer lsdaTbl)
 
-  let accumulateExceptionTableInfo acc fde lsdaTbl =
-    fde
-    |> Array.fold (fun (exnTbl, fnEntryPoints) fde ->
+  let fnRanges = HashSet ()
+
+  let accumulateExceptionTableInfo acc fdes lsdaTbl =
+    fdes
+    |> Array.fold (fun exnTbl fde ->
        let exnTbl, isFDEFunction = buildExceptionTable fde lsdaTbl exnTbl
-       let fnEntryPoints =
-        if isFDEFunction then Set.add fde.PCBegin fnEntryPoints
-        else fnEntryPoints
-       exnTbl, fnEntryPoints) acc
+       if isFDEFunction then
+        let range = AddrRange (fde.PCBegin, fde.PCEnd - 1UL)
+        fnRanges.Add range |> ignore
+       else ()
+       exnTbl) acc
 
   let computeExceptionTable excframes lsdaTbl =
     excframes
     |> List.fold (fun acc (cfi: ELF.CFI) ->
       accumulateExceptionTableInfo acc cfi.FDEs lsdaTbl
-    ) (NoOverlapIntervalMap.empty, Set.empty)
+    ) NoOverlapIntervalMap.empty
 
-  let exnTbl, funcEntryPoints =
+  let exnTbl =
     match liftingUnit.File.Format with
     | FileFormat.ELFBinary ->
       let elf = liftingUnit.File :?> ELFBinFile
       computeExceptionTable elf.ExceptionFrame elf.LSDATable
-    | _ -> NoOverlapIntervalMap.empty, Set.empty
+    | _ -> NoOverlapIntervalMap.empty
 
   new (hdl: BinHandle) =
     ExceptionInfo (hdl.NewLiftingUnit ())
@@ -99,9 +103,22 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
   /// Returns the exception handler mapping.
   member _.ExceptionMap with get () = exnTbl
 
-  /// Returns a set of function entry points that are visible from exception
-  /// table information.
-  member _.FunctionEntryPoints with get () = funcEntryPoints
+  /// Returns an array of function entry points identified by the exception
+  /// table.
+  member _.FunctionEntryPoints with get () =
+    [| for range in fnRanges do range.Min |]
+
+  /// Returns the coverage of the exception table, which is the ratio of
+  /// addresses in the .text section that are covered by the exception table.
+  member _.ExceptionCoverage with get () =
+    let ptr = liftingUnit.File.GetTextSectionPointer ()
+    let txtSize = float (ptr.MaxAddr - ptr.Addr)
+    let mutable covered = 0.0
+    for range in fnRanges do
+      if ptr.Addr <= range.Min && range.Min <= ptr.MaxAddr then
+        covered <- covered + float range.Count
+      else ()
+    covered / txtSize
 
   /// Finds the exception target (landing pad) for a given instruction address.
   /// If the address is not in the exception table, it returns None.
