@@ -53,7 +53,9 @@ type IBinOrganization =
   /// <summary>
   /// Returns an array of local function addresses (excluding external
   /// functions) from a given BinFile. This function only considers addresses
-  /// that are certain.
+  /// that are certain. We do not include the entry point address (e.g., _start)
+  /// in the result, because it is not necessarily a function address in
+  /// general.
   /// </summary>
   /// <returns>
   /// An array of function addresses.
