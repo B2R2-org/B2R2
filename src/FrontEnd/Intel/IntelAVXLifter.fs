@@ -1879,7 +1879,7 @@ let vpxor (ins: Instruction) insLen bld =
     bld <+ (dstB := src1B <+> src2B)
     bld <+ (dstA := src1A <+> src2A)
   | _ -> raise InvalidOperandSizeException
-  fillZeroFromVLToMaxVL bld dst 128<rt> 512
+  fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
 let vpxord (ins: Instruction) insLen bld =
