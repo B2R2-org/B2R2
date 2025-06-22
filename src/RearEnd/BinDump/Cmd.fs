@@ -35,6 +35,7 @@ type OptOption =
 
 type BinDumpOpts () =
   inherit CmdOpts ()
+
   /// ISA
   member val ISA = ISA Architecture.Intel with get, set
 
@@ -54,7 +55,7 @@ type BinDumpOpts () =
   member val ShowAddress = false with get, set
 
   /// Show symbols or not?
-  member val ShowSymbols = false with get, set
+  member val ShowSymbols = true with get, set
 
   /// Show LowUIR or not?
   member val ShowLowUIR = false with get, set
@@ -158,13 +159,13 @@ type BinDumpOpts () =
     CmdOpts.New (descr = "Show addresses of hexstring",
                  callback = cb, long = "--show-addr")
 
-  /// "--show-symbols" option decides whether to show symbols in disassembly.
-  static member OptShowSymbols () =
+  /// "--hide-symbols" option decides whether to show symbols in disassembly.
+  static member OptHideSymbols () =
     let cb opts _ =
-      (BinDumpOpts.ToThis opts).ShowSymbols <- true
+      (BinDumpOpts.ToThis opts).ShowSymbols <- false
       opts
     CmdOpts.New (descr = "Show symbols while disassembling binary",
-                 callback = cb, long = "--show-symbols")
+                 callback = cb, long = "--hide-symbols")
 
   /// "--show-wide" option decides whether to show hexdump with 32 bytes.
   static member OptShowWide () =
@@ -231,7 +232,7 @@ module Cmd =
       BinDumpOpts.OptDumpSection ()
       BinDumpOpts.OptOnlyDisasm ()
       BinDumpOpts.OptShowAddr ()
-      BinDumpOpts.OptShowSymbols ()
+      BinDumpOpts.OptHideSymbols ()
       BinDumpOpts.OptShowWide ()
       BinDumpOpts.OptShowColor ()
       BinDumpOpts.OptShowLowUIR ()
