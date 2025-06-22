@@ -80,7 +80,7 @@ type LiftingUnit (binFile: IBinFile,
   member _.Parser with get() = parser
 
   /// <summary>
-  /// Parse one instruction at the given address (addr), and return the
+  /// Parses one instruction at the given address (addr), and return the
   /// corresponding instruction. This function raises an exception if the
   /// parsing process fails.
   /// <remark>
@@ -98,7 +98,7 @@ type LiftingUnit (binFile: IBinFile,
     parser.Parse (ReadOnlySpan (binFile.RawBytes, ptr.Offset, len), addr)
 
   /// <summary>
-  /// Parse one instruction pointed to by the binary file pointer (ptr), and
+  /// Parses one instruction pointed to by the binary file pointer (ptr), and
   /// return the corresponding instruction. This function raises an exception if
   /// the parsing process fails.
   /// </summary>
@@ -111,7 +111,7 @@ type LiftingUnit (binFile: IBinFile,
     parser.Parse (ReadOnlySpan (binFile.RawBytes, ptr.Offset, len), ptr.Addr)
 
   /// <summary>
-  /// Try to parse one instruction at the given address (addr), and return the
+  /// Tries to parse one instruction at the given address (addr), and return the
   /// corresponding instruction.
   /// </summary>
   /// <param name="addr">The instruction address.</param>
@@ -123,8 +123,8 @@ type LiftingUnit (binFile: IBinFile,
     with _ -> Error ErrorCase.ParsingFailure
 
   /// <summary>
-  /// Try to parse one instruction pointed to by the binary file pointer (ptr),
-  /// and return the corresponding instruction.
+  /// Tries to parse one instruction pointed to by the binary file pointer
+  /// (ptr), and return the corresponding instruction.
   /// </summary>
   /// <param name="ptr">BinFilePointer.</param>
   /// <returns>
@@ -135,9 +135,9 @@ type LiftingUnit (binFile: IBinFile,
     with _ -> Error ErrorCase.ParsingFailure
 
   /// <summary>
-  /// Parse a basic block starting from the given address (addr), and return the
-  /// corresponding array of instructions. This function returns an incomplete
-  /// list of instructions if the parsing process fails.
+  /// Parses a basic block starting from the given address (addr), and return
+  /// the corresponding array of instructions. This function returns an
+  /// incomplete list of instructions if the parsing process fails.
   /// <remark>
   /// It is recommended to use the same method that takes in a pointer when
   /// the performance is a concern.
@@ -152,9 +152,9 @@ type LiftingUnit (binFile: IBinFile,
     parseBBLByPtr ptr 0 []
 
   /// <summary>
-  /// Parse a basic block pointed to by the given binary file pointer (ptr), and
-  /// return the corresponding array of instructions. This function returns an
-  /// incomplete list of instructions if the parsing process fails.
+  /// Parses a basic block pointed to by the given binary file pointer (ptr),
+  /// and return the corresponding array of instructions. This function returns
+  /// an incomplete list of instructions if the parsing process fails.
   /// </summary>
   /// <param name="ptr">The binary file pointer.</param>
   /// <returns>
@@ -164,7 +164,7 @@ type LiftingUnit (binFile: IBinFile,
     parseBBLByPtr ptr 0 []
 
   /// <summary>
-  /// Lift an instruction at the given address (addr) and return the lifted IR
+  /// Lifts an instruction at the given address (addr) and return the lifted IR
   /// statements without optimization.
   /// <remark>
   /// It is recommended to use the same method that takes in a pointer when
@@ -179,7 +179,7 @@ type LiftingUnit (binFile: IBinFile,
     this.LiftInstruction (addr, false)
 
   /// <summary>
-  /// Lift an instruction at the given address (addr) and return the lifted IR
+  /// Lifts an instruction at the given address (addr) and return the lifted IR
   /// statements.
   /// <remark>
   /// It is recommended to use the same method that takes in a pointer when
@@ -202,7 +202,7 @@ type LiftingUnit (binFile: IBinFile,
     else ins.Translate irBuilder
 
   /// <summary>
-  /// Lift an instruction pointed to by the given pointer and return the
+  /// Lifts an instruction pointed to by the given pointer and return the
   /// lifted IR statements.
   /// </summary>
   /// <param name="ptr">The binary file pointer.</param>
@@ -216,7 +216,7 @@ type LiftingUnit (binFile: IBinFile,
     ins.Translate irBuilder
 
   /// <summary>
-  /// Lift an instruction pointed to by the given pointer and return the lifted
+  /// Lifts an instruction pointed to by the given pointer and return the lifted
   /// IR statements.
   /// </summary>
   /// <param name="ptr">The binary file pointer.</param>
@@ -234,7 +234,7 @@ type LiftingUnit (binFile: IBinFile,
     else ins.Translate irBuilder
 
   /// <summary>
-  /// Lift the given instruction and return the lifted IR statements.
+  /// Lifts the given instruction and return the lifted IR statements.
   /// </summary>
   /// <param name="ins">The instruction to be lifted.</param>
   /// <returns>
@@ -244,7 +244,7 @@ type LiftingUnit (binFile: IBinFile,
     ins.Translate irBuilder
 
   /// <summary>
-  /// Lift the given instruction and return the lifted IR statements.
+  /// Lifts the given instruction and return the lifted IR statements.
   /// </summary>
   /// <param name="ins">The instruction to be lifted.</param>
   /// <param name="optimize">
@@ -258,37 +258,37 @@ type LiftingUnit (binFile: IBinFile,
     else ins.Translate irBuilder
 
   /// <summary>
-  /// Lift a basic block starting from the given address (addr) and return the
-  /// lifted IR statements. This function returns an incomplete list of IR
-  /// statments if the parsing process fails.
+  /// Lifts a basic block starting from the given address (addr) and return the
+  /// lifted IR statements, grouped by instructions. This function returns an
+  /// incomplete list of IR statments if the parsing process fails.
   /// </summary>
   /// <param name="addr">The start address.</param>
   /// <returns>
-  /// Lifted IR statements.
+  /// Array of lifted IR statements, grouped by instructions.
   /// </returns>
   member _.LiftBBlock (addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
     match parseBBLByPtr ptr 0 [] with
     | Ok instrs ->
-      instrs |> Array.collect (fun i -> i.Translate irBuilder) |> Ok
+      instrs |> Array.map (fun i -> i.Translate irBuilder) |> Ok
     | Error instrs ->
-      instrs |> Array.collect (fun i -> i.Translate irBuilder) |> Error
+      instrs |> Array.map (fun i -> i.Translate irBuilder) |> Error
 
   /// <summary>
   /// Lift a basic block starting from the given pointer (ptr) and return the
-  /// lifted IR statements. This function returns an incomplete list of IR
-  /// statments if the parsing process fails.
+  /// lifted IR statements, grouped by instructions. This function returns an
+  /// incomplete list of IR statments if the parsing process fails.
   /// </summary>
   /// <param name="ptr">The binary file pointer.</param>
   /// <returns>
-  /// Lifted IR statements.
+  /// Array of lifted IR statements, grouped by instructions.
   /// </returns>
   member _.LiftBBlock (ptr: BinFilePointer) =
     match parseBBLByPtr ptr 0 [] with
     | Ok instrs ->
-      instrs |> Array.collect (fun i -> i.Translate irBuilder) |> Ok
+      instrs |> Array.map (fun i -> i.Translate irBuilder) |> Ok
     | Error instrs ->
-      instrs |> Array.collect (fun i -> i.Translate irBuilder) |> Error
+      instrs |> Array.map (fun i -> i.Translate irBuilder) |> Error
 
   /// <summary>
   /// Configure the disassembly output format for each disassembled instruction
