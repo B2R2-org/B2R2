@@ -187,6 +187,12 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.TryFindName (addr) =
       symbs.Value.TryFindSymbol addr
       |> Result.map (fun s -> s.SymName)
+      |> function
+        | Ok name -> Ok name
+        | Error e ->
+          match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
+          | Some entry -> Ok entry.FuncName
+          | None -> Error e
 
     member _.GetTextSectionPointer () =
       shdrs.Value
