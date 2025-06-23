@@ -35,14 +35,8 @@ let inline private updateGas bld gas =
   let gasReg = regVar bld R.GAS
   bld <+ (gasReg := gasReg .+ numI32 gas 64<rt>)
 
-let sideEffects (ins: Instruction) name bld =
-  bld <!-- (ins.Address, ins.NumBytes)
+let sideEffects name bld =
   bld <+ AST.sideEffect name
-  bld --!> ins.NumBytes
-
-let nop (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
-  bld --!> ins.NumBytes
 
 let private getSPSize size = numI32 (32 * size) 256<rt>
 
@@ -81,23 +75,17 @@ let private swapStack bld pos =
   bld <+ (AST.store Endian.Big (spReg .- (getSPSize pos)) tmp1)
   bld <+ (AST.store Endian.Big spReg tmp2)
 
-let startBasicOperation (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
-
 let endBasicOperation bld opFn src1 src2 (ins: Instruction) =
   pushToStack bld (opFn src1 src2)
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 /// Binary operations and relative operations.
 let basicOperation ins bld opFn =
-  startBasicOperation ins bld
   let src1, src2 = popFromStack bld, popFromStack bld
   endBasicOperation bld opFn src1 src2 ins
 
 /// Shift operations. They use the flipped order of operands.
 let shiftOperation ins bld opFn =
-  startBasicOperation ins bld
   let src1, src2 = popFromStack bld, popFromStack bld
   endBasicOperation bld opFn src2 src1 ins
 
@@ -121,161 +109,124 @@ let shr ins bld = shiftOperation ins bld (>>)
 let sar ins bld = shiftOperation ins bld (?>>)
 
 let addmod (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let src1 = popFromStack bld
   let src2 = popFromStack bld
   let src3 = popFromStack bld
   let expr = (src1 .+ src2) .% src3
   pushToStack bld expr
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let mulmod (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let src1 = popFromStack bld
   let src2 = popFromStack bld
   let src3 = popFromStack bld
   let expr = (src1 .* src2) .% src3
   pushToStack bld expr
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let private makeNum i = numI32 i OperationSize.regType
 
 let signextend (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let b = popFromStack bld
   let x = popFromStack bld
   let expr = x .& (makeNum 1 << ((b .+ makeNum 1) .* makeNum 8) .- makeNum 1)
   let sext = AST.sext 256<rt> expr
   pushToStack bld sext
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let iszero (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let cond = popFromStack bld
   let rt = OperationSize.regType
   let expr = AST.zext rt (cond == AST.num0 rt)
   pushToStack bld expr
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let not (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let e = popFromStack bld
   let expr = AST.zext OperationSize.regType (AST.not e)
   pushToStack bld expr
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let byte (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let n = popFromStack bld
   let x = popFromStack bld
   let expr = (x >> (makeNum 248 .- n .* makeNum 8)) .& makeNum 0xff
   pushToStack bld expr
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let pop (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   popFromStack bld |> ignore
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let mload (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let addr = popFromStack bld
   let expr = AST.loadBE OperationSize.regType addr
   pushToStack bld expr
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let mstore (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let addr = popFromStack bld
   let value = popFromStack bld
   bld <+ AST.store Endian.Big addr value
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let mstore8 (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let addr = popFromStack bld
   let value = popFromStack bld
   let lsb = AST.extract value 8<rt> 0
   bld <+ AST.store Endian.Big addr lsb
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let jump (ins: Instruction) bld =
   try
-    bld <!-- (ins.Address, ins.NumBytes)
     let dst = popFromStack bld
     let dstAddr = dst .+ (numU64 ins.Offset 256<rt>)
     updateGas bld ins.GAS
     bld <+ AST.interjmp dstAddr InterJmpKind.Base
-    bld --!> ins.NumBytes
   with
     | :? System.InvalidOperationException -> (* Special case: terminate func. *)
-      sideEffects ins Terminate bld
+      sideEffects Terminate bld
 
 let jumpi (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let dst = popFromStack bld
   let dstAddr = dst .+ (numU64 ins.Offset 256<rt>)
   let cond = popFromStack bld
   let fall = numU64 (ins.Address + 1UL) 64<rt>
   updateGas bld ins.GAS
   bld <+ AST.intercjmp (AST.xtlo 1<rt> cond) dstAddr fall
-  bld --!> ins.NumBytes
 
 let getpc (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let expr = regVar bld R.PC |> AST.zext OperationSize.regType
   pushToStack bld expr
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let gas (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
   let expr = AST.zext OperationSize.regType (regVar bld R.GAS)
   pushToStack bld expr
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let push (ins: Instruction) bld imm =
-  bld <!-- (ins.Address, ins.NumBytes)
   let expr = BitVector.Cast (imm, 256<rt>) |> AST.num
   pushToStack bld expr
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let dup (ins: Instruction) bld pos =
-  bld <!-- (ins.Address, ins.NumBytes)
   let src = peekStack bld pos
   pushToStack bld src
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let swap (ins: Instruction) bld pos =
-  bld <!-- (ins.Address, ins.NumBytes)
   swapStack bld pos
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let callExternFunc (ins: Instruction) bld name argCount doesRet =
-  bld <!-- (ins.Address, ins.NumBytes)
   let args = List.init argCount (fun _ -> popFromStack bld)
   let expr = AST.app name args OperationSize.regType
   if doesRet then pushToStack bld expr
   else bld <+ (AST.extCall expr)
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let call (ins: Instruction) bld fname =
-  bld <!-- (ins.Address, ins.NumBytes)
   let gas = popFromStack bld
   let addr = popFromStack bld
   let value = popFromStack bld
@@ -287,20 +238,18 @@ let call (ins: Instruction) bld fname =
   let expr = AST.app fname args OperationSize.regType
   pushToStack bld expr
   updateGas bld ins.GAS
-  bld --!> ins.NumBytes
 
 let ret ins bld =
-  popFromStack bld |> ignore
-  popFromStack bld |> ignore
-  sideEffects ins Terminate bld
+  callExternFunc ins bld "return" 2 false
+  sideEffects Terminate bld
 
 let selfdestruct ins bld =
   popFromStack bld |> ignore
-  sideEffects ins Terminate bld
+  callExternFunc ins bld "selfdestruct" 1 false
+  sideEffects Terminate bld
 
-let translate (ins: Instruction) bld =
-  match ins.Opcode with
-  | STOP -> sideEffects ins Terminate bld
+let private translateOpcode ins bld = function
+  | STOP -> sideEffects Terminate bld
   | ADD -> add ins bld
   | MUL -> mul ins bld
   | SUB -> sub ins bld
@@ -363,7 +312,7 @@ let translate (ins: Instruction) bld =
   | GETPC -> getpc ins bld
   | MSIZE -> callExternFunc ins bld "msize" 0 true
   | GAS -> gas ins bld
-  | JUMPDEST -> nop ins bld
+  | JUMPDEST -> ()
   | PUSH1 imm -> push ins bld imm
   | PUSH2 imm -> push ins bld imm
   | PUSH3 imm -> push ins bld imm
@@ -440,5 +389,10 @@ let translate (ins: Instruction) bld =
   | DELEGATECALL -> callExternFunc ins bld "delegatecall" 6 true
   | CREATE2 -> callExternFunc ins bld "create2" 4 true
   | STATICCALL -> callExternFunc ins bld "staticcall" 6 true
-  | INVALID -> sideEffects ins Terminate bld
+  | INVALID -> sideEffects Terminate bld
   | SELFDESTRUCT -> selfdestruct ins bld
+
+let translate (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.NumBytes)
+  translateOpcode ins bld ins.Opcode
+  bld --!> ins.NumBytes
