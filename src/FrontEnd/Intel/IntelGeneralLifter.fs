@@ -1778,10 +1778,6 @@ let jmp (ins: Instruction) insLen bld =
   bld <+ (AST.interjmp target InterJmpKind.Base)
   bld --!> insLen
 
-let private convertSrc = function
-  | Load (_, _, expr, _) -> expr
-  | _ -> Terminator.impossible ()
-
 let lahf (ins: Instruction) insLen bld =
   let t = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
@@ -1813,11 +1809,17 @@ let lahf (ins: Instruction) insLen bld =
   bld <+ (ah := t)
   bld --!> insLen
 
+let private unwrapLeaSrc = function
+  | Load (_, _,
+          BinOp (BinOpType.ADD, _, e, Num (n, _), _), _) when n.IsZero () -> e
+  | Load (_, _, expr, _) -> expr
+  | _ -> Terminator.impossible ()
+
 let lea (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = transTwoOprs bld false ins insLen
   let oprSize = getOperationSize ins
-  let src = convertSrc src
+  let src = unwrapLeaSrc src
   let addrSize = getEffAddrSz ins
   bld <+
     (match oprSize, addrSize with
