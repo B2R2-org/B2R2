@@ -74,7 +74,7 @@ type AVRParserTests () =
   [<TestMethod>]
   member _.``[AVR] No Operand Insturctions Parse Test (1)`` () =
     "0895"
-    ++ RET ** [ ] ||> test
+    ++ RET ** [] ||> test
 
   [<TestMethod>]
   member _.``[AVR] One Operand Insturctions Parse Test (1)`` () =

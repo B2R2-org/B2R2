@@ -74,7 +74,7 @@ let private bcReorderOneLayer vGraph (vLayout: VLayout) isDown layer =
     vertices[i] <- v)
 
 let private phase1 vGraph vLayout isDown from maxLayer =
-  let layers = if isDown then [from .. maxLayer] else [from .. -1 .. 0]
+  let layers = if isDown then [ from .. maxLayer ] else [ from .. -1 .. 0 ]
   List.iter (bcReorderOneLayer vGraph vLayout isDown) layers
 
 let rec private calcFirstIndex idx wlen =
@@ -139,7 +139,7 @@ let private reverseOneLayer vGraph vLayout isDown maxLayer layer =
     if isReversed then phase1 vGraph vLayout isDown layer maxLayer
 
 let private phase2 vGraph vLayout isDown maxLayer =
-  let layers = if isDown then [1 .. maxLayer] else [maxLayer - 1 .. -1 .. 0]
+  let layers = if isDown then [ 1 .. maxLayer ] else [ maxLayer - 1 .. -1 .. 0 ]
   List.iter (reverseOneLayer vGraph vLayout isDown maxLayer) layers
 
 let rec private sugiyamaReorder vGraph vLayout cnt hashSet =

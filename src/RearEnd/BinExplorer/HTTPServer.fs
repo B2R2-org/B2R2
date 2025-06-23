@@ -243,7 +243,7 @@ let getVarNames (hdl: BinHandle) = function
 
 let handleDataflow req resp arbiter (args: string) =
   let brew = Protocol.getBinaryBrew arbiter
-  let args = args.Split ([|','|])
+  let args = args.Split ([| ',' |])
   let entry = args[0] |> uint64
   let addr = args[1] |> uint64
   let tag = args[2] (* either variable or value. *)

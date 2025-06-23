@@ -53,7 +53,7 @@ type RegisterSetTests () =
     s.Add 42
     s.Add 64
     s.Iterate (lst.Add >> ignore)
-    CollectionAssert.AreEqual ([| 0; 8; 42; 64|], lst)
+    CollectionAssert.AreEqual ([| 0; 8; 42; 64 |], lst)
 
   [<TestMethod>]
   [<ExpectedException(typedefof<IndexOutOfRangeException>)>]

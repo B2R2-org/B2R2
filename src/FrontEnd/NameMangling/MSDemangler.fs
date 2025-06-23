@@ -277,7 +277,7 @@ type MSDemangler () =
       (dashBasedPtrVoid <|> dashBasedPtrName)
     |>> (fun (ptr, mods, name, dname) ->
           PointerStrT
-            (ptr, mods, ConcatT([dname; Name " "; FullName [Name ""; name]]))
+            (ptr, mods, ConcatT([ dname; Name " "; FullName [Name ""; name] ]))
         )
     .>>. possibleType |>> PointerT
 

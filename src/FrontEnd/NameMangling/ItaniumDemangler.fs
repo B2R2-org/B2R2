@@ -266,7 +266,7 @@ type ItaniumDemangler () =
       | RefArg (a, Arguments alist) |
         RefArg (a, TemplateSub (Arguments alist, _)) ->
         List.map (fun x -> RefArg (a, x)) alist
-      | _ -> [b]
+      | _ -> [ b ]
     ) |>> Arguments
 
   let pMember =

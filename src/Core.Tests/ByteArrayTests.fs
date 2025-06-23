@@ -60,7 +60,7 @@ type ByteArrayTests () =
     let buf = "hellotexthellotexthellotexthellopencilfsharptesttext"B
     let pattern = "text"B
     let indexList = ByteArray.findIdxs 0UL pattern buf
-    Assert.AreEqual([48UL; 23UL; 14UL; 5UL], indexList)
+    Assert.AreEqual([ 48UL; 23UL; 14UL; 5UL ], indexList)
 
   [<TestMethod>]
   member _.``Pattern Matching Test 2`` () =

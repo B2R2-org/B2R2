@@ -123,7 +123,7 @@ type TMS320ParserTests () =
   [<TestMethod>]
   member _.``[TMS320] No Unit Insturctions Parse Test (1)`` () =
     "00E00100"
-    ++ IDLE ** [ ]
+    ++ IDLE ** []
     ||> test NoUnit
 
   [<TestMethod>]

@@ -56,7 +56,7 @@ type AVRLifterTests () =
   [<TestMethod>]
   member _.``[AVR] Instructions with start and end statements lift Test`` () =
     "0000"
-    ++ [| |]
+    ++ [||]
     |> test
 
   [<TestMethod>]

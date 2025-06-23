@@ -411,21 +411,21 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
     | One (a) -> [], a, []
     | Two (a, b) ->
       let i' = i ++ calib a
-      if pred i' then [], a, [b] else [a], b, []
+      if pred i' then [], a, [ b ] else [ a ], b, []
     | Three (a, b, c) ->
       let i' = i ++ calib a
-      if pred i' then [], a, [b; c]
+      if pred i' then [], a, [ b; c ]
       else let i'' = i' ++ calib b
-           if pred i'' then [a], b, [c]
-           else [a; b], c, []
+           if pred i'' then [ a ], b, [ c ]
+           else [ a; b ], c, []
     | Four (a, b, c, d) ->
       let i' = i ++ calib a
-      if pred i' then [], a, [b; c; d]
+      if pred i' then [], a, [ b; c; d ]
       else let i'' = i' ++ calib b
-           if pred i'' then [a], b, [c; d]
+           if pred i'' then [ a ], b, [ c; d ]
            else let i''' = i'' ++ calib c
-                if pred i''' then [a; b], c, [d]
-                else [a; b; c], d, []
+                if pred i''' then [ a; b ], c, [ d ]
+                else [ a; b; c ], d, []
 
   static member private LstToDigit (lst: 'A list) =
     match lst with
