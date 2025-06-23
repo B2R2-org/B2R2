@@ -202,7 +202,7 @@ type SPARCParserTests () =
   [<TestMethod>]
   member _.``[SPARC] No Operands NOP Parse Test`` () =
     "00000001"
-    ++ NOP ** [ ] ||> test
+    ++ NOP ** [] ||> test
 
   [<TestMethod>]
   member _.``[SPARC] Two Reg Operands FMOVS Parse Test`` () =

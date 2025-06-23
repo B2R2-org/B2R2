@@ -118,8 +118,8 @@ let isBefore a b = function
 let vAlign (vGraph: IDiGraph<_, _>) vLayout maxLayer conflicts vDir hDir =
   let layers, neighborFn =
     match vDir with
-    | Topmost -> [0 .. (maxLayer - 1)], vGraph.GetPreds
-    | Bottommost -> [(maxLayer - 1) .. -1 .. 0], vGraph.GetSuccs
+    | Topmost -> [ 0 .. (maxLayer - 1) ], vGraph.GetPreds
+    | Bottommost -> [ (maxLayer - 1) .. -1 .. 0 ], vGraph.GetSuccs
   let root = VertexMap ()
   let align = VertexMap ()
   (vGraph: VisGraph).IterVertex (fun v -> root[v] <- v; align[v] <- v)

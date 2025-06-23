@@ -154,7 +154,7 @@ type CmdPrint () =
       let hdl = brew.BinHandle
       let sz = PrintSize.ToInt sz
       let endAddr = addr + uint64 (sz * count)
-      if addr > endAddr then [| "[*] Invalid address range given."|]
+      if addr > endAddr then [| "[*] Invalid address range given." |]
       else iter hdl sz fmt addr endAddr []
     | Error str -> [| str |]
 

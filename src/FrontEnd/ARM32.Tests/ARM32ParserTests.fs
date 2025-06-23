@@ -496,7 +496,7 @@ type ARM32ParserTests () =
   [<TestMethod>]
   member _.``[ARMv7] Miscellaneous Parse test (1)`` () =
     "f57ff01f"
-    ++ CLREX ** [ ]
+    ++ CLREX ** []
     ||> testNoWbackNoQNoSimd Condition.UN
 
   [<TestMethod>]
@@ -508,7 +508,7 @@ type ARM32ParserTests () =
   [<TestMethod>]
   member _.``[ARMv7] Miscellaneous Parse test (3)`` () =
     "e320f000"
-    ++ NOP ** [ ]
+    ++ NOP ** []
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]

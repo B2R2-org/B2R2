@@ -2126,7 +2126,7 @@ type ARM64ParserTests () =
   member _.``4.6.14 Advanced SIMD table lookup (6)`` () =
     "4e1950fc"
     ++ TBX ** [ O.SIMDVecReg (V28, SixteenB)
-                O.SIMDList ([ V7; V8; V9], SixteenB)
+                O.SIMDList ([ V7; V8; V9 ], SixteenB)
                 O.SIMDVecReg (V25, SixteenB) ]
     ||> test
 
@@ -2134,7 +2134,7 @@ type ARM64ParserTests () =
   member _.``4.6.14 Advanced SIMD table lookup (7)`` () =
     "0e1970fc"
     ++ TBX ** [ O.SIMDVecReg (V28, EightB)
-                O.SIMDList ([ V7; V8; V9; V10], SixteenB)
+                O.SIMDList ([ V7; V8; V9; V10 ], SixteenB)
                 O.SIMDVecReg (V25, EightB) ]
     ||> test
 

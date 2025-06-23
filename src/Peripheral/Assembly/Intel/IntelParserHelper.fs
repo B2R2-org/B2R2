@@ -58,10 +58,10 @@ let extractOperands = function
 let getOperandsAsList operands =
   match operands with
   | NoOperand -> []
-  | OneOperand (op1) -> [op1]
-  | TwoOperands (op1, op2) -> [op1; op2]
-  | ThreeOperands (op1, op2, op3) -> [op1; op2; op3]
-  | FourOperands (op1, op2, op3, op4) -> [op1; op2; op3; op4]
+  | OneOperand (op1) -> [ op1 ]
+  | TwoOperands (op1, op2) -> [ op1; op2 ]
+  | ThreeOperands (op1, op2, op3) -> [ op1; op2; op3 ]
+  | FourOperands (op1, op2, op3, op4) -> [ op1; op2; op3; op4 ]
 
 let ptrStringToBitSize = function
   | "byte ptr" -> 1 * 8<rt>

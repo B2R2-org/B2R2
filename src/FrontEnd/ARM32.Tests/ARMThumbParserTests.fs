@@ -840,7 +840,7 @@ type ARMThumbParserTests () =
   [<TestMethod>]
   member _.``[Thumb] Miscellaneous Parse test (4)`` () =
     "f3af8000"
-    ++ NOP ** [ ]
+    ++ NOP ** []
     ||> testNoWbackNoSimd Condition.AL (Some W)
 
   [<TestMethod>]
@@ -930,13 +930,13 @@ type ARMThumbParserTests () =
   [<TestMethod>]
   member _.``[Thumb] Exception-gen and exception-handling Parse test (6)`` () =
     "f3de8f00"
-    ++ ERET ** [ ]
+    ++ ERET ** []
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
   member _.``[Thumb] Exception-gen and exception-handling Parse test (7)`` () =
     "f3de8f00"
-    ++ ERET ** [ ]
+    ++ ERET ** []
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
@@ -954,5 +954,5 @@ type ARMThumbParserTests () =
   [<TestMethod>]
   member _.``[Thumb] Miscellaneous control Parse test (1)`` () =
     "f3bf8f2f"
-    ++ CLREX ** [ ]
+    ++ CLREX ** []
     ||> testNoWbackNoQNoSimd Condition.AL

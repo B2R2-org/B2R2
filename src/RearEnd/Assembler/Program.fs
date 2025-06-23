@@ -93,7 +93,7 @@ let private asmFromFiles files printer =
 let asmMain files opts =
   let printer = getAssemblyPrinter opts
   if List.isEmpty files then
-    let console = FsReadLine.Console (NormalPrompt, ["quit"])
+    let console = FsReadLine.Console (NormalPrompt, [ "quit" ])
     showBasicInfo opts
     asmFromStdin console printer ""
   else asmFromFiles files printer
