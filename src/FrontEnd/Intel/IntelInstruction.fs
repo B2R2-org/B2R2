@@ -157,7 +157,14 @@ type Instruction
       ins.IsBranch () || ins.IsInterrupt () || ins.IsExit ()
 
     member _.IsNop () =
-      opcode = Opcode.NOP
+      match opcode with
+      | Opcode.NOP -> true
+      | Opcode.LEA ->
+        match oprs with
+        | TwoOperands (OprReg dst, OprMem (Some src, None, Some 0L, _)) ->
+          dst = src
+        | _ -> false
+      | _ -> false
 
     member _.IsInlinedAssembly () = false
 

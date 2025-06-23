@@ -173,7 +173,8 @@ type IInstruction =
   abstract IsTerminator: unit -> bool
 
   /// <summary>
-  /// Is this a NO-OP instruction?
+  /// Is this a NO-OP instruction? We say an instruction is a NO-OP if it
+  /// does not change the CPU state except for the program counter.
   /// </summary>
   /// <returns>
   /// Returns true if this instruction is a NO-OP.
