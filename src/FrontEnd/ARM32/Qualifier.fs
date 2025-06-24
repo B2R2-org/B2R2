@@ -24,8 +24,7 @@
 
 namespace B2R2.FrontEnd.ARM32
 
-exception internal UnpredictableException
-
-exception internal UndefinedException
-
-exception internal InvalidShiftAmountException
+/// Represents execution variant (e.g., widen or narrow).
+type Qualifier =
+  | W (* Wide. *)
+  | N (* Narrow (defalut). *)

@@ -29,6 +29,24 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 
+type internal PSR =
+  | Cond = 0
+  | N = 1
+  | Z = 2
+  | C = 3
+  | V = 4
+  | Q = 5
+  | IT10 = 6
+  | J = 7
+  | GE = 8
+  | IT72 = 9
+  | E = 10
+  | A = 11
+  | I = 12
+  | F = 13
+  | T = 14
+  | M = 15
+
 /// Returns TRUE if the implementation includes the Security Extensions,
 /// on page B1-1157. function : HaveSecurityExt()
 let haveSecurityExt () = AST.b0
