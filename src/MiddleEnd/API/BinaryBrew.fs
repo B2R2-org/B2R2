@@ -107,3 +107,10 @@ type BinaryBrew =
     { inherit BinaryBrew<DummyContext, DummyContext> (hdl,
                                                       exnInfo,
                                                       strategies) }
+
+/// Default BinaryBrew type that uses EVM-specific user context.
+type EVMBinaryBrew =
+  inherit BinaryBrew<EVMFuncUserContext, DummyContext>
+
+  new (hdl: BinHandle, strategies) =
+    { inherit BinaryBrew<EVMFuncUserContext, DummyContext> (hdl, strategies) }
