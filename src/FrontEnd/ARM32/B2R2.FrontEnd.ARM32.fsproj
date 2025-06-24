@@ -8,21 +8,24 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ARM32Exceptions.fs" />
-    <Compile Include="ARM32Register.fs" />
-    <Compile Include="ARM32RegisterFactory.fs" />
-    <Compile Include="ARM32Types.fs" />
-    <Compile Include="ARM32Instruction.fs" />
-    <Compile Include="ARM32ParseUtils.fs" />
-    <Compile Include="ARM32OperandHelper.fs" />
-    <Compile Include="ARM32Disasm.fs" />
-    <Compile Include="ARM32IRHelper.fs" />
-    <Compile Include="ARM32Lifter.fs" />
-    <Compile Include="ARM32Operands.fs" />
-    <Compile Include="ARM32Validator.fs" />
-    <Compile Include="ARM32ARMParser.fs" />
-    <Compile Include="ARM32ThumbParser.fs" />
-    <Compile Include="ARM32Parser.fs" />
+    <Compile Include="Exceptions.fs" />
+    <Compile Include="Register.fs" />
+    <Compile Include="RegisterFactory.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
+    <Compile Include="SIMDDataTypes.fs" />
+    <Compile Include="Qualifier.fs" />
+    <Compile Include="Instruction.fs" />
+    <Compile Include="ParseUtils.fs" />
+    <Compile Include="OperandHelper.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="IRHelper.fs" />
+    <Compile Include="Lifter.fs" />
+    <Compile Include="OperandParsingHelper.fs" />
+    <Compile Include="Validator.fs" />
+    <Compile Include="ARMParser.fs" />
+    <Compile Include="ThumbParser.fs" />
+    <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

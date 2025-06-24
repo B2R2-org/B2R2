@@ -27,6 +27,7 @@ module internal B2R2.FrontEnd.ARM32.ARMValidator
 #if !EMULATION
 open B2R2.FrontEnd.ARM32.ParseUtils
 open B2R2.FrontEnd.ARM32.OperandHelper
+open B2R2.FrontEnd.ARM32.OperandParsingHelper
 
 (* if n == 15 then UNPREDICTABLE *)
 let chkPCRn bin = checkUnpred (extract bin 19 16 = 15u)

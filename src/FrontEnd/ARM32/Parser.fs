@@ -27,9 +27,9 @@ namespace B2R2.FrontEnd.ARM32
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.ARM32.OperandParsingHelper
 
 module private Parser =
-
   let parseARM (span: ByteSpan) (phlp: ParsingHelper) =
     let bin = phlp.BinReader.ReadUInt32 (span, 0)
     phlp.Len <- 4u
