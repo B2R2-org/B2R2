@@ -164,6 +164,10 @@ type Instruction
         | TwoOperands (OprReg dst, OprMem (Some src, None, Some 0L, _)) ->
           dst = src
         | _ -> false
+      | Opcode.MOV ->
+        match oprs with
+        | TwoOperands (OprReg dst, OprReg src) -> dst = src
+        | _ -> false
       | _ -> false
 
     member _.IsInlinedAssembly () = false
