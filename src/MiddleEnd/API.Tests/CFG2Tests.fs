@@ -130,7 +130,7 @@ type CFG2Tests () =
   member _.``Functions Test 2`` () =
     let brew = BinaryBrew hdl
     let bblAddrs = [ 0x00UL; 0x24UL ]
-    let callees = [ [ (0x07UL, RegularCallee 0x24UL) ]; [] ]
+    let callees = [ [ (LeafCallSite 0x07UL, RegularCallee 0x24UL) ]; [] ]
     (* CallEdges test *)
     let expected = makeMap bblAddrs callees
     let actual =

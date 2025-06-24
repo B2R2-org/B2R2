@@ -55,7 +55,9 @@ type SSALifter () =
       let pred = ssaCFG.GetPreds v |> Seq.exactlyOne
       let stmts = pred.VData.Internals.Statements
       let lastPP, _ = stmts[stmts.Length - 1]
-      intraCallTable.UpdateFrameDistance lastPP.Address offset
+      let lastInsAddr = lastPP.Address
+      let callsite = LeafCallSite lastInsAddr
+      intraCallTable.UpdateFrameDistance callsite offset
 #if CFGDEBUG
       dbglog ctx.ThreadID "FrameDistance" $"{lastPP.Address:x}: {offset}"
 #endif

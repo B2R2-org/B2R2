@@ -27,8 +27,8 @@ namespace B2R2
 /// <summary>
 /// Represents a specific location in a lifted program. We represent this as a
 /// three-tuple: (address of the instruction, index of the IR stmt for the
-/// instruction, address of a callsite). The third element is optional and only
-/// meaningful for abstract vertices.
+/// instruction, call site information). The third element (call site) is
+/// optional and only meaningful for abstract vertices.
 /// </summary>
 type ProgramPoint private (addr, pos, callsite) =
 
@@ -44,7 +44,7 @@ type ProgramPoint private (addr, pos, callsite) =
 
   /// Address of the callsite if this program point refers to an abstract
   /// vertex.
-  member _.CallSite with get(): Addr option = callsite
+  member _.CallSite with get(): CallSite option = callsite
 
   /// Compares against another program point.
   member this.CompareTo (rhs: ProgramPoint) =
@@ -62,10 +62,11 @@ type ProgramPoint private (addr, pos, callsite) =
     | _ -> false
 
   override this.GetHashCode () =
+    let addrHash = int this.Address
+    let posHash = this.Position <<< 16
     match this.CallSite with
-    | None -> int this.Address ^^^ (this.Position <<< 16)
-    | Some callSite ->
-      int this.Address ^^^ (this.Position <<< 16) + int callSite
+    | None -> addrHash ^^^ posHash
+    | Some callSite -> addrHash ^^^ posHash + callSite.GetHashCode ()
 
   override this.ToString () =
     match this.CallSite with
@@ -92,3 +93,24 @@ type ProgramPoint private (addr, pos, callsite) =
 
   interface System.IComparable<ProgramPoint> with
     member this.CompareTo (rhs) = this.CompareTo rhs
+
+/// Call site information of an abstract vertex in a control flow graph.
+/// Typically, there is a single concrete caller vertex that calls an abstract
+/// vertex. But in some cases, such as Continuation-Passing Style (CPS) patterns
+/// found in EVM binaries, an abstract vertex can have a chain of callers.
+and CallSite =
+  /// Call site address of a concrete vertex. This serves as an end point of a
+  /// call site chain.
+  | LeafCallSite of callsite: Addr
+  /// Chained call history from a callee to its original caller. The history
+  /// always ends with a LeafCallSite, and the caller address is the address of
+  /// the caller vertex, not the call site address. This is particularly useful
+  /// to represent CPS patterns present in EVM binaries.
+  | ChainedCallSite of history: CallSite * caller: Addr
+
+with
+  /// Returns the address of the leaf call site.
+  member this.CallSiteAddress with get (): Addr =
+    match this with
+    | LeafCallSite addr -> addr
+    | ChainedCallSite (cs, _) -> cs.CallSiteAddress

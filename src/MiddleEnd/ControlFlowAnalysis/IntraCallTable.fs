@@ -32,39 +32,39 @@ open B2R2
 /// relationships.
 [<AllowNullLiteral>]
 type IntraCallTable () =
-  let callees = SortedList<Addr, CalleeKind> ()
+  let callees = SortedList<CallSite, CalleeKind> ()
 
   /// Mapping from a callee address to its callsite address (i.e., the address
   /// of the call instruction).
-  let callsites = Dictionary<Addr, HashSet<Addr>> ()
+  let callsites = Dictionary<Addr, HashSet<CallSite>> ()
 
   /// The frame distances of callees in this function. This is a mapping from a
   /// callsite address to the distance from the stack base address of this
   /// function to the stack base address of the callee.
-  let frameDistances = Dictionary<Addr, int> ()
+  let frameDistances = Dictionary<CallSite, int> ()
 
   /// The callees of this function. This is a mapping from a callsite (call
   /// instruction) address to its callee kind.
   member _.Callees with get() = callees
 
   /// Add information about a regular function call.
-  member _.AddRegularCall callsiteAddr calleeAddr =
-    callees[callsiteAddr] <- RegularCallee calleeAddr
+  member _.AddRegularCall callsite calleeAddr =
+    callees[callsite] <- RegularCallee calleeAddr
     match callsites.TryGetValue calleeAddr with
-    | true, callsites -> callsites.Add callsiteAddr |> ignore
-    | false, _ -> callsites[calleeAddr] <- HashSet [ callsiteAddr ]
+    | true, callsites -> callsites.Add callsite |> ignore
+    | false, _ -> callsites[calleeAddr] <- HashSet [ callsite ]
 
   /// Add information about a syscall.
   member _.AddSystemCall callsiteAddr isExit =
     callees[callsiteAddr] <- SyscallCallee isExit
 
   /// Get a callee information for the given call instruction address.
-  member _.GetCallee (callsiteAddr: Addr) =
-    callees[callsiteAddr]
+  member _.GetCallee (callsite: CallSite) =
+    callees[callsite]
 
   /// Try to get a callee information for the given call instruction address.
-  member _.TryGetCallee (callsiteAddr: Addr) =
-    callees.TryGetValue callsiteAddr
+  member _.TryGetCallee (callsite: CallSite) =
+    callees.TryGetValue callsite
 
   /// Get a set of callsite addresses of a callee.
   member _.GetCallsites (calleeAddr: Addr) =
@@ -75,12 +75,12 @@ type IntraCallTable () =
     callsites.TryGetValue calleeAddr
 
   /// Update call frame distance information for the given callsite address.
-  member _.UpdateFrameDistance (callsiteAddr: Addr) distance =
-    frameDistances[callsiteAddr] <- distance
+  member _.UpdateFrameDistance (callsite: CallSite) distance =
+    frameDistances[callsite] <- distance
 
   /// Try to get a frame distance for the given callsite address.
-  member _.TryGetFrameDistance (callsiteAddr: Addr) =
-    frameDistances.TryGetValue callsiteAddr
+  member _.TryGetFrameDistance (callsite: CallSite) =
+    frameDistances.TryGetValue callsite
 
   member _.Reset () =
     callees.Clear ()

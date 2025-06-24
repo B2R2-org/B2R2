@@ -60,7 +60,7 @@ type Function (entryPoint,
   member _.NoRet with get(): NonReturningStatus = isNoRet
 
   /// Mapping from a callsite to its callee kind.
-  member _.Callees with get(): SortedList<Addr, CalleeKind> = callees
+  member _.Callees with get(): SortedList<CallSite, CalleeKind> = callees
 
   /// Callers of this function.
   member _.Callers with get(): HashSet<Addr> = callers

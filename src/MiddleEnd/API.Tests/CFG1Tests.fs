@@ -141,11 +141,11 @@ type CFG1Tests () =
   member _.``Functions Test 2`` () =
     let brew = BinaryBrew hdl
     let bblAddrs = [ 0x00UL; 0x62UL; 0x71UL ]
-    let callees = [ [ (0x14UL, RegularCallee 0x62UL)
-                      (0x4dUL, RegularCallee 0x62UL)
-                      (0x5aUL, RegularCallee 0x71UL) ]
+    let callees = [ [ (LeafCallSite 0x14UL, RegularCallee 0x62UL)
+                      (LeafCallSite 0x4dUL, RegularCallee 0x62UL)
+                      (LeafCallSite 0x5aUL, RegularCallee 0x71UL) ]
                     []
-                    [ (0x7fUL, SyscallCallee true) ] ]
+                    [ (LeafCallSite 0x7fUL, SyscallCallee true) ] ]
     let expected = makeMap bblAddrs callees
     let actual =
       brew.Functions.Sequence

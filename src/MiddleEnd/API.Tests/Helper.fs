@@ -50,7 +50,7 @@ module Helper =
   let makeMap keys values =
     List.fold2 (fun map k v -> Map.add k v map) Map.empty keys values
 
-  let extractCallEdgeArray (callees: SortedList<Addr, CalleeKind>) =
+  let extractCallEdgeArray (callees: SortedList<CallSite, CalleeKind>) =
     callees
     |> Seq.map (fun (KeyValue (k, v)) -> k, v)
     |> Seq.toList

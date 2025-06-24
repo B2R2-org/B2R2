@@ -163,7 +163,8 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
 
   let tryGetConnectedArgumentFromSSACFG ctx (ssa: SSACFG) state pp nth =
     let callSite = (pp: ProgramPoint).CallSite |> Option.get
-    let callerSSAV = findSSAVertexByAddr ssa callSite
+    let callSiteAddr = callSite.CallSiteAddress
+    let callerSSAV = findSSAVertexByAddr ssa callSiteAddr
     let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
     let isa = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA
     match ctx.IntraCallTable.TryGetFrameDistance callSite with

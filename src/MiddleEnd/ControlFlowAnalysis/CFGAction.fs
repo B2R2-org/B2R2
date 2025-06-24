@@ -38,16 +38,16 @@ type CFGAction =
   | ExpandCFG of addrs: seq<Addr>
   /// Create an abstract call node and connect it to the caller and fallthrough
   /// nodes when necessary.
-  | MakeCall of callSite: Addr * calleeAddr: Addr * CalleeInfo
+  | MakeCall of callSite: CallSite * calleeAddr: Addr * CalleeInfo
   /// Create an abstract tail-call node and connect it to the caller and
   /// fallthrough nodes when necessary.
-  | MakeTlCall of callSite: Addr * calleeAddr: Addr * CalleeInfo
+  | MakeTlCall of callSite: CallSite * calleeAddr: Addr * CalleeInfo
   /// Create an abstract call node for an indirect call and connect it to the
   /// caller and the fallthrough node.
-  | MakeIndCall of callSite: Addr
+  | MakeIndCall of callSite: CallSite
   /// Create an abstract syscall node and connect it to the caller and
   /// fallthrough nodes when necessary.
-  | MakeSyscall of callSite: Addr * exit: bool
+  | MakeSyscall of callSite: CallSite * exit: bool
   /// Create edges for an indirect branch. We find the possible targets of the
   /// indirect branch and connect them with the given basic block.
   | MakeIndEdges of bbl: Addr * ins: Addr

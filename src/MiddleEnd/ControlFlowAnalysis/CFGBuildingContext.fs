@@ -73,7 +73,7 @@ type CFGBuildingContext<'FnCtx,
   /// the callee to be built.
   PendingCallActions: Dictionary<Addr, List<CFGAction>>
   /// From a call site of a caller vertex to the caller vertex itself.
-  CallerVertices: Dictionary<Addr, IVertex<LowUIRBasicBlock>>
+  CallerVertices: Dictionary<CallSite, IVertex<LowUIRBasicBlock>>
   /// The number of unwinding bytes of the stack when this function returns.
   mutable UnwindingBytes: int
   /// The user-defined per-function context.
