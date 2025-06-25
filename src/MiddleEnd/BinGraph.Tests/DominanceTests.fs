@@ -114,13 +114,21 @@ type DominanceTests () =
        [| box Persistent; box DomCooper; box DFCooper; box None |]
        [| box Imperative; box DomCooper; box DFCytron; box None |]
        [| box Imperative; box DomCooper; box DFCooper; box None |]
-       [| box Persistent; box DBS; box DFCytron;
+       [| box Persistent
+          box DBS
+          box DFCytron
           box (Some DepthBasedSearchDominance.SemiNCA) |]
-       [| box Persistent; box DBS; box DFCooper;
+       [| box Persistent
+          box DBS
+          box DFCooper
           box (Some DepthBasedSearchDominance.SemiNCA) |]
-       [| box Imperative; box DBS; box DFCytron;
+       [| box Imperative
+          box DBS
+          box DFCytron
           box (Some DepthBasedSearchDominance.SemiNCA) |]
-       [| box Imperative; box DBS; box DFCooper;
+       [| box Imperative
+          box DBS
+          box DFCooper
           box (Some DepthBasedSearchDominance.SemiNCA) |] |]
 
   static member ComparisonData =

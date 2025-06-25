@@ -139,11 +139,40 @@ type ItaniumDemangler () =
     |>> OperatorIndicator.ofString |>> Operators
 
   let binaryOplist () =
-    ["pl"; "pL"; "pm"; "pt"; "mi"; "ml"; "mI"; "mL"; "dv"; "dV";
-    "rm"; "rM"; "rs"; "rS"; "ls"; "lS"; "lt"; "le"; "an"; "aN";
-    "aa"; "aS"; "or"; "oR"; "oo"; "eo"; "eq"; "ne"; "cm"; "gt";
-    "ge"; "sr"; "ix"; "qu"
-    ]
+    [ "pl"
+      "pL"
+      "pm"
+      "pt"
+      "mi"
+      "ml"
+      "mI"
+      "mL"
+      "dv"
+      "dV"
+      "rm"
+      "rM"
+      "rs"
+      "rS"
+      "ls"
+      "lS"
+      "lt"
+      "le"
+      "an"
+      "aN"
+      "aa"
+      "aS"
+      "or"
+      "oR"
+      "oo"
+      "eo"
+      "eq"
+      "ne"
+      "cm"
+      "gt"
+      "ge"
+      "sr"
+      "ix"
+      "qu" ]
 
   let pBOperator =
     binaryOplist () |> List.map pstring |> choice |>> OperatorIndicator.ofString

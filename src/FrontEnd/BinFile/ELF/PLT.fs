@@ -244,43 +244,124 @@ type X86PLTParser (shdrs, relocInfo, symbs) =
   let gotAddrOpt = tryFindGOTAddr shdrs
 
   let picLazyZeroEntry = (* push indirect addr; jmp; *)
-    [| OneByte 0xffuy; OneByte 0xb3uy; OneByte 0x04uy; AnyByte; AnyByte; AnyByte
-       OneByte 0xffuy; OneByte 0xa3uy; OneByte 0x08uy; AnyByte; AnyByte; AnyByte
-    |]
+    [| OneByte 0xffuy
+       OneByte 0xb3uy
+       OneByte 0x04uy
+       AnyByte
+       AnyByte
+       AnyByte
+       OneByte 0xffuy
+       OneByte 0xa3uy
+       OneByte 0x08uy
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let picLazyIbtEntry = (* (Ind-Branch-Tracking) endbr32; push; jmp rel; *)
-    [| OneByte 0xf3uy; OneByte 0x0fuy; OneByte 0x1euy; OneByte 0xfbuy;
-       OneByte 0x68uy; AnyByte; AnyByte; AnyByte; AnyByte
-       OneByte 0xe9uy; AnyByte; AnyByte; AnyByte; AnyByte
-       AnyByte; AnyByte |]
+    [| OneByte 0xf3uy
+       OneByte 0x0fuy
+       OneByte 0x1euy
+       OneByte 0xfbuy
+       OneByte 0x68uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       OneByte 0xe9uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let nonPicZeroEntry = (* push absolute addr; jmp; *)
-    [| OneByte 0xffuy; OneByte 0x35uy; AnyByte; AnyByte; AnyByte; AnyByte
-       OneByte 0xffuy; OneByte 0x25uy; AnyByte; AnyByte; AnyByte; AnyByte |]
+    [| OneByte 0xffuy
+       OneByte 0x35uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       OneByte 0xffuy
+       OneByte 0x25uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let nonPicIbtEntry = (* (Ind-Branch-Tracking) endbr32; jmp got; *)
-    [| OneByte 0xf3uy; OneByte 0x0fuy; OneByte 0x1euy; OneByte 0xfbuy;
-       OneByte 0x68uy; AnyByte; AnyByte; AnyByte; AnyByte
-       OneByte 0xe9uy; AnyByte; AnyByte; AnyByte; AnyByte
-       AnyByte; AnyByte |]
+    [| OneByte 0xf3uy
+       OneByte 0x0fuy
+       OneByte 0x1euy
+       OneByte 0xfbuy
+       OneByte 0x68uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       OneByte 0xe9uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let picNonLazyEntry = (* jmp indirect addr; nop *)
-    [| OneByte 0xffuy; OneByte 0xa3uy; AnyByte; AnyByte; AnyByte; AnyByte
-       AnyByte; AnyByte |]
+    [| OneByte 0xffuy
+       OneByte 0xa3uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let picNonLazyIbtEntry = (* endbr32; jmp got; *)
-    [| OneByte 0xf3uy; OneByte 0x0fuy; OneByte 0x1euy; OneByte 0xfbuy
-       OneByte 0xffuy; OneByte 0xa3uy; AnyByte; AnyByte; AnyByte; AnyByte
-       AnyByte; AnyByte; AnyByte; AnyByte; AnyByte; AnyByte |]
+    [| OneByte 0xf3uy
+       OneByte 0x0fuy
+       OneByte 0x1euy
+       OneByte 0xfbuy
+       OneByte 0xffuy
+       OneByte 0xa3uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let nonPicNonLazyEntry = (* jmp indirect addr; nop *)
-    [| OneByte 0xffuy; OneByte 0x25uy; AnyByte; AnyByte; AnyByte; AnyByte
-       AnyByte; AnyByte |]
+    [| OneByte 0xffuy
+       OneByte 0x25uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let nonPicNonLazyIbtEntry = (* endbr32; jmp got; *)
-    [| OneByte 0xf3uy; OneByte 0x0fuy; OneByte 0x1euy; OneByte 0xfbuy
-       OneByte 0xffuy; OneByte 0x25uy; AnyByte; AnyByte; AnyByte; AnyByte
-       AnyByte; AnyByte; AnyByte; AnyByte; AnyByte; AnyByte |]
+    [| OneByte 0xf3uy
+       OneByte 0x0fuy
+       OneByte 0x1euy
+       OneByte 0xfbuy
+       OneByte 0xffuy
+       OneByte 0x25uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let findX86PLTType (plt: ByteSpan) =
     if BytePattern.matchSpan picLazyZeroEntry plt then
@@ -343,39 +424,107 @@ type X64PLTParser (shdrs, relocInfo, symbs) =
   let gotAddrOpt = tryFindGOTAddr shdrs
 
   let lazyZeroEntry = (* push [got+8]; jmp [got+16]; *)
-    [| OneByte 0xffuy; OneByte 0x35uy; AnyByte; AnyByte; AnyByte; AnyByte
-       OneByte 0xffuy; OneByte 0x25uy; AnyByte; AnyByte; AnyByte; AnyByte |]
+    [| OneByte 0xffuy
+       OneByte 0x35uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       OneByte 0xffuy
+       OneByte 0x25uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let lazyIbtZeroEntry = (* (Ind-Br-Tracking) push [got+8]; bnd jmp [got+16]; *)
-    [| OneByte 0xffuy; OneByte 0x35uy; AnyByte; AnyByte; AnyByte; AnyByte
-       OneByte 0xf2uy; OneByte 0xffuy; OneByte 0x25uy; AnyByte; AnyByte
-       AnyByte; AnyByte |]
+    [| OneByte 0xffuy
+       OneByte 0x35uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       OneByte 0xf2uy
+       OneByte 0xffuy
+       OneByte 0x25uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let lazyIbtEntry = (* endbr64; push imm; bnd jmp rel; *)
-    [| OneByte 0xf3uy; OneByte 0x0fuy; OneByte 0x1euy; OneByte 0xfauy
-       OneByte 0x68uy; AnyByte; AnyByte; AnyByte; AnyByte
-       OneByte 0xf2uy; OneByte 0xe9uy; AnyByte; AnyByte; AnyByte; AnyByte
+    [| OneByte 0xf3uy
+       OneByte 0x0fuy
+       OneByte 0x1euy
+       OneByte 0xfauy
+       OneByte 0x68uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       OneByte 0xf2uy
+       OneByte 0xe9uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
        AnyByte |]
 
   let nonLazyEntry = (* jmp [got+16]; *)
-    [| OneByte 0xffuy; OneByte 0x25uy; AnyByte; AnyByte; AnyByte; AnyByte
-       AnyByte; AnyByte |]
+    [| OneByte 0xffuy
+       OneByte 0x25uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let nonLazyX32IbtEntry = (* endbr64; jmp [got+x]; nop [rax+rax*1+0] *)
-    [| OneByte 0xf3uy; OneByte 0x0fuy; OneByte 0x1euy; OneByte 0xfauy
-       OneByte 0xffuy; OneByte 0x25uy; AnyByte; AnyByte; AnyByte; AnyByte
-       OneByte 0x66uy; OneByte 0x0fuy; OneByte 0x1fuy; OneByte 0x44uy
-       OneByte 0x00uy; OneByte 0x00uy |]
+    [| OneByte 0xf3uy
+       OneByte 0x0fuy
+       OneByte 0x1euy
+       OneByte 0xfauy
+       OneByte 0xffuy
+       OneByte 0x25uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       OneByte 0x66uy
+       OneByte 0x0fuy
+       OneByte 0x1fuy
+       OneByte 0x44uy
+       OneByte 0x00uy
+       OneByte 0x00uy |]
 
   let eagerBndEntry = (* bnd jmp [got+n]] *)
-    [| OneByte 0xf2uy; OneByte 0xffuy; OneByte 0x25uy; AnyByte; AnyByte; AnyByte
-       AnyByte; AnyByte |]
+    [| OneByte 0xf2uy
+       OneByte 0xffuy
+       OneByte 0x25uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let eagerIbtEntry = (* endbr64; bnd jmp [got+n]] *)
-    [| OneByte 0xf3uy; OneByte 0x0fuy; OneByte 0x1euy; OneByte 0xfauy
-       OneByte 0xf2uy; OneByte 0xffuy; OneByte 0x25uy;
-       AnyByte; AnyByte; AnyByte; AnyByte
-       AnyByte; AnyByte; AnyByte; AnyByte; AnyByte |]
+    [| OneByte 0xf3uy
+       OneByte 0x0fuy
+       OneByte 0x1euy
+       OneByte 0xfauy
+       OneByte 0xf2uy
+       OneByte 0xffuy
+       OneByte 0x25uy
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte
+       AnyByte |]
 
   let findX64PLTType (plt: ByteSpan) =
     if BytePattern.matchSpan lazyZeroEntry plt then

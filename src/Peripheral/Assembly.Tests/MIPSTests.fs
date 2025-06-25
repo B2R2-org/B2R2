@@ -74,7 +74,7 @@ type MIPSTests () =
                      OpImm 1UL)
     let operands2 = OneOperand (OpAddr (Relative -8L))
     let answer =
-      [ newInfo mips 0UL Opcode.BEQ None None operands1;
+      [ newInfo mips 0UL Opcode.BEQ None None operands1
         newInfo mips 4UL Opcode.JR None None operands2 ]
     Assert.AreEqual (answer, result)
 

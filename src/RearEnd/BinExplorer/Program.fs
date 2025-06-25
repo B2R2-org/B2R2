@@ -163,37 +163,36 @@ type BinExplorerOpts (isa) =
 
 let spec =
   [ CmdOpts.New ( descr="[Input Configuration]\n", dummy=true )
-
+    (* *)
     BinExplorerOpts.OptISA ()
-
+    (* *)
     CmdOpts.New ( descr="\n[Host Configuration]\n", dummy=true )
-
+    (* *)
     BinExplorerOpts.OptIP ()
     BinExplorerOpts.OptPort ()
-
+    (* *)
     CmdOpts.New ( descr="\n[Logging Configuration]\n", dummy=true )
-
+    (* *)
     BinExplorerOpts.OptLogFile ()
-
+    (* *)
     CmdOpts.New ( descr="\n[Analyses]\n", dummy=true )
-
+    (* *)
     BinExplorerOpts.OptDisableNoReturn ()
     BinExplorerOpts.OptDisableBranchRecovery ()
     BinExplorerOpts.OptDisableSpeculativeGapCompletion ()
-
+    (* *)
     CmdOpts.New ( descr="\n[Extra]\n", dummy=true )
-
+    (* *)
     BinExplorerOpts.OptReadLine ()
     BinExplorerOpts.OptJsonDumpDir ()
     BinExplorerOpts.OptEVMAbiFile ()
     BinExplorerOpts.OptDisableEVMAnalysis ()
     CmdOpts.OptVerbose ()
     CmdOpts.OptHelp ()
-
+    (* *)
     CmdOpts.New ( descr="\n[Batch Mode]\n", dummy=true )
     CmdOpts.New ( descr="Run in batch mode (w/o interative shell).",
-                  long = "--batch" )
-  ]
+                  long = "--batch" ) ]
 
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose

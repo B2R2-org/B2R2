@@ -164,8 +164,7 @@ type DataFlowTests () =
     let chain = DataFlowChain.init cfg false
     let vp = reg 0x1AUL 1 Register.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
-    let solution = [| reg 0x12UL 3 Register.EDX
-                      reg 0x1AUL 3 Register.EDX |]
+    let solution = [| reg 0x12UL 3 Register.EDX; reg 0x1AUL 3 Register.EDX |]
     CollectionAssert.AreEqual (solution, res)
 #endif
 
