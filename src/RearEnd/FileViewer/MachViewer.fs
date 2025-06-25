@@ -91,14 +91,36 @@ let dumpSectionHeaders (opts: FileViewerOpts) (mach: MachBinFile) =
   let addrColumn = columnWidthOfAddr mach |> LeftAligned
   let file = mach :> IBinFile
   if opts.Verbose then
-    let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 16
-                LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
-                LeftAligned 10; LeftAligned 6; LeftAligned 22
-                LeftAligned 4; LeftAligned 4; LeftAligned 8 ]
-    out.PrintRow (true, cfg, [ "Num"; "Start"; "End"; "Name"
-                               "SegName"; "Size"; "Offset"; "Align"
-                               "SecRelOff"; "#Reloc"; "Type"
-                               "Res1"; "Res2"; "Attrib" ])
+    let cfg =
+      [ LeftAligned 4
+        addrColumn
+        addrColumn
+        LeftAligned 16
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 10
+        LeftAligned 6
+        LeftAligned 22
+        LeftAligned 4
+        LeftAligned 4
+        LeftAligned 8 ]
+    out.PrintRow (true, cfg,
+      [ "Num"
+        "Start"
+        "End"
+        "Name"
+        "SegName"
+        "Size"
+        "Offset"
+        "Align"
+        "SecRelOff"
+        "#Reloc"
+        "Type"
+        "Res1"
+        "Res2"
+        "Attrib" ])
     out.PrintLine "  ---"
     mach.Sections
     |> Array.iteri (fun idx s ->
@@ -119,8 +141,8 @@ let dumpSectionHeaders (opts: FileViewerOpts) (mach: MachBinFile) =
           HexString.ofUInt32 (uint32 s.SecAttrib) ])
       translateAttribs (uint64 s.SecAttrib)
       |> List.iter (fun str ->
-        out.PrintRow (true, cfg, [ ""; ""; ""; ""; ""; ""; ""; ""; ""
-                                   ""; ""; ""; ""; str ]))
+        out.PrintRow (true, cfg,
+          [ ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; str ]))
     )
   else
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
@@ -132,7 +154,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (mach: MachBinFile) =
         [ String.wrapSqrdBracket (idx.ToString ())
           (Addr.toString file.ISA.WordSize s.SecAddr)
           (Addr.toString file.ISA.WordSize (s.SecAddr + uint64 s.SecSize - 1UL))
-          normalizeEmpty s.SecName]))
+          normalizeEmpty s.SecName ]))
 
 let dumpSectionDetails (secName: string) (file: MachBinFile) =
   match file.Sections |> Array.tryFind (fun s -> s.SecName = secName) with
@@ -207,7 +229,10 @@ let printSymbolInfoVerbose file (symb: Mach.Symbol) vis cfg =
       symb.SymDesc.ToString ()
       symb.IsExternal.ToString ()
       getLibName symb
-      String.wrapSqrdBracket (symb.SecNum.ToString ()); ""; ""; "" ])
+      String.wrapSqrdBracket (symb.SecNum.ToString ())
+      ""
+      ""
+      "" ])
 
 
 let printSymbolInfoNonVerbose mach (symb: Mach.Symbol) vis cfg =
@@ -221,12 +246,26 @@ let printSymbolInfoNonVerbose mach (symb: Mach.Symbol) vis cfg =
 let printSymbolInfo isVerbose (mach: MachBinFile) =
   let addrColumn = columnWidthOfAddr mach |> LeftAligned
   if isVerbose then
-    let cfg = [ LeftAligned 3; addrColumn; LeftAligned 40; LeftAligned 35
-                LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
-                LeftAligned 8 ]
-    out.PrintRow (true, cfg, [ "S/D"; "Address"; "Name"; "Lib Name"
-                               "Type"; "Description"; "External"; "Version"
-                               "SectionIndex" ])
+    let cfg =
+      [ LeftAligned 3
+        addrColumn
+        LeftAligned 40
+        LeftAligned 35
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8 ]
+    out.PrintRow (true, cfg,
+      [ "S/D"
+        "Address"
+        "Name"
+        "Lib Name"
+        "Type"
+        "Description"
+        "External"
+        "Version"
+        "SectionIndex" ])
     out.PrintLine "  ---"
     mach.StaticSymbols
     |> Array.sortBy (fun s -> s.SymName)
@@ -237,8 +276,12 @@ let printSymbolInfo isVerbose (mach: MachBinFile) =
     |> Array.sortBy (fun s -> s.SymAddr)
     |> Array.iter (fun s -> printSymbolInfoVerbose mach s "(d)" cfg)
   else
-    let cfg = [ LeftAligned 3; LeftAligned 10
-                addrColumn; LeftAligned 55; LeftAligned 15 ]
+    let cfg =
+      [ LeftAligned 3
+        LeftAligned 10
+        addrColumn
+        LeftAligned 55
+        LeftAligned 15 ]
     out.PrintRow (true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
     out.PrintLine "  ---"
     mach.StaticSymbols
@@ -261,16 +304,19 @@ let dumpRelocs (_: FileViewerOpts) (mach: MachBinFile) =
     let addr = reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
     let name = reloc.GetName (mach.Symbols.Values, mach.Sections)
     let len = reloc.RelocAddr
-    out.PrintRow (true, cfg, [
-      Addr.toString (mach :> IBinFile).ISA.WordSize addr
-      name
-      $"{len}"
-    ])
+    out.PrintRow (true, cfg,
+      [ Addr.toString (mach :> IBinFile).ISA.WordSize addr
+        name
+        $"{len}" ])
 
 let dumpFunctions (opts: FileViewerOpts) (mach: MachBinFile) =
   let addrColumn = columnWidthOfAddr mach |> LeftAligned
-  let cfg = [ LeftAligned 3; LeftAligned 10
-              addrColumn; LeftAligned 55; LeftAligned 15 ]
+  let cfg =
+    [ LeftAligned 3
+      LeftAligned 10
+      addrColumn
+      LeftAligned 55
+      LeftAligned 15 ]
   for addr in (mach :> IBinFile).GetFunctionAddresses () do
     match mach.Symbols.SymbolMap.TryFind addr with
     | Some symb -> printSymbolInfoNonVerbose mach symb "" cfg

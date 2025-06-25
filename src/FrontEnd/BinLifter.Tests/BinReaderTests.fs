@@ -54,18 +54,25 @@ type BinReaderTests () =
   member _.``LEB128 to UInt64 Test`` () =
     let samples =
       [| (* (LEB encoded bytes, Decoded number) *)
-        ([| 0x00uy |], 0x00UL)
-        ([| 0x7fuy |], 0x7fUL)
-        ([| 0x80uy; 0x01uy |], 0x80UL)
-        ([| 0xffuy; 0x01uy |], 0xffUL)
-        ([| 0x9duy; 0x12uy |], 0x091dUL)
-        ([| 0x97uy; 0xdeuy; 0x03uy |], 0xef17UL)
-        ([| 0xe5uy; 0x8euy; 0x26uy |], 0x098765UL)
-        ([| 0xffuy; 0xffuy; 0x03uy |], 0xffffUL)
-        ([| 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy;
-            0xffuy; 0xffuy; 0xffuy; 0xffuy; 0x01uy |], 18446744073709551615UL)
-        ([| 0x83uy; 0x00uy |], 0x03UL)
-      |]
+         ([| 0x00uy |], 0x00UL)
+         ([| 0x7fuy |], 0x7fUL)
+         ([| 0x80uy; 0x01uy |], 0x80UL)
+         ([| 0xffuy; 0x01uy |], 0xffUL)
+         ([| 0x9duy; 0x12uy |], 0x091dUL)
+         ([| 0x97uy; 0xdeuy; 0x03uy |], 0xef17UL)
+         ([| 0xe5uy; 0x8euy; 0x26uy |], 0x098765UL)
+         ([| 0xffuy; 0xffuy; 0x03uy |], 0xffffUL)
+         ([| 0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0x01uy |], 18446744073709551615UL)
+         ([| 0x83uy; 0x00uy |], 0x03UL) |]
     for bytes, value in samples do
       let r = BinReader.Init ()
       let v, _ = r.ReadUInt64LEB128 (bytes, 0)
@@ -75,16 +82,15 @@ type BinReaderTests () =
   member _.``LEB128 to UInt32 Test`` () =
     let samples =
       [| (* (LEB encoded bytes, Decoded number) *)
-        ([| 0x00uy |], 0x00u)
-        ([| 0x7fuy |], 0x7fu)
-        ([| 0x80uy; 0x01uy |], 0x80u)
-        ([| 0xffuy; 0x01uy |], 0xffu)
-        ([| 0x9duy; 0x12uy |], 0x091du)
-        ([| 0x97uy; 0xdeuy; 0x03uy |], 0xef17u)
-        ([| 0xe5uy; 0x8euy; 0x26uy |], 0x098765u)
-        ([| 0xffuy; 0xffuy; 0x03uy |], 0xffffu)
-        ([| 0x83uy; 0x00uy |], 0x03u)
-      |]
+         ([| 0x00uy |], 0x00u)
+         ([| 0x7fuy |], 0x7fu)
+         ([| 0x80uy; 0x01uy |], 0x80u)
+         ([| 0xffuy; 0x01uy |], 0xffu)
+         ([| 0x9duy; 0x12uy |], 0x091du)
+         ([| 0x97uy; 0xdeuy; 0x03uy |], 0xef17u)
+         ([| 0xe5uy; 0x8euy; 0x26uy |], 0x098765u)
+         ([| 0xffuy; 0xffuy; 0x03uy |], 0xffffu)
+         ([| 0x83uy; 0x00uy |], 0x03u) |]
     for bytes, value in samples do
       let r = BinReader.Init ()
       let v, _ = r.ReadUInt32LEB128 (bytes, 0)
@@ -94,21 +100,36 @@ type BinReaderTests () =
   member _.``LEB128 to SInt64 Test`` () =
     let samples =
       [| (* (LEB encoded bytes, Decoded number) *)
-        ([| 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy;
-            0xffuy; 0xffuy; 0xffuy; 0xffuy; 0x00uy; |], 9223372036854775807L)
-        ([| 0x97uy; 0xdeuy; 0x03uy |], 0xef17L)
-        ([| 0xC0uy; 0x00uy |], 0x40L)
-        ([| 0x3fuy |], 0x3fL)
-        ([| 0x01uy |], 1L)
-        ([| 0x00uy |], 0L)
-        ([| 0x7fuy |], -1L)
-        ([| 0x40uy |], -64L)
-        ([| 0xbfuy; 0x7fuy |], -65L)
-        ([| 0x9Buy; 0xF1uy; 0x59uy |], -624485L)
-        ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy;
-            0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |], -9223372036854775808L)
-        ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy |], -268435456L)
-      |]
+         ([| 0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0xffuy
+             0x00uy |], 9223372036854775807L)
+         ([| 0x97uy; 0xdeuy; 0x03uy |], 0xef17L)
+         ([| 0xC0uy; 0x00uy |], 0x40L)
+         ([| 0x3fuy |], 0x3fL)
+         ([| 0x01uy |], 1L)
+         ([| 0x00uy |], 0L)
+         ([| 0x7fuy |], -1L)
+         ([| 0x40uy |], -64L)
+         ([| 0xbfuy; 0x7fuy |], -65L)
+         ([| 0x9Buy; 0xF1uy; 0x59uy |], -624485L)
+         ([| 0x80uy
+             0x80uy
+             0x80uy
+             0x80uy
+             0x80uy
+             0x80uy
+             0x80uy
+             0x80uy
+             0x80uy
+             0x7fuy |], -9223372036854775808L)
+         ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy |], -268435456L) |]
     for bytes, value in samples do
       let r = BinReader.Init ()
       let v, _ = r.ReadInt64LEB128 (bytes, 0)
@@ -118,17 +139,16 @@ type BinReaderTests () =
   member _.``LEB128 to SInt32 Test`` () =
     let samples =
       [| (* (LEB encoded bytes, Decoded number) *)
-        ([| 0x97uy; 0xdeuy; 0x03uy |], 0xef17)
-        ([| 0xC0uy; 0x00uy |], 0x40)
-        ([| 0x3fuy |], 0x3f)
-        ([| 0x01uy |], 1)
-        ([| 0x00uy |], 0)
-        ([| 0x7fuy |], -1)
-        ([| 0x40uy |], -64)
-        ([| 0xbfuy; 0x7fuy |], -65)
-        ([| 0x9Buy; 0xF1uy; 0x59uy |], -624485)
-        ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy |], -268435456)
-      |]
+         ([| 0x97uy; 0xdeuy; 0x03uy |], 0xef17)
+         ([| 0xC0uy; 0x00uy |], 0x40)
+         ([| 0x3fuy |], 0x3f)
+         ([| 0x01uy |], 1)
+         ([| 0x00uy |], 0)
+         ([| 0x7fuy |], -1)
+         ([| 0x40uy |], -64)
+         ([| 0xbfuy; 0x7fuy |], -65)
+         ([| 0x9Buy; 0xF1uy; 0x59uy |], -624485)
+         ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy |], -268435456) |]
     for bytes, value in samples do
       let r = BinReader.Init ()
       let v, _ = r.ReadInt32LEB128 (bytes, 0)
@@ -137,8 +157,17 @@ type BinReaderTests () =
   [<TestMethod>]
   member _.``LEB128 Overflow Handling Test`` () =
     let testcase =
-      [| 0xffuy; 0x80uy; 0x80uy; 0x80uy; 0x80uy;
-         0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy |]
+      [| 0xffuy
+         0x80uy
+         0x80uy
+         0x80uy
+         0x80uy
+         0x80uy
+         0x80uy
+         0x80uy
+         0x80uy
+         0x80uy
+         0x7fuy |]
     let toBool decode =
       try
         decode () |> ignore

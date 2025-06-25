@@ -378,8 +378,22 @@ type BitVectorTests () =
   [<TestMethod>]
   member _.``BitVector from Array (Beware of the MSB)``() =
     let arr =
-      [| 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 248uy; 127uy;
-         0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 240uy; 255uy |]
+      [| 0uy
+         0uy
+         0uy
+         0uy
+         0uy
+         0uy
+         248uy
+         127uy
+         0uy
+         0uy
+         0uy
+         0uy
+         0uy
+         0uy
+         240uy
+         255uy |]
     let e1 = OfArr arr
     let t1 = OfUInt64 0xFFF0000000000000UL 64<rt>
     let t2 = OfUInt64 0x7FF8000000000000UL 64<rt>

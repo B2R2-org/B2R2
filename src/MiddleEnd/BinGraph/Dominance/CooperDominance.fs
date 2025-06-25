@@ -75,7 +75,7 @@ let private prepareWithDummyRoot g info =
     let v = info.Vertex[i]
     let preds =
       if realRoots |> Array.contains v then
-        [| n;
+        [| n
            yield! (g: IDiGraphAccessible<_, _>).GetPreds v
                   |> Array.map (fun p -> info.NumMap[p.ID]) |]
       else

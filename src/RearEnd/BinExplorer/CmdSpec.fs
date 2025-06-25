@@ -27,8 +27,7 @@ module internal B2R2.RearEnd.BinExplorer.CmdSpec
 /// Command specification in *alphabetic* order. The entries in this list
 /// should match with the KeyWords of help commands (in defaultCmds).
 let speclist =
-  [
-    CmdBinInfo () :> Cmd
+  [ CmdBinInfo () :> Cmd
     CmdCredits () :> Cmd
     CmdDemangle () :> Cmd
     CmdEvalExpr ("?", ["?x"], "hex", "", HexadecimalF) :> Cmd
@@ -47,7 +46,6 @@ let speclist =
     CmdPrint () :> Cmd
     (* Default commands *)
     CmdHelp () :> Cmd
-    CmdExit () :> Cmd
-  ]
+    CmdExit () :> Cmd ]
 
 // vim: set tw=80 sts=2 sw=2:

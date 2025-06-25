@@ -93,14 +93,33 @@ let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
   let file = pe :> IBinFile
   if opts.Verbose then
-    let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24
-                LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
-                LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
-                LeftAligned 8 ]
+    let cfg =
+      [ LeftAligned 4
+        addrColumn
+        addrColumn
+        LeftAligned 24
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8
+        LeftAligned 8 ]
     out.PrintRow (true, cfg,
-      [ "Num"; "Start"; "End"; "Name"
-        "VirtSize"; "VirtAddr"; "RawSize"; "RawPtr"
-        "RelocPtr"; "LineNPtr"; "RelocNum"; "LineNNum"
+      [ "Num"
+        "Start"
+        "End"
+        "Name"
+        "VirtSize"
+        "VirtAddr"
+        "RawSize"
+        "RawPtr"
+        "RelocPtr"
+        "LineNPtr"
+        "RelocNum"
+        "LineNNum"
         "Characteristics" ])
     out.PrintLine "  ---"
     pe.SectionHeaders
@@ -125,8 +144,8 @@ let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
           HexString.ofUInt64 characteristics ])
       translateSectionChracteristics characteristics
       |> List.iter (fun str ->
-        out.PrintRow (true, cfg, [ ""; ""; ""; ""; ""; ""; ""
-                                   ""; ""; ""; ""; ""; str ])))
+        out.PrintRow (true, cfg,
+          [ ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; str ])))
   else
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
     out.PrintRow (true, cfg, [ "Num"; "Start"; "End"; "Name" ])
@@ -195,8 +214,12 @@ let printSymbolRow pe cfg vis flags addr name libName =
 
 let printSymbolInfo (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
-  let cfg = [ LeftAligned 3; LeftAligned 10
-              addrColumn; LeftAligned 50; LeftAligned 15 ]
+  let cfg =
+    [ LeftAligned 3
+      LeftAligned 10
+      addrColumn
+      LeftAligned 50
+      LeftAligned 15 ]
   out.PrintRow (true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
   out.PrintLine "  ---"
   for s in pe.Symbols.SymbolArray do
@@ -236,10 +259,9 @@ let dumpRelocs _ (pe: PEBinFile) =
   for block in pe.RelocBlocks do
     for entry in block.Entries do
       let addr = uint64 block.PageRVA + uint64 entry.Offset
-      out.PrintRow (true, cfg, [
-        Addr.toString (pe :> IBinFile).ISA.WordSize addr
-        $"{entry.Type}"
-      ])
+      out.PrintRow (true, cfg,
+        [ Addr.toString (pe :> IBinFile).ISA.WordSize addr
+          $"{entry.Type}" ])
 
 let dumpFunctions _ (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
@@ -249,10 +271,9 @@ let dumpFunctions _ (pe: PEBinFile) =
   for addr in (pe :> IBinFile).GetFunctionAddresses () do
     match (pe :> IBinFile).TryFindName addr with
     | Ok name ->
-      out.PrintRow (true, cfg, [
-        Addr.toString (pe :> IBinFile).ISA.WordSize addr
-        name
-      ])
+      out.PrintRow (true, cfg,
+        [ Addr.toString (pe :> IBinFile).ISA.WordSize addr
+          name ])
     | Error _ -> ()
 
 let inline addrFromRVA baseAddr rva =

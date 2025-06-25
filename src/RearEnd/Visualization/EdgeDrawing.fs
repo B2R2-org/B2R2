@@ -383,13 +383,21 @@ let private computeRegularEdgePoints isBackEdge dummies boxes q r qBox rBox =
       { r2 with X = r2.X + 0.55 * qWidth * if arriveLeft then -1.0 else 1.0 }
     let q4 = { q3 with Y = qBox.TopLeft.Y }
     let r4 = { r3 with Y = rBox.BottomLeft.Y }
-    [ q1; q2; q3; q4
+    [ q1
+      q2
+      q3
+      q4
       yield! (computePList (Array.ofList intersectingLines) r4 q4 |> List.rev)
-      r4; r3; r2; r1 ]
+      r4
+      r3
+      r2
+      r1 ]
   else
-    [ q1; q2
+    [ q1
+      q2
       yield! (computePList (intersectingLines |> Array.ofList) q2 r2)
-      r2; r1 ]
+      r2
+      r1 ]
 
 /// Draw a regular edge from q to r.
 let private drawRegular g vLayout boxes dummyMap (q, r, edge: VisEdge) =

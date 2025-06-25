@@ -119,10 +119,38 @@ let [<Literal>] DBIStreamIndex = 3
 /// start with a specific magic number.
 let isValidHeader (span: ByteSpan) (reader: IBinReader) =
   let magicBytes =
-    [| 'M'; 'i'; 'c'; 'r'; 'o'; 's'; 'o'; 'f';
-       't'; ' '; 'C'; '/'; 'C'; '+'; '+'; ' ';
-       'M'; 'S'; 'F'; ' '; '7'; '.'; '0'; '0';
-       '\013'; '\010'; '\026'; 'D'; 'S'; '\000'; '\000'; '\000' |]
+    [| 'M'
+       'i'
+       'c'
+       'r'
+       'o'
+       's'
+       'o'
+       'f'
+       't'
+       ' '
+       'C'
+       '/'
+       'C'
+       '+'
+       '+'
+       ' '
+       'M'
+       'S'
+       'F'
+       ' '
+       '7'
+       '.'
+       '0'
+       '0'
+       '\013'
+       '\010'
+       '\026'
+       'D'
+       'S'
+       '\000'
+       '\000'
+       '\000' |]
   reader.ReadChars (span, 0, 32) = magicBytes
 
 let parseSuperBlock (span: ByteSpan) (reader: IBinReader) =

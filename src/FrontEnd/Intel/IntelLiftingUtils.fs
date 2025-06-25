@@ -154,12 +154,20 @@ let private getMemExprs expr =
 let private pseudoRegVars bld r =
   match Register.getKind r with
   | Register.Kind.XMM -> [ pseudoRegVar bld r 1; pseudoRegVar bld r 2 ]
-  | Register.Kind.YMM -> [ pseudoRegVar bld r 1; pseudoRegVar bld r 2
-                           pseudoRegVar bld r 3; pseudoRegVar bld r 4 ]
-  | Register.Kind.ZMM -> [ pseudoRegVar bld r 1; pseudoRegVar bld r 2
-                           pseudoRegVar bld r 3; pseudoRegVar bld r 4
-                           pseudoRegVar bld r 5; pseudoRegVar bld r 6
-                           pseudoRegVar bld r 7; pseudoRegVar bld r 8 ]
+  | Register.Kind.YMM ->
+    [ pseudoRegVar bld r 1
+      pseudoRegVar bld r 2
+      pseudoRegVar bld r 3
+      pseudoRegVar bld r 4 ]
+  | Register.Kind.ZMM ->
+    [ pseudoRegVar bld r 1
+      pseudoRegVar bld r 2
+      pseudoRegVar bld r 3
+      pseudoRegVar bld r 4
+      pseudoRegVar bld r 5
+      pseudoRegVar bld r 6
+      pseudoRegVar bld r 7
+      pseudoRegVar bld r 8 ]
   | _ -> raise InvalidOperandException
 
 let isSegReg = function

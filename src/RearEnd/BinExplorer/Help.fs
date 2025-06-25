@@ -37,8 +37,7 @@ type CmdHelp () =
     [| yield generalHelpStr
        for KeyValue(name, cmd) in cmdMap.CmdMap do
          if cmd.CmdName = name then yield "- " + name + ": " + cmd.CmdDescr
-         else ()
-    |]
+         else () |]
 
   let specificHelp cmd cmdMap =
     match Map.tryFind cmd cmdMap.CmdMap with
