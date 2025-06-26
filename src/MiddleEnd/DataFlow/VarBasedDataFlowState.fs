@@ -450,16 +450,18 @@ type VarBasedDataFlowState<'Lattice>
 
   /// Try to get the definition of the given SSA variable in an SSA form.
   member _.TryGetSSADef v =
-    let vp = ssaVarToVp[v]
-    let pp = vp.ProgramPoint
-    let stmt, v = stmtOfBBLs[pp]
-    let pp' = v.VData.Internals.PPoint
-    let isPhi = pp = pp'
-    if not isPhi then
-      match translateToSSAStmt pp stmt with
-      | SSA.SideEffect _ -> None
-      | s -> Some s
-    else generatePhiSSAStmt vp |> Some
+    if not <| ssaVarToVp.ContainsKey v then None
+    else
+      let vp = ssaVarToVp[v]
+      let pp = vp.ProgramPoint
+      let stmt, v = stmtOfBBLs[pp]
+      let pp' = v.VData.Internals.PPoint
+      let isPhi = pp = pp'
+      if not isPhi then
+        match translateToSSAStmt pp stmt with
+        | SSA.SideEffect _ -> None
+        | s -> Some s
+      else generatePhiSSAStmt vp |> Some
 
   /// Reset this state.
   member _.Reset () = reset ()
