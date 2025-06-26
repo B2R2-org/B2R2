@@ -403,6 +403,9 @@ type VarBasedDataFlowState<'Lattice>
   /// Mapping from a variable use to its definition.
   member _.UseDefMap with get () = useDefMap
 
+  /// Mapping from a SSA variable to its corresponding variable point.
+  member _.SSAVarToVp with get () = ssaVarToVp
+
   /// Mapping from a program point to `StmtOfBBL`, which is a pair of a Low-UIR
   /// statement and its corresponding vertex that contains the statement.
   member _.StmtOfBBLs with get () = stmtOfBBLs
