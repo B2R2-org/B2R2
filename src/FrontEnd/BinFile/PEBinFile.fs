@@ -117,13 +117,12 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
         let vmaSize = getVirtualSectionSize sec
         if addr >= vma && addr < vma + uint64 vmaSize then
           found <- true
+          maxOffset <- sec.PointerToRawData + sec.SizeOfRawData - 1
           if addr < vma + uint64 sec.SizeOfRawData then
             offset <- sec.PointerToRawData + int (addr - vma)
-            maxOffset <- sec.PointerToRawData + sec.SizeOfRawData - 1
             maxAddr <- vma + uint64 sec.SizeOfRawData - 1UL
           else
-            offset <- sec.PointerToRawData + int (addr - vma)
-            maxOffset <- sec.PointerToRawData + vmaSize - 1
+            offset <- maxOffset
             maxAddr <- vma + uint64 vmaSize - 1UL
         else idx <- idx + 1
       BinFilePointer (addr, maxAddr, offset, maxOffset)

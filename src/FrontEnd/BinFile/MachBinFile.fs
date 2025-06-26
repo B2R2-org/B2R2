@@ -132,13 +132,12 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
         let seg = segCmds[idx]
         if addr >= seg.VMAddr && addr < seg.VMAddr + seg.VMSize then
           found <- true
+          maxOffset <- int seg.FileOff + int seg.FileSize - 1
           if addr < seg.VMAddr + seg.FileSize then
             offset <- int seg.FileOff + int (addr - seg.VMAddr)
-            maxOffset <- int seg.FileOff + int seg.FileSize - 1
             maxAddr <- seg.VMAddr + seg.FileSize - 1UL
           else
-            offset <- int seg.FileOff + int (addr - seg.VMAddr)
-            maxOffset <- int seg.FileOff + int seg.VMSize - 1
+            offset <- maxOffset
             maxAddr <- seg.VMAddr + seg.VMSize - 1UL
         else idx <- idx + 1
       BinFilePointer (addr, maxAddr, offset, maxOffset)

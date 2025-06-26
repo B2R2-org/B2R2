@@ -158,13 +158,12 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
         let ph = phdrs[idx]
         if addr >= ph.PHAddr && addr < ph.PHAddr + ph.PHMemSize then
           found <- true
+          maxOffset <- int ph.PHOffset + int ph.PHFileSize - 1
           if addr < ph.PHAddr + ph.PHFileSize then
             offset <- int ph.PHOffset + int (addr - ph.PHAddr)
-            maxOffset <- int ph.PHOffset + int ph.PHFileSize - 1
             maxAddr <- ph.PHAddr + ph.PHFileSize - 1UL
           else
-            offset <- int ph.PHOffset + int (addr - ph.PHAddr)
-            maxOffset <- int ph.PHOffset + int ph.PHMemSize - 1
+            offset <- maxOffset
             maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
         else idx <- idx + 1
       BinFilePointer (addr, maxAddr, offset, maxOffset)
