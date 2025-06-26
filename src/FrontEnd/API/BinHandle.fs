@@ -73,16 +73,19 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt) =
       invalidArg (nameof size) (ErrorCase.toString ErrorCase.InvalidMemoryRead)
 
   let rec readAscii acc (ptr: BinFilePointer) =
-    if ptr.IsValid then
+    if ptr.IsValid && not ptr.IsVirtual then
       let b = binFile.RawBytes[ptr.Offset]
       if b = 0uy then List.rev (b :: acc) |> List.toArray
       else readAscii (b :: acc) (BinFilePointer.Advance ptr 1)
     else List.rev acc |> List.toArray
 
   let readOrPartialReadBytes (ptr: BinFilePointer) nBytes =
-    let len = ptr.MaxOffset - ptr.Offset + 1
-    let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
-    let arr = span.Slice(0, nBytes).ToArray ()
+    let arr =
+      if ptr.IsVirtual then Array.zeroCreate nBytes
+      else
+        let len = ptr.MaxOffset - ptr.Offset + 1
+        let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
+        span.Slice(0, nBytes).ToArray ()
     if ptr.CanRead nBytes then Ok arr (* full result *)
     else Error arr (* partial result *)
 

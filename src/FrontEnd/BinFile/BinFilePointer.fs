@@ -66,6 +66,11 @@ with
     && this.Offset = 0
     && this.MaxOffset = 0
 
+  /// Checks if the pointer is virtual, meaning that it currently points to a
+  /// region that is mapped to VM but not to the file.
+  member inline this.IsVirtual with get () =
+    this.Offset = this.MaxOffset
+
   /// Returns the amount of bytes that can be read from the pointer.
   member inline this.ReadableAmount with get () =
     int (this.MaxAddr - this.Addr + 1UL)
