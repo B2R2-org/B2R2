@@ -239,6 +239,11 @@ and [<AllowNullLiteral>]
                      'GlCtx when 'FnCtx :> IResettable
                              and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)> =
+  /// Start building a function at the given address if it is not (being) built.
+  abstract StartBuilding:
+       addr: Addr
+    -> unit
+
   /// Update the dependency between two functions and return the current
   /// building context of the callee.
   abstract AddDependency:

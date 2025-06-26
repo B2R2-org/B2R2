@@ -52,6 +52,9 @@ type InternalFnCFGBuilder<'FnCtx,
 
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
+        member _.StartBuilding (addr) =
+          manager.Post <| StartBuilding addr
+
         member _.AddDependency (caller, callee) =
           manager.PostAndReply (fun _ ch ->
             AddDependency (caller, callee, ch))
