@@ -72,15 +72,14 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
     | Some lsdaPointer ->
       loopCallSiteTable fde true tbl (loadCallSiteTable lsdaPointer lsdaTbl)
 
-  let fnRanges = HashSet ()
+  let fnRanges = Dictionary<Addr, Addr> ()
 
   let accumulateExceptionTableInfo acc fdes lsdaTbl =
     fdes
     |> Array.fold (fun exnTbl fde ->
        let exnTbl, isFDEFunction = buildExceptionTable fde lsdaTbl exnTbl
        if isFDEFunction then
-        let range = AddrRange (fde.PCBegin, fde.PCEnd - 1UL)
-        fnRanges.Add range |> ignore
+        fnRanges[fde.PCBegin] <- fde.PCEnd - 1UL
        else ()
        exnTbl) acc
 
@@ -106,7 +105,12 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
   /// Returns an array of function entry points identified by the exception
   /// table.
   member _.FunctionEntryPoints with get () =
-    [| for range in fnRanges do range.Min |]
+    fnRanges.Keys |> Seq.toArray
+
+  /// Checks if the given address is a function entry point according to the
+  /// FDE records in the exception table.
+  member _.ContainsFunctionEntryPoint addr =
+    fnRanges.ContainsKey addr
 
   /// Returns the coverage of the exception table, which is the ratio of
   /// addresses in the .text section that are covered by the exception table.
@@ -114,9 +118,9 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
     let ptr = liftingUnit.File.GetTextSectionPointer ()
     let txtSize = float (ptr.MaxAddr - ptr.Addr)
     let mutable covered = 0.0
-    for range in fnRanges do
-      if ptr.Addr <= range.Min && range.Min <= ptr.MaxAddr then
-        covered <- covered + float range.Count
+    for KeyValue (startAddr, endAddr) in fnRanges do
+      if ptr.Addr <= startAddr && startAddr <= ptr.MaxAddr then
+        covered <- covered + float (endAddr - startAddr + 1UL)
       else ()
     covered / txtSize
 
