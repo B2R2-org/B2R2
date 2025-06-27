@@ -24,30 +24,37 @@
 
 namespace B2R2.FrontEnd.ARM32
 
-/// Represents SIMD data type (e.g., 8B, 4H, 2S).
+/// Represents a set of SIMD data types.
 type SIMDDataTypes =
   | OneDT of SIMDDataType
   | TwoDT of SIMDDataType * SIMDDataType
 
+/// Represents a specific SIMD data type (e.g., 8B, 4H, 2S).
 and SIMDDataType =
-  | SIMDTyp8      (* Any element of <size> bits *)
+  (* Any element of <size> bits *)
+  | SIMDTyp8
   | SIMDTyp16
   | SIMDTyp32
   | SIMDTyp64
-  | SIMDTypF16    (* Floating-point number of <size> bits *)
+  (* Floating-point number of <size> bits *)
+  | SIMDTypF16
   | SIMDTypF32
   | SIMDTypF64
-  | SIMDTypI8     (* Signed or unsigned integer of <size> bits *)
+  (* Signed or unsigned integer of <size> bits *)
+  | SIMDTypI8
   | SIMDTypI16
   | SIMDTypI32
   | SIMDTypI64
-  | SIMDTypP8     (* Polynomial over {0, 1} of degree less than <size> *)
+  (* Polynomial over {0, 1} of degree less than <size> *)
+  | SIMDTypP8
   | SIMDTypP64
-  | SIMDTypS8     (* Signed integer of <size> bits *)
+  (* Signed integer of <size> bits *)
+  | SIMDTypS8
   | SIMDTypS16
   | SIMDTypS32
   | SIMDTypS64
-  | SIMDTypU8     (* Unsigned integer of <size> bits *)
+  (* Unsigned integer of <size> bits *)
+  | SIMDTypU8
   | SIMDTypU16
   | SIMDTypU32
   | SIMDTypU64

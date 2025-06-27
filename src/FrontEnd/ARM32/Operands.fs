@@ -30,6 +30,7 @@ open System.Runtime.CompilerServices
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.ARM32.Tests")>]
 do ()
 
+/// Represents a set of operands in an ARM32 instruction.
 type Operands =
   | NoOperand
   | OneOperand of Operand
@@ -39,6 +40,7 @@ type Operands =
   | FiveOperands of Operand * Operand * Operand * Operand * Operand
   | SixOperands of Operand * Operand * Operand * Operand * Operand * Operand
 
+/// Represents a single operand used in an ARM32 instruction.
 and Operand =
   | OprReg of Register
   | OprSpecReg of Register * PSRFlag option
@@ -55,6 +57,7 @@ and Operand =
   | OprCond of Condition
   | GoToLabel of string
 
+/// Represents flag combinations used in ARM32 PSR (Program Status Register).
 and PSRFlag =
   | PSRc
   | PSRx
@@ -76,6 +79,7 @@ and PSRFlag =
   | PSRg
   | PSRnzcvqg
 
+/// Represents a SIMD operand made of one or more SIMD/FP registers.
 and SIMDOperand =
   | SFReg of SIMDFPRegister
   | OneReg of SIMDFPRegister
@@ -84,20 +88,25 @@ and SIMDOperand =
   | FourRegs of
     SIMDFPRegister * SIMDFPRegister * SIMDFPRegister * SIMDFPRegister
 
-/// V{&ltmodifier&gt}&ltoperation&gt{&ltshape&gt}{&ltc&gt}{&ltq&gt}{.&ltdt&gt}
-/// {&ltdest&gt,} &ltsrc1&gt, &ltsrc2&gt
+/// Represents a SIMD/FP register, either vector or scalar with optional element
+/// index.
 and SIMDFPRegister =
   | Vector of Register
   | Scalar of Register * Element option
 
+/// Represents an index into a SIMD scalar register element.
 and Element = uint8
 
+/// Represents an immediate constant value in an instruction.
 and Const = int64
 
+/// Represents an immediate constant value in an instruction.
 and Shift = SRType * Amount
 
+/// Represents an immediate value used as a shift amount.
 and Amount = Imm of uint32
 
+/// Represents ARM32 shift operation types.
 and SRType =
   | SRTypeLSL
   | SRTypeLSR
@@ -105,19 +114,7 @@ and SRType =
   | SRTypeROR
   | SRTypeRRX
 
-and Label = Const
-
-and Align = Const
-
-and Sign =
-  | Plus
-  | Minus
-
-and Offset =
-  | ImmOffset of Register * Sign option * Const option
-  | RegOffset of Register * Sign option * Register * Shift option
-  | AlignOffset of Register * Align option * Register option (* Advanced SIMD *)
-
+/// Represents the addressing mode used in ARM32 memory access.
 and AddressingMode =
   | OffsetMode of Offset
   | PreIdxMode of Offset
@@ -125,6 +122,24 @@ and AddressingMode =
   | UnIdxMode of Register * Const (* [<Rn>], <option> *)
   | LiteralMode of Label
 
+/// Represents a constant label used for PC-relative addressing.
+and Label = Const
+
+/// Represents ARM32 offset formats used in memory addressing.
+and Offset =
+  | ImmOffset of Register * Sign option * Const option
+  | RegOffset of Register * Sign option * Register * Shift option
+  | AlignOffset of Register * Align option * Register option (* Advanced SIMD *)
+
+/// Represents the sign used in offset calculations.
+and Sign =
+  | Plus
+  | Minus
+
+/// Represents memory alignment value used in SIMD addressing.
+and Align = Const
+
+/// Represents memory barrier options used in ARM32 DMB and DSB instructions.
 and BarrierOption =
   | OSHLD = 0b0001
   | OSHST = 0b0010
@@ -139,6 +154,7 @@ and BarrierOption =
   | ST = 0b1110
   | SY = 0b1111
 
+/// Represents interrupt mask flags in ARM32 architecture.
 and Iflag =
   | A
   | I
@@ -148,12 +164,12 @@ and Iflag =
   | IF
   | AIF
 
-/// <sumary>
+/// <summary>
 /// Most ARM instructions, and most Thumb instructions from ARMv6T2 onwards,
 /// can be executed conditionally, based on the values of the APSR condition
 /// flags. Before ARMv6T2, the only conditional Thumb instruction was
 /// the 16-bit conditional branch instruction.
-/// </sumary>
+/// </summary>
 and Condition =
   /// Equal/Equal (Z == 1).
   | EQ = 0x01

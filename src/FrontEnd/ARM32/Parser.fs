@@ -384,6 +384,7 @@ type ARM32Parser (isa: ISA, isThumb, reader) =
 
     member _.MaxInstructionSize = 4
 
+/// Represents a parsing mode switch between Thumb and ARM instructions.
 and IModeSwitchable =
   /// Will this parser return Thumb instructions or ARM instructions?
   abstract IsThumb: bool with get, set

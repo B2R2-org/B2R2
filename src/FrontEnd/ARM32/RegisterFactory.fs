@@ -29,6 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 open type Register
 
+/// Represents a factory for accessing various ARM32 register variables.
 type RegisterFactory () =
   let r0 = AST.var 32<rt> (Register.toRegID R0) "R0"
   let r1 = AST.var 32<rt> (Register.toRegID R1) "R1"
