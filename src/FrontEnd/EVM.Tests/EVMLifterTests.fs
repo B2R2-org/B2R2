@@ -58,7 +58,7 @@ type EVMLifterTests () =
   [<TestMethod>]
   member _.``[EVM] PUSH8 lift test`` () =
     "670011223344556677"
-    ++ [| !.SP := !.SP .+ num 32 256<rt>
+    ++ [| !.SP := !.SP .- num 32 256<rt>
           AST.store Endian.Big !.SP (bigint 4822678189205111I)
           !.GAS := !.GAS .+ num 3 64<rt> |]
     |> test
@@ -66,7 +66,7 @@ type EVMLifterTests () =
   [<TestMethod>]
   member _.``[EVM] PUSH9 lift test`` () =
     "68001122334455667788"
-    ++ [| !.SP := !.SP .+ num 32 256<rt>
+    ++ [| !.SP := !.SP .- num 32 256<rt>
           AST.store Endian.Big !.SP (bigint 1234605616436508552I)
           !.GAS := !.GAS .+ num 3 64<rt> |]
     |> test
@@ -74,7 +74,7 @@ type EVMLifterTests () =
   [<TestMethod>]
   member _.``[EVM] PUSH10 lift test`` () =
     "6900112233445566778899"
-    ++ [| !.SP := !.SP .+ num 32 256<rt>
+    ++ [| !.SP := !.SP .- num 32 256<rt>
           AST.store Endian.Big !.SP (bigint 316059037807746189465I)
           !.GAS := !.GAS .+ num 3 64<rt> |]
     |> test

@@ -45,7 +45,7 @@ let private pushToStack bld expr =
   let spReg = regVar bld R.SP
   let expr = if OperationSize.regType = Expr.TypeOf expr then expr
              else AST.zext OperationSize.regType expr
-  bld <+ (spReg := (spReg .+ (getSPSize 1))) (* SP := SP + 32 *)
+  bld <+ (spReg := (spReg .- (getSPSize 1))) (* SP := SP - 32 *)
   bld <+ (AST.store Endian.Big spReg expr) (* [SP] := expr *)
 
 /// Pops an element from stack and returns the element.
@@ -53,7 +53,7 @@ let private popFromStack bld =
   let spReg = regVar bld R.SP
   let tmp = bld.Stream.NewTempVar OperationSize.regType
   bld <+ (tmp := AST.loadBE (OperationSize.regType) spReg) (* tmp := [SP] *)
-  bld <+ (spReg := (spReg .- (getSPSize 1))) (* SP := SP - 32 *)
+  bld <+ (spReg := (spReg .+ (getSPSize 1))) (* SP := SP + 32 *)
   tmp
 
 // Peek the 'pos'-th item.
@@ -61,7 +61,7 @@ let private peekStack bld pos =
   let spReg = regVar bld R.SP
   let regType = OperationSize.regType
   let tmp = bld.Stream.NewTempVar regType
-  bld <+ (tmp := AST.loadBE regType (spReg .- (getSPSize (pos - 1))))
+  bld <+ (tmp := AST.loadBE regType (spReg .+ (getSPSize (pos - 1))))
   tmp
 
 // Swap the topmost item with ('pos' + 1)-th item.
@@ -71,8 +71,8 @@ let private swapStack bld pos =
   let tmp1 = bld.Stream.NewTempVar regType
   let tmp2 = bld.Stream.NewTempVar regType
   bld <+ (tmp1 := AST.loadBE regType spReg)
-  bld <+ (tmp2 := AST.loadBE regType (spReg .- (getSPSize pos)))
-  bld <+ (AST.store Endian.Big (spReg .- (getSPSize pos)) tmp1)
+  bld <+ (tmp2 := AST.loadBE regType (spReg .+ (getSPSize pos)))
+  bld <+ (AST.store Endian.Big (spReg .+ (getSPSize pos)) tmp1)
   bld <+ (AST.store Endian.Big spReg tmp2)
 
 let endBasicOperation bld opFn src1 src2 (ins: Instruction) =
