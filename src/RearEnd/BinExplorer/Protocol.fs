@@ -24,26 +24,35 @@
 
 namespace B2R2.RearEnd.BinExplorer
 
-open B2R2.MiddleEnd
 open System.IO
+open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ControlFlowAnalysis
 
 type SendMsg =
   | GetBinaryBrew
   | LogString of string
   | Terminate
 
-type ReplyMsg =
+type ReplyMsg<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
+                              and 'FnCtx: (new: unit -> 'FnCtx)
+                              and 'GlCtx: (new: unit -> 'GlCtx)> =
   | Ack
-  | ReplyBinaryBrew of BinaryBrew
+  | ReplyBinaryBrew of BinaryBrew<'FnCtx, 'GlCtx>
   | ReplyExitStatus of bool (* Either success (true) or failure (false) *)
 
-type Msg =
+type Msg<'FnCtx, 'GlCtx when  'FnCtx :> IResettable
+                          and 'FnCtx: (new: unit -> 'FnCtx)
+                          and 'GlCtx: (new: unit -> 'GlCtx)> =
   | Send of SendMsg
-  | Reply of ReplyMsg
+  | Reply of ReplyMsg<'FnCtx, 'GlCtx>
 
 module internal Protocol =
 
-  type Agent = MailboxProcessor<Msg * AsyncReplyChannel<Msg>>
+  type Agent<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
+                             and 'FnCtx: (new: unit -> 'FnCtx)
+                             and 'GlCtx: (new: unit -> 'GlCtx)>
+    = MailboxProcessor<Msg<'FnCtx, 'GlCtx>
+      * AsyncReplyChannel<Msg<'FnCtx, 'GlCtx>>>
 
   let genArbiter brew logFile =
     let logger = new StreamWriter (path=logFile, AutoFlush=true)
@@ -66,17 +75,17 @@ module internal Protocol =
       loop brew
     )
 
-  let getBinaryBrew (arbiter: Agent) =
+  let getBinaryBrew (arbiter: Agent<_, _>) =
     match arbiter.PostAndReply (fun ch -> Send GetBinaryBrew, ch) with
     | Reply (ReplyBinaryBrew brew) -> brew
     | _ -> failwith "Failed to obtain the BinaryBrew."
 
-  let logString (arbiter: Agent) str =
+  let logString (arbiter: Agent<_, _>) str =
     match arbiter.PostAndReply (fun ch -> Send (LogString str), ch) with
     | Reply Ack -> ()
     | _ -> failwith "Failed to log message."
 
-  let terminate (arbiter: Agent) =
+  let terminate (arbiter: Agent<_, _>) =
     match arbiter.PostAndReply (fun ch -> Send Terminate, ch) with
     | Reply Ack -> ()
     | _ -> failwith "Failed to terminate."
