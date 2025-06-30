@@ -141,6 +141,30 @@ match lst with
 | e1 :: e2 :: [] -> ...
 ```
 
+##### Indexed Property
+
+When using indexed property, we prefer bracket notation for accessing elements:
+```fsharp
+src[0] <- Const      // Good
+src[ 0 ] <- Const    // Bad
+src.Item(0) <- Const // Bad
+```
+
+For array/list indexing and slicing, we do not use spaces inside brackets:
+```fsharp
+src[1]        // Good
+src[1..3]     // Good
+src[1..]      // Good
+src[..3]      // Good
+src[1..2..10] // Good
+
+src[ 1 ]            // Bad
+src[ 1 .. 3 ]       // Bad
+src[ 1 .. ]         // Bad
+src[ .. 3 ]         // Bad
+src[ 1 .. 2 .. 10 ] // Bad
+```
+
 ##### Type Annotation
 
 We prefer to have a space character between a colon and a type name. For
