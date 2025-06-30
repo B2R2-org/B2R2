@@ -309,6 +309,8 @@ type VarBasedDataFlowState<'Lattice>
       let expr3 = translateToSSAExpr pp expr3
       let e = SSA.InterCJmp (expr1, expr2, expr3)
       SSA.Jmp e
+    | SideEffect (sideEff, _) ->
+      SSA.SideEffect sideEff
     | _ ->
       SSA.SideEffect <| Exception "Invalid SSA stmt encountered"
 
