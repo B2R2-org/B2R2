@@ -29,6 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 open type Register
 
+/// Represents a factory for accessing various ARM32 register variables.
 type RegisterFactory () =
   let r0 = AST.var 32<rt> (Register.toRegID R0) "R0"
   let r1 = AST.var 32<rt> (Register.toRegID R1) "R1"
@@ -45,7 +46,6 @@ type RegisterFactory () =
   let ip = AST.var 32<rt> (Register.toRegID IP) "IP"
   let sp = AST.var 32<rt> (Register.toRegID SP) "SP"
   let lr = AST.var 32<rt> (Register.toRegID LR) "LR"
-
   let q0a = AST.var 64<rt> (Register.toRegID Q0A) "Q0A"
   let q0b = AST.var 64<rt> (Register.toRegID Q0B) "Q0B"
   let q1a = AST.var 64<rt> (Register.toRegID Q1A) "Q1A"
@@ -78,7 +78,6 @@ type RegisterFactory () =
   let q14b = AST.var 64<rt> (Register.toRegID Q14B) "Q14B"
   let q15a = AST.var 64<rt> (Register.toRegID Q15A) "Q15A"
   let q15b = AST.var 64<rt> (Register.toRegID Q15B) "Q15B"
-
   let d0 = q0a
   let d1 = q0b
   let d2 = q1a
@@ -111,7 +110,6 @@ type RegisterFactory () =
   let d29 = q14b
   let d30 = q15a
   let d31 = q15b
-
   let s0 = AST.xtlo 32<rt> d0
   let s1 = AST.xthi 32<rt> d0
   let s2 = AST.xtlo 32<rt> d1
@@ -164,7 +162,6 @@ type RegisterFactory () =
   let nsacr = AST.var 32<rt> (Register.toRegID NSACR) "NSACR"
 
   interface IRegisterFactory with
-
     member _.GetRegVar name =
       match Register.ofRegID name with
       | R.R0 -> r0
