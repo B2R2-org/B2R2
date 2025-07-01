@@ -232,7 +232,7 @@ type CFGRecovery<'FnCtx,
             connectEdge ctx dstVertex e.Second e.Label
 
   let addExpandCFGAction (queue: CFGActionQueue) pp =
-    queue.Push prioritizer <| ExpandCFG ([ pp ])
+    queue.Push prioritizer <| ExpandCFG [ pp ]
     Ok ()
 
   let scanBBLsAndConnect ctx queue src dstAddr edgeKind =
@@ -707,8 +707,7 @@ type CFGRecovery<'FnCtx,
           | Error e -> FailStop e
         | ExpandCFG pps ->
 #if CFGDEBUG
-          let targets =
-            addrs |> Seq.map (fun addr -> $"{addr:x}") |> String.concat ";"
+          let targets = pps |> Seq.map (fun pp -> $"{pp}") |> String.concat ";"
           dbglog ctx.ThreadID (nameof ExpandCFG)
           <| $"{targets} @ {ctx.FunctionAddress:x}"
 #endif

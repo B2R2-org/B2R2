@@ -35,7 +35,7 @@ type CFGAction =
   /// address.
   | InitiateCFG
   /// Add more reachable edges to the initial CFG using the new program points.
-  | ExpandCFG of pps: seq<ProgramPoint>
+  | ExpandCFG of pps: ProgramPoint list
   /// Create an abstract call node and connect it to the caller and fallthrough
   /// nodes when necessary.
   | MakeCall of callSite: CallSite * calleeAddr: Addr * CalleeInfo
