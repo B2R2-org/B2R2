@@ -418,6 +418,10 @@ type VarBasedDataFlowState<'Lattice>
   /// Sub-state for the user's domain.
   member _.DomainSubState with get () = domainSubState
 
+  /// Currently pending vertices for processing.
+  member _.PendingVertices with get (): IEnumerable<IVertex<LowUIRBasicBlock>> =
+    verticesForProcessing
+
   /// Mark the given vertex as pending, which means that the vertex needs to be
   /// processed.
   member _.MarkVertexAsPending v = verticesForProcessing.Add v |> ignore

@@ -48,71 +48,10 @@ type VarBasedDataFlowAnalysis<'Lattice>
     | true, _ -> removeInvalidChains state
     | false, _ -> ()
 
-  let updateGlobalName (globals: HashSet<_>) (varKill: HashSet<_>) vk =
-    if varKill.Contains vk then ()
-    else globals.Add vk |> ignore
-
   let getStackValue state pp e =
     match (state: IVarBasedDataFlowSubState<_>).EvalExpr pp e with
     | StackPointerDomain.ConstSP bv -> Ok <| BitVector.ToUInt64 bv
     | _ -> Error ErrorCase.InvalidExprEvaluation
-
-  let rec updateGlobals globals varKill stackState pp expr =
-    match expr with
-    | Num _ | Undefined _ | FuncName _ | JmpDest _ | Nil | PCVar _ -> ()
-    | Var (_, rid, _, _) ->
-      updateGlobalName globals varKill (Regular rid)
-    | TempVar (_, n, _) ->
-      updateGlobalName globals varKill (Temporary n)
-    | UnOp (_, e, _) -> updateGlobals globals varKill stackState pp e
-    | BinOp (_, _, lhs, rhs, _)
-    | RelOp (_, lhs, rhs, _) ->
-      updateGlobals globals varKill stackState pp lhs
-      updateGlobals globals varKill stackState pp rhs
-    | Load (_, _, e, _) ->
-      updateGlobals globals varKill stackState pp e
-      getStackValue stackState pp e
-      |> Result.iter (fun loc ->
-        let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
-        updateGlobalName globals varKill (StackLocal offset))
-    | Ite (cond, e1, e2, _) ->
-      updateGlobals globals varKill stackState pp cond
-      updateGlobals globals varKill stackState pp e1
-      updateGlobals globals varKill stackState pp e2
-    | Cast (_, _, e, _) ->
-      updateGlobals globals varKill stackState pp e
-    | Extract (e, _, _, _) ->
-      updateGlobals globals varKill stackState pp e
-
-  let addDefSite (defSites: Dictionary<_, _>) vk blk =
-    match defSites.TryGetValue vk with
-    | false, _ -> defSites[vk] <- List [ blk ]
-    | true, lst -> lst.Add blk
-
-  /// Iterate over the vertices to find the def sites for each variable kind
-  /// (defSites) and the global variables that are live across multible bbls
-  /// (globals).
-  let findDefVars g state (defSites: Dictionary<_, _>) globals =
-    let varKill = HashSet ()
-    let stackState = (state: VarBasedDataFlowState<_>).StackPointerSubState
-    for v in (g: IDiGraph<_, _>).Vertices do
-      varKill.Clear ()
-      for (stmt, pp) in state.GetStmtInfos v do
-        match stmt with
-        | Put (dst, src, _) ->
-          let vk = VarKind.ofIRExpr dst
-          updateGlobals globals varKill stackState pp src
-          varKill.Add vk |> ignore
-          addDefSite defSites vk v
-        | Store (_, addr, value, _) ->
-          updateGlobals globals varKill stackState pp value
-          getStackValue stackState pp addr
-          |> Result.iter (fun loc ->
-            let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
-            let vk = StackLocal offset
-            varKill.Add vk |> ignore
-            addDefSite defSites vk v)
-        | _ -> ()
 
   let getPhiInfo state v =
     match (state: VarBasedDataFlowState<_>).PhiInfos.TryGetValue v with
@@ -122,32 +61,72 @@ type VarBasedDataFlowAnalysis<'Lattice>
       state.PhiInfos[v] <- dict
       dict
 
-  let placePhis state (dom: IDominance<_, _>) globals defSites =
-    let phiSites = HashSet ()
-    for varKind in globals do
-      let workList =
-        match (defSites: Dictionary<_, List<_>>).TryGetValue varKind with
-        | true, defs -> Queue defs
-        | false, _ -> Queue ()
-      phiSites.Clear ()
-      while workList.Count <> 0 do
-        let node: IVertex<LowUIRBasicBlock> = workList.Dequeue ()
-        let frontier = dom.DominanceFrontier node
-        for df: IVertex<LowUIRBasicBlock> in frontier do
-          if phiSites.Contains df then ()
-          else
-            match varKind with
-            | Temporary _ when df.VData.Internals.PPoint.Position = 0 -> ()
-            | _ ->
-              let phiInfo = getPhiInfo state df
-              if phiInfo.ContainsKey varKind then ()
-              else
-                (* insert a new phi *)
-                phiInfo[varKind] <- Dictionary ()
-                (* we may need to update chains from the phi site *)
-                state.MarkVertexAsPending df
-              phiSites.Add df |> ignore
-              workList.Enqueue df
+  /// Linear time algorithm to compute the inverse dominance frontier.
+  let computeInverseDF (g: IDiGraph<_, _>) (dom: IDominance<_, _>) v =
+    let s = HashSet ()
+    for pred in g.GetPreds v do
+      let mutable x = pred
+      while x <> dom.ImmediateDominator v do
+        s.Add x |> ignore
+        x <- dom.ImmediateDominator x
+    s
+
+  /// Collect the vertices that are candidates for phi insertion at this point.
+  /// We reduce the search space to only those vertices that are possibly
+  /// affected by the changes in the graph.
+  let collectPhiInsertionCandidates g state =
+    let workset = HashSet ()
+    for v in (state: VarBasedDataFlowState<_>).PendingVertices do
+      if not <| (g: IDiGraph<_, _>).HasVertex v.ID then ()
+      else
+        workset.Add v |> ignore
+        for succ in g.GetSuccs v do
+          if g.GetPreds succ |> Seq.length > 1 then
+            workset.Add succ |> ignore
+    workset
+
+  let placePhi state v varKind =
+    let phiInfos = (state: VarBasedDataFlowState<_>).PhiInfos
+    if not <| phiInfos.ContainsKey v then
+      phiInfos[v] <- PhiInfo ()
+    let phiInfo = phiInfos[v]
+    if not <| phiInfo.ContainsKey varKind then
+      phiInfo[varKind] <- Dictionary ()
+
+  let isInnerScopeVarKind (v: IVertex<LowUIRBasicBlock>) = function
+    | Temporary _ when v.VData.Internals.PPoint.Address = 0UL -> true
+    | _ -> false
+
+  let getDefinedVarKinds memo state v =
+    match (memo: Dictionary<_, _>).TryGetValue v with
+    | true, kinds -> kinds
+    | false, _ ->
+      let stackState = (state: VarBasedDataFlowState<_>).StackPointerSubState
+      let varKinds = HashSet ()
+      for (stmt, pp) in state.GetStmtInfos v do
+        match stmt with
+        | Put (dst, _, _) ->
+          let vk = VarKind.ofIRExpr dst
+          varKinds.Add vk |> ignore
+        | Store (_, addr, _, _) ->
+          getStackValue stackState pp addr
+          |> Result.iter (fun loc ->
+            let offset = VarBasedDataFlowState<_>.ToFrameOffset loc
+            let vk = StackLocal offset
+            varKinds.Add vk |> ignore)
+        | _ -> ()
+      memo[v] <- varKinds
+      varKinds
+
+  /// We do not calculate all dominance frontier sets, but only those that are
+  /// selectively used to insert phi nodes.
+  let placePhis g state (dom: IDominance<_, _>) =
+    let memo = Dictionary ()
+    for v in collectPhiInsertionCandidates g state do
+      for affectingVertex in computeInverseDF g dom v do
+        for varKind in getDefinedVarKinds memo state affectingVertex do
+          if not (isInnerScopeVarKind v varKind) then
+            placePhi state v varKind
 
   let updateIncomingDefsWithPhis state (v: IVertex<LowUIRBasicBlock>) ins =
     match (state: VarBasedDataFlowState<_>).PhiInfos.TryGetValue v with
@@ -368,11 +347,8 @@ type VarBasedDataFlowAnalysis<'Lattice>
   /// efficient for incremental changes in practice since its search space is
   /// reduced to the affected vertices that are possibly updated.
   let calculateChains g state dom =
-    let globals = HashSet<VarKind> ()
-    let defSites = Dictionary<VarKind, List<IVertex<LowUIRBasicBlock>>> ()
     let visited = HashSet<IVertex<LowUIRBasicBlock>> ()
-    findDefVars g state defSites globals
-    placePhis state dom globals defSites
+    placePhis g state dom
     incrementalUpdate g state visited dom g.SingleRoot
     updatePhis g state visited
 
