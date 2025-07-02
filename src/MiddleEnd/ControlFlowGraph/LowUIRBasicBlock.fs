@@ -115,9 +115,14 @@ type LowUIRBasicBlock internal (pp, funcAbs, liftedInss, lblMap) =
 
     /// Terminator statement of the basic block.
     member _.Terminator with get() =
-      assert (not <| Array.isEmpty liftedInss)
-      let stmts = liftedInss[liftedInss.Length - 1].Stmts
-      stmts[stmts.Length - 2..]
+      assert ((isNull funcAbs && not <| Array.isEmpty liftedInss)
+           || (not <| isNull funcAbs && not <| Array.isEmpty funcAbs.Rundown))
+      let stmts =
+        if isNull funcAbs then
+          let stmts = liftedInss[liftedInss.Length - 1].Stmts
+          stmts[stmts.Length - 2..]
+        else funcAbs.Rundown
+      stmts
       |> Array.filter isTerminatingStmt
       |> Array.tryExactlyOne
       |> Option.defaultValue stmts[stmts.Length - 1]
