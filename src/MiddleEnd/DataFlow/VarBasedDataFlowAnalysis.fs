@@ -265,7 +265,7 @@ type VarBasedDataFlowAnalysis<'Lattice>
       if pp.Address <> prevAddr then defs <- outs else ()
       updateWithStmt state &outs &defs stmt pp
       prevAddr <- pp.Address
-    if intraBlockContinues then outs else defs
+    if intraBlockContinues then defs else outs
 
   /// Update the def-use/use-def chains for the vertices in the dominator tree.
   let rec update g state domTree (visited: HashSet<_>) v ins =

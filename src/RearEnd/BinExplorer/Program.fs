@@ -218,18 +218,32 @@ let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _>) =
 let initBinHdl isa (name: string) =
   BinHandle (name, isa, None)
 
+let startGUIAndCLI (opts: BinExplorerOpts) brew =
+  if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir brew else ()
+  let arbiter = Protocol.genArbiter brew opts.LogFile
+  startGUI opts arbiter
+  CLI.start opts.EnableReadLine arbiter
+
 let interactiveMain files (opts: BinExplorerOpts) =
   if List.isEmpty files then
     eprintfn "A file should be given as input.\n\n\
               Type --help or --batch to see more info."; exit 1
   else
     let file = List.head files
-    let hdl = initBinHdl opts.ISA file
-    let brew = BinaryBrew hdl
-    if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir brew else ()
-    let arbiter = Protocol.genArbiter brew opts.LogFile
-    startGUI opts arbiter
-    CLI.start opts.EnableReadLine arbiter
+    let isa = opts.ISA
+    let hdl = initBinHdl isa file
+    match isa.Arch with
+    | Architecture.EVM ->
+      let cfgRecovery = Strategies.EVMCFGRecovery ()
+      let brew = EVMBinaryBrew (hdl, [| cfgRecovery |])
+      startGUIAndCLI opts brew
+    | _ ->
+      let exnInfo = ExceptionInfo hdl
+      let funcId = Strategies.FunctionIdentification (hdl, exnInfo)
+      let cfgRecovery = Strategies.CFGRecovery ()
+      let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
+      let brew = BinaryBrew (hdl, exnInfo, strategies)
+      startGUIAndCLI opts brew
 
 let showBatchUsage () =
   eprintfn "dotnet run -- [file(s) ...] [opt(s) ...] --batch <cmd> [args ...]"
