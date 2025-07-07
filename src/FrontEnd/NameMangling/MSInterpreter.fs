@@ -31,7 +31,7 @@ let rec interpret (sample: MSExpr) =
   match sample with
   | Name str -> str
 
-  | Constructor name -> interpret (FullName [name; name])
+  | Constructor name -> interpret (FullName [ name; name ])
 
   | Destructor name ->
     let constName = interpret name
@@ -160,7 +160,7 @@ let rec interpret (sample: MSExpr) =
     interpret (MSUtils.changeToNormalPointer typeInfo) + interpret name
 
   | ConstructedTemplate (types, name) ->
-    interpret (Template (FullName [name; name], types))
+    interpret (Template (FullName [ name; name ], types))
 
   | ThunkF (callT, name, typeInfo, returnT) ->
     sprintf "[thunk]: %s%s %s%s" ((interpret returnT).Trim ())

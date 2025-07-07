@@ -90,12 +90,13 @@ let parseOprRegShiftOperand opcode reg =
 
 let extractOperands = function
   | [] -> NoOperand
-  | [op1] -> OneOperand op1
-  | [op1; op2] -> TwoOperands (op1, op2)
-  | [op1; op2; op3] -> ThreeOperands (op1, op2, op3)
-  | [op1; op2; op3; op4] -> FourOperands (op1, op2, op3, op4)
-  | [op1; op2; op3; op4; op5] -> FiveOperands (op1, op2, op3, op4, op5)
-  | [op1; op2; op3; op4; op5; op6] -> SixOperands (op1, op2, op3, op4, op5, op6)
+  | [ op1 ] -> OneOperand op1
+  | [ op1; op2 ] -> TwoOperands (op1, op2)
+  | [ op1; op2; op3 ] -> ThreeOperands (op1, op2, op3)
+  | [ op1; op2; op3; op4 ] -> FourOperands (op1, op2, op3, op4)
+  | [ op1; op2; op3; op4; op5 ] -> FiveOperands (op1, op2, op3, op4, op5)
+  | [ op1; op2; op3; op4; op5; op6 ] ->
+    SixOperands (op1, op2, op3, op4, op5, op6)
   | _ -> failwith "Operand overload"
 
 let getOperandsAsList operands =

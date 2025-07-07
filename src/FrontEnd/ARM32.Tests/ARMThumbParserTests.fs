@@ -700,7 +700,8 @@ type ARMThumbParserTests () =
   [<TestMethod>]
   member _.``[Thumb] Load/store (Store) Parse test (7)`` () =
     "e96a393c"
-    ++ STRD ** [ O.Reg R3; O.Reg SB;
+    ++ STRD ** [ O.Reg R3
+                 O.Reg SB
                  O.MemPreIdxImm (SL, Some Minus, Some 240L) ]
     ||> testNoQNoSimd Condition.AL true
 
@@ -761,7 +762,9 @@ type ARMThumbParserTests () =
   [<TestMethod>]
   member _.``[Thumb] Load/store (Store-Exclusive) Parse test (3)`` () =
     "e8c0cb74"
-    ++ STREXD ** [ O.Reg R4; O.Reg IP; O.Reg FP;
+    ++ STREXD ** [ O.Reg R4
+                   O.Reg IP
+                   O.Reg FP
                    O.MemOffsetImm (R0, None, None) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 

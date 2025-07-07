@@ -84,7 +84,7 @@ type ItaniumDemangler () =
 
   let nparray (a) b =
     (letter <|> pchar '_' <|> pchar '$') .>>. parray (b - 1) a
-    |>> (fun (a, c) -> (Array.append [|a|] c))
+    |>> (fun (a, c) -> (Array.append [| a |] c))
 
   let pvendor =
     pchar 'u' >>.
@@ -590,7 +590,7 @@ type ItaniumDemangler () =
 
   /// Check if the given string is a well-formed mangled string.
   static member IsWellFormed (str: string) =
-    str.Length > 2 && str[0 .. 1] = "_Z"
+    str.Length > 2 && str[0..1] = "_Z"
 
   interface IDemanglable with
     member _.Demangle str =

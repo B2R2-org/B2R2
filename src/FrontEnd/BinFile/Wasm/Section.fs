@@ -277,7 +277,7 @@ let rec parseLocalDecls (bs: byte[]) (reader: IBinReader) locals len pos =
       LocalDeclCount = localDeclCnt;
       LocalDeclType = localDeclType;
       LocalDeclLen = rawLen + 1 }
-    let locals = locals @ [local]
+    let locals = locals @ [ local ]
     parseLocalDecls bs reader locals (len - 1) (pos + rawLen + 1)
 
 let peekCodeEntry (bs: byte[]) (reader: IBinReader) offset =

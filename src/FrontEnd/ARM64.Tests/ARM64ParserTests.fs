@@ -635,21 +635,26 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.5.1 Add/subtract (extended register) (2)`` () =
     "0b3f4bff"
-    ++ ADD ** [ O.Reg WSP; O.Reg WSP; O.Reg WZR
+    ++ ADD ** [ O.Reg WSP
+                O.Reg WSP
+                O.Reg WZR
                 O.RegOffset (Some (ShiftOffset (SRTypeLSL, Imm 2L))) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.5.1 Add/subtract (extended register) (3)`` () =
     "8b2a495f"
-    ++ ADD ** [ O.Reg SP; O.Reg X10; O.Reg W10
+    ++ ADD ** [ O.Reg SP
+                O.Reg X10
+                O.Reg W10
                 O.RegOffset (Some (ExtRegOffset (ExtUXTW, Some 2L))) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.5.1 Add/subtract (extended register) (4)`` () =
     "ab2e67ff"
-    ++ CMN ** [ O.Reg SP; O.Reg X14
+    ++ CMN ** [ O.Reg SP
+                O.Reg X14
                 O.RegOffset (Some (ShiftOffset (SRTypeLSL, Imm 1L))) ]
     ||> test
 
@@ -1012,21 +1017,26 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.3 Advanced SIMD extract (1)`` () =
     "6e064983"
-    ++ EXT ** [ O.SIMDVecReg (V3, SixteenB); O.SIMDVecReg (V12, SixteenB)
-                O.SIMDVecReg (V6, SixteenB); O.Imm 9L ]
+    ++ EXT ** [ O.SIMDVecReg (V3, SixteenB)
+                O.SIMDVecReg (V12, SixteenB)
+                O.SIMDVecReg (V6, SixteenB)
+                O.Imm 9L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.3 Advanced SIMD extract (2)`` () =
     "2e0738fc"
-    ++ EXT ** [ O.SIMDVecReg (V28, EightB); O.SIMDVecReg (V7, EightB)
-                O.SIMDVecReg (V7, EightB); O.Imm 7L ]
+    ++ EXT ** [ O.SIMDVecReg (V28, EightB)
+                O.SIMDVecReg (V7, EightB)
+                O.SIMDVecReg (V7, EightB)
+                O.Imm 7L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.4 Advanced SIMD modified immediate (1)`` () =
     "4f056559"
-    ++ MOVI ** [ O.SIMDVecReg (V25, FourS); O.Imm 0xAAL
+    ++ MOVI ** [ O.SIMDVecReg (V25, FourS)
+                 O.Imm 0xAAL
                  O.Shift (SRTypeLSL, 24L) ]
     ||> test
 
@@ -1057,14 +1067,16 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.4 Advanced SIMD modified immediate (6)`` () =
     "4f04a759"
-    ++ MOVI ** [ O.SIMDVecReg (V25, EightH); O.Imm 0x9AL
+    ++ MOVI ** [ O.SIMDVecReg (V25, EightH)
+                 O.Imm 0x9AL
                  O.Shift (SRTypeLSL, 8L) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.4 Advanced SIMD modified immediate (7)`` () =
     "4f05c655"
-    ++ MOVI ** [ O.SIMDVecReg (V21, FourS); O.Imm 0xB2L
+    ++ MOVI ** [ O.SIMDVecReg (V21, FourS)
+                 O.Imm 0xB2L
                  O.Shift (SRTypeMSL, 8L) ]
     ||> test
 
@@ -1077,7 +1089,8 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.4 Advanced SIMD modified immediate (9)`` () =
     "6f0724d5"
-    ++ MVNI ** [ O.SIMDVecReg (V21, FourS); O.Imm 0xE6L
+    ++ MVNI ** [ O.SIMDVecReg (V21, FourS)
+                 O.Imm 0xE6L
                  O.Shift (SRTypeLSL, 8L) ]
     ||> test
 
@@ -1090,7 +1103,8 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.4 Advanced SIMD modified immediate (11)`` () =
     "6f07a4d5"
-    ++ MVNI ** [ O.SIMDVecReg (V21, EightH); O.Imm 0xE6L
+    ++ MVNI ** [ O.SIMDVecReg (V21, EightH)
+                 O.Imm 0xE6L
                  O.Shift (SRTypeLSL, 8L) ]
     ||> test
 
@@ -1103,7 +1117,8 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.4 Advanced SIMD modified immediate (13)`` () =
     "6f07c4d5"
-    ++ MVNI ** [ O.SIMDVecReg (V21, FourS); O.Imm 0xE6L
+    ++ MVNI ** [ O.SIMDVecReg (V21, FourS)
+                 O.Imm 0xE6L
                  O.Shift (SRTypeMSL, 8L) ]
     ||> test
 
@@ -1128,49 +1143,56 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.5 Advanced SIMD permute (1)`` () =
     "4e4e1983"
-    ++ UZP1 ** [ O.SIMDVecReg (V3, EightH); O.SIMDVecReg (V12, EightH)
+    ++ UZP1 ** [ O.SIMDVecReg (V3, EightH)
+                 O.SIMDVecReg (V12, EightH)
                  O.SIMDVecReg (V14, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.5 Advanced SIMD permute (2)`` () =
     "0e8728fe"
-    ++ TRN1 ** [ O.SIMDVecReg (V30, TwoS); O.SIMDVecReg (V7, TwoS)
+    ++ TRN1 ** [ O.SIMDVecReg (V30, TwoS)
+                 O.SIMDVecReg (V7, TwoS)
                  O.SIMDVecReg (V7, TwoS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.5 Advanced SIMD permute (3)`` () =
     "4e03383c"
-    ++ ZIP1 ** [ O.SIMDVecReg (V28, SixteenB); O.SIMDVecReg (V1, SixteenB)
+    ++ ZIP1 ** [ O.SIMDVecReg (V28, SixteenB)
+                 O.SIMDVecReg (V1, SixteenB)
                  O.SIMDVecReg (V3, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.5 Advanced SIMD permute (4)`` () =
     "0e0738c1"
-    ++ ZIP1 ** [ O.SIMDVecReg (V1, EightB); O.SIMDVecReg (V6, EightB)
+    ++ ZIP1 ** [ O.SIMDVecReg (V1, EightB)
+                 O.SIMDVecReg (V6, EightB)
                  O.SIMDVecReg (V7, EightB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.5 Advanced SIMD permute (5)`` () =
     "4ec158c6"
-    ++ UZP2 ** [ O.SIMDVecReg (V6, TwoD); O.SIMDVecReg (V6, TwoD)
+    ++ UZP2 ** [ O.SIMDVecReg (V6, TwoD)
+                 O.SIMDVecReg (V6, TwoD)
                  O.SIMDVecReg (V1, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.5 Advanced SIMD permute (6)`` () =
     "0e8768c3"
-    ++ TRN2 ** [ O.SIMDVecReg (V3, TwoS); O.SIMDVecReg (V6, TwoS)
+    ++ TRN2 ** [ O.SIMDVecReg (V3, TwoS)
+                 O.SIMDVecReg (V6, TwoS)
                  O.SIMDVecReg (V7, TwoS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.5 Advanced SIMD permute (7)`` () =
     "4e017885"
-    ++ ZIP2 ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V4, SixteenB)
+    ++ ZIP2 ** [ O.SIMDVecReg (V5, SixteenB)
+                 O.SIMDVecReg (V4, SixteenB)
                  O.SIMDVecReg (V1, SixteenB) ]
     ||> test
 
@@ -1801,294 +1823,336 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.12 Advanced SIMD scalar x indexed elem (1)`` () =
     "5f883a21"
-    ++ SQDMLAL ** [ O.ScalarReg D1; O.ScalarReg S17
+    ++ SQDMLAL ** [ O.ScalarReg D1
+                    O.ScalarReg S17
                     O.SIMDVecRegWithIdx (V8, VecS, 2uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.12 Advanced SIMD scalar x indexed elem (2)`` () =
     "5f767b1a"
-    ++ SQDMLSL ** [ O.ScalarReg S26; O.ScalarReg H24
+    ++ SQDMLSL ** [ O.ScalarReg S26
+                    O.ScalarReg H24
                     O.SIMDVecRegWithIdx (V6, VecH, 7uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.12 Advanced SIMD scalar x indexed elem (3)`` () =
     "5facba67"
-    ++ SQDMULL ** [ O.ScalarReg D7; O.ScalarReg S19
+    ++ SQDMULL ** [ O.ScalarReg D7
+                    O.ScalarReg S19
                     O.SIMDVecRegWithIdx (V12, VecS, 3uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.12 Advanced SIMD scalar x indexed elem (4)`` () =
     "5f7ec203"
-    ++ SQDMULH ** [ O.ScalarReg H3; O.ScalarReg H16
+    ++ SQDMULH ** [ O.ScalarReg H3
+                    O.ScalarReg H16
                     O.SIMDVecRegWithIdx (V14, VecH, 3uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.12 Advanced SIMD scalar x indexed elem (5)`` () =
     "5fbfcb7b"
-    ++ SQDMULH ** [ O.ScalarReg S27; O.ScalarReg S27
+    ++ SQDMULH ** [ O.ScalarReg S27
+                    O.ScalarReg S27
                     O.SIMDVecRegWithIdx (V31, VecS, 3uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.12 Advanced SIMD scalar x indexed elem (6)`` () =
     "5f7fda7c"
-    ++ SQRDMULH ** [ O.ScalarReg H28; O.ScalarReg H19
+    ++ SQRDMULH ** [ O.ScalarReg H28
+                     O.ScalarReg H19
                      O.SIMDVecRegWithIdx (V15, VecH, 7uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.12 Advanced SIMD scalar x indexed elem (7)`` () =
     "5fd318c3"
-    ++ FMLA ** [ O.ScalarReg D3; O.ScalarReg D6
+    ++ FMLA ** [ O.ScalarReg D3
+                 O.ScalarReg D6
                  O.SIMDVecRegWithIdx (V19, VecD, 1uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.12 Advanced SIMD scalar x indexed elem (8)`` () =
     "5fb05822"
-    ++ FMLS ** [ O.ScalarReg S2; O.ScalarReg S1
+    ++ FMLS ** [ O.ScalarReg S2
+                 O.ScalarReg S1
                  O.SIMDVecRegWithIdx (V16, VecS, 3uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.12 Advanced SIMD scalar x indexed elem (9)`` () =
     "5fd1987e"
-    ++ FMUL ** [ O.ScalarReg D30; O.ScalarReg D3
+    ++ FMUL ** [ O.ScalarReg D30
+                 O.ScalarReg D3
                  O.SIMDVecRegWithIdx (V17, VecD, 1uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.12 Advanced SIMD scalar x indexed elem (10)`` () =
     "7fbe90d9"
-    ++ FMULX ** [ O.ScalarReg S25; O.ScalarReg S6
+    ++ FMULX ** [ O.ScalarReg S25
+                  O.ScalarReg S6
                   O.SIMDVecRegWithIdx (V30, VecS, 1uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (1)`` () =
     "4f0d05c5"
-    ++ SSHR ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ SSHR ** [ O.SIMDVecReg (V5, SixteenB)
+                 O.SIMDVecReg (V14, SixteenB)
                  O.Imm 3L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (2)`` () =
     "4f1505c5"
-    ++ SSHR ** [ O.SIMDVecReg (V5, EightH); O.SIMDVecReg (V14, EightH)
+    ++ SSHR ** [ O.SIMDVecReg (V5, EightH)
+                 O.SIMDVecReg (V14, EightH)
                  O.Imm 0xBL ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (3)`` () =
     "4f3505c5"
-    ++ SSHR ** [ O.SIMDVecReg (V5, FourS); O.SIMDVecReg (V14, FourS)
+    ++ SSHR ** [ O.SIMDVecReg (V5, FourS)
+                 O.SIMDVecReg (V14, FourS)
                  O.Imm 0xBL ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (4)`` () =
     "4f5205c5"
-    ++ SSHR ** [ O.SIMDVecReg (V5, TwoD); O.SIMDVecReg (V14, TwoD)
+    ++ SSHR ** [ O.SIMDVecReg (V5, TwoD)
+                 O.SIMDVecReg (V14, TwoD)
                  O.Imm 0x2EL ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (5)`` () =
     "4f0d15c5"
-    ++ SSRA ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ SSRA ** [ O.SIMDVecReg (V5, SixteenB)
+                 O.SIMDVecReg (V14, SixteenB)
                  O.Imm 3L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (6)`` () =
     "4f1525c5"
-    ++ SRSHR ** [ O.SIMDVecReg (V5, EightH); O.SIMDVecReg (V14, EightH)
+    ++ SRSHR ** [ O.SIMDVecReg (V5, EightH)
+                  O.SIMDVecReg (V14, EightH)
                   O.Imm 0xBL ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (7)`` () =
     "4f3535c5"
-    ++ SRSRA ** [ O.SIMDVecReg (V5, FourS); O.SIMDVecReg (V14, FourS)
+    ++ SRSRA ** [ O.SIMDVecReg (V5, FourS)
+                  O.SIMDVecReg (V14, FourS)
                   O.Imm 0xBL ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (8)`` () =
     "4f0d55c5"
-    ++ SHL ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ SHL ** [ O.SIMDVecReg (V5, SixteenB)
+                O.SIMDVecReg (V14, SixteenB)
                 O.Imm 5L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (9)`` () =
     "4f0d75c5"
-    ++ SQSHL ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ SQSHL ** [ O.SIMDVecReg (V5, SixteenB)
+                  O.SIMDVecReg (V14, SixteenB)
                   O.Imm 5L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (10)`` () =
     "4f2e85c5"
-    ++ SHRN2 ** [ O.SIMDVecReg (V5, FourS); O.SIMDVecReg (V14, TwoD)
+    ++ SHRN2 ** [ O.SIMDVecReg (V5, FourS)
+                  O.SIMDVecReg (V14, TwoD)
                   O.Imm 0x12L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (11)`` () =
     "4f0d8dc5"
-    ++ RSHRN2 ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, EightH)
+    ++ RSHRN2 ** [ O.SIMDVecReg (V5, SixteenB)
+                   O.SIMDVecReg (V14, EightH)
                    O.Imm 3L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (12)`` () =
     "4f0d95c5"
-    ++ SQSHRN2 ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, EightH)
+    ++ SQSHRN2 ** [ O.SIMDVecReg (V5, SixteenB)
+                    O.SIMDVecReg (V14, EightH)
                     O.Imm 3L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (13)`` () =
     "4f0d9dc5"
-    ++ SQRSHRN2 ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, EightH)
+    ++ SQRSHRN2 ** [ O.SIMDVecReg (V5, SixteenB)
+                     O.SIMDVecReg (V14, EightH)
                      O.Imm 3L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (14)`` () =
     "4f0da5c5"
-    ++ SSHLL2 ** [ O.SIMDVecReg (V5, EightH); O.SIMDVecReg (V14, SixteenB)
+    ++ SSHLL2 ** [ O.SIMDVecReg (V5, EightH)
+                   O.SIMDVecReg (V14, SixteenB)
                    O.Imm 5L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (15)`` () =
     "4f4fe54d"
-    ++ SCVTF ** [ O.SIMDVecReg (V13, TwoD); O.SIMDVecReg (V10, TwoD)
+    ++ SCVTF ** [ O.SIMDVecReg (V13, TwoD)
+                  O.SIMDVecReg (V10, TwoD)
                   OprFbits 0x31uy ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (16)`` () =
     "4f4ffd4d"
-    ++ FCVTZS ** [ O.SIMDVecReg (V13, TwoD); O.SIMDVecReg (V10, TwoD)
+    ++ FCVTZS ** [ O.SIMDVecReg (V13, TwoD)
+                   O.SIMDVecReg (V10, TwoD)
                    OprFbits 0x31uy ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (17)`` () =
     "6f0d05c5"
-    ++ USHR ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ USHR ** [ O.SIMDVecReg (V5, SixteenB)
+                 O.SIMDVecReg (V14, SixteenB)
                  O.Imm 3L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (18)`` () =
     "6f0d15c5"
-    ++ USRA ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ USRA ** [ O.SIMDVecReg (V5, SixteenB)
+                 O.SIMDVecReg (V14, SixteenB)
                  O.Imm 3L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (19)`` () =
     "6f0d25c5"
-    ++ URSHR ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ URSHR ** [ O.SIMDVecReg (V5, SixteenB)
+                  O.SIMDVecReg (V14, SixteenB)
                   O.Imm 3L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (20)`` () =
     "6f0d35c5"
-    ++ URSRA ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ URSRA ** [ O.SIMDVecReg (V5, SixteenB)
+                  O.SIMDVecReg (V14, SixteenB)
                   O.Imm 3L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (21)`` () =
     "6f0d45c5"
-    ++ SRI ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ SRI ** [ O.SIMDVecReg (V5, SixteenB)
+                O.SIMDVecReg (V14, SixteenB)
                 O.Imm 3L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (22)`` () =
     "6f0d55c5"
-    ++ SLI ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ SLI ** [ O.SIMDVecReg (V5, SixteenB)
+                O.SIMDVecReg (V14, SixteenB)
                 O.Imm 5L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (23)`` () =
     "6f0d65c5"
-    ++ SQSHLU ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ SQSHLU ** [ O.SIMDVecReg (V5, SixteenB)
+                   O.SIMDVecReg (V14, SixteenB)
                    O.Imm 5L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (24)`` () =
     "6f0d75c5"
-    ++ UQSHL ** [ O.SIMDVecReg (V5, SixteenB); O.SIMDVecReg (V14, SixteenB)
+    ++ UQSHL ** [ O.SIMDVecReg (V5, SixteenB)
+                  O.SIMDVecReg (V14, SixteenB)
                   O.Imm 5L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (25)`` () =
     "6f2985c5"
-    ++ SQSHRUN2 ** [ O.SIMDVecReg (V5, FourS); O.SIMDVecReg (V14, TwoD)
+    ++ SQSHRUN2 ** [ O.SIMDVecReg (V5, FourS)
+                     O.SIMDVecReg (V14, TwoD)
                      O.Imm 0x17L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (26)`` () =
     "6f1b8dc5"
-    ++ SQRSHRUN2 ** [ O.SIMDVecReg (V5, EightH); O.SIMDVecReg (V14, FourS)
+    ++ SQRSHRUN2 ** [ O.SIMDVecReg (V5, EightH)
+                      O.SIMDVecReg (V14, FourS)
                       O.Imm 5L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (27)`` () =
     "6f2695c5"
-    ++ UQSHRN2 ** [ O.SIMDVecReg (V5, FourS); O.SIMDVecReg (V14, TwoD)
+    ++ UQSHRN2 ** [ O.SIMDVecReg (V5, FourS)
+                    O.SIMDVecReg (V14, TwoD)
                     O.Imm 0x1AL ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (28)`` () =
     "6f1f9dc5"
-    ++ UQRSHRN2 ** [ O.SIMDVecReg (V5, EightH); O.SIMDVecReg (V14, FourS)
+    ++ UQRSHRN2 ** [ O.SIMDVecReg (V5, EightH)
+                     O.SIMDVecReg (V14, FourS)
                      O.Imm 1L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (29)`` () =
     "2f2da4bb"
-    ++ USHLL ** [ O.SIMDVecReg (V27, TwoD); O.SIMDVecReg (V5, TwoS)
+    ++ USHLL ** [ O.SIMDVecReg (V27, TwoD)
+                  O.SIMDVecReg (V5, TwoS)
                   O.Imm 0xDL ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (30)`` () =
     "6f39e5c5"
-    ++ UCVTF ** [ O.SIMDVecReg (V5, FourS); O.SIMDVecReg (V14, FourS)
+    ++ UCVTF ** [ O.SIMDVecReg (V5, FourS)
+                  O.SIMDVecReg (V14, FourS)
                   OprFbits 7uy ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.13 Advanced SIMD shift by immediate (31)`` () =
     "6f26fdc5"
-    ++ FCVTZU ** [ O.SIMDVecReg (V5, FourS); O.SIMDVecReg (V14, FourS)
+    ++ FCVTZU ** [ O.SIMDVecReg (V5, FourS)
+                   O.SIMDVecReg (V14, FourS)
                    OprFbits 0x1Auy ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.14 Advanced SIMD table lookup (1)`` () =
     "4e0320c1"
-    ++ TBL ** [ O.SIMDVecReg (V1, SixteenB); O.SIMDList ([ V6; V7 ], SixteenB)
+    ++ TBL ** [ O.SIMDVecReg (V1, SixteenB)
+                O.SIMDList ([ V6; V7 ], SixteenB)
                 O.SIMDVecReg (V3, SixteenB) ]
     ||> test
 
@@ -2111,14 +2175,16 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.14 Advanced SIMD table lookup (4)`` () =
     "0e030371"
-    ++ TBL ** [ O.SIMDVecReg (V17, EightB); O.SIMDList ([ V27 ], SixteenB)
+    ++ TBL ** [ O.SIMDVecReg (V17, EightB)
+                O.SIMDList ([ V27 ], SixteenB)
                 O.SIMDVecReg (V3, EightB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.14 Advanced SIMD table lookup (5)`` () =
     "0e1930fc"
-    ++ TBX ** [ O.SIMDVecReg (V28, EightB); O.SIMDList ([ V7; V8 ], SixteenB)
+    ++ TBX ** [ O.SIMDVecReg (V28, EightB)
+                O.SIMDList ([ V7; V8 ], SixteenB)
                 O.SIMDVecReg (V25, EightB) ]
     ||> test
 
@@ -2141,462 +2207,528 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.14 Advanced SIMD table lookup (8)`` () =
     "4e1910fc"
-    ++ TBX ** [ O.SIMDVecReg (V28, SixteenB); O.SIMDList ([ V7 ], SixteenB)
+    ++ TBX ** [ O.SIMDVecReg (V28, SixteenB)
+                O.SIMDList ([ V7 ], SixteenB)
                 O.SIMDVecReg (V25, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (1)`` () =
     "0e6b039a"
-    ++ SADDL ** [ O.SIMDVecReg (V26, FourS); O.SIMDVecReg (V28, FourH)
+    ++ SADDL ** [ O.SIMDVecReg (V26, FourS)
+                  O.SIMDVecReg (V28, FourH)
                   O.SIMDVecReg (V11, FourH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (2)`` () =
     "4ea50325"
-    ++ SADDL2 ** [ O.SIMDVecReg (V5, TwoD); O.SIMDVecReg (V25, FourS)
+    ++ SADDL2 ** [ O.SIMDVecReg (V5, TwoD)
+                   O.SIMDVecReg (V25, FourS)
                    O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (3)`` () =
     "0e2712ba"
-    ++ SADDW ** [ O.SIMDVecReg (V26, EightH); O.SIMDVecReg (V21, EightH)
+    ++ SADDW ** [ O.SIMDVecReg (V26, EightH)
+                  O.SIMDVecReg (V21, EightH)
                   O.SIMDVecReg (V7, EightB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (4)`` () =
     "4e631079"
-    ++ SADDW2 ** [ O.SIMDVecReg (V25, FourS); O.SIMDVecReg (V3, FourS)
+    ++ SADDW2 ** [ O.SIMDVecReg (V25, FourS)
+                   O.SIMDVecReg (V3, FourS)
                    O.SIMDVecReg (V3, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (5)`` () =
     "4e632079"
-    ++ SSUBL2 ** [ O.SIMDVecReg (V25, FourS); O.SIMDVecReg (V3, EightH)
+    ++ SSUBL2 ** [ O.SIMDVecReg (V25, FourS)
+                   O.SIMDVecReg (V3, EightH)
                    O.SIMDVecReg (V3, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (6)`` () =
     "4e633079"
-    ++ SSUBW2 ** [ O.SIMDVecReg (V25, FourS); O.SIMDVecReg (V3, FourS)
+    ++ SSUBW2 ** [ O.SIMDVecReg (V25, FourS)
+                   O.SIMDVecReg (V3, FourS)
                    O.SIMDVecReg (V3, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (7)`` () =
     "4e634079"
-    ++ ADDHN2 ** [ O.SIMDVecReg (V25, EightH); O.SIMDVecReg (V3, FourS)
+    ++ ADDHN2 ** [ O.SIMDVecReg (V25, EightH)
+                   O.SIMDVecReg (V3, FourS)
                    O.SIMDVecReg (V3, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (8)`` () =
     "4e635079"
-    ++ SABAL2 ** [ O.SIMDVecReg (V25, FourS); O.SIMDVecReg (V3, EightH)
+    ++ SABAL2 ** [ O.SIMDVecReg (V25, FourS)
+                   O.SIMDVecReg (V3, EightH)
                    O.SIMDVecReg (V3, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (9)`` () =
     "4e636079"
-    ++ SUBHN2 ** [ O.SIMDVecReg (V25, EightH); O.SIMDVecReg (V3, FourS)
+    ++ SUBHN2 ** [ O.SIMDVecReg (V25, EightH)
+                   O.SIMDVecReg (V3, FourS)
                    O.SIMDVecReg (V3, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (10)`` () =
     "4e637079"
-    ++ SABDL2 ** [ O.SIMDVecReg (V25, FourS); O.SIMDVecReg (V3, EightH)
+    ++ SABDL2 ** [ O.SIMDVecReg (V25, FourS)
+                   O.SIMDVecReg (V3, EightH)
                    O.SIMDVecReg (V3, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (11)`` () =
     "0ea68258"
-    ++ SMLAL ** [ O.SIMDVecReg (V24, TwoD); O.SIMDVecReg (V18, TwoS)
+    ++ SMLAL ** [ O.SIMDVecReg (V24, TwoD)
+                  O.SIMDVecReg (V18, TwoS)
                   O.SIMDVecReg (V6, TwoS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (12)`` () =
     "4ea692fa"
-    ++ SQDMLAL2 ** [ O.SIMDVecReg (V26, TwoD); O.SIMDVecReg (V23, FourS)
+    ++ SQDMLAL2 ** [ O.SIMDVecReg (V26, TwoD)
+                     O.SIMDVecReg (V23, FourS)
                      O.SIMDVecReg (V6, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (13)`` () =
     "4e66a22c"
-    ++ SMLSL2 ** [ O.SIMDVecReg (V12, FourS); O.SIMDVecReg (V17, EightH)
+    ++ SMLSL2 ** [ O.SIMDVecReg (V12, FourS)
+                   O.SIMDVecReg (V17, EightH)
                    O.SIMDVecReg (V6, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (14)`` () =
     "4ea5b2c3"
-    ++ SQDMLSL2 ** [ O.SIMDVecReg (V3, TwoD); O.SIMDVecReg (V22, FourS)
+    ++ SQDMLSL2 ** [ O.SIMDVecReg (V3, TwoD)
+                     O.SIMDVecReg (V22, FourS)
                      O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (15)`` () =
     "0e65c17c"
-    ++ SMULL ** [ O.SIMDVecReg (V28, FourS); O.SIMDVecReg (V11, FourH)
+    ++ SMULL ** [ O.SIMDVecReg (V28, FourS)
+                  O.SIMDVecReg (V11, FourH)
                   O.SIMDVecReg (V5, FourH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (16)`` () =
     "0ea8d079"
-    ++ SQDMULL ** [ O.SIMDVecReg (V25, TwoD); O.SIMDVecReg (V3, TwoS)
+    ++ SQDMULL ** [ O.SIMDVecReg (V25, TwoD)
+                    O.SIMDVecReg (V3, TwoS)
                     O.SIMDVecReg (V8, TwoS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (17)`` () =
     "4ee3e245"
-    ++ PMULL2 ** [ O.SIMDVecReg (V5, OneQ); O.SIMDVecReg (V18, TwoD)
+    ++ PMULL2 ** [ O.SIMDVecReg (V5, OneQ)
+                   O.SIMDVecReg (V18, TwoD)
                    O.SIMDVecReg (V3, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (18)`` () =
     "2e2e026b"
-    ++ UADDL ** [ O.SIMDVecReg (V11, EightH); O.SIMDVecReg (V19, EightB)
+    ++ UADDL ** [ O.SIMDVecReg (V11, EightH)
+                  O.SIMDVecReg (V19, EightB)
                   O.SIMDVecReg (V14, EightB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (19)`` () =
     "6eae1252"
-    ++ UADDW2 ** [ O.SIMDVecReg (V18, TwoD); O.SIMDVecReg (V18, TwoD)
+    ++ UADDW2 ** [ O.SIMDVecReg (V18, TwoD)
+                   O.SIMDVecReg (V18, TwoD)
                    O.SIMDVecReg (V14, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (20)`` () =
     "2ea122bd"
-    ++ USUBL ** [ O.SIMDVecReg (V29, TwoD); O.SIMDVecReg (V21, TwoS)
+    ++ USUBL ** [ O.SIMDVecReg (V29, TwoD)
+                  O.SIMDVecReg (V21, TwoS)
                   O.SIMDVecReg (V1, TwoS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (21)`` () =
     "6e27339b"
-    ++ USUBW2 ** [ O.SIMDVecReg (V27, EightH); O.SIMDVecReg (V28, EightH)
+    ++ USUBW2 ** [ O.SIMDVecReg (V27, EightH)
+                   O.SIMDVecReg (V28, EightH)
                    O.SIMDVecReg (V7, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (22)`` () =
     "6e27439b"
-    ++ RADDHN2 ** [ O.SIMDVecReg (V27, SixteenB); O.SIMDVecReg (V28, EightH)
+    ++ RADDHN2 ** [ O.SIMDVecReg (V27, SixteenB)
+                    O.SIMDVecReg (V28, EightH)
                     O.SIMDVecReg (V7, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (23)`` () =
     "6e27539b"
-    ++ UABAL2 ** [ O.SIMDVecReg (V27, EightH); O.SIMDVecReg (V28, SixteenB)
+    ++ UABAL2 ** [ O.SIMDVecReg (V27, EightH)
+                   O.SIMDVecReg (V28, SixteenB)
                    O.SIMDVecReg (V7, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (24)`` () =
     "6e27639b"
-    ++ RSUBHN2 ** [ O.SIMDVecReg (V27, SixteenB); O.SIMDVecReg (V28, EightH)
+    ++ RSUBHN2 ** [ O.SIMDVecReg (V27, SixteenB)
+                    O.SIMDVecReg (V28, EightH)
                     O.SIMDVecReg (V7, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (25)`` () =
     "6e27739b"
-    ++ UABDL2 ** [ O.SIMDVecReg (V27, EightH); O.SIMDVecReg (V28, SixteenB)
+    ++ UABDL2 ** [ O.SIMDVecReg (V27, EightH)
+                   O.SIMDVecReg (V28, SixteenB)
                    O.SIMDVecReg (V7, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (26)`` () =
     "6e27839b"
-    ++ UMLAL2 ** [ O.SIMDVecReg (V27, EightH); O.SIMDVecReg (V28, SixteenB)
+    ++ UMLAL2 ** [ O.SIMDVecReg (V27, EightH)
+                   O.SIMDVecReg (V28, SixteenB)
                    O.SIMDVecReg (V7, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (27)`` () =
     "6e27a39b"
-    ++ UMLSL2 ** [ O.SIMDVecReg (V27, EightH); O.SIMDVecReg (V28, SixteenB)
+    ++ UMLSL2 ** [ O.SIMDVecReg (V27, EightH)
+                   O.SIMDVecReg (V28, SixteenB)
                    O.SIMDVecReg (V7, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.15 Advanced SIMD three different (28)`` () =
     "6e27c39b"
-    ++ UMULL2 ** [ O.SIMDVecReg (V27, EightH); O.SIMDVecReg (V28, SixteenB)
+    ++ UMULL2 ** [ O.SIMDVecReg (V27, EightH)
+                   O.SIMDVecReg (V28, SixteenB)
                    O.SIMDVecReg (V7, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (1)`` () =
     "4e2504b5"
-    ++ SHADD ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ SHADD ** [ O.SIMDVecReg (V21, SixteenB)
+                  O.SIMDVecReg (V5, SixteenB)
                   O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (2)`` () =
     "4e650cb5"
-    ++ SQADD ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ SQADD ** [ O.SIMDVecReg (V21, EightH)
+                  O.SIMDVecReg (V5, EightH)
                   O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (3)`` () =
     "4ea514b5"
-    ++ SRHADD ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ SRHADD ** [ O.SIMDVecReg (V21, FourS)
+                   O.SIMDVecReg (V5, FourS)
                    O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (4)`` () =
     "4e2524b5"
-    ++ SHSUB ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ SHSUB ** [ O.SIMDVecReg (V21, SixteenB)
+                  O.SIMDVecReg (V5, SixteenB)
                   O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (5)`` () =
     "4e652cb5"
-    ++ SQSUB ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ SQSUB ** [ O.SIMDVecReg (V21, EightH)
+                  O.SIMDVecReg (V5, EightH)
                   O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (6)`` () =
     "4ea534b5"
-    ++ CMGT ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ CMGT ** [ O.SIMDVecReg (V21, FourS)
+                 O.SIMDVecReg (V5, FourS)
                  O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (7)`` () =
     "4e253cb5"
-    ++ CMGE ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ CMGE ** [ O.SIMDVecReg (V21, SixteenB)
+                 O.SIMDVecReg (V5, SixteenB)
                  O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (8)`` () =
     "4e6544b5"
-    ++ SSHL ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ SSHL ** [ O.SIMDVecReg (V21, EightH)
+                 O.SIMDVecReg (V5, EightH)
                  O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (9)`` () =
     "4ea54cb5"
-    ++ SQSHL ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ SQSHL ** [ O.SIMDVecReg (V21, FourS)
+                  O.SIMDVecReg (V5, FourS)
                   O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (10)`` () =
     "4e2554b5"
-    ++ SRSHL ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ SRSHL ** [ O.SIMDVecReg (V21, SixteenB)
+                  O.SIMDVecReg (V5, SixteenB)
                   O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (11)`` () =
     "4e655cb5"
-    ++ SQRSHL ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ SQRSHL ** [ O.SIMDVecReg (V21, EightH)
+                   O.SIMDVecReg (V5, EightH)
                    O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (12)`` () =
     "4ea564b5"
-    ++ SMAX ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ SMAX ** [ O.SIMDVecReg (V21, FourS)
+                 O.SIMDVecReg (V5, FourS)
                  O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (13)`` () =
     "4e256cb5"
-    ++ SMIN ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ SMIN ** [ O.SIMDVecReg (V21, SixteenB)
+                 O.SIMDVecReg (V5, SixteenB)
                  O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (14)`` () =
     "4e6574b5"
-    ++ SABD ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ SABD ** [ O.SIMDVecReg (V21, EightH)
+                 O.SIMDVecReg (V5, EightH)
                  O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (15)`` () =
     "4ea57cb5"
-    ++ SABA ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ SABA ** [ O.SIMDVecReg (V21, FourS)
+                 O.SIMDVecReg (V5, FourS)
                  O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (16)`` () =
     "4e2584b5"
-    ++ ADD ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ ADD ** [ O.SIMDVecReg (V21, SixteenB)
+                O.SIMDVecReg (V5, SixteenB)
                 O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (17)`` () =
     "4e658cb5"
-    ++ CMTST ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ CMTST ** [ O.SIMDVecReg (V21, EightH)
+                  O.SIMDVecReg (V5, EightH)
                   O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (18)`` () =
     "4ea594b5"
-    ++ MLA ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ MLA ** [ O.SIMDVecReg (V21, FourS)
+                O.SIMDVecReg (V5, FourS)
                 O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (19)`` () =
     "4e259cb5"
-    ++ MUL ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ MUL ** [ O.SIMDVecReg (V21, SixteenB)
+                O.SIMDVecReg (V5, SixteenB)
                 O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (20)`` () =
     "4e65a4b5"
-    ++ SMAXP ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ SMAXP ** [ O.SIMDVecReg (V21, EightH)
+                  O.SIMDVecReg (V5, EightH)
                   O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (21)`` () =
     "4ea5acb5"
-    ++ SMINP ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ SMINP ** [ O.SIMDVecReg (V21, FourS)
+                  O.SIMDVecReg (V5, FourS)
                   O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (22)`` () =
     "4ea5b4b5"
-    ++ SQDMULH ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ SQDMULH ** [ O.SIMDVecReg (V21, FourS)
+                    O.SIMDVecReg (V5, FourS)
                     O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (23)`` () =
     "4e65bcb5"
-    ++ ADDP ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ ADDP ** [ O.SIMDVecReg (V21, EightH)
+                 O.SIMDVecReg (V5, EightH)
                  O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (24)`` () =
     "4e25c6b5"
-    ++ FMAXNM ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V21, FourS)
+    ++ FMAXNM ** [ O.SIMDVecReg (V21, FourS)
+                   O.SIMDVecReg (V21, FourS)
                    O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (25)`` () =
     "4e65cdb5"
-    ++ FMLA ** [ O.SIMDVecReg (V21, TwoD); O.SIMDVecReg (V13, TwoD)
+    ++ FMLA ** [ O.SIMDVecReg (V21, TwoD)
+                 O.SIMDVecReg (V13, TwoD)
                  O.SIMDVecReg (V5, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (26)`` () =
     "4e25d4b5"
-    ++ FADD ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ FADD ** [ O.SIMDVecReg (V21, FourS)
+                 O.SIMDVecReg (V5, FourS)
                  O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (27)`` () =
     "4e65dcb1"
-    ++ FMULX ** [ O.SIMDVecReg (V17, TwoD); O.SIMDVecReg (V5, TwoD)
+    ++ FMULX ** [ O.SIMDVecReg (V17, TwoD)
+                  O.SIMDVecReg (V5, TwoD)
                   O.SIMDVecReg (V5, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (28)`` () =
     "4e25e455"
-    ++ FCMEQ ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V2, FourS)
+    ++ FCMEQ ** [ O.SIMDVecReg (V21, FourS)
+                  O.SIMDVecReg (V2, FourS)
                   O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (29)`` () =
     "4e65f5b5"
-    ++ FMAX ** [ O.SIMDVecReg (V21, TwoD); O.SIMDVecReg (V13, TwoD)
+    ++ FMAX ** [ O.SIMDVecReg (V21, TwoD)
+                 O.SIMDVecReg (V13, TwoD)
                  O.SIMDVecReg (V5, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (30)`` () =
     "4e25fdb5"
-    ++ FRECPS ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V13, FourS)
+    ++ FRECPS ** [ O.SIMDVecReg (V21, FourS)
+                   O.SIMDVecReg (V13, FourS)
                    O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (31)`` () =
     "4e251cb1"
-    ++ AND ** [ O.SIMDVecReg (V17, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ AND ** [ O.SIMDVecReg (V17, SixteenB)
+                O.SIMDVecReg (V5, SixteenB)
                 O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (32)`` () =
     "4e651eb9"
-    ++ BIC ** [ O.SIMDVecReg (V25, SixteenB); O.SIMDVecReg (V21, SixteenB)
+    ++ BIC ** [ O.SIMDVecReg (V25, SixteenB)
+                O.SIMDVecReg (V21, SixteenB)
                 O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (33)`` () =
     "4ea5c43d"
-    ++ FMINNM ** [ O.SIMDVecReg (V29, FourS); O.SIMDVecReg (V1, FourS)
+    ++ FMINNM ** [ O.SIMDVecReg (V29, FourS)
+                   O.SIMDVecReg (V1, FourS)
                    O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (34)`` () =
     "4ee5cfb4"
-    ++ FMLS ** [ O.SIMDVecReg (V20, TwoD); O.SIMDVecReg (V29, TwoD)
+    ++ FMLS ** [ O.SIMDVecReg (V20, TwoD)
+                 O.SIMDVecReg (V29, TwoD)
                  O.SIMDVecReg (V5, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (35)`` () =
     "4ea5d4b5"
-    ++ FSUB ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ FSUB ** [ O.SIMDVecReg (V21, FourS)
+                 O.SIMDVecReg (V5, FourS)
                  O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (36)`` () =
     "4ee5f425"
-    ++ FMIN ** [ O.SIMDVecReg (V5, TwoD); O.SIMDVecReg (V1, TwoD)
+    ++ FMIN ** [ O.SIMDVecReg (V5, TwoD)
+                 O.SIMDVecReg (V1, TwoD)
                  O.SIMDVecReg (V5, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (37)`` () =
     "4ea5fcbd"
-    ++ FRSQRTS ** [ O.SIMDVecReg (V29, FourS); O.SIMDVecReg (V5, FourS)
+    ++ FRSQRTS ** [ O.SIMDVecReg (V29, FourS)
+                    O.SIMDVecReg (V5, FourS)
                     O.SIMDVecReg (V5, FourS) ]
     ||> test
 
@@ -2609,273 +2741,312 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (39)`` () =
     "4ee51da9"
-    ++ ORN ** [ O.SIMDVecReg (V9, SixteenB); O.SIMDVecReg (V13, SixteenB)
+    ++ ORN ** [ O.SIMDVecReg (V9, SixteenB)
+                O.SIMDVecReg (V13, SixteenB)
                 O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (40)`` () =
     "6e2504b5"
-    ++ UHADD ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ UHADD ** [ O.SIMDVecReg (V21, SixteenB)
+                  O.SIMDVecReg (V5, SixteenB)
                   O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (41)`` () =
     "6e650cb5"
-    ++ UQADD ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ UQADD ** [ O.SIMDVecReg (V21, EightH)
+                  O.SIMDVecReg (V5, EightH)
                   O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (42)`` () =
     "6ea514b5"
-    ++ URHADD ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ URHADD ** [ O.SIMDVecReg (V21, FourS)
+                   O.SIMDVecReg (V5, FourS)
                    O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (43)`` () =
     "6e2524b5"
-    ++ UHSUB ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ UHSUB ** [ O.SIMDVecReg (V21, SixteenB)
+                  O.SIMDVecReg (V5, SixteenB)
                   O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (44)`` () =
     "6e652cb5"
-    ++ UQSUB ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ UQSUB ** [ O.SIMDVecReg (V21, EightH)
+                  O.SIMDVecReg (V5, EightH)
                   O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (45)`` () =
     "6ea534b5"
-    ++ CMHI ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ CMHI ** [ O.SIMDVecReg (V21, FourS)
+                 O.SIMDVecReg (V5, FourS)
                  O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (46)`` () =
     "6e253cb5"
-    ++ CMHS ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ CMHS ** [ O.SIMDVecReg (V21, SixteenB)
+                 O.SIMDVecReg (V5, SixteenB)
                  O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (47)`` () =
     "6e6544b5"
-    ++ USHL ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ USHL ** [ O.SIMDVecReg (V21, EightH)
+                 O.SIMDVecReg (V5, EightH)
                  O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (48)`` () =
     "6ea54cb5"
-    ++ UQSHL ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ UQSHL ** [ O.SIMDVecReg (V21, FourS)
+                  O.SIMDVecReg (V5, FourS)
                   O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (49)`` () =
     "6e2554b5"
-    ++ URSHL ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ URSHL ** [ O.SIMDVecReg (V21, SixteenB)
+                  O.SIMDVecReg (V5, SixteenB)
                   O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (50)`` () =
     "6e655cb5"
-    ++ UQRSHL ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ UQRSHL ** [ O.SIMDVecReg (V21, EightH)
+                   O.SIMDVecReg (V5, EightH)
                    O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (51)`` () =
     "6ea564b5"
-    ++ UMAX ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ UMAX ** [ O.SIMDVecReg (V21, FourS)
+                 O.SIMDVecReg (V5, FourS)
                  O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (52)`` () =
     "6e256cb5"
-    ++ UMIN ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ UMIN ** [ O.SIMDVecReg (V21, SixteenB)
+                 O.SIMDVecReg (V5, SixteenB)
                  O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (53)`` () =
     "6e6574b5"
-    ++ UABD ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ UABD ** [ O.SIMDVecReg (V21, EightH)
+                 O.SIMDVecReg (V5, EightH)
                  O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (54)`` () =
     "6ea57cb5"
-    ++ UABA ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ UABA ** [ O.SIMDVecReg (V21, FourS)
+                 O.SIMDVecReg (V5, FourS)
                  O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (55)`` () =
     "6e2584b5"
-    ++ SUB ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ SUB ** [ O.SIMDVecReg (V21, SixteenB)
+                O.SIMDVecReg (V5, SixteenB)
                 O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (56)`` () =
     "6e658cb5"
-    ++ CMEQ ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ CMEQ ** [ O.SIMDVecReg (V21, EightH)
+                 O.SIMDVecReg (V5, EightH)
                  O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (57)`` () =
     "6ea594b5"
-    ++ MLS ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ MLS ** [ O.SIMDVecReg (V21, FourS)
+                O.SIMDVecReg (V5, FourS)
                 O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (58)`` () =
     "6e259cb5"
-    ++ PMUL ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ PMUL ** [ O.SIMDVecReg (V21, SixteenB)
+                 O.SIMDVecReg (V5, SixteenB)
                  O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (59)`` () =
     "6e65a4b5"
-    ++ UMAXP ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ UMAXP ** [ O.SIMDVecReg (V21, EightH)
+                  O.SIMDVecReg (V5, EightH)
                   O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (60)`` () =
     "6ea5acb5"
-    ++ UMINP ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ UMINP ** [ O.SIMDVecReg (V21, FourS)
+                  O.SIMDVecReg (V5, FourS)
                   O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (61)`` () =
     "6e65b4b5"
-    ++ SQRDMULH ** [ O.SIMDVecReg (V21, EightH); O.SIMDVecReg (V5, EightH)
+    ++ SQRDMULH ** [ O.SIMDVecReg (V21, EightH)
+                     O.SIMDVecReg (V5, EightH)
                      O.SIMDVecReg (V5, EightH) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (62)`` () =
     "6e25c4b5"
-    ++ FMAXNMP ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ FMAXNMP ** [ O.SIMDVecReg (V21, FourS)
+                    O.SIMDVecReg (V5, FourS)
                     O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (63)`` () =
     "6e65d4b5"
-    ++ FADDP ** [ O.SIMDVecReg (V21, TwoD); O.SIMDVecReg (V5, TwoD)
+    ++ FADDP ** [ O.SIMDVecReg (V21, TwoD)
+                  O.SIMDVecReg (V5, TwoD)
                   O.SIMDVecReg (V5, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (64)`` () =
     "6e25dcb5"
-    ++ FMUL ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ FMUL ** [ O.SIMDVecReg (V21, FourS)
+                 O.SIMDVecReg (V5, FourS)
                  O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (65)`` () =
     "6e65e4b5"
-    ++ FCMGE ** [ O.SIMDVecReg (V21, TwoD); O.SIMDVecReg (V5, TwoD)
+    ++ FCMGE ** [ O.SIMDVecReg (V21, TwoD)
+                  O.SIMDVecReg (V5, TwoD)
                   O.SIMDVecReg (V5, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (66)`` () =
     "6e25ecb5"
-    ++ FACGE ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ FACGE ** [ O.SIMDVecReg (V21, FourS)
+                  O.SIMDVecReg (V5, FourS)
                   O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (67)`` () =
     "6e65f4b5"
-    ++ FMAXP ** [ O.SIMDVecReg (V21, TwoD); O.SIMDVecReg (V5, TwoD)
+    ++ FMAXP ** [ O.SIMDVecReg (V21, TwoD)
+                  O.SIMDVecReg (V5, TwoD)
                   O.SIMDVecReg (V5, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (68)`` () =
     "6e25fcb5"
-    ++ FDIV ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ FDIV ** [ O.SIMDVecReg (V21, FourS)
+                 O.SIMDVecReg (V5, FourS)
                  O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (69)`` () =
     "6e251cb5"
-    ++ EOR ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ EOR ** [ O.SIMDVecReg (V21, SixteenB)
+                O.SIMDVecReg (V5, SixteenB)
                 O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (70)`` () =
     "6e651cb5"
-    ++ BSL ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ BSL ** [ O.SIMDVecReg (V21, SixteenB)
+                O.SIMDVecReg (V5, SixteenB)
                 O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (71)`` () =
     "6ea5c4b5"
-    ++ FMINNMP ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ FMINNMP ** [ O.SIMDVecReg (V21, FourS)
+                    O.SIMDVecReg (V5, FourS)
                     O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (72)`` () =
     "6ee5d4b5"
-    ++ FABD ** [ O.SIMDVecReg (V21, TwoD); O.SIMDVecReg (V5, TwoD)
+    ++ FABD ** [ O.SIMDVecReg (V21, TwoD)
+                 O.SIMDVecReg (V5, TwoD)
                  O.SIMDVecReg (V5, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (73)`` () =
     "6ea5e4b5"
-    ++ FCMGT ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ FCMGT ** [ O.SIMDVecReg (V21, FourS)
+                  O.SIMDVecReg (V5, FourS)
                   O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (74)`` () =
     "6ee5ecb5"
-    ++ FACGT ** [ O.SIMDVecReg (V21, TwoD); O.SIMDVecReg (V5, TwoD)
+    ++ FACGT ** [ O.SIMDVecReg (V21, TwoD)
+                  O.SIMDVecReg (V5, TwoD)
                   O.SIMDVecReg (V5, TwoD) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (75)`` () =
     "6ea5f4b5"
-    ++ FMINP ** [ O.SIMDVecReg (V21, FourS); O.SIMDVecReg (V5, FourS)
+    ++ FMINP ** [ O.SIMDVecReg (V21, FourS)
+                  O.SIMDVecReg (V5, FourS)
                   O.SIMDVecReg (V5, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (76)`` () =
     "6ea51cb5"
-    ++ BIT ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ BIT ** [ O.SIMDVecReg (V21, SixteenB)
+                O.SIMDVecReg (V5, SixteenB)
                 O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.16 Advanced SIMD three same (77)`` () =
     "6ee51cb5"
-    ++ BIF ** [ O.SIMDVecReg (V21, SixteenB); O.SIMDVecReg (V5, SixteenB)
+    ++ BIF ** [ O.SIMDVecReg (V21, SixteenB)
+                O.SIMDVecReg (V5, SixteenB)
                 O.SIMDVecReg (V5, SixteenB) ]
     ||> test
 
@@ -2924,21 +3095,24 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (8)`` () =
     "4e208867"
-    ++ CMGT ** [ O.SIMDVecReg (V7, SixteenB); O.SIMDVecReg (V3, SixteenB)
+    ++ CMGT ** [ O.SIMDVecReg (V7, SixteenB)
+                 O.SIMDVecReg (V3, SixteenB)
                  O.Imm 0L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (9)`` () =
     "0e609879"
-    ++ CMEQ ** [ O.SIMDVecReg (V25, FourH); O.SIMDVecReg (V3, FourH)
+    ++ CMEQ ** [ O.SIMDVecReg (V25, FourH)
+                 O.SIMDVecReg (V3, FourH)
                  O.Imm 0L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (10)`` () =
     "4ea0a841"
-    ++ CMLT ** [ O.SIMDVecReg (V1, FourS); O.SIMDVecReg (V2, FourS)
+    ++ CMLT ** [ O.SIMDVecReg (V1, FourS)
+                 O.SIMDVecReg (V2, FourS)
                  O.Imm 0L ]
     ||> test
 
@@ -3035,21 +3209,24 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (26)`` () =
     "4ea0c8bd"
-    ++ FCMGT ** [ O.SIMDVecReg (V29, FourS); O.SIMDVecReg (V5, FourS)
+    ++ FCMGT ** [ O.SIMDVecReg (V29, FourS)
+                  O.SIMDVecReg (V5, FourS)
                   OprFPImm 0.0 ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (27)`` () =
     "0ea0d83e"
-    ++ FCMEQ ** [ O.SIMDVecReg (V30, TwoS); O.SIMDVecReg (V1, TwoS)
+    ++ FCMEQ ** [ O.SIMDVecReg (V30, TwoS)
+                  O.SIMDVecReg (V1, TwoS)
                   OprFPImm 0.0 ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (28)`` () =
     "4ee0e939"
-    ++ FCMLT ** [ O.SIMDVecReg (V25, TwoD); O.SIMDVecReg (V9, TwoD)
+    ++ FCMLT ** [ O.SIMDVecReg (V25, TwoD)
+                  O.SIMDVecReg (V9, TwoD)
                   OprFPImm 0.0 ]
     ||> test
 
@@ -3134,14 +3311,16 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (42)`` () =
     "6e208874"
-    ++ CMGE ** [ O.SIMDVecReg (V20, SixteenB); O.SIMDVecReg (V3, SixteenB)
+    ++ CMGE ** [ O.SIMDVecReg (V20, SixteenB)
+                 O.SIMDVecReg (V3, SixteenB)
                  O.Imm 0L ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (43)`` () =
     "2e2098fd"
-    ++ CMLE ** [ O.SIMDVecReg (V29, EightB); O.SIMDVecReg (V7, EightB)
+    ++ CMLE ** [ O.SIMDVecReg (V29, EightB)
+                 O.SIMDVecReg (V7, EightB)
                  O.Imm 0L ]
     ||> test
 
@@ -3166,14 +3345,16 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (47)`` () =
     "2ea13a75"
-    ++ SHLL ** [ O.SIMDVecReg (V21, TwoD); O.SIMDVecReg (V19, TwoS)
+    ++ SHLL ** [ O.SIMDVecReg (V21, TwoD)
+                 O.SIMDVecReg (V19, TwoS)
                  O.Shift (SRTypeLSL, 32L) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (48)`` () =
     "6e613a7d"
-    ++ SHLL2 ** [ O.SIMDVecReg (V29, FourS); O.SIMDVecReg (V19, EightH)
+    ++ SHLL2 ** [ O.SIMDVecReg (V29, FourS)
+                  O.SIMDVecReg (V19, EightH)
                   O.Shift (SRTypeLSL, 16L) ]
     ||> test
 
@@ -3252,14 +3433,16 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (61)`` () =
     "6ea0cae5"
-    ++ FCMGE ** [ O.SIMDVecReg (V5, FourS); O.SIMDVecReg (V23, FourS)
+    ++ FCMGE ** [ O.SIMDVecReg (V5, FourS)
+                  O.SIMDVecReg (V23, FourS)
                   OprFPImm 0.0 ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.17 Advanced SIMD two-reg miscellaneous (62)`` () =
     "2ea0da4e"
-    ++ FCMLE ** [ O.SIMDVecReg (V14, TwoS); O.SIMDVecReg (V18, TwoS)
+    ++ FCMLE ** [ O.SIMDVecReg (V14, TwoS)
+                  O.SIMDVecReg (V18, TwoS)
                   OprFPImm 0.0 ]
     ||> test
 
@@ -3308,126 +3491,144 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (1)`` () =
     "4f6228da"
-    ++ SMLAL2 ** [ O.SIMDVecReg (V26, FourS); O.SIMDVecReg (V6, EightH)
+    ++ SMLAL2 ** [ O.SIMDVecReg (V26, FourS)
+                   O.SIMDVecReg (V6, EightH)
                    O.SIMDVecRegWithIdx (V2, VecH, 6uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (2)`` () =
     "4fb13b42"
-    ++ SQDMLAL2 ** [ O.SIMDVecReg (V2, TwoD); O.SIMDVecReg (V26, FourS)
+    ++ SQDMLAL2 ** [ O.SIMDVecReg (V2, TwoD)
+                     O.SIMDVecReg (V26, FourS)
                      O.SIMDVecRegWithIdx (V17, VecS, 3uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (3)`` () =
     "4f7961ca"
-    ++ SMLSL2 ** [ O.SIMDVecReg (V10, FourS); O.SIMDVecReg (V14, EightH)
+    ++ SMLSL2 ** [ O.SIMDVecReg (V10, FourS)
+                   O.SIMDVecReg (V14, EightH)
                    O.SIMDVecRegWithIdx (V9, VecH, 3uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (4)`` () =
     "0f92702f"
-    ++ SQDMLSL ** [ O.SIMDVecReg (V15, TwoD); O.SIMDVecReg (V1, TwoS)
+    ++ SQDMLSL ** [ O.SIMDVecReg (V15, TwoD)
+                    O.SIMDVecReg (V1, TwoS)
                     O.SIMDVecRegWithIdx (V18, VecS, 0uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (5)`` () =
     "0f738342"
-    ++ MUL ** [ O.SIMDVecReg (V2, FourH); O.SIMDVecReg (V26, FourH)
+    ++ MUL ** [ O.SIMDVecReg (V2, FourH)
+                O.SIMDVecReg (V26, FourH)
                 O.SIMDVecRegWithIdx (V3, VecH, 3uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (6)`` () =
     "0f6ca8c5"
-    ++ SMULL ** [ O.SIMDVecReg (V5, FourS); O.SIMDVecReg (V6, FourH)
+    ++ SMULL ** [ O.SIMDVecReg (V5, FourS)
+                  O.SIMDVecReg (V6, FourH)
                   O.SIMDVecRegWithIdx (V12, VecH, 6uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (7)`` () =
     "4fbdbb42"
-    ++ SQDMULL2 ** [ O.SIMDVecReg (V2, TwoD); O.SIMDVecReg (V26, FourS)
+    ++ SQDMULL2 ** [ O.SIMDVecReg (V2, TwoD)
+                     O.SIMDVecReg (V26, FourS)
                      O.SIMDVecRegWithIdx (V29, VecS, 3uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (8)`` () =
     "4f9dcb5d"
-    ++ SQDMULH ** [ O.SIMDVecReg (V29, FourS); O.SIMDVecReg (V26, FourS)
+    ++ SQDMULH ** [ O.SIMDVecReg (V29, FourS)
+                    O.SIMDVecReg (V26, FourS)
                     O.SIMDVecRegWithIdx (V29, VecS, 2uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (9)`` () =
     "0f5dd3da"
-    ++ SQRDMULH ** [ O.SIMDVecReg (V26, FourH); O.SIMDVecReg (V30, FourH)
+    ++ SQRDMULH ** [ O.SIMDVecReg (V26, FourH)
+                     O.SIMDVecReg (V30, FourH)
                      O.SIMDVecRegWithIdx (V13, VecH, 1uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (10)`` () =
     "4fa31b5b"
-    ++ FMLA ** [ O.SIMDVecReg (V27, FourS); O.SIMDVecReg (V26, FourS)
+    ++ FMLA ** [ O.SIMDVecReg (V27, FourS)
+                 O.SIMDVecReg (V26, FourS)
                  O.SIMDVecRegWithIdx (V3, VecS, 3uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (11)`` () =
     "4fd3535b"
-    ++ FMLS ** [ O.SIMDVecReg (V27, TwoD); O.SIMDVecReg (V26, TwoD)
+    ++ FMLS ** [ O.SIMDVecReg (V27, TwoD)
+                 O.SIMDVecReg (V26, TwoD)
                  O.SIMDVecRegWithIdx (V19, VecD, 0uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (12)`` () =
     "4f839b5b"
-    ++ FMUL ** [ O.SIMDVecReg (V27, FourS); O.SIMDVecReg (V26, FourS)
+    ++ FMUL ** [ O.SIMDVecReg (V27, FourS)
+                 O.SIMDVecReg (V26, FourS)
                  O.SIMDVecRegWithIdx (V3, VecS, 2uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (13)`` () =
     "6fad08be"
-    ++ MLA ** [ O.SIMDVecReg (V30, FourS); O.SIMDVecReg (V5, FourS)
+    ++ MLA ** [ O.SIMDVecReg (V30, FourS)
+                O.SIMDVecReg (V5, FourS)
                 O.SIMDVecRegWithIdx (V13, VecS, 3uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (14)`` () =
     "6f7f2b56"
-    ++ UMLAL2 ** [ O.SIMDVecReg (V22, FourS); O.SIMDVecReg (V26, EightH)
+    ++ UMLAL2 ** [ O.SIMDVecReg (V22, FourS)
+                   O.SIMDVecReg (V26, EightH)
                    O.SIMDVecRegWithIdx (V15, VecH, 7uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (15)`` () =
     "6f97488a"
-    ++ MLS ** [ O.SIMDVecReg (V10, FourS); O.SIMDVecReg (V4, FourS)
+    ++ MLS ** [ O.SIMDVecReg (V10, FourS)
+                O.SIMDVecReg (V4, FourS)
                 O.SIMDVecRegWithIdx (V23, VecS, 2uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (16)`` () =
     "2f6e60de"
-    ++ UMLSL ** [ O.SIMDVecReg (V30, FourS); O.SIMDVecReg (V6, FourH)
+    ++ UMLSL ** [ O.SIMDVecReg (V30, FourS)
+                  O.SIMDVecReg (V6, FourH)
                   O.SIMDVecRegWithIdx (V14, VecH, 2uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (17)`` () =
     "6fbfa8ea"
-    ++ UMULL2 ** [ O.SIMDVecReg (V10, TwoD); O.SIMDVecReg (V7, FourS)
+    ++ UMULL2 ** [ O.SIMDVecReg (V10, TwoD)
+                   O.SIMDVecReg (V7, FourS)
                    O.SIMDVecRegWithIdx (V31, VecS, 3uy) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.18 Advanced SIMD vector x indexed elem (18)`` () =
     "6fad92c5"
-    ++ FMULX ** [ O.SIMDVecReg (V5, FourS); O.SIMDVecReg (V22, FourS)
+    ++ FMULX ** [ O.SIMDVecReg (V5, FourS)
+                  O.SIMDVecReg (V22, FourS)
                   O.SIMDVecRegWithIdx (V13, VecS, 1uy) ]
     ||> test
 
@@ -3476,28 +3677,32 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.20 Cryptographic three-register SHA (4)`` () =
     "5e173207"
-    ++ SHA1SU0 ** [ O.SIMDVecReg (V7, FourS); O.SIMDVecReg (V16, FourS)
+    ++ SHA1SU0 ** [ O.SIMDVecReg (V7, FourS)
+                    O.SIMDVecReg (V16, FourS)
                     O.SIMDVecReg (V23, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.20 Cryptographic three-register SHA (5)`` () =
     "5e1143de"
-    ++ SHA256H ** [ O.ScalarReg Q30; O.ScalarReg Q30
+    ++ SHA256H ** [ O.ScalarReg Q30
+                    O.ScalarReg Q30
                     O.SIMDVecReg (V17, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.20 Cryptographic three-register SHA (6)`` () =
     "5e19531e"
-    ++ SHA256H2 ** [ O.ScalarReg Q30; O.ScalarReg Q24
+    ++ SHA256H2 ** [ O.ScalarReg Q30
+                     O.ScalarReg Q24
                      O.SIMDVecReg (V25, FourS) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.20 Cryptographic three-register SHA (7)`` () =
     "5e1732bf"
-    ++ SHA1SU0 ** [ O.SIMDVecReg (V31, FourS); O.SIMDVecReg (V21, FourS)
+    ++ SHA1SU0 ** [ O.SIMDVecReg (V31, FourS)
+                    O.SIMDVecReg (V21, FourS)
                     O.SIMDVecReg (V23, FourS) ]
     ||> test
 
@@ -3600,7 +3805,9 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.24 Floating-point conditional select (2)`` () =
     "1e7ced53"
-    ++ FCSEL ** [ O.ScalarReg D19; O.ScalarReg D10; O.ScalarReg D28
+    ++ FCSEL ** [ O.ScalarReg D19
+                  O.ScalarReg D10
+                  O.ScalarReg D28
                   OprCond AL ]
     ||> test
 
@@ -3883,56 +4090,72 @@ type ARM64ParserTests () =
   [<TestMethod>]
   member _.``4.6.27 FP data-processing (3 source) (1)`` () =
     "1f1f0759"
-    ++ FMADD ** [ O.ScalarReg S25; O.ScalarReg S26; O.ScalarReg S31
+    ++ FMADD ** [ O.ScalarReg S25
+                  O.ScalarReg S26
+                  O.ScalarReg S31
                   O.ScalarReg S1 ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.27 FP data-processing (3 source) (2)`` () =
     "1f1e8b44"
-    ++ FMSUB ** [ O.ScalarReg S4; O.ScalarReg S26; O.ScalarReg S30
+    ++ FMSUB ** [ O.ScalarReg S4
+                  O.ScalarReg S26
+                  O.ScalarReg S30
                   O.ScalarReg S2 ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.27 FP data-processing (3 source) (3)`` () =
     "1f3c1116"
-    ++ FNMADD ** [ O.ScalarReg S22; O.ScalarReg S8; O.ScalarReg S28
+    ++ FNMADD ** [ O.ScalarReg S22
+                   O.ScalarReg S8
+                   O.ScalarReg S28
                    O.ScalarReg S4 ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.27 FP data-processing (3 source) (4)`` () =
     "1f38a1d5"
-    ++ FNMSUB ** [ O.ScalarReg S21; O.ScalarReg S14; O.ScalarReg S24
+    ++ FNMSUB ** [ O.ScalarReg S21
+                   O.ScalarReg S14
+                   O.ScalarReg S24
                    O.ScalarReg S8 ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.27 FP data-processing (3 source) (5)`` () =
     "1f504159"
-    ++ FMADD ** [ O.ScalarReg D25; O.ScalarReg D10; O.ScalarReg D16
+    ++ FMADD ** [ O.ScalarReg D25
+                  O.ScalarReg D10
+                  O.ScalarReg D16
                   O.ScalarReg D16 ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.27 FP data-processing (3 source) (6)`` () =
     "1f48e1dd"
-    ++ FMSUB ** [ O.ScalarReg D29; O.ScalarReg D14; O.ScalarReg D8
+    ++ FMSUB ** [ O.ScalarReg D29
+                  O.ScalarReg D14
+                  O.ScalarReg D8
                   O.ScalarReg D24 ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.27 FP data-processing (3 source) (7)`` () =
     "1f647171"
-    ++ FNMADD ** [ O.ScalarReg D17; O.ScalarReg D11; O.ScalarReg D4
+    ++ FNMADD ** [ O.ScalarReg D17
+                   O.ScalarReg D11
+                   O.ScalarReg D4
                    O.ScalarReg D28 ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.27 FP data-processing (3 source) (8)`` () =
     "1f62f871"
-    ++ FNMSUB ** [ O.ScalarReg D17; O.ScalarReg D3; O.ScalarReg D2
+    ++ FNMSUB ** [ O.ScalarReg D17
+                   O.ScalarReg D3
+                   O.ScalarReg D2
                    O.ScalarReg D30 ]
     ||> test
 

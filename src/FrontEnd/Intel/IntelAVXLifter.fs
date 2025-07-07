@@ -656,9 +656,9 @@ let vshufi32x4 (ins: Instruction) insLen bld =
     let imm0 (* imm8[0] *) = imm8 &&& 0b1L |> int
     let imm1 (* imm8[1] *) = (imm8 >>> 1) &&& 0b1L |> int
     Array.iteri (fun idx e ->
-      bld <+ (e := src1[ (imm0 * halfPNum) + idx ])) tDstA
+      bld <+ (e := src1[(imm0 * halfPNum) + idx])) tDstA
     Array.iteri (fun idx e ->
-      bld <+ (e := src2[ (imm1 * halfPNum) + idx ])) tDstB
+      bld <+ (e := src2[(imm1 * halfPNum) + idx])) tDstB
     let tDst = Array.append tDstA tDstB
     let result = makeAssignWithMask bld ePrx k oprSize packSz orgDst tDst false
     assignPackedInstr bld false ins insLen packNum oprSize dst result
@@ -674,12 +674,12 @@ let vshufi32x4 (ins: Instruction) insLen bld =
     let ctrl1 = (imm8 >>> 2) &&& 0b11L |> int
     let ctrl2 = (imm8 >>> 4) &&& 0b11L |> int
     let ctrl3 = (imm8 >>> 6) &&& 0b11L |> int
-    Array.iteri (fun idx e -> bld <+ (e := src1[ (ctrl0 * pNum) + idx ])) tDstA
-    Array.iteri (fun idx e -> bld <+ (e := src1[ (ctrl1 * pNum) + idx ])) tDstB
+    Array.iteri (fun idx e -> bld <+ (e := src1[(ctrl0 * pNum) + idx])) tDstA
+    Array.iteri (fun idx e -> bld <+ (e := src1[(ctrl1 * pNum) + idx])) tDstB
     Array.iteri (fun idx e ->
-      bld <+ (e := tmpSrc2[ (ctrl2 * pNum) + idx ])) tDstC
+      bld <+ (e := tmpSrc2[(ctrl2 * pNum) + idx])) tDstC
     Array.iteri (fun idx e ->
-      bld <+ (e := tmpSrc2[ (ctrl3 * pNum) + idx ])) tDstD
+      bld <+ (e := tmpSrc2[(ctrl3 * pNum) + idx])) tDstD
     let tDst = Array.concat [| tDstA; tDstB; tDstC; tDstD |]
     let result = makeAssignWithMask bld ePrx k oprSize packSz orgDst tDst false
     assignPackedInstr bld false ins insLen packNum oprSize dst result
@@ -1389,7 +1389,7 @@ let vpermq (ins: Instruction) insLen bld =
   let struct (dst, src, imm) = getThreeOprs ins
   let src = transOprToArr bld true ins insLen 64<rt> 1 oprSize src
   let imm = getImmValue imm |> int
-  let result = Array.init 4 (fun i -> src[ (imm >>> (i * 2)) &&& 0b11 ])
+  let result = Array.init 4 (fun i -> src[(imm >>> (i * 2)) &&& 0b11])
   assignPackedInstr bld false ins insLen 1 oprSize dst result
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
@@ -1490,8 +1490,10 @@ let vpmovx (ins: Instruction) insLen bld srcSz dstSz isSignExt =
         transOprToExpr256 bld false ins insLen src
       if (dstSz / srcSz) = 2 then
         Array.concat
-          [| (extSrc sNum srcA); (extSrc sNum srcB)
-             (extSrc sNum srcC); (extSrc sNum srcD) |]
+          [| (extSrc sNum srcA)
+             (extSrc sNum srcB)
+             (extSrc sNum srcC)
+             (extSrc sNum srcD) |]
       else extSrc (sNum * 2) srcA
     let result = Array.map ext src
     assignPackedInstr bld false ins insLen packNum oprSize dst result
@@ -1599,11 +1601,11 @@ let vpshufd (ins: Instruction) insLen bld =
         if (isMemOpr src1) && ePrx.B (* B *) = 1uy then
           Array.init allPackNum (fun _ -> Array.head src)
         else src
-      let src = Array.init allPackNum (fun i -> src[ getIdx i ])
+      let src = Array.init allPackNum (fun i -> src[getIdx i])
       makeAssignWithMask bld ePrx k oprSize packSize eDst src false
     else
       let getIdx i = (i / 4 * 4) + ((ord >>> ((i &&& 0x3) * 2)) &&& 0x3)
-      Array.init allPackNum (fun i -> src[ getIdx i ])
+      Array.init allPackNum (fun i -> src[getIdx i])
   assignPackedInstr bld false ins insLen packNum oprSize dst result
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen

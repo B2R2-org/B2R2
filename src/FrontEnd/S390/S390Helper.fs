@@ -31,31 +31,31 @@ open B2R2.FrontEnd.BinLifter
 let extract16 (bin: uint16) (ofs1: int) (ofs2: int) =
   let m, n = if max ofs1 ofs2 = ofs1 then ofs1, ofs2 else ofs2, ofs1
   if m - n > 15 then invalidOp "Invalid range of offsets given."
-  [ n..m ]
+  [ n .. m ]
   |> List.fold (fun acc i -> acc <<< 1 ||| (bin >>> 15 - i &&& 0b1us)) 0us
 
 let extract32 (bin: uint32) ofs1 ofs2 =
   let m, n = if max ofs1 ofs2 = ofs1 then ofs1, ofs2 else ofs2, ofs1
   if m - n > 31 then invalidOp "Invalid range of offsets given."
-  [ n..m ]
+  [ n .. m ]
   |> List.fold (fun acc i -> acc <<< 1 ||| (bin >>> 31 - i &&& 0b1u)) 0u
 
 let extract48 (bin: uint64) ofs1 ofs2 =
   let m, n = if max ofs1 ofs2 = ofs1 then ofs1, ofs2 else ofs2, ofs1
   if m - n > 47 then invalidOp "Invalid range of offsets given."
-  [ n..m ]
+  [ n .. m ]
   |> List.fold (fun acc i -> acc <<< 1 ||| (bin >>> 47 - i &&& 0b1UL)) 0UL
 
 let extract64 (bin: uint64) ofs1 ofs2 =
   let m, n = if max ofs1 ofs2 = ofs1 then ofs1, ofs2 else ofs2, ofs1
   if m - n > 63 then invalidOp "Invalid range of offsets given."
-  [ n..m ]
+  [ n .. m ]
   |> List.fold (fun acc i -> acc <<< 1 ||| (bin >>> 63 - i &&& 0b1UL)) 0UL
 
 let extract128 (bin: UInt128) ofs1 ofs2 =
   let m, n = if max ofs1 ofs2 = ofs1 then ofs1, ofs2 else ofs2, ofs1
   if m - n > 127 then invalidOp "Invalid range of offsets given."
-  [ n..m ]
+  [ n .. m ]
   |> List.fold (fun acc i -> acc <<< 1 ||| (bin >>> 127 - i &&& UInt128.One))
     UInt128.Zero
 

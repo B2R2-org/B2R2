@@ -101,10 +101,10 @@ type DiffAction () =
   let trim idA idB (lnumA: int[]) (lnumB: int[]) =
     let diffStart = findDiffstart 0 idA idB
     let diffEnd = findDiffend 0 idA idB
-    let idA' = idA[diffStart .. (Array.length idA - 1) - diffEnd]
-    let idB' = idB[diffStart .. (Array.length idB - 1) - diffEnd]
-    let lnumA' = lnumA[diffStart .. (Array.length lnumA - 1) - diffEnd]
-    let lnumB' = lnumB[diffStart .. (Array.length lnumB - 1) - diffEnd]
+    let idA' = idA[diffStart..(Array.length idA - 1 - diffEnd)]
+    let idB' = idB[diffStart..(Array.length idB - 1 - diffEnd)]
+    let lnumA' = lnumA[diffStart..(Array.length lnumA - 1 - diffEnd)]
+    let lnumB' = lnumB[diffStart..(Array.length lnumB - 1 - diffEnd)]
     idA', idB', lnumA', lnumB'
 
   let prepareMyers linesA linesB =
@@ -297,7 +297,7 @@ type DiffAction () =
     let res1, res2 = equalizeLines res1 res2
     Array.mapi2 (fun lnum line1 line2 ->
       let offsetStr = (lnum * NumBytesPerLine).ToString("x").PadLeft 8
-      Array.concat [| [| (NoColor, offsetStr + " | ")  |]
+      Array.concat [| [| (NoColor, offsetStr + " | ") |]
                       line1
                       [| (NoColor, "| ") |]
                       line2

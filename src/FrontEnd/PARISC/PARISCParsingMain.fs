@@ -730,7 +730,7 @@ let parseMultipleOperationInstruction bin =
   let ra = Bits.extract bin 10u 6u
   let tm = Bits.extract bin 4u 0u
   let oprs =
-    let cmplt = if Bits.pick bin 5u = 0u then Some [| DBL |] else Some [| SGL|]
+    let cmplt = if Bits.pick bin 5u = 0u then Some [| DBL |] else Some [| SGL |]
     cmplt,
     (rm1 |> getFRegister |> OpReg,
      rm2 |> getFRegister |> OpReg,

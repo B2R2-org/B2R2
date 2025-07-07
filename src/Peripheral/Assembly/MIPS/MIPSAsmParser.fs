@@ -165,7 +165,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
     |> Array.map pstringCI
 
   let allRegistersList =
-    Array.append [|pRegImm|] registersList
+    Array.append [| pRegImm |] registersList
 
   let pReg =
     ( (pchar '$' >>. (allRegistersList |> choice)) <|>

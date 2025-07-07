@@ -49,10 +49,10 @@ let filterInstructionLines lst =
 
 let extractOperands = function
   | [] -> NoOperand
-  | [op1] -> OneOperand op1
-  | [op1; op2] -> TwoOperands (op1, op2)
-  | [op1; op2; op3] -> ThreeOperands (op1, op2, op3)
-  | [op1; op2; op3; op4] -> FourOperands (op1, op2, op3, op4)
+  | [ op1 ] -> OneOperand op1
+  | [ op1; op2 ] -> TwoOperands (op1, op2)
+  | [ op1; op2; op3 ] -> ThreeOperands (op1, op2, op3)
+  | [ op1; op2; op3; op4 ] -> FourOperands (op1, op2, op3, op4)
   | _ -> Terminator.impossible ()
 
 let getOperandsAsList operands =

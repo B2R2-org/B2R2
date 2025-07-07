@@ -95,7 +95,7 @@ type CmdROP () =
       let vals = Array.ofList vals |> Array.map ROPExpr.ofUInt32
       ROPHandle.write32s rop (ROPExpr.ofUInt32 target) vals
       |> this.ShowResult rop.LiftingUnit
-    | "pivot" :: [esp] ->
+    | "pivot" :: [ esp ] ->
       ROPHandle.stackPivot rop (ROPExpr.ofUInt32 esp)
       |> this.ShowResult rop.LiftingUnit
     | _ -> [| "[*] Unknown ROP cmd." |]

@@ -1231,7 +1231,7 @@ let lwarx ins insLen bld =
   let tmpEA = tmpVar bld 32<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (tmpEA := ea)
-  bld <+ (AST.extCall <| AST.app "Reserve" [tmpEA] 32<rt>)
+  bld <+ (AST.extCall <| AST.app "Reserve" [ tmpEA ] 32<rt>)
   bld <+ (rd := loadNative bld 32<rt> tmpEA)
   bld --!> insLen
 
@@ -1871,7 +1871,7 @@ let stwcxdot ins insLen bld =
   let lblEnd = label bld "End"
   let tmpEA = tmpVar bld 32<rt>
   bld <+ (tmpEA := ea)
-  bld <+ (AST.extCall <| AST.app "IsReserved" [tmpEA] 32<rt>)
+  bld <+ (AST.extCall <| AST.app "IsReserved" [ tmpEA ] 32<rt>)
   bld <+ (AST.cjmp (res == AST.b1) (AST.jmpDest lblRes) (AST.jmpDest lblNoRes))
   bld <+ (AST.lmark lblRes)
   bld <+ (loadNative bld 32<rt> tmpEA := rs)

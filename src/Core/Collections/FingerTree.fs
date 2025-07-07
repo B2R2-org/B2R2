@@ -386,9 +386,9 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
     | Four (a, b, c, d) -> a :: b :: c :: d :: acc
 
   static member private NodeAcc : 'A list -> Node<'V, 'A> list = function
-    | [a; b] -> [ Op.Node2 a b ]
-    | [a; b; c] -> [ Op.Node3 a b c ]
-    | [a; b; c; d] -> [ Op.Node2 a b; Op.Node2 c d ]
+    | [ a; b ] -> [ Op.Node2 a b ]
+    | [ a; b; c ] -> [ Op.Node3 a b c ]
+    | [ a; b; c; d ] -> [ Op.Node2 a b; Op.Node2 c d ]
     | a :: b :: c :: xs -> Op.Node3 a b c :: Op.NodeAcc xs
     | _ -> raise InvalidNodeException
 
@@ -429,19 +429,19 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
 
   static member private LstToDigit (lst: 'A list) =
     match lst with
-    | [a] -> One (a)
-    | [a; b] -> Two (a, b)
-    | [a; b; c] -> Three (a, b, c)
-    | [a; b; c; d] -> Four (a, b, c, d)
+    | [ a ] -> One (a)
+    | [ a; b ] -> Two (a, b)
+    | [ a; b; c ] -> Three (a, b, c)
+    | [ a; b; c; d ] -> Four (a, b, c, d)
     | _ -> raise InvalidDigitException
 
   static member private ToTree (lst: 'A list) =
     match lst with
     | [] -> Empty
-    | [a] -> Single a
-    | [a; b] -> Op.Deep (One a, Empty, One b)
-    | [a; b; c] -> Op.Deep (Two (a, b), Empty, One c)
-    | [a; b; c; d] -> Op.Deep (Three (a, b, c), Empty, One d)
+    | [ a ] -> Single a
+    | [ a; b ] -> Op.Deep (One a, Empty, One b)
+    | [ a; b; c ] -> Op.Deep (Two (a, b), Empty, One c)
+    | [ a; b; c; d ] -> Op.Deep (Three (a, b, c), Empty, One d)
     | _ -> raise InvalidDigitException
 
   static member SplitTree (p: 'V -> bool)

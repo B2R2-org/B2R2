@@ -31,7 +31,7 @@ open B2R2.RearEnd.Utils
 /// The `detect` action.
 type DetectAction () =
   let resultToString (path: string, matchRate: float) =
-    [ (NoColor, $"{path}: {matchRate:F}") ]
+    [ NoColor, $"{path}: {matchRate:F}" ]
     |> OutputColored
     |> box
 

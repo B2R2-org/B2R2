@@ -109,7 +109,7 @@ let rec interpret (input: ItaniumExpr) =
         ""
         args
     if f = "" then f
-    elif f[f.Length - 1] = ' ' then f[.. f.Length - 3]
+    elif f[f.Length - 1] = ' ' then f[..(f.Length - 3)]
     else f
   | Num x -> string (x)
   | Num64 x -> string (x)
@@ -284,7 +284,7 @@ let rec interpret (input: ItaniumExpr) =
         ""
         exprlist
     if a = "" then ""
-    elif a[0] = ']' then a[1 .. (String.length a) - 1] + "]"
+    elif a[0] = ']' then a[1..(String.length a - 1)] + "]"
     else a + "]"
   | Function (scope, a, Name "", Name "", clone) ->
     let scope = List.fold (fun acc elem -> acc + interpret elem + "::") "" scope
@@ -318,7 +318,7 @@ let rec interpret (input: ItaniumExpr) =
         let all, index = combine (List.rev arguments) 0 ""
         let fullname = name + "(" + (args) + ")" + add
         let len = String.length all
-        let final = all[0..index] + fullname + all[(index + 1) .. len - 1]
+        let final = all[0..index] + fullname + all[(index + 1)..(len - 1)]
         returned + " " + scope1 + final + interpret clone
       | TemplateSub (a, _) -> interpret (Function (scope, a, a, arglist, clone))
       | _ ->
@@ -337,7 +337,7 @@ let rec interpret (input: ItaniumExpr) =
   | UnaryExpr (a, b) ->
     let operator = interpret a
     let len = String.length operator
-    let operator = operator[8 .. (len - 1)]
+    let operator = operator[8..(len - 1)]
     if operator = "++" || operator = "--" then
       "(" + interpret b + ")" + operator
     elif operator = "&" then
@@ -351,7 +351,7 @@ let rec interpret (input: ItaniumExpr) =
   | BinaryExpr (a, b, c) ->
     let operator = interpret a
     let len = String.length operator
-    let operator = operator[8 .. (len - 1)]
+    let operator = operator[8..(len - 1)]
     if operator = "::" then interpret b + operator + interpret c
     else "(" + interpret b + ")" + operator + "(" + interpret c + ")"
   | Operators a -> "operator" + OperatorIndicator.toString a

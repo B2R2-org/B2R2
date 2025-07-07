@@ -81,8 +81,18 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
     |>> UnOpType.ofString
 
   let pCastType =
-    [ "sext"; "zext"; "float"; "round"; "ceil"; "floor"; "trunc"; "fext"
-      "roundf"; "ceilf"; "floorf"; "truncf" ]
+    [ "sext"
+      "zext"
+      "float"
+      "round"
+      "ceil"
+      "floor"
+      "trunc"
+      "fext"
+      "roundf"
+      "ceilf"
+      "floorf"
+      "truncf" ]
     |> List.map (pstring >> attempt)
     |> choice
     |>> CastKind.ofString

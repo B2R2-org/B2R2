@@ -79,7 +79,7 @@ let rec findTypeOneConflictLoop vGraph upperLen vertices conflicts l k0 l1 =
     if w.IsSome || l1 = Array.length vertices - 1 then
       let k1 = if w.IsSome then Option.get w |> VisGraph.getIndex else upperLen
       let conflicts =
-        vertices[l .. l1]
+        vertices[l..l1]
         |> Array.fold (markTypeOneConflict vGraph k0 k1) conflicts
       findTypeOneConflictLoop
         vGraph upperLen vertices conflicts (l1 + 1) k1 (l1 + 1)
@@ -261,7 +261,7 @@ let collectX xPerV (xs: FloatMap) =
   |> Seq.fold (fun xPerV v ->
     match Map.tryFind v xPerV with
     | Some (acc) -> Map.add v (xs[v] :: acc) xPerV
-    | None -> Map.add v [xs[v]] xPerV) xPerV
+    | None -> Map.add v [ xs[v] ] xPerV) xPerV
 
 let setXPos (v: IVertex<VisBBlock>) x =
   v.VData.Coordinate.X <- x
