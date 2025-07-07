@@ -86,6 +86,8 @@ type BinaryBrew<'FnCtx,
   /// Get the instruction at the given address.
   member _.Instructions with get() = instrs
 
+  member _.Builders with get() = builders
+
 /// Default BinaryBrew type that internally uses SSA IR to recover CFGs.
 type BinaryBrew =
   inherit BinaryBrew<DummyContext, DummyContext>
