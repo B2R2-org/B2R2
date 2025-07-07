@@ -39,6 +39,17 @@ open B2R2.MiddleEnd.DataFlow.Constants
 module private EVMCFGRecovery =
   let summarizer = EVMFunctionSummarizer () :> IFunctionSummarizable<_, _>
 
+  let getFunctionContext ctx calleeAddr =
+    match ctx.ManagerChannel.GetBuildingContext calleeAddr with
+    | FinalCtx calleeCtx
+    | StillBuilding calleeCtx -> Ok calleeCtx
+    | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
+
+  let getFunctionUserContext ctx calleeAddr =
+    getFunctionContext ctx calleeAddr
+    |> Result.bind (fun calleeCtx ->
+      Ok (calleeCtx.UserContext :> EVMFuncUserContext))
+
   let rec expandExpr state e =
     match e with
     | SSA.Var v ->
@@ -202,6 +213,8 @@ module private EVMCFGRecovery =
 
   let introduceNewSharedRegion (ctx: CFGBuildingContext<_, _>) entryPoint =
     ctx.ManagerChannel.StartBuilding entryPoint
+    getFunctionUserContext ctx entryPoint
+    |> Result.iter (fun userCtx -> userCtx.SetSharedRegion ())
 
   let findAndIntroduceSharedRegion ctx state v rdVars  =
     assert (not <| Seq.isEmpty rdVars)
@@ -393,7 +406,10 @@ module private EVMCFGRecovery =
           let cs = fromBBLToCallSite srcVertex.VData
           let act = MakeCall (cs, callee, (NoRet, 0)) (* treat as NoRet *)
           connectEdgeAndPushPP ctx ppQueue srcVertex fJmpV InterCJmpFalseEdge
-          Some <| CFGRecovery.handleCall ctx srcVertex cs callee act
+          let ret = CFGRecovery.handleCall ctx srcVertex cs callee act
+          getFunctionUserContext ctx callee
+          |> Result.iter (fun userCtx -> userCtx.SetSharedRegion ())
+          Some ret
         else
           let tJmpAddr = BitVector.ToUInt64 tJmpBv
           let fJmpAddr = BitVector.ToUInt64 fJmpBv
@@ -404,12 +420,6 @@ module private EVMCFGRecovery =
           None
       | _ -> Terminator.futureFeature ()
     | _ -> Terminator.impossible ()
-
-  let getFunctionContext ctx calleeAddr =
-    match ctx.ManagerChannel.GetBuildingContext calleeAddr with
-    | FinalCtx calleeCtx
-    | StillBuilding calleeCtx -> Ok calleeCtx
-    | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
 
   /// Summarize the callee's context.
   let summarize ctx calleeInfo =
