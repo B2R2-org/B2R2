@@ -31,7 +31,19 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
+open B2R2.FrontEnd.ARM32
 open B2R2.FrontEnd.ARM32.IRHelper
+
+type internal SCTLR =
+  | SCTLR_NMFI
+
+type internal SCR =
+  | SCR_AW
+  | SCR_FW
+  | SCR_NS
+
+type internal NSACR =
+  | NSACR_RFR
 
 let getPC bld = regVar bld R.PC
 

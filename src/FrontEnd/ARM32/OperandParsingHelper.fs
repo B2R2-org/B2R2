@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.ARM32
+module internal B2R2.FrontEnd.ARM32.OperandParsingHelper
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
@@ -30,7 +30,7 @@ open B2R2.FrontEnd.ARM32.ParseUtils
 open B2R2.FrontEnd.ARM32.OperandHelper
 
 type OprDesc =
-  /// A32/T16/T32 operands
+  (* A32/T16/T32 operands *)
   | OprNo = 0
   | OprBankregRnA = 1
   | OprCoprocCRdMem = 2
