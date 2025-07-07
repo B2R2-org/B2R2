@@ -2024,7 +2024,7 @@ type internal OprListMemA () =
       | 0b10u -> pickBit (extract bin 7 4 (* index_align *)) 3
       | _ (* 11 *) -> raise UndefinedException
       |> uint8 |> Some
-    let list = getSIMDScalar idx [ getVecDReg (extract bin 15 12 (* Rd *)) ]
+    let list = getSIMDScalar idx [ getVecDReg (extract bin 15 12) (* Rd *) ]
     let mem =
       let rn = extract bin 19 16 |> getRegister
       let rm = extract bin 3 0 |> getRegister

@@ -395,29 +395,41 @@ type MultipleClass () =
   [<TestMethod>]
   member _.``[PARISC64] FMPYADD Instruction Test (1)`` () =
     "180000D7"
-    ++ (FMPYADD ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR23; O.Reg FPR3
-    ; O.Reg FPR0 ], [| DBL |], None, None)
+    ++ (FMPYADD ** [ O.Reg FPR0
+                     O.Reg FPR0
+                     O.Reg FPR23
+                     O.Reg FPR3
+                     O.Reg FPR0 ], [| DBL |], None, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] FMPYADD Instruction Test (2)`` () =
     "180055E3"
-    ++ (FMPYADD ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR3; O.Reg FPR23
-    ; O.Reg FPR10 ], [| SGL |], None, None)
+    ++ (FMPYADD ** [ O.Reg FPR0
+                     O.Reg FPR0
+                     O.Reg FPR3
+                     O.Reg FPR23
+                     O.Reg FPR10 ], [| SGL |], None, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] FMPYSUB Instruction Test (1)`` () =
     "98000040"
-    ++ (FMPYSUB ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR0; O.Reg FPR1
-    ; O.Reg FPR0 ], [| DBL |], None, None)
+    ++ (FMPYSUB ** [ O.Reg FPR0
+                     O.Reg FPR0
+                     O.Reg FPR0
+                     O.Reg FPR1
+                     O.Reg FPR0 ], [| DBL |], None, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] FMPYSUB Instruction Test (2)`` () =
     "980055E7"
-    ++ (FMPYSUB ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR7; O.Reg FPR23
-    ; O.Reg FPR10 ], [| SGL |], None, None)
+    ++ (FMPYSUB ** [ O.Reg FPR0
+                     O.Reg FPR0
+                     O.Reg FPR7
+                     O.Reg FPR23
+                     O.Reg FPR10 ], [| SGL |], None, None)
     ||> testPARISC WordSize.Bit64
 
 [<TestClass>]
@@ -511,8 +523,10 @@ type ShiftDepositClass () =
   [<TestMethod>]
   member _.``[PARISC64] DEPDI Instruction Test (1)`` () =
     "F5FFAAD8"
-    ++ (DEPDI ** [ O.Imm 0xFFFFFFFFFFFFFFFFUL; O.Sat 9UL; O.Imm 8UL
-    ; O.Reg GR15 ], [| Z |], Some DNEQ, None)
+    ++ (DEPDI ** [ O.Imm 0xFFFFFFFFFFFFFFFFUL
+                   O.Sat 9UL
+                   O.Imm 8UL
+                   O.Reg GR15 ], [| Z |], Some DNEQ, None)
     ||> testPARISC WordSize.Bit64
 
 [<TestClass>]

@@ -1611,7 +1611,7 @@ let simdListToString simd (builder: IDisasmBuilder) =
     simdFPRegToString s2 builder
     builder.Accumulate AsmWordKind.String " }"
     finalOprSIMD s1 builder
-  | [ s1; s2; s3] ->
+  | [ s1; s2; s3 ] ->
     builder.Accumulate AsmWordKind.String "{ "
     simdFPRegToString s1 builder
     builder.Accumulate AsmWordKind.String ", "

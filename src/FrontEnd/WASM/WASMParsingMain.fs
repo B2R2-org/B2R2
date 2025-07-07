@@ -107,13 +107,13 @@ let rec private parseTypes span reader pos cnt ret =
   if cnt = 0 then struct (ret, uint32 (pos + 1))
   else
     let struct (t, nextPos) = readType span reader pos
-    parseTypes span reader nextPos (cnt - 1) (ret @ [t]) (* XXX *)
+    parseTypes span reader nextPos (cnt - 1) (ret @ [ t ]) (* XXX *)
 
 let rec private parseIndices span reader pos cnt ret =
   if cnt = 0 then struct (ret, uint32 (pos + 1))
   else
     let struct (index, nextPos) = readIndex span reader pos
-    parseIndices span reader nextPos (cnt - 1) (ret @ [index]) (* XXX *)
+    parseIndices span reader nextPos (cnt - 1) (ret @ [ index ]) (* XXX *)
 
 let private parseCount (span: ByteSpan) (reader: IBinReader) pos =
   let cnt, bcnt = reader.ReadInt32LEB128 (span, pos)

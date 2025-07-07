@@ -101,7 +101,7 @@ type IntelAsmParser (isa, baseAddr: Addr) =
   let pImm =
     numberLiteral numberFormat "number"
     |>> (fun x ->
-          if x.HasPlusSign then int64 x.String[1 ..] else int64 x.String)
+          if x.HasPlusSign then int64 x.String[1..] else int64 x.String)
 
   let pAddr = pImm |>> uint64
 
@@ -142,9 +142,17 @@ type IntelAsmParser (isa, baseAddr: Addr) =
     |>> (fun pre -> inferredPrefix <- (inferredPrefix ||| pre))
 
   let pMemOprSize =
-    [ "byte ptr"; "word ptr"; "word far ptr"; "dword ptr"; "dword far ptr";
-    "qword ptr"; "qword far ptr"; "tword ptr"; "xmmword ptr"; "ymmword ptr";
-    "zmmword ptr" ]
+    [ "byte ptr"
+      "word ptr"
+      "word far ptr"
+      "dword ptr"
+      "dword far ptr"
+      "qword ptr"
+      "qword far ptr"
+      "tword ptr"
+      "xmmword ptr"
+      "ymmword ptr"
+      "zmmword ptr" ]
     |> Seq.map (pstringCI >> attempt)
     |> choice
     |>> ptrStringToBitSize

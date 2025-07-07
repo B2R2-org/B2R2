@@ -68,7 +68,7 @@ let addZeros (binaryString: string) number =
   if number < 0 then binaryString
   else
     let a = String.replicate number "0"
-    "0b" + a + binaryString[2 ..]
+    "0b" + a + binaryString[2..]
 
 /// Completing number of bits to 32, 64, 128 or 256.
 let fillWithZeros (binaryString: string) (size: NumType) =
@@ -83,7 +83,7 @@ let negativeDectoBinary decimalNumber size =
   let absolute = abs decimalNumber
   let binary = positiveDecToBinary absolute
   let binary = fillWithZeros binary size
-  let com = complement binary[2 ..]
+  let com = complement binary[2..]
   let negValue = addOneToBinary com
   "0b" + negValue
 
@@ -113,8 +113,8 @@ let rec toHex (input: string) index res =
       res
     else
       let add =
-        if (index + 4 = input.Length) then (input[index ..])
-        else input[index .. index + 3]
+        if (index + 4 = input.Length) then (input[index..])
+        else input[index..(index + 3)]
       toHex input (index + 4) (res + binaryToHexString add)
 
 let rec toOctal (input: string) index res =
@@ -122,8 +122,8 @@ let rec toOctal (input: string) index res =
       res
     else
       let add =
-        if (index + 3 = input.Length) then (input[index ..])
-        else input[index .. index + 2]
+        if (index + 3 = input.Length) then (input[index..])
+        else input[index..(index + 2)]
       toOctal input (index + 3) (res + binaryToOctalString add)
 
 /// Converting binary string to hex string.
@@ -142,12 +142,12 @@ let getOutputValueString input outputFormat size =
   let inputInBinary = decToBinary input size
   match outputFormat with
   | HexadecimalF ->
-    let str = inputInBinary[2 ..]
+    let str = inputInBinary[2..]
     binaryToHex str
   | DecimalF -> string input
   | BinaryF -> inputInBinary
   | OctalF ->
-    let str = inputInBinary[2 ..]
+    let str = inputInBinary[2..]
     binaryToOctal str
   | _ -> "Flag Error"
 

@@ -1330,13 +1330,13 @@ let dstAssignForSIMD dstA dstB result dataSize elements bld =
     bld <+ (dstB := AST.num0 64<rt>)
 
 let mark bld addr size =
-  bld <+ (AST.extCall <| AST.app "Mark" [addr; size] bld.RegType)
+  bld <+ (AST.extCall <| AST.app "Mark" [ addr; size ] bld.RegType)
 
 let unmark bld addr size =
-  bld <+ (AST.extCall <| AST.app "Unmark" [addr; size] bld.RegType)
+  bld <+ (AST.extCall <| AST.app "Unmark" [ addr; size ] bld.RegType)
 
 let isMarked bld addr size =
-  bld <+ (AST.extCall <| AST.app "IsMarked" [addr; size] bld.RegType)
+  bld <+ (AST.extCall <| AST.app "IsMarked" [ addr; size ] bld.RegType)
 
 let exclusiveMonitorsPass bld address size data =
   let lblPass = label bld "EMPass"

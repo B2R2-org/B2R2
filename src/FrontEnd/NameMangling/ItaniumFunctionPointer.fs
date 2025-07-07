@@ -90,7 +90,7 @@ let rec combine input cur res =
       let len = (String.length hd1) - 1
       let otherLen = String.length res
       let result =
-        res[0 .. (cur)] + hd1 + hd2 + res[(cur + 1) .. otherLen - 1]
+        res[0..cur] + hd1 + hd2 + res[(cur + 1)..(otherLen - 1)]
       combine tail (cur + len) result
   | _ -> ("", 0)
 

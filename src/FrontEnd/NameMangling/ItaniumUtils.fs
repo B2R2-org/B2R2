@@ -236,7 +236,7 @@ let rec createTemplates name arglist res =
   match arglist with
   | [] -> List.rev res
   | hd :: tail ->
-    let add = Template (name, Arguments [hd])
+    let add = Template (name, Arguments [ hd ])
     createTemplates name tail (add :: res)
 
 let expandArgs expr =

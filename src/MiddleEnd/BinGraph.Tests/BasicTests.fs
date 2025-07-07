@@ -95,7 +95,7 @@ type BasicTests () =
   [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Graph Transposition Test`` (t) =
     let g1, g1vmap = digraph1 t
-    let g2 = g1.Reverse [g1vmap[6]]
+    let g2 = g1.Reverse [ g1vmap[6] ]
     let s1 = DFS.foldPreorder g1 sum 0
     let s2 = DFS.foldPreorder g2 sum 0
     let lst =

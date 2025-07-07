@@ -132,7 +132,7 @@ let rec private adjustLayers isIncoming layerNum vLayout = function
     if degree >= LayerHeightExpansionThreshold then
       let shiftStart = if isIncoming then layerNum else layerNum + 1
       if shiftStart < Array.length vLayout then
-        downShiftLayers vLayout[ shiftStart .. ] degree
+        downShiftLayers vLayout[shiftStart..] degree
       else ()
     else ()
     adjustLayers isIncoming (layerNum + 1) vLayout tl
@@ -356,8 +356,8 @@ let rec private computePList (interLines: Line array) q r =
   let splitLine = interLines[furthestLineIndex]
   if farthestDist > 0 then
     let p = if isAtLeft then splitLine.Left else splitLine.Right
-    let slice1 = interLines[ .. furthestLineIndex ]
-    let slice2 = interLines[ furthestLineIndex .. ]
+    let slice1 = interLines[..furthestLineIndex]
+    let slice2 = interLines[furthestLineIndex..]
     let segment1 = (computePList slice1 q p)
     let segment2 = (computePList slice2 p r)
     segment1 @ (p :: segment2)
@@ -376,7 +376,7 @@ let private computeRegularEdgePoints isBackEdge dummies boxes q r qBox rBox =
     let n = Array.length dummyBoxes
     let departLeft, arriveLeft =
       if n < 1 then nodeIsLeft r q, nodeIsLeft q r
-      else boxIsLeft dummyBoxes[ n - 1 ] qBox, boxIsLeft dummyBoxes[0] rBox
+      else boxIsLeft dummyBoxes[n - 1] qBox, boxIsLeft dummyBoxes[0] rBox
     let q3 =
       { q2 with X = q2.X + 0.55 * qWidth * if departLeft then -1.0 else 1.0 }
     let r3 =
@@ -416,7 +416,7 @@ let private drawRegular g vLayout boxes dummyMap (q, r, edge: VisEdge) =
     List.map (virtualNodeBox boxes wLine yPositions isRecovered) dummies
   let boxes = (* Boxes between nodes q and r, from upper layer to lower *)
     initBox ::
-    ((List.fold2 (fun acc v i ->  i :: v :: acc) [interLayerBoxes.Head]
+    ((List.fold2 (fun acc v i ->  i :: v :: acc) [ interLayerBoxes.Head ]
         virtualNodeBoxes interLayerBoxes.Tail) |> List.rev)
   let points = computeRegularEdgePoints isBackEdge dummies boxes q r qBox rBox
   match (g: VisGraph).TryFindEdge (q, r) with
@@ -435,7 +435,7 @@ let private drawSelfLoop g (v: IVertex<VisBBlock>) =
   let p2 = ((fst p1) + nodeWidth / 2.0 + BackEdgeMargin), (snd p1)
   let p3 = (fst p2), (snd endP) - LastSegLen
   let p4 = (fst endP), snd p3
-  let points = [ startP;  p1;  p2;  p3; p4; endP ] |> List.map makeVisPos
+  let points = [ startP; p1; p2; p3; p4; endP ] |> List.map makeVisPos
   e.Label.Points <- points
 
 let private drawBoxes g vLayout boxes dummyMap (src, dst, edge) =
@@ -523,8 +523,8 @@ let rec private shiftHorizontally toLeft (edges: VisEdge list) offset =
   | edge :: rest ->
     let points = edge.Points |> Array.ofList
     let n = Array.length points
-    points[ n - 3 ].X <- points[ n - 3 ].X + offset
-    points[ n - 4 ].X <- points[ n - 4 ].X + offset
+    points[n - 3].X <- points[n - 3].X + offset
+    points[n - 4].X <- points[n - 4].X + offset
     let nextOffset = offset + if toLeft then -EdgeOffsetX else EdgeOffsetX
     shiftHorizontally toLeft rest nextOffset
 
