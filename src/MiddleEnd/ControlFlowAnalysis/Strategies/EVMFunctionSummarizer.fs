@@ -80,13 +80,25 @@ and EVMFuncUserContext public () =
   /// Stack offset of the return target that the function will return to.
   let mutable returnTargetStackOff: uint64 = 0UL
 
+  let mutable isPublicFunction = false
+
+  let mutable isSharedRegion = false
+
   member _.StackPointerDiff with get () = stackPointerDiff
 
   member _.ReturnTargetStackOff with get () = returnTargetStackOff
 
+  member _.IsPublicFunction with get () = isPublicFunction
+
+  member _.IsSharedRegion with get () = isSharedRegion
+
   member _.SetStackPointerDiff diff = stackPointerDiff <- Some diff
 
   member _.SetReturnTargetStackOff off = returnTargetStackOff <- off
+
+  member _.SetPublicFunction () = isPublicFunction <- true
+
+  member _.SetSharedRegion () = isSharedRegion <- true
 
   interface IResettable with
     member _.Reset () =
