@@ -27,8 +27,7 @@ module internal B2R2.FrontEnd.ARM64.OperandHelper
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.ARM64.Terminator
-open System.Runtime.CompilerServices
+open B2R2.FrontEnd.ARM64.Utils
 
 let memBaseImm offset = OprMemory (BaseMode (ImmOffset (BaseOffset offset)))
 let memBaseReg offset = OprMemory (BaseMode (RegOffset offset))

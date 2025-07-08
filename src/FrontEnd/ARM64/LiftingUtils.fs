@@ -33,6 +33,13 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.ARM64
 
+type RoundMode =
+  | FPRounding_TIEEVEN
+  | FPRounding_TIEAWAY
+  | FPRounding_Zero
+  | FPRounding_POSINF
+  | FPRounding_NEGINF
+
 let getPC bld = regVar bld R.PC
 
 let rorForIR src amount width = (src >> amount) .| (src << (width .- amount))

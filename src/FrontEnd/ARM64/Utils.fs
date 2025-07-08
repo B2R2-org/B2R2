@@ -22,10 +22,17 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.ARM64.Terminator
+module internal B2R2.FrontEnd.ARM64.Utils
 
 open B2R2
 open B2R2.FrontEnd.ARM64
+
+type SystemOp =
+  | SysAT
+  | SysDC
+  | SysIC
+  | SysTLBI
+  | SysSYS
 
 let extract binary n1 n2 =
   let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
