@@ -40,6 +40,16 @@ type LiftingUnit (binFile: IBinFile,
 
   let irBuilder = GroundWork.CreateBuilder binFile.ISA regFactory
 
+  let getAlignment =
+    match binFile.ISA with
+    | Intel | EVM | WASM | Python -> fun () -> 1
+    | ARM32 ->
+      let switch = parser :?> ARM32.IModeSwitchable
+      fun () -> if switch.IsThumb then 2 else 4
+    | AArch64 | MIPS | TMS320C6000 | PPC32 | PARISC -> fun () -> 4
+    | AVR | RISCV64 | SH4 | SPARC -> fun () -> 2
+    | _ -> Terminator.futureFeature ()
+
   let strDisasm =
     StringDisasmBuilder (true, binFile, binFile.ISA.WordSize)
     :> IDisasmBuilder
@@ -74,10 +84,15 @@ type LiftingUnit (binFile: IBinFile,
     | Error _ -> Error <| toReversedArray cnt acc
 
   /// Binary file to be lifted.
-  member _.File with get() = binFile
+  member _.File with get () = binFile
 
   /// Parser of this lifting unit.
-  member _.Parser with get() = parser
+  member _.Parser with get () = parser
+
+  /// The instruction alignment (in bytes) enforced by the CPU. For example, ARM
+  /// requires instructions to be aligned to 4 bytes, while x86 does not have
+  /// such a requirement (i.e., 1-byte alignment).
+  member _.InstructionAlignment with get () = getAlignment ()
 
   /// <summary>
   /// Parses one instruction at the given address (addr), and return the

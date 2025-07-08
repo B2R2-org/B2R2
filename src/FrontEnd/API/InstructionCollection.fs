@@ -27,7 +27,6 @@ namespace B2R2.FrontEnd
 open System.Collections.Concurrent
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinFile
 
 /// Represents a collection of lifted instructions. When this class is
 /// instantiated, it will automatically lift all possible instructions from the
@@ -84,32 +83,3 @@ and IInstructionCollectable =
   abstract ParseInstructionCandidate:
        Addr
     -> Result<InstructionCandidate, ErrorCase>
-
-/// Represents a linear sweep instruction collector, which is the most basic
-/// instruction collector performing linear sweep disassembly.
-type LinearSweepInstructionCollector (hdl: BinHandle,
-                                      liftingUnit: LiftingUnit) =
-  let rec update updateFn shift (ptr: BinFilePointer) =
-    if ptr.IsValid then
-      match liftingUnit.TryParseInstruction (ptr=ptr) with
-      | Ok ins ->
-        updateFn (ptr.Addr, OnlyOne ins) |> ignore
-        update updateFn shift (BinFilePointer.Advance ptr (int ins.Length))
-      | Error _ ->
-        update updateFn shift (BinFilePointer.Advance ptr shift)
-    else ()
-
-  new (hdl: BinHandle) =
-    LinearSweepInstructionCollector (hdl, hdl.NewLiftingUnit ())
-
-  interface IInstructionCollectable with
-    member _.Collect updateFn =
-      let ptr = liftingUnit.File.GetTextSectionPointer ()
-      let shiftAmount = 1 (* FIXME *)
-      update updateFn shiftAmount ptr
-
-    member _.ParseInstructionCandidate addr =
-      let liftingUnit = hdl.NewLiftingUnit () (* always create a new one! *)
-      match liftingUnit.TryParseInstruction (addr=addr) with
-      | Ok ins -> Ok (OnlyOne ins)
-      | Error _ -> Error ErrorCase.ParsingFailure

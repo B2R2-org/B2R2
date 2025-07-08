@@ -15,6 +15,7 @@
     <Compile Include="BinHandle.fs" />
     <Compile Include="CallingConvention.fs" />
     <Compile Include="InstructionCollection.fs" />
+    <Compile Include="LinearSweepInstructionCollector.fs" />
     <Compile Include="ExceptionInfo.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
