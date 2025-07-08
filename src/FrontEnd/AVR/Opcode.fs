@@ -25,11 +25,13 @@
 namespace B2R2.FrontEnd.AVR
 
 open System.Runtime.CompilerServices
-open B2R2
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.AVR.Tests")>]
 do ()
 
+/// <summary>
+/// Represents an AVR opcode.
+/// </summary>
 type Opcode =
   /// Add with Carry
   | ADC = 0
@@ -271,22 +273,3 @@ type Opcode =
   | ST = 118
   /// Invalid Op code
   | InvalidOp = 119
-
-type Const = int32
-
-type AddressingMode =
-  | DispMode of Register * Const
-  | PreIdxMode of Register
-  | PostIdxMode of Register
-  | UnchMode of Register
-
-type Operand =
-  | OprReg of Register
-  | OprImm of Const
-  | OprAddr of Const
-  | OprMemory of AddressingMode
-
-type Operands =
-  | NoOperand
-  | OneOperand of Operand
-  | TwoOperands of Operand * Operand
