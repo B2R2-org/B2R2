@@ -72,11 +72,11 @@ type S390ParserTests () =
     | 3 -> ThreeOperands (oprArray[0], oprArray[1], oprArray[2])
     | 4 -> FourOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3])
     | 5 ->
-      FiveOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3]
-      , oprArray[4])
+      FiveOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3],
+        oprArray[4])
     | 6 ->
-      SixOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3]
-      , oprArray[4], oprArray[5])
+      SixOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3],
+        oprArray[4], oprArray[5])
     | _ -> Terminator.impossible()
 
   let ( ** ) opcode oprList = opcode, operandsFromArray oprList

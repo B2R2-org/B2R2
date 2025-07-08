@@ -2609,7 +2609,7 @@ type internal OprDdDmImm () =
       | 0b0100u | 0b0101u | 0b0110u | 0b0111u (* 01xx *) -> 64u - imm6
       | _ (* 1xxx *) -> 64u - imm6
       |> int64 |> OprImm
-    struct (ThreeOperands (dd, dm, imm), false, None,64<rt>)
+    struct (ThreeOperands (dd, dm, imm), false, None, 64<rt>)
 
 (* {<Dd>,} <Dm>, #<imm> *)
 type internal OprDdDmImmLeft () =

@@ -39,7 +39,7 @@ let private parseOpcode (span: ReadOnlySpan<byte>) =
   | 0x02uy -> struct (MUL, 5, 1u)
   | 0x03uy -> struct (SUB, 3, 1u)
   | 0x04uy -> struct (DIV, 5, 1u)
-  | 0x05uy -> struct (SDIV,50, 1u)
+  | 0x05uy -> struct (SDIV, 50, 1u)
   | 0x06uy -> struct (MOD, 5, 1u)
   | 0x07uy -> struct (SMOD, 5, 1u)
   | 0x08uy -> struct (ADDMOD, 8, 1u)

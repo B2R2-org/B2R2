@@ -62,7 +62,7 @@ let transOprToExpr bld = function
 let transMemOprToExpr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg reg, OprMemory (PreIdxMode (reg1)))
-    -> regVar bld reg, regVar bld reg1,-1
+    -> regVar bld reg, regVar bld reg1, -1
   | TwoOperands(OprReg reg,OprMemory (PostIdxMode (reg1)))
     -> regVar bld reg, regVar bld reg1, 1
   | TwoOperands(OprReg reg,OprMemory (UnchMode (reg1)))
@@ -88,7 +88,7 @@ let transMemOprToExpr1 (ins: Instruction) bld =
 let transMemOprToExpr3 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprMemory (DispMode (reg1, imm)), OprReg reg)
-    -> regVar bld reg1,regVar bld reg, numI32PC imm
+    -> regVar bld reg1, regVar bld reg, numI32PC imm
   | _ -> Terminator.impossible ()
 
 let transOneOpr (ins: Instruction) bld =

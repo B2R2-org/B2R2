@@ -264,7 +264,7 @@ let parseInstLenTwo (bin: uint32) =
     | 0xB2B9us -> Op.SRNMT, getNoneM16D20 bin, Fmt.S
     | 0xB2BDus -> Op.LFAS, getNoneM16D20 bin, Fmt.S
     | 0xB2F8us -> Op.TEND, NoOperand, Fmt.S
-    | 0xB2FCus -> Op.TABORT,getNoneM16D20 bin, Fmt.S
+    | 0xB2FCus -> Op.TABORT, getNoneM16D20 bin, Fmt.S
     | 0xB2FFus -> Op.TRAP4, getNoneM16D20 bin, Fmt.S
     | 0xB222us -> Op.IPM, getGR24to27 bin, Fmt.RRE
     | 0xB223us -> Op.IVSK, getGR24GR28 bin, Fmt.RRE
@@ -1167,7 +1167,7 @@ let parseInstLenThree (bin: uint64) =
         | 0xE654us -> Op.VUPKZH, getVR8QVR12QMask24 bin, Fmt.VRR
         | 0xE655us -> Op.VCNF, getVR8QVR12QMask32Mask28 bin, Fmt.VRR
         | 0xE656us -> Op.VCLFNH, getVR8QVR12QMask32Mask28 bin, Fmt.VRR
-        | 0xE65Cus -> Op.VUPKZL,  getVR8QVR12QMask24 bin, Fmt.VRR
+        | 0xE65Cus -> Op.VUPKZL, getVR8QVR12QMask24 bin, Fmt.VRR
         | 0xE65Dus -> Op.VCFN, getVR8QVR12QMask32Mask28 bin, Fmt.VRR
         | 0xE65Eus -> Op.VCLFNL, getVR8QVR12QMask32Mask28 bin, Fmt.VRR
         | 0xE65Fus -> Op.VTP, getVR12Q bin, Fmt.VRR

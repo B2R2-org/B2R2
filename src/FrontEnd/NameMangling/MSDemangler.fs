@@ -340,7 +340,7 @@ type MSDemangler () =
   /// A function pointer coming as a parameter to another function.
   let pFuncPointer =
     many (attempt pointerAtFunc) .>>.
-    (pointerType |>> (fun p -> PointerStrT (p, ([],NoMod), Name "")))
+    (pointerType |>> (fun p -> PointerStrT (p, ([], NoMod), Name "")))
     .>> anyOf "67" .>>. pCallConv .>>.
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
     |>> (fun (((ptrStrs,fPtr), cc), lst) ->
@@ -391,7 +391,7 @@ type MSDemangler () =
     noModS .>>. pCallConv .>>. (opt returnTmodifier)
     .>>. (possibleType <|> emptyReturn) .>>. pFuncParameters
     |>> (fun ((((s, cc),rtMod),r),tList) ->
-           s, ([],NoMod), cc, r :: tList, rtMod)
+           s, ([], NoMod), cc, r :: tList, rtMod)
 
   /// Differentiates the scopes requiring modifiers for function from the
   /// ones that don't. The function information parser parses all the

@@ -285,7 +285,7 @@ type BitVectorTests () =
     Assert.AreEqual<string> (ToString (BXor (n1, n2)), "0xfffffe68:I32")
     let n1 = OfBInt 100I 256<rt>
     let n2 = OfInt32 -500l 256<rt>
-    Assert.AreEqual (BXor (n1, n2),  OfInt64 -408L 256<rt>)
+    Assert.AreEqual (BXor (n1, n2), OfInt64 -408L 256<rt>)
 
   [<TestMethod>]
   member _.``Comparison Operators`` () =

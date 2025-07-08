@@ -96,7 +96,7 @@ let rec private isVar = function
 let private calculateOffset offset oprSize =
   match offset with
   | Num _ ->
-    numU32 0u oprSize , maskOffset offset oprSize
+    numU32 0u oprSize, maskOffset offset oprSize
   | _ ->
     let offset = AST.zext oprSize offset
     match oprSize with
