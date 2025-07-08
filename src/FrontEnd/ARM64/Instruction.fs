@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.ARM64
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for ARM64.
+/// Represents an ARM64 instruction.
 type Instruction
   internal (addr, nb, cond, op, opr, oprSize, lifter: ILiftable) =
 

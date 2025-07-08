@@ -26,7 +26,7 @@ module internal B2R2.FrontEnd.ARM64.ParsingMain
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.ARM64.Terminator
+open B2R2.FrontEnd.ARM64.Utils
 open B2R2.FrontEnd.ARM64.OperandHelper
 
 type internal Op = Opcode
@@ -35,11 +35,9 @@ type internal Op = Opcode
 let getOpcodeByQ bin op1 op2 = if valQ bin = 0u then op1 else op2
 
 /// Operand functions
-// One operand
 let getOptionOrimm bin = OneOperand (optionOrimm bin)
 
-// Two operands
-(** Register - Register **)
+(* Register - Register *)
 let getWdWn bin = TwoOperands (wd bin, wn bin)
 let getXdXn bin = TwoOperands (xd bin, xn bin)
 let getHdXn bin = TwoOperands (hd bin, xn bin)
@@ -90,7 +88,7 @@ let getVdtsidxRn bin = TwoOperands (vtsidx1 bin valD, rn bin)
 let getVdtsidx1Vntsidx2 bin = TwoOperands (vtsidx1 bin valD, vtsidx2 bin valN)
 let getVdVntidx bin = TwoOperands (vd4 bin, vntidx bin)
 
-(** Register - Immediate **)
+(* Register - Immediate *)
 let getSnP0 bin = TwoOperands (sn bin, p0)
 let getDnP0 bin = TwoOperands (dn bin, p0)
 let getSdImm8 bin = TwoOperands (sd bin, fScalarImm8 bin)
@@ -100,7 +98,7 @@ let getVd2DImm bin = TwoOperands (vd2D bin, imm64 bin)
 let getVdtFImm bin = TwoOperands (vdtq2 bin, fVecImm8 bin)
 let getVd2DFImm bin = TwoOperands (vd2D bin, fVecImm8 bin)
 
-(** Register - Memory **)
+(* Register - Memory *)
 let getWtMXSn bin = TwoOperands (wt1 bin, memXSn bin)
 let getXtMXSn bin = TwoOperands (xt1 bin, memXSn bin)
 let getWtBIXSnpimm bin scale = TwoOperands (wt1 bin, memXSnPimm bin scale)
@@ -234,7 +232,7 @@ let getVt2tPoXSnImm2 b = getVttPoXSnImm2 b vt2t 2
 let getVt3tPoXSnImm2 b = getVttPoXSnImm2 b vt3t 3
 let getVt4tPoXSnImm2 b = getVttPoXSnImm2 b vt4t 4
 
-(** Register - Label **)
+(* Register - Label *)
 let getXdLabel bin amt = TwoOperands (xd bin, label bin amt) (* <xd>, <label> *)
 let getWtLabel bin = TwoOperands (wt1 bin, lbImm19 bin) (* <Wt>, <label> *)
 let getXtLabel bin = TwoOperands (xt1 bin, lbImm19 bin) (* <Xt>, <label> *)
@@ -249,8 +247,7 @@ let getSysregOrctrlXt bin = TwoOperands (systemregOrctrl bin, xt1 bin)
 let getXtSysregOrctrl bin = TwoOperands (xt1 bin, systemregOrctrl bin)
 let getPstatefieldImm bin = TwoOperands (pstatefield bin, imm bin)
 
-// Three Operands
-(** Register - Register - Register **)
+(* Register - Register - Register *)
 let getWdWnWm bin = ThreeOperands (wd bin, wn bin, wm bin)
 let getWdWnXm bin = ThreeOperands (wd bin, wn bin, xm bin)
 let getXdXnXm bin = ThreeOperands (xd bin, xn bin, xm bin)
@@ -282,7 +279,7 @@ let getVdtaVn216BVmta bin = ThreeOperands (vdtq1 bin, vn216B bin, vmtq1 bin)
 let getVdtaVn316BVmta bin = ThreeOperands (vdtq1 bin, vn316B bin, vmtq1 bin)
 let getVdtaVn416BVmta bin = ThreeOperands (vdtq1 bin, vn416B bin, vmtq1 bin)
 
-(** Register - Register - Immediate **)
+(* Register - Register - Immediate *)
 let getVdtVntI0 b r = r b; ThreeOperands (vdtsq1 b, vntsq1 b, OprImm 0L)
 let getVdtVntF0 b r = r b; ThreeOperands (vdtszq1 b, vntszq1 b, OprFPImm 0.0)
 let getWSdWnImm bin = ThreeOperands (wsd bin, wn bin, immNsr bin 32<rt>)
@@ -292,13 +289,13 @@ let getXdXnImm bin = ThreeOperands (xd bin, xn bin, immNsr bin 64<rt>)
 let getVdVnI0 bin r = r bin; ThreeOperands (vd2 bin, vn2 bin, OprImm 0L)
 let getVdVnF0 bin = ThreeOperands (vd3a bin, vn3 bin, OprFPImm 0.0)
 
-(** Register - Register - Shift **)
+(* Register - Register - Shift *)
 let getVdtaVntbShf2 b r = r b; ThreeOperands (vdts1 b, vntsq1 b, lshf1 b)
 let getVdVnShf bin r = r bin; ThreeOperands (vd5 bin, vn5 bin, rshfAmt bin)
 let getVdVnShf2 bin r = r bin; ThreeOperands (vd5 bin, vn5 bin, lshfAmt bin)
 let getVbdVanShf bin r = r bin; ThreeOperands (vd5 bin, vn6 bin, rshfAmt bin)
 
-(** Register - Register - fbits **)
+(* Register - Register - fbits *)
 let getHdWnFbits bin = ThreeOperands (hd bin, wn bin, fbits2 bin)
 let getSdWnFbits bin = ThreeOperands (sd bin, wn bin, fbits2 bin)
 let getWdSnFbits bin = ThreeOperands (wd bin, sn bin, fbits2 bin)
@@ -311,14 +308,14 @@ let getDdXnFbits bin = ThreeOperands (dd bin, xn bin, fbits2 bin)
 let getXdDnFbits bin = ThreeOperands (xd bin, dn bin, fbits2 bin)
 let getVdVnFbits bin r = r bin; ThreeOperands (vd5 bin, vn5 bin, fbits1 bin)
 
-(** Register - Register - Memory **)
+(* Register - Register - Memory *)
 let getWsWtMXSn bin = ThreeOperands (ws bin, wt1 bin, memXSn bin)
 let getXsXtMXSn bin = ThreeOperands (xs bin, xt1 bin, memXSn bin)
 let getWsXtMXSn bin = ThreeOperands (ws bin, xt1 bin, memXSn bin)
 let getWt1Wt2MXSn bin = ThreeOperands (wt1 bin, wt2 bin, memXSn bin)
 let getXt1Xt2MXSn bin = ThreeOperands (xt1 bin, xt2 bin, memXSn bin)
 
-(** Register - Immediate - Shift **)
+(* Register - Immediate - Shift *)
 let getVdtImm8LAmt bin oprVdt = function
   | Some s -> ThreeOperands (oprVdt bin, imm8 bin, s)
   | None -> TwoOperands (oprVdt bin, imm8 bin)

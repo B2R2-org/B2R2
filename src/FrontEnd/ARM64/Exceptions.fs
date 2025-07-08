@@ -26,11 +26,11 @@ namespace B2R2.FrontEnd.ARM64
 
 /// This is a fatal error that happens when B2R2 tries to access non-existing
 /// register symbol. This exception should not happen in general.
-exception InvalidRegAccessException
+exception internal InvalidRegAccessException
 
-exception InvalidTypeException
+exception internal InvalidTypeException
 
-exception UnknownRegException
+exception internal UnknownRegException
 
-exception UnallocatedException
+exception internal UnallocatedException
 
