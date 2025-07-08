@@ -29,6 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 open type Register
 
+/// Represents a factory for accessing various AVR register variables.
 type RegisterFactory (wordSize) =
   let regType = WordSize.toRegType wordSize
 

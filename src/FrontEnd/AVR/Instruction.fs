@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.AVR
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for AVR.
+/// Represents an AVR instruction.
 type Instruction
 
   internal (addr, numBytes, opcode, operands, lifter: ILiftable) =

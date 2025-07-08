@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.AVR.Disasm
+module internal B2R2.FrontEnd.AVR.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
