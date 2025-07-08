@@ -47,6 +47,7 @@ type Instruction internal (addr, numBytes) =
     member _.IsTerminator () = Terminator.futureFeature ()
     member _.DirectBranchTarget _ = Terminator.futureFeature ()
     member _.IndirectTrampolineAddr _ = Terminator.futureFeature ()
+    member _.MemoryDereferences _ = Terminator.futureFeature ()
     member _.Immediate _ = Terminator.futureFeature ()
     member _.GetNextInstrAddrs () = Terminator.futureFeature ()
     member _.InterruptNum _ = Terminator.futureFeature ()

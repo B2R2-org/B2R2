@@ -193,6 +193,19 @@ type Instruction
         | _ -> false
       else false
 
+    member this.MemoryDereferences (addrs: byref<Addr[]>) =
+      if opcode = Opcode.LEA then false
+      else
+        match oprs with
+        | OneOperand (OprMem (Some Register.RIP, None, Some disp, _)) ->
+          addrs <- [| this.Address + uint64 this.Length + uint64 disp |]
+          true
+        | TwoOperands (OprMem (Some Register.RIP, None, Some disp, _), _)
+        | TwoOperands (_, OprMem (Some Register.RIP, None, Some disp, _)) ->
+          addrs <- [| this.Address + uint64 this.Length + uint64 disp |]
+          true
+        | _ -> false
+
     member _.Immediate (v: byref<int64>) =
       match oprs with
       | OneOperand (OprImm (c, _))

@@ -157,6 +157,9 @@ type Instruction
         Terminator.futureFeature ()
       else false
 
+    member _.MemoryDereferences (_: byref<Addr[]>) =
+      Terminator.futureFeature ()
+
     member _.Immediate (v: byref<int64>) =
       match opr with
       | OneOperand (OprImm c)

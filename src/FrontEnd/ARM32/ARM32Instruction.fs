@@ -192,7 +192,7 @@ type Instruction
 
     member this.DirectBranchTarget (addr: byref<Addr>) =
       if (this :> IInstruction).IsBranch () then
-        match this.Operands with
+        match opr with
         | OneOperand (OprMemory (LiteralMode target)) ->
           (* The PC value of an instruction is its address plus 4 for a Thumb
              instruction, or plus 8 for an ARM instruction. *)
@@ -206,8 +206,17 @@ type Instruction
     member _.IndirectTrampolineAddr (_: byref<Addr>) =
       false
 
+    member _.MemoryDereferences (addrs: byref<Addr[]>) =
+      match opr with
+      | TwoOperands (_, OprMemory (LiteralMode target)) ->
+        let offset = if not isThumb then 8L else 4L
+        let pc = (int64 addr + offset) / 4L * 4L (* Align by 4 *)
+        addrs <- [| ((pc + target) &&& 0xFFFFFFFFL) |> uint64 |]
+        true
+      | _ -> false
+
     member this.Immediate (v: byref<int64>) =
-      match this.Operands with
+      match opr with
       | OneOperand (OprImm c)
       | TwoOperands (OprImm c, _)
       | TwoOperands (_, OprImm c)

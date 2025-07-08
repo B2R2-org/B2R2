@@ -107,6 +107,8 @@ type Instruction
 
     member _.IndirectTrampolineAddr (_addr: byref<Addr>) = false
 
+    member _.MemoryDereferences _ = false
+
     member _.Immediate _ = false
 
     member this.GetNextInstrAddrs () =

@@ -86,6 +86,9 @@ type Instruction internal (addr, numBytes, op, opr, lifter: ILiftable) =
     member _.IndirectTrampolineAddr (_addr: byref<Addr>) =
       Terminator.futureFeature ()
 
+    member _.MemoryDereferences (_: byref<Addr[]>) =
+      Terminator.futureFeature ()
+
     member _.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
 
     member _.GetNextInstrAddrs () = Terminator.futureFeature ()

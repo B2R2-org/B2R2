@@ -187,7 +187,7 @@ type IInstruction =
   abstract IsInlinedAssembly: unit -> bool
 
   /// <summary>
-  /// Return a branch target address if we can directly compute it, i.e., for
+  /// Returns a branch target address if we can directly compute it, i.e., for
   /// direct branches.
   /// </summary>
   /// <returns>
@@ -196,7 +196,7 @@ type IInstruction =
   abstract DirectBranchTarget: [<Out>] addr: byref<Addr> -> bool
 
   /// <summary>
-  /// Return a trampoline address of an indirect branch instruction if we can
+  /// Returns a trampoline address of an indirect branch instruction if we can
   /// directly compute the address. For example, `JMP [RIP + 0x42]` is an
   /// indirect branch instruction, but we can compute the trampoline address as
   /// RIP is statically known anyways when PIC is off.
@@ -205,6 +205,20 @@ type IInstruction =
   /// Returns true if a trampoline address exists. Otherwise, returns false.
   /// </returns>
   abstract IndirectTrampolineAddr: [<Out>] addr: byref<Addr> -> bool
+
+  /// <summary>
+  /// Returns an array of addresses that this instruction directly dereferences
+  /// from memory. This includes PC-relative memory accesses, such as <c>MOV
+  /// [RIP + 0x42], EAX</c> in Intel. It does NOT include memory accesses
+  /// through general-purpose registers (e.g., <c>MOV [RAX], EAX</c>), nor does
+  /// it include instructions that only compute a memory address without
+  /// dereferencing it (e.g., <c>LEA RAX, [RIP + 0x42]</c>).
+  /// <returns>
+  /// Returns if there exists any direct memory accesses. If there are
+  /// direct memory accesses, the `addrs` parameter will be filled with the
+  /// addresses of the direct memory accesses.
+  /// </returns>
+  abstract MemoryDereferences: [<Out>] addrs: byref<Addr[]> -> bool
 
   /// <summary>
   /// Return an integer immediate value of the instruction if there is one.
@@ -216,7 +230,7 @@ type IInstruction =
   abstract Immediate: [<Out>] v: byref<int64> -> bool
 
   /// <summary>
-  /// Return an array of possible next instruction addresses. For branch
+  /// Returns an array of possible next instruction addresses. For branch
   /// instructions, the returned sequence includes jump target(s). For call
   /// instructions, the sequence does not include the return address (i.e., the
   /// address of the instruction following the call instruction). For regular
@@ -226,12 +240,12 @@ type IInstruction =
   abstract GetNextInstrAddrs: unit -> Addr[]
 
   /// <summary>
-  /// Return the interrupt number if this is an interrupt instruction.
+  /// Returns the interrupt number if this is an interrupt instruction.
   /// </summary>
   abstract InterruptNum: [<Out>] num: byref<int64> -> bool
 
   /// <summary>
-  /// Lift this instruction into a LowUIR statement array given a translation
+  /// Lifts this instruction into a LowUIR statement array given a translation
   /// context.
   /// </summary>
   /// <returns>
@@ -240,7 +254,7 @@ type IInstruction =
   abstract Translate: ILowUIRBuilder -> Stmt[]
 
   /// <summary>
-  /// Lift this instruction into a LowUIR statement list given a translation
+  /// Lifts this instruction into a LowUIR statement list given a translation
   /// context.
   /// </summary>
   /// <returns>
@@ -249,7 +263,7 @@ type IInstruction =
   abstract TranslateToList: ILowUIRBuilder -> List<Stmt>
 
   /// <summary>
-  /// Disassemble this instruction.
+  /// Disassembles this instruction.
   /// </summary>
   /// <param name="builder">
   /// When this parameter is given, we disassemble the instruction with the
@@ -262,8 +276,8 @@ type IInstruction =
   abstract Disasm: builder: IDisasmBuilder -> string
 
   /// <summary>
-  /// Disassemble this instruction. This function is a convenience method, which
-  /// internally creates a default disassembly builder and uses it to
+  /// Disassembles this instruction. This function is a convenience method,
+  /// which internally creates a default disassembly builder and uses it to
   /// disassemble the instruction. Hence, this is not as efficient as the
   /// previous method and should be avoided if disassembly performance is a
   /// concern.
@@ -274,7 +288,7 @@ type IInstruction =
   abstract Disasm: unit -> string
 
   /// <summary>
-  /// Decompose this instruction into AsmWords.
+  /// Decomposes this instruction into AsmWords.
   /// </summary>
   /// <returns>
   /// Returns an array of AsmWords.
