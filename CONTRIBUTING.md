@@ -249,18 +249,80 @@ call a chain of member functions though.
 
 ##### Pattern Matching Constructs
 
-```fsharp
-match x with
-| Foo ->
-  Some good
-| Bar ->
-  None         // Good
+There must be exactly one space between the match expression and the with keyword.
 
-match x with
-| Foo ->
-    Some good
-| Bar ->
-    None       // Bad
+```fsharp
+match x with   // Good
+| Foo -> Some good
+| Bar -> None
+
+match   x with // Bad
+| Foo -> Some bad
+| Bar -> None
+```
+
+The match and with keywords must be on the same line.
+
+```fsharp
+match x with // Good
+| Foo -> Some good
+| Bar -> None
+
+match x      // Bad
+with
+| Foo -> Some bad
+| Bar -> None
+```
+
+The pipe (|) and the pattern must be on the same line.
+
+```fsharp
+match x with // Good
+| Foo -> Some good
+| Bar -> None
+
+match x with // Good
+| Foo | Bar -> Some good
+
+match x with // Bad
+| Foo |
+  Bar -> Some bad
+```
+
+Each pipe (|) must be aligned vertically with the match keyword.
+
+```fsharp
+match x with // Good
+| Foo -> Some good
+| Bar -> None
+
+match x with // Bad
+  | Foo -> Some bad
+  | Bar -> None
+```
+
+There must be a space after the pipe (|).
+
+```fsharp
+match x with // Good
+| Foo -> Some good
+| Bar -> None
+
+match x with // Bad
+|Foo -> Some bad
+|Bar -> None
+```
+
+When there are elements on both sides of '->', spaces are required on the side with elements.
+
+```fsharp
+match x with // Good
+| Foo -> Some good
+| Bar -> None
+
+match x with // Bad
+| Foo-> Some bad
+| Bar ->None
 ```
 
 ##### Class and Member Definition
