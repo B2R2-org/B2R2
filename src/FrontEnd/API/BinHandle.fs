@@ -90,7 +90,7 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt) =
     else Error arr (* partial result *)
 
   let rec tryReadBytes (ptr: BinFilePointer) nBytes =
-    if ptr.IsValid then
+    if ptr.CanRead nBytes then
       match readOrPartialReadBytes ptr nBytes with
       | Ok bs -> Ok bs
       | Error bs ->
