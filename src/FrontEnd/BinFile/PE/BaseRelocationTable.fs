@@ -36,7 +36,7 @@ let private buildRelocBlock (bytes: byte[]) (reader: IBinReader) headerOffset =
     if offset < upperBound then
       let buffer = reader.ReadUInt16 (bytes, offset)
       { Type = buffer >>> 12 |> int32 |> LanguagePrimitives.EnumOfValue;
-        Offset = buffer &&& 0xFFFus }::entries
+        Offset = buffer &&& 0xFFFus } :: entries
       |> parseBlock (offset + 2)
     else
       entries |> List.toArray

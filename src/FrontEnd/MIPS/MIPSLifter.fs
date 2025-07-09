@@ -705,7 +705,7 @@ let private getCCondOpr (ins: Instruction) bld =
     match ins.Fmt with
     | Some Fmt.PS | Some Fmt.D ->
       let cc = transOprToImmToInt cc
-      let fs, ft = transFPConcatTwoOprs bld (fs ,ft)
+      let fs, ft = transFPConcatTwoOprs bld (fs, ft)
       64<rt>, cc, fs, ft, sameReg
     | _ ->
       let cc = transOprToImmToInt cc
@@ -1673,7 +1673,7 @@ let mult ins insLen bld =
 
 let multu ins insLen bld =
   let rs, rt = getTwoOprs ins
-  let src1, src2 = transTwoOprs ins bld (rs ,rt)
+  let src1, src2 = transTwoOprs ins bld (rs, rt)
   let struct (tRs , tRt) = tmpVars2 bld bld.RegType
   let hi = regVar bld R.HI
   let lo = regVar bld R.LO

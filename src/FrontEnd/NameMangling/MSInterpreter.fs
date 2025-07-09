@@ -60,7 +60,7 @@ let rec interpret (sample: MSExpr) =
     (s, mods, call, nm,
       FuncPointer(fPtrs, callr, rt, _, plst, mod2), pTs, rtMod) ->
     let carry =
-      interpret (FunctionT(FreeScope,mods,call,nm,Name(""),pTs,rtMod))
+      interpret (FunctionT(FreeScope, mods, call, nm, Name(""), pTs, rtMod))
     CallScope.toString s +
       (interpret
         (FuncPointer(fPtrs, callr, rt, " " + carry.Trim (), plst, mod2)))

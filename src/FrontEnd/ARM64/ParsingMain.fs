@@ -3242,7 +3242,7 @@ let parseFPDP2Src bin =
   | 0b00000010u -> Op.FADD, getSdSnSm bin, 32<rt>
   | 0b00000011u -> Op.FSUB, getSdSnSm bin, 32<rt>
   | 0b00000100u -> Op.FMAX, getSdSnSm bin, 32<rt>
-  | 0b00000101u -> Op.FMIN , getSdSnSm bin, 32<rt>
+  | 0b00000101u -> Op.FMIN, getSdSnSm bin, 32<rt>
   | 0b00000110u -> Op.FMAXNM, getSdSnSm bin, 32<rt>
   | 0b00000111u -> Op.FMINNM, getSdSnSm bin, 32<rt>
   | 0b00001000u -> Op.FNMUL, getSdSnSm bin, 32<rt>

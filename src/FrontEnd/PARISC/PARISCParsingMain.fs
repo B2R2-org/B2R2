@@ -680,24 +680,24 @@ let parseConditionalLocalBranchInstruction bin wordSz =
   let n = if Bits.pick bin 1u = 0u then None else Some N
   match Bits.extract bin 31u 26u with
   | 0b100000u ->
-    Op.CMPB, getCompSubCondition (cond 0u false) |> wrap, n
-    , getRs1Rs2Imm bin target
+    Op.CMPB, getCompSubCondition (cond 0u false) |> wrap, n,
+    getRs1Rs2Imm bin target
   | 0b100010u ->
-    Op.CMPB, getCompSubCondition (cond 1u false) |> wrap, n
-    , getRs1Rs2Imm bin target
+    Op.CMPB, getCompSubCondition (cond 1u false) |> wrap, n,
+    getRs1Rs2Imm bin target
   | 0b100111u ->
-    Op.CMPB, getCompSubCondition (cond 0u true) |> wrap, n
-    , getRs1Rs2Imm bin target
+    Op.CMPB, getCompSubCondition (cond 0u true) |> wrap, n,
+    getRs1Rs2Imm bin target
   | 0b101111u ->
-    Op.CMPB, getCompSubCondition (cond 1u true) |> wrap, n
-    , getRs1Rs2Imm bin target
+    Op.CMPB, getCompSubCondition (cond 1u true) |> wrap, n,
+    getRs1Rs2Imm bin target
   | 0b101000u ->
     Op.ADDB, getAddCondition (cond 0u false) |> wrap, n, getRs1Rs2Imm bin target
   | 0b101010u ->
     Op.ADDB, getAddCondition (cond 1u false) |> wrap, n, getRs1Rs2Imm bin target
   | 0b110010u ->
-    Op.MOVB, getShfExtDepCondition (cBit <<< 1) |> wrap, n
-    , getRs1Rs2Imm bin target
+    Op.MOVB, getShfExtDepCondition (cBit <<< 1) |> wrap, n,
+    getRs1Rs2Imm bin target
   | 0b100001u ->
     Op.CMPIB, getCompSubCondition (cond 0u false) |> wrap, n,
     getExtRs1Rs2Imm bin target wordSz
@@ -705,8 +705,8 @@ let parseConditionalLocalBranchInstruction bin wordSz =
     Op.CMPIB, getCompSubCondition (cond 1u false) |> wrap, n,
     getExtRs1Rs2Imm bin target wordSz
   | 0b111011u ->
-    Op.CMPIB, getCmpibCondition cBit |> wrap, n
-    , getExtRs1Rs2Imm bin target wordSz
+    Op.CMPIB, getCmpibCondition cBit |> wrap, n,
+    getExtRs1Rs2Imm bin target wordSz
   | 0b101001u ->
     Op.ADDIB, getAddCondition (cond 0u false) |> wrap, n,
     getExtRs1Rs2Imm bin target wordSz
@@ -833,8 +833,8 @@ let private parseInstruction bin wordSz =
   | 0b100100u ->
     let cond = Bits.extract bin 15u 11u
     let imm = getImmLowSignExt bin 10u 0u wordSz |> uint64
-    Op.CMPICLR, getCompSubCondition cond |> wrap, None, None
-    , getImmRs2Rs1 bin imm
+    Op.CMPICLR, getCompSubCondition cond |> wrap, None, None,
+    getImmRs2Rs1 bin imm
   | 0b111000u ->
     let n = if Bits.pick bin 1u = 0u then None else Some N
     let offset = getImmAssemble17 bin |> int64
