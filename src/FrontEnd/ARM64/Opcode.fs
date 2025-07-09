@@ -30,7 +30,7 @@ open System.Runtime.CompilerServices
 do ()
 
 /// <summary>
-/// Represent ARMv8 (AArch64) opcodes.
+/// Represents an ARMv8 (AArch64) opcode.
 /// </summary>
 type Opcode =
   /// Absolute value.

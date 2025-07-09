@@ -30,7 +30,7 @@ open System.Runtime.CompilerServices
 do ()
 
 /// <summary>
-/// Represent ARM32 opcodes.
+/// Represents an ARM32 opcode.
 /// </summary>
 type Opcode =
   /// Add with Carry.
