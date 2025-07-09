@@ -82,6 +82,26 @@ We always use unix-style (LF) line-endings for every file.
 
 #### Specific Rules
 
+##### Tuple Constructs
+
+When writing tuples, use consistent spacing between elements.
+Do not omit spaces or add inconsistent spacing.
+```fsharp
+1, 2, 3  // Good
+1,2,3    // Bad
+1,  2, 3 // Bad
+```
+
+##### Parentheses Constructs
+
+When writing parentheses, apply clean formatting without unnecessary spaces.
+```fsharp
+()           // Good
+( )          // Bad
+(elements)   // Good
+( elements ) // Bad
+```
+
 ##### List/Array Literals
 
 We prefer to have space chars for list/array literals. For example,
