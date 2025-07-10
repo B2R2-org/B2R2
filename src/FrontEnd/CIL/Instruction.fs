@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.CIL
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for CIL.
+/// Represents a CIL instruction.
 type Instruction internal (addr, numBytes) =
   interface IInstruction with
     member _.Address with get () = addr
