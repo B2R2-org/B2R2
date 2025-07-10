@@ -156,6 +156,33 @@ type OprDesc =
   | XmmVsXm = 122
   | XmVsXmm = 123
 
+/// We define 8 different RegGrp types. Intel instructions use an integer value
+/// such as a REG field of a ModR/M value.
+type RegGrp =
+  /// AL/AX/EAX/...
+  | RG0 = 0
+  /// CL/CX/ECX/...
+  | RG1 = 1
+  /// DL/DX/EDX/...
+  | RG2 = 2
+  /// BL/BX/EBX/...
+  | RG3 = 3
+  /// AH/SP/ESP/...
+  | RG4 = 4
+  /// CH/BP/EBP/...
+  | RG5 = 5
+  /// DH/SI/ESI/...
+  | RG6 = 6
+  /// BH/DI/EDI/...
+  | RG7 = 7
+
+/// Intel's memory operand is represented by two tables (ModR/M and SIB table).
+/// Some memory operands do need SIB table lookups, whereas some memory operands
+/// only need to look up the ModR/M table.
+type internal MemLookupType =
+  | SIB (* Need SIB lookup *)
+  | NOSIB of RegGrp option (* No need *)
+
 module internal OperandParsingHelper =
   /// Find a specific reg. The bitmask will be used to extract a specific REX
   /// bit (R/X/B).

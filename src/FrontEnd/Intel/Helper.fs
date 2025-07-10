@@ -28,6 +28,40 @@ open LanguagePrimitives
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
+/// Specific conditions for determining the size of operands.
+/// (See Table A-1, Appendix A.2.5 of Vol. 2D).
+type SzCond =
+  /// (d64) When in 64-bit mode, instruction defaults to 64-bit operand size and
+  /// cannot encode 32-bit operand size.
+  | D64 = 0
+  /// (f64) The operand size is forced to a 64-bit operand size when in 64-bit
+  /// mode (prefixes that change operand size, e.g., 66 prefix, are ignored for
+  /// this instruction in 64-bit mode).
+  | F64 = 1
+  /// Normal conditions. This includes all other size conditions in Table A-1.
+  | Nor = 2
+
+/// The tupletype will be referenced in the instruction operand encoding table
+/// in the reference page of each instruction, providing the cross reference for
+/// the scaling factor N to encoding memory addressing operand.
+type TupleType =
+  /// Compressed Displacement (DISP8*N) Affected by Embedded Broadcast.
+  | Full = 0
+  | Half = 1
+  /// EVEX DISP8*N for Instructions Not Affected by Embedded Broadcast.
+  | FullMem = 2
+  | Tuple1Scalar = 3
+  | Tuple1Fixed = 4
+  | Tuple2 = 5
+  | Tuple4 = 6
+  | Tuple8 = 7
+  | HalfMem = 8
+  | QuarterMem = 9
+  | EighthMem = 10
+  | Mem128 = 11
+  | MOVDDUP = 12
+  | NA = 13 (* N/A *)
+
 type [<AbstractClass>] OperandParser () =
   abstract Render: ByteSpan * ReadHelper -> Operands
 

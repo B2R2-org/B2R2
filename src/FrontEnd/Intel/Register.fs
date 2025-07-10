@@ -26,10 +26,6 @@ namespace B2R2.FrontEnd.Intel
 
 open B2R2
 
-/// This exception occurs when an UnknownReg is explicitly used. This exception
-/// should not happen in general.
-exception UnknownRegException
-
 /// Shortcut for Register type.
 type internal R = Register
 

@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.Intel
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel
@@ -32,9 +31,48 @@ open B2R2.FrontEnd.Intel.Helper
 open LanguagePrimitives
 open type Opcode
 
-type OD = OprDesc
+/// Mandatory prefixes. The 66H, F2H, and F3H prefixes are mandatory for opcode
+/// extensions.
+type MPref =
+  /// Indicates the use of 66/F2/F3 prefixes (beyond those already part of the
+  /// instructions opcode) are not allowed with the instruction.
+  | MPrxNP = 0
+  /// 66 prefix.
+  | MPrx66 = 1
+  /// F3 prefix.
+  | MPrxF3 = 2
+  /// F2 prefix.
+  | MPrxF2 = 3
+  /// 66 & F2 prefix.
+  | MPrx66F2 = 4
+
+/// Opcode groups defined in manual Vol 2. Table A-6.
+type OpGroup =
+  | G1 = 0
+  | G1Inv64 = 1
+  | G1A = 2
+  | G2 = 3
+  | G3A = 4
+  | G3B = 5
+  | G4 = 6
+  | G5 = 7
+  | G6 = 8
+  | G7 = 9
+  | G8 = 10
+  | G9 = 11
+  | G10 = 12
+  | G11A = 13
+  | G11B = 14
+  | G12 = 15
+  | G13 = 16
+  | G14 = 17
+  | G15 = 18
+  | G16 = 19
+  | G17 = 20
+
+type internal OD = OprDesc
 type internal SZ = SizeKind
-type TT = TupleType
+type internal TT = TupleType
 
 module internal ParsingHelper = begin
 #if !EMULATION
