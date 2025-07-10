@@ -8,25 +8,28 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="IntelRegister.fs" />
-    <Compile Include="IntelRegisterFactory.fs" />
-    <Compile Include="IntelLowUIRBuilder.fs" />
-    <Compile Include="IntelOpcodes.fs" />
-    <Compile Include="IntelTypes.fs" />
-    <Compile Include="IntelInstruction.fs" />
-    <Compile Include="IntelHelper.fs" />
-    <Compile Include="IntelOperands.fs" />
-    <Compile Include="IntelDisasm.fs" />
-    <Compile Include="IntelLiftingUtils.fs" />
-    <Compile Include="IntelGeneralLifter.fs" />
-    <Compile Include="IntelMMXLifter.fs" />
-    <Compile Include="IntelSSELifter.fs" />
-    <Compile Include="IntelAVXLifter.fs" />
-    <Compile Include="IntelX87Lifter.fs" />
-    <Compile Include="IntelLifter.fs" />
-    <Compile Include="IntelParsingHelper.fs" />
-    <Compile Include="IntelParsingJob.fs" />
-    <Compile Include="IntelParser.fs" />
+    <Compile Include="Register.fs" />
+    <Compile Include="RegisterFactory.fs" />
+    <Compile Include="LowUIRBuilder.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
+    <Compile Include="Prefix.fs" />
+    <Compile Include="REXPrefix.fs" />
+    <Compile Include="VEXInfo.fs" />
+    <Compile Include="Instruction.fs" />
+    <Compile Include="ParsingHelperTypes.fs" />
+    <Compile Include="OperandParsingHelper.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="LiftingUtils.fs" />
+    <Compile Include="GeneralLifter.fs" />
+    <Compile Include="MMXLifter.fs" />
+    <Compile Include="SSELifter.fs" />
+    <Compile Include="AVXLifter.fs" />
+    <Compile Include="X87Lifter.fs" />
+    <Compile Include="Lifter.fs" />
+    <Compile Include="ParsingHelper.fs" />
+    <Compile Include="ParsingJob.fs" />
+    <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

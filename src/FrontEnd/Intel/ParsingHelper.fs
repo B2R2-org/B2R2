@@ -24,17 +24,54 @@
 
 namespace B2R2.FrontEnd.Intel
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel
-open B2R2.FrontEnd.Intel.Helper
 open LanguagePrimitives
 open type Opcode
 
-type OD = OprDesc
+/// Mandatory prefixes. The 66H, F2H, and F3H prefixes are mandatory for opcode
+/// extensions.
+type internal MPref =
+  /// Indicates the use of 66/F2/F3 prefixes (beyond those already part of the
+  /// instructions opcode) are not allowed with the instruction.
+  | MPrxNP = 0
+  /// 66 prefix.
+  | MPrx66 = 1
+  /// F3 prefix.
+  | MPrxF3 = 2
+  /// F2 prefix.
+  | MPrxF2 = 3
+  /// 66 & F2 prefix.
+  | MPrx66F2 = 4
+
+/// Opcode groups defined in manual Vol 2. Table A-6.
+type internal OpGroup =
+  | G1 = 0
+  | G1Inv64 = 1
+  | G1A = 2
+  | G2 = 3
+  | G3A = 4
+  | G3B = 5
+  | G4 = 6
+  | G5 = 7
+  | G6 = 8
+  | G7 = 9
+  | G8 = 10
+  | G9 = 11
+  | G10 = 12
+  | G11A = 13
+  | G11B = 14
+  | G12 = 15
+  | G13 = 16
+  | G14 = 17
+  | G15 = 18
+  | G16 = 19
+  | G17 = 20
+
+type internal OD = OprDesc
 type internal SZ = SizeKind
-type TT = TupleType
+type internal TT = TupleType
 
 module internal ParsingHelper = begin
 #if !EMULATION
@@ -179,7 +216,7 @@ module internal ParsingHelper = begin
   (* Table A-7/15 of Volume 2
      (D8/DC Opcode Map When ModR/M Byte is within 00H to BFH) *)
   let getD8OpWithin00toBF b =
-    match getReg b with
+    match Operands.getReg b with
     | 0b000 -> FADD
     | 0b001 -> FMUL
     | 0b010 -> FCOM
@@ -208,7 +245,7 @@ module internal ParsingHelper = begin
   (* Table A-9 of Volume 2
      (D9 Opcode Map When ModR/M Byte is Within 00H to BFH) *)
   let getD9OpWithin00toBF b =
-    match getReg b with
+    match Operands.getReg b with
     | 0b000 -> FLD
     | 0b010 -> FST
     | 0b011 -> FSTP
@@ -256,7 +293,7 @@ module internal ParsingHelper = begin
   (* Table A-11/19 of Volume 2
      (DA/DE Opcode Map When ModR/M Byte is Within 00H to BFH) *)
   let getDAOpWithin00toBF b =
-    match getReg b with
+    match Operands.getReg b with
     | 0b000 -> FIADD
     | 0b001 -> FIMUL
     | 0b010 -> FICOM
@@ -282,7 +319,7 @@ module internal ParsingHelper = begin
   (* Table A-13 of Volume 2
      (DB Opcode Map When ModR/M Byte is Within 00H to BFH) *)
   let getDBOpWithin00toBF b =
-    match getReg b with
+    match Operands.getReg b with
     | 0b000 -> FILD
     | 0b001 -> FISTTP
     | 0b010 -> FIST
@@ -318,7 +355,7 @@ module internal ParsingHelper = begin
   (* Table A-17 of Volume 2
      (DD Opcode Map When ModR/M Byte is Within 00H to BFH) *)
   let getDDOpWithin00toBF b =
-    match getReg b with
+    match Operands.getReg b with
     | 0b000 -> FLD
     | 0b001 -> FISTTP
     | 0b010 -> FST
@@ -354,7 +391,7 @@ module internal ParsingHelper = begin
   (* Table A-21 of Volume 2
      (DF Opcode Map When ModR/M Byte is Within 00H to BFH) *)
   let getDFOpWithin00toBF b =
-    match getReg b with
+    match Operands.getReg b with
     | 0b000 -> FILD
     | 0b001 -> FISTTP
     | 0b010 -> FIST
@@ -377,40 +414,45 @@ module internal ParsingHelper = begin
 
   let getD8OverBF b =
     match getD8OpcodeOutside00toBF b with
-    | Opcode.FCOM | Opcode.FCOMP as op -> op, OneOperand (getRM b |> getSTReg)
-    | op -> op, TwoOperands (OprReg R.ST0, getRM b |> getSTReg)
+    | Opcode.FCOM | Opcode.FCOMP as op ->
+      op, OneOperand (Operands.getRM b |> Operands.getSTReg)
+    | op ->
+      op, TwoOperands (OprReg R.ST0, Operands.getRM b |> Operands.getSTReg)
 
   let getD9OverBF b =
     getD9OpcodeOutside00toBF b,
     if b < 0xC0uy || b >= 0xD0uy then NoOperand
-    else OneOperand (getRM b |> getSTReg)
+    else OneOperand (Operands.getRM b |> Operands.getSTReg)
 
   let getDAOverBF b =
     getDAOpcodeOutside00toBF b,
     if b = 0xE9uy then NoOperand
-    else TwoOperands (OprReg R.ST0, getRM b |> getSTReg)
+    else TwoOperands (OprReg R.ST0, Operands.getRM b |> Operands.getSTReg)
 
   let getDBOverBF b =
     getDBOpcodeOutside00toBF b,
     if b = 0xE2uy || b = 0xE3uy then NoOperand
-    else TwoOperands (OprReg R.ST0, getRM b |> getSTReg)
+    else TwoOperands (OprReg R.ST0, Operands.getRM b |> Operands.getSTReg)
 
   let getDCOverBF b =
-    getDCOpcodeOutside00toBF b, TwoOperands (getRM b |> getSTReg, OprReg R.ST0)
+    getDCOpcodeOutside00toBF b,
+    TwoOperands (Operands.getRM b |> Operands.getSTReg, OprReg R.ST0)
 
   let getDDOverBF b =
-    getDDOpcodeOutside00toBF b, getRM b |> getSTReg |> OneOperand
+    getDDOpcodeOutside00toBF b,
+    Operands.getRM b |> Operands.getSTReg |> OneOperand
 
   let getDEOverBF b =
     getDEOpcodeOutside00toBF b,
     if b = 0xD9uy then NoOperand
-    else TwoOperands (getRM b |> getSTReg, OprReg R.ST0)
+    else TwoOperands (Operands.getRM b |> Operands.getSTReg, OprReg R.ST0)
 
   let getDFOverBF b =
     let op = getDFOpcodeOutside00toBF b
     if b = 0xE0uy then op, OprReg R.AX |> OneOperand
-    elif b >= 0xC0uy && b <= 0xC7uy then op, OneOperand (getRM b |> getSTReg)
-    else op, TwoOperands (OprReg R.ST0, getRM b |> getSTReg)
+    elif b >= 0xC0uy && b <= 0xC7uy then
+      op, OneOperand (Operands.getRM b |> Operands.getSTReg)
+    else op, TwoOperands (OprReg R.ST0, Operands.getRM b |> Operands.getSTReg)
 
   let getD9EscEffOprSizeByModRM = function
    | 0b000 | 0b010 | 0b011 -> 32<rt> (* single-real *)
@@ -6021,25 +6063,26 @@ module internal ParsingHelper = begin
     | _ -> raise ParsingFailureException
 
   let grp5 b = function
-    | 0 -> struct (INC, OD.Mem, SZ.Def, SzCond.Nor)
-    | 1 -> struct (DEC, OD.Mem, SZ.Def, SzCond.Nor)
+    | 0 -> struct (INC, OD.Mem, SZ.Def, SzCond.Normal)
+    | 1 -> struct (DEC, OD.Mem, SZ.Def, SzCond.Normal)
     | 2 -> struct (CALLNear, OD.Mem, SZ.Def, SzCond.F64)
-    | 3 -> struct (CALLFar, OD.Mem, SZ.P, SzCond.Nor)
+    | 3 -> struct (CALLFar, OD.Mem, SZ.P, SzCond.Normal)
     | 4 -> struct (JMPNear, OD.Mem, SZ.Def, SzCond.F64)
-    | 5 -> if modIsMemory b then struct (JMPFar, OD.Mem, SZ.P, SzCond.Nor)
+    | 5 -> if Operands.modIsMemory b then
+             struct (JMPFar, OD.Mem, SZ.P, SzCond.Normal)
            else raise ParsingFailureException
     | 6 -> struct (PUSH, OD.Mem, SZ.Def, SzCond.D64)
     | _ -> raise ParsingFailureException
 
   let grp7 = function
-    | 0 -> struct (SGDT, OD.Mem, SZ.S, SzCond.Nor)
-    | 1 -> struct (SIDT, OD.Mem, SZ.S, SzCond.Nor)
-    | 2 -> struct (LGDT, OD.Mem, SZ.S, SzCond.Nor)
-    | 3 -> struct (LIDT, OD.Mem, SZ.S, SzCond.Nor)
-    | 4 -> struct (SMSW, OD.Mem, SZ.MemW, SzCond.Nor)
-    | 5 -> struct (RSTORSSP, OD.Mem, SZ.Q, SzCond.Nor)
-    | 6 -> struct (LMSW, OD.Mem, SZ.MemW, SzCond.Nor)
-    | 7 -> struct (INVLPG, OD.Mem, SZ.MemW, SzCond.Nor)
+    | 0 -> struct (SGDT, OD.Mem, SZ.S, SzCond.Normal)
+    | 1 -> struct (SIDT, OD.Mem, SZ.S, SzCond.Normal)
+    | 2 -> struct (LGDT, OD.Mem, SZ.S, SzCond.Normal)
+    | 3 -> struct (LIDT, OD.Mem, SZ.S, SzCond.Normal)
+    | 4 -> struct (SMSW, OD.Mem, SZ.MemW, SzCond.Normal)
+    | 5 -> struct (RSTORSSP, OD.Mem, SZ.Q, SzCond.Normal)
+    | 6 -> struct (LMSW, OD.Mem, SZ.MemW, SzCond.Normal)
+    | 7 -> struct (INVLPG, OD.Mem, SZ.MemW, SzCond.Normal)
     | _ -> raise ParsingFailureException
 
   let grp8Op = function
@@ -6065,248 +6108,258 @@ module internal ParsingHelper = begin
   let getGrp3OpKind oidx sidx oprGrp regBits =
     match regBits with
     | 0b000 when oprGrp = OpGroup.G3A ->
-      struct (TEST, OD.RmSImm8, SZ.Byte, SzCond.Nor)
+      struct (TEST, OD.RmSImm8, SZ.Byte, SzCond.Normal)
     | 0b000 when oprGrp = OpGroup.G3B ->
-      struct (TEST, OD.RmImm, SZ.Def, SzCond.Nor)
-    | 0b010 -> struct (NOT, oidx, sidx, SzCond.Nor)
-    | 0b011 -> struct (NEG, oidx, sidx, SzCond.Nor)
-    | 0b100 -> struct (MUL, oidx, sidx, SzCond.Nor)
-    | 0b101 -> struct (IMUL, oidx, sidx, SzCond.Nor)
-    | 0b110 -> struct (DIV, oidx, sidx, SzCond.Nor)
-    | 0b111 -> struct (IDIV, oidx, sidx, SzCond.Nor)
+      struct (TEST, OD.RmImm, SZ.Def, SzCond.Normal)
+    | 0b010 -> struct (NOT, oidx, sidx, SzCond.Normal)
+    | 0b011 -> struct (NEG, oidx, sidx, SzCond.Normal)
+    | 0b100 -> struct (MUL, oidx, sidx, SzCond.Normal)
+    | 0b101 -> struct (IMUL, oidx, sidx, SzCond.Normal)
+    | 0b110 -> struct (DIV, oidx, sidx, SzCond.Normal)
+    | 0b111 -> struct (IDIV, oidx, sidx, SzCond.Normal)
     | _ -> raise ParsingFailureException
 
   let getGrp6OpKind b regBits =
-    match modIsMemory b, regBits with
-    | true, 0b000 -> struct (SLDT, OD.Mem, SZ.MemW, SzCond.Nor)
-    | false, 0b000 -> struct (SLDT, OD.Mem, SZ.Def, SzCond.Nor)
-    | true, 0b001 -> struct (STR, OD.Mem, SZ.MemW, SzCond.Nor)
-    | false, 0b001 -> struct (STR, OD.Mem, SZ.Def, SzCond.Nor)
-    | _, 0b010 -> struct (LLDT, OD.Mem, SZ.MemW, SzCond.Nor)
-    | _, 0b011 -> struct (LTR, OD.Mem, SZ.MemW, SzCond.Nor)
-    | _, 0b100 -> struct (VERR, OD.Mem, SZ.MemW, SzCond.Nor)
-    | _, 0b101 -> struct (VERW, OD.Mem, SZ.MemW, SzCond.Nor)
+    match Operands.modIsMemory b, regBits with
+    | true, 0b000 -> struct (SLDT, OD.Mem, SZ.MemW, SzCond.Normal)
+    | false, 0b000 -> struct (SLDT, OD.Mem, SZ.Def, SzCond.Normal)
+    | true, 0b001 -> struct (STR, OD.Mem, SZ.MemW, SzCond.Normal)
+    | false, 0b001 -> struct (STR, OD.Mem, SZ.Def, SzCond.Normal)
+    | _, 0b010 -> struct (LLDT, OD.Mem, SZ.MemW, SzCond.Normal)
+    | _, 0b011 -> struct (LTR, OD.Mem, SZ.MemW, SzCond.Normal)
+    | _, 0b100 -> struct (VERR, OD.Mem, SZ.MemW, SzCond.Normal)
+    | _, 0b101 -> struct (VERW, OD.Mem, SZ.MemW, SzCond.Normal)
     | _ -> raise ParsingFailureException
 
   let parseGrp7OpKind (rhlp: ReadHelper) b regBits =
-    if modIsMemory b then grp7 regBits
+    if Operands.modIsMemory b then grp7 regBits
     else
-      match regBits, getRM b with
+      match regBits, Operands.getRM b with
       | 0b000, 0b001 ->
-        rhlp.IncPos (); struct (VMCALL, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (VMCALL, OD.No, SZ.Def, SzCond.Normal)
       | 0b000, 0b010 ->
-        rhlp.IncPos (); struct (VMLAUNCH, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (VMLAUNCH, OD.No, SZ.Def, SzCond.Normal)
       | 0b000, 0b011 ->
-        rhlp.IncPos (); struct (VMRESUME, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (VMRESUME, OD.No, SZ.Def, SzCond.Normal)
       | 0b000, 0b100 ->
-        rhlp.IncPos (); struct (VMXOFF, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (VMXOFF, OD.No, SZ.Def, SzCond.Normal)
       | 0b001, 0b000 ->
-        rhlp.IncPos (); struct (MONITOR, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (MONITOR, OD.No, SZ.Def, SzCond.Normal)
       | 0b001, 0b001 ->
-        rhlp.IncPos (); struct (MWAIT, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (MWAIT, OD.No, SZ.Def, SzCond.Normal)
       | 0b001, 0b010 ->
-        rhlp.IncPos (); struct (CLAC, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (CLAC, OD.No, SZ.Def, SzCond.Normal)
       | 0b001, 0b011 ->
-        rhlp.IncPos (); struct (STAC, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (STAC, OD.No, SZ.Def, SzCond.Normal)
       | 0b010, 0b000 ->
-        rhlp.IncPos (); struct (XGETBV, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (XGETBV, OD.No, SZ.Def, SzCond.Normal)
       | 0b010, 0b001 ->
-        rhlp.IncPos (); struct (XSETBV, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (XSETBV, OD.No, SZ.Def, SzCond.Normal)
       | 0b010, 0b100 ->
-        rhlp.IncPos (); struct (VMFUNC, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (VMFUNC, OD.No, SZ.Def, SzCond.Normal)
       | 0b010, 0b101 ->
-        rhlp.IncPos (); struct (XEND, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (XEND, OD.No, SZ.Def, SzCond.Normal)
       | 0b010, 0b110 ->
-        rhlp.IncPos (); struct (XTEST, OD.No, SZ.Def, SzCond.Nor)
-      | 0b100, _     -> struct (SMSW, OD.Mem, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (XTEST, OD.No, SZ.Def, SzCond.Normal)
+      | 0b100, _     -> struct (SMSW, OD.Mem, SZ.Def, SzCond.Normal)
       | 0b101, 0b000 ->
-        rhlp.IncPos (); struct (SETSSBSY, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (SETSSBSY, OD.No, SZ.Def, SzCond.Normal)
       | 0b101, 0b010 ->
-        rhlp.IncPos (); struct (SAVEPREVSSP, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (SAVEPREVSSP, OD.No, SZ.Def, SzCond.Normal)
       | 0b101, 0b110 ->
-        rhlp.IncPos (); struct (RDPKRU, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (RDPKRU, OD.No, SZ.Def, SzCond.Normal)
       | 0b101, 0b111 ->
-        rhlp.IncPos (); struct (WRPKRU, OD.No, SZ.Def, SzCond.Nor)
-      | 0b110, _     -> struct (LMSW, OD.Mem, SZ.MemW, SzCond.Nor)
+        rhlp.IncPos (); struct (WRPKRU, OD.No, SZ.Def, SzCond.Normal)
+      | 0b110, _     -> struct (LMSW, OD.Mem, SZ.MemW, SzCond.Normal)
       | 0b111, 0b000 ->
 #if !EMULATION
         ensure32 rhlp
 #endif
-        rhlp.IncPos (); struct (SWAPGS, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (SWAPGS, OD.No, SZ.Def, SzCond.Normal)
       | 0b111, 0b001 ->
-        rhlp.IncPos (); struct (RDTSCP, OD.No, SZ.Def, SzCond.Nor)
+        rhlp.IncPos (); struct (RDTSCP, OD.No, SZ.Def, SzCond.Normal)
       | _ -> raise ParsingFailureException
 
   let getGrp9OpKind (rhlp: ReadHelper) b regBits =
-    let hasOprSzPref = hasOprSz rhlp.Prefixes
-    let hasREPZPref = hasREPZ rhlp.Prefixes
-    let hasREXWPref = hasREXW rhlp.REXPrefix
-    match modIsMemory b, regBits, hasOprSzPref, hasREPZPref, hasREXWPref with
+    let hasOprSzPref = Prefix.hasOprSz rhlp.Prefixes
+    let hasREPZPref = Prefix.hasREPZ rhlp.Prefixes
+    let hasREXWPref = REXPrefix.hasW rhlp.REXPrefix
+    let modIsMemory = Operands.modIsMemory b
+    match modIsMemory, regBits, hasOprSzPref, hasREPZPref, hasREXWPref with
     | true,  0b001, false, false, false ->
-      struct (CMPXCHG8B, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (CMPXCHG8B, OD.Mem, SZ.Q, SzCond.Normal)
     | true,  0b001, false, false, true  ->
-      struct (CMPXCHG16B, OD.Mem, SZ.Dq, SzCond.Nor)
+      struct (CMPXCHG16B, OD.Mem, SZ.Dq, SzCond.Normal)
     | true,  0b011, false, false, false ->
-      struct (XRSTORS, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (XRSTORS, OD.Mem, SZ.Q, SzCond.Normal)
     | true,  0b011, false, false, true  ->
-      struct (XRSTORS64, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (XRSTORS64, OD.Mem, SZ.Q, SzCond.Normal)
     | true,  0b100, false, false, false ->
-      struct (XSAVEC, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (XSAVEC, OD.Mem, SZ.Q, SzCond.Normal)
     | true,  0b100, false, false, true  ->
-      struct (XSAVEC64, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (XSAVEC64, OD.Mem, SZ.Q, SzCond.Normal)
     | true,  0b101, false, false, false ->
-      struct (XSAVES, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (XSAVES, OD.Mem, SZ.Q, SzCond.Normal)
     | true,  0b101, false, false, true  ->
-      struct (XSAVES64, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (XSAVES64, OD.Mem, SZ.Q, SzCond.Normal)
     | true,  0b110, false, false, _     ->
-      struct (VMPTRLD, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (VMPTRLD, OD.Mem, SZ.Q, SzCond.Normal)
     | true,  0b111, false, false, _     ->
-      struct (VMPTRST, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (VMPTRST, OD.Mem, SZ.Q, SzCond.Normal)
     | true,  0b110, true,  false, _     ->
-      struct (VMCLEAR, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (VMCLEAR, OD.Mem, SZ.Q, SzCond.Normal)
     | true,  0b110, false, true,  _     ->
-      struct (VMXON, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (VMXON, OD.Mem, SZ.Q, SzCond.Normal)
     | true,  0b111, false, true,  _     ->
-      struct (VMPTRST, OD.Mem, SZ.Q, SzCond.Nor)
+      struct (VMPTRST, OD.Mem, SZ.Q, SzCond.Normal)
     | false, 0b110, false, false, _     ->
-      struct (RDRAND, OD.Mem, SZ.Def, SzCond.Nor)
+      struct (RDRAND, OD.Mem, SZ.Def, SzCond.Normal)
     | false, 0b111, false, false, _     ->
-      struct (RDSEED, OD.Mem, SZ.Def, SzCond.Nor)
+      struct (RDSEED, OD.Mem, SZ.Def, SzCond.Normal)
     | _ -> raise ParsingFailureException
 
   let getGrp11OpKind span rhlp op oidx1 sz1 b reg oidx2 sz2 =
     match reg with
-    | 0b000 -> struct (MOV, oidx2, sz2, SzCond.Nor)
-    | 0b111 when modIsMemory b -> raise ParsingFailureException
+    | 0b000 -> struct (MOV, oidx2, sz2, SzCond.Normal)
+    | 0b111 when Operands.modIsMemory b -> raise ParsingFailureException
     | 0b111 ->
       if (rhlp: ReadHelper).ReadByte span = 0xF8uy then
-        struct (op, oidx1, sz1, SzCond.Nor)
+        struct (op, oidx1, sz1, SzCond.Normal)
       else raise ParsingFailureException
     | _ -> raise ParsingFailureException
 
   let getGrp12OpKind rhlp b regBits =
-    match modIsMemory b, regBits, hasOprSz (selectPrefix rhlp) with
-    | false, 0b010, false -> struct (PSRLW, OD.MmxImm8, SZ.Q, SzCond.Nor)
+    let prefix = selectPrefix rhlp
+    match Operands.modIsMemory b, regBits, Prefix.hasOprSz prefix with
+    | false, 0b010, false -> struct (PSRLW, OD.MmxImm8, SZ.Q, SzCond.Normal)
     | false, 0b010, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSRLW, OD.RmSImm8, SZ.Dq, SzCond.Nor)
-      else struct (VPSRLW, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
-    | false, 0b100, false -> struct (PSRAW, OD.MmxImm8, SZ.Q, SzCond.Nor)
+        struct (PSRLW, OD.RmSImm8, SZ.Dq, SzCond.Normal)
+      else struct (VPSRLW, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
+    | false, 0b100, false -> struct (PSRAW, OD.MmxImm8, SZ.Q, SzCond.Normal)
     | false, 0b100, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSRAW, OD.RmSImm8, SZ.Dq, SzCond.Nor)
-      else struct (VPSRAW, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
-    | false, 0b110, false -> struct (PSLLW, OD.MmxImm8, SZ.Q, SzCond.Nor)
+        struct (PSRAW, OD.RmSImm8, SZ.Dq, SzCond.Normal)
+      else struct (VPSRAW, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
+    | false, 0b110, false -> struct (PSLLW, OD.MmxImm8, SZ.Q, SzCond.Normal)
     | false, 0b110, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSLLW, OD.RmSImm8, SZ.Dq, SzCond.Nor)
-      else struct (VPSLLW, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
+        struct (PSLLW, OD.RmSImm8, SZ.Dq, SzCond.Normal)
+      else struct (VPSLLW, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
     | _ -> raise ParsingFailureException
 
   let getGrp13OpKind rhlp b regBits =
-    match modIsMemory b, regBits, hasOprSz (selectPrefix rhlp) with
-    | false, 0b010, false -> struct (PSRLD, OD.MmxImm8, SZ.Q, SzCond.Nor)
+    let prefix = selectPrefix rhlp
+    match Operands.modIsMemory b, regBits, Prefix.hasOprSz prefix with
+    | false, 0b010, false -> struct (PSRLD, OD.MmxImm8, SZ.Q, SzCond.Normal)
     | false, 0b010, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSRLD, OD.RmSImm8, SZ.Dq, SzCond.Nor)
-      else struct (VPSRLD, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
-    | false, 0b100, false -> struct (PSRAD, OD.MmxImm8, SZ.Q, SzCond.Nor)
+        struct (PSRLD, OD.RmSImm8, SZ.Dq, SzCond.Normal)
+      else struct (VPSRLD, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
+    | false, 0b100, false -> struct (PSRAD, OD.MmxImm8, SZ.Q, SzCond.Normal)
     | false, 0b100, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSRAD, OD.RmSImm8, SZ.Dq, SzCond.Nor)
-      else struct (VPSRAD, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
-    | false, 0b110, false -> struct (PSLLD, OD.MmxImm8, SZ.Q, SzCond.Nor)
+        struct (PSRAD, OD.RmSImm8, SZ.Dq, SzCond.Normal)
+      else struct (VPSRAD, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
+    | false, 0b110, false -> struct (PSLLD, OD.MmxImm8, SZ.Q, SzCond.Normal)
     | false, 0b110, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSLLD, OD.RmSImm8, SZ.Dq, SzCond.Nor)
-      else struct (VPSLLD, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
+        struct (PSLLD, OD.RmSImm8, SZ.Dq, SzCond.Normal)
+      else struct (VPSLLD, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
     | _ -> raise ParsingFailureException
 
   let getGrp14OpKind rhlp b regBits =
-    match modIsMemory b, regBits, hasOprSz (selectPrefix rhlp) with
+    let prefix = selectPrefix rhlp
+    match Operands.modIsMemory b, regBits, Prefix.hasOprSz prefix with
     | false, 0b010, false ->
-      struct (PSRLQ, OD.MmxImm8, SZ.Q, SzCond.Nor)
+      struct (PSRLQ, OD.MmxImm8, SZ.Q, SzCond.Normal)
     | false, 0b010, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSRLQ, OD.RmSImm8, SZ.Dq, SzCond.Nor)
-      else struct (VPSRLQ, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
+        struct (PSRLQ, OD.RmSImm8, SZ.Dq, SzCond.Normal)
+      else struct (VPSRLQ, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
     | false, 0b011, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSRLDQ, OD.RmImm8, SZ.Dq, SzCond.Nor)
-      else struct (VPSRLDQ, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
-    | false, 0b110, false -> struct (PSLLQ, OD.MmxImm8, SZ.Q, SzCond.Nor)
+        struct (PSRLDQ, OD.RmImm8, SZ.Dq, SzCond.Normal)
+      else struct (VPSRLDQ, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
+    | false, 0b110, false -> struct (PSLLQ, OD.MmxImm8, SZ.Q, SzCond.Normal)
     | false, 0b110, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSLLQ, OD.RmSImm8, SZ.Dq, SzCond.Nor)
-      else struct (VPSLLQ, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
+        struct (PSLLQ, OD.RmSImm8, SZ.Dq, SzCond.Normal)
+      else struct (VPSLLQ, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
     | false, 0b111, true  ->
       if rhlp.VEXInfo = None then
-        struct (PSLLDQ, OD.RmImm8, SZ.Dq, SzCond.Nor)
-      else struct (VPSLLDQ, OD.VvRmImm8, SZ.VecDef, SzCond.Nor)
+        struct (PSLLDQ, OD.RmImm8, SZ.Dq, SzCond.Normal)
+      else struct (VPSLLDQ, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
     | _ -> raise ParsingFailureException
 
   let parseGrp15OpKind (rhlp: ReadHelper) b regBits =
-    match modIsMemory b, regBits, rhlp.Prefixes with
+    match Operands.modIsMemory b, regBits, rhlp.Prefixes with
     | true, 0b000, Prefix.PrxNone ->
       if rhlp.VEXInfo = None then
-        let op = if hasREXW rhlp.REXPrefix then FXSAVE64 else FXSAVE
-        struct (op, OD.Mem, SZ.Def, SzCond.Nor)
+        let op = if REXPrefix.hasW rhlp.REXPrefix then FXSAVE64 else FXSAVE
+        struct (op, OD.Mem, SZ.Def, SzCond.Normal)
       else raise ParsingFailureException
     | true, 0b001, Prefix.PrxNone ->
       if rhlp.VEXInfo = None then
-        let op = if hasREXW rhlp.REXPrefix then FXRSTOR64 else FXRSTOR
-        struct (op, OD.Mem, SZ.Def, SzCond.Nor)
+        let op = if REXPrefix.hasW rhlp.REXPrefix then FXRSTOR64 else FXRSTOR
+        struct (op, OD.Mem, SZ.Def, SzCond.Normal)
       else raise ParsingFailureException
-    | true, 0b010, Prefix.PrxNone -> struct (LDMXCSR, OD.Mem, SZ.D, SzCond.Nor)
-    | true, 0b011, Prefix.PrxNone -> struct (STMXCSR, OD.Mem, SZ.D, SzCond.Nor)
-    | true, 0b100, Prefix.PrxNone -> struct (XSAVE, OD.Mem, SZ.Def, SzCond.Nor)
-    | true, 0b101, Prefix.PrxNone -> struct (XRSTOR, OD.Mem, SZ.Def, SzCond.Nor)
+    | true, 0b010, Prefix.PrxNone ->
+      struct (LDMXCSR, OD.Mem, SZ.D, SzCond.Normal)
+    | true, 0b011, Prefix.PrxNone ->
+      struct (STMXCSR, OD.Mem, SZ.D, SzCond.Normal)
+    | true, 0b100, Prefix.PrxNone ->
+      struct (XSAVE, OD.Mem, SZ.Def, SzCond.Normal)
+    | true, 0b101, Prefix.PrxNone ->
+      struct (XRSTOR, OD.Mem, SZ.Def, SzCond.Normal)
     | true, 0b110, Prefix.PrxNone ->
-      struct (XSAVEOPT, OD.Mem, SZ.Def, SzCond.Nor)
+      struct (XSAVEOPT, OD.Mem, SZ.Def, SzCond.Normal)
     | true, 0b110, Prefix.PrxOPSIZE ->
-      struct (CLWB, OD.Mem, SZ.Byte, SzCond.Nor)
-    | true, 0b110, Prefix.PrxREPZ -> struct (CLRSSBSY, OD.Mem, SZ.Q, SzCond.Nor)
-    | true, 0b111, Prefix.PrxNone -> struct (CLFLUSH, OD.Mem, SZ.BV, SzCond.Nor)
+      struct (CLWB, OD.Mem, SZ.Byte, SzCond.Normal)
+    | true, 0b110, Prefix.PrxREPZ ->
+      struct (CLRSSBSY, OD.Mem, SZ.Q, SzCond.Normal)
+    | true, 0b111, Prefix.PrxNone ->
+      struct (CLFLUSH, OD.Mem, SZ.BV, SzCond.Normal)
     | true, 0b111, Prefix.PrxOPSIZE ->
-      struct (CLFLUSHOPT, OD.Mem, SZ.BV, SzCond.Nor)
+      struct (CLFLUSHOPT, OD.Mem, SZ.BV, SzCond.Normal)
     | false, 0b101, Prefix.PrxNone ->
-      rhlp.IncPos (); struct (LFENCE, OD.No, SZ.Def, SzCond.Nor)
+      rhlp.IncPos (); struct (LFENCE, OD.No, SZ.Def, SzCond.Normal)
     | false, 0b110, Prefix.PrxNone ->
-      rhlp.IncPos (); struct (MFENCE, OD.No, SZ.Def, SzCond.Nor)
+      rhlp.IncPos (); struct (MFENCE, OD.No, SZ.Def, SzCond.Normal)
     | false, 0b111, Prefix.PrxNone ->
-      rhlp.IncPos (); struct (SFENCE, OD.No, SZ.Def, SzCond.Nor)
+      rhlp.IncPos (); struct (SFENCE, OD.No, SZ.Def, SzCond.Normal)
     | false, 0b000, Prefix.PrxREPZ ->
-      struct (RDFSBASE, OD.Gpr, SZ.Def, SzCond.Nor)
+      struct (RDFSBASE, OD.Gpr, SZ.Def, SzCond.Normal)
     | false, 0b001, Prefix.PrxREPZ ->
-      struct (RDGSBASE, OD.Gpr, SZ.Def, SzCond.Nor)
+      struct (RDGSBASE, OD.Gpr, SZ.Def, SzCond.Normal)
     | false, 0b010, Prefix.PrxREPZ ->
-      struct (WRFSBASE, OD.Gpr, SZ.Def, SzCond.Nor)
+      struct (WRFSBASE, OD.Gpr, SZ.Def, SzCond.Normal)
     | false, 0b011, Prefix.PrxREPZ ->
-      struct (WRGSBASE, OD.Gpr, SZ.Def, SzCond.Nor)
+      struct (WRGSBASE, OD.Gpr, SZ.Def, SzCond.Normal)
     | false, 0b101, Prefix.PrxREPZ ->
-      let op = if hasREXW rhlp.REXPrefix then INCSSPQ else INCSSPD
-      struct (op, OD.Gpr, SZ.Def, SzCond.Nor)
+      let op = if REXPrefix.hasW rhlp.REXPrefix then INCSSPQ else INCSSPD
+      struct (op, OD.Gpr, SZ.Def, SzCond.Normal)
     | _ -> raise ParsingFailureException
 
   let parseGrpOpKind span (rhlp: ReadHelper) oidx sidx oprGrp =
     let b = rhlp.PeekByte span
-    let r = getReg b
+    let r = Operands.getReg b
     match oprGrp with
-    | OpGroup.G1 -> struct (grp1Op r, oidx, sidx, SzCond.Nor)
+    | OpGroup.G1 -> struct (grp1Op r, oidx, sidx, SzCond.Normal)
     | OpGroup.G1Inv64 ->
 #if !EMULATION
       ensure32 rhlp
 #endif
-      struct (grp1Op r, oidx, sidx, SzCond.Nor)
+      struct (grp1Op r, oidx, sidx, SzCond.Normal)
     | OpGroup.G1A -> struct (POP, oidx, sidx, SzCond.D64)
     | OpGroup.G2 when r = 0b110 -> raise ParsingFailureException
-    | OpGroup.G2 -> struct (grp2Op r, oidx, sidx, SzCond.Nor)
+    | OpGroup.G2 -> struct (grp2Op r, oidx, sidx, SzCond.Normal)
     | OpGroup.G3A | OpGroup.G3B -> getGrp3OpKind oidx sidx oprGrp r
-    | OpGroup.G4 -> struct (grp4Op r, OD.Mem, SZ.Byte, SzCond.Nor)
+    | OpGroup.G4 -> struct (grp4Op r, OD.Mem, SZ.Byte, SzCond.Normal)
     | OpGroup.G5 -> grp5 b r
     | OpGroup.G6 -> getGrp6OpKind b r
     | OpGroup.G7 -> parseGrp7OpKind rhlp b r
-    | OpGroup.G8 -> struct (grp8Op r, oidx, sidx, SzCond.Nor)
+    | OpGroup.G8 -> struct (grp8Op r, oidx, sidx, SzCond.Normal)
     | OpGroup.G9 -> getGrp9OpKind rhlp b r
     | OpGroup.G11A ->
       getGrp11OpKind span rhlp XABORT OD.Imm8 SZ.Def b r oidx sidx
@@ -6316,16 +6369,17 @@ module internal ParsingHelper = begin
     | OpGroup.G13 -> getGrp13OpKind rhlp b r
     | OpGroup.G14 -> getGrp14OpKind rhlp b r
     | OpGroup.G15 -> parseGrp15OpKind rhlp b r
-    | OpGroup.G16 -> struct (grp16Op r, oidx, sidx, SzCond.Nor)
-    | OpGroup.G17 -> struct (grp17Op r, oidx, sidx, SzCond.Nor)
+    | OpGroup.G16 -> struct (grp16Op r, oidx, sidx, SzCond.Normal)
+    | OpGroup.G17 -> struct (grp17Op r, oidx, sidx, SzCond.Normal)
     | OpGroup.G10
     | _ ->
       raise ParsingFailureException (* Not implemented yet *)
 
   /// Add BND prefix (Intel MPX extension).
   let addBND (rhlp: ReadHelper) =
-    if hasREPNZ rhlp.Prefixes then
-      rhlp.Prefixes <- Prefix.PrxBND ||| (ClearGrp1PrefMask &&& rhlp.Prefixes)
+    if Prefix.hasREPNZ rhlp.Prefixes then
+      rhlp.Prefixes <-
+        Prefix.PrxBND ||| (Prefix.ClearGrp1PrefMask &&& rhlp.Prefixes)
     else ()
 
   let inline getMandPrx (prefix: Prefix) =
@@ -6343,11 +6397,13 @@ module internal ParsingHelper = begin
   /// prefix, and we have to filter out the prefixes because they are not going
   /// to be used as a normal prefixes. They will only be used as a mandatory
   /// prefix to decide the opcode.
-  let inline filterPrefs (prefix: Prefix) = prefix &&& ClearVEXPrefMask
+  let inline filterPrefs (prefix: Prefix) = prefix &&& Prefix.ClearVEXPrefMask
 
-  let inline filterREPZPrefs (prefix: Prefix) = prefix &&& ClearREPZPrefMask
+  let inline filterREPZPrefs (prefix: Prefix) =
+    prefix &&& Prefix.ClearREPZPrefMask
 
-  let inline filterREXWPrefs (rex: REXPrefix) = rex &&& ClearREXWPrefMask
+  let inline filterREXWPrefs (rex: REXPrefix) =
+    rex &&& REXPrefix.ClearREXWPrefMask
 
   let getInstr prefix fnInstr = fnInstr (getMandPrx prefix)
 
@@ -6368,7 +6424,7 @@ module internal ParsingHelper = begin
       parseGrpOpKind span rhlp oidx sidx grp
     if Opcode.isBranch op then addBND rhlp |> ignore
     elif Opcode.isCETInstr op then
-      rhlp.Prefixes <- ClearGrp1PrefMask &&& rhlp.Prefixes
+      rhlp.Prefixes <- Prefix.ClearGrp1PrefMask &&& rhlp.Prefixes
     else ()
     render span rhlp op szCond oidx szidx
 
@@ -6378,28 +6434,28 @@ module internal ParsingHelper = begin
     | None ->
       let struct (op, oidx, sidx, _) = fnNor (getMandPrx rhlp.Prefixes)
       rhlp.Prefixes <- filterPrefs rhlp.Prefixes
-      render span rhlp op SzCond.Nor oidx sidx
+      render span rhlp op SzCond.Normal oidx sidx
     | Some v ->
       let struct (op, oidx, sidx, _) = fnVex (getMandPrx v.VPrefixes)
-      render span rhlp op SzCond.Nor oidx sidx
+      render span rhlp op SzCond.Normal oidx sidx
 
   /// Select Normal(REX.W), VEX(REX.W)
   let selectVEXW (span: ByteSpan) rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 =
     match (rhlp: ReadHelper).VEXInfo with
     | None ->
-      let fnNor = if hasREXW rhlp.REXPrefix then fnNorW1 else fnNorW0
+      let fnNor = if REXPrefix.hasW rhlp.REXPrefix then fnNorW1 else fnNorW0
       let ins = getInstr rhlp.Prefixes fnNor
       rhlp.Prefixes <- filterPrefs rhlp.Prefixes
       ins
     | Some v ->
-      let fnVex = if hasREXW rhlp.REXPrefix then fnVexW1 else fnVexW0
+      let fnVex = if REXPrefix.hasW rhlp.REXPrefix then fnVexW1 else fnVexW0
       getInstr v.VPrefixes fnVex
 
   /// Normal(REX.W)/VEX(REX.W)
   let parseVEXW span rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 =
     let struct (op, oidx, sidx, _) =
       selectVEXW span rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1
-    render span rhlp op SzCond.Nor oidx sidx
+    render span rhlp op SzCond.Normal oidx sidx
 
   /// Select Normal, VEX, EVEX(REX.W)
   let selectEVEX (rhlp: ReadHelper) fnNor fnVex fnEVexW0 fnEVexW1 =
@@ -6410,7 +6466,8 @@ module internal ParsingHelper = begin
       ins
     | Some v ->
       if v.VEXType &&& VEXType.EVEX = VEXType.EVEX then
-        let fnEVex = if hasREXW rhlp.REXPrefix then fnEVexW1 else fnEVexW0
+        let fnEVex =
+          if REXPrefix.hasW rhlp.REXPrefix then fnEVexW1 else fnEVexW0
         getInstr v.VPrefixes fnEVex
       else getInstr v.VPrefixes fnVex
 
@@ -6419,7 +6476,7 @@ module internal ParsingHelper = begin
     let struct (op, oidx, sidx, tt) =
       selectEVEX rhlp fnNor fnVex fnEVexW0 fnEVexW1
     rhlp.TupleType <- tt
-    render span rhlp op SzCond.Nor oidx sidx
+    render span rhlp op SzCond.Normal oidx sidx
 
   /// Select VEX(REX.W), EVEX(REX.W)
   let selectEVEXW (rhlp: ReadHelper) fnVexW0 fnVexW1 fnEVexW0 fnEVexW1 =
@@ -6427,10 +6484,11 @@ module internal ParsingHelper = begin
     | None -> raise ParsingFailureException
     | Some v ->
       if v.VEXType &&& VEXType.EVEX = VEXType.EVEX then
-        let fnEVex = if hasREXW rhlp.REXPrefix then fnEVexW1 else fnEVexW0
+        let fnEVex =
+          if REXPrefix.hasW rhlp.REXPrefix then fnEVexW1 else fnEVexW0
         getInstr v.VPrefixes fnEVex
       else
-        let fnVex = if hasREXW rhlp.REXPrefix then fnVexW1 else fnVexW0
+        let fnVex = if REXPrefix.hasW rhlp.REXPrefix then fnVexW1 else fnVexW0
         getInstr v.VPrefixes fnVex
 
   /// VEX(REX.W)/EVEX(REX.W)
@@ -6438,23 +6496,24 @@ module internal ParsingHelper = begin
     let struct (op, oidx, sidx, tt) =
       selectEVEXW rhlp fnVexW0 fnVexW1 fnEVexW0 fnEVexW1
     rhlp.TupleType <- tt
-    render span rhlp op SzCond.Nor oidx sidx
+    render span rhlp op SzCond.Normal oidx sidx
 
   /// Select Normal(REX.W), VEX(REX.W), EVEX(REX.W)
   let selectEVEXAll (rhlp: ReadHelper) fnNorW0 fnNorW1 fnVexW0 fnVexW1 fnEVexW0
                     fnEVexW1 =
     match (rhlp: ReadHelper).VEXInfo with
     | None ->
-      let fnNor = if hasREXW rhlp.REXPrefix then fnNorW1 else fnNorW0
+      let fnNor = if REXPrefix.hasW rhlp.REXPrefix then fnNorW1 else fnNorW0
       let ins = getInstr rhlp.Prefixes fnNor
       rhlp.Prefixes <- filterPrefs rhlp.Prefixes
       ins
     | Some v ->
       if v.VEXType &&& VEXType.EVEX = VEXType.EVEX then
-        let fnEVex = if hasREXW rhlp.REXPrefix then fnEVexW1 else fnEVexW0
+        let fnEVex =
+          if REXPrefix.hasW rhlp.REXPrefix then fnEVexW1 else fnEVexW0
         getInstr v.VPrefixes fnEVex
       else
-        let fnVex = if hasREXW rhlp.REXPrefix then fnVexW1 else fnVexW0
+        let fnVex = if REXPrefix.hasW rhlp.REXPrefix then fnVexW1 else fnVexW0
         getInstr v.VPrefixes fnVex
 
   /// Normal(REX.W)/VEX(REX.W)/EVEX(REX.W)
@@ -6462,18 +6521,18 @@ module internal ParsingHelper = begin
     let struct (op, oidx, sidx, tt) =
       selectEVEXAll rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 fnEVexW0 fnEVexW1
     rhlp.TupleType <- tt
-    render span rhlp op SzCond.Nor oidx sidx
+    render span rhlp op SzCond.Normal oidx sidx
 
   /// Parse non-VEX instructions.
   let parseNonVEX span (rhlp: ReadHelper) fnNor =
     let struct (op, oidx, sidx, _) = getInstr rhlp.Prefixes fnNor
     rhlp.Prefixes <- filterPrefs rhlp.Prefixes
-    render span rhlp op SzCond.Nor oidx sidx
+    render span rhlp op SzCond.Normal oidx sidx
 
   /// Parse non-VEX instructions.
   let pVEXByMem span (rhlp: ReadHelper) fnNorM fnNorR fnVexM fnVexR =
     let struct (fnNor, fnVex) =
-      if rhlp.PeekByte span |> modIsMemory then struct (fnNorM, fnVexM)
+      if rhlp.PeekByte span |> Operands.modIsMemory then struct (fnNorM, fnVexM)
       else struct (fnNorR, fnVexR)
     parseVEX span rhlp fnNor fnVex
 
@@ -6488,24 +6547,24 @@ module internal ParsingHelper = begin
       match rhlp.PeekByte span with
       | 0xFAuy -> rhlp.IncPos (); struct (ENDBR64, OD.No, SZ.Def, TT.NA)
       | 0xFBuy -> rhlp.IncPos (); struct (ENDBR32, OD.No, SZ.Def, TT.NA)
-      | b when getReg b = 0b001 && getMod b = 0b11 ->
-        let op = if hasREXW rhlp.REXPrefix then RDSSPQ else RDSSPD
+      | b when Operands.getReg b = 0b001 && Operands.getMod b = 0b11 ->
+        let op = if REXPrefix.hasW rhlp.REXPrefix then RDSSPQ else RDSSPD
         struct (op, OD.Gpr, SZ.Def, TT.NA)
       | _ -> raise InvalidOpcodeException
-    rhlp.Prefixes <- ClearGrp1PrefMask &&& rhlp.Prefixes
-    render span rhlp op SzCond.Nor oidx sidx
+    rhlp.Prefixes <- Prefix.ClearGrp1PrefMask &&& rhlp.Prefixes
+    render span rhlp op SzCond.Normal oidx sidx
 
   let parseESCOp span (rhlp: ReadHelper) escFlag getOpIn getOpOut =
     let modRM = rhlp.ReadByte span
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     if modRM <= 0xBFuy then
       let op = getOpIn modRM
       let effOprSize =
         match escFlag with
-        | 0xD9uy -> getReg modRM |> getD9EscEffOprSizeByModRM
-        | 0xDBuy -> getReg modRM |> getDBEscEffOprSizeByModRM
-        | 0xDDuy -> getReg modRM |> getDDEscEffOprSizeByModRM
-        | 0xDFuy -> getReg modRM |> getDFEscEffOprSizeByModRM
+        | 0xD9uy -> Operands.getReg modRM |> getD9EscEffOprSizeByModRM
+        | 0xDBuy -> Operands.getReg modRM |> getDBEscEffOprSizeByModRM
+        | 0xDDuy -> Operands.getReg modRM |> getDDEscEffOprSizeByModRM
+        | 0xDFuy -> Operands.getReg modRM |> getDFEscEffOprSizeByModRM
         | _ -> escFlag |> getEscEffOprSizeByESCOp
       rhlp.MemEffOprSize <- effOprSize
       rhlp.MemEffRegSize <- effOprSize
@@ -6659,21 +6718,21 @@ module internal ParsingHelper = begin
     | 0xBDuy -> parseEVEXW span rhlp vex0F38BDW0 vex0F38BDW1 notEn evex0F38BDW1
     | 0xBEuy -> parseEVEXW span rhlp vex0F38BEW0 vex0F38BEW1 notEn notEn
     | 0xBFuy -> parseEVEXW span rhlp vex0F38BFW0 vex0F38BFW1 notEn notEn
-    | 0xC6uy when isReg001 span rhlp ->
+    | 0xC6uy when ReadHelper.IsReg001 (span, rhlp) ->
       parseEVEXW span rhlp notEn notEn evex0F38C61W0 evex0F38C61W1
-    | 0xC6uy when isReg010 span rhlp ->
+    | 0xC6uy when ReadHelper.IsReg010 (span, rhlp) ->
       parseEVEXW span rhlp notEn notEn evex0F38C62W0 evex0F38C62W1
-    | 0xC6uy when isReg101 span rhlp ->
+    | 0xC6uy when ReadHelper.IsReg101 (span, rhlp) ->
       parseEVEXW span rhlp notEn notEn evex0F38C65W0 evex0F38C65W1
-    | 0xC6uy when isReg110 span rhlp ->
+    | 0xC6uy when ReadHelper.IsReg110 (span, rhlp) ->
       parseEVEXW span rhlp notEn notEn evex0F38C66W0 evex0F38C66W1
-    | 0xC7uy when isReg001 span rhlp ->
+    | 0xC7uy when ReadHelper.IsReg001 (span, rhlp) ->
       parseEVEXW span rhlp notEn notEn evex0F38C71W0 evex0F38C71W1
-    | 0xC7uy when isReg010 span rhlp ->
+    | 0xC7uy when ReadHelper.IsReg010 (span, rhlp) ->
       parseEVEXW span rhlp notEn notEn evex0F38C72W0 evex0F38C72W1
-    | 0xC7uy when isReg101 span rhlp ->
+    | 0xC7uy when ReadHelper.IsReg101 (span, rhlp) ->
       parseEVEXW span rhlp notEn notEn evex0F38C75W0 evex0F38C75W1
-    | 0xC7uy when isReg110 span rhlp ->
+    | 0xC7uy when ReadHelper.IsReg110 (span, rhlp) ->
       parseEVEXW span rhlp notEn notEn evex0F38C76W0 evex0F38C76W1
     | 0xCBuy -> parseEVEXW span rhlp notEn notEn notEn evex0F38CBW1
     | 0xCDuy -> parseEVEXW span rhlp notEn notEn notEn evex0F38CDW1
@@ -6775,7 +6834,7 @@ module internal ParsingHelper = begin
 
   let getOpCode0F0D span (rhlp: ReadHelper) =
     let b = rhlp.PeekByte span
-    match modIsMemory b, getReg b with
+    match Operands.modIsMemory b, Operands.getReg b with
     | true, 0b001 -> PREFETCHW
     | true, 0b010 -> PREFETCHWT1
     | _ -> raise ParsingFailureException
@@ -6788,24 +6847,24 @@ module internal ParsingHelper = begin
     match byte with
     | 0x02uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp LAR SzCond.Nor OD.GprRm SZ.WV
-    | 0x03uy -> render span rhlp LSL SzCond.Nor OD.GprRm SZ.WV
+      else render span rhlp LAR SzCond.Normal OD.GprRm SZ.WV
+    | 0x03uy -> render span rhlp LSL SzCond.Normal OD.GprRm SZ.WV
     | 0x05uy ->
 #if !EMULATION
       ensure64 rhlp
 #endif
-      render span rhlp SYSCALL SzCond.Nor OD.No SZ.Def
-    | 0x06uy -> render span rhlp CLTS SzCond.Nor OD.No SZ.Def
+      render span rhlp SYSCALL SzCond.Normal OD.No SZ.Def
+    | 0x06uy -> render span rhlp CLTS SzCond.Normal OD.No SZ.Def
     | 0x07uy ->
 #if !EMULATION
       ensure64 rhlp
 #endif
-      render span rhlp SYSRET SzCond.Nor OD.No SZ.Def
-    | 0x08uy -> render span rhlp INVD SzCond.Nor OD.No SZ.Def
-    | 0x09uy -> render span rhlp WBINVD SzCond.Nor OD.No SZ.Def
-    | 0x0Buy -> render span rhlp UD2 SzCond.Nor OD.No SZ.Def
+      render span rhlp SYSRET SzCond.Normal OD.No SZ.Def
+    | 0x08uy -> render span rhlp INVD SzCond.Normal OD.No SZ.Def
+    | 0x09uy -> render span rhlp WBINVD SzCond.Normal OD.No SZ.Def
+    | 0x0Buy -> render span rhlp UD2 SzCond.Normal OD.No SZ.Def
     | 0x0Duy ->
-      render span rhlp (getOpCode0F0D span rhlp) SzCond.Nor OD.Mem SZ.Def
+      render span rhlp (getOpCode0F0D span rhlp) SzCond.Normal OD.Mem SZ.Def
     | 0x10uy -> pVEXByMem span rhlp nor0F10 nor0F10 vex0F10Mem vex0F10Reg
     | 0x11uy -> pVEXByMem span rhlp nor0F11 nor0F11 vex0F11Mem vex0F11Reg
     | 0x12uy -> pVEXByMem span rhlp nor0F12Mem nor0F12Reg vex0F12Mem vex0F12Reg
@@ -6814,16 +6873,16 @@ module internal ParsingHelper = begin
     | 0x15uy -> parseVEX span rhlp nor0F15 vex0F15
     | 0x16uy -> pVEXByMem span rhlp nor0F16Mem nor0F16Reg vex0F16Mem vex0F16Reg
     | 0x17uy -> parseVEX span rhlp nor0F17 vex0F17
-    | 0x1Auy -> parseBND span rhlp SzCond.Nor nor0F1A
-    | 0x1Buy -> parseBND span rhlp SzCond.Nor nor0F1B
+    | 0x1Auy -> parseBND span rhlp SzCond.Normal nor0F1A
+    | 0x1Buy -> parseBND span rhlp SzCond.Normal nor0F1B
     | 0x1Euy ->
-      if hasREPZ rhlp.Prefixes then parseCETInstr span rhlp
+      if Prefix.hasREPZ rhlp.Prefixes then parseCETInstr span rhlp
       else raise InvalidOpcodeException
-    | 0x1Fuy -> render span rhlp NOP SzCond.Nor OD.Mem SZ.Def (* NOP /0 Ev *)
+    | 0x1Fuy -> render span rhlp NOP SzCond.Normal OD.Mem SZ.Def (* NOP /0 Ev *)
     | 0x20uy -> render span rhlp MOV SzCond.F64 OD.GprCtrl SZ.DY
-    | 0x21uy -> render span rhlp MOV SzCond.Nor OD.GprDbg SZ.DY
-    | 0x22uy -> render span rhlp MOV SzCond.Nor OD.CtrlGpr SZ.DY
-    | 0x23uy -> render span rhlp MOV SzCond.Nor OD.DbgGpr SZ.DY
+    | 0x21uy -> render span rhlp MOV SzCond.Normal OD.GprDbg SZ.DY
+    | 0x22uy -> render span rhlp MOV SzCond.Normal OD.CtrlGpr SZ.DY
+    | 0x23uy -> render span rhlp MOV SzCond.Normal OD.DbgGpr SZ.DY
     | 0x28uy -> parseVEX span rhlp nor0F28 vex0F28
     | 0x29uy -> parseVEX span rhlp nor0F29 vex0F29
     | 0x2Auy -> parseVEX span rhlp nor0F2A vex0F2A
@@ -6832,61 +6891,61 @@ module internal ParsingHelper = begin
     | 0x2Duy -> parseVEX span rhlp nor0F2D vex0F2D
     | 0x2Euy -> parseVEX span rhlp nor0F2E vex0F2E
     | 0x2Fuy -> parseVEX span rhlp nor0F2F vex0F2F
-    | 0x30uy -> render span rhlp WRMSR SzCond.Nor OD.No SZ.Def
-    | 0x31uy -> render span rhlp RDTSC SzCond.Nor OD.No SZ.Def
-    | 0x32uy -> render span rhlp RDMSR SzCond.Nor OD.No SZ.Def
-    | 0x33uy -> render span rhlp RDPMC SzCond.Nor OD.No SZ.Def
-    | 0x34uy -> render span rhlp SYSENTER SzCond.Nor OD.No SZ.Def
-    | 0x35uy -> render span rhlp SYSEXIT SzCond.Nor OD.No SZ.Def
-    | 0x37uy -> render span rhlp GETSEC SzCond.Nor OD.No SZ.Def
+    | 0x30uy -> render span rhlp WRMSR SzCond.Normal OD.No SZ.Def
+    | 0x31uy -> render span rhlp RDTSC SzCond.Normal OD.No SZ.Def
+    | 0x32uy -> render span rhlp RDMSR SzCond.Normal OD.No SZ.Def
+    | 0x33uy -> render span rhlp RDPMC SzCond.Normal OD.No SZ.Def
+    | 0x34uy -> render span rhlp SYSENTER SzCond.Normal OD.No SZ.Def
+    | 0x35uy -> render span rhlp SYSEXIT SzCond.Normal OD.No SZ.Def
+    | 0x37uy -> render span rhlp GETSEC SzCond.Normal OD.No SZ.Def
     | 0x40uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVO SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVO SzCond.Normal OD.GprRm SZ.Def
     | 0x41uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVNO SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVNO SzCond.Normal OD.GprRm SZ.Def
     | 0x42uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVB SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVB SzCond.Normal OD.GprRm SZ.Def
     | 0x43uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVAE SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVAE SzCond.Normal OD.GprRm SZ.Def
     | 0x44uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVZ SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVZ SzCond.Normal OD.GprRm SZ.Def
     | 0x45uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVNZ SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVNZ SzCond.Normal OD.GprRm SZ.Def
     | 0x46uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVBE SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVBE SzCond.Normal OD.GprRm SZ.Def
     | 0x47uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVA SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVA SzCond.Normal OD.GprRm SZ.Def
     | 0x48uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVS SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVS SzCond.Normal OD.GprRm SZ.Def
     | 0x49uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVNS SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVNS SzCond.Normal OD.GprRm SZ.Def
     | 0x4Auy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVP SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVP SzCond.Normal OD.GprRm SZ.Def
     | 0x4Buy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVNP SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVNP SzCond.Normal OD.GprRm SZ.Def
     | 0x4Cuy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVL SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVL SzCond.Normal OD.GprRm SZ.Def
     | 0x4Duy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVGE SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVGE SzCond.Normal OD.GprRm SZ.Def
     | 0x4Euy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVLE SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVLE SzCond.Normal OD.GprRm SZ.Def
     | 0x4Fuy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp CMOVG SzCond.Nor OD.GprRm SZ.Def
+      else render span rhlp CMOVG SzCond.Normal OD.GprRm SZ.Def
     | 0x50uy -> parseVEX span rhlp nor0F50 vex0F50
     | 0x51uy -> parseVEX span rhlp nor0F51 vex0F51
     | 0x52uy -> parseVEX span rhlp nor0F52 vex0F52
@@ -6951,75 +7010,76 @@ module internal ParsingHelper = begin
     | 0x91uy -> parseVEXW span rhlp nor0F91 nor0F91 vex0F91W0 vex0F91W1
     | 0x92uy -> parseVEXW span rhlp nor0F92 nor0F92 vex0F92W0 vex0F92W1
     | 0x93uy -> parseVEXW span rhlp nor0F93 nor0F93 vex0F93W0 vex0F93W1
-    | 0x94uy -> render span rhlp SETZ SzCond.Nor OD.Mem SZ.Byte
-    | 0x95uy -> render span rhlp SETNZ SzCond.Nor OD.Mem SZ.Byte
-    | 0x96uy -> render span rhlp SETBE SzCond.Nor OD.Mem SZ.Byte
-    | 0x97uy -> render span rhlp SETA SzCond.Nor OD.Mem SZ.Byte
+    | 0x94uy -> render span rhlp SETZ SzCond.Normal OD.Mem SZ.Byte
+    | 0x95uy -> render span rhlp SETNZ SzCond.Normal OD.Mem SZ.Byte
+    | 0x96uy -> render span rhlp SETBE SzCond.Normal OD.Mem SZ.Byte
+    | 0x97uy -> render span rhlp SETA SzCond.Normal OD.Mem SZ.Byte
     | 0x98uy -> parseVEXW span rhlp nor0F98 nor0F98 vex0F98W0 vex0F98W1
-    | 0x99uy -> render span rhlp SETNS SzCond.Nor OD.Mem SZ.Byte
-    | 0x9Auy -> render span rhlp SETP SzCond.Nor OD.Mem SZ.Byte
-    | 0x9Buy -> render span rhlp SETNP SzCond.Nor OD.Mem SZ.Byte
-    | 0x9Cuy -> render span rhlp SETL SzCond.Nor OD.Mem SZ.Byte
-    | 0x9Duy -> render span rhlp SETNL SzCond.Nor OD.Mem SZ.Byte
-    | 0x9Euy -> render span rhlp SETLE SzCond.Nor OD.Mem SZ.Byte
-    | 0x9Fuy -> render span rhlp SETG SzCond.Nor OD.Mem SZ.Byte
+    | 0x99uy -> render span rhlp SETNS SzCond.Normal OD.Mem SZ.Byte
+    | 0x9Auy -> render span rhlp SETP SzCond.Normal OD.Mem SZ.Byte
+    | 0x9Buy -> render span rhlp SETNP SzCond.Normal OD.Mem SZ.Byte
+    | 0x9Cuy -> render span rhlp SETL SzCond.Normal OD.Mem SZ.Byte
+    | 0x9Duy -> render span rhlp SETNL SzCond.Normal OD.Mem SZ.Byte
+    | 0x9Euy -> render span rhlp SETLE SzCond.Normal OD.Mem SZ.Byte
+    | 0x9Fuy -> render span rhlp SETG SzCond.Normal OD.Mem SZ.Byte
     | 0xA0uy -> render span rhlp PUSH SzCond.D64 OD.Fs SZ.RegW
     | 0xA1uy -> render span rhlp POP SzCond.D64 OD.Fs SZ.RegW
-    | 0xA2uy -> render span rhlp CPUID SzCond.Nor OD.No SZ.Def
-    | 0xA3uy -> render span rhlp BT SzCond.Nor OD.RmGpr SZ.Def
-    | 0xA4uy -> render span rhlp SHLD SzCond.Nor OD.XmRegImm8 SZ.Def
-    | 0xA5uy -> render span rhlp SHLD SzCond.Nor OD.RmGprCL SZ.Def
+    | 0xA2uy -> render span rhlp CPUID SzCond.Normal OD.No SZ.Def
+    | 0xA3uy -> render span rhlp BT SzCond.Normal OD.RmGpr SZ.Def
+    | 0xA4uy -> render span rhlp SHLD SzCond.Normal OD.XmRegImm8 SZ.Def
+    | 0xA5uy -> render span rhlp SHLD SzCond.Normal OD.RmGprCL SZ.Def
     | 0xA8uy -> render span rhlp PUSH SzCond.D64 OD.Gs SZ.RegW
     | 0xA9uy -> render span rhlp POP SzCond.D64 OD.Gs SZ.RegW
-    | 0xAAuy -> render span rhlp RSM SzCond.Nor OD.No SZ.Def
-    | 0xABuy -> render span rhlp BTS SzCond.Nor OD.RmGpr SZ.Def
-    | 0xACuy -> render span rhlp SHRD SzCond.Nor OD.XmRegImm8 SZ.Def
-    | 0xADuy -> render span rhlp SHRD SzCond.Nor OD.RmGprCL SZ.Def
-    | 0xAFuy -> render span rhlp IMUL SzCond.Nor OD.GprRm SZ.Def
-    | 0xB0uy -> render span rhlp CMPXCHG SzCond.Nor OD.RmGpr SZ.Byte
-    | 0xB1uy -> render span rhlp CMPXCHG SzCond.Nor OD.RmGpr SZ.Def
-    | 0xB2uy -> render span rhlp LSS SzCond.Nor OD.GprM SZ.PRM
-    | 0xB3uy -> render span rhlp BTR SzCond.Nor OD.RmGpr SZ.Def
-    | 0xB4uy -> render span rhlp LFS SzCond.Nor OD.GprM SZ.PRM
-    | 0xB5uy -> render span rhlp LGS SzCond.Nor OD.GprM SZ.PRM
-    | 0xB6uy -> render span rhlp MOVZX SzCond.Nor OD.GprRm SZ.BV
-    | 0xB7uy -> render span rhlp MOVZX SzCond.Nor OD.GprRm SZ.WV
-    | 0xB8uy when not <| hasREPZ rhlp.Prefixes -> raise ParsingFailureException
+    | 0xAAuy -> render span rhlp RSM SzCond.Normal OD.No SZ.Def
+    | 0xABuy -> render span rhlp BTS SzCond.Normal OD.RmGpr SZ.Def
+    | 0xACuy -> render span rhlp SHRD SzCond.Normal OD.XmRegImm8 SZ.Def
+    | 0xADuy -> render span rhlp SHRD SzCond.Normal OD.RmGprCL SZ.Def
+    | 0xAFuy -> render span rhlp IMUL SzCond.Normal OD.GprRm SZ.Def
+    | 0xB0uy -> render span rhlp CMPXCHG SzCond.Normal OD.RmGpr SZ.Byte
+    | 0xB1uy -> render span rhlp CMPXCHG SzCond.Normal OD.RmGpr SZ.Def
+    | 0xB2uy -> render span rhlp LSS SzCond.Normal OD.GprM SZ.PRM
+    | 0xB3uy -> render span rhlp BTR SzCond.Normal OD.RmGpr SZ.Def
+    | 0xB4uy -> render span rhlp LFS SzCond.Normal OD.GprM SZ.PRM
+    | 0xB5uy -> render span rhlp LGS SzCond.Normal OD.GprM SZ.PRM
+    | 0xB6uy -> render span rhlp MOVZX SzCond.Normal OD.GprRm SZ.BV
+    | 0xB7uy -> render span rhlp MOVZX SzCond.Normal OD.GprRm SZ.WV
+    | 0xB8uy when not <| Prefix.hasREPZ rhlp.Prefixes ->
+      raise ParsingFailureException
     | 0xB8uy ->
       rhlp.Prefixes <- filterREPZPrefs rhlp.Prefixes
-      render span rhlp POPCNT SzCond.Nor OD.GprRm SZ.Def
-    | 0xB9uy -> render span rhlp UD1 SzCond.Nor OD.GprRm SZ.Def
-    | 0xBBuy when hasREPZ rhlp.Prefixes -> raise ParsingFailureException
-    | 0xBBuy -> render span rhlp BTC SzCond.Nor OD.RmGpr SZ.Def
-    | 0xBCuy when hasREPZ rhlp.Prefixes ->
+      render span rhlp POPCNT SzCond.Normal OD.GprRm SZ.Def
+    | 0xB9uy -> render span rhlp UD1 SzCond.Normal OD.GprRm SZ.Def
+    | 0xBBuy when Prefix.hasREPZ rhlp.Prefixes -> raise ParsingFailureException
+    | 0xBBuy -> render span rhlp BTC SzCond.Normal OD.RmGpr SZ.Def
+    | 0xBCuy when Prefix.hasREPZ rhlp.Prefixes ->
       rhlp.Prefixes <- filterREPZPrefs rhlp.Prefixes
-      render span rhlp TZCNT SzCond.Nor OD.GprRm SZ.Def
-    | 0xBCuy -> render span rhlp BSF SzCond.Nor OD.GprRm SZ.Def
-    | 0xBDuy when hasREPZ rhlp.Prefixes ->
+      render span rhlp TZCNT SzCond.Normal OD.GprRm SZ.Def
+    | 0xBCuy -> render span rhlp BSF SzCond.Normal OD.GprRm SZ.Def
+    | 0xBDuy when Prefix.hasREPZ rhlp.Prefixes ->
       rhlp.Prefixes <- filterREPZPrefs rhlp.Prefixes
-      render span rhlp LZCNT SzCond.Nor OD.GprRm SZ.Def
-    | 0xBDuy -> render span rhlp BSR SzCond.Nor OD.GprRm SZ.Def
-    | 0xBEuy -> render span rhlp MOVSX SzCond.Nor OD.GprRm SZ.BV
-    | 0xBFuy -> render span rhlp MOVSX SzCond.Nor OD.GprRm SZ.WV
-    | 0xC0uy -> render span rhlp XADD SzCond.Nor OD.RmGpr SZ.Byte
-    | 0xC1uy -> render span rhlp XADD SzCond.Nor OD.RmGpr SZ.Def
+      render span rhlp LZCNT SzCond.Normal OD.GprRm SZ.Def
+    | 0xBDuy -> render span rhlp BSR SzCond.Normal OD.GprRm SZ.Def
+    | 0xBEuy -> render span rhlp MOVSX SzCond.Normal OD.GprRm SZ.BV
+    | 0xBFuy -> render span rhlp MOVSX SzCond.Normal OD.GprRm SZ.WV
+    | 0xC0uy -> render span rhlp XADD SzCond.Normal OD.RmGpr SZ.Byte
+    | 0xC1uy -> render span rhlp XADD SzCond.Normal OD.RmGpr SZ.Def
     | 0xC2uy -> parseEVEX span rhlp nor0FC2 vex0FC2 evex0FC2W0 evex0FC2W1
     | 0xC3uy ->
       if rhlp.VEXInfo.IsSome then raise ParsingFailureException
-      else render span rhlp MOVNTI SzCond.Nor OD.RmGpr SZ.Def
+      else render span rhlp MOVNTI SzCond.Normal OD.RmGpr SZ.Def
     | 0xC4uy -> parseVEX span rhlp nor0FC4 vex0FC4
     | 0xC5uy -> parseVEX span rhlp nor0FC5 vex0FC5
     | 0xC6uy -> parseVEX span rhlp nor0FC6 vex0FC6
-    | 0xC7uy when isReg111 span rhlp ->
-      render span rhlp RDSEED SzCond.Nor OD.Gpr SZ.Def
-    | 0xC8uy -> render span (ignOpSz rhlp) BSWAP SzCond.Nor OD.Rax SZ.Def
-    | 0xC9uy -> render span (ignOpSz rhlp) BSWAP SzCond.Nor OD.Rcx SZ.Def
-    | 0xCAuy -> render span (ignOpSz rhlp) BSWAP SzCond.Nor OD.Rdx SZ.Def
-    | 0xCBuy -> render span (ignOpSz rhlp) BSWAP SzCond.Nor OD.Rbx SZ.Def
-    | 0xCCuy -> render span (ignOpSz rhlp) BSWAP SzCond.Nor OD.Rsp SZ.Def
-    | 0xCDuy -> render span (ignOpSz rhlp) BSWAP SzCond.Nor OD.Rbp SZ.Def
-    | 0xCEuy -> render span (ignOpSz rhlp) BSWAP SzCond.Nor OD.Rsi SZ.Def
-    | 0xCFuy -> render span (ignOpSz rhlp) BSWAP SzCond.Nor OD.Rdi SZ.Def
+    | 0xC7uy when ReadHelper.IsReg111 (span, rhlp) ->
+      render span rhlp RDSEED SzCond.Normal OD.Gpr SZ.Def
+    | 0xC8uy -> render span (ignOpSz rhlp) BSWAP SzCond.Normal OD.Rax SZ.Def
+    | 0xC9uy -> render span (ignOpSz rhlp) BSWAP SzCond.Normal OD.Rcx SZ.Def
+    | 0xCAuy -> render span (ignOpSz rhlp) BSWAP SzCond.Normal OD.Rdx SZ.Def
+    | 0xCBuy -> render span (ignOpSz rhlp) BSWAP SzCond.Normal OD.Rbx SZ.Def
+    | 0xCCuy -> render span (ignOpSz rhlp) BSWAP SzCond.Normal OD.Rsp SZ.Def
+    | 0xCDuy -> render span (ignOpSz rhlp) BSWAP SzCond.Normal OD.Rbp SZ.Def
+    | 0xCEuy -> render span (ignOpSz rhlp) BSWAP SzCond.Normal OD.Rsi SZ.Def
+    | 0xCFuy -> render span (ignOpSz rhlp) BSWAP SzCond.Normal OD.Rdi SZ.Def
     | 0xD0uy -> parseVEX span rhlp nor0FD0 vex0FD0
     | 0xD1uy -> parseVEX span rhlp nor0FD1 vex0FD1
     | 0xD2uy -> parseVEX span rhlp nor0FD2 vex0FD2
@@ -7071,7 +7131,7 @@ module internal ParsingHelper = begin
     | 0xFCuy -> parseVEX span rhlp nor0FFC vex0FFC
     | 0xFDuy -> parseVEX span rhlp nor0FFD vex0FFD
     | 0xFEuy -> parseVEX span rhlp nor0FFE vex0FFE
-    | 0xFFuy -> render span rhlp UD0 SzCond.Nor OD.GprRm SZ.Def
+    | 0xFFuy -> render span rhlp UD0 SzCond.Normal OD.GprRm SZ.Def
     | 0x00uy -> parseGrpOp span rhlp OpGroup.G6 OD.No SZ.Def
     | 0x01uy -> parseGrpOp span rhlp OpGroup.G7 OD.No SZ.Def
     | 0xBAuy -> parseGrpOp span rhlp OpGroup.G8 OD.RmSImm8 SZ.Def

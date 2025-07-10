@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.Intel
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for Intel x86 and x86-64.
+/// Represents an instruction for Intel x86 and x86-64 architectures.
 type Instruction
   internal (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz,
             lifter: ILiftable) =

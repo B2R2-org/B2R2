@@ -28,12 +28,11 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel
-open B2R2.FrontEnd.Intel.Helper
 open LanguagePrimitives
 open type Prefix
 
-/// Parser for Intel (x86 or x86-64) instructions. Parser will return a
-/// platform-agnostic instruction type (Instruction).
+/// Represents a parser for Intel (x86 or x86-64) instructions, returning a
+/// platform-agnostic instruction type.
 type IntelParser (wordSz, reader) =
   let oparsers =
     [| OpRmGpr () :> OperandParser
@@ -536,15 +535,15 @@ type IntelParser (wordSz, reader) =
     let mutable b = span[0]
     while ((prefixCheck[(int b >>> 5)] >>> (int b &&& 0b11111)) &&& 1u) > 0u do
       match b with
-      | 0xF0uy -> pref <- PrxLOCK ||| (ClearGrp1PrefMask &&& pref)
-      | 0xF2uy -> pref <- PrxREPNZ ||| (ClearGrp1PrefMask &&& pref)
-      | 0xF3uy -> pref <- PrxREPZ ||| (ClearGrp1PrefMask &&& pref)
-      | 0x2Euy -> pref <- PrxCS ||| (ClearSegMask &&& pref)
-      | 0x36uy -> pref <- PrxSS ||| (ClearSegMask &&& pref)
-      | 0x3Euy -> pref <- PrxDS ||| (ClearSegMask &&& pref)
-      | 0x26uy -> pref <- PrxES ||| (ClearSegMask &&& pref)
-      | 0x64uy -> pref <- PrxFS ||| (ClearSegMask &&& pref)
-      | 0x65uy -> pref <- PrxGS ||| (ClearSegMask &&& pref)
+      | 0xF0uy -> pref <- PrxLOCK ||| (Prefix.ClearGrp1PrefMask &&& pref)
+      | 0xF2uy -> pref <- PrxREPNZ ||| (Prefix.ClearGrp1PrefMask &&& pref)
+      | 0xF3uy -> pref <- PrxREPZ ||| (Prefix.ClearGrp1PrefMask &&& pref)
+      | 0x2Euy -> pref <- PrxCS ||| (Prefix.ClearSegMask &&& pref)
+      | 0x36uy -> pref <- PrxSS ||| (Prefix.ClearSegMask &&& pref)
+      | 0x3Euy -> pref <- PrxDS ||| (Prefix.ClearSegMask &&& pref)
+      | 0x26uy -> pref <- PrxES ||| (Prefix.ClearSegMask &&& pref)
+      | 0x64uy -> pref <- PrxFS ||| (Prefix.ClearSegMask &&& pref)
+      | 0x65uy -> pref <- PrxGS ||| (Prefix.ClearSegMask &&& pref)
       | 0x66uy -> pref <- PrxOPSIZE ||| pref
       | 0x67uy -> pref <- PrxADDRSIZE ||| pref
       | _ -> pos <- pos - 1

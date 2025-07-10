@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.Intel
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// LowUIR builder for Intel.
+/// Represents the LowUIR builder for Intel.
 type LowUIRBuilder (isa: ISA,
                     regFactory: IRegisterFactory,
                     stream: LowUIRStream) =

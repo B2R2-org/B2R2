@@ -24,7 +24,7 @@
 namespace B2R2.FrontEnd.Intel
 
 /// <summary>
-/// Intel opcodes. This type should be generated using
+/// Represents an Intel opcode. This type should be generated using
 /// <c>scripts/genOpcode.fsx</c> from the `IntelSupportedOpcodes.txt` file.
 /// </summary>
 type Opcode =
@@ -2831,6 +2831,8 @@ type Opcode =
   /// Invalid Opcode.
   | InvalOP = 1393
 
+/// Provides functions to check if an opcode is a branch instruction or a CET
+/// instruction.
 [<RequireQualifiedAccess>]
 module Opcode =
   let isBranch = function

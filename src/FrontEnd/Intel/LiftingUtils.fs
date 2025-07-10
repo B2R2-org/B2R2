@@ -30,9 +30,6 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
-open B2R2.FrontEnd.Intel.Helper
-
-open type BinOpType
 
 let numInsLen insLen (bld: ILowUIRBuilder) =
   numU32 insLen bld.RegType
@@ -46,7 +43,7 @@ let inline is64bit (bld: ILowUIRBuilder) =
   bld.RegType = 64<rt>
 
 let is64REXW bld (ins: Instruction) =
-  is64bit bld && hasREXW ins.REXPrefix
+  is64bit bld && REXPrefix.hasW ins.REXPrefix
 
 #if DEBUG
 let assert32 bld =
@@ -193,7 +190,7 @@ let private segRegToBase = function
   | _ -> Terminator.impossible ()
 
 let private ldMem (ins: Instruction) bld oprSize e =
-  match getSegment ins.Prefixes with
+  match Prefix.getSegment ins.Prefixes with
   | Some s -> regVar bld (segRegToBase s) .+ e
   | None -> e
   |> AST.loadLE oprSize
@@ -201,8 +198,9 @@ let private ldMem (ins: Instruction) bld oprSize e =
 let private numOfAddrSz (ins: Instruction) (bld: ILowUIRBuilder) n =
   let pref = ins.Prefixes
   let sz =
-    if bld.RegType = 32<rt> then if hasAddrSz pref then 16<rt> else 32<rt>
-    else if hasAddrSz pref then 32<rt> else 64<rt>
+    if bld.RegType = 32<rt> then
+      if Prefix.hasAddrSz pref then 16<rt> else 32<rt>
+    else if Prefix.hasAddrSz pref then 32<rt> else 64<rt>
   numI64 n sz
 
 let inline private sIdx ins bld (r, s: Scale) =
