@@ -28,6 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
+/// Represents a factory for accessing various EVM register variables.
 type RegisterFactory () =
   let pc = AST.var 256<rt> (Register.toRegID Register.PC) "PC"
   let gas = AST.var 64<rt> (Register.toRegID Register.GAS) "GAS"
