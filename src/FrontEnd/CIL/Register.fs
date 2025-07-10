@@ -25,15 +25,38 @@
 namespace B2R2.FrontEnd.CIL
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
-open B2R2.BinIR.LowUIR
 
-type internal RegisterFactory () =
-  member _.PC with get() = AST.var 256<rt> (Register.toRegID Register.PC) "PC"
-  member _.SP with get() = AST.var 256<rt> (Register.toRegID Register.SP) "SP"
+/// Represents a CIL register.
+type Register =
+  /// Program counter.
+  | PC = 0x0
+  /// Stack pointer.
+  | SP = 0x1
 
-  member this.GetRegVar (name) =
-    match name with
-    | Register.PC -> this.PC
-    | Register.SP -> this.SP
-    | _ -> raise InvalidRegisterException
+/// This module exposes several useful functions to handle CIL registers.
+[<RequireQualifiedAccess>]
+module Register =
+  let inline ofRegID (n: RegisterID): Register =
+    int n |> LanguagePrimitives.EnumOfValue
+
+  let inline toRegID (reg: Register) =
+    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+
+  let ofString (str: string) =
+    match str.ToLowerInvariant () with
+    | "pc" -> Register.PC
+    | "sp" -> Register.SP
+    | _ -> Terminator.impossible ()
+
+  let toString = function
+    | Register.PC -> "PC"
+    | Register.SP -> "SP"
+    | _ -> Terminator.impossible ()
+
+  let toRegType = function
+    | Register.PC -> 64<rt>
+    | Register.SP -> 64<rt>
+    | _ -> Terminator.impossible ()
+
+/// Shortcut for Register type.
+type internal R = Register
