@@ -184,7 +184,7 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
         (AST.ite (biasedExponent == numI32 0x7ff 16<rt>)
           (numI32 0x7fff 16<rt>)
           (biasedExponent .+ biasDiff))
-    bld <+ (tmpB :=  sign .| exponent)
+    bld <+ (tmpB := sign .| exponent)
     bld <+ (tmpA :=
       AST.ite
         (AST.eq tmpSrc zero)
@@ -383,14 +383,14 @@ let private bcdToInt intgr addrExpr addrSize bld =
   let signByte = AST.loadLE 8<rt> (addrExpr .+ numI32 9 addrSize)
   let signBit = AST.xthi 1<rt> signByte
   bld <+ (intgr := d1)
-  bld <+ (intgr := intgr .+  d2 .* numI64 10L 64<rt>)
-  bld <+ (intgr := intgr .+  d3 .* numI64 100L 64<rt>)
-  bld <+ (intgr := intgr .+  d4 .* numI64 1000L 64<rt>)
-  bld <+ (intgr := intgr .+  d5 .* numI64 10000L 64<rt>)
-  bld <+ (intgr := intgr .+  d6 .* numI64 100000L 64<rt>)
-  bld <+ (intgr := intgr .+  d7 .* numI64 1000000L 64<rt>)
-  bld <+ (intgr := intgr .+  d8 .* numI64 10000000L 64<rt>)
-  bld <+ (intgr := intgr .+  d9 .* numI64 100000000L 64<rt>)
+  bld <+ (intgr := intgr .+ d2 .* numI64 10L 64<rt>)
+  bld <+ (intgr := intgr .+ d3 .* numI64 100L 64<rt>)
+  bld <+ (intgr := intgr .+ d4 .* numI64 1000L 64<rt>)
+  bld <+ (intgr := intgr .+ d5 .* numI64 10000L 64<rt>)
+  bld <+ (intgr := intgr .+ d6 .* numI64 100000L 64<rt>)
+  bld <+ (intgr := intgr .+ d7 .* numI64 1000000L 64<rt>)
+  bld <+ (intgr := intgr .+ d8 .* numI64 10000000L 64<rt>)
+  bld <+ (intgr := intgr .+ d9 .* numI64 100000000L 64<rt>)
   bld <+ (intgr := intgr .+ d10 .* numI64 1000000000L 64<rt>)
   bld <+ (intgr := intgr .+ d11 .* numI64 10000000000L 64<rt>)
   bld <+ (intgr := intgr .+ d12 .* numI64 100000000000L 64<rt>)
@@ -1036,7 +1036,7 @@ let private ftrig (ins: Instruction) insLen bld trigFunc =
   bld <+ (c0 := undefC0)
   bld <+ (c3 := undefC3)
 #endif
-  bld <+ (c1:= AST.b0)
+  bld <+ (c1 := AST.b0)
   bld --!> insLen
 
 let fsin ins insLen bld =

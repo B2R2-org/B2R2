@@ -481,7 +481,7 @@ let cls (ins: Instruction) insLen bld addr =
     let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
     let src = transSIMDOprToExpr bld eSize dataSize elements o2
-    let result = Array.map (fun e -> clsBits e eSize bld ) src
+    let result = Array.map (fun e -> clsBits e eSize bld) src
     dstAssignForSIMD dstA dstB result dataSize elements bld
   | _ ->
     let dst, src = transTwoOprs ins bld addr
@@ -496,7 +496,7 @@ let clz (ins: Instruction) insLen bld addr =
     let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
     let src = transSIMDOprToExpr bld eSize dataSize elements o2
-    let result = Array.map (fun e -> clzBits e (int eSize) eSize bld ) src
+    let result = Array.map (fun e -> clzBits e (int eSize) eSize bld) src
     dstAssignForSIMD dstA dstB result dataSize elements bld
   | _ ->
     let dst, src = transTwoOprs ins bld addr
@@ -1842,7 +1842,7 @@ let ldursb ins insLen bld addr =
   let address = tmpVar bld 64<rt>
   let data = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg.+ offset)
+  bld <+ (address := bReg .+ offset)
   bld <+ (data := AST.loadLE 8<rt> address)
   dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
   bld --!> insLen
@@ -1852,7 +1852,7 @@ let ldursh ins insLen bld addr =
   let address = tmpVar bld 64<rt>
   let data = tmpVar bld 16<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg.+ offset)
+  bld <+ (address := bReg .+ offset)
   bld <+ (data := AST.loadLE 16<rt> address)
   dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
   bld --!> insLen
@@ -3442,7 +3442,7 @@ let umulh ins insLen bld addr =
   bld <+ (lo1Hi2 := loSrc1 .* hiSrc2)
   bld <+ (pMid := hi1Lo2 .+ lo1Hi2)
   bld <+ (pLow := loSrc1 .* loSrc2)
-  let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
+  let high = pHigh .+ ((pMid .+ (pLow >> n32)) >> n32)
   bld <+ (dst := high .+ checkOverflowOnDMul hi1Lo2 lo1Hi2)
   bld --!> insLen
 
@@ -3804,7 +3804,7 @@ let ssubl (ins: Instruction) insLen bld addr =
   let opr1 = transSIMDOprVPart bld eSize part src1
   let opr2 = transSIMDOprVPart bld eSize part src2
   let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.map2 (fun e1 e2 -> AST.sext dblESz e1 .-  AST.sext dblESz e2) opr1 opr2
+  Array.map2 (fun e1 e2 -> AST.sext dblESz e1 .- AST.sext dblESz e2) opr1 opr2
   |> Array.iter2 (fun r e -> bld <+ (r := e)) result
   dstAssignForSIMD dstA dstB result 128<rt> elements bld
   bld --!> insLen

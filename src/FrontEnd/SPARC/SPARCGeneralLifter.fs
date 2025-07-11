@@ -451,7 +451,7 @@ let setQFloatOp bld dst res1 res2 =
     let r1 = getQFloatNext1 bld dst
     let dst1 = regVar bld r1
     bld <+ (dst := (AST.extract res1 64<rt> 0))
-    bld <+ (dst1 := (AST.extract res2 64<rt> 0) )
+    bld <+ (dst1 := (AST.extract res2 64<rt> 0))
   | _ -> raise InvalidRegisterException
 
 let cast64To128 bld src dst1 dst2 =
@@ -467,7 +467,7 @@ let cast64To128 bld src dst1 dst2 =
   let biasDiff = numI32 0x3c00 16<rt>
   let sign = (AST.xtlo 16<rt> (((src >> n63) .& one))) << n15
   let exponent =
-    (AST.xtlo 16<rt> (((src>> n52) .& (numI32 0x7ff 64<rt>)))) .+ biasDiff
+    (AST.xtlo 16<rt> (((src >> n52) .& (numI32 0x7ff 64<rt>)))) .+ biasDiff
   let integerpart = numI64 0x0010000000000000L 64<rt>
   let significand = src .& numI64 0xFFFFFFFFFFFFFL 64<rt> .| integerpart
   bld <+ (AST.extract dst1 16<rt> 48 := AST.ite (AST.eq src zero)
@@ -1558,7 +1558,7 @@ let fmovfscc ins insLen bld =
     elif (cc = getCCVar bld ConditionCode.Fcc3) then 36
     else raise InvalidRegisterException
   let fsr0 = AST.extract fsr 1<rt> pos
-  let fsr1 = AST.extract fsr 1<rt> (pos+1)
+  let fsr1 = AST.extract fsr 1<rt> (pos + 1)
   let e = (fsr1 == AST.b0 .& fsr0 == AST.b0)
   let l = (fsr1 == AST.b0 .& fsr0 == AST.b1)
   let g = (fsr1 == AST.b1 .& fsr0 == AST.b0)
@@ -1580,7 +1580,7 @@ let fmovfscc ins insLen bld =
     | Opcode.FMOVFsUGE -> (u .| g .| e)
     | Opcode.FMOVFsLE -> (l .| e)
     | Opcode.FMOVFsULE -> (u .| l .| e)
-    | Opcode.FMOVFsO -> (e .|l .| g)
+    | Opcode.FMOVFsO -> (e .| l .| g)
     | _ -> raise InvalidOpcodeException
   bld <!-- (ins.Address, insLen)
   if (ins.Opcode = Opcode.FMOVFsA) then
@@ -1602,7 +1602,7 @@ let fmovfdcc ins insLen bld =
     elif (cc = getCCVar bld ConditionCode.Fcc3) then 36
     else raise InvalidRegisterException
   let fsr0 = AST.extract fsr 1<rt> pos
-  let fsr1 = AST.extract fsr 1<rt> (pos+1)
+  let fsr1 = AST.extract fsr 1<rt> (pos + 1)
   let e = (fsr1 == AST.b0 .& fsr0 == AST.b0)
   let l = (fsr1 == AST.b0 .& fsr0 == AST.b1)
   let g = (fsr1 == AST.b1 .& fsr0 == AST.b0)
@@ -1624,7 +1624,7 @@ let fmovfdcc ins insLen bld =
     | Opcode.FMOVFdUGE -> (u .| g .| e)
     | Opcode.FMOVFdLE -> (l .| e)
     | Opcode.FMOVFdULE -> (u .| l .| e)
-    | Opcode.FMOVFdO -> (e .|l .| g)
+    | Opcode.FMOVFdO -> (e .| l .| g)
     | _ -> raise InvalidOpcodeException
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
@@ -1651,7 +1651,7 @@ let fmovfqcc ins insLen bld =
     elif (cc = getCCVar bld ConditionCode.Fcc3) then 36
     else raise InvalidRegisterException
   let fsr0 = AST.extract fsr 1<rt> pos
-  let fsr1 = AST.extract fsr 1<rt> (pos+1)
+  let fsr1 = AST.extract fsr 1<rt> (pos + 1)
   let e = (fsr1 == AST.b0 .& fsr0 == AST.b0)
   let l = (fsr1 == AST.b0 .& fsr0 == AST.b1)
   let g = (fsr1 == AST.b1 .& fsr0 == AST.b0)
@@ -1673,7 +1673,7 @@ let fmovfqcc ins insLen bld =
     | Opcode.FMOVFqUGE -> (u .| g .| e)
     | Opcode.FMOVFqLE -> (l .| e)
     | Opcode.FMOVFqULE -> (u .| l .| e)
-    | Opcode.FMOVFqO -> (e .|l .| g)
+    | Opcode.FMOVFqO -> (e .| l .| g)
     | _ -> raise InvalidOpcodeException
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
@@ -3140,10 +3140,10 @@ let mulscc ins insLen bld =
     (AST.extract ccr 1<rt> 1)) (AST.extract src 31<rt> 1))
   bld <+ (src2 := AST.ite ((AST.extract y 1<rt> 0) == AST.b0)
     (AST.num0 32<rt>) (AST.extract src1 32<rt> 0))
-  bld <+ (res := AST.zext  64<rt> (src32 .+ src2))
+  bld <+ (res := AST.zext 64<rt> (src32 .+ src2))
   if (dst <> regVar bld Register.G0) then
     bld <+ (dst := res)
-  bld <+ ((AST.extract y 32<rt> 0) :=  AST.concat (AST.extract src 1<rt> 0)
+  bld <+ ((AST.extract y 32<rt> 0) := AST.concat (AST.extract src 1<rt> 0)
     (AST.extract y 31<rt> 1))
   bld <+ (hbyte := getConditionCodeMulscc res src src1)
   bld <+ (AST.extract ccr 4<rt> 0 := hbyte)
@@ -3320,7 +3320,7 @@ let sdiv ins insLen bld =
   bld <+ (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
-  if (divisor = AST.num0 32<rt> || src1  = regVar bld Register.G0) then
+  if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
     bld <+ (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
@@ -3366,7 +3366,7 @@ let sdivcc ins insLen bld =
   bld <+ (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
-  if (divisor = AST.num0 32<rt> || src1  = regVar bld Register.G0) then
+  if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
     bld <+ (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
@@ -3404,7 +3404,7 @@ let sdivx ins insLen bld =
   let lblL1 = label bld "L1"
   let lblEnd = label bld "End"
   bld <!-- (ins.Address, insLen)
-  if (src1 = AST.num0 64<rt> || src1  = regVar bld Register.G0) then
+  if (src1 = AST.num0 64<rt> || src1 = regVar bld Register.G0) then
     bld <+ (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
@@ -3448,9 +3448,9 @@ let smul ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
-    bld <+ (dst := AST.sext 64<rt>  ((AST.extract src 32<rt> 0)
+    bld <+ (dst := AST.sext 64<rt> ((AST.extract src 32<rt> 0)
       .* (AST.extract src1 32<rt> 0)))
-    bld <+ (AST.extract yreg 64<rt> 0 :=  AST.zext 64<rt>
+    bld <+ (AST.extract yreg 64<rt> 0 := AST.zext 64<rt>
       (AST.extract dst 32<rt> 32))
   bld --!> insLen
 
@@ -3463,9 +3463,9 @@ let smulcc ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
-    bld <+ (dst := AST.sext 64<rt>  ((AST.extract src 32<rt> 0)
+    bld <+ (dst := AST.sext 64<rt> ((AST.extract src 32<rt> 0)
       .* (AST.extract src1 32<rt> 0)))
-    bld <+ (AST.extract yreg 64<rt> 0 :=  AST.zext 64<rt>
+    bld <+ (AST.extract yreg 64<rt> 0 := AST.zext 64<rt>
       (AST.extract dst 32<rt> 32))
     bld <+ (byte := (getConditionCodeMul dst src src1))
     bld <+ (AST.extract ccr 8<rt> 0 := byte)
@@ -3517,14 +3517,14 @@ let sta ins insLen bld =
   bld <!-- (ins.Address, insLen)
   let addr = src .+ src1
   match ins.Opcode with
-  | Opcode.STBA -> bld <+ ((AST.loadBE 8<rt> (addr .+ asi))
-                          := (AST.extract src 8<rt> 0))
-  | Opcode.STHA -> bld <+ ((AST.loadBE 16<rt> (addr .+ asi))
-                          := (AST.extract src 16<rt> 0))
-  | Opcode.STWA -> bld <+ ((AST.loadBE 32<rt> (addr .+ asi))
-                          := (AST.extract src 32<rt> 0))
-  | Opcode.STXA -> bld <+ ((AST.loadBE 64<rt> (addr .+ asi))
-                          := (AST.extract src 64<rt> 0))
+  | Opcode.STBA ->
+    bld <+ ((AST.loadBE 8<rt> (addr .+ asi)) := (AST.extract src 8<rt> 0))
+  | Opcode.STHA ->
+    bld <+ ((AST.loadBE 16<rt> (addr .+ asi)) := (AST.extract src 16<rt> 0))
+  | Opcode.STWA ->
+    bld <+ ((AST.loadBE 32<rt> (addr .+ asi)) := (AST.extract src 32<rt> 0))
+  | Opcode.STXA ->
+    bld <+ ((AST.loadBE 64<rt> (addr .+ asi)) := (AST.extract src 64<rt> 0))
   | Opcode.STDA ->
     if (src = regVar bld Register.G0) then
       bld <+ ((AST.loadBE 32<rt> (addr .+ asi)) := (AST.extract src 32<rt> 0))
@@ -3673,7 +3673,7 @@ let udiv ins insLen bld =
   bld <+ (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
-  if (divisor = AST.num0 32<rt> || src1  = regVar bld Register.G0) then
+  if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
     bld <+ (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
@@ -3709,7 +3709,7 @@ let udivcc ins insLen bld =
   bld <+ (dividend := AST.concat (AST.extract y 32<rt> 0)
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
-  if (divisor = AST.num0 32<rt> || src1  = regVar bld Register.G0) then
+  if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
     bld <+ (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
@@ -3747,7 +3747,7 @@ let udivx ins insLen bld =
   let lblL1 = label bld "L1"
   let lblEnd = label bld "End"
   bld <!-- (ins.Address, insLen)
-  if (src1 = AST.num0 64<rt> || src1  = regVar bld Register.G0) then
+  if (src1 = AST.num0 64<rt> || src1 = regVar bld Register.G0) then
     bld <+ (AST.sideEffect (Exception "Division by zero exception"))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
@@ -3774,7 +3774,7 @@ let umul ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
-    bld <+ (dst := AST.zext 64<rt>  ((AST.extract src 32<rt> 0)
+    bld <+ (dst := AST.zext 64<rt> ((AST.extract src 32<rt> 0)
       .* (AST.extract src1 32<rt> 0)))
     bld <+ (AST.extract yreg 64<rt> 0 :=
       AST.zext 64<rt> (AST.extract dst 32<rt> 32))
@@ -3789,7 +3789,7 @@ let umulcc ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
-    bld <+ (dst := AST.zext 64<rt>  ((AST.extract src 32<rt> 0)
+    bld <+ (dst := AST.zext 64<rt> ((AST.extract src 32<rt> 0)
       .* (AST.extract src1 32<rt> 0)))
     bld <+ (AST.extract yreg 64<rt> 0 :=
       AST.zext 64<rt> (AST.extract dst 32<rt> 32))

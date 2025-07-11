@@ -72,7 +72,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
   let visited = ConcurrentDictionary<Addr, unit> ()
 
   let instrProducer channel addrs =
-    let queue = Queue<Addr> (collection=addrs)
+    let queue = Queue<Addr> (collection = addrs)
     task {
       while queue.Count <> 0 do
         let addr = queue.Dequeue ()
@@ -98,7 +98,8 @@ type BBLFactory (hdl: BinHandle, instrs) =
   let rec liftAndFill lunit bblAddr (arr: LiftedInstruction[]) instrs ndx =
     match instrs with
     | ins :: tl ->
-      let stmts = (lunit: LiftingUnit).LiftInstruction (ins=ins, optimize=true)
+      let stmts =
+        (lunit: LiftingUnit).LiftInstruction (ins = ins, optimize = true)
       assert (hasProperISMark stmts)
       let liftedIns = { Original = ins; Stmts = stmts; BBLAddr = bblAddr }
       arr[ndx] <- liftedIns
@@ -277,7 +278,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
       else
         let currPPoint = ProgramPoint (leaders[i], 0)
         let currentBBL = bbls[currPPoint]
-        match findOverlappingLeader currentBBL leaders (i+1) with
+        match findOverlappingLeader currentBBL leaders (i + 1) with
         | Ok nextAddr ->
           let nextPPoint = ProgramPoint (nextAddr, 0)
           let fst, snd = currentBBL.Cut nextAddr

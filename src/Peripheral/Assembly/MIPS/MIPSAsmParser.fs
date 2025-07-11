@@ -38,7 +38,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
 
   (* Helper functions for updating the UserState. *)
   let addLabeldef lbl =
-    updateUserState ( fun (us: Map<string, Addr>) -> us.Add (lbl, address))
+    updateUserState (fun (us: Map<string, Addr>) -> us.Add (lbl, address))
     >>. preturn ()
 
   let incrementAddress =
@@ -201,7 +201,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
               newAssemblyIns mipsISA address opcode cond fmt operands )
 
   let statement =
-    opt pLabelDef >>. spaces >>. pInsInfo  .>> incrementAddress
+    opt pLabelDef >>. spaces >>. pInsInfo .>> incrementAddress
 
   let statements = sepEndBy statement terminator .>> eof
 

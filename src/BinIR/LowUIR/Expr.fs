@@ -278,7 +278,7 @@ with
       sb.Append ("(") |> ignore
       Expr.AppendToString e sb
       sb.Append ("[") |> ignore
-      sb.Append ((int typ + p - 1).ToString () + ":" + p.ToString ())|> ignore
+      sb.Append ((int typ + p - 1).ToString () + ":" + p.ToString ()) |> ignore
       sb.Append ("]") |> ignore
       sb.Append (")") |> ignore
     | Undefined (_, reason, _) ->

@@ -82,7 +82,7 @@ let private computeLSDAOffset currentOffset (n: int) =
 /// Reads LSDA if the personality routine is a custom model.
 let private readLSDAFromCustom reader cls span (sAddr: Addr) addr =
   let offset = Convert.ToInt32 (addr - sAddr)
-  let n = (reader: IBinReader).ReadInt32 (span=span, offset=offset)
+  let n = (reader: IBinReader).ReadInt32 (span = span, offset = offset)
   if (n &&& 0x80000000) = 0 then (* Custom personality routine with LSDA *)
     let _personalityOffset = uint64 (prel31ToI32 n) + addr (* No need for now *)
     let offset = offset + 4

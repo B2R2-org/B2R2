@@ -251,7 +251,7 @@ let dumpFunctions (_: FileViewerOpts) (elf: ELFBinFile) =
     | Error _ -> ()
 
 let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
-  let exnInfo = ExceptionInfo (hdl=hdl)
+  let exnInfo = ExceptionInfo (hdl = hdl)
   exnInfo.ExceptionMap
   |> NoOverlapIntervalMap.iter (fun range catchBlkAddr ->
     out.PrintLine $"{range.Min:x}:{range.Max:x} -> {catchBlkAddr:x}")

@@ -36,8 +36,8 @@ with
   override this.ToString () = this.Val.ToString ()
   interface IMeasured<InterMonoid<Addr>> with
     member this.Measurement =
-      InterMonoid<Addr> (Ordered(Key(this.Val.Min)),
-                         Priority(Prio(this.Val.Max)))
+      InterMonoid<Addr> (Ordered (Key (this.Val.Min)),
+                         Priority (Prio (this.Val.Max)))
 
 /// <summary>
 /// Represents an interval-tree-based set, which stores intervals (<see

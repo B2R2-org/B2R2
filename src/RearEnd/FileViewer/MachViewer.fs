@@ -190,7 +190,7 @@ let dumpSectionDetails (secName: string) (file: MachBinFile) =
       "SecAttrib:"
       (HexString.ofInt32 (int section.SecAttrib))
     translateAttribs (uint64 section.SecAttrib)
-    |> List.iter (fun str -> out.PrintTwoCols "" str )
+    |> List.iter (fun str -> out.PrintTwoCols "" str)
     out.PrintTwoCols
       "SecReserved1:"
       (section.SecReserved1.ToString ())

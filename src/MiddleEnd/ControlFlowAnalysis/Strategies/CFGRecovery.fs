@@ -313,7 +313,7 @@ type CFGRecovery<'FnCtx,
 
   /// Build a CFG starting from the given program points.
   let buildCFG ctx (actionQueue: CFGActionQueue) initPPs =
-    let ppQueue = Queue<ProgramPoint> (collection=initPPs)
+    let ppQueue = Queue<ProgramPoint> (collection = initPPs)
     let mutable result = MoveOn
     while ppQueue.Count > 0 && result = MoveOn do
       let ppoint = ppQueue.Dequeue ()
