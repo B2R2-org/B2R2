@@ -63,6 +63,7 @@ type FunctionIdentification<'FnCtx,
       getInitialEntryPoints ()
 
     member _.OnAction (_ctx, _queue, _action) = MoveOn
+    member _.OnCreate (_ctx) = ()
     member _.OnFinish (_ctx) = MoveOn
     member _.OnCyclicDependency (_) = Terminator.impossible ()
 

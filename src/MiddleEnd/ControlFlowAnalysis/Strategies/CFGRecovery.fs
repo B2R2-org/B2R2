@@ -815,6 +815,8 @@ type CFGRecovery<'FnCtx,
         Console.Error.WriteLine $"OnAction failed:\n{e}"
         FailStop ErrorCase.FailedToRecoverCFG
 
+    member _.OnCreate (_ctx) = ()
+
     member _.OnFinish (ctx) =
       assert (ctx.JumpTableRecoveryStatus.Count = 0)
       let nextFn = ctx.ManagerChannel.GetNextFunctionAddress ctx.FunctionAddress

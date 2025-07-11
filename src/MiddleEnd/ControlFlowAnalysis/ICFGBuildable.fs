@@ -153,6 +153,11 @@ and ICFGBuildingStrategy<'FnCtx,
      * CFGAction
     -> CFGResult
 
+  /// This is a callback that is called when a new function builder is created.
+  abstract OnCreate:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    -> unit
+
   /// This is a callback that is called when all CFGActions are processed, i.e.,
   /// when CFGActionQueue is empty.
   abstract OnFinish:

@@ -503,6 +503,7 @@ type TaskScheduler<'FnCtx,
            builder.BuilderState = Finished then ()
         else
           workingSet.Add entryPoint |> ignore
+          strategy.OnCreate builder.Context
           assignCFGBuildingTaskNow builder
       | AddDependency (caller, callee, ch) ->
         dependenceMap.AddDependency (caller, callee, not <| isFinished callee)
