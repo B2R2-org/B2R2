@@ -24,14 +24,9 @@
 
 namespace B2R2.FrontEnd.Intel
 
-open System.Runtime.CompilerServices
 open B2R2
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.Intel.Tests")>]
-[<assembly: InternalsVisibleTo("B2R2.Peripheral.Assembly.Intel")>]
-do ()
-
-/// Information about Intel vector extension.
+/// Represents the VEX prefix used in Intel instructions.
 type VEXInfo = {
   VVVV: byte
   VectorLength: RegType

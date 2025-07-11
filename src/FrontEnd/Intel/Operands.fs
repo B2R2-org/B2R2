@@ -24,14 +24,9 @@
 
 namespace B2R2.FrontEnd.Intel
 
-open System.Runtime.CompilerServices
 open B2R2
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.Intel.Tests")>]
-[<assembly: InternalsVisibleTo("B2R2.Peripheral.Assembly.Intel")>]
-do ()
-
-/// Represents a set of operands in an x86 instruction.
+/// Represents a set of operands in an intel instruction.
 type Operands =
   | NoOperand
   | OneOperand of Operand
@@ -39,7 +34,7 @@ type Operands =
   | ThreeOperands of Operand * Operand * Operand
   | FourOperands of Operand * Operand * Operand * Operand
 
-/// Represents four different types of x86 operands:
+/// Represents four different types of intel operands:
 /// register, memory, direct address, and immediate.
 and Operand =
   /// A register operand.
@@ -84,8 +79,21 @@ and JumpTarget =
   | Absolute of Selector * Addr * OperandSize
   | Relative of Offset
 
-/// Represents a segment selector used in x86 architecture.
+/// Represents a segment selector used in intel architecture.
 and Selector = int16
 
 /// Represents an offset value used for relative jump instructions.
 and Offset = int64
+
+module internal Operands =
+  let inline getMod (byte: byte) = (int byte >>> 6) &&& 0b11
+
+  let inline getReg (byte: byte) = (int byte >>> 3) &&& 0b111
+
+  let inline getRM (byte: byte) = (int byte) &&& 0b111
+
+  let inline getSTReg n = Register.streg n |> OprReg
+
+  let inline modIsMemory b = (getMod b) <> 0b11
+
+  let inline modIsReg b = (getMod b) = 0b11

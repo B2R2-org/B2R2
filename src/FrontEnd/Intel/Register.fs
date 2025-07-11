@@ -24,7 +24,13 @@
 
 namespace B2R2.FrontEnd.Intel
 
+open System.Runtime.CompilerServices
 open B2R2
+open B2R2.FrontEnd.BinLifter
+
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.Intel.Tests")>]
+[<assembly: InternalsVisibleTo("B2R2.Peripheral.Assembly.Intel")>]
+do ()
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -212,7 +218,7 @@ module Register = begin
     | R.FTW4 | R.FTW5 | R.FTW6 | R.FTW7
     | R.FTOP -> 8<rt>
     | R.FSBase | R.GSBase -> WordSize.toRegType wordSize
-    | _ -> raise UnknownRegException
+    | _ -> raise InvalidRegisterException
 
   let extendRegister32 = function
     | R.EAX | R.AX | R.AL | R.AH -> R.EAX

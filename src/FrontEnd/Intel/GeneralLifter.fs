@@ -32,7 +32,6 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.Intel
 open B2R2.FrontEnd.Intel.RegGroup
-open B2R2.FrontEnd.Intel.Helper
 open B2R2.FrontEnd.Intel.LiftingUtils
 
 #if !EMULATION
@@ -267,7 +266,7 @@ let add (ins: Instruction) insLen bld =
   match ins.Operands with
   | TwoOperands (o1, o2) when o1 = o2 ->
     let dst = transOprToExpr bld false ins insLen o1
-    if hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+    if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
 #if !EMULATION
     let struct (t1, t2) = tmpVars2 bld oprSize
     bld <+ (t1 := dst)
@@ -290,7 +289,7 @@ let add (ins: Instruction) insLen bld =
   | TwoOperands (o1, o2) ->
     let dst = transOprToExpr bld true ins insLen o1
     let src = transOprToExpr bld false ins insLen o2 |> transReg bld true
-    if hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+    if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
 #if !EMULATION
     let isSrcConst = isConst src
     let t1 = tmpVar bld oprSize
@@ -319,7 +318,7 @@ let add (ins: Instruction) insLen bld =
     | _ -> raise InvalidRegTypeException
 #endif
   | _ -> raise InvalidOperandException
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
   bld --!> insLen
 
 let adox (ins: Instruction) insLen bld =
@@ -360,7 +359,7 @@ let ``and`` (ins: Instruction) insLen bld =
   let struct (dst, src) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
   let t = tmpVar bld oprSize
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
   bld <+ (dstAssign oprSize dst (dst .& AST.sext oprSize src))
 #if EMULATION
   setCCDst bld dst
@@ -377,7 +376,7 @@ let ``and`` (ins: Instruction) insLen bld =
   enumSZPFlags bld dst oprSize sf
   bld <+ (regVar bld R.AF := undefAF)
 #endif
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
   bld --!> insLen
 
 let andn (ins: Instruction) insLen bld =
@@ -647,7 +646,7 @@ let bitTest (ins: Instruction) insLen bld setValue =
   let struct (bitBase, bitOffset) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
   let setValue = AST.zext oprSize setValue
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
 #if EMULATION
   bld <+ (regVar bld R.ZF := getZFLazy bld)
 #endif
@@ -661,14 +660,14 @@ let bitTest (ins: Instruction) insLen bld setValue =
 #else
   bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
   bld --!> insLen
 
 let btc (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (bitBase, bitOffset) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
 #if !EMULATION
   let setValue = AST.zext oprSize (regVar bld R.CF |> AST.not)
 #else
@@ -685,7 +684,7 @@ let btc (ins: Instruction) insLen bld =
 #else
   bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
   bld --!> insLen
 
 let btr ins insLen bld =
@@ -912,9 +911,9 @@ let cmps (ins: Instruction) insLen bld =
   let pref = ins.Prefixes
   let zf = regVar bld R.ZF
   bld <!-- (ins.Address, insLen)
-  (if hasREPZ pref then
+  (if Prefix.hasREPZ pref then
      strRepeat ins insLen bld cmpsBody (Some (zf == AST.b0))
-   elif hasREPNZ pref then
+   elif Prefix.hasREPNZ pref then
      strRepeat ins insLen bld cmpsBody (Some (zf))
    else cmpsBody ins bld)
   bld --!> insLen
@@ -923,7 +922,7 @@ let cmpxchg (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
   let t = tmpVar bld oprSize
   let r = tmpVar bld oprSize
   let acc = getRegOfSize bld oprSize grpEAX
@@ -950,7 +949,7 @@ let cmpxchg (ins: Instruction) insLen bld =
   bld <+ (buildAF bld tAcc t r oprSize)
   buildPF bld r oprSize None
   bld <+ (regVar bld R.CF := cfOnSub tAcc t)
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
 #if EMULATION
   bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -1192,14 +1191,14 @@ let dec (ins: Instruction) insLen bld =
   let oprSize = getOperationSize ins
   let struct (t1, t2, t3) = tmpVars3 bld oprSize
   let sf = AST.xthi 1<rt> t3
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
   bld <+ (t1 := dst)
   bld <+ (t2 := AST.num1 oprSize)
   bld <+ (t3 := (t1 .- t2))
   bld <+ (dstAssign oprSize dst t3)
   bld <+ (regVar bld R.OF := ofOnSub t1 t2 t3)
   enumASZPFlags bld t1 t2 t3 oprSize sf
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
 #if EMULATION
   bld <+ (regVar bld R.CF := getCFLazy bld)
   setCCOperands2 bld t2 t3
@@ -1622,7 +1621,7 @@ let inc (ins: Instruction) insLen bld =
   let dst = transOneOpr bld ins insLen
   let oprSize = getOperationSize ins
   let struct (t1, t2, t3) = tmpVars3 bld oprSize
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
   bld <+ (t1 := dst)
   bld <+ (t2 := AST.num1 oprSize)
   bld <+ (t3 := (t1 .+ t2))
@@ -1630,7 +1629,7 @@ let inc (ins: Instruction) insLen bld =
   let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
   bld <+ (regVar bld R.OF := ofl)
   enumASZPFlags bld t1 t2 t3 oprSize sf
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
 #if EMULATION
   bld <+ (regVar bld R.CF := getCFLazy bld)
   setCCOperands2 bld t1 t3
@@ -1852,9 +1851,9 @@ let private lodsBody ins bld =
 
 let lods (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
-  if hasREPZ ins.Prefixes then
+  if Prefix.hasREPZ ins.Prefixes then
     strRepeat ins insLen bld lodsBody None
-  elif hasREPNZ ins.Prefixes then Terminator.impossible ()
+  elif Prefix.hasREPNZ ins.Prefixes then Terminator.impossible ()
   else lodsBody ins bld
   bld --!> insLen
 
@@ -1988,7 +1987,7 @@ let private movsBody ins bld =
 
 let movs (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
-  if hasREPZ ins.Prefixes then strRepeat ins insLen bld movsBody None
+  if Prefix.hasREPZ ins.Prefixes then strRepeat ins insLen bld movsBody None
   else movsBody ins bld
   bld --!> insLen
 
@@ -2168,7 +2167,7 @@ let logOr (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
   bld <+ (dstAssign oprSize dst (dst .| src))
 #if EMULATION
   setCCDst bld dst
@@ -2185,7 +2184,7 @@ let logOr (ins: Instruction) insLen bld =
   enumSZPFlags bld dst oprSize sf
   bld <+ (regVar bld R.AF := undefAF)
 #endif
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
   bld --!> insLen
 
 let pdep (ins: Instruction) insLen bld =
@@ -2703,9 +2702,9 @@ let scas (ins: Instruction) insLen bld =
   let pref = ins.Prefixes
   let zfCond n = Some (regVar bld R.ZF == n)
   bld <!-- (ins.Address, insLen)
-  if hasREPZ pref then
+  if Prefix.hasREPZ pref then
     strRepeat ins insLen bld scasBody (zfCond AST.b0)
-  elif hasREPNZ pref then
+  elif Prefix.hasREPNZ pref then
     strRepeat ins insLen bld scasBody (zfCond AST.b1)
   else scasBody ins bld
 #if EMULATION
@@ -2783,7 +2782,7 @@ let inline shiftDblPrec (ins: Instruction) insLen bld fnDst fnSrc isShl =
   let oF = regVar bld R.OF
   let sf = regVar bld R.SF
   let zf = regVar bld R.ZF
-  let wordSize = numI32 (if hasREXW ins.REXPrefix then 64 else 32) oprSz
+  let wordSize = numI32 (if REXPrefix.hasW ins.REXPrefix then 64 else 32) oprSz
   bld <+ (count := (AST.zext oprSz cnt .% wordSize))
   bld <+ (size := exprOprSz)
   bld <+ (cond1 := count == AST.num0 oprSz)
@@ -2875,9 +2874,9 @@ let private stosBody ins bld =
 
 let stos (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
-  if hasREPZ ins.Prefixes then
+  if Prefix.hasREPZ ins.Prefixes then
     strRepeat ins insLen bld stosBody None
-  elif hasREPNZ ins.Prefixes then Terminator.impossible ()
+  elif Prefix.hasREPNZ ins.Prefixes then Terminator.impossible ()
   else stosBody ins bld
   bld --!> insLen
 
@@ -2885,7 +2884,7 @@ let sub (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
 #if !EMULATION
   let isSrcConst = isConst src
   let t1 = tmpVar bld oprSize
@@ -2913,7 +2912,7 @@ let sub (ins: Instruction) insLen bld =
   | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBQ
   | _ -> raise InvalidRegTypeException
 #endif
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
   bld --!> insLen
 
 let test (ins: Instruction) insLen bld =
@@ -3039,7 +3038,7 @@ let xadd (ins: Instruction) insLen bld =
   let orgDst = saveOprMem bld dst
   let oprSize = getOperationSize ins
   let struct (t1, t2, t3) = tmpVars3 bld oprSize
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
   bld <+ (t1 := dst)
   bld <+ (t2 := src)
   bld <+ (t3 := t1 .+ t2)
@@ -3057,7 +3056,7 @@ let xadd (ins: Instruction) insLen bld =
   let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
   enumEFLAGS bld t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf
 #endif
-  if hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
   bld --!> insLen
 
 let xchg (ins: Instruction) insLen bld =

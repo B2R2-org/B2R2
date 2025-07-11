@@ -76,7 +76,7 @@ type IntelParserTests () =
     let parser = IntelParser (wordSize, reader) :> IInstructionParsable
     let ins = parser.Parse (bs=bytes, addr=0UL) :?> Instruction
     Assert.AreEqual<Prefix> (ins.Prefixes, prefs)
-    Assert.AreEqual<Register option> (Helper.getSegment ins.Prefixes, segment)
+    Assert.AreEqual<Register option> (Prefix.getSegment ins.Prefixes, segment)
     Assert.AreEqual<Opcode> (ins.Opcode, opcode)
     Assert.AreEqual<Operands> (ins.Operands, oprs)
     Assert.AreEqual<uint32> (ins.Length, uint32 bytes.Length)

@@ -24,13 +24,14 @@
 
 namespace B2R2.FrontEnd.Intel
 
+open LanguagePrimitives
 open System.Runtime.CompilerServices
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.Intel.Tests")>]
 [<assembly: InternalsVisibleTo("B2R2.Peripheral.Assembly.Intel")>]
 do ()
 
-/// Instruction prefixes.
+/// Represents an Instruction prefixes.
 [<System.FlagsAttribute>]
 type Prefix =
   /// No prefix.
@@ -59,3 +60,35 @@ type Prefix =
   | PrxOPSIZE = 0x400
   /// 67H - Address-size override prefix.
   | PrxADDRSIZE = 0x800
+
+module internal Prefix =
+  let inline hasAddrSz p = p &&& Prefix.PrxADDRSIZE = Prefix.PrxADDRSIZE
+
+  let inline hasOprSz p = p &&& Prefix.PrxOPSIZE = Prefix.PrxOPSIZE
+
+  let inline hasREPZ p = p &&& Prefix.PrxREPZ = Prefix.PrxREPZ
+
+  let inline hasREPNZ p = p &&& Prefix.PrxREPNZ = Prefix.PrxREPNZ
+
+  let inline hasLock p = p &&& Prefix.PrxLOCK = Prefix.PrxLOCK
+
+  /// Filter out segment-related prefixes.
+  let [<Literal>] ClearSegMask: Prefix = EnumOfValue 0xFC0F
+
+  /// Filter out PrxREPNZ(0x2), PrxREPZ(0x8), and PrxOPSIZE(0x400).
+  let [<Literal>] ClearVEXPrefMask: Prefix = EnumOfValue 0xFBF5
+
+  /// Filter out PrxREPZ(0x8)
+  let [<Literal>] ClearREPZPrefMask: Prefix = EnumOfValue 0xFFF7
+
+  /// Filter out group 1 prefixes.
+  let [<Literal>] ClearGrp1PrefMask: Prefix = EnumOfValue 0xFFF0
+
+  let getSegment pref =
+    if (pref &&& Prefix.PrxCS) <> Prefix.PrxNone then Some R.CS
+    elif (pref &&& Prefix.PrxDS) <> Prefix.PrxNone then Some R.DS
+    elif (pref &&& Prefix.PrxES) <> Prefix.PrxNone then Some R.ES
+    elif (pref &&& Prefix.PrxFS) <> Prefix.PrxNone then Some R.FS
+    elif (pref &&& Prefix.PrxGS) <> Prefix.PrxNone then Some R.GS
+    elif (pref &&& Prefix.PrxSS) <> Prefix.PrxNone then Some R.SS
+    else None

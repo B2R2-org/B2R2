@@ -32,7 +32,6 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.Intel
-open B2R2.FrontEnd.Intel.Helper
 open B2R2.FrontEnd.Intel.LiftingUtils
 open B2R2.FrontEnd.Intel.MMXLifter
 
@@ -1956,7 +1955,8 @@ let pcmpstr (ins: Instruction) insLen bld =
   let boolRes = Array2D.init nElem nElem (fun _ _ -> tmpVar bld 1<rt>)
   let n0 = AST.num0 packSize
   let regSize, ax, dx =
-    if hasREXW ins.REXPrefix then 64<rt>, regVar bld R.RAX, regVar bld R.RDX
+    if REXPrefix.hasW ins.REXPrefix then
+      64<rt>, regVar bld R.RAX, regVar bld R.RDX
     else 32<rt>, regVar bld R.EAX, regVar bld R.EDX
 
   let struct (aInval, bInval) = tmpVars2 bld 1<rt>
@@ -2058,7 +2058,7 @@ let pcmpstr (ins: Instruction) insLen bld =
       bld <+ (dstB := Array.sub res pNum pNum |> AST.revConcat)
   | Index ->
     let outSz, cx =
-      if hasREXW ins.REXPrefix then 64<rt>, R.RCX else 32<rt>, R.ECX
+      if REXPrefix.hasW ins.REXPrefix then 64<rt>, R.RCX else 32<rt>, R.ECX
     let cx = regVar bld cx
     let n0 = AST.num0 elemSz
     let idx =

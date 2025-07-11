@@ -24,13 +24,9 @@
 
 namespace B2R2.FrontEnd.Intel
 
-open System.Runtime.CompilerServices
+open LanguagePrimitives
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.Intel.Tests")>]
-[<assembly: InternalsVisibleTo("B2R2.Peripheral.Assembly.Intel")>]
-do ()
-
-/// REX prefixes.
+/// Represents the REX prefix used in x86-64 instructions.
 type REXPrefix =
   /// No REX: this is to represent the case where there is no REX
   | NOREX = 0b0000000
@@ -66,3 +62,14 @@ type REXPrefix =
   | REXWRX = 0b1001110
   /// REX.RXB + Operand 64bit.
   | REXWRXB = 0b1001111
+
+/// Provides a set of functions to manipulate REX prefixes.
+module internal REXPrefix =
+  let inline hasW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW
+
+  let inline hasR rexPref = rexPref &&& REXPrefix.REXR = REXPrefix.REXR
+
+  let inline hasB rexPref = rexPref &&& REXPrefix.REXB = REXPrefix.REXB
+
+  /// Filter out REXW(0x8)
+  let [<Literal>] ClearREXWPrefMask: REXPrefix = EnumOfValue 0xFFF7

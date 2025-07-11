@@ -8,7 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Exceptions.fs" />
     <Compile Include="Register.fs" />
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="LowUIRBuilder.fs" />
@@ -18,7 +17,7 @@
     <Compile Include="REXPrefix.fs" />
     <Compile Include="VEXInfo.fs" />
     <Compile Include="Instruction.fs" />
-    <Compile Include="Helper.fs" />
+    <Compile Include="ParsingHelperTypes.fs" />
     <Compile Include="OperandParsingHelper.fs" />
     <Compile Include="Disasm.fs" />
     <Compile Include="LiftingUtils.fs" />

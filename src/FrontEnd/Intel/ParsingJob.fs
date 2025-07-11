@@ -27,7 +27,6 @@ namespace B2R2.FrontEnd.Intel
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel
-open B2R2.FrontEnd.Intel.Helper
 open B2R2.FrontEnd.Intel.ParsingHelper
 open LanguagePrimitives
 
@@ -38,42 +37,42 @@ type internal ParsingJob () =
 type internal OneOp00 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.ADD oprs
 
 type internal OneOp01 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.ADD oprs
 
 type internal OneOp02 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.ADD oprs
 
 type internal OneOp03 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.ADD oprs
 
 type internal OneOp04 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.ADD oprs
 
 type internal OneOp05 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm].Render (span, rhlp)
     newInstruction rhlp Opcode.ADD oprs
 
@@ -83,7 +82,7 @@ type internal OneOp06 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Normal
     rhlp.OperationSize <- rhlp.MemEffOprSize
     let oprs = rhlp.OprParsers[int OD.Es].Render (span, rhlp)
     newInstruction rhlp Opcode.PUSH oprs
@@ -94,7 +93,7 @@ type internal OneOp07 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Normal
     rhlp.OperationSize <- rhlp.MemEffOprSize
     let oprs = rhlp.OprParsers[int OD.Es].Render (span, rhlp)
     newInstruction rhlp Opcode.POP oprs
@@ -102,42 +101,42 @@ type internal OneOp07 () =
 type internal OneOp08 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.OR oprs
 
 type internal OneOp09 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.OR oprs
 
 type internal OneOp0A () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.OR oprs
 
 type internal OneOp0B () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.OR oprs
 
 type internal OneOp0C () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.OR oprs
 
 type internal OneOp0D () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm].Render (span, rhlp)
     newInstruction rhlp Opcode.OR oprs
 
@@ -147,7 +146,7 @@ type internal OneOp0E () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Normal
     rhlp.OperationSize <- rhlp.MemEffOprSize
     let oprs = rhlp.OprParsers[int OD.Cs].Render (span, rhlp)
     newInstruction rhlp Opcode.PUSH oprs
@@ -160,42 +159,42 @@ type internal OneOp0F () =
 type internal OneOp10 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.ADC oprs
 
 type internal OneOp11 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.ADC oprs
 
 type internal OneOp12 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.ADC oprs
 
 type internal OneOp13 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.ADC oprs
 
 type internal OneOp14 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.ADC oprs
 
 type internal OneOp15 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm].Render (span, rhlp)
     newInstruction rhlp Opcode.ADC oprs
 
@@ -205,7 +204,7 @@ type internal OneOp16 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Normal
     rhlp.OperationSize <- rhlp.MemEffOprSize
     let oprs = rhlp.OprParsers[int OD.Ss].Render (span, rhlp)
     newInstruction rhlp Opcode.PUSH oprs
@@ -216,7 +215,7 @@ type internal OneOp17 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Normal
     rhlp.OperationSize <- rhlp.MemEffOprSize
     let oprs = rhlp.OprParsers[int OD.Ss].Render (span, rhlp)
     newInstruction rhlp Opcode.POP oprs
@@ -224,42 +223,42 @@ type internal OneOp17 () =
 type internal OneOp18 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.SBB oprs
 
 type internal OneOp19 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.SBB oprs
 
 type internal OneOp1A () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.SBB oprs
 
 type internal OneOp1B () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.SBB oprs
 
 type internal OneOp1C () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.SBB oprs
 
 type internal OneOp1D () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm].Render (span, rhlp)
     newInstruction rhlp Opcode.SBB oprs
 
@@ -269,7 +268,7 @@ type internal OneOp1E () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Normal
     rhlp.OperationSize <- rhlp.MemEffOprSize
     let oprs = rhlp.OprParsers[int OD.Ds].Render (span, rhlp)
     newInstruction rhlp Opcode.PUSH oprs
@@ -280,7 +279,7 @@ type internal OneOp1F () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.RegW].Render rhlp SzCond.Normal
     rhlp.OperationSize <- rhlp.MemEffOprSize
     let oprs = rhlp.OprParsers[int OD.Ds].Render (span, rhlp)
     newInstruction rhlp Opcode.POP oprs
@@ -288,42 +287,42 @@ type internal OneOp1F () =
 type internal OneOp20 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.AND oprs
 
 type internal OneOp21 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.AND oprs
 
 type internal OneOp22 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.AND oprs
 
 type internal OneOp23 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.AND oprs
 
 type internal OneOp24 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.AND oprs
 
 type internal OneOp25 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm].Render (span, rhlp)
     newInstruction rhlp Opcode.AND oprs
 
@@ -337,49 +336,49 @@ type internal OneOp27 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.DAA oprs
 
 type internal OneOp28 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.SUB oprs
 
 type internal OneOp29 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.SUB oprs
 
 type internal OneOp2A () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.SUB oprs
 
 type internal OneOp2B () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.SUB oprs
 
 type internal OneOp2C () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.SUB oprs
 
 type internal OneOp2D () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm].Render (span, rhlp)
     newInstruction rhlp Opcode.SUB oprs
 
@@ -393,49 +392,49 @@ type internal OneOp2F () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.DAS oprs
 
 type internal OneOp30 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.XOR oprs
 
 type internal OneOp31 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.XOR oprs
 
 type internal OneOp32 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.XOR oprs
 
 type internal OneOp33 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.XOR oprs
 
 type internal OneOp34 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.XOR oprs
 
 type internal OneOp35 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm].Render (span, rhlp)
     newInstruction rhlp Opcode.XOR oprs
 
@@ -449,49 +448,49 @@ type internal OneOp37 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.AAA oprs
 
 type internal OneOp38 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.CMP oprs
 
 type internal OneOp39 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.CMP oprs
 
 type internal OneOp3A () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.CMP oprs
 
 type internal OneOp3B () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.CMP oprs
 
 type internal OneOp3C () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.CMP oprs
 
 type internal OneOp3D () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm].Render (span, rhlp)
     newInstruction rhlp Opcode.CMP oprs
 
@@ -505,7 +504,7 @@ type internal OneOp3F () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.AAS oprs
 
@@ -515,7 +514,7 @@ type internal OneOp40 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Eax].Render (span, rhlp)
     newInstruction rhlp Opcode.INC oprs
 
@@ -525,7 +524,7 @@ type internal OneOp41 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Ecx].Render (span, rhlp)
     newInstruction rhlp Opcode.INC oprs
 
@@ -535,7 +534,7 @@ type internal OneOp42 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Edx].Render (span, rhlp)
     newInstruction rhlp Opcode.INC oprs
 
@@ -545,7 +544,7 @@ type internal OneOp43 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Ebx].Render (span, rhlp)
     newInstruction rhlp Opcode.INC oprs
 
@@ -555,7 +554,7 @@ type internal OneOp44 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Esp].Render (span, rhlp)
     newInstruction rhlp Opcode.INC oprs
 
@@ -565,7 +564,7 @@ type internal OneOp45 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Ebp].Render (span, rhlp)
     newInstruction rhlp Opcode.INC oprs
 
@@ -575,7 +574,7 @@ type internal OneOp46 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Esi].Render (span, rhlp)
     newInstruction rhlp Opcode.INC oprs
 
@@ -585,7 +584,7 @@ type internal OneOp47 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Edi].Render (span, rhlp)
     newInstruction rhlp Opcode.INC oprs
 
@@ -595,7 +594,7 @@ type internal OneOp48 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Eax].Render (span, rhlp)
     newInstruction rhlp Opcode.DEC oprs
 
@@ -605,7 +604,7 @@ type internal OneOp49 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Ecx].Render (span, rhlp)
     newInstruction rhlp Opcode.DEC oprs
 
@@ -615,7 +614,7 @@ type internal OneOp4A () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Edx].Render (span, rhlp)
     newInstruction rhlp Opcode.DEC oprs
 
@@ -625,7 +624,7 @@ type internal OneOp4B () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Ebx].Render (span, rhlp)
     newInstruction rhlp Opcode.DEC oprs
 
@@ -635,7 +634,7 @@ type internal OneOp4C () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Esp].Render (span, rhlp)
     newInstruction rhlp Opcode.DEC oprs
 
@@ -645,7 +644,7 @@ type internal OneOp4D () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Ebp].Render (span, rhlp)
     newInstruction rhlp Opcode.DEC oprs
 
@@ -655,7 +654,7 @@ type internal OneOp4E () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Esi].Render (span, rhlp)
     newInstruction rhlp Opcode.DEC oprs
 
@@ -665,7 +664,7 @@ type internal OneOp4F () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Edi].Render (span, rhlp)
     newInstruction rhlp Opcode.DEC oprs
 
@@ -803,9 +802,9 @@ type internal OneOp60 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.PUSHA SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.PUSHAD SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.PUSHA SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.PUSHAD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp61 () =
   inherit ParsingJob ()
@@ -813,9 +812,9 @@ type internal OneOp61 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.POPA SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.POPAD SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.POPA SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.POPAD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp62 () =
   inherit ParsingJob ()
@@ -832,16 +831,16 @@ type internal OneOp62 () =
       | VEXType.VEXThreeByteOpTwo -> parseThreeByteOp2 span rhlp
       | _ -> raise ParsingFailureException
     else
-      rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+      rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
       let oprs = rhlp.OprParsers[int OD.GprM].Render (span, rhlp)
       newInstruction rhlp Opcode.BOUND oprs
 
 type internal OneOp63 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if is64bit rhlp then
-      render span rhlp Opcode.MOVSXD SzCond.Nor OD.GprRm SZ.DV
-    else render span rhlp Opcode.ARPL SzCond.Nor OD.RmGpr SZ.Word
+    if ReadHelper.Is64bit rhlp then
+      render span rhlp Opcode.MOVSXD SzCond.Normal OD.GprRm SZ.DV
+    else render span rhlp Opcode.ARPL SzCond.Normal OD.RmGpr SZ.Word
 
 type internal OneOp64 () =
   inherit ParsingJob ()
@@ -870,7 +869,7 @@ type internal OneOp68 () =
 type internal OneOp69 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRmImm].Render (span, rhlp)
     newInstruction rhlp Opcode.IMUL oprs
 
@@ -885,14 +884,14 @@ type internal OneOp6A () =
 type internal OneOp6B () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRmImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.IMUL oprs
 
 type internal OneOp6C () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     rhlp.OperationSize <- 8<rt>
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.INSB oprs
@@ -900,14 +899,14 @@ type internal OneOp6C () =
 type internal OneOp6D () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.INSW SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.INSD SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.INSW SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.INSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp6E () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     rhlp.OperationSize <- 8<rt>
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.OUTSB oprs
@@ -915,9 +914,9 @@ type internal OneOp6E () =
 type internal OneOp6F () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.OUTSW SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.OUTSD SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.OUTSW SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.OUTSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp70 () =
   inherit ParsingJob ()
@@ -1078,77 +1077,77 @@ type internal OneOp83 () =
 type internal OneOp84 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.TEST oprs
 
 type internal OneOp85 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.TEST oprs
 
 type internal OneOp86 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.XCHG oprs
 
 type internal OneOp87 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.XCHG oprs
 
 type internal OneOp88 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOp89 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmGpr].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOp8A () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOp8B () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprRm].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOp8C () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Word].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Word].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RmSeg].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOp8D () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.GprM].Render (span, rhlp)
     newInstruction rhlp Opcode.LEA oprs
 
 type internal OneOp8E () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Word].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Word].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.SegRm].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
@@ -1162,80 +1161,80 @@ type internal OneOp8F () =
 type internal OneOp90 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasREPZ rhlp.Prefixes then
-      render span rhlp Opcode.PAUSE SzCond.Nor OD.No SZ.Def
-    elif hasREXB rhlp.REXPrefix then
-      rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    if Prefix.hasREPZ rhlp.Prefixes then
+      render span rhlp Opcode.PAUSE SzCond.Normal OD.No SZ.Def
+    elif REXPrefix.hasB rhlp.REXPrefix then
+      rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
       let oprs = rhlp.OprParsers[int OD.RaxRax].Render (span, rhlp)
       newInstruction rhlp Opcode.XCHG oprs
-    else render span rhlp Opcode.NOP SzCond.Nor OD.No SZ.Def
+    else render span rhlp Opcode.NOP SzCond.Normal OD.No SZ.Def
 
 type internal OneOp91 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RaxRcx].Render (span, rhlp)
     newInstruction rhlp Opcode.XCHG oprs
 
 type internal OneOp92 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RaxRdx].Render (span, rhlp)
     newInstruction rhlp Opcode.XCHG oprs
 
 type internal OneOp93 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RaxRbx].Render (span, rhlp)
     newInstruction rhlp Opcode.XCHG oprs
 
 type internal OneOp94 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RaxRsp].Render (span, rhlp)
     newInstruction rhlp Opcode.XCHG oprs
 
 type internal OneOp95 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RaxRbp].Render (span, rhlp)
     newInstruction rhlp Opcode.XCHG oprs
 
 type internal OneOp96 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RaxRsi].Render (span, rhlp)
     newInstruction rhlp Opcode.XCHG oprs
 
 type internal OneOp97 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RaxRdi].Render (span, rhlp)
     newInstruction rhlp Opcode.XCHG oprs
 
 type internal OneOp98 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.CBW SzCond.Nor OD.No SZ.Def
-    elif hasREXW rhlp.REXPrefix then
-      render span rhlp Opcode.CDQE SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.CWDE SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.CBW SzCond.Normal OD.No SZ.Def
+    elif REXPrefix.hasW rhlp.REXPrefix then
+      render span rhlp Opcode.CDQE SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.CWDE SzCond.Normal OD.No SZ.Def
 
 type internal OneOp99 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.CWD SzCond.Nor OD.No SZ.Def
-    elif hasREXW rhlp.REXPrefix then
-      render span rhlp Opcode.CQO SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.CDQ SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.CWD SzCond.Normal OD.No SZ.Def
+    elif REXPrefix.hasW rhlp.REXPrefix then
+      render span rhlp Opcode.CQO SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.CDQ SzCond.Normal OD.No SZ.Def
 
 type internal OneOp9A () =
   inherit ParsingJob ()
@@ -1244,131 +1243,131 @@ type internal OneOp9A () =
     ensure32 rhlp
 #endif
     addBND rhlp
-    rhlp.SzComputers[int SZ.P].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.P].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Dir].Render (span, rhlp)
     newInstruction rhlp Opcode.CALLFar oprs
 
 type internal OneOp9B () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.WAIT oprs
 
 type internal OneOp9C () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      let szcond = if is64bit rhlp then SzCond.D64 else SzCond.Nor
+    if Prefix.hasOprSz rhlp.Prefixes then
+      let szcond = if ReadHelper.Is64bit rhlp then SzCond.D64 else SzCond.Normal
       render span rhlp Opcode.PUSHF szcond OD.No SZ.Def
-    elif is64bit rhlp then
+    elif ReadHelper.Is64bit rhlp then
       render span rhlp Opcode.PUSHFQ SzCond.D64 OD.No SZ.Def
-    else render span rhlp Opcode.PUSHFD SzCond.Nor OD.No SZ.Def
+    else render span rhlp Opcode.PUSHFD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp9D () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      let szcond = if is64bit rhlp then SzCond.D64 else SzCond.Nor
+    if Prefix.hasOprSz rhlp.Prefixes then
+      let szcond = if ReadHelper.Is64bit rhlp then SzCond.D64 else SzCond.Normal
       render span rhlp Opcode.POPF szcond OD.No SZ.Def
-    elif is64bit rhlp then
+    elif ReadHelper.Is64bit rhlp then
       render span rhlp Opcode.POPFQ SzCond.D64 OD.No SZ.Def
-    else render span rhlp Opcode.POPFD SzCond.Nor OD.No SZ.Def
+    else render span rhlp Opcode.POPFD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp9E () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.SAHF oprs
 
 type internal OneOp9F () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.LAHF oprs
 
 type internal OneOpA0 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RaxFar].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpA1 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RaxFar].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpA2 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.FarRax].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpA3 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.FarRax].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpA4 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     rhlp.OperationSize <- 8<rt>
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
-    if hasREPNZ rhlp.Prefixes then raise ParsingFailureException
+    if Prefix.hasREPNZ rhlp.Prefixes then raise ParsingFailureException
     else newInstruction rhlp Opcode.MOVSB oprs
 
 type internal OneOpA5 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.MOVSW SzCond.Nor OD.No SZ.Def
-    elif hasREXW rhlp.REXPrefix then
-      render span rhlp Opcode.MOVSQ SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.MOVSD SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.MOVSW SzCond.Normal OD.No SZ.Def
+    elif REXPrefix.hasW rhlp.REXPrefix then
+      render span rhlp Opcode.MOVSQ SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.MOVSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpA6 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.CMPSB oprs
 
 type internal OneOpA7 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.CMPSW SzCond.Nor OD.No SZ.Def
-    elif hasREXW rhlp.REXPrefix then
-      render span rhlp Opcode.CMPSQ SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.CMPSD SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.CMPSW SzCond.Normal OD.No SZ.Def
+    elif REXPrefix.hasW rhlp.REXPrefix then
+      render span rhlp Opcode.CMPSQ SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.CMPSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpA8 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.TEST oprs
 
 type internal OneOpA9 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm].Render (span, rhlp)
     newInstruction rhlp Opcode.TEST oprs
 
 type internal OneOpAA () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     rhlp.OperationSize <- 8<rt>
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.STOSB oprs
@@ -1376,16 +1375,16 @@ type internal OneOpAA () =
 type internal OneOpAB () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.STOSW SzCond.Nor OD.No SZ.Def
-    elif hasREXW rhlp.REXPrefix then
-      render span rhlp Opcode.STOSQ SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.STOSD SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.STOSW SzCond.Normal OD.No SZ.Def
+    elif REXPrefix.hasW rhlp.REXPrefix then
+      render span rhlp Opcode.STOSQ SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.STOSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpAC () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     rhlp.OperationSize <- 8<rt>
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.LODSB oprs
@@ -1393,16 +1392,16 @@ type internal OneOpAC () =
 type internal OneOpAD () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.LODSW SzCond.Nor OD.No SZ.Def
-    elif hasREXW rhlp.REXPrefix then
-      render span rhlp Opcode.LODSQ SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.LODSD SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.LODSW SzCond.Normal OD.No SZ.Def
+    elif REXPrefix.hasW rhlp.REXPrefix then
+      render span rhlp Opcode.LODSQ SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.LODSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpAE () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     rhlp.OperationSize <- 8<rt>
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.SCASB oprs
@@ -1410,121 +1409,121 @@ type internal OneOpAE () =
 type internal OneOpAF () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.SCASW SzCond.Nor OD.No SZ.Def
-    elif hasREXW rhlp.REXPrefix then
-      render span rhlp Opcode.SCASQ SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.SCASD SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.SCASW SzCond.Normal OD.No SZ.Def
+    elif REXPrefix.hasW rhlp.REXPrefix then
+      render span rhlp Opcode.SCASQ SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.SCASD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpB0 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.ALImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpB1 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.CLImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpB2 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.DLImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpB3 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.BLImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpB4 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.AhImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpB5 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.ChImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpB6 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.DhImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpB7 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.BhImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpB8 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RaxImm].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpB9 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RcxImm].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpBA () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RdxImm].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpBB () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RbxImm].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpBC () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RspImm].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpBD () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RbpImm].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpBE () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RsiImm].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
 type internal OneOpBF () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RdiImm].Render (span, rhlp)
     newInstruction rhlp Opcode.MOV oprs
 
@@ -1573,7 +1572,7 @@ type internal OneOpC4 () =
       | VEXType.VEXThreeByteOpTwo -> parseThreeByteOp2 span rhlp
       | _ -> raise ParsingFailureException
     else
-      rhlp.SzComputers[int SZ.PZ].Render rhlp SzCond.Nor
+      rhlp.SzComputers[int SZ.PZ].Render rhlp SzCond.Normal
       let oprs = rhlp.OprParsers[int OD.GprM].Render (span, rhlp)
       newInstruction rhlp Opcode.LES oprs
 
@@ -1587,7 +1586,7 @@ type internal OneOpC5 () =
       rhlp.CurrPos <- rhlp.CurrPos + 1
       parseTwoByteOpcode span rhlp
     else
-      rhlp.SzComputers[int SZ.PZ].Render rhlp SzCond.Nor
+      rhlp.SzComputers[int SZ.PZ].Render rhlp SzCond.Normal
       let oprs = rhlp.OprParsers[int OD.GprM].Render (span, rhlp)
       newInstruction rhlp Opcode.LDS oprs
 
@@ -1608,7 +1607,7 @@ type internal OneOpC7 () =
 type internal OneOpC8 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.ImmImm].Render (span, rhlp)
     newInstruction rhlp Opcode.ENTER oprs
 
@@ -1623,7 +1622,7 @@ type internal OneOpCA () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     addBND rhlp
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Imm16].Render (span, rhlp)
     newInstruction rhlp Opcode.RETFarImm oprs
 
@@ -1631,21 +1630,21 @@ type internal OneOpCB () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     addBND rhlp
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.RETFar oprs
 
 type internal OneOpCC () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.INT3 oprs
 
 type internal OneOpCD () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Imm8].Render (span, rhlp)
     newInstruction rhlp Opcode.INT oprs
 
@@ -1655,18 +1654,18 @@ type internal OneOpCE () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.INTO oprs
 
 type internal OneOpCF () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasOprSz rhlp.Prefixes then
-      render span rhlp Opcode.IRETW SzCond.Nor OD.No SZ.Def
-    elif hasREXW rhlp.REXPrefix then
-      render span rhlp Opcode.IRETQ SzCond.Nor OD.No SZ.Def
-    else render span rhlp Opcode.IRETD SzCond.Nor OD.No SZ.Def
+    if Prefix.hasOprSz rhlp.Prefixes then
+      render span rhlp Opcode.IRETW SzCond.Normal OD.No SZ.Def
+    elif REXPrefix.hasW rhlp.REXPrefix then
+      render span rhlp Opcode.IRETQ SzCond.Normal OD.No SZ.Def
+    else render span rhlp Opcode.IRETD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpD0 () =
   inherit ParsingJob ()
@@ -1702,7 +1701,7 @@ type internal OneOpD4 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Imm8].Render (span, rhlp)
     newInstruction rhlp Opcode.AAM oprs
 
@@ -1712,7 +1711,7 @@ type internal OneOpD5 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Imm8].Render (span, rhlp)
     newInstruction rhlp Opcode.AAD oprs
 
@@ -1723,7 +1722,7 @@ type internal OneOpD6 () =
 type internal OneOpD7 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.XLATB oprs
 
@@ -1731,7 +1730,7 @@ type internal OneOpD8 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     let modRM = rhlp.ReadByte span
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     if modRM <= 0xBFuy then
       let op = getD8OpWithin00toBF modRM
       let effOprSize = getEscEffOprSizeByESCOp 0xD8uy
@@ -1747,10 +1746,10 @@ type internal OneOpD9 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     let modRM = rhlp.ReadByte span
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     if modRM <= 0xBFuy then
       let op = getD9OpWithin00toBF modRM
-      let effOprSize = getReg modRM |> getD9EscEffOprSizeByModRM
+      let effOprSize = Operands.getReg modRM |> getD9EscEffOprSizeByModRM
       rhlp.MemEffOprSize <- effOprSize
       rhlp.MemEffRegSize <- effOprSize
       let o = OperandParsingHelper.parseMemory modRM span rhlp
@@ -1763,7 +1762,7 @@ type internal OneOpDA () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     let modRM = rhlp.ReadByte span
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     if modRM <= 0xBFuy then
       let op = getDAOpWithin00toBF modRM
       let effOprSize = getEscEffOprSizeByESCOp 0xDAuy
@@ -1779,10 +1778,10 @@ type internal OneOpDB () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     let modRM = rhlp.ReadByte span
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     if modRM <= 0xBFuy then
       let op = getDBOpWithin00toBF modRM
-      let effOprSize = getReg modRM |> getDBEscEffOprSizeByModRM
+      let effOprSize = Operands.getReg modRM |> getDBEscEffOprSizeByModRM
       rhlp.MemEffOprSize <- effOprSize
       rhlp.MemEffRegSize <- effOprSize
       let o = OperandParsingHelper.parseMemory modRM span rhlp
@@ -1795,7 +1794,7 @@ type internal OneOpDC () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     let modRM = rhlp.ReadByte span
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     if modRM <= 0xBFuy then
       let op = getDCOpWithin00toBF modRM
       let effOprSize = getEscEffOprSizeByESCOp 0xDCuy
@@ -1811,10 +1810,10 @@ type internal OneOpDD () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     let modRM = rhlp.ReadByte span
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     if modRM <= 0xBFuy then
       let op = getDDOpWithin00toBF modRM
-      let effOprSize = getReg modRM |> getDDEscEffOprSizeByModRM
+      let effOprSize = Operands.getReg modRM |> getDDEscEffOprSizeByModRM
       rhlp.MemEffOprSize <- effOprSize
       rhlp.MemEffRegSize <- effOprSize
       let o = OperandParsingHelper.parseMemory modRM span rhlp
@@ -1827,7 +1826,7 @@ type internal OneOpDE () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     let modRM = rhlp.ReadByte span
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     if modRM <= 0xBFuy then
       let op = getDEOpWithin00toBF modRM
       let effOprSize = getEscEffOprSizeByESCOp 0xDEuy
@@ -1843,10 +1842,10 @@ type internal OneOpDF () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     let modRM = rhlp.ReadByte span
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     if modRM <= 0xBFuy then
       let op = getDFOpWithin00toBF modRM
-      let effOprSize = getReg modRM |> getDFEscEffOprSizeByModRM
+      let effOprSize = Operands.getReg modRM |> getDFEscEffOprSizeByModRM
       rhlp.MemEffOprSize <- effOprSize
       rhlp.MemEffRegSize <- effOprSize
       let o = OperandParsingHelper.parseMemory modRM span rhlp
@@ -1879,17 +1878,17 @@ type internal OneOpE2 () =
 type internal OneOpE3 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    if hasAddrSz rhlp.Prefixes then
-      let opcode = if is64bit rhlp then Opcode.JECXZ else Opcode.JCXZ
+    if Prefix.hasAddrSz rhlp.Prefixes then
+      let opcode = if ReadHelper.Is64bit rhlp then Opcode.JECXZ else Opcode.JCXZ
       render span rhlp opcode SzCond.F64 OD.Rel8 SZ.Byte
-    elif is64bit rhlp then
+    elif ReadHelper.Is64bit rhlp then
       render span rhlp Opcode.JRCXZ SzCond.F64 OD.Rel8 SZ.Byte
     else render span rhlp Opcode.JECXZ SzCond.F64 OD.Rel8 SZ.Byte
 
 type internal OneOpE4 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.IN oprs
 
@@ -1897,14 +1896,14 @@ type internal OneOpE5 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     rhlp.REXPrefix <- REXPrefix.NOREX
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.RegImm8].Render (span, rhlp)
     newInstruction rhlp Opcode.IN oprs
 
 type internal OneOpE6 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Byte].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Imm8Reg].Render (span, rhlp)
     newInstruction rhlp Opcode.OUT oprs
 
@@ -1912,7 +1911,7 @@ type internal OneOpE7 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
     rhlp.REXPrefix <- REXPrefix.NOREX
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Imm8Reg].Render (span, rhlp)
     newInstruction rhlp Opcode.OUT oprs
 
@@ -1939,7 +1938,7 @@ type internal OneOpEA () =
     ensure32 rhlp
 #endif
     addBND rhlp
-    rhlp.SzComputers[int SZ.P].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.P].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.Dir].Render (span, rhlp)
     newInstruction rhlp Opcode.JMPFar oprs
 
@@ -1954,28 +1953,28 @@ type internal OneOpEB () =
 type internal OneOpEC () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.ALDx].Render (span, rhlp)
     newInstruction rhlp Opcode.IN oprs
 
 type internal OneOpED () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.EaxDx].Render (span, rhlp)
     newInstruction rhlp Opcode.IN oprs
 
 type internal OneOpEE () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.DxAL].Render (span, rhlp)
     newInstruction rhlp Opcode.OUT oprs
 
 type internal OneOpEF () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.DxEax].Render (span, rhlp)
     newInstruction rhlp Opcode.OUT oprs
 
@@ -1986,7 +1985,7 @@ type internal OneOpF0 () =
 type internal OneOpF1 () =
   inherit ParsingJob ()
   override _.Run (span, rhlp) =
-    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Normal
     let oprs = rhlp.OprParsers[int OD.No].Render (span, rhlp)
     newInstruction rhlp Opcode.INT1 oprs
 

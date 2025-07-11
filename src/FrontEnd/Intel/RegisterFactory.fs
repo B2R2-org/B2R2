@@ -67,10 +67,10 @@ type RegisterFactory (wordSize) =
 
 #if DEBUG
   let assert64Bit wordSize =
-    if wordSize = Bit64 then () else raise InvalidRegAccessException
+    if wordSize = Bit64 then () else raise InvalidRegisterException
 
   let assert32Bit wordSize =
-    if wordSize = Bit32 then () else raise InvalidRegAccessException
+    if wordSize = Bit32 then () else raise InvalidRegisterException
 #endif
 
   (* Registers *)

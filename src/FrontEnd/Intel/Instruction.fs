@@ -242,6 +242,6 @@ type Instruction
     member this.Decompose builder =
       (lifter.Disasm this builder).ToAsmWords ()
 
-and internal ILiftable =
+and ILiftable =
   abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
   abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder
