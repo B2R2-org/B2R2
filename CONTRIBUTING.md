@@ -82,6 +82,28 @@ We always use unix-style (LF) line-endings for every file.
 
 #### Specific Rules
 
+##### Argument Assignments
+
+When using the equality operator (=):
+```fsharp
+let func = value  // Good
+if foo = bar then // Good
+
+let func=value  // Bad
+if foo=bar then // Bad
+```
+
+When using (=) for argument assignments:
+```fsharp
+func (param=argu)        // Good
+| func (pattern=bound)   // Good
+let func (param=bound) = // Good
+
+func (param = argu)        // Bad
+| func (pattern= bound)    // Bad
+let func (param = bound) = // Bad
+```
+
 ##### Tuple Constructs
 
 When writing tuples, use consistent spacing between elements.
