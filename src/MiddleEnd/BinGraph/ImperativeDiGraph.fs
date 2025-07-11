@@ -159,12 +159,12 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       tryFindVertexBy (fun v -> (v :> IVertex<'V>).VData = data)
 
     member _.FindEdge (src: IVertex<'V>, dst: IVertex<'V>) =
-      match edges.TryGetValue (key=(src.ID, dst.ID)) with
+      match edges.TryGetValue (key = (src.ID, dst.ID)) with
       | true, edge -> edge
       | false, _ -> raise EdgeNotFoundException
 
     member _.TryFindEdge (src: IVertex<'V>, dst: IVertex<'V>) =
-      match edges.TryGetValue (key=(src.ID, dst.ID)) with
+      match edges.TryGetValue (key = (src.ID, dst.ID)) with
       | true, edge -> Some edge
       | false, _ -> None
 

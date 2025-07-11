@@ -91,28 +91,28 @@ let pickBit binary (pos: uint32) = binary >>> int pos &&& 0b1u
 
 let concat (n1: uint32) (n2: uint32) shift = (n1 <<< shift) + n2
 
-let parseOneOpr b op1 = OneOperand(op1 b)
+let parseOneOpr b op1 = OneOperand (op1 b)
 
-let parseTwoOpr b op1 op2 = TwoOperands(op1 b, op2 b)
+let parseTwoOpr b op1 op2 = TwoOperands (op1 b, op2 b)
 
 let getReg b s e = getRegister (extract b s e |> byte)
 
 let getRegD b = getReg b 8u 4u |> OprReg
 
-let getReg2D b = getRegister( 24u + 2u * (extract b 5u 4u) |> byte)|> OprReg
+let getReg2D b = getRegister (24u + 2u * (extract b 5u 4u) |> byte) |> OprReg
 
-let getReg3D b = getRegister( 16u + (extract b 6u 4u) |> byte)|> OprReg
+let getReg3D b = getRegister (16u + (extract b 6u 4u) |> byte) |> OprReg
 
-let getReg3DLast b = getRegister( 16u + (extract b 2u 0u) |> byte)|> OprReg
+let getReg3DLast b = getRegister (16u + (extract b 2u 0u) |> byte) |> OprReg
 
-let getReg4D b = getRegister (extract b 7u 4u + 16u |> byte ) |> OprReg
+let getReg4D b = getRegister (extract b 7u 4u + 16u |> byte) |> OprReg
 
-let getRegEven4D b = getRegister(2u * (extract b 7u 4u) |> byte) |> OprReg
+let getRegEven4D b = getRegister (2u * (extract b 7u 4u) |> byte) |> OprReg
 
-let getRegEvenEnd4D b = getRegister(2u * (extract b 3u 0u) |> byte) |> OprReg
+let getRegEvenEnd4D b = getRegister (2u * (extract b 3u 0u) |> byte) |> OprReg
 
 let getRegR b =
-  getRegister (concat (pickBit b 9u) (b &&& 0b1111u) 4 |> byte ) |> OprReg
+  getRegister (concat (pickBit b 9u) (b &&& 0b1111u) 4 |> byte) |> OprReg
 
 let getRegD32 b = getReg b 24u 20u |> OprReg
 
@@ -136,9 +136,9 @@ let getIO5 b = extract b 7u 3u |> int32 |> OprImm
 
 let getIO6 b = concat (extract b 10u 9u) (b &&& 0b1111u) 4 |> int32 |> OprImm
 
-let getAddr7K b = ((extract b 9u 3u) <<< 25  |> int32 >>> 25) * 2 |> OprAddr
+let getAddr7K b = ((extract b 9u 3u) <<< 25 |> int32 >>> 25) * 2 |> OprAddr
 
-let getAddr12 b = ((extract b 11u 0u) <<< 20  |> int32 >>> 20) * 2 |> OprAddr
+let getAddr12 b = ((extract b 11u 0u) <<< 20 |> int32 >>> 20) * 2 |> OprAddr
 
 let getDisp b =
   concat (concat (pickBit b 13u) (extract b 11u 10u) (2)) (b &&& 0b111u) 3

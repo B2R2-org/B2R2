@@ -112,7 +112,7 @@ let getIndAdrReg (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands (_, OprReg reg1) ->
     let dst = reg1 |> regVar bld
-    let dst1 = reg1 |> Register.toRegID |> int |> (fun n -> n+1) |>
+    let dst1 = reg1 |> Register.toRegID |> int |> (fun n -> n + 1) |>
                RegisterID.create |> Register.ofRegID |> regVar bld
     (AST.concat dst1 dst)
   | _ -> raise InvalidOperandException
@@ -124,7 +124,7 @@ let adc ins len bld =
   bld <!-- (ins.Address, len)
   bld <+ (t1 := dst)
   bld <+ (t2 := src)
-  bld <+ (t3 := t1 .+ t2 .+ AST.zext 8<rt> (regVar bld CF) )
+  bld <+ (t3 := t1 .+ t2 .+ AST.zext 8<rt> (regVar bld CF))
   bld <+ (dst := t3)
   bld <+ (regVar bld HF := cfOnAdd (AST.extract t1 1<rt> 3)
                                    (AST.extract t2 1<rt> 3)
@@ -162,8 +162,10 @@ let adiw (ins: Instruction) len bld =
     match ins.Operands with
     | TwoOperands (OprReg reg1, OprImm imm) ->
       let dst = reg1 |> regVar bld
-      let dst1 = reg1 |> Register.toRegID |> int |> (fun n -> n+1) |>
-                 RegisterID.create |> Register.ofRegID |> regVar bld
+      let dst1 =
+        reg1 |> Register.toRegID |> int
+        |> (fun n -> n + 1)
+        |> RegisterID.create |> Register.ofRegID |> regVar bld
       let src = imm |> numI32
       struct (dst, dst1, src)
     | _ -> raise InvalidOperandException
@@ -171,7 +173,7 @@ let adiw (ins: Instruction) len bld =
   bld <+ (t1 := dst1)
   bld <+ (t2 := dst)
   bld <+ (t3 := (AST.concat t1 t2) .+ AST.zext 16<rt> src)
-  bld <+ (dst1 := AST.extract t3 8<rt> 8 )
+  bld <+ (dst1 := AST.extract t3 8<rt> 8)
   bld <+ (dst := AST.extract t3 8<rt> 0)
   bld <+ (regVar bld NF := AST.xthi 1<rt> dst1)
   bld <+ (regVar bld VF := (AST.neg (AST.xthi 1<rt> t1)) .& AST.xthi 1<rt> dst1)
@@ -227,7 +229,7 @@ let bld ins len bld =
     | TwoOperands (_, OprImm imm) -> imm
     | _ -> Terminator.impossible ()
   bld <!-- (ins.Address, len)
-  bld <+ ( (AST.extract dst 1<rt> imm) := regVar bld TF)
+  bld <+ ((AST.extract dst 1<rt> imm) := regVar bld TF)
   bld --!> len
 
 let bst ins len bld =
@@ -337,7 +339,7 @@ let cpc ins len bld =
   bld <!-- (ins.Address, len)
   bld <+ (t1 := dst)
   bld <+ (t2 := src)
-  bld <+ (t3 := t1 .- t2 .- AST.zext 8<rt> (regVar bld CF) )
+  bld <+ (t3 := t1 .- t2 .- AST.zext 8<rt> (regVar bld CF))
   bld <+ (dst := t3)
   bld <+ (regVar bld HF := cfOnAdd t3 t2 t1)
   bld <+ (regVar bld CF := cfOnAdd t3 t2 t1)
@@ -540,11 +542,13 @@ let movw (ins: Instruction) len bld =
     match ins.Operands with
     | TwoOperands (OprReg reg1, OprReg reg2) ->
       let dst = reg1 |> regVar bld
-      let dst1 = reg1 |> Register.toRegID |> int |> (fun n -> n+1) |>
-                 RegisterID.create |> Register.ofRegID |> regVar bld
+      let dst1 =
+        reg1 |> Register.toRegID |> int |> (fun n -> n + 1)
+        |> RegisterID.create |> Register.ofRegID |> regVar bld
       let src = reg2 |> regVar bld
-      let src1 = reg2 |> Register.toRegID |> int |> (fun n -> n+1) |>
-                 RegisterID.create |> Register.ofRegID |> regVar bld
+      let src1 =
+        reg2 |> Register.toRegID |> int |> (fun n -> n + 1)
+        |> RegisterID.create |> Register.ofRegID |> regVar bld
       struct (dst, dst1, src, src1)
     | _ -> raise InvalidOperandException
   bld <!-- (ins.Address, len)
@@ -581,7 +585,7 @@ let ror ins len bld =
   bld <!-- (ins.Address, len)
   bld <+ (t1 := dst)
   bld <+ (dst := t1 >> AST.num1 oprSize)
-  bld <+ ( (AST.extract dst 1<rt> 7) := regVar bld CF)
+  bld <+ ((AST.extract dst 1<rt> 7) := regVar bld CF)
   bld <+ (regVar bld ZF := dst == (AST.num0 oprSize))
   bld <+ (regVar bld CF := AST.xtlo 1<rt> t1)
   bld <+ (regVar bld NF := AST.xtlo 1<rt> dst)
@@ -614,8 +618,9 @@ let sbiw (ins: Instruction) len bld =
     match ins.Operands with
     | TwoOperands (OprReg reg1, OprImm imm) ->
       let dst = reg1 |> regVar bld
-      let dst1 = reg1 |> Register.toRegID |> int |> (fun n -> n+1) |>
-                 RegisterID.create |> Register.ofRegID |> regVar bld
+      let dst1 =
+        reg1 |> Register.toRegID |> int |> (fun n -> n + 1)
+        |> RegisterID.create |> Register.ofRegID |> regVar bld
       let src = imm |> numI32
       struct (dst, dst1, src)
     | _ -> raise InvalidOperandException
@@ -623,7 +628,7 @@ let sbiw (ins: Instruction) len bld =
   bld <+ (t1 := dst1)
   bld <+ (t2 := dst)
   bld <+ (t3 := (AST.concat t1 t2) .- AST.zext 16<rt> src)
-  bld <+ (dst1 := AST.extract t3 8<rt> 8 )
+  bld <+ (dst1 := AST.extract t3 8<rt> 8)
   bld <+ (dst := AST.extract t3 8<rt> 0)
   bld <+ (regVar bld NF := AST.xthi 1<rt> dst1)
   bld <+ (regVar bld VF := (AST.neg (AST.xthi 1<rt> t1)) .& AST.xthi 1<rt> dst1)
@@ -729,7 +734,7 @@ let ld ins len bld =
 let ldd ins len bld =
   let (dst, src, src1) = transMemOprToExpr1 ins bld
   bld <!-- (ins.Address, len)
-  bld <+ (dst := AST.loadLE 8<rt> (src .+  src1))
+  bld <+ (dst := AST.loadLE 8<rt> (src .+ src1))
   bld --!> len
 
 let pop ins len bld =
@@ -824,9 +829,9 @@ let st ins len bld =
   let (dst, src, mode) = transMemOprToExpr2 ins bld
   bld <!-- (ins.Address, len)
   match mode with
-  | 0 -> bld <+ (AST.loadLE 8<rt> dst :=  src)
+  | 0 -> bld <+ (AST.loadLE 8<rt> dst := src)
   | 1 ->
-    bld <+ (AST.loadLE 8<rt> dst :=  src)
+    bld <+ (AST.loadLE 8<rt> dst := src)
     match dst with
     | BinOp (BinOpType.CONCAT, _, exp1, exp2, _) ->
       bld <+ (exp1 := AST.extract (dst .+ numI32PC 1) 8<rt> 8)

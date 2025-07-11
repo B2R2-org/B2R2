@@ -239,7 +239,7 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     member _.AddRoot (v) =
       assert (vertices.ContainsKey v.ID)
       let roots = if List.contains v roots then roots else v :: roots
-      PersistentDiGraph(roots, vertices, preds, succs, id)
+      PersistentDiGraph (roots, vertices, preds, succs, id)
 
     member _.SetRoots (vs) =
       for v in vs do assert (vertices.ContainsKey v.ID)

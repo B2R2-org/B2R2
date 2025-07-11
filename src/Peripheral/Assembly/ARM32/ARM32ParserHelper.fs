@@ -50,10 +50,10 @@ type AssemblyLine =
 /// offset value by the register given.
 let substituteParsedRegister (reg, dummyOffset) =
   match dummyOffset with
-  | ImmOffset ( _, signOpt, constOpt ) -> ImmOffset (reg, signOpt, constOpt)
-  | RegOffset ( _, signOpt, shiftReg, shiftOpt ) ->
-    RegOffset ( reg, signOpt, shiftReg, shiftOpt )
-  | AlignOffset ( _, alignOpt, regOpt) -> AlignOffset ( reg, alignOpt, regOpt)
+  | ImmOffset (_, signOpt, constOpt) -> ImmOffset (reg, signOpt, constOpt)
+  | RegOffset (_, signOpt, shiftReg, shiftOpt) ->
+    RegOffset (reg, signOpt, shiftReg, shiftOpt)
+  | AlignOffset ( _, alignOpt, regOpt) -> AlignOffset (reg, alignOpt, regOpt)
 
 let parseShiftOperation opcode imm =
   let srType =
@@ -86,7 +86,7 @@ let parseOprRegShiftOperand opcode reg =
     | Opcode.RRX -> Some SRTypeRRX
     | _ -> None
   if srType.IsNone then fail "not a shift opcode"
-  else preturn (OprRegShift(srType.Value, reg))
+  else preturn (OprRegShift (srType.Value, reg))
 
 let extractOperands = function
   | [] -> NoOperand

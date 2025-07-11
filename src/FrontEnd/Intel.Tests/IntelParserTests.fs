@@ -74,7 +74,7 @@ type IntelParserTests () =
   let test prefs segment wordSize opcode (oprs: Operands) bytes =
     let reader = BinReader.Init Endian.Little
     let parser = IntelParser (wordSize, reader) :> IInstructionParsable
-    let ins = parser.Parse (bs=bytes, addr=0UL) :?> Instruction
+    let ins = parser.Parse (bs = bytes, addr = 0UL) :?> Instruction
     Assert.AreEqual<Prefix> (ins.Prefixes, prefs)
     Assert.AreEqual<Register option> (Prefix.getSegment ins.Prefixes, segment)
     Assert.AreEqual<Opcode> (ins.Opcode, opcode)

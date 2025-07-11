@@ -543,7 +543,7 @@ let transOprToExprOfCSNEG (ins: Instruction) bld addr =
     transOprToExpr ins bld addr o1,
     transOprToExpr ins bld addr o2,
     transOprToExpr ins bld addr o3,
-    o4|> unwrapCond
+    o4 |> unwrapCond
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfEOR (ins: Instruction) bld addr =
@@ -1170,7 +1170,7 @@ let fpMul bld dataSize src1 src2 =
   bld <+ (res := fpDefaultNan dataSize)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblChkInf)
-  bld <+ (AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf)(AST.jmpDest lblMul))
+  bld <+ (AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf) (AST.jmpDest lblMul))
   bld <+ (AST.lmark lblInf)
   bld <+ (res := AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
                                (fpZero (src1 <+> src2) dataSize))
@@ -1214,7 +1214,7 @@ let fpDiv bld dataSize src1 src2 =
   bld <+ (res := fpDefaultNan dataSize)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblChkInf)
-  bld <+ (AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf)(AST.jmpDest lblDiv))
+  bld <+ (AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf) (AST.jmpDest lblDiv))
   bld <+ (AST.lmark lblInf)
   bld <+ (res := AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
                                (fpZero (src1 <+> src2) dataSize))

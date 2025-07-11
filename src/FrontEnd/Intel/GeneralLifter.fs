@@ -192,7 +192,7 @@ let aam (ins: Instruction) insLen bld =
   assert32 bld
 #endif
   bld <!-- (ins.Address, insLen)
-  let imm8 = transOneOpr bld ins insLen |>  AST.xtlo 8<rt>
+  let imm8 = transOneOpr bld ins insLen |> AST.xtlo 8<rt>
   let al = regVar bld R.AL
   let ah = regVar bld R.AH
   let sf = AST.xthi 1<rt> al
@@ -1230,7 +1230,7 @@ let private mul64Bit src1 src2 bld =
   bld <+ (lo1Hi2 := loSrc1 .* hiSrc2)
   bld <+ (pMid := hi1Lo2 .+ lo1Hi2)
   bld <+ (pLow := loSrc1 .* loSrc2)
-  let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
+  let high = pHigh .+ ((pMid .+ (pLow >> n32)) >> n32)
   let low = pLow .+ ((pMid .& mask) << n32)
   let isOverflow = hi1Lo2 .> numI64 0xffffffff_ffffffffL 64<rt> .- lo1Hi2
   bld <+ (tHigh :=
@@ -1521,7 +1521,7 @@ let private imul64Bit src1 src2 bld =
   let isOverflow =
     pMid1 .> numI64 0xffffffff_ffffffffL 64<rt> .- pMid2
   let c = AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>)
-  bld <+ (high := pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32) .+ c)
+  bld <+ (high := pHigh .+ ((pMid .+ (pLow >> n32)) >> n32) .+ c)
   bld <+ (low := pLow .+ ((pMid .& mask) << n32))
   bld <+ (isSign := src1IsNeg <+> src2IsNeg) // T11
   bld <+ (tHigh := AST.ite isSign (AST.not high) high)
@@ -2065,7 +2065,7 @@ let mul ins insLen bld =
     let pHigh = hiRAX .* hiSrc
     let pMid = (hiRAX .* loSrc) .+ (loRAX .* hiSrc)
     let pLow = (loRAX .* loSrc)
-    let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
+    let high = pHigh .+ ((pMid .+ (pLow >> n32)) >> n32)
     let low = pLow .+ ((pMid .& mask) << n32)
     let isOverflow =
       hiRAX .* loSrc .> numI64 0xffffffff_ffffffffL 64<rt> .- loRAX .* hiSrc
@@ -2116,7 +2116,7 @@ let mulx ins insLen bld =
     let pHigh = hiSrc1 .* hiSrc
     let pMid = (hiSrc1 .* loSrc) .+ (loSrc1 .* hiSrc)
     let pLow = (loSrc1 .* loSrc)
-    let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
+    let high = pHigh .+ ((pMid .+ (pLow >> n32)) >> n32)
     let low = pLow .+ ((pMid .& mask) << n32)
     let isOverflow =
       hiSrc1 .* loSrc .> numI64 0xffffffff_ffffffffL 64<rt> .- loSrc1 .* hiSrc
@@ -2962,33 +2962,33 @@ let tzcnt ins insLen bld =
   | 16<rt> ->
     bld <+ (t2 := t1 >> numI32 8 16<rt>)
     bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+  numI32 8 16<rt>) res)
+    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 8 16<rt>) res)
     bld <+ (t2 := t1 >> numI32 4 16<rt>)
     bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+  numI32 4 16<rt>) res)
+    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 4 16<rt>) res)
   | 32<rt> ->
     bld <+ (t2 := t1 >> numI32 16 32<rt>)
     bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+  numI32 16 32<rt>) res)
+    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 16 32<rt>) res)
     bld <+ (t2 := t1 >> numI32 8 32<rt>)
     bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+  numI32 8 32<rt>) res)
+    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 8 32<rt>) res)
     bld <+ (t2 := t1 >> numI32 4 32<rt>)
     bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+  numI32 4 32<rt>) res)
+    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 4 32<rt>) res)
   | 64<rt> ->
     bld <+ (t2 := t1 >> numI32 32 64<rt>)
     bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+  numI32 32 64<rt>) res)
+    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 32 64<rt>) res)
     bld <+ (t2 := t1 >> numI32 16 64<rt>)
     bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+  numI32 16 64<rt>) res)
+    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 16 64<rt>) res)
     bld <+ (t2 := t1 >> numI32 8 64<rt>)
     bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+  numI32 8 64<rt>) res)
+    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 8 64<rt>) res)
     bld <+ (t2 := t1 >> numI32 4 64<rt>)
     bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+  numI32 4 64<rt>) res)
+    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 4 64<rt>) res)
   | _ -> raise InvalidOperandSizeException
   let v = (res .+ ((t1 >> numI32 1 oprSize) .- (t1 >> numI32 3 oprSize)))
   bld <+ (dstAssign oprSize dst v)

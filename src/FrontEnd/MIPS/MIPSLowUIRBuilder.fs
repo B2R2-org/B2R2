@@ -55,13 +55,13 @@ type LowUIRBuilder (isa: ISA,
       with get () = Terminator.impossible ()
         and set v = Terminator.impossible ()
 #endif
-    member _.GetRegVar id = regFactory.GetRegVar (id=id)
-    member _.GetRegVar name = regFactory.GetRegVar (name=name)
+    member _.GetRegVar id = regFactory.GetRegVar (id = id)
+    member _.GetRegVar name = regFactory.GetRegVar (name = name)
     member _.GetPseudoRegVar id idx = regFactory.GetPseudoRegVar id idx
     member _.GetAllRegVars () = regFactory.GetAllRegVars ()
     member _.GetGeneralRegVars () = regFactory.GetGeneralRegVars ()
-    member _.GetRegisterID expr = regFactory.GetRegisterID (expr=expr)
-    member _.GetRegisterID name = regFactory.GetRegisterID (name=name)
+    member _.GetRegisterID expr = regFactory.GetRegisterID (expr = expr)
+    member _.GetRegisterID name = regFactory.GetRegisterID (name = name)
     member _.GetRegisterIDAliases id = regFactory.GetRegisterIDAliases id
     member _.GetRegString id = regFactory.GetRegString id
     member _.GetAllRegStrings () = regFactory.GetAllRegStrings ()

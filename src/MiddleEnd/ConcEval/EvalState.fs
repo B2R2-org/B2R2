@@ -215,14 +215,14 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
                lbls.Clone (),
                newMem,
                ignoreUndef,
-               PC=pc,
-               StmtIdx=stmtIdx,
-               CurrentInsLen=currentInsLen,
-               IsInstrTerminated=isInstrTerminated,
-               NeedToEvaluateIEMark=needToEvaluateIEMark,
-               LoadFailureEventHandler=loadFailureHdl,
-               ExternalCallEventHandler=externalCallEventHdl,
-               SideEffectEventHandler=sideEffectHdl)
+               PC = pc,
+               StmtIdx = stmtIdx,
+               CurrentInsLen = currentInsLen,
+               IsInstrTerminated = isInstrTerminated,
+               NeedToEvaluateIEMark = needToEvaluateIEMark,
+               LoadFailureEventHandler = loadFailureHdl,
+               ExternalCallEventHandler = externalCallEventHdl,
+               SideEffectEventHandler = sideEffectHdl)
 
   /// Make a copy of this EvalState.
   member this.Clone () = this.Clone (mem)

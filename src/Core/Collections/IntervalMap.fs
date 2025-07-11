@@ -36,8 +36,8 @@ type private IntervalMapElem<'V> (k, v) =
   override this.ToString () = this.Key.ToString ()
   interface IMeasured<InterMonoid<Addr>> with
     member this.Measurement =
-      InterMonoid<Addr> (Ordered(Key(this.Key.Min)),
-                         Priority(Prio(this.Key.Max)))
+      InterMonoid<Addr> (Ordered (Key (this.Key.Min)),
+                         Priority (Prio (this.Key.Max)))
 
 /// <summary>
 /// Represents an interval map, which is a map based on an interval tree. This

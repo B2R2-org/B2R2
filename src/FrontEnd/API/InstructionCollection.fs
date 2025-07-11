@@ -91,7 +91,7 @@ type LinearSweepInstructionCollector (hdl: BinHandle,
                                       liftingUnit: LiftingUnit) =
   let rec update updateFn shift (ptr: BinFilePointer) =
     if ptr.IsValid then
-      match liftingUnit.TryParseInstruction (ptr=ptr) with
+      match liftingUnit.TryParseInstruction (ptr = ptr) with
       | Ok ins ->
         updateFn (ptr.Addr, OnlyOne ins) |> ignore
         update updateFn shift (BinFilePointer.Advance ptr (int ins.Length))
@@ -110,6 +110,6 @@ type LinearSweepInstructionCollector (hdl: BinHandle,
 
     member _.ParseInstructionCandidate addr =
       let liftingUnit = hdl.NewLiftingUnit () (* always create a new one! *)
-      match liftingUnit.TryParseInstruction (addr=addr) with
+      match liftingUnit.TryParseInstruction (addr = addr) with
       | Ok ins -> Ok (OnlyOne ins)
       | Error _ -> Error ErrorCase.ParsingFailure

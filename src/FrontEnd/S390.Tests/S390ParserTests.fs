@@ -50,7 +50,7 @@ type O =
 [<TestClass>]
 type S390ParserTests () =
   let test endian opcode (oprs: Operands) (bytes: byte[]) =
-    let isa = ISA (Architecture.S390, endian=endian)
+    let isa = ISA (Architecture.S390, endian = endian)
     let reader = BinReader.Init endian
     let parser = S390Parser (isa, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
@@ -127,7 +127,7 @@ type S390ParserTests () =
   member _.``[S390] Fmt.RX instructions Parse Test (5)`` () =
     "60000000"
     ++ STD **
-    [ O.Reg FPR0; OpStore(Some R0, R0, DispU 0u) ]
+    [ O.Reg FPR0; OpStore (Some R0, R0, DispU 0u) ]
     ||> test32
 
   [<TestMethod>]
@@ -141,7 +141,7 @@ type S390ParserTests () =
   member _.``[S390] Fmt.RS instruction Parse Test (1)`` () =
     "8F2F001F"
     ++ SLDA **
-    [ O.Reg R2; O.Store(None, R0, DispU 31u) ]
+    [ O.Reg R2; O.Store (None, R0, DispU 31u) ]
     ||> test32
 
   [<TestMethod>]

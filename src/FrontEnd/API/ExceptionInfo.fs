@@ -41,7 +41,7 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
   /// If a landing pad has a direct branch to another function, then we consider
   /// the frame containing the lading pad as a non-function FDE.
   let checkIfFDEIsFunction (fde: ELF.FDE) landingPad =
-    match liftingUnit.ParseBBlock (addr=landingPad) with
+    match liftingUnit.ParseBBlock (addr = landingPad) with
     | Ok (blk) ->
       let last = blk[blk.Length - 1]
       if last.IsCall () |> not then

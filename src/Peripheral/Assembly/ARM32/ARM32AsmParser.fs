@@ -43,7 +43,7 @@ type AsmParser (startAddress: Addr) =
 
   /// Adds the parsed label to the label definition map.
   let addLabeldef (lbl: string) =
-    updateUserState ( fun (us: Map<string, Addr>) -> us.Add (lbl, address))
+    updateUserState (fun (us: Map<string, Addr>) -> us.Add (lbl, address))
     >>. preturn ()
 
   let pOpModeSwitcher =
@@ -187,16 +187,16 @@ type AsmParser (startAddress: Addr) =
 
   let pQualifier =
     pchar '.' >>.
-    (( anyOf "nN" >>. preturn Qualifier.N ) <|>
-     ( anyOf "wW" >>. preturn Qualifier.W ))
+    ((anyOf "nN" >>. preturn Qualifier.N) <|>
+     (anyOf "wW" >>. preturn Qualifier.W))
 
   let pOpcode =
     (Enum.GetNames typeof<Opcode>)
     |> Array.map (pstringCI)
     |> Array.rev (* This is so that (eg. ADD does not get parsed for 'ADDS' *)
     |> Array.map (fun p ->
-        attempt p
-        |>> (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
+      attempt p
+      |>> (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
     |> choice
 
   let pCondition =
@@ -247,14 +247,14 @@ type AsmParser (startAddress: Addr) =
     pImm |>> fun cons -> ImmOffset (Register.C0, None, Some cons)
 
   let pDummyShiftedRegOffset =
-    opt (pchar '-' >>. preturn Minus) .>>.pReg .>> spaces .>> pchar ','
+    opt (pchar '-' >>. preturn Minus) .>>. pReg .>> spaces .>> pchar ','
     .>> spaces .>>. pShiftedIndexRegister
     |>> fun ((sign, reg), shifter) ->
-          RegOffset (Register.C0, sign, reg, Some shifter)
+      RegOffset (Register.C0, sign, reg, Some shifter)
 
   let pDummyRegRegOffset =
     opt (pchar '-' >>. preturn Minus) .>>. pReg
-    |>> (fun (sOpt, reg) -> RegOffset(Register.C0, sOpt, reg, None))
+    |>> (fun (sOpt, reg) -> RegOffset (Register.C0, sOpt, reg, None))
     .>> setWBFlag
 
   let pDummyRegOffset =
@@ -369,11 +369,11 @@ type AsmParser (startAddress: Addr) =
               let qual = match qual with | Some W -> W | _ -> N
               newInsInfo
                  address opcode cond 0uy wBackFlag qual simd
-                 operands (getInsLength ()) isThumb None )
+                 operands (getInsLength ()) isThumb None)
       .>> clearWBackFlag
 
   let pInstructionLine =
-    opt pLabelDef >>. spaces >>. pInsInfo  .>> incrementAddress
+    opt pLabelDef >>. spaces >>. pInsInfo .>> incrementAddress
     |>> InstructionLine
 
   let statement =
