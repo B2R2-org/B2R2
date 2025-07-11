@@ -525,7 +525,7 @@ let parseSyncAndLoadAcqStoreRel (phlp: ParsingHelper) bin =
 #if !EMULATION
     chkPCRtRt2Rn bin
 #endif
-    let op = if pickBit bin 22 (* B *) = 1u then Op.SWPB else Op.SWP
+    let op = if pickBit bin 22 = 1u (* B *) then Op.SWPB else Op.SWP
     render phlp bin op None OD.OprRtRt2Mem2
   | 0b0u -> raise ParsingFailureException
   | _ (* 0b01u *) -> parseLdStExclAndLdAcqStRel phlp bin
@@ -1672,7 +1672,8 @@ let parseExtendAndAdd (phlp: ParsingHelper) bin =
 
 /// Signed multiply, Divide on page F4-4241.
 let parseSignedMulDiv (phlp: ParsingHelper) bin =
-  let isNotRa1111 bin = pickFour bin 12 (* a *) <> 0b1111u (* Ra != 1111 *)
+  (* a <> Ra != 1111 *)
+  let isNotRa1111 bin = pickFour bin 12 <> 0b1111u
   match concat (pickThree bin 20) (pickThree bin 5) 3 (* op1:op2 *) with
   | 0b000000u when isNotRa1111 bin ->
 #if !EMULATION
@@ -2083,7 +2084,7 @@ let parseCase101 (phlp: ParsingHelper) bin =
   | Condition.UN (* 0b1111u *) ->
     render phlp bin Op.BLX None OD.OprLabelH
   | _ (* != 0b1111u *) ->
-    if pickBit bin 24 (* H *) = 0u then
+    if pickBit bin 24 = 0u (* H *) then
       render phlp bin Op.B None OD.OprLabelA
     else render phlp bin Op.BL None OD.OprLabelA
 
@@ -3691,7 +3692,7 @@ let parseCPS (phlp: ParsingHelper) bin =
      then UNPREDICTABLE *)
   let imod1 = pickBit bin 19 (* imod<1> *)
   let aif = pickThree bin 6 (* A:I:F *)
-  (((pickFive bin 0 (* mode *) <> 0u) && (pickBit bin 17 = 0u (* M *))) ||
+  (((pickFive bin 0 <> 0u (* mode *)) && (pickBit bin 17 = 0u (* M *))) ||
    (((imod1 = 1u) && (aif = 0u)) || ((imod1 = 0u) && (aif <> 0u))))
    |> checkUnpred
   let struct (op, oprs) =
@@ -6738,9 +6739,9 @@ let parseAdvSIMDTwoRegsAndShfAmt (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VSRA (getDTLImmA bin) OD.OprQdQmImm
   | 0b010100u | 0b110100u (* x10100 *)
-    when pickThree bin 16 (* imm3L *) = 0b000u ->
+    when pickThree bin 16 = 0b000u (* imm3L *) ->
     (* if Vd<0> == '1' then UNDEFINED *)
-    pickBit bin 12 (* Vd<0> *) = 1u |> checkUndef
+    pickBit bin 12 = 1u |> checkUndef (* Vd<0> *)
     render phlp bin Op.VMOVL (getDTUImm3hA bin) OD.OprQdDm
   | 0b000100u | 0b100100u (* x00100 *) ->
 #if !EMULATION
@@ -6805,7 +6806,7 @@ let parseAdvSIMDTwoRegsAndShfAmt (phlp: ParsingHelper) bin =
       | 0b101u -> SIMDTypU32
       | _ (* 11x *) -> SIMDTypF32
     let oprFn =
-      if pickBit bin 6 (* Q *) = 0u then OD.OprDdDmFbits else OD.OprQdQmFbits
+      if pickBit bin 6 = 0u (* Q *) then OD.OprDdDmFbits else OD.OprQdQmFbits
     render phlp bin Op.VCVT (twoDt (dt1, dt2)) oprFn
   | 0b001010u | 0b001011u (* 00101x *) ->
 #if !EMULATION
@@ -6820,16 +6821,16 @@ let parseAdvSIMDTwoRegsAndShfAmt (phlp: ParsingHelper) bin =
       | _ (* 1xxx *) -> SIMDTypI64
       |> oneDt
     let oprFn =
-      if pickBit bin 6 (* Q *) = 0u then OD.OprDdDmImmLeft
+      if pickBit bin 6 = 0u (* Q *) then OD.OprDdDmImmLeft
       else OD.OprQdQmImmLeft
     render phlp bin Op.VSHL dt oprFn
   | 0b010000u ->
     (* if Vm<0> == '1' then UNDEFINED *)
-    pickBit bin 0 (* Vm<0> *) = 1u |> checkUndef
+    pickBit bin 0 = 1u |> checkUndef (* Vm<0> *)
     render phlp bin Op.VSHRN (getDTImm6Int bin) OD.OprDdQmImm
   | 0b010001u ->
     (* if Vm<0> == '1' then UNDEFINED *)
-    pickBit bin 0 (* Vm<0> *) = 1u |> checkUndef
+    pickBit bin 0 = 1u |> checkUndef (* Vm<0> *)
     render phlp bin Op.VRSHRN (getDTImm6Int bin) OD.OprDdQmImm
   | 0b101000u ->
 #if !EMULATION
@@ -6863,11 +6864,11 @@ let parseAdvSIMDTwoRegsAndShfAmt (phlp: ParsingHelper) bin =
     render phlp bin Op.VQSHLU (getDTLImmA bin) OD.OprQdQmImmLeft
   | 0b110000u ->
     (* if Vm<0> == '1' then UNDEFINED *)
-    pickBit bin 0 (* Vm<0> *) = 1u |> checkUndef
+    pickBit bin 0 = 1u |> checkUndef (* Vm<0> *)
     render phlp bin Op.VQSHRUN (getDTImm6Sign bin) OD.OprDdQmImm
   | 0b110001u ->
     (* if Vm<0> == '1' then UNDEFINED *)
-    pickBit bin 0 (* Vm<0> *) = 1u |> checkUndef
+    pickBit bin 0 = 1u |> checkUndef (* Vm<0> *)
     render phlp bin Op.VQRSHRUN (getDTImm6Sign bin) OD.OprDdQmImm
   | _ -> raise ParsingFailureException
 

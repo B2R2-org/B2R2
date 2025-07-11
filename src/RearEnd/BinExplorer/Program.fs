@@ -110,7 +110,7 @@ type BinExplorerOpts (isa) =
     let cb (opts: #CmdOpts) (arg: string []) =
       (BinExplorerOpts.ToThis opts).ISA <- ISA.OfString arg[0]; opts
     CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) for fat binaries",
-                  extra = 1, callback = cb, short = "-a", long= "--isa" )
+                  extra = 1, callback = cb, short = "-a", long = "--isa" )
 
   static member OptReadLine () =
     let cb (opts: #CmdOpts) (_arg: string []) =
@@ -162,26 +162,26 @@ type BinExplorerOpts (isa) =
       callback = cb, long = "--disable-evm-analysis")
 
 let spec =
-  [ CmdOpts.New ( descr="[Input Configuration]\n", dummy=true )
+  [ CmdOpts.New (descr = "[Input Configuration]\n", dummy = true)
     (* *)
     BinExplorerOpts.OptISA ()
     (* *)
-    CmdOpts.New ( descr="\n[Host Configuration]\n", dummy=true )
+    CmdOpts.New (descr = "\n[Host Configuration]\n", dummy = true)
     (* *)
     BinExplorerOpts.OptIP ()
     BinExplorerOpts.OptPort ()
     (* *)
-    CmdOpts.New ( descr="\n[Logging Configuration]\n", dummy=true )
+    CmdOpts.New (descr = "\n[Logging Configuration]\n", dummy = true)
     (* *)
     BinExplorerOpts.OptLogFile ()
     (* *)
-    CmdOpts.New ( descr="\n[Analyses]\n", dummy=true )
+    CmdOpts.New (descr = "\n[Analyses]\n", dummy = true)
     (* *)
     BinExplorerOpts.OptDisableNoReturn ()
     BinExplorerOpts.OptDisableBranchRecovery ()
     BinExplorerOpts.OptDisableSpeculativeGapCompletion ()
     (* *)
-    CmdOpts.New ( descr="\n[Extra]\n", dummy=true )
+    CmdOpts.New (descr = "\n[Extra]\n", dummy = true)
     (* *)
     BinExplorerOpts.OptReadLine ()
     BinExplorerOpts.OptJsonDumpDir ()
@@ -190,9 +190,9 @@ let spec =
     CmdOpts.OptVerbose ()
     CmdOpts.OptHelp ()
     (* *)
-    CmdOpts.New ( descr="\n[Batch Mode]\n", dummy=true )
-    CmdOpts.New ( descr="Run in batch mode (w/o interative shell).",
-                  long = "--batch" ) ]
+    CmdOpts.New (descr = "\n[Batch Mode]\n", dummy = true)
+    CmdOpts.New (descr = "Run in batch mode (w/o interative shell).",
+                 long = "--batch") ]
 
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose

@@ -3214,8 +3214,8 @@ let parseFPImm bin =
 /// Floating-point conditional compare on page C4-366.
 let parseFPCondComp bin =
   let cond = (* M:S:type:op *)
-    (pickBit bin 31u <<< 4)||| (pickBit bin 29u <<< 3) |||
-    (extract bin 23u 22u <<< 1) |||  (pickBit bin 4u)
+    (pickBit bin 31u <<< 4) ||| (pickBit bin 29u <<< 3) |||
+    (extract bin 23u 22u <<< 1) ||| (pickBit bin 4u)
   match cond with
   | c when c &&& 0b00110u = 0b00100u -> raise UnallocatedException
   | c when c &&& 0b01000u = 0b01000u -> raise UnallocatedException

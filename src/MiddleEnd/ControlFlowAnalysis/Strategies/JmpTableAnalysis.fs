@@ -268,7 +268,7 @@ type JmpTableAnalysis<'FnCtx,
       else Error ErrorCase.ItemNotFound
 
   let findConstFromIRCFG (state: VarBasedDataFlowState<_>) v =
-    state.DomainSubState.GetAbsValue (v=v)
+    state.DomainSubState.GetAbsValue (v = v)
 
   let findDefFromIRCFG (state: VarBasedDataFlowState<_>) v =
     state.TryGetSSADef v

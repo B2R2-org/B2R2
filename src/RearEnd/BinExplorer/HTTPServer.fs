@@ -100,12 +100,12 @@ let defaultEnc = Text.Encoding.UTF8
 
 let json<'T> (obj: 'T) =
   use ms = new IO.MemoryStream ()
-  (DataContractJsonSerializer(typeof<'T>)).WriteObject(ms, obj)
+  (DataContractJsonSerializer (typeof<'T>)).WriteObject (ms, obj)
   Text.Encoding.Default.GetString (ms.ToArray ())
 
 let jsonParser<'T> (jsonString: string): 'T =
-  use ms = new IO.MemoryStream (Text.Encoding.Default.GetBytes(jsonString))
-  let obj = (DataContractJsonSerializer(typeof<'T>)).ReadObject(ms)
+  use ms = new IO.MemoryStream (Text.Encoding.Default.GetBytes (jsonString))
+  let obj = (DataContractJsonSerializer (typeof<'T>)).ReadObject (ms)
   obj :?> 'T
 
 let readIfExists path =
@@ -220,7 +220,7 @@ let private myprinter _ acc output =
 
 let handleCommand req resp arbiter cmdMap (args: string) =
   let result = CLI.handle cmdMap arbiter args "" myprinter
-  Some (json<string> result  |> defaultEnc.GetBytes) |> answer req resp
+  Some (json<string> result |> defaultEnc.GetBytes) |> answer req resp
 
 let computeConnectedVars chain v =
   match Map.tryFind v chain.UseDefChain with

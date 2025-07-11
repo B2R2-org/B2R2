@@ -114,7 +114,7 @@ let illSlot1 (ins: Instruction) bld len =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("ILLSLOT")))
+  bld <+ (AST.sideEffect (Exception ("ILLSLOT")))
   bld --!> len
 
 let illSlot2 bld len =
@@ -126,7 +126,7 @@ let illSlot2 bld len =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("ILLSLOT")))
+  bld <+ (AST.sideEffect (Exception ("ILLSLOT")))
   bld --!> len
 
 let fpudis bld =
@@ -138,7 +138,7 @@ let fpudis bld =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("FPUDIS")))
+  bld <+ (AST.sideEffect (Exception ("FPUDIS")))
 
 let slotFpudis bld =
   bld <+ (regVar bld R.SPC := regVar bld R.PC .- numI32 2)
@@ -149,7 +149,7 @@ let slotFpudis bld =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("SLOTFPUDIS")))
+  bld <+ (AST.sideEffect (Exception ("SLOTFPUDIS")))
 
 let fpuExc bld =
   bld <+ (regVar bld R.SPC := regVar bld R.PC)
@@ -160,7 +160,7 @@ let fpuExc bld =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("FPUEXC")))
+  bld <+ (AST.sideEffect (Exception ("FPUEXC")))
 
 let trap bld imm =
   bld <+ (regVar bld R.SPC := regVar bld R.PC .+ numI32 2)
@@ -172,7 +172,7 @@ let trap bld imm =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("TRAPA")))
+  bld <+ (AST.sideEffect (Exception ("TRAPA")))
 
 let resinst bld =
   bld <+ (regVar bld R.SPC := regVar bld R.PC)
@@ -183,15 +183,17 @@ let resinst bld =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("RESINST")))
+  bld <+ (AST.sideEffect (Exception ("RESINST")))
 
 let fpuCheck fps n =
   bv1Check (AST.extract fps 1<rt> n)
 
 let signedSaturate r =
-  AST.ite ((r ?< numI32 (int ((-2.0)**32))) .| (r ?> numI32 (int ((2.0)**32))))
-          (AST.ite ((r ?< numI32 (int ((-2.0)**32))))
-                   (numI32 (int ((-2.0)**32))) (numI32 (int ((2.0)**32))))
+  AST.ite ((r ?< numI32 (int ((-2.0) ** 32)))
+            .| (r ?> numI32 (int ((2.0) ** 32))))
+          (AST.ite ((r ?< numI32 (int ((-2.0) ** 32))))
+                   (numI32 (int ((-2.0) ** 32)))
+                   (numI32 (int ((2.0) ** 32))))
           r
 
 /// Carry Forward check
@@ -614,7 +616,7 @@ let div1 ins len bld =
   bld <+ (op2 := (op2 << AST.b1) .| t)
   bld <+ (op2 := AST.ite (oldq == m) (op2 .- op1) (op2 .+ op1))
   bld <+ (q := AST.extract op2 1<rt> 32 |> AST.xor (q <+> m))
-  bld <+ (t:= AST.b1 .- (q <+> m))
+  bld <+ (t := AST.b1 .- (q <+> m))
   bld <+ (dst := AST.xtlo 32<rt> op2)
   bld <+ (regVar bld R.Q := AST.extract q 1<rt> 1)
   bld <+ (regVar bld R.T := AST.extract t 1<rt> 1)
@@ -1501,7 +1503,7 @@ let macl ins len bld =
   bld <+ (result := AST.ite (s == AST.b1)
     (AST.ite ((((result <+> mac) .& (result <+> mul)) >> numI32 63) == AST.b1)
     (AST.ite ((mac >> numI32 62) == AST.b0)
-             (numI64 (int (2.0**47 - 1.0))) (numI64 (int (-2.0**47))))
+             (numI64 (int (2.0 ** 47 - 1.0))) (numI64 (int (-2.0 ** 47))))
     (signedSaturate result))
     (result))
   bld <+ (macl := result)
@@ -2112,7 +2114,7 @@ let orb ins len bld =
   bld <+ (gbr := regVar bld R.GBR |> AST.sext 32<rt>)
   bld <+ (imm := AST.zext 8<rt> src)
   bld <+ (address := (r0 .+ gbr) |> AST.zext 32<rt>)
-  bld <+ (value := AST.loadLE 8<rt> address  |> AST.zext 8<rt>)
+  bld <+ (value := AST.loadLE 8<rt> address |> AST.zext 8<rt>)
   bld <+ (value := value .| imm)
   bld <+ (AST.store Endian.Little address value)
   bld --!> len

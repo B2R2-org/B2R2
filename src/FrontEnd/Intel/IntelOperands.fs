@@ -847,49 +847,49 @@ type internal OpNo () =
 type internal OpEax () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG0)  rhlp
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG0) rhlp
     OneOperand o
 
 type internal OpEcx () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG1)  rhlp
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG1) rhlp
     OneOperand o
 
 type internal OpEdx () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG2)  rhlp
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG2) rhlp
     OneOperand o
 
 type internal OpEbx () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG3)  rhlp
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG3) rhlp
     OneOperand o
 
 type internal OpEsp () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG4)  rhlp
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG4) rhlp
     OneOperand o
 
 type internal OpEbp () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG5)  rhlp
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG5) rhlp
     OneOperand o
 
 type internal OpEsi () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG6)  rhlp
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG6) rhlp
     OneOperand o
 
 type internal OpEdi () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG7)  rhlp
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG7) rhlp
     OneOperand o
 
 type internal OpRax () =
@@ -944,7 +944,7 @@ type internal OpRaxRax () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  rhlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) rhlp
     let o2 =
       getOprFromRegGrpREX (int RegGrp.RG0) rhlp
     TwoOperands (o1, o2)
@@ -953,7 +953,7 @@ type internal OpRaxRcx () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  rhlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) rhlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG1) rhlp
     TwoOperands (o1, o2)
 
@@ -961,7 +961,7 @@ type internal OpRaxRdx () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  rhlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) rhlp
     let o2 =
       getOprFromRegGrpREX (int RegGrp.RG2) rhlp
     TwoOperands (o1, o2)
@@ -970,7 +970,7 @@ type internal OpRaxRbx () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  rhlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) rhlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG3) rhlp
     TwoOperands (o1, o2)
 
@@ -978,7 +978,7 @@ type internal OpRaxRsp () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  rhlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) rhlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG4) rhlp
     TwoOperands (o1, o2)
 
@@ -986,7 +986,7 @@ type internal OpRaxRbp () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  rhlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) rhlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG5) rhlp
     TwoOperands (o1, o2)
 
@@ -994,7 +994,7 @@ type internal OpRaxRsi () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  rhlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) rhlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG6) rhlp
     TwoOperands (o1, o2)
 
@@ -1002,7 +1002,7 @@ type internal OpRaxRdi () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  rhlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) rhlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG7) rhlp
     TwoOperands (o1, o2)
 
@@ -1052,7 +1052,7 @@ type internal OpRaxFar () =
   inherit OperandParser ()
   override _.Render (span, rhlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  rhlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) rhlp
     let o2 = parseOprOnlyDisp span rhlp
     TwoOperands (o1, o2)
 
@@ -1061,7 +1061,7 @@ type internal OpFarRax () =
   override _.Render (span, rhlp) =
     let o1 = parseOprOnlyDisp span rhlp
     let o2 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  rhlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) rhlp
     TwoOperands (o1, o2)
 
 type internal OpALImm8 () =

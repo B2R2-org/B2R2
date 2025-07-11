@@ -108,7 +108,7 @@ type Instruction
       match op with
       | Opcode.BAL | Opcode.BALR | Opcode.BAS | Opcode.BASR
       | Opcode.BASSM | Opcode.BSM -> true
-      | Opcode.BC | Opcode.BCR when getMaskVal opr = Some(15us) -> true
+      | Opcode.BC | Opcode.BCR when getMaskVal opr = Some (15us) -> true
       | _ -> false
 
     member _.IsRET () =

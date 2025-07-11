@@ -1385,7 +1385,7 @@ let mtfsfi ins insLen updateCond bld =
   else
     bld <+ (AST.extract fpscr 1<rt> (pos + 3) := AST.extract imm 1<rt> 3)
     bld <+ (AST.extract fpscr 1<rt> (pos + 2) := AST.extract imm 1<rt> 2)
-    bld <+ (AST.extract fpscr 1<rt> (pos+ 1) := AST.extract imm 1<rt> 1)
+    bld <+ (AST.extract fpscr 1<rt> (pos + 1) := AST.extract imm 1<rt> 1)
     bld <+ (AST.extract fpscr 1<rt> pos := AST.extract imm 1<rt> 0)
   bld --!> insLen
 
@@ -1405,7 +1405,7 @@ let private crmMask bld crm =
     let cond1 = AST.extract crm 1<rt> (i * 2)
     let cond2 = AST.extract crm 1<rt> (i * 2 + 1)
     bld <+ (tCrm[i] :=
-      AST.ite cond1 (AST.ite cond2 (numI32 0xff 8<rt>)(numI32 0xf 8<rt>))
+      AST.ite cond1 (AST.ite cond2 (numI32 0xff 8<rt>) (numI32 0xf 8<rt>))
        (AST.ite cond2 (numI32 0xf0 8<rt>) (AST.num0 8<rt>)))
   tCrm |> AST.revConcat
 
@@ -1848,10 +1848,10 @@ let stwbrx ins insLen bld =
   let revtmp = tmpVar bld 32<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (tmpEA := ea)
-  bld <+ (AST.extract revtmp 8<rt> 0:= AST.extract rs 8<rt> 24)
-  bld <+ (AST.extract revtmp 8<rt> 8:= AST.extract rs 8<rt> 16)
-  bld <+ (AST.extract revtmp 8<rt> 16:= AST.extract rs 8<rt> 8)
-  bld <+ (AST.extract revtmp 8<rt> 24:= AST.extract rs 8<rt> 0)
+  bld <+ (AST.extract revtmp 8<rt> 0 := AST.extract rs 8<rt> 24)
+  bld <+ (AST.extract revtmp 8<rt> 8 := AST.extract rs 8<rt> 16)
+  bld <+ (AST.extract revtmp 8<rt> 16 := AST.extract rs 8<rt> 8)
+  bld <+ (AST.extract revtmp 8<rt> 24 := AST.extract rs 8<rt> 0)
   bld <+ (loadNative bld 32<rt> tmpEA := revtmp)
   bld --!> insLen
 

@@ -114,11 +114,11 @@ type CmdPrint () =
   let print (hdl: BinHandle) sz fmt addr =
     match fmt with
     | Hexadecimal ->
-      hdl.ReadUInt (addr=addr, size=sz) |> hexPrint sz
+      hdl.ReadUInt (addr = addr, size = sz) |> hexPrint sz
     | UnsignedDecimal ->
-      hdl.ReadUInt(addr=addr, size=sz).ToString ()
+      hdl.ReadUInt(addr = addr, size = sz).ToString ()
     | Decimal ->
-      hdl.ReadInt(addr=addr, size=sz).ToString ()
+      hdl.ReadInt(addr = addr, size = sz).ToString ()
     | _ -> failwith "This is impossible"
 
   let getAddressPrefix (hdl: BinHandle) (addr: uint64) =
@@ -138,7 +138,7 @@ type CmdPrint () =
     if cnt <= 0 then List.rev acc |> List.toArray
     else
       let s =
-        try hdl.ReadASCII (addr=addr) |> Some with _ -> None
+        try hdl.ReadASCII (addr = addr) |> Some with _ -> None
       match s with
       | None -> printStrings hdl addr 0 acc
       | Some s ->

@@ -83,7 +83,7 @@ let movd (ins: Instruction) insLen bld =
 let private movqRegToReg ins bld r1 r2 =
   match Register.getKind r1, Register.getKind r2 with
   | Register.Kind.XMM, Register.Kind.XMM ->
-    bld <+ (pseudoRegVar bld r1 1 := pseudoRegVar bld r2 1 )
+    bld <+ (pseudoRegVar bld r1 1 := pseudoRegVar bld r2 1)
     bld <+ (pseudoRegVar bld r1 2 := AST.num0 64<rt>)
   | Register.Kind.XMM, _ ->
     bld <+ (pseudoRegVar bld r1 1 := regVar bld r2)

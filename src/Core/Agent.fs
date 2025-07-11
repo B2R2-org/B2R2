@@ -75,7 +75,7 @@ type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
         Console.Error.WriteLine e.Message
         Console.Error.WriteLine e.StackTrace
         exit 1
-    Agent (ch, Task.Run (fn, cancellationToken=token))
+    Agent (ch, Task.Run (fn, cancellationToken = token))
 
 /// <summary>
 /// Represents a reply channel for an agent (<see cref='T:B2R2.Agent`1'/>). The

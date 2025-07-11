@@ -126,7 +126,7 @@ let getRegFV = function
 let getBits (binary: uint16) (start: int)  (fin: int) =
   let s, e = if ((max start fin) = start) then start, fin else fin, start
   if (s - e + 1) > 15 then failwith "Bits outside range" else ()
-  let mask = (pown 2 ((int) (s-e+1))) - 1 |> uint16
+  let mask = (pown 2 ((int) (s - e + 1))) - 1 |> uint16
   (binary >>> (e - 1)) &&& mask
 
 let get1Bit (binary: uint16) (pos: int) =

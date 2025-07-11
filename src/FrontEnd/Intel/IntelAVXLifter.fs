@@ -72,7 +72,7 @@ let private makeAssignEVEX bld ePrx k oprSz packSz dst src1 src2 opFn isMem =
   let mask idx src1 src2 =
     let cond = getVectorMoveCond ePrx k idx
     let tSrc =
-      if isMem && ePrx.B (* B *) = 1uy then opFn src1 src2A else opFn src1 src2
+      if isMem && ePrx.B = 1uy (* B *) then opFn src1 src2A else opFn src1 src2
     AST.ite cond tSrc (maskWithEPrx ePrx (Array.item idx dst) packSz)
   Array.mapi2 mask src1 src2 |> Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) tmp
   tmp
@@ -1598,7 +1598,7 @@ let vpshufd (ins: Instruction) insLen bld =
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = regVar bld (ePrx.AAA |> int |> Register.opmask)
       let src =
-        if (isMemOpr src1) && ePrx.B (* B *) = 1uy then
+        if (isMemOpr src1) && ePrx.B = 1uy (* B *) then
           Array.init allPackNum (fun _ -> Array.head src)
         else src
       let src = Array.init allPackNum (fun i -> src[getIdx i])

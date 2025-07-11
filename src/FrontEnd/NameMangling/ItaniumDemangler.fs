@@ -39,15 +39,15 @@ type ItaniumDemangler () =
     | [] -> res
     | hd :: tail ->
       if Char.IsDigit hd then
-        let hd = int (hd) - int('0')
+        let hd = int (hd) - int ('0')
         let cur = pown 36 idx
         convertbase36todecimal (idx + 1) (res + hd * cur) tail
       else
-        let hd = int (hd) + 10 - int('A')
+        let hd = int (hd) + 10 - int ('A')
         let cur = pown 36 idx
         convertbase36todecimal (idx + 1) (res + hd * cur) tail
 
-  let pbase36 = many((satisfy Char.IsDigit) <|> (satisfy Char.IsUpper))
+  let pbase36 = many ((satisfy Char.IsDigit) <|> (satisfy Char.IsUpper))
 
   let namebackrefS =
     pchar 'S' >>. ((pchar '_' |>> fun (c) -> (-1))
@@ -96,7 +96,7 @@ type ItaniumDemangler () =
     |>> string |>> BuiltinTypeIndicator.ofString
 
   let builtindouble =
-    pchar 'D' .>>. (anyOf "dfheisanc") |>> (fun (a, b) -> string(a) + string(b))
+    pchar 'D' .>>. (anyOf "dfheisanc") |>> (fun (a, b) -> string a + string b)
     |>> BuiltinTypeIndicator.ofString
 
   let builtin =
@@ -104,12 +104,12 @@ type ItaniumDemangler () =
     |>> BuiltinType
 
   let pSxsubstitution =
-    pchar 'S' .>>. (anyOf "iabsod") |>> (fun (a, b) -> string(a) + string(b))
+    pchar 'S' .>>. (anyOf "iabsod") |>> (fun (a, b) -> string a + string b)
     |>> Sxabbreviation.ofString
     |>> Sxsubstitution
 
   /// Parser for std.
-  let pSt = pstring "St" |>> Sxabbreviation.ofString|>> Sxsubstitution
+  let pSt = pstring "St" |>> Sxabbreviation.ofString |>> Sxsubstitution
 
   let pReference =
     (pstring "R" <|> pstring "O") |>> ReferenceQualifier.ofString |>> Reference
@@ -275,7 +275,7 @@ type ItaniumDemangler () =
     >>= addargumenttolist .>> clearCarry)
     <|>
     (pPointerArg <|> pNestedname <|> builtin <|> attempt (pSxsubstitution)
-    <|> namebackrefS <|> (namebackrefT >>=addTsubtolist))
+    <|> namebackrefS <|> (namebackrefT >>= addTsubtolist))
     .>> clearCarry
 
   /// During pack expansion of argument pack, reference qualifier before
@@ -596,7 +596,7 @@ type ItaniumDemangler () =
     member _.Demangle str =
       match runParserOnString (stmt) ItaniumUserState.Default "" str[2..] with
       | Success (result, _, pos) ->
-        if pos.Column = int64(str.Length) - 1L then
+        if pos.Column = int64 str.Length - 1L then
           Result.Ok <| ItaniumInterpreter.interpret result
         else Result.Error ErrorCase.ParsingFailure (* Didn't consume all. *)
       | Failure (e, _, _) ->

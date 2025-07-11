@@ -52,7 +52,7 @@ type AddrRange =
     | _ -> raise InvalidAddrRangeException
 
   override this.GetHashCode () =
-    hash ( this.Min, this.Max )
+    hash (this.Min, this.Max)
 
   member this.Count with get() = this.Max - this.Min + 1UL
 

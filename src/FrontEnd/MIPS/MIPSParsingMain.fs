@@ -646,7 +646,7 @@ let getOperationSize opcode wordSz =
   | _ -> WordSize.toRegType wordSz
 
 let parse lifter span (reader: IBinReader) arch wordSize addr =
-  let bin = reader.ReadUInt32 (span=span, offset=0)
+  let bin = reader.ReadUInt32 (span = span, offset = 0)
   let opcode, cond, fmt, operands = parseOpcodeField arch bin wordSize
   let oprSize = getOperationSize opcode wordSize
   Instruction (addr, 4u, cond, fmt, opcode, operands, oprSize, wordSize, lifter)
