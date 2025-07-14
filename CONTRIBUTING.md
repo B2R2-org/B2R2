@@ -278,6 +278,16 @@ Func ( p1, p2, p3 ) // Bad
 Func( p1, p2, p3 )  // Bad
 ```
 
+When the method name starts with an uppercase, write it without a space
+after the dot to support chain calls. When it starts with a lowercase,
+add a space to follow curried function style.
+```fsharp
+String.Replace()  // Good
+String.replace () // Good
+String.Replace () // Bad
+String.replace()  // Bad
+```
+
 Someone may say that it is covenient to not use any space character between the
 function name and the parameters, especially when the function is not F#-style
 (curried) functions. For example, it allows us to chain multiple member calls as
