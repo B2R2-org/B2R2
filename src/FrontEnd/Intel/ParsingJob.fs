@@ -1258,7 +1258,8 @@ type internal OneOp9C () =
   inherit ParsingJob ()
   override _.Run (span, phlp) =
     if Prefix.hasOprSz phlp.Prefixes then
-      let szcond = if ParsingHelper.Is64bit phlp then SzCond.D64 else SzCond.Normal
+      let szcond =
+        if ParsingHelper.Is64bit phlp then SzCond.D64 else SzCond.Normal
       render span phlp Opcode.PUSHF szcond OD.No SZ.Def
     elif ParsingHelper.Is64bit phlp then
       render span phlp Opcode.PUSHFQ SzCond.D64 OD.No SZ.Def
@@ -1268,7 +1269,8 @@ type internal OneOp9D () =
   inherit ParsingJob ()
   override _.Run (span, phlp) =
     if Prefix.hasOprSz phlp.Prefixes then
-      let szcond = if ParsingHelper.Is64bit phlp then SzCond.D64 else SzCond.Normal
+      let szcond =
+        if ParsingHelper.Is64bit phlp then SzCond.D64 else SzCond.Normal
       render span phlp Opcode.POPF szcond OD.No SZ.Def
     elif ParsingHelper.Is64bit phlp then
       render span phlp Opcode.POPFQ SzCond.D64 OD.No SZ.Def
@@ -1879,7 +1881,8 @@ type internal OneOpE3 () =
   inherit ParsingJob ()
   override _.Run (span, phlp) =
     if Prefix.hasAddrSz phlp.Prefixes then
-      let opcode = if ParsingHelper.Is64bit phlp then Opcode.JECXZ else Opcode.JCXZ
+      let opcode =
+        if ParsingHelper.Is64bit phlp then Opcode.JECXZ else Opcode.JCXZ
       render span phlp opcode SzCond.F64 OD.Rel8 SZ.Byte
     elif ParsingHelper.Is64bit phlp then
       render span phlp Opcode.JRCXZ SzCond.F64 OD.Rel8 SZ.Byte

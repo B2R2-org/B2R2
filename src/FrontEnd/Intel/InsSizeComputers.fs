@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// AHR12LIb ALIb ALOb ALR8LIb BHR15LIb BLR11LIb CHR13LIb CLR9LIb DHR14LIb
 /// DLR10LIb Eb Eb1 EbCL EbGb EbIb GbEb IbAL Jb ObAL XbYb
-type SzByte () =
+type Byte () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 8<rt>
@@ -39,7 +39,7 @@ type SzByte () =
     phlp.OperationSize <- 8<rt>
 
 /// GwMw EvSw EwGw MwGw SwEw
-type SzWord () =
+type Word () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 16<rt>
@@ -54,7 +54,7 @@ type SzWord () =
 /// RAXrAX RAXrBP RAXrBX RAXrCX RAXrDI RAXrDX RAXrSI RAXrSP RAXSIz RAXz RBPIv
 /// RBPz RBXIv RBXz RCXIv RCXz RDIIv RDIz RDXIv RDXz RSIIv RSIz RSPIv RSPz Rv Ry
 /// SIb SIz
-type SzDef () =
+type Def () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -68,7 +68,7 @@ type SzDef () =
 /// HxUxIb MpdVpd MpsVps MxVx MZxzVZxz VpdHpdWpd VpdHpdWpdIb VpdWpd VpsHpsWps
 /// VpsHpsWpsIb VpsWps VsdHsdWsdIb VssHssWssIb VxHxWsd VxHxWss VxHxWx VxHxWxIb
 /// VxMx VxWx VxWxIb VZxzWZxz WpdVpd WpsVps WsdHxVsd WssHxVss WxVx WZxzVZxz
-type SzVecDef () =
+type VecDef () =
   inherit InsSizeComputer ()
   override _.Render (phlp: ParsingHelper) _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -78,7 +78,7 @@ type SzVecDef () =
     phlp.RegSize <- vLen
     phlp.OperationSize <- vLen
 
-type SzVecDefRC () =
+type VecDefRC () =
   inherit InsSizeComputer ()
   override _.RenderEVEX (span, phlp: ParsingHelper, _) =
     let vInfo = Option.get phlp.VEXInfo
@@ -99,7 +99,7 @@ type SzVecDefRC () =
       phlp.OperationSize <- vLen
 
 /// GvEd Md
-type SzDV () =
+type DV () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -111,7 +111,7 @@ type SzDV () =
     phlp.OperationSize <- effOprSz
 
 /// Md
-type SzD () =
+type D () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -123,7 +123,7 @@ type SzD () =
     phlp.OperationSize <- 32<rt>
 
 /// Ew Mw
-type SzMemW () =
+type MemW () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -135,7 +135,7 @@ type SzMemW () =
     phlp.OperationSize <- 16<rt>
 
 /// CS ES DS FS GS SS
-type SzRegW () =
+type RegW () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -147,7 +147,7 @@ type SzRegW () =
     phlp.OperationSize <- 16<rt>
 
 /// GvEw
-type SzWV () =
+type WV () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -159,7 +159,7 @@ type SzWV () =
     phlp.OperationSize <- effOprSz
 
 /// RAX RCX RDX RBX RSP RBP RSI RDI Jz
-type SzD64 () =
+type D64 () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -171,7 +171,7 @@ type SzD64 () =
     phlp.OperationSize <- effOprSz
 
 /// GzMp
-type SzPZ () =
+type PZ () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -186,7 +186,7 @@ type SzPZ () =
     phlp.OperationSize <- effOprSz
 
 /// EdVdqIb
-type SzDDq () =
+type DDq () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 32<rt>
@@ -196,7 +196,7 @@ type SzDDq () =
     phlp.OperationSize <- 32<rt>
 
 /// MdqVdq VdqHdqUdq VdqHdqWdqIb VdqMdq VdqUdq VdqWdq VdqWdqIb WdqVdq
-type SzDqDq () =
+type DqDq () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 128<rt>
@@ -206,7 +206,7 @@ type SzDqDq () =
     phlp.OperationSize <- 128<rt>
 
 /// VdqWdqd VdqMd VdqHdqWdqd VdqWdqdIb MdVdq VdqHdqUdqdIb
-type SzDqdDq () =
+type DqdDq () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 32<rt>
@@ -216,7 +216,7 @@ type SzDqdDq () =
     phlp.OperationSize <- 128<rt>
 
 /// WdqdVdq MdVdq
-type SzDqdDqMR () =
+type DqdDqMR () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 32<rt>
@@ -226,7 +226,7 @@ type SzDqdDqMR () =
     phlp.OperationSize <- 32<rt>
 
 /// VdqWdqq VdqMq VdqHdqMq VdqHdqWdqq VdqWdqqIb WdqqVdq MqVdq
-type SzDqqDq () =
+type DqqDq () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 64<rt>
@@ -236,7 +236,7 @@ type SzDqqDq () =
     phlp.OperationSize <- 128<rt>
 
 /// WdqqVdq MqVdq
-type SzDqqDqMR () =
+type DqqDqMR () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 64<rt>
@@ -246,7 +246,7 @@ type SzDqqDqMR () =
     phlp.OperationSize <- 64<rt>
 
 /// VxWxq
-type SzXqX () =
+type XqX () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -263,7 +263,7 @@ type SzXqX () =
     phlp.OperationSize <- vLen
 
 /// BNBNdqq BNdqqBN
-type SzDqqDqWS () =
+type DqqDqWS () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -280,7 +280,7 @@ type SzDqqDqWS () =
     phlp.OperationSize <- effOprSz
 
 /// BNEv BNMv BNMib VdqEy VssHssEy VsdHsdEy
-type SzVyDq () =
+type VyDq () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -292,7 +292,7 @@ type SzVyDq () =
     phlp.OperationSize <- 128<rt>
 
 /// EyVdq MibBN
-type SzVyDqMR () =
+type VyDqMR () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -304,7 +304,7 @@ type SzVyDqMR () =
     phlp.OperationSize <- effOprSz
 
 /// RyCd RyDd CdRy DdRy
-type SzDY () =
+type DY () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -317,7 +317,7 @@ type SzDY () =
     phlp.OperationSize <- effOprSz
 
 /// VdqQpi VdqNq
-type SzQDq () =
+type QDq () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 64<rt>
@@ -327,7 +327,7 @@ type SzQDq () =
     phlp.OperationSize <- 128<rt>
 
 /// PpiWdqq
-type SzDqqQ () =
+type DqqQ () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 64<rt>
@@ -337,7 +337,7 @@ type SzDqqQ () =
     phlp.OperationSize <- 64<rt>
 
 /// PpiWdq PqUdq
-type SzDqQ () =
+type DqQ () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 128<rt>
@@ -347,7 +347,7 @@ type SzDqQ () =
     phlp.OperationSize <- 64<rt>
 
 /// GyWdqd
-type SzDqdY () =
+type DqdY () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -359,7 +359,7 @@ type SzDqdY () =
     phlp.OperationSize <- effOprSz
 
 /// GyWdqq
-type SzDqqY () =
+type DqqY () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -371,7 +371,7 @@ type SzDqqY () =
     phlp.OperationSize <- effOprSz
 
 /// GyUdq
-type SzDqY () =
+type DqY () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -383,7 +383,7 @@ type SzDqY () =
     phlp.OperationSize <- effOprSz
 
 /// UdqIb Mdq
-type SzDq () =
+type Dq () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -395,7 +395,7 @@ type SzDq () =
     phlp.OperationSize <- 128<rt>
 
 /// PqQd
-type SzDQ () =
+type DQ () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -407,7 +407,7 @@ type SzDQ () =
     phlp.OperationSize <- 64<rt>
 
 /// PqQq PqQqIb QqPq MqPq
-type SzQQ () =
+type QQ () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -419,7 +419,7 @@ type SzQQ () =
     phlp.OperationSize <- 64<rt>
 
 /// EyPq
-type SzYQ () =
+type YQ () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -431,7 +431,7 @@ type SzYQ () =
     phlp.OperationSize <- effOprSz
 
 /// PqEy
-type SzYQRM () =
+type YQRM () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -443,7 +443,7 @@ type SzYQRM () =
     phlp.OperationSize <- 64<rt>
 
 /// PqEdwIb
-type SzDwQ () =
+type DwQ () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 16<rt>
@@ -453,7 +453,7 @@ type SzDwQ () =
     phlp.OperationSize <- 64<rt>
 
 /// VdqEdwIb VdqHdqEdwIb
-type SzDwDq () =
+type DwDq () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -465,7 +465,7 @@ type SzDwDq () =
     phlp.OperationSize <- effOprSz
 
 /// EdwVdqIb
-type SzDwDqMR () =
+type DwDqMR () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 16<rt>
@@ -475,7 +475,7 @@ type SzDwDqMR () =
     phlp.OperationSize <- 16<rt>
 
 /// GdNqIb GdNq
-type SzQD () =
+type QD () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 64<rt>
@@ -485,7 +485,7 @@ type SzQD () =
     phlp.OperationSize <- 32<rt>
 
 /// GdUdqIb GdUdq
-type SzDqd () =
+type Dqd () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 128<rt>
@@ -495,7 +495,7 @@ type SzDqd () =
     phlp.OperationSize <- 32<rt>
 
 /// VxHxWdq
-type SzXDq () =
+type XDq () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -506,7 +506,7 @@ type SzXDq () =
     phlp.OperationSize <- vLen
 
 /// VdqWx
-type SzDqX () =
+type DqX () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -517,7 +517,7 @@ type SzDqX () =
     phlp.OperationSize <- vLen
 
 /// GdUx
-type SzXD () =
+type XD () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -528,7 +528,7 @@ type SzXD () =
     phlp.OperationSize <- 32<rt>
 
 /// VxWdqqdq
-type SzDqqdqX () =
+type DqqdqX () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -545,7 +545,7 @@ type SzDqqdqX () =
     phlp.OperationSize <- vLen
 
 /// VxWdqdq
-type SzDqddqX () =
+type DqddqX () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -562,7 +562,7 @@ type SzDqddqX () =
     phlp.OperationSize <- vLen
 
 /// VdqWdqw
-type SzDqwDq () =
+type DqwDq () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 16<rt>
@@ -572,7 +572,7 @@ type SzDqwDq () =
     phlp.OperationSize <- 128<rt>
 
 /// VxWdqw
-type SzDqwX () =
+type DqwX () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -584,7 +584,7 @@ type SzDqwX () =
     phlp.OperationSize <- vLen
 
 /// VqqMdq VqqHqqWdqIb
-type SzDqQqq () =
+type DqQqq () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 128<rt>
@@ -594,7 +594,7 @@ type SzDqQqq () =
     phlp.OperationSize <- 256<rt>
 
 /// VxWdqb
-type SzDqbX () =
+type DqbX () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -605,7 +605,7 @@ type SzDqbX () =
     phlp.OperationSize <- vLen
 
 /// VdqEdbIb VdqHdqEdbIb
-type SzDbDq () =
+type DbDq () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 8<rt>
@@ -615,7 +615,7 @@ type SzDbDq () =
     phlp.OperationSize <- 128<rt>
 
 /// GvEb Mb
-type SzBV () =
+type BV () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -627,7 +627,7 @@ type SzBV () =
     phlp.OperationSize <- effOprSz
 
 /// NqIb Mq
-type SzQ () =
+type Q () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 64<rt>
@@ -637,7 +637,7 @@ type SzQ () =
     phlp.OperationSize <- 64<rt>
 
 /// Ms
-type SzS () =
+type S () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let effOprSz = if phlp.WordSize = WordSize.Bit32 then 48<rt> else 80<rt>
@@ -648,7 +648,7 @@ type SzS () =
     phlp.OperationSize <- effOprSz
 
 /// VxMd
-type SzDX () =
+type DX () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -659,7 +659,7 @@ type SzDX () =
     phlp.OperationSize <- vLen
 
 /// VZxzWdqd VxHxWdqd
-type SzDqdXz () =
+type DqdXz () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -670,7 +670,7 @@ type SzDqdXz () =
     phlp.OperationSize <- vLen
 
 /// VxHxWdqq
-type SzDqqX () =
+type DqqX () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -681,7 +681,7 @@ type SzDqqX () =
     phlp.OperationSize <- vLen
 
 /// Ap Ep Mp
-type SzP () =
+type P () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -697,7 +697,7 @@ type SzP () =
     phlp.OperationSize <- oprSz
 
 /// GvMp
-type SzPRM () =
+type PRM () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -713,7 +713,7 @@ type SzPRM () =
     phlp.OperationSize <- effOprSz
 
 /// VZxzWxq
-type SzXqXz () =
+type XqXz () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -731,7 +731,7 @@ type SzXqXz () =
     phlp.OperationSize <- vLen
 
 /// VZxzWx
-type SzXXz () =
+type XXz () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -749,7 +749,7 @@ type SzXXz () =
     phlp.OperationSize <- vLen
 
 /// VxWZxz
-type SzXzX () =
+type XzX () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -766,7 +766,7 @@ type SzXzX () =
     phlp.OperationSize <- regSize
 
 /// VZxzHxWZxz VZxzHxWZxzIb
-type SzXzXz () =
+type XzXz () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -777,7 +777,7 @@ type SzXzXz () =
     phlp.OperationSize <- vLen
 
 /// VqqWdqq
-type SzDqqQq () =
+type DqqQq () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -789,7 +789,7 @@ type SzDqqQq () =
     phlp.OperationSize <- 256<rt>
 
 /// VZxzWdqq
-type SzDqqXz () =
+type DqqXz () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -800,7 +800,7 @@ type SzDqqXz () =
     phlp.OperationSize <- vLen
 
 /// WqqVZxz WZqqVZxzIb WqqVZxzIb VqqHqqWqq
-type SzQqXz () =
+type QqXz () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -811,7 +811,7 @@ type SzQqXz () =
     phlp.OperationSize <- 256<rt>
 
 /// VZxzHxWqqIb
-type SzQqXzRM () =
+type QqXzRM () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -822,7 +822,7 @@ type SzQqXzRM () =
     phlp.OperationSize <- vLen
 
 /// VxWdqd
-type SzDqdX () =
+type DqdX () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -833,7 +833,7 @@ type SzDqdX () =
     phlp.OperationSize <- vLen
 
 /// VZxzRd
-type SzDXz () =
+type DXz () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -844,7 +844,7 @@ type SzDXz () =
     phlp.OperationSize <- vLen
 
 /// VZxzRq
-type SzQXz () =
+type QXz () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -855,7 +855,7 @@ type SzQXz () =
     phlp.OperationSize <- vLen
 
 /// WdqVqqIb
-type SzDqQq () =
+type DqQq () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     phlp.MemEffOprSize <- 128<rt>
@@ -865,7 +865,7 @@ type SzDqQq () =
     phlp.OperationSize <- 128<rt>
 
 /// WdqVZxzIb
-type SzDqXz () =
+type DqXz () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let vLen = (Option.get phlp.VEXInfo).VectorLength
@@ -876,7 +876,7 @@ type SzDqXz () =
     phlp.OperationSize <- 128<rt>
 
 /// VdqHdqEyIb
-type SzYDq () =
+type YDq () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -888,7 +888,7 @@ type SzYDq () =
     phlp.OperationSize <- 128<rt>
 
 /// VdqHdqEyIb
-type SzQq () =
+type Qq () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -899,7 +899,7 @@ type SzQq () =
     phlp.OperationSize <- 256<rt>
 
 /// VxWdqwd
-type SzDqwdX () =
+type DqwdX () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -916,7 +916,7 @@ type SzDqwdX () =
     phlp.OperationSize <- vLen
 
 /// EyGy - WordSize
-type SzY () =
+type Y () =
   inherit InsSizeComputer ()
   override _.Render phlp _ =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -928,7 +928,7 @@ type SzY () =
     phlp.OperationSize <- effOprSz
 
 /// GyUps GyUpd
-type SzYP () =
+type YP () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -941,7 +941,7 @@ type SzYP () =
     phlp.OperationSize <- effOprSz
 
 /// KnKm MKn
-type SzQQb () =
+type QQb () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -953,7 +953,7 @@ type SzQQb () =
     phlp.OperationSize <- 8<rt>
 
 /// KnKm MKn
-type SzQQd () =
+type QQd () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -965,7 +965,7 @@ type SzQQd () =
     phlp.OperationSize <- 32<rt>
 
 /// KnKm MKn
-type SzQQw () =
+type QQw () =
   inherit InsSizeComputer ()
   override _.Render phlp szCond =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
