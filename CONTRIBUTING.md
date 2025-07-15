@@ -216,6 +216,23 @@ let fn (p: int) = ... // Good
 let fn (p:int) = ...  // Bad
 ```
 
+##### Generic Type Argument
+
+When writing generic type arguments, do not include spaces between brackets
+```fsharp
+func<type>   // Good
+func< type > // Bad
+```
+
+When using tuple types inside generic type arguments, use it as shown below.
+```fsharp
+func<type1, type2>  // Good
+func<type1 * type2> // Good
+
+func<type1,type2> // Bad
+func<type1*type2> // Bad
+```
+
 ##### Records
 
 We define a record as follows.
