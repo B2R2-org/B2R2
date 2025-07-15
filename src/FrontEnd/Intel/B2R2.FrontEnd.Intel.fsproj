@@ -11,14 +11,15 @@
     <Compile Include="Register.fs" />
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="LowUIRBuilder.fs" />
-    <Compile Include="Opcode.fs" />
-    <Compile Include="Operands.fs" />
     <Compile Include="Prefix.fs" />
     <Compile Include="REXPrefix.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
     <Compile Include="VEXInfo.fs" />
     <Compile Include="Instruction.fs" />
-    <Compile Include="ParsingHelperTypes.fs" />
-    <Compile Include="OperandParsingHelper.fs" />
+    <Compile Include="ParsingHelper.fs" />
+    <Compile Include="InsSizeComputers.fs" />
+    <Compile Include="OperandParsers.fs" />
     <Compile Include="Disasm.fs" />
     <Compile Include="LiftingUtils.fs" />
     <Compile Include="GeneralLifter.fs" />
@@ -27,7 +28,7 @@
     <Compile Include="AVXLifter.fs" />
     <Compile Include="X87Lifter.fs" />
     <Compile Include="Lifter.fs" />
-    <Compile Include="ParsingHelper.fs" />
+    <Compile Include="ParsingFunctions.fs" />
     <Compile Include="ParsingJob.fs" />
     <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

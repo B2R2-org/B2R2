@@ -37,7 +37,7 @@ type internal R = Register
 
 /// Provides several useful functions to handle Intel registers.
 [<RequireQualifiedAccess>]
-module Register = begin
+module internal Register = begin
   /// Intel register kind, which is based on their usage.
   type Kind =
     /// General purpose registers.

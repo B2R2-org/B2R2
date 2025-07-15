@@ -2831,10 +2831,9 @@ type Opcode =
   /// Invalid Opcode.
   | InvalOP = 1393
 
-/// Provides functions to check if an opcode is a branch instruction or a CET
-/// instruction.
+/// Provides functions to check properties of opcodes.
 [<RequireQualifiedAccess>]
-module Opcode =
+module internal Opcode =
   let isBranch = function
     | Opcode.CALLFar | Opcode.CALLNear
     | Opcode.JMPFar | Opcode.JMPNear

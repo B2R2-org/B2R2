@@ -85,6 +85,8 @@ and Selector = int16
 /// Represents an offset value used for relative jump instructions.
 and Offset = int64
 
+/// Provides several accessor functions for operands.
+[<RequireQualifiedAccess>]
 module internal Operands =
   let inline getMod (byte: byte) = (int byte >>> 6) &&& 0b11
 

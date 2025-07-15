@@ -71,5 +71,5 @@ module internal REXPrefix =
 
   let inline hasB rexPref = rexPref &&& REXPrefix.REXB = REXPrefix.REXB
 
-  /// Filter out REXW(0x8)
+  /// Filter out REXW (0x8).
   let [<Literal>] ClearREXWPrefMask: REXPrefix = EnumOfValue 0xFFF7

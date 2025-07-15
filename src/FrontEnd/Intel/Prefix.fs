@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.Intel
 
 open LanguagePrimitives
 
+/// remove Prx
 /// Represents an Instruction prefixes.
 [<System.FlagsAttribute>]
 type Prefix =
@@ -56,6 +57,8 @@ type Prefix =
   /// 67H - Address-size override prefix.
   | PrxADDRSIZE = 0x800
 
+/// Provides functions to access and manipulate instruction prefixes.
+[<RequireQualifiedAccess>]
 module internal Prefix =
   let inline hasAddrSz p = p &&& Prefix.PrxADDRSIZE = Prefix.PrxADDRSIZE
 
