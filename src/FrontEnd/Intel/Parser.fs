@@ -28,218 +28,217 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel
-open B2R2.FrontEnd.Intel.Helper
 open LanguagePrimitives
 open type Prefix
 
-/// Parser for Intel (x86 or x86-64) instructions. Parser will return a
-/// platform-agnostic instruction type (Instruction).
+/// Represents a parser for Intel (x86 or x86-64) instructions, returning a
+/// platform-agnostic instruction type.
 type IntelParser (wordSz, reader) =
   let oparsers =
-    [| OpRmGpr () :> OperandParser
-       OpRmSeg () :> OperandParser
-       OpGprCtrl () :> OperandParser
-       OpGprDbg () :> OperandParser
-       OpRMMmx () :> OperandParser
-       OpMmMmx () :> OperandParser
-       OpBmBnd () :> OperandParser
-       OpRmBnd () :> OperandParser
-       OpGprRm () :> OperandParser
-       OpGprM () :> OperandParser
-       OpMGpr () :> OperandParser
-       OpSegRm () :> OperandParser
-       OpBndBm () :> OperandParser
-       OpBndRm () :> OperandParser
-       OpCtrlGpr () :> OperandParser
-       OpDbgGpr () :> OperandParser
-       OpMmxRm () :> OperandParser
-       OpMmxMm () :> OperandParser
-       OpMxMx () :> OperandParser
-       OpGprRMm () :> OperandParser
-       OpRegImm8 () :> OperandParser
-       OpImm8Reg () :> OperandParser
-       OpImm8 () :> OperandParser
-       OpImm16 () :> OperandParser
-       OpRegImm () :> OperandParser
-       OpSImm8 () :> OperandParser
-       OpImm () :> OperandParser
-       OpEs () :> OperandParser
-       OpCs () :> OperandParser
-       OpSs () :> OperandParser
-       OpDs () :> OperandParser
-       OpFs () :> OperandParser
-       OpGs () :> OperandParser
-       OpALDx () :> OperandParser
-       OpEaxDx () :> OperandParser
-       OpDxEax () :> OperandParser
-       OpDxAL () :> OperandParser
-       OpNo () :> OperandParser
-       OpEax () :> OperandParser
-       OpEcx () :> OperandParser
-       OpEdx () :> OperandParser
-       OpEbx () :> OperandParser
-       OpEsp () :> OperandParser
-       OpEbp () :> OperandParser
-       OpEsi () :> OperandParser
-       OpEdi () :> OperandParser
-       OpRax () :> OperandParser
-       OpRcx () :> OperandParser
-       OpRdx () :> OperandParser
-       OpRbx () :> OperandParser
-       OpRsp () :> OperandParser
-       OpRbp () :> OperandParser
-       OpRsi () :> OperandParser
-       OpRdi () :> OperandParser
-       OpRaxRax () :> OperandParser
-       OpRaxRcx () :> OperandParser
-       OpRaxRdx () :> OperandParser
-       OpRaxRbx () :> OperandParser
-       OpRaxRsp () :> OperandParser
-       OpRaxRbp () :> OperandParser
-       OpRaxRsi () :> OperandParser
-       OpRaxRdi () :> OperandParser
-       OpGprRmImm8 () :> OperandParser
-       OpGprRmImm () :> OperandParser
-       OpRel8 () :> OperandParser
-       OpRel () :> OperandParser
-       OpDir () :> OperandParser
-       OpRaxFar () :> OperandParser
-       OpFarRax () :> OperandParser
-       OpALImm8 () :> OperandParser
-       OpCLImm8 () :> OperandParser
-       OpDLImm8 () :> OperandParser
-       OpBLImm8 () :> OperandParser
-       OpAhImm8 () :> OperandParser
-       OpChImm8 () :> OperandParser
-       OpDhImm8 () :> OperandParser
-       OpBhImm8 () :> OperandParser
-       OpRaxImm () :> OperandParser
-       OpRcxImm () :> OperandParser
-       OpRdxImm () :> OperandParser
-       OpRbxImm () :> OperandParser
-       OpRspImm () :> OperandParser
-       OpRbpImm () :> OperandParser
-       OpRsiImm () :> OperandParser
-       OpRdiImm () :> OperandParser
-       OpImmImm () :> OperandParser
-       OpRmImm () :> OperandParser
-       OpRmImm8 () :> OperandParser
-       OpRmSImm8 () :> OperandParser
-       OpMmxImm8 () :> OperandParser
-       OpMem () :> OperandParser
-       OpM1 () :> OperandParser
-       OpRmCL () :> OperandParser
-       OpXmmVvXm () :> OperandParser
-       OpGprVvRm () :> OperandParser
-       OpXmVvXmm () :> OperandParser
-       OpGpr () :> OperandParser
-       OpRmXmmImm8 () :> OperandParser
-       OpXmmRmImm8 () :> OperandParser
-       OpMmxMmImm8 () :> OperandParser
-       OpMmxRmImm8 () :> OperandParser
-       OpGprMmxImm8 () :> OperandParser
-       OpXmmVvXmImm8 () :> OperandParser
-       OpXmmVvXmXmm () :> OperandParser
-       OpXmRegImm8 () :> OperandParser
-       OpGprRmVv () :> OperandParser
-       OpVvRmImm8 () :> OperandParser
-       OpRmGprCL () :> OperandParser
-       OpXmmXmXmm0 () :> OperandParser
-       OpXmmXmVv () :> OperandParser
-       OpVvRm () :> OperandParser
-       OpGprRmImm8Imm8 () :> OperandParser
-       OpRmImm8Imm8 () :> OperandParser
-       OpKnVvXm () :> OperandParser
-       OpGprKn () :> OperandParser
-       OpKnVvXmImm8 () :> OperandParser
-       OpKnGpr () :> OperandParser
-       OpXmmVvXmmXm () :> OperandParser
-       OpKnKm () :> OperandParser
-       OpMKn () :> OperandParser
-       OpKKn () :> OperandParser
-       OpKnKmImm8 () :> OperandParser
-       OpXmmVsXm () :> OperandParser
-       OpXmVsXmm () :> OperandParser |]
+    [| OperandParsers.RmGpr () :> OperandParser
+       OperandParsers.RmSeg ()
+       OperandParsers.GprCtrl ()
+       OperandParsers.GprDbg ()
+       OperandParsers.RMMmx ()
+       OperandParsers.MmMmx ()
+       OperandParsers.BmBnd ()
+       OperandParsers.RmBnd ()
+       OperandParsers.GprRm ()
+       OperandParsers.GprM ()
+       OperandParsers.MGpr ()
+       OperandParsers.SegRm ()
+       OperandParsers.BndBm ()
+       OperandParsers.BndRm ()
+       OperandParsers.CtrlGpr ()
+       OperandParsers.DbgGpr ()
+       OperandParsers.MmxRm ()
+       OperandParsers.MmxMm ()
+       OperandParsers.MxMx ()
+       OperandParsers.GprRMm ()
+       OperandParsers.RegImm8 ()
+       OperandParsers.Imm8Reg ()
+       OperandParsers.Imm8 ()
+       OperandParsers.Imm16 ()
+       OperandParsers.RegImm ()
+       OperandParsers.SImm8 ()
+       OperandParsers.Imm ()
+       OperandParsers.Es ()
+       OperandParsers.Cs ()
+       OperandParsers.Ss ()
+       OperandParsers.Ds ()
+       OperandParsers.Fs ()
+       OperandParsers.Gs ()
+       OperandParsers.ALDx ()
+       OperandParsers.EaxDx ()
+       OperandParsers.DxEax ()
+       OperandParsers.DxAL ()
+       OperandParsers.No ()
+       OperandParsers.Eax ()
+       OperandParsers.Ecx ()
+       OperandParsers.Edx ()
+       OperandParsers.Ebx ()
+       OperandParsers.Esp ()
+       OperandParsers.Ebp ()
+       OperandParsers.Esi ()
+       OperandParsers.Edi ()
+       OperandParsers.Rax ()
+       OperandParsers.Rcx ()
+       OperandParsers.Rdx ()
+       OperandParsers.Rbx ()
+       OperandParsers.Rsp ()
+       OperandParsers.Rbp ()
+       OperandParsers.Rsi ()
+       OperandParsers.Rdi ()
+       OperandParsers.RaxRax ()
+       OperandParsers.RaxRcx ()
+       OperandParsers.RaxRdx ()
+       OperandParsers.RaxRbx ()
+       OperandParsers.RaxRsp ()
+       OperandParsers.RaxRbp ()
+       OperandParsers.RaxRsi ()
+       OperandParsers.RaxRdi ()
+       OperandParsers.GprRmImm8 ()
+       OperandParsers.GprRmImm ()
+       OperandParsers.Rel8 ()
+       OperandParsers.Rel ()
+       OperandParsers.Dir ()
+       OperandParsers.RaxFar ()
+       OperandParsers.FarRax ()
+       OperandParsers.ALImm8 ()
+       OperandParsers.CLImm8 ()
+       OperandParsers.DLImm8 ()
+       OperandParsers.BLImm8 ()
+       OperandParsers.AhImm8 ()
+       OperandParsers.ChImm8 ()
+       OperandParsers.DhImm8 ()
+       OperandParsers.BhImm8 ()
+       OperandParsers.RaxImm ()
+       OperandParsers.RcxImm ()
+       OperandParsers.RdxImm ()
+       OperandParsers.RbxImm ()
+       OperandParsers.RspImm ()
+       OperandParsers.RbpImm ()
+       OperandParsers.RsiImm ()
+       OperandParsers.RdiImm ()
+       OperandParsers.ImmImm ()
+       OperandParsers.RmImm ()
+       OperandParsers.RmImm8 ()
+       OperandParsers.RmSImm8 ()
+       OperandParsers.MmxImm8 ()
+       OperandParsers.Mem ()
+       OperandParsers.M1 ()
+       OperandParsers.RmCL ()
+       OperandParsers.XmmVvXm ()
+       OperandParsers.GprVvRm ()
+       OperandParsers.XmVvXmm ()
+       OperandParsers.Gpr ()
+       OperandParsers.RmXmmImm8 ()
+       OperandParsers.XmmRmImm8 ()
+       OperandParsers.MmxMmImm8 ()
+       OperandParsers.MmxRmImm8 ()
+       OperandParsers.GprMmxImm8 ()
+       OperandParsers.XmmVvXmImm8 ()
+       OperandParsers.XmmVvXmXmm ()
+       OperandParsers.XmRegImm8 ()
+       OperandParsers.GprRmVv ()
+       OperandParsers.VvRmImm8 ()
+       OperandParsers.RmGprCL ()
+       OperandParsers.XmmXmXmm0 ()
+       OperandParsers.XmmXmVv ()
+       OperandParsers.VvRm ()
+       OperandParsers.GprRmImm8Imm8 ()
+       OperandParsers.RmImm8Imm8 ()
+       OperandParsers.KnVvXm ()
+       OperandParsers.GprKn ()
+       OperandParsers.KnVvXmImm8 ()
+       OperandParsers.KnGpr ()
+       OperandParsers.XmmVvXmmXm ()
+       OperandParsers.KnKm ()
+       OperandParsers.MKn ()
+       OperandParsers.KKn ()
+       OperandParsers.KnKmImm8 ()
+       OperandParsers.XmmVsXm ()
+       OperandParsers.XmVsXmm () |]
 
   let szcomputers =
-    [| SzByte () :> InsSizeComputer
-       SzWord () :> InsSizeComputer
-       SzDef () :> InsSizeComputer
-       SzVecDef () :> InsSizeComputer
-       SzDV () :> InsSizeComputer
-       SzD () :> InsSizeComputer
-       SzMemW () :> InsSizeComputer
-       SzRegW () :> InsSizeComputer
-       SzWV () :> InsSizeComputer
-       SzD64 () :> InsSizeComputer
-       SzPZ () :> InsSizeComputer
-       SzDDq () :> InsSizeComputer
-       SzDqDq () :> InsSizeComputer
-       SzDqdDq () :> InsSizeComputer
-       SzDqdDqMR () :> InsSizeComputer
-       SzDqqDq () :> InsSizeComputer
-       SzDqqDqMR () :> InsSizeComputer
-       SzXqX () :> InsSizeComputer
-       SzDqqDqWS () :> InsSizeComputer
-       SzVyDq () :> InsSizeComputer
-       SzVyDqMR () :> InsSizeComputer
-       SzDY () :> InsSizeComputer
-       SzQDq () :> InsSizeComputer
-       SzDqqQ () :> InsSizeComputer
-       SzDqQ () :> InsSizeComputer
-       SzDqdY () :> InsSizeComputer
-       SzDqqY () :> InsSizeComputer
-       SzDqY () :> InsSizeComputer
-       SzDq () :> InsSizeComputer
-       SzDQ () :> InsSizeComputer
-       SzQQ () :> InsSizeComputer
-       SzYQ () :> InsSizeComputer
-       SzYQRM () :> InsSizeComputer
-       SzDwQ () :> InsSizeComputer
-       SzDwDq () :> InsSizeComputer
-       SzDwDqMR () :> InsSizeComputer
-       SzQD () :> InsSizeComputer
-       SzDqd () :> InsSizeComputer
-       SzXDq () :> InsSizeComputer
-       SzDqX () :> InsSizeComputer
-       SzXD () :> InsSizeComputer
-       SzDqqdqX () :> InsSizeComputer
-       SzDqddqX () :> InsSizeComputer
-       SzDqwDq () :> InsSizeComputer
-       SzDqwX () :> InsSizeComputer
-       SzDqQqq () :> InsSizeComputer
-       SzDqbX () :> InsSizeComputer
-       SzDbDq () :> InsSizeComputer
-       SzBV () :> InsSizeComputer
-       SzQ () :> InsSizeComputer
-       SzS () :> InsSizeComputer
-       SzDX () :> InsSizeComputer
-       SzDqdXz () :> InsSizeComputer
-       SzDqqX () :> InsSizeComputer
-       SzP () :> InsSizeComputer
-       SzPRM () :> InsSizeComputer
-       SzXqXz () :> InsSizeComputer
-       SzXXz () :> InsSizeComputer
-       SzXzX () :> InsSizeComputer
-       SzXzXz () :> InsSizeComputer
-       SzDqqQq () :> InsSizeComputer
-       SzDqqXz () :> InsSizeComputer
-       SzQqXz () :> InsSizeComputer
-       SzQqXzRM () :> InsSizeComputer
-       SzDqdX () :> InsSizeComputer
-       SzDXz () :> InsSizeComputer
-       SzQXz () :> InsSizeComputer
-       SzDqQq () :> InsSizeComputer
-       SzDqXz () :> InsSizeComputer
-       SzYDq () :> InsSizeComputer
-       SzQq () :> InsSizeComputer
-       SzDqwdX () :> InsSizeComputer
-       SzY () :> InsSizeComputer
-       SzQQb () :> InsSizeComputer
-       SzQQd () :> InsSizeComputer
-       SzQQw () :> InsSizeComputer
-       SzVecDefRC () :> InsSizeComputer
-       SzYP () :> InsSizeComputer |]
+    [| InsSizeComputers.Byte () :> InsSizeComputer
+       InsSizeComputers.Word ()
+       InsSizeComputers.Def ()
+       InsSizeComputers.VecDef ()
+       InsSizeComputers.DV ()
+       InsSizeComputers.D ()
+       InsSizeComputers.MemW ()
+       InsSizeComputers.RegW ()
+       InsSizeComputers.WV ()
+       InsSizeComputers.D64 ()
+       InsSizeComputers.PZ ()
+       InsSizeComputers.DDq ()
+       InsSizeComputers.DqDq ()
+       InsSizeComputers.DqdDq ()
+       InsSizeComputers.DqdDqMR ()
+       InsSizeComputers.DqqDq ()
+       InsSizeComputers.DqqDqMR ()
+       InsSizeComputers.XqX ()
+       InsSizeComputers.DqqDqWS ()
+       InsSizeComputers.VyDq ()
+       InsSizeComputers.VyDqMR ()
+       InsSizeComputers.DY ()
+       InsSizeComputers.QDq ()
+       InsSizeComputers.DqqQ ()
+       InsSizeComputers.DqQ ()
+       InsSizeComputers.DqdY ()
+       InsSizeComputers.DqqY ()
+       InsSizeComputers.DqY ()
+       InsSizeComputers.Dq ()
+       InsSizeComputers.DQ ()
+       InsSizeComputers.QQ ()
+       InsSizeComputers.YQ ()
+       InsSizeComputers.YQRM ()
+       InsSizeComputers.DwQ ()
+       InsSizeComputers.DwDq ()
+       InsSizeComputers.DwDqMR ()
+       InsSizeComputers.QD ()
+       InsSizeComputers.Dqd ()
+       InsSizeComputers.XDq ()
+       InsSizeComputers.DqX ()
+       InsSizeComputers.XD ()
+       InsSizeComputers.DqqdqX ()
+       InsSizeComputers.DqddqX ()
+       InsSizeComputers.DqwDq ()
+       InsSizeComputers.DqwX ()
+       InsSizeComputers.DqQqq ()
+       InsSizeComputers.DqbX ()
+       InsSizeComputers.DbDq ()
+       InsSizeComputers.BV ()
+       InsSizeComputers.Q ()
+       InsSizeComputers.S ()
+       InsSizeComputers.DX ()
+       InsSizeComputers.DqdXz ()
+       InsSizeComputers.DqqX ()
+       InsSizeComputers.P ()
+       InsSizeComputers.PRM ()
+       InsSizeComputers.XqXz ()
+       InsSizeComputers.XXz ()
+       InsSizeComputers.XzX ()
+       InsSizeComputers.XzXz ()
+       InsSizeComputers.DqqQq ()
+       InsSizeComputers.DqqXz ()
+       InsSizeComputers.QqXz ()
+       InsSizeComputers.QqXzRM ()
+       InsSizeComputers.DqdX ()
+       InsSizeComputers.DXz ()
+       InsSizeComputers.QXz ()
+       InsSizeComputers.DqQq ()
+       InsSizeComputers.DqXz ()
+       InsSizeComputers.YDq ()
+       InsSizeComputers.Qq ()
+       InsSizeComputers.DqwdX ()
+       InsSizeComputers.Y ()
+       InsSizeComputers.QQb ()
+       InsSizeComputers.QQd ()
+       InsSizeComputers.QQw ()
+       InsSizeComputers.VecDefRC ()
+       InsSizeComputers.YP () |]
 
   let oneByteParsers =
     [| OneOp00 () :> ParsingJob
@@ -523,7 +522,7 @@ type IntelParser (wordSz, reader) =
         member _.Disasm ins builder =
           disasm.Invoke (builder, ins); builder }
 
-  let rhlp = ReadHelper (reader, wordSz, oparsers, szcomputers, lifter)
+  let phlp = ParsingHelper (reader, wordSz, oparsers, szcomputers, lifter)
 
   member _.SetDisassemblySyntax syntax =
     match syntax with
@@ -536,21 +535,21 @@ type IntelParser (wordSz, reader) =
     let mutable b = span[0]
     while ((prefixCheck[(int b >>> 5)] >>> (int b &&& 0b11111)) &&& 1u) > 0u do
       match b with
-      | 0xF0uy -> pref <- PrxLOCK ||| (ClearGrp1PrefMask &&& pref)
-      | 0xF2uy -> pref <- PrxREPNZ ||| (ClearGrp1PrefMask &&& pref)
-      | 0xF3uy -> pref <- PrxREPZ ||| (ClearGrp1PrefMask &&& pref)
-      | 0x2Euy -> pref <- PrxCS ||| (ClearSegMask &&& pref)
-      | 0x36uy -> pref <- PrxSS ||| (ClearSegMask &&& pref)
-      | 0x3Euy -> pref <- PrxDS ||| (ClearSegMask &&& pref)
-      | 0x26uy -> pref <- PrxES ||| (ClearSegMask &&& pref)
-      | 0x64uy -> pref <- PrxFS ||| (ClearSegMask &&& pref)
-      | 0x65uy -> pref <- PrxGS ||| (ClearSegMask &&& pref)
+      | 0xF0uy -> pref <- PrxLOCK ||| (Prefix.ClearGrp1PrefMask &&& pref)
+      | 0xF2uy -> pref <- PrxREPNZ ||| (Prefix.ClearGrp1PrefMask &&& pref)
+      | 0xF3uy -> pref <- PrxREPZ ||| (Prefix.ClearGrp1PrefMask &&& pref)
+      | 0x2Euy -> pref <- PrxCS ||| (Prefix.ClearSegMask &&& pref)
+      | 0x36uy -> pref <- PrxSS ||| (Prefix.ClearSegMask &&& pref)
+      | 0x3Euy -> pref <- PrxDS ||| (Prefix.ClearSegMask &&& pref)
+      | 0x26uy -> pref <- PrxES ||| (Prefix.ClearSegMask &&& pref)
+      | 0x64uy -> pref <- PrxFS ||| (Prefix.ClearSegMask &&& pref)
+      | 0x65uy -> pref <- PrxGS ||| (Prefix.ClearSegMask &&& pref)
       | 0x66uy -> pref <- PrxOPSIZE ||| pref
       | 0x67uy -> pref <- PrxADDRSIZE ||| pref
       | _ -> pos <- pos - 1
       pos <- pos + 1
       b <- span[pos]
-    rhlp.Prefixes <- pref
+    phlp.Prefixes <- pref
     pos
 
   member inline private _.ParseREX (bs: ByteSpan, pos, rex: REXPrefix byref) =
@@ -570,13 +569,13 @@ type IntelParser (wordSz, reader) =
       let mutable rex = REXPrefix.NOREX
       let prefEndPos = this.ParsePrefix span
       let nextPos = this.ParseREX (span, prefEndPos, &rex)
-      rhlp.VEXInfo <- None
-      rhlp.InsAddr <- addr
-      rhlp.REXPrefix <- rex
-      rhlp.CurrPos <- nextPos
+      phlp.VEXInfo <- None
+      phlp.InsAddr <- addr
+      phlp.REXPrefix <- rex
+      phlp.CurrPos <- nextPos
 #if LCACHE
-      rhlp.MarkPrefixEnd (prefEndPos)
+      phlp.MarkPrefixEnd (prefEndPos)
 #endif
-      oneByteParsers[int (rhlp.ReadByte span)].Run (span, rhlp) :> IInstruction
+      oneByteParsers[int (phlp.ReadByte span)].Run (span, phlp) :> IInstruction
 
     member _.MaxInstructionSize = 15

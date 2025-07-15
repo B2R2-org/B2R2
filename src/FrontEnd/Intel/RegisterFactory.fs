@@ -31,10 +31,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open type Register
 open type WordSize
 
-/// This is a fatal error that happens when B2R2 tries to access non-existing
-/// register symbol. This exception should not happen in general.
-exception internal InvalidRegAccessException
-
+/// Represents a factory for accessing various Intel register variables.
 type RegisterFactory (wordSize) =
   let reg64 wordSize t name =
     if wordSize = Bit32 then AST.undef 64<rt> name
@@ -70,10 +67,10 @@ type RegisterFactory (wordSize) =
 
 #if DEBUG
   let assert64Bit wordSize =
-    if wordSize = Bit64 then () else raise InvalidRegAccessException
+    if wordSize = Bit64 then () else raise InvalidRegisterException
 
   let assert32Bit wordSize =
-    if wordSize = Bit32 then () else raise InvalidRegAccessException
+    if wordSize = Bit32 then () else raise InvalidRegisterException
 #endif
 
   (* Registers *)

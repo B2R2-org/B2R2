@@ -1535,7 +1535,7 @@ module IntelSyntax = begin
 
   let mToString (ins: Instruction) (builder: IDisasmBuilder) b si d oprSz =
     let ptrDirective = ptrDirectiveString (isFar ins) oprSz
-    match Helper.getSegment ins.Prefixes with
+    match Prefix.getSegment ins.Prefixes with
     | None ->
       builder.Accumulate AsmWordKind.String ptrDirective
       builder.Accumulate AsmWordKind.String (" [")
@@ -1740,7 +1740,7 @@ module ATTSyntax = begin
       builder.Accumulate AsmWordKind.String " "
     else
       builder.Accumulate AsmWordKind.String ", "
-    match Helper.getSegment ins.Prefixes, b, si with
+    match Prefix.getSegment ins.Prefixes, b, si with
     | None, Some b, _ ->
       buildBasedMemory b si d wordSize builder
     | None, None, None ->
