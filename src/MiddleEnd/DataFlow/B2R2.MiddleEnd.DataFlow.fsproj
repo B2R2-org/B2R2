@@ -24,6 +24,10 @@
     <Compile Include="ConstantPropagation.fs" />
     <Compile Include="StackPointerPropagation.fs" />
     <Compile Include="UntouchedValueAnalysis.fs" />
+    <Compile Include="SensitiveDataFlowState.fs" />
+    <Compile Include="SensitiveDataFlowAnalysis.fs" />
+    <Compile Include="SensitiveDFAHelper.fs" />
+    <Compile Include="StackSensitiveConstantPropagation.fs" />
     <Compile Include="SSAEdges.fs" />
     <Compile Include="SSAVarBasedDataFlowState.fs" />
     <Compile Include="SSAVarBasedDataFlowAnalysis.fs" />

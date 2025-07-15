@@ -30,6 +30,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.DataFlow
 
 /// Summarizes a function in the EVM context. Thanks to the powerful
 /// expressiveness of B2R2's IR, we can easily express a function's
@@ -73,6 +74,8 @@ type EVMFunctionSummarizer<'FnCtx,
 /// User-defined context for EVM functions. EVMFunctionSummarizer uses this
 /// information to summarize the function, especially the return target.
 and EVMFuncUserContext public () =
+  let mutable cpState: StackSensitiveLowUIRCPState = null
+
   /// Stack pointer difference from the entry point of the function to the
   /// return block.
   let mutable stackPointerDiff: Option<uint64> = None
@@ -100,8 +103,11 @@ and EVMFuncUserContext public () =
 
   member _.SetSharedRegion () = isSharedRegion <- true
 
+  member _.CPState with get () = cpState and set state = cpState <- state
+
   interface IResettable with
     member _.Reset () =
+      if not <| isNull cpState then cpState.Reset ()
       stackPointerDiff <- None
       returnTargetStackOff <- 0UL
 

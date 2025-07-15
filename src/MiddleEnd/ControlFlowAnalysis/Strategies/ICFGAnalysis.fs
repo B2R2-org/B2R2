@@ -46,6 +46,11 @@ and CFGAnalysisEnv<'FnCtx,
 }
 
 module ICFGAnalysis =
+  /// An empty CFG-based analysis, which does nothing.
+  let empty =
+    { new ICFGAnalysis<_> with
+        member _.Unwrap _ = ignore }
+
   /// Finalize the CFG-based analysis, which ignores the output of the previous
   /// CFG-based analysis.
   let finalize (a: ICFGAnalysis<_>) =

@@ -62,6 +62,9 @@ type CFGAction =
   /// used to inform that the callee's information (e.g., non-returning status)
   /// has been changed, and the call edges should be updated accordingly.
   | UpdateCallEdges of calleeAddr: Addr * CalleeInfo
+  /// Can be used to wait for an event to happen. It depends on the usage in a
+  /// specific strategy.
+  | ResumeAnalysis of pp: ProgramPoint * callbackAction: CFGAction
 with
   /// The priority of the action. Higher values mean higher priority.
   member this.Priority (p: IPrioritizable) = p.GetPriority this
