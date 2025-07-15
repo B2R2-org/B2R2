@@ -54,9 +54,6 @@ type Expr =
   /// internally.
   | Var of RegType * RegisterID * string * HashConsingInfo
 
-  /// Nil to represent cons cells. This should only be used with BinOpType.CONS.
-  | Nil
-
   /// A variable that represents a Program Counter (PC) of a CPU.
   | PCVar of RegType * string * HashConsingInfo
 
@@ -66,6 +63,9 @@ type Expr =
   /// a CFG. For example, a temporary variable T can be represented as
   /// (T_2:I32), where 2 is a unique number assigned to the variable.
   | TempVar of RegType * int * HashConsingInfo
+
+  /// List of expressions. We use this to represent function arguments.
+  | ExprList of Expr list * HashConsingInfo
 
   /// Unary operation such as negation.
   | UnOp of UnOpType * Expr * HashConsingInfo
@@ -115,6 +115,7 @@ with
     | Var (_, _, _, hc)
     | PCVar (_, _, hc)
     | TempVar (_, _, hc)
+    | ExprList (_, hc)
     | UnOp (_, _, hc)
     | JmpDest (_, hc)
     | FuncName (_, hc)
@@ -125,7 +126,6 @@ with
     | Cast (_, _, _, hc)
     | Extract (_, _, _, hc)
     | Undefined (_, _, hc) -> hc.ID
-    | Nil -> 0u
 
   /// <summary>
   /// Retrives the hash value of the expression. If hash consing is not used,
@@ -137,6 +137,7 @@ with
     | Var (_, _, _, hc)
     | PCVar (_, _, hc)
     | TempVar (_, _, hc)
+    | ExprList (_, hc)
     | UnOp (_, _, hc)
     | JmpDest (_, hc)
     | FuncName (_, hc)
@@ -147,7 +148,6 @@ with
     | Cast (_, _, _, hc)
     | Extract (_, _, _, hc)
     | Undefined (_, _, hc) -> hc.Hash
-    | Nil -> 0
 
   static member inline HashVar (rt: RegType) (rid: RegisterID) =
     19 * (19 * int rt + int rid) + 1
@@ -157,6 +157,12 @@ with
 
   static member inline HashTempVar (rt: RegType) n =
     19 * (19 * int rt + n) + 3
+
+  static member inline HashExprList (exprs: Expr list) hasCache =
+    exprs
+    |> List.fold (fun acc expr ->
+      let hash = if hasCache then expr.Hash else expr.GetHashCode ()
+      19 * acc + hash) 0
 
   static member inline HashUnOp (op: UnOpType) (e: Expr) hasCache =
     if hasCache then 19 * (19 * int op + e.Hash) + 4
@@ -205,13 +211,18 @@ with
     match expr with
     | Num (n, _) -> sb.Append (BitVector.ToString n) |> ignore
     | Var (_typ, _, n, _) -> sb.Append (n) |> ignore
-    | Nil -> sb.Append ("nil") |> ignore
     | PCVar (_typ, n, _) -> sb.Append (n) |> ignore
     | TempVar (typ, n, _) ->
       sb.Append ("T_") |> ignore
       sb.Append (n) |> ignore
       sb.Append (":") |> ignore
       sb.Append (RegType.toString typ) |> ignore
+    | ExprList ([], _) -> ()
+    | ExprList (e :: [], _) -> Expr.AppendToString e sb
+    | ExprList (e :: more, hc) ->
+      Expr.AppendToString e sb |> ignore
+      sb.Append (", ") |> ignore
+      Expr.AppendToString (ExprList (more, hc)) sb
     | JmpDest (lbl, _) -> sb.Append lbl.Name |> ignore
     | FuncName (n, _) -> sb.Append n |> ignore
     | UnOp (op, e, _) ->
@@ -232,12 +243,6 @@ with
       Expr.AppendToString e2 sb
       sb.Append ("):") |> ignore
       sb.Append (RegType.toString typ) |> ignore
-    | BinOp (BinOpType.CONS, _typ, e1, Nil, _) ->
-      Expr.AppendToString e1 sb
-    | BinOp (BinOpType.CONS, _typ, e1, e2, _) ->
-      Expr.AppendToString e1 sb
-      sb.Append (", ") |> ignore
-      Expr.AppendToString e2 sb
     | BinOp (op, _typ, e1, e2, _) ->
       sb.Append ("(") |> ignore
       Expr.AppendToString e1 sb
@@ -306,7 +311,7 @@ with
     | Cast (_, t, _, _) -> t
     | Extract (_, t, _, _) -> t
     | Undefined (t, _, _) -> t
-    | FuncName _ | JmpDest _ | Nil -> raise InvalidExprException
+    | FuncName _ | JmpDest _ | ExprList _ -> raise InvalidExprException
 
   interface System.IComparable with
     member this.CompareTo rhs =
@@ -318,9 +323,10 @@ with
     match this with
     | Num (n, _) -> n.GetHashCode ()
     | Var (rt, rid, _, _) -> Expr.HashVar rt rid
-    | Nil -> 0
     | PCVar (rt, _, _) -> Expr.HashPCVar rt
     | TempVar (rt, n, _) -> Expr.HashTempVar rt n
+    | ExprList (exprs, null) -> Expr.HashExprList exprs false
+    | ExprList (exprs, _) -> Expr.HashExprList exprs true
     | UnOp (op, e, null) -> Expr.HashUnOp op e false
     | UnOp (op, e, _) -> Expr.HashUnOp op e true
     | JmpDest (s, _) -> Expr.HashJmpDest s
@@ -345,9 +351,11 @@ with
       match this, rhs with
       | Num (n1, _), Num (n2, _) -> n1 = n2
       | Var (t1, r1, _, _), Var (t2, r2, _, _) -> t1 = t2 && r1 = r2
-      | Nil, Nil -> true
       | PCVar (t1, _, _), PCVar (t2, _, _) -> t1 = t2
       | TempVar (t1, n1, _), TempVar (t2, n2, _) -> t1 = t2 && n1 = n2
+      | ExprList (lhs, null), ExprList (rhs, null) ->
+        List.forall2 (fun e1 e2 -> e1.Equals e2) lhs rhs
+      | ExprList (lhs, _), ExprList (rhs, _) -> lhs === rhs
       | UnOp (t1, e1, null), UnOp (t2, e2, null) -> t1 = t2 && e1.Equals e2
       | UnOp (t1, e1, _), UnOp (t2, e2, _) -> t1 = t2 && e1 === e2
       | JmpDest (s1, _), JmpDest (s2, _) -> s1 = s2

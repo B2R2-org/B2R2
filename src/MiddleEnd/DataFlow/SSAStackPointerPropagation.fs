@@ -38,7 +38,7 @@ type SSAStackPointerPropagation =
     let rec evalExpr (state: SSAVarBasedDataFlowState<_>) = function
       | Num bv -> StackPointerDomain.ConstSP bv
       | Var v -> state.GetRegValue v
-      | Nil -> StackPointerDomain.NotConstSP
+      | ExprList _ -> StackPointerDomain.NotConstSP
       | Load _ -> StackPointerDomain.NotConstSP
       | UnOp _ -> StackPointerDomain.NotConstSP
       | FuncName _ -> StackPointerDomain.NotConstSP

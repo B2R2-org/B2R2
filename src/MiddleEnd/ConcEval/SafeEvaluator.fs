@@ -207,8 +207,8 @@ let rec concretizeArgs st acc = function
 
 let private evalArgs st args =
   match args with
-  | BinOp (BinOpType.APP, _, _, args, _) ->
-    uncurryArgs [] args |> concretizeArgs st []
+  | BinOp (BinOpType.APP, _, _, ExprList (args, _), _) ->
+    args |> concretizeArgs st []
   | _ -> Terminator.impossible ()
 
 /// Evaluate an IR statement.

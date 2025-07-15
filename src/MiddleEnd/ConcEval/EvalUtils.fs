@@ -25,13 +25,5 @@
 module internal B2R2.MiddleEnd.ConcEval.EvalUtils
 
 open B2R2
-open B2R2.BinIR
-open B2R2.BinIR.LowUIR
 
 let tr = BitVector.One 1<rt>
-
-let rec uncurryArgs acc args =
-  match args with
-  | BinOp (BinOpType.CONS, _, arg, Nil, _) -> arg :: acc
-  | BinOp (BinOpType.CONS, _, arg, cons, _) -> uncurryArgs (arg :: acc) cons
-  | _ -> Terminator.impossible ()

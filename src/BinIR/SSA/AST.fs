@@ -51,6 +51,8 @@ let rec translateExpr (e: LowUIR.Expr) =
   | (LowUIR.Var _ as e)
   | (LowUIR.PCVar _ as e)
   | (LowUIR.TempVar _ as e) -> Var <| translateDest e
+  | LowUIR.ExprList (exprs, _) ->
+    ExprList (List.map translateExpr exprs)
   | LowUIR.UnOp (op, e, _) ->
     let ty = LowUIR.Expr.TypeOf e
     UnOp (op, ty, translateExpr e)
@@ -67,7 +69,6 @@ let rec translateExpr (e: LowUIR.Expr) =
   | LowUIR.Cast (op, ty, e, _) -> Cast (op, ty, translateExpr e)
   | LowUIR.Extract (e, ty, pos, _) -> Extract (translateExpr e, ty, pos)
   | LowUIR.Undefined (ty, s, _) -> Undefined (ty, s)
-  | LowUIR.Nil -> Nil
   | _ -> raise InvalidExprException (* Name *)
 
 let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =

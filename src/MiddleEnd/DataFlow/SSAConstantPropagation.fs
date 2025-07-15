@@ -68,7 +68,7 @@ type SSAConstantPropagation =
       | Extract (e, rt, pos) ->
         let c = evalExpr state e
         ConstantDomain.extract c rt pos
-      | FuncName _ | Nil | Undefined _ -> ConstantDomain.NotAConst
+      | FuncName _ | ExprList _ | Undefined _ -> ConstantDomain.NotAConst
       | _ -> Terminator.impossible ()
 
     let evalDef (state: SSAVarBasedDataFlowState<_>) var e =

@@ -147,9 +147,12 @@ module private SSALifterFactory =
     else globals.Add v |> ignore
 
   let rec updateGlobals (globals: HashSet<_>) (varKill: HashSet<_>) = function
-    | Num _ | Undefined _ | FuncName _ | Nil -> ()
+    | Num _ | Undefined _ | FuncName _ -> ()
     | Var v ->
       updateGlobalName globals varKill v.Kind
+    | ExprList exprs ->
+      for e in exprs do
+        updateGlobals globals varKill e
     | Load (v, _, e)
     | Store (v, _, _, e) ->
       updateGlobalName globals varKill v.Kind
@@ -218,9 +221,11 @@ module private SSALifterFactory =
   let rec renameExpr stack = function
     | Num (_)
     | Undefined (_)
-    | FuncName (_)
-    | Nil -> ()
+    | FuncName (_) -> ()
     | Var v -> renameVar stack v
+    | ExprList exprs ->
+      for expr in exprs do
+        renameExpr stack expr
     | Load (v, _, expr) ->
       renameVar stack v
       renameExpr stack expr

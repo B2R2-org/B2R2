@@ -221,31 +221,23 @@ let binop op e1 e2 =
 #endif
   binopWithType op t e1 e2
 
-/// Consing two expr.
-[<CompiledName("Cons")>]
-let cons a b =
-  let t = Expr.TypeOf a
-  match b with
-  | Nil ->
+/// Expression list.
+[<CompiledName("ExprList")>]
+let exprList lst =
 #if ! HASHCONS
-    BinOp (BinOpType.CONS, t, a, b, null)
+  ExprList (lst, null)
 #else
     let hc = HashConsingInfo ()
-    let e = BinOp (BinOpType.CONS, t, a, b, hc)
+    let e = ExprList (lst, hc)
     match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
       hc.ID <- newEID ()
-      hc.Hash <- Expr.HashBinOp BinOpType.CONS t a b true
+      hc.Hash <- Expr.HashExprList lst true
       if isReclaimed then exprs[e].SetTarget e
       else exprs[e] <- WeakReference<Expr> e
       e
 #endif
-  | _ -> binopWithType BinOpType.CONS t a b
-
-/// Nil.
-[<CompiledName("Nil")>]
-let nil = Nil
 
 /// Function name.
 [<CompiledName("FuncName")>]
@@ -269,7 +261,7 @@ let funcName name =
 [<CompiledName("App")>]
 let app name args retType =
   let fnName = funcName name
-  List.reduceBack cons (args @ [ nil ])
+  exprList args
 #if ! HASHCONS
   |> fun cons ->
     BinOp (BinOpType.APP, retType, fnName, cons, null)
@@ -1086,12 +1078,14 @@ let sideEffect eff =
 /// Record the use of vars and tempvars from the given expression.
 let rec updateAllVarsUses (rset: RegisterSet) (tset: HashSet<int>) e =
   match e with
-  | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ ->
+  | Num _ | PCVar _ | JmpDest _ | FuncName _ | Undefined _ ->
     ()
   | Var (_, rid, _, _) ->
     rset.Add (int rid)
   | TempVar (_, n, _) ->
     tset.Add n |> ignore
+  | ExprList (exprs, _) ->
+    for e in exprs do updateAllVarsUses rset tset e done
   | UnOp (_, e, _) ->
     updateAllVarsUses rset tset e
   | BinOp (_, _, lhs, rhs, _) ->
@@ -1114,10 +1108,12 @@ let rec updateAllVarsUses (rset: RegisterSet) (tset: HashSet<int>) e =
 /// Record the use of vars (registers) from the given expression.
 let rec updateRegsUses (rset: RegisterSet) e =
   match e with
-  | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | TempVar _ ->
+  | Num _ | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | TempVar _ ->
     ()
   | Var (_, rid, _, _) ->
     rset.Add (int rid)
+  | ExprList (exprs, _) ->
+    for e in exprs do updateRegsUses rset e done
   | UnOp (_, e, _) ->
     updateRegsUses rset e
   | BinOp (_, _, lhs, rhs, _) ->
@@ -1140,10 +1136,12 @@ let rec updateRegsUses (rset: RegisterSet) e =
 /// Record the use of tempvars from the given expression.
 let rec updateTempsUses (tset: HashSet<int>) e =
   match e with
-  | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | Var _ ->
+  | Num _ | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | Var _ ->
     ()
   | TempVar (_, n, _) ->
     tset.Add n |> ignore
+  | ExprList (exprs, _) ->
+    for e in exprs do updateTempsUses tset e done
   | UnOp (_, e, _) ->
     updateTempsUses tset e
   | BinOp (_, _, lhs, rhs, _) ->

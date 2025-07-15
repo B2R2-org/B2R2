@@ -34,7 +34,12 @@ let rec private expToStringAux expr (sb: StringBuilder) =
   match expr with
   | Num n -> sb.Append (BitVector.ToString n) |> ignore
   | Var (v) -> sb.Append (Variable.ToString v) |> ignore
-  | Nil -> sb.Append "nil" |> ignore
+  | ExprList [] -> ()
+  | ExprList (e :: []) -> expToStringAux e sb
+  | ExprList (e :: more) ->
+    expToStringAux e sb
+    sb.Append ", " |> ignore
+    expToStringAux (ExprList more) sb
   | FuncName (n) -> sb.Append n |> ignore
   | UnOp (op, _, e) ->
     sb.Append "(" |> ignore

@@ -129,7 +129,7 @@ type ConstantPropagation =
       | Extract (e, rt, pos, _) ->
         let c = evaluateExpr state pp e
         ConstantDomain.extract c rt pos
-      | FuncName _ | Nil | Undefined _ -> ConstantDomain.NotAConst
+      | FuncName _ | ExprList _ | Undefined _ -> ConstantDomain.NotAConst
       | _ -> Terminator.impossible ()
 
     let analysis =

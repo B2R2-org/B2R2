@@ -70,7 +70,7 @@ type StackPointerPropagation =
       match e with
       | Num (bv, _) -> StackPointerDomain.ConstSP bv
       | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
-      | Nil -> StackPointerDomain.NotConstSP
+      | ExprList _ -> StackPointerDomain.NotConstSP
       | Load _ -> StackPointerDomain.NotConstSP
       | UnOp _ -> StackPointerDomain.NotConstSP
       | FuncName _ -> StackPointerDomain.NotConstSP

@@ -139,8 +139,6 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
     >>= fun comment ->
       getUserState |>> (fun rt -> AST.undef rt comment)
 
-  let pNil = pstringCI "nil" |>> (fun _ -> AST.nil)
-
   let pPrimaryValue =
     [ attempt pExtractNoParen .>> ws
       pVar .>> ws
@@ -149,8 +147,7 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
       pLoad .>> ws
       pNum .>> ws
       pCast .>> ws
-      pUndefinedExpr .>> ws
-      pNil .>> ws ] |> choice
+      pUndefinedExpr .>> ws ] |> choice
 
   let pFLog =
     pstring "lg" >>. ws
@@ -207,7 +204,6 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
       AST.binop BinOpType.XOR, "^", 4, Associativity.Left
       AST.binop BinOpType.CONCAT, "++", 4, Associativity.Left
       AST.binop BinOpType.APP, "-|", 5, Associativity.Right
-      AST.binop BinOpType.CONS, "::", 4, Associativity.Right
       AST.binop BinOpType.FADD, "+.", 4, Associativity.Left
       AST.binop BinOpType.FSUB, "-.", 4, Associativity.Left
       AST.binop BinOpType.FMUL, "*.", 4, Associativity.Left

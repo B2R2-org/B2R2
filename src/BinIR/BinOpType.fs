@@ -56,8 +56,6 @@ type BinOpType =
   | CONCAT = 13
   /// Apply a function
   | APP = 14
-  /// Cons arguments of function
-  | CONS = 15
   /// Floating point addition
   | FADD = 16
   /// Floating point subtraction
@@ -95,7 +93,6 @@ module BinOpType =
     | BinOpType.OR -> "|"
     | BinOpType.XOR -> "^"
     | BinOpType.CONCAT -> "++"
-    | BinOpType.CONS -> "::"
     | BinOpType.FADD -> "+."
     | BinOpType.FSUB -> "-."
     | BinOpType.FMUL -> "*."
@@ -123,7 +120,6 @@ module BinOpType =
     | "|" -> BinOpType.OR
     | "^" -> BinOpType.XOR
     | "++" -> BinOpType.CONCAT
-    | "::" -> BinOpType.CONS
     | "+." -> BinOpType.FADD
     | "-." -> BinOpType.FSUB
     | "*." -> BinOpType.FMUL

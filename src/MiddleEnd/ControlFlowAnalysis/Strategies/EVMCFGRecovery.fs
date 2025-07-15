@@ -67,6 +67,10 @@ module private EVMCFGRecovery =
     | SSA.UnOp (op, rt, e) ->
       let e' = expandExpr state e
       SSA.UnOp (op, rt, e')
+    | SSA.ExprList l ->
+      l
+      |> List.map (expandExpr state)
+      |> SSA.ExprList
     | SSA.Extract (e, rt, i) ->
       let e' = expandExpr state e
       SSA.Extract (e', rt, i)
@@ -89,7 +93,6 @@ module private EVMCFGRecovery =
       let e1' = expandExpr state e1
       let e2' = expandExpr state e2
       SSA.RelOp (op, rt, e1', e2')
-    | SSA.Nil
     | SSA.Num _
     | SSA.FuncName _
     | SSA.Undefined _ -> e

@@ -36,8 +36,8 @@ type Expr =
   /// A variable.
   | Var of Variable
 
-  /// Nil value for cons cells.
-  | Nil
+  /// List of expressions.
+  | ExprList of Expr list
 
   /// Memory lookup such as [T_1]:I32
   | Load of Variable * RegType * Expr

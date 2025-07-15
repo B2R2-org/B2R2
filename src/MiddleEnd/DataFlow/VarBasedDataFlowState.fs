@@ -212,6 +212,9 @@ type VarBasedDataFlowState<'Lattice>
       let vk = VarKind.ofIRExpr e
       let ssaVar = getSSAVarFromUse pp vk
       SSA.Var ssaVar
+    | ExprList (exprs, _) ->
+      List.map (translateToSSAExpr pp) exprs
+      |> SSA.ExprList
     | Load (_, rt, addr, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
@@ -244,7 +247,6 @@ type VarBasedDataFlowState<'Lattice>
       let e = translateToSSAExpr pp e
       SSA.Cast (castKind, rt, e)
     | FuncName (s, _) -> SSA.FuncName s
-    | Nil -> SSA.Nil
     | Undefined (rt, s, _) -> SSA.Undefined (rt, s)
     | Ite (e1, e2, e3, _) ->
       let rt = Expr.TypeOf e2

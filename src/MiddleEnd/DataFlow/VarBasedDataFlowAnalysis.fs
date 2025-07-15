@@ -167,10 +167,11 @@ type VarBasedDataFlowAnalysis<'Lattice>
   let rec updateWithExpr state defs (pp: ProgramPoint) = function
     | Num (_)
     | Undefined (_)
-    | FuncName (_)
-    | Nil -> ()
+    | FuncName (_) -> ()
     | Var (_rt, rid, _rstr, _) -> updateChains state (Regular rid) defs pp
     | TempVar (_, n, _) -> updateChains state (Temporary n) defs pp
+    | ExprList (exprs, _) ->
+      exprs |> List.iter (updateWithExpr state defs pp)
     | Load (_, _, expr, _) ->
       updateWithExpr state defs pp expr
       getStackValue state.StackPointerSubState pp expr
