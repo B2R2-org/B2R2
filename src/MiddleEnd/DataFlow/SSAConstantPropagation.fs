@@ -22,105 +22,106 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.DataFlow.SSA
+namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow.Constants
+open B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
 
 /// Sparse conditional constant propagation analysis on SSACFG.
-type SSAConstantPropagation =
-  inherit SSAVarBasedDataFlowAnalysis<ConstantDomain.Lattice>
+type SSAConstantPropagation (hdl: BinHandle) =
+  let evalLoad (state: State<_>) m rt addr =
+    match addr with
+    | ConstantDomain.Const addr ->
+      let addr = BitVector.ToUInt64 addr
+      state.GetMemValue m rt addr
+    | _ -> ConstantDomain.NotAConst
 
-  new (hdl: BinHandle) =
-    let evalLoad (state: SSAVarBasedDataFlowState<_>) m rt addr =
-      match addr with
-      | ConstantDomain.Const addr ->
-        let addr = BitVector.ToUInt64 addr
-        state.GetMemValue m rt addr
-      | _ -> ConstantDomain.NotAConst
+  let rec evalExpr (state: State<_>) = function
+    | Num bv -> ConstantDomain.Const bv
+    | Var v -> state.GetRegValue v
+    | Load (m, rt, addr) ->
+      evalExpr state addr |> evalLoad state m rt
+    | UnOp (op, _, e) ->
+      evalExpr state e |> ConstantPropagation.evalUnOp op
+    | BinOp (op, _, e1, e2) ->
+      let c1 = evalExpr state e1
+      let c2 = evalExpr state e2
+      ConstantPropagation.evalBinOp op c1 c2
+    | RelOp (op, _, e1, e2) ->
+      let c1 = evalExpr state e1
+      let c2 = evalExpr state e2
+      ConstantPropagation.evalRelOp op c1 c2
+    | Ite (e1, _, e2, e3) ->
+      let c1 = evalExpr state e1
+      let c2 = evalExpr state e2
+      let c3 = evalExpr state e3
+      ConstantDomain.ite c1 c2 c3
+    | Cast (op, rt, e) ->
+      let c = evalExpr state e
+      ConstantPropagation.evalCast op rt c
+    | Extract (e, rt, pos) ->
+      let c = evalExpr state e
+      ConstantDomain.extract c rt pos
+    | FuncName _ | ExprList _ | Undefined _ -> ConstantDomain.NotAConst
+    | _ -> Terminator.impossible ()
 
-    let rec evalExpr (state: SSAVarBasedDataFlowState<_>) = function
-      | Num bv -> ConstantDomain.Const bv
-      | Var v -> state.GetRegValue v
-      | Load (m, rt, addr) ->
-        evalExpr state addr |> evalLoad state m rt
-      | UnOp (op, _, e) ->
-        evalExpr state e |> ConstantPropagation.evalUnOp op
-      | BinOp (op, _, e1, e2) ->
-        let c1 = evalExpr state e1
-        let c2 = evalExpr state e2
-        ConstantPropagation.evalBinOp op c1 c2
-      | RelOp (op, _, e1, e2) ->
-        let c1 = evalExpr state e1
-        let c2 = evalExpr state e2
-        ConstantPropagation.evalRelOp op c1 c2
-      | Ite (e1, _, e2, e3) ->
-        let c1 = evalExpr state e1
-        let c2 = evalExpr state e2
-        let c3 = evalExpr state e3
-        ConstantDomain.ite c1 c2 c3
-      | Cast (op, rt, e) ->
-        let c = evalExpr state e
-        ConstantPropagation.evalCast op rt c
-      | Extract (e, rt, pos) ->
-        let c = evalExpr state e
-        ConstantDomain.extract c rt pos
-      | FuncName _ | ExprList _ | Undefined _ -> ConstantDomain.NotAConst
-      | _ -> Terminator.impossible ()
+  let evalDef (state: State<_>) var e =
+    match var.Kind with
+    | MemVar -> ()
+    | _ -> state.SetRegValue (var, evalExpr state e)
 
-    let evalDef (state: SSAVarBasedDataFlowState<_>) var e =
-      match var.Kind with
+  let evalPhi (state: State<_>) cfg blk dst srcIDs =
+    match state.GetExecutedSources cfg blk srcIDs with
+    | [||] -> ()
+    | executedSrcIDs ->
+      match dst.Kind with
       | MemVar -> ()
-      | _ -> state.SetRegValue (var, evalExpr state e)
+      | _ ->
+        executedSrcIDs
+        |> Array.map (fun i ->
+          { dst with Identifier = i } |> state.GetRegValue)
+        |> Array.reduce ConstantDomain.join
+        |> fun merged -> state.SetRegValue (dst, merged)
 
-    let evalPhi (state: SSAVarBasedDataFlowState<_>) cfg blk dst srcIDs =
-      match state.GetExecutedSources cfg blk srcIDs with
-      | [||] -> ()
-      | executedSrcIDs ->
-        match dst.Kind with
-        | MemVar -> ()
-        | _ ->
-          executedSrcIDs
-          |> Array.map (fun i ->
-            { dst with Identifier = i } |> state.GetRegValue)
-          |> Array.reduce ConstantDomain.join
-          |> fun merged -> state.SetRegValue (dst, merged)
+  let evalJmp (state: State<_>) cfg blk =
+    state.MarkSuccessorsExecutable cfg blk
 
-    let evalJmp (state: SSAVarBasedDataFlowState<_>) cfg blk =
-      state.MarkSuccessorsExecutable cfg blk
+  let lattice =
+    { new ILattice<ConstantDomain.Lattice> with
+        member _.Bottom = ConstantDomain.Undef
+        member _.Join (a, b) = ConstantDomain.join a b
+        member _.Subsume (a, b) = ConstantDomain.subsume a b }
 
-    let analysis =
-      { new ISSAVarBasedDataFlowAnalysis<ConstantDomain.Lattice> with
-          member _.OnInitialize state =
-            match hdl.RegisterFactory.StackPointer with
-            | Some sp ->
-              let rt = hdl.RegisterFactory.GetRegType sp
-              let str = hdl.RegisterFactory.GetRegString sp
-              let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-              let spVal = BitVector.OfUInt64 InitialStackPointer rt
-              state.SetRegValueWithoutAdding var <| ConstantDomain.Const spVal
-              state
-            | None -> state
+  let rec scheme =
+    { new IScheme<ConstantDomain.Lattice> with
+        member _.Transfer(stmt, ssaCFG, blk)=
+          match stmt with
+          | Def (var, e) -> evalDef state var e
+          | Phi (var, ns) -> evalPhi state ssaCFG blk var ns
+          | Jmp _ -> evalJmp state ssaCFG blk
+          | LMark _ | ExternalCall _ | SideEffect _ -> ()
+        member _.UpdateMemFromBinaryFile _rt _addr = ConstantDomain.Undef
+        member _.EvalExpr e = evalExpr state e }
 
-          member _.Bottom with get() = ConstantDomain.Undef
+  and state =
+    State<ConstantDomain.Lattice> (hdl, lattice, scheme)
+    |> fun state ->
+      match hdl.RegisterFactory.StackPointer with
+      | Some sp ->
+        let rt = hdl.RegisterFactory.GetRegType sp
+        let str = hdl.RegisterFactory.GetRegString sp
+        let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
+        let spVal = BitVector.OfUInt64 InitialStackPointer rt
+        state.SetRegValueWithoutAdding var <| ConstantDomain.Const spVal
+        state
+      | None -> state
 
-          member _.Join a b = ConstantDomain.join a b
-
-          member _.Transfer ssaCFG blk _pp stmt state =
-            match stmt with
-            | Def (var, e) -> evalDef state var e
-            | Phi (var, ns) -> evalPhi state ssaCFG blk var ns
-            | Jmp _ -> evalJmp state ssaCFG blk
-            | LMark _ | ExternalCall _ | SideEffect _ -> ()
-
-          member _.Subsume lhs rhs = ConstantDomain.subsume lhs rhs
-
-          member _.UpdateMemFromBinaryFile _rt _addr = ConstantDomain.Undef
-
-          member _.EvalExpr state e = evalExpr state e }
-
-    { inherit SSAVarBasedDataFlowAnalysis<ConstantDomain.Lattice>
-        (hdl, analysis) }
+  interface IDataFlowComputable<SSAVarPoint,
+                                ConstantDomain.Lattice,
+                                State<ConstantDomain.Lattice>,
+                                SSABasicBlock> with
+    member _.Compute cfg = compute cfg state

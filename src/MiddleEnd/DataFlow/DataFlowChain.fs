@@ -96,7 +96,7 @@ module DataFlowChain =
     extractUseFromStmt stmt
     |> Set.ofList
 
-  let private initUDChain cfg (st: IDataFlowState<_, _>) =
+  let private initUDChain cfg (provider: IAbsValProvider<_, _>) =
     Map.empty
     |> (cfg: IDiGraphAccessible<LowUIRBasicBlock, _>).FoldVertex (fun map v ->
       v.VData.Internals.LiftedInstructions
@@ -104,7 +104,7 @@ module DataFlowChain =
         lifted.Stmts
         |> Array.foldi (fun map idx stmt ->
           let pp = ProgramPoint (lifted.Original.Address, idx)
-          let abs = st.GetAbsValue v.ID
+          let abs = provider.GetAbsValue v.ID
           let uses = extractUses stmt
           uses |> Set.fold (fun map u ->
             let usepoint = { ProgramPoint = pp; VarKind = u }
@@ -144,9 +144,8 @@ module DataFlowChain =
 
   [<CompiledName("Init")>]
   let init cfg isDisasmLevel =
-    let rd = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
-    let st = rd.InitializeState []
-    let st = rd.Compute cfg st
-    let udchain = initUDChain cfg st |> filterDisasm isDisasmLevel
+    let rd = ReachingDefinitionAnalysis () :> IDataFlowComputable<_, _, _, _>
+    let provider = rd.Compute cfg
+    let udchain = initUDChain cfg provider |> filterDisasm isDisasmLevel
     let duchain = initDUChain udchain |> filterDisasm isDisasmLevel
     { UseDefChain = udchain; DefUseChain = duchain }

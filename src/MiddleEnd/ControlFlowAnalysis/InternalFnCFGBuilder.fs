@@ -120,8 +120,6 @@ type InternalFnCFGBuilder<'FnCtx,
     let cfg = LowUIRCFG Imperative
     let bblFactory = BBLFactory (hdl, instrs)
     let fnCtx = new 'FnCtx ()
-    let cp = ConstantPropagation hdl :> IDataFlowAnalysis<_, _, _, _>
-    let cpState = cp.InitializeState cfg.Vertices
     let ctx =
       { FunctionAddress = entryPoint
         FunctionName = name
@@ -129,7 +127,7 @@ type InternalFnCFGBuilder<'FnCtx,
         ExnInfo = exnInfo
         Vertices = Dictionary ()
         CFG = cfg
-        CPState = cpState
+        CP = ConstantPropagation(hdl, cfg.Vertices)
         BBLFactory = bblFactory
         NonReturningStatus = UnknownNoRet
         JumpTableRecoveryStatus = Stack ()

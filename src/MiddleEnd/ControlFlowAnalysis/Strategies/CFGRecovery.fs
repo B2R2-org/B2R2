@@ -50,11 +50,11 @@ type IGraphOpHandlable<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 
 module private CFGRecovery =
   let inline markVertexAsPendingForAnalysis ctx v =
-    ctx.CPState.MarkVertexAsPending v
+    ctx.CP.MarkVertexAsPending v
 
   let inline markVertexAsRemovalForAnalysis ctx v =
-    ctx.CPState.MarkVertexAsRemoval v
-    ctx.CFG.GetSuccs v |> Seq.iter ctx.CPState.MarkVertexAsPending
+    ctx.CP.MarkVertexAsRemoval v
+    ctx.CFG.GetSuccs v |> Seq.iter ctx.CP.MarkVertexAsPending
 
   let prioritizer =
     { new IPrioritizable with

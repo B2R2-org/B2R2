@@ -31,7 +31,6 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
-open B2R2.MiddleEnd.DataFlow.SSA
 
 /// SSACFG's vertex.
 type SSAVertex = IVertex<SSABasicBlock>
@@ -343,7 +342,7 @@ module private SSALifterFactory =
       Some (Var v)
     | _ -> None
 
-  let rec replaceLoad (state: SSAVarBasedDataFlowState<_>) e =
+  let rec replaceLoad (state: SSASparseDataFlow.State<_>) e =
     match e with
     | Load (_, rt, addr) ->
       let addr = state.EvalExpr addr
@@ -360,7 +359,7 @@ module private SSALifterFactory =
     match stmt with
     | Phi _ -> None
     | Def ({ Kind = MemVar }, Store (_, rt, addr, src)) ->
-      let addr = (state: SSAVarBasedDataFlowState<_>).EvalExpr addr
+      let addr = (state: SSASparseDataFlow.State<_>).EvalExpr addr
       memStore stmtInfo rt addr src
     | Def (dstVar, e) ->
       match replaceLoad state e with
@@ -370,9 +369,8 @@ module private SSALifterFactory =
 
   let promote hdl ssaCFG (callback: ISSAVertexCallback) =
     let spp = SSAStackPointerPropagation hdl
-    let dfa = spp :> IDataFlowAnalysis<_, _, _, _>
-    let state = dfa.InitializeState []
-    let state = dfa.Compute ssaCFG state
+    let dfa = spp :> IDataFlowComputable<_, _, _, _>
+    let state = dfa.Compute ssaCFG
     for v in ssaCFG.Vertices do
       callback.OnVertexCreation ssaCFG state v
       v.VData.Internals.Statements

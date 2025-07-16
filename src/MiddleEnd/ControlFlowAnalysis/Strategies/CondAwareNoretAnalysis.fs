@@ -32,7 +32,6 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
-open B2R2.MiddleEnd.DataFlow.SSA
 open type B2R2.MiddleEnd.DataFlow.UntouchedValueDomain.UntouchedTag
 
 /// This is a non-returning function identification strategy that can check
@@ -55,10 +54,10 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | ConditionalNoRet n1, ConditionalNoRet n2 when n1 <> n2 -> NoRet
     | _ -> Terminator.impossible ()
 
-  let tryGetValue (state: VarBasedDataFlowState<_>) v varKind =
+  let tryGetValue (state: LowUIRSparseDataFlow.State<_>) v varKind =
     let defs = state.PerVertexIncomingDefs[v]
     match Map.tryFind varKind defs with
-    | Some defVp -> (state :> IDataFlowState<_, _>).GetAbsValue defVp |> Some
+    | Some defVp -> (state :> IAbsValProvider<_, _>).GetAbsValue defVp |> Some
     | None -> None
 
   let untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth =
@@ -117,8 +116,10 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
 
   let collectConditionalNoRetCallsFromIRCFG ctx (cfg: LowUIRCFG) =
     let hdl = ctx.BinHandle
-    let uva = UntouchedValueAnalysis hdl :> IDataFlowAnalysis<_, _, _, _>
-    let state = lazy (uva.InitializeState cfg.Vertices |> uva.Compute cfg)
+    let uva =
+      UntouchedValueAnalysis(hdl, cfg.Vertices)
+      :> IDataFlowComputable<_, _, _, _>
+    let state = lazy (uva.Compute cfg)
     collectReturningAbsPPs ctx
     |> List.choose (fun pp ->
       let absV = ctx.Vertices[pp]
@@ -135,7 +136,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     ssa.FindReachingDef absV varKind
     |> Option.bind (function
       | SSA.Def (var, _) ->
-        match (state: SSAVarBasedDataFlowState<_>).GetRegValue var with
+        match (state: SSASparseDataFlow.State<_>).GetRegValue var with
         | UntouchedValueDomain.Untouched (RegisterTag (StackLocal off)) ->
           Some (- off / 4)
         | _ -> None
@@ -147,7 +148,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     let varKind = SSA.RegVar (64<rt>, argReg, name)
     match ssa.FindReachingDef absV varKind with
     | Some (SSA.Def (var, _)) ->
-      match (state: SSAVarBasedDataFlowState<_>).GetRegValue var with
+      match (state: SSASparseDataFlow.State<_>).GetRegValue var with
       | UntouchedValueDomain.Untouched (RegisterTag (Regular rid)) ->
         regIdToArgNumX64 hdl rid
       | _ -> None
@@ -176,8 +177,8 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
 
   let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG =
     let hdl = ctx.BinHandle
-    let uva = SSAUntouchedValueAnalysis hdl :> IDataFlowAnalysis<_, _, _, _>
-    let state = lazy (uva.InitializeState [] |> uva.Compute ssaCFG)
+    let uva = SSAUntouchedValueAnalysis hdl :> IDataFlowComputable<_, _, _, _>
+    let state = lazy (uva.Compute ssaCFG)
     collectReturningAbsPPs ctx
     |> List.choose (fun pp ->
       let absV = ctx.Vertices[pp]

@@ -22,7 +22,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.DataFlow.SSA
+/// Provides SSA-based sparse data flow analysis framework, which is based on
+/// the idea of sparse conditional constant propagation algorithm by Wegman et
+/// al.
+module B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
 
 open System.Collections.Generic
 open B2R2
@@ -31,15 +34,12 @@ open B2R2.BinIR.SSA
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
-open B2R2.MiddleEnd.DataFlow
-
-/// An ID of an SSA memory instance.
-type private SSAMemID = int
 
 /// SSA-variable-based data flow state.
-type SSAVarBasedDataFlowState<'Lattice>
+type State<'Lattice when 'Lattice: equality>
   public (hdl: BinHandle,
-          analysis: ISSAVarBasedDataFlowAnalysis<'Lattice>) =
+          lattice: ILattice<'Lattice>,
+          scheme: IScheme<'Lattice>) =
 
   let mutable ssaEdges: SSAEdges = null
 
@@ -81,19 +81,21 @@ type SSAVarBasedDataFlowState<'Lattice>
     let align = RegType.toByteWidth rt |> uint64
     (rt = defaultRegType) && (addr % align = 0UL)
 
-  member _.SSAEdges with get() = ssaEdges and set v = ssaEdges <- v
+  member _.Scheme with get () = scheme
 
-  member _.FlowWorkList with get() = flowWorkList
+  member _.SSAEdges with get () = ssaEdges and set v = ssaEdges <- v
 
-  member _.SSAWorkList with get() = ssaWorkList
+  member _.FlowWorkList with get () = flowWorkList
 
-  member _.ExecutedEdges with get() = executedEdges
+  member _.SSAWorkList with get () = ssaWorkList
+
+  member _.ExecutedEdges with get () = executedEdges
 
   /// Get register value.
   member _.GetRegValue (var: Variable) =
     match regValues.TryGetValue var with
     | true, v -> v
-    | false, _ -> analysis.Bottom
+    | false, _ -> lattice.Bottom
 
   /// Set register value without adding it to the worklist.
   member _.SetRegValueWithoutAdding (var: Variable) (value: 'Lattice) =
@@ -108,9 +110,9 @@ type SSAVarBasedDataFlowState<'Lattice>
     if not (regValues.ContainsKey var) then
       regValues[var] <- value
       ssaWorkList.Enqueue var
-    elif analysis.Subsume regValues[var] value then ()
+    elif lattice.Subsume(regValues[var], value) then ()
     else
-      regValues[var] <- analysis.Join regValues[var] value
+      regValues[var] <- lattice.Join(regValues[var], value)
       ssaWorkList.Enqueue var
 
   /// Try to get memory value. Unaligned access will always return Bottom.
@@ -120,8 +122,8 @@ type SSAVarBasedDataFlowState<'Lattice>
       match memValues.TryGetValue var.Identifier with
       | true, map -> Map.tryFind addr map
       | false, _ -> None
-      |> Option.defaultWith (fun () -> analysis.UpdateMemFromBinaryFile rt addr)
-    else analysis.Bottom
+      |> Option.defaultWith (fun () -> scheme.UpdateMemFromBinaryFile rt addr)
+    else lattice.Bottom
 
   /// Get the list of executed source vertices.
   member _.GetExecutedSources ssaCFG (blk: IVertex<_>) srcIDs =
@@ -145,51 +147,33 @@ type SSAVarBasedDataFlowState<'Lattice>
       else ()
     count
 
-  member this.EvalExpr expr = analysis.EvalExpr this expr
+  member this.EvalExpr expr = scheme.EvalExpr expr
 
-  interface IDataFlowState<SSAVarPoint, 'Lattice> with
+  interface IAbsValProvider<SSAVarPoint, 'Lattice> with
     member this.GetAbsValue ssaVarPoint =
       match ssaVarPoint with
       | RegularSSAVar v -> this.GetRegValue v
       | MemorySSAVar (id, addr) ->
         match memValues.TryGetValue id with
         | true, map -> Map.find addr map
-        | false, _ -> analysis.Bottom
+        | false, _ -> lattice.Bottom
 
 /// The core interface for SSA-based data flow analysis.
-and ISSAVarBasedDataFlowAnalysis<'Lattice> =
-  /// A callback for initializing the state.
-  abstract OnInitialize:
-       SSAVarBasedDataFlowState<'Lattice>
-    -> SSAVarBasedDataFlowState<'Lattice>
-
-  /// Initial abstract value representing the bottom of the lattice. Our
-  /// analysis starts with this value until it reaches a fixed point.
-  abstract Bottom: 'Lattice
-
-  /// Join operator.
-  abstract Join: 'Lattice -> 'Lattice -> 'Lattice
-
-  /// Transfer function. Since SSAVarBasedDataFlowState is a mutable object, we
-  /// don't need to return the updated state.
+and IScheme<'Lattice when 'Lattice: equality> =
+  /// The transfer function, which computes the next abstract value from the
+  /// current abstract value by executing the given 'WorkUnit.
   abstract Transfer:
-       IDiGraph<SSABasicBlock, CFGEdgeKind>
-    -> IVertex<SSABasicBlock>
-    -> ProgramPoint
-    -> Stmt
-    -> SSAVarBasedDataFlowState<'Lattice>
+      Stmt
+    * IDiGraph<SSABasicBlock, CFGEdgeKind>
+    * IVertex<SSABasicBlock>
     -> unit
-
-  /// Subsume operator, which checks if the first lattice subsumes the second.
-  /// This is to know if the analysis should stop or not.
-  abstract Subsume: 'Lattice -> 'Lattice -> bool
 
   /// Update memory value by reading constant values from a binary file when
   /// the memory value is not found in the memory value map.
   abstract UpdateMemFromBinaryFile: RegType -> Addr -> 'Lattice
 
   /// Evaluate the given expression based on the current abstract state.
-  abstract EvalExpr: SSAVarBasedDataFlowState<'Lattice> -> Expr -> 'Lattice
+  abstract EvalExpr: Expr -> 'Lattice
 
 /// SSA variable point.
 and SSAVarPoint =
@@ -199,3 +183,55 @@ and SSAVarPoint =
   /// Memory variable. Since SSA.Variable doesn't have a field for address, we
   /// use this type to represent a memory variable at a specific address.
   | MemorySSAVar of SSAMemID * Addr
+
+/// An ID of an SSA memory instance.
+and private SSAMemID = int
+
+let processFlow (state: State<_>) ssaCFG =
+  match state.FlowWorkList.TryDequeue () with
+  | false, _ -> ()
+  | true, (parentId, myId) ->
+    state.ExecutedEdges.Add (parentId, myId) |> ignore
+    let blk = (ssaCFG :> IDiGraph<SSABasicBlock, _>).FindVertexByID myId
+    blk.VData.Internals.Statements
+    |> Array.iter (fun (_, stmt) ->
+      state.Scheme.Transfer(stmt, ssaCFG, blk))
+    match blk.VData.Internals.LastStmt with
+    | Jmp _ -> ()
+    | _ -> (* Fall-through cases. *)
+      ssaCFG.GetSuccs blk
+      |> Seq.iter (fun succ ->
+        state.MarkExecutable myId succ.ID)
+
+let processSSA (state: State<_>) ssaCFG =
+  match state.SSAWorkList.TryDequeue () with
+  | false, _ -> ()
+  | true, def ->
+    match state.SSAEdges.Uses.TryGetValue def with
+    | false, _ -> ()
+    | _, uses ->
+      for (vid, idx) in uses do
+        let v = (ssaCFG :> IDiGraph<SSABasicBlock, _>).FindVertexByID vid
+        if state.GetNumIncomingExecutedEdges ssaCFG v > 0 then
+          let _, stmt = v.VData.Internals.Statements[idx]
+          state.Scheme.Transfer(stmt, ssaCFG, v)
+        else ()
+
+let compute cfg (state: State<_>) =
+  state.SSAEdges <- SSAEdges cfg
+  cfg.GetRoots ()
+  |> Seq.iter (fun root -> state.FlowWorkList.Enqueue (0, root.ID))
+  while state.FlowWorkList.Count > 0 || state.SSAWorkList.Count > 0 do
+    processFlow state cfg
+    processSSA state cfg
+  state
+
+//interface IDataFlowComputable<SSAVarPoint,
+//                            'Lattice,
+//                            SSAVarBasedDataFlowState<'Lattice>,
+//                            SSABasicBlock> with
+//  member _.InitializeState _vs =
+//    SSAVarBasedDataFlowState<'Lattice> (hdl, analysis)
+//    |> analysis.OnInitialize
+
+//  member _.Compute cfg (state: SSAVarBasedDataFlowState<'Lattice>) =

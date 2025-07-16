@@ -27,12 +27,10 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
-open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
-open B2R2.MiddleEnd.DataFlow.SSA
 
 type private L = ConstantDomain.Lattice
 
@@ -58,7 +56,7 @@ type JmpTableAnalysis<'FnCtx,
   let findIndBranchExprFromIRCFG (g: LowUIRCFG) state addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
     let v = g.FindVertex (fun v -> v.VData.Internals.BlockAddress = addr)
-    let stmExtractor = (state: VarBasedDataFlowState<_>).GetTerminatorInSSA
+    let stmExtractor = (state: LowUIRSparseDataFlow.State<_>).GetTerminatorInSSA
     findJumpExpr stmExtractor g v [ v ]
 
   let findIndBranchExprFromSSACFG (ssaCFG: SSACFG) addr =
@@ -267,10 +265,10 @@ type JmpTableAnalysis<'FnCtx,
         findSymbPattern expandPhi findConst findDef fnAddr insAddr (depth + 1) e
       else Error ErrorCase.ItemNotFound
 
-  let findConstFromIRCFG (state: VarBasedDataFlowState<_>) v =
+  let findConstFromIRCFG (state: LowUIRSparseDataFlow.State<_>) v =
     state.DomainSubState.GetAbsValue (v=v)
 
-  let findDefFromIRCFG (state: VarBasedDataFlowState<_>) v =
+  let findDefFromIRCFG (state: LowUIRSparseDataFlow.State<_>) v =
     state.TryGetSSADef v
 
   let expandPhiFromIRCFG findConst v _ e =
@@ -287,10 +285,10 @@ type JmpTableAnalysis<'FnCtx,
       findSymbPattern expandPhiFromIRCFG findConst findDef fnAddr insAddr 0 exp
     | Error e -> Error e
 
-  let findConstFromSSACFG (state: SSAVarBasedDataFlowState<_>) v =
+  let findConstFromSSACFG (state: SSASparseDataFlow.State<_>) v =
     state.GetRegValue v
 
-  let findDefFromSSACFG (state: SSAVarBasedDataFlowState<_>) v =
+  let findDefFromSSACFG (state: SSASparseDataFlow.State<_>) v =
     match state.SSAEdges.Defs.TryGetValue v with
     | true, def -> Some def
     | false, _ -> None
@@ -332,14 +330,13 @@ type JmpTableAnalysis<'FnCtx,
       | Some ssaLifter ->
         let ssaCFG = ssaLifter.Unwrap { Context = ctx } ()
         let cp = SSAConstantPropagation ctx.BinHandle
-        let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
-        let state = dfa.InitializeState []
-        let state = dfa.Compute ssaCFG state
+        let dfa = cp :> IDataFlowComputable<_, _, _, _>
+        let state = dfa.Compute ssaCFG
         analyzeSymbolicallyWithSSACFG ctx ssaCFG state insAddr bblAddr
         |> checkValidity ctx
       | None ->
-        let cp = ConstantPropagation ctx.BinHandle
-        let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
-        let state = dfa.Compute ctx.CFG ctx.CPState
+        let cp = ctx.CP
+        let dfa = cp :> IDataFlowComputable<_, _, _, _>
+        let state = dfa.Compute ctx.CFG
         analyzeSymbolicallyWithIRCFG ctx state insAddr bblAddr
         |> checkValidity ctx

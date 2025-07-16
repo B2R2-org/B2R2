@@ -22,97 +22,98 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.DataFlow.SSA
+namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
+open B2R2.MiddleEnd.ControlFlowGraph
 open type UntouchedValueDomain.UntouchedTag
 
-type SSAUntouchedValueAnalysis =
-  inherit SSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice>
+type SSAUntouchedValueAnalysis (hdl: BinHandle) =
+  let initRegisters (state: State<_>) =
+    hdl.RegisterFactory.GetGeneralRegVars ()
+    |> Array.iter (fun regExpr ->
+      let rid = hdl.RegisterFactory.GetRegisterID regExpr
+      let rt = hdl.RegisterFactory.GetRegType rid
+      let str = hdl.RegisterFactory.GetRegString rid
+      let var = { Kind = RegVar (rt, rid, str); Identifier = 0 }
+      let vkind = VarKind.ofSSAVarKind var.Kind
+      state.SetRegValueWithoutAdding var
+      <| UntouchedValueDomain.Untouched (RegisterTag vkind)
+    )
+    match hdl.RegisterFactory.StackPointer with
+    | Some sp ->
+      let rt = hdl.RegisterFactory.GetRegType sp
+      let str = hdl.RegisterFactory.GetRegString sp
+      let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
+      state.SetRegValueWithoutAdding var UntouchedValueDomain.Touched
+      state
+    | None -> state
 
-  new (hdl: BinHandle) =
-    let initRegisters (state: SSAVarBasedDataFlowState<_>) =
-      hdl.RegisterFactory.GetGeneralRegVars ()
-      |> Array.iter (fun regExpr ->
-        let rid = hdl.RegisterFactory.GetRegisterID regExpr
-        let rt = hdl.RegisterFactory.GetRegType rid
-        let str = hdl.RegisterFactory.GetRegString rid
-        let var = { Kind = RegVar (rt, rid, str); Identifier = 0 }
-        let vkind = VarKind.ofSSAVarKind var.Kind
-        state.SetRegValueWithoutAdding var
-        <| UntouchedValueDomain.Untouched (RegisterTag vkind)
-      )
-      match hdl.RegisterFactory.StackPointer with
-      | Some sp ->
-        let rt = hdl.RegisterFactory.GetRegType sp
-        let str = hdl.RegisterFactory.GetRegString sp
-        let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-        state.SetRegValueWithoutAdding var UntouchedValueDomain.Touched
-        state
-      | None -> state
+  let evalVar (state: State<_>) v =
+    if state.IsRegSet v then state.GetRegValue v
+    else
+      if v.Identifier = 0 then
+        let kind = VarKind.ofSSAVarKind v.Kind
+        UntouchedValueDomain.Untouched (RegisterTag kind) (* Init here. *)
+      else UntouchedValueDomain.Touched
 
-    let evalVar (state: SSAVarBasedDataFlowState<_>) v =
-      if state.IsRegSet v then state.GetRegValue v
-      else
-        if v.Identifier = 0 then
-          let kind = VarKind.ofSSAVarKind v.Kind
-          UntouchedValueDomain.Untouched (RegisterTag kind) (* Init here. *)
-        else UntouchedValueDomain.Touched
+  let rec evalExpr state = function
+    | Var v -> evalVar state v
+    | Extract (e, _, _)
+    | Cast (CastKind.ZeroExt, _, e)
+    | Cast (CastKind.SignExt, _, e) -> evalExpr state e
+    | _ -> (* Any other operations will be considered "touched". *)
+      UntouchedValueDomain.Touched
 
-    let rec evalExpr state = function
-      | Var v -> evalVar state v
-      | Extract (e, _, _)
-      | Cast (CastKind.ZeroExt, _, e)
-      | Cast (CastKind.SignExt, _, e) -> evalExpr state e
-      | _ -> (* Any other operations will be considered "touched". *)
-        UntouchedValueDomain.Touched
+  let evalDef (state: State<_>) var e =
+    match var.Kind with
+    | MemVar
+    | PCVar _ -> () (* Just ignore PCVar as it will always be "touched". *)
+    | _ -> state.SetRegValue (var, evalExpr state e)
 
-    let evalDef (state: SSAVarBasedDataFlowState<_>) var e =
-      match var.Kind with
-      | MemVar
-      | PCVar _ -> () (* Just ignore PCVar as it will always be "touched". *)
-      | _ -> state.SetRegValue (var, evalExpr state e)
+  let evalPhi (state: State<_>) ssaCFG blk dst srcIDs =
+    match state.GetExecutedSources ssaCFG blk srcIDs with
+    | [||] -> ()
+    | executedSrcIDs ->
+      match dst.Kind with
+      | MemVar | PCVar _ -> ()
+      | _ ->
+        executedSrcIDs
+        |> Array.map (fun i ->
+          { dst with Identifier = i } |> state.GetRegValue)
+        |> Array.reduce UntouchedValueDomain.join
+        |> fun merged -> state.SetRegValue (dst, merged)
 
-    let evalPhi (state: SSAVarBasedDataFlowState<_>) ssaCFG blk dst srcIDs =
-      match state.GetExecutedSources ssaCFG blk srcIDs with
-      | [||] -> ()
-      | executedSrcIDs ->
-        match dst.Kind with
-        | MemVar | PCVar _ -> ()
-        | _ ->
-          executedSrcIDs
-          |> Array.map (fun i ->
-            { dst with Identifier = i } |> state.GetRegValue)
-          |> Array.reduce UntouchedValueDomain.join
-          |> fun merged -> state.SetRegValue (dst, merged)
+  let evalJmp (state: State<_>) ssaCFG blk =
+    state.MarkSuccessorsExecutable ssaCFG blk
 
-    let evalJmp (state: SSAVarBasedDataFlowState<_>) ssaCFG blk =
-      state.MarkSuccessorsExecutable ssaCFG blk
+  let lattice =
+    { new ILattice<UntouchedValueDomain.Lattice> with
+        member _.Bottom = UntouchedValueDomain.Undef
+        member _.Join(a, b) = UntouchedValueDomain.join a b
+        member _.Subsume(a, b) = UntouchedValueDomain.subsume a b }
 
-    let analysis =
-      { new ISSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice> with
-          member _.OnInitialize state = initRegisters state
+  let rec scheme =
+    { new IScheme<UntouchedValueDomain.Lattice> with
+        member _.Transfer(stmt, ssaCFG, blk)=
+          match stmt with
+          | Def (var, e) -> evalDef state var e
+          | Phi (var, ns) -> evalPhi state ssaCFG blk var ns
+          | Jmp _ -> evalJmp state ssaCFG blk
+          | LMark _ | ExternalCall _ | SideEffect _ -> ()
+        member _.UpdateMemFromBinaryFile _rt _addr = UntouchedValueDomain.Undef
+        member _.EvalExpr e = evalExpr state e }
 
-          member _.Bottom with get() = UntouchedValueDomain.Undef
+  and state =
+    State<UntouchedValueDomain.Lattice> (hdl, lattice, scheme)
+    |> initRegisters
 
-          member _.Join a b = UntouchedValueDomain.join a b
-
-          member _.Transfer ssaCFG blk _pp stmt state =
-            match stmt with
-            | Def (var, e) -> evalDef state var e
-            | Phi (var, ns) -> evalPhi state ssaCFG blk var ns
-            | Jmp _ -> evalJmp state ssaCFG blk
-            | LMark _ | ExternalCall _ | SideEffect _ -> ()
-
-          member _.Subsume lhs rhs = UntouchedValueDomain.subsume lhs rhs
-
-          member _.UpdateMemFromBinaryFile _rt _addr =
-            UntouchedValueDomain.Undef
-
-          member _.EvalExpr state e = evalExpr state e }
-
-    { inherit SSAVarBasedDataFlowAnalysis<UntouchedValueDomain.Lattice>
-        (hdl, analysis) }
+  interface IDataFlowComputable<SSAVarPoint,
+                                UntouchedValueDomain.Lattice,
+                                State<UntouchedValueDomain.Lattice>,
+                                SSABasicBlock> with
+    member _.Compute cfg = compute cfg state

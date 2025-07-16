@@ -32,6 +32,7 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 
 [<AutoOpen>]
 module private EVMCFGRecovery =
@@ -51,10 +52,10 @@ module private EVMCFGRecovery =
   /// Check if this vertex was executed in the data-flow analysis. Note that
   /// incomplete CFG traversal can lead to that situation, as we conduct path-
   /// sensitive data-flow analysis.
-  let isExecuted (state: StackSensitiveLowUIRCPState) v =
-    state.PerVertexPossibleTags.ContainsKey v
+  let isExecuted (state: State<_, _>) v =
+    state.PerVertexPossibleExeCtxs.ContainsKey v
 
-  let rec expandExpr (state: SensitiveLowUIRDataFlowState<_, _, _>) e =
+  let rec expandExpr (state: State<_, _>) e =
     match e with
     | SSA.Var var ->
       (* Note that we use fake definition for variables that are not defined in
@@ -144,7 +145,7 @@ module private EVMCFGRecovery =
     CFGRecovery.getVertex ctx goh pp
 
   /// Returns the list of root variables for the given variables.
-  let rec findRootVars (state: StackSensitiveLowUIRCPState) acc worklist =
+  let rec findRootVars (state: State<_, _>) acc worklist =
     match worklist with
     | [] -> acc
     | var :: rest ->
@@ -176,7 +177,7 @@ module private EVMCFGRecovery =
     extractVarsFromExpr e
     |> findRootVars state []
 
-  let getDefSiteVertex (state: StackSensitiveLowUIRCPState) var =
+  let getDefSiteVertex (state: State<_, _>) var =
     let id = state.SSAVarToUid var
     let svp = state.UidToDef id
     let spp = svp.SensitiveProgramPoint
@@ -207,14 +208,12 @@ module private EVMCFGRecovery =
       | Some p -> p
       | None -> Terminator.impossible ()
 
-  let tryGetOverApproximatedJumpDstExprOfJmp
-      (state: StackSensitiveLowUIRCPState) v =
+  let tryGetOverApproximatedJumpDstExprOfJmp (state: State<_, _>) v =
     match SensitiveDFAHelper.tryOverApproximateTerminator state v with
     | Some (SSA.Jmp (SSA.InterJmp dst)) -> Some dst
     | _ -> None
 
-  let getOverApproximatedJumpDstExprOfJmp
-      (state: StackSensitiveLowUIRCPState) v =
+  let getOverApproximatedJumpDstExprOfJmp (state: State<_, _>) v =
     tryGetOverApproximatedJumpDstExprOfJmp state v
     |> Option.get
 
@@ -222,7 +221,7 @@ module private EVMCFGRecovery =
     not <| (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
     && not <| v.VData.Internals.LastInstruction.IsBranch ()
 
-  let hasPolyJumpTarget (state: StackSensitiveLowUIRCPState) v =
+  let hasPolyJumpTarget (state: State<_, _>) v =
     if isFallthroughNode v then false
     else
       match tryGetOverApproximatedJumpDstExprOfJmp state v with
@@ -346,11 +345,12 @@ module private EVMCFGRecovery =
       Some StopAndReload
 
   /// Find the latest stack pointer **after** the execution of the given vertex.
-  let findLatestStackOffset (state: StackSensitiveLowUIRCPState) v =
-    let tags = state.PerVertexPossibleTags[v]
+  let findLatestStackOffset ctx (state: State<_, _>) v =
+    let tags = state.PerVertexPossibleExeCtxs[v]
     let tag = Seq.head tags
     let stackOffset = tag.StackOffset
-    let delta = state.UserContext.GetStackPointerDelta state v
+    let userCtx = ctx.UserContext :> EVMFuncUserContext
+    let delta = userCtx.CP.GetStackPointerDelta state v
     stackOffset + delta
 
   let isFakeVar var = (var: SSA.Variable).Identifier = 0
@@ -366,17 +366,16 @@ module private EVMCFGRecovery =
       match var.Kind with
       | SSA.StackVar (_, off) -> uint64 off (* 0, 32, 64, ... *)
       | _ -> Terminator.impossible ()
-    let stackPointerDiff = findLatestStackOffset state v
+    let stackPointerDiff = findLatestStackOffset ctx state v
     let fnUserCtx: EVMFuncUserContext = ctx.UserContext
     fnUserCtx.SetReturnTargetStackOff returnTargetStackOff
     fnUserCtx.SetStackPointerDiff (uint64 stackPointerDiff)
     None
 
   let computeCPState ctx =
-    let cp = StackSensitiveConstantPropagation ctx.BinHandle
-    let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
     let userCtx = ctx.UserContext :> EVMFuncUserContext
-    let cpState = dfa.Compute ctx.CFG userCtx.CPState
+    let dfa = userCtx.CP :> IDataFlowComputable<_, _, _, _>
+    let cpState = dfa.Compute ctx.CFG
     cpState
 
   /// Summarize the callee's context.
@@ -399,12 +398,11 @@ type EVMCFGRecovery private (goh: IGraphOpHandlable<_, _>) =
   /// data-flow analysis.
   let postponeVertexAnalysis ctx (v: IVertex<LowUIRBasicBlock>) =
     let userCtx = ctx.UserContext :> EVMFuncUserContext
-    let cpState = userCtx.CPState
-    if cpState.UserContext.PostponedVertices.Contains v then ()
+    if userCtx.CP.PostponedVertices.Contains v then ()
     else
       let pp = v.VData.Internals.PPoint
       let act = ResumeAnalysis (pp, ExpandCFG [ pp ])
-      cpState.UserContext.PostponedVertices.Add v |> ignore
+      userCtx.CP.PostponedVertices.Add v |> ignore
       CFGRecovery.pushAction ctx act
 
   let connectEdgeAndPushPP ctx (ppQueue: Queue<_>) srcV dstV kind =
@@ -570,14 +568,13 @@ type EVMCFGRecovery private (goh: IGraphOpHandlable<_, _>) =
   interface IAnalysisResumable<EVMFuncUserContext, DummyContext> with
     member _.ResumeAnalysis ctx pp callbackAction =
       let userCtx = ctx.UserContext
-      let cpState = userCtx.CPState
       match ctx.Vertices.TryGetValue pp with
       | false, _ -> Terminator.impossible ()
-      | true, v when cpState.UserContext.ResumableVertices.Remove v ->
+      | true, v when userCtx.CP.ResumableVertices.Remove v ->
         CFGRecovery.pushAction ctx callbackAction
         MoveOn
       | true, v -> (* Needs more time :p *)
-        assert cpState.UserContext.PostponedVertices.Contains v
+        assert userCtx.CP.PostponedVertices.Contains v
         let isStalled = ctx.ActionQueue.IsEmpty ()
         if isStalled then (* Ignore that block, as it is a dead code. *)
           MoveOn
@@ -587,15 +584,11 @@ type EVMCFGRecovery private (goh: IGraphOpHandlable<_, _>) =
 
   interface ICFGBuildingStrategy<EVMFuncUserContext, DummyContext> with
     member _.OnCreate ctx =
-      let hdl = ctx.BinHandle
-      let cpAnalysis = StackSensitiveConstantPropagation hdl
-      let dfa = cpAnalysis :> IDataFlowAnalysis<_, _, _, _>
-      let cpState = dfa.InitializeState []
-      if isNull ctx.UserContext.CPState then ctx.UserContext.CPState <- cpState
+      ctx.UserContext.CP <- LowUIRSensitiveConstantPropagation ctx.BinHandle
 
     member _.OnFinish ctx =
       let fnUserCtx = ctx.UserContext
-      assert Seq.isEmpty fnUserCtx.CPState.UserContext.ResumableVertices
+      assert Seq.isEmpty fnUserCtx.CP.ResumableVertices
       let status, unwinding =
         match fnUserCtx.StackPointerDiff with
         | Some diff -> NotNoRet, int diff
@@ -614,10 +607,10 @@ type EVMCFGRecovery private (goh: IGraphOpHandlable<_, _>) =
             let isAbstract = vData.IsAbstract
             let hasEntryPointAddr = vData.PPoint.Address = ctx.FunctionAddress
             let isEntryPoint = not isAbstract && hasEntryPointAddr
-            let cpState = ctx.UserContext.CPState
-            if isEntryPoint then cpState.MarkEdgeAsPending null v
+            let cp = ctx.UserContext.CP
+            if isEntryPoint then cp.MarkEdgeAsPending null v
 
           member _.OnAddEdge ctx srcV dstV _kind =
-            ctx.UserContext.CPState.MarkEdgeAsPending srcV dstV }
+            ctx.UserContext.CP.MarkEdgeAsPending srcV dstV }
 
     EVMCFGRecovery (graphOpHandler)

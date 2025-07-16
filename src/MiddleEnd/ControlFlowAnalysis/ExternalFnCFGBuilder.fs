@@ -47,7 +47,7 @@ type ExternalFnCFGBuilder<'FnCtx,
       ExnInfo = exnInfo
       Vertices = null
       CFG = null
-      CPState = null
+      CP = null
       BBLFactory = null
       NonReturningStatus = noretStatus
       JumpTableRecoveryStatus = null

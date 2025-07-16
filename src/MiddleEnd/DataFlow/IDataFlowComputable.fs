@@ -27,25 +27,35 @@ namespace B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
+/// Represents a mapping from abstract locations to abstract values.
+[<AllowNullLiteral>]
+type IAbsValProvider<'AbsLoc, 'AbsVal when 'AbsLoc: equality> =
+  /// Get the abstract value (AbsVal) for the given abstract location.
+  abstract GetAbsValue: 'AbsLoc -> 'AbsVal
+
 /// Data-flow analysis that runs under the abstract interpretation framework.
 /// Abstract values are represented by 'AbsVal, which is stored in an abstract
 /// location 'AbsLoc.
-type IDataFlowAnalysis<'AbsLoc,
-                       'AbsVal,
-                       'State,
-                       'V when 'AbsLoc: equality
-                           and 'State :> IDataFlowState<'AbsLoc, 'AbsVal>
-                           and 'V: equality> =
-  /// Return an initial state for the data-flow analysis.
-  abstract InitializeState: IVertex<'V> seq -> 'State
-
+[<AllowNullLiteral>]
+type IDataFlowComputable<'AbsLoc,
+                         'AbsVal,
+                         'Provider,
+                         'V when 'AbsLoc: equality
+                             and 'Provider :> IAbsValProvider<'AbsLoc, 'AbsVal>
+                             and 'V: equality> =
   /// Perform the dataflow analysis on the given CFG until a fixed point is
   /// reached.
-  abstract Compute: cfg: IDiGraph<'V, CFGEdgeKind> -> 'State -> 'State
+  abstract Compute: cfg: IDiGraph<'V, CFGEdgeKind> -> 'Provider
 
-/// The state of the data-flow analysis, which contains a mapping from abstract
-/// locations to abstract values.
-and [<AllowNullLiteral>]
-  IDataFlowState<'AbsLoc, 'AbsVal when 'AbsLoc: equality> =
-  /// Get the abstract value (AbsVal) for the given abstract location.
-  abstract GetAbsValue: 'AbsLoc -> 'AbsVal
+/// Represents an interface for a lattice used in abstract interpretation.
+type ILattice<'AbsVal when 'AbsVal: equality> =
+  /// The initial abstract value representing the bottom of the lattice. Our
+  /// analysis starts with this value until it reaches a fixed point.
+  abstract Bottom: 'AbsVal
+
+  /// Join two abstract values.
+  abstract Join: 'AbsVal * 'AbsVal -> 'AbsVal
+
+  /// The subsume operator, which checks if the first lattice subsumes the
+  /// second. This is to know if the analysis should stop or not.
+  abstract Subsume: 'AbsVal * 'AbsVal -> bool

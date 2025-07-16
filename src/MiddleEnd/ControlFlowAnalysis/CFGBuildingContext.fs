@@ -49,8 +49,9 @@ type CFGBuildingContext<'FnCtx,
   Vertices: Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>
   /// The control flow graph in LowUIR.
   mutable CFG: LowUIRCFG
-  /// The state of constant propagation.
-  CPState: VarBasedDataFlowState<ConstantDomain.Lattice>
+  /// Constant propagation analyzer that is used to incrementally update
+  /// the dataflow state of the CFG as we recover it.
+  CP: ConstantPropagation
   /// The basic block factory.
   BBLFactory: BBLFactory
   /// Is this function a no-return function?
@@ -91,7 +92,7 @@ with
     this.Vertices.Clear ()
     this.CallerVertices.Clear ()
     this.CFG <- LowUIRCFG this.CFG.ImplementationType
-    if isNull this.CPState then () else this.CPState.Reset ()
+    this.CP.Reset ()
     (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
        below line commented out) because we should be able to compare the
        difference before/after rebuilding the CFG. *)

@@ -31,7 +31,6 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.DataFlow
-open B2R2.MiddleEnd.DataFlow.SSA
 
 /// Perform stack pointer propgation analysis on the current SSACFG. This
 /// analysis performs mainly two tasks: (1) identify stack variables and promote
@@ -47,7 +46,7 @@ type SSALifter () =
     |> Option.map extractStackVar
 
   let updateIfStackValueIsConstant ctx (ssaCFG: SSACFG) state v sp =
-    match (state: SSAVarBasedDataFlowState<_>).GetRegValue sp with
+    match (state: SSASparseDataFlow.State<_>).GetRegValue sp with
     | StackPointerDomain.ConstSP bv ->
       let spValue = BitVector.ToUInt64 bv
       let offset = Constants.InitialStackPointer - spValue |> int

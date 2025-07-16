@@ -74,18 +74,21 @@ type DataFlowTests () =
     let rstr = Register.toString r
     let k = SSA.RegVar (rt, rid, rstr)
     let v = findSSAVarDef ssaCFG 0 addr k
-    SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = v.Identifier }
+    SSASparseDataFlow.SSAVarPoint.RegularSSAVar
+    <| { Kind = k; Identifier = v.Identifier }
 
   let ssaRegInitial r rt =
     let rid = Register.toRegID r
     let rstr = Register.toString r
     let k = SSA.RegVar (rt, rid, rstr)
-    SSA.SSAVarPoint.RegularSSAVar { Kind = k; Identifier = 0 }
+    SSASparseDataFlow.SSAVarPoint.RegularSSAVar
+    <| { Kind = k; Identifier = 0 }
 
   let ssaStk ssaCFG offset addr rt =
     let kind = SSA.StackVar (rt, offset)
     let v = findSSAVarDef ssaCFG 0 addr kind
-    SSA.SSAVarPoint.RegularSSAVar { Kind = v.Kind; Identifier = v.Identifier }
+    SSASparseDataFlow.SSAVarPoint.RegularSSAVar
+    <| { Kind = v.Kind; Identifier = v.Identifier }
 
   let irReg addr idx r =
     let rid = Register.toRegID r
@@ -110,11 +113,10 @@ type DataFlowTests () =
   member _.``Reaching Definitions Test 1``() =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
-    let dfa = ReachingDefinitionAnalysis () :> IDataFlowAnalysis<_, _, _, _>
-    let state = dfa.InitializeState []
-    let state = dfa.Compute cfg state
+    let dfa = ReachingDefinitionAnalysis () :> IDataFlowComputable<_, _, _, _>
+    let state = dfa.Compute cfg
     let v = cfg.FindVertex (fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
-    let rd = (state :> IDataFlowState<_, _>).GetAbsValue v.ID (* 2nd vertex *)
+    let rd = (state :> IAbsValProvider<_, _>).GetAbsValue v.ID (* 2nd vertex *)
     let ins = rd.Ins |> Set.filter isRegular
     let solution =
       [ reg 0x0UL 1 Register.EDX
@@ -174,10 +176,9 @@ type DataFlowTests () =
     let cfg = brew.Functions[0UL].CFG
     let lifter = SSALifterFactory.Create (brew.BinHandle)
     let g = lifter.Lift cfg
-    let cp = SSA.SSAConstantPropagation brew.BinHandle
-    let dfa = cp :> IDataFlowAnalysis<_, _, _, _>
-    let state = dfa.InitializeState []
-    let state = dfa.Compute g state
+    let cp = SSAConstantPropagation brew.BinHandle
+    let dfa = cp :> IDataFlowComputable<_, _, _, _>
+    let state = dfa.Compute g
     [ ssaRegInitial Register.RSP 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
       ssaRegInitial Register.RBP 64<rt> |> cmp <| ConstantDomain.Undef
       ssaReg g Register.RSP 0x4UL 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
@@ -195,7 +196,7 @@ type DataFlowTests () =
       ssaReg g Register.RSP 0x3bUL 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
       ssaReg g Register.RSP 0x3CUL 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
     |> List.iter (fun (var, ans) ->
-      let out = (state :> IDataFlowState<_, _>).GetAbsValue var
+      let out = (state :> IAbsValProvider<_, _>).GetAbsValue var
       Assert.AreEqual<ConstantDomain.Lattice> (ans, out))
 
 #if !EMULATION
@@ -204,10 +205,9 @@ type DataFlowTests () =
     let brew = Binaries.loadOne Binaries.sample2
     let hdl = brew.BinHandle
     let cfg = brew.Functions[0UL].CFG
-    let varDfa = ConstantPropagation hdl
-    let dfa = varDfa :> IDataFlowAnalysis<_, _, _, _>
-    let state = dfa.InitializeState cfg.Vertices
-    let state = dfa.Compute cfg state
+    let varDfa = ConstantPropagation(hdl, cfg.Vertices)
+    let dfa = varDfa :> IDataFlowComputable<_, _, _, _>
+    let state = dfa.Compute cfg
     let rbp = -8 (* stack offset of old rbp *)
     [ irStk 0xbUL 1 rbp |> cmp <| ConstantDomain.Undef
       irStk 0x11UL 1 (rbp - 0xc) |> cmp <| mkConst 0x2u 32<rt>
@@ -216,7 +216,7 @@ type DataFlowTests () =
       irStk 0x28UL 1 (rbp - 0x8) |> cmp <| mkConst 0x2u 32<rt>
       irReg 0x2fUL 1 Register.RDX |> cmp <| ConstantDomain.NotAConst ]
     |> List.iter (fun (vp, ans) ->
-      let out = (state :> IDataFlowState<_, _>).GetAbsValue vp
+      let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
       Assert.AreEqual<ConstantDomain.Lattice> (ans, out))
 #endif
 
@@ -225,11 +225,10 @@ type DataFlowTests () =
     let brew = Binaries.loadOne Binaries.sample3
     let cfg = brew.Functions[0UL].CFG
     let roots = cfg.Roots
-    let uva = UntouchedValueAnalysis brew.BinHandle
-    let dfa = uva :> IDataFlowAnalysis<_, _, _, _>
-    let state = dfa.InitializeState roots
-    cfg.IterVertex state.MarkVertexAsPending
-    let state = dfa.Compute cfg state
+    let uva = UntouchedValueAnalysis(brew.BinHandle, roots)
+    let dfa = uva :> IDataFlowComputable<_, _, _, _>
+    cfg.IterVertex uva.MarkVertexAsPending
+    let state = dfa.Compute cfg
     let rbp = -8 (* stack offset of old rbp *)
     [ irStk 0xcUL 1 (rbp - 0x14) |> cmp <| mkUntouchedReg Register.RDI
       irStk 0xfUL 1 (rbp - 0x18) |> cmp <| mkUntouchedReg Register.RSI
@@ -240,5 +239,5 @@ type DataFlowTests () =
       irReg 0x38UL 1 Register.RSI |> cmp <| UntouchedValueDomain.Touched
       irReg 0x3bUL 1 Register.RAX |> cmp <| mkUntouchedReg Register.RDI ]
     |> List.iter (fun (vp, ans) ->
-      let out = (state :> IDataFlowState<_, _>).GetAbsValue vp
+      let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
       Assert.AreEqual<UntouchedValueDomain.Lattice> (ans, out))

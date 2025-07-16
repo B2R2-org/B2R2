@@ -27,8 +27,8 @@ namespace B2R2.MiddleEnd.DataFlow
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.ControlFlowGraph
 
 module internal ConstantPropagation =
   let evalUnOp op c =
@@ -75,74 +75,89 @@ module internal ConstantPropagation =
     | CastKind.ZeroExt -> ConstantDomain.zeroExt rt c
     | _ -> ConstantDomain.NotAConst
 
-type ConstantPropagation =
-  inherit VarBasedDataFlowAnalysis<ConstantDomain.Lattice>
+/// Represents a constant propagation analysis.
+type ConstantPropagation (hdl, vs) =
+  let evaluateVarPoint (state: ConstantPropagationState) pp varKind =
+    let vp = { ProgramPoint = pp; VarKind = varKind }
+    match state.UseDefMap.TryGetValue vp with
+    | false, _ -> ConstantDomain.Undef
+    | true, defVp -> (state: IAbsValProvider<_, _>).GetAbsValue defVp
 
-  new (hdl: BinHandle) =
-    let evaluateVarPoint (state: VarBasedDataFlowState<_>) pp varKind =
-      let vp = { ProgramPoint = pp; VarKind = varKind }
-      match state.UseDefMap.TryGetValue vp with
-      | false, _ -> ConstantDomain.Undef
-      | true, defVp -> (state: IDataFlowState<_, _>).GetAbsValue defVp
+  let rec evaluateExpr state pp e =
+    match e with
+    | PCVar (rt, _, _) ->
+      let addr = (pp: ProgramPoint).Address
+      let bv = BitVector.OfUInt64 addr rt
+      ConstantDomain.Const bv
+    | Num (bv, _) -> ConstantDomain.Const bv
+    | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
+    | Load (_m, rt, addr, _) ->
+      match state.EvaluateStackPointerExpr pp addr with
+      | StackPointerDomain.ConstSP bv ->
+        let addr = BitVector.ToUInt64 bv
+        let offset = LowUIRSparseDataFlow.toFrameOffset addr
+        let c = evaluateVarPoint state pp (StackLocal offset)
+        match c with
+        | ConstantDomain.Const bv when bv.Length < rt ->
+          ConstantDomain.Const <| BitVector.ZExt (bv, rt)
+        | ConstantDomain.Const bv when bv.Length > rt ->
+          ConstantDomain.Const <| BitVector.Extract (bv, rt, 0)
+        | _ -> c
+      | StackPointerDomain.NotConstSP -> ConstantDomain.NotAConst
+      | StackPointerDomain.Undef -> ConstantDomain.Undef
+    | UnOp (op, e, _) ->
+      evaluateExpr state pp e
+      |> ConstantPropagation.evalUnOp op
+    | BinOp (op, _, e1, e2, _) ->
+      let c1 = evaluateExpr state pp e1
+      let c2 = evaluateExpr state pp e2
+      ConstantPropagation.evalBinOp op c1 c2
+    | RelOp (op, e1, e2, _) ->
+      let c1 = evaluateExpr state pp e1
+      let c2 = evaluateExpr state pp e2
+      ConstantPropagation.evalRelOp op c1 c2
+    | Ite (e1, e2, e3, _) ->
+      let c1 = evaluateExpr state pp e1
+      let c2 = evaluateExpr state pp e2
+      let c3 = evaluateExpr state pp e3
+      ConstantDomain.ite c1 c2 c3
+    | Cast (op, rt, e, _) ->
+      let c = evaluateExpr state pp e
+      ConstantPropagation.evalCast op rt c
+    | Extract (e, rt, pos, _) ->
+      let c = evaluateExpr state pp e
+      ConstantDomain.extract c rt pos
+    | FuncName _ | ExprList _ | Undefined _ -> ConstantDomain.NotAConst
+    | _ -> Terminator.impossible ()
 
-    let rec evaluateExpr state pp e =
-      match e with
-      | PCVar (rt, _, _) ->
-        let addr = (pp: ProgramPoint).Address
-        let bv = BitVector.OfUInt64 addr rt
-        ConstantDomain.Const bv
-      | Num (bv, _) -> ConstantDomain.Const bv
-      | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
-      | Load (_m, rt, addr, _) ->
-        match state.StackPointerSubState.EvalExpr pp addr with
-        | StackPointerDomain.ConstSP bv ->
-          let addr = BitVector.ToUInt64 bv
-          let offset = VarBasedDataFlowState<_>.ToFrameOffset addr
-          let c = evaluateVarPoint state pp (StackLocal offset)
-          match c with
-          | ConstantDomain.Const bv when bv.Length < rt ->
-            ConstantDomain.Const <| BitVector.ZExt (bv, rt)
-          | ConstantDomain.Const bv when bv.Length > rt ->
-            ConstantDomain.Const <| BitVector.Extract (bv, rt, 0)
-          | _ -> c
-        | StackPointerDomain.NotConstSP -> ConstantDomain.NotAConst
-        | StackPointerDomain.Undef -> ConstantDomain.Undef
-      | UnOp (op, e, _) ->
-        evaluateExpr state pp e
-        |> ConstantPropagation.evalUnOp op
-      | BinOp (op, _, e1, e2, _) ->
-        let c1 = evaluateExpr state pp e1
-        let c2 = evaluateExpr state pp e2
-        ConstantPropagation.evalBinOp op c1 c2
-      | RelOp (op, e1, e2, _) ->
-        let c1 = evaluateExpr state pp e1
-        let c2 = evaluateExpr state pp e2
-        ConstantPropagation.evalRelOp op c1 c2
-      | Ite (e1, e2, e3, _) ->
-        let c1 = evaluateExpr state pp e1
-        let c2 = evaluateExpr state pp e2
-        let c3 = evaluateExpr state pp e3
-        ConstantDomain.ite c1 c2 c3
-      | Cast (op, rt, e, _) ->
-        let c = evaluateExpr state pp e
-        ConstantPropagation.evalCast op rt c
-      | Extract (e, rt, pos, _) ->
-        let c = evaluateExpr state pp e
-        ConstantDomain.extract c rt pos
-      | FuncName _ | ExprList _ | Undefined _ -> ConstantDomain.NotAConst
-      | _ -> Terminator.impossible ()
+  let lattice =
+    { new ILattice<ConstantDomain.Lattice> with
+        member _.Bottom = ConstantDomain.Undef
+        member _.Join (a, b) = ConstantDomain.join a b
+        member _.Subsume (a, b) = ConstantDomain.subsume a b }
 
-    let analysis =
-      { new IVarBasedDataFlowAnalysis<ConstantDomain.Lattice> with
-          member _.OnInitialize state = state
+  let rec scheme =
+    { new LowUIRSparseDataFlow.IScheme<ConstantDomain.Lattice> with
+        member _.EvalExpr (pp, expr) = evaluateExpr state pp expr }
 
-          member _.Bottom = ConstantDomain.Undef
+  and state =
+    ConstantPropagationState (hdl, lattice, scheme)
+    |> fun state ->
+      for v in vs do state.MarkVertexAsPending v done
+      state
 
-          member _.Join a b = ConstantDomain.join a b
+  member _.Reset () = state.Reset ()
 
-          member _.Subsume a b = ConstantDomain.subsume a b
+  member _.MarkVertexAsPending v = state.MarkVertexAsPending v
 
-          member _.EvalExpr state pp e = evaluateExpr state pp e }
+  member _.MarkVertexAsRemoval v = state.MarkVertexAsRemoval v
 
-    { inherit VarBasedDataFlowAnalysis<ConstantDomain.Lattice>
-        (hdl, analysis) }
+  interface IDataFlowComputable<VarPoint,
+                                ConstantDomain.Lattice,
+                                ConstantPropagationState,
+                                LowUIRBasicBlock> with
+    member _.Compute cfg =
+      LowUIRSparseDataFlow.compute cfg state
+
+and internal ConstantPropagationState =
+  LowUIRSparseDataFlow.State<ConstantDomain.Lattice>

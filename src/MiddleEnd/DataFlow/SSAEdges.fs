@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.DataFlow.SSA
+namespace B2R2.MiddleEnd.DataFlow
 
 open System.Collections.Generic
 open B2R2.BinIR
@@ -31,7 +31,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 type private SSAStmtLocation = VertexID * int
 
-/// SSA edges in a CFG.
+/// Represents SSA edges in a CFG.
 [<AllowNullLiteral>]
 type SSAEdges (ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
   let uses = Dictionary<SSA.Variable, Set<SSAStmtLocation>> ()

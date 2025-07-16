@@ -28,19 +28,20 @@ module B2R2.MiddleEnd.DataFlow.SensitiveDFAHelper
 
 open B2R2.BinIR
 open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 
-let getTerminator (state: SensitiveLowUIRDataFlowState<_, _, _>) v tag =
+let getTerminator (state: State<_, _>) v tag =
   let sstmts = state.GetSSAStmts v tag
   assert (not << Seq.isEmpty) sstmts
   Array.last sstmts
 
-let constantFoldSensitiveVPs (state: SensitiveLowUIRDataFlowState<_, _, _>)
+let constantFoldSensitiveVPs (state: State<_, _>)
                              vars =
   vars
   |> List.map state.DomainSubState.GetAbsValue
   |> List.fold ConstantDomain.join ConstantDomain.Undef
 
-let constantFoldSSAVars (state: SensitiveLowUIRDataFlowState<_, _, _>) vars =
+let constantFoldSSAVars (state: State<_, _>) vars =
   vars
   |> List.map (state.SSAVarToUid >> state.UidToDef)
   |> constantFoldSensitiveVPs state
@@ -69,10 +70,9 @@ let private tryJoinExprs e1 e2 =
 /// Over-approximates the terminator of a vertex `v` by considering all possible
 /// tags. This returns None if the vertex has inconsistent terminators for
 /// different tags.
-let tryOverApproximateTerminator (state: SensitiveLowUIRDataFlowState<_, _, _>)
-                                 v =
-  assert state.PerVertexPossibleTags.ContainsKey v
-  let tags = state.PerVertexPossibleTags[v]
+let tryOverApproximateTerminator (state: State<_, _>) v =
+  assert state.PerVertexPossibleExeCtxs.ContainsKey v
+  let tags = state.PerVertexPossibleExeCtxs[v]
   let terminators = Seq.map (getTerminator state v) tags
   assert (not <| Seq.isEmpty terminators)
   let first = Seq.head terminators

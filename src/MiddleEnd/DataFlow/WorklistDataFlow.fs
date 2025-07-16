@@ -22,18 +22,18 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.DataFlow
+/// Provides types and functions for worklist-based dataflow analysis.
+module B2R2.MiddleEnd.DataFlow.WorklistDataFlow
 
 open System.Collections.Generic
-open B2R2.MiddleEnd.BinGraph
 
-/// Worklist-based dataflow analysis state.
-type WorklistDataFlowState<'WorkUnit,
-                           'Lattice,
-                           'V when 'WorkUnit: equality
-                               and 'Lattice: equality
-                               and 'V: equality>
-  public (analysis: IWorklistDataFlowAnalysis<'WorkUnit, 'Lattice, 'V>) =
+/// Represents a state used in worklist-based dataflow analysis.
+type State<'WorkUnit,
+           'Lattice,
+           'V when 'WorkUnit: equality
+               and 'Lattice: equality
+               and 'V: equality>
+  public (lattice: ILattice<'Lattice>) =
 
   let workList = Queue<'WorkUnit> ()
 
@@ -61,44 +61,32 @@ type WorklistDataFlowState<'WorkUnit,
 
   member _.PopWork () = popWork ()
 
-  interface IDataFlowState<'WorkUnit, 'Lattice> with
+  interface IAbsValProvider<'WorkUnit, 'Lattice> with
     member _.GetAbsValue absLoc =
       match absValues.TryGetValue absLoc with
-      | false, _ -> analysis.Bottom
+      | false, _ -> lattice.Bottom
       | true, absValue -> absValue
 
-/// Worklist-based data-flow analysis interface.
-and IWorklistDataFlowAnalysis<'WorkUnit,
-                              'Lattice,
-                              'V when 'WorkUnit: equality
-                                  and 'Lattice: equality
-                                  and 'V: equality> =
-  /// The initial abstract value representing the bottom of the lattice. Our
-  /// analysis starts with this value until it reaches a fixed point.
-  abstract Bottom: 'Lattice
-
-  /// Initialize the list of work units to start the analysis. This is a
-  /// callback method that runs before the analysis starts, so any
-  /// initialization logic should be implemented here.
-  abstract InitializeWorkList:
-    IDiGraphAccessible<'V, _> -> IReadOnlyCollection<'WorkUnit>
-
-  /// The subsume operator, which checks if the first lattice subsumes the
-  /// second. This is to know if the analysis should stop or not.
-  abstract Subsume: 'Lattice * 'Lattice -> bool
+/// Represents an interface that defines how the worklist-based dataflow
+/// analysis should be performed.
+type IScheme<'WorkUnit, 'AbsVal when 'WorkUnit: equality
+                                 and 'AbsVal: equality> =
+  /// Get the next set of works to perform.
+  abstract GetNextWorks: 'WorkUnit -> IReadOnlyCollection<'WorkUnit>
 
   /// The transfer function, which computes the next abstract value from the
   /// current abstract value by executing the given 'WorkUnit.
-  abstract Transfer:
-       IDataFlowState<'WorkUnit, 'Lattice>
-     * IDiGraphAccessible<'V, 'E>
-     * 'WorkUnit
-     * 'Lattice
-    -> 'Lattice
+  abstract Transfer: 'WorkUnit -> 'AbsVal
 
-  /// Get the next set of works to perform.
-  abstract GetNextWorks:
-       IDiGraphAccessible<'V, 'E>
-     * 'WorkUnit
-    -> IReadOnlyCollection<'WorkUnit>
-
+/// Runs the worklist-based dataflow analysis on the given initial work list.
+let compute initialWorkList (lattice: ILattice<_>) (sch: IScheme<_, _>) state =
+  for work in initialWorkList do (state: State<_, _, _>).PushWork work
+  while not <| Seq.isEmpty state.WorkList do
+    let work = state.PopWork()
+    let absValue = (state :> IAbsValProvider<_, _>).GetAbsValue work
+    let transferedAbsValue = sch.Transfer work
+    if lattice.Subsume(absValue, transferedAbsValue) then ()
+    else
+      state.AbsValues[work] <- transferedAbsValue
+      for work in sch.GetNextWorks work do state.PushWork work
+  state

@@ -29,6 +29,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.ControlFlowGraph
 
 module internal StackPointerPropagation =
   let evalBinOp op c1 c2 =
@@ -38,64 +39,71 @@ module internal StackPointerPropagation =
     | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
     | _ -> StackPointerDomain.NotConstSP
 
+type StackPointerPropagation (hdl: BinHandle, vs) =
+  let initialStackPointerValue =
+    hdl.RegisterFactory.StackPointer
+    |> Option.get
+    |> hdl.RegisterFactory.GetRegType
+    |> BitVector.OfUInt64 Constants.InitialStackPointer
+    |> StackPointerDomain.ConstSP
 
-type StackPointerPropagation =
-  inherit VarBasedDataFlowAnalysis<StackPointerDomain.Lattice>
+  let isStackPointer rid =
+    match hdl.RegisterFactory.StackPointer with
+    | Some spRid -> rid = spRid
+    | None -> false
 
-  new (hdl: BinHandle) =
-    let initialStackPointerValue =
-      hdl.RegisterFactory.StackPointer
-      |> Option.get
-      |> hdl.RegisterFactory.GetRegType
-      |> BitVector.OfUInt64 Constants.InitialStackPointer
-      |> StackPointerDomain.ConstSP
+  let getBaseCase varKind =
+    match varKind with
+    | Regular rid when isStackPointer rid -> initialStackPointerValue
+    | _ -> StackPointerDomain.Undef
 
-    let isStackPointer rid =
-      match hdl.RegisterFactory.StackPointer with
-      | Some spRid -> rid = spRid
-      | None -> false
+  let evaluateVarPoint (state: StackPointerPropagationState) pp varKind =
+    let vp = { ProgramPoint = pp; VarKind = varKind }
+    match state.UseDefMap.TryGetValue vp with
+    | false, _ -> getBaseCase varKind (* initialize here *)
+    | true, defVp -> state.DomainSubState.GetAbsValue defVp
 
-    let getBaseCase varKind =
-      match varKind with
-      | Regular rid when isStackPointer rid -> initialStackPointerValue
-      | _ -> StackPointerDomain.Undef
+  let rec evaluateExpr (state: StackPointerPropagationState) pp e =
+    match e with
+    | Num (bv, _) -> StackPointerDomain.ConstSP bv
+    | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
+    | ExprList _ -> StackPointerDomain.NotConstSP
+    | Load _ -> StackPointerDomain.NotConstSP
+    | UnOp _ -> StackPointerDomain.NotConstSP
+    | FuncName _ -> StackPointerDomain.NotConstSP
+    | BinOp (op, _, e1, e2, _) ->
+      let c1 = evaluateExpr state pp e1
+      let c2 = evaluateExpr state pp e2
+      StackPointerPropagation.evalBinOp op c1 c2
+    | RelOp _ -> StackPointerDomain.NotConstSP
+    | Ite _ -> StackPointerDomain.NotConstSP
+    | Cast _ -> StackPointerDomain.NotConstSP
+    | Extract _ -> StackPointerDomain.NotConstSP
+    | Undefined _ -> StackPointerDomain.NotConstSP
+    | _ -> Terminator.impossible ()
 
-    let evaluateVarPoint (state: VarBasedDataFlowState<_>) pp varKind =
-      let vp = { ProgramPoint = pp; VarKind = varKind }
-      match state.UseDefMap.TryGetValue vp with
-      | false, _ -> getBaseCase varKind (* initialize here *)
-      | true, defVp -> state.DomainSubState.GetAbsValue defVp
+  let lattice =
+    { new ILattice<StackPointerDomain.Lattice> with
+        member _.Bottom = StackPointerDomain.Undef
+        member _.Join (a, b) = StackPointerDomain.join a b
+        member _.Subsume (a, b) = StackPointerDomain.subsume a b }
 
-    let rec evaluateExpr (state: VarBasedDataFlowState<_>) pp e =
-      match e with
-      | Num (bv, _) -> StackPointerDomain.ConstSP bv
-      | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
-      | ExprList _ -> StackPointerDomain.NotConstSP
-      | Load _ -> StackPointerDomain.NotConstSP
-      | UnOp _ -> StackPointerDomain.NotConstSP
-      | FuncName _ -> StackPointerDomain.NotConstSP
-      | BinOp (op, _, e1, e2, _) ->
-        let c1 = evaluateExpr state pp e1
-        let c2 = evaluateExpr state pp e2
-        StackPointerPropagation.evalBinOp op c1 c2
-      | RelOp _ -> StackPointerDomain.NotConstSP
-      | Ite _ -> StackPointerDomain.NotConstSP
-      | Cast _ -> StackPointerDomain.NotConstSP
-      | Extract _ -> StackPointerDomain.NotConstSP
-      | Undefined _ -> StackPointerDomain.NotConstSP
-      | _ -> Terminator.impossible ()
+  let rec scheme =
+    { new LowUIRSparseDataFlow.IScheme<StackPointerDomain.Lattice> with
+        member _.EvalExpr (pp, expr) = evaluateExpr state pp expr }
 
-    let analysis =
-      { new IVarBasedDataFlowAnalysis<StackPointerDomain.Lattice> with
-          member _.OnInitialize state = state
+  and state =
+    StackPointerPropagationState (hdl, lattice, scheme)
+    |> fun state ->
+      for v in vs do state.MarkVertexAsPending v done
+      state
 
-          member _.Bottom = StackPointerDomain.Undef
+  interface IDataFlowComputable<VarPoint,
+                                StackPointerDomain.Lattice,
+                                StackPointerPropagationState,
+                                LowUIRBasicBlock> with
+    member _.Compute cfg =
+      LowUIRSparseDataFlow.compute cfg state
 
-          member _.Join a b = StackPointerDomain.join a b
-
-          member _.Subsume a b = StackPointerDomain.subsume a b
-
-          member _.EvalExpr state pp e = evaluateExpr state pp e }
-
-    { inherit VarBasedDataFlowAnalysis<StackPointerDomain.Lattice>
-        (hdl, analysis) }
+and internal StackPointerPropagationState =
+  LowUIRSparseDataFlow.State<StackPointerDomain.Lattice>
