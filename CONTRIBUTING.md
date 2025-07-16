@@ -408,6 +408,21 @@ type Class() = // Bad
   member _.A(p1, p2) = // Bad
 ```
 
+When defining properties using `with`, we use the following style.
+```fsharp
+member _.Method with get () = value and set (value) = value // Good
+member _.Method with get() = value and set(value) = value   // Bad
+```
+
+When defining methods, no space between the method name and the parentheses.
+```fsharp
+member _.Method() = value      // Good
+static member Method() = value // Good
+
+member _.Method () = value      // Bad
+static member Method () = value // Bad
+```
+
 We use `this` for a self-identifier when we need to use it. However, for other
 cases, we use a single underscore `_` to consistently indicate that we do not
 need to use it. We avoid using `__` for a self-identifier because it is less
@@ -415,10 +430,10 @@ readable.
 
 ```fsharp
 type Class () =
-  member this.A (p1, p2) = this.Foo p1 // Good
+  member this.A(p1, p2) = this.Foo p1 // Good
 
 type Class () =
-  member __.A (p1, p2) = __.Foo p1 // Bad
+  member __.A(p1, p2) = __.Foo p1 // Bad
 ```
 
 ### JavaScript & CSS Coding Style
