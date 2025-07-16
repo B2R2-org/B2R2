@@ -25,61 +25,9 @@
 namespace B2R2.FrontEnd.EVM
 
 open B2R2
-open System.Runtime.CompilerServices
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.EVM.Tests")>]
-do ()
-
-exception internal InvalidConditionException
-exception internal InvalidFmtException
-
-type Register =
-  /// Program counter.
-  | PC = 0x1
-  /// Gas.
-  | GAS = 0x2
-  /// Stack pointer.
-  | SP = 0x3
-
-/// Shortcut for Register type.
-type internal R = Register
-
-/// Operation Size.
-type OperationSize = int
-module internal OperationSize =
-  let regType = 256<rt>
-
-/// This module exposes several useful functions to handle EVM registers.
-[<RequireQualifiedAccess>]
-module Register =
-  let inline ofRegID (n: RegisterID): Register =
-    int n |> LanguagePrimitives.EnumOfValue
-
-  let inline toRegID (reg: Register) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
-
-  let ofString (str: string) =
-    match str.ToLowerInvariant () with
-    | "PC" -> R.PC
-    | "GAS" -> R.GAS
-    | "SP" -> R.SP
-    | _ -> Terminator.impossible ()
-
-  let toString = function
-    | R.PC -> "PC"
-    | R.GAS -> "GAS"
-    | R.SP -> "SP"
-    | _ -> Terminator.impossible ()
-
-  let toRegType = function
-    | R.PC -> 256<rt>
-    | R.GAS -> 64<rt>
-    | R.SP -> 256<rt>
-    | _ -> Terminator.impossible ()
-
 
 /// <summary>
-///   EVM opcodes.
+/// Represents an EVM opcode.
 /// </summary>
 type Opcode =
   /// Halts execution

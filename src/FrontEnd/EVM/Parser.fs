@@ -28,8 +28,8 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Parser for EVM instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
+/// Represents for EVM insturction parser. Parser will return a
+/// platform-agnostic instruction type (IInstruction).
 type EVMParser (isa: ISA) =
   let mutable codeOffset: Addr = 0UL
 

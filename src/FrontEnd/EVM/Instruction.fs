@@ -27,9 +27,8 @@ namespace B2R2.FrontEnd.EVM
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for EVM.
+/// Represents an EVM instruction.
 type Instruction
-
   internal (addr, numBytes, offset, opcode, gas, lifter: ILiftable) =
 
   /// Address.
