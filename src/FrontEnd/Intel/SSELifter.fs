@@ -1014,7 +1014,7 @@ let pextrb (ins: Instruction) insLen bld =
   let count = getImmValue count
   let dExpr = transOprToExpr bld false ins insLen dst
   let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
-  let count = (count &&& 0b1111) (* COUNT[3:0] *) * 8L
+  let count = (count &&& 0b1111 (* COUNT[3:0] *)) * 8L
   let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
   let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
   let result =
@@ -1036,7 +1036,7 @@ let pextrd (ins: Instruction) insLen bld =
   match src with
   | OprReg reg ->
     let struct (srcB, srcA) = pseudoRegVar128 bld reg
-    let count = (count &&& 0b11) (* COUNT[1:0] *) * 32L
+    let count = (count &&& 0b11 (* COUNT[1:0] *)) * 32L
     let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
     let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
     let result =
@@ -1056,7 +1056,7 @@ let pextrq (ins: Instruction) insLen bld =
   match src with
   | OprReg reg ->
     let struct (srcB, srcA) = pseudoRegVar128 bld reg
-    let count = (count &&& 0b1) (* COUNT[0] *) * 64L
+    let count = (count &&& 0b1 (* COUNT[0] *)) * 64L
     let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
     let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
     let result =

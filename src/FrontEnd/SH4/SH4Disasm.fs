@@ -168,7 +168,7 @@ let immToStr imm (builder: IDisasmBuilder) =
   builder.Accumulate AsmWordKind.Value (HexString.ofInt32 imm)
 
 let addrToStr shift addr (builder: IDisasmBuilder) =
-  let relAddr = int(addr) + shift + 4
+  let relAddr = int (addr) + shift + 4
   if shift >= 0 then
     builder.Accumulate AsmWordKind.String ".+"
     builder.Accumulate AsmWordKind.Value (string shift)

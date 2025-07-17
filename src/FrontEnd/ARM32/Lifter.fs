@@ -338,7 +338,7 @@ let shiftLSLForRegAmount value regType amount carryIn =
 let shiftLSRCForRegAmount value regType amount carryIn =
   let chkZero = AST.relop RelOpType.EQ amount (numU32 0u regType)
   let result = value >> amount
-  let carryOut = value >> (amount .- AST.num1 regType ) |> AST.xtlo 1<rt>
+  let carryOut = value >> (amount .- AST.num1 regType) |> AST.xtlo 1<rt>
   AST.ite chkZero value result, AST.ite chkZero carryIn carryOut
 
 /// Logical shift right of a bitstring, on page A2-41. for Register amount.
@@ -351,13 +351,13 @@ let shiftLSRForRegAmount value regType amount carryIn =
 let shiftASRCForRegAmount value regType amount carryIn =
   let chkZero = AST.relop RelOpType.EQ amount (numU32 0u regType)
   let result = value ?>> amount
-  let carryOut = value ?>> (amount .- AST.num1 regType ) |> AST.xtlo 1<rt>
+  let carryOut = value ?>> (amount .- AST.num1 regType) |> AST.xtlo 1<rt>
   AST.ite chkZero value result, AST.ite chkZero carryIn carryOut
 
 /// Logical shift right of a bitstring, on page A2-41. for Register amount.
 /// function : ASR()
 let shiftASRForRegAmount value regType amount carryIn =
-  shiftASRCForRegAmount value regType amount carryIn|> fst
+  shiftASRCForRegAmount value regType amount carryIn |> fst
 
 /// Rotate right of a bitstring, with carry output, on page A2-41.
 /// for Register amount. function : ROR_C()
@@ -407,7 +407,7 @@ let shiftCForRegAmount value regType shiftType amount carryIn =
 let shiftLSLC value regType amount =
   assertByCond (amount > 0u) InvalidShiftAmountException
   let amount = numU32 amount regType
-  value << amount, value << (amount .- AST.num1 regType ) |> AST.xthi 1<rt>
+  value << amount, value << (amount .- AST.num1 regType) |> AST.xthi 1<rt>
 
 /// Logical shift left of a bitstring, on page A2-41. function : LSL()
 let shiftLSL value regType amount =
@@ -431,7 +431,7 @@ let shiftLSR value regType amount =
 let shiftASRC value regType amount =
   assertByCond (amount > 0u) InvalidShiftAmountException
   let amount = numU32 amount regType
-  value ?>> amount, value ?>> (amount .- AST.num1 regType ) |> AST.xtlo 1<rt>
+  value ?>> amount, value ?>> (amount .- AST.num1 regType) |> AST.xtlo 1<rt>
 
 /// Logical shift right of a bitstring, on page A2-41. function : ASR()
 let shiftASR value regType amount =
@@ -1154,7 +1154,7 @@ let parseResultOfSUBAndRela (ins: Instruction) bld =
   match ins.Opcode with
   | Op.ANDS ->
     let struct (_, src1, src2) = parseOprOfADC ins bld
-    src1.& src2
+    src1 .& src2
   | Op.EORS ->
     let struct (_, src1, src2) = parseOprOfADC ins bld
     src1 <+> src2

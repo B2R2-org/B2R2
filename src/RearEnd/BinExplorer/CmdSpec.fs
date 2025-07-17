@@ -30,7 +30,7 @@ let speclist =
   [ CmdBinInfo () :> Cmd
     CmdCredits () :> Cmd
     CmdDemangle () :> Cmd
-    CmdEvalExpr ("?", ["?x"], "hex", "", HexadecimalF) :> Cmd
+    CmdEvalExpr ("?", [ "?x" ], "hex", "", HexadecimalF) :> Cmd
     CmdEvalExpr ("?d", [], "decimal", "d", DecimalF) :> Cmd
     CmdEvalExpr ("?b", [], "binary", "b", BinaryF) :> Cmd
     CmdEvalExpr ("?o", [], "octal", "o", OctalF) :> Cmd

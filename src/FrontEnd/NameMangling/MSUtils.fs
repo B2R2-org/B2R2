@@ -182,6 +182,6 @@ let rec changeToNormalPointer (ptr: MSExpr) =
   | PointerStrT ( _ , (pref, modifier), cvT) ->
       PointerStrT (NormalPointer, (pref, modifier), cvT)
   | ModifiedType (typ, mods) -> ModifiedType (changeToNormalPointer typ, mods)
-  | PointerT (ptrStr, typ) -> PointerT(changeToNormalPointer ptrStr, typ)
+  | PointerT (ptrStr, typ) -> PointerT (changeToNormalPointer ptrStr, typ)
   | ConcatT lst -> List.map changeToNormalPointer lst |> ConcatT
   | _ -> ptr

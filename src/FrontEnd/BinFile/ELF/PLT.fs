@@ -679,9 +679,9 @@ let private computeMIPSPLTHeaderSize span reader =
 let rec private parseMIPSStubEntries map offset maxOffset tbl reader span =
   if offset >= maxOffset then map
   else
-    let fst = (reader: IBinReader).ReadInt32 (span = span, offset=offset)
-    let snd = reader.ReadInt32 (span, offset=offset + 4)
-    let thr = reader.ReadInt32 (span, offset=offset + 8)
+    let fst = (reader: IBinReader).ReadInt32 (span = span, offset = offset)
+    let snd = reader.ReadInt32 (span, offset = offset + 4)
+    let thr = reader.ReadInt32 (span, offset = offset + 8)
     if (fst = 0x8f998010 (* lw t9, -32752(gp) *)
         || fst = 0xdf998010 (* ld t9, -32752(gp) *))
       && snd = 0x03e07825 (* move t7, ra *)
@@ -810,8 +810,8 @@ type PPCPLTParser (hdr, shdrs, relocInfo, symbs) =
 
   member private this.ComputePLTEntryDelta (span, reader, stubOff, delta) =
     let lastPLTEntryOffset = stubOff - delta
-    let ins1 = (reader: IBinReader).ReadUInt32 (span=span,
-                                                offset=lastPLTEntryOffset)
+    let ins1 = (reader: IBinReader).ReadUInt32 (span = span,
+                                                offset = lastPLTEntryOffset)
     let ins2 = reader.ReadUInt32 (span, lastPLTEntryOffset + 4)
     let ins3 = reader.ReadUInt32 (span, lastPLTEntryOffset + 8)
     let ins4 = reader.ReadUInt32 (span, lastPLTEntryOffset + 12)

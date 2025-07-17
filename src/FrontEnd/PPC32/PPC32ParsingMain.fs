@@ -325,8 +325,8 @@ let parseRLWIMIx bin =
   match Bits.pick bin 0u with
   (* inslwi ra,rs,n,b = rlwimi ra,rs,32-b,b,b+n-1
      insrwi ra,rs,n,b (n>0) = rlwimi ra,rs,32-(b+n),b,(b+n)-1 *)
-  | 0b0u -> struct (Op.RLWIMI, FiveOperands(ra, rs, sh, mb, me))
-  | _ (* 1 *) -> struct (Op.RLWIMIdot, FiveOperands(ra, rs, sh, mb, me))
+  | 0b0u -> struct (Op.RLWIMI, FiveOperands (ra, rs, sh, mb, me))
+  | _ (* 1 *) -> struct (Op.RLWIMIdot, FiveOperands (ra, rs, sh, mb, me))
 
 let parseRLWINMx bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -336,12 +336,12 @@ let parseRLWINMx bin =
     let sh = Bits.extract bin 15u 11u |> uint64 |> OprImm
     let mb = Bits.extract bin 10u 6u |> uint64 |> OprImm
     let me = Bits.extract bin 5u 1u |> uint64 |> OprImm
-    struct (Op.RLWINM, FiveOperands(ra, rs, sh, mb, me))
+    struct (Op.RLWINM, FiveOperands (ra, rs, sh, mb, me))
   | _ (* 1 *) ->
     let sh = Bits.extract bin 15u 11u |> uint64 |> OprImm
     let mb = Bits.extract bin 10u 6u |> uint64 |> OprImm
     let me = Bits.extract bin 5u 1u |> uint64 |> OprImm
-    struct (Op.RLWINMdot, FiveOperands(ra, rs, sh, mb, me))
+    struct (Op.RLWINMdot, FiveOperands (ra, rs, sh, mb, me))
 
 let parseRLWNMx bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -351,15 +351,15 @@ let parseRLWNMx bin =
   | 0b0u ->
     match Bits.extract bin 10u 1u with
     (* rotlw ra,rs,rb = rlwnm ra,rs,rb,mb,me *)
-    | 0x1Fu -> struct (Op.ROTLW, ThreeOperands(ra, rs, rb))
+    | 0x1Fu -> struct (Op.ROTLW, ThreeOperands (ra, rs, rb))
     | _ ->
       let mb = Bits.extract bin 10u 6u |> uint64 |> OprImm
       let me = Bits.extract bin 5u 1u |> uint64 |> OprImm
-      struct (Op.RLWNM, FiveOperands(ra, rs, rb, mb, me))
+      struct (Op.RLWNM, FiveOperands (ra, rs, rb, mb, me))
   | _ (* 1 *) ->
     let mb = Bits.extract bin 10u 6u |> uint64 |> OprImm
     let me = Bits.extract bin 5u 1u |> uint64 |> OprImm
-    struct (Op.RLWNMdot, FiveOperands(ra, rs, rb, mb, me))
+    struct (Op.RLWNMdot, FiveOperands (ra, rs, rb, mb, me))
 
 let parseORI bin =
   match Bits.extract bin 25u 0u with
@@ -369,37 +369,37 @@ let parseORI bin =
     let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let uimm = Bits.extract bin 15u 0u |> uint64 |> OprImm
-    struct (Op.ORI, ThreeOperands(ra, rs, uimm))
+    struct (Op.ORI, ThreeOperands (ra, rs, uimm))
 
 let parseORIS bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
   let uimm = Bits.extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.ORIS, ThreeOperands(ra, rs, uimm))
+  struct (Op.ORIS, ThreeOperands (ra, rs, uimm))
 
 let parseXORI bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
   let uimm = Bits.extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.XORI, ThreeOperands(ra, rs, uimm))
+  struct (Op.XORI, ThreeOperands (ra, rs, uimm))
 
 let parseXORIS bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
   let uimm = Bits.extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.XORIS, ThreeOperands(ra, rs, uimm))
+  struct (Op.XORIS, ThreeOperands (ra, rs, uimm))
 
 let parseANDIdot bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
   let uimm = Bits.extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.ANDIdot, ThreeOperands(ra, rs, uimm))
+  struct (Op.ANDIdot, ThreeOperands (ra, rs, uimm))
 
 let parseANDISdot bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
   let uimm = Bits.extract bin 15u 0u |> uint64 |> OprImm
-  struct (Op.ANDISdot, ThreeOperands(ra, rs, uimm))
+  struct (Op.ANDISdot, ThreeOperands (ra, rs, uimm))
 
 let parseCMPandMCRXR bin =
   match Bits.pick bin 10u with
@@ -631,7 +631,7 @@ let parseLSWI bin =
     let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let nb = Bits.extract bin 15u 11u |> uint64 |> OprImm
-    struct (Op.LSWI, ThreeOperands(rd, ra, nb))
+    struct (Op.LSWI, ThreeOperands (rd, ra, nb))
   | _ (* 0 *) -> raise ParsingFailureException
 
 let parseDCBFandSYNC bin =
@@ -1341,7 +1341,7 @@ let parseLWZ bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LWZ, TwoOperands(rd, mem))
+  struct (Op.LWZ, TwoOperands (rd, mem))
 
 let parseLWZU bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1349,7 +1349,7 @@ let parseLWZU bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LWZU, TwoOperands(rd, mem))
+  struct (Op.LWZU, TwoOperands (rd, mem))
 
 let parseLBZ bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1357,7 +1357,7 @@ let parseLBZ bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LBZ, TwoOperands(rd, mem))
+  struct (Op.LBZ, TwoOperands (rd, mem))
 
 let parseLBZU bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1365,7 +1365,7 @@ let parseLBZU bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LBZU, TwoOperands(rd, mem))
+  struct (Op.LBZU, TwoOperands (rd, mem))
 
 let parseSTW bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1373,7 +1373,7 @@ let parseSTW bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.STW, TwoOperands(rs, mem))
+  struct (Op.STW, TwoOperands (rs, mem))
 
 let parseSTWU bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1381,7 +1381,7 @@ let parseSTWU bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.STWU, TwoOperands(rs, mem))
+  struct (Op.STWU, TwoOperands (rs, mem))
 
 let parseSTB bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1389,7 +1389,7 @@ let parseSTB bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.STB, TwoOperands(rs, mem))
+  struct (Op.STB, TwoOperands (rs, mem))
 
 let parseSTBU bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1397,7 +1397,7 @@ let parseSTBU bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.STBU, TwoOperands(rs, mem))
+  struct (Op.STBU, TwoOperands (rs, mem))
 
 let parseLHZ bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1405,7 +1405,7 @@ let parseLHZ bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LHZ, TwoOperands(rd, mem))
+  struct (Op.LHZ, TwoOperands (rd, mem))
 
 let parseLHZU bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1413,7 +1413,7 @@ let parseLHZU bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LHZU, TwoOperands(rd, mem))
+  struct (Op.LHZU, TwoOperands (rd, mem))
 
 let parseLHA bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1421,7 +1421,7 @@ let parseLHA bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LHA, TwoOperands(rd, mem))
+  struct (Op.LHA, TwoOperands (rd, mem))
 
 let parseLHAU bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1429,7 +1429,7 @@ let parseLHAU bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LHAU, TwoOperands(rd, mem))
+  struct (Op.LHAU, TwoOperands (rd, mem))
 
 let parseSTH bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1437,7 +1437,7 @@ let parseSTH bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.STH, TwoOperands(rs, mem))
+  struct (Op.STH, TwoOperands (rs, mem))
 
 let parseSTHU bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1445,7 +1445,7 @@ let parseSTHU bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.STHU, TwoOperands(rs, mem))
+  struct (Op.STHU, TwoOperands (rs, mem))
 
 let parseLMW bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1453,7 +1453,7 @@ let parseLMW bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LMW, TwoOperands(rd, mem))
+  struct (Op.LMW, TwoOperands (rd, mem))
 
 let parseSTMW bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1461,7 +1461,7 @@ let parseSTMW bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.STMW, TwoOperands(rs, mem))
+  struct (Op.STMW, TwoOperands (rs, mem))
 
 let parseLFS bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1469,7 +1469,7 @@ let parseLFS bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LFS, TwoOperands(frd, mem))
+  struct (Op.LFS, TwoOperands (frd, mem))
 
 let parseLFSU bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1477,7 +1477,7 @@ let parseLFSU bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LFSU, TwoOperands(frd, mem))
+  struct (Op.LFSU, TwoOperands (frd, mem))
 
 let parseLFD bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1485,7 +1485,7 @@ let parseLFD bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LFD, TwoOperands(frd, mem))
+  struct (Op.LFD, TwoOperands (frd, mem))
 
 let parseLFDU bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1493,7 +1493,7 @@ let parseLFDU bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.LFDU, TwoOperands(frd, mem))
+  struct (Op.LFDU, TwoOperands (frd, mem))
 
 let parseSTFS bin =
   let frs = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1501,7 +1501,7 @@ let parseSTFS bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.STFS, TwoOperands(frs, mem))
+  struct (Op.STFS, TwoOperands (frs, mem))
 
 let parseSTFSU bin =
   let frs = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1509,7 +1509,7 @@ let parseSTFSU bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.STFSU, TwoOperands(frs, mem))
+  struct (Op.STFSU, TwoOperands (frs, mem))
 
 let parseSTFD bin =
   let frs = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1517,7 +1517,7 @@ let parseSTFD bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.STFD, TwoOperands(frs, mem))
+  struct (Op.STFD, TwoOperands (frs, mem))
 
 let parseSTFDU bin =
   let frs = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1525,7 +1525,7 @@ let parseSTFDU bin =
   let d = Bits.extract bin 15u 0u |> uint64
   let value = Bits.signExtend 16 32 d |> int32
   let mem = (value, ra) |> OprMem (* d (rA) *)
-  struct (Op.STFDU, TwoOperands(frs, mem))
+  struct (Op.STFDU, TwoOperands (frs, mem))
 
 let parseFDIVSx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg

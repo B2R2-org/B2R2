@@ -69,8 +69,8 @@ type ARM32LifterTests () =
     let shiftAmt = AST.zext 32<rt> (AST.xtlo 8<rt> !.R8)
     "e080285e"
     ++ [| t32 1 :=
-            !.R0 .+ (AST.ite (shiftAmt == num 0x0u) !.LR (!.LR ?>> shiftAmt))
-              .+ num 0x0u
+          !.R0 .+ (AST.ite (shiftAmt == num 0x0u) !.LR (!.LR ?>> shiftAmt))
+            .+ num 0x0u
           !.R2 := t32 1 |]
     |> testARM
 

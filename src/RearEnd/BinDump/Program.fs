@@ -89,7 +89,7 @@ let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
   out.PrintLine ()
 
 let printHexdump (opts: BinDumpOpts) (hdl: BinHandle) ptr =
-  let bytes = hdl.ReadBytes (ptr=ptr, nBytes=ptr.MaxOffset - ptr.Offset + 1)
+  let bytes = hdl.ReadBytes (ptr = ptr, nBytes = ptr.MaxOffset - ptr.Offset + 1)
   let chunkSz = if opts.ShowWide then 32 else 16
   HexDumper.dump chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
   |> Array.iter out.PrintLine
