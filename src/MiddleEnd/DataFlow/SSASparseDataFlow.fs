@@ -147,7 +147,7 @@ type State<'Lattice when 'Lattice: equality>
       else ()
     count
 
-  member this.EvalExpr expr = scheme.EvalExpr expr
+  member _.EvalExpr expr = scheme.EvalExpr expr
 
   interface IAbsValProvider<SSAVarPoint, 'Lattice> with
     member this.GetAbsValue ssaVarPoint =

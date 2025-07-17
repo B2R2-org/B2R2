@@ -46,6 +46,7 @@
     <Compile Include="Strategies\FunctionSummarizer.fs" />
     <Compile Include="Strategies\EVMFunctionSummarizer.fs" />
     <Compile Include="Strategies\FunctionIdentification.fs" />
+    <Compile Include="Strategies\ICFGRecovery.fs" />
     <Compile Include="Strategies\CFGRecovery.fs" />
     <Compile Include="Strategies\EVMCFGRecovery.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

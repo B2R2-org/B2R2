@@ -347,7 +347,6 @@ type State<'Lattice when 'Lattice: equality>
         member _.ExecutedFlows = executedFlows
         member _.ExecutedVertices = executedVertices
         member _.Bottom = lattice.Bottom
-        member _.GetAbsValue v = domainGetAbsValue ssaVarToVp[v]
         member _.GetAbsValue vp = domainGetAbsValue vp
         member _.SetAbsValue vp absVal = domainAbsValues[vp] <- absVal
         member _.Join(a, b) = lattice.Join(a, b)
@@ -364,7 +363,6 @@ type State<'Lattice when 'Lattice: equality>
         member _.ExecutedFlows = executedFlows
         member _.ExecutedVertices = executedVertices
         member _.Bottom = StackPointerDomain.Undef
-        member _.GetAbsValue v = spGetAbsValue ssaVarToVp[v]
         member _.GetAbsValue vp = spGetAbsValue vp
         member _.SetAbsValue vp absVal = spAbsValues[vp] <- absVal
         member _.Join(a, b) = StackPointerDomain.join a b
@@ -484,17 +482,13 @@ type State<'Lattice when 'Lattice: equality>
         | s -> Some s
       else generatePhiSSAStmt vp |> Some
 
+  member _.GetAbsValue v = domainGetAbsValue ssaVarToVp[v]
+
   /// Reset this state.
   member _.Reset () = reset ()
 
   interface IAbsValProvider<VarPoint, 'Lattice> with
     member _.GetAbsValue absLoc = domainGetAbsValue absLoc
-
-/// A Low-UIR statement and its corresponding program point.
-and private StmtInfo = Stmt * ProgramPoint
-
-/// A Low-UIR statement and its corresponding vertex in the Low-UIR CFG.
-and private StmtOfBBL = Stmt * IVertex<LowUIRBasicBlock>
 
 /// Represents a substate for the LowUIR-based sparse dataflow analysis.
 and ISubstate<'Lattice when 'Lattice: equality> =
@@ -515,9 +509,6 @@ and ISubstate<'Lattice when 'Lattice: equality> =
   /// Executed vertices during the data flow calculation.
   abstract ExecutedVertices: HashSet<IVertex<LowUIRBasicBlock>>
 
-  /// Get the abstract value of the given SSA variable.
-  abstract GetAbsValue: v: SSA.Variable -> 'Lattice
-
   /// Get the abstract value at the given location.
   abstract SetAbsValue: vp: VarPoint -> 'Lattice -> unit
 
@@ -529,8 +520,7 @@ and private PhiInfo = Dictionary<VarKind, Dictionary<ProgramPoint, VarPoint>>
 
 /// Represents how we perform LowUIR-based sparse dataflow analysis.
 and IScheme<'Lattice when 'Lattice: equality> =
-  /// Evaluate the given expression based on the current abstract state.
-  abstract EvalExpr: ProgramPoint * Expr -> 'Lattice
+  inherit IExprEvaluatable<ProgramPoint, 'Lattice>
 
 [<AutoOpen>]
 module internal AnalysisCore = begin

@@ -138,7 +138,7 @@ type ConstantPropagation (hdl, vs) =
 
   let rec scheme =
     { new LowUIRSparseDataFlow.IScheme<ConstantDomain.Lattice> with
-        member _.EvalExpr (pp, expr) = evaluateExpr state pp expr }
+        member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =
     ConstantPropagationState (hdl, lattice, scheme)

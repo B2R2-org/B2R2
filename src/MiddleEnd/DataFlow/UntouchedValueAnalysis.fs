@@ -76,7 +76,7 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
 
   let rec scheme =
     { new LowUIRSparseDataFlow.IScheme<UntouchedValueLattice> with
-        member _.EvalExpr (pp, expr) = evaluateExpr state pp expr }
+        member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =
     UntouchedValueState(hdl, lattice, scheme)

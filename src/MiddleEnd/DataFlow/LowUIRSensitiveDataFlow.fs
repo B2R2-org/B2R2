@@ -45,21 +45,14 @@ type State<'L, 'ExeCtx when 'L: equality
                         and 'ExeCtx: comparison>
   public (hdl,
           lattice: ILattice<'L>,
-          scheme: IScheme<'L, 'ExeCtx>) =
-
-  let defSvpUidMapper = IdMapper<SensitiveVarPoint<'ExeCtx>> ()
-
-  let useSvpUidMapper = IdMapper<SensitiveVarPoint<'ExeCtx>> ()
-
-  let uidToDefSvp = Dictionary<Uid, SensitiveVarPoint<'ExeCtx>> ()
-
-  let uidToUseSvp = Dictionary<Uid, SensitiveVarPoint<'ExeCtx>> ()
-
-  let uidToSSAVar = Dictionary<Uid, SSA.Variable> ()
-
-  let ssaVarToUid = Dictionary<SSA.Variable, Uid> ()
+          scheme: IScheme<'L, 'ExeCtx>,
+          evaluator: IExprEvaluatable<_, _>) =
 
   let mutable freshSSAVarId = 1
+
+  let ssaVarToDefSvp = Dictionary<SSA.Variable, SensitiveVarPoint<'ExeCtx>> ()
+
+  let defSvpToSSAVar = Dictionary<SensitiveVarPoint<'ExeCtx>, SSA.Variable> ()
 
   let perVertexPossibleExeCtxs =
     Dictionary<IVertex<LowUIRBasicBlock>, HashSet<'ExeCtx>> ()
@@ -97,14 +90,18 @@ type State<'L, 'ExeCtx when 'L: equality
     Dictionary<SensitiveVarPoint<'ExeCtx>, StackPointerDomain.Lattice> ()
 
   let perVertexIncomingDefs =
-    Dictionary<IVertex<LowUIRBasicBlock> * 'ExeCtx, Map<VarKind, Set<Uid>>> ()
+    Dictionary<IVertex<LowUIRBasicBlock> * 'ExeCtx,
+               Map<VarKind, Set<SensitiveVarPoint<'ExeCtx>>>> ()
 
   let perVertexOutgoingDefs =
-    Dictionary<IVertex<LowUIRBasicBlock> * 'ExeCtx, Map<VarKind, Set<Uid>>> ()
+    Dictionary<IVertex<LowUIRBasicBlock> * 'ExeCtx,
+               Map<VarKind, Set<SensitiveVarPoint<'ExeCtx>>>> ()
 
-  let defUseMap = Dictionary<Uid, Set<Uid>> ()
+  let defUseMap = Dictionary<SensitiveVarPoint<'ExeCtx>,
+                             Set<SensitiveVarPoint<'ExeCtx>>> ()
 
-  let useDefMap = Dictionary<Uid, Set<Uid>> ()
+  let useDefMap = Dictionary<SensitiveVarPoint<'ExeCtx>,
+                             Set<SensitiveVarPoint<'ExeCtx>>> ()
 
   let stmtOfBBLs = Dictionary<ProgramPoint, StmtOfBBL> ()
 
@@ -113,16 +110,6 @@ type State<'L, 'ExeCtx when 'L: equality
 
   /// Queue of vertices that need to be removed.
   let verticesForRemoval = Queue<IVertex<LowUIRBasicBlock>> ()
-
-  let defSvpToUid svp =
-    let uid = defSvpUidMapper[svp]
-    if not <| uidToDefSvp.ContainsKey uid then uidToDefSvp[uid] <- svp
-    uid
-
-  let useSvpToUid svp =
-    let uid = useSvpUidMapper[svp]
-    if not <| uidToUseSvp.ContainsKey uid then uidToUseSvp[uid] <- svp
-    uid
 
   let domainGetAbsValue vp =
     match domainAbsValues.TryGetValue vp with
@@ -141,14 +128,12 @@ type State<'L, 'ExeCtx when 'L: equality
 
   let spEvaluateVar varKind tpp =
     let tvp = { SensitiveProgramPoint = tpp; VarKind = varKind }
-    let id = useSvpToUid tvp
-    match useDefMap.TryGetValue id with
+    match useDefMap.TryGetValue tvp with
     | false, _ -> spGetInitialAbsValue varKind
-    | true, ids ->
-      ids
-      |> Seq.fold (fun acc id ->
-        let defVp = uidToDefSvp[id]
-        let defAbsValue = spGetAbsValue defVp
+    | true, defs ->
+      defs
+      |> Seq.fold (fun acc defSvp ->
+        let defAbsValue = spGetAbsValue defSvp
         StackPointerDomain.join acc defAbsValue) StackPointerDomain.Undef
 
   let rec spEvaluateExpr myPp (e: Expr) =
@@ -209,12 +194,11 @@ type State<'L, 'ExeCtx when 'L: equality
     freshSSAVarId <- freshSSAVarId + 1
     id
 
-  let generateSSAVar (id: Uid) =
-    assert (not <| uidToSSAVar.ContainsKey id)
-    let tvp = uidToDefSvp[id]
-    let tpp = tvp.SensitiveProgramPoint
+  let generateSSAVar defSvp =
+    let svp = defSvp
+    let spp = svp.SensitiveProgramPoint
     let ssaVarKind =
-      match tvp.VarKind with
+      match svp.VarKind with
       | Regular rid ->
         let rt = hdl.RegisterFactory.GetRegType rid
         let rname = hdl.RegisterFactory.GetRegString rid
@@ -227,35 +211,42 @@ type State<'L, 'ExeCtx when 'L: equality
         SSA.TempVar (rt, n)
       | _ -> Terminator.futureFeature ()
     let ssaVarId =
-      if ProgramPoint.IsFake tpp.ProgramPoint then 0 (* Unreachable variable. *)
+      if ProgramPoint.IsFake spp.ProgramPoint then 0 (* Unreachable variable. *)
       else generateFreshSSAVarId ()
-    let v = { SSA.Kind = ssaVarKind; SSA.Identifier = ssaVarId }
-    uidToSSAVar[id] <- v
-    ssaVarToUid[v] <- id
-    v
+    { SSA.Kind = ssaVarKind; SSA.Identifier = ssaVarId }
 
-  let defIdToSSAVar (id: Uid) =
-    match uidToSSAVar.TryGetValue id with
-    | true, var -> var
-    | false, _ -> generateSSAVar id
+  /// Returns the SSA variable corresponding to the given definition sensitive
+  /// variable point. If the variable does not exist, it creates a new SSA
+  /// variable and returns it.
+  let getSSAVarFromDefSvp defSvp =
+    match defSvpToSSAVar.TryGetValue defSvp with
+    | true, ssaVar -> ssaVar
+    | false, _ ->
+      let var = generateSSAVar defSvp
+      defSvpToSSAVar[defSvp] <- var
+      ssaVarToDefSvp[var] <- defSvp
+      var
+
+  let getDefSvpFromSSAVar var =
+    assert ssaVarToDefSvp.ContainsKey var
+    ssaVarToDefSvp[var]
 
   /// Converts an use to its reaching definitions. If the use has no definitions
   /// (e.g. parameter of a function), it creates a fake definition and returns
   /// it.
-  let convertUseIdToReachingDefSSAExpr id exeCtx varKind =
+  let convertUseToReachingDefSSAExpr id exeCtx varKind =
     tryGetReachingDefIdsFromUseId id
     |> function
-      | Some defIds ->
-        defIds
+      | Some defs ->
+        defs
         |> Set.toList
-        |> List.map (defIdToSSAVar >> SSA.Var)
+        |> List.map (getSSAVarFromDefSvp >> SSA.Var)
         |> SSA.ExprList
       | None -> (* Reading a value coming out of a function. *)
         let fakeDefPp = ProgramPoint.GetFake ()
         let fakeSpp = { ProgramPoint = fakeDefPp; ExecutionContext = exeCtx }
         let fakeSvp = { SensitiveProgramPoint = fakeSpp; VarKind = varKind }
-        let fakeId = defSvpToUid fakeSvp
-        let fakeSSAVar = defIdToSSAVar fakeId
+        let fakeSSAVar = getSSAVarFromDefSvp fakeSvp
         SSA.Var fakeSSAVar
 
   let rec computeSSAExpr pp exeCtx = function
@@ -263,8 +254,7 @@ type State<'L, 'ExeCtx when 'L: equality
       let varKind = VarKind.ofIRExpr e
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
-      let id = useSvpToUid svp
-      convertUseIdToReachingDefSSAExpr id exeCtx varKind
+      convertUseToReachingDefSSAExpr svp exeCtx varKind
     | ExprList (l, _) -> List.map (computeSSAExpr pp exeCtx) l |> SSA.ExprList
     | UnOp (op, e, _) ->
       let sexpr = computeSSAExpr pp exeCtx e
@@ -299,8 +289,7 @@ type State<'L, 'ExeCtx when 'L: equality
       | StackPointerDomain.ConstSP bv ->
         let varKind = BitVector.ToUInt64 bv |> toFrameOffset |> StackLocal
         let useSvp = { SensitiveProgramPoint = spp; VarKind = varKind }
-        let useId = useSvpToUid useSvp
-        convertUseIdToReachingDefSSAExpr useId exeCtx varKind
+        convertUseToReachingDefSSAExpr useSvp exeCtx varKind
       | _ ->
         let e = computeSSAExpr pp exeCtx e
         let fakeMemoryVar = { SSA.Kind = SSA.MemVar; SSA.Identifier = -1 }
@@ -322,11 +311,10 @@ type State<'L, 'ExeCtx when 'L: equality
     match stmt with
     | Put (dstVar, e, _) ->
       let expr = computeSSAExpr pp exeCtx e
-      let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+      let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       let varKind = VarKind.ofIRExpr dstVar
-      let tvp = { SensitiveProgramPoint = tpp; VarKind = varKind }
-      let id = defSvpToUid tvp
-      let var = defIdToSSAVar id
+      let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
+      let var = getSSAVarFromDefSvp svp
       SSA.Def (var, expr)
     | Store (_, dstExpr, srcExpr, _) ->
       let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
@@ -334,9 +322,8 @@ type State<'L, 'ExeCtx when 'L: equality
       | StackPointerDomain.ConstSP bv ->
         let offset = BitVector.ToUInt64 bv |> toFrameOffset
         let varKind = StackLocal offset
-        let tvp = { SensitiveProgramPoint = tpp; VarKind = varKind }
-        let id = defSvpToUid tvp
-        let var = defIdToSSAVar id
+        let svp = { SensitiveProgramPoint = tpp; VarKind = varKind }
+        let var = getSSAVarFromDefSvp svp
         let srcExpr = computeSSAExpr pp exeCtx srcExpr
         SSA.Def (var, srcExpr)
       | _ ->
@@ -393,7 +380,7 @@ type State<'L, 'ExeCtx when 'L: equality
     let defSiteQueue = UniqueQueue ()
     let executedFlows = HashSet ()
     let executedVertices = HashSet ()
-    { new Substate<'L, 'ExeCtx> with
+    { new SubState<'L, 'ExeCtx> with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
         member _.ExecutedFlows = executedFlows
@@ -403,14 +390,14 @@ type State<'L, 'ExeCtx when 'L: equality
         member _.SetAbsValue vp absVal = domainAbsValues[vp] <- absVal
         member _.Join(a, b) = lattice.Join(a, b)
         member _.Subsume(a, b) = lattice.Subsume(a, b)
-        member _.EvalExpr pp expr = scheme.EvalExpr pp expr }
+        member _.EvalExpr(pp, expr) = evaluator.EvalExpr(pp,expr) }
 
   let spSubState =
     let flowQueue = UniqueQueue ()
     let defSiteQueue = UniqueQueue ()
     let executedFlows = HashSet ()
     let executedVertices = HashSet ()
-    { new Substate<StackPointerDomain.Lattice, 'ExeCtx>
+    { new SubState<StackPointerDomain.Lattice, 'ExeCtx>
           with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
@@ -421,9 +408,9 @@ type State<'L, 'ExeCtx when 'L: equality
         member _.SetAbsValue vp absVal = spAbsValues[vp] <- absVal
         member _.Join(a, b) = StackPointerDomain.join a b
         member _.Subsume(a, b) = StackPointerDomain.subsume a b
-        member _.EvalExpr myPp expr = spEvaluateExpr myPp expr }
+        member _.EvalExpr(myPp, expr) = spEvaluateExpr myPp expr }
 
-  let resetSubState (subState: Substate<_, _>) =
+  let resetSubState (subState: SubState<_, _>) =
     subState.FlowQueue.Clear ()
     subState.DefSiteQueue.Clear ()
     subState.ExecutedFlows.Clear ()
@@ -441,12 +428,8 @@ type State<'L, 'ExeCtx when 'L: equality
     useDefMap.Clear ()
     stmtOfBBLs.Clear ()
     edgesForProcessing.Clear ()
-    defSvpUidMapper.Clear ()
-    useSvpUidMapper.Clear ()
-    uidToDefSvp.Clear ()
-    uidToUseSvp.Clear ()
-    uidToSSAVar.Clear ()
-    ssaVarToUid.Clear ()
+    defSvpToSSAVar.Clear ()
+    ssaVarToDefSvp.Clear ()
     perVertexPossibleExeCtxs.Clear ()
     perVertexStackPointerInfos.Clear ()
     freshSSAVarId <- 1
@@ -454,23 +437,6 @@ type State<'L, 'ExeCtx when 'L: equality
     resetSubState domainSubState
 
   member _.Scheme with get () = scheme
-
-  member _.DefToUid (tvp: SensitiveVarPoint<_>) = defSvpToUid tvp
-
-  member _.UidToDef (id: Uid) = uidToDefSvp[id]
-
-  member _.UseToUid (svp: SensitiveVarPoint<_>) = useSvpToUid svp
-
-  member _.UidToUse (id: Uid) = uidToUseSvp[id]
-
-  member _.SSAVarToUid (var: SSA.Variable) =
-    assert ssaVarToUid.ContainsKey var
-    ssaVarToUid[var]
-
-  member _.UidToSSAVar (id: Uid) =
-    // assert idToSSAVarMapping.ContainsKey id
-    // idToSSAVarMapping[id]
-    defIdToSSAVar id
 
   member _.PerVertexPossibleExeCtxs with get () = perVertexPossibleExeCtxs
 
@@ -544,8 +510,7 @@ type State<'L, 'ExeCtx when 'L: equality
       perPointSSAStmtCache.Remove tpp |> ignore
 
   member _.TryFindSSADefStmtFromSSAVar var =
-    let id = ssaVarToUid[var]
-    let svp = uidToDefSvp[id]
+    let svp = getDefSvpFromSSAVar var
     let spp = svp.SensitiveProgramPoint
     let pp = spp.ProgramPoint
     if ProgramPoint.IsFake pp then
@@ -557,17 +522,24 @@ type State<'L, 'ExeCtx when 'L: equality
     this.TryFindSSADefStmtFromSSAVar var
     |> Option.get
 
+  member _.SSAVarToDefSVP var = getDefSvpFromSSAVar var
+
+  member _.DefSVPToSSAVar svp = getSSAVarFromDefSvp svp
+
+  member _.EvalExpr(pp, expr) = evaluator.EvalExpr(pp, expr)
+
   /// Reset this state.
   member _.Reset () = reset ()
 
   interface IAbsValProvider<SensitiveVarPoint<'ExeCtx>, 'L> with
     member _.GetAbsValue absLoc = domainGetAbsValue absLoc
 
-and Substate<'L, 'ExeCtx when 'L: equality
+and SubState<'L, 'ExeCtx when 'L: equality
                           and 'ExeCtx: equality
                           and 'ExeCtx: comparison> =
   inherit IAbsValProvider<SensitiveVarPoint<'ExeCtx>, 'L>
   inherit ILattice<'L>
+  inherit IExprEvaluatable<SensitiveProgramPoint<'ExeCtx>, 'L>
 
   /// The edge queue for calculating the data flow.
   abstract FlowQueue:
@@ -586,11 +558,6 @@ and Substate<'L, 'ExeCtx when 'L: equality
   /// Get the abstract value at the given location.
   abstract SetAbsValue: vp: SensitiveVarPoint<'ExeCtx> -> 'L -> unit
 
-  abstract EvalExpr:
-       SensitiveProgramPoint<'ExeCtx>
-    -> Expr
-    -> 'L
-
 /// The main interface for a sensitive data-flow analysis.
 and IScheme<'L, 'ExeCtx when 'L: equality
                          and 'ExeCtx: equality
@@ -608,36 +575,29 @@ and IScheme<'L, 'ExeCtx when 'L: equality
     -> CFGEdgeKind
     -> 'ExeCtx option
 
-  /// Evaluate the given expression based on the current abstract state.
-  abstract EvalExpr: SensitiveProgramPoint<'ExeCtx> -> Expr -> 'L
-
   /// Called when a vertex is newly analyzed.
   abstract OnVertexNewlyAnalyzed: IVertex<LowUIRBasicBlock> -> unit
 
   /// Called when a vertex is removed.
   abstract OnRemoveVertex: IVertex<LowUIRBasicBlock> -> unit
 
-and ReachingDefs = Map<VarKind, Set<Uid>>
+and SensitiveReachingDefs<'ExeCtx when 'ExeCtx: equality
+                          and 'ExeCtx: comparison> =
+  Map<VarKind, Set<SensitiveVarPoint<'ExeCtx>>>
 
-and Uid = int
+/// Represents a program point in the sensitive data-flow analysis.
+and SensitiveProgramPoint<'ExeCtx when 'ExeCtx: equality
+                                   and 'ExeCtx: comparison> = {
+  ProgramPoint: ProgramPoint
+  ExecutionContext: 'ExeCtx
+}
 
-and SensitiveVarPoint<'Sensitivity when 'Sensitivity: equality
-                                    and 'Sensitivity: comparison> = {
-  SensitiveProgramPoint: SensitiveProgramPoint<'Sensitivity>
+/// Represents a variable point in the sensitive data-flow analysis.
+and SensitiveVarPoint<'ExeCtx when 'ExeCtx: equality
+                               and 'ExeCtx: comparison> = {
+  SensitiveProgramPoint: SensitiveProgramPoint<'ExeCtx>
   VarKind: VarKind
 }
-
-and SensitiveProgramPoint<'Sensitivity when 'Sensitivity: equality
-                                        and 'Sensitivity: comparison> = {
-  ProgramPoint: ProgramPoint
-  ExecutionContext: 'Sensitivity
-}
-
-/// A Low-UIR statement and its corresponding program point.
-and private StmtInfo = Stmt * ProgramPoint
-
-/// A Low-UIR statement and its corresponding vertex in the Low-UIR CFG.
-and private StmtOfBBL = Stmt * IVertex<LowUIRBasicBlock>
 
 [<AutoOpen>]
 module internal AnalysisCore = begin
@@ -661,7 +621,7 @@ module internal AnalysisCore = begin
     | false, _ -> ()
 
   let getStackValue state pp e =
-    match (state: Substate<_, _>).EvalExpr pp e with
+    match (state: SubState<_, _>).EvalExpr(pp, e) with
     | StackPointerDomain.ConstSP bv -> Ok <| BitVector.ToUInt64 bv
     | _ -> Error ErrorCase.InvalidExprEvaluation
 
@@ -693,11 +653,10 @@ module internal AnalysisCore = begin
     match Map.tryFind vk defs with
     | None -> ()
     | Some rds ->
-      let useId = state.UseToUid { SensitiveProgramPoint = tpp; VarKind = vk }
-      removeOldChains state useId
-      for defId in rds do
-        updateDefUseChain state useId defId
-      updateUseDefChain state useId rds
+      let useSvp = { SensitiveProgramPoint = tpp; VarKind = vk }
+      removeOldChains state useSvp
+      for defSvp in rds do updateDefUseChain state useSvp defSvp
+      updateUseDefChain state useSvp rds
 
   let rec updateWithExpr state defs (tpp: SensitiveProgramPoint<_>) = function
     | Num (_)
@@ -781,7 +740,8 @@ module internal AnalysisCore = begin
   /// here.
   /// TODO: check if it is propagated through intra-block edges like
   /// `VarBasedDataFlowAnalysis`.
-  let joinDefs dstInSP (m1: ReachingDefs) (m2: ReachingDefs) =
+  let joinDefs dstInSP (m1: SensitiveReachingDefs<_>)
+                       (m2: SensitiveReachingDefs<_>) =
     let dstInStackOff = stackPointerToFrameOffset dstInSP
     m1 |> Map.fold (fun (changed, acc) vk defs ->
       let shouldBePruned =
@@ -798,9 +758,8 @@ module internal AnalysisCore = begin
           if defs'' = defs' then changed, acc
           else true, Map.add vk defs'' acc) (false, m2)
 
-  let strongUpdateReachingDef state rds vk tvp =
-    let id = (state: State<_, _>).DefToUid tvp
-    let set = Set.singleton id
+  let strongUpdateReachingDef rds vk svp =
+    let set = Set.singleton svp
     Map.add vk set rds
 
   /// Strongly updates the stack pointer value for the given tagged variable.
@@ -809,7 +768,7 @@ module internal AnalysisCore = begin
   let updateStackPointer (state: State<_, _>) tpp vk
                          e =
     let subState = state.StackPointerSubState
-    let spValue = subState.EvalExpr tpp e
+    let spValue = subState.EvalExpr(tpp, e)
     let tvp = { SensitiveProgramPoint = tpp; VarKind = vk }
     subState.SetAbsValue tvp spValue
 
@@ -828,12 +787,12 @@ module internal AnalysisCore = begin
         updateWithExpr state outDefs tpp src
         updateWithExpr state outDefs tpp dst
         updateStackPointer state tpp varKind src
-        outDefs <- strongUpdateReachingDef state outDefs varKind tvp
+        outDefs <- strongUpdateReachingDef outDefs varKind tvp
       | Store (_, addr, value, _) ->
         let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
         updateWithExpr state outDefs tpp addr
         updateWithExpr state outDefs tpp value
-        match state.StackPointerSubState.EvalExpr tpp addr with
+        match state.StackPointerSubState.EvalExpr(tpp, addr) with
         | StackPointerDomain.ConstSP bv ->
           let loc = BitVector.ToUInt64 bv
           let offset = toFrameOffset loc
@@ -841,7 +800,7 @@ module internal AnalysisCore = begin
           let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
           let tvp = { SensitiveProgramPoint = tpp; VarKind = varKind }
           // updateStackPointer state tpp varKind value
-          outDefs <- strongUpdateReachingDef state outDefs varKind tvp
+          outDefs <- strongUpdateReachingDef outDefs varKind tvp
         | _ -> ()
       | InterJmp (dstExpr, _, _) ->
         let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
@@ -915,7 +874,6 @@ module internal AnalysisCore = begin
     | Some defs ->
       defs
       |> Seq.head
-      |> state.UidToDef
       |> state.StackPointerSubState.GetAbsValue
 
   let executeAndPropagateRDs (state: State<_, _>)
@@ -966,56 +924,54 @@ module internal AnalysisCore = begin
       |> Option.iter (fun (dstExeCtx, defs) ->
         executeAndPropagateRDs state q g src dst srcExeCtx dstExeCtx defs)
 
-  let updateAbsValue state subState defUseMap tvp prev curr =
-    if (subState: Substate<_, _>).Subsume(prev, curr) then
+  let updateAbsValue subState defUseMap svp prev curr =
+    if (subState: SubState<_, _>).Subsume(prev, curr) then
       ()
     else
-      subState.SetAbsValue tvp <| subState.Join(prev, curr)
-      let id = (state: State<_, _>).DefToUid tvp
-      match (defUseMap: Dictionary<_, _>).TryGetValue id with
+      subState.SetAbsValue svp <| subState.Join(prev, curr)
+      match (defUseMap: Dictionary<_, _>).TryGetValue svp with
       | false, _ -> ()
       | true, uses ->
-        for useId in uses do
-          let tvp = state.UidToUse useId
-          let tpp = tvp.SensitiveProgramPoint
-          subState.DefSiteQueue.Enqueue tpp
+        for useSvp in uses do
+          let useSpp = useSvp.SensitiveProgramPoint
+          subState.DefSiteQueue.Enqueue useSpp
 
   let domainTransfer (state: State<_, _>) exeCtx (stmt, pp) =
     match stmt with
     | Put (dst, src, _) ->
       let varKind = VarKind.ofIRExpr dst
-      let myPp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-      let myVp = { SensitiveProgramPoint = myPp; VarKind = varKind }
+      let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+      let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
       let subState = state.DomainSubState
-      let prev = subState.GetAbsValue myVp
-      let curr = state.Scheme.EvalExpr myPp src
+      let prev = subState.GetAbsValue svp
+      let curr = state.EvalExpr(spp, src)
       let defUseMap = state.DefUseMap
-      updateAbsValue state subState defUseMap myVp prev curr
+      updateAbsValue subState defUseMap svp prev curr
     | Store (_, addr, value, _) ->
-      let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-      match state.StackPointerSubState.EvalExpr tpp addr with
+      let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+      match state.StackPointerSubState.EvalExpr(spp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let loc = BitVector.ToUInt64 bv
         let offset = toFrameOffset loc
         let varKind = StackLocal offset
-        let tvp = { SensitiveProgramPoint = tpp; VarKind = varKind }
+        let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
         let subState = state.DomainSubState
-        let prev = subState.GetAbsValue tvp
-        let curr = state.Scheme.EvalExpr tpp value
+        let prev = subState.GetAbsValue svp
+        let curr = state.EvalExpr(spp, value)
         let defUseMap = state.DefUseMap
-        updateAbsValue state subState defUseMap tvp prev curr
+        updateAbsValue subState defUseMap svp prev curr
       | _ -> ()
     | _ -> ()
 
-  let isExecuted (state: State<_, _>) (subState: Substate<_, _>) tpp =
-    let pp = (tpp: SensitiveProgramPoint<_>).ProgramPoint
-    let exeCtx = tpp.ExecutionContext
+  let isExecuted (state: State<_, _>) (subState: SubState<_, _>) spp =
+    let pp = (spp: SensitiveProgramPoint<_>).ProgramPoint
+    let exeCtx = spp.ExecutionContext
     match state.StmtOfBBLs.TryGetValue pp with
     | false, _ -> false
     | true, (_, v) -> subState.ExecutedVertices.Contains (v, exeCtx)
 
   let processDefSite (state: State<_, _>)
-                     (subState: Substate<_, _>)
+                     (subState: SubState<_, _>)
                      fnTransfer =
     match subState.DefSiteQueue.TryDequeue () with
     | true, myPp when isExecuted state subState myPp ->
@@ -1026,7 +982,7 @@ module internal AnalysisCore = begin
     | _ -> ()
 
   let transferFlow g (state: State<_, _>)
-                   (subState: Substate<_, _>) v exeCtx
+                   (subState: SubState<_, _>) v exeCtx
                    fnTransfer =
     let key = v, exeCtx
     subState.ExecutedVertices.Add key |> ignore
@@ -1043,7 +999,7 @@ module internal AnalysisCore = begin
       state.Scheme.TryComputeExecutionContext src srcExeCtx dst edgeKind
 
   let processFlow g state subState fnTransfer =
-    let subState = subState :> Substate<_, _>
+    let subState = subState :> SubState<_, _>
     match subState.FlowQueue.TryDequeue () with
     | false, _ -> ()
     | true, (src, srcExeCtx, dst) ->
@@ -1058,7 +1014,7 @@ module internal AnalysisCore = begin
         | None -> ()
 
   let registerPendingVertices state subState =
-    let subState = subState :> Substate<_, _>
+    let subState = subState :> SubState<_, _>
     for s, d in (state: State<_, _>).PendingEdges do
       if isNull s then
         let exeCtx = state.Scheme.DefaultExecutionContext

@@ -22,9 +22,7 @@
   SOFTWARE.
 *)
 
-/// TODO: Rename. We may introduce a modulle named `SensitiveDFA`, and put
-/// related stuffs into that module.
-module B2R2.MiddleEnd.DataFlow.SensitiveDFAHelper
+module B2R2.MiddleEnd.DataFlow.SensitiveDFHelper
 
 open B2R2.BinIR
 open B2R2.MiddleEnd.DataFlow
@@ -43,7 +41,7 @@ let constantFoldSensitiveVPs (state: State<_, _>)
 
 let constantFoldSSAVars (state: State<_, _>) vars =
   vars
-  |> List.map (state.SSAVarToUid >> state.UidToDef)
+  |> List.map state.SSAVarToDefSVP
   |> constantFoldSensitiveVPs state
 
 let private tryJoinExprs e1 e2 =

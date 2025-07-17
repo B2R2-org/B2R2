@@ -15,6 +15,7 @@
     <Compile Include="UntouchedValueDomain.fs" />
     <Compile Include="VarDefDomain.fs" />
     <Compile Include="IDataFlowComputable.fs" />
+    <Compile Include="Stmts.fs" />
     <Compile Include="WorklistDataFlow.fs" />
     <Compile Include="ReachingDefinition.fs" />
     <Compile Include="DataFlowChain.fs" />
@@ -23,7 +24,7 @@
     <Compile Include="StackPointerPropagation.fs" />
     <Compile Include="UntouchedValueAnalysis.fs" />
     <Compile Include="LowUIRSensitiveDataFlow.fs" />
-    <Compile Include="SensitiveDFAHelper.fs" />
+    <Compile Include="LowUIRSensitiveDataFlowHelper.fs" />
     <Compile Include="LowUIRSensitiveConstantPropagation.fs" />
     <Compile Include="SSAEdges.fs" />
     <Compile Include="SSASparseDataFlow.fs" />

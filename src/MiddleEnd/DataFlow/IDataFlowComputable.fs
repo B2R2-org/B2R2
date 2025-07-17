@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
+open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
@@ -53,9 +54,15 @@ type ILattice<'AbsVal when 'AbsVal: equality> =
   /// analysis starts with this value until it reaches a fixed point.
   abstract Bottom: 'AbsVal
 
-  /// Join two abstract values.
+  /// Joins two abstract values.
   abstract Join: 'AbsVal * 'AbsVal -> 'AbsVal
 
   /// The subsume operator, which checks if the first lattice subsumes the
   /// second. This is to know if the analysis should stop or not.
   abstract Subsume: 'AbsVal * 'AbsVal -> bool
+
+/// Represents an interface for evaluating expressions in the given context.
+type IExprEvaluatable<'Ctx, 'AbsVal when 'AbsVal: equality> =
+  /// Returns the abstract value of the given expression in the specified
+  /// context.
+  abstract EvalExpr: context: 'Ctx * exp: Expr -> 'AbsVal
