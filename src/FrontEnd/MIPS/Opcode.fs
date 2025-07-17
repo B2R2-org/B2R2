@@ -24,73 +24,8 @@
 
 namespace B2R2.FrontEnd.MIPS
 
-open System.Runtime.CompilerServices
-open B2R2
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.MIPS.Tests")>]
-do ()
-
-exception internal InvalidConditionException
-exception internal InvalidFmtException
-
-/// MIPS Condition.
-type Condition =
-  /// False [this predicate is always False].
-  | F = 0
-  /// Unordered.
-  | UN = 1
-  /// Equal.
-  | EQ = 2
-  /// Unordered or Equal.
-  | UEQ = 3
-  /// Ordered or Less Than.
-  | OLT = 4
-  /// Unordered or Less Than.
-  | ULT = 5
-  /// Ordered or Less Than or Equal.
-  | OLE = 6
-  /// Unordered or Less Than or Equal.
-  | ULE = 7
-  /// Signaling False [this predicate always False].
-  | SF = 8
-  /// Not Greater Than or Less Than or Equal.
-  | NGLE = 9
-  /// Signaling Equal.
-  | SEQ = 10
-  /// Not Greater Than or Less Than.
-  | NGL = 11
-  /// Less Than.
-  | LT = 12
-  /// Not Greater Than or Equal.
-  | NGE = 13
-  /// Less Than or Equal.
-  | LE = 14
-  /// Not Greater Than.
-  | NGT = 15
-
-/// MIPS floating point format.
-type Fmt =
-  /// S.
-  | S = 0
-  /// D.
-  | D = 1
-  /// W.
-  | W = 2
-  /// L.
-  | L = 3
-  /// PS.
-  | PS = 4
-  /// OB.
-  | OB = 5
-  /// QH.
-  | QH = 6
-  /// UNINTERPRETED WORD.
-  | UNINTERPRETED_WORD = 7
-  /// UNINTERPRETED DOUBLEWORD.
-  | UNINTERPRETED_DOUBLEWORD = 8
-
 /// <summary>
-///   MIPS opcodes.
+/// Represents a MIPS opcode.
 /// </summary>
 type Opcode =
   /// Floating Point Absolute Value.
@@ -753,39 +688,3 @@ type Opcode =
   | DADD = 328
 
 type internal Op = Opcode
-
-type Operand =
-  | OpReg of Register
-  | OpImm of Imm
-  | OpMem of Base * Offset * AccessLength
-  | OpAddr of JumpTarget
-  | OpShiftAmount of Imm
-  | GoToLabel of Label
-
-and Imm = uint64
-and JumpTarget = Relative of int64
-and Offset =
-  | Imm of int64
-  | Reg of Register
-and Base = Register
-and AccessLength = RegType
-and Label = string
-
-type RoundMode =
-  // Round to Nearest, ties to Even
-  | RNE
-  // Round towards Zero
-  | RTZ
-  // Round Down
-  | RDN
-  // Round Up
-  | RUP
-  // Round to Nearest, ties to Max Magnitude
-  | RMM
-
-type Operands =
-  | NoOperand
-  | OneOperand of Operand
-  | TwoOperands of Operand * Operand
-  | ThreeOperands of Operand * Operand * Operand
-  | FourOperands of Operand * Operand * Operand * Operand

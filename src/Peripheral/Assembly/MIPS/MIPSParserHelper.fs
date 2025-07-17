@@ -33,7 +33,7 @@ type AsmInsInfo = {
   Opcode: Opcode
   Operands: Operands
   Condition: Condition option
-  Fmt: Fmt option
+  Fmt: FPRFormat option
   OperationSize: RegType
 }
 

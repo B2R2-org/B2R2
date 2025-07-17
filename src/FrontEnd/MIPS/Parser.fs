@@ -28,8 +28,8 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Parser for MIPS instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
+/// Represents a parser for MIPS instructions. Parser will return a
+/// platform-agnostic instruction type (Instruction).
 type MIPSParser (isa: ISA, reader) =
   let wordSize = isa.WordSize
   let arch = isa.Arch

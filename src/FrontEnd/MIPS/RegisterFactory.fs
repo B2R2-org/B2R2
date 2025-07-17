@@ -29,6 +29,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 open type Register
 
+/// Represents a factory for accessing various MIPS register variables.
 type RegisterFactory (wordSize) =
   let rt = WordSize.toRegType wordSize
 
