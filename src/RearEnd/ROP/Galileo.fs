@@ -80,7 +80,7 @@ let rec buildBackward (liftingUnit: LiftingUnit) minAddr curAddr lastAddr map =
     match liftingUnit.TryParseInstruction curAddr with
     | Ok ins ->
       let nextAddr = curAddr + (uint64 ins.Length)
-      if ins.IsTerminator () then
+      if ins.IsTerminator then
         if nextAddr < lastAddr then map
         else buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
       else

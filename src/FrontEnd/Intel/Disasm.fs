@@ -1734,7 +1734,7 @@ module ATTSyntax = begin
     builder.Accumulate AsmWordKind.String ")"
 
   let buildMemOp (ins: Instruction) wordSize builder b si d isFst =
-    if (ins :> IInstruction).IsBranch () then
+    if (ins :> IInstruction).IsBranch then
       (builder: IDisasmBuilder).Accumulate AsmWordKind.String " *"
     elif isFst then
       builder.Accumulate AsmWordKind.String " "
@@ -1757,7 +1757,8 @@ module ATTSyntax = begin
   let buildMask (ins: Instruction) (builder: IDisasmBuilder) =
     match ins.VEXInfo with
     | Some { EVEXPrx = Some ePrx }->
-      if ePrx.AAA = 0uy then ()
+      if ePrx.AAA = 0uy then
+        ()
       else
         builder.Accumulate AsmWordKind.String "{%"
         builder.Accumulate AsmWordKind.Variable
@@ -1770,10 +1771,12 @@ module ATTSyntax = begin
     match opr with
     | OprReg reg ->
       if isFst then
-        if (ins :> IInstruction).IsBranch () then
+        if (ins :> IInstruction).IsBranch then
           builder.Accumulate AsmWordKind.String " *%"
-        else builder.Accumulate AsmWordKind.String " %"
-      else builder.Accumulate AsmWordKind.String ", %"
+        else
+          builder.Accumulate AsmWordKind.String " %"
+      else
+        builder.Accumulate AsmWordKind.String ", %"
       builder.Accumulate AsmWordKind.Variable (Register.toString reg)
     | OprMem (b, si, disp, _oprSz) ->
       buildMemOp ins wordSize builder b si disp isFst

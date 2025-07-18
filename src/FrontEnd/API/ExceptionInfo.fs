@@ -44,7 +44,7 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
     match liftingUnit.ParseBBlock (addr = landingPad) with
     | Ok (blk) ->
       let last = blk[blk.Length - 1]
-      if last.IsCall () |> not then
+      if not last.IsCall then
         match last.DirectBranchTarget () with
         | true, jmpTarget -> fde.PCBegin <= jmpTarget && jmpTarget < fde.PCEnd
         | _ -> true

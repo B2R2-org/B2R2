@@ -219,9 +219,9 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       i <- i + 1
       let vData = v.VData :> ILowUIRBasicBlock
       if not vData.IsAbstract then
-        if vData.LastInstruction.IsIndirectBranch () then
+        if vData.LastInstruction.IsIndirectBranch then
           updateStatus NotNoRet
-        elif vData.LastInstruction.IsRET () then
+        elif vData.LastInstruction.IsRET then
           updateStatus (getStatusFromDominators dom absVSet argNumMap v)
         else ()
       else

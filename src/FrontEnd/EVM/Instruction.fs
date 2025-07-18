@@ -53,54 +53,54 @@ type Instruction
 
     member _.Length with get () = numBytes
 
-    member _.IsBranch () =
+    member _.IsBranch =
       match opcode with
       | JUMP
       | JUMPI -> true
       | _ -> false
 
-    member _.IsModeChanging () = false
+    member _.IsModeChanging = false
 
-    member _.IsDirectBranch () = false
+    member _.IsDirectBranch = false
 
-    member this.IsIndirectBranch () =
-      (this :> IInstruction).IsBranch ()
+    member this.IsIndirectBranch =
+      (this :> IInstruction).IsBranch
 
-    member _.IsCondBranch () =
+    member _.IsCondBranch =
       match opcode with
       | JUMPI -> true
       | _ -> false
 
-    member _.IsCJmpOnTrue () =
+    member _.IsCJmpOnTrue =
       match opcode with
       | JUMPI -> true
       | _ -> false
 
-    member _.IsCall () = false
+    member _.IsCall = false
 
-    member _.IsRET () =
+    member _.IsRET =
       match opcode with
       | RETURN -> true
       | _ -> false
 
-    member _.IsPush () = Terminator.futureFeature ()
+    member _.IsPush = Terminator.futureFeature ()
 
-    member _.IsPop () = Terminator.futureFeature ()
+    member _.IsPop = Terminator.futureFeature ()
 
-    member _.IsInterrupt () = Terminator.futureFeature ()
+    member _.IsInterrupt = Terminator.futureFeature ()
 
-    member _.IsExit () =
+    member _.IsExit =
       match opcode with
       | REVERT | RETURN | SELFDESTRUCT | INVALID | STOP -> true
       | _ -> false
 
-    member this.IsTerminator () =
+    member this.IsTerminator =
       let ins = this :> IInstruction
-      ins.IsIndirectBranch () || ins.IsExit ()
+      ins.IsIndirectBranch || ins.IsExit
 
-    member _.IsNop () = false
+    member _.IsNop = false
 
-    member _.IsInlinedAssembly () = false
+    member _.IsInlinedAssembly = false
 
     member _.DirectBranchTarget (_addr: byref<Addr>) = false
 
@@ -113,7 +113,7 @@ type Instruction
     member this.GetNextInstrAddrs () =
       let fallthrough = this.Address + uint64 numBytes
       let acc = [| fallthrough |]
-      if (this :> IInstruction).IsExit () then [||]
+      if (this :> IInstruction).IsExit then [||]
       else acc
 
     member _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()

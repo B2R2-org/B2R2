@@ -71,7 +71,7 @@ type Instruction
 
     member _.Length with get() = numBytes
 
-    member this.IsBranch () =
+    member this.IsBranch =
       match op with
       | Opcode.BALR | Opcode.BAL | Opcode.BASR | Opcode.BAS
       | Opcode.BASSM | Opcode.BSM | Opcode.BIC | Opcode.BCR
@@ -84,34 +84,34 @@ type Instruction
       | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
       | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
       | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
-        when not ((this :> IInstruction).IsNop ()) -> true
+        when not (this :> IInstruction).IsNop -> true
       | _ -> false
 
-    member _.IsModeChanging () = false
+    member _.IsModeChanging = false
 
-    member _.IsDirectBranch () = Terminator.futureFeature ()
+    member _.IsDirectBranch = Terminator.futureFeature ()
 
-    member _.IsIndirectBranch () = Terminator.futureFeature ()
+    member _.IsIndirectBranch = Terminator.futureFeature ()
 
-    member this.IsCondBranch () =
+    member this.IsCondBranch =
       match op with
       | Opcode.BC | Opcode.BCR | Opcode.BIC -> true
       | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
       | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
       | Opcode.CLRB | Opcode.CLGRB | Opcode.CLRJ | Opcode.CLGRJ
-        when not ((this :> IInstruction).IsNop ()) -> true
+        when not (this :> IInstruction).IsNop -> true
       | _ -> false
 
-    member _.IsCJmpOnTrue () = Terminator.futureFeature ()
+    member _.IsCJmpOnTrue = Terminator.futureFeature ()
 
-    member _.IsCall () =
+    member _.IsCall =
       match op with
       | Opcode.BAL | Opcode.BALR | Opcode.BAS | Opcode.BASR
       | Opcode.BASSM | Opcode.BSM -> true
       | Opcode.BC | Opcode.BCR when getMaskVal opr = Some (15us) -> true
       | _ -> false
 
-    member _.IsRET () =
+    member _.IsRET =
       match op with
       | Opcode.BCR | Opcode.BASR | Opcode.BCTR ->
         match opr with
@@ -119,19 +119,19 @@ type Instruction
         | _ -> false
       | _ -> false
 
-    member _.IsPush () = Terminator.futureFeature ()
+    member _.IsPush = Terminator.futureFeature ()
 
-    member _.IsPop () = Terminator.futureFeature ()
+    member _.IsPop = Terminator.futureFeature ()
 
-    member _.IsInterrupt () = Terminator.futureFeature ()
+    member _.IsInterrupt = Terminator.futureFeature ()
 
-    member _.IsExit () = Terminator.futureFeature ()
+    member _.IsExit = Terminator.futureFeature ()
 
-    member this.IsTerminator () =
+    member this.IsTerminator =
       let ins = this :> IInstruction
-      ins.IsBranch () || ins.IsInterrupt () || ins.IsExit ()
+      ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
-    member this.IsNop () =
+    member this.IsNop =
       match op with
       | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
       | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
@@ -149,7 +149,7 @@ type Instruction
         | None -> false
       | _ -> false
 
-    member _.IsInlinedAssembly () = false
+    member _.IsInlinedAssembly = false
 
     member _.DirectBranchTarget (_addr: byref<Addr>) =
       Terminator.futureFeature ()

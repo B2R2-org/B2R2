@@ -65,37 +65,37 @@ type Instruction
 
     member this.Length with get() = this.Length
 
-    member _.IsBranch () =
+    member _.IsBranch =
       match op with
       | _ -> false
 
-    member _.IsModeChanging () = false
+    member _.IsModeChanging = false
 
-    member _.IsDirectBranch () = Terminator.futureFeature ()
+    member _.IsDirectBranch = Terminator.futureFeature ()
 
-    member _.IsIndirectBranch () = Terminator.futureFeature ()
+    member _.IsIndirectBranch = Terminator.futureFeature ()
 
-    member _.IsCondBranch () = Terminator.futureFeature ()
+    member _.IsCondBranch = Terminator.futureFeature ()
 
-    member _.IsCJmpOnTrue () = Terminator.futureFeature ()
+    member _.IsCJmpOnTrue = Terminator.futureFeature ()
 
-    member _.IsCall () = Terminator.futureFeature ()
+    member _.IsCall = Terminator.futureFeature ()
 
-    member _.IsRET () = Terminator.futureFeature ()
+    member _.IsRET = Terminator.futureFeature ()
 
-    member _.IsPush () = Terminator.futureFeature ()
+    member _.IsPush = Terminator.futureFeature ()
 
-    member _.IsPop () = Terminator.futureFeature ()
+    member _.IsPop = Terminator.futureFeature ()
 
-    member _.IsInterrupt () = Terminator.futureFeature ()
+    member _.IsInterrupt = Terminator.futureFeature ()
 
-    member _.IsExit () = Terminator.futureFeature ()
+    member _.IsExit = Terminator.futureFeature ()
 
-    member _.IsTerminator () = Terminator.futureFeature ()
+    member _.IsTerminator = Terminator.futureFeature ()
 
-    member _.IsNop () = Terminator.futureFeature ()
+    member _.IsNop = Terminator.futureFeature ()
 
-    member _.IsInlinedAssembly () = false
+    member _.IsInlinedAssembly = false
 
     member _.DirectBranchTarget (_addr: byref<Addr>) =
       Terminator.futureFeature ()

@@ -82,17 +82,17 @@ type Instruction
 
     member _.Length with get () = len
 
-    member _.IsBranch () = Opcode.isBranch opcode
+    member _.IsBranch = Opcode.isBranch opcode
 
-    member _.IsModeChanging () = false
+    member _.IsModeChanging = false
 
-    member _.IsDirectBranch () =
+    member _.IsDirectBranch =
       Opcode.isBranch opcode && hasConcJmpTarget ()
 
-    member _.IsIndirectBranch () =
+    member _.IsIndirectBranch =
       Opcode.isBranch opcode && (not <| hasConcJmpTarget ())
 
-    member _.IsCondBranch () =
+    member _.IsCondBranch =
       match opcode with
       | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
       | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL
@@ -101,7 +101,7 @@ type Instruction
       | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> true
       | _ -> false
 
-    member _.IsCJmpOnTrue () =
+    member _.IsCJmpOnTrue =
       match opcode with
       | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
       | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP
@@ -109,40 +109,40 @@ type Instruction
         true
       | _ -> false
 
-    member _.IsCall () =
+    member _.IsCall =
       match opcode with
       | Opcode.CALLFar | Opcode.CALLNear -> true
       | _ -> false
 
-    member _.IsRET () =
+    member _.IsRET =
       match opcode with
       | Opcode.RETFar | Opcode.RETFarImm
       | Opcode.RETNear | Opcode.RETNearImm ->
         true
       | _ -> false
 
-    member _.IsPush () =
+    member _.IsPush =
       match opcode with
       | Opcode.PUSH
       | Opcode.PUSHA | Opcode.PUSHAD
       | Opcode.PUSHF | Opcode.PUSHFD | Opcode.PUSHFQ -> true
       | _ -> false
 
-    member _.IsPop () =
+    member _.IsPop =
       match opcode with
       | Opcode.POP
       | Opcode.POPA | Opcode.POPAD
       | Opcode.POPF | Opcode.POPFD | Opcode.POPFQ -> true
       | _ -> false
 
-    member _.IsInterrupt () =
+    member _.IsInterrupt =
       match opcode with
       | Opcode.INT | Opcode.INT3 | Opcode.INTO
       | Opcode.SYSCALL | Opcode.SYSENTER
         -> true
       | _ -> false
 
-    member _.IsExit () =
+    member _.IsExit =
       match opcode with
       (* In kernel code, HLT is often preceded by CLI to shut down the machine.
          In user code, compilers insert HLT to raise a fault and exit. *)
@@ -152,11 +152,11 @@ type Instruction
       | Opcode.IRET | Opcode.IRETW | Opcode.IRETD | Opcode.IRETQ -> true
       | _ -> false
 
-    member this.IsTerminator () =
+    member this.IsTerminator =
       let ins = this :> IInstruction
-      ins.IsBranch () || ins.IsInterrupt () || ins.IsExit ()
+      ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
-    member _.IsNop () =
+    member _.IsNop =
       match opcode with
       | Opcode.NOP -> true
       | Opcode.LEA ->
@@ -170,10 +170,10 @@ type Instruction
         | _ -> false
       | _ -> false
 
-    member _.IsInlinedAssembly () = false
+    member _.IsInlinedAssembly = false
 
     member this.DirectBranchTarget (addr: byref<Addr>) =
-      if (this :> IInstruction).IsBranch () then
+      if (this :> IInstruction).IsBranch then
         match oprs with
         | OneOperand (OprDirAddr (Absolute (_))) -> Terminator.futureFeature ()
         | OneOperand (OprDirAddr (Relative offset)) ->
@@ -183,7 +183,7 @@ type Instruction
       else false
 
     member this.IndirectTrampolineAddr (addr: byref<Addr>) =
-      if (this :> IInstruction).IsIndirectBranch () then
+      if (this :> IInstruction).IsIndirectBranch then
         match oprs with
         | OneOperand (OprMem (None, None, Some disp, _)) ->
           addr <- uint64 disp; true
@@ -223,8 +223,8 @@ type Instruction
     member this.GetNextInstrAddrs () =
       let acc = [ this.Address + uint64 this.Length ]
       let ins = this :> IInstruction
-      if ins.IsBranch () then
-        if ins.IsCondBranch () then acc |> this.AddBranchTargetIfExist
+      if ins.IsBranch then
+        if ins.IsCondBranch then acc |> this.AddBranchTargetIfExist
         else this.AddBranchTargetIfExist []
       elif opcode = Opcode.HLT || opcode = Opcode.UD2 then []
       else acc

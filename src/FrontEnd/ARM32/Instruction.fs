@@ -87,7 +87,7 @@ type Instruction
 
     member _.Length with get() = nb
 
-    member this.IsBranch () =
+    member this.IsBranch =
       match this.Opcode with
       | Op.B | Op.BL | Op.BLX | Op.BX | Op.BXJ
       | Op.CBNZ | Op.CBZ
@@ -106,18 +106,18 @@ type Instruction
         | _ -> false
       | _ -> false
 
-    member this.IsModeChanging () =
+    member this.IsModeChanging =
       match this.Opcode with
       | Op.BLX -> true
       | _ -> false
 
-    member this.IsDirectBranch () =
-      (this :> IInstruction).IsBranch () && hasConcJmpTarget ()
+    member this.IsDirectBranch =
+      (this :> IInstruction).IsBranch && hasConcJmpTarget ()
 
-    member this.IsIndirectBranch () =
-      (this :> IInstruction).IsBranch () && (not <| hasConcJmpTarget ())
+    member this.IsIndirectBranch =
+      (this :> IInstruction).IsBranch && (not <| hasConcJmpTarget ())
 
-    member this.IsCondBranch () =
+    member this.IsCondBranch =
       match this.Opcode, this.Condition, this.Operands with
       | Op.B, Condition.AL, _ -> false
       | Op.B, Condition.NV, _ -> false
@@ -143,7 +143,7 @@ type Instruction
       | Op.ADD, _, FourOperands (OprReg R.PC, OprReg R.PC, _, _) -> true
       | _ -> false
 
-    member this.IsCJmpOnTrue () =
+    member this.IsCJmpOnTrue =
       match this.Opcode, this.Condition with
       | Op.B, Condition.CS | Op.B, Condition.CC
       | Op.B, Condition.MI | Op.B, Condition.PL
@@ -154,44 +154,44 @@ type Instruction
       | Op.B, Condition.EQ -> true
       | _ -> false
 
-    member this.IsCall () =
+    member this.IsCall =
       match this.Opcode with
       | Opcode.BL | Opcode.BLX -> true
       | _ -> false
 
-    member this.IsRET () =
+    member this.IsRET =
       match this.Opcode, this.Operands with
       | Op.POP, OneOperand (OprRegList regs) when List.contains R.PC regs ->
         true
       | _ -> false
 
-    member _.IsPush () = Terminator.futureFeature ()
+    member _.IsPush = Terminator.futureFeature ()
 
-    member _.IsPop () = Terminator.futureFeature ()
+    member _.IsPop = Terminator.futureFeature ()
 
-    member this.IsInterrupt () =
+    member this.IsInterrupt =
       match this.Opcode with
       | Op.SVC | Op.HVC | Op.SMC -> true
       | _ -> false
 
-    member this.IsExit () =
+    member this.IsExit =
       match this.Opcode with
       | Opcode.HLT
       | Opcode.UDF
       | Opcode.ERET -> true
       | _ -> false
 
-    member this.IsTerminator () =
+    member this.IsTerminator =
       let ins = this :> IInstruction
-      ins.IsBranch () || ins.IsInterrupt () || ins.IsExit ()
+      ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
-    member this.IsNop () =
+    member this.IsNop =
       this.Opcode = Op.NOP
 
-    member _.IsInlinedAssembly () = false
+    member _.IsInlinedAssembly = false
 
     member this.DirectBranchTarget (addr: byref<Addr>) =
-      if (this :> IInstruction).IsBranch () then
+      if (this :> IInstruction).IsBranch then
         match opr with
         | OneOperand (OprMemory (LiteralMode target)) ->
           (* The PC value of an instruction is its address plus 4 for a Thumb
@@ -243,9 +243,9 @@ type Instruction
     member this.GetNextInstrAddrs () =
       let acc = [| this.Address + uint64 this.Length |]
       let ins = this :> IInstruction
-      if ins.IsCall () then acc |> this.AddBranchTargetIfExist
-      elif ins.IsBranch () then
-        if ins.IsCondBranch () then acc |> this.AddBranchTargetIfExist
+      if ins.IsCall then acc |> this.AddBranchTargetIfExist
+      elif ins.IsBranch then
+        if ins.IsCondBranch then acc |> this.AddBranchTargetIfExist
         else this.AddBranchTargetIfExist [||]
       elif this.Opcode = Opcode.HLT then [||]
       else acc

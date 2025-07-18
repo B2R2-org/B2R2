@@ -118,7 +118,7 @@ module internal CFGRecovery =
       let nextAddr = ins.Address + uint64 ins.Length
       if calleeAddr = nextAddr then
         match ctx.BBLFactory.PeekBBL calleeAddr with
-        | Ok bbl -> bbl[0].IsPop () (* Call to pop *)
+        | Ok bbl -> bbl[0].IsPop (* Call to pop *)
         | Error _ -> false
       else false
     else false
@@ -662,7 +662,7 @@ module internal CFGRecovery =
     ctx.CFG.TryFindVertex (fun v ->
       if v.VData.Internals.IsAbstract then
         v.VData.Internals.AbstractContent.ReturningStatus = NotNoRet
-      else v.VData.Internals.LastInstruction.IsRET ())
+      else v.VData.Internals.LastInstruction.IsRET)
     |> Option.isSome
 
   let finalizeRecovery ctx (cfgRec: ICFGRecovery<_, _>) postAnalysis =

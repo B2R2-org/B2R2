@@ -48,9 +48,9 @@ type BBLFactory (hdl: BinHandle, instrs) =
     match (instrs: InstructionCollection).TryFind addr with
     | Ok ins ->
       let nextAddr = addr + uint64 ins.Length
-      if ins.IsTerminator () || interProceduralLeaders.ContainsKey nextAddr then
+      if ins.IsTerminator || interProceduralLeaders.ContainsKey nextAddr then
         channel.Post (leader, ins :: acc, insCount + 1) |> ignore
-        if ins.IsCall () then Ok [||]
+        if ins.IsCall then Ok [||]
         else
           ins.GetNextInstrAddrs () (* TODO: ARM mode switch *)
           |> Ok
@@ -323,7 +323,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
       match instrs.TryFind addr with
       | Ok ins ->
         let nextAddr = addr + uint64 ins.Length
-        if ins.IsTerminator () then Ok (List.rev (ins :: acc))
+        if ins.IsTerminator then Ok (List.rev (ins :: acc))
         else parse (ins :: acc) nextAddr
       | Error _ ->
 #if CFGDEBUG

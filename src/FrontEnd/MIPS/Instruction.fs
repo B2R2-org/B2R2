@@ -70,7 +70,7 @@ type Instruction
 
     member _.Length with get() = numBytes
 
-    member _.IsBranch () =
+    member _.IsBranch =
       match op with
       | Opcode.B | Opcode.BAL | Opcode.BEQ | Opcode.BGEZ | Opcode.BGEZAL
       | Opcode.BGTZ | Opcode.BLEZ | Opcode.BLTZ | Opcode.BNE
@@ -78,33 +78,33 @@ type Instruction
       | Opcode.J | Opcode.JAL | Opcode.BC1F | Opcode.BC1T -> true
       | _ -> false
 
-    member _.IsModeChanging () = false
+    member _.IsModeChanging = false
 
-    member this.IsDirectBranch () =
-      (this :> IInstruction).IsBranch () && hasConcJmpTarget ()
+    member this.IsDirectBranch =
+      (this :> IInstruction).IsBranch && hasConcJmpTarget ()
 
-    member this.IsIndirectBranch () =
-      (this :> IInstruction).IsBranch () && (not <| hasConcJmpTarget ())
+    member this.IsIndirectBranch =
+      (this :> IInstruction).IsBranch && (not <| hasConcJmpTarget ())
 
-    member _.IsCondBranch () =
+    member _.IsCondBranch =
       match op with
       | Opcode.BEQ | Opcode.BLTZ | Opcode.BLEZ | Opcode.BGTZ | Opcode.BGEZ
       | Opcode.BGEZAL | Opcode.BNE | Opcode.BC1F | Opcode.BC1T -> true
       | _ -> false
 
-    member _.IsCJmpOnTrue () =
+    member _.IsCJmpOnTrue =
       match op with
       | Opcode.BEQ | Opcode.BLTZ | Opcode.BLEZ | Opcode.BGTZ | Opcode.BGEZ
       | Opcode.BGEZAL | Opcode.BC1T -> true
       | _ -> false
 
-    member _.IsCall () =
+    member _.IsCall =
       match op with
       | Opcode.BAL | Opcode.BGEZAL | Opcode.JALR | Opcode.JALRHB | Opcode.JAL ->
         true
       | _ -> false
 
-    member _.IsRET () =
+    member _.IsRET =
       match op with
       | Opcode.JR ->
         match opr with
@@ -112,31 +112,31 @@ type Instruction
         | _ -> false
       | _ -> false
 
-    member _.IsPush () = Terminator.futureFeature ()
+    member _.IsPush = Terminator.futureFeature ()
 
-    member _.IsPop () = Terminator.futureFeature ()
+    member _.IsPop = Terminator.futureFeature ()
 
-    member _.IsInterrupt () =
+    member _.IsInterrupt =
       match op with
       | Opcode.SYSCALL | Opcode.WAIT -> true
       | _ -> false
 
-    member _.IsExit () =
+    member _.IsExit =
       match op with
       | Opcode.DERET | Opcode.ERET | Opcode.ERETNC -> true
       | _ -> false
 
-    member this.IsTerminator () =
+    member this.IsTerminator =
       let ins = this :> IInstruction
-      ins.IsBranch () || ins.IsInterrupt () || ins.IsExit ()
+      ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
-    member _.IsNop () =
+    member _.IsNop =
       op = Opcode.NOP
 
-    member _.IsInlinedAssembly () = false
+    member _.IsInlinedAssembly = false
 
     member this.DirectBranchTarget (addr: byref<Addr>) =
-      if (this :> IInstruction).IsBranch () then
+      if (this :> IInstruction).IsBranch then
         match opr with
         | OneOperand (OpAddr (Relative offset)) ->
           addr <- (int64 this.Address + offset) |> uint64
@@ -154,9 +154,10 @@ type Instruction
       else false
 
     member this.IndirectTrampolineAddr (_addr: byref<Addr>) =
-      if (this :> IInstruction).IsIndirectBranch () then
+      if (this :> IInstruction).IsIndirectBranch then
         Terminator.futureFeature ()
-      else false
+      else
+        false
 
     member _.MemoryDereferences (_: byref<Addr[]>) =
       Terminator.futureFeature ()

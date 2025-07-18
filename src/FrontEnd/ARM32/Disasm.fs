@@ -850,7 +850,7 @@ let memToString ins addr addrMode (builder: IDisasmBuilder) =
   | LiteralMode lbl ->
     let addr = processAddrExn32 ins addr |> calculateRelativePC ins lbl
     let addrStr = "0x" + addr.ToString "x"
-    if (ins :> IInstruction).IsBranch () then
+    if (ins :> IInstruction).IsBranch then
       builder.Accumulate AsmWordKind.Value addrStr
       builder.AccumulateSymbol (addr, prefix, suffix, mapNoSymbol)
     else

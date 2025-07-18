@@ -217,8 +217,8 @@ module private EVMCFGRecovery =
     |> Option.get
 
   let isFallthroughNode v =
-    not <| (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
-    && not <| v.VData.Internals.LastInstruction.IsBranch ()
+    not (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
+    && not v.VData.Internals.LastInstruction.IsBranch
 
   let hasPolyJumpTarget (state: State<_, _>) v =
     if isFallthroughNode v then false
@@ -309,12 +309,12 @@ module private EVMCFGRecovery =
       findFunctionEntryAux curr v path'
     (* 3. Fallthrough node cannot be an entry point. *)
     | v :: path' when pred <> null
-                   && not <| pred.VData.Internals.LastInstruction.IsBranch () ->
+                   && not pred.VData.Internals.LastInstruction.IsBranch ->
       findFunctionEntryAux curr v path'
     (* 4. Conditional branch's target is **less likely** to be an entry point.*)
     | v :: path' when pred <> null
                    && not pred.VData.Internals.IsAbstract
-                   && pred.VData.Internals.LastInstruction.IsCondBranch () ->
+                   && pred.VData.Internals.LastInstruction.IsCondBranch ->
       findFunctionEntryAux curr v path'
     (* 5. If the vertex is a function, then we found it. *)
     | _ when not curr.VData.Internals.IsAbstract ->
@@ -329,7 +329,7 @@ module private EVMCFGRecovery =
     let preds = g.GetPreds v
     preds |> Array.exists (fun pred ->
       not pred.VData.Internals.IsAbstract
-      && pred.VData.Internals.LastInstruction.IsCondBranch ())
+      && pred.VData.Internals.LastInstruction.IsCondBranch)
 
   let findAndIntroduceFunction ctx srcV rds =
     let sampledDefSite = Seq.head rds

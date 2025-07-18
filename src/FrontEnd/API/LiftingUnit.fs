@@ -75,7 +75,7 @@ type LiftingUnit (binFile: IBinFile,
       with _ -> Error ErrorCase.ParsingFailure
     match parsed with
     | Ok ins ->
-      if ins.IsTerminator () then
+      if ins.IsTerminator then
         Ok <| toReversedArray (cnt + 1) (ins :: acc)
       else
         let ptr = BinFilePointer.Advance ptr (int ins.Length)

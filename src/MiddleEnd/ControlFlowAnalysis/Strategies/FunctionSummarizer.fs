@@ -113,7 +113,7 @@ type FunctionSummarizer<'FnCtx,
       if vData.IsAbstract then ()
       else
         let ins = vData.LastInstruction
-        if ins.IsRET () then
+        if ins.IsRET then
           let newAmount = retrieveStackAdjustment ins
           assert (amount <= newAmount) (* bad case *)
           amount <- newAmount

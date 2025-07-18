@@ -53,7 +53,7 @@ type IInstruction =
   /// <returns>
   /// Returns true if this is a branch instruction.
   /// </returns>
-  abstract IsBranch: unit -> bool
+  abstract IsBranch: bool
 
   /// <summary>
   /// Is this a mode-changing instruction? In ARMv7, BLX is such an
@@ -62,7 +62,7 @@ type IInstruction =
   /// <returns>
   /// Returns true if this is a mode-changing instruction.
   /// </returns>
-  abstract IsModeChanging: unit -> bool
+  abstract IsModeChanging: bool
 
   /// <summary>
   /// Is this a direct branch instruction? A direct branch instruction is a
@@ -73,7 +73,7 @@ type IInstruction =
   /// <returns>
   ///   Returns true if this is a direct branch instruction.
   /// </returns>
-  abstract IsDirectBranch: unit -> bool
+  abstract IsDirectBranch: bool
 
   /// <summary>
   /// Is this an indirect branch instruction? An indirect branch instruction
@@ -83,7 +83,7 @@ type IInstruction =
   /// <returns>
   /// Returns true if this is an indirect branch instruction.
   /// </returns>
-  abstract IsIndirectBranch: unit -> bool
+  abstract IsIndirectBranch: bool
 
   /// <summary>
   /// Is this a conditional branch instruction?
@@ -91,7 +91,7 @@ type IInstruction =
   /// <returns>
   /// Returns true if this is a conditional branch instruction.
   /// </returns>
-  abstract IsCondBranch: unit -> bool
+  abstract IsCondBranch: bool
 
   /// <summary>
   /// Is this a conditional branch instruction, and it jumps to the branch
@@ -103,7 +103,7 @@ type IInstruction =
   /// Returns true if this is a conditional branch instruction, and jumps to
   /// the target when the predicate is true.
   /// </returns>
-  abstract IsCJmpOnTrue: unit -> bool
+  abstract IsCJmpOnTrue: bool
 
   /// <summary>
   /// Is this a call instruction?
@@ -111,7 +111,7 @@ type IInstruction =
   /// <returns>
   /// Returns true if this is a call instruction.
   /// </returns>
-  abstract IsCall: unit -> bool
+  abstract IsCall: bool
 
   /// <summary>
   /// Is this a return instruction?
@@ -119,7 +119,7 @@ type IInstruction =
   /// <returns>
   /// Returns true if this is a return instruction.
   /// </returns>
-  abstract IsRET: unit -> bool
+  abstract IsRET: bool
 
   /// <summary>
   /// Is this a push instruction? A push instruction is an instruction that
@@ -129,7 +129,7 @@ type IInstruction =
   /// <returns>
   /// Returns true if this is a push instruction.
   /// </returns>
-  abstract IsPush: unit -> bool
+  abstract IsPush: bool
 
   /// <summary>
   /// Is this a pop instruction? A pop instruction is an instruction that pops
@@ -139,7 +139,7 @@ type IInstruction =
   /// <returns>
   /// Returns true if this is a pop instruction.
   /// </returns>
-  abstract IsPop: unit -> bool
+  abstract IsPop: bool
 
   /// <summary>
   /// Does this instruction involve an interrupt?
@@ -147,7 +147,7 @@ type IInstruction =
   /// <returns>
   /// Returns true if this is an interrupt instruction
   /// </returns>
-  abstract IsInterrupt: unit -> bool
+  abstract IsInterrupt: bool
 
   /// <summary>
   /// Does this instruction exits the program execution? For example, this
@@ -159,7 +159,7 @@ type IInstruction =
   /// Returns true if this instruction should be at the end of the
   /// corresponding basic block.
   /// </returns>
-  abstract IsExit: unit -> bool
+  abstract IsExit: bool
 
   /// <summary>
   /// Does this instruction end a basic block? For example, this function
@@ -170,7 +170,7 @@ type IInstruction =
   /// Returns true if this instruction should be at the end of the corresponding
   /// basic block.
   /// </returns>
-  abstract IsTerminator: unit -> bool
+  abstract IsTerminator: bool
 
   /// <summary>
   /// Is this a NO-OP instruction? We say an instruction is a NO-OP if it
@@ -179,12 +179,12 @@ type IInstruction =
   /// <returns>
   /// Returns true if this instruction is a NO-OP.
   /// </returns>
-  abstract IsNop: unit -> bool
+  abstract IsNop: bool
 
   /// <summary>
   /// Is this a virtual instruction that represents an inlined assembly code?
   /// </summary>
-  abstract IsInlinedAssembly: unit -> bool
+  abstract IsInlinedAssembly: bool
 
   /// <summary>
   /// Returns a branch target address if we can directly compute it, i.e., for
