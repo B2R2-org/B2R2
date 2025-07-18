@@ -24,7 +24,6 @@
 
 module internal B2R2.FrontEnd.MIPS.Helper
 
-open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ParsingUtils
 
@@ -115,7 +114,7 @@ let getCondition = function
   | 0xDu -> Condition.NGE
   | 0xEu -> Condition.LE
   | 0xFu -> Condition.NGT
-  | _ -> raise InvalidConditionException
+  | _ -> raise ParsingFailureException
 
 let num9 b = Bits.extract b 15u 7u
 
@@ -313,5 +312,3 @@ let getCcFsFt b = ThreeOperands (cc10 b, fs b, ft b)
 let getFdFsFt b = ThreeOperands (fd b, fs b, ft b)
 
 let getFdFrFsFt b = FourOperands (fd b, fr b, fs b, ft b)
-
-// vim: set tw=80 sts=2 sw=2:

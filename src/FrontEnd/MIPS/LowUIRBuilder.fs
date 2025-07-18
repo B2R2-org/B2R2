@@ -28,7 +28,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
 
-/// LowUIR builder for MIPS.
+/// Represents the LowUIR builder for MIPS.
 type LowUIRBuilder (isa: ISA,
                     regFactory: IRegisterFactory,
                     stream: LowUIRStream) =

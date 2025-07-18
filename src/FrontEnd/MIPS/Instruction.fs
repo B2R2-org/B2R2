@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.MIPS
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for MIPS.
+/// Represents an instruction for MIPS.
 type Instruction
   internal (addr, numBytes, condition, fmt, op, opr, oprSize, wordSize,
             lifter: ILiftable) =

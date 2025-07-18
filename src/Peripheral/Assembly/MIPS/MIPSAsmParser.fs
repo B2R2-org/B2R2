@@ -125,11 +125,12 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
     pchar '.'
     >>.
     (
-      (Enum.GetNames typeof<Fmt>)
+      (Enum.GetNames typeof<FPRFormat>)
       |> Array.map
         (fun s ->
           pstringCI s
-          |>> (fun name -> Enum.Parse(typeof<Fmt>, name.ToUpper()) :?> Fmt))
+          |>> (fun name ->
+            Enum.Parse(typeof<FPRFormat>, name.ToUpper()) :?> FPRFormat))
       |> choice
     )
 

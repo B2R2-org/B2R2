@@ -44,7 +44,7 @@ let condToString = function
   | Condition.NGE -> ".nge"
   | Condition.LE -> ".le"
   | Condition.NGT -> ".ngt"
-  | _ -> raise InvalidConditionException
+  | _ -> raise ParsingFailureException
 
 let fmtToString = function
   | Fmt.S -> ".s"
@@ -56,7 +56,7 @@ let fmtToString = function
   | Fmt.QH -> ".qh"
   | Fmt.UNINTERPRETED_WORD -> ".uninterpreted_word"
   | Fmt.UNINTERPRETED_DOUBLEWORD -> ".uninterpreted_doubleword"
-  | _ -> raise InvalidFmtException
+  | _ -> raise ParsingFailureException
 
 let opCodeToString = function
   | Op.ABS -> "abs"
@@ -229,7 +229,7 @@ let opCodeToString = function
   | Op.WSBH -> "wsbh"
   | Op.XOR -> "xor"
   | Op.XORI -> "xori"
-  | _ -> failwith "Unknown opcode encountered."
+  | _ -> raise InvalidOpcodeException
 
 let inline appendCond (ins: Instruction) opcode =
   match ins.Condition with
@@ -303,5 +303,3 @@ let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   builder.AccumulateAddrMarker ins.Address
   buildOpcode ins builder
   buildOprs ins builder
-
-// vim: set tw=80 sts=2 sw=2:
