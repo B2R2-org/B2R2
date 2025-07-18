@@ -453,7 +453,9 @@ type ARM32ParserTests () =
   [<TestMethod>]
   member _.``[ARMv7] Load/store (Store-Exclusive) Parse test (1)`` () =
     "e1a01f92"
-    ++ STREXD ** [ O.Reg R1; O.Reg R2; O.Reg R3;
+    ++ STREXD ** [ O.Reg R1
+                   O.Reg R2
+                   O.Reg R3
                    O.MemOffsetImm (R0, None, None) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
@@ -600,21 +602,21 @@ type ARM32ParserTests () =
   [<TestMethod>]
   member _.``[ARMv7] Element and structure load/store Parse Test (1)`` () =
     "f4e02f70"
-    ++ VLD4 ** [ O.SimdScalarRegs ([ D18; D20; D22; D24 ], None);
+    ++ VLD4 ** [ O.SimdScalarRegs ([ D18; D20; D22; D24 ], None)
                  O.MemPostIdxAlign (R0, Some 64L, Some R0) ]
     ||> testNoQ Condition.UN true (Some (OneDT SIMDTyp16))
 
   [<TestMethod>]
   member _.``[ARMv7] Element and structure load/store Parse test (2)`` () =
     "f402c690"
-    ++ VST1 ** [ O.SimdVectorRegs ([ D12; D13; D14 ]);
+    ++ VST1 ** [ O.SimdVectorRegs ([ D12; D13; D14 ])
                  O.MemPostIdxAlign (R2, Some 64L, Some R0) ]
     ||> testNoQ Condition.UN true (Some (OneDT SIMDTyp32))
 
   [<TestMethod>]
   member _.``[ARMv7] Element and structure load/store Parse test (3)`` () =
     "f48eeac3"
-    ++ VST3 ** [ O.SimdScalarRegs ([ D14; D16; D18 ], Some 1uy);
+    ++ VST3 ** [ O.SimdScalarRegs ([ D14; D16; D18 ], Some 1uy)
                  O.MemPostIdxReg (LR, None, R3) ]
     ||> testNoQ Condition.UN true (Some (OneDT SIMDTyp32))
 
@@ -746,21 +748,24 @@ type ARM32ParserTests () =
   [<TestMethod>]
   member _.``[ARMv7] Advanced SIMD multiply Parse test (3)`` () =
     "f2c28ca0"
-    ++ VMULL ** [ O.SimdVectorReg Q12; O.SimdVectorReg D18;
+    ++ VMULL ** [ O.SimdVectorReg Q12
+                  O.SimdVectorReg D18
                   O.SimdVectorReg D16 ]
     ||> testNoWbackNoQ Condition.UN (Some (OneDT SIMDTypS8))
 
   [<TestMethod>]
   member _.``[ARMv7] Advanced SIMD multiply Parse test (4)`` () =
     "f3e24a4a"
-    ++ VMULL ** [ O.SimdVectorReg Q10; O.SimdVectorReg D2;
+    ++ VMULL ** [ O.SimdVectorReg Q10
+                  O.SimdVectorReg D2
                   O.SimdScalarReg (D10, Some 0uy) ]
     ||> testNoWbackNoQ Condition.UN (Some (OneDT SIMDTypU32))
 
   [<TestMethod>]
   member _.``[ARMv7] Advanced SIMD multiply Parse test (5)`` () =
     "f3d02ce8"
-    ++ VQDMULH ** [ O.SimdVectorReg Q9; O.SimdVectorReg Q8;
+    ++ VQDMULH ** [ O.SimdVectorReg Q9
+                    O.SimdVectorReg Q8
                     O.SimdScalarReg (D0, Some 3uy) ]
     ||> testNoWbackNoQ Condition.UN (Some (OneDT SIMDTypS16))
 
@@ -786,7 +791,9 @@ type ARM32ParserTests () =
   [<TestMethod>]
   member _.``[ARMv7] Misc Advanced SIMD data-processing Parse test (4)`` () =
     "f2b003ce"
-    ++ VEXT ** [ O.SimdVectorReg Q0; O.SimdVectorReg Q8; O.SimdVectorReg Q7;
+    ++ VEXT ** [ O.SimdVectorReg Q0
+                 O.SimdVectorReg Q8
+                 O.SimdVectorReg Q7
                  O.Imm 3L ]
     ||> testNoWbackNoQ Condition.UN (Some (OneDT SIMDTyp8))
 
@@ -811,7 +818,8 @@ type ARM32ParserTests () =
   [<TestMethod>]
   member _.``[ARMv7] Misc Advanced SIMD data-processing Parse test (8)`` () =
     "f3b35b43"
-    ++ VTBX ** [ O.SimdVectorReg D5; O.SimdVectorRegs [ D3; D4; D5; D6; ];
+    ++ VTBX ** [ O.SimdVectorReg D5
+                 O.SimdVectorRegs [ D3; D4; D5; D6 ]
                  O.SimdVectorReg D3 ]
     ||> testNoWbackNoQ Condition.UN (Some (OneDT SIMDTyp8))
 
@@ -842,6 +850,7 @@ type ARM32ParserTests () =
   [<TestMethod>]
   member _.``[ARMv7] Floating-point data-processing Parse test (5)`` () =
     "f3d2c460"
-    ++ VMLS ** [ O.SimdVectorReg Q14; O.SimdVectorReg Q1;
+    ++ VMLS ** [ O.SimdVectorReg Q14
+                 O.SimdVectorReg Q1
                  O.SimdScalarReg (D0, Some 2uy) ]
     ||> testNoWbackNoQ Condition.UN (Some (OneDT SIMDTypI16))

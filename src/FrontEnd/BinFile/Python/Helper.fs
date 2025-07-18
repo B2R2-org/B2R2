@@ -38,7 +38,7 @@ let readFlagAndMarshalledType (bytes: byte[]) (reader: IBinReader) offset =
   let b = reader.ReadUInt8 (bytes, offset) |> int
   let flag = b &&& 0x80
   let typ: MarshalledType = (b &&& (~~~ 0x80)) |> LanguagePrimitives.EnumOfValue
-  struct (flag, typ , offset + 1)
+  struct (flag, typ, offset + 1)
 
 let rec pyObjToString = function
   | PyString s ->  System.Text.Encoding.ASCII.GetString s

@@ -33,18 +33,18 @@ open B2R2.FrontEnd.NameMangling.MSUtils
 type MSDemangler () =
   (* Helper functions for updating the UserState. *)
   let addToNameList c =
-    updateUserState ( fun us -> { us with NameList = c :: us.NameList })
+    updateUserState (fun us -> { us with NameList = c :: us.NameList })
     >>. preturn c
 
   let addToTypeList c =
-    updateUserState ( fun us -> { us with TypeList = c :: us.TypeList })
+    updateUserState (fun us -> { us with TypeList = c :: us.TypeList })
     >>. preturn c
 
   let saveScopeAndReturn p =
     getUserState >>= (fun parent -> p .>> updateUserState (fun _ -> parent))
 
   let clearUserState =
-    updateUserState ( fun _us -> MSUserState.Default)
+    updateUserState (fun _us -> MSUserState.Default)
 
   (* Helper functions to parse name. *)
   let charListToStr lst = String (List.toArray lst)
@@ -62,7 +62,7 @@ type MSDemangler () =
 
   /// Parses the encodedNumber in an MSMangled string.
   let pEncodedNum =
-    opt (pchar '?' ) .>>. (snum <|> szero <|> phex)
+    opt (pchar '?') .>>. (snum <|> szero <|> phex)
     |>> (fun (sign, num) ->
            match sign with
            | Some (_) -> -1L * num
@@ -107,7 +107,7 @@ type MSDemangler () =
   (*-------------------Non function mangled String.------------------------*)
   let pvalueInfo =
     anyOf "01234" .>>. (possibleType .>>. normalcvModifier |>> ModifiedType)
-    |>> (fun (x, typeV) -> ConcatT [Name (getVarAccessLevel x); typeV])
+    |>> (fun (x, typeV) -> ConcatT [ Name (getVarAccessLevel x); typeV ])
 
   let modNameInfo =
     anyOf "67" >>. normalcvModifier .>> pchar '@'
@@ -116,7 +116,7 @@ type MSDemangler () =
   /// Parses a mangled string that does not represent a function.
   let nonFunctionString =
     fullName .>> pchar '@' >>= (fun name ->
-      (pvalueInfo |>> (fun modifiedT -> ValueT (name, modifiedT) ))
+      (pvalueInfo |>> (fun modifiedT -> ValueT (name, modifiedT)))
        <|> (anyOf "89" >>% name)
        <|> (modNameInfo |>> (fun modifier -> ValueT (name, modifier)))
     )
@@ -127,7 +127,7 @@ type MSDemangler () =
   let singleName =
     spaces >>. many1 (letter <|> anyOf "_<")
     .>>. many (letterOrDigit <|> anyOf "_<>")
-    |>> (fun (a, b) -> List.concat [a; b] |> charListToStr)
+    |>> (fun (a, b) -> List.concat [ a; b ] |> charListToStr)
 
   /// Parses a simple varaible name fragment.
   let pnameAndAt =
@@ -143,7 +143,7 @@ type MSDemangler () =
   let pNSpecialName =
      upper <|> anyOf "23456789" |>> getSpecialName
   let pUSpecialName =
-    pstring "_" >>. (noneOf ['R'] <|> digit) |>> getUnderscoredSpecialName
+    pstring "_" >>. (noneOf [ 'R' ] <|> digit) |>> getUnderscoredSpecialName
   let pDUSpecialName =
     pstring "__" >>. (upper) |>> getdUnderscoredSpecialName
   let pUdtReturn =
@@ -161,7 +161,7 @@ type MSDemangler () =
     pstring "__" >>. anyOf "EF" |>> getdUnderscoredSpecialName .>>.
     (attempt complexDynamicSpecialName <|> nameFragment >>= addToNameList)
     |>> (fun (str, name) ->
-          ConcatT [Name str; name; Name "''" ])
+          ConcatT [ Name str; name; Name "''" ])
   let simpleSpecialNames =
     (pNSpecialName <|> attempt pUdtReturn <|> attempt stringConstant)
      <|> attempt pUSpecialName <|> pDUSpecialName |>> Name
@@ -213,7 +213,7 @@ type MSDemangler () =
   /// Parses the character that a mangled string would use to indicate the
   /// type that follows is a complex type.
   let complexTypeIndicator =
-    choice (List.map pstring ["T"; "U"; "V"; "_X"; "Y"])
+    choice (List.map pstring [ "T"; "U"; "V"; "_X"; "Y" ])
     |>> ComplexTypeKind.fromString
 
   /// Parsed an Enumerated type.
@@ -249,14 +249,14 @@ type MSDemangler () =
     tuple3
       (pointerType <|> attempt rValueReference <|> blankTypeMod)
       memberPointerModifier
-      (fullName |>> (fun name -> FullName [Name ""; name])) .>> pchar '@'
+      (fullName |>> (fun name -> FullName [ Name ""; name ])) .>> pchar '@'
     |>> PointerStrT .>>. possibleType |>> PointerT
 
   let dashBasedPtrVoid = pchar '0' >>. (preturn (Name "__based(void)"))
 
   let dashBasedPtrName =
     pchar '2' >>. fullName .>> pchar '@'
-    |>> (fun name -> ConcatT [Name "__based("; name; Name ")"])
+    |>> (fun name -> ConcatT [ Name "__based("; name; Name ")" ])
 
   let dashBasedPointer =
     tuple2
@@ -266,7 +266,7 @@ type MSDemangler () =
          (dashBasedPtrVoid <|> dashBasedPtrName)
          |>> (fun carry -> PointerStrT (ptr, mods, carry))
      <|> (pchar '5' |>>
-           (fun _ -> PointerStrT (EmptyPointer, ([], NoMod), Name "" )))
+           (fun _ -> PointerStrT (EmptyPointer, ([], NoMod), Name "")))
     ) .>>. possibleType |>> PointerT
 
   let dashBasedMemberPointer =
@@ -277,7 +277,9 @@ type MSDemangler () =
       (dashBasedPtrVoid <|> dashBasedPtrName)
     |>> (fun (ptr, mods, name, dname) ->
           PointerStrT
-            (ptr, mods, ConcatT([ dname; Name " "; FullName [Name ""; name] ]))
+            (ptr, mods, ConcatT ([ dname
+                                   Name " "
+                                   FullName [ Name ""; name ] ]))
         )
     .>>. possibleType |>> PointerT
 
@@ -303,7 +305,7 @@ type MSDemangler () =
   let arrayType =
     pipe3 arrayTypeHelper (many arrayTypeHelper) possibleType
       (fun mods dimension dataT ->
-         ArrayType (ModifiedType(dataT, mods), dimension.Length + 1))
+         ArrayType (ModifiedType (dataT, mods), dimension.Length + 1))
 
   /// Handles back substitutions for arguments.
   let typeBackRef =
@@ -323,7 +325,7 @@ type MSDemangler () =
     .>> opt (pstring "@Z" <|> pstring "Z")
     |>> (fun (typs, ender) ->
            if ender <> None && (List.rev typs).Head <> (SimpleBuiltInType VoidP)
-             then List.append typs [SimpleBuiltInType Ellipsis]
+             then List.append typs [ SimpleBuiltInType Ellipsis ]
            else typs
     )
 
@@ -338,7 +340,7 @@ type MSDemangler () =
   /// A function pointer coming as a parameter to another function.
   let pFuncPointer =
     many (attempt pointerAtFunc) .>>.
-    (pointerType |>> (fun p -> PointerStrT (p, ([],NoMod), Name "")))
+    (pointerType |>> (fun p -> PointerStrT (p, ([], NoMod), Name "")))
     .>> anyOf "67" .>>. pCallConv .>>.
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
     |>> (fun (((ptrStrs,fPtr), cc), lst) ->
@@ -347,8 +349,8 @@ type MSDemangler () =
     <?> "function Type"
   let pMemberFuncPointer =
     many (attempt pointerAtFunc) .>>.
-    (pointerType .>> anyOf "89" .>>. fullName .>> pchar '@'|>>
-     (fun (p,n) -> PointerStrT (p, ([], NoMod), FullName [Name ""; n])))
+    (pointerType .>> anyOf "89" .>>. fullName .>> pchar '@' |>>
+     (fun (p,n) -> PointerStrT (p, ([], NoMod), FullName [ Name ""; n ])))
     .>>. normalcvModifier .>>. pCallConv .>>.
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
     |>> (fun ((((ptrStrs,fPtr), mods), cc), lst) ->
@@ -389,7 +391,7 @@ type MSDemangler () =
     noModS .>>. pCallConv .>>. (opt returnTmodifier)
     .>>. (possibleType <|> emptyReturn) .>>. pFuncParameters
     |>> (fun ((((s, cc),rtMod),r),tList) ->
-           s, ([],NoMod), cc, r :: tList, rtMod)
+           s, ([], NoMod), cc, r :: tList, rtMod)
 
   /// Differentiates the scopes requiring modifiers for function from the
   /// ones that don't. The function information parser parses all the
@@ -452,7 +454,7 @@ type MSDemangler () =
     .>>. normalcvModifier .>>. pCallConv .>>. (opt returnTmodifier)
     .>>. (possibleType <|> emptyReturn) .>>. many smartParseType |>>
     (fun ((((((((name, scope), adjustor), mods), cc), rtMod), rt), pts)) ->
-       FunctionT (scope, mods, cc, ConcatT [name; adjustor], rt, pts, rtMod))
+       FunctionT (scope, mods, cc, ConcatT [ name; adjustor ], rt, pts, rtMod))
 
   /// Parses flat thunk function.
   let pThunkFuncFlat =
@@ -481,7 +483,7 @@ type MSDemangler () =
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
     |>> (fun ((((((name, callS), num1), num2), cvMods), cc), typs) ->
            let addedName = Name (sprintf "`vtordisp{%d,%d}'" num1 num2)
-           let newName = ConcatT [name; addedName]
+           let newName = ConcatT [ name; addedName ]
            FunctionT (CallScope.fromChar callS, cvMods, cc,
                       newName, typs.Head, typs.Tail, None)
     )

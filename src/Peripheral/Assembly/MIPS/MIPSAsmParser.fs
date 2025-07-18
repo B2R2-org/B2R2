@@ -38,7 +38,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
 
   (* Helper functions for updating the UserState. *)
   let addLabeldef lbl =
-    updateUserState ( fun (us: Map<string, Addr>) -> us.Add (lbl, address))
+    updateUserState (fun (us: Map<string, Addr>) -> us.Add (lbl, address))
     >>. preturn ()
 
   let incrementAddress =
@@ -125,11 +125,12 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
     pchar '.'
     >>.
     (
-      (Enum.GetNames typeof<Fmt>)
+      (Enum.GetNames typeof<FPRFormat>)
       |> Array.map
         (fun s ->
           pstringCI s
-          |>> (fun name -> Enum.Parse(typeof<Fmt>, name.ToUpper()) :?> Fmt))
+          |>> (fun name ->
+            Enum.Parse(typeof<FPRFormat>, name.ToUpper()) :?> FPRFormat))
       |> choice
     )
 
@@ -165,7 +166,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
     |> Array.map pstringCI
 
   let allRegistersList =
-    Array.append [|pRegImm|] registersList
+    Array.append [| pRegImm |] registersList
 
   let pReg =
     ( (pchar '$' >>. (allRegistersList |> choice)) <|>
@@ -201,7 +202,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
               newAssemblyIns mipsISA address opcode cond fmt operands )
 
   let statement =
-    opt pLabelDef >>. spaces >>. pInsInfo  .>> incrementAddress
+    opt pLabelDef >>. spaces >>. pInsInfo .>> incrementAddress
 
   let statements = sepEndBy statement terminator .>> eof
 

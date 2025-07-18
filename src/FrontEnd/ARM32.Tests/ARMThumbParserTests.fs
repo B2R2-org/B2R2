@@ -46,7 +46,7 @@ type ARMThumbParserTests () =
     let isa = ISA (Architecture.ARMv7, Endian.Big)
     let reader = BinReader.Init Endian.Big
     let parser = ARM32Parser (isa, true, reader) :> IInstructionParsable
-    let ins = parser.Parse (bs=bs, addr=0UL) :?> Instruction
+    let ins = parser.Parse (bs = bs, addr = 0UL) :?> Instruction
     let cond' = ins.Condition
     let opcode' = ins.Opcode
     let wback' = ins.WriteBack
@@ -700,7 +700,8 @@ type ARMThumbParserTests () =
   [<TestMethod>]
   member _.``[Thumb] Load/store (Store) Parse test (7)`` () =
     "e96a393c"
-    ++ STRD ** [ O.Reg R3; O.Reg SB;
+    ++ STRD ** [ O.Reg R3
+                 O.Reg SB
                  O.MemPreIdxImm (SL, Some Minus, Some 240L) ]
     ||> testNoQNoSimd Condition.AL true
 
@@ -761,7 +762,9 @@ type ARMThumbParserTests () =
   [<TestMethod>]
   member _.``[Thumb] Load/store (Store-Exclusive) Parse test (3)`` () =
     "e8c0cb74"
-    ++ STREXD ** [ O.Reg R4; O.Reg IP; O.Reg FP;
+    ++ STREXD ** [ O.Reg R4
+                   O.Reg IP
+                   O.Reg FP
                    O.MemOffsetImm (R0, None, None) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 

@@ -33,7 +33,7 @@ let private makeGraph (t: ImplementationType) =
 
 /// Add `count` number of nodes to the graph.
 let private addNodes count g =
-  [ 1.. count ]
+  [ 1 .. count ]
   |> List.fold (fun (g: IDiGraph<_, _>, vmap) i ->
     let n, g = g.AddVertex i
     g, Map.add i n vmap

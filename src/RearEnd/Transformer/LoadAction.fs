@@ -31,12 +31,12 @@ open B2R2.FrontEnd
 /// The `load` action.
 type LoadAction () =
   let load isa parseFileFormat s =
-    if File.Exists (path=s) then
+    if File.Exists (path = s) then
       lazy BinHandle (s, isa, None)
       |> Binary.PlainInit
       |> box
       |> Array.singleton
-    elif Directory.Exists (path=s) then
+    elif Directory.Exists (path = s) then
       Directory.GetFiles s
       |> Array.map (fun f ->
         lazy BinHandle (f, isa, None)

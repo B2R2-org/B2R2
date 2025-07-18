@@ -8,18 +8,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ARM64Exceptions.fs" />
-    <Compile Include="ARM64Register.fs" />
-    <Compile Include="ARM64RegisterFactory.fs" />
-    <Compile Include="ARM64Types.fs" />
-    <Compile Include="ARM64Instruction.fs" />
-    <Compile Include="ARM64Utils.fs" />
-    <Compile Include="ARM64OperandHelper.fs" />
-    <Compile Include="ARM64Disasm.fs" />
-    <Compile Include="ARM64LiftingUtils.fs" />
-    <Compile Include="ARM64Lifter.fs" />
-    <Compile Include="ARM64ParsingMain.fs" />
-    <Compile Include="ARM64Parser.fs" />
+    <Compile Include="Exceptions.fs" />
+    <Compile Include="Register.fs" />
+    <Compile Include="RegisterFactory.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
+    <Compile Include="Instruction.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="OperandHelper.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="LiftingUtils.fs" />
+    <Compile Include="Lifter.fs" />
+    <Compile Include="ParsingMain.fs" />
+    <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

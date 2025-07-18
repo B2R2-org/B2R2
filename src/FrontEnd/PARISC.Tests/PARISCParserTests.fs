@@ -103,8 +103,8 @@ type ArithmeticClass () =
   [<TestMethod>]
   member _.``[PARISC64] ADD Instruction Test (2)`` () =
     "09AAFF28"
-    ++ (ADD ** [ O.Reg GR10; O.Reg GR13; O.Reg GR8 ], [| DC; TSV |], Some DEV
-    , None)
+    ++ (ADD ** [ O.Reg GR10; O.Reg GR13; O.Reg GR8 ], [| DC; TSV |], Some DEV,
+    None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
@@ -128,36 +128,36 @@ type ArithmeticClass () =
   [<TestMethod>]
   member _.``[PARISC64] SHLADD Instruction Test (1)`` () =
     "08AAAAAD"
-    ++ (SHLADD ** [ O.Reg GR10; O.Sat 2UL; O.Reg GR5; O.Reg GR13 ], [| L |]
-    , Some DZNV, None)
+    ++ (SHLADD ** [ O.Reg GR10; O.Sat 2UL; O.Reg GR5; O.Reg GR13 ], [| L |],
+    Some DZNV, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] SHLADD Instruction Test (2)`` () =
     "08FFAA58"
-    ++ (SHLADD ** [ O.Reg GR31; O.Sat 1UL; O.Reg GR7; O.Reg GR24 ], [| L |]
-    , Some ZNV, None)
+    ++ (SHLADD ** [ O.Reg GR31; O.Sat 1UL; O.Reg GR7; O.Reg GR24 ], [| L |],
+    Some ZNV, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] HSHRADD Instruction Test (1)`` () =
     "09555541"
-    ++ (HSHRADD ** [ O.Reg GR21; O.Sat 1UL; O.Reg GR10; O.Reg GR1 ], [||]
-    , None, None)
+    ++ (HSHRADD ** [ O.Reg GR21; O.Sat 1UL; O.Reg GR10; O.Reg GR1 ], [||],
+    None, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] ANDCM Instruction Test (1)`` () =
     "0AAA003F"
-    ++ (ANDCM ** [ O.Reg GR10; O.Reg GR21; O.Reg GR31 ], [||], Some DNEVER
-    , None)
+    ++ (ANDCM ** [ O.Reg GR10; O.Reg GR21; O.Reg GR31 ], [||], Some DNEVER,
+    None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] ADDI Instruction Test (1)`` () =
     "B1FFFFF7"
-    ++ (ADDI ** [ O.Imm 0xFFFFFFFFFFFFFFFBUL; O.Reg GR15; O.Reg GR31 ]
-    , [| TSV; TC |], Some EV, None)
+    ++ (ADDI ** [ O.Imm 0xFFFFFFFFFFFFFFFBUL; O.Reg GR15; O.Reg GR31 ],
+    [| TSV; TC |], Some EV, None)
     ||> testPARISC WordSize.Bit64
 
 [<TestClass>]
@@ -171,8 +171,8 @@ type LoadStoreClass () =
   [<TestMethod>]
   member _.``[PARISC64] LDWA Instruction Test (2)`` () =
     "0D0055B5"
-    ++ (LDWA ** [ O.Mem (GR8, 0L, 64<rt>); O.Reg GR21 ], [| Completer.O |], None
-    , None)
+    ++ (LDWA ** [ O.Mem (GR8, 0L, 64<rt>); O.Reg GR21 ], [| Completer.O |],
+    None, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
@@ -252,8 +252,8 @@ type LoadStoreOffsetClass () =
   [<TestMethod>]
   member _.``[PARISC64] STW Instruction Test (2)`` () =
     "6CFF0004"
-    ++ (STW ** [ O.Reg GR31; O.Mem (GR7, 2L, 64<rt>, SR0) ], [| MA |], None
-    , None)
+    ++ (STW ** [ O.Reg GR31; O.Mem (GR7, 2L, 64<rt>, SR0) ], [| MA |], None,
+    None)
     ||> testPARISC WordSize.Bit64
 
 [<TestClass>]
@@ -261,8 +261,8 @@ type LoadStoreWordClass () =
   [<TestMethod>]
   member _.``[PARISC64] FLDW Instruction Test (1)`` () =
     "5AFF000C"
-    ++ (FLDW ** [ O.Mem (GR23, 4L, 64<rt>, SR0); O.Reg FPR31 ], [| MB |], None
-    , None)
+    ++ (FLDW ** [ O.Mem (GR23, 4L, 64<rt>, SR0); O.Reg FPR31 ], [| MB |], None,
+    None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
@@ -276,22 +276,22 @@ type CorpLoadClass () =
   [<TestMethod>]
   member _.``[PARISC64] CLDD Instruction Test (1)`` () =
     "2D0010FE"
-    ++ (CLDD ** [ O.Mem (GR8, 0L, 64<rt>, SR0); O.Reg GR30 ], [| Completer.O |]
-    , None, Some [| 3UL |])
+    ++ (CLDD ** [ O.Mem (GR8, 0L, 64<rt>, SR0); O.Reg GR30 ], [| Completer.O |],
+    None, Some [| 3UL |])
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] CLDD Instruction Test (2)`` () =
     "2E0010D0"
-    ++ (CLDD ** [ O.Mem (GR16, 0L, 64<rt>, SR0); O.Reg GR16 ], [||], None
-    , Some [| 3UL |])
+    ++ (CLDD ** [ O.Mem (GR16, 0L, 64<rt>, SR0); O.Reg GR16 ], [||], None,
+    Some [| 3UL |])
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] CLDD Instruction Test (3)`` () =
     "2F000041"
-    ++ (CLDD ** [ O.Mem (GR24, GR0, 64<rt>, SR0); O.Reg GR1 ], [||], None
-    , Some [| 1UL |])
+    ++ (CLDD ** [ O.Mem (GR24, GR0, 64<rt>, SR0); O.Reg GR1 ], [||], None,
+    Some [| 1UL |])
     ||> testPARISC WordSize.Bit64
 
 [<TestClass>]
@@ -373,8 +373,8 @@ type SpecialClass () =
   [<TestMethod>]
   member _.``[PARISC64] SPOP3 Instruction Test (1)`` () =
     "1055FFA2"
-    ++ (SPOP3 ** [ O.Reg GR21; O.Reg GR2 ], [| N |], None
-    , Some [| 6UL; 994UL |])
+    ++ (SPOP3 ** [ O.Reg GR21; O.Reg GR2 ], [| N |], None,
+    Some [| 6UL; 994UL |])
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
@@ -386,8 +386,8 @@ type SpecialClass () =
   [<TestMethod>]
   member _.``[PARISC64] SPOP3 Instruction Test (3)`` () =
     "10FFFF76"
-    ++ (SPOP3 ** [ O.Reg GR31; O.Reg GR7 ], [| N |], None
-    , Some [| 5UL; 1014UL |])
+    ++ (SPOP3 ** [ O.Reg GR31; O.Reg GR7 ], [| N |], None,
+    Some [| 5UL; 1014UL |])
     ||> testPARISC WordSize.Bit64
 
 [<TestClass>]
@@ -395,29 +395,41 @@ type MultipleClass () =
   [<TestMethod>]
   member _.``[PARISC64] FMPYADD Instruction Test (1)`` () =
     "180000D7"
-    ++ (FMPYADD ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR23; O.Reg FPR3
-    ; O.Reg FPR0 ], [| DBL |], None, None)
+    ++ (FMPYADD ** [ O.Reg FPR0
+                     O.Reg FPR0
+                     O.Reg FPR23
+                     O.Reg FPR3
+                     O.Reg FPR0 ], [| DBL |], None, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] FMPYADD Instruction Test (2)`` () =
     "180055E3"
-    ++ (FMPYADD ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR3; O.Reg FPR23
-    ; O.Reg FPR10 ], [| SGL |], None, None)
+    ++ (FMPYADD ** [ O.Reg FPR0
+                     O.Reg FPR0
+                     O.Reg FPR3
+                     O.Reg FPR23
+                     O.Reg FPR10 ], [| SGL |], None, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] FMPYSUB Instruction Test (1)`` () =
     "98000040"
-    ++ (FMPYSUB ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR0; O.Reg FPR1
-    ; O.Reg FPR0 ], [| DBL |], None, None)
+    ++ (FMPYSUB ** [ O.Reg FPR0
+                     O.Reg FPR0
+                     O.Reg FPR0
+                     O.Reg FPR1
+                     O.Reg FPR0 ], [| DBL |], None, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] FMPYSUB Instruction Test (2)`` () =
     "980055E7"
-    ++ (FMPYSUB ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR7; O.Reg FPR23
-    ; O.Reg FPR10 ], [| SGL |], None, None)
+    ++ (FMPYSUB ** [ O.Reg FPR0
+                     O.Reg FPR0
+                     O.Reg FPR7
+                     O.Reg FPR23
+                     O.Reg FPR10 ], [| SGL |], None, None)
     ||> testPARISC WordSize.Bit64
 
 [<TestClass>]
@@ -425,29 +437,29 @@ type FPFusedClass () =
   [<TestMethod>]
   member _.``[PARISC64] FMPYFADD Instruction Test (1)`` () =
     "B80000C8"
-    ++ (FMPYFADD ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR0; O.Reg FPR8 ]
-    , [| SGL |], None, None)
+    ++ (FMPYFADD ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR0; O.Reg FPR8 ],
+    [| SGL |], None, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] FMPYFADD Instruction Test (2)`` () =
     "B800AA82"
-    ++ (FMPYFADD ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR21; O.Reg FPR2 ]
-    , [| DBL |], None, None)
+    ++ (FMPYFADD ** [ O.Reg FPR0; O.Reg FPR0; O.Reg FPR21; O.Reg FPR2 ],
+    [| DBL |], None, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] FMPYNFADD Instruction Test (1)`` () =
     "B855AA32"
-    ++ (FMPYNFADD ** [ O.Reg FPR2; O.Reg FPR21; O.Reg FPR21; O.Reg FPR18 ]
-    , [| DBL |], None, None)
+    ++ (FMPYNFADD ** [ O.Reg FPR2; O.Reg FPR21; O.Reg FPR21; O.Reg FPR18 ],
+    [| DBL |], None, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] FMPYNFADD Instruction Test (2)`` () =
     "B8FF0024"
-    ++ (FMPYNFADD ** [ O.Reg FPR7; O.Reg FPR31; O.Reg FPR0; O.Reg FPR4 ]
-    , [| SGL |], None, None)
+    ++ (FMPYNFADD ** [ O.Reg FPR7; O.Reg FPR31; O.Reg FPR0; O.Reg FPR4 ],
+    [| SGL |], None, None)
     ||> testPARISC WordSize.Bit64
 
 [<TestClass>]
@@ -455,64 +467,68 @@ type ShiftDepositClass () =
   [<TestMethod>]
   member _.``[PARISC64] SHRPW Instruction Test (1)`` () =
     "D05500F5"
-    ++ (SHRPW ** [ O.Reg GR21; O.Reg GR2; O.Reg CR11; O.Reg GR21 ], [||]
-    , Some NEVER, None)
+    ++ (SHRPW ** [ O.Reg GR21; O.Reg GR2; O.Reg CR11; O.Reg GR21 ], [||],
+    Some NEVER, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] SHRPW Instruction Test (2)`` () =
     "D1FFAAF2"
-    ++ (SHRPW ** [ O.Reg GR31; O.Reg GR15; O.Sat 8UL; O.Reg GR18 ], [||]
-    , Some NEQ, None)
+    ++ (SHRPW ** [ O.Reg GR31; O.Reg GR15; O.Sat 8UL; O.Reg GR18 ], [||],
+    Some NEQ, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] EXTRW Instruction Test (1)`` () =
     "D055553C"
-    ++ (EXTRW ** [ O.Reg GR2; O.Reg CR11; O.Imm 4UL; O.Reg GR21 ], [| S |]
-    , Some LT, None)
+    ++ (EXTRW ** [ O.Reg GR2; O.Reg CR11; O.Imm 4UL; O.Reg GR21 ], [| S |],
+    Some LT, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] DEPW Instruction Test (1)`` () =
     "D4AAAAFD"
-    ++ (DEPW ** [ O.Reg GR10; O.Sat 8UL; O.Imm 3UL; O.Reg GR5 ], [| Z |]
-    , Some NEQ, None)
+    ++ (DEPW ** [ O.Reg GR10; O.Sat 8UL; O.Imm 3UL; O.Reg GR5 ], [| Z |],
+    Some NEQ, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] DEPW Instruction Test (2)`` () =
     "D4FF001E"
-    ++ (DEPW ** [ O.Reg GR31; O.Reg CR11; O.Imm 2UL; O.Reg GR7 ], [| Z |]
-    , Some DNEVER, None)
+    ++ (DEPW ** [ O.Reg GR31; O.Reg CR11; O.Imm 2UL; O.Reg GR7 ], [| Z |],
+    Some DNEVER, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] DEPWI Instruction Test (1)`` () =
     "D4FFFF9F"
-    ++ (DEPWI ** [ O.Imm 0xFFFFFFFFFFFFFFFFUL; O.Sat 3UL; O.Imm 1UL; O.Reg GR7 ]
-    , [||], Some EV, None)
+    ++ (DEPWI ** [ O.Imm 0xFFFFFFFFFFFFFFFFUL
+                   O.Sat 3UL
+                   O.Imm 1UL
+                   O.Reg GR7 ], [||], Some EV, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] EXTRD Instruction Test (1)`` () =
     "D8FF007D"
-    ++ (EXTRD ** [ O.Reg GR7; O.Imm 3UL; O.Imm 3UL; O.Reg GR31 ], [| U |]
-    , Some DNEVER, None)
+    ++ (EXTRD ** [ O.Reg GR7; O.Imm 3UL; O.Imm 3UL; O.Reg GR31 ], [| U |],
+    Some DNEVER, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] DEPD Instruction Test (1)`` () =
     "F055AAF8"
-    ++ (DEPD ** [ O.Reg GR21; O.Sat 8UL; O.Imm 8UL; O.Reg GR2 ], [| Z |]
-    , Some DNEQ, None)
+    ++ (DEPD ** [ O.Reg GR21; O.Sat 8UL; O.Imm 8UL; O.Reg GR2 ], [| Z |],
+    Some DNEQ, None)
     ||> testPARISC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PARISC64] DEPDI Instruction Test (1)`` () =
     "F5FFAAD8"
-    ++ (DEPDI ** [ O.Imm 0xFFFFFFFFFFFFFFFFUL; O.Sat 9UL; O.Imm 8UL
-    ; O.Reg GR15 ], [| Z |], Some DNEQ, None)
+    ++ (DEPDI ** [ O.Imm 0xFFFFFFFFFFFFFFFFUL
+                   O.Sat 9UL
+                   O.Imm 8UL
+                   O.Reg GR15 ], [| Z |], Some DNEQ, None)
     ||> testPARISC WordSize.Bit64
 
 [<TestClass>]

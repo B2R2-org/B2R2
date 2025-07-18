@@ -332,7 +332,7 @@ let finalize wordSize parserState realLenArr baseAddr myIdx comp =
       if wordSize = WordSize.Bit32 then computeAddr labelIdx realLenArr
       else computeDistance myIdx labelIdx realLenArr
     [| yield! bs
-       yield! concretizeLabel sz (addr  + int64 baseAddr)
+       yield! concretizeLabel sz (addr + int64 baseAddr)
        yield! getImm imm |]
   | _ -> comp |> Array.map normalToByte
 

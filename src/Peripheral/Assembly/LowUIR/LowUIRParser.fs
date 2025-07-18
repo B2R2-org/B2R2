@@ -81,8 +81,18 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
     |>> UnOpType.ofString
 
   let pCastType =
-    [ "sext"; "zext"; "float"; "round"; "ceil"; "floor"; "trunc"; "fext"
-      "roundf"; "ceilf"; "floorf"; "truncf" ]
+    [ "sext"
+      "zext"
+      "float"
+      "round"
+      "ceil"
+      "floor"
+      "trunc"
+      "fext"
+      "roundf"
+      "ceilf"
+      "floorf"
+      "truncf" ]
     |> List.map (pstring >> attempt)
     |> choice
     |>> CastKind.ofString
@@ -158,11 +168,12 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
 
   let initInfix (opp: OperatorPrecedenceParser<_, _, _>) ops =
     ops |> List.iter (fun (initializer, op, prec, assoc) ->
-      opp.AddOperator (InfixOperator(op, ws, prec, assoc, initializer)))
+      opp.AddOperator (InfixOperator (op, ws, prec, assoc, initializer)))
 
   let initTernary (opp: OperatorPrecedenceParser<_, _, _>) args =
     args |> fun (initializer, opl, opr, assoc) ->
-      opp.AddOperator (TernaryOperator(opl, ws, opr, ws, 1, assoc, initializer))
+      opp.AddOperator
+        (TernaryOperator (opl, ws, opr, ws, 1, assoc, initializer))
 
   let opp = OperatorPrecedenceParser<Expr, _, RegType> ()
   let pOps = opp.ExpressionParser

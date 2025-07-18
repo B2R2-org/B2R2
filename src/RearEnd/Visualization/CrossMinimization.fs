@@ -120,7 +120,7 @@ let private bilayerCount vGraph (vLayout: VLayout) isDown layer =
 let private collectBaryCenters bcByValues (bc, v) =
   match Map.tryFind bc bcByValues with
   | Some (vs) -> Map.add bc (v :: vs) bcByValues
-  | None -> Map.add bc [v] bcByValues
+  | None -> Map.add bc [ v ] bcByValues
 
 let private reorderVertices (vertices: IVertex<VisBBlock>[]) idx (_, vs) =
   List.fold (fun i v ->

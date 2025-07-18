@@ -30,25 +30,25 @@ let rec getReturn (input: string) index count res =
   if input[index] = ' ' && count = 0 && input[index + 1] = '(' then
     (res, index)
   elif input[index] = '<' then
-    getReturn input (index + 1) (count + 1) (res + string(input[index]))
+    getReturn input (index + 1) (count + 1) (res + string input[index])
   elif input[index] = '>' then
-    getReturn input (index + 1) (count - 1) (res + string(input[index]))
+    getReturn input (index + 1) (count - 1) (res + string input[index])
   else
-    getReturn input (index + 1) (count) (res + string(input[index]))
+    getReturn input (index + 1) (count) (res + string input[index])
 
 /// Seperating argument part of each function pointer.
 let rec getArgs (input: string) index count res =
   let len = String.length input
   if index = len then
     (res, index)
-  elif (input[index] = '(' || input[index] = ' ' ) && count = 0 then
+  elif (input[index] = '(' || input[index] = ' ') && count = 0 then
     (res, index)
   elif input[index] = '(' then
-    getArgs input (index + 1) (count + 1) (res + string(input[index]))
+    getArgs input (index + 1) (count + 1) (res + string input[index])
   elif input[index] = ')' then
-    getArgs input (index + 1) (count - 1) (res + string(input[index]))
+    getArgs input (index + 1) (count - 1) (res + string input[index])
   else
-    getArgs input (index + 1) (count) (res + string(input[index]))
+    getArgs input (index + 1) (count) (res + string input[index])
 
 /// Getting qualifiers.
 let getQualifier (input: string) index =
@@ -90,7 +90,7 @@ let rec combine input cur res =
       let len = (String.length hd1) - 1
       let otherLen = String.length res
       let result =
-        res[0 .. (cur)] + hd1 + hd2 + res[(cur + 1) .. otherLen - 1]
+        res[0..cur] + hd1 + hd2 + res[(cur + 1)..(otherLen - 1)]
       combine tail (cur + len) result
   | _ -> ("", 0)
 
@@ -143,13 +143,13 @@ let rec merge input cur res =
     | ConstVolatile (Pointer p, dis) :: tail1 ->
       let newValue = ConstVolatile (Pointer [], dis) :: cur
       let newBegin = FunctionBegin (Some newValue, d)
-      let newRes = FunctionPointer(newBegin, k, b, c) :: res
+      let newRes = FunctionPointer (newBegin, k, b, c) :: res
       let newCur = ConstVolatile (Pointer p, dis) :: cur
       let nextBegin = FunctionBegin (Some newCur, d)
       let nextInput = FunctionPointer (nextBegin, k, b, c)
       let result = getQualifierandP nextInput [] newRes
       let lastBegin = FunctionBegin (Some (List.rev tail1), d)
-      let lastItem = FunctionPointer(lastBegin, k, b, c)
+      let lastItem = FunctionPointer (lastBegin, k, b, c)
       merge lastItem newCur (result)
     | _ -> res
   | _ -> res

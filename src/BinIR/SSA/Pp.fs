@@ -95,7 +95,7 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append "(" |> ignore
     expToStringAux e sb
     sb.Append "[" |> ignore
-    sb.Append ((int typ + p - 1).ToString () + ":" + p.ToString ())|> ignore
+    sb.Append ((int typ + p - 1).ToString () + ":" + p.ToString ()) |> ignore
     sb.Append "]" |> ignore
     sb.Append ")" |> ignore
   | Undefined (_, reason) ->

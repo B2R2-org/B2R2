@@ -82,6 +82,48 @@ We always use unix-style (LF) line-endings for every file.
 
 #### Specific Rules
 
+##### Argument Assignments
+
+When using the equality operator (=):
+```fsharp
+let func = value  // Good
+if foo = bar then // Good
+
+let func=value  // Bad
+if foo=bar then // Bad
+```
+
+When using (=) for argument assignments:
+```fsharp
+func (param=argu)        // Good
+| func (pattern=bound)   // Good
+let func (param=bound) = // Good
+
+func (param = argu)        // Bad
+| func (pattern= bound)    // Bad
+let func (param = bound) = // Bad
+```
+
+##### Tuple Constructs
+
+When writing tuples, use consistent spacing between elements.
+Do not omit spaces or add inconsistent spacing.
+```fsharp
+1, 2, 3  // Good
+1,2,3    // Bad
+1,  2, 3 // Bad
+```
+
+##### Parentheses Constructs
+
+When writing parentheses, apply clean formatting without unnecessary spaces.
+```fsharp
+()           // Good
+( )          // Bad
+(elements)   // Good
+( elements ) // Bad
+```
+
 ##### List/Array Literals
 
 We prefer to have space chars for list/array literals. For example,
@@ -141,6 +183,30 @@ match lst with
 | e1 :: e2 :: [] -> ...
 ```
 
+##### Indexed Property
+
+When using indexed property, we prefer bracket notation for accessing elements:
+```fsharp
+src[0] <- Const      // Good
+src[ 0 ] <- Const    // Bad
+src.Item(0) <- Const // Bad
+```
+
+For array/list indexing and slicing, we do not use spaces inside brackets:
+```fsharp
+src[1]        // Good
+src[1..3]     // Good
+src[1..]      // Good
+src[..3]      // Good
+src[1..2..10] // Good
+
+src[ 1 ]            // Bad
+src[ 1 .. 3 ]       // Bad
+src[ 1 .. ]         // Bad
+src[ .. 3 ]         // Bad
+src[ 1 .. 2 .. 10 ] // Bad
+```
+
 ##### Type Annotation
 
 We prefer to have a space character between a colon and a type name. For
@@ -148,6 +214,23 @@ example,
 ```fsharp
 let fn (p: int) = ... // Good
 let fn (p:int) = ...  // Bad
+```
+
+##### Generic Type Argument
+
+When writing generic type arguments, do not include spaces between brackets
+```fsharp
+func<type>   // Good
+func< type > // Bad
+```
+
+When using tuple types inside generic type arguments, use it as shown below.
+```fsharp
+func<type1, type2>  // Good
+func<type1 * type2> // Good
+
+func<type1,type2> // Bad
+func<type1*type2> // Bad
 ```
 
 ##### Records
@@ -212,6 +295,16 @@ Func ( p1, p2, p3 ) // Bad
 Func( p1, p2, p3 )  // Bad
 ```
 
+When the method name starts with an uppercase, write it without a space
+after the dot to support chain calls. When it starts with a lowercase,
+add a space to follow curried function style.
+```fsharp
+String.Replace()  // Good
+String.replace () // Good
+String.Replace () // Bad
+String.replace()  // Bad
+```
+
 Someone may say that it is covenient to not use any space character between the
 function name and the parameters, especially when the function is not F#-style
 (curried) functions. For example, it allows us to chain multiple member calls as
@@ -225,18 +318,80 @@ call a chain of member functions though.
 
 ##### Pattern Matching Constructs
 
-```fsharp
-match x with
-| Foo ->
-  Some good
-| Bar ->
-  None         // Good
+There must be exactly one space between the match expression and the with keyword.
 
-match x with
-| Foo ->
-    Some good
-| Bar ->
-    None       // Bad
+```fsharp
+match x with   // Good
+| Foo -> Some good
+| Bar -> None
+
+match   x with // Bad
+| Foo -> Some bad
+| Bar -> None
+```
+
+The match and with keywords must be on the same line.
+
+```fsharp
+match x with // Good
+| Foo -> Some good
+| Bar -> None
+
+match x      // Bad
+with
+| Foo -> Some bad
+| Bar -> None
+```
+
+The pipe (|) and the pattern must be on the same line.
+
+```fsharp
+match x with // Good
+| Foo -> Some good
+| Bar -> None
+
+match x with // Good
+| Foo | Bar -> Some good
+
+match x with // Bad
+| Foo |
+  Bar -> Some bad
+```
+
+Each pipe (|) must be aligned vertically with the match keyword.
+
+```fsharp
+match x with // Good
+| Foo -> Some good
+| Bar -> None
+
+match x with // Bad
+  | Foo -> Some bad
+  | Bar -> None
+```
+
+There must be a space after the pipe (|).
+
+```fsharp
+match x with // Good
+| Foo -> Some good
+| Bar -> None
+
+match x with // Bad
+|Foo -> Some bad
+|Bar -> None
+```
+
+When there are elements on both sides of '->', spaces are required on the side with elements.
+
+```fsharp
+match x with // Good
+| Foo -> Some good
+| Bar -> None
+
+match x with // Bad
+| Foo-> Some bad
+| Bar ->None
 ```
 
 ##### Class and Member Definition
@@ -253,6 +408,21 @@ type Class() = // Bad
   member _.A(p1, p2) = // Bad
 ```
 
+When defining properties using `with`, we use the following style.
+```fsharp
+member _.Method with get () = value and set (value) = value // Good
+member _.Method with get() = value and set(value) = value   // Bad
+```
+
+When defining methods, no space between the method name and the parentheses.
+```fsharp
+member _.Method() = value      // Good
+static member Method() = value // Good
+
+member _.Method () = value      // Bad
+static member Method () = value // Bad
+```
+
 We use `this` for a self-identifier when we need to use it. However, for other
 cases, we use a single underscore `_` to consistently indicate that we do not
 need to use it. We avoid using `__` for a self-identifier because it is less
@@ -260,10 +430,10 @@ readable.
 
 ```fsharp
 type Class () =
-  member this.A (p1, p2) = this.Foo p1 // Good
+  member this.A(p1, p2) = this.Foo p1 // Good
 
 type Class () =
-  member __.A (p1, p2) = __.Foo p1 // Bad
+  member __.A(p1, p2) = __.Foo p1 // Bad
 ```
 
 ### JavaScript & CSS Coding Style

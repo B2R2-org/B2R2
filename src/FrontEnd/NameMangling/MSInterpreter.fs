@@ -31,7 +31,7 @@ let rec interpret (sample: MSExpr) =
   match sample with
   | Name str -> str
 
-  | Constructor name -> interpret (FullName [name; name])
+  | Constructor name -> interpret (FullName [ name; name ])
 
   | Destructor name ->
     let constName = interpret name
@@ -48,7 +48,7 @@ let rec interpret (sample: MSExpr) =
   | PointerT (ptrStrT, PointerT(ptrStrT2, pt2)) ->
     let pointerStr = interpret ptrStrT
     let mainType =
-      interpret (PointerT(changeToNormalPointer ptrStrT2, pt2))
+      interpret (PointerT (changeToNormalPointer ptrStrT2, pt2))
     (mainType + pointerStr).Trim ()
 
   | PointerT (ptrStrT, pointedType) ->
@@ -58,12 +58,12 @@ let rec interpret (sample: MSExpr) =
 
   | FunctionT
     (s, mods, call, nm,
-      FuncPointer(fPtrs, callr, rt, _, plst, mod2), pTs, rtMod) ->
+      FuncPointer (fPtrs, callr, rt, _, plst, mod2), pTs, rtMod) ->
     let carry =
-      interpret (FunctionT(FreeScope,mods,call,nm,Name(""),pTs,rtMod))
+      interpret (FunctionT (FreeScope, mods, call, nm, Name (""), pTs, rtMod))
     CallScope.toString s +
       (interpret
-        (FuncPointer(fPtrs, callr, rt, " " + carry.Trim (), plst, mod2)))
+        (FuncPointer (fPtrs, callr, rt, " " + carry.Trim (), plst, mod2)))
 
   | FunctionT (scope, modInfo, callConv, name, returnT, paramTs, rtMod) ->
     let paramTstr = makeFunParams (List.map interpret paramTs)
@@ -103,7 +103,7 @@ let rec interpret (sample: MSExpr) =
       |> List.map interpret |> (List.reduce (+))
     let modStr =
       if mod1 = None then ""
-      else interpret (ModifiedType(SimpleBuiltInType EmptyReturn, mod1.Value))
+      else interpret (ModifiedType (SimpleBuiltInType EmptyReturn, mod1.Value))
     let newCarry =
       sprintf "(%s%s%s)%s%s" (CallConvention.toString cc)
         (ptrStrs.Trim ()) car args (modStr.TrimStart ())
@@ -121,7 +121,7 @@ let rec interpret (sample: MSExpr) =
       else " " + ptrStrs
     let modStr =
       if mods = None then ""
-      else interpret (ModifiedType(SimpleBuiltInType EmptyReturn, mods.Value))
+      else interpret (ModifiedType (SimpleBuiltInType EmptyReturn, mods.Value))
     sprintf "%s (%s%s%s)%s%s" (interpret rType) (CallConvention.toString callC)
       ptrStrsUpdated carry args (modStr.TrimStart ())
 
@@ -160,7 +160,7 @@ let rec interpret (sample: MSExpr) =
     interpret (MSUtils.changeToNormalPointer typeInfo) + interpret name
 
   | ConstructedTemplate (types, name) ->
-    interpret (Template (FullName [name; name], types))
+    interpret (Template (FullName [ name; name ], types))
 
   | ThunkF (callT, name, typeInfo, returnT) ->
     sprintf "[thunk]: %s%s %s%s" ((interpret returnT).Trim ())

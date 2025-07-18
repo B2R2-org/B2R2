@@ -34,7 +34,7 @@ let inline zeroNum ty = BitVector.Zero ty |> AST.num
 
 let inline maxNum ty =
   match ty with
-  | 8<rt>  -> BitVector.MaxUInt8  |> AST.num
+  | 8<rt>  -> BitVector.MaxUInt8 |> AST.num
   | 16<rt> -> BitVector.MaxUInt16 |> AST.num
   | 32<rt> -> BitVector.MaxUInt32 |> AST.num
   | 64<rt> -> BitVector.MaxUInt64 |> AST.num

@@ -60,8 +60,7 @@ let addargumenttolist expr =
     | Functionarg (None, _) ->
       us
     | _ ->
-      { us with Namelist = expr :: us.Namelist }
-     )
+      { us with Namelist = expr :: us.Namelist })
   >>. preturn expr
 
 let addLambda expr =
@@ -83,9 +82,8 @@ let addtoNamelist expr =
         { us with
             Namelist = NestedName (a, expr :: b) :: us.Namelist
             Carry = NestedName (a, expr :: b) }
-      | _ -> us
-    )
-  >>.preturn expr
+      | _ -> us)
+  >>. preturn expr
 
 /// Updating carry when we reach Sx abrreviation. They are not substituted
 /// individually.
@@ -236,7 +234,7 @@ let rec createTemplates name arglist res =
   match arglist with
   | [] -> List.rev res
   | hd :: tail ->
-    let add = Template (name, Arguments [hd])
+    let add = Template (name, Arguments [ hd ])
     createTemplates name tail (add :: res)
 
 let expandArgs expr =

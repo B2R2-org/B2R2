@@ -102,7 +102,7 @@ let updateSection bs reader wm id updateRec parseSec secsSumm =
   match secSumm with
   | Some sm ->
     let secsSummary' =
-      secsSumm |> List.except [sm]
+      secsSumm |> List.except [ sm ]
     let sec =
       parseSec bs reader sm.Offset
     (updateRec wm sec), secsSummary'

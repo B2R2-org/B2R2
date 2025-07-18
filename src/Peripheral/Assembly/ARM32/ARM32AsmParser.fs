@@ -43,7 +43,7 @@ type AsmParser (startAddress: Addr) =
 
   /// Adds the parsed label to the label definition map.
   let addLabeldef (lbl: string) =
-    updateUserState ( fun (us: Map<string, Addr>) -> us.Add (lbl, address))
+    updateUserState (fun (us: Map<string, Addr>) -> us.Add (lbl, address))
     >>. preturn ()
 
   let pOpModeSwitcher =
@@ -95,15 +95,50 @@ type AsmParser (startAddress: Addr) =
     pId .>>? pchar ':' >>= addLabeldef |> skipWhitespaces
 
   let pSIMDDataType =
-    [ "8"; "16"; "32"; "64"; "s8"; "s16"; "s32"; "s64"; "u8"; "u16"; "u32";
-    "u64"; "i8"; "i16"; "i32"; "i64"; "f16"; "f32"; "f64"; "p8" ]
+    [ "8"
+      "16"
+      "32"
+      "64"
+      "s8"
+      "s16"
+      "s32"
+      "s64"
+      "u8"
+      "u16"
+      "u32"
+      "u64"
+      "i8"
+      "i16"
+      "i32"
+      "i64"
+      "f16"
+      "f32"
+      "f64"
+      "p8" ]
     |> Seq.map pstringCI
     |> choice
     |>> getSIMDTypFromStr
 
   let pPSRFlag =
-    [ "c"; "x"; "xc"; "s"; "sc"; "sx"; "sxc"; "f"; "fc"; "fx"; "fxc";
-      "fs"; "fsc"; "fsx"; "fsxc"; "nzcv"; "nzcvq"; "g"; "nzcvqg" ]
+    [ "c"
+      "x"
+      "xc"
+      "s"
+      "sc"
+      "sx"
+      "sxc"
+      "f"
+      "fc"
+      "fx"
+      "fxc"
+      "fs"
+      "fsc"
+      "fsx"
+      "fsxc"
+      "nzcv"
+      "nzcvq"
+      "g"
+      "nzcvqg" ]
     |> Seq.rev
     |> Seq.map (pstringCI >> attempt)
     |> choice
@@ -111,8 +146,17 @@ type AsmParser (startAddress: Addr) =
     |>> Some
 
   let pOptionOpr =
-    [ "sy"; "ld"; "ishst"; "ishld"; "ish"; "nshst"; "nshld"; "nsh"; "oshst";
-    "oshld"; "osh" ]
+    [ "sy"
+      "ld"
+      "ishst"
+      "ishld"
+      "ish"
+      "nshst"
+      "nshld"
+      "nsh"
+      "oshst"
+      "oshld"
+      "osh" ]
     |> Seq.map (pstringCI >> attempt)
     |> choice
     |>> optionOprFromStr
@@ -124,7 +168,7 @@ type AsmParser (startAddress: Addr) =
     |>> getSRType
 
   let pIflag =
-    [ "ai"; "af"; "if"; "aif"; "a"; "i"  ]
+    [ "ai"; "af"; "if"; "aif"; "a"; "i" ]
     |> Seq.map (pstringCI >> attempt)
     |> choice
     |>> iFlagFromStr
@@ -138,21 +182,21 @@ type AsmParser (startAddress: Addr) =
     |>> (fun lst ->
           match lst with
           | [ smd ] -> OneDT smd
-          | [ smd1; smd2] -> TwoDT (smd1, smd2)
+          | [ smd1; smd2 ] -> TwoDT (smd1, smd2)
           | _ -> failwith "Can not have more than two SIMDDataTypes" )
 
   let pQualifier =
     pchar '.' >>.
-    (( anyOf "nN" >>. preturn Qualifier.N ) <|>
-     ( anyOf "wW" >>. preturn Qualifier.W ))
+    ((anyOf "nN" >>. preturn Qualifier.N) <|>
+     (anyOf "wW" >>. preturn Qualifier.W))
 
   let pOpcode =
     (Enum.GetNames typeof<Opcode>)
     |> Array.map (pstringCI)
     |> Array.rev (* This is so that (eg. ADD does not get parsed for 'ADDS' *)
     |> Array.map (fun p ->
-        attempt p
-        |>> (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
+      attempt p
+      |>> (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
     |> choice
 
   let pCondition =
@@ -203,14 +247,14 @@ type AsmParser (startAddress: Addr) =
     pImm |>> fun cons -> ImmOffset (Register.C0, None, Some cons)
 
   let pDummyShiftedRegOffset =
-    opt (pchar '-' >>. preturn Minus) .>>.pReg .>> spaces .>> pchar ','
+    opt (pchar '-' >>. preturn Minus) .>>. pReg .>> spaces .>> pchar ','
     .>> spaces .>>. pShiftedIndexRegister
     |>> fun ((sign, reg), shifter) ->
-          RegOffset (Register.C0, sign, reg, Some shifter)
+      RegOffset (Register.C0, sign, reg, Some shifter)
 
   let pDummyRegRegOffset =
     opt (pchar '-' >>. preturn Minus) .>>. pReg
-    |>> (fun (sOpt, reg) -> RegOffset(Register.C0, sOpt, reg, None))
+    |>> (fun (sOpt, reg) -> RegOffset (Register.C0, sOpt, reg, None))
     .>> setWBFlag
 
   let pDummyRegOffset =
@@ -325,11 +369,11 @@ type AsmParser (startAddress: Addr) =
               let qual = match qual with | Some W -> W | _ -> N
               newInsInfo
                  address opcode cond 0uy wBackFlag qual simd
-                 operands (getInsLength ()) isThumb None )
+                 operands (getInsLength ()) isThumb None)
       .>> clearWBackFlag
 
   let pInstructionLine =
-    opt pLabelDef >>. spaces >>. pInsInfo  .>> incrementAddress
+    opt pLabelDef >>. spaces >>. pInsInfo .>> incrementAddress
     |>> InstructionLine
 
   let statement =

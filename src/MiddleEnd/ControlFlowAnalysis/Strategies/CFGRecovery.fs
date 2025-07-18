@@ -316,10 +316,10 @@ module internal CFGRecovery =
   /// Build a CFG starting from the given program points.
   let buildCFG ctx cfgRec (syscallAnalysis: ISyscallAnalyzable)
                useTailcallHeuristic (actionQueue: CFGActionQueue) initPPs =
-    let queue = Queue<ProgramPoint> (collection=initPPs)
+    let queue = Queue<ProgramPoint>(collection = initPPs)
     let mutable result = MoveOn
     while queue.Count > 0 && result = MoveOn do
-      let ppoint = queue.Dequeue ()
+      let ppoint = queue.Dequeue()
       if not <| ctx.VisitedPPoints.Add ppoint then ()
       else
         let srcVertex = getVertex ctx cfgRec ppoint
@@ -328,7 +328,7 @@ module internal CFGRecovery =
         match srcData.Terminator with
         | IEMark _ ->
           let last = srcData.LastInstruction
-          let nextPPoint = ProgramPoint (last.Address + uint64 last.Length, 0)
+          let nextPPoint = ProgramPoint(last.Address + uint64 last.Length, 0)
           match tryGetVertex ctx cfgRec nextPPoint with
           | Ok dstVertex ->
             connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge

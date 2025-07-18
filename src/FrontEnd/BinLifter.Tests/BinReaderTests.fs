@@ -36,10 +36,10 @@ type BinReaderTests () =
     let sample = [| 0x11uy; 0x22uy; 0x33uy; 0x44uy |]
     let lr = BinReader.Init Endian.Little
     let v = lr.ReadInt32 (System.ReadOnlySpan sample, 0)
-    Assert.AreEqual<int> (expected=0x44332211, actual=v)
+    Assert.AreEqual<int> (expected = 0x44332211, actual = v)
     let br = BinReader.Init Endian.Big
     let v = br.ReadInt32 (System.ReadOnlySpan sample, 0)
-    Assert.AreEqual<int> (expected=0x11223344, actual=v)
+    Assert.AreEqual<int> (expected = 0x11223344, actual = v)
 
   [<TestMethod>]
   member _.``Read Overflow Test`` () =
@@ -48,7 +48,7 @@ type BinReaderTests () =
     let v =
       try r.ReadInt32 (System.ReadOnlySpan sample, 0)
       with :? System.ArgumentOutOfRangeException -> 0
-    Assert.AreEqual<int> (expected=0, actual=v)
+    Assert.AreEqual<int> (expected = 0, actual = v)
 
   [<TestMethod>]
   member _.``LEB128 to UInt64 Test`` () =
@@ -76,7 +76,7 @@ type BinReaderTests () =
     for bytes, value in samples do
       let r = BinReader.Init ()
       let v, _ = r.ReadUInt64LEB128 (bytes, 0)
-      Assert.AreEqual<uint64> (expected=value, actual=v)
+      Assert.AreEqual<uint64> (expected = value, actual = v)
 
   [<TestMethod>]
   member _.``LEB128 to UInt32 Test`` () =
@@ -94,7 +94,7 @@ type BinReaderTests () =
     for bytes, value in samples do
       let r = BinReader.Init ()
       let v, _ = r.ReadUInt32LEB128 (bytes, 0)
-      Assert.AreEqual<uint32> (expected=value, actual=v)
+      Assert.AreEqual<uint32> (expected = value, actual = v)
 
   [<TestMethod>]
   member _.``LEB128 to SInt64 Test`` () =
@@ -133,7 +133,7 @@ type BinReaderTests () =
     for bytes, value in samples do
       let r = BinReader.Init ()
       let v, _ = r.ReadInt64LEB128 (bytes, 0)
-      Assert.AreEqual<int64> (expected=value, actual=v)
+      Assert.AreEqual<int64> (expected = value, actual = v)
 
   [<TestMethod>]
   member _.``LEB128 to SInt32 Test`` () =
@@ -152,7 +152,7 @@ type BinReaderTests () =
     for bytes, value in samples do
       let r = BinReader.Init ()
       let v, _ = r.ReadInt32LEB128 (bytes, 0)
-      Assert.AreEqual<int> (expected=value, actual=v)
+      Assert.AreEqual<int> (expected = value, actual = v)
 
   [<TestMethod>]
   member _.``LEB128 Overflow Handling Test`` () =

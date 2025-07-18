@@ -50,10 +50,10 @@ type AssemblyLine =
 /// offset value by the register given.
 let substituteParsedRegister (reg, dummyOffset) =
   match dummyOffset with
-  | ImmOffset ( _, signOpt, constOpt ) -> ImmOffset (reg, signOpt, constOpt)
-  | RegOffset ( _, signOpt, shiftReg, shiftOpt ) ->
-    RegOffset ( reg, signOpt, shiftReg, shiftOpt )
-  | AlignOffset ( _, alignOpt, regOpt) -> AlignOffset ( reg, alignOpt, regOpt)
+  | ImmOffset (_, signOpt, constOpt) -> ImmOffset (reg, signOpt, constOpt)
+  | RegOffset (_, signOpt, shiftReg, shiftOpt) ->
+    RegOffset (reg, signOpt, shiftReg, shiftOpt)
+  | AlignOffset ( _, alignOpt, regOpt) -> AlignOffset (reg, alignOpt, regOpt)
 
 let parseShiftOperation opcode imm =
   let srType =
@@ -86,16 +86,17 @@ let parseOprRegShiftOperand opcode reg =
     | Opcode.RRX -> Some SRTypeRRX
     | _ -> None
   if srType.IsNone then fail "not a shift opcode"
-  else preturn (OprRegShift(srType.Value, reg))
+  else preturn (OprRegShift (srType.Value, reg))
 
 let extractOperands = function
   | [] -> NoOperand
-  | [op1] -> OneOperand op1
-  | [op1; op2] -> TwoOperands (op1, op2)
-  | [op1; op2; op3] -> ThreeOperands (op1, op2, op3)
-  | [op1; op2; op3; op4] -> FourOperands (op1, op2, op3, op4)
-  | [op1; op2; op3; op4; op5] -> FiveOperands (op1, op2, op3, op4, op5)
-  | [op1; op2; op3; op4; op5; op6] -> SixOperands (op1, op2, op3, op4, op5, op6)
+  | [ op1 ] -> OneOperand op1
+  | [ op1; op2 ] -> TwoOperands (op1, op2)
+  | [ op1; op2; op3 ] -> ThreeOperands (op1, op2, op3)
+  | [ op1; op2; op3; op4 ] -> FourOperands (op1, op2, op3, op4)
+  | [ op1; op2; op3; op4; op5 ] -> FiveOperands (op1, op2, op3, op4, op5)
+  | [ op1; op2; op3; op4; op5; op6 ] ->
+    SixOperands (op1, op2, op3, op4, op5, op6)
   | _ -> failwith "Operand overload"
 
 let getOperandsAsList operands =

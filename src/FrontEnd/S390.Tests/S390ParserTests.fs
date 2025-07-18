@@ -50,7 +50,7 @@ type O =
 [<TestClass>]
 type S390ParserTests () =
   let test endian opcode (oprs: Operands) (bytes: byte[]) =
-    let isa = ISA (Architecture.S390, endian=endian)
+    let isa = ISA (Architecture.S390, endian = endian)
     let reader = BinReader.Init endian
     let parser = S390Parser (isa, reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
@@ -72,11 +72,11 @@ type S390ParserTests () =
     | 3 -> ThreeOperands (oprArray[0], oprArray[1], oprArray[2])
     | 4 -> FourOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3])
     | 5 ->
-      FiveOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3]
-      , oprArray[4])
+      FiveOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3],
+        oprArray[4])
     | 6 ->
-      SixOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3]
-      , oprArray[4], oprArray[5])
+      SixOperands (oprArray[0], oprArray[1], oprArray[2], oprArray[3],
+        oprArray[4], oprArray[5])
     | _ -> Terminator.impossible()
 
   let ( ** ) opcode oprList = opcode, operandsFromArray oprList
@@ -127,21 +127,21 @@ type S390ParserTests () =
   member _.``[S390] Fmt.RX instructions Parse Test (5)`` () =
     "60000000"
     ++ STD **
-    [ O.Reg FPR0; OpStore(Some R0, R0, DispU 0u) ]
+    [ O.Reg FPR0; OpStore (Some R0, R0, DispU 0u) ]
     ||> test32
 
   [<TestMethod>]
   member _.``[S390] Fmt.RX instruction Parse Test (6)`` () =
     "4A5DC6B0"
     ++ AH **
-    [O.Reg R5; O.Store (Some R13, R12, DispU 0x6B0u) ]
+    [ O.Reg R5; O.Store (Some R13, R12, DispU 0x6B0u) ]
     ||> test32
 
   [<TestMethod>]
   member _.``[S390] Fmt.RS instruction Parse Test (1)`` () =
     "8F2F001F"
     ++ SLDA **
-    [ O.Reg R2; O.Store(None, R0, DispU 31u) ]
+    [ O.Reg R2; O.Store (None, R0, DispU 31u) ]
     ||> test32
 
   [<TestMethod>]
@@ -155,7 +155,8 @@ type S390ParserTests () =
   member _.``[S390] Fmt.MII instruction Parse Test (1)`` () =
     "C50ABCDEFFFF"
     ++ BPRP **
-    [ O.Mask 0us; O.Imm (ImmS12 (BitVector.OfInt32 0xABC 12<rt>));
+    [ O.Mask 0us
+      O.Imm (ImmS12 (BitVector.OfInt32 0xABC 12<rt>))
       O.Imm (ImmS24 (BitVector.OfInt32 0xDEFFFF 24<rt>)) ]
     ||> test32
 
@@ -163,14 +164,15 @@ type S390ParserTests () =
   member _.``[S390] Fmt.SS instruction Parse Test (1)`` () =
     "DD141001F000"
     ++ TRT **
-    [ O.StoreLen (0x15us, R1, DispU 1u); O.Store (None, R15, DispU 0u)]
+    [ O.StoreLen (0x15us, R1, DispU 1u); O.Store (None, R15, DispU 0u) ]
     ||> test32
 
   [<TestMethod>]
   member _.``[S390] Fmt.SS instruction Parse Test (2)`` () =
     "F05040010003"
     ++ SRP **
-    [ O.StoreLen (6us, R4, DispU 1u); O.Store (None, R0, DispU 3u);
+    [ O.StoreLen (6us, R4, DispU 1u)
+      O.Store (None, R0, DispU 3u)
       O.Imm (ImmU4 (BitVector.OfUInt32 0x00u 4<rt>)) ]
     ||> test32
 
@@ -185,15 +187,14 @@ type S390ParserTests () =
   member _.``[S390] Fmt.VRR instruction Parse Test (1)`` () =
     "E71FA04327EB"
     ++ VFCH **
-    [ O.Reg VR1; O.Reg VR31; O.Reg VR26; O.Mask 2us; O.Mask 3us;
-      O.Mask 4us; ]
+    [ O.Reg VR1; O.Reg VR31; O.Reg VR26; O.Mask 2us; O.Mask 3us; O.Mask 4us ]
     ||> test32
 
   [<TestMethod>]
   member _.``[S390] Fmt.VRS instruction Parse Test (1)`` () =
     "E7312004083F"
     ++ VSTL **
-    [ O.Reg VR19; O.Store (None, R2, DispU 4u); O.Reg R1;]
+    [ O.Reg VR19; O.Store (None, R2, DispU 4u); O.Reg R1 ]
     ||> test32
 
   [<TestMethod>]
@@ -221,6 +222,6 @@ type S390ParserTests () =
   member _.``[S390] Fmt.IE instruction Parse Test (1)`` () =
     "B2FA002F"
     ++ NIAI **
-    [ O.Imm (ImmU4 (BitVector.OfUInt32 0x2u 4<rt>));
+    [ O.Imm (ImmU4 (BitVector.OfUInt32 0x2u 4<rt>))
       O.Imm (ImmU4 (BitVector.OfUInt32 0xfu 4<rt>)) ]
     ||> test32

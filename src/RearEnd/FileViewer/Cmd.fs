@@ -228,7 +228,7 @@ type FileViewerOpts () =
     let cb opts (arg: string []) =
       (FileViewerOpts.ToThis opts).ISA <- ISA.OfString arg[0]; opts
     CmdOpts.New (descr = "Specify <ISA> (e.g., x86) for fat binaries",
-                 extra = 1, callback = cb, short = "-i", long= "--isa")
+                 extra = 1, callback = cb, short = "-i", long = "--isa")
 
 [<RequireQualifiedAccess>]
 module Cmd =

@@ -42,15 +42,15 @@ type ReplOpts () =
   static member OptISA () =
     let cb (opts: #CmdOpts) (arg: string []) =
       (ReplOpts.ToThis opts).ISA <- ISA.OfString arg[0]; opts
-    CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) for fat binaries",
-                  extra = 1, callback = cb, short = "-a", long= "--isa" )
+    CmdOpts.New (descr = "Specify <ISA> (e.g., x86) for fat binaries",
+                 extra = 1, callback = cb, short = "-a", long = "--isa")
 
   static member OptShowTemp () =
     let cb (opts: #CmdOpts) (_arg: string []) =
       (ReplOpts.ToThis opts).ShowTemp <- true; opts
-    CmdOpts.New ( descr = "Show temporary variables",
-                  extra = 0, callback = cb,
-                  short = "-t", long= "--show-temporary" )
+    CmdOpts.New (descr = "Show temporary variables",
+                 extra = 0, callback = cb,
+                 short = "-t", long = "--show-temporary")
 
 module ReplOpts =
   let spec: ReplOpts FsOptParse.Option list =

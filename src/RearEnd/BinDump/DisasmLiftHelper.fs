@@ -117,14 +117,14 @@ let printRegularDisasm disasmStr wordSize addr bytes cfg =
 
 let regularDisPrinter hdl liftingUnit wordSize showSymbs ptr ins cfg =
   (liftingUnit: LiftingUnit).ConfigureDisassembly (false, showSymbs)
-  let disasmStr = liftingUnit.DisasmInstruction (ins=ins)
-  let bytes = (hdl: BinHandle).ReadBytes (ptr=ptr, nBytes=int ins.Length)
+  let disasmStr = liftingUnit.DisasmInstruction (ins = ins)
+  let bytes = (hdl: BinHandle).ReadBytes (ptr = ptr, nBytes = int ins.Length)
   printRegularDisasm disasmStr wordSize ptr.Addr bytes cfg
 
 let regularIRPrinter hdl (liftingUnit: LiftingUnit) optimizer ptr ins cfg =
-  let stmts = optimizer (liftingUnit.LiftInstruction (ins=ins))
+  let stmts = optimizer (liftingUnit.LiftInstruction (ins = ins))
   let lowUIRStr = LowUIR.Pp.stmtsToString stmts
-  let bytes = (hdl: BinHandle).ReadBytes (ptr=ptr, nBytes=int ins.Length)
+  let bytes = (hdl: BinHandle).ReadBytes (ptr = ptr, nBytes = int ins.Length)
   printLowUIR lowUIRStr bytes cfg
 
 let convertToDisasmStr (words: AsmWord []) =
@@ -148,14 +148,14 @@ let printColorDisasm words wordSize addr bytes cfg =
 
 let colorDisPrinter (hdl: BinHandle) liftingUnit wordSize _ ptr ins cfg =
   (liftingUnit: LiftingUnit).ConfigureDisassembly false
-  let words = liftingUnit.DecomposeInstruction (ins=ins)
-  let bytes = hdl.ReadBytes (ptr=ptr, nBytes=int ins.Length)
+  let words = liftingUnit.DecomposeInstruction (ins = ins)
+  let bytes = hdl.ReadBytes (ptr = ptr, nBytes = int ins.Length)
   printColorDisasm words wordSize ptr.Addr bytes cfg
 
 let handleInvalidIns hdl (modeSwitch: ARM32.IModeSwitchable) ptr isLift cfg =
   let wordSize = (hdl: BinHandle).File.ISA.WordSize
   let align = getInstructionAlignment hdl.File.ISA modeSwitch.IsThumb
-  let bytes = hdl.ReadBytes (ptr=ptr, nBytes=align)
+  let bytes = hdl.ReadBytes (ptr = ptr, nBytes = align)
   if isLift then printLowUIR IllegalStr bytes cfg
   else printRegularDisasm IllegalStr wordSize ptr.Addr bytes cfg
   BinFilePointer.Advance ptr align
@@ -197,7 +197,7 @@ type BinPrinter (hdl: BinHandle, cfg, isLift) =
     if ptr.IsValid then
       this.PrintFuncSymbol ptr.Addr
       this.UpdateMode liftingUnit ptr.Addr
-      match liftingUnit.TryParseInstruction (ptr=ptr) with
+      match liftingUnit.TryParseInstruction (ptr = ptr) with
       | Ok (ins) ->
         this.PrintInstr hdl ptr ins
         let ptr' = BinFilePointer.Advance ptr (int ins.Length)

@@ -111,16 +111,18 @@ let inline encRL (ctx: EncContext) ins r op8Byte opByte =
 
 let inline encLI (ctx: EncContext) ins regConstr i immSz op8Byte opByte =
   let pref, rex, opByte = getCtxtByOprSz ctx op8Byte opByte 32<rt>
-  let op = [| yield! prxRexOp ins ctx pref rex opByte
-              yield modrmLI regConstr |] |> Array.map normalToByte
+  let op =
+    [| yield! prxRexOp ins ctx pref rex opByte
+       yield modrmLI regConstr |] |> Array.map normalToByte
   let imm = immediate i immSz |> Array.map normalToByte |> Some
   [| CompOp (ins.Opcode, ins.Operands, op, imm); IncompLabel 32<rt> |]
 
 let inline encRLI (ctx: EncContext) ins r op i immSz =
   let pref, rex, opByte =
     getCtxtByOprSz ctx [||] op (Register.toRegType ctx.WordSize r)
-  let op = [| yield! prxRexOp ins ctx pref rex opByte
-              yield modrmRL r |] |> Array.map normalToByte
+  let op =
+    [| yield! prxRexOp ins ctx pref rex opByte
+       yield modrmRL r |] |> Array.map normalToByte
   let imm = immediate i immSz |> Array.map normalToByte |> Some
   [| CompOp (ins.Opcode, ins.Operands, op, imm); IncompLabel 32<rt> |]
 

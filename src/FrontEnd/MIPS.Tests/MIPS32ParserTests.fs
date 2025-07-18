@@ -77,7 +77,7 @@ type MIPS32ParserTests () =
     test Endian.Big opcode None (Some fmt) oprs bytes
 
   let test32R2NoCondNofmt (bytes: byte[]) (opcode, oprs) =
-    test Endian.Big  opcode None None oprs bytes
+    test Endian.Big opcode None None oprs bytes
 
   let operandsFromArray oprList =
     let oprArray = Array.ofList oprList

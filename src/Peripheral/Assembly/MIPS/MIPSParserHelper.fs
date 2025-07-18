@@ -33,16 +33,16 @@ type AsmInsInfo = {
   Opcode: Opcode
   Operands: Operands
   Condition: Condition option
-  Fmt: Fmt option
+  Fmt: FPRFormat option
   OperationSize: RegType
 }
 
 let extractOperands = function
   | [] -> NoOperand
-  | [op1] -> OneOperand op1
-  | [op1; op2] -> TwoOperands (op1, op2)
-  | [op1; op2; op3] -> ThreeOperands (op1, op2, op3)
-  | [op1; op2; op3; op4] -> FourOperands (op1, op2, op3, op4)
+  | [ op1 ] -> OneOperand op1
+  | [ op1; op2 ] -> TwoOperands (op1, op2)
+  | [ op1; op2; op3 ] -> ThreeOperands (op1, op2, op3)
+  | [ op1; op2; op3; op4 ] -> FourOperands (op1, op2, op3, op4)
   | _ -> failwith "Operand overload"
 
 let getOperandsAsList operands =

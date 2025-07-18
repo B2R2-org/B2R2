@@ -89,26 +89,26 @@ let convertBinaryTo256BitBigint (binaryString: string) =
 let removeLeadingZerosInOctalNumber (input: string) =
   match input.Length with
   | n when (n = 33 || n = 129) ->
-    if input[0] = '0' then input[1 ..]
+    if input[0] = '0' then input[1..]
     else input
   | n when (n = 66 || n = 258) ->
-    if input[0] = '0' && input[1] = '0' then input[2 ..]
+    if input[0] = '0' && input[1] = '0' then input[2..]
     else input
   | _ -> input
 
 let getBinaryRepresentation (input: string) =
-  match input[0 .. 1] with
-  | "0x" | "0X" -> "0b" + turnHexToBinary input[2 ..]
-  | "0b" | "0B" -> "0b" + input[2 ..]
+  match input[0..1] with
+  | "0x" | "0X" -> "0b" + turnHexToBinary input[2..]
+  | "0b" | "0B" -> "0b" + input[2..]
   | "0o" | "0O" ->
     let binaryPart =
-      turnOctalToBinary input[2 ..] |> removeLeadingZerosInOctalNumber
+      turnOctalToBinary input[2..] |> removeLeadingZerosInOctalNumber
     "0b" + binaryPart
   | _ -> failwith "0"
 
 let stringToBigint (str: string) =
   let binaryString = getBinaryRepresentation str
-  match binaryString[2 ..].Length with
+  match binaryString[2..].Length with
   | len when len <= 32 ->
     let num = binaryString
     let value = int num
@@ -117,17 +117,17 @@ let stringToBigint (str: string) =
     let value = int64 binaryString
     (bigint value, 64)
   | len when len <= 128 ->
-    let binaryString = reverseString binaryString[2 ..]
+    let binaryString = reverseString binaryString[2..]
     let value = convertBinaryTo128BitBigint binaryString
     (value, 128)
   | len when len <= 256 ->
-    let binaryString = reverseString binaryString[2 ..]
+    let binaryString = reverseString binaryString[2..]
     let value = convertBinaryTo256BitBigint binaryString
     (value, 256)
   | _ -> (-1I, 0)
 
 let stringLiteralToBigint (str: string) =
-  let rep = if (str.Length >= 2) then (str[0 .. 1]) else ""
+  let rep = if (str.Length >= 2) then (str[0..1]) else ""
   if rep = "0x" || rep = "0X" || rep = "0o" || rep = "0O" ||
     rep = "0b" || rep = "oB" then
     stringToBigint str

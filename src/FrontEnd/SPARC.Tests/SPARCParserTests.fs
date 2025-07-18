@@ -177,7 +177,7 @@ type SPARCParserTests () =
   [<TestMethod>]
   member _.``[SPARC] Two Reg Op, One Imm Op ST Parse Test`` () =
     "2ae024f8"
-    ++ STW ** [ O.Reg I4; O.Reg L3; O.Imm 42] ||> test
+    ++ STW ** [ O.Reg I4; O.Reg L3; O.Imm 42 ] ||> test
 
   [<TestMethod>]
   member _.``[SPARC] Three Reg Operands STD Parse Test`` () =
