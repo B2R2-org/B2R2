@@ -45,8 +45,9 @@ type State<'L, 'ExeCtx when 'L: equality
                         and 'ExeCtx: comparison>
   public (hdl,
           lattice: ILattice<'L>,
-          scheme: IScheme<'L, 'ExeCtx>,
-          evaluator: IExprEvaluatable<_, _>) =
+          scheme: IScheme<'L, 'ExeCtx>) =
+
+  let mutable evaluator: IExprEvaluatable<_, _> = null
 
   let mutable freshSSAVarId = 1
 
@@ -466,6 +467,9 @@ type State<'L, 'ExeCtx when 'L: equality
 
   /// Currently pending vertices for processing.
   member _.PendingEdges with get (): IEnumerable<_> = edgesForProcessing
+
+  /// A setter for the evaluator.
+  member _.Evaluator with set v = evaluator <- v
 
   /// The given binary handle.
   member _.BinHandle with get () = hdl

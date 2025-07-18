@@ -100,11 +100,9 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
         member _.Join(a, b) = ConstantDomain.join a b
         member _.Subsume(a, b) = ConstantDomain.subsume a b  }
 
-  let mutable evaluator = null
+  let state = State<_, _> (hdl, lattice, scheme)
 
-  let rec state = State<_, _> (hdl, lattice, scheme, evaluator)
-
-  do evaluator <-
+  do state.Evaluator <-
       { new IExprEvaluatable<SensitiveProgramPoint<'ExeCtx>,
                              ConstantDomain.Lattice> with
           member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }

@@ -62,6 +62,7 @@ type ILattice<'AbsVal when 'AbsVal: equality> =
   abstract Subsume: 'AbsVal * 'AbsVal -> bool
 
 /// Represents an interface for evaluating expressions in the given context.
+[<AllowNullLiteral>]
 type IExprEvaluatable<'Ctx, 'AbsVal when 'AbsVal: equality> =
   /// Returns the abstract value of the given expression in the specified
   /// context.
