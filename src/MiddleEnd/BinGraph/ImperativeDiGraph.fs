@@ -141,6 +141,8 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
 
     member _.HasVertex vid = vertices.ContainsKey vid
 
+    member _.HasEdge src dst = edges.ContainsKey((src.ID, dst.ID))
+
     member _.FindVertexBy fn = findVertexBy fn
 
     member _.TryFindVertexBy fn = tryFindVertexBy fn

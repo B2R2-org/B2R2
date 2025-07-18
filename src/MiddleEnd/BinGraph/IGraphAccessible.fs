@@ -53,6 +53,9 @@ type IGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   /// Check the existence of the given vertex from the graph.
   abstract HasVertex: VertexID -> bool
 
+  /// Check the existence of the given edge from the graph.
+  abstract HasEdge: src: IVertex<'V> -> dst: IVertex<'V> -> bool
+
   /// Find a vertex by its VertexID. This function raises an exception when
   /// there is no such a vertex.
   abstract FindVertexByID: VertexID -> IVertex<'V>

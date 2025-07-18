@@ -116,6 +116,11 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     member _.HasVertex vid =
       vertices |> Map.containsKey vid
 
+    member _.HasEdge src dst =
+      match succs.TryFind src.ID with
+      | None -> raise VertexNotFoundException
+      | Some edges -> edges |> List.exists (fun edge -> edge.Second.ID = dst.ID)
+
     member _.FindVertexByID vid =
       vertices |> Map.find vid :> IVertex<'V>
 

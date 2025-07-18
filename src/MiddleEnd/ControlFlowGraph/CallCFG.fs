@@ -83,6 +83,7 @@ type CallCFG (t: ImplementationType) =
     member _.ImplementationType = g.ImplementationType
     member _.IsEmpty () = g.IsEmpty ()
     member _.HasVertex vid = g.HasVertex vid
+    member _.HasEdge src dst = g.HasEdge src dst
     member _.FindVertexByID vid = g.FindVertexByID vid
     member _.TryFindVertexByID vid = g.TryFindVertexByID vid
     member _.FindVertexByData vdata = g.FindVertexByData vdata
