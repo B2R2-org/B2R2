@@ -56,4 +56,6 @@ type CFGActionQueue () =
   /// Clear the queue.
   member _.Clear () = pq.Clear ()
 
+  member _.UnorderedItems with get () = pq.UnorderedItems
+
 and private Priority<'P> = 'P * int
