@@ -24,9 +24,101 @@
 
 module B2R2.MiddleEnd.DataFlow.SensitiveDFHelper
 
+open B2R2
 open B2R2.BinIR
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
+
+let rec expandExpr (state: State<_, _>) e =
+  match e with
+  | SSA.Var var ->
+    (* Note that we use fake definition for variables that are not defined in
+       the current function. This is because we cannot find the definition of
+       such variables, and we assume that they are defined in the caller
+       function. *)
+    match state.TryFindSSADefStmtFromSSAVar var with
+    | Some (SSA.Def (_, e)) -> expandExpr state e
+    | None -> e
+    | _ -> Terminator.impossible ()
+  | SSA.ExprList [ expr ] -> expandExpr state expr
+  | SSA.ExprList [] -> e (* Can be an empty list of external call params. *)
+  | SSA.ExprList exprs -> assert (exprs <> []); e (* Ignore phis. *)
+  | SSA.BinOp (op, rt, e1, e2) ->
+    let e1' = expandExpr state e1
+    let e2' = expandExpr state e2
+    SSA.BinOp (op, rt, e1', e2')
+  | SSA.UnOp (op, rt, e) ->
+    let e' = expandExpr state e
+    SSA.UnOp (op, rt, e')
+  | SSA.Extract (e, rt, i) ->
+    let e' = expandExpr state e
+    SSA.Extract (e', rt, i)
+  | SSA.Cast (castKind, rt, e) ->
+    let e' = expandExpr state e
+    SSA.Cast (castKind, rt, e')
+  | SSA.Load (memVar, rt, e) ->
+    let e' = expandExpr state e
+    SSA.Load (memVar, rt, e')
+  | SSA.Ite (cond, rt, tExpr, fExpr) ->
+    let cond' = expandExpr state cond
+    let tExpr' = expandExpr state tExpr
+    let fExpr' = expandExpr state fExpr
+    SSA.Ite (cond', rt, tExpr', fExpr')
+  | SSA.RelOp (op, rt, e1, e2) ->
+    let e1' = expandExpr state e1
+    let e2' = expandExpr state e2
+    SSA.RelOp (op, rt, e1', e2')
+  | SSA.Store (memVar, rt, addr, value) ->
+    let addr' = expandExpr state addr
+    let value' = expandExpr state value
+    SSA.Store (memVar, rt, addr', value')
+  | SSA.Num _
+  | SSA.FuncName _
+  | SSA.Undefined _ -> e
+
+/// Returns the list of root variables for the given variables.
+let rec findRootVars (state: State<_, _>) acc worklist =
+  match worklist with
+  | [] -> acc
+  | var :: rest ->
+    match state.TryFindSSADefStmtFromSSAVar var with
+    | Some (SSA.Def (_, e)) ->
+      match e with
+      | SSA.Var rdVar -> findRootVars state acc (rdVar :: rest)
+      | SSA.ExprList exprs ->
+        exprs
+        |> List.choose (function
+          | SSA.Var rdVar -> Some rdVar
+          | _ -> None)
+        |> List.append rest
+        |> findRootVars state acc
+      | _ -> findRootVars state (var :: acc) rest (* End of the chain. *)
+    | _ -> findRootVars state (var :: acc) rest (* End of the chain. *)
+
+let extractVarsFromExpr e =
+  match e with
+  | SSA.Var var -> [ var ]
+  | SSA.ExprList exprs ->
+    exprs
+    |> List.choose (function
+      | SSA.Var var -> Some var
+      | _ -> None)
+  | _ -> []
+
+let findRootVarsFromExpr state e =
+  extractVarsFromExpr e
+  |> findRootVars state []
+
+let getDefSiteVertex (g: IDiGraph<_, _>) (state: State<_, _>) var =
+  let svp = state.SSAVarToDefSVP var
+  let spp = svp.SensitiveProgramPoint
+  let pp = spp.ProgramPoint
+  if ProgramPoint.IsFake pp then
+    g.SingleRoot
+  else
+    assert state.StmtOfBBLs.ContainsKey pp
+    snd state.StmtOfBBLs[pp]
 
 let getTerminator (state: State<_, _>) v tag =
   let sstmts = state.GetSSAStmts(v, tag)

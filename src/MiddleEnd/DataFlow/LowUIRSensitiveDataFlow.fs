@@ -1009,8 +1009,9 @@ module internal AnalysisCore = begin
 
   let tryGetSuccessorExeCtx g (state: State<_, _>) src srcExeCtx dst =
     if isNull src then Some state.Scheme.DefaultExecutionContext
+    elif not <| (g: IGraphAccessible<_, _>).HasEdge src dst then None
     else
-      let edge = (g: IDiGraphAccessible<_, _>).FindEdge(src, dst)
+      let edge = g.FindEdge(src, dst)
       let edgeKind = edge.Label
       state.Scheme.TryComputeExecutionContext(src, srcExeCtx, dst, edgeKind)
 

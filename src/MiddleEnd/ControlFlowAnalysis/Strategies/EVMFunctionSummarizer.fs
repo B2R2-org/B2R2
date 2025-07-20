@@ -90,6 +90,9 @@ and EVMFuncUserContext() =
 
   let mutable isSharedRegion = false
 
+  let backEdges =
+    HashSet<IVertex<LowUIRBasicBlock> * IVertex<LowUIRBasicBlock>>()
+
   let perVertexStackPointerDelta = Dictionary<IVertex<LowUIRBasicBlock>, int>()
 
   /// Postponed vertices that are not yet processed because the data-flow
@@ -168,6 +171,8 @@ and EVMFuncUserContext() =
 
   member _.ResumableVertices with get() = verticesResumable
 
+  member _.BackEdges with get() = backEdges
+
   member _.PerVertexStackPointerDelta with get() = perVertexStackPointerDelta
 
   member _.GetStackPointerDelta(state, v) = getStackPointerDelta state v
@@ -180,6 +185,7 @@ and EVMFuncUserContext() =
       perVertexStackPointerDelta.Clear()
       verticesPostponed.Clear()
       verticesResumable.Clear()
+      backEdges.Clear()
       stackPointerDiff <- None
       returnTargetStackOff <- 0UL
 
