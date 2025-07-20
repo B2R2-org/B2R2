@@ -139,7 +139,7 @@ module internal CFGRecovery =
   /// Try to remove a vertex in the CFG whose program point is given as `ppoint`
   /// and return its predecessors and successors. When there's no such vertex,
   /// return empty arrays.
-  let tryRemoveVertexAt ctx ppoint =
+  let tryRemoveVertexAt ctx (cfgRec: ICFGRecovery<_, _>) ppoint =
     match ctx.Vertices.TryGetValue ppoint with
     | true, v ->
       let preds =
@@ -148,7 +148,7 @@ module internal CFGRecovery =
       let succs = ctx.CFG.GetSuccEdges v
       ctx.CFG.RemoveVertex v
       ctx.Vertices.Remove ppoint |> ignore
-      markVertexAsRemovalForAnalysis ctx v
+      cfgRec.OnRemoveVertex ctx v
       preds, succs
     | false, _ ->
       [||], [||]
@@ -166,7 +166,7 @@ module internal CFGRecovery =
   let reconnectVertices ctx (cfgRec: ICFGRecovery<_, _>)
                         (dividedEdges: List<ProgramPoint * ProgramPoint>) =
     for (srcPPoint, dstPPoint) in dividedEdges do
-      let preds, succs = tryRemoveVertexAt ctx srcPPoint
+      let preds, succs = tryRemoveVertexAt ctx cfgRec srcPPoint
       if Array.isEmpty preds && Array.isEmpty succs then
         (* Don't reconnect previously unseen blocks, which can be introduced by
            tail-calls. N.B. BBLFactory cannot see tail-calls. *)
@@ -631,7 +631,8 @@ module internal CFGRecovery =
   let isNoRet (v: IVertex<LowUIRBasicBlock>) =
     v.VData.Internals.AbstractContent.ReturningStatus = NoRet
 
-  let updateCallEdgesForEachCallsite ctx callsites calleeAddr calleeInfo =
+  let updateCallEdgesForEachCallsite ctx cfgRec callsites calleeAddr
+                                     calleeInfo =
     for callsite in callsites do
       let absPp = ProgramPoint (callsite, calleeAddr, 0)
       match ctx.Vertices.TryGetValue absPp with
@@ -646,15 +647,15 @@ module internal CFGRecovery =
         dbglog ctx.ThreadID (nameof UpdateCallEdges)
         <| $"{callsite:x} -> {calleeAddr:x} @ {fnAddr:x}"
 #endif
-        tryRemoveVertexAt ctx absPp |> ignore
+        tryRemoveVertexAt ctx cfgRec absPp |> ignore
         ctx.ActionQueue.Push prioritizer action
       | _ -> ()
     MoveOn
 
-  let updateCallEdges (ctx: CFGBuildingContext<_, _>) calleeAddr calleeInfo =
+  let updateCallEdges ctx cfgRec calleeAddr calleeInfo =
     match ctx.IntraCallTable.TryGetCallsites calleeAddr with
     | true, callsites ->
-      updateCallEdgesForEachCallsite ctx callsites calleeAddr calleeInfo
+      updateCallEdgesForEachCallsite ctx cfgRec callsites calleeAddr calleeInfo
     | false, _ ->
       Terminator.impossible ()
 
@@ -770,7 +771,7 @@ module internal CFGRecovery =
         dbglog ctx.ThreadID (nameof UpdateCallEdges)
         <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"
 #endif
-        updateCallEdges ctx calleeAddr calleeInfo
+        updateCallEdges ctx cfgRec calleeAddr calleeInfo
       | ResumeAnalysis (pp, callbackAction) ->
         cfgRec.ResumeAnalysis ctx pp callbackAction
     with e ->
@@ -876,6 +877,9 @@ type CFGRecovery<'FnCtx,
       if not useSSA then
         CFGRecovery.markVertexAsPendingForAnalysis ctx dstVertex
       else ()
+
+    member _.OnRemoveVertex ctx vertex =
+      CFGRecovery.markVertexAsRemovalForAnalysis ctx vertex
 
   new (allowBBLOverlap, useSSA) =
     let summarizer = FunctionSummarizer ()

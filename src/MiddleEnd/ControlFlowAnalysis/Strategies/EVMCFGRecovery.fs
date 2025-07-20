@@ -723,4 +723,7 @@ type EVMCFGRecovery () as this =
       if isEntryPoint then cp.MarkEdgeAsPending null v
 
     member _.OnAddEdge ctx srcV dstV _kind =
-      ctx.UserContext.CP.MarkEdgeAsPending srcV dstV
+      ctx.UserContext.CP.State.MarkEdgeAsPending srcV dstV
+
+    member _.OnRemoveVertex ctx v =
+      ctx.UserContext.CP.State.MarkVertexAsRemoval v |> ignore

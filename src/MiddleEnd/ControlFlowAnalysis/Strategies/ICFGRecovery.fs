@@ -101,3 +101,9 @@ and IGraphCallback<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     -> IVertex<LowUIRBasicBlock>
     -> CFGEdgeKind
     -> unit
+
+  /// Called when a vertex is removed from the CFG.
+  abstract OnRemoveVertex:
+       CFGBuildingContext<'FnCtx, 'GlCtx>
+    -> IVertex<LowUIRBasicBlock>
+    -> unit
