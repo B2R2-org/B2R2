@@ -71,19 +71,31 @@ with
     int (this.MaxAddr - this.Addr + 1UL)
 
   /// Checks if the pointer can read the given size of bytes.
-  member inline this.CanRead (size: int) =
+  member inline this.CanRead(size: int) =
     this.Addr + uint64 size - 1UL <= this.MaxAddr
+
+  /// Advances the pointer by a given amount.
+  member inline this.Advance(amount: int) =
+    BinFilePointer(
+      this.Addr + uint64 amount,
+      this.MaxAddr,
+      min (this.MaxOffset + 1) (this.Offset + amount),
+      this.MaxOffset)
+
+  /// Advances the pointer by a given amount.
+  member inline this.Advance(amount: uint32) =
+    BinFilePointer(
+      this.Addr + uint64 amount,
+      this.MaxAddr,
+      min (this.MaxOffset + 1) (this.Offset + int amount),
+      this.MaxOffset)
 
   /// Returns a null pointer.
   static member Null = BinFilePointer (0UL, 0UL, -1, -1)
 
   /// Advances the pointer by a given amount.
-  static member Advance (p: BinFilePointer) amount =
-    BinFilePointer (
-      p.Addr + uint64 amount,
-      p.MaxAddr,
-      min (p.MaxOffset + 1) (p.Offset + amount),
-      p.MaxOffset)
+  static member Advance(p: BinFilePointer, amount: int) =
+    p.Advance amount
 
-  override this.ToString () =
+  override this.ToString() =
     $"{this.Addr:x}-{this.MaxAddr:x} ({this.Offset:x} of {this.MaxOffset:x})"

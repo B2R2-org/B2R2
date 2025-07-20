@@ -76,7 +76,7 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt) =
     if ptr.IsValid && not ptr.IsVirtual then
       let b = binFile.RawBytes[ptr.Offset]
       if b = 0uy then List.rev (b :: acc) |> List.toArray
-      else readAscii (b :: acc) (BinFilePointer.Advance ptr 1)
+      else readAscii (b :: acc) (ptr.Advance 1)
     else List.rev acc |> List.toArray
 
   let readOrPartialReadBytes (ptr: BinFilePointer) nBytes =

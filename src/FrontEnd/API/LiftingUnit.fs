@@ -78,7 +78,7 @@ type LiftingUnit (binFile: IBinFile,
       if ins.IsTerminator then
         Ok <| toReversedArray (cnt + 1) (ins :: acc)
       else
-        let ptr = BinFilePointer.Advance ptr (int ins.Length)
+        let ptr = ptr.Advance(ins.Length)
         if ptr.IsValid then parseBBLByPtr ptr (cnt + 1) (ins :: acc)
         else Error <| toReversedArray (cnt + 1) (ins :: acc)
     | Error _ -> Error <| toReversedArray cnt acc

@@ -158,7 +158,7 @@ let handleInvalidIns hdl (modeSwitch: ARM32.IModeSwitchable) ptr isLift cfg =
   let bytes = hdl.ReadBytes (ptr = ptr, nBytes = align)
   if isLift then printLowUIR IllegalStr bytes cfg
   else printRegularDisasm IllegalStr wordSize ptr.Addr bytes cfg
-  BinFilePointer.Advance ptr align
+  ptr.Advance align
 
 let printFuncSymbol (dict: Dictionary<Addr, string>) addr =
   match (dict: Dictionary<Addr, string>).TryGetValue (addr) with
@@ -200,7 +200,7 @@ type BinPrinter (hdl: BinHandle, cfg, isLift) =
       match liftingUnit.TryParseInstruction (ptr = ptr) with
       | Ok (ins) ->
         this.PrintInstr hdl ptr ins
-        let ptr' = BinFilePointer.Advance ptr (int ins.Length)
+        let ptr' = ptr.Advance(ins.Length)
         this.Print ptr'
       | Error _ ->
         this.Print (handleInvalidIns hdl modeSwitch ptr isLift cfg)

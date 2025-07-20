@@ -36,10 +36,10 @@ type LinearSweepInstructionCollector (hdl: BinHandle,
       match liftingUnit.TryParseInstruction (ptr=ptr) with
       | Ok ins ->
         updateFn (ptr.Addr, OnlyOne ins) |> ignore
-        update updateFn (BinFilePointer.Advance ptr (int ins.Length))
+        update updateFn (ptr.Advance(ins.Length))
       | Error _ ->
         let shiftAmount = liftingUnit.InstructionAlignment
-        update updateFn (BinFilePointer.Advance ptr shiftAmount)
+        update updateFn (ptr.Advance(shiftAmount))
     else ()
 
   new (hdl: BinHandle) =

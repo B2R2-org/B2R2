@@ -37,13 +37,13 @@ type DisasmAction () =
         let insLen = int instr.Length
         let insBytes =
           IBinFile.Slice(lifter.File, ptr.Offset, insLen).ToArray ()
-        let ptr = BinFilePointer.Advance ptr insLen
+        let ptr = ptr.Advance insLen
         let acc = ValidInstruction (instr, insBytes) :: acc
         disasm acc lifter ptr
       | Error _ ->
         let badbyte = [| lifter.File.RawBytes[ptr.Offset] |]
         let acc = BadInstruction (ptr.Addr, badbyte) :: acc
-        let ptr = BinFilePointer.Advance ptr 1
+        let ptr = ptr.Advance 1
         disasm acc lifter ptr
     else
       List.rev acc |> List.toArray
