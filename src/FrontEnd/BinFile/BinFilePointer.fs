@@ -50,11 +50,6 @@ type BinFilePointer =
         MaxOffset = maxOffset }
   end
 with
-  /// Checks if the pointer is a VM-only pointer, meaning that there is no
-  /// corresponding file offset.
-  member inline this.IsVMOnly with get () =
-    this.Offset = this.MaxOffset
-
   /// Checks if the pointer is valid.
   member inline this.IsValid with get () =
     this.Addr <= this.MaxAddr && this.Offset <= this.MaxOffset
@@ -63,13 +58,13 @@ with
   member inline this.IsNull with get () =
     this.Addr = 0UL
     && this.MaxAddr = 0UL
-    && this.Offset = 0
-    && this.MaxOffset = 0
+    && this.Offset = -1
+    && this.MaxOffset = -1
 
   /// Checks if the pointer is virtual, meaning that it currently points to a
   /// region that is mapped to VM but not to the file.
   member inline this.IsVirtual with get () =
-    this.Offset = this.MaxOffset
+    this.Offset > this.MaxOffset
 
   /// Returns the amount of bytes that can be read from the pointer.
   member inline this.ReadableAmount with get () =
@@ -80,14 +75,14 @@ with
     this.Addr + uint64 size - 1UL <= this.MaxAddr
 
   /// Returns a null pointer.
-  static member Null = BinFilePointer (0UL, 0UL, 0, 0)
+  static member Null = BinFilePointer (0UL, 0UL, -1, -1)
 
   /// Advances the pointer by a given amount.
   static member Advance (p: BinFilePointer) amount =
     BinFilePointer (
       p.Addr + uint64 amount,
       p.MaxAddr,
-      min p.MaxOffset (p.Offset + amount),
+      min (p.MaxOffset + 1) (p.Offset + amount),
       p.MaxOffset)
 
   override this.ToString () =
