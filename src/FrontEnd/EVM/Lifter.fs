@@ -313,6 +313,10 @@ let private translateOpcode ins bld = function
   | MSIZE -> callExternFunc ins bld "msize" 0 true
   | GAS -> gas ins bld
   | JUMPDEST -> ()
+  | TLOAD -> callExternFunc ins bld "tload" 1 true
+  | TSTORE -> callExternFunc ins bld "tstore" 2 false
+  | MCOPY -> callExternFunc ins bld "mcopy" 3 false
+  | PUSH0 -> push ins bld (BitVector.Zero 256<rt>)
   | PUSH1 imm -> push ins bld imm
   | PUSH2 imm -> push ins bld imm
   | PUSH3 imm -> push ins bld imm

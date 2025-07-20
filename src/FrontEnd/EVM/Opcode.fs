@@ -156,6 +156,14 @@ type Opcode =
   | GAS
   /// Mark a valid destination for jumps
   | JUMPDEST
+  /// Load word from transient storage
+  | TLOAD
+  /// Save word to transient storage
+  | TSTORE
+  /// Copy bytes from memory to memory
+  | MCOPY
+  /// Place zero value on stack
+  | PUSH0
   /// Place 1 byte item on stack
   | PUSH1 of BitVector
   /// Place 2-byte item on stack

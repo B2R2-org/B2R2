@@ -98,6 +98,10 @@ let private parseOpcode (span: ReadOnlySpan<byte>) =
   | 0x59uy -> struct (MSIZE, 2, 1u)
   | 0x5auy -> struct (GAS, 2, 1u)
   | 0x5buy -> struct (JUMPDEST, 1, 1u)
+  | 0x5cuy -> struct (TLOAD, 100, 1u)
+  | 0x5duy -> struct (TSTORE, 100, 1u)
+  | 0x5euy -> struct (MCOPY, 3, 1u)
+  | 0x5fuy -> struct (PUSH0, 1, 1u)
   | 0x60uy -> parsePush span PUSH1 1u
   | 0x61uy -> parsePush span PUSH2 2u
   | 0x62uy -> parsePush span PUSH3 3u
