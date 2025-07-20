@@ -61,6 +61,7 @@ module FileFactory =
     | FileFormat.HexBinary ->
       let str = System.Text.Encoding.ASCII.GetString bytes
       let str = if str.StartsWith "0x" then str[2..] else str
+      let str = str.TrimEnd ()
       RawBinFile (path, ByteArray.ofHexString str, isa, baseAddrOpt) :> IBinFile
     | _ ->
       RawBinFile (path, bytes, isa, baseAddrOpt) :> IBinFile
