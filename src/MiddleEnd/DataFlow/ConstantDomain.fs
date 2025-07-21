@@ -91,9 +91,19 @@ module ConstantDomain =
 
   let smod c1 c2 = divAux BitVector.SModulo c1 c2
 
-  let shl c1 c2 = binOp BitVector.Shl c1 c2
+  let private adjustShiftOperand c =
+    match c with
+    | Const bv ->
+      let rt = BitVector.GetType bv
+      let upperBound = BitVector.OfUInt64 0xFFFFFFFFUL rt
+      let isOkay = BitVector.Le (bv, upperBound) |> BitVector.IsTrue
+      if isOkay then c
+      else NotAConst
+    | _ -> c
 
-  let shr c1 c2 = binOp BitVector.Shr c1 c2
+  let shl c1 c2 = binOp BitVector.Shl c1 (adjustShiftOperand c2)
+
+  let shr c1 c2 = binOp BitVector.Shr c1 (adjustShiftOperand c2)
 
   let sar c1 c2 = binOp BitVector.Sar c1 c2
 
