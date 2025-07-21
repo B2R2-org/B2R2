@@ -28,8 +28,8 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Parser for PARISC instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
+/// Represents a parser for PARISC instructions. Parser will return a
+/// platform-agnostic instruction type (Instruction).
 type PARISCParser (isa: ISA, reader) =
 
   let wordSize = isa.WordSize

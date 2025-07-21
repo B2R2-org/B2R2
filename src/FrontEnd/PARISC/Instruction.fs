@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.PARISC
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for PA-RISC.
+/// Represents an instruction for PARISC.
 type Instruction
   internal (addr, numBytes, completer, cond, id, op, opr, oprSize, wordSize,
             lifter: ILiftable) =
