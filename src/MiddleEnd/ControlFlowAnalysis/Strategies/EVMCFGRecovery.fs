@@ -63,15 +63,20 @@ module private EVMCFGRecovery =
 
   let isMsgDataDivision = function
     | SSA.BinOp(BinOpType.DIV, _,
-                 SSA.BinOp(BinOpType.APP, _, SSA.FuncName "msg.data", _),
-                 SSA.Num _disivorBv)
+                SSA.BinOp(BinOpType.APP, _, SSA.FuncName "msg.data", _),
+                SSA.Num _disivorBv)
     | SSA.BinOp(BinOpType.DIV, _,
-                 SSA.Num _disivorBv,
-                 SSA.BinOp(BinOpType.APP, _, SSA.FuncName "msg.data", _))
+                SSA.Num _disivorBv,
+                SSA.BinOp(BinOpType.APP, _, SSA.FuncName "msg.data", _))
+      -> true
+    | SSA.BinOp(BinOpType.DIV, _,
+                SSA.BinOp (BinOpType.APP, _, SSA.FuncName "msg.data", _),
+                SSA.BinOp (BinOpType.APP, _, SSA.FuncName "exp",
+                           SSA.ExprList [ SSA.Num bv_0x2; SSA.Num bv_0xe0 ]))
       -> true
     | SSA.BinOp(BinOpType.SHR, _,
-                 SSA.BinOp(BinOpType.APP, _, SSA.FuncName "msg.data", _),
-                 SSA.Num _shiftBv)
+                SSA.BinOp(BinOpType.APP, _, SSA.FuncName "msg.data", _),
+                SSA.Num _shiftBv)
       -> true
     | _ -> false
 
@@ -85,6 +90,7 @@ module private EVMCFGRecovery =
 
   let rec tryDetectPubFunc ctx state cond =
     match cond with
+    | SSA.ExprList exprs -> exprs |> List.exists (tryDetectPubFunc ctx state)
     | SSA.Extract(e, _, _) -> tryDetectPubFunc ctx state e
     | SSA.Cast(_, _, e) -> tryDetectPubFunc ctx state e
     | SSA.RelOp(RelOpType.EQ, _, SSA.Num hashBv, e)
@@ -546,7 +552,7 @@ module private EVMCFGRecovery =
       introduceNewFunction ctx newEntryPointAddr
       Some StopAndReload
 
-  let handleInterJmp ctx cfgRec queue v =
+  let handleInterJmp ctx cfgRec v =
     let state = computeCPState ctx
     match tryOverApproximateTerminator state v with
     | Some(SSA.Jmp(SSA.InterJmp dstExpr)) ->
@@ -742,8 +748,8 @@ type EVMCFGRecovery() as this =
       ctx.UnwindingBytes <- unwinding
       MoveOn
 
-    member _.AnalyzeIndirectJump(ctx, ppQueue, _pp, srcV) =
-      postponeOrGo ctx srcV (fun () -> handleInterJmp ctx this ppQueue srcV)
+    member _.AnalyzeIndirectJump(ctx, _ppQueue, _pp, srcV) =
+      postponeOrGo ctx srcV (fun () -> handleInterJmp ctx this srcV)
 
     member _.AnalyzeIndirectCondJump(ctx, _ppQueue, _pp, srcV) =
       postponeOrGo ctx srcV (fun () -> handleInterCJmp ctx this srcV)
