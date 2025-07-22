@@ -110,7 +110,7 @@ type State<'L, 'ExeCtx when 'L: equality
     HashSet<IVertex<LowUIRBasicBlock> * IVertex<LowUIRBasicBlock>> ()
 
   /// Queue of vertices that need to be removed.
-  let verticesForRemoval = Queue<IVertex<LowUIRBasicBlock>> ()
+  let verticesForRemoval = HashSet<IVertex<LowUIRBasicBlock>> ()
 
   let domainGetAbsValue vp =
     match domainAbsValues.TryGetValue vp with
@@ -360,6 +360,7 @@ type State<'L, 'ExeCtx when 'L: equality
     | true, sstmts -> sstmts
     | false, _ ->
       assert (not << ProgramPoint.IsFake) pp
+      assert (stmtOfBBLs.ContainsKey pp)
       let stmt, _ = stmtOfBBLs[pp]
       let sstmt = computeSSAStmt stmt pp exeCtx
       perPointSSAStmtCache[tpp] <- sstmt
@@ -375,6 +376,16 @@ type State<'L, 'ExeCtx when 'L: equality
     getStatements v
     |> Array.filter (fun (stmt, _pp) -> (not << isNoOpStmt) stmt)
     |> Array.map (fun (_stmt, pp) -> getSSAStmt pp exeCtx)
+
+  let invalidateSSAStmts (v: IVertex<LowUIRBasicBlock>) (exeCtx: 'ExeCtx) =
+    let vWithExeCtx = v, exeCtx
+    ssaStmtCache.Remove vWithExeCtx |> ignore
+    match stmtInfoCache.TryGetValue v with
+    | false, _ -> Terminator.impossible ()
+    | true, stmtInfos ->
+      for _stmt, pp in stmtInfos do
+        let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+        perPointSSAStmtCache.Remove tpp |> ignore
 
   let domainSubState =
     let flowQueue = UniqueQueue ()
@@ -471,6 +482,9 @@ type State<'L, 'ExeCtx when 'L: equality
   /// A setter for the evaluator.
   member _.Evaluator with set v = evaluator <- v
 
+  /// Returns a sequence of vertices that are pending for removal.
+  member _.VerticesForRemoval with get () = verticesForRemoval: IEnumerable<_>
+
   /// The given binary handle.
   member _.BinHandle with get () = hdl
 
@@ -479,8 +493,8 @@ type State<'L, 'ExeCtx when 'L: equality
   member _.MarkEdgeAsPending s d = edgesForProcessing.Add (s, d) |> ignore
 
   /// Mark the given vertex as removal, which means that the vertex needs to be
-  /// removed.
-  member _.MarkVertexAsRemoval v = verticesForRemoval.Enqueue v |> ignore
+  /// removed. Returns false if the vertex is already marked for removal.
+  member _.MarkVertexAsRemoval v = verticesForRemoval.Add v
 
   /// Check if the given vertex is pending for processing.
   member _.IsEdgePending src dst = edgesForProcessing.Contains (src, dst)
@@ -488,9 +502,8 @@ type State<'L, 'ExeCtx when 'L: equality
   /// Clear the pending vertices.
   member _.ClearPendingEdges () = edgesForProcessing.Clear ()
 
-  /// Dequeue the vertex for removal. When there is no vertex to remove, it
-  /// returns `false`.
-  member _.DequeueVertexForRemoval () = verticesForRemoval.TryDequeue ()
+  /// Clear the vertices to be removed.
+  member _.ClearRemovalVertices () = verticesForRemoval.Clear ()
 
   /// Return the array of StmtInfos of the given vertex.
   member _.GetStmtInfos v = getStatements v
@@ -504,14 +517,27 @@ type State<'L, 'ExeCtx when 'L: equality
       ssaStmtCache[vWithCtx] <- stmts
       stmts
 
-  /// Remove the cached SSA statements for the given vertex and execution
-  /// context.
-  member _.InvalidateSSAStmts (v: IVertex<LowUIRBasicBlock>) (exeCtx: 'ExeCtx) =
-    let vWithExeCtx = v, exeCtx
-    ssaStmtCache.Remove vWithExeCtx |> ignore
-    for _stmt, pp in getStatements v do
-      let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-      perPointSSAStmtCache.Remove tpp |> ignore
+  /// Invalidate the given vertex, which means that all the information
+  /// associated with the vertex is removed from the state. The order of
+  /// the removal is important, and it should be done in the current order.
+  member _.InvalidateVertex (v: IVertex<LowUIRBasicBlock>) =
+    scheme.OnRemoveVertex v
+    match perVertexPossibleExeCtxs.TryGetValue v with
+    | false, _ -> ()
+    | true, exeCtxs ->
+      for exeCtx in exeCtxs do
+        let key = v, exeCtx
+        perVertexIncomingDefs.Remove key |> ignore
+        perVertexOutgoingDefs.Remove key |> ignore
+        perVertexStackPointerInfos.Remove key |> ignore
+        invalidateSSAStmts v exeCtx
+      perVertexPossibleExeCtxs.Remove v |> ignore
+    match stmtInfoCache.TryGetValue v with
+    | false, _ -> ()
+    | true, stmtInfos ->
+      for (_, pp) in stmtInfos do
+        stmtOfBBLs.Remove pp |> ignore
+      stmtInfoCache.Remove v |> ignore
 
   member _.TryFindSSADefStmtFromSSAVar var =
     let svp = getDefSvpFromSSAVar var
@@ -525,6 +551,9 @@ type State<'L, 'ExeCtx when 'L: equality
   member this.FindSSADefStmtFromSSAVar var =
     this.TryFindSSADefStmtFromSSAVar var
     |> Option.get
+
+  member _.InvalidateSSAStmts v exeCtx =
+    invalidateSSAStmts v exeCtx
 
   member _.SSAVarToDefSVP var = getDefSvpFromSSAVar var
 
@@ -607,22 +636,10 @@ and SensitiveVarPoint<'ExeCtx when 'ExeCtx: equality
 module internal AnalysisCore = begin
 
   /// Dataflow chains become invalid when a vertex is removed from the graph.
-  let rec removeInvalidChains (state: State<_, _>) =
-    match state.DequeueVertexForRemoval () with
-    | true, v when state.PerVertexPossibleExeCtxs.ContainsKey v ->
-      state.Scheme.OnRemoveVertex v
-      for (_, pp) in state.GetStmtInfos v do
-        state.StmtOfBBLs.Remove pp |> ignore
-      for exeCtx in state.PerVertexPossibleExeCtxs[v] do
-        let key = v, exeCtx
-        state.PerVertexIncomingDefs.Remove key |> ignore
-        state.PerVertexOutgoingDefs.Remove key |> ignore
-        state.PerVertexStackPointerInfos.Remove key |> ignore
-        state.InvalidateSSAStmts v exeCtx
-      state.PerVertexPossibleExeCtxs.Remove v |> ignore
-      removeInvalidChains state
-    | true, _ -> removeInvalidChains state
-    | false, _ -> ()
+  let removeInvalidChains (state: State<_, _>) =
+    for v in state.VerticesForRemoval do
+      state.InvalidateVertex v
+    state.ClearRemovalVertices ()
 
   let getStackValue state pp e =
     match (state: SubState<_, _>).EvalExpr(pp, e) with
