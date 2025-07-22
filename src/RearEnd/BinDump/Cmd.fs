@@ -90,7 +90,7 @@ type BinDumpOpts () =
   /// "-i" or "--isa" option for specifying ISA.
   static member OptISA () =
     let cb opts (arg: string []) =
-      (BinDumpOpts.ToThis opts).ISA <- ISA.OfString arg[0]
+      (BinDumpOpts.ToThis opts).ISA <- ISA arg[0]
       opts
     CmdOpts.New (descr = "Specify <ISA> (e.g., x86) from command line",
                  extra = 1, callback = cb, short = "-i", long = "--isa")

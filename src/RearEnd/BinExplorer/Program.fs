@@ -108,7 +108,7 @@ type BinExplorerOpts (isa) =
   /// "-a" or "--isa" option for specifying ISA.
   static member OptISA () =
     let cb (opts: #CmdOpts) (arg: string []) =
-      (BinExplorerOpts.ToThis opts).ISA <- ISA.OfString arg[0]; opts
+      (BinExplorerOpts.ToThis opts).ISA <- ISA arg[0]; opts
     CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) for fat binaries",
                   extra = 1, callback = cb, short = "-a", long = "--isa" )
 

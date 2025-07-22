@@ -65,11 +65,11 @@ type LoadAction () =
       if collection.Values |> Array.forall isNull then ()
       else invalidArg (nameof collection) "Invalid argument type."
       match args with
-      | s :: isa :: "raw" :: [] ->
-        let isa = ISA.OfString isa
+      | s :: isaName :: "raw" :: [] ->
+        let isa = ISA isaName
         { Values = load isa false s }
-      | s :: isa :: [] ->
-        let isa = ISA.OfString isa
+      | s :: isaName :: [] ->
+        let isa = ISA isaName
         { Values = load isa true s }
       | s :: [] ->
         let isa = ISA Architecture.Intel

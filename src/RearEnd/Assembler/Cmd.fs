@@ -68,7 +68,7 @@ type AssemblerOpts () =
   static member OptISA () =
     let cb (opts: #CmdOpts) (arg: string []) =
       (AssemblerOpts.ToThis opts).Mode <-
-        AssemblerMode.changeISA (ISA.OfString arg[0])
+        AssemblerMode.changeISA (ISA arg[0])
           (AssemblerOpts.ToThis opts).Mode
       opts
     CmdOpts.New (descr = "Specify <ISA> (e.g., x86) from command line",
