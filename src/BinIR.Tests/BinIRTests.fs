@@ -38,7 +38,7 @@ type BinIRTests () =
     let n3 = AST.num <| BitVector.OfInt32 3 32<rt>
     let e1 = AST.add (AST.mul n1 n2) n3
     let e2 = AST.sub (AST.mul n2 n3) n1
-    Assert.AreEqual<Expr> (e1, e2)
+    Assert.AreEqual<Expr>(e1, e2)
 
   [<TestMethod>]
   member _.``Expr Commutative Equivalence Test 1``() =
@@ -47,10 +47,10 @@ type BinIRTests () =
     let e1 = AST.add n1 n2
     let e2 = AST.add n2 n1
 #if ! HASHCONS
-    Assert.AreNotEqual (e1, e2)
+    Assert.AreNotEqual(e1, e2)
 #else
-    Assert.AreEqual (e1, e2)
-    Assert.AreEqual<int> (e1.GetHashCode (), e2.GetHashCode ())
+    Assert.AreEqual(e1, e2)
+    Assert.AreEqual<int>(e1.GetHashCode(), e2.GetHashCode())
 #endif
 
   [<TestMethod>]
@@ -61,10 +61,10 @@ type BinIRTests () =
     let e1 = AST.mul n3 (AST.div n1 n2)
     let e2 = AST.mul (AST.div n1 n2) n3
 #if ! HASHCONS
-    Assert.AreNotEqual (e1, e2)
+    Assert.AreNotEqual(e1, e2)
 #else
-    Assert.AreEqual (e1, e2)
-    Assert.AreEqual<int> (e1.GetHashCode (), e2.GetHashCode ())
+    Assert.AreEqual(e1, e2)
+    Assert.AreEqual<int>(e1.GetHashCode(), e2.GetHashCode())
 #endif
 
   [<TestMethod>]

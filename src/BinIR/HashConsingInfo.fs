@@ -34,12 +34,12 @@ type HashConsingInfo (id, hash) =
   /// <summary>
   /// Creates a new instance of HashConsingInfo with default values.
   /// </summary>
-  new () = HashConsingInfo (0u, 0)
+  new () = HashConsingInfo(0u, 0)
 
   /// Unique ID of the hash consed object.
-  member _.ID with get(): uint32 = id and set(v) = id <- v
+  member _.ID with get (): uint32 = id and set (v) = id <- v
   /// Hash value of the hash consed object.
-  member _.Hash with get(): int = hash and set(v) = hash <- v
+  member _.Hash with get (): int = hash and set (v) = hash <- v
 
 [<AutoOpen>]
 module internal HashConsingInfo =

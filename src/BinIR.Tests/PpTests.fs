@@ -44,74 +44,74 @@ type PpTests () =
   let tmpvarNum1 = AST.tmpvar 32<rt> 1
 
   [<TestMethod>]
-  member _.``PP bitVector from uint32 test`` () =
+  member _.``PP bitVector from uint32 test``() =
     let e = BitVector.OfUInt32 42ul 32<rt> |> AST.num
     assertEqualOfStrAndExpr "0x2a:I32" e
 
   [<TestMethod>]
-  member _.``PP construct tempVar test (1)`` () =
+  member _.``PP construct tempVar test (1)``() =
     assertEqualOfStrAndExpr "T_0:I32" tmpvarNum0
 
   [<TestMethod>]
-  member _.``PP construct tempVar test (2)`` () =
+  member _.``PP construct tempVar test (2)``() =
     assertEqualOfStrAndExpr "T_1:I32" tmpvarNum1
 
   [<TestMethod>]
-  member _.``PP binary operator test (1)`` () =
+  member _.``PP binary operator test (1)``() =
     let e = AST.binop BinOpType.ADD tmpvarNum0 tmpvarNum1
     assertEqualOfStrAndExpr "(T_0:I32 + T_1:I32)" e
 
   [<TestMethod>]
-  member _.``PP binary operator test (2)`` () =
+  member _.``PP binary operator test (2)``() =
     let e = AST.binop BinOpType.AND tmpvarNum0 tmpvarNum1
     assertEqualOfStrAndExpr "(T_0:I32 & T_1:I32)" e
 
   [<TestMethod>]
-  member _.``PP binary operator test (3)`` () =
+  member _.``PP binary operator test (3)``() =
     let e = AST.binop BinOpType.DIV tmpvarNum0 tmpvarNum1
     assertEqualOfStrAndExpr "(T_0:I32 / T_1:I32)" e
 
   [<TestMethod>]
-  member _.``PP unary operator test (1)`` () =
+  member _.``PP unary operator test (1)``() =
     assertEqualOfStrAndExpr "(- T_1:I32)" (AST.unop UnOpType.NEG tmpvarNum1)
 
   [<TestMethod>]
-  member _.``PP unary operator test (2)`` () =
+  member _.``PP unary operator test (2)``() =
     let binop = AST.binop BinOpType.ADD tmpvarNum0 tmpvarNum1
     let e = AST.unop UnOpType.NOT binop
     assertEqualOfStrAndExpr "(~ (T_0:I32 + T_1:I32))" e
 
   [<TestMethod>]
-  member _.``PP construct load test (1)`` () =
+  member _.``PP construct load test (1)``() =
     let e = AST.load Endian.Little 32<rt> tmpvarNum0
     assertEqualOfStrAndExpr "[T_0:I32]:I32" e
 
   [<TestMethod>]
-  member _.``PP construct load test (2)`` () =
+  member _.``PP construct load test (2)``() =
     let e = AST.load Endian.Big 64<rt> tmpvarNum0
     assertEqualOfStrAndExpr "[T_0:I32]:I64" e
 
   [<TestMethod>]
-  member _.``PP construct ite test`` () =
+  member _.``PP construct ite test``() =
     let e = AST.ite (AST.tmpvar 1<rt> 2) tmpvarNum0 tmpvarNum1
     assertEqualOfStrAndExpr "((T_2:I1) ? (T_0:I32) : (T_1:I32))" e
 
   [<TestMethod>]
-  member _.``PP relative operator test`` () =
+  member _.``PP relative operator test``() =
     let e = AST.relop RelOpType.EQ tmpvarNum0 tmpvarNum1
     assertEqualOfStrAndExpr "(T_0:I32 = T_1:I32)" e
 
   [<TestMethod>]
-  member _.``PP conditional jump test`` () =
+  member _.``PP conditional jump test``() =
     let e = AST.cjmp tmpvarNum0 tmpvarNum0 tmpvarNum1
     assertEqualOfStrAndStmt "if T_0:I32 then jmp T_0:I32 else jmp T_1:I32" e
 
   [<TestMethod>]
-  member _.``PP interConditional jump test`` () =
+  member _.``PP interConditional jump test``() =
     let e = AST.intercjmp tmpvarNum0 tmpvarNum0 tmpvarNum1
     assertEqualOfStrAndStmt "if T_0:I32 then ijmp T_0:I32 else ijmp T_1:I32" e
 
   [<TestMethod>]
-  member _.``PP assignment statement test`` () =
+  member _.``PP assignment statement test``() =
     let e = AST.assign tmpvarNum0 tmpvarNum1
     assertEqualOfStrAndStmt "T_0:I32 := T_1:I32" e

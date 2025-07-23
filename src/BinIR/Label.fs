@@ -36,23 +36,23 @@ type Label (name: string, id: int, addr: Addr) =
   /// <summary>
   /// Retrives the symbolic name of the label.
   /// </summary>
-  member _.Name with get() = name
+  member _.Name with get () = name
 
   /// <summary>
   /// Retrives the ID of the label. The ID is unique for each label and is used
   /// to distinguish between different labels.
   /// </summary>
-  member _.Id with get() = id
+  member _.Id with get () = id
 
   /// <summary>
   /// Retrives the instruction address that this label belongs to.
   /// </summary>
-  member _.Address with get() = addr
+  member _.Address with get () = addr
 
   /// <summary>
   /// Compares two labels for equality.
   /// </summary>
-  override _.Equals (obj) =
+  override _.Equals(obj) =
     match obj with
     | :? Label as lbl -> lbl.Name = name && lbl.Id = id && lbl.Address = addr
     | _ -> false
@@ -60,9 +60,9 @@ type Label (name: string, id: int, addr: Addr) =
   /// <summary>
   /// Computes the hash code for the label.
   /// </summary>
-  override _.GetHashCode () = name.GetHashCode () ^^^ id ^^^ addr.GetHashCode ()
+  override _.GetHashCode() = name.GetHashCode() ^^^ id ^^^ addr.GetHashCode()
 
   /// <summary>
   /// Retrives a stirng representation of the symbol.
   /// </summary>
-  override _.ToString () = name + "_" + id.ToString () + "@" + addr.ToString "x"
+  override _.ToString() = name + "_" + id.ToString() + "@" + addr.ToString "x"

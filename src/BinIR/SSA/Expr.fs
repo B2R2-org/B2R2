@@ -84,18 +84,18 @@ with
   static member TypeOf expr =
     match expr with
     | Num bv -> BitVector.GetType bv
-    | Var { Kind = RegVar (rt, _, _) }
+    | Var { Kind = RegVar(rt, _, _) }
     | Var { Kind = PCVar rt }
-    | Var { Kind = TempVar (rt, _) }
-    | Var { Kind = StackVar (rt, _) }
-    | Var { Kind = GlobalVar (rt, _) } -> rt
-    | Load (_, rt, _) -> rt
-    | Store (_, rt, _, _) -> rt
-    | UnOp (_, rt, _) -> rt
-    | BinOp (_, rt, _, _) -> rt
-    | RelOp (_, rt, _, _) -> rt
-    | Ite (_, rt, _, _) -> rt
-    | Cast (_, rt, _) -> rt
-    | Extract (_, rt, _) -> rt
-    | Undefined (rt, _) -> rt
+    | Var { Kind = TempVar(rt, _) }
+    | Var { Kind = StackVar(rt, _) }
+    | Var { Kind = GlobalVar(rt, _) } -> rt
+    | Load(_, rt, _) -> rt
+    | Store(_, rt, _, _) -> rt
+    | UnOp(_, rt, _) -> rt
+    | BinOp(_, rt, _, _) -> rt
+    | RelOp(_, rt, _, _) -> rt
+    | Ite(_, rt, _, _) -> rt
+    | Cast(_, rt, _) -> rt
+    | Extract(_, rt, _) -> rt
+    | Undefined(rt, _) -> rt
     | _ -> raise InvalidExprException

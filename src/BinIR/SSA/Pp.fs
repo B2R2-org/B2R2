@@ -32,46 +32,46 @@ open B2R2.BinIR
 
 let rec private expToStringAux expr (sb: StringBuilder) =
   match expr with
-  | Num n -> sb.Append (BitVector.ToString n) |> ignore
-  | Var (v) -> sb.Append (Variable.ToString v) |> ignore
+  | Num n -> sb.Append(BitVector.ToString n) |> ignore
+  | Var(v) -> sb.Append(Variable.ToString v) |> ignore
   | Nil -> sb.Append "nil" |> ignore
-  | FuncName (n) -> sb.Append n |> ignore
-  | UnOp (op, _, e) ->
+  | FuncName(n) -> sb.Append n |> ignore
+  | UnOp(op, _, e) ->
     sb.Append "(" |> ignore
-    sb.Append (UnOpType.toString op) |> ignore
+    sb.Append(UnOpType.toString op) |> ignore
     sb.Append " " |> ignore
     expToStringAux e sb
     sb.Append ")" |> ignore
-  | BinOp (op, _, e1, e2) ->
+  | BinOp(op, _, e1, e2) ->
     sb.Append "(" |> ignore
     expToStringAux e1 sb
     sb.Append " " |> ignore
-    sb.Append (BinOpType.toString op) |> ignore
+    sb.Append(BinOpType.toString op) |> ignore
     sb.Append " " |> ignore
     expToStringAux e2 sb
     sb.Append ")" |> ignore
-  | RelOp (op, _, e1, e2) ->
+  | RelOp(op, _, e1, e2) ->
     sb.Append "(" |> ignore
     expToStringAux e1 sb
     sb.Append " " |> ignore
-    sb.Append (RelOpType.toString op) |> ignore
+    sb.Append(RelOpType.toString op) |> ignore
     sb.Append " " |> ignore
     expToStringAux e2 sb
     sb.Append ")" |> ignore
-  | Load (v, typ, e) ->
-    sb.Append (Variable.ToString v) |> ignore
+  | Load(v, typ, e) ->
+    sb.Append(Variable.ToString v) |> ignore
     sb.Append "[" |> ignore
     expToStringAux e sb
     sb.Append "]:" |> ignore
-    sb.Append (RegType.toString typ) |> ignore
-  | Store (v, _, addr, e) ->
-    sb.Append (Variable.ToString v) |> ignore
+    sb.Append(RegType.toString typ) |> ignore
+  | Store(v, _, addr, e) ->
+    sb.Append(Variable.ToString v) |> ignore
     sb.Append "[" |> ignore
     expToStringAux addr sb
     sb.Append " <- " |> ignore
     expToStringAux e sb
     sb.Append "]" |> ignore
-  | Ite (cond, _, e1, e2) ->
+  | Ite(cond, _, e1, e2) ->
     sb.Append "(ite (" |> ignore
     expToStringAux cond sb
     sb.Append ") (" |> ignore
@@ -79,22 +79,22 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append ") (" |> ignore
     expToStringAux e2 sb
     sb.Append "))" |> ignore
-  | Cast (cast, typ, e) ->
-    sb.Append (CastKind.toString cast) |> ignore
+  | Cast(cast, typ, e) ->
+    sb.Append(CastKind.toString cast) |> ignore
     sb.Append ":" |> ignore
-    sb.Append (RegType.toString typ) |> ignore
+    sb.Append(RegType.toString typ) |> ignore
     sb.Append "(" |> ignore
     expToStringAux e sb
     sb.Append ")" |> ignore
-  | Extract (e, typ, p) ->
+  | Extract(e, typ, p) ->
     sb.Append "(" |> ignore
     expToStringAux e sb
     sb.Append "[" |> ignore
-    sb.Append ((int typ + p - 1).ToString () + ":" + p.ToString ()) |> ignore
+    sb.Append((int typ + p - 1).ToString() + ":" + p.ToString()) |> ignore
     sb.Append "]" |> ignore
     sb.Append ")" |> ignore
-  | Undefined (_, reason) ->
-    sb.Append ("Undefined expression (") |> ignore
+  | Undefined(_, reason) ->
+    sb.Append("Undefined expression (") |> ignore
     sb.Append reason |> ignore
     sb.Append ")" |> ignore
 
@@ -102,74 +102,74 @@ let private labelToString (lbl: Label) (sb: StringBuilder) =
   sb.Append $"{lbl.Name} @ {lbl.Address:x}" |> ignore
 
 let private variablesToString (kind: string) vars (sb: StringBuilder) =
-  sb.Append (" ") |> ignore
-  sb.Append (kind) |> ignore
-  sb.Append ("(") |> ignore
+  sb.Append(" ") |> ignore
+  sb.Append(kind) |> ignore
+  sb.Append("(") |> ignore
   vars |> List.iter (fun v ->
-    sb.Append (Variable.ToString v) |> ignore
-    sb.Append (";") |> ignore)
-  sb.Append (")") |> ignore
+    sb.Append(Variable.ToString v) |> ignore
+    sb.Append(";") |> ignore)
+  sb.Append(")") |> ignore
 
 let private stmtToStringAux stmt (sb: StringBuilder) =
   match stmt with
   | LMark lbl ->
-    sb.Append ("=== LMark (") |> ignore
+    sb.Append("=== LMark (") |> ignore
     labelToString lbl sb
-    sb.Append (")") |> ignore
-  | Def (v, e) ->
-    sb.Append (Variable.ToString v) |> ignore
-    sb.Append (" := ") |> ignore
+    sb.Append(")") |> ignore
+  | Def(v, e) ->
+    sb.Append(Variable.ToString v) |> ignore
+    sb.Append(" := ") |> ignore
     expToStringAux e sb
-  | Jmp (IntraJmp (lbl))->
-    sb.Append ("JmpLbl ") |> ignore
+  | Jmp(IntraJmp(lbl))->
+    sb.Append("JmpLbl ") |> ignore
     labelToString lbl sb
-  | Jmp (IntraCJmp (cond, lbl1, lbl2)) ->
-    sb.Append ("if ") |> ignore
+  | Jmp(IntraCJmp(cond, lbl1, lbl2)) ->
+    sb.Append("if ") |> ignore
     expToStringAux cond sb
-    sb.Append (" then JmpLbl ") |> ignore
+    sb.Append(" then JmpLbl ") |> ignore
     labelToString lbl1 sb
-    sb.Append (" else JmpLbl ") |> ignore
+    sb.Append(" else JmpLbl ") |> ignore
     labelToString lbl2 sb
-  | Jmp (InterJmp (dst)) ->
-    sb.Append ("Jmp ") |> ignore
+  | Jmp(InterJmp(dst)) ->
+    sb.Append("Jmp ") |> ignore
     expToStringAux dst sb
-  | Jmp (InterCJmp (cond, dst1, dst2)) ->
-    sb.Append ("if ") |> ignore
+  | Jmp(InterCJmp(cond, dst1, dst2)) ->
+    sb.Append("if ") |> ignore
     expToStringAux cond sb
-    sb.Append (" then Jmp ") |> ignore
+    sb.Append(" then Jmp ") |> ignore
     expToStringAux dst1 sb
-    sb.Append (" else Jmp ") |> ignore
+    sb.Append(" else Jmp ") |> ignore
     expToStringAux dst2 sb
-  | Phi (def, indices) ->
-    sb.Append (Variable.ToString def) |> ignore
-    sb.Append (" := phi(") |> ignore
+  | Phi(def, indices) ->
+    sb.Append(Variable.ToString def) |> ignore
+    sb.Append(" := phi(") |> ignore
     indices |> Array.iter (fun i ->
-      sb.Append (i.ToString ()) |> ignore
-      sb.Append (";") |> ignore)
-    sb.Append (")") |> ignore
-  | ExternalCall (args, inVars, outVars) ->
-    sb.Append ("call ") |> ignore
+      sb.Append(i.ToString()) |> ignore
+      sb.Append(";") |> ignore)
+    sb.Append(")") |> ignore
+  | ExternalCall(args, inVars, outVars) ->
+    sb.Append("call ") |> ignore
     expToStringAux args sb
     variablesToString "OutVars" outVars sb
     variablesToString "InVars" inVars sb
   | SideEffect eff ->
-    sb.Append ("SideEffect " + SideEffect.ToString eff) |> ignore
+    sb.Append("SideEffect " + SideEffect.ToString eff) |> ignore
 
 /// Pretty-prints an SSA expression to a string.
 let expToString expr =
-  let sb = StringBuilder ()
+  let sb = StringBuilder()
   expToStringAux expr sb
-  sb.ToString ()
+  sb.ToString()
 
 /// Pretty-prints an SSA statement to a string.
 let stmtToString expr =
-  let sb = StringBuilder ()
+  let sb = StringBuilder()
   stmtToStringAux expr sb
-  sb.ToString ()
+  sb.ToString()
 
 /// Pretty-prints an array of SSA statements to a string.
 let stmtsToString stmts =
   let sb = StringBuilder()
   Array.iter (fun stmt -> stmtToStringAux stmt sb
-                          sb.Append (Environment.NewLine) |> ignore) stmts
-  sb.ToString ()
+                          sb.Append(Environment.NewLine) |> ignore) stmts
+  sb.ToString()

@@ -49,15 +49,15 @@ let private sTagCnt = ref 0u
    collected in the end. This will produce some garbage entries (with a null
    value). We could use MemoryCache to handle the problem, but the memory leak
    is not severe enough to trade-off the performance. *)
-let private exprs = ConcurrentDictionary<Expr, WeakReference<Expr>> ()
-let private stmts = ConcurrentDictionary<Stmt, WeakReference<Stmt>> ()
+let private exprs = ConcurrentDictionary<Expr, WeakReference<Expr>>()
+let private stmts = ConcurrentDictionary<Stmt, WeakReference<Stmt>>()
 let private newEID () = Threading.Interlocked.Increment eTagCnt
 let private newSID () = Threading.Interlocked.Increment sTagCnt
 
 let inline private tryGetExpr (k: Expr) =
   match exprs.TryGetValue k with
   | true, e ->
-    match e.TryGetTarget () with
+    match e.TryGetTarget() with
     | true, e -> Ok e
     | false, _ -> Error true
   | _ -> Error false
@@ -65,7 +65,7 @@ let inline private tryGetExpr (k: Expr) =
 let inline private tryGetStmt (k: Stmt) =
   match stmts.TryGetValue k with
   | true, s ->
-    match s.TryGetTarget () with
+    match s.TryGetTarget() with
     | true, s -> Ok s
     | false, _ -> Error true
   | _ -> Error false
@@ -75,15 +75,15 @@ let inline private tryGetStmt (k: Stmt) =
 [<CompiledName("Num")>]
 let num bv =
 #if ! HASHCONS
-  Num (bv, null)
+  Num(bv, null)
 #else
-  let hc = HashConsingInfo ()
-  let e = Num (bv, hc)
+  let hc = HashConsingInfo()
+  let e = Num(bv, hc)
   match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
     hc.ID <- newEID ()
-    hc.Hash <- bv.GetHashCode ()
+    hc.Hash <- bv.GetHashCode()
     if isReclaimed then exprs[e].SetTarget e
     else exprs[e] <- WeakReference<Expr> e
     e
@@ -93,10 +93,10 @@ let num bv =
 [<CompiledName("Var")>]
 let var t id name =
 #if ! HASHCONS
-  Var (t, id, name, null)
+  Var(t, id, name, null)
 #else
-  let hc = HashConsingInfo ()
-  let e = Var (t, id, name, hc)
+  let hc = HashConsingInfo()
+  let e = Var(t, id, name, hc)
   match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
@@ -111,10 +111,10 @@ let var t id name =
 [<CompiledName("PCVar")>]
 let pcvar t name =
 #if ! HASHCONS
-  PCVar (t, name, null)
+  PCVar(t, name, null)
 #else
-  let hc = HashConsingInfo ()
-  let e = PCVar (t, name, hc)
+  let hc = HashConsingInfo()
+  let e = PCVar(t, name, hc)
   match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
@@ -129,10 +129,10 @@ let pcvar t name =
 [<CompiledName("TmpVar")>]
 let tmpvar t id =
 #if ! HASHCONS
-  TempVar (t, id, null)
+  TempVar(t, id, null)
 #else
-  let hc = HashConsingInfo ()
-  let e = TempVar (t, id, hc)
+  let hc = HashConsingInfo()
+  let e = TempVar(t, id, hc)
   match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
@@ -146,19 +146,19 @@ let tmpvar t id =
 /// Construct a symbol (for a label) from a string and a IDCounter.
 [<CompiledName("Label")>]
 let inline label name id addr =
-  Label (name, id, addr)
+  Label(name, id, addr)
 
 /// Construct an unary operator (UnOp).
 [<CompiledName("UnOp")>]
 let unop op e =
   match e with
-  | Num (n, _) -> ValueOptimizer.unop n op |> num
+  | Num(n, _) -> ValueOptimizer.unop n op |> num
 #if ! HASHCONS
-  | _ -> UnOp (op, e, null)
+  | _ -> UnOp(op, e, null)
 #else
   | _ ->
-    let hc = HashConsingInfo ()
-    let e = UnOp (op, e, hc)
+    let hc = HashConsingInfo()
+    let e = UnOp(op, e, hc)
     match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
@@ -173,10 +173,10 @@ let unop op e =
 [<CompiledName("JmpDest")>]
 let jmpDest symb =
 #if ! HASHCONS
-  JmpDest (symb, null)
+  JmpDest(symb, null)
 #else
-  let hc = HashConsingInfo ()
-  let e = JmpDest (symb, hc)
+  let hc = HashConsingInfo()
+  let e = JmpDest(symb, hc)
   match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
@@ -189,14 +189,14 @@ let jmpDest symb =
 
 let private binopWithType op t e1 e2 =
   match e1, e2 with
-  | Num (n1, _), Num (n2, _) -> ValueOptimizer.binop n1 n2 op |> num
+  | Num(n1, _), Num(n2, _) -> ValueOptimizer.binop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
-    BinOp (op, t, e1, e2, null)
+    BinOp(op, t, e1, e2, null)
 #else
   | _ ->
-    let hc = HashConsingInfo ()
-    let e = BinOp (op, t, e1, e2, hc)
+    let hc = HashConsingInfo()
+    let e = BinOp(op, t, e1, e2, hc)
     match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
@@ -228,10 +228,10 @@ let cons a b =
   match b with
   | Nil ->
 #if ! HASHCONS
-    BinOp (BinOpType.CONS, t, a, b, null)
+    BinOp(BinOpType.CONS, t, a, b, null)
 #else
-    let hc = HashConsingInfo ()
-    let e = BinOp (BinOpType.CONS, t, a, b, hc)
+    let hc = HashConsingInfo()
+    let e = BinOp(BinOpType.CONS, t, a, b, hc)
     match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
@@ -251,10 +251,10 @@ let nil = Nil
 [<CompiledName("FuncName")>]
 let funcName name =
 #if ! HASHCONS
-  FuncName (name, null)
+  FuncName(name, null)
 #else
-  let hc = HashConsingInfo ()
-  let e = FuncName (name, hc)
+  let hc = HashConsingInfo()
+  let e = FuncName(name, hc)
   match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
@@ -272,11 +272,11 @@ let app name args retType =
   List.reduceBack cons (args @ [ nil ])
 #if ! HASHCONS
   |> fun cons ->
-    BinOp (BinOpType.APP, retType, fnName, cons, null)
+    BinOp(BinOpType.APP, retType, fnName, cons, null)
 #else
   |> fun cons ->
-    let hc = HashConsingInfo ()
-    let e = BinOp (BinOpType.APP, retType, fnName, cons, hc)
+    let hc = HashConsingInfo()
+    let e = BinOp(BinOpType.APP, retType, fnName, cons, hc)
     match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
@@ -294,14 +294,14 @@ let relop op e1 e2 =
   TypeCheck.binop e1 e2 |> ignore
 #endif
   match e1, e2 with
-  | Num (n1, _), Num (n2, _) -> ValueOptimizer.relop n1 n2 op |> num
+  | Num(n1, _), Num(n2, _) -> ValueOptimizer.relop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
-    RelOp (op, e1, e2, null)
+    RelOp(op, e1, e2, null)
 #else
   | _ ->
-    let hc = HashConsingInfo ()
-    let e = RelOp (op, e1, e2, hc)
+    let hc = HashConsingInfo()
+    let e = RelOp(op, e1, e2, hc)
     match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
@@ -321,10 +321,10 @@ let load endian rt addr =
   | _ ->
 #endif
 #if ! HASHCONS
-    Load (endian, rt, addr, null)
+    Load(endian, rt, addr, null)
 #else
-    let hc = HashConsingInfo ()
-    let e = Load (endian, rt, addr, hc)
+    let hc = HashConsingInfo()
+    let e = Load(endian, rt, addr, hc)
     match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
@@ -351,13 +351,13 @@ let ite cond e1 e2 =
   TypeCheck.checkEquivalence (Expr.TypeOf e1) (Expr.TypeOf e2)
 #endif
   match cond with
-  | Num (n, _) -> if BitVector.IsZero n then e2 else e1
+  | Num(n, _) -> if BitVector.IsZero n then e2 else e1
   | _ ->
 #if ! HASHCONS
-    Ite (cond, e1, e2, null)
+    Ite(cond, e1, e2, null)
 #else
-    let hc = HashConsingInfo ()
-    let e = Ite (cond, e1, e2, hc)
+    let hc = HashConsingInfo()
+    let e = Ite(cond, e1, e2, hc)
     match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
@@ -372,14 +372,14 @@ let ite cond e1 e2 =
 [<CompiledName("Cast")>]
 let cast kind rt e =
   match e with
-  | Num (n, _) -> ValueOptimizer.cast rt n kind |> num
+  | Num(n, _) -> ValueOptimizer.cast rt n kind |> num
   | _ ->
     if TypeCheck.canCast kind rt e then
 #if ! HASHCONS
-      Cast (kind, rt, e, null)
+      Cast(kind, rt, e, null)
 #else
-      let hc = HashConsingInfo ()
-      let e = Cast (kind, rt, e, hc)
+      let hc = HashConsingInfo()
+      let e = Cast(kind, rt, e, hc)
       match tryGetExpr e with
       | Ok e -> e
       | Error isReclaimed ->
@@ -399,14 +399,14 @@ let cast kind rt e =
 let extract expr rt pos =
   TypeCheck.extract rt pos (Expr.TypeOf expr)
   match expr with
-  | Num (n, _) -> ValueOptimizer.extract n rt pos |> num
-  | Extract (e, _, p, _) ->
+  | Num(n, _) -> ValueOptimizer.extract n rt pos |> num
+  | Extract(e, _, p, _) ->
     let pos = p + pos
 #if ! HASHCONS
-    Extract (e, rt, pos, null)
+    Extract(e, rt, pos, null)
 #else
-    let hc = HashConsingInfo ()
-    let e = Extract (e, rt, pos, hc)
+    let hc = HashConsingInfo()
+    let e = Extract(e, rt, pos, hc)
     match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
@@ -418,10 +418,10 @@ let extract expr rt pos =
 #endif
   | _ ->
 #if ! HASHCONS
-    Extract (expr, rt, pos, null)
+    Extract(expr, rt, pos, null)
 #else
-    let hc = HashConsingInfo ()
-    let e = Extract (expr, rt, pos, hc)
+    let hc = HashConsingInfo()
+    let e = Extract(expr, rt, pos, hc)
     match tryGetExpr e with
     | Ok e -> e
     | Error isReclaimed ->
@@ -436,10 +436,10 @@ let extract expr rt pos =
 [<CompiledName("Undef")>]
 let undef rt s =
 #if ! HASHCONS
-  Undefined (rt, s, null)
+  Undefined(rt, s, null)
 #else
-  let hc = HashConsingInfo ()
-  let e = Undefined (rt, s, hc)
+  let hc = HashConsingInfo()
+  let e = Undefined(rt, s, hc)
   match tryGetExpr e with
   | Ok e -> e
   | Error isReclaimed ->
@@ -492,8 +492,8 @@ let revConcat (arr: Expr[]) =
 [<CompiledName("Unwrap")>]
 let rec unwrap e =
   match e with
-  | Cast (_, _, e, _)
-  | Extract (e, _, _, _) -> unwrap e
+  | Cast(_, _, e, _)
+  | Extract(e, _, _, _) -> unwrap e
   | _ -> e
 
 /// Zero-extend an expression.
@@ -857,10 +857,10 @@ let fatan e = unop UnOpType.FATAN e
 [<CompiledName("ISMark")>]
 let ismark nBytes =
 #if ! HASHCONS
-  ISMark (nBytes, null)
+  ISMark(nBytes, null)
 #else
-  let hc = HashConsingInfo ()
-  let s = ISMark (nBytes, hc)
+  let hc = HashConsingInfo()
+  let s = ISMark(nBytes, hc)
   match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
@@ -875,10 +875,10 @@ let ismark nBytes =
 [<CompiledName("IEMark")>]
 let iemark nBytes =
 #if ! HASHCONS
-  IEMark (nBytes, null)
+  IEMark(nBytes, null)
 #else
-  let hc = HashConsingInfo ()
-  let s = IEMark (nBytes, hc)
+  let hc = HashConsingInfo()
+  let s = IEMark(nBytes, hc)
   match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
@@ -893,10 +893,10 @@ let iemark nBytes =
 [<CompiledName("LMark")>]
 let lmark label =
 #if ! HASHCONS
-  LMark (label, null)
+  LMark(label, null)
 #else
-  let hc = HashConsingInfo ()
-  let s = LMark (label, hc)
+  let hc = HashConsingInfo()
+  let s = LMark(label, hc)
   match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
@@ -911,10 +911,10 @@ let lmark label =
 [<CompiledName("Put")>]
 let put dst src =
 #if ! HASHCONS
-  Put (dst, src, null)
+  Put(dst, src, null)
 #else
-  let hc = HashConsingInfo ()
-  let s = Put (dst, src, hc)
+  let hc = HashConsingInfo()
+  let s = Put(dst, src, hc)
   match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
@@ -927,15 +927,15 @@ let put dst src =
 
 let private assignForExtractDst e1 e2 =
   match e1 with
-  | Extract (Var (t, _, _, _) as e1, eTyp, 0, _)
-  | Extract (TempVar (t, _, _) as e1, eTyp, 0, _) ->
+  | Extract(Var(t, _, _, _) as e1, eTyp, 0, _)
+  | Extract(TempVar(t, _, _) as e1, eTyp, 0, _) ->
     let nMask = RegType.getMask t - RegType.getMask eTyp
     let mask = BitVector.OfBInt nMask t |> num
     let src = cast CastKind.ZeroExt t e2
     put e1 (binopWithType BinOpType.OR t
               (binopWithType BinOpType.AND t e1 mask) src)
-  | Extract (Var (t, _, _, _) as e1, eTyp, pos, _)
-  | Extract (TempVar (t, _, _) as e1, eTyp, pos, _) ->
+  | Extract(Var(t, _, _, _) as e1, eTyp, pos, _)
+  | Extract(TempVar(t, _, _) as e1, eTyp, pos, _) ->
     let nMask = RegType.getMask t - (RegType.getMask eTyp <<< pos)
     let mask = BitVector.OfBInt nMask t |> num
     let src = cast CastKind.ZeroExt t e2
@@ -949,10 +949,10 @@ let private assignForExtractDst e1 e2 =
 [<CompiledName("Store")>]
 let store endian addr v =
 #if ! HASHCONS
-  Store (endian, addr, v, null)
+  Store(endian, addr, v, null)
 #else
-  let hc = HashConsingInfo ()
-  let s = Store (endian, addr, v, hc)
+  let hc = HashConsingInfo()
+  let s = Store(endian, addr, v, hc)
   match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
@@ -971,7 +971,7 @@ let assign dst src =
 #endif
   match dst with
   | Var _ | TempVar _ | PCVar _ -> put dst src
-  | Load (endian, _, e, _) -> store endian e src
+  | Load(endian, _, e, _) -> store endian e src
   | Extract _ -> assignForExtractDst dst src
   | _ -> raise InvalidAssignmentException
 
@@ -979,10 +979,10 @@ let assign dst src =
 [<CompiledName("Jmp")>]
 let jmp target =
 #if ! HASHCONS
-  Jmp (target, null)
+  Jmp(target, null)
 #else
-  let hc = HashConsingInfo ()
-  let s = Jmp (target, hc)
+  let hc = HashConsingInfo()
+  let s = Jmp(target, hc)
   match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
@@ -997,10 +997,10 @@ let jmp target =
 [<CompiledName("CJmp")>]
 let cjmp cond dst1 dst2 =
 #if ! HASHCONS
-  CJmp (cond, dst1, dst2, null)
+  CJmp(cond, dst1, dst2, null)
 #else
-  let hc = HashConsingInfo ()
-  let s = CJmp (cond, dst1, dst2, hc)
+  let hc = HashConsingInfo()
+  let s = CJmp(cond, dst1, dst2, hc)
   match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
@@ -1015,10 +1015,10 @@ let cjmp cond dst1 dst2 =
 [<CompiledName("InterJmp")>]
 let interjmp dst kind =
 #if ! HASHCONS
-  InterJmp (dst, kind, null)
+  InterJmp(dst, kind, null)
 #else
-  let hc = HashConsingInfo ()
-  let s = InterJmp (dst, kind, hc)
+  let hc = HashConsingInfo()
+  let s = InterJmp(dst, kind, hc)
   match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
@@ -1033,10 +1033,10 @@ let interjmp dst kind =
 [<CompiledName("InterCJmp")>]
 let intercjmp cond d1 d2 =
 #if ! HASHCONS
-  InterCJmp (cond, d1, d2, null)
+  InterCJmp(cond, d1, d2, null)
 #else
-  let hc = HashConsingInfo ()
-  let s = InterCJmp (cond, d1, d2, hc)
+  let hc = HashConsingInfo()
+  let s = InterCJmp(cond, d1, d2, hc)
   match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
@@ -1051,10 +1051,10 @@ let intercjmp cond d1 d2 =
 [<CompiledName("ExtCall")>]
 let extCall appExpr =
 #if ! HASHCONS
-  ExternalCall (appExpr, null)
+  ExternalCall(appExpr, null)
 #else
-  let hc = HashConsingInfo ()
-  let s = ExternalCall (appExpr, hc)
+  let hc = HashConsingInfo()
+  let s = ExternalCall(appExpr, hc)
   match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
@@ -1069,10 +1069,10 @@ let extCall appExpr =
 [<CompiledName("SideEffect")>]
 let sideEffect eff =
 #if ! HASHCONS
-  SideEffect (eff, null)
+  SideEffect(eff, null)
 #else
-  let hc = HashConsingInfo ()
-  let s = SideEffect (eff, hc)
+  let hc = HashConsingInfo()
+  let s = SideEffect(eff, hc)
   match tryGetStmt s with
   | Ok s -> s
   | Error isReclaimed ->
@@ -1088,27 +1088,27 @@ let rec updateAllVarsUses (rset: RegisterSet) (tset: HashSet<int>) e =
   match e with
   | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ ->
     ()
-  | Var (_, rid, _, _) ->
-    rset.Add (int rid)
-  | TempVar (_, n, _) ->
+  | Var(_, rid, _, _) ->
+    rset.Add(int rid)
+  | TempVar(_, n, _) ->
     tset.Add n |> ignore
-  | UnOp (_, e, _) ->
+  | UnOp(_, e, _) ->
     updateAllVarsUses rset tset e
-  | BinOp (_, _, lhs, rhs, _) ->
+  | BinOp(_, _, lhs, rhs, _) ->
     updateAllVarsUses rset tset lhs
     updateAllVarsUses rset tset rhs
-  | RelOp (_, lhs, rhs, _) ->
+  | RelOp(_, lhs, rhs, _) ->
     updateAllVarsUses rset tset lhs
     updateAllVarsUses rset tset rhs
-  | Load (_, _, e, _) ->
+  | Load(_, _, e, _) ->
     updateAllVarsUses rset tset e
-  | Ite (cond, e1, e2, _) ->
+  | Ite(cond, e1, e2, _) ->
     updateAllVarsUses rset tset cond
     updateAllVarsUses rset tset e1
     updateAllVarsUses rset tset e2
-  | Cast (_, _, e, _) ->
+  | Cast(_, _, e, _) ->
     updateAllVarsUses rset tset e
-  | Extract (e, _, _, _) ->
+  | Extract(e, _, _, _) ->
     updateAllVarsUses rset tset e
 
 /// Record the use of vars (registers) from the given expression.
@@ -1116,25 +1116,25 @@ let rec updateRegsUses (rset: RegisterSet) e =
   match e with
   | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | TempVar _ ->
     ()
-  | Var (_, rid, _, _) ->
-    rset.Add (int rid)
-  | UnOp (_, e, _) ->
+  | Var(_, rid, _, _) ->
+    rset.Add(int rid)
+  | UnOp(_, e, _) ->
     updateRegsUses rset e
-  | BinOp (_, _, lhs, rhs, _) ->
+  | BinOp(_, _, lhs, rhs, _) ->
     updateRegsUses rset lhs
     updateRegsUses rset rhs
-  | RelOp (_, lhs, rhs, _) ->
+  | RelOp(_, lhs, rhs, _) ->
     updateRegsUses rset lhs
     updateRegsUses rset rhs
-  | Load (_, _, e, _) ->
+  | Load(_, _, e, _) ->
     updateRegsUses rset e
-  | Ite (cond, e1, e2, _) ->
+  | Ite(cond, e1, e2, _) ->
     updateRegsUses rset cond
     updateRegsUses rset e1
     updateRegsUses rset e2
-  | Cast (_, _, e, _) ->
+  | Cast(_, _, e, _) ->
     updateRegsUses rset e
-  | Extract (e, _, _, _) ->
+  | Extract(e, _, _, _) ->
     updateRegsUses rset e
 
 /// Record the use of tempvars from the given expression.
@@ -1142,25 +1142,25 @@ let rec updateTempsUses (tset: HashSet<int>) e =
   match e with
   | Num _ | Nil | PCVar _ | JmpDest _ | FuncName _ | Undefined _ | Var _ ->
     ()
-  | TempVar (_, n, _) ->
+  | TempVar(_, n, _) ->
     tset.Add n |> ignore
-  | UnOp (_, e, _) ->
+  | UnOp(_, e, _) ->
     updateTempsUses tset e
-  | BinOp (_, _, lhs, rhs, _) ->
+  | BinOp(_, _, lhs, rhs, _) ->
     updateTempsUses tset lhs
     updateTempsUses tset rhs
-  | RelOp (_, lhs, rhs, _) ->
+  | RelOp(_, lhs, rhs, _) ->
     updateTempsUses tset lhs
     updateTempsUses tset rhs
-  | Load (_, _, e, _) ->
+  | Load(_, _, e, _) ->
     updateTempsUses tset e
-  | Ite (cond, e1, e2, _) ->
+  | Ite(cond, e1, e2, _) ->
     updateTempsUses tset cond
     updateTempsUses tset e1
     updateTempsUses tset e2
-  | Cast (_, _, e, _) ->
+  | Cast(_, _, e, _) ->
     updateTempsUses tset e
-  | Extract (e, _, _, _) ->
+  | Extract(e, _, _, _) ->
     updateTempsUses tset e
 
 /// <summary>
