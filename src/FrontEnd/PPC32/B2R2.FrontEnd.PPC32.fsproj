@@ -8,14 +8,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="PPC32RegisterFactory.fs" />
-    <Compile Include="PPC32Types.fs" />
-    <Compile Include="PPC32Instruction.fs" />
-    <Compile Include="PPC32OperandHelper.fs" />
-    <Compile Include="PPC32Disasm.fs" />
-    <Compile Include="PPC32Lifter.fs" />
-    <Compile Include="PPC32ParsingMain.fs" />
-    <Compile Include="PPC32Parser.fs" />
+    <Compile Include="RegisterFactory.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
+    <Compile Include="Instruction.fs" />
+    <Compile Include="OperandHelper.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="Lifter.fs" />
+    <Compile Include="ParsingMain.fs" />
+    <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

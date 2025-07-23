@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.PPC32
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for PPC32.
+/// Represents an instruction for PPC32.
 type Instruction
   internal (addr, numBytes, op, opr, oprSize, ea, lifter: ILiftable) =
 

@@ -22,12 +22,38 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.PPC32.Disasm
+module internal B2R2.FrontEnd.PPC32.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ParsingUtils
 open B2R2.FrontEnd.PPC32.OperandHelper
+
+type Condition =
+  /// Less than [LT].
+  | LT = 0x0
+  /// Less than or equal (equivalent to ng) [GT].
+  | LE = 0x1
+  /// Equal [EQ].
+  | EQ = 0x2
+  /// Greater than or equal (equivalent to nl) [LT].
+  | GE = 0x3
+  /// Greater than [GT].
+  | GT = 0x4
+  /// Not less than (equivalent to ge) [LT].
+  | NL = 0x5
+  /// Not equal [EQ].
+  | NE = 0x6
+  /// Not greater than (equivalent to le) [GT].
+  | NG = 0x7
+  /// Summary overflow [SO].
+  | SO = 0x8
+  /// Not summary overflow [SO].
+  | NS = 0x9
+  /// Unordered (after floating-point comparison) [SO].
+  | UN = 0xA
+  /// Not unordered (after floating-point comparison) [SO].
+  | NU = 0xB
 
 let opCodeToString = function
   | Op.ADD -> "add"
