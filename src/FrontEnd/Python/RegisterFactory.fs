@@ -24,10 +24,15 @@
 
 namespace B2R2.FrontEnd.Python
 
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.Python.Tests")>]
+do ()
+
+/// Represents a factory for accessing various Python register variables.
 type RegisterFactory () =
   interface IRegisterFactory with
     member _.GetRegVar (_: RegisterID): Expr = Terminator.futureFeature ()

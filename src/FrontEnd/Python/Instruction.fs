@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.Python
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for Python
+/// Represents an instruction for Python.
 type Instruction
   internal (addr, numBytes, op, opr, oprSize, lifter: ILiftable) =
 

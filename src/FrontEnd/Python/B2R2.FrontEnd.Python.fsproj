@@ -6,13 +6,14 @@
     <Description>B2R2 Python frontend.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="PythonRegisterFactory.fs" />
-    <Compile Include="PythonTypes.fs" />
-    <Compile Include="PythonInstruction.fs" />
-    <Compile Include="PythonDisasm.fs" />
-    <Compile Include="PythonLifter.fs" />
-    <Compile Include="PythonParsingMain.fs" />
-    <Compile Include="PythonParser.fs" />
+    <Compile Include="RegisterFactory.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
+    <Compile Include="Instruction.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="Lifter.fs" />
+    <Compile Include="ParsingMain.fs" />
+    <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
