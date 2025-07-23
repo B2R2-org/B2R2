@@ -37,6 +37,8 @@ open B2R2.MiddleEnd.DataFlow.SensitiveDFHelper
 
 [<AutoOpen>]
 module private EVMCFGRecovery =
+  let UseCallFallthroughHeuristic = true
+
   let summarizer = EVMFunctionSummarizer() :> IFunctionSummarizable<_, _>
 
   let getFunctionContext (ctx: CFGBuildingContext<EVMFuncUserContext, _>)
@@ -507,28 +509,72 @@ module private EVMCFGRecovery =
       CFGRecovery.addExpandCFGAction ctx dstPPoint
     | Error e -> Error e
 
-  let handleJmpWithBV ctx cfgRec srcVertex dstBv edgeKind =
+  let getFallthroughAddress (srcV: IVertex<LowUIRBasicBlock>) =
+    let bbl = srcV.VData.Internals
+    let lastIns = bbl.LastInstruction
+    lastIns.Address + uint64 lastIns.Length
+
+  let hasCallFallthroughAddress (ctx: CFGBuildingContext<_, _>) srcV =
+    let userCtx = ctx.UserContext :> EVMFuncUserContext
+    let fallthroughAddr = getFallthroughAddress srcV
+    let fallthroughBV = BitVector.OfUInt64 fallthroughAddr 256<rt>
+    let state = userCtx.CP.State
+    let maximumStackOff = -32
+    let minimumStackOff = findLatestStackOffset ctx state srcV
+    let possibleStackOffs = [ minimumStackOff .. 0x20 .. maximumStackOff ]
+    let exeCtxs = state.PerVertexPossibleExeCtxs[srcV]
+    exeCtxs
+    |> Seq.exists (fun exeCtx ->
+      let outDefs = state.PerVertexOutgoingDefs[srcV, exeCtx]
+      possibleStackOffs
+      |> List.exists (fun stackOff ->
+        let vk = StackLocal stackOff
+        match Map.tryFind vk outDefs with
+        | None -> false
+        | Some defs ->
+          defs
+          |> Set.exists (fun defSvp ->
+            match state.DomainSubState.GetAbsValue defSvp with
+            | ConstantDomain.Const bv when bv = fallthroughBV ->
+              true
+            | _ ->
+              false)))
+
+  /// Handles a jump with a bitvector, which is the target address of the jump.
+  let handleJmpWithBV ctx cfgRec srcV dstBv edgeKind =
     let dstAddr = BitVector.ToUInt64 dstBv
     match ctx.ManagerChannel.GetBuildingContext dstAddr with
     | FailedBuilding -> (* Ignore when the target is not a function. *)
-      match scanBBLsAndConnect ctx cfgRec srcVertex dstAddr edgeKind with
-      | Ok () ->
-        let state = computeCPState ctx (* Recalculate the reaching defs. *)
-        let dstV = scanAndGetVertex ctx cfgRec dstAddr
-        let preds = ctx.CFG.GetPreds dstV
-        let hasMultiplePreds = Seq.length preds > 1
-        if not hasMultiplePreds then None
-        else (* Check if this edge insertion introduces poly jumps *)
-          let polyJumps = collectPolyJumpsFromReachables ctx.CFG state dstV
-          let hasPolyJumps = not <| Seq.isEmpty polyJumps
-          if hasPolyJumps then handlePolyJumps ctx state polyJumps else None
-      | Error errorCase -> Some <| FailStop errorCase
+      if UseCallFallthroughHeuristic
+         && edgeKind = InterJmpEdge
+         && not (srcV: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
+         (* 0x2bb @ 0x003249c0beadbcf04c65bb0a392b810c23ffdc8b *)
+         && getFallthroughAddress srcV <> dstAddr
+         && hasCallFallthroughAddress ctx srcV then
+        (* Check if the current stack frame contains the fallthrough node's
+           address. This is for (1) introducing more functions early to maximize
+           parallelism, and (2) detecting non-returning functions. *)
+        introduceNewFunction ctx dstAddr
+        Some StopAndReload
+      else
+        match scanBBLsAndConnect ctx cfgRec srcV dstAddr edgeKind with
+        | Ok () ->
+          let state = computeCPState ctx (* Recalculate the reaching defs. *)
+          let dstV = scanAndGetVertex ctx cfgRec dstAddr
+          let preds = ctx.CFG.GetPreds dstV
+          let hasMultiplePreds = Seq.length preds > 1
+          if not hasMultiplePreds then None
+          else (* Check if this edge insertion introduces poly jumps *)
+            let polyJumps = collectPolyJumpsFromReachables ctx.CFG state dstV
+            let hasPolyJumps = not <| Seq.isEmpty polyJumps
+            if hasPolyJumps then handlePolyJumps ctx state polyJumps else None
+        | Error errorCase -> Some <| FailStop errorCase
     | bldCtx -> (* Okay, this is a function, so we connect to the function. *)
-      let srcBlk = srcVertex.VData.Internals
+      let srcBlk = srcV.VData.Internals
       let callSite = fromBBLToCallSite srcBlk
       let calleeInfo = makeCalleeInfoFromBuildingContext bldCtx
       let act = MakeCall(callSite, dstAddr, calleeInfo)
-      Some <| CFGRecovery.handleCall ctx cfgRec srcVertex callSite dstAddr act
+      Some <| CFGRecovery.handleCall ctx cfgRec srcV callSite dstAddr act
 
   let handleDirectJmpWithVars ctx cfgRec state srcV dstVars edge =
     match constantFoldSSAVars state dstVars with
