@@ -95,13 +95,13 @@ if foo=bar then // Bad
 
 When using (=) for argument assignments:
 ```fsharp
-func (param=argu)        // Good
-| func (pattern=bound)   // Good
-let func (param=bound) = // Good
+Func(param = argu)         // Good
+| Func(pattern = bound)    // Good
+let func (param = bound) = // Good
 
-func (param = argu)        // Bad
-| func (pattern= bound)    // Bad
-let func (param = bound) = // Bad
+Func(param=argu)         // Bad
+| Func(pattern= bound)   // Bad
+let func (param =bound) = // Bad
 ```
 
 ##### Tuple Constructs
@@ -233,22 +233,33 @@ func<type1,type2> // Bad
 func<type1*type2> // Bad
 ```
 
+When generic type arguments are followed by parentheses, use it as shown below.
+```fsharp
+Func<'T>()                // Good
+List<int>()               // Good
+Dictionary<string, int>() // Good
+
+Func<'T> ()                // Bad
+List<int> ()               // Bad
+Dictionary<string, int> () // Bad
+```
+
 ##### Records
 
 We define a record as follows.
 ```fsharp
-type InsSize = {  // Good
-  MemSize       : MemorySize
-  RegSize       : RegType
-  OperationSize : RegType
-  SizeCond      : OperandsSizeCondition
-}
-type InsSize =    // Bad
+type InsSize =
+  { MemSize: MemorySize
+    RegSize: RegType
+    OperationSize: RegType
+    SizeCond: OperandsSizeCondition } // Good
+
+type InsSize =
 {
-  MemSize       : MemorySize
-  RegSize       : RegType
-  OperationSize : RegType
-  SizeCond      : OperandsSizeCondition
+  MemSize: MemorySize
+  RegSize: RegType
+  OperationSize:   RegType        // Bad
+  SizeCond: OperandsSizeCondition // Bad
 }
 
 { Prefixes = prefs } // Good
@@ -260,6 +271,12 @@ type InsSize =    // Bad
   Prefixes = prefs
   Opcode = opcode
 }                   // Bad
+
+{ Prefixes = prefs } // Good
+{ Prefixes= prefs }  // Bad
+
+{ Prefixes = prefs; Opcode = opcode } // Good
+{ Prefixes = prefs;Opcode = opcode }  // Bad
 ```
 
 ##### Function Body
@@ -269,7 +286,6 @@ newline in the function body to separate logical blocks. One may think that this
 is better for readability, but using an empty newline in the function body
 implies that the function is already too long. You should instead refactor the
 function into smaller functions.
-
 ```fsharp
 let fn p =
   let x = foo p
@@ -285,14 +301,42 @@ let fn p =
   let z = x + y // Bad
 ```
 
+When defining mutual recursive functions, place exactly one empty newline
+between let rec and and declarations.
+```fsharp
+let rec isEven n =
+  if n = 0 then true
+  else isOdd (n - 1)
+
+and isOdd n =
+  if n = 0 then false
+  else isEven (n - 1) // Good
+
+let rec isEven n =
+  if n = 0 then true
+  else isOdd (n - 1)
+and isOdd n =
+  if n = 0 then false
+  else isEven (n - 1) // Bad
+
+let nested () =
+  let rec isEven n =
+    if n = 0 then true
+    else isOdd (n - 1)
+
+  and isOdd n =
+    if n = 0 then false
+    else isEven (n - 1)
+
+  isEven 10 // Bad
+```
+
 ##### Function Calls
 
 When calling a non-curried function, we use the following style:
 ```fsharp
-Func (p1, p2, p3)   // Good
-Func(p1, p2, p3)    // Okay, but not recommended.
-Func ( p1, p2, p3 ) // Bad
-Func( p1, p2, p3 )  // Bad
+Func(p1, p2, p3)  // Good
+Func (p1, p2, p3) // Bad
 ```
 
 When the method name starts with an uppercase, write it without a space
@@ -396,16 +440,11 @@ match x with // Bad
 
 ##### Class and Member Definition
 
-We prefer to define classes and member functions with a space character
-between the name and the parentheses. This is to be consistent with the
-function call style.
-
+We prefer to define classes with a space character
+between the name and the parentheses.
 ```fsharp
-type Class () =
-  member _.A (p1, p2) = // Good
-
-type Class() = // Bad
-  member _.A(p1, p2) = // Bad
+type Class() =  // Good
+type Class () = // Bad
 ```
 
 When defining properties using `with`, we use the following style.
@@ -414,13 +453,28 @@ member _.Method with get () = value and set (value) = value // Good
 member _.Method with get() = value and set(value) = value   // Bad
 ```
 
-When defining methods, no space between the method name and the parentheses.
+When function name is LowerCase, use a space before parentheses.
+and function name is PascalCase, attach the parentheses to the function name.
 ```fsharp
-member _.Method() = value      // Good
-static member Method() = value // Good
+member _.Method() = value       // Good
+static member Method() = value  // Good
+static member method () = value // Good
 
 member _.Method () = value      // Bad
 static member Method () = value // Bad
+static member method() = value  // Bad
+```
+
+Member functions should always use non-curried style with parentheses
+when there are multiple parameters. Single parameters can omit parentheses.
+```fsharp
+member _.Add(x, y) = x + y                 // Good
+member _.Square(x) = x * x                 // Good
+static member Create(value) = Calculator() // Good
+static member Create value = Calculator()  // Good
+
+member _.Add x y = x + y    // Bad
+member _.Square (x) = x * x // Bad
 ```
 
 We use `this` for a self-identifier when we need to use it. However, for other
@@ -429,10 +483,12 @@ need to use it. We avoid using `__` for a self-identifier because it is less
 readable.
 
 ```fsharp
-type Class () =
+type Class() =
   member this.A(p1, p2) = this.Foo p1 // Good
+  member _.A(p1, p2) = Foo p1         // Good
 
-type Class () =
+type Class() =
+  member this.A(p1, p2) = Foo p1  // Bad
   member __.A(p1, p2) = __.Foo p1 // Bad
 ```
 
