@@ -29,6 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.BinIR.LowUIR
 
+/// Represents a factory for accessing various RISCV64 register variables.
 type RegisterFactory (wordSize) =
   let rt = WordSize.toRegType wordSize
   let fflags = AST.var 32<rt> (Register.toRegID Register.FFLAGS) "FFLAGS"

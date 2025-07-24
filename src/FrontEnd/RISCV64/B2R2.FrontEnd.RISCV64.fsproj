@@ -6,15 +6,16 @@
     <Description>B2R2 RISCV frontend.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="RISCV64Register.fs" />
-    <Compile Include="RISCV64RegisterFactory.fs" />
-    <Compile Include="RISCV64Types.fs" />
-    <Compile Include="RISCV64Instruction.fs" />
-    <Compile Include="RISCV64Helper.fs" />
-    <Compile Include="RISCV64Disasm.fs" />
-    <Compile Include="RISCV64Lifter.fs" />
-    <Compile Include="RISCV64ParsingMain.fs" />
-    <Compile Include="RISCV64Parser.fs" />
+    <Compile Include="Register.fs" />
+    <Compile Include="RegisterFactory.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
+    <Compile Include="Instruction.fs" />
+    <Compile Include="Helper.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="Lifter.fs" />
+    <Compile Include="ParsingMain.fs" />
+    <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

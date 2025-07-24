@@ -24,29 +24,26 @@
 
 namespace B2R2.FrontEnd.RISCV64
 
-open System
+open System.Runtime.CompilerServices
 open B2R2
-open B2R2.FrontEnd.BinLifter
 
-/// Parser for RISCV64 instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type RISCV64Parser (isa: ISA, reader) =
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.RISCV64.Tests")>]
+do ()
 
-  let wordSize = int isa.WordSize
+/// Shortcut for Register type.
+type internal R = Register
 
-  let lifter =
-    { new ILiftable with
-        member _.Lift ins builder =
-          Lifter.translate ins ins.Length builder
-        member _.Disasm ins builder =
-          Disasm.disasm ins builder; builder }
-
-  interface IInstructionParsable with
-    member _.Parse (span: ByteSpan, addr) =
-      ParsingMain.parse lifter span reader wordSize addr :> IInstruction
-
-    member _.Parse (bs: byte[], addr) =
-      let span = ReadOnlySpan bs
-      ParsingMain.parse lifter span reader wordSize addr :> IInstruction
-
-    member _.MaxInstructionSize = 4
+/// Provides several useful functions to handle RISCV64 registers.
+[<RequireQualifiedAccess>]
+module internal Register =
+  let toRegType wordSize = function
+    | R.PC | R.X0 | R.X1 | R.X2 | R.X3 | R.X4 | R.X5 | R.X6 | R.X7 | R.X8
+    | R.X9 | R.X10 | R.X11 | R.X12 | R.X13 | R.X14 | R.X15 | R.X16 | R.X17
+    | R.X18 | R.X19 | R.X20 | R.X21 | R.X22 | R.X23 | R.X24 | R.X25 | R.X26
+    | R.X27 | R.X28 | R.X29 | R.X30 | R.X31 -> WordSize.toRegType wordSize
+    | R.F0 | R.F1 | R.F2 | R.F3 | R.F4 | R.F5 | R.F6 | R.F7 | R.F8 | R.F9
+    | R.F10 | R.F11 | R.F12 | R.F13 | R.F14 | R.F15 | R.F16 | R.F17 | R.F18
+    | R.F19 | R.F20 | R.F21 | R.F22 | R.F23 | R.F24 | R.F25 | R.F26 | R.F27
+    | R.F28 | R.F29 | R.F30 | R.F31 -> 64<rt>
+    | R.FCSR | R.FFLAGS | R.FRM -> 32<rt>
+    | _ -> Terminator.impossible ()
