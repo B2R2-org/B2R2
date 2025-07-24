@@ -89,7 +89,7 @@ type ConstantPropagation =
       match e with
       | PCVar (rt, _, _) ->
         let addr = (pp: ProgramPoint).Address
-        let bv = BitVector.OfUInt64 addr rt
+        let bv = BitVector.OfUInt64(addr, rt)
         ConstantDomain.Const bv
       | Num (bv, _) -> ConstantDomain.Const bv
       | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)

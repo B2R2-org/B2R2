@@ -576,7 +576,7 @@ let getM16D20M32D36GR8Q b =
 
 let getVR8QUImmUpperQUImm4 b =
   ThreeOperands (vr8Q b, gr16to31UImmQ b,
-    OpImm (BitVector.OfUInt32 (gr32to35UWQ b) 4<rt> |> ImmU4))
+    OpImm (BitVector.OfUInt32(gr32to35UWQ b, 4<rt>) |> ImmU4))
 
 let getVR8QUImm16Mask32 b =
   ThreeOperands (vr8Q b, gr16to31UImmQ b, mask32to35Q b)
@@ -619,7 +619,7 @@ let getFPR32QGRL8QMask36 b =
 let getGRL9QM32D36UImm4 b =
   ThreeOperands (OpStoreLen (gr9to11UHWQ b + 1us, base16Q b, disp20Q b),
     OpStore (None, base32Q b, disp36Q b),
-    OpImm (BitVector.OfUInt32 (gr12to15UWQ b) 4<rt> |> ImmU4))
+    OpImm (BitVector.OfUInt32(gr12to15UWQ b, 4<rt>) |> ImmU4))
 
 let getR9MemBase16to35Disp20to47GR12Q b =
   ThreeOperands (OpStore (Some (gr9to11UQ b), base16Q b, disp20Q b),
@@ -728,7 +728,7 @@ let getVR8QVR12QMask32Mask28Mask24 b =
 
 let getVR8QVR12QUImm12Mask32Mask28 b =
   FiveOperands (vr8Q b, vr12Q b 2us,
-    OpImm (BitVector.OfUInt32 (gr16to27UWQ b) 12<rt> |> ImmU12), mask32to35Q b,
+    OpImm(BitVector.OfUInt32(gr16to27UWQ b, 12<rt>) |> ImmU12), mask32to35Q b,
     mask28to31Q b)
 
 let getVR8QVR12QVR16QMask32Mask24 b =

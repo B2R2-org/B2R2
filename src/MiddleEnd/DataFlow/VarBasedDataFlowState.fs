@@ -46,7 +46,7 @@ type VarBasedDataFlowState<'Lattice>
     | Some rid ->
       let rt = hdl.RegisterFactory.GetRegType rid
       let varKind = Regular rid
-      let bv = BitVector.OfUInt64 Constants.InitialStackPointer rt
+      let bv = BitVector.OfUInt64(Constants.InitialStackPointer, rt)
       let c = StackPointerDomain.ConstSP bv
       Some (varKind, c)
 
@@ -207,7 +207,7 @@ type VarBasedDataFlowState<'Lattice>
     | Num (bv, _) -> SSA.Num bv
     | PCVar (rt, _, _) ->
       assert (Option.isNone pp.CallSite)
-      SSA.Num <| BitVector.OfUInt64 pp.Address rt
+      SSA.Num <| BitVector.OfUInt64(pp.Address, rt)
     | Var _ | TempVar _ ->
       let vk = VarKind.ofIRExpr e
       let ssaVar = getSSAVarFromUse pp vk

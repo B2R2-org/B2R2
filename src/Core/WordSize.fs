@@ -89,7 +89,7 @@ module WordSize =
   /// <c>string</c>.
   /// </summary>
   [<CompiledName "ToString">]
-  let toString wordSz = (toRegType wordSz).ToString ()
+  let toString wordSz = (toRegType wordSz).ToString()
 
   /// Checks if the given word size is 32 bit.
   [<CompiledName "Is32">]

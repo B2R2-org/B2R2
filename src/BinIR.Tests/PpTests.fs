@@ -45,7 +45,7 @@ type PpTests () =
 
   [<TestMethod>]
   member _.``PP bitVector from uint32 test`` () =
-    let e = BitVector.OfUInt32 42ul 32<rt> |> AST.num
+    let e = BitVector.OfUInt32(42ul, 32<rt>) |> AST.num
     assertEqualOfStrAndExpr "0x2a:I32" e
 
   [<TestMethod>]

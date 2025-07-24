@@ -31,7 +31,7 @@ open B2R2
 type LEB128Tests () =
 
   [<TestMethod>]
-  member _.``decodeUInt64 Test`` () =
+  member _.``decodeUInt64 Test``() =
     let u64 =
       [| ([| 0x00uy |], 0x00UL)
          ([| 0x7fuy |], 0x7fUL)
@@ -54,10 +54,10 @@ type LEB128Tests () =
          ([| 0x83uy; 0x00uy |], 0x03UL) |]
     for arr, res in u64 do
       let v, _ = LEB128.DecodeUInt64 arr
-      Assert.AreEqual<uint64> (res, v)
+      Assert.AreEqual<uint64>(res, v)
 
   [<TestMethod>]
-  member _.``decodeUInt32 Test`` () =
+  member _.``decodeUInt32 Test``() =
     let u32 =
       [| ([| 0x00uy |], 0x00u)
          ([| 0x7fuy |], 0x7fu)
@@ -70,10 +70,10 @@ type LEB128Tests () =
          ([| 0x83uy; 0x00uy |], 0x03u) |]
     for arr, res in u32 do
       let v, _ = LEB128.DecodeUInt32 arr
-      Assert.AreEqual<uint32> (res, v)
+      Assert.AreEqual<uint32>(res, v)
 
   [<TestMethod>]
-  member _.``decodeSInt64 Test`` () =
+  member _.``decodeSInt64 Test``() =
     let s64 =
       [| ([| 0xffuy
              0xffuy
@@ -107,10 +107,10 @@ type LEB128Tests () =
          ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy |], -268435456L) |]
     for arr, res in s64 do
       let v, _ = LEB128.DecodeSInt64 arr
-      Assert.AreEqual<int64> (res, v)
+      Assert.AreEqual<int64>(res, v)
 
   [<TestMethod>]
-  member _.``decodeSInt32 Test`` () =
+  member _.``decodeSInt32 Test``() =
     let s32 =
       [| ([| 0x97uy; 0xdeuy; 0x03uy |], 0xef17)
          ([| 0xC0uy; 0x00uy |], 0x40)
@@ -124,10 +124,10 @@ type LEB128Tests () =
          ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy |], -268435456) |]
     for arr, res in s32 do
       let v, _ = LEB128.DecodeSInt32 arr
-      Assert.AreEqual<int> (res, v)
+      Assert.AreEqual<int>(res, v)
 
   [<TestMethod>]
-  member _.``Overflow handling Test`` () =
+  member _.``Overflow handling Test``() =
     let overflow =
       [| [| 0xffuy |]
          [| 0x80uy; 0x80uy |]
@@ -144,21 +144,21 @@ type LEB128Tests () =
             0x7fuy |] |]
     overflow
     |> Array.iter (fun bs ->
-      Assert.ThrowsException<LEB128DecodeException> (fun () ->
+      Assert.ThrowsException<LEB128DecodeException>(fun () ->
         LEB128.DecodeUInt64 bs |> ignore)
       |> ignore)
     overflow
     |> Array.iter (fun bs ->
-      Assert.ThrowsException<LEB128DecodeException> (fun () ->
+      Assert.ThrowsException<LEB128DecodeException>(fun () ->
         LEB128.DecodeUInt32 bs |> ignore)
       |> ignore)
     overflow
     |> Array.iter (fun bs ->
-      Assert.ThrowsException<LEB128DecodeException> (fun () ->
+      Assert.ThrowsException<LEB128DecodeException>(fun () ->
         LEB128.DecodeSInt64 bs |> ignore)
       |> ignore)
     overflow
     |> Array.iter (fun bs ->
-      Assert.ThrowsException<LEB128DecodeException> (fun () ->
+      Assert.ThrowsException<LEB128DecodeException>(fun () ->
         LEB128.DecodeSInt32 bs |> ignore)
       |> ignore)

@@ -34,9 +34,9 @@ open type Register
 
 [<TestClass>]
 type EVMLifterTests () =
-  let num v rt = BitVector.OfInt32 v rt |> AST.num
+  let num v rt = BitVector.OfInt32(v, rt) |> AST.num
 
-  let bigint v = BitVector.OfBInt v 256<rt> |> AST.num
+  let bigint v = BitVector.OfBInt(v, 256<rt>) |> AST.num
 
   let isa = ISA Architecture.EVM
 

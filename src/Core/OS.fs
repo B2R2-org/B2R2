@@ -48,17 +48,17 @@ module OS =
   [<CompiledName "IsRunnable">]
   let isRunnable progName =
     let testPath path =
-      let fullPath = Path.Combine (path, progName)
+      let fullPath = Path.Combine(path, progName)
       File.Exists fullPath || if fullPath.EndsWith ".exe" then false
-                              else File.Exists (fullPath + ".exe")
+                              else File.Exists(fullPath + ".exe")
     if File.Exists progName then true
     else let vars = System.Environment.GetEnvironmentVariable "PATH"
-         vars.Split (Path.PathSeparator) |> Array.exists testPath
+         vars.Split(Path.PathSeparator) |> Array.exists testPath
 
   /// Obtains an OS type from the given string.
   [<CompiledName "OfString">]
   let ofString (s: string) =
-    match s.ToLowerInvariant () with
+    match s.ToLowerInvariant() with
     | "windows" | "win" -> OS.Windows
     | "linux" -> OS.Linux
     | "macos" | "macosx" | "mac" | "osx" -> OS.MacOSX

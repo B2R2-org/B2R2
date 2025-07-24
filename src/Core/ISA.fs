@@ -25,7 +25,7 @@
 namespace B2R2
 
 /// Represents the Instruction Set Architecture (ISA).
-type ISA (arch, endian, wordSize, flags) =
+type ISA(arch, endian, wordSize, flags) =
   do assert (arch <> Architecture.UnknownISA)
 
   /// CPU Architecture.
@@ -50,30 +50,30 @@ type ISA (arch, endian, wordSize, flags) =
 
   /// Constructs an ISA object with the given architecture, endianness, and
   /// word size. The flags are set to 0.
-  new (arch, endian, wordSize) = ISA (arch, endian, wordSize, 0)
+  new (arch, endian, wordSize) = ISA(arch, endian, wordSize, 0)
 
   /// Constructs an ISA object with the given architecture. The endianness and
   /// word size are set to the default values for the given architecture.
   new (arch) =
     match arch with
-    | Architecture.Intel -> ISA (arch, Endian.Little, WordSize.Bit64)
-    | Architecture.ARMv7 -> ISA (arch, Endian.Little, WordSize.Bit32)
-    | Architecture.ARMv8 -> ISA (arch, Endian.Little, WordSize.Bit64)
-    | Architecture.MIPS -> ISA (arch, Endian.Big, WordSize.Bit32)
-    | Architecture.PPC -> ISA (arch, Endian.Big, WordSize.Bit32)
-    | Architecture.RISCV -> ISA (arch, Endian.Little, WordSize.Bit64)
-    | Architecture.SPARC -> ISA (arch, Endian.Big, WordSize.Bit64)
-    | Architecture.S390 -> ISA (arch, Endian.Big, WordSize.Bit32)
-    | Architecture.SH4 -> ISA (arch, Endian.Little, WordSize.Bit32)
-    | Architecture.PARISC -> ISA (arch, Endian.Big, WordSize.Bit32)
-    | Architecture.AVR -> ISA (arch, Endian.Little, WordSize.Bit8)
-    | Architecture.TMS320C6000 -> ISA (arch, Endian.Little, WordSize.Bit32)
-    | Architecture.EVM -> ISA (arch, Endian.Big, WordSize.Bit256)
+    | Architecture.Intel -> ISA(arch, Endian.Little, WordSize.Bit64)
+    | Architecture.ARMv7 -> ISA(arch, Endian.Little, WordSize.Bit32)
+    | Architecture.ARMv8 -> ISA(arch, Endian.Little, WordSize.Bit64)
+    | Architecture.MIPS -> ISA(arch, Endian.Big, WordSize.Bit32)
+    | Architecture.PPC -> ISA(arch, Endian.Big, WordSize.Bit32)
+    | Architecture.RISCV -> ISA(arch, Endian.Little, WordSize.Bit64)
+    | Architecture.SPARC -> ISA(arch, Endian.Big, WordSize.Bit64)
+    | Architecture.S390 -> ISA(arch, Endian.Big, WordSize.Bit32)
+    | Architecture.SH4 -> ISA(arch, Endian.Little, WordSize.Bit32)
+    | Architecture.PARISC -> ISA(arch, Endian.Big, WordSize.Bit32)
+    | Architecture.AVR -> ISA(arch, Endian.Little, WordSize.Bit8)
+    | Architecture.TMS320C6000 -> ISA(arch, Endian.Little, WordSize.Bit32)
+    | Architecture.EVM -> ISA(arch, Endian.Big, WordSize.Bit256)
     | Architecture.Python ->
-      ISA (arch, Endian.Little, WordSize.Bit32, int PythonVersion.Python312)
-    | Architecture.WASM -> ISA (arch, Endian.Little, WordSize.Bit32)
-    | Architecture.CIL -> ISA (arch, Endian.Little, WordSize.Bit64)
-    | _ -> ISA (Architecture.UnknownISA, Endian.Little, WordSize.Bit64)
+      ISA(arch, Endian.Little, WordSize.Bit32, int PythonVersion.Python312)
+    | Architecture.WASM -> ISA(arch, Endian.Little, WordSize.Bit32)
+    | Architecture.CIL -> ISA(arch, Endian.Little, WordSize.Bit64)
+    | _ -> ISA(Architecture.UnknownISA, Endian.Little, WordSize.Bit64)
 
   /// Constructs an ISA object with the given architecture and endianness. The
   /// word size is set to the default value for the given architecture and
@@ -81,25 +81,25 @@ type ISA (arch, endian, wordSize, flags) =
   new (arch, endian) =
     match arch with
     | Architecture.Intel when endian = Endian.Little ->
-      ISA (arch, endian, WordSize.Bit64)
-    | Architecture.ARMv7 -> ISA (arch, endian, WordSize.Bit32)
-    | Architecture.ARMv8 -> ISA (arch, endian, WordSize.Bit64)
-    | Architecture.MIPS -> ISA (arch, endian, WordSize.Bit32)
+      ISA(arch, endian, WordSize.Bit64)
+    | Architecture.ARMv7 -> ISA(arch, endian, WordSize.Bit32)
+    | Architecture.ARMv8 -> ISA(arch, endian, WordSize.Bit64)
+    | Architecture.MIPS -> ISA(arch, endian, WordSize.Bit32)
     | Architecture.PPC when endian = Endian.Little ->
-      ISA (arch, endian, WordSize.Bit32)
-    | Architecture.RISCV -> ISA (arch, endian, WordSize.Bit64)
-    | Architecture.SPARC -> ISA (arch, endian, WordSize.Bit64)
-    | Architecture.S390 -> ISA (arch, endian, WordSize.Bit32)
-    | Architecture.SH4 -> ISA (arch, endian, WordSize.Bit32)
+      ISA(arch, endian, WordSize.Bit32)
+    | Architecture.RISCV -> ISA(arch, endian, WordSize.Bit64)
+    | Architecture.SPARC -> ISA(arch, endian, WordSize.Bit64)
+    | Architecture.S390 -> ISA(arch, endian, WordSize.Bit32)
+    | Architecture.SH4 -> ISA(arch, endian, WordSize.Bit32)
     | Architecture.PARISC when endian = Endian.Big ->
-      ISA (arch, endian, WordSize.Bit32)
-    | Architecture.AVR -> ISA (arch, endian, WordSize.Bit8)
-    | Architecture.TMS320C6000 -> ISA (arch, endian, WordSize.Bit32)
-    | Architecture.EVM -> ISA (arch, endian, WordSize.Bit256)
-    | Architecture.Python -> ISA (arch, endian, WordSize.Bit32)
-    | Architecture.WASM -> ISA (arch, endian, WordSize.Bit32)
-    | Architecture.CIL -> ISA (arch, endian, WordSize.Bit64)
-    | _ -> ISA (Architecture.UnknownISA, endian, WordSize.Bit64)
+      ISA(arch, endian, WordSize.Bit32)
+    | Architecture.AVR -> ISA(arch, endian, WordSize.Bit8)
+    | Architecture.TMS320C6000 -> ISA(arch, endian, WordSize.Bit32)
+    | Architecture.EVM -> ISA(arch, endian, WordSize.Bit256)
+    | Architecture.Python -> ISA(arch, endian, WordSize.Bit32)
+    | Architecture.WASM -> ISA(arch, endian, WordSize.Bit32)
+    | Architecture.CIL -> ISA(arch, endian, WordSize.Bit64)
+    | _ -> ISA(Architecture.UnknownISA, endian, WordSize.Bit64)
 
   /// Constructs an ISA object with the given architecture and word size. The
   /// endianness is set to the default value for the given architecture.
@@ -107,99 +107,99 @@ type ISA (arch, endian, wordSize, flags) =
     match arch with
     | Architecture.Intel when wordSize = WordSize.Bit32
                            || wordSize = WordSize.Bit64 ->
-      ISA (arch, Endian.Little, wordSize)
+      ISA(arch, Endian.Little, wordSize)
     | Architecture.ARMv7 when wordSize = WordSize.Bit32 ->
-      ISA (arch, Endian.Little, wordSize)
+      ISA(arch, Endian.Little, wordSize)
     | Architecture.ARMv8 when wordSize = WordSize.Bit32
                            || wordSize = WordSize.Bit64 ->
-      ISA (arch, Endian.Little, wordSize)
+      ISA(arch, Endian.Little, wordSize)
     | Architecture.MIPS when wordSize = WordSize.Bit32
                           || wordSize = WordSize.Bit64 ->
-      ISA (arch, Endian.Big, wordSize)
+      ISA(arch, Endian.Big, wordSize)
     | Architecture.PPC when wordSize = WordSize.Bit32
                          || wordSize = WordSize.Bit64 ->
-      ISA (arch, Endian.Big, wordSize)
+      ISA(arch, Endian.Big, wordSize)
     | Architecture.RISCV when wordSize = WordSize.Bit32
                            || wordSize = WordSize.Bit64
                            || wordSize = WordSize.Bit128 ->
-      ISA (arch, Endian.Little, wordSize)
+      ISA(arch, Endian.Little, wordSize)
     | Architecture.SPARC when wordSize = WordSize.Bit32
                            || wordSize = WordSize.Bit64 ->
-      ISA (arch, Endian.Big, wordSize)
+      ISA(arch, Endian.Big, wordSize)
     | Architecture.S390 when wordSize = WordSize.Bit32
                           || wordSize = WordSize.Bit64 ->
-      ISA (arch, Endian.Big, wordSize)
+      ISA(arch, Endian.Big, wordSize)
     | Architecture.SH4 when wordSize = WordSize.Bit32
                          || wordSize = WordSize.Bit64 ->
-      ISA (arch, Endian.Little, wordSize)
+      ISA(arch, Endian.Little, wordSize)
     | Architecture.PARISC when wordSize = WordSize.Bit32
                             || wordSize = WordSize.Bit64 ->
-      ISA (arch, Endian.Big, wordSize)
+      ISA(arch, Endian.Big, wordSize)
     | Architecture.AVR when wordSize = WordSize.Bit8 ->
-      ISA (arch, Endian.Little, wordSize)
+      ISA(arch, Endian.Little, wordSize)
     | Architecture.TMS320C6000 when wordSize = WordSize.Bit32 ->
-      ISA (arch, Endian.Little, wordSize)
+      ISA(arch, Endian.Little, wordSize)
     | Architecture.EVM when wordSize = WordSize.Bit256 ->
-      ISA (arch, Endian.Big, wordSize)
-    | Architecture.Python -> ISA (arch, Endian.Little, wordSize)
-    | Architecture.WASM -> ISA (arch, Endian.Little, wordSize)
-    | Architecture.CIL -> ISA (arch, Endian.Little, wordSize)
-    | _ -> ISA (Architecture.UnknownISA, Endian.Little, wordSize)
+      ISA(arch, Endian.Big, wordSize)
+    | Architecture.Python -> ISA(arch, Endian.Little, wordSize)
+    | Architecture.WASM -> ISA(arch, Endian.Little, wordSize)
+    | Architecture.CIL -> ISA(arch, Endian.Little, wordSize)
+    | _ -> ISA(Architecture.UnknownISA, Endian.Little, wordSize)
 
   new (cilKind: CILKind) =
     let flag = int cilKind
-    ISA (Architecture.CIL, Endian.Little, WordSize.Bit64, flag)
+    ISA(Architecture.CIL, Endian.Little, WordSize.Bit64, flag)
 
   new (pythonVer: PythonVersion) =
     let flag = int pythonVer
-    ISA (Architecture.Python, Endian.Little, WordSize.Bit64, flag)
+    ISA(Architecture.Python, Endian.Little, WordSize.Bit64, flag)
 
-  static member OfString (s: string) =
-    match s.ToLowerInvariant () with
+  static member OfString(s: string) =
+    match s.ToLowerInvariant() with
     | "x86" | "i386" ->
-      ISA (Architecture.Intel, WordSize.Bit32)
+      ISA(Architecture.Intel, WordSize.Bit32)
     | "x64" | "x86-64" | "amd64" ->
-      ISA (Architecture.Intel, WordSize.Bit64)
+      ISA(Architecture.Intel, WordSize.Bit64)
     | "armv7" | "armv7le" | "armel" | "armhf" ->
       ISA Architecture.ARMv7
     | "armv7be" ->
-      ISA (Architecture.ARMv7, Endian.Big)
+      ISA(Architecture.ARMv7, Endian.Big)
     | "armv8a32" | "aarch32" ->
-      ISA (Architecture.ARMv8, WordSize.Bit32)
+      ISA(Architecture.ARMv8, WordSize.Bit32)
     | "armv8a32be" | "aarch32be" ->
-      ISA (Architecture.ARMv8, Endian.Big, WordSize.Bit32)
+      ISA(Architecture.ARMv8, Endian.Big, WordSize.Bit32)
     | "armv8a64" | "aarch64"->
       ISA Architecture.ARMv8
     | "armv8a64be" | "aarch64be" ->
-      ISA (Architecture.ARMv8, Endian.Big)
+      ISA(Architecture.ARMv8, Endian.Big)
     | "mipsel" | "mips32" | "mips32le" ->
-      ISA (Architecture.MIPS, Endian.Little, WordSize.Bit32)
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32)
     | "mips32" | "mips32be" ->
-      ISA (Architecture.MIPS, Endian.Big, WordSize.Bit32)
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
     | "mips64el" | "mips64" | "mips64le" ->
-      ISA (Architecture.MIPS, Endian.Little, WordSize.Bit64)
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64)
     | "mips64be" ->
-      ISA (Architecture.MIPS, Endian.Big, WordSize.Bit64)
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
     | "ppc32le" ->
-      ISA (Architecture.PPC, Endian.Little, WordSize.Bit32)
+      ISA(Architecture.PPC, Endian.Little, WordSize.Bit32)
     | "ppc32" | "ppc32be" ->
-      ISA (Architecture.PPC, Endian.Big, WordSize.Bit32)
+      ISA(Architecture.PPC, Endian.Big, WordSize.Bit32)
     | "riscv64" ->
-      ISA (Architecture.RISCV, Endian.Little, WordSize.Bit64)
+      ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
     | "sparc" | "sparc64" ->
-      ISA (Architecture.SPARC, Endian.Big)
+      ISA(Architecture.SPARC, Endian.Big)
     | "s390" ->
-      ISA (Architecture.S390, WordSize.Bit32)
+      ISA(Architecture.S390, WordSize.Bit32)
     | "s390x" ->
-      ISA (Architecture.S390, WordSize.Bit64)
+      ISA(Architecture.S390, WordSize.Bit64)
     | "sh4" ->
-      ISA (Architecture.SH4, Endian.Little)
+      ISA(Architecture.SH4, Endian.Little)
     | "sh4be" ->
-      ISA (Architecture.SH4, Endian.Big)
+      ISA(Architecture.SH4, Endian.Big)
     | "parisc" | "hppa" | "hppa32" ->
-      ISA (Architecture.PARISC, WordSize.Bit32)
+      ISA(Architecture.PARISC, WordSize.Bit32)
     | "parisc64" | "hppa64" ->
-      ISA (Architecture.PARISC, WordSize.Bit64)
+      ISA(Architecture.PARISC, WordSize.Bit64)
     | "avr" | "avr8" ->
       ISA Architecture.AVR
     | "tms320c6000" ->
@@ -232,7 +232,7 @@ type ISA (arch, endian, wordSize, flags) =
       ISA Architecture.WASM
     | _ -> raise InvalidISAException
 
-  override _.ToString () =
+  override _.ToString() =
     match arch, endian, wordSize with
     | Architecture.Intel, _, WordSize.Bit32 -> "x86"
     | Architecture.Intel, _, WordSize.Bit64 -> "x86-64"
@@ -313,120 +313,120 @@ module ISA =
   [<return: Struct>]
   let (|X86|_|) (isa: ISA) =
     match isa.Arch, isa.WordSize with
-    | Architecture.Intel, WordSize.Bit32 -> ValueSome ()
+    | Architecture.Intel, WordSize.Bit32 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|X64|_|) (isa: ISA) =
     match isa.Arch, isa.WordSize with
-    | Architecture.Intel, WordSize.Bit64 -> ValueSome ()
+    | Architecture.Intel, WordSize.Bit64 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|Intel|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.Intel -> ValueSome ()
+    | Architecture.Intel -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|ARMv7|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.ARMv7 -> ValueSome ()
+    | Architecture.ARMv7 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|ARM32|_|) (isa: ISA) =
     match isa.Arch, isa.WordSize with
     | Architecture.ARMv7, _
-    | Architecture.ARMv8, WordSize.Bit32 -> ValueSome ()
+    | Architecture.ARMv8, WordSize.Bit32 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|AArch64|_|) (isa: ISA) =
     match isa.Arch, isa.WordSize with
-    | Architecture.ARMv8, WordSize.Bit64 -> ValueSome ()
+    | Architecture.ARMv8, WordSize.Bit64 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|MIPS|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.MIPS -> ValueSome ()
+    | Architecture.MIPS -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|MIPS32|_|) (isa: ISA) =
     match isa.Arch, isa.WordSize with
-    | Architecture.MIPS, WordSize.Bit32 -> ValueSome ()
+    | Architecture.MIPS, WordSize.Bit32 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|MIPS64|_|) (isa: ISA) =
     match isa.Arch, isa.WordSize with
-    | Architecture.MIPS, WordSize.Bit32 -> ValueSome ()
+    | Architecture.MIPS, WordSize.Bit32 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|PPC32|_|) (isa: ISA) =
     match isa.Arch, isa.WordSize with
-    | Architecture.PPC, WordSize.Bit32 -> ValueSome ()
+    | Architecture.PPC, WordSize.Bit32 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|RISCV64|_|) (isa: ISA) =
     match isa.Arch, isa.WordSize with
-    | Architecture.RISCV, WordSize.Bit64 -> ValueSome ()
+    | Architecture.RISCV, WordSize.Bit64 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|SPARC|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.SPARC -> ValueSome ()
+    | Architecture.SPARC -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|S390|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.S390 -> ValueSome ()
+    | Architecture.S390 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|SH4|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.SH4 -> ValueSome ()
+    | Architecture.SH4 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|PARISC|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.PARISC -> ValueSome ()
+    | Architecture.PARISC -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|AVR|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.AVR -> ValueSome ()
+    | Architecture.AVR -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|TMS320C6000|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.TMS320C6000 -> ValueSome ()
+    | Architecture.TMS320C6000 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|EVM|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.EVM -> ValueSome ()
+    | Architecture.EVM -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|WASM|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.WASM -> ValueSome ()
+    | Architecture.WASM -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
   let (|Python|_|) (isa: ISA) =
     match isa.Arch with
-    | Architecture.Python -> ValueSome ()
+    | Architecture.Python -> ValueSome()
     | _ -> ValueNone

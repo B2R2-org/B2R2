@@ -34,7 +34,7 @@ open type Register
 
 [<TestClass>]
 type ARM64LifterTests () =
-  let num v = BitVector.OfUInt32 v 32<rt> |> AST.num
+  let num v = BitVector.OfUInt32(v, 32<rt>) |> AST.num
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 

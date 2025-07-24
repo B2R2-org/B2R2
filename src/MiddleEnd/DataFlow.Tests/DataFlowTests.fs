@@ -45,7 +45,7 @@ type DataFlowTests () =
       VarKind = Regular (Register.toRegID reg) }
 
   let mkConst v rt =
-    ConstantDomain.Const (BitVector.OfUInt32 v rt)
+    BitVector.OfUInt32(v, rt) |> ConstantDomain.Const
 
   let rec findVarDefFromStmts (stmts: _[]) vaddr idx addr kind =
     if idx < stmts.Length then

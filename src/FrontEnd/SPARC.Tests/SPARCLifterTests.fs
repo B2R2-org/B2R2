@@ -34,7 +34,7 @@ open type Register
 
 [<TestClass>]
 type SPARCLifterTest () =
-  let num v = BitVector.OfInt64 v 64<rt> |> AST.num
+  let num v = BitVector.OfInt64(v, 64<rt>) |> AST.num
 
   let t64 id = AST.tmpvar 64<rt> id
 

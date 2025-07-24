@@ -34,7 +34,7 @@ open System.Collections.Generic
 let rec private binSearch value lo hi (keys: IList<_>) (comp: Comparer<_>) =
   if lo < hi then
     let mid = (lo + hi) / 2
-    match comp.Compare (keys[mid], value) with
+    match comp.Compare(keys[mid], value) with
     | 0 -> mid
     | n ->
       if n < 0 then binSearch value (mid + 1) hi keys comp
@@ -46,10 +46,10 @@ let rec private binSearch value lo hi (keys: IList<_>) (comp: Comparer<_>) =
 let findGreatestLowerBoundKey (key: 'T) (list: SortedList<'T, _>) =
   let comp = Comparer<'T>.Default
   let keys = list.Keys
-  if keys.Count = 0 || comp.Compare (key, keys[0]) <= 0 then None
+  if keys.Count = 0 || comp.Compare(key, keys[0]) <= 0 then None
   else
     let idx = binSearch key 0 (list.Count - 1) keys comp
-    if comp.Compare (keys[idx], key) < 0 then keys[idx] else keys[idx - 1]
+    if comp.Compare(keys[idx], key) < 0 then keys[idx] else keys[idx - 1]
     |> Some
 
 /// Find the least key that is greater than the given key from the SortedList.
@@ -58,8 +58,8 @@ let findLeastUpperBoundKey (key: 'T) (list: SortedList<'T, _>) =
   let comp = Comparer<'T>.Default
   let keys = list.Keys
   let lastIdx = list.Count - 1
-  if keys.Count = 0 || comp.Compare (keys[lastIdx], key) <= 0 then None
+  if keys.Count = 0 || comp.Compare(keys[lastIdx], key) <= 0 then None
   else
     let idx = binSearch key 0 lastIdx keys comp
-    if comp.Compare (keys[idx], key) <= 0 then keys[idx + 1] else keys[idx]
+    if comp.Compare(keys[idx], key) <= 0 then keys[idx + 1] else keys[idx]
     |> Some

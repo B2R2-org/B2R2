@@ -58,10 +58,11 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
     numberLiteral numberFormat "number"
     |>> fun n ->
       let s = n.String
-      if s.StartsWith ("0x") then
-        BigInteger.Parse ("0" + s.Substring (2), NumberStyles.AllowHexSpecifier)
-      else BigInteger.Parse (s)
-      |> BitVector.OfBInt
+      let bigInt =
+        if s.StartsWith("0x") then
+          BigInteger.Parse("0" + s.Substring(2), NumberStyles.AllowHexSpecifier)
+        else BigInteger.Parse(s)
+      fun typ -> BitVector.OfBInt(bigInt, typ)
 
   let pRegType =
     (anyOf "IiFf") >>. pint32 |>> RegType.fromBitWidth

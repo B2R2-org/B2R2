@@ -156,8 +156,8 @@ type S390ParserTests () =
     "C50ABCDEFFFF"
     ++ BPRP **
     [ O.Mask 0us
-      O.Imm (ImmS12 (BitVector.OfInt32 0xABC 12<rt>))
-      O.Imm (ImmS24 (BitVector.OfInt32 0xDEFFFF 24<rt>)) ]
+      O.Imm (ImmS12 (BitVector.OfInt32(0xABC, 12<rt>)))
+      O.Imm (ImmS24 (BitVector.OfInt32(0xDEFFFF, 24<rt>))) ]
     ||> test32
 
   [<TestMethod>]
@@ -173,7 +173,7 @@ type S390ParserTests () =
     ++ SRP **
     [ O.StoreLen (6us, R4, DispU 1u)
       O.Store (None, R0, DispU 3u)
-      O.Imm (ImmU4 (BitVector.OfUInt32 0x00u 4<rt>)) ]
+      O.Imm (ImmU4 (BitVector.OfUInt32(0x00u, 4<rt>))) ]
     ||> test32
 
   [<TestMethod>]
@@ -222,6 +222,6 @@ type S390ParserTests () =
   member _.``[S390] Fmt.IE instruction Parse Test (1)`` () =
     "B2FA002F"
     ++ NIAI **
-    [ O.Imm (ImmU4 (BitVector.OfUInt32 0x2u 4<rt>))
-      O.Imm (ImmU4 (BitVector.OfUInt32 0xfu 4<rt>)) ]
+    [ O.Imm (ImmU4 (BitVector.OfUInt32(0x2u, 4<rt>)))
+      O.Imm (ImmU4 (BitVector.OfUInt32(0xfu, 4<rt>))) ]
     ||> test32

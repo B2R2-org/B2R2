@@ -29,31 +29,31 @@ open System.Runtime.InteropServices
 
 /// Represents a queue that only stores unique elements.
 type UniqueQueue<'T> () =
-  let queue = Queue<'T> ()
-  let set = HashSet<'T> ()
+  let queue = Queue<'T>()
+  let set = HashSet<'T>()
 
   /// Enqueue an element only if it is not already in the queue.
-  member _.Enqueue (x: 'T) =
+  member _.Enqueue(x: 'T) =
     if set.Add x |> not then ()
     else queue.Enqueue x
 
   /// Dequeue an element. If the element is not in the queue, it raises an
   /// exception.
-  member _.Dequeue () =
-    let x = queue.Dequeue ()
+  member _.Dequeue() =
+    let x = queue.Dequeue()
     if set.Remove x then x
     else B2R2.Terminator.impossible ()
 
   /// Try to dequeue an element.
-  member _.TryDequeue ([<Out>] result: byref<'T>) =
-    if not <| queue.TryDequeue (&result) then false
+  member _.TryDequeue([<Out>] result: byref<'T>) =
+    if not <| queue.TryDequeue(&result) then false
     else set.Remove result
 
   /// Get the number of elements in the queue.
   member _.Count = queue.Count
 
   /// Clear the queue.
-  member _.Clear () = queue.Clear ()
+  member _.Clear() = queue.Clear()
 
   /// Check if the queue is empty.
   member _.IsEmpty with get () = queue.Count = 0

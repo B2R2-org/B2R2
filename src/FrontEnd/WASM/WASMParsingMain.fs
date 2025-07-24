@@ -61,23 +61,23 @@ let private parseU64LEB128 (span: ByteSpan) (reader: IBinReader) pos opcode =
 
 let private parseF32 (span: ByteSpan) (reader: IBinReader) pos opcode =
   let value = reader.ReadUInt32 (span, pos)
-  let value = BitVector.OfUInt32 value 32<rt>
+  let value = BitVector.OfUInt32(value, 32<rt>)
   struct (opcode, OneOperand (value |> F32), uint32 (pos + 4))
 
 let private parseF64 (span: ByteSpan) (reader: IBinReader) pos opcode =
   let value = reader.ReadUInt64 (span, pos)
-  let value = BitVector.OfUInt64 value 64<rt>
+  let value = BitVector.OfUInt64(value, 64<rt>)
   struct (opcode, OneOperand (value |> F64), uint32 (pos + 8))
 
 let private parseV128 (span: ByteSpan) (reader: IBinReader) pos opcode =
   let i32One = reader.ReadUInt32 (span, pos)
-  let i32One = BitVector.OfUInt32 i32One 32<rt>
+  let i32One = BitVector.OfUInt32(i32One, 32<rt>)
   let i32Two = reader.ReadUInt32 (span, pos + 4)
-  let i32Two = BitVector.OfUInt32 i32Two 32<rt>
+  let i32Two = BitVector.OfUInt32(i32Two, 32<rt>)
   let i32Three = reader.ReadUInt32 (span, pos + 8)
-  let i32Three = BitVector.OfUInt32 i32Three 32<rt>
+  let i32Three = BitVector.OfUInt32(i32Three, 32<rt>)
   let i32Four = reader.ReadUInt32 (span, pos + 12)
-  let i32Four = BitVector.OfUInt32 i32Four 32<rt>
+  let i32Four = BitVector.OfUInt32(i32Four, 32<rt>)
   let v128 = (i32One, i32Two, i32Three, i32Four) |> V128
   struct (opcode, OneOperand v128, uint32 pos + 16u)
 

@@ -33,7 +33,7 @@ open B2R2
 /// Represents a Least Recently Used (LRU) cache that does not support
 /// concurrency.
 type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
-  let dict = Dictionary<'K, DoublyLinkedKeyValue<'K, 'V>> ()
+  let dict = Dictionary<'K, DoublyLinkedKeyValue<'K, 'V>>()
   let mutable head: DoublyLinkedKeyValue<'K, 'V> = null
   let mutable tail: DoublyLinkedKeyValue<'K, 'V> = null
   let mutable size = 0
@@ -46,14 +46,14 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
     tail <- v
     size <- size + 1
 
-  member inline private _.Remove (v: DoublyLinkedKeyValue<'K, 'V>) =
+  member inline private _.Remove(v: DoublyLinkedKeyValue<'K, 'V>) =
     if isNull v.Prev then head <- v.Next else v.Prev.Next <- v.Next
     if isNull v.Next then tail <- v.Prev else v.Next.Prev <- v.Prev
     size <- size - 1
 
   member _.Count with get () = size
 
-  member this.TryGet (key: 'K) =
+  member this.TryGet(key: 'K) =
     match dict.TryGetValue key with
     | true, v ->
       this.Remove v
@@ -62,7 +62,7 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
     | false, _ -> Error ErrorCase.ItemNotFound
 
   /// Try to retrieve a value as well as its ref count.
-  member this.TryGet (key: 'K, [<Out>] refCount: int byref) =
+  member this.TryGet(key: 'K, [<Out>] refCount: int byref) =
     match dict.TryGetValue key with
     | true, v ->
       this.Remove v
@@ -71,8 +71,8 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
       Ok v.Value
     | false, _ -> Error ErrorCase.ItemNotFound
 
-  member this.Add (key: 'K, value: 'V) =
-    let v = DoublyLinkedKeyValue (null, null, key, value)
+  member this.Add(key: 'K, value: 'V) =
+    let v = DoublyLinkedKeyValue(null, null, key, value)
     dict[key] <- v
     this.InsertBack v
     if size > capacity then
@@ -80,8 +80,8 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
       this.Remove head
     else ()
 
-  member _.Clear () =
-    dict.Clear ()
+  member _.Clear() =
+    dict.Clear()
     head <- null
     tail <- null
     size <- 0
@@ -95,18 +95,18 @@ type ICacheableOperation<'Arg, 'V when 'V: equality> =
 /// capacity decides how many entries to store.
 type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
   (capacity: int) =
-  let dict = Dictionary<'K, DoublyLinkedKeyValue<'K, 'V>> ()
-  let lock = Object ()
+  let dict = Dictionary<'K, DoublyLinkedKeyValue<'K, 'V>>()
+  let lock = Object()
   let mutable head: DoublyLinkedKeyValue<'K, 'V> = null
   let mutable tail: DoublyLinkedKeyValue<'K, 'V> = null
   let mutable size = 0
 
-  member inline private _.AcquireLock () =
-    try Monitor.Enter (lock)
+  member inline private _.AcquireLock() =
+    try Monitor.Enter(lock)
     finally ()
 
-  member inline private _.ReleaseLock () =
-    Monitor.Exit (lock)
+  member inline private _.ReleaseLock() =
+    Monitor.Exit(lock)
 
   member private _.InsertBack v =
     if isNull head then head <- v else tail.Next <- v
@@ -116,15 +116,15 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
     size <- size + 1
     v
 
-  member private _.Remove (v: DoublyLinkedKeyValue<'K, 'V>) =
+  member private _.Remove(v: DoublyLinkedKeyValue<'K, 'V>) =
     if isNull v.Prev then head <- v.Next else v.Prev.Next <- v.Next
     if isNull v.Next then tail <- v.Prev else v.Next.Prev <- v.Prev
     size <- size - 1
 
   member _.Count with get () = size
 
-  member this.GetOrAdd (key: 'K) (op: ICacheableOperation<_, 'V>) arg =
-    this.AcquireLock ()
+  member this.GetOrAdd(key: 'K, op: ICacheableOperation<_, 'V>, arg) =
+    this.AcquireLock()
     let v =
       match dict.TryGetValue key with
       | true, v ->
@@ -134,16 +134,16 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
         if size >= capacity then
           dict.Remove head.Key |> ignore
           this.Remove head
-        let v = DoublyLinkedKeyValue (null, null, key, op.Perform arg)
-        dict.Add (key, v)
+        let v = DoublyLinkedKeyValue(null, null, key, op.Perform arg)
+        dict.Add(key, v)
         this.InsertBack v
-    this.ReleaseLock ()
+    this.ReleaseLock()
     v.Value
 
-  member this.Clear () =
-    this.AcquireLock ()
-    dict.Clear ()
+  member this.Clear() =
+    this.AcquireLock()
+    dict.Clear()
     head <- null
     tail <- null
     size <- 0
-    this.ReleaseLock ()
+    this.ReleaseLock()
