@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.SH4
 
 /// <summary>
-///   SH4 opcodes.
+/// Represents an SH4 opcode.
 /// </summary>
 type Opcode =
   // Add.

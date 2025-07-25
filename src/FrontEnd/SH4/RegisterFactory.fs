@@ -28,6 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
+/// Represents a factory for accessing various SH4 register variables.
 type RegisterFactory (wordSize) =
   let rt = WordSize.toRegType wordSize
 

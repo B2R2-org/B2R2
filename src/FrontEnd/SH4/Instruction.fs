@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.SH4
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for SH4.
+/// Represents an instruction for SH4.
 type Instruction
   internal (addr, numBytes, op, opr, lifter: ILiftable) =
 

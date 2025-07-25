@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.SH4.Lifter
+module internal B2R2.FrontEnd.SH4.Lifter
 
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.SH4.GeneralLifter

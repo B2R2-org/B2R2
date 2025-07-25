@@ -28,8 +28,9 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
+/// Represents a parser for S390 instructions. Parser will return a
+/// platform-agnostic type (Instruction).
 type SH4Parser (reader) =
-
   let lifter =
     { new ILiftable with
         member _.Lift ins builder =
