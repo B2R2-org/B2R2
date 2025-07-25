@@ -29,9 +29,9 @@ open B2R2
 /// Shortcut for Register type.
 type internal R = Register
 
-/// This module exposes several useful functions to handle SH4 registers.
+/// Provides several useful functions for working with SH4 registers.
 [<RequireQualifiedAccess>]
-module Register =
+module internal Register =
   let toRegType = function
     | R.MD | R.RB | R.BL | R.FD | R.M | R.Q | R.IMASK | R.S | R.T
     | R.FPSCR_RM | R.FPSCR_FLAG | R.FPSCR_ENABLE | R.FPSCR_CAUSE | R.FPSCR_DN
@@ -55,29 +55,3 @@ module Register =
     | R.FV0 | R.FV4 | R.FV8 | R.FV12 -> 128<rt>
     | R.XMTRX -> 512<rt>
     | _ -> Terminator.impossible()
-
-type Const = int32
-
-type AddressingMode =
-  | Regdir of Register
-  | RegIndir of Register
-  | PostInc of Register
-  | PreDec of Register
-  | RegDisp of Const * Register
-  | IdxIndir of Register * Register
-  | GbrDisp of Const * Register
-  | IdxGbr of Register * Register
-  | PCrDisp of Const * Register
-  | PCr of Const
-  | Imm of Const
-
-type Operand =
-  | OpImm of Const
-  | OpAddr of Const
-  | OpReg of AddressingMode
-
-type Operands =
-  | NoOperand
-  | OneOperand of Operand
-  | TwoOperands of Operand * Operand
-  | ThreeOperands of Operand * Operand * Operand

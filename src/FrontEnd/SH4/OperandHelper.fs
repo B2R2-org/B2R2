@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.SH4.OperandHelper
+module internal B2R2.FrontEnd.SH4.OperandHelper
 
 open B2R2
 
@@ -131,8 +131,6 @@ let getBits (binary: uint16) (start: int)  (fin: int) =
 
 let get1Bit (binary: uint16) (pos: int) =
   ((binary >>> (pos - 1)) &&& 1us) = 1us
-
-// Register-Fetching Functions:
 
 let getReg1d b = getReg (getBits b 12 9)
 
