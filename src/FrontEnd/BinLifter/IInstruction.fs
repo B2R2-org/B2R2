@@ -213,6 +213,7 @@ type IInstruction =
   /// through general-purpose registers (e.g., <c>MOV [RAX], EAX</c>), nor does
   /// it include instructions that only compute a memory address without
   /// dereferencing it (e.g., <c>LEA RAX, [RIP + 0x42]</c>).
+  /// </summary>
   /// <returns>
   /// Returns if there exists any direct memory accesses. If there are
   /// direct memory accesses, the `addrs` parameter will be filled with the
