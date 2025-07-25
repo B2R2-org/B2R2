@@ -24,14 +24,18 @@
 
 namespace B2R2.FrontEnd.S390
 
+open System.Runtime.CompilerServices
 open B2R2
+
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.S390.Tests")>]
+do ()
 
 /// Shortcut for Register type.
 type internal R = Register
 
-/// This module exposes several useful functions to handle s390/s390x registers
+/// Provides several useful functions for working with s390/s390x registers.
 [<RequireQualifiedAccess>]
-module Register =
+module internal Register =
   let getRpairReg = function
     | R.R0 -> R.R1
     | R.R2 -> R.R3

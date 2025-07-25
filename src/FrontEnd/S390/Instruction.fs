@@ -28,7 +28,7 @@ open B2R2
 open B2R2.FrontEnd.S390
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for S390.
+/// Represents an instruction for S390.
 type Instruction
   internal (addr, numBytes, fmt, op, opr, wordSize, lifter: ILiftable) =
 

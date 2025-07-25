@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.S390.Disasm
+module internal B2R2.FrontEnd.S390.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
