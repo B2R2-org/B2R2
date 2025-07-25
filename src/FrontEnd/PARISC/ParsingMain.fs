@@ -52,8 +52,7 @@ let parseSystemControlInstruction bin wordSz =
   | 0b01000101u ->
     if Bits.extract bin 25u 21u = 0b01011u && Bits.pick bin 14u = 1u then
       Op.MFCTL, Some [| W |], getCrRd bin
-    else
-      Op.MFCTL, None, getCrRd bin
+    else Op.MFCTL, None, getCrRd bin
   | 0b11000110u -> Op.MTSARCM, None, getRs1 bin
   | 0b10100101u -> Op.MFIA, None, getRd bin
   | _ -> raise ParsingFailureException
@@ -96,13 +95,11 @@ let parseMemoryManagementInstruction bin wordSz =
     | 0b000110u ->
       if bit18 = 0u then
         Op.PROBE, Some [| R |], getMemSpaceRs1Rd bin (sr bin) wordSz
-      else
-        Op.PROBEI, Some [| R |], getMemSpaceIRs1Rd bin (sr bin) wordSz
+      else Op.PROBEI, Some [| R |], getMemSpaceIRs1Rd bin (sr bin) wordSz
     | 0b000111u ->
       if bit18 = 0u then
         Op.PROBE, Some [| W |], getMemSpaceRs1Rd bin (sr bin) wordSz
-      else
-        Op.PROBEI, Some [| W |], getMemSpaceIRs1Rd bin (sr bin) wordSz
+      else Op.PROBEI, Some [| W |], getMemSpaceIRs1Rd bin (sr bin) wordSz
     | 0b001101u -> Op.LPA, cmplt, getMemSpaceRegOffRd bin (sr bin) offset wordSz
     | 0b001100u -> Op.LCI, None, getMemSpaceRegOffRd bin (sr bin) offset wordSz
     | _ -> raise ParsingFailureException
@@ -669,8 +666,7 @@ let parseFloatingPointLoadStoreInstruction bin wordSz =
   let imm = getImmAssemble16 bin &&& -4
   if Bits.extract bin 31u 26u = 0b010110u then
     Op.FLDW, cmplt, getMemSpaceOffFrs1 bin (sr bin) imm wordSz
-  else
-    Op.FSTW, cmplt, getFrs1MemSpaceOff bin (sr bin) imm wordSz
+  else Op.FSTW, cmplt, getFrs1MemSpaceOff bin (sr bin) imm wordSz
 
 let parseConditionalLocalBranchInstruction bin wordSz =
   let cBit = Bits.extract bin 15u 13u
@@ -782,12 +778,9 @@ let private parseInstruction bin wordSz =
         let bit21 = Bits.pick bin 10u
         if bit21 = 0u then
           parseVariableShiftExtractDepositInstruction bin wordSz
-        else
-          parseFixedShiftExtractDepositInstruction bin wordSz
-      | 0b10u ->
-        parseVariableShiftExtractDepositInstruction bin wordSz
-      | _ ->
-        parseFixedShiftExtractDepositInstruction bin wordSz
+        else parseFixedShiftExtractDepositInstruction bin wordSz
+      | 0b10u -> parseVariableShiftExtractDepositInstruction bin wordSz
+      | _ -> parseFixedShiftExtractDepositInstruction bin wordSz
     opcode, completer, cond, None, operands
   | 0b110110u | 0b111100u | 0b111101u ->
     let opcode, completer, cond, operands =

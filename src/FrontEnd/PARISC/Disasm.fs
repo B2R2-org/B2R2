@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.PARISC.Disasm
+module internal B2R2.FrontEnd.PARISC.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
@@ -333,10 +333,6 @@ let condToString c =
   | Completer.REJ8 -> "rej8"
   | Completer.CO -> "co"
   | _ -> failwith "Invalid condition"
-
-let shtostring = function
-  | SHIFTST.SARSHFT -> "sar"
-  | _ -> failwith "invalid sarshift"
 
 let inline attachPrefixer (ins: Instruction) opcode =
   let formatCompleter c = "," + condToString c

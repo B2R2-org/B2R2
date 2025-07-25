@@ -8,14 +8,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="PARISCRegisterFactory.fs" />
-    <Compile Include="PARISCTypes.fs" />
-    <Compile Include="PARISCInstruction.fs" />
-    <Compile Include="PARISCDisasm.fs" />
-    <Compile Include="PARISCLifter.fs" />
-    <Compile Include="PARISCHelper.fs" />
-    <Compile Include="PARISCParsingMain.fs" />
-    <Compile Include="PARISCParser.fs" />
+    <Compile Include="RegisterFactory.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
+    <Compile Include="Instruction.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="Lifter.fs" />
+    <Compile Include="Helper.fs" />
+    <Compile Include="ParsingMain.fs" />
+    <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

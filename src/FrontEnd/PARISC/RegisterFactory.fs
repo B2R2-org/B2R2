@@ -24,11 +24,16 @@
 
 namespace B2R2.FrontEnd.PARISC
 
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 open type Register
 
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.PARISC.Tests")>]
+do ()
+
+/// Represents a factory for accessing various PARISC register variables.
 type RegisterFactory (wordSize) =
   let rt = WordSize.toRegType wordSize
 
