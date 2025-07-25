@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.RISCV64.Helper
+module internal B2R2.FrontEnd.RISCV64.Helper
 
 open B2R2
 open B2R2.FrontEnd.BinLifter

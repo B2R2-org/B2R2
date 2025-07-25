@@ -24,14 +24,8 @@
 
 namespace B2R2.FrontEnd.RISCV64
 
-open System.Runtime.CompilerServices
-open B2R2
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.RISCV64.Tests")>]
-do ()
-
 /// <summary>
-///   RISCV64 opcodes.
+/// Represents a RISCV64 opcode.
 /// </summary>
 type Opcode =
   | LUI = 0
@@ -241,48 +235,3 @@ type Opcode =
   | InvalOP = 194
 
 type internal Op = Opcode
-
-type RoundMode =
-  // Round to Nearest, ties to Even
-  | RNE = 0
-  // Round towards Zero
-  | RTZ = 1
-  // Round Down
-  | RDN = 2
-  // Round Up
-  | RUP = 3
-  // Round to Nearest, ties to Max Magnitude
-  | RMM = 4
-  // In instruction's rm field selects dynamic mode;
-  // In Rounding Mode register, Invalid
-  | DYN = 7
-
-type Operand =
-  | OpReg of Register
-  | OpImm of Imm
-  | OpMem of Base * Offset option * AccessLength
-  | OpAddr of JumpTarget
-  | OpShiftAmount of Imm
-  | OpFenceMask of FenceMask * FenceMask
-  | OpRoundMode of RoundMode
-  | OpAtomMemOper of Aq * Rl
-  | OpCSR of uint16
-and Aq = bool
-and Rl = bool
-and Imm = uint64
-and FenceMask = uint8
-and JumpTarget =
-  | Relative of int64
-  | RelativeBase of Base * Imm
-and Offset =
-  | Imm of int64
-and AccessLength = RegType
-and Base = Register
-
-type Operands =
-  | NoOperand
-  | OneOperand of Operand
-  | TwoOperands of Operand * Operand
-  | ThreeOperands of Operand * Operand * Operand
-  | FourOperands of Operand * Operand * Operand * Operand
-  | FiveOperands of Operand * Operand * Operand * Operand * Operand
