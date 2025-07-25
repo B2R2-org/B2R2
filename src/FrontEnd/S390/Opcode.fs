@@ -24,14 +24,8 @@
 
 namespace B2R2.FrontEnd.S390
 
-open System.Runtime.CompilerServices
-open B2R2
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.S390.Tests")>]
-do ()
-
 /// <summary>
-///   S390 opcodes.
+/// Represents a S390 opcode.
 /// </summary>
 type Opcode =
   /// Invalid Opcode
@@ -2480,81 +2474,3 @@ type Opcode =
   | VUPKZ = 1221
 
 type internal Op = Opcode
-
-type Operand =
-  | OpReg of Register
-  | OpImm of ImmType
-  | OpRImm of ImmType
-  | OpMask of Mask
-  | OpStore of Index * Base * Displacement
-  | OpStoreLen of Length * Base * Displacement
-
-and ImmType =
-  | ImmU4 of BitVector
-  | ImmU8 of uint8
-  | ImmS8 of int8
-  | ImmU12 of BitVector
-  | ImmS12 of BitVector
-  | ImmU16 of uint16
-  | ImmS16 of int16
-  | ImmS24 of BitVector
-  | ImmU32 of uint32
-  | ImmS32 of int32
-
-and Mask = uint16
-and Index = Register option
-and Length = uint16
-and Base = Register
-and Displacement =
-  | DispS of int32
-  | DispU of uint32
-  | DispS20 of BitVector
-  | DispU12 of BitVector
-
-type Operands =
-  | NoOperand
-  | OneOperand of Operand
-  | TwoOperands of Operand * Operand
-  | ThreeOperands of Operand * Operand * Operand
-  | FourOperands of Operand * Operand * Operand * Operand
-  | FiveOperands of Operand * Operand * Operand * Operand * Operand
-  | SixOperands of Operand * Operand * Operand * Operand * Operand * Operand
-
-/// S390 instruction format.
-type Fmt =
-  | E = 0
-  | I = 1
-  | IE = 2
-  | MII = 3
-  | RI = 4
-  | RIE = 5
-  | RIL = 6
-  | RIS = 7
-  | RR = 8
-  | RRD = 9
-  | RRE = 10
-  | RRF = 11
-  | RRS = 12
-  | RS = 13
-  | RSI = 14
-  | RSL = 15
-  | RSY = 16
-  | RX = 17
-  | RXE = 18
-  | RXF = 19
-  | RXY = 20
-  | S = 21
-  | SI = 22
-  | SIL = 23
-  | SIY = 24
-  | SMI = 25
-  | SS = 26
-  | SSE = 27
-  | SSF = 28
-  | VRI = 29
-  | VRR = 30
-  | VRS = 31
-  | VRV = 32
-  | VRX = 33
-  | VSI = 34
-  | Invalid = 35

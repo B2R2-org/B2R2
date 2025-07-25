@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.S390
 open B2R2.FrontEnd.S390.Helper
 
-let parseInstLenOne (bin: uint16) =
+let parseInstLenOne bin =
   match bin with
   | 0x0101us -> Op.PR, NoOperand, Fmt.E
   | 0x0102us -> Op.UPT, NoOperand, Fmt.E
@@ -1360,5 +1360,3 @@ let parse lifter (span: ByteSpan) (reader: IBinReader) wordSize addr =
   let bin = reader.ReadUInt16 (span, 0)
   let (opcode, operand, fmt), numBytes = parseByFmt span reader bin
   Instruction (addr, numBytes, fmt, opcode, operand, wordSize, lifter)
-
-// vim: set tw=80 sts=2 sw=2:

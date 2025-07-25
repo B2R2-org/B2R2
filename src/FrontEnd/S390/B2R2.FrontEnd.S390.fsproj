@@ -8,15 +8,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="S390Register.fs" />
-    <Compile Include="S390RegisterFactory.fs" />
-    <Compile Include="S390Types.fs" />
-    <Compile Include="S390Instruction.fs" />
-    <Compile Include="S390Disasm.fs" />
-    <Compile Include="S390Helper.fs" />
-    <Compile Include="S390Lifter.fs" />
-    <Compile Include="S390ParsingMain.fs" />
-    <Compile Include="S390Parser.fs" />
+    <Compile Include="Register.fs" />
+    <Compile Include="RegisterFactory.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
+    <Compile Include="Format.fs" />
+    <Compile Include="Instruction.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="Helper.fs" />
+    <Compile Include="Lifter.fs" />
+    <Compile Include="ParsingMain.fs" />
+    <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

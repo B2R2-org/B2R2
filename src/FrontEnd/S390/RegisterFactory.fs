@@ -28,6 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
+/// Represents a factory for accessing various s390 register variables.
 type RegisterFactory (wordSize) =
   let r0 = AST.var 64<rt> (Register.toRegID Register.R0) "R0"
   let r1 = AST.var 64<rt> (Register.toRegID Register.R1) "R1"
