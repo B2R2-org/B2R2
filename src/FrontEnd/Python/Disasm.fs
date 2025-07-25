@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.Python.Disasm
+module internal B2R2.FrontEnd.Python.Disasm
 
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Python

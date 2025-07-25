@@ -28,8 +28,8 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
-/// Parser for Python instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
+/// Represents a parser for Python instructions. Parser will return a
+/// platform-agnostic instruction type (Instruction).
 type PythonParser (binFile: IBinFile, reader) =
   let _wordSize = int binFile.ISA.WordSize
   let binFile = binFile :?> PythonBinFile

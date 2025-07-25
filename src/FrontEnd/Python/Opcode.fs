@@ -24,15 +24,8 @@
 
 namespace B2R2.FrontEnd.Python
 
-open System.Runtime.CompilerServices
-open B2R2
-open B2R2.FrontEnd.BinFile.Python
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.Python.Tests")>]
-do ()
-
 /// <summary>
-///   Python opcodes(Python 3.12).
+/// Represents a Python opcode(Python 3.12).
 /// </summary>
 type Opcode =
   | CACHE = 0x0
@@ -177,10 +170,3 @@ type Opcode =
   | STORE_FAST_MAYBE_NULL = 0x10A
 
 type internal Op = Opcode
-
-type Operand = int * PyObject option
-
-type Operands =
-  | NoOperand
-  | OneOperand of Operand
-  | TwoOperands of Operand * Operand

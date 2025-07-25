@@ -30,26 +30,6 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Python
 
-type Op = Opcode
-
-type ParsingHelper (reader: IBinReader, binFile: PythonBinFile) =
-  let intrinsic =
-    [| "INTRINSIC_1_INVALID"
-       "INTRINSIC_PRINT"
-       "INTRINSIC_IMPORT_STAR"
-       "INTRINSIC_STOPITERATION_ERROR"
-       "INTRINSIC_ASYNC_GEN_WRAP"
-       "INTRINSIC_UNARY_POSITIVE"
-       "INTRINSIC_LIST_TO_TUPLE"
-       "INTRINSIC_TYPEVAR"
-       "INTRINSIC_PARAMSPEC"
-       "INTRINSIC_TYPEVARTUPLE"
-       "INTRINSIC_SUBSCRIPT_GENERIC"
-       "INTRINSIC_TYPEALIAS" |]
-
-  member __.Reader with get() = reader
-  member __.BinFile with get() = binFile
-
 let private getTable (binFile: PythonBinFile) = function
   | Op.LOAD_CONST | Op.RETURN_CONST -> binFile.Consts
   | Op.STORE_NAME | Op.IMPORT_NAME -> binFile.Names
