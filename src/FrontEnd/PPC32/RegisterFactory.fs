@@ -24,13 +24,17 @@
 
 namespace B2R2.FrontEnd.PPC32
 
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 open type Register
 
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.PPC32.Tests")>]
+do ()
+
+/// Represents a factory for accessing various PPC32 register variables.
 type RegisterFactory (wordSize) =
-  (* Registers *)
   let rt = WordSize.toRegType wordSize
 
   let r0 = AST.var rt (Register.toRegID R0) "R0"
@@ -513,5 +517,3 @@ type RegisterFactory (wordSize) =
       Register.toRegID R1 = rid
 
     member _.IsFramePointer _ = false
-
-// vim: set tw=80 sts=2 sw=2:

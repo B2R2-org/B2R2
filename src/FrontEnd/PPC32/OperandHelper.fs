@@ -50,4 +50,3 @@ let getSPRegister (bin: uint32) =
 
 let getTBRRegister (bin: uint32) =
   bin |> uint64 |> OprImm
-
