@@ -175,25 +175,6 @@ let pop (ins: Instruction) bld =
   popFromStack bld |> ignore
   updateGas bld ins.GAS
 
-let mload (ins: Instruction) bld =
-  let addr = popFromStack bld
-  let expr = AST.loadBE OperationSize.regType addr
-  pushToStack bld expr
-  updateGas bld ins.GAS
-
-let mstore (ins: Instruction) bld =
-  let addr = popFromStack bld
-  let value = popFromStack bld
-  bld <+ AST.store Endian.Big addr value
-  updateGas bld ins.GAS
-
-let mstore8 (ins: Instruction) bld =
-  let addr = popFromStack bld
-  let value = popFromStack bld
-  let lsb = AST.extract value 8<rt> 0
-  bld <+ AST.store Endian.Big addr lsb
-  updateGas bld ins.GAS
-
 let jump (ins: Instruction) bld =
   try
     let dst = popFromStack bld
@@ -319,9 +300,9 @@ let private translateOpcode ins bld = function
   | SELFBALANCE -> callExternFunc ins bld "selfbalance" 0 true
   | BASEFEE -> callExternFunc ins bld "basefee" 0 true
   | POP -> pop ins bld
-  | MLOAD -> mload ins bld
-  | MSTORE -> mstore ins bld
-  | MSTORE8 -> mstore8 ins bld
+  | MLOAD -> callExternFunc ins bld "mload" 1 true
+  | MSTORE -> callExternFunc ins bld "mstore" 2 false
+  | MSTORE8 -> callExternFunc ins bld "mstore8" 2 false
   | SLOAD -> callExternFunc ins bld "sload" 1 true
   | SSTORE -> callExternFunc ins bld "sstore" 2 false
   | JUMP -> jump ins bld
