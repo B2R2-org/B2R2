@@ -35,8 +35,8 @@ open B2R2.MiddleEnd.DataFlow
 /// SSACFG's vertex.
 type SSAVertex = IVertex<SSABasicBlock>
 
-/// A mapping from an address to an SSACFG vertex.
-type SSAVMap = Dictionary<ProgramPoint, SSAVertex>
+/// A mapping from an IRCFG vertex to an SSACFG vertex.
+type SSAVMap = Dictionary<IVertex<LowUIRBasicBlock>, SSAVertex>
 
 /// This is a mapping from an edge to an abstract vertex (for external function
 /// calls). We first separately create abstract vertices even if they are
@@ -68,16 +68,16 @@ module private SSALifterFactory =
 
   let getVertex stmtProcessor vMap g (src: IVertex<LowUIRBasicBlock>) =
     let bbl = src.VData :> ILowUIRBasicBlock
-    let ppoint = bbl.PPoint
-    match (vMap: SSAVMap).TryGetValue ppoint with
+    match (vMap: SSAVMap).TryGetValue src with
     | true, v -> v
     | false, _ ->
       let stmts = liftStmts stmtProcessor bbl.LiftedInstructions
       let lastAddr = bbl.LastInstruction.Address
       let endPoint = lastAddr + uint64 bbl.LastInstruction.Length - 1UL
+      let ppoint = bbl.PPoint
       let blk = SSABasicBlock.CreateRegular(stmts, ppoint, endPoint)
-      let v = (g: SSACFG).AddVertex blk
-      vMap.Add(ppoint, v)
+      let v = (g: SSACFG).AddVertex(blk)
+      vMap.Add(src, v)
       v
 
   let liftRundown stmtProcessor rundown =
