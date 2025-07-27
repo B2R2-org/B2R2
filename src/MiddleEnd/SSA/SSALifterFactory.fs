@@ -261,6 +261,9 @@ module private SSALifterFactory =
       renameExpr stack target2
 
   let introduceDef (count: VarCountMap) (stack: IDStack) (v: Variable) =
+    if not <| count.ContainsKey v.Kind then (* Lazy initialization *)
+      count.Add(v.Kind, 0)
+      stack.Add(v.Kind, [ 0 ])
     count[v.Kind] <- count[v.Kind] + 1
     let i = count[v.Kind]
     stack[v.Kind] <- i :: stack[v.Kind]
