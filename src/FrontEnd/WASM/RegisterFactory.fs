@@ -28,6 +28,7 @@ open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 
+/// Represents a factory for accessing various WASM register variables.
 type RegisterFactory () =
   interface IRegisterFactory with
     member _.GetRegVar rid: Expr =

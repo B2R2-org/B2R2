@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.WASM
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for WASM.
+/// Represents an instruction for WASM.
 type Instruction internal (addr, numBytes, op, opr, lifter: ILiftable) =
 
   /// Address of this instruction.

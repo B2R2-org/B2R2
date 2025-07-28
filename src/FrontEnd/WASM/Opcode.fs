@@ -24,44 +24,8 @@
 
 namespace B2R2.FrontEnd.WASM
 
-open B2R2
-
-type Register =
-  // Stack pointer
-  | SP = 0x1
-
-/// Shortcut for Register type.
-type internal R = Register
-
-/// Operation Size.
-type OperationSize = int
-module internal OperationSize =
-  let regType = 32<rt>
-
-/// This module exposes several useful functions to handle WASM registers.
-[<RequireQualifiedAccess>]
-module Register =
-  let inline ofRegID (n: RegisterID): Register =
-    int n |> LanguagePrimitives.EnumOfValue
-
-  let inline toRegID (reg: Register) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
-
-  let ofString (str: string) =
-    match str.ToLowerInvariant () with
-    | "SP" -> R.SP
-    | _ -> Terminator.impossible ()
-
-  let toString = function
-    | R.SP -> "SP"
-    | _ -> Terminator.impossible ()
-
-  let toRegType = function
-    | R.SP -> 32<rt>
-    | _ -> Terminator.impossible ()
-
 /// <summary>
-///   WASM opcodes.
+/// Represents a WASM opcode.
 /// </summary>
 type Opcode =
   | Unreachable
@@ -593,24 +557,3 @@ type Opcode =
   | I64AtomicRmw32CmpxchgU
 
 type internal Op = Opcode
-
-type Operand =
-  | I32 of uint32
-  | I64 of uint64
-  | F32 of BitVector
-  | F64 of BitVector
-  | V128 of BitVector * BitVector * BitVector * BitVector
-  | Type of int
-  | RefType of int
-  | Index of uint32
-  | Alignment of uint32
-  | Address of uint32
-  | LaneIndex of uint8
-  | ConsistencyModel of uint8
-
-type Operands =
-  | NoOperand
-  | OneOperand of Operand
-  | TwoOperands of Operand * Operand
-  | ThreeOperands of Operand * Operand * Operand
-  | Operands of Operand list
