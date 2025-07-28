@@ -22,6 +22,25 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.TMS320C6000.Terminator
+namespace B2R2.FrontEnd.TMS320C6000
 
-// vim: set tw=80 sts=2 sw=2:
+/// Represents the functional unit used to execute an instruction in the
+/// TMS320C6000 architecture.
+type FunctionalUnit =
+  | L1Unit
+  | L2Unit
+  | L1XUnit
+  | L2XUnit
+  | S1Unit
+  | S2Unit
+  | S1XUnit
+  | S2XUnit
+  | M1Unit
+  | M2Unit
+  | M1XUnit
+  | M2XUnit
+  | D1Unit
+  | D2Unit
+  | D1XUnit
+  | D2XUnit
+  | NoUnit

@@ -148,6 +148,10 @@ type OperandInfo =
     new (v, t) = { OperandValue = v; OperandType = t }
   end
 
+type Side =
+  | SideA
+  | SideB
+
 let private getRegisterA = function
   | 0b00000u -> Register.A0
   | 0b00001u -> Register.A1

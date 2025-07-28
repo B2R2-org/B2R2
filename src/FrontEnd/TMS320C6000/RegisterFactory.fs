@@ -24,10 +24,15 @@
 
 namespace B2R2.FrontEnd.TMS320C6000
 
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.TMS320C6000.Tests")>]
+do ()
+
+/// Represents a factory for accessing various TMS320C6000 register variables.
 type RegisterFactory (_wordSize) =
   interface IRegisterFactory with
     member _.GetRegVar (id: RegisterID): Expr =
