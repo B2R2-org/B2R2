@@ -24,15 +24,8 @@
 
 namespace B2R2.FrontEnd.SPARC
 
-
-open System.Runtime.CompilerServices
-open B2R2
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.SPARC.Tests")>]
-do ()
-
 /// <summary>
-///   SPARC opcodes.
+/// Represents a SPARC opcode.
 /// </summary>
 type Opcode =
   /// Add
@@ -761,67 +754,3 @@ type Opcode =
   | FMOVRqGZ = 465
   | FMOVRqGEZ = 466
   | InvalidOp = 467
-
-type ConditionCode =
-  /// floating-point condition code
-  | Fcc0 = 0
-  | Fcc1 = 1
-  | Fcc2 = 2
-  | Fcc3 = 3
-  /// integer condition codes
-  /// based on either the 32-bit result of an operation
-  | Icc = 4
-  /// based on either the 64-bit result of an operation
-  | Xcc = 5
-  /// Invalid Condition Code
-  | InvalidCC = 6
-
-module ConditionCode =
-  let inline ofRegID (n: RegisterID): ConditionCode =
-    int n |> LanguagePrimitives.EnumOfValue
-
-  let inline toRegID (reg: ConditionCode) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
-
-  let ofString (str: string) =
-    match str.ToLowerInvariant () with
-    | "fcc0" -> ConditionCode.Fcc0
-    | "fcc1" -> ConditionCode.Fcc1
-    | "fcc2" -> ConditionCode.Fcc2
-    | "fcc3" -> ConditionCode.Fcc3
-    | "icc" -> ConditionCode.Icc
-    | "xcc" -> ConditionCode.Xcc
-    | _ -> Terminator.impossible ()
-
-  let toString = function
-    | ConditionCode.Fcc0 -> "%fcc0"
-    | ConditionCode.Fcc1 -> "%fcc1"
-    | ConditionCode.Fcc2 -> "%fcc2"
-    | ConditionCode.Fcc3 -> "%fcc3"
-    | ConditionCode.Icc -> "%icc"
-    | ConditionCode.Xcc -> "%xcc"
-    | _ -> Terminator.impossible ()
-
-type Const = int32
-
-type AddressingMode =
-  | DispMode of Register * Const
-  | PreIdxMode of Register
-  | PostIdxMode of Register
-  | UnchMode of Register
-
-type Operand =
-  | OprReg of Register
-  | OprImm of Const
-  | OprAddr of Const
-  | OprMemory of AddressingMode
-  | OprCC of ConditionCode
-  | OprPriReg of Register
-
-type Operands =
-  | NoOperand
-  | OneOperand of Operand
-  | TwoOperands of Operand * Operand
-  | ThreeOperands of Operand * Operand * Operand
-  | FourOperands of Operand * Operand * Operand * Operand
-  | FiveOperands of Operand * Operand * Operand * Operand * Operand
