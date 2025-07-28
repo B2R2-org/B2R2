@@ -815,6 +815,10 @@ type EVMCFGRecovery() as this =
       | true, v when userCtx.ResumableVertices.Remove v ->
         CFGRecovery.pushAction ctx callbackAction
         MoveOn
+      | true, v when not <| userCtx.PostponedVertices.Contains v ->
+        (* Ignore this block, as it might has been replaced by other blocks. *)
+        (* 0x0000000000000fa82d0b7ede9c6f96571b630c13: 0x24b0 *)
+        MoveOn
       | true, v -> (* Needs more time :p *)
         assert userCtx.PostponedVertices.Contains v
         let isStalled =
