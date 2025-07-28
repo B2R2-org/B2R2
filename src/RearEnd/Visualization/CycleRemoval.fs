@@ -30,7 +30,7 @@ let private collectBackEdge vGraph order backEdgeList (edge: Edge<_, VisEdge>) =
   let src, dst = edge.First, edge.Second
   if Map.find src order > Map.find dst order then (* BackEdge *)
     edge.Label.IsBackEdge <- true
-    match (vGraph: VisGraph).TryFindEdge (dst, src) with
+    match (vGraph: VisGraph).TryFindEdge(dst, src) with
     | Some _ -> (src, dst, edge, false) :: backEdgeList
     | None -> (src, dst, edge, true) :: backEdgeList
   else backEdgeList
@@ -49,8 +49,8 @@ let private collectSelfCycle backEdgeList (edge: Edge<_, VisEdge>) =
   else backEdgeList
 
 let removeBackEdge (vGraph: VisGraph) src dst edge needToAddReverse =
-  vGraph.RemoveEdge (src, dst) |> ignore
-  if needToAddReverse then vGraph.AddEdge (dst, src, edge) |> ignore
+  vGraph.RemoveEdge(src, dst) |> ignore
+  if needToAddReverse then vGraph.AddEdge(dst, src, edge) |> ignore
 
 let removeCycles (vGraph: VisGraph) =
   vGraph.FoldEdge collectSelfCycle []

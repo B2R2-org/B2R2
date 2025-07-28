@@ -29,11 +29,11 @@ open B2R2
 open B2R2.FrontEnd
 
 /// The `edit` action.
-type EditAction () =
+type EditAction() =
   let makeBinary bin (hdl: BinHandle) newbs =
-    let hdl' = lazy hdl.MakeNew (newbs)
-    let annot = Binary.MakeAnnotation "Editted from " bin
-    Binary.Init annot hdl'
+    let hdl' = lazy hdl.MakeNew(newbs)
+    let annot = Binary.MakeAnnotation("Editted from ", bin)
+    Binary.Init(annot, hdl')
     |> box
 
   let parseEndOffset soff (eoff: string) =
@@ -79,8 +79,7 @@ type EditAction () =
 
   interface IAction with
     member _.ActionID with get() = "edit"
-    member _.Signature
-      with get() = "Binary * <action> -> Binary"
+    member _.Signature with get() = "Binary * <action> -> Binary"
     member _.Description with get() = """
     Take in a binary as well as edit action as input and return a modified
     binary as output. There are following supported edit actions.
@@ -105,7 +104,7 @@ type EditAction () =
         Replace bytes at offset from n to (n + sz - 1) with the given
         <hexstring>. The size of the hexstring should be equal to sz.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       match args with
       | "insert" :: off :: hexstr :: [] ->
         let off = Convert.ToInt32 off

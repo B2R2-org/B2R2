@@ -30,7 +30,7 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 
 /// The `lift` action.
-type LiftAction () =
+type LiftAction() =
   let rec lift (sb: StringBuilder) (lifter: LiftingUnit) (ptr: BinFilePointer) =
     if ptr.IsValid then
       match lifter.TryParseInstruction ptr with
@@ -40,16 +40,16 @@ type LiftAction () =
         lift (sb.Append s) lifter ptr
       | Error _ -> "Bad instruction found"
     else
-      sb.ToString ()
+      sb.ToString()
 
   let liftByteArray (o: obj) =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
-    let lifter = hdl.NewLiftingUnit ()
+    let lifter = hdl.NewLiftingUnit()
     let baddr = hdl.File.BaseAddress
     let len = hdl.File.Length
-    let ptr = BinFilePointer (baddr, baddr + uint64 len - 1UL, 0, len - 1)
-    let sb = StringBuilder ()
+    let ptr = BinFilePointer(baddr, baddr + uint64 len - 1UL, 0, len - 1)
+    let sb = StringBuilder()
     lift sb lifter ptr
     |> box
 
@@ -60,5 +60,5 @@ type LiftAction () =
     Take in a binary and linearly disassemble the binary and lift it to a
     sequence of LowUIR statements, and dump the result to a string.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       { Values = collection.Values |> Array.map liftByteArray }

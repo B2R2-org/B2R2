@@ -29,7 +29,7 @@ open System.IO
 open B2R2.RearEnd.Utils
 
 /// The `detect` action.
-type DetectAction () =
+type DetectAction() =
   let resultToString (path: string, matchRate: float) =
     [ NoColor, $"{path}: {matchRate:F}" ]
     |> OutputColored
@@ -47,7 +47,7 @@ type DetectAction () =
       |> List.fold (fun cnt pattern ->
         let hash, _ = pattern
         if ngram.Contains hash then cnt + 1 else cnt) 0
-    path, (float matchCnt / float fp.Patterns.Length)
+    path, float matchCnt / float fp.Patterns.Length
 
   let detectDir fp path =
     Directory.GetFiles path
@@ -71,7 +71,7 @@ type DetectAction () =
     score as output. If the <path> is a directory, it analyzes every file in the
     directory. If the <path> is a file, it only analyzes the file.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       let fps = collection.Values
       match args with
       | [ path ] -> { Values = fps |> Array.map (detect path) }

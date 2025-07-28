@@ -36,12 +36,12 @@ let byteArrayToHexStringArray (bs: byte[]) =
 let makeSpanSummary (bs: ByteSpan) =
   if bs.Length > MaxByteShow then
     let s =
-      bs.Slice(0, MaxByteShow).ToArray ()
+      bs.Slice(0, MaxByteShow).ToArray()
       |> Array.map (sprintf "%02x")
       |> String.concat " "
     s + " ..."
   else
-    bs.ToArray ()
+    bs.ToArray()
     |> Array.map (sprintf "%02x")
     |> String.concat " "
 
@@ -50,7 +50,7 @@ let makeByteArraySummary (bs: byte[]) =
 
 let rec buildNgram acc n (span: ByteSpan) idx =
   if idx <= span.Length - n then
-    let bs = span.Slice(idx, n).ToArray ()
+    let bs = span.Slice(idx, n).ToArray()
     let h = XxHash32.Hash bs |> BitConverter.ToInt32
     buildNgram ((h, idx) :: acc) n span (idx + 1)
   else List.rev acc |> List.toArray

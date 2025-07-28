@@ -30,22 +30,22 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The `dot` action.
-type DOTAction () =
+type DOTAction() =
   let vToStr (v: IVertex<LowUIRBasicBlock>) =
     let addr = v.VData.Internals.BlockAddress.ToString "x"
     let instrs =
       v.VData.Internals.Instructions
       |> Array.map (fun ins ->
-        let bld = StringDisasmBuilder (true, null, WordSize.Bit64)
+        let bld = StringDisasmBuilder(true, null, WordSize.Bit64)
         ins.Disasm bld)
       |> String.concat "\\l"
     $"[label=\"[{addr:x}]\\l{instrs}\\l\"]"
 
   let toDOT o =
     match unbox<CFG> o with
-    | CFG (addr, cfg) ->
+    | CFG(addr, cfg) ->
       let name = Addr.toFuncName addr
-      Serializer.ToDOT (cfg, name, vToStr, (fun e -> e.ToString ()))
+      Serializer.ToDOT(cfg, name, vToStr, (fun e -> e.ToString()))
     | NoCFG e -> $"Failed to construct CFG: {e}"
 
   interface IAction with
@@ -55,5 +55,5 @@ type DOTAction () =
     Take in a CFG as input, and returns a string representation of the CFG in
     DOT format.
 """
-    member _.Transform _args collection =
+    member _.Transform(_args, collection) =
       { Values = [| collection.Values |> Array.map toDOT |] }

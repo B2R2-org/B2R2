@@ -36,7 +36,7 @@ open B2R2.RearEnd.Utils
 open B2R2.RearEnd.Visualization
 open B2R2.RearEnd.BinExplorer.CmdUtils
 
-type BinExplorerOpts (isa) =
+type BinExplorerOpts(isa) =
   inherit CmdOpts()
 
   /// IP address to bind.
@@ -76,7 +76,7 @@ type BinExplorerOpts (isa) =
   /// Enable analysis for EVM.
   member val EnableEVMAnalysis = true with get, set
 
-  static member private ToThis (opts: CmdOpts) =
+  static member private ToThis(opts: CmdOpts) =
     match opts with
     | :? BinExplorerOpts as opts -> opts
     | _ -> failwith "Invalid Opts."
@@ -87,112 +87,105 @@ type BinExplorerOpts (isa) =
   ///     we may have to run `netsh` command to enable this. For example:
   ///     netsh http add urlacl url=http://192.168.1.1:8282/ user=sangkilc
   /// (2) Make sure firewall does not block the connection.
-  static member OptIP () =
+  static member OptIP() =
     let cb (opts: #CmdOpts) (arg: string []) =
       (BinExplorerOpts.ToThis opts).IP <- arg[0]; opts
-    CmdOpts.New ( descr = "Specify IP <address> (default: localhost)",
-                  extra = 1, callback = cb, long = "--ip" )
+    CmdOpts.New(descr = "Specify IP <address> (default: localhost)",
+                extra = 1, callback = cb, long = "--ip")
 
-  static member OptPort () =
+  static member OptPort() =
     let cb (opts: #CmdOpts) (arg: string []) =
       (BinExplorerOpts.ToThis opts).Port <- int arg[0]; opts
-    CmdOpts.New ( descr = "Specify host port <number> (default: 8282)",
-                  extra = 1, callback = cb, short = "-p", long = "--port" )
+    CmdOpts.New(descr = "Specify host port <number> (default: 8282)",
+                extra = 1, callback = cb, short = "-p", long = "--port")
 
-  static member OptLogFile () =
+  static member OptLogFile() =
     let cb (opts: #CmdOpts) (arg: string []) =
       (BinExplorerOpts.ToThis opts).LogFile <- arg[0]; opts
-    CmdOpts.New ( descr = "Specify log file <name> (default: B2R2.log)",
-                  callback = cb, short = "-l", long = "--log" )
+    CmdOpts.New(descr = "Specify log file <name> (default: B2R2.log)",
+                callback = cb, short = "-l", long = "--log")
 
   /// "-a" or "--isa" option for specifying ISA.
-  static member OptISA () =
+  static member OptISA() =
     let cb (opts: #CmdOpts) (arg: string []) =
       (BinExplorerOpts.ToThis opts).ISA <- ISA arg[0]; opts
-    CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) for fat binaries",
-                  extra = 1, callback = cb, short = "-a", long = "--isa" )
+    CmdOpts.New(descr = "Specify <ISA> (e.g., x86) for fat binaries",
+                extra = 1, callback = cb, short = "-a", long = "--isa")
 
-  static member OptReadLine () =
+  static member OptReadLine() =
     let cb (opts: #CmdOpts) (_arg: string []) =
       (BinExplorerOpts.ToThis opts).EnableReadLine <- false; opts
-    CmdOpts.New (
-      descr = "Disable readline feature for BinExplorer",
-      callback = cb, long = "--no-readline")
+    CmdOpts.New(descr = "Disable readline feature for BinExplorer",
+                callback = cb, long = "--no-readline")
 
-  static member OptJsonDumpDir () =
+  static member OptJsonDumpDir() =
     let cb (opts: #CmdOpts) (arg: string []) =
       (BinExplorerOpts.ToThis opts).JsonDumpDir <- arg[0]; opts
-    CmdOpts.New (
-      descr = "Directory name to dump CFG json (no dump if empty)",
-      extra = 1, callback = cb, short = "-j", long = "--jsondir")
+    CmdOpts.New(descr = "Directory name to dump CFG json (no dump if empty)",
+                extra = 1, callback = cb, short = "-j", long = "--jsondir")
 
-  static member OptDisableNoReturn () =
+  static member OptDisableNoReturn() =
     let cb (opts: #CmdOpts) (_arg: string []) =
       (BinExplorerOpts.ToThis opts).EnableNoReturn <- false; opts
-    CmdOpts.New (
-      descr = "Disable no-return analysis.",
-      callback = cb, long = "--disable-no-return")
+    CmdOpts.New(descr = "Disable no-return analysis.",
+                callback = cb, long = "--disable-no-return")
 
-  static member OptDisableBranchRecovery () =
+  static member OptDisableBranchRecovery() =
     let cb (opts: #CmdOpts) (_arg: string []) =
       (BinExplorerOpts.ToThis opts).EnableBranchRecovery <- false; opts
-    CmdOpts.New (
-      descr = "Disable indirect branch recovery analysis.",
-      callback = cb, long = "--disable-branch-recovery")
+    CmdOpts.New(descr = "Disable indirect branch recovery analysis.",
+                callback = cb, long = "--disable-branch-recovery")
 
-  static member OptDisableSpeculativeGapCompletion () =
+  static member OptDisableSpeculativeGapCompletion() =
     let cb (opts: #CmdOpts) (_arg: string []) =
       (BinExplorerOpts.ToThis opts).EnableGapComp <- false; opts
-    CmdOpts.New (
-      descr = "Disable speculative gap completion.",
-      callback = cb, long = "--disable-gap-completion")
+    CmdOpts.New(descr = "Disable speculative gap completion.",
+                callback = cb, long = "--disable-gap-completion")
 
-  static member OptEVMAbiFile () =
+  static member OptEVMAbiFile() =
     let cb (opts: #CmdOpts) (arg: string []) =
       (BinExplorerOpts.ToThis opts).EVMAbiFile <- arg[0]; opts
-    CmdOpts.New (
-      descr = "ABI file path for EVM bytecode.",
-      extra = 1, callback = cb, long = "--evmabi")
+    CmdOpts.New(descr = "ABI file path for EVM bytecode.",
+                extra = 1, callback = cb, long = "--evmabi")
 
-  static member OptDisableEVMAnalysis () =
+  static member OptDisableEVMAnalysis() =
     let cb (opts: #CmdOpts) (_arg: string []) =
       (BinExplorerOpts.ToThis opts).EnableEVMAnalysis <- false; opts
-    CmdOpts.New (
-      descr = "Disable EVM analyses (for code copy and trampoline).",
-      callback = cb, long = "--disable-evm-analysis")
+    CmdOpts.New(descr = "Disable EVM analyses (for code copy and trampoline).",
+                callback = cb, long = "--disable-evm-analysis")
 
 let spec =
-  [ CmdOpts.New (descr = "[Input Configuration]\n", dummy = true)
+  [ CmdOpts.New(descr = "[Input Configuration]\n", dummy = true)
     (* *)
-    BinExplorerOpts.OptISA ()
+    BinExplorerOpts.OptISA()
     (* *)
-    CmdOpts.New (descr = "\n[Host Configuration]\n", dummy = true)
+    CmdOpts.New(descr = "\n[Host Configuration]\n", dummy = true)
     (* *)
-    BinExplorerOpts.OptIP ()
-    BinExplorerOpts.OptPort ()
+    BinExplorerOpts.OptIP()
+    BinExplorerOpts.OptPort()
     (* *)
-    CmdOpts.New (descr = "\n[Logging Configuration]\n", dummy = true)
+    CmdOpts.New(descr = "\n[Logging Configuration]\n", dummy = true)
     (* *)
-    BinExplorerOpts.OptLogFile ()
+    BinExplorerOpts.OptLogFile()
     (* *)
-    CmdOpts.New (descr = "\n[Analyses]\n", dummy = true)
+    CmdOpts.New(descr = "\n[Analyses]\n", dummy = true)
     (* *)
-    BinExplorerOpts.OptDisableNoReturn ()
-    BinExplorerOpts.OptDisableBranchRecovery ()
-    BinExplorerOpts.OptDisableSpeculativeGapCompletion ()
+    BinExplorerOpts.OptDisableNoReturn()
+    BinExplorerOpts.OptDisableBranchRecovery()
+    BinExplorerOpts.OptDisableSpeculativeGapCompletion()
     (* *)
-    CmdOpts.New (descr = "\n[Extra]\n", dummy = true)
+    CmdOpts.New(descr = "\n[Extra]\n", dummy = true)
     (* *)
-    BinExplorerOpts.OptReadLine ()
-    BinExplorerOpts.OptJsonDumpDir ()
-    BinExplorerOpts.OptEVMAbiFile ()
-    BinExplorerOpts.OptDisableEVMAnalysis ()
-    CmdOpts.OptVerbose ()
-    CmdOpts.OptHelp ()
+    BinExplorerOpts.OptReadLine()
+    BinExplorerOpts.OptJsonDumpDir()
+    BinExplorerOpts.OptEVMAbiFile()
+    BinExplorerOpts.OptDisableEVMAnalysis()
+    CmdOpts.OptVerbose()
+    CmdOpts.OptHelp()
     (* *)
-    CmdOpts.New (descr = "\n[Batch Mode]\n", dummy = true)
-    CmdOpts.New (descr = "Run in batch mode (w/o interative shell).",
-                 long = "--batch") ]
+    CmdOpts.New(descr = "\n[Batch Mode]\n", dummy = true)
+    CmdOpts.New(descr = "Run in batch mode (w/o interative shell).",
+                long = "--batch") ]
 
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose
@@ -201,8 +194,8 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 /// Dump each CFG into JSON file. This feature is implemented to ease the
 /// development and debugging process, and may be removed in the future.
 let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _>) =
-  try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
-  System.IO.Directory.CreateDirectory(jsonDir) |> ignore
+  try Directory.Delete(jsonDir, true) with _ -> ()
+  Directory.CreateDirectory(jsonDir) |> ignore
   brew.Functions.Sequence
   |> Seq.iter (fun func ->
     let id = func.ID
@@ -210,13 +203,13 @@ let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _>) =
     if isNull func.CFG then ()
     else
       let file = brew.BinHandle.File
-      let disasmBuilder = StringDisasmBuilder (true, file, file.ISA.WordSize)
-      let disasmcfg = DisasmCFG (disasmBuilder, func.CFG)
+      let disasmBuilder = StringDisasmBuilder(true, file, file.ISA.WordSize)
+      let disasmcfg = DisasmCFG(disasmBuilder, func.CFG)
       let s = Serializer.ToJson disasmcfg
-      File.WriteAllText (disasmJsonPath, s))
+      File.WriteAllText(disasmJsonPath, s))
 
 let initBinHdl isa (name: string) =
-  BinHandle (name, isa, None)
+  BinHandle(name, isa, None)
 
 let startGUIAndCLI (opts: BinExplorerOpts) brew =
   if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir brew else ()
@@ -234,15 +227,15 @@ let interactiveMain files (opts: BinExplorerOpts) =
     let hdl = initBinHdl isa file
     match isa.Arch with
     | Architecture.EVM ->
-      let cfgRecovery = Strategies.EVMCFGRecovery ()
-      let brew = EVMBinaryBrew (hdl, [| cfgRecovery |])
+      let cfgRecovery = Strategies.EVMCFGRecovery()
+      let brew = EVMBinaryBrew(hdl, [| cfgRecovery |])
       startGUIAndCLI opts brew
     | _ ->
       let exnInfo = ExceptionInfo hdl
-      let funcId = Strategies.FunctionIdentification (hdl, exnInfo)
-      let cfgRecovery = Strategies.CFGRecovery ()
+      let funcId = Strategies.FunctionIdentification(hdl, exnInfo)
+      let cfgRecovery = Strategies.CFGRecovery()
       let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
-      let brew = BinaryBrew (hdl, exnInfo, strategies)
+      let brew = BinaryBrew(hdl, exnInfo, strategies)
       startGUIAndCLI opts brew
 
 let showBatchUsage () =
@@ -263,8 +256,8 @@ let visualizeGraph inputFile outputFile =
   Visualizer.visualizeFromFile inputFile outputFile
 
 let toFileArray path =
-  if System.IO.Directory.Exists path then System.IO.Directory.GetFiles path
-  elif System.IO.File.Exists path then [| path |]
+  if Directory.Exists path then Directory.GetFiles path
+  elif File.Exists path then [| path |]
   else [||]
 
 let batchRun opts paths fstParam restParams fn =
@@ -282,10 +275,10 @@ let runCommand cmdMap opts file cmd args =
   let isa = ISA Architecture.Intel
   let hdl = initBinHdl isa file
   let exnInfo = ExceptionInfo hdl
-  let funcId = Strategies.FunctionIdentification (hdl, exnInfo)
-  let cfgRecovery = Strategies.CFGRecovery ()
+  let funcId = Strategies.FunctionIdentification(hdl, exnInfo)
+  let cfgRecovery = Strategies.CFGRecovery()
   let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
-  let brew = BinaryBrew (hdl, exnInfo, strategies)
+  let brew = BinaryBrew(hdl, exnInfo, strategies)
   Cmd.handle cmdMap brew cmd args
   |> Array.iter out.Print
 
@@ -298,9 +291,9 @@ let batchMain opts paths args =
   | _ -> showBatchUsage ()
 
 let parseAndRunBatchMode opts (beforeOpts, afterOpts) =
-  CmdOpts.ParseAndRun (fun rest opts ->
+  CmdOpts.ParseAndRun((fun rest opts ->
     batchMain opts rest (Array.tail afterOpts |> Array.toList)
-  ) ToolName "" spec opts beforeOpts
+  ), ToolName, "", spec, opts, beforeOpts)
 
 [<EntryPoint>]
 let main args =
@@ -309,6 +302,7 @@ let main args =
   match Array.tryFindIndex (fun a -> a = "--batch") args with
   | Some idx -> Array.splitAt idx args |> parseAndRunBatchMode opts
   | None ->
-    CmdOpts.ParseAndRun interactiveMain ToolName "<binfile>" spec opts args
+    CmdOpts.ParseAndRun(interactiveMain, ToolName, "<binfile>", spec, opts,
+      args)
 
 // vim: set tw=80 sts=2 sw=2:

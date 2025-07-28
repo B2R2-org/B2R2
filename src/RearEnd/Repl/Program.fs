@@ -28,28 +28,25 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.Peripheral.Assembly
 
-let cmds =
-  [ "show"
-    "switch-parser"
-    "exit" ]
+let cmds = [ "show"; "switch-parser"; "exit" ]
 
-let console = FsReadLine.Console ("B2R2> ", cmds)
+let console = FsReadLine.Console("B2R2> ", cmds)
 
 let assemble (state: ReplState) (asm: AsmInterface) (input: string) =
   let isLowUIRParser =
     match state.CurrentParser with
     | LowUIRParser -> true
     | _ -> false
-  try asm.LiftLowUIR isLowUIRParser (input.Trim ())
+  try asm.LiftLowUIR isLowUIRParser (input.Trim())
   with exc -> Error exc.Message
 
 let rec run showTemporary (state: ReplState) asm =
-  let input = console.ReadLine ()
+  let input = console.ReadLine()
   match ReplCommand.fromString input with
   | Quit -> ()
   | NoInput -> run showTemporary state asm
   | SwitchParser ->
-    state.SwitchParser ()
+    state.SwitchParser()
     state.ConsolePrompt |> console.UpdatePrompt
     run showTemporary state asm
   | Show ->
@@ -66,14 +63,14 @@ let rec run showTemporary (state: ReplState) asm =
       run showTemporary state asm
 
 let runRepl _args (opts: ReplOpts) =
-  let binhandler = BinHandle ("", opts.ISA)
-  let state = ReplState (opts.ISA, binhandler.RegisterFactory, not opts.Verbose)
-  let asm = AsmInterface (opts.ISA, 0UL)
+  let binhandler = BinHandle("", opts.ISA)
+  let state = ReplState(opts.ISA, binhandler.RegisterFactory, not opts.Verbose)
+  let asm = AsmInterface(opts.ISA, 0UL)
   Display.printBlue "Welcome to B2R2 REPL\n"
   state.ConsolePrompt |> console.UpdatePrompt
   run opts.ShowTemp state asm
 
 [<EntryPoint>]
 let main args =
-  let opts = ReplOpts ()
-  ReplOpts.ParseAndRun runRepl "repl" "" ReplOpts.spec opts args
+  let opts = ReplOpts()
+  ReplOpts.ParseAndRun(runRepl, "repl", "", ReplOpts.spec, opts, args)

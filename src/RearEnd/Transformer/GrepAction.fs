@@ -26,29 +26,27 @@ namespace B2R2.RearEnd.Transformer
 
 open System
 open System.Text.RegularExpressions
-open B2R2
-open B2R2.FrontEnd
 open B2R2.RearEnd.Transformer.Utils
 
 /// The `grep` action.
-type GrepAction () =
+type GrepAction() =
   let grepFromBinary (pattern: string) bytesBefore bytesAfter bin =
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes
     let hs = byteArrayToHexStringArray bs |> String.concat ""
-    let regex = Regex (pattern.ToLowerInvariant ())
+    let regex = Regex(pattern.ToLowerInvariant())
     regex.Matches hs
     |> Seq.choose (fun m ->
-      if m.Index % 2 = 0 then Some (m.Index / 2, m.Length / 2)
-      else None)
+      if m.Index % 2 = 0 then Some(m.Index / 2, m.Length / 2) else None)
     |> Seq.toArray
     |> Array.map (fun (i, len) ->
       let soff = if (i - bytesBefore) < 0 then 0 else i - bytesBefore
       let eoff = i + len - 1
       let eoff = if (eoff + bytesAfter) >= bs.Length then bs.Length - 1
                  else eoff + bytesAfter
-      lazy hdl.MakeNew (bs[soff .. eoff], uint64 soff)
-      |> Binary.Init (Binary.MakeAnnotation "Greped from " bin))
+      lazy hdl.MakeNew(bs[soff..eoff], uint64 soff)
+      |> fun newBs ->
+        Binary.Init(Binary.MakeAnnotation("Greped from ", bin), newBs))
     |> box
 
   let grep pattern bytesBefore bytesAfter (input: obj) =
@@ -58,9 +56,8 @@ type GrepAction () =
 
   interface IAction with
     member _.ActionID with get() = "grep"
-    member _.Signature
-      with get() =
-        "'a array * <pattern> * [bytes before] * [bytes after] -> 'a array"
+    member _.Signature with get() =
+      "'a array * <pattern> * [bytes before] * [bytes after] -> 'a array"
     member _.Description with get() = """
     Take in an array as input and return one or more matched items from the
     array as in the `grep` command. The <pattern> represents a binary pattern
@@ -76,7 +73,7 @@ type GrepAction () =
     before and one line after. If the matched items are at the beginning or end
     of the array, the context will be truncated accordingly.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       match args with
       | pattern :: bytesBefore :: bytesAfter :: [] ->
         let bytesBefore = Convert.ToInt32 bytesBefore

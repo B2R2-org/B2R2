@@ -32,21 +32,21 @@ open B2R2.RearEnd.FileViewer.Helper
 
 let dumpBasic (file: IBinFile) =
   let entry =
-    ColoredSegment (Green, String.entryPointToString file.EntryPoint)
+    ColoredSegment(Green, String.entryPointToString file.EntryPoint)
   out.PrintSectionTitle "Basic Information"
-  out.PrintTwoCols "File format:" (FileFormat.toString file.Format)
-  out.PrintTwoCols "Architecture:" (file.ISA.ToString ())
-  out.PrintTwoCols "Endianness:" (Endian.toString file.ISA.Endian)
-  out.PrintTwoCols "Word size:" (WordSize.toString file.ISA.WordSize + " bit")
-  out.PrintTwoColsWithColorOnSnd "Entry point:" [ entry ]
-  out.PrintLine ()
+  out.PrintTwoCols("File format:", FileFormat.toString file.Format)
+  out.PrintTwoCols("Architecture:", file.ISA.ToString())
+  out.PrintTwoCols("Endianness:", Endian.toString file.ISA.Endian)
+  out.PrintTwoCols("Word size:", WordSize.toString file.ISA.WordSize + " bit")
+  out.PrintTwoColsWithColorOnSnd("Entry point:", [ entry ])
+  out.PrintLine()
 
 let dumpSecurity (file: IBinFile) =
   out.PrintSectionTitle "Security Information"
-  out.PrintTwoCols "Stripped binary:" (file.IsStripped.ToString ())
-  out.PrintTwoCols "DEP (NX) enabled:" (file.IsNXEnabled.ToString ())
-  out.PrintTwoCols "Relocatable (PIE):" (file.IsRelocatable.ToString ())
-  out.PrintLine ()
+  out.PrintTwoCols("Stripped binary:", file.IsStripped.ToString())
+  out.PrintTwoCols("DEP (NX) enabled:", file.IsNXEnabled.ToString())
+  out.PrintTwoCols("Relocatable (PIE):", file.IsRelocatable.ToString())
+  out.PrintLine()
 
 let dumpSpecific opts (file: IBinFile) title elf pe mach =
   out.PrintSectionTitle title
@@ -55,7 +55,7 @@ let dumpSpecific opts (file: IBinFile) title elf pe mach =
   | :? PEBinFile as file -> pe opts file
   | :? MachBinFile as file -> mach opts file
   | _ -> Terminator.futureFeature ()
-  out.PrintLine ()
+  out.PrintLine()
 
 let dumpFileHeader (opts: FileViewerOpts) (file: IBinFile) =
   dumpSpecific opts file "File Header Information"
@@ -161,7 +161,7 @@ let dumpSharedLibs (opts: FileViewerOpts) (file: IBinFile) =
 
 let printFileName filepath =
   [ Green, "["; Yellow, filepath; Green, "]" ] |> out.PrintLine
-  out.PrintLine ()
+  out.PrintLine()
 
 let printBasic file =
   dumpBasic file
@@ -177,22 +177,22 @@ let printAll opts hdl (file: IBinFile) =
   dumpFunctions opts file
   dumpExceptionTable hdl opts file
   match file with
-   | :? ELFBinFile as file ->
-     dumpDynamicSection opts file
-     dumpSegments opts file
-     dumpLinkageTable opts file
-     dumpEHFrame hdl file
-     dumpGccExceptTable hdl file
-   | :? PEBinFile as file ->
-     dumpImports opts file
-     dumpExports opts file
-     dumpOptionalHeader opts file
-     dumpCLRHeader opts file
-     dumpDependencies opts file
-   | :? MachBinFile as file ->
-     dumpLoadCommands opts file
-     dumpSharedLibs opts file
-   | _ -> Terminator.futureFeature ()
+  | :? ELFBinFile as file ->
+    dumpDynamicSection opts file
+    dumpSegments opts file
+    dumpLinkageTable opts file
+    dumpEHFrame hdl file
+    dumpGccExceptTable hdl file
+  | :? PEBinFile as file ->
+    dumpImports opts file
+    dumpExports opts file
+    dumpOptionalHeader opts file
+    dumpCLRHeader opts file
+    dumpDependencies opts file
+  | :? MachBinFile as file ->
+    dumpLoadCommands opts file
+    dumpSharedLibs opts file
+  | _ -> Terminator.futureFeature ()
 
 let printSelectively hdl opts file = function
   | DisplayAll -> Terminator.impossible ()
@@ -219,7 +219,7 @@ let printSelectively hdl opts file = function
   | DisplayMachSpecific MachDisplaySharedLibs -> dumpSharedLibs opts file
 
 let dumpFile (opts: FileViewerOpts) (filePath: string) =
-  let hdl = BinHandle (filePath, opts.ISA, opts.BaseAddress)
+  let hdl = BinHandle(filePath, opts.ISA, opts.BaseAddress)
   let file = hdl.File
   printFileName file.Path
   if opts.DisplayItems.Count = 0 then printBasic file
@@ -227,6 +227,7 @@ let dumpFile (opts: FileViewerOpts) (filePath: string) =
   else opts.DisplayItems |> Seq.iter (printSelectively hdl opts file)
 
 let [<Literal>] private ToolName = "fileview"
+
 let [<Literal>] private UsageTail = "<binary file(s)>"
 
 let dump files opts =
@@ -234,19 +235,19 @@ let dump files opts =
   match files with
   | [] ->
     Printer.PrintErrorToConsole "File(s) must be given."
-    CmdOpts.PrintUsage ToolName UsageTail Cmd.spec
+    CmdOpts.PrintUsage(ToolName, UsageTail, Cmd.spec)
   | files ->
 #if DEBUG
-    let sw = System.Diagnostics.Stopwatch.StartNew ()
+    let sw = System.Diagnostics.Stopwatch.StartNew()
 #endif
     try files |> List.iter (dumpFile opts)
-    finally out.Flush ()
+    finally out.Flush()
 #if DEBUG
-    sw.Stop ()
+    sw.Stop()
     eprintfn "Total time: %f sec." sw.Elapsed.TotalSeconds
 #endif
 
 [<EntryPoint>]
 let main args =
-  let opts = FileViewerOpts ()
-  CmdOpts.ParseAndRun dump ToolName UsageTail Cmd.spec opts args
+  let opts = FileViewerOpts()
+  CmdOpts.ParseAndRun(dump, ToolName, UsageTail, Cmd.spec, opts, args)

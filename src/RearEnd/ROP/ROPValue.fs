@@ -44,13 +44,13 @@ module ROPExpr =
 
   let addNum32 expr (num: uint32) =
     match expr with
-    | Num n -> BitVector.Add (n, BitVector.OfUInt32 num 32<rt>) |> Num
-    | _ -> Add (expr, ofUInt32 num)
+    | Num n -> BitVector.Add(n, BitVector.OfUInt32 num 32<rt>) |> Num
+    | _ -> Add(expr, ofUInt32 num)
 
   let subNum32 expr (num: uint32) =
     match expr with
-    | Num n -> BitVector.Sub (n, BitVector.OfUInt32 num 32<rt>) |> Num
-    | _ -> Add (expr, ofUInt32 num)
+    | Num n -> BitVector.Sub(n, BitVector.OfUInt32 num 32<rt>) |> Num
+    | _ -> Add(expr, ofUInt32 num)
 
   let rec toString = function
     | Num vec ->

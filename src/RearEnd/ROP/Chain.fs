@@ -30,19 +30,18 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 
-type ROPHandle = {
-  BinBase: Addr
-  BinHdl: BinHandle
-  LiftingUnit: LiftingUnit
-  Gadgets: GadgetArr
-  Summaries: ConcurrentDictionary<uint64, Summary>
-}
+type ROPHandle =
+  { BinBase: Addr
+    BinHdl: BinHandle
+    LiftingUnit: LiftingUnit
+    Gadgets: GadgetArr
+    Summaries: ConcurrentDictionary<uint64, Summary> }
 
 module ROPHandle =
   let inline getFileInfo rop = rop.LiftingUnit.File
 
   let inline tryFindPlt rop name =
-    rop.LiftingUnit.File.GetLinkageTableEntries ()
+    rop.LiftingUnit.File.GetLinkageTableEntries()
     |> Seq.tryFind (fun entry -> entry.FuncName = name)
 
   let inline getKeys map = Map.fold (fun acc k _ -> Set.add k acc) Set.empty map
@@ -54,14 +53,14 @@ module ROPHandle =
   let init (binHdl: BinHandle) binBase =
     { BinBase = binBase
       BinHdl = binHdl
-      LiftingUnit = binHdl.NewLiftingUnit ()
+      LiftingUnit = binHdl.NewLiftingUnit()
       Gadgets = Galileo.findGadgets binHdl |> Map.toArray |> GadgetArr.sort
-      Summaries = ConcurrentDictionary<uint64, Summary> () }
+      Summaries = ConcurrentDictionary<uint64, Summary>() }
 
   let private getSummary (rop: ROPHandle) (gadget: Gadget) =
     try
-      rop.Summaries.GetOrAdd (gadget.Offset,
-                              (fun _ -> Summary.summary rop.LiftingUnit gadget))
+      rop.Summaries.GetOrAdd(gadget.Offset,
+                             (fun _ -> Summary.summary rop.LiftingUnit gadget))
       |> Ok
     with
     | B2R2.BinIR.InvalidExprException as e -> Error <| sprintf "%A" e
@@ -72,7 +71,7 @@ module ROPHandle =
       let regs = info |> snd |> snd |> getKeys
       match Map.tryFind regs acc with
       | Some infos -> Map.add regs (info :: infos) acc
-      | None -> Map.add regs [info] acc
+      | None -> Map.add regs [ info ] acc
     GadgetArr.pickAll (getSummary rop >> Summary.isSetter) rop.Gadgets
     |> List.fold folder Map.empty
 
@@ -89,7 +88,7 @@ module ROPHandle =
   let private getSubsets n set =
     let rec getSubset i = function
       | hd :: remain ->
-        if i = n then List.append [Set.ofList [hd]] (getSubset i remain)
+        if i = n then List.append [ Set.ofList [ hd ] ] (getSubset i remain)
         elif i < n then
           List.append
             (getSubset (i + 1) remain |> List.map (fun x -> Set.add hd x))
@@ -99,31 +98,31 @@ module ROPHandle =
     getSubset 1 (Set.toList set)
 
   let private getRegsSetters setterMap regs =
-    let cache = ConcurrentDictionary<Set<string>, Option<_>> ()
+    let cache = ConcurrentDictionary<Set<string>, Option<_>>()
     let getSetter todoSet doneSet =
-      cache.GetOrAdd (todoSet, (fun k -> findSetter setterMap todoSet doneSet))
+      cache.GetOrAdd(todoSet, (fun k -> findSetter setterMap todoSet doneSet))
     let rec finder todoSet doneSet =
-      if todoSet = Set.empty then Some (ROPPayload.empty, Map.empty)
+      if todoSet = Set.empty then Some(ROPPayload.empty, Map.empty)
       else
-        List.rev [1 .. todoSet.Count]
+        List.rev [ 1 .. todoSet.Count ]
         |> List.tryPick (fun n -> helper n todoSet doneSet)
     and helper n todoSet doneSet =
       List.tryPick (fun set ->
         match getSetter set doneSet, finder (todoSet - set) (doneSet + set) with
-        | Some (gadget, (eip1, regMap1)), Some (p2, regMap2) ->
+        | Some(gadget, (eip1, regMap1)), Some(p2, regMap2) ->
           let payload =
-            (  ROPPayload.empty
-              |> ROPPayload.addGadget gadget
-              |> ROPPayload.addDummy32 eip1, p2 ) ||> ROPPayload.merge
+            (ROPPayload.empty
+             |> ROPPayload.addGadget gadget
+             |> ROPPayload.addDummy32 eip1, p2) ||> ROPPayload.merge
           let regMap = mergeMap (addOffset regMap1 1)
                                 (addOffset regMap2 (eip1 + 1))
-          Some (payload, regMap)
+          Some(payload, regMap)
         | _, _ -> None) (getSubsets n todoSet)
     finder regs Set.empty
 
   let private setupRegs rop regVals =
     match getRegsSetters (getSetterMap rop) (getKeys regVals) with
-    | Some (payload, regMap) ->
+    | Some(payload, regMap) ->
       Map.fold (fun p r v -> ROPPayload.setExpr v (Map.find r regMap) p)
                payload regVals
       |> Some
@@ -131,22 +130,22 @@ module ROPHandle =
 
   let private setVals regMap regVals payload =
     Map.fold (fun p r v -> ROPPayload.setExpr v (Map.find r regMap) p)
-             payload regVals
+      payload regVals
 
   let private setAndWrite rop =
     let setterMap = getSetterMap rop
     let setableRegs = Map.fold (fun acc k _ -> acc + k) Set.empty setterMap
     let rec chainSetter = function
       | (writer, (eip, ((aReg, aOff), (vReg, vOff)))) :: remain ->
-        match getRegsSetters setterMap (Set.ofList [aReg; vReg]) with
-        | Some (setter, regMap) ->
-          ( fun addr value ->
-            setter
-            |> setVals regMap
-                ( Map.ofList [ (aReg, ROPExpr.subNum32 addr aOff);
-                               (vReg, ROPExpr.subNum32 value vOff) ] )
-            |> ROPPayload.addGadget writer
-            |> ROPPayload.addDummy32 eip ) |> Some
+        match getRegsSetters setterMap (Set.ofList [ aReg; vReg ]) with
+        | Some(setter, regMap) ->
+          (fun addr value ->
+           setter
+           |> setVals regMap
+               (Map.ofList [ aReg, ROPExpr.subNum32 addr aOff
+                             vReg, ROPExpr.subNum32 value vOff ])
+           |> ROPPayload.addGadget writer
+           |> ROPPayload.addDummy32 eip) |> Some
         | None -> chainSetter remain
       | [] -> None
     GadgetArr.pickAll (getSummary rop >> Summary.isMemWriter setableRegs)
@@ -172,7 +171,7 @@ module ROPHandle =
 
   let funCall rop (func: ROPExpr) (args: ROPExpr array) =
     match getEspAdder rop args.Length with
-    | Some (adder, incOff) ->
+    | Some(adder, incOff) ->
       ROPPayload.initWithExpr func
       |> ROPPayload.addGadget adder
       |> ROPPayload.addExprs args
@@ -184,11 +183,10 @@ module ROPHandle =
     let chooser (vmRange: AddrRange) =
       let min = vmRange.Min
       let size = vmRange.Max - vmRange.Min + 1UL
-      rop.BinHdl.ReadBytes (min, int size)
+      rop.BinHdl.ReadBytes(min, int size)
       |> ByteArray.tryFindIdx min bytes
     (getFileInfo rop).GetVMMappedRegions Permission.Readable
     |> Seq.tryPick chooser
-
 
   let private getWritableAddr rop =
     let vmRange =
@@ -199,10 +197,10 @@ module ROPHandle =
   let private toUInt32Arr (src: byte[]) =
     let srcLen = Array.length src
     let dstLen =
-      if srcLen % 4 = 0 then srcLen/4
+      if srcLen % 4 = 0 then srcLen / 4
       else (srcLen / 4) + 1
     let dst = Array.init dstLen (fun _ -> 0u)
-    Buffer.BlockCopy (src, 0, dst, 0, srcLen)
+    Buffer.BlockCopy(src, 0, dst, 0, srcLen)
     dst
 
   let private getOrWriteStr rop str =
@@ -214,9 +212,9 @@ module ROPHandle =
         toUInt32Arr bytes
         |> Array.map ROPExpr.ofUInt32
         |> write32s rop (ROPExpr.ofUInt32 addr)
-      if Option.isSome payload then Some (payload, addr)
+      if Option.isSome payload then Some(payload, addr)
       else None
-    | Some addr -> Some (None, addr)
+    | Some addr -> Some(None, addr)
 
   let private getSysCall rop =
     GadgetArr.tryFind (getSummary rop >> Summary.isSysCall) rop.Gadgets
@@ -224,7 +222,7 @@ module ROPHandle =
   let private syscallRegs = [| "EAX"; "EBX"; "ECX"; "EDX"; "ESI"; "EDI" |]
 
   let private getSysCallRegs num args =
-    Array.append [|ROPExpr.ofUInt32 num|] args
+    Array.append [| ROPExpr.ofUInt32 num |] args
     |> Array.mapi (fun idx expr -> (Array.get syscallRegs idx, expr))
     |> Map.ofArray
 
@@ -240,26 +238,27 @@ module ROPHandle =
     | Some entry -> funCall rop (ROPExpr.ofUInt32 entry.TableAddress) args
     | None -> trySysCall rop num args
 
-  let sysOpen rop fname opt = doSysCall rop "open" 0x05u [|fname; opt|]
+  let sysOpen rop fname opt = doSysCall rop "open" 0x05u [| fname; opt |]
 
-  let sysRead rop fd buf size = doSysCall rop "read" 0x03u [|fd; buf; size|]
+  let sysRead rop fd buf size = doSysCall rop "read" 0x03u [| fd; buf; size |]
 
-  let sysWrite rop fd buf size = doSysCall rop "write" 0x04u [|fd; buf; size|]
+  let sysWrite rop fd buf size = doSysCall rop "write" 0x04u [| fd; buf; size |]
 
   let sysExecve rop fname args env =
-    doSysCall rop "execve" 0x0bu [|fname; args; env|]
+    doSysCall rop "execve" 0x0bu [| fname; args; env |]
 
   let private shellWithExecve rop =
     match getOrWriteStr rop "/bin/sh" with
-    | Some (p1, shAddr) ->
+    | Some(p1, shAddr) ->
       sysExecve rop (ROPExpr.ofUInt32 shAddr) ROPExpr.zero32 ROPExpr.zero32
       |> ROPPayload.mergeAny p1
     | None -> None
 
   let private shellWithSystem rop =
     match tryFindPlt rop "system", getOrWriteStr rop "sh" with
-    | Some e, Some (p1, shAddr) ->
-      funCall rop (ROPExpr.ofUInt32 e.TableAddress) [|ROPExpr.ofUInt32 shAddr|]
+    | Some e, Some(p1, shAddr) ->
+      [| ROPExpr.ofUInt32 shAddr |]
+      |> funCall rop (ROPExpr.ofUInt32 e.TableAddress)
       |> ROPPayload.mergeAny p1
     | _, _ -> None
 
@@ -274,8 +273,8 @@ module ROPHandle =
     |> Option.orElseWith (fun () -> findShellCode rop)
 
   let private getRegSetter rop setterMap reg value =
-    match findSetter setterMap (Set.ofList [reg]) Set.empty with
-    | Some (gadget, (eip, regMap)) ->
+    match findSetter setterMap (Set.ofList [ reg ]) Set.empty with
+    | Some(gadget, (eip, regMap)) ->
       ROPPayload.empty
       |> ROPPayload.addGadget gadget
       |> ROPPayload.addDummy32 eip

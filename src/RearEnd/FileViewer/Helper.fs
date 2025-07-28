@@ -29,13 +29,13 @@ open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.Utils
 
 /// The console printer.
-let internal out = ConsolePrinter () :> Printer
+let internal out = ConsolePrinter() :> Printer
 
 let normalizeEmpty s =
   if System.String.IsNullOrEmpty s then "(n/a)" else s
 
 let toNBytes (v: uint64) =
-  v.ToString () + " bytes"
+  v.ToString() + " bytes"
 
 let columnWidthOfAddr (file: IBinFile) =
   WordSize.toByteWidth file.ISA.WordSize * 2

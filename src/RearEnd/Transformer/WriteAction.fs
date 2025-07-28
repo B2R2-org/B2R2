@@ -28,28 +28,27 @@ open System.IO
 open B2R2.RearEnd.Utils
 
 /// The `write` action.
-type WriteAction () =
+type WriteAction() =
   let rec write fname (o: obj) =
     match o with
     | :? Binary as bin -> writeBinary fname bin
     | :? OutString as os -> writeOutString fname os
-    | _ -> File.WriteAllText (fname, o.ToString ())
+    | _ -> File.WriteAllText(fname, o.ToString())
 
   and writeBinary fname bin =
     let hdl = Binary.Handle bin
-    File.WriteAllBytes (fname, hdl.File.RawBytes)
+    File.WriteAllBytes(fname, hdl.File.RawBytes)
 
   and writeOutString fname os =
-    File.WriteAllText (fname, OutString.toString os)
+    File.WriteAllText(fname, OutString.toString os)
 
   interface IAction with
     member _.ActionID with get() = "write"
-    member _.Signature
-      with get() = "'a * <file> -> unit"
+    member _.Signature with get() = "'a * <file> -> unit"
     member _.Description with get() = """
     Take in an input object and write out its content to the <file>.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       if args.Length = collection.Values.Length then
         let args = List.toArray args
         Array.iter2 write args collection.Values

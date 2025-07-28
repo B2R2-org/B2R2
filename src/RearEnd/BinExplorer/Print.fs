@@ -76,54 +76,54 @@ with
     | EightBytes -> 8
     | _ -> 0
 
-type CmdPrint () =
-  inherit Cmd ()
+type CmdPrint() =
+  inherit Cmd()
 
   let convertCount (v: string) =
-    try Convert.ToInt32 (v) |> Ok
-    with _ -> Error ("[*] Invalid count is given.")
+    try Convert.ToInt32(v) |> Ok
+    with _ -> Error("[*] Invalid count is given.")
 
   let convertFmtLetter v count =
     match PrintFormat.FromString v with
-    | UnknownFormat -> Error ("[*] Invalid format letter given.")
-    | fmt -> Ok (count, fmt)
+    | UnknownFormat -> Error("[*] Invalid format letter given.")
+    | fmt -> Ok(count, fmt)
 
   let convertSize v (count, fmt) =
     match PrintSize.FromString v with
-    | UnknownSize -> Error ("[*] Invalid size letter given.")
-    | sz -> Ok (sz, count, fmt)
+    | UnknownSize -> Error("[*] Invalid size letter given.")
+    | sz -> Ok(sz, count, fmt)
 
-  let regexFormat = Regex (@"(\d+)([duxs])([bhwg]?)")
+  let regexFormat = Regex(@"(\d+)([duxs])([bhwg]?)")
 
   let parseFormat fmt =
-    let m = regexFormat.Match (fmt)
+    let m = regexFormat.Match(fmt)
     if m.Success then
       convertCount m.Groups[1].Value
       |> Result.bind (convertFmtLetter m.Groups[2].Value)
       |> Result.bind (convertSize m.Groups[3].Value)
     else
-      Error ("[*] Invalid format string is given.")
+      Error("[*] Invalid format string is given.")
 
   let parseAddr addr (sz, count, fmt) =
-    try Ok (sz, count, fmt, Convert.ToUInt64 (addr, 16))
+    try Ok(sz, count, fmt, Convert.ToUInt64(addr, 16))
     with _ -> Error "[*] Invalid address given."
 
   let hexPrint sz (i: uint64) =
-    i.ToString ("x" + (sz * 2).ToString ())
+    i.ToString("x" + (sz * 2).ToString())
 
   let print (hdl: BinHandle) sz fmt addr =
     match fmt with
     | Hexadecimal ->
-      hdl.ReadUInt (addr = addr, size = sz) |> hexPrint sz
+      hdl.ReadUInt(addr = addr, size = sz) |> hexPrint sz
     | UnsignedDecimal ->
-      hdl.ReadUInt(addr = addr, size = sz).ToString ()
+      hdl.ReadUInt(addr = addr, size = sz).ToString()
     | Decimal ->
-      hdl.ReadInt(addr = addr, size = sz).ToString ()
+      hdl.ReadInt(addr = addr, size = sz).ToString()
     | _ -> failwith "This is impossible"
 
   let getAddressPrefix (hdl: BinHandle) (addr: uint64) =
     let hexWidth = WordSize.toByteWidth hdl.File.ISA.WordSize * 2
-    addr.ToString ("x" + hexWidth.ToString ()) + ": "
+    addr.ToString("x" + hexWidth.ToString()) + ": "
 
   let rec iter hdl sz fmt addr endAddr acc =
     if addr >= endAddr then List.rev acc |> List.toArray
@@ -138,7 +138,7 @@ type CmdPrint () =
     if cnt <= 0 then List.rev acc |> List.toArray
     else
       let s =
-        try hdl.ReadASCII (addr = addr) |> Some with _ -> None
+        try hdl.ReadASCII(addr = addr) |> Some with _ -> None
       match s with
       | None -> printStrings hdl addr 0 acc
       | Some s ->
@@ -147,10 +147,10 @@ type CmdPrint () =
         printStrings hdl (addr + len + 1UL) (cnt - 1) ((addrstr + s) :: acc)
 
   let validateRequest (brew: BinaryBrew<_, _>) = function
-    | Ok (_, count, ASCII, addr) ->
+    | Ok(_, count, ASCII, addr) ->
       let hdl = brew.BinHandle
       printStrings hdl addr count []
-    | Ok (sz, count, fmt, addr) ->
+    | Ok(sz, count, fmt, addr) ->
       let hdl = brew.BinHandle
       let sz = PrintSize.ToInt sz
       let endAddr = addr + uint64 (sz * count)
@@ -181,7 +181,7 @@ type CmdPrint () =
 
   override _.SubCommands = []
 
-  override this.CallBack _ brew args =
+  override this.CallBack(_, brew, args) =
     match args with
     | fmt :: addr :: _ ->
       parseFormat fmt

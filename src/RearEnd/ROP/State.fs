@@ -32,53 +32,50 @@ open B2R2.RearEnd.ROP.Simplify
 
 type Reg = string
 
-type Value (expr) =
+type Value(expr) =
   let expr = simplify expr
-  override _.GetHashCode () = expr.GetHashCode ()
-  override this.Equals x =
+  override _.GetHashCode() = expr.GetHashCode()
+  override _.Equals x =
     match x with
-    | :? Value as x -> expr.Equals <| x.GetExpr ()
+    | :? Value as x -> expr.Equals <| x.GetExpr()
     | _ -> false
   interface IComparable with
-    override this.CompareTo other = this.GetHashCode () - other.GetHashCode ()
+    override this.CompareTo other = this.GetHashCode() - other.GetHashCode()
 
-  member _.GetExpr () = expr
+  member _.GetExpr() = expr
 
-  override _.ToString () = Pp.expToString expr
+  override _.ToString() = Pp.expToString expr
 
 module Value =
   let toLinear (value: Value) =
     match value.GetExpr() with
-    | Var (32<rt>, _, reg, _) -> Some (reg, 0u)
-    | BinOp (BinOpType.ADD, _, Var (32<rt>, _, reg, _), Num (n, _), _)
-    | BinOp (BinOpType.ADD, _, Num (n, _), Var (32<rt>, _, reg, _), _) ->
-      Some (reg, BitVector.ToUInt32 n)
-    | BinOp (BinOpType.SUB, _, Var (32<rt>, _, reg, _), Num (n, _), _)
-    | BinOp (BinOpType.SUB, _, Num (n, _), Var (32<rt>, _, reg, _), _) ->
-      Some (reg, BitVector.Neg n |> BitVector.ToUInt32)
+    | Var(32<rt>, _, reg, _) -> Some(reg, 0u)
+    | BinOp(BinOpType.ADD, _, Var(32<rt>, _, reg, _), Num(n, _), _)
+    | BinOp(BinOpType.ADD, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
+      Some(reg, BitVector.ToUInt32 n)
+    | BinOp(BinOpType.SUB, _, Var(32<rt>, _, reg, _), Num(n, _), _)
+    | BinOp(BinOpType.SUB, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
+      Some(reg, BitVector.Neg n |> BitVector.ToUInt32)
     | _ -> None
 
-type State = {
-  Regs     : Map<Reg, Value>
-  TempRegs : Map<int, Value>
-  Mems     : Map<Value, Value>
-  SysCall  : State list
-  SideEff  : bool
-}
+type State =
+  { Regs: Map<Reg, Value>
+    TempRegs: Map<int, Value>
+    Mems: Map<Value, Value>
+    SysCall: State list
+    SideEff: bool }
 
 module State =
-
   let inline updateRegs r v regs = Map.add r v regs
 
   let inline updateMems a v mems = Map.add a v mems
 
-  let initState = {
-    Regs     = Map.empty
-    TempRegs = Map.empty
-    Mems     = Map.empty
-    SysCall  = []
-    SideEff  = false
-  }
+  let initState =
+    { Regs = Map.empty
+      TempRegs = Map.empty
+      Mems = Map.empty
+      SysCall = []
+      SideEff = false }
 
   let private getReg state name expr =
     match Map.tryFind name state.Regs with
@@ -92,18 +89,18 @@ module State =
 
   let rec evalExpr state e =
     match e with
-    | Var (_, _, name, _) -> getReg state name e
-    | TempVar (_, name, _) -> getTempReg state name
-    | UnOp (op, expr, _) -> AST.unop op (getEvalExpr state expr) |> Value
-    | BinOp (op, ty, lExpr, rExpr, _) ->
+    | Var(_, _, name, _) -> getReg state name e
+    | TempVar(_, name, _) -> getTempReg state name
+    | UnOp(op, expr, _) -> AST.unop op (getEvalExpr state expr) |> Value
+    | BinOp(op, ty, lExpr, rExpr, _) ->
       AST.binop op (getEvalExpr state lExpr) (getEvalExpr state rExpr) |> Value
-    | RelOp (op, lExpr, rExpr, _) ->
+    | RelOp(op, lExpr, rExpr, _) ->
       AST.relop op (getEvalExpr state lExpr) (getEvalExpr state rExpr) |> Value
-    | Load (endian, ty, expr, _) -> evalLoad state endian ty expr
-    | Ite (cExpr, tExpr, fExpr, _) ->
+    | Load(endian, ty, expr, _) -> evalLoad state endian ty expr
+    | Ite(cExpr, tExpr, fExpr, _) ->
       AST.ite (getEvalExpr state cExpr) (getEvalExpr state tExpr)
               (getEvalExpr state fExpr) |> Value
-    | Cast (kind, ty, expr, _) ->
+    | Cast(kind, ty, expr, _) ->
       AST.cast kind ty <| getEvalExpr state expr |> Value
     | _ -> Value e // Num, Name, PCVar
 
@@ -111,16 +108,16 @@ module State =
     let addr = evalExpr state expr
     match Map.tryFind addr state.Mems with
     | Some v ->
-      let expr = v.GetExpr ()
+      let expr = v.GetExpr()
       let vType = Expr.TypeOf expr
       if vType = ty then v
-      elif vType > ty then AST.extract (v.GetExpr ()) ty 0 |> Value
-      else AST.load endian ty (addr.GetExpr ()) |> Value
-    | None -> AST.load endian ty (addr.GetExpr ()) |> Value
+      elif vType > ty then AST.extract (v.GetExpr()) ty 0 |> Value
+      else AST.load endian ty (addr.GetExpr()) |> Value
+    | None -> AST.load endian ty (addr.GetExpr()) |> Value
 
   and getEvalExpr state expr =
     let value = evalExpr state expr
-    value.GetExpr ()
+    value.GetExpr()
 
   let private evalPutTemp state reg value =
     let value = evalExpr state value
@@ -142,8 +139,7 @@ module State =
     | e when e = AST.b1 -> trueE
     | e when e = AST.b0 -> falseE
     | e -> AST.ite e trueE falseE
-    // FIXME: Do not assume EIP
-    |> evalPutVar state "EIP"
+    |> evalPutVar state "EIP" (* FIXME: Do not assume EIP *)
 
   let private evalSideEff (state: State) = function
     | SysCall | Interrupt 0x80 ->
@@ -158,10 +154,10 @@ module State =
   let evalStmt state stmt  =
     match stmt with
     | ISMark _ | IEMark _ | LMark _ -> state
-    | Put (Var (_, _, reg, _), value, _) -> evalPutVar state reg value
-    | Put (TempVar (_, reg, _), value, _) -> evalPutTemp state reg value
-    | Store (endian, addr, value, _) -> evalStore state endian addr value
-    | CJmp (condE, trueE, falseE, _) -> evalCJmp state condE trueE falseE
-    | InterJmp (value, _, _) -> evalPutVar state "EIP" value
-    | SideEffect (eff, _) -> evalSideEff state eff
+    | Put(Var(_, _, reg, _), value, _) -> evalPutVar state reg value
+    | Put(TempVar(_, reg, _), value, _) -> evalPutTemp state reg value
+    | Store(endian, addr, value, _) -> evalStore state endian addr value
+    | CJmp(condE, trueE, falseE, _) -> evalCJmp state condE trueE falseE
+    | InterJmp(value, _, _) -> evalPutVar state "EIP" value
+    | SideEffect(eff, _) -> evalSideEff state eff
     | e -> failwithf "evalStmt fail %A" e

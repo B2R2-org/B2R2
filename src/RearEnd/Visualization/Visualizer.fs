@@ -43,7 +43,7 @@ let getJSONFromGraph iGraph roots =
     EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
     JSONExport.toStr roots vGraph
   with e ->
-    eprintfn "%s" <| e.ToString ()
+    eprintfn "%s" <| e.ToString()
     "{}"
 
 let visualizeFromFile _inFile _outFile =

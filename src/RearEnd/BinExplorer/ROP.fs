@@ -28,8 +28,8 @@ open B2R2
 open B2R2.RearEnd.Utils
 open B2R2.RearEnd.ROP
 
-type CmdGadgetSearch () =
-  inherit Cmd ()
+type CmdGadgetSearch() =
+  inherit Cmd()
 
   override _.CmdName = "gadgetlist"
 
@@ -42,14 +42,14 @@ type CmdGadgetSearch () =
 
   override _.SubCommands = []
 
-  override _.CallBack _ ess _args =
+  override _.CallBack(_, ess, _args) =
     let hdl = ess.BinHandle
-    let liftingUnit = hdl.NewLiftingUnit ()
+    let liftingUnit = hdl.NewLiftingUnit()
     [| Galileo.findGadgets hdl |> GadgetMap.toString liftingUnit |]
     |> Array.map OutputNormal
 
-type CmdROP () =
-  inherit Cmd ()
+type CmdROP() =
+  inherit Cmd()
 
   member _.ShowResult hdl = function
     | Some payload -> [| ROPPayload.toString hdl 0u payload |]
@@ -71,18 +71,18 @@ type CmdROP () =
 
   override _.SubCommands = []
 
-  override this.CallBack _ ess args =
+  override this.CallBack(_, ess, args) =
     let hdl = ess.BinHandle
     match hdl.File.ISA with
     | X86 ->
       let rop = ROPHandle.init hdl 0UL
-      this.HandleSubCmd rop args
+      this.HandleSubCmd(rop, args)
       |> Array.map OutputNormal
     | isa ->
       [| $"[*] We currently do not support {isa}" |]
       |> Array.map OutputNormal
 
-  member private this.HandleSubCmd rop args =
+  member private this.HandleSubCmd(rop, args) =
     match args with
     | "exec" :: _ ->
       ROPHandle.execShell rop

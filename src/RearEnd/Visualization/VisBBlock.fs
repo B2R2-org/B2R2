@@ -28,7 +28,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main vertex type used for visualization.
-type VisBBlock (blk: IVisualizable, isDummy) =
+type VisBBlock(blk: IVisualizable, isDummy) =
   let mutable layer = -1
 
   let mutable index = -1
@@ -40,7 +40,7 @@ type VisBBlock (blk: IVisualizable, isDummy) =
   let [<Literal>] Padding = 4.0
 
   let visualizableAsm =
-    let block = blk.Visualize ()
+    let block = blk.Visualize()
     if block.Length = 0 then
       [| [| { AsmWordKind = AsmWordKind.String
               AsmWordValue = $"# fake block @ {blk.BlockAddress:x}" } |] |]
@@ -66,23 +66,24 @@ type VisBBlock (blk: IVisualizable, isDummy) =
   let height =
     if isDummy then 0.0 else float numLines * 14.0 + TSpanOffset + Padding * 2.0
 
-  member _.IsDummy with get () = isDummy
+  member _.IsDummy with get() = isDummy
 
   /// The width of the node.
-  member _.Width with get () = width and set (v) = width <- v
+  member _.Width with get() = width and set(v) = width <- v
 
   /// The height of the node.
-  member _.Height with get () = height
+  member _.Height with get() = height
 
   /// The layer that this node belongs to.
-  member _.Layer with get () = layer and set (v) = layer <- v
+  member _.Layer with get() = layer and set(v) = layer <- v
 
   /// Relative index in a layer (from left to right).
-  member _.Index with get () = index and set (v) = index <- v
+  member _.Index with get() = index and set(v) = index <- v
 
   /// X-Y coordinate in the visualized graph.
-  member _.Coordinate with get () = pos
+  member _.Coordinate with get() = pos
 
   interface IVisualizable with
     member _.BlockAddress with get() = blk.BlockAddress
-    member _.Visualize () = visualizableAsm
+
+    member _.Visualize() = visualizableAsm

@@ -30,18 +30,16 @@ open B2R2.FrontEnd.BinLifter
 
 /// Tail is a instruction sequence that needs to be placed at the end of each
 /// ROP gadget.
-type Tail = {
-  Pattern: byte[]
-}
+type Tail =
+  { Pattern: byte[] }
 
 type Offset = uint64
 
 /// ROP gadget is a list of instructions.
-type Gadget = {
-  Instrs: IInstruction list
-  Offset: Offset
-  NextOff: Offset
-}
+type Gadget =
+  { Instrs: IInstruction list
+    Offset: Offset
+    NextOff: Offset }
 
 /// GadgetMap is a mapping from an offset to an ROP gadget.
 type GadgetMap = Map<Offset, Gadget>
@@ -53,23 +51,23 @@ module Gadget =
       NextOff = offset }
 
   let toString (liftingUnit: LiftingUnit) (gadget: Gadget) =
-    let sb = Text.StringBuilder ()
-    let sb = sb.Append (sprintf "[*] Offset = %x\n" gadget.Offset)
+    let sb = Text.StringBuilder()
+    let sb = sb.Append(sprintf "[*] Offset = %x\n" gadget.Offset)
     gadget.Instrs
     |> List.fold (fun (sb: Text.StringBuilder) i ->
       let disasm = liftingUnit.DisasmInstruction i
       sb.Append(disasm).Append(Environment.NewLine)) sb
-    |> fun sb -> sb.ToString ()
+    |> fun sb -> sb.ToString()
 
 module GadgetMap =
   let empty = Map.empty
 
   let toString lunit (gadgets: GadgetMap) =
-    let sb = Text.StringBuilder ()
+    let sb = Text.StringBuilder()
     gadgets
     |> Map.fold (fun (sb: Text.StringBuilder) _ gadget ->
          sb.Append(Gadget.toString lunit gadget).Append(Environment.NewLine)) sb
-    |> fun sb -> sb.ToString ()
+    |> fun sb -> sb.ToString()
 
 type GadgetArr = Gadget array
 

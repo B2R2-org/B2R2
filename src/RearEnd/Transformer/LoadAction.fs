@@ -29,28 +29,27 @@ open B2R2
 open B2R2.FrontEnd
 
 /// The `load` action.
-type LoadAction () =
+type LoadAction() =
   let load isa parseFileFormat s =
-    if File.Exists (path = s) then
-      lazy BinHandle (s, isa, None)
+    if File.Exists(path = s) then
+      lazy BinHandle(s, isa, None)
       |> Binary.PlainInit
       |> box
       |> Array.singleton
-    elif Directory.Exists (path = s) then
+    elif Directory.Exists(path = s) then
       Directory.GetFiles s
       |> Array.map (fun f ->
-        lazy BinHandle (f, isa, None)
+        lazy BinHandle(f, isa, None)
         |> Binary.PlainInit |> box)
     else
-      lazy BinHandle (ByteArray.ofHexString s, isa, None, false)
+      lazy BinHandle(ByteArray.ofHexString s, isa, None, false)
       |> Binary.PlainInit
       |> box
       |> Array.singleton
 
   interface IAction with
     member _.ActionID with get() = "load"
-    member _.Signature
-      with get() = "unit * <str> * [isa] : string -> Binary"
+    member _.Signature with get() = "unit * <str> * [isa] : string -> Binary"
     member _.Description with get() = """
     Take in a string <str> and return a binary object. The given input string
     can either represent a file path or a hexstring. If the given string
@@ -61,7 +60,7 @@ type LoadAction () =
 
       - [isa] : parse the binary for the given ISA.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       if collection.Values |> Array.forall isNull then ()
       else invalidArg (nameof collection) "Invalid argument type."
       match args with
