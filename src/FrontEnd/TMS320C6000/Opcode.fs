@@ -24,14 +24,8 @@
 
 namespace B2R2.FrontEnd.TMS320C6000
 
-open System.Runtime.CompilerServices
-open B2R2
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.TMS320C6000.Tests")>]
-do ()
-
 /// <summary>
-///   TMS320C6000 opcodes.
+/// Represents a TMS320C6000 opcode.
 /// </summary>
 type Opcode =
   | ABS = 0
@@ -264,53 +258,3 @@ type Opcode =
   | InvalOP = 227
 
 type internal Op = Opcode
-
-type Offset =
-  | OffsetR of Register
-  | UCst5 of uint64
-  | UCst15 of uint64
-
-type ModificationPerformed =
-  | NegativeOffset
-  | PositiveOffset
-  | PreDecrement
-  | PreIncrement
-  | PostDecrement
-  | PostIncrement
-
-type Operand =
-  | OpReg of Register
-  | RegisterPair of Register * Register
-  | OprMem of Register * ModificationPerformed * Offset
-  | Immediate of Imm
-and Imm = uint64
-
-type Operands =
-  | NoOperand
-  | OneOperand of Operand
-  | TwoOperands of Operand * Operand
-  | ThreeOperands of Operand * Operand * Operand
-  | FourOperands of Operand * Operand * Operand * Operand
-
-type Side =
-  | SideA
-  | SideB
-
-type FunctionalUnit =
-  | L1Unit
-  | L2Unit
-  | L1XUnit
-  | L2XUnit
-  | S1Unit
-  | S2Unit
-  | S1XUnit
-  | S2XUnit
-  | M1Unit
-  | M2Unit
-  | M1XUnit
-  | M2XUnit
-  | D1Unit
-  | D2Unit
-  | D1XUnit
-  | D2XUnit
-  | NoUnit

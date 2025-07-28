@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.TMS320C6000
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for TMS320C6000.
+/// Represents an instruction for TMS320C6000.
 type Instruction
   internal (addr, numBytes, op, opr, funit, oprSize, isParallel,
             lifter: ILiftable) =

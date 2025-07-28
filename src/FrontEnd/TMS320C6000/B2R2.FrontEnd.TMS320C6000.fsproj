@@ -8,13 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="TMS320C6000RegisterFactory.fs" />
-    <Compile Include="TMS320C6000Types.fs" />
-    <Compile Include="TMS320C6000Instruction.fs" />
-    <Compile Include="TMS320C6000Utils.fs" />
-    <Compile Include="TMS320C6000Disasm.fs" />
-    <Compile Include="TMS320C6000ParsingMain.fs" />
-    <Compile Include="TMS320C6000Parser.fs" />
+    <Compile Include="RegisterFactory.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
+    <Compile Include="FunctionalUnit.fs" />
+    <Compile Include="Instruction.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="ParsingMain.fs" />
+    <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
