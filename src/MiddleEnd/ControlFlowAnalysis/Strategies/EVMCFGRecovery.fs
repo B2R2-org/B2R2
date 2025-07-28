@@ -725,23 +725,28 @@ module private EVMCFGRecovery =
   /// Traverses the graph `g` starting from the vertex `v`, and mark vertices
   /// as removal, as every vertex affected by the removal of `v` should be
   /// marked as removal.
-  let rec traverseForRemovalMark visited g removalFn worklist =
+  let rec traverseForRemovalMark visited g pendingFn removalFn worklist =
     match worklist with
     | [] -> ()
     | v :: rest ->
       (visited: HashSet<_>).Add v |> ignore
-      if not <| removalFn v then traverseForRemovalMark visited g removalFn rest
+      for pred in (g: IDiGraph<_, _>).GetPreds v do (* For recalculation. *)
+        pendingFn pred v
+      if not <| removalFn v then
+        traverseForRemovalMark visited g pendingFn removalFn rest
       else
         let succs = (g: IDiGraph<_, _>).GetSuccs v
         let succs = succs |> Array.filter (not << visited.Contains)
         let rest = succs |> Array.toList |> List.append rest
-        traverseForRemovalMark visited g removalFn rest
+        traverseForRemovalMark visited g pendingFn removalFn rest
 
   let beforeRemoveVertex (ctx: CFGBuildingContext<EVMFuncUserContext, _>) v =
     let g = ctx.CFG
     let visited = HashSet()
-    let removalFn = ctx.UserContext.CP.State.MarkVertexAsRemoval
-    traverseForRemovalMark visited g removalFn [ v ]
+    let state = ctx.UserContext.CP.State
+    let pendingFn = state.MarkEdgeAsPending
+    let removalFn = state.MarkVertexAsRemoval
+    traverseForRemovalMark visited g pendingFn removalFn [ v ]
 
 type EVMCFGRecovery() as this =
   let syscallAnalysis = SyscallAnalysis()
