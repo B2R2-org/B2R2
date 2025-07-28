@@ -35,8 +35,7 @@ type ColoredString = ColoredSegment list
 module ColoredString =
   /// Set the color.
   let private setColor = function
-    | NoColor ->
-      Console.ResetColor ()
+    | NoColor -> Console.ResetColor()
     | Red ->
       Console.ForegroundColor <- ConsoleColor.Red
     | Green ->
@@ -62,9 +61,9 @@ module ColoredString =
       | [] -> prev :: acc |> List.rev |> List.choose id
       | col, str as cur :: rest ->
         match prev with
-        | Some (prevCol, prevStr) when prevCol = col ->
-          loop (Some (prevCol, prevStr + str)) acc rest
-        | Some (_) -> loop (Some cur) (prev :: acc) rest
+        | Some(prevCol, prevStr) when prevCol = col ->
+          loop (Some(prevCol, prevStr + str)) acc rest
+        | Some(_) -> loop (Some cur) (prev :: acc) rest
         | None -> loop (Some cur) acc rest
     loop None [] s
 
@@ -73,11 +72,11 @@ module ColoredString =
     |> List.iter (fun (c, s) ->
       setColor c
       Console.Write s)
-    Console.ResetColor ()
+    Console.ResetColor()
 
   let internal toConsoleLine s =
     toConsole s
-    Console.WriteLine ()
+    Console.WriteLine()
 
   /// Colored string to a normal string.
   [<CompiledName "ToString">]

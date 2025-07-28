@@ -27,8 +27,8 @@ namespace B2R2.RearEnd.BinExplorer
 open B2R2
 open B2R2.RearEnd.Utils
 
-type CmdCredits () =
-  inherit Cmd ()
+type CmdCredits() =
+  inherit Cmd()
 
   override _.CmdName = "credits"
 
@@ -40,7 +40,7 @@ type CmdCredits () =
 
   override _.SubCommands = []
 
-  override _.CallBack _ _ _args =
+  override _.CallBack(_, _, _args) =
     [| Attribution.Copyright |]
     |> Array.map OutputNormal
 

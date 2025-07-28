@@ -27,34 +27,34 @@ namespace B2R2.RearEnd.Repl
 open B2R2
 open B2R2.RearEnd.Utils
 
-type ReplOpts () =
-  inherit CmdOpts ()
+type ReplOpts() =
+  inherit CmdOpts()
 
   member val ISA = ISA Architecture.Intel with get, set
   member val ShowTemp = false with get, set
 
-  static member private ToThis (opts: CmdOpts) =
+  static member private ToThis(opts: CmdOpts) =
     match opts with
     | :? ReplOpts as opts -> opts
     | _ -> failwith "Invalid Opts."
 
   /// "-a" or "--isa" option for specifying ISA.
-  static member OptISA () =
+  static member OptISA() =
     let cb (opts: #CmdOpts) (arg: string []) =
       (ReplOpts.ToThis opts).ISA <- ISA arg[0]; opts
-    CmdOpts.New (descr = "Specify <ISA> (e.g., x86) for fat binaries",
-                 extra = 1, callback = cb, short = "-a", long = "--isa")
+    CmdOpts.New(descr = "Specify <ISA> (e.g., x86) for fat binaries",
+                extra = 1, callback = cb, short = "-a", long = "--isa")
 
-  static member OptShowTemp () =
+  static member OptShowTemp() =
     let cb (opts: #CmdOpts) (_arg: string []) =
       (ReplOpts.ToThis opts).ShowTemp <- true; opts
-    CmdOpts.New (descr = "Show temporary variables",
-                 extra = 0, callback = cb,
-                 short = "-t", long = "--show-temporary")
+    CmdOpts.New(descr = "Show temporary variables",
+                extra = 0, callback = cb,
+                short = "-t", long = "--show-temporary")
 
 module ReplOpts =
   let spec: ReplOpts FsOptParse.Option list =
-    [ ReplOpts.OptISA ()
-      ReplOpts.OptShowTemp ()
-      CmdOpts.OptVerbose ()
-      CmdOpts.OptHelp () ]
+    [ ReplOpts.OptISA()
+      ReplOpts.OptShowTemp()
+      CmdOpts.OptVerbose()
+      CmdOpts.OptHelp() ]

@@ -36,35 +36,35 @@ open type FileFormat
 /// some useful information.
 type Binary = Binary of Lazy<BinHandle> * annotation: string
 with
-  static member Init annot hdl = Binary (hdl, annot)
+  static member Init(annot, hdl) = Binary(hdl, annot)
 
-  static member PlainInit hdl = Binary (hdl, "")
+  static member PlainInit hdl = Binary(hdl, "")
 
   static member Handle bin =
     match bin with
-    | Binary (hdl, _) -> hdl.Value
+    | Binary(hdl, _) -> hdl.Value
 
   static member Annotation bin =
     match bin with
-    | Binary (_, annot) -> annot
+    | Binary(_, annot) -> annot
 
-  static member MakeAnnotation prefix bin =
+  static member MakeAnnotation(prefix, bin) =
     match bin with
-    | Binary (hdl, annot) ->
+    | Binary(hdl, annot) ->
       let path = hdl.Value.File.Path
       if String.IsNullOrEmpty path then annot
       else $"{prefix}{path}"
 
-  override this.ToString () =
+  override this.ToString() =
     match this with
-    | Binary (hdl, annot) when hdl.Value.File.Format = RawBinary ->
+    | Binary(hdl, annot) when hdl.Value.File.Format = RawBinary ->
       let hdl = hdl.Value
       let s = Utils.makeByteArraySummary hdl.File.RawBytes
       if String.IsNullOrEmpty annot then
         $"Binary(Raw) | 0x{hdl.File.BaseAddress:x8} | {s}"
       else
         $"Binary(Raw) | 0x{hdl.File.BaseAddress:x8} | {s} | {annot}"
-    | Binary (hdl, annot) ->
+    | Binary(hdl, annot) ->
       let hdl = hdl.Value
       let file = hdl.File
       let s = Utils.makeByteArraySummary file.RawBytes
@@ -81,44 +81,39 @@ type Instruction =
   | ValidInstruction of BinLifter.IInstruction * byte[]
   | BadInstruction of Addr * byte[]
 with
-  override this.ToString () =
+  override this.ToString() =
     match this with
-    | ValidInstruction (ins, bs) ->
+    | ValidInstruction(ins, bs) ->
       let bs = Utils.makeByteArraySummary bs
       $"{ins.Address:x16} | {bs.PadRight 48} | {ins.Disasm ()}"
-    | BadInstruction (addr, bs) ->
+    | BadInstruction(addr, bs) ->
       let bs = Utils.makeByteArraySummary bs
       $"{addr:x16} | {bs.PadRight 32} | (bad)"
 
 /// Fingerprint of a binary, which is a list of (hash * byte position) tuple.
-type Fingerprint = {
-  Patterns: (int * int) list
-  NGramSize: int
-  WindowSize: int
-  Annotation: string
-}
+type Fingerprint =
+  { Patterns: (int * int) list
+    NGramSize: int
+    WindowSize: int
+    Annotation: string }
 with
-  override this.ToString () =
-    let sb = StringBuilder ()
+  override this.ToString() =
+    let sb = StringBuilder()
     sb.Append $"({this.Annotation}){Environment.NewLine}" |> ignore
     this.Patterns
     |> List.iter (fun (b, p) ->
       sb.Append $"{b:x2}@{p}{Environment.NewLine}" |> ignore)
-    sb.ToString ()
+    sb.ToString()
 
 /// CFG of a function.
 type CFG =
   | CFG of addr: Addr * ir: LowUIRCFG
   | NoCFG of err: string (* Error message describing the reason for failure. *)
 with
-  static member Init addr ir = CFG (addr, ir)
+  static member Init(addr, ir) = CFG(addr, ir)
 
 /// Collection of objects.
-type ObjCollection = {
-  Values: obj array
-}
+type ObjCollection = { Values: obj array }
 
 /// Clustering result.
-type ClusterResult = {
-  Clusters: string array array
-}
+type ClusterResult = { Clusters: string array array }

@@ -56,10 +56,10 @@ let private printTRegStatusString (state: ReplState) delta =
 
 /// Used to print all available registers to the console.
 let printRegisters showTemporary state regdelta =
-  printCyan "Registers:\n" ;
+  printCyan "Registers:\n"
   printRegStatusString state regdelta
   if showTemporary then
     printCyan "\nTemporary Registers:\n"
     printTRegStatusString state []
   else ()
-  Console.WriteLine ()
+  Console.WriteLine()

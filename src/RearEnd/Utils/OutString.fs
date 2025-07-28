@@ -37,11 +37,11 @@ module OutString =
   let internal toConsole = function
     | OutputNormal s -> Console.Write s
     | OutputColored s -> ColoredString.toConsole s
-    | OutputNewLine -> Console.WriteLine ()
+    | OutputNewLine -> Console.WriteLine()
 
   let internal toConsoleLine outstring =
     toConsole outstring
-    Console.WriteLine ()
+    Console.WriteLine()
 
   let toString = function
     | OutputNormal s -> s

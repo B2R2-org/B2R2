@@ -33,31 +33,31 @@ type ParserState =
   | LowUIRParser
   | BinParser of Architecture
 
-type ReplState (isa: ISA, regFactory: IRegisterFactory, doFiltering) =
-  let rstate = EvalState ()
+type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
+  let rstate = EvalState()
   let mutable parser = BinParser isa.Arch
   do
     rstate.SideEffectEventHandler <-
       (fun e st -> printfn $"[*] Unhandled side-effect ({e}) encountered"
                    st.IsInstrTerminated <- true)
-    regFactory.GetAllRegVars ()
+    regFactory.GetAllRegVars()
     |> Array.map (fun r ->
       (regFactory.GetRegisterID r, BitVector.OfInt32 0 (Expr.TypeOf r)))
     |> rstate.InitializeContext 0UL
   let mutable prevReg =
-    rstate.Registers.ToArray ()
+    rstate.Registers.ToArray()
     |> Array.map (fun (i, v) -> RegisterID.create i, v)
-  let mutable prevTmp = rstate.Temporaries.ToArray ()
+  let mutable prevTmp = rstate.Temporaries.ToArray()
   let generalRegs =
-    regFactory.GetGeneralRegVars ()
+    regFactory.GetGeneralRegVars()
     |> Array.map regFactory.GetRegisterID
     |> Set.ofArray
 
-  member private _.EvaluateStmts (stmts: Stmt []) =
+  member private _.EvaluateStmts(stmts: Stmt []) =
     rstate.PrepareInstrEval stmts
     Evaluator.evalStmts stmts rstate
 
-  member private _.ComputeDelta prev curr =
+  member private _.ComputeDelta(prev, curr) =
     Array.fold2 (fun acc t1 t2 ->
       if t1 <> t2 then fst t1 :: acc else acc
     ) [] prev curr
@@ -67,10 +67,10 @@ type ReplState (isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     try this.EvaluateStmts stmts
     with exc -> printfn "%s" exc.Message
     let currReg =
-      rstate.Registers.ToArray ()
+      rstate.Registers.ToArray()
       |> Array.map (fun (i, v) -> RegisterID.create i, v)
-    let currTmp = rstate.Temporaries.ToArray ()
-    let regdelta = this.ComputeDelta prevReg currReg
+    let currTmp = rstate.Temporaries.ToArray()
+    let regdelta = this.ComputeDelta(prevReg, currReg)
     prevReg <- currReg
     prevTmp <- currTmp
     regdelta
@@ -89,29 +89,27 @@ type ReplState (isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     |> this.Filter
     |> List.map (fun (r, v) ->
       let regStr = regFactory.GetRegString r
-      let regVal = v.ToString ()
+      let regVal = v.ToString()
       regStr + ": " + regVal, Set.contains r set)
 
   /// Gets a temporary register name and EvalValue string representation.
-  member private _.TempRegString (n: int) v =
-    "T_" + string (n) + ": " + (if isNull v then "n/a" else v.ToString ())
+  member private _.TempRegString(n: int, v) =
+    "T_" + string (n) + ": " + (if isNull v then "n/a" else v.ToString())
 
   member this.GetAllTempValString delta =
     let set = Set.ofList delta
     prevTmp
     |> Seq.toList
-    |> List.map (fun (id, v) -> this.TempRegString id v, Set.contains id set)
+    |> List.map (fun (id, v) -> this.TempRegString(id, v), Set.contains id set)
 
-  member _.SwitchParser () =
+  member _.SwitchParser() =
     match parser with
-    | BinParser _ ->
-      parser <- LowUIRParser
-    | LowUIRParser ->
-      parser <- BinParser isa.Arch
+    | BinParser _ -> parser <- LowUIRParser
+    | LowUIRParser -> parser <- BinParser isa.Arch
 
   member _.CurrentParser with get() = parser
 
   member _.ConsolePrompt with get() =
     match parser with
-    | BinParser arch -> arch.ToString () + "> "
+    | BinParser arch -> arch.ToString() + "> "
     | LowUIRParser -> "LowUIR> "

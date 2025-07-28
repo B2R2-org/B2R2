@@ -30,8 +30,8 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.Utils
 
-type CmdSearch () =
-  inherit Cmd ()
+type CmdSearch() =
+  inherit Cmd()
 
   let toResult (idx: uint64) = $"Found @ {idx:x}"
 
@@ -39,7 +39,7 @@ type CmdSearch () =
     hdl.File.GetVMMappedRegions Permission.Readable
     |> Seq.collect (fun reg ->
       let size = reg.Max - reg.Min + 1UL
-      hdl.ReadBytes (reg.Min, int size)
+      hdl.ReadBytes(reg.Min, int size)
       |> ByteArray.findIdxs 0UL pattern
       |> List.map (fun idx -> idx + reg.Min))
     |> Seq.map toResult
@@ -60,26 +60,26 @@ type CmdSearch () =
 
   override _.SubCommands = []
 
-  member _.Search hdl strPattern bytePattern =
+  member _.Search(hdl, strPattern, bytePattern) =
     let ret = [| "[*] Searching for (" + strPattern + ") ..." |]
     match search hdl bytePattern with
     | [] -> Array.append ret [| "[*] The pattern not found." |]
     | results ->
       Array.append ret (List.toArray results)
 
-  member this.CmdHandle hdl (pattern: string) = function
+  member this.CmdHandle(hdl, pattern: string) = function
     | "s" | "string" ->
-      Text.Encoding.ASCII.GetBytes pattern |> this.Search hdl pattern
+      this.Search(hdl, pattern, Text.Encoding.ASCII.GetBytes pattern)
     | "h" | "hex" ->
-      ByteArray.ofHexString pattern |> this.Search hdl pattern
+      this.Search(hdl, pattern, ByteArray.ofHexString pattern)
     | c -> [| "Unknown type " + c |]
 
-  override this.CallBack _ ess args =
+  override this.CallBack(_, ess, args) =
     let res =
       match args with
       | []
       | _ :: [] -> [| this.CmdHelp |]
       | t :: pattern :: _ ->
-        t.ToLowerInvariant ()
-        |> this.CmdHandle ess.BinHandle pattern
+        t.ToLowerInvariant()
+        |> this.CmdHandle(ess.BinHandle, pattern)
     Array.map OutputNormal res

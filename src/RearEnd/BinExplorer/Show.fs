@@ -28,8 +28,8 @@ open System.Text
 open B2R2
 open B2R2.RearEnd.Utils
 
-type CmdShow () =
-  inherit Cmd ()
+type CmdShow() =
+  inherit Cmd()
 
   override _.CmdName = "show"
 
@@ -46,63 +46,10 @@ type CmdShow () =
 
   override _.SubCommands = []
 
-  member private _.CallerToString (sb: StringBuilder) (addr: Addr) =
+  member private _.CallerToString(sb: StringBuilder, addr: Addr) =
     sb.Append $"  - referenced by {addr:x}\n"
 
-  // member private _.CalleeToSimpleString prefix (sb: StringBuilder) callee =
-  //   let noret =
-  //     match (callee: Function).NoReturnProperty with
-  //     | NoRet -> " [no return]"
-  //     | ConditionalNoRet _ -> " [conditional no return]"
-  //     | NotNoRetConfirmed | NotNoRet -> ""
-  //     | UnknownNoRet -> ""
-  //   if callee.FunctionKind <> FunctionKind.Regular then
-  //     sb.Append (prefix + callee.FunctionName + noret + "\n")
-  //   else
-  //     sb.Append (prefix + callee.FunctionName
-  //              + noret + $" @ {callee.EntryPoint:x}\n")
-
-  // member private this.CalleeToString ess (sb: StringBuilder) callee =
-  //   this.CalleeToSimpleString "" sb callee
-  //   |> (fun sb -> callee.Callers |> Seq.fold this.CallerToString sb)
-
-  // member this.ShowCaller ess = function
-  //   | (expr: string) :: _ ->
-  //     let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
-  //     match ess.CodeManager.FunctionMaintainer.TryFind addr with
-  //     | None -> [| "[*] Not found." |]
-  //     | Some func ->
-  //       let sb = StringBuilder ()
-  //       let sb = sb.Append (expr + " calls:\n")
-  //       let sb =
-  //         func.Callers
-  //         |> Seq.fold (fun sb (addr: Addr) ->
-  //           match ess.CodeManager.FunctionMaintainer.TryFind addr with
-  //           | Some callee -> this.CalleeToSimpleString "  - " sb callee
-  //           | None -> sb) sb
-  //       [| sb.ToString () |]
-  //   | _ -> [| this.CmdHelp |]
-
-  // member this.ShowCallee ess = function
-  //   | (expr: string) :: _ ->
-  //     let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
-  //     let sb = StringBuilder ()
-  //     if Char.IsDigit expr[0] then
-  //       ess.CodeManager.FunctionMaintainer.TryFind (addr)
-  //     else ess.CodeManager.FunctionMaintainer.TryFind (expr)
-  //     |> Option.map (fun callee ->
-  //       (this.CalleeToString ess sb callee).ToString ())
-  //     |> Option.defaultValue "[*] Not found."
-  //     |> Array.singleton
-  //   | _ -> [| this.CmdHelp |]
-
-  // member this.CmdHandle ess opts = function
-  //   | "caller" -> this.ShowCaller ess opts
-  //   | "callee"
-  //   | "function" -> this.ShowCallee ess opts
-  //   | _ -> [| this.CmdHelp |]
-
-  override this.CallBack _ ess args =
+  override this.CallBack(_, ess, args) =
     match args with
     | _ -> [| this.CmdHelp |]
     |> Array.map OutputNormal

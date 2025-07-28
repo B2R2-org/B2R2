@@ -34,19 +34,18 @@ type DbscanStatus =
   | Noise
 
 /// DBSCAN element.
-type DbscanElement = {
-  mutable Status: DbscanStatus
-  Fingerprint: HashSet<int>
-  ElementName: string
-}
+type DbscanElement =
+  { mutable Status: DbscanStatus
+    Fingerprint: HashSet<int>
+    ElementName: string }
 with
-  static member Init (fp: Fingerprint) =
+  static member Init(fp: Fingerprint) =
     { Status = Unvisited
       Fingerprint = fp.Patterns |> List.map fst |> HashSet
       ElementName = fp.Annotation }
 
 /// The `dbscan` action.
-type DbscanAction () =
+type DbscanAction() =
   let buildDistanceCache (elms: DbscanElement[]) =
     let cache = Array2D.zeroCreate elms.Length elms.Length
     for i = 0 to elms.Length - 1 do
@@ -57,14 +56,14 @@ type DbscanAction () =
         let overlap = (* overlap coefficient *)
           float fp.Count / float (min e1.Fingerprint.Count e2.Fingerprint.Count)
         let dist = 1.0 - overlap
-        cache.[i, j] <- dist
-        cache.[j, i] <- dist
+        cache[i, j] <- dist
+        cache[j, i] <- dist
     cache
 
   let dist (cache: float[,]) i j = cache[i, j]
 
   let findNeighbors (cache: float[,]) i eps =
-    let neighbors = List<int> ()
+    let neighbors = List<int>()
     for j = 0 to Array2D.length1 cache - 1 do
       if dist cache i j <= eps then
         neighbors.Add j |> ignore
@@ -74,7 +73,7 @@ type DbscanAction () =
   let cluster eps minpts (fingerprints: Fingerprint[]) =
     let elms = fingerprints |> Array.map DbscanElement.Init
     let cache = buildDistanceCache elms
-    let clusters = List<string[]> () (* List<List<string>> *)
+    let clusters = List<string[]>() (* List<List<string>> *)
     for i in 0 .. (elms.Length - 1) do
       if elms[i].Status <> Unvisited then ()
       else
@@ -99,8 +98,8 @@ type DbscanAction () =
               if newNeighbors.Count >= minpts then
                 neighbors.AddRange newNeighbors
               else ()
-          clusters.Add (cluster.ToArray ()) |> ignore
-    [| box { Clusters = clusters.ToArray () } |]
+          clusters.Add(cluster.ToArray()) |> ignore
+    [| box { Clusters = clusters.ToArray() } |]
 
   interface IAction with
     member _.ActionID with get() = "dbscan"
@@ -111,7 +110,7 @@ type DbscanAction () =
     fingerprints. User may specify <eps> and <minPts> as arguments. If not, we
     use a default value of <eps> = 0.2 and <minPts> = 3.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       let eps, minPts =
         match args with
         | eps :: minPts :: [] -> Convert.ToDouble eps, Convert.ToInt32 minPts
@@ -119,5 +118,5 @@ type DbscanAction () =
         | [] -> 0.2, 3
         | _ -> invalidArg (nameof args) "Too many arguments given."
       { Values = collection.Values
-                |> Array.map unbox<Fingerprint>
-                |> cluster eps minPts }
+                 |> Array.map unbox<Fingerprint>
+                 |> cluster eps minPts }

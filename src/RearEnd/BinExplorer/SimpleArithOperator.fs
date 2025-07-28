@@ -86,11 +86,11 @@ module SimpleArithOperate =
 
   let getInferedType value =
     match value with
-    | Between (NumType.getRange (Signed Bit32)) ->
+    | Between(NumType.getRange (Signed Bit32)) ->
       { IntValue = value; Type = Signed Bit32; FloatValue = -1.0 }
-    | Between (NumType.getRange (Signed Bit64)) ->
+    | Between(NumType.getRange (Signed Bit64)) ->
       { IntValue = value; Type = Signed Bit64; FloatValue = -1.0 }
-    | Between (NumType.getRange (Signed Bit128)) ->
+    | Between(NumType.getRange (Signed Bit128)) ->
       { IntValue = value; Type = Signed Bit128; FloatValue = -1.0 }
     | _ -> castToIntegerValue (Signed Bit256) value
 
@@ -144,7 +144,7 @@ module SimpleArithOperate =
       let result = op leftSide (int rightSide.IntValue)
       getInferedType result
     else
-      let errorType = BitwiseOperation (int pos.Column)
+      let errorType = BitwiseOperation(int pos.Column)
       { IntValue = -1I; Type = CError errorType; FloatValue = -1.0 }
 
   let shift (val1: Number) (val2: Number) op (pos: Position) =
@@ -236,7 +236,7 @@ module SimpleArithOperate =
     | _, CError _ -> y
     | _ ->
       if y.IntValue = 0I || y.FloatValue = 0.0 then
-        let errorType = DivisionByZero (int pos.Column)
+        let errorType = DivisionByZero(int pos.Column)
         { IntValue = -1I; Type = CError errorType; FloatValue = -1.0 }
       else
         doMulDivModulo (/) (/) x y
@@ -247,7 +247,7 @@ module SimpleArithOperate =
     | _, CError _ -> y
     | _ ->
       if y.IntValue = 0I || y.FloatValue = 0.0 then
-        let errorType = DivisionByZero (int pos.Column)
+        let errorType = DivisionByZero(int pos.Column)
         { IntValue = -1I; Type = CError errorType; FloatValue = -1.0 }
       else
         doMulDivModulo (%) (%) x y
@@ -263,7 +263,7 @@ module SimpleArithOperate =
       let result = op leftSide rightSide
       getInferedType result
     else
-      let errorType = BitwiseOperation (int pos.Column)
+      let errorType = BitwiseOperation(int pos.Column)
       { IntValue = -1I; Type = CError errorType; FloatValue = -1.0 }
 
   let doBitwise op val1 val2 pos =
@@ -306,5 +306,5 @@ module SimpleArithOperate =
         let result = value ^^^ (-1I)
         getInferedType result
       else
-        let errorType = BitwiseOperation (int pos.Column)
+        let errorType = BitwiseOperation(int pos.Column)
         { IntValue = -1I; Type = CError errorType; FloatValue = -1.0 }

@@ -28,7 +28,7 @@ open System
 open B2R2
 
 /// The `winnowing` action.
-type WinnowingAction () =
+type WinnowingAction() =
   let rec min (span: Span<int * int>) (minHash, minPos) idx =
     if idx < span.Length then
       let curHash, curPos = span[idx]
@@ -41,7 +41,7 @@ type WinnowingAction () =
 
   let rec computeFingerprint acc annot prev n wsz idx (ngrams: (int * int)[]) =
     if idx <= ngrams.Length - wsz then
-      let span = ngrams.AsSpan (idx, wsz)
+      let span = ngrams.AsSpan(idx, wsz)
       let m = min span (Int32.MaxValue, Int32.MaxValue) 0
       if fst prev = fst m then
         computeFingerprint acc annot prev n wsz (idx + 1) ngrams
@@ -55,7 +55,7 @@ type WinnowingAction () =
   let winnowing n wsz input =
     let bin = unbox<Binary> input
     let hdl = Binary.Handle bin
-    let annot = Binary.MakeAnnotation "Winnowing from " bin
+    let annot = Binary.MakeAnnotation("Winnowing from ", bin)
     let span = ReadOnlySpan hdl.File.RawBytes
     if span.Length < n + wsz then
       invalidArg (nameof input) "The input binary is too small."
@@ -74,7 +74,7 @@ type WinnowingAction () =
       - [n] : Size of n-gram. The default is 4.
       - [w] : Window size. The default is 4.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       let n, wsz =
         match args with
         | [] -> 4, 4

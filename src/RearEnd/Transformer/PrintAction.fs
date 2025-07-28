@@ -28,15 +28,15 @@ open FSharp.Reflection
 open B2R2.RearEnd.Utils
 
 /// The `print` action.
-type PrintAction () =
+type PrintAction() =
   let rec print (o: obj) =
-    let typ = o.GetType ()
+    let typ = o.GetType()
     if typ = typeof<ObjCollection> then printObjCollection o
     elif typ = typeof<ClusterResult> then printClusterResult o
     elif typ.IsArray then printArray o
     elif FSharpType.IsUnion typ
       && typ.BaseType = typeof<OutString> then printOutString o
-    else Printer.PrintToConsoleLine (o.ToString ())
+    else Printer.PrintToConsoleLine(o.ToString())
 
   and printObjCollection (o: obj) =
     let res = o :?> ObjCollection
@@ -67,6 +67,6 @@ type PrintAction () =
     member _.Description with get() = """
     Take in an input object and print out its value.
 """
-    member _.Transform _args o =
+    member _.Transform(_args, o) =
       print (box o)
       { Values = [||] }

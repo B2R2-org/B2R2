@@ -55,20 +55,20 @@ module internal Protocol =
       * AsyncReplyChannel<Msg<'FnCtx, 'GlCtx>>>
 
   let genArbiter brew logFile =
-    let logger = new StreamWriter (path=logFile, AutoFlush=true)
-    Agent.Start (fun inbox ->
+    let logger = new StreamWriter(path = logFile, AutoFlush = true)
+    Agent.Start(fun inbox ->
       let rec loop brew = async {
-        let! (msg, channel) = inbox.Receive ()
+        let! (msg, channel) = inbox.Receive()
         match msg with
         | Send GetBinaryBrew ->
-          Reply (ReplyBinaryBrew brew) |> channel.Reply
-        | Send (LogString str) ->
+          Reply(ReplyBinaryBrew brew) |> channel.Reply
+        | Send(LogString str) ->
           logger.WriteLine str
-          channel.Reply (Reply Ack)
-        | Send (Terminate) ->
-          logger.Close ()
-          logger.Dispose ()
-          channel.Reply (Reply Ack)
+          channel.Reply(Reply Ack)
+        | Send(Terminate) ->
+          logger.Close()
+          logger.Dispose()
+          channel.Reply(Reply Ack)
         | _ -> ()
         return! loop brew
       }
@@ -76,17 +76,17 @@ module internal Protocol =
     )
 
   let getBinaryBrew (arbiter: Agent<_, _>) =
-    match arbiter.PostAndReply (fun ch -> Send GetBinaryBrew, ch) with
-    | Reply (ReplyBinaryBrew brew) -> brew
+    match arbiter.PostAndReply(fun ch -> Send GetBinaryBrew, ch) with
+    | Reply(ReplyBinaryBrew brew) -> brew
     | _ -> failwith "Failed to obtain the BinaryBrew."
 
   let logString (arbiter: Agent<_, _>) str =
-    match arbiter.PostAndReply (fun ch -> Send (LogString str), ch) with
+    match arbiter.PostAndReply(fun ch -> Send(LogString str), ch) with
     | Reply Ack -> ()
     | _ -> failwith "Failed to log message."
 
   let terminate (arbiter: Agent<_, _>) =
-    match arbiter.PostAndReply (fun ch -> Send Terminate, ch) with
+    match arbiter.PostAndReply(fun ch -> Send Terminate, ch) with
     | Reply Ack -> ()
     | _ -> failwith "Failed to terminate."
 

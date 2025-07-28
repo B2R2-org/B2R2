@@ -25,7 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 /// The `jaccard` action.
-type JaccardAction () =
+type JaccardAction() =
   let jaccard fp0 fp1 =
     match unbox<Fingerprint> fp0, unbox<Fingerprint> fp1 with
     | fp0, fp1 ->
@@ -40,7 +40,7 @@ type JaccardAction () =
     member _.Description with get() = """
     Take in two fingerprints and returns the jaccard index between them.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       if args.Length <> 0 then
         invalidArg (nameof args) "No arguments should be given."
       elif collection.Values.Length = 2 then

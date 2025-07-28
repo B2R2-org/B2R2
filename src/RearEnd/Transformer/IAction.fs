@@ -36,4 +36,4 @@ type IAction =
   abstract member Description: string
 
   /// Transform the input object collection to the output object collction.
-  abstract member Transform: string list -> ObjCollection -> ObjCollection
+  abstract member Transform: string list * ObjCollection -> ObjCollection
