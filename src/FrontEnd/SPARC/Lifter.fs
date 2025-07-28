@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.SPARC.Lifter
+module internal B2R2.FrontEnd.SPARC.Lifter
 
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.SPARC

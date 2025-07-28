@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.SPARC
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Instruction for SPARC.
+/// Represents an instruction for SPARC.
 type Instruction internal (addr, numBytes, op, opr, lifter: ILiftable) =
 
   /// Address of this instruction.
