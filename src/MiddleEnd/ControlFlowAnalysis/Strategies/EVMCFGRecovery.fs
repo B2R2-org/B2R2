@@ -445,7 +445,7 @@ module private EVMCFGRecovery =
       | None -> tryMakeExeCtx usrCtx state srcV exeCtx None
       | Some(_var, b, true)
         when b && kind.IsInterCJmpFalseEdge
-          || not b && kind.IsInterCJmpFalseEdge -> (* Infeasible path. *)
+          || not b && kind.IsInterCJmpTrueEdge -> (* Infeasible path. *)
         None
       | Some(var, b, _isConstant) ->
         let b = if kind.IsInterCJmpFalseEdge then not b else b
