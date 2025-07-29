@@ -447,10 +447,23 @@ type Class() =  // Good
 type Class () = // Bad
 ```
 
+For classes with access modifiers, the access modifier should be placed directly
+before the parentheses without a space.
+```fsharp
+type GenericClass<'T> private() =  // Good
+type GenericClass<'T> private () = // Bad
+```
+
+When defining auxiliary constructors using new, we use the following style.
+```fsharp
+new(value) = Class(value)  // Good
+new (value) = Class(value) // Bad
+```
+
 When defining properties using `with`, we use the following style.
 ```fsharp
-member _.Method with get () = value and set (value) = value // Good
-member _.Method with get() = value and set(value) = value   // Bad
+member _.Method with get() = value and set(value) = value   // Good
+member _.Method with get () = value and set (value) = value // Bad
 ```
 
 When function name is LowerCase, use a space before parentheses.
