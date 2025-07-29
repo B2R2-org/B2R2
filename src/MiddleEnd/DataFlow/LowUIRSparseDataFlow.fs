@@ -265,7 +265,7 @@ type State<'Lattice when 'Lattice: equality>
     | Undefined (_, s, _) -> AST.label s -1 addr
     | _ -> raise InvalidExprException
 
-  /// Translate a ordinary IR statement to an SSA statement. It returns a dummy
+  /// Translate an ordinary IR statement to an SSA statement. It returns a dummy
   /// exception statement if the given IR statement is invalid.
   let translateToSSAStmt pp stmt =
     match stmt with

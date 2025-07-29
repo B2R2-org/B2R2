@@ -89,10 +89,23 @@ type BBLFactory (hdl: BinHandle, instrs) =
       channel.Complete ()
     }
 
-  let hasProperISMark (stmts: Stmt array) =
+#if DEBUG
+  let hasProperISMark (stmts: Stmt[]) =
     match stmts[0] with
     | ISMark _ -> true
     | _ -> false
+
+  let hasProperTerminator addr (stmts: Stmt[]) =
+    match stmts[stmts.Length - 1] with
+    | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> true
+    | IEMark _ ->
+      match stmts[stmts.Length - 2] with
+      | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ ->
+        eprintfn "Need to fix the terminator @ %x" addr
+        false
+      | _ -> true
+    | _ -> false
+#endif
 
   /// The given list is reversed, so we fill the array in reverse order.
   let rec liftAndFill lunit bblAddr (arr: LiftedInstruction[]) instrs ndx =
@@ -100,7 +113,10 @@ type BBLFactory (hdl: BinHandle, instrs) =
     | ins :: tl ->
       let stmts =
         (lunit: LiftingUnit).LiftInstruction (ins = ins, optimize = true)
+#if DEBUG
       assert (hasProperISMark stmts)
+      assert (hasProperTerminator ins.Address stmts)
+#endif
       let liftedIns = { Original = ins; Stmts = stmts; BBLAddr = bblAddr }
       arr[ndx] <- liftedIns
       liftAndFill lunit bblAddr arr tl (ndx - 1)
