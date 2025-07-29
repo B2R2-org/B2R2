@@ -48,7 +48,7 @@ let rec evalConcrete (st: EvalState) e =
   match e with
   | Num (n, _) -> Def n |> Ok
   | Var (_, n, _, _) -> st.TryGetReg n |> Ok
-  | PCVar (t, _, _) -> BitVector.OfUInt64 st.PC t |> Def |> Ok
+  | PCVar (t, _, _) -> BitVector.OfUInt64(st.PC, t) |> Def |> Ok
   | TempVar (_, n, _) -> st.TryGetTmp n |> Ok
   | UnOp (t, e, _) -> evalUnOp st e t
   | BinOp (t, _, e1, e2, _) -> evalBinOp st e1 e2 t

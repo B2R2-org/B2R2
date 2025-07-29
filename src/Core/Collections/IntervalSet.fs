@@ -28,16 +28,16 @@ open B2R2
 open B2R2.Collections.FingerTree
 
 /// An element for our interval set.
-type private IntervalSetElem (interval) =
+type private IntervalSetElem(interval) =
   member val Val: AddrRange = interval
 with
   member this.Min = this.Val.Min
   member this.Max = this.Val.Max
-  override this.ToString () = this.Val.ToString ()
+  override this.ToString() = this.Val.ToString()
   interface IMeasured<InterMonoid<Addr>> with
     member this.Measurement =
-      InterMonoid<Addr> (Ordered (Key (this.Val.Min)),
-                         Priority (Prio (this.Val.Max)))
+      InterMonoid<Addr>(Ordered(Key(this.Val.Min)),
+                        Priority(Prio(this.Val.Max)))
 
 /// <summary>
 /// Represents an interval-tree-based set, which stores intervals (<see
@@ -58,8 +58,8 @@ module IntervalSet =
   [<CompiledName("Add")>]
   let add (i: AddrRange) (IntervalSet m) =
     let l, r =
-      Op.Split (fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin ()) m
-    IntervalSet <| Op.Concat l (Op.Cons (IntervalSetElem i) r)
+      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin()), m)
+    IntervalSet <| Op.Concat(l, Op.Cons(IntervalSetElem i, r))
 
   /// Checks whether the given address interval is included in any of the
   /// intervals in the interval set.
@@ -67,10 +67,11 @@ module IntervalSet =
   let includeRange (range: AddrRange) (IntervalSet s) =
     let il = range.Min
     let ih = range.Max
-    if Prio il <= ((s :> IMeasured<_>).Measurement).GetMax () then
+    if Prio il <= ((s :> IMeasured<_>).Measurement).GetMax() then
       let z = (s.Monoid :> IMonoid<InterMonoid<Addr>>).Zero
       let (_, x, _) =
-        Op.SplitTree (fun (e: InterMonoid<Addr>) -> Prio il <= e.GetMax()) z s
+        Op.SplitTree((fun (e: InterMonoid<Addr>) -> Prio il <= e.GetMax()),
+          z, s)
       x.Min <= ih
     else false
 
@@ -79,13 +80,13 @@ module IntervalSet =
   let findAll (range: AddrRange) (IntervalSet s) =
     let il = range.Min
     let ih = range.Max
-    let dropMatcher (e: InterMonoid<Addr>) = Prio il <= e.GetMax ()
+    let dropMatcher (e: InterMonoid<Addr>) = Prio il <= e.GetMax()
     let rec matches acc xs =
-      let v = Op.DropUntil dropMatcher xs
+      let v = Op.DropUntil(dropMatcher, xs)
       match Op.ViewL v with
       | Nil -> acc
-      | Cons (x: IntervalSetElem, xs) -> matches (x.Val :: acc) xs
-    Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih < elt.GetMin ()) s
+      | Cons(x: IntervalSetElem, xs) -> matches (x.Val :: acc) xs
+    Op.TakeUntil((fun (elt: InterMonoid<Addr>) -> Key ih < elt.GetMin()), s)
     |> matches []
 
   /// Finds and returns the first matching interval from the given range.
@@ -97,22 +98,22 @@ module IntervalSet =
   /// Finds and returns the first matching interval from the given address.
   [<CompiledName("TryFindByAddr")>]
   let tryFindByAddr addr s =
-    tryFind (AddrRange (addr, addr)) s
+    tryFind (AddrRange(addr, addr)) s
 
   /// Checks whether the given address exists in the interval set.
   [<CompiledName("ContainsAddr")>]
-  let containsAddr addr s = includeRange (AddrRange (addr, addr)) s
+  let containsAddr addr s = includeRange (AddrRange(addr, addr)) s
 
   /// Checks whether the exact interval exists in the interval set.
   [<CompiledName("Contains")>]
   let contains (i: AddrRange) (IntervalSet s) =
     let _, r =
-      Op.Split (fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin ()) s
+      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin()), s)
     let rec containLoop r =
       match Op.ViewL r with
       | Nil -> false
-      | Cons (x: IntervalSetElem, _) when x.Min = i.Min && x.Max = i.Max -> true
-      | Cons (x, xs) ->
+      | Cons(x: IntervalSetElem, _) when x.Min = i.Min && x.Max = i.Max -> true
+      | Cons(x, xs) ->
         if i.Min = x.Min then containLoop xs
         else false
     containLoop r
@@ -122,15 +123,15 @@ module IntervalSet =
   [<CompiledName("Remove")>]
   let remove (range: AddrRange) (IntervalSet s) =
     let l, r =
-      Op.Split (fun (e: InterMonoid<Addr>) -> Key range.Min <= e.GetMin ()) s
+      Op.Split((fun (e: InterMonoid<Addr>) -> Key range.Min <= e.GetMin()), s)
     let rec rmLoop l r =
       match Op.ViewL r with
       | Nil -> raise InvalidAddrRangeException
-      | Cons (x: IntervalSetElem, xs)
+      | Cons(x: IntervalSetElem, xs)
         when x.Min = range.Min && x.Max = range.Max ->
-        Op.Concat l xs
-      | Cons (x, xs) ->
-        if range.Min = x.Min then rmLoop (Op.Snoc l x) xs
+        Op.Concat(l, xs)
+      | Cons(x, xs) ->
+        if range.Min = x.Min then rmLoop (Op.Snoc(l, x)) xs
         else raise InvalidAddrRangeException
     IntervalSet <| rmLoop l r
 

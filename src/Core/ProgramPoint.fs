@@ -30,11 +30,11 @@ namespace B2R2
 /// instruction, call site information). The third element (call site) is
 /// optional and only meaningful for abstract vertices.
 /// </summary>
-type ProgramPoint private (addr, pos, callsite) =
+type ProgramPoint private(addr, pos, callsite) =
 
-  new (addr, pos: int) = ProgramPoint (addr, pos, None)
+  new(addr, pos: int) = ProgramPoint(addr, pos, None)
 
-  new (callsite, addr, pos: int) = ProgramPoint (addr, pos, Some callsite)
+  new(callsite, addr, pos: int) = ProgramPoint(addr, pos, Some callsite)
 
   /// Address of the instruction.
   member _.Address with get(): Addr = addr
@@ -47,13 +47,13 @@ type ProgramPoint private (addr, pos, callsite) =
   member _.CallSite with get(): CallSite option = callsite
 
   /// Compares against another program point.
-  member this.CompareTo (rhs: ProgramPoint) =
+  member this.CompareTo(rhs: ProgramPoint) =
     let result = compare this.Address rhs.Address
     if result <> 0 then result
     elif this.Position = rhs.Position then compare this.CallSite rhs.CallSite
     else compare this.Position rhs.Position
 
-  override this.Equals (o) =
+  override this.Equals(o) =
     match o with
     | :? ProgramPoint as o ->
       o.Address = this.Address
@@ -61,14 +61,14 @@ type ProgramPoint private (addr, pos, callsite) =
       && o.CallSite = this.CallSite
     | _ -> false
 
-  override this.GetHashCode () =
+  override this.GetHashCode() =
     let addrHash = int this.Address
     let posHash = this.Position <<< 16
     match this.CallSite with
     | None -> addrHash ^^^ posHash
-    | Some callSite -> addrHash ^^^ posHash + callSite.GetHashCode ()
+    | Some callSite -> addrHash ^^^ posHash + callSite.GetHashCode()
 
-  override this.ToString () =
+  override this.ToString() =
     match this.CallSite with
     | Some callsite -> $"{callsite:x}-{addr:x}"
     | None -> $"{addr:x}:{pos}"
@@ -76,23 +76,23 @@ type ProgramPoint private (addr, pos, callsite) =
   /// Gets a fake program point to represent a fake vertex, which does not exist
   /// in a CFG. Fake vertices are useful for representing external function
   /// calls and their nodes in the SCFG.
-  static member GetFake () = ProgramPoint (0UL, -1)
+  static member GetFake() = ProgramPoint(0UL, -1)
 
   /// Checks if the given program point is a fake one.
-  static member IsFake (p: ProgramPoint) = p.Address = 0UL && p.Position = -1
+  static member IsFake(p: ProgramPoint) = p.Address = 0UL && p.Position = -1
 
-  static member Next (p: ProgramPoint) =
+  static member Next(p: ProgramPoint) =
     if ProgramPoint.IsFake p then p
-    else ProgramPoint (p.Address, p.Position + 1)
+    else ProgramPoint(p.Address, p.Position + 1)
 
   interface System.IComparable with
-    member this.CompareTo (rhs) =
+    member this.CompareTo(rhs) =
       match rhs with
       | :? ProgramPoint as rhs -> this.CompareTo rhs
       | _ -> invalidArg (nameof rhs) "Invalid comparison"
 
   interface System.IComparable<ProgramPoint> with
-    member this.CompareTo (rhs) = this.CompareTo rhs
+    member this.CompareTo(rhs) = this.CompareTo rhs
 
 /// Call site information of an abstract vertex in a control flow graph.
 /// Typically, there is a single concrete caller vertex that calls an abstract
@@ -110,7 +110,7 @@ and CallSite =
 
 with
   /// Returns the address of the leaf call site.
-  member this.CallSiteAddress with get (): Addr =
+  member this.CallSiteAddress with get(): Addr =
     match this with
     | LeafCallSite addr -> addr
-    | ChainedCallSite (cs, _) -> cs.CallSiteAddress
+    | ChainedCallSite(cs, _) -> cs.CallSiteAddress

@@ -74,8 +74,8 @@ type LEB128 =
 
   /// Decode a LEB128-encoded integer into uint64. This function returns a tuple
   /// of (the decoded uint64, and the count of how many bytes were read).
-  static member DecodeUInt64 (bytes: byte[]) =
-    LEB128.DecodeUInt64 (ReadOnlySpan<byte> bytes)
+  static member DecodeUInt64(bytes: byte[]) =
+    LEB128.DecodeUInt64(ReadOnlySpan<byte> bytes)
 
   /// Decode a LEB128-encoded integer into uint32. This function returns a tuple
   /// of (the decoded uint32, and the count of how many bytes were read).
@@ -84,8 +84,8 @@ type LEB128 =
 
   /// Decode a LEB128-encoded integer into uint32. This function returns a tuple
   /// of (the decoded uint32, and the count of how many bytes were read).
-  static member DecodeUInt32 (bytes: byte[]) =
-    LEB128.DecodeUInt32 (ReadOnlySpan<byte> bytes)
+  static member DecodeUInt32(bytes: byte[]) =
+    LEB128.DecodeUInt32(ReadOnlySpan<byte> bytes)
 
   /// Decode a LEB128-encoded integer into int64. This function returns a tuple
   /// of (the decoded int64, and the count of how many bytes were read).
@@ -96,8 +96,8 @@ type LEB128 =
 
   /// Decode a LEB128-encoded integer into int64. This function returns a tuple
   /// of (the decoded int64, and the count of how many bytes were read).
-  static member DecodeSInt64 (bytes: byte[]) =
-    LEB128.DecodeSInt64 (ReadOnlySpan<byte> bytes)
+  static member DecodeSInt64(bytes: byte[]) =
+    LEB128.DecodeSInt64(ReadOnlySpan<byte> bytes)
 
   /// Decode a LEB128-encoded integer into int32. This function returns a tuple
   /// of (the decoded int32, and the count of how many bytes were read).
@@ -108,5 +108,5 @@ type LEB128 =
 
   /// Decode a LEB128-encoded integer into int32. This function returns a tuple
   /// of (the decoded int32, and the count of how many bytes were read).
-  static member DecodeSInt32 (bytes: byte[]) =
-    LEB128.DecodeSInt32 (ReadOnlySpan<byte> bytes)
+  static member DecodeSInt32(bytes: byte[]) =
+    LEB128.DecodeSInt32(ReadOnlySpan<byte> bytes)

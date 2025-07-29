@@ -28,17 +28,17 @@ open System.IO
 
 /// Represents an implementation of <see cref='T:B2R2.Logging.ILogger'/> that
 /// writes log messages to a file.
-type FileLogger (filepath, ?level: LogLevel) =
-  let fs = File.CreateText (filepath, AutoFlush = true)
+type FileLogger(filepath, ?level: LogLevel) =
+  let fs = File.CreateText(filepath, AutoFlush = true)
   let llev = defaultArg level LogLevel.L2
 
   interface ILogger with
-    member _.Dispose () = fs.Dispose ()
+    member _.Dispose() = fs.Dispose()
 
-    member _.Log (str, ?lvl) =
+    member _.Log(str, ?lvl) =
       let lvl = defaultArg lvl LogLevel.L2
       if lvl <= llev then fs.Write str else ()
 
-    member _.LogLine (str, ?lvl) =
+    member _.LogLine(str, ?lvl) =
       let lvl = defaultArg lvl LogLevel.L2
       if lvl <= llev then fs.WriteLine str else ()

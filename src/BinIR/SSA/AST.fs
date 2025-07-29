@@ -75,7 +75,7 @@ let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
   match s with
   | LowUIR.ISMark _ ->
     let pc = { Kind = PCVar(defaultRegType); Identifier = -1 }
-    let n = Num <| BitVector.OfUInt64 addr defaultRegType
+    let n = Num <| BitVector.OfUInt64(addr, defaultRegType)
     Def(pc, n) |> Some
   | LowUIR.IEMark _ -> None
   | LowUIR.LMark(lbl, _) -> LMark lbl |> Some

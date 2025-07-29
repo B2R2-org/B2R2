@@ -101,7 +101,7 @@ module private EVMCFGRecovery =
     | SSA.FuncName _
     | SSA.Undefined _ -> e
 
-  let fourBytesBitmaskBv = BitVector.OfUInt32 UInt32.MaxValue 256<rt>
+  let fourBytesBitmaskBv = BitVector.OfUInt32(UInt32.MaxValue, 256<rt>)
 
   let isPossiblyFuncSig bv = (bv: BitVector).And fourBytesBitmaskBv = bv
 

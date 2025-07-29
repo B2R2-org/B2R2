@@ -41,19 +41,19 @@ open System.Diagnostics
 /// not implemented yet and will be implemented in the future.
 [<StackTraceHidden>]
 let futureFeature () =
-  let trace = StackTrace (true)
+  let trace = StackTrace(true)
   printfn "FATAL ERROR: NOT IMPLEMENTED FEATURE."
-  trace.ToString () |> printfn "%s"
-  raise <| NotImplementedException ()
+  trace.ToString() |> printfn "%s"
+  raise <| NotImplementedException()
 
 /// Terminates the program with a message indicating this should never happen.
 /// This is a bug and should be reported.
 [<StackTraceHidden>]
 let impossible () =
-  let trace = StackTrace (true)
+  let trace = StackTrace(true)
   printfn "FATAL ERROR: THIS IS INVALID AND SHOULD NEVER HAPPEN."
-  trace.ToString () |> printfn "%s"
-  raise <| InvalidOperationException ()
+  trace.ToString() |> printfn "%s"
+  raise <| InvalidOperationException()
 
 /// Exits the whole program including any child processes with a fatal error
 /// message.

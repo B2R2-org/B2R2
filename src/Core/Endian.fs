@@ -46,10 +46,10 @@ module Endian =
   /// </returns>
   [<CompiledName "OfString">]
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "l" | "le" | "little" -> Endian.Little
     | "b" | "be" | "big" -> Endian.Big
-    | _     -> failwith "Wrong endian specified."
+    | _ -> failwith "Wrong endian specified."
 
   /// <summary>
   /// Get the string representation from an Endian.
