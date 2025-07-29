@@ -346,7 +346,7 @@ module private EVMCFGRecovery =
   /// inconsistency check later.
   let rec tryExtractPathCondition (state: State<_, _>) recentVar cond =
     match cond with
-    | SSA.Num bv when bv.IsOne -> Some(recentVar, true)
+    | SSA.Num bv when bv.IsOne -> Some(recentVar, true, true)
     | SSA.ExprList exprs -> (* TODO: tail-recursion w/ continuation *)
       exprs |> List.tryPick (fun e ->
         let var = exprToVar e
@@ -355,11 +355,11 @@ module private EVMCFGRecovery =
         | _ -> None)
     | SSA.BinOp(BinOpType.APP, _, SSA.FuncName callName, _)
       when isCallRelatedFunction callName ->
-      Some(recentVar, true)
+      Some(recentVar, true, false)
     | SSA.Cast(_, _, SSA.RelOp(RelOpType.EQ, _, e, SSA.Num bv_0x0))
       when bv_0x0.IsZero ->
       match tryExtractPathCondition state recentVar e with
-      | Some(d, b) -> Some(d, not b) (* Apply negation. *)
+      | Some(d, b, isConstant) -> Some(d, not b, isConstant) (* Negation. *)
       | _ -> None
     | SSA.Extract(e, _, _) -> tryExtractPathCondition state recentVar e
     | _ -> None
@@ -378,9 +378,6 @@ module private EVMCFGRecovery =
       let fakeSVP = { SensitiveProgramPoint = fakeSPP; VarKind = dummyVarKind }
       let fakeVar = state.DefSVPToSSAVar fakeSVP
       tryExtractPathCondition state fakeVar cond
-      |> Option.map (fun (v, b) ->
-        let b = if kind.IsInterCJmpFalseEdge then not b else b
-        v, b)
     | _ -> Terminator.impossible ()
 
   let hasNoFixpoint ctx srcV exeCtx dstV =
@@ -446,7 +443,12 @@ module private EVMCFGRecovery =
       let lastSStmt = state.GetSSAStmts(srcV, exeCtx) |> Array.last
       match computeCondition state kind lastSStmt with
       | None -> tryMakeExeCtx usrCtx state srcV exeCtx None
-      | Some(var, b) ->
+      | Some(_var, b, true)
+        when b && kind.IsInterCJmpFalseEdge
+          || not b && kind.IsInterCJmpFalseEdge -> (* Infeasible path. *)
+        None
+      | Some(var, b, _isConstant) ->
+        let b = if kind.IsInterCJmpFalseEdge then not b else b
         let defSvp = state.SSAVarToDefSVP var
         let defPP = defSvp.SensitiveProgramPoint.ProgramPoint
         let key = defPP
