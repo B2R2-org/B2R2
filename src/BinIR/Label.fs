@@ -32,7 +32,7 @@ open B2R2
 /// represent the location of the label in the binary, i.e., the address of the
 /// instruction that the label belongs to.
 /// </summary>
-type Label (name: string, id: int, addr: Addr) =
+type Label(name: string, id: int, addr: Addr) =
   /// <summary>
   /// Retrives the symbolic name of the label.
   /// </summary>
@@ -52,7 +52,7 @@ type Label (name: string, id: int, addr: Addr) =
   /// <summary>
   /// Compares two labels for equality.
   /// </summary>
-  override _.Equals (obj) =
+  override _.Equals(obj) =
     match obj with
     | :? Label as lbl -> lbl.Name = name && lbl.Id = id && lbl.Address = addr
     | _ -> false
@@ -60,9 +60,9 @@ type Label (name: string, id: int, addr: Addr) =
   /// <summary>
   /// Computes the hash code for the label.
   /// </summary>
-  override _.GetHashCode () = name.GetHashCode () ^^^ id ^^^ addr.GetHashCode ()
+  override _.GetHashCode() = name.GetHashCode() ^^^ id ^^^ addr.GetHashCode()
 
   /// <summary>
   /// Retrives a stirng representation of the symbol.
   /// </summary>
-  override _.ToString () = name + "_" + id.ToString () + "@" + addr.ToString "x"
+  override _.ToString() = name + "_" + id.ToString() + "@" + addr.ToString "x"
