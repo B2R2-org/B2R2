@@ -849,7 +849,7 @@ module internal AnalysisCore = begin
           queue.Enqueue(s, d)
     queue
 
-  let tryPropagateRDs state src srcExeCtx dst dstExeCtx =
+  let tryJoinRDs state src srcExeCtx dst dstExeCtx =
     let srcOutDefs = getOutgoingDefs state src srcExeCtx
     let dstInDefs = getIncomingDefs state dst dstExeCtx
     let dstInSP =
@@ -860,8 +860,10 @@ module internal AnalysisCore = begin
         |> StackPointerDomain.ConstSP
       else snd state.PerVertexStackPointerInfos[src, srcExeCtx]
     match joinDefs dstInSP srcOutDefs dstInDefs with
-    | false, _ -> None
     | true, dstInDefs' -> Some dstInDefs'
+    (* This can happen when this was the first visit to the vertex. *)
+    | false, _ when Map.isEmpty dstInDefs -> Some Map.empty
+    | _ -> None
 
   let addPossibleExeCtx (state: State<_, _>) v exeCtx =
     let possibleExeCtxs = state.PerVertexPossibleExeCtxs
@@ -929,7 +931,7 @@ module internal AnalysisCore = begin
       match st.Scheme.TryComputeExecutionContext(src, srcExeCtx, dst, kind) with
       | None -> None (* Infeasible flow. *)
       | Some dstExeCtx ->
-        tryPropagateRDs st src srcExeCtx dst dstExeCtx
+        tryJoinRDs st src srcExeCtx dst dstExeCtx
         |> Option.map (fun dstInDefs -> dstExeCtx, dstInDefs)
 
   let calculateChains g state =
