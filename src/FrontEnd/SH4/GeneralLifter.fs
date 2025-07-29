@@ -31,11 +31,11 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 
-let numI32 n = BitVector.OfInt32 n 32<rt> |> AST.num
+let numI32 n = BitVector.OfInt32(n, 32<rt>) |> AST.num
 
-let numI32PC n = BitVector.OfInt32 n 32<rt> |> AST.num
+let numI32PC n = BitVector.OfInt32(n, 32<rt>) |> AST.num
 
-let numI64 n = BitVector.OfInt64 n 16<rt> |> AST.num
+let numI64 n = BitVector.OfInt64(n, 16<rt>) |> AST.num
 
 let exprToInt (n: Expr) =
   match n with

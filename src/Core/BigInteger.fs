@@ -30,13 +30,13 @@
 module B2R2.BigInteger
 
 /// Bitmask of size 128 bits.
-let mask128 = bigint.Subtract (bigint.Pow (2I, 128), bigint.One)
+let mask128 = bigint.Subtract(bigint.Pow(2I, 128), bigint.One)
 
 /// Bitmask of size 256 bits.
-let mask256 = bigint.Subtract (bigint.Pow (2I, 256), bigint.One)
+let mask256 = bigint.Subtract(bigint.Pow(2I, 256), bigint.One)
 
 /// Bitmask of size 512 bits.
-let mask512 = bigint.Subtract (bigint.Pow (2I, 512), bigint.One)
+let mask512 = bigint.Subtract(bigint.Pow(2I, 512), bigint.One)
 
 /// Get a bitmask of size n bits.
-let getMask n = bigint.Pow (2I, n) - 1I
+let getMask n = bigint.Pow(2I, n) - 1I

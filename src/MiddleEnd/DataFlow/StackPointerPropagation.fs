@@ -44,7 +44,7 @@ type StackPointerPropagation (hdl: BinHandle, vs) =
     hdl.RegisterFactory.StackPointer
     |> Option.get
     |> hdl.RegisterFactory.GetRegType
-    |> BitVector.OfUInt64 Constants.InitialStackPointer
+    |> fun rt -> BitVector.OfUInt64(Constants.InitialStackPointer, rt)
     |> StackPointerDomain.ConstSP
 
   let isStackPointer rid =

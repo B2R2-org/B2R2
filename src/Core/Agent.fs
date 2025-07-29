@@ -34,17 +34,17 @@ open System.Threading.Tasks.Dataflow
 /// Dataflow. See also <see cref='T:B2R2.AgentReplyChannel`1'/>.
 /// </summary>
 [<AllowNullLiteral>]
-type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
+type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
 
   /// Post a message to the agent.
-  member _.Post (msg: 'Msg) =
+  member _.Post(msg: 'Msg) =
     ch.Post msg |> ignore
 
   /// Post a message and get a reply from the agent.
   member _.PostAndReply callback =
-    use cts = new CancellationTokenSource ()
-    let replyChan = BufferBlock<_> ()
-    let reply = AgentReplyChannel<_> (replyChan.Post >> ignore)
+    use cts = new CancellationTokenSource()
+    let replyChan = BufferBlock<_>()
+    let reply = AgentReplyChannel<_>(replyChan.Post >> ignore)
     let msg = callback cts reply
     ch.Post msg |> ignore
     replyChan.Receive cts.Token
@@ -53,20 +53,20 @@ type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
   member _.Task with get() = task
 
   /// Start a new agent with a given task function and a cancellation token.
-  static member Start (taskFn: IAgentMessageReceivable<'Msg> -> unit, token) =
-    let ch = BufferBlock<'Msg> ()
+  static member Start(taskFn: IAgentMessageReceivable<'Msg> -> unit, token) =
+    let ch = BufferBlock<'Msg>()
     let receivable =
       { new IAgentMessageReceivable<'Msg> with
-          member _.Receive () =
+          member _.Receive() =
             task {
               let! isAvailable = ch.OutputAvailableAsync token
               if isAvailable then
-                match ch.TryReceive () with
+                match ch.TryReceive() with
                 | true, msg -> return msg
-                | false, _ -> return raise <| InvalidOperationException ()
-              else return raise <| OperationCanceledException ()
-            } |> fun task -> task.Wait (); task.Result
-          member _.Complete () = ch.Complete ()
+                | false, _ -> return raise <| InvalidOperationException()
+              else return raise <| OperationCanceledException()
+            } |> fun task -> task.Wait(); task.Result
+          member _.Complete() = ch.Complete()
           member _.IsCancelled with get() = token.IsCancellationRequested
           member _.Count with get() = ch.Count }
     let fn = fun () ->
@@ -75,14 +75,14 @@ type Agent<'Msg> private (ch: BufferBlock<'Msg>, task: Task) =
         Console.Error.WriteLine e.Message
         Console.Error.WriteLine e.StackTrace
         exit 1
-    Agent (ch, Task.Run (fn, cancellationToken = token))
+    Agent(ch, Task.Run(fn, cancellationToken = token))
 
 /// <summary>
 /// Represents a reply channel for an agent (<see cref='T:B2R2.Agent`1'/>). The
 /// agent will receive a message synchronously from the reply channel.
 /// </summary>
-and AgentReplyChannel<'Reply> (replyf: 'Reply -> unit) =
-  member _.Reply (reply: 'Reply) = replyf reply
+and AgentReplyChannel<'Reply>(replyf: 'Reply -> unit) =
+  member _.Reply(reply: 'Reply) = replyf reply
 
 /// Interface for receiving agent messages.
 and IAgentMessageReceivable<'Msg> =

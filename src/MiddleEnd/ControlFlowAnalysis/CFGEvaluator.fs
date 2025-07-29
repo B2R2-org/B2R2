@@ -42,7 +42,7 @@ let private memoryReader (hdl: BinHandle) _pc addr typ _e =
     | Error e -> Error e
   else Error ErrorCase.InvalidMemoryRead
 
-let private stackAddr t = BitVector.OfUInt64 InitialStackPointer t
+let private stackAddr t = BitVector.OfUInt64(InitialStackPointer, t)
 
 let private obtainStackDef (hdl: BinHandle) =
   match hdl.RegisterFactory.StackPointer with

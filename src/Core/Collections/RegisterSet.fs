@@ -31,10 +31,10 @@ open System.Numerics
 /// architecture-agnostic set data structure that internally uses bit arrays.
 /// Since RegisterIDs always start from 0 for any architecture, we can use it
 /// directly as an index to the bit array.
-type RegisterSet (maxNumElems: int) =
+type RegisterSet(maxNumElems: int) =
   let arr: int64[] = Array.zeroCreate ((maxNumElems + 63) / 64)
 
-  new () = RegisterSet (378) (* Number of registers for AARCH64 = 378 *)
+  new() = RegisterSet(378) (* Number of registers for AARCH64 = 378 *)
 
   /// Get the bucket and the offset from the given index.
   member inline private _.GetBucketAndOffset idx =
@@ -47,19 +47,19 @@ type RegisterSet (maxNumElems: int) =
   member _.BitArray with get() = arr
 
   /// Adds a register to the set by marking the corresponding bit.
-  member this.Add (idx: int) =
-    if idx >= this.MaxNumElems then raise (IndexOutOfRangeException ()) else ()
+  member this.Add(idx: int) =
+    if idx >= this.MaxNumElems then raise (IndexOutOfRangeException()) else ()
     let struct (bucket, offset) = this.GetBucketAndOffset idx
     arr[bucket] <- arr[bucket] ||| (1L <<< offset)
 
   /// Removes a register from the set by unmarking the corresponding bit.
-  member this.Remove (idx: int) =
-    if idx >= this.MaxNumElems then raise (IndexOutOfRangeException ()) else ()
+  member this.Remove(idx: int) =
+    if idx >= this.MaxNumElems then raise (IndexOutOfRangeException()) else ()
     let struct (bucket, offset) = this.GetBucketAndOffset idx
     arr[bucket] <- arr[bucket] &&& ~~~(1L <<< offset)
 
   /// Updates the current register set by making a union with the given set.
-  member this.Union (other: RegisterSet) =
+  member this.Union(other: RegisterSet) =
     assert (other.MaxNumElems = this.MaxNumElems)
     let otherArray = other.BitArray
     for i = 0 to otherArray.Length - 1 do
@@ -67,28 +67,28 @@ type RegisterSet (maxNumElems: int) =
 
   /// Updates the current register set by making an intersection with the given
   /// set.
-  member this.Intersect (other: RegisterSet) =
+  member this.Intersect(other: RegisterSet) =
     assert (other.MaxNumElems = this.MaxNumElems)
     let otherArray = other.BitArray
     for i = 0 to otherArray.Length - 1 do
       arr[i] <- arr[i] &&& otherArray[i]
 
   /// Checks if the set contains the given register indexed by `idx`.
-  member this.Contains (idx: int) =
+  member this.Contains(idx: int) =
     let struct (bucket, offset) = this.GetBucketAndOffset idx
     (arr[bucket] &&& (1L <<< offset)) <> 0L
 
   /// Checks if the set is empty.
-  member _.IsEmpty () =
+  member _.IsEmpty() =
     arr |> Array.forall (fun x -> x = 0L)
 
   /// Clears the set.
-  member _.Clear () =
+  member _.Clear() =
     for i = 0 to arr.Length - 1 do
-      arr.[i] <- 0L
+      arr[i] <- 0L
 
   /// Iterates over the set and apply the given function to each element.
-  member inline this.Iterate ([<InlineIfLambda>] fn) =
+  member inline this.Iterate([<InlineIfLambda>] fn) =
     for i = 0 to this.BitArray.Length - 1 do
       let mutable bucket = this.BitArray[i]
       while bucket <> 0L do

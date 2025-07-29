@@ -47,7 +47,7 @@ type DoublyLinkedKeyValue<'K, 'V when 'K: equality and 'V: equality>
 
   member _.RefCount with get() = refCount and set(n) = refCount <- n
 
-  override _.GetHashCode () = value.GetHashCode ()
+  override _.GetHashCode() = value.GetHashCode()
 
   override this.Equals rhs =
     match rhs with

@@ -33,10 +33,10 @@ open B2R2.FrontEnd.EVM
 open type Register
 
 [<TestClass>]
-type LifterTests () =
-  let num v rt = BitVector.OfInt32 v rt |> AST.num
+type LifterTests() =
+  let num v rt = BitVector.OfInt32(v, rt) |> AST.num
 
-  let bigint v = BitVector.OfBInt v 256<rt> |> AST.num
+  let bigint v = BitVector.OfBInt(v, 256<rt>) |> AST.num
 
   let isa = ISA Architecture.EVM
 

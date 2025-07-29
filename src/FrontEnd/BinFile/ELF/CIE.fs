@@ -119,7 +119,7 @@ module internal CIE =
 
   let num (isa: ISA) n =
     let rt = isa.WordSize |> WordSize.toRegType
-    AST.num (BitVector.OfUInt64 n rt)
+    BitVector.OfUInt64(n, rt) |> AST.num
 
   let regPlusNum isa registerFactory reg n =
     let regexp = DWRegister.toRegisterExpr isa registerFactory reg

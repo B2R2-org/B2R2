@@ -33,7 +33,7 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 
 [<TestClass>]
 type OptimizerTests () =
-  let num v = BitVector.OfUInt32 v 32<rt> |> AST.num
+  let num v = BitVector.OfUInt32(v, 32<rt>) |> AST.num
 
   let t32 id = AST.tmpvar 32<rt> id
 

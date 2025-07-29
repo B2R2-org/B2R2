@@ -29,16 +29,16 @@ open B2R2
 open B2R2.BinIR.LowUIR
 
 /// Creates a new number expression from a given uint32 value.
-let inline numU32 n t = BitVector.OfUInt32 n t |> AST.num
+let inline numU32 n t = BitVector.OfUInt32(n, t) |> AST.num
 
 /// Creates a new number expression from a given int32 value.
-let inline numI32 n t = BitVector.OfInt32 n t |> AST.num
+let inline numI32 n t = BitVector.OfInt32(n, t) |> AST.num
 
 /// Creates a new number expression from a given uint64 value.
-let inline numU64 n t = BitVector.OfUInt64 n t |> AST.num
+let inline numU64 n t = BitVector.OfUInt64(n, t) |> AST.num
 
 /// Creates a new number expression from a given int64 value.
-let inline numI64 n t = BitVector.OfInt64 n t |> AST.num
+let inline numI64 n t = BitVector.OfInt64(n, t) |> AST.num
 
 /// Creates a new temporary variable with the given type.
 let inline tmpVar (builder: ILowUIRBuilder) rt =
