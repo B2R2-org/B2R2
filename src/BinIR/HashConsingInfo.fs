@@ -27,14 +27,14 @@ namespace B2R2.BinIR
 /// Represents the hash consing information of an object, which includes a
 /// unique ID (tag) and a hash value.
 [<AllowNullLiteral>]
-type HashConsingInfo (id, hash) =
+type HashConsingInfo(id, hash) =
   let mutable id = id
   let mutable hash = hash
 
   /// <summary>
   /// Creates a new instance of HashConsingInfo with default values.
   /// </summary>
-  new () = HashConsingInfo (0u, 0)
+  new() = HashConsingInfo(0u, 0)
 
   /// Unique ID of the hash consed object.
   member _.ID with get(): uint32 = id and set(v) = id <- v
