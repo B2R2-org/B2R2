@@ -589,8 +589,12 @@ module private EVMCFGRecovery =
     let sampledPath = findFeasiblePath ctx.CFG sampledDefSite srcV
     let newEntryPoint = findFunctionEntry sampledPath
     let newEntryPointAddr = newEntryPoint.VData.Internals.PPoint.Address
-    if isInfeasibleEntryPoint ctx newEntryPoint then (* likely shared region *)
-      introduceNewSharedRegion ctx newEntryPointAddr
+    let hasAbstractPred =
+      ctx.CFG.GetPreds srcV
+      |> Array.exists (fun pred -> pred.VData.Internals.IsAbstract)
+    if newEntryPointAddr = 0x9acUL then ()
+    if isInfeasibleEntryPoint ctx newEntryPoint || hasAbstractPred then
+      introduceNewSharedRegion ctx newEntryPointAddr (* likely shared region *)
       Some StopAndReload
     (* 0x00000000000006c7676171937c444f6bde3d6282: 0x3e6a *)
     elif isFallthroughedNode ctx newEntryPoint then (* cannot be an EP *)
