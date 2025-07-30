@@ -24,11 +24,6 @@
 
 namespace B2R2.FrontEnd.ARM32
 
-open System.Runtime.CompilerServices
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.ARM32.Tests")>]
-do ()
-
 /// <summary>
 /// Represents an ARM32 opcode.
 /// </summary>

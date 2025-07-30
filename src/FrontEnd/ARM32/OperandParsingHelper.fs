@@ -4398,5 +4398,3 @@ type internal OprRdRnLsbWidthM1T () =
     let width = (* widthm1 + 1 *)
       (extract bin 4 0 (* widthm1 *)) + 1u |> int64 |> OprImm
     struct (FourOperands (rd, rn, lsb, width), false, None, 32<rt>)
-
-// vim: set tw=80 sts=2 sw=2:

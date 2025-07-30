@@ -2332,5 +2332,3 @@ let translate (ins: Instruction) insLen bld =
          eprintfn "%A" o
 #endif
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
-
-// vim: set tw=80 sts=2 sw=2:

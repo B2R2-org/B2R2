@@ -77,12 +77,12 @@ let ptrStringToBitSize = function
 
 let prefixFromRegString (str: string) =
   match str.ToLowerInvariant () with
-  | "cs" -> Prefix.PrxCS
-  | "ds" -> Prefix.PrxDS
-  | "es" -> Prefix.PrxES
-  | "fs" -> Prefix.PrxFS
-  | "gs" -> Prefix.PrxGS
-  | "ss" -> Prefix.PrxSS
+  | "cs" -> Prefix.CS
+  | "ds" -> Prefix.DS
+  | "es" -> Prefix.ES
+  | "fs" -> Prefix.FS
+  | "gs" -> Prefix.GS
+  | "ss" -> Prefix.SS
   | _ -> Terminator.impossible ()
 
 let newInfo prfxs rexPrfx vexInfo opc operands =

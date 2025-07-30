@@ -26,8 +26,6 @@ namespace B2R2.Peripheral.Assembly.Intel
 
 open B2R2
 open B2R2.FrontEnd.Intel
-open type Prefix
-open type VEXType
 
 exception NotEncodableException
 
@@ -94,12 +92,12 @@ type EncVEXPrefix =
 /// Assembly encoding context.
 type EncContext (wordSize: WordSize) =
   member _.WordSize with get() = wordSize
-  member _.PrefNormal with get() = EncPrefix (PrxNone, false, false, true)
-  member _.PrefREP with get() = EncPrefix (PrxNone, false, true, true)
-  member _.PrefREP66 with get() = EncPrefix (PrxOPSIZE, false, true, true)
-  member _.PrefF3 with get() = EncPrefix (PrxREPZ, false, false, true)
-  member _.PrefF2 with get() = EncPrefix (PrxREPNZ, false, false, true)
-  member _.Pref66 with get() = EncPrefix (PrxOPSIZE, false, false, true)
+  member _.PrefNormal with get() = EncPrefix (Prefix.None, false, false, true)
+  member _.PrefREP with get() = EncPrefix (Prefix.None, false, true, true)
+  member _.PrefREP66 with get() = EncPrefix (Prefix.OPSIZE, false, true, true)
+  member _.PrefF3 with get() = EncPrefix (Prefix.REPZ, false, false, true)
+  member _.PrefF2 with get() = EncPrefix (Prefix.REPNZ, false, false, true)
+  member _.Pref66 with get() = EncPrefix (Prefix.OPSIZE, false, false, true)
 
   member _.RexNormal with get() = EncREXPrefix (false, false)
   member _.RexW with get() = EncREXPrefix (true, false)
@@ -107,22 +105,22 @@ type EncContext (wordSize: WordSize) =
   member _.RexWAndMR with get() = EncREXPrefix (true, true)
 
   member _.VEX128n0F with get() =
-    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 128<rt>, PrxNone)
+    EncVEXPrefix (VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.None)
   member _.VEX256n0F with get() =
-    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 256<rt>, PrxNone)
+    EncVEXPrefix (VEXType.TwoByteOp, REXPrefix.NOREX, 256<rt>, Prefix.None)
   member _.VEX128nF3n0F with get() =
-    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 128<rt>, PrxREPZ)
+    EncVEXPrefix (VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.REPZ)
   member _.VEX128nF2n0F with get() =
-    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 128<rt>, PrxREPNZ)
+    EncVEXPrefix (VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.REPNZ)
   member _.VEX128n66n0F with get() =
-    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 128<rt>, PrxOPSIZE)
+    EncVEXPrefix (VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.OPSIZE)
   member _.VEX256n66n0F with get() =
-    EncVEXPrefix (VEXTwoByteOp, REXPrefix.NOREX, 256<rt>, PrxOPSIZE)
+    EncVEXPrefix (VEXType.TwoByteOp, REXPrefix.NOREX, 256<rt>, Prefix.OPSIZE)
   member _.VEX128n66nWn0F with get() =
-    EncVEXPrefix (VEXTwoByteOp, REXPrefix.REXW, 128<rt>, PrxOPSIZE)
+    EncVEXPrefix (VEXType.TwoByteOp, REXPrefix.REXW, 128<rt>, Prefix.OPSIZE)
   member _.VEX128n66n0F3A with get() =
-    EncVEXPrefix (VEXThreeByteOpTwo, REXPrefix.NOREX, 128<rt>, PrxOPSIZE)
+    EncVEXPrefix (VEXType.ThreeByteOpTwo, REXPrefix.NOREX, 128<rt>,
+      Prefix.OPSIZE)
   member _.VEX256n66n0F3A with get() =
-    EncVEXPrefix (VEXThreeByteOpTwo, REXPrefix.NOREX, 256<rt>, PrxOPSIZE)
-
-// vim: set tw=80 sts=2 sw=2:
+    EncVEXPrefix (VEXType.ThreeByteOpTwo, REXPrefix.NOREX, 256<rt>,
+      Prefix.OPSIZE)

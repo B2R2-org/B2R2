@@ -1984,5 +1984,3 @@ let parse lifter (span: ByteSpan) reader (inParallel: byref<bool>) addr =
   let struct (opcode, unit, operands) = parseInstruction bin
   inParallel <- pBit bin <> 0u
   Instruction (addr, 4u, opcode, operands, unit, 32<rt>, inParallel, lifter)
-
-// vim: set tw=80 sts=2 sw=2:

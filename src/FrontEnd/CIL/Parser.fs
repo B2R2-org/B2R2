@@ -27,8 +27,8 @@ namespace B2R2.FrontEnd.CIL
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Parser for CIL instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
+/// Represents a parser for CIL instructions. Parser will return a
+/// platform-agnostic instruction type (Instruction).
 type CILParser () =
   interface IInstructionParsable with
     member _.Parse (_: byte[], _: Addr): IInstruction =

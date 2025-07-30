@@ -7245,5 +7245,3 @@ let parse (phlp: ParsingHelper) bin =
   | 0b10u -> parseCase10 phlp bin
   | 0b11u -> parseCase11 phlp bin
   | _ (* 0b0xu *) -> parseUncondInstr phlp bin
-
-// vim: set tw=80 sts=2 sw=2:

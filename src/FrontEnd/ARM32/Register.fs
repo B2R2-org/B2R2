@@ -24,12 +24,16 @@
 
 namespace B2R2.FrontEnd.ARM32
 
+open System.Runtime.CompilerServices
 open B2R2
+
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.ARM32.Tests")>]
+do ()
 
 /// Shortcut for Register type.
 type internal R = Register
 
-/// Exposes several useful functions to handle ARMv7 registers.
+/// Provides several useful functions for handling ARMv7 registers.
 [<RequireQualifiedAccess>]
 module internal Register =
   let toRegType = function

@@ -38,10 +38,9 @@ module private Parser =
   let parseThumb span phlp (itstate: byref<byte list>) =
     ThumbParser.parse span phlp &itstate
 
-/// Parser for 32-bit ARM instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
+/// Represents a parser for 32-bit ARM instructions. Parser will return a
+/// platform-agnostic instruction type (Instruction).
 type ARM32Parser (isa: ISA, isThumb, reader) =
-
   let oparsers =
     [| OprNo () :> OperandParser
        OprBankregRnA () :> OperandParser

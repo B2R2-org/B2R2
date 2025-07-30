@@ -1450,5 +1450,3 @@ let getOprSzByImmh bin =
   | 0b11u | 0b10u -> 64<rt>
   | 0b01u -> 32<rt>
   | _ -> 16<rt>
-
-// vim: set tw=80 sts=2 sw=2:

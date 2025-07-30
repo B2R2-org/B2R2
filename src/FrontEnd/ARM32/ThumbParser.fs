@@ -9235,5 +9235,3 @@ let parse (span: ByteSpan) (phlp: ParsingHelper) (itstate: byref<BL>) =
   | _ (* != 111 xx *) ->
     phlp.Len <- 2u
     parse16Bit phlp &itstate isInIT bin
-
-// vim: set tw=80 sts=2 sw=2:

@@ -1377,5 +1377,3 @@ let exclusiveMonitorsPassPair bld address size data1 data2 =
   bld <+ (status := AST.num0 32<rt>)
   bld <+ (AST.lmark lblEnd)
   status
-
-// vim: set tw=80 sts=2 sw=2:

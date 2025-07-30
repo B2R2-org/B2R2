@@ -24,11 +24,6 @@
 
 namespace B2R2.FrontEnd.ARM64
 
-open System.Runtime.CompilerServices
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.ARM64.Tests")>]
-do ()
-
 /// Represents a set of operands in an ARM64 instruction.
 type Operands =
   | NoOperand
@@ -195,8 +190,8 @@ and PrefetchOperation =
   | PLIL3STRM
 
 /// <summary>
-/// Condition Code. The A64 ISA has some instructions that set condition flags
-/// or test condition codes or both.
+/// Represents a condition code used in the A64 ISA, which includes instructions
+/// that either set condition flags, test condition codes, or both.
 /// </summary>
 and Condition =
   /// Equal/Equal (Z == 1).

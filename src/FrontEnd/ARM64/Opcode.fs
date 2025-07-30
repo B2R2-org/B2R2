@@ -24,13 +24,8 @@
 
 namespace B2R2.FrontEnd.ARM64
 
-open System.Runtime.CompilerServices
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.ARM64.Tests")>]
-do ()
-
 /// <summary>
-/// Represents an ARMv8 (AArch64) opcode.
+/// Represents an ARM64 (AArch64) opcode.
 /// </summary>
 type Opcode =
   /// Absolute value.
@@ -3029,3 +3024,5 @@ type Opcode =
   | ZIPQ1 = 1496
   /// Interleave elems from high halves of each pair of qword vector segments.
   | ZIPQ2 = 1497
+
+type internal Op = Opcode

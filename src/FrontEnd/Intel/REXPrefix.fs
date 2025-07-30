@@ -64,6 +64,7 @@ type REXPrefix =
   | REXWRXB = 0b1001111
 
 /// Provides a set of functions to manipulate REX prefixes.
+[<RequireQualifiedAccess>]
 module internal REXPrefix =
   let inline hasW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW
 

@@ -177,7 +177,7 @@ type PZ () =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
     let effOprSz = ParsingHelper.GetEffOprSize phlp szCond
     let oprSize =
-      if phlp.Prefixes &&& Prefix.PrxOPSIZE = Prefix.PrxOPSIZE then 32<rt>
+      if phlp.Prefixes &&& Prefix.OPSIZE = Prefix.OPSIZE then 32<rt>
       else 48<rt>
     phlp.MemEffOprSize <- oprSize
     phlp.MemEffAddrSize <- effAddrSz

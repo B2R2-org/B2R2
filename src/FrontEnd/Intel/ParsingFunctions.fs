@@ -92,10 +92,10 @@ let inline getVVVV b = ~~~ (b >>> 3) &&& 0b01111uy
 
 let getVPrefs b =
   match b &&& 0b00000011uy with
-  | 0b01uy -> Prefix.PrxOPSIZE
-  | 0b10uy -> Prefix.PrxREPZ
-  | 0b11uy -> Prefix.PrxREPNZ
-  | _ -> Prefix.PrxNone
+  | 0b01uy -> Prefix.OPSIZE
+  | 0b10uy -> Prefix.REPZ
+  | 0b11uy -> Prefix.REPNZ
+  | _ -> Prefix.None
 
 let getTwoVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
   let b = span[pos]
@@ -103,15 +103,15 @@ let getTwoVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
   let vLen = if ((b >>> 2) &&& 0b000001uy) = 0uy then 128<rt> else 256<rt>
   { VVVV = getVVVV b
     VectorLength = vLen
-    VEXType = VEXType.VEXTwoByteOp
+    VEXType = VEXType.TwoByteOp
     VPrefixes = getVPrefs b
     EVEXPrx = None }
 
 let pickVEXType b1 =
   match b1 &&& 0b00011uy with
-  | 0b01uy -> VEXType.VEXTwoByteOp
-  | 0b10uy -> VEXType.VEXThreeByteOpOne
-  | 0b11uy -> VEXType.VEXThreeByteOpTwo
+  | 0b01uy -> VEXType.TwoByteOp
+  | 0b10uy -> VEXType.ThreeByteOpOne
+  | 0b11uy -> VEXType.ThreeByteOpTwo
   | _ -> raise ParsingFailureException
 
 let getVREXPref (b1: byte) b2 =
@@ -6295,49 +6295,49 @@ let getGrp14OpKind phlp b regBits =
 
 let parseGrp15OpKind (phlp: ParsingHelper) b regBits =
   match Operands.modIsMemory b, regBits, phlp.Prefixes with
-  | true, 0b000, Prefix.PrxNone ->
+  | true, 0b000, Prefix.None ->
     if phlp.VEXInfo = None then
       let op = if REXPrefix.hasW phlp.REXPrefix then FXSAVE64 else FXSAVE
       struct (op, OD.Mem, SZ.Def, SzCond.Normal)
     else raise ParsingFailureException
-  | true, 0b001, Prefix.PrxNone ->
+  | true, 0b001, Prefix.None ->
     if phlp.VEXInfo = None then
       let op = if REXPrefix.hasW phlp.REXPrefix then FXRSTOR64 else FXRSTOR
       struct (op, OD.Mem, SZ.Def, SzCond.Normal)
     else raise ParsingFailureException
-  | true, 0b010, Prefix.PrxNone ->
+  | true, 0b010, Prefix.None ->
     struct (LDMXCSR, OD.Mem, SZ.D, SzCond.Normal)
-  | true, 0b011, Prefix.PrxNone ->
+  | true, 0b011, Prefix.None ->
     struct (STMXCSR, OD.Mem, SZ.D, SzCond.Normal)
-  | true, 0b100, Prefix.PrxNone ->
+  | true, 0b100, Prefix.None ->
     struct (XSAVE, OD.Mem, SZ.Def, SzCond.Normal)
-  | true, 0b101, Prefix.PrxNone ->
+  | true, 0b101, Prefix.None ->
     struct (XRSTOR, OD.Mem, SZ.Def, SzCond.Normal)
-  | true, 0b110, Prefix.PrxNone ->
+  | true, 0b110, Prefix.None ->
     struct (XSAVEOPT, OD.Mem, SZ.Def, SzCond.Normal)
-  | true, 0b110, Prefix.PrxOPSIZE ->
+  | true, 0b110, Prefix.OPSIZE ->
     struct (CLWB, OD.Mem, SZ.Byte, SzCond.Normal)
-  | true, 0b110, Prefix.PrxREPZ ->
+  | true, 0b110, Prefix.REPZ ->
     struct (CLRSSBSY, OD.Mem, SZ.Q, SzCond.Normal)
-  | true, 0b111, Prefix.PrxNone ->
+  | true, 0b111, Prefix.None ->
     struct (CLFLUSH, OD.Mem, SZ.BV, SzCond.Normal)
-  | true, 0b111, Prefix.PrxOPSIZE ->
+  | true, 0b111, Prefix.OPSIZE ->
     struct (CLFLUSHOPT, OD.Mem, SZ.BV, SzCond.Normal)
-  | false, 0b101, Prefix.PrxNone ->
+  | false, 0b101, Prefix.None ->
     phlp.IncPos (); struct (LFENCE, OD.No, SZ.Def, SzCond.Normal)
-  | false, 0b110, Prefix.PrxNone ->
+  | false, 0b110, Prefix.None ->
     phlp.IncPos (); struct (MFENCE, OD.No, SZ.Def, SzCond.Normal)
-  | false, 0b111, Prefix.PrxNone ->
+  | false, 0b111, Prefix.None ->
     phlp.IncPos (); struct (SFENCE, OD.No, SZ.Def, SzCond.Normal)
-  | false, 0b000, Prefix.PrxREPZ ->
+  | false, 0b000, Prefix.REPZ ->
     struct (RDFSBASE, OD.Gpr, SZ.Def, SzCond.Normal)
-  | false, 0b001, Prefix.PrxREPZ ->
+  | false, 0b001, Prefix.REPZ ->
     struct (RDGSBASE, OD.Gpr, SZ.Def, SzCond.Normal)
-  | false, 0b010, Prefix.PrxREPZ ->
+  | false, 0b010, Prefix.REPZ ->
     struct (WRFSBASE, OD.Gpr, SZ.Def, SzCond.Normal)
-  | false, 0b011, Prefix.PrxREPZ ->
+  | false, 0b011, Prefix.REPZ ->
     struct (WRGSBASE, OD.Gpr, SZ.Def, SzCond.Normal)
-  | false, 0b101, Prefix.PrxREPZ ->
+  | false, 0b101, Prefix.REPZ ->
     let op = if REXPrefix.hasW phlp.REXPrefix then INCSSPQ else INCSSPD
     struct (op, OD.Gpr, SZ.Def, SzCond.Normal)
   | _ -> raise ParsingFailureException
@@ -6380,7 +6380,7 @@ let parseGrpOpKind span (phlp: ParsingHelper) oidx sidx oprGrp =
 let addBND (phlp: ParsingHelper) =
   if Prefix.hasREPNZ phlp.Prefixes then
     phlp.Prefixes <-
-      Prefix.PrxBND ||| (Prefix.ClearGrp1PrefMask &&& phlp.Prefixes)
+      Prefix.BND ||| (Prefix.ClearGrp1PrefMask &&& phlp.Prefixes)
   else ()
 
 let inline getMandPrx (prefix: Prefix) =

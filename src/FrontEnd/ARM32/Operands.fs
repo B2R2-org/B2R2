@@ -25,10 +25,6 @@
 namespace B2R2.FrontEnd.ARM32
 
 open B2R2
-open System.Runtime.CompilerServices
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.ARM32.Tests")>]
-do ()
 
 /// Represents a set of operands in an ARM32 instruction.
 type Operands =
@@ -165,6 +161,7 @@ and Iflag =
   | AIF
 
 /// <summary>
+/// Represents the conditional execution behavior of ARM instructions.
 /// Most ARM instructions, and most Thumb instructions from ARMv6T2 onwards,
 /// can be executed conditionally, based on the values of the APSR condition
 /// flags. Before ARMv6T2, the only conditional Thumb instruction was

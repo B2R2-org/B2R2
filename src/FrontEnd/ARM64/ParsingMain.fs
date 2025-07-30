@@ -29,8 +29,6 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.ARM64.Utils
 open B2R2.FrontEnd.ARM64.OperandHelper
 
-type internal Op = Opcode
-
 /// Opcode functions
 let getOpcodeByQ bin op1 op2 = if valQ bin = 0u then op1 else op2
 
@@ -3374,5 +3372,3 @@ let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt32 (span, 0)
   let opcode, operands, oprSize = parseByGroupOfB64 bin
   Instruction (addr, 4u, None, opcode, operands, oprSize, lifter)
-
-// vim: set tw=80 sts=2 sw=2:

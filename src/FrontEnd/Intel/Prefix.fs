@@ -26,49 +26,48 @@ namespace B2R2.FrontEnd.Intel
 
 open LanguagePrimitives
 
-/// remove Prx
-/// Represents an Instruction prefixes.
+/// Represents an instruction prefixes.
 [<System.FlagsAttribute>]
 type Prefix =
   /// No prefix.
-  | PrxNone = 0x0
+  | None = 0x0
   /// Lock prefix.
-  | PrxLOCK = 0x1
+  | LOCK = 0x1
   /// REPNE/REPNZ prefix is encoded using F2H.
-  | PrxREPNZ = 0x2
+  | REPNZ = 0x2
   /// Bound prefix is encoded using F2H.
-  | PrxBND = 0x4
+  | BND = 0x4
   /// REP or REPE/REPZ is encoded using F3H.
-  | PrxREPZ = 0x8
+  | REPZ = 0x8
   /// CS segment prefix.
-  | PrxCS = 0x10
+  | CS = 0x10
   /// SS segment prefix.
-  | PrxSS = 0x20
+  | SS = 0x20
   /// DS segment prefix.
-  | PrxDS = 0x40
+  | DS = 0x40
   /// ES segment prefix.
-  | PrxES = 0x80
+  | ES = 0x80
   /// FS segment prefix.
-  | PrxFS = 0x100
+  | FS = 0x100
   /// GS segment prefix.
-  | PrxGS = 0x200
+  | GS = 0x200
   /// Operand-size override prefix is encoded using 66H.
-  | PrxOPSIZE = 0x400
+  | OPSIZE = 0x400
   /// 67H - Address-size override prefix.
-  | PrxADDRSIZE = 0x800
+  | ADDRSIZE = 0x800
 
 /// Provides functions to access and manipulate instruction prefixes.
 [<RequireQualifiedAccess>]
 module internal Prefix =
-  let inline hasAddrSz p = p &&& Prefix.PrxADDRSIZE = Prefix.PrxADDRSIZE
+  let inline hasAddrSz p = p &&& Prefix.ADDRSIZE = Prefix.ADDRSIZE
 
-  let inline hasOprSz p = p &&& Prefix.PrxOPSIZE = Prefix.PrxOPSIZE
+  let inline hasOprSz p = p &&& Prefix.OPSIZE = Prefix.OPSIZE
 
-  let inline hasREPZ p = p &&& Prefix.PrxREPZ = Prefix.PrxREPZ
+  let inline hasREPZ p = p &&& Prefix.REPZ = Prefix.REPZ
 
-  let inline hasREPNZ p = p &&& Prefix.PrxREPNZ = Prefix.PrxREPNZ
+  let inline hasREPNZ p = p &&& Prefix.REPNZ = Prefix.REPNZ
 
-  let inline hasLock p = p &&& Prefix.PrxLOCK = Prefix.PrxLOCK
+  let inline hasLock p = p &&& Prefix.LOCK = Prefix.LOCK
 
   /// Filter out segment-related prefixes.
   let [<Literal>] ClearSegMask: Prefix = EnumOfValue 0xFC0F
@@ -83,10 +82,10 @@ module internal Prefix =
   let [<Literal>] ClearGrp1PrefMask: Prefix = EnumOfValue 0xFFF0
 
   let getSegment pref =
-    if (pref &&& Prefix.PrxCS) <> Prefix.PrxNone then Some R.CS
-    elif (pref &&& Prefix.PrxDS) <> Prefix.PrxNone then Some R.DS
-    elif (pref &&& Prefix.PrxES) <> Prefix.PrxNone then Some R.ES
-    elif (pref &&& Prefix.PrxFS) <> Prefix.PrxNone then Some R.FS
-    elif (pref &&& Prefix.PrxGS) <> Prefix.PrxNone then Some R.GS
-    elif (pref &&& Prefix.PrxSS) <> Prefix.PrxNone then Some R.SS
+    if (pref &&& Prefix.CS) <> Prefix.None then Some R.CS
+    elif (pref &&& Prefix.DS) <> Prefix.None then Some R.DS
+    elif (pref &&& Prefix.ES) <> Prefix.None then Some R.ES
+    elif (pref &&& Prefix.FS) <> Prefix.None then Some R.FS
+    elif (pref &&& Prefix.GS) <> Prefix.None then Some R.GS
+    elif (pref &&& Prefix.SS) <> Prefix.None then Some R.SS
     else None

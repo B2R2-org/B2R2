@@ -59,15 +59,15 @@ let private isAddrSize ctx = function
   | _ -> false
 
 let getPrefByte = function
-  | 0x1 -> 0xF0uy (* Prefix.PrxLOCK *)
-  | 0x2 -> 0xF2uy (* Prefix.PrxREPNZ *)
-  | 0x4 -> 0xF3uy (* Prefix.PrxREPZ *)
-  | 0x8 -> 0x2Euy (* Prefix.PrxCS *)
-  | 0x10 -> 0x36uy (* Prefix.PrxSS *)
-  | 0x20 -> 0x3Euy (* Prefix.PrxDS *)
-  | 0x40 -> 0x26uy (* Prefix.PrxES *)
-  | 0x80 -> 0x64uy (* Prefix.PrxFS *)
-  | 0x100 -> 0x65uy (* Prefix.PrxGS *)
+  | 0x1 -> 0xF0uy (* Prefix.LOCK *)
+  | 0x2 -> 0xF2uy (* Prefix.REPNZ *)
+  | 0x4 -> 0xF3uy (* Prefix.REPZ *)
+  | 0x8 -> 0x2Euy (* Prefix.CS *)
+  | 0x10 -> 0x36uy (* Prefix.SS *)
+  | 0x20 -> 0x3Euy (* Prefix.DS *)
+  | 0x40 -> 0x26uy (* Prefix.ES *)
+  | 0x80 -> 0x64uy (* Prefix.FS *)
+  | 0x100 -> 0x65uy (* Prefix.GS *)
   | 0x0 -> 0x0uy
   | _ -> failwith "Invalid prefix"
 
@@ -92,9 +92,9 @@ let encodePrefix ins ctx (pref: EncPrefix) =
   (* Prefix group3: Operand-size override control with mandatory prefix *)
   let mandPrx =
     match pref.MandPrefix with
-    | Prefix.PrxREPZ -> [| Normal 0xF3uy |]
-    | Prefix.PrxREPNZ -> [| Normal 0xF2uy |]
-    | Prefix.PrxOPSIZE -> [| Normal 0x66uy |]
+    | Prefix.REPZ -> [| Normal 0xF3uy |]
+    | Prefix.REPNZ -> [| Normal 0xF2uy |]
+    | Prefix.OPSIZE -> [| Normal 0x66uy |]
     | _ -> [||]
   (* Prefix group4: Address-size override *)
   let prxGrp4 =
@@ -198,9 +198,9 @@ let encodeREXPref ins (ctx: EncContext) (rexPrx: EncREXPrefix) =
     if rxb = 0uy && rexW = 0uy then [||] else [| Normal (rexW ||| rxb) |]
 
 let private getLeadingOpcodeByte = function (* m-mmmm *)
-  | VEXType.VEXTwoByteOp -> 0b00001uy
-  | VEXType.VEXThreeByteOpOne -> 0b00010uy
-  | VEXType.VEXThreeByteOpTwo -> 0b00011uy
+  | VEXType.TwoByteOp -> 0b00001uy
+  | VEXType.ThreeByteOpOne -> 0b00010uy
+  | VEXType.ThreeByteOpTwo -> 0b00011uy
   | _ -> Terminator.impossible ()
 
 let private getVVVVByte = function
@@ -238,10 +238,10 @@ let private getVLen = function
   | _ -> Terminator.impossible ()
 
 let private getSIMDPref = function
-  | Prefix.PrxNone -> 0b00uy
-  | Prefix.PrxOPSIZE (* 0x66 *) -> 0b01uy
-  | Prefix.PrxREPZ   (* 0xF3 *) -> 0b10uy
-  | Prefix.PrxREPNZ  (* 0xF2 *) -> 0b11uy
+  | Prefix.None -> 0b00uy
+  | Prefix.OPSIZE (* 0x66 *) -> 0b01uy
+  | Prefix.REPZ   (* 0xF3 *) -> 0b10uy
+  | Prefix.REPNZ  (* 0xF2 *) -> 0b11uy
   | _ -> Terminator.impossible ()
 
 let encodeTwoVEXPref rexR vvvv (vex: EncVEXPrefix) =
@@ -263,8 +263,8 @@ let encodeThreeVEXPref rexRXB vvvv (vex: EncVEXPrefix) =
 
 let isTwoByteVEX rexRXB (vex: EncVEXPrefix) =
   (rexRXB = 0b111uy || rexRXB = 0b011uy) &&
-  vex.LeadingOpcode = VEXType.VEXTwoByteOp &&
-  vex.RexW = REXPrefix.NOREX && vex.PP = Prefix.PrxOPSIZE
+  vex.LeadingOpcode = VEXType.TwoByteOp &&
+  vex.RexW = REXPrefix.NOREX && vex.PP = Prefix.OPSIZE
 
 let encodeVEXPref rexRXB vvvv (vex: EncVEXPrefix) =
   if isTwoByteVEX rexRXB vex

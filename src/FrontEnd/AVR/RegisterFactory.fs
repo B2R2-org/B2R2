@@ -24,10 +24,14 @@
 
 namespace B2R2.FrontEnd.AVR
 
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 open type Register
+
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.AVR.Tests")>]
+do ()
 
 /// Represents a factory for accessing various AVR register variables.
 type RegisterFactory (wordSize) =
