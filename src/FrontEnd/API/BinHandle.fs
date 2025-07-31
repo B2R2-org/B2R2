@@ -84,7 +84,7 @@ type BinHandle private (path, bytes, fmt, isa, baseAddrOpt) =
       if ptr.IsVirtual then Array.zeroCreate nBytes
       else
         let len = ptr.MaxOffset - ptr.Offset + 1
-        let span = ReadOnlySpan (binFile.RawBytes, ptr.Offset, len)
+        let span = ReadOnlySpan(binFile.RawBytes, ptr.Offset, len)
         span.Slice(0, nBytes).ToArray ()
     if ptr.CanRead nBytes then Ok arr (* full result *)
     else Error arr (* partial result *)

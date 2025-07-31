@@ -137,7 +137,7 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
             offset <- int seg.FileOff + int (addr - seg.VMAddr)
             maxAddr <- seg.VMAddr + seg.FileSize - 1UL
           else
-            offset <- maxOffset
+            offset <- maxOffset + 1
             maxAddr <- seg.VMAddr + seg.VMSize - 1UL
         else idx <- idx + 1
       BinFilePointer (addr, maxAddr, offset, maxOffset)

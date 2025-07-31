@@ -163,7 +163,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
             offset <- int ph.PHOffset + int (addr - ph.PHAddr)
             maxAddr <- ph.PHAddr + ph.PHFileSize - 1UL
           else
-            offset <- maxOffset
+            offset <- maxOffset + 1
             maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
         else idx <- idx + 1
       BinFilePointer (addr, maxAddr, offset, maxOffset)

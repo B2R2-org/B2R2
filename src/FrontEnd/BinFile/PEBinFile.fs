@@ -122,7 +122,7 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
             offset <- sec.PointerToRawData + int (addr - vma)
             maxAddr <- vma + uint64 sec.SizeOfRawData - 1UL
           else
-            offset <- maxOffset
+            offset <- maxOffset + 1
             maxAddr <- vma + uint64 vmaSize - 1UL
         else idx <- idx + 1
       BinFilePointer (addr, maxAddr, offset, maxOffset)
