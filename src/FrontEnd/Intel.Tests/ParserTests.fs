@@ -32,7 +32,7 @@ open type Opcode
 
 /// Shortcut for creating operands.
 [<AutoOpen>]
-module private IntelShortcut =
+module private Shortcut =
   type O =
     static member Reg (r) =
       OprReg r
@@ -70,7 +70,7 @@ module private IntelShortcut =
 /// - INTEL ADVANCED VECTOR EXTENSIONS (AVX)
 /// - Exception Test
 [<TestClass>]
-type IntelParserTests () =
+type ParserTests () =
   let test prefs segment wordSize opcode (oprs: Operands) bytes =
     let reader = BinReader.Init Endian.Little
     let parser = IntelParser (wordSize, reader) :> IInstructionParsable

@@ -33,7 +33,7 @@ open type Register
 
 /// Shortcut for creating operands.
 [<AutoOpen>]
-module private TMS320Shortcut =
+module private Shortcut =
   type O =
     static member Reg (r) =
       OpReg r
@@ -48,7 +48,7 @@ module private TMS320Shortcut =
       OprMem (r, modType, offset)
 
 [<TestClass>]
-type TMS320ParserTests () =
+type ParserTests () =
   let test (funit: FunctionalUnit) (bytes: byte[]) (opcode, oprs: Operands) =
     let reader = BinReader.Init Endian.Little
     let span = System.ReadOnlySpan bytes

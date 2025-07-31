@@ -31,7 +31,7 @@ open B2R2.FrontEnd.EVM
 open type BitVector
 
 [<TestClass>]
-type EVMParserTests () =
+type ParserTests () =
   let test (bytes: byte[]) (opcode: Opcode) =
     let isa = ISA Architecture.EVM
     let parser = EVMParser (isa) :> IInstructionParsable

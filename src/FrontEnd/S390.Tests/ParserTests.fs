@@ -48,7 +48,7 @@ type O =
     OpStoreLen v
 
 [<TestClass>]
-type S390ParserTests () =
+type ParserTests () =
   let test endian opcode (oprs: Operands) (bytes: byte[]) =
     let isa = ISA (Architecture.S390, endian = endian)
     let reader = BinReader.Init endian

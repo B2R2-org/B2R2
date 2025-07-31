@@ -33,7 +33,7 @@ open B2R2.FrontEnd.Intel
 #if !EMULATION
 #if !HASHCONS
 [<TestClass>]
-type IntelLifterTests () =
+type LifterTests () =
   let test builder wordSize (expectedStmts: string[]) (bytes: byte[]) =
     let reader = BinReader.Init Endian.Little
     let parser = IntelParser (wordSize, reader) :> IInstructionParsable

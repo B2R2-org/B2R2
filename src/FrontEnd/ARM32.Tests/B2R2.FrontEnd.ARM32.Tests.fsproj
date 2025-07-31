@@ -5,9 +5,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ARM32ParserTests.fs" />
-    <Compile Include="ARMThumbParserTests.fs" />
-    <Compile Include="ARM32LifterTests.fs" />
+    <Compile Include="ParserTests.fs" />
+    <Compile Include="ThumbParserTests.fs" />
+    <Compile Include="LifterTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -34,7 +34,7 @@ open type Register
 
 /// Shortcut for creating operands.
 [<AutoOpen>]
-module private ARM32Shortcut =
+module private Shortcut =
   type O =
     static member Reg (r) =
       OprReg r
@@ -133,7 +133,7 @@ module private ARM32Shortcut =
 /// - A4.13 Advanced SIMD data-processing instructions
 /// - A4.14 Floating-point data-processing instructions
 [<TestClass>]
-type ARM32ParserTests () =
+type ParserTests () =
   let test cond op (wback: bool) simd (oprs: Operands) (bytes: byte[]) =
     let isa = ISA (Architecture.ARMv7, Endian.Big)
     let reader = BinReader.Init Endian.Big

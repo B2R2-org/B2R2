@@ -7,7 +7,7 @@
   <ItemGroup>
     <Compile Include="MIPS64ParserTests.fs" />
     <Compile Include="MIPS32ParserTests.fs" />
-    <Compile Include="MIPSLifterTests.fs" />
+    <Compile Include="LifterTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

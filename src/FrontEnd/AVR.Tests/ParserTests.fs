@@ -33,7 +33,7 @@ open type Register
 
 /// Shortcut for creating operands.
 [<AutoOpen>]
-module private AVRShortcut =
+module private Shortcut =
   type O =
     static member Reg (r) =
       OprReg r
@@ -50,7 +50,7 @@ module private AVRShortcut =
     static member MemPostIdx (r) =
       OprMemory (PostIdxMode r)
 
-type AVRParserTests () =
+type ParserTests () =
   let test (bytes: byte[]) (opcode, oprs: Operands) =
     let reader = BinReader.Init Endian.Little
     let parser = AVRParser (reader) :> IInstructionParsable

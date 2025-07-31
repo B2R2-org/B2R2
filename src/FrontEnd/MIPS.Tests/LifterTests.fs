@@ -34,7 +34,7 @@ open B2R2.FrontEnd.MIPS
 open type Register
 
 [<TestClass>]
-type MIPSLifterTests () =
+type LifterTests () =
   let checkOverflowOnAdd e1 e2 r =
     let e1High = AST.extract e1 1<rt> 31
     let e2High = AST.extract e2 1<rt> 31

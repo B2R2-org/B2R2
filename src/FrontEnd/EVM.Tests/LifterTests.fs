@@ -10,69 +10,71 @@
   copies of the Software, and to permit persons to whom the Software is
   furnished to do so, subject to the following conditions:
 
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
 
   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  SOFTWARE.
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.ARM64.Tests
+namespace B2R2.FrontEnd.EVM.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.ARM64
 open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.EVM
 open type Register
 
 [<TestClass>]
-type ARM64LifterTests () =
-  let num v = BitVector.OfUInt32 v 32<rt> |> AST.num
+type LifterTests () =
+  let num v rt = BitVector.OfInt32 v rt |> AST.num
 
-  let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
+  let bigint v = BitVector.OfBInt v 256<rt> |> AST.num
 
-  let isa = ISA (Architecture.ARMv8, Endian.Big)
-
-  let reader = BinReader.Init Endian.Big
+  let isa = ISA Architecture.EVM
 
   let regFactory = RegisterFactory () :> IRegisterFactory
 
   let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
 
-  let ( ++ ) (byteStr: string) (givenStmts: Stmt[]) =
-    ByteArray.ofHexString byteStr, givenStmts
+  let ( ++ ) byteString givenStmts =
+    ByteArray.ofHexString byteString, givenStmts
+
+  let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
   let test (bytes: byte[], givenStmts) =
-    let parser = ARM64Parser reader :> IInstructionParsable
+    let parser = EVMParser isa :> IInstructionParsable
     let builder = ILowUIRBuilder.Default (isa, regFactory, LowUIRStream ())
     let ins = parser.Parse (bytes, 0UL)
     CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate builder)
 
   [<TestMethod>]
-  member _.``[AArch64] ADD (immedate) lift test`` () =
-    "114dc4ba"
-    ++ [| !.X26 := AST.zext 64<rt>
-           ((AST.xtlo 32<rt> !.X5 .+ num 0x371000u .+ num 0x0u)) |]
+  member _.``[EVM] PUSH8 lift test`` () =
+    "670011223344556677"
+    ++ [| !.SP := !.SP .- num 32 256<rt>
+          AST.store Endian.Big !.SP (bigint 4822678189205111I)
+          !.GAS := !.GAS .+ num 3 64<rt> |]
     |> test
 
   [<TestMethod>]
-  member _.``[AArch64] ADD (extended register) lift test`` () =
-    "0b3f43ff"
-    ++ [| !.SP := AST.zext 64<rt>
-           (AST.xtlo 32<rt> !.SP .+ AST.xtlo 32<rt> !.XZR .+ num 0x0u) |]
+  member _.``[EVM] PUSH9 lift test`` () =
+    "68001122334455667788"
+    ++ [| !.SP := !.SP .- num 32 256<rt>
+          AST.store Endian.Big !.SP (bigint 1234605616436508552I)
+          !.GAS := !.GAS .+ num 3 64<rt> |]
     |> test
 
   [<TestMethod>]
-  member _.``[AArch64] ADD (shifted register) lift test`` () =
-    "0b8e5f9b"
-    ++ [| !.X27 := AST.zext 64<rt>
-           (AST.xtlo 32<rt> !.X28 .+ (AST.xtlo 32<rt> !.X14 ?>> num 0x17u)
-             .+ num 0x0u) |]
+  member _.``[EVM] PUSH10 lift test`` () =
+    "6900112233445566778899"
+    ++ [| !.SP := !.SP .- num 32 256<rt>
+          AST.store Endian.Big !.SP (bigint 316059037807746189465I)
+          !.GAS := !.GAS .+ num 3 64<rt> |]
     |> test

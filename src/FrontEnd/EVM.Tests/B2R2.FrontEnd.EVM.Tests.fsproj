@@ -5,8 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="EVMParserTests.fs" />
-    <Compile Include="EVMLifterTests.fs" />
+    <Compile Include="ParserTests.fs" />
+    <Compile Include="LifterTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

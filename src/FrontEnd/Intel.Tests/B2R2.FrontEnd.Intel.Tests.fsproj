@@ -5,9 +5,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="IntelParserTests.fs" />
-    <Compile Include="IntelLifterTests.fs" />
-    <Compile Include="IntelDisassemblerTests.fs" />
+    <Compile Include="ParserTests.fs" />
+    <Compile Include="LifterTests.fs" />
+    <Compile Include="DisassemblerTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

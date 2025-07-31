@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="S390ParserTests.fs" />
+    <Compile Include="ParserTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
