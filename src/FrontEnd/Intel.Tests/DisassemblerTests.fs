@@ -31,7 +31,7 @@ open B2R2.FrontEnd.Intel
 open type Opcode
 
 [<TestClass>]
-type IntelDisassemblerTests () =
+type DisassemblerTests () =
   let test wordSize (bytes: byte[]) (instruction: string[]) =
     let reader = BinReader.Init Endian.Little
     let parser = IntelParser (wordSize, reader) :> IInstructionParsable

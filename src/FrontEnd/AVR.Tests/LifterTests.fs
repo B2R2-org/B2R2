@@ -33,7 +33,7 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open type Register
 
 [<TestClass>]
-type AVRLifterTests () =
+type LifterTests () =
   let isa = ISA Architecture.AVR
 
   let reader = BinReader.Init Endian.Little

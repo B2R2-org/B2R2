@@ -41,7 +41,7 @@ open type Register
 /// - A5.4 Media instructions
 /// - A6.3.4 Branches and miscellaneous control
 [<TestClass>]
-type ARMThumbParserTests () =
+type ThumbParserTests () =
   let test c op (wback: bool) q (s: SIMDDataTypes option) (oprs: Operands) bs =
     let isa = ISA (Architecture.ARMv7, Endian.Big)
     let reader = BinReader.Init Endian.Big

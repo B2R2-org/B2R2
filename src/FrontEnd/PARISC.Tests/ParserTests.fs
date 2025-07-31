@@ -34,7 +34,7 @@ open type Completer
 
 /// Shortcut for creating operands.
 [<AutoOpen>]
-module private PARISCShortcut =
+module private Shortcut =
   type O =
     static member Reg (r) =
       OpReg r

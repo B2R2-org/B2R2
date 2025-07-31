@@ -5,8 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="AVRParserTests.fs" />
-    <Compile Include="AVRLifterTests.fs" />
+    <Compile Include="ParserTests.fs" />
+    <Compile Include="LifterTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

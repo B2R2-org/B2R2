@@ -34,7 +34,7 @@ open type Register
 
 /// Shortcut for creating operands.
 [<AutoOpen>]
-module private ARM64Shortcut =
+module private Shortcut =
   type O =
     static member Reg (r) =
       OprRegister r
@@ -108,7 +108,7 @@ module private ARM64Shortcut =
 /// - C4.5 Data processing - register
 /// - C4.6 Data processing - SIMD and floating point
 [<TestClass>]
-type ARM64ParserTests () =
+type ParserTests () =
   let reader = BinReader.Init Endian.Big
   let parser = ARM64Parser (reader) :> IInstructionParsable
 

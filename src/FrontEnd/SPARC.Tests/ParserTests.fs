@@ -34,7 +34,7 @@ open type ConditionCode
 
 /// Shortcut for creating operands.
 [<AutoOpen>]
-module private SPARCShortcut =
+module private Shortcut =
   type O =
     static member Reg (r) =
       OprReg r
@@ -49,7 +49,7 @@ module private SPARCShortcut =
       OprCC cond
 
 [<TestClass>]
-type SPARCParserTests () =
+type ParserTests () =
   let reader = BinReader.Init Endian.Little
   let parser = SPARCParser (reader) :> IInstructionParsable
 

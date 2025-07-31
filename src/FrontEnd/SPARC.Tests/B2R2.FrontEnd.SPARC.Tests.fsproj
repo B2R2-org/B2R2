@@ -5,8 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="SPARCParserTests.fs" />
-    <Compile Include="SPARCLifterTests.fs" />
+    <Compile Include="ParserTests.fs" />
+    <Compile Include="LifterTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
