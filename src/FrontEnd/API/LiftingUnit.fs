@@ -66,7 +66,7 @@ type LiftingUnit (binFile: IBinFile,
       idx <- idx - 1
     arr
 
-  let rec parseBBLByPtr (ptr: BinFilePointer) cnt acc =
+  let rec parseBBLByPtr prevIns (ptr: BinFilePointer) cnt acc =
     let parsed =
       try
         let len = ptr.MaxOffset - ptr.Offset + 1
@@ -75,11 +75,11 @@ type LiftingUnit (binFile: IBinFile,
       with _ -> Error ErrorCase.ParsingFailure
     match parsed with
     | Ok ins ->
-      if ins.IsTerminator then
+      if ins.IsTerminator prevIns then
         Ok <| toReversedArray (cnt + 1) (ins :: acc)
       else
         let ptr = ptr.Advance(ins.Length)
-        if ptr.IsValid then parseBBLByPtr ptr (cnt + 1) (ins :: acc)
+        if ptr.IsValid then parseBBLByPtr ins ptr (cnt + 1) (ins :: acc)
         else Error <| toReversedArray (cnt + 1) (ins :: acc)
     | Error _ -> Error <| toReversedArray cnt acc
 
@@ -164,7 +164,7 @@ type LiftingUnit (binFile: IBinFile,
   /// </returns>
   member _.ParseBBlock (addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
-    parseBBLByPtr ptr 0 []
+    parseBBLByPtr null ptr 0 []
 
   /// <summary>
   /// Parses a basic block pointed to by the given binary file pointer (ptr),
@@ -176,7 +176,7 @@ type LiftingUnit (binFile: IBinFile,
   /// Parsed basic block (i.e., an array of instructions).
   /// </returns>
   member _.ParseBBlock (ptr: BinFilePointer) =
-    parseBBLByPtr ptr 0 []
+    parseBBLByPtr null ptr 0 []
 
   /// <summary>
   /// Lifts an instruction at the given address (addr) and return the lifted IR
@@ -283,7 +283,7 @@ type LiftingUnit (binFile: IBinFile,
   /// </returns>
   member _.LiftBBlock (addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
-    match parseBBLByPtr ptr 0 [] with
+    match parseBBLByPtr null ptr 0 [] with
     | Ok instrs ->
       instrs |> Array.map (fun i -> i.Translate irBuilder) |> Ok
     | Error instrs ->
@@ -299,7 +299,7 @@ type LiftingUnit (binFile: IBinFile,
   /// Array of lifted IR statements, grouped by instructions.
   /// </returns>
   member _.LiftBBlock (ptr: BinFilePointer) =
-    match parseBBLByPtr ptr 0 [] with
+    match parseBBLByPtr null ptr 0 [] with
     | Ok instrs ->
       instrs |> Array.map (fun i -> i.Translate irBuilder) |> Ok
     | Error instrs ->

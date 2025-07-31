@@ -41,20 +41,22 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// structure, each different function has its own BBLFactory.
 [<AllowNullLiteral>]
 type BBLFactory (hdl: BinHandle, instrs) =
-  let interProceduralLeaders = ConcurrentDictionary<Addr, unit> ()
+  /// Inter-instruction (i.e., disassembly level) leaders.
+  let interLeaders = ConcurrentDictionary<Addr, unit> ()
+
   let bbls = ConcurrentDictionary<ProgramPoint, LowUIRBasicBlock> ()
 
-  let rec parseBlock (channel: BufferBlock<_>) acc insCount addr leader =
+  let rec parseBlock (channel: BufferBlock<_>) acc insCount addr leader prev =
     match (instrs: InstructionCollection).TryFind addr with
     | Ok ins ->
       let nextAddr = addr + uint64 ins.Length
-      if ins.IsTerminator || interProceduralLeaders.ContainsKey nextAddr then
+      if ins.IsTerminator prev || interLeaders.ContainsKey nextAddr then
         channel.Post (leader, ins :: acc, insCount + 1) |> ignore
         if ins.IsCall then Ok [||]
         else
           ins.GetNextInstrAddrs () (* TODO: ARM mode switch *)
           |> Ok
-      else parseBlock channel (ins :: acc) (insCount + 1) nextAddr leader
+      else parseBlock channel (ins :: acc) (insCount + 1) nextAddr leader ins
     | Error e ->
 #if CFGDEBUG
       dbglog ManagerTid (nameof BBLFactory)
@@ -66,8 +68,8 @@ type BBLFactory (hdl: BinHandle, instrs) =
   /// exists a BBL at the given address, then simply return an empty array. When
   /// parsing fails, this function can return an error result.
   let tryParse channel addr =
-    if interProceduralLeaders.ContainsKey addr then Ok [||]
-    else parseBlock channel [] 0 addr addr
+    if interLeaders.ContainsKey addr then Ok [||]
+    else parseBlock channel [] 0 addr addr null
 
   let visited = ConcurrentDictionary<Addr, unit> ()
 
@@ -192,8 +194,8 @@ type BBLFactory (hdl: BinHandle, instrs) =
     extractLabelInfo lblMap liftedIns insAddr (liftedIns.Stmts.Length - 1)
     |> ImmutableDictionary.CreateRange
 
-  let addInterProceduralLeader addr =
-    interProceduralLeaders.TryAdd (addr, ()) |> ignore
+  let addInterInstructionLeader addr =
+    interLeaders.TryAdd (addr, ()) |> ignore
 
   let addIRBBL liftedInss lblMap prevInsNdx prevStmtNdx endNdx =
     let instrs = extractInstrs liftedInss (prevInsNdx, prevStmtNdx) endNdx
@@ -201,7 +203,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
     let lastIns = instrs[instrs.Length - 1]
     let lblMap = buildLabelMap lblMap lastIns
     let bbl = LowUIRBasicBlock.CreateRegular (instrs, ppoint, lblMap)
-    if prevStmtNdx = 0 then addInterProceduralLeader ppoint.Address else ()
+    if prevStmtNdx = 0 then addInterInstructionLeader ppoint.Address else ()
     bbls.TryAdd (ppoint, bbl) |> ignore
 
   let rec gatherIntraBBLs liftedInss lblMap prevInsNdx prevStmtNdx idxs =
@@ -214,7 +216,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
 
   let liftBlock liftingUnit leaderAddr instrs insCount =
     assert (insCount <> 0)
-    addInterProceduralLeader leaderAddr
+    addInterInstructionLeader leaderAddr
     let arr = Array.zeroCreate insCount
     let arr = liftAndFill liftingUnit leaderAddr arr instrs (insCount - 1)
     let struct (lblMap, intraLeaders) = scanIntraLeaders arr
@@ -250,7 +252,7 @@ type BBLFactory (hdl: BinHandle, instrs) =
     }
 
   let getSortedLeaders () =
-    interProceduralLeaders.Keys
+    interLeaders.Keys
     |> Seq.toArray
     |> Array.sort
 
@@ -320,8 +322,8 @@ type BBLFactory (hdl: BinHandle, instrs) =
   /// When the `allowOverlap` argument is true, however, we do not split BBLs
   /// and allow overlapping BBLs. This is useful when we analyze EVM binaries,
   /// for instance.
-  member _.ScanBBLs (addrs,
-                     [<Optional; DefaultParameterValue(false)>] allowOverlap) =
+  member _.ScanBBLs(addrs,
+                    [<Optional; DefaultParameterValue(false)>] allowOverlap) =
     task {
       let channel = BufferBlock<Addr * IInstruction list * int> ()
       instrProducer channel addrs |> ignore
@@ -334,20 +336,20 @@ type BBLFactory (hdl: BinHandle, instrs) =
   /// Peek the BBL at the given address without caching it. This function is
   /// useful when we want to check if an arbitrary address contains a meaningful
   /// BBL without affecting the BBLFactory state.
-  member _.PeekBBL (addr) =
-    let rec parse acc addr =
+  member _.PeekBBL(addr) =
+    let rec parse acc addr prevIns =
       match instrs.TryFind addr with
       | Ok ins ->
         let nextAddr = addr + uint64 ins.Length
-        if ins.IsTerminator then Ok (List.rev (ins :: acc))
-        else parse (ins :: acc) nextAddr
+        if ins.IsTerminator prevIns then Ok (List.rev (ins :: acc))
+        else parse (ins :: acc) nextAddr ins
       | Error _ ->
 #if CFGDEBUG
         dbglog ManagerTid (nameof BBLFactory)
         <| $"Failed to parse instruction at {addr:x}"
 #endif
         Error (List.rev acc)
-    parse [] addr
+    parse [] addr null
 
   /// Check if there is a BBL at the given program point.
   member _.Contains (ppoint: ProgramPoint) = bbls.ContainsKey ppoint

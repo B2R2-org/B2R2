@@ -152,10 +152,6 @@ type Instruction
       | Opcode.IRET | Opcode.IRETW | Opcode.IRETD | Opcode.IRETQ -> true
       | _ -> false
 
-    member this.IsTerminator =
-      let ins = this :> IInstruction
-      ins.IsBranch || ins.IsInterrupt || ins.IsExit
-
     member _.IsNop =
       match opcode with
       | Opcode.NOP -> true
@@ -171,6 +167,10 @@ type Instruction
       | _ -> false
 
     member _.IsInlinedAssembly = false
+
+    member this.IsTerminator _ =
+      let ins = this :> IInstruction
+      ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
     member this.DirectBranchTarget (addr: byref<Addr>) =
       if (this :> IInstruction).IsBranch then

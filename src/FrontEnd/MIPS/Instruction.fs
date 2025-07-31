@@ -126,14 +126,14 @@ type Instruction
       | Opcode.DERET | Opcode.ERET | Opcode.ERETNC -> true
       | _ -> false
 
-    member this.IsTerminator =
-      let ins = this :> IInstruction
-      ins.IsBranch || ins.IsInterrupt || ins.IsExit
-
     member _.IsNop =
       op = Opcode.NOP
 
     member _.IsInlinedAssembly = false
+
+    member _.IsTerminator prevIns =
+      if isNull prevIns then false (* considering delay slots *)
+      else prevIns.IsBranch || prevIns.IsInterrupt || prevIns.IsExit
 
     member this.DirectBranchTarget (addr: byref<Addr>) =
       if (this :> IInstruction).IsBranch then

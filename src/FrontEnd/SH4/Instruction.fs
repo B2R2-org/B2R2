@@ -58,9 +58,9 @@ type Instruction
     member _.IsPop = Terminator.futureFeature ()
     member _.IsInterrupt = Terminator.futureFeature ()
     member _.IsExit = Terminator.futureFeature ()
-    member _.IsTerminator = Terminator.futureFeature ()
     member _.IsNop = Terminator.futureFeature ()
     member _.IsInlinedAssembly = false
+    member _.IsTerminator _ = Terminator.futureFeature ()
     member _.DirectBranchTarget _ = Terminator.futureFeature ()
     member _.IndirectTrampolineAddr _ = Terminator.futureFeature ()
     member _.MemoryDereferences _ = Terminator.futureFeature ()

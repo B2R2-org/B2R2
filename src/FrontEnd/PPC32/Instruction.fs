@@ -81,11 +81,11 @@ type Instruction
 
     member _.IsExit = Terminator.futureFeature ()
 
-    member _.IsTerminator = Terminator.futureFeature ()
-
     member _.IsNop = Terminator.futureFeature ()
 
     member _.IsInlinedAssembly = false
+
+    member _.IsTerminator _ = Terminator.futureFeature ()
 
     member _.DirectBranchTarget (_addr: byref<Addr>) =
       Terminator.futureFeature ()

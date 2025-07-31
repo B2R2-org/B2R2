@@ -75,13 +75,13 @@ type Instruction
 
     member _.IsExit = Terminator.futureFeature ()
 
-    member this.IsTerminator =
-      let ins = this :> IInstruction
-      ins.IsBranch || ins.IsInterrupt || ins.IsExit
-
     member _.IsNop = Terminator.futureFeature ()
 
     member _.IsInlinedAssembly = false
+
+    member this.IsTerminator _ =
+      let ins = this :> IInstruction
+      ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
     member _.DirectBranchTarget (_addr: byref<Addr>) =
       Terminator.futureFeature ()

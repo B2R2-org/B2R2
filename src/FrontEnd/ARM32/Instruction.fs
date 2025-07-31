@@ -181,10 +181,6 @@ type Instruction
       | Opcode.ERET -> true
       | _ -> false
 
-    member this.IsTerminator =
-      let ins = this :> IInstruction
-      ins.IsBranch || ins.IsInterrupt || ins.IsExit
-
     member this.IsNop =
       this.Opcode = Op.NOP
 
@@ -205,6 +201,10 @@ type Instruction
 
     member _.IndirectTrampolineAddr (_: byref<Addr>) =
       false
+
+    member this.IsTerminator _ =
+      let ins = this :> IInstruction
+      ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
     member _.MemoryDereferences (addrs: byref<Addr[]>) =
       match opr with

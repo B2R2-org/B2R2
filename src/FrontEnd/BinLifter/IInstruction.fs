@@ -34,6 +34,7 @@ open B2R2.BinIR.LowUIR
 /// It provides useful methods for accessing useful information about the
 /// instruction.
 /// </summary>
+[<AllowNullLiteral>]
 type IInstruction =
   /// <summary>
   /// The address of this instruction.
@@ -162,17 +163,6 @@ type IInstruction =
   abstract IsExit: bool
 
   /// <summary>
-  /// Does this instruction end a basic block? For example, this function
-  /// returns true for branch instructions and exit instructions. We also
-  /// consider system call instructions as a terminator.
-  /// </summary>
-  /// <returns>
-  /// Returns true if this instruction should be at the end of the corresponding
-  /// basic block.
-  /// </returns>
-  abstract IsTerminator: bool
-
-  /// <summary>
   /// Is this a NO-OP instruction? We say an instruction is a NO-OP if it
   /// does not change the CPU state except for the program counter.
   /// </summary>
@@ -185,6 +175,20 @@ type IInstruction =
   /// Is this a virtual instruction that represents an inlined assembly code?
   /// </summary>
   abstract IsInlinedAssembly: bool
+
+  /// <summary>
+  /// Does this instruction end a basic block? For example, this function
+  /// returns true for branch instructions and exit instructions. We also
+  /// consider system call instructions as a terminator. Note that this method
+  /// takes the previous instruction as an argument, because instructions
+  /// that are in a delay slot of a branch instruction should be considered
+  /// as terminators in some architectures (e.g., MIPS).
+  /// </summary>
+  /// <returns>
+  /// Returns true if this instruction should be at the end of the corresponding
+  /// basic block.
+  /// </returns>
+  abstract IsTerminator: IInstruction -> bool
 
   /// <summary>
   /// Returns a branch target address if we can directly compute it, i.e., for

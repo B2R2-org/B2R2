@@ -94,13 +94,13 @@ type Instruction
       | REVERT | RETURN | SELFDESTRUCT | INVALID | STOP -> true
       | _ -> false
 
-    member this.IsTerminator =
-      let ins = this :> IInstruction
-      ins.IsIndirectBranch || ins.IsExit
-
     member _.IsNop = false
 
     member _.IsInlinedAssembly = false
+
+    member this.IsTerminator _ =
+      let ins = this :> IInstruction
+      ins.IsIndirectBranch || ins.IsExit
 
     member _.DirectBranchTarget (_addr: byref<Addr>) = false
 
