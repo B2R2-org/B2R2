@@ -38,7 +38,7 @@ type LabelDefs = Map<string, int>
 type IntelAsmParser (isa, baseAddr: Addr) =
   inherit AsmParser (isa)
 
-  let mutable inferredPrefix = Prefix.PrxNone
+  let mutable inferredPrefix = Prefix.None
   let defaultRegType = isa.WordSize |> WordSize.toRegType
 
   let addLabeldef lbl =
@@ -51,7 +51,7 @@ type IntelAsmParser (isa, baseAddr: Addr) =
     >>. preturn ()
 
   let resetPrefix =
-    preturn () |>> (fun _ -> inferredPrefix <- Prefix.PrxNone)
+    preturn () |>> (fun _ -> inferredPrefix <- Prefix.None)
 
   let isWhitespace c = [ ' '; '\t'; '\f' ] |> List.contains c
 
@@ -118,9 +118,9 @@ type IntelAsmParser (isa, baseAddr: Addr) =
           :?> Register)
 
   let pPrefix =
-    pstring "lock" |>> (fun _ -> inferredPrefix <- Prefix.PrxLOCK)
-    <|> (attempt (pstring "repz") |>> fun _ -> inferredPrefix <- Prefix.PrxREPZ)
-    <|> (pstring "repnz" |>> fun _ -> inferredPrefix <- Prefix.PrxREPNZ)
+    pstring "lock" |>> (fun _ -> inferredPrefix <- Prefix.LOCK)
+    <|> (attempt (pstring "repz") |>> fun _ -> inferredPrefix <- Prefix.REPZ)
+    <|> (pstring "repnz" |>> fun _ -> inferredPrefix <- Prefix.REPNZ)
     >>. preturn ()
     <?> "prefix"
 

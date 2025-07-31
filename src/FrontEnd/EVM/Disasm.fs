@@ -188,5 +188,3 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
 let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   builder.AccumulateAddrMarker ins.Address
   buildOpcode ins builder
-
-// vim: set tw=80 sts=2 sw=2:

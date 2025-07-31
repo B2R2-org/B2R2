@@ -1434,14 +1434,14 @@ let inline private getMask sz =
   | _ -> 0xFFFFFFFFFFFFFFFFL
 
 let inline private buildPref (prefs: Prefix) (builder: IDisasmBuilder) =
-  if prefs = Prefix.PrxNone then ()
-  elif (prefs &&& Prefix.PrxLOCK) <> Prefix.PrxNone then
+  if prefs = Prefix.None then ()
+  elif (prefs &&& Prefix.LOCK) <> Prefix.None then
     builder.Accumulate AsmWordKind.String "lock "
-  elif (prefs &&& Prefix.PrxREPNZ) <> Prefix.PrxNone then
+  elif (prefs &&& Prefix.REPNZ) <> Prefix.None then
     builder.Accumulate AsmWordKind.String "repnz "
-  elif (prefs &&& Prefix.PrxREPZ) <> Prefix.PrxNone then
+  elif (prefs &&& Prefix.REPZ) <> Prefix.None then
     builder.Accumulate AsmWordKind.String "repz "
-  elif (prefs &&& Prefix.PrxBND) <> Prefix.PrxNone then
+  elif (prefs &&& Prefix.BND) <> Prefix.None then
     builder.Accumulate AsmWordKind.String "bnd "
   else ()
 

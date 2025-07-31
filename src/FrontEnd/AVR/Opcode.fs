@@ -24,11 +24,6 @@
 
 namespace B2R2.FrontEnd.AVR
 
-open System.Runtime.CompilerServices
-
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.AVR.Tests")>]
-do ()
-
 /// <summary>
 /// Represents an AVR opcode.
 /// </summary>

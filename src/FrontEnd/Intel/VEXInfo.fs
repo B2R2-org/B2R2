@@ -38,13 +38,25 @@ type VEXInfo = {
 /// Represents the original VEX prefix type(Vector Extension).
 and VEXType =
   /// Original VEX that refers to two-byte opcode map.
-  | VEXTwoByteOp = 0x1
+  | TwoByteOp = 0x1
   /// Original VEX that refers to three-byte opcode map #1.
-  | VEXThreeByteOpOne = 0x2
+  | ThreeByteOpOne = 0x2
   /// Original VEX that refers to three-byte opcode map #2.
-  | VEXThreeByteOpTwo = 0x4
+  | ThreeByteOpTwo = 0x4
   /// EVEX Mask
   | EVEX = 0x10
+
+/// Represents the EVEX prefix used in Intel instructions.
+and EVEXPrefix = {
+  /// Embedded opmask register specifier, P[18:16].
+  AAA: uint8
+  /// Zeroing/Merging, P[23].
+  Z: ZeroingOrMerging
+  /// Broadcast/RC/SAE Context, P[20].
+  B: uint8
+  /// Reg-reg, FP Instructions w/ rounding semantic or SAE, P2[6:5].
+  RC: StaticRoundingMode
+}
 
 /// Represents the zeroing or merging behavior of the destination result
 /// (P[23] in EVEX encoding).
@@ -59,15 +71,3 @@ and StaticRoundingMode =
   | RD (* Round down (toward -inf) + SAE *)
   | RU (* Round up (toward +inf) + SAE *)
   | RZ (* Round toward zero (Truncate) + SAE *)
-
-/// Represents the EVEX prefix used in Intel instructions.
-and EVEXPrefix = {
-  /// Embedded opmask register specifier, P[18:16].
-  AAA: uint8
-  /// Zeroing/Merging, P[23].
-  Z: ZeroingOrMerging
-  /// Broadcast/RC/SAE Context, P[20].
-  B: uint8
-  /// Reg-reg, FP Instructions w/ rounding semantic or SAE, P2[6:5].
-  RC: StaticRoundingMode
-}

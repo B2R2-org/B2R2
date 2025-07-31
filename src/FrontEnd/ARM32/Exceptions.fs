@@ -27,5 +27,3 @@ namespace B2R2.FrontEnd.ARM32
 exception internal UnpredictableException
 
 exception internal UndefinedException
-
-exception internal InvalidShiftAmountException

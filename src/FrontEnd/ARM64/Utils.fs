@@ -55,25 +55,24 @@ let intToBits n cipher =
   loop [] (cipher - 1) |> List.rev
 
 /// Manual util functions
-// SignExtend()
+/// SignExtend()
 let signExtend bitSize extSize (imm: uint64) =
   assert (bitSize <= extSize)
   if imm >>> (bitSize - 1) = 0b0UL then imm
   else BigInteger.getMask extSize - BigInteger.getMask bitSize ||| (bigint imm)
        |> uint64
 
-// ZeroExtend()
-// ============
+/// ZeroExtend()
+/// ============
 let zeroExtend bitSize extSize (imm: uint32) =
   assert (bitSize <= extSize)
   concat (0u <<< (extSize - bitSize - 1)) imm bitSize
 
-// BFXPreferred()
-// ==============
-//
-// Return TRUE if UBFX or SBFX is the preferred disassembly of a
-// UBFM or SBFM bitfield instruction. Must exclude more specific
-// aliases UBFIZ, SBFIZ, UXT[BH], SXT[BHW], LSL, LSR and ASR.
+/// BFXPreferred()
+/// ==============
+/// Return TRUE if UBFX or SBFX is the preferred disassembly of a
+/// UBFM or SBFM bitfield instruction. Must exclude more specific
+/// aliases UBFIZ, SBFIZ, UXT[BH], SXT[BHW], LSL, LSR and ASR.
 let bfxPreferred sf uns imms immr =
   if imms < immr then false
   else if imms = (concat sf 0b11111u 5) then false
@@ -84,39 +83,39 @@ let bfxPreferred sf uns imms immr =
         && (imms = 0b000111u || imms = 0b001111u || imms = 0b011111u))
   else true
 
-// HighestSetBit()
-// ===============
+/// HighestSetBit()
+/// ===============
 let highestSetBit nBit imm =
   let rec loop idx =
     if idx < 0 then failwith "There is no SeBit"
     else if imm &&& (1u <<< idx) <> 0u then idx else loop (idx - 1)
   loop (nBit - 1)
 
-// Ones()
-// ======
+/// Ones()
+/// ======
 let ones n = (pown 2 (n - 1)) - 1
 let zeroExtendOnes m _ = (1L <<< m) - 1L
 
-// ROR()
-// =====
+/// ROR()
+/// =====
 let rorZeroExtendOnes m n r =
   let value = zeroExtendOnes m n
   if r = 0 then value
   else ((value >>> r) &&& ((1L <<< (n - r)) - 1L)) |||
        ((value &&& ((1L <<< r) - 1L)) <<< (n - r))
 
-// Replicate()
-// ===========
+/// Replicate()
+/// ===========
 let replicate value bits oprSize =
   let rec loop acc shift =
     if shift >= RegType.toBitWidth oprSize then acc
     else loop (acc ||| (value <<< shift)) (shift + bits)
   loop value bits
 
-// DecodeBitMasks()
-// ================
-// Decode AArch64 bitfield and logical immediate masks which use a similar
-// encoding structure
+/// DecodeBitMasks()
+/// ================
+/// Decode AArch64 bitfield and logical immediate masks which use a similar
+/// encoding structure
 let decodeBitMasks immN imms immr isImm oprSize =
   let len = highestSetBit 7 ((immN <<< 6) ||| (~~~imms &&& 0x3fu))
   if len < 1 then failwith "reserve value" else ()
@@ -129,9 +128,9 @@ let decodeBitMasks immN imms immr isImm oprSize =
 
   replicate (rorZeroExtendOnes (int s + 1) eSize (int r)) eSize oprSize
 
-// aarch64/instrs/system/sysops/sysop/SysOp
-// SysOp()
-// =======
+/// aarch64/instrs/system/sysops/sysop/SysOp
+/// SysOp()
+/// =======
 let sysOp bin =
   match extract bin 18u 5u with
   | 0b00001111000000u -> SysAT // S1E1R
@@ -191,7 +190,7 @@ let sysOp bin =
   | 0b00010000111111u -> SysTLBI // VAALE1
   | _ -> SysSYS
 
-// DecodeImmShift()
+/// DecodeImmShift()
 let decodeImmShift typ imm5 =
   match typ with
   | 0b00u -> SRTypeLSL, imm5
@@ -199,23 +198,22 @@ let decodeImmShift typ imm5 =
   | 0b10u -> SRTypeASR, if imm5 = 0ul then 32ul else imm5
   | 0b11u when imm5 = 0ul -> SRTypeRRX, 1ul
   | 0b11u -> SRTypeROR, imm5
-  | _ -> raise InvalidTypeException
+  | _ -> Terminator.impossible ()
 
-// DecodeRegShift()
+/// DecodeRegShift()
 let decodeRegShift = function
   | 0b00u -> SRTypeLSL
   | 0b01u -> SRTypeLSR
   | 0b10u -> SRTypeASR
   | 0b11u -> SRTypeROR
-  | _ -> raise InvalidTypeException
+  | _ -> Terminator.impossible ()
 
-// aarch64/instrs/integer/logical/movwpreferred/MoveWidePreferred
-// MoveWidePreferred()
-// ===================
-//
-// Return TRUE if a bitmask immediate encoding would generate an immediate
-// value that could also be represented by a single MOVZ or MOVN instruction.
-// Used as a condition for the preferred MOV<-ORR alias.
+/// aarch64/instrs/integer/logical/movwpreferred/MoveWidePreferred
+/// MoveWidePreferred()
+/// ===================
+/// Return TRUE if a bitmask immediate encoding would generate an immediate
+/// value that could also be represented by a single MOVZ or MOVN instruction.
+/// Used as a condition for the preferred MOV<-ORR alias.
 let moveWidePreferred bin = // sf immN imms immr
   let isSfOne = (pickBit bin 31u) = 0b1u
   let immN = pickBit bin 22u
@@ -234,10 +232,10 @@ let moveWidePreferred bin = // sf immN imms immr
   else if (int imms) >= width - 15
   then (int immr % 16) <= (int imms - (width - 15)) else false
 
-// shared/functions/integer/AddWithCarry
-// AddWithCarry()
-// ==============
-// Integer addition with carry input, returning result and NZCV flags
+/// shared/functions/integer/AddWithCarry
+/// AddWithCarry()
+/// ==============
+/// Integer addition with carry input, returning result and NZCV flags
 let addWithCarry x y carryin size =
   let unsignedSum = uint32 x + uint32 y + uint32 carryin
   let signedSum = int x + int y + int carryin
@@ -247,5 +245,3 @@ let addWithCarry x y carryin size =
   let c = if uint32 result = unsignedSum then 0u else 1u
   let v = if int result = signedSum then 0u else 1u
   result, concat (concat (concat n z 1) c 1) v 1
-
-// vim: set tw=80 sts=2 sw=2:

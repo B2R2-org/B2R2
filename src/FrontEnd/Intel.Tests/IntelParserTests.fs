@@ -82,7 +82,7 @@ type IntelParserTests () =
     Assert.AreEqual<uint32> (ins.Length, uint32 bytes.Length)
 
   let testX86NoPrefixNoSeg (bytes: byte[]) (opcode, operands) =
-    test Prefix.PrxNone None WordSize.Bit32 opcode operands bytes
+    test Prefix.None None WordSize.Bit32 opcode operands bytes
 
   let testX86Prefix pref (bytes: byte[]) (opcode, operands) =
     test pref None WordSize.Bit32 opcode operands bytes
@@ -91,7 +91,7 @@ type IntelParserTests () =
     test pref (Some seg) WordSize.Bit32 opcode operands bytes
 
   let testX64NoPrefixNoSeg (bytes: byte[]) (opcode, operands) =
-    test Prefix.PrxNone None WordSize.Bit64 opcode operands bytes
+    test Prefix.None None WordSize.Bit64 opcode operands bytes
 
   let operandsFromArray oprList =
     let oprArray = Array.ofList oprList
@@ -213,7 +213,7 @@ type IntelParserTests () =
   member _.``5.1.7 Control Transfer Instructions (3)`` () =
     "65ff1510000000"
     ++ CALLNear ** [ O.Mem (16L, 32<rt>) ]
-    ||> testX86 (Prefix.PrxGS) R.GS
+    ||> testX86 (Prefix.GS) R.GS
 
   [<TestMethod>]
   member _.``5.1.7 Control Transfer Instructions (4)`` () =
@@ -243,7 +243,7 @@ type IntelParserTests () =
   member _.``5.1.9 I/O Instructions (3)`` () =
     "66ef"
     ++ OUT ** [ O.Reg R.DX; O.Reg R.AX ]
-    ||> testX86Prefix Prefix.PrxOPSIZE
+    ||> testX86Prefix Prefix.OPSIZE
 
   [<TestMethod>]
   member _.``5.1.9 I/O Instructions (4)`` () =

@@ -25,13 +25,11 @@
 namespace B2R2.FrontEnd.AVR
 
 open System
-open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Parser for AVR instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
+/// Represents a parser for AVR instructions. Parser will return a
+/// platform-agnostic instruction type (Instruction).
 type AVRParser (reader) =
-
   let lifter =
     { new ILiftable with
         member _.Lift ins builder =

@@ -29,7 +29,6 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an AVR instruction.
 type Instruction
-
   internal (addr, numBytes, opcode, operands, lifter: ILiftable) =
 
   /// Address of this instruction.

@@ -51,7 +51,7 @@ type internal ParsingHelper (reader: IBinReader,
   let mutable tupleType = TupleType.NA
 
   new (reader, wordSz, oparsers, szcomputers, lifter) =
-    ParsingHelper (reader, 0UL, 0, Prefix.PrxNone, REXPrefix.NOREX, None,
+    ParsingHelper (reader, 0UL, 0, Prefix.None, REXPrefix.NOREX, None,
                    wordSz, oparsers, szcomputers, lifter)
 
   member _.InsAddr with get (): Addr = addr and set a = addr <- a

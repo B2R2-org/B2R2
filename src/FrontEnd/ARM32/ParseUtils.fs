@@ -115,5 +115,3 @@ let isUnconditional cond =
   match cond with
   | Condition.AL | Condition.UN -> true
   | _ -> false
-
-// vim: set tw=80 sts=2 sw=2:

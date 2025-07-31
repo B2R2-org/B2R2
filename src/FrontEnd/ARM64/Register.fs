@@ -24,14 +24,18 @@
 
 namespace B2R2.FrontEnd.ARM64
 
+open System.Runtime.CompilerServices
 open B2R2
+
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.ARM64.Tests")>]
+do ()
 
 /// Shortcut for Register type.
 type internal R = Register
 
-/// This module exposes several useful functions to handle ARMv8 registers.
+/// Provides several useful functions for handling ARM64 registers.
 [<RequireQualifiedAccess>]
-module Register =
+module internal Register =
   let toRegType = function
     | R.X0 | R.X1 | R.X2 | R.X3 | R.X4 | R.X5 | R.X6 | R.X7 | R.X8 | R.X9
     | R.X10 | R.X11 | R.X12 | R.X13 | R.X14 | R.X15 | R.X16 | R.X17

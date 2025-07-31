@@ -826,9 +826,9 @@ type internal OneOp62 () =
       phlp.REXPrefix <- rex
       phlp.CurrPos <- phlp.CurrPos + 3
       match vInfo.VEXType &&& EnumOfValue<int, VEXType> 7 with
-      | VEXType.VEXTwoByteOp -> parseTwoByteOpcode span phlp
-      | VEXType.VEXThreeByteOpOne -> parseThreeByteOp1 span phlp
-      | VEXType.VEXThreeByteOpTwo -> parseThreeByteOp2 span phlp
+      | VEXType.TwoByteOp -> parseTwoByteOpcode span phlp
+      | VEXType.ThreeByteOpOne -> parseThreeByteOp1 span phlp
+      | VEXType.ThreeByteOpTwo -> parseThreeByteOp2 span phlp
       | _ -> raise ParsingFailureException
     else
       phlp.SzComputers[int SZ.Def].Render phlp SzCond.Normal
@@ -1569,9 +1569,9 @@ type internal OneOpC4 () =
       phlp.REXPrefix <- rex
       phlp.CurrPos <- phlp.CurrPos + 2
       match vInfo.VEXType with
-      | VEXType.VEXTwoByteOp -> parseTwoByteOpcode span phlp
-      | VEXType.VEXThreeByteOpOne -> parseThreeByteOp1 span phlp
-      | VEXType.VEXThreeByteOpTwo -> parseThreeByteOp2 span phlp
+      | VEXType.TwoByteOp -> parseTwoByteOpcode span phlp
+      | VEXType.ThreeByteOpOne -> parseThreeByteOp1 span phlp
+      | VEXType.ThreeByteOpTwo -> parseThreeByteOp2 span phlp
       | _ -> raise ParsingFailureException
     else
       phlp.SzComputers[int SZ.PZ].Render phlp SzCond.Normal

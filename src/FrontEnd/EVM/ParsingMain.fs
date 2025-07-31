@@ -186,5 +186,3 @@ let private parseOpcode (span: ReadOnlySpan<byte>) =
 let parse lifter span offset addr =
   let struct (opcode, gas, instrLen) = parseOpcode span
   Instruction (addr, instrLen, offset, opcode, gas, lifter)
-
-// vim: set tw=80 sts=2 sw=2:

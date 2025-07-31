@@ -2850,5 +2850,3 @@ module internal Opcode =
     | Opcode.SAVEPREVSSP | Opcode.RSTORSSP | Opcode.WRSSD | Opcode.WRSSQ
     | Opcode.WRUSSD | Opcode.WRUSSQ | Opcode.SETSSBSY | Opcode.CLRSSBSY -> true
     | _ -> false
-
-// vim: set tw=80 sts=2 sw=2:

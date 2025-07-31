@@ -3689,5 +3689,3 @@ let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadInt32 (span, 0)
   let struct (op, operands) = uint32 bin |> parseTwoBits
   Instruction (addr, 4u, op, operands, lifter)
-
-// vim: set tw=80 sts=2 sw=2:

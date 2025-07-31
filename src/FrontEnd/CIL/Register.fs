@@ -33,7 +33,7 @@ type Register =
   /// Stack pointer.
   | SP = 0x1
 
-/// This module exposes several useful functions to handle CIL registers.
+/// Provides several useful functions for handling CIL registers.
 [<RequireQualifiedAccess>]
 module Register =
   let inline ofRegID (n: RegisterID): Register =

@@ -47,7 +47,7 @@ type OperationSize = int
 module internal OperationSize =
   let regType = 256<rt>
 
-/// Provides exposes several useful functions to handle EVM registers.
+/// Provides several useful functions for handling EVM registers.
 [<RequireQualifiedAccess>]
 module Register =
   let inline ofRegID (n: RegisterID): Register =
