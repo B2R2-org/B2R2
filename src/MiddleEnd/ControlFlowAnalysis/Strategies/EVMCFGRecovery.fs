@@ -682,6 +682,8 @@ module private EVMCFGRecovery =
     callee
 
   let connectCall ctx cfgRec caller callee cs info =
+    assert (ctx.ManagerChannel.GetBuildingContext callee
+            |> fun bldCtx -> bldCtx.IsFinalCtx)
     getFunctionContext ctx callee
     |> Result.map (connectAbsVertex ctx cfgRec caller callee cs false info)
     |> CFGRecovery.toCFGResult
@@ -797,13 +799,17 @@ type EVMCFGRecovery() as this =
     member _.OnFinish(ctx) =
       let fnUserCtx = ctx.UserContext
       assert Seq.isEmpty fnUserCtx.ResumableVertices
-      let status, unwinding =
+      let oldNoRetStatus = ctx.NonReturningStatus
+      let newNoRetStatus, unwinding =
         match fnUserCtx.StackPointerDiff with
         | Some diff -> NotNoRet, int diff
         | None -> NoRet, 0
-      ctx.NonReturningStatus <- status
+      ctx.NonReturningStatus <- newNoRetStatus
       ctx.UnwindingBytes <- unwinding
-      MoveOn
+      match oldNoRetStatus, newNoRetStatus with
+      | NoRet, NotNoRet
+      | NoRet, ConditionalNoRet _ -> MoveOnButReloadCallers oldNoRetStatus
+      | _ -> MoveOn
 
     member _.AnalyzeIndirectJump(ctx, _ppQueue, _pp, srcV) =
       postponeOrGo ctx srcV (fun () -> handleInterJmp ctx this srcV)
