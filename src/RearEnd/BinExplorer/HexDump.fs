@@ -28,19 +28,19 @@ open System
 open B2R2.MiddleEnd
 open B2R2.RearEnd.Utils
 
-type CmdHexDump () =
-  inherit Cmd ()
+type CmdHexDump() =
+  inherit Cmd()
 
   let parseAddr addr =
-    try Ok (Convert.ToUInt64 (addr, 16))
+    try Ok(Convert.ToUInt64(addr, 16))
     with _ -> Error "[*] Invalid address given."
 
   let parseCount count addr =
-    try Ok (addr, Convert.ToInt32 (count, 10))
+    try Ok(addr, Convert.ToInt32(count, 10))
     with _ -> Error "[*] Invalid byte count given."
 
   let readBytes (brew: BinaryBrew<_, _>) (addr, count) =
-    try (addr, brew.BinHandle.ReadBytes (addr = addr, nBytes = count)) |> Ok
+    try (addr, brew.BinHandle.ReadBytes(addr = addr, nBytes = count)) |> Ok
     with _ -> Error "[*] Failed to read bytes."
 
   override _.CmdName = "hexdump"
@@ -55,7 +55,7 @@ type CmdHexDump () =
 
   override _.SubCommands = []
 
-  override this.CallBack _ brew args =
+  override this.CallBack(_, brew, args) =
     match args with
     | addr :: cnt :: _ ->
       let result =
@@ -63,10 +63,10 @@ type CmdHexDump () =
         |> Result.bind (parseCount cnt)
         |> Result.bind (readBytes brew)
       match result with
-      | Ok (addr, bytes: byte []) ->
+      | Ok(addr, bytes: byte []) ->
         let wordSize = brew.BinHandle.File.ISA.WordSize
         HexDumper.dump 16 wordSize true addr bytes
-      | Error e -> [| OutputColored [ ColoredSegment (NoColor, e) ] |]
+      | Error e -> [| OutputColored [ ColoredSegment(NoColor, e) ] |]
     | _ -> [| this.CmdHelp |] |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

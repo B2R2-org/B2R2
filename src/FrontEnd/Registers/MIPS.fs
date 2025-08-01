@@ -185,7 +185,7 @@ module Register =
   /// Returns the MIPS register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) wordSize =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "r0" -> Register.R0
     | "r1" | "at" -> Register.R1
     | "r2" | "v0" -> Register.R2
@@ -265,7 +265,7 @@ module Register =
   /// Returns the register ID of a MIPS register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+    LanguagePrimitives.EnumToValue(reg) |> RegisterID.create
 
   /// Returns the string representation of a MIPS register.
   [<CompiledName "ToString">]

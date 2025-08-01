@@ -143,194 +143,194 @@ type IBinReader =
     span: ByteSpan * offset: int -> uint32 * int
 
 /// Little-endian binary reader.
-type private BinReaderLE () =
+type private BinReaderLE() =
   interface IBinReader with
     member _.Endianness with get() = Endian.Little
 
-    member _.ReadInt8 (bs: byte[], offset) =
+    member _.ReadInt8(bs: byte[], offset) =
       bs[offset] |> int8
 
-    member _.ReadInt8 (span: ByteSpan, offset) =
+    member _.ReadInt8(span: ByteSpan, offset) =
       span[offset] |> int8
 
-    member _.ReadUInt8 (bs: byte[], offset) =
+    member _.ReadUInt8(bs: byte[], offset) =
       bs[offset] |> uint8
 
-    member _.ReadUInt8 (span: ByteSpan, offset) =
+    member _.ReadUInt8(span: ByteSpan, offset) =
       span[offset] |> uint8
 
-    member _.ReadInt16 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadInt16LittleEndian (span.Slice offset)
+    member _.ReadInt16(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadInt16LittleEndian(span.Slice offset)
 
-    member _.ReadInt16 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadInt16LittleEndian (span.Slice offset)
+    member _.ReadInt16(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadInt16LittleEndian(span.Slice offset)
 
-    member _.ReadUInt16 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadUInt16LittleEndian (span.Slice offset)
+    member _.ReadUInt16(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadUInt16LittleEndian(span.Slice offset)
 
-    member _.ReadUInt16 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadUInt16LittleEndian (span.Slice offset)
+    member _.ReadUInt16(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadUInt16LittleEndian(span.Slice offset)
 
-    member _.ReadInt32 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadInt32LittleEndian (span.Slice offset)
+    member _.ReadInt32(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadInt32LittleEndian(span.Slice offset)
 
-    member _.ReadInt32 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadInt32LittleEndian (span.Slice offset)
+    member _.ReadInt32(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadInt32LittleEndian(span.Slice offset)
 
-    member _.ReadUInt32 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadUInt32LittleEndian (span.Slice offset)
+    member _.ReadUInt32(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadUInt32LittleEndian(span.Slice offset)
 
-    member _.ReadUInt32 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadUInt32LittleEndian (span.Slice offset)
+    member _.ReadUInt32(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadUInt32LittleEndian(span.Slice offset)
 
-    member _.ReadInt64 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadInt64LittleEndian (span.Slice offset)
+    member _.ReadInt64(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadInt64LittleEndian(span.Slice offset)
 
-    member _.ReadInt64 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadInt64LittleEndian (span.Slice offset)
+    member _.ReadInt64(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadInt64LittleEndian(span.Slice offset)
 
-    member _.ReadUInt64 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadUInt64LittleEndian (span.Slice offset)
+    member _.ReadUInt64(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadUInt64LittleEndian(span.Slice offset)
 
-    member _.ReadUInt64 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadUInt64LittleEndian (span.Slice offset)
+    member _.ReadUInt64(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadUInt64LittleEndian(span.Slice offset)
 
-    member _.ReadChars (bs: byte[], offset, size) =
+    member _.ReadChars(bs: byte[], offset, size) =
       Array.sub bs offset size
       |> Array.map char
 
-    member _.ReadChars (span: ByteSpan, offset, size) =
+    member _.ReadChars(span: ByteSpan, offset, size) =
       span.Slice(offset, size).ToArray()
       |> Array.map char
 
-    member _.ReadInt64LEB128 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      LEB128.DecodeSInt64 (span.Slice offset)
+    member _.ReadInt64LEB128(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      LEB128.DecodeSInt64(span.Slice offset)
 
-    member _.ReadInt64LEB128 (span: ByteSpan, offset) =
-      LEB128.DecodeSInt64 (span.Slice offset)
+    member _.ReadInt64LEB128(span: ByteSpan, offset) =
+      LEB128.DecodeSInt64(span.Slice offset)
 
-    member _.ReadUInt64LEB128 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      LEB128.DecodeUInt64 (span.Slice offset)
+    member _.ReadUInt64LEB128(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      LEB128.DecodeUInt64(span.Slice offset)
 
-    member _.ReadUInt64LEB128 (span: ByteSpan, offset) =
-      LEB128.DecodeUInt64 (span.Slice offset)
+    member _.ReadUInt64LEB128(span: ByteSpan, offset) =
+      LEB128.DecodeUInt64(span.Slice offset)
 
-    member _.ReadInt32LEB128 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      LEB128.DecodeSInt32 (span.Slice offset)
+    member _.ReadInt32LEB128(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      LEB128.DecodeSInt32(span.Slice offset)
 
-    member _.ReadInt32LEB128 (span: ByteSpan, offset) =
-      LEB128.DecodeSInt32 (span.Slice offset)
+    member _.ReadInt32LEB128(span: ByteSpan, offset) =
+      LEB128.DecodeSInt32(span.Slice offset)
 
-    member _.ReadUInt32LEB128 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      LEB128.DecodeUInt32 (span.Slice offset)
+    member _.ReadUInt32LEB128(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      LEB128.DecodeUInt32(span.Slice offset)
 
-    member _.ReadUInt32LEB128 (span: ByteSpan, offset) =
-      LEB128.DecodeUInt32 (span.Slice offset)
+    member _.ReadUInt32LEB128(span: ByteSpan, offset) =
+      LEB128.DecodeUInt32(span.Slice offset)
 
 /// Big-endian binary reader.
-type private BinReaderBE () =
+type private BinReaderBE() =
   interface IBinReader with
     member _.Endianness with get() = Endian.Big
 
-    member _.ReadInt8 (bs: byte[], offset) =
+    member _.ReadInt8(bs: byte[], offset) =
       bs[offset] |> int8
 
-    member _.ReadInt8 (span: ByteSpan, offset) =
+    member _.ReadInt8(span: ByteSpan, offset) =
       span[offset] |> int8
 
-    member _.ReadUInt8 (bs: byte[], offset) =
+    member _.ReadUInt8(bs: byte[], offset) =
       bs[offset] |> uint8
 
-    member _.ReadUInt8 (span: ByteSpan, offset) =
+    member _.ReadUInt8(span: ByteSpan, offset) =
       span[offset] |> uint8
 
-    member _.ReadInt16 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadInt16BigEndian (span.Slice offset)
+    member _.ReadInt16(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadInt16BigEndian(span.Slice offset)
 
-    member _.ReadInt16 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadInt16BigEndian (span.Slice offset)
+    member _.ReadInt16(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadInt16BigEndian(span.Slice offset)
 
-    member _.ReadUInt16 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadUInt16BigEndian (span.Slice offset)
+    member _.ReadUInt16(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadUInt16BigEndian(span.Slice offset)
 
-    member _.ReadUInt16 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadUInt16BigEndian (span.Slice offset)
+    member _.ReadUInt16(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadUInt16BigEndian(span.Slice offset)
 
-    member _.ReadInt32 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadInt32BigEndian (span.Slice offset)
+    member _.ReadInt32(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadInt32BigEndian(span.Slice offset)
 
-    member _.ReadInt32 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadInt32BigEndian (span.Slice offset)
+    member _.ReadInt32(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadInt32BigEndian(span.Slice offset)
 
-    member _.ReadUInt32 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadUInt32BigEndian (span.Slice offset)
+    member _.ReadUInt32(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadUInt32BigEndian(span.Slice offset)
 
-    member _.ReadUInt32 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadUInt32BigEndian (span.Slice offset)
+    member _.ReadUInt32(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadUInt32BigEndian(span.Slice offset)
 
-    member _.ReadInt64 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadInt64BigEndian (span.Slice offset)
+    member _.ReadInt64(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadInt64BigEndian(span.Slice offset)
 
-    member _.ReadInt64 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadInt64BigEndian (span.Slice offset)
+    member _.ReadInt64(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadInt64BigEndian(span.Slice offset)
 
-    member _.ReadUInt64 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      BinaryPrimitives.ReadUInt64BigEndian (span.Slice offset)
+    member _.ReadUInt64(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      BinaryPrimitives.ReadUInt64BigEndian(span.Slice offset)
 
-    member _.ReadUInt64 (span: ByteSpan, offset) =
-      BinaryPrimitives.ReadUInt64BigEndian (span.Slice offset)
+    member _.ReadUInt64(span: ByteSpan, offset) =
+      BinaryPrimitives.ReadUInt64BigEndian(span.Slice offset)
 
-    member _.ReadChars (bs: byte[], offset, size) =
+    member _.ReadChars(bs: byte[], offset, size) =
       Array.sub bs offset size
       |> Array.map char
 
-    member _.ReadChars (span: ByteSpan, offset, size) =
+    member _.ReadChars(span: ByteSpan, offset, size) =
       span.Slice(offset, size).ToArray()
       |> Array.map char
 
-    member _.ReadInt64LEB128 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      LEB128.DecodeSInt64 (span.Slice offset)
+    member _.ReadInt64LEB128(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      LEB128.DecodeSInt64(span.Slice offset)
 
-    member _.ReadInt64LEB128 (span: ByteSpan, offset) =
-      LEB128.DecodeSInt64 (span.Slice offset)
+    member _.ReadInt64LEB128(span: ByteSpan, offset) =
+      LEB128.DecodeSInt64(span.Slice offset)
 
-    member _.ReadUInt64LEB128 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      LEB128.DecodeUInt64 (span.Slice offset)
+    member _.ReadUInt64LEB128(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      LEB128.DecodeUInt64(span.Slice offset)
 
-    member _.ReadUInt64LEB128 (span: ByteSpan, offset) =
-      LEB128.DecodeUInt64 (span.Slice offset)
+    member _.ReadUInt64LEB128(span: ByteSpan, offset) =
+      LEB128.DecodeUInt64(span.Slice offset)
 
-    member _.ReadInt32LEB128 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      LEB128.DecodeSInt32 (span.Slice offset)
+    member _.ReadInt32LEB128(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      LEB128.DecodeSInt32(span.Slice offset)
 
-    member _.ReadInt32LEB128 (span: ByteSpan, offset) =
-      LEB128.DecodeSInt32 (span.Slice offset)
+    member _.ReadInt32LEB128(span: ByteSpan, offset) =
+      LEB128.DecodeSInt32(span.Slice offset)
 
-    member _.ReadUInt32LEB128 (bs: byte[], offset) =
-      let span = ReadOnlySpan (bs)
-      LEB128.DecodeUInt32 (span.Slice offset)
+    member _.ReadUInt32LEB128(bs: byte[], offset) =
+      let span = ReadOnlySpan(bs)
+      LEB128.DecodeUInt32(span.Slice offset)
 
-    member _.ReadUInt32LEB128 (span: ByteSpan, offset) =
-      LEB128.DecodeUInt32 (span.Slice offset)
+    member _.ReadUInt32LEB128(span: ByteSpan, offset) =
+      LEB128.DecodeUInt32(span.Slice offset)
 
 /// Provides a function to instantiate a binary reader that implements <see
 /// cref='T:B2R2.FrontEnd.BinLifter.IBinReader'/>.
@@ -338,8 +338,8 @@ type BinReader =
   /// Creates a binary reader that implements <see
   /// cref='T:B2R2.FrontEnd.BinLifter.IBinReader'/> with the given endianness.
   /// The default endianness is little-endian.
-  static member Init ([<Optional;
-                        DefaultParameterValue(Endian.Little)>] endian) =
+  static member Init([<Optional;
+                       DefaultParameterValue(Endian.Little)>] endian) =
     match endian with
-    | Endian.Little -> BinReaderLE () :> IBinReader
-    | _ -> BinReaderBE () :> IBinReader
+    | Endian.Little -> BinReaderLE() :> IBinReader
+    | _ -> BinReaderBE() :> IBinReader

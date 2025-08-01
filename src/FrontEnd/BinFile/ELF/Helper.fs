@@ -98,7 +98,7 @@ let getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo section =
   let readType = toolBox.Header.Class
   let entrySize = WordSize.toByteWidth readType
   let secSize = int section.SecSize
-  let lst = List<Addr> ()
+  let lst = List<Addr>()
   let addr = translateOffsetToAddr loadables shdrs section.SecOffset
   for ofs in [| 0 .. entrySize .. secSize - entrySize |] do
     readUIntByWordSize span toolBox.Reader readType ofs
@@ -108,19 +108,19 @@ let getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo section =
         | Ok relocatedAddr -> lst.Add relocatedAddr
         | Error _ -> ()
       else lst.Add fnAddr)
-  lst.ToArray ()
+  lst.ToArray()
 
 let getAddrsFromInitArray toolBox shdrs loadables relocInfo =
   match Array.tryFind (fun s -> s.SecName = Section.InitArray) shdrs with
   | Some s ->
-    let span = ReadOnlySpan (toolBox.Bytes, int s.SecOffset, int s.SecSize)
+    let span = ReadOnlySpan(toolBox.Bytes, int s.SecOffset, int s.SecSize)
     getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
   | None -> [||]
 
 let getAddrsFromFiniArray toolBox shdrs loadables relocInfo =
   match Array.tryFind (fun s -> s.SecName = Section.FiniArray) shdrs with
   | Some s ->
-    let span = ReadOnlySpan (toolBox.Bytes, int s.SecOffset, int s.SecSize)
+    let span = ReadOnlySpan(toolBox.Bytes, int s.SecOffset, int s.SecSize)
     getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
   | None -> [||]
 
@@ -163,17 +163,17 @@ let private computeExecutableRangesFromSections shdrs =
     then
       let offset = sec.SecOffset - txtOffset
       let addr = sec.SecAddr + offset
-      let range = AddrRange (addr, addr + sec.SecSize - 1UL)
+      let range = AddrRange(addr, addr + sec.SecSize - 1UL)
       IntervalSet.add range set
     else set
   ) IntervalSet.empty
 
 let private addIntervalWithoutSection secS secE s e set =
   let set =
-    if s < secS && secS < e then IntervalSet.add (AddrRange (s, secS - 1UL)) set
+    if s < secS && secS < e then IntervalSet.add (AddrRange(s, secS - 1UL)) set
     else set
   let set =
-    if secE < e then IntervalSet.add (AddrRange (secE + 1UL, e)) set
+    if secE < e then IntervalSet.add (AddrRange(secE + 1UL, e)) set
     else set
   set
 
@@ -183,14 +183,14 @@ let private addIntervalWithoutROSection rodata seg set =
   let segS = seg.PHAddr
   let segE = segS + seg.PHMemSize - 1UL
   if roE < segS || segE < roS then
-    IntervalSet.add (AddrRange (segS, segE)) set
+    IntervalSet.add (AddrRange(segS, segE)) set
   else addIntervalWithoutSection roS roE segS segE set
 
 let private addExecutableInterval excludingSection s set =
   match excludingSection with
   | Some sec -> addIntervalWithoutROSection sec s set
   | None ->
-    IntervalSet.add (AddrRange (s.PHAddr, s.PHAddr + s.PHMemSize - 1UL)) set
+    IntervalSet.add (AddrRange(s.PHAddr, s.PHAddr + s.PHMemSize - 1UL)) set
 
 let executableRanges shdrs loadables =
   (* Exclude .rodata even though it is included within an executable segment. *)

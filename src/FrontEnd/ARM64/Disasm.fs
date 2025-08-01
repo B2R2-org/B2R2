@@ -1575,20 +1575,20 @@ let simdVectorToString = function
 let simdFPRegToString simdOpr (builder: IDisasmBuilder) =
   match simdOpr with
   | SIMDFPScalarReg sReg ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString sReg)
-  | SIMDVecReg (reg, vec) ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-    builder.Accumulate AsmWordKind.String ("." + simdVectorToString vec)
-  | SIMDVecRegWithIdx (reg, vec, _) ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-    builder.Accumulate AsmWordKind.String ("." + simdVectorToString vec)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString sReg)
+  | SIMDVecReg(reg, vec) ->
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+    builder.Accumulate(AsmWordKind.String, "." + simdVectorToString vec)
+  | SIMDVecRegWithIdx(reg, vec, _) ->
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+    builder.Accumulate(AsmWordKind.String, "." + simdVectorToString vec)
 
 let finalOprSIMD s (builder: IDisasmBuilder) =
   match s with
-  | SIMDVecRegWithIdx (_, _, idx) ->
-    builder.Accumulate AsmWordKind.String "["
-    builder.Accumulate AsmWordKind.String (string idx)
-    builder.Accumulate AsmWordKind.String "]"
+  | SIMDVecRegWithIdx(_, _, idx) ->
+    builder.Accumulate(AsmWordKind.String, "[")
+    builder.Accumulate(AsmWordKind.String, string idx)
+    builder.Accumulate(AsmWordKind.String, "]")
   | _ -> ()
 
 (* SIMD & FP register *)
@@ -1600,64 +1600,64 @@ let simdToString simd builder =
 let simdListToString simd (builder: IDisasmBuilder) =
   match simd with
   | [ s ] ->
-    builder.Accumulate AsmWordKind.String "{ "
+    builder.Accumulate(AsmWordKind.String, "{ ")
     simdFPRegToString s builder
-    builder.Accumulate AsmWordKind.String " }"
+    builder.Accumulate(AsmWordKind.String, " }")
     finalOprSIMD s builder
   | [ s1; s2 ] ->
-    builder.Accumulate AsmWordKind.String "{ "
+    builder.Accumulate(AsmWordKind.String, "{ ")
     simdFPRegToString s1 builder
-    builder.Accumulate AsmWordKind.String ", "
+    builder.Accumulate(AsmWordKind.String, ", ")
     simdFPRegToString s2 builder
-    builder.Accumulate AsmWordKind.String " }"
+    builder.Accumulate(AsmWordKind.String, " }")
     finalOprSIMD s1 builder
   | [ s1; s2; s3 ] ->
-    builder.Accumulate AsmWordKind.String "{ "
+    builder.Accumulate(AsmWordKind.String, "{ ")
     simdFPRegToString s1 builder
-    builder.Accumulate AsmWordKind.String ", "
+    builder.Accumulate(AsmWordKind.String, ", ")
     simdFPRegToString s2 builder
-    builder.Accumulate AsmWordKind.String ", "
+    builder.Accumulate(AsmWordKind.String, ", ")
     simdFPRegToString s3 builder
-    builder.Accumulate AsmWordKind.String " }"
+    builder.Accumulate(AsmWordKind.String, " }")
     finalOprSIMD s1 builder
   | [ s1; _; _; s4 ] ->
-    builder.Accumulate AsmWordKind.String "{ "
+    builder.Accumulate(AsmWordKind.String, "{ ")
     simdFPRegToString s1 builder
-    builder.Accumulate AsmWordKind.String " - "
+    builder.Accumulate(AsmWordKind.String, " - ")
     simdFPRegToString s4 builder
-    builder.Accumulate AsmWordKind.String " }"
+    builder.Accumulate(AsmWordKind.String, " }")
     finalOprSIMD s1 builder
   | _ -> ()
 
 let immToString imm (builder: IDisasmBuilder) =
-  builder.Accumulate AsmWordKind.String "#"
-  builder.Accumulate AsmWordKind.String (HexString.ofInt64 imm)
+  builder.Accumulate(AsmWordKind.String, "#")
+  builder.Accumulate(AsmWordKind.String, HexString.ofInt64 imm)
 
 let fpImmToString (fp: float) (builder: IDisasmBuilder) =
-  builder.Accumulate AsmWordKind.String "#"
-  builder.Accumulate AsmWordKind.String (fp.ToString ("N8"))
+  builder.Accumulate(AsmWordKind.String, "#")
+  builder.Accumulate(AsmWordKind.String, fp.ToString("N8"))
 
 let nzcvToString (imm: uint8) (builder: IDisasmBuilder) =
-  builder.Accumulate AsmWordKind.String "#"
-  builder.Accumulate AsmWordKind.String ("0x" + imm.ToString "x")
+  builder.Accumulate(AsmWordKind.String, "#")
+  builder.Accumulate(AsmWordKind.String, "0x" + imm.ToString "x")
 
 let amountToString amount builder =
   match amount with
   | Imm i -> immToString i builder
-  | Reg r -> builder.Accumulate AsmWordKind.Variable (Register.toString r)
+  | Reg r -> builder.Accumulate(AsmWordKind.Variable, Register.toString r)
 
 let prependDelimiter delimiter (builder: IDisasmBuilder) =
   match delimiter with
   | None -> ()
-  | Some delim -> builder.Accumulate AsmWordKind.String delim
+  | Some delim -> builder.Accumulate(AsmWordKind.String, delim)
 
 let shiftToString shift delim builder =
   match shift with
   | _, Imm 0L -> ()
   | s, amount ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.String (srtypeToString s)
-    builder.Accumulate AsmWordKind.String " "
+    builder.Accumulate(AsmWordKind.String, srtypeToString s)
+    builder.Accumulate(AsmWordKind.String, " ")
     amountToString amount builder
 
 let extToString = function
@@ -1675,12 +1675,12 @@ let extRegToString regOff delim builder =
   | (ext, None)
   | (ext, Some 0L) ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.String (extToString ext)
+    builder.Accumulate(AsmWordKind.String, extToString ext)
   | (ext, Some i) ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.String (extToString ext)
-    builder.Accumulate AsmWordKind.String " #"
-    builder.Accumulate AsmWordKind.Value (i.ToString ("x"))
+    builder.Accumulate(AsmWordKind.String, extToString ext)
+    builder.Accumulate(AsmWordKind.String, " #")
+    builder.Accumulate(AsmWordKind.Value, i.ToString("x"))
 
 let regOffString regOff delim builder =
   match regOff with
@@ -1698,32 +1698,32 @@ let processAddrExn64 (ins: Instruction) addr =
 
 let immOffsetToString i addr mode offset (builder: IDisasmBuilder) =
   match offset with
-  | BaseOffset (reg, None) | BaseOffset (reg, Some 0L) ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-  | BaseOffset (reg, Some imm) ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-    builder.Accumulate AsmWordKind.String (delimPostIdx mode)
+  | BaseOffset(reg, None) | BaseOffset(reg, Some 0L) ->
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+  | BaseOffset(reg, Some imm) ->
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+    builder.Accumulate(AsmWordKind.String, delimPostIdx mode)
     immToString imm builder
   | Lbl imm ->
     let addr = processAddrExn64 i addr
-    builder.Accumulate AsmWordKind.Value (HexString.ofInt64 (int64 addr + imm))
+    builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 (int64 addr + imm))
 
 let regOffsetToString mode offset (builder: IDisasmBuilder) =
   match offset with
   | r1, r2, Some regOff ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString r1)
-    builder.Accumulate AsmWordKind.String ", "
-    builder.Accumulate AsmWordKind.Variable (Register.toString r2)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString r1)
+    builder.Accumulate(AsmWordKind.String, ", ")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString r2)
     regOffString regOff (Some ", ") builder
   | r1, r2, None ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString r1)
-    builder.Accumulate AsmWordKind.String (delimPostIdx mode)
-    builder.Accumulate AsmWordKind.Variable (Register.toString r2)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString r1)
+    builder.Accumulate(AsmWordKind.String, delimPostIdx mode)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString r2)
 
 let postBracket mode (builder: IDisasmBuilder) =
   match mode with
-  | BaseMode _ -> builder.Accumulate AsmWordKind.String "]"
-  | PreIdxMode _ -> builder.Accumulate AsmWordKind.String "]!"
+  | BaseMode _ -> builder.Accumulate(AsmWordKind.String, "]")
+  | PreIdxMode _ -> builder.Accumulate(AsmWordKind.String, "]!")
   | _ -> ()
 
 let offsetToString i addr mode offset builder =
@@ -1731,7 +1731,7 @@ let offsetToString i addr mode offset builder =
   | ImmOffset offset ->
     immOffsetToString i addr mode offset builder
     postBracket mode builder
-  | RegOffset (r1, r2, offset) ->
+  | RegOffset(r1, r2, offset) ->
     regOffsetToString mode (r1, r2, offset) builder
     postBracket mode builder
 
@@ -1740,7 +1740,7 @@ let memToString ins addr mode builder =
   | LiteralMode offset ->
     offsetToString ins addr mode offset builder
   | BaseMode off | PreIdxMode off | PostIdxMode off ->
-    builder.Accumulate AsmWordKind.String "["
+    builder.Accumulate(AsmWordKind.String, "[")
     offsetToString ins addr mode off builder
 
 let optToString = function
@@ -1798,7 +1798,7 @@ let oprToString i addr opr delim builder =
   | OprRegister reg when isRET i && reg = R.X30 -> ()
   | OprRegister reg ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
   | OprSIMD simd ->
     prependDelimiter delim builder
     simdToString simd builder
@@ -1816,51 +1816,51 @@ let oprToString i addr opr delim builder =
     nzcvToString ui8 builder
   | OprShift s -> shiftToString s delim builder
   | OprExtReg None -> ()
-  | OprExtReg (Some regOffset) -> regOffString regOffset delim builder
+  | OprExtReg(Some regOffset) -> regOffString regOffset delim builder
   | OprMemory mode ->
     prependDelimiter delim builder
     memToString i addr mode builder
   | OprOption opt ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.Variable (optToString opt)
+    builder.Accumulate(AsmWordKind.Variable, optToString opt)
   | OprPstate p ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.Variable (pStToString p)
+    builder.Accumulate(AsmWordKind.Variable, pStToString p)
   | OprPrfOp e1 ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.Variable (prfOpToString e1)
+    builder.Accumulate(AsmWordKind.Variable, prfOpToString e1)
   | OprCond c ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.Variable (condToString (Some c))
+    builder.Accumulate(AsmWordKind.Variable, condToString (Some c))
   | OprFbits ui8 ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.Variable (fBitsToString ui8)
+    builder.Accumulate(AsmWordKind.Variable, fBitsToString ui8)
   | OprLSB ui8 ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.Variable (lsbToString ui8)
+    builder.Accumulate(AsmWordKind.Variable, lsbToString ui8)
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let opcode = opCodeToString ins.Opcode + condToString ins.Condition
-  builder.Accumulate AsmWordKind.Mnemonic opcode
+  builder.Accumulate(AsmWordKind.Mnemonic, opcode)
 
 let buildOprs (ins: Instruction) pc builder =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
     oprToString ins pc opr (Some " ") builder
-  | TwoOperands (opr1, opr2) ->
+  | TwoOperands(opr1, opr2) ->
     oprToString ins pc opr1 (Some " ") builder
     oprToString ins pc opr2 (Some ", ") builder
-  | ThreeOperands (opr1, opr2, opr3) ->
+  | ThreeOperands(opr1, opr2, opr3) ->
     oprToString ins pc opr1 (Some " ") builder
     oprToString ins pc opr2 (Some ", ") builder
     oprToString ins pc opr3 (Some ", ") builder
-  | FourOperands (opr1, opr2, opr3, opr4) ->
+  | FourOperands(opr1, opr2, opr3, opr4) ->
     oprToString ins pc opr1 (Some " ") builder
     oprToString ins pc opr2 (Some ", ") builder
     oprToString ins pc opr3 (Some ", ") builder
     oprToString ins pc opr4 (Some ", ") builder
-  | FiveOperands (opr1, opr2, opr3, opr4, opr5) ->
+  | FiveOperands(opr1, opr2, opr3, opr4, opr5) ->
     oprToString ins pc opr1 (Some " ") builder
     oprToString ins pc opr2 (Some ", ") builder
     oprToString ins pc opr3 (Some ", ") builder

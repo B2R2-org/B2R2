@@ -29,19 +29,19 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for SPARC instructions. Parser will return a
 /// platform-agnostic instruction type (Instruction).
-type SPARCParser (reader) =
+type SPARCParser(reader) =
   let lifter =
     { new ILiftable with
-        member _.Lift ins builder =
+        member _.Lift(ins, builder) =
           Lifter.translate ins ins.Length builder
-        member _.Disasm ins builder =
+        member _.Disasm(ins, builder) =
           Disasm.disasm ins builder; builder }
 
   interface IInstructionParsable with
-    member _.Parse (span: ByteSpan, addr) =
+    member _.Parse(span: ByteSpan, addr) =
       ParsingMain.parse lifter span reader addr :> IInstruction
 
-    member _.Parse (bs: byte[], addr) =
+    member _.Parse(bs: byte[], addr) =
       let span = ReadOnlySpan bs
       ParsingMain.parse lifter span reader addr :> IInstruction
 

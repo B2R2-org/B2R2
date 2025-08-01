@@ -33,7 +33,7 @@ open B2R2.FrontEnd.BinFile.Wasm.Section
 
 let sectionIdToName (secId: SectionId) (off: int) =
   match secId with
-  | SectionId.Custom -> String.Format ("custom_{0:x}", off)
+  | SectionId.Custom -> String.Format("custom_{0:x}", off)
   | SectionId.Type -> "type"
   | SectionId.Import -> "import"
   | SectionId.Function -> "function"
@@ -55,13 +55,12 @@ let private summerizeSections (bs: byte[]) (reader: IBinReader) offset =
       let id, size, len = peekSectionHeader bs reader no
       let headerSize = len + 1
       let no' = no + headerSize + int size
-      let summary = {
-        Id = id
-        Name = sectionIdToName id no
-        Offset = no
-        HeaderSize = uint32 headerSize
-        ContentsSize = size
-      }
+      let summary =
+        { Id = id
+          Name = sectionIdToName id no
+          Offset = no
+          HeaderSize = uint32 headerSize
+          ContentsSize = size }
       loop (summary :: acc) no'
   loop [] offset
 
@@ -195,12 +194,10 @@ let addSecSummToAddrMap (secSumm: SectionSummary) map =
   NoOverlapIntervalMap.addRange startAddr endAddr secSumm map
 
 let addSecSummToSecsInfo (secSumm: SectionSummary) (info: SectionsInfo) =
-  {
-    info with
+  { info with
       SecByAddr = addSecSummToAddrMap secSumm info.SecByAddr
       SecByName = Map.add secSumm.Name secSumm info.SecByName
-      SecArray = Array.append info.SecArray [| secSumm |]
-  }
+      SecArray = Array.append info.SecArray [| secSumm |] }
 
 let private parseWasmModule (bs: byte[]) (reader: IBinReader) offset =
   let version = Header.peekFormatVersion (ReadOnlySpan bs) reader (offset + 4)
@@ -258,27 +255,25 @@ let private parseWasmModule (bs: byte[]) (reader: IBinReader) offset =
       let wm, sm = updateDataSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
     | _ -> wasmModule
-  let wasmModule = {
-    FormatVersion = version
-    CustomSections = []
-    TypeSection = None
-    ImportSection = None
-    FunctionSection = None
-    TableSection = None
-    MemorySection = None
-    GlobalSection = None
-    ExportSection = None
-    StartSection = None
-    ElementSection = None
-    CodeSection = None
-    DataSection = None
-    SectionsInfo = {
-        SecByAddr = NoOverlapIntervalMap.empty
-        SecByName = Map.empty
-        SecArray = Array.empty
-      }
-    IndexMap = Array.empty
-  }
+  let wasmModule =
+    { FormatVersion = version
+      CustomSections = []
+      TypeSection = None
+      ImportSection = None
+      FunctionSection = None
+      TableSection = None
+      MemorySection = None
+      GlobalSection = None
+      ExportSection = None
+      StartSection = None
+      ElementSection = None
+      CodeSection = None
+      DataSection = None
+      SectionsInfo =
+        { SecByAddr = NoOverlapIntervalMap.empty
+          SecByName = Map.empty
+          SecArray = Array.empty }
+      IndexMap = Array.empty }
   parsingLoop wasmModule wasmModule.SectionsInfo secsSummary
 
 let buildFuncIndexMap (wm: Module) =
@@ -287,7 +282,6 @@ let buildFuncIndexMap (wm: Module) =
       Index = idx
       Kind = IndexKind.Function
       ElemOffset = elemOff }
-
   let importedFuncs, impSecOff =
     match wm.ImportSection with
     | Some sec ->

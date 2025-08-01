@@ -72,10 +72,10 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
   let regIdToArgNumX64 hdl rid =
     [ 1 .. 6 ]
     |> List.tryFind (fun nth ->
-      rid = CallingConvention.FunctionArgRegister hdl OS.Linux nth)
+      rid = CallingConvention.FunctionArgRegister(hdl, OS.Linux, nth))
 
   let untouchedArgIndexX64FromIRCFG hdl ctx pp state nth =
-    let argRegId = CallingConvention.FunctionArgRegister hdl OS.Linux nth
+    let argRegId = CallingConvention.FunctionArgRegister(hdl, OS.Linux, nth)
     let varKind = Regular argRegId
     let absV = ctx.Vertices[pp]
     match tryGetValue state absV varKind with
@@ -143,7 +143,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       | _ -> None)
 
   let untouchedArgIndexX64FromSSACFG hdl (ssa: SSACFG) absV state nth =
-    let argReg = CallingConvention.FunctionArgRegister hdl OS.Linux nth
+    let argReg = CallingConvention.FunctionArgRegister(hdl, OS.Linux, nth)
     let name = hdl.RegisterFactory.GetRegString argReg
     let varKind = SSA.RegVar (64<rt>, argReg, name)
     match ssa.FindReachingDef absV varKind with
@@ -267,7 +267,7 @@ module CondAwareNoretAnalysis =
     let esp = Intel.Register.ESP |> Intel.Register.toRegID
     match (st: EvalState).TryGetReg esp with
     | Def esp ->
-      let p = esp.Add (BitVector.OfInt32 (4 * nth) 32<rt>)
+      let p = esp.Add (BitVector.OfInt32(4 * nth, 32<rt>))
       let endian = Endian.Little
       match st.Memory.Read (BitVector.ToUInt64 p) endian 32<rt> with
       | Ok v -> not <| BitVector.IsZero v
@@ -275,7 +275,7 @@ module CondAwareNoretAnalysis =
     | _ -> false
 
   let private hasNonZeroOnX64 hdl st nth =
-    let reg = CallingConvention.FunctionArgRegister hdl OS.Linux nth
+    let reg = CallingConvention.FunctionArgRegister(hdl, OS.Linux, nth)
     match (st: EvalState).TryGetReg reg with
     | Def bv -> not <| bv.IsZero ()
     | _ -> false

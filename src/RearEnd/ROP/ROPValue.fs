@@ -36,21 +36,21 @@ type ROPExpr =
   | Add of ROPExpr * ROPExpr
 
 module ROPExpr =
-  let inline ofUInt32 num = BitVector.OfUInt32 (uint32 num) 32<rt> |> Num
+  let inline ofUInt32 num = BitVector.OfUInt32(uint32 num, 32<rt>) |> Num
 
-  let inline ofUInt64 num = BitVector.OfUInt64 (uint64 num) 64<rt> |> Num
+  let inline ofUInt64 num = BitVector.OfUInt64(uint64 num, 64<rt>) |> Num
 
   let zero32 = BitVector.Zero 32<rt> |> Num
 
   let addNum32 expr (num: uint32) =
     match expr with
-    | Num n -> BitVector.Add (n, BitVector.OfUInt32 num 32<rt>) |> Num
-    | _ -> Add (expr, ofUInt32 num)
+    | Num n -> BitVector.Add(n, BitVector.OfUInt32(num, 32<rt>)) |> Num
+    | _ -> Add(expr, ofUInt32 num)
 
   let subNum32 expr (num: uint32) =
     match expr with
-    | Num n -> BitVector.Sub (n, BitVector.OfUInt32 num 32<rt>) |> Num
-    | _ -> Add (expr, ofUInt32 num)
+    | Num n -> BitVector.Sub(n, BitVector.OfUInt32(num, 32<rt>)) |> Num
+    | _ -> Add(expr, ofUInt32 num)
 
   let rec toString = function
     | Num vec ->

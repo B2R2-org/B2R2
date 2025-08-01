@@ -29,16 +29,16 @@ open B2R2
 open B2R2.BinIR.LowUIR
 
 /// Creates a new number expression from a given uint32 value.
-let inline numU32 n t = BitVector.OfUInt32 n t |> AST.num
+let inline numU32 n t = BitVector.OfUInt32(n, t) |> AST.num
 
 /// Creates a new number expression from a given int32 value.
-let inline numI32 n t = BitVector.OfInt32 n t |> AST.num
+let inline numI32 n t = BitVector.OfInt32(n, t) |> AST.num
 
 /// Creates a new number expression from a given uint64 value.
-let inline numU64 n t = BitVector.OfUInt64 n t |> AST.num
+let inline numU64 n t = BitVector.OfUInt64(n, t) |> AST.num
 
 /// Creates a new number expression from a given int64 value.
-let inline numI64 n t = BitVector.OfInt64 n t |> AST.num
+let inline numI64 n t = BitVector.OfInt64(n, t) |> AST.num
 
 /// Creates a new temporary variable with the given type.
 let inline tmpVar (builder: ILowUIRBuilder) rt =
@@ -72,7 +72,7 @@ let inline regVar (builder: ILowUIRBuilder) reg =
 /// Creates a new pseudo-register variable with the given register enum.
 let inline pseudoRegVar (builder: ILowUIRBuilder) reg pos =
   let rid = LanguagePrimitives.EnumToValue reg |> RegisterID.create
-  builder.GetPseudoRegVar rid pos
+  builder.GetPseudoRegVar(rid, pos)
 
 /// Creates two new pseudo-register variables for a 128-bit register of the
 /// given register enum.
@@ -110,7 +110,7 @@ let inline (<+) (builder: ILowUIRBuilder) stmt =
 /// so this function is only useful if the builder implements the `Stream`
 /// member.
 let inline (<!--) (builder: ILowUIRBuilder) (addr, insLen) =
-  builder.Stream.MarkStart (addr, insLen)
+  builder.Stream.MarkStart(addr, insLen)
 
 /// Marks the end of an instruction by appending an IEMark statement to the
 /// given builder. A builder is defined for each different CPU architecture,

@@ -30,22 +30,22 @@ open B2R2.FrontEnd.BinFile
 
 let peekConstExpr (span: ByteSpan) (reader: IBinReader) offset =
   let evt =
-    reader.ReadUInt8 (span, offset)
+    reader.ReadUInt8(span, offset)
     |> LanguagePrimitives.EnumOfValue
   let offset' = offset + 1
   match evt with
   | ConstExprValueType.I32 ->
-    let v, len = reader.ReadUInt32LEB128 (span, offset')
-    I32 (v), offset' + len + 1
+    let v, len = reader.ReadUInt32LEB128(span, offset')
+    I32(v), offset' + len + 1
   | ConstExprValueType.I64 ->
-    let v, len = reader.ReadUInt64LEB128 (span, offset')
-    I64 (v), offset' + len + 1
+    let v, len = reader.ReadUInt64LEB128(span, offset')
+    I64(v), offset' + len + 1
   | ConstExprValueType.F32 ->
-    let b = span.Slice(offset', 4).ToArray ()
-    let v = BitConverter.ToSingle (b, 0)
-    F32 (v), offset' + 4 + 1
+    let b = span.Slice(offset', 4).ToArray()
+    let v = BitConverter.ToSingle(b, 0)
+    F32(v), offset' + 4 + 1
   | ConstExprValueType.F64 ->
-    let b = span.Slice(offset', 8).ToArray ()
-    let v = BitConverter.ToDouble (b, 0)
-    F64 (v), offset' + 8 + 1
+    let b = span.Slice(offset', 8).ToArray()
+    let v = BitConverter.ToDouble(b, 0)
+    F64(v), offset' + 8 + 1
   | _ -> raise InvalidFileFormatException

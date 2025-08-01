@@ -29,20 +29,20 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 
 /// The `disasm` action.
-type DisasmAction () =
+type DisasmAction() =
   let rec disasm acc (lifter: LiftingUnit) (ptr: BinFilePointer) =
     if ptr.IsValid then
       match lifter.TryParseInstruction ptr with
       | Ok instr ->
         let insLen = int instr.Length
         let insBytes =
-          IBinFile.Slice(lifter.File, ptr.Offset, insLen).ToArray ()
+          IBinFile.Slice(lifter.File, ptr.Offset, insLen).ToArray()
         let ptr = ptr.Advance insLen
-        let acc = ValidInstruction (instr, insBytes) :: acc
+        let acc = ValidInstruction(instr, insBytes) :: acc
         disasm acc lifter ptr
       | Error _ ->
         let badbyte = [| lifter.File.RawBytes[ptr.Offset] |]
-        let acc = BadInstruction (ptr.Addr, badbyte) :: acc
+        let acc = BadInstruction(ptr.Addr, badbyte) :: acc
         let ptr = ptr.Advance 1
         disasm acc lifter ptr
     else
@@ -51,10 +51,10 @@ type DisasmAction () =
   let disasmByteArray _args (o: obj) =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
-    let lifter = hdl.NewLiftingUnit ()
+    let lifter = hdl.NewLiftingUnit()
     let baddr = hdl.File.BaseAddress
     let len = hdl.File.Length
-    let ptr = BinFilePointer (baddr, baddr + uint64 len - 1UL, 0, len - 1)
+    let ptr = BinFilePointer(baddr, baddr + uint64 len - 1UL, 0, len - 1)
     disasm [] lifter ptr
     |> box
 
@@ -65,5 +65,5 @@ type DisasmAction () =
     Take in a binary and linearly disassemble the binary to return a list of
     instructions along with its corresponding bytes.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       { Values = collection.Values |> Array.map (disasmByteArray args) }

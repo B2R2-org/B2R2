@@ -28,7 +28,7 @@ open System
 open B2R2
 
 /// The `slice` action.
-type SliceAction () =
+type SliceAction() =
   let sliceByAddrRange bin a1 a2 =
     let hdl = Binary.Handle bin
     if a1 > a2 then invalidArg (nameof bin) "Invalid address range."
@@ -36,21 +36,22 @@ type SliceAction () =
       || not (hdl.File.IsAddrMappedToFile a2) then
       invalidArg (nameof hdl) "Address out of range."
     else
-      let slice = hdl.File.Slice (a1, int (a2 - a1 + 1UL))
-      let bs = slice.ToArray ()
+      let slice = hdl.File.Slice(a1, int (a2 - a1 + 1UL))
+      let bs = slice.ToArray()
       lazy hdl.MakeNew bs
-      |> Binary.Init (Binary.MakeAnnotation "Sliced from " bin)
+      |> fun newBs ->
+        Binary.Init(Binary.MakeAnnotation("Sliced from ", bin), newBs)
 
   let sliceBySectionName bin secName =
     Terminator.futureFeature ()
 
   let parseTwoArgs (a1: string) (a2: string) =
-    let a1 = Convert.ToUInt64 (a1, 16)
+    let a1 = Convert.ToUInt64(a1, 16)
     let a2 =
       if a2.StartsWith '+' then
         let numBase = if a2.StartsWith "+0x" then 16 else 10
-        a1 + Convert.ToUInt64 (a2[1..], numBase) - 1UL
-      else Convert.ToUInt64 (a2, 16)
+        a1 + Convert.ToUInt64(a2[1..], numBase) - 1UL
+      else Convert.ToUInt64(a2, 16)
     a1, a2
 
   let sliceBin args bin =
@@ -79,5 +80,5 @@ type SliceAction () =
       - <a1> +<n>: returns a slice of the bianry from <a1> to <a1 + n - 1>.
       - <sec_name>: returns a slice of the binary of the section <sec_name>.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       { Values = collection.Values |> Array.map (slice args) }

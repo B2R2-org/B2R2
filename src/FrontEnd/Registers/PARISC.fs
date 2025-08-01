@@ -150,7 +150,7 @@ module Register =
   /// Returns the PARISC register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "flags" -> Register.GR0
     | "r1" -> Register.GR1
     | "rp" -> Register.GR2
@@ -265,7 +265,7 @@ module Register =
   /// Returns the register ID of a PARISC register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+    LanguagePrimitives.EnumToValue(reg) |> RegisterID.create
 
   /// Returns the string representation of a PARISC register.
   [<CompiledName "ToString">]

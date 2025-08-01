@@ -157,100 +157,100 @@ let opCodeToString = function
   | Opcode.XORB -> "xorb"
   | Opcode.XTRCT -> "xtrct"
   | Opcode.InvalidOp -> "(invalid)"
-  | _ -> Terminator.impossible()
+  | _ -> Terminator.impossible ()
 
 let prepDelim delim (builder: IDisasmBuilder) =
   match delim with
   | None -> ()
-  | Some delimiter -> builder.Accumulate AsmWordKind.String delimiter
+  | Some delimiter -> builder.Accumulate(AsmWordKind.String, delimiter)
 
 let immToStr imm (builder: IDisasmBuilder) =
-  builder.Accumulate AsmWordKind.Value (HexString.ofInt32 imm)
+  builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 imm)
 
 let addrToStr shift addr (builder: IDisasmBuilder) =
   let relAddr = int (addr) + shift + 4
   if shift >= 0 then
-    builder.Accumulate AsmWordKind.String ".+"
-    builder.Accumulate AsmWordKind.Value (string shift)
-    builder.Accumulate AsmWordKind.String "     ; "
-    builder.Accumulate AsmWordKind.Value (HexString.ofInt32 relAddr)
+    builder.Accumulate(AsmWordKind.String, ".+")
+    builder.Accumulate(AsmWordKind.Value, string shift)
+    builder.Accumulate(AsmWordKind.String, "     ; ")
+    builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 relAddr)
   else
-    builder.Accumulate AsmWordKind.String "."
-    builder.Accumulate AsmWordKind.Value (string shift)
-    builder.Accumulate AsmWordKind.String "     ; "
-    builder.Accumulate AsmWordKind.Value (HexString.ofInt32 relAddr)
+    builder.Accumulate(AsmWordKind.String, ".")
+    builder.Accumulate(AsmWordKind.Value, string shift)
+    builder.Accumulate(AsmWordKind.String, "     ; ")
+    builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 relAddr)
 
 let memToStr addrMode (builder: IDisasmBuilder) =
   match addrMode with
   | Regdir reg ->
     let reg = Register.toString reg
-    builder.Accumulate AsmWordKind.Variable reg
+    builder.Accumulate(AsmWordKind.Variable, reg)
   | RegIndir reg ->
     let reg = Register.toString reg
-    builder.Accumulate AsmWordKind.String "@"
-    builder.Accumulate AsmWordKind.Variable reg
+    builder.Accumulate(AsmWordKind.String, "@")
+    builder.Accumulate(AsmWordKind.Variable, reg)
   | PostInc reg ->
     let reg = Register.toString reg
-    builder.Accumulate AsmWordKind.String "@"
-    builder.Accumulate AsmWordKind.Variable reg
-    builder.Accumulate AsmWordKind.String "+"
+    builder.Accumulate(AsmWordKind.String, "@")
+    builder.Accumulate(AsmWordKind.Variable, reg)
+    builder.Accumulate(AsmWordKind.String, "+")
   | PreDec reg ->
     let reg = Register.toString reg
-    builder.Accumulate AsmWordKind.String "@"
-    builder.Accumulate AsmWordKind.String "-"
-    builder.Accumulate AsmWordKind.Variable reg
-  | RegDisp (imm, reg) ->
+    builder.Accumulate(AsmWordKind.String, "@")
+    builder.Accumulate(AsmWordKind.String, "-")
+    builder.Accumulate(AsmWordKind.Variable, reg)
+  | RegDisp(imm, reg) ->
     let reg = Register.toString reg
-    builder.Accumulate AsmWordKind.String "@"
-    builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Value (string imm)
-    builder.Accumulate AsmWordKind.String ","
-    builder.Accumulate AsmWordKind.Variable reg
-    builder.Accumulate AsmWordKind.String ")"
-  | IdxIndir (R.R0, reg2) ->
+    builder.Accumulate(AsmWordKind.String, "@")
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Value, string imm)
+    builder.Accumulate(AsmWordKind.String, ",")
+    builder.Accumulate(AsmWordKind.Variable, reg)
+    builder.Accumulate(AsmWordKind.String, ")")
+  | IdxIndir(R.R0, reg2) ->
     let reg1 = Register.toString R.R0
     let reg2 = Register.toString reg2
-    builder.Accumulate AsmWordKind.String "@"
-    builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable reg1
-    builder.Accumulate AsmWordKind.String ","
-    builder.Accumulate AsmWordKind.Variable reg2
-    builder.Accumulate AsmWordKind.String ")"
-  | GbrDisp (imm, R.GBR) ->
+    builder.Accumulate(AsmWordKind.String, "@")
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Variable, reg1)
+    builder.Accumulate(AsmWordKind.String, ",")
+    builder.Accumulate(AsmWordKind.Variable, reg2)
+    builder.Accumulate(AsmWordKind.String, ")")
+  | GbrDisp(imm, R.GBR) ->
     let reg = Register.toString R.GBR
-    builder.Accumulate AsmWordKind.String "@"
-    builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Value (string imm)
-    builder.Accumulate AsmWordKind.String ","
-    builder.Accumulate AsmWordKind.Variable reg
-    builder.Accumulate AsmWordKind.String ")"
-  | IdxGbr (R.R0, R.GBR) ->
+    builder.Accumulate(AsmWordKind.String, "@")
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Value, string imm)
+    builder.Accumulate(AsmWordKind.String, ",")
+    builder.Accumulate(AsmWordKind.Variable, reg)
+    builder.Accumulate(AsmWordKind.String, ")")
+  | IdxGbr(R.R0, R.GBR) ->
     let reg1 = Register.toString R.R0
     let reg2 = Register.toString R.GBR
-    builder.Accumulate AsmWordKind.String "@"
-    builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable reg1
-    builder.Accumulate AsmWordKind.String ","
-    builder.Accumulate AsmWordKind.Variable reg2
-    builder.Accumulate AsmWordKind.String ")"
-  | PCrDisp (imm, R.PC) ->
+    builder.Accumulate(AsmWordKind.String, "@")
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Variable, reg1)
+    builder.Accumulate(AsmWordKind.String, ",")
+    builder.Accumulate(AsmWordKind.Variable, reg2)
+    builder.Accumulate(AsmWordKind.String, ")")
+  | PCrDisp(imm, R.PC) ->
     let reg = Register.toString R.PC
-    builder.Accumulate AsmWordKind.String "@"
-    builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Value (string imm)
-    builder.Accumulate AsmWordKind.String ","
-    builder.Accumulate AsmWordKind.Variable reg
-    builder.Accumulate AsmWordKind.String ")"
+    builder.Accumulate(AsmWordKind.String, "@")
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Value, string imm)
+    builder.Accumulate(AsmWordKind.String, ",")
+    builder.Accumulate(AsmWordKind.Variable, reg)
+    builder.Accumulate(AsmWordKind.String, ")")
   | PCr imm ->
-    builder.Accumulate AsmWordKind.Value (string imm)
+    builder.Accumulate(AsmWordKind.Value, string imm)
   | Imm imm ->
-    builder.Accumulate AsmWordKind.String "#"
-    builder.Accumulate AsmWordKind.Value (string imm)
+    builder.Accumulate(AsmWordKind.String, "#")
+    builder.Accumulate(AsmWordKind.Value, string imm)
   | _ -> raise InvalidOperandException
 
 let buildReg ins reg (builder: IDisasmBuilder) =
   let reg = Register.toString reg
-  builder.Accumulate AsmWordKind.Variable reg
+  builder.Accumulate(AsmWordKind.Variable, reg)
 
 let opToStr ins addr op delim builder =
   match op with
@@ -269,23 +269,24 @@ let buildOp (ins: Instruction) pc builder =
   | NoOperand -> ()
   | OneOperand opr ->
     opToStr ins pc opr (Some " ") builder
-  | TwoOperands (opr1, opr2) ->
+  | TwoOperands(opr1, opr2) ->
     opToStr ins pc opr1 (Some " ") builder
     opToStr ins pc opr2 (Some ",") builder
-  | ThreeOperands (opr1, opr2, opr3) ->
+  | ThreeOperands(opr1, opr2, opr3) ->
     opToStr ins pc opr1 (Some " ") builder
     opToStr ins pc opr2 (Some ",") builder
     opToStr ins pc opr3 (Some ",") builder
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode
-  builder.Accumulate AsmWordKind.Mnemonic str
-  if String.length str = 2 then builder.Accumulate AsmWordKind.String "      "
-  elif String.length str = 3 then builder.Accumulate AsmWordKind.String "     "
-  elif String.length str = 4 then builder.Accumulate AsmWordKind.String "    "
-  elif String.length str = 5 then builder.Accumulate AsmWordKind.String "   "
-  elif String.length str = 6 then builder.Accumulate AsmWordKind.String "  "
-  else builder.Accumulate AsmWordKind.String ""
+  builder.Accumulate(AsmWordKind.Mnemonic, str)
+  match String.length str with
+  | 2 -> builder.Accumulate(AsmWordKind.String, "      ")
+  | 3 -> builder.Accumulate(AsmWordKind.String, "     ")
+  | 4 -> builder.Accumulate(AsmWordKind.String, "    ")
+  | 5 -> builder.Accumulate(AsmWordKind.String, "   ")
+  | 6 -> builder.Accumulate(AsmWordKind.String, "  ")
+  | _ -> builder.Accumulate(AsmWordKind.String, "")
 
 let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   let pc = ins.Address

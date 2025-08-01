@@ -29,56 +29,56 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.Collections
 
 [<TestClass>]
-type SortedListTests () =
+type SortedListTests() =
 
-  let lst = SortedList<int, int> ()
+  let lst = SortedList<int, int>()
   do lst[100] <- 1
      lst[200] <- 2
      lst[300] <- 3
      lst[400] <- 4
 
   [<TestMethod>]
-  member _.``GLB`` () =
+  member _.``GLB``() =
     let actual = SortedList.findGreatestLowerBoundKey 250 lst |> Option.get
-    Assert.AreEqual<int> (200, actual)
+    Assert.AreEqual<int>(200, actual)
     let actual = SortedList.findGreatestLowerBoundKey 101 lst |> Option.get
-    Assert.AreEqual<int> (100, actual)
+    Assert.AreEqual<int>(100, actual)
     let actual = SortedList.findGreatestLowerBoundKey 450 lst |> Option.get
-    Assert.AreEqual<int> (400, actual)
+    Assert.AreEqual<int>(400, actual)
     let actual = SortedList.findGreatestLowerBoundKey 200 lst |> Option.get
-    Assert.AreEqual<int> (100, actual)
+    Assert.AreEqual<int>(100, actual)
 
   [<TestMethod>]
-  member _.``GUB 2`` () =
-    let lst = SortedList<uint64, int> ()
+  member _.``GUB 2``() =
+    let lst = SortedList<uint64, int>()
     lst[0x63a0UL] <- 1
     lst[0x6b04UL] <- 2
     let actual = SortedList.findGreatestLowerBoundKey 0x6b04UL lst |> Option.get
-    Assert.AreEqual<uint64> (0x63a0UL, actual)
+    Assert.AreEqual<uint64>(0x63a0UL, actual)
 
   [<TestMethod>]
-  member _.``LUB`` () =
+  member _.``LUB``() =
     let actual = SortedList.findLeastUpperBoundKey 250 lst |> Option.get
-    Assert.AreEqual<int> (300, actual)
+    Assert.AreEqual<int>(300, actual)
     let actual = SortedList.findLeastUpperBoundKey 350 lst |> Option.get
-    Assert.AreEqual<int> (400, actual)
+    Assert.AreEqual<int>(400, actual)
     let actual = SortedList.findLeastUpperBoundKey 99 lst |> Option.get
-    Assert.AreEqual<int> (100, actual)
+    Assert.AreEqual<int>(100, actual)
     let actual = SortedList.findLeastUpperBoundKey 100 lst |> Option.get
-    Assert.AreEqual<int> (200, actual)
+    Assert.AreEqual<int>(200, actual)
 
   [<TestMethod>]
-  member _.``LUB 2`` () =
-    let lst = SortedList<uint64, int> ()
+  member _.``LUB 2``() =
+    let lst = SortedList<uint64, int>()
     lst[0x64c0UL] <- 1
     lst[0x64ecUL] <- 2
     lst[0x6c24UL] <- 3
     lst[0x6cf0UL] <- 4
     let actual = SortedList.findLeastUpperBoundKey 0x64ecUL lst |> Option.get
-    Assert.AreEqual<uint64> (0x6c24UL, actual)
+    Assert.AreEqual<uint64>(0x6c24UL, actual)
 
   [<TestMethod>]
-  member _.``Boundary Conditions`` () =
+  member _.``Boundary Conditions``() =
     Assert.IsTrue
       <| (SortedList.findGreatestLowerBoundKey 0 lst |> Option.isNone)
     Assert.IsTrue

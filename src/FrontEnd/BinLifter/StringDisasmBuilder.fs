@@ -29,23 +29,23 @@ open B2R2
 
 /// Represents a disassembly builder that simply accumulates strings without any
 /// type annotation.
-type StringDisasmBuilder (showAddr, symbolReader: INameReadable, wordSz) =
-  let sb = StringBuilder ()
+type StringDisasmBuilder(showAddr, symbolReader: INameReadable, wordSz) =
+  let sb = StringBuilder()
   let hasSymbolReader = isNull symbolReader |> not
   let mutable showSymb = hasSymbolReader
   let mutable showAddr = showAddr
 
   interface IDisasmBuilder with
-    member _.WordSize with get () = wordSz
+    member _.WordSize with get() = wordSz
 
-    member _.ShowAddress with get () = showAddr and set v = showAddr <- v
+    member _.ShowAddress with get() = showAddr and set v = showAddr <- v
 
-    member _.ShowSymbol with get () = showSymb and set v = showSymb <- v
+    member _.ShowSymbol with get() = showSymb and set v = showSymb <- v
 
-    member _.Accumulate _ (value: string) =
+    member _.Accumulate(_, value: string) =
       sb.Append value |> ignore
 
-    member _.AccumulateSymbol (addr, prefix, suffix, noSymbolMapper) =
+    member _.AccumulateSymbol(addr, prefix, suffix, noSymbolMapper) =
       if hasSymbolReader && showSymb then
         match symbolReader.TryFindName addr with
         | Ok name when name.Length > 0 ->
@@ -59,18 +59,18 @@ type StringDisasmBuilder (showAddr, symbolReader: INameReadable, wordSz) =
 
     member _.AccumulateAddrMarker addr =
       if showAddr then
-        sb.Append (Addr.toString wordSz addr) |> ignore
-        sb.Append (": ") |> ignore
+        sb.Append(Addr.toString wordSz addr) |> ignore
+        sb.Append(": ") |> ignore
       else ()
 
-    member _.ToString () =
-      let s = sb.ToString ()
-      sb.Clear () |> ignore
+    member _.ToString() =
+      let s = sb.ToString()
+      sb.Clear() |> ignore
       s
 
-    member this.ToAsmWords () =
+    member this.ToAsmWords() =
       [| { AsmWordKind = AsmWordKind.String
-           AsmWordValue = (this :> IDisasmBuilder).ToString () } |]
+           AsmWordValue = (this :> IDisasmBuilder).ToString() } |]
 
-  override this.ToString () =
-    (this :> IDisasmBuilder).ToString ()
+  override this.ToString() =
+    (this :> IDisasmBuilder).ToString()

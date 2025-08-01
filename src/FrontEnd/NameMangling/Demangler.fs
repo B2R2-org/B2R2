@@ -38,9 +38,9 @@ type Demangler =
   /// Creates a demangler instance based on the detected mangling scheme.
   static member Create str =
     if MSDemangler.IsWellFormed str then
-      MSDemangler () :> IDemanglable
+      MSDemangler() :> IDemanglable
     elif ItaniumDemangler.IsWellFormed str then
-      ItaniumDemangler () :> IDemanglable
+      ItaniumDemangler() :> IDemanglable
     else
       (* Simply return the same string. *)
       { new IDemanglable with member _.Demangle s = Ok s }
@@ -49,7 +49,7 @@ type Demangler =
   /// mangling scheme is unknown, it returns the original string.
   static member Demangle str =
     if MSDemangler.IsWellFormed str then
-      (MSDemangler () :> IDemanglable).Demangle str
+      (MSDemangler() :> IDemanglable).Demangle str
     elif ItaniumDemangler.IsWellFormed str then
-      (ItaniumDemangler () :> IDemanglable).Demangle str
+      (ItaniumDemangler() :> IDemanglable).Demangle str
     else Ok str

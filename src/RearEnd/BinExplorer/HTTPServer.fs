@@ -44,51 +44,47 @@ type CFGType =
   | CallCFG = 3
 
 [<DataContract>]
-type JsonFuncInfo = {
-  [<field: DataMember(Name = "id")>]
-  FuncID: string
-  [<field: DataMember(Name = "name")>]
-  FuncName: string
-}
+type JsonFuncInfo =
+  { [<field: DataMember(Name = "id")>]
+    FuncID: string
+    [<field: DataMember(Name = "name")>]
+    FuncName: string }
 
 [<DataContract>]
-type DataColoredHexAscii = {
-  [<field: DataMember(Name = "color")>]
-  Color: string
-  [<field: DataMember(Name = "hex")>]
-  Hex: string
-  [<field: DataMember(Name = "ascii")>]
-  Ascii: string
-}
+type DataColoredHexAscii =
+  { [<field: DataMember(Name = "color")>]
+    Color: string
+    [<field: DataMember(Name = "hex")>]
+    Hex: string
+    [<field: DataMember(Name = "ascii")>]
+    Ascii: string }
 
 [<DataContract>]
-type JsonSegInfo = {
-  [<field: DataMember(Name = "addr")>]
-  SegAddr: Addr
-  [<field: DataMember(Name = "bytes")>]
-  SegBytes: byte []
-  [<field: DataMember(Name = "coloredHexAscii")>]
-  SegColoredHexAscii: DataColoredHexAscii []
-}
+type JsonSegInfo =
+  { [<field: DataMember(Name = "addr")>]
+    SegAddr: Addr
+    [<field: DataMember(Name = "bytes")>]
+    SegBytes: byte []
+    [<field: DataMember(Name = "coloredHexAscii")>]
+    SegColoredHexAscii: DataColoredHexAscii [] }
 
 [<DataContract>]
-type JsonVarPoint = {
-  [<field: DataMember(Name = "addr")>]
-  VarAddr: Addr
-  [<field: DataMember(Name = "name")>]
-  VarNames: string []
-}
+type JsonVarPoint =
+  { [<field: DataMember(Name = "addr")>]
+    VarAddr: Addr
+    [<field: DataMember(Name = "name")>]
+    VarNames: string [] }
 
 let rootDir =
-  let asm = Reflection.Assembly.GetExecutingAssembly ()
+  let asm = Reflection.Assembly.GetExecutingAssembly()
   let outDir = IO.Path.GetDirectoryName asm.Location
-  IO.Path.Combine (outDir, "WebUI")
+  IO.Path.Combine(outDir, "WebUI")
 
 let listener host handler =
-  let hl = new HttpListener ()
+  let hl = new HttpListener()
   hl.Prefixes.Add host
   hl.Start()
-  let task = Async.FromBeginEnd (hl.BeginGetContext, hl.EndGetContext)
+  let task = Async.FromBeginEnd(hl.BeginGetContext, hl.EndGetContext)
   let rec loop () = async {
     let! context = task
     handler context.Request context.Response
@@ -99,17 +95,17 @@ let listener host handler =
 let defaultEnc = Text.Encoding.UTF8
 
 let json<'T> (obj: 'T) =
-  use ms = new IO.MemoryStream ()
-  (DataContractJsonSerializer (typeof<'T>)).WriteObject (ms, obj)
-  Text.Encoding.Default.GetString (ms.ToArray ())
+  use ms = new IO.MemoryStream()
+  (DataContractJsonSerializer(typeof<'T>)).WriteObject(ms, obj)
+  Text.Encoding.Default.GetString(ms.ToArray())
 
 let jsonParser<'T> (jsonString: string): 'T =
-  use ms = new IO.MemoryStream (Text.Encoding.Default.GetBytes (jsonString))
-  let obj = (DataContractJsonSerializer (typeof<'T>)).ReadObject (ms)
+  use ms = new IO.MemoryStream(Text.Encoding.Default.GetBytes(jsonString))
+  let obj = (DataContractJsonSerializer(typeof<'T>)).ReadObject(ms)
   obj :?> 'T
 
 let readIfExists path =
-  if IO.File.Exists path then Some (IO.File.ReadAllBytes (path))
+  if IO.File.Exists path then Some(IO.File.ReadAllBytes(path))
   else None
 
 let getContentType (path: string) =
@@ -126,17 +122,17 @@ let answer (req: HttpListenerRequest) (resp: HttpListenerResponse) = function
   | Some bytes ->
     resp.ContentType <- getContentType req.Url.LocalPath
     resp.ContentEncoding <- defaultEnc
-    resp.OutputStream.Write (bytes, 0, bytes.Length)
-    resp.OutputStream.Close ()
+    resp.OutputStream.Write(bytes, 0, bytes.Length)
+    resp.OutputStream.Close()
   | None ->
     resp.StatusCode <- 404
-    resp.Close ()
+    resp.Close()
 
 let handleBinInfo req resp arbiter =
   let brew = Protocol.getBinaryBrew arbiter
   let txt = brew.BinHandle.File.Path
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
-  Some (defaultEnc.GetBytes (txt)) |> answer req resp
+  Some(defaultEnc.GetBytes(txt)) |> answer req resp
 
 let cfgToJSON cfgType (brew: BinaryBrew<_, _>) (g: LowUIRCFG) =
   if isNull g then "{}"
@@ -147,8 +143,8 @@ let cfgToJSON cfgType (brew: BinaryBrew<_, _>) (g: LowUIRCFG) =
       Visualizer.getJSONFromGraph g roots
     | CFGType.DisasmCFG ->
       let file = brew.BinHandle.File
-      let disasmBuilder = AsmWordDisasmBuilder (true, file, file.ISA.WordSize)
-      let g = DisasmCFG (disasmBuilder, g)
+      let disasmBuilder = AsmWordDisasmBuilder(true, file, file.ISA.WordSize)
+      let g = DisasmCFG(disasmBuilder, g)
       let roots = g.Roots |> Seq.toList
       Visualizer.getJSONFromGraph g roots
     | CFGType.SSACFG ->
@@ -162,7 +158,7 @@ let handleRegularCFG req resp funcID (brew: BinaryBrew<_, _>) cfgType =
   let func = brew.Functions.FindByID funcID
   try
     let s = cfgToJSON cfgType brew func.CFG
-    Some (defaultEnc.GetBytes s) |> answer req resp
+    Some(defaultEnc.GetBytes s) |> answer req resp
   with e ->
 #if DEBUG
     printfn "%A" e; failwith "[FATAL]: Failed to generate CFG"
@@ -177,7 +173,7 @@ let handleCFG req resp arbiter cfgType funcID =
     try
       let g, roots = CallGraph.create BinGraph.Imperative brew
       let s = Visualizer.getJSONFromGraph g roots
-      Some (defaultEnc.GetBytes s) |> answer req resp
+      Some(defaultEnc.GetBytes s) |> answer req resp
     with e ->
 #if DEBUG
       printfn "%A" e; failwith "[FATAL]: Failed to generate CG"
@@ -193,15 +189,15 @@ let handleFunctions req resp arbiter =
     |> Seq.sortBy (fun fn -> fn.EntryPoint)
     |> Seq.map (fun fn -> { FuncID = fn.ID; FuncName = fn.Name })
     |> Seq.toArray
-  Some (json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)
+  Some(json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)
   |> answer req resp
 
 let handleHexview req resp arbiter =
   let brew = Protocol.getBinaryBrew arbiter
-  brew.BinHandle.File.GetVMMappedRegions ()
+  brew.BinHandle.File.GetVMMappedRegions()
   |> Seq.map (fun reg ->
     let size = reg.Max - reg.Min + 1UL
-    let bs = brew.BinHandle.ReadBytes (reg.Min, int size)
+    let bs = brew.BinHandle.ReadBytes(reg.Min, int size)
     let coloredHex = bs |> Array.map ColoredSegment.hexOfByte
     let coloredAscii = bs |> Array.map ColoredSegment.asciiOfByte
     let cha = (* DataColoredHexAscii *)
@@ -220,7 +216,7 @@ let private myprinter _ acc output =
 
 let handleCommand req resp arbiter cmdMap (args: string) =
   let result = CLI.handle cmdMap arbiter args "" myprinter
-  Some (json<string> result |> defaultEnc.GetBytes) |> answer req resp
+  Some(json<string> result |> defaultEnc.GetBytes) |> answer req resp
 
 let computeConnectedVars chain v =
   match Map.tryFind v chain.UseDefChain with
@@ -243,7 +239,7 @@ let getVarNames (hdl: BinHandle) = function
 
 let handleDataflow req resp arbiter (args: string) =
   let brew = Protocol.getBinaryBrew arbiter
-  let args = args.Split ([| ',' |])
+  let args = args.Split([| ',' |])
   let entry = args[0] |> uint64
   let addr = args[1] |> uint64
   let tag = args[2] (* either variable or value. *)
@@ -253,7 +249,7 @@ let handleDataflow req resp arbiter (args: string) =
     try
       let cfg = brew.Functions[entry].CFG
       let chain = DataFlowChain.init cfg true
-      let v = { ProgramPoint = ProgramPoint (addr, 0); VarKind = Regular var }
+      let v = { ProgramPoint = ProgramPoint(addr, 0); VarKind = Regular var }
       computeConnectedVars chain v
       |> Set.toArray
       |> Array.map (fun vp ->
@@ -285,16 +281,16 @@ let handleAJAX req resp arbiter cmdMap query args =
   | _ -> answer req resp None
 
 let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter m =
-  match req.Url.LocalPath.Remove (0, 1) with (* Remove the first '/' *)
+  match req.Url.LocalPath.Remove(0, 1) with (* Remove the first '/' *)
   | "ajax/" ->
     handleAJAX req resp arbiter m req.QueryString["q"] req.QueryString["args"]
   | "" ->
-    IO.Path.Combine (rootDir, "index.html") |> readIfExists |> answer req resp
+    IO.Path.Combine(rootDir, "index.html") |> readIfExists |> answer req resp
   | path ->
-    IO.Path.Combine (rootDir, path) |> readIfExists |> answer req resp
+    IO.Path.Combine(rootDir, path) |> readIfExists |> answer req resp
 
 let startServer arbiter ip port verbose =
-  let host = "http://" + ip + ":" + port.ToString () + "/"
+  let host = "http://" + ip + ":" + port.ToString() + "/"
   let cmdMap = CmdSpec.speclist |> CmdMap.build
   let hdl (req: HttpListenerRequest) (resp: HttpListenerResponse) =
     try handle req resp arbiter cmdMap

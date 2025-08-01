@@ -29,16 +29,15 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents a basic toolbox for parsing ELF, which is used by other parsing
 /// functions.
-type internal Toolbox = {
-  Bytes: byte[]
-  Reader: IBinReader
-  BaseAddress: Addr
-  Header: Header
-  ISA: ISA
-}
+type internal Toolbox =
+  { Bytes: byte[]
+    Reader: IBinReader
+    BaseAddress: Addr
+    Header: Header
+    ISA: ISA }
 with
   /// Initializes a toolbox for ELF files.
-  static member Init bytes (struct (hdr, reader, baseAddr, isa)) =
+  static member Init(bytes, struct (hdr, reader, baseAddr, isa)) =
     { Bytes = bytes
       Reader = reader
       BaseAddress = baseAddr

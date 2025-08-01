@@ -32,16 +32,15 @@ open B2R2.FrontEnd.BinLifter
 type ExportedSymbols = ExportedSymbol[]
 
 /// Represents an exported symbol.
-and ExportedSymbol = {
-  /// Symbol name.
-  ExportSymName: string
-  /// Exported symbol address.
-  ExportAddr: Addr
-}
+and ExportedSymbol =
+  { /// Symbol name.
+    ExportSymName: string
+    /// Exported symbol address.
+    ExportAddr: Addr }
 
 module internal ExportedSymbols =
   let private chooseDyLdInfo = function
-    | DyLdInfo (_, _, c) -> Some c
+    | DyLdInfo(_, _, c) -> Some c
     | _ -> None
 
   let rec private readStr (span: ByteSpan) pos acc =
@@ -56,13 +55,13 @@ module internal ExportedSymbols =
   let rec private parseTrie toolBox (span: ByteSpan) offset str acc =
     let reader = toolBox.Reader
     if span[offset] = 0uy then (* non-terminal *)
-      let nChilds, len = reader.ReadUInt64LEB128 (span, offset + 1)
+      let nChilds, len = reader.ReadUInt64LEB128(span, offset + 1)
       parseChildren toolBox span (offset + 1 + len) nChilds str acc
     else
-      let _, shift = reader.ReadUInt64LEB128 (span, offset)
+      let _, shift = reader.ReadUInt64LEB128(span, offset)
       let flagOffset = offset + shift
       let _flag = span[flagOffset]
-      let symbOffset, _ = reader.ReadUInt64LEB128 (span, flagOffset + 1)
+      let symbOffset, _ = reader.ReadUInt64LEB128(span, flagOffset + 1)
       buildExportEntry str (symbOffset + toolBox.BaseAddress) :: acc
 
   and private parseChildren toolBox span offset nChilds str acc =
@@ -70,7 +69,7 @@ module internal ExportedSymbols =
     else
       let pref, nextOffset = readStr span offset []
       let reader = toolBox.Reader
-      let nextNode, len = reader.ReadUInt64LEB128 (span, nextOffset)
+      let nextNode, len = reader.ReadUInt64LEB128(span, nextOffset)
       let acc = parseTrie toolBox span (int nextNode) (str + pref) acc
       parseChildren toolBox span (nextOffset + len) (nChilds - 1UL) str acc
 
@@ -83,7 +82,7 @@ module internal ExportedSymbols =
     | None -> [||]
     | Some info ->
       let exportSize = int info.ExportSize
-      let exportSpan = ReadOnlySpan (toolBox.Bytes, info.ExportOff, exportSize)
+      let exportSpan = ReadOnlySpan(toolBox.Bytes, info.ExportOff, exportSize)
       parseExportTrieHead toolBox exportSpan
       |> List.toArray
 

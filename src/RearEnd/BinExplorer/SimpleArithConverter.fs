@@ -75,7 +75,7 @@ let fillWithZeros (binaryString: string) (size: NumType) =
   let numberOfBits = NumType.getBitLength size
   match numberOfBits with
   | n when n <= 32 -> addZeros binaryString (32 - binaryString.Length + 2)
-  | n when n > 0 ->  addZeros binaryString (n - binaryString.Length + 2)
+  | n when n > 0 -> addZeros binaryString (n - binaryString.Length + 2)
   | _ -> "Wrong Input"
 
 /// Negative decimal to binary.

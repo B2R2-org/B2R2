@@ -36,6 +36,6 @@ let stmtToString = Stmt.ToString
 let stmtsToString stmts =
   let sb = StringBuilder()
   Array.iter (fun stmt ->
-    Stmt.AppendToString stmt sb
-    sb.Append (Environment.NewLine) |> ignore) stmts
-  sb.ToString ()
+    Stmt.AppendToString(stmt, sb)
+    sb.Append(Environment.NewLine) |> ignore) stmts
+  sb.ToString()

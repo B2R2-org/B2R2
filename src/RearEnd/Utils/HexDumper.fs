@@ -35,19 +35,19 @@ module HexDumper =
     match idx with
     | 0 -> s
     | 8 | 16 | 24 -> "  " + s
-    | _ ->  " " + s
+    | _ -> " " + s
 
   let internal colorHexDumper addrStr chuckSize (bytes: byte[]) =
     let padding =
       padSpace chuckSize bytes.Length
-      |> Array.map (fun pad -> ColoredSegment (NoColor, pad))
+      |> Array.map (fun pad -> ColoredSegment(NoColor, pad))
     let coloredHex =
       Array.append (bytes |> Array.map ColoredSegment.hexOfByte) padding
       |> Array.mapi (fun idx (color, hex) -> color, addSpace idx hex)
     let coloredAscii = bytes |> Array.map ColoredSegment.asciiOfByte
-    [| [| ColoredSegment (NoColor, addrStr + ": ") |]
+    [| [| ColoredSegment(NoColor, addrStr + ": ") |]
        coloredHex
-       [| ColoredSegment (NoColor, " | ") |]
+       [| ColoredSegment(NoColor, " | ") |]
        coloredAscii |]
     |> Array.concat
     |> List.ofArray
@@ -57,7 +57,7 @@ module HexDumper =
   let internal regularHexDumper addrStr chuckSize (bytes: byte[]) =
     let padding = padSpace chuckSize (bytes.Length)
     let hex =
-      Array.append (bytes |> Array.map (fun b -> b.ToString ("X2"))) padding
+      Array.append (bytes |> Array.map (fun b -> b.ToString("X2"))) padding
       |> Array.mapi addSpace
       |> Array.fold (+) ""
     let ascii =

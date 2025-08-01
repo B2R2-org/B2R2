@@ -36,7 +36,7 @@ let entryPointOf wm =
         |> Array.find (fun ii ->
           ii.Kind = IndexKind.Function
           && ii.Index = fi)
-      Some (uint64 ii.ElemOffset)
+      Some(uint64 ii.ElemOffset)
     | None -> None
   | None -> None
 

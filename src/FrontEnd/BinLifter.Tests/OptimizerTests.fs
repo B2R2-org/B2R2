@@ -32,8 +32,8 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 
 [<TestClass>]
-type OptimizerTests () =
-  let num v = BitVector.OfUInt32 v 32<rt> |> AST.num
+type OptimizerTests() =
+  let num v = BitVector.OfUInt32(v, 32<rt>) |> AST.num
 
   let t32 id = AST.tmpvar 32<rt> id
 
@@ -51,10 +51,10 @@ type OptimizerTests () =
 
   let test optimizeFn (expectedStmts, givenStmts) =
     let optimizedStmts = optimizeFn <| wrapStmts givenStmts
-    CollectionAssert.AreEqual (wrapStmts expectedStmts, optimizedStmts)
+    CollectionAssert.AreEqual(wrapStmts expectedStmts, optimizedStmts)
 
   [<TestMethod>]
-  member _.``[ConstantFolding] Binary operator replacement test`` () =
+  member _.``[ConstantFolding] Binary operator replacement test``() =
     ([ varA := num 30u
        varB := num 3u
        varC := num 12u ],
@@ -64,7 +64,7 @@ type OptimizerTests () =
     |> test ConstantFolding.optimize
 
   [<TestMethod>]
-  member _.``[ConstantFolding] ite replacement test`` () =
+  member _.``[ConstantFolding] ite replacement test``() =
     ([ varC := num 12u
        varC := num 2u ],
      [ varC := num 12u
@@ -72,7 +72,7 @@ type OptimizerTests () =
     |> test ConstantFolding.optimize
 
   [<TestMethod>]
-  member _.``[ConstantFolding] Tempvar replacement test`` () =
+  member _.``[ConstantFolding] Tempvar replacement test``() =
     ([ t32 1 := num 6u
        varA := varA .- num 4u
        AST.loadLE 32<rt> varA := varB
@@ -86,8 +86,8 @@ type OptimizerTests () =
     |> test ConstantFolding.optimize
 
   [<TestMethod>]
-  member _.``[ConstantFolding] Condition jump replacement test`` () =
-    let stream = LowUIRStream ()
+  member _.``[ConstantFolding] Condition jump replacement test``() =
+    let stream = LowUIRStream()
     let lblTarget = stream.NewLabel "Target"
     let lblImpossible = stream.NewLabel "Impossible"
     let lblEnd = stream.NewLabel "End"
@@ -109,7 +109,7 @@ type OptimizerTests () =
     |> test ConstantFolding.optimize
 
   [<TestMethod>]
-  member _.``[DeadCodeElimination] Dead code removal test (1)`` () =
+  member _.``[DeadCodeElimination] Dead code removal test (1)``() =
     ([ t32 1 := num 1u
        t32 2 := num 2u
        varA := t32 1 .+ t32 2 ],
@@ -120,7 +120,7 @@ type OptimizerTests () =
     |> test DeadCodeElimination.optimize
 
   [<TestMethod>]
-  member _.``[DeadCodeElimination] Dead code removal test (2)`` () =
+  member _.``[DeadCodeElimination] Dead code removal test (2)``() =
     ([ varB := num 3u
        varA := t32 1 .+ t32 2 ],
      [ varB := num 1u

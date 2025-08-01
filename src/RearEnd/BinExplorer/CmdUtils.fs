@@ -28,8 +28,8 @@ open System
 open B2R2.RearEnd.Utils
 
 /// The console printer.
-let internal out = ConsolePrinter () :> Printer
+let internal out = ConsolePrinter() :> Printer
 
 let convHexString (str: string) =
-  try Convert.ToUInt64 (str, 16) |> Some
+  try Convert.ToUInt64(str, 16) |> Some
   with _ -> None

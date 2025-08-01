@@ -50,7 +50,7 @@ type FunctionSummarizer<'FnCtx,
       let sp = hdl.RegisterFactory.GetRegVar sp
       let retAddrSize = RegType.toByteWidth rt |> int64
       let adj = int64 unwindingAmount
-      let shiftAmount = BitVector.OfInt64 (retAddrSize + adj) rt
+      let shiftAmount = BitVector.OfInt64(retAddrSize + adj, rt)
       let e = AST.binop BinOpType.ADD sp (AST.num shiftAmount)
       [| (sp, e) |]
     | None -> [||]
@@ -135,7 +135,7 @@ type FunctionSummarizer<'FnCtx,
       computeLiveDefs ctx unwindingAmount
       |> Array.map (fun (dst, src) -> AST.put dst src)
     let regType = ctx.BinHandle.File.ISA.WordSize |> WordSize.toRegType
-    let fallThrough = AST.num <| BitVector.OfUInt64 returnAddress regType
+    let fallThrough = AST.num <| BitVector.OfUInt64(returnAddress, regType)
     let jmpToFallThrough = AST.interjmp fallThrough InterJmpKind.Base
     Array.append stmts [| jmpToFallThrough |]
 
@@ -151,7 +151,7 @@ type FunctionSummarizer<'FnCtx,
       let returnAddress = callIns.Address + uint64 callIns.Length
       let wordSize = hdl.File.ISA.WordSize
       let regType = wordSize |> WordSize.toRegType
-      let fallThrough = AST.num <| BitVector.OfUInt64 returnAddress regType
+      let fallThrough = AST.num <| BitVector.OfUInt64(returnAddress, regType)
       let jmpToFallThrough = AST.interjmp fallThrough InterJmpKind.Base
       let stmts =
         stackPointerDef hdl 0

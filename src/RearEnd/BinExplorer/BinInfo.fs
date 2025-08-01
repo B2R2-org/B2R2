@@ -27,8 +27,8 @@ namespace B2R2.RearEnd.BinExplorer
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.Utils
 
-type CmdBinInfo () =
-  inherit Cmd ()
+type CmdBinInfo() =
+  inherit Cmd()
 
   override _.CmdName = "bininfo"
 
@@ -44,7 +44,7 @@ type CmdBinInfo () =
 
   override _.SubCommands = []
 
-  override _.CallBack _ brew _args =
+  override _.CallBack(_, brew, _args) =
     let file = brew.BinHandle.File
     let isa = brew.BinHandle.File.ISA
     let fmt = brew.BinHandle.File.Format |> FileFormat.toString
@@ -52,7 +52,7 @@ type CmdBinInfo () =
     let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
     [| "[*] Binary information:\n"
        sprintf "- Executable Path: %s" file.Path
-       sprintf "- Machine: %s" (isa.ToString ())
+       sprintf "- Machine: %s" (isa.ToString())
        sprintf "- File Format: %s" fmt
        sprintf "- Entry Point Address: %s" entry
        sprintf "- NX bit: %s" nx |]

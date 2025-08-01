@@ -51,5 +51,5 @@ type IBinFile =
 
   /// Slices the given binary file into a span of bytes of the specified length
   /// starting from the specified offset.
-  static member Slice (file: IBinFile, offset, len) =
-    (ReadOnlySpan file.RawBytes).Slice (offset, len)
+  static member Slice(file: IBinFile, offset, len) =
+    ReadOnlySpan(file.RawBytes).Slice(offset, len)

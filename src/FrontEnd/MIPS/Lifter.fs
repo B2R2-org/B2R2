@@ -34,7 +34,7 @@ open B2R2.FrontEnd.MIPS
 
 let inline (:=) dst src =
   match dst with
-  | Var (_, rid, _, _) when rid = Register.toRegID Register.R0 ->
+  | Var(_, rid, _, _) when rid = Register.toRegID Register.R0 ->
     dst := dst (* Prevent setting r0. Our optimizer will remove this anyways. *)
   | _ ->
     dst := src
@@ -43,15 +43,15 @@ let transOprToExpr (ins: Instruction) bld = function
   | OpReg reg -> regVar bld reg
   | OpImm imm
   | OpShiftAmount imm -> numU64 imm bld.RegType
-  | OpMem (b, Imm o, sz) ->
+  | OpMem(b, Imm o, sz) ->
     if bld.Endianness = Endian.Little then
       AST.loadLE sz (regVar bld b .+ numI64 o bld.RegType)
     else AST.loadBE sz (regVar bld b .+ numI64 o bld.RegType)
-  | OpMem (b, Reg o, sz) ->
+  | OpMem(b, Reg o, sz) ->
     if bld.Endianness = Endian.Little then
       AST.loadLE sz (regVar bld b .+ regVar bld o)
     else AST.loadBE sz (regVar bld b .+ regVar bld o)
-  | OpAddr (Relative o) ->
+  | OpAddr(Relative o) ->
     numI64 (int64 ins.Address + o) bld.RegType
   | GoToLabel _ -> raise InvalidOperandException
 
@@ -127,8 +127,8 @@ let transOprToImmToInt = function
   | _ -> raise InvalidOperandException
 
 let transOprToBaseOffset bld = function
-  | OpMem (b, Imm o, _) -> regVar bld b .+ numI64 o bld.RegType
-  | OpMem (b, Reg o, _) -> regVar bld b .+ regVar bld o
+  | OpMem(b, Imm o, _) -> regVar bld b .+ numI64 o bld.RegType
+  | OpMem(b, Reg o, _) -> regVar bld b .+ regVar bld o
   | _ -> raise InvalidOperandException
 
 let getOneOpr (ins: Instruction) =
@@ -138,17 +138,17 @@ let getOneOpr (ins: Instruction) =
 
 let getTwoOprs (ins: Instruction) =
   match ins.Operands with
-  | TwoOperands (o1, o2) -> o1, o2
+  | TwoOperands(o1, o2) -> o1, o2
   | _ -> raise InvalidOperandException
 
 let getThreeOprs (ins: Instruction) =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> o1, o2, o3
+  | ThreeOperands(o1, o2, o3) -> o1, o2, o3
   | _ -> raise InvalidOperandException
 
 let getFourOprs (ins: Instruction) =
   match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) -> o1, o2, o3, o4
+  | FourOperands(o1, o2, o3, o4) -> o1, o2, o3, o4
   | _ -> raise InvalidOperandException
 
 let transOneOpr ins bld opr =
@@ -691,7 +691,7 @@ let setFPConditionCode bld cc tf =
 
 let private getCCondOpr (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands (fs, ft) ->
+  | TwoOperands(fs, ft) ->
     let sameReg = fs = ft
     match ins.Fmt with
     | Some Fmt.PS | Some Fmt.D ->
@@ -700,7 +700,7 @@ let private getCCondOpr (ins: Instruction) bld =
     | _ ->
       let fs, ft = transTwoFP bld (fs, ft)
       32<rt>, 0, fs, ft, sameReg
-  | ThreeOperands (cc, fs, ft) ->
+  | ThreeOperands(cc, fs, ft) ->
     let sameReg = fs = ft
     match ins.Fmt with
     | Some Fmt.PS | Some Fmt.D ->
@@ -1299,7 +1299,7 @@ let getJALROprs (ins: Instruction) bld =
   match ins.Operands with
   | OneOperand opr ->
     struct (regVar bld R.R31, transOprToExpr ins bld opr)
-  | TwoOperands (o1, o2) ->
+  | TwoOperands(o1, o2) ->
     struct (transOprToExpr ins bld o1, transOprToExpr ins bld o2)
   | _ -> raise InvalidOperandException
 
@@ -2302,4 +2302,4 @@ let translate (ins: Instruction) insLen (bld: LowUIRBuilder) =
 #if DEBUG
          eprintfn "%A" o
 #endif
-         raise <| NotImplementedIRException (Disasm.opCodeToString o)
+         raise <| NotImplementedIRException(Disasm.opCodeToString o)

@@ -85,13 +85,12 @@ type StorageClass =
   | ImageSymClassWeakExternal = 105uy
   | ImageSymClassCLRToken = 107uy
 
-type CoffSymbol = {
-  SymbName: string
-  SymbValue: int
-  SecNumber: int
-  SymbType: CoffSymbolTypeLSB * CoffSymbolTypeMSB
-  StorageClass: StorageClass
-}
+type CoffSymbol =
+  { SymbName: string
+    SymbValue: int
+    SecNumber: int
+    SymbType: CoffSymbolTypeLSB * CoffSymbolTypeMSB
+    StorageClass: StorageClass }
 
 let getWordSize = function
   | Machine.Alpha64
@@ -103,20 +102,20 @@ let parseLongSymbolName (span: ByteSpan) stroff offset =
   readCString span (stroff + offset)
 
 let parseSymbName (span: ByteSpan) offset stroff =
-  let bs = span.Slice (offset, 8)
+  let bs = span.Slice(offset, 8)
   if bs[0] = 0uy && bs[1] = 0uy && bs[2] = 0uy && bs[3] = 0uy then
-    parseLongSymbolName span stroff (MemoryMarshal.Read<int> (bs.Slice 4))
+    parseLongSymbolName span stroff (MemoryMarshal.Read<int>(bs.Slice 4))
   else
     ByteArray.extractCStringFromSpan bs 0
 
 let parseSymType typ =
   let lsb = typ &&& 0xFs |> byte
   let msb = typ >>> 4 |> byte
-  LanguagePrimitives.EnumOfValue<byte, CoffSymbolTypeLSB> (lsb),
-  LanguagePrimitives.EnumOfValue<byte, CoffSymbolTypeMSB> (msb)
+  LanguagePrimitives.EnumOfValue<byte, CoffSymbolTypeLSB>(lsb),
+  LanguagePrimitives.EnumOfValue<byte, CoffSymbolTypeMSB>(msb)
 
 let parseStorageClass b =
-  LanguagePrimitives.EnumOfValue<byte, StorageClass> (b)
+  LanguagePrimitives.EnumOfValue<byte, StorageClass>(b)
 
 let getCoffSymbol name v secnum typ storage =
   { SymbName = name
@@ -145,7 +144,7 @@ let getSymbols (bytes: byte[]) reader (coff: CoffHeader) =
   let maxCnt = coff.NumberOfSymbols - 1
   let tblOff = coff.PointerToSymbolTable
   let strOff = tblOff + coff.NumberOfSymbols * 18
-  let symbs = List<CoffSymbol> ()
+  let symbs = List<CoffSymbol>()
   let span = ReadOnlySpan bytes
   let mutable auxcnt = 0
   let mutable cnt = if tblOff = 0 then maxCnt else 0
@@ -156,9 +155,9 @@ let getSymbols (bytes: byte[]) reader (coff: CoffHeader) =
     else
       let offset = tblOff + cnt * 18
       let name = parseSymbName span offset strOff
-      let v = (reader: IBinReader).ReadInt32 (span, offset + 8)
-      let secnum = reader.ReadInt16 (span, offset + 12) |> int
-      let typ = reader.ReadInt16 (span, offset + 14) |> parseSymType
+      let v = (reader: IBinReader).ReadInt32(span, offset + 8)
+      let secnum = reader.ReadInt16(span, offset + 12) |> int
+      let typ = reader.ReadInt16(span, offset + 14) |> parseSymType
       let storage = span[offset + 16] |> parseStorageClass
       symbs.Add <| getCoffSymbol name v secnum typ storage
       auxcnt <- span[offset + 17] |> int

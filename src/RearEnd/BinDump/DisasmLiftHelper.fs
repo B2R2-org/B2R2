@@ -33,10 +33,10 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.RearEnd.Utils
 
 /// The monotonic console printer.
-let internal out = ConsoleCachedPrinter () :> Printer
+let internal out = ConsoleCachedPrinter() :> Printer
 
 /// The colorful console printer.
-let internal colorout = ConsolePrinter () :> Printer
+let internal colorout = ConsolePrinter() :> Printer
 
 let [<Literal>] IllegalStr = "(illegal)"
 
@@ -46,31 +46,31 @@ let getOptimizer (opts: BinDumpOpts) =
   | Optimize -> LocalOptimizer.Optimize
 
 let makeFuncSymbolDic (hdl: BinHandle) =
-  let funcs = Dictionary ()
-  for addr in hdl.File.GetFunctionAddresses () do
+  let funcs = Dictionary()
+  for addr in hdl.File.GetFunctionAddresses() do
     match hdl.File.TryFindName addr with
-    | Ok name -> funcs.TryAdd (addr, name) |> ignore
+    | Ok name -> funcs.TryAdd(addr, name) |> ignore
     | Error _ -> ()
-  hdl.File.GetFunctionAddresses ()
+  hdl.File.GetFunctionAddresses()
   |> Seq.iter (fun a ->
     if funcs.ContainsKey a then ()
     else funcs[a] <- Addr.toFuncName a)
-  hdl.File.GetLinkageTableEntries ()
+  hdl.File.GetLinkageTableEntries()
   |> Seq.iter (fun e ->
     if e.TrampolineAddress = 0UL then ()
-    else funcs.TryAdd (e.TrampolineAddress, e.FuncName) |> ignore)
+    else funcs.TryAdd(e.TrampolineAddress, e.FuncName) |> ignore)
   funcs
 
 let makeLinkageTblSymbolDic (hdl: BinHandle) =
-  let funcs = Dictionary ()
-  hdl.File.GetLinkageTableEntries ()
+  let funcs = Dictionary()
+  hdl.File.GetLinkageTableEntries()
   |> Seq.iter (fun e ->
     if e.TrampolineAddress = 0UL then ()
-    else funcs.TryAdd (e.TrampolineAddress, e.FuncName) |> ignore)
+    else funcs.TryAdd(e.TrampolineAddress, e.FuncName) |> ignore)
   funcs
 
 let makeArchModeDic (hdl: BinHandle) =
-  let modes = Dictionary ()
+  let modes = Dictionary()
   match hdl.File.Format, hdl.File.ISA with
   | FileFormat.ELFBinary, ARM32 ->
     let elf = hdl.File :?> ELFBinFile
@@ -102,29 +102,29 @@ let getInstructionAlignment (isa: ISA) isThumb =
 let convertToHexStr bytes =
   bytes
   |> Array.fold (fun s (b: byte) ->
-    if String.length s = 0 then b.ToString ("X2")
-    else s + " " + b.ToString ("X2")) ""
+    if String.length s = 0 then b.ToString("X2")
+    else s + " " + b.ToString("X2")) ""
 
 let printLowUIR (lowUIRStr: string) bytes cfg =
   let hexStr = convertToHexStr bytes |> String.wrapSqrdBracket
-  out.PrintRow (false, cfg, [ hexStr ])
-  out.PrintRow (false, cfg, [ lowUIRStr ])
+  out.PrintRow(false, cfg, [ hexStr ])
+  out.PrintRow(false, cfg, [ lowUIRStr ])
 
 let printRegularDisasm disasmStr wordSize addr bytes cfg =
   let hexStr = convertToHexStr bytes
   let addrStr = Addr.toString wordSize addr + ":"
-  out.PrintRow (false, cfg, [ addrStr; hexStr; disasmStr ])
+  out.PrintRow(false, cfg, [ addrStr; hexStr; disasmStr ])
 
 let regularDisPrinter hdl liftingUnit wordSize showSymbs ptr ins cfg =
-  (liftingUnit: LiftingUnit).ConfigureDisassembly (false, showSymbs)
-  let disasmStr = liftingUnit.DisasmInstruction (ins = ins)
-  let bytes = (hdl: BinHandle).ReadBytes (ptr = ptr, nBytes = int ins.Length)
+  (liftingUnit: LiftingUnit).ConfigureDisassembly(false, showSymbs)
+  let disasmStr = liftingUnit.DisasmInstruction(ins = ins)
+  let bytes = (hdl: BinHandle).ReadBytes(ptr = ptr, nBytes = int ins.Length)
   printRegularDisasm disasmStr wordSize ptr.Addr bytes cfg
 
 let regularIRPrinter hdl (liftingUnit: LiftingUnit) optimizer ptr ins cfg =
-  let stmts = optimizer (liftingUnit.LiftInstruction (ins = ins))
+  let stmts = optimizer (liftingUnit.LiftInstruction(ins = ins))
   let lowUIRStr = LowUIR.Pp.stmtsToString stmts
-  let bytes = (hdl: BinHandle).ReadBytes (ptr = ptr, nBytes = int ins.Length)
+  let bytes = (hdl: BinHandle).ReadBytes(ptr = ptr, nBytes = int ins.Length)
   printLowUIR lowUIRStr bytes cfg
 
 let convertToDisasmStr (words: AsmWord []) =
@@ -139,32 +139,32 @@ let convertToDisasmStr (words: AsmWord []) =
   |> List.concat
 
 let printColorDisasm words wordSize addr bytes cfg =
-  out.Flush ()
+  out.Flush()
   let hexStr = convertToHexStr bytes
   let addrStr = Addr.toString wordSize addr + ":"
   let disasStr = convertToDisasmStr words
-  colorout.PrintRow (false, cfg,
+  colorout.PrintRow(false, cfg,
     [ [ Green, addrStr ]; [ NoColor, hexStr ]; disasStr ])
 
 let colorDisPrinter (hdl: BinHandle) liftingUnit wordSize _ ptr ins cfg =
   (liftingUnit: LiftingUnit).ConfigureDisassembly false
-  let words = liftingUnit.DecomposeInstruction (ins = ins)
-  let bytes = hdl.ReadBytes (ptr = ptr, nBytes = int ins.Length)
+  let words = liftingUnit.DecomposeInstruction(ins = ins)
+  let bytes = hdl.ReadBytes(ptr = ptr, nBytes = int ins.Length)
   printColorDisasm words wordSize ptr.Addr bytes cfg
 
 let handleInvalidIns hdl (modeSwitch: ARM32.IModeSwitchable) ptr isLift cfg =
   let wordSize = (hdl: BinHandle).File.ISA.WordSize
   let align = getInstructionAlignment hdl.File.ISA modeSwitch.IsThumb
-  let bytes = hdl.ReadBytes (ptr = ptr, nBytes = align)
+  let bytes = hdl.ReadBytes(ptr = ptr, nBytes = align)
   if isLift then printLowUIR IllegalStr bytes cfg
   else printRegularDisasm IllegalStr wordSize ptr.Addr bytes cfg
   ptr.Advance align
 
 let printFuncSymbol (dict: Dictionary<Addr, string>) addr =
-  match (dict: Dictionary<Addr, string>).TryGetValue (addr) with
+  match (dict: Dictionary<Addr, string>).TryGetValue(addr) with
   | true, name ->
-    out.PrintLineIfPrevLineWasNotEmpty ()
-    out.PrintLine (String.wrapAngleBracket name)
+    out.PrintLineIfPrevLineWasNotEmpty()
+    out.PrintLine(String.wrapAngleBracket name)
   | false, _ -> ()
 
 let updateMode dict (modeSwitch: ARM32.IModeSwitchable) addr =
@@ -174,104 +174,104 @@ let updateMode dict (modeSwitch: ARM32.IModeSwitchable) addr =
   | _ -> ()
 
 [<AbstractClass>]
-type BinPrinter (hdl: BinHandle, cfg, isLift) =
-  let liftingUnit = hdl.NewLiftingUnit ()
+type BinPrinter(hdl: BinHandle, cfg, isLift) =
+  let liftingUnit = hdl.NewLiftingUnit()
   let modeSwitch =
     if hdl.File.ISA.Arch = Architecture.ARMv7 then
       liftingUnit.Parser :?> ARM32.IModeSwitchable
     else
       { new ARM32.IModeSwitchable with
-          member _.IsThumb with get () = false and set _ = () }
+          member _.IsThumb with get() = false and set _ = () }
 
   abstract PrintFuncSymbol: Addr -> unit
 
-  abstract PrintInstr: BinHandle -> BinFilePointer -> IInstruction -> unit
+  abstract PrintInstr: BinHandle * BinFilePointer * IInstruction -> unit
 
-  abstract UpdateMode: LiftingUnit -> Addr -> unit
+  abstract UpdateMode: LiftingUnit * Addr -> unit
 
-  member _.LiftingUnit with get () = liftingUnit
+  member _.LiftingUnit with get() = liftingUnit
 
-  member _.ModeSwitch with get () = modeSwitch
+  member _.ModeSwitch with get() = modeSwitch
 
-  member this.Print (ptr: BinFilePointer) =
+  member this.Print(ptr: BinFilePointer) =
     if ptr.IsValid then
       this.PrintFuncSymbol ptr.Addr
-      this.UpdateMode liftingUnit ptr.Addr
-      match liftingUnit.TryParseInstruction (ptr = ptr) with
-      | Ok (ins) ->
-        this.PrintInstr hdl ptr ins
+      this.UpdateMode(liftingUnit, ptr.Addr)
+      match liftingUnit.TryParseInstruction(ptr = ptr) with
+      | Ok(ins) ->
+        this.PrintInstr(hdl, ptr, ins)
         let ptr' = ptr.Advance(ins.Length)
         this.Print ptr'
       | Error _ ->
-        this.Print (handleInvalidIns hdl modeSwitch ptr isLift cfg)
+        this.Print(handleInvalidIns hdl modeSwitch ptr isLift cfg)
     else ()
 
 [<AbstractClass>]
-type BinFuncPrinter (hdl: BinHandle, cfg, isLift) =
-  inherit BinPrinter (hdl, cfg, isLift)
+type BinFuncPrinter(hdl: BinHandle, cfg, isLift) =
+  inherit BinPrinter(hdl, cfg, isLift)
   let dict = makeFuncSymbolDic hdl
   override _.PrintFuncSymbol addr = printFuncSymbol dict addr
 
 [<AbstractClass>]
-type BinTablePrinter (hdl, cfg, isLift) =
-  inherit BinPrinter (hdl, cfg, isLift)
+type BinTablePrinter(hdl, cfg, isLift) =
+  inherit BinPrinter(hdl, cfg, isLift)
   let dict = makeLinkageTblSymbolDic hdl
   override _.PrintFuncSymbol addr = printFuncSymbol dict addr
 
-type BinCodeDisasmPrinter (hdl, cfg, showSym, showColor) =
-  inherit BinFuncPrinter (hdl, cfg, false)
+type BinCodeDisasmPrinter(hdl, cfg, showSym, showColor) =
+  inherit BinFuncPrinter(hdl, cfg, false)
   let wordSize = hdl.File.ISA.WordSize
   let disPrinter = if showColor then colorDisPrinter else regularDisPrinter
-  override this.PrintInstr hdl ptr ins =
+  override this.PrintInstr(hdl, ptr, ins) =
     disPrinter hdl this.LiftingUnit wordSize showSym ptr ins cfg
-  override _.UpdateMode _ _ = ()
+  override _.UpdateMode(_, _) = ()
 
-type BinCodeIRPrinter (hdl, cfg, optimizer) =
-  inherit BinFuncPrinter (hdl, cfg, true)
-  override this.PrintInstr hdl ptr ins =
+type BinCodeIRPrinter(hdl, cfg, optimizer) =
+  inherit BinFuncPrinter(hdl, cfg, true)
+  override this.PrintInstr(hdl, ptr, ins) =
     regularIRPrinter hdl this.LiftingUnit optimizer ptr ins cfg
-  override _.UpdateMode _ _ = ()
+  override _.UpdateMode(_, _) = ()
 
-type BinTableDisasmPrinter (hdl, cfg) =
-  inherit BinTablePrinter (hdl, cfg, false)
+type BinTableDisasmPrinter(hdl, cfg) =
+  inherit BinTablePrinter(hdl, cfg, false)
   let wordSize = hdl.File.ISA.WordSize
-  override this.PrintInstr hdl ptr ins =
+  override this.PrintInstr(hdl, ptr, ins) =
     regularDisPrinter hdl this.LiftingUnit wordSize true ptr ins cfg
-  override _.UpdateMode _ _ = ()
+  override _.UpdateMode(_, _) = ()
 
-type BinTableIRPrinter (hdl, cfg, optimizer) =
-  inherit BinTablePrinter (hdl, cfg, true)
-  override this.PrintInstr hdl ptr ins =
+type BinTableIRPrinter(hdl, cfg, optimizer) =
+  inherit BinTablePrinter(hdl, cfg, true)
+  override this.PrintInstr(hdl, ptr, ins) =
     regularIRPrinter hdl this.LiftingUnit optimizer ptr ins cfg
-  override _.UpdateMode _ _ = ()
+  override _.UpdateMode(_, _) = ()
 
-type ContextSensitiveCodeDisasmPrinter (hdl, cfg, showSym, showColor) =
-  inherit BinFuncPrinter (hdl, cfg, false)
+type ContextSensitiveCodeDisasmPrinter(hdl, cfg, showSym, showColor) =
+  inherit BinFuncPrinter(hdl, cfg, false)
   let wordSize = hdl.File.ISA.WordSize
   let disPrinter = if showColor then colorDisPrinter else regularDisPrinter
   let archmodes = makeArchModeDic hdl
-  override this.PrintInstr hdl ptr ins =
+  override this.PrintInstr(hdl, ptr, ins) =
     disPrinter hdl this.LiftingUnit wordSize showSym ptr ins cfg
-  override _.UpdateMode hdl addr = updateMode archmodes base.ModeSwitch addr
+  override _.UpdateMode(hdl, addr) = updateMode archmodes base.ModeSwitch addr
 
-type ContextSensitiveCodeIRPrinter (hdl, cfg, optimizer) =
-  inherit BinFuncPrinter (hdl, cfg, true)
+type ContextSensitiveCodeIRPrinter(hdl, cfg, optimizer) =
+  inherit BinFuncPrinter(hdl, cfg, true)
   let archmodes = makeArchModeDic hdl
-  override this.PrintInstr hdl ptr ins =
+  override this.PrintInstr(hdl, ptr, ins) =
     regularIRPrinter hdl this.LiftingUnit optimizer ptr ins cfg
-  override _.UpdateMode hdl addr = updateMode archmodes base.ModeSwitch addr
+  override _.UpdateMode(hdl, addr) = updateMode archmodes base.ModeSwitch addr
 
-type ContextSensitiveTableDisasmPrinter (hdl, cfg) =
-  inherit BinTablePrinter (hdl, cfg, false)
+type ContextSensitiveTableDisasmPrinter(hdl, cfg) =
+  inherit BinTablePrinter(hdl, cfg, false)
   let archmodes = makeArchModeDic hdl
   let wordSize = hdl.File.ISA.WordSize
-  override this.PrintInstr hdl ptr ins =
+  override this.PrintInstr(hdl, ptr, ins) =
     regularDisPrinter hdl this.LiftingUnit wordSize true ptr ins cfg
-  override _.UpdateMode hdl addr = updateMode archmodes base.ModeSwitch addr
+  override _.UpdateMode(hdl, addr) = updateMode archmodes base.ModeSwitch addr
 
-type ContextSensitiveTableIRPrinter (hdl, cfg, optimizer) =
-  inherit BinTablePrinter (hdl, cfg, true)
+type ContextSensitiveTableIRPrinter(hdl, cfg, optimizer) =
+  inherit BinTablePrinter(hdl, cfg, true)
   let archmodes = makeArchModeDic hdl
-  override this.PrintInstr hdl ptr ins =
+  override this.PrintInstr(hdl, ptr, ins) =
     regularIRPrinter hdl this.LiftingUnit optimizer ptr ins cfg
-  override _.UpdateMode hdl addr = updateMode archmodes base.ModeSwitch addr
+  override _.UpdateMode(hdl, addr) = updateMode archmodes base.ModeSwitch addr

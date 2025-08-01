@@ -27,8 +27,8 @@ namespace B2R2.FrontEnd.NameMangling.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.FrontEnd.NameMangling
 
-type Assert () =
-  static member Correct mangled (demangled: string) (demangler: IDemanglable) =
+type Assert() =
+  static member Correct(mangled, demangled: string, demangler: IDemanglable) =
     match demangler.Demangle mangled with
-    | Ok result -> Assert.AreEqual<string> (demangled, result)
+    | Ok result -> Assert.AreEqual<string>(demangled, result)
     | Error _ -> invalidOp "Demangling failure."

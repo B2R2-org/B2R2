@@ -364,11 +364,11 @@ let inline attachPrefixer (ins: Instruction) opcode =
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode |> attachPrefixer ins
-  builder.Accumulate AsmWordKind.Mnemonic str
+  builder.Accumulate(AsmWordKind.Mnemonic, str)
 
 let inline relToString pc offset (builder: IDisasmBuilder) =
   let targetAddr = pc + uint64 offset
-  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
+  builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 targetAddr)
 
 let printSpace space =
   space <> Some Register.SR0 && space <> None
@@ -376,67 +376,67 @@ let printSpace space =
 let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
   match opr with
   | OpReg reg ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
   | OpImm imm
   | OpShiftAmount imm ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
-  | OpMem (b, space, offset, _) ->
-    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 imm)
+  | OpMem(b, space, offset, _) ->
+    builder.Accumulate(AsmWordKind.String, delim)
     match offset with
-    | Some (Imm off) ->
-      builder.Accumulate AsmWordKind.Value (HexString.ofInt64 off)
-    | Some (Reg off) ->
-      builder.Accumulate AsmWordKind.Variable (Register.toString off)
+    | Some(Imm off) ->
+      builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 off)
+    | Some(Reg off) ->
+      builder.Accumulate(AsmWordKind.Variable, Register.toString off)
     | _ -> ()
-    builder.Accumulate AsmWordKind.String "("
+    builder.Accumulate(AsmWordKind.String, "(")
     if printSpace space then
-      builder.Accumulate AsmWordKind.Variable
-        (Register.toString (Option.get space))
-      builder.Accumulate AsmWordKind.String ","
-    builder.Accumulate AsmWordKind.Variable (Register.toString b)
-    builder.Accumulate AsmWordKind.String ")"
-  | OpAddr (Relative offset) ->
-    builder.Accumulate AsmWordKind.String delim
+      builder.Accumulate(AsmWordKind.Variable,
+        Register.toString (Option.get space))
+      builder.Accumulate(AsmWordKind.String, ",")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString b)
+    builder.Accumulate(AsmWordKind.String, ")")
+  | OpAddr(Relative offset) ->
+    builder.Accumulate(AsmWordKind.String, delim)
     relToString ins.Address offset builder
-  | OpAddr (RelativeBase (b, off)) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
-    builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (Register.toString b)
-    builder.Accumulate AsmWordKind.String ")"
-  | OpAtomMemOper (aq, rl) ->
-    if aq then builder.Accumulate AsmWordKind.String "aq"
-    if rl then builder.Accumulate AsmWordKind.String "rl"
+  | OpAddr(RelativeBase(b, off)) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, off.ToString("D"))
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString b)
+    builder.Accumulate(AsmWordKind.String, ")")
+  | OpAtomMemOper(aq, rl) ->
+    if aq then builder.Accumulate(AsmWordKind.String, "aq")
+    if rl then builder.Accumulate(AsmWordKind.String, "rl")
   | OpRoundMode rm ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.String (roundModeToString rm)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.String, roundModeToString rm)
   | OpCSR csr ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (HexString.ofUInt16 csr)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt16 csr)
   | OpCond cond ->
-    builder.Accumulate AsmWordKind.String ","
-    builder.Accumulate AsmWordKind.String (condToString cond)
+    builder.Accumulate(AsmWordKind.String, ",")
+    builder.Accumulate(AsmWordKind.String, condToString cond)
 
 let buildOprs (ins: Instruction) builder =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
     oprToString ins opr " " builder
-  | TwoOperands (opr1, opr2) ->
+  | TwoOperands(opr1, opr2) ->
     oprToString ins opr1 " " builder
     oprToString ins opr2 ", " builder
-  | ThreeOperands (opr1, opr2, opr3) ->
+  | ThreeOperands(opr1, opr2, opr3) ->
     oprToString ins opr1 " " builder
     oprToString ins opr2 ", " builder
     oprToString ins opr3 ", " builder
-  | FourOperands (opr1, opr2, opr3, opr4) ->
+  | FourOperands(opr1, opr2, opr3, opr4) ->
     oprToString ins opr1 " " builder
     oprToString ins opr2 ", " builder
     oprToString ins opr3 ", " builder
     oprToString ins opr4 ", " builder
-  | FiveOperands (opr1, opr2, opr3, opr4, opr5) ->
+  | FiveOperands(opr1, opr2, opr3, opr4, opr5) ->
     oprToString ins opr1 " " builder
     oprToString ins opr2 ", " builder
     oprToString ins opr3 ", " builder

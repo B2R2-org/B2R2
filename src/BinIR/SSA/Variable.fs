@@ -35,17 +35,16 @@ open B2R2
 /// <summary>
 /// Represents SSA variables that always have their own identifier.
 /// </summary>
-type Variable = {
-  Kind: VariableKind
-  mutable Identifier: int
-}
+type Variable =
+  { Kind: VariableKind
+    mutable Identifier: int }
 with
-  static member ToString ({ Kind = k; Identifier = i }) =
-    VariableKind.ToString k + "_" + i.ToString ()
+  static member ToString({ Kind = k; Identifier = i }) =
+    VariableKind.ToString k + "_" + i.ToString()
 
-  static member IsPC ({ Kind = k }) =
+  static member IsPC({ Kind = k }) =
     match k with
-    | PCVar (_) -> true
+    | PCVar(_) -> true
     | _ -> false
 
 /// Represents the destination of an assignment statement.
@@ -67,9 +66,9 @@ and VariableKind =
   | GlobalVar of RegType * Addr
 with
   static member ToString = function
-    | RegVar (_, _, n) -> n
-    | PCVar (_) -> "PC"
-    | TempVar (_, n) -> "T_" + n.ToString()
+    | RegVar(_, _, n) -> n
+    | PCVar(_) -> "PC"
+    | TempVar(_, n) -> "T_" + n.ToString()
     | MemVar -> "MEM"
-    | StackVar (_, offset) -> "V_" + offset.ToString ()
-    | GlobalVar (_, addr) -> "G_" + addr.ToString ()
+    | StackVar(_, offset) -> "V_" + offset.ToString()
+    | GlobalVar(_, addr) -> "G_" + addr.ToString()

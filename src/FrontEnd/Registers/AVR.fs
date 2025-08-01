@@ -87,7 +87,7 @@ module Register =
   /// Returns the AVR register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "r1" -> Register.R0
     | "r2" -> Register.R1
     | "r3" -> Register.R2
@@ -135,7 +135,7 @@ module Register =
   /// Returns the register ID of an AVR register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+    LanguagePrimitives.EnumToValue(reg) |> RegisterID.create
 
   /// Returns the string representation of an AVR register.
   [<CompiledName "ToString">]

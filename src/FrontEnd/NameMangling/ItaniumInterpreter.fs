@@ -29,20 +29,20 @@ open B2R2.FrontEnd.NameMangling.ItaniumFunctionPointer
 
 let rec interpret (input: ItaniumExpr) =
   match input with
-  | Name (x) -> x
-  | ABITag (a, b) -> a + "[abi:" + b + "]"
+  | Name(x) -> x
+  | ABITag(a, b) -> a + "[abi:" + b + "]"
   | Sxsubstitution sx -> Sxabbreviation.toString sx
-  | Sxname (a, b) -> interpret a + "::" + interpret b
-  | Sxoperator (a, b) -> interpret a + "::" + interpret b
+  | Sxname(a, b) -> interpret a + "::" + interpret b
+  | Sxoperator(a, b) -> interpret a + "::" + interpret b
   | Reference a -> ReferenceQualifier.toString a
-  | CVR (cvqualifier, refqualifier) ->
+  | CVR(cvqualifier, refqualifier) ->
     interpret cvqualifier + interpret refqualifier
   | Restrict a -> RestrictQualifier.toString a
   | CVqualifier a -> ConsTandVolatile.toString a
-  | PointerArg (a, None, arg) ->
+  | PointerArg(a, None, arg) ->
     let a = if (a = "") then "" else "*"
     match arg with
-    | SingleArg (FunctionPointer (a1, k, a2, a3)) ->
+    | SingleArg(FunctionPointer(a1, k, a2, a3)) ->
       let args = interpret a3
       let args = if (args = "void") then "" else args
       let qualifier =
@@ -62,14 +62,14 @@ let rec interpret (input: ItaniumExpr) =
       let ret, arglist = getReturnList retandargs
       let final, _ = combine (List.rev arglist) 0 ""
       ret + " " + final
-    | TemplateSub (c, _) -> interpret (PointerArg (a, None, c))
+    | TemplateSub(c, _) -> interpret (PointerArg(a, None, c))
     | _ ->
       let a = if (a = "") then "" else "*"
       interpret arg + a
-  | PointerArg (a, Some cvqualifier, arg) ->
+  | PointerArg(a, Some cvqualifier, arg) ->
     let a = if (a = "") then "" else "*"
     match arg with
-    | SingleArg (FunctionPointer (a1, k, a2, a3)) ->
+    | SingleArg(FunctionPointer(a1, k, a2, a3)) ->
       let args = interpret a3
       let args = if (args = "void") then "" else args
       let qualifier =
@@ -90,7 +90,7 @@ let rec interpret (input: ItaniumExpr) =
       let ret, arglist = getReturnList retandargs
       let final, _ = combine (List.rev arglist) 0 ""
       ret + " " + final
-    | TemplateSub (c, _) -> interpret (PointerArg (a, Some cvqualifier, c))
+    | TemplateSub(c, _) -> interpret (PointerArg(a, Some cvqualifier, c))
     | _ -> interpret arg + interpret cvqualifier + a
   | Arguments args ->
     let f =
@@ -113,8 +113,8 @@ let rec interpret (input: ItaniumExpr) =
     else f
   | Num x -> string (x)
   | Num64 x -> string (x)
-  | ReferenceArg (ref, None) -> interpret ref
-  | ReferenceArg (ref, Some cvqualifier) ->
+  | ReferenceArg(ref, None) -> interpret ref
+  | ReferenceArg(ref, Some cvqualifier) ->
     interpret cvqualifier + interpret ref
   | SingleArg a ->
     match a with
@@ -124,17 +124,17 @@ let rec interpret (input: ItaniumExpr) =
       let final, _ = combine (List.rev arglist) 0 ""
       ret + " " + final
     | _ -> interpret a
-  | RefArg (ref, arg) ->
+  | RefArg(ref, arg) ->
     match arg with
-    | Functionarg (None,
-                   RefArg (ReferenceArg (Reference LValueReference, _), _)) ->
+    | Functionarg(None,
+                  RefArg(ReferenceArg(Reference LValueReference, _), _)) ->
       interpret arg
-    | Functionarg (None,
-                   RefArg (ReferenceArg (Reference RvalueReference, _), _)) ->
+    | Functionarg(None,
+                  RefArg(ReferenceArg(Reference RvalueReference, _), _)) ->
       interpret arg
-    | SingleArg a -> interpret (RefArg (ref, a))
-    | Functionarg (None, a) -> interpret (RefArg (ref, a))
-    | FunctionPointer (a1, k, a2, a3) ->
+    | SingleArg a -> interpret (RefArg(ref, a))
+    | Functionarg(None, a) -> interpret (RefArg(ref, a))
+    | FunctionPointer(a1, k, a2, a3) ->
       let args = interpret a3
       let args = if (args = "void") then "" else args
       let qualifier =
@@ -154,7 +154,7 @@ let rec interpret (input: ItaniumExpr) =
       let ret, arglist = getReturnList retandargs
       let final, _ = combine (List.rev arglist) 0 ""
       ret + " " + final
-    | ArrayPointer (Some value, a, b) ->
+    | ArrayPointer(Some value, a, b) ->
       let flag = interpret value
       let array =
         List.fold (fun acc elem -> acc + "[" + interpret (elem) + "]") "" a
@@ -162,20 +162,20 @@ let rec interpret (input: ItaniumExpr) =
         interpret b + " (" + flag + ") " + array
       else
         interpret b + " (" + flag + interpret ref + ") " + array
-    | ArrayPointer (None, a, b) ->
+    | ArrayPointer(None, a, b) ->
       let array =
         List.fold (fun acc elem -> acc + "[" + interpret (elem) + "]") "" a
       match ref with
-      | ReferenceArg (c, Some d) ->
+      | ReferenceArg(c, Some d) ->
         interpret b + interpret d + " (" + interpret c + ") " + array
       | _ -> interpret b + " (" + interpret ref + ") " + array
-    | TemplateSub (a, _) -> interpret (RefArg (ref, a))
+    | TemplateSub(a, _) -> interpret (RefArg(ref, a))
     | _ ->
       let arg = interpret arg
       if arg <> "" && arg[String.length arg - 1] = '&' then arg
       else arg + interpret ref
   | ConsOrDes a1 -> ConstructorDestructor.toChar a1
-  | Literal (a, Num b) ->
+  | Literal(a, Num b) ->
     let a = interpret a
     if a = "bool" && b <> 0 then "true"
     elif a = "bool" then "false"
@@ -183,15 +183,15 @@ let rec interpret (input: ItaniumExpr) =
     elif a = "unsigned int" then string (b) + "u"
     elif a = "unsigned long" then string (b) + "ul"
     else "(" + a + ")" + string (b)
-  | Literal (a, Num64 b) ->
+  | Literal(a, Num64 b) ->
     let a = interpret a
     if a = "unsigned long" then string (b) + "ul"
     else "(" + a + ")" + string (b)
-  | Literal (a, b) ->
+  | Literal(a, b) ->
     let a = interpret a
     let b = interpret b
     "(" + a + ")" + b
-  | NestedName (a, namelist) ->
+  | NestedName(a, namelist) ->
     let nestedname, _ =
       List.fold
         (fun acc elem ->
@@ -199,13 +199,13 @@ let rec interpret (input: ItaniumExpr) =
           let idx = snd acc
           let prev = if (idx = 0) then Dummy "" else namelist[idx - 1]
           match elem, prev with
-          | ConsOrDes _, Template (Sxname (_, b), _) ->
+          | ConsOrDes _, Template(Sxname(_, b), _) ->
             let elem = interpret elem
             ((fst acc + add + elem + interpret b), (idx + 1))
-          | ConsOrDes _, Template (Sxsubstitution sx, _) ->
+          | ConsOrDes _, Template(Sxsubstitution sx, _) ->
             let elem = interpret elem
             ((fst acc + add + elem + Sxabbreviation.get sx), (idx + 1))
-          | ConsOrDes _, Template (a, _) ->
+          | ConsOrDes _, Template(a, _) ->
             let elem = interpret elem
             ((fst acc + add + elem + interpret a), (idx + 1))
           | ConsOrDes _, Sxsubstitution sx ->
@@ -218,13 +218,13 @@ let rec interpret (input: ItaniumExpr) =
           | ConsOrDes _, _ ->
             let elem = interpret elem
             fst acc + add + elem + interpret (prev), (idx + 1)
-          | Template (ConsOrDes a, b), Template (Sxname (_, c), _) ->
+          | Template(ConsOrDes a, b), Template(Sxname(_, c), _) ->
             let elem = interpret (ConsOrDes a)
             let prev = interpret c
             let help = interpret b
             let help = if (help[help.Length - 1] = '>') then (" >") else ">"
             fst acc + add + elem + prev + "<" + interpret b + help, (idx + 1)
-          | Template (ConsOrDes a, b), Template (Sxsubstitution sx, _) ->
+          | Template(ConsOrDes a, b), Template(Sxsubstitution sx, _) ->
             let elem = interpret (ConsOrDes a)
             let help = interpret b
             let help = if (help[help.Length - 1] = '>') then (" >") else ">"
@@ -236,13 +236,13 @@ let rec interpret (input: ItaniumExpr) =
             + interpret b
             + help,
             (idx + 1)
-          | Template (ConsOrDes a, b), Template (c, _) ->
+          | Template(ConsOrDes a, b), Template(c, _) ->
             let elem = interpret (ConsOrDes a)
             let prev = interpret c
             let help = interpret b
             let help = if (help[help.Length - 1] = '>') then (" >") else ">"
             fst acc + add + elem + prev + "<" + interpret b + help, (idx + 1)
-          | Template (ConsOrDes a, b), _ ->
+          | Template(ConsOrDes a, b), _ ->
             let elem = interpret (ConsOrDes a)
             let prev = interpret prev
             let help = interpret b
@@ -257,10 +257,10 @@ let rec interpret (input: ItaniumExpr) =
         ("", 0)
         namelist
     match a with
-    | CVR (c, Reference b) ->
+    | CVR(c, Reference b) ->
       nestedname + interpret (c) + " " + interpret (Reference b)
     | _ -> nestedname + interpret a
-  | Template (name, tempargs) ->
+  | Template(name, tempargs) ->
     let help = interpret tempargs
     let name = interpret name
     let helper = if (name[name.Length - 1] = '<') then (" <") else ("<")
@@ -269,7 +269,7 @@ let rec interpret (input: ItaniumExpr) =
     else
       let help = if (help[help.Length - 1] = '>') then (" >") else ">"
       name + helper + (interpret tempargs) + help
-  | Clone (exprlist) ->
+  | Clone(exprlist) ->
     let a =
       List.fold
         (fun acc elem ->
@@ -286,23 +286,23 @@ let rec interpret (input: ItaniumExpr) =
     if a = "" then ""
     elif a[0] = ']' then a[1..(String.length a - 1)] + "]"
     else a + "]"
-  | Function (scope, a, Name "", Name "", clone) ->
+  | Function(scope, a, Name "", Name "", clone) ->
     let scope = List.fold (fun acc elem -> acc + interpret elem + "::") "" scope
     let clone = interpret clone
     if clone = "" then scope + interpret a
     else "not mangled properly"
-  | Function (scope, a, ret, arglist, clone) ->
+  | Function(scope, a, ret, arglist, clone) ->
     let scope1 =
       List.fold (fun acc elem -> acc + interpret elem + "::") "" scope
     let name, add =
       match a with
-      | NestedName (value, b1) ->
+      | NestedName(value, b1) ->
         let value =
           match value with
-          | CVR (c, Reference b) ->
+          | CVR(c, Reference b) ->
             interpret (c) + " " + interpret (Reference b)
           | _ -> interpret value
-        interpret (NestedName (Name "", b1)), value
+        interpret (NestedName(Name "", b1)), value
       | _ -> interpret a, ""
     let args = interpret arglist
     if ret <> Name "" && arglist = Name "" then
@@ -311,8 +311,8 @@ let rec interpret (input: ItaniumExpr) =
       let args = if (args = "void") then "" else args
       match ret with
       | FunctionPointer _
-      | SingleArg (FunctionPointer _)
-      | Functionarg (_, SingleArg (FunctionPointer _)) ->
+      | SingleArg(FunctionPointer _)
+      | Functionarg(_, SingleArg(FunctionPointer _)) ->
         let funcpointer = interpret ret
         let returned, arguments = getReturnList funcpointer
         let all, index = combine (List.rev arguments) 0 ""
@@ -320,7 +320,7 @@ let rec interpret (input: ItaniumExpr) =
         let len = String.length all
         let final = all[0..index] + fullname + all[(index + 1)..(len - 1)]
         returned + " " + scope1 + final + interpret clone
-      | TemplateSub (a, _) -> interpret (Function (scope, a, a, arglist, clone))
+      | TemplateSub(a, _) -> interpret (Function(scope, a, a, arglist, clone))
       | _ ->
         (interpret ret)
         + " "
@@ -334,7 +334,7 @@ let rec interpret (input: ItaniumExpr) =
     else
       let args = if (args = "void") then "" else args
       scope1 + name + "(" + args + ")" + add + interpret clone
-  | UnaryExpr (a, b) ->
+  | UnaryExpr(a, b) ->
     let operator = interpret a
     let len = String.length operator
     let operator = operator[8..(len - 1)]
@@ -348,25 +348,25 @@ let rec interpret (input: ItaniumExpr) =
         operator + b
     elif operator = "*" then operator + interpret b
     else operator + "(" + interpret b + ")"
-  | BinaryExpr (a, b, c) ->
+  | BinaryExpr(a, b, c) ->
     let operator = interpret a
     let len = String.length operator
     let operator = operator[8..(len - 1)]
     if operator = "::" then interpret b + operator + interpret c
     else "(" + interpret b + ")" + operator + "(" + interpret c + ")"
   | Operators a -> "operator" + OperatorIndicator.toString a
-  | CastOperator (a, b) ->
+  | CastOperator(a, b) ->
     if a = "cv" || a = "v" then "operator " + interpret b
     else "operator\"\" " + interpret b
   | BuiltinType a -> BuiltinTypeIndicator.toString a
   | Pointer v -> List.fold (fun acc elem -> acc + interpret elem) "" v
-  | FunctionBegin (Some qualifiers, pointer) ->
+  | FunctionBegin(Some qualifiers, pointer) ->
     let p = interpret pointer
     let a2 = List.rev qualifiers
     let qualifier = List.fold (fun acc elem -> acc + interpret elem) "" a2
     p + qualifier
-  | ConstVolatile (a, b) -> interpret b + interpret a
-  | FunctionPointer (pcv, Some value, ret, args) ->
+  | ConstVolatile(a, b) -> interpret b + interpret a
+  | FunctionPointer(pcv, Some value, ret, args) ->
     let args = interpret args
     let args = if (args = "void") then "" else args
     interpret ret
@@ -377,22 +377,22 @@ let rec interpret (input: ItaniumExpr) =
     + args
     + ")"
     + interpret value
-  | FunctionPointer (pcv, None, ret, args) ->
+  | FunctionPointer(pcv, None, ret, args) ->
     let args = interpret args
     let args = if (args = "void") then "" else args
     interpret ret + " (" + interpret pcv + ")" + "(" + args + ")"
   | Vendor s -> s
   | SingleP _ -> "*"
-  | ArrayPointer (None, a, b) ->
+  | ArrayPointer(None, a, b) ->
     let array =
       List.fold (fun acc elem -> acc + "[" + interpret (elem) + "]") "" a
     interpret b + " " + array
-  | ArrayPointer (Some value, a, b) ->
+  | ArrayPointer(Some value, a, b) ->
     let array =
       List.fold (fun acc elem -> acc + "[" + interpret (elem) + "]") "" a
     interpret b + " (" + interpret value + ") " + array
-  | Functionarg (Some value, b) -> interpret b + interpret value
-  | Functionarg (None, a) ->
+  | Functionarg(Some value, b) -> interpret b + interpret value
+  | Functionarg(None, a) ->
     match a with
     | FunctionPointer _ ->
       let retandargs = interpret a
@@ -400,35 +400,35 @@ let rec interpret (input: ItaniumExpr) =
       let final, _ = combine (List.rev arglist) 0 ""
       ret + " " + final
     | _ -> interpret a
-  | RTTIandVirtualTable (a, b) -> RTTIVirtualTable.toString a + interpret b
-  | CallOffset (a) -> CallOffSet.toString a
-  | VirtualThunk (a, b) -> interpret a + interpret b
+  | RTTIandVirtualTable(a, b) -> RTTIVirtualTable.toString a + interpret b
+  | CallOffset(a) -> CallOffSet.toString a
+  | VirtualThunk(a, b) -> interpret a + interpret b
   | VirtualThunkRet a -> "covariant return thunk to " + interpret a
-  | ConstructionVtable (a, b) ->
+  | ConstructionVtable(a, b) ->
     "construction vtable for " + interpret b + "-in-" + interpret a
-  | GuardVariable (a, b) ->
+  | GuardVariable(a, b) ->
     let scope = List.fold (fun acc elem -> acc + interpret elem + "::") "" a
     "guard variable for " + scope + interpret b
   | TransactionSafeFunction a -> "transaction clone for " + interpret a
-  | ReferenceTemporary (a, b) ->
+  | ReferenceTemporary(a, b) ->
     "reference temporary #" + interpret b + " for " + interpret a
-  | ScopeEncoding (a, b) -> interpret a + "::" + interpret b
-  | MemberPointer (a) -> interpret a + "::*"
-  | MemberPAsArgument (a, b) -> interpret b + " " + interpret a
+  | ScopeEncoding(a, b) -> interpret a + "::" + interpret b
+  | MemberPointer(a) -> interpret a + "::*"
+  | MemberPAsArgument(a, b) -> interpret b + " " + interpret a
   | Scope a ->
     match a with
-    | Function (a1, a2, _, a4, a5) ->
-      let b = Function (a1, a2, Name "", a4, a5)
+    | Function(a1, a2, _, a4, a5) ->
+      let b = Function(a1, a2, Name "", a4, a5)
       interpret b
     | _ -> interpret a
-  | Vector (a, b) -> interpret b + " __vector(" + interpret a + ")"
-  | LambdaExpression (a, b) ->
+  | Vector(a, b) -> interpret b + " __vector(" + interpret a + ")"
+  | LambdaExpression(a, b) ->
     let num = interpret b
     let num = if (num = "") then "1" else (string (int (num) + 2))
     let a = interpret a
     let a = if (a = "void") then ("") else a
     "{lambda(" + a + ")#" + num + "}"
-  | UnnamedType (a) ->
+  | UnnamedType(a) ->
     let num = interpret a
     let num = if (num = "") then "1" else (string (int (num) + 2))
     "{unnamed type#" + num + "}"
@@ -436,17 +436,17 @@ let rec interpret (input: ItaniumExpr) =
     let num = interpret a
     let num = if (num = "") then "1" else (string (int (num) + 2))
     "{parm#" + num + "}"
-  | ScopedLambda (a, Some value, b) ->
+  | ScopedLambda(a, Some value, b) ->
     let num = interpret value
     let num = if (num = "") then "1" else (string (int (num) + 2))
     interpret a + "::" + "{default arg#" + num + "}::" + interpret b
-  | ScopedLambda (a, None, b) -> interpret a + "::" + interpret b
+  | ScopedLambda(a, None, b) -> interpret a + "::" + interpret b
   | ExternalName a ->
     match a with
-    | Function (a1, a2, _, _, _) ->
+    | Function(a1, a2, _, _, _) ->
       let a2t = interpret a2
-      if a2t.IndexOf ("::") = -1 then interpret a
-      else interpret (Function (a1, a2, Name "", Name "", Name ""))
+      if a2t.IndexOf("::") = -1 then interpret a
+      else interpret (Function(a1, a2, Name "", Name "", Name ""))
     | _ -> interpret a
   | CallExpr a ->
     let first = a[0]
@@ -459,12 +459,12 @@ let rec interpret (input: ItaniumExpr) =
         ""
         rest
     let a = interpret first
-    if a.IndexOf ('<') <> -1 || a.IndexOf ('.') <> -1 then
+    if a.IndexOf('<') <> -1 || a.IndexOf('.') <> -1 then
       "(" + a + ")" + "(" + rest + ")"
     else
       a + "(" + rest + ")"
-  | ConversionOne (a, b) -> "(" + interpret a + ")" + interpret b
-  | ConversionMore (a, b) ->
+  | ConversionOne(a, b) -> "(" + interpret a + ")" + interpret b
+  | ConversionMore(a, b) ->
     let rest =
       List.fold
         (fun acc elem ->
@@ -474,30 +474,30 @@ let rec interpret (input: ItaniumExpr) =
         b
     "(" + interpret a + ")" + "(" + rest + ")"
   | DeclType a -> "decltype " + "(" + interpret a + ")"
-  | DotExpr (a, b) ->
+  | DotExpr(a, b) ->
     let first = interpret a
-    if first.IndexOf ('.') <> -1
-      || first.IndexOf ('(') <> -1
-      || first.IndexOf ('<') <> -1
+    if first.IndexOf('.') <> -1
+      || first.IndexOf('(') <> -1
+      || first.IndexOf('<') <> -1
     then
       "(" + interpret a + ")" + "." + interpret b
     else
       interpret a + "." + interpret b
-  | DotPointerExpr (a, b) ->
+  | DotPointerExpr(a, b) ->
     let first = interpret a
-    if first.IndexOf ('.') <> -1
-      || first.IndexOf ('(') <> -1
-      || first.IndexOf ('<') <> -1
-      || first.IndexOf ('{') <> -1
+    if first.IndexOf('.') <> -1
+      || first.IndexOf('(') <> -1
+      || first.IndexOf('<') <> -1
+      || first.IndexOf('{') <> -1
     then
       "(" + interpret a + ")" + ".*" + interpret b
     else
       interpret a + ".*" + interpret b
-  | CastingExpr (a, b, c) ->
+  | CastingExpr(a, b, c) ->
     CasTing.toString a + "<" + interpret b + ">(" + interpret c + ")"
-  | TypeMeasure (a, b) -> MeasureType.toString a + "(" + interpret b + ")"
-  | ExprMeasure (a, b) -> MeasureExpr.toString a + "(" + interpret b + ")"
-  | TemplateSub (a, _) -> interpret (SingleArg (a))
+  | TypeMeasure(a, b) -> MeasureType.toString a + "(" + interpret b + ")"
+  | ExprMeasure(a, b) -> MeasureExpr.toString a + "(" + interpret b + ")"
+  | TemplateSub(a, _) -> interpret (SingleArg(a))
   | ExpressionArgPack a -> interpret a
   | Dummy _ -> "???"
   | _ -> ""

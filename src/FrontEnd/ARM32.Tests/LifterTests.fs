@@ -33,18 +33,18 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open type Register
 
 [<TestClass>]
-type LifterTests () =
-  let num v = BitVector.OfUInt32 v 32<rt> |> AST.num
+type LifterTests() =
+  let num v = BitVector.OfUInt32(v, 32<rt>) |> AST.num
 
   let t32 id = AST.tmpvar 32<rt> id
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
-  let isa = ISA (Architecture.ARMv7, Endian.Big)
+  let isa = ISA(Architecture.ARMv7, Endian.Big)
 
   let reader = BinReader.Init Endian.Big
 
-  let regFactory = RegisterFactory () :> IRegisterFactory
+  let regFactory = RegisterFactory() :> IRegisterFactory
 
   let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
 
@@ -52,11 +52,11 @@ type LifterTests () =
     ByteArray.ofHexString byteStr, givenStmts
 
   let test isThumb (bytes: byte[]) (givenStmts: Stmt[]) =
-    let parser = ARM32Parser (isa, isThumb, reader) :> IInstructionParsable
-    let builder = ILowUIRBuilder.Default (isa, regFactory, LowUIRStream ())
-    let ins = parser.Parse (bytes, 0UL)
+    let parser = ARM32Parser(isa, isThumb, reader) :> IInstructionParsable
+    let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
+    let ins = parser.Parse(bytes, 0UL)
     let liftInstr = ins.Translate builder
-    CollectionAssert.AreEqual (givenStmts, unwrapStmts liftInstr)
+    CollectionAssert.AreEqual(givenStmts, unwrapStmts liftInstr)
 
   let testARM (bytes: byte[], givenStmts: Stmt[]) =
     test false bytes givenStmts
@@ -65,7 +65,7 @@ type LifterTests () =
     test true bytes givenStmts
 
   [<TestMethod>]
-  member _.``[ARMv7] ADD (shifted register) lift test`` () =
+  member _.``[ARMv7] ADD (shifted register) lift test``() =
     let shiftAmt = AST.zext 32<rt> (AST.xtlo 8<rt> !.R8)
     "e080285e"
     ++ [| t32 1 :=
@@ -75,28 +75,28 @@ type LifterTests () =
     |> testARM
 
   [<TestMethod>]
-  member _.``[ARMv7] ADD (immedate) lift test`` () =
+  member _.``[ARMv7] ADD (immedate) lift test``() =
     "e28f0ff0"
     ++ [| t32 1 := !.PC .+ num 0x8u .+ num 0x3c0u .+ num 0x0u
           !.R0 := t32 1 |]
     |> testARM
 
   [<TestMethod>]
-  member _.``[Thumb] ADD (Two Reg Operands) lift test`` () =
+  member _.``[Thumb] ADD (Two Reg Operands) lift test``() =
     "448b"
     ++ [| t32 1 := !.FP .+ !.R1 .+ num 0u
           !.FP := t32 1 |]
     |> testThumb
 
   [<TestMethod>]
-  member _.``[Thumb] ADD (Three Reg Operands) lift test`` () =
+  member _.``[Thumb] ADD (Three Reg Operands) lift test``() =
     "44ec"
     ++ [| t32 1 := !.SP .+ !.IP .+ num 0u
           !.IP := t32 1 |]
     |> testThumb
 
   [<TestMethod>]
-  member _.``[Thumb] ADD (Immediate) lift test`` () =
+  member _.``[Thumb] ADD (Immediate) lift test``() =
     "b066"
     ++ [| t32 1 := !.SP .+ num 0x198u .+ num 0u
           !.SP := t32 1 |]

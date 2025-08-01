@@ -31,17 +31,17 @@ open B2R2.FrontEnd.BinFile.Wasm
 open B2R2.FrontEnd.BinFile.Wasm.Helper
 
 /// Represents a Web Assembly (Wasm) binary file.
-type WasmBinFile (path, bytes, baseAddrOpt) =
+type WasmBinFile(path, bytes, baseAddrOpt) =
   let wm = Parser.parse bytes
   let baseAddr = defaultArg baseAddrOpt 0UL
   let reader = BinReader.Init Endian.Little
   let isa = ISA Architecture.WASM
 
-  new (path, bytes) = WasmBinFile (path, bytes, None)
+  new(path, bytes) = WasmBinFile(path, bytes, None)
 
   member _.WASM with get() = wm
 
-  member _.Sections with get () = wm.SectionsInfo.SecArray
+  member _.Sections with get() = wm.SectionsInfo.SecArray
 
   interface IBinFile with
     member _.Reader with get() = reader
@@ -66,10 +66,10 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
 
     member _.IsRelocatable = false
 
-    member _.Slice (addr, len) =
-      System.ReadOnlySpan (bytes, int addr, len)
+    member _.Slice(addr, len) =
+      System.ReadOnlySpan(bytes, int addr, len)
 
-    member _.IsValidAddr (addr) =
+    member _.IsValidAddr(addr) =
       addr >= 0UL && addr < (uint64 bytes.LongLength)
 
     member this.IsValidRange range =
@@ -90,35 +90,35 @@ type WasmBinFile (path, bytes, baseAddrOpt) =
         | Some s ->
           let size = s.HeaderSize + s.ContentsSize
           let maxAddr = uint64 s.Offset + uint64 size - 1UL
-          BinFilePointer (addr, maxAddr, int addr, int maxAddr)
+          BinFilePointer(addr, maxAddr, int addr, int maxAddr)
         | None -> BinFilePointer.Null
 
-    member _.GetVMMappedRegions () = [||]
+    member _.GetVMMappedRegions() = [||]
 
     member _.GetVMMappedRegions _permission = [||]
 
     member _.TryFindName _addr =
       Terminator.futureFeature ()
 
-    member _.GetTextSectionPointer () =
+    member _.GetTextSectionPointer() =
       match wm.CodeSection with
       | Some sec ->
-        BinFilePointer (uint64 sec.Offset,
-                        uint64 sec.Offset + uint64 sec.Size - 1UL,
-                        int sec.Offset,
-                        int sec.Offset + int sec.Size - 1)
+        BinFilePointer(uint64 sec.Offset,
+                       uint64 sec.Offset + uint64 sec.Size - 1UL,
+                       int sec.Offset,
+                       int sec.Offset + int sec.Size - 1)
       | None -> BinFilePointer.Null
 
     member _.GetSectionPointer _addr = Terminator.futureFeature ()
 
     member _.IsInTextOrDataOnlySection _ = Terminator.futureFeature ()
 
-    member _.GetFunctionAddresses () = Terminator.futureFeature ()
+    member _.GetFunctionAddresses() = Terminator.futureFeature ()
 
     member _.HasRelocationInfo _addr = false
 
     member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 
-    member _.GetLinkageTableEntries () = getImports wm
+    member _.GetLinkageTableEntries() = getImports wm
 
     member _.IsLinkageTable _addr = Terminator.futureFeature ()

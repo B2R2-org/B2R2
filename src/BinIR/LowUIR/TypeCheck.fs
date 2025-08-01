@@ -35,7 +35,7 @@ open B2R2.BinIR
 let internal bool e =
   let t = Expr.TypeOf e
   if t <> 1<rt> then
-    raise <| TypeCheckException (Pp.expToString e + "must be boolean.")
+    raise <| TypeCheckException(Pp.expToString e + "must be boolean.")
   else ()
 #endif
 
@@ -53,7 +53,7 @@ let internal binop e1 e2 =
 
 let private castErr (newType: RegType) (oldType: RegType) =
   let errMsg =
-    "Cannot cast from " + oldType.ToString () + " to " + newType.ToString ()
+    "Cannot cast from " + oldType.ToString() + " to " + newType.ToString()
   raise <| TypeCheckException errMsg
 
 let private isValidFloatType = function
@@ -83,29 +83,29 @@ let internal extract (t: RegType) pos (t2: RegType) =
 /// Type-checks a LowUIR expression.
 let rec expr e =
   match e with
-  | UnOp (_, e, _) -> expr e
-  | BinOp (BinOpType.CONCAT, t, e1, e2, _) ->
+  | UnOp(_, e, _) -> expr e
+  | BinOp(BinOpType.CONCAT, t, e1, e2, _) ->
     expr e1 && expr e2 && concat e1 e2 = t
-  | BinOp (_, t, e1, e2, _) -> expr e1 && expr e2 && binop e1 e2 = t
-  | RelOp (_, e1, e2, _) ->
+  | BinOp(_, t, e1, e2, _) -> expr e1 && expr e2 && binop e1 e2 = t
+  | RelOp(_, e1, e2, _) ->
     expr e1 && expr e2 && Expr.TypeOf e1 = Expr.TypeOf e2
-  | Load (_, _, addr, _) -> expr addr
-  | Ite (cond, e1, e2, _) ->
+  | Load(_, _, addr, _) -> expr addr
+  | Ite(cond, e1, e2, _) ->
     Expr.TypeOf cond = 1<rt> && expr e1 && expr e2
     && Expr.TypeOf e1 = Expr.TypeOf e2
-  | Cast (CastKind.SignExt, t, e, _)
-  | Cast (CastKind.ZeroExt, t, e, _) -> expr e && t >= Expr.TypeOf e
-  | Extract (e, t, p, _) ->
+  | Cast(CastKind.SignExt, t, e, _)
+  | Cast(CastKind.ZeroExt, t, e, _) -> expr e && t >= Expr.TypeOf e
+  | Extract(e, t, p, _) ->
     expr e && ((t + LanguagePrimitives.Int32WithMeasure p) <= Expr.TypeOf e)
   | _ -> true
 
 /// Type-checks a LowUIR statement.
 let stmt s =
   match s with
-  | Put (v, e, _) -> (Expr.TypeOf v) = (Expr.TypeOf e)
-  | Store (_, a, v, _) -> expr a && expr v
-  | Jmp (a, _) -> expr a
-  | CJmp (cond, e1, e2, _) -> expr cond && expr e1 && expr e2
-  | InterJmp (addr, _, _) -> expr addr
-  | InterCJmp (cond, a1, a2, _) -> expr cond && expr a1 && expr a2
+  | Put(v, e, _) -> (Expr.TypeOf v) = (Expr.TypeOf e)
+  | Store(_, a, v, _) -> expr a && expr v
+  | Jmp(a, _) -> expr a
+  | CJmp(cond, e1, e2, _) -> expr cond && expr e1 && expr e2
+  | InterJmp(addr, _, _) -> expr addr
+  | InterCJmp(cond, a1, a2, _) -> expr cond && expr a1 && expr a2
   | _ -> true

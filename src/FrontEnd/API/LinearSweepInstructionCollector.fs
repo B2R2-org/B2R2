@@ -29,11 +29,10 @@ open B2R2.FrontEnd.BinFile
 
 /// Represents a linear sweep instruction collector, which is the most basic
 /// instruction collector performing linear sweep disassembly.
-type LinearSweepInstructionCollector (hdl: BinHandle,
-                                      liftingUnit: LiftingUnit) =
+type LinearSweepInstructionCollector(hdl: BinHandle, liftingUnit: LiftingUnit) =
   let rec update updateFn (ptr: BinFilePointer) =
     if ptr.IsValid then
-      match liftingUnit.TryParseInstruction (ptr=ptr) with
+      match liftingUnit.TryParseInstruction(ptr = ptr) with
       | Ok ins ->
         updateFn (ptr.Addr, OnlyOne ins) |> ignore
         update updateFn (ptr.Advance(ins.Length))
@@ -42,16 +41,16 @@ type LinearSweepInstructionCollector (hdl: BinHandle,
         update updateFn (ptr.Advance(shiftAmount))
     else ()
 
-  new (hdl: BinHandle) =
-    LinearSweepInstructionCollector (hdl, hdl.NewLiftingUnit ())
+  new(hdl: BinHandle) =
+    LinearSweepInstructionCollector(hdl, hdl.NewLiftingUnit())
 
   interface IInstructionCollectable with
     member _.Collect updateFn =
-      let ptr = liftingUnit.File.GetTextSectionPointer ()
+      let ptr = liftingUnit.File.GetTextSectionPointer()
       update updateFn ptr
 
     member _.ParseInstructionCandidate addr =
-      let liftingUnit = hdl.NewLiftingUnit () (* always create a new one! *)
-      match liftingUnit.TryParseInstruction (addr=addr) with
-      | Ok ins -> Ok (OnlyOne ins)
+      let liftingUnit = hdl.NewLiftingUnit() (* always create a new one! *)
+      match liftingUnit.TryParseInstruction(addr = addr) with
+      | Ok ins -> Ok(OnlyOne ins)
       | Error _ -> Error ErrorCase.ParsingFailure

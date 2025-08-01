@@ -33,9 +33,9 @@ open B2R2.FrontEnd.BinLifter
 /// given binary, and store them in the internal collection. This is shared
 /// across all functions.
 [<AllowNullLiteral>]
-type InstructionCollection (collector: IInstructionCollectable) =
-  let dict = ConcurrentDictionary<Addr, InstructionCandidate> ()
-  let updateFn (addr, insCandidate) = dict.TryAdd (addr, insCandidate) |> ignore
+type InstructionCollection(collector: IInstructionCollectable) =
+  let dict = ConcurrentDictionary<Addr, InstructionCandidate>()
+  let updateFn (addr, insCandidate) = dict.TryAdd(addr, insCandidate) |> ignore
   do task { collector.Collect updateFn } |> ignore
 
   /// Number of instructions in the collection.
@@ -43,24 +43,24 @@ type InstructionCollection (collector: IInstructionCollectable) =
 
   member inline private _.ExtractInstruction candidate =
     match candidate with
-    | OnlyOne ins-> Ok ins
+    | OnlyOne ins -> Ok ins
     | _ -> Error ErrorCase.ParsingFailure
 
   /// Find cached one or parse (and cache) the instruction at the given address.
-  member this.TryFind (addr: Addr) =
+  member this.TryFind(addr: Addr) =
     match dict.TryGetValue addr with
     | true, candidate -> this.ExtractInstruction candidate
     | false, _ ->
       match collector.ParseInstructionCandidate addr with
       | Ok candidate ->
         let ins = this.ExtractInstruction candidate
-        if Result.isOk ins then dict.TryAdd (addr, candidate) |> ignore else ()
+        if Result.isOk ins then dict.TryAdd(addr, candidate) |> ignore else ()
         ins
       | Error e -> Error e
 
   /// Get the instruction at the given address. Raise an exception if not found.
-  member _.Find (addr: Addr) =
-    match dict.[addr] with
+  member _.Find(addr: Addr) =
+    match dict[addr] with
     | OnlyOne ins -> ins
     | _ -> raise ParsingFailureException
 
@@ -75,11 +75,8 @@ and InstructionCandidate =
 and IInstructionCollectable =
   /// Collects instructions from the binary. The `updateFn` is called for each
   /// instruction that is parsed.
-  abstract Collect:
-       updateFn: (Addr * InstructionCandidate -> unit)
-    -> unit
+  abstract Collect: updateFn: (Addr * InstructionCandidate -> unit) -> unit
 
   /// Parses one or more instruction candidates from the given address.
   abstract ParseInstructionCandidate:
-       Addr
-    -> Result<InstructionCandidate, ErrorCase>
+    Addr -> Result<InstructionCandidate, ErrorCase>

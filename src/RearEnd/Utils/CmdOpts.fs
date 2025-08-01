@@ -29,59 +29,59 @@ open B2R2.FsOptParse
 open System
 
 /// A common set of command-line options used in analyzing binaries.
-type CmdOpts () =
+type CmdOpts() =
   /// Verbosity
   member val Verbose = false with get, set
 
   /// Just a wrapper function that instantiate an OptParse.Option object.
-  static member New<'T> (descr, ?callback, ?required, ?extra, ?help,
-                                ?short, ?long, ?dummy, ?descrColor) =
-    Option<'T> (descr,
-                ?callback = callback,
-                ?required = required,
-                ?extra = extra, ?help = help,
-                ?short = short, ?long = long,
-                ?dummy = dummy, ?descrColor = descrColor)
+  static member New<'T>(descr, ?callback, ?required, ?extra, ?help,
+                        ?short, ?long, ?dummy, ?descrColor) =
+    Option<'T>(descr,
+               ?callback = callback,
+               ?required = required,
+               ?extra = extra, ?help = help,
+               ?short = short, ?long = long,
+               ?dummy = dummy, ?descrColor = descrColor)
 
   /// "-v" or "--verbose" option turns on the verbose mode.
-  static member OptVerbose () =
+  static member OptVerbose() =
     let cb (opts: #CmdOpts) _ =
       opts.Verbose <- true; opts
-    CmdOpts.New (descr = "Verbose mode",
-                 callback = cb, short = "-v", long = "--verbose")
+    CmdOpts.New(descr = "Verbose mode",
+                callback = cb, short = "-v", long = "--verbose")
 
   /// "-h" or "--help" option.
-  static member OptHelp () =
-    CmdOpts.New (descr = "Show this usage",
-                 help = true, short = "-h", long = "--help")
+  static member OptHelp() =
+    CmdOpts.New(descr = "Show this usage",
+                help = true, short = "-h", long = "--help")
 
   /// Write B2R2 logo to console. We can selectively append a new line at the
   /// end.
   static member WriteB2R2 newLine =
-    [ ColoredSegment (DarkCyan, "B")
-      ColoredSegment (DarkYellow, "2")
-      ColoredSegment (DarkCyan, "R")
-      ColoredSegment (DarkYellow, "2") ]
+    [ ColoredSegment(DarkCyan, "B")
+      ColoredSegment(DarkYellow, "2")
+      ColoredSegment(DarkCyan, "R")
+      ColoredSegment(DarkYellow, "2") ]
     |> Printer.PrintToConsole
-    if newLine then Printer.PrintToConsoleLine () else ()
+    if newLine then Printer.PrintToConsoleLine() else ()
 
-  static member WriteIntro () =
+  static member WriteIntro() =
     CmdOpts.WriteB2R2 false
-    Printer.PrintToConsoleLine (", the Next-Generation Reversing Platform")
-    Printer.PrintToConsoleLine (Attribution.Copyright + Environment.NewLine)
+    Printer.PrintToConsoleLine(", the Next-Generation Reversing Platform")
+    Printer.PrintToConsoleLine(Attribution.Copyright + Environment.NewLine)
 
-  static member private CreateUsageGetter tool usageTail =
+  static member private CreateUsageGetter(tool, usageTail) =
     fun () ->
-      CmdOpts.WriteIntro ()
+      CmdOpts.WriteIntro()
       let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
-      String.Format ("[Usage]{0}{0}b2r2 {1} %o{2}",
-                     Environment.NewLine, tool, tail)
+      String.Format("[Usage]{0}{0}b2r2 {1} %o{2}",
+                    Environment.NewLine, tool, tail)
 
-  static member private TermFunction () = exit 1
+  static member private TermFunction() = exit 1
 
-  static member private ParseCmdOpts spec defaultOpts argv tool usageTail =
+  static member private ParseCmdOpts(spec, defaultOpts, argv, tool, usageTail) =
     let prog = Environment.GetCommandLineArgs()[0]
-    let usageGetter = CmdOpts.CreateUsageGetter tool usageTail
+    let usageGetter = CmdOpts.CreateUsageGetter(tool, usageTail)
     try
       optParse spec usageGetter prog argv defaultOpts
     with
@@ -95,15 +95,16 @@ type CmdOpts () =
       eprintfn "Fatal error: %s" e.Message
       usagePrint spec prog usageGetter CmdOpts.TermFunction
 
-  static member PrintUsage tool usageTail spec =
+  static member PrintUsage(tool, usageTail, spec) =
     let prog = Environment.GetCommandLineArgs()[0]
-    let usageGetter = CmdOpts.CreateUsageGetter tool usageTail
+    let usageGetter = CmdOpts.CreateUsageGetter(tool, usageTail)
     usagePrint spec prog usageGetter CmdOpts.TermFunction
 
   /// Parse command line arguments, and run the mainFn
-  static member ParseAndRun mainFn tool usageTail spec (opts: #CmdOpts) args =
-    let rest, opts = CmdOpts.ParseCmdOpts spec opts args tool usageTail
-    if opts.Verbose then CmdOpts.WriteIntro () else ()
+  static member ParseAndRun(mainFn, tool, usageTail, spec, opts: #CmdOpts
+                            , args) =
+    let rest, opts = CmdOpts.ParseCmdOpts(spec, opts, args, tool, usageTail)
+    if opts.Verbose then CmdOpts.WriteIntro() else ()
     try mainFn rest opts; 0
     with e -> eprintfn "Error: %s" e.Message
               eprintfn "%s" (if opts.Verbose then e.StackTrace else ""); 1
@@ -113,7 +114,7 @@ type CmdOpts () =
   static member SanitizeRestArgs args =
     let rec sanitize = function
       | (arg: string) :: rest ->
-        if arg.StartsWith ('-') then
+        if arg.StartsWith('-') then
           Printer.PrintErrorToConsole
           <| sprintf "Invalid argument (%s) is used" arg
           exit 1

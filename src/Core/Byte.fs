@@ -53,7 +53,7 @@ let isControl b =
 [<CompiledName "GetRepresentation">]
 let getRepresentation (b: byte) =
   if isNull b then "."
-  elif isPrintable b then (char b).ToString ()
+  elif isPrintable b then (char b).ToString()
   elif isWhitespace b then "_"
   elif isControl b then "*"
   else "."

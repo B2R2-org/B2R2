@@ -108,10 +108,10 @@ let movhps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
-  | OprMem (_, _, _, 64<rt>), OprReg r ->
+  | OprMem(_, _, _, 64<rt>), OprReg r ->
     let dst = transOprToExpr bld false ins insLen dst
     bld <+ (dst := pseudoRegVar bld r 2)
-  | OprReg r, OprMem (_, _, _, 64<rt>)->
+  | OprReg r, OprMem(_, _, _, 64<rt>) ->
     let src = transOprToExpr bld false ins insLen src
     bld <+ (pseudoRegVar bld r 2 := src)
   | _ -> raise InvalidOperandException
@@ -236,14 +236,14 @@ let addpd ins insLen bld =
 
 let private getFstOperand = function
   | OneOperand o -> o
-  | TwoOperands (o, _) -> o
-  | ThreeOperands (o, _, _) -> o
-  | FourOperands (o, _, _, _) -> o
+  | TwoOperands(o, _) -> o
+  | ThreeOperands(o, _, _) -> o
+  | FourOperands(o, _, _, _) -> o
   | _ -> raise InvalidOperandException
 
 let private getTwoSrcOperands = function
-  | TwoOperands (op1, op2) -> (op1, op2)
-  | ThreeOperands (_op1, op2, op3) -> (op2, op3)
+  | TwoOperands(op1, op2) -> (op1, op2)
+  | ThreeOperands(_op1, op2, op3) -> (op2, op3)
   | _ -> raise InvalidOperandException
 
 let private handleScalarFPOp (ins: Instruction) insLen bld sz op =
@@ -482,8 +482,8 @@ let private cmppCond bld ins insLen op3 isDbl c expr1 expr2 =
     transOprToExpr bld false ins insLen op3 |> AST.xtlo 8<rt>
     .& numI32 0x7 8<rt>
   match imm with
-  | Num (bv, _) ->
-    match bv.SmallValue () with
+  | Num(bv, _) ->
+    match bv.SmallValue() with
     | 0UL -> bld <+ (c := expr1 == expr2)
     | 1UL -> bld <+ (c := AST.flt expr1 expr2)
     | 2UL -> bld <+ (c := AST.fle expr1 expr2)
@@ -539,7 +539,7 @@ let cmpss (ins: Instruction) insLen bld =
 let cmpsd (ins: Instruction) insLen bld =
   match ins.Operands with
   | NoOperand -> GeneralLifter.cmps ins insLen bld
-  | ThreeOperands (dst, src, imm) ->
+  | ThreeOperands(dst, src, imm) ->
     bld <!-- (ins.Address, insLen)
     let dst = transOprToExpr64 bld false ins insLen dst
     let src = transOprToExpr64 bld false ins insLen src
@@ -1080,7 +1080,7 @@ let pextrw ins insLen bld =
   let src = transOprToArr bld false ins insLen 16<rt> packNum srcSz src
   let idx = getImmValue imm8 |> int
   match dst with
-  | OprMem (_, _, _, 16<rt>) ->
+  | OprMem(_, _, _, 16<rt>) ->
     let idx = idx &&& 0b111
     bld <+ (d := src[idx])
   | _ ->
@@ -1175,7 +1175,10 @@ let pmovmskb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   let struct (dst, src) = getTwoOprs ins
-  let r = match src with | OprReg r -> r | _ -> raise InvalidOperandException
+  let r =
+    match src with
+    | OprReg r -> r
+    | _ -> raise InvalidOperandException
   match Register.getKind r with
   | Register.Kind.MMX ->
     let struct (dst, src) = transTwoOprs bld false ins insLen
@@ -1790,16 +1793,15 @@ let pblendw (ins: Instruction) insLen bld =
 /// XXX (cleanup required)
 /// imm8 control byte operation for PCMPESTRI, PCMPESTRM, etc..
 /// See Chapter 4.1 of the manual vol. 2B.
-type Imm8ControlByte = {
-  PackSize   : RegType
-  NumElems   : uint32
-  Sign       : Sign
-  Agg        : Agg
-  Polarity   : Polarity
-  OutSelect  : OutSelect
-  Len        : Length
-  Ret        : Return
-}
+type Imm8ControlByte =
+  { PackSize: RegType
+    NumElems: uint32
+    Sign: Sign
+    Agg: Agg
+    Polarity: Polarity
+    OutSelect: OutSelect
+    Len: Length
+    Ret: Return }
 
 and Sign =
   | Signed
@@ -1832,7 +1834,7 @@ and Return =
 let private getPcmpstrInfo opCode (imm: Expr) =
   let immByte =
     match imm with
-    | Num (n, _) -> BitVector.GetValue n
+    | Num(n, _) -> BitVector.GetValue n
     | _ -> raise InvalidExprException
   let agg =
     match (immByte >>> 2) &&& 3I with
@@ -1958,7 +1960,6 @@ let pcmpstr (ins: Instruction) insLen bld =
     if REXPrefix.hasW ins.REXPrefix then
       64<rt>, regVar bld R.RAX, regVar bld R.RDX
     else 32<rt>, regVar bld R.EAX, regVar bld R.EDX
-
   let struct (aInval, bInval) = tmpVars2 bld 1<rt>
   bld <+ (aInval := AST.b0)
   let (.<=), (.>=) =
@@ -1982,11 +1983,9 @@ let pcmpstr (ins: Instruction) insLen bld =
       overrideIfDataInvalid bld ctrl aInval bInval boolRes[i, j]
     done
   done
-
   let inline initIntRes initVal = Array.iter (fun r -> bld <+ (r := initVal))
   let intRes1 = Array.init nElem (fun _ -> tmpVar bld 1<rt>)
   let intRes2 = Array.init nElem (fun _ -> tmpVar bld 1<rt>)
-
   (* aggregate results. *)
   match ctrl.Agg with
   | EqualAny ->
@@ -2019,7 +2018,6 @@ let pcmpstr (ins: Instruction) insLen bld =
         k <- k + 1
       done
     done
-
   (* optionally negate results. *)
   initIntRes AST.b0 intRes2
   for i in 0 .. upperBound do
@@ -2035,7 +2033,6 @@ let pcmpstr (ins: Instruction) insLen bld =
         let not = AST.not intRes1[i]
         bld <+ (intRes2[i] := AST.ite (numI32 i regSize .>= dx) intRes1[i] not)
   done
-
   (* output. *)
   let iRes2 = tmpVar bld elemSz
   bld <+ (iRes2 := combineBits elemSz intRes2)

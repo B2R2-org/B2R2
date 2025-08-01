@@ -32,81 +32,78 @@ open SimpleArithOperate
 module SimpleArithParser =
   /// Returns a tuple of the big int value of the string and the number of bits
   /// required to represent the number.
-  let calculateValue (str : string) =
-    let rep = if (str.Length >= 2) then (str[0 .. 1]) else ""
+  let calculateValue (str: string) =
+    let rep = if str.Length >= 2 then str[0..1] else ""
     if rep = "0x" || rep = "0X" || rep = "0o" || rep = "0O" ||
-      rep = "0b" || rep = "oB" then
-      stringToBigint str
-    else
-      (System.Numerics.BigInteger.Parse str, -1)
+      rep = "0b" || rep = "oB" then stringToBigint str
+    else System.Numerics.BigInteger.Parse str, -1
 
   type Parser<'A> = Parser<'A, unit>
 
-  let dummyValue = { IntValue = 0I; Type = CError Default ; FloatValue = 0.0 }
+  let dummyValue = { IntValue = 0I; Type = CError Default; FloatValue = 0.0 }
 
   let charListToString charList =
     Seq.fold (fun str char -> str + string char) "" charList
 
   let pHexString =
     pstringCI "0x" .>>. many (anyOf "0123456789ABCDEFabcdef")
-    |>> (fun (prefix, bits) -> prefix + charListToString bits)
+    |>> fun (prefix, bits) -> prefix + charListToString bits
 
   let pOctalString =
     pstringCI "0o" .>>. many (anyOf "01234567")
-    |>> (fun (prefix, bits) -> prefix + charListToString bits)
+    |>> fun (prefix, bits) -> prefix + charListToString bits
 
   let pBinaryString =
     pstringCI "0b" .>>. many (anyOf "01")
-    |>> (fun (prefix, bits) -> prefix + charListToString bits)
+    |>> fun (prefix, bits) -> prefix + charListToString bits
 
   let pBinOrHexInteger: Parser<Number> =
     attempt pBinaryString <|> attempt pHexString <|> attempt pOctalString
-    |>> (fun str ->
-           let value, numSize = calculateValue str
-           Number.createInt (NumType.fromInt numSize) value
-        )
+    |>> fun str ->
+      let value, numSize = calculateValue str
+      Number.createInt (NumType.fromInt numSize) value
 
   let pUnsignedBigInteger =
     many1 digit |>> charListToString |>> bigint.Parse
 
   let pInteger =
      opt (pchar '-') .>>. pUnsignedBigInteger
-     |>> (fun (sign, value) -> if sign.IsSome then -1I * value else value )
+     |>> fun (sign, value) -> if sign.IsSome then -1I * value else value
 
   let pFloatNumber: Parser<Number> =
     opt (pchar '-') .>>. many1 digit .>> pchar '.' .>>. many digit
-    |>> (fun ((sign, intPart), decPart) ->
-           let value = charListToString intPart + "." + charListToString decPart
-                       |> fun str -> if sign.IsNone then str else "-" + str
-                       |> System.Double.Parse
-           Number.createFloat (Float Bit64) value
-        )
+    |>> fun ((sign, intPart), decPart) ->
+      let value =
+        charListToString intPart + "." + charListToString decPart
+        |> fun str -> if sign.IsNone then str else "-" + str
+        |> System.Double.Parse
+      Number.createFloat (Float Bit64) value
 
   let pImpliedSignedInteger: Parser<Number> =
     attempt pInteger
-    |>> (fun bigIntValue ->
-          { IntValue = bigIntValue; Type = NumType.getInferedType bigIntValue
-            FloatValue = 0.0 })
+    |>> fun bigIntValue ->
+      { IntValue = bigIntValue; Type = NumType.getInferedType bigIntValue
+        FloatValue = 0.0 }
 
   let pUInt32: Parser<Number> =
     pUnsignedBigInteger .>> anyOf "uU"
-    |>> ( fun value -> Number.createInt (Signed Bit32) value )
+    |>> fun value -> Number.createInt (Signed Bit32) value
 
   let pUInt64: Parser<Number> =
     pUnsignedBigInteger .>> (anyOf "uU" >>. (pstring "I" <|> pstringCI "L"))
-    |>> ( fun value -> Number.createInt (Unsigned Bit64) value )
+    |>> fun value -> Number.createInt (Unsigned Bit64) value
 
   let pUInt128: Parser<Number> =
     pUnsignedBigInteger .>> (anyOf "uU" >>. (pstring "II" <|> pstringCI "LL"))
-    |>> ( fun value -> Number.createInt (Unsigned Bit128) value )
+    |>> fun value -> Number.createInt (Unsigned Bit128) value
 
   let pLong: Parser<Number> =
     pInteger .>> anyOf "lLiI"
-    |>> ( fun value -> Number.createInt (Signed Bit64) value )
+    |>> fun value -> Number.createInt (Signed Bit64) value
 
   let pLongLong: Parser<Number> =
     pInteger .>> (pstringCI "II" <|> pstringCI "LL")
-    |>> ( fun value -> Number.createInt (Signed Bit128) value )
+    |>> fun value -> Number.createInt (Signed Bit128) value
 
   let pAllNumbers =
     attempt pBinOrHexInteger <|>
@@ -195,14 +192,14 @@ module SimpleArithASCIIParser =
 
   let parseDigit = anyOf "123456789"
 
-  let parseSingleDigit = digit |>> (fun a -> [string a])
+  let parseSingleDigit = digit |>> (fun a -> [ string a ])
 
   let parseDoubleDigit =
-    parseDigit .>>. digit |>> (fun (a, b) -> [string a + string b])
+    parseDigit .>>. digit |>> (fun (a, b) -> [ string a + string b ])
 
   let parseTripleDigit =
     parseDigit .>>. digit .>>. digit
-    |>> (fun ((a, b), c) -> [string a + string b + string c])
+    |>> (fun ((a, b), c) -> [ string a + string b + string c ])
 
   let parseDecimal =
     attempt parseTripleDigit

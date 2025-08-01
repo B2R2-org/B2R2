@@ -26,8 +26,8 @@ namespace B2R2.RearEnd.BinExplorer
 
 open B2R2.RearEnd.Utils
 
-type CmdHelp () =
-  inherit Cmd ()
+type CmdHelp() =
+  inherit Cmd()
 
   let generalHelpStr = """
 [*] Current B2R2 commands (type 'help <command>' for more info):
@@ -61,14 +61,14 @@ type CmdHelp () =
   override _.SubCommands =
     []
 
-  override _.CallBack cmdMap _ args =
+  override _.CallBack(cmdMap, _, args) =
     match args with
     | [] -> generalHelp cmdMap
     | cmd :: _ -> specificHelp cmd cmdMap
     |> Array.map OutputNormal
 
-type CmdExit () =
-  inherit Cmd ()
+type CmdExit() =
+  inherit Cmd()
 
   override _.CmdName = "exit"
 
@@ -80,4 +80,4 @@ type CmdExit () =
 
   override _.SubCommands = []
 
-  override _.CallBack _ _ _ = [||]
+  override _.CallBack(_, _, _) = [||]

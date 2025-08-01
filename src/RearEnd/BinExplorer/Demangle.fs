@@ -27,8 +27,8 @@ namespace B2R2.RearEnd.BinExplorer
 open B2R2.FrontEnd.NameMangling
 open B2R2.RearEnd.Utils
 
-type CmdDemangle () =
-  inherit Cmd ()
+type CmdDemangle() =
+  inherit Cmd()
 
   override _.CmdName = "demangle"
 
@@ -44,6 +44,6 @@ type CmdDemangle () =
     | Ok s -> [| OutputNormal s |]
     | Error _ -> [| OutputNormal "[*] Invalid input." |]
 
-  override this.CallBack _ _ args =
+  override this.CallBack(_, _, args) =
     let mangled = String.concat " " args
     Demangler.Demangle mangled |> this.MapResult

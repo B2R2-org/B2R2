@@ -33,33 +33,32 @@ open B2R2.FrontEnd.Intel
 #if !EMULATION
 #if !HASHCONS
 [<TestClass>]
-type LifterTests () =
+type LifterTests() =
   let test builder wordSize (expectedStmts: string[]) (bytes: byte[]) =
     let reader = BinReader.Init Endian.Little
-    let parser = IntelParser (wordSize, reader) :> IInstructionParsable
-    let ins = parser.Parse (bytes, 0UL)
+    let parser = IntelParser(wordSize, reader) :> IInstructionParsable
+    let ins = parser.Parse(bytes, 0UL)
     let actual = ins.Translate builder |> Array.map Pp.stmtToString
-    printfn "%A" actual
-    CollectionAssert.AreEqual (expectedStmts, actual)
+    CollectionAssert.AreEqual(expectedStmts, actual)
 
   let testX86 (hex: string) expectedStmts =
-    let isa = ISA (Architecture.Intel, WordSize.Bit32)
+    let isa = ISA(Architecture.Intel, WordSize.Bit32)
     let regFactory = RegisterFactory isa.WordSize
-    let stream = LowUIRStream ()
-    let builder = ILowUIRBuilder.Default (isa, regFactory, stream)
+    let stream = LowUIRStream()
+    let builder = ILowUIRBuilder.Default(isa, regFactory, stream)
     ByteArray.ofHexString hex
     |> test builder WordSize.Bit32 expectedStmts
 
   let testX64 (hex: string) expectedStmts =
-    let isa = ISA (Architecture.Intel, WordSize.Bit64)
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
     let regFactory = RegisterFactory isa.WordSize
-    let stream = LowUIRStream ()
-    let builder = ILowUIRBuilder.Default (isa, regFactory, stream)
+    let stream = LowUIRStream()
+    let builder = ILowUIRBuilder.Default(isa, regFactory, stream)
     ByteArray.ofHexString hex
     |> test builder WordSize.Bit64 expectedStmts
 
   [<TestMethod>]
-  member _.``[X86] ADD instruction lift Test (1)`` () =
+  member _.``[X86] ADD instruction lift Test (1)``() =
     testX86 "0500000100"
     <| [| "(5) {"
           "T_1:I32 := EAX"
@@ -78,7 +77,7 @@ type LifterTests () =
           "} // 5" |]
 
   [<TestMethod>]
-  member _.``[X64] ADD instruction lift Test (1)`` () =
+  member _.``[X64] ADD instruction lift Test (1)``() =
     testX64 "0500000100"
     <| [| "(5) {"
           "T_1:I32 := (RAX[31:0])"

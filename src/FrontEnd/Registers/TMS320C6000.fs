@@ -135,7 +135,7 @@ module Register =
   /// Returns the TMS320C6000 register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "a0" -> Register.A0
     | "a1" -> Register.A1
     | "a2" -> Register.A2
@@ -235,7 +235,7 @@ module Register =
   /// Returns the register ID of a TMS320C6000 register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+    LanguagePrimitives.EnumToValue(reg) |> RegisterID.create
 
   /// Returns the string representation of a TMS320C6000 register.
   [<CompiledName "ToString">]

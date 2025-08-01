@@ -29,16 +29,15 @@ open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.ARM64.Utils
 
-let memBaseImm offset = OprMemory (BaseMode (ImmOffset (BaseOffset offset)))
-let memBaseReg offset = OprMemory (BaseMode (RegOffset offset))
-let memPreIdxImm offset = OprMemory (PreIdxMode (ImmOffset (BaseOffset offset)))
-let memPreIdxReg offset = OprMemory (PreIdxMode (RegOffset offset))
-let memPostIdxImm offset =
-  OprMemory (PostIdxMode (ImmOffset (BaseOffset offset)))
-let memPostIdxReg offset = OprMemory (PostIdxMode (RegOffset offset))
-let memLabel lbl = OprMemory (LiteralMode (ImmOffset (Lbl lbl)))
-let sVRegIdx vReg vec idx = SIMDVecRegWithIdx (vReg, vec, idx)
-let scalReg reg = OprSIMD (SIMDFPScalarReg reg)
+let memBaseImm offset = OprMemory(BaseMode(ImmOffset(BaseOffset offset)))
+let memBaseReg offset = OprMemory(BaseMode(RegOffset offset))
+let memPreIdxImm offset = OprMemory(PreIdxMode(ImmOffset(BaseOffset offset)))
+let memPreIdxReg offset = OprMemory(PreIdxMode(RegOffset offset))
+let memPostIdxImm offset = OprMemory(PostIdxMode(ImmOffset(BaseOffset offset)))
+let memPostIdxReg offset = OprMemory(PostIdxMode(RegOffset offset))
+let memLabel lbl = OprMemory(LiteralMode(ImmOffset(Lbl lbl)))
+let sVRegIdx vReg vec idx = SIMDVecRegWithIdx(vReg, vec, idx)
+let scalReg reg = OprSIMD(SIMDFPScalarReg reg)
 
 let getRegister64 oprSize = function
   | 0x0uy -> if oprSize = 32<rt> then R.W0 else R.X0
@@ -448,7 +447,7 @@ let getPrefetchOperation = function
   | 0b10011uy -> OprPrfOp PSTL2STRM
   | 0b10100uy -> OprPrfOp PSTL3KEEP
   | 0b10101uy -> OprPrfOp PSTL3STRM
-  | rt -> OprImm (int64 rt)
+  | rt -> OprImm(int64 rt)
 
 /// Table C1-1 Condition codes.
 let getCondition = function
@@ -634,23 +633,23 @@ let getOprSizeBySfN bin =
 
 (* SIMD&FP scalar register *)
 let getSIMDFPscalReg oprSize value =
-  OprSIMD (SIMDFPScalarReg (getSIMDFPRegister64 oprSize (byte value)))
+  OprSIMD(SIMDFPScalarReg(getSIMDFPRegister64 oprSize (byte value)))
 
 (* SIMD&FP vector register *)
 let getSIMDFPVecReg value t =
-  OprSIMD (SIMDVecReg (getVRegister64 (byte value), t))
+  OprSIMD(SIMDVecReg(getVRegister64 (byte value), t))
 
 let getSIMDFPRegWithIdx value t idx =
-  OprSIMD (SIMDVecRegWithIdx (getVRegister64 (byte value), t, idx))
+  OprSIMD(SIMDVecRegWithIdx(getVRegister64 (byte value), t, idx))
 
 (* SIMD vector register list *)
 let getSIMDVecReg t rLst =
-  List.map (fun v -> SIMDVecReg (v, t)) rLst |> OprSIMDList
+  List.map (fun v -> SIMDVecReg(v, t)) rLst |> OprSIMDList
 
 (* SIMD vector element list *)
 let getSIMDVecRegWithIdx vec idx rLst =
-  let srIdx v = SIMDVecRegWithIdx (v, vec, idx)
-  List.map (fun v -> SIMDVecRegWithIdx (v, vec, idx)) rLst |> OprSIMDList
+  let srIdx v = SIMDVecRegWithIdx(v, vec, idx)
+  List.map (fun v -> SIMDVecRegWithIdx(v, vec, idx)) rLst |> OprSIMDList
 
 let valA bin = extract bin 14u 10u (* T2 *)
 
@@ -816,12 +815,13 @@ let chkRange max imm =
   else imm
 
 (* Load/store addressing modes (Register offset) *)
-let extRegOffset option amount = ExtRegOffset (getExtend option, amount)
+let extRegOffset option amount = ExtRegOffset(getExtend option, amount)
+
 let getRegOffset s option amount =
   match option with
-  | 0b011u -> if s = 0b0u then None
-              else Some (ShiftOffset (SRTypeLSL, Imm amount))
-  | _ -> Some (extRegOffset option (if s = 0b0u then None else Some amount))
+  | 0b011u ->
+    if s = 0b0u then None else Some(ShiftOffset(SRTypeLSL, Imm amount))
+  | _ -> Some(extRegOffset option (if s = 0b0u then None else Some amount))
 
 let getWidthBySize1 = function
   | 0b00u -> h
@@ -1244,15 +1244,15 @@ let amt32Ones bin = if pickBit bin 12u = 0b0u then 8L else 16L
 let lAmt bin amtFn =
   let amt = amtFn bin
   if amt = 0L then None
-  else Some (OprShift (SRTypeLSL, Imm amt)) (* LSL #<amount> *)
+  else Some(OprShift(SRTypeLSL, Imm amt)) (* LSL #<amount> *)
 
-let mAmt bin = OprShift (SRTypeMSL, Imm (amt32Ones bin))
+let mAmt bin = OprShift(SRTypeMSL, Imm(amt32Ones bin))
 
 let rshfAmt bin = (* Right shift amount *)
-  OprImm (getShiftAmountByImmh1 (valImmb bin) (valImmh bin) |> int64)
+  OprImm(getShiftAmountByImmh1 (valImmb bin) (valImmh bin) |> int64)
 
 let lshfAmt bin = (* Left shift amount *)
-  OprImm (getShiftAmountByImmh2 (valImmb bin) (valImmh bin) |> int64)
+  OprImm(getShiftAmountByImmh2 (valImmb bin) (valImmh bin) |> int64)
 
 (* Load/Store Offset (Register offset/Extend register offset) *)
 let regOffset bin amount = getRegOffset (valS2 bin) (valOption bin) amount
@@ -1260,16 +1260,16 @@ let regOffset bin amount = getRegOffset (valS2 bin) (valOption bin) amount
 let wmxm bin = if pickBit bin 13u = 0b0u then w (valM bin) else x (valM bin)
 
 (* Shift *)
-let lshf1 bin = OprShift (SRTypeLSL, Imm (8 <<< (valSize1 bin |> int) |> int64))
+let lshf1 bin = OprShift(SRTypeLSL, Imm(8 <<< (valSize1 bin |> int) |> int64))
 
 let lshf2 bin = (* FIXME: If shift amount is 0, not present. *)
-  OprShift (SRTypeLSL, Imm (getShiftAmountByShift (valShift bin) |> int64))
+  OprShift(SRTypeLSL, Imm(getShiftAmountByShift (valShift bin) |> int64))
 
 let lshf3 bin = (* FIXME: If shift amount is 0, not present. *)
-  OprShift (SRTypeLSL, Imm ((extract bin 22u 21u) <<< 4 |> int64))
+  OprShift(SRTypeLSL, Imm((extract bin 22u 21u) <<< 4 |> int64))
 
 let shfamt bin =
-  OprShift (decodeRegShift (valShift bin), Imm (imm6 bin |> int64))
+  OprShift(decodeRegShift (valShift bin), Imm(imm6 bin |> int64))
 
 (* Extend *)
 let extamt bin = (* FIXME: refactoring *)
@@ -1281,38 +1281,38 @@ let extamt bin = (* FIXME: refactoring *)
   | 32<rt> when isRdOrRn11111 && (o = 0b010u) && amt = 0b000L -> None
   | 64<rt> when isRdOrRn11111 && (o = 0b011u) && amt = 0b000L -> None
   | 32<rt> when isRdOrRn11111 && (o = 0b010u) ->
-    Some (ShiftOffset (SRTypeLSL, Imm amt))
+    Some(ShiftOffset(SRTypeLSL, Imm amt))
   | 64<rt> when isRdOrRn11111 && (o = 0b011u) ->
-    Some (ShiftOffset (SRTypeLSL, Imm amt))
-  | _ -> Some (ExtRegOffset (getExtend o, Some amt))
+    Some(ShiftOffset(SRTypeLSL, Imm amt))
+  | _ -> Some(ExtRegOffset(getExtend o, Some amt))
   |> OprExtReg
 
 (* Fractional bits *)
 let fbits1 bin = (* immh:immb *)
-  OprFbits (getShiftAmountByImmh1 (valImmb bin) (valImmh bin) |> uint8)
+  OprFbits(getShiftAmountByImmh1 (valImmb bin) (valImmh bin) |> uint8)
 
-let fbits2 bin = OprFbits (64u - (valScale bin) |> uint8) (* scale *)
+let fbits2 bin = OprFbits(64u - (valScale bin) |> uint8) (* scale *)
 
 (* Memory *)
 let memXSn bin = memBaseImm (xsr (valN bin), None)
 
-let memXSnPimm bin s = memBaseImm (xsr (valN bin), Some (pimm12 bin s |> int64))
+let memXSnPimm bin s = memBaseImm (xsr (valN bin), Some(pimm12 bin s |> int64))
 
-let memXSnSimm7 bin s = memBaseImm (xsr (valN bin), Some (simm7 bin s |> int64))
+let memXSnSimm7 bin s = memBaseImm (xsr (valN bin), Some(simm7 bin s |> int64))
 
-let memXSnSimm9 bin = memBaseImm (xsr (valN bin), Some (simm9 bin |> int64))
+let memXSnSimm9 bin = memBaseImm (xsr (valN bin), Some(simm9 bin |> int64))
 
-let memPostXSnSimm b = memPostIdxImm (xsr (valN b), Some (simm9 b |> int64))
+let memPostXSnSimm b = memPostIdxImm (xsr (valN b), Some(simm9 b |> int64))
 
 let memPostImmXSnimm bin imm = memPostIdxImm (xsr (valN bin), Some imm)
 
 let memPostRegXSnxm bin = memPostIdxReg (xsr (valN bin), x (valM bin), None)
 
-let memPreXSnSimm bin = memPreIdxImm (xsr (valN bin), Some (simm9 bin |> int64))
+let memPreXSnSimm bin = memPreIdxImm (xsr (valN bin), Some(simm9 bin |> int64))
 
-let memPostXSnImm b s = memPostIdxImm (xsr (valN b), Some (simm7 b s |> int64))
+let memPostXSnImm b s = memPostIdxImm (xsr (valN b), Some(simm7 b s |> int64))
 
-let memPreXSnImm b s = memPreIdxImm (xsr (valN b), Some (simm7 b s |> int64))
+let memPreXSnImm b s = memPreIdxImm (xsr (valN b), Some(simm7 b s |> int64))
 
 let memExtXSnRmAmt b amt = memBaseReg (xsr (valN b), wmxm b, regOffset b amt)
 
@@ -1335,7 +1335,7 @@ let prfopImm5 bin = getPrefetchOperation (valT1 bin |> byte)
 
 let getOptOrImm bin = function
   | Some option -> OprOption option
-  | None -> OprImm (valCrm bin |> int64)
+  | None -> OprImm(valCrm bin |> int64)
 
 let pstatefield bin = getPstate (conOp1Op2 bin) |> OprPstate
 

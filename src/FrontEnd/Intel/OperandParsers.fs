@@ -288,48 +288,48 @@ let inline private isEVEX (phlp: ParsingHelper) =
 let parseOprMem span (phlp: ParsingHelper) b s dispSz =
   let memSz = phlp.MemEffOprSize
 #if LCACHE
-    phlp.MarkHashEnd ()
+    phlp.MarkHashEnd()
 #endif
   if isEVEX phlp then
     let isBcst = phlp.VEXInfo.Value.EVEXPrx.Value.B = 1uy
     match dispSz, isBcst with
-    | 0, false -> OprMem (b, s, None, memSz)
+    | 0, false -> OprMem(b, s, None, memSz)
     | 0, true ->
       let w = phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
       let memSz = if w then 64<rt> else 32<rt>
-      OprMem (b, s, None, memSz)
+      OprMem(b, s, None, memSz)
     | 1, _ ->
       let disp = parseSignedImm span phlp dispSz
       let disp, memSz = uncompressedDisp phlp disp
-      OprMem (b, s, Some disp, memSz)
+      OprMem(b, s, Some disp, memSz)
     | 4, true ->
       let disp = parseSignedImm span phlp dispSz
       let w = phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
       let memSz = if w then 64<rt> else 32<rt>
-      OprMem (b, s, Some disp, memSz)
+      OprMem(b, s, Some disp, memSz)
     | _, _ ->
       let disp = parseSignedImm span phlp dispSz
-      OprMem (b, s, Some disp, memSz)
+      OprMem(b, s, Some disp, memSz)
   else
     match dispSz with
-    | 0 -> OprMem (b, s, None, memSz)
+    | 0 -> OprMem(b, s, None, memSz)
     | _ ->
       let disp = parseSignedImm span phlp dispSz
-      OprMem (b, s, Some disp, memSz)
+      OprMem(b, s, Some disp, memSz)
 
 let parseOprImm span (phlp: ParsingHelper) immSize =
 #if LCACHE
-  phlp.MarkHashEnd ()
+  phlp.MarkHashEnd()
 #endif
   let imm = parseUnsignedImm span phlp (RegType.toByteWidth immSize)
-  OprImm (int64 imm, immSize)
+  OprImm(int64 imm, immSize)
 
 let parseOprSImm span (phlp: ParsingHelper) immSize =
 #if LCACHE
-  phlp.MarkHashEnd ()
+  phlp.MarkHashEnd()
 #endif
   let imm = parseSignedImm span phlp (RegType.toByteWidth immSize)
-  OprImm (imm, immSize)
+  OprImm(imm, immSize)
 
 /// The first 24 rows of Table 2-1. of the manual Vol. 2A.
 /// The index of this tbl is a number that is a concatenation of (mod) and
@@ -340,28 +340,28 @@ let parseMEM16 span phlp modRM =
   let m = Operands.getMod modRM
   let rm =Operands.getRM modRM
   match (m <<< 3) ||| rm with (* Concatenation of mod and rm bit *)
-  | 0 -> parseOprMem span phlp (Some R.BX) (Some (R.SI, Scale.X1)) 0
-  | 1 -> parseOprMem span phlp (Some R.BX) (Some (R.DI, Scale.X1)) 0
-  | 2 -> parseOprMem span phlp (Some R.BP) (Some (R.SI, Scale.X1)) 0
-  | 3 -> parseOprMem span phlp (Some R.BP) (Some (R.DI, Scale.X1)) 0
+  | 0 -> parseOprMem span phlp (Some R.BX) (Some(R.SI, Scale.X1)) 0
+  | 1 -> parseOprMem span phlp (Some R.BX) (Some(R.DI, Scale.X1)) 0
+  | 2 -> parseOprMem span phlp (Some R.BP) (Some(R.SI, Scale.X1)) 0
+  | 3 -> parseOprMem span phlp (Some R.BP) (Some(R.DI, Scale.X1)) 0
   | 4 -> parseOprMem span phlp (Some R.SI) None 0
   | 5 -> parseOprMem span phlp (Some R.DI) None 0
   | 6 -> parseOprMem span phlp None None 2
   | 7 -> parseOprMem span phlp (Some R.BX) None 0
   (* Mod 01b *)
-  | 8 -> parseOprMem span phlp (Some R.BX) (Some (R.SI, Scale.X1)) 1
-  | 9 -> parseOprMem span phlp (Some R.BX) (Some (R.DI, Scale.X1)) 1
-  | 10 -> parseOprMem span phlp (Some R.BP) (Some (R.SI, Scale.X1)) 1
-  | 11 -> parseOprMem span phlp (Some R.BP) (Some (R.DI, Scale.X1)) 1
+  | 8 -> parseOprMem span phlp (Some R.BX) (Some(R.SI, Scale.X1)) 1
+  | 9 -> parseOprMem span phlp (Some R.BX) (Some(R.DI, Scale.X1)) 1
+  | 10 -> parseOprMem span phlp (Some R.BP) (Some(R.SI, Scale.X1)) 1
+  | 11 -> parseOprMem span phlp (Some R.BP) (Some(R.DI, Scale.X1)) 1
   | 12 -> parseOprMem span phlp (Some R.SI) None 1
   | 13 -> parseOprMem span phlp (Some R.DI) None 1
   | 14 -> parseOprMem span phlp (Some R.BP) None 1
   | 15 -> parseOprMem span phlp (Some R.BX) None 1
   (* Mod 10b *)
-  | 16 -> parseOprMem span phlp (Some R.BX) (Some (R.SI, Scale.X1)) 2
-  | 17 -> parseOprMem span phlp (Some R.BX) (Some (R.DI, Scale.X1)) 2
-  | 18 -> parseOprMem span phlp (Some R.BP) (Some (R.SI, Scale.X1)) 2
-  | 19 -> parseOprMem span phlp (Some R.BP) (Some (R.DI, Scale.X1)) 2
+  | 16 -> parseOprMem span phlp (Some R.BX) (Some(R.SI, Scale.X1)) 2
+  | 17 -> parseOprMem span phlp (Some R.BX) (Some(R.DI, Scale.X1)) 2
+  | 18 -> parseOprMem span phlp (Some R.BP) (Some(R.SI, Scale.X1)) 2
+  | 19 -> parseOprMem span phlp (Some R.BP) (Some(R.DI, Scale.X1)) 2
   | 20 -> parseOprMem span phlp (Some R.SI) None 2
   | 21 -> parseOprMem span phlp (Some R.DI) None 2
   | 22 -> parseOprMem span phlp (Some R.BP) None 2
@@ -376,13 +376,13 @@ let getScaledIndex s i (phlp: ParsingHelper) =
   if i = 0b100 && (not <| hasREXX rexPref) then None
   else
     let r = findRegSIBIdx phlp.MemEffAddrSize rexPref i
-    Some (r, LanguagePrimitives.EnumOfValue<int, Scale> (1 <<< s))
+    Some(r, LanguagePrimitives.EnumOfValue<int, Scale>(1 <<< s))
 
 /// See Notes 1 of Table 2-3 of the manual Vol. 2A
 let getSIBBaseReg b (phlp: ParsingHelper) modVal =
   let rexPref = phlp.REXPrefix
   if b = int RegGrp.RG5 && modVal = 0b00uy then None
-  else Some (findRegRmAndSIBBase phlp.MemEffAddrSize rexPref b)
+  else Some(findRegRmAndSIBBase phlp.MemEffAddrSize rexPref b)
 
 let inline private getSIB b =
   struct ((b >>> 6) &&& 0b11, (b >>> 3) &&& 0b111, b &&& 0b111)
@@ -398,34 +398,34 @@ let baseRMReg (phlp: ParsingHelper) regGrp =
 
 let sibWithDisp span (phlp: ParsingHelper) b s dispSz memSz =
 #if LCACHE
-  phlp.MarkHashEnd ()
+  phlp.MarkHashEnd()
 #endif
   if isEVEX phlp then
     let isBcst = phlp.VEXInfo.Value.EVEXPrx.Value.B = 1uy
     match dispSz, isBcst with
-    | 0, false -> OprMem (b, s, None, memSz)
+    | 0, false -> OprMem(b, s, None, memSz)
     | 0, true ->
       let w = phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
       let memSz = if w then 64<rt> else 32<rt>
-      OprMem (b, s, None, memSz)
+      OprMem(b, s, None, memSz)
     | 1, _ ->
       let disp = parseSignedImm span phlp dispSz
       let disp, memSz = uncompressedDisp phlp disp
-      OprMem (b, s, Some disp, memSz)
+      OprMem(b, s, Some disp, memSz)
     | 4, true ->
       let disp = parseSignedImm span phlp dispSz
       let w = phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
       let memSz = if w then 64<rt> else 32<rt>
-      OprMem (b, s, Some disp, memSz)
+      OprMem(b, s, Some disp, memSz)
     | _, _ ->
       let disp = parseSignedImm span phlp dispSz
-      OprMem (b, s, Some disp, memSz)
+      OprMem(b, s, Some disp, memSz)
   else
     match dispSz with
-    | 0 -> OprMem (b, s, None, memSz)
+    | 0 -> OprMem(b, s, None, memSz)
     | _ ->
       let disp = parseSignedImm span phlp dispSz
-      OprMem (b, s, Some disp, memSz)
+      OprMem(b, s, Some disp, memSz)
 
 let parseOprMemWithSIB span phlp modVal dispSz =
   let struct (si, b, bgrp) = parseSIB span phlp modVal
@@ -437,7 +437,7 @@ let parseOprMemWithSIB span phlp modVal dispSz =
       sibWithDisp span phlp b si 4 oprSize
     elif modVal = 0b01000000uy && bgrp = int RegGrp.RG5 then
       sibWithDisp span phlp b si 1 oprSize
-    else OprMem (b, si, None, oprSize)
+    else OprMem(b, si, None, oprSize)
 
 /// RIP-relative addressing (see Section 2.2.1.6. of Vol. 2A).
 let parseOprRIPRelativeMem span (phlp: ParsingHelper) disp =
@@ -560,768 +560,768 @@ let getImmZ (phlp: ParsingHelper) =
 let opGprImm span phlp regGrp =
   let o1 = getOprFromRegGrpREX (int regGrp) phlp
   let o2 = parseOprSImm span phlp phlp.MemEffOprSize
-  TwoOperands (o1, o2)
+  TwoOperands(o1, o2)
 
 let parseOprForRelJmp span (phlp: ParsingHelper) immSz =
 #if LCACHE
-  phlp.MarkHashEnd ()
+  phlp.MarkHashEnd()
 #endif
   let immSz = RegType.toByteWidth immSz
   let offset = parseSignedImm span phlp immSz
-  let relOffset = offset + int64 (phlp.ParsedLen ())
-  OprDirAddr (Relative (relOffset))
+  let relOffset = offset + int64 (phlp.ParsedLen())
+  OprDirAddr(Relative(relOffset))
 
-type RmGpr () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RmGpr() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type RmSeg () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RmSeg() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 = parseSegReg (Operands.getReg modRM)
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type GprCtrl () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprCtrl() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     if Operands.modIsMemory modRM then raise ParsingFailureException
     else
       let opr1 = parseMemOrReg modRM span phlp
       let opr2 = parseControlReg (Operands.getReg modRM)
-      TwoOperands (opr1, opr2)
+      TwoOperands(opr1, opr2)
 
-type GprDbg () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprDbg() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     if Operands.modIsMemory modRM then raise ParsingFailureException
     else
       let opr1 = parseMemOrReg modRM span phlp
       let opr2 = parseDebugReg (Operands.getReg modRM)
-      TwoOperands (opr1, opr2)
+      TwoOperands(opr1, opr2)
 
-type RMMmx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RMMmx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 = parseMMXReg (Operands.getReg modRM)
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type MmMmx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type MmMmx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       if Operands.modIsReg modRM then parseMMXReg (Operands.getRM modRM)
       else parseMemory modRM span phlp
     let opr2 = parseMMXReg (Operands.getReg modRM)
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type BmBnd () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type BmBnd() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       if Operands.modIsReg modRM then parseBoundRegister (Operands.getRM modRM)
       else parseMemory modRM span phlp
     let opr2 = parseBoundRegister (Operands.getReg modRM)
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type RmBnd () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RmBnd() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 = parseBoundRegister (Operands.getReg modRM)
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type GprRm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprRm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 = parseMemOrReg modRM span phlp
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type GprM () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprM() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     if Operands.modIsMemory modRM then
       let opr1 =
         findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM)
         |> OprReg
       let opr2 = parseMemory modRM span phlp
-      TwoOperands (opr1, opr2)
+      TwoOperands(opr1, opr2)
     else raise ParsingFailureException
 
-type MGpr () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type MGpr() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     if Operands.modIsMemory modRM then
       let opr1 = parseMemory modRM span phlp
       let opr2 =
         findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM)
         |> OprReg
-      TwoOperands (opr1, opr2)
+      TwoOperands(opr1, opr2)
     else raise ParsingFailureException
 
-type SegRm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type SegRm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseSegReg (Operands.getReg modRM)
     let opr2 = parseMemOrReg modRM span phlp
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type BndBm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type BndBm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseBoundRegister (Operands.getReg modRM)
     let opr2 =
       if Operands.modIsReg modRM then parseBoundRegister (Operands.getRM modRM)
       else parseMemory modRM span phlp
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type BndRm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type BndRm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseBoundRegister (Operands.getReg modRM)
     let opr2 = parseMemOrReg modRM span phlp
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type CtrlGpr () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type CtrlGpr() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     if Operands.modIsMemory modRM then raise ParsingFailureException
     else
       let opr1 = parseControlReg (Operands.getReg modRM)
       let opr2 = parseMemOrReg modRM span phlp
-      TwoOperands (opr1, opr2)
+      TwoOperands(opr1, opr2)
 
-type DbgGpr () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type DbgGpr() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     if Operands.modIsMemory modRM then raise ParsingFailureException
     else
       let opr1 = parseDebugReg (Operands.getReg modRM)
       let opr2 = parseMemOrReg modRM span phlp
-      TwoOperands (opr1, opr2)
+      TwoOperands(opr1, opr2)
 
-type MmxRm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type MmxRm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMMXReg (Operands.getReg modRM)
     let opr2 =
       if Operands.modIsReg modRM then parseMMXReg (Operands.getRM modRM)
       else parseMemory modRM span phlp
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type MmxMm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type MmxMm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMMXReg (Operands.getReg modRM)
     let opr2 = parseMemOrReg modRM span phlp
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type MxMx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type MxMx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMMXReg (Operands.getReg modRM)
     let opr2 =
       if Operands.modIsMemory modRM then raise ParsingFailureException
       else parseMMXReg (Operands.getRM modRM)
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type GprRMm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprRMm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 =
       if Operands.modIsReg modRM then parseMMXReg (Operands.getRM modRM)
       else parseMemOrReg modRM span phlp
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type RegImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RegImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = parseOprImm span phlp 8<rt>
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type Imm8Reg () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Imm8Reg() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = parseOprImm span phlp 8<rt>
     let o2 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type Imm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Imm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let opr = parseOprImm span phlp 8<rt>
     OneOperand opr
 
-type Imm16 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Imm16() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let opr = parseOprImm span phlp 16<rt>
     OneOperand opr
 
-type RegImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RegImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = parseOprSImm span phlp (getImmZ phlp)
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type SImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type SImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let opr = parseOprSImm span phlp 8<rt>
     OneOperand opr
 
-type Imm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Imm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let opr = parseOprSImm span phlp (getImmZ phlp)
     OneOperand opr
 
-type Es () =
-  inherit OperandParser ()
-  override _.Render (_, _) =
-    OneOperand (OprReg R.ES)
+type Es() =
+  inherit OperandParser()
+  override _.Render(_, _) =
+    OneOperand(OprReg R.ES)
 
-type Cs () =
-  inherit OperandParser ()
-  override _.Render (_, _) =
-    OneOperand (OprReg R.CS)
+type Cs() =
+  inherit OperandParser()
+  override _.Render(_, _) =
+    OneOperand(OprReg R.CS)
 
-type Ss () =
-  inherit OperandParser ()
-  override _.Render (_, _) =
-    OneOperand (OprReg R.SS)
+type Ss() =
+  inherit OperandParser()
+  override _.Render(_, _) =
+    OneOperand(OprReg R.SS)
 
-type Ds () =
-  inherit OperandParser ()
-  override _.Render (_, _) =
-    OneOperand (OprReg R.DS)
+type Ds() =
+  inherit OperandParser()
+  override _.Render(_, _) =
+    OneOperand(OprReg R.DS)
 
-type Fs () =
-  inherit OperandParser ()
-  override _.Render (_, _) =
-    OneOperand (OprReg R.FS)
+type Fs() =
+  inherit OperandParser()
+  override _.Render(_, _) =
+    OneOperand(OprReg R.FS)
 
-type Gs () =
-  inherit OperandParser ()
-  override _.Render (_, _) =
-    OneOperand (OprReg R.GS)
+type Gs() =
+  inherit OperandParser()
+  override _.Render(_, _) =
+    OneOperand(OprReg R.GS)
 
-type ALDx () =
-  inherit OperandParser ()
-  override _.Render (_, _) =
-    TwoOperands (OprReg R.AL, OprReg R.DX)
+type ALDx() =
+  inherit OperandParser()
+  override _.Render(_, _) =
+    TwoOperands(OprReg R.AL, OprReg R.DX)
 
-type EaxDx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type EaxDx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let reg = if Prefix.hasOprSz phlp.Prefixes then R.AX else R.EAX
-    TwoOperands (OprReg reg, OprReg R.DX)
+    TwoOperands(OprReg reg, OprReg R.DX)
 
-type DxEax () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type DxEax() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let reg = if Prefix.hasOprSz phlp.Prefixes then R.AX else R.EAX
-    TwoOperands (OprReg R.DX, OprReg reg)
+    TwoOperands(OprReg R.DX, OprReg reg)
 
-type DxAL () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
-    TwoOperands (OprReg R.DX, OprReg R.AL)
+type DxAL() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
+    TwoOperands(OprReg R.DX, OprReg R.AL)
 
-type No () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type No() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     NoOperand
 
-type Eax () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG0)  phlp
+type Eax() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     OneOperand o
 
-type Ecx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG1)  phlp
+type Ecx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG1) phlp
     OneOperand o
 
-type Edx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG2)  phlp
+type Edx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG2) phlp
     OneOperand o
 
-type Ebx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG3)  phlp
+type Ebx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG3) phlp
     OneOperand o
 
-type Esp () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG4)  phlp
+type Esp() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG4) phlp
     OneOperand o
 
-type Ebp () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG5)  phlp
+type Ebp() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG5) phlp
     OneOperand o
 
-type Esi () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG6)  phlp
+type Esi() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG6) phlp
     OneOperand o
 
-type Edi () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
-    let o = getOprFromRegGrpNoREX (int RegGrp.RG7)  phlp
+type Edi() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
+    let o = getOprFromRegGrpNoREX (int RegGrp.RG7) phlp
     OneOperand o
 
-type Rax () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Rax() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o = getOprFromRegGrpREX (int RegGrp.RG0) phlp
     OneOperand o
 
-type Rcx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Rcx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o = getOprFromRegGrpREX (int RegGrp.RG1) phlp
     OneOperand o
 
-type Rdx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Rdx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o = getOprFromRegGrpREX (int RegGrp.RG2) phlp
     OneOperand o
 
-type Rbx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Rbx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o = getOprFromRegGrpREX (int RegGrp.RG3) phlp
     OneOperand o
 
-type Rsp () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Rsp() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o = getOprFromRegGrpREX (int RegGrp.RG4) phlp
     OneOperand o
 
-type Rbp () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Rbp() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o = getOprFromRegGrpREX (int RegGrp.RG5) phlp
     OneOperand o
 
-type Rsi () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Rsi() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o = getOprFromRegGrpREX (int RegGrp.RG6) phlp
     OneOperand o
 
-type Rdi () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Rdi() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o = getOprFromRegGrpREX (int RegGrp.RG7) phlp
     OneOperand o
 
-type RaxRax () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RaxRax() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  phlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 =
       getOprFromRegGrpREX (int RegGrp.RG0) phlp
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type RaxRcx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RaxRcx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  phlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG1) phlp
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type RaxRdx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RaxRdx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  phlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 =
       getOprFromRegGrpREX (int RegGrp.RG2) phlp
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type RaxRbx () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RaxRbx() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  phlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG3) phlp
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type RaxRsp () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RaxRsp() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  phlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG4) phlp
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type RaxRbp () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RaxRbp() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  phlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG5) phlp
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type RaxRsi () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RaxRsi() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  phlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG6) phlp
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type RaxRdi () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RaxRdi() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  phlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG7) phlp
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type GprRmImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprRmImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let o1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let o2 = parseMemOrReg modRM span phlp
     let opr3 = parseOprSImm span phlp 8<rt>
-    ThreeOperands (o1, o2, opr3)
+    ThreeOperands(o1, o2, opr3)
 
-type GprRmImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprRmImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let o1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let o2 = parseMemOrReg modRM span phlp
     let opr3 = parseOprSImm span phlp (getImmZ phlp)
-    ThreeOperands (o1, o2, opr3)
+    ThreeOperands(o1, o2, opr3)
 
-type Rel8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Rel8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let opr = parseOprForRelJmp span phlp 8<rt>
     OneOperand opr
 
-type Rel () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Rel() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let opr = parseOprForRelJmp span phlp (getImmZ phlp)
     OneOperand opr
 
-type Dir () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Dir() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let addrSz = RegType.toByteWidth phlp.MemEffAddrSize
     let addrValue = parseUnsignedImm span phlp addrSz
     let selector = phlp.ReadInt16 span
-    let absAddr = Absolute (selector, addrValue, RegType.fromByteWidth addrSz)
+    let absAddr = Absolute(selector, addrValue, RegType.fromByteWidth addrSz)
     let opr = OprDirAddr absAddr
     OneOperand opr
 
-type RaxFar () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RaxFar() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  phlp
+      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = parseOprOnlyDisp span phlp
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type FarRax () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type FarRax() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = parseOprOnlyDisp span phlp
     let o2 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0)  phlp
-    TwoOperands (o1, o2)
+      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
+    TwoOperands(o1, o2)
 
-type ALImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type ALImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = getOprFromRegGrpREX (int RegGrp.RG0) phlp
     let o2 = parseOprImm span phlp 8<rt>
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type CLImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type CLImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = getOprFromRegGrpREX (int RegGrp.RG1) phlp
     let o2 = parseOprImm span phlp 8<rt>
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type DLImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type DLImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = getOprFromRegGrpREX (int RegGrp.RG2) phlp
     let o2 = parseOprImm span phlp 8<rt>
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type BLImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type BLImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = getOprFromRegGrpREX (int RegGrp.RG3) phlp
     let o2 = parseOprImm span phlp 8<rt>
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type AhImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type AhImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = getOprFromRegGrpREX (int RegGrp.RG4) phlp
     let o2 = parseOprImm span phlp 8<rt>
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type ChImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type ChImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = getOprFromRegGrpREX (int RegGrp.RG5) phlp
     let o2 = parseOprImm span phlp 8<rt>
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type DhImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type DhImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = getOprFromRegGrpREX (int RegGrp.RG6) phlp
     let o2 = parseOprImm span phlp 8<rt>
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type BhImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type BhImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let o1 = getOprFromRegGrpREX (int RegGrp.RG7) phlp
     let o2 = parseOprImm span phlp 8<rt>
-    TwoOperands (o1, o2)
+    TwoOperands(o1, o2)
 
-type RaxImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RaxImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     opGprImm span phlp RegGrp.RG0
 
-type RcxImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RcxImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     opGprImm span phlp RegGrp.RG1
 
-type RdxImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RdxImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     opGprImm span phlp RegGrp.RG2
 
-type RbxImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RbxImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     opGprImm span phlp RegGrp.RG3
 
-type RspImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RspImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     opGprImm span phlp RegGrp.RG4
 
-type RbpImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RbpImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     opGprImm span phlp RegGrp.RG5
 
-type RsiImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RsiImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     opGprImm span phlp RegGrp.RG6
 
-type RdiImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RdiImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     opGprImm span phlp RegGrp.RG7
 
-type ImmImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type ImmImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let opr1 = parseOprImm span phlp 16<rt>
     let opr2 = parseOprImm span phlp 8<rt>
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type RmImm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RmImm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 = parseOprSImm span phlp (getImmZ phlp)
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type RmImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RmImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 = parseOprImm span phlp 8<rt>
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type RmSImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RmSImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 = parseOprSImm span phlp 8<rt>
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type MmxImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type MmxImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       if Operands.modIsReg modRM then parseMMXReg (Operands.getRM modRM)
       else parseMemory modRM span phlp
     let opr2 = parseOprSImm span phlp 8<rt>
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type Mem () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Mem() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr = parseMemOrReg modRM span phlp
     OneOperand opr
 
-type M1 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type M1() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr = parseMemOrReg modRM span phlp
-    TwoOperands (opr, OprImm (1L, phlp.OperationSize))
+    TwoOperands(opr, OprImm(1L, phlp.OperationSize))
 
-type RmCL () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RmCL() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr = parseMemOrReg modRM span phlp
-    TwoOperands (opr, OprReg R.CL)
+    TwoOperands(opr, OprReg R.CL)
 
-type XmmVvXm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type XmmVvXm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr3 = parseMemOrReg modRM span phlp
-    ThreeOperands (opr1, parseVVVVRegRC (Operands.modIsReg modRM) phlp, opr3)
+    ThreeOperands(opr1, parseVVVVRegRC (Operands.modIsReg modRM) phlp, opr3)
 
-type GprVvRm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprVvRm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 = parseVEXtoGPR phlp
     let opr3 = parseMemOrReg modRM span phlp
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type XmVvXmm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type XmVvXmm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr3 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
-    ThreeOperands (opr1, parseVVVVReg phlp, opr3)
+    ThreeOperands(opr1, parseVVVVReg phlp, opr3)
 
-type Gpr () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type Gpr() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr =
       findRegRmAndSIBBase phlp.RegSize phlp.REXPrefix (Operands.getRM modRM)
       |> OprReg
     OneOperand opr
 
-type RmXmmImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RmXmmImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr3 = parseOprImm span phlp 8<rt>
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type XmmRmImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type XmmRmImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 = parseMemOrReg modRM span phlp
     let opr3 = parseOprImm span phlp 8<rt>
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type MmxMmImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type MmxMmImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMMXReg (Operands.getReg modRM)
     let opr2 =
       if Operands.modIsReg modRM then parseMMXReg (Operands.getRM modRM)
       else parseMemory modRM span phlp
     let opr3 = parseOprImm span phlp 8<rt>
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type MmxRmImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type MmxRmImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMMXReg (Operands.getReg modRM)
     let opr2 = parseMemOrReg modRM span phlp
     let opr3 = parseOprImm span phlp 8<rt>
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type GprMmxImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprMmxImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
@@ -1329,99 +1329,99 @@ type GprMmxImm8 () =
       if Operands.modIsReg modRM then parseMMXReg (Operands.getRM modRM)
       else parseMemory modRM span phlp
     let opr3 = parseOprImm span phlp 8<rt>
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type XmmVvXmImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type XmmVvXmImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 = parseVVVVReg phlp
     let opr3 = parseMemOrReg modRM span phlp
     let opr4 = parseOprImm span phlp 8<rt>
-    FourOperands (opr1, opr2, opr3, opr4)
+    FourOperands(opr1, opr2, opr3, opr4)
 
-type XmmVvXmXmm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type XmmVvXmXmm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 = parseVVVVReg phlp
     let opr3 = parseMemOrReg modRM span phlp
     let mask = if phlp.WordSize = WordSize.Bit32 then 0b0111uy else 0b1111uy
-    let imm8 = (phlp.ReadUInt8 (span) >>> 4) &&& mask |> int (* imm8[7:4] *)
+    let imm8 = (phlp.ReadUInt8(span) >>> 4) &&& mask |> int (* imm8[7:4] *)
     let opr4 = findRegNoREX phlp.RegSize phlp.REXPrefix imm8 |> OprReg
-    FourOperands (opr1, opr2, opr3, opr4)
+    FourOperands(opr1, opr2, opr3, opr4)
 
-type XmRegImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type XmRegImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr3 = parseOprImm span phlp 8<rt>
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type GprRmVv () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprRmVv() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 = parseMemOrReg modRM span phlp
     let opr3 = parseVEXtoGPR phlp
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type VvRmImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type VvRmImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr2 = parseMemOrReg modRM span phlp
     let opr3 = parseOprImm span phlp 8<rt>
-    ThreeOperands (parseVVVVReg phlp, opr2, opr3)
+    ThreeOperands(parseVVVVReg phlp, opr2, opr3)
 
-type RmGprCL () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RmGprCL() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr3 = Register.CL |> OprReg
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type XmmXmXmm0 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type XmmXmXmm0() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 = parseMemOrReg modRM span phlp
-    ThreeOperands (opr1, opr2, OprReg R.XMM0)
+    ThreeOperands(opr1, opr2, OprReg R.XMM0)
 
-type XmmXmVv () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type XmmXmVv() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 = parseMemOrReg modRM span phlp
-    ThreeOperands (opr1, opr2, parseVVVVReg phlp)
+    ThreeOperands(opr1, opr2, parseVVVVReg phlp)
 
-type VvRm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type VvRm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseVEXtoGPR phlp
     let opr2 = parseMemOrReg modRM span phlp
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type GprRmImm8Imm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprRmImm8Imm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
@@ -1430,109 +1430,109 @@ type GprRmImm8Imm8 () =
       else parseMemOrReg modRM span phlp
     let opr3 = parseOprImm span phlp 8<rt>
     let opr4 = parseOprImm span phlp 8<rt>
-    FourOperands (opr1, opr2, opr3, opr4)
+    FourOperands(opr1, opr2, opr3, opr4)
 
-type RmImm8Imm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type RmImm8Imm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       if Operands.modIsMemory modRM then raise ParsingFailureException
       else parseMemOrReg modRM span phlp
     let opr2 = parseOprImm span phlp 8<rt>
     let opr3 = parseOprImm span phlp 8<rt>
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type KnVvXm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type KnVvXm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseOpMaskReg (Operands.getReg modRM)
     let opr3 = parseMemOrReg modRM span phlp
-    ThreeOperands (opr1, parseVVVVReg phlp, opr3)
+    ThreeOperands(opr1, parseVVVVReg phlp, opr3)
 
-type GprKn () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type GprKn() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 = parseOpMaskReg (Operands.getRM modRM)
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type KnVvXmImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type KnVvXmImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseOpMaskReg (Operands.getReg modRM)
     let opr2 = parseVVVVReg phlp
     let opr3 = parseMemOrReg modRM span phlp
     let opr4 = parseOprImm span phlp 8<rt>
-    FourOperands (opr1, opr2, opr3, opr4)
+    FourOperands(opr1, opr2, opr3, opr4)
 
-type KnGpr () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type KnGpr() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseOpMaskReg (Operands.getReg modRM)
     let opr2 =
       findRegRmAndSIBBase phlp.RegSize phlp.REXPrefix (Operands.getRM modRM)
       |> OprReg
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type XmmVvXmmXm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type XmmVvXmmXm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 = parseVVVVReg phlp
     let mask = if phlp.WordSize = WordSize.Bit32 then 0b0111uy else 0b1111uy
     let opr4 = parseMemOrReg modRM span phlp
-    let imm8 = (phlp.ReadUInt8 (span) >>> 4) &&& mask |> int (* imm8[7:4] *)
+    let imm8 = (phlp.ReadUInt8(span) >>> 4) &&& mask |> int (* imm8[7:4] *)
     let opr3 = findRegNoREX phlp.RegSize phlp.REXPrefix imm8 |> OprReg
-    FourOperands (opr1, opr2, opr3, opr4)
+    FourOperands(opr1, opr2, opr3, opr4)
 
-type KnKm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type KnKm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseOpMaskReg (Operands.getReg modRM)
     let opr2 = if Operands.modIsMemory modRM then parseMemory modRM span phlp
                else parseOpMaskReg (Operands.getRM modRM)
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type MKn () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type MKn() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = if Operands.modIsMemory modRM then parseMemory modRM span phlp
                else raise ParsingFailureException
     let opr2 = parseOpMaskReg (Operands.getReg modRM)
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type KKn () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type KKn() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseOpMaskReg (Operands.getReg modRM)
     let opr2 = if Operands.modIsMemory modRM then raise ParsingFailureException
                else parseOpMaskReg (Operands.getRM modRM)
-    TwoOperands (opr1, opr2)
+    TwoOperands(opr1, opr2)
 
-type KnKmImm8 () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type KnKmImm8() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseOpMaskReg (Operands.getReg modRM)
     let opr2 = if Operands.modIsMemory modRM then raise ParsingFailureException
                else parseOpMaskReg (Operands.getRM modRM)
     let opr3 = parseOprImm span phlp 8<rt>
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type XmmVsXm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type XmmVsXm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
@@ -1541,11 +1541,11 @@ type XmmVsXm () =
       | Some vInfo -> Register.xmm (int vInfo.VVVV) |> OprReg
       | None -> raise ParsingFailureException
     let opr3 = parseMemOrReg modRM span phlp
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)
 
-type XmVsXmm () =
-  inherit OperandParser ()
-  override _.Render (span, phlp) =
+type XmVsXmm() =
+  inherit OperandParser()
+  override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 =
@@ -1554,4 +1554,4 @@ type XmVsXmm () =
       | None -> raise ParsingFailureException
     let opr3 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
-    ThreeOperands (opr1, opr2, opr3)
+    ThreeOperands(opr1, opr2, opr3)

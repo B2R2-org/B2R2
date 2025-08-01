@@ -28,58 +28,58 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open System.Threading
 open B2R2.Collections
 
-type TestOp () =
+type TestOp() =
   let cnt = ref 0
-  member _.Count with get() = !cnt
+  member _.Count with get() = cnt.Value
   interface ICacheableOperation<int, int> with
     member _.Perform v =
       Interlocked.Increment cnt |> ignore
       v
 
 [<TestClass>]
-type LRUCacheTests () =
+type LRUCacheTests() =
   [<TestMethod>]
-  member _.``GetOrAddTest`` () =
-    let op = TestOp ()
+  member _.``GetOrAddTest``() =
+    let op = TestOp()
     let lru = ConcurrentLRUCache<int, int>(100)
-    for i = 0 to 10 do Assert.AreEqual<int> (1, lru.GetOrAdd 1 op 1)
-    Assert.AreEqual<int> (1, op.Count)
+    for i = 0 to 10 do Assert.AreEqual<int>(1, lru.GetOrAdd(1, op, 1))
+    Assert.AreEqual<int>(1, op.Count)
 
   [<TestMethod>]
-  member _.``CountTest`` () =
-    let op = TestOp ()
+  member _.``CountTest``() =
+    let op = TestOp()
     let lru = ConcurrentLRUCache<int, int>(100)
-    for i = 0 to 99 do Assert.AreEqual<int> (i, lru.GetOrAdd i op i)
-    Assert.AreEqual<int> (100, op.Count)
-    Assert.AreEqual<int> (100, lru.Count)
-    lru.Clear ()
-    Assert.AreEqual<int> (0, lru.Count)
-    for i = 0 to 99 do Assert.AreEqual<int> (i, lru.GetOrAdd i op i)
-    Assert.AreEqual<int> (200, op.Count)
-    Assert.AreEqual<int> (100, lru.Count)
+    for i = 0 to 99 do Assert.AreEqual<int>(i, lru.GetOrAdd(i, op, i))
+    Assert.AreEqual<int>(100, op.Count)
+    Assert.AreEqual<int>(100, lru.Count)
+    lru.Clear()
+    Assert.AreEqual<int>(0, lru.Count)
+    for i = 0 to 99 do Assert.AreEqual<int>(i, lru.GetOrAdd(i, op, i))
+    Assert.AreEqual<int>(200, op.Count)
+    Assert.AreEqual<int>(100, lru.Count)
 
   [<TestMethod>]
-  member _.``OverflowTest`` () =
-    let op = TestOp ()
+  member _.``OverflowTest``() =
+    let op = TestOp()
     let lru = ConcurrentLRUCache<int, int>(100)
-    for i = 0 to 199 do Assert.AreEqual<int> (i, lru.GetOrAdd i op i)
-    Assert.AreEqual<int> (200, op.Count)
-    Assert.AreEqual<int> (100, lru.Count)
-    let op = TestOp ()
-    for i = 100 to 199 do Assert.AreEqual<int> (i, lru.GetOrAdd i op i)
-    Assert.AreEqual<int> (0, op.Count)
+    for i = 0 to 199 do Assert.AreEqual<int>(i, lru.GetOrAdd(i, op, i))
+    Assert.AreEqual<int>(200, op.Count)
+    Assert.AreEqual<int>(100, lru.Count)
+    let op = TestOp()
+    for i = 100 to 199 do Assert.AreEqual<int>(i, lru.GetOrAdd(i, op, i))
+    Assert.AreEqual<int>(0, op.Count)
 
   [<TestMethod>]
-  member _.``LRUTest`` () =
-    let op = TestOp ()
+  member _.``LRUTest``() =
+    let op = TestOp()
     let lru = ConcurrentLRUCache<int, int>(100)
-    for i = 0 to 99 do Assert.AreEqual<int> (i, lru.GetOrAdd i op i)
-    Assert.AreEqual<int> (100, op.Count)
-    Assert.AreEqual<int> (100, lru.Count)
-    Assert.AreEqual<int> (0, lru.GetOrAdd 0 op 0)
-    Assert.AreEqual<int> (100, op.Count)
-    Assert.AreEqual<int> (100, lru.Count)
-    Assert.AreEqual<int> (100, lru.GetOrAdd 100 op 100)
-    let op = TestOp ()
-    Assert.AreEqual<int> (0, lru.GetOrAdd 0 op 0)
-    Assert.AreEqual<int> (0, op.Count)
+    for i = 0 to 99 do Assert.AreEqual<int>(i, lru.GetOrAdd(i, op, i))
+    Assert.AreEqual<int>(100, op.Count)
+    Assert.AreEqual<int>(100, lru.Count)
+    Assert.AreEqual<int>(0, lru.GetOrAdd(0, op, 0))
+    Assert.AreEqual<int>(100, op.Count)
+    Assert.AreEqual<int>(100, lru.Count)
+    Assert.AreEqual<int>(100, lru.GetOrAdd(100, op, 100))
+    let op = TestOp()
+    Assert.AreEqual<int>(0, lru.GetOrAdd(0, op, 0))
+    Assert.AreEqual<int>(0, op.Count)

@@ -29,11 +29,11 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.LLVM
 
 /// The `llvm` action.
-type LLVMAction () =
+type LLVMAction() =
 
   let printOut hdl (fn: Function) =
     let builder = LLVMTranslator.createBuilder hdl fn.EntryPoint
-    fn.CFG.IterVertex (fun bbl ->
+    fn.CFG.IterVertex(fun bbl ->
       let succs =
         fn.CFG.GetSuccs bbl
         |> Array.map (fun s -> s.VData.Internals.PPoint.Address)
@@ -43,7 +43,7 @@ type LLVMAction () =
       |> Array.collect (fun ins -> ins.Stmts)
       |> LLVMTranslator.translate builder bblAddr succs
     )
-    builder.ToString ()
+    builder.ToString()
 
   let translate (o: obj) =
     let bin = unbox<Binary> o
@@ -60,7 +60,7 @@ type LLVMAction () =
     Take in a parsed binary and lift it to an LLVM function, and then dump the
     lifted function to a string.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       match args with
       | [] -> { Values = [| collection.Values |> Array.map translate |] }
       | _ -> invalidArg (nameof args) "Invalid argument."

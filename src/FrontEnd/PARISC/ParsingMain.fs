@@ -447,7 +447,7 @@ let parseUnconditionalBranchInstuction bin wordSz =
     | 0b010u, 0u ->
       match Bits.extract bin 25u 21u, Bits.extract bin 11u 0u with
       | 0u, 0u -> Op.PUSHBTS, None, None, getRs1 bin
-      | _->
+      | _ ->
         Op.BLR, Some [| N |], None, getRs1Rs2 bin
     | 0b110u, 0u ->
       Op.BV, Some [| N |], None, getMemBaseRegOff bin (getRegFromRange bin 20u
@@ -751,7 +751,7 @@ let private parseInstruction bin wordSz =
     let opcode, completer, cond, operands =
       parseArithmeticLogicalInst bin
     opcode, completer, cond, None, operands
-  | 0b101101u | 0b100101u | 0b101100u->
+  | 0b101101u | 0b100101u | 0b101100u ->
     let opcode, completer, cond, operands =
       parseArithmeticImmediateInstruction bin wordSz
     opcode, completer, cond, None, operands
@@ -848,9 +848,9 @@ let getOperationSize opcode wordSz =
   | _ -> WordSize.toRegType wordSz
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) wordSize addr =
-  let bin = reader.ReadUInt32 (span, 0)
+  let bin = reader.ReadUInt32(span, 0)
   let wordSz = WordSize.toRegType wordSize
   let opcode, completer, cond, id, operands = parseInstruction bin wordSz
   let oprSize = getOperationSize opcode wordSize
-  Instruction (addr, 4u,
-               completer, cond, id, opcode, operands, oprSize, wordSize, lifter)
+  Instruction(addr, 4u, completer, cond, id, opcode, operands, oprSize,
+    wordSize, lifter)

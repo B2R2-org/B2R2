@@ -62,27 +62,27 @@ module internal ExceptionHeaderValue =
       let cv = FileHelper.readUIntByWordSize span reader cls offset
       struct (cv, if cls = WordSize.Bit32 then offset + 4 else offset + 8)
     | ExceptionHeaderValue.DW_EH_PE_uleb128 ->
-      let v, cnt = LEB128.DecodeUInt64 (span.Slice offset)
+      let v, cnt = LEB128.DecodeUInt64(span.Slice offset)
       struct (v, offset + cnt)
     | ExceptionHeaderValue.DW_EH_PE_sleb128 ->
-      let v, cnt = LEB128.DecodeSInt64 (span.Slice offset)
+      let v, cnt = LEB128.DecodeSInt64(span.Slice offset)
       struct (uint64 v, offset + cnt)
     | ExceptionHeaderValue.DW_EH_PE_udata2 ->
-      let cv = reader.ReadUInt16 (span, offset)
+      let cv = reader.ReadUInt16(span, offset)
       struct (uint64 cv, offset + 2)
     | ExceptionHeaderValue.DW_EH_PE_sdata2 ->
-      let cv = reader.ReadInt16 (span, offset)
+      let cv = reader.ReadInt16(span, offset)
       struct (uint64 cv, offset + 2)
     | ExceptionHeaderValue.DW_EH_PE_udata4 ->
-      let cv = reader.ReadUInt32 (span, offset)
+      let cv = reader.ReadUInt32(span, offset)
       struct (uint64 cv, offset + 4)
     | ExceptionHeaderValue.DW_EH_PE_sdata4 ->
-      let cv = reader.ReadInt32 (span, offset)
+      let cv = reader.ReadInt32(span, offset)
       struct (uint64 cv, offset + 4)
     | ExceptionHeaderValue.DW_EH_PE_udata8 ->
-      let cv = reader.ReadUInt64 (span, offset)
+      let cv = reader.ReadUInt64(span, offset)
       struct (cv, offset + 8)
     | ExceptionHeaderValue.DW_EH_PE_sdata8 ->
-      let cv = reader.ReadInt64 (span, offset)
+      let cv = reader.ReadInt64(span, offset)
       struct (uint64 cv, offset + 8)
     | _ -> printfn "%A" venc; Terminator.futureFeature ()

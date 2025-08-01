@@ -106,7 +106,7 @@ type SSAStackPointerPropagation (hdl: BinHandle) =
         let rt = hdl.RegisterFactory.GetRegType sp
         let str = hdl.RegisterFactory.GetRegString sp
         let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-        let spVal = BitVector.OfUInt64 InitialStackPointer rt
+        let spVal = BitVector.OfUInt64(InitialStackPointer, rt)
         state.SetRegValueWithoutAdding var
         <| StackPointerDomain.ConstSP spVal
         state

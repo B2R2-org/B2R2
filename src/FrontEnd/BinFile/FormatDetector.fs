@@ -93,5 +93,5 @@ let identify bytes isa =
   |> Option.orElseWith (fun () -> identifyWASM bytes isa)
   |> Option.orElseWith (fun () -> identifyPython bytes isa)
   |> Option.orElseWith (fun () -> identifyHexString bytes isa)
-  |> Option.orElseWith (fun () -> Some (FileFormat.RawBinary, isa))
+  |> Option.orElseWith (fun () -> Some(FileFormat.RawBinary, isa))
   |> Option.get

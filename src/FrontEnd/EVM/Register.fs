@@ -54,10 +54,10 @@ module Register =
     int n |> LanguagePrimitives.EnumOfValue
 
   let inline toRegID (reg: Register) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+    LanguagePrimitives.EnumToValue(reg) |> RegisterID.create
 
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "PC" -> R.PC
     | "GAS" -> R.GAS
     | "SP" -> R.SP

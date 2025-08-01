@@ -31,14 +31,14 @@ open B2R2.BinIR.LowUIR
 open B2R2.Peripheral.Assembly
 
 /// The console printer.
-let internal out = ConsolePrinter () :> Printer
+let internal out = ConsolePrinter() :> Printer
 
 let [<Literal>] private NormalPrompt = "> "
 
 let private printIns (asm: AsmInterface) addr bs =
-  let bCode = (BitConverter.ToString (bs)).Replace ("-", "")
-  let ins = asm.Parser.Parse (bs, addr)
-  out.PrintLine (sprintf "%08x: %-20s     %s" addr bCode (ins.Disasm ()))
+  let bCode = (BitConverter.ToString(bs)).Replace("-", "")
+  let ins = asm.Parser.Parse(bs, addr)
+  out.PrintLine(sprintf "%08x: %-20s     %s" addr bCode (ins.Disasm()))
   addr + uint64 (Array.length bs)
 
 let inline private printResult fn = function
@@ -47,32 +47,32 @@ let inline private printResult fn = function
 
 let getAssemblyPrinter (opts: AssemblerOpts) =
   match opts.Mode with
-  | GeneralMode (isa) ->
+  | GeneralMode(isa) ->
     let baseAddr = opts.BaseAddress
-    let asm = AsmInterface (isa, baseAddr)
+    let asm = AsmInterface(isa, baseAddr)
     fun str ->
       asm.AssembleBin str
       |> printResult (fun res ->
         List.fold (printIns asm) baseAddr res
         |> ignore)
-  | LowUIRMode (isa) ->
-    let asm = AsmInterface (isa, opts.BaseAddress)
+  | LowUIRMode(isa) ->
+    let asm = AsmInterface(isa, opts.BaseAddress)
     fun str ->
       asm.LiftLowUIR true str
       |> printResult (Array.iter (Pp.stmtToString >> out.PrintLine))
 
 let rec private asmFromStdin (console: FsReadLine.Console) printer str =
-  match console.ReadLine () with
+  match console.ReadLine() with
   | "" -> asmFromStdin console printer str
   | input when isNull input || input = "q" || input = "quit" ->
-    out.PrintLine ("Bye!")
-    out.Flush ()
+    out.PrintLine("Bye!")
+    out.Flush()
   | input ->
-    let input = input.Trim ()
+    let input = input.Trim()
     let str =
-      if input.EndsWith (";;") then
+      if input.EndsWith(";;") then
         console.UpdatePrompt NormalPrompt
-        printer <| str + input.TrimEnd (';')
+        printer <| str + input.TrimEnd(';')
         ""
       else
         console.UpdatePrompt " "
@@ -81,10 +81,10 @@ let rec private asmFromStdin (console: FsReadLine.Console) printer str =
 
 let showBasicInfo (opts: AssemblerOpts) =
   match opts.Mode with
-  | GeneralMode (isa) ->
-    out.PrintLine [ Blue, isa.ToString (); Green, " General Mode" ]
-  | LowUIRMode (isa) ->
-    out.PrintLine [ Blue, isa.ToString (); Green, " LowUIR Mode" ]
+  | GeneralMode(isa) ->
+    out.PrintLine [ Blue, isa.ToString(); Green, " General Mode" ]
+  | LowUIRMode(isa) ->
+    out.PrintLine [ Blue, isa.ToString(); Green, " LowUIR Mode" ]
 
 let private asmFromFiles files printer =
   files
@@ -93,12 +93,12 @@ let private asmFromFiles files printer =
 let asmMain files opts =
   let printer = getAssemblyPrinter opts
   if List.isEmpty files then
-    let console = FsReadLine.Console (NormalPrompt, [ "quit" ])
+    let console = FsReadLine.Console(NormalPrompt, [ "quit" ])
     showBasicInfo opts
     asmFromStdin console printer ""
   else asmFromFiles files printer
 
 [<EntryPoint>]
 let main args =
-  let opts = AssemblerOpts ()
-  CmdOpts.ParseAndRun asmMain "assembler" "" Cmd.spec opts args
+  let opts = AssemblerOpts()
+  CmdOpts.ParseAndRun(asmMain, "assembler", "", Cmd.spec, opts, args)

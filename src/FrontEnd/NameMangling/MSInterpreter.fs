@@ -30,42 +30,32 @@ open B2R2.FrontEnd.NameMangling.MSUtils
 let rec interpret (sample: MSExpr) =
   match sample with
   | Name str -> str
-
   | Constructor name -> interpret (FullName [ name; name ])
-
   | Destructor name ->
     let constName = interpret name
     sprintf "%s::~%s" constName constName
-
   | FullName lst ->
     List.map interpret lst
     |> List.reduce (fun x y -> y + "::" + x)
-
   | SimpleBuiltInType t -> NormalBuiltInType.toString t
-
   | ExtendedBuiltInType t -> UnderscoredBuiltInType.toString t
-
-  | PointerT (ptrStrT, PointerT(ptrStrT2, pt2)) ->
+  | PointerT(ptrStrT, PointerT(ptrStrT2, pt2)) ->
     let pointerStr = interpret ptrStrT
     let mainType =
-      interpret (PointerT (changeToNormalPointer ptrStrT2, pt2))
-    (mainType + pointerStr).Trim ()
-
-  | PointerT (ptrStrT, pointedType) ->
+      interpret (PointerT(changeToNormalPointer ptrStrT2, pt2))
+    (mainType + pointerStr).Trim()
+  | PointerT(ptrStrT, pointedType) ->
     let pointerStr = interpret ptrStrT
     let mainType = interpret pointedType
-    (mainType + pointerStr).Trim ()
-
-  | FunctionT
-    (s, mods, call, nm,
-      FuncPointer (fPtrs, callr, rt, _, plst, mod2), pTs, rtMod) ->
+    (mainType + pointerStr).Trim()
+  | FunctionT(s, mods, call, nm, FuncPointer(fPtrs, callr, rt, _, plst, mod2),
+    pTs, rtMod) ->
     let carry =
-      interpret (FunctionT (FreeScope, mods, call, nm, Name (""), pTs, rtMod))
+      interpret (FunctionT(FreeScope, mods, call, nm, Name(""), pTs, rtMod))
     CallScope.toString s +
-      (interpret
-        (FuncPointer (fPtrs, callr, rt, " " + carry.Trim (), plst, mod2)))
-
-  | FunctionT (scope, modInfo, callConv, name, returnT, paramTs, rtMod) ->
+      (interpret (FuncPointer(fPtrs, callr, rt, " " + carry.Trim(), plst,
+       mod2)))
+  | FunctionT(scope, modInfo, callConv, name, returnT, paramTs, rtMod) ->
     let paramTstr = makeFunParams (List.map interpret paramTs)
     let modPrefixes, modifier = modInfo
     let pre, post = getPrefixModStr modPrefixes
@@ -73,28 +63,23 @@ let rec interpret (sample: MSExpr) =
     let modstrUpdated = updatePrefix modPrefixes modString
     let funcName = interpret name
     let returnTstr =
-      if rtMod = None && returnT = SimpleBuiltInType (EmptyReturn) then ""
+      if rtMod = None && returnT = SimpleBuiltInType(EmptyReturn) then ""
       elif rtMod = None then interpret returnT + " "
-      else interpret (ModifiedType (returnT, rtMod.Value))
+      else interpret (ModifiedType(returnT, rtMod.Value))
     sprintf "%s%s%s %s%s%s" (CallScope.toString scope) returnTstr
       (CallConvention.toString callConv) funcName paramTstr modstrUpdated
-
-  | Template (name, tList) ->
+  | Template(name, tList) ->
     let name = interpret name
     let tList = List.filter (fun x -> x <> IgnoredType) tList
     let argStr = makeTemplateArgs (List.map interpret tList)
     name + argStr
-
-  | ComplexT (nm, comp) -> ComplexTypeKind.toString nm + interpret comp
-
-  | EnumType (c, name) ->
+  | ComplexT(nm, comp) -> ComplexTypeKind.toString nm + interpret comp
+  | EnumType(c, name) ->
     let enumName = interpret name
     let enumType = EnumTypeKind.toString c
     sprintf "enum%s %s" enumType enumName
-
-  | FuncPointer
-    (fPtrs, cc,
-       FuncPointer (fPtrs2, cc2, rt2, _ , pLst2, mod2), car, pLst, mod1) ->
+  | FuncPointer(fPtrs, cc,
+       FuncPointer(fPtrs2, cc2, rt2, _ , pLst2, mod2), car, pLst, mod1) ->
     let args = makeFunParams (List.map interpret pLst)
     let ptrStrs =
       List.mapi (fun index ptr ->
@@ -103,71 +88,58 @@ let rec interpret (sample: MSExpr) =
       |> List.map interpret |> (List.reduce (+))
     let modStr =
       if mod1 = None then ""
-      else interpret (ModifiedType (SimpleBuiltInType EmptyReturn, mod1.Value))
+      else interpret (ModifiedType(SimpleBuiltInType EmptyReturn, mod1.Value))
     let newCarry =
       sprintf "(%s%s%s)%s%s" (CallConvention.toString cc)
-        (ptrStrs.Trim ()) car args (modStr.TrimStart ())
-    interpret (FuncPointer (fPtrs2, cc2, rt2, newCarry, pLst2, mod2))
-
-  | FuncPointer (fPtrs, callC, rType, carry, pLst, mods) ->
+        (ptrStrs.Trim()) car args (modStr.TrimStart())
+    interpret (FuncPointer(fPtrs2, cc2, rt2, newCarry, pLst2, mod2))
+  | FuncPointer(fPtrs, callC, rType, carry, pLst, mods) ->
     let args = makeFunParams (List.map interpret pLst)
     let ptrStrs =
       (List.mapi (fun index ptr ->
                     if index = fPtrs.Length - 1 then ptr
                     else changeToNormalPointer ptr) fPtrs
-      |> List.map interpret |> (List.reduce (+))).Trim ()
+      |> List.map interpret |> (List.reduce (+))).Trim()
     let ptrStrsUpdated =
       if ptrStrs[0] = '*' then ptrStrs
       else " " + ptrStrs
     let modStr =
       if mods = None then ""
-      else interpret (ModifiedType (SimpleBuiltInType EmptyReturn, mods.Value))
+      else interpret (ModifiedType(SimpleBuiltInType EmptyReturn, mods.Value))
     sprintf "%s (%s%s%s)%s%s" (interpret rType) (CallConvention.toString callC)
-      ptrStrsUpdated carry args (modStr.TrimStart ())
-
-  | ArrayPtr (pointers, indices, dataType) ->
+      ptrStrsUpdated carry args (modStr.TrimStart())
+  | ArrayPtr(pointers, indices, dataType) ->
     let ptrStr = List.map interpret (List.rev pointers) |> List.reduce (+)
     let dimensionStr = List.map (sprintf "[%d]") indices |> List.reduce (+)
-    sprintf "%s (%s)%s" (interpret dataType) (ptrStr.Trim ()) dimensionStr
-
-  | ArrayType (dataT, dimension) ->
+    sprintf "%s (%s)%s" (interpret dataType) (ptrStr.Trim()) dimensionStr
+  | ArrayType(dataT, dimension) ->
     let dimensionStr = String.replicate dimension "[]"
     let dataTString = interpret dataT
-    dataTString.Trim () + dimensionStr
-
+    dataTString.Trim() + dimensionStr
   | RTTI0 t -> interpret t + " 'RTTI Type Descriptor'"
-
-  | NestedFunc f -> sprintf "`%s'" ((interpret f).Trim ())
-
+  | NestedFunc f -> sprintf "`%s'" ((interpret f).Trim())
   | MangledSymbolPtr c -> "&" + interpret c
-
-  | ModifiedType (typeN, modInfo) ->
+  | ModifiedType(typeN, modInfo) ->
     let prefixes, modifier = modInfo
     let preStr, postStr = getPrefixModStr prefixes
     let postModifiedStr =
       if postStr.Length > 0 then postStr[1..] + " " else ""
     interpret typeN + CVModifier.toString modifier + preStr + postModifiedStr
-
-  | PointerStrT (p, (prefix, cvMod), pComp) ->
+  | PointerStrT(p, (prefix, cvMod), pComp) ->
     let preP, postP = getPrefixModStr prefix
     let cvModStr = CVModifier.toString cvMod
     let cvTypeComponent = interpret pComp
     let pTypeStr = PointerTypeIndicator.getPointerType p
     let pSymbol = PointerTypeIndicator.getPointerSymbol p
     cvModStr + cvTypeComponent + preP + pSymbol + postP + pTypeStr
-
-  | ValueT (name, typeInfo) ->
+  | ValueT(name, typeInfo) ->
     interpret (MSUtils.changeToNormalPointer typeInfo) + interpret name
-
-  | ConstructedTemplate (types, name) ->
-    interpret (Template (FullName [ name; name ], types))
-
-  | ThunkF (callT, name, typeInfo, returnT) ->
-    sprintf "[thunk]: %s%s %s%s" ((interpret returnT).Trim ())
+  | ConstructedTemplate(types, name) ->
+    interpret (Template(FullName [ name; name ], types))
+  | ThunkF(callT, name, typeInfo, returnT) ->
+    sprintf "[thunk]: %s%s %s%s" ((interpret returnT).Trim())
       (CallConvention.toString callT) (interpret name) (interpret typeInfo)
-
-  | ConcatT (compList) ->
+  | ConcatT(compList) ->
     List.map interpret compList |>
     List.reduce (+)
-
   | IgnoredType -> ""

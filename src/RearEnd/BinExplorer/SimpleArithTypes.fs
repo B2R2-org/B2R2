@@ -123,7 +123,7 @@ module NumType =
     | Signed Bit128 -> 170141183460469231731687303715884105727I
     | Unsigned Bit128 -> 340282366920938463463374607431768211455I
     | Signed Bit256 ->
-      bigint.Pow (170141183460469231731687303715884105728I, 2) * 2I - 1I
+      bigint.Pow(170141183460469231731687303715884105728I, 2) * 2I - 1I
     | Unsigned Bit256 -> getMaxValue (Signed Bit256) * 2I + 1I
     | Float Bit32 -> Single.MaxValue |> bigint
     | Float Bit64 -> Double.MaxValue |> bigint
@@ -172,18 +172,17 @@ module NumType =
   let isInRange value typ = value >= getMinValue typ && value <= getMaxValue typ
 
   let getInferedType = function
-    | Between (getRange (Signed Bit32)) -> Signed Bit32
-    | Between (getRange (Signed Bit64)) -> Signed Bit64
-    | Between (getRange (Signed Bit128)) -> Signed Bit128
-    | Between (getRange (Signed Bit256)) -> Signed Bit256
-    | Between (getRange (Unsigned Bit256)) -> Unsigned Bit256
+    | Between(getRange (Signed Bit32)) -> Signed Bit32
+    | Between(getRange (Signed Bit64)) -> Signed Bit64
+    | Between(getRange (Signed Bit128)) -> Signed Bit128
+    | Between(getRange (Signed Bit256)) -> Signed Bit256
+    | Between(getRange (Unsigned Bit256)) -> Unsigned Bit256
     | _ -> CError Default
 
-type Number = {
-    IntValue : bigint
+type Number =
+  { IntValue: bigint
     FloatValue: float
-    Type : NumType
-}
+    Type: NumType }
 
 module Number =
   let createInt typ value =

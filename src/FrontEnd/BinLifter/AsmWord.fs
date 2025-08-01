@@ -31,12 +31,11 @@ namespace B2R2.FrontEnd.BinLifter
 /// ", ", and "1". The first AsmWord is a mnemonic, the second is a space
 /// character, the third is a variable (register), the fourth is a space
 /// character, and the fifth is a value (immediate).
-type AsmWord = {
-  /// The kind of the assembly word.
-  AsmWordKind: AsmWordKind
-  /// The string value of the assembly word.
-  AsmWordValue: string
-}
+type AsmWord =
+  { /// The kind of the assembly word.
+    AsmWordKind: AsmWordKind
+    /// The string value of the assembly word.
+    AsmWordValue: string }
 with
   /// Returns the length of the assembly word.
   static member Width { AsmWordValue = s } = s.Length

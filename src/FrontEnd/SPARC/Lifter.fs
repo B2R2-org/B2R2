@@ -58,7 +58,7 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.FABSq -> fabsq ins insLen bld
   | Opcode.FADDs -> fadds ins insLen bld
   | Opcode.FADDd -> faddd ins insLen bld
-  | Opcode.FADDq-> faddq ins insLen bld
+  | Opcode.FADDq -> faddq ins insLen bld
   | Opcode.FBA | Opcode.FBN | Opcode.FBU | Opcode.FBG | Opcode.FBUG
   | Opcode.FBL | Opcode.FBUL | Opcode.FBLG | Opcode.FBNE | Opcode.FBE
   | Opcode.FBUE | Opcode.FBGE | Opcode.FBUGE | Opcode.FBLE | Opcode.FBULE
@@ -234,4 +234,4 @@ let translate (ins: Instruction) insLen bld =
   #if DEBUG
             eprintfn "%A" o
   #endif
-            raise <| NotImplementedIRException (Disasm.opCodeToString o)
+            raise <| NotImplementedIRException(Disasm.opCodeToString o)

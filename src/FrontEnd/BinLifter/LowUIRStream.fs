@@ -33,8 +33,8 @@ open B2R2.BinIR.LowUIR
 /// maintains internal counters for temporary variables and labels to avoid
 /// name collisions.
 /// </summary>
-type LowUIRStream (capacity) =
-  inherit Generic.List<Stmt> (capacity=capacity)
+type LowUIRStream(capacity) =
+  inherit Generic.List<Stmt>(capacity = capacity)
 
   let mutable tempVarCount = 0
   let mutable labelCount = 0
@@ -43,7 +43,7 @@ type LowUIRStream (capacity) =
   /// <summary>
   /// Create a new LowUIRStream.
   /// </summary>
-  new () = LowUIRStream 241
+  new() = LowUIRStream 241
 
   /// <summary>
   ///   Create a new temporary variable of RegType (rt).
@@ -64,7 +64,7 @@ type LowUIRStream (capacity) =
   ///   address. This is used for the very first statement of an instruction.
   /// </summary>
   /// <param name="stmt">IR statement to add.</param>
-  member _.Append (addr, stmt) =
+  member _.Append(addr, stmt) =
     insAddress <- addr
     base.Add stmt
 
@@ -81,25 +81,25 @@ type LowUIRStream (capacity) =
   /// <returns>
   ///   Returns an array of IR statements.
   /// </returns>
-  member _.ToStmts () =
+  member _.ToStmts() =
 #if EMULATION
     tempVarCount <- 0
 #endif
-    let stmts = base.ToArray ()
-    base.Clear ()
+    let stmts = base.ToArray()
+    base.Clear()
     stmts
 
   /// <summary>
   /// Starts a new instruction located at the given address. This is used for
   /// the very first statement of an instruction to create an ISMark statement.
   /// </summary>
-  member _.MarkStart (addr, insLen: uint32) =
+  member _.MarkStart(addr, insLen: uint32) =
     insAddress <- addr
-    base.Add (AST.ismark insLen)
+    base.Add(AST.ismark insLen)
 
   /// <summary>
   /// Finishes the current instruction. This is used for the last statement of
   /// an instruction to create an IEMark statement.
   /// </summary>
   member _.MarkEnd insLen =
-    base.Add (AST.iemark insLen)
+    base.Add(AST.iemark insLen)

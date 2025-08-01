@@ -65,4 +65,4 @@ module Addr =
   let ofFuncName (name: string) =
     assert (name.StartsWith FunctionPrefix)
     let addrStr = name.Substring FunctionPrefix.Length
-    System.UInt64.Parse (addrStr, System.Globalization.NumberStyles.HexNumber)
+    System.UInt64.Parse(addrStr, System.Globalization.NumberStyles.HexNumber)

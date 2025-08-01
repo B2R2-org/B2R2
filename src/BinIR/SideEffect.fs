@@ -75,7 +75,7 @@ type SideEffect =
     | Fence -> "Fence"
     | Delay -> "Delay"
     | Terminate -> "Terminate"
-    | Interrupt (n) -> "Int" + n.ToString ()
+    | Interrupt(n) -> "Int" + n.ToString()
     | Exception s -> "Exception(" + s + ")"
     | Lock -> "Lock"
     | Unlock -> "Unlock"

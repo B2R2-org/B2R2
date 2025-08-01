@@ -30,7 +30,7 @@ open B2R2.BinIR.LowUIR
 open type Register
 
 /// Represents a factory for accessing various ARM64 register variables.
-type RegisterFactory () =
+type RegisterFactory() =
   (* Registers *)
   let x0  = AST.var 64<rt> (Register.toRegID X0) "X0"
   let x1  = AST.var 64<rt> (Register.toRegID X1) "X1"
@@ -948,7 +948,7 @@ type RegisterFactory () =
       | "V" -> v
       | _ -> raise InvalidRegisterException
 
-    member _.GetPseudoRegVar rid pos =
+    member _.GetPseudoRegVar(rid, pos) =
       match Register.ofRegID rid, pos with
       | R.Q0, 1 -> q0a
       | R.Q0, 2 -> q0b
@@ -1080,7 +1080,7 @@ type RegisterFactory () =
       | R.V31, 2 -> v31b
       | _ -> raise InvalidRegisterException
 
-    member _.GetAllRegVars () =
+    member _.GetAllRegVars() =
       [| x0
          x1
          x2
@@ -1410,7 +1410,7 @@ type RegisterFactory () =
          z
          c |]
 
-    member _.GetGeneralRegVars () =
+    member _.GetGeneralRegVars() =
       [| x0
          x1
          x2
@@ -1449,7 +1449,7 @@ type RegisterFactory () =
 
     member _.GetRegisterID expr =
       match expr with
-      | Var (_, id, _, _) -> id
+      | Var(_, id, _, _) -> id
       | PCVar _ -> Register.toRegID PC
       | _ -> raise InvalidRegisterException
 
@@ -1464,9 +1464,9 @@ type RegisterFactory () =
     member _.GetRegString rid =
       Register.ofRegID rid |> Register.toString
 
-    member this.GetAllRegStrings () =
+    member this.GetAllRegStrings() =
       let regFactory = this :> IRegisterFactory
-      regFactory.GetAllRegVars ()
+      regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegString)
 
     member _.GetRegType rid =

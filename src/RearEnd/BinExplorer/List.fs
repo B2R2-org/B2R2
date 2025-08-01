@@ -26,12 +26,11 @@ namespace B2R2.RearEnd.BinExplorer
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd
 open B2R2.RearEnd.Utils
 
-type CmdList () =
-  inherit Cmd ()
+type CmdList() =
+  inherit Cmd()
 
   let createFuncString (hdl: BinHandle) (addr, name) =
     Addr.toString hdl.File.ISA.WordSize addr + ": " + name
@@ -49,11 +48,11 @@ type CmdList () =
     + Addr.toString wordSize region.Min
     + ":"
     + Addr.toString wordSize region.Max
-    + " (" + size.ToString () + ")"
+    + " (" + size.ToString() + ")"
 
   let listSegments (hdl: BinHandle) =
     let wordSize = hdl.File.ISA.WordSize
-    hdl.File.GetVMMappedRegions ()
+    hdl.File.GetVMMappedRegions()
     |> Seq.map (createRegionString wordSize)
     |> Seq.toArray
 
@@ -72,7 +71,7 @@ type CmdList () =
 
   override _.SubCommands = [ "functions"; "segments" ]
 
-  override _.CallBack _ brew args =
+  override _.CallBack(_, brew, args) =
     match args with
     | "functions" :: _
     | "funcs" :: _ -> listFunctions brew

@@ -57,5 +57,5 @@ type Magic =
 
 module internal Magic =
   let read (span: ByteSpan) (reader: IBinReader) =
-    if span.Length >= 4 then reader.ReadUInt32 (span, 0) else 0ul
+    if span.Length >= 4 then reader.ReadUInt32(span, 0) else 0ul
     |> LanguagePrimitives.EnumOfValue: Magic

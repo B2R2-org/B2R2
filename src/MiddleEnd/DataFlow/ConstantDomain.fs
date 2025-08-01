@@ -95,7 +95,7 @@ module ConstantDomain =
     match c with
     | Const bv ->
       let rt = BitVector.GetType bv
-      let upperBound = BitVector.OfUInt64 0xFFFFFFFFUL rt
+      let upperBound = BitVector.OfUInt64(0xFFFFFFFFUL, rt)
       let isOkay = BitVector.Le (bv, upperBound) |> BitVector.IsTrue
       if isOkay then c
       else NotAConst

@@ -32,7 +32,7 @@ exception DuplicateCommandException
 
 /// Cmd represents a command that can be invoked within B2R2's CLI.
 [<AbstractClass>]
-type Cmd () =
+type Cmd() =
   /// The name of the command.
   abstract CmdName: string
 
@@ -52,15 +52,14 @@ type Cmd () =
   /// A command callback function. This function takes in an Agent (arbiter), a
   /// CmdMap, and a list of arguments as input, and produces some side effects.
   abstract CallBack:
-    CmdMap -> BinaryBrew<_, _> -> string list -> OutString[]
+    CmdMap * BinaryBrew<_, _> * string list -> OutString[]
 
 /// This is a mapping from a command name to the corresponding command (Cmd).
-and CmdMap = {
-  /// Mapping from command name to Cmd.
-  CmdMap: Map<string, Cmd>
-  /// List of command names and aliases.
-  CmdList: string list
-}
+and CmdMap =
+  { /// Mapping from command name to Cmd.
+    CmdMap: Map<string, Cmd>
+    /// List of command names and aliases.
+    CmdList: string list }
 
 module internal Cmd =
   let warnUnknown (cmd: string) =
@@ -70,7 +69,7 @@ module internal Cmd =
   let handle cmdMap brew cmd args =
     match Map.tryFind cmd cmdMap.CmdMap with
     | None -> warnUnknown cmd |> Array.map OutputNormal
-    | Some cmd -> cmd.CallBack cmdMap brew args
+    | Some cmd -> cmd.CallBack(cmdMap, brew, args)
 
 module internal CmdMap =
 

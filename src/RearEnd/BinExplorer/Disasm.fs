@@ -25,20 +25,19 @@
 namespace B2R2.RearEnd.BinExplorer
 
 open System
-open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.RearEnd.Utils
 
-type CmdDisasm () =
-  inherit Cmd ()
+type CmdDisasm() =
+  inherit Cmd()
 
   let convertCount (str: string) =
     try Convert.ToInt32 str |> Ok
     with _ -> Error "[*] Invalid disassembly count given."
 
   let convertAddr (str: string) count =
-    try Ok (count, Convert.ToUInt64 (str, 16))
+    try Ok(count, Convert.ToUInt64(str, 16))
     with _ -> Error "[*] Invalid address is given."
 
   let rec disasmLoop acc bld (instrs: InstructionCollection) addr count =
@@ -52,11 +51,11 @@ type CmdDisasm () =
         disasmLoop ("(invalid)" :: acc) bld instrs (addr + 1UL) (count - 1)
 
   let render bld instrs = function
-    | Ok (count, addr: uint64) -> disasmLoop [] bld instrs addr count
+    | Ok(count, addr: uint64) -> disasmLoop [] bld instrs addr count
     | Error str -> [| str |]
 
   let disasm (hdl: BinHandle) instrs count addr =
-    let bld = StringDisasmBuilder (true, hdl.File, hdl.File.ISA.WordSize)
+    let bld = StringDisasmBuilder(true, hdl.File, hdl.File.ISA.WordSize)
     convertCount count
     |> Result.bind (convertAddr addr)
     |> render bld instrs
@@ -75,7 +74,7 @@ type CmdDisasm () =
 
   override _.SubCommands = []
 
-  override this.CallBack _ brew args =
+  override this.CallBack(_, brew, args) =
     match args with
     | cnt :: addr :: _ -> disasm brew.BinHandle brew.Instructions cnt addr
     | addr :: _ -> disasm brew.BinHandle brew.Instructions "1" addr
