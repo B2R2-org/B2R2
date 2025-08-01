@@ -30,29 +30,28 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 
 /// Represents the header of Mach-O file format.
-type Header = {
-  /// Magic number.
-  Magic: Magic
-  /// Word size.
-  Class: WordSize
-  /// CPU type.
-  CPUType: CPUType
-  /// CPU subtype.
-  CPUSubType: CPUSubType
-  /// File type.
-  FileType: FileType
-  /// The number of load commands.
-  NumCmds: uint32
-  /// The number of bytes occupied by the load commands following the header
-  /// structure.
-  SizeOfCmds: uint32
-  /// A set of bit flags indicating the state of certain optional features of
-  /// the Mach-O file format.
-  Flags: MachFlag
-}
+type Header =
+  { /// Magic number.
+    Magic: Magic
+    /// Word size.
+    Class: WordSize
+    /// CPU type.
+    CPUType: CPUType
+    /// CPU subtype.
+    CPUSubType: CPUSubType
+    /// File type.
+    FileType: FileType
+    /// The number of load commands.
+    NumCmds: uint32
+    /// The number of bytes occupied by the load commands following the header
+    /// structure.
+    SizeOfCmds: uint32
+    /// A set of bit flags indicating the state of certain optional features of
+    /// the Mach-O file format.
+    Flags: MachFlag }
 with
   /// Checks if the given bytes represent a valid Mach-O FAT file format.
-  static member IsFat (bytes: byte[]) =
+  static member IsFat(bytes: byte[]) =
     let reader = BinReader.Init Endian.Little
     match Magic.read (ReadOnlySpan bytes) reader with
     | Magic.FAT_CIGAM | Magic.FAT_MAGIC -> true
@@ -61,7 +60,7 @@ with
 [<RequireQualifiedAccess>]
 module internal Header =
   let isMach (bytes: byte[]) offset =
-    let span = ReadOnlySpan (bytes, int offset, 4)
+    let span = ReadOnlySpan(bytes, int offset, 4)
     let reader = BinReader.Init Endian.Little
     match Magic.read span reader with
     | Magic.MH_CIGAM | Magic.MH_CIGAM_64
@@ -70,16 +69,16 @@ module internal Header =
     | _ -> false
 
   let inline private readCPUType (span: ByteSpan) (reader: IBinReader) =
-    reader.ReadInt32 (span, 4) |> LanguagePrimitives.EnumOfValue
+    reader.ReadInt32(span, 4) |> LanguagePrimitives.EnumOfValue
 
   let inline private readCPUSubType (span: ByteSpan) (reader: IBinReader) =
-    reader.ReadInt32 (span, 8) |> LanguagePrimitives.EnumOfValue
+    reader.ReadInt32(span, 8) |> LanguagePrimitives.EnumOfValue
 
   let inline private readFileType (span: ByteSpan) (reader: IBinReader) =
-    reader.ReadInt32 (span, 12) |> LanguagePrimitives.EnumOfValue
+    reader.ReadInt32(span, 12) |> LanguagePrimitives.EnumOfValue
 
   let inline private readFlags (span: ByteSpan) (reader: IBinReader) =
-    reader.ReadInt32 (span, 24) |> LanguagePrimitives.EnumOfValue
+    reader.ReadInt32(span, 24) |> LanguagePrimitives.EnumOfValue
 
   let private readClass span reader =
     match Magic.read span reader with
@@ -103,15 +102,15 @@ module internal Header =
     BinReader.Init endian
 
   let private parseHeader bytes offset =
-    let headerSpan = ReadOnlySpan (bytes, int offset, 28)
+    let headerSpan = ReadOnlySpan(bytes, int offset, 28)
     let reader = getMachBinReader headerSpan
     { Magic = Magic.read headerSpan reader
       Class = readClass headerSpan reader
       CPUType = readCPUType headerSpan reader
       CPUSubType = readCPUSubType headerSpan reader
       FileType = readFileType headerSpan reader
-      NumCmds = reader.ReadUInt32 (headerSpan, 16)
-      SizeOfCmds = reader.ReadUInt32 (headerSpan, 20)
+      NumCmds = reader.ReadUInt32(headerSpan, 16)
+      SizeOfCmds = reader.ReadUInt32(headerSpan, 20)
       Flags = readFlags headerSpan reader }
 
   let private computeMachOffset bytes isa =
@@ -129,7 +128,7 @@ module internal Header =
     let cpusubtype = hdr.CPUSubType
     let arch, wordSize = CPUType.toArchWordSizeTuple cputype cpusubtype
     let endian = magicToEndian hdr.Magic
-    ISA (arch, endian, wordSize)
+    ISA(arch, endian, wordSize)
 
   /// Parse the Mach-O file format header, and return a Toolbox.
   let parse bytes baseAddrOpt isa =
@@ -137,7 +136,7 @@ module internal Header =
     if isMach bytes offset then
       let hdr = parseHeader bytes offset
       let baseAddr = computeBaseAddr hdr baseAddrOpt
-      let reader = BinReader.Init (magicToEndian hdr.Magic)
+      let reader = BinReader.Init(magicToEndian hdr.Magic)
       let isa = toISA hdr
       struct (hdr, reader, baseAddr, offset, isa)
     else raise InvalidFileFormatException
@@ -148,5 +147,5 @@ module internal Header =
     let offset = computeMachOffset bytes isa
     if isMach bytes offset then
       let hdr = parseHeader bytes offset
-      Ok (toISA hdr)
+      Ok(toISA hdr)
     else Error ErrorCase.InvalidFormat

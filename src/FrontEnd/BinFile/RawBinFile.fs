@@ -31,37 +31,37 @@ open B2R2.FrontEnd.BinLifter
 /// Represents a raw binary file (containing only binary code and data without
 /// file format).
 /// </summary>
-type RawBinFile (path, bytes: byte[], isa: ISA, baseAddrOpt) =
+type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
   let size = bytes.Length
   let baseAddr = defaultArg baseAddrOpt 0UL
   let reader = BinReader.Init isa.Endian
 
   interface IBinFile with
-    member _.Reader with get () = reader
+    member _.Reader with get() = reader
 
-    member _.RawBytes with get () = bytes
+    member _.RawBytes with get() = bytes
 
-    member _.Length with get () = bytes.Length
+    member _.Length with get() = bytes.Length
 
-    member _.Path with get () = path
+    member _.Path with get() = path
 
-    member _.Format with get () = FileFormat.RawBinary
+    member _.Format with get() = FileFormat.RawBinary
 
-    member _.ISA with get () = isa
+    member _.ISA with get() = isa
 
-    member _.EntryPoint with get () = Some baseAddr
+    member _.EntryPoint with get() = Some baseAddr
 
-    member _.BaseAddress with get () = baseAddr
+    member _.BaseAddress with get() = baseAddr
 
-    member _.IsStripped with get () = false
+    member _.IsStripped with get() = false
 
-    member _.IsNXEnabled with get () = false
+    member _.IsNXEnabled with get() = false
 
-    member _.IsRelocatable with get () = false
+    member _.IsRelocatable with get() = false
 
-    member _.Slice (addr, len) =
-      let offset = System.Convert.ToInt32 (addr - baseAddr)
-      System.ReadOnlySpan (bytes, offset, len)
+    member _.Slice(addr, len) =
+      let offset = System.Convert.ToInt32(addr - baseAddr)
+      System.ReadOnlySpan(bytes, offset, len)
 
     member _.IsValidAddr addr =
       addr >= baseAddr && addr < (baseAddr + uint64 size)
@@ -79,36 +79,36 @@ type RawBinFile (path, bytes: byte[], isa: ISA, baseAddrOpt) =
     member this.IsExecutableAddr addr =
       (this :> IContentAddressable).IsValidAddr addr
 
-    member _.GetBoundedPointer (addr) =
+    member _.GetBoundedPointer(addr) =
       if addr >= baseAddr && addr < (baseAddr + uint64 size) then
         let maxAddr = baseAddr + uint64 size - 1UL
         let offset = addr - baseAddr
-        BinFilePointer (addr, maxAddr, int offset, size - 1)
+        BinFilePointer(addr, maxAddr, int offset, size - 1)
       else BinFilePointer.Null
 
-    member _.GetVMMappedRegions () =
-      [| AddrRange (baseAddr, baseAddr + uint64 size - 1UL) |]
+    member _.GetVMMappedRegions() =
+      [| AddrRange(baseAddr, baseAddr + uint64 size - 1UL) |]
 
     member _.GetVMMappedRegions _permission =
-      [| AddrRange (baseAddr, baseAddr + uint64 size - 1UL) |]
+      [| AddrRange(baseAddr, baseAddr + uint64 size - 1UL) |]
 
-    member _.TryFindName (_addr) =
+    member _.TryFindName(_addr) =
       Error ErrorCase.SymbolNotFound
 
-    member _.GetTextSectionPointer () =
-      BinFilePointer (baseAddr, baseAddr + uint64 size - 1UL, 0, size - 1)
+    member _.GetTextSectionPointer() =
+      BinFilePointer(baseAddr, baseAddr + uint64 size - 1UL, 0, size - 1)
 
     member _.GetSectionPointer _ =
       BinFilePointer.Null
 
     member _.IsInTextOrDataOnlySection _ = true
 
-    member _.GetFunctionAddresses () = [||]
+    member _.GetFunctionAddresses() = [||]
 
     member _.HasRelocationInfo _ = false
 
     member _.GetRelocatedAddr _relocAddr = Terminator.impossible ()
 
-    member _.GetLinkageTableEntries () = [||]
+    member _.GetLinkageTableEntries() = [||]
 
     member _.IsLinkageTable _ = false

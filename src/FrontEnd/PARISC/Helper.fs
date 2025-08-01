@@ -444,6 +444,7 @@ let getFloatUFixedFormat isT bit =
     | _ -> None
   if isT then Option.map2 Array.append (Some [| Completer.T |]) completer
   else completer
+
 let getFloatCompareCondition = function
   | 0b00000u -> Some Completer.FALSEQ
   | 0b00001u -> Some Completer.FALSE
@@ -539,31 +540,31 @@ let pos16to25 b = Bits.extract b 25u 16u |> uint64 |> OpImm
 
 let pos21to25 b = Bits.extract b 25u 21u |> uint64 |> OpImm
 
-let getRs1 b = OneOperand (rs1 b)
+let getRs1 b = OneOperand(rs1 b)
 
-let getRs2 b = OneOperand (rs2 b)
+let getRs2 b = OneOperand(rs2 b)
 
-let getRd b = OneOperand (rd b)
+let getRd b = OneOperand(rd b)
 
-let getImm imm = OneOperand (OpImm imm)
+let getImm imm = OneOperand(OpImm imm)
 
-let getRs2Rd b = TwoOperands (rs2 b, rd b)
+let getRs2Rd b = TwoOperands(rs2 b, rd b)
 
-let getFrs2Frd b = TwoOperands (frs2 b, frd b)
+let getFrs2Frd b = TwoOperands(frs2 b, frd b)
 
-let getFrs2Frs1 b = TwoOperands (frs2 b, frs1 b)
+let getFrs2Frs1 b = TwoOperands(frs2 b, frs1 b)
 
-let getFrs2Frs1Frd b = ThreeOperands (frs2 b, frs1 b, frd b)
+let getFrs2Frs1Frd b = ThreeOperands(frs2 b, frs1 b, frd b)
 
-let getRs1Rs2Imm b imm = ThreeOperands (rs1 b, rs2 b, OpImm imm)
+let getRs1Rs2Imm b imm = ThreeOperands(rs1 b, rs2 b, OpImm imm)
 
-let getRs1Rs2Rd b = ThreeOperands (rs1 b, rs2 b, rd b)
+let getRs1Rs2Rd b = ThreeOperands(rs1 b, rs2 b, rd b)
 
-let getRs1Rs2 b = TwoOperands (rs1 b, rs2 b)
+let getRs1Rs2 b = TwoOperands(rs1 b, rs2 b)
 
-let getRs1Cr b = TwoOperands (rs1 b, cr b)
+let getRs1Cr b = TwoOperands(rs1 b, cr b)
 
-let getCrRd b = TwoOperands (cr b, rd b)
+let getCrRd b = TwoOperands(cr b, rd b)
 
 let getImmediate bin high low =
   Bits.extract bin high low |> uint64
@@ -638,141 +639,141 @@ let getImmAssemble22 bin =
 
 let getExtRs1Rs2Imm b imm wordSz =
   let sign = getImmLowSignExt b 20u 16u wordSz |> uint64
-  ThreeOperands (OpImm sign, rs2 b, OpImm imm)
+  ThreeOperands(OpImm sign, rs2 b, OpImm imm)
 
-let getFrs2Frs1Imm b imm = ThreeOperands (frs2 b, frs1 b, OpImm imm)
+let getFrs2Frs1Imm b imm = ThreeOperands(frs2 b, frs1 b, OpImm imm)
 
-let getRs1Rs2SarRd b = FourOperands (rs1 b, rs2 b, OpReg CR11, rd b)
+let getRs1Rs2SarRd b = FourOperands(rs1 b, rs2 b, OpReg CR11, rd b)
 
-let getRs1SarImm b imm = ThreeOperands (rs1 b, OpReg CR11, OpImm imm)
+let getRs1SarImm b imm = ThreeOperands(rs1 b, OpReg CR11, OpImm imm)
 
 let getRs2SarLenRs1 b clen =
-  FourOperands (rs2 b, OpReg CR11, OpImm clen, rs1 b)
+  FourOperands(rs2 b, OpReg CR11, OpImm clen, rs1 b)
 
 let getRs1SarLenRs2 b clen =
-  FourOperands (rs1 b, OpReg CR11, OpImm clen, rs2 b)
+  FourOperands(rs1 b, OpReg CR11, OpImm clen, rs2 b)
 
 let getImmSarLenRs2 b imm clen =
-  FourOperands (OpImm imm, OpReg CR11, OpImm clen, rs2 b)
+  FourOperands(OpImm imm, OpReg CR11, OpImm clen, rs2 b)
 
 let getImmCCposLenRs2 b imm cp cpos len =
-  FourOperands (OpImm imm, cCpos cp cpos, OpImm len, rs2 b)
+  FourOperands(OpImm imm, cCpos cp cpos, OpImm len, rs2 b)
 
-let getImmRs2 b imm = TwoOperands (OpImm imm, rs2 b)
+let getImmRs2 b imm = TwoOperands(OpImm imm, rs2 b)
 
-let getImmRs2Rs1 b imm = ThreeOperands (OpImm imm, rs2 b, rs1 b)
+let getImmRs2Rs1 b imm = ThreeOperands(OpImm imm, rs2 b, rs1 b)
 
-let getRs1SaRd b spos size = ThreeOperands (rs1 b, sa b spos size, rd b)
+let getRs1SaRd b spos size = ThreeOperands(rs1 b, sa b spos size, rd b)
 
-let getRs2SaRd b spos size = ThreeOperands (rs2 b, sa b spos size, rd b)
+let getRs2SaRd b spos size = ThreeOperands(rs2 b, sa b spos size, rd b)
 
 let getRs1SaRs2Rd b spos size =
-  FourOperands (rs1 b, sa b spos size, rs2 b, rd b)
+  FourOperands(rs1 b, sa b spos size, rs2 b, rd b)
 
 let getRs1Rs2cCposRd b cp cpos =
-  FourOperands (rs1 b, rs2 b, cCpos cp cpos, rd b)
+  FourOperands(rs1 b, rs2 b, cCpos cp cpos, rd b)
 
 let getRs1CCposLenRs2 b cp cpos len =
-  FourOperands (rs1 b, cCpos cp cpos, OpImm len, rs2 b)
+  FourOperands(rs1 b, cCpos cp cpos, OpImm len, rs2 b)
 
 let getRs2Pos5to9LenRs1 b len =
-  FourOperands (rs2 b, pos5to9 b, OpImm len, rs1 b)
+  FourOperands(rs2 b, pos5to9 b, OpImm len, rs1 b)
 
 let getRs2PosP5to9LenRs1 b len =
-  FourOperands (rs2 b, posP5to9 b, OpImm len, rs1 b)
+  FourOperands(rs2 b, posP5to9 b, OpImm len, rs1 b)
 
 let getMemBase b wordSz =
-  OneOperand (OpMem (br b, None, None, wordSz))
+  OneOperand(OpMem(br b, None, None, wordSz))
 
 let getMemBaseRP b wordSz =
-  TwoOperands (OpMem (br b, None, None, wordSz), OpReg GR2)
+  TwoOperands(OpMem(br b, None, None, wordSz), OpReg GR2)
 
 let getMemBaseOffRs1 b offset wordSz =
-  TwoOperands (OpMem (br b, None, Some (Imm offset), wordSz), rs1 b)
+  TwoOperands(OpMem(br b, None, Some(Imm offset), wordSz), rs1 b)
 
 let getMemBaseRegOff b offset wordSz =
-  OneOperand (OpMem (br b, None, Some (Reg offset), wordSz))
+  OneOperand(OpMem(br b, None, Some(Reg offset), wordSz))
 
 let getMemSpaceOff b space offset wordSz =
-  OneOperand (OpMem (br b, Some space, Some (Imm offset), wordSz))
+  OneOperand(OpMem(br b, Some space, Some(Imm offset), wordSz))
 
 let getMemSpaceOffSr0R31 b space offset wordSz =
-  ThreeOperands (OpMem (br b, Some space, Some (Imm offset), wordSz),
+  ThreeOperands(OpMem(br b, Some space, Some(Imm offset), wordSz),
     OpReg SR0, OpReg GR31)
 
 let getMemSpaceRegOff b space offset wordSz =
-  OneOperand (OpMem (br b, Some space, Some (Reg offset), wordSz))
+  OneOperand(OpMem(br b, Some space, Some(Reg offset), wordSz))
 
 let getMemSpaceRd b space wordSz =
-  TwoOperands (OpMem (br b, Some space, None, wordSz), rd b)
+  TwoOperands(OpMem(br b, Some space, None, wordSz), rd b)
 
 let getMemSpaceOffRs1 b space offset wordSz =
-  TwoOperands (OpMem (br b, Some space, Some (Imm offset), wordSz), rs1 b)
+  TwoOperands(OpMem(br b, Some space, Some(Imm offset), wordSz), rs1 b)
 
 let getMemOffRd b offset wordSz =
-  TwoOperands (OpMem (br b, None, Some (Imm offset), wordSz), rd b)
+  TwoOperands(OpMem(br b, None, Some(Imm offset), wordSz), rd b)
 
 let getMemSpaceOffRd b space offset wordSz =
-  TwoOperands (OpMem (br b, Some space, Some (Imm offset), wordSz), rd b)
+  TwoOperands(OpMem(br b, Some space, Some(Imm offset), wordSz), rd b)
 
 let getRdMemSpaceOff b space offset wordSz =
-  TwoOperands (rd b, OpMem (br b, Some space, Some (Imm offset), wordSz))
+  TwoOperands(rd b, OpMem(br b, Some space, Some(Imm offset), wordSz))
 
 let getFrdMemSpaceOff b space offset wordSz =
-  TwoOperands (frd b, OpMem (br b, Some space, Some (Imm offset), wordSz))
+  TwoOperands(frd b, OpMem(br b, Some space, Some(Imm offset), wordSz))
 
 let getMemSpaceOffFrd b space offset wordSz =
-  TwoOperands (OpMem (br b, Some space, Some (Imm offset), wordSz), frd b)
+  TwoOperands(OpMem(br b, Some space, Some(Imm offset), wordSz), frd b)
 
 let getRs1MemOff b offset wordSz =
-  TwoOperands (rs1 b, OpMem (br b, None, Some (Imm offset), wordSz))
+  TwoOperands(rs1 b, OpMem(br b, None, Some(Imm offset), wordSz))
 
 let getRs1MemSpaceOff b space offset wordSz =
-  TwoOperands (rs1 b, OpMem (br b, Some space, Some (Imm offset), wordSz))
+  TwoOperands(rs1 b, OpMem(br b, Some space, Some(Imm offset), wordSz))
 
 let getMemSpaceOffFrs1 b space offset wordSz =
-  TwoOperands (OpMem (br b, Some space, Some (Imm offset), wordSz), frs1 b)
+  TwoOperands(OpMem(br b, Some space, Some(Imm offset), wordSz), frs1 b)
 
 let getFrs1MemSpaceOff b space offset wordSz =
-  TwoOperands (frs1 b, OpMem (br b, Some space, Some (Imm offset), wordSz))
+  TwoOperands(frs1 b, OpMem(br b, Some space, Some(Imm offset), wordSz))
 
 let getMemRegOffRd b offset wordSz =
-  TwoOperands (OpMem (br b, None, Some (Reg offset), wordSz), rd b)
+  TwoOperands(OpMem(br b, None, Some(Reg offset), wordSz), rd b)
 
 let getMemSpaceRegOffRd b space offset wordSz =
-  TwoOperands (OpMem (br b, Some space, Some (Reg offset), wordSz), rd b)
+  TwoOperands(OpMem(br b, Some space, Some(Reg offset), wordSz), rd b)
 
 let getRdMemSpaceRegOff b space offset wordSz =
-  TwoOperands (rd b, OpMem (br b, Some space, Some (Reg offset), wordSz))
+  TwoOperands(rd b, OpMem(br b, Some space, Some(Reg offset), wordSz))
 
 let getFrdMemSpaceRegOff b space offset wordSz =
-  TwoOperands (frd b, OpMem (br b, Some space, Some (Reg offset), wordSz))
+  TwoOperands(frd b, OpMem(br b, Some space, Some(Reg offset), wordSz))
 
 let getMemSpaceRegOffFrd b space offset wordSz =
-  TwoOperands (OpMem (br b, Some space, Some (Reg offset), wordSz), frd b)
+  TwoOperands(OpMem(br b, Some space, Some(Reg offset), wordSz), frd b)
 
 let getMemSpaceRs1Rd b space wordSz =
-  ThreeOperands (OpMem (br b, Some space, None, wordSz), rs1 b, rd b)
+  ThreeOperands(OpMem(br b, Some space, None, wordSz), rs1 b, rd b)
 
 let getMemSpaceIRs1Rd b space wordSz =
-  ThreeOperands (OpMem (br b, Some space, None, wordSz), pos16to20 b, rd b)
+  ThreeOperands(OpMem(br b, Some space, None, wordSz), pos16to20 b, rd b)
 
-let getPos0Pos13 b = TwoOperands (pos0to4 b, pos13to25 b)
+let getPos0Pos13 b = TwoOperands(pos0to4 b, pos13to25 b)
 
-let getPos16to25Rd b = TwoOperands (pos16to25 b, rd b)
+let getPos16to25Rd b = TwoOperands(pos16to25 b, rd b)
 
-let getRs1Pos21to25Imm b imm = ThreeOperands (rs1 b, pos21to25 b, OpImm imm)
+let getRs1Pos21to25Imm b imm = ThreeOperands(rs1 b, pos21to25 b, OpImm imm)
 
-let getRegRd b reg = TwoOperands (OpReg reg, rd b)
+let getRegRd b reg = TwoOperands(OpReg reg, rd b)
 
-let getRs1Sr b sReg = TwoOperands (rs1 b, OpReg sReg)
+let getRs1Sr b sReg = TwoOperands(rs1 b, OpReg sReg)
 
-let getSrRd b sReg = TwoOperands (OpReg sReg, rd b)
+let getSrRd b sReg = TwoOperands(OpReg sReg, rd b)
 
 let getFe2Fe1Cbit b cbit =
-  ThreeOperands (frs2 b, frs1 b, OpImm cbit)
+  ThreeOperands(frs2 b, frs1 b, OpImm cbit)
 
 let getFrs2Frs1FraFrd b =
   let ra = Bits.extract b 15u 13u <<< 2 ||| Bits.extract b 10u 9u
   let fra = ra |> getFRegister |> OpReg
-  FourOperands (frs2 b, frs1 b, fra, frd b)
+  FourOperands(frs2 b, frs1 b, fra, frd b)

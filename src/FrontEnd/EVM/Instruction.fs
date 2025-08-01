@@ -29,29 +29,29 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an EVM instruction.
 type Instruction
-  internal (addr, numBytes, offset, opcode, gas, lifter: ILiftable) =
+  internal(addr, numBytes, offset, opcode, gas, lifter: ILiftable) =
 
   /// Address.
-  member _.Address with get (): Addr = addr
+  member _.Address with get(): Addr = addr
 
   /// Instruction length.
-  member _.NumBytes with get (): uint32 = numBytes
+  member _.NumBytes with get(): uint32 = numBytes
 
   /// Offset of the instruction. When codecopy (or similar) is used, we should
   /// adjust the address of the copied instructions using this offset.
-  member _.Offset with get (): Addr = offset
+  member _.Offset with get(): Addr = offset
 
   /// Opcode.
-  member _.Opcode with get (): Opcode = opcode
+  member _.Opcode with get(): Opcode = opcode
 
   /// Gas.
-  member _.GAS with get (): int = gas
+  member _.GAS with get(): int = gas
 
   interface IInstruction with
 
-    member _.Address with get () = addr
+    member _.Address with get() = addr
 
-    member _.Length with get () = numBytes
+    member _.Length with get() = numBytes
 
     member _.IsBranch =
       match opcode with
@@ -102,38 +102,38 @@ type Instruction
       let ins = this :> IInstruction
       ins.IsIndirectBranch || ins.IsExit
 
-    member _.DirectBranchTarget (_addr: byref<Addr>) = false
+    member _.DirectBranchTarget(_addr: byref<Addr>) = false
 
-    member _.IndirectTrampolineAddr (_addr: byref<Addr>) = false
+    member _.IndirectTrampolineAddr(_addr: byref<Addr>) = false
 
     member _.MemoryDereferences _ = false
 
     member _.Immediate _ = false
 
-    member this.GetNextInstrAddrs () =
+    member this.GetNextInstrAddrs() =
       let fallthrough = this.Address + uint64 numBytes
       let acc = [| fallthrough |]
       if (this :> IInstruction).IsExit then [||]
       else acc
 
-    member _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+    member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
     member this.Translate builder =
-      (lifter.Lift this builder).Stream.ToStmts ()
+      lifter.Lift(this, builder).Stream.ToStmts()
 
     member this.TranslateToList builder =
-      (lifter.Lift this builder).Stream
+      lifter.Lift(this, builder).Stream
 
     member this.Disasm builder =
-      (lifter.Disasm this builder).ToString ()
+      lifter.Disasm(this, builder).ToString()
 
-    member this.Disasm () =
-      let builder = StringDisasmBuilder (false, null, WordSize.Bit256)
-      (lifter.Disasm this builder).ToString ()
+    member this.Disasm() =
+      let builder = StringDisasmBuilder(false, null, WordSize.Bit256)
+      lifter.Disasm(this, builder).ToString()
 
     member this.Decompose builder =
-      (lifter.Disasm this builder).ToAsmWords ()
+      lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
-  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
-  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder
+  abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction * IDisasmBuilder -> IDisasmBuilder

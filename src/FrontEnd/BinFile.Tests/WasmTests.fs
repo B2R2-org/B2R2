@@ -29,31 +29,31 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open type FileFormat
 
 [<TestClass>]
-type WasmTests () =
+type WasmTests() =
   static let parseFile fileName =
     let zipFile = fileName + ".zip"
     let fileNameInZip = fileName + ".wasm"
     let bytes = ZIPReader.readBytes WasmBinary zipFile fileNameInZip
-    WasmBinFile ("", bytes) :> IBinFile
+    WasmBinFile("", bytes) :> IBinFile
 
   static let file = parseFile "wasm_basic"
 
   [<TestMethod>]
-  member _.``[Wasm] EntryPoint test`` () =
-    Assert.AreEqual (Some 0x15AUL, file.EntryPoint)
+  member _.``[Wasm] EntryPoint test``() =
+    Assert.AreEqual(Some 0x15AUL, file.EntryPoint)
 
   [<TestMethod>]
-  member _.``[Wasm] IsStripped test`` () =
-    Assert.IsFalse (file.IsStripped)
+  member _.``[Wasm] IsStripped test``() =
+    Assert.IsFalse(file.IsStripped)
 
   [<TestMethod>]
-  member _.``[Wasm] text section address test`` () =
-    Assert.AreEqual<uint64> (0x154UL, getTextSectionAddr file)
+  member _.``[Wasm] text section address test``() =
+    Assert.AreEqual<uint64>(0x154UL, getTextSectionAddr file)
 
   [<TestMethod>]
-  member _.``[Wasm] sections length test`` () =
-    Assert.AreEqual<int> (12, (file :?> WasmBinFile).Sections.Length)
+  member _.``[Wasm] sections length test``() =
+    Assert.AreEqual<int>(12, (file :?> WasmBinFile).Sections.Length)
 
   [<TestMethod>]
-  member _.``[Wasm] linkageTableEntries length test`` () =
-    Assert.AreEqual<int> (4, file.GetLinkageTableEntries () |> Seq.length)
+  member _.``[Wasm] linkageTableEntries length test``() =
+    Assert.AreEqual<int>(4, file.GetLinkageTableEntries() |> Seq.length)

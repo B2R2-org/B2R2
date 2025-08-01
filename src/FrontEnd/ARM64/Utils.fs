@@ -75,8 +75,8 @@ let zeroExtend bitSize extSize (imm: uint32) =
 /// aliases UBFIZ, SBFIZ, UXT[BH], SXT[BHW], LSL, LSR and ASR.
 let bfxPreferred sf uns imms immr =
   if imms < immr then false
-  else if imms = (concat sf 0b11111u 5) then false
-  else if immr = 0b000000u then
+  elif imms = (concat sf 0b11111u 5) then false
+  elif immr = 0b000000u then
     if sf = 0b0u && (imms = 0b000111u || imms = 0b001111u) then false
     else
       not (concat sf uns 1 = 0b10u
@@ -88,12 +88,13 @@ let bfxPreferred sf uns imms immr =
 let highestSetBit nBit imm =
   let rec loop idx =
     if idx < 0 then failwith "There is no SeBit"
-    else if imm &&& (1u <<< idx) <> 0u then idx else loop (idx - 1)
+    elif imm &&& (1u <<< idx) <> 0u then idx else loop (idx - 1)
   loop (nBit - 1)
 
 /// Ones()
 /// ======
 let ones n = (pown 2 (n - 1)) - 1
+
 let zeroExtendOnes m _ = (1L <<< m) - 1L
 
 /// ROR()
@@ -121,11 +122,9 @@ let decodeBitMasks immN imms immr isImm oprSize =
   if len < 1 then failwith "reserve value" else ()
   let levels = zeroExtendOnes len 6 |> uint32
   if isImm && (imms &&& levels) = levels then failwith "reserved value" else ()
-
   let eSize = 1 <<< len
   let s = imms &&& levels
   let r = immr &&& levels
-
   replicate (rorZeroExtendOnes (int s + 1) eSize (int r)) eSize oprSize
 
 /// aarch64/instrs/system/sysops/sysop/SysOp
@@ -223,13 +222,13 @@ let moveWidePreferred bin = // sf immN imms immr
   let width = if isSfOne then 64 else 32
   // element size must equal total immediate size
   if isSfOne && (immNimms &&& 0b1000000u <> 0b1000000u) then false
-  else if isSfOne && (immNimms &&& 0b1100000u <> 0b0000000u) then false
+  elif isSfOne && (immNimms &&& 0b1100000u <> 0b0000000u) then false
   // for MOVZ must contain no more than 16 ones
   // ones must not span halfword boundary when rotated
-  else if imms < 16u then 0xf &&& (- (int immr) % 16) <= (15 - (int imms))
+  elif imms < 16u then 0xf &&& (- (int immr) % 16) <= (15 - (int imms))
   // for MOVN must contain no more than 16 zeros
   // zeros must not span halfword boundary when rotated
-  else if (int imms) >= width - 15
+  elif (int imms) >= width - 15
   then (int immr % 16) <= (int imms - (width - 15)) else false
 
 /// shared/functions/integer/AddWithCarry

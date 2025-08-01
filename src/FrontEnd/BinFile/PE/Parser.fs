@@ -47,7 +47,7 @@ let parsePDB reader (pdbBytes: byte[]) =
 
 let getPDBSymbols reader (execpath: string) = function
   | [||] ->
-    let pdbPath = IO.Path.ChangeExtension (execpath, "pdb")
+    let pdbPath = IO.Path.ChangeExtension(execpath, "pdb")
     if IO.File.Exists pdbPath then
       IO.File.ReadAllBytes pdbPath |> parsePDB reader
     else []
@@ -99,7 +99,7 @@ let execRanges baseAddr secs =
   |> Array.fold (fun set s ->
     let saddr = baseAddr + uint64 s.VirtualAddress
     let eaddr = saddr + (uint64 <| getVirtualSectionSize s)
-    IntervalSet.add (AddrRange (saddr, eaddr - 1UL)) set
+    IntervalSet.add (AddrRange(saddr, eaddr - 1UL)) set
     ) IntervalSet.empty
 
 let parseCoff baseAddrOpt bytes reader (hdrs: PEHeaders) =
@@ -113,7 +113,7 @@ let parseCoff baseAddrOpt bytes reader (hdrs: PEHeaders) =
     BaseAddr = baseAddr
     SectionHeaders = secs
     ImportedSymbols = Map.empty
-    ExportedSymbols = ExportedSymbolStore ()
+    ExportedSymbols = ExportedSymbolStore()
     RelocBlocks = []
     WordSize = wordSize
     Symbols = Coff.getSymbols bytes reader coff
@@ -131,7 +131,7 @@ let parseImage execpath rawpdb baseAddr bytes reader (hdrs: PEHeaders) =
     BaseAddr = baseAddr
     SectionHeaders = secs
     ImportedSymbols = ImportedSymbolStore.parse bytes reader hdrs secs wordSize
-    ExportedSymbols = ExportedSymbolStore (baseAddr, bytes, reader, hdrs, secs)
+    ExportedSymbols = ExportedSymbolStore(baseAddr, bytes, reader, hdrs, secs)
     RelocBlocks = BaseRelocationTable.parse bytes reader hdrs secs
     WordSize = wordSize
     Symbols = getPDBSymbols reader execpath rawpdb |> buildPDBInfo baseAddr secs
@@ -148,6 +148,6 @@ let parsePE execpath baseAddrOpt rawpdb bytes reader (peReader: PEReader) =
 
 let parse execpath (bytes: byte[]) baseAddrOpt rawpdb =
   let reader = BinReader.Init Endian.Little
-  use stream = new IO.MemoryStream (bytes)
-  use peReader = new PEReader (stream, PEStreamOptions.Default)
+  use stream = new IO.MemoryStream(bytes)
+  use peReader = new PEReader(stream, PEStreamOptions.Default)
   parsePE execpath baseAddrOpt rawpdb bytes reader peReader

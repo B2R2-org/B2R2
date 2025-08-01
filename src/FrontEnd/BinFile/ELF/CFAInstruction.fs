@@ -145,4 +145,5 @@ type CFAInstruction =
 [<RequireQualifiedAccess>]
 module internal CFAInstruction =
   open LanguagePrimitives
+
   let parse (b: byte) = EnumOfValue<byte, CFAInstruction> b

@@ -30,13 +30,13 @@ open B2R2
 type LinkageTable = LinkageTableEntry[]
 
 /// Represents an entry of a linkage table.
-and LinkageTableEntry = {
-  /// Target function name for dynamic linking.
-  FuncName: string
-  /// Corresponding library name.
-  LibraryName: string
-  /// Trampoline code address, e.g., PLT.
-  TrampolineAddress: Addr
-  /// The address of the table that stores the actual target address, e.g., GOT.
-  TableAddress: Addr
-}
+and LinkageTableEntry =
+  { /// Target function name for dynamic linking.
+    FuncName: string
+    /// Corresponding library name.
+    LibraryName: string
+    /// Trampoline code address, e.g., PLT.
+    TrampolineAddress: Addr
+    /// The address of the table that stores the actual target address
+    /// e.g., GOT.
+    TableAddress: Addr }

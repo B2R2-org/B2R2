@@ -1253,7 +1253,7 @@ let opCodeToString = function
   | _ -> Terminator.impossible ()
 
 let extendMnemonic (ins: Instruction) (builder: IDisasmBuilder) =
-  Terminator.futureFeature()
+  Terminator.futureFeature ()
 
 let binaryMaskString (mask: Mask) =
   "B'" + System.Convert.ToString(int mask, 2).PadLeft(4, '0') + "'"
@@ -1262,14 +1262,15 @@ let hexDispString (disp: Displacement) =
   match disp with
   | DispS imm -> HexString.ofInt32 imm
   | DispU imm -> HexString.ofUInt32 imm
-  | DispS20 bitvec -> bitvec.ToString ()
-  | DispU12 bitvec -> bitvec.ToString ()
+  | DispS20 bitvec -> bitvec.ToString()
+  | DispU12 bitvec -> bitvec.ToString()
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let opcode = ins.Opcode
-  builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
+  builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
 
 let prefix = { AsmWordKind = AsmWordKind.String; AsmWordValue = " ; <" }
+
 let suffix = { AsmWordKind = AsmWordKind.String; AsmWordValue = ">" }
 
 let private mapNoSymbol addr =
@@ -1278,97 +1279,97 @@ let private mapNoSymbol addr =
        AsmWordValue = HexString.ofUInt64 addr } |]
 
 let private buildComment targetAddr (builder: IDisasmBuilder) =
-  builder.AccumulateSymbol (targetAddr, prefix, suffix, mapNoSymbol)
+  builder.AccumulateSymbol(targetAddr, prefix, suffix, mapNoSymbol)
 
 let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
   match opr with
   | OpReg reg ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
   | OpImm imm ->
-    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate(AsmWordKind.String, delim)
     match imm with
     | ImmU4 value ->
-      builder.Accumulate AsmWordKind.Value (
+      builder.Accumulate(AsmWordKind.Value,
         HexString.ofUInt32 (BitVector.ToUInt32 value))
     | ImmU8 value ->
-      builder.Accumulate AsmWordKind.Value (HexString.ofUInt16 (uint16 value))
+      builder.Accumulate(AsmWordKind.Value, HexString.ofUInt16 (uint16 value))
     | ImmS8 value ->
-      builder.Accumulate AsmWordKind.Value (HexString.ofInt16 (int16 value))
+      builder.Accumulate(AsmWordKind.Value, HexString.ofInt16 (int16 value))
     | ImmU12 value ->
-      builder.Accumulate AsmWordKind.Value (
+      builder.Accumulate(AsmWordKind.Value,
         HexString.ofUInt32 (BitVector.ToUInt32 value))
     | ImmS12 value ->
-      builder.Accumulate AsmWordKind.Value (
+      builder.Accumulate(AsmWordKind.Value,
         HexString.ofInt32 (BitVector.ToInt32 value))
     | ImmU16 value ->
-      builder.Accumulate AsmWordKind.Value (HexString.ofUInt16 value)
+      builder.Accumulate(AsmWordKind.Value, HexString.ofUInt16 value)
     | ImmS16 value ->
-      builder.Accumulate AsmWordKind.Value (HexString.ofInt16 value)
+      builder.Accumulate(AsmWordKind.Value, HexString.ofInt16 value)
     | ImmS24 value ->
-      builder.Accumulate AsmWordKind.Value (
+      builder.Accumulate(AsmWordKind.Value,
         HexString.ofInt32 (BitVector.ToInt32 value))
     | ImmU32 value ->
-      builder.Accumulate AsmWordKind.Value (HexString.ofUInt32 value)
+      builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 value)
     | ImmS32 value ->
-      builder.Accumulate AsmWordKind.Value (HexString.ofInt32 value)
+      builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 value)
   | OpRImm immTyp ->
     match immTyp with
     | ImmS16 value ->
-      builder.Accumulate AsmWordKind.String delim
+      builder.Accumulate(AsmWordKind.String, delim)
       let offset = 2L * int64 value
       if offset < 0 then
-        builder.Accumulate AsmWordKind.String "-"
-        builder.Accumulate AsmWordKind.Value (HexString.ofInt64 -offset)
+        builder.Accumulate(AsmWordKind.String, "-")
+        builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 -offset)
       else
-        builder.Accumulate AsmWordKind.String "+"
-        builder.Accumulate AsmWordKind.Value (HexString.ofInt64 offset)
+        builder.Accumulate(AsmWordKind.String, "+")
+        builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 offset)
       let targetAddr = int64 ins.Address + offset |> uint64
       buildComment targetAddr builder
     | ImmS32 value ->
-      builder.Accumulate AsmWordKind.String delim
+      builder.Accumulate(AsmWordKind.String, delim)
       let offset = 2L * int64 value
       if offset < 0 then
-        builder.Accumulate AsmWordKind.String "-"
-        builder.Accumulate AsmWordKind.Value (HexString.ofInt64 -offset)
+        builder.Accumulate(AsmWordKind.String, "-")
+        builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 -offset)
       else
-        builder.Accumulate AsmWordKind.String "+"
-        builder.Accumulate AsmWordKind.Value (HexString.ofInt64 offset)
+        builder.Accumulate(AsmWordKind.String, "+")
+        builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 offset)
       let targetAddr = int64 ins.Address + offset |> uint64
       buildComment targetAddr builder
     | _ -> printfn "%A" immTyp; failwith "Invalid immType"
   | OpMask mask ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (binaryMaskString mask)
-  | OpStore (idxReg, baseReg, disp) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (hexDispString disp)
-    builder.Accumulate AsmWordKind.String "("
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, binaryMaskString mask)
+  | OpStore(idxReg, baseReg, disp) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, hexDispString disp)
+    builder.Accumulate(AsmWordKind.String, "(")
     match idxReg with
     | Some reg ->
-      builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-      builder.Accumulate AsmWordKind.String ", "
+      builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+      builder.Accumulate(AsmWordKind.String, ", ")
     | None -> ()
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseReg)
-    builder.Accumulate AsmWordKind.String ")"
-  | OpStoreLen (len, baseReg, disp) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (hexDispString disp)
-    builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Value (len.ToString())
-    builder.Accumulate AsmWordKind.String ", "
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseReg)
-    builder.Accumulate AsmWordKind.String ")"
+    builder.Accumulate(AsmWordKind.Variable, Register.toString baseReg)
+    builder.Accumulate(AsmWordKind.String, ")")
+  | OpStoreLen(len, baseReg, disp) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, hexDispString disp)
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Value, len.ToString())
+    builder.Accumulate(AsmWordKind.String, ", ")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString baseReg)
+    builder.Accumulate(AsmWordKind.String, ")")
 
 let inline buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand op1 ->
     oprToString ins op1 " " builder
-  | TwoOperands (op1, op2) ->
+  | TwoOperands(op1, op2) ->
     oprToString ins op1 " " builder
     oprToString ins op2 ", " builder
-  | ThreeOperands (op1, op2, op3) ->
+  | ThreeOperands(op1, op2, op3) ->
     oprToString ins op1 " " builder
     if ins.Fmt <> Fmt.RS then
       oprToString ins op2 ", " builder
@@ -1376,18 +1377,18 @@ let inline buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
     else
       oprToString ins op3 ", " builder
       oprToString ins op2 ", " builder
-  | FourOperands (op1, op2, op3, op4) ->
+  | FourOperands(op1, op2, op3, op4) ->
     oprToString ins op1 " " builder
     oprToString ins op2 ", " builder
     oprToString ins op3 ", " builder
     oprToString ins op4 ", " builder
-  | FiveOperands (op1, op2, op3, op4, op5) ->
+  | FiveOperands(op1, op2, op3, op4, op5) ->
     oprToString ins op1 " " builder
     oprToString ins op2 ", " builder
     oprToString ins op3 ", " builder
     oprToString ins op4 ", " builder
     oprToString ins op5 ", " builder
-  | SixOperands (op1, op2, op3, op4, op5, op6) ->
+  | SixOperands(op1, op2, op3, op4, op5, op6) ->
     oprToString ins op1 " " builder
     oprToString ins op2 ", " builder
     oprToString ins op3 ", " builder

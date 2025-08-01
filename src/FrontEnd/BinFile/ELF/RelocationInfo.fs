@@ -55,7 +55,7 @@ module private RelocMap =
     let info = readInfoWithArch toolBox span
     let cls = hdr.Class
     { RelOffset = readUIntByWordSize span reader cls 0 + toolBox.BaseAddress
-      RelKind = RelocationKind (hdr.MachineType, typMask &&& info)
+      RelKind = RelocationKind(hdr.MachineType, typMask &&& info)
       RelSymbol = Array.tryItem (getRelocSIdx hdr info |> int) symTbl
       RelAddend = if not hasAddend then 0UL
                   else readUIntByWordSizeAndOffset span reader cls 8 16
@@ -84,7 +84,7 @@ module private RelocMap =
       |> accumulateRelocInfo relocMap
 
   let parse toolBox shdrs symbs =
-    let relocMap = Dictionary ()
+    let relocMap = Dictionary()
     for sec in shdrs do
       match sec.SecType with
       | SectionType.SHT_REL
@@ -92,18 +92,18 @@ module private RelocMap =
         if sec.SecSize = 0UL then ()
         else
           let offset, size = int sec.SecOffset, int sec.SecSize
-          let span = ReadOnlySpan (toolBox.Bytes, offset, size)
+          let span = ReadOnlySpan(toolBox.Bytes, offset, size)
           parseRelocSection toolBox symbs relocMap sec span
       | _ -> ()
     relocMap
 
 /// Represents relocation information, which internally stores a collection of
 /// relocation entries indexed by their addresses.
-type RelocationInfo internal (toolBox, shdrs, symbs) =
+type RelocationInfo internal(toolBox, shdrs, symbs) =
   let relocMap = RelocMap.parse toolBox shdrs symbs
 
   /// Returns all relocation entries.
-  member _.Entries with get () =
+  member _.Entries with get() =
     relocMap.Values
 
   /// Checks if there exists a relocation entry at the given address.

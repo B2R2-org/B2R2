@@ -155,36 +155,36 @@ let pickBit binary (pos: uint32) = binary >>> int pos &&& 0b1u
 
 let concat (n1: uint32) (n2: uint32) shift = (n1 <<< shift) + n2
 
-let parseOneOpr b op1 = OneOperand (op1 b)
+let parseOneOpr b op1 = OneOperand(op1 b)
 
-let parseTwoOpr b op1 op2 = TwoOperands (op1 b, op2 b)
+let parseTwoOpr b op1 op2 = TwoOperands(op1 b, op2 b)
 
-let parseThrOpr b op1 op2 op3 = ThreeOperands (op1 b, op2 b, op3 b)
+let parseThrOpr b op1 op2 op3 = ThreeOperands(op1 b, op2 b, op3 b)
 
 let parseFourOpr b op1 op2 op3 op4 =
-  FourOperands (op1 b, op2 b, op3 b, op4 b)
+  FourOperands(op1 b, op2 b, op3 b, op4 b)
 
-let parseOneCC cc1 = OneOperand (cc1)
+let parseOneCC cc1 = OneOperand(cc1)
 
-let parseOneCCOneOpr b cc1 op1 = TwoOperands (cc1, op1 b)
+let parseOneCCOneOpr b cc1 op1 = TwoOperands(cc1, op1 b)
 
-let parseOneCCTwoOpr b cc1 op1 op2 = ThreeOperands (cc1, op1 b, op2 b)
+let parseOneCCTwoOpr b cc1 op1 op2 = ThreeOperands(cc1, op1 b, op2 b)
 
-let parseOneCCThrOpr b cc1 op1 op2 op3 = FourOperands (cc1, op1 b, op2 b, op3 b)
+let parseOneCCThrOpr b cc1 op1 op2 op3 = FourOperands(cc1, op1 b, op2 b, op3 b)
 
-let parseOneOprOneCC b op1 cc1 = TwoOperands (op1 b, cc1)
+let parseOneOprOneCC b op1 cc1 = TwoOperands(op1 b, cc1)
 
-let parseOneRegOneOpr b reg op1 = TwoOperands (reg, op1 b)
+let parseOneRegOneOpr b reg op1 = TwoOperands(reg, op1 b)
 
-let parseTwoOprOneReg b op1 op2 reg = ThreeOperands (op1 b, op2 b, reg)
+let parseTwoOprOneReg b op1 op2 reg = ThreeOperands(op1 b, op2 b, reg)
 
-let parseOneRegTwoOpr b reg op1 op2 = ThreeOperands (reg, op1 b, op2 b)
+let parseOneRegTwoOpr b reg op1 op2 = ThreeOperands(reg, op1 b, op2 b)
 
 let parseThrOprOneReg b op1 op2 reg op3 =
-  FourOperands (op1 b, op2 b, reg, op3 b)
+  FourOperands(op1 b, op2 b, reg, op3 b)
 
 let parseSTXA b op1 op2 op3 reg =
-  FourOperands (op1 b, op2 b, op3 b, reg)
+  FourOperands(op1 b, op2 b, op3 b, reg)
 
 let extract binary n1 n2 =
   let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
@@ -247,7 +247,6 @@ let getSimm11 b =
 
 let getSimm10 b =
   (extract b 9u 0u) <<< 22 |> int32 >>> 22 |> OprImm
-
 
 let getAbit b = pickBit b 29u |> int32 |> OprImm
 
@@ -600,7 +599,6 @@ let parseFP b32 =
       parseTwoOpr b32 getQPFloatRegRs2 getQPFloatRegRd
     )
   | _ -> struct (Opcode.InvalidOp, NoOperand)
-
 
 let parse110101fmovr b32 =
   match extract b32 12u 10u with
@@ -1122,7 +1120,6 @@ let parse110101 b32 =
         )
       | _ -> parse110101fmovr b32
     | _ -> parse110101fmovr b32
-
   | 0b000u | 0b001u | 0b010u | 0b011u ->
     match extract b32 17u 14u with
     | 0b1000u ->
@@ -1526,9 +1523,7 @@ let parse110101 b32 =
         )
       | _ -> parse110101fmovr b32
     | _ -> struct (Opcode.InvalidOp, NoOperand)
-
   | _ -> parse110101fmovr b32
-
 
 (*
   10r_ __d1 0100 0---
@@ -2879,7 +2874,6 @@ let parse11rd b32 =
         parseThrOprOneReg b32 getAddrRs1 getAddrSimm13
           (setPriReg ASI) getQPFloatRegRd
       )
-
     | 0b001001u ->
       struct (Opcode.LDSB, parseThrOpr b32 getAddrRs1 getAddrSimm13 getRegRd)
     | 0b001010u ->
@@ -3686,6 +3680,8 @@ let parseTwoBits bin =
   | _ -> struct (Opcode.InvalidOp, NoOperand)
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
-  let bin = reader.ReadInt32 (span, 0)
+  let bin = reader.ReadInt32(span, 0)
   let struct (op, operands) = uint32 bin |> parseTwoBits
-  Instruction (addr, 4u, op, operands, lifter)
+  Instruction(addr, 4u, op, operands, lifter)
+
+// vim: set tw=80 sts=2 sw=2:

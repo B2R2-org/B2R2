@@ -33,7 +33,7 @@ open B2R2.FrontEnd.BinFile
 /// Represents parsed exception information of a binary code. We currently only
 /// support ELF binaries.
 /// </summary>
-type ExceptionInfo (liftingUnit: LiftingUnit) =
+type ExceptionInfo(liftingUnit: LiftingUnit) =
   let loadCallSiteTable lsdaPointer lsdaTbl =
     let lsda: ELF.LSDA = Map.find lsdaPointer lsdaTbl
     lsda.CallSiteTable
@@ -41,11 +41,11 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
   /// If a landing pad has a direct branch to another function, then we consider
   /// the frame containing the lading pad as a non-function FDE.
   let checkIfFDEIsFunction (fde: ELF.FDE) landingPad =
-    match liftingUnit.ParseBBlock (addr = landingPad) with
-    | Ok (blk) ->
+    match liftingUnit.ParseBBlock(addr = landingPad) with
+    | Ok(blk) ->
       let last = blk[blk.Length - 1]
       if not last.IsCall then
-        match last.DirectBranchTarget () with
+        match last.DirectBranchTarget() with
         | true, jmpTarget -> fde.PCBegin <= jmpTarget && jmpTarget < fde.PCEnd
         | _ -> true
       else true
@@ -61,7 +61,7 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
         if csrec.LandingPad = 0UL then 0UL else fde.PCBegin + csrec.LandingPad
       if landingPad = 0UL then loopCallSiteTable fde isFDEFunc acc rest
       else
-        let range = AddrRange (blockStart, blockEnd)
+        let range = AddrRange(blockStart, blockEnd)
         let acc = NoOverlapIntervalMap.add range landingPad acc
         let isFDEFunc = checkIfFDEIsFunction fde landingPad
         loopCallSiteTable fde isFDEFunc acc rest
@@ -72,7 +72,7 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
     | Some lsdaPointer ->
       loopCallSiteTable fde true tbl (loadCallSiteTable lsdaPointer lsdaTbl)
 
-  let fnRanges = Dictionary<Addr, Addr> ()
+  let fnRanges = Dictionary<Addr, Addr>()
 
   let accumulateExceptionTableInfo acc fdes lsdaTbl =
     fdes
@@ -96,15 +96,15 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
       computeExceptionTable elf.ExceptionFrame elf.LSDATable
     | _ -> NoOverlapIntervalMap.empty
 
-  new (hdl: BinHandle) =
-    ExceptionInfo (hdl.NewLiftingUnit ())
+  new(hdl: BinHandle) =
+    ExceptionInfo(hdl.NewLiftingUnit())
 
   /// Returns the exception handler mapping.
-  member _.ExceptionMap with get () = exnTbl
+  member _.ExceptionMap with get() = exnTbl
 
   /// Returns an array of function entry points identified by the exception
   /// table.
-  member _.FunctionEntryPoints with get () =
+  member _.FunctionEntryPoints with get() =
     fnRanges.Keys |> Seq.toArray
 
   /// Checks if the given address is a function entry point according to the
@@ -114,11 +114,11 @@ type ExceptionInfo (liftingUnit: LiftingUnit) =
 
   /// Returns the coverage of the exception table, which is the ratio of
   /// addresses in the .text section that are covered by the exception table.
-  member _.ExceptionCoverage with get () =
-    let ptr = liftingUnit.File.GetTextSectionPointer ()
+  member _.ExceptionCoverage with get() =
+    let ptr = liftingUnit.File.GetTextSectionPointer()
     let txtSize = float (ptr.MaxAddr - ptr.Addr)
     let mutable covered = 0.0
-    for KeyValue (startAddr, endAddr) in fnRanges do
+    for KeyValue(startAddr, endAddr) in fnRanges do
       if ptr.Addr <= startAddr && startAddr <= ptr.MaxAddr then
         covered <- covered + float (endAddr - startAddr + 1UL)
       else ()

@@ -39,13 +39,14 @@ let inline getCCVar (bld: ILowUIRBuilder) name =
 let dstAssign oprSize dst src =
   match oprSize with
   | 8<rt> | 16<rt> -> dst := src (* No extension for 8- and 16-bit operands *)
-  | _ -> let dst = AST.unwrap dst
-         let dstOrigSz = dst |> Expr.TypeOf
-         let oprBitSize = RegType.toBitWidth oprSize
-         let dstBitSize = RegType.toBitWidth dstOrigSz
-         if dstBitSize > oprBitSize then dst := AST.zext dstOrigSz src
-         elif dstBitSize = oprBitSize then dst := src
-         else raise InvalidOperandSizeException
+  | _ ->
+    let dst = AST.unwrap dst
+    let dstOrigSz = dst |> Expr.TypeOf
+    let oprBitSize = RegType.toBitWidth oprSize
+    let dstBitSize = RegType.toBitWidth dstOrigSz
+    if dstBitSize > oprBitSize then dst := AST.zext dstOrigSz src
+    elif dstBitSize = oprBitSize then dst := src
+    else raise InvalidOperandSizeException
 
 let transOprToExpr ins insLen bld = function
   | OprReg reg -> regVar bld reg
@@ -57,7 +58,7 @@ let transOprToExpr ins insLen bld = function
 
 let isRegOpr (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, o2, _) ->
+  | ThreeOperands(_, o2, _) ->
     match o2 with
     | OprReg reg -> true
     | _ -> false
@@ -70,12 +71,12 @@ let getOneOpr (ins: Instruction) =
 
 let getTwoOprs (ins: Instruction) =
   match ins.Operands with
-  | TwoOperands (o1, o2) -> o1, o2
+  | TwoOperands(o1, o2) -> o1, o2
   | _ -> raise InvalidOperandException
 
 let getThreeOprs (ins: Instruction) =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> o1, o2, o3
+  | ThreeOperands(o1, o2, o3) -> o1, o2, o3
   | _ -> raise InvalidOperandException
 
 let transOneOpr (ins: Instruction) insLen bld =
@@ -85,14 +86,14 @@ let transOneOpr (ins: Instruction) insLen bld =
 
 let transTwoOprs (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (o1, o2) ->
+  | TwoOperands(o1, o2) ->
     struct (transOprToExpr ins insLen bld o1,
             transOprToExpr ins insLen bld o2)
   | _ -> raise InvalidOperandException
 
 let transThreeOprs (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) ->
+  | ThreeOperands(o1, o2, o3) ->
     struct (transOprToExpr ins insLen bld o1,
             transOprToExpr ins insLen bld o2,
             transOprToExpr ins insLen bld o3)
@@ -100,7 +101,7 @@ let transThreeOprs (ins: Instruction) insLen bld =
 
 let transFourOprs (ins: Instruction) insLen bld =
   match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) ->
+  | FourOperands(o1, o2, o3, o4) ->
     struct (transOprToExpr ins insLen bld o1,
             transOprToExpr ins insLen bld o2,
             transOprToExpr ins insLen bld o3,
@@ -109,7 +110,7 @@ let transFourOprs (ins: Instruction) insLen bld =
 
 let transAddrThreeOprs (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) ->
+  | ThreeOperands(o1, o2, o3) ->
     struct (transOprToExpr ins insLen bld o1 .+
             transOprToExpr ins insLen bld o2,
             transOprToExpr ins insLen bld o3)
@@ -117,7 +118,7 @@ let transAddrThreeOprs (ins: Instruction) insLen bld =
 
 let transAddrFourOprs (ins: Instruction) insLen bld =
   match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) ->
+  | FourOperands(o1, o2, o3, o4) ->
     struct (transOprToExpr ins insLen bld o1 .+
             transOprToExpr ins insLen bld o2,
             transOprToExpr ins insLen bld o3,
@@ -126,7 +127,7 @@ let transAddrFourOprs (ins: Instruction) insLen bld =
 
 let transTwooprsAddr (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) ->
+  | ThreeOperands(o1, o2, o3) ->
     struct (transOprToExpr ins insLen bld o1,
             transOprToExpr ins insLen bld o2 .+
             transOprToExpr ins insLen bld o3)
@@ -134,7 +135,7 @@ let transTwooprsAddr (ins: Instruction) insLen bld =
 
 let transThroprsAddr (ins: Instruction) insLen bld =
   match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) ->
+  | FourOperands(o1, o2, o3, o4) ->
     struct (transOprToExpr ins insLen bld o1,
             transOprToExpr ins insLen bld o2 .+
             transOprToExpr ins insLen bld o3,
@@ -621,7 +622,7 @@ let branchpr ins insLen bld =
   let branchCond =
     match ins.Opcode with
     | Opcode.BRZ -> (src == AST.num0 oprSize)
-    | Opcode.BRLEZ ->(src ?<= AST.num0 oprSize)
+    | Opcode.BRLEZ -> (src ?<= AST.num0 oprSize)
     | Opcode.BRLZ -> (src ?< AST.num0 oprSize)
     | Opcode.BRNZ -> (src != AST.num0 oprSize)
     | Opcode.BRGZ -> (src ?> AST.num0 oprSize)
@@ -1284,7 +1285,6 @@ let fcmpq ins insLen bld =
   bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 3 2<rt>))
   bld <+ (AST.lmark lblEnd)
   bld --!> insLen
-
 
 let fdivs ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
@@ -2721,389 +2721,389 @@ let movcc ins insLen bld =
   bld <!-- (ins.Address, insLen)
   if (dst <> regVar bld Register.G0) then
     match ins.Opcode with
-      | Opcode.MOVA | Opcode.MOVFA ->
-        bld <+ (dst := src)
-      | Opcode.MOVN | Opcode.MOVFN ->
-        ()
-      | Opcode.MOVNE ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let cond = (AST.extract ccr 1<rt> 2 == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let cond = (AST.extract ccr 1<rt> 6 == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVE ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let cond = (AST.extract ccr 1<rt> 2 == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let cond = (AST.extract ccr 1<rt> 6 == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVG ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let n = AST.extract ccr 1<rt> 3
-          let z = AST.extract ccr 1<rt> 2
-          let v = AST.extract ccr 1<rt> 1
-          let cond = ((z .| (n <+> v)) == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let n = AST.extract ccr 1<rt> 7
-          let z = AST.extract ccr 1<rt> 6
-          let v = AST.extract ccr 1<rt> 5
-          let cond = ((z .| (n <+> v)) == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVLE ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let n = AST.extract ccr 1<rt> 3
-          let z = AST.extract ccr 1<rt> 2
-          let v = AST.extract ccr 1<rt> 1
-          let cond = ((z .| (n <+> v)) == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let n = AST.extract ccr 1<rt> 7
-          let z = AST.extract ccr 1<rt> 6
-          let v = AST.extract ccr 1<rt> 5
-          let cond = ((z .| (n <+> v)) == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVGE ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let n = AST.extract ccr 1<rt> 3
-          let v = AST.extract ccr 1<rt> 1
-          let cond = ((n <+> v) == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let n = AST.extract ccr 1<rt> 7
-          let v = AST.extract ccr 1<rt> 5
-          let cond = ((n <+> v) == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVL ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let n = AST.extract ccr 1<rt> 3
-          let v = AST.extract ccr 1<rt> 1
-          let cond = ((n <+> v) == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let n = AST.extract ccr 1<rt> 7
-          let v = AST.extract ccr 1<rt> 5
-          let cond = ((n <+> v) == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVGU ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let z = AST.extract ccr 1<rt> 2
-          let c = AST.extract ccr 1<rt> 0
-          let cond = ((c .| z) == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let z = AST.extract ccr 1<rt> 6
-          let c = AST.extract ccr 1<rt> 4
-          let cond = ((c .| z) == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVLEU ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let z = AST.extract ccr 1<rt> 2
-          let c = AST.extract ccr 1<rt> 0
-          let cond = ((c .| z) == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let z = AST.extract ccr 1<rt> 6
-          let c = AST.extract ccr 1<rt> 4
-          let cond = ((c .| z) == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVCC ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let c = AST.extract ccr 1<rt> 0
-          let cond = (c == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let c = AST.extract ccr 1<rt> 4
-          let cond = (c == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVCS ->
-        let ccr = regVar bld Register.CCR
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let c = AST.extract ccr 1<rt> 0
-          let cond = (c == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let c = AST.extract ccr 1<rt> 4
-          let cond = (c == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVPOS ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let n = AST.extract ccr 1<rt> 3
-          let cond = (n == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let n = AST.extract ccr 1<rt> 7
-          let cond = (n == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVNEG ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let n = AST.extract ccr 1<rt> 3
-          let cond = (n == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let n = AST.extract ccr 1<rt> 7
-          let cond = (n == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVVC ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let v = AST.extract ccr 1<rt> 1
-          let cond = (v == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let v = AST.extract ccr 1<rt> 5
-          let cond = (v == AST.b0)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVVS ->
-        if (cc = getCCVar bld ConditionCode.Icc) then
-          let v = AST.extract ccr 1<rt> 1
-          let cond = (v == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let v = AST.extract ccr 1<rt> 5
-          let cond = (v == AST.b1)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVFU ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = ((AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>))
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVFG ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = ((AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>))
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVFUG ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
-          let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-      | Opcode.MOVFL ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = ((AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>))
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVFUL ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
-          let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-      | Opcode.MOVFLG ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
-          let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-      | Opcode.MOVFNE ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-      | Opcode.MOVFE ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = ((AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>))
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond) (src) (dst))
-      | Opcode.MOVFUE ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
-          let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-      | Opcode.MOVFGE ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
-          let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-      | Opcode.MOVFUGE ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-      | Opcode.MOVFLE ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
-          let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
-      | Opcode.MOVFULE ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-      | Opcode.MOVFO ->
-        if (cc = getCCVar bld ConditionCode.Fcc0) then
-          let cond = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc1) then
-          let cond = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        elif (cc = getCCVar bld ConditionCode.Fcc2) then
-          let cond = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-        else
-          let cond = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
-          let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
-          let cond3 = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
-          bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
-      | _ ->
-        raise InvalidOpcodeException
+    | Opcode.MOVA | Opcode.MOVFA ->
+      bld <+ (dst := src)
+    | Opcode.MOVN | Opcode.MOVFN ->
+      ()
+    | Opcode.MOVNE ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let cond = (AST.extract ccr 1<rt> 2 == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let cond = (AST.extract ccr 1<rt> 6 == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVE ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let cond = (AST.extract ccr 1<rt> 2 == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let cond = (AST.extract ccr 1<rt> 6 == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVG ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let n = AST.extract ccr 1<rt> 3
+        let z = AST.extract ccr 1<rt> 2
+        let v = AST.extract ccr 1<rt> 1
+        let cond = ((z .| (n <+> v)) == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let n = AST.extract ccr 1<rt> 7
+        let z = AST.extract ccr 1<rt> 6
+        let v = AST.extract ccr 1<rt> 5
+        let cond = ((z .| (n <+> v)) == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVLE ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let n = AST.extract ccr 1<rt> 3
+        let z = AST.extract ccr 1<rt> 2
+        let v = AST.extract ccr 1<rt> 1
+        let cond = ((z .| (n <+> v)) == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let n = AST.extract ccr 1<rt> 7
+        let z = AST.extract ccr 1<rt> 6
+        let v = AST.extract ccr 1<rt> 5
+        let cond = ((z .| (n <+> v)) == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVGE ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let n = AST.extract ccr 1<rt> 3
+        let v = AST.extract ccr 1<rt> 1
+        let cond = ((n <+> v) == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let n = AST.extract ccr 1<rt> 7
+        let v = AST.extract ccr 1<rt> 5
+        let cond = ((n <+> v) == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVL ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let n = AST.extract ccr 1<rt> 3
+        let v = AST.extract ccr 1<rt> 1
+        let cond = ((n <+> v) == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let n = AST.extract ccr 1<rt> 7
+        let v = AST.extract ccr 1<rt> 5
+        let cond = ((n <+> v) == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVGU ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let z = AST.extract ccr 1<rt> 2
+        let c = AST.extract ccr 1<rt> 0
+        let cond = ((c .| z) == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let z = AST.extract ccr 1<rt> 6
+        let c = AST.extract ccr 1<rt> 4
+        let cond = ((c .| z) == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVLEU ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let z = AST.extract ccr 1<rt> 2
+        let c = AST.extract ccr 1<rt> 0
+        let cond = ((c .| z) == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let z = AST.extract ccr 1<rt> 6
+        let c = AST.extract ccr 1<rt> 4
+        let cond = ((c .| z) == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVCC ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let c = AST.extract ccr 1<rt> 0
+        let cond = (c == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let c = AST.extract ccr 1<rt> 4
+        let cond = (c == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVCS ->
+      let ccr = regVar bld Register.CCR
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let c = AST.extract ccr 1<rt> 0
+        let cond = (c == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let c = AST.extract ccr 1<rt> 4
+        let cond = (c == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVPOS ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let n = AST.extract ccr 1<rt> 3
+        let cond = (n == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let n = AST.extract ccr 1<rt> 7
+        let cond = (n == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVNEG ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let n = AST.extract ccr 1<rt> 3
+        let cond = (n == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let n = AST.extract ccr 1<rt> 7
+        let cond = (n == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVVC ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let v = AST.extract ccr 1<rt> 1
+        let cond = (v == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let v = AST.extract ccr 1<rt> 5
+        let cond = (v == AST.b0)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVVS ->
+      if (cc = getCCVar bld ConditionCode.Icc) then
+        let v = AST.extract ccr 1<rt> 1
+        let cond = (v == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let v = AST.extract ccr 1<rt> 5
+        let cond = (v == AST.b1)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVFU ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = ((AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>))
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVFG ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = ((AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>))
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVFUG ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
+        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+    | Opcode.MOVFL ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = ((AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>))
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVFUL ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
+        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+    | Opcode.MOVFLG ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
+        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+    | Opcode.MOVFNE ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+    | Opcode.MOVFE ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = ((AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>))
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond) (src) (dst))
+    | Opcode.MOVFUE ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
+        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+    | Opcode.MOVFGE ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
+        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+    | Opcode.MOVFUGE ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+    | Opcode.MOVFLE ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
+        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
+    | Opcode.MOVFULE ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 3 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+    | Opcode.MOVFO ->
+      if (cc = getCCVar bld ConditionCode.Fcc0) then
+        let cond = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc1) then
+        let cond = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 32 == numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      elif (cc = getCCVar bld ConditionCode.Fcc2) then
+        let cond = (AST.extract fsr 2<rt> 34 == numI32 1 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 34 == numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 34 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+      else
+        let cond = (AST.extract fsr 2<rt> 36 == numI32 1 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 36 == numI32 2 2<rt>)
+        let cond3 = (AST.extract fsr 2<rt> 36 == numI32 0 2<rt>)
+        bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
+    | _ ->
+      raise InvalidOpcodeException
   bld --!> insLen
 
 let movr ins insLen bld = (* TODO : check that destination is not g0*)
@@ -3173,7 +3173,6 @@ let ``or`` ins insLen bld =
   else
     bld <+ (dst := res)
   bld --!> insLen
-
 
 let orcc ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
@@ -3611,7 +3610,6 @@ let subcc ins insLen bld =
   bld <+ (byte := (getConditionCodeSub res src src1))
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
-
 
 let subC ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld

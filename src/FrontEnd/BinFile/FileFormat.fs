@@ -60,7 +60,7 @@ module FileFormat =
   /// Transforms a string into a FileFormat.
   [<CompiledName "OfString">]
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "elf" -> FileFormat.ELFBinary
     | "pe" -> FileFormat.PEBinary
     | "mach" | "mach-o" -> FileFormat.MachBinary

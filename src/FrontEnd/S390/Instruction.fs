@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for S390.
 type Instruction
-  internal (addr, numBytes, fmt, op, opr, wordSize, lifter: ILiftable) =
+  internal(addr, numBytes, fmt, op, opr, wordSize, lifter: ILiftable) =
 
   let extractMask = function
     | OpMask op -> Some op
@@ -40,30 +40,30 @@ type Instruction
     match opr with
     | NoOperand -> None
     | OneOperand op1 -> extractMask op1
-    | TwoOperands (op1, op2) -> [| op1; op2 |] |> Array.tryPick extractMask
-    | ThreeOperands (op1, op2, op3) ->
+    | TwoOperands(op1, op2) -> [| op1; op2 |] |> Array.tryPick extractMask
+    | ThreeOperands(op1, op2, op3) ->
       [| op1; op2; op3 |] |> Array.tryPick extractMask
-    |  FourOperands (op1, op2, op3, op4) ->
+    | FourOperands(op1, op2, op3, op4) ->
       [| op1; op2; op3; op4 |] |> Array.tryPick extractMask
-    | FiveOperands (op1, op2, op3, op4, op5) ->
+    | FiveOperands(op1, op2, op3, op4, op5) ->
       [| op1; op2; op3; op4; op5 |] |> Array.tryPick extractMask
-    | SixOperands (op1, op2, op3, op4, op5, op6) ->
+    | SixOperands(op1, op2, op3, op4, op5, op6) ->
       [| op1; op2; op3; op4; op5; op6 |] |> Array.tryPick extractMask
 
   /// Address of this instruction.
-  member _.Address with get (): Addr = addr
+  member _.Address with get(): Addr = addr
 
   /// Length of this instruction in bytes.
-  member _.Length with get (): uint32 = numBytes
+  member _.Length with get(): uint32 = numBytes
 
   /// Instruction format.
-  member _.Fmt with get (): Fmt = fmt
+  member _.Fmt with get(): Fmt = fmt
 
   /// Opcode.
-  member _.Opcode with get (): Opcode = op
+  member _.Opcode with get(): Opcode = op
 
   /// Operands.
-  member _.Operands with get (): Operands = opr
+  member _.Operands with get(): Operands = opr
 
   interface IInstruction with
 
@@ -108,14 +108,14 @@ type Instruction
       match op with
       | Opcode.BAL | Opcode.BALR | Opcode.BAS | Opcode.BASR
       | Opcode.BASSM | Opcode.BSM -> true
-      | Opcode.BC | Opcode.BCR when getMaskVal opr = Some (15us) -> true
+      | Opcode.BC | Opcode.BCR when getMaskVal opr = Some(15us) -> true
       | _ -> false
 
     member _.IsRET =
       match op with
       | Opcode.BCR | Opcode.BASR | Opcode.BCTR ->
         match opr with
-        | TwoOperands (_, OpReg Register.R14) -> true
+        | TwoOperands(_, OpReg Register.R14) -> true
         | _ -> false
       | _ -> false
 
@@ -127,7 +127,11 @@ type Instruction
 
     member _.IsExit = Terminator.futureFeature ()
 
-    member this.IsNop =
+    member this.IsTerminator _ =
+      let ins = this :> IInstruction
+      ins.IsBranch || ins.IsInterrupt || ins.IsExit
+
+    member _.IsNop =
       match op with
       | Opcode.CRB | Opcode.CGRB | Opcode.CRJ | Opcode.CGRJ
       | Opcode.CIB | Opcode.CGIB | Opcode.CIJ | Opcode.CGIJ
@@ -147,41 +151,37 @@ type Instruction
 
     member _.IsInlinedAssembly = false
 
-    member this.IsTerminator _ =
-      let ins = this :> IInstruction
-      ins.IsBranch || ins.IsInterrupt || ins.IsExit
-
-    member _.DirectBranchTarget (_addr: byref<Addr>) =
+    member _.DirectBranchTarget(_addr: byref<Addr>) =
       Terminator.futureFeature ()
 
-    member _.IndirectTrampolineAddr (_addr: byref<Addr>) =
+    member _.IndirectTrampolineAddr(_addr: byref<Addr>) =
       Terminator.futureFeature ()
 
-    member _.MemoryDereferences (_: byref<Addr[]>) =
+    member _.MemoryDereferences(_: byref<Addr[]>) =
       Terminator.futureFeature ()
 
-    member _.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
+    member _.Immediate(_v: byref<int64>) = Terminator.futureFeature ()
 
-    member _.GetNextInstrAddrs () = Terminator.futureFeature ()
+    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
 
-    member _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+    member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
     member this.Translate builder =
-      (lifter.Lift this builder).Stream.ToStmts ()
+      lifter.Lift(this, builder).Stream.ToStmts()
 
     member this.TranslateToList builder =
-      (lifter.Lift this builder).Stream
+      lifter.Lift(this, builder).Stream
 
     member this.Disasm builder =
-      (lifter.Disasm this builder).ToString ()
+      lifter.Disasm(this, builder).ToString()
 
-    member this.Disasm () =
-      let builder = StringDisasmBuilder (false, null, wordSize)
-      (lifter.Disasm this builder).ToString ()
+    member this.Disasm() =
+      let builder = StringDisasmBuilder(false, null, wordSize)
+      lifter.Disasm(this, builder).ToString()
 
     member this.Decompose builder =
-      (lifter.Disasm this builder).ToAsmWords ()
+      lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
-  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
-  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder
+  abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction * IDisasmBuilder -> IDisasmBuilder

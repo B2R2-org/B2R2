@@ -29,11 +29,11 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.Python.Helper
 
 /// Represents a Python binary file.
-type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
+type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
   let size = bytes.Length
   let baseAddr = defaultArg baseAddrOpt 0UL
   let reader = BinReader.Init Endian.Little
-  let magic = reader.ReadUInt32 (bytes, 0)
+  let magic = reader.ReadUInt32(bytes, 0)
   let codeObject, _, _ = parse bytes reader [||] 16
   let consts = extractConsts codeObject
   let names = extractNames codeObject
@@ -69,7 +69,7 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.Format with get() = FileFormat.WasmBinary
 
-    member _.ISA with get() = ISA (Architecture.Python, Endian.Little)
+    member _.ISA with get() = ISA(Architecture.Python, Endian.Little)
 
     member _.EntryPoint = Some 0UL
 
@@ -81,10 +81,10 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.IsRelocatable = false
 
-    member _.Slice (addr, len) =
-      System.ReadOnlySpan (bytes, int addr, len)
+    member _.Slice(addr, len) =
+      System.ReadOnlySpan(bytes, int addr, len)
 
-    member _.IsValidAddr (addr) =
+    member _.IsValidAddr(addr) =
       addr >= 0UL && addr < (uint64 bytes.LongLength)
 
     member this.IsValidRange range =
@@ -99,16 +99,16 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.IsExecutableAddr _addr = Terminator.futureFeature ()
 
-    member _.GetBoundedPointer (_addr: Addr) = BinFilePointer.Null
+    member _.GetBoundedPointer(_addr: Addr) = BinFilePointer.Null
 
-    member _.GetVMMappedRegions () = [||]
+    member _.GetVMMappedRegions() = [||]
 
     member _.GetVMMappedRegions _permission = [||]
 
     member _.TryFindName _ =
       Error ErrorCase.SymbolNotFound
 
-    member _.GetTextSectionPointer () =
+    member _.GetTextSectionPointer() =
       Terminator.futureFeature ()
 
     member _.GetSectionPointer _ =
@@ -116,12 +116,12 @@ type PythonBinFile (path, bytes: byte[], baseAddrOpt) =
 
     member _.IsInTextOrDataOnlySection _ = Terminator.futureFeature ()
 
-    member _.GetFunctionAddresses () = Terminator.futureFeature ()
+    member _.GetFunctionAddresses() = Terminator.futureFeature ()
 
     member _.HasRelocationInfo _addr = false
 
     member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 
-    member _.GetLinkageTableEntries () = [||]
+    member _.GetLinkageTableEntries() = [||]
 
     member _.IsLinkageTable _addr = Terminator.futureFeature ()

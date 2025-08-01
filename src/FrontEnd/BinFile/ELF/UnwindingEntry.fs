@@ -29,14 +29,13 @@ open B2R2.BinIR
 
 /// Represents an entry (a row) of the call frame information table (i.e.,
 /// unwinding table).
-type UnwindingEntry = {
-  /// Instruction location.
-  Location: Addr
-  /// CFA.
-  CanonicalFrameAddress: CanonicalFrameAddress
-  /// Unwinding rule.
-  Rule: UnwindingRule
-}
+type UnwindingEntry =
+  { /// Instruction location.
+    Location: Addr
+    /// CFA.
+    CanonicalFrameAddress: CanonicalFrameAddress
+    /// Unwinding rule.
+    Rule: UnwindingRule }
 
 /// Represents a rule describing how a register or return address is saved on
 /// the stack frame. We can use the rule to find the value for the register in
@@ -78,8 +77,8 @@ with
     match act with
     | Undefined -> "undef"
     | SameValue -> "sv"
-    | Offset o -> "c" + (o.ToString ("+0;-#"))
-    | ValOffset o -> "v" + (o.ToString ("+0;-#"))
-    | Register rid -> "r(" + rid.ToString () + ")"
+    | Offset o -> "c" + (o.ToString("+0;-#"))
+    | ValOffset o -> "v" + (o.ToString("+0;-#"))
+    | Register rid -> "r(" + rid.ToString() + ")"
     | ActionExpr e -> "exp:" + LowUIR.Pp.expToString e
     | ActionValExpr e -> "val_exp:" + LowUIR.Pp.expToString e

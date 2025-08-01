@@ -30,8 +30,8 @@ open B2R2.FrontEnd.BinFile.Mach
 open B2R2.FrontEnd.BinFile.Mach.Helper
 
 /// Represents a Mach-O binary file.
-type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
-  let toolBox = Header.parse bytes baseAddrOpt isa |> Toolbox.Init bytes
+type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
+  let toolBox = Toolbox.Init(bytes, Header.parse bytes baseAddrOpt isa)
   let cmds = lazy LoadCommands.parse toolBox
   let segCmds = lazy Segment.extract cmds.Value
   let segMap = lazy Segment.buildMap segCmds.Value
@@ -43,34 +43,34 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
   let executableRanges = lazy executableRanges segCmds.Value
 
-  member _.Header with get () = toolBox.Header
+  member _.Header with get() = toolBox.Header
 
-  member _.Commands with get () = cmds.Value
+  member _.Commands with get() = cmds.Value
 
-  member _.Sections with get () = secs.Value
+  member _.Sections with get() = secs.Value
 
-  member _.Symbols with get () = syms.Value
+  member _.Symbols with get() = syms.Value
 
-  member _.StaticSymbols with get () =
+  member _.StaticSymbols with get() =
     syms.Value.Values
     |> Array.filter Symbol.IsStatic
 
-  member _.DynamicSymbols with get () =
+  member _.DynamicSymbols with get() =
     syms.Value.Values
     |> Array.filter (Symbol.IsStatic >> not)
 
-  member _.ExportedSymbols with get () = exports.Value
+  member _.ExportedSymbols with get() = exports.Value
 
-  member _.Relocations with get () = relocs.Value
+  member _.Relocations with get() = relocs.Value
 
-  member _.IsPLT (sec: Section) =
+  member _.IsPLT(sec: Section) =
     match sec.SecType with
     | SectionType.S_NON_LAZY_SYMBOL_POINTERS
     | SectionType.S_LAZY_SYMBOL_POINTERS
     | SectionType.S_SYMBOL_STUBS -> true
     | _ -> false
 
-  member _.HasCode (sec: Section) =
+  member _.HasCode(sec: Section) =
     match sec.SecType with
     | SectionType.S_NON_LAZY_SYMBOL_POINTERS
     | SectionType.S_LAZY_SYMBOL_POINTERS
@@ -102,9 +102,9 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.IsRelocatable = toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
 
-    member _.Slice (addr, len) =
+    member _.Slice(addr, len) =
       let offset = translateAddr segMap.Value addr
-      System.ReadOnlySpan (bytes, offset, len)
+      System.ReadOnlySpan(bytes, offset, len)
 
     member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
@@ -140,13 +140,13 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
             offset <- maxOffset + 1
             maxAddr <- seg.VMAddr + seg.VMSize - 1UL
         else idx <- idx + 1
-      BinFilePointer (addr, maxAddr, offset, maxOffset)
+      BinFilePointer(addr, maxAddr, offset, maxOffset)
 
-    member _.GetVMMappedRegions () =
+    member _.GetVMMappedRegions() =
       segCmds.Value
       |> Array.choose (fun seg ->
         if seg.VMSize > 0UL then
-          Some <| AddrRange (seg.VMAddr, seg.VMAddr + seg.VMSize - 1UL)
+          Some <| AddrRange(seg.VMAddr, seg.VMAddr + seg.VMSize - 1UL)
         else None)
 
     member _.GetVMMappedRegions perm =
@@ -154,32 +154,32 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
       |> Array.choose (fun seg ->
         let segPerm: Permission = LanguagePrimitives.EnumOfValue seg.MaxProt
         if (segPerm &&& perm = perm) && seg.VMSize > 0UL then
-          Some <| AddrRange (seg.VMAddr, seg.VMAddr + seg.VMSize - 1UL)
+          Some <| AddrRange(seg.VMAddr, seg.VMAddr + seg.VMSize - 1UL)
         else None)
 
-    member _.TryFindName (addr) =
+    member _.TryFindName(addr) =
       match Map.tryFind addr syms.Value.SymbolMap with
       | Some s -> Ok s.SymName
       | None -> Error ErrorCase.SymbolNotFound
 
-    member _.GetTextSectionPointer () =
+    member _.GetTextSectionPointer() =
       let secs = secs.Value
       let secText = Section.getTextSectionIndex secs
       let sec = secs[secText]
-      BinFilePointer (sec.SecAddr,
-                      sec.SecAddr + sec.SecSize - 1UL,
-                      int sec.SecOffset,
-                      int sec.SecOffset + int sec.SecSize - 1)
+      BinFilePointer(sec.SecAddr,
+                     sec.SecAddr + sec.SecSize - 1UL,
+                     int sec.SecOffset,
+                     int sec.SecOffset + int sec.SecSize - 1)
 
     member _.GetSectionPointer name =
       secs.Value
       |> Array.tryFind (fun sec -> sec.SecName = name)
       |> function
         | Some sec ->
-          BinFilePointer (sec.SecAddr,
-                          sec.SecAddr + sec.SecSize - 1UL,
-                          int sec.SecOffset,
-                          int sec.SecOffset + int sec.SecSize - 1)
+          BinFilePointer(sec.SecAddr,
+                         sec.SecAddr + sec.SecSize - 1UL,
+                         int sec.SecOffset,
+                         int sec.SecOffset + int sec.SecSize - 1)
         | None -> BinFilePointer.Null
 
     member _.IsInTextOrDataOnlySection addr =
@@ -190,10 +190,10 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
         | Some sec -> sec.SecName = Section.SecText
         | None -> false
 
-    member _.GetFunctionAddresses () =
+    member _.GetFunctionAddresses() =
       let secText = Section.getTextSectionIndex secs.Value
       [| for s in syms.Value.Values do
-           if Symbol.IsFunc secText s && s.SymAddr > 0UL then s.SymAddr |]
+           if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr |]
 
     member _.HasRelocationInfo addr =
       relocs.Value
@@ -202,6 +202,6 @@ type MachBinFile (path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 
-    member _.GetLinkageTableEntries () = getPLT syms.Value
+    member _.GetLinkageTableEntries() = getPLT syms.Value
 
     member _.IsLinkageTable addr = isPLT syms.Value addr

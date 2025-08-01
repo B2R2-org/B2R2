@@ -33,341 +33,618 @@ open B2R2.FrontEnd.ARM64.OperandHelper
 let getOpcodeByQ bin op1 op2 = if valQ bin = 0u then op1 else op2
 
 /// Operand functions
-let getOptionOrimm bin = OneOperand (optionOrimm bin)
+let getOptionOrimm bin = OneOperand(optionOrimm bin)
 
 (* Register - Register *)
-let getWdWn bin = TwoOperands (wd bin, wn bin)
-let getXdXn bin = TwoOperands (xd bin, xn bin)
-let getHdXn bin = TwoOperands (hd bin, xn bin)
-let getWdSn bin = TwoOperands (wd bin, sn bin)
-let getWdDn bin = TwoOperands (wd bin, dn bin)
-let getXdSn bin = TwoOperands (xd bin, sn bin)
-let getXdDn bin = TwoOperands (xd bin, dn bin)
-let getSdWn bin = TwoOperands (sd bin, wn bin)
-let getDdWn bin = TwoOperands (dd bin, wn bin)
-let getHdWn bin = TwoOperands (hd bin, wn bin)
-let getSdXn bin = TwoOperands (sd bin, xn bin)
-let getDdXn bin = TwoOperands (dd bin, xn bin)
-let getSdSn bin = TwoOperands (sd bin, sn bin)
-let getDdDn bin = TwoOperands (dd bin, dn bin)
-let getDdSn bin = TwoOperands (dd bin, sn bin)
-let getHdSn bin = TwoOperands (hd bin, sn bin)
-let getSdDn bin = TwoOperands (sd bin, dn bin)
-let getHdDn bin = TwoOperands (hd bin, dn bin)
-let getSdHn bin = TwoOperands (sd bin, hn bin)
-let getDdHn bin = TwoOperands (dd bin, hn bin)
-let getDnDm bin = TwoOperands (dn bin, dm bin)
-let getSnSm bin = TwoOperands (sn bin, sm bin)
-let getXdVnD1 bin = TwoOperands (xd bin, vnD1 bin)
-let getVdVnt1 bin r = r bin; TwoOperands (vd1 bin, vntsq1 bin)
-let getVdVnt2 bin r = r bin; TwoOperands (vd2 bin, vntsq1 bin)
-let getVdVnt3 bin r = r bin; TwoOperands (vd3a bin, vntszq1 bin)
-let getVdVnt4 bin r = r bin; TwoOperands (vd2 bin, vnts2 bin)
-let getVdVnt5 bin = TwoOperands (vd3a bin, vntsz3 bin)
-let getVdD1Xn bin = TwoOperands (vdD1 bin, xn bin)
-let getVd16BVn16B bin = TwoOperands (vd16B bin, vn16B bin)
-let getVdVn bin r = r bin; TwoOperands (vd2 bin, vn2 bin)
-let getVdVn2 bin = TwoOperands (vd3a bin, vn3 bin)
-let getVbdVan bin r = r bin; TwoOperands (vd2 bin, vn1 bin)
-let getVbdVan2 bin r = r bin; TwoOperands (vd3b bin, vn3 bin)
-let getVdtVnt bin r = r bin; TwoOperands (vdtsq1 bin, vntsq1 bin)
-let getVdtVnt2 bin r = r bin; TwoOperands (vdtszq1 bin, vntszq1 bin)
-let getVdtVnt3 bin = TwoOperands (vdtq1 bin, vntq1 bin)
-let getVdtaVntb bin r = r bin; TwoOperands (vdtsq2 bin, vntsq1 bin)
-let getVdtaVntb2 bin = TwoOperands (vdtsz1 bin, vntszq2 bin)
-let getVdtbVnta bin r = r bin; TwoOperands (vdtsq1 bin, vnts1 bin)
-let getVdtbVnta2 bin r = r bin; TwoOperands (vdtszq2 bin, vntsz1 bin)
-let getVd4SVn4S bin = TwoOperands (vd4S bin, vn4S bin)
-let getVdtVntsidx bin = TwoOperands (vdti5q bin, vtsidx1 bin valN)
-let getVdtRn bin = TwoOperands (vdti5q bin, rn bin)
-let getWdVntsidx bin r = r bin; TwoOperands (wd bin, vtsidx1 bin valN)
-let getXdVntsidx bin r = r bin; TwoOperands (xd bin, vtsidx1 bin valN)
-let getVdtsidxRn bin = TwoOperands (vtsidx1 bin valD, rn bin)
-let getVdtsidx1Vntsidx2 bin = TwoOperands (vtsidx1 bin valD, vtsidx2 bin valN)
-let getVdVntidx bin = TwoOperands (vd4 bin, vntidx bin)
+let getWdWn bin = TwoOperands(wd bin, wn bin)
+
+let getXdXn bin = TwoOperands(xd bin, xn bin)
+
+let getHdXn bin = TwoOperands(hd bin, xn bin)
+
+let getWdSn bin = TwoOperands(wd bin, sn bin)
+
+let getWdDn bin = TwoOperands(wd bin, dn bin)
+
+let getXdSn bin = TwoOperands(xd bin, sn bin)
+
+let getXdDn bin = TwoOperands(xd bin, dn bin)
+
+let getSdWn bin = TwoOperands(sd bin, wn bin)
+
+let getDdWn bin = TwoOperands(dd bin, wn bin)
+
+let getHdWn bin = TwoOperands(hd bin, wn bin)
+
+let getSdXn bin = TwoOperands(sd bin, xn bin)
+
+let getDdXn bin = TwoOperands(dd bin, xn bin)
+
+let getSdSn bin = TwoOperands(sd bin, sn bin)
+
+let getDdDn bin = TwoOperands(dd bin, dn bin)
+
+let getDdSn bin = TwoOperands(dd bin, sn bin)
+
+let getHdSn bin = TwoOperands(hd bin, sn bin)
+
+let getSdDn bin = TwoOperands(sd bin, dn bin)
+
+let getHdDn bin = TwoOperands(hd bin, dn bin)
+
+let getSdHn bin = TwoOperands(sd bin, hn bin)
+
+let getDdHn bin = TwoOperands(dd bin, hn bin)
+
+let getDnDm bin = TwoOperands(dn bin, dm bin)
+
+let getSnSm bin = TwoOperands(sn bin, sm bin)
+
+let getXdVnD1 bin = TwoOperands(xd bin, vnD1 bin)
+
+let getVdVnt1 bin r = r bin; TwoOperands(vd1 bin, vntsq1 bin)
+
+let getVdVnt2 bin r = r bin; TwoOperands(vd2 bin, vntsq1 bin)
+
+let getVdVnt3 bin r = r bin; TwoOperands(vd3a bin, vntszq1 bin)
+
+let getVdVnt4 bin r = r bin; TwoOperands(vd2 bin, vnts2 bin)
+
+let getVdVnt5 bin = TwoOperands(vd3a bin, vntsz3 bin)
+
+let getVdD1Xn bin = TwoOperands(vdD1 bin, xn bin)
+
+let getVd16BVn16B bin = TwoOperands(vd16B bin, vn16B bin)
+
+let getVdVn bin r = r bin; TwoOperands(vd2 bin, vn2 bin)
+
+let getVdVn2 bin = TwoOperands(vd3a bin, vn3 bin)
+
+let getVbdVan bin r = r bin; TwoOperands(vd2 bin, vn1 bin)
+
+let getVbdVan2 bin r = r bin; TwoOperands(vd3b bin, vn3 bin)
+
+let getVdtVnt bin r = r bin; TwoOperands(vdtsq1 bin, vntsq1 bin)
+
+let getVdtVnt2 bin r = r bin; TwoOperands(vdtszq1 bin, vntszq1 bin)
+
+let getVdtVnt3 bin = TwoOperands(vdtq1 bin, vntq1 bin)
+
+let getVdtaVntb bin r = r bin; TwoOperands(vdtsq2 bin, vntsq1 bin)
+
+let getVdtaVntb2 bin = TwoOperands(vdtsz1 bin, vntszq2 bin)
+
+let getVdtbVnta bin r = r bin; TwoOperands(vdtsq1 bin, vnts1 bin)
+
+let getVdtbVnta2 bin r = r bin; TwoOperands(vdtszq2 bin, vntsz1 bin)
+
+let getVd4SVn4S bin = TwoOperands(vd4S bin, vn4S bin)
+
+let getVdtVntsidx bin = TwoOperands(vdti5q bin, vtsidx1 bin valN)
+
+let getVdtRn bin = TwoOperands(vdti5q bin, rn bin)
+
+let getWdVntsidx bin r = r bin; TwoOperands(wd bin, vtsidx1 bin valN)
+
+let getXdVntsidx bin r = r bin; TwoOperands(xd bin, vtsidx1 bin valN)
+
+let getVdtsidxRn bin = TwoOperands(vtsidx1 bin valD, rn bin)
+
+let getVdtsidx1Vntsidx2 bin = TwoOperands(vtsidx1 bin valD, vtsidx2 bin valN)
+
+let getVdVntidx bin = TwoOperands(vd4 bin, vntidx bin)
 
 (* Register - Immediate *)
-let getSnP0 bin = TwoOperands (sn bin, p0)
-let getDnP0 bin = TwoOperands (dn bin, p0)
-let getSdImm8 bin = TwoOperands (sd bin, fScalarImm8 bin)
-let getDdImm8 bin = TwoOperands (dd bin, fScalarImm8 bin)
-let getDdImm bin = TwoOperands (dd bin, imm64 bin)
-let getVd2DImm bin = TwoOperands (vd2D bin, imm64 bin)
-let getVdtFImm bin = TwoOperands (vdtq2 bin, fVecImm8 bin)
-let getVd2DFImm bin = TwoOperands (vd2D bin, fVecImm8 bin)
+let getSnP0 bin = TwoOperands(sn bin, p0)
+
+let getDnP0 bin = TwoOperands(dn bin, p0)
+
+let getSdImm8 bin = TwoOperands(sd bin, fScalarImm8 bin)
+
+let getDdImm8 bin = TwoOperands(dd bin, fScalarImm8 bin)
+
+let getDdImm bin = TwoOperands(dd bin, imm64 bin)
+
+let getVd2DImm bin = TwoOperands(vd2D bin, imm64 bin)
+
+let getVdtFImm bin = TwoOperands(vdtq2 bin, fVecImm8 bin)
+
+let getVd2DFImm bin = TwoOperands(vd2D bin, fVecImm8 bin)
 
 (* Register - Memory *)
-let getWtMXSn bin = TwoOperands (wt1 bin, memXSn bin)
-let getXtMXSn bin = TwoOperands (xt1 bin, memXSn bin)
-let getWtBIXSnpimm bin scale = TwoOperands (wt1 bin, memXSnPimm bin scale)
-let getXtBIXSnpimm bin scale = TwoOperands (xt1 bin, memXSnPimm bin scale)
-let getBtBIXSnpimm bin = TwoOperands (bt bin, memXSnPimm bin 1u)
-let getHtBIXSnpimm bin = TwoOperands (ht bin, memXSnPimm bin 2u)
-let getStBIXSnpimm bin = TwoOperands (st1 bin, memXSnPimm bin 4u)
-let getDtBIXSnpimm bin = TwoOperands (dt1 bin, memXSnPimm bin 8u)
-let getQtBIXSnpimm bin = TwoOperands (qt1 bin, memXSnPimm bin 16u)
-let getPrfopimm5BIXSnpimm bin = TwoOperands (prfopImm5 bin, memXSnPimm bin 8u)
-let getWt1Wt2BIXSnimm b scl = ThreeOperands (wt1 b, wt2 b, memXSnSimm7 b scl)
-let getXt1Xt2BIXSnimm b scl = ThreeOperands (xt1 b, xt2 b, memXSnSimm7 b scl)
-let getSt1St2BIXSnimm b scl = ThreeOperands (st1 b, st2 b, memXSnSimm7 b scl)
-let getDt1Dt2BIXSnimm b scl = ThreeOperands (dt1 b, dt2 b, memXSnSimm7 b scl)
-let getQt1Qt2BIXSnimm b scl = ThreeOperands (qt1 b, qt2 b, memXSnSimm7 b scl)
-let getVt1tMXSn bin r = r bin; TwoOperands (vt1t bin, memXSn bin)
-let getVt2tMXSn bin r = r bin; TwoOperands (vt2t bin, memXSn bin)
-let getVt3tMXSn bin r = r bin; TwoOperands (vt3t bin, memXSn bin)
-let getVt4tMXSn bin r = r bin; TwoOperands (vt4t bin, memXSn bin)
+let getWtMXSn bin = TwoOperands(wt1 bin, memXSn bin)
 
-let getvtntidxMXSn bin t n = TwoOperands (vtntidx bin t n, memXSn bin)
+let getXtMXSn bin = TwoOperands(xt1 bin, memXSn bin)
+
+let getWtBIXSnpimm bin scale = TwoOperands(wt1 bin, memXSnPimm bin scale)
+
+let getXtBIXSnpimm bin scale = TwoOperands(xt1 bin, memXSnPimm bin scale)
+
+let getBtBIXSnpimm bin = TwoOperands(bt bin, memXSnPimm bin 1u)
+
+let getHtBIXSnpimm bin = TwoOperands(ht bin, memXSnPimm bin 2u)
+
+let getStBIXSnpimm bin = TwoOperands(st1 bin, memXSnPimm bin 4u)
+
+let getDtBIXSnpimm bin = TwoOperands(dt1 bin, memXSnPimm bin 8u)
+
+let getQtBIXSnpimm bin = TwoOperands(qt1 bin, memXSnPimm bin 16u)
+
+let getPrfopimm5BIXSnpimm bin = TwoOperands(prfopImm5 bin, memXSnPimm bin 8u)
+
+let getWt1Wt2BIXSnimm b scl = ThreeOperands(wt1 b, wt2 b, memXSnSimm7 b scl)
+
+let getXt1Xt2BIXSnimm b scl = ThreeOperands(xt1 b, xt2 b, memXSnSimm7 b scl)
+
+let getSt1St2BIXSnimm b scl = ThreeOperands(st1 b, st2 b, memXSnSimm7 b scl)
+
+let getDt1Dt2BIXSnimm b scl = ThreeOperands(dt1 b, dt2 b, memXSnSimm7 b scl)
+
+let getQt1Qt2BIXSnimm b scl = ThreeOperands(qt1 b, qt2 b, memXSnSimm7 b scl)
+
+let getVt1tMXSn bin r = r bin; TwoOperands(vt1t bin, memXSn bin)
+
+let getVt2tMXSn bin r = r bin; TwoOperands(vt2t bin, memXSn bin)
+
+let getVt3tMXSn bin r = r bin; TwoOperands(vt3t bin, memXSn bin)
+
+let getVt4tMXSn bin r = r bin; TwoOperands(vt4t bin, memXSn bin)
+
+let getvtntidxMXSn bin t n = TwoOperands(vtntidx bin t n, memXSn bin)
+
 let getVt1BidxMXSn bin = getvtntidxMXSn bin VecB 1u
-let getVt2BidxMXSn bin = getvtntidxMXSn bin VecB 2u
-let getVt3BidxMXSn bin = getvtntidxMXSn bin VecB 3u
-let getVt4BidxMXSn bin = getvtntidxMXSn bin VecB 4u
-let getVt1HidxMXSn bin = getvtntidxMXSn bin VecH 1u
-let getVt2HidxMXSn bin = getvtntidxMXSn bin VecH 2u
-let getVt3HidxMXSn bin = getvtntidxMXSn bin VecH 3u
-let getVt4HidxMXSn bin = getvtntidxMXSn bin VecH 4u
-let getVt1SidxMXSn bin = getvtntidxMXSn bin VecS 1u
-let getVt2SidxMXSn bin = getvtntidxMXSn bin VecS 2u
-let getVt3SidxMXSn bin = getvtntidxMXSn bin VecS 3u
-let getVt4SidxMXSn bin = getvtntidxMXSn bin VecS 4u
-let getVt1DidxMXSn bin = getvtntidxMXSn bin VecD 1u
-let getVt2DidxMXSn bin = getvtntidxMXSn bin VecD 2u
-let getVt3DidxMXSn bin = getvtntidxMXSn bin VecD 3u
-let getVt4DidxMXSn bin = getvtntidxMXSn bin VecD 4u
-let getWtBIXSnsimm bin = TwoOperands (wt1 bin, memXSnSimm9 bin)
-let getXtBIXSnsimm bin = TwoOperands (xt1 bin, memXSnSimm9 bin)
-let getBtBIXSnsimm bin = TwoOperands (bt bin, memXSnSimm9 bin)
-let getHtBIXSnsimm bin = TwoOperands (ht bin, memXSnSimm9 bin)
-let getStBIXSnsimm bin = TwoOperands (st1 bin, memXSnSimm9 bin)
-let getDtBIXSnsimm bin = TwoOperands (dt1 bin, memXSnSimm9 bin)
-let getQtBIXSnsimm bin = TwoOperands (qt1 bin, memXSnSimm9 bin)
-let getPrfopimm5BIXSnsimm bin = TwoOperands (prfopImm5 bin, memXSnSimm9 bin)
-let getWtBEXSnrmamt bin amt = TwoOperands (wt1 bin, memExtXSnRmAmt bin amt)
-let getWtBRXSnxmamt bin = TwoOperands (wt1 bin, memShfXSnXmAmt bin 0L)
-let getXtBEXSnrmamt bin amt = TwoOperands (xt1 bin, memExtXSnRmAmt bin amt)
-let getXtBRXSnxmamt bin = TwoOperands (xt1 bin, memShfXSnXmAmt bin 0L)
-let getBtBEXSnrmamt bin = TwoOperands (bt bin, memExtXSnRmAmt bin 0L)
-let getBtBRXSnxmamt bin = TwoOperands (bt bin, memShfXSnXmAmt bin 0L)
-let getHtBEXSnrmamt bin = TwoOperands (ht bin, memExtXSnRmAmt bin 1L)
-let getStBEXSnrmamt bin = TwoOperands (st1 bin, memExtXSnRmAmt bin 2L)
-let getDtBEXSnrmamt bin = TwoOperands (dt1 bin, memExtXSnRmAmt bin 3L)
-let getQtBEXSnrmamt bin = TwoOperands (qt1 bin, memExtXSnRmAmt bin 4L)
-let getPrfopimm5BEXSnrmamt b = TwoOperands (prfopImm5 b, memExtXSnRmAmt b 3L)
-let getWtPoXSnsimm bin = TwoOperands (wt1 bin, memPostXSnSimm bin)
-let getXtPoXSnsimm bin = TwoOperands (xt1 bin, memPostXSnSimm bin)
-let getBtPoXSnsimm bin = TwoOperands (bt bin, memPostXSnSimm bin)
-let getHtPoXSnsimm bin = TwoOperands (ht bin, memPostXSnSimm bin)
-let getStPoXSnsimm bin = TwoOperands (st1 bin, memPostXSnSimm bin)
-let getDtPoXSnsimm bin = TwoOperands (dt1 bin, memPostXSnSimm bin)
-let getQtPoXSnsimm bin = TwoOperands (qt1 bin, memPostXSnSimm bin)
-let getWt1Wt2PoXSnimm b = ThreeOperands (wt1 b, wt2 b, memPostXSnImm b 2)
-let getXt1Xt2PoXSnimm b s = ThreeOperands (xt1 b, xt2 b, memPostXSnImm b s)
-let getSt1St2PoXSnimm b = ThreeOperands (st1 b, st2 b, memPostXSnImm b 2)
-let getDt1Dt2PoXSnimm b = ThreeOperands (dt1 b, dt2 b, memPostXSnImm b 3)
-let getQt1Qt2PoXSnimm b = ThreeOperands (qt1 b, qt2 b, memPostXSnImm b 4)
-let getWtPrXSnsimm bin = TwoOperands (wt1 bin, memPreXSnSimm bin)
-let getXtPrXSnsimm bin = TwoOperands (xt1 bin, memPreXSnSimm bin)
-let getBtPrXSnsimm bin = TwoOperands (bt bin, memPreXSnSimm bin)
-let getHtPrXSnsimm bin = TwoOperands (ht bin, memPreXSnSimm bin)
-let getStPrXSnsimm bin = TwoOperands (st1 bin, memPreXSnSimm bin)
-let getDtPrXSnsimm bin = TwoOperands (dt1 bin, memPreXSnSimm bin)
-let getQtPrXSnsimm bin = TwoOperands (qt1 bin, memPreXSnSimm bin)
-let getWt1Wt2PrXSnimm bin = ThreeOperands (wt1 bin, wt2 bin, memPreXSnImm bin 2)
-let getXt1Xt2PrXSnimm b s = ThreeOperands (xt1 b, xt2 b, memPreXSnImm b s)
-let getSt1St2PrXSnimm bin = ThreeOperands (st1 bin, st2 bin, memPreXSnImm bin 2)
-let getDt1Dt2PrXSnimm bin = ThreeOperands (dt1 bin, dt2 bin, memPreXSnImm bin 3)
-let getQt1Qt2PrXSnimm bin = ThreeOperands (qt1 bin, qt2 bin, memPreXSnImm bin 4)
 
-let getvtntidxPoXSnXm b t n = TwoOperands (vtntidx b t n, memPostRegXSnxm b)
+let getVt2BidxMXSn bin = getvtntidxMXSn bin VecB 2u
+
+let getVt3BidxMXSn bin = getvtntidxMXSn bin VecB 3u
+
+let getVt4BidxMXSn bin = getvtntidxMXSn bin VecB 4u
+
+let getVt1HidxMXSn bin = getvtntidxMXSn bin VecH 1u
+
+let getVt2HidxMXSn bin = getvtntidxMXSn bin VecH 2u
+
+let getVt3HidxMXSn bin = getvtntidxMXSn bin VecH 3u
+
+let getVt4HidxMXSn bin = getvtntidxMXSn bin VecH 4u
+
+let getVt1SidxMXSn bin = getvtntidxMXSn bin VecS 1u
+
+let getVt2SidxMXSn bin = getvtntidxMXSn bin VecS 2u
+
+let getVt3SidxMXSn bin = getvtntidxMXSn bin VecS 3u
+
+let getVt4SidxMXSn bin = getvtntidxMXSn bin VecS 4u
+
+let getVt1DidxMXSn bin = getvtntidxMXSn bin VecD 1u
+
+let getVt2DidxMXSn bin = getvtntidxMXSn bin VecD 2u
+
+let getVt3DidxMXSn bin = getvtntidxMXSn bin VecD 3u
+
+let getVt4DidxMXSn bin = getvtntidxMXSn bin VecD 4u
+
+let getWtBIXSnsimm bin = TwoOperands(wt1 bin, memXSnSimm9 bin)
+
+let getXtBIXSnsimm bin = TwoOperands(xt1 bin, memXSnSimm9 bin)
+
+let getBtBIXSnsimm bin = TwoOperands(bt bin, memXSnSimm9 bin)
+
+let getHtBIXSnsimm bin = TwoOperands(ht bin, memXSnSimm9 bin)
+
+let getStBIXSnsimm bin = TwoOperands(st1 bin, memXSnSimm9 bin)
+
+let getDtBIXSnsimm bin = TwoOperands(dt1 bin, memXSnSimm9 bin)
+
+let getQtBIXSnsimm bin = TwoOperands(qt1 bin, memXSnSimm9 bin)
+
+let getPrfopimm5BIXSnsimm bin = TwoOperands(prfopImm5 bin, memXSnSimm9 bin)
+
+let getWtBEXSnrmamt bin amt = TwoOperands(wt1 bin, memExtXSnRmAmt bin amt)
+
+let getWtBRXSnxmamt bin = TwoOperands(wt1 bin, memShfXSnXmAmt bin 0L)
+
+let getXtBEXSnrmamt bin amt = TwoOperands(xt1 bin, memExtXSnRmAmt bin amt)
+
+let getXtBRXSnxmamt bin = TwoOperands(xt1 bin, memShfXSnXmAmt bin 0L)
+
+let getBtBEXSnrmamt bin = TwoOperands(bt bin, memExtXSnRmAmt bin 0L)
+
+let getBtBRXSnxmamt bin = TwoOperands(bt bin, memShfXSnXmAmt bin 0L)
+
+let getHtBEXSnrmamt bin = TwoOperands(ht bin, memExtXSnRmAmt bin 1L)
+
+let getStBEXSnrmamt bin = TwoOperands(st1 bin, memExtXSnRmAmt bin 2L)
+
+let getDtBEXSnrmamt bin = TwoOperands(dt1 bin, memExtXSnRmAmt bin 3L)
+
+let getQtBEXSnrmamt bin = TwoOperands(qt1 bin, memExtXSnRmAmt bin 4L)
+
+let getPrfopimm5BEXSnrmamt b = TwoOperands(prfopImm5 b, memExtXSnRmAmt b 3L)
+
+let getWtPoXSnsimm bin = TwoOperands(wt1 bin, memPostXSnSimm bin)
+
+let getXtPoXSnsimm bin = TwoOperands(xt1 bin, memPostXSnSimm bin)
+
+let getBtPoXSnsimm bin = TwoOperands(bt bin, memPostXSnSimm bin)
+
+let getHtPoXSnsimm bin = TwoOperands(ht bin, memPostXSnSimm bin)
+
+let getStPoXSnsimm bin = TwoOperands(st1 bin, memPostXSnSimm bin)
+
+let getDtPoXSnsimm bin = TwoOperands(dt1 bin, memPostXSnSimm bin)
+
+let getQtPoXSnsimm bin = TwoOperands(qt1 bin, memPostXSnSimm bin)
+
+let getWt1Wt2PoXSnimm b = ThreeOperands(wt1 b, wt2 b, memPostXSnImm b 2)
+
+let getXt1Xt2PoXSnimm b s = ThreeOperands(xt1 b, xt2 b, memPostXSnImm b s)
+
+let getSt1St2PoXSnimm b = ThreeOperands(st1 b, st2 b, memPostXSnImm b 2)
+
+let getDt1Dt2PoXSnimm b = ThreeOperands(dt1 b, dt2 b, memPostXSnImm b 3)
+
+let getQt1Qt2PoXSnimm b = ThreeOperands(qt1 b, qt2 b, memPostXSnImm b 4)
+
+let getWtPrXSnsimm bin = TwoOperands(wt1 bin, memPreXSnSimm bin)
+
+let getXtPrXSnsimm bin = TwoOperands(xt1 bin, memPreXSnSimm bin)
+
+let getBtPrXSnsimm bin = TwoOperands(bt bin, memPreXSnSimm bin)
+
+let getHtPrXSnsimm bin = TwoOperands(ht bin, memPreXSnSimm bin)
+
+let getStPrXSnsimm bin = TwoOperands(st1 bin, memPreXSnSimm bin)
+
+let getDtPrXSnsimm bin = TwoOperands(dt1 bin, memPreXSnSimm bin)
+
+let getQtPrXSnsimm bin = TwoOperands(qt1 bin, memPreXSnSimm bin)
+
+let getWt1Wt2PrXSnimm bin = ThreeOperands(wt1 bin, wt2 bin, memPreXSnImm bin 2)
+
+let getXt1Xt2PrXSnimm b s = ThreeOperands(xt1 b, xt2 b, memPreXSnImm b s)
+
+let getSt1St2PrXSnimm bin = ThreeOperands(st1 bin, st2 bin, memPreXSnImm bin 2)
+
+let getDt1Dt2PrXSnimm bin = ThreeOperands(dt1 bin, dt2 bin, memPreXSnImm bin 3)
+
+let getQt1Qt2PrXSnimm bin = ThreeOperands(qt1 bin, qt2 bin, memPreXSnImm bin 4)
+
+let getvtntidxPoXSnXm b t n = TwoOperands(vtntidx b t n, memPostRegXSnxm b)
+
 let getVt1BidxPoXSnXm bin = getvtntidxPoXSnXm bin VecB 1u
+
 let getVt2BidxPoXSnXm bin = getvtntidxPoXSnXm bin VecB 2u
+
 let getVt3BidxPoXSnXm bin = getvtntidxPoXSnXm bin VecB 3u
+
 let getVt4BidxPoXSnXm bin = getvtntidxPoXSnXm bin VecB 4u
+
 let getVt1HidxPoXSnXm bin = getvtntidxPoXSnXm bin VecH 1u
+
 let getVt2HidxPoXSnXm bin = getvtntidxPoXSnXm bin VecH 2u
+
 let getVt3HidxPoXSnXm bin = getvtntidxPoXSnXm bin VecH 3u
+
 let getVt4HidxPoXSnXm bin = getvtntidxPoXSnXm bin VecH 4u
+
 let getVt1SidxPoXSnXm bin = getvtntidxPoXSnXm bin VecS 1u
+
 let getVt2SidxPoXSnXm bin = getvtntidxPoXSnXm bin VecS 2u
+
 let getVt3SidxPoXSnXm bin = getvtntidxPoXSnXm bin VecS 3u
+
 let getVt4SidxPoXSnXm bin = getvtntidxPoXSnXm bin VecS 4u
+
 let getVt1DidxPoXSnXm bin = getvtntidxPoXSnXm bin VecD 1u
+
 let getVt2DidxPoXSnXm bin = getvtntidxPoXSnXm bin VecD 2u
+
 let getVt3DidxPoXSnXm bin = getvtntidxPoXSnXm bin VecD 3u
+
 let getVt4DidxPoXSnXm bin = getvtntidxPoXSnXm bin VecD 4u
-let getVt1tPoXSnXm bin r = r bin; TwoOperands (vt1t bin, memPostRegXSnxm bin)
-let getVt2tPoXSnXm bin r = r bin; TwoOperands (vt2t bin, memPostRegXSnxm bin)
-let getVt3tPoXSnXm bin r = r bin; TwoOperands (vt3t bin, memPostRegXSnxm bin)
-let getVt4tPoXSnXm bin r = r bin; TwoOperands (vt4t bin, memPostRegXSnxm bin)
+
+let getVt1tPoXSnXm bin r = r bin; TwoOperands(vt1t bin, memPostRegXSnxm bin)
+
+let getVt2tPoXSnXm bin r = r bin; TwoOperands(vt2t bin, memPostRegXSnxm bin)
+
+let getVt3tPoXSnXm bin r = r bin; TwoOperands(vt3t bin, memPostRegXSnxm bin)
+
+let getVt4tPoXSnXm bin r = r bin; TwoOperands(vt4t bin, memPostRegXSnxm bin)
 
 let getvtntidxPoXSnImm b t n =
-  TwoOperands (vtntidx b t n, memPostImmXSnimm b (iX t n))
+  TwoOperands(vtntidx b t n, memPostImmXSnimm b (iX t n))
+
 let getVt1BidxPoXSnI1 bin = getvtntidxPoXSnImm bin VecB 1u
+
 let getVt2BidxPoXSnI2 bin = getvtntidxPoXSnImm bin VecB 2u
+
 let getVt3BidxPoXSnI3 bin = getvtntidxPoXSnImm bin VecB 3u
+
 let getVt4BidxPoXSnI4 bin = getvtntidxPoXSnImm bin VecB 4u
+
 let getVt1HidxPoXSnI2 bin = getvtntidxPoXSnImm bin VecH 1u
+
 let getVt2HidxPoXSnI4 bin = getvtntidxPoXSnImm bin VecH 2u
+
 let getVt3HidxPoXSnI6 bin = getvtntidxPoXSnImm bin VecH 3u
+
 let getVt4HidxPoXSnI8 bin = getvtntidxPoXSnImm bin VecH 4u
+
 let getVt1SidxPoXSnI4 bin = getvtntidxPoXSnImm bin VecS 1u
+
 let getVt2SidxPoXSnI8 bin = getvtntidxPoXSnImm bin VecS 2u
+
 let getVt3SidxPoXSnI12 bin = getvtntidxPoXSnImm bin VecS 3u
+
 let getVt4SidxPoXSnI16 bin = getvtntidxPoXSnImm bin VecS 4u
+
 let getVt1DidxPoXSnI8 bin = getvtntidxPoXSnImm bin VecD 1u
+
 let getVt2DidxPoXSnI16 bin = getvtntidxPoXSnImm bin VecD 2u
+
 let getVt3DidxPoXSnI24 bin = getvtntidxPoXSnImm bin VecD 3u
+
 let getVt4DidxPoXSnI32 bin = getvtntidxPoXSnImm bin VecD 4u
+
 let getVttPoXSnImm1 b r vt i =
-  r b; TwoOperands (vt b, memPostImmXSnimm b (immQ b i))
+  r b; TwoOperands(vt b, memPostImmXSnimm b (immQ b i))
+
 let getVt1tPoXSnImm1 b r = getVttPoXSnImm1 b r vt1t 1L
+
 let getVt2tPoXSnImm1 b r = getVttPoXSnImm1 b r vt2t 2L
+
 let getVt3tPoXSnImm1 b r = getVttPoXSnImm1 b r vt3t 3L
+
 let getVt4tPoXSnImm1 b r = getVttPoXSnImm1 b r vt4t 4L
-let getVttPoXSnImm2 b vt i = TwoOperands (vt b, memPostImmXSnimm b (iN b i))
+
+let getVttPoXSnImm2 b vt i = TwoOperands(vt b, memPostImmXSnimm b (iN b i))
+
 let getVt1tPoXSnImm2 b = getVttPoXSnImm2 b vt1t 1
+
 let getVt2tPoXSnImm2 b = getVttPoXSnImm2 b vt2t 2
+
 let getVt3tPoXSnImm2 b = getVttPoXSnImm2 b vt3t 3
+
 let getVt4tPoXSnImm2 b = getVttPoXSnImm2 b vt4t 4
 
 (* Register - Label *)
-let getXdLabel bin amt = TwoOperands (xd bin, label bin amt) (* <xd>, <label> *)
-let getWtLabel bin = TwoOperands (wt1 bin, lbImm19 bin) (* <Wt>, <label> *)
-let getXtLabel bin = TwoOperands (xt1 bin, lbImm19 bin) (* <Xt>, <label> *)
-let getStLabel bin = TwoOperands (st1 bin, lbImm19 bin) (* <St>, <label> *)
-let getDtLabel bin = TwoOperands (dt1 bin, lbImm19 bin) (* <Dt>, <label> *)
-let getQtLabel bin = TwoOperands (qt1 bin, lbImm19 bin) (* <Qt>, <label> *)
+let getXdLabel bin amt = TwoOperands(xd bin, label bin amt) (* <xd>, <label> *)
+
+let getWtLabel bin = TwoOperands(wt1 bin, lbImm19 bin) (* <Wt>, <label> *)
+
+let getXtLabel bin = TwoOperands(xt1 bin, lbImm19 bin) (* <Xt>, <label> *)
+
+let getStLabel bin = TwoOperands(st1 bin, lbImm19 bin) (* <St>, <label> *)
+
+let getDtLabel bin = TwoOperands(dt1 bin, lbImm19 bin) (* <Dt>, <label> *)
+
+let getQtLabel bin = TwoOperands(qt1 bin, lbImm19 bin) (* <Qt>, <label> *)
+
 let getPrfopImm5Label bin =
-  TwoOperands (prfopImm5 bin, lbImm19 bin) (* <prfop>|#<imm5>), <label> *)
+  TwoOperands(prfopImm5 bin, lbImm19 bin) (* <prfop>|#<imm5>), <label> *)
 
 (* etc *)
-let getSysregOrctrlXt bin = TwoOperands (systemregOrctrl bin, xt1 bin)
-let getXtSysregOrctrl bin = TwoOperands (xt1 bin, systemregOrctrl bin)
-let getPstatefieldImm bin = TwoOperands (pstatefield bin, imm bin)
+let getSysregOrctrlXt bin = TwoOperands(systemregOrctrl bin, xt1 bin)
+
+let getXtSysregOrctrl bin = TwoOperands(xt1 bin, systemregOrctrl bin)
+
+let getPstatefieldImm bin = TwoOperands(pstatefield bin, imm bin)
 
 (* Register - Register - Register *)
-let getWdWnWm bin = ThreeOperands (wd bin, wn bin, wm bin)
-let getWdWnXm bin = ThreeOperands (wd bin, wn bin, xm bin)
-let getXdXnXm bin = ThreeOperands (xd bin, xn bin, xm bin)
-let getVdtaVntbVmtb b r = r b; ThreeOperands (vdts1 b, vntsq1 b, vmtsq1 b)
-let getVdtaVntaVmtb b r = r b; ThreeOperands (vdts1 b, vnts1 b, vmtsq1 b)
-let getVdtbVntaVmta b r = r b; ThreeOperands (vdtsq1 b, vnts1 b, vmts1 b)
-let getVdtVntVmt1 b r = r b; ThreeOperands (vdtsq1 b, vntsq1 b, vmtsq1 b)
-let getVdtVntVmt2 b r = r b; ThreeOperands (vdtszq1 b, vntszq1 b, vmtszq1 b)
-let getVdtVntVmt3 bin = ThreeOperands (vdtq1 bin, vntq1 bin, vmtq1 bin)
-let getSdSnSm bin = ThreeOperands (sd bin, sn bin, sm bin)
-let getDdDnDm bin = ThreeOperands (dd bin, dn bin, dm bin)
-let getVdVnVm1 bin r = r bin; ThreeOperands (vd2 bin, vn2 bin, vm2 bin)
-let getVdVnVm2 bin = ThreeOperands (vd3a bin, vn3 bin, vm3 bin)
-let getVadVbnVbm bin r = r bin; ThreeOperands (vd1 bin, vn2 bin, vm2 bin)
-let getQdSnVm4S bin = ThreeOperands (qd bin, sn bin, vm4S bin)
-let getVd4SVn4SVm4S bin = ThreeOperands (vd4S bin, vn4S bin, vm4S bin)
-let getQdQnVm4S bin = ThreeOperands (qd bin, qn bin, vm4S bin)
-let getVdtVntVmt b r = r b; ThreeOperands (vdtsq1 b, vntsq1 b, vmtsq1 b)
-let getVdtaVntbVmtsidx b r = r b; ThreeOperands (vdts1 b, vntsq1 b, vmtsidx1 b)
+let getWdWnWm bin = ThreeOperands(wd bin, wn bin, wm bin)
+
+let getWdWnXm bin = ThreeOperands(wd bin, wn bin, xm bin)
+
+let getXdXnXm bin = ThreeOperands(xd bin, xn bin, xm bin)
+
+let getVdtaVntbVmtb b r = r b; ThreeOperands(vdts1 b, vntsq1 b, vmtsq1 b)
+
+let getVdtaVntaVmtb b r = r b; ThreeOperands(vdts1 b, vnts1 b, vmtsq1 b)
+
+let getVdtbVntaVmta b r = r b; ThreeOperands(vdtsq1 b, vnts1 b, vmts1 b)
+
+let getVdtVntVmt1 b r = r b; ThreeOperands(vdtsq1 b, vntsq1 b, vmtsq1 b)
+
+let getVdtVntVmt2 b r = r b; ThreeOperands(vdtszq1 b, vntszq1 b, vmtszq1 b)
+
+let getVdtVntVmt3 bin = ThreeOperands(vdtq1 bin, vntq1 bin, vmtq1 bin)
+
+let getSdSnSm bin = ThreeOperands(sd bin, sn bin, sm bin)
+
+let getDdDnDm bin = ThreeOperands(dd bin, dn bin, dm bin)
+
+let getVdVnVm1 bin r = r bin; ThreeOperands(vd2 bin, vn2 bin, vm2 bin)
+
+let getVdVnVm2 bin = ThreeOperands(vd3a bin, vn3 bin, vm3 bin)
+
+let getVadVbnVbm bin r = r bin; ThreeOperands(vd1 bin, vn2 bin, vm2 bin)
+
+let getQdSnVm4S bin = ThreeOperands(qd bin, sn bin, vm4S bin)
+
+let getVd4SVn4SVm4S bin = ThreeOperands(vd4S bin, vn4S bin, vm4S bin)
+
+let getQdQnVm4S bin = ThreeOperands(qd bin, qn bin, vm4S bin)
+
+let getVdtVntVmt b r = r b; ThreeOperands(vdtsq1 b, vntsq1 b, vmtsq1 b)
+
+let getVdtaVntbVmtsidx b r = r b; ThreeOperands(vdts1 b, vntsq1 b, vmtsidx1 b)
+
 let getVdtVntVmtsidx1 bin r =  (* size:Q - 3bit *)
-  r bin; ThreeOperands (vdtsq1 bin, vntsq1 bin, vmtsidx1 bin)
+  r bin; ThreeOperands(vdtsq1 bin, vntsq1 bin, vmtsidx1 bin)
+
 let getVdtVntVmtsidx2 bin r =  (* sz:Q - 2bit *)
-  r bin; ThreeOperands (vdtszq1 bin, vntszq1 bin, vmtsidx2 bin)
-let getVadVbnVmtsidx b r = r b; ThreeOperands (vd1 b, vn2 b, vmtsidx1 b)
-let getVdVnVmtsidx1 b r = r b; ThreeOperands (vd2 b, vn2 b, vmtsidx1 b)
-let getVdVnVmtsidx2 b r = r b; ThreeOperands (vd3a b, vn3 b, vmtsidx2 b)
-let getVdtaVn116BVmta bin = ThreeOperands (vdtq1 bin, vn116B bin, vmtq1 bin)
-let getVdtaVn216BVmta bin = ThreeOperands (vdtq1 bin, vn216B bin, vmtq1 bin)
-let getVdtaVn316BVmta bin = ThreeOperands (vdtq1 bin, vn316B bin, vmtq1 bin)
-let getVdtaVn416BVmta bin = ThreeOperands (vdtq1 bin, vn416B bin, vmtq1 bin)
+  r bin; ThreeOperands(vdtszq1 bin, vntszq1 bin, vmtsidx2 bin)
+
+let getVadVbnVmtsidx b r = r b; ThreeOperands(vd1 b, vn2 b, vmtsidx1 b)
+
+let getVdVnVmtsidx1 b r = r b; ThreeOperands(vd2 b, vn2 b, vmtsidx1 b)
+
+let getVdVnVmtsidx2 b r = r b; ThreeOperands(vd3a b, vn3 b, vmtsidx2 b)
+
+let getVdtaVn116BVmta bin = ThreeOperands(vdtq1 bin, vn116B bin, vmtq1 bin)
+
+let getVdtaVn216BVmta bin = ThreeOperands(vdtq1 bin, vn216B bin, vmtq1 bin)
+
+let getVdtaVn316BVmta bin = ThreeOperands(vdtq1 bin, vn316B bin, vmtq1 bin)
+
+let getVdtaVn416BVmta bin = ThreeOperands(vdtq1 bin, vn416B bin, vmtq1 bin)
 
 (* Register - Register - Immediate *)
-let getVdtVntI0 b r = r b; ThreeOperands (vdtsq1 b, vntsq1 b, OprImm 0L)
-let getVdtVntF0 b r = r b; ThreeOperands (vdtszq1 b, vntszq1 b, OprFPImm 0.0)
-let getWSdWnImm bin = ThreeOperands (wsd bin, wn bin, immNsr bin 32<rt>)
-let getWdWnImm bin = ThreeOperands (wd bin, wn bin, immNsr bin 32<rt>)
-let getXSdXnImm bin = ThreeOperands (xsd bin, xn bin, immNsr bin 64<rt>)
-let getXdXnImm bin = ThreeOperands (xd bin, xn bin, immNsr bin 64<rt>)
-let getVdVnI0 bin r = r bin; ThreeOperands (vd2 bin, vn2 bin, OprImm 0L)
-let getVdVnF0 bin = ThreeOperands (vd3a bin, vn3 bin, OprFPImm 0.0)
+let getVdtVntI0 b r = r b; ThreeOperands(vdtsq1 b, vntsq1 b, OprImm 0L)
+
+let getVdtVntF0 b r = r b; ThreeOperands(vdtszq1 b, vntszq1 b, OprFPImm 0.0)
+
+let getWSdWnImm bin = ThreeOperands(wsd bin, wn bin, immNsr bin 32<rt>)
+
+let getWdWnImm bin = ThreeOperands(wd bin, wn bin, immNsr bin 32<rt>)
+
+let getXSdXnImm bin = ThreeOperands(xsd bin, xn bin, immNsr bin 64<rt>)
+
+let getXdXnImm bin = ThreeOperands(xd bin, xn bin, immNsr bin 64<rt>)
+
+let getVdVnI0 bin r = r bin; ThreeOperands(vd2 bin, vn2 bin, OprImm 0L)
+
+let getVdVnF0 bin = ThreeOperands(vd3a bin, vn3 bin, OprFPImm 0.0)
 
 (* Register - Register - Shift *)
-let getVdtaVntbShf2 b r = r b; ThreeOperands (vdts1 b, vntsq1 b, lshf1 b)
-let getVdVnShf bin r = r bin; ThreeOperands (vd5 bin, vn5 bin, rshfAmt bin)
-let getVdVnShf2 bin r = r bin; ThreeOperands (vd5 bin, vn5 bin, lshfAmt bin)
-let getVbdVanShf bin r = r bin; ThreeOperands (vd5 bin, vn6 bin, rshfAmt bin)
+let getVdtaVntbShf2 b r = r b; ThreeOperands(vdts1 b, vntsq1 b, lshf1 b)
+
+let getVdVnShf bin r = r bin; ThreeOperands(vd5 bin, vn5 bin, rshfAmt bin)
+
+let getVdVnShf2 bin r = r bin; ThreeOperands(vd5 bin, vn5 bin, lshfAmt bin)
+
+let getVbdVanShf bin r = r bin; ThreeOperands(vd5 bin, vn6 bin, rshfAmt bin)
 
 (* Register - Register - fbits *)
-let getHdWnFbits bin = ThreeOperands (hd bin, wn bin, fbits2 bin)
-let getSdWnFbits bin = ThreeOperands (sd bin, wn bin, fbits2 bin)
-let getWdSnFbits bin = ThreeOperands (wd bin, sn bin, fbits2 bin)
-let getDdWnFbits bin = ThreeOperands (dd bin, wn bin, fbits2 bin)
-let getWdDnFbits bin = ThreeOperands (wd bin, dn bin, fbits2 bin)
-let getHdXnFbits bin = ThreeOperands (hd bin, xn bin, fbits2 bin)
-let getSdXnFbits bin = ThreeOperands (sd bin, xn bin, fbits2 bin)
-let getXdSnFbits bin = ThreeOperands (xd bin, sn bin, fbits2 bin)
-let getDdXnFbits bin = ThreeOperands (dd bin, xn bin, fbits2 bin)
-let getXdDnFbits bin = ThreeOperands (xd bin, dn bin, fbits2 bin)
-let getVdVnFbits bin r = r bin; ThreeOperands (vd5 bin, vn5 bin, fbits1 bin)
+let getHdWnFbits bin = ThreeOperands(hd bin, wn bin, fbits2 bin)
+
+let getSdWnFbits bin = ThreeOperands(sd bin, wn bin, fbits2 bin)
+
+let getWdSnFbits bin = ThreeOperands(wd bin, sn bin, fbits2 bin)
+
+let getDdWnFbits bin = ThreeOperands(dd bin, wn bin, fbits2 bin)
+
+let getWdDnFbits bin = ThreeOperands(wd bin, dn bin, fbits2 bin)
+
+let getHdXnFbits bin = ThreeOperands(hd bin, xn bin, fbits2 bin)
+
+let getSdXnFbits bin = ThreeOperands(sd bin, xn bin, fbits2 bin)
+
+let getXdSnFbits bin = ThreeOperands(xd bin, sn bin, fbits2 bin)
+
+let getDdXnFbits bin = ThreeOperands(dd bin, xn bin, fbits2 bin)
+
+let getXdDnFbits bin = ThreeOperands(xd bin, dn bin, fbits2 bin)
+
+let getVdVnFbits bin r = r bin; ThreeOperands(vd5 bin, vn5 bin, fbits1 bin)
 
 (* Register - Register - Memory *)
-let getWsWtMXSn bin = ThreeOperands (ws bin, wt1 bin, memXSn bin)
-let getXsXtMXSn bin = ThreeOperands (xs bin, xt1 bin, memXSn bin)
-let getWsXtMXSn bin = ThreeOperands (ws bin, xt1 bin, memXSn bin)
-let getWt1Wt2MXSn bin = ThreeOperands (wt1 bin, wt2 bin, memXSn bin)
-let getXt1Xt2MXSn bin = ThreeOperands (xt1 bin, xt2 bin, memXSn bin)
+let getWsWtMXSn bin = ThreeOperands(ws bin, wt1 bin, memXSn bin)
+
+let getXsXtMXSn bin = ThreeOperands(xs bin, xt1 bin, memXSn bin)
+
+let getWsXtMXSn bin = ThreeOperands(ws bin, xt1 bin, memXSn bin)
+
+let getWt1Wt2MXSn bin = ThreeOperands(wt1 bin, wt2 bin, memXSn bin)
+
+let getXt1Xt2MXSn bin = ThreeOperands(xt1 bin, xt2 bin, memXSn bin)
 
 (* Register - Immediate - Shift *)
 let getVdtImm8LAmt bin oprVdt = function
-  | Some s -> ThreeOperands (oprVdt bin, imm8 bin, s)
-  | None -> TwoOperands (oprVdt bin, imm8 bin)
-let getVdtImm8LAmt1 bin = getVdtImm8LAmt bin vdtq1 None (* 8-bit *)
-let getVdtImm8LAmt2 bin = getVdtImm8LAmt bin vdtq3 (lAmt bin amt16Imm)
-let getVdtImm8LAmt3 bin = getVdtImm8LAmt bin vdtq2 (lAmt bin amt32Imm)
-let getVdtImm8MAmt bin = ThreeOperands (vdtq2 bin, imm8 bin, mAmt bin)
-let getWdImmLShf bin = ThreeOperands (wd bin, imm16 bin, lshf3 bin)
-let getXdImmLShf bin = ThreeOperands (xd bin, imm16 bin, lshf3 bin)
-let getVdtVntShf1 bin = ThreeOperands (vdtihq bin, vntihq bin, rshfAmt bin)
-let getVdtVntShf2 bin = ThreeOperands (vdtihq bin, vntihq bin, lshfAmt bin)
-let getVdtbVntaShf b r = r b; ThreeOperands (vdtihq b, vntih b, rshfAmt b)
-let getVdtaVntbShf b r = r b; ThreeOperands (vdtih b, vntihq b, lshfAmt b)
-let getVdtVntFbits b r = r b; ThreeOperands (vdtihq b, vntihq b, fbits1 b)
+  | Some s -> ThreeOperands(oprVdt bin, imm8 bin, s)
+  | None -> TwoOperands(oprVdt bin, imm8 bin)
 
-// Four Operands
-let getWdWnWmWa bin = FourOperands (wd bin, wn bin, wm bin, wa bin)
-let getXdWnWmXa bin = FourOperands (xd bin, wn bin, wm bin, xa bin)
-let getXdXnXmXa bin = FourOperands (xd bin, xn bin, xm bin, xa bin)
-let getVdtVntVmtIdx b = FourOperands (vdtq1 b, vntq1 b, vmtq1 b, index b)
-let getWnWmNzcvCond bin = FourOperands (wn bin, wm bin, nzcv bin, cond bin)
-let getXnXmNzcvCond bin = FourOperands (xn bin, xm bin, nzcv bin, cond bin)
-let getWnImmNzcvCond bin = FourOperands (wn bin, imm5 bin, nzcv bin, cond bin)
-let getXnImmNzcvCond bin = FourOperands (xn bin, imm5 bin, nzcv bin, cond bin)
-let getWdWnWmCond bin = FourOperands (wd bin, wn bin, wm bin, cond bin)
-let getXdXnXmCond bin = FourOperands (xd bin, xn bin, xm bin, cond bin)
-let getSdSnSmSa bin = FourOperands (sd bin, sn bin, sm bin, sa bin)
-let getDdDnDmDa bin = FourOperands (dd bin, dn bin, dm bin, da bin)
-let getSdSnSmCond bin = FourOperands (sd bin, sn bin, sm bin, cond bin)
-let getDdDnDmCond bin = FourOperands (dd bin, dn bin, dm bin, cond bin)
-let getWdWnWmShfamt bin = FourOperands (wd bin, wn bin, wm bin, shfamt bin)
-let getXdXnXmShfamt bin = FourOperands (xd bin, xn bin, xm bin, shfamt bin)
-let getWSdWSnWmExtamt bin = FourOperands (wsd bin, wsn bin, wm bin, extamt bin)
-let getXSdXSnRmExtamt bin = FourOperands (xsd bin, xsn bin, rm bin, extamt bin)
-let getWdWSnImmShf bin = FourOperands (wd bin, wsn bin, imm12 bin, lshf2 bin)
-let getXdXSnImmShf bin = FourOperands (xd bin, xsn bin, imm12 bin, lshf2 bin)
-let getWSdWSnImmShf bin = FourOperands (wsd bin, wsn bin, imm12 bin, lshf2 bin)
-let getXSdXSnImmShf bin = FourOperands (xsd bin, xsn bin, imm12 bin, lshf2 bin)
+let getVdtImm8LAmt1 bin = getVdtImm8LAmt bin vdtq1 None (* 8-bit *)
+
+let getVdtImm8LAmt2 bin = getVdtImm8LAmt bin vdtq3 (lAmt bin amt16Imm)
+
+let getVdtImm8LAmt3 bin = getVdtImm8LAmt bin vdtq2 (lAmt bin amt32Imm)
+
+let getVdtImm8MAmt bin = ThreeOperands(vdtq2 bin, imm8 bin, mAmt bin)
+
+let getWdImmLShf bin = ThreeOperands(wd bin, imm16 bin, lshf3 bin)
+
+let getXdImmLShf bin = ThreeOperands(xd bin, imm16 bin, lshf3 bin)
+
+let getVdtVntShf1 bin = ThreeOperands(vdtihq bin, vntihq bin, rshfAmt bin)
+
+let getVdtVntShf2 bin = ThreeOperands(vdtihq bin, vntihq bin, lshfAmt bin)
+
+let getVdtbVntaShf b r = r b; ThreeOperands(vdtihq b, vntih b, rshfAmt b)
+
+let getVdtaVntbShf b r = r b; ThreeOperands(vdtih b, vntihq b, lshfAmt b)
+
+let getVdtVntFbits b r = r b; ThreeOperands(vdtihq b, vntihq b, fbits1 b)
+
+(* Four Operands *)
+let getWdWnWmWa bin = FourOperands(wd bin, wn bin, wm bin, wa bin)
+
+let getXdWnWmXa bin = FourOperands(xd bin, wn bin, wm bin, xa bin)
+
+let getXdXnXmXa bin = FourOperands(xd bin, xn bin, xm bin, xa bin)
+
+let getVdtVntVmtIdx b = FourOperands(vdtq1 b, vntq1 b, vmtq1 b, index b)
+
+let getWnWmNzcvCond bin = FourOperands(wn bin, wm bin, nzcv bin, cond bin)
+
+let getXnXmNzcvCond bin = FourOperands(xn bin, xm bin, nzcv bin, cond bin)
+
+let getWnImmNzcvCond bin = FourOperands(wn bin, imm5 bin, nzcv bin, cond bin)
+
+let getXnImmNzcvCond bin = FourOperands(xn bin, imm5 bin, nzcv bin, cond bin)
+
+let getWdWnWmCond bin = FourOperands(wd bin, wn bin, wm bin, cond bin)
+
+let getXdXnXmCond bin = FourOperands(xd bin, xn bin, xm bin, cond bin)
+
+let getSdSnSmSa bin = FourOperands(sd bin, sn bin, sm bin, sa bin)
+
+let getDdDnDmDa bin = FourOperands(dd bin, dn bin, dm bin, da bin)
+
+let getSdSnSmCond bin = FourOperands(sd bin, sn bin, sm bin, cond bin)
+
+let getDdDnDmCond bin = FourOperands(dd bin, dn bin, dm bin, cond bin)
+
+let getWdWnWmShfamt bin = FourOperands(wd bin, wn bin, wm bin, shfamt bin)
+
+let getXdXnXmShfamt bin = FourOperands(xd bin, xn bin, xm bin, shfamt bin)
+
+let getWSdWSnWmExtamt bin = FourOperands(wsd bin, wsn bin, wm bin, extamt bin)
+
+let getXSdXSnRmExtamt bin = FourOperands(xsd bin, xsn bin, rm bin, extamt bin)
+
+let getWdWSnImmShf bin = FourOperands(wd bin, wsn bin, imm12 bin, lshf2 bin)
+
+let getXdXSnImmShf bin = FourOperands(xd bin, xsn bin, imm12 bin, lshf2 bin)
+
+let getWSdWSnImmShf bin = FourOperands(wsd bin, wsn bin, imm12 bin, lshf2 bin)
+
+let getXSdXSnImmShf bin = FourOperands(xsd bin, xsn bin, imm12 bin, lshf2 bin)
+
 let getWdWnImmrImms bin =
-  FourOperands (wd bin, wn bin, immr bin 31u, imms bin 31u)
+  FourOperands(wd bin, wn bin, immr bin 31u, imms bin 31u)
+
 let getXdXnImmrImms bin =
-  FourOperands (xd bin, xn bin, immr bin 63u, imms bin 63u)
-let getWdWnWmLsb bin = FourOperands (wd bin, wn bin, wm bin, lsb bin 31u)
-let getXdXnXmLsb bin = FourOperands (xd bin, xn bin, xm bin, lsb bin 63u)
-let getWsWt1Wt2MXSn bin = FourOperands (ws bin, wt1 bin, wt2 bin, memXSn bin)
-let getWsXt1Xt2MXSn bin = FourOperands (ws bin, xt1 bin, xt2 bin, memXSn bin)
-let getSnSmNZCVCond bin = FourOperands (sn bin, sm bin, nzcv bin, cond bin)
-let getDnDmNZCVCond bin = FourOperands (dn bin, dm bin, nzcv bin, cond bin)
+  FourOperands(xd bin, xn bin, immr bin 63u, imms bin 63u)
+
+let getWdWnWmLsb bin = FourOperands(wd bin, wn bin, wm bin, lsb bin 31u)
+
+let getXdXnXmLsb bin = FourOperands(xd bin, xn bin, xm bin, lsb bin 63u)
+
+let getWsWt1Wt2MXSn bin = FourOperands(ws bin, wt1 bin, wt2 bin, memXSn bin)
+
+let getWsXt1Xt2MXSn bin = FourOperands(ws bin, xt1 bin, xt2 bin, memXSn bin)
+
+let getSnSmNZCVCond bin = FourOperands(sn bin, sm bin, nzcv bin, cond bin)
+
+let getDnDmNZCVCond bin = FourOperands(dn bin, dm bin, nzcv bin, cond bin)
 
 let getOp1cncmop2Xt bin =
-  FiveOperands (op1 bin, cn bin, cm bin, op2 bin, xt1 bin)
+  FiveOperands(op1 bin, cn bin, cm bin, op2 bin, xt1 bin)
 
 let getXtOp1cncmop2 bin =
-  FiveOperands (xt1 bin, op1 bin, cn bin, cm bin, op2 bin)
+  FiveOperands(xt1 bin, op1 bin, cn bin, cm bin, op2 bin)
 
 let getOprSizeByVector = function
   | VecB -> 8<rt>
@@ -386,16 +663,16 @@ let getOprSizeByVector = function
 
 let getOprSizeBySIMDReg reg =
   match reg with
-  | SIMDVecReg (_, v) -> getOprSizeByVector v
-  | SIMDVecRegWithIdx (_, v, _) -> getOprSizeByVector v
+  | SIMDVecReg(_, v) -> getOprSizeByVector v
+  | SIMDVecRegWithIdx(_, v, _) -> getOprSizeByVector v
   | _ -> raise InvalidOperandException
 
 let getFstOperand = function
   | OneOperand o -> o
-  | TwoOperands (o1, _) -> o1
-  | ThreeOperands (o1, _, _) -> o1
-  | FourOperands (o1, _, _, _) -> o1
-  | FiveOperands (o1, _, _, _, _) -> o1
+  | TwoOperands(o1, _) -> o1
+  | ThreeOperands(o1, _, _) -> o1
+  | FourOperands(o1, _, _, _) -> o1
+  | FiveOperands(o1, _, _, _, _) -> o1
   | _ -> raise InvalidOperandException
 
 let getSIMDOperand = function
@@ -414,15 +691,15 @@ let getSIMDScalarOprSize o size (op, oprs) =
 let changeToAliasOfAddSubImm bin instr =
   let isImm12Zero = valImm12 bin = 0b000000000000u
   match instr with
-  | Op.ADD, FourOperands (rd, rn, _, _), oprSize
+  | Op.ADD, FourOperands(rd, rn, _, _), oprSize
     when (valShift bin = 0b00u) && isImm12Zero
          && (valD bin = 0b11111u || valN bin = 0b11111u) ->
-    Op.MOV, TwoOperands (rd, rn), oprSize
-  | Op.ADDS, FourOperands (_, rn, imm, shf), oprSize when valD bin = 0b11111u ->
-    Op.CMN, ThreeOperands (rn, imm, shf), oprSize
-  | Op.SUBS, FourOperands (_, rn, imm, shf), oprSize
+    Op.MOV, TwoOperands(rd, rn), oprSize
+  | Op.ADDS, FourOperands(_, rn, imm, shf), oprSize when valD bin = 0b11111u ->
+    Op.CMN, ThreeOperands(rn, imm, shf), oprSize
+  | Op.SUBS, FourOperands(_, rn, imm, shf), oprSize
     when valD bin = 0b11111u ->
-    Op.CMP, ThreeOperands (rn, imm, shf), oprSize
+    Op.CMP, ThreeOperands(rn, imm, shf), oprSize
   | _ -> instr
 
 let parseAddSubImm bin =
@@ -444,67 +721,67 @@ let parseAddSubImm bin =
 let changeToAliasOfBitfield bin instr =
   let sf = valMSB bin
   match instr with
-  | Op.SBFM, FourOperands (rd, rn, immr, OprImm imms), oprSize
+  | Op.SBFM, FourOperands(rd, rn, immr, OprImm imms), oprSize
       when (sf = 0u && imms = 0b011111L) || (sf = 1u && imms = 0b111111L) ->
-    Op.ASR, ThreeOperands (rd, rn, immr), oprSize
-  | Op.SBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oSz
+    Op.ASR, ThreeOperands(rd, rn, immr), oprSize
+  | Op.SBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oSz
       when imms < immr ->
     let lsb = (RegType.toBitWidth oSz |> int64) - immr
-    Op.SBFIZ, FourOperands (rd, rn, OprImm lsb, OprImm (imms + 1L)), oSz
-  | Op.SBFM, FourOperands (rd, rn, OprImm r, OprImm s), oSz
+    Op.SBFIZ, FourOperands(rd, rn, OprImm lsb, OprImm(imms + 1L)), oSz
+  | Op.SBFM, FourOperands(rd, rn, OprImm r, OprImm s), oSz
       when bfxPreferred sf 0u (uint32 s) (uint32 r) ->
-    Op.SBFX, FourOperands (rd, rn, OprImm r, OprImm (s - r + 1L)), oSz
-  | Op.SBFM, FourOperands (rd, _, OprImm immr, OprImm imms), oprSz
+    Op.SBFX, FourOperands(rd, rn, OprImm r, OprImm(s - r + 1L)), oSz
+  | Op.SBFM, FourOperands(rd, _, OprImm immr, OprImm imms), oprSz
       when (immr = 0b000000L) && (imms = 0b000111L) ->
     Op.SXTB,
-    TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
+    TwoOperands(rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
     oprSz
-  | Op.SBFM, FourOperands (rd, _, OprImm immr, OprImm imms), oprSz
+  | Op.SBFM, FourOperands(rd, _, OprImm immr, OprImm imms), oprSz
       when (immr = 0b000000L) && (imms = 0b001111L) ->
     Op.SXTH,
-    TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
+    TwoOperands(rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
     oprSz
-  | Op.SBFM, FourOperands (rd, _, OprImm immr, OprImm imms), oprSz
+  | Op.SBFM, FourOperands(rd, _, OprImm immr, OprImm imms), oprSz
       when (immr = 0b000000L) && (imms = 0b011111L) ->
     Op.SXTW,
-    TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
+    TwoOperands(rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
     oprSz
-  | Op.BFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
+  | Op.BFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
       when (valN bin <> 0b11111u) && (imms < immr) ->
     let lsb = (RegType.toBitWidth oprSize |> int64) - immr
     Op.BFI,
-    FourOperands (rd, rn, OprImm lsb, OprImm (imms + 1L)), oprSize
-  | Op.BFM, FourOperands (d, n, OprImm immr, OprImm imms), oprSize
+    FourOperands(rd, rn, OprImm lsb, OprImm(imms + 1L)), oprSize
+  | Op.BFM, FourOperands(d, n, OprImm immr, OprImm imms), oprSize
       when imms >= immr ->
     Op.BFXIL,
-    FourOperands (d, n, OprImm immr, OprImm (imms - immr + 1L)), oprSize
-  | Op.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
+    FourOperands(d, n, OprImm immr, OprImm(imms - immr + 1L)), oprSize
+  | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
       when (oprSize = 32<rt>) && (imms <> 0b011111L) && (imms + 1L = immr) ->
-    Op.LSL, ThreeOperands (rd, rn, OprImm (31L - imms)), oprSize
-  | Op.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
+    Op.LSL, ThreeOperands(rd, rn, OprImm(31L - imms)), oprSize
+  | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
       when (oprSize = 64<rt>) && (imms <> 0b111111L) && (imms + 1L = immr) ->
-    Op.LSL, ThreeOperands (rd, rn, OprImm (63L - imms)), oprSize
-  | Op.UBFM, FourOperands (rd, rn, immr, OprImm imms), oprSize
+    Op.LSL, ThreeOperands(rd, rn, OprImm(63L - imms)), oprSize
+  | Op.UBFM, FourOperands(rd, rn, immr, OprImm imms), oprSize
       when (oprSize = 32<rt>) && (imms = 0b011111L) ->
-    Op.LSR, ThreeOperands (rd, rn, immr), oprSize
-  | Op.UBFM, FourOperands (rd, rn, immr, OprImm imms), oprSize
+    Op.LSR, ThreeOperands(rd, rn, immr), oprSize
+  | Op.UBFM, FourOperands(rd, rn, immr, OprImm imms), oprSize
       when (oprSize = 64<rt>) && (imms = 0b111111L) ->
-    Op.LSR, ThreeOperands (rd, rn, immr), oprSize
-  | Op.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
+    Op.LSR, ThreeOperands(rd, rn, immr), oprSize
+  | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
       when imms < immr ->
     let lsb = (RegType.toBitWidth oprSize |> int64) - immr
-    Op.UBFIZ, FourOperands (rd, rn, OprImm lsb, OprImm (imms + 1L)),
+    Op.UBFIZ, FourOperands(rd, rn, OprImm lsb, OprImm(imms + 1L)),
     oprSize
-  | Op.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
+  | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
       when bfxPreferred sf 1u (uint32 imms) (uint32 immr) ->
     Op.UBFX,
-    FourOperands (rd, rn, OprImm immr, OprImm (imms - immr + 1L)), oprSize
-  | Op.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
+    FourOperands(rd, rn, OprImm immr, OprImm(imms - immr + 1L)), oprSize
+  | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
       when immr = 0b000000L && imms = 0b000111L ->
-    Op.UXTB, TwoOperands (rd, rn), oprSize
-  | Op.UBFM, FourOperands (rd, rn, OprImm immr, OprImm imms), oprSize
+    Op.UXTB, TwoOperands(rd, rn), oprSize
+  | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
       when immr = 0b000000L && imms = 0b001111L ->
-    Op.UXTH, TwoOperands (rd, rn), oprSize
+    Op.UXTH, TwoOperands(rd, rn), oprSize
   | _ -> instr
 
 let parseBitfield bin =
@@ -524,8 +801,8 @@ let parseBitfield bin =
 
 let changeToAliasOfExtract instr =
   match instr with
-  | Op.EXTR, FourOperands (rd, rn, rm, lsb), oprSize when rn = rm ->
-    Op.ROR, ThreeOperands (rd, rn, lsb), oprSize
+  | Op.EXTR, FourOperands(rd, rn, rm, lsb), oprSize when rn = rm ->
+    Op.ROR, ThreeOperands(rd, rn, lsb), oprSize
   | _ -> instr
 
 let parseExtract bin =
@@ -547,11 +824,11 @@ let parseExtract bin =
 
 let changeToAliasOfLogical bin instr =
   match instr with
-  | Op.ORR, ThreeOperands (rd, _, imm), oprSize
+  | Op.ORR, ThreeOperands(rd, _, imm), oprSize
       when valN bin = 0b11111u && (not (moveWidePreferred bin)) ->
-    Op.MOV, TwoOperands (rd, imm), oprSize
-  | Op.ANDS, ThreeOperands (_, rn, imm), oprSize when valD bin = 0b11111u ->
-    Op.TST, TwoOperands (rn, imm), oprSize
+    Op.MOV, TwoOperands(rd, imm), oprSize
+  | Op.ANDS, ThreeOperands(_, rn, imm), oprSize when valD bin = 0b11111u ->
+    Op.TST, TwoOperands(rn, imm), oprSize
   | _ -> instr
 
 let parseLogical bin =
@@ -574,19 +851,19 @@ let changeToAliasOfMoveWide bin instr =
   let hw = extract bin 22u 21u
   match instr with
   (* C6.2.122 MOV (inverted wide immediate) *)
-  | Op.MOVN, ThreeOperands (xd, OprImm imm16, OprShift (_, Imm amt)), oprSz
+  | Op.MOVN, ThreeOperands(xd, OprImm imm16, OprShift(_, Imm amt)), oprSz
       when is64Bit && not (0b0L = imm16 && hw <> 0b00u) ->
     let imm = ~~~ (imm16 <<< int32 amt)
-    Op.MOV, TwoOperands (xd, OprImm imm), oprSz
-  | Op.MOVN, ThreeOperands (wd, OprImm imm16, OprShift (_, Imm amt)), oprSz
+    Op.MOV, TwoOperands(xd, OprImm imm), oprSz
+  | Op.MOVN, ThreeOperands(wd, OprImm imm16, OprShift(_, Imm amt)), oprSz
       when not is64Bit && not (0b0L = imm16 && hw <> 0b00u)
            && (0b1111111111111111L <> imm16) ->
     let imm = ~~~ (uint32 (imm16 <<< int32 amt)) |> int64
-    Op.MOV, TwoOperands (wd, OprImm imm), oprSz
+    Op.MOV, TwoOperands(wd, OprImm imm), oprSz
   (* C6.2.123 MOV (wide immediate) *)
-  | Op.MOVZ, ThreeOperands (rd, OprImm imm16, OprShift (_, Imm amt)), oprSz
+  | Op.MOVZ, ThreeOperands(rd, OprImm imm16, OprShift(_, Imm amt)), oprSz
     when not (imm16 = 0b0L && hw <> 0b00u) ->
-    Op.MOV, TwoOperands (rd, OprImm (imm16 <<< (int32 amt))), oprSz
+    Op.MOV, TwoOperands(rd, OprImm(imm16 <<< (int32 amt))), oprSz
   | _ -> instr
 
 let parseMoveWide bin =
@@ -665,11 +942,11 @@ let parseExcepGen bin =
     | 0b10100011u -> Op.DCPS3
     | c when c &&& 0b11011100u = 0b11000000u -> raise UnallocatedException
     | _ -> raise InvalidOpcodeException
-  opCode, OneOperand (OprImm (valImm16 bin |> int64)), 16<rt>
+  opCode, OneOperand(OprImm(valImm16 bin |> int64)), 16<rt>
 
 let getISBOprs = function
-  | 0b1111L -> OneOperand (OprOption SY)
-  | imm -> OneOperand (OprImm imm)
+  | 0b1111L -> OneOperand(OprOption SY)
+  | imm -> OneOperand(OprImm imm)
 
 let private getDCInstruction bin =
   match extract bin 18u 5u with
@@ -686,7 +963,7 @@ let private getDCInstruction bin =
 
 let changeToAliasOfSystem bin instr =
   match instr with
-  | Op.SYS, FiveOperands (_, OprRegister cn, _, _, xt), oSz
+  | Op.SYS, FiveOperands(_, OprRegister cn, _, _, xt), oSz
       when cn = R.C7 && sysOp bin = SysDC ->
     getDCInstruction bin, OneOperand xt, oSz
   | _ -> instr
@@ -719,7 +996,7 @@ let parseSystem bin =
   | c when c &&& 0b1111111111000u = 0b0000110010000u &&
            not isCRmZero && isRt1F ->
     let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
-    Op.HINT, OneOperand (OprImm imm), 0<rt> (* Hints 8 to 127 variant *)
+    Op.HINT, OneOperand(OprImm imm), 0<rt> (* Hints 8 to 127 variant *)
   | 0b0000110010000u when isCRmZero && isRt1F -> Op.NOP, NoOperand, 0<rt>
   | 0b0000110010001u when isCRmZero && isRt1F -> Op.YIELD, NoOperand, 0<rt>
   | 0b0000110010010u when isCRmZero && isRt1F -> Op.WFE, NoOperand, 0<rt>
@@ -728,11 +1005,11 @@ let parseSystem bin =
   | 0b0000110010101u when isCRmZero && isRt1F -> Op.SEVL, NoOperand, 0<rt>
   | c when c &&& 0b1111111111110u = 0b0000110010110u && isCRmZero && isRt1F ->
     let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
-    Op.HINT, OneOperand (OprImm imm), 0<rt> (* Hints 6 and 7 variant *)
+    Op.HINT, OneOperand(OprImm imm), 0<rt> (* Hints 6 and 7 variant *)
   | 0b0000110011000u -> raise UnallocatedException
   | 0b0000110011001u -> raise UnallocatedException
   | 0b0000110011010u when isRt1F ->
-    Op.CLREX, OneOperand (OprImm crm), 0<rt>
+    Op.CLREX, OneOperand(OprImm crm), 0<rt>
   | 0b0000110011011u -> raise UnallocatedException
   | 0b0000110011100u when isRt1F -> Op.DSB, getOptionOrimm bin, 0<rt>
   | 0b0000110011101u when isRt1F -> Op.DMB, getOptionOrimm bin, 0<rt>
@@ -759,12 +1036,12 @@ let parseTestBranchImm bin =
   let imm = concat b5 (extract bin 23u 19u) 5 |> int64
   let label =
     memLabel (extract bin 18u 5u <<< 2 |> uint64 |> signExtend 16 64 |> int64)
-  opCode, ThreeOperands (OprRegister rt, OprImm imm, label), oprSize
+  opCode, ThreeOperands(OprRegister rt, OprImm imm, label), oprSize
 
 let parseUncondBranchImm bin =
   let opCode = if (pickBit bin 31u) = 0u then Op.B else Op.BL
   let offset = signExtend 28 64 (extract bin 25u 0u <<< 2 |> uint64) |> int64
-  opCode, OneOperand (memLabel offset), 64<rt>
+  opCode, OneOperand(memLabel offset), 64<rt>
 
 let parseUncondBranchReg bin =
   let opc = extract bin 24u 21u
@@ -778,14 +1055,14 @@ let parseUncondBranchReg bin =
   match opc with
   | 0b0000u when isOp21F && isOp3Zero && isOp4Zero ->
     Op.BR,
-    OneOperand (OprRegister <| getRegister64 64<rt> (byte rn)), 64<rt>
+    OneOperand(OprRegister <| getRegister64 64<rt> (byte rn)), 64<rt>
   | 0b0001u when isOp21F && isOp3Zero && isOp4Zero ->
     Op.BLR,
-    OneOperand (OprRegister <| getRegister64 64<rt> (byte rn)),
+    OneOperand(OprRegister <| getRegister64 64<rt> (byte rn)),
     64<rt>
   | 0b0010u when isOp21F && isOp3Zero && isOp4Zero ->
     Op.RET,
-    OneOperand (OprRegister <| getRegister64 64<rt> (byte rn)),
+    OneOperand(OprRegister <| getRegister64 64<rt> (byte rn)),
     64<rt>
   | 0b0011u -> raise UnallocatedException
   | o when o &&& 1110u = 0100u && not isRn1F -> raise UnallocatedException
@@ -1606,7 +1883,9 @@ let parse64Group3 bin =
 
 /// The alias is always the preferred disassembly.
 let toAliasFromLSLV _ = Op.LSL
+
 let toAliasFromLSRV _ = Op.LSR
+
 let toAliasFromASRV _ = Op.ASR
 
 let parseDataProcessing2Src bin =
@@ -1682,13 +1961,13 @@ let changeToAliasOfShiftReg bin instr =
   let isI6Zero = imm6 bin = 0b000000u
   let isRn11111 = valN bin = 0b11111u
   match instr with
-  | Op.ORR, FourOperands (rd, _, rm, _), oprSize
+  | Op.ORR, FourOperands(rd, _, rm, _), oprSize
       when isShfZero && isI6Zero && isRn11111 ->
-    Op.MOV, TwoOperands (rd, rm), oprSize
-  | Op.ORN, FourOperands (rd, _, rm, s), oprSize when isRn11111 ->
-    Op.MVN, ThreeOperands (rd, rm, s), oprSize
-  | Op.ANDS, FourOperands (_, rn, rm, s), oprSz when valD bin = 0b11111u ->
-    Op.TST, ThreeOperands (rn, rm, s), oprSz
+    Op.MOV, TwoOperands(rd, rm), oprSize
+  | Op.ORN, FourOperands(rd, _, rm, s), oprSize when isRn11111 ->
+    Op.MVN, ThreeOperands(rd, rm, s), oprSize
+  | Op.ANDS, FourOperands(_, rn, rm, s), oprSz when valD bin = 0b11111u ->
+    Op.TST, ThreeOperands(rn, rm, s), oprSz
   | _ -> instr
 
 let parseLogicalShiftedReg bin =
@@ -1718,14 +1997,14 @@ let parseLogicalShiftedReg bin =
 
 let changeToAliasOfAddSubShiftReg bin instr =
   match instr with
-  | Op.ADDS, FourOperands (_, rn, rm, shf), oprSize when valD bin = 0b11111u
-    -> Op.CMN, ThreeOperands (rn, rm, shf), oprSize
-  | Op.SUB, FourOperands (rd, _, rm, shf), oprSize when valN bin = 0b11111u
-    -> Op.NEG, ThreeOperands (rd, rm, shf), oprSize
-  | Op.SUBS, FourOperands (_, rn, rm, shf), oprSize when valD bin = 0b11111u
-    -> Op.CMP, ThreeOperands (rn, rm, shf), oprSize
-  | Op.SUBS, FourOperands (rd, _, rm, shf), oprSize when valN bin = 0b11111u
-    -> Op.NEGS, ThreeOperands (rd, rm, shf), oprSize
+  | Op.ADDS, FourOperands(_, rn, rm, shf), oprSize when valD bin = 0b11111u
+    -> Op.CMN, ThreeOperands(rn, rm, shf), oprSize
+  | Op.SUB, FourOperands(rd, _, rm, shf), oprSize when valN bin = 0b11111u
+    -> Op.NEG, ThreeOperands(rd, rm, shf), oprSize
+  | Op.SUBS, FourOperands(_, rn, rm, shf), oprSize when valD bin = 0b11111u
+    -> Op.CMP, ThreeOperands(rn, rm, shf), oprSize
+  | Op.SUBS, FourOperands(rd, _, rm, shf), oprSize when valN bin = 0b11111u
+    -> Op.NEGS, ThreeOperands(rd, rm, shf), oprSize
   | _ -> instr
 
 let parseAddSubShiftReg bin =
@@ -1745,10 +2024,10 @@ let parseAddSubShiftReg bin =
   |> changeToAliasOfAddSubShiftReg bin
 
 let changeToAliasOfExtReg bin = function
-  | Op.ADDS, FourOperands (_, rn, rm, ext), oprSize when valD bin = 0b11111u
-    -> Op.CMN, ThreeOperands (rn, rm, ext), oprSize
-  | Op.SUBS, FourOperands (_, rn, rm, ext), oprSize when valD bin = 0b11111u
-    -> Op.CMP, ThreeOperands (rn, rm, ext), oprSize
+  | Op.ADDS, FourOperands(_, rn, rm, ext), oprSize when valD bin = 0b11111u
+    -> Op.CMN, ThreeOperands(rn, rm, ext), oprSize
+  | Op.SUBS, FourOperands(_, rn, rm, ext), oprSize when valD bin = 0b11111u
+    -> Op.CMP, ThreeOperands(rn, rm, ext), oprSize
   | instr -> instr
 
 let parseAddSubExtReg bin =
@@ -1771,10 +2050,10 @@ let parseAddSubExtReg bin =
   |> changeToAliasOfExtReg bin
 
 let changeToAliasOfWithCarry = function
-  | Op.SBC, ThreeOperands (rd, _, rm), oSz ->
-    Op.NGC, TwoOperands (rd, rm), oSz
-  | Op.SBCS, ThreeOperands (rd, _, rm), oSz ->
-    Op.NGCS, TwoOperands (rd, rm), oSz
+  | Op.SBC, ThreeOperands(rd, _, rm), oSz ->
+    Op.NGC, TwoOperands(rd, rm), oSz
+  | Op.SBCS, ThreeOperands(rd, _, rm), oSz ->
+    Op.NGCS, TwoOperands(rd, rm), oSz
   | instr -> instr
 
 let parseAddSubWithCarry bin =
@@ -1835,16 +2114,16 @@ let changeToAliasOfCondSelect bin instr =
   let cond2 = rm = 0b11111u && isCondNot1111x && rn = 0b11111u
   let cond3 = isCondNot1111x && rn = rm
   match instr with
-  | Op.CSINC, FourOperands (rd, rn, _, _), oprSize when cond1 ->
-    Op.CINC, ThreeOperands (rd, rn, cond), oprSize
-  | Op.CSINC, FourOperands (rd, _, _, _), oprSize when cond2 ->
-    Op.CSET, TwoOperands (rd, cond), oprSize
-  | Op.CSINV, FourOperands (rd, rn, _, _), oprSize when cond1 ->
-    Op.CINV, ThreeOperands (rd, rn, cond), oprSize
-  | Op.CSINV, FourOperands (rd, _, _, _), oprSize when cond2 ->
-    Op.CSETM, TwoOperands (rd, cond), oprSize
-  | Op.CSNEG, FourOperands (rd, rn, _, _), oprSize when cond3 ->
-    Op.CNEG, ThreeOperands (rd, rn, cond), oprSize
+  | Op.CSINC, FourOperands(rd, rn, _, _), oprSize when cond1 ->
+    Op.CINC, ThreeOperands(rd, rn, cond), oprSize
+  | Op.CSINC, FourOperands(rd, _, _, _), oprSize when cond2 ->
+    Op.CSET, TwoOperands(rd, cond), oprSize
+  | Op.CSINV, FourOperands(rd, rn, _, _), oprSize when cond1 ->
+    Op.CINV, ThreeOperands(rd, rn, cond), oprSize
+  | Op.CSINV, FourOperands(rd, _, _, _), oprSize when cond2 ->
+    Op.CSETM, TwoOperands(rd, cond), oprSize
+  | Op.CSNEG, FourOperands(rd, rn, _, _), oprSize when cond3 ->
+    Op.CNEG, ThreeOperands(rd, rn, cond), oprSize
   | instr -> instr
 
 let parseCondSelect bin =
@@ -1864,18 +2143,18 @@ let parseCondSelect bin =
   |> changeToAliasOfCondSelect bin
 
 let changeToAliasOfDataProcessing3Src = function
-  | Op.MADD, FourOperands (rd, rn, rm, _), oprSize ->
-    Op.MUL, ThreeOperands (rd, rn, rm), oprSize
-  | Op.MSUB, FourOperands (rd, rn, rm, _), oprSize ->
-    Op.MNEG, ThreeOperands (rd, rn, rm), oprSize
-  | Op.SMADDL, FourOperands (rd, rn, rm, _), oprSize ->
-    Op.SMULL, ThreeOperands (rd, rn, rm), oprSize
-  | Op.SMSUBL, FourOperands (rd, rn, rm, _), oprSize ->
-    Op.SMNEGL, ThreeOperands (rd, rn, rm), oprSize
-  | Op.UMADDL, FourOperands (rd, rn, rm, _), oprSize ->
-    Op.UMULL, ThreeOperands (rd, rn, rm), oprSize
-  | Op.UMSUBL, FourOperands (rd, rn, rm, _), oprSize ->
-    Op.UMNEGL, ThreeOperands (rd, rn, rm), oprSize
+  | Op.MADD, FourOperands(rd, rn, rm, _), oprSize ->
+    Op.MUL, ThreeOperands(rd, rn, rm), oprSize
+  | Op.MSUB, FourOperands(rd, rn, rm, _), oprSize ->
+    Op.MNEG, ThreeOperands(rd, rn, rm), oprSize
+  | Op.SMADDL, FourOperands(rd, rn, rm, _), oprSize ->
+    Op.SMULL, ThreeOperands(rd, rn, rm), oprSize
+  | Op.SMSUBL, FourOperands(rd, rn, rm, _), oprSize ->
+    Op.SMNEGL, ThreeOperands(rd, rn, rm), oprSize
+  | Op.UMADDL, FourOperands(rd, rn, rm, _), oprSize ->
+    Op.UMULL, ThreeOperands(rd, rn, rm), oprSize
+  | Op.UMSUBL, FourOperands(rd, rn, rm, _), oprSize ->
+    Op.UMNEGL, ThreeOperands(rd, rn, rm), oprSize
   | instr -> instr
 
 let parseDataProcessing3Src bin =
@@ -2274,8 +2553,8 @@ let parseAdvSIMDThreeDiff bin =
   | _ -> raise InvalidOpcodeException
 
 let changeToAliasOfAdvSIMDThreeSame bin = function
-  | Op.ORR, ThreeOperands (vdt, vnt, _) when valM bin = valN bin ->
-    Op.MOV, TwoOperands (vdt, vnt)
+  | Op.ORR, ThreeOperands(vdt, vnt, _) when valM bin = valN bin ->
+    Op.MOV, TwoOperands(vdt, vnt)
   | instr -> instr
 
 let parseAdvSIMDThreeSame b =
@@ -3050,7 +3329,6 @@ let parseConvBetwFPAndInt bin =
   | c when c &&& 0b011100110u = 0b001000100u -> raise UnallocatedException
   | c when c &&& 0b010000000u = 0b010000000u -> raise UnallocatedException
   | c when c &&& 0b111101110u = 0b000001110u -> raise UnallocatedException
-
   | 0b000000000u -> Op.FCVTNS, getWdSn bin, 32<rt>
   | 0b000000001u -> Op.FCVTNU, getWdSn bin, 32<rt>
   | 0b000000010u -> Op.SCVTF, getSdWn bin, 32<rt>
@@ -3369,6 +3647,8 @@ let parseByGroupOfB64 bin =
   | _ -> raise InvalidOpcodeException
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
-  let bin = reader.ReadUInt32 (span, 0)
+  let bin = reader.ReadUInt32(span, 0)
   let opcode, operands, oprSize = parseByGroupOfB64 bin
-  Instruction (addr, 4u, None, opcode, operands, oprSize, lifter)
+  Instruction(addr, 4u, None, opcode, operands, oprSize, lifter)
+
+// vim: set tw=80 sts=2 sw=2:

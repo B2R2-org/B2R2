@@ -65,13 +65,13 @@ let getRegister = function
   | 0x22uy -> Z
   | _ -> raise InvalidRegisterException
 
-let memPreIdx offset = OprMemory (PreIdxMode (offset))
+let memPreIdx offset = OprMemory(PreIdxMode(offset))
 
-let memPostIdx offset = OprMemory (PostIdxMode (offset))
+let memPostIdx offset = OprMemory(PostIdxMode(offset))
 
-let memDisp offset = OprMemory (DispMode (offset))
+let memDisp offset = OprMemory(DispMode(offset))
 
-let memUnch offset = OprMemory (UnchMode (offset))
+let memUnch offset = OprMemory(UnchMode(offset))
 
 let extract binary n1 n2 =
   let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
@@ -91,9 +91,9 @@ let pickBit binary (pos: uint32) = binary >>> int pos &&& 0b1u
 
 let concat (n1: uint32) (n2: uint32) shift = (n1 <<< shift) + n2
 
-let parseOneOpr b op1 = OneOperand (op1 b)
+let parseOneOpr b op1 = OneOperand(op1 b)
 
-let parseTwoOpr b op1 op2 = TwoOperands (op1 b, op2 b)
+let parseTwoOpr b op1 op2 = TwoOperands(op1 b, op2 b)
 
 let getReg b s e = getRegister (extract b s e |> byte)
 

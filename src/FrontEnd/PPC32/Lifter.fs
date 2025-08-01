@@ -40,19 +40,19 @@ let getOneOpr (ins: Instruction) =
 
 let getTwoOprs (ins: Instruction) =
   match ins.Operands with
-  | TwoOperands (o1, o2) -> struct (o1, o2)
+  | TwoOperands(o1, o2) -> struct (o1, o2)
   | _ -> raise InvalidOperandException
 
 let getThreeOprs (ins: Instruction) =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> struct (o1, o2, o3)
+  | ThreeOperands(o1, o2, o3) -> struct (o1, o2, o3)
   | _ -> raise InvalidOperandException
 
 let getExtMask mb me =
   let struct (mb, me) =
     match mb, me with
-    | Num (b, _), Num (m, _) ->
-      struct (b.SmallValue () |> int, m.SmallValue () |> int)
+    | Num(b, _), Num(m, _) ->
+      struct (b.SmallValue() |> int, m.SmallValue() |> int)
     | _ -> raise InvalidExprException
   let allOnes = System.UInt32.MaxValue
   let mask =
@@ -74,14 +74,14 @@ let loadNative (bld: ILowUIRBuilder) rt addr =
 /// Operand of the form d(rA) where the EA is (rA|0) + d.
 let transEAWithOffset opr (bld: ILowUIRBuilder) =
   match opr with
-  | OprMem (d, Register.R0) -> numI32 d bld.RegType
-  | OprMem (d, b) -> regVar bld b .+ numI32 d bld.RegType
+  | OprMem(d, Register.R0) -> numI32 d bld.RegType
+  | OprMem(d, b) -> regVar bld b .+ numI32 d bld.RegType
   | _ -> raise InvalidOperandException
 
 /// Operand of the form d(rA) where the EA is rA + d. rA is updated with EA.
 let transEAWithOffsetForUpdate opr (bld: ILowUIRBuilder) =
   match opr with
-  | OprMem (d, b) ->
+  | OprMem(d, b) ->
     let rA = regVar bld b
     struct (rA .+ numI32 d bld.RegType, rA)
   | _ -> raise InvalidOperandException
@@ -103,7 +103,7 @@ let transEAWithIndexRegForUpdate rA rB bld =
 
 let transOpr bld = function
   | OprReg reg -> regVar bld reg
-  | OprMem (d, b) -> (* FIXME *)
+  | OprMem(d, b) -> (* FIXME *)
     loadNative bld 32<rt> (regVar bld b .+ numI32 d bld.RegType)
   | OprImm imm -> numU64 imm bld.RegType
   | OprAddr addr ->
@@ -117,21 +117,19 @@ let transOneOpr (ins: Instruction) bld =
 
 let transTwoOprs (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands (o1, o2) ->
+  | TwoOperands(o1, o2) ->
     struct (transOpr bld o1, transOpr bld o2)
   | _ -> raise InvalidOperandException
 
 let transThreeOprs (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) ->
-    struct (transOpr bld o1,
-            transOpr bld o2,
-            transOpr bld o3)
+  | ThreeOperands(o1, o2, o3) ->
+    struct (transOpr bld o1, transOpr bld o2, transOpr bld o3)
   | _ -> raise InvalidOperandException
 
 let transFourOprs (ins: Instruction) bld =
   match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) ->
+  | FourOperands(o1, o2, o3, o4) ->
     struct (transOpr bld o1,
             transOpr bld o2,
             transOpr bld o3,
@@ -140,7 +138,7 @@ let transFourOprs (ins: Instruction) bld =
 
 let transFiveOprs (ins: Instruction) bld =
   match ins.Operands with
-  | FiveOperands (o1, o2, o3, o4, o5) ->
+  | FiveOperands(o1, o2, o3, o4, o5) ->
     struct (transOpr bld o1,
             transOpr bld o2,
             transOpr bld o3,
@@ -194,46 +192,38 @@ let transCRxToExpr bld reg =
 
 let transCmpOprs (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands (OprReg o1, o2, o3) ->
-    struct (transCRxToExpr bld o1,
-            transOpr bld o2,
-            transOpr bld o3)
-
-  | FourOperands (OprReg o1, _ , o3, o4) ->
-    struct (transCRxToExpr bld o1,
-            transOpr bld o3,
-            transOpr bld o4)
+  | ThreeOperands(OprReg o1, o2, o3) ->
+    struct (transCRxToExpr bld o1, transOpr bld o2, transOpr bld o3)
+  | FourOperands(OprReg o1, _ , o3, o4) ->
+    struct (transCRxToExpr bld o1, transOpr bld o3, transOpr bld o4)
   | _ -> raise InvalidOperandException
 
 let transCondOneOpr (ins: Instruction) bld =
   match ins.Operands with
-  | OneOperand (OprReg o) ->
-    transCRxToExpr bld o
+  | OneOperand(OprReg o) -> transCRxToExpr bld o
   | _ -> raise InvalidOperandException
 
 let transCondTwoOprs (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands (OprReg o1, OprReg o2) ->
+  | TwoOperands(OprReg o1, OprReg o2) ->
     struct (transCRxToExpr bld o1, transCRxToExpr bld o2)
   | _ -> raise InvalidOperandException
 
 let transCondThreeOprs (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands (OprReg o1, OprReg o2, OprReg o3) ->
-    struct (transCRxToExpr bld o1,
-            transCRxToExpr bld o2,
-            transCRxToExpr bld o3)
+  | ThreeOperands(OprReg o1, OprReg o2, OprReg o3) ->
+    struct (transCRxToExpr bld o1, transCRxToExpr bld o2, transCRxToExpr bld o3)
   | _ -> raise InvalidOperandException
 
 let transBranchTwoOprs (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands (OprImm o1, OprBI o2) ->
+  | TwoOperands(OprImm o1, OprBI o2) ->
     struct (uint32 o1, getCRbitRegister o2 |> regVar bld)
   | _ -> raise InvalidOperandException
 
 let transBranchThreeOprs (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands (OprImm o1, OprBI o2, OprAddr o3) ->
+  | ThreeOperands(OprImm o1, OprBI o2, OprAddr o3) ->
     struct (uint32 o1,
             getCRbitRegister o2 |> regVar bld,
             numI64 (int64 o3) bld.RegType)
@@ -491,7 +481,7 @@ let andx ins insLen updateCond bld =
 let andc ins insLen updateCond bld =
   let struct (dst, src1, src2) = transThreeOprs ins bld
   bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src1 .& AST.not(src2))
+  bld <+ (dst := src1 .& AST.not (src2))
   if updateCond then setCR0Reg bld dst else ()
   bld --!> insLen
 
@@ -662,13 +652,13 @@ let crorc ins insLen bld =
 let creqv ins insLen bld =
   let struct (crbD, crbA, crbB) = transThreeOprs ins bld
   bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := crbA <+> AST.not(crbB))
+  bld <+ (crbD := crbA <+> AST.not (crbB))
   bld --!> insLen
 
 let crset ins insLen bld =
   let crbD = transOneOpr ins bld
   bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := crbD <+> AST.not(crbD))
+  bld <+ (crbD := crbD <+> AST.not (crbD))
   bld --!> insLen
 
 let crnand ins insLen bld =
@@ -1345,7 +1335,7 @@ let mflr ins insLen bld =
 let mfspr (ins: Instruction) insLen bld =
   let struct (dst, spr) =
     match ins.Operands with
-    | TwoOperands (o1, OprImm o2) ->
+    | TwoOperands(o1, OprImm o2) ->
       transOpr bld o1, getSPRReg bld o2
     | _ -> raise InvalidOperandException
   bld <!-- (ins.Address, insLen)
@@ -1392,7 +1382,7 @@ let mtfsfi ins insLen updateCond bld =
 let mtspr (ins: Instruction) insLen bld =
   let struct (spr, rs) =
     match ins.Operands with
-    | TwoOperands (OprImm o1, o2) ->
+    | TwoOperands(OprImm o1, o2) ->
       getSPRReg bld o1, transOpr bld o2
     | _ -> raise InvalidOperandException
   bld <!-- (ins.Address, insLen)
@@ -1502,7 +1492,7 @@ let mullw ins insLen updateCond ovCond bld =
 let nand ins insLen updateCond bld =
   let struct (dst, src1, src2) = transThreeOprs ins bld
   bld <!-- (ins.Address, insLen)
-  bld <+ (dst := AST.not(src1 .& src2))
+  bld <+ (dst := AST.not (src1 .& src2))
   if updateCond then setCR0Reg bld dst else ()
   bld --!> insLen
 
@@ -1538,7 +1528,7 @@ let orx ins insLen updateCond bld =
 let orc ins insLen updateCond bld =
   let struct (dst, src1, src2) = transThreeOprs ins bld
   bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src1 .| AST.not(src2))
+  bld <+ (dst := src1 .| AST.not (src2))
   if updateCond then setCR0Reg bld dst else ()
   bld --!> insLen
 
@@ -2182,12 +2172,12 @@ let translate (ins: Instruction) insLen bld =
   | Op.LFSX -> lfsx ins insLen bld
   | Op.LHA -> lha ins insLen bld
   | Op.LHAU -> lhau ins insLen bld
-  | Op.LHAUX ->lhaux ins insLen bld
+  | Op.LHAUX -> lhaux ins insLen bld
   | Op.LHAX -> lhax ins insLen bld
   | Op.LHBRX -> lhbrx ins insLen bld
   | Op.LHZ -> lhz ins insLen bld
   | Op.LHZU -> lhzu ins insLen bld
-  | Op.LHZUX ->lhzux ins insLen bld
+  | Op.LHZUX -> lhzux ins insLen bld
   | Op.LHZX -> lhzx ins insLen bld
   | Op.LI -> li ins insLen bld
   | Op.LIS -> lis ins insLen bld
@@ -2331,4 +2321,6 @@ let translate (ins: Instruction) insLen bld =
 #if DEBUG
          eprintfn "%A" o
 #endif
-         raise <| NotImplementedIRException (Disasm.opCodeToString o)
+         raise <| NotImplementedIRException(Disasm.opCodeToString o)
+
+// vim: set tw=80 sts=2 sw=2:

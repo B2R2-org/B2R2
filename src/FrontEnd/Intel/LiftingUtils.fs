@@ -56,7 +56,7 @@ let inline getEffAddrSz (i: Instruction) = i.PointerSize
 
 let inline getImmValue imm =
   match imm with
-  | OprImm (imm, _) -> imm
+  | OprImm(imm, _) -> imm
   | _ -> raise InvalidOperandException
 
 let inline isConst (e: Expr) =
@@ -66,30 +66,30 @@ let inline isConst (e: Expr) =
 
 let private getMemExpr128 expr =
   match expr with
-  | Load (e, 128<rt>, BinOp (BinOpType.ADD, _, b, Num (n, _), _), _)
-  | Load (e, 128<rt>, BinOp (BinOpType.ADD, _, Num (n, _), b, _), _) ->
+  | Load(e, 128<rt>, BinOp(BinOpType.ADD, _, b, Num(n, _), _), _)
+  | Load(e, 128<rt>, BinOp(BinOpType.ADD, _, Num(n, _), b, _), _) ->
     let off1 = AST.num n
-    let off2 = BitVector.Add (n, BitVector.OfInt32(8, n.Length)) |> AST.num
+    let off2 = BitVector.Add(n, BitVector.OfInt32(8, n.Length)) |> AST.num
     struct (AST.load e 64<rt> (b .+ off2),
             AST.load e 64<rt> (b .+ off1))
-  | Load (e, 128<rt>, expr, _) ->
+  | Load(e, 128<rt>, expr, _) ->
     struct (AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr)),
             AST.load e 64<rt> expr)
   | _ -> raise InvalidOperandException
 
 let private getMemExpr256 expr =
   match expr with
-  | Load (e, 256<rt>, BinOp (BinOpType.ADD, _, b, Num (n, _), _), _)
-  | Load (e, 256<rt>, BinOp (BinOpType.ADD, _, Num (n, _), b, _), _) ->
+  | Load(e, 256<rt>, BinOp(BinOpType.ADD, _, b, Num(n, _), _), _)
+  | Load(e, 256<rt>, BinOp(BinOpType.ADD, _, Num(n, _), b, _), _) ->
     let off1 = AST.num n
-    let off2 = BitVector.Add (n, BitVector.OfInt32(8, n.Length)) |> AST.num
-    let off3 = BitVector.Add (n, BitVector.OfInt32(16, n.Length)) |> AST.num
-    let off4 = BitVector.Add (n, BitVector.OfInt32(24, n.Length)) |> AST.num
+    let off2 = BitVector.Add(n, BitVector.OfInt32(8, n.Length)) |> AST.num
+    let off3 = BitVector.Add(n, BitVector.OfInt32(16, n.Length)) |> AST.num
+    let off4 = BitVector.Add(n, BitVector.OfInt32(24, n.Length)) |> AST.num
     struct (AST.load e 64<rt> (b .+ off4),
             AST.load e 64<rt> (b .+ off3),
             AST.load e 64<rt> (b .+ off2),
             AST.load e 64<rt> (b .+ off1))
-  | Load (e, 256<rt>, expr, _) ->
+  | Load(e, 256<rt>, expr, _) ->
     struct (AST.load e 64<rt> (expr .+ numI32 24 (Expr.TypeOf expr)),
             AST.load e 64<rt> (expr .+ numI32 16 (Expr.TypeOf expr)),
             AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr)),
@@ -98,16 +98,16 @@ let private getMemExpr256 expr =
 
 let private getMemExpr512 expr =
   match expr with
-  | Load (e, 512<rt>, BinOp (BinOpType.ADD, _, b, Num (n, _), _), _)
-  | Load (e, 512<rt>, BinOp (BinOpType.ADD, _, Num (n, _), b, _), _) ->
+  | Load(e, 512<rt>, BinOp(BinOpType.ADD, _, b, Num(n, _), _), _)
+  | Load(e, 512<rt>, BinOp(BinOpType.ADD, _, Num(n, _), b, _), _) ->
     let off1 = AST.num n
-    let off2 = BitVector.Add (n, BitVector.OfInt32(8, n.Length)) |> AST.num
-    let off3 = BitVector.Add (n, BitVector.OfInt32(16, n.Length)) |> AST.num
-    let off4 = BitVector.Add (n, BitVector.OfInt32(24, n.Length)) |> AST.num
-    let off5 = BitVector.Add (n, BitVector.OfInt32(32, n.Length)) |> AST.num
-    let off6 = BitVector.Add (n, BitVector.OfInt32(40, n.Length)) |> AST.num
-    let off7 = BitVector.Add (n, BitVector.OfInt32(48, n.Length)) |> AST.num
-    let off8 = BitVector.Add (n, BitVector.OfInt32(56, n.Length)) |> AST.num
+    let off2 = BitVector.Add(n, BitVector.OfInt32(8, n.Length)) |> AST.num
+    let off3 = BitVector.Add(n, BitVector.OfInt32(16, n.Length)) |> AST.num
+    let off4 = BitVector.Add(n, BitVector.OfInt32(24, n.Length)) |> AST.num
+    let off5 = BitVector.Add(n, BitVector.OfInt32(32, n.Length)) |> AST.num
+    let off6 = BitVector.Add(n, BitVector.OfInt32(40, n.Length)) |> AST.num
+    let off7 = BitVector.Add(n, BitVector.OfInt32(48, n.Length)) |> AST.num
+    let off8 = BitVector.Add(n, BitVector.OfInt32(56, n.Length)) |> AST.num
     struct (AST.load e 64<rt> (b .+ off8),
             AST.load e 64<rt> (b .+ off7),
             AST.load e 64<rt> (b .+ off6),
@@ -116,7 +116,7 @@ let private getMemExpr512 expr =
             AST.load e 64<rt> (b .+ off3),
             AST.load e 64<rt> (b .+ off2),
             AST.load e 64<rt> (b .+ off1))
-  | Load (e, 512<rt>, expr, _) ->
+  | Load(e, 512<rt>, expr, _) ->
     struct (AST.load e 64<rt> (expr .+ numI32 56 (Expr.TypeOf expr)),
             AST.load e 64<rt> (expr .+ numI32 48 (Expr.TypeOf expr)),
             AST.load e 64<rt> (expr .+ numI32 40 (Expr.TypeOf expr)),
@@ -129,15 +129,15 @@ let private getMemExpr512 expr =
 
 let private getMemExprs expr =
   match expr with
-  | Load (e, 128<rt>, expr, _) ->
+  | Load(e, 128<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
       AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr)) ]
-  | Load (e, 256<rt>, expr, _) ->
+  | Load(e, 256<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
       AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr))
       AST.load e 64<rt> (expr .+ numI32 16 (Expr.TypeOf expr))
       AST.load e 64<rt> (expr .+ numI32 24 (Expr.TypeOf expr)) ]
-  | Load (e, 512<rt>, expr, _) ->
+  | Load(e, 512<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
       AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr))
       AST.load e 64<rt> (expr .+ numI32 16 (Expr.TypeOf expr))
@@ -200,7 +200,7 @@ let private numOfAddrSz (ins: Instruction) (bld: ILowUIRBuilder) n =
   let sz =
     if bld.RegType = 32<rt> then
       if Prefix.hasAddrSz pref then 16<rt> else 32<rt>
-    else if Prefix.hasAddrSz pref then 32<rt> else 64<rt>
+    elif Prefix.hasAddrSz pref then 32<rt> else 64<rt>
   numI64 n sz
 
 let inline private sIdx ins bld (r, s: Scale) =
@@ -264,19 +264,19 @@ let private transMem bld useTmpVar ins insLen b index disp oprSize =
 
 let transOprToExpr bld useTmpVar ins insLen = function
   | OprReg reg -> regVar bld reg
-  | OprMem (b, index, disp, oprSize) ->
+  | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize
-  | OprImm (imm, _) -> numI64 imm (getOperationSize ins)
-  | OprDirAddr (Relative offset) -> numI64 offset bld.RegType
-  | OprDirAddr (Absolute (_, addr, _)) -> numU64 addr bld.RegType
+  | OprImm(imm, _) -> numI64 imm (getOperationSize ins)
+  | OprDirAddr(Relative offset) -> numI64 offset bld.RegType
+  | OprDirAddr(Absolute(_, addr, _)) -> numU64 addr bld.RegType
   | _ -> Terminator.impossible ()
 
 let transOprToExprVec bld useTmpVar ins insLen opr =
   match opr with
   | OprReg r -> pseudoRegVars bld r
-  | OprMem (b, index, disp, oprSize) ->
+  | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExprs
-  | OprImm (imm, _) -> [ numI64 imm (getOperationSize ins) ]
+  | OprImm(imm, _) -> [ numI64 imm (getOperationSize ins) ]
   | _ -> raise InvalidOperandException
 
 let transOprToExpr16 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
@@ -284,7 +284,7 @@ let transOprToExpr16 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   | OprReg r when Register.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1 |> AST.xtlo 16<rt>
   | OprReg r -> regVar bld r
-  | OprMem (b, index, disp, 16<rt>) ->
+  | OprMem(b, index, disp, 16<rt>) ->
     transMem bld useTmpVar ins insLen b index disp 16<rt>
   | _ -> raise InvalidOperandException
 
@@ -293,7 +293,7 @@ let transOprToExpr32 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   | OprReg r when Register.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1 |> AST.xtlo 32<rt>
   | OprReg r -> regVar bld r
-  | OprMem (b, index, disp, 32<rt>) ->
+  | OprMem(b, index, disp, 32<rt>) ->
     transMem bld useTmpVar ins insLen b index disp 32<rt>
   | _ -> raise InvalidOperandException
 
@@ -302,42 +302,42 @@ let transOprToExpr64 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   | OprReg r when Register.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1
   | OprReg r -> regVar bld r
-  | OprMem (b, index, disp, 64<rt>) ->
+  | OprMem(b, index, disp, 64<rt>) ->
     transMem bld useTmpVar ins insLen b index disp 64<rt>
   | _ -> raise InvalidOperandException
 
 let transOprToExpr128 bld useTmpVar ins insLen opr =
   match opr with
   | OprReg r -> pseudoRegVar128 bld r
-  | OprMem (b, index, disp, oprSize) ->
+  | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr128
   | _ -> raise InvalidOperandException
 
 let transOprToExpr256 bld useTmpVar ins insLen opr =
   match opr with
   | OprReg r -> pseudoRegVar256 bld r
-  | OprMem (b, index, disp, oprSize) ->
+  | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr256
   | _ -> raise InvalidOperandException
 
 let transOprToExpr512 bld useTmpVar ins insLen opr =
   match opr with
   | OprReg r -> pseudoRegVar512 bld r
-  | OprMem (b, index, disp, oprSize) ->
+  | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr512
   | _ -> raise InvalidOperandException
 
 /// Return a tuple (jump target expr, is pc-relative?)
 let transJumpTargetOpr (bld: ILowUIRBuilder) useTmpVar ins pc insLen =
   match (ins: Instruction).Operands with
-  | OneOperand (OprDirAddr (Absolute (_, addr, _))) ->
+  | OneOperand(OprDirAddr(Absolute(_, addr, _))) ->
     struct (numU64 addr bld.RegType, false)
-  | OneOperand (OprDirAddr (Relative offset)) ->
+  | OneOperand(OprDirAddr(Relative offset)) ->
     let wordSize = bld.RegType
     let offset = numI64 offset wordSize |> AST.sext wordSize
     struct (pc .+ offset, true)
-  | OneOperand (OprReg reg) -> struct (regVar bld reg, false)
-  | OneOperand (OprMem (b, index, disp, oprSize)) ->
+  | OneOperand(OprReg reg) -> struct (regVar bld reg, false)
+  | OneOperand(OprMem(b, index, disp, oprSize)) ->
     struct (transMem bld useTmpVar ins insLen b index disp oprSize, false)
   | _ -> raise InvalidOperandException
 
@@ -451,8 +451,8 @@ let private convMMXToST = function
 
 let fillOnesToMMXHigh16 bld (ins: Instruction) =
   match ins.Operands with
-  | TwoOperands (OprReg _ as o, _)
-  | ThreeOperands (OprReg _ as o, _, _) ->
+  | TwoOperands(OprReg _ as o, _)
+  | ThreeOperands(OprReg _ as o, _, _) ->
     bld <+ (pseudoRegVar bld (convMMXToST o) 2 := AST.num BitVector.MaxUInt16)
   | _ -> ()
 
@@ -491,17 +491,17 @@ let assignPackedInstr bld useTmpVar ins insLen packNum oprSize dst result =
 
 let getTwoOprs (ins: Instruction) =
   match ins.Operands with
-  | TwoOperands (o1, o2) -> struct (o1, o2)
+  | TwoOperands(o1, o2) -> struct (o1, o2)
   | _ -> raise InvalidOperandException
 
 let getThreeOprs (ins: Instruction) =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> struct (o1, o2, o3)
+  | ThreeOperands(o1, o2, o3) -> struct (o1, o2, o3)
   | _ -> raise InvalidOperandException
 
 let getFourOprs (ins: Instruction) =
   match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
+  | FourOperands(o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
   | _ -> raise InvalidOperandException
 
 let transOneOpr bld (ins: Instruction) insLen =
@@ -512,7 +512,7 @@ let transOneOpr bld (ins: Instruction) insLen =
 let transReg bld useTmpVar expr =
   if useTmpVar then
     match expr with
-    | Extract (_, rt, _, _) ->
+    | Extract(_, rt, _, _) ->
       let t = tmpVar bld rt
       bld <+ (t := expr)
       t
@@ -521,7 +521,7 @@ let transReg bld useTmpVar expr =
 
 let transTwoOprs bld useTmpVar (ins: Instruction) insLen =
   match ins.Operands with
-  | TwoOperands (o1, o2) ->
+  | TwoOperands(o1, o2) ->
     let o1 = transOprToExpr bld useTmpVar ins insLen o1
     let o2 = transOprToExpr bld false ins insLen o2 |> transReg bld useTmpVar
     struct (o1, o2)
@@ -529,7 +529,7 @@ let transTwoOprs bld useTmpVar (ins: Instruction) insLen =
 
 let transThreeOprs bld useTmpVar (ins: Instruction) insLen =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) ->
+  | ThreeOperands(o1, o2, o3) ->
     struct (transOprToExpr bld useTmpVar ins insLen o1,
             transOprToExpr bld useTmpVar ins insLen o2,
             transOprToExpr bld useTmpVar ins insLen o3)
@@ -558,11 +558,11 @@ let dstAssign oprSize dst src =
 /// For x87 FPU Top register or x87 FPU Tag word sections.
 let extractDstAssign e1 e2 =
   match e1 with
-  | Extract (BinOp (BinOpType.SHR, 16<rt>,
-                    BinOp (BinOpType.AND, 16<rt>,
-                           (Var (16<rt>, rId, _, _) as e1),
-                           mask, _),
-                    amt, _),
+  | Extract(BinOp(BinOpType.SHR, 16<rt>,
+                  BinOp(BinOpType.AND, 16<rt>,
+                        (Var(16<rt>, rId, _, _) as e1),
+                        mask, _),
+                  amt, _),
              8<rt>, 0, _) when int rId = 0x4F (* FSW *)
                             || int rId = 0x50 (* FTW *) ->
     e1 := (e1 .& (AST.not mask)) .| (((AST.zext 16<rt> e2) << amt) .& mask)
@@ -579,7 +579,7 @@ let maxNum rt =
 
 let castNum newType e =
   match e with
-  | Num (n, _) -> BitVector.Cast (n, newType) |> AST.num
+  | Num(n, _) -> BitVector.Cast(n, newType) |> AST.num
   | _ -> raise InvalidOperandException
 
 let getMask oprSize =
@@ -603,12 +603,12 @@ let sideEffects bld (ins: Instruction) insLen name =
 
 let hasStackPtr (ins: Instruction) =
   match ins.Operands with
-  | OneOperand (OprReg Register.ESP)
-  | OneOperand (OprReg Register.RSP)
-  | OneOperand (OprMem (Some Register.ESP, _, _, _))
-  | OneOperand (OprMem (Some Register.RSP, _, _, _))
-  | OneOperand (OprMem (_, Some (Register.ESP, _), _, _))
-  | OneOperand (OprMem (_, Some (Register.RSP, _), _, _)) -> true
+  | OneOperand(OprReg Register.ESP)
+  | OneOperand(OprReg Register.RSP)
+  | OneOperand(OprMem(Some Register.ESP, _, _, _))
+  | OneOperand(OprMem(Some Register.RSP, _, _, _))
+  | OneOperand(OprMem(_, Some(Register.ESP, _), _, _))
+  | OneOperand(OprMem(_, Some(Register.RSP, _), _, _)) -> true
   | _ -> false
 
 let buildAF bld e1 e2 r size =
@@ -620,7 +620,7 @@ let buildAF bld e1 e2 r size =
 
 let isExprZero e =
   match e with
-  | Num (bv, _) when bv.IsZero () -> true
+  | Num(bv, _) when bv.IsZero() -> true
   | _ -> false
 
 let buildPF bld r size cond =

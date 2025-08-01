@@ -278,46 +278,46 @@ let inline appendUnit (ins: Instruction) opcode =
   | NoUnit -> opcode
 
 let buildParallelPipe (ins: Instruction) (builder: IDisasmBuilder) =
-  if ins.IsParallel then builder.Accumulate AsmWordKind.String "|| " else ()
+  if ins.IsParallel then builder.Accumulate(AsmWordKind.String, "|| ") else ()
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode |> appendUnit ins
-  builder.Accumulate AsmWordKind.Mnemonic str
+  builder.Accumulate(AsmWordKind.Mnemonic, str)
 
 let buildMemBase (builder: IDisasmBuilder) baseR = function
   | NegativeOffset ->
-    builder.Accumulate AsmWordKind.String "-"
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate(AsmWordKind.String, "-")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString baseR)
   | PositiveOffset ->
-    builder.Accumulate AsmWordKind.String "+"
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate(AsmWordKind.String, "+")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString baseR)
   | PreDecrement ->
-    builder.Accumulate AsmWordKind.String "--"
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate(AsmWordKind.String, "--")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString baseR)
   | PreIncrement ->
-    builder.Accumulate AsmWordKind.String "++"
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate(AsmWordKind.String, "++")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString baseR)
   | PostDecrement ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
-    builder.Accumulate AsmWordKind.String "--"
+    builder.Accumulate(AsmWordKind.Variable, Register.toString baseR)
+    builder.Accumulate(AsmWordKind.String, "--")
   | PostIncrement ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
-    builder.Accumulate AsmWordKind.String "++"
+    builder.Accumulate(AsmWordKind.Variable, Register.toString baseR)
+    builder.Accumulate(AsmWordKind.String, "++")
 
 let private offsetToString (builder: IDisasmBuilder) offset =
   match offset with
-  | UCst5 i -> builder.Accumulate AsmWordKind.Value (i.ToString())
-  | UCst15 i -> builder.Accumulate AsmWordKind.Value (i.ToString())
+  | UCst5 i -> builder.Accumulate(AsmWordKind.Value, i.ToString())
+  | UCst15 i -> builder.Accumulate(AsmWordKind.Value, i.ToString())
   | OffsetR r ->
-    builder.Accumulate AsmWordKind.Variable (Register.toString r)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString r)
 
 let private buildMemOffset (builder: IDisasmBuilder) offset =
   match offset with
   | UCst5 0UL -> ()
   | offset ->
-    builder.Accumulate AsmWordKind.String "["
+    builder.Accumulate(AsmWordKind.String, "[")
     offsetToString builder offset
-    builder.Accumulate AsmWordKind.String "]"
+    builder.Accumulate(AsmWordKind.String, "]")
 
 let memToString builder baseR modification offset =
   buildMemBase builder baseR modification
@@ -326,34 +326,34 @@ let memToString builder baseR modification offset =
 let oprToString opr delim (builder: IDisasmBuilder) =
   match opr with
   | OpReg reg ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-  | RegisterPair (r1, r2) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString r1)
-    builder.Accumulate AsmWordKind.String ":"
-    builder.Accumulate AsmWordKind.Variable (Register.toString r2)
-  | OprMem (baseR, modification, offset) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.String " *"
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+  | RegisterPair(r1, r2) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString r1)
+    builder.Accumulate(AsmWordKind.String, ":")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString r2)
+  | OprMem(baseR, modification, offset) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.String, " *")
     memToString builder baseR modification offset
   | Immediate imm ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 imm)
 
 let buildOprs (ins: Instruction) builder =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
     oprToString opr " " builder
-  | TwoOperands (opr1, opr2) ->
+  | TwoOperands(opr1, opr2) ->
     oprToString opr1 " " builder
     oprToString opr2 ", " builder
-  | ThreeOperands (opr1, opr2, opr3) ->
+  | ThreeOperands(opr1, opr2, opr3) ->
     oprToString opr1 " " builder
     oprToString opr2 ", " builder
     oprToString opr3 ", " builder
-  | FourOperands (opr1, opr2, opr3, opr4) ->
+  | FourOperands(opr1, opr2, opr3, opr4) ->
     oprToString opr1 " " builder
     oprToString opr2 ", " builder
     oprToString opr3 ", " builder

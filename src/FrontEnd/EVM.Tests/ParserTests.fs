@@ -31,18 +31,18 @@ open B2R2.FrontEnd.EVM
 open type BitVector
 
 [<TestClass>]
-type ParserTests () =
+type ParserTests() =
   let test (bytes: byte[]) (opcode: Opcode) =
     let isa = ISA Architecture.EVM
-    let parser = EVMParser (isa) :> IInstructionParsable
+    let parser = EVMParser(isa) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
-    let ins = parser.Parse (span, 0UL) :?> Instruction
+    let ins = parser.Parse(span, 0UL) :?> Instruction
     let opcode' = ins.Opcode
-    Assert.AreEqual<Opcode> (opcode, opcode')
+    Assert.AreEqual<Opcode>(opcode, opcode')
 
-  let ( ++ ) byteString op = (ByteArray.ofHexString byteString, op)
+  let ( ++ ) byteString op = ByteArray.ofHexString byteString, op
 
   [<TestMethod>]
-  member _.``[EVM] PUSH10 Parse Test (1)`` () =
+  member _.``[EVM] PUSH10 Parse Test (1)``() =
     "6900112233445566778899"
     ++ (PUSH10 <| (OfBInt(316059037807746189465I, 80<rt>))) ||> test

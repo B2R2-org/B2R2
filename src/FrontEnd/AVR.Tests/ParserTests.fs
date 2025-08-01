@@ -35,78 +35,78 @@ open type Register
 [<AutoOpen>]
 module private Shortcut =
   type O =
-    static member Reg (r) =
+    static member Reg(r) =
       OprReg r
 
-    static member Imm (v) =
+    static member Imm(v) =
       OprImm v
 
-    static member Addr (v) =
+    static member Addr(v) =
       OprAddr v
 
-    static member MemDisp (r, v) =
-      OprMemory (DispMode (r, v))
+    static member MemDisp(r, v) =
+      OprMemory(DispMode(r, v))
 
-    static member MemPostIdx (r) =
-      OprMemory (PostIdxMode r)
+    static member MemPostIdx(r) =
+      OprMemory(PostIdxMode r)
 
-type ParserTests () =
+type ParserTests() =
   let test (bytes: byte[]) (opcode, oprs: Operands) =
     let reader = BinReader.Init Endian.Little
-    let parser = AVRParser (reader) :> IInstructionParsable
+    let parser = AVRParser(reader) :> IInstructionParsable
     let span = System.ReadOnlySpan bytes
-    let ins = parser.Parse (span, 0UL) :?> Instruction
-    Assert.AreEqual<Opcode> (opcode, ins.Opcode)
-    Assert.AreEqual<Operands> (oprs, ins.Operands)
+    let ins = parser.Parse(span, 0UL) :?> Instruction
+    Assert.AreEqual<Opcode>(opcode, ins.Opcode)
+    Assert.AreEqual<Operands>(oprs, ins.Operands)
 
   let operandsFromArray oprList =
     let oprs = Array.ofList oprList
     match oprs.Length with
     | 0 -> NoOperand
     | 1 -> OneOperand oprs[0]
-    | 2 -> TwoOperands (oprs[0], oprs[1])
+    | 2 -> TwoOperands(oprs[0], oprs[1])
     | _ -> Terminator.impossible ()
 
-  let ( ** ) opcode oprList = (opcode, operandsFromArray oprList)
+  let ( ** ) opcode oprList = opcode, operandsFromArray oprList
 
-  let ( ++ ) byteString pair = (ByteArray.ofHexString byteString, pair)
+  let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
 
   [<TestMethod>]
-  member _.``[AVR] No Operand Insturctions Parse Test (1)`` () =
+  member _.``[AVR] No Operand Insturctions Parse Test (1)``() =
     "0895"
     ++ RET ** [] ||> test
 
   [<TestMethod>]
-  member _.``[AVR] One Operand Insturctions Parse Test (1)`` () =
+  member _.``[AVR] One Operand Insturctions Parse Test (1)``() =
     "81f1"
     ++ BREQ ** [ O.Addr 96 ] ||> test
 
   [<TestMethod>]
-  member _.``[AVR] One Operand Insturctions Parse Test (2)`` () =
+  member _.``[AVR] One Operand Insturctions Parse Test (2)``() =
     "b4f4"
     ++ BRGE ** [ O.Addr 44 ] ||> test
 
   [<TestMethod>]
-  member _.``[AVR] Two Register Operands Insturctions Parse Test (1)`` () =
+  member _.``[AVR] Two Register Operands Insturctions Parse Test (1)``() =
     "c90e"
     ++ ADD ** [ O.Reg R12; O.Reg R25 ] ||> test
 
   [<TestMethod>]
-  member _.``[AVR] Two Register Operands Insturctions Parse Test (2)`` () =
+  member _.``[AVR] Two Register Operands Insturctions Parse Test (2)``() =
     "e12c"
     ++ MOV ** [ O.Reg R14; O.Reg R1 ] ||> test
 
   [<TestMethod>]
-  member _.``[AVR] Memory Operands Insturctions Parse Test (1)`` () =
+  member _.``[AVR] Memory Operands Insturctions Parse Test (1)``() =
     "1d92"
     ++ ST ** [ O.MemPostIdx X; OprReg R1 ] ||> test
 
   [<TestMethod>]
-  member _.``[AVR] Memory Operands Insturctions Parse Test (2)`` () =
+  member _.``[AVR] Memory Operands Insturctions Parse Test (2)``() =
     "6980"
-    ++ LDD ** [ O.Reg R6; O.MemDisp (Y, 1) ] ||> test
+    ++ LDD ** [ O.Reg R6; O.MemDisp(Y, 1) ] ||> test
 
   [<TestMethod>]
-  member _.``[AVR] Immediate Operand Insturction Parse Test (1)`` () =
+  member _.``[AVR] Immediate Operand Insturction Parse Test (1)``() =
     "8fef"
     ++ LDI ** [ O.Reg R24; O.Imm 0xff ] ||> test

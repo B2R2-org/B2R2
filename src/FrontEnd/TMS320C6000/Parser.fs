@@ -30,22 +30,22 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for TMS320C6000 instructions. Parser will return a
 /// platform-agnostic instruction type (Instruction).
-type TMS320C6000Parser (reader) =
+type TMS320C6000Parser(reader) =
   let mutable inParallel = false
 
   let lifter =
     { new ILiftable with
-        member _.Lift _ins _builder =
+        member _.Lift(_ins, _builder) =
           Terminator.futureFeature ()
-        member _.Disasm ins builder =
+        member _.Disasm(ins, builder) =
           Disasm.disasm ins builder; builder }
 
   interface IInstructionParsable with
-    member _.Parse (bs: byte[], addr) =
+    member _.Parse(bs: byte[], addr) =
       let span = ReadOnlySpan bs
       ParsingMain.parse lifter span reader &inParallel addr :> IInstruction
 
-    member _.Parse (span: ByteSpan, addr) =
+    member _.Parse(span: ByteSpan, addr) =
       ParsingMain.parse lifter span reader &inParallel addr :> IInstruction
 
     member _.MaxInstructionSize = 4

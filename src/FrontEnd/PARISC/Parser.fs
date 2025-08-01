@@ -30,22 +30,22 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for PARISC instructions. Parser will return a
 /// platform-agnostic instruction type (Instruction).
-type PARISCParser (isa: ISA, reader) =
+type PARISCParser(isa: ISA, reader) =
 
   let wordSize = isa.WordSize
 
   let lifter =
     { new ILiftable with
-        member _.Lift _ins _builder =
+        member _.Lift(_ins, _builder) =
           Terminator.futureFeature ()
-        member _.Disasm ins builder =
+        member _.Disasm(ins, builder) =
           Disasm.disasm ins builder; builder }
 
   interface IInstructionParsable with
-    member _.Parse (span: ByteSpan, addr: Addr) =
+    member _.Parse(span: ByteSpan, addr: Addr) =
       ParsingMain.parse lifter span reader wordSize addr :> IInstruction
 
-    member _.Parse (bs: byte[], addr: Addr) =
+    member _.Parse(bs: byte[], addr: Addr) =
       let span = ReadOnlySpan bs
       ParsingMain.parse lifter span reader wordSize addr :> IInstruction
 

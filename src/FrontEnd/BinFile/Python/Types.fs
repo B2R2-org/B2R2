@@ -75,24 +75,23 @@ type MarshalledType =
 /// <summary>
 /// PyCodeObject is a compiled piece of Python code.
 /// </summary>
-type PyCodeObject = {
-  FileName: string
-  Name: string
-  QualName: string
-  Flags: int
-  Code: Addr * PyObject
-  FirstLineNo: int
-  LineTable: PyObject
-  Consts: PyObject
-  Names: PyObject
-  LocalPlusNames: PyObject
-  LocalPlusKinds: PyObject
-  ArgCount: int
-  PosonlyArgCount: int
-  KwonlyArgCount: int
-  StackSize: int
-  ExceptionTable: PyObject
-}
+type PyCodeObject =
+  { FileName: string
+    Name: string
+    QualName: string
+    Flags: int
+    Code: Addr * PyObject
+    FirstLineNo: int
+    LineTable: PyObject
+    Consts: PyObject
+    Names: PyObject
+    LocalPlusNames: PyObject
+    LocalPlusKinds: PyObject
+    ArgCount: int
+    PosonlyArgCount: int
+    KwonlyArgCount: int
+    StackSize: int
+    ExceptionTable: PyObject }
 
 /// <summary>
 /// PyObject is the base type of all Python objects, including integers,

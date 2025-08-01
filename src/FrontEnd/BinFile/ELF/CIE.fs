@@ -31,37 +31,35 @@ open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 
 /// Represents the Common Information Entry (CIE).
-type CIE = {
-  /// Version assigned to the call frame information structure.
-  Version: uint8
-  /// This value is a NUL terminated string that identifies the augmentation to
-  /// the CIE or to the FDEs associated with this CIE
-  AugmentationString: string
-  /// This value shall be multiplied by the delta argument of an adavance
-  /// location instruction to obtain the new location value.
-  CodeAlignmentFactor: uint64
-  /// This value shall be multiplied by the register offset argument of an
-  /// offset instruction to obtain the new offset value.
-  DataAlignmentFactor: int64
-  /// Register that holds the return address.
-  ReturnAddressRegister: byte
-  /// Initial set of unwinding actions (i.e., call frame instructions).
-  InitialRule: UnwindingRule
-  /// Initial CFA register.
-  InitialCFARegister: byte
-  /// Initial Canonical Frame Address (CFA).
-  InitialCFA: CanonicalFrameAddress
-  /// Augmentation data.
-  Augmentations: Augmentation list
-}
+type CIE =
+  { /// Version assigned to the call frame information structure.
+    Version: uint8
+    /// This value is a NUL terminated string that identifies the augmentation
+    /// to the CIE or to the FDEs associated with this CIE
+    AugmentationString: string
+    /// This value shall be multiplied by the delta argument of an adavance
+    /// location instruction to obtain the new location value.
+    CodeAlignmentFactor: uint64
+    /// This value shall be multiplied by the register offset argument of an
+    /// offset instruction to obtain the new offset value.
+    DataAlignmentFactor: int64
+    /// Register that holds the return address.
+    ReturnAddressRegister: byte
+    /// Initial set of unwinding actions (i.e., call frame instructions).
+    InitialRule: UnwindingRule
+    /// Initial CFA register.
+    InitialCFARegister: byte
+    /// Initial Canonical Frame Address (CFA).
+    InitialCFA: CanonicalFrameAddress
+    /// Augmentation data.
+    Augmentations: Augmentation list }
 
 /// Represents the CIE augmetation data.
-and Augmentation = {
-  Format: char
-  ValueEncoding: ExceptionHeaderValue
-  ApplicationEncoding: ExceptionHeaderApplication
-  PersonalityRoutionPointer: byte[]
-}
+and Augmentation =
+  { Format: char
+    ValueEncoding: ExceptionHeaderValue
+    ApplicationEncoding: ExceptionHeaderApplication
+    PersonalityRoutionPointer: byte[] }
 
 [<RequireQualifiedAccess>]
 module internal CIE =
@@ -71,7 +69,7 @@ module internal CIE =
   let parseReturnRegister toolBox (span: ByteSpan) version offset =
     if version = 1uy then span[offset], offset + 1
     else
-      let r, cnt = toolBox.Reader.ReadUInt64LEB128 (span, offset)
+      let r, cnt = toolBox.Reader.ReadUInt64LEB128(span, offset)
       byte r, offset + cnt
 
   let personalityRoutinePointerSize addrSize = function
@@ -90,7 +88,7 @@ module internal CIE =
     | 'P' ->
       let struct (v, app) = ExceptionHeader.parseEncoding arr[offset]
       let psz = arr[offset] &&& 7uy |> personalityRoutinePointerSize addrSize
-      let prp = arr[ offset + 1 .. offset + psz ]
+      let prp = arr[offset + 1..offset + psz]
       { Format = 'P'
         ValueEncoding = v
         ApplicationEncoding = app
@@ -105,12 +103,12 @@ module internal CIE =
     | _ -> Terminator.futureFeature ()
 
   let parseAugmentationData toolBox (span: ByteSpan) offset addrSize augstr =
-    if (augstr: string).StartsWith ('z') then
-      let len, cnt = toolBox.Reader.ReadUInt64LEB128 (span, offset)
+    if (augstr: string).StartsWith('z') then
+      let len, cnt = toolBox.Reader.ReadUInt64LEB128(span, offset)
       let offset = offset + cnt
-      let span = span.Slice (offset, int len)
-      let arr = span.ToArray ()
-      augstr[ 1.. ]
+      let span = span.Slice(offset, int len)
+      let arr = span.ToArray()
+      augstr[1..]
       |> Seq.fold (fun (data, idx) ch ->
         obtainAugData addrSize arr data idx ch) ([], 0)
       |> fst
@@ -126,7 +124,7 @@ module internal CIE =
     AST.binop BinOpType.ADD regexp (num isa n)
 
   let parseOpBReg isa registerFactory exprs (span: ByteSpan) idx reg =
-    let offset, cnt = LEB128.DecodeUInt64 (span.Slice (idx))
+    let offset, cnt = LEB128.DecodeUInt64(span.Slice(idx))
     let exprs = regPlusNum isa registerFactory reg offset :: exprs
     struct (exprs, idx + cnt)
 
@@ -150,7 +148,7 @@ module internal CIE =
     AST.binop op snd fst :: exprs
 
   let parsePlusUconst isa exprs (span: ByteSpan) idx =
-    let n, cnt = LEB128.DecodeUInt64 (span.Slice (idx))
+    let n, cnt = LEB128.DecodeUInt64(span.Slice(idx))
     let n = num isa n
     let struct (fst, exprs) = pop exprs
     let exprs = AST.binop BinOpType.ADD fst n :: exprs
@@ -276,19 +274,19 @@ module internal CIE =
         let exprs = num isa (int64 span[i + 1] |> uint64) :: exprs
         parseExprs isa regs exprs span (i + 2) maxIdx
       | DWOperation.DW_OP_const2u ->
-        let c = MemoryMarshal.Read<uint16> (span.Slice (i + 1))
+        let c = MemoryMarshal.Read<uint16>(span.Slice(i + 1))
         let exprs = num isa (uint64 c) :: exprs
         parseExprs isa regs exprs span (i + 3) maxIdx
       | DWOperation.DW_OP_const2s ->
-        let c = MemoryMarshal.Read<int16> (span.Slice (i + 1))
+        let c = MemoryMarshal.Read<int16>(span.Slice(i + 1))
         let exprs = num isa (int64 c |> uint64) :: exprs
         parseExprs isa regs exprs span (i + 3) maxIdx
       | DWOperation.DW_OP_const4u ->
-        let c = MemoryMarshal.Read<uint32> (span.Slice (i + 1))
+        let c = MemoryMarshal.Read<uint32>(span.Slice(i + 1))
         let exprs = num isa (uint64 c) :: exprs
         parseExprs isa regs exprs span (i + 5) maxIdx
       | DWOperation.DW_OP_const4s ->
-        let c = MemoryMarshal.Read<int32> (span.Slice (i + 1))
+        let c = MemoryMarshal.Read<int32>(span.Slice(i + 1))
         let exprs = num isa (int64 c |> uint64) :: exprs
         parseExprs isa regs exprs span (i + 5) maxIdx
       | DWOperation.DW_OP_lit0 ->
@@ -448,7 +446,7 @@ module internal CIE =
       | op -> printfn "TODO: %A" op; Terminator.futureFeature ()
 
   let extractOldOffset = function
-    | RegPlusOffset (_, o) -> o
+    | RegPlusOffset(_, o) -> o
     | UnknownCFA -> 0
     | e -> Terminator.impossible ()
 
@@ -476,111 +474,111 @@ module internal CIE =
       let op = if op &&& 0xc0uy > 0uy then op &&& 0xc0uy else op
       match CFAInstruction.parse op with
       | CFAInstruction.DW_CFA_def_cfa ->
-        let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let reg, cnt = LEB128.DecodeUInt64(span.Slice i)
         let reg = byte reg
-        let i = i+cnt
-        let offset, cnt = LEB128.DecodeUInt64 (span.Slice i)
-        let cfa = RegPlusOffset (DWRegister.toRegID isa reg, int offset)
+        let i = i + cnt
+        let offset, cnt = LEB128.DecodeUInt64(span.Slice i)
+        let cfa = RegPlusOffset(DWRegister.toRegID isa reg, int offset)
         getUnwind
-          acc cfa irule rst rule isa regs reg cf df rr span (i+cnt) loc
+          acc cfa irule rst rule isa regs reg cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_def_cfa_sf ->
-        let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let reg, cnt = LEB128.DecodeUInt64(span.Slice i)
         let reg = byte reg
-        let i = i+cnt
-        let v, cnt = LEB128.DecodeSInt64 (span.Slice i)
+        let i = i + cnt
+        let v, cnt = LEB128.DecodeSInt64(span.Slice i)
         let offset = int (v * df)
-        let cfa = RegPlusOffset (DWRegister.toRegID isa reg, offset)
+        let cfa = RegPlusOffset(DWRegister.toRegID isa reg, offset)
         getUnwind
-          acc cfa irule rst rule isa regs reg cf df rr span (i+cnt) loc
+          acc cfa irule rst rule isa regs reg cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_def_cfa_offset ->
-        let offset, cnt = LEB128.DecodeUInt64 (span.Slice i)
-        let cfa = RegPlusOffset (DWRegister.toRegID isa lr, int offset)
+        let offset, cnt = LEB128.DecodeUInt64(span.Slice i)
+        let cfa = RegPlusOffset(DWRegister.toRegID isa lr, int offset)
         getUnwind
-          acc cfa irule rst rule isa regs lr cf df rr span (i+cnt) loc
+          acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_def_cfa_offset_sf ->
-        let offset, cnt = LEB128.DecodeSInt64 (span.Slice i)
+        let offset, cnt = LEB128.DecodeSInt64(span.Slice i)
         let offset = int (offset * df)
-        let cfa = RegPlusOffset (DWRegister.toRegID isa lr, offset)
+        let cfa = RegPlusOffset(DWRegister.toRegID isa lr, offset)
         getUnwind
-          acc cfa irule rst rule isa regs lr cf df rr span (i+cnt) loc
+          acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_def_cfa_expression ->
-        let v, cnt = LEB128.DecodeUInt64 (span.Slice i)
-        let i = i+cnt
+        let v, cnt = LEB128.DecodeUInt64(span.Slice i)
+        let i = i + cnt
         let nextIdx = int v + i
         let cfa = parseExprs isa regs [] span i nextIdx |> Expression
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span nextIdx loc
       | CFAInstruction.DW_CFA_def_cfa_register ->
-        let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let reg, cnt = LEB128.DecodeUInt64(span.Slice i)
         let reg = byte reg
         let rid = DWRegister.toRegID isa reg
         let oldOffset = extractOldOffset cfa
-        let cfa = RegPlusOffset (rid, oldOffset)
+        let cfa = RegPlusOffset(rid, oldOffset)
         getUnwind
-          acc cfa irule rst rule isa regs reg cf df rr span (i+cnt) loc
+          acc cfa irule rst rule isa regs reg cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_offset ->
-        let v, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let v, cnt = LEB128.DecodeUInt64(span.Slice i)
         let offset = int64 v * df
         let target, action = getOffset isa rr oparg offset
         let rule = Map.add target action rule
-        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i+cnt) loc
+        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_offset_extended ->
-        let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let reg, cnt = LEB128.DecodeUInt64(span.Slice i)
         let reg = byte reg
-        let i = i+cnt
-        let offset, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let i = i + cnt
+        let offset, cnt = LEB128.DecodeUInt64(span.Slice i)
         let target, action = getOffset isa rr reg (int64 offset)
         let rule = Map.add target action rule
-        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i+cnt) loc
+        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_offset_extended_sf ->
-        let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let reg, cnt = LEB128.DecodeUInt64(span.Slice i)
         let reg = byte reg
-        let i = i+cnt
-        let v, cnt = LEB128.DecodeSInt64 (span.Slice i)
+        let i = i + cnt
+        let v, cnt = LEB128.DecodeSInt64(span.Slice i)
         let offset = v * df
         let target, action = getOffset isa rr reg offset
         let rule = Map.add target action rule
-        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i+cnt) loc
+        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_undefined ->
-        let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let reg, cnt = LEB128.DecodeUInt64(span.Slice i)
         let reg = byte reg
         let target = getTarget isa rr reg
         let rule = Map.remove target rule
         getUnwind
-          acc cfa irule rst rule isa regs reg cf df rr span (i+cnt) loc
+          acc cfa irule rst rule isa regs reg cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_register ->
-        let reg1, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let reg1, cnt = LEB128.DecodeUInt64(span.Slice i)
         let reg1 = byte reg1
-        let i = i+cnt
-        let reg2, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let i = i + cnt
+        let reg2, cnt = LEB128.DecodeUInt64(span.Slice i)
         let reg2 = byte reg2
         let target = getTarget isa rr reg1
-        let action = Register (DWRegister.toRegID isa reg2)
+        let action = Register(DWRegister.toRegID isa reg2)
         let rule = Map.add target action rule
-        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i+cnt) loc
+        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_same_value ->
-        let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let reg, cnt = LEB128.DecodeUInt64(span.Slice i)
         let reg = byte reg
         let target = getTarget isa rr reg
         let action = SameValue
         let rule = Map.add target action rule
-        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i+cnt) loc
+        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_expression ->
-        let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let reg, cnt = LEB128.DecodeUInt64(span.Slice i)
         let reg = byte reg
-        let i = i+cnt
-        let v, cnt = LEB128.DecodeUInt64 (span.Slice i)
-        let i = i+cnt
+        let i = i + cnt
+        let v, cnt = LEB128.DecodeUInt64(span.Slice i)
+        let i = i + cnt
         let nextIdx = int v + i
         let target = getTarget isa rr reg
         let action = parseExprs isa regs [] span i nextIdx |> ActionExpr
         let rule = Map.add target action rule
         getUnwind acc cfa irule rst rule isa regs reg cf df rr span nextIdx loc
       | CFAInstruction.DW_CFA_val_expression ->
-        let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let reg, cnt = LEB128.DecodeUInt64(span.Slice i)
         let reg = byte reg
-        let i = i+cnt
-        let v, cnt = LEB128.DecodeUInt64 (span.Slice i)
-        let i = i+cnt
+        let i = i + cnt
+        let v, cnt = LEB128.DecodeUInt64(span.Slice i)
+        let i = i + cnt
         let nextIdx = int v + i
         let target = getTarget isa rr reg
         let action = parseExprs isa regs [] span i nextIdx |> ActionValExpr
@@ -598,13 +596,13 @@ module internal CIE =
         let acc = ent :: acc
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span i' loc'
       | CFAInstruction.DW_CFA_advance_loc2 ->
-        let loc' = loc + uint64 (MemoryMarshal.Read<int16> (span.Slice (i)))
+        let loc' = loc + uint64 (MemoryMarshal.Read<int16>(span.Slice(i)))
         let i' = i + 2
         let ent = { Location = loc; CanonicalFrameAddress = cfa; Rule = rule }
         let acc = ent :: acc
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span i' loc'
       | CFAInstruction.DW_CFA_advance_loc4 ->
-        let loc' = loc + uint64 (MemoryMarshal.Read<int32> (span.Slice (i)))
+        let loc' = loc + uint64 (MemoryMarshal.Read<int32>(span.Slice(i)))
         let i' = i + 4
         let ent = { Location = loc; CanonicalFrameAddress = cfa; Rule = rule }
         let acc = ent :: acc
@@ -617,17 +615,17 @@ module internal CIE =
         let rule = restoreOne irule rule target
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span i loc
       | CFAInstruction.DW_CFA_restore_extended ->
-        let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+        let reg, cnt = LEB128.DecodeUInt64(span.Slice i)
         let target = getTarget isa rr (byte reg)
         let rule = restoreOne irule rule target
-        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i+cnt) loc
+        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_restore_state ->
         let cfa, rule, lr = List.head rst
         let rst = List.tail rst
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span i loc
       | CFAInstruction.DW_CFA_GNU_args_size ->
-        let _, cnt = LEB128.DecodeUInt64 (span.Slice i)
-        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i+cnt) loc
+        let _, cnt = LEB128.DecodeUInt64(span.Slice i)
+        getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_nop ->
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span i loc
       | op -> printfn "%A" op; Terminator.futureFeature ()
@@ -645,16 +643,16 @@ module internal CIE =
       let addrSize = WordSize.toByteWidth cls
       let offset = offset + augstr.Length + 1
       let offset = if augstr.Contains "eh" then offset + addrSize else offset
-      let cf, cnt = toolBox.Reader.ReadUInt64LEB128 (secChunk, offset)
+      let cf, cnt = toolBox.Reader.ReadUInt64LEB128(secChunk, offset)
       let offset = offset + cnt
-      let df, cnt = toolBox.Reader.ReadInt64LEB128 (secChunk, offset)
+      let df, cnt = toolBox.Reader.ReadInt64LEB128(secChunk, offset)
       let offset = offset + cnt
       let rr, offset = parseReturnRegister toolBox secChunk version offset
       let augs, offset =
         parseAugmentationData toolBox secChunk offset addrSize augstr
       let instrLen = nextOffset - offset
       if instrLen > 0 then
-        let span = secChunk.Slice (offset, instrLen)
+        let span = secChunk.Slice(offset, instrLen)
         let rule = Map.empty
         getUnwind [] UnknownCFA rule [] rule isa regs rr cf df rr span 0 0UL
       else [], UnknownCFA, rr

@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 open type Register
 
 /// Represents a factory for accessing various MIPS register variables.
-type RegisterFactory (wordSize) =
+type RegisterFactory(wordSize) =
   let rt = WordSize.toRegType wordSize
 
   let r0 = AST.var rt (Register.toRegID R0) "R0"
@@ -188,9 +188,9 @@ type RegisterFactory (wordSize) =
       |> Register.toRegID
       |> (this :> IRegisterFactory).GetRegVar
 
-    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
+    member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars () =
+    member _.GetAllRegVars() =
       [| hi
          lo
          pc
@@ -259,7 +259,7 @@ type RegisterFactory (wordSize) =
          f30
          f31 |]
 
-    member _.GetGeneralRegVars () =
+    member _.GetGeneralRegVars() =
       [| hi
          lo
          pc
@@ -298,7 +298,7 @@ type RegisterFactory (wordSize) =
 
     member _.GetRegisterID expr =
       match expr with
-      | Var (_, id, _, _) -> id
+      | Var(_, id, _, _) -> id
       | PCVar _ -> Register.toRegID PC
       | _ -> raise InvalidRegisterException
 
@@ -311,9 +311,9 @@ type RegisterFactory (wordSize) =
     member _.GetRegString rid =
       Register.toString (Register.ofRegID rid) wordSize
 
-    member this.GetAllRegStrings () =
+    member this.GetAllRegStrings() =
       let regFactory = this :> IRegisterFactory
-      regFactory.GetAllRegVars ()
+      regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegString)
 
     member _.GetRegType _rid =

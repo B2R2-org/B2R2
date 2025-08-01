@@ -142,11 +142,17 @@ let internal getPSR bld reg psrType =
   | _ -> Terminator.impossible ()
 
 let isSetCPSRn bld = getPSR bld R.CPSR PSR.N == maskPSRForNbit
+
 let isSetCPSRz bld = getPSR bld R.CPSR PSR.Z == maskPSRForZbit
+
 let isSetCPSRc bld = getPSR bld R.CPSR PSR.C == maskPSRForCbit
+
 let isSetCPSRv bld = getPSR bld R.CPSR PSR.V == maskPSRForVbit
+
 let isSetCPSRj bld = getPSR bld R.CPSR PSR.J == maskPSRForJbit
+
 let isSetCPSRt bld = getPSR bld R.CPSR PSR.T == maskPSRForTbit
+
 let isSetCPSRm bld = getPSR bld R.CPSR PSR.M == maskPSRForMbits
 
 /// Test whether mode number is valid, on page B1-1142.

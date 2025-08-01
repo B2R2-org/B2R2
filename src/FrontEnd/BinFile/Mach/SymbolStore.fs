@@ -31,14 +31,13 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents symbol info.
-type SymbolStore = {
-  /// All symbols.
-  Values: Symbol[]
-  /// Address to symbol mapping.
-  SymbolMap: Map<Addr, Symbol>
-  /// Linkage table.
-  LinkageTable: LinkageTableEntry list
-}
+type SymbolStore =
+  { /// All symbols.
+    Values: Symbol[]
+    /// Address to symbol mapping.
+    SymbolMap: Map<Addr, Symbol>
+    /// Linkage table.
+    LinkageTable: LinkageTableEntry list }
 
 module internal SymbolStore =
   let [<Literal>] private IndirectSymbolLocal = 0x80000000
@@ -46,33 +45,33 @@ module internal SymbolStore =
   let [<Literal>] private IndirectSymbolABS = 0x40000000
 
   let private chooseDyLib = function
-    | DyLib (_, _, c) -> Some c
+    | DyLib(_, _, c) -> Some c
     | _ -> None
 
   let private chooseSymTab = function
-    | SymTab (_, _, c) -> Some c
+    | SymTab(_, _, c) -> Some c
     | _ -> None
 
   let private chooseDynSymTab = function
-    | DySymTab (_, _, c) -> Some c
+    | DySymTab(_, _, c) -> Some c
     | _ -> None
 
   let private chooseFuncStarts = function
-    | FuncStarts (_, _, c) -> Some c
+    | FuncStarts(_, _, c) -> Some c
     | _ -> None
 
   let private parseFuncStarts toolBox cmds =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
-    let addrSet = HashSet<Addr> ()
+    let addrSet = HashSet<Addr>()
     for cmd in cmds do
-      let dataSpan = ReadOnlySpan (bytes, cmd.DataOffset, int cmd.DataSize)
-      let saddr, count = reader.ReadUInt64LEB128 (dataSpan, 0)
+      let dataSpan = ReadOnlySpan(bytes, cmd.DataOffset, int cmd.DataSize)
+      let saddr, count = reader.ReadUInt64LEB128(dataSpan, 0)
       let saddr = saddr + toolBox.BaseAddress
       addrSet.Add saddr |> ignore
       let mutable offset = count
       let mutable fnAddr = saddr
       while offset < int cmd.DataSize do
-        let data, count = reader.ReadUInt64LEB128 (dataSpan, offset)
+        let data, count = reader.ReadUInt64LEB128(dataSpan, offset)
         fnAddr <- fnAddr + data
         addrSet.Add fnAddr |> ignore
         offset <- offset + count
@@ -82,7 +81,7 @@ module internal SymbolStore =
     symtabs |> Array.fold (fun cnt symtab -> int symtab.NumOfSym + cnt) 0
 
   let private getLibraryVerInfo (flags: MachFlag) libs nDesc =
-    if flags.HasFlag (MachFlag.MH_TWOLEVEL) then
+    if flags.HasFlag(MachFlag.MH_TWOLEVEL) then
       let ord = nDesc >>> 8 &&& 0xffs |> int
       if ord = 0 || ord = 254 then None
       else Some <| Array.get libs (ord - 1)
@@ -95,8 +94,8 @@ module internal SymbolStore =
   let private parseNList toolBox libs strTab symTab offset =
     let reader = toolBox.Reader
     let header = toolBox.Header
-    let strIdx = reader.ReadInt32 (span=symTab, offset=offset) (* n_strx *)
-    let nDesc = reader.ReadInt16 (symTab, offset + 6) (* n_desc *)
+    let strIdx = reader.ReadInt32(span = symTab, offset = offset) (* n_strx *)
+    let nDesc = reader.ReadInt16(symTab, offset + 6) (* n_desc *)
     let nType = symTab[offset + 4] |> int (* n_type *)
     { SymName = ByteArray.extractCStringFromSpan strTab strIdx
       SymType = nType |> LanguagePrimitives.EnumOfValue
@@ -113,10 +112,10 @@ module internal SymbolStore =
     let mutable idx = 0
     for symTabCmd in symTabCmds do
       let strOff, strSize = symTabCmd.StrOff, int symTabCmd.StrSize
-      let strTab = ReadOnlySpan (bytes, strOff, strSize)
+      let strTab = ReadOnlySpan(bytes, strOff, strSize)
       let entrySize = 8 + WordSize.toByteWidth toolBox.Header.Class
       let symTabSize = int symTabCmd.NumOfSym * entrySize
-      let symTab = ReadOnlySpan (bytes, symTabCmd.SymOff, symTabSize)
+      let symTab = ReadOnlySpan(bytes, symTabCmd.SymOff, symTabSize)
       for n = 0 to int symTabCmd.NumOfSym - 1 do
         let offset = n * entrySize
         symbols[idx] <- parseNList toolBox libs strTab symTab offset
@@ -154,10 +153,10 @@ module internal SymbolStore =
     for dyntab in dyntabs do
       let tabOffset = int dyntab.IndirectSymOff
       let tabSize = int dyntab.NumIndirectSym * 4
-      let tabBuf = ReadOnlySpan (toolBox.Bytes, tabOffset, tabSize)
+      let tabBuf = ReadOnlySpan(toolBox.Bytes, tabOffset, tabSize)
       for n = 0 to int dyntab.NumIndirectSym - 1 do
         let offset = n * 4
-        let symidx = reader.ReadInt32 (tabBuf, offset)
+        let symidx = reader.ReadInt32(tabBuf, offset)
         indices[i] <- symidx
         i <- i + 1
     indices

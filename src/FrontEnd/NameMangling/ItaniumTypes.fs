@@ -508,209 +508,143 @@ module internal MeasureExpr =
 type internal ItaniumExpr =
   /// Dummy type.
   | Dummy of string
-
   /// Used for marking the index of used template substitution
   ///(e.g., T2_ gives 2).
   | Specific of int
-
   /// Number.
   | Num of int
-
   | Num64 of uint64
-
   /// Template substituion.
   | TemplateSub of ItaniumExpr * int
-
   /// Name composed of string.
   | Name of string
-
   /// Sx abbreviation. For example, St = std, Sa = std :: allocator.
   | Sxsubstitution of Sxabbreviation
-
   /// Operators.
   | Operators of OperatorIndicator
-
   /// Sx abrreviation and name.
   | Sxname of ItaniumExpr * ItaniumExpr
-
   /// Sx abbreviation and operator.
   | Sxoperator of ItaniumExpr * ItaniumExpr
-
   /// Builtin extended types by vendors.
   | Vendor of string
-
   /// Builtin types.
   | BuiltinType of BuiltinTypeIndicator
-
   /// Literals encoded with their type and value.
   | Literal of ItaniumExpr * ItaniumExpr
-
   /// Single pointer encoded by character 'P'.
   | SingleP of char
-
   /// Many pointers encoded by consecutive 'P's.
   | Pointer of ItaniumExpr list
-
   /// Function, template, operator or expression argument.
   | SingleArg of ItaniumExpr
-
   /// Virtual Table and RTTI values.
   | RTTIandVirtualTable of RTTIVirtualTable * ItaniumExpr
-
   /// Many arguments.
   | Arguments of ItaniumExpr list
-
   /// Nested name composed of optional qualifiers and
   /// list of names, Sx abbreviation, templates and operator names.
   | NestedName of ItaniumExpr * ItaniumExpr list
-
   /// Template composed of name and arguments.
   | Template of ItaniumExpr * ItaniumExpr
-
   | Clone of ItaniumExpr list
-
   /// Function with optional scope encoding(s), name
   /// (name, template, nestedname and etc.), return and arguments.
   | Function of
     ItaniumExpr list * ItaniumExpr * ItaniumExpr * ItaniumExpr * ItaniumExpr
-
   /// Constructors and Destructors.
   | ConsOrDes of ConstructorDestructor
-
   /// Function Pointer is composed of pointers and optional qualifiers, return
   /// and arguments.
   | FunctionPointer of
     ItaniumExpr * ItaniumExpr option * ItaniumExpr * ItaniumExpr
-
   /// Unary expression is composed of operator and single argument.
   | UnaryExpr of ItaniumExpr * ItaniumExpr
-
   /// Binary expression is composed operator and two arguments.
   | BinaryExpr of ItaniumExpr * ItaniumExpr * ItaniumExpr
-
   /// Constant and volatile qualifiers. This includes, const, volatile and
   /// const volatile together.
   | CVqualifier of ConsTandVolatile
-
   /// CV qualifiers followed by pointers. For example, const*.
   | ConstVolatile of ItaniumExpr * ItaniumExpr
-
   /// Reference qualifiers, & and &&.
   | Reference of ReferenceQualifier
-
   /// CV qualifiers followed by reference in mangled form. This form is only
   /// used in nested names.
   | CVR of ItaniumExpr * ItaniumExpr
-
   /// Arguments with pointer (string part, single pointer) and CV qualifiers.
   /// The string part is a single character string "P".
   /// It is defined like this for making substitution easier.
   | PointerArg of string * ItaniumExpr option * ItaniumExpr
-
   /// Arguments with reference qualifiers.
   /// Second expression can be PointerArg too.
   | RefArg of ItaniumExpr * ItaniumExpr
-
   /// CV qualifiers followed by reference qualifier in code.
   /// For example, const&.
   | ReferenceArg of ItaniumExpr * ItaniumExpr option
-
   /// Beginning of function pointer in mangling which is
   /// consisted of qualifiers and pointers. First list expression is
   /// qualifiers with pointers, such as const*, second expression is successive
   /// pointers (For example, *****).
   | FunctionBegin of ItaniumExpr list option * ItaniumExpr
-
   /// Restrict qualifer which is applied to pointer arguments. There can be
   /// const or volatile between pointer sign (*) and restrict qualifier.
   | Restrict of RestrictQualifier
-
   /// Array arguments encoded with their size and type.
   | ArrayPointer of ItaniumExpr option * ItaniumExpr list * ItaniumExpr
-
   /// Created for special case of CV qualifiers, first element is qualifier.
   | Functionarg of ItaniumExpr option * ItaniumExpr
-
   /// Adjustment offset for virtual override thunks.
   | CallOffset of CallOffSet
-
   /// Virtual function override thunks with call offset and base encoding.
   | VirtualThunk of ItaniumExpr * ItaniumExpr
-
   /// Virtual override thunks with covariant return.
   | VirtualThunkRet of ItaniumExpr
-
   | GuardVariable of ItaniumExpr list * ItaniumExpr
-
   /// Transaction entry point for function declared transaction safe.
   | TransactionSafeFunction of ItaniumExpr
-
   /// Lifetime - Extended temporary.
   | ReferenceTemporary of ItaniumExpr * ItaniumExpr
-
   | ScopeEncoding of ItaniumExpr * ItaniumExpr
-
   /// Pointer to member function.
   | MemberPointer of ItaniumExpr
-
   | Scope of ItaniumExpr
-
   | ABITag of string * string
-
   | ConstructionVtable of ItaniumExpr * ItaniumExpr
-
   /// Cast and Vendor extended operators.
   | CastOperator of string * ItaniumExpr
-
   /// Member pointers as independent arguments.
   | MemberPAsArgument of ItaniumExpr * ItaniumExpr
-
   | Vector of ItaniumExpr * ItaniumExpr
-
   | LambdaExpression of ItaniumExpr * ItaniumExpr
-
   /// Lambda xpression together with scope encoding.
   | ScopedLambda of ItaniumExpr * ItaniumExpr option * ItaniumExpr
-
   | UnnamedType of ItaniumExpr
-
   | ExternalName of ItaniumExpr
-
   | CallExpr of ItaniumExpr list
-
   /// Conversion with one argument.
   | ConversionOne of ItaniumExpr * ItaniumExpr
-
   /// Conversion with more than one argument.
   | ConversionMore of ItaniumExpr * ItaniumExpr list
-
   /// expr.name .
   | DotExpr of ItaniumExpr * ItaniumExpr
-
   /// expr.*expr .
   | DotPointerExpr of ItaniumExpr * ItaniumExpr
-
   | CastingExpr of CasTing * ItaniumExpr * ItaniumExpr
-
   | TypeMeasure of MeasureType * ItaniumExpr
-
   | ExprMeasure of MeasureExpr * ItaniumExpr
-
   /// Expression for expanding argument pack.
   | ExpressionArgPack of ItaniumExpr
-
   /// Function paramater references.
   | ParameterRef of ItaniumExpr
-
   | DeclType of ItaniumExpr
 
-type internal ItaniumUserState = {
-  Namelist: ItaniumExpr List
-  TemplateArgList : ItaniumExpr list
-  Carry : ItaniumExpr
-  RetFlag : int
-  ArgPackFlag : int
-}
+type internal ItaniumUserState =
+  { Namelist: ItaniumExpr List
+    TemplateArgList: ItaniumExpr list
+    Carry: ItaniumExpr
+    RetFlag: int
+    ArgPackFlag: int }
 with
   static member Default =
     { Namelist = []

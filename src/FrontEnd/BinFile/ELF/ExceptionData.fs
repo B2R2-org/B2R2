@@ -27,14 +27,13 @@ namespace B2R2.FrontEnd.BinFile.ELF
 open B2R2
 
 /// Represents exception information.
-type internal ExceptionData = {
-  /// Exception frames.
-  ExceptionFrame: ExceptionFrame
-  /// LSDA (Language Specific Data Area) table is a collection of LSDAs.
-  LSDATable: LSDATable
-  /// Unwinding info table.
-  UnwindingTbl: Map<Addr, UnwindingEntry>
-}
+type internal ExceptionData =
+  { /// Exception frames.
+    ExceptionFrame: ExceptionFrame
+    /// LSDA (Language Specific Data Area) table is a collection of LSDAs.
+    LSDATable: LSDATable
+    /// Unwinding info table.
+    UnwindingTbl: Map<Addr, UnwindingEntry> }
 
 module internal ExceptionData =
   let private computeUnwindingTable exns =

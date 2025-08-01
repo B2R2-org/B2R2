@@ -32,75 +32,75 @@ let isPrefix = function
   | _ -> false
 
 let private readIndex (span: ByteSpan) (reader: IBinReader) pos =
-  let value, cnt = reader.ReadUInt32LEB128 (span, pos)
+  let value, cnt = reader.ReadUInt32LEB128(span, pos)
   struct (value |> Index, pos + cnt)
 
 let private readType (span: ByteSpan) (reader: IBinReader) pos =
-  let t, cnt = reader.ReadInt32LEB128 (span, pos)
+  let t, cnt = reader.ReadInt32LEB128(span, pos)
   struct (t |> Type, pos + cnt)
 
 let private readAlignment (span: ByteSpan) (reader: IBinReader) pos =
-  let alignment, cnt = reader.ReadUInt32LEB128 (span, pos)
+  let alignment, cnt = reader.ReadUInt32LEB128(span, pos)
   struct (alignment |> Alignment, pos + cnt)
 
 let private readAddress (span: ByteSpan) (reader: IBinReader) pos =
-  let address, cnt = reader.ReadUInt32LEB128 (span, pos)
+  let address, cnt = reader.ReadUInt32LEB128(span, pos)
   struct (address |> Address, pos + cnt)
 
 let private readLane (span: ByteSpan) (reader: IBinReader) pos =
-  let lane = reader.ReadUInt8 (span, pos)
+  let lane = reader.ReadUInt8(span, pos)
   struct (lane |> LaneIndex, pos + 1)
 
 let private parseU32LEB128 (span: ByteSpan) (reader: IBinReader) pos opcode =
-  let value, cnt = reader.ReadUInt32LEB128 (span, pos)
-  struct (opcode, OneOperand (value |> I32), uint32 (pos + cnt))
+  let value, cnt = reader.ReadUInt32LEB128(span, pos)
+  struct (opcode, OneOperand(value |> I32), uint32 (pos + cnt))
 
 let private parseU64LEB128 (span: ByteSpan) (reader: IBinReader) pos opcode =
-  let value, cnt = reader.ReadUInt64LEB128 (span, pos)
-  struct (opcode, OneOperand (value |> I64), uint32 (pos + cnt))
+  let value, cnt = reader.ReadUInt64LEB128(span, pos)
+  struct (opcode, OneOperand(value |> I64), uint32 (pos + cnt))
 
 let private parseF32 (span: ByteSpan) (reader: IBinReader) pos opcode =
-  let value = reader.ReadUInt32 (span, pos)
+  let value = reader.ReadUInt32(span, pos)
   let value = BitVector.OfUInt32(value, 32<rt>)
-  struct (opcode, OneOperand (value |> F32), uint32 (pos + 4))
+  struct (opcode, OneOperand(value |> F32), uint32 (pos + 4))
 
 let private parseF64 (span: ByteSpan) (reader: IBinReader) pos opcode =
-  let value = reader.ReadUInt64 (span, pos)
+  let value = reader.ReadUInt64(span, pos)
   let value = BitVector.OfUInt64(value, 64<rt>)
-  struct (opcode, OneOperand (value |> F64), uint32 (pos + 8))
+  struct (opcode, OneOperand(value |> F64), uint32 (pos + 8))
 
 let private parseV128 (span: ByteSpan) (reader: IBinReader) pos opcode =
-  let i32One = reader.ReadUInt32 (span, pos)
+  let i32One = reader.ReadUInt32(span, pos)
   let i32One = BitVector.OfUInt32(i32One, 32<rt>)
-  let i32Two = reader.ReadUInt32 (span, pos + 4)
+  let i32Two = reader.ReadUInt32(span, pos + 4)
   let i32Two = BitVector.OfUInt32(i32Two, 32<rt>)
-  let i32Three = reader.ReadUInt32 (span, pos + 8)
+  let i32Three = reader.ReadUInt32(span, pos + 8)
   let i32Three = BitVector.OfUInt32(i32Three, 32<rt>)
-  let i32Four = reader.ReadUInt32 (span, pos + 12)
+  let i32Four = reader.ReadUInt32(span, pos + 12)
   let i32Four = BitVector.OfUInt32(i32Four, 32<rt>)
   let v128 = (i32One, i32Two, i32Three, i32Four) |> V128
   struct (opcode, OneOperand v128, uint32 pos + 16u)
 
 (* XXX: readIndex *)
 let private parseIndex (span: ByteSpan) (reader: IBinReader) pos opcode =
-  let index, cnt = reader.ReadUInt32LEB128 (span, pos)
-  struct (opcode, OneOperand (index |> Index), uint32 (pos + cnt))
+  let index, cnt = reader.ReadUInt32LEB128(span, pos)
+  struct (opcode, OneOperand(index |> Index), uint32 (pos + cnt))
 
 (* XXX: readType *)
 let private parseType (span: ByteSpan) (reader: IBinReader) pos opcode =
-  let t, cnt = reader.ReadInt32LEB128 (span, pos)
-  struct (opcode, OneOperand (t |> Type), uint32 (pos + cnt))
+  let t, cnt = reader.ReadInt32LEB128(span, pos)
+  struct (opcode, OneOperand(t |> Type), uint32 (pos + cnt))
 
 let private parseLoad span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
   let struct (offset, nextPos) = readAddress span reader nextPos
-  let operands = TwoOperands (alignment, offset)
+  let operands = TwoOperands(alignment, offset)
   struct (opcode, operands, uint32 nextPos)
 
 let private parseStore span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
   let struct (offset, nextPos) = readAddress span reader nextPos
-  let operands = TwoOperands (alignment, offset)
+  let operands = TwoOperands(alignment, offset)
   struct (opcode, operands, uint32 nextPos)
 
 let rec private parseTypes span reader pos cnt ret =
@@ -116,7 +116,7 @@ let rec private parseIndices span reader pos cnt ret =
     parseIndices span reader nextPos (cnt - 1) (ret @ [ index ]) (* XXX *)
 
 let private parseCount (span: ByteSpan) (reader: IBinReader) pos =
-  let cnt, bcnt = reader.ReadInt32LEB128 (span, pos)
+  let cnt, bcnt = reader.ReadInt32LEB128(span, pos)
   struct (cnt, uint32 (pos + bcnt))
 
 let private parseSimdLane span reader pos opcode =
@@ -127,18 +127,18 @@ let private parseSimdLoadLane span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
   let struct (offset, nextPos) = readAddress span reader nextPos
   let struct (lane, nextPos) = readLane span reader nextPos
-  struct (opcode, ThreeOperands (alignment, offset, lane), uint32 nextPos)
+  struct (opcode, ThreeOperands(alignment, offset, lane), uint32 nextPos)
 
 let private parseSimdLoadZero span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
   let struct (offset, nextPos) = readAddress span reader nextPos
-  struct (opcode, TwoOperands (alignment, offset), uint32 nextPos)
+  struct (opcode, TwoOperands(alignment, offset), uint32 nextPos)
 
 let private parseSimdStoreLane span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
   let struct (offset, nextPos) = readAddress span reader nextPos
   let struct (lane, nextPos) = readLane span reader nextPos
-  struct (opcode, ThreeOperands (alignment, offset, lane), uint32 nextPos)
+  struct (opcode, ThreeOperands(alignment, offset, lane), uint32 nextPos)
 
 let private parseSimdShuffle span reader pos opcode =
   parseV128 span reader pos opcode
@@ -146,37 +146,37 @@ let private parseSimdShuffle span reader pos opcode =
 let private parseSimdSplat span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
   let struct (offset, nextPos) = readAddress span reader nextPos
-  struct (opcode, TwoOperands (alignment, offset), uint32 nextPos)
+  struct (opcode, TwoOperands(alignment, offset), uint32 nextPos)
 
 let private parseAtomicNotify span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
   let struct (offset, nextPos) = readAddress span reader nextPos
-  struct (opcode, TwoOperands (alignment, offset), uint32 nextPos)
+  struct (opcode, TwoOperands(alignment, offset), uint32 nextPos)
 
 let private parseAtomicFence (span: ByteSpan) (reader: IBinReader) pos opcode =
-  let consistencyModel = reader.ReadUInt8 (span, pos)
-  struct (opcode, OneOperand (consistencyModel |> ConsistencyModel),
+  let consistencyModel = reader.ReadUInt8(span, pos)
+  struct (opcode, OneOperand(consistencyModel |> ConsistencyModel),
           uint32 pos + 1u)
 
 let private parseAtomicLoad span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
   let struct (offset, nextPos) = readAddress span reader nextPos
-  struct (opcode, TwoOperands (alignment, offset), uint32 nextPos)
+  struct (opcode, TwoOperands(alignment, offset), uint32 nextPos)
 
 let private parseAtomicStore span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
   let struct (offset, nextPos) = readAddress span reader nextPos
-  struct (opcode, TwoOperands (alignment, offset), uint32 nextPos)
+  struct (opcode, TwoOperands(alignment, offset), uint32 nextPos)
 
 let private parseAtomicWait span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
   let struct (offset, nextPos) = readAddress span reader nextPos
-  struct (opcode, TwoOperands (alignment, offset), uint32 nextPos)
+  struct (opcode, TwoOperands(alignment, offset), uint32 nextPos)
 
 let private parseAtomicRmw span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
   let struct (offset, nextPos) = readAddress span reader nextPos
-  struct (opcode, TwoOperands (alignment, offset), uint32 nextPos)
+  struct (opcode, TwoOperands(alignment, offset), uint32 nextPos)
 
 let private parseInstruction (span: ByteSpan) (reader: IBinReader) =
   match span[0] with
@@ -193,22 +193,22 @@ let private parseInstruction (span: ByteSpan) (reader: IBinReader) =
     | 0x08uy ->
       let struct (segment, pos) = readIndex span reader 2
       let struct (memIndex, pos) = readIndex span reader pos
-      struct (MemoryInit, TwoOperands (segment, memIndex), uint32 pos)
+      struct (MemoryInit, TwoOperands(segment, memIndex), uint32 pos)
     | 0x09uy -> parseIndex span reader 2 DataDrop
     | 0x0auy ->
       let struct (destMemIndex, pos) = readIndex span reader 2
       let struct (srcMemIndex, pos) = readIndex span reader pos
-      struct (MemoryCopy, TwoOperands (destMemIndex, srcMemIndex), uint32 pos)
+      struct (MemoryCopy, TwoOperands(destMemIndex, srcMemIndex), uint32 pos)
     | 0x0buy -> parseIndex span reader 2 MemoryFill
     | 0x0cuy ->
       let struct (segment, pos) = readIndex span reader 2
       let struct (tableIndex, pos) = readIndex span reader pos
-      struct (TableInit, TwoOperands (segment, tableIndex), uint32 pos)
+      struct (TableInit, TwoOperands(segment, tableIndex), uint32 pos)
     | 0x0duy -> struct (ElemDrop, NoOperand, 2u)
     | 0x0euy ->
       let struct (destTable, pos) = readIndex span reader 2
       let struct (srcTable, pos) = readIndex span reader pos
-      struct (TableCopy, TwoOperands (destTable, srcTable), uint32 pos)
+      struct (TableCopy, TwoOperands(destTable, srcTable), uint32 pos)
     | 0x0fuy -> parseIndex span reader 2 TableGrow
     | 0x10uy -> parseIndex span reader 2 TableSize
     | 0x11uy -> parseIndex span reader 2 TableFill
@@ -544,12 +544,12 @@ let private parseInstruction (span: ByteSpan) (reader: IBinReader) =
   | 0x11uy ->
     let struct (sigIndex, pos) = readIndex span reader 1
     let struct (tableIndex, pos) = readIndex span reader pos
-    struct (CallIndirect, TwoOperands (sigIndex, tableIndex), uint32 pos)
+    struct (CallIndirect, TwoOperands(sigIndex, tableIndex), uint32 pos)
   | 0x12uy -> parseIndex span reader 1 ReturnCall
   | 0x13uy ->
     let struct (sigIndex, pos) = readIndex span reader 1
     let struct (tableIndex, pos) = readIndex span reader pos
-    struct (ReturnCallIndirect, TwoOperands (sigIndex, tableIndex), uint32 pos)
+    struct (ReturnCallIndirect, TwoOperands(sigIndex, tableIndex), uint32 pos)
   | 0x14uy -> struct (CallRef, NoOperand, 1u)
   | 0x18uy -> parseIndex span reader 1 Delegate
   | 0x19uy -> struct (CatchAll, NoOperand, 1u)
@@ -737,4 +737,4 @@ let private parseInstruction (span: ByteSpan) (reader: IBinReader) =
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let struct (opcode, operands, instrLen) = parseInstruction span reader
-  Instruction (addr, instrLen, opcode, operands, lifter)
+  Instruction(addr, instrLen, opcode, operands, lifter)

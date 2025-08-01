@@ -34,12 +34,11 @@ type ExceptionFrame = CFI list
 /// block of .eh_frame. This exists roughly for every object file, although one
 /// object file may have multiple CFIs. Each CFI record contains a CIE record
 /// followed by 1 or more FDE records.
-and CFI = {
-  /// CIE record.
-  CIE: CIE
-  /// FDE records.
-  FDEs: FDE[]
-}
+and CFI =
+  { /// CIE record.
+    CIE: CIE
+    /// FDE records.
+    FDEs: FDE[] }
 
 [<RequireQualifiedAccess>]
 module internal ExceptionFrame =
@@ -47,7 +46,7 @@ module internal ExceptionFrame =
 
   let computeNextOffset (span: ByteSpan) (reader: IBinReader) offset len =
     if len = -1 then
-      let len = reader.ReadUInt64 (span, offset)
+      let len = reader.ReadUInt64(span, offset)
       let offset = offset + 8
       int len + offset, offset
     else len + offset, offset
@@ -63,17 +62,17 @@ module internal ExceptionFrame =
     let secAddr, secOffset, secSize = sec.SecAddr, sec.SecOffset, sec.SecSize
     let reader = toolBox.Reader
     let rec parseLoop cie cies fdes offset cfis =
-      let secChunk = ReadOnlySpan (toolBox.Bytes, int secOffset, int secSize)
+      let secChunk = ReadOnlySpan(toolBox.Bytes, int secOffset, int secSize)
       if offset >= secChunk.Length then
         accumulateCFIs cfis cie fdes
       else
         let originalOffset = offset
-        let len, offset = reader.ReadInt32 (secChunk, offset), offset + 4
+        let len, offset = reader.ReadInt32(secChunk, offset), offset + 4
         if len = 0 then accumulateCFIs cfis cie fdes
         else
           let nextOfs, offset = computeNextOffset secChunk reader offset len
           let mybase = offset
-          let id, offset = reader.ReadInt32 (secChunk, offset), offset + 4
+          let id, offset = reader.ReadInt32(secChunk, offset), offset + 4
           if id = 0 then
             let cfis = accumulateCFIs cfis cie fdes
             let cie = CIE.parse toolBox secChunk cls isa regs offset nextOfs

@@ -44,10 +44,10 @@ type GroundWork =
   static member CreateRegisterFactory isa =
     match isa with
     | Intel -> Intel.RegisterFactory isa.WordSize :> IRegisterFactory
-    | ARM32 -> ARM32.RegisterFactory () :> IRegisterFactory
-    | AArch64 -> ARM64.RegisterFactory () :> IRegisterFactory
+    | ARM32 -> ARM32.RegisterFactory() :> IRegisterFactory
+    | AArch64 -> ARM64.RegisterFactory() :> IRegisterFactory
     | MIPS -> MIPS.RegisterFactory isa.WordSize :> IRegisterFactory
-    | TMS320C6000 -> TMS320C6000.RegisterFactory () :> IRegisterFactory
+    | TMS320C6000 -> TMS320C6000.RegisterFactory() :> IRegisterFactory
     | AVR -> AVR.RegisterFactory isa.WordSize
     | S390 -> S390.RegisterFactory isa.WordSize :> IRegisterFactory
     | SH4 -> SH4.RegisterFactory isa.WordSize :> IRegisterFactory
@@ -55,54 +55,54 @@ type GroundWork =
     | RISCV64 -> RISCV64.RegisterFactory isa.WordSize :> IRegisterFactory
     | SPARC -> SPARC.RegisterFactory isa.WordSize :> IRegisterFactory
     | PARISC -> PARISC.RegisterFactory isa.WordSize :> IRegisterFactory
-    | EVM -> EVM.RegisterFactory () :> IRegisterFactory
-    | Python -> Python.RegisterFactory () :> IRegisterFactory
+    | EVM -> EVM.RegisterFactory() :> IRegisterFactory
+    | Python -> Python.RegisterFactory() :> IRegisterFactory
     | _ -> Terminator.futureFeature ()
 
   /// Creates a new parser (IInstructionParsable) for the given architecture.
-  static member CreateParser (reader, isa: ISA) =
+  static member CreateParser(reader, isa: ISA) =
     match isa with
     | Intel ->
-      Intel.IntelParser (isa.WordSize, reader) :> IInstructionParsable
+      Intel.IntelParser(isa.WordSize, reader) :> IInstructionParsable
     | ARM32 ->
-      ARM32.ARM32Parser (isa, false, reader) :> IInstructionParsable
+      ARM32.ARM32Parser(isa, false, reader) :> IInstructionParsable
     | AArch64 ->
-      ARM64.ARM64Parser (reader) :> IInstructionParsable
+      ARM64.ARM64Parser(reader) :> IInstructionParsable
     | MIPS ->
-      MIPS.MIPSParser (isa, reader) :> IInstructionParsable
+      MIPS.MIPSParser(isa, reader) :> IInstructionParsable
     | EVM ->
-      EVM.EVMParser (isa) :> IInstructionParsable
+      EVM.EVMParser(isa) :> IInstructionParsable
     | TMS320C6000 ->
-      TMS320C6000.TMS320C6000Parser (reader) :> IInstructionParsable
+      TMS320C6000.TMS320C6000Parser(reader) :> IInstructionParsable
     | AVR ->
-      AVR.AVRParser (reader) :> IInstructionParsable
+      AVR.AVRParser(reader) :> IInstructionParsable
     | S390 ->
-      S390.S390Parser (isa, reader) :> IInstructionParsable
+      S390.S390Parser(isa, reader) :> IInstructionParsable
     | SH4 ->
-      SH4.SH4Parser (reader) :> IInstructionParsable
+      SH4.SH4Parser(reader) :> IInstructionParsable
     | PPC32 ->
-      PPC32.PPC32Parser (reader) :> IInstructionParsable
+      PPC32.PPC32Parser(reader) :> IInstructionParsable
     | RISCV64 ->
-      RISCV64.RISCV64Parser (isa, reader) :> IInstructionParsable
+      RISCV64.RISCV64Parser(isa, reader) :> IInstructionParsable
     | SPARC ->
-      SPARC.SPARCParser (reader) :> IInstructionParsable
+      SPARC.SPARCParser(reader) :> IInstructionParsable
     | PARISC ->
-      PARISC.PARISCParser (isa, reader) :> IInstructionParsable
+      PARISC.PARISCParser(isa, reader) :> IInstructionParsable
     | _ ->
       Terminator.futureFeature ()
 
   /// Create a new parser (IInstructionParsable) for the given file.
-  static member CreateParser (binFile: IBinFile) =
+  static member CreateParser(binFile: IBinFile) =
     match binFile.ISA with
     | Python ->
-      Python.PythonParser (binFile, binFile.Reader) :> IInstructionParsable
+      Python.PythonParser(binFile, binFile.Reader) :> IInstructionParsable
     | _ ->
-      GroundWork.CreateParser (binFile.Reader, binFile.ISA)
+      GroundWork.CreateParser(binFile.Reader, binFile.ISA)
 
   /// Creates a new LowUIR builder for the given architecture.
-  static member CreateBuilder isa regFactory =
-    let stream = LowUIRStream ()
+  static member CreateBuilder(isa, regFactory) =
+    let stream = LowUIRStream()
     match isa with
-    | Intel -> Intel.LowUIRBuilder (isa, regFactory, stream) :> ILowUIRBuilder
-    | MIPS -> MIPS.LowUIRBuilder (isa, regFactory, stream) :> ILowUIRBuilder
-    | _ -> ILowUIRBuilder.Default (isa, regFactory, stream)
+    | Intel -> Intel.LowUIRBuilder(isa, regFactory, stream) :> ILowUIRBuilder
+    | MIPS -> MIPS.LowUIRBuilder(isa, regFactory, stream) :> ILowUIRBuilder
+    | _ -> ILowUIRBuilder.Default(isa, regFactory, stream)

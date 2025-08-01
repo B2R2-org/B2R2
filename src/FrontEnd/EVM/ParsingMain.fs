@@ -29,8 +29,8 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 let private parsePush (span: ReadOnlySpan<byte>) opcode size =
-  let bytes = span.Slice(1, int size).ToArray ()
-  struct (opcode <| BitVector.OfArr (Array.rev bytes), 3, 1u + size)
+  let bytes = span.Slice(1, int size).ToArray()
+  struct (opcode <| BitVector.OfArr(Array.rev bytes), 3, 1u + size)
 
 let private parseOpcode (span: ReadOnlySpan<byte>) =
   match span[0] with
@@ -185,4 +185,6 @@ let private parseOpcode (span: ReadOnlySpan<byte>) =
 
 let parse lifter span offset addr =
   let struct (opcode, gas, instrLen) = parseOpcode span
-  Instruction (addr, instrLen, offset, opcode, gas, lifter)
+  Instruction(addr, instrLen, offset, opcode, gas, lifter)
+
+// vim: set tw=80 sts=2 sw=2:

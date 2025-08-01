@@ -31,8 +31,8 @@ open B2R2.FrontEnd.NameMangling.ItaniumTables
 open B2R2.FrontEnd.NameMangling.ItaniumUtils
 
 /// Represents a demangler for Itanium C++ names.
-type ItaniumDemangler () =
-  let charListtoStr a = String (List.toArray a)
+type ItaniumDemangler() =
+  let charListtoStr a = String(List.toArray a)
 
   let rec convertbase36todecimal idx res input =
     match input with
@@ -57,19 +57,19 @@ type ItaniumDemangler () =
           if x + 2 <= us.Namelist.Length then
             let a2 = (List.rev us.Namelist)[x + 1]
             match a2 with
-            | NestedName (a, b) -> NestedName (a, List.rev b)
-            | PointerArg (a, b, Specific idx) ->
+            | NestedName(a, b) -> NestedName(a, List.rev b)
+            | PointerArg(a, b, Specific idx) ->
               let value = us.TemplateArgList[idx + 1]
-              PointerArg (a, b, value)
-            | RefArg (a, Specific idx) ->
+              PointerArg(a, b, value)
+            | RefArg(a, Specific idx) ->
               let value = us.TemplateArgList[idx + 1]
-              RefArg (a, value)
+              RefArg(a, value)
             | Specific idx ->
               let value = us.TemplateArgList[idx + 1]
               value
             | _ -> a2
           else
-            Dummy "" ) |>> SingleArg
+            Dummy "") |>> SingleArg
 
   let namebackrefT =
     pchar 'T' >>. ((pchar '_' |>> fun (c) -> (-1))
@@ -207,7 +207,7 @@ type ItaniumDemangler () =
 
   let scopeEncoding, scopeEncodingref = createParserForwardedToRef ()
 
-  let pExpression, pExpressionRef = createParserForwardedToRef()
+  let pExpression, pExpressionRef = createParserForwardedToRef ()
 
   let pConstructor =
     pchar 'C' .>>
@@ -286,15 +286,15 @@ type ItaniumDemangler () =
     (fun (x, y) ->
       match x with
       | Some value ->
-        RefArg (value, y)
-      | None -> RefArg (ReferenceArg (Reference Empty, None), y))
+        RefArg(value, y)
+      | None -> RefArg(ReferenceArg(Reference Empty, None), y))
     >>= addArgPack >>= addOnCondition
     |>>
     (fun b ->
       match b with
-      | RefArg (a, Arguments alist) |
-        RefArg (a, TemplateSub (Arguments alist, _)) ->
-        List.map (fun x -> RefArg (a, x)) alist
+      | RefArg(a, Arguments alist)
+      | RefArg(a, TemplateSub(Arguments alist, _)) ->
+        List.map (fun x -> RefArg(a, x)) alist
       | _ -> [ b ]
     ) |>> Arguments
 
@@ -589,15 +589,15 @@ type ItaniumDemangler () =
       <|> attempt (pFunctionRetArgs)
 
   /// Check if the given string is a well-formed mangled string.
-  static member IsWellFormed (str: string) =
+  static member IsWellFormed(str: string) =
     str.Length > 2 && str[0..1] = "_Z"
 
   interface IDemanglable with
     member _.Demangle str =
       match runParserOnString (stmt) ItaniumUserState.Default "" str[2..] with
-      | Success (result, _, pos) ->
+      | Success(result, _, pos) ->
         if pos.Column = int64 str.Length - 1L then
           Result.Ok <| ItaniumInterpreter.interpret result
         else Result.Error ErrorCase.ParsingFailure (* Didn't consume all. *)
-      | Failure (e, _, _) ->
+      | Failure(e, _, _) ->
         Result.Error ErrorCase.ParsingFailure

@@ -28,8 +28,7 @@ open B2R2
 
 /// Represents a storage of PE symbols obtained either from PDB or COFF symbol
 /// tables.
-type SymbolStore = {
-  SymbolByAddr: Map<Addr, Symbol>
-  SymbolByName: Map<string, Symbol>
-  SymbolArray: Symbol[]
-}
+type SymbolStore =
+  { SymbolByAddr: Map<Addr, Symbol>
+    SymbolByName: Map<string, Symbol>
+    SymbolArray: Symbol[] }

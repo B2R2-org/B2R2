@@ -487,40 +487,40 @@ let opCodeToString = function
 let prependDelimiter delimiter (builder: IDisasmBuilder) =
   match delimiter with
   | None -> ()
-  | Some delim -> builder.Accumulate AsmWordKind.String delim
+  | Some delim -> builder.Accumulate(AsmWordKind.String, delim)
 
 let immToString imm (builder: IDisasmBuilder) =
-  builder.Accumulate AsmWordKind.Value (HexString.ofInt32 imm)
+  builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 imm)
 
 let immToStringNoPrefix imm (builder: IDisasmBuilder) =
-  builder.Accumulate AsmWordKind.Value $"{imm:x}"
+  builder.Accumulate(AsmWordKind.Value, $"{imm:x}")
 
 let ccToString cc (builder: IDisasmBuilder) =
   let cc = ConditionCode.toString cc
-  builder.Accumulate AsmWordKind.Variable cc
+  builder.Accumulate(AsmWordKind.Variable, cc)
 
 let buildReg ins reg (builder: IDisasmBuilder) =
   let reg = Register.toString reg
-  builder.Accumulate AsmWordKind.Variable reg
+  builder.Accumulate(AsmWordKind.Variable, reg)
 
 let memToString addrMode (builder: IDisasmBuilder) =
   match addrMode with
-  | DispMode (reg,c) ->
+  | DispMode(reg,c) ->
     let reg = Register.toString reg
-    builder.Accumulate AsmWordKind.Variable reg
-    builder.Accumulate AsmWordKind.String "+"
-    builder.Accumulate AsmWordKind.Value (string c)
+    builder.Accumulate(AsmWordKind.Variable, reg)
+    builder.Accumulate(AsmWordKind.String, "+")
+    builder.Accumulate(AsmWordKind.Value, string c)
   | PreIdxMode reg ->
     let reg = Register.toString reg
-    builder.Accumulate AsmWordKind.String "-"
-    builder.Accumulate AsmWordKind.Variable reg
+    builder.Accumulate(AsmWordKind.String, "-")
+    builder.Accumulate(AsmWordKind.Variable, reg)
   | PostIdxMode reg ->
     let reg = Register.toString reg
-    builder.Accumulate AsmWordKind.Variable reg
-    builder.Accumulate AsmWordKind.String "+"
+    builder.Accumulate(AsmWordKind.Variable, reg)
+    builder.Accumulate(AsmWordKind.String, "+")
   | UnchMode reg ->
     let reg = Register.toString reg
-    builder.Accumulate AsmWordKind.Variable reg
+    builder.Accumulate(AsmWordKind.Variable, reg)
 
 let oprToString ins addr operand delim builder =
   match operand with
@@ -546,67 +546,67 @@ let oprToString ins addr operand delim builder =
 let buildComment2 opr1 opr2 (builder: IDisasmBuilder) =
   match opr1, opr2 with
   | OprImm imm, _ | _, OprImm imm ->
-    builder.Accumulate AsmWordKind.String "     ! "
-    builder.Accumulate AsmWordKind.Value (string imm)
+    builder.Accumulate(AsmWordKind.String, "     ! ")
+    builder.Accumulate(AsmWordKind.Value, string imm)
   | OprMemory addrMode, _ | _, OprMemory addrMode ->
     match addrMode with
-    | DispMode (reg, c) ->
-      builder.Accumulate AsmWordKind.String "     ! "
-      builder.Accumulate AsmWordKind.Value (HexString.ofInt32 c)
+    | DispMode(reg, c) ->
+      builder.Accumulate(AsmWordKind.String, "     ! ")
+      builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 c)
     | _ -> ()
   | _ -> ()
 
 let buildComment3 opr1 opr2 opr3 (builder: IDisasmBuilder) =
   match opr1, opr2, opr3 with
   | OprImm imm, _, _ | _, OprImm imm, _ | _, _, OprImm imm ->
-    builder.Accumulate AsmWordKind.String "     ! "
-    builder.Accumulate AsmWordKind.Value (string imm)
+    builder.Accumulate(AsmWordKind.String, "     ! ")
+    builder.Accumulate(AsmWordKind.Value, string imm)
   | OprMemory addrMode, _, _ | _, OprMemory addrMode, _
   | _, _, OprMemory addrMode ->
     match addrMode with
-    | DispMode (reg, c) ->
-      builder.Accumulate AsmWordKind.String "     ! "
-      builder.Accumulate AsmWordKind.Value (HexString.ofInt32 c)
+    | DispMode(reg, c) ->
+      builder.Accumulate(AsmWordKind.String, "     ! ")
+      builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 c)
     | _ -> ()
   | _ -> ()
 
 let buildComment3Bracket opr1 opr2 opr3 (builder: IDisasmBuilder) =
   match opr1, opr2, opr3 with
   | OprImm imm, _, _ | _, OprImm imm, _ | _, _, OprImm imm ->
-    builder.Accumulate AsmWordKind.String "]     ! "
-    builder.Accumulate AsmWordKind.Value (string imm)
+    builder.Accumulate(AsmWordKind.String, "]     ! ")
+    builder.Accumulate(AsmWordKind.Value, string imm)
   | OprMemory addrMode, _, _ | _, OprMemory addrMode, _
   | _, _, OprMemory addrMode ->
     match addrMode with
-    | DispMode (reg, c) ->
-      builder.Accumulate AsmWordKind.String "]     ! "
-      builder.Accumulate AsmWordKind.Value (HexString.ofInt32 c)
+    | DispMode(reg, c) ->
+      builder.Accumulate(AsmWordKind.String, "]     ! ")
+      builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 c)
     | _ -> ()
   | OprReg _, OprReg _, OprReg _ ->
-    builder.Accumulate AsmWordKind.String "]"
+    builder.Accumulate(AsmWordKind.String, "]")
   | _ -> ()
 
 let buildComment4 opr1 opr2 opr3 opr4 (builder: IDisasmBuilder) =
   match opr1, opr2, opr3, opr4 with
   | OprImm imm, _, _, _ | _, OprImm imm, _, _ | _, _, OprImm imm, _
   | _, _, _, OprImm imm ->
-    builder.Accumulate AsmWordKind.String "     ! "
-    builder.Accumulate AsmWordKind.Value (string imm)
+    builder.Accumulate(AsmWordKind.String, "     ! ")
+    builder.Accumulate(AsmWordKind.Value, string imm)
   | _ -> ()
 
 let buildComment5 opr1 opr2 opr3 opr4 opr5 (builder: IDisasmBuilder) =
   match opr1, opr2, opr3, opr4, opr5 with
   | OprImm imm, _, _, _ ,_ | _, OprImm imm, _, _, _ | _, _, OprImm imm, _, _
   | _, _, _, OprImm imm, _ | _, _, _, _, OprImm imm ->
-    builder.Accumulate AsmWordKind.String "     ! "
-    builder.Accumulate AsmWordKind.Value (string imm)
+    builder.Accumulate(AsmWordKind.String, "     ! ")
+    builder.Accumulate(AsmWordKind.Value, string imm)
   | OprMemory addrMode, _, _, _, _ | _, OprMemory addrMode, _, _, _
   | _, _, OprMemory addrMode, _, _ | _, _, _, OprMemory addrMode, _
   | _, _, _, _, OprMemory addrMode ->
     match addrMode with
-    | DispMode (reg, c) ->
-      builder.Accumulate AsmWordKind.String "     ! "
-      builder.Accumulate AsmWordKind.Value (HexString.ofInt32 c)
+    | DispMode(reg, c) ->
+      builder.Accumulate(AsmWordKind.String, "     ! ")
+      builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 c)
     | _ -> ()
   | _ -> ()
 
@@ -624,7 +624,7 @@ let buildOprs (ins: Instruction) pc builder =
         | _ -> Terminator.impossible ()
     | _ ->
       oprToString ins pc opr (Some " ") builder
-  | TwoOperands (opr1, opr2) ->
+  | TwoOperands(opr1, opr2) ->
     match ins.Opcode with
     | Opcode.FBA  | Opcode.FBN | Opcode.FBU
     | Opcode.FBG | Opcode.FBUG | Opcode.FBL
@@ -674,7 +674,7 @@ let buildOprs (ins: Instruction) pc builder =
           oprToString ins pc opr1 (Some " ") builder
           oprToString ins pc opr2 (Some ", ") builder
       buildComment2 opr1 opr2 builder
-  | ThreeOperands (opr1, opr2, opr3) ->
+  | ThreeOperands(opr1, opr2, opr3) ->
     match ins.Opcode with
     | Opcode.LDF | Opcode.LDDF | Opcode.LDQF | Opcode.LDFSR | Opcode.LDXFSR
     | Opcode.LDSB | Opcode.LDSH | Opcode.LDSW | Opcode.LDUB | Opcode.LDUH
@@ -700,7 +700,7 @@ let buildOprs (ins: Instruction) pc builder =
       oprToString ins pc opr2 (Some ", ") builder
       oprToString ins pc opr3 (Some ", ") builder
       buildComment3 opr1 opr2 opr3 builder
-  | FourOperands (opr1, opr2, opr3, opr4) ->
+  | FourOperands(opr1, opr2, opr3, opr4) ->
     match ins.Opcode with
     | Opcode.BPA | Opcode.BPN | Opcode.BPNE | Opcode.BPE | Opcode.BPG
     | Opcode.BPLE | Opcode.BPGE | Opcode.BPL | Opcode.BPGU | Opcode.BPLEU
@@ -731,7 +731,7 @@ let buildOprs (ins: Instruction) pc builder =
     | Opcode.FBPA | Opcode.FBPN | Opcode.FBPU | Opcode.FBPG | Opcode.FBPUG
     | Opcode.FBPL | Opcode.FBPUL | Opcode.FBPLG | Opcode.FBPNE | Opcode.FBPE
     | Opcode.FBPUE | Opcode.FBPGE | Opcode.FBPUGE | Opcode.FBPLE
-    | Opcode.FBPULE | Opcode.FBPO->
+    | Opcode.FBPULE | Opcode.FBPO ->
       match opr1, opr2, opr3, opr4 with
       | OprCC c, OprAddr k, OprImm 0b0, OprImm 0b0 ->
         prependDelimiter (Some ",pn ") builder
@@ -822,7 +822,7 @@ let buildOprs (ins: Instruction) pc builder =
       oprToString ins pc opr3 (Some ", ") builder
       oprToString ins pc opr4 (Some ", ") builder
       buildComment4 opr1 opr2 opr3 opr4 builder
-  | FiveOperands (opr1, opr2, opr3, opr4, opr5) ->
+  | FiveOperands(opr1, opr2, opr3, opr4, opr5) ->
     oprToString ins pc opr1 (Some " ") builder
     oprToString ins pc opr2 (Some ", ") builder
     oprToString ins pc opr3 (Some ", ") builder
@@ -832,7 +832,7 @@ let buildOprs (ins: Instruction) pc builder =
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode
-  builder.Accumulate AsmWordKind.Mnemonic str
+  builder.Accumulate(AsmWordKind.Mnemonic, str)
 
 let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   let pc = ins.Address

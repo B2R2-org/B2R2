@@ -29,35 +29,35 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for PARISC.
 type Instruction
-  internal (addr, numBytes, completer, cond, id, op, opr, oprSize, wordSize,
-            lifter: ILiftable) =
+  internal(addr, numBytes, completer, cond, id, op, opr, oprSize, wordSize,
+           lifter: ILiftable) =
 
   /// Address of this instruction.
-  member _.Address with get (): Addr = addr
+  member _.Address with get(): Addr = addr
 
   /// Length of this instruction in bytes.
-  member _.Length with get (): uint32 = numBytes
+  member _.Length with get(): uint32 = numBytes
 
   /// Completer.
-  member _.Completer with get (): Completer array option = completer
+  member _.Completer with get(): Completer array option = completer
 
   /// Completer condition or fmt.
-  member _.Condition with get (): Completer option = cond
+  member _.Condition with get(): Completer option = cond
 
   /// Completer swap and uid.
-  member _.ID with get (): uint64[] option = id
+  member _.ID with get(): uint64[] option = id
 
   /// Opcode.
-  member _.Opcode with get (): Opcode = op
+  member _.Opcode with get(): Opcode = op
 
   /// Operands.
-  member _.Operands with get (): Operands = opr
+  member _.Operands with get(): Operands = opr
 
   /// Operation Size.
-  member _.OperationSize with get (): RegType = oprSize
+  member _.OperationSize with get(): RegType = oprSize
 
   /// Word size.
-  member _.WordSize with get (): WordSize = wordSize
+  member _.WordSize with get(): WordSize = wordSize
 
   interface IInstruction with
 
@@ -97,37 +97,37 @@ type Instruction
 
     member _.IsTerminator _ = Terminator.futureFeature ()
 
-    member _.DirectBranchTarget (_addr: byref<Addr>) =
+    member _.DirectBranchTarget(_addr: byref<Addr>) =
       Terminator.futureFeature ()
 
-    member _.IndirectTrampolineAddr (_addr: byref<Addr>) =
+    member _.IndirectTrampolineAddr(_addr: byref<Addr>) =
       Terminator.futureFeature ()
 
-    member _.MemoryDereferences (_: byref<Addr[]>) =
+    member _.MemoryDereferences(_: byref<Addr[]>) =
       Terminator.futureFeature ()
 
-    member _.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
+    member _.Immediate(_v: byref<int64>) = Terminator.futureFeature ()
 
-    member _.GetNextInstrAddrs () = Terminator.futureFeature ()
+    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
 
-    member _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+    member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
     member this.Translate builder =
-      (lifter.Lift this builder).Stream.ToStmts ()
+      lifter.Lift(this, builder).Stream.ToStmts()
 
     member this.TranslateToList builder =
-      (lifter.Lift this builder).Stream
+      lifter.Lift(this, builder).Stream
 
     member this.Disasm builder =
-      (lifter.Disasm this builder).ToString ()
+      lifter.Disasm(this, builder).ToString()
 
-    member this.Disasm () =
-      let builder = StringDisasmBuilder (false, null, wordSize)
-      (lifter.Disasm this builder).ToString ()
+    member this.Disasm() =
+      let builder = StringDisasmBuilder(false, null, wordSize)
+      lifter.Disasm(this, builder).ToString()
 
     member this.Decompose builder =
-      (lifter.Disasm this builder).ToAsmWords ()
+      lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
-  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
-  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder
+  abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction * IDisasmBuilder -> IDisasmBuilder

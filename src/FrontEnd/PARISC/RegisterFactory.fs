@@ -34,7 +34,7 @@ open type Register
 do ()
 
 /// Represents a factory for accessing various PARISC register variables.
-type RegisterFactory (wordSize) =
+type RegisterFactory(wordSize) =
   let rt = WordSize.toRegType wordSize
 
   let gr0 = AST.var rt (Register.toRegID GR0) "GR0"
@@ -262,9 +262,9 @@ type RegisterFactory (wordSize) =
       | Register.FPR31 -> fpr31
       | _ -> raise InvalidRegisterException
 
-    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
+    member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars () =
+    member _.GetAllRegVars() =
       [| gr0
          gr1
          gr2
@@ -374,12 +374,12 @@ type RegisterFactory (wordSize) =
          fpr30
          fpr31 |]
 
-    member this.GetAllRegStrings () =
+    member this.GetAllRegStrings() =
       let regFactory = this :> IRegisterFactory
-      regFactory.GetAllRegVars ()
+      regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegString)
 
-    member _.GetGeneralRegVars () =
+    member _.GetGeneralRegVars() =
       [| gr0
          gr1
          gr2
@@ -415,7 +415,7 @@ type RegisterFactory (wordSize) =
 
     member _.GetRegisterID e =
       match e with
-      | Var (_, id, _, _) -> id
+      | Var(_, id, _, _) -> id
       | PCVar _ -> Register.toRegID CR18
       | _ -> raise InvalidRegisterException
 

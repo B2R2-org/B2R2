@@ -30,17 +30,17 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.PE.PEUtils
 
 let private buildRelocBlock (bytes: byte[]) (reader: IBinReader) headerOffset =
-  let blockSize = reader.ReadInt32 (bytes, headerOffset + 4)
+  let blockSize = reader.ReadInt32(bytes, headerOffset + 4)
   let upperBound = headerOffset + blockSize
   let rec parseBlock offset entries =
     if offset < upperBound then
-      let buffer = reader.ReadUInt16 (bytes, offset)
-      { Type = buffer >>> 12 |> int32 |> LanguagePrimitives.EnumOfValue;
+      let buffer = reader.ReadUInt16(bytes, offset)
+      { Type = buffer >>> 12 |> int32 |> LanguagePrimitives.EnumOfValue
         Offset = buffer &&& 0xFFFus } :: entries
       |> parseBlock (offset + 2)
     else
       entries |> List.toArray
-  { PageRVA = reader.ReadUInt32 (bytes, headerOffset)
+  { PageRVA = reader.ReadUInt32(bytes, headerOffset)
     BlockSize = blockSize
     Entries = parseBlock (headerOffset + 8) List.empty }
 

@@ -47,7 +47,7 @@ let isMainCmd = function
 
 let getMainOffset cmds =
   match cmds |> Array.tryFind isMainCmd with
-  | Some (Main (_, _, m)) -> m.EntryOff
+  | Some(Main(_, _, m)) -> m.EntryOff
   | _ -> 0UL
 
 let getTextSegOffset segs =
@@ -59,7 +59,7 @@ let getTextSegOffset segs =
 let computeEntryPoint segs cmds =
   let mainOffset = getMainOffset cmds
   if mainOffset = 0UL then None
-  else Some (mainOffset + getTextSegOffset segs)
+  else Some(mainOffset + getTextSegOffset segs)
 
 let getStaticSymbols symInfo =
   symInfo.Values
@@ -68,7 +68,7 @@ let getStaticSymbols symInfo =
 let isStripped secs symInfo =
   let secText = Section.getTextSectionIndex secs
   getStaticSymbols symInfo
-  |> Array.exists (fun s -> Symbol.IsFunc secText s)
+  |> Array.exists (fun s -> Symbol.IsFunc(secText, s))
   |> not
 
 let isNXEnabled hdr =
@@ -77,7 +77,7 @@ let isNXEnabled hdr =
 
 let translateAddr segMap addr =
   match NoOverlapIntervalMap.tryFindByAddr addr segMap with
-  | Some s -> Convert.ToInt32 (addr - s.VMAddr + s.FileOff)
+  | Some s -> Convert.ToInt32(addr - s.VMAddr + s.FileOff)
   | None -> raise InvalidAddrReadException
 
 let private computeInvalidRanges toolBox segCmds getNextStartAddr =
@@ -101,7 +101,7 @@ let executableRanges segCmds =
     let perm: Permission = seg.MaxProt |> LanguagePrimitives.EnumOfValue
     perm &&& Permission.Executable = Permission.Executable)
   |> Array.fold (fun set s ->
-    IntervalSet.add (AddrRange (s.VMAddr, s.VMAddr + s.VMSize - 1UL)) set
+    IntervalSet.add (AddrRange(s.VMAddr, s.VMAddr + s.VMSize - 1UL)) set
     ) IntervalSet.empty
 
 let getPLT symInfo =

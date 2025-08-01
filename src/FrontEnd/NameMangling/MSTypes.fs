@@ -59,7 +59,6 @@ module internal EnumTypeKind =
     | UnsignedLongEnum -> " unsigned long"
     | UnknownEnumType -> " ???"
 
-
 /// Indicates the type of the complex type.
 type internal ComplexTypeKind =
   | Union
@@ -85,7 +84,6 @@ module internal ComplexTypeKind =
     | Cointerface -> "cointerface"
     | Coclass -> "coclass"
     | UnknownComplexType -> "???"
-
 
 /// Indicates the calling convention.
 type internal CallConvention =
@@ -370,17 +368,13 @@ type internal ArrayLength = int
 type internal MSExpr =
   /// A name without type information.
   | Name of string
-
   /// A nested name without type information.
   | FullName of MSExpr list
-
   /// An MSExpr form for a normal builtInType represented by a single letter.
   | SimpleBuiltInType of NormalBuiltInType
-
   /// An MSExpr form for an underscored builtInType represented by an underscore
   /// first then a single letter.
   | ExtendedBuiltInType of UnderscoredBuiltInType
-
   /// PointerStrT of PointerType * (prefixes * cvModifier) * cvTypeMSExpr.
   /// The cvTypeMSExpr differentiates between normalPointers, __basedPointers,
   /// memberPointers, or __based member pointers.
@@ -388,16 +382,12 @@ type internal MSExpr =
   | PointerStrT of PointerTypeIndicator
                  * (ModifierPrefix list * CVModifier)
                  * MSExpr
-
   /// A pointer type of PointerStrType * PointedType.
   | PointerT of MSExpr * MSExpr
-
   /// Whole information of a complex type of complaexTypeKind * TypeBody.
   | ComplexT of ComplexTypeKind * MSExpr
-
   /// EnumType of the Enum data type * name.
   | EnumType of EnumTypeKind * MSExpr
-
   /// For functions as arguements with PointerStrs, calling convention,
   /// return type , carry string, and Parameter types.
   | FuncPointer of pointers : MSExpr list
@@ -406,7 +396,6 @@ type internal MSExpr =
                  * interpretationHelperString: InterpHelperString
                  * parameterTypes: MSExpr list
                  * modifiers: (ModifierPrefix list * CVModifier) option
-
   /// A function of scope * modifiers * calling convention * Name
   /// * ReturnType * ParameterTypes * ReturnType modifiers (if any).
   | FunctionT of callScope: CallScope
@@ -416,55 +405,41 @@ type internal MSExpr =
                * returnType: MSExpr
                * parameterTypes: MSExpr list
                * returnTypeModifier: (ModifierPrefix list * CVModifier) option
-
   /// A template of FullName * Arguement types.
   | Template of MSExpr * MSExpr list
-
   /// A constructor of Name.
   | Constructor of MSExpr
-
   /// A destructor of Name.
   | Destructor of MSExpr
-
   /// RTTI0 code of any type.
   | RTTI0 of MSExpr
-
   /// Function nested in another function.
   | NestedFunc of MSExpr
-
   /// Mangled symbol pointer that comes only as template parameter.
   | MangledSymbolPtr of MSExpr
-
   /// Constructor comming inside templates.
   | ConstructedTemplate of MSExpr list * MSExpr
-
   /// Modified type of type * modifiers.
   | ModifiedType of MSExpr * (ModifierPrefix list * CVModifier)
-
   /// Value of name * type.
   | ValueT of MSExpr * MSExpr
-
   /// Pointer to an array of pointerStrTs * dimensions * Array data type.
   | ArrayPtr of MSExpr list * ArrayLength list * MSExpr
-
   /// Array type (not pointer to array) of modified data type * dimension.
   | ArrayType of MSExpr * ArrayLength
-
   /// Thunk Function type of calling Type * Name Component * Type Component
   /// * Return Type
   | ThunkF of CallConvention * MSExpr * MSExpr * MSExpr
-
   /// Ingored type for temlates.
   | IgnoredType
-
   /// Concatinate Type of MSExpr list.
   /// Concatinates the demangled string of each MSExpr in the list.
   | ConcatT of MSExpr list
 
 /// Userstate to handle name and type substitutions.
-type internal MSUserState = {
-  NameList: MSExpr list
-  TypeList: MSExpr list
-}
+
+type internal MSUserState =
+  { NameList: MSExpr list
+    TypeList: MSExpr list }
 with
   static member Default = { NameList = []; TypeList = [] }

@@ -30,32 +30,31 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents a Mach-O section.
-type Section = {
-  /// Section name.
-  SecName: string
-  /// The name of the segment that should eventually contain this section.
-  SegName: string
-  /// The virtual memory address of this section.
-  SecAddr: Addr
-  /// The size of this section.
-  SecSize: uint64
-  /// The offset to this section in the file.
-  SecOffset: uint32
-  /// The section's byte alignment.
-  SecAlignment: uint32
-  /// The file offset of the first relocation entry for this section.
-  SecRelOff: uint32
-  /// The number of relocation entries located at SecRelOff for this section.
-  SecNumOfReloc: int
-  /// Section type.
-  SecType: SectionType
-  /// Section attributes.
-  SecAttrib: SectionAttribute
-  /// Reserved field 1.
-  SecReserved1: int
-  /// Reserved field 2.
-  SecReserved2: int
-}
+type Section =
+  { /// Section name.
+    SecName: string
+    /// The name of the segment that should eventually contain this section.
+    SegName: string
+    /// The virtual memory address of this section.
+    SecAddr: Addr
+    /// The size of this section.
+    SecSize: uint64
+    /// The offset to this section in the file.
+    SecOffset: uint32
+    /// The section's byte alignment.
+    SecAlignment: uint32
+    /// The file offset of the first relocation entry for this section.
+    SecRelOff: uint32
+    /// The number of relocation entries located at SecRelOff for this section.
+    SecNumOfReloc: int
+    /// Section type.
+    SecType: SectionType
+    /// Section attributes.
+    SecAttrib: SectionAttribute
+    /// Reserved field 1.
+    SecReserved1: int
+    /// Reserved field 2.
+    SecReserved2: int }
 
 module internal Section =
   let [<Literal>] SecText = "__text"
@@ -64,19 +63,19 @@ module internal Section =
     let cls = toolBox.Header.Class
     let reader = toolBox.Reader
     let span = span.Slice offset
-    let secFlag = reader.ReadInt32 (span, selectByWordSize cls 56 64)
+    let secFlag = reader.ReadInt32(span, selectByWordSize cls 56 64)
     { SecName = readCString span 0
       SegName = readCString span 16
       SecAddr = readUIntByWordSize span reader cls 32 + toolBox.BaseAddress
       SecSize = readUIntByWordSizeAndOffset span reader cls 36 40
-      SecOffset = reader.ReadUInt32 (span, selectByWordSize cls 40 48)
-      SecAlignment = reader.ReadUInt32 (span, selectByWordSize cls 44 52)
-      SecRelOff = reader.ReadUInt32 (span, selectByWordSize cls 48 56)
-      SecNumOfReloc = reader.ReadInt32 (span, selectByWordSize cls 52 60)
+      SecOffset = reader.ReadUInt32(span, selectByWordSize cls 40 48)
+      SecAlignment = reader.ReadUInt32(span, selectByWordSize cls 44 52)
+      SecRelOff = reader.ReadUInt32(span, selectByWordSize cls 48 56)
+      SecNumOfReloc = reader.ReadInt32(span, selectByWordSize cls 52 60)
       SecType = secFlag &&& 0xFF |> LanguagePrimitives.EnumOfValue
       SecAttrib = secFlag &&& 0xFFFFFF00 |> LanguagePrimitives.EnumOfValue
-      SecReserved1 = reader.ReadInt32 (span, selectByWordSize cls 60 68)
-      SecReserved2 = reader.ReadInt32 (span, selectByWordSize cls 64 72) }
+      SecReserved1 = reader.ReadInt32(span, selectByWordSize cls 60 68)
+      SecReserved2 = reader.ReadInt32(span, selectByWordSize cls 64 72) }
 
   let private countSections segCmds =
     segCmds
@@ -90,7 +89,7 @@ module internal Section =
       let entrySize = selectByWordSize hdr.Class 68 80
       let sectionSize = entrySize * int seg.NumSecs
       let sectionOffset = int toolBox.MachOffset + seg.SecOff
-      let sectionSpan = ReadOnlySpan (bytes, sectionOffset, sectionSize)
+      let sectionSpan = ReadOnlySpan(bytes, sectionOffset, sectionSize)
       for i = 0 to int seg.NumSecs - 1 do
         let offset = i * entrySize
         sections[idx] <- parseSection toolBox sectionSpan offset

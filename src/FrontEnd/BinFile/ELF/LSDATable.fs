@@ -91,6 +91,6 @@ module internal LSDATable =
     match Array.tryFind (fun s -> s.SecName = SectionName) shdrs with
     | Some sec ->
       let offset, size = int sec.SecOffset, int sec.SecSize
-      let span = ReadOnlySpan (toolBox.Bytes, offset, size)
+      let span = ReadOnlySpan(toolBox.Bytes, offset, size)
       parseFromSection cls span toolBox.Reader sec.SecAddr 0 Map.empty
     | None -> Map.empty

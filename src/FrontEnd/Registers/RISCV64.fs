@@ -343,7 +343,7 @@ module Register =
   /// Returns the RISC-V register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "x0" -> Register.X0
     | "x1" -> Register.X1
     | "x2" -> Register.X2
@@ -418,7 +418,7 @@ module Register =
   /// Returns the register ID of a RISC-V register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+    LanguagePrimitives.EnumToValue(reg) |> RegisterID.create
 
   /// Returns the string representation of a RISC-V register.
   [<CompiledName "ToString">]

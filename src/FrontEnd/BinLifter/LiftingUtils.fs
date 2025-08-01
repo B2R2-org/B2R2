@@ -72,7 +72,7 @@ let inline regVar (builder: ILowUIRBuilder) reg =
 /// Creates a new pseudo-register variable with the given register enum.
 let inline pseudoRegVar (builder: ILowUIRBuilder) reg pos =
   let rid = LanguagePrimitives.EnumToValue reg |> RegisterID.create
-  builder.GetPseudoRegVar rid pos
+  builder.GetPseudoRegVar(rid, pos)
 
 /// Creates two new pseudo-register variables for a 128-bit register of the
 /// given register enum.
@@ -110,7 +110,7 @@ let inline (<+) (builder: ILowUIRBuilder) stmt =
 /// so this function is only useful if the builder implements the `Stream`
 /// member.
 let inline (<!--) (builder: ILowUIRBuilder) (addr, insLen) =
-  builder.Stream.MarkStart (addr, insLen)
+  builder.Stream.MarkStart(addr, insLen)
 
 /// Marks the end of an instruction by appending an IEMark statement to the
 /// given builder. A builder is defined for each different CPU architecture,
