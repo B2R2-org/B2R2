@@ -140,7 +140,7 @@ module Register =
   /// Returns the S390 register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "r0" -> Register.R0
     | "r1" -> Register.R1
     | "r2" -> Register.R2

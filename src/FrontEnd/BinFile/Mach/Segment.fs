@@ -27,7 +27,7 @@ module internal B2R2.FrontEnd.BinFile.Mach.Segment
 open B2R2.Collections
 
 let private chooser = function
-  | Segment (_, _, s) -> Some s
+  | Segment(_, _, s) -> Some s
   | _ -> None
 
 let extract cmds =

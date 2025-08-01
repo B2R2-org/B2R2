@@ -30,24 +30,24 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents for EVM insturction parser. Parser will return a
 /// platform-agnostic instruction type (IInstruction).
-type EVMParser (isa: ISA) =
+type EVMParser(isa: ISA) =
   let mutable codeOffset: Addr = 0UL
 
   let lifter =
     { new ILiftable with
-        member _.Lift ins builder =
+        member _.Lift(ins, builder) =
           Lifter.translate ins builder
-        member _.Disasm ins builder =
+        member _.Disasm(ins, builder) =
           Disasm.disasm ins builder; builder }
 
   member _.CodeOffset with get() = codeOffset and set(o) = codeOffset <- o
 
   interface IInstructionParsable with
-    member _.Parse (bs: byte[], addr) =
-      let span = ReadOnlySpan (bs)
+    member _.Parse(bs: byte[], addr) =
+      let span = ReadOnlySpan(bs)
       ParsingMain.parse lifter span codeOffset addr :> IInstruction
 
-    member _.Parse (span: ByteSpan, addr) =
+    member _.Parse(span: ByteSpan, addr) =
       ParsingMain.parse lifter span codeOffset addr :> IInstruction
 
     member _.MaxInstructionSize = 33

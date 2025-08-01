@@ -29,23 +29,23 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for SH4.
 type Instruction
-  internal (addr, numBytes, op, opr, lifter: ILiftable) =
+  internal(addr, numBytes, op, opr, lifter: ILiftable) =
 
   /// Address of this instruction.
-  member _.Address with get (): Addr = addr
+  member _.Address with get(): Addr = addr
 
   /// Length of this instruction in bytes.
-  member _.Length with get (): uint32 = numBytes
+  member _.Length with get(): uint32 = numBytes
 
   //// Opcode.
-  member _.Opcode with get (): Opcode = op
+  member _.Opcode with get(): Opcode = op
 
   //// Operands.
-  member _.Operands with get (): Operands = opr
+  member _.Operands with get(): Operands = opr
 
   interface IInstruction with
-    member _.Address with get () = addr
-    member _.Length with get () = numBytes
+    member _.Address with get() = addr
+    member _.Length with get() = numBytes
     member _.IsBranch = Terminator.futureFeature ()
     member _.IsModeChanging = false
     member _.IsDirectBranch = Terminator.futureFeature ()
@@ -65,25 +65,25 @@ type Instruction
     member _.IndirectTrampolineAddr _ = Terminator.futureFeature ()
     member _.MemoryDereferences _ = Terminator.futureFeature ()
     member _.Immediate _ = Terminator.futureFeature ()
-    member _.GetNextInstrAddrs () = Terminator.futureFeature ()
+    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
     member _.InterruptNum _ = Terminator.futureFeature ()
 
     member this.Translate builder =
-      (lifter.Lift this builder).Stream.ToStmts ()
+      lifter.Lift(this, builder).Stream.ToStmts()
 
     member this.TranslateToList builder =
-      (lifter.Lift this builder).Stream
+      lifter.Lift(this, builder).Stream
 
     member this.Disasm builder =
-      (lifter.Disasm this builder).ToString ()
+      lifter.Disasm(this, builder).ToString()
 
-    member this.Disasm () =
-      let builder = StringDisasmBuilder (false, null, WordSize.Bit32)
-      (lifter.Disasm this builder).ToString ()
+    member this.Disasm() =
+      let builder = StringDisasmBuilder(false, null, WordSize.Bit32)
+      lifter.Disasm(this, builder).ToString()
 
     member this.Decompose builder =
-      (lifter.Disasm this builder).ToAsmWords ()
+      lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
-  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
-  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder
+  abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction * IDisasmBuilder -> IDisasmBuilder

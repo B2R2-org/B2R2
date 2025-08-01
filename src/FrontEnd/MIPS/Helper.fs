@@ -186,10 +186,10 @@ let imm16SignExt b = num16 b |> uint64 |> Bits.signExtend 16 64 |> OpImm
 
 let memBaseOff b num accLength =
   let offset = num b |> uint64 |> Bits.signExtend 16 64 |> int64
-  OpMem (getRegFrom2521 b, Imm offset, accLength)
+  OpMem(getRegFrom2521 b, Imm offset, accLength)
 
 let memBaseIdx b accLength =
-  OpMem (getRegFrom2521 b, Reg (getRegFrom2016 b), accLength)
+  OpMem(getRegFrom2521 b, Reg(getRegFrom2016 b), accLength)
 
 let posSize b =
   let msb = Bits.extract b 15u 11u
@@ -222,93 +222,93 @@ let posSize6 b =
   let lsbminus32 = Bits.extract b 10u 6u
   lsbminus32 + 32u |> uint64 |> OpImm, msbd + 1u |> uint64 |> OpImm
 
-let getRel16 b = OneOperand (rel16 b)
+let getRel16 b = OneOperand(rel16 b)
 
-let getRs b = OneOperand (rs b)
+let getRs b = OneOperand(rs b)
 
-let getRd b = OneOperand (rd b)
+let getRd b = OneOperand(rd b)
 
-let getTarget b = OneOperand (region b)
+let getTarget b = OneOperand(region b)
 
-let getStype b = OneOperand (stype b)
+let getStype b = OneOperand(stype b)
 
-let getRdRs b = TwoOperands (rd b, rs b)
+let getRdRs b = TwoOperands(rd b, rs b)
 
-let getRdRtRs b = ThreeOperands (rd b, rt b, rs b)
+let getRdRtRs b = ThreeOperands(rd b, rt b, rs b)
 
-let getRdRsRt b = ThreeOperands (rd b, rs b, rt b)
+let getRdRsRt b = ThreeOperands(rd b, rs b, rt b)
 
-let getRsRt b = TwoOperands (rs b, rt b)
+let getRsRt b = TwoOperands(rs b, rt b)
 
-let getRdRt b = TwoOperands (rd b, rt b)
+let getRdRt b = TwoOperands(rd b, rt b)
 
-let getRtRdSel b = ThreeOperands (rt b, rd b, sel b)
+let getRtRdSel b = ThreeOperands(rt b, rd b, sel b)
 
-let getRsRtRel16 b = ThreeOperands (rs b, rt b, rel16 b) (* rs, rt, offset *)
+let getRsRtRel16 b = ThreeOperands(rs b, rt b, rel16 b) (* rs, rt, offset *)
 
-let getRsRel16 b = TwoOperands (rs b, rel16 b)
+let getRsRel16 b = TwoOperands(rs b, rel16 b)
 
-let getRsImm16s b = TwoOperands (rs b, imm16SignExt b)
+let getRsImm16s b = TwoOperands(rs b, imm16SignExt b)
 
-let getRtImm16 b = TwoOperands (rt b, imm16 b)
+let getRtImm16 b = TwoOperands(rt b, imm16 b)
 
-let getRtRsImm16s b = ThreeOperands (rt b, rs b, imm16SignExt b)
+let getRtRsImm16s b = ThreeOperands(rt b, rs b, imm16SignExt b)
 
-let getRtRsImm16 b = ThreeOperands (rt b, rs b, imm16 b)
+let getRtRsImm16 b = ThreeOperands(rt b, rs b, imm16 b)
 
-let getRtMemBaseOff b accLen = TwoOperands (rt b, memBaseOff b num16 accLen)
+let getRtMemBaseOff b accLen = TwoOperands(rt b, memBaseOff b num16 accLen)
 
-let getRtMemBaseOff9 b accLen = TwoOperands (rt b, memBaseOff b num9 accLen)
+let getRtMemBaseOff9 b accLen = TwoOperands(rt b, memBaseOff b num9 accLen)
 
-let getFtMemBaseOff b accLen = TwoOperands (ft b, memBaseOff b num16 accLen)
+let getFtMemBaseOff b accLen = TwoOperands(ft b, memBaseOff b num16 accLen)
 
-let getHintMemBaseOff b accLen = TwoOperands (hint b, memBaseOff b num16 accLen)
+let getHintMemBaseOff b accLen = TwoOperands(hint b, memBaseOff b num16 accLen)
 
-let getHintMemBaseOff9 b accLen = TwoOperands (hint b, memBaseOff b num9 accLen)
+let getHintMemBaseOff9 b accLen = TwoOperands(hint b, memBaseOff b num9 accLen)
 
-let getFdMemBaseIdx b accLen = TwoOperands (fd b, memBaseIdx b accLen)
+let getFdMemBaseIdx b accLen = TwoOperands(fd b, memBaseIdx b accLen)
 
-let getFsMemBaseIdx b accLen = TwoOperands (fs b, memBaseIdx b accLen)
+let getFsMemBaseIdx b accLen = TwoOperands(fs b, memBaseIdx b accLen)
 
-let getHintMemBaseIdx b accLen = TwoOperands (hint b, memBaseIdx b accLen)
+let getHintMemBaseIdx b accLen = TwoOperands(hint b, memBaseIdx b accLen)
 
-let getRdRtSa b = ThreeOperands (rd b, rt b, sa b)
+let getRdRtSa b = ThreeOperands(rd b, rt b, sa b)
 
-let getRdRsCc b = ThreeOperands (rd b, rs b, cc20 b)
+let getRdRsCc b = ThreeOperands(rd b, rs b, cc20 b)
 
-let getRdRsRtBp b = FourOperands (rd b, rs b, rt b, bp b)
+let getRdRsRtBp b = FourOperands(rd b, rs b, rt b, bp b)
 
-let getRdRsRtBp64 b = FourOperands (rd b, rs b, rt b, bp64 b)
+let getRdRsRtBp64 b = FourOperands(rd b, rs b, rt b, bp64 b)
 
-let getRtRsPosSize b = let p, s = posSize b in FourOperands (rt b, rs b, p, s)
+let getRtRsPosSize b = let p, s = posSize b in FourOperands(rt b, rs b, p, s)
 
-let getRtRsPosSize2 b = let p, s = posSize2 b in FourOperands (rt b, rs b, p, s)
+let getRtRsPosSize2 b = let p, s = posSize2 b in FourOperands(rt b, rs b, p, s)
 
-let getRtRsPosSize3 b = let p, s = posSize3 b in FourOperands (rt b, rs b, p, s)
+let getRtRsPosSize3 b = let p, s = posSize3 b in FourOperands(rt b, rs b, p, s)
 
-let getRtRsPosSize4 b = let p, s = posSize4 b in FourOperands (rt b, rs b, p, s)
+let getRtRsPosSize4 b = let p, s = posSize4 b in FourOperands(rt b, rs b, p, s)
 
-let getRtRsPosSize5 b = let p, s = posSize5 b in FourOperands (rt b, rs b, p, s)
+let getRtRsPosSize5 b = let p, s = posSize5 b in FourOperands(rt b, rs b, p, s)
 
-let getRtRsPosSize6 b = let p, s = posSize6 b in FourOperands (rt b, rs b, p, s)
+let getRtRsPosSize6 b = let p, s = posSize6 b in FourOperands(rt b, rs b, p, s)
 
-let getRtFs b = TwoOperands (rt b, fs b)
+let getRtFs b = TwoOperands(rt b, fs b)
 
 let getCcOff b =
   match Bits.extract b 20u 18u with
-  | 0u -> OneOperand (rel16 b)
-  | a -> TwoOperands (a |> uint64 |> OpImm, rel16 b)
+  | 0u -> OneOperand(rel16 b)
+  | a -> TwoOperands(a |> uint64 |> OpImm, rel16 b)
 
-let getFsFt b = TwoOperands (fs b, ft b)
+let getFsFt b = TwoOperands(fs b, ft b)
 
-let getFdFs b = TwoOperands (fd b, fs b)
+let getFdFs b = TwoOperands(fd b, fs b)
 
-let getFdFsRt b = ThreeOperands (fd b, fs b, rt b)
+let getFdFsRt b = ThreeOperands(fd b, fs b, rt b)
 
-let getFdFsCc b = ThreeOperands (fd b, fs b, cc20 b)
+let getFdFsCc b = ThreeOperands(fd b, fs b, cc20 b)
 
-let getCcFsFt b = ThreeOperands (cc10 b, fs b, ft b)
+let getCcFsFt b = ThreeOperands(cc10 b, fs b, ft b)
 
-let getFdFsFt b = ThreeOperands (fd b, fs b, ft b)
+let getFdFsFt b = ThreeOperands(fd b, fs b, ft b)
 
-let getFdFrFsFt b = FourOperands (fd b, fr b, fs b, ft b)
+let getFdFrFsFt b = FourOperands(fd b, fr b, fs b, ft b)

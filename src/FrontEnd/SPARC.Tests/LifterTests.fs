@@ -38,49 +38,49 @@ type LifterTest() =
 
   let t64 id = AST.tmpvar 64<rt> id
 
-  let isa = ISA (Architecture.SPARC, Endian.Little)
+  let isa = ISA(Architecture.SPARC, Endian.Little)
 
   let reader = BinReader.Init Endian.Little
 
   let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
 
-  let builder = ILowUIRBuilder.Default (isa, regFactory, LowUIRStream ())
+  let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
 
   let ( !. ) reg = Register.toRegID reg |> regFactory.GetRegVar
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
   let test (bytes: byte[], givenStmts) =
-    let parser = SPARCParser (reader) :> IInstructionParsable
-    let ins = parser.Parse (bytes, 0UL)
-    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate builder)
+    let parser = SPARCParser(reader) :> IInstructionParsable
+    let ins = parser.Parse(bytes, 0UL)
+    CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
 
   let ( ++ ) byteString givenStmts =
     ByteArray.ofHexString byteString, givenStmts
 
   [<TestMethod>]
-  member _.``[SPARC] ADD (three reg operands) lift Test`` () =
+  member _.``[SPARC] ADD (three reg operands) lift Test``() =
     "0d80029e"
     ++ [| t64 1 := !.O2 .+ !.O5
           !.O7 := t64 1 |]
     |> test
 
   [<TestMethod>]
-  member _.``[SPARC] ADD (two reg op, one imm op) lift Test`` () =
+  member _.``[SPARC] ADD (two reg op, one imm op) lift Test``() =
     "8ab6029e"
     ++ [| t64 1 := !.O2 .+ num 0xfffffffffffff68aL
           !.O7 := t64 1 |]
     |> test
 
   [<TestMethod>]
-  member _.``[SPARC] ADD (with carry) lift Test`` () =
+  member _.``[SPARC] ADD (with carry) lift Test``() =
     "0d80429e"
     ++ [| t64 1 := !.O2 .+ !.O5 .+ AST.zext 64<rt> (AST.extract !.CCR 1<rt> 0)
           !.O7 := t64 1 |]
     |> test
 
   [<TestMethod>]
-  member _.``[SPARC] ADD (with carry and modify icc) lift Test`` () =
+  member _.``[SPARC] ADD (with carry and modify icc) lift Test``() =
     "0d80429e"
     ++ [| t64 1 := !.O2 .+ !.O5 .+ AST.zext 64<rt> (AST.extract !.CCR 1<rt> 0)
           !.O7 := t64 1 |]

@@ -77,10 +77,10 @@ module ConditionCode =
     int n |> LanguagePrimitives.EnumOfValue
 
   let inline toRegID (reg: ConditionCode) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+    LanguagePrimitives.EnumToValue(reg) |> RegisterID.create
 
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "fcc0" -> ConditionCode.Fcc0
     | "fcc1" -> ConditionCode.Fcc1
     | "fcc2" -> ConditionCode.Fcc2

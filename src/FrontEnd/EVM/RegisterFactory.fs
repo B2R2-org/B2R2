@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various EVM register variables.
-type RegisterFactory () =
+type RegisterFactory() =
   let pc = AST.var 256<rt> (Register.toRegID Register.PC) "PC"
   let gas = AST.var 64<rt> (Register.toRegID Register.GAS) "GAS"
   let sp = AST.var 256<rt> (Register.toRegID Register.SP) "SP"
@@ -46,17 +46,17 @@ type RegisterFactory () =
       | R.SP -> sp
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegVar (_: string): Expr = Terminator.futureFeature ()
+    member _.GetRegVar(_: string): Expr = Terminator.futureFeature ()
 
-    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
+    member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars () = Terminator.futureFeature ()
+    member _.GetAllRegVars() = Terminator.futureFeature ()
 
-    member _.GetGeneralRegVars () = Terminator.futureFeature ()
+    member _.GetGeneralRegVars() = Terminator.futureFeature ()
 
     member _.GetRegisterID expr =
       match expr with
-      | Var (_, id, _, _) -> id
+      | Var(_, id, _, _) -> id
       | PCVar _ -> Register.toRegID Register.PC
       | _ -> raise InvalidRegisterException
 
@@ -68,7 +68,7 @@ type RegisterFactory () =
     member _.GetRegString rid =
       Register.ofRegID rid |> Register.toString
 
-    member _.GetAllRegStrings () = [||]
+    member _.GetAllRegStrings() = [||]
 
     member _.GetRegType rid =
       Register.ofRegID rid |> Register.toRegType

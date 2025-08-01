@@ -29,23 +29,23 @@ open B2R2
 
 /// Represents a disassembly builder that accumulates <see
 /// cref='T:B2R2.FrontEnd.BinLifter.AsmWord'/>.
-type AsmWordDisasmBuilder (showAddr, symbolReader: INameReadable, wordSz) =
-  let lst = List<AsmWord> ()
+type AsmWordDisasmBuilder(showAddr, symbolReader: INameReadable, wordSz) =
+  let lst = List<AsmWord>()
   let hasSymbolReader = isNull symbolReader |> not
   let mutable showSymb = hasSymbolReader
   let mutable showAddr = showAddr
 
   interface IDisasmBuilder with
-    member _.WordSize with get () = wordSz
+    member _.WordSize with get() = wordSz
 
-    member _.ShowAddress with get () = showAddr and set v = showAddr <- v
+    member _.ShowAddress with get() = showAddr and set v = showAddr <- v
 
-    member _.ShowSymbol with get () = showSymb and set v = showSymb <- v
+    member _.ShowSymbol with get() = showSymb and set v = showSymb <- v
 
-    member _.Accumulate kind value =
+    member _.Accumulate(kind, value) =
       lst.Add { AsmWordKind = kind; AsmWordValue = value }
 
-    member _.AccumulateSymbol (addr, prefix, suffix, noSymbolMapper) =
+    member _.AccumulateSymbol(addr, prefix, suffix, noSymbolMapper) =
       if hasSymbolReader && showSymb then
         match symbolReader.TryFindName addr with
         | Ok name when name.Length > 0 ->
@@ -63,15 +63,15 @@ type AsmWordDisasmBuilder (showAddr, symbolReader: INameReadable, wordSz) =
                   AsmWordValue = ": " }
       else ()
 
-    member this.ToString () =
-      (this :> IDisasmBuilder).ToAsmWords ()
+    member this.ToString() =
+      (this :> IDisasmBuilder).ToAsmWords()
       |> Array.map AsmWord.ToString
       |> String.concat ""
 
-    member _.ToAsmWords () =
-      let arr = lst.ToArray ()
-      lst.Clear ()
+    member _.ToAsmWords() =
+      let arr = lst.ToArray()
+      lst.Clear()
       arr
 
-  override this.ToString () =
-    (this :> IDisasmBuilder).ToString ()
+  override this.ToString() =
+    (this :> IDisasmBuilder).ToString()

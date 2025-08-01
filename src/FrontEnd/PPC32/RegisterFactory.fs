@@ -34,7 +34,7 @@ open type Register
 do ()
 
 /// Represents a factory for accessing various PPC32 register variables.
-type RegisterFactory (wordSize) =
+type RegisterFactory(wordSize) =
   let rt = WordSize.toRegType wordSize
 
   let r0 = AST.var rt (Register.toRegID R0) "R0"
@@ -247,8 +247,8 @@ type RegisterFactory (wordSize) =
       | Register.RES -> res
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegVar (name: string) =
-      match name.ToLowerInvariant () with
+    member _.GetRegVar(name: string) =
+      match name.ToLowerInvariant() with
       | "r0" -> r0
       | "r1" -> r1
       | "r2" -> r2
@@ -347,9 +347,9 @@ type RegisterFactory (wordSize) =
       | "cr7_3" -> cr73
       | _ -> raise InvalidRegisterException
 
-    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
+    member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars () =
+    member _.GetAllRegVars() =
       [| r0
          r1
          r2
@@ -447,7 +447,7 @@ type RegisterFactory (wordSize) =
          cr72
          cr73 |]
 
-    member _.GetGeneralRegVars () =
+    member _.GetGeneralRegVars() =
       [| r0
          r1
          r2
@@ -483,7 +483,7 @@ type RegisterFactory (wordSize) =
 
     member _.GetRegisterID expr =
       match expr with
-      | Var (_, id, _, _) -> id
+      | Var(_, id, _, _) -> id
       | _ -> raise InvalidRegisterException
 
     member _.GetRegisterID name =
@@ -495,9 +495,9 @@ type RegisterFactory (wordSize) =
     member _.GetRegString rid =
       Register.ofRegID rid |> Register.toString
 
-    member this.GetAllRegStrings () =
+    member this.GetAllRegStrings() =
       let regFactory = this :> IRegisterFactory
-      regFactory.GetAllRegVars ()
+      regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegString)
 
     member _.GetRegType rid =

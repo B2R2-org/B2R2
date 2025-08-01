@@ -34,7 +34,7 @@ open type Register
 do ()
 
 /// Represents a factory for accessing various SPARC register variables.
-type RegisterFactory (wordSize) =
+type RegisterFactory(wordSize) =
   let rt = WordSize.toRegType wordSize
   let fRegType = WordSize.toRegType WordSize.Bit32
 
@@ -253,27 +253,27 @@ type RegisterFactory (wordSize) =
       | Register.CLEANWIN -> cleanwin
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegVar (_: string): Expr = Terminator.futureFeature ()
+    member _.GetRegVar(_: string): Expr = Terminator.futureFeature ()
 
-    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
+    member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars () = Terminator.futureFeature ()
+    member _.GetAllRegVars() = Terminator.futureFeature ()
 
-    member _.GetGeneralRegVars () = Terminator.futureFeature ()
+    member _.GetGeneralRegVars() = Terminator.futureFeature ()
 
     member _.GetRegisterID expr =
       match expr with
-      | Var (_, id, _, _) -> id
+      | Var(_, id, _, _) -> id
       | PCVar _ -> Register.toRegID PC
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID (_: string): RegisterID = Terminator.futureFeature ()
+    member _.GetRegisterID(_: string): RegisterID = Terminator.futureFeature ()
 
     member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
 
     member _.GetRegString _ = Terminator.futureFeature ()
 
-    member _.GetAllRegStrings () = Terminator.futureFeature ()
+    member _.GetAllRegStrings() = Terminator.futureFeature ()
 
     member _.GetRegType _ = Terminator.futureFeature ()
 

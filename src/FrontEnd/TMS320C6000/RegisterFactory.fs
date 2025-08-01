@@ -33,33 +33,33 @@ open B2R2.FrontEnd.BinLifter
 do ()
 
 /// Represents a factory for accessing various TMS320C6000 register variables.
-type RegisterFactory (_wordSize) =
+type RegisterFactory(_wordSize) =
   interface IRegisterFactory with
-    member _.GetRegVar (id: RegisterID): Expr =
+    member _.GetRegVar(id: RegisterID): Expr =
       match Register.ofRegID id with
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegVar (_: string): Expr = Terminator.futureFeature ()
+    member _.GetRegVar(_: string): Expr = Terminator.futureFeature ()
 
-    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
+    member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars () = Terminator.futureFeature ()
+    member _.GetAllRegVars() = Terminator.futureFeature ()
 
-    member _.GetGeneralRegVars () = Terminator.futureFeature ()
+    member _.GetGeneralRegVars() = Terminator.futureFeature ()
 
     member _.GetRegisterID e =
       match e with
-      | Var (_, id, _, _) -> id
+      | Var(_, id, _, _) -> id
       | PCVar _ -> Register.toRegID Register.PCE1
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID (_: string): RegisterID = Terminator.futureFeature ()
+    member _.GetRegisterID(_: string): RegisterID = Terminator.futureFeature ()
 
     member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
 
     member _.GetRegString _ = Terminator.futureFeature ()
 
-    member _.GetAllRegStrings () = Terminator.futureFeature ()
+    member _.GetAllRegStrings() = Terminator.futureFeature ()
 
     member _.GetRegType _ = Terminator.futureFeature ()
 

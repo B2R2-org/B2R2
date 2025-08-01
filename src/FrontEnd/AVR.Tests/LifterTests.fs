@@ -33,7 +33,7 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open type Register
 
 [<TestClass>]
-type LifterTests () =
+type LifterTests() =
   let isa = ISA Architecture.AVR
 
   let reader = BinReader.Init Endian.Little
@@ -48,38 +48,37 @@ type LifterTests () =
   let ( !. ) reg = Register.toRegID reg |> regFactory.GetRegVar
 
   let test (bytes: byte[], givenStmts: Stmt[])  =
-    let parser = AVRParser (reader) :> IInstructionParsable
-    let builder = ILowUIRBuilder.Default (isa, regFactory, LowUIRStream ())
-    let ins = parser.Parse (bytes, 0UL)
-    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate builder)
+    let parser = AVRParser(reader) :> IInstructionParsable
+    let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
+    let ins = parser.Parse(bytes, 0UL)
+    CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
 
   [<TestMethod>]
-  member _.``[AVR] Instructions with start and end statements lift Test`` () =
+  member _.``[AVR] Instructions with start and end statements lift Test``() =
     "0000"
     ++ [||]
     |> test
 
   [<TestMethod>]
-  member _.``[AVR] Instructions with Put statements lift Test (1)`` () =
+  member _.``[AVR] Instructions with Put statements lift Test (1)``() =
     "4c2f"
     ++ [| !.R20 := !.R28 |]
     |> test
 
   [<TestMethod>]
-  member _.``[AVR] Instructions with Put statements lift Test (2)`` () =
+  member _.``[AVR] Instructions with Put statements lift Test (2)``() =
     "5401"
-    ++ [| !.R10 := !.R8
-          !.R11 := !.R9 |]
+    ++ [| !.R10 := !.R8; !.R11 := !.R9 |]
     |> test
 
   [<TestMethod>]
-  member _.``[AVR] Put statements for flag registers lift Test (1)`` () =
+  member _.``[AVR] Put statements for flag registers lift Test (1)``() =
     "f894"
     ++ [| !.IF := AST.b0 |]
     |> test
 
   [<TestMethod>]
-  member _.``[AVR] Put statements for flag registers lift Test (2)`` () =
+  member _.``[AVR] Put statements for flag registers lift Test (2)``() =
     "1124"
     ++ [| !.R1 := !.R1 <+> !.R1
           !.VF := AST.b0
@@ -89,7 +88,7 @@ type LifterTests () =
     |> test
 
   [<TestMethod>]
-  member _.``[AVR] Load statements lift Test`` () =
+  member _.``[AVR] Load statements lift Test``() =
     "6f92"
     ++ [| AST.loadLE 8<rt> !.SP := !.R6
           !.SP := !.SP .- AST.num1 16<rt> |]

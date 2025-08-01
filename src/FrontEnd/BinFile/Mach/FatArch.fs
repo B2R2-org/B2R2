@@ -26,15 +26,14 @@ namespace B2R2.FrontEnd.BinFile.Mach
 
 /// Represents the location of an object file targeted at a specific
 /// architecture in a Mach-O FAT binary (fat_arch).
-type FatArch = {
-  /// CPU family.
-  CPUType: CPUType
-  /// Specific CPU module.
-  CPUSubType: CPUSubType
-  /// Offset to the beginning of the data for this architecture.
-  Offset: int
-  /// Size of the object file in bytes.
-  Size: int
-  /// Alignment of the object file in bytes.
-  Align: int
-}
+type FatArch =
+  { /// CPU family.
+    CPUType: CPUType
+    /// Specific CPU module.
+    CPUSubType: CPUSubType
+    /// Offset to the beginning of the data for this architecture.
+    Offset: int
+    /// Size of the object file in bytes.
+    Size: int
+    /// Alignment of the object file in bytes.
+    Align: int }

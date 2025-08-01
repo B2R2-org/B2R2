@@ -42,7 +42,7 @@ type IDisasmBuilder =
 
   /// Accumulates an AsmWord whose kind and value are given into the disassembly
   /// builder.
-  abstract Accumulate: kind: AsmWordKind -> value: string -> unit
+  abstract Accumulate: kind: AsmWordKind * value: string -> unit
 
   /// Accumulates a symbol that is mapped from the given address into the
   /// disassembly builder. The final disassembly string uses the provided prefix

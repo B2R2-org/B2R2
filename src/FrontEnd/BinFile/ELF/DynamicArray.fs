@@ -28,15 +28,14 @@ open System
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents a dynamic array entry in the .dynamic section of ELF binaries.
-type DynamicArrayEntry = {
-  /// Kind of entry, which is defined by the d_tag field in the ELF
-  /// specification.
-  DTag: DTag
-  /// Value associated with the entry, which can be a simple value or a pointer
-  /// (address). This is defined as a union of d_val and d_ptr in the ELF
-  /// specification.
-  DVal: uint64
-}
+type DynamicArrayEntry =
+  { /// Kind of entry, which is defined by the d_tag field in the ELF
+    /// specification.
+    DTag: DTag
+    /// Value associated with the entry, which can be a simple value or a
+    /// pointer (address). This is defined as a union of d_val and d_ptr
+    /// in the ELF specification.
+    DVal: uint64 }
 
 /// Represents the dyanmic array entry kinds.
 and DTag =
@@ -210,7 +209,7 @@ module internal DynamicArray =
     let rec parseLoop n offset =
       if n = numEntries then entries
       else
-        let span = ReadOnlySpan (bytes, offset, int sec.SecEntrySize)
+        let span = ReadOnlySpan(bytes, offset, int sec.SecEntrySize)
         let ent = readDynamicEntry reader cls span
         entries[n] <- ent
         if ent.DTag = DTag.DT_NULL && ent.DVal = 0UL then entries[0..n]

@@ -31,11 +31,11 @@ open B2R2.FrontEnd.BinLifter
 let [<Literal>] PyMagic = 0x0A0D0DCBu
 
 let isPython (bytes: byte[]) (reader: IBinReader) =
-  if bytes.Length >= 4 then reader.ReadUInt32 (bytes, 0) = PyMagic
+  if bytes.Length >= 4 then reader.ReadUInt32(bytes, 0) = PyMagic
   else false
 
 let readFlagAndMarshalledType (bytes: byte[]) (reader: IBinReader) offset =
-  let b = reader.ReadUInt8 (bytes, offset) |> int
+  let b = reader.ReadUInt8(bytes, offset) |> int
   let flag = b &&& 0x80
   let typ: MarshalledType = (b &&& (~~~ 0x80)) |> LanguagePrimitives.EnumOfValue
   struct (flag, typ, offset + 1)
@@ -43,8 +43,8 @@ let readFlagAndMarshalledType (bytes: byte[]) (reader: IBinReader) offset =
 let rec pyObjToString = function
   | PyString s ->  System.Text.Encoding.ASCII.GetString s
   | PyAscii str | PyShortAsciiInterned str | PyShortAscii str -> str
-  | PyInt i -> i.ToString ()
-  | PyREF (n, r) -> r.ToString () + "(" + (n.ToString ()) + ")"
+  | PyInt i -> i.ToString()
+  | PyREF(n, r) -> r.ToString() + "(" + (n.ToString()) + ")"
   | PyTuple t ->
     let t = Array.map pyObjToString t
     String.concat ", " t
@@ -53,8 +53,8 @@ let rec pyObjToString = function
 
 let readInt (bytes: byte[]) (reader: IBinReader) offset size =
   match size with
-  | 1 -> reader.ReadUInt8 (bytes, offset) |> int, offset + size
-  | 4 -> reader.ReadUInt32 (bytes, offset) |> int, offset + size
+  | 1 -> reader.ReadUInt8(bytes, offset) |> int, offset + size
+  | 4 -> reader.ReadUInt32(bytes, offset) |> int, offset + size
   | _ -> failwithf "Invalid size %d" size
 
 let private appendRefs flag refs obj =
@@ -126,7 +126,7 @@ let rec parse (bytes: byte[]) (reader: IBinReader) refs offset =
           let contents, refs, offset = parse bytes reader refs offset
           loop (contents :: acc) refs offset
       let tuples, refs, offset = loop [] refs offset
-      PyTuple (tuples |> List.toArray |> Array.rev), refs, offset
+      PyTuple(tuples |> List.toArray |> Array.rev), refs, offset
     else PyTuple [||], refs, offset
   | MarshalledType.TYPE_ASCII ->
     let n, offset = readInt bytes reader offset 4
@@ -139,7 +139,7 @@ let rec parse (bytes: byte[]) (reader: IBinReader) refs offset =
     PyShortAsciiInterned str, appendRefs flag refs str, offset + n
   | MarshalledType.TYPE_REF ->
     let n, offset = readInt bytes reader offset 4
-    PyREF (n, refs[n]), refs, offset
+    PyREF(n, refs[n]), refs, offset
   | MarshalledType.TYPE_FALSE -> PyFalse, appendRefs flag refs "PyFalse", offset
   | _ -> printf "%A " pyType; failwith "Invalid parse"
 
@@ -152,7 +152,7 @@ let extractConsts pyObj =
     | PyCode code ->
       let addr, codeObj = code.Code
       let len = getCodeLen codeObj
-      let addrRange = AddrRange (addr, addr + len)
+      let addrRange = AddrRange(addr, addr + len)
       match code.Consts with
       | PyTuple t -> Array.fold collect ((addrRange, t) :: acc) t
       | c -> collect acc c
@@ -164,7 +164,7 @@ let extractVarNames pyObj =
     | PyCode code ->
       let addr, codeObj = code.Code
       let len = getCodeLen codeObj
-      let addrRange = AddrRange (addr, addr + len)
+      let addrRange = AddrRange(addr, addr + len)
       let acc =
         match code.LocalPlusNames with
         | PyTuple t -> (addrRange, t) :: acc
@@ -182,7 +182,7 @@ let extractNames pyObj =
     | PyCode code ->
       let addr, codeObj = code.Code
       let len = getCodeLen codeObj
-      let addrRange = AddrRange (addr, addr + len)
+      let addrRange = AddrRange(addr, addr + len)
       let acc =
         match code.Names with
         | PyTuple t -> (addrRange, t) :: acc

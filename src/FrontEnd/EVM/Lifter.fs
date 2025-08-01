@@ -206,7 +206,7 @@ let gas (ins: Instruction) bld =
   updateGas bld ins.GAS
 
 let push (ins: Instruction) bld imm =
-  let expr = BitVector.Cast (imm, 256<rt>) |> AST.num
+  let expr = BitVector.Cast(imm, 256<rt>) |> AST.num
   pushToStack bld expr
   updateGas bld ins.GAS
 

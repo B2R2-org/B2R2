@@ -306,9 +306,9 @@ let private buildPackedThreeOprs i iLen bld isFillZero packSz opFn dst s1 s2 =
 
 let buildPackedInstr (ins: Instruction) insLen bld isFillZero packSz opFn =
   match ins.Operands with
-  | TwoOperands (o1, o2) ->
+  | TwoOperands(o1, o2) ->
     buildPackedTwoOprs ins insLen bld isFillZero packSz opFn o1 o2
-  | ThreeOperands (o1, o2, o3) ->
+  | ThreeOperands(o1, o2, o3) ->
     buildPackedThreeOprs ins insLen bld isFillZero packSz opFn o1 o2 o3
   | _ -> raise InvalidOperandException
 
@@ -641,7 +641,7 @@ let private opShiftPackedDataLogical oprSize packSz shift src1 src2 =
     let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
     Array.map (fun e ->
       AST.ite cond z (AST.xtlo packSz (shift (AST.zext 64<rt> e) count))) src1
-   | _ -> raise InvalidOperandSizeException
+  | _ -> raise InvalidOperandSizeException
 
 let private opPsllw oprSize = opShiftPackedDataLogical oprSize 16<rt> (<<)
 
@@ -686,7 +686,7 @@ let private opShiftPackedDataRightArith oprSize packSz src1 src2 =
     let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
     let count = AST.ite cond (numI32 (int packSz) 64<rt>) count
     Array.map (fun e -> AST.xtlo packSz ((AST.sext 64<rt> e) ?>> count)) src1
-   | _ -> raise InvalidOperandSizeException
+  | _ -> raise InvalidOperandSizeException
 
 let private opPsraw oprSize = opShiftPackedDataRightArith oprSize 16<rt>
 

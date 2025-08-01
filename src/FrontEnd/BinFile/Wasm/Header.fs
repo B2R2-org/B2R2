@@ -29,11 +29,11 @@ open B2R2.FrontEnd.BinLifter
 let wasmMagic = 0x6D736100u
 
 let isWasm (bytes: byte[]) (reader: IBinReader) =
-  if bytes.Length >= 8 then reader.ReadUInt32 (bytes, 0) = wasmMagic
+  if bytes.Length >= 8 then reader.ReadUInt32(bytes, 0) = wasmMagic
   else false
 
 let peekFormatVersion (span: ByteSpan) (reader: IBinReader) offset =
   let version: FormatVersion =
-    reader.ReadUInt32 (span, offset)
+    reader.ReadUInt32(span, offset)
     |> LanguagePrimitives.EnumOfValue
   version

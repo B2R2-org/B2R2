@@ -36,10 +36,10 @@ type CanonicalFrameAddress =
   | UnknownCFA
 with
   /// Returns a string representation of the CFA.
-  static member ToString (regFactory: IRegisterFactory, cfa) =
+  static member ToString(regFactory: IRegisterFactory, cfa) =
     match cfa with
-    | RegPlusOffset (rid, offset) ->
-      regFactory.GetRegString rid + (offset.ToString ("+0;-#"))
+    | RegPlusOffset(rid, offset) ->
+      regFactory.GetRegString rid + (offset.ToString("+0;-#"))
     | Expression exp ->
       LowUIR.Pp.expToString exp
     | UnknownCFA -> "unknown"

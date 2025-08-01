@@ -42,10 +42,10 @@ let private getFileDir = function
 
 let readBytes fileFormat zipFileName inZipFileName =
   let zipDirectory = zipFileSrcDir + getFileDir fileFormat
-  let archive = ZipFile.Open (zipDirectory + zipFileName, ZipArchiveMode.Read)
-  let entry = archive.GetEntry (inZipFileName)
-  let stream = entry.Open ()
-  use ms = new MemoryStream ()
-  stream.CopyTo (ms)
-  ms.ToArray ()
+  let archive = ZipFile.Open(zipDirectory + zipFileName, ZipArchiveMode.Read)
+  let entry = archive.GetEntry(inZipFileName)
+  let stream = entry.Open()
+  use ms = new MemoryStream()
+  stream.CopyTo(ms)
+  ms.ToArray()
 

@@ -145,16 +145,16 @@ let private toAArch64Register = function
   | x -> Terminator.futureFeature ()
 
 let private toMIPSRegister (n: byte) =
-  MIPS.Register.toRegID (EnumOfValue (int n))
+  MIPS.Register.toRegID (EnumOfValue(int n))
 
 let private toRISCVRegister (n: byte) =
-  RISCV64.Register.toRegID (EnumOfValue (int n))
+  RISCV64.Register.toRegID (EnumOfValue(int n))
 
 let private toPPC32Register (n: byte) =
-  PPC32.Register.toRegID (EnumOfValue (int n))
+  PPC32.Register.toRegID (EnumOfValue(int n))
 
 let private toSH4Register (n: byte) =
-  SH4.Register.toRegID (EnumOfValue (int n))
+  SH4.Register.toRegID (EnumOfValue(int n))
 
 let toRegID isa regnum =
   match isa with

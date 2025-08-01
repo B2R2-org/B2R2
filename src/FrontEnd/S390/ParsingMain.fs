@@ -201,7 +201,7 @@ let parseInstLenTwo (bin: uint32) =
     | 0xB2FAus ->
       let op1 = BitVector.OfUInt32(extract32 bin 24 27, 4<rt>) |> ImmU4
       let op2 = BitVector.OfUInt32(extract32 bin 28 31, 4<rt>) |> ImmU4
-      Op.NIAI, TwoOperands (OpImm op1, OpImm op2), Fmt.IE
+      Op.NIAI, TwoOperands(OpImm op1, OpImm op2), Fmt.IE
     | 0xB30Eus -> Op.MAEBR, getFPR16FPR28FPR24 bin, Fmt.RRD
     | 0xB30Fus -> Op.MSEBR, getFPR16FPR28FPR24 bin, Fmt.RRD
     | 0xB31Eus -> Op.MADBR, getFPR16FPR28FPR24 bin, Fmt.RRD
@@ -753,7 +753,7 @@ let parseInstLenThree (bin: uint64) =
         BitVector.OfInt32(extract48 bin 12 23 |> int32, 12<rt>) |> ImmS12
       let opr3 =
         BitVector.OfInt32(extract48 bin 24 47 |> int32, 24<rt>) |> ImmS24
-      Op.BPRP, ThreeOperands (OpMask opr1, OpImm opr2, OpImm opr3), Fmt.MII
+      Op.BPRP, ThreeOperands(OpMask opr1, OpImm opr2, OpImm opr3), Fmt.MII
     | 0xD0us -> Op.TRTR, getGRL8QM32D36 bin, Fmt.SS
     | 0xD1us -> Op.MVN, getGRL8QM32D36 bin, Fmt.SS
     | 0xD2us -> Op.MVC, getGRL8QM32D36 bin, Fmt.SS
@@ -1346,10 +1346,10 @@ let parseInstLenThree (bin: uint64) =
 
 let parseByFmt (span: ByteSpan) (reader: IBinReader) bin =
   match extract16 bin 0 1 with
-  | 0b00us -> parseInstLenOne (reader.ReadUInt16 (span, 0)), 2u
-  | 0b01us | 0b10us -> parseInstLenTwo (reader.ReadUInt32 (span, 0)), 4u
+  | 0b00us -> parseInstLenOne (reader.ReadUInt16(span, 0)), 2u
+  | 0b01us | 0b10us -> parseInstLenTwo (reader.ReadUInt32(span, 0)), 4u
   | 0b11us ->
-    span.Slice(0, 6).ToArray ()
+    span.Slice(0, 6).ToArray()
     |> Array.rev
     |> BitVector.OfArr
     |> BitVector.ToUInt64
@@ -1357,6 +1357,6 @@ let parseByFmt (span: ByteSpan) (reader: IBinReader) bin =
   | _ -> Terminator.impossible ()
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) wordSize addr =
-  let bin = reader.ReadUInt16 (span, 0)
+  let bin = reader.ReadUInt16(span, 0)
   let (opcode, operand, fmt), numBytes = parseByFmt span reader bin
-  Instruction (addr, numBytes, fmt, opcode, operand, wordSize, lifter)
+  Instruction(addr, numBytes, fmt, opcode, operand, wordSize, lifter)

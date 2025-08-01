@@ -61,33 +61,33 @@ let transOprToExpr bld = function
 
 let transMemOprToExpr (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OprReg reg, OprMemory (PreIdxMode (reg1)))
+  | TwoOperands(OprReg reg, OprMemory(PreIdxMode(reg1)))
     -> regVar bld reg, regVar bld reg1, -1
-  | TwoOperands(OprReg reg,OprMemory (PostIdxMode (reg1)))
+  | TwoOperands(OprReg reg,OprMemory(PostIdxMode(reg1)))
     -> regVar bld reg, regVar bld reg1, 1
-  | TwoOperands(OprReg reg,OprMemory (UnchMode (reg1)))
+  | TwoOperands(OprReg reg,OprMemory(UnchMode(reg1)))
     -> regVar bld reg, regVar bld reg1, 0
   | _ -> Terminator.impossible ()
 
 let transMemOprToExpr2 (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OprMemory (PreIdxMode (reg1)), OprReg reg)
+  | TwoOperands(OprMemory(PreIdxMode(reg1)), OprReg reg)
     -> regVar bld reg1, regVar bld reg, -1
-  | TwoOperands(OprMemory (PostIdxMode (reg1)), OprReg reg)
+  | TwoOperands(OprMemory(PostIdxMode(reg1)), OprReg reg)
     -> regVar bld reg1, regVar bld reg, 1
-  | TwoOperands(OprMemory (UnchMode (reg1)), OprReg reg)
+  | TwoOperands(OprMemory(UnchMode(reg1)), OprReg reg)
     -> regVar bld reg1, regVar bld reg, 0
   | _ -> Terminator.impossible ()
 
 let transMemOprToExpr1 (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OprReg reg, OprMemory (DispMode (reg1, imm)))
+  | TwoOperands(OprReg reg, OprMemory(DispMode(reg1, imm)))
     -> regVar bld reg, regVar bld reg1, numI32PC imm
   | _ -> Terminator.impossible ()
 
 let transMemOprToExpr3 (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OprMemory (DispMode (reg1, imm)), OprReg reg)
+  | TwoOperands(OprMemory(DispMode(reg1, imm)), OprReg reg)
     -> regVar bld reg1, regVar bld reg, numI32PC imm
   | _ -> Terminator.impossible ()
 
@@ -98,9 +98,7 @@ let transOneOpr (ins: Instruction) bld =
 
 let transTwoOprs (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands (o1, o2) ->
-    struct (transOprToExpr bld o1,
-            transOprToExpr bld o2)
+  | TwoOperands(o1, o2) -> struct (transOprToExpr bld o1, transOprToExpr bld o2)
   | _ -> raise InvalidOperandException
 
 let sideEffects insAddr insLen name bld =
@@ -110,7 +108,7 @@ let sideEffects insAddr insLen name bld =
 
 let getIndAdrReg (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands (_, OprReg reg1) ->
+  | TwoOperands(_, OprReg reg1) ->
     let dst = reg1 |> regVar bld
     let dst1 = reg1 |> Register.toRegID |> int |> (fun n -> n + 1) |>
                RegisterID.create |> Register.ofRegID |> regVar bld
@@ -160,7 +158,7 @@ let adiw (ins: Instruction) len bld =
   let t3 = tmpVar bld 16<rt>
   let struct (dst, dst1, src) =
     match ins.Operands with
-    | TwoOperands (OprReg reg1, OprImm imm) ->
+    | TwoOperands(OprReg reg1, OprImm imm) ->
       let dst = reg1 |> regVar bld
       let dst1 =
         reg1 |> Register.toRegID |> int
@@ -226,7 +224,7 @@ let bld ins len bld =
   let struct (dst, src) = transTwoOprs ins bld
   let imm =
     match ins.Operands with
-    | TwoOperands (_, OprImm imm) -> imm
+    | TwoOperands(_, OprImm imm) -> imm
     | _ -> Terminator.impossible ()
   bld <!-- (ins.Address, len)
   bld <+ ((AST.extract dst 1<rt> imm) := regVar bld TF)
@@ -236,7 +234,7 @@ let bst ins len bld =
   let struct (dst, _) = transTwoOprs ins bld
   let imm =
     match ins.Operands with
-    | TwoOperands (_, OprImm imm) -> imm
+    | TwoOperands(_, OprImm imm) -> imm
     | _ -> Terminator.impossible ()
   let r = tmpVar bld 1<rt>
   bld <!-- (ins.Address, len)
@@ -540,7 +538,7 @@ let mov ins len bld =
 let movw (ins: Instruction) len bld =
   let struct (dst, dst1, src, src1) =
     match ins.Operands with
-    | TwoOperands (OprReg reg1, OprReg reg2) ->
+    | TwoOperands(OprReg reg1, OprReg reg2) ->
       let dst = reg1 |> regVar bld
       let dst1 =
         reg1 |> Register.toRegID |> int |> (fun n -> n + 1)
@@ -616,7 +614,7 @@ let sbiw (ins: Instruction) len bld =
   let t3 = tmpVar bld 16<rt>
   let struct (dst, dst1, src) =
     match ins.Operands with
-    | TwoOperands (OprReg reg1, OprImm imm) ->
+    | TwoOperands(OprReg reg1, OprImm imm) ->
       let dst = reg1 |> regVar bld
       let dst1 =
         reg1 |> Register.toRegID |> int |> (fun n -> n + 1)
@@ -717,13 +715,13 @@ let ld ins len bld =
   | 1 ->
     bld <+ (dst := AST.loadLE 8<rt> src)
     match src with
-    | BinOp (BinOpType.CONCAT, _, exp1, exp2, _) ->
+    | BinOp(BinOpType.CONCAT, _, exp1, exp2, _) ->
       bld <+ (exp1 := AST.extract (src .+ numI32PC 1) 8<rt> 8)
       bld <+ (exp2 := AST.extract (src .+ numI32PC 1) 8<rt> 0)
     | _ -> Terminator.impossible ()
   | -1 ->
     match src with
-    | BinOp (BinOpType.CONCAT, _, exp1, exp2, _) ->
+    | BinOp(BinOpType.CONCAT, _, exp1, exp2, _) ->
       bld <+ (exp1 := AST.extract (src .- numI32PC 1) 8<rt> 8)
       bld <+ (exp2 := AST.extract (src .- numI32PC 1) 8<rt> 0)
     | _ -> Terminator.impossible ()
@@ -833,13 +831,13 @@ let st ins len bld =
   | 1 ->
     bld <+ (AST.loadLE 8<rt> dst := src)
     match dst with
-    | BinOp (BinOpType.CONCAT, _, exp1, exp2, _) ->
+    | BinOp(BinOpType.CONCAT, _, exp1, exp2, _) ->
       bld <+ (exp1 := AST.extract (dst .+ numI32PC 1) 8<rt> 8)
       bld <+ (exp2 := AST.extract (dst .+ numI32PC 1) 8<rt> 0)
     | _ -> Terminator.impossible ()
   | -1 ->
     match dst with
-    | BinOp (BinOpType.CONCAT, _, exp1, exp2, _) ->
+    | BinOp(BinOpType.CONCAT, _, exp1, exp2, _) ->
       bld <+ (exp1 := AST.extract (dst .- numI32PC 1) 8<rt> 8)
       bld <+ (exp2 := AST.extract (dst .- numI32PC 1) 8<rt> 0)
     | _ -> Terminator.impossible ()

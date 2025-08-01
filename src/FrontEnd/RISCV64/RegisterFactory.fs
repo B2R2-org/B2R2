@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various RISCV64 register variables.
-type RegisterFactory (wordSize) =
+type RegisterFactory(wordSize) =
   let rt = WordSize.toRegType wordSize
   let fflags = AST.var 32<rt> (Register.toRegID Register.FFLAGS) "FFLAGS"
   let frm = AST.var 32<rt> (Register.toRegID Register.FRM) "FRM"
@@ -511,8 +511,8 @@ type RegisterFactory (wordSize) =
       | Register.CSR1971 -> csr1971
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegVar (name: string) =
-      match name.ToLowerInvariant () with
+    member _.GetRegVar(name: string) =
+      match name.ToLowerInvariant() with
       | "x0" -> x0
       | "x1" -> x1
       | "x2" -> x2
@@ -581,9 +581,9 @@ type RegisterFactory (wordSize) =
       | "fcsr" -> fcsr
       | _ -> raise InvalidRegisterException
 
-    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
+    member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars () =
+    member _.GetAllRegVars() =
       [| x0
          x1
          x2
@@ -651,7 +651,7 @@ type RegisterFactory (wordSize) =
          pc
          fcsr |]
 
-    member _.GetGeneralRegVars () =
+    member _.GetGeneralRegVars() =
       [| x0
          x1
          x2
@@ -687,8 +687,8 @@ type RegisterFactory (wordSize) =
 
     member _.GetRegisterID expr =
       match expr with
-      | Var (_, id, _, _) -> id
-      | PCVar (_) -> Register.toRegID Register.PC
+      | Var(_, id, _, _) -> id
+      | PCVar(_) -> Register.toRegID Register.PC
       | _ -> raise InvalidRegisterException
 
     member _.GetRegisterID name =
@@ -700,9 +700,9 @@ type RegisterFactory (wordSize) =
     member _.GetRegString rid =
       Register.ofRegID rid |> Register.toString
 
-    member this.GetAllRegStrings () =
+    member this.GetAllRegStrings() =
       let regFactory = this :> IRegisterFactory
-      regFactory.GetAllRegVars ()
+      regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegString)
 
     member _.GetRegType rid =

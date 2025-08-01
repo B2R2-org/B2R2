@@ -30,21 +30,21 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for S390 instructions. Parser will return a
 /// platform-agnostic instruction type (Instruction).
-type S390Parser (isa: ISA, reader) =
+type S390Parser(isa: ISA, reader) =
   let wordSize = isa.WordSize
 
   let lifter =
     { new ILiftable with
-        member _.Lift _ _ =
+        member _.Lift(_, _) =
           Terminator.futureFeature ()
-        member _.Disasm ins builder =
+        member _.Disasm(ins, builder) =
           Disasm.disasm ins builder; builder }
 
   interface IInstructionParsable with
-    member _.Parse (span: ByteSpan, addr: Addr) =
+    member _.Parse(span: ByteSpan, addr: Addr) =
       ParsingMain.parse lifter span reader wordSize addr :> IInstruction
 
-    member _.Parse (bs: byte[], addr: Addr) =
+    member _.Parse(bs: byte[], addr: Addr) =
       let span = ReadOnlySpan bs
       ParsingMain.parse lifter span reader wordSize addr :> IInstruction
 

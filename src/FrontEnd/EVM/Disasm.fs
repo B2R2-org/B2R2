@@ -179,11 +179,11 @@ let opcodeToStrings = function
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let struct (opcode, extra) = opcodeToStrings ins.Opcode
   match extra with
-  | None -> builder.Accumulate AsmWordKind.Mnemonic opcode
+  | None -> builder.Accumulate(AsmWordKind.Mnemonic, opcode)
   | Some extra ->
-    builder.Accumulate AsmWordKind.Mnemonic opcode
-    builder.Accumulate AsmWordKind.String " "
-    builder.Accumulate AsmWordKind.Value extra
+    builder.Accumulate(AsmWordKind.Mnemonic, opcode)
+    builder.Accumulate(AsmWordKind.String, " ")
+    builder.Accumulate(AsmWordKind.Value, extra)
 
 let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   builder.AccumulateAddrMarker ins.Address

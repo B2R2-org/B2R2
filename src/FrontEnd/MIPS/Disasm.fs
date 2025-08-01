@@ -243,11 +243,11 @@ let inline appendFmt (ins: Instruction) opcode =
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode |> appendCond ins |> appendFmt ins
-  builder.Accumulate AsmWordKind.Mnemonic str
+  builder.Accumulate(AsmWordKind.Mnemonic, str)
 
 let inline relToString pc offset (builder: IDisasmBuilder) =
   let targetAddr = pc + uint64 offset
-  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
+  builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 targetAddr)
 
 let inline regToString (ins: Instruction) reg =
   match ins.OperationSize with
@@ -257,26 +257,26 @@ let inline regToString (ins: Instruction) reg =
 let oprToString ins opr delim (builder: IDisasmBuilder) =
   match opr with
   | OpReg reg ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (regToString ins reg)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Variable, regToString ins reg)
   | OpImm imm
   | OpShiftAmount imm ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
-  | OpMem (b, Imm off, _) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (off.ToString ("D"))
-    builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (regToString ins b)
-    builder.Accumulate AsmWordKind.String ")"
-  | OpMem (b, Reg off, _) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (regToString ins off)
-    builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (regToString ins b)
-    builder.Accumulate AsmWordKind.String ")"
-  | OpAddr (Relative offset) ->
-    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 imm)
+  | OpMem(b, Imm off, _) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, off.ToString("D"))
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Variable, regToString ins b)
+    builder.Accumulate(AsmWordKind.String, ")")
+  | OpMem(b, Reg off, _) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Variable, regToString ins off)
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Variable, regToString ins b)
+    builder.Accumulate(AsmWordKind.String, ")")
+  | OpAddr(Relative offset) ->
+    builder.Accumulate(AsmWordKind.String, delim)
     relToString ins.Address offset builder
   // Never gets matched. Only used in intermediate stage mips assembly parser.
   | GoToLabel _ -> raise InvalidOperandException
@@ -286,14 +286,14 @@ let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   | NoOperand -> ()
   | OneOperand opr ->
     oprToString ins opr " " builder
-  | TwoOperands (opr1, opr2) ->
+  | TwoOperands(opr1, opr2) ->
     oprToString ins opr1 " " builder
     oprToString ins opr2 ", " builder
-  | ThreeOperands (opr1, opr2, opr3) ->
+  | ThreeOperands(opr1, opr2, opr3) ->
     oprToString ins opr1 " " builder
     oprToString ins opr2 ", " builder
     oprToString ins opr3 ", " builder
-  | FourOperands (opr1, opr2, opr3, opr4) ->
+  | FourOperands(opr1, opr2, opr3, opr4) ->
     oprToString ins opr1 " " builder
     oprToString ins opr2 ", " builder
     oprToString ins opr3 ", " builder

@@ -35,20 +35,19 @@ type RelocSymbol =
   | SecOrdinal of num: int (* Section number *)
 
 /// Represents relocation information in a Mach-O binary file.
-type RelocationInfo = {
-  /// Offset in the section to what is being relocated.
-  RelocAddr: int
-  /// RelocSymbol
-  RelocSymbol: RelocSymbol
-  /// Relocation length.
-  RelocLength: RegType
-  /// Parent section
-  RelocSection: Section
-  /// Is this address part of an instruction that uses PC-relative addressing?
-  IsPCRel: bool
-}
+type RelocationInfo =
+  { /// Offset in the section to what is being relocated.
+    RelocAddr: int
+    /// RelocSymbol
+    RelocSymbol: RelocSymbol
+    /// Relocation length.
+    RelocLength: RegType
+    /// Parent section
+    RelocSection: Section
+    /// Is this address part of an instruction that uses PC-relative addressing?
+    IsPCRel: bool }
 with
-  member this.GetName (symbols: Symbol[], sections: Section[]) =
+  member this.GetName(symbols: Symbol[], sections: Section[]) =
     match this.RelocSymbol with
     | SymIndex n -> symbols[n].SymName
     | SecOrdinal n -> sections[n-1].SecName
@@ -56,8 +55,8 @@ with
 module internal Reloc =
   let private parseRelocSymbol data =
     let n = data &&& 0xFFFFFF
-    if (data >>> 27) &&& 1 = 1 then SymIndex (n)
-    else SecOrdinal (n)
+    if (data >>> 27) &&& 1 = 1 then SymIndex(n)
+    else SecOrdinal(n)
 
   let private parseRelocLength data =
     match (data >>> 25) &&& 3 with
@@ -69,8 +68,8 @@ module internal Reloc =
     secs |> Array.fold (fun cnt sec -> cnt + sec.SecNumOfReloc) 0
 
   let private parseReloc (span: ByteSpan) (reader: IBinReader) sec =
-    let addr = reader.ReadInt32 (span, 0)
-    let data = reader.ReadInt32 (span, 4)
+    let addr = reader.ReadInt32(span, 0)
+    let data = reader.ReadInt32(span, 4)
     let sym = parseRelocSymbol data
     let len = parseRelocLength data
     let rel = (data >>> 24) &&& 1 = 1
@@ -86,7 +85,7 @@ module internal Reloc =
     let mutable i = 0
     for sec in secs do
       let relOffset, relSize = int sec.SecRelOff, int sec.SecNumOfReloc * 8
-      let relSpan = ReadOnlySpan (bytes, relOffset, relSize)
+      let relSpan = ReadOnlySpan(bytes, relOffset, relSize)
       for n = 0 to sec.SecNumOfReloc - 1 do
         let offset = n * 8
         relocs[i] <- parseReloc (relSpan.Slice offset) reader sec

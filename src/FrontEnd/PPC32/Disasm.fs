@@ -520,11 +520,11 @@ let condToString = function
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode
-  builder.Accumulate AsmWordKind.Mnemonic str
+  builder.Accumulate(AsmWordKind.Mnemonic, str)
 
 let inline relToString pc offset (builder: IDisasmBuilder) =
   let targetAddr = pc + uint64 offset
-  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 targetAddr)
+  builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 targetAddr)
 
 let inline getCond bi =
   match Bits.extract bi 1u 0u with
@@ -536,47 +536,47 @@ let inline getCond bi =
 let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
   match opr with
   | OprReg reg ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-  | OprMem (imm, reg) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (HexString.ofInt32 imm)
-    builder.Accumulate AsmWordKind.String "("
-    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-    builder.Accumulate AsmWordKind.String ")"
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+  | OprMem(imm, reg) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 imm)
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+    builder.Accumulate(AsmWordKind.String, ")")
   | OprImm imm ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 imm)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 imm)
   | OprAddr addr ->
-    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate(AsmWordKind.String, delim)
     relToString ins.Address addr builder
   | OprBI imm ->
     let cr = Bits.extract imm 4u 2u |> getCondRegister
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (HexString.ofUInt32 4u)
-    builder.Accumulate AsmWordKind.String " * "
-    builder.Accumulate AsmWordKind.Variable (Register.toString cr)
-    builder.Accumulate AsmWordKind.String " + "
-    builder.Accumulate AsmWordKind.String (condToString (getCond imm))
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 4u)
+    builder.Accumulate(AsmWordKind.String, " * ")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString cr)
+    builder.Accumulate(AsmWordKind.String, " + ")
+    builder.Accumulate(AsmWordKind.String, condToString (getCond imm))
 
 let buildOprs (ins: Instruction) builder =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
     oprToString ins opr " " builder
-  | TwoOperands (opr1, opr2) ->
+  | TwoOperands(opr1, opr2) ->
     oprToString ins opr1 " " builder
     oprToString ins opr2 ", " builder
-  | ThreeOperands (opr1, opr2, opr3) ->
+  | ThreeOperands(opr1, opr2, opr3) ->
     oprToString ins opr1 " " builder
     oprToString ins opr2 ", " builder
     oprToString ins opr3 ", " builder
-  | FourOperands (opr1, opr2, opr3, opr4) ->
+  | FourOperands(opr1, opr2, opr3, opr4) ->
     oprToString ins opr1 " " builder
     oprToString ins opr2 ", " builder
     oprToString ins opr3 ", " builder
     oprToString ins opr4 ", " builder
-  | FiveOperands (opr1, opr2, opr3, opr4, opr5) ->
+  | FiveOperands(opr1, opr2, opr3, opr4, opr5) ->
     oprToString ins opr1 " " builder
     oprToString ins opr2 ", " builder
     oprToString ins opr3 ", " builder
@@ -585,35 +585,35 @@ let buildOprs (ins: Instruction) builder =
 
 let buildSimpleMnemonic opcode bi addr ins (builder: IDisasmBuilder) =
   let cr = Bits.extract bi 4u 2u |> getCondRegister
-  builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
-  builder.Accumulate AsmWordKind.String " "
-  builder.Accumulate AsmWordKind.Variable (Register.toString cr)
-  builder.Accumulate AsmWordKind.String ", "
+  builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
+  builder.Accumulate(AsmWordKind.String, " ")
+  builder.Accumulate(AsmWordKind.Variable, Register.toString cr)
+  builder.Accumulate(AsmWordKind.String, ", ")
   relToString (ins: Instruction).Address addr builder
 
 let buildCrMnemonic opcode bi (builder: IDisasmBuilder) =
   let cr = Bits.extract bi 4u 2u |> getCondRegister
-  builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
-  builder.Accumulate AsmWordKind.String " "
-  builder.Accumulate AsmWordKind.Variable (Register.toString cr)
+  builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
+  builder.Accumulate(AsmWordKind.String, " ")
+  builder.Accumulate(AsmWordKind.Variable, Register.toString cr)
 
 let buildTargetMnemonic opcode addr ins (builder: IDisasmBuilder) =
-  builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
-  builder.Accumulate AsmWordKind.String " "
+  builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
+  builder.Accumulate(AsmWordKind.String, " ")
   relToString (ins: Instruction).Address addr builder
 
 let buildRotateMnemonic opcode ra rs n (builder: IDisasmBuilder) =
-  builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
-  builder.Accumulate AsmWordKind.String " "
-  builder.Accumulate AsmWordKind.Variable (Register.toString ra)
-  builder.Accumulate AsmWordKind.String ", "
-  builder.Accumulate AsmWordKind.Variable (Register.toString rs)
-  builder.Accumulate AsmWordKind.String ", "
-  builder.Accumulate AsmWordKind.Value (HexString.ofUInt64 n)
+  builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
+  builder.Accumulate(AsmWordKind.String, " ")
+  builder.Accumulate(AsmWordKind.Variable, Register.toString ra)
+  builder.Accumulate(AsmWordKind.String, ", ")
+  builder.Accumulate(AsmWordKind.Variable, Register.toString rs)
+  builder.Accumulate(AsmWordKind.String, ", ")
+  builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 n)
 
 let buildBC (ins: Instruction) builder =
   match ins.Operands with
-  | ThreeOperands (OprImm bo , OprBI bi, OprAddr addr) ->
+  | ThreeOperands(OprImm bo , OprBI bi, OprAddr addr) ->
     let bibit = bi % 4u
     match bo, bi, bibit with
     | 16UL, 0u, _ -> buildTargetMnemonic Op.BDNZ addr ins builder
@@ -632,7 +632,7 @@ let buildBC (ins: Instruction) builder =
 
 let buildBCA (ins: Instruction) builder =
   match ins.Operands with
-  | ThreeOperands (OprImm bo , OprBI bi, OprAddr addr) ->
+  | ThreeOperands(OprImm bo , OprBI bi, OprAddr addr) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 12UL, 0u -> buildSimpleMnemonic Op.BLTA bi addr ins builder
@@ -650,7 +650,7 @@ let buildBCA (ins: Instruction) builder =
 
 let buildBCL (ins: Instruction) builder =
   match ins.Operands with
-  | ThreeOperands (OprImm bo , OprBI bi, OprAddr addr) ->
+  | ThreeOperands(OprImm bo , OprBI bi, OprAddr addr) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 12UL, 0u -> buildSimpleMnemonic Op.BLTA bi addr ins builder
@@ -668,7 +668,7 @@ let buildBCL (ins: Instruction) builder =
 
 let buildBCLA (ins: Instruction) builder =
   match ins.Operands with
-  | ThreeOperands (OprImm bo , OprBI bi, OprAddr addr) ->
+  | ThreeOperands(OprImm bo , OprBI bi, OprAddr addr) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 12uL, 0u -> buildSimpleMnemonic Op.BLTLA bi addr ins builder
@@ -686,11 +686,11 @@ let buildBCLA (ins: Instruction) builder =
 
 let buildBCLR (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
-  | TwoOperands (OprImm bo , OprBI bi) ->
+  | TwoOperands(OprImm bo , OprBI bi) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 20uL, 0u ->
-      builder.Accumulate AsmWordKind.Mnemonic (opCodeToString Op.BLR)
+      builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString Op.BLR)
     | 12UL, 0u -> buildCrMnemonic Op.BLTLR bi builder
     | 12UL, 1u -> buildCrMnemonic Op.BGTLR bi builder
     | 12UL, 2u -> buildCrMnemonic Op.BEQLR bi builder
@@ -706,7 +706,7 @@ let buildBCLR (ins: Instruction) (builder: IDisasmBuilder) =
 
 let buildBCLRL (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
-  | TwoOperands (OprImm bo , OprBI bi) ->
+  | TwoOperands(OprImm bo , OprBI bi) ->
     match bo, bi with
     | 12UL, 0u -> buildCrMnemonic Op.BLTLRL bi builder
     | 12UL, 1u -> buildCrMnemonic Op.BGTLRL bi builder
@@ -717,11 +717,11 @@ let buildBCLRL (ins: Instruction) (builder: IDisasmBuilder) =
     | 4UL, 2u -> buildCrMnemonic Op.BNELRL bi builder
     | 4UL, 3u -> buildCrMnemonic Op.BNSLRL bi builder
     | 20UL, 0u ->
-      builder.Accumulate AsmWordKind.Mnemonic (opCodeToString Op.BLRL)
+      builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString Op.BLRL)
     | 16UL, 0u ->
-      builder.Accumulate AsmWordKind.Mnemonic (opCodeToString Op.BDNZLRL)
+      builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString Op.BDNZLRL)
     | 18UL, 0u ->
-      builder.Accumulate AsmWordKind.Mnemonic (opCodeToString Op.BDZLRL)
+      builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString Op.BDZLRL)
     | 8UL, _ -> buildCrMnemonic Op.BDNZTLRL bi builder
     | 0UL, _ -> buildCrMnemonic Op.BDNZFLRL bi builder
     | 10UL, _ -> buildCrMnemonic Op.BDZTLRL bi builder
@@ -733,7 +733,7 @@ let buildBCLRL (ins: Instruction) (builder: IDisasmBuilder) =
 
 let buildBCCTR (ins: Instruction) builder =
   match ins.Operands with
-  | TwoOperands (OprImm bo , OprBI bi) ->
+  | TwoOperands(OprImm bo , OprBI bi) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 12UL, 0u -> buildCrMnemonic Op.BLTCTR bi builder
@@ -751,7 +751,7 @@ let buildBCCTR (ins: Instruction) builder =
 
 let buildBCCTRL (ins: Instruction) builder =
   match ins.Operands with
-  | TwoOperands (OprImm bo , OprBI bi) ->
+  | TwoOperands(OprImm bo , OprBI bi) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 12UL, 0u -> buildCrMnemonic Op.BLTCTRL bi builder
@@ -763,7 +763,7 @@ let buildBCCTRL (ins: Instruction) builder =
     | 4UL, 2u -> buildCrMnemonic Op.BNECTRL bi builder
     | 4UL, 3u -> buildCrMnemonic Op.BNSCTRL bi builder
     | 20UL, 0u ->
-      builder.Accumulate AsmWordKind.Mnemonic (opCodeToString Op.BCTRL)
+      builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString Op.BCTRL)
     | _ ->
       buildOpcode ins builder
       buildOprs ins builder
@@ -771,7 +771,7 @@ let buildBCCTRL (ins: Instruction) builder =
 
 let buildRLWINM (ins: Instruction) builder =
   match ins.Operands with
-  | FiveOperands (OprReg ra, OprReg rs, OprImm sh, OprImm mb, OprImm me) ->
+  | FiveOperands(OprReg ra, OprReg rs, OprImm sh, OprImm mb, OprImm me) ->
     match sh, mb, me with
     | _ , 0UL, 31UL -> buildRotateMnemonic Op.ROTLWI ra rs sh builder
     | n1, 0UL, n2 when n2 = (31UL - n1) ->

@@ -146,7 +146,7 @@ module Register =
   /// Returns the SPARC register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "g0" -> Register.G0
     | "g1" -> Register.G1
     | "g2" -> Register.G2
@@ -257,7 +257,7 @@ module Register =
   /// Returns the register ID of a SPARC register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+    LanguagePrimitives.EnumToValue(reg) |> RegisterID.create
 
   /// Returns the string representation of a SPARC register.
   [<CompiledName "ToString">]

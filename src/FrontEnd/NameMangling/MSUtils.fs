@@ -139,7 +139,7 @@ let getRTTI c =
   | '2' -> "'RTTI Base Class Array'"
   | '3' -> "'RTTI Class Hierarchy Descriptor'"
   | '4' -> "'RTTI Complete Object Locator'"
-  |  _  -> sprintf "not valid RTTI descriptor %c" c
+  | _ -> sprintf "not valid RTTI descriptor %c" c
 
 let getVarAccessLevel c =
   match c with
@@ -166,9 +166,9 @@ let getPrefixModStr (prefixes: ModifierPrefix list) =
         | Ptr64Mod -> pre, post + " __ptr64"
         | UnalignedMod -> pre + "__unaligned ", post
         | RestrictMod -> pre, post + " __restrict"
-        |  _  -> pre, post
+        | _ -> pre, post
       ) (" ", "") prefixes
-  pre.TrimStart (), post.TrimEnd ()
+  pre.TrimStart(), post.TrimEnd()
 
 /// Checks for the existance of & and && indicating prefixes and updates the
 /// pointer string to include them.
@@ -179,9 +179,9 @@ let updatePrefix lst str =
 /// Changes any type of pointer to normal pointer while keeping its prefixes.
 let rec changeToNormalPointer (ptr: MSExpr) =
   match ptr with
-  | PointerStrT ( _ , (pref, modifier), cvT) ->
-      PointerStrT (NormalPointer, (pref, modifier), cvT)
-  | ModifiedType (typ, mods) -> ModifiedType (changeToNormalPointer typ, mods)
-  | PointerT (ptrStr, typ) -> PointerT (changeToNormalPointer ptrStr, typ)
+  | PointerStrT( _ , (pref, modifier), cvT) ->
+      PointerStrT(NormalPointer, (pref, modifier), cvT)
+  | ModifiedType(typ, mods) -> ModifiedType(changeToNormalPointer typ, mods)
+  | PointerT(ptrStr, typ) -> PointerT(changeToNormalPointer ptrStr, typ)
   | ConcatT lst -> List.map changeToNormalPointer lst |> ConcatT
   | _ -> ptr

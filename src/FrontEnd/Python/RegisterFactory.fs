@@ -33,27 +33,27 @@ open B2R2.BinIR.LowUIR
 do ()
 
 /// Represents a factory for accessing various Python register variables.
-type RegisterFactory () =
+type RegisterFactory() =
   interface IRegisterFactory with
-    member _.GetRegVar (_: RegisterID): Expr = Terminator.futureFeature ()
+    member _.GetRegVar(_: RegisterID): Expr = Terminator.futureFeature ()
 
-    member _.GetRegVar (_: string): Expr = Terminator.futureFeature ()
+    member _.GetRegVar(_: string): Expr = Terminator.futureFeature ()
 
-    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
+    member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars () = Terminator.futureFeature ()
+    member _.GetAllRegVars() = Terminator.futureFeature ()
 
-    member _.GetGeneralRegVars () = Terminator.futureFeature ()
+    member _.GetGeneralRegVars() = Terminator.futureFeature ()
 
-    member _.GetRegisterID (_: Expr): RegisterID = Terminator.futureFeature ()
+    member _.GetRegisterID(_: Expr): RegisterID = Terminator.futureFeature ()
 
-    member _.GetRegisterID (_: string): RegisterID = Terminator.futureFeature ()
+    member _.GetRegisterID(_: string): RegisterID = Terminator.futureFeature ()
 
     member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
 
     member _.GetRegString _rid = Terminator.futureFeature ()
 
-    member _.GetAllRegStrings () = [||]
+    member _.GetAllRegStrings() = [||]
 
     member _.GetRegType _rid = Terminator.futureFeature ()
 

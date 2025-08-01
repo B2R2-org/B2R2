@@ -39,101 +39,101 @@ module internal LoadCommands =
       VMSize = readUIntByWordSizeAndOffset span reader cls 28 32
       FileOff = readUIntByWordSizeAndOffset span reader cls 32 40
       FileSize = readUIntByWordSizeAndOffset span reader cls 36 48
-      MaxProt = reader.ReadInt32 (span, selectByWordSize cls 40 56)
-      InitProt = reader.ReadInt32 (span, selectByWordSize cls 44 60)
-      NumSecs = reader.ReadUInt32 (span, selectByWordSize cls 48 64)
-      SegFlag = reader.ReadUInt32 (span, selectByWordSize cls 52 68) }
+      MaxProt = reader.ReadInt32(span, selectByWordSize cls 40 56)
+      InitProt = reader.ReadInt32(span, selectByWordSize cls 44 60)
+      NumSecs = reader.ReadUInt32(span, selectByWordSize cls 48 64)
+      SegFlag = reader.ReadUInt32(span, selectByWordSize cls 52 68) }
 
   let parseSymCmd toolBox (span: ByteSpan) =
     let reader = toolBox.Reader
-    { SymOff = reader.ReadInt32 (span, 8)
-      NumOfSym = reader.ReadUInt32 (span, 12)
-      StrOff = reader.ReadInt32 (span, 16)
-      StrSize = reader.ReadUInt32 (span, 20) }
+    { SymOff = reader.ReadInt32(span, 8)
+      NumOfSym = reader.ReadUInt32(span, 12)
+      StrOff = reader.ReadInt32(span, 16)
+      StrSize = reader.ReadUInt32(span, 20) }
 
   let parseDySymCmd toolBox (span: ByteSpan) =
     let reader = toolBox.Reader
-    { IdxLocalSym = reader.ReadUInt32 (span, 8)
-      NumLocalSym = reader.ReadUInt32 (span, 12)
-      IdxExtSym = reader.ReadUInt32 (span, 16)
-      NumExtSym = reader.ReadUInt32 (span, 20)
-      IdxUndefSym = reader.ReadUInt32 (span, 24)
-      NumUndefSym = reader.ReadUInt32 (span, 28)
-      TOCOffset = reader.ReadUInt32 (span, 32)
-      NumTOCContents = reader.ReadUInt32 (span, 36)
-      ModTabOff = reader.ReadUInt32 (span, 40)
-      NumModTab = reader.ReadUInt32 (span, 44)
-      ExtRefSymOff = reader.ReadUInt32 (span, 48)
-      NumExtRefSym = reader.ReadUInt32 (span, 52)
-      IndirectSymOff = reader.ReadUInt32 (span, 56)
-      NumIndirectSym = reader.ReadUInt32 (span, 60)
-      ExtRelOff = reader.ReadUInt32 (span, 64)
-      NumExtRel = reader.ReadUInt32 (span, 68)
-      LocalRelOff = reader.ReadUInt32 (span, 72)
-      NumLocalRel = reader.ReadUInt32 (span, 76) }
+    { IdxLocalSym = reader.ReadUInt32(span, 8)
+      NumLocalSym = reader.ReadUInt32(span, 12)
+      IdxExtSym = reader.ReadUInt32(span, 16)
+      NumExtSym = reader.ReadUInt32(span, 20)
+      IdxUndefSym = reader.ReadUInt32(span, 24)
+      NumUndefSym = reader.ReadUInt32(span, 28)
+      TOCOffset = reader.ReadUInt32(span, 32)
+      NumTOCContents = reader.ReadUInt32(span, 36)
+      ModTabOff = reader.ReadUInt32(span, 40)
+      NumModTab = reader.ReadUInt32(span, 44)
+      ExtRefSymOff = reader.ReadUInt32(span, 48)
+      NumExtRefSym = reader.ReadUInt32(span, 52)
+      IndirectSymOff = reader.ReadUInt32(span, 56)
+      NumIndirectSym = reader.ReadUInt32(span, 60)
+      ExtRelOff = reader.ReadUInt32(span, 64)
+      NumExtRel = reader.ReadUInt32(span, 68)
+      LocalRelOff = reader.ReadUInt32(span, 72)
+      NumLocalRel = reader.ReadUInt32(span, 76) }
 
   let parseMainCmd toolBox (span: ByteSpan) =
     let reader = toolBox.Reader
-    { EntryOff = reader.ReadUInt64 (span, 8) + toolBox.BaseAddress
-      StackSize = reader.ReadUInt64 (span, 16) }
+    { EntryOff = reader.ReadUInt64(span, 8) + toolBox.BaseAddress
+      StackSize = reader.ReadUInt64(span, 16) }
 
   /// Read lc_str string.
   let readLCStr toolBox cmdSize (span: ByteSpan) =
-    let strOffset = toolBox.Reader.ReadInt32 (span, 8)
+    let strOffset = toolBox.Reader.ReadInt32(span, 8)
     let strLen = cmdSize - strOffset
-    ByteArray.extractCStringFromSpan (span.Slice (strOffset, strLen)) 0
+    ByteArray.extractCStringFromSpan (span.Slice(strOffset, strLen)) 0
 
   let parseDyLibCmd toolBox cmdSize (span: ByteSpan) =
     let reader = toolBox.Reader
     { DyLibName = readLCStr toolBox cmdSize span
-      DyLibTimeStamp = reader.ReadUInt32 (span, 12)
-      DyLibCurVer = reader.ReadUInt32 (span, 16)
-      DyLibCmpVer = reader.ReadUInt32 (span, 20) }
+      DyLibTimeStamp = reader.ReadUInt32(span, 12)
+      DyLibCurVer = reader.ReadUInt32(span, 16)
+      DyLibCmpVer = reader.ReadUInt32(span, 20) }
 
   let parseDyLdInfo toolBox (span: ByteSpan) =
     let reader = toolBox.Reader
-    { RebaseOff = reader.ReadInt32 (span, 8)
-      RebaseSize = reader.ReadUInt32 (span, 12)
-      BindOff = reader.ReadInt32 (span, 16)
-      BindSize = reader.ReadUInt32 (span, 20)
-      WeakBindOff = reader.ReadInt32 (span, 24)
-      WeakBindSize = reader.ReadUInt32 (span, 28)
-      LazyBindOff = reader.ReadInt32 (span, 32)
-      LazyBindSize = reader.ReadUInt32 (span, 36)
-      ExportOff = reader.ReadInt32 (span, 40)
-      ExportSize = reader.ReadUInt32 (span, 44) }
+    { RebaseOff = reader.ReadInt32(span, 8)
+      RebaseSize = reader.ReadUInt32(span, 12)
+      BindOff = reader.ReadInt32(span, 16)
+      BindSize = reader.ReadUInt32(span, 20)
+      WeakBindOff = reader.ReadInt32(span, 24)
+      WeakBindSize = reader.ReadUInt32(span, 28)
+      LazyBindOff = reader.ReadInt32(span, 32)
+      LazyBindSize = reader.ReadUInt32(span, 36)
+      ExportOff = reader.ReadInt32(span, 40)
+      ExportSize = reader.ReadUInt32(span, 44) }
 
   let parseFuncStarts toolBox (span: ByteSpan) =
     let reader = toolBox.Reader
-    { DataOffset = reader.ReadInt32 (span, 8)
-      DataSize = reader.ReadUInt32 (span, 12) }
+    { DataOffset = reader.ReadInt32(span, 8)
+      DataSize = reader.ReadUInt32(span, 12) }
 
   let parseCmd ({ Bytes = bytes; Reader = reader } as toolBox) offset =
-    let cmdHdr = ReadOnlySpan (bytes, int offset, 8)
-    let cmdType = reader.ReadInt32 (cmdHdr, 0) |> LanguagePrimitives.EnumOfValue
-    let cmdSize = reader.ReadInt32 (cmdHdr, 4)
+    let cmdHdr = ReadOnlySpan(bytes, int offset, 8)
+    let cmdType = reader.ReadInt32(cmdHdr, 0) |> LanguagePrimitives.EnumOfValue
+    let cmdSize = reader.ReadInt32(cmdHdr, 4)
     let cmdOffset = int (offset - toolBox.MachOffset)
-    let span = ReadOnlySpan (bytes, int offset, cmdSize)
+    let span = ReadOnlySpan(bytes, int offset, cmdSize)
     let command =
       match cmdType with
       | CmdType.LC_SEGMENT
       | CmdType.LC_SEGMENT64 ->
-        Segment (cmdType, uint32 cmdSize, parseSegCmd toolBox cmdOffset span)
+        Segment(cmdType, uint32 cmdSize, parseSegCmd toolBox cmdOffset span)
       | CmdType.LC_SYMTAB ->
-        SymTab (cmdType, uint32 cmdSize, parseSymCmd toolBox span)
+        SymTab(cmdType, uint32 cmdSize, parseSymCmd toolBox span)
       | CmdType.LC_DYSYMTAB ->
-        DySymTab (cmdType, uint32 cmdSize, parseDySymCmd toolBox span)
+        DySymTab(cmdType, uint32 cmdSize, parseDySymCmd toolBox span)
       | CmdType.LC_MAIN ->
-        Main (cmdType, uint32 cmdSize, parseMainCmd toolBox span)
+        Main(cmdType, uint32 cmdSize, parseMainCmd toolBox span)
       | CmdType.LC_LOAD_DYLIB ->
-        DyLib (cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)
+        DyLib(cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)
       | CmdType.LC_DYLD_INFO
       | CmdType.LC_DYLD_INFO_ONLY ->
-        DyLdInfo (cmdType, uint32 cmdSize, parseDyLdInfo toolBox span)
+        DyLdInfo(cmdType, uint32 cmdSize, parseDyLdInfo toolBox span)
       | CmdType.LC_FUNCTION_STARTS ->
-        FuncStarts (cmdType, uint32 cmdSize, parseFuncStarts toolBox span)
+        FuncStarts(cmdType, uint32 cmdSize, parseFuncStarts toolBox span)
       | _ ->
-        Unhandled (cmdType, uint32 cmdSize)
+        Unhandled(cmdType, uint32 cmdSize)
     struct (command, uint64 cmdSize)
 
   let parse ({ Header = hdr } as toolBox) =

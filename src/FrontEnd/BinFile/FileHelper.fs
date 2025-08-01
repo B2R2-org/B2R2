@@ -35,8 +35,8 @@ let inline selectByWordSize wordSize v32 v64 =
 /// Reads either 32-bit or 64-bit value based on the word size from the given
 /// offset of the given byte span. This function always returns a 64-bit value.
 let readUIntByWordSize (span: ByteSpan) (reader: IBinReader) wordSize offset =
-  if wordSize = WordSize.Bit32 then reader.ReadUInt32 (span, offset) |> uint64
-  else reader.ReadUInt64 (span, offset)
+  if wordSize = WordSize.Bit32 then reader.ReadUInt32(span, offset) |> uint64
+  else reader.ReadUInt64(span, offset)
 
 /// Reads either 32-bit or 64-bit value based on the word size from either of
 /// the given offset of the given byte span. This function always returns a
@@ -59,20 +59,20 @@ let readCString (span: ByteSpan) offset =
 /// Reads LEB128 unsigned integer from the given byte span starting at the
 /// given offset.
 let readULEB128 (span: ByteSpan) offset =
-  let v, cnt = LEB128.DecodeUInt64 (span.Slice offset)
+  let v, cnt = LEB128.DecodeUInt64(span.Slice offset)
   v, offset + cnt
 
 /// Reads LEB128 signed integer from the given byte span starting at the given
 /// offset.
 let readSLEB128 (span: ByteSpan) offset =
-  let v, cnt = LEB128.DecodeSInt64 (span.Slice offset)
+  let v, cnt = LEB128.DecodeSInt64(span.Slice offset)
   v, offset + cnt
 
 let addInvalidRange set saddr eaddr =
   if saddr = eaddr then set
-  else IntervalSet.add (AddrRange (saddr, eaddr - 1UL)) set
+  else IntervalSet.add (AddrRange(saddr, eaddr - 1UL)) set
 
 let addLastInvalidRange wordSize (set, saddr) =
   let laddr =
     if wordSize = WordSize.Bit32 then 0xFFFFFFFFUL else 0xFFFFFFFFFFFFFFFFUL
-  IntervalSet.add (AddrRange (saddr, laddr)) set
+  IntervalSet.add (AddrRange(saddr, laddr)) set

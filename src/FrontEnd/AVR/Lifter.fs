@@ -112,4 +112,4 @@ let translate (ins: Instruction) insLen builder =
   #if DEBUG
            eprintfn "%A" o
   #endif
-           raise <| NotImplementedIRException (Disasm.opCodeToString o)
+           raise <| NotImplementedIRException(Disasm.opCodeToString o)

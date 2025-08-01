@@ -28,31 +28,31 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 (* Offset *)
-let memOffsetImm offset = OprMemory (OffsetMode (ImmOffset offset))
+let memOffsetImm offset = OprMemory(OffsetMode(ImmOffset offset))
 
-let memOffsetReg offset = OprMemory (OffsetMode (RegOffset offset))
+let memOffsetReg offset = OprMemory(OffsetMode(RegOffset offset))
 
-let memOffsetAlign offset = OprMemory (OffsetMode (AlignOffset offset))
+let memOffsetAlign offset = OprMemory(OffsetMode(AlignOffset offset))
 
 (* Pre-Indexed [<Rn>, #+/-<imm>]! *)
-let memPreIdxImm offset = OprMemory (PreIdxMode (ImmOffset offset))
+let memPreIdxImm offset = OprMemory(PreIdxMode(ImmOffset offset))
 
-let memPreIdxReg offset = OprMemory (PreIdxMode (RegOffset offset))
+let memPreIdxReg offset = OprMemory(PreIdxMode(RegOffset offset))
 
-let memPreIdxAlign offset = OprMemory (PreIdxMode (AlignOffset offset))
+let memPreIdxAlign offset = OprMemory(PreIdxMode(AlignOffset offset))
 
 (* Post-Indexed *)
-let memPostIdxImm offset = OprMemory (PostIdxMode (ImmOffset offset))
+let memPostIdxImm offset = OprMemory(PostIdxMode(ImmOffset offset))
 
-let memPostIdxReg offset = OprMemory (PostIdxMode (RegOffset offset))
+let memPostIdxReg offset = OprMemory(PostIdxMode(RegOffset offset))
 
-let memPostIdxAlign offset = OprMemory (PostIdxMode (AlignOffset offset))
+let memPostIdxAlign offset = OprMemory(PostIdxMode(AlignOffset offset))
 
 (* Label *)
-let memLabel lbl = OprMemory (LiteralMode lbl)
+let memLabel lbl = OprMemory(LiteralMode lbl)
 
 (* Unindexed *)
-let memUnIdxImm offset = OprMemory (UnIdxMode offset)
+let memUnIdxImm offset = OprMemory(UnIdxMode offset)
 
 (* SIMD Operand *)
 let toSVReg vReg = vReg |> Vector |> SFReg |> OprSIMD
@@ -65,15 +65,16 @@ let inline checkUnpred cond =
 let inline checkUndef cond =
   if cond then raise ParsingFailureException else ()
 
-let oneDt dt = Some (OneDT dt)
+let oneDt dt = Some(OneDT dt)
 
-let twoDt (dt1, dt2) = Some (TwoDT (dt1, dt2))
+let twoDt (dt1, dt2) = Some(TwoDT(dt1, dt2))
 
 let getSign s = if s = 1u then Plus else Minus
 
 let getEndian = function
   | 0b0uy -> Endian.Little
-  | _ (* 1 *) -> Endian.Big
+  (* 1 *)
+  | _ -> Endian.Big
 
 let getRegister n: Register = n |> int |> LanguagePrimitives.EnumOfValue
 
@@ -89,22 +90,22 @@ let inline getRegList b =
 (* SIMD vector register list *)
 let getSIMDVector rLst =
   match rLst with
-  | [ vt ] -> OneReg (Vector vt)
-  | [ vt; vt2 ] -> TwoRegs (Vector vt, Vector vt2)
-  | [ vt; vt2; vt3 ] -> ThreeRegs (Vector vt, Vector vt2, Vector vt3)
+  | [ vt ] -> OneReg(Vector vt)
+  | [ vt; vt2 ] -> TwoRegs(Vector vt, Vector vt2)
+  | [ vt; vt2; vt3 ] -> ThreeRegs(Vector vt, Vector vt2, Vector vt3)
   | [ vt; vt2; vt3; vt4 ] ->
-    FourRegs (Vector vt, Vector vt2, Vector vt3, Vector vt4)
+    FourRegs(Vector vt, Vector vt2, Vector vt3, Vector vt4)
   | _ -> raise ParsingFailureException
   |> OprSIMD
 
 (* SIMD scalar list *)
 let getSIMDScalar idx rLst =
-  let s v = Scalar (v, idx)
+  let s v = Scalar(v, idx)
   match rLst with
-  | [ vt ] -> OneReg (s vt)
-  | [ vt; vt2 ] -> TwoRegs (s vt, s vt2)
-  | [ vt; vt2; vt3 ] -> ThreeRegs (s vt, s vt2, s vt3)
-  | [ vt; vt2; vt3; vt4 ] -> FourRegs (s vt, s vt2, s vt3, s vt4)
+  | [ vt ] -> OneReg(s vt)
+  | [ vt; vt2 ] -> TwoRegs(s vt, s vt2)
+  | [ vt; vt2; vt3 ] -> ThreeRegs(s vt, s vt2, s vt3)
+  | [ vt; vt2; vt3; vt4 ] -> FourRegs(s vt, s vt2, s vt3, s vt4)
   | _ -> raise ParsingFailureException
   |> OprSIMD
 

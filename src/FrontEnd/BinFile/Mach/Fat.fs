@@ -31,21 +31,21 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 let private readFatArch (span: ByteSpan) (reader: IBinReader) offset =
-  let cpuType = reader.ReadInt32 (span, offset)
-  let cpuSubType = reader.ReadInt32 (span, offset + 4)
+  let cpuType = reader.ReadInt32(span, offset)
+  let cpuSubType = reader.ReadInt32(span, offset + 4)
   { CPUType = cpuType |> LanguagePrimitives.EnumOfValue
     CPUSubType = cpuSubType |> LanguagePrimitives.EnumOfValue
-    Offset = reader.ReadInt32 (span, offset + 8)
-    Size = reader.ReadInt32 (span, offset + 12)
-    Align = reader.ReadInt32 (span, offset + 16) }
+    Offset = reader.ReadInt32(span, offset + 8)
+    Size = reader.ReadInt32(span, offset + 12)
+    Align = reader.ReadInt32(span, offset + 16) }
 
 /// Parses the FAT binary header and returns an array of `FatArch` records.
 let parseArchs (bytes: byte[]) =
   let reader = BinReader.Init Endian.Big
-  let magic = reader.ReadUInt32 (bytes, 0)
-  let nArch = reader.ReadInt32 (bytes, 4)
+  let magic = reader.ReadUInt32(bytes, 0)
+  let nArch = reader.ReadInt32(bytes, 4)
   assert (LanguagePrimitives.EnumOfValue magic = Magic.FAT_MAGIC)
-  let span = ReadOnlySpan (bytes, 8, 20 * nArch)
+  let span = ReadOnlySpan(bytes, 8, 20 * nArch)
   let archs = Array.zeroCreate nArch
   for i = 0 to nArch - 1 do
     archs[i] <- readFatArch span reader (i * 20)

@@ -27,26 +27,25 @@ namespace B2R2.FrontEnd.BinFile.Mach
 open B2R2
 
 /// Represents a symbol in a Mach-O file.
-type Symbol = {
-  /// Symbol name.
-  SymName: string
-  /// Symbol type (N_TYPE field of n_type).
-  SymType: SymbolType
-  /// Is this an external symbol?
-  IsExternal: bool
-  /// The number of the section that this symbol can be found.
-  SecNum: int
-  /// Providing additional information about the nature of this symbol for
-  /// non-stab symbols.
-  SymDesc: int16
-  /// External library version info.
-  VerInfo: DyLibCmd option
-  /// Address of the symbol.
-  SymAddr: Addr
-}
+type Symbol =
+  { /// Symbol name.
+    SymName: string
+    /// Symbol type (N_TYPE field of n_type).
+    SymType: SymbolType
+    /// Is this an external symbol?
+    IsExternal: bool
+    /// The number of the section that this symbol can be found.
+    SecNum: int
+    /// Providing additional information about the nature of this symbol for
+    /// non-stab symbols.
+    SymDesc: int16
+    /// External library version info.
+    VerInfo: DyLibCmd option
+    /// Address of the symbol.
+    SymAddr: Addr }
 with
   /// Checks if this symbol is a function symbol.
-  static member inline IsFunc secText s =
+  static member inline IsFunc(secText, s) =
     (s.SymType = SymbolType.N_FUN && s.SymName.Length > 0) ||
     (s.SymType.HasFlag SymbolType.N_SECT
       && s.SecNum = (secText + 1)

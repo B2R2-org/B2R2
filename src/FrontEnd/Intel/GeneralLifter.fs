@@ -71,7 +71,7 @@ let private auxPush oprSize bld expr =
   bld <+ (AST.loadLE oprSize sp := expr)
 
 let private computePopSize oprSize = function
-  | Var (_, id, _, _) when isSegReg (Register.ofRegID id) -> 16<rt>
+  | Var(_, id, _, _) when isSegReg (Register.ofRegID id) -> 16<rt>
   | _ -> oprSize
 
 let private auxPop oprSize bld dst =
@@ -89,7 +89,7 @@ let private maskOffset offset oprSize =
 
 let rec private isVar = function
   | Var _ | TempVar _ -> true
-  | Extract (e, _, _, _) -> isVar e
+  | Extract(e, _, _, _) -> isVar e
   | _ -> false
 
 let private calculateOffset offset oprSize =
@@ -264,7 +264,7 @@ let add (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   match ins.Operands with
-  | TwoOperands (o1, o2) when o1 = o2 ->
+  | TwoOperands(o1, o2) when o1 = o2 ->
     let dst = transOprToExpr bld false ins insLen o1
     if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
 #if !EMULATION
@@ -286,7 +286,7 @@ let add (ins: Instruction) insLen bld =
     | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDQ
     | _ -> raise InvalidRegTypeException
 #endif
-  | TwoOperands (o1, o2) ->
+  | TwoOperands(o1, o2) ->
     let dst = transOprToExpr bld true ins insLen o1
     let src = transOprToExpr bld false ins insLen o2 |> transReg bld true
     if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
@@ -424,9 +424,9 @@ let bextr (ins: Instruction) insLen bld =
   let struct (tmp, mask, start, len) = tmpVars4 bld oprSize
   bld <+ (start := AST.zext oprSize (AST.extract src2 8<rt> 0))
   bld <+ (len := AST.zext oprSize (AST.extract src2 8<rt> 8))
-  bld <+ (mask := AST.not(numI32 0 oprSize) << len)
+  bld <+ (mask := AST.not (numI32 0 oprSize) << len)
   bld <+ (tmp := AST.zext oprSize src1)
-  bld <+ (tmp := (tmp >> start) .& AST.not(mask))
+  bld <+ (tmp := (tmp >> start) .& AST.not (mask))
   bld <+ (dstAssign oprSize dst tmp)
   bld <+ (zF := (dst == AST.num0 oprSize))
   bld <+ (regVar bld R.CF := AST.b0)
@@ -595,7 +595,7 @@ let bswap (ins: Instruction) insLen bld =
 
 let private bit ins bitBase bitOffset oprSize =
   match bitBase with
-  | Load (e, t, expr, _) ->
+  | Load(e, t, expr, _) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
@@ -625,7 +625,7 @@ let bt (ins: Instruction) insLen bld =
 
 let private setBit ins bitBase bitOffset oprSize setValue =
   match bitBase with
-  | Load (e, t, expr, _) ->
+  | Load(e, t, expr, _) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
@@ -912,9 +912,9 @@ let cmps (ins: Instruction) insLen bld =
   let zf = regVar bld R.ZF
   bld <!-- (ins.Address, insLen)
   (if Prefix.hasREPZ pref then
-     strRepeat ins insLen bld cmpsBody (Some (zf == AST.b0))
+     strRepeat ins insLen bld cmpsBody (Some(zf == AST.b0))
    elif Prefix.hasREPNZ pref then
-     strRepeat ins insLen bld cmpsBody (Some (zf))
+     strRepeat ins insLen bld cmpsBody (Some(zf))
    else cmpsBody ins bld)
   bld --!> insLen
 
@@ -959,7 +959,7 @@ let private saveOprMem (bld: ILowUIRBuilder) expr =
   let sz = bld.RegType
   let t = tmpVar bld sz
   match expr with
-  | Load (e, rt, expr, _) ->
+  | Load(e, rt, expr, _) ->
     bld <+ (t := AST.zext sz expr)
     AST.load e rt t
   | _ -> expr
@@ -1592,11 +1592,11 @@ let private buildMulBody ins insLen bld =
   | OneOperand op ->
     let src = transOprToExpr bld false ins insLen op
     oneOperandImul bld oprSize src
-  | TwoOperands (o1, o2) ->
+  | TwoOperands(o1, o2) ->
     let dst = transOprToExpr bld false ins insLen o1
     let src = transOprToExpr bld false ins insLen o2
     operandsImul bld oprSize dst dst src
-  | ThreeOperands (o1, o2, o3) ->
+  | ThreeOperands(o1, o2, o3) ->
     let dst = transOprToExpr bld false ins insLen o1
     let src1 = transOprToExpr bld false ins insLen o2
     let src2 = transOprToExpr bld false ins insLen o3
@@ -1644,8 +1644,8 @@ let inc (ins: Instruction) insLen bld =
 
 let interrupt ins insLen bld =
   match transOneOpr bld ins insLen with
-  | Num (n, _) ->
-    Interrupt (BitVector.ToInt32 n)
+  | Num(n, _) ->
+    Interrupt(BitVector.ToInt32 n)
     |> sideEffects bld ins insLen
   | _ -> raise InvalidOperandException
 
@@ -1809,9 +1809,8 @@ let lahf (ins: Instruction) insLen bld =
   bld --!> insLen
 
 let private unwrapLeaSrc = function
-  | Load (_, _,
-          BinOp (BinOpType.ADD, _, e, Num (n, _), _), _) when n.IsZero () -> e
-  | Load (_, _, expr, _) -> expr
+  | Load(_, _, BinOp(BinOpType.ADD, _, e, Num(n, _), _), _) when n.IsZero() -> e
+  | Load(_, _, expr, _) -> expr
   | _ -> Terminator.impossible ()
 
 let lea (ins: Instruction) insLen bld =
@@ -2304,10 +2303,10 @@ let popf ins insLen bld =
 
 let inline private padPushExpr oprSize opr =
   match opr with
-  | Var (_, s, _, _) ->
+  | Var(_, s, _, _) ->
     if isSegReg <| Register.ofRegID s then AST.zext oprSize opr
     else opr
-  | Num (_) -> AST.sext oprSize opr
+  | Num(_) -> AST.sext oprSize opr
   | _ -> opr
 
 let push (ins: Instruction) insLen bld =
@@ -2700,7 +2699,7 @@ let private scasBody ins bld =
 
 let scas (ins: Instruction) insLen bld =
   let pref = ins.Prefixes
-  let zfCond n = Some (regVar bld R.ZF == n)
+  let zfCond n = Some(regVar bld R.ZF == n)
   bld <!-- (ins.Address, insLen)
   if Prefix.hasREPZ pref then
     strRepeat ins insLen bld scasBody (zfCond AST.b0)
@@ -2825,7 +2824,7 @@ let inline shiftDblPrec (ins: Instruction) insLen bld fnDst fnSrc isShl =
   bld <+ (sf := AST.ite (cond1 .| cond2) sf (AST.xthi 1<rt> dst))
   bld <+ (zf := AST.ite (cond1 .| cond2) zf (dst == AST.num0 oprSz))
 #endif
-  buildPF bld dst oprSz (Some (cond1 .| cond2))
+  buildPF bld dst oprSz (Some(cond1 .| cond2))
   bld --!> insLen
 
 let shld ins insLen bld =
@@ -3084,7 +3083,7 @@ let xor (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   match ins.Operands with
-  | TwoOperands (o1, o2) when o1 = o2 ->
+  | TwoOperands(o1, o2) when o1 = o2 ->
     let dst = transOprToExpr bld false ins insLen o1
     let r = AST.num0 oprSize
     bld <+ (dstAssign oprSize dst r)
@@ -3098,7 +3097,7 @@ let xor (ins: Instruction) insLen bld =
     bld <+ (regVar bld R.ZF := AST.b1)
     bld <+ (regVar bld R.PF := AST.b1)
 #endif
-  | TwoOperands (o1, o2) ->
+  | TwoOperands(o1, o2) ->
     let dst = transOprToExpr bld false ins insLen o1
     let src = transOprToExpr bld false ins insLen o2 |> transReg bld true
     bld <+ (dstAssign oprSize dst (dst <+> src))

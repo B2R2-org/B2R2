@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Wasm.Expression
 
 let peekVectorLen (bs: byte[]) (reader: IBinReader) offset =
-  reader.ReadUInt32LEB128 (bs, offset)
+  reader.ReadUInt32LEB128(bs, offset)
 
 let peekVector bs (reader: IBinReader) offset pe =
   let vecLen, len = peekVectorLen bs reader offset
@@ -57,12 +57,12 @@ let peekName bs reader offset =
   |> Encoding.UTF8.GetString, vec.Size
 
 let peekSectionId (bs: byte[]) reader offset =
-  (reader: IBinReader).ReadUInt8 (bs, offset)
+  (reader: IBinReader).ReadUInt8(bs, offset)
   |> LanguagePrimitives.EnumOfValue
 
 let peekSectionHeader bs reader offset =
   let secId: SectionId = peekSectionId bs reader offset
-  let secContSize, len = reader.ReadUInt32LEB128 (bs, offset + 1)
+  let secContSize, len = reader.ReadUInt32LEB128(bs, offset + 1)
   secId, secContSize, len
 
 let parseSection bs reader offset (pc: byte[] -> IBinReader -> int -> 'TC) =
@@ -71,7 +71,7 @@ let parseSection bs reader offset (pc: byte[] -> IBinReader -> int -> 'TC) =
   let contOff = offset + headerSize
   let contents =
     if contSize = 0u then None
-    else Some (pc bs reader contOff)
+    else Some(pc bs reader contOff)
   { Id = id
     Size = contSize
     Offset = offset
@@ -114,22 +114,22 @@ let parseTypeSec bs reader offset =
 
 let peekLimits (bs: byte[]) (reader: IBinReader) offset =
   let limitsKind =
-    reader.ReadUInt8 (bs, offset)
+    reader.ReadUInt8(bs, offset)
     |> LanguagePrimitives.EnumOfValue
   let offset' = offset + 1
   match limitsKind with
-    | LimitsKind.Min ->
-      let mn, len = reader.ReadUInt32LEB128 (bs, offset')
-      Min mn, (offset' + len)
-    | LimitsKind.MinMax ->
-      let mn, mnLen = reader.ReadUInt32LEB128 (bs, offset')
-      let mx, mxLen = reader.ReadUInt32LEB128 (bs, offset' + mnLen)
-      MinMax (mn, mx), (offset' + mnLen + mxLen)
-    | _ -> raise InvalidFileFormatException
+  | LimitsKind.Min ->
+    let mn, len = reader.ReadUInt32LEB128(bs, offset')
+    Min mn, (offset' + len)
+  | LimitsKind.MinMax ->
+    let mn, mnLen = reader.ReadUInt32LEB128(bs, offset')
+    let mx, mxLen = reader.ReadUInt32LEB128(bs, offset' + mnLen)
+    MinMax(mn, mx), (offset' + mnLen + mxLen)
+  | _ -> raise InvalidFileFormatException
 
 let peekTableType (bs: byte[]) (reader: IBinReader) offset =
   let elemType =
-    reader.ReadUInt8 (bs, offset)
+    reader.ReadUInt8(bs, offset)
     |> LanguagePrimitives.EnumOfValue
   let offset' = offset + 1
   let limits, no = peekLimits bs reader (offset')
@@ -138,31 +138,31 @@ let peekTableType (bs: byte[]) (reader: IBinReader) offset =
 
 let peekGlobalType (bs: byte[]) (reader: IBinReader) offset =
   let valType =
-    reader.ReadUInt8 (bs, offset)
+    reader.ReadUInt8(bs, offset)
     |> LanguagePrimitives.EnumOfValue
   let mut =
-    reader.ReadUInt8 (bs, offset + 1)
+    reader.ReadUInt8(bs, offset + 1)
     |> LanguagePrimitives.EnumOfValue
   { ValueType = valType; Mutable = mut }, offset + 2
 
 let peekImportDesc (bs: byte[]) (reader: IBinReader) offset =
   let descKind =
-    reader.ReadUInt8 (bs, offset)
+    reader.ReadUInt8(bs, offset)
     |> LanguagePrimitives.EnumOfValue
   match descKind with
-    | ImportDescKind.Func ->
-      let typeIdx, len = reader.ReadUInt32LEB128 (bs, offset + 1)
-      ImpFunc (typeIdx), (offset + 1 + len)
-    | ImportDescKind.Table ->
-      let tableType, size = peekTableType bs reader (offset + 1)
-      ImpTable (tableType), (offset + 1 + size)
-    | ImportDescKind.Mem ->
-      let mem, size = peekLimits bs reader (offset + 1)
-      ImpMem (mem), (offset + 1 + size)
-    | ImportDescKind.Global ->
-      let glob, size = peekGlobalType bs reader (offset + 1)
-      ImpGlobal (glob), (offset + 1 + size)
-    | _ -> raise InvalidFileFormatException
+  | ImportDescKind.Func ->
+    let typeIdx, len = reader.ReadUInt32LEB128(bs, offset + 1)
+    ImpFunc(typeIdx), (offset + 1 + len)
+  | ImportDescKind.Table ->
+    let tableType, size = peekTableType bs reader (offset + 1)
+    ImpTable(tableType), (offset + 1 + size)
+  | ImportDescKind.Mem ->
+    let mem, size = peekLimits bs reader (offset + 1)
+    ImpMem(mem), (offset + 1 + size)
+  | ImportDescKind.Global ->
+    let glob, size = peekGlobalType bs reader (offset + 1)
+    ImpGlobal(glob), (offset + 1 + size)
+  | _ -> raise InvalidFileFormatException
 
 let peekImportEntry bs reader offset =
   let modName, rawLen = peekName bs reader offset
@@ -182,7 +182,7 @@ let parseImportSec bs reader offset =
 
 let peekFunctionSecContents bs reader offset =
   let pti (bs: byte[]) (r: IBinReader) o =
-    r.ReadUInt32LEB128 (bs, o)
+    r.ReadUInt32LEB128(bs, o)
   peekVector bs reader offset pti
 
 let parseFunctionSec bs reader offset =
@@ -213,22 +213,22 @@ let parseGlobalSec bs reader offset =
 
 let peekExportDesc (bs: byte[]) (reader: IBinReader) offset =
   let descKind =
-    reader.ReadUInt8 (bs, offset)
+    reader.ReadUInt8(bs, offset)
     |> LanguagePrimitives.EnumOfValue
   match descKind with
-    | ExportDescKind.Func ->
-      let typeIdx, len = reader.ReadUInt32LEB128 (bs, offset + 1)
-      ExpFunc (typeIdx), offset + 1 + len
-    | ExportDescKind.Table ->
-      let tableIdx, len = reader.ReadUInt32LEB128 (bs, offset + 1)
-      ExpTable (tableIdx), offset + 1 + len
-    | ExportDescKind.Mem ->
-      let memIdx, len = reader.ReadUInt32LEB128 (bs, offset + 1)
-      ExpMem (memIdx), offset + 1 + len
-    | ExportDescKind.Global ->
-      let globalIdx, len = reader.ReadUInt32LEB128 (bs, offset + 1)
-      ExpGlobal (globalIdx), offset + 1 + len
-    | _ -> raise InvalidFileFormatException
+  | ExportDescKind.Func ->
+    let typeIdx, len = reader.ReadUInt32LEB128(bs, offset + 1)
+    ExpFunc(typeIdx), offset + 1 + len
+  | ExportDescKind.Table ->
+    let tableIdx, len = reader.ReadUInt32LEB128(bs, offset + 1)
+    ExpTable(tableIdx), offset + 1 + len
+  | ExportDescKind.Mem ->
+    let memIdx, len = reader.ReadUInt32LEB128(bs, offset + 1)
+    ExpMem(memIdx), offset + 1 + len
+  | ExportDescKind.Global ->
+    let globalIdx, len = reader.ReadUInt32LEB128(bs, offset + 1)
+    ExpGlobal(globalIdx), offset + 1 + len
+  | _ -> raise InvalidFileFormatException
 
 let peekExportEntry bs reader offset =
   let name, rawLen = peekName bs reader offset
@@ -245,7 +245,7 @@ let parseExportSec bs reader offset =
   parseSection bs reader offset peekExportSecContents
 
 let peekStartFunc (bs: byte[]) (reader: IBinReader) offset =
-  let funcIdx, _ = reader.ReadUInt32LEB128 (bs, offset)
+  let funcIdx, _ = reader.ReadUInt32LEB128(bs, offset)
   funcIdx
 
 let parseStartSec bs reader offset =
@@ -253,8 +253,8 @@ let parseStartSec bs reader offset =
 
 let peekElemSeg (bs: byte[]) (reader: IBinReader) offset =
   let pti (bs: byte[]) (r: IBinReader) (o: int) =
-    r.ReadUInt32LEB128 (bs, o)
-  let tableIdx, len = reader.ReadUInt32LEB128 (bs, offset)
+    r.ReadUInt32LEB128(bs, o)
+  let tableIdx, len = reader.ReadUInt32LEB128(bs, offset)
   let expr, no = peekConstExpr (ReadOnlySpan bs) reader (offset + len)
   let initFuncs = peekVector bs reader no pti
   let offset' = no + int initFuncs.Size
@@ -271,19 +271,19 @@ let parseElementSec bs reader offset =
 let rec parseLocalDecls (bs: byte[]) (reader: IBinReader) locals len pos =
   if len = 0 then locals
   else
-    let localDeclCnt, rawLen = reader.ReadUInt32LEB128 (bs, pos)
+    let localDeclCnt, rawLen = reader.ReadUInt32LEB128(bs, pos)
     let localDeclType = bs[pos + rawLen]
-    let local = {
-      LocalDeclCount = localDeclCnt;
-      LocalDeclType = localDeclType;
-      LocalDeclLen = rawLen + 1 }
+    let local =
+      { LocalDeclCount = localDeclCnt
+        LocalDeclType = localDeclType
+        LocalDeclLen = rawLen + 1 }
     let locals = locals @ [ local ]
     parseLocalDecls bs reader locals (len - 1) (pos + rawLen + 1)
 
 let peekCodeEntry (bs: byte[]) (reader: IBinReader) offset =
-  let codeSize, len = reader.ReadUInt32LEB128 (bs, offset)
+  let codeSize, len = reader.ReadUInt32LEB128(bs, offset)
   let pos = offset + len
-  let localsCnt, rawLen = reader.ReadUInt32LEB128 (bs, pos)
+  let localsCnt, rawLen = reader.ReadUInt32LEB128(bs, pos)
   let locals = parseLocalDecls bs reader [] (int localsCnt) (pos + rawLen)
   { Offset = offset
     LenFieldSize = len
@@ -297,7 +297,7 @@ let parseCodeSec bs reader offset =
   parseSection bs reader offset peekCodeSecContents
 
 let peekDataSeg (bs: byte[]) (reader: IBinReader) offset =
-  let memIdx, len = reader.ReadUInt32LEB128 (bs, offset)
+  let memIdx, len = reader.ReadUInt32LEB128(bs, offset)
   let expr, no = peekConstExpr (ReadOnlySpan bs) reader (offset + len)
   let byteVec = peekByteVector bs reader no
   { MemoryIndex = memIdx

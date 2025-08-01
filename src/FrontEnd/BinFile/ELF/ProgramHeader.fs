@@ -32,42 +32,41 @@ open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents a program header in ELF. A program header describes a segment of
 /// the program.
-type ProgramHeader = {
-  /// Program header type.
-  PHType: ProgramHeaderType
-  /// Flags relevant to the segment.
-  PHFlags: int
-  /// An offset from the beginning of the file at which the first byte of the
-  /// segment resides in memory.
-  PHOffset: uint64
-  /// The virtual address at which the first byte of the segment resides in
-  /// memory.
-  PHAddr: Addr
-  /// The physical address of the segment. This is reserved for systems using
-  /// physical addresses.
-  PHPhyAddr: Addr
-  /// The number of bytes in the file image of the segment.
-  PHFileSize: uint64
-  /// The number of bytes in the memory image of the segment. This can be
-  /// greater than PHFileSize as some sections (w/ SHTNoBits type) occupy
-  /// nothing in the binary file, but can be mapped in the segment at runtime.
-  PHMemSize: uint64
-  /// The value to which the segments are aligned in memory and in the file.
-  PHAlignment: uint64
-}
+type ProgramHeader =
+  { /// Program header type.
+    PHType: ProgramHeaderType
+    /// Flags relevant to the segment.
+    PHFlags: int
+    /// An offset from the beginning of the file at which the first byte of the
+    /// segment resides in memory.
+    PHOffset: uint64
+    /// The virtual address at which the first byte of the segment resides in
+    /// memory.
+    PHAddr: Addr
+    /// The physical address of the segment. This is reserved for systems using
+    /// physical addresses.
+    PHPhyAddr: Addr
+    /// The number of bytes in the file image of the segment.
+    PHFileSize: uint64
+    /// The number of bytes in the memory image of the segment. This can be
+    /// greater than PHFileSize as some sections (w/ SHTNoBits type) occupy
+    /// nothing in the binary file, but can be mapped in the segment at runtime.
+    PHMemSize: uint64
+    /// The value to which the segments are aligned in memory and in the file.
+    PHAlignment: uint64 }
 with
   /// Converts the PHFlags field of a program header to a Permission value.
-  static member inline FlagsToPerm (flag: int): Permission =
+  static member inline FlagsToPerm(flag: int): Permission =
     flag &&& 7 |> LanguagePrimitives.EnumOfValue
 
 [<RequireQualifiedAccess>]
 module internal ProgramHeaders =
   let parseProgHeader toolBox (span: ByteSpan) =
     let reader, cls = toolBox.Reader, toolBox.Header.Class
-    let phType = reader.ReadUInt32 (span, 0)
+    let phType = reader.ReadUInt32(span, 0)
     let baseAddr = toolBox.BaseAddress
     { PHType = LanguagePrimitives.EnumOfValue phType
-      PHFlags = reader.ReadInt32 (span, selectByWordSize cls 24 4)
+      PHFlags = reader.ReadInt32(span, selectByWordSize cls 24 4)
       PHOffset = readUIntByWordSizeAndOffset span reader cls 4 8
       PHAddr = readUIntByWordSizeAndOffset span reader cls 8 16 + baseAddr
       PHPhyAddr = readUIntByWordSizeAndOffset span reader cls 12 24
@@ -82,7 +81,7 @@ module internal ProgramHeaders =
     let progHeaders = Array.zeroCreate numEntries
     for i = 0 to numEntries - 1 do
       let offset = int hdr.PHdrTblOffset + i * entrySize
-      let span = ReadOnlySpan (bytes, offset, entrySize)
+      let span = ReadOnlySpan(bytes, offset, entrySize)
       progHeaders[i] <- parseProgHeader toolBox span
     progHeaders
 

@@ -28,9 +28,9 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents the LowUIR builder for Intel.
-type LowUIRBuilder (isa: ISA,
-                    regFactory: IRegisterFactory,
-                    stream: LowUIRStream) =
+type LowUIRBuilder(isa: ISA,
+                   regFactory: IRegisterFactory,
+                   stream: LowUIRStream) =
   let wordSize = isa.WordSize
   let regType = WordSize.toRegType wordSize
   let endian = isa.Endian
@@ -39,27 +39,27 @@ type LowUIRBuilder (isa: ISA,
 #endif
 
   interface ILowUIRBuilder with
-    member _.WordSize with get () = wordSize
-    member _.RegType with get () = regType
-    member _.Endianness with get () = endian
-    member _.Stream with get () = stream
+    member _.WordSize with get() = wordSize
+    member _.RegType with get() = regType
+    member _.Endianness with get() = endian
+    member _.Stream with get() = stream
 #if EMULATION
-    member _.ConditionCodeOp with get () = ccop and set v = ccop <- v
+    member _.ConditionCodeOp with get() = ccop and set v = ccop <- v
 #endif
-    member _.GetRegVar id = regFactory.GetRegVar (id = id)
-    member _.GetRegVar name = regFactory.GetRegVar (name = name)
-    member _.GetPseudoRegVar id idx = regFactory.GetPseudoRegVar id idx
-    member _.GetAllRegVars () = regFactory.GetAllRegVars ()
-    member _.GetGeneralRegVars () = regFactory.GetGeneralRegVars ()
-    member _.GetRegisterID expr = regFactory.GetRegisterID (expr = expr)
-    member _.GetRegisterID name = regFactory.GetRegisterID (name = name)
+    member _.GetRegVar id = regFactory.GetRegVar(id = id)
+    member _.GetRegVar name = regFactory.GetRegVar(name = name)
+    member _.GetPseudoRegVar(id, idx) = regFactory.GetPseudoRegVar(id, idx)
+    member _.GetAllRegVars() = regFactory.GetAllRegVars()
+    member _.GetGeneralRegVars() = regFactory.GetGeneralRegVars()
+    member _.GetRegisterID expr = regFactory.GetRegisterID(expr = expr)
+    member _.GetRegisterID name = regFactory.GetRegisterID(name = name)
     member _.GetRegisterIDAliases id = regFactory.GetRegisterIDAliases id
     member _.GetRegString id = regFactory.GetRegString id
-    member _.GetAllRegStrings () = regFactory.GetAllRegStrings ()
+    member _.GetAllRegStrings() = regFactory.GetAllRegStrings()
     member _.GetRegType id = regFactory.GetRegType id
     member _.ProgramCounter = regFactory.ProgramCounter
-    member _.StackPointer with get () = regFactory.StackPointer
-    member _.FramePointer with get () = regFactory.FramePointer
+    member _.StackPointer with get() = regFactory.StackPointer
+    member _.FramePointer with get() = regFactory.FramePointer
     member _.IsProgramCounter id = regFactory.IsProgramCounter id
     member _.IsStackPointer id = regFactory.IsStackPointer id
     member _.IsFramePointer id = regFactory.IsFramePointer id
