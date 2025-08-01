@@ -35,8 +35,8 @@ open System
 /// Label name to relative index of instructions.
 type LabelDefs = Map<string, int>
 
-type IntelAsmParser (isa, baseAddr: Addr) =
-  inherit AsmParser (isa)
+type IntelAsmParser(isa, baseAddr: Addr) =
+  inherit AsmParser(isa)
 
   let mutable inferredPrefix = Prefix.None
   let defaultRegType = isa.WordSize |> WordSize.toRegType
@@ -114,7 +114,7 @@ type IntelAsmParser (isa, baseAddr: Addr) =
   let pReg =
     registersList |> choice
     |>> (fun regName ->
-          Enum.Parse (typeof<Register>, regName.ToUpper())
+          Enum.Parse(typeof<Register>, regName.ToUpper())
           :?> Register)
 
   let pPrefix =
@@ -129,7 +129,7 @@ type IntelAsmParser (isa, baseAddr: Addr) =
     ((pchar '2' |>> (fun _ -> Scale.X2))
     <|> (pchar '4' |>> (fun _ -> Scale.X4))
     <|> (pchar '8' |>> (fun _ -> Scale.X8))
-    <|> preturn Scale.X1 )
+    <|> preturn Scale.X1)
 
   let pSegmentRegPrefix =
     [ "cs"; "ds"; "es"; "fs"; "gs"; "ss" ]
@@ -162,19 +162,19 @@ type IntelAsmParser (isa, baseAddr: Addr) =
 
   let pScaledIndexReg =
     opt (pchar '+') >>. pReg .>> spaces .>>. pScale
-    |>> (fun (reg, scale) -> ScaledIndex (reg, scale))
+    |>> (fun (reg, scale) -> ScaledIndex(reg, scale))
   let pDisp = pImm
 
   let pMemOpr sz =
     let sz = Option.defaultValue defaultRegType sz
     opt (attempt updatePrefix) >>. spaces >>. opt (attempt pMemBaseReg)
     .>> spaces .>>. opt (attempt pScaledIndexReg) .>> spaces .>>. opt pDisp
-    |>> fun ((bReg, scaledInd), disp) -> OprMem (bReg, scaledInd, disp, sz)
+    |>> fun ((bReg, scaledInd), disp) -> OprMem(bReg, scaledInd, disp, sz)
     |> betweenSquareBraces
 
   let pAbsoluteAddress =
     pImm |>> int16 .>> spaces .>> pchar ';' .>> spaces .>>. pAddr
-    |>> (fun (sel, addr) -> Absolute (sel, addr, 0<rt> (* dummy *)))
+    |>> (fun (sel, addr) -> Absolute(sel, addr, 0<rt> (* dummy *)))
 
   let pJumpTarget = attempt pAbsoluteAddress <|> (pImm |>> Relative)
 
@@ -187,11 +187,11 @@ type IntelAsmParser (isa, baseAddr: Addr) =
 
   (* We just put dummy regsize here, as immediates will be replaced according to
      the decoding rules anyways. *)
-  let pOprImm = pImm |>> fun i -> OprImm (i, 32<rt>)
+  let pOprImm = pImm |>> fun i -> OprImm(i, 32<rt>)
 
   let pSizedLabel sz =
     let sz = Option.defaultValue defaultRegType sz
-    pId |>> fun lbl -> Label (lbl, sz)
+    pId |>> fun lbl -> Label(lbl, sz)
 
   let pLabel = opt (pMemOprSize .>> spaces) >>= pSizedLabel
 
@@ -207,7 +207,7 @@ type IntelAsmParser (isa, baseAddr: Addr) =
     |>> (fun operands ->
           match opc, operands with
           | Opcode.RETNearImm, NoOperand -> Opcode.RETNear, operands
-          | _ -> opc, operands )
+          | _ -> opc, operands)
     |> skipWhitespaces
 
   let pInsInfo =
@@ -229,9 +229,9 @@ type IntelAsmParser (isa, baseAddr: Addr) =
   override _.Assemble assembly =
     let st = { LabelMap = Map.empty; CurIndex = -1 }
     match runParserOnString statements st "" assembly with
-    | Success (result, us, _) ->
+    | Success(result, us, _) ->
       filterInstructionLines result
       |> assemble us isa.WordSize baseAddr
       |> Result.Ok
-    | Failure (str, _, _) ->
-      Result.Error (str)
+    | Failure(str, _, _) ->
+      Result.Error(str)

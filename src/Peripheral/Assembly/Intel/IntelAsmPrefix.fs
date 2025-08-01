@@ -53,9 +53,9 @@ let private isHalfSplit (ctx: EncContext) reg =
   | _ -> false
 
 let private isAddrSize ctx = function
-  | OneOperand (OprMem (Some bReg, _, _, _))
-  | TwoOperands (_, OprMem (Some bReg, _, _, _))
-  | TwoOperands (OprMem (Some bReg, _, _, _), _) -> isHalfSplit ctx bReg
+  | OneOperand(OprMem(Some bReg, _, _, _))
+  | TwoOperands(_, OprMem(Some bReg, _, _, _))
+  | TwoOperands(OprMem(Some bReg, _, _, _), _) -> isHalfSplit ctx bReg
   | _ -> false
 
 let getPrefByte = function
@@ -72,6 +72,7 @@ let getPrefByte = function
   | _ -> failwith "Invalid prefix"
 
 let getGrp1Pref prefs = prefs &&& 0x7 |> getPrefByte
+
 let getGrp2Pref prefs = prefs &&& 0x1F8 |> getPrefByte
 
 let encodePrefix ins ctx (pref: EncPrefix) =
@@ -119,7 +120,9 @@ let isExtendReg = function
   | _ -> false
 
 let encodeRexR reg = if isExtendReg reg then 0x44uy else 0x0uy
+
 let encodeRexX reg = if isExtendReg reg then 0x42uy else 0x0uy
+
 let encodeRexB reg = if isExtendReg reg then 0x41uy else 0x0uy
 
 let convVEXRexByte rexByte = (~~~ rexByte) &&& 0b111uy
@@ -132,11 +135,11 @@ let encodeVEXRexRXB wordSize reg rmOrSBase sIdx =
   if wordSize = WordSize.Bit32 then 0b111uy
   else
     match rmOrSBase, sIdx with
-    | Some r1, Some (r2, _) ->
+    | Some r1, Some(r2, _) ->
       convVEXRexByte (encodeRexR reg ||| encodeRexX r2 ||| encodeRexB r1)
     | Some r1, None ->
       convVEXRexByte (encodeRexR reg ||| encodeRexB r1)
-    | None, Some (r2, _) ->
+    | None, Some(r2, _) ->
       convVEXRexByte (encodeRexR reg ||| encodeRexX r2)
     | None, None -> convVEXRexByte (encodeRexR reg)
 
@@ -151,43 +154,43 @@ let encodeRexRR ctx isMR r1 r2 =
 let encodeRexRM ctx r b s =
   let rex = if isReg8 ctx r then encodeRex r else 0uy
   match b, s with
-  | Some b, Some (s, _) ->
+  | Some b, Some(s, _) ->
     rex ||| encodeRexR r ||| encodeRexX s ||| encodeRexB b
   | Some b, None -> rex ||| encodeRexR r ||| encodeRexB b
-  | None, Some (s, _) -> rex ||| encodeRexR r ||| encodeRexX s
+  | None, Some(s, _) -> rex ||| encodeRexR r ||| encodeRexX s
   | None, None -> rex ||| encodeRexR r
 
 let encodeRexRXB ctx isMR = function
   | NoOperand
-  | OneOperand (Label _) | OneOperand (OprDirAddr _)
-  | OneOperand (OprImm _)
-  | TwoOperands (OprMem (None, None, Some _, _), OprImm _)
-  | TwoOperands (Label _, OprImm _) -> 0uy
-  | OneOperand (OprReg r) ->
+  | OneOperand(Label _) | OneOperand(OprDirAddr _)
+  | OneOperand(OprImm _)
+  | TwoOperands(OprMem(None, None, Some _, _), OprImm _)
+  | TwoOperands(Label _, OprImm _) -> 0uy
+  | OneOperand(OprReg r) ->
     if isReg8 ctx r then encodeRex r ||| encodeRexB r else encodeRexB r
-  | OneOperand (OprMem (Some bReg, Some (s, _), _, _)) ->
+  | OneOperand(OprMem(Some bReg, Some(s, _), _, _)) ->
     encodeRexX s ||| encodeRexB bReg
-  | OneOperand (OprMem (Some bReg, None, _, _)) -> encodeRexB bReg
-  | OneOperand (OprMem (None, Some (s, _), _, _)) -> encodeRexX s
-  | TwoOperands (OprReg r1, OprReg r2) -> encodeRexRR ctx isMR r1 r2
-  | TwoOperands (OprReg r, OprMem (b, s, _, _))
-  | TwoOperands (OprMem (b, s, _, _), OprReg r) -> encodeRexRM ctx r b s
-  | TwoOperands (OprReg r, OprImm _) ->
+  | OneOperand(OprMem(Some bReg, None, _, _)) -> encodeRexB bReg
+  | OneOperand(OprMem(None, Some(s, _), _, _)) -> encodeRexX s
+  | TwoOperands(OprReg r1, OprReg r2) -> encodeRexRR ctx isMR r1 r2
+  | TwoOperands(OprReg r, OprMem(b, s, _, _))
+  | TwoOperands(OprMem(b, s, _, _), OprReg r) -> encodeRexRM ctx r b s
+  | TwoOperands(OprReg r, OprImm _) ->
     if isReg8 ctx r then encodeRex r ||| encodeRexB r else encodeRexB r
-  | TwoOperands (OprMem (Some bReg, None, _, _), OprImm _) -> encodeRexB bReg
-  | TwoOperands (OprMem (Some bReg, Some (s, _), _, _), OprImm _) ->
+  | TwoOperands(OprMem(Some bReg, None, _, _), OprImm _) -> encodeRexB bReg
+  | TwoOperands(OprMem(Some bReg, Some(s, _), _, _), OprImm _) ->
     encodeRexR s ||| encodeRexB bReg
-  | TwoOperands (OprReg r, Label _) | TwoOperands (Label _, OprReg r) ->
+  | TwoOperands(OprReg r, Label _) | TwoOperands(Label _, OprReg r) ->
     encodeRexR r
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm _) ->
+  | ThreeOperands(OprReg r1, OprReg r2, OprImm _) ->
     encodeRexR r1 ||| encodeRexB r2
-  | ThreeOperands (OprReg r, OprMem (Some bReg, Some (s, _), _, _), OprImm _) ->
+  | ThreeOperands(OprReg r, OprMem(Some bReg, Some(s, _), _, _), OprImm _) ->
     encodeRexR r ||| encodeRexX s ||| encodeRexB bReg
-  | ThreeOperands (OprReg r, OprMem (Some bReg, None, _, _), OprImm _) ->
+  | ThreeOperands(OprReg r, OprMem(Some bReg, None, _, _), OprImm _) ->
     encodeRexR r ||| encodeRexB bReg
-  | ThreeOperands (OprReg r, OprMem (None, None, _, _), OprImm _) ->
+  | ThreeOperands(OprReg r, OprMem(None, None, _, _), OprImm _) ->
     encodeRexR r
-  | ThreeOperands (OprReg r, Label _, OprImm _) -> encodeRexR r
+  | ThreeOperands(OprReg r, Label _, OprImm _) -> encodeRexR r
   | o -> printfn "Inavlid Operand (%A)" o; Terminator.futureFeature ()
 
 let encodeREXPref ins (ctx: EncContext) (rexPrx: EncREXPrefix) =
@@ -195,7 +198,7 @@ let encodeREXPref ins (ctx: EncContext) (rexPrx: EncREXPrefix) =
   else (* IntelX64 *)
     let rexW = if rexPrx.RexW then 0x48uy else 0uy
     let rxb = encodeRexRXB ctx rexPrx.IsMemReg ins.Operands
-    if rxb = 0uy && rexW = 0uy then [||] else [| Normal (rexW ||| rxb) |]
+    if rxb = 0uy && rexW = 0uy then [||] else [| Normal(rexW ||| rxb) |]
 
 let private getLeadingOpcodeByte = function (* m-mmmm *)
   | VEXType.TwoByteOp -> 0b00001uy

@@ -28,19 +28,18 @@ open B2R2
 open B2R2.FrontEnd.ARM32
 open FParsec
 
-type AsmInsInfo = {
-  Address: Addr
-  NumBytes: uint32
-  Condition: Condition
-  Opcode: Opcode
-  Operands: Operands
-  ITState: byte
-  WriteBack: bool
-  Qualifier: Qualifier
-  SIMDTyp: SIMDDataTypes option
-  IsThumb: bool
-  Cflag: bool option
-}
+type AsmInsInfo =
+  { Address: Addr
+    NumBytes: uint32
+    Condition: Condition
+    Opcode: Opcode
+    Operands: Operands
+    ITState: byte
+    WriteBack: bool
+    Qualifier: Qualifier
+    SIMDTyp: SIMDDataTypes option
+    IsThumb: bool
+    Cflag: bool option }
 
 type AssemblyLine =
   | LabelDefLine
@@ -50,10 +49,10 @@ type AssemblyLine =
 /// offset value by the register given.
 let substituteParsedRegister (reg, dummyOffset) =
   match dummyOffset with
-  | ImmOffset (_, signOpt, constOpt) -> ImmOffset (reg, signOpt, constOpt)
-  | RegOffset (_, signOpt, shiftReg, shiftOpt) ->
-    RegOffset (reg, signOpt, shiftReg, shiftOpt)
-  | AlignOffset ( _, alignOpt, regOpt) -> AlignOffset (reg, alignOpt, regOpt)
+  | ImmOffset(_, signOpt, constOpt) -> ImmOffset(reg, signOpt, constOpt)
+  | RegOffset(_, signOpt, shiftReg, shiftOpt) ->
+    RegOffset(reg, signOpt, shiftReg, shiftOpt)
+  | AlignOffset( _, alignOpt, regOpt) -> AlignOffset(reg, alignOpt, regOpt)
 
 let parseShiftOperation opcode imm =
   let srType =
@@ -68,7 +67,7 @@ let parseShiftOperation opcode imm =
   else preturn (srType.Value, imm)
 
 let getSRType (str: string) =
-  match str.ToLowerInvariant () with
+  match str.ToLowerInvariant() with
   | "lsl" -> SRTypeLSL
   | "lsr" -> SRTypeLSR
   | "asr" -> SRTypeASR
@@ -86,32 +85,32 @@ let parseOprRegShiftOperand opcode reg =
     | Opcode.RRX -> Some SRTypeRRX
     | _ -> None
   if srType.IsNone then fail "not a shift opcode"
-  else preturn (OprRegShift (srType.Value, reg))
+  else preturn (OprRegShift(srType.Value, reg))
 
 let extractOperands = function
   | [] -> NoOperand
   | [ op1 ] -> OneOperand op1
-  | [ op1; op2 ] -> TwoOperands (op1, op2)
-  | [ op1; op2; op3 ] -> ThreeOperands (op1, op2, op3)
-  | [ op1; op2; op3; op4 ] -> FourOperands (op1, op2, op3, op4)
-  | [ op1; op2; op3; op4; op5 ] -> FiveOperands (op1, op2, op3, op4, op5)
+  | [ op1; op2 ] -> TwoOperands(op1, op2)
+  | [ op1; op2; op3 ] -> ThreeOperands(op1, op2, op3)
+  | [ op1; op2; op3; op4 ] -> FourOperands(op1, op2, op3, op4)
+  | [ op1; op2; op3; op4; op5 ] -> FiveOperands(op1, op2, op3, op4, op5)
   | [ op1; op2; op3; op4; op5; op6 ] ->
-    SixOperands (op1, op2, op3, op4, op5, op6)
+    SixOperands(op1, op2, op3, op4, op5, op6)
   | _ -> failwith "Operand overload"
 
 let getOperandsAsList operands =
   match operands with
   | NoOperand -> []
-  | OneOperand (op1) -> [ op1 ]
-  | TwoOperands (op1, op2) -> [ op1; op2 ]
-  | ThreeOperands (op1, op2, op3) -> [ op1; op2; op3 ]
-  | FourOperands (op1, op2, op3, op4) -> [ op1; op2; op3; op4 ]
-  | FiveOperands (op1, op2, op3, op4, op5) -> [ op1; op2; op3; op4; op5 ]
-  | SixOperands (op1, op2, op3, op4, op5, op6) ->
+  | OneOperand(op1) -> [ op1 ]
+  | TwoOperands(op1, op2) -> [ op1; op2 ]
+  | ThreeOperands(op1, op2, op3) -> [ op1; op2; op3 ]
+  | FourOperands(op1, op2, op3, op4) -> [ op1; op2; op3; op4 ]
+  | FiveOperands(op1, op2, op3, op4, op5) -> [ op1; op2; op3; op4; op5 ]
+  | SixOperands(op1, op2, op3, op4, op5, op6) ->
     [ op1; op2; op3; op4; op5; op6 ]
 
 let getSIMDTypFromStr (str: string) =
-  match str.ToLowerInvariant () with
+  match str.ToLowerInvariant() with
   | "8" -> SIMDTyp8
   | "16" -> SIMDTyp16
   | "32" -> SIMDTyp32
@@ -135,7 +134,7 @@ let getSIMDTypFromStr (str: string) =
   | _ -> failwith "unknown SIMD Type"
 
 let getPSRFlagFromStr (str: string) =
-  match str.ToLowerInvariant () with
+  match str.ToLowerInvariant() with
   | "c" -> PSRc
   | "x" -> PSRx
   | "xc" -> PSRxc
@@ -158,7 +157,7 @@ let getPSRFlagFromStr (str: string) =
   | _ -> failwith "unknown PSRFlag"
 
 let optionOprFromStr (str: string) =
-  match str.ToLowerInvariant () with
+  match str.ToLowerInvariant() with
   | "sy" -> BarrierOption.SY
   | "st" -> BarrierOption.ST
   | "ld" -> BarrierOption.LD
@@ -174,7 +173,7 @@ let optionOprFromStr (str: string) =
   | _ -> failwith "unknown OptionOperand"
 
 let iFlagFromStr (str: string) =
-  match str.ToLowerInvariant () with
+  match str.ToLowerInvariant() with
   | "a" -> A
   | "i" -> I
   | "f" -> F
@@ -192,22 +191,21 @@ let isITInstruction = function
   | _ -> false
 
 let isSIMDOpcode (opcode: Opcode) =
-  opcode.ToString () |> Seq.head = 'V'
+  opcode.ToString() |> Seq.head = 'V'
 
 let makeSIMDOperand = function
   | [ reg ] -> OneReg reg
-  | [ reg1; reg2 ] -> TwoRegs (reg1, reg2)
-  | [ reg1; reg2; reg3 ] -> ThreeRegs (reg1, reg2, reg3)
-  | [ reg1; reg2; reg3; reg4 ] -> FourRegs (reg1, reg2, reg3, reg4)
+  | [ reg1; reg2 ] -> TwoRegs(reg1, reg2)
+  | [ reg1; reg2; reg3 ] -> ThreeRegs(reg1, reg2, reg3)
+  | [ reg1; reg2; reg3; reg4 ] -> FourRegs(reg1, reg2, reg3, reg4)
   | _ -> failwith "Incorrect number of SIMDFPRegisters in the list"
-
 
 let getOpCode fourTuple = fst (fst (fst fourTuple))
 
 let newInsInfo addr opcode c it w q simd oprs iLen isThumb cflag =
   { Address = addr
     NumBytes = iLen
-    Condition  = c
+    Condition = c
     Opcode = opcode
     Operands = oprs
     ITState = it

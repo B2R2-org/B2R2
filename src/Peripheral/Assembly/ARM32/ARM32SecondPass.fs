@@ -34,10 +34,10 @@ let updateOperands _insAddress operandList labelToAddress =
     | [] -> extractOperands (List.rev result)
     | hd :: tail ->
       match hd with
-      | GoToLabel (a1) ->
+      | GoToLabel(a1) ->
         if mapping.ContainsKey a1 then
           let lblAddr = mapping[a1]
-          let value = LiteralMode (int64 lblAddr) |> OprMemory
+          let value = LiteralMode(int64 lblAddr) |> OprMemory
           doChecking tail mapping (value :: result)
         else
           printfn "the label %s is not defined" a1
@@ -55,6 +55,6 @@ let updateInsInfos (insInfoList: AsmInsInfo list) labelToAddress =
       let operands = hd.Operands
       let operands = getOperandsAsList operands
       let operands = updateOperands hd.Address operands mapping
-      let newInsInfo = {hd with Operands = operands}
+      let newInsInfo = { hd with Operands = operands }
       doUpdate tail mapping (newInsInfo :: result)
   doUpdate insInfoList labelToAddress []

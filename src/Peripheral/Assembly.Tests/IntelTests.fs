@@ -29,9 +29,9 @@ open B2R2
 open B2R2.Peripheral.Assembly.Intel
 
 [<TestClass>]
-type IntelTests () =
-  let isa = ISA (Architecture.Intel, WordSize.Bit32)
-  let asm = IntelAsmParser (isa, 0UL)
+type IntelTests() =
+  let isa = ISA(Architecture.Intel, WordSize.Bit32)
+  let asm = IntelAsmParser(isa, 0UL)
 
   [<TestMethod>]
   member _.``Basic Test``() =

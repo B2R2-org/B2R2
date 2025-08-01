@@ -58,7 +58,7 @@ let getAssemblyPrinter (opts: AssemblerOpts) =
   | LowUIRMode(isa) ->
     let asm = AsmInterface(isa, opts.BaseAddress)
     fun str ->
-      asm.LiftLowUIR true str
+      asm.LiftLowUIR(true, str)
       |> printResult (Array.iter (Pp.stmtToString >> out.PrintLine))
 
 let rec private asmFromStdin (console: FsReadLine.Console) printer str =

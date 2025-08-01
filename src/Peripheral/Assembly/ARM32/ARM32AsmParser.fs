@@ -31,9 +31,10 @@ open B2R2.FrontEnd.ARM32
 open B2R2.Peripheral.Assembly.ARM32.ParserHelper
 
 type UserState = Map<string, Addr>
+
 type Parser<'A> = Parser<'A, unit>
 
-type AsmParser (startAddress: Addr) =
+type AsmParser(startAddress: Addr) =
 
   let mutable address = startAddress
   let mutable isThumb: bool = false
@@ -43,7 +44,7 @@ type AsmParser (startAddress: Addr) =
 
   /// Adds the parsed label to the label definition map.
   let addLabeldef (lbl: string) =
-    updateUserState (fun (us: Map<string, Addr>) -> us.Add (lbl, address))
+    updateUserState (fun (us: Map<string, Addr>) -> us.Add(lbl, address))
     >>. preturn ()
 
   let pOpModeSwitcher =
@@ -182,8 +183,8 @@ type AsmParser (startAddress: Addr) =
     |>> (fun lst ->
           match lst with
           | [ smd ] -> OneDT smd
-          | [ smd1; smd2 ] -> TwoDT (smd1, smd2)
-          | _ -> failwith "Can not have more than two SIMDDataTypes" )
+          | [ smd1; smd2 ] -> TwoDT(smd1, smd2)
+          | _ -> failwith "Can not have more than two SIMDDataTypes")
 
   let pQualifier =
     pchar '.' >>.
@@ -231,7 +232,7 @@ type AsmParser (startAddress: Addr) =
   let pReg =
     Array.map attempt registersList |> choice
     |>> (fun regName ->
-          Enum.Parse (typeof<Register>, regName.ToUpper())
+          Enum.Parse(typeof<Register>, regName.ToUpper())
           :?> Register)
 
   let operators = (pchar '+' |>> fun _ -> (+)) <|> (pchar '-' |>> fun _ -> (-))
@@ -244,17 +245,17 @@ type AsmParser (startAddress: Addr) =
     >>= (fun (opcode, amt) -> parseShiftOperation opcode amt)
 
   let pDummyRegImmOffset =
-    pImm |>> fun cons -> ImmOffset (Register.C0, None, Some cons)
+    pImm |>> fun cons -> ImmOffset(Register.C0, None, Some cons)
 
   let pDummyShiftedRegOffset =
     opt (pchar '-' >>. preturn Minus) .>>. pReg .>> spaces .>> pchar ','
     .>> spaces .>>. pShiftedIndexRegister
     |>> fun ((sign, reg), shifter) ->
-      RegOffset (Register.C0, sign, reg, Some shifter)
+      RegOffset(Register.C0, sign, reg, Some shifter)
 
   let pDummyRegRegOffset =
     opt (pchar '-' >>. preturn Minus) .>>. pReg
-    |>> (fun (sOpt, reg) -> RegOffset (Register.C0, sOpt, reg, None))
+    |>> (fun (sOpt, reg) -> RegOffset(Register.C0, sOpt, reg, None))
     .>> setWBFlag
 
   let pDummyRegOffset =
@@ -267,7 +268,7 @@ type AsmParser (startAddress: Addr) =
     |> betweenSquareBraces
     |>> substituteParsedRegister
     |> attempt
-    <|> (betweenSquareBraces pReg |>> (fun reg -> ImmOffset (reg, None, None)))
+    <|> (betweenSquareBraces pReg |>> (fun reg -> ImmOffset(reg, None, None)))
     .>>. opt (pchar '!')
     |>> (fun (offset, preIdxIdentifier) ->
           if preIdxIdentifier.IsNone then OffsetMode offset
@@ -293,7 +294,7 @@ type AsmParser (startAddress: Addr) =
     pReg .>>. opt (betweenCurlyBraces (opt puint8))
     |>> (fun (reg, elementOpt) ->
           if elementOpt.IsNone then Vector reg
-          else Scalar (reg, elementOpt.Value) )
+          else Scalar(reg, elementOpt.Value))
 
   (* Operand Parsers *)
   let pOprReg = pReg |>> OprReg .>> checkWrightBack
@@ -366,7 +367,10 @@ type AsmParser (startAddress: Addr) =
       pOpcode .>>. pCondition .>>. opt (attempt pSIMDDataTypes)
       .>>. opt pQualifier >>= pOperands
       |>> (fun ((((opcode, cond), simd), qual), operands) ->
-              let qual = match qual with | Some W -> W | _ -> N
+              let qual =
+                match qual with
+                | Some W -> W
+                | _ -> N
               newInsInfo
                  address opcode cond 0uy wBackFlag qual simd
                  operands (getInsLength ()) isThumb None)
@@ -386,6 +390,6 @@ type AsmParser (startAddress: Addr) =
 
   member _.Run assembly =
     match runParserOnString statements Map.empty<string, Addr> "" assembly with
-    | Success (result, us, _) ->
+    | Success(result, us, _) ->
       SecondPass.updateInsInfos (filterInstructionLines result) us
-    | Failure (str, _, _) -> printfn "Parser failed!\n%s" str; []
+    | Failure(str, _, _) -> printfn "Parser failed!\n%s" str; []

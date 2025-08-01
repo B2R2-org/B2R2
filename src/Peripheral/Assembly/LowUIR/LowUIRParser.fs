@@ -37,7 +37,7 @@ open B2R2.Peripheral.Assembly.LowUIR.Helper
 
 type Parser<'T> = Parser<'T, RegType>
 
-type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
+type LowUIRParser(isa: ISA, regFactory: IRegisterFactory) =
   let isAllowedFirstCharForID c = isAsciiLetter c
 
   let isAllowedCharForID c = isAsciiLetter c || isDigit c
@@ -59,9 +59,9 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
     |>> fun n ->
       let s = n.String
       let bigInt =
-        if s.StartsWith ("0x") then
-          BigInteger.Parse ("0" + s.Substring (2), NumberStyles.AllowHexSpecifier)
-        else BigInteger.Parse (s)
+        if s.StartsWith("0x") then
+          BigInteger.Parse("0" + s.Substring(2), NumberStyles.AllowHexSpecifier)
+        else BigInteger.Parse(s)
       fun rt -> BitVector.OfBInt(bigInt, rt)
 
   let pRegType =
@@ -102,7 +102,7 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
 
   let pNum = pBitVector |>> AST.num
 
-  let regnames = regFactory.GetAllRegStrings ()
+  let regnames = regFactory.GetAllRegStrings()
 
   let pVar =
     regnames
@@ -169,14 +169,13 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
 
   let initInfix (opp: OperatorPrecedenceParser<_, _, _>) ops =
     ops |> List.iter (fun (initializer, op, prec, assoc) ->
-      opp.AddOperator (InfixOperator (op, ws, prec, assoc, initializer)))
+      opp.AddOperator(InfixOperator(op, ws, prec, assoc, initializer)))
 
   let initTernary (opp: OperatorPrecedenceParser<_, _, _>) args =
     args |> fun (initializer, opl, opr, assoc) ->
-      opp.AddOperator
-        (TernaryOperator (opl, ws, opr, ws, 1, assoc, initializer))
+      opp.AddOperator(TernaryOperator(opl, ws, opr, ws, 1, assoc, initializer))
 
-  let opp = OperatorPrecedenceParser<Expr, _, RegType> ()
+  let opp = OperatorPrecedenceParser<Expr, _, RegType>()
   let pOps = opp.ExpressionParser
 
   let pExtractPattern =
@@ -188,7 +187,7 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
     pBetweenParen pOps .>>. opt pExtractPattern
     |>> (fun (e, extract) ->
       match extract with
-      | Some (n, pos) ->
+      | Some(n, pos) ->
         AST.extract e (RegType.fromBitWidth (n + 1 - pos)) pos
       | None -> e)
 
@@ -200,7 +199,6 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
   let () =
     opp.TermParser <- term
     pExprRef.Value <- pOps
-
     [ AST.binop BinOpType.ADD, "+", 3, Associativity.Left
       AST.binop BinOpType.SUB, "-", 3, Associativity.Left
       AST.binop BinOpType.MUL, "*", 4, Associativity.Left
@@ -222,7 +220,6 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
       AST.binop BinOpType.FDIV, "/.", 4, Associativity.Left
       AST.binop BinOpType.FPOW, "^^", 4, Associativity.Left ]
     |> initInfix opp
-
     [ AST.relop RelOpType.EQ, "=", 1, Associativity.Left
       AST.relop RelOpType.NEQ, "!=", 1, Associativity.Left
       AST.relop RelOpType.GT, ">", 2, Associativity.Left
@@ -240,7 +237,6 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
       AST.relop RelOpType.FLT, "<.", 2, Associativity.Left
       AST.relop RelOpType.FLE, "<=.", 2, Associativity.Left ]
     |> initInfix opp
-
     (AST.ite, "?", ":", Associativity.Right)
     |> initTernary opp
 
@@ -368,27 +364,27 @@ type LowUIRParser (isa: ISA, regFactory: IRegisterFactory) =
 
   member private _.SeparateLines str =
     match run pLines str with
-    | Success (lines, _, _) -> Result.Ok lines
-    | Failure (errStr, _, _) -> Result.Error (errStr)
+    | Success(lines, _, _) -> Result.Ok lines
+    | Failure(errStr, _, _) -> Result.Error(errStr)
 
   member private _.TryParseStmt line =
     try runParserOnString pStatement 0<rt> "" line
     with e ->
-      let dummyPos = Position ("", 0L, 0L, 0L)
+      let dummyPos = Position("", 0L, 0L, 0L)
       let nl = Environment.NewLine
       let msg = e.Message + nl + e.StackTrace + nl + nl + "> " + line
-      Failure (msg, ParserError (dummyPos, 0<rt>, unexpected ""), 0<rt>)
+      Failure(msg, ParserError(dummyPos, 0<rt>, unexpected ""), 0<rt>)
 
-  member private this.ParseLines acc lines =
+  member private this.ParseLines(acc, lines) =
     match lines with
     | line :: rest ->
-      if String.length line = 0 then this.ParseLines acc rest
+      if String.length line = 0 then this.ParseLines(acc, rest)
       else (* A LowUIR stmt always occupies a single line. *)
         match this.TryParseStmt line with
-        | Success (stmt, _, _pos) -> this.ParseLines (stmt :: acc) rest
-        | Failure (errStr, _, _) -> Result.Error (errStr)
-    | [] -> Result.Ok (List.rev acc |> List.toArray)
+        | Success(stmt, _, _pos) -> this.ParseLines(stmt :: acc, rest)
+        | Failure(errStr, _, _) -> Result.Error(errStr)
+    | [] -> Result.Ok(List.rev acc |> List.toArray)
 
   member this.Parse str =
     this.SeparateLines str
-    |> Result.bind (this.ParseLines [])
+    |> Result.bind (fun lines -> this.ParseLines([], lines))

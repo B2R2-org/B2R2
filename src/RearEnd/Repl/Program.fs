@@ -37,7 +37,7 @@ let assemble (state: ReplState) (asm: AsmInterface) (input: string) =
     match state.CurrentParser with
     | LowUIRParser -> true
     | _ -> false
-  try asm.LiftLowUIR isLowUIRParser (input.Trim())
+  try asm.LiftLowUIR(isLowUIRParser, input.Trim())
   with exc -> Error exc.Message
 
 let rec run showTemporary (state: ReplState) asm =

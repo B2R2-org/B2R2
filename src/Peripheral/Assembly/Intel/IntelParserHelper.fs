@@ -27,13 +27,12 @@ module B2R2.Peripheral.Assembly.Intel.ParserHelper
 open B2R2
 open B2R2.FrontEnd.Intel
 
-type AsmInsInfo = {
-  Prefixes: Prefix
-  REXPrefix: REXPrefix
-  VEXInfo: VEXInfo option
-  Opcode: Opcode
-  Operands: Operands
-}
+type AsmInsInfo =
+  { Prefixes: Prefix
+    REXPrefix: REXPrefix
+    VEXInfo: VEXInfo option
+    Opcode: Opcode
+    Operands: Operands }
 
 /// AssemblyLine is either a label or an instruction.
 type AssemblyLine =
@@ -50,18 +49,18 @@ let filterInstructionLines lst =
 let extractOperands = function
   | [] -> NoOperand
   | [ op1 ] -> OneOperand op1
-  | [ op1; op2 ] -> TwoOperands (op1, op2)
-  | [ op1; op2; op3 ] -> ThreeOperands (op1, op2, op3)
-  | [ op1; op2; op3; op4 ] -> FourOperands (op1, op2, op3, op4)
+  | [ op1; op2 ] -> TwoOperands(op1, op2)
+  | [ op1; op2; op3 ] -> ThreeOperands(op1, op2, op3)
+  | [ op1; op2; op3; op4 ] -> FourOperands(op1, op2, op3, op4)
   | _ -> Terminator.impossible ()
 
 let getOperandsAsList operands =
   match operands with
   | NoOperand -> []
-  | OneOperand (op1) -> [ op1 ]
-  | TwoOperands (op1, op2) -> [ op1; op2 ]
-  | ThreeOperands (op1, op2, op3) -> [ op1; op2; op3 ]
-  | FourOperands (op1, op2, op3, op4) -> [ op1; op2; op3; op4 ]
+  | OneOperand(op1) -> [ op1 ]
+  | TwoOperands(op1, op2) -> [ op1; op2 ]
+  | ThreeOperands(op1, op2, op3) -> [ op1; op2; op3 ]
+  | FourOperands(op1, op2, op3, op4) -> [ op1; op2; op3; op4 ]
 
 let ptrStringToBitSize = function
   | "byte ptr" -> 1 * 8<rt>
@@ -76,7 +75,7 @@ let ptrStringToBitSize = function
   | _ -> Terminator.impossible ()
 
 let prefixFromRegString (str: string) =
-  match str.ToLowerInvariant () with
+  match str.ToLowerInvariant() with
   | "cs" -> Prefix.CS
   | "ds" -> Prefix.DS
   | "es" -> Prefix.ES

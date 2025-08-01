@@ -30,37 +30,35 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.FrontEnd.MIPS
 
 [<TestClass>]
-type MIPSTests () =
-  let mips = ISA (Architecture.MIPS, WordSize.Bit32)
-  let assembler = MIPS.AsmParser (mips, 0UL)
+type MIPSTests() =
+  let mips = ISA(Architecture.MIPS, WordSize.Bit32)
+  let assembler = MIPS.AsmParser(mips, 0UL)
   let newInfo = MIPS.ParserHelper.newAssemblyIns
 
   [<TestMethod>]
   member _.``[MipsAssembly] Test add with and three operands ``() =
     let result = assembler.Run "add $s0 $1 v0"
     let operands =
-       ThreeOperands (OpReg Register.R16,
-                      OpReg Register.R1,
-                      OpReg Register.R2)
+       ThreeOperands(OpReg Register.R16, OpReg Register.R1, OpReg Register.R2)
     let answer =
       [ newInfo mips 0UL Opcode.ADD None None operands ]
-    Assert.AreEqual (answer, result)
+    Assert.AreEqual(answer, result)
 
   [<TestMethod>]
   member _.``[MipsAssembly] Test jmp with immediate address ``() =
     let result = assembler.Run " jalr 0"
-    let operands = OneOperand (OpImm 0UL)
+    let operands = OneOperand(OpImm 0UL)
     let answer =
       [ newInfo mips 0UL Opcode.JALR None None operands ]
-    Assert.AreEqual (answer, result)
+    Assert.AreEqual(answer, result)
 
   [<TestMethod>]
   member _.``[MipsAssembly] Test jmp with memmory access operand``() =
     let result = assembler.Run "jr ($s0)"
-    let operands = OneOperand (OpMem (Register.R16, Imm 0L, 32<rt>))
+    let operands = OneOperand(OpMem(Register.R16, Imm 0L, 32<rt>))
     let answer =
       [ newInfo mips 0UL Opcode.JR None None operands ]
-    Assert.AreEqual (answer, result)
+    Assert.AreEqual(answer, result)
 
   [<TestMethod>]
   member _.``[MipsAssembly] Test Label and Jump to Label Instruction``() =
@@ -69,12 +67,10 @@ type MIPSTests () =
                      beq $4, r0, 0x1
                      jr someLabel"
     let operands1 =
-      ThreeOperands (OpReg Register.R4,
-                     OpReg Register.R0,
-                     OpImm 1UL)
-    let operands2 = OneOperand (OpAddr (Relative -8L))
+      ThreeOperands(OpReg Register.R4, OpReg Register.R0, OpImm 1UL)
+    let operands2 = OneOperand(OpAddr(Relative -8L))
     let answer =
       [ newInfo mips 0UL Opcode.BEQ None None operands1
         newInfo mips 4UL Opcode.JR None None operands2 ]
-    Assert.AreEqual (answer, result)
+    Assert.AreEqual(answer, result)
 
