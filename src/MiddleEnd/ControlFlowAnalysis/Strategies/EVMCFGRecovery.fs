@@ -397,7 +397,7 @@ module private EVMCFGRecovery =
       else
         true
 
-  let MaxExecutionContextsPerVertex = 4
+  let MaxExecutionContextsPerVertex = 8
 
   let tooManyContexts (usrCtx: EVMFuncUserContext) dstV dstExeCtx =
     let state = usrCtx.CP.State
