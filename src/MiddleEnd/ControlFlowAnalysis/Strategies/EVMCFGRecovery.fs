@@ -825,6 +825,9 @@ type EVMCFGRecovery() as this =
       match ctx.Vertices.TryGetValue pp with
       | false, _ -> Terminator.impossible ()
       | true, v when userCtx.ResumableVertices.Remove v ->
+        match ctx.VisitedPPoints.Remove pp with
+        | true -> ()
+        | false -> Terminator.impossible ()
         CFGRecovery.pushAction ctx callbackAction
         MoveOn
       | true, v when not <| userCtx.PostponedVertices.Contains v ->
