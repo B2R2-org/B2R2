@@ -132,6 +132,10 @@ type State<'L, 'ExeCtx when 'L: equality
     | true, defs ->
       defs
       |> Seq.fold (fun acc defSvp ->
+        let pp = defSvp.SensitiveProgramPoint.ProgramPoint
+        if ProgramPoint.IsFake pp then
+          spGetInitialAbsValue varKind
+        else
         let defAbsValue = spGetAbsValue defSvp
         StackPointerDomain.join acc defAbsValue) StackPointerDomain.Undef
 
@@ -242,8 +246,8 @@ type State<'L, 'ExeCtx when 'L: equality
         |> List.map (getSSAVarFromDefSvp >> SSA.Var)
         |> SSA.ExprList
       | None -> (* Reading a value coming out of a function. *)
-        let fakeDefPp = ProgramPoint.GetFake()
-        let fakeSpp = { ProgramPoint = fakeDefPp; ExecutionContext = exeCtx }
+        let fakePp = ProgramPoint.GetFake()
+        let fakeSpp = { ProgramPoint = fakePp; ExecutionContext = exeCtx }
         let fakeSvp = { SensitiveProgramPoint = fakeSpp; VarKind = varKind }
         let fakeSSAVar = getSSAVarFromDefSvp fakeSvp
         SSA.Var fakeSSAVar
@@ -665,9 +669,18 @@ module internal AnalysisCore = begin
   let updateUseDefChain (state: State<_, _>) id defs =
     state.UseDefMap[id] <- defs
 
+  let makeFakeDefSvp exeCtx vk =
+    let fakePp = ProgramPoint.GetFake ()
+    let fakeSpp = { ProgramPoint = fakePp; ExecutionContext = exeCtx }
+    { SensitiveProgramPoint = fakeSpp; VarKind = vk }
+
   let updateChains (state: State<_, _>) vk defs tpp =
     match Map.tryFind vk defs with
-    | None -> ()
+    | None -> (* Uses function arguments. *)
+      let useSvp = { SensitiveProgramPoint = tpp; VarKind = vk }
+      let defSvp = makeFakeDefSvp tpp.ExecutionContext vk
+      updateDefUseChain state useSvp defSvp
+      updateUseDefChain state useSvp (Set.singleton defSvp)
     | Some rds ->
       let useSvp = { SensitiveProgramPoint = tpp; VarKind = vk }
       removeOldChains state useSvp
@@ -781,8 +794,7 @@ module internal AnalysisCore = begin
   /// Strongly updates the stack pointer value for the given tagged variable.
   /// We assume that the stack pointer value is always a constant value in a
   /// single vertex with a single execution context (sensitivity).
-  let updateStackPointer (state: State<_, _>) tpp vk
-                         e =
+  let updateStackPointer (state: State<_, _>) tpp vk e =
     let subState = state.StackPointerSubState
     let spValue = subState.EvalExpr(tpp, e)
     let tvp = { SensitiveProgramPoint = tpp; VarKind = vk }
@@ -873,12 +885,14 @@ module internal AnalysisCore = begin
       state.Scheme.OnVertexNewlyAnalyzed v
     else possibleExeCtxs[v].Add exeCtx |> ignore
 
-  let getOutSP (state: State<_, _>) v exeCtx =
-    if isNull v then
+  let getInitialStackPointer (state: State<_, _>) =
       let spRid = state.BinHandle.RegisterFactory.StackPointer.Value
       let spRegType = state.BinHandle.RegisterFactory.GetRegType spRid
       BitVector(Constants.InitialStackPointer, spRegType)
       |> StackPointerDomain.ConstSP
+
+  let getOutSP (state: State<_, _>) v exeCtx =
+    if isNull v then getInitialStackPointer state
     else snd state.PerVertexStackPointerInfos[v, exeCtx]
 
   let evaluateRecentSP (state: State<_, _>) m =
@@ -886,13 +900,13 @@ module internal AnalysisCore = begin
     let spRegType = state.BinHandle.RegisterFactory.GetRegType spRid
     let spVarKind = Regular spRid
     match Map.tryFind spVarKind m with
-    | None ->
-      BitVector(Constants.InitialStackPointer, spRegType)
-      |> StackPointerDomain.ConstSP
+    (* There was no use of stack pointers: no-op only block. *)
+    | None -> getInitialStackPointer state
     | Some defs ->
-      defs
-      |> Seq.head
-      |> state.StackPointerSubState.GetAbsValue
+      let def = defs |> Seq.head
+      let defPP = def.SensitiveProgramPoint.ProgramPoint
+      if ProgramPoint.IsFake defPP then getInitialStackPointer state
+      else state.StackPointerSubState.GetAbsValue def
 
   let executeAndPropagateRDs (state: State<_, _>)
                              queue g src dst srcExeCtx dstExeCtx dstDefs =
