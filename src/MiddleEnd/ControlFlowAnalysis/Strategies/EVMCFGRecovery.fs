@@ -681,9 +681,14 @@ module private EVMCFGRecovery =
     CFGRecovery.connectEdge ctx cfgRec caller callee edgeKind
     callee
 
+  let private hasFinalContext ctx addr =
+    match ctx.ManagerChannel.GetBuildingContext addr with
+    | FinalCtx _ -> true
+    | _ -> false
+
   let connectCall ctx cfgRec caller callee cs info =
-    assert (ctx.ManagerChannel.GetBuildingContext callee
-            |> fun bldCtx -> bldCtx.IsFinalCtx)
+    assert (if ctx.FunctionAddress = callee then true
+            else hasFinalContext ctx callee)
     getFunctionContext ctx callee
     |> Result.map (connectAbsVertex ctx cfgRec caller callee cs false info)
     |> CFGRecovery.toCFGResult
