@@ -566,6 +566,12 @@ module private EVMCFGRecovery =
           let preds = ctx.CFG.GetPreds dstV
           let hasMultiplePreds = Seq.length preds > 1
           if not hasMultiplePreds then None
+          (* [14e3,155f] -> 1382 @ 0x00000000000000343662d3fad10d154530c0d4f1 *)
+          elif preds
+               |> Array.filter (fun p -> p.VData.Internals.IsAbstract)
+               |> Array.length > 1 then
+            introduceNewSharedRegion ctx dstAddr
+            Some StopAndReload
           else (* Check if this edge insertion introduces poly jumps *)
             let polyJumps = collectPolyJumpsFromReachables ctx.CFG state dstV
             let hasPolyJumps = not <| Seq.isEmpty polyJumps
