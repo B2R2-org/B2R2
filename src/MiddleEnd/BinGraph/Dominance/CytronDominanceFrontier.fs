@@ -30,13 +30,13 @@ open B2R2.MiddleEnd.BinGraph
 /// Dominance frontier algorithm presented by Cytron et al. in their paper
 /// "Efficiently Computing Static Single Assignment Form and the Control
 /// Dependence Graph", TOPLAS 1991.
-type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
+type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
   let traverseBottomUp (domTree: DominatorTree<_, _>) root =
-    let stack1, stack2 = Stack (), Stack ()
+    let stack1, stack2 = Stack(), Stack()
     domTree.GetChildren root
     |> Seq.iter stack1.Push
     while stack1.Count > 0 do
-      let v = stack1.Pop ()
+      let v = stack1.Pop()
       stack2.Push v
       for child in domTree.GetChildren v do stack1.Push child
     stack2
@@ -47,10 +47,10 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
       if isPostDominance then
         (dom: IDominance<_, _>).PostDominatorTree, dom.ImmediatePostDominator
       else dom.DominatorTree, dom.ImmediateDominator
-    let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>> ()
-    let root = domTree.GetRoot ()
+    let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>>()
+    let root = domTree.GetRoot()
     for v in traverseBottomUp domTree root do
-      let df = HashSet<IVertex<_>> ()
+      let df = HashSet<IVertex<_>>()
       for succ in g.GetSuccs v do
         if idom succ <> v then df.Add succ |> ignore
         else ()
@@ -65,7 +65,7 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> () =
     frontiers
 
   interface IDominanceFrontierProvider<'V, 'E> with
-    member _.CreateIDominanceFrontier (g, dom, isPostDominance) =
+    member _.CreateIDominanceFrontier(g, dom, isPostDominance) =
       let frontiers = computeDF g dom isPostDominance
       { new IDominanceFrontier<'V, 'E> with
-          member _.DominanceFrontier (v) = frontiers[v] }
+          member _.DominanceFrontier(v) = frontiers[v] }

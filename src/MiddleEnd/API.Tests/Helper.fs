@@ -52,7 +52,7 @@ module Helper =
 
   let extractCallEdgeArray (callees: SortedList<CallSite, CalleeKind>) =
     callees
-    |> Seq.map (fun (KeyValue (k, v)) -> k, v)
+    |> Seq.map (fun (KeyValue(k, v)) -> k, v)
     |> Seq.toList
 
   let foldVertexNoFake m (v: IVertex<LowUIRBasicBlock>) =
@@ -69,17 +69,17 @@ module Helper =
     else Map.add (v1.VData.Internals.PPoint, v2.VData.Internals.PPoint) e m
 
   let collectInsBBLAddrPairs (fn: Function) =
-    fn.CFG.FoldVertex (fun acc v ->
+    fn.CFG.FoldVertex((fun acc v ->
       if v.VData.Internals.IsAbstract then acc
       else
         v.VData.Internals.LiftedInstructions
         |> Array.map (fun li -> li.Original.Address, li.BBLAddr)
         |> fun arr -> arr :: acc
-    ) []
+    ), [])
     |> Array.concat
 
   let getDisasmVertexRanges disasmBuilder (cfg: LowUIRCFG) =
-    let dcfg = DisasmCFG (disasmBuilder, cfg)
+    let dcfg = DisasmCFG(disasmBuilder, cfg)
     dcfg.Vertices
     |> Array.map (fun v ->
       v.VData.Internals.Range.Min, v.VData.Internals.Range.Max)

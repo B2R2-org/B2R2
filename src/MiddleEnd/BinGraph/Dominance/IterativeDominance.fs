@@ -29,9 +29,9 @@ open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
 let private computeDoms (g: IDiGraphAccessible<_, _>) =
-  let doms = Dictionary<IVertex<_>, Set<IVertex<_>>> ()
-  let roots = g.GetRoots ()
-  let allButRoots = List ()
+  let doms = Dictionary<IVertex<_>, Set<IVertex<_>>>()
+  let roots = g.GetRoots()
+  let allButRoots = List()
   let all = Set g.Vertices
   for r in roots do doms[r] <- Set.singleton r
   for v in g.Vertices do
@@ -50,9 +50,9 @@ let private computeDoms (g: IDiGraphAccessible<_, _>) =
   doms
 
 let private computeIDoms g (doms: Dictionary<_, _>) =
-  let roots = (g: IDiGraphAccessible<_, _>).GetRoots ()
-  let idoms = Dictionary<IVertex<_>, IVertex<_>> ()
-  let tmps = Dictionary<IVertex<_>, Set<IVertex<_>>> ()
+  let roots = (g: IDiGraphAccessible<_, _>).GetRoots()
+  let idoms = Dictionary<IVertex<_>, IVertex<_>>()
+  let tmps = Dictionary<IVertex<_>, Set<IVertex<_>>>()
   for v in g.Vertices do tmps[v] <- Set.remove v doms[v]
   for r in roots do idoms[r] <- null
   for v in g.Vertices do
@@ -73,7 +73,7 @@ let private createDomInfo g (dfp: IDominanceFrontierProvider<_, _>) =
   let doms = lazy computeDoms g
   let idoms = lazy computeIDoms g doms.Value
   let idom v = idoms.Value[v]
-  let domTree = lazy DominatorTree (g, idom)
+  let domTree = lazy DominatorTree(g, idom)
   doms, idoms, domTree
 
 type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
@@ -107,7 +107,7 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
       GraphUtils.checkVertexInGraph g v
 #endif
       if isNull dfProvider then
-        dfProvider <- dfp.CreateIDominanceFrontier (g, this, false)
+        dfProvider <- dfp.CreateIDominanceFrontier(g, this, false)
       else ()
       dfProvider.DominanceFrontier v
 
@@ -135,10 +135,10 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
 #endif
       if isNull pdfProvider then
         pdfProvider <-
-          dfp.CreateIDominanceFrontier (backwardG.Value, this, true)
+          dfp.CreateIDominanceFrontier(backwardG.Value, this, true)
       else ()
       pdfProvider.DominanceFrontier v
 
 [<CompiledName "Create">]
 let create g (dfp: IDominanceFrontierProvider<_, _>) =
-  IterativeDominance (g, dfp) :> IDominance<'V, 'E>
+  IterativeDominance(g, dfp) :> IDominance<'V, 'E>

@@ -34,11 +34,7 @@ type ExternalFnCFGBuilder<'FnCtx,
                           'GlCtx when 'FnCtx :> IResettable
                                   and 'FnCtx: (new: unit -> 'FnCtx)
                                   and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (hdl: BinHandle,
-          exnInfo,
-          entryPoint,
-          name,
-          noretStatus) =
+  public(hdl: BinHandle, exnInfo, entryPoint, name, noretStatus) =
 
   let ctx =
     { FunctionAddress = entryPoint
@@ -52,14 +48,14 @@ type ExternalFnCFGBuilder<'FnCtx,
       NonReturningStatus = noretStatus
       JumpTableRecoveryStatus = null
       JumpTables = null
-      Callers = HashSet ()
+      Callers = HashSet()
       IntraCallTable = null
       VisitedPPoints = null
       ActionQueue = null
       PendingCallActions = null
-      CallerVertices = Dictionary ()
+      CallerVertices = Dictionary()
       UnwindingBytes = 0
-      UserContext = new 'FnCtx ()
+      UserContext = new 'FnCtx()
       IsExternal = true
       ManagerChannel = null
       ThreadID = -1 }
@@ -79,30 +75,30 @@ type ExternalFnCFGBuilder<'FnCtx,
 
     member _.IsExternal with get() = true
 
-    member _.Authorize () = ()
+    member _.Authorize() = ()
 
-    member _.Stop () = ()
+    member _.Stop() = ()
 
-    member _.ForceFinish () = ()
+    member _.ForceFinish() = ()
 
-    member _.StartVerifying () = ()
+    member _.StartVerifying() = ()
 
-    member _.Finalize () = ()
+    member _.Finalize() = ()
 
-    member _.ReInitialize () = ()
+    member _.ReInitialize() = ()
 
-    member _.Invalidate () = ()
+    member _.Invalidate() = ()
 
     member _.Build _ = Terminator.impossible ()
 
-    member _.Reset () = ()
+    member _.Reset() = ()
 
     member _.MakeNew _ = Terminator.impossible ()
 
-    member _.ToFunction () =
-      Function (entryPoint,
-                name,
-                ctx.NonReturningStatus,
-                ctx.Callers,
-                ctx.JumpTables,
-                true)
+    member _.ToFunction() =
+      Function(entryPoint,
+               name,
+               ctx.NonReturningStatus,
+               ctx.Callers,
+               ctx.JumpTables,
+               true)

@@ -76,11 +76,11 @@ module IGraph =
     vs
     |> Seq.fold (fun (g: IGraph<'V, 'E>) (v: IVertex<'V>) ->
       g.AddVertex v.VData |> snd) outGraph
-    |>
-    (* Add edges where both ends are in vs *)
-    (inGraph :> IGraph<_, _>).FoldEdge (fun (g: IGraph<'V, 'E>) e ->
-      if vs.Contains e.First && vs.Contains e.Second then
-        let src = g.FindVertexByID <| e.First.ID
-        let dst = g.FindVertexByID <| e.Second.ID
-        (g :> IGraph<'V, _>).AddEdge (src, dst, e.Label)
-      else g)
+    |> fun graph ->
+      (* Add edges where both ends are in vs *)
+      (inGraph :> IGraph<_, _>).FoldEdge((fun (g: IGraph<'V, 'E>) e ->
+        if vs.Contains e.First && vs.Contains e.Second then
+          let src = g.FindVertexByID <| e.First.ID
+          let dst = g.FindVertexByID <| e.Second.ID
+          (g :> IGraph<'V, _>).AddEdge(src, dst, e.Label)
+        else g), graph)

@@ -60,34 +60,34 @@ module internal CFGRecovery =
 
   let addCallerVertex ctx callsiteAddr vertex =
     if ctx.CallerVertices.ContainsKey callsiteAddr then ()
-    else ctx.CallerVertices.Add (callsiteAddr, vertex) |> ignore
+    else ctx.CallerVertices.Add(callsiteAddr, vertex) |> ignore
 
   let scanBBLs (ctx: CFGBuildingContext<_, _>) entryPoints =
     ctx.ScanBBLs entryPoints
 
   let pushAction (ctx: CFGBuildingContext<_, _>) action =
-    ctx.ActionQueue.Push prioritizer action
+    ctx.ActionQueue.Push(prioritizer, action)
 
   let getCalleePPoint callsite calleeAddrOpt =
     match calleeAddrOpt with
-    | Some addr -> ProgramPoint (callsite, addr, 0)
-    | None -> ProgramPoint (callsite, 0UL, -1)
+    | Some addr -> ProgramPoint(callsite, addr, 0)
+    | None -> ProgramPoint(callsite, 0UL, -1)
 
   let makeVertex ctx cfgRec pp (bbl: LowUIRBasicBlock) =
-    match ctx.JumpTableRecoveryStatus.TryPeek () with
+    match ctx.JumpTableRecoveryStatus.TryPeek() with
     | true, status -> bbl.DominatingJumpTableEntry <- Some status
     | false, _ -> ()
     let v = ctx.CFG.AddVertex bbl
     ctx.Vertices[pp] <- v
-    (cfgRec: ICFGRecovery<_, _>).OnAddVertex ctx v
+    (cfgRec: ICFGRecovery<_, _>).OnAddVertex(ctx, v)
     v
 
   let makeAbsVertex ctx (cfgRec: ICFGRecovery<_, _>) csAddr calleeOpt abs =
     let calleePPoint = getCalleePPoint csAddr calleeOpt
-    let bbl = LowUIRBasicBlock.CreateAbstract (calleePPoint, abs)
+    let bbl = LowUIRBasicBlock.CreateAbstract(calleePPoint, abs)
     let v = ctx.CFG.AddVertex bbl
     ctx.Vertices[calleePPoint] <- v
-    cfgRec.OnAddVertex ctx v
+    cfgRec.OnAddVertex(ctx, v)
     v
 
   /// Retrieves a vertex (which is either cached or newly created). This
@@ -129,9 +129,9 @@ module internal CFGRecovery =
     let lst =
       match pendingCallActions.TryGetValue calleeAddr with
       | false, _ ->
-        let lst = List ()
+        let lst = List()
         pendingCallActions[calleeAddr] <- lst
-        queue.Push prioritizer <| WaitForCallee calleeAddr
+        queue.Push(prioritizer, WaitForCallee calleeAddr)
         lst
       | true, lst -> lst
     lst.Add action
@@ -148,14 +148,14 @@ module internal CFGRecovery =
       let succs = ctx.CFG.GetSuccEdges v
       ctx.CFG.RemoveVertex v
       ctx.Vertices.Remove ppoint |> ignore
-      cfgRec.OnRemoveVertex ctx v
+      cfgRec.OnRemoveVertex(ctx, v)
       preds, succs
     | false, _ ->
       [||], [||]
 
   let connectEdge ctx cfgRec srcVertex dstVertex edgeKind =
-    ctx.CFG.AddEdge (srcVertex, dstVertex, edgeKind)
-    (cfgRec: ICFGRecovery<_, _>).OnAddEdge ctx srcVertex dstVertex edgeKind
+    ctx.CFG.AddEdge(srcVertex, dstVertex, edgeKind)
+    (cfgRec: ICFGRecovery<_, _>).OnAddEdge(ctx, srcVertex, dstVertex, edgeKind)
 #if CFGDEBUG
     let edgeStr = CFGEdgeKind.toString edgeKind
     let srcPPoint = (srcVertex.VData :> IAddressable).PPoint
@@ -192,7 +192,7 @@ module internal CFGRecovery =
 
   let addExpandCFGAction ctx pp =
     pushAction ctx <| ExpandCFG [ pp ]
-    Ok ()
+    Ok()
 
   let isWithinFunction ctx fnAddr dstAddr =
     match ctx.ManagerChannel.GetNextFunctionAddress fnAddr with
@@ -213,7 +213,7 @@ module internal CFGRecovery =
         let fnAddr = ctx.FunctionAddress
         let max = bbl.Internals.Range.Max
         if isWithinFunction ctx fnAddr max then
-          Ok (makeVertex ctx cfgRec pp bbl)
+          Ok(makeVertex ctx cfgRec pp bbl)
         else
           Error ErrorCase.ItemNotFound
       | Error _ -> Error ErrorCase.ItemNotFound
@@ -221,7 +221,7 @@ module internal CFGRecovery =
   let scanBBLsAndConnect ctx cfgRec src dstAddr edgeKind =
     match scanBBLs ctx [ dstAddr ] with
     | Ok dividedEdges ->
-      let dstPPoint = ProgramPoint (dstAddr, 0)
+      let dstPPoint = ProgramPoint(dstAddr, 0)
       match getValidVertex ctx cfgRec dstPPoint with
       | Ok dstVertex ->
         connectEdge ctx cfgRec src dstVertex edgeKind
@@ -251,11 +251,11 @@ module internal CFGRecovery =
       let fnAddr = ctx.FunctionAddress
       let actionQueue = ctx.ActionQueue
       addCallerVertex ctx callsite (getVertex ctx cfgRec srcBBL.PPoint)
-      ctx.IntraCallTable.AddRegularCall callsite calleeAddr
+      ctx.IntraCallTable.AddRegularCall(callsite, calleeAddr)
       if fnAddr = calleeAddr then (* self-recursion *)
-        actionQueue.Push prioritizer action
+        actionQueue.Push(prioritizer, action)
       else
-        match ctx.ManagerChannel.AddDependency (fnAddr, calleeAddr) with
+        match ctx.ManagerChannel.AddDependency(fnAddr, calleeAddr) with
         (* Wait for the callee to finish *)
         | StillBuilding _
         | FailedBuilding -> postponeActionOnCallee ctx calleeAddr action
@@ -263,8 +263,8 @@ module internal CFGRecovery =
         | FinalCtx calleeCtx ->
           let calleeInfo = makeCalleeInfoFromCtx calleeCtx
           match action with
-          | MakeCall _ -> MakeCall (callsite, calleeAddr, calleeInfo)
-          | MakeTlCall _ -> MakeTlCall (callsite, calleeAddr, calleeInfo)
+          | MakeCall _ -> MakeCall(callsite, calleeAddr, calleeInfo)
+          | MakeTlCall _ -> MakeTlCall(callsite, calleeAddr, calleeInfo)
           | _ -> action
           |> pushAction ctx
       MoveOn
@@ -282,7 +282,7 @@ module internal CFGRecovery =
     | true, v -> Ok v
     | false, _ ->
       match ctx.BBLFactory.TryFind ppoint with
-      | Ok bbl -> Ok (makeVertex ctx cfgRec ppoint bbl)
+      | Ok bbl -> Ok(makeVertex ctx cfgRec ppoint bbl)
       | Error _ -> Error ErrorCase.ItemNotFound
 
   let connectEdgeIfValid ctx cfgRec (ppQueue: Queue<_>) srcVertex edgeKind
@@ -296,7 +296,7 @@ module internal CFGRecovery =
   let maskedPPoint ctx targetAddr =
     let rt = ctx.BinHandle.File.ISA.WordSize |> WordSize.toRegType
     let mask = BitVector.UnsignedMax rt |> BitVector.ToUInt64
-    ProgramPoint (targetAddr &&& mask, 0)
+    ProgramPoint(targetAddr &&& mask, 0)
 
   let jmpToDstAddr ctx cfgRec (ppQueue: Queue<_>) srcVertex dstAddr jmpKind =
     let dstPPoint = maskedPPoint ctx dstAddr
@@ -307,7 +307,7 @@ module internal CFGRecovery =
     | Error _ -> ()
 
   let makeIntraFallThroughEdge ctx cfgRec (ppQueue: Queue<_>) srcVertex =
-    match ppQueue.TryPeek () with
+    match ppQueue.TryPeek() with
     | true, nextPPoint ->
       let dstVertex = getVertex ctx cfgRec nextPPoint
       connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
@@ -334,12 +334,12 @@ module internal CFGRecovery =
             connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
             queue.Enqueue nextPPoint
           | Error _ -> () (* Ignore when a bad instruction follows *)
-        | Jmp (JmpDest (lbl, _), _) ->
+        | Jmp(JmpDest(lbl, _), _) ->
           let dstPPoint = srcBBL.LabelMap[lbl]
           let dstVertex = getVertex ctx cfgRec dstPPoint
           connectEdge ctx cfgRec srcVertex dstVertex IntraJmpEdge
           queue.Enqueue dstPPoint
-        | CJmp (_, JmpDest (tLbl, _), JmpDest (fLbl, _), _) ->
+        | CJmp(_, JmpDest(tLbl, _), JmpDest(fLbl, _), _) ->
           let tPPoint, fPPoint = srcBBL.LabelMap[tLbl], srcBBL.LabelMap[fLbl]
           let tVertex, fVertex =
             getVertex ctx cfgRec tPPoint, getVertex ctx cfgRec fPPoint
@@ -347,15 +347,15 @@ module internal CFGRecovery =
           connectEdge ctx cfgRec srcVertex fVertex IntraCJmpFalseEdge
           queue.Enqueue tPPoint
           queue.Enqueue fPPoint
-        | InterJmp (PCVar _, InterJmpKind.Base, _) -> (* intra loop *)
-          let dstPPoint = ProgramPoint (ppoint.Address, 0)
+        | InterJmp(PCVar _, InterJmpKind.Base, _) -> (* intra loop *)
+          let dstPPoint = ProgramPoint(ppoint.Address, 0)
           let dstVertex = getVertex ctx cfgRec dstPPoint
           connectEdge ctx cfgRec srcVertex dstVertex InterJmpEdge
-        | InterJmp (BinOp (BinOpType.ADD, _, PCVar _, Num (n, _), _),
+        | InterJmp(BinOp(BinOpType.ADD, _, PCVar _, Num(n, _), _),
                     InterJmpKind.Base, _) ->
           let target = srcData.LastInstruction.Address + BitVector.ToUInt64 n
           jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
-        | InterJmp (Num (n, _), InterJmpKind.Base, _) ->
+        | InterJmp(Num(n, _), InterJmpKind.Base, _) ->
           let target = BitVector.ToUInt64 n
           if useTailcallHeuristic then
             match ctx.ManagerChannel.GetBuildingContext target with
@@ -364,76 +364,76 @@ module internal CFGRecovery =
             | _ ->
               let lastInsAddr = srcData.LastInstruction.Address
               let callSite = LeafCallSite lastInsAddr
-              let act = MakeTlCall (callSite, target, (UnknownNoRet, 0))
+              let act = MakeTlCall(callSite, target, (UnknownNoRet, 0))
               result <- handleCall ctx cfgRec srcVertex callSite target act
           else
             jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
-        | InterJmp (BinOp (BinOpType.ADD, _, PCVar _, Num (n, _), _),
-                    InterJmpKind.IsCall, _) ->
+        | InterJmp(BinOp(BinOpType.ADD, _, PCVar _, Num(n, _), _),
+                   InterJmpKind.IsCall, _) ->
           let lastInsAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite lastInsAddr
           let target = lastInsAddr + BitVector.ToUInt64 n
-          let act = MakeCall (callsite, target, (UnknownNoRet, 0))
+          let act = MakeCall(callsite, target, (UnknownNoRet, 0))
           result <- handleCall ctx cfgRec srcVertex callsite target act
-        | InterJmp (Num (n, _), InterJmpKind.IsCall, _) ->
+        | InterJmp(Num(n, _), InterJmpKind.IsCall, _) ->
           let lastInsAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite lastInsAddr
           let target = BitVector.ToUInt64 n
-          let act = MakeCall (callsite, target, (UnknownNoRet, 0))
+          let act = MakeCall(callsite, target, (UnknownNoRet, 0))
           result <- handleCall ctx cfgRec srcVertex callsite target act
-        | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar _, Num (tv, _), _),
-                        BinOp (BinOpType.ADD, _, PCVar _, Num (fv, _), _), _) ->
+        | InterCJmp(_, BinOp(BinOpType.ADD, _, PCVar _, Num(tv, _), _),
+                    BinOp(BinOpType.ADD, _, PCVar _, Num(fv, _), _), _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
           let tpp = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 tv)
           let fpp = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 fv)
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpFalseEdge fpp
-        | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar _, Num (tv, _), _),
-                        PCVar _, _) ->
+        | InterCJmp(_, BinOp(BinOpType.ADD, _, PCVar _, Num(tv, _), _),
+                    PCVar _, _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
           let tpp = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 tv)
           let fPPoint = maskedPPoint ctx lastAddr
           let fVertex = getVertex ctx cfgRec fPPoint
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
           connectEdge ctx cfgRec srcVertex fVertex InterCJmpFalseEdge
-        | InterCJmp (_, PCVar _,
-                        BinOp (BinOpType.ADD, _, PCVar _, Num (fv, _), _), _) ->
+        | InterCJmp(_, PCVar _,
+                    BinOp(BinOpType.ADD, _, PCVar _, Num(fv, _), _), _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
           let tpp = maskedPPoint ctx lastAddr
           let fpp = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 fv)
           let tVertex = getVertex ctx cfgRec tpp
           connectEdge ctx cfgRec srcVertex tVertex InterCJmpTrueEdge
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpFalseEdge fpp
-        | InterCJmp (_, Num (tv, _), Num (fv, _), _) ->
+        | InterCJmp(_, Num(tv, _), Num(fv, _), _) ->
           let tpp = maskedPPoint ctx (BitVector.ToUInt64 tv)
           let fpp = maskedPPoint ctx (BitVector.ToUInt64 fv)
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpFalseEdge fpp
-        | InterJmp (_, InterJmpKind.Base, _) -> (* Indirect jumps *)
-          cfgRec.AnalyzeIndirectJump ctx queue ppoint srcVertex
+        | InterJmp(_, InterJmpKind.Base, _) -> (* Indirect jumps *)
+          cfgRec.AnalyzeIndirectJump(ctx, queue, ppoint, srcVertex)
           |> Option.iter (fun r -> result <- r)
-        | InterJmp (_, InterJmpKind.IsCall, _) -> (* Indirect calls *)
+        | InterJmp(_, InterJmpKind.IsCall, _) -> (* Indirect calls *)
           let callsiteAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite callsiteAddr
           addCallerVertex ctx callsite srcVertex
-          actionQueue.Push prioritizer <| MakeIndCall (callsite)
-        | InterCJmp (_, _, _, _) -> (* Indirect cond jumps *)
-          cfgRec.AnalyzeIndirectCondJump ctx queue ppoint srcVertex
+          actionQueue.Push(prioritizer, MakeIndCall(callsite))
+        | InterCJmp(_, _, _, _) -> (* Indirect cond jumps *)
+          cfgRec.AnalyzeIndirectCondJump(ctx, queue, ppoint, srcVertex)
           |> Option.iter (fun r -> result <- r)
-        | SideEffect (Interrupt 0x80, _) | SideEffect (SysCall, _) ->
+        | SideEffect(Interrupt 0x80, _) | SideEffect(SysCall, _) ->
           let callsiteAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite callsiteAddr
-          let isExit = syscallAnalysis.IsExit (ctx, srcVertex)
-          ctx.IntraCallTable.AddSystemCall callsite isExit
+          let isExit = syscallAnalysis.IsExit(ctx, srcVertex)
+          ctx.IntraCallTable.AddSystemCall(callsite, isExit)
           addCallerVertex ctx callsite srcVertex
-          actionQueue.Push prioritizer <| MakeSyscall (callsite, isExit)
+          actionQueue.Push(prioritizer, MakeSyscall(callsite, isExit))
         | Jmp _
         | CJmp _
         | InterJmp _
         | InterCJmp _
-        | SideEffect (Exception _, _)
-        | SideEffect (Terminate, _)
-        | SideEffect (Breakpoint, _) ->
+        | SideEffect(Exception _, _)
+        | SideEffect(Terminate, _)
+        | SideEffect(Breakpoint, _) ->
           ()
 #if DEBUG
         | ISMark _ | LMark _ -> Terminator.impossible ()
@@ -448,7 +448,7 @@ module internal CFGRecovery =
     | FinalCtx calleeCtx
     | StillBuilding calleeCtx ->
       let retStatus, unwindingBytes = calleeInfo
-      Ok <| summarizer.Summarize (calleeCtx, retStatus, unwindingBytes, callIns)
+      Ok <| summarizer.Summarize(calleeCtx, retStatus, unwindingBytes, callIns)
     | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
 
   let connectAbsVertex ctx cfgRec caller calleeAddr isTail abs =
@@ -467,7 +467,7 @@ module internal CFGRecovery =
        an invalid returning edge. In such cases, we won't connect the edge, but
        we don't have to signal an error here. The rest of the process should
        keep going. *)
-    Ok ()
+    Ok()
 
   let connectExnEdge ctx cfgRec (callsiteAddr: Addr) =
     match ctx.ExnInfo.TryFindExceptionTarget callsiteAddr with
@@ -476,7 +476,7 @@ module internal CFGRecovery =
       let callsite = LeafCallSite callsiteAddr
       let caller = ctx.CallerVertices[callsite]
       scanBBLsAndConnect ctx cfgRec caller target ExceptionFallThroughEdge
-    | None -> Ok ()
+    | None -> Ok()
 
   let connectCallWithFT ctx (cfgRec: ICFGRecovery<_, _>) caller calleeAddr
                         calleeInfo =
@@ -509,7 +509,7 @@ module internal CFGRecovery =
       (* recursion = 100% returns (not no-ret) *)
       let lastIns = caller.VData.Internals.LastInstruction
       (* TODO: its unwinding bytes cannot be decided at this moment. *)
-      cfgRec.Summarizer.Summarize (ctx, NotNoRet, 0, lastIns)
+      cfgRec.Summarizer.Summarize(ctx, NotNoRet, 0, lastIns)
       |> connectAbsVertex ctx cfgRec caller callee false
       |> connectRet ctx cfgRec
       |> toCFGResult
@@ -529,7 +529,7 @@ module internal CFGRecovery =
     let callSiteAddr = callIns.Address
     let callSite = LeafCallSite callSiteAddr
     let summarizer = (cfgRec: ICFGRecovery<_, _>).Summarizer
-    let abs = summarizer.MakeUnknownFunctionAbstraction (ctx.BinHandle, callIns)
+    let abs = summarizer.MakeUnknownFunctionAbstraction(ctx.BinHandle, callIns)
     let absV = getAbsVertex ctx cfgRec callSite None abs
     connectEdge ctx cfgRec caller absV CallEdge
     connectRet ctx cfgRec (absV, callSiteAddr + uint64 callIns.Length)
@@ -538,7 +538,7 @@ module internal CFGRecovery =
 
   let connectSyscallEdge ctx syscallAnalysis cfgRec callsiteAddr isExit =
     let caller = ctx.CallerVertices[callsiteAddr]
-    (syscallAnalysis: ISyscallAnalyzable).MakeAbstract (ctx, caller, isExit)
+    (syscallAnalysis: ISyscallAnalyzable).MakeAbstract(ctx, caller, isExit)
     |> connectAbsVertex ctx cfgRec caller 0UL false
     |> fun callee ->
       if not isExit then connectRet ctx cfgRec callee |> ignore
@@ -548,25 +548,24 @@ module internal CFGRecovery =
   let readJumpTable ctx (jmptbl: JmpTableInfo) idx =
     let size = jmptbl.EntrySize
     let addr = jmptbl.TableAddress + uint64 (idx * size)
-    jmptbl.JumpBase + uint64 (ctx.BinHandle.ReadInt (addr, size))
+    jmptbl.JumpBase + uint64 (ctx.BinHandle.ReadInt(addr, size))
 
   let pushJmpTblRecoveryAction ctx queue bblAddr jmptbl idx =
     let targetAddr = readJumpTable ctx jmptbl idx
-    (queue: CFGActionQueue).Push prioritizer
-    <| StartTblRec (jmptbl, idx, bblAddr, targetAddr)
-    queue.Push prioritizer
-    <| EndTblRec (jmptbl, idx)
+    (queue: CFGActionQueue).Push(prioritizer,
+      StartTblRec(jmptbl, idx, bblAddr, targetAddr))
+    queue.Push(prioritizer, EndTblRec(jmptbl, idx))
     MoveOn
 
   let recoverIndirectBranches ctx (jmptblAnalysis: IJmpTableAnalyzable<_, _>)
                               queue insAddr bblAddr =
-    match jmptblAnalysis.Identify ctx insAddr bblAddr with
+    match jmptblAnalysis.Identify(ctx, insAddr, bblAddr) with
     | Ok jmptbl ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable"
       <| $"{insAddr:x}: [{jmptbl.TableAddress:x}] w/ base {jmptbl.JumpBase:x}"
 #endif
-      ctx.ManagerChannel.NotifyJumpTableRecovery (ctx.FunctionAddress, jmptbl)
+      ctx.ManagerChannel.NotifyJumpTableRecovery(ctx.FunctionAddress, jmptbl)
       |> function
         | GoRecovery -> pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
         | StopRecoveryButReload -> StopAndReload
@@ -583,26 +582,26 @@ module internal CFGRecovery =
     | _ -> false
 
   let popOffJmpTblRecoveryAction ctx =
-    match ctx.ActionQueue.Pop () with
+    match ctx.ActionQueue.Pop() with
     | EndTblRec _ -> ()
     | _ -> assert false
 
   let recoverJumpTableEntry ctx cfgRec queue insAddr srcAddr dstAddr =
-    let srcVertex = getVertex ctx cfgRec (ProgramPoint (srcAddr, 0))
+    let srcVertex = getVertex ctx cfgRec (ProgramPoint(srcAddr, 0))
     let fnAddr = ctx.FunctionAddress
     if dstAddr < fnAddr
       || not (isExecutableAddr ctx dstAddr)
       || not (isWithinFunction ctx fnAddr dstAddr)
     then
-      match ctx.JumpTableRecoveryStatus.TryPeek () with
+      match ctx.JumpTableRecoveryStatus.TryPeek() with
       | true, (tblAddr, 0) ->
         (* The first jump table entry was invalid. For example, the target could
            be outside the boundary of the current function. In this case, we
            conclude that the indirect jump is not using a jump table, and thus,
            we simply ignore the indirect branch. *)
-        ctx.ManagerChannel.CancelJumpTableRecovery (fnAddr, insAddr, tblAddr)
+        ctx.ManagerChannel.CancelJumpTableRecovery(fnAddr, insAddr, tblAddr)
         popOffJmpTblRecoveryAction ctx
-        ctx.JumpTableRecoveryStatus.Pop () |> ignore
+        ctx.JumpTableRecoveryStatus.Pop() |> ignore
         MoveOn
       | _ ->
         FailStop ErrorCase.FailedToRecoverCFG
@@ -614,7 +613,7 @@ module internal CFGRecovery =
     let fnAddr = ctx.FunctionAddress
     let tblAddr = jmptbl.TableAddress
     let nextTarget = readJumpTable ctx jmptbl (idx + 1)
-    ctx.ManagerChannel.ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextTarget)
+    ctx.ManagerChannel.ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextTarget)
     |> function
       | true ->
         let callsiteAddr = jmptbl.InsAddr
@@ -634,21 +633,21 @@ module internal CFGRecovery =
   let updateCallEdgesForEachCallsite ctx cfgRec callsites calleeAddr
                                      calleeInfo =
     for callsite in callsites do
-      let absPp = ProgramPoint (callsite, calleeAddr, 0)
+      let absPp = ProgramPoint(callsite, calleeAddr, 0)
       match ctx.Vertices.TryGetValue absPp with
       | true, absV when isNoRet absV ->
         let edge = ctx.CFG.GetPredEdges absV |> Array.exactlyOne
         let isTailCall = edge.Label = TailCallEdge
         let action =
-          if isTailCall then MakeTlCall (callsite, calleeAddr, calleeInfo)
-          else MakeCall (callsite, calleeAddr, calleeInfo)
+          if isTailCall then MakeTlCall(callsite, calleeAddr, calleeInfo)
+          else MakeCall(callsite, calleeAddr, calleeInfo)
 #if CFGDEBUG
         let fnAddr = ctx.FunctionAddress
         dbglog ctx.ThreadID (nameof UpdateCallEdges)
         <| $"{callsite:x} -> {calleeAddr:x} @ {fnAddr:x}"
 #endif
         tryRemoveVertexAt ctx cfgRec absPp |> ignore
-        ctx.ActionQueue.Push prioritizer action
+        ctx.ActionQueue.Push(prioritizer, action)
       | _ -> ()
     MoveOn
 
@@ -660,7 +659,7 @@ module internal CFGRecovery =
       Terminator.impossible ()
 
   let hasReturnNode (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) =
-    ctx.CFG.TryFindVertex (fun v ->
+    ctx.CFG.TryFindVertex(fun v ->
       if v.VData.Internals.IsAbstract then
         v.VData.Internals.AbstractContent.ReturningStatus = NotNoRet
       else v.VData.Internals.LastInstruction.IsRET)
@@ -685,7 +684,7 @@ module internal CFGRecovery =
 #if CFGDEBUG
         dbglog ctx.ThreadID (nameof InitiateCFG) $"{fnAddr:x}"
 #endif
-        let pp = ProgramPoint (fnAddr, 0)
+        let pp = ProgramPoint(fnAddr, 0)
         match scanBBLs ctx [ fnAddr ] with
         | Ok _ ->
           buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [| pp |]
@@ -698,30 +697,30 @@ module internal CFGRecovery =
         <| $"{targets} @ {ctx.FunctionAddress:x}"
 #endif
         buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue pps
-      | MakeCall (callSite, calleeAddr, calleeInfo) ->
+      | MakeCall(callSite, calleeAddr, calleeInfo) ->
 #if CFGDEBUG
         dbglog ctx.ThreadID (nameof MakeCall)
         <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-        cfgRec.AnalyzeCall ctx callSite calleeAddr calleeInfo false
-      | MakeTlCall (callSite, calleeAddr, calleeInfo) ->
+        cfgRec.AnalyzeCall(ctx, callSite, calleeAddr, calleeInfo, false)
+      | MakeTlCall(callSite, calleeAddr, calleeInfo) ->
 #if CFGDEBUG
         dbglog ctx.ThreadID (nameof MakeTlCall)
         <| $"{ctx.FunctionAddress:x} to {calleeAddr:x}"
 #endif
-        cfgRec.AnalyzeCall ctx callSite calleeAddr calleeInfo true
-      | MakeIndCall (callsiteAddr) ->
+        cfgRec.AnalyzeCall(ctx, callSite, calleeAddr, calleeInfo, true)
+      | MakeIndCall(callsiteAddr) ->
 #if CFGDEBUG
         dbglog ctx.ThreadID (nameof MakeIndCall)
         <| $"{callsiteAddr:x} @ {ctx.FunctionAddress:x}"
 #endif
         connectIndirectCallEdge ctx cfgRec callsiteAddr
-      | MakeSyscall (callsiteAddr, isExit) ->
+      | MakeSyscall(callsiteAddr, isExit) ->
 #if CFGDEBUG
         dbglog ctx.ThreadID (nameof MakeSyscall) $"{ctx.FunctionAddress:x}"
 #endif
         connectSyscallEdge ctx syscallAnalysis cfgRec callsiteAddr isExit
-      | MakeIndEdges (bblAddr, insAddr) ->
+      | MakeIndEdges(bblAddr, insAddr) ->
 #if CFGDEBUG
         dbglog ctx.ThreadID (nameof MakeIndEdges)
         <| $"{bblAddr:x} @ {ctx.FunctionAddress:x}"
@@ -747,24 +746,24 @@ module internal CFGRecovery =
           dbglog ctx.ThreadID (nameof WaitForCallee) "-> wait"
 #endif
           Wait (* yet resolved *)
-      | StartTblRec (jmptbl, idx, srcAddr, dstAddr) ->
+      | StartTblRec(jmptbl, idx, srcAddr, dstAddr) ->
 #if CFGDEBUG
         let fnAddr = ctx.FunctionAddress
         dbglog ctx.ThreadID (nameof StartTblRec)
         <| $"{jmptbl.InsAddr:x}[{idx}] -> {dstAddr:x} @ {fnAddr:x}"
 #endif
-        ctx.JumpTableRecoveryStatus.Push (jmptbl.TableAddress, idx)
+        ctx.JumpTableRecoveryStatus.Push(jmptbl.TableAddress, idx)
         recoverJumpTableEntry ctx cfgRec queue jmptbl.InsAddr srcAddr dstAddr
-      | EndTblRec (jmptbl, idx) ->
+      | EndTblRec(jmptbl, idx) ->
 #if CFGDEBUG
         dbglog ctx.ThreadID (nameof EndTblRec)
         <| $"{jmptbl.InsAddr:x}[{idx}] @ {ctx.FunctionAddress:x}"
 #endif
         jmptbl.NumEntries <- idx + 1
         ctx.JumpTables.Add jmptbl
-        ctx.JumpTableRecoveryStatus.Pop () |> ignore
+        ctx.JumpTableRecoveryStatus.Pop() |> ignore
         sendJmpTblRecoverySuccess ctx queue jmptbl idx
-      | UpdateCallEdges (calleeAddr, calleeInfo) ->
+      | UpdateCallEdges(calleeAddr, calleeInfo) ->
 #if CFGDEBUG
         let noret, unwinding = calleeInfo
         let fnAddr = ctx.FunctionAddress
@@ -772,8 +771,8 @@ module internal CFGRecovery =
         <| $"{calleeAddr:x} changed to ({noret}:{unwinding}) @ {fnAddr:x}"
 #endif
         updateCallEdges ctx cfgRec calleeAddr calleeInfo
-      | ResumeAnalysis (pp, callbackAction) ->
-        cfgRec.ResumeAnalysis ctx pp callbackAction
+      | ResumeAnalysis(pp, callbackAction) ->
+        cfgRec.ResumeAnalysis(ctx, pp, callbackAction)
     with e ->
       Console.Error.WriteLine $"OnAction failed:\n{e}"
       FailStop ErrorCase.FailedToRecoverCFG
@@ -789,9 +788,9 @@ module internal CFGRecovery =
       <| $"Found overlap at {addr:x} @ {ctx.FunctionAddress}"
 #endif
       match v.VData.DominatingJumpTableEntry with
-      | Some (tblAddr, idx) ->
+      | Some(tblAddr, idx) ->
         let fnAddr = ctx.FunctionAddress
-        ctx.ManagerChannel.NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx)
+        ctx.ManagerChannel.NotifyBogusJumpTableEntry(fnAddr, tblAddr, idx)
         |> function
           | true -> StopAndReload
           | false -> finalizeRecovery ctx cfgRec postAnalysis
@@ -822,36 +821,36 @@ type CFGRecovery<'FnCtx,
                  'GlCtx when 'FnCtx :> IResettable
                          and 'FnCtx: (new: unit -> 'FnCtx)
                          and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (summarizer: IFunctionSummarizable<'FnCtx, 'GlCtx>,
-          jmptblAnalysis: IJmpTableAnalyzable<'FnCtx, 'GlCtx>,
-          syscallAnalysis: ISyscallAnalyzable,
-          postAnalysis: ICFGAnalysis<_>,
-          useTailcallHeuristic,
-          allowBBLOverlap,
-          useSSA) as this =
+  public(summarizer: IFunctionSummarizable<'FnCtx, 'GlCtx>,
+         jmptblAnalysis: IJmpTableAnalyzable<'FnCtx, 'GlCtx>,
+         syscallAnalysis: ISyscallAnalyzable,
+         postAnalysis: ICFGAnalysis<_>,
+         useTailcallHeuristic,
+         allowBBLOverlap,
+         useSSA) as this =
 
   interface ICFGRecovery<'FnCtx, 'GlCtx> with
     member _.Summarizer = summarizer
 
-    member _.AnalyzeCall ctx callSite calleeAddr calleeInfo isTailCall =
+    member _.AnalyzeCall(ctx, callSite, calleeAddr, calleeInfo, isTailCall) =
       CFGRecovery.connectCallEdge ctx this callSite calleeAddr calleeInfo
                                   isTailCall
 
-    member _.AnalyzeIndirectJump ctx _ppQueue pp srcVertex =
+    member _.AnalyzeIndirectJump(ctx, _ppQueue, pp, srcVertex) =
       let insAddr = srcVertex.VData.Internals.LastInstruction.Address
       let callsite = LeafCallSite insAddr
       CFGRecovery.addCallerVertex ctx callsite srcVertex
-      CFGRecovery.pushAction ctx <| MakeIndEdges (pp.Address, insAddr)
+      CFGRecovery.pushAction ctx <| MakeIndEdges(pp.Address, insAddr)
       None
 
-    member _.AnalyzeIndirectCondJump _ _ _ _ = None
+    member _.AnalyzeIndirectCondJump(_, _, _, _) = None
 
-    member _.ResumeAnalysis _ _ _ = Terminator.impossible ()
+    member _.ResumeAnalysis(_, _, _) = Terminator.impossible ()
 
-    member _.FindCandidates (builders) =
+    member _.FindCandidates(builders) =
       CFGRecovery.findCandidates builders
 
-    member _.OnAction (ctx, queue, action) =
+    member _.OnAction(ctx, queue, action) =
       CFGRecovery.onAction ctx this queue syscallAnalysis jmptblAnalysis
                            useTailcallHeuristic action
 
@@ -863,63 +862,63 @@ type CFGRecovery<'FnCtx,
     member _.OnCyclicDependency deps =
       CFGRecovery.onCyclicDependency deps
 
-    member _.ActionPrioritizer with get () =
+    member _.ActionPrioritizer with get() =
       CFGRecovery.prioritizer
 
-    member _.AllowBBLOverlap with get () = allowBBLOverlap
+    member _.AllowBBLOverlap with get() = allowBBLOverlap
 
-    member _.OnAddVertex ctx vertex =
+    member _.OnAddVertex(ctx, vertex) =
       if not useSSA then
         CFGRecovery.markVertexAsPendingForAnalysis ctx vertex
       else ()
 
-    member _.OnAddEdge ctx _srcVertex dstVertex _edgeKind =
+    member _.OnAddEdge(ctx, _srcVertex, dstVertex, _edgeKind) =
       if not useSSA then
         CFGRecovery.markVertexAsPendingForAnalysis ctx dstVertex
       else ()
 
-    member _.OnRemoveVertex ctx vertex =
+    member _.OnRemoveVertex(ctx, vertex) =
       CFGRecovery.markVertexAsRemovalForAnalysis ctx vertex
 
-  new (allowBBLOverlap, useSSA) =
-    let summarizer = FunctionSummarizer ()
-    let syscallAnalysis = SyscallAnalysis ()
+  new(allowBBLOverlap, useSSA) =
+    let summarizer = FunctionSummarizer()
+    let syscallAnalysis = SyscallAnalysis()
     let jmptblAnalysis, postAnalysis =
       if useSSA then
-        let ssaLifter = SSALifter () :> ICFGAnalysis<_>
-        JmpTableAnalysis (Some ssaLifter) :> IJmpTableAnalyzable<_, _>,
-        ssaLifter <+> CondAwareNoretAnalysis ()
+        let ssaLifter = SSALifter() :> ICFGAnalysis<_>
+        JmpTableAnalysis(Some ssaLifter) :> IJmpTableAnalyzable<_, _>,
+        ssaLifter <+> CondAwareNoretAnalysis()
       else
         JmpTableAnalysis None :> IJmpTableAnalyzable<_, _>,
-        CondAwareNoretAnalysis ()
-    CFGRecovery (summarizer,
-                 jmptblAnalysis,
-                 syscallAnalysis,
-                 postAnalysis,
-                 true,
-                 allowBBLOverlap,
-                 useSSA)
+        CondAwareNoretAnalysis()
+    CFGRecovery(summarizer,
+                jmptblAnalysis,
+                syscallAnalysis,
+                postAnalysis,
+                true,
+                allowBBLOverlap,
+                useSSA)
 
 /// Base strategy for building a CFG without any customizable context.
 type CFGRecovery =
   inherit CFGRecovery<DummyContext, DummyContext>
 
-  new () =
-    { inherit CFGRecovery<DummyContext, DummyContext> (false, false) }
+  new() =
+    { inherit CFGRecovery<DummyContext, DummyContext>(false, false) }
 
-  new (allowBBLOverlap) =
-    { inherit CFGRecovery<DummyContext, DummyContext> (allowBBLOverlap, false) }
+  new(allowBBLOverlap) =
+    { inherit CFGRecovery<DummyContext, DummyContext>(allowBBLOverlap, false) }
 
-  new (summarizer,
-       jmptblAnalysis,
-       syscallAnalysis,
-       postAnalysis,
-       useTailcallHeuristic,
-       allowBBLOverlap) =
-    { inherit CFGRecovery<DummyContext, DummyContext> (summarizer,
-                                                       jmptblAnalysis,
-                                                       syscallAnalysis,
-                                                       postAnalysis,
-                                                       useTailcallHeuristic,
-                                                       allowBBLOverlap,
-                                                       false) }
+  new(summarizer,
+      jmptblAnalysis,
+      syscallAnalysis,
+      postAnalysis,
+      useTailcallHeuristic,
+      allowBBLOverlap) =
+    { inherit CFGRecovery<DummyContext, DummyContext>(summarizer,
+                                                      jmptblAnalysis,
+                                                      syscallAnalysis,
+                                                      postAnalysis,
+                                                      useTailcallHeuristic,
+                                                      allowBBLOverlap,
+                                                      false) }

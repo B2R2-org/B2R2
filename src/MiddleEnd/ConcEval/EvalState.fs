@@ -40,43 +40,43 @@ and SideEffectEventHandler =
 /// The main evaluation state that will be updated by evaluating every statement
 /// encountered during the course of execution. This can be considered as a
 /// single-threaded CPU context.
-and EvalState (regs, temps, lbls, mem, ignoreUndef) =
+and EvalState(regs, temps, lbls, mem, ignoreUndef) =
   let mutable pc = 0UL
   let mutable stmtIdx = 0
   let mutable currentInsLen = 0u
   let mutable isInstrTerminated = false
   let mutable needToEvaluateIEMark = false
-  let mutable loadFailureHdl = LoadFailureEventHandler (fun _ _ _ e -> Error e)
-  let mutable externalCallEventHdl = ExternalCallEventHandler (fun _ _ -> ())
-  let mutable sideEffectHdl = SideEffectEventHandler (fun _ _ -> ())
+  let mutable loadFailureHdl = LoadFailureEventHandler(fun _ _ _ e -> Error e)
+  let mutable externalCallEventHdl = ExternalCallEventHandler(fun _ _ -> ())
+  let mutable sideEffectHdl = SideEffectEventHandler(fun _ _ -> ())
 
   /// This constructor will simply create a fresh new EvalState.
-  new () =
-    EvalState (Variables (),
-               Variables (),
-               Labels (),
-               NonsharableMemory () :> Memory,
-               false)
+  new() =
+    EvalState(Variables(),
+              Variables(),
+              Labels(),
+              NonsharableMemory() :> Memory,
+              false)
 
   /// This constructor will simply create a fresh new EvalState with the given
   /// memory.
-  new (mem) =
-    EvalState (Variables (),
-               Variables (),
-               Labels (),
-               mem,
-               false)
+  new(mem) =
+    EvalState(Variables(),
+              Variables(),
+              Labels(),
+              mem,
+              false)
 
   /// This constructor will simply create a fresh new EvalState. Depending on
   /// the `ignoreUndef` parameter, the evaluator using this EvalState will
   /// silently ignore Undef values. Such a feature is only useful for some
   /// static analyses.
-  new (ignoreUndef) =
-    EvalState (Variables (),
-               Variables (),
-               Labels (),
-               NonsharableMemory () :> Memory,
-               ignoreUndef)
+  new(ignoreUndef) =
+    EvalState(Variables(),
+              Variables(),
+              Labels(),
+              NonsharableMemory() :> Memory,
+              ignoreUndef)
 
   /// Current PC.
   member _.PC with get() = pc and set(addr) = pc <- addr
@@ -120,61 +120,61 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   member _.IgnoreUndef with get() = ignoreUndef
 
   /// Update the current statement index to be the next (current + 1) statement.
-  member inline this.NextStmt () =
+  member inline this.NextStmt() =
     this.StmtIdx <- this.StmtIdx + 1
 
   /// Stop evaluating further statements of the current instruction, and move on
   /// the next instruction.
-  member this.AbortInstr ([<Optional; DefaultParameterValue(false)>]
-                        needToUpdatePC: bool) =
+  member this.AbortInstr([<Optional; DefaultParameterValue(false)>]
+                         needToUpdatePC: bool) =
     isInstrTerminated <- true
     needToEvaluateIEMark <- needToUpdatePC
-    this.NextStmt ()
+    this.NextStmt()
 
   /// Get the value of the given temporary variable.
   member inline this.TryGetTmp n =
-    match this.Temporaries.TryGet (n) with
+    match this.Temporaries.TryGet(n) with
     | Ok v -> Def v
     | Error _ -> Undef
 
   /// Get the value of the given temporary variable.
   member inline this.GetTmp n =
-    this.Temporaries.Get (n)
+    this.Temporaries.Get(n)
 
   /// Set the value for the given temporary variable.
-  member inline this.SetTmp n v =
-    this.Temporaries.Set n v
+  member inline this.SetTmp(n, v) =
+    this.Temporaries.Set(n, v)
 
   /// Unset the given temporary variable.
   member inline this.UnsetTmp n =
     this.Temporaries.Unset n
 
   /// Get the value of the given register.
-  member inline this.TryGetReg (r: RegisterID) =
-    match this.Registers.TryGet (int r) with
+  member inline this.TryGetReg(r: RegisterID) =
+    match this.Registers.TryGet(int r) with
     | Ok v -> Def v
     | Error _ -> Undef
 
   /// Get the value of the given register.
-  member inline this.GetReg (r: RegisterID) =
-    this.Registers.Get (int r)
+  member inline this.GetReg(r: RegisterID) =
+    this.Registers.Get(int r)
 
   /// Set the value for the given register.
-  member inline this.SetReg (r: RegisterID) v =
-    this.Registers.Set (int r) v
+  member inline this.SetReg(r: RegisterID, v) =
+    this.Registers.Set(int r, v)
 
   /// Unset the given register.
-  member inline this.UnsetReg (r: RegisterID) =
-    this.Registers.Unset (int r)
+  member inline this.UnsetReg(r: RegisterID) =
+    this.Registers.Unset(int r)
 
   /// Advance PC by `amount`.
-  member inline this.AdvancePC (amount: uint32) =
+  member inline this.AdvancePC(amount: uint32) =
     this.PC <- this.PC + uint64 amount
 
   /// Initialize the current context by updating register values.
-  member this.InitializeContext pc regs =
+  member this.InitializeContext(pc, regs) =
     this.PC <- pc
-    regs |> Array.iter (fun (r, v) -> this.SetReg r v)
+    regs |> Array.iter (fun (r, v) -> this.SetReg(r, v))
 
   /// Go to the statement of the given label.
   member inline this.GoToLabel lbl =
@@ -199,30 +199,30 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   member _.SideEffectEventHandler
     with get() = sideEffectHdl and set(f) = sideEffectHdl <- f
 
-  member internal this.OnLoadFailure pc addr rt e =
-    this.LoadFailureEventHandler.Invoke (pc, addr, rt, e)
+  member internal this.OnLoadFailure(pc, addr, rt, e) =
+    this.LoadFailureEventHandler.Invoke(pc, addr, rt, e)
 
-  member internal this.OnExternalCall args st =
-    this.ExternalCallEventHandler.Invoke (args, st)
+  member internal this.OnExternalCall(args, st) =
+    this.ExternalCallEventHandler.Invoke(args, st)
 
-  member internal this.OnSideEffect eff st =
-    this.SideEffectEventHandler.Invoke (eff, st)
+  member internal this.OnSideEffect(eff, st) =
+    this.SideEffectEventHandler.Invoke(eff, st)
 
   /// Make a copy of this EvalState with a given new Memory.
-  member _.Clone (newMem) =
-    EvalState (regs.Clone (),
-               temps.Clone (),
-               lbls.Clone (),
-               newMem,
-               ignoreUndef,
-               PC = pc,
-               StmtIdx = stmtIdx,
-               CurrentInsLen = currentInsLen,
-               IsInstrTerminated = isInstrTerminated,
-               NeedToEvaluateIEMark = needToEvaluateIEMark,
-               LoadFailureEventHandler = loadFailureHdl,
-               ExternalCallEventHandler = externalCallEventHdl,
-               SideEffectEventHandler = sideEffectHdl)
+  member _.Clone(newMem) =
+    EvalState(regs.Clone(),
+              temps.Clone(),
+              lbls.Clone(),
+              newMem,
+              ignoreUndef,
+              PC = pc,
+              StmtIdx = stmtIdx,
+              CurrentInsLen = currentInsLen,
+              IsInstrTerminated = isInstrTerminated,
+              NeedToEvaluateIEMark = needToEvaluateIEMark,
+              LoadFailureEventHandler = loadFailureHdl,
+              ExternalCallEventHandler = externalCallEventHdl,
+              SideEffectEventHandler = sideEffectHdl)
 
   /// Make a copy of this EvalState.
-  member this.Clone () = this.Clone (mem)
+  member this.Clone() = this.Clone(mem)

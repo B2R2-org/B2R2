@@ -27,6 +27,6 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Dummy context.
-type DummyContext () =
+type DummyContext() =
   interface IResettable with
-    member _.Reset () = ()
+    member _.Reset() = ()

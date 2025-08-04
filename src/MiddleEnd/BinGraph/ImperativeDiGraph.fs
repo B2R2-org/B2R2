@@ -27,27 +27,27 @@ namespace B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
 
 /// Imperative directed graph.
-type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
-  let vertices = Dictionary<VertexID, ImperativeVertex<'V>> ()
+type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
+  let vertices = Dictionary<VertexID, ImperativeVertex<'V>>()
 
-  let edges = Dictionary<VertexID * VertexID, Edge<'V, 'E>> ()
+  let edges = Dictionary<VertexID * VertexID, Edge<'V, 'E>>()
 
-  let unreachables = HashSet<ImperativeVertex<'V>> ()
+  let unreachables = HashSet<ImperativeVertex<'V>>()
 
-  let exits = HashSet<ImperativeVertex<'V>> ()
+  let exits = HashSet<ImperativeVertex<'V>>()
 
   let mutable id = 0
 
-  let roots = List<ImperativeVertex<'V>> ()
+  let roots = List<ImperativeVertex<'V>>()
 
   let checkVertexExistence (v: IVertex<'V>) =
     if not <| vertices.ContainsKey v.ID then raise VertexNotFoundException
     else ()
 
   let addVertex (data: VertexData<'V>) (vid: VertexID) =
-    let v = ImperativeVertex (vid, data)
+    let v = ImperativeVertex(vid, data)
     if roots.Count = 0 then roots.Add v else ()
-    vertices.Add (vid, v) |> ignore
+    vertices.Add(vid, v) |> ignore
     unreachables.Add v |> ignore
     exits.Add v |> ignore
     (v :> IVertex<'V>)
@@ -67,9 +67,9 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
     checkVertexExistence dst
     let srcID = (src :> IVertex<_>).ID
     let dstID = (dst :> IVertex<_>).ID
-    if edges.ContainsKey (srcID, dstID) then ()
+    if edges.ContainsKey(srcID, dstID) then ()
     else
-      edges[(srcID, dstID)] <- Edge (src, dst, label)
+      edges[(srcID, dstID)] <- Edge(src, dst, label)
       src.Succs.Add dst
       dst.Preds.Add src
       unreachables.Remove dst |> ignore
@@ -82,11 +82,11 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
     checkVertexExistence dst
     let srcid = src.ID
     let dstid = dst.ID
-    src.Succs.RemoveAll (fun s -> s.ID = dstid) |> ignore
-    dst.Preds.RemoveAll (fun p -> p.ID = srcid) |> ignore
+    src.Succs.RemoveAll(fun s -> s.ID = dstid) |> ignore
+    dst.Preds.RemoveAll(fun p -> p.ID = srcid) |> ignore
     if dst.Preds.Count = 0 then unreachables.Add dst |> ignore else ()
     if src.Succs.Count = 0 then exits.Add src |> ignore else ()
-    edges.Remove ((srcid, dstid)) |> ignore
+    edges.Remove((srcid, dstid)) |> ignore
 
   let findVertexBy fn =
     vertices.Values |> Seq.find fn :> IVertex<'V>
@@ -97,16 +97,16 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
     |> Option.map (fun v -> v :> IVertex<'V>)
 
   let clone () =
-    let g = ImperativeDiGraph<'V, 'E> ()
+    let g = ImperativeDiGraph<'V, 'E>()
     let ig = g :> IDiGraph<_, _>
-    let dictOldToNew = Dictionary<VertexID, VertexID> ()
+    let dictOldToNew = Dictionary<VertexID, VertexID>()
     vertices.Values |> Seq.iter (fun v ->
-      let v', _ = ig.AddVertex (v :> IVertex<_>).VData
-      dictOldToNew.Add (v.ID, v'.ID))
+      let v', _ = ig.AddVertex((v :> IVertex<_>).VData)
+      dictOldToNew.Add(v.ID, v'.ID))
     edges.Values |> Seq.iter (fun e ->
       let src = ig.FindVertexByID dictOldToNew[e.First.ID]
       let dst = ig.FindVertexByID dictOldToNew[e.Second.ID]
-      ig.AddEdge (src, dst, e.Label) |> ignore)
+      ig.AddEdge(src, dst, e.Label) |> ignore)
     g
 
   interface IDiGraphAccessible<'V, 'E> with
@@ -119,7 +119,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
     member _.Edges with get() =
       edges
       |> Seq.toArray
-      |> Array.map (fun (KeyValue (_, edge)) -> edge)
+      |> Array.map (fun (KeyValue(_, edge)) -> edge)
 
     member _.Unreachables with get() =
       unreachables
@@ -137,11 +137,11 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
 
     member _.ImplementationType with get() = Imperative
 
-    member _.IsEmpty () = vertices.Count = 0
+    member _.IsEmpty() = vertices.Count = 0
 
     member _.HasVertex vid = vertices.ContainsKey vid
 
-    member _.HasEdge src dst = edges.ContainsKey((src.ID, dst.ID))
+    member _.HasEdge(src, dst) = edges.ContainsKey((src.ID, dst.ID))
 
     member _.FindVertexBy fn = findVertexBy fn
 
@@ -160,51 +160,51 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
     member _.TryFindVertexByData data =
       tryFindVertexBy (fun v -> (v :> IVertex<'V>).VData = data)
 
-    member _.FindEdge (src: IVertex<'V>, dst: IVertex<'V>) =
-      match edges.TryGetValue (key = (src.ID, dst.ID)) with
+    member _.FindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
+      match edges.TryGetValue(key = (src.ID, dst.ID)) with
       | true, edge -> edge
       | false, _ -> raise EdgeNotFoundException
 
-    member _.TryFindEdge (src: IVertex<'V>, dst: IVertex<'V>) =
-      match edges.TryGetValue (key = (src.ID, dst.ID)) with
+    member _.TryFindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
+      match edges.TryGetValue(key = (src.ID, dst.ID)) with
       | true, edge -> Some edge
       | false, _ -> None
 
-    member _.GetPreds (v: IVertex<'V>) =
+    member _.GetPreds(v: IVertex<'V>) =
       (v :?> ImperativeVertex<'V>).Preds
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
 
-    member _.GetPredEdges (v: IVertex<'V>) =
+    member _.GetPredEdges(v: IVertex<'V>) =
       (v :?> ImperativeVertex<'V>).Preds
       |> Seq.toArray
       |> Array.map (fun pred -> edges[(pred.ID, v.ID)])
 
-    member _.GetSuccs (v: IVertex<'V>) =
+    member _.GetSuccs(v: IVertex<'V>) =
       (v :?> ImperativeVertex<'V>).Succs
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
 
-    member _.GetSuccEdges (v: IVertex<'V>) =
+    member _.GetSuccEdges(v: IVertex<'V>) =
       (v :?> ImperativeVertex<'V>).Succs
       |> Seq.toArray
       |> Array.map (fun succ -> edges[(v.ID, succ.ID)])
 
-    member _.GetRoots () =
+    member _.GetRoots() =
       roots
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
 
     member this.Reverse vs =
-      GraphUtils.reverse this vs (ImperativeDiGraph ())
+      GraphUtils.reverse this vs (ImperativeDiGraph())
 
-    member _.FoldVertex fn acc =
+    member _.FoldVertex(fn, acc) =
       vertices.Values |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
 
     member _.IterVertex fn =
       vertices.Values |> Seq.iter (fun v -> fn (v :> IVertex<'V>))
 
-    member _.FoldEdge fn acc =
+    member _.FoldEdge(fn, acc) =
       edges.Values |> Seq.fold fn acc
 
     member _.IterEdge fn =
@@ -215,11 +215,11 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
     member this.AddVertex v =
       addVertexWithData (VertexData v), this
 
-    member this.AddVertex (v, vid) =
+    member this.AddVertex(v, vid) =
       assert ((this: IDiGraph<_, _>).HasVertex vid |> not)
       addVertexWithDataAndID (VertexData v) vid, this
 
-    member this.AddVertex () =
+    member this.AddVertex() =
       addVertexWithData null, this
 
     member this.RemoveVertex v =
@@ -233,37 +233,37 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality> () =
       roots.Remove v |> ignore
       this
 
-    member this.AddEdge (src: IVertex<'V>, dst: IVertex<'V>, label) =
+    member this.AddEdge(src: IVertex<'V>, dst: IVertex<'V>, label) =
       addEdge src dst (EdgeLabel label)
       this
 
-    member this.AddEdge (src: IVertex<'V>, dst: IVertex<'V>) =
+    member this.AddEdge(src: IVertex<'V>, dst: IVertex<'V>) =
       addEdge src dst null
       this
 
-    member this.RemoveEdge (src: IVertex<'V>, dst: IVertex<'V>) =
+    member this.RemoveEdge(src: IVertex<'V>, dst: IVertex<'V>) =
       removeEdge src dst
       this
 
-    member this.RemoveEdge (edge: Edge<'V, 'E>) =
+    member this.RemoveEdge(edge: Edge<'V, 'E>) =
       removeEdge edge.First edge.Second
       this
 
-    member this.AddRoot (v) =
+    member this.AddRoot(v) =
       let v = v :?> ImperativeVertex<'V>
       assert (vertices.ContainsKey v.ID)
       if roots.Contains v then () else roots.Add v
       this
 
-    member this.SetRoots (vs) =
-      roots.Clear ()
+    member this.SetRoots(vs) =
+      roots.Clear()
       for v in vs do
         assert (vertices.ContainsKey v.ID)
-        roots.Add (v :?> ImperativeVertex<'V>)
+        roots.Add(v :?> ImperativeVertex<'V>)
       this
 
-    member this.Reverse (vs) =
-      GraphUtils.reverse this vs (ImperativeDiGraph ())
+    member this.Reverse(vs) =
+      GraphUtils.reverse this vs (ImperativeDiGraph())
 
-    member _.Clone () =
+    member _.Clone() =
       clone ()

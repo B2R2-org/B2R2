@@ -36,77 +36,76 @@ open B2R2.MiddleEnd.DataFlow
 type CFGBuildingContext<'FnCtx,
                         'GlCtx when 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
-                                and 'GlCtx: (new: unit -> 'GlCtx)> = {
-  /// The address of the function that is being built.
-  FunctionAddress: Addr
-  /// Function name.
-  FunctionName: string
-  /// The binary handle.
-  BinHandle: BinHandle
-  /// The exception information of the binary.
-  ExnInfo: ExceptionInfo
-  /// Mapping from a program point to a vertex in the LowUIRCFG.
-  Vertices: Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>
-  /// The control flow graph in LowUIR.
-  mutable CFG: LowUIRCFG
-  /// Constant propagation analyzer that is used to incrementally update
-  /// the dataflow state of the CFG as we recover it.
-  CP: ConstantPropagation
-  /// The basic block factory.
-  BBLFactory: BBLFactory
-  /// Is this function a no-return function?
-  mutable NonReturningStatus: NonReturningStatus
-  /// Which jump table entry is currently being recovered? (table addr, index)
-  JumpTableRecoveryStatus: Stack<Addr * int>
-  /// Jump tables associated with this function.
-  JumpTables: List<JmpTableInfo>
-  /// Table for maintaining intra-function call information of this function.
-  IntraCallTable: IntraCallTable
-  /// Set of callers of this function.
-  Callers: HashSet<Addr>
-  /// The set of visited BBL program points. This is to prevent visiting the
-  /// same basic block multiple times when constructing the CFG.
-  VisitedPPoints: HashSet<ProgramPoint>
-  /// The action queue for the CFG building process.
-  ActionQueue: CFGActionQueue
-  /// Pending call-edge connection actions (e.g., MakeCall, MakeTlCall, etc) for
-  /// each callee address. This is to remember the actions that are waiting for
-  /// the callee to be built.
-  PendingCallActions: Dictionary<Addr, List<CFGAction>>
-  /// From a call site of a caller vertex to the caller vertex itself.
-  CallerVertices: Dictionary<CallSite, IVertex<LowUIRBasicBlock>>
-  /// The number of unwinding bytes of the stack when this function returns.
-  mutable UnwindingBytes: int
-  /// The user-defined per-function context.
-  mutable UserContext: 'FnCtx
-  /// Is this an external function or not.
-  IsExternal: bool
-  /// The channel for accessing the state of the TaskManager.
-  mutable ManagerChannel: IManagerAccessible<'FnCtx, 'GlCtx>
-  /// Thread ID that is currently building this function.
-  mutable ThreadID: int
-}
+                                and 'GlCtx: (new: unit -> 'GlCtx)> =
+  { /// The address of the function that is being built.
+    FunctionAddress: Addr
+    /// Function name.
+    FunctionName: string
+    /// The binary handle.
+    BinHandle: BinHandle
+    /// The exception information of the binary.
+    ExnInfo: ExceptionInfo
+    /// Mapping from a program point to a vertex in the LowUIRCFG.
+    Vertices: Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>
+    /// The control flow graph in LowUIR.
+    mutable CFG: LowUIRCFG
+    /// Constant propagation analyzer that is used to incrementally update
+    /// the dataflow state of the CFG as we recover it.
+    CP: ConstantPropagation
+    /// The basic block factory.
+    BBLFactory: BBLFactory
+    /// Is this function a no-return function?
+    mutable NonReturningStatus: NonReturningStatus
+    /// Which jump table entry is currently being recovered? (table addr, index)
+    JumpTableRecoveryStatus: Stack<Addr * int>
+    /// Jump tables associated with this function.
+    JumpTables: List<JmpTableInfo>
+    /// Table for maintaining intra-function call information of this function.
+    IntraCallTable: IntraCallTable
+    /// Set of callers of this function.
+    Callers: HashSet<Addr>
+    /// The set of visited BBL program points. This is to prevent visiting the
+    /// same basic block multiple times when constructing the CFG.
+    VisitedPPoints: HashSet<ProgramPoint>
+    /// The action queue for the CFG building process.
+    ActionQueue: CFGActionQueue
+    /// Pending call-edge connection actions (e.g., MakeCall, MakeTlCall, etc)
+    /// for each callee address. This is to remember the actions that are
+    /// waiting for the callee to be built.
+    PendingCallActions: Dictionary<Addr, List<CFGAction>>
+    /// From a call site of a caller vertex to the caller vertex itself.
+    CallerVertices: Dictionary<CallSite, IVertex<LowUIRBasicBlock>>
+    /// The number of unwinding bytes of the stack when this function returns.
+    mutable UnwindingBytes: int
+    /// The user-defined per-function context.
+    mutable UserContext: 'FnCtx
+    /// Is this an external function or not.
+    IsExternal: bool
+    /// The channel for accessing the state of the TaskManager.
+    mutable ManagerChannel: IManagerAccessible<'FnCtx, 'GlCtx>
+    /// Thread ID that is currently building this function.
+    mutable ThreadID: int }
 with
   /// Reset the context to its initial state.
-  member this.Reset () =
-    this.Vertices.Clear ()
-    this.CallerVertices.Clear ()
+  member this.Reset() =
+    this.Vertices.Clear()
+    this.CallerVertices.Clear()
     this.CFG <- LowUIRCFG this.CFG.ImplementationType
-    this.CP.Reset ()
+    this.CP.Reset()
     (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
        below line commented out) because we should be able to compare the
        difference before/after rebuilding the CFG. *)
     (* this.NonReturningStatus <- UnknownNoRet *)
-    this.JumpTableRecoveryStatus.Clear ()
-    this.JumpTables.Clear ()
-    this.IntraCallTable.Reset ()
-    this.Callers.Clear ()
-    this.VisitedPPoints.Clear ()
-    this.ActionQueue.Clear ()
-    this.PendingCallActions.Clear ()
-    this.CallerVertices.Clear ()
+    this.JumpTableRecoveryStatus.Clear()
+    this.JumpTables.Clear()
+    this.IntraCallTable.Reset()
+    this.Callers.Clear()
+    this.VisitedPPoints.Clear()
+    this.ActionQueue.Clear()
+    this.PendingCallActions.Clear()
+    this.CallerVertices.Clear()
     this.UnwindingBytes <- 0
-    this.UserContext.Reset ()
+    this.UserContext.Reset()
 
   /// Scan basic blocks starting from the given entry points. By discovering new
   /// basic blocks, existing blocks can be divided into multiple blocks, in
@@ -117,7 +116,7 @@ with
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
-  member private _.UpdateDictionary (dict: Dictionary<_, _>) k v delta =
+  member private _.UpdateDictionary(dict: Dictionary<_, _>, k, v, delta) =
     match dict.TryGetValue k with
     | true, (sum, _) -> dict[k] <- (sum + delta, v)
     | false, _ -> dict[k] <- (delta, v)
@@ -126,7 +125,7 @@ with
   /// the vertices. Since there can be many vertices beyond the range of the
   /// current function, we should return the first one (with the smallest
   /// addrress).
-  member private this.FindFunctionOverlap lst nextFnAddr idx res =
+  member private this.FindFunctionOverlap(lst, nextFnAddr, idx, res) =
     if idx = 0 then
 #if DEBUG
       (* This is a fatal error when our function identification or noreturn
@@ -140,7 +139,7 @@ with
     else
       let _, v = (lst: SortedList<_, _ * IVertex<LowUIRBasicBlock>>).Values[idx]
       if v.VData.Internals.Range.Max >= nextFnAddr then
-        this.FindFunctionOverlap lst nextFnAddr (idx - 1) v
+        this.FindFunctionOverlap(lst, nextFnAddr, idx - 1, v)
       elif isNull res then None
       else Some res
 
@@ -161,22 +160,22 @@ with
   ///
   /// This function will return only the first overlapping vertex even though
   /// there may be multiple overlapping vertices.
-  member this.FindOverlap (nextFnAddrOpt) =
+  member this.FindOverlap(nextFnAddrOpt) =
     let vertices = this.CFG.Vertices
-    let dict = Dictionary (vertices.Length * 2)
+    let dict = Dictionary(vertices.Length * 2)
     for v in vertices do
       let vData = v.VData.Internals
       if not vData.IsAbstract && vData.PPoint.Position = 0 then
         let range = v.VData.Internals.Range
-        this.UpdateDictionary dict range.Min v 1
-        this.UpdateDictionary dict (range.Max + 1UL) v -1
+        this.UpdateDictionary(dict, range.Min, v, 1)
+        this.UpdateDictionary(dict, range.Max + 1UL, v, -1)
       else ()
     let lst = SortedList dict
-    let enumerator = lst.GetEnumerator ()
+    let enumerator = lst.GetEnumerator()
     let mutable hasOverlap = false
     let mutable overlapVertex = null
     let mutable sum = 0
-    while not hasOverlap && enumerator.MoveNext () do
+    while not hasOverlap && enumerator.MoveNext() do
       let (delta, v) = enumerator.Current.Value
       sum <- sum + delta
       if sum > 1 then
@@ -187,35 +186,35 @@ with
     else
       match nextFnAddrOpt with
       | Some nextFnAddr ->
-        this.FindFunctionOverlap lst nextFnAddr (lst.Count - 1) null
+        this.FindFunctionOverlap(lst, nextFnAddr, lst.Count - 1, null)
       | None -> None
 
-  member private this.AddOrIgnore acc gapStart gapEnd =
+  member private this.AddOrIgnore(acc, gapStart, gapEnd) =
     match this.ScanBBLs [ gapStart ] with
     | Ok _dividedEdges ->
-      let bbl = this.BBLFactory.Find <| ProgramPoint (gapStart, 0)
+      let bbl = this.BBLFactory.Find <| ProgramPoint(gapStart, 0)
       if bbl.Internals.Range.Max > gapEnd then acc
-      else (AddrRange (gapStart, gapEnd)) :: acc
+      else (AddrRange(gapStart, gapEnd)) :: acc
     | Error _ -> acc
 
   [<TailCall>]
-  member private this.FindGap acc fnEnd gapAddr ranges =
+  member private this.FindGap(acc, fnEnd, gapAddr, ranges) =
     match ranges with
     | [] ->
-      if gapAddr < fnEnd then this.AddOrIgnore acc gapAddr fnEnd
+      if gapAddr < fnEnd then this.AddOrIgnore(acc, gapAddr, fnEnd)
       else acc
     | (range: AddrRange) :: tl ->
       if gapAddr < range.Min then
-        let acc = this.AddOrIgnore acc gapAddr (range.Min - 1UL)
-        this.FindGap acc fnEnd (range.Max + 1UL) tl
+        let acc = this.AddOrIgnore(acc, gapAddr, range.Min - 1UL)
+        this.FindGap(acc, fnEnd, range.Max + 1UL, tl)
       elif gapAddr >= range.Min && gapAddr <= range.Max then
-        this.FindGap acc fnEnd (range.Max + 1UL) tl
+        this.FindGap(acc, fnEnd, range.Max + 1UL, tl)
       else acc
 
   /// Find a gap between the current function and the next function. This
   /// function finds every gap between the current function and the next
   /// function. If there are multiple gaps, return all of them.
-  member this.AnalyzeGap (nextFnAddrOpt) =
+  member this.AnalyzeGap(nextFnAddrOpt) =
     match nextFnAddrOpt with
     | Some nextFnAddr ->
       let endAddr = nextFnAddr - 1UL
@@ -224,7 +223,7 @@ with
         if v.VData.Internals.IsAbstract then acc
         else v.VData.Internals.Range :: acc) []
       |> List.sortBy (fun r -> r.Min)
-      |> this.FindGap [] endAddr this.FunctionAddress
+      |> fun ranges -> this.FindGap([], endAddr, this.FunctionAddress, ranges)
       |> List.rev
     | None -> []
 

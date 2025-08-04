@@ -92,7 +92,7 @@ let addDummyNodes vGraph (backEdges, dummies) (src, dst, edge, delta) =
 
 let assignDummyNodes (vGraph: VisGraph) backEdges =
   let backEdges, longEdges =
-    vGraph.FoldEdge siftBackEdgesAndPickLongEdges (backEdges, [])
+    vGraph.FoldEdge(siftBackEdgesAndPickLongEdges, (backEdges, []))
   longEdges
   |> List.fold (addDummyNodes vGraph) (backEdges, Map.empty)
 

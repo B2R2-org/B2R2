@@ -37,8 +37,8 @@ let private memoryReader (hdl: BinHandle) _pc addr typ _e =
   let file = hdl.File
   if addr < UInt64.MaxValue && file.IsValidAddr addr then
     let ptr = hdl.File.GetBoundedPointer addr
-    match hdl.TryReadBytes (ptr, len) with
-    | Ok v -> Ok (BitVector.OfArr v)
+    match hdl.TryReadBytes(ptr, len) with
+    | Ok v -> Ok(BitVector.OfArr v)
     | Error e -> Error e
   else Error ErrorCase.InvalidMemoryRead
 
@@ -60,14 +60,14 @@ let private initState hdl pc =
   st.LoadFailureEventHandler <- memoryReader hdl
   [| obtainStackDef hdl; obtainFramePointerDef hdl |]
   |> Array.concat
-  |> st.InitializeContext pc
+  |> fun regs -> st.InitializeContext(pc, regs)
   st
 
 /// Concretely evaluate a basic block from an arbitrarily generated state.
 let evalBlockFromScratch hdl (blk: IVertex<LowUIRBasicBlock>) =
   let pc = blk.VData.Internals.PPoint.Address
   let st = initState hdl pc
-  st.SideEffectEventHandler <- fun _ st -> st.AbortInstr ()
+  st.SideEffectEventHandler <- fun _ st -> st.AbortInstr()
   let stmts =
     blk.VData.Internals.LiftedInstructions |> Array.map (fun arr -> arr.Stmts)
   match SafeEvaluator.evalBlock st pc stmts with

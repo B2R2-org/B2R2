@@ -34,24 +34,24 @@ open B2R2.MiddleEnd.BinGraph
 /// CFGEdgeKind>`, which provides a uniform interface for both imperative and
 /// persistent graphs.
 [<AllowNullLiteral>]
-type LowUIRCFG private (g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
+type LowUIRCFG private(g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   let mutable g = g
 
   // FIXME: use this to later to remove dictionary from CFGBuildingContext.
-  let vertexCache = Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>> ()
+  let vertexCache = Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>()
 
   let addVertex (v, g') = g <- g'; v
 
   let update g' = g <- g'
 
   /// Create a new CFG with the given implementation type.
-  new (t: ImplementationType) =
+  new(t: ImplementationType) =
     let g =
       match t with
       | Imperative ->
-        ImperativeDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
+        ImperativeDiGraph<LowUIRBasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
       | Persistent ->
-        PersistentDiGraph<LowUIRBasicBlock, CFGEdgeKind> () :> IDiGraph<_, _>
+        PersistentDiGraph<LowUIRBasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
     LowUIRCFG g
 
   /// Number of vertices.
@@ -74,13 +74,13 @@ type LowUIRCFG private (g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   member _.SingleRoot with get() = g.SingleRoot
 
   /// Get the root vertices of this CFG.
-  member _.Roots with get() = g.GetRoots ()
+  member _.Roots with get() = g.GetRoots()
 
   /// Get the implementation type of this CFG.
   member _.ImplementationType with get() = g.ImplementationType
 
   /// Is this empty? A CFG is empty when there is no vertex.
-  member _.IsEmpty () = g.IsEmpty ()
+  member _.IsEmpty() = g.IsEmpty()
 
   /// Add a vertex containing this BBL to this CFG, and return the added vertex.
   member _.AddVertex bbl = g.AddVertex bbl |> addVertex
@@ -107,25 +107,25 @@ type LowUIRCFG private (g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   member _.TryFindVertex fn = g.TryFindVertexBy fn
 
   /// Add an edge between the given source and destination vertices.
-  member _.AddEdge (src, dst) = g.AddEdge (src, dst) |> update
+  member _.AddEdge(src, dst) = g.AddEdge(src, dst) |> update
 
   /// Add an edge between the given source and destination vertices with a
   /// label.
-  member _.AddEdge (src, dst, label) = g.AddEdge (src, dst, label) |> update
+  member _.AddEdge(src, dst, label) = g.AddEdge(src, dst, label) |> update
 
   /// Remove an edge between the given source and destination vertices.
-  member _.RemoveEdge (src, dst) = g.RemoveEdge (src, dst) |> update
+  member _.RemoveEdge(src, dst) = g.RemoveEdge(src, dst) |> update
 
   /// Remove the given edge from this CFG.
   member _.RemoveEdge edge = g.RemoveEdge edge |> update
 
   /// Find an edge between the given source and destination vertices.
-  member _.FindEdge (src, dst) = g.FindEdge (src, dst)
+  member _.FindEdge(src, dst) = g.FindEdge(src, dst)
 
   /// Find an edge between the given source and destination vertices. This
   /// function returns an Option type. If there is no such an edge, it returns
   /// None.
-  member _.TryFindEdge (src, dst) = g.TryFindEdge (src, dst)
+  member _.TryFindEdge(src, dst) = g.TryFindEdge(src, dst)
 
   /// Get the predecessors of the given vertex.
   member _.GetPreds v = g.GetPreds v
@@ -146,13 +146,13 @@ type LowUIRCFG private (g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   member _.SetRoots vs = g.SetRoots vs |> update
 
   /// Fold the vertices of this CFG with the given function and accumulator.
-  member _.FoldVertex fn acc = g.FoldVertex fn acc
+  member _.FoldVertex(fn, acc) = g.FoldVertex(fn, acc)
 
   /// Iterate over the vertices of this CFG with the given function.
   member _.IterVertex fn = g.IterVertex fn
 
   /// Fold the edges of this CFG with the given function and accumulator.
-  member _.FoldEdge fn acc = g.FoldEdge fn acc
+  member _.FoldEdge(fn, acc) = g.FoldEdge(fn, acc)
 
   /// Iterate over the edges of this CFG with the given function.
   member _.IterEdge fn = g.IterEdge fn
@@ -162,7 +162,7 @@ type LowUIRCFG private (g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   member _.Reverse roots = g.Reverse roots |> LowUIRCFG
 
   /// Clone this CFG.
-  member _.Clone () = g.Clone () |> LowUIRCFG
+  member _.Clone() = g.Clone() |> LowUIRCFG
 
   interface IDiGraphAccessible<LowUIRBasicBlock, CFGEdgeKind> with
     member _.Size = g.Size
@@ -172,38 +172,38 @@ type LowUIRCFG private (g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
     member _.Exits = g.Exits
     member _.SingleRoot = g.SingleRoot
     member _.ImplementationType = g.ImplementationType
-    member _.IsEmpty () = g.IsEmpty ()
+    member _.IsEmpty() = g.IsEmpty()
     member _.HasVertex vid = g.HasVertex vid
-    member _.HasEdge src vid = g.HasEdge src vid
+    member _.HasEdge(src, vid) = g.HasEdge(src, vid)
     member _.FindVertexByID vid = g.FindVertexByID vid
     member _.TryFindVertexByID vid = g.TryFindVertexByID vid
     member _.FindVertexByData vdata = g.FindVertexByData vdata
     member _.TryFindVertexByData vdata = g.TryFindVertexByData vdata
     member _.FindVertexBy fn = g.FindVertexBy fn
     member _.TryFindVertexBy fn = g.TryFindVertexBy fn
-    member _.FindEdge (src, dst) = g.FindEdge (src, dst)
-    member _.TryFindEdge (src, dst) = g.TryFindEdge (src, dst)
+    member _.FindEdge(src, dst) = g.FindEdge(src, dst)
+    member _.TryFindEdge(src, dst) = g.TryFindEdge(src, dst)
     member _.GetPreds v = g.GetPreds v
     member _.GetPredEdges v = g.GetPredEdges v
     member _.GetSuccs v = g.GetSuccs v
     member _.GetSuccEdges v = g.GetSuccEdges v
-    member _.GetRoots () = g.GetRoots ()
+    member _.GetRoots() = g.GetRoots()
     member _.Reverse vs = g.Reverse vs
-    member _.FoldVertex fn acc = g.FoldVertex fn acc
+    member _.FoldVertex(fn, acc) = g.FoldVertex(fn, acc)
     member _.IterVertex fn = g.IterVertex fn
-    member _.FoldEdge fn acc = g.FoldEdge fn acc
+    member _.FoldEdge(fn, acc) = g.FoldEdge(fn, acc)
     member _.IterEdge fn = g.IterEdge fn
 
   interface IDiGraph<LowUIRBasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data
-    member _.AddVertex (data, vid) = g.AddVertex (data, vid)
-    member _.AddVertex () = g.AddVertex ()
+    member _.AddVertex(data, vid) = g.AddVertex(data, vid)
+    member _.AddVertex() = g.AddVertex()
     member _.RemoveVertex v = g.RemoveVertex v
-    member _.AddEdge (src, dst) = g.AddEdge (src, dst)
-    member _.AddEdge (src, dst, label) = g.AddEdge (src, dst, label)
-    member _.RemoveEdge (src, dst) = g.RemoveEdge (src, dst)
+    member _.AddEdge(src, dst) = g.AddEdge(src, dst)
+    member _.AddEdge(src, dst, label) = g.AddEdge(src, dst, label)
+    member _.RemoveEdge(src, dst) = g.RemoveEdge(src, dst)
     member _.RemoveEdge edge = g.RemoveEdge edge
     member _.AddRoot v = g.AddRoot v
     member _.SetRoots vs = g.SetRoots vs
     member _.Reverse vs = g.Reverse vs
-    member _.Clone () = g.Clone ()
+    member _.Clone() = g.Clone()

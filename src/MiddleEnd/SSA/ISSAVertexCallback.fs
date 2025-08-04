@@ -35,7 +35,7 @@ type ISSAVertexCallback =
   /// for the callback so that one can use it to easily compute stack local
   /// variables.
   abstract OnVertexCreation:
-       SSACFG
-    -> SSASparseDataFlow.State<StackPointerDomain.Lattice>
-    -> IVertex<SSABasicBlock>
+      SSACFG
+    * SSASparseDataFlow.State<StackPointerDomain.Lattice>
+    * IVertex<SSABasicBlock>
     -> unit

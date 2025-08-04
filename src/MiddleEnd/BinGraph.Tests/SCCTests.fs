@@ -30,24 +30,24 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinGraph.Tests.Examples
 
 [<TestClass>]
-type SCCTests () =
+type SCCTests() =
   static member GraphTypes = [| [| box Persistent |]; [| box Imperative |] |]
 
   [<TestMethod>]
   [<DynamicData(nameof SCCTests.GraphTypes)>]
-  member _.``SCC Test1`` (t) =
+  member _.``SCC Test1``(t) =
     let g, _ = digraph7 t
     let sccs = SCC.Tarjan.compute g
-    Assert.AreEqual<int> (5, sccs.Count)
+    Assert.AreEqual<int>(5, sccs.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof SCCTests.GraphTypes)>]
-  member _.``SCC Test2`` (t) =
+  member _.``SCC Test2``(t) =
     let g, vmap = digraph8 t
     let n1, n8 = vmap[1], vmap[8]
     let s = [ vmap[2]; vmap[3]; vmap[4]; vmap[5]; vmap[6]; vmap[7] ]
     let sccs = SCC.Tarjan.compute g
-    Assert.AreEqual<int> (3, sccs.Count)
+    Assert.AreEqual<int>(3, sccs.Count)
     let scc1 = HashSet [ n1 ]
     sccs |> Seq.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
     let scc2 = HashSet [ n8 ]
@@ -57,13 +57,13 @@ type SCCTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof SCCTests.GraphTypes)>]
-  member _.``SCC Test3`` (t) =
+  member _.``SCC Test3``(t) =
     let g, vmap = digraph9 t
     let s1 = [ vmap[1]; vmap[2]; vmap[5] ]
     let s2 = [ vmap[3]; vmap[4]; vmap[8] ]
     let s3 = [ vmap[6]; vmap[7] ]
     let sccs = SCC.Tarjan.compute g
-    Assert.AreEqual<int> (3, sccs.Count)
+    Assert.AreEqual<int>(3, sccs.Count)
     let scc1 = HashSet s1
     sccs |> Seq.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
     let scc2 = HashSet s2
@@ -73,12 +73,12 @@ type SCCTests () =
 
   [<TestMethod>]
   [<DynamicData(nameof SCCTests.GraphTypes)>]
-  member _.``SCC Test4`` (t) =
+  member _.``SCC Test4``(t) =
     let g, vmap = digraph10 t
     let s1 = [ vmap[1]; vmap[2]; vmap[3] ]
     let s2 = [ vmap[4]; vmap[5] ]
     let sccs = SCC.Tarjan.compute g
-    Assert.AreEqual<int> (2, sccs.Count)
+    Assert.AreEqual<int>(2, sccs.Count)
     let scc1 = HashSet s1
     sccs |> Seq.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
     let scc2 = HashSet s2

@@ -33,7 +33,7 @@ open B2R2.MiddleEnd.BinGraph
 
 /// Basic block type for an SSA-based CFG (SSACFG). It holds an array of
 /// (ProgramPoint * Stmt).
-type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
+type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
   let mutable idom: IVertex<SSABasicBlock> option = None
 
   let mutable frontier: IVertex<SSABasicBlock> list = []
@@ -42,9 +42,9 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
   let mutable stmts = stmts
 
   let computeNextPPoint (ppoint: ProgramPoint) = function
-    | Def (v, Num bv) ->
+    | Def(v, Num bv) ->
       match v.Kind with
-      | PCVar _ -> ProgramPoint (BitVector.ToUInt64 bv, 0)
+      | PCVar _ -> ProgramPoint(BitVector.ToUInt64 bv, 0)
       | _ -> ProgramPoint.Next ppoint
     | _ -> ProgramPoint.Next ppoint
 
@@ -58,13 +58,13 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
   /// Dominance frontier of this block.
   member _.DomFrontier with get() = frontier and set(f) = frontier <- f
 
-  override _.ToString () = $"{nameof SSABasicBlock}({ppoint})"
+  override _.ToString() = $"{nameof SSABasicBlock}({ppoint})"
 
   interface ISSABasicBlock with
     member _.PPoint with get() = ppoint
 
     member _.Range with get() =
-      if isNull funcAbs then AddrRange (ppoint.Address, lastAddr)
+      if isNull funcAbs then AddrRange(ppoint.Address, lastAddr)
       else raise AbstractBlockAccessException
 
     member _.IsAbstract with get() = not (isNull funcAbs)
@@ -77,15 +77,15 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
 
     member _.LastStmt with get() = snd stmts[stmts.Length - 1]
 
-    member _.PrependPhi varKind count =
+    member _.PrependPhi(varKind, count) =
       let var = { Kind = varKind; Identifier = -1 }
-      let pp = ProgramPoint.GetFake ()
-      stmts <- Array.append [| pp, Phi (var, Array.zeroCreate count) |] stmts
+      let pp = ProgramPoint.GetFake()
+      stmts <- Array.append [| pp, Phi(var, Array.zeroCreate count) |] stmts
 
     member _.UpdateStatements stmts' =
       stmts <- stmts'
 
-    member _.UpdatePPoints () =
+    member _.UpdatePPoints() =
       stmts
       |> Array.foldi (fun ppoint idx (_, stmt) ->
         let ppoint' = computeNextPPoint ppoint stmt
@@ -95,7 +95,7 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
 
     member _.BlockAddress with get() = ppoint.Address
 
-    member _.Visualize () =
+    member _.Visualize() =
       if isNull funcAbs then
         stmts
         |> Array.map (fun (_, stmt) ->
@@ -103,14 +103,14 @@ type SSABasicBlock private (ppoint, lastAddr, stmts: _[], funcAbs) =
                AsmWordValue = Pp.stmtToString stmt } |])
       else [||]
 
-  static member CreateRegular (stmts, ppoint, lastAddr) =
-    SSABasicBlock (ppoint, lastAddr, stmts, null)
+  static member CreateRegular(stmts, ppoint, lastAddr) =
+    SSABasicBlock(ppoint, lastAddr, stmts, null)
 
   /// Create an abstract basic block located at `ppoint`.
-  static member CreateAbstract (ppoint, abs: FunctionAbstraction<SSA.Stmt>) =
+  static member CreateAbstract(ppoint, abs: FunctionAbstraction<SSA.Stmt>) =
     assert (not (isNull abs))
-    let rundown = abs.Rundown |> Array.map (fun s -> ProgramPoint.GetFake (), s)
-    SSABasicBlock (ppoint, 0UL, rundown, abs)
+    let rundown = abs.Rundown |> Array.map (fun s -> ProgramPoint.GetFake(), s)
+    SSABasicBlock(ppoint, 0UL, rundown, abs)
 
 /// Interafce for a basic block containing a sequence of SSA statements.
 and ISSABasicBlock =

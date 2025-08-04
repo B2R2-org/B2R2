@@ -29,7 +29,7 @@ open B2R2
 
 /// Persistent vertex.
 type PersistentVertex<'V when 'V: equality>
-  internal (id, vData: VertexData<'V>) =
+  internal(id, vData: VertexData<'V>) =
 
   /// Unique identifier of this vertex.
   member _.ID with get(): VertexID = id
@@ -43,20 +43,20 @@ type PersistentVertex<'V when 'V: equality>
 
     member _.HasData = not (isNull vData)
 
-    member _.CompareTo (other: obj) =
+    member _.CompareTo(other: obj) =
       match other with
       | :? IVertex<'V> as other -> id.CompareTo other.ID
       | _ -> Terminator.impossible ()
 
   interface System.IFormattable with
-    member _.ToString (_, _) = $"{nameof PersistentVertex}({vData.ToString ()})"
+    member _.ToString(_, _) = $"{nameof PersistentVertex}({vData.ToString ()})"
 
-  override _.GetHashCode () = id
+  override _.GetHashCode() = id
 
-  override _.Equals (other) =
+  override _.Equals(other) =
     match other with
     | :? IVertex<'V> as other -> id = other.ID
     | _ -> false
 
-  override this.ToString () =
-    (this :> System.IFormattable).ToString (null, CultureInfo.CurrentCulture)
+  override this.ToString() =
+    (this :> System.IFormattable).ToString(null, CultureInfo.CurrentCulture)

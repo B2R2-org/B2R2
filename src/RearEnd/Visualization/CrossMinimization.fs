@@ -32,10 +32,10 @@ type VLayout = IVertex<VisBBlock>[][]
 let [<Literal>] private MaxCnt = 128
 
 let private computeMaxLayer (vGraph: VisGraph) =
-  vGraph.FoldVertex(fun layer v ->
+  vGraph.FoldVertex((fun layer v ->
     let l = VisGraph.getLayer v
     if layer < l then l else layer
-  ) 0
+  ), 0)
 
 let private generateVPerLayer vGraph =
   let maxLayer = computeMaxLayer vGraph
@@ -44,7 +44,7 @@ let private generateVPerLayer vGraph =
     let layer = VisGraph.getLayer v
     vPerLayer[layer] <- v :: vPerLayer[layer]
     vPerLayer
-  vGraph.FoldVertex folder vPerLayer
+  vGraph.FoldVertex(folder, vPerLayer)
 
 let private alignVertices vertices =
   let arr = Array.zeroCreate (List.length vertices)

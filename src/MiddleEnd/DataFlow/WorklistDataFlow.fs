@@ -33,11 +33,11 @@ type State<'WorkUnit,
            'V when 'WorkUnit: equality
                and 'Lattice: equality
                and 'V: equality>
-  public (lattice: ILattice<'Lattice>) =
+  public(lattice: ILattice<'Lattice>) =
 
-  let workList = Queue<'WorkUnit> ()
+  let workList = Queue<'WorkUnit>()
 
-  let workSet = HashSet<'WorkUnit> ()
+  let workSet = HashSet<'WorkUnit>()
 
   let pushWork (work: 'WorkUnit) =
     if workSet.Contains work then ()
@@ -46,12 +46,12 @@ type State<'WorkUnit,
       workList.Enqueue work
 
   let popWork () =
-    let work = workList.Dequeue ()
+    let work = workList.Dequeue()
     assert (workSet.Contains work)
     workSet.Remove work |> ignore
     work
 
-  let absValues = Dictionary<'WorkUnit, 'Lattice> ()
+  let absValues = Dictionary<'WorkUnit, 'Lattice>()
 
   member _.WorkList with get() = workList
 
@@ -59,7 +59,7 @@ type State<'WorkUnit,
 
   member _.PushWork work = pushWork work
 
-  member _.PopWork () = popWork ()
+  member _.PopWork() = popWork ()
 
   interface IAbsValProvider<'WorkUnit, 'Lattice> with
     member _.GetAbsValue absLoc =

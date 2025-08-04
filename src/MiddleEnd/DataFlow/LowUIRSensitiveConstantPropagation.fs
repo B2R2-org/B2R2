@@ -35,7 +35,7 @@ open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 /// basic block by its stack pointer value.
 [<AllowNullLiteral>]
 type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
-  public (hdl: BinHandle, scheme: IScheme<ConstantDomain.Lattice, 'ExeCtx>) =
+  public(hdl: BinHandle, scheme: IScheme<ConstantDomain.Lattice, 'ExeCtx>) =
 
   let evaluateVarPoint (state: State<_, _>) spp varKind =
     let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
@@ -49,13 +49,13 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
 
   let rec evaluateExpr state spp e =
     match e with
-    | PCVar (rt, _, _) ->
+    | PCVar(rt, _, _) ->
       let addr = (spp: SensitiveProgramPoint<_>).ProgramPoint.Address
       let bv = BitVector.OfUInt64(addr, rt)
       ConstantDomain.Const bv
-    | Num (bv, _) -> ConstantDomain.Const bv
+    | Num(bv, _) -> ConstantDomain.Const bv
     | Var _ | TempVar _ -> evaluateVarPoint state spp (VarKind.ofIRExpr e)
-    | Load (_m, rt, addr, _) ->
+    | Load(_m, rt, addr, _) ->
       match state.StackPointerSubState.EvalExpr(spp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let addr = BitVector.ToUInt64 bv
@@ -63,32 +63,32 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
         let c = evaluateVarPoint state spp (StackLocal offset)
         match c with
         | ConstantDomain.Const bv when bv.Length < rt ->
-          ConstantDomain.Const <| BitVector.ZExt (bv, rt)
+          ConstantDomain.Const <| BitVector.ZExt(bv, rt)
         | ConstantDomain.Const bv when bv.Length > rt ->
-          ConstantDomain.Const <| BitVector.Extract (bv, rt, 0)
+          ConstantDomain.Const <| BitVector.Extract(bv, rt, 0)
         | _ -> c
       | StackPointerDomain.NotConstSP -> ConstantDomain.NotAConst
       | StackPointerDomain.Undef -> ConstantDomain.Undef
-    | UnOp (op, e, _) ->
+    | UnOp(op, e, _) ->
       evaluateExpr state spp e
       |> ConstantPropagation.evalUnOp op
-    | BinOp (op, _, e1, e2, _) ->
+    | BinOp(op, _, e1, e2, _) ->
       let c1 = evaluateExpr state spp e1
       let c2 = evaluateExpr state spp e2
       ConstantPropagation.evalBinOp op c1 c2
-    | RelOp (op, e1, e2, _) ->
+    | RelOp(op, e1, e2, _) ->
       let c1 = evaluateExpr state spp e1
       let c2 = evaluateExpr state spp e2
       ConstantPropagation.evalRelOp op c1 c2
-    | Ite (e1, e2, e3, _) ->
+    | Ite(e1, e2, e3, _) ->
       let c1 = evaluateExpr state spp e1
       let c2 = evaluateExpr state spp e2
       let c3 = evaluateExpr state spp e3
       ConstantDomain.ite c1 c2 c3
-    | Cast (op, rt, e, _) ->
+    | Cast(op, rt, e, _) ->
       let c = evaluateExpr state spp e
       ConstantPropagation.evalCast op rt c
-    | Extract (e, rt, pos, _) ->
+    | Extract(e, rt, pos, _) ->
       let c = evaluateExpr state spp e
       ConstantDomain.extract c rt pos
     | FuncName _ | ExprList _ | Undefined _ -> ConstantDomain.NotAConst
@@ -100,20 +100,20 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
         member _.Join(a, b) = ConstantDomain.join a b
         member _.Subsume(a, b) = ConstantDomain.subsume a b  }
 
-  let state = State<_, _> (hdl, lattice, scheme)
+  let state = State<_, _>(hdl, lattice, scheme)
 
   do state.Evaluator <-
       { new IExprEvaluatable<SensitiveProgramPoint<'ExeCtx>,
                              ConstantDomain.Lattice> with
           member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
-  member _.EvalExpr pp e = evaluateExpr pp e
+  member _.EvalExpr(pp, e) = evaluateExpr pp e
 
-  member _.MarkEdgeAsPending src dst = state.MarkEdgeAsPending src dst
+  member _.MarkEdgeAsPending(src, dst) = state.MarkEdgeAsPending(src, dst)
 
-  member _.Reset () = state.Reset ()
+  member _.Reset() = state.Reset()
 
-  member _.State with get () = state
+  member _.State with get() = state
 
   interface IDataFlowComputable<SensitiveVarPoint<'ExeCtx>,
                                 ConstantDomain.Lattice,

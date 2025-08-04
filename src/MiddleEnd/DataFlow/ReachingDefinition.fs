@@ -32,18 +32,17 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Represents an abstract value used in reaching definition analysis.
-type InsAndOuts = {
-  /// The set of variable points that reach the current vertex.
-  Ins: Set<VarPoint>
-  /// The set of variable points that are defined at the current vertex.
-  Outs: Set<VarPoint>
-}
+type InsAndOuts =
+  { /// The set of variable points that reach the current vertex.
+    Ins: Set<VarPoint>
+    /// The set of variable points that are defined at the current vertex.
+    Outs: Set<VarPoint> }
 
 /// Traditional reaching definition analysis.
 type ReachingDefinitionAnalysis() =
-  let gens = Dictionary<VertexID, Set<VarPoint>> ()
+  let gens = Dictionary<VertexID, Set<VarPoint>>()
 
-  let kills = Dictionary<VertexID, Set<VarPoint>> ()
+  let kills = Dictionary<VertexID, Set<VarPoint>>()
 
   let findDefs (v: IVertex<LowUIRBasicBlock>) =
     v.VData.Internals.LiftedInstructions
@@ -51,19 +50,19 @@ type ReachingDefinitionAnalysis() =
       lifted.Stmts
       |> Array.foldi (fun list idx stmt ->
         match stmt with
-        | LowUIR.Put (LowUIR.TempVar (_, n, _), _, _) ->
-          let pp = ProgramPoint (lifted.Original.Address, idx)
+        | LowUIR.Put(LowUIR.TempVar(_, n, _), _, _) ->
+          let pp = ProgramPoint(lifted.Original.Address, idx)
           { ProgramPoint = pp; VarKind = Temporary n } :: list
-        | LowUIR.Put (LowUIR.Var (_, id, _, _), _, _) ->
-          let pp = ProgramPoint (lifted.Original.Address, idx)
+        | LowUIR.Put(LowUIR.Var(_, id, _, _), _, _) ->
+          let pp = ProgramPoint(lifted.Original.Address, idx)
           { ProgramPoint = pp; VarKind = Regular id } :: list
         | _ -> list) list
       |> fst) []
 
   let initGensAndKills (g: IDiGraphAccessible<LowUIRBasicBlock, _>) =
-    let vpPerVar = Dictionary<VarKind, Set<VarPoint>> ()
-    let vpPerVertex = Dictionary<VertexID, VarPoint list> ()
-    g.IterVertex (fun v ->
+    let vpPerVar = Dictionary<VarKind, Set<VarPoint>>()
+    let vpPerVertex = Dictionary<VertexID, VarPoint list>()
+    g.IterVertex(fun v ->
       let vid = v.ID
       let defs = findDefs v
       gens[vid] <- defs |> Set.ofList
@@ -73,7 +72,7 @@ type ReachingDefinitionAnalysis() =
         else vpPerVar[v] <- Set.singleton vp
       )
     )
-    g.IterVertex (fun v ->
+    g.IterVertex(fun v ->
       let vid = v.ID
       let defVarPoints = vpPerVertex[vid]
       let vars = defVarPoints |> List.map (fun vp -> vp.VarKind)
@@ -88,10 +87,10 @@ type ReachingDefinitionAnalysis() =
         member _.Bottom =
           { Ins = Set.empty; Outs = Set.empty }
 
-        member _.Join (a, b) =
+        member _.Join(a, b) =
           { Ins = Set.union a.Ins b.Ins; Outs = Set.union a.Outs b.Outs }
 
-        member _.Subsume (a, b) = a.Ins = b.Ins && a.Outs = b.Outs }
+        member _.Subsume(a, b) = a.Ins = b.Ins && a.Outs = b.Outs }
 
   let st = ReachingDefinitionState lattice
 
@@ -117,7 +116,7 @@ type ReachingDefinitionAnalysis() =
                                 LowUIRBasicBlock> with
     member _.Compute cfg =
       initGensAndKills cfg
-      let lst = List<VertexID> ()
+      let lst = List<VertexID>()
       Traversal.DFS.iterRevPostorder cfg (fun v -> lst.Add v.ID)
       WorklistDataFlow.compute lst lattice (analysis cfg) st
 

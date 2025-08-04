@@ -28,7 +28,6 @@ open B2R2
 
 /// Raised when undefined expression is encountered.
 exception UndefExpException
-
 /// Raised when an invalid memory access.
 exception InvalidMemException of Addr
 

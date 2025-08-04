@@ -64,7 +64,7 @@ module private SSALifterFactory =
       let stmts = liftedIns.Stmts
       let address = liftedIns.Original.Address
       AST.translateStmts wordSize address stmtProcessor stmts)
-    |> Array.map (fun s -> ProgramPoint.GetFake (), s)
+    |> Array.map (fun s -> ProgramPoint.GetFake(), s)
 
   let getVertex stmtProcessor vMap g (src: IVertex<LowUIRBasicBlock>) =
     let bbl = src.VData :> ILowUIRBasicBlock
@@ -75,9 +75,9 @@ module private SSALifterFactory =
       let stmts = liftStmts stmtProcessor bbl.LiftedInstructions
       let lastAddr = bbl.LastInstruction.Address
       let endPoint = lastAddr + uint64 bbl.LastInstruction.Length - 1UL
-      let blk = SSABasicBlock.CreateRegular (stmts, ppoint, endPoint)
+      let blk = SSABasicBlock.CreateRegular(stmts, ppoint, endPoint)
       let v = (g: SSACFG).AddVertex blk
-      vMap.Add (ppoint, v)
+      vMap.Add(ppoint, v)
       v
 
   let liftRundown stmtProcessor rundown =
@@ -85,7 +85,7 @@ module private SSALifterFactory =
     else
       let memVar = { Kind = MemVar; Identifier = -1 }
       [| (* safe approximation: memory is always defined. (optional?) *)
-         Def (memVar, Var memVar)
+         Def(memVar, Var memVar)
          (* addr should not matter*)
          yield! AST.translateStmts 64<rt> 0UL stmtProcessor rundown |]
 
@@ -98,44 +98,44 @@ module private SSALifterFactory =
     | false, _ ->
       let absContent = irData.AbstractContent
       let rundown = absContent.Rundown |> liftRundown stmtProcessor
-      let absContent = FunctionAbstraction<Stmt> (absContent.EntryPoint,
-                                                  absContent.UnwindingBytes,
-                                                  rundown,
-                                                  absContent.IsExternal,
-                                                  absContent.ReturningStatus)
-      let blk = SSABasicBlock.CreateAbstract (calleePpoint, absContent)
+      let absContent = FunctionAbstraction<Stmt>(absContent.EntryPoint,
+                                                 absContent.UnwindingBytes,
+                                                 rundown,
+                                                 absContent.IsExternal,
+                                                 absContent.ReturningStatus)
+      let blk = SSABasicBlock.CreateAbstract(calleePpoint, absContent)
       let v = g.AddVertex blk
-      avMap.Add (key, v)
+      avMap.Add(key, v)
       v
 
   let convertToSSA stmtProcessor (cfg: LowUIRCFG) (ssaCFG: SSACFG) =
-    let vMap = SSAVMap ()
-    let avMap = AbstractVMap ()
+    let vMap = SSAVMap()
+    let avMap = AbstractVMap()
     getVertex stmtProcessor vMap ssaCFG cfg.SingleRoot |> ignore
-    cfg.IterEdge (fun e ->
+    cfg.IterEdge(fun e ->
       let src, dst = e.First, e.Second
       (* If a node is abstract, then it is a call target. *)
       if dst.VData.Internals.IsAbstract then
         let last = src.VData.Internals.LastInstruction
-        let fallPp = ProgramPoint (last.Address + uint64 last.Length, 0)
+        let fallPp = ProgramPoint(last.Address + uint64 last.Length, 0)
         let srcV = getVertex stmtProcessor vMap ssaCFG src
         let dstV = getAbsVertex stmtProcessor avMap ssaCFG dst fallPp
-        ssaCFG.AddEdge (srcV, dstV, e.Label)
+        ssaCFG.AddEdge(srcV, dstV, e.Label)
       elif src.VData.Internals.IsAbstract then
         let dstPp = dst.VData.Internals.PPoint
         let srcV = getAbsVertex stmtProcessor avMap ssaCFG src dstPp
         let dstV = getVertex stmtProcessor vMap ssaCFG dst
-        ssaCFG.AddEdge (srcV, dstV, e.Label)
+        ssaCFG.AddEdge(srcV, dstV, e.Label)
       else
         let srcV = getVertex stmtProcessor vMap ssaCFG src
         let dstV = getVertex stmtProcessor vMap ssaCFG dst
-        ssaCFG.AddEdge (srcV, dstV, e.Label)
+        ssaCFG.AddEdge(srcV, dstV, e.Label)
     )
 
   let computeDominatorInfo g =
-    let df = Dominance.CooperDominanceFrontier ()
+    let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create g df
-    g.IterVertex (fun (v: SSAVertex) ->
+    g.IterVertex(fun (v: SSAVertex) ->
       let idom = dom.ImmediateDominator v
       v.VData.ImmDominator <- if isNull idom then None else Some idom
       v.VData.DomFrontier <- Seq.toList (dom.DominanceFrontier v))
@@ -152,32 +152,32 @@ module private SSALifterFactory =
     | ExprList exprs ->
       for e in exprs do
         updateGlobals globals varKill e
-    | Load (v, _, e)
-    | Store (v, _, _, e) ->
+    | Load(v, _, e)
+    | Store(v, _, _, e) ->
       updateGlobalName globals varKill v.Kind
       updateGlobals globals varKill e
-    | Cast (_, _, e)
-    | UnOp (_, _, e) ->
+    | Cast(_, _, e)
+    | UnOp(_, _, e) ->
       updateGlobals globals varKill e
-    | BinOp (_, _, lhs, rhs)
-    | RelOp (_, _, lhs, rhs) ->
+    | BinOp(_, _, lhs, rhs)
+    | RelOp(_, _, lhs, rhs) ->
       updateGlobals globals varKill lhs
       updateGlobals globals varKill rhs
-    | Ite (cond, _, lhs, rhs) ->
+    | Ite(cond, _, lhs, rhs) ->
       updateGlobals globals varKill cond
       updateGlobals globals varKill lhs
       updateGlobals globals varKill rhs
-    | Extract (e, _, _) ->
+    | Extract(e, _, _) ->
       updateGlobals globals varKill e
 
   let findDefVars (ssaCFG: IDiGraph<SSABasicBlock, _>) (defSites: DefSites) =
-    let globals = HashSet ()
-    let varKill = HashSet ()
+    let globals = HashSet()
+    let varKill = HashSet()
     for v in ssaCFG.Vertices do
-      varKill.Clear ()
+      varKill.Clear()
       for _pp, stmt in v.VData.Internals.Statements do
         match stmt with
-        | Def ({ Kind = k }, srcExpr) ->
+        | Def({ Kind = k }, srcExpr) ->
           updateGlobals globals varKill srcExpr
           varKill.Add k |> ignore
           if defSites.ContainsKey k then defSites[k].Add v |> ignore
@@ -186,14 +186,14 @@ module private SSALifterFactory =
     globals
 
   let placePhis g (defSites: DefSites) globals =
-    let phiSites = HashSet ()
+    let phiSites = HashSet()
     for variable in globals do
       let workList =
         if defSites.ContainsKey variable then Queue defSites[variable]
-        else Queue ()
-      phiSites.Clear ()
+        else Queue()
+      phiSites.Clear()
       while workList.Count <> 0 do
-        let node = workList.Dequeue ()
+        let node = workList.Dequeue()
         for df in node.VData.DomFrontier do
           if phiSites.Contains df then ()
           else
@@ -204,7 +204,7 @@ module private SSALifterFactory =
             | TempVar _ when df.VData.Internals.PPoint.Position = 0 -> ()
             | _ ->
               let preds = (g: IDiGraph<_, _>).GetPreds df
-              df.VData.Internals.PrependPhi variable preds.Length
+              df.VData.Internals.PrependPhi(variable, preds.Length)
               phiSites.Add df |> ignore
               workList.Enqueue df
 
@@ -218,44 +218,44 @@ module private SSALifterFactory =
     | v :: vs -> renameVar stack v; renameVarList stack vs
 
   let rec renameExpr stack = function
-    | Num (_)
-    | Undefined (_)
-    | FuncName (_) -> ()
+    | Num(_)
+    | Undefined(_)
+    | FuncName(_) -> ()
     | Var v -> renameVar stack v
     | ExprList exprs ->
       for expr in exprs do
         renameExpr stack expr
-    | Load (v, _, expr) ->
+    | Load(v, _, expr) ->
       renameVar stack v
       renameExpr stack expr
-    | Store (mem, _, addr, expr) ->
+    | Store(mem, _, addr, expr) ->
       renameVar stack mem
       renameExpr stack addr
       renameExpr stack expr
-    | UnOp (_, _, expr) ->
+    | UnOp(_, _, expr) ->
       renameExpr stack expr
-    | BinOp (_, _, expr1, expr2) ->
+    | BinOp(_, _, expr1, expr2) ->
       renameExpr stack expr1
       renameExpr stack expr2
-    | RelOp (_, _, expr1, expr2) ->
+    | RelOp(_, _, expr1, expr2) ->
       renameExpr stack expr1
       renameExpr stack expr2
-    | Ite (expr1, _, expr2, expr3) ->
+    | Ite(expr1, _, expr2, expr3) ->
       renameExpr stack expr1
       renameExpr stack expr2
       renameExpr stack expr3
-    | Cast (_, _, expr) ->
+    | Cast(_, _, expr) ->
       renameExpr stack expr
-    | Extract (expr, _, _) ->
+    | Extract(expr, _, _) ->
       renameExpr stack expr
 
   let renameJmp stack = function
     | IntraJmp _ -> ()
-    | IntraCJmp (expr, _, _) ->
+    | IntraCJmp(expr, _, _) ->
       renameExpr stack expr
-    | InterJmp (expr) ->
+    | InterJmp(expr) ->
       renameExpr stack expr
-    | InterCJmp (cond, target1, target2) ->
+    | InterCJmp(cond, target1, target2) ->
       renameExpr stack cond
       renameExpr stack target1
       renameExpr stack target2
@@ -273,22 +273,22 @@ module private SSALifterFactory =
   let renameStmt count stack stmt =
     match stmt with
     | LMark _ -> ()
-    | ExternalCall (e, inVars, outVars) ->
+    | ExternalCall(e, inVars, outVars) ->
       renameExpr stack e
       renameVarList stack inVars
       introduceDefList count stack outVars
     | SideEffect _ -> ()
     | Jmp jmpTy -> renameJmp stack jmpTy
-    | Def (def, e) ->
+    | Def(def, e) ->
       renameExpr stack e
       introduceDef count stack def
-    | Phi (def, _) ->
+    | Phi(def, _) ->
       introduceDef count stack def
 
   let renamePhi g (stack: IDStack) (parent: SSAVertex) (succ: SSAVertex) =
     for _, stmt in succ.VData.Internals.Statements do
       match stmt with
-      | Phi (def, nums) ->
+      | Phi(def, nums) ->
         let preds = (g: IDiGraph<_, _>).GetPreds succ
         let idx = preds |> Array.findIndex (fun v -> v.VData = parent.VData)
         nums[idx] <- List.head stack[def.Kind]
@@ -296,8 +296,8 @@ module private SSALifterFactory =
 
   let popStack (stack: IDStack) stmt =
     match stmt with
-    | Def (def, _)
-    | Phi (def, _) -> stack[def.Kind] <- List.tail stack[def.Kind]
+    | Def(def, _)
+    | Phi(def, _) -> stack[def.Kind] <- List.tail stack[def.Kind]
     | _ -> ()
 
   let rec rename (g: IDiGraph<_, _>) domTree count stack (v: SSAVertex) =
@@ -309,8 +309,8 @@ module private SSALifterFactory =
 
   let renameVars g defSites (dom: IDominance<_, _>) =
     let domTree = dom.DominatorTree
-    let count = VarCountMap ()
-    let stack = IDStack ()
+    let count = VarCountMap()
+    let stack = IDStack()
     for variable in (defSites: DefSites).Keys do
       count[variable] <- 0
       stack[variable] <- [0]
@@ -318,7 +318,7 @@ module private SSALifterFactory =
 
   /// Add phis and rename all the variables in the SSACFG.
   let updatePhis ssaCFG =
-    let defSites = DefSites ()
+    let defSites = DefSites()
     let dom = computeDominatorInfo ssaCFG
     let globals = findDefVars ssaCFG defSites
     placePhis ssaCFG defSites globals
@@ -329,8 +329,8 @@ module private SSALifterFactory =
     | StackPointerDomain.ConstSP addr ->
       let addr = BitVector.ToUInt64 addr
       let offset = int (int64 Constants.InitialStackPointer - int64 addr)
-      let v = { Kind = StackVar (rt, offset); Identifier = 0 }
-      Some (pp, Def (v, src))
+      let v = { Kind = StackVar(rt, offset); Identifier = 0 }
+      Some(pp, Def(v, src))
     | _ -> Some stmtInfo
 
   let loadToVar rt addr =
@@ -338,32 +338,32 @@ module private SSALifterFactory =
     | StackPointerDomain.ConstSP addr ->
       let addr = BitVector.ToUInt64 addr
       let offset = int (int64 Constants.InitialStackPointer - int64 addr)
-      let v = { Kind = StackVar (rt, offset); Identifier = 0 }
-      Some (Var v)
+      let v = { Kind = StackVar(rt, offset); Identifier = 0 }
+      Some(Var v)
     | _ -> None
 
   let rec replaceLoad (state: SSASparseDataFlow.State<_>) e =
     match e with
-    | Load (_, rt, addr) ->
+    | Load(_, rt, addr) ->
       let addr = state.EvalExpr addr
       loadToVar rt addr
-    | Cast (ck, rt, e) ->
+    | Cast(ck, rt, e) ->
       replaceLoad state e
-      |> Option.map (fun e -> Cast (ck, rt, e))
-    | Extract (e, rt, sPos) ->
+      |> Option.map (fun e -> Cast(ck, rt, e))
+    | Extract(e, rt, sPos) ->
       replaceLoad state e
-      |> Option.map (fun e -> Extract (e, rt, sPos))
+      |> Option.map (fun e -> Extract(e, rt, sPos))
     | _ -> None
 
   let stmtChooser state ((pp, stmt) as stmtInfo) =
     match stmt with
     | Phi _ -> None
-    | Def ({ Kind = MemVar }, Store (_, rt, addr, src)) ->
+    | Def({ Kind = MemVar }, Store(_, rt, addr, src)) ->
       let addr = (state: SSASparseDataFlow.State<_>).EvalExpr addr
       memStore stmtInfo rt addr src
-    | Def (dstVar, e) ->
+    | Def(dstVar, e) ->
       match replaceLoad state e with
-      | Some e -> Some (pp, Def (dstVar, e))
+      | Some e -> Some(pp, Def(dstVar, e))
       | None -> Some stmtInfo
     | _ -> Some stmtInfo
 
@@ -372,7 +372,7 @@ module private SSALifterFactory =
     let dfa = spp :> IDataFlowComputable<_, _, _, _>
     let state = dfa.Compute ssaCFG
     for v in ssaCFG.Vertices do
-      callback.OnVertexCreation ssaCFG state v
+      callback.OnVertexCreation(ssaCFG, state, v)
       v.VData.Internals.Statements
       |> Array.choose (stmtChooser state)
       |> v.VData.Internals.UpdateStatements
@@ -384,37 +384,37 @@ module private SSALifterFactory =
           let ssaCFG = SSACFG cfg.ImplementationType
           convertToSSA stmtProcessor cfg ssaCFG
           updatePhis ssaCFG
-          ssaCFG.IterVertex (fun v -> v.VData.Internals.UpdatePPoints ())
+          ssaCFG.IterVertex(fun v -> v.VData.Internals.UpdatePPoints())
           promote hdl ssaCFG callback
           ssaCFG }
 
 /// The factory for SSA lifter.
 type SSALifterFactory =
   /// Create an SSA lifter with a binary handle.
-  static member Create (hdl: BinHandle) =
+  static member Create(hdl: BinHandle) =
     let wordSize = hdl.File.ISA.WordSize
     SSALifterFactory.create hdl
       { new IStmtPostProcessor with
-          member _.WordSize with get () = wordSize
+          member _.WordSize with get() = wordSize
           member _.PostProcess stmt = stmt }
-      { new ISSAVertexCallback with member _.OnVertexCreation _ _ _ = () }
+      { new ISSAVertexCallback with member _.OnVertexCreation(_, _, _) = () }
 
   /// Create an SSA lifter with a binary handle and a statement processor.
-  static member Create (hdl, stmtProcessor) =
+  static member Create(hdl, stmtProcessor) =
     SSALifterFactory.create hdl stmtProcessor
-      { new ISSAVertexCallback with member _.OnVertexCreation _ _ _ = () }
+      { new ISSAVertexCallback with member _.OnVertexCreation(_, _, _) = () }
 
   /// Create an SSA lifter with a binary handle and a callback for SSA vertex
   /// creation.
-  static member Create (hdl: BinHandle, callback) =
+  static member Create(hdl: BinHandle, callback) =
     let wordSize = hdl.File.ISA.WordSize
     SSALifterFactory.create hdl
       { new IStmtPostProcessor with
-          member _.WordSize with get () = wordSize
+          member _.WordSize with get() = wordSize
           member _.PostProcess stmt = stmt }
       callback
 
   /// Create an SSA lifter with a binary handle, a statement processor, and a
   /// callback for SSA vertex creation.
-  static member Create (hdl, stmtProcessor, callback) =
+  static member Create(hdl, stmtProcessor, callback) =
     SSALifterFactory.create hdl stmtProcessor callback

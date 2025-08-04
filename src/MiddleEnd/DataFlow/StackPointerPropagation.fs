@@ -39,7 +39,7 @@ module internal StackPointerPropagation =
     | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
     | _ -> StackPointerDomain.NotConstSP
 
-type StackPointerPropagation (hdl: BinHandle, vs) =
+type StackPointerPropagation(hdl: BinHandle, vs) =
   let initialStackPointerValue =
     hdl.RegisterFactory.StackPointer
     |> Option.get
@@ -65,13 +65,13 @@ type StackPointerPropagation (hdl: BinHandle, vs) =
 
   let rec evaluateExpr (state: StackPointerPropagationState) pp e =
     match e with
-    | Num (bv, _) -> StackPointerDomain.ConstSP bv
+    | Num(bv, _) -> StackPointerDomain.ConstSP bv
     | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
     | ExprList _ -> StackPointerDomain.NotConstSP
     | Load _ -> StackPointerDomain.NotConstSP
     | UnOp _ -> StackPointerDomain.NotConstSP
     | FuncName _ -> StackPointerDomain.NotConstSP
-    | BinOp (op, _, e1, e2, _) ->
+    | BinOp(op, _, e1, e2, _) ->
       let c1 = evaluateExpr state pp e1
       let c2 = evaluateExpr state pp e2
       StackPointerPropagation.evalBinOp op c1 c2
@@ -85,15 +85,15 @@ type StackPointerPropagation (hdl: BinHandle, vs) =
   let lattice =
     { new ILattice<StackPointerDomain.Lattice> with
         member _.Bottom = StackPointerDomain.Undef
-        member _.Join (a, b) = StackPointerDomain.join a b
-        member _.Subsume (a, b) = StackPointerDomain.subsume a b }
+        member _.Join(a, b) = StackPointerDomain.join a b
+        member _.Subsume(a, b) = StackPointerDomain.subsume a b }
 
   let rec scheme =
     { new LowUIRSparseDataFlow.IScheme<StackPointerDomain.Lattice> with
-        member _.EvalExpr (pp, expr) = evaluateExpr state pp expr }
+        member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =
-    StackPointerPropagationState (hdl, lattice, scheme)
+    StackPointerPropagationState(hdl, lattice, scheme)
     |> fun state ->
       for v in vs do state.MarkVertexAsPending v done
       state

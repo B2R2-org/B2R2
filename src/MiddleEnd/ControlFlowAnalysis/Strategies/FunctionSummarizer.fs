@@ -37,9 +37,9 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 type FunctionSummarizer<'FnCtx,
                         'GlCtx when 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
-                                and 'GlCtx: (new: unit -> 'GlCtx)> () =
+                                and 'GlCtx: (new: unit -> 'GlCtx)>() =
   let retrieveStackAdjustment (ins: IInstruction) =
-    match ins.Immediate () with
+    match ins.Immediate() with
     | true, v -> int v
     | false, _ -> 0
 
@@ -60,14 +60,14 @@ type FunctionSummarizer<'FnCtx,
     |> hdl.RegisterFactory.GetRegVar
 
   let tryFindLiveRegFromGetPCThunk (hdl: BinHandle) (addr: Addr) =
-    match hdl.ReadUInt (addr, 4) with
-    | 0xc324048bUL -> Some (toRegExpr hdl Intel.Register.EAX)
-    | 0xc3241c8bUL -> Some (toRegExpr hdl Intel.Register.EBX)
-    | 0xc3240c8bUL -> Some (toRegExpr hdl Intel.Register.ECX)
-    | 0xc324148bUL -> Some (toRegExpr hdl Intel.Register.EDX)
-    | 0xc324348bUL -> Some (toRegExpr hdl Intel.Register.ESI)
-    | 0xc3243c8bUL -> Some (toRegExpr hdl Intel.Register.EDI)
-    | 0xc3242c8bUL -> Some (toRegExpr hdl Intel.Register.EBP)
+    match hdl.ReadUInt(addr, 4) with
+    | 0xc324048bUL -> Some(toRegExpr hdl Intel.Register.EAX)
+    | 0xc3241c8bUL -> Some(toRegExpr hdl Intel.Register.EBX)
+    | 0xc3240c8bUL -> Some(toRegExpr hdl Intel.Register.ECX)
+    | 0xc324148bUL -> Some(toRegExpr hdl Intel.Register.EDX)
+    | 0xc324348bUL -> Some(toRegExpr hdl Intel.Register.ESI)
+    | 0xc3243c8bUL -> Some(toRegExpr hdl Intel.Register.EDI)
+    | 0xc3242c8bUL -> Some(toRegExpr hdl Intel.Register.EBP)
     | _ -> None
 
   let genFreshStackVarExpr hdl =
@@ -129,7 +129,7 @@ type FunctionSummarizer<'FnCtx,
 
   /// Simply over-approximate the function semantics. Particularly, we are
   /// interested in several well-known "getpc" functions for x86.
-  default _.Summarize (ctx, callInstruction, unwindingAmount) =
+  default _.Summarize(ctx, callInstruction, unwindingAmount) =
     let returnAddress = callInstruction.Address + uint64 callInstruction.Length
     let stmts = (* For abstraction, we check which var can be defined. *)
       computeLiveDefs ctx unwindingAmount
@@ -140,14 +140,14 @@ type FunctionSummarizer<'FnCtx,
     Array.append stmts [| jmpToFallThrough |]
 
   interface IFunctionSummarizable<'FnCtx, 'GlCtx> with
-    member this.Summarize (ctx, retStatus, unwindingBytes, ins) =
-      FunctionAbstraction (ctx.FunctionAddress,
-                           unwindingBytes,
-                           this.Summarize (ctx, ins, unwindingBytes),
-                           ctx.IsExternal,
-                           retStatus)
+    member this.Summarize(ctx, retStatus, unwindingBytes, ins) =
+      FunctionAbstraction(ctx.FunctionAddress,
+                          unwindingBytes,
+                          this.Summarize(ctx, ins, unwindingBytes),
+                          ctx.IsExternal,
+                          retStatus)
 
-    member _.MakeUnknownFunctionAbstraction (hdl, callIns) =
+    member _.MakeUnknownFunctionAbstraction(hdl, callIns) =
       let returnAddress = callIns.Address + uint64 callIns.Length
       let wordSize = hdl.File.ISA.WordSize
       let regType = wordSize |> WordSize.toRegType
@@ -157,7 +157,7 @@ type FunctionSummarizer<'FnCtx,
         stackPointerDef hdl 0
         |> Array.map (fun (dst, src) -> AST.put dst src)
       let ssaRundown = [| yield! stmts; yield jmpToFallThrough |]
-      FunctionAbstraction (0UL, 0, ssaRundown, false, NotNoRet)
+      FunctionAbstraction(0UL, 0, ssaRundown, false, NotNoRet)
 
     member this.ComputeUnwindingAmount ctx =
       this.ComputeUnwindingAmount ctx

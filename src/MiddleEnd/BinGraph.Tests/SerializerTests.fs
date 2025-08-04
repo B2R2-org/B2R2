@@ -30,34 +30,34 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinGraph.Tests.Examples
 
 [<TestClass>]
-type SerializerTests () =
+type SerializerTests() =
   let makeGraph t =
     match t with
-    | Imperative -> ImperativeDiGraph<int, int> () :> IDiGraph<int, int>
-    | Persistent -> PersistentDiGraph<int, int> () :> IDiGraph<int, int>
+    | Imperative -> ImperativeDiGraph<int, int>() :> IDiGraph<int, int>
+    | Persistent -> PersistentDiGraph<int, int>() :> IDiGraph<int, int>
 
   static member GraphTypes = [| [| box Persistent |]; [| box Imperative |] |]
 
   [<TestMethod>]
   [<DynamicData(nameof SerializerTests.GraphTypes)>]
-  member _.``Import/Export test 1`` (t) =
+  member _.``Import/Export test 1``(t) =
     let g, _ = digraph1 t
     let json = Serializer.ToJson g
     let graphConstructor = fun () -> makeGraph t
     let strToInt (s: string) = Convert.ToInt32 s
-    let g' = Serializer.FromJson (json, graphConstructor, strToInt, strToInt)
+    let g' = Serializer.FromJson(json, graphConstructor, strToInt, strToInt)
     let expected = Traversal.DFS.foldPreorder g (fun acc v -> v.VData + acc) 0
     let actual = Traversal.DFS.foldPreorder g' (fun acc v -> v.VData + acc) 0
-    Assert.AreEqual<int> (expected, actual)
+    Assert.AreEqual<int>(expected, actual)
 
   [<TestMethod>]
   [<DynamicData(nameof SerializerTests.GraphTypes)>]
-  member _.``Import/Export test 2`` (t) =
+  member _.``Import/Export test 2``(t) =
     let g, _ = digraph4 t
     let json = Serializer.ToJson g
     let graphConstructor = fun () -> makeGraph t
     let strToInt (s: string) = Convert.ToInt32 s
-    let g' = Serializer.FromJson (json, graphConstructor, strToInt, strToInt)
+    let g' = Serializer.FromJson(json, graphConstructor, strToInt, strToInt)
     let expected = g.Vertices |> Array.map (fun v -> v.VData)
     let actual = g'.Vertices |> Array.map (fun v -> v.VData)
-    CollectionAssert.AreEqual (expected, actual)
+    CollectionAssert.AreEqual(expected, actual)

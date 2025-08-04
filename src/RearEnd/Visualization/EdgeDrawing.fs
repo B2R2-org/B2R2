@@ -610,7 +610,7 @@ let private giveOffsets (g: VisGraph) (v: IVertex<VisBBlock>) =
 
 let drawEdges (g: VisGraph) vLayout backEdgeList dummyMap =
   restoreBackEdges g backEdgeList
-  let originalEdgeList = g.FoldEdge(accOriginalEdge g) []
+  let originalEdgeList = g.FoldEdge(accOriginalEdge g, [])
   let vLayoutSorted = sortLayers vLayout
   adjustLayerYPositions originalEdgeList vLayoutSorted
   let boxes = verticesToBoxes2D vLayoutSorted

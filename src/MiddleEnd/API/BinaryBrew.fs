@@ -40,13 +40,13 @@ type BinaryBrew<'FnCtx,
                 'GlCtx when 'FnCtx :> IResettable
                         and 'FnCtx: (new: unit -> 'FnCtx)
                         and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (hdl: BinHandle,
-          exnInfo: ExceptionInfo,
-          strategies: ICFGBuildingStrategy<_, _>[]) =
+  public(hdl: BinHandle,
+         exnInfo: ExceptionInfo,
+         strategies: ICFGBuildingStrategy<_, _>[]) =
 
-  let instrs = InstructionCollection (LinearSweepInstructionCollector hdl)
+  let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
 
-  let builders = CFGBuilderTable (hdl, exnInfo, instrs)
+  let builders = CFGBuilderTable(hdl, exnInfo, instrs)
 
   let missions = strategies |> Array.map RecoveryMission<'FnCtx, 'GlCtx>
 
@@ -56,23 +56,23 @@ type BinaryBrew<'FnCtx,
     |> FunctionCollection
 
   let recoverFunctions () =
-    let sw = Stopwatch ()
+    let sw = Stopwatch()
     Console.WriteLine "[*] CFG recovery started."
-    sw.Start ()
+    sw.Start()
     let funcs =
       missions
       |> Array.fold (fun builders mission -> mission.Execute builders) builders
       |> buildersToFunctions
-    sw.Stop ()
+    sw.Stop()
     let ts = sw.Elapsed
     Console.WriteLine $"[*] Total {ts.TotalSeconds}s elapsed."
     funcs
 
   let funcs = recoverFunctions ()
 
-  new (hdl: BinHandle, strategies) =
-    let exnInfo = ExceptionInfo (hdl)
-    BinaryBrew (hdl, exnInfo, strategies)
+  new(hdl: BinHandle, strategies) =
+    let exnInfo = ExceptionInfo(hdl)
+    BinaryBrew(hdl, exnInfo, strategies)
 
   /// Low-level access to binary code and data.
   member _.BinHandle with get(): BinHandle = hdl
@@ -92,27 +92,24 @@ type BinaryBrew<'FnCtx,
 type BinaryBrew =
   inherit BinaryBrew<DummyContext, DummyContext>
 
-  new (hdl: BinHandle, exnInfo, strategies) =
-    { inherit BinaryBrew<DummyContext, DummyContext>
-        (hdl, exnInfo, strategies) }
+  new(hdl: BinHandle, exnInfo, strategies) =
+    { inherit BinaryBrew<DummyContext, DummyContext>(hdl, exnInfo, strategies) }
 
-  new (hdl: BinHandle, strategies) =
-    { inherit BinaryBrew<DummyContext, DummyContext> (hdl, strategies) }
+  new(hdl: BinHandle, strategies) =
+    { inherit BinaryBrew<DummyContext, DummyContext>(hdl, strategies) }
 
-  new (hdl: BinHandle,
-       [<Optional; DefaultParameterValue(false)>] allowBBLOverlap) =
+  new(hdl: BinHandle,
+      [<Optional; DefaultParameterValue(false)>] allowBBLOverlap) =
     let exnInfo = ExceptionInfo hdl
-    let funcId = FunctionIdentification (hdl, exnInfo)
+    let funcId = FunctionIdentification(hdl, exnInfo)
     let strategies =
       [| funcId :> ICFGBuildingStrategy<_, _>
-         CFGRecovery (allowBBLOverlap) |]
-    { inherit BinaryBrew<DummyContext, DummyContext> (hdl,
-                                                      exnInfo,
-                                                      strategies) }
+         CFGRecovery(allowBBLOverlap) |]
+    { inherit BinaryBrew<DummyContext, DummyContext>(hdl, exnInfo, strategies) }
 
 /// Default BinaryBrew type that uses EVM-specific user context.
 type EVMBinaryBrew =
   inherit BinaryBrew<EVMFuncUserContext, DummyContext>
 
-  new (hdl: BinHandle, strategies) =
-    { inherit BinaryBrew<EVMFuncUserContext, DummyContext> (hdl, strategies) }
+  new(hdl: BinHandle, strategies) =
+    { inherit BinaryBrew<EVMFuncUserContext, DummyContext>(hdl, strategies) }

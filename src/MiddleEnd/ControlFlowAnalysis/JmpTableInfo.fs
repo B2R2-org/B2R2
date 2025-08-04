@@ -27,16 +27,15 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2
 
 /// Jump table information.
-type JmpTableInfo = {
-  /// The address of the indirect branch instruction corresponding to the jump
-  /// table.
-  InsAddr: Addr
-  /// The base address to be added to compute the final jump target.
-  JumpBase: Addr
-  /// The address of the jump table.
-  TableAddress: Addr
-  /// The size of each entry in the jump table (in bytes).
-  EntrySize: int
-  /// The number of entries in the jump table.
-  mutable NumEntries: int
-}
+type JmpTableInfo =
+  { /// The address of the indirect branch instruction corresponding to the jump
+    /// table.
+    InsAddr: Addr
+    /// The base address to be added to compute the final jump target.
+    JumpBase: Addr
+    /// The address of the jump table.
+    TableAddress: Addr
+    /// The size of each entry in the jump table (in bytes).
+    EntrySize: int
+    /// The number of entries in the jump table.
+    mutable NumEntries: int }

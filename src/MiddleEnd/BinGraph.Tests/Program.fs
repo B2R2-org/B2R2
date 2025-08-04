@@ -42,18 +42,18 @@ let private buildTestPersistentGraphs fileName size =
       let edge = edges[rng.Next(0, edges.Length)]
       let h = g.RemoveEdge edge
       loop ((g, edge) :: acc) h (i - 1)
-  let constructor () = PersistentDiGraph () :> IDiGraph<string, string>
+  let constructor () = PersistentDiGraph() :> IDiGraph<string, string>
   let json =
-    System.IO.File.ReadAllText ("TestData/Benchmark/Vertex/" + fileName)
-  let g = Serializer.FromJson (json, constructor, id, id)
+    System.IO.File.ReadAllText("TestData/Benchmark/Vertex/" + fileName)
+  let g = Serializer.FromJson(json, constructor, id, id)
   let h, testList = loop [] g size
   g, h, testList
 
 [<BenchmarkCategory("Static Dominance")>]
-type StaticDoms () =
+type StaticDoms() =
   let mutable g = null
   let mutable fileName: string = null
-  let df = CytronDominanceFrontier ()
+  let df = CytronDominanceFrontier()
 
   [<Params(
     "99_150_gcc_base_clang_O0_6a37b0_28.json",
@@ -73,44 +73,44 @@ type StaticDoms () =
   member _.FileName with get() = fileName and set(n) = fileName <- n
 
   [<GlobalSetup>]
-  member this.GlobalSetup () =
-    let constructor () = ImperativeDiGraph () :> IDiGraph<_, _>
+  member this.GlobalSetup() =
+    let constructor () = ImperativeDiGraph() :> IDiGraph<_, _>
     let json =
-      System.IO.File.ReadAllText ("TestData/Benchmark/Vertex/" + this.FileName)
-    g <- Serializer.FromJson (json, constructor, id, id)
+      System.IO.File.ReadAllText("TestData/Benchmark/Vertex/" + this.FileName)
+    g <- Serializer.FromJson(json, constructor, id, id)
 
   [<Benchmark(Baseline = true)>]
-  member _.IterativeAlgorithm () =
+  member _.IterativeAlgorithm() =
     let dom = IterativeDominance.create g df
     let v = g.Vertices[0]
     dom.Dominators v |> ignore
 
   [<Benchmark>]
-  member _.LengauerTarjanAlgorithm () =
+  member _.LengauerTarjanAlgorithm() =
     let dom = LengauerTarjanDominance.create g df
     let v = g.Vertices[0]
     dom.Dominators v |> ignore
 
   [<Benchmark>]
-  member _.SimpleLengauerTarjanAlgorithm () =
+  member _.SimpleLengauerTarjanAlgorithm() =
     let dom = SimpleLengauerTarjanDominance.create g df
     let v = g.Vertices[0]
     dom.Dominators v |> ignore
 
   [<Benchmark>]
-  member _.SemiNCAAlgorithm () =
+  member _.SemiNCAAlgorithm() =
     let dom = SemiNCADominance.create g df
     let v = g.Vertices[0]
     dom.Dominators v |> ignore
 
   [<Benchmark>]
-  member _.CooperAlgorithm () =
+  member _.CooperAlgorithm() =
     let dom = CooperDominance.create g df
     let v = g.Vertices[0]
     dom.Dominators v |> ignore
 
 [<BenchmarkCategory("Dynamic Dominance")>]
-type DynamicDoms () =
+type DynamicDoms() =
   let mutable g = null
   let mutable h = null
   let mutable testList = null
@@ -118,7 +118,7 @@ type DynamicDoms () =
   let mutable fwInfo = null
   let mutable bwInfo = null
   let mutable fileName: string = null
-  let dfp = CytronDominanceFrontier ()
+  let dfp = CytronDominanceFrontier()
 
   [<Params(
     "99_150_gcc_base_clang_O0_6a37b0_28.json",
@@ -135,11 +135,11 @@ type DynamicDoms () =
     "7431_10884_date_clang_m32_O0_8070750_2.json",
     "9603_13419_wrf_base_gcc_O0_403364_2.json"
   )>]
-  member __.FileName with get() = fileName and set(n) = fileName <- n
+  member _.FileName with get() = fileName and set(n) = fileName <- n
 
   [<GlobalSetup>]
-  member __.GlobalSetup () =
-    let initG, finalG, testGraphs = buildTestPersistentGraphs __.FileName 30
+  member this.GlobalSetup() =
+    let initG, finalG, testGraphs = buildTestPersistentGraphs this.FileName 30
     g <- initG
     h <- finalG
     testList <- testGraphs
@@ -149,10 +149,10 @@ type DynamicDoms () =
     bwInfo <- bw
 
   [<Benchmark(Baseline = true)>]
-  member _.DepthBasedSearchAlgorithm () =
+  member _.DepthBasedSearchAlgorithm() =
     let fwInitInfo = DBS.createInfoFromDom h initialDom dfp DBS.SemiNCA true
     let bwInitInfo =
-      Lazy (DBS.createInfoFromDom h initialDom dfp DBS.SemiNCA false)
+      Lazy(DBS.createInfoFromDom h initialDom dfp DBS.SemiNCA false)
     testList
     |> List.fold (fun (fwInfo, bwInfo) (f, edge) ->
       let updatedInfo = DBS.updateInfo f fwInfo edge
@@ -163,7 +163,7 @@ type DynamicDoms () =
     ) (fwInitInfo, bwInitInfo) |> ignore
 
   [<Benchmark>]
-  member _.SemiNCAAlgorithm () =
+  member _.SemiNCAAlgorithm() =
     testList
     |> List.fold (fun (fwInfo, bwInfo) (f, edge) ->
       let updatedInfo = SemiNCADominance.updateInfo f fwInfo edge
@@ -174,7 +174,7 @@ type DynamicDoms () =
     ) (fwInfo, bwInfo) |> ignore
 
 [<BenchmarkCategory("Dominance Frontier")>]
-type DominanceFrontier () =
+type DominanceFrontier() =
   let mutable g = null
   let mutable fileName: string = null
 
@@ -196,33 +196,33 @@ type DominanceFrontier () =
   member _.FileName with get() = fileName and set(n) = fileName <- n
 
   [<GlobalSetup>]
-  member this.GlobalSetup () =
-    let constructor () = ImperativeDiGraph () :> IDiGraph<_, _>
+  member this.GlobalSetup() =
+    let constructor () = ImperativeDiGraph() :> IDiGraph<_, _>
     let json =
-      System.IO.File.ReadAllText ("TestData/Benchmark/Vertex/" + this.FileName)
-    g <- Serializer.FromJson (json, constructor, id, id)
+      System.IO.File.ReadAllText("TestData/Benchmark/Vertex/" + this.FileName)
+    g <- Serializer.FromJson(json, constructor, id, id)
 
   [<Benchmark(Baseline = true)>]
-  member _.CytronDF () =
-    let dom = CooperDominance.create g (CytronDominanceFrontier ())
+  member _.CytronDF() =
+    let dom = CooperDominance.create g (CytronDominanceFrontier())
     let v = g.Vertices[0]
     dom.DominanceFrontier v |> ignore
 
   [<Benchmark>]
-  member _.CooperDF () =
-    let dom = CooperDominance.create g (CooperDominanceFrontier ())
+  member _.CooperDF() =
+    let dom = CooperDominance.create g (CooperDominanceFrontier())
     let v = g.Vertices[0]
     dom.DominanceFrontier v |> ignore
 
 [<EntryPoint>]
 let main _args =
   let cfg = ManualConfig.Create DefaultConfig.Instance
-  let cfg = cfg.WithOption (ConfigOptions.JoinSummary, true)
-  let cfg = cfg.WithOption (ConfigOptions.DisableLogFile, true)
-  let cfg = cfg.AddColumn (CategoriesColumn.Default)
-  let cfg = cfg.HideColumns ([| "Type"; "Error" |])
-  let cfg = cfg.AddLogicalGroupRules (BenchmarkLogicalGroupRule.ByCategory)
-  BenchmarkRunner.Run (
+  let cfg = cfg.WithOption(ConfigOptions.JoinSummary, true)
+  let cfg = cfg.WithOption(ConfigOptions.DisableLogFile, true)
+  let cfg = cfg.AddColumn(CategoriesColumn.Default)
+  let cfg = cfg.HideColumns([| "Type"; "Error" |])
+  let cfg = cfg.AddLogicalGroupRules(BenchmarkLogicalGroupRule.ByCategory)
+  BenchmarkRunner.Run(
     [| typeof<StaticDoms>
        typeof<DynamicDoms>
        typeof<DominanceFrontier> |],

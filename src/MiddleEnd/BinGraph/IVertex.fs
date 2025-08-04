@@ -26,10 +26,8 @@ namespace B2R2.MiddleEnd.BinGraph
 
 /// Missing vertex.
 exception VertexNotFoundException
-
 /// Trying to access dummy data
 exception DummyDataAccessException
-
 /// Trying to access a single root vertex when there are multiple root vertices.
 exception MultipleRootVerticesException
 
@@ -56,11 +54,11 @@ type IVertex<'V when 'V: equality> =
 /// This is an internal data type used by a vertex implementation in order to
 /// represent nullable data.
 [<AllowNullLiteral>]
-type internal VertexData<'V when 'V: equality> (v) =
+type internal VertexData<'V when 'V: equality>(v) =
   member _.Value: 'V = v
 
-  override _.ToString () = $"{v}"
+  override _.ToString() = $"{v}"
 
   interface System.IEquatable<VertexData<'V>> with
-    member this.Equals (other: VertexData<'V>) =
+    member this.Equals(other: VertexData<'V>) =
       this.Value = other.Value

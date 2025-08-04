@@ -324,14 +324,14 @@ let shiftXCoordinate shift (v: IVertex<VisBBlock>) =
 
 let adjustCoordinates (vGraph: VisGraph) =
   vGraph.IterVertex adjustXCoordinate
-  let leftMost = vGraph.FoldVertex getLeftCoordinate [] |> List.min
-  let rightMost = vGraph.FoldVertex getRightCoordinate [] |> List.max
+  let leftMost = vGraph.FoldVertex(getLeftCoordinate, []) |> List.min
+  let rightMost = vGraph.FoldVertex(getRightCoordinate, []) |> List.max
   let width = rightMost - leftMost
   shiftXCoordinate (rightMost - width / 2.0) |> vGraph.IterVertex
 
 let adjustWidthOfDummies (vGraph: VisGraph) =
   let maxWidth =
-    vGraph.FoldVertex (fun maxWidth v -> max maxWidth v.VData.Width) 0.0
+    vGraph.FoldVertex((fun maxWidth v -> max maxWidth v.VData.Width), 0.0)
   vGraph.IterVertex(fun v -> v.VData.Width <- maxWidth)
 
 let assignCoordinates vGraph vLayout =

@@ -29,29 +29,28 @@ module B2R2.MiddleEnd.BinGraph.Dominance.CooperDominance
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-type private CPDomInfo<'V when 'V: equality> = {
-  /// Vertex ID -> Num
-  NumMap: Dictionary<VertexID, int>
-  /// Num -> Vertex ID
-  Vertex: IVertex<'V>[]
-  /// Num -> Num of the immediate dominator.
-  IDom: int[]
-  /// Num -> array of Num of the predecessors.
-  Preds: int[][]
-  /// Real roots of graph
-  Roots: IVertex<'V>[]
-  /// Dummy root
-  DummyRoot: IVertex<'V>
-}
+type private CPDomInfo<'V when 'V: equality> =
+  { /// Vertex ID -> Num
+    NumMap: Dictionary<VertexID, int>
+    /// Num -> Vertex ID
+    Vertex: IVertex<'V>[]
+    /// Num -> Num of the immediate dominator.
+    IDom: int[]
+    /// Num -> array of Num of the predecessors.
+    Preds: int[][]
+    /// Real roots of graph
+    Roots: IVertex<'V>[]
+    /// Dummy root
+    DummyRoot: IVertex<'V> }
 
 let private initDomInfo (g: IDiGraphAccessible<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.Size + 1
-  { NumMap = Dictionary<VertexID, int> ()
+  { NumMap = Dictionary<VertexID, int>()
     Vertex = Array.zeroCreate len
     IDom = Array.create len -1
     Preds = Array.zeroCreate len
-    Roots = g.GetRoots ()
+    Roots = g.GetRoots()
     DummyRoot = GraphUtils.makeDummyVertex () }
 
 let private prepareWithDummyRoot g info =
@@ -97,8 +96,9 @@ let private intersect (idoms: array<int>) b1 b2 =
     while f2 < f1 do
       f2 <- idoms[f2]
   f1
+
 let rec private domsAux acc v info =
-  if info.NumMap.ContainsKey (v: IVertex<'V>).ID then
+  if info.NumMap.ContainsKey((v: IVertex<'V>).ID) then
     let idom = info.IDom[info.NumMap[v.ID]]
     if idom = -1 || idom = info.NumMap[info.DummyRoot.ID]
     then acc |> List.toArray
@@ -106,7 +106,7 @@ let rec private domsAux acc v info =
   else acc |> List.toArray
 
 let private idomAux info v =
-  if info.NumMap.ContainsKey (v: IVertex<'V>).ID then
+  if info.NumMap.ContainsKey((v: IVertex<'V>).ID) then
     let num = info.IDom[info.NumMap[v.ID]]
     if num <> -1 && num <> info.NumMap[info.DummyRoot.ID] then info.Vertex[num]
     else null
@@ -143,60 +143,53 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
   let mutable dfProvider = null
   let mutable pdfProvider = null
   { new IDominance<'V, 'E> with
-    member __.Dominators v =
+    member _.Dominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
 #endif
-      domsAux [v] v fwInfo
-
+      domsAux [ v ] v fwInfo
     member _.ImmediateDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
 #endif
       idomAux fwInfo v
-
-    member __.DominatorTree =
+    member _.DominatorTree =
       fwDT.Value
-
-    member __.DominanceFrontier v =
+    member this.DominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
 #endif
       if isNull pdfProvider then
-        pdfProvider <- dfp.CreateIDominanceFrontier (fwG, __, false)
+        pdfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
       else ()
       pdfProvider.DominanceFrontier v
-
     member _.PostDominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
-      domsAux [v] v bwInfo.Value
-
+      domsAux [ v ] v bwInfo.Value
     member _.ImmediatePostDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       idomAux bwInfo.Value v
-
-    member __.PostDominatorTree =
+    member _.PostDominatorTree =
       bwDT.Value
-
-    member __.PostDominanceFrontier v =
+    member this.PostDominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       if isNull dfProvider then
-        dfProvider <- dfp.CreateIDominanceFrontier (bwG.Value, __, true)
+        dfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
       else ()
       dfProvider.DominanceFrontier v }
 
 let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
   let fwInfo = computeDomInfo g
-  let fwDT = lazy DominatorTree (g, idomAux fwInfo)
+  let fwDT = lazy DominatorTree(g, idomAux fwInfo)
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let bwInfo = lazy computeDomInfo bwG.Value
-  let bwDT = lazy DominatorTree (bwG.Value, idomAux bwInfo.Value)
+  let bwDT = lazy DominatorTree(bwG.Value, idomAux bwInfo.Value)
   createDominance g bwG fwInfo fwDT bwInfo bwDT dfp, fwInfo, bwInfo
 
 [<CompiledName "Create">]

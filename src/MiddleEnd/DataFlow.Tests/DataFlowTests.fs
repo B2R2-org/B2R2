@@ -25,7 +25,6 @@
 namespace B2R2.MiddleEnd.DataFlow.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
-
 open B2R2
 open B2R2.FrontEnd.Intel
 open B2R2.BinIR
@@ -34,15 +33,15 @@ open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
 
 [<TestClass>]
-type DataFlowTests () =
+type DataFlowTests() =
   let isRegular (v: VarPoint) =
     match v.VarKind with
     | Regular _ -> true
     | _ -> false
 
   let reg addr idx reg =
-    { ProgramPoint = ProgramPoint (addr, idx)
-      VarKind = Regular (Register.toRegID reg) }
+    { ProgramPoint = ProgramPoint(addr, idx)
+      VarKind = Regular(Register.toRegID reg) }
 
   let mkConst v rt =
     BitVector.OfUInt32(v, rt) |> ConstantDomain.Const
@@ -50,10 +49,10 @@ type DataFlowTests () =
   let rec findVarDefFromStmts (stmts: _[]) vaddr idx addr kind =
     if idx < stmts.Length then
       match stmts[idx] with
-      | (pp: ProgramPoint), SSA.Def (v, _) when v.Kind = kind ->
+      | (pp: ProgramPoint), SSA.Def(v, _) when v.Kind = kind ->
         if pp.Address = addr then Some v
         else findVarDefFromStmts stmts vaddr (idx + 1) addr kind
-      | _, SSA.Phi (v, _) when v.Kind = kind ->
+      | _, SSA.Phi(v, _) when v.Kind = kind ->
         if vaddr = addr then Some v
         else findVarDefFromStmts stmts vaddr (idx + 1) addr kind
       | _ -> findVarDefFromStmts stmts vaddr (idx + 1) addr kind
@@ -72,7 +71,7 @@ type DataFlowTests () =
   let ssaReg ssaCFG r addr rt =
     let rid = Register.toRegID r
     let rstr = Register.toString r
-    let k = SSA.RegVar (rt, rid, rstr)
+    let k = SSA.RegVar(rt, rid, rstr)
     let v = findSSAVarDef ssaCFG 0 addr k
     SSASparseDataFlow.SSAVarPoint.RegularSSAVar
     <| { Kind = k; Identifier = v.Identifier }
@@ -80,29 +79,29 @@ type DataFlowTests () =
   let ssaRegInitial r rt =
     let rid = Register.toRegID r
     let rstr = Register.toString r
-    let k = SSA.RegVar (rt, rid, rstr)
+    let k = SSA.RegVar(rt, rid, rstr)
     SSASparseDataFlow.SSAVarPoint.RegularSSAVar
     <| { Kind = k; Identifier = 0 }
 
   let ssaStk ssaCFG offset addr rt =
-    let kind = SSA.StackVar (rt, offset)
+    let kind = SSA.StackVar(rt, offset)
     let v = findSSAVarDef ssaCFG 0 addr kind
     SSASparseDataFlow.SSAVarPoint.RegularSSAVar
     <| { Kind = v.Kind; Identifier = v.Identifier }
 
   let irReg addr idx r =
     let rid = Register.toRegID r
-    let pp = ProgramPoint (addr, idx)
+    let pp = ProgramPoint(addr, idx)
     let varKind = Regular rid
     { ProgramPoint = pp; VarKind = varKind }
 
   let irStk addr idx offset =
-    let pp = ProgramPoint (addr, idx)
+    let pp = ProgramPoint(addr, idx)
     let varKind = StackLocal offset
     { ProgramPoint = pp; VarKind = varKind }
 
   let mkUntouchedReg r =
-    Regular (Register.toRegID r)
+    Regular(Register.toRegID r)
     |> UntouchedValueDomain.RegisterTag
     |> UntouchedValueDomain.Untouched
 
@@ -113,9 +112,9 @@ type DataFlowTests () =
   member _.``Reaching Definitions Test 1``() =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
-    let dfa = ReachingDefinitionAnalysis () :> IDataFlowComputable<_, _, _, _>
+    let dfa = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _, _>
     let state = dfa.Compute cfg
-    let v = cfg.FindVertex (fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
+    let v = cfg.FindVertex(fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
     let rd = (state :> IAbsValProvider<_, _>).GetAbsValue v.ID (* 2nd vertex *)
     let ins = rd.Ins |> Set.filter isRegular
     let solution =
@@ -135,7 +134,7 @@ type DataFlowTests () =
         reg 0xAUL 7 Register.SF
         reg 0xAUL 8 Register.ZF
         reg 0xAUL 11 Register.PF ]
-    Assert.AreEqual (Set.ofList solution, ins)
+    Assert.AreEqual(Set.ofList solution, ins)
 #endif
 
   [<TestMethod>]
@@ -146,7 +145,7 @@ type DataFlowTests () =
     let vp = reg 0xEUL 1 Register.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
     let solution = [| reg 0x0UL 1 Register.EDX |]
-    CollectionAssert.AreEqual (solution, res)
+    CollectionAssert.AreEqual(solution, res)
 
   [<TestMethod>]
   member _.``Use-Def Test 2``() =
@@ -156,7 +155,7 @@ type DataFlowTests () =
     let vp = reg 0xEUL 0 Register.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
     let solution = [| reg 0x0UL 0 Register.EDX |]
-    CollectionAssert.AreEqual (solution, res)
+    CollectionAssert.AreEqual(solution, res)
 
 #if !EMULATION
   [<TestMethod>]
@@ -167,14 +166,14 @@ type DataFlowTests () =
     let vp = reg 0x1AUL 1 Register.EDX
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
     let solution = [| reg 0x12UL 3 Register.EDX; reg 0x1AUL 3 Register.EDX |]
-    CollectionAssert.AreEqual (solution, res)
+    CollectionAssert.AreEqual(solution, res)
 #endif
 
   [<TestMethod>]
-  member _.``SSA Constant Propagation Test 1`` () =
+  member _.``SSA Constant Propagation Test 1``() =
     let brew = Binaries.loadOne Binaries.sample2
     let cfg = brew.Functions[0UL].CFG
-    let lifter = SSALifterFactory.Create (brew.BinHandle)
+    let lifter = SSALifterFactory.Create(brew.BinHandle)
     let g = lifter.Lift cfg
     let cp = SSAConstantPropagation brew.BinHandle
     let dfa = cp :> IDataFlowComputable<_, _, _, _>
@@ -197,7 +196,7 @@ type DataFlowTests () =
       ssaReg g Register.RSP 0x3CUL 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
     |> List.iter (fun (var, ans) ->
       let out = (state :> IAbsValProvider<_, _>).GetAbsValue var
-      Assert.AreEqual<ConstantDomain.Lattice> (ans, out))
+      Assert.AreEqual<ConstantDomain.Lattice>(ans, out))
 
 #if !EMULATION
   [<TestMethod>]
@@ -217,7 +216,7 @@ type DataFlowTests () =
       irReg 0x2fUL 1 Register.RDX |> cmp <| ConstantDomain.NotAConst ]
     |> List.iter (fun (vp, ans) ->
       let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
-      Assert.AreEqual<ConstantDomain.Lattice> (ans, out))
+      Assert.AreEqual<ConstantDomain.Lattice>(ans, out))
 #endif
 
   [<TestMethod>]
@@ -240,4 +239,4 @@ type DataFlowTests () =
       irReg 0x3bUL 1 Register.RAX |> cmp <| mkUntouchedReg Register.RDI ]
     |> List.iter (fun (vp, ans) ->
       let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
-      Assert.AreEqual<UntouchedValueDomain.Lattice> (ans, out))
+      Assert.AreEqual<UntouchedValueDomain.Lattice>(ans, out))

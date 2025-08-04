@@ -32,9 +32,9 @@ open B2R2.MiddleEnd.LLVM.LLVMExpr
 
 /// LLVM IR builder, which takes in a series of LowUIR stmts and creates an LLVM
 /// function that corresponds to the LowUIR stmts.
-type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
-  let stmts = List<LLVMStmt> ()
-  let sb = StringBuilder ()
+type LLVMIRBuilder(fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
+  let stmts = List<LLVMStmt>()
+  let sb = StringBuilder()
   let mutable hasJumpToFinal = false
   let [<Literal>] Indent = "  "
   let [<Literal>] ASpace = "addrspace(1)"
@@ -47,10 +47,10 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
 
   member _.Address with get(): Addr = addr
 
-  member _.EmitStmt (s: LLVMStmt) =
+  member _.EmitStmt(s: LLVMStmt) =
     stmts.Add s
 
-  member this.EmitComment (s: string) =
+  member this.EmitComment(s: string) =
     Comment $"{Indent}; {s}" |> this.EmitStmt
 
   member private _.GetRegisterInfo reg =
@@ -71,14 +71,14 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
     | 64<rt> -> "i64"
     | _ -> Terminator.futureFeature ()
 
-  member private _.AddrToLabel (addr: Addr) =
+  member private _.AddrToLabel(addr: Addr) =
     $"bbl.{addr:x}"
 
   member this.EmitLabel addr =
     this.AddrToLabel addr |> LMark |> this.EmitStmt
 
-  member this.Number (num: uint64) (len: RegType) =
-    Number (num, this.GetLLVMType len)
+  member this.Number(num: uint64, len: RegType) =
+    Number(num, this.GetLLVMType len)
 
   member private this.LoadRegisterPtr reg =
     let elm, sz = this.GetRegisterInfo reg
@@ -102,11 +102,11 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
       this.EmitStmt <| LLVMStmt.mkTrunc rvar' (mkTypedId rvar) rtype
       Ident rvar'
 
-  member this.EmitPCLoad () =
+  member this.EmitPCLoad() =
     let pc = hdl.RegisterFactory.ProgramCounter
     this.EmitRegLoad pc
 
-  member this.EmitRegStore lreg rexp =
+  member this.EmitRegStore(lreg, rexp) =
     let struct (ptr, elm, sz) = this.LoadRegisterPtr lreg
     let rname = hdl.RegisterFactory.GetRegString lreg
     if RegType.toBitWidth elm.RType = elm.Size * 8 then (* normal case *)
@@ -116,61 +116,61 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
       let rexp =
         match rexp with
         | Ident r -> mkTypedId r
-        | Number _ -> TypedExpr (this.GetLLVMType elm.RType, rexp)
+        | Number _ -> TypedExpr(this.GetLLVMType elm.RType, rexp)
         | _ -> Terminator.futureFeature ()
       this.EmitStmt <| LLVMStmt.mkZExt extendedReg rexp sz
       this.EmitStmt
       <| LLVMStmt.mkStore (Ident extendedReg) ptr None (Some rname)
 
-  member this.EmitBranchToFinal () =
+  member this.EmitBranchToFinal() =
     hasJumpToFinal <- true
-    Branch (None, [| Label "final" |]) |> this.EmitStmt
+    Branch(None, [| Label "final" |]) |> this.EmitStmt
 
   member this.EmitPCStore target =
     let pc = hdl.RegisterFactory.ProgramCounter
-    this.EmitRegStore pc target
-    this.EmitBranchToFinal ()
+    this.EmitRegStore(pc, target)
+    this.EmitBranchToFinal()
 
-  member this.EmitBranch targets succs =
+  member this.EmitBranch(targets, succs) =
     let targets = targets |> List.filter (fun t -> List.contains t succs)
     if List.isEmpty targets then ()
     else
       let lbl = targets |> List.map (this.AddrToLabel >> Label) |> List.toArray
-      Branch (None, lbl) |> this.EmitStmt
+      Branch(None, lbl) |> this.EmitStmt
 
-  member this.EmitInterJmp target succs =
+  member this.EmitInterJmp(target, succs) =
     match target with
-    | Number (addr, _) -> this.EmitBranch [ addr ] succs
+    | Number(addr, _) -> this.EmitBranch([ addr ], succs)
     | _ -> this.EmitPCStore target
 
-  member this.EmitCondBranch cond t f succs =
+  member this.EmitCondBranch(cond, t, f, succs) =
     match List.contains t succs, List.contains f succs with
     | true, true ->
-      let lbls = [| Label (this.AddrToLabel t); Label (this.AddrToLabel f) |]
-      Branch (Some cond, lbls) |> this.EmitStmt
+      let lbls = [| Label(this.AddrToLabel t); Label(this.AddrToLabel f) |]
+      Branch(Some cond, lbls) |> this.EmitStmt
     | true, false ->
       hasJumpToFinal <- true
-      let lbls = [| Label (this.AddrToLabel t); Label "final" |]
-      Branch (Some cond, lbls) |> this.EmitStmt
+      let lbls = [| Label(this.AddrToLabel t); Label "final" |]
+      Branch(Some cond, lbls) |> this.EmitStmt
     | false, true ->
       hasJumpToFinal <- true
-      let lbls = [| Label "final"; Label (this.AddrToLabel f) |]
-      Branch (Some cond, lbls) |> this.EmitStmt
+      let lbls = [| Label "final"; Label(this.AddrToLabel f) |]
+      Branch(Some cond, lbls) |> this.EmitStmt
     | _ ->
       hasJumpToFinal <- true
       let lbls = [| Label "final"; Label "final" |]
-      Branch (Some cond, lbls) |> this.EmitStmt
+      Branch(Some cond, lbls) |> this.EmitStmt
 
-  member this.EmitInterCJmp typ cond t f succs =
+  member this.EmitInterCJmp(typ, cond, t, f, succs) =
     match t, f with
-    | Number (t, _), Number (f, _) -> this.EmitCondBranch cond t f succs
+    | Number(t, _), Number(f, _) -> this.EmitCondBranch(cond, t, f, succs)
     | _ ->
       let pc = newID <| this.GetLLVMType typ
       let addrType = this.GetLLVMType addrSize
       this.EmitStmt <| LLVMStmt.mkSelect pc cond addrType t f
-      this.EmitPCStore (Ident pc)
+      this.EmitPCStore(Ident pc)
 
-  member this.EmitMemLoad mexpr mtyp =
+  member this.EmitMemLoad(mexpr, mtyp) =
     let intType = this.GetLLVMType addrSize
     let sz = this.GetLLVMType mtyp
     let ptr = newID $"{sz} {ASpace}*"
@@ -179,47 +179,47 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
     this.EmitStmt <| LLVMStmt.mkLoad loadVal ptr None
     Ident loadVal
 
-  member this.EmitMemStore addr mtyp v =
+  member this.EmitMemStore(addr, mtyp, v) =
     let intType = this.GetLLVMType addrSize
     let sz = this.GetLLVMType mtyp
     let ptr = newID $"{sz} {ASpace}*"
     this.EmitStmt <| LLVMStmt.mkIntToPtr ptr intType addr ptr.IDType
     this.EmitStmt <| LLVMStmt.mkStore v ptr None None
 
-  member this.EmitUnOp opstr exp etyp =
+  member this.EmitUnOp(opstr, exp, etyp) =
     let sz = this.GetLLVMType etyp
     match opstr, exp with
     | "not", Ident id ->
       let var = newID sz
       this.EmitStmt <| LLVMStmt.mkBinop var "xor" sz exp (Token "-1")
       Ident var
-    | _ -> Terminator.futureFeature()
+    | _ -> Terminator.futureFeature ()
 
-  member this.EmitBinOp opstr typ lhs rhs =
+  member this.EmitBinOp(opstr, typ, lhs, rhs) =
     let sz = this.GetLLVMType typ
     let var = newID sz
     this.EmitStmt <| LLVMStmt.mkBinop var opstr sz lhs rhs
     Ident var
 
-  member this.EmitRelOp opstr typ lhs rhs =
+  member this.EmitRelOp(opstr, typ, lhs, rhs) =
     let sz = this.GetLLVMType typ
     let var = newID "i1"
     this.EmitStmt <| LLVMStmt.mkIcmp var opstr sz lhs rhs
     Ident var
 
-  member this.EmitCast e kind etyp rt =
+  member this.EmitCast(e, kind, etyp, rt) =
     let fromSz = this.GetLLVMType etyp
     let toSz = this.GetLLVMType rt
     let var = newID toSz
     this.EmitStmt <| LLVMStmt.mkCast var kind fromSz e toSz
     Ident var
 
-  member this.EmitExtract e (etyp: RegType) (len: RegType) pos =
+  member this.EmitExtract(e, etyp: RegType, len: RegType, pos) =
     let sz = this.GetLLVMType etyp
     let extSz = this.GetLLVMType len
     let tmp = newID sz
     let finalVal = newID extSz
-    this.EmitStmt <| LLVMStmt.mkBinop tmp "lshr" sz e (Number (uint64 pos, sz))
+    this.EmitStmt <| LLVMStmt.mkBinop tmp "lshr" sz e (Number(uint64 pos, sz))
     this.EmitStmt <| LLVMStmt.mkTrunc finalVal (mkTypedId tmp) extSz
     Ident finalVal
 
@@ -228,53 +228,59 @@ type LLVMIRBuilder (fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
     | Ident id -> $"%%{id.Num}"
     | Opcode op -> op
     | Label lbl -> $"label %%{lbl}"
-    | PhiNode (id, lbl) ->
+    | PhiNode(id, lbl) ->
       let id = this.ExprToString id
       let lbl = this.ExprToString lbl
       $"[ {id}, {lbl} ]"
-    | Number (n, _) -> n.ToString ()
+    | Number(n, _) -> n.ToString()
     | ExprList exprs ->
       exprs |> List.map this.ExprToString |> String.concat ", "
     | Token s -> s
-    | TypedExpr (typ, e) -> $"{typ} {this.ExprToString e}"
+    | TypedExpr(typ, e) -> $"{typ} {this.ExprToString e}"
 
-  member private _.StoreStmtToString v addr align comment =
+  member private _.StoreStmtToString(v, addr, align, comment) =
     let addr = $"{addr.IDType} %%{addr.Num}"
-    let align = match align with Some a -> $", align {a}" | None -> ""
-    let comment = match comment with Some c -> $"; {c}" | None -> ""
+    let align =
+      match align with
+      | Some a -> $", align {a}"
+      | None -> ""
+    let comment =
+      match comment with
+      | Some c -> $"; {c}"
+      | None -> ""
     sb <+ $"{Indent}store {v}, {addr}{align}{comment}"
 
-  member private this.StmtsToString () =
+  member private this.StmtsToString() =
     let mutable idCount = 1
     for stmt in stmts do
       match stmt with
       | LMark lbl -> sb <+ $"{lbl}:"
-      | Branch (Some cond, lbls) ->
+      | Branch(Some cond, lbls) ->
         let lbls = lbls |> Array.map this.ExprToString |> String.concat ", "
         sb <+ $"{Indent}br i1 {this.ExprToString cond}, {lbls}"
-      | Branch (None, lbls) ->
+      | Branch(None, lbls) ->
         let lbls = lbls |> Array.map this.ExprToString |> String.concat ", "
         sb <+ $"{Indent}br {lbls}"
-      | Def (lhs, rhs) ->
+      | Def(lhs, rhs) ->
         let rhs = rhs |> Array.map this.ExprToString |> String.concat " "
         sb <+ $"{Indent}{renameID lhs &idCount} = {rhs}"
-      | Store (Number (v, t), Ident addr, align, comment) ->
+      | Store(Number(v, t), Ident addr, align, comment) ->
         let v = $"{t} {v}"
-        this.StoreStmtToString v addr align comment
-      | Store (Ident v, Ident addr, align, comment) ->
+        this.StoreStmtToString(v, addr, align, comment)
+      | Store(Ident v, Ident addr, align, comment) ->
         let v = $"{v.IDType} %%{v.Num}"
-        this.StoreStmtToString v addr align comment
+        this.StoreStmtToString(v, addr, align, comment)
       | Comment s -> sb <+ s
       | _ -> printfn "%A" stmt; Terminator.futureFeature ()
     done
 
   /// Emit the LLVM IR string and destroy the builder.
-  override this.ToString () =
+  override this.ToString() =
     sb <+ $"define void @F_{fname}(i8 {ASpace}* {attr} %%0) {{"
-    this.StmtsToString ()
+    this.StmtsToString()
     sb <+ "  ret void"
     if hasJumpToFinal then sb <+ "final:"; sb <+ "  ret void" else ()
     sb <+ "}"
-    let s = sb.ToString ()
-    sb.Clear () |> ignore
+    let s = sb.ToString()
+    sb.Clear() |> ignore
     s

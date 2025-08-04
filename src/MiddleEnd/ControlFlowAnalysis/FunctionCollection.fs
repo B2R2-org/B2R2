@@ -32,31 +32,31 @@ type FunctionCollection<'FnCtx,
                         'GlCtx when 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
                                 and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (builders: ICFGBuildable<'FnCtx, 'GlCtx>[]) =
+  public(builders: ICFGBuildable<'FnCtx, 'GlCtx>[]) =
 
-  let addrToFunction = Dictionary<Addr, Function> ()
+  let addrToFunction = Dictionary<Addr, Function>()
 
-  let nameToFunction = Dictionary<string, List<Function>> ()
+  let nameToFunction = Dictionary<string, List<Function>>()
 
   let createFunctions () =
     builders
-    |> Array.map (fun builder -> builder.ToFunction ())
+    |> Array.map (fun builder -> builder.ToFunction())
 
   let updateCollection fns =
     fns
     |> Array.iter (fun (fn: Function) ->
-      addrToFunction.Add (fn.EntryPoint, fn)
+      addrToFunction.Add(fn.EntryPoint, fn)
       match nameToFunction.TryGetValue fn.Name with
       | false, _ ->
-        let fns = List<Function> ()
+        let fns = List<Function>()
         fns.Add fn
-        nameToFunction.Add (fn.Name, fns)
+        nameToFunction.Add(fn.Name, fns)
       | true, fns -> fns.Add fn)
 
   let findByAddr addr =
     match addrToFunction.TryGetValue addr with
     | true, fn -> fn
-    | _ -> raise (KeyNotFoundException ($"Function not found: {addr:x}"))
+    | _ -> raise (KeyNotFoundException($"Function not found: {addr:x}"))
 
   do createFunctions () |> updateCollection
 
@@ -73,15 +73,15 @@ type FunctionCollection<'FnCtx,
   member _.Item with get(addr: Addr) = findByAddr addr
 
   /// Find a function by its address.
-  member _.Find (addr: Addr) = findByAddr addr
+  member _.Find(addr: Addr) = findByAddr addr
 
   /// Find a function by its name. If there are multiple functions with the same
   /// name, this function returns all of them.
-  member _.Find (name: string) =
+  member _.Find(name: string) =
     match nameToFunction.TryGetValue name with
     | true, fns -> fns
-    | false, _ -> raise (KeyNotFoundException ($"Function not found: {name}"))
+    | false, _ -> raise (KeyNotFoundException($"Function not found: {name}"))
 
   /// Find a function by its function ID.
-  member _.FindByID (id: string) =
+  member _.FindByID(id: string) =
     findByAddr <| Addr.ofFuncName id

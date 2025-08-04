@@ -60,20 +60,20 @@ module JSONExport =
     let roots =
       roots |> List.map (fun r -> (r.VData :> IVisualizable).BlockAddress)
     let nodes =
-      g.FoldVertex(fun acc v ->
+      g.FoldVertex((fun acc v ->
         let vData = v.VData :> IVisualizable
         { PPoint = vData.BlockAddress
           Terms = vData.Visualize() |> getJSONTerms
           Width = v.VData.Width
           Height = v.VData.Height
           Coordinate = { X = v.VData.Coordinate.X
-                         Y = v.VData.Coordinate.Y } } :: acc) []
+                         Y = v.VData.Coordinate.Y } } :: acc), [])
     let edges =
-      g.FoldEdge(fun acc e ->
+      g.FoldEdge((fun acc e ->
         let e = e.Label
         { Type = e.Type
           Points = e.Points |> List.map (fun p -> { X = p.X; Y = p.Y })
-          IsBackEdge = e.IsBackEdge } :: acc) []
+          IsBackEdge = e.IsBackEdge } :: acc), [])
     { Roots = roots; Nodes = nodes; Edges = edges }
 
   let toFile s roots g =

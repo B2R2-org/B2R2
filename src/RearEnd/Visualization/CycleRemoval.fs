@@ -39,7 +39,7 @@ let private dfsCollectBackEdges vGraph backEdgeList =
   let _, orderMap =
     Traversal.DFS.foldRevPostorder vGraph (fun (cnt, map) v ->
       cnt + 1, Map.add v cnt map) (0, Map.empty)
-  vGraph.FoldEdge (collectBackEdge vGraph orderMap) backEdgeList
+  vGraph.FoldEdge(collectBackEdge vGraph orderMap, backEdgeList)
 
 let private collectSelfCycle backEdgeList (edge: Edge<_, VisEdge>) =
   let src, dst = edge.First, edge.Second
@@ -53,7 +53,7 @@ let removeBackEdge (vGraph: VisGraph) src dst edge needToAddReverse =
   if needToAddReverse then vGraph.AddEdge(dst, src, edge) |> ignore
 
 let removeCycles (vGraph: VisGraph) =
-  vGraph.FoldEdge collectSelfCycle []
+  vGraph.FoldEdge(collectSelfCycle, [])
   |> dfsCollectBackEdges vGraph
   |> List.map (fun (src, dst, edge, needToAddReverse) ->
     removeBackEdge vGraph src dst edge.Label needToAddReverse

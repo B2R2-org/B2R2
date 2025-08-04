@@ -39,32 +39,32 @@ type LogMessage =
   | Flush of int
 
 [<AllowNullLiteral>]
-type CFGLogger (numThreads) =
+type CFGLogger(numThreads) =
   let logBuilders = Array.init (numThreads + 1) (fun _ -> StringBuilder ())
 
-  let cts = new CancellationTokenSource ()
+  let cts = new CancellationTokenSource()
 
-  let lock = System.Object ()
+  let lock = System.Object()
 
   let logger =
-    let fileName = Path.ChangeExtension (Path.GetRandomFileName (), "log")
+    let fileName = Path.ChangeExtension(Path.GetRandomFileName(), "log")
     System.Console.Error.WriteLine $"[!] CFG log is written @ {fileName}"
-    let path = Path.Combine (Directory.GetCurrentDirectory (), fileName)
-    new FileLogger (path) :> ILogger
+    let path = Path.Combine(Directory.GetCurrentDirectory(), fileName)
+    new FileLogger(path) :> ILogger
 
   let flushLog tid =
     Monitor.Enter lock
     try
       let sb = logBuilders[tid]
-      sb.ToString () |> logger.Log
-      sb.Clear () |> ignore
+      sb.ToString() |> logger.Log
+      sb.Clear() |> ignore
     finally
       Monitor.Exit lock
 
   let task = fun (inbox: IAgentMessageReceivable<LogMessage>) ->
     while not inbox.IsCancelled do
-      match inbox.Receive () with
-      | Log (tid, msg) ->
+      match inbox.Receive() with
+      | Log(tid, msg) ->
         if tid = ManagerTid then
           logBuilders[numThreads].AppendLine msg |> ignore
           flushLog numThreads
@@ -73,12 +73,12 @@ type CFGLogger (numThreads) =
       | Flush tid ->
         flushLog (if tid = ManagerTid then numThreads else tid)
 
-  let agent = Agent<LogMessage>.Start (task, cts.Token)
+  let agent = Agent<LogMessage>.Start(task, cts.Token)
 
-  member inline _.Log tid (locationName: string) msg =
+  member inline _.Log(tid, locationName: string, msg) =
     let t = if tid = ManagerTid then "m " else $"{tid, -2}"
     let log = $"{t} | {locationName, -22} | {msg}"
-    agent.Post <| Log (tid, log)
+    agent.Post <| Log(tid, log)
 
   member inline _.Flush tid =
     agent.Post <| Flush tid
@@ -90,7 +90,7 @@ let initLogger numThreads =
   else ()
 
 let inline dbglog tid locationName msg =
-  logger.Log tid locationName msg
+  logger.Log(tid, locationName, msg)
 
 let inline flushLog tid =
   logger.Flush tid

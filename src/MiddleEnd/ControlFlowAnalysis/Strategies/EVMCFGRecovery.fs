@@ -36,10 +36,10 @@ open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 
 [<AutoOpen>]
 module private EVMCFGRecovery =
-  let summarizer = EVMFunctionSummarizer () :> IFunctionSummarizable<_, _>
+  let summarizer = EVMFunctionSummarizer() :> IFunctionSummarizable<_, _>
 
   let getFunctionContext (ctx: CFGBuildingContext<EVMFuncUserContext, _>)
-                         calleeAddr =
+                          calleeAddr =
     match ctx.ManagerChannel.GetBuildingContext calleeAddr with
     | FinalCtx calleeCtx
     | StillBuilding calleeCtx -> Ok calleeCtx
@@ -63,40 +63,40 @@ module private EVMCFGRecovery =
          such variables, and we assume that they are defined in the caller
          function. *)
       match state.FindSSADefStmtFromSSAVar var with
-      | SSA.Def (_, e) -> expandExpr state e
+      | SSA.Def(_, e) -> expandExpr state e
       | _ -> Terminator.impossible ()
     | SSA.ExprList [ expr ] -> expandExpr state expr
     | SSA.ExprList [] -> e (* Can be an empty list of external call params. *)
     | SSA.ExprList exprs -> assert (exprs <> []); e (* Ignore phis. *)
-    | SSA.BinOp (op, rt, e1, e2) ->
+    | SSA.BinOp(op, rt, e1, e2) ->
       let e1' = expandExpr state e1
       let e2' = expandExpr state e2
-      SSA.BinOp (op, rt, e1', e2')
-    | SSA.UnOp (op, rt, e) ->
+      SSA.BinOp(op, rt, e1', e2')
+    | SSA.UnOp(op, rt, e) ->
       let e' = expandExpr state e
-      SSA.UnOp (op, rt, e')
-    | SSA.Extract (e, rt, i) ->
+      SSA.UnOp(op, rt, e')
+    | SSA.Extract(e, rt, i) ->
       let e' = expandExpr state e
-      SSA.Extract (e', rt, i)
-    | SSA.Cast (castKind, rt, e) ->
+      SSA.Extract(e', rt, i)
+    | SSA.Cast(castKind, rt, e) ->
       let e' = expandExpr state e
-      SSA.Cast (castKind, rt, e')
-    | SSA.Load (memVar, rt, e) ->
+      SSA.Cast(castKind, rt, e')
+    | SSA.Load(memVar, rt, e) ->
       let e' = expandExpr state e
-      SSA.Load (memVar, rt, e')
-    | SSA.Ite (cond, rt, tExpr, fExpr) ->
+      SSA.Load(memVar, rt, e')
+    | SSA.Ite(cond, rt, tExpr, fExpr) ->
       let cond' = expandExpr state cond
       let tExpr' = expandExpr state tExpr
       let fExpr' = expandExpr state fExpr
-      SSA.Ite (cond', rt, tExpr', fExpr')
-    | SSA.RelOp (op, rt, e1, e2) ->
+      SSA.Ite(cond', rt, tExpr', fExpr')
+    | SSA.RelOp(op, rt, e1, e2) ->
       let e1' = expandExpr state e1
       let e2' = expandExpr state e2
-      SSA.RelOp (op, rt, e1', e2')
-    | SSA.Store (memVar, rt, addr, value) ->
+      SSA.RelOp(op, rt, e1', e2')
+    | SSA.Store(memVar, rt, addr, value) ->
       let addr' = expandExpr state addr
       let value' = expandExpr state value
-      SSA.Store (memVar, rt, addr', value')
+      SSA.Store(memVar, rt, addr', value')
     | SSA.Num _
     | SSA.FuncName _
     | SSA.Undefined _ -> e
@@ -106,22 +106,22 @@ module private EVMCFGRecovery =
   let isPossiblyFuncSig bv = (bv: BitVector).And fourBytesBitmaskBv = bv
 
   let isMsgDataDivision = function
-    | SSA.BinOp (BinOpType.DIV, _,
-                 SSA.BinOp (BinOpType.APP, _, SSA.FuncName "msg.data", _),
+    | SSA.BinOp(BinOpType.DIV, _,
+                 SSA.BinOp(BinOpType.APP, _, SSA.FuncName "msg.data", _),
                  SSA.Num _disivorBv)
-    | SSA.BinOp (BinOpType.DIV, _,
+    | SSA.BinOp(BinOpType.DIV, _,
                  SSA.Num _disivorBv,
-                 SSA.BinOp (BinOpType.APP, _, SSA.FuncName "msg.data", _))
+                 SSA.BinOp(BinOpType.APP, _, SSA.FuncName "msg.data", _))
       -> true
-    | SSA.BinOp (BinOpType.SHR, _,
-                 SSA.BinOp (BinOpType.APP, _, SSA.FuncName "msg.data", _),
+    | SSA.BinOp(BinOpType.SHR, _,
+                 SSA.BinOp(BinOpType.APP, _, SSA.FuncName "msg.data", _),
                  SSA.Num _shiftBv)
       -> true
     | _ -> false
 
   let hasFuncSigExpr = function
-    | SSA.BinOp (BinOpType.AND, _, SSA.Num bitmaskBv, msgDataDivisionExpr)
-    | SSA.BinOp (BinOpType.AND, _, msgDataDivisionExpr, SSA.Num bitmaskBv)
+    | SSA.BinOp(BinOpType.AND, _, SSA.Num bitmaskBv, msgDataDivisionExpr)
+    | SSA.BinOp(BinOpType.AND, _, msgDataDivisionExpr, SSA.Num bitmaskBv)
       when isMsgDataDivision msgDataDivisionExpr
         && bitmaskBv = fourBytesBitmaskBv
       -> true
@@ -129,17 +129,17 @@ module private EVMCFGRecovery =
 
   let rec tryDetectPubFunc ctx state cond =
     match expandExpr state cond with
-    | SSA.Extract (e, _, _) -> tryDetectPubFunc ctx state e
-    | SSA.Cast (_, _, e) -> tryDetectPubFunc ctx state e
-    | SSA.RelOp (RelOpType.EQ, _, SSA.Num hashBv, e)
-    | SSA.RelOp (RelOpType.EQ, _, e, SSA.Num hashBv)
+    | SSA.Extract(e, _, _) -> tryDetectPubFunc ctx state e
+    | SSA.Cast(_, _, e) -> tryDetectPubFunc ctx state e
+    | SSA.RelOp(RelOpType.EQ, _, SSA.Num hashBv, e)
+    | SSA.RelOp(RelOpType.EQ, _, e, SSA.Num hashBv)
       when isPossiblyFuncSig hashBv
         && (hasFuncSigExpr e || isMsgDataDivision e) ->
       true
     | _ -> false
 
   let scanAndGetVertex ctx cfgRec addr =
-    let pp = ProgramPoint (addr, 0)
+    let pp = ProgramPoint(addr, 0)
     if ctx.BBLFactory.Contains pp then ()
     else CFGRecovery.scanBBLs ctx [ addr ] |> ignore
     CFGRecovery.getVertex ctx cfgRec pp
@@ -150,7 +150,7 @@ module private EVMCFGRecovery =
     | [] -> acc
     | var :: rest ->
       match state.TryFindSSADefStmtFromSSAVar var with
-      | Some (SSA.Def (_, e)) ->
+      | Some(SSA.Def(_, e)) ->
         match e with
         | SSA.Var rdVar -> findRootVars state acc (rdVar :: rest)
         | SSA.ExprList exprs ->
@@ -187,15 +187,15 @@ module private EVMCFGRecovery =
   /// Try to find a feasible path from `srcV` to `dstV` in the given graph `g`.
   /// We use BFS to find a path fast.
   let tryFindFeasiblePath g srcV dstV =
-    let q = Queue ()
-    let visited = HashSet<IVertex<_>> ()
-    let push v p = if not <| visited.Add v then () else q.Enqueue (v, v :: p)
+    let q = Queue()
+    let visited = HashSet<IVertex<_>>()
+    let push v p = if not <| visited.Add v then () else q.Enqueue(v, v :: p)
     let mutable foundPath = None
     push srcV []
     while Option.isNone foundPath && q.Count > 0 do
-      let v, p = q.Dequeue ()
+      let v, p = q.Dequeue()
       for succ in (g: IDiGraphAccessible<_, _>).GetSuccs v do
-        if succ = dstV then foundPath <- Some (dstV :: p)
+        if succ = dstV then foundPath <- Some(dstV :: p)
         else push succ p
     Option.map List.rev foundPath
 
@@ -209,7 +209,7 @@ module private EVMCFGRecovery =
 
   let tryGetOverApproximatedJumpDstExprOfJmp (state: State<_, _>) v =
     match SensitiveDFHelper.tryOverApproximateTerminator state v with
-    | Some (SSA.Jmp (SSA.InterJmp dst)) -> Some dst
+    | Some(SSA.Jmp(SSA.InterJmp dst)) -> Some dst
     | _ -> None
 
   let getOverApproximatedJumpDstExprOfJmp (state: State<_, _>) v =
@@ -233,13 +233,13 @@ module private EVMCFGRecovery =
         |> (<) 1
 
   let collectPolyJumpsFromReachables (g: IDiGraphAccessible<_, _>) state start =
-    let q = Queue ()
-    let visited = HashSet ()
+    let q = Queue()
+    let visited = HashSet()
     let push v = if not <| visited.Add v then () else q.Enqueue v
     let mutable polyJumps = []
     push start
     while not <| Seq.isEmpty q do
-      let v = q.Dequeue ()
+      let v = q.Dequeue()
       if not <| isExecuted state v then ()
       elif hasPolyJumpTarget state v then polyJumps <- v :: polyJumps
       else for succ in g.GetSuccs v do push succ
@@ -254,7 +254,7 @@ module private EVMCFGRecovery =
   let introduceNewSharedRegion (ctx: CFGBuildingContext<_, _>) entryPoint =
     ctx.ManagerChannel.StartBuilding entryPoint
     getFunctionUserContext ctx entryPoint
-    |> Result.iter (fun userCtx -> userCtx.SetSharedRegion ())
+    |> Result.iter (fun userCtx -> userCtx.SetSharedRegion())
 
   let findAndIntroduceSharedRegion ctx state v rdVars =
     assert (not <| Seq.isEmpty rdVars)
@@ -285,7 +285,7 @@ module private EVMCFGRecovery =
   let fromBBLToCallSite (blk: ILowUIRBasicBlock) =
     match blk.PPoint.CallSite with
     | None -> LeafCallSite blk.LastInstruction.Address
-    | Some callSite -> ChainedCallSite (callSite, blk.PPoint.Address)
+    | Some callSite -> ChainedCallSite(callSite, blk.PPoint.Address)
 
   /// This is the eseence of our CFG recovery in EVM, which finds a function
   /// entry point.
@@ -349,7 +349,7 @@ module private EVMCFGRecovery =
     let tag = Seq.head tags
     let stackOffset = tag.StackOffset
     let userCtx = ctx.UserContext :> EVMFuncUserContext
-    let delta = userCtx.GetStackPointerDelta state v
+    let delta = userCtx.GetStackPointerDelta(state, v)
     stackOffset + delta
 
   let isFakeVar var = (var: SSA.Variable).Identifier = 0
@@ -363,12 +363,12 @@ module private EVMCFGRecovery =
     let var = List.head incomingVars
     let returnTargetStackOff =
       match var.Kind with
-      | SSA.StackVar (_, off) -> uint64 off (* 0, 32, 64, ... *)
+      | SSA.StackVar(_, off) -> uint64 off (* 0, 32, 64, ... *)
       | _ -> Terminator.impossible ()
     let stackPointerDiff = findLatestStackOffset ctx state v
     let fnUserCtx: EVMFuncUserContext = ctx.UserContext
     fnUserCtx.SetReturnTargetStackOff returnTargetStackOff
-    fnUserCtx.SetStackPointerDiff (uint64 stackPointerDiff)
+    fnUserCtx.SetStackPointerDiff(uint64 stackPointerDiff)
     None
 
   let computeCPState ctx =
@@ -380,7 +380,7 @@ module private EVMCFGRecovery =
   /// Summarize the callee's context.
   let summarize ctx calleeInfo =
     let retStatus, unwindingBytes = calleeInfo
-    summarizer.Summarize (ctx, retStatus, unwindingBytes, null)
+    summarizer.Summarize(ctx, retStatus, unwindingBytes, null)
 
   let isCallRelatedFunction = function
     | "call"
@@ -399,22 +399,22 @@ module private EVMCFGRecovery =
   /// inconsistency check later.
   let rec tryExtractPathCondition (state: State<_, _>) recentVar cond =
     match cond with
-    | SSA.Num bv when BitVector.IsOne bv -> Some (recentVar, true)
+    | SSA.Num bv when BitVector.IsOne bv -> Some(recentVar, true)
     | SSA.ExprList exprs -> (* TODO: tail-recursion w/ continuation *)
       exprs |> List.tryPick (fun e ->
         let var = exprToVar e
         match state.TryFindSSADefStmtFromSSAVar var with
-        | Some (SSA.Def (_, e)) -> tryExtractPathCondition state var e
+        | Some(SSA.Def(_, e)) -> tryExtractPathCondition state var e
         | _ -> None)
-    | SSA.BinOp (BinOpType.APP, _, SSA.FuncName callName, _)
+    | SSA.BinOp(BinOpType.APP, _, SSA.FuncName callName, _)
       when isCallRelatedFunction callName ->
-      Some (recentVar, true)
-    | SSA.Cast (_, _, SSA.RelOp (RelOpType.EQ, _, e, SSA.Num bv_0x0))
+      Some(recentVar, true)
+    | SSA.Cast(_, _, SSA.RelOp(RelOpType.EQ, _, e, SSA.Num bv_0x0))
       when BitVector.IsZero bv_0x0 ->
       match tryExtractPathCondition state recentVar e with
-      | Some (d, b) -> Some (d, not b) (* Apply negation. *)
+      | Some(d, b) -> Some(d, not b) (* Apply negation. *)
       | _ -> None
-    | SSA.Extract (e, _, _) -> tryExtractPathCondition state recentVar e
+    | SSA.Extract(e, _, _) -> tryExtractPathCondition state recentVar e
     | _ -> None
 
   let isConditionalEdge (edgeKind: CFGEdgeKind) =
@@ -423,8 +423,8 @@ module private EVMCFGRecovery =
   let computeCondition (state: State<_, _>) (kind: CFGEdgeKind) lastSStmt =
     assert isConditionalEdge kind
     match lastSStmt with
-    | SSA.Jmp (SSA.InterCJmp (cond, _, _)) ->
-      let fakePP = ProgramPoint.GetFake ()
+    | SSA.Jmp(SSA.InterCJmp(cond, _, _)) ->
+      let fakePP = ProgramPoint.GetFake()
       let dummyExeCtx = { StackOffset = 0; Conditions = Map.empty }
       let fakeSPP = { ProgramPoint = fakePP; ExecutionContext = dummyExeCtx }
       let dummyVarKind = Temporary -1
@@ -439,7 +439,7 @@ module private EVMCFGRecovery =
   let makeExeCtx (usrCtx: EVMFuncUserContext) state srcV srcTag
                   maybeDstConditions =
     let srcSP = srcTag.StackOffset
-    let delta = usrCtx.GetStackPointerDelta state srcV
+    let delta = usrCtx.GetStackPointerDelta(state, srcV)
     let dstSP = srcSP + delta
     let srcConditions = srcTag.Conditions
     let dstConditions = Option.defaultValue srcConditions maybeDstConditions
@@ -458,10 +458,10 @@ module private EVMCFGRecovery =
     if (not << isConditionalEdge) kind then
       makeExeCtx usrCtx state srcV exeCtx None
     else
-      let lastSStmt = state.GetSSAStmts srcV exeCtx |> Array.last
+      let lastSStmt = state.GetSSAStmts(srcV, exeCtx) |> Array.last
       match computeCondition state kind lastSStmt with
       | None -> makeExeCtx usrCtx state srcV exeCtx None
-      | Some (var, b) ->
+      | Some(var, b) ->
         let defSvp = state.SSAVarToDefSVP var
         let defPP = defSvp.SensitiveProgramPoint.ProgramPoint
         let key = defPP
@@ -483,7 +483,7 @@ module private EVMCFGRecovery =
     if userCtx.PostponedVertices.Contains v then ()
     else
       let pp = v.VData.Internals.PPoint
-      let act = ResumeAnalysis (pp, ExpandCFG [ pp ])
+      let act = ResumeAnalysis(pp, ExpandCFG [ pp ])
       userCtx.PostponedVertices.Add v |> ignore
       CFGRecovery.pushAction ctx act
 
@@ -508,7 +508,7 @@ module private EVMCFGRecovery =
       let srcBlk = srcVertex.VData.Internals
       let callSite = fromBBLToCallSite srcBlk
       let calleeInfo = makeCalleeInfoFromBuildingContext bldCtx
-      let act = MakeCall (callSite, dstAddr, calleeInfo)
+      let act = MakeCall(callSite, dstAddr, calleeInfo)
       Some <| CFGRecovery.handleCall ctx cfgRec srcVertex callSite dstAddr act
 
   let handleDirectJmpWithVars ctx cfgRec state ppQueue srcVertex dstVars edge =
@@ -527,7 +527,7 @@ module private EVMCFGRecovery =
       Some MoveOn
     else
       match SensitiveDFHelper.tryOverApproximateTerminator state v with
-      | Some (SSA.Jmp (SSA.InterJmp dstExpr)) ->
+      | Some(SSA.Jmp(SSA.InterJmp dstExpr)) ->
         if v.VData.Internals.PPoint.Address = 0x2fa5UL then ()
         let rdVars = findRootVarsFromExpr state dstExpr
         let incomingVars = List.filter isFakeVar rdVars
@@ -547,7 +547,7 @@ module private EVMCFGRecovery =
           if possiblyReturnEdge then findAndIntroduceFunction ctx v rds
           else
             handleDirectJmpWithVars ctx cfgRec state queue v rdVars InterJmpEdge
-      | Some (SSA.SideEffect Terminate) -> None (* No return! *)
+      | Some(SSA.SideEffect Terminate) -> None (* No return! *)
       | _ -> Terminator.impossible ()
 
   let tryJoinMaybeCFGResults r1 r2 =
@@ -569,7 +569,7 @@ module private EVMCFGRecovery =
   let handleInterCJmp ctx cfgRec q v =
     let state = computeCPState ctx
     match SensitiveDFHelper.tryOverApproximateTerminator state v with
-    | Some (SSA.Jmp (SSA.InterCJmp (cond, dstExpr, SSA.Num fBv))) ->
+    | Some(SSA.Jmp(SSA.InterCJmp(cond, dstExpr, SSA.Num fBv))) ->
       let dstVarList = extractVarsFromExpr dstExpr
       match SensitiveDFHelper.constantFoldSSAVars state dstVarList with
       | ConstantDomain.Const tBv ->
@@ -580,11 +580,11 @@ module private EVMCFGRecovery =
           let fJmpV = scanAndGetVertex ctx cfgRec fJmpAddr
           let callee = tJmpAddr
           let cs = fromBBLToCallSite v.VData
-          let act = MakeCall (cs, callee, (NoRet, 0)) (* treat as NoRet *)
+          let act = MakeCall(cs, callee, (NoRet, 0)) (* treat as NoRet *)
           let ret = CFGRecovery.handleCall ctx cfgRec v cs callee act
           match getFunctionUserContext ctx callee with
           | Ok userCtx ->
-            userCtx.SetSharedRegion ()
+            userCtx.SetSharedRegion()
             connectEdgeAndPushPP ctx cfgRec q v fJmpV InterCJmpFalseEdge
             Some ret
           | Error errorCase -> Some <| FailStop errorCase
@@ -619,14 +619,13 @@ module private EVMCFGRecovery =
   let handleCall ctx cfgRec cs callee calleeInfo =
     let caller = ctx.CallerVertices[cs]
     let callsite = fromBBLToCallSite caller.VData.Internals
-    let absPp = ProgramPoint (callsite, callee, 0)
+    let absPp = ProgramPoint(callsite, callee, 0)
     let act = ExpandCFG [ absPp ]
     CFGRecovery.pushAction ctx act
     connectCall ctx cfgRec caller callee cs calleeInfo
 
-
-type EVMCFGRecovery () as this =
-  let syscallAnalysis = SyscallAnalysis ()
+type EVMCFGRecovery() as this =
+  let syscallAnalysis = SyscallAnalysis()
   let jmptblAnalysis = JmpTableAnalysis None
 
   interface ICFGRecovery<EVMFuncUserContext, DummyContext> with
@@ -659,9 +658,9 @@ type EVMCFGRecovery () as this =
               let usrCtx = ctx.UserContext
               if not <| usrCtx.PostponedVertices.Remove v then ()
               else usrCtx.ResumableVertices.Add v |> ignore
-            member _.TryComputeExecutionContext src srcExeCtx dst edgeKind =
+            member _.TryComputeExecutionContext(src, srcExeCtx, dst, edgeKind) =
               getSuccessorExecutionContext ctx src srcExeCtx dst edgeKind }
-      let cp = LowUIRSensitiveConstantPropagation (ctx.BinHandle, scheme)
+      let cp = LowUIRSensitiveConstantPropagation(ctx.BinHandle, scheme)
       ctx.UserContext.CP <- cp
 
     member _.OnFinish ctx =
@@ -675,7 +674,7 @@ type EVMCFGRecovery () as this =
       ctx.UnwindingBytes <- unwinding
       MoveOn
 
-    member _.AnalyzeIndirectJump ctx ppQueue _pp srcVertex =
+    member _.AnalyzeIndirectJump(ctx, ppQueue, _pp, srcVertex) =
       let state = computeCPState ctx
       let needsPostpone = not <| isExecuted state srcVertex
       if needsPostpone then (* Can happen with infeasible path conditions. *)
@@ -685,7 +684,7 @@ type EVMCFGRecovery () as this =
         Some MoveOn
       else handleInterJmp ctx this ppQueue srcVertex
 
-    member _.AnalyzeIndirectCondJump ctx ppQueue _pp srcVertex =
+    member _.AnalyzeIndirectCondJump(ctx, ppQueue, _pp, srcVertex) =
       let state = computeCPState ctx
       let needsPostpone = not <| isExecuted state srcVertex
       if needsPostpone then (* Can happen with infeasible path conditions. *)
@@ -695,10 +694,10 @@ type EVMCFGRecovery () as this =
         Some MoveOn
       else handleInterCJmp ctx this ppQueue srcVertex
 
-    member _.AnalyzeCall ctx cs callee calleeInfo _ =
+    member _.AnalyzeCall(ctx, cs, callee, calleeInfo, _) =
       handleCall ctx this cs callee calleeInfo
 
-    member _.ResumeAnalysis ctx pp callbackAction =
+    member _.ResumeAnalysis(ctx, pp, callbackAction) =
       let userCtx = ctx.UserContext
       match ctx.Vertices.TryGetValue pp with
       | false, _ -> Terminator.impossible ()
@@ -707,23 +706,23 @@ type EVMCFGRecovery () as this =
         MoveOn
       | true, v -> (* Needs more time :p *)
         assert userCtx.PostponedVertices.Contains v
-        let isStalled = ctx.ActionQueue.IsEmpty ()
+        let isStalled = ctx.ActionQueue.IsEmpty()
         if isStalled then (* Ignore that block, as it is a dead code. *)
           MoveOn
         else (* Busy waiting. *)
-          CFGRecovery.pushAction ctx (ResumeAnalysis (pp, callbackAction))
+          CFGRecovery.pushAction ctx (ResumeAnalysis(pp, callbackAction))
           MoveOn
 
-    member _.OnAddVertex ctx v =
+    member _.OnAddVertex(ctx, v) =
       let vData = v.VData.Internals
       let isAbstract = vData.IsAbstract
       let hasEntryPointAddr = vData.PPoint.Address = ctx.FunctionAddress
       let isEntryPoint = not isAbstract && hasEntryPointAddr
       let cp = ctx.UserContext.CP
-      if isEntryPoint then cp.MarkEdgeAsPending null v
+      if isEntryPoint then cp.MarkEdgeAsPending(null, v)
 
-    member _.OnAddEdge ctx srcV dstV _kind =
-      ctx.UserContext.CP.State.MarkEdgeAsPending srcV dstV
+    member _.OnAddEdge(ctx, srcV, dstV, _kind) =
+      ctx.UserContext.CP.State.MarkEdgeAsPending(srcV, dstV)
 
-    member _.OnRemoveVertex ctx v =
+    member _.OnRemoveVertex(ctx, v) =
       ctx.UserContext.CP.State.MarkVertexAsRemoval v |> ignore

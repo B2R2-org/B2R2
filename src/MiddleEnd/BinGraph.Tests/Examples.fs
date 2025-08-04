@@ -28,8 +28,8 @@ open B2R2.MiddleEnd.BinGraph
 
 let private makeGraph (t: ImplementationType) =
   match t with
-  | Persistent -> PersistentDiGraph<int, int> () :> IDiGraph<_, _>
-  | Imperative -> ImperativeDiGraph<int, int> () :> IDiGraph<_, _>
+  | Persistent -> PersistentDiGraph<int, int>() :> IDiGraph<_, _>
+  | Imperative -> ImperativeDiGraph<int, int>() :> IDiGraph<_, _>
 
 /// Add `count` number of nodes to the graph.
 let private addNodes count g =
@@ -44,7 +44,7 @@ let private prepare count t =
   let mutable cnt = 0
   let addEdge (g: IDiGraph<_, _>) i j =
     cnt <- cnt + 1
-    g.AddEdge (vmap[i], vmap[j], cnt)
+    g.AddEdge(vmap[i], vmap[j], cnt)
   g, vmap, addEdge
 
 /// Graph example from Wikipedia.

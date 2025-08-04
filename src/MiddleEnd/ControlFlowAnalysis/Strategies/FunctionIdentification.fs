@@ -35,7 +35,7 @@ type FunctionIdentification<'FnCtx,
                             'GlCtx when 'FnCtx :> IResettable
                                     and 'FnCtx: (new: unit -> 'FnCtx)
                                     and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (hdl: BinHandle, exnInfo: ExceptionInfo) =
+  public(hdl: BinHandle, exnInfo: ExceptionInfo) =
 
   /// This function returns an initial sequence of entry points obtained from
   /// the binary itself (e.g., from its symbol information). Therefore, if the
@@ -43,7 +43,7 @@ type FunctionIdentification<'FnCtx,
   /// to expand it during the main recovery phase.
   let getInitialEntryPoints () =
     let file = hdl.File
-    let addrs = HashSet (file.GetFunctionAddresses ())
+    let addrs = HashSet(file.GetFunctionAddresses())
     for addr in exnInfo.FunctionEntryPoints do addrs.Add addr |> ignore
     file.EntryPoint
     |> Option.iter (fun addr ->
@@ -59,11 +59,11 @@ type FunctionIdentification<'FnCtx,
 
     member _.AllowBBLOverlap with get() = false
 
-    member _.FindCandidates (_builders) =
+    member _.FindCandidates(_builders) =
       getInitialEntryPoints ()
 
-    member _.OnAction (_ctx, _queue, _action) = MoveOn
-    member _.OnCreate (_ctx) = ()
-    member _.OnFinish (_ctx) = MoveOn
-    member _.OnCyclicDependency (_) = Terminator.impossible ()
+    member _.OnAction(_ctx, _queue, _action) = MoveOn
+    member _.OnCreate(_ctx) = ()
+    member _.OnFinish(_ctx) = MoveOn
+    member _.OnCyclicDependency(_) = Terminator.impossible ()
 

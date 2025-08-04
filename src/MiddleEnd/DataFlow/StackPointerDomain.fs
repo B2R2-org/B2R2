@@ -51,17 +51,17 @@ module StackPointerDomain =
   let add c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
-    | ConstSP bv1, ConstSP bv2 -> ConstSP (BitVector.Add (bv1, bv2))
+    | ConstSP bv1, ConstSP bv2 -> ConstSP(BitVector.Add(bv1, bv2))
     | _ -> NotConstSP
 
   let sub c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
-    | ConstSP bv1, ConstSP bv2 -> ConstSP (BitVector.Sub (bv1, bv2))
+    | ConstSP bv1, ConstSP bv2 -> ConstSP(BitVector.Sub(bv1, bv2))
     | _ -> NotConstSP
 
   let ``and`` c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
-    | ConstSP bv1, ConstSP bv2 -> ConstSP (BitVector.BAnd (bv1, bv2))
+    | ConstSP bv1, ConstSP bv2 -> ConstSP(BitVector.BAnd(bv1, bv2))
     | _ -> NotConstSP
