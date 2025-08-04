@@ -145,10 +145,11 @@ module internal CFGRecovery =
       let preds =
         ctx.CFG.GetPredEdges v
         |> Array.filter (fun e -> e.First.VData.Internals.PPoint <> ppoint)
-      let succs = ctx.CFG.GetSuccEdges v
-      ctx.CFG.RemoveVertex v
-      ctx.Vertices.Remove ppoint |> ignore
-      cfgRec.OnRemoveVertex(ctx, v)
+      let succs = ctx.CFG.GetSuccEdges(v)
+      cfgRec.BeforeRemoveVertex(ctx, v)
+      ctx.CFG.RemoveVertex(v)
+      ctx.Vertices.Remove(ppoint) |> ignore
+      ctx.VisitedPPoints.Remove(ppoint) |> ignore
       preds, succs
     | false, _ ->
       [||], [||]
