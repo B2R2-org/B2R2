@@ -114,7 +114,7 @@ type BBLFactory(hdl: BinHandle, instrs) =
     match instrs with
     | ins :: tl ->
       let stmts =
-        (lunit: LiftingUnit).LiftInstruction(ins = ins, optimize = true)
+        (lunit: LiftingUnit).LiftInstruction(ins = ins, optimize = false)
 #if DEBUG
       assert (hasProperISMark stmts)
       assert (hasProperTerminator ins.Address stmts)

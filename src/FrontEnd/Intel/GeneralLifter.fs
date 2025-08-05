@@ -733,7 +733,7 @@ let call (ins: Instruction) insLen bld =
     bld <+ (t := target)
     auxPush oprSize bld (pc .+ numInsLen insLen bld)
     bld <+ (AST.interjmp t InterJmpKind.IsCall)
-  bld --!> insLen
+  bld
 
 let convBWQ (ins: Instruction) insLen bld =
   let opr = regVar bld (if is64bit bld then R.RAX else R.EAX)
@@ -911,12 +911,15 @@ let cmps (ins: Instruction) insLen bld =
   let pref = ins.Prefixes
   let zf = regVar bld R.ZF
   bld <!-- (ins.Address, insLen)
-  (if Prefix.hasREPZ pref then
-     strRepeat ins insLen bld cmpsBody (Some(zf == AST.b0))
-   elif Prefix.hasREPNZ pref then
-     strRepeat ins insLen bld cmpsBody (Some(zf))
-   else cmpsBody ins bld)
-  bld --!> insLen
+  if Prefix.hasREPZ pref then
+    strRepeat ins insLen bld cmpsBody (Some(zf == AST.b0))
+    bld
+  elif Prefix.hasREPNZ pref then
+    strRepeat ins insLen bld cmpsBody (Some(zf))
+    bld
+  else
+    cmpsBody ins bld
+    bld --!> insLen
 
 let cmpxchg (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1763,7 +1766,7 @@ let jcc (ins: Instruction) insLen bld =
 #endif
   let fallThrough = pc .+ numInsLen insLen bld
   bld <+ (AST.intercjmp cond jmpTarget fallThrough)
-  bld --!> insLen
+  bld
 
 let jmp (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1774,7 +1777,7 @@ let jmp (ins: Instruction) insLen bld =
   let pc = numU64 (ins: Instruction).Address bld.RegType
   let struct (target, _) = transJumpTargetOpr bld false ins pc insLen
   bld <+ (AST.interjmp target InterJmpKind.Base)
-  bld --!> insLen
+  bld
 
 let lahf (ins: Instruction) insLen bld =
   let t = tmpVar bld 8<rt>
@@ -1851,9 +1854,12 @@ let lods (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   if Prefix.hasREPZ ins.Prefixes then
     strRepeat ins insLen bld lodsBody None
-  elif Prefix.hasREPNZ ins.Prefixes then Terminator.impossible ()
-  else lodsBody ins bld
-  bld --!> insLen
+    bld
+  elif
+    Prefix.hasREPNZ ins.Prefixes then Terminator.impossible ()
+  else
+    lodsBody ins bld
+    bld --!> insLen
 
 let loop (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1985,9 +1991,12 @@ let private movsBody ins bld =
 
 let movs (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
-  if Prefix.hasREPZ ins.Prefixes then strRepeat ins insLen bld movsBody None
-  else movsBody ins bld
-  bld --!> insLen
+  if Prefix.hasREPZ ins.Prefixes then
+    strRepeat ins insLen bld movsBody None
+    bld
+  else
+    movsBody ins bld
+    bld --!> insLen
 
 let movsx (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -2495,7 +2504,7 @@ let retWithImm (ins: Instruction) insLen bld =
   auxPop oprSize bld t
   bld <+ (sp := sp .+ (AST.zext oprSize src))
   bld <+ (AST.interjmp t InterJmpKind.IsRet)
-  bld --!> insLen
+  bld
 
 let ret ins insLen bld =
   let oprSize = getOperationSize ins
@@ -2507,7 +2516,7 @@ let ret ins insLen bld =
 #endif
   auxPop oprSize bld t
   bld <+ (AST.interjmp t InterJmpKind.IsRet)
-  bld --!> insLen
+  bld
 
 let rotate (ins: Instruction) insLen bld lfn hfn cfFn ofFn =
   bld <!-- (ins.Address, insLen)
@@ -2702,13 +2711,22 @@ let scas (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   if Prefix.hasREPZ pref then
     strRepeat ins insLen bld scasBody (zfCond AST.b0)
+#if EMULATION
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
+    bld
   elif Prefix.hasREPNZ pref then
     strRepeat ins insLen bld scasBody (zfCond AST.b1)
-  else scasBody ins bld
 #if EMULATION
-  bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
-  bld --!> insLen
+    bld
+  else
+    scasBody ins bld
+#if EMULATION
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
+    bld --!> insLen
 
 let private getCondOfSet (ins: Instruction) bld =
   match ins.Opcode with
@@ -2874,9 +2892,12 @@ let stos (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   if Prefix.hasREPZ ins.Prefixes then
     strRepeat ins insLen bld stosBody None
-  elif Prefix.hasREPNZ ins.Prefixes then Terminator.impossible ()
-  else stosBody ins bld
-  bld --!> insLen
+    bld
+  elif
+    Prefix.hasREPNZ ins.Prefixes then Terminator.impossible ()
+  else
+    stosBody ins bld
+    bld --!> insLen
 
 let sub (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
