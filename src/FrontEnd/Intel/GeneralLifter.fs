@@ -1189,19 +1189,18 @@ let dec (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let dst = transOneOpr bld ins insLen
   let oprSize = getOperationSize ins
-  let struct (t1, t2, t3) = tmpVars3 bld oprSize
-  let sf = AST.xthi 1<rt> t3
+  let struct (t1, t2) = tmpVars2 bld oprSize
+  let sf = AST.xthi 1<rt> t2
   if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
   bld <+ (t1 := dst)
-  bld <+ (t2 := AST.num1 oprSize)
-  bld <+ (t3 := (t1 .- t2))
-  bld <+ (dstAssign oprSize dst t3)
-  bld <+ (regVar bld R.OF := ofOnSub t1 t2 t3)
-  enumASZPFlags bld t1 t2 t3 oprSize sf
+  bld <+ (t2 := (t1 .- AST.num1 oprSize))
+  bld <+ (dstAssign oprSize dst t2)
+  bld <+ (regVar bld R.OF := ofOnSub t1 (AST.num1 oprSize) t2)
+  enumASZPFlags bld t1 (AST.num1 oprSize) t2 oprSize sf
   if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
 #if EMULATION
   bld <+ (regVar bld R.CF := getCFLazy bld)
-  setCCOperands2 bld t2 t3
+  setCCOperands2 bld (AST.num1 oprSize) t2
   match oprSize with
   | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.DECB
   | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.DECW
