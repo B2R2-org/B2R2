@@ -331,6 +331,23 @@ let nested () =
   isEven 10 // Bad
 ```
 
+##### Declarations
+
+For top-level bindings, separate them with exactly one empty line:
+```fsharp
+let foo = 1
+
+let bar = 2 // Good
+
+let foo = 1
+let bar = 2 // Bad
+
+let foo = 1
+
+
+let bar = 2 // Bad
+```
+
 ##### Function Calls
 
 When calling a non-curried function, we use the following style:
