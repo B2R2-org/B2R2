@@ -320,9 +320,8 @@ module private SSALifterFactory =
     rename g domTree count stack g.SingleRoot
 
   /// Add phis and rename all the variables in the SSACFG.
-  let updatePhis ssaCFG =
+  let updatePhis ssaCFG dom =
     let defSites = DefSites()
-    let dom = computeDominatorInfo ssaCFG
     let globals = findDefVars ssaCFG defSites
     placePhis ssaCFG defSites globals
     renameVars ssaCFG defSites dom
@@ -379,16 +378,18 @@ module private SSALifterFactory =
       v.VData.Internals.Statements
       |> Array.choose (stmtChooser state)
       |> v.VData.Internals.UpdateStatements
-    updatePhis ssaCFG
 
   let create hdl stmtProcessor callback =
     { new ISSALiftable with
         member _.Lift cfg =
           let ssaCFG = SSACFG cfg.ImplementationType
           convertToSSA stmtProcessor cfg ssaCFG
-          updatePhis ssaCFG
+          let dom = computeDominatorInfo ssaCFG
+          updatePhis ssaCFG dom
           ssaCFG.IterVertex(fun v -> v.VData.Internals.UpdatePPoints())
           promote hdl ssaCFG callback
+          updatePhis ssaCFG dom
+          ssaCFG.IterVertex(fun v -> v.VData.Internals.UpdatePPoints())
           ssaCFG }
 
 /// The factory for SSA lifter.
