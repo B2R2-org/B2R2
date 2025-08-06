@@ -173,12 +173,12 @@ let opcodeToStrings = function
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let opcode = opcodeToStrings ins.Opcode
-  builder.Accumulate AsmWordKind.Mnemonic opcode
+  builder.Accumulate(AsmWordKind.Mnemonic, opcode)
 
 let rec toStringPyObj = function
   | PyNone -> "None"
   | PyInt i -> i.ToString()
-  | PyREF (_, str) -> str
+  | PyREF(_, str) -> str
   | PyAscii str | PyShortAscii str | PyShortAsciiInterned str -> str
   | PyCode c ->
     $"<code object {c.Name}, file \"{c.FileName}\", line {c.FirstLineNo}>"
@@ -191,15 +191,15 @@ let rec toStringPyObj = function
 let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
   | NoOperand -> ()
-  | OneOperand (idx, None) ->
-    builder.Accumulate AsmWordKind.String "\t\t"
-    builder.Accumulate AsmWordKind.Value (string idx)
-  | OneOperand (idx, Some var) ->
-    builder.Accumulate AsmWordKind.String "\t\t"
-    builder.Accumulate AsmWordKind.Value (string idx)
-    builder.Accumulate AsmWordKind.String " ("
-    builder.Accumulate AsmWordKind.Value (toStringPyObj var)
-    builder.Accumulate AsmWordKind.String ")"
+  | OneOperand(idx, None) ->
+    builder.Accumulate(AsmWordKind.String, "\t\t")
+    builder.Accumulate(AsmWordKind.Value, string idx)
+  | OneOperand(idx, Some var) ->
+    builder.Accumulate(AsmWordKind.String, "\t\t")
+    builder.Accumulate(AsmWordKind.Value, string idx)
+    builder.Accumulate(AsmWordKind.String, " (")
+    builder.Accumulate(AsmWordKind.Value, toStringPyObj var)
+    builder.Accumulate(AsmWordKind.String, ")")
   | TwoOperands _ -> ()
 
 let disasm (ins: Instruction) (builder: IDisasmBuilder) =

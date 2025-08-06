@@ -54,7 +54,7 @@ type IGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   abstract HasVertex: VertexID -> bool
 
   /// Check the existence of the given edge from the graph.
-  abstract HasEdge: src: IVertex<'V> -> dst: IVertex<'V> -> bool
+  abstract HasEdge: src: IVertex<'V> * dst: IVertex<'V> -> bool
 
   /// Find a vertex by its VertexID. This function raises an exception when
   /// there is no such a vertex.
@@ -93,13 +93,13 @@ type IGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
     src: IVertex<'V> * dst: IVertex<'V> -> Edge<'V, 'E> option
 
   /// Fold every vertex (the order can be arbitrary).
-  abstract FoldVertex: ('a -> IVertex<'V> -> 'a) -> 'a -> 'a
+  abstract FoldVertex: ('a -> IVertex<'V> -> 'a) * 'a -> 'a
 
   /// Iterate every vertex (the order can be arbitrary).
   abstract IterVertex: (IVertex<'V> -> unit) -> unit
 
   /// Fold every edge in the graph (the order can be arbitrary).
-  abstract FoldEdge: ('a -> Edge<'V, 'E> -> 'a) -> 'a -> 'a
+  abstract FoldEdge: ('a -> Edge<'V, 'E> -> 'a) * 'a -> 'a
 
   /// Fold every edge in the graph (the order can be arbitrary).
   abstract IterEdge: (Edge<'V, 'E> -> unit) -> unit

@@ -28,31 +28,31 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
-type DisasmBasicBlock (disasmBuilder: IDisasmBuilder,
-                       ppoint: ProgramPoint,
-                       instrs: IInstruction[]) =
+type DisasmBasicBlock(disasmBuilder: IDisasmBuilder,
+                      ppoint: ProgramPoint,
+                      instrs: IInstruction[]) =
   /// Return the `IDisasmBasicBlock` interface.
   member this.Internals with get() = this :> IDisasmBasicBlock
 
-  override _.ToString () = $"{nameof DisasmBasicBlock}({ppoint.Address:x})"
+  override _.ToString() = $"{nameof DisasmBasicBlock}({ppoint.Address:x})"
 
   interface IDisasmBasicBlock with
     member _.PPoint with get() = ppoint
 
     member _.Range with get() =
       let last = instrs[instrs.Length - 1]
-      AddrRange (ppoint.Address, last.Address + uint64 last.Length - 1UL)
+      AddrRange(ppoint.Address, last.Address + uint64 last.Length - 1UL)
 
     member _.Instructions with get(): IInstruction[] = instrs
 
     member _.LastInstruction with get() = instrs[instrs.Length - 1]
 
-    member _.Disassemblies with get () =
-      instrs |> Array.map (fun i -> i.Disasm ())
+    member _.Disassemblies with get() =
+      instrs |> Array.map (fun i -> i.Disasm())
 
     member _.BlockAddress with get() = ppoint.Address
 
-    member _.Visualize () =
+    member _.Visualize() =
       instrs
       |> Array.map (fun ins -> ins.Decompose disasmBuilder)
 

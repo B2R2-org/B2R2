@@ -28,7 +28,7 @@ module B2R2.String
 
 /// Converts a string to a byte array.
 [<CompiledName "ToBytes">]
-let toBytes (str: string) = str.ToCharArray () |> Array.map byte
+let toBytes (str: string) = str.ToCharArray() |> Array.map byte
 
 /// Converts a byte array to a string.
 [<CompiledName "FromBytes">]

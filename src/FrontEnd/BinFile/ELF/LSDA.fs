@@ -28,44 +28,42 @@ open B2R2
 
 /// Represents the LSDA (Language Specific Data Area), which consists of a list
 /// of callsite records.
-type LSDA = {
-  /// This is the value encoding of the landing pad pointer.
-  LPValueEncoding: ExceptionHeaderValue
-  /// This is the application encoding of the landing pad pointer.
-  LPAppEncoding: ExceptionHeaderApplication
-  /// The base of the landing pad pointers.
-  LPStart: Addr option
-  /// This is the value encoding of type table (TT).
-  TTValueEncoding: ExceptionHeaderValue
-  /// This is the application encoding of type table (TT).
-  TTAppEncoding: ExceptionHeaderApplication
-  /// The base of types table.
-  TTBase: Addr option
-  // This is the value encoding of the call site table.
-  CallSiteValueEncoding: ExceptionHeaderValue
-  // This is the application encoding of the call site table.
-  CallSiteAppEncoding: ExceptionHeaderApplication
-  // The size of call site table.
-  CallSiteTableSize: uint64
-  /// The callsite table, which is a list of callsite records.
-  CallSiteTable: CallSiteRecord list
-}
+type LSDA =
+  { /// This is the value encoding of the landing pad pointer.
+    LPValueEncoding: ExceptionHeaderValue
+    /// This is the application encoding of the landing pad pointer.
+    LPAppEncoding: ExceptionHeaderApplication
+    /// The base of the landing pad pointers.
+    LPStart: Addr option
+    /// This is the value encoding of type table (TT).
+    TTValueEncoding: ExceptionHeaderValue
+    /// This is the application encoding of type table (TT).
+    TTAppEncoding: ExceptionHeaderApplication
+    /// The base of types table.
+    TTBase: Addr option
+    // This is the value encoding of the call site table.
+    CallSiteValueEncoding: ExceptionHeaderValue
+    // This is the application encoding of the call site table.
+    CallSiteAppEncoding: ExceptionHeaderApplication
+    // The size of call site table.
+    CallSiteTableSize: uint64
+    /// The callsite table, which is a list of callsite records.
+    CallSiteTable: CallSiteRecord list }
 
 /// Represents a callsite record in the LSDA. Each callsite record contains
 /// information about a callsite, including its position, length, landing pad,
 /// etc.
-and CallSiteRecord = {
-  /// Offset of the callsite relative to the previous call site.
-  Position: uint64
-  /// Size of the callsite instruction(s).
-  Length: uint64
-  /// Offset of the landing pad.
-  LandingPad: uint64
-  /// Offset to the action table. Zero means no action entry.
-  ActionOffset: int
-  /// Parsed list of type filters from the action table.
-  ActionTypeFilters: int64 list
-}
+and CallSiteRecord =
+  { /// Offset of the callsite relative to the previous call site.
+    Position: uint64
+    /// Size of the callsite instruction(s).
+    Length: uint64
+    /// Offset of the landing pad.
+    LandingPad: uint64
+    /// Offset to the action table. Zero means no action entry.
+    ActionOffset: int
+    /// Parsed list of type filters from the action table.
+    ActionTypeFilters: int64 list }
 
 module internal LSDA =
   open B2R2.FrontEnd.BinLifter
@@ -80,7 +78,7 @@ module internal LSDA =
       else
         let struct (cv, offset) =
           ExceptionHeaderValue.read cls span reader lpv offset
-        struct (Some (sAddr + uint64 offset + cv), offset)
+        struct (Some(sAddr + uint64 offset + cv), offset)
     let b = span[offset]
     let offset = offset + 1
     let struct (ttv, ttapp) = ExceptionHeader.parseEncoding b
@@ -88,7 +86,7 @@ module internal LSDA =
       if ttv = ExceptionHeaderValue.DW_EH_PE_omit then struct (None, offset)
       else
         let cv, offset = FileHelper.readULEB128 span offset
-        struct (Some (sAddr + uint64 offset + cv), offset)
+        struct (Some(sAddr + uint64 offset + cv), offset)
     let b = span[offset]
     let offset = offset + 1
     let struct (csv, csapp) = ExceptionHeader.parseEncoding b
@@ -140,7 +138,7 @@ module internal LSDA =
   let parse cls (span: ByteSpan) reader sAddr offset =
     let struct (lpv, lpapp, lpstart, ttv, tta, ttb, csv, csapp, cstsz, offset) =
       parseLSDAHeader cls span reader sAddr offset
-    let subspn = span.Slice (offset, int cstsz)
+    let subspn = span.Slice(offset, int cstsz)
     let callsites, hasAction =
       parseCallSiteTable [] cls subspn reader 0 csv false
     let offset = offset + int cstsz

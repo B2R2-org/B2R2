@@ -37,7 +37,7 @@ module RegisterID =
   [<Measure>] type private T
 
   /// Create a platform-independent register ID representation.
-  let inline create n: int<T> = LanguagePrimitives.Int32WithMeasure (n)
+  let inline create n: int<T> = LanguagePrimitives.Int32WithMeasure(n)
 
 /// <summary>
 /// Represents a platform-independent identifier for a register.

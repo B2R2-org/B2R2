@@ -33,7 +33,7 @@ let cliPrinter arbiter () (output: OutString) =
   OutString.toString output |> Protocol.logString arbiter
 
 let handle cmds arbiter (line: string) acc printer =
-  match line.Split (' ') |> Array.toList with
+  match line.Split(' ') |> Array.toList with
   | cmd :: args ->
     let brew = Protocol.getBinaryBrew arbiter
     let acc = Cmd.handle cmds brew cmd args |> Array.fold (printer arbiter) acc
@@ -41,7 +41,7 @@ let handle cmds arbiter (line: string) acc printer =
   | [] -> acc
 
 let rec cliLoop cmds arbiter (console: FsReadLine.Console) =
-  let line = console.ReadLine ()
+  let line = console.ReadLine()
   match line with
   | "" -> cliLoop cmds arbiter console
   | "quit" | "q" | "exit" -> Protocol.terminate arbiter
@@ -50,8 +50,8 @@ let rec cliLoop cmds arbiter (console: FsReadLine.Console) =
     cliLoop cmds arbiter console
 
 let rec noReadLineLoop cmds arbiter =
-  System.Console.Write ("B2R2> ")
-  let line = System.Console.ReadLine ()
+  System.Console.Write("B2R2> ")
+  let line = System.Console.ReadLine()
   match line with
   | "" -> noReadLineLoop cmds arbiter
   | "quit" | "q" | "exit" -> Protocol.terminate arbiter
@@ -62,7 +62,7 @@ let rec noReadLineLoop cmds arbiter =
 let start enableReadLine arbiter =
   let cmds = CmdSpec.speclist |> CmdMap.build
   if enableReadLine then
-    FsReadLine.Console ("B2R2> ", cmds.CmdList)
+    FsReadLine.Console("B2R2> ", cmds.CmdList)
     |> cliLoop cmds arbiter
   else
     noReadLineLoop cmds arbiter

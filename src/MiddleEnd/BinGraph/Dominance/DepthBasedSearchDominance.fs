@@ -42,25 +42,24 @@ type StaticAlgo =
   /// Cooper's algorithm.
   | Cooper
 
-type DBSDomInfo<'V, 'E when 'V: equality and 'E: equality> = {
-  /// Dummy root ID
-  DummyRootID: VertexID
-  /// Static dominance algorithm.
-  StaticAlgo: StaticAlgo
-  /// Dominance frontier provider.
-  DFP: IDominanceFrontierProvider<'V, 'E>
-  /// Vertex ID of reachable vertices.
-  Reachable: HashSet<VertexID>
-  /// Vertex ID -> Vertex ID of an immediate dominator.
-  IDom: Dictionary<VertexID, VertexID>
-  /// Vertex ID -> Vertex ID Set of children in the dominator tree.
-  Children: Dictionary<VertexID, HashSet<VertexID>>
-  /// Vertex ID -> Depth of the vertex in the dominance tree.
-  Depth: Dictionary<VertexID, int>
-}
+type DBSDomInfo<'V, 'E when 'V: equality and 'E: equality> =
+  { /// Dummy root ID
+    DummyRootID: VertexID
+    /// Static dominance algorithm.
+    StaticAlgo: StaticAlgo
+    /// Dominance frontier provider.
+    DFP: IDominanceFrontierProvider<'V, 'E>
+    /// Vertex ID of reachable vertices.
+    Reachable: HashSet<VertexID>
+    /// Vertex ID -> Vertex ID of an immediate dominator.
+    IDom: Dictionary<VertexID, VertexID>
+    /// Vertex ID -> Vertex ID Set of children in the dominator tree.
+    Children: Dictionary<VertexID, HashSet<VertexID>>
+    /// Vertex ID -> Depth of the vertex in the dominance tree.
+    Depth: Dictionary<VertexID, int> }
 
 let private addVertex (g: IDiGraph<_, _>) (v: IVertex<_>) =
-  let _, g = g.AddVertex (v.VData, v.ID)
+  let _, g = g.AddVertex(v.VData, v.ID)
   g
 
 let private addEdge (g: IDiGraph<_, _>) (edge: Edge<_, _>) =
@@ -70,11 +69,11 @@ let private addEdge (g: IDiGraph<_, _>) (edge: Edge<_, _>) =
           else addVertex g src
   let g = if g.HasVertex dst.ID then g
           else addVertex g dst
-  g.AddEdge (src, dst, edge.Label)
+  g.AddEdge(src, dst, edge.Label)
 
 let private initDynamicDomInfo g dfp algo =
   let dummyRoot = GraphUtils.makeDummyVertex ()
-  let roots = (g: IDiGraphAccessible<_, _>).GetRoots ()
+  let roots = (g: IDiGraphAccessible<_, _>).GetRoots()
   let rootIDs = roots |> Array.map (fun v -> v.ID)
   let children = Dictionary<VertexID, HashSet<VertexID>>()
   let depth = Dictionary<VertexID, int>()
@@ -95,13 +94,13 @@ let private initDynamicDomInfo g dfp algo =
 
 let private initDomInfo g dfp algo =
   let dummyRoot = GraphUtils.makeDummyVertex ()
-  let roots = (g: IDiGraphAccessible<_, _>).GetRoots ()
+  let roots = (g: IDiGraphAccessible<_, _>).GetRoots()
   let rootIDs = roots |> Array.map (fun v -> v.ID)
-  let children = Dictionary<VertexID, HashSet<VertexID>> ()
-  let depth = Dictionary<VertexID, int> ()
-  let iDom = Dictionary<VertexID, VertexID> ()
+  let children = Dictionary<VertexID, HashSet<VertexID>>()
+  let depth = Dictionary<VertexID, int>()
+  let iDom = Dictionary<VertexID, VertexID>()
   for v in rootIDs do
-    children.[v] <- HashSet ()
+    children.[v] <- HashSet()
     depth.[v] <- 0
     iDom.[v] <- dummyRoot.ID
   children.[dummyRoot.ID] <- HashSet rootIDs
@@ -109,7 +108,7 @@ let private initDomInfo g dfp algo =
   { DummyRootID = dummyRoot.ID
     StaticAlgo = algo
     DFP = dfp
-    Reachable = HashSet ()
+    Reachable = HashSet()
     IDom = iDom
     Children = children
     Depth = depth }
@@ -153,7 +152,7 @@ let rec private computeAffectedAux g info visited nca = function
     computeAffectedAux g info visited nca state
 
 let private computeAffected g info nca trigger =
-  computeAffectedAux g info (HashSet ()) nca ([ trigger ], [ trigger ])
+  computeAffectedAux g info (HashSet()) nca ([ trigger ], [ trigger ])
 
 let rec private updateDepth depth info v  =
   info.Depth[v] <- depth
@@ -167,7 +166,7 @@ let private updateIDom newIDom info v =
   | true, oldIDom ->
     info.Children[oldIDom].Remove v |> ignore
   match info.Children.TryGetValue v with
-  | false, _ -> info.Children.Add (v, HashSet ()) |> ignore
+  | false, _ -> info.Children.Add(v, HashSet()) |> ignore
   | true, _ -> ()
   info.IDom[v] <- newIDom
   let depth = info.Depth[newIDom] + 1
@@ -206,10 +205,10 @@ let rec private constructSubGraphAux g info visited (h, bEdges) = function
 /// Construct the subgraph with root dst whose vertices are unreachable from
 /// main graph.
 let private constructSubGraph (g: IDiGraphAccessible<_, _>) info dst =
-  let h = PersistentDiGraph<'V, 'E> () :> IDiGraph<_, _>
+  let h = PersistentDiGraph<'V, 'E>() :> IDiGraph<_, _>
   let h = addVertex h dst
   let h = h.SetRoots [| dst |]
-  let visited = HashSet ()
+  let visited = HashSet()
   visited.Add dst.ID |> ignore
   let stack = g.GetSuccEdges dst |> Array.toList
   constructSubGraphAux g info visited (h, []) stack
@@ -298,7 +297,7 @@ let private copyDomTree g info immediateDominator =
     else
       if info.Children.ContainsKey v.ID then ()
       else
-        info.Children.Add (v.ID, HashSet ()) |> ignore
+        info.Children.Add(v.ID, HashSet()) |> ignore
       let idom: IVertex<_> = immediateDominator v
       let idomID =
         if isNull idom then info.DummyRootID
@@ -306,7 +305,7 @@ let private copyDomTree g info immediateDominator =
       info.IDom[v.ID] <- idomID
       match info.Children.ContainsKey idomID with
       | false ->
-        info.Children.Add (idomID, HashSet [ v.ID ]) |> ignore
+        info.Children.Add(idomID, HashSet [ v.ID ]) |> ignore
       | true ->
         info.Children.[idomID].Add v.ID |> ignore)
   updateDepth -1 info info.DummyRootID
@@ -327,7 +326,7 @@ let rec private initReachableAux (g: IDiGraphAccessible<_, _>) info = function
 
 let private initReachable (g: IDiGraphAccessible<_, _>) info =
   let stack =
-    g.GetRoots ()
+    g.GetRoots()
     |> Seq.toList
   initReachableAux g info stack
 
@@ -351,58 +350,51 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>)
   let mutable dfProvider = null
   let mutable pdfProvider = null
   { new IDominance<'V, 'E> with
-    member __.Dominators v =
+    member _.Dominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
 #endif
       doms fwG fwInfo v
-
-    member __.ImmediateDominator v =
+    member _.ImmediateDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
 #endif
       idom fwG fwInfo v
-
-    member __.DominatorTree =
+    member _.DominatorTree =
       fwDT.Value
-
-    member __.DominanceFrontier v =
+    member this.DominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
 #endif
       if isNull dfProvider then
-        dfProvider <- dfp.CreateIDominanceFrontier (fwG, __, false)
+        dfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
       dfProvider.DominanceFrontier v
-
-    member __.PostDominators v =
+    member _.PostDominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       doms bwG.Value bwInfo.Value v
-
-    member __.ImmediatePostDominator v =
+    member _.ImmediatePostDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       idom bwG.Value bwInfo.Value v
-
-    member __.PostDominatorTree =
+    member _.PostDominatorTree =
       bwDT.Value
-
-    member __.PostDominanceFrontier v =
+    member this.PostDominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       if isNull pdfProvider then
-        pdfProvider <- dfp.CreateIDominanceFrontier (bwG.Value, __, true)
+        pdfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
       pdfProvider.DominanceFrontier v }
 
 let private computeDominance g dfp staticAlgo =
   let fwInfo = computeDomInfo g dfp staticAlgo
-  let fwDT = lazy DominatorTree (g, idom g fwInfo)
+  let fwDT = lazy DominatorTree(g, idom g fwInfo)
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let bwInfo = lazy (computeDomInfo bwG.Value dfp staticAlgo)
-  let bwDT = lazy DominatorTree (bwG.Value, idom bwG.Value bwInfo.Value)
+  let bwDT = lazy DominatorTree(bwG.Value, idom bwG.Value bwInfo.Value)
   createDominance g bwG fwInfo fwDT bwInfo bwDT dfp, fwInfo, bwInfo
 
 [<CompiledName "Create">]
@@ -415,9 +407,9 @@ let createWithInfo g dfp staticAlgo =
   dom, fw, bw
 
 let creatFromInfo g fwInfo (bwInfo: Lazy<DBSDomInfo<_, _>>) dfp =
-  let fwDT = lazy DominatorTree (g, idom g fwInfo)
+  let fwDT = lazy DominatorTree(g, idom g fwInfo)
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
-  let bwDT = lazy DominatorTree (bwG.Value, idom bwG.Value bwInfo.Value)
+  let bwDT = lazy DominatorTree(bwG.Value, idom bwG.Value bwInfo.Value)
   createDominance g bwG fwInfo fwDT bwInfo bwDT dfp
 
 let createInfoFromDom g dom dfp staticAlgo fw =

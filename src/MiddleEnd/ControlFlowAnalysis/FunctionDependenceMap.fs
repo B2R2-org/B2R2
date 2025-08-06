@@ -30,18 +30,18 @@ open B2R2.MiddleEnd.BinGraph
 
 /// Map from a function (callee) to its caller functions. This is not
 /// thread-safe, and thus should be used only by TaskManager.
-type FunctionDependenceMap () =
+type FunctionDependenceMap() =
   /// A temporary call graph that only contains unconfirmed edges.
-  let tg = ImperativeDiGraph<Addr, unit> () :> IDiGraph<Addr, unit>
+  let tg = ImperativeDiGraph<Addr, unit>() :> IDiGraph<Addr, unit>
 
   /// Vertices in the temporary graph.
-  let tgVertices = Dictionary<Addr, IVertex<Addr>> ()
+  let tgVertices = Dictionary<Addr, IVertex<Addr>>()
 
   /// A regular inter-procedural call graph.
-  let cg = ImperativeDiGraph<Addr, uint> () :> IDiGraph<Addr, uint>
+  let cg = ImperativeDiGraph<Addr, uint>() :> IDiGraph<Addr, uint>
 
   /// Vertices in the call graph.
-  let cgVertices = Dictionary<Addr, IVertex<Addr>> ()
+  let cgVertices = Dictionary<Addr, IVertex<Addr>>()
 
   let getTGVertex addr =
     match tgVertices.TryGetValue addr with
@@ -66,7 +66,7 @@ type FunctionDependenceMap () =
       dbglog ManagerTid "AddTGDependency"
       <| $"{caller.VData:x} -> {callee.VData:x}"
 #endif
-      tg.AddEdge (caller, callee) |> ignore
+      tg.AddEdge(caller, callee) |> ignore
 
   let addCGDependency (caller: IVertex<Addr>) (callee: IVertex<Addr>) =
     if caller = callee then () (* skip recursive call *)
@@ -75,7 +75,7 @@ type FunctionDependenceMap () =
       dbglog ManagerTid "AddCGDependency"
       <| $"{caller.VData:x} -> {callee.VData:x}"
 #endif
-      cg.AddEdge (caller, callee) |> ignore
+      cg.AddEdge(caller, callee) |> ignore
 
   let removeTGVertex (v: IVertex<Addr>) =
 #if CFGDEBUG
@@ -99,7 +99,7 @@ type FunctionDependenceMap () =
   /// Add a dependency between two functions. When the third parameter is true,
   /// we only update the temporary graph, and when it is false, we update the
   /// call graph.
-  member _.AddDependency (caller, callee, isTemp) =
+  member _.AddDependency(caller, callee, isTemp) =
     if isTemp then addTGDependency (getTGVertex caller) (getTGVertex callee)
     else addCGDependency (getCGVertex caller) (getCGVertex callee)
 
@@ -132,14 +132,14 @@ type FunctionDependenceMap () =
 
   /// Get the immediate **confirmed** caller functions of the given callee from
   /// the call graph, but excluding the recursive calls.
-  member _.GetConfirmedCallers (callee: Addr) =
+  member _.GetConfirmedCallers(callee: Addr) =
     let calleeV = getCGVertex callee
     let preds = cg.GetPreds calleeV
     preds |> filterOutNonRecursiveCallers callee
 
   /// Return an array of sets of mutually recurive nodes in the temporary
   /// dependence graph.
-  member _.GetCyclicDependencies () =
+  member _.GetCyclicDependencies() =
     SCC.Tarjan.compute tg
     |> Seq.choose (fun scc ->
       if scc.Count > 1 then
@@ -155,6 +155,6 @@ type FunctionDependenceMap () =
     let tgV = getTGVertex entryAddr
     let cgV = getCGVertex entryAddr
     tg.GetSuccs tgV
-    |> Array.iter (fun succV -> tg.RemoveEdge (tgV, succV) |> ignore)
+    |> Array.iter (fun succV -> tg.RemoveEdge(tgV, succV) |> ignore)
     cg.GetSuccs cgV
-    |> Array.iter (fun succV -> cg.RemoveEdge (cgV, succV) |> ignore)
+    |> Array.iter (fun succV -> cg.RemoveEdge(cgV, succV) |> ignore)

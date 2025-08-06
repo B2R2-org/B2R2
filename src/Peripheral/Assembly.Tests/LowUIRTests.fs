@@ -31,11 +31,11 @@ open B2R2.BinIR.LowUIR
 open B2R2.Peripheral.Assembly.LowUIR
 
 [<TestClass>]
-type LowUIRTests () =
+type LowUIRTests() =
   let regFactory = Intel.RegisterFactory WordSize.Bit64
-  let p = LowUIRParser (ISA Architecture.Intel, regFactory)
+  let p = LowUIRParser(ISA Architecture.Intel, regFactory)
   let size1Num = BitVector.T
-  let size64Num = BitVector.Cast (size1Num, 64<rt>)
+  let size64Num = BitVector.Cast(size1Num, 64<rt>)
   let get = function Ok v -> v | Error _ -> failwith "Bad value"
 
   [<TestMethod>]
@@ -43,19 +43,19 @@ type LowUIRTests () =
     let result = p.Parse "RAX := 0x1:I64" |> get |> Array.head
     let regID = Intel.Register.toRegID Intel.Register.RAX
     let answer = AST.put (AST.var 64<rt> regID "RAX") (AST.num size64Num)
-    Assert.AreEqual<Stmt> (answer, result)
+    Assert.AreEqual<Stmt>(answer, result)
 
   [<TestMethod>]
   member _.``[IntelAssemblerLowUIR] Test IEMark ``() =
     let result = p.Parse "} // 1" |> get |> Array.head
     let answer = AST.iemark 1u
-    Assert.AreEqual<Stmt> (answer, result)
+    Assert.AreEqual<Stmt>(answer, result)
 
   [<TestMethod>]
   member _.``[IntelAssemblerLowUIR] Test Temporary Registers``() =
     let result = p.Parse "T_2:I1 := 1" |> get |> Array.head
     let answer = AST.put (AST.tmpvar 1<rt> 2) (AST.num size1Num)
-    Assert.AreEqual<Stmt> (answer, result)
+    Assert.AreEqual<Stmt>(answer, result)
 
   [<TestMethod>]
   member _.``[IntelAssemblerLowUIR] Test Operation in Expression``() =
@@ -64,5 +64,5 @@ type LowUIRTests () =
     let regID = Intel.Register.toRegID Intel.Register.RAX
     let answer =
       AST.put (AST.var 64<rt> regID "RAX")
-              (AST.num (BitVector.Cast (BitVector.F, 64<rt>)))
-    Assert.AreEqual<Stmt> (answer, result)
+              (AST.num (BitVector.Cast(BitVector.F, 64<rt>)))
+    Assert.AreEqual<Stmt>(answer, result)

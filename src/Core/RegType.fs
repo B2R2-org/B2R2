@@ -64,7 +64,7 @@ module RegType =
 #if DEBUG
     checkIfValidRegType t
 #endif
-    "I" + t.ToString ()
+    "I" + t.ToString()
 
   /// <summary>
   /// Convert a <see cref="T:B2R2.RegType"/> to an integer of bit width.

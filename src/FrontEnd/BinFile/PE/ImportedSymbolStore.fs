@@ -31,7 +31,6 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.PE.PEUtils
 
-
 /// Represents a collection of imported symbols in a PE file, which is located
 /// at the .idata section.
 type ImportedSymbolStore = Map<Addr, ImportedSymbol>
@@ -54,17 +53,17 @@ module internal ImportedSymbolStore =
       getRawOffset secs rva |> loop [] |> List.rev |> List.toArray
 
   let private readIDTEntry (bs: byte[]) (reader: IBinReader) secs pos =
-    { ImportLookupTableRVA = reader.ReadInt32 (bs, pos)
-      ForwarderChain = reader.ReadInt32 (bs, pos + 8)
-      ImportDLLName = reader.ReadInt32 (bs, pos + 12) |> readStr secs bs
-      ImportAddressTableRVA = reader.ReadInt32 (bs, pos + 16)
+    { ImportLookupTableRVA = reader.ReadInt32(bs, pos)
+      ForwarderChain = reader.ReadInt32(bs, pos + 8)
+      ImportDLLName = reader.ReadInt32(bs, pos + 12) |> readStr secs bs
+      ImportAddressTableRVA = reader.ReadInt32(bs, pos + 16)
       DelayLoad = false }
 
   let private readDelayLoadIDTEntry (bs: byte[]) (reader: IBinReader) secs pos =
-    { ImportLookupTableRVA = reader.ReadInt32 (bs, pos + 16)
+    { ImportLookupTableRVA = reader.ReadInt32(bs, pos + 16)
       ForwarderChain = 0
-      ImportDLLName = reader.ReadInt32 (bs, pos + 4) |> readStr secs bs
-      ImportAddressTableRVA = reader.ReadInt32 (bs, pos + 12)
+      ImportDLLName = reader.ReadInt32(bs, pos + 4) |> readStr secs bs
+      ImportAddressTableRVA = reader.ReadInt32(bs, pos + 12)
       DelayLoad = true }
 
   let private parseIDT bytes reader (headers: PEHeaders) secs =
@@ -78,12 +77,12 @@ module internal ImportedSymbolStore =
   let private parseILTEntry bytes (reader: IBinReader) secs idt mask rva =
     let dllname = idt.ImportDLLName
     if rva &&& mask <> 0UL then
-      ByOrdinal (uint16 rva |> int16, dllname)
+      ByOrdinal(uint16 rva |> int16, dllname)
     else
       let rva = 0x7fffffffUL &&& rva |> int
-      let hint = reader.ReadInt16 (bs=bytes, offset=getRawOffset secs rva)
+      let hint = reader.ReadInt16(bs = bytes, offset = getRawOffset secs rva)
       let funname = readStr secs bytes (rva + 2)
-      ByName (hint, funname, dllname)
+      ByName(hint, funname, dllname)
 
   let private computeRVAMaskForILT wordSize =
     if wordSize = WordSize.Bit32 then 0x80000000UL

@@ -31,12 +31,11 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Data-flow chain that contains both Use-Def and Def-Use chains.
-type DataFlowChain = {
-  /// Use-def chain.
-  UseDefChain: Map<VarPoint, Set<VarPoint>>
-  /// Def-use chain.
-  DefUseChain: Map<VarPoint, Set<VarPoint>>
-}
+type DataFlowChain =
+  { /// Use-def chain.
+    UseDefChain: Map<VarPoint, Set<VarPoint>>
+    /// Def-use chain.
+    DefUseChain: Map<VarPoint, Set<VarPoint>> }
 
 module DataFlowChain =
   let private computeInBlockDefs pp u (outset: Set<VarPoint>) =
@@ -68,27 +67,27 @@ module DataFlowChain =
 
   let rec private extractUseFromExpr e acc =
     match e with
-    | Var (_, id, _, _) -> Regular id :: acc
-    | TempVar (_, n, _) -> Temporary n :: acc
-    | UnOp (_, e, _) -> extractUseFromExpr e acc
-    | BinOp (_, _, e1, e2, _) ->
+    | Var(_, id, _, _) -> Regular id :: acc
+    | TempVar(_, n, _) -> Temporary n :: acc
+    | UnOp(_, e, _) -> extractUseFromExpr e acc
+    | BinOp(_, _, e1, e2, _) ->
       extractUseFromExpr e1 (extractUseFromExpr e2 acc)
-    | RelOp (_, e1, e2, _) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
-    | Load (_, _, e, _) -> extractUseFromExpr e acc
-    | Ite (c, e1, e2, _) ->
+    | RelOp(_, e1, e2, _) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
+    | Load(_, _, e, _) -> extractUseFromExpr e acc
+    | Ite(c, e1, e2, _) ->
       extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 acc))
-    | Cast (_, _, e, _) -> extractUseFromExpr e acc
-    | Extract (e, _, _, _) -> extractUseFromExpr e acc
+    | Cast(_, _, e, _) -> extractUseFromExpr e acc
+    | Extract(e, _, _, _) -> extractUseFromExpr e acc
     | _ -> []
 
   let private extractUseFromStmt s =
     match s with
-    | Put (_, e, _)
-    | Store (_, _, e, _)
-    | Jmp (e, _)
-    | CJmp (e, _, _, _)
-    | InterJmp (e, _, _) -> extractUseFromExpr e []
-    | InterCJmp (c, e1, e2, _) ->
+    | Put(_, e, _)
+    | Store(_, _, e, _)
+    | Jmp(e, _)
+    | CJmp(e, _, _, _)
+    | InterJmp(e, _, _) -> extractUseFromExpr e []
+    | InterCJmp(c, e1, e2, _) ->
       extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 []))
     | _ -> []
 
@@ -97,13 +96,12 @@ module DataFlowChain =
     |> Set.ofList
 
   let private initUDChain cfg (provider: IAbsValProvider<_, _>) =
-    Map.empty
-    |> (cfg: IDiGraphAccessible<LowUIRBasicBlock, _>).FoldVertex (fun map v ->
+    (cfg: IDiGraphAccessible<LowUIRBasicBlock, _>).FoldVertex((fun map v ->
       v.VData.Internals.LiftedInstructions
       |> Array.fold (fun map lifted ->
         lifted.Stmts
         |> Array.foldi (fun map idx stmt ->
-          let pp = ProgramPoint (lifted.Original.Address, idx)
+          let pp = ProgramPoint(lifted.Original.Address, idx)
           let abs = provider.GetAbsValue v.ID
           let uses = extractUses stmt
           uses |> Set.fold (fun map u ->
@@ -116,7 +114,7 @@ module DataFlowChain =
             Map.add usepoint set map
           ) map
         ) map |> fst
-      ) map)
+      ) map), Map.empty)
 
   let private initDUChain udchain =
     udchain
@@ -129,7 +127,7 @@ module DataFlowChain =
 
   let private normalizeVP (vp: VarPoint) =
     let addr = vp.ProgramPoint.Address
-    { vp with ProgramPoint = ProgramPoint (addr, 0) }
+    { vp with ProgramPoint = ProgramPoint(addr, 0) }
 
   let private filterDisasm isDisasmLevel chain =
     if not isDisasmLevel then chain
@@ -144,7 +142,7 @@ module DataFlowChain =
 
   [<CompiledName("Init")>]
   let init cfg isDisasmLevel =
-    let rd = ReachingDefinitionAnalysis () :> IDataFlowComputable<_, _, _, _>
+    let rd = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _, _>
     let provider = rd.Compute cfg
     let udchain = initUDChain cfg provider |> filterDisasm isDisasmLevel
     let duchain = initDUChain udchain |> filterDisasm isDisasmLevel

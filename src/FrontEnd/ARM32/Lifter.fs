@@ -75,7 +75,7 @@ let regsToExpr regs = numU32 (regsToUInt32 regs) 16<rt>
 
 let sfRegToExpr bld = function
   | Vector reg -> regVar bld reg
-  | Scalar (reg, _) -> regVar bld reg
+  | Scalar(reg, _) -> regVar bld reg
 
 let simdToExpr bld = function
   | SFReg s -> sfRegToExpr bld s
@@ -83,17 +83,17 @@ let simdToExpr bld = function
 
 let getTwoOprs (ins: Instruction) =
   match ins.Operands with
-  | TwoOperands (o1, o2) -> struct (o1, o2)
+  | TwoOperands(o1, o2) -> struct (o1, o2)
   | _ -> raise InvalidOperandException
 
 let getThreeOprs (ins: Instruction) =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> struct (o1, o2, o3)
+  | ThreeOperands(o1, o2, o3) -> struct (o1, o2, o3)
   | _ -> raise InvalidOperandException
 
 let getFourOprs (ins: Instruction) =
   match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
+  | FourOperands(o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
   | _ -> raise InvalidOperandException
 
 let getImmValue imm =
@@ -102,15 +102,15 @@ let getImmValue imm =
   | _ -> raise InvalidOperandException
 
 let transOprToExpr128 bld = function
-  | OprSIMD (SFReg (Vector reg)) -> pseudoRegVar128 bld reg
+  | OprSIMD(SFReg(Vector reg)) -> pseudoRegVar128 bld reg
   | _ -> raise InvalidOperandException
 
 let transOprToSclar bld = function
-  | OprSIMD (SFReg (Scalar (reg, Some idx))) -> regVar bld reg, int32 idx
+  | OprSIMD(SFReg(Scalar(reg, Some idx))) -> regVar bld reg, int32 idx
   | _ -> raise InvalidOperandException
 
 let transOprToExpr (ins: Instruction) bld = function
-  | OprSpecReg (reg, _)
+  | OprSpecReg(reg, _)
   | OprReg reg -> regVar bld reg
   | OprRegList regs -> regsToExpr regs
   | OprSIMD simd -> simdToExpr bld simd
@@ -126,13 +126,13 @@ let transOneOpr (ins: Instruction) bld =
 
 let transTwoOprs (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands (opr1, opr2) ->
+  | TwoOperands(opr1, opr2) ->
     struct (transOprToExpr ins bld opr1, transOprToExpr ins bld opr2)
   | _ -> raise InvalidOperandException
 
 let transThreeOprs (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands (opr1, opr2, opr3) ->
+  | ThreeOperands(opr1, opr2, opr3) ->
     struct (transOprToExpr ins bld opr1,
             transOprToExpr ins bld opr2,
             transOprToExpr ins bld opr3)
@@ -140,7 +140,7 @@ let transThreeOprs (ins: Instruction) bld =
 
 let transFourOprs (ins: Instruction) bld =
   match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) ->
+  | FourOperands(o1, o2, o3, o4) ->
     struct (transOprToExpr ins bld o1,
             transOprToExpr ins bld o2,
             transOprToExpr ins bld o3,
@@ -180,12 +180,14 @@ let getSCR bld scrType =
   | SCR_NS -> scr .& maskSCRForNSbit
 
 let isSetSCRForAW bld = getSCR bld SCR_AW == maskSCRForAWbit
+
 let isSetSCRForFW bld = getSCR bld SCR_FW == maskSCRForFWbit
+
 let isSetSCRForNS bld = getSCR bld SCR_NS == maskSCRForNSbit
 
 /// Gets the mask bits for fetching the NMFI bit from the SCTLR.
 /// SCTLR bit[27]
-let maskSCTLRForNMFIbit = AST.num <| BitVector.OfBInt 134217728I 32<rt>
+let maskSCTLRForNMFIbit = AST.num <| BitVector.OfBInt(134217728I, 32<rt>)
 
 let getSCTLR bld sctlrType =
   let sctlr = regVar bld R.SCTLR
@@ -265,7 +267,7 @@ let getCarryFlag bld =
   getPSR bld R.CPSR PSR.C >> (numI32 29 32<rt>)
 
 let getZeroMask maskSize regType =
-  BitVector.OfBInt (BigInteger.getMask maskSize) regType
+  BitVector.OfBInt(BigInteger.getMask maskSize, regType)
   |> BitVector.BNot |> AST.num
 
 let zMaskAnd e regType maskSize =
@@ -646,12 +648,12 @@ let currentModeIsNotUser bld =
 /// Bitstring replication, on page AppxP-2652.
 /// function : Replicate()
 let replicate expr regType lsb width value =
-  let v = BitVector.OfBInt (BigInteger.getMask width <<< lsb) regType
+  let v = BitVector.OfBInt(BigInteger.getMask width <<< lsb, regType)
   if value = 0 then expr .& (v |> BitVector.BNot |> AST.num)
   else expr .| (v |> AST.num)
 
 /// All-ones bitstring, on page AppxP-2652.
-let ones rt = BitVector.OfBInt (RegType.getMask rt) rt |> AST.num
+let ones rt = BitVector.OfBInt(RegType.getMask rt, rt) |> AST.num
 
 let writeModeBits bld value isExcptReturn =
   let lblL8 = label bld "L8"
@@ -702,10 +704,10 @@ let writeModeBits bld value isExcptReturn =
 
 let transShiftOprs ins bld opr1 opr2 =
   match opr1, opr2 with
-  | OprReg _, OprShift (typ, Imm imm) ->
+  | OprReg _, OprShift(typ, Imm imm) ->
     let e = transOprToExpr ins bld opr1
     shift e 32<rt> typ imm (getCarryFlag bld)
-  | OprReg _, OprRegShift (typ, reg) ->
+  | OprReg _, OprRegShift(typ, reg) ->
     let e = transOprToExpr ins bld opr1
     let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     shiftForRegAmount e 32<rt> typ amount (getCarryFlag bld)
@@ -713,22 +715,22 @@ let transShiftOprs ins bld opr1 opr2 =
 
 let parseOprOfMVNS (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs ins bld
-  | ThreeOperands (opr1, opr2, opr3) ->
+  | TwoOperands(OprReg _, OprImm _) -> transTwoOprs ins bld
+  | ThreeOperands(opr1, opr2, opr3) ->
     struct (transOprToExpr ins bld opr1, transShiftOprs ins bld opr2 opr3)
   | _ -> raise InvalidOperandException
 
 let transTwoOprsOfADC (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprReg _) ->
+  | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
     struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
 let transThreeOprsOfADC (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> transThreeOprs ins bld
-  | ThreeOperands (OprReg _, OprReg _, OprReg _) ->
+  | ThreeOperands(_, _, OprImm _) -> transThreeOprs ins bld
+  | ThreeOperands(OprReg _, OprReg _, OprReg _) ->
     let carryIn = getCarryFlag bld
     let struct (e1, e2, e3) = transThreeOprs ins bld
     e1, e2, shift e3 32<rt> SRTypeLSL 0u carryIn
@@ -736,10 +738,10 @@ let transThreeOprsOfADC (ins: Instruction) bld =
 
 let transFourOprsOfADC (ins: Instruction) bld =
   match ins.Operands with
-  | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
+  | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
     let e1, e2 = transOprToExpr ins bld opr1, transOprToExpr ins bld opr2
     struct (e1, e2, transShiftOprs ins bld opr3 opr4)
-  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
+  | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
     let e1 = transOprToExpr ins bld opr1
     let e2 = transOprToExpr ins bld opr2
     let e3 = transOprToExpr ins bld opr3
@@ -857,18 +859,18 @@ let adc isSetFlags ins insLen bld =
 
 let transTwoOprsOfADD (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprImm _) ->
+  | TwoOperands(OprReg _, OprImm _) ->
     let struct (e1, e2) = transTwoOprs ins bld
     struct (e1, e1, e2)
-  | TwoOperands (OprReg _, OprReg _) ->
+  | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
     struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
 let transThreeOprsOfADD (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> transThreeOprs ins bld
-  | ThreeOperands (OprReg _, OprReg _, OprReg _) ->
+  | ThreeOperands(_, _, OprImm _) -> transThreeOprs ins bld
+  | ThreeOperands(OprReg _, OprReg _, OprReg _) ->
     let carryIn = getCarryFlag bld
     let struct (e1, e2, e3) = transThreeOprs ins bld
     struct (e1, e2, shift e3 32<rt> SRTypeLSL 0u carryIn)
@@ -876,11 +878,11 @@ let transThreeOprsOfADD (ins: Instruction) insLen bld =
 
 let transFourOprsOfADD (ins: Instruction) insLen bld =
   match ins.Operands with
-  | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
+  | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ins bld opr1
     let e2 = transOprToExpr ins bld opr2
     struct (e1, e2, transShiftOprs ins bld opr3 opr4)
-  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
+  | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
     let e1 = transOprToExpr ins bld opr1
     let e2 = transOprToExpr ins bld opr2
     let e3 = transOprToExpr ins bld opr3
@@ -948,7 +950,7 @@ let targetModeOfBL (ins: Instruction) =
 let parseOprOfBL ins =
   let struct (isThumb, callKind) = targetModeOfBL ins
   match ins.Operands with
-  | OneOperand (OprMemory (LiteralMode imm)) ->
+  | OneOperand(OprMemory(LiteralMode imm)) ->
     struct (transLableOprsOfBL ins isThumb imm, isThumb, callKind)
   | _ -> raise InvalidOperandException
 
@@ -983,13 +985,13 @@ let blxWithReg (ins: Instruction) insLen reg bld =
 
 let branchWithLink (ins: Instruction) insLen bld =
   match ins.Operands with
-  | OneOperand (OprReg reg) -> blxWithReg ins insLen reg bld
+  | OneOperand(OprReg reg) -> blxWithReg ins insLen reg bld
   | _ -> bl ins insLen bld
 
 let parseOprOfPUSHPOP (ins: Instruction) =
   match ins.Operands with
-  | OneOperand (OprReg r) -> regsToUInt32 [ r ]
-  | OneOperand (OprRegList regs) -> regsToUInt32 regs
+  | OneOperand(OprReg r) -> regsToUInt32 [ r ]
+  | OneOperand(OprRegList regs) -> regsToUInt32 regs
   | _ -> raise InvalidOperandException
 
 let pushLoop bld numOfReg addr =
@@ -1225,23 +1227,23 @@ let computeCarryOutFromImmCflag (ins: Instruction) insLen bld =
 
 let translateLogicOp (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprReg _) ->
+  | TwoOperands(OprReg _, OprReg _) ->
     let t = tmpVar bld 32<rt>
     let struct (e1, e2) = transTwoOprs ins bld
     bld <+ (t := e2)
     let shifted, carryOut = shiftC t 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     e1, e1, shifted, carryOut
-  | ThreeOperands (_, _, OprImm _) ->
+  | ThreeOperands(_, _, OprImm _) ->
     let struct (e1, e2, e3) = transThreeOprs ins bld
     let carryOut = computeCarryOutFromImmCflag ins insLen bld
     e1, e2, e3, carryOut
-  | ThreeOperands (OprReg _, OprReg _, OprReg _) ->
+  | ThreeOperands(OprReg _, OprReg _, OprReg _) ->
     let t = tmpVar bld 32<rt>
     let struct (e1, e2, e3) = transThreeOprs ins bld
     bld <+ (t := e3)
     let shifted, carryOut = shiftC t 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     e1, e2, shifted, carryOut
-  | FourOperands (opr1, opr2, opr3, OprShift (typ, Imm imm)) ->
+  | FourOperands(opr1, opr2, opr3, OprShift(typ, Imm imm)) ->
     let t = tmpVar bld 32<rt>
     let carryIn = getCarryFlag bld
     let dst = transOprToExpr ins bld opr1
@@ -1250,7 +1252,7 @@ let translateLogicOp (ins: Instruction) insLen bld =
     bld <+ (t := rm)
     let shifted, carryOut = shiftC t 32<rt> typ imm carryIn
     dst, src1, shifted, carryOut
-  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
+  | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
     let t = tmpVar bld 32<rt>
     let carryIn = getCarryFlag bld
     let dst = transOprToExpr ins bld opr1
@@ -1284,7 +1286,7 @@ let logicalAnd isSetFlags (ins: Instruction) insLen bld =
 let parseOprsOfMOV (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands _ -> transTwoOprs ins bld
-  | ThreeOperands (opr1, opr2, opr3) ->
+  | ThreeOperands(opr1, opr2, opr3) ->
     struct (transOprToExpr ins bld opr1, transShiftOprs ins bld opr2 opr3)
   | _ -> raise InvalidOperandException
 
@@ -1329,11 +1331,11 @@ let eor isSetFlags (ins: Instruction) insLen bld =
 
 let transFourOprsOfRSB (ins: Instruction) insLen bld =
   match ins.Operands with
-  | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
+  | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ins bld opr1
     let e2 = transOprToExpr ins bld opr2
     struct (e1, e2, transShiftOprs ins bld opr3 opr4)
-  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
+  | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
     let e1 = transOprToExpr ins bld opr1
     let e2 = transOprToExpr ins bld opr2
     let e3 = transOprToExpr ins bld opr3
@@ -1375,18 +1377,18 @@ let rsb isSetFlags ins insLen bld =
 
 let transTwoOprsOfSBC (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprReg _) ->
+  | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
     struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
 let transFourOprsOfSBC (ins: Instruction) insLen bld =
   match ins.Operands with
-  | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
+  | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ins bld opr1
     let e2 = transOprToExpr ins bld opr2
     struct (e1, e2, transShiftOprs ins bld opr3 opr4)
-  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
+  | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
     let e1 = transOprToExpr ins bld opr1
     let e2 = transOprToExpr ins bld opr2
     let e3 = transOprToExpr ins bld opr3
@@ -1429,11 +1431,11 @@ let sbc isSetFlags ins insLen bld =
 
 let transFourOprsOfRSC (ins: Instruction) insLen bld =
   match ins.Operands with
-  | FourOperands (opr1, opr2, opr3, (OprShift (_, Imm _) as opr4)) ->
+  | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ins bld opr1
     let e2 = transOprToExpr ins bld opr2
     e1, e2, transShiftOprs ins bld opr3 opr4
-  | FourOperands (opr1, opr2, opr3, OprRegShift (typ, reg)) ->
+  | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
     let e1 = transOprToExpr ins bld opr1
     let e2 = transOprToExpr ins bld opr2
     let e3 = transOprToExpr ins bld opr3
@@ -1532,10 +1534,10 @@ let bic isSetFlags (ins: Instruction) insLen bld =
 
 let transTwoOprsOfMVN (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprImm _) ->
+  | TwoOperands(OprReg _, OprImm _) ->
     let struct (e1, e2) = transTwoOprs ins bld
     struct (e1, e2, getCarryFlag bld)
-  | TwoOperands (OprReg _, OprReg _) ->
+  | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
     let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     struct (e1, shifted, carryOut)
@@ -1543,13 +1545,13 @@ let transTwoOprsOfMVN (ins: Instruction) insLen bld =
 
 let transThreeOprsOfMVN (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
+  | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
     let dst = transOprToExpr ins bld opr1
     let src = transOprToExpr ins bld opr2
     let shifted, carryOut = shiftC src 32<rt> typ imm carryIn
     struct (dst, shifted, carryOut)
-  | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
+  | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
     let carryIn = getCarryFlag bld
     let dst = transOprToExpr ins bld opr1
     let src = transOprToExpr ins bld opr2
@@ -1585,7 +1587,7 @@ let mvn isSetFlags ins insLen bld =
 
 let svc (ins: Instruction) insLen bld =
   match ins.Operands with
-  | OneOperand (OprImm n) -> sideEffects ins insLen bld (Interrupt (int n))
+  | OneOperand(OprImm n) -> sideEffects ins insLen bld (Interrupt(int n))
   | _ -> raise InvalidOperandException
 
 let getImmShiftFromShiftType imm = function
@@ -1596,12 +1598,12 @@ let getImmShiftFromShiftType imm = function
 
 let transTwoOprsOfShiftInstr (ins: Instruction) shiftTyp bld tmp =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprReg _) when shiftTyp = SRTypeRRX ->
+  | TwoOperands(OprReg _, OprReg _) when shiftTyp = SRTypeRRX ->
     let carryIn = getCarryFlag bld
     let struct (e1, e2) = transTwoOprs ins bld
     let result, carryOut = shiftC tmp 32<rt> shiftTyp 1ul carryIn
     e1, e2, result, carryOut
-  | TwoOperands (OprReg _, OprReg _) ->
+  | TwoOperands(OprReg _, OprReg _) ->
     let carryIn = getCarryFlag bld
     let struct (e1, e2) = transTwoOprs ins bld
     let shiftN = AST.xtlo 8<rt> e2 |> AST.zext 32<rt>
@@ -1611,14 +1613,14 @@ let transTwoOprsOfShiftInstr (ins: Instruction) shiftTyp bld tmp =
 
 let transThreeOprsOfShiftInstr (ins: Instruction) shiftTyp bld tmp =
   match ins.Operands with
-  | ThreeOperands (opr1, opr2, OprImm imm) ->
+  | ThreeOperands(opr1, opr2, OprImm imm) ->
     let e1 = transOprToExpr ins bld opr1
     let e2 = transOprToExpr ins bld opr2
     let shiftN = getImmShiftFromShiftType (uint32 imm) shiftTyp
     let shifted, carryOut =
       shiftC tmp 32<rt> shiftTyp shiftN (getCarryFlag bld)
     e1, e2, shifted, carryOut
-  | ThreeOperands (_, _, OprReg _) ->
+  | ThreeOperands(_, _, OprReg _) ->
     let carryIn = getCarryFlag bld
     let struct (e1, e2, e3) = transThreeOprs ins bld
     let amount = AST.xtlo 8<rt> e3 |> AST.zext 32<rt>
@@ -1655,106 +1657,106 @@ let shiftInstr isSetFlags ins insLen typ bld =
 
 let subs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _) when ins.IsThumb ->
+  | ThreeOperands(OprReg R.PC, _, _) when ins.IsThumb ->
     subsPCLRThumb ins insLen bld
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> sub isSetFlags ins insLen bld
 
 let adds isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> add isSetFlags ins insLen bld
 
 let adcs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> adc isSetFlags ins insLen bld
 
 let ands isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> logicalAnd isSetFlags ins insLen bld
 
 let movs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg R.PC, _) -> subsAndRelatedInstr ins insLen bld
+  | TwoOperands(OprReg R.PC, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> mov isSetFlags ins insLen bld
 
 let eors isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> eor isSetFlags ins insLen bld
 
 let rsbs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> rsb isSetFlags ins insLen bld
 
 let sbcs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> sbc isSetFlags ins insLen bld
 
 let rscs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> rsc isSetFlags ins insLen bld
 
 let orrs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> orr isSetFlags ins insLen bld
 
 let orns isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> orn isSetFlags ins insLen bld
 
 let bics isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _)
-  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> bic isSetFlags ins insLen bld
 
 let mvns isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg R.PC, _)
-  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
+  | TwoOperands(OprReg R.PC, _)
+  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> mvn isSetFlags ins insLen bld
 
 let asrs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> shiftInstr isSetFlags ins insLen SRTypeASR bld
 
 let lsls isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> shiftInstr isSetFlags ins insLen SRTypeLSL bld
 
 let lsrs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> shiftInstr isSetFlags ins insLen SRTypeLSR bld
 
 let rors isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> shiftInstr isSetFlags ins insLen SRTypeROR bld
 
 let rrxs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg R.PC, _) -> subsAndRelatedInstr ins insLen bld
+  | TwoOperands(OprReg R.PC, _) -> subsAndRelatedInstr ins insLen bld
   | _ -> shiftInstr isSetFlags ins insLen SRTypeRRX bld
 
 let clz ins insLen bld =
@@ -1786,8 +1788,8 @@ let clz ins insLen bld =
 
 let transTwoOprsOfCMN (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs ins bld
-  | TwoOperands (OprReg _, OprReg _) ->
+  | TwoOperands(OprReg _, OprImm _) -> transTwoOprs ins bld
+  | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
     let shifted = shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     struct (e1, shifted)
@@ -1795,13 +1797,13 @@ let transTwoOprsOfCMN (ins: Instruction) insLen bld =
 
 let transThreeOprsOfCMN (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
+  | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
     let dst = transOprToExpr ins bld opr1
     let src = transOprToExpr ins bld opr2
     let shifted = shift src 32<rt> typ imm carryIn
     struct (dst, shifted)
-  | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
+  | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
     let carryIn = getCarryFlag bld
     let dst = transOprToExpr ins bld opr1
     let src = transOprToExpr ins bld opr2
@@ -1853,20 +1855,20 @@ let mla isSetFlags ins insLen bld =
 
 let transTwoOprsOfCMP (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs ins bld
-  | TwoOperands (OprReg _, OprReg _) ->
+  | TwoOperands(OprReg _, OprImm _) -> transTwoOprs ins bld
+  | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
     struct (e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
 let transThreeOprsOfCMP (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
+  | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
     let dst = transOprToExpr ins bld opr1
     let src = transOprToExpr ins bld opr2
     struct (dst, shift src 32<rt> typ imm carryIn)
-  | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
+  | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
     let carryIn = getCarryFlag bld
     let dst = transOprToExpr ins bld opr1
     let src = transOprToExpr ins bld opr2
@@ -1948,16 +1950,16 @@ let umull isSetFlags ins insLen bld =
 
 let transOprsOfTEQ (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprImm _) ->
+  | TwoOperands(OprReg _, OprImm _) ->
     let struct (rn, imm) = transTwoOprs ins bld
     rn, imm, getCarryFlag bld
-  | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
+  | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
     let rn = transOprToExpr ins bld opr1
     let rm = transOprToExpr ins bld opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     rn, shifted, carryOut
-  | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
+  | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
     let carryIn = getCarryFlag bld
     let rn = transOprToExpr ins bld opr1
     let rm = transOprToExpr ins bld opr2
@@ -1999,21 +2001,21 @@ let mul isSetFlags ins insLen bld =
 
 let transOprsOfTST (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg _, OprImm _) ->
+  | TwoOperands(OprReg _, OprImm _) ->
     let struct (rn, imm) = transTwoOprs ins bld
     let carryOut = computeCarryOutFromImmCflag ins insLen bld
     struct (rn, imm, carryOut)
-  | TwoOperands (OprReg _, OprReg _) ->
+  | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
     let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag bld)
     struct (e1, shifted, carryOut)
-  | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
+  | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
     let rn = transOprToExpr ins bld opr1
     let rm = transOprToExpr ins bld opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     struct (rn, shifted, carryOut)
-  | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
+  | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
     let carryIn = getCarryFlag bld
     let rn = transOprToExpr ins bld opr1
     let rm = transOprToExpr ins bld opr2
@@ -2166,7 +2168,7 @@ let smulacclonghalf (ins: Instruction) insLen bld s1top s2top =
 let parseOprOfB (ins: Instruction) =
   let addr = bvOfBaseAddr (ins.Address + pcOffset ins)
   match ins.Operands with
-  | OneOperand (OprMemory (LiteralMode imm)) ->
+  | OneOperand(OprMemory(LiteralMode imm)) ->
     addr .+ (numI64 imm 32<rt>)
   | _ -> raise InvalidOperandException
 
@@ -2190,7 +2192,7 @@ let bx ins insLen bld =
   bld --!> insLen
 
 let movtAssign dst src =
-  let maskHigh16In32 = AST.num <| BitVector.OfBInt 4294901760I 32<rt>
+  let maskHigh16In32 = AST.num <| BitVector.OfBInt(4294901760I, 32<rt>)
   let clearHigh16In32 expr = expr .& AST.not maskHigh16In32
   dst := clearHigh16In32 dst .|
          (src << (numI32 16 32<rt>))
@@ -2206,7 +2208,7 @@ let movt ins insLen bld =
 
 let transFourOprsWithBarrelShift (ins: Instruction) bld =
   match ins.Operands with
-  | FourOperands (opr1, opr2, opr3, OprShift (typ, Imm imm)) ->
+  | FourOperands(opr1, opr2, opr3, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
     let dst = transOprToExpr ins bld opr1
     let src1 = transOprToExpr ins bld opr2
@@ -2258,7 +2260,7 @@ let pop ins insLen bld =
 
 let parseOprOfLDM (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands (OprReg reg, OprRegList regs) ->
+  | TwoOperands(OprReg reg, OprRegList regs) ->
     struct (regVar bld reg, getRegNum reg, regsToUInt32 regs)
   | _ -> raise InvalidOperandException
 
@@ -2302,52 +2304,52 @@ let getOffAddrWithImm s r imm =
   | _, _ -> r
 
 let parseMemOfLDR ins insLen bld = function
-  | OprMemory (OffsetMode (ImmOffset (rn, s, imm))) ->
+  | OprMemory(OffsetMode(ImmOffset(rn, s, imm))) ->
     let rn = regVar bld rn |> convertPCOpr ins bld
     struct (getOffAddrWithImm s rn imm, None)
-  | OprMemory (PreIdxMode (ImmOffset (rn, s, imm))) ->
+  | OprMemory(PreIdxMode(ImmOffset(rn, s, imm))) ->
     let rn = regVar bld rn
-    struct (getOffAddrWithImm s rn imm, Some (rn, None))
-  | OprMemory (PostIdxMode (ImmOffset (rn, s, imm))) ->
+    struct (getOffAddrWithImm s rn imm, Some(rn, None))
+  | OprMemory(PostIdxMode(ImmOffset(rn, s, imm))) ->
     let rn = regVar bld rn
-    struct (rn, Some (rn, Some (getOffAddrWithImm s rn imm)))
-  | OprMemory (LiteralMode imm) ->
+    struct (rn, Some(rn, Some(getOffAddrWithImm s rn imm)))
+  | OprMemory(LiteralMode imm) ->
     let addr = bvOfBaseAddr ins.Address
     let pc = align addr (numI32 4 32<rt>)
     let rel = if not ins.IsThumb then 8u else 4u
     struct (pc .+ (numU32 rel 32<rt>) .+ (numI64 imm 32<rt>), None)
-  | OprMemory (OffsetMode (RegOffset (n, _, m, None))) ->
+  | OprMemory(OffsetMode(RegOffset(n, _, m, None))) ->
     let m = regVar bld m |> convertPCOpr ins bld
     let n = regVar bld n |> convertPCOpr ins bld
     struct (n .+ shift m 32<rt> SRTypeLSL 0u (getCarryFlag bld), None)
-  | OprMemory (PreIdxMode (RegOffset (n, s, m, None))) ->
+  | OprMemory(PreIdxMode(RegOffset(n, s, m, None))) ->
     let rn = regVar bld n
     let offset =
       shift (regVar bld m) 32<rt> SRTypeLSL 0u (getCarryFlag bld)
-    struct (getOffAddrWithExpr s rn offset, Some (rn, None))
-  | OprMemory (PostIdxMode (RegOffset (n, s, m, None))) ->
+    struct (getOffAddrWithExpr s rn offset, Some(rn, None))
+  | OprMemory(PostIdxMode(RegOffset(n, s, m, None))) ->
     let rn = regVar bld n
     let offset =
       shift (regVar bld m) 32<rt> SRTypeLSL 0u (getCarryFlag bld)
-    struct (rn, Some (rn, Some (getOffAddrWithExpr s rn offset)))
-  | OprMemory (OffsetMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
+    struct (rn, Some(rn, Some(getOffAddrWithExpr s rn offset)))
+  | OprMemory(OffsetMode(RegOffset(n, s, m, Some(t, Imm i)))) ->
     let rn = regVar bld n |> convertPCOpr ins bld
     let rm = regVar bld m |> convertPCOpr ins bld
     let offset = shift rm 32<rt> t i (getCarryFlag bld)
     struct (getOffAddrWithExpr s rn offset, None)
-  | OprMemory (PreIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
+  | OprMemory(PreIdxMode(RegOffset(n, s, m, Some(t, Imm i)))) ->
     let rn = regVar bld n
     let offset = shift (regVar bld m) 32<rt> t i (getCarryFlag bld)
-    struct (getOffAddrWithExpr s rn offset, Some (rn, None))
-  | OprMemory (PostIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
+    struct (getOffAddrWithExpr s rn offset, Some(rn, None))
+  | OprMemory(PostIdxMode(RegOffset(n, s, m, Some(t, Imm i)))) ->
     let rn = regVar bld n
     let offset = shift (regVar bld m) 32<rt> t i (getCarryFlag bld)
-    struct (rn, Some (rn, Some (getOffAddrWithExpr s rn offset)))
+    struct (rn, Some(rn, Some(getOffAddrWithExpr s rn offset)))
   | _ -> raise InvalidOperandException
 
 let parseOprOfLDR (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg rt, (OprMemory _ as mem)) ->
+  | TwoOperands(OprReg rt, (OprMemory _ as mem)) ->
     let struct (addr, writeback) = parseMemOfLDR ins insLen bld mem
     struct (regVar bld rt, addr, writeback)
   | _ -> raise InvalidOperandException
@@ -2360,13 +2362,13 @@ let ldr ins insLen bld size ext =
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
   match writeback with
-  | Some (basereg, Some newoffset) ->
+  | Some(basereg, Some newoffset) ->
     let struct (taddr, twriteback) = tmpVars2 bld 32<rt>
     bld <+ (taddr := addr)
     bld <+ (twriteback := newoffset)
     bld <+ (data := AST.loadLE size taddr |> ext 32<rt>)
     bld <+ (basereg := twriteback)
-  | Some (basereg, None) ->
+  | Some(basereg, None) ->
     let taddr = tmpVar bld 32<rt>
     bld <+ (taddr := addr)
     bld <+ (data := AST.loadLE size taddr |> ext 32<rt>)
@@ -2379,19 +2381,19 @@ let ldr ins insLen bld size ext =
   bld --!> insLen
 
 let parseMemOfLDRD ins insLen bld = function
-  | OprMemory (OffsetMode (RegOffset (n, s, m, None))) ->
+  | OprMemory(OffsetMode(RegOffset(n, s, m, None))) ->
     struct (getOffAddrWithExpr s (regVar bld n) (regVar bld m), None)
-  | OprMemory (PreIdxMode (RegOffset (n, s, m, None))) ->
+  | OprMemory(PreIdxMode(RegOffset(n, s, m, None))) ->
     let rn = regVar bld n
-    struct (getOffAddrWithExpr s rn (regVar bld m), Some (rn, None))
-  | OprMemory (PostIdxMode (RegOffset (n, s, m, None))) ->
+    struct (getOffAddrWithExpr s rn (regVar bld m), Some(rn, None))
+  | OprMemory(PostIdxMode(RegOffset(n, s, m, None))) ->
     let rn = regVar bld n
-    struct (rn, Some (rn, Some (getOffAddrWithExpr s rn (regVar bld m))))
+    struct (rn, Some(rn, Some(getOffAddrWithExpr s rn (regVar bld m))))
   | mem -> parseMemOfLDR ins insLen bld mem
 
 let parseOprOfLDRD (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg t, OprReg t2, (OprMemory _ as mem)) ->
+  | ThreeOperands(OprReg t, OprReg t2, (OprMemory _ as mem)) ->
     let struct (addr, stmt) = parseMemOfLDRD ins insLen bld mem
     struct (regVar bld t, regVar bld t2, addr, stmt)
   | _ -> raise InvalidOperandException
@@ -2404,14 +2406,14 @@ let ldrd ins insLen bld =
   let lblIgnore = checkCondition ins bld isUnconditional
   let n4 = numI32 4 32<rt>
   match writeback with
-  | Some (basereg, Some newoffset) ->
+  | Some(basereg, Some newoffset) ->
     let twriteback = tmpVar bld 32<rt>
     bld <+ (taddr := addr)
     bld <+ (twriteback := newoffset)
     bld <+ (rt := AST.loadLE 32<rt> taddr)
     bld <+ (rt2 := AST.loadLE 32<rt> (taddr .+ n4))
     bld <+ (basereg := twriteback)
-  | Some (basereg, None) ->
+  | Some(basereg, None) ->
     bld <+ (taddr := addr)
     bld <+ (rt := AST.loadLE 32<rt> taddr)
     bld <+ (rt2 := AST.loadLE 32<rt> (taddr .+ n4))
@@ -2561,8 +2563,8 @@ let str ins insLen bld size =
   elif size = 32<rt> then bld <+ (AST.loadLE 32<rt> addr := rt)
   else bld <+ (AST.loadLE size addr := AST.xtlo size rt)
   match writeback with
-  | Some (basereg, Some newoffset) -> bld <+ (basereg := newoffset)
-  | Some (basereg, None) -> bld <+ (basereg := addr)
+  | Some(basereg, Some newoffset) -> bld <+ (basereg := newoffset)
+  | Some(basereg, None) -> bld <+ (basereg := addr)
   | None -> ()
   putEndLabel bld lblIgnore
   bld --!> insLen
@@ -2575,8 +2577,8 @@ let strex ins insLen bld =
   if rt = getPC bld then bld <+ (AST.loadLE 32<rt> addr := pcStoreValue bld)
   else bld <+ (AST.loadLE 32<rt> addr := rt)
   match writeback with
-  | Some (basereg, Some newoffset) -> bld <+ (basereg := newoffset)
-  | Some (basereg, None) -> bld <+ (basereg := addr)
+  | Some(basereg, Some newoffset) -> bld <+ (basereg := newoffset)
+  | Some(basereg, None) -> bld <+ (basereg := addr)
   | None -> ()
   bld <+ (rd := AST.num0 32<rt>) (* XXX: always succeeds for now *)
   putEndLabel bld lblIgnore
@@ -2590,15 +2592,15 @@ let strd ins insLen bld =
   bld <+ (AST.loadLE 32<rt> addr := rt)
   bld <+ (AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)) := rt2)
   match writeback with
-  | Some (basereg, Some newoffset) -> bld <+ (basereg := newoffset)
-  | Some (basereg, None) -> bld <+ (basereg := addr)
+  | Some(basereg, Some newoffset) -> bld <+ (basereg := newoffset)
+  | Some(basereg, None) -> bld <+ (basereg := addr)
   | None -> ()
   putEndLabel bld lblIgnore
   bld --!> insLen
 
 let parseOprOfSTM (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg reg, OprRegList regs) ->
+  | TwoOperands(OprReg reg, OprRegList regs) ->
     regVar bld reg, regsToUInt32 regs
   | _ -> raise InvalidOperandException
 
@@ -2643,7 +2645,7 @@ let parseOprOfCBZ (ins: Instruction) bld =
   let pc = bvOfBaseAddr ins.Address
   let offset = pcOffset ins |> int64
   match ins.Operands with
-  | TwoOperands (OprReg rn, (OprMemory (LiteralMode imm))) ->
+  | TwoOperands(OprReg rn, (OprMemory(LiteralMode imm))) ->
     regVar bld rn, pc .+ (numI64 (imm + offset) 32<rt>)
   | _ -> raise InvalidOperandException
 
@@ -2668,14 +2670,14 @@ let cbz nonZero ins insLen bld =
 
 let parseOprOfTableBranch (ins: Instruction) insLen bld =
   match ins.Operands with
-  | OneOperand (OprMemory (OffsetMode (RegOffset (rn, None, rm, None)))) ->
+  | OneOperand(OprMemory(OffsetMode(RegOffset(rn, None, rm, None)))) ->
     let rn = regVar bld rn |> convertPCOpr ins bld
     let rm = regVar bld rm |> convertPCOpr ins bld
     let addr = rn .+ rm
     AST.loadLE 8<rt> addr |> AST.zext 32<rt>
-  | OneOperand (OprMemory (OffsetMode (RegOffset (rn,
+  | OneOperand(OprMemory(OffsetMode(RegOffset(rn,
                                                   None,
-                                                  rm, Some (_, Imm i))))) ->
+                                                  rm, Some(_, Imm i))))) ->
     let rn = regVar bld rn |> convertPCOpr ins bld
     let rm = regVar bld rm |> convertPCOpr ins bld
     let addr = rn .+ (shiftLSL rm 32<rt> i)
@@ -2697,7 +2699,7 @@ let tableBranch (ins: Instruction) insLen bld =
 
 let parseOprOfBFC (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprReg rd, OprImm lsb, OprImm width) ->
+  | ThreeOperands(OprReg rd, OprImm lsb, OprImm width) ->
     regVar bld rd, Convert.ToInt32 lsb, Convert.ToInt32 width
   | _ -> raise InvalidOperandException
 
@@ -2712,7 +2714,7 @@ let bfc (ins: Instruction) insLen bld =
 
 let parseOprOfRdRnLsbWidth (ins: Instruction) insLen bld =
   match ins.Operands with
-  | FourOperands (OprReg rd, OprReg rn, OprImm lsb, OprImm width) ->
+  | FourOperands(OprReg rd, OprReg rn, OprImm lsb, OprImm width) ->
     regVar bld rd, regVar bld rn,
     Convert.ToInt32 lsb, Convert.ToInt32 width
   | _ -> raise InvalidOperandException
@@ -2720,7 +2722,7 @@ let parseOprOfRdRnLsbWidth (ins: Instruction) insLen bld =
 let bfi ins insLen bld =
   let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins insLen bld
   let struct (t0, t1) = tmpVars2 bld 32<rt>
-  let n = rn .& (BitVector.OfBInt (BigInteger.getMask width) 32<rt> |> AST.num)
+  let n = rn .& (BitVector.OfBInt(BigInteger.getMask width, 32<rt>) |> AST.num)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
@@ -2737,7 +2739,7 @@ let bfx ins insLen bld signExtend =
   let lblIgnore = checkCondition ins bld isUnconditional
   if lsb + width - 1 > 31 || width < 0 then raise InvalidOperandException
   else ()
-  let v = BitVector.OfBInt (BigInteger.getMask width) 32<rt> |> AST.num
+  let v = BitVector.OfBInt(BigInteger.getMask width, 32<rt>) |> AST.num
   bld <+ (rd := (rn >> (numI32 lsb 32<rt>)) .& v)
   if signExtend && width > 1 then
     let struct (msb, mask) = tmpVars2 bld 32<rt>
@@ -2751,7 +2753,7 @@ let bfx ins insLen bld signExtend =
   bld --!> insLen
 
 let parseOprOfUqOpr bld = function
-  | ThreeOperands (OprReg rd, OprReg rn, OprReg rm) ->
+  | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
     regVar bld rd, regVar bld rn, regVar bld rm
   | _ -> raise InvalidOperandException
 
@@ -2796,7 +2798,7 @@ let uqopr (ins: Instruction) insLen bld width opr =
 /// ADR For ThumbMode (T1 case)
 let parseOprOfADR (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg rd, OprMemory (LiteralMode imm)) ->
+  | TwoOperands(OprReg rd, OprMemory(LiteralMode imm)) ->
     let addr = bvOfBaseAddr ins.Address
     let rel = if not ins.IsThumb then 8 else 4
     let addr = addr .+ (numI32 rel 32<rt>)
@@ -2842,9 +2844,9 @@ let mls ins insLen bld =
 
 let parseOprOfExtend (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg rd, OprReg rm) ->
+  | TwoOperands(OprReg rd, OprReg rm) ->
     regVar bld rd, regVar bld rm, 0u
-  | ThreeOperands (OprReg rd, OprReg rm, OprShift (_, Imm i)) ->
+  | ThreeOperands(OprReg rd, OprReg rm, OprShift(_, Imm i)) ->
     regVar bld rd, regVar bld rm, i
   | _ -> raise InvalidOperandException
 
@@ -2872,7 +2874,7 @@ let uxtb16 ins insLen bld =
 
 let parseOprOfXTA (ins: Instruction) insLen bld =
   match ins.Operands with
-  | FourOperands (OprReg rd, OprReg rn, OprReg rm, OprShift (_, Imm i)) ->
+  | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprShift(_, Imm i)) ->
     regVar bld rd, regVar bld rn, regVar bld rm, i
   | _ -> raise InvalidOperandException
 
@@ -2895,8 +2897,8 @@ let checkSingleReg = function
 
 let parseOprOfVLDR (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprSIMD (SFReg (Vector d)),
-                 OprMemory (OffsetMode (ImmOffset (rn, s, imm)))) ->
+  | TwoOperands(OprSIMD(SFReg(Vector d)),
+                OprMemory(OffsetMode(ImmOffset(rn, s, imm)))) ->
     let pc = regVar bld rn |> convertPCOpr ins bld
     let baseAddr = align pc (numI32 4 32<rt>)
     regVar bld d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
@@ -2922,8 +2924,8 @@ let vldr ins insLen bld =
 
 let parseOprOfVSTR (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands (OprSIMD (SFReg (Vector d)),
-                 OprMemory (OffsetMode (ImmOffset (rn, s, imm)))) ->
+  | TwoOperands(OprSIMD(SFReg(Vector d)),
+                OprMemory(OffsetMode(ImmOffset(rn, s, imm)))) ->
     let baseAddr = regVar bld rn
     regVar bld d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ -> raise InvalidOperandException
@@ -2945,7 +2947,7 @@ let vstr (ins: Instruction) insLen bld =
 
 let parseOprOfVPUSHVPOP (ins: Instruction) =
   match ins.Operands with
-  | OneOperand (OprRegList r) -> r
+  | OneOperand(OprRegList r) -> r
   | _ -> raise InvalidOperandException
 
 let getVFPSRegisterToInt = function
@@ -3104,10 +3106,9 @@ let vpush ins insLen bld =
 
 let parseOprOfVAND (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands
-      (OprSIMD (SFReg (Vector r1)), OprSIMD (SFReg (Vector r2)),
-        OprSIMD (SFReg (Vector r3))) ->
-            regVar bld r1, regVar bld r2, regVar bld r3
+  | ThreeOperands(OprSIMD(SFReg(Vector r1)), OprSIMD(SFReg(Vector r2)),
+     OprSIMD(SFReg(Vector r3))) ->
+    regVar bld r1, regVar bld r2, regVar bld r3
   | _ -> raise InvalidOperandException
 
 let vand (ins: Instruction) insLen bld =
@@ -3140,39 +3141,38 @@ let vmrs ins insLen bld =
   putEndLabel bld lblIgnore
   bld --!> insLen
 
-type ParsingInfo = {
-  EBytes: int
-  ESize: int
-  RtESize: int<rt>
-  Elements: int
-  RegIndex: bool option
-}
+type ParsingInfo =
+  { EBytes: int
+    ESize: int
+    RtESize: int<rt>
+    Elements: int
+    RegIndex: bool option }
 
 let getRegs = function
-  | TwoOperands (OprSIMD (OneReg _), _) -> 1
-  | TwoOperands (OprSIMD (TwoRegs _), _) -> 2
-  | TwoOperands (OprSIMD (ThreeRegs _), _) -> 3
-  | TwoOperands (OprSIMD (FourRegs _), _) -> 4
+  | TwoOperands(OprSIMD(OneReg _), _) -> 1
+  | TwoOperands(OprSIMD(TwoRegs _), _) -> 2
+  | TwoOperands(OprSIMD(ThreeRegs _), _) -> 3
+  | TwoOperands(OprSIMD(FourRegs _), _) -> 4
   | _ -> raise InvalidOperandException
 
 let getEBytes = function
-  | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypI8)
-  | Some (OneDT SIMDTypU8) | Some (OneDT SIMDTypP8) -> 1
-  | Some (OneDT SIMDTyp16) | Some (OneDT SIMDTypS16) | Some (OneDT SIMDTypI16)
-  | Some (OneDT SIMDTypU16) | Some (OneDT SIMDTypF16)
-  | Some (TwoDT (SIMDTypF32, SIMDTypF16))
-  | Some (TwoDT (SIMDTypF16, SIMDTypF32)) -> 2
-  | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypI32)
-  | Some (OneDT SIMDTypU32) | Some (OneDT SIMDTypF32) -> 4
-  | Some (OneDT SIMDTyp64) | Some (OneDT SIMDTypS64) | Some (OneDT SIMDTypI64)
-  | Some (OneDT SIMDTypU64) | Some (OneDT SIMDTypP64)
-  | Some (OneDT SIMDTypF64) -> 8
+  | Some(OneDT SIMDTyp8) | Some(OneDT SIMDTypS8) | Some(OneDT SIMDTypI8)
+  | Some(OneDT SIMDTypU8) | Some(OneDT SIMDTypP8) -> 1
+  | Some(OneDT SIMDTyp16) | Some(OneDT SIMDTypS16) | Some(OneDT SIMDTypI16)
+  | Some(OneDT SIMDTypU16) | Some(OneDT SIMDTypF16)
+  | Some(TwoDT(SIMDTypF32, SIMDTypF16))
+  | Some(TwoDT(SIMDTypF16, SIMDTypF32)) -> 2
+  | Some(OneDT SIMDTyp32) | Some(OneDT SIMDTypS32) | Some(OneDT SIMDTypI32)
+  | Some(OneDT SIMDTypU32) | Some(OneDT SIMDTypF32) -> 4
+  | Some(OneDT SIMDTyp64) | Some(OneDT SIMDTypS64) | Some(OneDT SIMDTypI64)
+  | Some(OneDT SIMDTypU64) | Some(OneDT SIMDTypP64)
+  | Some(OneDT SIMDTypF64) -> 8
   | _ -> raise InvalidOperandException
 
 let registerIndex = function
-  | TwoOperands (_, OprMemory (OffsetMode (AlignOffset _)))
-  | TwoOperands (_, OprMemory (PreIdxMode (AlignOffset _))) -> Some false
-  | TwoOperands (_, OprMemory (PostIdxMode (AlignOffset _))) -> Some true
+  | TwoOperands(_, OprMemory(OffsetMode(AlignOffset _)))
+  | TwoOperands(_, OprMemory(PreIdxMode(AlignOffset _))) -> Some false
+  | TwoOperands(_, OprMemory(PostIdxMode(AlignOffset _))) -> Some true
   | _ -> None
 
 /// Parsing information for SIMD instructions
@@ -3192,23 +3192,23 @@ let private elem vector e size =
 
 let elemForIR vector vSize index size =
   let index = AST.zext vSize index
-  let mask = AST.num <| BitVector.OfBInt (BigInteger.getMask size) vSize
+  let mask = AST.num <| BitVector.OfBInt(BigInteger.getMask size, vSize)
   let eSize = numI32 size vSize
   (vector >> (index .* eSize)) .& mask |> AST.xtlo (RegType.fromBitWidth size)
 
 let isUnsigned = function
-  | Some (OneDT SIMDTypU8) | Some (OneDT SIMDTypU16)
-  | Some (OneDT SIMDTypU32) | Some (OneDT SIMDTypU64) -> true
-  | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypS16)
-  | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypS64) | Some (OneDT SIMDTypP8)
-  | Some (OneDT SIMDTypP64) | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTyp16)
-  | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTyp64) -> false
+  | Some(OneDT SIMDTypU8) | Some(OneDT SIMDTypU16)
+  | Some(OneDT SIMDTypU32) | Some(OneDT SIMDTypU64) -> true
+  | Some(OneDT SIMDTypS8) | Some(OneDT SIMDTypS16)
+  | Some(OneDT SIMDTypS32) | Some(OneDT SIMDTypS64) | Some(OneDT SIMDTypP8)
+  | Some(OneDT SIMDTypP64) | Some(OneDT SIMDTyp8) | Some(OneDT SIMDTyp16)
+  | Some(OneDT SIMDTyp32) | Some(OneDT SIMDTyp64) -> false
   | _ -> raise InvalidOperandException
 
 let parseOprOfVMOV (ins: Instruction) bld =
   match ins.Operands with
   (* VMOV (immediate) *)
-  | TwoOperands (OprSIMD _, OprImm _) ->
+  | TwoOperands(OprSIMD _, OprImm _) ->
     let struct (dst, imm) = getTwoOprs ins
     match ins.OprSize with
     | 128<rt> ->
@@ -3221,13 +3221,13 @@ let parseOprOfVMOV (ins: Instruction) bld =
       let imm = transOprToExpr ins bld imm
       bld <+ (dst := imm)
   (* VMOV (general-purpose register to scalar) *)
-  | TwoOperands (OprSIMD (SFReg (Scalar (_, Some element))), OprReg _) ->
+  | TwoOperands(OprSIMD(SFReg(Scalar(_, Some element))), OprReg _) ->
     let struct (dst, src) = transTwoOprs ins bld
     let p = getParsingInfo ins
     let index = int element
     bld <+ (elem dst index p.ESize := AST.xtlo p.RtESize src)
   (* VMOV (scalar to general-purpose register) *)
-  | TwoOperands (OprReg _, OprSIMD (SFReg (Scalar (_, Some element)))) ->
+  | TwoOperands(OprReg _, OprSIMD(SFReg(Scalar(_, Some element)))) ->
     let struct (dst, src) = transTwoOprs ins bld
     let p = getParsingInfo ins
     let index = int element
@@ -3239,11 +3239,11 @@ let parseOprOfVMOV (ins: Instruction) bld =
     bld <+ (dst := src)
   (* VMOV (between two general-purpose registers and a doubleword
     floating-point register) *)
-  | ThreeOperands (OprSIMD _, OprReg _, OprReg _) ->
+  | ThreeOperands(OprSIMD _, OprReg _, OprReg _) ->
     let struct (dst, src1, src2) = transThreeOprs ins bld
     bld <+ (AST.xtlo 32<rt> dst := src1)
     bld <+ (AST.xthi 32<rt> dst := src2)
-  | ThreeOperands (OprReg _, OprReg _, OprSIMD _) ->
+  | ThreeOperands(OprReg _, OprReg _, OprSIMD _) ->
     let struct (dst1, dst2, src) = transThreeOprs ins bld
     bld <+ (dst1 := AST.xtlo 32<rt> src)
     bld <+ (dst2 := AST.xthi 32<rt> src)
@@ -3258,15 +3258,15 @@ let parseOprOfVMOV (ins: Instruction) bld =
 let parseOprOfVMOVFP (ins: Instruction) bld =
   match ins.Operands with
   (* VMOV (between general-purpose register and half-precision) *)
-  | TwoOperands (OprSIMD _, OprReg _) | TwoOperands (OprReg _, OprSIMD _) ->
+  | TwoOperands(OprSIMD _, OprReg _) | TwoOperands(OprReg _, OprSIMD _) ->
     let struct (dst, src) = transTwoOprs ins bld
     bld <+ (dst := AST.zext 32<rt> (AST.xtlo 16<rt> src))
   (* VMOV (register) *)
-  | TwoOperands (OprSIMD _, OprSIMD _) ->
+  | TwoOperands(OprSIMD _, OprSIMD _) ->
     let struct (dst, src) = transTwoOprs ins bld
     bld <+ (dst := src)
   (* VMOV (immediate) *)
-  | TwoOperands (OprSIMD _, OprImm _) ->
+  | TwoOperands(OprSIMD _, OprImm _) ->
     let struct (dst, imm) = transTwoOprs ins bld
     bld <+ (dst := AST.zext ins.OprSize imm)
   | _ -> bld <+ (AST.sideEffect UnsupportedFP)
@@ -3289,12 +3289,12 @@ let vmovfp (ins: Instruction) insLen bld =
 
 (* VMOV(immediate)/VMOV(register) *)
 let isF32orF64 = function
-  | Some (OneDT SIMDTypF32) | Some (OneDT SIMDTypF64) -> true
+  | Some(OneDT SIMDTypF32) | Some(OneDT SIMDTypF64) -> true
   | _ -> false
 
 (* VABS(immediate)/VABS(register) *)
 let isF16orF32orF64 = function
-  | Some (OneDT SIMDTypF16) | Some (OneDT SIMDTypF32) | Some (OneDT SIMDTypF64)
+  | Some(OneDT SIMDTypF16) | Some(OneDT SIMDTypF32) | Some(OneDT SIMDTypF64)
     -> true
   | _ -> false
 
@@ -3380,8 +3380,8 @@ let vaddl (ins: Instruction) insLen bld =
   bld --!> insLen
 
 let isDoubleToSingle = function
-  | Some (TwoDT (SIMDTypF32, SIMDTypF64)) -> true
-  | Some (TwoDT (SIMDTypF64, SIMDTypF32)) -> false
+  | Some(TwoDT(SIMDTypF32, SIMDTypF64)) -> true
+  | Some(TwoDT(SIMDTypF64, SIMDTypF32)) -> false
   | _ -> raise InvalidOperandException
 
 let parseOprOfVCVT (ins: Instruction) bld =
@@ -3438,21 +3438,21 @@ let vcvt (ins: Instruction) insLen bld =
 
 let parseOprOfVDUP (ins: Instruction) insLen bld esize =
   match ins.Operands with
-  | TwoOperands (OprSIMD (SFReg (Vector dst)),
-                 OprSIMD (SFReg (Scalar (src, Some idx)))) ->
+  | TwoOperands(OprSIMD(SFReg(Vector dst)),
+                OprSIMD(SFReg(Scalar(src, Some idx)))) ->
     regVar bld dst, elem (regVar bld src) (int32 idx) esize
-  | TwoOperands (OprSIMD (SFReg (Vector dst)), OprReg src) ->
+  | TwoOperands(OprSIMD(SFReg(Vector dst)), OprReg src) ->
     regVar bld dst,
     AST.xtlo (RegType.fromBitWidth esize) (regVar bld src)
   | _ -> raise InvalidOperandException
 
 let parseOprOfVDUP128 (ins: Instruction) bld esize =
   match ins.Operands with
-  | TwoOperands (OprSIMD (SFReg (Vector dst)),
-                 OprSIMD (SFReg (Scalar (src, Some idx)))) ->
+  | TwoOperands(OprSIMD(SFReg(Vector dst)),
+                OprSIMD(SFReg(Scalar(src, Some idx)))) ->
     let struct (rb, ra) = pseudoRegVar128 bld dst
     struct (rb, ra, elem (regVar bld src) (int32 idx) esize)
-  | TwoOperands (OprSIMD (SFReg (Vector dst)), OprReg src) ->
+  | TwoOperands(OprSIMD(SFReg(Vector dst)), OprReg src) ->
     let struct (rb, ra) = pseudoRegVar128 bld dst
     struct (rb, ra, AST.xtlo (RegType.fromBitWidth esize) (regVar bld src))
   | _ -> raise InvalidOperandException
@@ -3590,7 +3590,7 @@ let vmaxmin (ins: Instruction) insLen bld maximum =
 
 let parseOprOfVSTLDM (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprReg reg, OprRegList regs) ->
+  | TwoOperands(OprReg reg, OprRegList regs) ->
     regVar bld reg, List.map (regVar bld) regs
   | _ -> raise InvalidOperandException
 
@@ -3766,38 +3766,38 @@ let vecMulAccOrSubLongByScalar (ins: Instruction) insLen bld add =
 
 let vmla (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
     vecMulAccOrSub ins insLen bld true
-  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
     vecMulAccOrSubByScalar ins insLen bld true
   | _ -> raise InvalidOperandException
 
 let vmlal (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
     vecMulAccOrSubLong ins insLen bld true
-  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
     vecMulAccOrSubLongByScalar ins insLen bld true
   | _ -> raise InvalidOperandException
 
 let vmls (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
     vecMulAccOrSub ins insLen bld false
-  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
     vecMulAccOrSubByScalar ins insLen bld false
   | _ -> raise InvalidOperandException
 
 let vmlsl (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
     vecMulAccOrSubLong ins insLen bld false
-  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
     vecMulAccOrSubLongByScalar ins insLen bld false
   | _ -> raise InvalidOperandException
 
 let isPolynomial = function
-  | Some (OneDT SIMDTypP8) | Some (OneDT SIMDTypP64) -> true
+  | Some(OneDT SIMDTypP8) | Some(OneDT SIMDTypP64) -> true
   | _ -> false
 
 /// shared/functions/vector/PolynomialMult, in page Armv8 Pseudocode-7927
@@ -3946,30 +3946,30 @@ let vecMulLongByScalar (ins: Instruction) insLen bld =
 
 let vmul (ins: Instruction) insLen bld opFn =
   match ins.Operands with
-  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
     vecMul ins insLen bld opFn
-  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
     vecMulByScalar ins insLen bld opFn
   | _ -> raise InvalidOperandException
 
 let vmull (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
     vecMulLong ins insLen bld
-  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+  | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
     vecMulLongByScalar ins insLen bld
   | _ -> raise InvalidOperandException
 
 let getSizeStartFromI16 = function
-  | Some (OneDT SIMDTypI16) -> 0b00
-  | Some (OneDT SIMDTypI32) -> 0b01
-  | Some (OneDT SIMDTypI64) -> 0b10
+  | Some(OneDT SIMDTypI16) -> 0b00
+  | Some(OneDT SIMDTypI32) -> 0b01
+  | Some(OneDT SIMDTypI64) -> 0b10
   | _ -> raise InvalidOperandException
 
 let getSizeStartFrom16 = function
-  | Some (OneDT SIMDTyp16) -> 0b00
-  | Some (OneDT SIMDTyp32) -> 0b01
-  | Some (OneDT SIMDTyp64) -> 0b10
+  | Some(OneDT SIMDTyp16) -> 0b00
+  | Some(OneDT SIMDTyp32) -> 0b01
+  | Some(OneDT SIMDTyp64) -> 0b10
   | _ -> raise InvalidOperandException
 
 let vmovn (ins: Instruction) insLen bld =
@@ -4109,8 +4109,8 @@ let vshlReg (ins: Instruction) insLen bld =
 
 let vshl (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vshlImm ins insLen bld
-  | ThreeOperands (_, _, OprSIMD _) -> vshlReg ins insLen bld
+  | ThreeOperands(_, _, OprImm _) -> vshlImm ins insLen bld
+  | ThreeOperands(_, _, OprSIMD _) -> vshlReg ins insLen bld
   | _ -> raise InvalidOperandException
 
 let vshr (ins: Instruction) insLen bld =
@@ -4140,16 +4140,16 @@ let vshr (ins: Instruction) insLen bld =
   bld --!> insLen
 
 let parseVectors = function
-  | OneReg (Vector d) -> [ d ]
-  | TwoRegs (Vector d1, Vector d2) -> [ d1; d2 ]
-  | ThreeRegs (Vector d1, Vector d2, Vector d3) -> [ d1; d2; d3 ]
-  | FourRegs (Vector d1, Vector d2, Vector d3, Vector d4) -> [ d1; d2; d3; d4 ]
+  | OneReg(Vector d) -> [ d ]
+  | TwoRegs(Vector d1, Vector d2) -> [ d1; d2 ]
+  | ThreeRegs(Vector d1, Vector d2, Vector d3) -> [ d1; d2; d3 ]
+  | FourRegs(Vector d1, Vector d2, Vector d3, Vector d4) -> [ d1; d2; d3; d4 ]
   | _ -> raise InvalidOperandException
 
 let parseOprOfVecTbl (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (OprSIMD (SFReg (Vector rd)), OprSIMD regs,
-                   OprSIMD (SFReg (Vector rm))) ->
+  | ThreeOperands(OprSIMD(SFReg(Vector rd)), OprSIMD regs,
+                  OprSIMD(SFReg(Vector rm))) ->
     regVar bld rd, parseVectors regs, regVar bld rm
   | _ -> raise InvalidOperandException
 
@@ -4227,39 +4227,39 @@ let getCmp (ins: Instruction) unsigned signed =
 
 let vceq (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen bld (==)
-  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen bld (==)
+  | ThreeOperands(_, _, OprImm _) -> vectorCompareImm ins insLen bld (==)
+  | ThreeOperands(_, _, OprSIMD _) -> vectorCompareReg ins insLen bld (==)
   | _ -> raise InvalidOperandException
 
 let vcge (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen bld
+  | ThreeOperands(_, _, OprImm _) -> vectorCompareImm ins insLen bld
                                         (getCmp ins AST.ge AST.sge)
-  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
+  | ThreeOperands(_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
                                          (getCmp ins AST.ge AST.sge)
   | _ -> raise InvalidOperandException
 
 let vcgt (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen bld
+  | ThreeOperands(_, _, OprImm _) -> vectorCompareImm ins insLen bld
                                         (getCmp ins AST.gt AST.sgt)
-  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
+  | ThreeOperands(_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
                                          (getCmp ins AST.gt AST.sgt)
   | _ -> raise InvalidOperandException
 
 let vcle (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen bld
+  | ThreeOperands(_, _, OprImm _) -> vectorCompareImm ins insLen bld
                                         (getCmp ins AST.le AST.sle)
-  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
+  | ThreeOperands(_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
                                          (getCmp ins AST.le AST.sle)
   | _ -> raise InvalidOperandException
 
 let vclt (ins: Instruction) insLen bld =
   match ins.Operands with
-  | ThreeOperands (_, _, OprImm _) -> vectorCompareImm ins insLen bld
+  | ThreeOperands(_, _, OprImm _) -> vectorCompareImm ins insLen bld
                                         (getCmp ins AST.lt AST.slt)
-  | ThreeOperands (_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
+  | ThreeOperands(_, _, OprSIMD _) -> vectorCompareReg ins insLen bld
                                          (getCmp ins AST.lt AST.slt)
   | _ -> raise InvalidOperandException
 
@@ -4396,28 +4396,28 @@ let vorn (ins: Instruction) insLen bld =
   | _ -> raise InvalidOperandException
 
 let parseDstList = function
-  | TwoOperands (OprSIMD (OneReg (Vector d)), _) -> [ d ]
-  | TwoOperands (OprSIMD (TwoRegs (Vector d1, Vector d2)), _) -> [ d1; d2 ]
-  | TwoOperands (OprSIMD (ThreeRegs (Vector d1, Vector d2, Vector d3)), _) ->
+  | TwoOperands(OprSIMD(OneReg(Vector d)), _) -> [ d ]
+  | TwoOperands(OprSIMD(TwoRegs(Vector d1, Vector d2)), _) -> [ d1; d2 ]
+  | TwoOperands(OprSIMD(ThreeRegs(Vector d1, Vector d2, Vector d3)), _) ->
     [ d1; d2; d3 ]
-  | TwoOperands (OprSIMD (FourRegs (Vector d1, Vector d2,
-                                    Vector d3, Vector d4)), _) ->
+  | TwoOperands(OprSIMD(FourRegs(Vector d1, Vector d2,
+                                 Vector d3, Vector d4)), _) ->
     [ d1; d2; d3; d4 ]
-  | TwoOperands (OprSIMD (OneReg (Scalar (d, None))), _) -> [ d ]
-  | TwoOperands (OprSIMD (TwoRegs (Scalar (d1, _), Scalar (d2, _))), _) ->
+  | TwoOperands(OprSIMD(OneReg(Scalar(d, None))), _) -> [ d ]
+  | TwoOperands(OprSIMD(TwoRegs(Scalar(d1, _), Scalar(d2, _))), _) ->
     [ d1; d2 ]
-  | TwoOperands (OprSIMD (ThreeRegs (Scalar (d1, _), Scalar (d2, _),
-                                     Scalar (d3, _))), _) -> [ d1; d2; d3 ]
-  | TwoOperands (OprSIMD (FourRegs (Scalar (d1, _), Scalar (d2, _),
-                                    Scalar (d3, _), Scalar (d4, _))), _) ->
+  | TwoOperands(OprSIMD(ThreeRegs(Scalar(d1, _), Scalar(d2, _),
+                                  Scalar(d3, _))), _) -> [ d1; d2; d3 ]
+  | TwoOperands(OprSIMD(FourRegs(Scalar(d1, _), Scalar(d2, _),
+                                 Scalar(d3, _), Scalar(d4, _))), _) ->
     [ d1; d2; d3; d4 ]
   | _ -> raise InvalidOperandException
 
 let getRnAndRm bld = function
-  | TwoOperands (_, OprMemory (OffsetMode (AlignOffset (rn, _, _))))
-  | TwoOperands (_, OprMemory (PreIdxMode (AlignOffset (rn, _, _)))) ->
+  | TwoOperands(_, OprMemory(OffsetMode(AlignOffset(rn, _, _))))
+  | TwoOperands(_, OprMemory(PreIdxMode(AlignOffset(rn, _, _)))) ->
     regVar bld rn, None
-  | TwoOperands (_, OprMemory (PostIdxMode (AlignOffset (rn, _, Some rm)))) ->
+  | TwoOperands(_, OprMemory(PostIdxMode(AlignOffset(rn, _, Some rm)))) ->
     regVar bld rn, regVar bld rm |> Some
   | _ -> raise InvalidOperandException
 
@@ -4477,12 +4477,12 @@ let vst1Single (ins: Instruction) insLen bld index =
 
 let vst1 (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprSIMD (OneReg (Scalar (_, Some index))), _) ->
+  | TwoOperands(OprSIMD(OneReg(Scalar(_, Some index))), _) ->
     vst1Single ins insLen bld index
-  | TwoOperands (OprSIMD (OneReg _), _)
-  | TwoOperands (OprSIMD (TwoRegs _), _)
-  | TwoOperands (OprSIMD (ThreeRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vst1Multi ins insLen bld
+  | TwoOperands(OprSIMD(OneReg _), _)
+  | TwoOperands(OprSIMD(TwoRegs _), _)
+  | TwoOperands(OprSIMD(ThreeRegs _), _)
+  | TwoOperands(OprSIMD(FourRegs _), _) -> vst1Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
 let vld1SingleOne (ins: Instruction) insLen bld index =
@@ -4545,15 +4545,15 @@ let vld1Multi (ins: Instruction) insLen bld =
 
 let vld1 (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprSIMD (OneReg (Scalar (_, Some index))), _) ->
+  | TwoOperands(OprSIMD(OneReg(Scalar(_, Some index))), _) ->
     vld1SingleOne ins insLen bld index
-  | TwoOperands (OprSIMD (OneReg (Scalar _)), _)
-  | TwoOperands (OprSIMD (TwoRegs (Scalar _, Scalar _)), _) ->
+  | TwoOperands(OprSIMD(OneReg(Scalar _)), _)
+  | TwoOperands(OprSIMD(TwoRegs(Scalar _, Scalar _)), _) ->
     vld1SingleAll ins insLen bld
-  | TwoOperands (OprSIMD (OneReg _), _)
-  | TwoOperands (OprSIMD (TwoRegs _), _)
-  | TwoOperands (OprSIMD (ThreeRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vld1Multi ins insLen bld
+  | TwoOperands(OprSIMD(OneReg _), _)
+  | TwoOperands(OprSIMD(TwoRegs _), _)
+  | TwoOperands(OprSIMD(ThreeRegs _), _)
+  | TwoOperands(OprSIMD(FourRegs _), _) -> vld1Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
 let vst2Multi (ins: Instruction) insLen bld =
@@ -4596,12 +4596,12 @@ let vst2Single (ins: Instruction) insLen bld index =
 
 let vst2 (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprSIMD (TwoRegs (Scalar (_, Some index), _)), _) ->
+  | TwoOperands(OprSIMD(TwoRegs(Scalar(_, Some index), _)), _) ->
     vst2Single ins insLen bld (int32 index)
-  | TwoOperands (OprSIMD (OneReg _), _)
-  | TwoOperands (OprSIMD (TwoRegs _), _)
-  | TwoOperands (OprSIMD (ThreeRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vst2Multi ins insLen bld
+  | TwoOperands(OprSIMD(OneReg _), _)
+  | TwoOperands(OprSIMD(TwoRegs _), _)
+  | TwoOperands(OprSIMD(ThreeRegs _), _)
+  | TwoOperands(OprSIMD(FourRegs _), _) -> vst2Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
 let vst3Multi (ins: Instruction) insLen bld =
@@ -4644,12 +4644,12 @@ let vst3Single (ins: Instruction) insLen bld index =
 
 let vst3 (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprSIMD (ThreeRegs (Scalar (_, Some index), _, _)), _) ->
+  | TwoOperands(OprSIMD(ThreeRegs(Scalar(_, Some index), _, _)), _) ->
     vst3Single ins insLen bld (int32 index)
-  | TwoOperands (OprSIMD (OneReg _), _)
-  | TwoOperands (OprSIMD (TwoRegs _), _)
-  | TwoOperands (OprSIMD (ThreeRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vst3Multi ins insLen bld
+  | TwoOperands(OprSIMD(OneReg _), _)
+  | TwoOperands(OprSIMD(TwoRegs _), _)
+  | TwoOperands(OprSIMD(ThreeRegs _), _)
+  | TwoOperands(OprSIMD(FourRegs _), _) -> vst3Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
 let vst4Multi (ins: Instruction) insLen bld =
@@ -4696,12 +4696,12 @@ let vst4Single (ins: Instruction) insLen bld index =
 
 let vst4 (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprSIMD (FourRegs (Scalar (_, Some index), _, _, _)), _) ->
+  | TwoOperands(OprSIMD(FourRegs(Scalar(_, Some index), _, _, _)), _) ->
     vst4Single ins insLen bld (int32 index)
-  | TwoOperands (OprSIMD (OneReg _), _)
-  | TwoOperands (OprSIMD (TwoRegs _), _)
-  | TwoOperands (OprSIMD (ThreeRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vst4Multi ins insLen bld
+  | TwoOperands(OprSIMD(OneReg _), _)
+  | TwoOperands(OprSIMD(TwoRegs _), _)
+  | TwoOperands(OprSIMD(ThreeRegs _), _)
+  | TwoOperands(OprSIMD(FourRegs _), _) -> vst4Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
 let vld2SingleOne (ins: Instruction) insLen bld index =
@@ -4762,12 +4762,12 @@ let vld2Multi (ins: Instruction) insLen bld =
 
 let vld2 (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprSIMD (TwoRegs (Scalar (_, Some index), _)), _) ->
+  | TwoOperands(OprSIMD(TwoRegs(Scalar(_, Some index), _)), _) ->
     vld2SingleOne ins insLen bld index
-  | TwoOperands (OprSIMD (TwoRegs (Scalar _, Scalar _)), _) ->
+  | TwoOperands(OprSIMD(TwoRegs(Scalar _, Scalar _)), _) ->
     vld2SingleAll ins insLen bld
-  | TwoOperands (OprSIMD (TwoRegs _), _)
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vld2Multi ins insLen bld
+  | TwoOperands(OprSIMD(TwoRegs _), _)
+  | TwoOperands(OprSIMD(FourRegs _), _) -> vld2Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
 let vld3SingleOne (ins: Instruction) insLen bld index =
@@ -4831,11 +4831,11 @@ let vld3Multi (ins: Instruction) insLen bld =
 
 let vld3 (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprSIMD (ThreeRegs (Scalar (_, Some index), _, _)), _) ->
+  | TwoOperands(OprSIMD(ThreeRegs(Scalar(_, Some index), _, _)), _) ->
     vld3SingleOne ins insLen bld index
-  | TwoOperands (OprSIMD (ThreeRegs (Scalar (_, None), _, _)), _) ->
+  | TwoOperands(OprSIMD(ThreeRegs(Scalar(_, None), _, _)), _) ->
     vld3SingleAll ins insLen bld
-  | TwoOperands (OprSIMD (ThreeRegs _), _) -> vld3Multi ins insLen bld
+  | TwoOperands(OprSIMD(ThreeRegs _), _) -> vld3Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
 let vld4SingleOne (ins: Instruction) insLen bld index =
@@ -4906,16 +4906,16 @@ let vld4Multi (ins: Instruction) insLen bld =
 
 let vld4 (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands (OprSIMD (FourRegs (Scalar (_, Some index), _, _, _)), _) ->
+  | TwoOperands(OprSIMD(FourRegs(Scalar(_, Some index), _, _, _)), _) ->
     vld4SingleOne ins insLen bld index
-  | TwoOperands (OprSIMD (FourRegs (Scalar (_, None), _, _, _)), _) ->
+  | TwoOperands(OprSIMD(FourRegs(Scalar(_, None), _, _, _)), _) ->
     vld4SingleAll ins insLen bld
-  | TwoOperands (OprSIMD (FourRegs _), _) -> vld4Multi ins insLen bld
+  | TwoOperands(OprSIMD(FourRegs _), _) -> vld4Multi ins insLen bld
   | _ -> raise InvalidOperandException
 
 let udf (ins: Instruction) insLen bld =
   match ins.Operands with
-  | OneOperand (OprImm n) -> sideEffects ins insLen bld (Interrupt (int n))
+  | OneOperand(OprImm n) -> sideEffects ins insLen bld (Interrupt(int n))
   | _ -> raise InvalidOperandException
 
 let uasx (ins: Instruction) insLen bld =
@@ -5163,7 +5163,7 @@ let translate (ins: Instruction) insLen bld =
   | Op.ADCS -> adcs true ins insLen bld
   | Op.ADD | Op.ADDW -> add false ins insLen bld
   | Op.ADDS -> adds true ins insLen bld
-  | Op.ADR -> adr ins insLen bld // for Thumb mode
+  | Op.ADR -> adr ins insLen bld (* for Thumb mode *)
   | Op.AND -> logicalAnd false ins insLen bld
   | Op.ANDS -> ands true ins insLen bld
   | Op.ASR -> shiftInstr false ins insLen SRTypeASR bld
@@ -5405,4 +5405,4 @@ let translate (ins: Instruction) insLen bld =
 #if DEBUG
          eprintfn "%A" o
 #endif
-         raise <| NotImplementedIRException (Disasm.opCodeToString o)
+         raise <| NotImplementedIRException(Disasm.opCodeToString o)

@@ -50,16 +50,16 @@ and IIndirectJmpAnalyzable<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
                                            and 'GlCtx: (new: unit -> 'GlCtx)> =
   abstract AnalyzeIndirectJump:
        CFGBuildingContext<'FnCtx, 'GlCtx>
-    -> Queue<ProgramPoint>
-    -> ProgramPoint
-    -> IVertex<LowUIRBasicBlock>
+    * Queue<ProgramPoint>
+    * ProgramPoint
+    * IVertex<LowUIRBasicBlock>
     -> Option<CFGResult>
 
   abstract AnalyzeIndirectCondJump:
        CFGBuildingContext<'FnCtx, 'GlCtx>
-    -> Queue<ProgramPoint>
-    -> ProgramPoint
-    -> IVertex<LowUIRBasicBlock>
+    * Queue<ProgramPoint>
+    * ProgramPoint
+    * IVertex<LowUIRBasicBlock>
     -> Option<CFGResult>
 
 /// Handles the analysis of function calls with call-related CFG actions.
@@ -68,10 +68,10 @@ and ICallAnalyzable<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
                                     and 'GlCtx: (new: unit -> 'GlCtx)> =
   abstract AnalyzeCall:
        CFGBuildingContext<'FnCtx, 'GlCtx>
-    -> CallSite
-    -> callee: Addr
-    -> CalleeInfo
-    -> isTailCall: bool
+    * CallSite
+    * callee: Addr
+    * CalleeInfo
+    * isTailCall: bool
     -> CFGResult
 
 /// Handles the resumption of CFG analysis with an CFG action `ResumeAnalysis`.
@@ -80,8 +80,8 @@ and IAnalysisResumable<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
                                        and 'GlCtx: (new: unit -> 'GlCtx)> =
   abstract ResumeAnalysis:
        CFGBuildingContext<'FnCtx, 'GlCtx>
-    -> ProgramPoint
-    -> callback: CFGAction
+    * ProgramPoint
+    * callback: CFGAction
     -> CFGResult
 
 /// Represents a callback interface for graph operations in CFG recovery.
@@ -91,19 +91,19 @@ and IGraphCallback<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
   /// Called when a new vertex is added to the CFG.
   abstract OnAddVertex:
        CFGBuildingContext<'FnCtx, 'GlCtx>
-    -> IVertex<LowUIRBasicBlock>
+    * IVertex<LowUIRBasicBlock>
     -> unit
 
   /// Called when an edge is added to the CFG.
   abstract OnAddEdge:
        CFGBuildingContext<'FnCtx, 'GlCtx>
-    -> IVertex<LowUIRBasicBlock>
-    -> IVertex<LowUIRBasicBlock>
-    -> CFGEdgeKind
+    * IVertex<LowUIRBasicBlock>
+    * IVertex<LowUIRBasicBlock>
+    * CFGEdgeKind
     -> unit
 
   /// Called when a vertex is removed from the CFG.
   abstract OnRemoveVertex:
        CFGBuildingContext<'FnCtx, 'GlCtx>
-    -> IVertex<LowUIRBasicBlock>
+    * IVertex<LowUIRBasicBlock>
     -> unit

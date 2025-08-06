@@ -28,8 +28,8 @@ open System.Collections.Generic
 
 /// A priority queue to store the ICFGActions.
 [<AllowNullLiteral>]
-type CFGActionQueue () =
-  let pq = PriorityQueue<CFGAction, Priority<int>> ()
+type CFGActionQueue() =
+  let pq = PriorityQueue<CFGAction, Priority<int>>()
   let mutable count = 0
 
   let toPriority p =
@@ -41,21 +41,21 @@ type CFGActionQueue () =
   member _.Count with get() = pq.Count
 
   /// Push an action to the queue.
-  member _.Push (judge: IPrioritizable) action =
-    pq.Enqueue (action, toPriority (action.Priority judge))
+  member _.Push(judge: IPrioritizable, action) =
+    pq.Enqueue(action, toPriority (action.Priority judge))
 
   /// Pop an action from the queue.
-  member _.Pop () = pq.Dequeue ()
+  member _.Pop() = pq.Dequeue()
 
   /// Peek the action with the highest priority.
-  member _.Peek () = pq.Peek ()
+  member _.Peek() = pq.Peek()
 
   /// Check if the queue is empty.
-  member _.IsEmpty () = pq.Count = 0
+  member _.IsEmpty() = pq.Count = 0
 
   /// Clear the queue.
-  member _.Clear () = pq.Clear ()
+  member _.Clear() = pq.Clear()
 
-  member _.UnorderedItems with get () = pq.UnorderedItems
+  member _.UnorderedItems with get() = pq.UnorderedItems
 
 and private Priority<'P> = 'P * int

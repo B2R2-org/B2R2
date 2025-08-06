@@ -35,14 +35,13 @@ open B2R2.Collections
 /// <summary>
 /// Represents a vector of elements in WebAssembly.
 /// </summary>
-type Vector<'TElement> = {
-  /// Length of encoded elements
-  Length: uint32
-  /// The actual elements sequence
-  Elements: 'TElement[]
-  /// Size of the vector in bytes
-  Size: uint32
-}
+type Vector<'TElement> =
+  { /// Length of encoded elements
+    Length: uint32
+    /// The actual elements sequence
+    Elements: 'TElement[]
+    /// Size of the vector in bytes
+    Size: uint32 }
 
 type ValueType =
   | I32 = 0x7Fuy
@@ -65,10 +64,9 @@ type ConstExpr =
 type FuncTypeStart =
   | FunctionType = 0x60uy
 
-type FuncType = {
-  ParameterTypes: Vector<ValueType>
-  ResultTypes: Vector<ValueType>
-}
+type FuncType =
+  { ParameterTypes: Vector<ValueType>
+    ResultTypes: Vector<ValueType> }
 
 type LimitsKind =
   | Min = 0x00uy
@@ -81,10 +79,9 @@ type Limits =
 type TableElemType =
   | FuncRef = 0x70uy
 
-type TableType = {
-  ElemType: TableElemType
-  Limits: Limits
-}
+type TableType =
+  { ElemType: TableElemType
+    Limits: Limits }
 
 type Mutability =
   /// Constant
@@ -92,15 +89,18 @@ type Mutability =
   /// Variable
   | Mut = 0x01uy
 
-type GlobalType = {
-  ValueType: ValueType
-  Mutable: Mutability
-}
+type GlobalType =
+  { ValueType: ValueType
+    Mutable: Mutability }
 
 type TypeIdx = uint32
+
 type FuncIdx = uint32
+
 type TableIdx = uint32
+
 type MemIdx = uint32
+
 type GlobalIdx = uint32
 
 type SectionId =
@@ -121,27 +121,25 @@ type ExpressionEnd =
   | ExprEnd = 0x0Buy
 
 /// Represents the summary of a section information.
-type SectionSummary = {
-  /// Section Identifier.
-  Id: SectionId
-  /// Section Name.
-  Name: string
-  /// Section offset.
-  Offset: int
-  /// Section header size in bytes.
-  HeaderSize: uint32
-  /// Section contents size in bytes.
-  ContentsSize: uint32
-}
+type SectionSummary =
+  { /// Section Identifier.
+    Id: SectionId
+    /// Section Name.
+    Name: string
+    /// Section offset.
+    Offset: int
+    /// Section header size in bytes.
+    HeaderSize: uint32
+    /// Section contents size in bytes.
+    ContentsSize: uint32 }
 
-type SectionsInfo = {
-  /// Section summary by address.
-  SecByAddr: NoOverlapIntervalMap<SectionSummary>
-  /// Section summary by name.
-  SecByName: Map<string, SectionSummary>
-  /// Section summary by its number.
-  SecArray: SectionSummary []
-}
+type SectionsInfo =
+  { /// Section summary by address.
+    SecByAddr: NoOverlapIntervalMap<SectionSummary>
+    /// Section summary by name.
+    SecByName: Map<string, SectionSummary>
+    /// Section summary by its number.
+    SecArray: SectionSummary [] }
 
 type IndexKind =
   | Type
@@ -150,33 +148,30 @@ type IndexKind =
   | Memory
   | Global
 
-type IndexInfo = {
-  /// Element parent section offset.
-  SecOffset: int
-  /// Element index.
-  Index: uint32
-  /// Index kind.
-  Kind: IndexKind
-  /// Element offset.
-  ElemOffset: int
-}
+type IndexInfo =
+  { /// Element parent section offset.
+    SecOffset: int
+    /// Element index.
+    Index: uint32
+    /// Index kind.
+    Kind: IndexKind
+    /// Element offset.
+    ElemOffset: int }
 
-type Section<'TContents> = {
-  Id: SectionId
-  /// The Size of the contents in bytes
-  Size: uint32
-  /// The Offset of the section
-  Offset: int
-  /// The actual contents of the section
-  Contents: 'TContents option
-}
+type Section<'TContents> =
+  { Id: SectionId
+    /// The Size of the contents in bytes
+    Size: uint32
+    /// The Offset of the section
+    Offset: int
+    /// The actual contents of the section
+    Contents: 'TContents option }
 
-type CustomContents = {
-  /// Name of the custom section
-  Name: string
-  /// Size of the contents in bytes
-  Size: uint32
-}
+type CustomContents =
+  { /// Name of the custom section
+    Name: string
+    /// Size of the contents in bytes
+    Size: uint32 }
 
 type CustomSection = Section<CustomContents>
 
@@ -194,12 +189,11 @@ type ImportDesc =
   | ImpMem of Limits
   | ImpGlobal of GlobalType
 
-type Import = {
-  Offset: int
-  ModuleName: string
-  Name: string
-  Desc: ImportDesc
-}
+type Import =
+  { Offset: int
+    ModuleName: string
+    Name: string
+    Desc: ImportDesc }
 
 type ImportSection = Section<Vector<Import>>
 
@@ -209,10 +203,9 @@ type TableSection = Section<Vector<TableType>>
 
 type MemorySection = Section<Vector<Limits>>
 
-type Global = {
-  Type: GlobalType
-  InitExpr: ConstExpr
-}
+type Global =
+  { Type: GlobalType
+    InitExpr: ConstExpr }
 
 type GlobalSection = Section<Vector<Global>>
 
@@ -228,66 +221,60 @@ type ExportDesc =
   | ExpMem of MemIdx
   | ExpGlobal of GlobalIdx
 
-type Export = {
-  Offset: int
-  Name: string
-  Desc: ExportDesc
-}
+type Export =
+  { Offset: int
+    Name: string
+    Desc: ExportDesc }
 
 type ExportSection = Section<Vector<Export>>
 
 type StartSection = Section<FuncIdx>
 
-type Elem = {
-  TableIndex: TableIdx
-  OffsetExpr: ConstExpr
-  InitFuncs: Vector<FuncIdx>
-}
+type Elem =
+  { TableIndex: TableIdx
+    OffsetExpr: ConstExpr
+    InitFuncs: Vector<FuncIdx> }
 
 type ElementSection = Section<Vector<Elem>>
 
-type LocalDecl = {
-  LocalDeclCount: uint32
-  LocalDeclType: byte
-  LocalDeclLen: int
-}
+type LocalDecl =
+  { LocalDeclCount: uint32
+    LocalDeclType: byte
+    LocalDeclLen: int }
 
-type Code = {
-  Offset: int
-  LenFieldSize: int
-  CodeSize: uint32
-  Locals: LocalDecl list
-}
+type Code =
+  { Offset: int
+    LenFieldSize: int
+    CodeSize: uint32
+    Locals: LocalDecl list }
 
 type CodeSection = Section<Vector<Code>>
 
-type Data = {
-  MemoryIndex: MemIdx
-  OffsetExpr: ConstExpr
-  InitBytes: Vector<byte>
-}
+type Data =
+  { MemoryIndex: MemIdx
+    OffsetExpr: ConstExpr
+    InitBytes: Vector<byte> }
 
 type DataSection = Section<Vector<Data>>
 
 type FormatVersion =
   | One = 0x00000001u
 
-type Module = {
-  FormatVersion: FormatVersion
-  CustomSections: CustomSection list
-  TypeSection: TypeSection option
-  ImportSection: ImportSection option
-  FunctionSection: FunctionSection option
-  TableSection: TableSection option
-  MemorySection: MemorySection option
-  GlobalSection: GlobalSection option
-  ExportSection: ExportSection option
-  StartSection: StartSection option
-  ElementSection: ElementSection option
-  CodeSection: CodeSection option
-  DataSection: DataSection option
-  /// Contains a summary of all sections information.
-  SectionsInfo: SectionsInfo
-  /// An element location translation map (Index to/from Offset).
-  IndexMap: IndexInfo []
-}
+type Module =
+  { FormatVersion: FormatVersion
+    CustomSections: CustomSection list
+    TypeSection: TypeSection option
+    ImportSection: ImportSection option
+    FunctionSection: FunctionSection option
+    TableSection: TableSection option
+    MemorySection: MemorySection option
+    GlobalSection: GlobalSection option
+    ExportSection: ExportSection option
+    StartSection: StartSection option
+    ElementSection: ElementSection option
+    CodeSection: CodeSection option
+    DataSection: DataSection option
+    /// Contains a summary of all sections information.
+    SectionsInfo: SectionsInfo
+    /// An element location translation map (Index to/from Offset).
+    IndexMap: IndexInfo [] }

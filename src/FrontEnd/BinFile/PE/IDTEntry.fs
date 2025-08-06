@@ -28,23 +28,22 @@ namespace B2R2.FrontEnd.BinFile.PE
 /// information (typically located at the .idata section) begins with the import
 /// directory table, which describes the remainder of the import information.
 /// This type includes both delay IDT and normal IDT.
-type IDTEntry = {
-  /// The RVA of the import lookup table.
-  ImportLookupTableRVA: int
-  /// The index of the first forwarder reference.
-  ForwarderChain: int
-  /// The name of the DLL to import.
-  ImportDLLName: string
-  /// The RVA of the import address table. The contents of this table are
-  /// identical to the contents of the import lookup table until the image is
-  /// bound.
-  ImportAddressTableRVA: int
-  /// Indicate whether this IDT is delay IDT or not.
-  DelayLoad: bool
-}
+type IDTEntry =
+  { /// The RVA of the import lookup table.
+    ImportLookupTableRVA: int
+    /// The index of the first forwarder reference.
+    ForwarderChain: int
+    /// The name of the DLL to import.
+    ImportDLLName: string
+    /// The RVA of the import address table. The contents of this table are
+    /// identical to the contents of the import lookup table until the image is
+    /// bound.
+    ImportAddressTableRVA: int
+    /// Indicate whether this IDT is delay IDT or not.
+    DelayLoad: bool }
 with
   /// Checks if the IDT entry is a null entry.
-  static member inline IsNull (entry: IDTEntry) =
+  static member inline IsNull(entry: IDTEntry) =
     entry.ImportLookupTableRVA = 0
     && entry.ForwarderChain = 0
     && entry.ImportDLLName = ""

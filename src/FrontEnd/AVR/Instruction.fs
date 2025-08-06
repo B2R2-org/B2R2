@@ -29,19 +29,20 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an AVR instruction.
 type Instruction
-  internal (addr, numBytes, opcode, operands, lifter: ILiftable) =
+
+  internal(addr, numBytes, opcode, operands, lifter: ILiftable) =
 
   /// Address of this instruction.
-  member _.Address with get (): Addr = addr
+  member _.Address with get(): Addr = addr
 
   /// Length of this instruction in bytes.
-  member _.Length with get (): uint32 = numBytes
+  member _.Length with get(): uint32 = numBytes
 
   /// Opcode.
-  member _.Opcode with get (): Opcode = opcode
+  member _.Opcode with get(): Opcode = opcode
 
   /// Operands.
-  member _.Operands with get (): Operands = operands
+  member _.Operands with get(): Operands = operands
 
   interface IInstruction with
 
@@ -83,37 +84,37 @@ type Instruction
       let ins = this :> IInstruction
       ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
-    member _.DirectBranchTarget (_addr: byref<Addr>) =
+    member _.DirectBranchTarget(_addr: byref<Addr>) =
       Terminator.futureFeature ()
 
-    member _.IndirectTrampolineAddr (_addr: byref<Addr>) =
+    member _.IndirectTrampolineAddr(_addr: byref<Addr>) =
       Terminator.futureFeature ()
 
-    member _.MemoryDereferences (_: byref<Addr[]>) =
+    member _.MemoryDereferences(_: byref<Addr[]>) =
       Terminator.futureFeature ()
 
-    member _.Immediate (_v: byref<int64>) = Terminator.futureFeature ()
+    member _.Immediate(_v: byref<int64>) = Terminator.futureFeature ()
 
-    member _.GetNextInstrAddrs () = Terminator.futureFeature ()
+    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
 
-    member _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+    member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
     member this.Translate builder =
-      (lifter.Lift this builder).Stream.ToStmts ()
+      lifter.Lift(this, builder).Stream.ToStmts()
 
     member this.TranslateToList builder =
-      (lifter.Lift this builder).Stream
+      lifter.Lift(this, builder).Stream
 
     member this.Disasm builder =
-      (lifter.Disasm this builder).ToString ()
+      lifter.Disasm(this, builder).ToString()
 
-    member this.Disasm () =
-      let builder = StringDisasmBuilder (false, null, WordSize.Bit32)
-      (lifter.Disasm this builder).ToString ()
+    member this.Disasm() =
+      let builder = StringDisasmBuilder(false, null, WordSize.Bit32)
+      lifter.Disasm(this, builder).ToString()
 
     member this.Decompose builder =
-      (lifter.Disasm this builder).ToAsmWords ()
+      lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
-  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
-  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder
+  abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction * IDisasmBuilder -> IDisasmBuilder

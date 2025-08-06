@@ -27,31 +27,30 @@ module B2R2.Peripheral.Assembly.MIPS.ParserHelper
 open B2R2
 open B2R2.FrontEnd.MIPS
 
-type AsmInsInfo = {
-  Address: Addr
-  Length: uint32
-  Opcode: Opcode
-  Operands: Operands
-  Condition: Condition option
-  Fmt: FPRFormat option
-  OperationSize: RegType
-}
+type AsmInsInfo =
+  { Address: Addr
+    Length: uint32
+    Opcode: Opcode
+    Operands: Operands
+    Condition: Condition option
+    Fmt: FPRFormat option
+    OperationSize: RegType }
 
 let extractOperands = function
   | [] -> NoOperand
   | [ op1 ] -> OneOperand op1
-  | [ op1; op2 ] -> TwoOperands (op1, op2)
-  | [ op1; op2; op3 ] -> ThreeOperands (op1, op2, op3)
-  | [ op1; op2; op3; op4 ] -> FourOperands (op1, op2, op3, op4)
+  | [ op1; op2 ] -> TwoOperands(op1, op2)
+  | [ op1; op2; op3 ] -> ThreeOperands(op1, op2, op3)
+  | [ op1; op2; op3; op4 ] -> FourOperands(op1, op2, op3, op4)
   | _ -> failwith "Operand overload"
 
 let getOperandsAsList operands =
   match operands with
   | NoOperand -> []
-  | OneOperand (op1) -> [ op1 ]
-  | TwoOperands (op1, op2) -> [ op1; op2 ]
-  | ThreeOperands (op1, op2, op3) -> [ op1; op2; op3 ]
-  | FourOperands (op1, op2, op3, op4) -> [ op1; op2; op3; op4 ]
+  | OneOperand(op1) -> [ op1 ]
+  | TwoOperands(op1, op2) -> [ op1; op2 ]
+  | ThreeOperands(op1, op2, op3) -> [ op1; op2; op3 ]
+  | FourOperands(op1, op2, op3, op4) -> [ op1; op2; op3; op4 ]
 
 let getOperationSize opcode wordSz =
   match opcode with
@@ -94,7 +93,7 @@ let getRealRegName = function
   | "sp" -> "R29"
   | "fp" -> "R30"
   | "ra" -> "R31"
-  | other -> other.ToUpper ()
+  | other -> other.ToUpper()
 
 let newAssemblyIns (isa: ISA) address opcode condition fmt operands =
   let oprSize = getOperationSize opcode isa.WordSize

@@ -27,15 +27,15 @@ namespace B2R2.RearEnd.Transformer
 open B2R2.MiddleEnd
 
 /// The `cfg` action.
-type CFGAction () =
+type CFGAction() =
   let getCFG (input: obj) =
     match input with
     | :? Binary as bin ->
       try
         let hdl = Binary.Handle bin
         let brew = BinaryBrew hdl
-        CFG.Init 0UL brew.Functions[0UL].CFG |> box
-      with e -> e.ToString () |> NoCFG |> box
+        CFG.Init(0UL, brew.Functions[0UL].CFG) |> box
+      with e -> e.ToString() |> NoCFG |> box
     | _ -> invalidArg (nameof input) "Invalid argument."
 
   interface IAction with
@@ -48,5 +48,5 @@ type CFGAction () =
     of an instruction. Any indirect branches will be simply ignored, i.e., it
     does not perform any of the heavy analyses in our middle-end.
 """
-    member _.Transform _args collection =
+    member _.Transform(_args, collection) =
       { Values = collection.Values |> Array.map getCFG }

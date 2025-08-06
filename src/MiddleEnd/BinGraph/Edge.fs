@@ -29,7 +29,7 @@ exception EdgeNotFoundException
 
 /// Edge of a graph.
 type Edge<'V, 'E when 'V: equality
-                  and 'E: equality> internal (fst, snd, label: EdgeLabel<'E>) =
+                  and 'E: equality> internal(fst, snd, label: EdgeLabel<'E>) =
   /// Source vertex of the edge. For undirected graphs, this is the first vertex
   /// that was added to the edge.
   member _.First with get(): IVertex<'V> = fst
@@ -47,15 +47,15 @@ type Edge<'V, 'E when 'V: equality
   /// Check if the edge has a label.
   member _.HasLabel with get() = not (isNull label)
 
-  override _.ToString () =
+  override _.ToString() =
     if isNull label then ""
     else $"{label}"
 
-and [<AllowNullLiteral>] internal EdgeLabel<'E when 'E: equality> (value: 'E) =
+and [<AllowNullLiteral>] internal EdgeLabel<'E when 'E: equality>(value: 'E) =
   member _.Value = value
 
-  override _.ToString () = $"{value}"
+  override _.ToString() = $"{value}"
 
   interface System.IEquatable<EdgeLabel<'E>> with
-    member this.Equals (other: EdgeLabel<'E>) =
+    member this.Equals(other: EdgeLabel<'E>) =
       this.Value = other.Value

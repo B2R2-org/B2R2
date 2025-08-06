@@ -29,11 +29,11 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various CIL register variables.
-type internal RegisterFactory () =
+type internal RegisterFactory() =
   member _.PC with get() = AST.var 256<rt> (Register.toRegID Register.PC) "PC"
   member _.SP with get() = AST.var 256<rt> (Register.toRegID Register.SP) "SP"
 
-  member this.GetRegVar (name) =
+  member this.GetRegVar(name) =
     match name with
     | Register.PC -> this.PC
     | Register.SP -> this.SP

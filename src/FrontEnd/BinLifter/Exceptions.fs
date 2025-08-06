@@ -36,20 +36,15 @@ namespace B2R2.FrontEnd.BinLifter
 /// Raised when the IR is not implemented yet.
 /// </summary>
 exception NotImplementedIRException of string
-
 /// Raised when an invalid operand has been encountered during parsing/lifting.
 exception InvalidOperandException
-
 /// Raised when an invalid operand type has been encountered during
 /// parsing/lifting.
 exception InvalidOperandSizeException
-
 /// Raised when an invalid opcode has been encountered during parsing/lifting.
 exception InvalidOpcodeException
-
 /// Raised when an invalid register has been encountered during parsing/lifting.
 exception InvalidRegisterException
-
 /// Raised when parsing binary code failed. This exception indicates a
 /// non-recoverable parsing failure.
 exception ParsingFailureException

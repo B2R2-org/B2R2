@@ -41,7 +41,7 @@ module private AssemblerMode =
     | LowUIRMode _ -> LowUIRMode isa
     | GeneralMode _ -> GeneralMode isa
 
-type AssemblerOpts () =
+type AssemblerOpts() =
   inherit CmdOpts()
 
   /// Mode
@@ -50,43 +50,42 @@ type AssemblerOpts () =
   /// Base address
   member val BaseAddress: Addr = 0UL with get, set
 
-  static member private ToThis (opts: CmdOpts) =
+  static member private ToThis(opts: CmdOpts) =
     match opts with
     | :? AssemblerOpts as opts -> opts
     | _ -> failwith "Invalid Opts."
 
   /// "-l" or "--lowuir" option for LowUIR mode
-  static member OptLowUIR () =
+  static member OptLowUIR() =
     let cb (opts: #CmdOpts) (_arg: string []) =
       (AssemblerOpts.ToThis opts).Mode <-
         AssemblerMode.toLowUIRMode (AssemblerOpts.ToThis opts).Mode
       opts
-    CmdOpts.New (descr = "Take in LowUIR assembly code as input (ignore ISA)",
-                 callback = cb, short = "-l", long = "--lowuir")
+    CmdOpts.New(descr = "Take in LowUIR assembly code as input (ignore ISA)",
+                callback = cb, short = "-l", long = "--lowuir")
 
   /// "-i" or "--isa" option for specifying ISA.
-  static member OptISA () =
+  static member OptISA() =
     let cb (opts: #CmdOpts) (arg: string []) =
       (AssemblerOpts.ToThis opts).Mode <-
         AssemblerMode.changeISA (ISA arg[0])
           (AssemblerOpts.ToThis opts).Mode
       opts
-    CmdOpts.New (descr = "Specify <ISA> (e.g., x86) from command line",
-                 extra = 1, callback = cb, short = "-i", long = "--isa")
+    CmdOpts.New(descr = "Specify <ISA> (e.g., x86) from command line",
+                extra = 1, callback = cb, short = "-i", long = "--isa")
 
   /// "-r" or "--base-addr" option for specifying a base address.
-  static member OptBaseAddr () =
+  static member OptBaseAddr() =
     let cb (opts: #CmdOpts) (arg: string []) =
-      (AssemblerOpts.ToThis opts).BaseAddress <- Convert.ToUInt64 (arg[0], 16)
+      (AssemblerOpts.ToThis opts).BaseAddress <- Convert.ToUInt64(arg[0], 16)
       opts
-    CmdOpts.New (descr = "Specify the base <address> in hex (default=0)",
-                 extra = 1, callback = cb, short = "-r", long = "--base-addr")
+    CmdOpts.New(descr = "Specify the base <address> in hex (default=0)",
+                extra = 1, callback = cb, short = "-r", long = "--base-addr")
 
 module Cmd =
   let spec: AssemblerOpts FsOptParse.Option list =
-    [ CmdOpts.OptVerbose ()
-      CmdOpts.OptHelp ()
-
-      AssemblerOpts.OptLowUIR ()
-      AssemblerOpts.OptISA ()
-      AssemblerOpts.OptBaseAddr () ]
+    [ CmdOpts.OptVerbose()
+      CmdOpts.OptHelp()
+      AssemblerOpts.OptLowUIR()
+      AssemblerOpts.OptISA()
+      AssemblerOpts.OptBaseAddr() ]

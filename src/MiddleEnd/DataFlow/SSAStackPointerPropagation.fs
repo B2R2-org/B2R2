@@ -32,7 +32,7 @@ open B2R2.MiddleEnd.DataFlow.Constants
 open B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
 
 /// Stack pointer propagation analysis on SSACFG.
-type SSAStackPointerPropagation (hdl: BinHandle) =
+type SSAStackPointerPropagation(hdl: BinHandle) =
   let rec evalExpr (state: State<_>) = function
     | Num bv -> StackPointerDomain.ConstSP bv
     | Var v -> state.GetRegValue v
@@ -40,7 +40,7 @@ type SSAStackPointerPropagation (hdl: BinHandle) =
     | Load _ -> StackPointerDomain.NotConstSP
     | UnOp _ -> StackPointerDomain.NotConstSP
     | FuncName _ -> StackPointerDomain.NotConstSP
-    | BinOp (op, _, e1, e2) ->
+    | BinOp(op, _, e1, e2) ->
       let c1 = evalExpr state e1
       let c2 = evalExpr state e2
       StackPointerPropagation.evalBinOp op c1 c2
@@ -57,16 +57,16 @@ type SSAStackPointerPropagation (hdl: BinHandle) =
 
   let evalDef (state: State<_>) var e =
     match var.Kind with
-    | RegVar (_, regid, _) when isStackRelatedRegister regid ->
-      state.SetRegValue (var, evalExpr state e)
+    | RegVar(_, regid, _) when isStackRelatedRegister regid ->
+      state.SetRegValue(var, evalExpr state e)
     | RegVar _ ->
-      state.SetRegValue (var, StackPointerDomain.NotConstSP)
+      state.SetRegValue(var, StackPointerDomain.NotConstSP)
     | TempVar _ ->
-      state.SetRegValue (var, evalExpr state e)
+      state.SetRegValue(var, evalExpr state e)
     | _ -> ()
 
   let evalPhi (state: State<_>) ssaCFG blk dst srcIDs =
-    match state.GetExecutedSources ssaCFG blk srcIDs with
+    match state.GetExecutedSources(ssaCFG, blk, srcIDs) with
     | [||] -> ()
     | executedSrcIDs ->
       match dst.Kind with
@@ -75,11 +75,11 @@ type SSAStackPointerPropagation (hdl: BinHandle) =
         |> Array.map (fun i ->
           { dst with Identifier = i } |> state.GetRegValue)
         |> Array.reduce StackPointerDomain.join
-        |> fun merged -> state.SetRegValue (dst, merged)
+        |> fun merged -> state.SetRegValue(dst, merged)
       | _ -> ()
 
   let evalJmp (state: State<_>) ssaCFG blk =
-    state.MarkSuccessorsExecutable ssaCFG blk
+    state.MarkSuccessorsExecutable(ssaCFG, blk)
 
   let lattice =
     { new ILattice<StackPointerDomain.Lattice> with
@@ -91,24 +91,23 @@ type SSAStackPointerPropagation (hdl: BinHandle) =
     { new IScheme<StackPointerDomain.Lattice> with
         member _.Transfer(stmt, ssaCFG, blk)=
           match stmt with
-          | Def (var, e) -> evalDef state var e
-          | Phi (var, ns) -> evalPhi state ssaCFG blk var ns
+          | Def(var, e) -> evalDef state var e
+          | Phi(var, ns) -> evalPhi state ssaCFG blk var ns
           | Jmp _ -> evalJmp state ssaCFG blk
           | LMark _ | ExternalCall _ | SideEffect _ -> ()
-        member _.UpdateMemFromBinaryFile _rt _addr = StackPointerDomain.Undef
+        member _.UpdateMemFromBinaryFile(_rt, _addr) = StackPointerDomain.Undef
         member _.EvalExpr e = evalExpr state e }
 
   and state =
-    State<StackPointerDomain.Lattice> (hdl, lattice, scheme)
+    State<StackPointerDomain.Lattice>(hdl, lattice, scheme)
     |> fun state ->
       match hdl.RegisterFactory.StackPointer with
       | Some sp ->
         let rt = hdl.RegisterFactory.GetRegType sp
         let str = hdl.RegisterFactory.GetRegString sp
-        let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-        let spVal = BitVector.OfUInt64 InitialStackPointer rt
-        state.SetRegValueWithoutAdding var
-        <| StackPointerDomain.ConstSP spVal
+        let var = { Kind = RegVar(rt, sp, str); Identifier = 0 }
+        let spVal = BitVector.OfUInt64(InitialStackPointer, rt)
+        state.SetRegValueWithoutAdding(var, StackPointerDomain.ConstSP spVal)
         state
       | None -> state
 

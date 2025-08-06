@@ -31,9 +31,9 @@ open B2R2.MiddleEnd
 
 type Binary = Binary of byte[] * Architecture * WordSize
 
-let loadOne (Binary (code, arch, wordSize)) =
-  let isa = ISA (arch, wordSize)
-  let hdl = BinHandle (code, isa, None, false)
+let loadOne (Binary(code, arch, wordSize)) =
+  let isa = ISA(arch, wordSize)
+  let hdl = BinHandle(code, isa, None, false)
   BinaryBrew hdl
 
 (*
@@ -108,7 +108,7 @@ let private code1 =
      0x5Euy
      0xC3uy |]
 
-let sample1 = Binary (code1, Architecture.Intel, WordSize.Bit32)
+let sample1 = Binary(code1, Architecture.Intel, WordSize.Bit32)
 
 (*
   Example 2: Constant Propagation Test (from Dragon Book, p636)
@@ -215,7 +215,7 @@ let private code2 =
      0x5Duy
      0xC3uy |]
 
-let sample2 = Binary (code2, Architecture.Intel, WordSize.Bit64)
+let sample2 = Binary(code2, Architecture.Intel, WordSize.Bit64)
 
 (*
   Example 3: Untouched Value Propagation Test
@@ -326,4 +326,4 @@ let private code3 =
      0xc9uy
      0xc3uy |]
 
-let sample3 = Binary (code3, Architecture.Intel, WordSize.Bit64)
+let sample3 = Binary(code3, Architecture.Intel, WordSize.Bit64)

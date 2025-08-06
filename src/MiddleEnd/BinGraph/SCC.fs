@@ -28,22 +28,21 @@ open System.Collections.Generic
 
 /// Tarjan's strongly connected components algorithm.
 module Tarjan =
-  type private SCCStatus<'V when 'V: equality> = {
-    mutable CurrentDFNum: int
-    /// Vertex -> DFNum (depth-first number).
-    DFNums: Dictionary<IVertex<'V>, int>
-    /// DFNum -> Vertex
-    Vertices: IVertex<'V>[]
-    /// DFNum -> LowLink. LowLink is the smallest DFNum reachable from the
-    /// current vertex.
-    LowLinks: int[]
-    /// DFNum -> bool. True if the vertex is on the stack.
-    OnStackStatus: bool[]
-    /// Stack for storing vertices of the current SCC.
-    Stack: Stack<IVertex<'V>>
-    /// List of strongly connected components.
-    SCCs: List<HashSet<IVertex<'V>>>
-  }
+  type private SCCStatus<'V when 'V: equality> =
+    { mutable CurrentDFNum: int
+      /// Vertex -> DFNum (depth-first number).
+      DFNums: Dictionary<IVertex<'V>, int>
+      /// DFNum -> Vertex
+      Vertices: IVertex<'V>[]
+      /// DFNum -> LowLink. LowLink is the smallest DFNum reachable from the
+      /// current vertex.
+      LowLinks: int[]
+      /// DFNum -> bool. True if the vertex is on the stack.
+      OnStackStatus: bool[]
+      /// Stack for storing vertices of the current SCC.
+      Stack: Stack<IVertex<'V>>
+      /// List of strongly connected components.
+      SCCs: List<HashSet<IVertex<'V>>> }
 
   let private initSCCStatus (g: IDiGraphAccessible<_, _>) =
     let len = g.Size
@@ -52,8 +51,8 @@ module Tarjan =
       Vertices = Array.zeroCreate len
       LowLinks = Array.zeroCreate len
       OnStackStatus = Array.zeroCreate len
-      Stack = Stack ()
-      SCCs = List () }
+      Stack = Stack()
+      SCCs = List() }
 
   let rec private computeSCC g status (v: IVertex<_>) =
     assert (not (status.DFNums.ContainsKey v))
@@ -67,10 +66,10 @@ module Tarjan =
     for succ in (g: IDiGraphAccessible<_, _>).GetSuccs v do
       updateLowLink g status dfnum succ
     if status.LowLinks[dfnum] = dfnum then
-      let scc = HashSet<IVertex<_>> ()
+      let scc = HashSet<IVertex<_>>()
       let mutable doRepeat = true
       while doRepeat do
-        let w = status.Stack.Pop ()
+        let w = status.Stack.Pop()
         status.OnStackStatus[status.DFNums[w]] <- false
         scc.Add w |> ignore
         doRepeat <- w <> v

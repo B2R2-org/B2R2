@@ -32,9 +32,10 @@ type VLayout = IVertex<VisBBlock>[][]
 let [<Literal>] private MaxCnt = 128
 
 let private computeMaxLayer (vGraph: VisGraph) =
-  vGraph.FoldVertex (fun layer v ->
+  vGraph.FoldVertex((fun layer v ->
     let l = VisGraph.getLayer v
-    if layer < l then l else layer) 0
+    if layer < l then l else layer
+  ), 0)
 
 let private generateVPerLayer vGraph =
   let maxLayer = computeMaxLayer vGraph
@@ -43,7 +44,7 @@ let private generateVPerLayer vGraph =
     let layer = VisGraph.getLayer v
     vPerLayer[layer] <- v :: vPerLayer[layer]
     vPerLayer
-  vGraph.FoldVertex folder vPerLayer
+  vGraph.FoldVertex(folder, vPerLayer)
 
 let private alignVertices vertices =
   let arr = Array.zeroCreate (List.length vertices)
@@ -119,7 +120,7 @@ let private bilayerCount vGraph (vLayout: VLayout) isDown layer =
 
 let private collectBaryCenters bcByValues (bc, v) =
   match Map.tryFind bc bcByValues with
-  | Some (vs) -> Map.add bc (v :: vs) bcByValues
+  | Some(vs) -> Map.add bc (v :: vs) bcByValues
   | None -> Map.add bc [ v ] bcByValues
 
 let private reorderVertices (vertices: IVertex<VisBBlock>[]) idx (_, vs) =
@@ -150,11 +151,11 @@ let rec private sugiyamaReorder vGraph vLayout cnt hashSet =
     phase1 vGraph vLayout false (maxLayer - 1) maxLayer
     phase2 vGraph vLayout false maxLayer
     phase2 vGraph vLayout true maxLayer
-    let hashCode = vLayout.GetHashCode ()
+    let hashCode = vLayout.GetHashCode()
     if not (Set.contains hashCode hashSet) then
       sugiyamaReorder vGraph vLayout (cnt + 1) (Set.add hashCode hashSet)
 
 let minimizeCrosses vGraph =
   let vLayout = generateVPerLayer vGraph |> generateVLayout
-  sugiyamaReorder vGraph vLayout 0 (Set.add (vLayout.GetHashCode ()) Set.empty)
+  sugiyamaReorder vGraph vLayout 0 (Set.add (vLayout.GetHashCode()) Set.empty)
   vLayout

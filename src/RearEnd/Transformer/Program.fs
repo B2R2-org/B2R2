@@ -27,36 +27,30 @@ module B2R2.RearEnd.Transformer.Program
 open System
 open System.IO
 open System.Reflection
-open B2R2
 open B2R2.RearEnd.Utils
 
-let [<Literal>] private Usage = """[Usage]
-
-b2r2 transformer [-d file] [action] (-- [action] ...)
-
+let private usage = $"""[Usage]
+b2r2 transformer [-d file] [action] (-- [action] ...){"\n"}
 Transformer runs a chain of transforming actions (IAction). An action takes in a
 collection of objects as input and returns another collection of objects as
 output. Any number of actions can be chained together as long as their types
 match. Users can define their own action(s) by implementing the IAction
-interface.
-
-[Options]
-
--d <dll file>  : Load a dll file defining custom actions.
-
+interface.{"\n"}
+[Options]{"\n"}
+-d <dll file>  : Load a dll file defining custom actions.{"\n"}
 [Actions]
 """
 
 /// The `help` action.
-type private HelpAction (map: Map<string, IAction>) =
+type private HelpAction(map: Map<string, IAction>) =
   interface IAction with
     member _.ActionID with get() = "help"
     member _.Signature with get() = "'a -> 'b"
     member _.Description with get() = ""
-    member _.Transform _args _ =
-      Printer.PrintToConsoleLine ()
-      CmdOpts.WriteIntro ()
-      Printer.PrintToConsoleLine Usage
+    member _.Transform(_args, _) =
+      Printer.PrintToConsoleLine()
+      CmdOpts.WriteIntro()
+      Printer.PrintToConsoleLine usage
       map |> Map.iter (fun id act ->
         Printer.PrintToConsoleLine $"- {id}: {act.Signature}"
         Printer.PrintToConsoleLine $"{act.Description}")
@@ -75,13 +69,13 @@ let inline private filterIActionType types =
   (types: System.Type[])
   |> Array.filter (fun t ->
     t.IsPublic
-    && (t.GetInterface (nameof IAction) |> isNull |> not))
+    && (t.GetInterface(nameof IAction) |> isNull |> not))
 
 let private loadUserDLL dllPath =
   if File.Exists dllPath then
     let dllPath = Path.GetFullPath dllPath
     let dll = Assembly.LoadFile dllPath
-    dll.GetExportedTypes ()
+    dll.GetExportedTypes()
     |> filterIActionType
     |> accumulateActions Map.empty
   else invalidOp $"File not found: {dllPath}"
@@ -89,7 +83,7 @@ let private loadUserDLL dllPath =
 let private retrieveActionMap map =
   let actionType = typeof<IAction>
   let map =
-    actionType.Assembly.GetExportedTypes ()
+    actionType.Assembly.GetExportedTypes()
     |> filterIActionType
     |> accumulateActions map
   let helpAction = HelpAction map :> IAction
@@ -98,9 +92,8 @@ let private retrieveActionMap map =
 let private splitBySpecialSeparators (args: string list) =
   args
   |> List.collect (fun arg ->
-    arg.Replace("--", " -- ")
-       .Replace(",", " , ")
-       .Split (' ', StringSplitOptions.RemoveEmptyEntries) |> Array.toList)
+    arg.Replace("--", " -- ").Replace(",", " , ")
+      .Split(' ', StringSplitOptions.RemoveEmptyEntries) |> Array.toList)
 
 let rec private breakCommandByComma cmds cmd = function
   | [] -> List.rev (List.rev cmd :: cmds)
@@ -110,8 +103,7 @@ let rec private breakCommandByComma cmds cmd = function
   | arg :: rest -> breakCommandByComma cmds (arg :: cmd) rest
 
 let private accumulateIfNotEmpty grp acc =
-  if List.isEmpty grp then acc
-  else List.rev grp :: acc
+  if List.isEmpty grp then acc else List.rev grp :: acc
 
 let rec private parseActionCommands grps grp = function
   | [] -> List.rev (accumulateIfNotEmpty grp grps)
@@ -124,7 +116,8 @@ let rec private parseActionCommands grps grp = function
 let private checkValidityOfCommandGroup cmdgrp =
   let actionIDs = cmdgrp |> List.map List.tryHead
   let fstActionID = List.head actionIDs
-  if actionIDs |> List.forall (fun actionID -> actionID = fstActionID) then ()
+  if actionIDs |> List.forall (fun actionID -> actionID = fstActionID) then
+    ()
   else
     Printer.PrintErrorToConsole "different actions in the same group."
     exit 1
@@ -133,7 +126,7 @@ let private runCommand actionMap input (cmd: string list) =
   let actionID = List.head cmd
   let args = List.tail cmd
   let action: IAction =
-    match Map.tryFind (actionID.ToLowerInvariant ()) actionMap with
+    match Map.tryFind (actionID.ToLowerInvariant()) actionMap with
     | Some act -> act
     | None ->
       Printer.PrintErrorToConsole $"({actionID}) is not a valid action."
@@ -143,7 +136,7 @@ let private runCommand actionMap input (cmd: string list) =
   else ()
 #endif
   try
-    action.Transform args input
+    action.Transform(args, input)
   with
     | :? InvalidCastException ->
       Printer.PrintErrorToConsole $"({actionID}) action type mismatch."
@@ -171,10 +164,9 @@ let private parseActions args actionMap =
   |> List.map (breakCommandByComma [] [])
   |> List.fold (fun input cmdgrp ->
     checkValidityOfCommandGroup cmdgrp
-    { Values =
-        cmdgrp
-        |> List.map (fun cmd -> runCommand actionMap input cmd |> unwrap)
-        |> Array.concat }
+    { Values = cmdgrp
+               |> List.map (fun cmd -> runCommand actionMap input cmd |> unwrap)
+               |> Array.concat }
   ) { Values = [| () |] }
   |> autoPrint actionMap
 

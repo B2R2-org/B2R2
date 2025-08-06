@@ -33,7 +33,7 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 
 let inline (:=) dst src =
   match dst with
-  | Var (_, rid, _, _) when rid = Register.toRegID Register.X0 ->
+  | Var(_, rid, _, _) when rid = Register.toRegID Register.X0 ->
     dst := dst (* Prevent setting x0. Our optimizer will remove this anyways. *)
   | _ ->
     dst := src
@@ -226,43 +226,43 @@ let getOneOpr (ins: Instruction) =
 
 let getTwoOprs (ins: Instruction) =
   match ins.Operands with
-  | TwoOperands (o1, o2) -> o1, o2
+  | TwoOperands(o1, o2) -> o1, o2
   | _ -> raise InvalidOperandException
 
 let getThreeOprs (ins: Instruction) =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> o1, o2, o3
+  | ThreeOperands(o1, o2, o3) -> o1, o2, o3
   | _ -> raise InvalidOperandException
 
 let getFourOprs (ins: Instruction) =
   match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) -> o1, o2, o3, o4
+  | FourOperands(o1, o2, o3, o4) -> o1, o2, o3, o4
   | _ -> raise InvalidOperandException
 
 let getFiveOprs (ins: Instruction) =
   match ins.Operands with
-  | FiveOperands (o1, o2, o3, o4, o5) -> o1, o2, o3, o4, o5
+  | FiveOperands(o1, o2, o3, o4, o5) -> o1, o2, o3, o4, o5
   | _ -> raise InvalidOperandException
 
 let transOprToExpr (ins: Instruction) bld = function
   | OpReg reg -> regVar bld reg
   | OpImm imm
   | OpShiftAmount imm -> numU64 imm bld.RegType
-  | OpMem (b, Some (Imm o), sz) ->
+  | OpMem(b, Some(Imm o), sz) ->
     let reg = regVar bld b
     let offset = numI64 o bld.RegType
     AST.loadLE sz (reg .+ offset)
-  | OpAddr (Relative o) -> numI64 (int64 ins.Address + o) bld.RegType
-  | OpAddr (RelativeBase (b, imm)) ->
+  | OpAddr(Relative o) -> numI64 (int64 ins.Address + o) bld.RegType
+  | OpAddr(RelativeBase(b, imm)) ->
     if b = Register.X0 then
       AST.num0 bld.RegType
     else
       let target = regVar bld b .+ numI64 (int64 imm) bld.RegType
       let mask = numI64 0xFFFFFFFF_FFFFFFFEL 64<rt>
       target .& mask
-  | OpMem (b, None, sz) -> AST.loadLE sz (regVar bld b)
-  | OpAtomMemOper (_) -> numU32 0u 32<rt> // FIXME:
-  | OpCSR (csr) -> getCSRReg bld csr
+  | OpMem(b, None, sz) -> AST.loadLE sz (regVar bld b)
+  | OpAtomMemOper(_) -> numU32 0u 32<rt> // FIXME:
+  | OpCSR(csr) -> getCSRReg bld csr
   | _ -> raise InvalidOperandException
 
 let private maskForFCSR csr (opr1, opr2) =
@@ -285,7 +285,7 @@ let private assignFCSR dst src bld =
 
 let roundingToCastFloat x =
   match x with
-  | OpRoundMode (rm) ->
+  | OpRoundMode(rm) ->
     match rm with
     | RoundMode.RNE
     | RoundMode.RMM -> CastKind.FtoFRound
@@ -297,7 +297,7 @@ let roundingToCastFloat x =
 
 let roundingToCastInt x =
   match x with
-  | OpRoundMode (rm) ->
+  | OpRoundMode(rm) ->
     match rm with
     | RoundMode.RNE
     | RoundMode.RMM -> CastKind.FtoIRound
@@ -407,14 +407,14 @@ let getNanBoxed e = (numU64 0xFFFFFFFF_00000000uL 64<rt>) .| (AST.zext 64<rt> e)
 
 let dstAssignSingleWithRound dst src rm bld =
   let rtVal = getNanBoxed src
-  if rm <> OpRoundMode (RoundMode.DYN) then
+  if rm <> OpRoundMode(RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     bld <+ (dst := AST.cast rounding 64<rt> rtVal)
   else
     bld <+ (dst := dynamicRoundingFl bld 64<rt> rtVal)
 
 let dstAssignDoubleWithRound dst src rm bld =
-  if rm <> OpRoundMode (RoundMode.DYN) then
+  if rm <> OpRoundMode(RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     bld <+ (dst := AST.cast rounding 64<rt> src)
   else
@@ -422,12 +422,12 @@ let dstAssignDoubleWithRound dst src rm bld =
 
 let getAddrFromMem x =
   match x with
-  | Load (_, _, addr, _) -> addr
+  | Load(_, _, addr, _) -> addr
   | _ -> raise InvalidExprException
 
 let getAddrFromMemAndSize x =
   match x with
-  | Load (_, rt, addr, _) -> addr, numI32 (RegType.toByteWidth rt) 64<rt>
+  | Load(_, rt, addr, _) -> addr, numI32 (RegType.toByteWidth rt) 64<rt>
   | _ -> raise InvalidExprException
 
 let isAligned rt expr =
@@ -437,7 +437,7 @@ let isAligned rt expr =
   | _ -> raise InvalidRegTypeException
 
 let getAccessLength = function
-  | OpMem (_, _, sz) -> sz
+  | OpMem(_, _, sz) -> sz
   | _ -> raise InvalidOperandException
 
 let fpDefaultNan oprSz =
@@ -1747,7 +1747,7 @@ let fcvtdotldotd ins insLen bld =
   let condInf = isInf 64<rt> rs1
   let condNaN = isNan 64<rt> rs1
   let sign = AST.xthi 1<rt> rs1
-  if rm <> OpRoundMode (RoundMode.DYN) then
+  if rm <> OpRoundMode(RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 64<rt>
@@ -1792,7 +1792,7 @@ let fcvtdotludotd ins insLen bld =
   let condInf = isInf 64<rt> rs1
   let condNaN = isNan 64<rt> rs1
   let sign = AST.xthi 1<rt> rs1
-  if rm <> OpRoundMode (RoundMode.DYN) then
+  if rm <> OpRoundMode(RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 64<rt>
@@ -1837,7 +1837,7 @@ let fcvtdotwdotd ins insLen bld =
   let condInf = isInf 64<rt> rs1
   let condNaN = isNan 64<rt> rs1
   let sign = AST.xthi 1<rt> rs1
-  if rm <> OpRoundMode (RoundMode.DYN) then
+  if rm <> OpRoundMode(RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 64<rt>
@@ -1882,7 +1882,7 @@ let fcvtdotwudotd ins insLen bld =
   let condInf = isInf 64<rt> rs1
   let condNaN = isNan 64<rt> rs1
   let sign = AST.xthi 1<rt> rs1
-  if rm <> OpRoundMode (RoundMode.DYN) then
+  if rm <> OpRoundMode(RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 64<rt>
@@ -1928,7 +1928,7 @@ let fcvtdotwdots ins insLen bld =
   let condInf = isInf 32<rt> rs1
   let condNaN = isNan 32<rt> rs1
   let sign = AST.xthi 1<rt> rs1
-  if rm <> OpRoundMode (RoundMode.DYN) then
+  if rm <> OpRoundMode(RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 32<rt>
@@ -1974,7 +1974,7 @@ let fcvtdotwudots ins insLen bld =
   let condInf = isInf 32<rt> rs1
   let condNaN = isNan 32<rt> rs1
   let sign = AST.xthi 1<rt> rs1
-  if rm <> OpRoundMode (RoundMode.DYN) then
+  if rm <> OpRoundMode(RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 32<rt>
@@ -2019,7 +2019,7 @@ let fcvtdotldots ins insLen bld =
   let condInf = isInf 32<rt> rs1
   let condNaN = isNan 32<rt> rs1
   let sign = AST.xthi 1<rt> rs1
-  if rm <> OpRoundMode (RoundMode.DYN) then
+  if rm <> OpRoundMode(RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let t0 = tmpVar bld 32<rt>
@@ -2069,7 +2069,7 @@ let fcvtdotludots ins insLen bld =
   let condInf = isInf 32<rt> rs1
   let condNaN = isNan 32<rt> rs1
   let sign = AST.xthi 1<rt> rs1
-  if rm <> OpRoundMode (RoundMode.DYN) then
+  if rm <> OpRoundMode(RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let t0 = tmpVar bld 32<rt>
@@ -2183,7 +2183,7 @@ let fcvtdotsdotd ins insLen bld =
     AST.cast CastKind.FloatCast 32<rt> rs1
     |> fun single -> AST.ite (isNan 32<rt> single) (fpDefaultNan 32<rt>) single
   bld <+ (rtVal := getNanBoxed rs1)
-  if rm <> OpRoundMode (RoundMode.DYN) then
+  if rm <> OpRoundMode(RoundMode.DYN) then
     let rounding = roundingToCastFloat rm
     bld <+ (rd := AST.cast rounding 64<rt> rtVal)
   else
@@ -2431,4 +2431,4 @@ let translate (ins: Instruction) insLen bld =
 #if DEBUG
     eprintfn "%A" o
 #endif
-    raise <| NotImplementedIRException (Disasm.opCodeToString o)
+    raise <| NotImplementedIRException(Disasm.opCodeToString o)

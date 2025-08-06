@@ -42,20 +42,20 @@ let makeDummyVertex<'V when 'V: equality> () =
       member _.ID = -1
       member _.VData = Terminator.impossible ()
       member _.HasData = false
-      member this.CompareTo (other: obj) =
+      member this.CompareTo(other: obj) =
         match other with
         | :? IVertex<'V> as other -> this.ID.CompareTo other.ID
         | _ -> Terminator.impossible ()
-      member _.ToString (_, _) = "DummyVertex" }
+      member _.ToString(_, _) = "DummyVertex" }
 
 let reverse (inGraph: IDiGraphAccessible<_, _>) roots outGraph =
-  outGraph
-  |> inGraph.FoldVertex (fun (outGraph: IDiGraph<_, _>) v ->
-    outGraph.AddVertex (v.VData, v.ID) |> snd)
-  |> inGraph.FoldEdge (fun outGraph edge ->
-    let src = outGraph.FindVertexByID edge.First.ID
-    let dst = outGraph.FindVertexByID edge.Second.ID
-    outGraph.AddEdge (dst, src, edge.Label))
+  inGraph.FoldVertex((fun (outGraph: IDiGraph<_, _>) v ->
+    outGraph.AddVertex(v.VData, v.ID) |> snd), outGraph)
+  |> fun outGraph ->
+    inGraph.FoldEdge((fun (outGraph: IDiGraph<_,_>) edge ->
+      let src = outGraph.FindVertexByID edge.First.ID
+      let dst = outGraph.FindVertexByID edge.Second.ID
+      outGraph.AddEdge(dst, src, edge.Label)), outGraph)
   |> fun outGraph -> (* renew root vertices *)
     roots |> Seq.map (fun (root: IVertex<_>) ->
       assert (inGraph.HasVertex root.ID)
@@ -63,7 +63,7 @@ let reverse (inGraph: IDiGraphAccessible<_, _>) roots outGraph =
     |> outGraph.SetRoots
 
 let computeDepthFirstNumbers (g: IDiGraphAccessible<_, _>) =
-  let dfNums = Dictionary<IVertex<_>, int> ()
+  let dfNums = Dictionary<IVertex<_>, int>()
   Traversal.DFS.foldRevPostorder g (fun cnt v ->
     dfNums[v] <- cnt
     cnt + 1
@@ -72,8 +72,8 @@ let computeDepthFirstNumbers (g: IDiGraphAccessible<_, _>) =
 
 let findBackEdges (g: IDiGraphAccessible<_, _>) =
   let dfNums = computeDepthFirstNumbers g
-  let backEdges = Dictionary ()
-  g.IterEdge (fun e ->
+  let backEdges = Dictionary()
+  g.IterEdge(fun e ->
     if dfNums[e.First] >= dfNums[e.Second] then backEdges[e.First] <- e.Second
     else ())
   backEdges

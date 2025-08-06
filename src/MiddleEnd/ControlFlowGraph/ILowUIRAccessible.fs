@@ -44,11 +44,10 @@ type ILowUIRAccessible =
   abstract StartsWithNop: bool
 
 /// A lifted instruction.
-and LiftedInstruction = {
-  /// Original assembly instruction.
-  Original: IInstruction
-  /// IR statements.
-  Stmts: LowUIR.Stmt[]
-  /// Corresponding BBL's address.
-  BBLAddr: Addr
-}
+and LiftedInstruction =
+  { /// Original assembly instruction.
+    Original: IInstruction
+    /// IR statements.
+    Stmts: LowUIR.Stmt[]
+    /// Corresponding BBL's address.
+    BBLAddr: Addr }

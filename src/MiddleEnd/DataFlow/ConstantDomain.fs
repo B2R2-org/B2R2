@@ -52,7 +52,7 @@ module ConstantDomain =
     | _ -> NotAConst
 
   let private unOp op = function
-    | Const bv -> Const (op bv)
+    | Const bv -> Const(op bv)
     | c -> c
 
   let neg c = unOp BitVector.Neg c
@@ -62,13 +62,13 @@ module ConstantDomain =
   let private binOp op c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
-    | Const bv1, Const bv2 -> Const (op (bv1, bv2))
+    | Const bv1, Const bv2 -> Const(op (bv1, bv2))
     | _ -> NotAConst
 
   let add c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
-    | Const bv1, Const bv2 -> Const (BitVector.Add (bv1, bv2))
+    | Const bv1, Const bv2 -> Const(BitVector.Add(bv1, bv2))
     | _ -> NotAConst
 
   let sub c1 c2 = binOp BitVector.Sub c1 c2
@@ -80,7 +80,7 @@ module ConstantDomain =
     | Undef, _ | _, Undef -> Undef
     | Const bv1, Const bv2 ->
       if BitVector.IsZero bv2 then NotAConst
-      else Const (divop (bv1, bv2))
+      else Const(divop (bv1, bv2))
     | _ -> NotAConst
 
   let div c1 c2 = divAux BitVector.Div c1 c2
@@ -95,8 +95,8 @@ module ConstantDomain =
     match c with
     | Const bv ->
       let rt = BitVector.GetType bv
-      let upperBound = BitVector.OfUInt64 0xFFFFFFFFUL rt
-      let isOkay = BitVector.Le (bv, upperBound) |> BitVector.IsTrue
+      let upperBound = BitVector.OfUInt64(0xFFFFFFFFUL, rt)
+      let isOkay = BitVector.Le(bv, upperBound) |> BitVector.IsTrue
       if isOkay then c
       else NotAConst
     | _ -> c
@@ -151,4 +151,4 @@ module ConstantDomain =
   let zeroExt rt c = cast BitVector.ZExt rt c
 
   let extract c rt pos =
-    unOp (fun bv -> BitVector.Extract (bv, rt, pos)) c
+    unOp (fun bv -> BitVector.Extract(bv, rt, pos)) c

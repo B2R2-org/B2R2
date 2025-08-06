@@ -36,8 +36,11 @@ let private cprintf c fmt =
       Console.ForegroundColor <- old) fmt
 
 let printRed str = cprintf ConsoleColor.Red str
+
 let printBlue str = cprintf ConsoleColor.Blue str
+
 let printCyan str = cprintf ConsoleColor.Cyan str
+
 let printGray str = cprintf ConsoleColor.Gray str
 
 /// Prints all the registers and their statuses to the console.
@@ -56,10 +59,10 @@ let private printTRegStatusString (state: ReplState) delta =
 
 /// Used to print all available registers to the console.
 let printRegisters showTemporary state regdelta =
-  printCyan "Registers:\n" ;
+  printCyan "Registers:\n"
   printRegStatusString state regdelta
   if showTemporary then
     printCyan "\nTemporary Registers:\n"
     printTRegStatusString state []
   else ()
-  Console.WriteLine ()
+  Console.WriteLine()

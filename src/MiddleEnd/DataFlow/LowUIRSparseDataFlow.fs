@@ -41,9 +41,9 @@ let inline toFrameOffset stackAddr =
 /// Represents a state used in LowUIR-based sparse dataflow analysis.
 [<AllowNullLiteral>]
 type State<'Lattice when 'Lattice: equality>
-  public (hdl: BinHandle,
-          lattice: ILattice<'Lattice>,
-          scheme: IScheme<'Lattice>) =
+  public(hdl: BinHandle,
+         lattice: ILattice<'Lattice>,
+         scheme: IScheme<'Lattice>) =
 
   /// Initial stack pointer value in the stack pointer domain.
   let spInitial =
@@ -52,48 +52,48 @@ type State<'Lattice when 'Lattice: equality>
     | Some rid ->
       let rt = hdl.RegisterFactory.GetRegType rid
       let varKind = Regular rid
-      let bv = BitVector.OfUInt64 Constants.InitialStackPointer rt
+      let bv = BitVector.OfUInt64(Constants.InitialStackPointer, rt)
       let c = StackPointerDomain.ConstSP bv
-      Some (varKind, c)
+      Some(varKind, c)
 
   /// Mapping from a CFG vertex to its StmtInfo array.
-  let stmtInfoCache = Dictionary<IVertex<LowUIRBasicBlock>, StmtInfo[]> ()
+  let stmtInfoCache = Dictionary<IVertex<LowUIRBasicBlock>, StmtInfo[]>()
 
   /// Mapping from a VarPoint to its abstract value in the user's domain.
-  let domainAbsValues = Dictionary<VarPoint, 'Lattice> ()
+  let domainAbsValues = Dictionary<VarPoint, 'Lattice>()
 
   /// Mapping from a VarPoint to its abstract value in the stack-pointer domain.
-  let spAbsValues = Dictionary<VarPoint, StackPointerDomain.Lattice> ()
+  let spAbsValues = Dictionary<VarPoint, StackPointerDomain.Lattice>()
 
-  let phiInfos = Dictionary<IVertex<LowUIRBasicBlock>, PhiInfo> ()
+  let phiInfos = Dictionary<IVertex<LowUIRBasicBlock>, PhiInfo>()
 
   let perVertexIncomingDefs =
-    Dictionary<IVertex<LowUIRBasicBlock>, Map<VarKind, VarPoint>> ()
+    Dictionary<IVertex<LowUIRBasicBlock>, Map<VarKind, VarPoint>>()
 
   let perVertexOutgoingDefs =
-    Dictionary<IVertex<LowUIRBasicBlock>, Map<VarKind, VarPoint>> ()
+    Dictionary<IVertex<LowUIRBasicBlock>, Map<VarKind, VarPoint>>()
 
-  let defUseMap = Dictionary<VarPoint, HashSet<VarPoint>> ()
+  let defUseMap = Dictionary<VarPoint, HashSet<VarPoint>>()
 
-  let useDefMap = Dictionary<VarPoint, VarPoint> ()
+  let useDefMap = Dictionary<VarPoint, VarPoint>()
 
-  let stmtOfBBLs = Dictionary<ProgramPoint, StmtOfBBL> ()
+  let stmtOfBBLs = Dictionary<ProgramPoint, StmtOfBBL>()
 
   /// Set of vertices that need to be analyzed for reconstructing data flow
   /// information.
-  let verticesForProcessing = HashSet<IVertex<LowUIRBasicBlock>> ()
+  let verticesForProcessing = HashSet<IVertex<LowUIRBasicBlock>>()
 
   /// Queue of vertices that need to be removed.
-  let verticesForRemoval = Queue<IVertex<LowUIRBasicBlock>> ()
+  let verticesForRemoval = Queue<IVertex<LowUIRBasicBlock>>()
 
   /// SSA variable identifier counter.
   let mutable ssaVarCounter = 0
 
   /// A mapping from a variable point to its corresponding SSA variable.
-  let vpToSSAVar = Dictionary<VarPoint, SSA.Variable> ()
+  let vpToSSAVar = Dictionary<VarPoint, SSA.Variable>()
 
   /// A mapping from an SSA variable to its corresponding variable point.
-  let ssaVarToVp = Dictionary<SSA.Variable, VarPoint> ()
+  let ssaVarToVp = Dictionary<SSA.Variable, VarPoint>()
 
   let domainGetAbsValue vp =
     match domainAbsValues.TryGetValue vp with
@@ -107,7 +107,7 @@ type State<'Lattice when 'Lattice: equality>
 
   let spGetInitialAbsValue varKind =
     match spInitial with
-    | Some (stackVar, c) when varKind = stackVar -> c
+    | Some(stackVar, c) when varKind = stackVar -> c
     | _ -> StackPointerDomain.Undef
 
   let spEvaluateVar varKind pp =
@@ -118,15 +118,15 @@ type State<'Lattice when 'Lattice: equality>
 
   let rec spEvaluateExpr pp (e: Expr) =
     match e with
-    | Num (bv, _) -> StackPointerDomain.ConstSP bv
+    | Num(bv, _) -> StackPointerDomain.ConstSP bv
     | Var _ | TempVar _ -> spEvaluateVar (VarKind.ofIRExpr e) pp
-    | Load (_, _, addr, _) ->
+    | Load(_, _, addr, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
         let offset = BitVector.ToUInt64 bv |> toFrameOffset
         spEvaluateVar (StackLocal offset) pp
       | c -> c
-    | BinOp (binOpType, _, e1, e2, _) ->
+    | BinOp(binOpType, _, e1, e2, _) ->
       let v1 = spEvaluateExpr pp e1
       let v2 = spEvaluateExpr pp e2
       match binOpType with
@@ -156,13 +156,13 @@ type State<'Lattice when 'Lattice: equality>
       v.VData.Internals.LiftedInstructions
       |> Array.collect (fun ins ->
         ins.Stmts |> Array.mapi (fun i stmt ->
-          stmt, ProgramPoint (ins.Original.Address, startPos + i)))
+          stmt, ProgramPoint(ins.Original.Address, startPos + i)))
     else (* abstract vertex *)
       let startPos = 1 (* we reserve 0 for phi definitions. *)
       let cs = Option.get pp.CallSite
       let addr = pp.Address
       v.VData.Internals.AbstractContent.Rundown
-      |> Array.mapi (fun i s -> s, ProgramPoint (cs, addr, startPos + i))
+      |> Array.mapi (fun i s -> s, ProgramPoint(cs, addr, startPos + i))
 
   /// Returns a fresh identifier for the given variable kind and increments the
   /// identifier.
@@ -176,13 +176,13 @@ type State<'Lattice when 'Lattice: equality>
     | Regular rid ->
       let rt = hdl.RegisterFactory.GetRegType rid
       let rname = hdl.RegisterFactory.GetRegString rid
-      SSA.RegVar (rt, rid, rname)
-    | Memory (Some _) -> SSA.MemVar
+      SSA.RegVar(rt, rid, rname)
+    | Memory(Some _) -> SSA.MemVar
     | Memory None -> SSA.MemVar
-    | StackLocal offset -> SSA.StackVar (0<rt>, offset)
+    | StackLocal offset -> SSA.StackVar(0<rt>, offset)
     | Temporary n ->
       let rt = 0<rt>
-      SSA.TempVar (rt, n)
+      SSA.TempVar(rt, n)
 
   /// Returns an SSA variable for the given variable point.
   let getSSAVar vp =
@@ -209,18 +209,18 @@ type State<'Lattice when 'Lattice: equality>
   /// Translates an IR expression to its SSA expression.
   let rec translateToSSAExpr (pp: ProgramPoint) e =
     match e with
-    | Num (bv, _) -> SSA.Num bv
-    | PCVar (rt, _, _) ->
+    | Num(bv, _) -> SSA.Num bv
+    | PCVar(rt, _, _) ->
       assert (Option.isNone pp.CallSite)
-      SSA.Num <| BitVector.OfUInt64 pp.Address rt
+      SSA.Num <| BitVector.OfUInt64(pp.Address, rt)
     | Var _ | TempVar _ ->
       let vk = VarKind.ofIRExpr e
       let ssaVar = getSSAVarFromUse pp vk
       SSA.Var ssaVar
-    | ExprList (exprs, _) ->
+    | ExprList(exprs, _) ->
       List.map (translateToSSAExpr pp) exprs
       |> SSA.ExprList
-    | Load (_, rt, addr, _) ->
+    | Load(_, rt, addr, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
         let offset = BitVector.ToUInt64 bv |> toFrameOffset
@@ -230,52 +230,52 @@ type State<'Lattice when 'Lattice: equality>
       | _ ->
         let emptyMemVar = mkEmptySSAVar (Memory None)
         let e = translateToSSAExpr pp addr
-        SSA.Load (emptyMemVar, rt, e)
-    | BinOp (binOpType, rt, e1, e2, _) ->
+        SSA.Load(emptyMemVar, rt, e)
+    | BinOp(binOpType, rt, e1, e2, _) ->
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
-      SSA.BinOp (binOpType, rt, e1, e2)
-    | RelOp (relOpType, e1, e2, _) ->
+      SSA.BinOp(binOpType, rt, e1, e2)
+    | RelOp(relOpType, e1, e2, _) ->
       let rt = Expr.TypeOf e1
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
-      SSA.RelOp (relOpType, rt, e1, e2)
-    | Extract (e, rt, startPos, _) ->
+      SSA.RelOp(relOpType, rt, e1, e2)
+    | Extract(e, rt, startPos, _) ->
       let e = translateToSSAExpr pp e
-      SSA.Extract (e, rt, startPos)
-    | UnOp (unOpType, e, _) ->
+      SSA.Extract(e, rt, startPos)
+    | UnOp(unOpType, e, _) ->
       let rt = Expr.TypeOf e
       let e = translateToSSAExpr pp e
-      SSA.UnOp (unOpType, rt, e)
-    | Cast (castKind, rt, e, _) ->
+      SSA.UnOp(unOpType, rt, e)
+    | Cast(castKind, rt, e, _) ->
       let e = translateToSSAExpr pp e
-      SSA.Cast (castKind, rt, e)
-    | FuncName (s, _) -> SSA.FuncName s
-    | Undefined (rt, s, _) -> SSA.Undefined (rt, s)
-    | Ite (e1, e2, e3, _) ->
+      SSA.Cast(castKind, rt, e)
+    | FuncName(s, _) -> SSA.FuncName s
+    | Undefined(rt, s, _) -> SSA.Undefined(rt, s)
+    | Ite(e1, e2, e3, _) ->
       let rt = Expr.TypeOf e2
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
       let e3 = translateToSSAExpr pp e3
-      SSA.Ite (e1, rt, e2, e3)
+      SSA.Ite(e1, rt, e2, e3)
     | _ -> Terminator.impossible ()
 
   let translateLabel addr = function
-    | JmpDest (lbl, _) -> lbl
-    | Undefined (_, s, _) -> AST.label s -1 addr
+    | JmpDest(lbl, _) -> lbl
+    | Undefined(_, s, _) -> AST.label s -1 addr
     | _ -> raise InvalidExprException
 
   /// Translate an ordinary IR statement to an SSA statement. It returns a dummy
   /// exception statement if the given IR statement is invalid.
   let translateToSSAStmt pp stmt =
     match stmt with
-    | Put (dst, src, _) ->
+    | Put(dst, src, _) ->
       let vk = VarKind.ofIRExpr dst
       let vp = { ProgramPoint = pp; VarKind = vk }
       let v = getSSAVar vp
       let e = translateToSSAExpr pp src
-      SSA.Def (v, e)
-    | Store (_, addr, value, _) ->
+      SSA.Def(v, e)
+    | Store(_, addr, value, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
         let offset = BitVector.ToUInt64 bv |> toFrameOffset
@@ -283,38 +283,38 @@ type State<'Lattice when 'Lattice: equality>
         let vp = { ProgramPoint = pp; VarKind = vk }
         let v = getSSAVar vp
         let e = translateToSSAExpr pp value
-        SSA.Def (v, e)
+        SSA.Def(v, e)
       | _ ->
         let prevMemVar = mkEmptySSAVar (Memory None) (* empty one *)
         let newMemVar = getSSAVar { ProgramPoint = pp; VarKind = Memory None }
         let rt = Expr.TypeOf value
         let e1 = translateToSSAExpr pp addr
         let e2 = translateToSSAExpr pp value
-        let e = SSA.Store (prevMemVar, rt, e1, e2)
-        SSA.Def (newMemVar, e)
-    | Jmp (expr, _) ->
+        let e = SSA.Store(prevMemVar, rt, e1, e2)
+        SSA.Def(newMemVar, e)
+    | Jmp(expr, _) ->
       let addr = 0x0UL (* use dummy address for simplicity *)
       let label = translateLabel addr expr
       let e = SSA.IntraJmp label
       SSA.Jmp e
-    | CJmp (expr, label1, label2, _) ->
+    | CJmp(expr, label1, label2, _) ->
       let addr = 0x0UL (* use dummy address for simplicity *)
       let expr = translateToSSAExpr pp expr
       let label1 = translateLabel addr label1
       let label2 = translateLabel addr label2
-      let e = SSA.IntraCJmp (expr, label1, label2)
+      let e = SSA.IntraCJmp(expr, label1, label2)
       SSA.Jmp e
-    | InterJmp (expr, _, _) ->
+    | InterJmp(expr, _, _) ->
       let expr = translateToSSAExpr pp expr
-      let e = SSA.InterJmp (expr)
+      let e = SSA.InterJmp(expr)
       SSA.Jmp e
-    | InterCJmp (expr1, expr2, expr3, _) ->
+    | InterCJmp(expr1, expr2, expr3, _) ->
       let expr1 = translateToSSAExpr pp expr1
       let expr2 = translateToSSAExpr pp expr2
       let expr3 = translateToSSAExpr pp expr3
-      let e = SSA.InterCJmp (expr1, expr2, expr3)
+      let e = SSA.InterCJmp(expr1, expr2, expr3)
       SSA.Jmp e
-    | SideEffect (sideEff, _) ->
+    | SideEffect(sideEff, _) ->
       SSA.SideEffect sideEff
     | _ ->
       SSA.SideEffect <| Exception "Invalid SSA stmt encountered"
@@ -334,13 +334,13 @@ type State<'Lattice when 'Lattice: equality>
     let defs = phiInfo[varKind]
     let var = getSSAVar vp
     let ids = convertDefsToIds defs.Values
-    SSA.Phi (var, ids)
+    SSA.Phi(var, ids)
 
   let domainSubState =
-    let flowQueue = UniqueQueue ()
-    let defSiteQueue = UniqueQueue ()
-    let executedFlows = HashSet ()
-    let executedVertices = HashSet ()
+    let flowQueue = UniqueQueue()
+    let defSiteQueue = UniqueQueue()
+    let executedFlows = HashSet()
+    let executedVertices = HashSet()
     { new ISubstate<'Lattice> with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
@@ -348,15 +348,15 @@ type State<'Lattice when 'Lattice: equality>
         member _.ExecutedVertices = executedVertices
         member _.Bottom = lattice.Bottom
         member _.GetAbsValue vp = domainGetAbsValue vp
-        member _.SetAbsValue vp absVal = domainAbsValues[vp] <- absVal
+        member _.SetAbsValue(vp, absVal) = domainAbsValues[vp] <- absVal
         member _.Join(a, b) = lattice.Join(a, b)
         member _.Subsume(a, b) = lattice.Subsume(a, b) }
 
   let spSubState =
-    let flowQueue = UniqueQueue ()
-    let defSiteQueue = UniqueQueue ()
-    let executedFlows = HashSet ()
-    let executedVertices = HashSet ()
+    let flowQueue = UniqueQueue()
+    let defSiteQueue = UniqueQueue()
+    let executedFlows = HashSet()
+    let executedVertices = HashSet()
     { new ISubstate<StackPointerDomain.Lattice> with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
@@ -364,75 +364,75 @@ type State<'Lattice when 'Lattice: equality>
         member _.ExecutedVertices = executedVertices
         member _.Bottom = StackPointerDomain.Undef
         member _.GetAbsValue vp = spGetAbsValue vp
-        member _.SetAbsValue vp absVal = spAbsValues[vp] <- absVal
+        member _.SetAbsValue(vp, absVal) = spAbsValues[vp] <- absVal
         member _.Join(a, b) = StackPointerDomain.join a b
         member _.Subsume(a, b) = StackPointerDomain.subsume a b }
 
   let resetSubState (subState: ISubstate<_>) =
-    subState.FlowQueue.Clear ()
-    subState.DefSiteQueue.Clear ()
-    subState.ExecutedFlows.Clear ()
-    subState.ExecutedVertices.Clear ()
+    subState.FlowQueue.Clear()
+    subState.DefSiteQueue.Clear()
+    subState.ExecutedFlows.Clear()
+    subState.ExecutedVertices.Clear()
 
   let reset () =
-    stmtInfoCache.Clear ()
-    domainAbsValues.Clear ()
-    spAbsValues.Clear ()
-    phiInfos.Clear ()
-    perVertexIncomingDefs.Clear ()
-    perVertexOutgoingDefs.Clear ()
-    defUseMap.Clear ()
-    useDefMap.Clear ()
-    stmtOfBBLs.Clear ()
-    verticesForProcessing.Clear ()
-    vpToSSAVar.Clear ()
+    stmtInfoCache.Clear()
+    domainAbsValues.Clear()
+    spAbsValues.Clear()
+    phiInfos.Clear()
+    perVertexIncomingDefs.Clear()
+    perVertexOutgoingDefs.Clear()
+    defUseMap.Clear()
+    useDefMap.Clear()
+    stmtOfBBLs.Clear()
+    verticesForProcessing.Clear()
+    vpToSSAVar.Clear()
     ssaVarCounter <- 0
-    ssaVarToVp.Clear ()
+    ssaVarToVp.Clear()
     resetSubState spSubState
     resetSubState domainSubState
 
   /// Binary handle associated with this state.
-  member _.BinHandle with get () = hdl
+  member _.BinHandle with get() = hdl
 
   /// Scheme used for this data flow analysis.
-  member _.Scheme with get () = scheme
+  member _.Scheme with get() = scheme
 
   /// Evaluate the given expression at the given program point in the
   /// stack-pointer domain in order to retrieve a concrete stack pointer value
   /// if exists.
-  member _.EvaluateStackPointerExpr pp (e: Expr) =
+  member _.EvaluateStackPointerExpr(pp, e: Expr) =
     spEvaluateExpr pp e
 
   /// Mapping from a CFG vertex to its phi information.
-  member _.PhiInfos with get () = phiInfos
+  member _.PhiInfos with get() = phiInfos
 
   /// Mapping from a CFG vertex to its incoming definitions.
-  member _.PerVertexIncomingDefs with get () = perVertexIncomingDefs
+  member _.PerVertexIncomingDefs with get() = perVertexIncomingDefs
 
   /// Mapping from a CFG vertex to its outgoing definitions.
-  member _.PerVertexOutgoingDefs with get () = perVertexOutgoingDefs
+  member _.PerVertexOutgoingDefs with get() = perVertexOutgoingDefs
 
   /// Mapping from a variable def to its uses.
-  member _.DefUseMap with get () = defUseMap
+  member _.DefUseMap with get() = defUseMap
 
   /// Mapping from a variable use to its definition.
-  member _.UseDefMap with get () = useDefMap
+  member _.UseDefMap with get() = useDefMap
 
   /// Mapping from a SSA variable to its corresponding variable point.
-  member _.SSAVarToVp with get () = ssaVarToVp
+  member _.SSAVarToVp with get() = ssaVarToVp
 
   /// Mapping from a program point to `StmtOfBBL`, which is a pair of a Low-UIR
   /// statement and its corresponding vertex that contains the statement.
-  member _.StmtOfBBLs with get () = stmtOfBBLs
+  member _.StmtOfBBLs with get() = stmtOfBBLs
 
   /// Sub-state for the stack-pointer domain.
-  member internal _.StackPointerSubState with get () = spSubState
+  member internal _.StackPointerSubState with get() = spSubState
 
   /// Sub-state for the user's domain.
-  member _.DomainSubState with get () = domainSubState
+  member _.DomainSubState with get() = domainSubState
 
   /// Currently pending vertices for processing.
-  member _.PendingVertices with get (): IEnumerable<IVertex<LowUIRBasicBlock>> =
+  member _.PendingVertices with get(): IEnumerable<IVertex<LowUIRBasicBlock>> =
     verticesForProcessing
 
   /// Mark the given vertex as pending, which means that the vertex needs to be
@@ -447,16 +447,16 @@ type State<'Lattice when 'Lattice: equality>
   member _.IsVertexPending v = verticesForProcessing.Contains v
 
   /// Clear the pending vertices.
-  member _.ClearPendingVertices () = verticesForProcessing.Clear ()
+  member _.ClearPendingVertices() = verticesForProcessing.Clear()
 
   /// Enqueue the pending vertices to the given sub-state.
-  member internal _.EnqueuePendingVertices (subState: ISubstate<_>) =
+  member internal _.EnqueuePendingVertices(subState: ISubstate<_>) =
     for v in verticesForProcessing do
-      subState.FlowQueue.Enqueue (null, v)
+      subState.FlowQueue.Enqueue(null, v)
 
   /// Dequeue the vertex for removal. When there is no vertex to remove, it
   /// returns `false`.
-  member _.DequeueVertexForRemoval () = verticesForRemoval.TryDequeue ()
+  member _.DequeueVertexForRemoval() = verticesForRemoval.TryDequeue()
 
   /// Return the array of StmtInfos of the given vertex.
   member _.GetStmtInfos v = getStatements v
@@ -485,7 +485,7 @@ type State<'Lattice when 'Lattice: equality>
   member _.GetAbsValue v = domainGetAbsValue ssaVarToVp[v]
 
   /// Reset this state.
-  member _.Reset () = reset ()
+  member _.Reset() = reset ()
 
   interface IAbsValProvider<VarPoint, 'Lattice> with
     member _.GetAbsValue absLoc = domainGetAbsValue absLoc
@@ -510,7 +510,7 @@ and ISubstate<'Lattice when 'Lattice: equality> =
   abstract ExecutedVertices: HashSet<IVertex<LowUIRBasicBlock>>
 
   /// Get the abstract value at the given location.
-  abstract SetAbsValue: vp: VarPoint -> 'Lattice -> unit
+  abstract SetAbsValue: vp: VarPoint * 'Lattice -> unit
 
 /// A mapping from a variable kind of a phi to its definitions. We represent
 /// each definition as a mapping from predecessor's program point to a variable
@@ -527,7 +527,7 @@ module internal AnalysisCore = begin
 
   /// Dataflow chains become invalid when a vertex is removed from the graph.
   let rec removeInvalidChains (state: State<_>) =
-    match state.DequeueVertexForRemoval () with
+    match state.DequeueVertexForRemoval() with
     | true, v when state.PerVertexIncomingDefs.ContainsKey v ->
       for (_, pp) in state.GetStmtInfos v do
         state.StmtOfBBLs.Remove pp |> ignore
@@ -539,13 +539,13 @@ module internal AnalysisCore = begin
     | false, _ -> ()
 
   let getStackValue (state: State<_>) pp e =
-    match state.EvaluateStackPointerExpr pp e with
+    match state.EvaluateStackPointerExpr(pp, e) with
     | StackPointerDomain.ConstSP bv -> Ok <| BitVector.ToUInt64 bv
     | _ -> Error ErrorCase.InvalidExprEvaluation
 
   /// Linear time algorithm to compute the inverse dominance frontier.
   let computeInverseDF (g: IDiGraph<_, _>) (dom: IDominance<_, _>) v =
-    let s = HashSet ()
+    let s = HashSet()
     for pred in g.GetPreds v do
       let mutable x = pred
       while x <> dom.ImmediateDominator v do
@@ -557,7 +557,7 @@ module internal AnalysisCore = begin
   /// We reduce the search space to only those vertices that are possibly
   /// affected by the changes in the graph.
   let collectPhiInsertionCandidates g state =
-    let workset = HashSet ()
+    let workset = HashSet()
     for v in (state: State<_>).PendingVertices do
       if not <| (g: IDiGraph<_, _>).HasVertex v.ID then ()
       else
@@ -583,13 +583,13 @@ module internal AnalysisCore = begin
     match (memo: Dictionary<_, _>).TryGetValue v with
     | true, kinds -> kinds
     | false, _ ->
-      let varKinds = HashSet ()
+      let varKinds = HashSet()
       for (stmt, pp) in state.GetStmtInfos v do
         match stmt with
-        | Put (dst, _, _) ->
+        | Put(dst, _, _) ->
           let vk = VarKind.ofIRExpr dst
           varKinds.Add vk |> ignore
-        | Store (_, addr, _, _) ->
+        | Store(_, addr, _, _) ->
           getStackValue state pp addr
           |> Result.iter (fun loc ->
             let offset = toFrameOffset loc
@@ -602,7 +602,7 @@ module internal AnalysisCore = begin
   /// We do not calculate all dominance frontier sets, but only those that are
   /// selectively used to insert phi nodes.
   let placePhis g state (dom: IDominance<_, _>) =
-    let memo = Dictionary ()
+    let memo = Dictionary()
     for v in collectPhiInsertionCandidates g state do
       for affectingVertex in computeInverseDF g dom v do
         for varKind in getDefinedVarKinds memo state affectingVertex do
@@ -646,48 +646,48 @@ module internal AnalysisCore = begin
       updateUseDefChain state useVp defVp
 
   let rec updateWithExpr state defs (pp: ProgramPoint) = function
-    | Num (_)
-    | Undefined (_)
-    | FuncName (_) -> ()
-    | Var (_rt, rid, _rstr, _) -> updateChains state (Regular rid) defs pp
-    | TempVar (_, n, _) -> updateChains state (Temporary n) defs pp
-    | ExprList (exprs, _) ->
+    | Num(_)
+    | Undefined(_)
+    | FuncName(_) -> ()
+    | Var(_rt, rid, _rstr, _) -> updateChains state (Regular rid) defs pp
+    | TempVar(_, n, _) -> updateChains state (Temporary n) defs pp
+    | ExprList(exprs, _) ->
       exprs |> List.iter (updateWithExpr state defs pp)
-    | Load (_, _, expr, _) ->
+    | Load(_, _, expr, _) ->
       updateWithExpr state defs pp expr
       getStackValue state pp expr
       |> Result.iter (fun loc ->
         let offset = toFrameOffset loc
         updateChains state (StackLocal offset) defs pp)
       updateWithExpr state defs pp expr
-    | UnOp (_, expr, _) ->
+    | UnOp(_, expr, _) ->
       updateWithExpr state defs pp expr
-    | BinOp (_, _, expr1, expr2, _) ->
+    | BinOp(_, _, expr1, expr2, _) ->
       updateWithExpr state defs pp expr1
       updateWithExpr state defs pp expr2
-    | RelOp (_, expr1, expr2, _) ->
+    | RelOp(_, expr1, expr2, _) ->
       updateWithExpr state defs pp expr1
       updateWithExpr state defs pp expr2
-    | Ite (expr1, expr2, expr3, _) ->
+    | Ite(expr1, expr2, expr3, _) ->
       updateWithExpr state defs pp expr1
       updateWithExpr state defs pp expr2
       updateWithExpr state defs pp expr3
-    | Cast (_, _, expr, _) ->
+    | Cast(_, _, expr, _) ->
       updateWithExpr state defs pp expr
-    | Extract (expr, _, _, _) ->
+    | Extract(expr, _, _, _) ->
       updateWithExpr state defs pp expr
     | _ -> ()
 
   let updateWithJmp state defs pp = function
-    | Jmp (expr, _) ->
+    | Jmp(expr, _) ->
       updateWithExpr state defs pp expr
-    | CJmp (expr, target1, target2, _) ->
+    | CJmp(expr, target1, target2, _) ->
       updateWithExpr state defs pp expr
       updateWithExpr state defs pp target1
       updateWithExpr state defs pp target2
-    | InterJmp (expr, _jmpKind, _) ->
+    | InterJmp(expr, _jmpKind, _) ->
       updateWithExpr state defs pp expr
-    | InterCJmp (cond, target1, target2, _) ->
+    | InterCJmp(cond, target1, target2, _) ->
       updateWithExpr state defs pp cond
       updateWithExpr state defs pp target1
       updateWithExpr state defs pp target2
@@ -699,14 +699,14 @@ module internal AnalysisCore = begin
   /// non-temporary variables.
   let updateWithStmt state (outs: byref<_>) (defs: byref<_>) stmt pp =
     match stmt with
-    | Put (dst, src, _) ->
+    | Put(dst, src, _) ->
       updateWithExpr state defs pp src
       let kind = VarKind.ofIRExpr dst
       let vp = { ProgramPoint = pp; VarKind = kind }
       defs <- Map.add kind vp defs
       if not (VarKind.isTemporary kind) then outs <- Map.add kind vp outs
       else ()
-    | Store (_, addr, value, _) ->
+    | Store(_, addr, value, _) ->
       updateWithExpr state defs pp addr
       updateWithExpr state defs pp value
       match getStackValue state pp addr with
@@ -811,7 +811,7 @@ module internal AnalysisCore = begin
     for v in visited do
       match state.PhiInfos.TryGetValue v with
       | true, phiInfo ->
-        for (KeyValue (vk, inDefs)) in phiInfo do
+        for (KeyValue(vk, inDefs)) in phiInfo do
           for pred in (g: IDiGraph<_, _>).GetPreds v do
             match Map.tryFind vk <| getOutgoingDefs state pred with
             | None -> ()
@@ -829,7 +829,7 @@ module internal AnalysisCore = begin
   /// efficient for incremental changes in practice since its search space is
   /// reduced to the affected vertices that are possibly updated.
   let calculateChains g state dom =
-    let visited = HashSet<IVertex<LowUIRBasicBlock>> ()
+    let visited = HashSet<IVertex<LowUIRBasicBlock>>()
     placePhis g state dom
     incrementalUpdate g state visited dom g.SingleRoot
     updatePhis g state visited
@@ -841,7 +841,7 @@ module internal AnalysisCore = begin
   let updateAbsValue subState defUseMap vp prev curr =
     if (subState: ISubstate<_>).Subsume(prev, curr) then ()
     else
-      subState.SetAbsValue vp <| subState.Join(prev, curr)
+      subState.SetAbsValue(vp, subState.Join(prev, curr))
       match (defUseMap: Dictionary<_, _>).TryGetValue vp with
       | false, _ -> ()
       | true, defs ->
@@ -850,15 +850,15 @@ module internal AnalysisCore = begin
 
   let spTransfer (state: State<_>) (stmt, pp) =
     match stmt with
-    | Put (dst, src, _) ->
+    | Put(dst, src, _) ->
       let varKind = VarKind.ofIRExpr dst
       let currConst =
         match varKind with
         | Regular rid when isStackRelatedRegister state.BinHandle rid ->
-          state.EvaluateStackPointerExpr pp src
+          state.EvaluateStackPointerExpr(pp, src)
           |> Some
         | Regular _ -> StackPointerDomain.NotConstSP |> Some
-        | Temporary _ -> state.EvaluateStackPointerExpr pp src |> Some
+        | Temporary _ -> state.EvaluateStackPointerExpr(pp, src) |> Some
         | _ -> None
       match currConst with
       | None -> ()
@@ -872,7 +872,7 @@ module internal AnalysisCore = begin
 
   let domainTransfer (state: State<_>) (stmt, pp) =
     match stmt with
-    | Put (dst, src, _) ->
+    | Put(dst, src, _) ->
       let varKind = VarKind.ofIRExpr dst
       let vp = { ProgramPoint = pp; VarKind = varKind }
       let subState = state.DomainSubState
@@ -880,8 +880,8 @@ module internal AnalysisCore = begin
       let curr = state.Scheme.EvalExpr(pp, src)
       let defUseMap = state.DefUseMap
       updateAbsValue subState defUseMap vp prev curr
-    | Store (_, addr, value, _) ->
-      match state.EvaluateStackPointerExpr pp addr with
+    | Store(_, addr, value, _) ->
+      match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let loc = BitVector.ToUInt64 bv
         let offset = toFrameOffset loc
@@ -897,7 +897,7 @@ module internal AnalysisCore = begin
 
   let transferPhi state subState phiInfo defPp =
     phiInfo
-    |> Seq.iter (fun (KeyValue (varKind, defs: Dictionary<_, _>)) ->
+    |> Seq.iter (fun (KeyValue(varKind, defs: Dictionary<_, _>)) ->
       let vp = { ProgramPoint = defPp; VarKind = varKind }
       let prev = (subState: ISubstate<_>).GetAbsValue vp
       let curr =
@@ -912,7 +912,7 @@ module internal AnalysisCore = begin
     | true, (_, v) -> subState.ExecutedVertices.Contains v
 
   let processDefSite state (subState: ISubstate<_>) fnTransfer =
-    match subState.DefSiteQueue.TryDequeue () with
+    match subState.DefSiteQueue.TryDequeue() with
     | true, defPp when isExecuted state subState defPp ->
       if defPp.Position <> 0 then (* non-phi *)
         let stmt, _ = (state: State<_>).StmtOfBBLs[defPp]
@@ -936,10 +936,10 @@ module internal AnalysisCore = begin
     |> Array.iter subState.FlowQueue.Enqueue
 
   let processFlow g state subState fnTransfer =
-    match (subState: ISubstate<_>).FlowQueue.TryDequeue () with
+    match (subState: ISubstate<_>).FlowQueue.TryDequeue() with
     | false, _ -> ()
     | true, (src, dst) ->
-      if not <| subState.ExecutedFlows.Add (src, dst) then ()
+      if not <| subState.ExecutedFlows.Add(src, dst) then ()
       else
         match (g: IDiGraph<_, _>).TryFindVertexByID dst.ID with
         | Some v -> transferFlow state subState g v fnTransfer
@@ -965,12 +965,12 @@ end (* end of AnalysisCore *)
 
 /// Compute the data flow incrementally.
 let compute g (state: State<_>) =
-  let df = Dominance.CooperDominanceFrontier ()
+  let df = Dominance.CooperDominanceFrontier()
   let dom = Dominance.LengauerTarjanDominance.create g df
   removeInvalidChains state
   calculateChains g state dom
   propagateStackPointer g state
   calculateChains g state dom
   propagateDomain g state
-  state.ClearPendingVertices ()
+  state.ClearPendingVertices()
   state

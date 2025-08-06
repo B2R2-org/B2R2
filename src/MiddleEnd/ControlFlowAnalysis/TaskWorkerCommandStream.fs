@@ -30,27 +30,27 @@ open System.Threading.Tasks.Dataflow
 type TaskWorkerCommandStream<'FnCtx,
                              'GlCtx when 'FnCtx :> IResettable
                                      and 'FnCtx: (new: unit -> 'FnCtx)
-                                     and 'GlCtx: (new: unit -> 'GlCtx)> () =
-    let stream = BufferBlock<TaskWorkerCommand<'FnCtx, 'GlCtx>> ()
+                                     and 'GlCtx: (new: unit -> 'GlCtx)>() =
+    let stream = BufferBlock<TaskWorkerCommand<'FnCtx, 'GlCtx>>()
 
     /// Post a command to the stream.
-    member _.Post (command: TaskWorkerCommand<'FnCtx, 'GlCtx>) =
+    member _.Post(command: TaskWorkerCommand<'FnCtx, 'GlCtx>) =
       stream.Post command |> ignore
 
     /// Receive a command from the stream.
-    member _.Receive (ct) =
+    member _.Receive(ct) =
       task {
-        match! stream.OutputAvailableAsync (ct) with
+        match! stream.OutputAvailableAsync(ct) with
         | false -> return NotAvailable
         | true ->
-          match stream.TryReceive () with
+          match stream.TryReceive() with
           | true, command -> return Received command
           | false, _ -> return AvailableButNotReceived
       }
 
     /// Stop receiving nor producing commands.
-    member _.Close () =
-      stream.Complete ()
+    member _.Close() =
+      stream.Complete()
 
 /// Status of a task worker command.
 and TaskWorkerCommandStatus<'FnCtx,

@@ -28,10 +28,10 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a CIL instruction.
-type Instruction internal (addr, numBytes) =
+type Instruction internal(addr, numBytes) =
   interface IInstruction with
-    member _.Address with get () = addr
-    member _.Length with get () = numBytes
+    member _.Address with get() = addr
+    member _.Length with get() = numBytes
     member _.IsBranch = Terminator.futureFeature ()
     member _.IsModeChanging = false
     member _.IsDirectBranch = Terminator.futureFeature ()
@@ -51,10 +51,10 @@ type Instruction internal (addr, numBytes) =
     member _.IndirectTrampolineAddr _ = Terminator.futureFeature ()
     member _.MemoryDereferences _ = Terminator.futureFeature ()
     member _.Immediate _ = Terminator.futureFeature ()
-    member _.GetNextInstrAddrs () = Terminator.futureFeature ()
+    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
     member _.InterruptNum _ = Terminator.futureFeature ()
     member _.Translate _ = Terminator.futureFeature ()
     member _.TranslateToList _ = Terminator.futureFeature ()
     member _.Disasm _ = Terminator.futureFeature ()
-    member _.Disasm () = Terminator.futureFeature ()
+    member _.Disasm() = Terminator.futureFeature ()
     member _.Decompose _ = Terminator.futureFeature ()

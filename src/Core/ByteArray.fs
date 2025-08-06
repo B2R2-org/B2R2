@@ -50,23 +50,23 @@ module ByteArray =
     |> Seq.mapi (fun i j -> i, j)
     |> Seq.filter (fun (i, _) -> i % 2 = 0)
     |> Seq.map (fun (_, j) ->
-      Byte.Parse (String (j), NumberStyles.AllowHexSpecifier))
+      Byte.Parse(String(j), NumberStyles.AllowHexSpecifier))
     |> Array.ofSeq
 
   /// Read int32 from the given byte array at the given offset.
   [<CompiledName "ReadInt32">]
   let readInt32 (bs: ByteArray) offset =
     try
-      let span = ReadOnlySpan (bs, offset, 4)
+      let span = ReadOnlySpan(bs, offset, 4)
       MemoryMarshal.Read<int> span |> Ok
     with _ ->
       Error ErrorCase.InvalidMemoryRead
 
   let rec private extractCStringFromSpanAux span (acc: StringBuilder) offset =
-    if offset >= (span: ReadOnlySpan<byte>).Length then acc.ToString ()
+    if offset >= (span: ReadOnlySpan<byte>).Length then acc.ToString()
     else
       match span[offset] with
-      | 0uy -> acc.ToString ()
+      | 0uy -> acc.ToString()
       | b -> extractCStringFromSpanAux span (char b |> acc.Append) (offset + 1)
 
   /// Extract a C-string (string that ends with a NULL char) from a byte array.
@@ -79,7 +79,7 @@ module ByteArray =
   [<CompiledName "ExtractCStringFromSpan">]
   let extractCStringFromSpan (span: ReadOnlySpan<byte>) offset =
     if span.Length = 0 || span.Length <= offset then ""
-    else extractCStringFromSpanAux span (StringBuilder ()) offset
+    else extractCStringFromSpanAux span (StringBuilder()) offset
 
   let private makeDelta1 pattern patlen =
     let delta1 = Array.create 256 patlen
@@ -125,7 +125,7 @@ module ByteArray =
   let rec private searchOne i (buf: ByteArray) pattern (d1: int[]) (d2: int[]) =
     if i < buf.Length then
       let struct (i, j) = getMatch pattern buf (i, pattern.Length - 1)
-      if j < 0 then Some (i + 1)
+      if j < 0 then Some(i + 1)
       else searchOne (i + max d1[int buf[i]] d2[j]) buf pattern d1 d2
     else None
 
@@ -138,7 +138,6 @@ module ByteArray =
       | Some j -> searchAll (j + patlen) (j :: ret)
       | None -> ret
     searchAll (patlen - 1) []
-
 
   /// Find and return the offsets of all the matching byte positions. The final
   /// byte positions are adjusted by the given offset.

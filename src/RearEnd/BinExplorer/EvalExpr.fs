@@ -30,7 +30,7 @@ open SimpleArithHelper
 open SimpleArithConverter
 open B2R2.RearEnd.Utils
 
-type SimpleArithEvaluator () =
+type SimpleArithEvaluator() =
   /// Concatenating given array of strings. Returning place of error when there
   /// is space between digits of number.
   let concatenate arg =
@@ -84,9 +84,9 @@ type SimpleArithEvaluator () =
 
   let processArithmetic str representation =
     match run SimpleArithParser.expr str with
-    | Success (v, _, p) ->
+    | Success(v, _, p) ->
       postProcess str v p representation
-    | Failure (v, _, _) ->
+    | Failure(v, _, _) ->
       [| v |]
 
   let processASCIIError str (position: Position) =
@@ -96,15 +96,15 @@ type SimpleArithEvaluator () =
 
   let processASCIICharacters str =
     match SimpleArithASCIIParser.run str with
-    | Success (v, _, position) ->
+    | Success(v, _, position) ->
       if position.Column <> int64 (str.Length + 1) then
         processASCIIError str position
       else
         processBytes v
-    | Failure (v, _, _) ->
+    | Failure(v, _, _) ->
       [| v |]
 
-  member _.Run args representation =
+  member _.Run(args, representation) =
     let str, err = concatenate args
     if err = 0 then
       if representation = CharacterF then
@@ -116,10 +116,10 @@ type SimpleArithEvaluator () =
       let space = sprintf "%*s^" err ""
       [| result + space + "\n" + "Expecting: Digit or Operator" |]
 
-type CmdEvalExpr (name, alias, descrSuffix, helpSuffix, outFormat) =
-  inherit Cmd ()
+type CmdEvalExpr(name, alias, descrSuffix, helpSuffix, outFormat) =
+  inherit Cmd()
 
-  let evaluator = SimpleArithEvaluator ()
+  let evaluator = SimpleArithEvaluator()
 
   override _.CmdName = name
 
@@ -135,8 +135,8 @@ type CmdEvalExpr (name, alias, descrSuffix, helpSuffix, outFormat) =
 
   override _.SubCommands = []
 
-  override this.CallBack _ _ args =
+  override this.CallBack(_, _, args) =
     match args with
     | [] -> [| this.CmdHelp |]
-    | _ -> evaluator.Run args outFormat
+    | _ -> evaluator.Run(args, outFormat)
     |> Array.map OutputNormal

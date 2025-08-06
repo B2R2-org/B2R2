@@ -184,4 +184,5 @@ type DWOperation =
 [<RequireQualifiedAccess>]
 module internal DWOperation =
   open LanguagePrimitives
+
   let parse (b: byte) = EnumOfValue<byte, DWOperation> b

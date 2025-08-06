@@ -28,25 +28,25 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Basic block type for a call graph (CallCFG).
-type CallBasicBlock (addr, name, isExternal) =
+type CallBasicBlock(addr, name, isExternal) =
   /// Return the `ICallBasicBlock` interface to access the internal
   /// representation of the basic block.
   member this.Internals with get() = this :> ICallBasicBlock
 
-  member _.Name with get () = name
+  member _.Name with get() = name
 
-  member _.IsExternal with get () = isExternal
+  member _.IsExternal with get() = isExternal
 
-  override _.ToString () = $"{nameof CallBasicBlock}({addr:x})"
+  override _.ToString() = $"{nameof CallBasicBlock}({addr:x})"
 
   interface ICallBasicBlock with
-    member _.PPoint with get() = ProgramPoint (addr, 0)
+    member _.PPoint with get() = ProgramPoint(addr, 0)
 
-    member _.Range = AddrRange (addr)
+    member _.Range = AddrRange(addr)
 
     member _.BlockAddress with get() = addr
 
-    member _.Visualize () =
+    member _.Visualize() =
       [| [| { AsmWordKind = AsmWordKind.Address
               AsmWordValue = Addr.toString WordSize.Bit32 addr }
             { AsmWordKind = AsmWordKind.String

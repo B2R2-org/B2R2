@@ -33,34 +33,33 @@ open B2R2.FrontEnd.BinFile.PE.PEUtils
 open B2R2.FrontEnd.BinLifter
 
 /// Main PE format representation.
-type PE = {
-  /// PE headers.
-  PEHeaders: PEHeaders
-  /// Image base address.
-  BaseAddr: Addr
-  /// Section headers.
-  SectionHeaders: SectionHeader[]
-  /// RVA to imported symbol.
-  ImportedSymbols: Map<int, ImportedSymbol>
-  /// Exported symbols.
-  ExportedSymbols: ExportedSymbolStore
-  /// List of relocation blocks
-  RelocBlocks: BaseRelocationBlock list
-  /// Word size for the binary.
-  WordSize: WordSize
-  /// Symbol information.
-  Symbols: SymbolStore
-  /// Invalid address ranges.
-  InvalidAddrRanges: IntervalSet
-  /// Not-in-file address ranges.
-  NotInFileRanges: IntervalSet
-  /// Executable address ranges.
-  ExecutableRanges: IntervalSet
-  /// A function for finding section index for a given rva (int).
-  FindSectionIdxFromRVA: int -> int
-  /// BinReader
-  BinReader: IBinReader
-}
+type PE =
+  { /// PE headers.
+    PEHeaders: PEHeaders
+    /// Image base address.
+    BaseAddr: Addr
+    /// Section headers.
+    SectionHeaders: SectionHeader[]
+    /// RVA to imported symbol.
+    ImportedSymbols: Map<int, ImportedSymbol>
+    /// Exported symbols.
+    ExportedSymbols: ExportedSymbolStore
+    /// List of relocation blocks
+    RelocBlocks: BaseRelocationBlock list
+    /// Word size for the binary.
+    WordSize: WordSize
+    /// Symbol information.
+    Symbols: SymbolStore
+    /// Invalid address ranges.
+    InvalidAddrRanges: IntervalSet
+    /// Not-in-file address ranges.
+    NotInFileRanges: IntervalSet
+    /// Executable address ranges.
+    ExecutableRanges: IntervalSet
+    /// A function for finding section index for a given rva (int).
+    FindSectionIdxFromRVA: int -> int
+    /// BinReader
+    BinReader: IBinReader }
 
 let [<Literal>] SecText = ".text"
 
@@ -113,12 +112,12 @@ let getImportTable pe =
   pe.ImportedSymbols
   |> Map.fold (fun acc addr info ->
        match info with
-       | ByOrdinal (ord, dllname) ->
+       | ByOrdinal(ord, dllname) ->
          { FuncName = "#" + ord.ToString()
            LibraryName = dllname
            TrampolineAddress = 0UL
            TableAddress = addrFromRVA pe.BaseAddr addr } :: acc
-       | ByName (_, fname, dllname) ->
+       | ByName(_, fname, dllname) ->
          { FuncName = fname
            LibraryName = dllname
            TrampolineAddress = 0UL
@@ -139,14 +138,14 @@ let getSecPermission (chr: SectionCharacteristics) =
 let private findSymFromIAT addr pe =
   let rva = int (addr - pe.BaseAddr)
   match Map.tryFind rva pe.ImportedSymbols with
-  | Some (ByName (_, n, _)) -> Some n
+  | Some(ByName(_, n, _)) -> Some n
   | _ -> None
 
 let private findSymFromEAT addr pe () =
   match pe.ExportedSymbols.TryFind addr with
   | None -> None
   | Some [] -> None
-  | Some (n :: _) -> Some n
+  | Some(n :: _) -> Some n
 
 let tryFindSymbolFromBinary pe addr =
   match findSymFromIAT addr pe
@@ -175,10 +174,10 @@ let inline isExecutableAddr pe addr =
   IntervalSet.containsAddr addr pe.ExecutableRanges
 
 let peMachineToISA = function
-  | Machine.I386 -> ISA (Architecture.Intel, WordSize.Bit32)
-  | Machine.Amd64 | Machine.IA64 -> ISA (Architecture.Intel, WordSize.Bit64)
-  | Machine.Arm -> ISA (Architecture.ARMv7, WordSize.Bit32)
-  | Machine.Arm64 -> ISA (Architecture.ARMv8, WordSize.Bit64)
+  | Machine.I386 -> ISA(Architecture.Intel, WordSize.Bit32)
+  | Machine.Amd64 | Machine.IA64 -> ISA(Architecture.Intel, WordSize.Bit64)
+  | Machine.Arm -> ISA(Architecture.ARMv7, WordSize.Bit32)
+  | Machine.Arm64 -> ISA(Architecture.ARMv8, WordSize.Bit64)
   | _ -> raise InvalidISAException
 
 let peHeadersToISA (peHeaders: PEHeaders) =
@@ -197,8 +196,8 @@ let peHeadersToISA (peHeaders: PEHeaders) =
 /// return an Error.
 let getISA (bytes: byte[]) =
   try
-    use stream = new MemoryStream (bytes)
-    use reader = new PEReader (stream, PEStreamOptions.Default)
+    use stream = new MemoryStream(bytes)
+    use reader = new PEReader(stream, PEStreamOptions.Default)
     peHeadersToISA reader.PEHeaders |> Ok
   with _ ->
     Error ErrorCase.InvalidFormat

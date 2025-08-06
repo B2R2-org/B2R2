@@ -29,79 +29,79 @@ type RelocationKind = RelocationKind of arch: MachineType * relocValue: uint64
 with
   /// Creates a generic RelocationKind from a relocation kind of x86
   /// architecture.
-  static member Create (reloc: RelocationX86) =
-    RelocationKind (MachineType.EM_386, uint64 reloc)
+  static member Create(reloc: RelocationX86) =
+    RelocationKind(MachineType.EM_386, uint64 reloc)
 
   /// Creates a generic RelocationKind from a relocation kind of x86-64
-  static member Create (reloc: RelocationX64) =
-    RelocationKind (MachineType.EM_X86_64, uint64 reloc)
+  static member Create(reloc: RelocationX64) =
+    RelocationKind(MachineType.EM_X86_64, uint64 reloc)
 
   /// Creates a generic RelocationKind from a relocation kind of ARMv7
-  static member Create (reloc: RelocationARMv7) =
-    RelocationKind (MachineType.EM_ARM, uint64 reloc)
+  static member Create(reloc: RelocationARMv7) =
+    RelocationKind(MachineType.EM_ARM, uint64 reloc)
 
   /// Creates a generic RelocationKind from a relocation kind of ARMv8
-  static member Create (reloc: RelocationARMv8) =
-    RelocationKind (MachineType.EM_AARCH64, uint64 reloc)
+  static member Create(reloc: RelocationARMv8) =
+    RelocationKind(MachineType.EM_AARCH64, uint64 reloc)
 
   /// Creates a generic RelocationKind from a relocation kind of MIPS
-  static member Create (reloc: RelocationMIPS) =
-    RelocationKind (MachineType.EM_MIPS, uint64 reloc)
+  static member Create(reloc: RelocationMIPS) =
+    RelocationKind(MachineType.EM_MIPS, uint64 reloc)
 
   /// Creates a generic RelocationKind from a relocation kind of S390
-  static member Create (reloc: RelocationS390) =
-    RelocationKind (MachineType.EM_S390, uint64 reloc)
+  static member Create(reloc: RelocationS390) =
+    RelocationKind(MachineType.EM_S390, uint64 reloc)
 
   /// Creates a generic RelocationKind from a relocation kind of SH4
-  static member Create (reloc: RelocationSH4) =
-    RelocationKind (MachineType.EM_SH, uint64 reloc)
+  static member Create(reloc: RelocationSH4) =
+    RelocationKind(MachineType.EM_SH, uint64 reloc)
 
   /// Creates a generic RelocationKind from a relocation kind of RISCV
-  static member Create (reloc: RelocationRISCV) =
-    RelocationKind (MachineType.EM_RISCV, uint64 reloc)
+  static member Create(reloc: RelocationRISCV) =
+    RelocationKind(MachineType.EM_RISCV, uint64 reloc)
 
   /// Creates a generic RelocationKind from a relocation kind of PowerPC
-  static member Create (reloc: RelocationPPC32) =
-    RelocationKind (MachineType.EM_PPC, uint64 reloc)
+  static member Create(reloc: RelocationPPC32) =
+    RelocationKind(MachineType.EM_PPC, uint64 reloc)
 
   /// Creates a generic RelocationKind from a relocation kind of PARISC
-  static member Create (reloc: RelocationPARISC) =
-    RelocationKind (MachineType.EM_PARISC, uint64 reloc)
+  static member Create(reloc: RelocationPARISC) =
+    RelocationKind(MachineType.EM_PARISC, uint64 reloc)
 
   /// Converts a relocation kind to a string representation.
-  static member ToString (RelocationKind (arch, relocValue))=
+  static member ToString(RelocationKind(arch, relocValue))=
     match arch with
     | MachineType.EM_386 ->
       let kind: RelocationX86 = LanguagePrimitives.EnumOfValue relocValue
-      kind.ToString ()
+      kind.ToString()
     | MachineType.EM_X86_64 ->
       let kind: RelocationX64 = LanguagePrimitives.EnumOfValue relocValue
-      kind.ToString ()
+      kind.ToString()
     | MachineType.EM_ARM ->
       let kind: RelocationARMv7 = LanguagePrimitives.EnumOfValue relocValue
-      kind.ToString ()
+      kind.ToString()
     | MachineType.EM_AARCH64 ->
       let kind: RelocationARMv8 = LanguagePrimitives.EnumOfValue relocValue
-      kind.ToString ()
+      kind.ToString()
     | MachineType.EM_MIPS
     | MachineType.EM_MIPS_RS3_LE ->
       let kind: RelocationMIPS = LanguagePrimitives.EnumOfValue relocValue
-      kind.ToString ()
+      kind.ToString()
     | MachineType.EM_S390 ->
       let kind: RelocationS390 = LanguagePrimitives.EnumOfValue relocValue
-      kind.ToString ()
+      kind.ToString()
     | MachineType.EM_SH ->
       let kind: RelocationSH4 = LanguagePrimitives.EnumOfValue relocValue
-      kind.ToString ()
+      kind.ToString()
     | MachineType.EM_RISCV ->
       let kind: RelocationRISCV = LanguagePrimitives.EnumOfValue relocValue
-      kind.ToString ()
+      kind.ToString()
     | MachineType.EM_PPC ->
       let kind: RelocationPPC32 = LanguagePrimitives.EnumOfValue relocValue
-      kind.ToString ()
+      kind.ToString()
     | MachineType.EM_PARISC ->
       let kind: RelocationPARISC = LanguagePrimitives.EnumOfValue relocValue
-      kind.ToString ()
+      kind.ToString()
     | _ -> invalidArg (nameof arch) "Unsupported architecture for relocation."
 
 /// Represents a relocation type for x86.
@@ -745,7 +745,7 @@ and RelocationPARISC =
 [<AutoOpen>]
 module RelocationKind =
   [<return: Struct>]
-  let (|RelocationKindX86|_|) (RelocationKind (arch, relocValue)) =
+  let (|RelocationKindX86|_|) (RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_386 ->
       let reloc: RelocationX86 = LanguagePrimitives.EnumOfValue relocValue
@@ -753,7 +753,7 @@ module RelocationKind =
     | _ -> ValueNone
 
   [<return: Struct>]
-  let (|RelocationKindX64|_|) (RelocationKind (arch, relocValue)) =
+  let (|RelocationKindX64|_|) (RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_X86_64 ->
       let reloc: RelocationX64 = LanguagePrimitives.EnumOfValue relocValue
@@ -761,7 +761,7 @@ module RelocationKind =
     | _ -> ValueNone
 
   [<return: Struct>]
-  let (|RelocationKindARMv7|_|) (RelocationKind (arch, relocValue)) =
+  let (|RelocationKindARMv7|_|) (RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_ARM ->
       let reloc: RelocationARMv7 = LanguagePrimitives.EnumOfValue relocValue
@@ -769,7 +769,7 @@ module RelocationKind =
     | _ -> ValueNone
 
   [<return: Struct>]
-  let (|RelocationKindARMv8|_|) (RelocationKind (arch, relocValue)) =
+  let (|RelocationKindARMv8|_|) (RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_AARCH64 ->
       let reloc: RelocationARMv8 = LanguagePrimitives.EnumOfValue relocValue
@@ -777,7 +777,7 @@ module RelocationKind =
     | _ -> ValueNone
 
   [<return: Struct>]
-  let (|RelocationKindMIPS|_|) (RelocationKind (arch, relocValue)) =
+  let (|RelocationKindMIPS|_|) (RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_MIPS ->
       let reloc: RelocationMIPS = LanguagePrimitives.EnumOfValue relocValue
@@ -785,7 +785,7 @@ module RelocationKind =
     | _ -> ValueNone
 
   [<return: Struct>]
-  let (|RelocationKindS390|_|) (RelocationKind (arch, relocValue)) =
+  let (|RelocationKindS390|_|) (RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_S390 ->
       let reloc: RelocationS390 = LanguagePrimitives.EnumOfValue relocValue
@@ -793,7 +793,7 @@ module RelocationKind =
     | _ -> ValueNone
 
   [<return: Struct>]
-  let (|RelocationKindSH4|_|) (RelocationKind (arch, relocValue)) =
+  let (|RelocationKindSH4|_|) (RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_SH ->
       let reloc: RelocationSH4 = LanguagePrimitives.EnumOfValue relocValue
@@ -801,7 +801,7 @@ module RelocationKind =
     | _ -> ValueNone
 
   [<return: Struct>]
-  let (|RelocationKindRISCV|_|) (RelocationKind (arch, relocValue)) =
+  let (|RelocationKindRISCV|_|) (RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_RISCV ->
       let reloc: RelocationRISCV = LanguagePrimitives.EnumOfValue relocValue
@@ -809,7 +809,7 @@ module RelocationKind =
     | _ -> ValueNone
 
   [<return: Struct>]
-  let (|RelocationKindPPC32|_|) (RelocationKind (arch, relocValue)) =
+  let (|RelocationKindPPC32|_|) (RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_PPC ->
       let reloc: RelocationPPC32 = LanguagePrimitives.EnumOfValue relocValue
@@ -817,7 +817,7 @@ module RelocationKind =
     | _ -> ValueNone
 
   [<return: Struct>]
-  let (|RelocationKindPARISC|_|) (RelocationKind (arch, relocValue)) =
+  let (|RelocationKindPARISC|_|) (RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_PARISC ->
       let reloc: RelocationPARISC = LanguagePrimitives.EnumOfValue relocValue

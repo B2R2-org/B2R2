@@ -59,14 +59,14 @@ and IDominanceFrontierProvider<'V, 'E when 'V: equality and 'E: equality> =
 /// children are those nodes it immediately dominates.
 and DominatorTree<'V, 'E when 'V: equality
                           and 'E: equality>
-  public (g: IDiGraphAccessible<'V, 'E>, getIDom: IVertex<'V> -> IVertex<'V>) =
+  public(g: IDiGraphAccessible<'V, 'E>, getIDom: IVertex<'V> -> IVertex<'V>) =
 
-  let domTree = Dictionary<IVertex<'V>, List<IVertex<'V>>> ()
+  let domTree = Dictionary<IVertex<'V>, List<IVertex<'V>>>()
   let dummyRoot = GraphUtils.makeDummyVertex ()
 
   do
-    domTree[dummyRoot] <- List ()
-    g.IterVertex (fun v ->
+    domTree[dummyRoot] <- List()
+    g.IterVertex(fun v ->
       let idom = getIDom v
       if isNull idom then domTree[dummyRoot].Add v
       elif domTree.ContainsKey idom then domTree[idom].Add v
@@ -74,10 +74,10 @@ and DominatorTree<'V, 'E when 'V: equality
 
   /// Get the dummy root. Dummy root points to all the roots of the dominator
   /// tree.
-  member _.GetRoot () = dummyRoot
+  member _.GetRoot() = dummyRoot
 
   /// Get the children of a vertex in the dominator tree.
-  member _.GetChildren (v: IVertex<'V>) =
+  member _.GetChildren(v: IVertex<'V>) =
     match domTree.TryGetValue v with
     | true, children -> children
-    | false, _ -> List ()
+    | false, _ -> List()

@@ -34,7 +34,7 @@ open B2R2.FrontEnd.MIPS
 open type Register
 
 [<TestClass>]
-type LifterTests () =
+type LifterTests() =
   let checkOverflowOnAdd e1 e2 r =
     let e1High = AST.extract e1 1<rt> 31
     let e2High = AST.extract e2 1<rt> 31
@@ -49,17 +49,17 @@ type LifterTests () =
   let test (isa: ISA) (bytes: byte[], givenStmts) =
     let reader = BinReader.Init isa.Endian
     let regFactory = RegisterFactory isa.WordSize
-    let builder = LowUIRBuilder (isa, regFactory, LowUIRStream ())
-    let parser = MIPSParser (isa, reader) :> IInstructionParsable
-    let ins = parser.Parse (bytes, 0UL)
-    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate builder)
+    let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
+    let parser = MIPSParser(isa, reader) :> IInstructionParsable
+    let ins = parser.Parse(bytes, 0UL)
+    CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
 
   [<TestMethod>]
-  member _.``[MIPS64] ADD lift test`` () =
-    let isa = ISA (Architecture.MIPS, Endian.Big, WordSize.Bit64)
+  member _.``[MIPS64] ADD lift test``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
     let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
     let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
-    let stream = LowUIRStream ()
+    let stream = LowUIRStream()
     let lblL0 = stream.NewLabel "L0"
     let lblL1 = stream.NewLabel "L1"
     let lblEnd = stream.NewLabel "End"
@@ -76,11 +76,11 @@ type LifterTests () =
     |> test isa
 
   [<TestMethod>]
-  member _.``[MIPS32] ADD lift test`` () =
-    let isa = ISA (Architecture.MIPS, Endian.Big, WordSize.Bit32)
+  member _.``[MIPS32] ADD lift test``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
     let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
     let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
-    let stream = LowUIRStream ()
+    let stream = LowUIRStream()
     let lblL0 = stream.NewLabel "L0"
     let lblL1 = stream.NewLabel "L1"
     let lblEnd = stream.NewLabel "End"

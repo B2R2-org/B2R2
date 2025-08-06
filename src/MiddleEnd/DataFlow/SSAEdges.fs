@@ -33,9 +33,9 @@ type private SSAStmtLocation = VertexID * int
 
 /// Represents SSA edges in a CFG.
 [<AllowNullLiteral>]
-type SSAEdges (ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
-  let uses = Dictionary<SSA.Variable, Set<SSAStmtLocation>> ()
-  let defs = Dictionary<SSA.Variable, SSA.Stmt> ()
+type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
+  let uses = Dictionary<SSA.Variable, Set<SSAStmtLocation>>()
+  let defs = Dictionary<SSA.Variable, SSA.Stmt>()
 
   let addUse var loc =
     match uses.TryGetValue var with
@@ -57,61 +57,61 @@ type SSAEdges (ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
     match expr with
     | SSA.Var v ->
       addUse v loc
-    | SSA.Load (mem, _, addr) ->
+    | SSA.Load(mem, _, addr) ->
       addUse mem loc
       computeUses loc addr
-    | SSA.Store (mem, _, addr, v) ->
+    | SSA.Store(mem, _, addr, v) ->
       addUse mem loc
       computeUses loc addr
       computeUses loc v
-    | SSA.UnOp (_, _, e) ->
+    | SSA.UnOp(_, _, e) ->
       computeUses loc e
-    | SSA.BinOp (_, _, e1, e2) ->
+    | SSA.BinOp(_, _, e1, e2) ->
       computeUses loc e1
       computeUses loc e2
-    | SSA.RelOp (_, _, e1, e2) ->
+    | SSA.RelOp(_, _, e1, e2) ->
       computeUses loc e1
       computeUses loc e2
-    | SSA.Ite (cond, _, e1, e2) ->
+    | SSA.Ite(cond, _, e1, e2) ->
       computeUses loc cond
       computeUses loc e1
       computeUses loc e2
-    | SSA.Cast (_, _, e) ->
+    | SSA.Cast(_, _, e) ->
       computeUses loc e
-    | SSA.Extract (e, _, _) ->
+    | SSA.Extract(e, _, _) ->
       computeUses loc e
     | _ -> ()
 
   /// Compute SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
   /// given ssa var, this function returns a set of SSA-edge destination.
   let compute (ssaCFG: IDiGraphAccessible<SSABasicBlock, _>) =
-    ssaCFG.IterVertex (fun v ->
+    ssaCFG.IterVertex(fun v ->
       let vid = v.ID
       for idx = 0 to v.VData.Internals.Statements.Length - 1 do
         let stmt = snd v.VData.Internals.Statements[idx]
         match stmt with
         | SSA.LMark _ -> ()
-        | SSA.ExternalCall (expr, inVars, outVars) ->
+        | SSA.ExternalCall(expr, inVars, outVars) ->
           let loc = vid, idx
           computeUses loc expr
           addDefs outVars stmt
           addUses inVars loc
         | SSA.SideEffect _ -> ()
-        | SSA.Jmp (SSA.IntraJmp _) -> ()
-        | SSA.Jmp (SSA.IntraCJmp (cond, _, _)) ->
+        | SSA.Jmp(SSA.IntraJmp _) -> ()
+        | SSA.Jmp(SSA.IntraCJmp(cond, _, _)) ->
           computeUses (vid, idx) cond
-        | SSA.Jmp (SSA.InterJmp (target)) ->
+        | SSA.Jmp(SSA.InterJmp(target)) ->
           computeUses (vid, idx) target
-        | SSA.Jmp (SSA.InterCJmp (cond, t1, t2)) ->
+        | SSA.Jmp(SSA.InterCJmp(cond, t1, t2)) ->
           let loc = vid, idx
           computeUses loc cond
           computeUses loc t1
           computeUses loc t2
-        | SSA.Def (v, e) ->
+        | SSA.Def(v, e) ->
           let loc = vid, idx
           addDef v stmt
           computeUses loc e
-        | SSA.Phi (v, ns) ->
+        | SSA.Phi(v, ns) ->
           let loc = vid, idx
           addDef v stmt
           ns

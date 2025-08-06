@@ -33,34 +33,34 @@ type RecoveryMission<'FnCtx,
                      'GlCtx when 'FnCtx :> IResettable
                              and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>) =
+  public(strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>) =
 
-  member _.Execute (builders: CFGBuilderTable<_, _>) =
+  member _.Execute(builders: CFGBuilderTable<_, _>) =
     let numThreads = Environment.ProcessorCount / 2
-    let manager = TaskManager<'FnCtx, 'GlCtx> (builders, strategy, numThreads)
+    let manager = TaskManager<'FnCtx, 'GlCtx>(builders, strategy, numThreads)
 #if CFGDEBUG
     initLogger numThreads
 #endif
-    manager.Start ()
+    manager.Start()
 
 /// Task manager for control flow analysis.
 and private TaskManager<'FnCtx,
                         'GlCtx when 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
                                 and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (builders: CFGBuilderTable<'FnCtx, 'GlCtx>,
-          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
-          numThreads) =
+  public(builders: CFGBuilderTable<'FnCtx, 'GlCtx>,
+         strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
+         numThreads) =
 
-  let stream = TaskWorkerCommandStream<'FnCtx, 'GlCtx> ()
+  let stream = TaskWorkerCommandStream<'FnCtx, 'GlCtx>()
 
-  let cts = new CancellationTokenSource ()
+  let cts = new CancellationTokenSource()
 
-  let depMap = FunctionDependenceMap ()
+  let depMap = FunctionDependenceMap()
 
-  let scheduler = TaskScheduler<_, _> (builders, strategy, stream, depMap)
+  let scheduler = TaskScheduler<_, _>(builders, strategy, stream, depMap)
 
-  let managerMsgbox = scheduler.Start (cts.Token)
+  let managerMsgbox = scheduler.Start(cts.Token)
 
   let workers =
     Array.init numThreads (fun idx ->
@@ -71,14 +71,14 @@ and private TaskManager<'FnCtx,
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
-  member _.Start () =
+  member _.Start() =
     match strategy.FindCandidates builders.Values with
-    | [||] -> scheduler.Terminate ()
+    | [||] -> scheduler.Terminate()
     | candidates ->
       for addr in candidates do
-        let builder = builders.GetOrCreateBuilder managerMsgbox addr
+        let builder = builders.GetOrCreateBuilder(managerMsgbox, addr)
         if builder.IsExternal then ()
-        else builders.Reload builder managerMsgbox
+        else builders.Reload(builder, managerMsgbox)
       (* Tasks should be added at last to avoid a race for builders. *)
       for addr in candidates do scheduler.StartBuilding addr done
     waitForWorkers ()
@@ -95,28 +95,28 @@ and private TaskWorker<'FnCtx,
                        'GlCtx when 'FnCtx :> IResettable
                                and 'FnCtx: (new: unit -> 'FnCtx)
                                and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (tid: int,
-          scheduler: TaskScheduler<'FnCtx, 'GlCtx>,
-          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
-          stream: TaskWorkerCommandStream<'FnCtx, 'GlCtx>,
-          token) =
+  public(tid: int,
+         scheduler: TaskScheduler<'FnCtx, 'GlCtx>,
+         strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
+         stream: TaskWorkerCommandStream<'FnCtx, 'GlCtx>,
+         token) =
 
   let mutable doContinue = true
 
   let worker = task {
     while doContinue do
-      match! stream.Receive (token) with
+      match! stream.Receive(token) with
       | NotAvailable -> doContinue <- false
       | AvailableButNotReceived -> ()
-      | Received (BuildCFG builder) ->
+      | Received(BuildCFG builder) ->
         builder.Context.ThreadID <- tid
         try
           let res = builder.Build strategy
-          scheduler.PostCommand <| ReportCFGResult (builder.EntryPoint, res)
+          scheduler.PostCommand <| ReportCFGResult(builder.EntryPoint, res)
         with e ->
           Console.Error.WriteLine $"Worker ({tid}) failed:\n{e}"
           let failure = FailStop ErrorCase.UnexpectedError
-          scheduler.PostCommand <| ReportCFGResult (builder.EntryPoint, failure)
+          scheduler.PostCommand <| ReportCFGResult(builder.EntryPoint, failure)
 #if CFGDEBUG
         flushLog tid
 #endif

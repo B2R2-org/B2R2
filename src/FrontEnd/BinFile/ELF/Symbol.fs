@@ -27,41 +27,40 @@ namespace B2R2.FrontEnd.BinFile.ELF
 open B2R2
 
 /// Represents the symbol type of ELF.
-type Symbol = {
-  /// Address of the symbol.
-  Addr: Addr
-  /// Symbol's name.
-  SymName: string
-  /// Size of the symbol (e.g., size of the data object).
-  Size: uint64
-  /// Symbol binding.
-  Bind: SymbolBind
-  /// Symbol type.
-  SymType: SymbolType
-  /// Symbol visibility.
-  Vis: SymbolVisibility
-  /// The index of the relevant section with regard to this symbol.
-  SecHeaderIndex: SectionHeaderIdx
-  /// Parent section of this section.
-  ParentSection: SectionHeader option
-  /// Version information.
-  VerInfo: SymVerInfo option
-  /// ARM32-specific linker symbol type.
-  ARMLinkerSymbol: ARMLinkerSymbol
-}
+type Symbol =
+  { /// Address of the symbol.
+    Addr: Addr
+    /// Symbol's name.
+    SymName: string
+    /// Size of the symbol (e.g., size of the data object).
+    Size: uint64
+    /// Symbol binding.
+    Bind: SymbolBind
+    /// Symbol type.
+    SymType: SymbolType
+    /// Symbol visibility.
+    Vis: SymbolVisibility
+    /// The index of the relevant section with regard to this symbol.
+    SecHeaderIndex: SectionHeaderIdx
+    /// Parent section of this section.
+    ParentSection: SectionHeader option
+    /// Version information.
+    VerInfo: SymVerInfo option
+    /// ARM32-specific linker symbol type.
+    ARMLinkerSymbol: ARMLinkerSymbol }
 with
   /// Checks if the given symbol is a function symbol.
-  static member inline IsFunction (s: Symbol) =
+  static member inline IsFunction(s: Symbol) =
     s.SymType = SymbolType.STT_FUNC || s.SymType = SymbolType.STT_GNU_IFUNC
 
   /// Checks if the given symbol is defined. A symbol is defined if it has a
   /// section header index that is not SHN_UNDEF.
-  static member inline IsDefined (s: Symbol) =
+  static member inline IsDefined(s: Symbol) =
     s.SecHeaderIndex <> SHN_UNDEF
 
   /// Returns the library name of the symbol. This is only valid if the symbol
   /// has version information.
-  member this.LibName with get () =
+  member this.LibName with get() =
     match this.VerInfo with
     | Some version -> version.VerName
     | None -> ""
@@ -102,13 +101,12 @@ with
     | SectionIndex n -> $"{n}"
 
 /// Represents the version information of a symbol.
-and SymVerInfo = {
-  /// Is this a hidden symbol? This is a GNU-specific extension indicated as
-  /// VERSYM_HIDDEN.
-  IsHidden: bool
-  /// Version string.
-  VerName: string
-}
+and SymVerInfo =
+  { /// Is this a hidden symbol? This is a GNU-specific extension indicated as
+    /// VERSYM_HIDDEN.
+    IsHidden: bool
+    /// Version string.
+    VerName: string }
 
 /// Represents an ARM-specific symbol type for ELF binaries, which are used to
 /// distinguish between ARM and Thumb instructions. For other CPU architectures,

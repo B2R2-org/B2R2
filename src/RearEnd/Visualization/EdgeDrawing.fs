@@ -29,27 +29,24 @@ open B2R2
 open B2R2.MiddleEnd.BinGraph
 
 /// Very simple Box record consisting of four corner points.
-type private Box = {
-  TopLeft: VisPosition
-  TopRight: VisPosition
-  BottomLeft: VisPosition
-  BottomRight: VisPosition
-  IsVirtual: bool
-}
+type private Box =
+  { TopLeft: VisPosition
+    TopRight: VisPosition
+    BottomLeft: VisPosition
+    BottomRight: VisPosition
+    IsVirtual: bool }
 
 /// An intersecting line between two boxes.
-type private Line = {
-  Left: VisPosition
-  Right: VisPosition
-}
+type private Line =
+  { Left: VisPosition
+    Right: VisPosition }
 
 /// Categorized edges.
-type private PartitionedEdges = {
-  ForwardEdges: VisEdge list
-  BackEdgesFromLeft: VisEdge list
-  BackEdgesFromRight: VisEdge list
-  SelfLoops: VisEdge list
-}
+type private PartitionedEdges =
+  { ForwardEdges: VisEdge list
+    BackEdgesFromLeft: VisEdge list
+    BackEdgesFromRight: VisEdge list
+    SelfLoops: VisEdge list }
 
 let private emptyPartitionedEdges =
   { ForwardEdges = []
@@ -84,10 +81,10 @@ let [<Literal>] private LayerHeightExpansionThreshold = 15
 let inline private isDummy (v: IVertex<VisBBlock>) = v.VData.IsDummy
 
 let private restoreBackEdge (g: VisGraph) (src, dst, edge: VisEdge) =
-  match g.TryFindEdge (dst, src) with
-  | Some e when e.Label.IsBackEdge -> g.RemoveEdge (dst, src) |> ignore
+  match g.TryFindEdge(dst, src) with
+  | Some e when e.Label.IsBackEdge -> g.RemoveEdge(dst, src) |> ignore
   | _ -> ()
-  g.AddEdge (src, dst, edge) |> ignore
+  g.AddEdge(src, dst, edge) |> ignore
 
 let private restoreBackEdges g backEdgeList =
   List.iter (restoreBackEdge g) backEdgeList
@@ -108,8 +105,8 @@ let private accOriginalEdge g acc (edge: Edge<_, VisEdge>) =
 
 /// Sort vertices by the x-coordinates.
 let private sortLayers vLayout =
-  vLayout |> Array.map (fun layer ->
-    Array.sortBy (fun v -> (VisGraph.getXPos v)) layer)
+  vLayout
+  |> Array.map (fun layer -> Array.sortBy (fun v -> (VisGraph.getXPos v)) layer)
 
 let private countDegree edges (getter: _ -> IVertex<VisBBlock>) v =
   edges
@@ -162,10 +159,10 @@ let private getExitPoint (v: IVertex<VisBBlock>) =
 let private makeVisPos (x, y): VisPosition = { X = x; Y = y }
 
 let private makeBox left right top bottom isVirtual =
-  { TopLeft = makeVisPos (left, top);
-    TopRight = makeVisPos (right, top);
-    BottomLeft = makeVisPos (left, bottom);
-    BottomRight = makeVisPos (right, bottom);
+  { TopLeft = makeVisPos (left, top)
+    TopRight = makeVisPos (right, top)
+    BottomLeft = makeVisPos (left, bottom)
+    BottomRight = makeVisPos (right, bottom)
     IsVirtual = isVirtual }
 
 let private makeDummyBox () = makeBox 0.0 0.0 0.0 0.0 true
@@ -226,14 +223,14 @@ let private computeLayerDiff q r =
 
 let private findDummies q r (edge: VisEdge) dummyMap =
   match (Map.tryFind (q, r) dummyMap) with
-  | Some (_, dummies) ->
+  | Some(_, dummies) ->
     if edge.IsBackEdge then List.rev dummies, false
     else dummies, false
   | None ->
     if not edge.IsBackEdge || (computeLayerDiff q r) = 1 then [], false
     else (* Dummy node deleted. Refer to existing forward edge. *)
       match Map.tryFind (r, q) dummyMap with
-      | Some (_, dummies) -> dummies, true
+      | Some(_, dummies) -> dummies, true
       | None -> [], false
 
 let private computeBoxHeight (box: Box) =
@@ -419,17 +416,17 @@ let private drawRegular g vLayout boxes dummyMap (q, r, edge: VisEdge) =
     ((List.fold2 (fun acc v i ->  i :: v :: acc) [ interLayerBoxes.Head ]
         virtualNodeBoxes interLayerBoxes.Tail) |> List.rev)
   let points = computeRegularEdgePoints isBackEdge dummies boxes q r qBox rBox
-  match (g: VisGraph).TryFindEdge (q, r) with
+  match (g: VisGraph).TryFindEdge(q, r) with
   | None -> (* Imaginary edges for display purposes only *)
-    let newEdge = VisEdge (edge.Type)
+    let newEdge = VisEdge(edge.Type)
     newEdge.IsBackEdge <- isBackEdge
     newEdge.Points <- points
-    g.AddEdge (q, r, newEdge) |> ignore
+    g.AddEdge(q, r, newEdge) |> ignore
   | Some e -> e.Label.Points <- points
 
 let private drawSelfLoop g (v: IVertex<VisBBlock>) =
   let nodeWidth = VisGraph.getWidth v
-  let e = (g: VisGraph).FindEdge (v, v)
+  let e = (g: VisGraph).FindEdge(v, v)
   let startP, endP = getEntryPoint v, getExitPoint v
   let p1 = (fst startP), (snd startP + LastSegLen)
   let p2 = ((fst p1) + nodeWidth / 2.0 + BackEdgeMargin), (snd p1)
@@ -445,12 +442,12 @@ let private drawBoxes g vLayout boxes dummyMap (src, dst, edge) =
 
 let rec private removeDummyLoop (g: VisGraph) src dst points = function
   | dummy :: rest ->
-    let e = g.FindEdge (src, dummy)
-    g.RemoveEdge (src, dummy) |> ignore
+    let e = g.FindEdge(src, dummy)
+    g.RemoveEdge(src, dummy) |> ignore
     removeDummyLoop g dummy dst (points @ e.Label.Points) rest
   | [] ->
-    let e = g.FindEdge (src, dst)
-    g.RemoveEdge (src, dst) |> ignore
+    let e = g.FindEdge(src, dst)
+    g.RemoveEdge(src, dst) |> ignore
     points @ e.Label.Points
 
 let private makeSmooth isBack points =
@@ -470,10 +467,10 @@ let private makeSmooth isBack points =
 
 let private removeDummy g (src, dst) ((edge: VisEdge), dummies) =
   let pts = removeDummyLoop g src dst [] dummies |> makeSmooth edge.IsBackEdge
-  let newEdge = VisEdge (edge.Type)
+  let newEdge = VisEdge(edge.Type)
   newEdge.IsBackEdge <- edge.IsBackEdge
   newEdge.Points <- pts
-  g.AddEdge (src, dst, newEdge) |> ignore
+  g.AddEdge(src, dst, newEdge) |> ignore
   dummies |> List.iter (g.RemoveVertex >> ignore)
 
 let private categorizeEdge isHeadPort acc (q, r, edge: Edge<_, VisEdge>) =
@@ -487,7 +484,7 @@ let private categorizeEdge isHeadPort acc (q, r, edge: Edge<_, VisEdge>) =
       let p1Index, p2Index = if isHeadPort then n - 2, n - 3 else 1, 2
       if points[p2Index].X < points[p1Index].X then
         { acc with BackEdgesFromLeft = edge :: acc.BackEdgesFromLeft }
-      else { acc with BackEdgesFromRight  = edge :: acc.BackEdgesFromRight }
+      else { acc with BackEdgesFromRight = edge :: acc.BackEdgesFromRight }
     else { acc with ForwardEdges = edge :: acc.ForwardEdges }
 
 /// Compute the slope of the given vector q -> r under an assumption: the vector
@@ -578,8 +575,8 @@ let rec private shiftVertically isHeadPort offset = function
 let private giveOffsets (g: VisGraph) (v: IVertex<VisBBlock>) =
   let preds = g.GetPreds v |> Seq.toArray
   let succs = g.GetSuccs v |> Seq.toArray
-  let incoming = preds |> Array.map (fun p -> p, v, g.FindEdge (p, v))
-  let outgoing = succs |> Array.map (fun s -> v, s, g.FindEdge (v, s))
+  let incoming = preds |> Array.map (fun p -> p, v, g.FindEdge(p, v))
+  let outgoing = succs |> Array.map (fun s -> v, s, g.FindEdge(v, s))
   let ins =
     Array.fold (categorizeEdge true) emptyPartitionedEdges incoming
     |> sortPartitions true true
@@ -613,10 +610,10 @@ let private giveOffsets (g: VisGraph) (v: IVertex<VisBBlock>) =
 
 let drawEdges (g: VisGraph) vLayout backEdgeList dummyMap =
   restoreBackEdges g backEdgeList
-  let originalEdgeList = g.FoldEdge (accOriginalEdge g) []
+  let originalEdgeList = g.FoldEdge(accOriginalEdge g, [])
   let vLayoutSorted = sortLayers vLayout
   adjustLayerYPositions originalEdgeList vLayoutSorted
   let boxes = verticesToBoxes2D vLayoutSorted
   List.iter (drawBoxes g vLayoutSorted boxes dummyMap) originalEdgeList
   Map.iter (removeDummy g) dummyMap
-  g.IterVertex (giveOffsets g)
+  g.IterVertex(giveOffsets g)

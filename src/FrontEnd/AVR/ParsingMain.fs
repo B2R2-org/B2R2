@@ -53,10 +53,10 @@ let parse1001001 b32 =
   | 0b1100u | 0b1101u | 0b1110u | 0b1001u | 0b1010u | 0b0001u | 0b0010u ->
     Opcode.ST, parseTwoOpr b32 getMemST getRegD
   | 0b1111u -> Opcode.PUSH, parseOneOpr b32 getRegD
-  | 0b0110u -> Opcode.LAC, TwoOperands (OprReg Z, getRegD b32)
-  | 0b0101u -> Opcode.LAS, TwoOperands (OprReg Z, getRegD b32)
-  | 0b0111u -> Opcode.LAT, TwoOperands (OprReg Z, getRegD b32)
-  | 0b0100u -> Opcode.XCH, TwoOperands (OprReg Z, getRegD b32)
+  | 0b0110u -> Opcode.LAC, TwoOperands(OprReg Z, getRegD b32)
+  | 0b0101u -> Opcode.LAS, TwoOperands(OprReg Z, getRegD b32)
+  | 0b0111u -> Opcode.LAT, TwoOperands(OprReg Z, getRegD b32)
+  | 0b0100u -> Opcode.XCH, TwoOperands(OprReg Z, getRegD b32)
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// 0000 00-- ---- ----
@@ -279,14 +279,14 @@ let parseFourBytes b1=
   | _ -> Opcode.InvalidOp, NoOperand
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
-  let bin = reader.ReadUInt16 (span, 0)
+  let bin = reader.ReadUInt16(span, 0)
   let struct ((op, operands), instrLen) =
     match isTwoBytes bin with
     | true ->
       let bin = uint32 bin
       struct (bin |> parseTwoBytes, 2u)
     | false ->
-      let b2 = reader.ReadUInt16 (span, 2)
+      let b2 = reader.ReadUInt16(span, 2)
       let bin = ((uint32 bin) <<< 16) + (uint32 b2)
       struct (bin |> parseFourBytes, 4u)
-  Instruction (addr, instrLen, op, operands, lifter)
+  Instruction(addr, instrLen, op, operands, lifter)

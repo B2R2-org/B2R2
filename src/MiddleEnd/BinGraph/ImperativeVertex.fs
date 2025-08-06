@@ -30,18 +30,18 @@ open B2R2
 
 /// Imperative vertex.
 type ImperativeVertex<'V when 'V: equality>
-  internal (id, vData: VertexData<'V>) =
-  let preds = List<ImperativeVertex<'V>> ()
-  let succs = List<ImperativeVertex<'V>> ()
+  internal(id, vData: VertexData<'V>) =
+  let preds = List<ImperativeVertex<'V>>()
+  let succs = List<ImperativeVertex<'V>>()
 
   /// Unique identifier of this vertex.
   member _.ID with get() = id
 
   /// List of predecessors.
-  member _.Preds with get () = preds
+  member _.Preds with get() = preds
 
   /// List of successors.
-  member _.Succs with get () = succs
+  member _.Succs with get() = succs
 
   interface IVertex<'V> with
     member _.ID = id
@@ -52,20 +52,20 @@ type ImperativeVertex<'V when 'V: equality>
 
     member _.HasData = not (isNull vData)
 
-    member _.CompareTo (other: obj) =
+    member _.CompareTo(other: obj) =
       match other with
       | :? IVertex<'V> as other -> id.CompareTo other.ID
       | _ -> Terminator.impossible ()
 
   interface System.IFormattable with
-    member _.ToString (_, _) = $"{nameof ImperativeVertex}({vData.ToString ()})"
+    member _.ToString(_, _) = $"{nameof ImperativeVertex}({vData.ToString ()})"
 
-  override _.GetHashCode () = id
+  override _.GetHashCode() = id
 
-  override _.Equals (other) =
+  override _.Equals(other) =
     match other with
     | :? IVertex<'V> as other -> id = other.ID
     | _ -> false
 
-  override this.ToString () =
-    (this :> System.IFormattable).ToString (null, CultureInfo.CurrentCulture)
+  override this.ToString() =
+    (this :> System.IFormattable).ToString(null, CultureInfo.CurrentCulture)

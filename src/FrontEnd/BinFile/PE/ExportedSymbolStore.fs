@@ -46,13 +46,14 @@ module private ExportedSymbolStore =
   open B2R2.FrontEnd.BinFile.PE.PEUtils
 
   let readExportDirectoryTable bs (reader: IBinReader) tbl secs =
-    { ExportDLLName = readStr secs bs (reader.ReadInt32 (span=tbl, offset=12))
-      OrdinalBase = reader.ReadInt32 (tbl, 16)
-      AddressTableEntries = reader.ReadInt32 (tbl, 20)
-      NumNamePointers = reader.ReadInt32 (tbl, 24)
-      ExportAddressTableRVA = reader.ReadInt32 (tbl, 28)
-      NamePointerRVA = reader.ReadInt32 (tbl, 32)
-      OrdinalTableRVA = reader.ReadInt32 (tbl, 36) }
+    { ExportDLLName = readStr secs bs (reader.ReadInt32(span = tbl,
+                                                        offset = 12))
+      OrdinalBase = reader.ReadInt32(tbl, 16)
+      AddressTableEntries = reader.ReadInt32(tbl, 20)
+      NumNamePointers = reader.ReadInt32(tbl, 24)
+      ExportAddressTableRVA = reader.ReadInt32(tbl, 28)
+      NamePointerRVA = reader.ReadInt32(tbl, 32)
+      OrdinalTableRVA = reader.ReadInt32(tbl, 36) }
 
   let inline getEATEntry (lowerBound, upperBound) rva =
     if rva < lowerBound || rva > upperBound then ExportRVA rva
@@ -63,10 +64,10 @@ module private ExportedSymbolStore =
     | 0 -> [||]
     | rva ->
       let offset = getRawOffset secs rva
-      let span = ReadOnlySpan (bytes, offset, edt.AddressTableEntries * 4)
+      let span = ReadOnlySpan(bytes, offset, edt.AddressTableEntries * 4)
       let addrTbl = Array.zeroCreate edt.AddressTableEntries
       for i = 0 to edt.AddressTableEntries - 1 do
-        let rva = reader.ReadInt32 (span, i * 4)
+        let rva = reader.ReadInt32(span, i * 4)
         addrTbl[i] <- getEATEntry range rva
       addrTbl
 
@@ -75,9 +76,9 @@ module private ExportedSymbolStore =
     let rec loop acc cnt pos1 pos2 =
       if cnt = 0 then acc
       else
-        let rva = reader.ReadInt32 (bytes, pos1)
+        let rva = reader.ReadInt32(bytes, pos1)
         let str = readStr secs bytes rva
-        let ord = reader.ReadInt16 (bytes, pos2)
+        let ord = reader.ReadInt16(bytes, pos2)
         loop ((str, ord) :: acc) (cnt - 1) (pos1 + 4) (pos2 + 2)
     if edt.NamePointerRVA = 0 then []
     else
@@ -91,7 +92,7 @@ module private ExportedSymbolStore =
   let decideNameWithTable nameTbl ordBase idx =
     match List.tryFind (fun (_, ord) -> int16 idx = ord) nameTbl with
     | None -> sprintf "#%d" (int16 idx + ordBase) // Exported with an ordinal.
-    | Some (name, _) -> name // ENTP has a corresponding name for this entry.
+    | Some(name, _) -> name // ENTP has a corresponding name for this entry.
 
   let decodeForwardInfo (str: string) =
     let strInfo = str.Split('.')
@@ -107,7 +108,7 @@ module private ExportedSymbolStore =
         let addr = addrFromRVA baseAddr rva
         let name = decideNameWithTable nameTbl ordinalBase idx
         let expMap =
-          if not (Map.containsKey addr expMap) then Map.add addr [name] expMap
+          if not (Map.containsKey addr expMap) then Map.add addr [ name ] expMap
           else Map.add addr (name :: Map.find addr expMap) expMap
         expMap, forwMap
       | ForwarderRVA rva ->
@@ -125,33 +126,32 @@ module private ExportedSymbolStore =
       let size = headers.PEHeader.ExportTableDirectory.Size
       let range = (rva, rva + size)
       let offset = getRawOffset secs rva
-      let tbl = ReadOnlySpan (bytes, offset, size)
+      let tbl = ReadOnlySpan(bytes, offset, size)
       readExportDirectoryTable bytes reader tbl secs
       |> buildExportTable bytes reader baseAddr secs range
 
 /// Represents the exported symbols in a PE file.
-type ExportedSymbolStore private (exportMap, forwardMap) =
+type ExportedSymbolStore private(exportMap, forwardMap) =
 
-  new () =
-    ExportedSymbolStore (Map.empty, Map.empty)
+  new() = ExportedSymbolStore(Map.empty, Map.empty)
 
-  new (baseAddr, bytes, reader, hdrs, secs) =
+  new(baseAddr, bytes, reader, hdrs, secs) =
     let exportMap, forwardMap = parse baseAddr bytes reader hdrs secs
-    ExportedSymbolStore (exportMap, forwardMap)
+    ExportedSymbolStore(exportMap, forwardMap)
 
   /// Returns the addresses of all exported symbols.
-  member _.Addresses with get () = exportMap.Keys
+  member _.Addresses with get() = exportMap.Keys
 
   /// Returns the number of exported symbols.
-  member _.Count with get () = exportMap.Count
+  member _.Count with get() = exportMap.Count
 
   /// Returns the exported symbols as a map from address to symbol names.
-  member _.Exports with get () = exportMap
+  member _.Exports with get() = exportMap
 
   /// Returns the forwarded symbols as a map from forward target name to
   /// a tuple of (binary name, function name).
-  member _.Forwards with get () = forwardMap
+  member _.Forwards with get() = forwardMap
 
   /// Tries to find exported symbol name(s) by the given address.
-  member _.TryFind (addr: Addr) =
+  member _.TryFind(addr: Addr) =
     Map.tryFind addr exportMap

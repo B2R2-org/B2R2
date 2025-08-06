@@ -42,22 +42,22 @@ module CallGraph =
       let fn = brew.Functions[addr]
       let name = fn.Name
       // let ext = fn.FunctionKind <> FunctionKind.Regular
-      let blk = CallBasicBlock (addr, name, false)
+      let blk = CallBasicBlock(addr, name, false)
       let v, g = (g: IDiGraph<_, _>).AddVertex blk
-      vMap.Add (addr, v)
+      vMap.Add(addr, v)
       v, g
     | true, v -> v, g
 
   let private addEdge brew vMap entryPoint target callCFG =
     let src, callCFG = getVertex brew vMap entryPoint callCFG
     let dst, callCFG = getVertex brew vMap target callCFG
-    callCFG.AddEdge (src, dst, CallEdge)
+    callCFG.AddEdge(src, dst, CallEdge)
 
   let private buildCG callCFG vMap (brew: BinaryBrew<_, _>) =
     brew.Functions.Sequence
     |> Seq.fold (fun callCFG func ->
       func.Callees
-      |> Seq.fold (fun callCFG (KeyValue (_, callee)) ->
+      |> Seq.fold (fun callCFG (KeyValue(_, callee)) ->
         match callee with
         | RegularCallee target ->
           addEdge brew vMap func.EntryPoint target callCFG
@@ -75,6 +75,6 @@ module CallGraph =
   [<CompiledName "Create">]
   let create implType brew =
     let callGraph = CallCFG implType
-    let vMap = CallVMap ()
+    let vMap = CallVMap()
     let callGraph = buildCG callGraph vMap brew
     callGraph, callGraph.Unreachables |> Array.toList

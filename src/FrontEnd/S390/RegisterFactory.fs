@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various s390 register variables.
-type RegisterFactory (wordSize) =
+type RegisterFactory(wordSize) =
   let r0 = AST.var 64<rt> (Register.toRegID Register.R0) "R0"
   let r1 = AST.var 64<rt> (Register.toRegID Register.R1) "R1"
   let r2 = AST.var 64<rt> (Register.toRegID Register.R2) "R2"
@@ -234,8 +234,8 @@ type RegisterFactory (wordSize) =
       | R.PSW -> psw
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegVar (name: string) =
-      match name.ToUpperInvariant () with
+    member _.GetRegVar(name: string) =
+      match name.ToUpperInvariant() with
       | "R0" -> r0
       | "R1" -> r1
       | "R2" -> r2
@@ -337,9 +337,9 @@ type RegisterFactory (wordSize) =
       | "PSW" -> psw
       | _ -> raise InvalidRegisterException
 
-    member _.GetPseudoRegVar _id _idx = Terminator.impossible ()
+    member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars () =
+    member _.GetAllRegVars() =
       [| r0
          r1
          r2
@@ -440,7 +440,7 @@ type RegisterFactory (wordSize) =
          bear
          psw |]
 
-    member _.GetGeneralRegVars () =
+    member _.GetGeneralRegVars() =
       [| r0
          r1
          r2
@@ -460,7 +460,7 @@ type RegisterFactory (wordSize) =
 
     member _.GetRegisterID expr =
       match expr with
-      | Var (_, id, _, _) -> id
+      | Var(_, id, _, _) -> id
       | PCVar _ -> Register.toRegID Register.PSW
       | _ -> raise InvalidRegisterException
 
@@ -475,9 +475,9 @@ type RegisterFactory (wordSize) =
     member _.GetRegString rid =
       Register.ofRegID rid |> Register.toString
 
-    member this.GetAllRegStrings () =
+    member this.GetAllRegStrings() =
       let regFactory = this :> IRegisterFactory
-      regFactory.GetAllRegVars ()
+      regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegString)
 
     member _.GetRegType rid =

@@ -29,41 +29,41 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an ARM64 instruction.
 type Instruction
-  internal (addr, nb, cond, op, opr, oprSize, lifter: ILiftable) =
+  internal(addr, nb, cond, op, opr, oprSize, lifter: ILiftable) =
 
   let hasConcJmpTarget () =
     match opr with
     (* All other instructions *)
-    | OneOperand (OprMemory (LiteralMode _)) -> true
+    | OneOperand(OprMemory(LiteralMode _)) -> true
     (* CBNZ and CBZ *)
-    | TwoOperands (_, OprMemory (LiteralMode _)) -> true
+    | TwoOperands(_, OprMemory(LiteralMode _)) -> true
     (* TBNZ and TBZ *)
-    | ThreeOperands (_, _, OprMemory (LiteralMode _)) -> true
+    | ThreeOperands(_, _, OprMemory(LiteralMode _)) -> true
     | _ -> false
 
   /// Address of this instruction.
-  member _.Address with get (): Addr = addr
+  member _.Address with get(): Addr = addr
 
   /// Length of this instruction in bytes.
-  member _.Length with get (): uint32 = nb
+  member _.Length with get(): uint32 = nb
 
   /// Condition.
-  member _.Condition with get (): Condition option = cond
+  member _.Condition with get(): Condition option = cond
 
   /// Opcode.
-  member _.Opcode with get (): Opcode = op
+  member _.Opcode with get(): Opcode = op
 
   /// Operands.
-  member _.Operands with get (): Operands = opr
+  member _.Operands with get(): Operands = opr
 
   /// Operation size.
-  member _.OprSize with get (): RegType = oprSize
+  member _.OprSize with get(): RegType = oprSize
 
   interface IInstruction with
 
-    member _.Address with get () = addr
+    member _.Address with get() = addr
 
-    member _.Length with get () = nb
+    member _.Length with get() = nb
 
     member this.IsBranch =
       match this.Opcode with
@@ -136,69 +136,68 @@ type Instruction
       let ins = this :> IInstruction
       ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
-    member this.DirectBranchTarget (addr: byref<Addr>) =
+    member this.DirectBranchTarget(addr: byref<Addr>) =
       if (this :> IInstruction).IsBranch then
         match opr with
-        | OneOperand (OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
+        | OneOperand(OprMemory(LiteralMode(ImmOffset(Lbl offset)))) ->
           addr <- (this.Address + uint64 offset)
           true
-        | TwoOperands (_, OprMemory (LiteralMode (ImmOffset (Lbl offset)))) ->
+        | TwoOperands(_, OprMemory(LiteralMode(ImmOffset(Lbl offset)))) ->
           addr <- (this.Address + uint64 offset)
           true
-        | ThreeOperands (_, _,
-                         OprMemory (LiteralMode (ImmOffset (Lbl offs)))) ->
+        | ThreeOperands(_, _, OprMemory(LiteralMode(ImmOffset(Lbl offs)))) ->
           addr <- (this.Address + uint64 offs)
           true
         | _ -> false
       else false
 
-    member this.IndirectTrampolineAddr (_addr: byref<Addr>) =
+    member this.IndirectTrampolineAddr(_addr: byref<Addr>) =
       if (this :> IInstruction).IsIndirectBranch then
         Terminator.futureFeature ()
       else false
 
-    member _.MemoryDereferences (_: byref<Addr[]>) =
+    member _.MemoryDereferences(_: byref<Addr[]>) =
       Terminator.futureFeature ()
 
-    member _.Immediate (v: byref<int64>) =
+    member _.Immediate(v: byref<int64>) =
       match opr with
-      | OneOperand (OprImm c)
-      | TwoOperands (OprImm c, _)
-      | TwoOperands (_, OprImm c)
-      | ThreeOperands (OprImm c, _, _)
-      | ThreeOperands (_, OprImm c, _)
-      | ThreeOperands (_, _, OprImm c)
-      | FourOperands (OprImm c, _, _, _)
-      | FourOperands (_, OprImm c, _, _)
-      | FourOperands (_, _, OprImm c, _)
-      | FourOperands (_, _, _, OprImm c)
-      | FiveOperands (OprImm c, _, _, _, _)
-      | FiveOperands (_, OprImm c, _, _, _)
-      | FiveOperands (_, _, OprImm c, _, _)
-      | FiveOperands (_, _, _, OprImm c, _)
-      | FiveOperands (_, _, _, _, OprImm c) -> v <- c; true
+      | OneOperand(OprImm c)
+      | TwoOperands(OprImm c, _)
+      | TwoOperands(_, OprImm c)
+      | ThreeOperands(OprImm c, _, _)
+      | ThreeOperands(_, OprImm c, _)
+      | ThreeOperands(_, _, OprImm c)
+      | FourOperands(OprImm c, _, _, _)
+      | FourOperands(_, OprImm c, _, _)
+      | FourOperands(_, _, OprImm c, _)
+      | FourOperands(_, _, _, OprImm c)
+      | FiveOperands(OprImm c, _, _, _, _)
+      | FiveOperands(_, OprImm c, _, _, _)
+      | FiveOperands(_, _, OprImm c, _, _)
+      | FiveOperands(_, _, _, OprImm c, _)
+      | FiveOperands(_, _, _, _, OprImm c) -> v <- c; true
       | _ -> false
 
-    member _.GetNextInstrAddrs () = Terminator.futureFeature ()
+    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
 
-    member _.InterruptNum (_num: byref<int64>) = Terminator.futureFeature ()
+    member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
     member this.Translate builder =
-      (lifter.Lift this builder).Stream.ToStmts ()
+      lifter.Lift(this, builder).Stream.ToStmts()
 
     member this.TranslateToList builder =
-      (lifter.Lift this builder).Stream
+      lifter.Lift(this, builder).Stream
 
     member this.Disasm builder =
-      (lifter.Disasm this builder).ToString ()
+      lifter.Disasm(this, builder).ToString()
 
-    member this.Disasm () =
-      let builder = StringDisasmBuilder (false, null, WordSize.Bit64)
-      (lifter.Disasm this builder).ToString ()
+    member this.Disasm() =
+      let builder = StringDisasmBuilder(false, null, WordSize.Bit64)
+      lifter.Disasm(this, builder).ToString()
 
     member this.Decompose builder =
-      (lifter.Disasm this builder).ToAsmWords ()
+      lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
-  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
-  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder
+  abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction * IDisasmBuilder -> IDisasmBuilder

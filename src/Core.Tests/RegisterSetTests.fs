@@ -30,41 +30,41 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.Collections
 
 [<TestClass>]
-type RegisterSetTests () =
+type RegisterSetTests() =
 
   [<TestMethod>]
-  member _.``Size Test 1`` () =
-    let s = RegisterSet (64)
-    Assert.AreEqual<int> (64, s.MaxNumElems)
-    Assert.AreEqual<int> (1, s.BitArray.Length)
+  member _.``Size Test 1``() =
+    let s = RegisterSet(64)
+    Assert.AreEqual<int>(64, s.MaxNumElems)
+    Assert.AreEqual<int>(1, s.BitArray.Length)
 
   [<TestMethod>]
-  member _.``Size Test 2`` () =
-    let s = RegisterSet (65)
-    Assert.AreEqual<int> (65, s.MaxNumElems)
-    Assert.AreEqual<int> (2, s.BitArray.Length)
+  member _.``Size Test 2``() =
+    let s = RegisterSet(65)
+    Assert.AreEqual<int>(65, s.MaxNumElems)
+    Assert.AreEqual<int>(2, s.BitArray.Length)
 
   [<TestMethod>]
-  member _.``Add Test 1`` () =
-    let s = RegisterSet (65)
-    let lst = List<int> ()
+  member _.``Add Test 1``() =
+    let s = RegisterSet(65)
+    let lst = List<int>()
     s.Add 0
     s.Add 8
     s.Add 42
     s.Add 64
-    s.Iterate (lst.Add >> ignore)
-    CollectionAssert.AreEqual ([| 0; 8; 42; 64 |], lst)
+    s.Iterate(lst.Add >> ignore)
+    CollectionAssert.AreEqual([| 0; 8; 42; 64 |], lst)
 
   [<TestMethod>]
   [<ExpectedException(typedefof<IndexOutOfRangeException>)>]
-  member _.``Add Test 2`` () =
-    let s = RegisterSet (65)
+  member _.``Add Test 2``() =
+    let s = RegisterSet(65)
     s.Add 65
 
   [<TestMethod>]
-  member _.``Add/Remove Test`` () =
-    let s = RegisterSet (65)
-    let lst = List<int> ()
+  member _.``Add/Remove Test``() =
+    let s = RegisterSet(65)
+    let lst = List<int>()
     s.Add 0
     s.Add 8
     s.Add 42
@@ -72,6 +72,6 @@ type RegisterSetTests () =
     s.Remove 0
     s.Remove 42
     s.Remove 64
-    s.Iterate (lst.Add >> ignore)
-    CollectionAssert.AreEqual ([| 8 |], lst)
+    s.Iterate(lst.Add >> ignore)
+    CollectionAssert.AreEqual([| 8 |], lst)
 

@@ -32,7 +32,7 @@ open type Register
 open type WordSize
 
 /// Represents a factory for accessing various Intel register variables.
-type RegisterFactory (wordSize) =
+type RegisterFactory(wordSize) =
   let reg64 wordSize t name =
     if wordSize = Bit32 then AST.undef 64<rt> name
     else AST.var 64<rt> t name
@@ -760,8 +760,8 @@ type RegisterFactory (wordSize) =
 #endif
       | _ -> failwith "Unhandled register."
 
-    member _.GetRegVar (name: string) =
-      match name.ToUpperInvariant () with
+    member _.GetRegVar(name: string) =
+      match name.ToUpperInvariant() with
       | "RAX" -> rax
       | "RBX" -> rbx
       | "RCX" -> rcx
@@ -1050,7 +1050,7 @@ type RegisterFactory (wordSize) =
       | "DR7" -> dr7
       | _ -> raise InvalidRegisterException
 
-    member _.GetPseudoRegVar rid pos =
+    member _.GetPseudoRegVar(rid, pos) =
       match Register.ofRegID rid, pos with
       | R.XMM0, 1 -> zmm0a
       | R.XMM0, 2 -> zmm0b
@@ -1750,7 +1750,7 @@ type RegisterFactory (wordSize) =
       | R.ST7, 2 -> st7b
       | _ -> raise InvalidRegisterException
 
-    member _.GetAllRegVars () =
+    member _.GetAllRegVars() =
       if WordSize.is32 wordSize then
         [| eax
            ebx
@@ -2105,7 +2105,7 @@ type RegisterFactory (wordSize) =
            dr6
            dr7 |]
 
-    member _.GetGeneralRegVars () =
+    member _.GetGeneralRegVars() =
       if WordSize.is32 wordSize then
         [| eax
            ebx
@@ -2153,8 +2153,8 @@ type RegisterFactory (wordSize) =
 
     member _.GetRegisterID expr =
       match expr with
-      | Var (_,id, _, _) -> id
-      | PCVar (regT, _, _) ->
+      | Var(_,id, _, _) -> id
+      | PCVar(regT, _, _) ->
         if regT = 32<rt> then Register.toRegID EIP
         else Register.toRegID RIP
       | _ -> raise InvalidRegisterException
@@ -2170,9 +2170,9 @@ type RegisterFactory (wordSize) =
     member _.GetRegString rid =
       Register.ofRegID rid |> Register.toString
 
-    member this.GetAllRegStrings () =
+    member this.GetAllRegStrings() =
       let regFactory = this :> IRegisterFactory
-      regFactory.GetAllRegVars ()
+      regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegString)
 
     member _.GetRegType rid =

@@ -32,25 +32,25 @@ type VisGraph = IDiGraph<VisBBlock, VisEdge>
 
 module VisGraph =
   let init () =
-    ImperativeDiGraph<VisBBlock, VisEdge> ()
+    ImperativeDiGraph<VisBBlock, VisEdge>()
     :> VisGraph
 
   let ofCFG g roots =
     let newGraph = init ()
-    let visited = Dictionary<VertexID, IVertex<VisBBlock>> ()
-    (g: IDiGraphAccessible<_, _>).IterVertex (fun v ->
+    let visited = Dictionary<VertexID, IVertex<VisBBlock>>()
+    (g: IDiGraphAccessible<_, _>).IterVertex(fun v ->
       if visited.ContainsKey v.ID then ()
       else
-        let blk = VisBBlock (v.VData, false)
+        let blk = VisBBlock(v.VData, false)
         let v', _ = newGraph.AddVertex blk
         visited[v.ID] <- v'
     )
     let roots = roots |> List.map (fun (root: IVertex<_>) -> visited[root.ID])
-    (g: IDiGraphAccessible<_, _>).IterEdge (fun e ->
+    (g: IDiGraphAccessible<_, _>).IterEdge(fun e ->
       let srcV = visited[e.First.ID]
       let dstV = visited[e.Second.ID]
       let edge = VisEdge e.Label
-      newGraph.AddEdge (srcV, dstV, edge) |> ignore)
+      newGraph.AddEdge(srcV, dstV, edge) |> ignore)
     newGraph, roots
 
   let getID (v: IVertex<_>) = v.ID

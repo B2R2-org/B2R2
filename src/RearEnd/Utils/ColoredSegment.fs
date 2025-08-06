@@ -42,7 +42,7 @@ module ColoredSegment =
   /// Return a colored hexadeciaml representation of a byte.
   [<CompiledName "HexOfByte">]
   let hexOfByte b =
-    getColor b, b.ToString ("X2")
+    getColor b, b.ToString("X2")
 
   /// Return a colored ASCII representation of a byte.
   [<CompiledName "AsciiOfByte">]
@@ -53,4 +53,4 @@ module ColoredSegment =
   [<CompiledName "AppendString">]
   let appendString tail (segment: ColoredSegment) =
     let color, string = segment
-    ColoredSegment (color, string + tail)
+    ColoredSegment(color, string + tail)

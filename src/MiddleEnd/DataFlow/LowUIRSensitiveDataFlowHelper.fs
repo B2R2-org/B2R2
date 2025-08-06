@@ -29,7 +29,7 @@ open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 
 let getTerminator (state: State<_, _>) v tag =
-  let sstmts = state.GetSSAStmts v tag
+  let sstmts = state.GetSSAStmts(v, tag)
   assert (not << Seq.isEmpty) sstmts
   Array.last sstmts
 
@@ -55,10 +55,10 @@ let private tryJoinExprs e1 e2 =
     |> SSA.ExprList
     |> Some
   | SSA.Var _v1, SSA.ExprList exprs2 ->
-    SSA.ExprList (e1 :: exprs2)
+    SSA.ExprList(e1 :: exprs2)
     |> Some
   | SSA.ExprList exprs1, SSA.Var _v2 ->
-    SSA.ExprList (e2 :: exprs1)
+    SSA.ExprList(e2 :: exprs1)
     |> Some
   | SSA.Num bv1, SSA.Num bv2 when bv1 = bv2 ->
     SSA.Num bv1
@@ -77,13 +77,13 @@ let tryOverApproximateTerminator (state: State<_, _>) v =
   Seq.tail terminators
   |> Seq.fold (fun acc t ->
     match acc, t with
-    | Some (SSA.Jmp jmp1), SSA.Jmp jmp2 ->
+    | Some(SSA.Jmp jmp1), SSA.Jmp jmp2 ->
       match jmp1, jmp2 with
       | SSA.InterJmp dst1, SSA.InterJmp dst2 ->
         tryJoinExprs dst1 dst2
-        |> Option.map (fun dst -> SSA.Jmp (SSA.InterJmp dst))
-      | SSA.InterCJmp (cond1, tDst1, fDst1),
-        SSA.InterCJmp (cond2, tDst2, fDst2) ->
+        |> Option.map (fun dst -> SSA.Jmp(SSA.InterJmp dst))
+      | SSA.InterCJmp(cond1, tDst1, fDst1),
+        SSA.InterCJmp(cond2, tDst2, fDst2) ->
         let cond = tryJoinExprs cond1 cond2
         let tDst = tryJoinExprs tDst1 tDst2
         let fDst = tryJoinExprs fDst1 fDst2
@@ -93,8 +93,8 @@ let tryOverApproximateTerminator (state: State<_, _>) v =
         | _, None, _
         | _, _, None -> None
         | _, Some tDst, Some fDst ->
-          Some <| SSA.Jmp (SSA.InterCJmp (cond1, tDst, fDst))
+          Some <| SSA.Jmp(SSA.InterCJmp(cond1, tDst, fDst))
       | _ -> None
-    | Some (SSA.SideEffect eff1), SSA.SideEffect eff2 when eff1 = eff2 ->
+    | Some(SSA.SideEffect eff1), SSA.SideEffect eff2 when eff1 = eff2 ->
       Some <| SSA.SideEffect eff1
     | _ -> None) (Some first)

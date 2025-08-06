@@ -33,16 +33,16 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open type Register
 
 [<TestClass>]
-type LifterTests () =
-  let num v = BitVector.OfUInt32 v 32<rt> |> AST.num
+type LifterTests() =
+  let num v = BitVector.OfUInt32(v, 32<rt>) |> AST.num
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
-  let isa = ISA (Architecture.ARMv8, Endian.Big)
+  let isa = ISA(Architecture.ARMv8, Endian.Big)
 
   let reader = BinReader.Init Endian.Big
 
-  let regFactory = RegisterFactory () :> IRegisterFactory
+  let regFactory = RegisterFactory() :> IRegisterFactory
 
   let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
 
@@ -51,26 +51,26 @@ type LifterTests () =
 
   let test (bytes: byte[], givenStmts) =
     let parser = ARM64Parser reader :> IInstructionParsable
-    let builder = ILowUIRBuilder.Default (isa, regFactory, LowUIRStream ())
-    let ins = parser.Parse (bytes, 0UL)
-    CollectionAssert.AreEqual (givenStmts, unwrapStmts <| ins.Translate builder)
+    let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
+    let ins = parser.Parse(bytes, 0UL)
+    CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
 
   [<TestMethod>]
-  member _.``[AArch64] ADD (immedate) lift test`` () =
+  member _.``[AArch64] ADD (immedate) lift test``() =
     "114dc4ba"
     ++ [| !.X26 := AST.zext 64<rt>
            ((AST.xtlo 32<rt> !.X5 .+ num 0x371000u .+ num 0x0u)) |]
     |> test
 
   [<TestMethod>]
-  member _.``[AArch64] ADD (extended register) lift test`` () =
+  member _.``[AArch64] ADD (extended register) lift test``() =
     "0b3f43ff"
     ++ [| !.SP := AST.zext 64<rt>
            (AST.xtlo 32<rt> !.SP .+ AST.xtlo 32<rt> !.XZR .+ num 0x0u) |]
     |> test
 
   [<TestMethod>]
-  member _.``[AArch64] ADD (shifted register) lift test`` () =
+  member _.``[AArch64] ADD (shifted register) lift test``() =
     "0b8e5f9b"
     ++ [| !.X27 := AST.zext 64<rt>
            (AST.xtlo 32<rt> !.X28 .+ (AST.xtlo 32<rt> !.X14 ?>> num 0x17u)

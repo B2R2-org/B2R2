@@ -25,7 +25,7 @@
 module B2R2.RearEnd.BinExplorer.SimpleArithReference
 
 let (|Between|_|) (lo, hi) x =
-  if lo <= x && x <= hi then Some () else None
+  if lo <= x && x <= hi then Some() else None
 
 /// Representing single hexadecimal digit in binary with 4 digits.
 let hexToBinaryString = function

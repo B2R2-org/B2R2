@@ -27,25 +27,25 @@ module internal B2R2.RearEnd.BinExplorer.CmdSpec
 /// Command specification in *alphabetic* order. The entries in this list
 /// should match with the KeyWords of help commands (in defaultCmds).
 let speclist =
-  [ CmdBinInfo () :> Cmd
-    CmdCredits () :> Cmd
-    CmdDemangle () :> Cmd
-    CmdEvalExpr ("?", [ "?x" ], "hex", "", HexadecimalF) :> Cmd
-    CmdEvalExpr ("?d", [], "decimal", "d", DecimalF) :> Cmd
-    CmdEvalExpr ("?b", [], "binary", "b", BinaryF) :> Cmd
-    CmdEvalExpr ("?o", [], "octal", "o", OctalF) :> Cmd
-    CmdEvalExpr ("?f", [], "float", "f", FloatingPointF) :> Cmd
-    CmdEvalExpr ("?c", [], "character", "c", CharacterF) :> Cmd
-    CmdDisasm () :> Cmd
-    CmdGadgetSearch () :> Cmd
-    CmdROP () :> Cmd
-    CmdList () :> Cmd
-    CmdSearch () :> Cmd
-    CmdShow () :> Cmd
-    CmdHexDump () :> Cmd
-    CmdPrint () :> Cmd
+  [ CmdBinInfo() :> Cmd
+    CmdCredits() :> Cmd
+    CmdDemangle() :> Cmd
+    CmdEvalExpr("?", [ "?x" ], "hex", "", HexadecimalF) :> Cmd
+    CmdEvalExpr("?d", [], "decimal", "d", DecimalF) :> Cmd
+    CmdEvalExpr("?b", [], "binary", "b", BinaryF) :> Cmd
+    CmdEvalExpr("?o", [], "octal", "o", OctalF) :> Cmd
+    CmdEvalExpr("?f", [], "float", "f", FloatingPointF) :> Cmd
+    CmdEvalExpr("?c", [], "character", "c", CharacterF) :> Cmd
+    CmdDisasm() :> Cmd
+    CmdGadgetSearch() :> Cmd
+    CmdROP() :> Cmd
+    CmdList() :> Cmd
+    CmdSearch() :> Cmd
+    CmdShow() :> Cmd
+    CmdHexDump() :> Cmd
+    CmdPrint() :> Cmd
     (* Default commands *)
-    CmdHelp () :> Cmd
-    CmdExit () :> Cmd ]
+    CmdHelp() :> Cmd
+    CmdExit() :> Cmd ]
 
 // vim: set tw=80 sts=2 sw=2:

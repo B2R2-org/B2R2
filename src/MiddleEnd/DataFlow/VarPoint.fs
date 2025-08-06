@@ -28,12 +28,11 @@ open B2R2
 open B2R2.BinIR
 
 /// Variable at a specific program point.
-type VarPoint = {
-  /// Program point of the variable.
-  ProgramPoint: ProgramPoint
-  /// Kind of the variable.
-  VarKind: VarKind
-}
+type VarPoint =
+  { /// Program point of the variable.
+    ProgramPoint: ProgramPoint
+    /// Kind of the variable.
+    VarKind: VarKind }
 
 /// Variable kinds of our interest.
 and VarKind =
@@ -50,15 +49,15 @@ and VarKind =
 module VarKind =
   let ofIRExpr (e: LowUIR.Expr) =
     match e with
-    | LowUIR.Var (_, rid, _, _) -> Regular rid
-    | LowUIR.TempVar (_, n, _) -> Temporary n
+    | LowUIR.Var(_, rid, _, _) -> Regular rid
+    | LowUIR.TempVar(_, n, _) -> Temporary n
     | _ -> Terminator.impossible ()
 
   let ofSSAVarKind (kind: SSA.VariableKind) =
     match kind with
-    | SSA.RegVar (_, rid, _) -> Regular rid
-    | SSA.TempVar (_, n) -> Temporary n
-    | SSA.StackVar (_, offset) -> StackLocal offset
+    | SSA.RegVar(_, rid, _) -> Regular rid
+    | SSA.TempVar(_, n) -> Temporary n
+    | SSA.StackVar(_, offset) -> StackLocal offset
     | _ -> Terminator.impossible ()
 
   let isTemporary (kind: VarKind) =

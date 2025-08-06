@@ -34,7 +34,7 @@ type ReplCommand =
 
 module ReplCommand =
   let fromString (str: string) =
-    match str.Trim () with
+    match str.Trim() with
     | "" -> NoInput
     | "q" | "quit" | "exit" | "stop" -> Quit
     | "switch-parser" | "switchparser" -> SwitchParser

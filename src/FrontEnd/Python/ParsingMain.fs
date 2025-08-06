@@ -39,19 +39,19 @@ let private getTable (binFile: PythonBinFile) = function
 let private parseOperand opcode (span: ReadOnlySpan<byte>) (reader: IBinReader)
   (binFile: PythonBinFile) addr instrLen =
   let tbl = getTable binFile opcode
-  let idx = reader.ReadUInt8 (span, 1) |> int
+  let idx = reader.ReadUInt8(span, 1) |> int
   let cons =
     Array.tryFind (fun (ar, _) ->
       AddrRange.GetMin ar <= addr && AddrRange.GetMax ar >= addr) tbl
   let opr =
     match cons with
-    | Some (_, c) -> OneOperand (idx, Some <| c[idx])
-    | None -> OneOperand (idx, None)
+    | Some(_, c) -> OneOperand(idx, Some <| c[idx])
+    | None -> OneOperand(idx, None)
   struct (opcode, opr, instrLen)
 
 let private parseInstruction (span: ReadOnlySpan<byte>) (reader: IBinReader)
   (bFile: PythonBinFile) addr =
-  let bin = reader.ReadUInt8 (span, 0)
+  let bin = reader.ReadUInt8(span, 0)
   (* Opcode of Python 3.12 *)
   match bin with
   | 0x0uy -> struct (Op.CACHE, NoOperand, 2u)
@@ -213,4 +213,4 @@ let private parseInstruction (span: ReadOnlySpan<byte>) (reader: IBinReader)
 let parse lifter (span: ByteSpan) (reader: IBinReader) binFile addr =
   let struct (opcode, operands, instrLen) =
     parseInstruction span reader binFile addr
-  Instruction (addr, instrLen, opcode, operands, 32<rt>, lifter)
+  Instruction(addr, instrLen, opcode, operands, 32<rt>, lifter)

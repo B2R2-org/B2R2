@@ -29,12 +29,11 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 
 /// Represents the Frame Description Entry (FDE).
-type FDE = {
-  PCBegin: Addr
-  PCEnd: Addr
-  LSDAPointer: Addr option
-  UnwindingInfo: UnwindingEntry list
-}
+type FDE =
+  { PCBegin: Addr
+    PCEnd: Addr
+    LSDAPointer: Addr option
+    UnwindingInfo: UnwindingEntry list }
 
 [<RequireQualifiedAccess>]
 module internal FDE =
@@ -71,11 +70,11 @@ module internal FDE =
     let myAddr = sAddr + uint64 offset
     let struct (addr, offset) =
       ExceptionHeaderValue.read cls span reader aug.ValueEncoding offset
-    Some (adjustAddr aug.ApplicationEncoding myAddr addr), offset
+    Some(adjustAddr aug.ApplicationEncoding myAddr addr), offset
 
   let parseCallFrameInstrs cie isa registerFactory span offset nextOffset loc =
-    let span = (span: ByteSpan).Slice (offset, nextOffset - offset)
-    let insarr = span.ToArray ()
+    let span = (span: ByteSpan).Slice(offset, nextOffset - offset)
+    let insarr = span.ToArray()
     if Array.forall (fun b -> b = 0uy) insarr then []
     else
       let cf = cie.CodeAlignmentFactor

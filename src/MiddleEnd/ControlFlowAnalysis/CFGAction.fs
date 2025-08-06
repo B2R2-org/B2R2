@@ -67,7 +67,7 @@ type CFGAction =
   | ResumeAnalysis of pp: ProgramPoint * callbackAction: CFGAction
 with
   /// The priority of the action. Higher values mean higher priority.
-  member this.Priority (p: IPrioritizable) = p.GetPriority this
+  member this.Priority(p: IPrioritizable) = p.GetPriority this
 
 /// Callee's abstract information.
 and CalleeInfo = NonReturningStatus * int

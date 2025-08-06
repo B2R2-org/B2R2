@@ -49,25 +49,25 @@ module FileFactory =
   let load path bytes fmt isa regFactory baseAddrOpt =
     match fmt with
     | FileFormat.ELFBinary ->
-      ELFBinFile (path, bytes, baseAddrOpt, Some regFactory) :> IBinFile
+      ELFBinFile(path, bytes, baseAddrOpt, Some regFactory) :> IBinFile
     | FileFormat.PEBinary ->
-      PEBinFile (path, bytes, baseAddrOpt, [||]) :> IBinFile
+      PEBinFile(path, bytes, baseAddrOpt, [||]) :> IBinFile
     | FileFormat.MachBinary ->
-      MachBinFile (path, bytes, isa, baseAddrOpt) :> IBinFile
+      MachBinFile(path, bytes, isa, baseAddrOpt) :> IBinFile
     | FileFormat.WasmBinary ->
-      WasmBinFile (path, bytes) :> IBinFile
+      WasmBinFile(path, bytes) :> IBinFile
     | FileFormat.PythonBinary ->
-      PythonBinFile (path, bytes, baseAddrOpt) :> IBinFile
+      PythonBinFile(path, bytes, baseAddrOpt) :> IBinFile
     | FileFormat.HexBinary ->
       let str = System.Text.Encoding.ASCII.GetString bytes
       let str = if str.StartsWith "0x" then str[2..] else str
-      let str = str.TrimEnd ()
-      RawBinFile (path, ByteArray.ofHexString str, isa, baseAddrOpt) :> IBinFile
+      let str = str.TrimEnd()
+      RawBinFile(path, ByteArray.ofHexString str, isa, baseAddrOpt) :> IBinFile
     | _ ->
-      RawBinFile (path, bytes, isa, baseAddrOpt) :> IBinFile
+      RawBinFile(path, bytes, isa, baseAddrOpt) :> IBinFile
 
   /// <summary>
   /// Creates an ELF binary file object.
   /// </summary>
   let loadELF path bytes regFactory baseAddrOpt =
-    ELFBinFile (path, bytes, baseAddrOpt, Some regFactory)
+    ELFBinFile(path, bytes, baseAddrOpt, Some regFactory)

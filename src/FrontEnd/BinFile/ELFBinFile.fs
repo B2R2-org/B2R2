@@ -31,14 +31,14 @@ open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinFile.ELF.Helper
 
 /// Represents an ELF binary file.
-type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
-  let toolBox = Header.parse baseAddrOpt bytes |> Toolbox.Init bytes
+type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
+  let toolBox = Toolbox.Init(bytes, Header.parse baseAddrOpt bytes)
   let hdr = toolBox.Header
   let phdrs = lazy ProgramHeaders.parse toolBox
   let shdrs = lazy SectionHeaders.parse toolBox
   let loadables = lazy ProgramHeaders.filterLoadables phdrs.Value
-  let symbs = lazy SymbolStore (toolBox, shdrs.Value)
-  let relocs = lazy RelocationInfo (toolBox, shdrs.Value, symbs.Value)
+  let symbs = lazy SymbolStore(toolBox, shdrs.Value)
+  let relocs = lazy RelocationInfo(toolBox, shdrs.Value, symbs.Value)
   let plt = lazy PLT.parse toolBox shdrs.Value symbs.Value relocs.Value
   let exn = lazy ExceptionData.parse toolBox shdrs.Value rfOpt relocs.Value
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
@@ -46,42 +46,42 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
 
   /// ELF Header information.
-  member _.Header with get () = hdr
+  member _.Header with get() = hdr
 
   /// List of dynamic section entries.
-  member _.DynamicArrayEntries with get () =
+  member _.DynamicArrayEntries with get() =
     DynamicArray.parse toolBox shdrs.Value
 
   /// ELF program headers.
-  member _.ProgramHeaders with get () = phdrs.Value
+  member _.ProgramHeaders with get() = phdrs.Value
 
   /// ELF section headers.
-  member _.SectionHeaders with get () = shdrs.Value
+  member _.SectionHeaders with get() = shdrs.Value
 
   /// PLT.
-  member _.PLT with get () = plt.Value
+  member _.PLT with get() = plt.Value
 
   /// Exception information.
-  member _.ExceptionFrame with get () = exn.Value.ExceptionFrame
+  member _.ExceptionFrame with get() = exn.Value.ExceptionFrame
 
   /// LSDA table.
-  member _.LSDATable with get () = exn.Value.LSDATable
+  member _.LSDATable with get() = exn.Value.LSDATable
 
   /// Unwinding table.
-  member _.UnwindingTable with get () = exn.Value.UnwindingTbl
+  member _.UnwindingTable with get() = exn.Value.UnwindingTbl
 
   /// ELF symbol information.
-  member _.Symbols with get () = symbs.Value
+  member _.Symbols with get() = symbs.Value
 
   /// Relocation information.
-  member _.RelocationInfo with get () = relocs.Value
+  member _.RelocationInfo with get() = relocs.Value
 
   /// Try to find a section by its name.
-  member _.TryFindSection (name: string) =
+  member _.TryFindSection(name: string) =
     shdrs.Value |> Array.tryFind (fun s -> s.SecName = name)
 
   /// Find a section by its index.
-  member _.FindSection (idx: int) =
+  member _.FindSection(idx: int) =
     shdrs.Value[idx]
 
   /// Is this a PLT section?
@@ -94,21 +94,21 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     && not (PLT.isPLTSectionName sec.SecName)
 
   interface IBinFile with
-    member _.Reader with get () = toolBox.Reader
+    member _.Reader with get() = toolBox.Reader
 
     member _.RawBytes = bytes
 
     member _.Length = bytes.Length
 
-    member _.Path with get () = path
+    member _.Path with get() = path
 
-    member _.Format with get () = FileFormat.ELFBinary
+    member _.Format with get() = FileFormat.ELFBinary
 
-    member _.ISA with get () = toolBox.ISA
+    member _.ISA with get() = toolBox.ISA
 
     member _.EntryPoint = Some hdr.EntryPoint
 
-    member _.BaseAddress with get () = toolBox.BaseAddress
+    member _.BaseAddress with get() = toolBox.BaseAddress
 
     member _.IsStripped =
       shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
@@ -126,11 +126,11 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
       toolBox.Header.ELFType = ELFType.ET_DYN
       && DynamicArray.parse toolBox shdrs.Value |> Array.exists pred
 
-    member _.Slice (addr, len) =
+    member _.Slice(addr, len) =
       let offset =
         translateAddrToOffset loadables.Value shdrs.Value addr
         |> Convert.ToInt32
-      ReadOnlySpan (bytes, offset, len)
+      ReadOnlySpan(bytes, offset, len)
 
     member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
@@ -166,24 +166,24 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
             offset <- maxOffset + 1
             maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
         else idx <- idx + 1
-      BinFilePointer (addr, maxAddr, offset, maxOffset)
+      BinFilePointer(addr, maxAddr, offset, maxOffset)
 
-    member _.GetVMMappedRegions () =
+    member _.GetVMMappedRegions() =
       phdrs.Value
       |> Array.choose (fun ph ->
         if ph.PHMemSize > 0UL then
-          Some <| AddrRange (ph.PHAddr, ph.PHAddr + ph.PHMemSize - 1UL)
+          Some <| AddrRange(ph.PHAddr, ph.PHAddr + ph.PHMemSize - 1UL)
         else None)
 
-    member _.GetVMMappedRegions (perm) =
+    member _.GetVMMappedRegions(perm) =
       phdrs.Value
       |> Array.choose (fun ph ->
         let phPerm = ProgramHeader.FlagsToPerm ph.PHFlags
         if (phPerm &&& perm = perm) && ph.PHMemSize > 0UL then
-          Some <| AddrRange (ph.PHAddr, ph.PHAddr + ph.PHMemSize - 1UL)
+          Some <| AddrRange(ph.PHAddr, ph.PHAddr + ph.PHMemSize - 1UL)
         else None)
 
-    member _.TryFindName (addr) =
+    member _.TryFindName(addr) =
       symbs.Value.TryFindSymbol addr
       |> Result.map (fun s -> s.SymName)
       |> function
@@ -193,13 +193,13 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
           | Some entry -> Ok entry.FuncName
           | None -> Error e
 
-    member _.GetTextSectionPointer () =
+    member _.GetTextSectionPointer() =
       shdrs.Value
       |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
       |> function
         | Some s ->
-          BinFilePointer (s.SecAddr, s.SecAddr + uint64 s.SecSize - 1UL,
-                          int s.SecOffset, int s.SecOffset + int s.SecSize - 1)
+          BinFilePointer(s.SecAddr, s.SecAddr + uint64 s.SecSize - 1UL,
+                         int s.SecOffset, int s.SecOffset + int s.SecSize - 1)
         | None -> BinFilePointer.Null
 
     member _.GetSectionPointer name =
@@ -207,10 +207,10 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Array.tryFind (fun sec -> sec.SecName = name)
       |> function
         | Some sec ->
-          BinFilePointer (sec.SecAddr,
-                          sec.SecAddr + uint64 sec.SecSize - 1UL,
-                          int sec.SecOffset,
-                          int sec.SecOffset + int sec.SecSize - 1)
+          BinFilePointer(sec.SecAddr,
+                         sec.SecAddr + uint64 sec.SecSize - 1UL,
+                         int sec.SecOffset,
+                         int sec.SecOffset + int sec.SecSize - 1)
         | None -> BinFilePointer.Null
 
     member _.IsInTextOrDataOnlySection addr =
@@ -221,7 +221,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
         | Some sec -> sec.SecName = Section.Text || sec.SecName = Section.ROData
         | None -> false
 
-    member _.GetFunctionAddresses () =
+    member _.GetFunctionAddresses() =
       let staticFuncs =
         [| for s in symbs.Value.StaticSymbols do
              if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr |]
@@ -240,7 +240,7 @@ type ELFBinFile (path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.GetRelocatedAddr relocAddr =
       getRelocatedAddr relocs.Value relocAddr
 
-    member _.GetLinkageTableEntries () =
+    member _.GetLinkageTableEntries() =
       plt.Value
       |> NoOverlapIntervalMap.fold (fun acc _ entry -> entry :: acc) []
       |> List.sortBy (fun entry -> entry.TrampolineAddress)

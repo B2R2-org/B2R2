@@ -130,17 +130,29 @@ let getFCompRegister = function
   | _ -> Terminator.impossible ()
 
 let getRegFrom117 b = getRegister (Bits.extract b 11u 7u |> byte)
+
 let getFRegFrom117 b = getFRegister (Bits.extract b 11u 7u |> byte)
+
 let getRegFrom1915 b = getRegister (Bits.extract b 19u 15u |> byte)
+
 let getFRegFrom1915 b = getFRegister (Bits.extract b 19u 15u |> byte)
+
 let getRegFrom2420 b = getRegister (Bits.extract b 24u 20u |> byte)
+
 let getFRegFrom2420 b = getFRegister (Bits.extract b 24u 20u |> byte)
+
 let getRegFrom3127 b = getRegister (Bits.extract b 31u 27u |> byte)
+
 let getFRegFrom3127 b = getFRegister (Bits.extract b 31u 27u |> byte)
+
 let getRegFrom62 b = getRegister (Bits.extract b 6u 2u |> byte)
+
 let getFRegFrom62 b = getFRegister (Bits.extract b 6u 2u |> byte)
+
 let getCompRegFrom42 b = getCompRegister (Bits.extract b 4u 2u |> byte)
+
 let getFCompRegFrom42 b = getFCompRegister (Bits.extract b 4u 2u |> byte)
+
 let getCompRegFrom97 b = getCompRegister (Bits.extract b 9u 7u |> byte)
 
 let getUImm b wordSize =
@@ -176,79 +188,135 @@ let getJImm bin wordSize =
   Bits.signExtend 21 wordSize imm |> int64
 
 let rd b = getRegFrom117 b |> OpReg
+
 let frd b = getFRegFrom117 b |> OpReg
+
 let rs1 b = getRegFrom1915 b |> OpReg
+
 let frs1 b = getFRegFrom1915 b |> OpReg
+
 let rs2 b = getRegFrom2420 b |> OpReg
+
 let frs2 b = getFRegFrom2420 b |> OpReg
+
 let rs3 b = getRegFrom3127 b |> OpReg
+
 let frs3 b = getFRegFrom3127 b |> OpReg
+
 let rm b = getRm (Bits.extract b 14u 12u) |> OpRoundMode
+
 let csr b = Bits.extract b 31u 20u |> uint16 |> OpCSR
+
 let uimm b = Bits.extract b 19u 15u |> uint64 |> OpImm
+
 let shamt b = Bits.extract b 25u 20u |> uint64 |> OpShiftAmount
+
 let crd b = getRegFrom117 b |> OpReg
+
 let cfrd b = getFRegFrom117 b |> OpReg
+
 let crs2 b = getRegFrom62 b |> OpReg
+
 let crs2Comp b = getCompRegFrom42 b |> OpReg
+
 let cfrs2 b = getFRegFrom62 b |> OpReg
+
 let cfrs2Comp b = getFCompRegFrom42 b |> OpReg
+
 let crdComp b = getCompRegFrom42 b |> OpReg
+
 let cfrdComp b = getFCompRegFrom42 b |> OpReg
+
 let crs1Comp b = getCompRegFrom97 b |> OpReg
 
 let getPred bin = Bits.extract bin 27u 24u |> uint8
+
 let getSucc bin = Bits.extract bin 23u 20u |> uint8
-let getAqRl bin = OpAtomMemOper (Bits.pick bin 26u > 0u, Bits.pick bin 25u > 0u)
-let getRdImm20 b wordSz = TwoOperands (rd b, getUImm b wordSz |> OpImm)
-let getPCRdImm20 b wordSz = TwoOperands (rd b, getUImm b wordSz |> OpImm)
+
+let getAqRl bin = OpAtomMemOper(Bits.pick bin 26u > 0u, Bits.pick bin 25u > 0u)
+
+let getRdImm20 b wordSz = TwoOperands(rd b, getUImm b wordSz |> OpImm)
+
+let getPCRdImm20 b wordSz = TwoOperands(rd b, getUImm b wordSz |> OpImm)
+
 let getRs1Rs2BImm b wordSz =
-  ThreeOperands (rs1 b, rs2 b, getBImm b wordSz |> int64 |> Relative |> OpAddr)
+  ThreeOperands(rs1 b, rs2 b, getBImm b wordSz |> int64 |> Relative |> OpAddr)
+
 let getRdRs1IImmAcc b acc wordSize =
   let mem = (getRegFrom1915 b, getIImm b wordSize |> int64 |> Imm |> Some, acc)
-  TwoOperands (rd b, mem |> OpMem)
+  TwoOperands(rd b, mem |> OpMem)
+
 let getRdRs1IImm b wordSize =
-  ThreeOperands (rd b, rs1 b, getIImm b wordSize |> uint64 |> OpImm)
+  ThreeOperands(rd b, rs1 b, getIImm b wordSize |> uint64 |> OpImm)
+
 let getFRdRs1Addr b acc wordSize =
   let imm = getIImm b wordSize |> int64 |> Imm |> Some
-  TwoOperands (frd b, OpMem (getRegFrom1915 b, imm, acc))
+  TwoOperands(frd b, OpMem(getRegFrom1915 b, imm, acc))
+
 let getRs2Rs1SImm b acc wordSize =
   let mem = (getRegFrom1915 b, getSImm b wordSize |> int64 |> Imm |> Some, acc)
-  TwoOperands (rs2 b, mem |> OpMem)
+  TwoOperands(rs2 b, mem |> OpMem)
+
 let getFRs2Rs1Addr b acc wordSize =
   let imm = getSImm b wordSize |> int64 |> Imm |> Some
-  TwoOperands (frs2 b, OpMem (getRegFrom1915 b, imm, acc))
-let getRdRs1Shamt b = ThreeOperands (rd b, rs1 b, shamt b)
-let getRdRs1Rs2 b = ThreeOperands (rd b, rs1 b, rs2 b)
-let getFRdRs1Rs2 b = ThreeOperands (frd b, frs1 b, frs2 b)
-let getFNRdRs1Rs2 b = ThreeOperands (rd b, frs1 b, frs2 b)
-let getPredSucc b = OneOperand ((getPred b, getSucc b) |> OpFenceMask)
+  TwoOperands(frs2 b, OpMem(getRegFrom1915 b, imm, acc))
+
+let getRdRs1Shamt b = ThreeOperands(rd b, rs1 b, shamt b)
+
+let getRdRs1Rs2 b = ThreeOperands(rd b, rs1 b, rs2 b)
+
+let getFRdRs1Rs2 b = ThreeOperands(frd b, frs1 b, frs2 b)
+
+let getFNRdRs1Rs2 b = ThreeOperands(rd b, frs1 b, frs2 b)
+
+let getPredSucc b = OneOperand((getPred b, getSucc b) |> OpFenceMask)
+
 let getFunc3 b = Bits.extract b 14u 12u
+
 let getFunc7 b = Bits.extract b 31u 25u
+
 let getRs2 b = Bits.extract b 24u 20u
+
 let getRdRs1AqRlAcc b acc =
-  ThreeOperands (rd b, OpMem (getRegFrom1915 b, None, acc), getAqRl b)
+  ThreeOperands(rd b, OpMem(getRegFrom1915 b, None, acc), getAqRl b)
+
 let getRdRs1Rs2AqRlAcc b acc =
-  let mem = OpMem (getRegFrom1915 b, None, acc)
-  FourOperands (rd b, mem, rs2 b, getAqRl b)
+  let mem = OpMem(getRegFrom1915 b, None, acc)
+  FourOperands(rd b, mem, rs2 b, getAqRl b)
+
 let getRdRs2Rs1AqRlAcc b acc =
-  let mem = OpMem (getRegFrom1915 b, None, acc)
-  FourOperands (rd b, rs2 b, mem, getAqRl b)
+  let mem = OpMem(getRegFrom1915 b, None, acc)
+  FourOperands(rd b, rs2 b, mem, getAqRl b)
+
 let getRdJImm b wordSize =
-  TwoOperands (rd b, getJImm b wordSize |> int64 |> Relative |> OpAddr)
+  TwoOperands(rd b, getJImm b wordSize |> int64 |> Relative |> OpAddr)
+
 let getRdRs1JImm b wordSize =
-  let off = RelativeBase (getRegFrom1915 b, getIImm b wordSize |> uint64)
-  TwoOperands (rd b, off |> OpAddr)
-let getFRdRs1Rs2Rs3Rm b = FiveOperands (frd b, frs1 b, frs2 b, frs3 b, rm b)
-let getRdRs1Rs2Rm b = FourOperands (rd b, rs1 b, rs2 b, rm b)
-let getFRdRs1Rs2Rm b = FourOperands (frd b, frs1 b, frs2 b, rm b)
-let getRdRs1Rm b = ThreeOperands (rd b, rs1 b, rm b)
-let getFRdRs1Rm b = ThreeOperands (frd b, rs1 b, rm b)
-let getFRdFRs1Rm b = ThreeOperands (frd b, frs1 b, rm b)
-let getRdFRs1Rm b = ThreeOperands (rd b, frs1 b, rm b)
-let getRdRs1 b = TwoOperands (rd b, rs1 b)
-let getRdFRs1 b = TwoOperands (rd b, frs1 b)
-let getFRdFRs1 b = TwoOperands (frd b, frs1 b)
-let getFRdRs1 b = TwoOperands (frd b, rs1 b)
-let getRdCSRRs1 b = ThreeOperands (rd b, csr b, rs1 b)
-let getRdCSRUImm b = ThreeOperands (rd b, csr b, uimm b)
+  let off = RelativeBase(getRegFrom1915 b, getIImm b wordSize |> uint64)
+  TwoOperands(rd b, off |> OpAddr)
+
+let getFRdRs1Rs2Rs3Rm b = FiveOperands(frd b, frs1 b, frs2 b, frs3 b, rm b)
+
+let getRdRs1Rs2Rm b = FourOperands(rd b, rs1 b, rs2 b, rm b)
+
+let getFRdRs1Rs2Rm b = FourOperands(frd b, frs1 b, frs2 b, rm b)
+
+let getRdRs1Rm b = ThreeOperands(rd b, rs1 b, rm b)
+
+let getFRdRs1Rm b = ThreeOperands(frd b, rs1 b, rm b)
+
+let getFRdFRs1Rm b = ThreeOperands(frd b, frs1 b, rm b)
+
+let getRdFRs1Rm b = ThreeOperands(rd b, frs1 b, rm b)
+
+let getRdRs1 b = TwoOperands(rd b, rs1 b)
+
+let getRdFRs1 b = TwoOperands(rd b, frs1 b)
+
+let getFRdFRs1 b = TwoOperands(frd b, frs1 b)
+
+let getFRdRs1 b = TwoOperands(frd b, rs1 b)
+
+let getRdCSRRs1 b = ThreeOperands(rd b, csr b, rs1 b)
+
+let getRdCSRUImm b = ThreeOperands(rd b, csr b, uimm b)

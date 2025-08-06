@@ -37,6 +37,7 @@ type HDirection =
   | Rightmost
 
 type VertexMap = Dictionary<IVertex<VisBBlock>, IVertex<VisBBlock>>
+
 type FloatMap = Dictionary<IVertex<VisBBlock>, float>
 
 /// The horizontal interval of two consecutive blocks.
@@ -120,9 +121,9 @@ let vAlign (vGraph: IDiGraph<_, _>) vLayout maxLayer conflicts vDir hDir =
     match vDir with
     | Topmost -> [ 0 .. (maxLayer - 1) ], vGraph.GetPreds
     | Bottommost -> [ (maxLayer - 1) .. -1 .. 0 ], vGraph.GetSuccs
-  let root = VertexMap ()
-  let align = VertexMap ()
-  (vGraph: VisGraph).IterVertex (fun v -> root[v] <- v; align[v] <- v)
+  let root = VertexMap()
+  let align = VertexMap()
+  (vGraph: VisGraph).IterVertex(fun v -> root[v] <- v; align[v] <- v)
   layers
   |> List.iter (fun i ->
     let vertices = getLayerByDirection vLayout i hDir
@@ -193,6 +194,7 @@ let rec placeBlock vLayout hDir root align sink shift (xs: FloatMap) v =
     while w <> v do
       updateBlock vLayout hDir root align sink shift xs v w
       w <- align[w]
+
 and updateBlock vLayout hDir root (align: VertexMap) sink shift xs v w =
   let vertices = (vLayout: IVertex<_>[][])[VisGraph.getLayer w]
   if inBound w vertices.Length hDir then
@@ -206,21 +208,21 @@ and updateBlock vLayout hDir root (align: VertexMap) sink shift xs v w =
 
 /// Alg 3 of Brandes et al.
 let hCompact vGraph vLayout (root: VertexMap) (align: VertexMap) hDir =
-  let sink = VertexMap ()
-  let shift = FloatMap ()
-  let xs = FloatMap ()
-  (vGraph: VisGraph).IterVertex (fun v ->
+  let sink = VertexMap()
+  let shift = FloatMap()
+  let xs = FloatMap()
+  (vGraph: VisGraph).IterVertex(fun v ->
     sink[v] <- v
     shift[v] <-
       if hDir = Leftmost then Double.PositiveInfinity
       else Double.NegativeInfinity
     xs[v] <- Double.NaN
   )
-  vGraph.IterVertex (fun v ->
+  vGraph.IterVertex(fun v ->
     if root[v] = v then placeBlock vLayout hDir root align sink shift xs v
     else ()
   )
-  vGraph.IterVertex (fun v ->
+  vGraph.IterVertex(fun v ->
     xs[v] <- xs[root[v]]
     let s = shift[sink[root[v]]]
     if s < Double.PositiveInfinity && s > Double.NegativeInfinity then
@@ -260,7 +262,7 @@ let collectX xPerV (xs: FloatMap) =
   xs.Keys
   |> Seq.fold (fun xPerV v ->
     match Map.tryFind v xPerV with
-    | Some (acc) -> Map.add v (xs[v] :: acc) xPerV
+    | Some(acc) -> Map.add v (xs[v] :: acc) xPerV
     | None -> Map.add v [ xs[v] ] xPerV) xPerV
 
 let setXPos (v: IVertex<VisBBlock>) x =
@@ -322,15 +324,15 @@ let shiftXCoordinate shift (v: IVertex<VisBBlock>) =
 
 let adjustCoordinates (vGraph: VisGraph) =
   vGraph.IterVertex adjustXCoordinate
-  let leftMost = vGraph.FoldVertex getLeftCoordinate [] |> List.min
-  let rightMost = vGraph.FoldVertex getRightCoordinate [] |> List.max
+  let leftMost = vGraph.FoldVertex(getLeftCoordinate, []) |> List.min
+  let rightMost = vGraph.FoldVertex(getRightCoordinate, []) |> List.max
   let width = rightMost - leftMost
   shiftXCoordinate (rightMost - width / 2.0) |> vGraph.IterVertex
 
 let adjustWidthOfDummies (vGraph: VisGraph) =
   let maxWidth =
-    vGraph.FoldVertex (fun maxWidth v -> max maxWidth v.VData.Width) 0.0
-  vGraph.IterVertex (fun v -> v.VData.Width <- maxWidth)
+    vGraph.FoldVertex((fun maxWidth v -> max maxWidth v.VData.Width), 0.0)
+  vGraph.IterVertex(fun v -> v.VData.Width <- maxWidth)
 
 let assignCoordinates vGraph vLayout =
   adjustWidthOfDummies vGraph

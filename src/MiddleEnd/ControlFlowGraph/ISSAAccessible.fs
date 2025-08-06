@@ -36,7 +36,7 @@ type ISSAAccessible =
   abstract LastStmt: SSA.Stmt
 
   /// Prepend a phi statement to the basic block.
-  abstract PrependPhi: SSA.VariableKind -> count: int -> unit
+  abstract PrependPhi: SSA.VariableKind * count: int -> unit
 
   /// Update SSA statements.
   abstract UpdateStatements: (ProgramPoint * SSA.Stmt)[] -> unit

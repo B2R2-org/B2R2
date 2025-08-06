@@ -32,13 +32,13 @@ open System
 
 type LabelDefs = Map<string, Addr>
 
-type AsmParser (mipsISA: ISA, startAddress: Addr) =
+type AsmParser(mipsISA: ISA, startAddress: Addr) =
 
   let mutable address = startAddress
 
   (* Helper functions for updating the UserState. *)
   let addLabeldef lbl =
-    updateUserState (fun (us: Map<string, Addr>) -> us.Add (lbl, address))
+    updateUserState (fun (us: Map<string, Addr>) -> us.Add(lbl, address))
     >>. preturn ()
 
   let incrementAddress =
@@ -169,10 +169,9 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
     Array.append [| pRegImm |] registersList
 
   let pReg =
-    ( (pchar '$' >>. (allRegistersList |> choice)) <|>
-      (registersList |> choice) )
+    ((pchar '$' >>. (allRegistersList |> choice)) <|> (registersList |> choice))
     |>> (fun regName ->
-           Enum.Parse (typeof<Register>, getRealRegName regName)
+           Enum.Parse(typeof<Register>, getRealRegName regName)
            :?> Register)
     <??> "registers"
 
@@ -186,8 +185,8 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
     paddr
     |>> (fun (ofstOp, reg) ->
       match ofstOp with
-      | Some offset -> OpMem (reg, Imm offset, 32<rt>)
-      | None -> OpMem (reg, Imm 0L, 32<rt>))
+      | Some offset -> OpMem(reg, Imm offset, 32<rt>)
+      | None -> OpMem(reg, Imm 0L, 32<rt>))
 
   let operand = addr <|> reg <|> imm <|> label
 
@@ -199,7 +198,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
       (opt pFmt) .>>.
       (whitespace >>. operands)
       |>> (fun (((opcode, cond), fmt), operands) ->
-              newAssemblyIns mipsISA address opcode cond fmt operands )
+              newAssemblyIns mipsISA address opcode cond fmt operands)
 
   let statement =
     opt pLabelDef >>. spaces >>. pInsInfo .>> incrementAddress
@@ -208,5 +207,5 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
 
   member _.Run assembly =
     match runParserOnString statements Map.empty<string, Addr> "" assembly with
-    | Success (result, us, _) -> SecondPass.updateInstructions result us
-    | Failure (str, _, _) -> printfn "Parser failed!\n%s" str; []
+    | Success(result, us, _) -> SecondPass.updateInstructions result us
+    | Failure(str, _, _) -> printfn "Parser failed!\n%s" str; []

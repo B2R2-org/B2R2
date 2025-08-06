@@ -49,7 +49,7 @@ module LogLevel =
   /// Gets LogLevel from a given string.
   [<CompiledName "OfString">]
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "1" | "l1" | "quiet" | "q" -> LogLevel.L1
     | "3" | "l3" | "verbose" | "v" -> LogLevel.L3
     | "4" | "l4" -> LogLevel.L4

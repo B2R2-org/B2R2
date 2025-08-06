@@ -34,9 +34,9 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Basic syscall analysis that only analyzes a single basic block that contains
 /// the syscall instruction.
-type SyscallAnalysis () =
+type SyscallAnalysis() =
   interface ISyscallAnalyzable with
-    member _.IsExit (ctx, v) =
+    member _.IsExit(ctx, v) =
       let hdl = ctx.BinHandle
       match hdl.File.Format with
       | FileFormat.RawBinary
@@ -54,7 +54,7 @@ type SyscallAnalysis () =
         | Undef -> false
       | _ -> false
 
-    member _.MakeAbstract (ctx, v, isExit) =
+    member _.MakeAbstract(ctx, v, isExit) =
       let addr = ctx.FunctionAddress
       let hdl = ctx.BinHandle
       let returningStatus = if isExit then NoRet else NotNoRet
@@ -66,6 +66,6 @@ type SyscallAnalysis () =
         let reg = hdl.RegisterFactory.GetRegVar rid
         let e = LowUIR.AST.undef rt "ret"
         let rundown = [| LowUIR.AST.put reg e |]
-        FunctionAbstraction (addr, 0, rundown, true, returningStatus)
+        FunctionAbstraction(addr, 0, rundown, true, returningStatus)
       | _ ->
-        FunctionAbstraction (addr, 0, [||], true, returningStatus)
+        FunctionAbstraction(addr, 0, [||], true, returningStatus)

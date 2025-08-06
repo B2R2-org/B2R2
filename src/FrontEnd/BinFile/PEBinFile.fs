@@ -30,42 +30,42 @@ open B2R2.FrontEnd.BinFile.PE
 open B2R2.FrontEnd.BinFile.PE.Helper
 
 /// Represents a PE binary file.
-type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
+type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   let pe = Parser.parse path bytes baseAddrOpt rawpdb
   let isa = peHeadersToISA pe.PEHeaders
 
-  new (path, bytes) = PEBinFile (path, bytes, None, [||])
+  new(path, bytes) = PEBinFile(path, bytes, None, [||])
 
-  new (path, bytes, rawpdb) = PEBinFile (path, bytes, None, rawpdb)
+  new(path, bytes, rawpdb) = PEBinFile(path, bytes, None, rawpdb)
 
   /// Returns the base address.
-  member _.BaseAddress with get () = pe.BaseAddr
+  member _.BaseAddress with get() = pe.BaseAddr
 
   /// Returns the PEHeaders.
-  member _.PEHeaders with get () = pe.PEHeaders
+  member _.PEHeaders with get() = pe.PEHeaders
 
   /// Returns the section headers.
-  member _.SectionHeaders with get () = pe.SectionHeaders
+  member _.SectionHeaders with get() = pe.SectionHeaders
 
   /// Returns the list of relocation blocks.
-  member _.RelocBlocks with get () = pe.RelocBlocks
+  member _.RelocBlocks with get() = pe.RelocBlocks
 
   /// Returns the symbol store.
-  member _.Symbols with get () = pe.Symbols
+  member _.Symbols with get() = pe.Symbols
 
   /// Returns the imported symbols.
-  member _.ImportedSymbols with get () = pe.ImportedSymbols
+  member _.ImportedSymbols with get() = pe.ImportedSymbols
 
   /// Returns the exported symbols.
-  member _.ExportedSymbols with get () = pe.ExportedSymbols
+  member _.ExportedSymbols with get() = pe.ExportedSymbols
 
-  member _.RawPDB with get () = rawpdb
+  member _.RawPDB with get() = rawpdb
 
   /// Finds the section index from the given RVA.
   member _.FindSectionIdxFromRVA rva =
     pe.FindSectionIdxFromRVA rva
 
-  member _.HasCode (sec: SectionHeader) =
+  member _.HasCode(sec: SectionHeader) =
     sec.SectionCharacteristics.HasFlag SectionCharacteristics.MemExecute
 
   interface IBinFile with
@@ -91,8 +91,8 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.IsRelocatable = isRelocatable pe
 
-    member _.Slice (addr, len) =
-      System.ReadOnlySpan (bytes, translateAddr pe addr, len)
+    member _.Slice(addr, len) =
+      System.ReadOnlySpan(bytes, translateAddr pe addr, len)
 
     member _.IsValidAddr addr = isValidAddr pe addr
 
@@ -125,15 +125,15 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
             offset <- maxOffset + 1
             maxAddr <- vma + uint64 vmaSize - 1UL
         else idx <- idx + 1
-      BinFilePointer (addr, maxAddr, offset, maxOffset)
+      BinFilePointer(addr, maxAddr, offset, maxOffset)
 
-    member _.GetVMMappedRegions () =
+    member _.GetVMMappedRegions() =
       pe.SectionHeaders
       |> Array.choose (fun sec ->
         let secSize = getVirtualSectionSize sec
         if secSize > 0 then
           let addr = uint64 sec.VirtualAddress + pe.BaseAddr
-          Some <| AddrRange (addr, addr + uint64 secSize - 1UL)
+          Some <| AddrRange(addr, addr + uint64 secSize - 1UL)
         else None)
 
     member _.GetVMMappedRegions perm =
@@ -143,23 +143,23 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
         let secSize = getVirtualSectionSize sec
         if (secPerm &&& perm = perm) && secSize > 0 then
           let addr = uint64 sec.VirtualAddress + pe.BaseAddr
-          Some <| AddrRange (addr, addr + uint64 secSize - 1UL)
+          Some <| AddrRange(addr, addr + uint64 secSize - 1UL)
         else None)
 
-    member _.TryFindName (addr) =
+    member _.TryFindName(addr) =
       if pe.Symbols.SymbolArray.Length = 0 then tryFindSymbolFromBinary pe addr
       else tryFindSymbolFromPDB pe addr
 
-    member _.GetTextSectionPointer () =
+    member _.GetTextSectionPointer() =
       pe.SectionHeaders
       |> Array.tryFind (fun sec -> sec.Name = SecText)
       |> function
         | Some sec ->
           let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
           let size = sec.SizeOfRawData
-          BinFilePointer (addr, addr + uint64 size - 1UL,
-                          sec.PointerToRawData,
-                          sec.PointerToRawData + size - 1)
+          BinFilePointer(addr, addr + uint64 size - 1UL,
+                         sec.PointerToRawData,
+                         sec.PointerToRawData + size - 1)
         | None -> BinFilePointer.Null
 
     member _.GetSectionPointer name =
@@ -169,9 +169,9 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
         | Some sec ->
           let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
           let size = sec.SizeOfRawData
-          BinFilePointer (addr, addr + uint64 size - 1UL,
-                          sec.PointerToRawData,
-                          sec.PointerToRawData + size - 1)
+          BinFilePointer(addr, addr + uint64 size - 1UL,
+                         sec.PointerToRawData,
+                         sec.PointerToRawData + size - 1)
         | None -> BinFilePointer.Null
 
     member _.IsInTextOrDataOnlySection addr =
@@ -180,13 +180,13 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
       | -1 -> false
       | idx -> pe.SectionHeaders[idx].Name = SecText
 
-    member _.GetFunctionAddresses () =
+    member _.GetFunctionAddresses() =
       let staticAddrs =
         [| for s in pe.Symbols.SymbolArray do
              if s.IsFunction then s.Address |]
       let dynamicAddrs =
         [| for addr in pe.ExportedSymbols.Addresses do
-             let idx = pe.FindSectionIdxFromRVA (int (addr - pe.BaseAddr))
+             let idx = pe.FindSectionIdxFromRVA(int (addr - pe.BaseAddr))
              if idx <> -1 && isSectionExecutableByIndex pe idx then addr |]
       Array.concat [| staticAddrs; dynamicAddrs |]
 
@@ -194,6 +194,6 @@ type PEBinFile (path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
 
-    member _.GetLinkageTableEntries () = getImportTable pe
+    member _.GetLinkageTableEntries() = getImportTable pe
 
     member _.IsLinkageTable addr = isImportTable pe addr

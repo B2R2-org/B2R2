@@ -40,14 +40,14 @@ type ExceptionIndexValue =
   | CantUnwind
 
 /// ARM-specific exception handling index table entry.
-type IndexTableEntry = {
-  /// The function who will be in charge of catching an exception.
-  FuncAddr: Addr
-  /// Index table entry value.
-  EntryValue: ExceptionIndexValue
-}
+type IndexTableEntry =
+  { /// The function who will be in charge of catching an exception.
+    FuncAddr: Addr
+    /// Index table entry value.
+    EntryValue: ExceptionIndexValue }
 
 let [<Literal>] private ARMIndexTable = ".ARM.exidx"
+
 let [<Literal>] private ARMTable = ".ARM.extab"
 
 let inline private prel31ToI32 (v: int) =
@@ -56,21 +56,21 @@ let inline private prel31ToI32 (v: int) =
 let private toExceptionIndexValue myAddr v =
   if (v &&& 0xF0000000) = 0x80000000 then CompactEntry
   elif v = 1 then CantUnwind
-  else PointerToExceptionEntry (uint64 (prel31ToI32 v) + myAddr)
+  else PointerToExceptionEntry(uint64 (prel31ToI32 v) + myAddr)
 
 let rec private readIndexTableEntry acc reader (span: ByteSpan) sAddr offset =
   if offset >= (span: ByteSpan).Length then List.rev acc
   else
-    let prel31FnAddr = (reader: IBinReader).ReadInt32 (span, offset)
+    let prel31FnAddr = (reader: IBinReader).ReadInt32(span, offset)
     let fnAddr = uint64 (prel31ToI32 prel31FnAddr) + sAddr
-    let prel31Value = reader.ReadInt32 (span, offset + 4)
+    let prel31Value = reader.ReadInt32(span, offset + 4)
     let v = toExceptionIndexValue (sAddr + 4UL) prel31Value
     let acc = { FuncAddr = fnAddr; EntryValue = v } :: acc
     readIndexTableEntry acc reader span (sAddr + 8UL) (offset + 8)
 
 let private parseIndexTable toolBox indexTableSection =
   let offset, size = indexTableSection.SecOffset, indexTableSection.SecSize
-  let span = ReadOnlySpan (toolBox.Bytes, int offset, int size)
+  let span = ReadOnlySpan(toolBox.Bytes, int offset, int size)
   readIndexTableEntry [] toolBox.Reader span indexTableSection.SecAddr 0
 
 let private computeLSDAOffset currentOffset (n: int) =
@@ -81,25 +81,25 @@ let private computeLSDAOffset currentOffset (n: int) =
 
 /// Reads LSDA if the personality routine is a custom model.
 let private readLSDAFromCustom reader cls span (sAddr: Addr) addr =
-  let offset = Convert.ToInt32 (addr - sAddr)
-  let n = (reader: IBinReader).ReadInt32 (span = span, offset = offset)
+  let offset = Convert.ToInt32(addr - sAddr)
+  let n = (reader: IBinReader).ReadInt32(span = span, offset = offset)
   if (n &&& 0x80000000) = 0 then (* Custom personality routine with LSDA *)
     let _personalityOffset = uint64 (prel31ToI32 n) + addr (* No need for now *)
     let offset = offset + 4
-    let n = reader.ReadInt32 (span, offset)
+    let n = reader.ReadInt32(span, offset)
     let lsdaOffset = computeLSDAOffset offset n
     let struct (lsda, _) = LSDA.parse cls span reader sAddr lsdaOffset
     let lsdaAddr = sAddr + uint64 lsdaOffset
-    Some (lsda, lsdaAddr)
+    Some(lsda, lsdaAddr)
   elif (n &&& 0xF0000000) = 0x80000000 then (* Compact model. *) None
   else Terminator.impossible () (* Unknown format *)
 
 let rec private readExnTableEntry (fdes, lsdas) reader cls span sAddr = function
   | entry :: tl ->
     match entry.EntryValue with
-    | PointerToExceptionEntry (addr) ->
+    | PointerToExceptionEntry(addr) ->
       match readLSDAFromCustom reader cls span sAddr addr with
-      | Some (lsda, lsdaAddr) ->
+      | Some(lsda, lsdaAddr) ->
         let fde =
           { PCBegin = entry.FuncAddr
             PCEnd = entry.FuncAddr
@@ -115,7 +115,7 @@ let rec private readExnTableEntry (fdes, lsdas) reader cls span sAddr = function
 
 let private parseExnTable toolBox cls exnTblSection entries =
   let offset, size = int exnTblSection.SecOffset, int exnTblSection.SecSize
-  let span = ReadOnlySpan (toolBox.Bytes, offset, size)
+  let span = ReadOnlySpan(toolBox.Bytes, offset, size)
   let secAddr = exnTblSection.SecAddr
   let cie = (* Create a dummy CIE. *)
     { Version = 0uy
@@ -129,7 +129,7 @@ let private parseExnTable toolBox cls exnTblSection entries =
       Augmentations = [] }
   let fdes, lsdas =
     readExnTableEntry ([], Map.empty) toolBox.Reader cls span secAddr entries
-  struct ([ { CIE = cie; FDEs = List.toArray fdes } ], lsdas )
+  struct ([ { CIE = cie; FDEs = List.toArray fdes } ], lsdas)
 
 /// Parses ARM-specific exception handler. The specification is found @
 /// https://github.com/ARM-software/abi-aa/blob/main/ehabi32/ehabi32.rst

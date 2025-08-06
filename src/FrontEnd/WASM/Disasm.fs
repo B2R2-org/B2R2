@@ -551,63 +551,63 @@ let opcodeToString = function
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let opcode = opcodeToString ins.Opcode
-  builder.Accumulate AsmWordKind.Mnemonic opcode
+  builder.Accumulate(AsmWordKind.Mnemonic, opcode)
 
 let oprToString opr delim (builder: IDisasmBuilder) =
   match opr with
   | Type t ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (t |> string)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, t |> string)
   | Index idx ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (idx |> string)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, idx |> string)
   | I32 i32 ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (i32 |> string)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, i32 |> string)
   | I64 i64 ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (i64 |> string)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, i64 |> string)
   | F32 f32 ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (f32 |> string)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, f32 |> string)
   | F64 f64 ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (f64 |> string)
-  | V128 (i32One, i32Two, i32Three, i32Four) ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.String "i32x4:"
-    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32One)
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32Two)
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32Three)
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (BitVector.ValToString i32Four)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, f64 |> string)
+  | V128(i32One, i32Two, i32Three, i32Four) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.String, "i32x4:")
+    builder.Accumulate(AsmWordKind.Value, BitVector.ValToString i32One)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, BitVector.ValToString i32Two)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, BitVector.ValToString i32Three)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, BitVector.ValToString i32Four)
   | Alignment align ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (align |> string)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, align |> string)
   | Address addr ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (addr |> string)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, addr |> string)
   | LaneIndex lane ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (lane |> string)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, lane |> string)
   | ConsistencyModel model ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (model |> string)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, model |> string)
   | RefType reftype ->
-    builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (reftype |> string)
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, reftype |> string)
 
 let buildOperands (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
     oprToString opr " " builder
-  | TwoOperands (opr1, opr2) ->
+  | TwoOperands(opr1, opr2) ->
     oprToString opr1 " " builder
     oprToString opr2 " " builder
-  | ThreeOperands (opr1, opr2, opr3) ->
+  | ThreeOperands(opr1, opr2, opr3) ->
     oprToString opr1 " " builder
     oprToString opr2 " " builder
     oprToString opr3 " " builder

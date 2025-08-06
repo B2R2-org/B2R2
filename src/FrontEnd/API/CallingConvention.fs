@@ -33,7 +33,7 @@ open B2R2
 type CallingConvention =
 
   /// Obtain the list of volatile register IDs
-  static member VolatileRegisters (hdl: BinHandle) =
+  static member VolatileRegisters(hdl: BinHandle) =
     match hdl.File.ISA with
     | X86 ->
       [| Intel.Register.toRegID Intel.Register.EAX
@@ -72,7 +72,7 @@ type CallingConvention =
     | _ -> Terminator.futureFeature ()
 
   /// Obtain the register ID used for storing syscall return values.
-  static member ReturnRegister (hdl: BinHandle) =
+  static member ReturnRegister(hdl: BinHandle) =
     match hdl.File.ISA with
     | X86 -> Intel.Register.EAX |> Intel.Register.toRegID
     | X64 -> Intel.Register.RAX |> Intel.Register.toRegID
@@ -82,7 +82,7 @@ type CallingConvention =
     | _ -> Terminator.futureFeature ()
 
   /// Obtain the register ID used for storing a syscall number.
-  static member SyscallNumRegister (hdl: BinHandle) =
+  static member SyscallNumRegister(hdl: BinHandle) =
     match hdl.File.ISA with
     | X86 -> Intel.Register.EAX |> Intel.Register.toRegID
     | X64 -> Intel.Register.RAX |> Intel.Register.toRegID
@@ -92,7 +92,7 @@ type CallingConvention =
     | _ -> Terminator.futureFeature ()
 
   /// Obtain the register ID used for the nth syscall parameter.
-  static member SyscallArgRegister (hdl: BinHandle) os num =
+  static member SyscallArgRegister(hdl: BinHandle, os, num) =
     match os, hdl.File.ISA with
     | OS.Linux, X86 ->
       match num with
@@ -145,7 +145,7 @@ type CallingConvention =
   /// actual calling convention may vary depending on the binaries, this
   /// function only returns a generally used register for the given architecture
   /// and the file format.
-  static member FunctionArgRegister (hdl: BinHandle) os num =
+  static member FunctionArgRegister(hdl: BinHandle, os, num) =
     match os, hdl.File.ISA with
     | OS.Windows, X86 -> (* fast call *)
       match num with
@@ -173,7 +173,7 @@ type CallingConvention =
   /// Check if the given register is non-volatile register in the given binary.
   /// Non-volatile registers are preserved by callee, i.e., callee-saved
   /// registers.
-  static member IsNonVolatile (hdl: BinHandle) os rid =
+  static member IsNonVolatile(hdl: BinHandle, os, rid) =
     match os, hdl.File.ISA with
     | OS.Linux, X86 -> (* CDECL *)
       rid = (Intel.Register.EBP |> Intel.Register.toRegID)

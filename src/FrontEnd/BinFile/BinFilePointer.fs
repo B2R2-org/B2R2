@@ -43,7 +43,7 @@ type BinFilePointer =
     val MaxOffset: int
 
     /// Initializer
-    new (addr, maxAddr, offset, maxOffset) =
+    new(addr, maxAddr, offset, maxOffset) =
       { Addr = addr
         MaxAddr = maxAddr
         Offset = offset
@@ -51,11 +51,11 @@ type BinFilePointer =
   end
 with
   /// Checks if the pointer is valid.
-  member inline this.IsValid with get () =
+  member inline this.IsValid with get() =
     this.Addr <= this.MaxAddr && this.Offset <= this.MaxOffset
 
   /// Checks if the pointer is null.
-  member inline this.IsNull with get () =
+  member inline this.IsNull with get() =
     this.Addr = 0UL
     && this.MaxAddr = 0UL
     && this.Offset = -1
@@ -63,11 +63,11 @@ with
 
   /// Checks if the pointer is virtual, meaning that it currently points to a
   /// region that is mapped to VM but not to the file.
-  member inline this.IsVirtual with get () =
+  member inline this.IsVirtual with get() =
     this.Offset > this.MaxOffset
 
   /// Returns the amount of bytes that can be read from the pointer.
-  member inline this.ReadableAmount with get () =
+  member inline this.ReadableAmount with get() =
     int (this.MaxAddr - this.Addr + 1UL)
 
   /// Checks if the pointer can read the given size of bytes.
@@ -91,7 +91,7 @@ with
       this.MaxOffset)
 
   /// Returns a null pointer.
-  static member Null = BinFilePointer (0UL, 0UL, -1, -1)
+  static member Null = BinFilePointer(0UL, 0UL, -1, -1)
 
   /// Advances the pointer by a given amount.
   static member Advance(p: BinFilePointer, amount: int) =

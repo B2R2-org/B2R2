@@ -29,39 +29,35 @@ open System.Collections.Generic
 open B2R2.RearEnd.Utils
 open B2R2.RearEnd.Transformer.Utils
 
-type KVecDim = {
-  XOffsets: int[]
-  IdxForward: int
-  IdxBackward: int
-}
+type KVecDim =
+  { XOffsets: int[]
+    IdxForward: int
+    IdxBackward: int }
 
-type OverlappedPosition = {
-  X: int
-  Y: int
-}
+type OverlappedPosition =
+  { X: int
+    Y: int }
 
-type Box = {
-  XOff: int
-  XLim: int
-  YOff: int
-  YLim: int
-}
+type Box =
+  { XOff: int
+    XLim: int
+    YOff: int
+    YLim: int }
 
-type DiffData = {
-  LineNo: int[]
-  LineID: int[]
-  ChangedLineNumbers: bool[]
-  Len: int
-}
+type DiffData =
+  { LineNo: int[]
+    LineID: int[]
+    ChangedLineNumbers: bool[]
+    Len: int }
 
 /// The `diff` action.
-type DiffAction () =
+type DiffAction() =
   let rec findUniqId lineNum cnt lines (dict: Dictionary<_, int>) =
     if lineNum = Array.length lines then dict
     else
       let found, _ = dict.TryGetValue lines[lineNum]
       if not found then
-        dict.Add (lines[lineNum], cnt)
+        dict.Add(lines[lineNum], cnt)
         findUniqId (lineNum + 1) (cnt + 1) lines dict
       else
         findUniqId (lineNum + 1) cnt lines dict
@@ -108,8 +104,8 @@ type DiffAction () =
     idA', idB', lnumA', lnumB'
 
   let prepareMyers linesA linesB =
-    let lineToIdA = Dictionary<_, int> () |> findUniqId 0 0 linesA
-    let lineToIdB = Dictionary<_, int> () |> findUniqId 0 0 linesB
+    let lineToIdA = Dictionary<_, int>() |> findUniqId 0 0 linesA
+    let lineToIdB = Dictionary<_, int>() |> findUniqId 0 0 linesB
     let clnumA = findChangedLines (Array.length linesA - 1) [] lineToIdB linesA
     let clnumB = findChangedLines (Array.length linesB - 1) [] lineToIdA linesB
     let idA, lnumA = matchIndices 0 [||] [||] clnumA lineToIdA linesA
@@ -257,7 +253,7 @@ type DiffAction () =
   let myersDiff dd1 dd2 =
     let nDiags = dd1.Len + dd2.Len + 3
     let kvd =
-      { XOffsets = Array.zeroCreate (2 * nDiags + 2);
+      { XOffsets = Array.zeroCreate (2 * nDiags + 2)
         IdxForward = dd2.Len + 1
         IdxBackward = dd2.Len + 1 + nDiags }
     { XOff = 0; XLim = dd1.Len; YOff = 0; YLim = dd2.Len }
@@ -313,7 +309,7 @@ type DiffAction () =
     member _.Description with get() = """
     Take in two binaries as input and return a diff string as output.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       let bins = collection.Values
       if bins.Length <> 2 then
         invalidArg (nameof DiffAction) "Can only diff extractly two binaries."

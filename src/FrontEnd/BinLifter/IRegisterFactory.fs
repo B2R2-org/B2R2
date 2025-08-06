@@ -57,7 +57,7 @@ type IRegisterFactory =
   /// <returns>
   /// Returns an IR expression of a pseudo-register.
   /// </returns>
-  abstract GetPseudoRegVar: id: RegisterID -> idx: int -> Expr
+  abstract GetPseudoRegVar: id: RegisterID * idx: int -> Expr
 
   /// Return all register expressions.
   abstract GetAllRegVars: unit -> Expr[]

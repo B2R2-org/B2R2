@@ -27,10 +27,10 @@ namespace B2R2.MiddleEnd.ConcEval
 open System.Collections.Generic
 open B2R2
 
-type Variables (vars) =
+type Variables(vars) =
   let vars: Dictionary<int, BitVector> = vars
 
-  new () = Variables (Dictionary ())
+  new() = Variables(Dictionary())
 
   member _.TryGet k =
     match vars.TryGetValue k with
@@ -39,16 +39,16 @@ type Variables (vars) =
 
   member _.Get k = vars[k]
 
-  member _.Set k v = vars[k] <- v
+  member _.Set(k, v) = vars[k] <- v
 
   member _.Unset k =
     vars.Remove k |> ignore
 
-  member _.Count () =
+  member _.Count() =
     vars.Count
 
-  member _.ToArray () =
-    vars |> Seq.map (fun (KeyValue (k, v))  -> k, v) |> Seq.toArray
+  member _.ToArray() =
+    vars |> Seq.map (fun (KeyValue(k, v))  -> k, v) |> Seq.toArray
 
-  member _.Clone () =
-    Variables (Dictionary (vars))
+  member _.Clone() =
+    Variables(Dictionary(vars))

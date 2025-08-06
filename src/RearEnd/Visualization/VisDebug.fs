@@ -38,8 +38,8 @@ module VisDebug =
   /// Log the given string followed by a new line (for debugging).
   let logn s =
     let bytes = getBytes s
-    fs.Write (bytes, 0, bytes.Length)
-    fs.Flush ()
+    fs.Write(bytes, 0, bytes.Length)
+    fs.Flush()
 
   let private ppNode (vGraph: IDiGraph<_, _>) (vNode: IVertex<VisBBlock>) =
     logn "Node {"
@@ -58,5 +58,5 @@ module VisDebug =
     logn "}"
 
   let pp (vGraph: VisGraph) =
-    vGraph.IterVertex (ppNode vGraph)
+    vGraph.IterVertex(ppNode vGraph)
 #endif

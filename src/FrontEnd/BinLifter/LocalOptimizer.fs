@@ -46,7 +46,7 @@ module private Localizer =
 /// Represents an intra-block local IR optimizer.
 type LocalOptimizer =
   /// Remove unnecessary IEMark to ease the analysis.
-  static member private TrimIEMark (stmts: Stmt []) =
+  static member private TrimIEMark(stmts: Stmt []) =
     let last = stmts[stmts.Length - 1]
     let secondLast = stmts[stmts.Length - 2]
     match secondLast, last with

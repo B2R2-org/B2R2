@@ -27,13 +27,12 @@ namespace B2R2.FrontEnd.Intel
 open B2R2
 
 /// Represents the VEX prefix used in Intel instructions.
-type VEXInfo = {
-  VVVV: byte
-  VectorLength: RegType
-  VEXType: VEXType
-  VPrefixes: Prefix
-  EVEXPrx: EVEXPrefix option
-}
+type VEXInfo =
+  { VVVV: byte
+    VectorLength: RegType
+    VEXType: VEXType
+    VPrefixes: Prefix
+    EVEXPrx: EVEXPrefix option }
 
 /// Represents the original VEX prefix type(Vector Extension).
 and VEXType =
@@ -45,18 +44,6 @@ and VEXType =
   | ThreeByteOpTwo = 0x4
   /// EVEX Mask
   | EVEX = 0x10
-
-/// Represents the EVEX prefix used in Intel instructions.
-and EVEXPrefix = {
-  /// Embedded opmask register specifier, P[18:16].
-  AAA: uint8
-  /// Zeroing/Merging, P[23].
-  Z: ZeroingOrMerging
-  /// Broadcast/RC/SAE Context, P[20].
-  B: uint8
-  /// Reg-reg, FP Instructions w/ rounding semantic or SAE, P2[6:5].
-  RC: StaticRoundingMode
-}
 
 /// Represents the zeroing or merging behavior of the destination result
 /// (P[23] in EVEX encoding).
@@ -71,3 +58,14 @@ and StaticRoundingMode =
   | RD (* Round down (toward -inf) + SAE *)
   | RU (* Round up (toward +inf) + SAE *)
   | RZ (* Round toward zero (Truncate) + SAE *)
+
+/// Represents the EVEX prefix used in Intel instructions.
+and EVEXPrefix =
+  { /// Embedded opmask register specifier, P[18:16].
+    AAA: uint8
+    /// Zeroing/Merging, P[23].
+    Z: ZeroingOrMerging
+    /// Broadcast/RC/SAE Context, P[20].
+    B: uint8
+    /// Reg-reg, FP Instructions w/ rounding semantic or SAE, P2[6:5].
+    RC: StaticRoundingMode }

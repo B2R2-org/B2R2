@@ -133,7 +133,7 @@ let private popFPUStack bld =
 
 let inline private getLoadAddressExpr (src: Expr) =
   match src with
-  | Load (_, _, addr, _) -> struct (addr, Expr.TypeOf addr)
+  | Load(_, _, addr, _) -> struct (addr, Expr.TypeOf addr)
   | _ -> Terminator.impossible ()
 
 let private castTo80Bit bld tmpB tmpA srcExpr =
@@ -192,11 +192,11 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
         (integerpart .| (significand << numI32 11 64<rt>)))
   | 80<rt> ->
     match srcExpr with
-    | Load (_, _, addrExpr, _) ->
+    | Load(_, _, addrExpr, _) ->
       let addrSize = Expr.TypeOf addrExpr
       bld <+ (tmpB := AST.loadLE 16<rt> (addrExpr .+ numI32 8 addrSize))
       bld <+ (tmpA := AST.loadLE 64<rt> addrExpr)
-    | BinOp (_, _, Var (_, r, _, _), Var _, _) ->
+    | BinOp(_, _, Var(_, r, _, _), Var _, _) ->
       let reg = Register.pseudoRegToReg (Register.ofRegID r)
       let struct (srcB, srcA) = getFPUPseudoRegVars bld reg
       bld <+ (tmpB := srcB)
@@ -292,11 +292,11 @@ let ffst (ins: Instruction) insLen bld doPop =
   let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
   bld <!-- (ins.Address, insLen)
   match ins.Operands with
-  | OneOperand (OprReg r) ->
+  | OneOperand(OprReg r) ->
     let struct (dstB, dstA) = getFPUPseudoRegVars bld r
     bld <+ (dstB := st0b)
     bld <+ (dstA := st0a)
-  | OneOperand (opr) ->
+  | OneOperand(opr) ->
     let oprExpr = transOprToExpr bld false ins insLen opr
     let oprSize = Expr.TypeOf oprExpr
     castFrom80Bit oprExpr oprSize st0b st0a bld
@@ -470,7 +470,7 @@ let fxch (ins: Instruction) insLen bld =
   bld <+ (tmpA := st0a)
   let struct (srcB, srcA) =
     match ins.Operands with
-    | OneOperand (OprReg reg) -> getFPUPseudoRegVars bld reg
+    | OneOperand(OprReg reg) -> getFPUPseudoRegVars bld reg
     | NoOperand -> getFPUPseudoRegVars bld R.ST1
     | _ -> raise InvalidOperandException
   bld <+ (st0b := srcB)
@@ -486,7 +486,7 @@ let fxch (ins: Instruction) insLen bld =
 let private fcmov (ins: Instruction) insLen bld cond =
   let srcReg =
     match ins.Operands with
-    | TwoOperands (_, OprReg reg) -> reg
+    | TwoOperands(_, OprReg reg) -> reg
     | _ -> raise InvalidOperandException
   let struct (srcB, srcA) = getFPUPseudoRegVars bld srcReg
   let struct (dstB, dstA) = getFPUPseudoRegVars bld R.ST0
@@ -506,7 +506,6 @@ let fcmove (ins: Instruction) insLen bld =
   regVar bld R.ZF |> fcmov ins insLen bld
 #endif
   bld --!> insLen
-
 
 let fcmovne (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -599,7 +598,7 @@ let private fpuFBinOp (ins: Instruction) insLen bld binOp doPop leftToRight =
     if leftToRight then bld <+ (res := binOp tmp0 tmp1)
     else bld <+ (res := binOp tmp1 tmp0)
     castTo80Bit bld st0b st0a res
-  | TwoOperands (OprReg reg0, OprReg reg1) ->
+  | TwoOperands(OprReg reg0, OprReg reg1) ->
     let struct (r0B, r0A) = getFPUPseudoRegVars bld reg0
     let struct (r1B, r1A) = getFPUPseudoRegVars bld reg1
     let struct (tmp0, tmp1) = tmpVars2 bld 64<rt>
@@ -693,7 +692,7 @@ let fdivr (ins: Instruction) insLen bld doPop =
     else bld <+ (tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr)
     bld <+ (res := AST.fdiv tmp1 tmp0)
     castTo80Bit bld st0b st0a res
-  | TwoOperands (OprReg reg0, OprReg reg1) ->
+  | TwoOperands(OprReg reg0, OprReg reg1) ->
     let struct (r0B, r0A) = getFPUPseudoRegVars bld reg0
     let struct (r1B, r1A) = getFPUPseudoRegVars bld reg1
     bld <+ (AST.cjmp (isZero r0B r0A) (AST.jmpDest lblErr) (AST.jmpDest lblChk))
@@ -903,17 +902,17 @@ let private prepareTwoOprsForComparison (ins: Instruction) insLen bld =
     let struct (st1b, st1a) = getFPUPseudoRegVars bld R.ST1
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     castFrom80Bit tmp1 64<rt> st1b st1a bld
-  | OneOperand (OprReg r) ->
+  | OneOperand(OprReg r) ->
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars bld r
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     castFrom80Bit tmp1 64<rt> st1b st1a bld
-  | OneOperand (opr) ->
+  | OneOperand(opr) ->
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let oprExpr = transOprToExpr bld false ins insLen opr
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     bld <+ (tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr)
-  | TwoOperands (OprReg r1, OprReg r2) ->
+  | TwoOperands(OprReg r1, OprReg r2) ->
     let struct (st0b, st0a) = getFPUPseudoRegVars bld r1
     let struct (st1b, st1a) = getFPUPseudoRegVars bld r2
     castFrom80Bit tmp0 64<rt> st0b st0a bld
@@ -1265,14 +1264,14 @@ let ffree (ins: Instruction) insLen bld =
   let value3 = numI32 3 16<rt>
   let offset =
     match ins.Operands with
-    | OneOperand (OprReg R.ST0) -> numI32 0 16<rt>
-    | OneOperand (OprReg R.ST1) -> numI32 1 16<rt>
-    | OneOperand (OprReg R.ST2) -> numI32 2 16<rt>
-    | OneOperand (OprReg R.ST3) -> numI32 3 16<rt>
-    | OneOperand (OprReg R.ST4) -> numI32 4 16<rt>
-    | OneOperand (OprReg R.ST5) -> numI32 5 16<rt>
-    | OneOperand (OprReg R.ST6) -> numI32 6 16<rt>
-    | OneOperand (OprReg R.ST7) -> numI32 7 16<rt>
+    | OneOperand(OprReg R.ST0) -> numI32 0 16<rt>
+    | OneOperand(OprReg R.ST1) -> numI32 1 16<rt>
+    | OneOperand(OprReg R.ST2) -> numI32 2 16<rt>
+    | OneOperand(OprReg R.ST3) -> numI32 3 16<rt>
+    | OneOperand(OprReg R.ST4) -> numI32 4 16<rt>
+    | OneOperand(OprReg R.ST5) -> numI32 5 16<rt>
+    | OneOperand(OprReg R.ST6) -> numI32 6 16<rt>
+    | OneOperand(OprReg R.ST7) -> numI32 7 16<rt>
     | _ -> raise InvalidOperandException
   bld <!-- (ins.Address, insLen)
   bld <+ (top16 := AST.cast CastKind.ZeroExt 16<rt> top)

@@ -56,7 +56,7 @@ let private popFromStack bld =
   bld <+ (spReg := (spReg .+ (getSPSize 1))) (* SP := SP + 32 *)
   tmp
 
-// Peek the 'pos'-th item.
+/// Peek the 'pos'-th item.
 let private peekStack bld pos =
   let spReg = regVar bld R.SP
   let regType = OperationSize.regType
@@ -64,7 +64,7 @@ let private peekStack bld pos =
   bld <+ (tmp := AST.loadBE regType (spReg .+ (getSPSize (pos - 1))))
   tmp
 
-// Swap the topmost item with ('pos' + 1)-th item.
+/// Swap the topmost item with ('pos' + 1)-th item.
 let private swapStack bld pos =
   let spReg = regVar bld R.SP
   let regType = OperationSize.regType
@@ -90,22 +90,39 @@ let shiftOperation ins bld opFn =
   endBasicOperation bld opFn src2 src1 ins
 
 let add ins bld = basicOperation ins bld (.+)
+
 let mul ins bld = basicOperation ins bld (.*)
+
 let sub ins bld = basicOperation ins bld (.-)
+
 let div ins bld = basicOperation ins bld (./)
+
 let sdiv ins bld = basicOperation ins bld (?/)
+
 let modu ins bld = basicOperation ins bld (.%)
+
 let smod ins bld = basicOperation ins bld (?%)
+
 let lt ins bld = basicOperation ins bld AST.lt
+
 let gt ins bld = basicOperation ins bld AST.gt
+
 let slt ins bld = basicOperation ins bld AST.slt
+
 let sgt ins bld = basicOperation ins bld AST.sgt
+
 let eq ins bld = basicOperation ins bld (==)
+
 let logAnd ins bld = basicOperation ins bld (.&)
+
 let logOr ins bld = basicOperation ins bld (.|)
+
 let xor ins bld = basicOperation ins bld (<+>)
+
 let shl ins bld = shiftOperation ins bld (<<)
+
 let shr ins bld = shiftOperation ins bld (>>)
+
 let sar ins bld = shiftOperation ins bld (?>>)
 
 let addmod (ins: Instruction) bld =
@@ -206,7 +223,7 @@ let gas (ins: Instruction) bld =
   updateGas bld ins.GAS
 
 let push (ins: Instruction) bld imm =
-  let expr = BitVector.Cast (imm, 256<rt>) |> AST.num
+  let expr = BitVector.Cast(imm, 256<rt>) |> AST.num
   pushToStack bld expr
   updateGas bld ins.GAS
 

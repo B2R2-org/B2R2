@@ -30,46 +30,45 @@ module B2R2.MiddleEnd.BinGraph.Dominance.LengauerTarjanDominance
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-type private LTDomInfo<'V when 'V: equality> = {
-  /// Vertex ID -> DFNum
-  DFPre: Dictionary<VertexID, int>
-  /// DFNum -> Vertex
-  Vertex: IVertex<'V>[]
-  /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
-  Label: int[]
-  /// DFNum -> DFNum of the parent node (zero if not exists).
-  Parent: int[]
-  /// DFNum -> DFNum of the child node (zero if not exists).
-  Child: int[]
-  /// DFNum -> DFNum of an ancestor.
-  Ancestor: int[]
-  /// DFNum -> DFNum of a semidominator.
-  Semi: int[]
+type private LTDomInfo<'V when 'V: equality> =
+  { /// Vertex ID -> DFNum
+    DFPre: Dictionary<VertexID, int>
+    /// DFNum -> Vertex
+    Vertex: IVertex<'V>[]
+    /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
+    Label: int[]
+    /// DFNum -> DFNum of the parent node (zero if not exists).
+    Parent: int[]
+    /// DFNum -> DFNum of the child node (zero if not exists).
+    Child: int[]
+    /// DFNum -> DFNum of an ancestor.
+    Ancestor: int[]
+    /// DFNum -> DFNum of a semidominator.
+    Semi: int[]
 #if LT_USE_SET_BUCKET
-  /// DFNum -> set of DFNums (vertices that share the same sdom).
-  Bucket: Set<int>[]
+    /// DFNum -> set of DFNums (vertices that share the same sdom).
+    Bucket: Set<int>[]
 #else
-  /// DFNum -> DFNum of the first node in the bucket.
-  First: int[]
-  /// DFNum -> DFNum of the next node in the bucket.
-  Next: int[]
+    /// DFNum -> DFNum of the first node in the bucket.
+    First: int[]
+    /// DFNum -> DFNum of the next node in the bucket.
+    Next: int[]
 #endif
-  /// DFNum -> Size
-  Size: int[]
-  /// DFNum -> DFNum of an immediate dominator.
-  IDom: int[]
-  /// Length of the arrays.
-  MaxLength: int
-  /// Real roots of graph
-  Roots: IVertex<'V>[]
-  /// Dummy root
-  DummyRoot: IVertex<'V>
-}
+    /// DFNum -> Size
+    Size: int[]
+    /// DFNum -> DFNum of an immediate dominator.
+    IDom: int[]
+    /// Length of the arrays.
+    MaxLength: int
+    /// Real roots of graph
+    Roots: IVertex<'V>[]
+    /// Dummy root
+    DummyRoot: IVertex<'V> }
 
 let private initDomInfo (g: IDiGraphAccessible<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.Size + 1
-  { DFPre = Dictionary<VertexID, int> ()
+  { DFPre = Dictionary<VertexID, int>()
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
     Parent = Array.create len 0
@@ -85,7 +84,7 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     Size = Array.create len 1
     IDom = Array.create len 0
     MaxLength = len
-    Roots = g.GetRoots ()
+    Roots = g.GetRoots()
     DummyRoot = GraphUtils.makeDummyVertex () }
 
 let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) =
@@ -93,7 +92,7 @@ let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) =
 
 let rec private prepare (g: IDiGraphAccessible<_, _>) info n = function
   | (p, v : IVertex<_>) :: stack when not <| info.DFPre.ContainsKey v.ID ->
-    info.DFPre.Add (v.ID, n)
+    info.DFPre.Add(v.ID, n)
     info.Semi[n] <- n
     info.Vertex[n] <- v
     info.Label[n] <- n
@@ -104,7 +103,7 @@ let rec private prepare (g: IDiGraphAccessible<_, _>) info n = function
   | [] -> n - 1
 
 let private prepareWithDummyRoot g info =
-  info.DFPre.Add (info.DummyRoot.ID, 0)
+  info.DFPre.Add(info.DummyRoot.ID, 0)
   info.Roots |> Array.map (fun v -> 0, v) |> Array.toList |> prepare g info 1
 
 let private getPreds g info v =
@@ -221,14 +220,14 @@ let private computeDomInfo g =
   computeIDom g info n
 
 let rec private domsAux acc v info =
-  if info.DFPre.ContainsKey (v: IVertex<'V>).ID then
+  if info.DFPre.ContainsKey((v: IVertex<'V>).ID) then
     let id = info.IDom[dfpre info v]
     if id > 0 then domsAux (info.Vertex[id] :: acc) info.Vertex[id] info
     else acc |> List.toArray
   else acc |> List.toArray
 
 let private idomAux info v =
-  if info.DFPre.ContainsKey (v: IVertex<'V>).ID then
+  if info.DFPre.ContainsKey((v: IVertex<'V>).ID) then
     let id = info.IDom[dfpre info v]
     if id >= 1 then info.Vertex[id] else null
   else null
@@ -241,60 +240,53 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
   let mutable dfProvider = null
   let mutable pdfProvider = null
   { new IDominance<'V, 'E> with
-    member __.Dominators v =
+    member _.Dominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
 #endif
-      domsAux [v] v fwInfo
-
+      domsAux [ v ] v fwInfo
     member _.ImmediateDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
 #endif
       idomAux fwInfo v
-
-    member __.DominatorTree =
+    member _.DominatorTree =
       fwDT.Value
-
-    member __.DominanceFrontier v =
+    member this.DominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
 #endif
       if isNull pdfProvider then
-        pdfProvider <- dfp.CreateIDominanceFrontier (fwG, __, false)
+        pdfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
       else ()
       pdfProvider.DominanceFrontier v
-
     member _.PostDominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
-      domsAux [v] v bwInfo.Value
-
+      domsAux [ v ] v bwInfo.Value
     member _.ImmediatePostDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       idomAux bwInfo.Value v
-
-    member __.PostDominatorTree =
+    member _.PostDominatorTree =
       bwDT.Value
-
-    member __.PostDominanceFrontier v =
+    member this.PostDominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       if isNull dfProvider then
-        dfProvider <- dfp.CreateIDominanceFrontier (bwG.Value, __, true)
+        dfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
       else ()
       dfProvider.DominanceFrontier v }
 
 let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
   let fwInfo = computeDomInfo g
-  let fwDT = lazy DominatorTree (g, idomAux fwInfo)
+  let fwDT = lazy DominatorTree(g, idomAux fwInfo)
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let bwInfo = lazy (computeDomInfo bwG.Value)
-  let bwDT = lazy DominatorTree (bwG.Value, idomAux bwInfo.Value)
+  let bwDT = lazy DominatorTree(bwG.Value, idomAux bwInfo.Value)
   createDominance g bwG fwInfo fwDT bwInfo bwDT dfp, fwInfo, bwInfo
 
 [<CompiledName "Create">]

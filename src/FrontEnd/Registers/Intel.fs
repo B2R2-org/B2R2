@@ -771,7 +771,7 @@ module Register =
   /// Returns the Intel register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
-    match str.ToLowerInvariant () with
+    match str.ToLowerInvariant() with
     | "rax" -> Register.RAX
     | "rbx" -> Register.RBX
     | "rcx" -> Register.RCX
@@ -1131,7 +1131,7 @@ module Register =
   /// Returns the register ID of an Intel register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+    LanguagePrimitives.EnumToValue(reg) |> RegisterID.create
 
   /// Returns the string representation of an Intel register.
   [<CompiledName "ToString">]

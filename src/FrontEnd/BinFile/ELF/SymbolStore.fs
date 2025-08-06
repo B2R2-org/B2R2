@@ -36,45 +36,45 @@ module private VersionTable =
     else ByteArray.extractCStringFromSpan strTab vnaNameOffset
 
   let rec parseNeededVerFromSecAux span (reader: IBinReader) verTbl strTbl pos =
-    let idx = reader.ReadUInt16 (span=span, offset=pos + 6) (* vna_other *)
-    let nameOffset = reader.ReadInt32 (span, pos + 8)
+    let idx = reader.ReadUInt16(span = span, offset = pos + 6) (* vna_other *)
+    let nameOffset = reader.ReadInt32(span, pos + 8)
     (verTbl: Dictionary<_, _>)[idx] <- verName strTbl nameOffset
-    let next = reader.ReadInt32 (span, pos + 12)
+    let next = reader.ReadInt32(span, pos + 12)
     if next = 0 then ()
     else parseNeededVerFromSecAux span reader verTbl strTbl (pos + next)
 
   let rec parseNeededVerFromSec span reader verTbl strTbl offset =
     let auxOffset = (* vn_aux + current file offset *)
-      (reader: IBinReader).ReadInt32 (span=span, offset=offset + 8) + offset
+      (reader: IBinReader).ReadInt32(span = span, offset = offset + 8) + offset
     parseNeededVerFromSecAux span reader verTbl strTbl auxOffset
-    let next = reader.ReadInt32 (span, offset + 12) (* vn_next *)
+    let next = reader.ReadInt32(span, offset + 12) (* vn_next *)
     if next = 0 then ()
     else parseNeededVerFromSec span reader verTbl strTbl (offset + next)
 
   let parseNeededVersionTable toolBox verTbl strTbl = function
     | None -> ()
     | Some { SecOffset = offset; SecSize = size } ->
-      let span = ReadOnlySpan (toolBox.Bytes, int offset, int size)
+      let span = ReadOnlySpan(toolBox.Bytes, int offset, int size)
       parseNeededVerFromSec span toolBox.Reader verTbl strTbl 0
 
   let rec parseDefinedVerFromSec span (reader: IBinReader) verTbl strTbl ofs =
     let auxOffset = (* vd_aux + current file offset *)
-      reader.ReadInt32 (span=span, offset=ofs + 12) + ofs
-    let idx = reader.ReadUInt16 (span, ofs + 4) (* vd_ndx *)
-    let nameOffset = reader.ReadInt32 (span, auxOffset) (* vda_name *)
+      reader.ReadInt32(span = span, offset = ofs + 12) + ofs
+    let idx = reader.ReadUInt16(span, ofs + 4) (* vd_ndx *)
+    let nameOffset = reader.ReadInt32(span, auxOffset) (* vda_name *)
     (verTbl: Dictionary<_, _>)[idx] <- verName strTbl nameOffset
-    let next = reader.ReadInt32 (span, ofs + 16) (* vd_next *)
+    let next = reader.ReadInt32(span, ofs + 16) (* vd_next *)
     if next = 0 then ()
     else parseDefinedVerFromSec span reader verTbl strTbl (ofs + next)
 
   let parseDefinedVersionTable toolBox verTbl strTbl = function
     | None -> ()
     | Some { SecOffset = offset; SecSize = size } ->
-      let span = ReadOnlySpan (toolBox.Bytes, int offset, int size)
+      let span = ReadOnlySpan(toolBox.Bytes, int offset, int size)
       parseDefinedVerFromSec span toolBox.Reader verTbl strTbl 0
 
   let parse toolBox shdrs (dynamicSections: SectionHeader[]) =
-    let verTbl = Dictionary ()
+    let verTbl = Dictionary()
     let verNeedSec =
       shdrs |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_GNU_verneed)
     let verDefSec =
@@ -82,7 +82,7 @@ module private VersionTable =
     for symSection in dynamicSections do
       let strSection = shdrs[Convert.ToInt32 symSection.SecLink]
       let size = Convert.ToInt32 strSection.SecSize
-      let strTbl = ReadOnlySpan (toolBox.Bytes, int strSection.SecOffset, size)
+      let strTbl = ReadOnlySpan(toolBox.Bytes, int strSection.SecOffset, size)
       parseNeededVersionTable toolBox verTbl strTbl verNeedSec
       parseDefinedVersionTable toolBox verTbl strTbl verDefSec
     verTbl
@@ -120,13 +120,13 @@ module private SymbolTables =
 
   let parseVersData (reader: IBinReader) symIdx verInfoTbl =
     let pos = symIdx * 2
-    let versData = reader.ReadUInt16 (span=verInfoTbl, offset=pos)
+    let versData = reader.ReadUInt16(span = verInfoTbl, offset = pos)
     if versData > 1us then Some versData
     else None
 
   let retrieveVer (verTbl: Dictionary<_, _>) verData =
     let isHidden = verData &&& 0x8000us <> 0us
-    match verTbl.TryGetValue (verData &&& 0x7fffus) with
+    match verTbl.TryGetValue(verData &&& 0x7fffus) with
     | true, verStr -> Some { IsHidden = isHidden; VerName = verStr }
     | false, _ -> None
 
@@ -134,7 +134,7 @@ module private SymbolTables =
     match verInfoTblOpt with
     | Some verInfoTbl ->
       let offset, size = int verInfoTbl.SecOffset, int verInfoTbl.SecSize
-      let span = ReadOnlySpan (toolBox.Bytes, offset, size)
+      let span = ReadOnlySpan(toolBox.Bytes, offset, size)
       parseVersData toolBox.Reader symIdx span
       |> Option.bind (retrieveVer verTbl)
     | None -> None
@@ -142,11 +142,11 @@ module private SymbolTables =
   let getSymbol toolBox shdrs strTbl verTbl symbol verInfoTbl txtOffset symIdx =
     let cls = toolBox.Header.Class
     let reader = toolBox.Reader
-    let nameIdx = reader.ReadUInt32 (span=symbol, offset=0)
+    let nameIdx = reader.ReadUInt32(span = symbol, offset = 0)
     let sname = ByteArray.extractCStringFromSpan strTbl (int nameIdx)
     let info = symbol[selectByWordSize cls 12 4]
     let other = symbol[selectByWordSize cls 13 5]
-    let ndx =  reader.ReadUInt16 (symbol, selectByWordSize cls 14 6) |> int
+    let ndx =  reader.ReadUInt16(symbol, selectByWordSize cls 14 6) |> int
     let parent = Array.tryItem ndx shdrs
     let secIdx = SectionHeaderIdx.IndexFromInt ndx
     let verInfo = getVerInfo toolBox verTbl verInfoTbl symIdx
@@ -166,10 +166,10 @@ module private SymbolTables =
     let ssec = shdrs[Convert.ToInt32 symTblSec.SecLink] (* Get string sect. *)
     let offset = int ssec.SecOffset
     let size = Convert.ToInt32 ssec.SecSize
-    let strTbl = ReadOnlySpan (toolBox.Bytes, offset, size)
+    let strTbl = ReadOnlySpan(toolBox.Bytes, offset, size)
     let offset = int symTblSec.SecOffset
     let size = Convert.ToInt32 symTblSec.SecSize
-    let symTbl = ReadOnlySpan (toolBox.Bytes, offset, size)
+    let symTbl = ReadOnlySpan(toolBox.Bytes, offset, size)
     let numEntries = int symTblSec.SecSize / (selectByWordSize cls 16 24)
     let symbols = Array.zeroCreate numEntries
     for i = 0 to numEntries - 1 do
@@ -180,7 +180,7 @@ module private SymbolTables =
     symbols
 
   let parse toolBox shdrs versionTable staticSymbSecs dynamicSymbSecs =
-    let symbolTable = Dictionary<int, Symbol[]> ()
+    let symbolTable = Dictionary<int, Symbol[]>()
     let verInfoTbl =
       shdrs |> Array.tryFind (fun s -> s.SecType = SectionType.SHT_GNU_versym)
     let txtSec = getTextSectionOffset shdrs
@@ -193,7 +193,7 @@ module private SymbolTables =
     symbolTable
 
   let buildSymbolMap (symbolTables: Dictionary<int, Symbol[]>) =
-    let map = Dictionary<Addr, Symbol> ()
+    let map = Dictionary<Addr, Symbol>()
     for tbl in symbolTables.Values do
       for sym in tbl do
         if sym.Addr > 0UL || sym.SymType = SymbolType.STT_FUNC then
@@ -202,7 +202,7 @@ module private SymbolTables =
     map
 
 /// Represents the main data structure for storing ELF symbol information.
-type SymbolStore internal (toolBox, shdrs) =
+type SymbolStore internal(toolBox, shdrs) =
   let staticSymbSecs =
     shdrs |> Array.filter (fun s -> s.SecType = SectionType.SHT_SYMTAB)
 
@@ -220,32 +220,32 @@ type SymbolStore internal (toolBox, shdrs) =
   let symbolMap = lazy SymbolTables.buildSymbolMap symbolTables
 
   /// Returns parsed static symbols.
-  member _.StaticSymbols with get () =
+  member _.StaticSymbols with get() =
     staticSymbSecs
     |> Array.collect (fun s -> symbolTables[s.SecNum])
 
   /// Returns parsed dynamic symbols.
-  member _.DynamicSymbols with get () =
+  member _.DynamicSymbols with get() =
     dynamicSymbSecs
     |> Array.collect (fun s -> symbolTables[s.SecNum])
 
   /// Adds a symbol to the symbol map. If the address already exists, it will
   /// be overwritten.
-  member _.AddSymbol (addr: Addr, sym: Symbol) =
+  member _.AddSymbol(addr: Addr, sym: Symbol) =
     symbolMap.Value[addr] <- sym
 
   /// Finds a symbol by its address.
-  member _.FindSymbol (addr: Addr) =
+  member _.FindSymbol(addr: Addr) =
     symbolMap.Value[addr]
 
   /// Tries to find a symbol by its address.
-  member _.TryFindSymbol (addr: Addr) =
+  member _.TryFindSymbol(addr: Addr) =
     match symbolMap.Value.TryGetValue addr with
     | true, sym -> Ok sym
     | false, _ -> Error ErrorCase.ItemNotFound
 
   /// Tries to find a symbol array in ELF by its section number.
-  member _.TryFindSymbolTable (secNum: int) =
+  member _.TryFindSymbolTable(secNum: int) =
     match symbolTables.TryGetValue secNum with
     | true, tbl -> Ok tbl
     | false, _ -> Error ErrorCase.ItemNotFound

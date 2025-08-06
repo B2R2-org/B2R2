@@ -25,10 +25,9 @@
 namespace B2R2.MiddleEnd.LLVM
 
 /// Identifier.
-type LLVMIdentifier = {
-  mutable Num: int
-  IDType: string
-}
+type LLVMIdentifier =
+  { mutable Num: int
+    IDType: string }
 
 /// Simplified LLVM expression.
 type LLVMExpr =
@@ -52,7 +51,7 @@ type LLVMExpr =
 
 module LLVMExpr =
   let mkTypedId id =
-    TypedExpr (id.IDType, Ident id)
+    TypedExpr(id.IDType, Ident id)
 
 /// Simplified LLVM statement.
 type LLVMStmt =
@@ -72,38 +71,38 @@ module LLVMStmt =
 
   let mkGetElementPtr id ptr (offset: int) =
     let args = [ Token "i8"; mkTypedId ptr; Token $"i64 {offset}" ]
-    Def (id, [| Opcode "getelementptr"; ExprList args |])
+    Def(id, [| Opcode "getelementptr"; ExprList args |])
 
   let mkBitcast id expr typ =
-    Def (id, [| Opcode "bitcast"; expr; Token "to"; Token typ |])
+    Def(id, [| Opcode "bitcast"; expr; Token "to"; Token typ |])
 
   let mkTrunc id expr typ =
-    Def (id, [| Opcode "trunc"; expr; Token "to"; Token typ |])
+    Def(id, [| Opcode "trunc"; expr; Token "to"; Token typ |])
 
   let mkZExt id expr typ =
-    Def (id, [| Opcode "zext"; expr; Token "to"; Token typ |])
+    Def(id, [| Opcode "zext"; expr; Token "to"; Token typ |])
 
   let mkIntToPtr id itype expr ptyp =
-    Def (id, [| Opcode "inttoptr"; Token itype; expr; Token "to"; Token ptyp |])
+    Def(id, [| Opcode "inttoptr"; Token itype; expr; Token "to"; Token ptyp |])
 
   let mkLoad id addr comment =
     let args = [ Token id.IDType; mkTypedId addr ]
     match comment with
-    | Some c -> Def (id, [| Opcode "load";  ExprList args; Token c |])
-    | None -> Def (id, [| Opcode "load";  ExprList args |])
+    | Some c -> Def(id, [| Opcode "load"; ExprList args; Token c |])
+    | None -> Def(id, [| Opcode "load"; ExprList args |])
 
   let mkStore v addr align comment =
-    Store (v, Ident addr, align, comment)
+    Store(v, Ident addr, align, comment)
 
   let mkBinop id op sz lhs rhs =
-    Def (id, [| Opcode op; Token sz; ExprList [ lhs; rhs ] |])
+    Def(id, [| Opcode op; Token sz; ExprList [ lhs; rhs ] |])
 
   let mkIcmp id op sz lhs rhs =
-    Def (id, [| Opcode "icmp"; Token op; Token sz; ExprList [ lhs; rhs ] |])
+    Def(id, [| Opcode "icmp"; Token op; Token sz; ExprList [ lhs; rhs ] |])
 
   let mkCast id op fromSz e toSz =
-    Def (id, [| Opcode op; Token fromSz; e; Token "to"; Token toSz |])
+    Def(id, [| Opcode op; Token fromSz; e; Token "to"; Token toSz |])
 
   let mkSelect id cond typ t f =
-    let t, f = TypedExpr (typ, t), TypedExpr (typ, f)
-    Def (id, [| Opcode "select"; Token "i1"; ExprList [ cond; t; f ] |])
+    let t, f = TypedExpr(typ, t), TypedExpr(typ, f)
+    Def(id, [| Opcode "select"; Token "i1"; ExprList [ cond; t; f ] |])

@@ -56,23 +56,23 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
   let rec evaluateExpr state pp e =
     match e with
     | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
-    | Load (_, _, addr, _) ->
-      match state.EvaluateStackPointerExpr pp addr with
+    | Load(_, _, addr, _) ->
+      match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let addr = BitVector.ToUInt64 bv
         let offset = LowUIRSparseDataFlow.toFrameOffset addr
         evaluateVarPoint state pp (StackLocal offset)
       | _ -> UntouchedValueDomain.Touched
-    | Extract (e, _, _, _)
-    | Cast (CastKind.ZeroExt, _, e, _)
-    | Cast (CastKind.SignExt, _, e, _) -> evaluateExpr state pp e
+    | Extract(e, _, _, _)
+    | Cast(CastKind.ZeroExt, _, e, _)
+    | Cast(CastKind.SignExt, _, e, _) -> evaluateExpr state pp e
     | _ -> UntouchedValueDomain.Touched
 
   let lattice =
     { new ILattice<UntouchedValueLattice> with
         member _.Bottom = UntouchedValueDomain.Undef
-        member _.Join (a, b) = UntouchedValueDomain.join a b
-        member _.Subsume (a, b) = UntouchedValueDomain.subsume a b }
+        member _.Join(a, b) = UntouchedValueDomain.join a b
+        member _.Subsume(a, b) = UntouchedValueDomain.subsume a b }
 
   let rec scheme =
     { new LowUIRSparseDataFlow.IScheme<UntouchedValueLattice> with

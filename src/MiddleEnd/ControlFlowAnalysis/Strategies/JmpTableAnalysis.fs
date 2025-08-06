@@ -39,12 +39,12 @@ type JmpTableAnalysis<'FnCtx,
                       'GlCtx when 'FnCtx :> IResettable
                               and 'FnCtx: (new: unit -> 'FnCtx)
                               and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (ssaLifter: ICFGAnalysis<unit -> SSACFG> option) =
+  public(ssaLifter: ICFGAnalysis<unit -> SSACFG> option) =
 
   let rec findJumpExpr stmExtractor (g: IDiGraph<_, _>) vFst = function
     | (v: IVertex<_>) :: vs ->
       match stmExtractor v with
-      | Jmp (InterJmp jmpExpr) -> Ok jmpExpr
+      | Jmp(InterJmp jmpExpr) -> Ok jmpExpr
       | _ ->
         let vs =
           g.GetSuccs v
@@ -55,42 +55,42 @@ type JmpTableAnalysis<'FnCtx,
 
   let findIndBranchExprFromIRCFG (g: LowUIRCFG) state addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
-    let v = g.FindVertex (fun v -> v.VData.Internals.BlockAddress = addr)
+    let v = g.FindVertex(fun v -> v.VData.Internals.BlockAddress = addr)
     let stmExtractor = (state: LowUIRSparseDataFlow.State<_>).GetTerminatorInSSA
     findJumpExpr stmExtractor g v [ v ]
 
   let findIndBranchExprFromSSACFG (ssaCFG: SSACFG) addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
-    let v = ssaCFG.FindVertex (fun v -> v.VData.Internals.BlockAddress = addr)
+    let v = ssaCFG.FindVertex(fun v -> v.VData.Internals.BlockAddress = addr)
     let stmExtractor (v: IVertex<SSABasicBlock>) = v.VData.Internals.LastStmt
     findJumpExpr stmExtractor ssaCFG v [ v ]
 
   let rec simplify = function
-    | Load (v, rt, e) -> Load (v, rt, simplify e)
-    | Store (v, rt, e1, e2) -> Store (v, rt, simplify e1, simplify e2)
-    | BinOp (BinOpType.ADD, rt, BinOp (BinOpType.ADD, _, Num v1, e), Num v2)
-    | BinOp (BinOpType.ADD, rt, BinOp (BinOpType.ADD, _, e, Num v1), Num v2)
-    | BinOp (BinOpType.ADD, rt, Num v1, BinOp (BinOpType.ADD, _, e, Num v2))
-    | BinOp (BinOpType.ADD, rt, Num v1, BinOp (BinOpType.ADD, _, Num v2, e)) ->
-      BinOp (BinOpType.ADD, rt, e, Num (BitVector.Add (v1, v2)))
-    | BinOp (BinOpType.ADD, _, Num v1, Num v2) -> Num (BitVector.Add (v1, v2))
-    | BinOp (BinOpType.SUB, _, Num v1, Num v2) -> Num (BitVector.Sub (v1, v2))
-    | BinOp (BinOpType.MUL, _, Num v1, Num v2) -> Num (BitVector.Mul (v1, v2))
-    | BinOp (BinOpType.DIV, _, Num v1, Num v2) -> Num (BitVector.Div (v1, v2))
-    | BinOp (BinOpType.AND, _, Num v1, Num v2) -> Num (BitVector.BAnd (v1, v2))
-    | BinOp (BinOpType.OR, _, Num v1, Num v2) -> Num (BitVector.BOr (v1, v2))
-    | BinOp (BinOpType.SHR, _, Num v1, Num v2) -> Num (BitVector.Shr (v1, v2))
-    | BinOp (BinOpType.SHL, _, Num v1, Num v2) -> Num (BitVector.Shl (v1, v2))
-    | BinOp (op, rt, e1, e2) -> BinOp (op, rt, simplify e1, simplify e2)
-    | UnOp (op, rt, e) -> UnOp (op, rt, simplify e)
-    | RelOp (op, rt, e1, e2) -> RelOp (op, rt, simplify e1, simplify e2)
-    | Ite (c, rt, e1, e2) -> Ite (simplify c, rt, simplify e1, simplify e2)
-    | Cast (k, rt, e) -> Cast (k, rt, simplify e)
-    | Extract (Cast (CastKind.ZeroExt, _, e), rt, 0) when Expr.TypeOf e = rt ->
+    | Load(v, rt, e) -> Load(v, rt, simplify e)
+    | Store(v, rt, e1, e2) -> Store(v, rt, simplify e1, simplify e2)
+    | BinOp(BinOpType.ADD, rt, BinOp(BinOpType.ADD, _, Num v1, e), Num v2)
+    | BinOp(BinOpType.ADD, rt, BinOp(BinOpType.ADD, _, e, Num v1), Num v2)
+    | BinOp(BinOpType.ADD, rt, Num v1, BinOp(BinOpType.ADD, _, e, Num v2))
+    | BinOp(BinOpType.ADD, rt, Num v1, BinOp(BinOpType.ADD, _, Num v2, e)) ->
+      BinOp(BinOpType.ADD, rt, e, Num(BitVector.Add(v1, v2)))
+    | BinOp(BinOpType.ADD, _, Num v1, Num v2) -> Num(BitVector.Add(v1, v2))
+    | BinOp(BinOpType.SUB, _, Num v1, Num v2) -> Num(BitVector.Sub(v1, v2))
+    | BinOp(BinOpType.MUL, _, Num v1, Num v2) -> Num(BitVector.Mul(v1, v2))
+    | BinOp(BinOpType.DIV, _, Num v1, Num v2) -> Num(BitVector.Div(v1, v2))
+    | BinOp(BinOpType.AND, _, Num v1, Num v2) -> Num(BitVector.BAnd(v1, v2))
+    | BinOp(BinOpType.OR, _, Num v1, Num v2) -> Num(BitVector.BOr(v1, v2))
+    | BinOp(BinOpType.SHR, _, Num v1, Num v2) -> Num(BitVector.Shr(v1, v2))
+    | BinOp(BinOpType.SHL, _, Num v1, Num v2) -> Num(BitVector.Shl(v1, v2))
+    | BinOp(op, rt, e1, e2) -> BinOp(op, rt, simplify e1, simplify e2)
+    | UnOp(op, rt, e) -> UnOp(op, rt, simplify e)
+    | RelOp(op, rt, e1, e2) -> RelOp(op, rt, simplify e1, simplify e2)
+    | Ite(c, rt, e1, e2) -> Ite(simplify c, rt, simplify e1, simplify e2)
+    | Cast(k, rt, e) -> Cast(k, rt, simplify e)
+    | Extract(Cast(CastKind.ZeroExt, _, e), rt, 0) when Expr.TypeOf e = rt ->
       e
-    | Extract (Cast (CastKind.SignExt, _, e), rt, 0) when Expr.TypeOf e = rt ->
+    | Extract(Cast(CastKind.SignExt, _, e), rt, 0) when Expr.TypeOf e = rt ->
       e
-    | Extract (e, rt, pos) -> Extract (simplify e, rt, pos)
+    | Extract(e, rt, pos) -> Extract(simplify e, rt, pos)
     | expr -> expr
 
   let rec constantFold findConst findDef e =
@@ -100,50 +100,50 @@ type JmpTableAnalysis<'FnCtx,
       | ConstantDomain.Const bv -> Num bv
       | _ ->
         match findDef v with
-        | Some (Def (_, e)) -> constantFold findConst findDef e
+        | Some(Def(_, e)) -> constantFold findConst findDef e
         | _ -> e
-    | Load (m, rt, addr) ->
-      Load (m, rt, constantFold findConst findDef addr)
-    | UnOp (op, rt, e) ->
-      UnOp (op, rt, constantFold findConst findDef e)
-    | BinOp (op, rt, e1, e2) ->
+    | Load(m, rt, addr) ->
+      Load(m, rt, constantFold findConst findDef addr)
+    | UnOp(op, rt, e) ->
+      UnOp(op, rt, constantFold findConst findDef e)
+    | BinOp(op, rt, e1, e2) ->
       let e1 = constantFold findConst findDef e1
       let e2 = constantFold findConst findDef e2
-      BinOp (op, rt, e1, e2) |> simplify
-    | RelOp (op, rt, e1, e2) ->
+      BinOp(op, rt, e1, e2) |> simplify
+    | RelOp(op, rt, e1, e2) ->
       let e1 = constantFold findConst findDef e1
       let e2 = constantFold findConst findDef e2
-      RelOp (op, rt, e1, e2)
-    | Ite (e1, rt, e2, e3) ->
+      RelOp(op, rt, e1, e2)
+    | Ite(e1, rt, e2, e3) ->
       let e1 = constantFold findConst findDef e1
       let e2 = constantFold findConst findDef e2
       let e3 = constantFold findConst findDef e3
-      Ite (e1, rt, e2, e3)
-    | Cast (op, rt, e) ->
-      Cast (op, rt, constantFold findConst findDef e)
-    | Extract (e, rt, pos) ->
-      Extract (constantFold findConst findDef e, rt, pos)
+      Ite(e1, rt, e2, e3)
+    | Cast(op, rt, e) ->
+      Cast(op, rt, constantFold findConst findDef e)
+    | Extract(e, rt, pos) ->
+      Extract(constantFold findConst findDef e, rt, pos)
     | e -> e
 
   let rec isJmpTable t = function
-    | BinOp (BinOpType.MUL, _, _, Num n)
-    | BinOp (BinOpType.MUL, _, Num n, _) ->
+    | BinOp(BinOpType.MUL, _, _, Num n)
+    | BinOp(BinOpType.MUL, _, Num n, _) ->
       (RegType.toByteWidth t = BitVector.ToInt32 n)
-    | BinOp (BinOpType.SHL, _, _, Num n) ->
+    | BinOp(BinOpType.SHL, _, _, Num n) ->
       (RegType.toByteWidth t = (1 <<< BitVector.ToInt32 n))
-    | BinOp (BinOpType.ADD, _, e1, e2) ->
+    | BinOp(BinOpType.ADD, _, e1, e2) ->
       isJmpTable t e1 || isJmpTable t e2
     | _ -> false
 
   let rec extractTableExpr = function
-    | BinOp (BinOpType.ADD, _, BinOp (BinOpType.MUL, _, _, Num _), e)
-    | BinOp (BinOpType.ADD, _, BinOp (BinOpType.MUL, _, Num _, _), e)
-    | BinOp (BinOpType.ADD, _, BinOp (BinOpType.SHL, _, _, Num _), e)
-    | BinOp (BinOpType.ADD, _, e, BinOp (BinOpType.MUL, _, _, Num _))
-    | BinOp (BinOpType.ADD, _, e, BinOp (BinOpType.MUL, _, Num _, _))
-    | BinOp (BinOpType.ADD, _, e, BinOp (BinOpType.SHL, _, _, Num _)) -> e
-    | BinOp (op, rt, e1, e2) ->
-      BinOp (op, rt, extractTableExpr e1, extractTableExpr e2)
+    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.MUL, _, _, Num _), e)
+    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.MUL, _, Num _, _), e)
+    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.SHL, _, _, Num _), e)
+    | BinOp(BinOpType.ADD, _, e, BinOp(BinOpType.MUL, _, _, Num _))
+    | BinOp(BinOpType.ADD, _, e, BinOp(BinOpType.MUL, _, Num _, _))
+    | BinOp(BinOpType.ADD, _, e, BinOp(BinOpType.SHL, _, _, Num _)) -> e
+    | BinOp(op, rt, e1, e2) ->
+      BinOp(op, rt, extractTableExpr e1, extractTableExpr e2)
     | e -> e
 
   let extractBaseAddr findConst findDef expr =
@@ -174,32 +174,31 @@ type JmpTableAnalysis<'FnCtx,
     | _ -> Error ErrorCase.ItemNotFound
 
   let detect findConst findDef iAddr = function
-    | BinOp (BinOpType.ADD, _, Num b, Load (_, t, memExpr))
-    | BinOp (BinOpType.ADD, _, Load (_, t, memExpr), Num b)
-    | BinOp (BinOpType.ADD, _, Num b, Cast (_, _, Load (_, t, memExpr)))
-    | BinOp (BinOpType.ADD, _, Cast (_, _, Load (_, t, memExpr)), Num b) ->
+    | BinOp(BinOpType.ADD, _, Num b, Load(_, t, memExpr))
+    | BinOp(BinOpType.ADD, _, Load(_, t, memExpr), Num b)
+    | BinOp(BinOpType.ADD, _, Num b, Cast(_, _, Load(_, t, memExpr)))
+    | BinOp(BinOpType.ADD, _, Cast(_, _, Load(_, t, memExpr)), Num b) ->
       if isJmpTable t memExpr then
         extractTblInfo findConst findDef iAddr (Num b) memExpr t
-      else Error ErrorCase.ItemNotFound
-    | BinOp (BinOpType.ADD, _, (Load (_, _, e1) as m1),
-                               (Load (_, t, e2) as m2)) ->
-      if isJmpTable t e1 then
-        extractTblInfo findConst findDef iAddr m2 e1 t
-      elif isJmpTable t e2 then
-        extractTblInfo findConst findDef iAddr m1 e2 t
       else
         Error ErrorCase.ItemNotFound
-    | BinOp (BinOpType.ADD, _, baseExpr, Load (_, t, tblExpr))
-    | BinOp (BinOpType.ADD, _, Load (_, t, tblExpr), baseExpr) ->
+    | BinOp(BinOpType.ADD, _, (Load(_, _, e1) as m1), (Load(_, t, e2) as m2)) ->
+      if isJmpTable t e1 then extractTblInfo findConst findDef iAddr m2 e1 t
+      elif isJmpTable t e2 then extractTblInfo findConst findDef iAddr m1 e2 t
+      else Error ErrorCase.ItemNotFound
+    | BinOp(BinOpType.ADD, _, baseExpr, Load(_, t, tblExpr))
+    | BinOp(BinOpType.ADD, _, Load(_, t, tblExpr), baseExpr) ->
       if isJmpTable t tblExpr then
         extractTblInfo findConst findDef iAddr baseExpr tblExpr t
-      else Error ErrorCase.ItemNotFound
-    | Load (_, t, memExpr)
-    | Cast (_, _, Load (_, t, memExpr)) ->
+      else
+        Error ErrorCase.ItemNotFound
+    | Load(_, t, memExpr)
+    | Cast(_, _, Load(_, t, memExpr)) ->
       if isJmpTable t memExpr then
         let zero = BitVector.Zero t
         extractTblInfo findConst findDef iAddr (Num zero) memExpr t
-      else Error ErrorCase.ItemNotFound
+      else
+        Error ErrorCase.ItemNotFound
     | _ -> Error ErrorCase.ItemNotFound
 
   /// Expand the given expression by recursively substituting the subexpressions
@@ -208,41 +207,41 @@ type JmpTableAnalysis<'FnCtx,
   let rec symbExpand expandPhi findConst findDef doNext e =
     match e with
     | Num _ -> e
-    | Var ({ Kind = PCVar _ } as v) -> (* regard PC as a constant *)
+    | Var({ Kind = PCVar _ } as v) -> (* regard PC as a constant *)
       match findConst v with
       | ConstantDomain.Const bv -> Num bv
       | _ -> e
     | Var v when v.Identifier <> 0 && doNext ->
       match findDef v with
-      | Some (Def (_, e)) ->
+      | Some(Def(_, e)) ->
         symbExpand expandPhi findConst findDef false e
-      | Some (Phi (_, ids)) -> expandPhi findConst v ids e
+      | Some(Phi(_, ids)) -> expandPhi findConst v ids e
       | _ -> e
-    | Load (m, rt, addr) ->
+    | Load(m, rt, addr) ->
       let e = symbExpand expandPhi findConst findDef doNext addr
-      Load (m, rt, e)
-    | UnOp (op, rt, e) ->
+      Load(m, rt, e)
+    | UnOp(op, rt, e) ->
       let e = symbExpand expandPhi findConst findDef doNext e
-      UnOp (op, rt, e)
-    | BinOp (op, rt, e1, e2) ->
+      UnOp(op, rt, e)
+    | BinOp(op, rt, e1, e2) ->
       let e1 = symbExpand expandPhi findConst findDef doNext e1
       let e2 = symbExpand expandPhi findConst findDef doNext e2
-      BinOp (op, rt, e1, e2)
-    | RelOp (op, rt, e1, e2) ->
+      BinOp(op, rt, e1, e2)
+    | RelOp(op, rt, e1, e2) ->
       let e1 = symbExpand expandPhi findConst findDef doNext e1
       let e2 = symbExpand expandPhi findConst findDef doNext e2
-      RelOp (op, rt, e1, e2)
-    | Ite (e1, rt, e2, e3) ->
+      RelOp(op, rt, e1, e2)
+    | Ite(e1, rt, e2, e3) ->
       let e1 = symbExpand expandPhi findConst findDef doNext e1
       let e2 = symbExpand expandPhi findConst findDef doNext e2
       let e3 = symbExpand expandPhi findConst findDef doNext e3
-      Ite (e1, rt, e2, e3)
-    | Cast (op, rt, e) ->
+      Ite(e1, rt, e2, e3)
+    | Cast(op, rt, e) ->
       let e = symbExpand expandPhi findConst findDef doNext e
-      Cast (op, rt, e)
-    | Extract (e, rt, pos) ->
+      Cast(op, rt, e)
+    | Extract(e, rt, pos) ->
       let e = symbExpand expandPhi findConst findDef doNext e
-      Extract (e, rt, pos)
+      Extract(e, rt, pos)
     | e -> e
 
   /// This is a practical limit for the depth of symbolic expansion.
@@ -266,7 +265,7 @@ type JmpTableAnalysis<'FnCtx,
       else Error ErrorCase.ItemNotFound
 
   let findConstFromIRCFG (state: LowUIRSparseDataFlow.State<_>) v =
-    state.GetAbsValue (v = v)
+    state.GetAbsValue(v = v)
 
   let findDefFromIRCFG (state: LowUIRSparseDataFlow.State<_>) v =
     state.TryGetSSADef v
@@ -325,7 +324,7 @@ type JmpTableAnalysis<'FnCtx,
     | Error e -> Error e
 
   interface IJmpTableAnalyzable<'FnCtx, 'GlCtx> with
-    member _.Identify ctx insAddr bblAddr =
+    member _.Identify(ctx, insAddr, bblAddr) =
       match ssaLifter with
       | Some ssaLifter ->
         let ssaCFG = ssaLifter.Unwrap { Context = ctx } ()

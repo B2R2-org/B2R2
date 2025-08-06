@@ -41,20 +41,20 @@ let kahnAssignLayers (vGraph: VisGraph) =
 
 let rec addDummy (g: VisGraph) (backEdges, dummies) k src dst (e: VisEdge) cnt =
   if cnt = 0 then
-    let edge = VisEdge (e.Type)
+    let edge = VisEdge(e.Type)
     edge.IsBackEdge <- e.IsBackEdge
-    g.AddEdge (src, dst, edge) |> ignore
+    g.AddEdge(src, dst, edge) |> ignore
     let backEdges =
       if edge.IsBackEdge then (dst, src, edge) :: backEdges
       else backEdges
     backEdges, dummies
   else
-    let vNode = VisBBlock (src.VData, true)
+    let vNode = VisBBlock(src.VData, true)
     let dummy, _ = g.AddVertex vNode
     VisGraph.setLayer dummy <| VisGraph.getLayer src + 1
-    let edge = VisEdge (e.Type)
+    let edge = VisEdge(e.Type)
     edge.IsBackEdge <- e.IsBackEdge
-    g.AddEdge (src, dummy, edge) |> ignore
+    g.AddEdge(src, dummy, edge) |> ignore
     let backEdges =
       if edge.IsBackEdge then (dummy, src, edge) :: backEdges
       else backEdges
@@ -76,7 +76,7 @@ let siftBackEdgesAndPickLongEdges (backEdges, longEdges) edge =
   else backEdges, longEdges
 
 let addDummyNodes vGraph (backEdges, dummies) (src, dst, edge, delta) =
-  (vGraph: VisGraph).RemoveEdge (src, dst) |> ignore
+  (vGraph: VisGraph).RemoveEdge(src, dst) |> ignore
   let k =
     if (edge: Edge<_, VisEdge>).Label.IsBackEdge then dst, src
     else src, dst
@@ -92,7 +92,7 @@ let addDummyNodes vGraph (backEdges, dummies) (src, dst, edge, delta) =
 
 let assignDummyNodes (vGraph: VisGraph) backEdges =
   let backEdges, longEdges =
-    vGraph.FoldEdge siftBackEdgesAndPickLongEdges (backEdges, [])
+    vGraph.FoldEdge(siftBackEdgesAndPickLongEdges, (backEdges, []))
   longEdges
   |> List.fold (addDummyNodes vGraph) (backEdges, Map.empty)
 

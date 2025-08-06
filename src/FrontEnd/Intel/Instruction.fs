@@ -29,19 +29,19 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for Intel x86 and x86-64 architectures.
 type Instruction
-  internal (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz,
-            lifter: ILiftable) =
+  internal(addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz,
+           lifter: ILiftable) =
 
   let hasConcJmpTarget () =
     match oprs with
-    | OneOperand (OprDirAddr _) -> true
+    | OneOperand(OprDirAddr _) -> true
     | _ -> false
 
   /// Address of this instruction.
-  member _.Address with get (): Addr = addr
+  member _.Address with get(): Addr = addr
 
   /// Length of this instruction in bytes.
-  member _.Length with get (): uint32 = len
+  member _.Length with get(): uint32 = len
 
   /// Prefixes.
   member _.Prefixes with get(): Prefix = pref
@@ -72,15 +72,15 @@ type Instruction
   member _.PointerSize with get(): RegType = psz
 
   member private this.AddBranchTargetIfExist addrs =
-    match (this :> IInstruction).DirectBranchTarget () with
+    match (this :> IInstruction).DirectBranchTarget() with
     | false, _ -> addrs
     | true, target -> target :: addrs
 
   interface IInstruction with
 
-    member _.Address with get () = addr
+    member _.Address with get() = addr
 
-    member _.Length with get () = len
+    member _.Length with get() = len
 
     member _.IsBranch = Opcode.isBranch opcode
 
@@ -157,12 +157,12 @@ type Instruction
       | Opcode.NOP -> true
       | Opcode.LEA ->
         match oprs with
-        | TwoOperands (OprReg dst, OprMem (Some src, None, Some 0L, _)) ->
+        | TwoOperands(OprReg dst, OprMem(Some src, None, Some 0L, _)) ->
           dst = src
         | _ -> false
       | Opcode.MOV ->
         match oprs with
-        | TwoOperands (OprReg dst, OprReg src) -> dst = src
+        | TwoOperands(OprReg dst, OprReg src) -> dst = src
         | _ -> false
       | _ -> false
 
@@ -172,55 +172,55 @@ type Instruction
       let ins = this :> IInstruction
       ins.IsBranch || ins.IsInterrupt || ins.IsExit
 
-    member this.DirectBranchTarget (addr: byref<Addr>) =
+    member this.DirectBranchTarget(addr: byref<Addr>) =
       if (this :> IInstruction).IsBranch then
         match oprs with
-        | OneOperand (OprDirAddr (Absolute (_))) -> Terminator.futureFeature ()
-        | OneOperand (OprDirAddr (Relative offset)) ->
+        | OneOperand(OprDirAddr(Absolute(_))) -> Terminator.futureFeature ()
+        | OneOperand(OprDirAddr(Relative offset)) ->
           addr <- (int64 this.Address + offset) |> uint64
           true
         | _ -> false
       else false
 
-    member this.IndirectTrampolineAddr (addr: byref<Addr>) =
+    member this.IndirectTrampolineAddr(addr: byref<Addr>) =
       if (this :> IInstruction).IsIndirectBranch then
         match oprs with
-        | OneOperand (OprMem (None, None, Some disp, _)) ->
+        | OneOperand(OprMem(None, None, Some disp, _)) ->
           addr <- uint64 disp; true
-        | OneOperand (OprMem (Some Register.RIP, None, Some disp, _)) ->
+        | OneOperand(OprMem(Some Register.RIP, None, Some disp, _)) ->
           addr <- this.Address + uint64 this.Length + uint64 disp
           true
         | _ -> false
       else false
 
-    member this.MemoryDereferences (addrs: byref<Addr[]>) =
+    member this.MemoryDereferences(addrs: byref<Addr[]>) =
       if opcode = Opcode.LEA then false
       else
         match oprs with
-        | OneOperand (OprMem (Some Register.RIP, None, Some disp, _)) ->
+        | OneOperand(OprMem(Some Register.RIP, None, Some disp, _)) ->
           addrs <- [| this.Address + uint64 this.Length + uint64 disp |]
           true
-        | TwoOperands (OprMem (Some Register.RIP, None, Some disp, _), _)
-        | TwoOperands (_, OprMem (Some Register.RIP, None, Some disp, _)) ->
+        | TwoOperands(OprMem(Some Register.RIP, None, Some disp, _), _)
+        | TwoOperands(_, OprMem(Some Register.RIP, None, Some disp, _)) ->
           addrs <- [| this.Address + uint64 this.Length + uint64 disp |]
           true
         | _ -> false
 
-    member _.Immediate (v: byref<int64>) =
+    member _.Immediate(v: byref<int64>) =
       match oprs with
-      | OneOperand (OprImm (c, _))
-      | TwoOperands (OprImm (c, _), _)
-      | TwoOperands (_, OprImm (c, _))
-      | ThreeOperands (OprImm (c, _), _, _)
-      | ThreeOperands (_, OprImm (c, _), _)
-      | ThreeOperands (_, _, OprImm (c, _))
-      | FourOperands (OprImm (c, _), _, _, _)
-      | FourOperands (_, OprImm (c, _), _, _)
-      | FourOperands (_, _, OprImm (c, _), _)
-      | FourOperands (_, _, _, OprImm (c, _)) -> v <- c; true
+      | OneOperand(OprImm(c, _))
+      | TwoOperands(OprImm(c, _), _)
+      | TwoOperands(_, OprImm(c, _))
+      | ThreeOperands(OprImm(c, _), _, _)
+      | ThreeOperands(_, OprImm(c, _), _)
+      | ThreeOperands(_, _, OprImm(c, _))
+      | FourOperands(OprImm(c, _), _, _, _)
+      | FourOperands(_, OprImm(c, _), _, _)
+      | FourOperands(_, _, OprImm(c, _), _)
+      | FourOperands(_, _, _, OprImm(c, _)) -> v <- c; true
       | _ -> false
 
-    member this.GetNextInstrAddrs () =
+    member this.GetNextInstrAddrs() =
       let acc = [ this.Address + uint64 this.Length ]
       let ins = this :> IInstruction
       if ins.IsBranch then
@@ -230,31 +230,31 @@ type Instruction
       else acc
       |> List.toArray
 
-    member _.InterruptNum (num: byref<int64>) =
+    member _.InterruptNum(num: byref<int64>) =
       if opcode = Opcode.INT then
         match oprs with
-        | OneOperand (OprImm (n, _)) ->
+        | OneOperand(OprImm(n, _)) ->
           num <- n
           true
         | _ -> false
       else false
 
     member this.Translate builder =
-      (lifter.Lift this builder).Stream.ToStmts ()
+      lifter.Lift(this, builder).Stream.ToStmts()
 
     member this.TranslateToList builder =
-      (lifter.Lift this builder).Stream
+      lifter.Lift(this, builder).Stream
 
     member this.Disasm builder =
-      (lifter.Disasm this builder).ToString ()
+      lifter.Disasm(this, builder).ToString()
 
-    member this.Disasm () =
-      let builder = StringDisasmBuilder (false, null, wordSz)
-      (lifter.Disasm this builder).ToString ()
+    member this.Disasm() =
+      let builder = StringDisasmBuilder(false, null, wordSz)
+      lifter.Disasm(this, builder).ToString()
 
     member this.Decompose builder =
-      (lifter.Disasm this builder).ToAsmWords ()
+      lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
-  abstract Lift: Instruction -> ILowUIRBuilder -> ILowUIRBuilder
-  abstract Disasm: Instruction -> IDisasmBuilder -> IDisasmBuilder
+  abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction * IDisasmBuilder -> IDisasmBuilder

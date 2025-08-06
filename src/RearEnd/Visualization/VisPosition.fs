@@ -25,9 +25,8 @@
 namespace B2R2.RearEnd.Visualization
 
 /// X-Y position of nodes and edges for visualization.
-type VisPosition = {
-  /// X position.
-  mutable X: float
-  /// Y position.
-  mutable Y: float
-}
+type VisPosition =
+  { /// X position.
+    mutable X: float
+    /// Y position.
+    mutable Y: float }

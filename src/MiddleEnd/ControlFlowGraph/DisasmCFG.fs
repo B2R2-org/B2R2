@@ -33,12 +33,12 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Disassembly-based CFG, where each node contains disassembly code. This is
 /// the most user-friendly CFG, although we do not use this for internal
 /// analyses. Therefore, this class does not provide ways to modify the CFG.
-type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
+type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
   let addEdgeToDisasmVertex (vMap: DisasmVMap) addr succ =
     match succ with
-    | Some (succAddr, edge) ->
+    | Some(succAddr, edge) ->
       let tmpV = vMap[addr]
-      tmpV.Successors.Add (succAddr, edge)
+      tmpV.Successors.Add(succAddr, edge)
     | None -> ()
 
   let hasSameAddress (v1: IVertex<_>) (v2: IVertex<_>) =
@@ -75,7 +75,7 @@ type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
   /// Collect pairs of vertices that can be merged. Such a pair should have only
   /// one possible flow between them.
   let collectVerticesToMerge (g: LowUIRCFG) =
-    let verticesToMerge = Dictionary ()
+    let verticesToMerge = Dictionary()
     for v in g.Vertices do
       match g.GetSuccs v |> Seq.tryExactlyOne with
       | Some succ when isMergableWithPredecessors g succ ->
@@ -104,8 +104,8 @@ type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
     | true, tmpV -> tmpV
     | false, _ ->
       let tmpV =
-        { Instructions = SortedList ()
-          Successors = List ()
+        { Instructions = SortedList()
+          Successors = List()
           Vertex = null }
       vMap[addr] <- tmpV
       tmpV
@@ -117,13 +117,13 @@ type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
     |> Array.iter (fun lifted ->
       let ins = lifted.Original
       if insList.ContainsKey ins.Address then ()
-      else insList.Add (ins.Address, ins))
+      else insList.Add(ins.Address, ins))
 
   let mergeDisasmVertexInfos (vMap: DisasmVMap) srcAddr ftAddr =
     let src = vMap[srcAddr]
     let dst = vMap[ftAddr]
-    for KeyValue (addr, ins) in dst.Instructions do
-      src.Instructions.Add (addr, ins)
+    for KeyValue(addr, ins) in dst.Instructions do
+      src.Instructions.Add(addr, ins)
     vMap.Remove ftAddr |> ignore
     for succ in dst.Successors do
       addEdgeToDisasmVertex vMap srcAddr <| Some succ
@@ -143,15 +143,15 @@ type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
              existing vertex. So we should connect an edge to it. *)
           let last = v.VData.Internals.LastInstruction
           let fallthroughAddr = last.Address + uint64 last.Length
-          let succ = Some (fallthroughAddr, e.Label)
+          let succ = Some(fallthroughAddr, e.Label)
           addEdgeToDisasmVertex vMap srcAddr succ
       else
         let dstAddr = e.Second.VData.Internals.PPoint.Address
-        let succ = if srcAddr = dstAddr then None else Some (dstAddr, e.Label)
+        let succ = if srcAddr = dstAddr then None else Some(dstAddr, e.Label)
         addEdgeToDisasmVertex vMap srcAddr succ)
 
   let prepareDisasmCFGInfo (g: LowUIRCFG) =
-    let vMap = DisasmVMap ()
+    let vMap = DisasmVMap()
     let verticesToMerge = collectVerticesToMerge g
     for v in sortVertices g do
       if v.VData.Internals.IsAbstract then ()
@@ -162,7 +162,7 @@ type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
           let srcAddr = v.VData.Internals.PPoint.Address
           let ftAddr = ft.VData.Internals.PPoint.Address
           if hasManyOutgoingEdges g v then
-            addEdgeToDisasmVertex vMap srcAddr (Some (ftAddr, FallThroughEdge))
+            addEdgeToDisasmVertex vMap srcAddr (Some(ftAddr, FallThroughEdge))
             addEdgesToDisasmVertex g verticesToMerge vMap v
           else mergeDisasmVertexInfos vMap srcAddr ftAddr
         | false, _ ->
@@ -172,10 +172,10 @@ type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
     vMap
 
   let addDisasmCFGVertices (vMap: DisasmVMap) newGraph =
-    vMap |> Seq.fold (fun (g: IDiGraph<_, _>) (KeyValue (addr, tmpV)) ->
-      let ppoint = ProgramPoint (addr, 0)
+    vMap |> Seq.fold (fun (g: IDiGraph<_, _>) (KeyValue(addr, tmpV)) ->
+      let ppoint = ProgramPoint(addr, 0)
       let instrs = tmpV.Instructions.Values |> Seq.toArray
-      let bbl = DisasmBasicBlock (disasmBuilder, ppoint, instrs)
+      let bbl = DisasmBasicBlock(disasmBuilder, ppoint, instrs)
       let v, g = g.AddVertex bbl
       tmpV.Vertex <- v
       g) newGraph
@@ -186,14 +186,14 @@ type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
       tmpV.Successors |> Seq.fold (fun g (succ, label) ->
         if vMap.ContainsKey succ |> not then ()
         let dst = vMap[succ].Vertex
-        g.AddEdge (src, dst, label)
+        g.AddEdge(src, dst, label)
       ) g
     ) newGraph
 
   let createEmptyDisasmCFGByType (implType: ImplementationType) =
     match implType with
-    | Imperative -> ImperativeDiGraph () :> IDiGraph<_, _>
-    | Persistent -> PersistentDiGraph () :> IDiGraph<_, _>
+    | Imperative -> ImperativeDiGraph() :> IDiGraph<_, _>
+    | Persistent -> PersistentDiGraph() :> IDiGraph<_, _>
 
   let createDisasmCFG vMap =
     createEmptyDisasmCFGByType ircfg.ImplementationType
@@ -227,21 +227,21 @@ type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
   member _.SingleRoot with get() = g.SingleRoot
 
   /// Get the root vertices of this CFG.
-  member _.Roots with get() = g.GetRoots ()
+  member _.Roots with get() = g.GetRoots()
 
   /// Get the implementation type of this CFG.
   member _.ImplementationType with get() = g.ImplementationType
 
   /// Is this empty? A CFG is empty when there is no vertex.
-  member _.IsEmpty () = g.IsEmpty ()
+  member _.IsEmpty() = g.IsEmpty()
 
   /// Find an edge between the given source and destination vertices.
-  member _.FindEdge (src, dst) = g.FindEdge (src, dst)
+  member _.FindEdge(src, dst) = g.FindEdge(src, dst)
 
   /// Find an edge between the given source and destination vertices. This
   /// function returns an Option type. If there is no such an edge, it returns
   /// None.
-  member _.TryFindEdge (src, dst) = g.TryFindEdge (src, dst)
+  member _.TryFindEdge(src, dst) = g.TryFindEdge(src, dst)
 
   /// Get the predecessors of the given vertex.
   member _.GetPreds v = g.GetPreds v
@@ -256,13 +256,13 @@ type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
   member _.GetSuccEdges v = g.GetSuccEdges v
 
   /// Fold the vertices of this CFG with the given function and accumulator.
-  member _.FoldVertex fn acc = g.FoldVertex fn acc
+  member _.FoldVertex(fn, acc) = g.FoldVertex(fn, acc)
 
   /// Iterate over the vertices of this CFG with the given function.
   member _.IterVertex fn = g.IterVertex fn
 
   /// Fold the edges of this CFG with the given function and accumulator.
-  member _.FoldEdge fn acc = g.FoldEdge fn acc
+  member _.FoldEdge(fn, acc) = g.FoldEdge(fn, acc)
 
   /// Iterate over the edges of this CFG with the given function.
   member _.IterEdge fn = g.IterEdge fn
@@ -275,37 +275,36 @@ type DisasmCFG (disasmBuilder, ircfg: LowUIRCFG) =
     member _.Exits = g.Exits
     member _.SingleRoot = g.SingleRoot
     member _.ImplementationType = g.ImplementationType
-    member _.IsEmpty () = g.IsEmpty ()
+    member _.IsEmpty() = g.IsEmpty()
     member _.HasVertex vid = g.HasVertex vid
-    member _.HasEdge src dst = g.HasEdge src dst
+    member _.HasEdge(src, dst) = g.HasEdge(src, dst)
     member _.FindVertexByID vid = g.FindVertexByID vid
     member _.TryFindVertexByID vid = g.TryFindVertexByID vid
     member _.FindVertexByData vdata = g.FindVertexByData vdata
     member _.TryFindVertexByData vdata = g.TryFindVertexByData vdata
     member _.FindVertexBy fn = g.FindVertexBy fn
     member _.TryFindVertexBy fn = g.TryFindVertexBy fn
-    member _.FindEdge (src, dst) = g.FindEdge (src, dst)
-    member _.TryFindEdge (src, dst) = g.TryFindEdge (src, dst)
+    member _.FindEdge(src, dst) = g.FindEdge(src, dst)
+    member _.TryFindEdge(src, dst) = g.TryFindEdge(src, dst)
     member _.GetPreds v = g.GetPreds v
     member _.GetPredEdges v = g.GetPredEdges v
     member _.GetSuccs v = g.GetSuccs v
     member _.GetSuccEdges v = g.GetSuccEdges v
-    member _.GetRoots () = g.GetRoots ()
+    member _.GetRoots() = g.GetRoots()
     member _.Reverse vs = g.Reverse vs
-    member _.FoldVertex fn acc = g.FoldVertex fn acc
+    member _.FoldVertex(fn, acc) = g.FoldVertex(fn, acc)
     member _.IterVertex fn = g.IterVertex fn
-    member _.FoldEdge fn acc = g.FoldEdge fn acc
+    member _.FoldEdge(fn, acc) = g.FoldEdge(fn, acc)
     member _.IterEdge fn = g.IterEdge fn
 
   interface ISCCEnumerable<DisasmBasicBlock> with
-    member _.GetSCCEnumerator () = SCC.Tarjan.compute g
+    member _.GetSCCEnumerator() = SCC.Tarjan.compute g
 
 /// Temporarily stores vertex information for creating DisasmCFG.
-and private TemporaryDisasmVertex = {
-  Instructions: SortedList<Addr, IInstruction>
-  Successors: List<Addr * CFGEdgeKind>
-  mutable Vertex: IVertex<DisasmBasicBlock>
-}
+and private TemporaryDisasmVertex =
+  { Instructions: SortedList<Addr, IInstruction>
+    Successors: List<Addr * CFGEdgeKind>
+    mutable Vertex: IVertex<DisasmBasicBlock> }
 
 /// Mapping from address to TemporaryDisasmVertex.
 and private DisasmVMap = Dictionary<Addr, TemporaryDisasmVertex>

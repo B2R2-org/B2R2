@@ -30,8 +30,8 @@ open B2R2.Collections
 
 /// Global collection of jump table recovery notes. This is not thread-safe, so
 /// it should be accessed only by TaskManager.
-type JmpTableRecoveryNotebook () =
-  let notes = SortedList<Addr, JmpTableRecoveryNote> ()
+type JmpTableRecoveryNotebook() =
+  let notes = SortedList<Addr, JmpTableRecoveryNote>()
 
   let findOverlap addr =
     notes.Values
@@ -59,7 +59,7 @@ type JmpTableRecoveryNotebook () =
   /// Create a new note for a newly found jump table, and return it. When we
   /// detect overlapping jump tables, we return the problematic jump table note,
   /// which should be reverted.
-  member _.Register fnAddr jmptbl =
+  member _.Register(fnAddr, jmptbl) =
     let tblAddr = jmptbl.TableAddress
     if notes.ContainsKey tblAddr then
       (* Duplicate registeration is possible due to rollback. *)
@@ -72,14 +72,14 @@ type JmpTableRecoveryNotebook () =
       match findOverlap tblAddr with
       | Some note -> OverlappingNote note (* Return the overlapping note. *)
       | None ->
-        let note = {
-          HostFunctionAddr = fnAddr
-          InsAddr = jmptbl.InsAddr
-          BaseAddr = jmptbl.JumpBase
-          EntrySize = jmptbl.EntrySize
-          StartingPoint = tblAddr
-          ConfirmedEndPoint = tblAddr
-          PotentialEndPoint = System.UInt64.MaxValue }
+        let note =
+          { HostFunctionAddr = fnAddr
+            InsAddr = jmptbl.InsAddr
+            BaseAddr = jmptbl.JumpBase
+            EntrySize = jmptbl.EntrySize
+            StartingPoint = tblAddr
+            ConfirmedEndPoint = tblAddr
+            PotentialEndPoint = System.UInt64.MaxValue }
         notes[tblAddr] <- note
         syncAfterRegistration tblAddr note
         RegistrationSucceeded
@@ -87,14 +87,14 @@ type JmpTableRecoveryNotebook () =
   /// Unregister the given jump table note associated with the given function
   /// address. This means, we later found out that the jump table is really not
   /// a jump table.
-  member _.Unregister tblAddr fnAddr =
+  member _.Unregister(tblAddr, fnAddr) =
     match notes.TryGetValue tblAddr with
     | true, note when note.HostFunctionAddr = fnAddr ->
       notes.Remove tblAddr |> ignore
     | _ -> ()
 
   /// Check if the given index is expandable within the jump table.
-  member _.IsExpandable tblAddr idx =
+  member _.IsExpandable(tblAddr, idx) =
     let note = notes[tblAddr]
     let target = note.StartingPoint + (uint64 idx * uint64 note.EntrySize)
     target <= note.PotentialEndPoint
@@ -104,7 +104,7 @@ type JmpTableRecoveryNotebook () =
     notes[tblAddr].ConfirmedEndPoint
 
   /// Set the confirmed end point of the jump table.
-  member _.SetConfirmedEndPoint tblAddr idx =
+  member _.SetConfirmedEndPoint(tblAddr, idx) =
     let note = notes[tblAddr]
     let newEndPoint = note.StartingPoint + uint64 (idx * note.EntrySize)
     note.ConfirmedEndPoint <- newEndPoint
@@ -116,7 +116,7 @@ type JmpTableRecoveryNotebook () =
 
   /// Set the potential end point of the jump table by giving the currently
   /// confirmed index.
-  member _.SetPotentialEndPointByIndex tblAddr confirmedIdx =
+  member _.SetPotentialEndPointByIndex(tblAddr, confirmedIdx) =
     let note = notes[tblAddr]
     let newPoint = note.StartingPoint + uint64 (confirmedIdx * note.EntrySize)
     updatePotentialEndPoint note newPoint
@@ -124,7 +124,7 @@ type JmpTableRecoveryNotebook () =
 
   /// Set the potential end point of the jump table by giving the currently
   /// confirmed address.
-  member _.SetPotentialEndPointByAddr tblAddr confirmedAddr =
+  member _.SetPotentialEndPointByAddr(tblAddr, confirmedAddr) =
     updatePotentialEndPoint notes[tblAddr] confirmedAddr
     syncConfirmedEndPoint notes[tblAddr] confirmedAddr
 
@@ -155,20 +155,20 @@ and [<Struct>] JmpTableRegistrationResult =
   | OverlappingNote of note: JmpTableRecoveryNote
 
 /// A note (or a recovery state) for jump table recovery.
-and JmpTableRecoveryNote = {
-  /// Address of the host function that contains the indirect jump instruction.
-  HostFunctionAddr: Addr
-  /// Indirect jump instruction address.
-  InsAddr: Addr
-  /// Base address used to compute the final jump target.
-  BaseAddr: Addr
-  /// Jump table entry size.
-  EntrySize: int
-  /// Starting point of the jump table.
-  StartingPoint: Addr
-  /// Confirmed end point of the jump table. We use inclusive range.
-  mutable ConfirmedEndPoint: Addr
-  /// Potential end point (the upperbound) of the jump table. We use inclusive
-  /// range.
-  mutable PotentialEndPoint: Addr
-}
+and JmpTableRecoveryNote =
+  { /// Address of the host function that contains the indirect
+    /// jump instruction.
+    HostFunctionAddr: Addr
+    /// Indirect jump instruction address.
+    InsAddr: Addr
+    /// Base address used to compute the final jump target.
+    BaseAddr: Addr
+    /// Jump table entry size.
+    EntrySize: int
+    /// Starting point of the jump table.
+    StartingPoint: Addr
+    /// Confirmed end point of the jump table. We use inclusive range.
+    mutable ConfirmedEndPoint: Addr
+    /// Potential end point (the upperbound) of the jump table. We use inclusive
+    /// range.
+    mutable PotentialEndPoint: Addr }

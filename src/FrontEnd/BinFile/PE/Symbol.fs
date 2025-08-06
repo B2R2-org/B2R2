@@ -27,13 +27,12 @@ namespace B2R2.FrontEnd.BinFile.PE
 open B2R2
 
 /// Represents the PE symbol.
-type Symbol = {
-  /// Address of the symbol.
-  Address: Addr
-  /// Segment number of the symbol.
-  Segment: uint16
-  /// Name of the symbol.
-  Name: string
-  /// Is the symbol a function?
-  IsFunction: bool
-}
+type Symbol =
+  { /// Address of the symbol.
+    Address: Addr
+    /// Segment number of the symbol.
+    Segment: uint16
+    /// Name of the symbol.
+    Name: string
+    /// Is the symbol a function?
+    IsFunction: bool }

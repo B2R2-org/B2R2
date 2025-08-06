@@ -29,26 +29,24 @@ open B2R2.FrontEnd
 
 /// An element in the register context.
 [<Struct>]
-type RegisterElement = {
-  /// Register ID.
-  RID: RegisterID
-  /// Register's original type.
-  RType: RegType
-  /// The space (in bytes) occupied by the register in the context.
-  Size: int
-  /// Field offset in the context.
-  Offset: int
-}
+type RegisterElement =
+  { /// Register ID.
+    RID: RegisterID
+    /// Register's original type.
+    RType: RegType
+    /// The space (in bytes) occupied by the register in the context.
+    Size: int
+    /// Field offset in the context.
+    Offset: int }
 
 /// Register context.
-type LLVMContext = {
-  /// Register context.
-  Context: Map<RegisterID, RegisterElement>
-  /// The size of the register context.
-  ContextSize: int
-}
+type LLVMContext =
+  { /// Register context.
+    Context: Map<RegisterID, RegisterElement>
+    /// The size of the register context.
+    ContextSize: int }
 with
-  member this.DereferenceableAttribute with get () =
+  member this.DereferenceableAttribute with get() =
     "dereferenceable(" + string this.ContextSize + ")"
 
 [<RequireQualifiedAccess>]
@@ -62,6 +60,7 @@ module private LLVMContext =
 [<RequireQualifiedAccess>]
 module X64Context =
   open type Intel.Register
+
   let init () =
     let rid = Intel.Register.toRegID
     [| { RID = rid RAX; RType = 64<rt>; Size = 8; Offset = 0 }
@@ -154,6 +153,7 @@ module X64Context =
 [<RequireQualifiedAccess>]
 module X86Context =
   open type Intel.Register
+
   let init () =
     let rid = Intel.Register.toRegID
     [| { RID = rid EAX; RType = 32<rt>; Size = 4; Offset = 0 }
@@ -221,6 +221,7 @@ module X86Context =
 [<RequireQualifiedAccess>]
 module ARM32Context =
   open type ARM32.Register
+
   let init () =
     let rid = ARM32.Register.toRegID
     [| { RID = rid R0; RType = 32<rt>; Size = 4; Offset = 0 }
@@ -277,6 +278,7 @@ module ARM32Context =
 [<RequireQualifiedAccess>]
 module ARM64Context =
   open type ARM64.Register
+
   let init () =
     let rid = ARM64.Register.toRegID
     [| { RID = rid X0; RType = 64<rt>; Size = 8; Offset = 0 }
@@ -386,6 +388,7 @@ module ARM64Context =
 [<RequireQualifiedAccess>]
 module MIPS32Context =
   open type MIPS.Register
+
   let init () =
     let rid = MIPS.Register.toRegID
     [| { RID = rid R0; RType = 32<rt>; Size = 4; Offset = 0 }
@@ -459,6 +462,7 @@ module MIPS32Context =
 [<RequireQualifiedAccess>]
 module MIPS64Context =
   open type MIPS.Register
+
   let init () =
     let rid = MIPS.Register.toRegID
     [| { RID = rid R0; RType = 64<rt>; Size = 8; Offset = 0 }

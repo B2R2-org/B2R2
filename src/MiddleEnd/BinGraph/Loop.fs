@@ -27,22 +27,21 @@ module B2R2.MiddleEnd.BinGraph.Loop
 open System.Collections.Generic
 
 let private getBackEdges g =
-  let df = Dominance.CytronDominanceFrontier ()
+  let df = Dominance.CytronDominanceFrontier()
   let dom = Dominance.LengauerTarjanDominance.create g df
-  []
-  |> g.FoldEdge (fun acc edge ->
+  g.FoldEdge((fun acc edge ->
     match dom.Dominators edge.First with
     | ds when ds |> Seq.exists (fun v -> v = edge.Second) -> edge :: acc
-    | _ -> acc)
+    | _ -> acc), [])
 
 let private findNaturalLoopBody g (edge: Edge<_, _>) =
-  let body = HashSet ()
-  let stack = Stack ()
+  let body = HashSet()
+  let stack = Stack()
   let n, h = edge.First, edge.Second
   body.Add h |> ignore
   stack.Push  n
   while stack.Count > 0 do
-    let v = stack.Pop ()
+    let v = stack.Pop()
     if not (body.Contains v) then
       body.Add v |> ignore
       for pred in (g: IDiGraphAccessible<_, _>).GetPreds v do stack.Push pred
@@ -50,7 +49,7 @@ let private findNaturalLoopBody g (edge: Edge<_, _>) =
   body
 
 let getNaturalLoops (g: IDiGraph<_, _>) =
-  let dict = Dictionary ()
+  let dict = Dictionary()
   for edge in getBackEdges g do
     dict[edge] <- findNaturalLoopBody g edge
   dict

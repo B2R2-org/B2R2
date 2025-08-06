@@ -24,13 +24,12 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open B2R2
 open B2R2.RearEnd.Utils
 
 /// The `hexdump` action.
-type HexdumpAction () =
+type HexdumpAction() =
   let rec hexdump (o: obj) =
-    let typ = o.GetType ()
+    let typ = o.GetType()
     if typ = typeof<Binary> then hexdumpBinary o
     else invalidArg (nameof o) "Invalid input type."
 
@@ -48,8 +47,7 @@ type HexdumpAction () =
     member _.Description with get() = """
     Take in a binary and convert it to a hexdump string.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       match args with
-      | [] ->
-        { Values = collection.Values |> Array.map hexdump }
+      | [] -> { Values = collection.Values |> Array.map hexdump }
       | _ -> invalidArg (nameof args) "Invalid argument given."

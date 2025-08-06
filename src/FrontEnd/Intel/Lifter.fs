@@ -38,7 +38,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.AAS -> GeneralLifter.aas ins insLen bld
   | OP.ADC -> GeneralLifter.adc ins insLen bld
   | OP.ADD -> GeneralLifter.add ins insLen bld
-  | OP.ADOX-> GeneralLifter.adox ins insLen bld
+  | OP.ADOX -> GeneralLifter.adox ins insLen bld
   | OP.AND -> GeneralLifter.``and`` ins insLen bld
   | OP.ANDN -> GeneralLifter.andn ins insLen bld
   | OP.ARPL -> GeneralLifter.arpl ins insLen bld

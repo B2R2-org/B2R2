@@ -27,13 +27,13 @@ namespace B2R2.Peripheral.Assembly
 open B2R2
 open B2R2.FrontEnd
 
-type AsmInterface (isa: ISA, startAddress) =
+type AsmInterface(isa: ISA, startAddress) =
   let asmParser =
     match isa with
-    | Intel -> Intel.IntelAsmParser (isa, startAddress) :> AsmParser
+    | Intel -> Intel.IntelAsmParser(isa, startAddress) :> AsmParser
     | _ -> raise InvalidISAException
   let regFactory = GroundWork.CreateRegisterFactory isa
-  let uirParser = LowUIR.LowUIRParser (isa, regFactory)
+  let uirParser = LowUIR.LowUIRParser(isa, regFactory)
 
   /// Parse the given assembly input, and assemble a list of byte arrays, where
   /// each array corresponds to a binary instruction.
@@ -44,6 +44,6 @@ type AsmInterface (isa: ISA, startAddress) =
   /// Parse the given string input, and lift it to an array of LowUIR
   /// statements. If the given string represents LowUIR instructions, then we
   /// simply parse the assembly instructions and return the corresponding AST.
-  member _.LiftLowUIR isFromLowUIR asm =
+  member _.LiftLowUIR(isFromLowUIR, asm) =
     if isFromLowUIR then uirParser.Parse asm
-    else asmParser.Lift asm startAddress
+    else asmParser.Lift(asm, startAddress)

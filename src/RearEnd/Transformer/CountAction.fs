@@ -27,9 +27,9 @@ namespace B2R2.RearEnd.Transformer
 open B2R2
 
 /// The `count` action.
-type CountAction () =
+type CountAction() =
   let rec count (o: obj) =
-    let typ = o.GetType ()
+    let typ = o.GetType()
     if typ.IsArray then countArrayResult o
     elif typ = typeof<Binary> then countBinary o
     else Terminator.futureFeature ()
@@ -51,6 +51,5 @@ type CountAction () =
     action is useful when counting the number of results obtained from grep
     action.
 """
-    member _.Transform _args collection =
-      { Values = [| collection.Values
-                    |> Array.fold (fun acc v -> acc + count v) 0 |] }
+    member _.Transform(_args, collection) =
+      { Values = [| collection.Values |> Array.sumBy count |] }

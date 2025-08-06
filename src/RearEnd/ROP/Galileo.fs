@@ -57,9 +57,9 @@ let getTailPatterns (liftingUnit: LiftingUnit) =
 let private getExecutableRanges (liftingUnit: LiftingUnit) =
   let file = liftingUnit.File
   let rxRanges =
-    file.GetVMMappedRegions (Permission.Readable ||| Permission.Executable)
+    file.GetVMMappedRegions(Permission.Readable ||| Permission.Executable)
   if not file.IsNXEnabled then
-    file.GetVMMappedRegions (Permission.Readable)
+    file.GetVMMappedRegions(Permission.Readable)
     |> Seq.append rxRanges
     |> Seq.distinct
   else
@@ -109,12 +109,12 @@ let private buildGadgetMap hdl (liftingUnit: LiftingUnit) tail map vmRange =
                      (min 0UL (minAddr - instrMaxLen liftingUnit))
                      (idx - 1UL)
                      idx
-  (hdl: BinHandle).ReadBytes (minAddr, int (vmRange.Max - vmRange.Min + 1UL))
+  (hdl: BinHandle).ReadBytes(minAddr, int (vmRange.Max - vmRange.Min + 1UL))
   |> ByteArray.findIdxs minAddr tail.Pattern
   |> List.fold build map
 
 let findGadgets (hdl: BinHandle) =
-  let liftingUnit = hdl.NewLiftingUnit ()
+  let liftingUnit = hdl.NewLiftingUnit()
   let vmRanges = getExecutableRanges liftingUnit
   let buildGadgetMapPerTail acc tail =
     Seq.fold (buildGadgetMap hdl liftingUnit tail) acc vmRanges

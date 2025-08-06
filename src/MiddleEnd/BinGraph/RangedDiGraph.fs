@@ -25,23 +25,23 @@
 namespace B2R2.MiddleEnd.BinGraph
 
 type RangedDiGraph<'D, 'E
-    when 'D :> RangedVertexData and 'D : equality> (core) =
-  inherit DiGraph<'D, 'E> (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>)
+    when 'D :> RangedVertexData and 'D : equality>(core) =
+  inherit DiGraph<'D, 'E>(core: GraphCore<'D, 'E, DiGraph<'D, 'E>>)
 
   member _.FindVertexByRange range =
-    core.FindVertexBy (fun (v: Vertex<'D>) -> v.VData.AddrRange = range)
+    core.FindVertexBy(fun (v: Vertex<'D>) -> v.VData.AddrRange = range)
 
 [<RequireQualifiedAccess>]
 module RangedDiGraph =
-  let private initializer core = RangedDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
+  let private initializer core = RangedDiGraph<'D, 'E>(core) :> DiGraph<'D, 'E>
 
   let private initImperative edgeData =
-    let core = ImperativeRangedCore<'D, 'E> (initializer, edgeData)
-    RangedDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
+    let core = ImperativeRangedCore<'D, 'E>(initializer, edgeData)
+    RangedDiGraph<'D, 'E>(core) :> DiGraph<'D, 'E>
 
   let private initPersistent edgeData =
-    let core = PersistentRangedCore<'D, 'E> (initializer, edgeData)
-    RangedDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
+    let core = PersistentRangedCore<'D, 'E>(initializer, edgeData)
+    RangedDiGraph<'D, 'E>(core) :> DiGraph<'D, 'E>
 
   /// Initialize RangedDiGraph based on the implementation type.
   let init edgeData = function

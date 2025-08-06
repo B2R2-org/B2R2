@@ -35,16 +35,12 @@ namespace B2R2.BinIR
 /// normal situation.
 /// </summary>
 exception IllegalASTTypeException
-
 /// Raised when an assignment expression has an invalid destination expression.
 exception InvalidAssignmentException
-
 /// Rasied when an invalid expression is encountered during type checking or
 /// evaluation.
 exception InvalidExprException
-
 /// Raised when an expression does not type-check.
 exception TypeCheckException of string
-
 /// Raised when an illegal number of bits is used to represent floats.
 exception InvalidFloatTypeException

@@ -127,13 +127,13 @@ let modrmRel byteLen (rel: int64) relSz = // FIXME
   let comRel rel = rel - (byteLen + RegType.toByteWidth relSz |> int64)
   match relSz with
   | 8<rt> -> [| Normal <| byte (comRel rel) |]
-  | 16<rt> -> BitConverter.GetBytes (comRel rel |> int16) |> Array.map Normal
-  | 32<rt> -> BitConverter.GetBytes (comRel rel |> int32) |> Array.map Normal
+  | 16<rt> -> BitConverter.GetBytes(comRel rel |> int16) |> Array.map Normal
+  | 32<rt> -> BitConverter.GetBytes(comRel rel |> int32) |> Array.map Normal
   | _ -> Terminator.impossible ()
 
 let private encDisp disp = function
   | 8<rt> -> [| byte disp |> Normal |]
-  | 32<rt> -> BitConverter.GetBytes (int32 disp) |> Array.map Normal
+  | 32<rt> -> BitConverter.GetBytes(int32 disp) |> Array.map Normal
   | _ -> failwith "Invalid displacement"
 
 let private getDispSz disp = if isDisp8 disp then 8<rt> else 32<rt>
@@ -148,15 +148,15 @@ let private isRegFld4 = function
 let mem b si d =
   match b, si, d with
   | Some b, None, None -> if isRegFld4 b then [| Normal 0x24uy |] else [||]
-  | Some b, Some (i, s), None ->
+  | Some b, Some(i, s), None ->
     [| yield encSIB (getScaleBit s) (regTo3Bit i) (regTo3Bit b) |]
-  | Some b, Some (i, s), Some d ->
+  | Some b, Some(i, s), Some d ->
     [| yield encSIB (getScaleBit s) (regTo3Bit i) (regTo3Bit b)
        yield! encDisp d (getDispSz d) |]
-  | None, Some (i, s), None -> (* Vol.2A 2-7 NOTES *)
+  | None, Some(i, s), None -> (* Vol.2A 2-7 NOTES *)
     [| yield encSIB (getScaleBit s) (regTo3Bit i) 0b101uy
        yield! encDisp 0L 32<rt> |]
-  | None, Some (i, s), Some d ->
+  | None, Some(i, s), Some d ->
     [| yield encSIB (getScaleBit s) (regTo3Bit i) 0b101uy
        yield! encDisp d 32<rt> |]
   | None, None, Some d -> [| yield! encDisp d 32<rt> |]
@@ -167,9 +167,9 @@ let mem b si d =
 
 let immediate (imm: int64) = function
   | 8<rt> -> [| Normal <| byte imm |]
-  | 16<rt> -> BitConverter.GetBytes (int16 imm) |> Array.map Normal
-  | 32<rt> -> BitConverter.GetBytes (int32 imm) |> Array.map Normal
-  | 64<rt> -> BitConverter.GetBytes (imm) |> Array.map Normal
+  | 16<rt> -> BitConverter.GetBytes(int16 imm) |> Array.map Normal
+  | 32<rt> -> BitConverter.GetBytes(int32 imm) |> Array.map Normal
+  | 64<rt> -> BitConverter.GetBytes(imm) |> Array.map Normal
   | _ -> Terminator.impossible ()
 
 // vim: set tw=80 sts=2 sw=2:

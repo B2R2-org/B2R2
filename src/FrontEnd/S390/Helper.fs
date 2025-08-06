@@ -368,390 +368,389 @@ let gr32to47SImmBRQ b = extract48 b 32 47 |> int8 |> ImmS8 |> OpRImm
 
 let gr32to47SImmCQ b = extract48 b 32 47 |> uint16 |> int16 |> ImmS16 |> OpImm
 
-let getUImm8to15 b = OneOperand (gr8to15UImmB b)
+let getUImm8to15 b = OneOperand(gr8to15UImmB b)
 
-let getGR8to11 b = OneOperand (gr8to11 b)
+let getGR8to11 b = OneOperand(gr8to11 b)
 
-let getGR24to27 b = OneOperand (gr24to27W b)
+let getGR24to27 b = OneOperand(gr24to27W b)
 
-let getNoneM16D20 b = OneOperand (OpStore (None, base16 b, disp20 b))
+let getNoneM16D20 b = OneOperand(OpStore(None, base16 b, disp20 b))
 
-let getVR12Q b = OneOperand (vr12Q b 2us)
+let getVR12Q b = OneOperand(vr12Q b 2us)
 
-let getM16D20L b = OneOperand (OpStore (None, base16Q b, disp20to39SQ b))
+let getM16D20L b = OneOperand(OpStore(None, base16Q b, disp20to39SQ b))
 
 let getGRL8Q b =
-  OneOperand (OpStoreLen (gr8to11UHWQ b + 2us, gr16to19UQ b, disp20Q b))
+  OneOperand(OpStoreLen(gr8to11UHWQ b + 2us, gr16to19UQ b, disp20Q b))
 
-let getGR8GR12 b = TwoOperands (gr8to11 b, gr12to15 b)
+let getGR8GR12 b = TwoOperands(gr8to11 b, gr12to15 b)
 
-let getGR24GR28 b = TwoOperands (gr24to27W b, gr28to31W b)
+let getGR24GR28 b = TwoOperands(gr24to27W b, gr28to31W b)
 
-let getFPR24GR28 b = TwoOperands (fpr24to27W b, gr28to31W b)
+let getFPR24GR28 b = TwoOperands(fpr24to27W b, gr28to31W b)
 
-let getGR24FPR28 b = TwoOperands (gr24to27W b, fpr28to31W b)
+let getGR24FPR28 b = TwoOperands(gr24to27W b, fpr28to31W b)
 
-let getFPR24FPR28 b = TwoOperands (fpr24to27W b, fpr28to31W b)
+let getFPR24FPR28 b = TwoOperands(fpr24to27W b, fpr28to31W b)
 
-let getAR24AR28 b = TwoOperands (ar24to27W b, ar28to31W b)
+let getAR24AR28 b = TwoOperands(ar24to27W b, ar28to31W b)
 
-let getAR24GR28 b = TwoOperands (ar24to27W b, gr28to31W b)
+let getAR24GR28 b = TwoOperands(ar24to27W b, gr28to31W b)
 
-let getGR24AR28 b = TwoOperands (gr24to27W b, ar28to31W b)
+let getGR24AR28 b = TwoOperands(gr24to27W b, ar28to31W b)
 
-let getFPR8FPR12 b = TwoOperands (fpr8to11 b, fpr12to15 b)
+let getFPR8FPR12 b = TwoOperands(fpr8to11 b, fpr12to15 b)
 
-let getMGR8GR12 b = TwoOperands (gr8Maskto11 b, gr12to15 b)
+let getMGR8GR12 b = TwoOperands(gr8Maskto11 b, gr12to15 b)
 
 let getGR8WIdx12M16D20 b =
-  TwoOperands (gr8to11W b, OpStore (idx12 b, base16 b, disp20 b))
+  TwoOperands(gr8to11W b, OpStore(idx12 b, base16 b, disp20 b))
 
 let getMask8WIdx12M16D20 b =
-  TwoOperands (mask8to11W b, OpStore (idx12 b, base16 b, disp20 b))
+  TwoOperands(mask8to11W b, OpStore(idx12 b, base16 b, disp20 b))
 
 let getAR8WIdx12M16D20 b =
-  TwoOperands (ar8to11W b, OpStore (idx12 b, base16 b, disp20 b))
+  TwoOperands(ar8to11W b, OpStore(idx12 b, base16 b, disp20 b))
 
 let getGR8WNoneM16D20 b =
-  TwoOperands (gr8to11W b, OpStore (None, base16 b, disp20 b))
+  TwoOperands(gr8to11W b, OpStore(None, base16 b, disp20 b))
 
 let getFPR8WIdx12M16D20 b =
-  TwoOperands (fpr8to11W b, OpStore (idx12 b, base16 b, disp20 b))
+  TwoOperands(fpr8to11W b, OpStore(idx12 b, base16 b, disp20 b))
 
 let getNoneM16D20UImm8 b =
-  TwoOperands (OpStore (None, base16 b, disp20 b), bit8to15UImm8 b)
+  TwoOperands(OpStore(None, base16 b, disp20 b), bit8to15UImm8 b)
 
-let getGR8HWImm b = TwoOperands (gr8to11W b, hWUpperImm b)
+let getGR8HWImm b = TwoOperands(gr8to11W b, hWUpperImm b)
 
-let getGR8HWImmM b = TwoOperands (gr8to11W b, hWUpperImmM b)
+let getGR8HWImmM b = TwoOperands(gr8to11W b, hWUpperImmM b)
 
-let getGR8SImmUpper b = TwoOperands (gr8to11W b, hWUpperSImm b)
+let getGR8SImmUpper b = TwoOperands(gr8to11W b, hWUpperSImm b)
 
-let getGR8SImmRUpper b = TwoOperands (gr8to11W b, hWUpperSImmR b)
+let getGR8SImmRUpper b = TwoOperands(gr8to11W b, hWUpperSImmR b)
 
-let getBit8MaskSImmRUpper b = TwoOperands (bit8to11ImmM b, hWUpperSImmR b)
+let getBit8MaskSImmRUpper b = TwoOperands(bit8to11ImmM b, hWUpperSImmR b)
 
-let getMask8QSImm16to47RQ b = TwoOperands (mask8to11Q b, gr16to47SImmRQ b)
+let getMask8QSImm16to47RQ b = TwoOperands(mask8to11Q b, gr16to47SImmRQ b)
 
-let getGR8QSImm16to47Q b = TwoOperands (gr8to11Q b, gr16to47SImmQ b)
+let getGR8QSImm16to47Q b = TwoOperands(gr8to11Q b, gr16to47SImmQ b)
 
-let getGR8QUImm16to47CQ b = TwoOperands (gr8to11Q b, gr16to47UImmCQ b)
+let getGR8QUImm16to47CQ b = TwoOperands(gr8to11Q b, gr16to47UImmCQ b)
 
-let getGR8QSImm16to47RQ b = TwoOperands (gr8to11Q b, gr16to47SImmRQ b)
+let getGR8QSImm16to47RQ b = TwoOperands(gr8to11Q b, gr16to47SImmRQ b)
 
 let getGR8QIdx12M16D20 b =
-  TwoOperands (gr8to11Q b, OpStore (idx12Q b, base16Q b, disp20to39SQ b))
+  TwoOperands(gr8to11Q b, OpStore(idx12Q b, base16Q b, disp20to39SQ b))
 
 let getAR8QIdx12M16D20 b =
-  TwoOperands (ar8to11Q b, OpStore (idx12Q b, base16Q b, disp20to39SQ b))
+  TwoOperands(ar8to11Q b, OpStore(idx12Q b, base16Q b, disp20to39SQ b))
 
 let getFPR8QIdx12MemBase16DispL20 b =
-  TwoOperands (fpr8to11Q b, OpStore (idx12Q b, base16Q b, disp20to39SQ b))
+  TwoOperands(fpr8to11Q b, OpStore(idx12Q b, base16Q b, disp20to39SQ b))
 
 let getMask8QIdx12M16D20 b =
-  TwoOperands (mask8to11Q b, OpStore (idx12Q b, base16Q b, disp20to39SQ b))
+  TwoOperands(mask8to11Q b, OpStore(idx12Q b, base16Q b, disp20to39SQ b))
 
 let getFPR8QIdx12M16D20 b =
-  TwoOperands (fpr8to11Q b, OpStore (idx12Q b, base16Q b, disp20Q b))
+  TwoOperands(fpr8to11Q b, OpStore(idx12Q b, base16Q b, disp20Q b))
 
 let getM16D20UImm32to47Q b =
-  TwoOperands (OpStore (None, base16Q b, disp20Q b), gr32to47UImmQ b)
+  TwoOperands(OpStore(None, base16Q b, disp20Q b), gr32to47UImmQ b)
 
 let getM16D20SImm32to47CQ b =
-  TwoOperands (OpStore (None, base16Q b, disp20Q b), gr32to47SImmCQ b)
+  TwoOperands(OpStore(None, base16Q b, disp20Q b), gr32to47SImmCQ b)
 
 let getM16D20LUImm8to15Q b =
-  TwoOperands (OpStore (None, base16Q b, disp20to39SQ b), gr8to15UImmBQ b)
+  TwoOperands(OpStore(None, base16Q b, disp20to39SQ b), gr8to15UImmBQ b)
 
 let getM16D20LSImm8to15Q b =
-  TwoOperands (OpStore (None, base16Q b, disp20to39SQ b), gr8to15SImmCBQ b)
+  TwoOperands(OpStore(None, base16Q b, disp20to39SQ b), gr8to15SImmCBQ b)
 
 let getGRL8QM32D36 b =
-  TwoOperands (OpStoreLen (gr8to15UHWQ b + 1us, base16Q b, disp20Q b),
-  OpStore (None, base32Q b, disp36Q b))
+  TwoOperands(OpStoreLen(gr8to15UHWQ b + 1us, base16Q b, disp20Q b),
+  OpStore(None, base32Q b, disp36Q b))
 
 let getM16D20GRL8Q b =
-  TwoOperands (OpStore (None, base16Q b, disp20Q b),
-  OpStoreLen (gr8to15UHWQ b + 1us, base32Q b, disp36Q b))
+  TwoOperands(OpStore(None, base16Q b, disp20Q b),
+  OpStoreLen(gr8to15UHWQ b + 1us, base32Q b, disp36Q b))
 
 let getM16D20M32D36 b =
-  TwoOperands (OpStore (None, base16Q b, disp20Q b),
-  OpStore (None, base32Q b, disp36Q b))
+  TwoOperands(OpStore(None, base16Q b, disp20Q b),
+  OpStore(None, base32Q b, disp36Q b))
 
-let getVR8QUImm16 b = TwoOperands (vr8Q b, gr16to31UImmQ b)
+let getVR8QUImm16 b = TwoOperands(vr8Q b, gr16to31UImmQ b)
 
 let grl9QGRL12Q b =
-  TwoOperands (OpStoreLen (gr9to11UHWQ b + 1us, base16Q b, disp20Q b),
-  OpStoreLen (gr12to15UHWQ b + 1us, base32Q b, disp36Q b))
+  TwoOperands(OpStoreLen(gr9to11UHWQ b + 1us, base16Q b, disp20Q b),
+  OpStoreLen(gr12to15UHWQ b + 1us, base32Q b, disp36Q b))
 
-let getVR8QVR12Q b = TwoOperands (vr8Q b, vr12Q b 2us)
+let getVR8QVR12Q b = TwoOperands(vr8Q b, vr12Q b 2us)
 
 let getGR8WNoneM16D20GR12 b =
-  ThreeOperands (gr8to11W b, OpStore (None, base16 b, disp20 b), gr12to15W b)
+  ThreeOperands(gr8to11W b, OpStore(None, base16 b, disp20 b), gr12to15W b)
 
 let getGR8WNoneM16D20Mask12 b =
-  ThreeOperands (gr8to11W b, OpStore (None, base16 b, disp20 b), mask12to15W b)
+  ThreeOperands(gr8to11W b, OpStore(None, base16 b, disp20 b), mask12to15W b)
 
 let getAR8WNoneM16D20AR12 b =
-  ThreeOperands (ar8to11W b, OpStore (None, base16 b, disp20 b), ar12to15W b)
+  ThreeOperands(ar8to11W b, OpStore(None, base16 b, disp20 b), ar12to15W b)
 
 let getCR8WNoneM16D20CR12 b =
-  ThreeOperands (cr8to11W b, OpStore (None, base16 b, disp20 b), cr12to15W b)
+  ThreeOperands(cr8to11W b, OpStore(None, base16 b, disp20 b), cr12to15W b)
 
 let getGR8SImmRUpperGR12 b =
-  ThreeOperands (gr8to11W b, hWUpperSImmR b, gr12to15W b)
+  ThreeOperands(gr8to11W b, hWUpperSImmR b, gr12to15W b)
 
 let getFPR16FPR28FPR24 b =
-  ThreeOperands (fpr16to19W b, fpr28to31W b, fpr24to27W b)
+  ThreeOperands(fpr16to19W b, fpr28to31W b, fpr24to27W b)
 
 let getFPR24GR28FPR16 b =
-  ThreeOperands (fpr16to19W b, gr28to31W b, fpr16to19W b)
+  ThreeOperands(fpr16to19W b, gr28to31W b, fpr16to19W b)
 
 let getGR24GR28Mask16 b =
-  ThreeOperands (gr24to27W b, gr28to31W b, mask16to19W b)
+  ThreeOperands(gr24to27W b, gr28to31W b, mask16to19W b)
 
 let getFPR24FPR28Mask16 b =
-  ThreeOperands (fpr24to27W b, fpr28to31W b, mask16to19W b)
+  ThreeOperands(fpr24to27W b, fpr28to31W b, mask16to19W b)
 
 let getGR24FPR28Mask16 b =
-  ThreeOperands (gr24to27W b, fpr28to31W b, mask16to19W b)
+  ThreeOperands(gr24to27W b, fpr28to31W b, mask16to19W b)
 
 let getGR24FPR28Mask20 b =
-  ThreeOperands (gr24to27W b, fpr28to31W b, mask20to23W b)
+  ThreeOperands(gr24to27W b, fpr28to31W b, mask20to23W b)
 
 let getFPR24FPR28Mask20 b =
-  ThreeOperands (fpr24to27W b, fpr28to31W b, mask20to23W b)
+  ThreeOperands(fpr24to27W b, fpr28to31W b, mask20to23W b)
 
-let getGR24GR28GR16 b = ThreeOperands (gr24to27W b, gr28to31W b, gr16to19W b)
+let getGR24GR28GR16 b = ThreeOperands(gr24to27W b, gr28to31W b, gr16to19W b)
 
 let getFPR24FPR28FPR16 b =
-  ThreeOperands (fpr24to27W b, fpr28to31W b, fpr16to19W b)
+  ThreeOperands(fpr24to27W b, fpr28to31W b, fpr16to19W b)
 
 let getGR8QSImmUpperQGR12Q b =
-  ThreeOperands (gr8to11Q b, gr16to31SImmQ b, gr12to15Q b)
+  ThreeOperands(gr8to11Q b, gr16to31SImmQ b, gr12to15Q b)
 
 let getGR8QSImmUpperQMask12Q b =
-  ThreeOperands (gr8to11Q b, gr16to31SImmQ b, mask12to15Q b)
+  ThreeOperands(gr8to11Q b, gr16to31SImmQ b, mask12to15Q b)
 
 let getGR8QUImmUpperCQGR12Q b =
-  ThreeOperands (gr8to11Q b, gr16to31UImmCQ b, gr12to15Q b)
+  ThreeOperands(gr8to11Q b, gr16to31UImmCQ b, gr12to15Q b)
 
 let getGR8QUImmUpperCQMask32Q b =
-  ThreeOperands (gr8to11Q b, gr16to31SImmCQ b, mask32to35Q b)
+  ThreeOperands(gr8to11Q b, gr16to31SImmCQ b, mask32to35Q b)
 
 let getGR8QSImmUpperBQMask32Q b =
-  ThreeOperands (gr8to11Q b, gr16to31SImmBQ b, mask32to35Q b)
+  ThreeOperands(gr8to11Q b, gr16to31SImmBQ b, mask32to35Q b)
 
 let getGR8QM16D20GR12Q b =
-  ThreeOperands (gr8to11Q b, OpStore (None, base16Q b, disp20to39SQ b),
+  ThreeOperands(gr8to11Q b, OpStore(None, base16Q b, disp20to39SQ b),
     gr12to15Q b)
 
 let getCR8QM16D20CR12Q b =
-  ThreeOperands (cr8to11Q b, OpStore (None, base16Q b, disp20to39SQ b),
+  ThreeOperands(cr8to11Q b, OpStore(None, base16Q b, disp20to39SQ b),
     cr12to15Q b)
 
 let getAR8QM16D20AR12Q b =
-  ThreeOperands (ar8to11Q b, OpStore (None, base16Q b, disp20to39SQ b),
+  ThreeOperands(ar8to11Q b, OpStore(None, base16Q b, disp20to39SQ b),
     ar12to15Q b)
 
 let getGR8QM16D20Mask12Q b =
-  ThreeOperands (gr8to11Q b, OpStore (None, base16Q b, disp20to39SQ b),
+  ThreeOperands(gr8to11Q b, OpStore(None, base16Q b, disp20to39SQ b),
     mask12to15Q b)
 
 let getGR8QIdx12M16D20Mask32Q b =
-  ThreeOperands (gr8to11Q b, OpStore (idx12Q b, base16Q b, disp20Q b),
+  ThreeOperands(gr8to11Q b, OpStore(idx12Q b, base16Q b, disp20Q b),
     mask32to35Q b)
 
 let getMask8QSImm32RM16D20 b =
-  ThreeOperands (mask8to11Q b, gr32to47SImmBRQ b,
-    OpStore (None, base16Q b, disp20Q b))
+  ThreeOperands(mask8to11Q b, gr32to47SImmBRQ b,
+    OpStore(None, base16Q b, disp20Q b))
 
 let getFPR32QIdx12M16D20FPR8Q b =
-  ThreeOperands (fpr32to35Q b, OpStore (idx12Q b, base16Q b, disp20Q b),
+  ThreeOperands(fpr32to35Q b, OpStore(idx12Q b, base16Q b, disp20Q b),
     fpr8to11Q b)
 
 let getM16D20M32D36GR8Q b =
-  ThreeOperands (OpStore (None, base16Q b, disp20Q b),
-    OpStore (None, base32Q b, disp36Q b), gr8to11Q b)
+  ThreeOperands(OpStore(None, base16Q b, disp20Q b),
+    OpStore(None, base32Q b, disp36Q b), gr8to11Q b)
 
 let getVR8QUImmUpperQUImm4 b =
-  ThreeOperands (vr8Q b, gr16to31UImmQ b,
-    OpImm (BitVector.OfUInt32 (gr32to35UWQ b) 4<rt> |> ImmU4))
+  ThreeOperands(vr8Q b, gr16to31UImmQ b,
+    OpImm(BitVector.OfUInt32(gr32to35UWQ b, 4<rt>) |> ImmU4))
 
 let getVR8QUImm16Mask32 b =
-  ThreeOperands (vr8Q b, gr16to31UImmQ b, mask32to35Q b)
+  ThreeOperands(vr8Q b, gr16to31UImmQ b, mask32to35Q b)
 
 let getVR8QIdxM16D20Mask32 b =
-  ThreeOperands (vr8Q b, OpStore (idx12Q b, base16Q b, disp20Q b),
-    mask32to35Q b)
+  ThreeOperands(vr8Q b, OpStore(idx12Q b, base16Q b, disp20Q b), mask32to35Q b)
 
 let getVR8QVIdxM16D20Mask32 b =
-  ThreeOperands (vr8Q b,
-    OpStore (Some (getVR (gr36to39UHWQ b) (extract48 b 12 15 |> uint16) 2us),
+  ThreeOperands(vr8Q b,
+    OpStore(Some(getVR (gr36to39UHWQ b) (extract48 b 12 15 |> uint16) 2us),
       base16Q b, disp20Q b), mask32to35Q b)
 
 let getVR32QM16D20UImm8 b =
-  ThreeOperands (vr32Q b 4us, OpStore (None, base16Q b, disp20Q b),
+  ThreeOperands(vr32Q b 4us, OpStore(None, base16Q b, disp20Q b),
     gr8to15UImmBQ b)
 
-let getVR8QVR12QMask24 b = ThreeOperands (vr8Q b, vr12Q b 2us, mask24to27Q b)
+let getVR8QVR12QMask24 b = ThreeOperands(vr8Q b, vr12Q b 2us, mask24to27Q b)
 
-let getVR8QVR12QMask32 b = ThreeOperands (vr8Q b, vr12Q b 2us, mask32to35Q b)
+let getVR8QVR12QMask32 b = ThreeOperands(vr8Q b, vr12Q b 2us, mask32to35Q b)
 
-let getVR8QGR12QGR16Q b = ThreeOperands (vr8Q b, gr12to15Q b, gr16to19Q b)
+let getVR8QGR12QGR16Q b = ThreeOperands(vr8Q b, gr12to15Q b, gr16to19Q b)
 
-let getVR8QVR12QVR16Q b = ThreeOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us)
+let getVR8QVR12QVR16Q b = ThreeOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us)
 
 let getVR12QVR16QMask24 b =
-  ThreeOperands (vr12Q b 2us, vr16Q b 3us, mask24to27Q b)
+  ThreeOperands(vr12Q b 2us, vr16Q b 3us, mask24to27Q b)
 
 let getVR32QM16D20GR12Q b =
-  ThreeOperands (vr32Q b 4us, OpStore (None, base16Q b, disp20Q b),
+  ThreeOperands(vr32Q b 4us, OpStore(None, base16Q b, disp20Q b),
     gr12to15Q b)
 
 let getVR8QM16D20GR12Q b =
-  ThreeOperands (vr8Q b, OpStore (None, base16Q b, disp20Q b), gr12to15Q b)
+  ThreeOperands(vr8Q b, OpStore(None, base16Q b, disp20Q b), gr12to15Q b)
 
 let getFPR32QGRL8QMask36 b =
-  ThreeOperands (fpr32to35Q b,
-    OpStoreLen (gr8to15UHWQ b + 2us, gr16to19UQ b, disp20Q b), mask36to39Q b)
+  ThreeOperands(fpr32to35Q b,
+    OpStoreLen(gr8to15UHWQ b + 2us, gr16to19UQ b, disp20Q b), mask36to39Q b)
 
 let getGRL9QM32D36UImm4 b =
-  ThreeOperands (OpStoreLen (gr9to11UHWQ b + 1us, base16Q b, disp20Q b),
-    OpStore (None, base32Q b, disp36Q b),
-    OpImm (BitVector.OfUInt32 (gr12to15UWQ b) 4<rt> |> ImmU4))
+  ThreeOperands(OpStoreLen(gr9to11UHWQ b + 1us, base16Q b, disp20Q b),
+    OpStore(None, base32Q b, disp36Q b),
+    OpImm(BitVector.OfUInt32(gr12to15UWQ b, 4<rt>) |> ImmU4))
 
 let getR9MemBase16to35Disp20to47GR12Q b =
-  ThreeOperands (OpStore (Some (gr9to11UQ b), base16Q b, disp20Q b),
-    OpStore (None, base32Q b, disp36Q b), gr12to15Q b)
+  ThreeOperands(OpStore(Some(gr9to11UQ b), base16Q b, disp20Q b),
+    OpStore(None, base32Q b, disp36Q b), gr12to15Q b)
 
 let getGR24GR28GR16Mask20 b =
-  FourOperands (gr24to27W b, gr28to31W b, gr16to19W b, mask20to23W b)
+  FourOperands(gr24to27W b, gr28to31W b, gr16to19W b, mask20to23W b)
 
 let getGR24FPR28Mask16Mask20 b =
-  FourOperands (gr24to27W b, fpr28to31W b, mask16to19W b, mask20to23W b)
+  FourOperands(gr24to27W b, fpr28to31W b, mask16to19W b, mask20to23W b)
 
 let getFPR24GR28FPR16Mask20 b =
-  FourOperands (fpr24to27W b, gr28to31W b, fpr16to19W b, mask20to23W b)
+  FourOperands(fpr24to27W b, gr28to31W b, fpr16to19W b, mask20to23W b)
 
 let getFPR24FPR28FPR16Mask20 b =
-  FourOperands (fpr24to27W b, fpr28to31W b, fpr16to19W b, mask20to23W b)
+  FourOperands(fpr24to27W b, fpr28to31W b, fpr16to19W b, mask20to23W b)
 
 let getFPR24GR28Mask16Mask20 b =
-  FourOperands (fpr24to27W b, gr28to31W b, mask16to19W b, mask20to23W b)
+  FourOperands(fpr24to27W b, gr28to31W b, mask16to19W b, mask20to23W b)
 
 let getFPR24FPR28Mask16Mask20 b =
-  FourOperands (fpr24to27W b, fpr28to31W b, mask16to19W b, mask20to23W b)
+  FourOperands(fpr24to27W b, fpr28to31W b, mask16to19W b, mask20to23W b)
 
 let getGR8QGR12QMask32SImmUpperRQ b =
-  FourOperands (gr8to11Q b, gr12to15Q b, mask32to35Q b, gr16to31SImmRQ b)
+  FourOperands(gr8to11Q b, gr12to15Q b, mask32to35Q b, gr16to31SImmRQ b)
 
 let getGR8QSImm32BQMask12SImmUpperRQ b =
-  FourOperands (gr8to11Q b, gr32to39SImm b, mask12to15Q b, gr16to31SImmRQ b)
+  FourOperands(gr8to11Q b, gr32to39SImm b, mask12to15Q b, gr16to31SImmRQ b)
 
 let getGR8QUImm32CQMask12SImmUpperRQ b =
-  FourOperands (gr8to11Q b, gr32to39UImmCQ b, mask12to15Q b, gr16to31SImmRQ b)
+  FourOperands(gr8to11Q b, gr32to39UImmCQ b, mask12to15Q b, gr16to31SImmRQ b)
 
 let getGR8QUImm32CQMask12NBase16Disp20 b =
-  FourOperands (gr8to11Q b, gr32to39UImmCQ b, mask12to15Q b,
-    OpStore (None, base16Q b, disp20Q b))
+  FourOperands(gr8to11Q b, gr32to39UImmCQ b, mask12to15Q b,
+    OpStore(None, base16Q b, disp20Q b))
 
 let getGR8QSImm32BQMask12NBase16Disp20 b =
-  FourOperands (gr8to11Q b, gr32to39SImm b, mask12to15Q b,
-    OpStore (None, base16Q b, disp20Q b))
+  FourOperands(gr8to11Q b, gr32to39SImm b, mask12to15Q b,
+    OpStore(None, base16Q b, disp20Q b))
 
 let getGR8QGR12QMask32NBase16Disp20 b =
-  FourOperands (gr8to11Q b, gr12to15Q b, mask32to35Q b,
-    OpStore (None, base16Q b, disp20Q b))
+  FourOperands(gr8to11Q b, gr12to15Q b, mask32to35Q b,
+    OpStore(None, base16Q b, disp20Q b))
 
 let getGR9QM16D20GR12QM32D36 b =
-  FourOperands (gr9to11Q b, OpStore (None, base16Q b, disp20Q b), gr12to15Q b,
-    OpStore (None, base32Q b, disp36Q b))
+  FourOperands(gr9to11Q b, OpStore(None, base16Q b, disp20Q b), gr12to15Q b,
+    OpStore(None, base32Q b, disp36Q b))
 
 let getGR8QM16D20VR12QMask32 b =
-  FourOperands (gr8to11Q b, OpStore (None, base16Q b, disp20Q b), vr12Q b 2us,
+  FourOperands(gr8to11Q b, OpStore(None, base16Q b, disp20Q b), vr12Q b 2us,
     mask32to35Q b)
 
 let getVR8QM16D20VR12QMask32 b =
-  FourOperands (vr8Q b, OpStore (None, base16Q b, disp20Q b), vr12Q b 2us,
+  FourOperands(vr8Q b, OpStore(None, base16Q b, disp20Q b), vr12Q b 2us,
     mask32to35Q b)
 
 let getVR8QM16D20GR12QMask32 b =
-  FourOperands (vr8Q b, OpStore (None, base16Q b, disp20Q b), gr12to15Q b,
+  FourOperands(vr8Q b, OpStore(None, base16Q b, disp20Q b), gr12to15Q b,
     mask32to35Q b)
 
 let getVR8QGR12QUImm8Mask24 b =
-  FourOperands (vr8Q b, gr12to15Q b, gr28to35UImmBQ b, mask24to27Q b)
+  FourOperands(vr8Q b, gr12to15Q b, gr28to35UImmBQ b, mask24to27Q b)
 
 let getVR8QUImm8sMask32 b =
-  FourOperands (vr8Q b, gr16to23UImmBQ b, gr24to31UImmBQ b, mask32to35Q b)
+  FourOperands(vr8Q b, gr16to23UImmBQ b, gr24to31UImmBQ b, mask32to35Q b)
 
 let getVR8QUImmUpperVR12QMask32 b =
-  FourOperands (vr8Q b, gr16to31UImmQ b, vr12Q b 2us, mask32to35Q b)
+  FourOperands(vr8Q b, gr16to31UImmQ b, vr12Q b 2us, mask32to35Q b)
 
 let getVR8QVR12QVR16QUImm8 b =
-  FourOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, gr24to31UImmBQ b)
+  FourOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, gr24to31UImmBQ b)
 
 let getGR8QVR12QMask24Mask28 b =
-  FourOperands (gr8to11Q b, vr12Q b 2us, mask24to27Q b, mask28to31Q b)
+  FourOperands(gr8to11Q b, vr12Q b 2us, mask24to27Q b, mask28to31Q b)
 
 let getVR8QVR12QMask32Mask28 b =
-  FourOperands (vr8Q b, vr12Q b 2us, mask32to35Q b, mask28to31Q b)
+  FourOperands(vr8Q b, vr12Q b 2us, mask32to35Q b, mask28to31Q b)
 
 let getVR8QVR12QMask32Mask24 b =
-  FourOperands (vr8Q b, vr12Q b 2us, mask32to35Q b, mask24to27Q b)
+  FourOperands(vr8Q b, vr12Q b 2us, mask32to35Q b, mask24to27Q b)
 
 let getVR8QVR12QVR16QMask24 b =
-  FourOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, mask24to27Q b)
+  FourOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, mask24to27Q b)
 
 let getVR8QVR12QVR16QMask32 b =
-  FourOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, mask32to35Q b)
+  FourOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, mask32to35Q b)
 
 let getVR8QVR12QVR16QVR32Q b =
-  FourOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, vr32Q b 4us)
+  FourOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, vr32Q b 4us)
 
 let getGR8QGR12QUImmUpper24to32Q b =
-  FiveOperands (gr8to11Q b, gr12to15Q b, gr16to23UImmBQ b, gr24to31UImmBQ b,
+  FiveOperands(gr8to11Q b, gr12to15Q b, gr16to23UImmBQ b, gr24to31UImmBQ b,
     gr32to39UImmBQ b)
 
 let getVR8QVR12QUImm8sMask24 b =
-  FiveOperands (vr8Q b, vr12Q b 2us, gr28to35UImmBQ b, gr16to23UImmBQ b,
+  FiveOperands(vr8Q b, vr12Q b 2us, gr28to35UImmBQ b, gr16to23UImmBQ b,
     mask24to27Q b)
 
 let getVR8QVR12QVR16QUImm8Mask32 b =
-  FiveOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, gr24to31UImmBQ b,
+  FiveOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, gr24to31UImmBQ b,
     mask32to35Q b)
 
 let getVR8QVR12QMask32Mask28Mask24 b =
-  FiveOperands (vr8Q b, vr12Q b 2us, mask32to35Q b, mask28to31Q b,
+  FiveOperands(vr8Q b, vr12Q b 2us, mask32to35Q b, mask28to31Q b,
     mask24to27Q b)
 
 let getVR8QVR12QUImm12Mask32Mask28 b =
-  FiveOperands (vr8Q b, vr12Q b 2us,
-    OpImm (BitVector.OfUInt32 (gr16to27UWQ b) 12<rt> |> ImmU12), mask32to35Q b,
+  FiveOperands(vr8Q b, vr12Q b 2us,
+    OpImm(BitVector.OfUInt32(gr16to27UWQ b, 12<rt>) |> ImmU12), mask32to35Q b,
     mask28to31Q b)
 
 let getVR8QVR12QVR16QMask32Mask24 b =
-  FiveOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, mask32to35Q b, mask24to27Q b)
+  FiveOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, mask32to35Q b, mask24to27Q b)
 
 let getVR8QVR12QVR16QMask32Mask28 b =
-  FiveOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, mask32to35Q b, mask28to31Q b)
+  FiveOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, mask32to35Q b, mask28to31Q b)
 
 let getVR8QVR12QVR16QUImm8Mask24 b =
-  FiveOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, gr28to35UImmBQ b,
+  FiveOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, gr28to35UImmBQ b,
     mask24to27Q b)
 
 let getVR8QVR12QVR16QVR32QMask20 b =
-  FiveOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, vr32Q b 4us, mask20to23Q b)
+  FiveOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, vr32Q b 4us, mask20to23Q b)
 
 let getVR8QVR12QVR16QVR32QMask20Mask24 b =
-  SixOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, vr32Q b 4us, mask20to23Q b,
+  SixOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, vr32Q b 4us, mask20to23Q b,
     mask24to27Q b)
 
 let getVR8QVR12QVR16QVR32QMask28Mask20 b =
-  SixOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, vr32Q b 4us, mask28to31Q b,
+  SixOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, vr32Q b 4us, mask28to31Q b,
     mask20to23Q b)
 
 let getVR8QVR12QVR16QMask32Mask28Mask24 b =
-  SixOperands (vr8Q b, vr12Q b 2us, vr16Q b 3us, mask32to35Q b, mask28to31Q b,
+  SixOperands(vr8Q b, vr12Q b 2us, vr16Q b 3us, mask32to35Q b, mask28to31Q b,
     mask24to27Q b)

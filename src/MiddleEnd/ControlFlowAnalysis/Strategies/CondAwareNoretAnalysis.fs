@@ -38,7 +38,7 @@ open type B2R2.MiddleEnd.DataFlow.UntouchedValueDomain.UntouchedTag
 /// conditionally non-returning functions. We currently support only those
 /// simple patterns that are handled by compilers, but we may have to extend
 /// this as the compilers evolve.
-type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
+type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   /// Default value used for unknown non-returning status.
   let defaultStatus = if strict then NoRet else NotNoRet
 
@@ -62,24 +62,24 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
 
   let untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth =
     let argOff = uint64 <| frameDist - 4 * nth
-    let varKind = Memory <| Some (Constants.InitialStackPointer + argOff)
+    let varKind = Memory <| Some(Constants.InitialStackPointer + argOff)
     let absV = ctx.Vertices[pp]
     match tryGetValue state absV varKind with
-    | Some (UntouchedValueDomain.Untouched (RegisterTag (StackLocal off))) ->
-      Some (- off / 4)
+    | Some(UntouchedValueDomain.Untouched(RegisterTag(StackLocal off))) ->
+      Some(- off / 4)
     | _ -> None
 
   let regIdToArgNumX64 hdl rid =
     [ 1 .. 6 ]
     |> List.tryFind (fun nth ->
-      rid = CallingConvention.FunctionArgRegister hdl OS.Linux nth)
+      rid = CallingConvention.FunctionArgRegister(hdl, OS.Linux, nth))
 
   let untouchedArgIndexX64FromIRCFG hdl ctx pp state nth =
-    let argRegId = CallingConvention.FunctionArgRegister hdl OS.Linux nth
+    let argRegId = CallingConvention.FunctionArgRegister(hdl, OS.Linux, nth)
     let varKind = Regular argRegId
     let absV = ctx.Vertices[pp]
     match tryGetValue state absV varKind with
-    | Some (UntouchedValueDomain.Untouched (RegisterTag (Regular rid))) ->
+    | Some(UntouchedValueDomain.Untouched(RegisterTag(Regular rid))) ->
       regIdToArgNumX64 hdl rid
     | _ ->
       (* If no definition is found, this means the parameter register is
@@ -94,13 +94,13 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
 
   let collectReturningAbsPPs ctx =
     ctx.IntraCallTable.Callees
-    |> Seq.fold (fun acc (KeyValue (cs, calleeKind)) ->
+    |> Seq.fold (fun acc (KeyValue(cs, calleeKind)) ->
       match calleeKind with
       | RegularCallee callee ->
         if ctx.FunctionAddress = callee then acc
-        else ProgramPoint (cs, callee, 0) :: acc
+        else ProgramPoint(cs, callee, 0) :: acc
       | IndirectCallees callees ->
-        Set.fold (fun acc c -> ProgramPoint (cs, c, 0) :: acc) acc callees
+        Set.fold (fun acc c -> ProgramPoint(cs, c, 0) :: acc) acc callees
       | _ -> acc) []
     |> List.filter (hasCallFallthroughNode ctx)
 
@@ -126,30 +126,30 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       match absV.VData.Internals.AbstractContent.ReturningStatus with
       | ConditionalNoRet nth ->
         tryGetConnectedArgumentFromIRCFG ctx state.Value pp nth
-        |> Option.bind (fun nth' -> Some (absV, nth'))
+        |> Option.bind (fun nth' -> Some(absV, nth'))
       | NotNoRet | UnknownNoRet -> None
       | NoRet -> Terminator.impossible ())
 
   let untouchedArgIndexX86FromSSACFG (ssa: SSACFG) frameDist absV state nth =
     let argOff = frameDist - 4 * nth
-    let varKind = SSA.StackVar (32<rt>, argOff)
-    ssa.FindReachingDef absV varKind
+    let varKind = SSA.StackVar(32<rt>, argOff)
+    ssa.FindReachingDef(absV, varKind)
     |> Option.bind (function
-      | SSA.Def (var, _) ->
+      | SSA.Def(var, _) ->
         match (state: SSASparseDataFlow.State<_>).GetRegValue var with
-        | UntouchedValueDomain.Untouched (RegisterTag (StackLocal off)) ->
-          Some (- off / 4)
+        | UntouchedValueDomain.Untouched(RegisterTag(StackLocal off)) ->
+          Some(- off / 4)
         | _ -> None
       | _ -> None)
 
   let untouchedArgIndexX64FromSSACFG hdl (ssa: SSACFG) absV state nth =
-    let argReg = CallingConvention.FunctionArgRegister hdl OS.Linux nth
+    let argReg = CallingConvention.FunctionArgRegister(hdl, OS.Linux, nth)
     let name = hdl.RegisterFactory.GetRegString argReg
-    let varKind = SSA.RegVar (64<rt>, argReg, name)
-    match ssa.FindReachingDef absV varKind with
-    | Some (SSA.Def (var, _)) ->
+    let varKind = SSA.RegVar(64<rt>, argReg, name)
+    match ssa.FindReachingDef(absV, varKind) with
+    | Some(SSA.Def(var, _)) ->
       match (state: SSASparseDataFlow.State<_>).GetRegValue var with
-      | UntouchedValueDomain.Untouched (RegisterTag (Regular rid)) ->
+      | UntouchedValueDomain.Untouched(RegisterTag(Regular rid)) ->
         regIdToArgNumX64 hdl rid
       | _ -> None
     | _ ->
@@ -158,7 +158,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       Some nth
 
   let findSSAVertexByAddr (ssa: SSACFG) addr =
-    ssa.FindVertex (fun v ->
+    ssa.FindVertex(fun v ->
       if v.VData.Internals.IsAbstract then false
       else v.VData.Internals.Range.IsIncluding addr)
 
@@ -185,7 +185,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
       match absV.VData.Internals.AbstractContent.ReturningStatus with
       | ConditionalNoRet nth ->
         tryGetConnectedArgumentFromSSACFG ctx ssaCFG state.Value pp nth
-        |> Option.bind (fun nth' -> Some (absV, nth'))
+        |> Option.bind (fun nth' -> Some(absV, nth'))
       | NotNoRet | UnknownNoRet -> None
       | NoRet -> Terminator.impossible ())
 
@@ -206,7 +206,7 @@ type CondAwareNoretAnalysis ([<Optional; DefaultParameterValue(true)>] strict) =
     | Some dom -> ConditionalNoRet <| Map.find dom argNumMap
 
   let analyze ctx condNoRetCalls =
-    let df = Dominance.CooperDominanceFrontier ()
+    let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create ctx.CFG df
     let exits = ctx.CFG.Exits
     let absVSet = condNoRetCalls |> List.map fst |> Set.ofList
@@ -267,17 +267,17 @@ module CondAwareNoretAnalysis =
     let esp = Intel.Register.ESP |> Intel.Register.toRegID
     match (st: EvalState).TryGetReg esp with
     | Def esp ->
-      let p = esp.Add (BitVector.OfInt32 (4 * nth) 32<rt>)
+      let p = esp.Add(BitVector.OfInt32(4 * nth, 32<rt>))
       let endian = Endian.Little
-      match st.Memory.Read (BitVector.ToUInt64 p) endian 32<rt> with
+      match st.Memory.Read(BitVector.ToUInt64 p, endian, 32<rt>) with
       | Ok v -> not <| BitVector.IsZero v
       | _ -> false
     | _ -> false
 
   let private hasNonZeroOnX64 hdl st nth =
-    let reg = CallingConvention.FunctionArgRegister hdl OS.Linux nth
+    let reg = CallingConvention.FunctionArgRegister(hdl, OS.Linux, nth)
     match (st: EvalState).TryGetReg reg with
-    | Def bv -> not <| bv.IsZero ()
+    | Def bv -> not <| bv.IsZero()
     | _ -> false
 
   /// Locally analyze the given basic block and see if the `nth` parameter

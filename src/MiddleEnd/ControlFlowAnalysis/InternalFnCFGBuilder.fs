@@ -39,111 +39,107 @@ type InternalFnCFGBuilder<'FnCtx,
                           'GlCtx when 'FnCtx :> IResettable
                                   and 'FnCtx: (new: unit -> 'FnCtx)
                                   and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (ctx, nextFnAddr, manager: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>>) =
+  public(ctx, nextFnAddr, manager: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>>) =
 
   /// Internal builder state.
   let mutable state = Initialized
 
   let mutable nextFnAddr = nextFnAddr
 
-  let delayedBuilderRequests = Queue<DelayedBuilderRequest> ()
+  let delayedBuilderRequests = Queue<DelayedBuilderRequest>()
 
   let mutable hasJumpTable = false
 
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
-        member _.StartBuilding (addr) =
+        member _.StartBuilding(addr) =
           manager.Post <| StartBuilding addr
 
-        member _.AddDependency (caller, callee) =
-          manager.PostAndReply (fun _ ch ->
-            AddDependency (caller, callee, ch))
+        member _.AddDependency(caller, callee) =
+          manager.PostAndReply(fun _ ch ->
+            AddDependency(caller, callee, ch))
 
-        member _.GetNonReturningStatus (addr) =
-          manager.PostAndReply (fun _ ch -> GetNonReturningStatus (addr, ch))
+        member _.GetNonReturningStatus(addr) =
+          manager.PostAndReply(fun _ ch -> GetNonReturningStatus(addr, ch))
 
-        member _.GetBuildingContext (addr) =
-          manager.PostAndReply (fun _ ch -> GetBuildingContext (addr, ch))
+        member _.GetBuildingContext(addr) =
+          manager.PostAndReply(fun _ ch -> GetBuildingContext(addr, ch))
 
-        member _.GetNextFunctionAddress (addr) =
-          manager.PostAndReply (fun _ ch -> GetNextFunctionAddress (addr, ch))
+        member _.GetNextFunctionAddress(addr) =
+          manager.PostAndReply(fun _ ch -> GetNextFunctionAddress(addr, ch))
 
-        member _.NotifyJumpTableRecovery (fnAddr, tblInfo) =
-          manager.PostAndReply (fun _ ch ->
-            NotifyJumpTableRecovery (fnAddr, tblInfo, ch))
+        member _.NotifyJumpTableRecovery(fnAddr, tblInfo) =
+          manager.PostAndReply(fun _ ch ->
+            NotifyJumpTableRecovery(fnAddr, tblInfo, ch))
 
-        member _.NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx) =
-          manager.PostAndReply (fun _ ch ->
-            NotifyBogusJumpTableEntry (fnAddr, tblAddr, idx, ch))
+        member _.NotifyBogusJumpTableEntry(fnAddr, tblAddr, idx) =
+          manager.PostAndReply(fun _ ch ->
+            NotifyBogusJumpTableEntry(fnAddr, tblAddr, idx, ch))
 
-        member _.CancelJumpTableRecovery (fnAddr, insAddr, tblAddr) =
-          manager.Post <| CancelJumpTableRecovery (fnAddr, insAddr, tblAddr)
+        member _.CancelJumpTableRecovery(fnAddr, insAddr, tblAddr) =
+          manager.Post <| CancelJumpTableRecovery(fnAddr, insAddr, tblAddr)
 
-        member _.ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextAddr) =
+        member _.ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextAddr) =
           hasJumpTable <- true
-          manager.PostAndReply (fun _ ch ->
-            ReportJumpTableSuccess (fnAddr, tblAddr, idx, nextAddr, ch))
+          manager.PostAndReply(fun _ ch ->
+            ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextAddr, ch))
 
         member _.GetGlobalContext accessor =
           let mutable v = Unchecked.defaultof<_>
-          manager.PostAndReply (fun _ ch ->
+          manager.PostAndReply(fun _ ch ->
             let fn = fun glCtx -> (v <- accessor glCtx)
-            AccessGlobalContext (fn, ch))
+            AccessGlobalContext(fn, ch))
           v
 
-        member _.UpdateGlobalContext (updater) =
+        member _.UpdateGlobalContext(updater) =
           manager.Post <| UpdateGlobalContext updater }
 
   let rec build (strategy: ICFGBuildingStrategy<_, _>) queue =
-    if (queue: CFGActionQueue).IsEmpty () then strategy.OnFinish ctx
+    if (queue: CFGActionQueue).IsEmpty() then strategy.OnFinish ctx
     elif state = Invalid then FailStop ErrorCase.UnexpectedError
     else
-      let action = queue.Pop ()
-      match strategy.OnAction (ctx, queue, action) with
+      let action = queue.Pop()
+      match strategy.OnAction(ctx, queue, action) with
       | MoveOn -> build strategy queue
       | MoveOnButReloadCallers _ -> Terminator.impossible ()
-      | Wait -> queue.Push strategy.ActionPrioritizer action; Wait
+      | Wait -> queue.Push(strategy.ActionPrioritizer, action); Wait
       | StopAndReload -> StopAndReload
       | FailStop e -> FailStop e
 
   do ctx.ManagerChannel <- managerChannel
 
-  new (hdl: BinHandle,
-       exnInfo,
-       instrs,
-       entryPoint,
-       manager) =
+  new(hdl: BinHandle, exnInfo, instrs, entryPoint, manager) =
     let name =
       match hdl.File.TryFindName entryPoint with
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
     let cfg = LowUIRCFG Imperative
-    let bblFactory = BBLFactory (hdl, instrs)
-    let fnCtx = new 'FnCtx ()
+    let bblFactory = BBLFactory(hdl, instrs)
+    let fnCtx = new 'FnCtx()
     let ctx =
       { FunctionAddress = entryPoint
         FunctionName = name
         BinHandle = hdl
         ExnInfo = exnInfo
-        Vertices = Dictionary ()
+        Vertices = Dictionary()
         CFG = cfg
         CP = ConstantPropagation(hdl, cfg.Vertices)
         BBLFactory = bblFactory
         NonReturningStatus = UnknownNoRet
-        JumpTableRecoveryStatus = Stack ()
-        JumpTables = List ()
-        Callers = HashSet ()
-        IntraCallTable = IntraCallTable ()
-        VisitedPPoints = HashSet ()
-        ActionQueue = CFGActionQueue ()
-        PendingCallActions = Dictionary ()
-        CallerVertices = Dictionary ()
+        JumpTableRecoveryStatus = Stack()
+        JumpTables = List()
+        Callers = HashSet()
+        IntraCallTable = IntraCallTable()
+        VisitedPPoints = HashSet()
+        ActionQueue = CFGActionQueue()
+        PendingCallActions = Dictionary()
+        CallerVertices = Dictionary()
         UnwindingBytes = 0
         UserContext = fnCtx
         IsExternal = false
         ManagerChannel = null
         ThreadID = -1 }
-    InternalFnCFGBuilder (ctx, None, manager)
+    InternalFnCFGBuilder(ctx, None, manager)
 
   interface ICFGBuildable<'FnCtx, 'GlCtx> with
     member _.BuilderState with get() = state
@@ -162,51 +158,51 @@ type InternalFnCFGBuilder<'FnCtx,
 
     member _.IsExternal with get() = false
 
-    member _.Authorize () =
+    member _.Authorize() =
       assert (state <> InProgress)
       state <- InProgress
 
-    member _.Stop () =
+    member _.Stop() =
       assert (state = InProgress)
       state <- Stopped
 
-    member _.ForceFinish () =
+    member _.ForceFinish() =
       state <- ForceFinished
 
-    member _.StartVerifying () =
+    member _.StartVerifying() =
       assert (state = InProgress)
       state <- Verifying
 
-    member _.Finalize () =
+    member _.Finalize() =
       assert (state = Verifying)
       state <- Finished
 
-    member _.ReInitialize () =
+    member _.ReInitialize() =
       assert (state = Finished || state = ForceFinished)
       state <- Initialized
 
-    member _.Invalidate () =
+    member _.Invalidate() =
       state <- Invalid
 
     member _.Build strategy =
-      ctx.ActionQueue.Push strategy.ActionPrioritizer InitiateCFG
+      ctx.ActionQueue.Push(strategy.ActionPrioritizer, InitiateCFG)
       build strategy ctx.ActionQueue
 
-    member _.Reset () =
+    member _.Reset() =
       state <- Initialized
-      delayedBuilderRequests.Clear ()
-      ctx.Reset ()
+      delayedBuilderRequests.Clear()
+      ctx.Reset()
 
-    member _.MakeNew (manager) =
-      InternalFnCFGBuilder (ctx, nextFnAddr, manager)
+    member _.MakeNew(manager) =
+      InternalFnCFGBuilder(ctx, nextFnAddr, manager)
 
-    member _.ToFunction () =
+    member _.ToFunction() =
       assert (state = Finished)
-      Function (ctx.FunctionAddress,
-                ctx.FunctionName,
-                ctx.CFG,
-                ctx.NonReturningStatus,
-                ctx.IntraCallTable.Callees,
-                ctx.Callers,
-                ctx.JumpTables,
-                false)
+      Function(ctx.FunctionAddress,
+               ctx.FunctionName,
+               ctx.CFG,
+               ctx.NonReturningStatus,
+               ctx.IntraCallTable.Callees,
+               ctx.Callers,
+               ctx.JumpTables,
+               false)

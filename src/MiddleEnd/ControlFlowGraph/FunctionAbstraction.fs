@@ -30,11 +30,11 @@ open B2R2
 /// CFG. This exists per function call, not per function definition. Therefore,
 /// one function can have multiple `FunctionAbstraction` instances.
 [<AllowNullLiteral>]
-type FunctionAbstraction<'Stmt> (entryPoint,
-                                 unwindingBytes,
-                                 rundown,
-                                 isExternal,
-                                 returningStatus) =
+type FunctionAbstraction<'Stmt>(entryPoint,
+                                unwindingBytes,
+                                rundown,
+                                isExternal,
+                                returningStatus) =
   /// Entry point of this function.
   member _.EntryPoint with get(): Addr = entryPoint
 

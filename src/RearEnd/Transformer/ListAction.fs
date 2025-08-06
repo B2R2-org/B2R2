@@ -27,7 +27,7 @@ namespace B2R2.RearEnd.Transformer
 open B2R2
 
 /// The `list` action.
-type ListAction () =
+type ListAction() =
   let listSections (input: obj) =
     Terminator.futureFeature ()
 
@@ -41,7 +41,7 @@ type ListAction () =
 
       - `sections` (sects|ss): returns a list of sections.
 """
-    member _.Transform args collection =
+    member _.Transform(args, collection) =
       match args with
       | [ "sections" ] | [ "sects" ] | [ "ss" ] ->
         { Values = collection.Values |> Array.map listSections }

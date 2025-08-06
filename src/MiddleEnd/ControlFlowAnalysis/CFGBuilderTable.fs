@@ -34,10 +34,10 @@ type CFGBuilderTable<'FnCtx,
                      'GlCtx when 'FnCtx :> IResettable
                              and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)>
-  public (hdl, exnInfo, instrs) =
+  public(hdl, exnInfo, instrs) =
 
   let builders =
-    SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>> ()
+    SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>>()
 
   let updateNextFunctionOfPrevBuilder idx addr =
     if idx <= 0 then ()
@@ -46,7 +46,7 @@ type CFGBuilderTable<'FnCtx,
   let updateNextFunctionOfNewBuilder (newBuilder: ICFGBuildable<_, _>) idx =
     let endPoint =
       if idx = (builders.Count - 1) then None
-      else Some (builders.Values[idx + 1].EntryPoint)
+      else Some(builders.Values[idx + 1].EntryPoint)
     newBuilder.NextFunctionAddress <- endPoint
 
   let updateNextFunctionAddrs newBuilder addr =
@@ -59,11 +59,11 @@ type CFGBuilderTable<'FnCtx,
     | true, builder -> builder
     | false, _ ->
       let builder =
-        InternalFnCFGBuilder (hdl,
-                              exnInfo,
-                              instrs,
-                              addr,
-                              managerMsgbox) :> ICFGBuildable<'FnCtx, 'GlCtx>
+        InternalFnCFGBuilder(hdl,
+                             exnInfo,
+                             instrs,
+                             addr,
+                             managerMsgbox) :> ICFGBuildable<'FnCtx, 'GlCtx>
       builders[addr] <- builder
       updateNextFunctionAddrs builder addr
       builder
@@ -81,7 +81,7 @@ type CFGBuilderTable<'FnCtx,
       | Error _ ->
         let addr, name = entry.TrampolineAddress, entry.FuncName
         let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
-        let builder = ExternalFnCFGBuilder (hdl, exnInfo, addr, name, isNoRet)
+        let builder = ExternalFnCFGBuilder(hdl, exnInfo, addr, name, isNoRet)
         builders[range.Min] <- builder
     )
 
@@ -108,20 +108,20 @@ type CFGBuilderTable<'FnCtx,
   member _.Values with get() = builders.Values |> Seq.toArray
 
   /// Return the current termination status of all function builders.
-  member _.GetTerminationStatus () =
+  member _.GetTerminationStatus() =
     getTerminationStatus builders.Values [] (builders.Count - 1)
 
   /// Get or create a function builder by its address.
-  member _.GetOrCreateBuilder managerMsgbox addr =
+  member _.GetOrCreateBuilder(managerMsgbox, addr) =
     getOrCreateInternalBuilder managerMsgbox addr
 
   /// Update existing function builder to have a new manager msgbox.
-  member _.Reload (builder: ICFGBuildable<_, _>) managerMsgbox =
+  member _.Reload(builder: ICFGBuildable<_, _>, managerMsgbox) =
     let old = builders[builder.EntryPoint]
     builders[builder.EntryPoint] <- old.MakeNew managerMsgbox
 
   /// Try to retrieve a function builder by its address.
-  member _.TryGetBuilder (addr: Addr) =
+  member _.TryGetBuilder(addr: Addr) =
     match builders.TryGetValue addr with
     | true, builder -> Ok builder
     | false, _ -> Error ErrorCase.ItemNotFound

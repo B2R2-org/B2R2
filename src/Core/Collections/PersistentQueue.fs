@@ -35,33 +35,33 @@ module PersistentQueue =
 
   /// An empty queue.
   [<CompiledName ("Empty")>]
-  let empty = PQ ([], [])
+  let empty = PQ([], [])
 
   /// Check if the given queue is empty.
   [<CompiledName ("IsEmpty")>]
   let isEmpty q =
     match q with
-    | PQ ([], []) -> true
+    | PQ([], []) -> true
     | _ -> false
 
   /// Enqueue an element to the queue.
   [<CompiledName ("Enqueue")>]
   let enqueue q elt =
     match q with
-    | PQ (front, back) -> PQ (elt :: front, back)
+    | PQ(front, back) -> PQ(elt :: front, back)
 
   /// Dequeue an element from the queue.
   [<CompiledName ("Dequeue")>]
   let dequeue q =
     match q with
-    | PQ ([], []) -> raise (System.InvalidOperationException ())
-    | PQ (front, elt :: back) -> elt, PQ (front, back)
-    | PQ (front, []) ->
+    | PQ([], []) -> raise (System.InvalidOperationException())
+    | PQ(front, elt :: back) -> elt, PQ(front, back)
+    | PQ(front, []) ->
       let back = List.rev front
-      back.Head, PQ ([], back.Tail)
+      back.Head, PQ([], back.Tail)
 
   /// Filter elements based on the given predicate.
   [<CompiledName ("Filter")>]
   let filter pred q =
     match q with
-    | PQ (front, back) -> PQ (List.filter pred front, List.filter pred back)
+    | PQ(front, back) -> PQ(List.filter pred front, List.filter pred back)

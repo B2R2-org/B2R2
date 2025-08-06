@@ -30,30 +30,30 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinGraph.Tests.Examples
 
 [<TestClass>]
-type LoopTests () =
-  let toTuple (KeyValue (k, v)) = k, v
+type LoopTests() =
+  let toTuple (KeyValue(k, v)) = k, v
 
   let toSet (vmap: Map<_, _>) lst =
     lst |> List.map (fun vid -> vmap[vid]) |> HashSet
 
   let assertLoop (edge: Edge<_, _>, vertices)
                  (src: VertexID, dst: VertexID, expectedVS) =
-    Assert.AreEqual<VertexID> (edge.First.ID, src) (* backedge src *)
-    Assert.AreEqual<VertexID> (edge.Second.ID, dst) (* backedge dst *)
+    Assert.AreEqual<VertexID>(edge.First.ID, src) (* backedge src *)
+    Assert.AreEqual<VertexID>(edge.Second.ID, dst) (* backedge dst *)
     Assert.IsTrue <| (expectedVS: HashSet<_>).SetEquals vertices
 
   static member GraphTypes = [| [| box Persistent |]; [| box Imperative |] |]
 
   [<TestMethod>]
   [<DynamicData(nameof LoopTests.GraphTypes)>]
-  member _.`` Natural Loop Test `` (t) =
+  member _.``Natural Loop Test``(t) =
     let g, vmap = digraph11 t
     let dict =
       Loop.getNaturalLoops g
       |> Seq.map toTuple
       |> Seq.toArray
       |> Array.sortBy (fun (k, _) -> k.First.ID)
-    Assert.AreEqual<int> (5, dict.Length)
+    Assert.AreEqual<int>(5, dict.Length)
     assertLoop dict[0] <| (4, 3, toSet vmap [ 3; 4; 5; 6; 7; 8; 10 ])
     assertLoop dict[1] <| (7, 4, toSet vmap [ 4; 5; 6; 7; 8; 10 ])
     assertLoop dict[2] <| (8, 3, toSet vmap [ 3; 4; 5; 6; 7; 8; 10 ])
