@@ -181,13 +181,48 @@ module private EVMCFGRecovery =
     let p1Set = Set.ofList p1
     List.filter (fun v -> Set.contains v p1Set) p2
 
-  let introduceNewSharedRegion (ctx: CFGBuildingContext<_, _>) entryPoint =
-    assert (entryPoint <> ctx.FunctionAddress)
-    ctx.ManagerChannel.StartBuilding entryPoint
-    getFunctionUserContext ctx entryPoint
-    |> Result.iter (fun userCtx -> userCtx.SetSharedRegion())
+  let UsesOptimizedReload = true
 
-  let findAndIntroduceSharedRegion ctx state v rdVars =
+  let removeReachableVertices ctx cfgRec root =
+    let removals = HashSet ()
+    let possiblyIncomings = HashSet ()
+    let rec removeReachables (vs: IVertex<LowUIRBasicBlock> list) =
+      match vs with
+      | [] -> ()
+      | v :: vs when removals.Add v |> not -> removeReachables vs
+      | v :: vs ->
+        let pp = v.VData.Internals.PPoint
+        let preds = ctx.CFG.GetPreds v
+        let succs = ctx.CFG.GetSuccs v
+        CFGRecovery.tryRemoveVertexAt ctx cfgRec pp |> ignore
+        preds |> Array.iter (possiblyIncomings.Add >> ignore)
+        succs |> Array.toList |> List.append vs |> removeReachables
+    removeReachables root
+    possiblyIncomings.ExceptWith removals
+    possiblyIncomings
+
+  let reanalyzeVertex (ctx: CFGBuildingContext<_, _>) srcV =
+    let srcPP = (srcV: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint
+    ctx.VisitedPPoints.Remove srcPP |> ignore
+    CFGRecovery.pushAction ctx <| ExpandCFG [ srcPP ]
+
+  let removeAndReanalyze ctx cfgRec srcV newEP =
+    let ppoint = ProgramPoint (newEP, 0)
+    match ctx.Vertices.TryGetValue ppoint with
+    | false, _ -> reanalyzeVertex ctx srcV
+    | true, ep ->
+      removeReachableVertices ctx cfgRec [ ep ]
+      |> Seq.iter (reanalyzeVertex ctx)
+
+  let introduceNewSharedRegion (ctx: CFGBuildingContext<_, _>) cfgRec srcV ep =
+    assert (ep <> ctx.FunctionAddress)
+    ctx.ManagerChannel.StartBuilding ep
+    getFunctionUserContext ctx ep
+    |> Result.iter (fun userCtx -> userCtx.SetSharedRegion ())
+    if not UsesOptimizedReload then Some StopAndReload
+    else removeAndReanalyze ctx cfgRec srcV ep; None
+
+  let findAndIntroduceSharedRegion ctx cfgRec state v rdVars =
     assert (not <| Seq.isEmpty rdVars)
     let g = ctx.CFG
     let defVertices = Seq.map (getDefSiteVertex g state) rdVars
@@ -201,8 +236,7 @@ module private EVMCFGRecovery =
     else
       assert (not regionEntry.VData.Internals.IsAbstract)
       (* This should reset the current analysis. *)
-      introduceNewSharedRegion ctx regionEntryAddr
-      Some StopAndReload
+      introduceNewSharedRegion ctx cfgRec null regionEntryAddr
 
   let tryJoinMaybeCFGResults r1 r2 =
     match r1, r2 with
@@ -220,13 +254,13 @@ module private EVMCFGRecovery =
       | _, MoveOn -> r1
       | _ -> None
 
-  let handlePolyJumps (ctx: CFGBuildingContext<_, _>) state polyJumps =
+  let handlePolyJumps (ctx: CFGBuildingContext<_, _>) cfgRec state polyJumps =
     assert (not <| Seq.isEmpty polyJumps)
     let mutable r = None
     for polyJmpV in polyJumps do
       getOverApproximatedJumpDstExprOfJmp state polyJmpV
       |> findRootVarsFromExpr state
-      |> findAndIntroduceSharedRegion ctx state polyJmpV
+      |> findAndIntroduceSharedRegion ctx cfgRec state polyJmpV
       |> fun res -> r <- tryJoinMaybeCFGResults r res
     r
 
@@ -274,9 +308,11 @@ module private EVMCFGRecovery =
       curr
     | _ -> Terminator.impossible () (* Not found. *)
 
-  let introduceNewFunction (ctx: CFGBuildingContext<_, _>) newEntryPoint =
-    assert (newEntryPoint <> ctx.FunctionAddress)
-    ctx.ManagerChannel.StartBuilding newEntryPoint
+  let introduceNewFunction (ctx: CFGBuildingContext<_, _>) cfgRec srcV newEP =
+    assert (newEP <> ctx.FunctionAddress)
+    ctx.ManagerChannel.StartBuilding newEP
+    if not UsesOptimizedReload then Some StopAndReload
+    else removeAndReanalyze ctx cfgRec srcV newEP; None
 
   let isInfeasibleEntryPoint (ctx: CFGBuildingContext<_, _>) v =
     let g = ctx.CFG
@@ -556,8 +592,7 @@ module private EVMCFGRecovery =
         (* Check if the current stack frame contains the fallthrough node's
            address. This is for (1) introducing more functions early to maximize
            parallelism, and (2) detecting non-returning functions. *)
-        introduceNewFunction ctx dstAddr
-        Some StopAndReload
+        introduceNewFunction ctx cfgRec srcV dstAddr
       else
         match scanBBLsAndConnect ctx cfgRec srcV dstAddr edgeKind with
         | Ok () ->
@@ -570,12 +605,14 @@ module private EVMCFGRecovery =
           elif preds
                |> Array.filter (fun p -> p.VData.Internals.IsAbstract)
                |> Array.length > 1 then
-            introduceNewSharedRegion ctx dstAddr
-            Some StopAndReload
+            introduceNewSharedRegion ctx cfgRec srcV dstAddr
           else (* Check if this edge insertion introduces poly jumps *)
             let polyJumps = collectPolyJumpsFromReachables ctx.CFG state dstV
             let hasPolyJumps = not <| Seq.isEmpty polyJumps
-            if hasPolyJumps then handlePolyJumps ctx state polyJumps else None
+            if hasPolyJumps then
+              handlePolyJumps ctx cfgRec state polyJumps
+            else
+              None
         | Error errorCase -> Some <| FailStop errorCase
     | bldCtx -> (* Okay, this is a function, so we connect to the function. *)
       let srcBlk = srcV.VData.Internals
@@ -600,15 +637,13 @@ module private EVMCFGRecovery =
       |> Array.exists (fun pred -> pred.VData.Internals.IsAbstract)
     if newEntryPointAddr = 0x9acUL then ()
     if isInfeasibleEntryPoint ctx newEntryPoint || hasAbstractPred then
-      introduceNewSharedRegion ctx newEntryPointAddr (* likely shared region *)
-      Some StopAndReload
+      introduceNewSharedRegion ctx cfgRec srcV newEntryPointAddr
     (* 0x00000000000006c7676171937c444f6bde3d6282: 0x3e6a *)
     elif isFallthroughedNode ctx newEntryPoint then (* cannot be an EP *)
       let state = ctx.UserContext.CP.State
       handleDirectJmpWithVars ctx cfgRec state srcV rdVars InterJmpEdge
     else
-      introduceNewFunction ctx newEntryPointAddr
-      Some StopAndReload
+      introduceNewFunction ctx cfgRec srcV newEntryPointAddr
 
   let handleInterJmp ctx cfgRec v =
     let state = computeCPState ctx
@@ -622,8 +657,9 @@ module private EVMCFGRecovery =
       elif v.VData.Internals.IsAbstract then
         let hasMultipleRdVars = hasMultipleDefSites state rdVars
         if hasMultipleRdVars then (* Highly likely a shared region. *)
-          findAndIntroduceSharedRegion ctx state v rdVars
-        else handleDirectJmpWithVars ctx cfgRec state v rdVars InterJmpEdge
+          findAndIntroduceSharedRegion ctx cfgRec state v rdVars
+        else
+            handleDirectJmpWithVars ctx cfgRec state v rdVars InterJmpEdge
       else
         let g = ctx.CFG
         let rds = List.map (getDefSiteVertex g state) rdVars
