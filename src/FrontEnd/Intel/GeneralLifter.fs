@@ -1886,7 +1886,7 @@ let loop (ins: Instruction) insLen bld =
   let jumpTarget = if addrSize = 16<rt> then pc .& numI32 0xFFFF 32<rt>
                    else pc .+ AST.sext bld.RegType dst
   bld <+ (AST.intercjmp branchCond jumpTarget fallThrough)
-  bld --!> insLen
+  bld
 
 let lzcnt ins insLen bld =
   let oprSize = getOperationSize ins
