@@ -741,7 +741,8 @@ module private EVMCFGRecovery =
     let absPp = ProgramPoint(callsite, callee, 0)
     let act = ExpandCFG [ absPp ]
     CFGRecovery.pushAction ctx act
-    connectCall ctx cfgRec caller callee cs calleeInfo
+    if not <| ctx.CFG.HasVertex caller.ID then MoveOn
+    else connectCall ctx cfgRec caller callee cs calleeInfo
 
   /// Postpone the analysis of the source vertex if it was not executed in the
   /// data-flow analysis, and run the given function if it was executed.

@@ -314,6 +314,11 @@ module internal CFGRecovery =
       connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
     | false, _ -> ()
 
+  let shouldIgnorePPoint ctx (ppoint: ProgramPoint) =
+    if Option.isSome ppoint.CallSite
+       && not <| ctx.Vertices.ContainsKey ppoint then true
+    else false
+
   /// Build a CFG starting from the given program points.
   let buildCFG ctx cfgRec (syscallAnalysis: ISyscallAnalyzable)
                useTailcallHeuristic (actionQueue: CFGActionQueue) initPPs =
@@ -321,7 +326,8 @@ module internal CFGRecovery =
     let mutable result = MoveOn
     while queue.Count > 0 && result = MoveOn do
       let ppoint = queue.Dequeue()
-      if not <| ctx.VisitedPPoints.Add ppoint then ()
+      if shouldIgnorePPoint ctx ppoint then ()
+      elif not <| ctx.VisitedPPoints.Add ppoint then ()
       else
         let srcVertex = getVertex ctx cfgRec ppoint
         let srcBBL = srcVertex.VData
