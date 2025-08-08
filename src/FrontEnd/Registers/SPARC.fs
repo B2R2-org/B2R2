@@ -26,6 +26,11 @@ namespace B2R2.FrontEnd.SPARC
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the SPARC instructions.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
 /// Represents registers for SPARC.<para/>
 /// </summary>

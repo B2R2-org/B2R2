@@ -26,6 +26,11 @@ namespace B2R2.FrontEnd.PPC32
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the PPC32 instructions.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
 /// Represents registers for PPC32.<para/>
 /// </summary>

@@ -30,7 +30,14 @@ open System.Runtime.CompilerServices
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.EVM.Tests")>]
 do ()
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the EVM instructions.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
 /// Represents an EVM register.
+/// </summary>
 type Register =
   /// Program counter.
   | PC = 0x1

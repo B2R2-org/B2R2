@@ -26,6 +26,11 @@ namespace B2R2.FrontEnd.PARISC
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the PA-RISC instructions.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
 /// Represents registers for PA-RISC.<para/>
 /// </summary>

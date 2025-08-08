@@ -26,8 +26,10 @@ namespace B2R2.MiddleEnd.BinGraph
 
 /// Missing vertex.
 exception VertexNotFoundException
+
 /// Trying to access dummy data
 exception DummyDataAccessException
+
 /// Trying to access a single root vertex when there are multiple root vertices.
 exception MultipleRootVerticesException
 

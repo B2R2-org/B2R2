@@ -31,10 +31,17 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+/// <namespacedoc>
+///   <summary>
+///   Contains the APIs for the B2R2 middle-end, which is responsible for
+///   recovering functions and their control flow graphs (CFGs) from the target
+///   binary.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
-///   BinaryBrew is a potent brew of analyzed (and recovered) information about
-///   the target binary, such as instructions, IRs, functions, CFGs, and
-///   exception information, etc.
+/// BinaryBrew is a potent brew of analyzed (and recovered) information about
+/// the target binary, such as instructions, IRs, functions, CFGs, and exception
+/// information, etc.
 /// </summary>
 type BinaryBrew<'FnCtx,
                 'GlCtx when 'FnCtx :> IResettable

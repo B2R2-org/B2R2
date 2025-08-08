@@ -26,6 +26,11 @@ namespace B2R2.FrontEnd.AVR
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the AVR instructions.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
 /// Represents registers for AVR.<para/>
 /// </summary>

@@ -32,7 +32,15 @@ open B2R2.BinIR.LowUIR
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.Python.Tests")>]
 do ()
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the Python bytecode
+///   instructions.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
 /// Represents a factory for accessing various Python register variables.
+/// </summary>
 type RegisterFactory() =
   interface IRegisterFactory with
     member _.GetRegVar(_: RegisterID): Expr = Terminator.futureFeature ()

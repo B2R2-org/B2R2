@@ -24,5 +24,14 @@
 
 namespace B2R2.FrontEnd.ARM32
 
+/// <summary>
+/// Raised when the outcome of an operation is unpredictable, but it remains
+/// within the bounds of the ARM architecture's defined behavior.
+/// </summary>
 exception internal UnpredictableException
+
+/// <summary>
+/// Raised when an operation is not defined in the ARM architecture. The outcome
+/// is completely unknown.
+/// </summary>
 exception internal UndefinedException

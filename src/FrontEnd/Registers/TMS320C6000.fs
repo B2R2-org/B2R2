@@ -26,6 +26,12 @@ namespace B2R2.FrontEnd.TMS320C6000
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the TMS320C6000
+///   instructions.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
 /// Represents registers for TMS320C6000.<para/>
 /// </summary>

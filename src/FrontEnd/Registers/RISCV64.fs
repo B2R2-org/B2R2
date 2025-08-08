@@ -26,6 +26,12 @@ namespace B2R2.FrontEnd.RISCV64
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the RISC-V 64-bit
+///   instructions.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
 /// Represents registers for RISC-V.<para/>
 /// </summary>

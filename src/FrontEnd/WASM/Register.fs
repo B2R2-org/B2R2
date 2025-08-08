@@ -26,7 +26,14 @@ namespace B2R2.FrontEnd.WASM
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the WASM instructions.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
 /// Represents a WASM register.
+/// </summary>
 type Register =
   // Stack pointer
   | SP = 0x1

@@ -26,6 +26,12 @@ namespace B2R2.FrontEnd.ARM32
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the ARMv7 (i.e., ARM32)
+///   instructions.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
 /// Represents registers for ARMv7, ARMv8 AArch32.<para/>
 /// </summary>

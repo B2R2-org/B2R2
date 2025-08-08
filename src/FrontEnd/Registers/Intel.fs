@@ -26,6 +26,12 @@ namespace B2R2.FrontEnd.Intel
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the Intel (x86 and x86-64)
+///   instructions.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
 /// Represents registers for Intel x86 and x86-64.<para/>
 /// </summary>

@@ -26,7 +26,14 @@ namespace B2R2.FrontEnd.CIL
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the CIL instructions.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
 /// Represents a CIL register.
+/// </summary>
 type Register =
   /// Program counter.
   | PC = 0x0

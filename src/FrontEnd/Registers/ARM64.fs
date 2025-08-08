@@ -26,6 +26,12 @@ namespace B2R2.FrontEnd.ARM64
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the AArch64 (i.e., ARM64)
+///   instructions.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
 /// Represents registers for ARMv8 (AArch64).<para/>
 /// </summary>

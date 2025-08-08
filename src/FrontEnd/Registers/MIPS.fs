@@ -26,6 +26,11 @@ namespace B2R2.FrontEnd.MIPS
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the MIPS instructions.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
 /// Represents registers for MIPS32 and MIPS64.<para/>
 /// </summary>

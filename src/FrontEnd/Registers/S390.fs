@@ -26,6 +26,11 @@ namespace B2R2.FrontEnd.S390
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for working with the S390/S390x instructions.
+///   </summary>
+/// </namespacedoc>
 /// <summary>
 /// Represents registers for S390.<para/>
 /// </summary>
