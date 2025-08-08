@@ -27,6 +27,7 @@ namespace B2R2.Collections
 open B2R2
 
 exception InvalidWhiteningException
+
 exception KeyNotFoundException
 
 type internal RBColor =

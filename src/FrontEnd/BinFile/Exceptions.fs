@@ -26,7 +26,9 @@ namespace B2R2.FrontEnd.BinFile
 
 /// Raised when accessing an invalid address of a binary file.
 exception InvalidAddrReadException
+
 /// Raised when an unexpected file format is detected.
 exception InvalidFileFormatException
+
 /// Raised when a section is not found.
 exception SectionNotFoundException

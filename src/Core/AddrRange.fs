@@ -27,6 +27,7 @@ namespace B2R2
 /// Raised when two address ranges overlap in an ARMap, which does not allow
 /// overlapping intervals.
 exception RangeOverlapException
+
 /// Raised when creating/handling AddrRange that has wrong interval, i.e., Min
 /// value is larger than Max value.
 exception InvalidAddrRangeException
