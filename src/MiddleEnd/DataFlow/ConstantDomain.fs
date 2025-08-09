@@ -57,7 +57,7 @@ module ConstantDomain =
 
   let neg c = unOp BitVector.Neg c
 
-  let not c = unOp BitVector.BNot c
+  let not c = unOp BitVector.Not c
 
   let private binOp op c1 c2 =
     match c1, c2 with
@@ -79,7 +79,7 @@ module ConstantDomain =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
     | Const bv1, Const bv2 ->
-      if BitVector.IsZero bv2 then NotAConst
+      if bv2.IsZero then NotAConst
       else Const(divop (bv1, bv2))
     | _ -> NotAConst
 
@@ -95,8 +95,8 @@ module ConstantDomain =
     match c with
     | Const bv ->
       let rt = BitVector.GetType bv
-      let upperBound = BitVector.OfUInt64(0xFFFFFFFFUL, rt)
-      let isOkay = BitVector.Le(bv, upperBound) |> BitVector.IsTrue
+      let upperBound = BitVector(0xFFFFFFFFUL, rt)
+      let isOkay = BitVector.Le(bv, upperBound).IsTrue
       if isOkay then c
       else NotAConst
     | _ -> c
@@ -107,11 +107,11 @@ module ConstantDomain =
 
   let sar c1 c2 = binOp BitVector.Sar c1 c2
 
-  let ``and`` c1 c2 = binOp BitVector.BAnd c1 c2
+  let ``and`` c1 c2 = binOp BitVector.And c1 c2
 
-  let ``or`` c1 c2 = binOp BitVector.BOr c1 c2
+  let ``or`` c1 c2 = binOp BitVector.Or c1 c2
 
-  let xor c1 c2 = binOp BitVector.BXor c1 c2
+  let xor c1 c2 = binOp BitVector.Xor c1 c2
 
   let concat c1 c2 = binOp BitVector.Concat c1 c2
 
@@ -140,7 +140,7 @@ module ConstantDomain =
   let ite cond c1 c2 =
     match cond with
     | Undef -> Undef
-    | Const bv -> if BitVector.IsZero bv then c2 else c1
+    | Const bv -> if bv.IsZero then c2 else c1
     | NotAConst -> join c1 c2
 
   let cast op rt c =

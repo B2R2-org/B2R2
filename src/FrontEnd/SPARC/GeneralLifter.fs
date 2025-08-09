@@ -31,7 +31,7 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 
-let inline numI32PC n = BitVector.OfInt32(n, 64<rt>) |> AST.num
+let inline numI32PC (n: int) = BitVector(n, 64<rt>) |> AST.num
 
 let inline getCCVar (bld: ILowUIRBuilder) name =
   ConditionCode.toRegID name |> bld.GetRegVar

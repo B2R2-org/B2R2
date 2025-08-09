@@ -43,8 +43,8 @@ type DataFlowTests() =
     { ProgramPoint = ProgramPoint(addr, idx)
       VarKind = Regular(Register.toRegID reg) }
 
-  let mkConst v rt =
-    BitVector.OfUInt32(v, rt) |> ConstantDomain.Const
+  let mkConst (v: uint32) rt =
+    BitVector(v, rt) |> ConstantDomain.Const
 
   let rec findVarDefFromStmts (stmts: _[]) vaddr idx addr kind =
     if idx < stmts.Length then

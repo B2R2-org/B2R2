@@ -40,7 +40,7 @@ type private VarMaps =
 let private concretizeUnOp unopType bv =
   match unopType with
   | UnOpType.NEG -> BitVector.Neg bv
-  | UnOpType.NOT -> BitVector.BNot bv
+  | UnOpType.NOT -> BitVector.Not bv
   | UnOpType.FSQRT -> BitVector.FSqrt bv
   | UnOpType.FCOS -> BitVector.FCos bv
   | UnOpType.FSIN -> BitVector.FSin bv
@@ -60,9 +60,9 @@ let private concretizeBinOp binopType bv1 bv2 =
   | BinOpType.SHL -> BitVector.Shl(bv1, bv2)
   | BinOpType.SHR -> BitVector.Shr(bv1, bv2)
   | BinOpType.SAR -> BitVector.Sar(bv1, bv2)
-  | BinOpType.AND -> BitVector.BAnd(bv1, bv2)
-  | BinOpType.OR -> BitVector.BOr(bv1, bv2)
-  | BinOpType.XOR -> BitVector.BXor(bv1, bv2)
+  | BinOpType.AND -> BitVector.And(bv1, bv2)
+  | BinOpType.OR -> BitVector.Or(bv1, bv2)
+  | BinOpType.XOR -> BitVector.Xor(bv1, bv2)
   | BinOpType.CONCAT -> BitVector.Concat(bv1, bv2)
   | BinOpType.FADD -> BitVector.FAdd(bv1, bv2)
   | BinOpType.FSUB -> BitVector.FSub(bv1, bv2)
@@ -121,11 +121,11 @@ let rec private replace maps expr =
       | _ -> struct (true, AST.unop t e)
     else struct (false, expr)
   | BinOp(BinOpType.ADD, _, e, Num(bv, _), _)
-  | BinOp(BinOpType.ADD, _, Num(bv, _), e, _) when BitVector.IsZero bv ->
+  | BinOp(BinOpType.ADD, _, Num(bv, _), e, _) when bv.IsZero ->
     let struct (changed, e') = replace maps e
     if changed then struct (true, e') else struct (true, e)
   | BinOp(BinOpType.MUL, _, e, Num(bv, _), _)
-  | BinOp(BinOpType.MUL, _, Num(bv, _), e, _) when BitVector.IsOne bv ->
+  | BinOp(BinOpType.MUL, _, Num(bv, _), e, _) when bv.IsOne ->
     let struct (changed, e') = replace maps e
     if changed then struct (true, e') else struct (true, e)
   | BinOp(t, _, e1, e2, _) ->
@@ -157,7 +157,7 @@ let rec private replace maps expr =
     if changed0 || changed1 || changed2 then
       match cond with
       | Num(bv, _) ->
-        if BitVector.IsTrue bv then struct (true, e1)
+        if bv.IsTrue then struct (true, e1)
         else struct (false, e2)
       | _ -> struct (true, AST.ite cond e1 e2)
     else struct (false, expr)
@@ -204,7 +204,7 @@ let rec private optimizeLoop (stmts: Stmt []) idx maps =
       if c0 || c1 || c2 then
         stmts[idx] <-
           match cond with
-          | Num(n, _) when BitVector.IsOne n ->
+          | Num(n, _) when n.IsOne ->
             AST.interjmp e1 InterJmpKind.Base
           | Num _ -> AST.interjmp e2 InterJmpKind.Base
           | _ -> AST.intercjmp cond e1 e2
@@ -221,7 +221,7 @@ let rec private optimizeLoop (stmts: Stmt []) idx maps =
       if c0 || c1 || c2 then
         stmts[idx] <-
           match cond with
-          | Num(n, _) when BitVector.IsOne n -> AST.jmp e1
+          | Num(n, _) when n.IsOne -> AST.jmp e1
           | Num(_) -> AST.jmp e2
           | _ -> AST.cjmp cond e1 e2
       else ()

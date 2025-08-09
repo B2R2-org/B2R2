@@ -343,7 +343,7 @@ let ite cond e1 e2 =
   TypeCheck.checkEquivalence (Expr.TypeOf e1) (Expr.TypeOf e2)
 #endif
   match cond with
-  | Num(n, _) -> if BitVector.IsZero n then e2 else e1
+  | Num(n, _) -> if n.IsZero then e2 else e1
   | _ ->
 #if ! HASHCONS
     Ite(cond, e1, e2, null)
@@ -922,16 +922,16 @@ let private assignForExtractDst e1 e2 =
   | Extract(Var(t, _, _, _) as e1, eTyp, 0, _)
   | Extract(TempVar(t, _, _) as e1, eTyp, 0, _) ->
     let nMask = RegType.getMask t - RegType.getMask eTyp
-    let mask = BitVector.OfBInt(nMask, t) |> num
+    let mask = BitVector(nMask, t) |> num
     let src = cast CastKind.ZeroExt t e2
     put e1 (binopWithType BinOpType.OR t
               (binopWithType BinOpType.AND t e1 mask) src)
   | Extract(Var(t, _, _, _) as e1, eTyp, pos, _)
   | Extract(TempVar(t, _, _) as e1, eTyp, pos, _) ->
     let nMask = RegType.getMask t - (RegType.getMask eTyp <<< pos)
-    let mask = BitVector.OfBInt(nMask, t) |> num
+    let mask = BitVector(nMask, t) |> num
     let src = cast CastKind.ZeroExt t e2
-    let shift = BitVector.OfInt32(pos, t) |> num
+    let shift = BitVector(pos, t) |> num
     let src = binopWithType BinOpType.SHL t src shift
     put e1 (binopWithType BinOpType.OR t
               (binopWithType BinOpType.AND t e1 mask) src)

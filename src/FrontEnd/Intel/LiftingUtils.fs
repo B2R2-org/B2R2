@@ -69,7 +69,7 @@ let private getMemExpr128 expr =
   | Load(e, 128<rt>, BinOp(BinOpType.ADD, _, b, Num(n, _), _), _)
   | Load(e, 128<rt>, BinOp(BinOpType.ADD, _, Num(n, _), b, _), _) ->
     let off1 = AST.num n
-    let off2 = BitVector.Add(n, BitVector.OfInt32(8, n.Length)) |> AST.num
+    let off2 = BitVector.Add(n, BitVector(8, n.Length)) |> AST.num
     struct (AST.load e 64<rt> (b .+ off2),
             AST.load e 64<rt> (b .+ off1))
   | Load(e, 128<rt>, expr, _) ->
@@ -82,9 +82,9 @@ let private getMemExpr256 expr =
   | Load(e, 256<rt>, BinOp(BinOpType.ADD, _, b, Num(n, _), _), _)
   | Load(e, 256<rt>, BinOp(BinOpType.ADD, _, Num(n, _), b, _), _) ->
     let off1 = AST.num n
-    let off2 = BitVector.Add(n, BitVector.OfInt32(8, n.Length)) |> AST.num
-    let off3 = BitVector.Add(n, BitVector.OfInt32(16, n.Length)) |> AST.num
-    let off4 = BitVector.Add(n, BitVector.OfInt32(24, n.Length)) |> AST.num
+    let off2 = BitVector.Add(n, BitVector(8, n.Length)) |> AST.num
+    let off3 = BitVector.Add(n, BitVector(16, n.Length)) |> AST.num
+    let off4 = BitVector.Add(n, BitVector(24, n.Length)) |> AST.num
     struct (AST.load e 64<rt> (b .+ off4),
             AST.load e 64<rt> (b .+ off3),
             AST.load e 64<rt> (b .+ off2),
@@ -101,13 +101,13 @@ let private getMemExpr512 expr =
   | Load(e, 512<rt>, BinOp(BinOpType.ADD, _, b, Num(n, _), _), _)
   | Load(e, 512<rt>, BinOp(BinOpType.ADD, _, Num(n, _), b, _), _) ->
     let off1 = AST.num n
-    let off2 = BitVector.Add(n, BitVector.OfInt32(8, n.Length)) |> AST.num
-    let off3 = BitVector.Add(n, BitVector.OfInt32(16, n.Length)) |> AST.num
-    let off4 = BitVector.Add(n, BitVector.OfInt32(24, n.Length)) |> AST.num
-    let off5 = BitVector.Add(n, BitVector.OfInt32(32, n.Length)) |> AST.num
-    let off6 = BitVector.Add(n, BitVector.OfInt32(40, n.Length)) |> AST.num
-    let off7 = BitVector.Add(n, BitVector.OfInt32(48, n.Length)) |> AST.num
-    let off8 = BitVector.Add(n, BitVector.OfInt32(56, n.Length)) |> AST.num
+    let off2 = BitVector.Add(n, BitVector(8, n.Length)) |> AST.num
+    let off3 = BitVector.Add(n, BitVector(16, n.Length)) |> AST.num
+    let off4 = BitVector.Add(n, BitVector(24, n.Length)) |> AST.num
+    let off5 = BitVector.Add(n, BitVector(32, n.Length)) |> AST.num
+    let off6 = BitVector.Add(n, BitVector(40, n.Length)) |> AST.num
+    let off7 = BitVector.Add(n, BitVector(48, n.Length)) |> AST.num
+    let off8 = BitVector.Add(n, BitVector(56, n.Length)) |> AST.num
     struct (AST.load e 64<rt> (b .+ off8),
             AST.load e 64<rt> (b .+ off7),
             AST.load e 64<rt> (b .+ off6),
@@ -620,7 +620,7 @@ let buildAF bld e1 e2 r size =
 
 let isExprZero e =
   match e with
-  | Num(bv, _) when bv.IsZero() -> true
+  | Num(bv, _) when bv.IsZero -> true
   | _ -> false
 
 let buildPF bld r size cond =

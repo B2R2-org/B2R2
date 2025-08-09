@@ -51,7 +51,7 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
     match e with
     | PCVar(rt, _, _) ->
       let addr = (spp: SensitiveProgramPoint<_>).ProgramPoint.Address
-      let bv = BitVector.OfUInt64(addr, rt)
+      let bv = BitVector(addr, rt)
       ConstantDomain.Const bv
     | Num(bv, _) -> ConstantDomain.Const bv
     | Var _ | TempVar _ -> evaluateVarPoint state spp (VarKind.ofIRExpr e)

@@ -32,7 +32,7 @@ open B2R2.BinIR
 module internal ValueOptimizer =
   let inline unop n = function
     | UnOpType.NEG -> BitVector.Neg n
-    | UnOpType.NOT -> BitVector.BNot n
+    | UnOpType.NOT -> BitVector.Not n
     | UnOpType.FSQRT -> BitVector.FSqrt n
     | UnOpType.FCOS -> BitVector.FCos n
     | UnOpType.FSIN -> BitVector.FSin n
@@ -51,9 +51,9 @@ module internal ValueOptimizer =
     | BinOpType.SHL  -> BitVector.Shl(n1, n2)
     | BinOpType.SAR  -> BitVector.Sar(n1, n2)
     | BinOpType.SHR  -> BitVector.Shr(n1, n2)
-    | BinOpType.AND  -> BitVector.BAnd(n1, n2)
-    | BinOpType.OR   -> BitVector.BOr(n1, n2)
-    | BinOpType.XOR  -> BitVector.BXor(n1, n2)
+    | BinOpType.AND  -> BitVector.And(n1, n2)
+    | BinOpType.OR   -> BitVector.Or(n1, n2)
+    | BinOpType.XOR  -> BitVector.Xor(n1, n2)
     | BinOpType.CONCAT -> BitVector.Concat(n1, n2)
     | BinOpType.FADD -> BitVector.FAdd(n1, n2)
     | BinOpType.FSUB -> BitVector.FSub(n1, n2)

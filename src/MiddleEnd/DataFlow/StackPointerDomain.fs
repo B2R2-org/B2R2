@@ -63,5 +63,5 @@ module StackPointerDomain =
   let ``and`` c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
-    | ConstSP bv1, ConstSP bv2 -> ConstSP(BitVector.BAnd(bv1, bv2))
+    | ConstSP bv1, ConstSP bv2 -> ConstSP(BitVector.And(bv1, bv2))
     | _ -> NotConstSP

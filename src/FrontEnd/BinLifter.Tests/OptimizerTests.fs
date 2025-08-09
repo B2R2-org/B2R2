@@ -26,14 +26,13 @@ namespace B2R2.FrontEnd.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 
 [<TestClass>]
 type OptimizerTests() =
-  let num v = BitVector.OfUInt32(v, 32<rt>) |> AST.num
+  let num v = BitVector(u32 = v, bitLen = 32<rt>) |> AST.num
 
   let t32 id = AST.tmpvar 32<rt> id
 

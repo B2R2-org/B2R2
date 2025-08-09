@@ -34,7 +34,7 @@ let rec evalConcrete (st: EvalState) e =
   match e with
   | Num(n, _) -> n
   | Var(_, n, _, _) -> st.GetReg n
-  | PCVar(t, _, _) -> BitVector.OfUInt64(st.PC, t)
+  | PCVar(t, _, _) -> BitVector(st.PC, t)
   | TempVar(_, n, _) -> st.GetTmp n
   | UnOp(t, e, _) -> evalUnOp st e t
   | BinOp(t, _, e1, e2, _) -> evalBinOp st e1 e2 t
@@ -73,7 +73,7 @@ and private evalUnOp st e typ =
   let v = evalConcrete st e
   match typ with
   | UnOpType.NEG -> BitVector.Neg v
-  | UnOpType.NOT -> BitVector.BNot v
+  | UnOpType.NOT -> BitVector.Not v
   | UnOpType.FSQRT -> BitVector.FSqrt v
   | UnOpType.FCOS -> BitVector.FCos v
   | UnOpType.FSIN -> BitVector.FSin v
@@ -95,9 +95,9 @@ and private evalBinOp st e1 e2 typ =
   | BinOpType.SHL -> BitVector.Shl(e1, e2)
   | BinOpType.SAR -> BitVector.Sar(e1, e2)
   | BinOpType.SHR -> BitVector.Shr(e1, e2)
-  | BinOpType.AND -> BitVector.BAnd(e1, e2)
-  | BinOpType.OR -> BitVector.BOr(e1, e2)
-  | BinOpType.XOR -> BitVector.BXor(e1, e2)
+  | BinOpType.AND -> BitVector.And(e1, e2)
+  | BinOpType.OR -> BitVector.Or(e1, e2)
+  | BinOpType.XOR -> BitVector.Xor(e1, e2)
   | BinOpType.CONCAT -> BitVector.Concat(e1, e2)
   | BinOpType.FADD -> BitVector.FAdd(e1, e2)
   | BinOpType.FSUB -> BitVector.FSub(e1, e2)

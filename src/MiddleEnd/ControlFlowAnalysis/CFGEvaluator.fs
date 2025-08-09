@@ -38,11 +38,11 @@ let private memoryReader (hdl: BinHandle) _pc addr typ _e =
   if addr < UInt64.MaxValue && file.IsValidAddr addr then
     let ptr = hdl.File.GetBoundedPointer addr
     match hdl.TryReadBytes(ptr, len) with
-    | Ok v -> Ok(BitVector.OfArr v)
+    | Ok v -> Ok(BitVector v)
     | Error e -> Error e
   else Error ErrorCase.InvalidMemoryRead
 
-let private stackAddr t = BitVector.OfUInt64(InitialStackPointer, t)
+let private stackAddr t = BitVector(InitialStackPointer, t)
 
 let private obtainStackDef (hdl: BinHandle) =
   match hdl.RegisterFactory.StackPointer with

@@ -31,11 +31,11 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 
-let numI32 n = BitVector.OfInt32(n, 32<rt>) |> AST.num
+let numI32 (n: int) = BitVector(n, 32<rt>) |> AST.num
 
-let numI32PC n = BitVector.OfInt32(n, 32<rt>) |> AST.num
+let numI32PC (n: int) = BitVector(n, 32<rt>) |> AST.num
 
-let numI64 n = BitVector.OfInt64(n, 16<rt>) |> AST.num
+let numI64 (n: int64) = BitVector(n, 16<rt>) |> AST.num
 
 let exprToInt (n: Expr) =
   match n with
@@ -43,7 +43,7 @@ let exprToInt (n: Expr) =
   | _ -> Terminator.impossible ()
 
 let bv1Check s =
-  exprToInt s |> BitVector.IsOne
+  (exprToInt s).IsOne
 
 let trsOprToExpr bld = function
   | OpReg(Regdir r) -> regVar bld r

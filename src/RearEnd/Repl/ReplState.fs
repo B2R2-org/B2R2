@@ -42,7 +42,7 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
                    st.IsInstrTerminated <- true)
     regFactory.GetAllRegVars()
     |> Array.map (fun r ->
-      (regFactory.GetRegisterID r, BitVector.OfInt32(0, Expr.TypeOf r)))
+      (regFactory.GetRegisterID r, BitVector(0, Expr.TypeOf r)))
     |> fun regs -> rstate.InitializeContext(0UL, regs)
   let mutable prevReg =
     rstate.Registers.ToArray()

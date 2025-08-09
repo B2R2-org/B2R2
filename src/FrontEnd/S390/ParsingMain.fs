@@ -199,8 +199,8 @@ let parseInstLenTwo (bin: uint32) =
   | _ ->
     match extract32 bin 0 15 |> uint16 with
     | 0xB2FAus ->
-      let op1 = BitVector.OfUInt32(extract32 bin 24 27, 4<rt>) |> ImmU4
-      let op2 = BitVector.OfUInt32(extract32 bin 28 31, 4<rt>) |> ImmU4
+      let op1 = BitVector(extract32 bin 24 27, 4<rt>) |> ImmU4
+      let op2 = BitVector(extract32 bin 28 31, 4<rt>) |> ImmU4
       Op.NIAI, TwoOperands(OpImm op1, OpImm op2), Fmt.IE
     | 0xB30Eus -> Op.MAEBR, getFPR16FPR28FPR24 bin, Fmt.RRD
     | 0xB30Fus -> Op.MSEBR, getFPR16FPR28FPR24 bin, Fmt.RRD
@@ -749,10 +749,8 @@ let parseInstLenThree (bin: uint64) =
     | 0xC7us -> Op.BPP, getMask8QSImm32RM16D20 bin, Fmt.SMI
     | 0xC5us ->
       let opr1 = extract48 bin 8 11 |> uint16
-      let opr2 =
-        BitVector.OfInt32(extract48 bin 12 23 |> int32, 12<rt>) |> ImmS12
-      let opr3 =
-        BitVector.OfInt32(extract48 bin 24 47 |> int32, 24<rt>) |> ImmS24
+      let opr2 = BitVector(extract48 bin 12 23 |> int32, 12<rt>) |> ImmS12
+      let opr3 = BitVector(extract48 bin 24 47 |> int32, 24<rt>) |> ImmS24
       Op.BPRP, ThreeOperands(OpMask opr1, OpImm opr2, OpImm opr3), Fmt.MII
     | 0xD0us -> Op.TRTR, getGRL8QM32D36 bin, Fmt.SS
     | 0xD1us -> Op.MVN, getGRL8QM32D36 bin, Fmt.SS
@@ -1351,7 +1349,7 @@ let parseByFmt (span: ByteSpan) (reader: IBinReader) bin =
   | 0b11us ->
     span.Slice(0, 6).ToArray()
     |> Array.rev
-    |> BitVector.OfArr
+    |> BitVector
     |> BitVector.ToUInt64
     |> parseInstLenThree, 6u
   | _ -> Terminator.impossible ()

@@ -1811,7 +1811,8 @@ let lahf (ins: Instruction) insLen bld =
   bld --!> insLen
 
 let private unwrapLeaSrc = function
-  | Load(_, _, BinOp(BinOpType.ADD, _, e, Num(n, _), _), _) when n.IsZero() -> e
+  | Load(_, _, BinOp(BinOpType.ADD, _,
+                     e, Num(n, _), _), _) when n.IsZero -> e
   | Load(_, _, expr, _) -> expr
   | _ -> Terminator.impossible ()
 

@@ -33,7 +33,7 @@ open B2R2.BinIR.LowUIR
 let rec private translateExpr (builder: LLVMIRBuilder) tempMap expr =
   match expr with
   | Num(bv, _) ->
-    builder.Number(bv.SmallValue(), bv.Length)
+    builder.Number(bv.SmallValue, bv.Length)
   | Var(_, reg, _, _) ->
     builder.EmitRegLoad reg
   | PCVar _ ->

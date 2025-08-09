@@ -69,7 +69,7 @@ type State<'L, 'ExeCtx when 'L: equality
     | Some rid ->
       let rt = hdl.RegisterFactory.GetRegType rid
       let varKind = Regular rid
-      let bv = BitVector.OfUInt64(Constants.InitialStackPointer, rt)
+      let bv = BitVector(Constants.InitialStackPointer, rt)
       let c = StackPointerDomain.ConstSP bv
       Some(varKind, c)
 
@@ -295,7 +295,7 @@ type State<'L, 'ExeCtx when 'L: equality
         SSA.Load(fakeMemoryVar, rt, e)
     | PCVar(rt, _rname, _) ->
       let fakeAddr = 0xdeadbeef1UL
-      let bv = BitVector.OfUInt64(fakeAddr, rt)
+      let bv = BitVector(fakeAddr, rt)
       SSA.Num bv
     | Num(bv, _) -> SSA.Num bv
     | FuncName(name, _) -> SSA.FuncName name
@@ -856,7 +856,7 @@ module internal AnalysisCore = begin
       if isNull src then
         let spRid = state.BinHandle.RegisterFactory.StackPointer.Value
         let spRegType = state.BinHandle.RegisterFactory.GetRegType spRid
-        BitVector.OfUInt64(Constants.InitialStackPointer, spRegType)
+        BitVector(Constants.InitialStackPointer, spRegType)
         |> StackPointerDomain.ConstSP
       else snd state.PerVertexStackPointerInfos[src, srcExeCtx]
     match joinDefs dstInSP srcOutDefs dstInDefs with
@@ -875,7 +875,7 @@ module internal AnalysisCore = begin
     if isNull v then
       let spRid = state.BinHandle.RegisterFactory.StackPointer.Value
       let spRegType = state.BinHandle.RegisterFactory.GetRegType spRid
-      BitVector.OfUInt64(Constants.InitialStackPointer, spRegType)
+      BitVector(Constants.InitialStackPointer, spRegType)
       |> StackPointerDomain.ConstSP
     else snd state.PerVertexStackPointerInfos[v, exeCtx]
 
@@ -885,7 +885,7 @@ module internal AnalysisCore = begin
     let spVarKind = Regular spRid
     match Map.tryFind spVarKind m with
     | None ->
-      BitVector.OfUInt64(Constants.InitialStackPointer, spRegType)
+      BitVector(Constants.InitialStackPointer, spRegType)
       |> StackPointerDomain.ConstSP
     | Some defs ->
       defs

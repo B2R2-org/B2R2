@@ -28,7 +28,6 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.EVM
-open type BitVector
 
 [<TestClass>]
 type ParserTests() =
@@ -45,4 +44,4 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[EVM] PUSH10 Parse Test (1)``() =
     "6900112233445566778899"
-    ++ (PUSH10 <| (OfBInt(316059037807746189465I, 80<rt>))) ||> test
+    ++ (PUSH10 <| (BitVector(316059037807746189465I, 80<rt>))) ||> test

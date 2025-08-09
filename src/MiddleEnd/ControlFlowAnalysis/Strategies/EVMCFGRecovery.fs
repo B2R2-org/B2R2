@@ -101,9 +101,11 @@ module private EVMCFGRecovery =
     | SSA.FuncName _
     | SSA.Undefined _ -> e
 
-  let fourBytesBitmaskBv = BitVector.OfUInt32(UInt32.MaxValue, 256<rt>)
+  let fourBytesBitmaskBv =
+    BitVector(UInt32.MaxValue, 256<rt>)
 
-  let isPossiblyFuncSig bv = (bv: BitVector).And fourBytesBitmaskBv = bv
+  let isPossiblyFuncSig (bv: BitVector) =
+    bv &&& fourBytesBitmaskBv = bv
 
   let isMsgDataDivision = function
     | SSA.BinOp(BinOpType.DIV, _,
@@ -399,7 +401,7 @@ module private EVMCFGRecovery =
   /// inconsistency check later.
   let rec tryExtractPathCondition (state: State<_, _>) recentVar cond =
     match cond with
-    | SSA.Num bv when BitVector.IsOne bv -> Some(recentVar, true)
+    | SSA.Num bv when bv.IsOne -> Some(recentVar, true)
     | SSA.ExprList exprs -> (* TODO: tail-recursion w/ continuation *)
       exprs |> List.tryPick (fun e ->
         let var = exprToVar e
@@ -410,7 +412,7 @@ module private EVMCFGRecovery =
       when isCallRelatedFunction callName ->
       Some(recentVar, true)
     | SSA.Cast(_, _, SSA.RelOp(RelOpType.EQ, _, e, SSA.Num bv_0x0))
-      when BitVector.IsZero bv_0x0 ->
+      when bv_0x0.IsZero ->
       match tryExtractPathCondition state recentVar e with
       | Some(d, b) -> Some(d, not b) (* Apply negation. *)
       | _ -> None

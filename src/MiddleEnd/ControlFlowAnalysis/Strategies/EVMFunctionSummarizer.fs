@@ -47,8 +47,8 @@ type EVMFunctionSummarizer<'FnCtx,
     let spVar = hdl.RegisterFactory.GetRegVar spRegId
     let rt = hdl.RegisterFactory.GetRegType spRegId
     let jumpDstVar = AST.tmpvar rt 0
-    let spUnwindingBv = BitVector.OfInt64(int64 unwindingAmount, rt)
-    let retStackOffBv = BitVector.OfInt64(int64 retStackOff, rt)
+    let spUnwindingBv = BitVector(int64 unwindingAmount, rt)
+    let retStackOffBv = BitVector(int64 retStackOff, rt)
     let retSp = AST.binop BinOpType.ADD spVar (AST.num retStackOffBv)
     let finalSp = AST.binop BinOpType.ADD spVar (AST.num spUnwindingBv)
     [| AST.put jumpDstVar (AST.load Endian.Little rt retSp)
@@ -114,7 +114,7 @@ and EVMFuncUserContext() =
     let spId = getStackPointerId state.BinHandle
     let spRegType = state.BinHandle.RegisterFactory.GetRegType spId
     let stmtInfos = state.GetStmtInfos v
-    let initialBV = BitVector.OfUInt64(Constants.InitialStackPointer, spRegType)
+    let initialBV = BitVector(Constants.InitialStackPointer, spRegType)
     stmtInfos
     |> Array.fold (fun offBV (stmt, _) ->
       match stmt with

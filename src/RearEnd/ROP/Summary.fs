@@ -226,15 +226,15 @@ module Summary =
     else (false, None)
 
   let private checkRegs (sum: Summary) regs =
-    let checker (reg, v) =
+    let checker (reg, v: uint32) =
       match Map.tryFind reg sum.OutRegs with
-      | Some x when x = (BitVector.OfUInt32(v, 32<rt>) |> AST.num |> Value) ->
+      | Some x when x = (BitVector(v, 32<rt>) |> AST.num |> Value) ->
         true
       | _ -> false
     Array.forall checker regs
 
-  let private addNum32 (ptr: Value) num =
-    BitVector.OfInt32(num, 32<rt>)
+  let private addNum32 (ptr: Value) (num: int) =
+    BitVector(num, 32<rt>)
     |> AST.num
     |> Simplify.simplifyBinOp BinOpType.ADD 32<rt> (ptr.GetExpr())
     |> Value

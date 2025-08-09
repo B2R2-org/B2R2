@@ -61,7 +61,7 @@ type Memory() =
     | Endian.Little -> this.ReadLE([], addr, len)
     | _ -> this.ReadBE([], len, addr, 0UL)
     |> function
-      | Ok lst -> Array.ofList lst |> BitVector.OfArr |> Ok
+      | Ok lst -> Array.ofList lst |> BitVector |> Ok
       | Error e -> Error e
 
   /// Write a bitvector value to the memory.

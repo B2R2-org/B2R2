@@ -51,8 +51,7 @@ let getThreeOprs (ins: Instruction) =
 let getExtMask mb me =
   let struct (mb, me) =
     match mb, me with
-    | Num(b, _), Num(m, _) ->
-      struct (b.SmallValue() |> int, m.SmallValue() |> int)
+    | Num(b, _), Num(m, _) -> struct (int b.SmallValue, int m.SmallValue)
     | _ -> raise InvalidExprException
   let allOnes = System.UInt32.MaxValue
   let mask =
@@ -1440,7 +1439,7 @@ let mtfsb1 ins insLen updateCond bld =
 let mtfsf ins insLen bld =
   let struct (fm, frB) = getTwoOprs ins
   let frB = transOpr bld frB
-  let fm = BitVector.OfUInt32(getImmValue fm, 32<rt>) |> AST.num
+  let fm = BitVector(getImmValue fm, 32<rt>) |> AST.num
   let fpscr = regVar bld Register.FPSCR
   bld <!-- (ins.Address, insLen)
   bld <+ (fpscr := AST.xtlo 32<rt> frB .& fm)
@@ -1963,7 +1962,7 @@ let subfme ins insLen updateCond ovCond bld =
   let struct (dst, src) = transTwoOprs ins bld
   let xerCA = AST.zext 64<rt> (AST.extract (regVar bld Register.XER) 1<rt> 29)
   let struct (t1, t2, t3) = tmpVars3 bld 64<rt>
-  let minusone = AST.num (BitVector.OfUInt32(0xffffffffu, 64<rt>))
+  let minusone = AST.num (BitVector(0xffffffffu, 64<rt>))
   bld <!-- (ins.Address, insLen)
   bld <+ (t1 := AST.zext 64<rt> (AST.not src))
   bld <+ (t2 := xerCA)

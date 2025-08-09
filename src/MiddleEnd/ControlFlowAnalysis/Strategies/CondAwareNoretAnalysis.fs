@@ -267,17 +267,17 @@ module CondAwareNoretAnalysis =
     let esp = Intel.Register.ESP |> Intel.Register.toRegID
     match (st: EvalState).TryGetReg esp with
     | Def esp ->
-      let p = esp.Add(BitVector.OfInt32(4 * nth, 32<rt>))
+      let p = esp + BitVector(4 * nth, 32<rt>)
       let endian = Endian.Little
       match st.Memory.Read(BitVector.ToUInt64 p, endian, 32<rt>) with
-      | Ok v -> not <| BitVector.IsZero v
+      | Ok v -> not v.IsZero
       | _ -> false
     | _ -> false
 
   let private hasNonZeroOnX64 hdl st nth =
     let reg = CallingConvention.FunctionArgRegister(hdl, OS.Linux, nth)
     match (st: EvalState).TryGetReg reg with
-    | Def bv -> not <| bv.IsZero()
+    | Def bv -> not bv.IsZero
     | _ -> false
 
   /// Locally analyze the given basic block and see if the `nth` parameter

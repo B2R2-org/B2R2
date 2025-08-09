@@ -48,7 +48,7 @@ let rec evalConcrete (st: EvalState) e =
   match e with
   | Num(n, _) -> Def n |> Ok
   | Var(_, n, _, _) -> st.TryGetReg n |> Ok
-  | PCVar(t, _, _) -> BitVector.OfUInt64(st.PC, t) |> Def |> Ok
+  | PCVar(t, _, _) -> BitVector(st.PC, t) |> Def |> Ok
   | TempVar(_, n, _) -> st.TryGetTmp n |> Ok
   | UnOp(t, e, _) -> evalUnOp st e t
   | BinOp(t, _, e1, e2, _) -> evalBinOp st e1 e2 t
@@ -100,7 +100,7 @@ and private evalCast st t e = function
 
 and private evalUnOp st e = function
   | UnOpType.NEG -> evalUnOpConc st e BitVector.Neg
-  | UnOpType.NOT -> evalUnOpConc st e BitVector.BNot
+  | UnOpType.NOT -> evalUnOpConc st e BitVector.Not
   | UnOpType.FSQRT -> evalUnOpConc st e BitVector.FSqrt
   | UnOpType.FCOS -> evalUnOpConc st e BitVector.FCos
   | UnOpType.FSIN -> evalUnOpConc st e BitVector.FSin
@@ -119,9 +119,9 @@ and private evalBinOp st e1 e2 = function
   | BinOpType.SHL -> evalBinOpConc st e1 e2 BitVector.Shl
   | BinOpType.SAR -> evalBinOpConc st e1 e2 BitVector.Sar
   | BinOpType.SHR -> evalBinOpConc st e1 e2 BitVector.Shr
-  | BinOpType.AND -> evalBinOpConc st e1 e2 BitVector.BAnd
-  | BinOpType.OR -> evalBinOpConc st e1 e2 BitVector.BOr
-  | BinOpType.XOR -> evalBinOpConc st e1 e2 BitVector.BXor
+  | BinOpType.AND -> evalBinOpConc st e1 e2 BitVector.And
+  | BinOpType.OR -> evalBinOpConc st e1 e2 BitVector.Or
+  | BinOpType.XOR -> evalBinOpConc st e1 e2 BitVector.Xor
   | BinOpType.CONCAT -> evalBinOpConc st e1 e2 BitVector.Concat
   | BinOpType.FADD -> evalBinOpConc st e1 e2 BitVector.FAdd
   | BinOpType.FSUB -> evalBinOpConc st e1 e2 BitVector.FSub
