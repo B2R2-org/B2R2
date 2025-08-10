@@ -788,6 +788,8 @@ module private EVMCFGRecovery =
       (visited: HashSet<_>).Add v |> ignore
       for pred in (g: IDiGraph<_, _>).GetPreds v do (* For recalculation. *)
         pendingFn pred v
+      if v = g.SingleRoot then
+        pendingFn null v
       if not <| removalFn v then
         traverseForRemovalMark visited g pendingFn removalFn rest
       else
@@ -871,7 +873,7 @@ type EVMCFGRecovery() as this =
     member _.ResumeAnalysis(ctx, pp, callbackAction) =
       let userCtx = ctx.UserContext
       match ctx.Vertices.TryGetValue pp with
-      | false, _ -> Terminator.impossible ()
+      | false, _ -> MoveOn
       | true, v when userCtx.ResumableVertices.Remove v ->
         match ctx.VisitedPPoints.Remove pp with
         | true -> ()
