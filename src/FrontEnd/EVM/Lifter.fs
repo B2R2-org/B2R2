@@ -241,11 +241,6 @@ let callAndTerminate ins name argCount bld =
   callExternFunc ins bld name argCount false
   sideEffects Terminate bld
 
-let selfdestruct ins bld =
-  popFromStack bld |> ignore
-  callExternFunc ins bld "selfdestruct" 1 false
-  sideEffects Terminate bld
-
 let private translateOpcode ins bld = function
   | STOP -> sideEffects Terminate bld
   | ADD -> add ins bld
@@ -393,7 +388,7 @@ let private translateOpcode ins bld = function
   | CREATE2 -> callExternFunc ins bld "create2" 4 true
   | STATICCALL -> callExternFunc ins bld "staticcall" 6 true
   | INVALID -> sideEffects Terminate bld
-  | SELFDESTRUCT -> selfdestruct ins bld
+  | SELFDESTRUCT -> callAndTerminate ins "selfdestruct" 1 bld
 
 let translate (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.NumBytes)
