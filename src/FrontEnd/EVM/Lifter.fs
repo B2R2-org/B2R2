@@ -237,8 +237,8 @@ let call (ins: Instruction) bld fname =
   pushToStack bld expr
   updateGas bld ins.GAS
 
-let ret ins bld =
-  callExternFunc ins bld "return" 2 false
+let callAndTerminate ins name argCount bld =
+  callExternFunc ins bld name argCount false
   sideEffects Terminate bld
 
 let selfdestruct ins bld =
@@ -379,7 +379,8 @@ let private translateOpcode ins bld = function
   | SWAP14 -> swap ins bld 14
   | SWAP15 -> swap ins bld 15
   | SWAP16 -> swap ins bld 16
-  | RETURN | REVERT -> ret ins bld
+  | RETURN -> callAndTerminate ins "return" 2 bld
+  | REVERT -> callAndTerminate ins "revert" 2 bld
   | CALL -> callExternFunc ins bld "call" 7 true
   | CALLCODE -> callExternFunc ins bld "callcode" 7 true
   | LOG0 -> callExternFunc ins bld "log0" 2 false
