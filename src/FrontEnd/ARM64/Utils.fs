@@ -192,19 +192,19 @@ let sysOp bin =
 /// DecodeImmShift()
 let decodeImmShift typ imm5 =
   match typ with
-  | 0b00u -> SRTypeLSL, imm5
-  | 0b01u -> SRTypeLSR, if imm5 = 0ul then 32ul else imm5
-  | 0b10u -> SRTypeASR, if imm5 = 0ul then 32ul else imm5
-  | 0b11u when imm5 = 0ul -> SRTypeRRX, 1ul
-  | 0b11u -> SRTypeROR, imm5
+  | 0b00u -> ShiftOperation.LSL, imm5
+  | 0b01u -> ShiftOperation.LSR, if imm5 = 0ul then 32ul else imm5
+  | 0b10u -> ShiftOperation.ASR, if imm5 = 0ul then 32ul else imm5
+  | 0b11u when imm5 = 0ul -> ShiftOperation.RRX, 1ul
+  | 0b11u -> ShiftOperation.ROR, imm5
   | _ -> Terminator.impossible ()
 
 /// DecodeRegShift()
 let decodeRegShift = function
-  | 0b00u -> SRTypeLSL
-  | 0b01u -> SRTypeLSR
-  | 0b10u -> SRTypeASR
-  | 0b11u -> SRTypeROR
+  | 0b00u -> ShiftOperation.LSL
+  | 0b01u -> ShiftOperation.LSR
+  | 0b10u -> ShiftOperation.ASR
+  | 0b11u -> ShiftOperation.ROR
   | _ -> Terminator.impossible ()
 
 /// aarch64/instrs/integer/logical/movwpreferred/MoveWidePreferred

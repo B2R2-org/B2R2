@@ -508,7 +508,7 @@ let inc bin =
   | 0b00u -> 1u
   | 0b01u -> if pickBit bin 5 = 0u (* index_align<1> *) then 1u else 2u
   | 0b10u -> if pickBit bin 6 = 0u (* index_align<2> *) then 1u else 2u
-  | _ -> raise UndefinedException
+  | _ -> undefined ()
 
 (* if n == 15 || d2 > 31 then UNPREDICTABLE *)
 let chkPCRnD2 bin =

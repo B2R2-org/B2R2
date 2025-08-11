@@ -57,32 +57,32 @@ let substituteParsedRegister (reg, dummyOffset) =
 let parseShiftOperation opcode imm =
   let srType =
     match opcode with
-    | Opcode.LSL -> Some SRTypeLSL
-    | Opcode.LSR -> Some SRTypeLSR
-    | Opcode.ASR -> Some SRTypeASR
-    | Opcode.ROR -> Some SRTypeROR
-    | Opcode.RRX -> Some SRTypeRRX
+    | Opcode.LSL -> Some ShiftOperation.LSL
+    | Opcode.LSR -> Some ShiftOperation.LSR
+    | Opcode.ASR -> Some ShiftOperation.ASR
+    | Opcode.ROR -> Some ShiftOperation.ROR
+    | Opcode.RRX -> Some ShiftOperation.RRX
     | _ -> None
   if srType.IsNone then fail "not a shift opcode"
   else preturn (srType.Value, imm)
 
 let getSRType (str: string) =
   match str.ToLowerInvariant() with
-  | "lsl" -> SRTypeLSL
-  | "lsr" -> SRTypeLSR
-  | "asr" -> SRTypeASR
-  | "ror" -> SRTypeROR
-  | "rrx" -> SRTypeRRX
+  | "lsl" -> ShiftOperation.LSL
+  | "lsr" -> ShiftOperation.LSR
+  | "asr" -> ShiftOperation.ASR
+  | "ror" -> ShiftOperation.ROR
+  | "rrx" -> ShiftOperation.RRX
   | _ -> failwith "unknown SRType"
 
 let parseOprRegShiftOperand opcode reg =
   let srType =
     match opcode with
-    | Opcode.LSL -> Some SRTypeLSL
-    | Opcode.LSR -> Some SRTypeLSR
-    | Opcode.ASR -> Some SRTypeASR
-    | Opcode.ROR -> Some SRTypeROR
-    | Opcode.RRX -> Some SRTypeRRX
+    | Opcode.LSL -> Some ShiftOperation.LSL
+    | Opcode.LSR -> Some ShiftOperation.LSR
+    | Opcode.ASR -> Some ShiftOperation.ASR
+    | Opcode.ROR -> Some ShiftOperation.ROR
+    | Opcode.RRX -> Some ShiftOperation.RRX
     | _ -> None
   if srType.IsNone then fail "not a shift opcode"
   else preturn (OprRegShift(srType.Value, reg))
