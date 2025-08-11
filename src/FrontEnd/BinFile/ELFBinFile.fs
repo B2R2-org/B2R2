@@ -76,6 +76,16 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   /// Relocation information.
   member _.RelocationInfo with get() = relocs.Value
 
+  /// Returns Global Pointer (GP) value when it is known. This is only available
+  /// in MIPS binaries.
+  member _.GlobalPointer with get() =
+    match hdr.MachineType with
+    | MachineType.EM_MIPS ->
+      shdrs.Value
+      |> Array.tryFind (fun s -> s.SecName = Section.GOT)
+      |> Option.map (fun s -> s.SecAddr + 0x7ff0UL)
+    | _ -> None
+
   /// Try to find a section by its name.
   member _.TryFindSection(name: string) =
     shdrs.Value |> Array.tryFind (fun s -> s.SecName = name)

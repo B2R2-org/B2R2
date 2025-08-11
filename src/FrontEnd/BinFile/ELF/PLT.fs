@@ -93,19 +93,11 @@ type PLTParser() =
     * ByteSpan
     -> PLTEntryInfo
 
-let [<Literal>] private SecRelPLT = ".rel.plt"
-
-let [<Literal>] private SecRelaPLT = ".rela.plt"
-
-let [<Literal>] private SecPLT = ".plt"
-
 let [<Literal>] private SecPLTSnd = ".plt.sec"
 
 let [<Literal>] private SecPLTGOT = ".plt.got"
 
 let [<Literal>] private SecPLTBnd = ".plt.bnd"
-
-let [<Literal>] private SecGOT = ".got"
 
 let [<Literal>] private SecGOTPLT = ".got.plt"
 
@@ -126,12 +118,12 @@ let private tryFindGOTAddr shdrs =
   match Array.tryFind (fun s -> s.SecName = SecGOTPLT) shdrs with
   | Some s -> Some s.SecAddr
   | None ->
-    match Array.tryFind (fun s -> s.SecName = SecGOT) shdrs with
+    match Array.tryFind (fun s -> s.SecName = Section.GOT) shdrs with
     | Some s -> Some s.SecAddr
     | None -> None
 
 let private tryFindFirstEntryAddrWithRelPLT (reloc: RelocationInfo) shdrs =
-  match Array.tryFind (fun s -> s.SecName = SecRelPLT) shdrs with
+  match Array.tryFind (fun s -> s.SecName = Section.RelPLT) shdrs with
   | Some s ->
     reloc.Entries
     |> Seq.fold (fun minval r ->
@@ -151,7 +143,7 @@ let private tryFindFirstEntryAddrWithRelocation (reloc: RelocationInfo) =
   |> fun addr -> if addr = UInt64.MaxValue then None else Some addr
 
 let isPLTSectionName name =
-  name = SecPLT || name = SecPLTSnd || name = SecPLTGOT || name = SecPLTBnd
+  name = Section.PLT || name = SecPLTSnd || name = SecPLTGOT || name = SecPLTBnd
 
 let private findPLTSections shdrs =
   shdrs
@@ -218,10 +210,10 @@ type GeneralPLTParser(shdrs, relocInfo, symbs, pltHdrSize, relKind) =
     newPLT DontCare AnyBinding false pltEntrySize 0UL addr
 
   member private this.FindGeneralPLTType sec =
-    match Array.tryFind (fun s -> s.SecName = SecRelPLT) shdrs with
+    match Array.tryFind (fun s -> s.SecName = Section.RelPLT) shdrs with
     | Some rsec -> this.CreateGeneralPLTDescriptor(rsec, sec)
     | None ->
-      match Array.tryFind (fun s -> s.SecName = SecRelaPLT) shdrs with
+      match Array.tryFind (fun s -> s.SecName = Section.RelaPLT) shdrs with
       | Some rsec -> this.CreateGeneralPLTDescriptor(rsec, sec)
       | None -> UnknownPLT
 
@@ -796,7 +788,7 @@ type PPCPLTParser(hdr, shdrs, relocInfo, symbs) =
     match Array.tryFind (fun t -> t.DTag = DTag.DT_PPC_GOT) tags with
     | Some tag ->
       let gotAddr = tag.DVal
-      match Array.tryFind (fun s -> s.SecName = SecGOT) shdrs with
+      match Array.tryFind (fun s -> s.SecName = Section.GOT) shdrs with
       | Some gotSection ->
         let bytes, reader = toolBox.Bytes, toolBox.Reader
         let gotElemOneOffset = (* The second elem of GOT, i.e., GOT[1] *)
@@ -807,7 +799,7 @@ type PPCPLTParser(hdr, shdrs, relocInfo, symbs) =
     | None -> None
 
   member private _.ComputeGLinkAddrWithPLT toolBox =
-    match Array.tryFind (fun s -> s.SecName = SecPLT) shdrs with
+    match Array.tryFind (fun s -> s.SecName = Section.PLT) shdrs with
     | Some sec -> (* Get the glink address from the first entry of PLT *)
       let bytes, reader = toolBox.Bytes, toolBox.Reader
       let glinkVMA = reader.ReadUInt32(bytes, int sec.SecOffset)
@@ -854,7 +846,8 @@ type PPCPLTParser(hdr, shdrs, relocInfo, symbs) =
     this.ReadEntryLoop(relocs, uint64 delta, count - 1, map, addr)
 
   member private this.ReadPLTWithGLink(toolBox, glinkAddr) =
-    let relaPltSecOpt = Array.tryFind (fun s -> s.SecName = SecRelaPLT) shdrs
+    let relaPltSecOpt =
+      Array.tryFind (fun s -> s.SecName = Section.RelaPLT) shdrs
     let glinkSecOpt =
       Array.tryFind (fun s -> s.SecAddr <= glinkAddr
                               && glinkAddr < s.SecAddr + s.SecSize) shdrs
@@ -881,7 +874,7 @@ type PPCPLTParser(hdr, shdrs, relocInfo, symbs) =
       | None -> NoOverlapIntervalMap.empty
 
   override this.Parse toolBox =
-    match Array.tryFind (fun s -> s.SecName = SecPLT) shdrs with
+    match Array.tryFind (fun s -> s.SecName = Section.PLT) shdrs with
     | Some sec when sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR ->
       (* The given binary uses the classic format. *)
       parseSections this toolBox NoOverlapIntervalMap.empty [ sec ]

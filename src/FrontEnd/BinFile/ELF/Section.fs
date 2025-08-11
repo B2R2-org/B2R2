@@ -37,17 +37,31 @@ let [<Literal>] BSS = ".bss"
 let [<Literal>] ROData = ".rodata"
 
 /// The name of the section that contains function addresses that are executed
-/// when a program starts.
+/// when a program starts: ".init_array".
 let [<Literal>] InitArray = ".init_array"
 
 /// The name of the section that contains function addresses that are executed
-/// when a program exits.
+/// when a program exits: ".fini_array".
 let [<Literal>] FiniArray = ".fini_array"
 
-/// The name of the section holding executtable instructions that contribute to
-/// the process initialization code.
+/// The name of the section holding executable instructions that contribute to
+/// the process initialization code: ".init".
 let [<Literal>] Init = ".init"
 
 /// The name of the section holding executtable instructions that contribute to
-/// the process termination code.
+/// the process termination code: ".fini".
 let [<Literal>] Fini = ".fini"
+
+/// The name of the section that contains REL type relocation entries:
+/// ".rel.plt".
+let [<Literal>] RelPLT = ".rel.plt"
+
+/// The name of the section that contains RELA type relocation entries:
+/// ".rela.plt".
+let [<Literal>] RelaPLT = ".rela.plt"
+
+/// The name of the section that contains Procedure Linkage Table (PLT): ".plt".
+let [<Literal>] PLT = ".plt"
+
+/// The name of the section that contains Global Offset Table (GOT): ".got".
+let [<Literal>] GOT = ".got"
