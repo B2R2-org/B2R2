@@ -1365,12 +1365,13 @@ end (* The end of BitVector module. *)
 /// <summary>
 /// Represents a bit vector, which is a sequence of bits. This type internally
 /// uses two different representations to represent a bit vector depending on
-/// its size. For those with less than or equal to 64 bits, it uses
-/// <c>uint64</c>. For those with more than 64 bits, it uses <c>bigint</c>. This
-/// is to avoid the overhead of using <c>bigint</c> for small numbers as most
-/// CPU operations are in 64 bits or less. N.B. SmallValue becomes zero when the
-/// Length becomes greater than 64. We intentionally do not sync SmallValue and
-/// BigValue.
+/// its size. The numeric value of the bit vector is stored in little-endian
+/// order. For those with less than or equal to 64 bits, it uses <c>uint64</c>.
+/// For those with more than 64 bits, it uses <c>bigint</c>. This is to avoid
+/// the overhead of using <c>bigint</c> for small numbers as most CPU operations
+/// are in 64 bits or less. N.B. SmallValue becomes zero when the Length becomes
+/// greater than 64. We intentionally do not sync SmallValue and BigValue for
+/// performance reasons.
 /// </summary>
 [<AllowNullLiteral>]
 type BitVector private(bv: IBV) =
