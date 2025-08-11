@@ -40,7 +40,7 @@ module private Shortcut =
     static member Mem(bReg, rt) =
       OprMem(Some bReg, None, None, rt)
 
-    static member Mem(bReg, disp: Disp, rt) =
+    static member Mem(bReg, disp: Displacement, rt) =
       OprMem(Some bReg, None, Some disp, rt)
 
     static member Mem(bReg, idx, scale, rt) =
@@ -49,7 +49,7 @@ module private Shortcut =
     static member Mem(bReg, idx, scale, disp, rt) =
       OprMem(Some bReg, Some(idx, scale), Some disp, rt)
 
-    static member Mem(disp: Disp, rt) =
+    static member Mem(disp: Displacement, rt) =
       OprMem(None, None, Some disp, rt)
 
     static member Imm(v, rt) =

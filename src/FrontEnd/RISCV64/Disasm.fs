@@ -288,7 +288,7 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, "(")
     builder.Accumulate(AsmWordKind.Variable, Register.toString b)
     builder.Accumulate(AsmWordKind.String, ")")
-  | OpAtomMemOper(aq, rl) ->
+  | OpAtomMemOperation(aq, rl) ->
     if aq then builder.Accumulate(AsmWordKind.String, "aq")
     if rl then builder.Accumulate(AsmWordKind.String, "rl")
   | OpFenceMask(pred, succ) ->

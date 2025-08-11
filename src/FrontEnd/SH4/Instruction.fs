@@ -28,8 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for SH4.
-type Instruction
-  internal(addr, numBytes, op, opr, lifter: ILiftable) =
+type Instruction internal(addr, numBytes, op, opr, lifter: ILiftable) =
 
   /// Address of this instruction.
   member _.Address with get(): Addr = addr

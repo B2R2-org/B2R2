@@ -200,7 +200,8 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] Standard data-processing Parse Test (1)``() =
     "e080285e"
-    ++ ADD ** [ O.Reg R2; O.Reg R0; O.Reg LR; O.RegShift(SRTypeASR, R8) ]
+    ++ ADD
+    ** [ O.Reg R2; O.Reg R0; O.Reg LR; O.RegShift(ShiftOp.ASR, R8) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
@@ -212,13 +213,13 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] Standard data-processing Parse Test (3)``() =
     "e0000000"
-    ++ AND ** [ O.Reg R0; O.Reg R0; O.Reg R0; O.Shift(SRTypeLSL, 0u) ]
+    ++ AND ** [ O.Reg R0; O.Reg R0; O.Reg R0; O.Shift(ShiftOp.LSL, 0u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
   member _.``[ARMv7] Standard data-processing Parse Test (4)``() =
     "e15c0262"
-    ++ CMP ** [ O.Reg IP; O.Reg R2; O.Shift(SRTypeROR, 4u) ]
+    ++ CMP ** [ O.Reg IP; O.Reg R2; O.Shift(ShiftOp.ROR, 4u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
@@ -242,13 +243,13 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] Standard data-processing Parse Test (8)``() =
     "e1e00819"
-    ++ MVN ** [ O.Reg R0; O.Reg SB; O.RegShift(SRTypeLSL, R8) ]
+    ++ MVN ** [ O.Reg R0; O.Reg SB; O.RegShift(ShiftOp.LSL, R8) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
   member _.``[ARMv7] Standard data-processing Parse Test (9)``() =
     "e13a0c16"
-    ++ TEQ ** [ O.Reg SL; O.Reg R6; O.RegShift(SRTypeLSL, IP) ]
+    ++ TEQ ** [ O.Reg SL; O.Reg R6; O.RegShift(ShiftOp.LSL, IP) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
@@ -305,7 +306,8 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] Saturating Parse Test (1)``() =
     "e6bc03d2"
-    ++ SSAT ** [ O.Reg R0; O.Imm 29L; O.Reg R2; O.Shift(SRTypeASR, 7u) ]
+    ++ SSAT
+    ** [ O.Reg R0; O.Imm 29L; O.Reg R2; O.Shift(ShiftOp.ASR, 7u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   /// A4.4.5 Saturating addition and subtraction instructions
@@ -319,19 +321,21 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] Packing and unpacking Parse Test (1)``() =
     "e6801ad8"
-    ++ PKHTB ** [ O.Reg R1; O.Reg R0; O.Reg R8; O.Shift(SRTypeASR, 21u) ]
+    ++ PKHTB
+    ** [ O.Reg R1; O.Reg R0; O.Reg R8; O.Shift(ShiftOp.ASR, 21u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
   member _.``[ARMv7] Packing and unpacking Parse Test (2)``() =
     "e6a01c70"
-    ++ SXTAB ** [ O.Reg R1; O.Reg R0; O.Reg R0; O.Shift(SRTypeROR, 24u) ]
+    ++ SXTAB
+    ** [ O.Reg R1; O.Reg R0; O.Reg R0; O.Shift(ShiftOp.ROR, 24u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
   member _.``[ARMv7] Packing and unpacking Parse Test (3)``() =
     "e6bf0073"
-    ++ SXTH ** [ O.Reg R0; O.Reg R3; O.Shift(SRTypeROR, 0u) ]
+    ++ SXTH ** [ O.Reg R0; O.Reg R3; O.Shift(ShiftOp.ROR, 0u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   /// A4.4.7 Parallel addition and subtraction instructions
@@ -399,7 +403,8 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] Load/store (Lord) Parse test (3)``() =
     "e75010c2"
-    ++ LDRB ** [ O.Reg R1; O.MemOffsetReg(R0, Some Minus, R2, SRTypeASR, 1u) ]
+    ++ LDRB
+    ** [ O.Reg R1; O.MemOffsetReg(R0, Some Minus, R2, ShiftOp.ASR, 1u) ]
     ||> testNoQNoSimd Condition.AL false
 
   [<TestMethod>]
@@ -417,7 +422,8 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] Load/store (Store) Parse test (2)``() =
     "e640122c"
-    ++ STRB ** [ O.Reg R1; O.MemPostIdxReg(R0, Some Minus, IP, SRTypeLSR, 4u) ]
+    ++ STRB
+    ** [ O.Reg R1; O.MemPostIdxReg(R0, Some Minus, IP, ShiftOp.LSR, 4u) ]
     ||> testNoQNoSimd Condition.AL true
 
   [<TestMethod>]
@@ -522,7 +528,7 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] Miscellaneous Parse test (5)``() =
     "f790f1c0"
-    ++ PLDW ** [ O.MemOffsetReg(R0, Some Plus, R0, SRTypeASR, 3u) ]
+    ++ PLDW ** [ O.MemOffsetReg(R0, Some Plus, R0, ShiftOp.ASR, 3u) ]
     ||> testNoWbackNoQNoSimd Condition.UN
 
   [<TestMethod>]

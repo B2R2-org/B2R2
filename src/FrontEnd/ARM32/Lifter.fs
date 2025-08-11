@@ -399,11 +399,11 @@ let shiftRRXForRegAmount value regType amount carryIn =
 let shiftCForRegAmount value regType shiftType amount carryIn =
   let carryIn = AST.xtlo 1<rt> carryIn
   match shiftType with
-  | SRTypeLSL -> shiftLSLCForRegAmount value regType amount carryIn
-  | SRTypeLSR -> shiftLSRCForRegAmount value regType amount carryIn
-  | SRTypeASR -> shiftASRCForRegAmount value regType amount carryIn
-  | SRTypeROR -> shiftRORCForRegAmount value regType amount carryIn
-  | SRTypeRRX -> shiftRRXCForRegAmount value regType amount carryIn
+  | ShiftOp.LSL -> shiftLSLCForRegAmount value regType amount carryIn
+  | ShiftOp.LSR -> shiftLSRCForRegAmount value regType amount carryIn
+  | ShiftOp.ASR -> shiftASRCForRegAmount value regType amount carryIn
+  | ShiftOp.ROR -> shiftRORCForRegAmount value regType amount carryIn
+  | ShiftOp.RRX -> shiftRRXCForRegAmount value regType amount carryIn
 
 /// Logical shift left of a bitstring, with carry output, on page A2-41.
 /// function : LSL_C()
@@ -470,11 +470,11 @@ let shiftC value regType shiftType amount carryIn =
   if amount = 0u then value, carryIn
   else
     match shiftType with
-    | SRTypeLSL -> shiftLSLC value regType amount
-    | SRTypeLSR -> shiftLSRC value regType amount
-    | SRTypeASR -> shiftASRC value regType amount
-    | SRTypeROR -> shiftRORC value regType amount
-    | SRTypeRRX -> shiftRRXC value regType carryIn
+    | ShiftOp.LSL -> shiftLSLC value regType amount
+    | ShiftOp.LSR -> shiftLSRC value regType amount
+    | ShiftOp.ASR -> shiftASRC value regType amount
+    | ShiftOp.ROR -> shiftRORC value regType amount
+    | ShiftOp.RRX -> shiftRRXC value regType carryIn
 
 /// Perform a specified shift by a specified amount on a bitstring,
 /// on page A8-292.
@@ -725,7 +725,7 @@ let transTwoOprsOfADC (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
-    struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
+    struct (e1, e1, shift e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
 let transThreeOprsOfADC (ins: Instruction) bld =
@@ -734,7 +734,7 @@ let transThreeOprsOfADC (ins: Instruction) bld =
   | ThreeOperands(OprReg _, OprReg _, OprReg _) ->
     let carryIn = getCarryFlag bld
     let struct (e1, e2, e3) = transThreeOprs ins bld
-    e1, e2, shift e3 32<rt> SRTypeLSL 0u carryIn
+    e1, e2, shift e3 32<rt> ShiftOp.LSL 0u carryIn
   | _ -> raise InvalidOperandException
 
 let transFourOprsOfADC (ins: Instruction) bld =
@@ -865,7 +865,7 @@ let transTwoOprsOfADD (ins: Instruction) insLen bld =
     struct (e1, e1, e2)
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
-    struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
+    struct (e1, e1, shift e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
 let transThreeOprsOfADD (ins: Instruction) insLen bld =
@@ -874,7 +874,7 @@ let transThreeOprsOfADD (ins: Instruction) insLen bld =
   | ThreeOperands(OprReg _, OprReg _, OprReg _) ->
     let carryIn = getCarryFlag bld
     let struct (e1, e2, e3) = transThreeOprs ins bld
-    struct (e1, e2, shift e3 32<rt> SRTypeLSL 0u carryIn)
+    struct (e1, e2, shift e3 32<rt> ShiftOp.LSL 0u carryIn)
   | _ -> raise InvalidOperandException
 
 let transFourOprsOfADD (ins: Instruction) insLen bld =
@@ -1187,19 +1187,20 @@ let parseResultOfSUBAndRela (ins: Instruction) bld =
     src
   | Op.ASRS ->
     let struct (_, src1, src2) = parseOprOfADC ins bld
-    shiftForRegAmount src1 32<rt> SRTypeASR src2 (getCarryFlag bld)
+    shiftForRegAmount src1 32<rt> ShiftOp.ASR src2 (getCarryFlag bld)
   | Op.LSLS ->
     let struct (_, src1, src2) = parseOprOfADC ins bld
-    shiftForRegAmount src1 32<rt> SRTypeLSL src2 (getCarryFlag bld)
+    shiftForRegAmount src1 32<rt> ShiftOp.LSL src2 (getCarryFlag bld)
   | Op.LSRS ->
     let struct (_, src1, src2) = parseOprOfADC ins bld
-    shiftForRegAmount src1 32<rt> SRTypeLSR src2 (getCarryFlag bld)
+    shiftForRegAmount src1 32<rt> ShiftOp.LSR src2 (getCarryFlag bld)
   | Op.RORS ->
     let struct (_, src1, src2) = parseOprOfADC ins bld
-    shiftForRegAmount src1 32<rt> SRTypeROR src2 (getCarryFlag bld)
+    shiftForRegAmount src1 32<rt> ShiftOp.ROR src2 (getCarryFlag bld)
   | Op.RRXS ->
     let struct (_, src) = transTwoOprs ins bld
-    shiftForRegAmount src 32<rt> SRTypeRRX (AST.num1 32<rt>) (getCarryFlag bld)
+    let carryFlag = getCarryFlag bld
+    shiftForRegAmount src 32<rt> ShiftOp.RRX (AST.num1 32<rt>) carryFlag
   | Op.BICS ->
     let struct (_, src1, src2) = parseOprOfADC ins bld
     src1 .& (AST.not src2)
@@ -1232,7 +1233,8 @@ let translateLogicOp (ins: Instruction) insLen bld =
     let t = tmpVar bld 32<rt>
     let struct (e1, e2) = transTwoOprs ins bld
     bld <+ (t := e2)
-    let shifted, carryOut = shiftC t 32<rt> SRTypeLSL 0u (getCarryFlag bld)
+    let shifted, carryOut =
+      shiftC t 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     e1, e1, shifted, carryOut
   | ThreeOperands(_, _, OprImm _) ->
     let struct (e1, e2, e3) = transThreeOprs ins bld
@@ -1242,7 +1244,8 @@ let translateLogicOp (ins: Instruction) insLen bld =
     let t = tmpVar bld 32<rt>
     let struct (e1, e2, e3) = transThreeOprs ins bld
     bld <+ (t := e3)
-    let shifted, carryOut = shiftC t 32<rt> SRTypeLSL 0u (getCarryFlag bld)
+    let shifted, carryOut =
+      shiftC t 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     e1, e2, shifted, carryOut
   | FourOperands(opr1, opr2, opr3, OprShift(typ, Imm imm)) ->
     let t = tmpVar bld 32<rt>
@@ -1380,7 +1383,7 @@ let transTwoOprsOfSBC (ins: Instruction) insLen bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
-    struct (e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
+    struct (e1, e1, shift e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
 let transFourOprsOfSBC (ins: Instruction) insLen bld =
@@ -1540,7 +1543,8 @@ let transTwoOprsOfMVN (ins: Instruction) insLen bld =
     struct (e1, e2, getCarryFlag bld)
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
-    let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag bld)
+    let shifted, carryOut =
+      shiftC e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     struct (e1, shifted, carryOut)
   | _ -> raise InvalidOperandException
 
@@ -1592,14 +1596,14 @@ let svc (ins: Instruction) insLen bld =
   | _ -> raise InvalidOperandException
 
 let getImmShiftFromShiftType imm = function
-  | SRTypeLSL | SRTypeROR -> imm
-  | SRTypeLSR -> if imm = 0ul then 32ul else imm
-  | SRTypeASR -> if imm = 0ul then 32ul else imm
-  | SRTypeRRX -> 1ul
+  | ShiftOp.LSL | ShiftOp.ROR -> imm
+  | ShiftOp.LSR -> if imm = 0ul then 32ul else imm
+  | ShiftOp.ASR -> if imm = 0ul then 32ul else imm
+  | ShiftOp.RRX -> 1ul
 
 let transTwoOprsOfShiftInstr (ins: Instruction) shiftTyp bld tmp =
   match ins.Operands with
-  | TwoOperands(OprReg _, OprReg _) when shiftTyp = SRTypeRRX ->
+  | TwoOperands(OprReg _, OprReg _) when shiftTyp = ShiftOp.RRX ->
     let carryIn = getCarryFlag bld
     let struct (e1, e2) = transTwoOprs ins bld
     let result, carryOut = shiftC tmp 32<rt> shiftTyp 1ul carryIn
@@ -1738,27 +1742,27 @@ let mvns isSetFlags (ins: Instruction) insLen bld =
 let asrs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> shiftInstr isSetFlags ins insLen SRTypeASR bld
+  | _ -> shiftInstr isSetFlags ins insLen ShiftOp.ASR bld
 
 let lsls isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> shiftInstr isSetFlags ins insLen SRTypeLSL bld
+  | _ -> shiftInstr isSetFlags ins insLen ShiftOp.LSL bld
 
 let lsrs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> shiftInstr isSetFlags ins insLen SRTypeLSR bld
+  | _ -> shiftInstr isSetFlags ins insLen ShiftOp.LSR bld
 
 let rors isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> shiftInstr isSetFlags ins insLen SRTypeROR bld
+  | _ -> shiftInstr isSetFlags ins insLen ShiftOp.ROR bld
 
 let rrxs isSetFlags (ins: Instruction) insLen bld =
   match ins.Operands with
   | TwoOperands(OprReg R.PC, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> shiftInstr isSetFlags ins insLen SRTypeRRX bld
+  | _ -> shiftInstr isSetFlags ins insLen ShiftOp.RRX bld
 
 let clz ins insLen bld =
   let struct (dst, src) = transTwoOprs ins bld
@@ -1792,7 +1796,7 @@ let transTwoOprsOfCMN (ins: Instruction) insLen bld =
   | TwoOperands(OprReg _, OprImm _) -> transTwoOprs ins bld
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
-    let shifted = shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld)
+    let shifted = shift e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     struct (e1, shifted)
   | _ -> raise InvalidOperandException
 
@@ -1859,7 +1863,7 @@ let transTwoOprsOfCMP (ins: Instruction) insLen bld =
   | TwoOperands(OprReg _, OprImm _) -> transTwoOprs ins bld
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
-    struct (e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag bld))
+    struct (e1, shift e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld))
   | _ -> raise InvalidOperandException
 
 let transThreeOprsOfCMP (ins: Instruction) insLen bld =
@@ -2008,7 +2012,8 @@ let transOprsOfTST (ins: Instruction) insLen bld =
     struct (rn, imm, carryOut)
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
-    let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag bld)
+    let shifted, carryOut =
+      shiftC e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     struct (e1, shifted, carryOut)
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
@@ -2322,16 +2327,16 @@ let parseMemOfLDR ins insLen bld = function
   | OprMemory(OffsetMode(RegOffset(n, _, m, None))) ->
     let m = regVar bld m |> convertPCOpr ins bld
     let n = regVar bld n |> convertPCOpr ins bld
-    struct (n .+ shift m 32<rt> SRTypeLSL 0u (getCarryFlag bld), None)
+    struct (n .+ shift m 32<rt> ShiftOp.LSL 0u (getCarryFlag bld), None)
   | OprMemory(PreIdxMode(RegOffset(n, s, m, None))) ->
     let rn = regVar bld n
     let offset =
-      shift (regVar bld m) 32<rt> SRTypeLSL 0u (getCarryFlag bld)
+      shift (regVar bld m) 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     struct (getOffAddrWithExpr s rn offset, Some(rn, None))
   | OprMemory(PostIdxMode(RegOffset(n, s, m, None))) ->
     let rn = regVar bld n
     let offset =
-      shift (regVar bld m) 32<rt> SRTypeLSL 0u (getCarryFlag bld)
+      shift (regVar bld m) 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     struct (rn, Some(rn, Some(getOffAddrWithExpr s rn offset)))
   | OprMemory(OffsetMode(RegOffset(n, s, m, Some(t, Imm i)))) ->
     let rn = regVar bld n |> convertPCOpr ins bld
@@ -5167,7 +5172,7 @@ let translate (ins: Instruction) insLen bld =
   | Op.ADR -> adr ins insLen bld (* for Thumb mode *)
   | Op.AND -> logicalAnd false ins insLen bld
   | Op.ANDS -> ands true ins insLen bld
-  | Op.ASR -> shiftInstr false ins insLen SRTypeASR bld
+  | Op.ASR -> shiftInstr false ins insLen ShiftOp.ASR bld
   | Op.ASRS -> asrs true ins insLen bld
   | Op.B -> b ins insLen bld
   | Op.BFC -> bfc ins insLen bld
@@ -5213,9 +5218,9 @@ let translate (ins: Instruction) insLen bld =
   | Op.LDRSH -> ldr ins insLen bld 16<rt> AST.sext
   | Op.LDRSHT -> ldr ins insLen bld 16<rt> AST.sext
   | Op.LDRT -> ldr ins insLen bld 32<rt> AST.zext
-  | Op.LSL -> shiftInstr false ins insLen SRTypeLSL bld
+  | Op.LSL -> shiftInstr false ins insLen ShiftOp.LSL bld
   | Op.LSLS -> lsls true ins insLen bld
-  | Op.LSR -> shiftInstr false ins insLen SRTypeLSR bld
+  | Op.LSR -> shiftInstr false ins insLen ShiftOp.LSR bld
   | Op.LSRS -> lsrs true ins insLen bld
   | Op.MLA -> mla false ins insLen bld
   | Op.MLAS -> mla true ins insLen bld
@@ -5246,9 +5251,9 @@ let translate (ins: Instruction) insLen bld =
   | Op.REV16 -> rev16 ins insLen bld
   | Op.REVSH -> revsh ins insLen bld
   | Op.RFEDB -> rfedb ins insLen bld
-  | Op.ROR -> shiftInstr false ins insLen SRTypeROR bld
+  | Op.ROR -> shiftInstr false ins insLen ShiftOp.ROR bld
   | Op.RORS -> rors true ins insLen bld
-  | Op.RRX -> shiftInstr false ins insLen SRTypeRRX bld
+  | Op.RRX -> shiftInstr false ins insLen ShiftOp.RRX bld
   | Op.RRXS -> rrxs true ins insLen bld
   | Op.RSB -> rsb false ins insLen bld
   | Op.RSBS -> rsbs true ins insLen bld

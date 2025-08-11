@@ -591,7 +591,7 @@ let parseCyclicRedundancyCheck (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.CRC32CW None OD.OprRdRnRm
   (* 0b11xu *)
-  | _ -> raise UnpredictableException
+  | _ -> unpredictable ()
 
 /// Integer Saturating Arithmetic on page F4-4226.
 let parseIntegerSaturatingArithmetic (phlp: ParsingHelper) bin =
@@ -2344,7 +2344,7 @@ let parseAdvSIMDThreeRegSameLenExt (phlp: ParsingHelper) bin =
 /// Floating-point minNum/maxNum on page F4-4250.
 let parseFloatingPointMinMaxNum (phlp: ParsingHelper) bin =
   match concat (pickBit bin 6) (pickTwo bin 8) 2 (* op:size *) with
-  | 0b000u | 0b100u -> raise UndefinedException
+  | 0b000u | 0b100u -> undefined ()
   | 0b001u ->
     render phlp bin Op.VMAXNM (oneDt SIMDTypF16) OD.OprSdSnSm
   | 0b010u ->
@@ -2368,19 +2368,19 @@ let parseFloatingPointExtractionAndInsertion (phlp: ParsingHelper) bin =
     render phlp bin Op.VINS (oneDt SIMDTypF16) OD.OprSdSm
   | 0b110u | 0b111u -> raise ParsingFailureException
   (* 00x *)
-  | _ -> raise UndefinedException
+  | _ -> undefined ()
 
 /// Floating-point directed convert to integer on page F4-4250.
 let parseFloatingPointDirectedConvertToInteger (phlp: ParsingHelper) bin =
   let struct (dt1, oprs1) =
     match pickTwo bin 8 (* size *) with
-    | 0b00u -> raise UndefinedException
+    | 0b00u -> undefined ()
     | 0b01u -> struct (SIMDTypF16 |> oneDt, OD.OprSdSm)
     | 0b10u -> struct (SIMDTypF32 |> oneDt, OD.OprSdSm)
     | _ -> struct (SIMDTypF64 |> oneDt, OD.OprDdDm)
   let struct (dt2, oprs2) =
     match pickThree bin 7 (* size:op *) with
-    | 0b000u | 0b001u -> raise UndefinedException
+    | 0b000u | 0b001u -> undefined ()
     | 0b010u -> struct (twoDt (SIMDTypF16, SIMDTypU32), OD.OprSdSm)
     | 0b011u -> struct (twoDt (SIMDTypF16, SIMDTypS32), OD.OprSdSm)
     | 0b100u -> struct (twoDt (SIMDTypF32, SIMDTypU32), OD.OprSdSm)
@@ -2566,7 +2566,7 @@ let parseVectorSelect (phlp: ParsingHelper) bin =
   | 0b0110u ->
     render phlp bin Op.VSELVS (oneDt SIMDTypF32) OD.OprSdSnSm
   (* xx00 *)
-  | _ -> raise UndefinedException
+  | _ -> undefined ()
 
 /// Unconditional Advanced SIMD and floating-point instructions on page F4-4247.
 let parseUncondAdvSIMDAndFPInstr (phlp: ParsingHelper) bin =
@@ -2684,7 +2684,7 @@ let parseAdvSIMDAndFPLdSt (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.FLDMIAX None OD.OprRnDreglist
   (* 1x0000 *)
-  | 0b100000u | 0b110000u -> raise UndefinedException
+  | 0b100000u | 0b110000u -> undefined ()
   | 0b100001u | 0b110001u ->
 #if !EMULATION
     chkSzCondPCRn bin phlp.Cond
@@ -2700,8 +2700,7 @@ let parseAdvSIMDAndFPLdSt (phlp: ParsingHelper) bin =
     chkSzCondPCRn bin phlp.Cond
 #endif
     render phlp bin Op.VSTR (oneDt SIMDTyp64) OD.OprDdMem
-  | 0b100100u | 0b110100u when phlp.Cond <> Condition.UN ->
-    raise UndefinedException
+  | 0b100100u | 0b110100u when phlp.Cond <> Condition.UN -> undefined ()
   | 0b100101u | 0b110101u | 0b100110u | 0b110110u
     when phlp.Cond <> Condition.UN ->
 #if !EMULATION
@@ -2745,7 +2744,7 @@ let parseAdvSIMDAndFPLdSt (phlp: ParsingHelper) bin =
     chkPCRnRegsImm bin
 #endif
     render phlp bin Op.FLDMDBX None OD.OprRnDreglist
-  | 0b100100u | 0b110100u when isRn1111 bin -> raise UndefinedException
+  | 0b100100u | 0b110100u when isRn1111 bin -> undefined ()
   | 0b100101u | 0b110101u | 0b100110u | 0b110110u when isRn1111 bin ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -2832,7 +2831,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
     raise ParsingFailureException
   | 0b0000010u -> raise ParsingFailureException
   (* 0000xx1 VABS *)
-  | 0b0000001u -> raise UndefinedException
+  | 0b0000001u -> undefined ()
   | 0b0000011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -2854,7 +2853,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
   | 0b0000110u ->
     render phlp bin Op.VMOV (oneDt SIMDTypF64) OD.OprDdDm
   (* 0001xx0 VNEG *)
-  | 0b0001000u -> raise UndefinedException
+  | 0b0001000u -> undefined ()
   | 0b0001010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -2871,7 +2870,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VNEG (oneDt SIMDTypF64) OD.OprDdDm
   (* 0001xx1 VSQRT *)
-  | 0b0001001u -> raise UndefinedException
+  | 0b0001001u -> undefined ()
   | 0b0001011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -2920,7 +2919,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
     let dt = twoDt (SIMDTypF16, SIMDTypF64)
     render phlp bin Op.VCVTT dt OD.OprSdDm
   (* 0100xx0 VCMP *)
-  | 0b0100000u -> raise UndefinedException
+  | 0b0100000u -> undefined ()
   | 0b0100010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -2937,7 +2936,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCMP (oneDt SIMDTypF64) OD.OprDdDm
   (* 0100xx1 VCMPE *)
-  | 0b0100001u -> raise UndefinedException
+  | 0b0100001u -> undefined ()
   | 0b0100011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -2954,7 +2953,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCMPE (oneDt SIMDTypF64) OD.OprDdDm
   (* 0101xx0 VCMP *)
-  | 0b0101000u -> raise UndefinedException
+  | 0b0101000u -> undefined ()
   | 0b0101010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -2971,7 +2970,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCMP (oneDt SIMDTypF64) OD.OprDdImm0
   (* 0101xx1 VCMPE *)
-  | 0b0101001u -> raise UndefinedException
+  | 0b0101001u -> undefined ()
   | 0b0101011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -2988,7 +2987,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCMPE (oneDt SIMDTypF64) OD.OprDdImm0
   (* 0110xx0 VRINTR ARMv8 *)
-  | 0b0110000u -> raise UndefinedException
+  | 0b0110000u -> undefined ()
   | 0b0110010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3005,7 +3004,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VRINTR (oneDt SIMDTypF64) OD.OprDdDm
   (* 0110xx1 VRINTZ ARMv8 *)
-  | 0b0110001u -> raise UndefinedException
+  | 0b0110001u -> undefined ()
   | 0b0110011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3022,7 +3021,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VRINTZ (oneDt SIMDTypF64) OD.OprDdDm
   (* 0111xx0 VRINTX ARMv8 *)
-  | 0b0111000u -> raise UndefinedException
+  | 0b0111000u -> undefined ()
   | 0b0111010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3046,7 +3045,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
     let dt = twoDt (SIMDTypF32, SIMDTypF64)
     render phlp bin Op.VCVT dt OD.OprSdDm
   (* 1000xxx VCVT *)
-  | 0b1000000u | 0b1000001u -> raise UndefinedException
+  | 0b1000000u | 0b1000001u -> undefined ()
   | 0b1000010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3093,8 +3092,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
     let dt = twoDt (SIMDTypS32, SIMDTypF64)
     render phlp bin Op.VJCVT dt OD.OprSdDm
   (* 101xxxx Op.VCVT *)
-  | 0b1010000u | 0b1010001u | 0b1011000u | 0b1011001u ->
-    raise UndefinedException
+  | 0b1010000u | 0b1010001u | 0b1011000u | 0b1011001u -> undefined ()
   | 0b1010010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3168,7 +3166,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
     let dt = twoDt (SIMDTypF64, SIMDTypU32)
     render phlp bin Op.VCVT dt OD.OprDdmDdmFbits
   (* 1100xx0 VCVTR *)
-  | 0b1100000u -> raise UndefinedException
+  | 0b1100000u -> undefined ()
   | 0b1100010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3188,7 +3186,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
     let dt = twoDt (SIMDTypU32, SIMDTypF64)
     render phlp bin Op.VCVTR dt OD.OprSdDm
   (* 1100xx1 VCVT *)
-  | 0b1100001u -> raise UndefinedException
+  | 0b1100001u -> undefined ()
   | 0b1100011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3208,7 +3206,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
     let dt = twoDt (SIMDTypU32, SIMDTypF64)
     render phlp bin Op.VCVT dt OD.OprSdDm
   (* 1101xx0 VCVTR *)
-  | 0b1101000u -> raise UndefinedException
+  | 0b1101000u -> undefined ()
   | 0b1101010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3228,7 +3226,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
     let dt = twoDt (SIMDTypS32, SIMDTypF64)
     render phlp bin Op.VCVTR dt OD.OprSdDm
   (* 1101xx1u VCVT *)
-  | 0b1101001u -> raise UndefinedException
+  | 0b1101001u -> undefined ()
   | 0b1101011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3248,8 +3246,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
     let dt = twoDt (SIMDTypS32, SIMDTypF64)
     render phlp bin Op.VCVT dt OD.OprSdDm
   (* 111xxxx VCVT *)
-  | 0b1110000u | 0b1110001u | 0b1111000u | 0b1111001u ->
-    raise UndefinedException
+  | 0b1110000u | 0b1110001u | 0b1111000u | 0b1111001u -> undefined ()
   | 0b1110010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3353,7 +3350,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
   | b when (b >>> 3 <> 0b111u) && (b &&& 0b000110u = 0b000u) -> (* != 111 00x *)
     raise ParsingFailureException
   (* 000xx0 VMLA *)
-  | 0b000000u -> raise UndefinedException
+  | 0b000000u -> undefined ()
   | 0b000010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3370,7 +3367,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VMLA (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 000xx1 VMLS *)
-  | 0b000001u -> raise UndefinedException
+  | 0b000001u -> undefined ()
   | 0b000011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3387,7 +3384,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VMLS (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 001xx0 VNMLS *)
-  | 0b001000u -> raise UndefinedException
+  | 0b001000u -> undefined ()
   | 0b001010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3404,7 +3401,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VNMLS (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 001xx1 VNMLA *)
-  | 0b001001u -> raise UndefinedException
+  | 0b001001u -> undefined ()
   | 0b001011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3421,7 +3418,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VNMLA (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 010xx0 VMUL *)
-  | 0b010000u -> raise UndefinedException
+  | 0b010000u -> undefined ()
   | 0b010010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3438,7 +3435,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VMUL (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 010xx1 VNMUL *)
-  | 0b010001u -> raise UndefinedException
+  | 0b010001u -> undefined ()
   | 0b010011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3455,7 +3452,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VNMUL (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 011xx0 VADD *)
-  | 0b011000u -> raise UndefinedException
+  | 0b011000u -> undefined ()
   | 0b011010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3472,7 +3469,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VADD (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 011xx1 VSUB *)
-  | 0b011001u -> raise UndefinedException
+  | 0b011001u -> undefined ()
   | 0b011011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3489,7 +3486,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VSUB (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 100xx0 VDIV *)
-  | 0b100000u -> raise UndefinedException
+  | 0b100000u -> undefined ()
   | 0b100010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3506,7 +3503,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VDIV (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 101xx0 VFNMS *)
-  | 0b101000u -> raise UndefinedException
+  | 0b101000u -> undefined ()
   | 0b101010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3523,7 +3520,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VFNMS (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 101xx1 VFNMA *)
-  | 0b101001u -> raise UndefinedException
+  | 0b101001u -> undefined ()
   | 0b101011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3540,7 +3537,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VFNMA (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 110xx0 VFMA *)
-  | 0b110000u -> raise UndefinedException
+  | 0b110000u -> undefined ()
   | 0b110010u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3557,7 +3554,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VFMA (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 110xx1 VFMS *)
-  | 0b110001u -> raise UndefinedException
+  | 0b110001u -> undefined ()
   | 0b110011u ->
 #if !EMULATION
     chkSzCond bin phlp.Cond
@@ -3625,7 +3622,7 @@ let parseAdvSIMD8n16n32bitElemMoveDup (phlp: ParsingHelper) bin =
     render phlp bin Op.VMOV (oneDt SIMDTyp32) OD.OprDd0Rt
   | 0b001000u ->
     render phlp bin Op.VMOV (oneDt SIMDTyp32) OD.OprDd1Rt
-  | 0b000010u | 0b001010u -> raise UndefinedException
+  | 0b000010u | 0b001010u -> undefined ()
   (* xxx1xx VMOV (scalar to general-purpose register) *)
   | 0b010100u ->
     render phlp bin Op.VMOV (oneDt SIMDTypS8) OD.OprRtDn0
@@ -3680,7 +3677,7 @@ let parseAdvSIMD8n16n32bitElemMoveDup (phlp: ParsingHelper) bin =
   | 0b001100u ->
     render phlp bin Op.VMOV (oneDt SIMDTyp32) OD.OprRtDn1
   | 0b100100u | 0b101100u | 0b000110u | 0b001110u | 0b100110u | 0b101110u ->
-    raise UndefinedException (* 10x100 or x0x110 *)
+    undefined () (* 10x100 or x0x110 *)
   (* 1xx00x VDUP (general-purpose register) *)
   | 0b110000u -> render phlp bin Op.VDUP (oneDt SIMDTyp8) OD.OprDdRt
   | 0b100001u -> render phlp bin Op.VDUP (oneDt SIMDTyp16) OD.OprDdRt
@@ -3688,7 +3685,7 @@ let parseAdvSIMD8n16n32bitElemMoveDup (phlp: ParsingHelper) bin =
   | 0b111000u -> render phlp bin Op.VDUP (oneDt SIMDTyp8) OD.OprQdRt
   | 0b101001u -> render phlp bin Op.VDUP (oneDt SIMDTyp16) OD.OprQdRt
   | 0b101000u -> render phlp bin Op.VDUP (oneDt SIMDTyp32) OD.OprQdRt
-  | 0b111001u | 0b110001u -> raise UndefinedException
+  | 0b111001u | 0b110001u -> undefined ()
   | b when b &&& 0b100110u = 0b100010u -> (* 1xx01x *)
     raise ParsingFailureException
   | _ -> raise ParsingFailureException
@@ -3780,7 +3777,7 @@ let parseCPS (phlp: ParsingHelper) bin =
     | 0b100u -> struct (Op.CPSIE, OD.OprIflagsA)
     | 0b101u -> struct (Op.CPSIE, OD.OprIflagsModeA)
     (* 000 or 01x *)
-    | _ -> raise UnpredictableException
+    | _ -> unpredictable ()
   render phlp bin op None oprs
 
 /// Change Process State on page F4-4262.
@@ -3799,7 +3796,7 @@ let parseUncondMiscellaneous (phlp: ParsingHelper) bin =
     parseChangeProcessState phlp bin
   | 0b100010000u -> (* Armv8.1 *)
     render phlp bin Op.SETPAN None OD.OprImm1A
-  | 0b100100111u -> raise UnpredictableException
+  | 0b100100111u -> unpredictable ()
   | _ -> raise ParsingFailureException
 
 /// Advanced SIMD three registers of the same length on page F4-4263.
@@ -3968,7 +3965,7 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
     chkQVdVnVm bin
 #endif
     render phlp bin Op.VRHADD (getDTUSize bin) OD.OprQdQnQm
-  | 0b000110000u -> raise UndefinedException (* if Q != '1' then UNDEFINED *)
+  | 0b000110000u -> undefined () (* if Q != '1' then UNDEFINED *)
   | 0b000110010u -> (* ARMv8 *)
 #if !EMULATION
     chkVdVnVm bin
@@ -4024,7 +4021,7 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
     chkQVdVnVm bin
 #endif
     render phlp bin Op.VCGE (getDTUSize bin) OD.OprQdQnQm
-  | 0b001110000u -> raise UndefinedException (* if Q != '1' then UNDEFINED *)
+  | 0b001110000u -> undefined () (* if Q != '1' then UNDEFINED *)
   | 0b001110010u -> (* ARMv8 *)
 #if !EMULATION
     chkVdVnVm bin
@@ -4224,7 +4221,7 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VTST (oneDt SIMDTyp32) OD.OprQdQnQm
   (* 0111000x1 *)
-  | 0b011100001u | 0b011100011u -> raise UndefinedException
+  | 0b011100001u | 0b011100011u -> undefined ()
   | b when b &&& 0b000111111u = 0b000010001u -> (* xxx010001 *)
 #if !EMULATION
     chkQVdVnVm bin
@@ -4266,7 +4263,7 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VMLA (oneDt SIMDTypI32) OD.OprQdQnQm
   (* 0111001x0 *)
-  | 0b011100100u | 0b011100110u -> raise UndefinedException
+  | 0b011100100u | 0b011100110u -> undefined ()
   | b when b &&& 0b000111111u = 0b000010100u -> (* xxx010100 *)
 #if !EMULATION
     chkQVdVnVm bin
@@ -4309,8 +4306,8 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
     render phlp bin Op.VQDMULH (oneDt SIMDTypS32) OD.OprQdQnQm
   | 0b000101100u | 0b000101110u (* 0001011x0 *)
   (* 0111011x0 *)
-  | 0b011101100u | 0b011101110u -> raise UndefinedException
-  | 0b010110000u -> raise UndefinedException (* if Q != '1' then UNDEFINED *)
+  | 0b011101100u | 0b011101110u -> undefined ()
+  | 0b010110000u -> undefined () (* if Q != '1' then UNDEFINED *)
   | 0b010110010u -> (* ARMv8 *)
 #if !EMULATION
     chkVdVnVm bin
@@ -4323,9 +4320,9 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
   | 0b010101101u -> (* 0xx101101 *)
     render phlp bin Op.VPADD (oneDt SIMDTypI32) OD.OprDdDnDm
   (* 0111011x1 *)
-  | 0b011101101u -> raise UndefinedException
+  | 0b011101101u -> undefined ()
   | 0b000101111u | 0b001101111u | 0b010101111u | 0b011101111u -> (* 0xx101111 *)
-    raise UndefinedException
+    undefined ()
   | b when b &&& 0b000111111u = 0b000011000u -> (* xxx011000 *)
 #if !EMULATION
     chkQVdVnVm bin
@@ -4376,7 +4373,7 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
     chkQVdVnVm bin
 #endif
     render phlp bin Op.VABA (getDTUSize bin) OD.OprQdQnQm
-  | 0b011110000u -> raise UndefinedException (* if Q != '1' then UNDEFINED *)
+  | 0b011110000u -> undefined () (* if Q != '1' then UNDEFINED *)
   | 0b011110010u -> (* ARMv8 *)
 #if !EMULATION
     chkVdVnVm bin
@@ -4387,7 +4384,7 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
   | 0b101110100u ->
     render phlp bin Op.VPADD (oneDt SIMDTypF16) OD.OprDdDnDm
   (* 10x110110 *)
-  | 0b100110110u | 0b101110110u -> raise UndefinedException
+  | 0b100110110u | 0b101110110u -> undefined ()
   | 0b100110101u ->
 #if !EMULATION
     chkQVdVnVm bin
@@ -4525,8 +4522,8 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
     render phlp bin Op.VMUL (oneDt SIMDTypP8) OD.OprQdQnQm
   (* if size == '11' || (op == '1' && size != '00') then UNDEFINED *)
   | 0b011100101u | 0b011100111u | 0b111100101u | 0b111100111u | 0b101100101u
-  | 0b101100111u | 0b110100101u | 0b110100111u -> raise UndefinedException
-  | 0b100110000u -> raise UndefinedException (* if Q != '1' then UNDEFINED *)
+  | 0b101100111u | 0b110100101u | 0b110100111u -> undefined ()
+  | 0b100110000u -> undefined () (* if Q != '1' then UNDEFINED *)
   | 0b100110010u -> (* ARMv8 *)
 #if !EMULATION
     chkVdVnVm bin
@@ -4545,7 +4542,7 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
   | 0b110101000u ->
     render phlp bin Op.VPMAX (oneDt SIMDTypU32) OD.OprDdDnDm
   (* x11101000 *)
-  | 0b011101000u | 0b111101000u -> raise UndefinedException
+  | 0b011101000u | 0b111101000u -> undefined ()
   | 0b101000101u ->
 #if !EMULATION
     chkQVdVnVm bin
@@ -4569,10 +4566,10 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
   | 0b110101001u ->
     render phlp bin Op.VPMIN (oneDt SIMDTypU32) OD.OprDdDnDm
   (* x11101001 *)
-  | 0b011101001u | 0b111101001u -> raise UndefinedException
+  | 0b011101001u | 0b111101001u -> undefined ()
   | b when b &&& 0b000111110u = 0b000101010u -> (* xxx10101x *)
     raise ParsingFailureException
-  | 0b101110000u -> raise UndefinedException (* if Q != '1' then UNDEFINED *)
+  | 0b101110000u -> undefined () (* if Q != '1' then UNDEFINED *)
   | 0b101110010u -> (* ARMv8 *)
 #if !EMULATION
     chkVdVnVm bin
@@ -4747,7 +4744,7 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCEQ (oneDt SIMDTypI32) OD.OprQdQnQm
   (* 0b1111000x1u *)
-  | 0b111100001u | 0b111100011u -> raise UndefinedException
+  | 0b111100001u | 0b111100011u -> undefined ()
   (* 1xx1001x0 VMLS *)
   | 0b100100100u ->
 #if !EMULATION
@@ -4780,7 +4777,7 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VMLS (oneDt SIMDTypI32) OD.OprQdQnQm
   (* 1111001x0 *)
-  | 0b111100100u | 0b111100110u -> raise UndefinedException
+  | 0b111100100u | 0b111100110u -> undefined ()
   (* 1xx1011x0 VQRDMULH *)
   | 0b101101100u ->
 #if !EMULATION
@@ -4804,8 +4801,8 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
     render phlp bin Op.VQRDMULH (oneDt SIMDTypS32) OD.OprQdQnQm
   (* 1001011x0 or 1111011x0 *)
   | 0b100101100u | 0b100101110u | 0b111101100u
-  | 0b111101110u -> raise UndefinedException
-  | 0b110110000u -> raise UndefinedException (* if Q != '1' then UNDEFINED *)
+  | 0b111101110u -> undefined ()
+  | 0b110110000u -> undefined () (* if Q != '1' then UNDEFINED *)
   | 0b110110010u -> (* ARMv8 *)
 #if !EMULATION
     chkVdVnVm bin
@@ -4813,9 +4810,9 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
     render phlp bin Op.SHA256SU1 (oneDt SIMDTyp32) OD.OprQdQnQm
   (* 1xx1011x1 Op.VQRDMLAH Armv8.1 *)
   (* 1001011x1 *)
-  | 0b100101101u | 0b100101111u -> raise UndefinedException
+  | 0b100101101u | 0b100101111u -> undefined ()
   (* 1111011x1 *)
-  | 0b111101101u | 0b111101111u -> raise UndefinedException
+  | 0b111101101u | 0b111101111u -> undefined ()
   | 0b101101101u ->
 #if !EMULATION
     chkQVdVnVm bin
@@ -4849,9 +4846,9 @@ let parseAdvSIMDThreeRegsSameLen (phlp: ParsingHelper) bin =
     render phlp bin Op.VBIF None OD.OprQdQnQm
   (* 1xx1100x1 Op.VQRDMLSH Armv8.1 *)
   (* 1001100x1 *)
-  | 0b100110001u | 0b100110011u -> raise UndefinedException
+  | 0b100110001u | 0b100110011u -> undefined ()
   (* 1111100x1 *)
-  | 0b111110001u | 0b111110011u -> raise UndefinedException
+  | 0b111110001u | 0b111110011u -> undefined ()
   | 0b101110001u ->
 #if !EMULATION
     chkQVdVnVm bin
@@ -4912,7 +4909,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VREV64 (oneDt SIMDTyp32) OD.OprQdQm
   (* 11000000x *)
-  | 0b110000000u | 0b110000001u -> raise UndefinedException
+  | 0b110000000u | 0b110000001u -> undefined ()
   (* xx000001x VREV32 *)
   | 0b000000010u ->
 #if !EMULATION
@@ -4934,8 +4931,8 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     chkOpSzQVdVm bin
 #endif
     render phlp bin Op.VREV32 (oneDt SIMDTyp16) OD.OprQdQm
-  | 0b100000010u | 0b100000011u | 0b110000010u | 0b110000011u (* 1x000001x *)
-    -> raise UndefinedException (* reserved *)
+  | 0b100000010u | 0b100000011u | 0b110000010u | 0b110000011u -> (* 1x000001x *)
+    undefined () (* reserved *)
   (* xx000010x VREV16 *)
   | 0b000000100u ->
 #if !EMULATION
@@ -4950,7 +4947,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
   | 0b010000100u | 0b010000101u (* 01000010x *)
   (* 1x000010x *)
   | 0b100000100u | 0b100000101u | 0b110000100u | 0b110000101u ->
-    raise UndefinedException (* reserved *)
+    undefined () (* reserved *)
   | b when b &&& 0b001111110u = 0b000000110u -> (* xx000011x *)
     raise ParsingFailureException
   (* xx00010xx VPADDL *)
@@ -5015,7 +5012,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VPADDL (oneDt SIMDTypU32) OD.OprQdQm
   | 0b110001000u | 0b110001001u | 0b110001010u | 0b110001011u -> (* 1100010xx *)
-    raise UndefinedException (* size = 11 *)
+    undefined () (* size = 11 *)
   (* xx0001100 AESE *)
   | 0b000001100u ->
 #if !EMULATION
@@ -5023,7 +5020,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.AESE (oneDt SIMDTyp8) OD.OprQdQm
   | 0b010001100u | 0b100001100u | 0b110001100u -> (* size = 10 or 1x *)
-    raise UndefinedException
+    undefined ()
    (* xx0001101 AESD *)
   | 0b000001101u ->
 #if !EMULATION
@@ -5031,7 +5028,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.AESD (oneDt SIMDTyp8) OD.OprQdQm
   | 0b010001101u | 0b100001101u | 0b110001101u -> (* size = 10 or 1x *)
-    raise UndefinedException
+    undefined ()
   (* xx0001110 AESMC *)
   | 0b000001110u ->
 #if !EMULATION
@@ -5039,7 +5036,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.AESMC (oneDt SIMDTyp8) OD.OprQdQm
   | 0b010001110u | 0b100001110u | 0b110001110u -> (* size = 10 or 1x *)
-    raise UndefinedException
+    undefined ()
   (* xx0001111 AESIMC *)
   | 0b000001111u ->
 #if !EMULATION
@@ -5047,7 +5044,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.AESIMC (oneDt SIMDTyp8) OD.OprQdQm
   | 0b010001111u | 0b100001111u | 0b110001111u -> (* size = 10 or 1x *)
-    raise UndefinedException
+    undefined ()
   (* xx001000x VCLS *)
   | 0b000010000u ->
 #if !EMULATION
@@ -5080,7 +5077,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCLS (oneDt SIMDTypS32) OD.OprQdQm
   (* 11001000x *)
-  | 0b110010000u| 0b110010001u -> raise UndefinedException
+  | 0b110010000u| 0b110010001u -> undefined ()
   (* 00100000x VSWP *)
   | 0b001000000u ->
 #if !EMULATION
@@ -5124,7 +5121,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCLZ (oneDt SIMDTypI32) OD.OprQdQm
   (* 11x001001x *)
-  | 0b110010010u | 0b110010011u -> raise UndefinedException
+  | 0b110010010u | 0b110010011u -> undefined ()
   (* xx001010x *)
   | 0b000010100u ->
 #if !EMULATION
@@ -5138,7 +5135,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VCNT (oneDt SIMDTyp8) OD.OprQdQm
   (* size != 00 *)
   | 0b010010100u | 0b100010100u | 0b110010100u | 0b010010101u | 0b100010101u
-  | 0b110010101u -> raise UndefinedException
+  | 0b110010101u -> undefined ()
   (* xx001011x VMVN *)
   | 0b000010110u ->
 #if !EMULATION
@@ -5152,7 +5149,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VMVN None OD.OprQdQm
   (* size != 00 *)
   | 0b010010110u | 0b100010110u | 0b110010110u | 0b010010111u | 0b100010111u
-  | 0b110010111u -> raise UndefinedException
+  | 0b110010111u -> undefined ()
   | 0b001011001u -> raise ParsingFailureException
   (* xx00110xx VPADAL *)
   | 0b000011000u ->
@@ -5216,7 +5213,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VPADAL (oneDt SIMDTypU32) OD.OprQdQm
   | 0b110011000u | 0b110011001u | 0b110011010u | 0b110011011u -> (* 1100110xx *)
-    raise UndefinedException
+    undefined ()
   (* xx001110x VQABS *)
   | 0b000011100u ->
 #if !EMULATION
@@ -5249,7 +5246,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VQABS (oneDt SIMDTypS32) OD.OprQdQm
   (* 11001110x *)
-  | 0b110011100u | 0b110011101u -> raise UndefinedException
+  | 0b110011100u | 0b110011101u -> undefined ()
   (* xx001111x VQNEG *)
   | 0b000011110u ->
 #if !EMULATION
@@ -5282,7 +5279,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VQNEG (oneDt SIMDTypS32) OD.OprQdQm
   (* 11001111x *)
-  | 0b110011110u | 0b110011111u -> raise UndefinedException
+  | 0b110011110u | 0b110011111u -> undefined ()
   (* xx01x000x VCGT *)
   | 0b000100000u ->
 #if !EMULATION
@@ -5335,9 +5332,9 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCGT (oneDt SIMDTypF32) OD.OprQdQmImm0
   (* 00011000x *)
-  | 0b000110000u | 0b000110001u -> raise UndefinedException
+  | 0b000110000u | 0b000110001u -> undefined ()
   | 0b110100000u | 0b110100001u | 0b110110000u | 0b110110001u -> (* 1101x000x *)
-    raise UndefinedException
+    undefined ()
   (* xx01x001x VCGE *)
   | 0b000100010u ->
 #if !EMULATION
@@ -5390,9 +5387,9 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCGE (oneDt SIMDTypF32) OD.OprQdQmImm0
   (* 00011001x *)
-  | 0b000110010u | 0b000110011u -> raise UndefinedException
+  | 0b000110010u | 0b000110011u -> undefined ()
   | 0b110100010u | 0b110100011u | 0b110110010u | 0b110110011u -> (* 1101x001x *)
-    raise UndefinedException
+    undefined ()
   (* xx01x010x VCEQ *)
   | 0b000100100u ->
 #if !EMULATION
@@ -5445,9 +5442,9 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCEQ (oneDt SIMDTypF32) OD.OprQdQmImm0
   (* 00011010x *)
-  | 0b000110100u | 0b000110101u -> raise UndefinedException
+  | 0b000110100u | 0b000110101u -> undefined ()
   | 0b110100100u | 0b110100101u | 0b110110100u | 0b110110101u -> (* 1101x010x *)
-    raise UndefinedException
+    undefined ()
   (* xx01x011x VCLE *)
   | 0b000100110u ->
 #if !EMULATION
@@ -5500,9 +5497,9 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCLE (oneDt SIMDTypF32) OD.OprQdQmImm0
   (* 00011011x *)
-  | 0b000110110u| 0b000110111u -> raise UndefinedException
+  | 0b000110110u| 0b000110111u -> undefined ()
   | 0b110100110u | 0b110100111u | 0b110110110u | 0b110110111u -> (* 1101x011x *)
-    raise UndefinedException
+    undefined ()
   (* xx01x100x VCLT *)
   | 0b000101000u ->
 #if !EMULATION
@@ -5555,9 +5552,9 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VCLT (oneDt SIMDTypF32) OD.OprQdQmImm0
   (* 00011100x *)
-  | 0b000111000u | 0b000111001u -> raise UndefinedException
+  | 0b000111000u | 0b000111001u -> undefined ()
   | 0b110101000u | 0b110101001u | 0b110111000u | 0b110111001u -> (* 1101x100x *)
-    raise UndefinedException
+    undefined ()
   (* xx01x110x VABS *)
   | 0b000101100u ->
 #if !EMULATION
@@ -5610,9 +5607,9 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VABS (oneDt SIMDTypF32) OD.OprQdQm
   (* 00011110x *)
-  | 0b000111100u | 0b000111101u -> raise UndefinedException
+  | 0b000111100u | 0b000111101u -> undefined ()
   | 0b110101100u | 0b110101101u | 0b110111100u | 0b110111101u -> (* 1101x110x *)
-    raise UndefinedException
+    undefined ()
   (* xx01x111x VNEG *)
   | 0b000101110u ->
 #if !EMULATION
@@ -5665,9 +5662,9 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VNEG (oneDt SIMDTypF32) OD.OprQdQm
   (* 00011111x *)
-  | 0b000111110u | 0b000111111u -> raise UndefinedException
+  | 0b000111110u | 0b000111111u -> undefined ()
   | 0b110101110u | 0b110101111u | 0b110111110u | 0b110111111u -> (* 1101x111x *)
-    raise UndefinedException
+    undefined ()
   (* xx0101011 SHA1H *)
   | 0b100101011u ->
 #if !EMULATION
@@ -5675,7 +5672,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.SHA1H (oneDt SIMDTyp32) OD.OprQdQm
   | 0b000101011u | 0b010101011u | 0b110101011u -> (* size != 10 *)
-    raise UndefinedException
+    undefined ()
   | 0b011011001u -> (* Armv8.6 *)
 #if !EMULATION
     chkVm bin
@@ -5713,7 +5710,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VTRN (oneDt SIMDTyp32) OD.OprQdQm
   (* 11100001x *)
-  | 0b111000010u | 0b111000011u -> raise UndefinedException
+  | 0b111000010u | 0b111000011u -> undefined ()
   (* xx100010x VUZP *)
   | 0b001000100u ->
 #if !EMULATION
@@ -5741,8 +5738,8 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VUZP (oneDt SIMDTyp32) OD.OprQdQm
   (* 11100010x *)
-  | 0b111000100u | 0b111000101u -> raise UndefinedException
-  | 0b101000100u -> raise UndefinedException (* Q == 0 && size == 10 *)
+  | 0b111000100u | 0b111000101u -> undefined ()
+  | 0b101000100u -> undefined () (* Q == 0 && size == 10 *)
   (* xx100011x VZIP *)
   | 0b001000110u ->
 #if !EMULATION
@@ -5770,8 +5767,8 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VZIP (oneDt SIMDTyp32) OD.OprQdQm
   (* 11100011x *)
-  | 0b111000110u | 0b111000111u -> raise UndefinedException
-  | 0b101000110u -> raise UndefinedException (* Q == 0 && size == 10 *)
+  | 0b111000110u | 0b111000111u -> undefined ()
+  | 0b101000110u -> undefined () (* Q == 0 && size == 10 *)
   (* xx1001000 VMOVN *)
   | 0b001001000u ->
 #if !EMULATION
@@ -5789,7 +5786,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VMOVN (oneDt SIMDTyp64) OD.OprDdQm
   (* size == 11 *)
-  | 0b111001000u -> raise UndefinedException
+  | 0b111001000u -> undefined ()
   (* xx1001001 VQMOVUN *)
   | 0b001001001u ->
 #if !EMULATION
@@ -5807,7 +5804,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VQMOVUN (oneDt SIMDTypS64) OD.OprDdQm
   (* size = 11 *)
-  | 0b111001001u -> raise UndefinedException
+  | 0b111001001u -> undefined ()
   (* xx100101x VQMOVN *)
   | 0b001001010u ->
 #if !EMULATION
@@ -5840,7 +5837,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VQMOVN (oneDt SIMDTypU64) OD.OprDdQm
   (* size = 11 *)
-  | 0b111001010u | 0b111001011u -> raise UndefinedException
+  | 0b111001010u | 0b111001011u -> undefined ()
   (* xx1001100 VSHLL *)
   | 0b001001100u ->
 #if !EMULATION
@@ -5858,7 +5855,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.VSHLL (oneDt SIMDTypI32) OD.OprQdDmImm32
   (* size = 11 *)
-  | 0b111001100u -> raise UndefinedException
+  | 0b111001100u -> undefined ()
   (* xx1001110 SHA1SU1 *)
   | 0b101001110u ->
 #if !EMULATION
@@ -5866,7 +5863,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.SHA1SU1 (oneDt SIMDTyp32) OD.OprQdQm
   | 00001001110u | 0b011001110u | 0b111001110u -> (* size != 10 *)
-    raise UndefinedException
+    undefined ()
   (* xx1001111 SHA256SU0 *)
   | 0b101001111u ->
 #if !EMULATION
@@ -5874,7 +5871,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
 #endif
     render phlp bin Op.SHA256SU0 (oneDt SIMDTyp32) OD.OprQdQm
   | 0b001001111u| 0b011001111u| 0b111001111u -> (* size != 10 *)
-    raise UndefinedException
+    undefined ()
   (* xx101000x VRINTN *)
   | 0b011010000u ->
 #if !EMULATION
@@ -5898,7 +5895,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VRINTN (oneDt SIMDTypF32) OD.OprQdQm
   (* size = 00 or 11 *)
   | 0b001010000u | 0b001010001u | 0b111010000u
-  | 0b111010001u -> raise UndefinedException
+  | 0b111010001u -> undefined ()
   (* xx101001x VRINTX *)
   | 0b011010010u ->
 #if !EMULATION
@@ -5922,7 +5919,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VRINTX (oneDt SIMDTypF32) OD.OprQdQm
   (* size = 00 or 11 *)
   | 0b001010010u | 0b001010011u | 0b111010010u
-  | 0b111010011u -> raise UndefinedException
+  | 0b111010011u -> undefined ()
   (* xx101010x VRINTA *)
   | 0b011010100u ->
 #if !EMULATION
@@ -5946,7 +5943,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VRINTA (oneDt SIMDTypF32) OD.OprQdQm
   (* size = 00 or 11 *)
   | 0b001010100u | 0b001010101u | 0b111010100u
-  | 0b111010101u -> raise UndefinedException
+  | 0b111010101u -> undefined ()
   (* xx101011x VRINTZ *)
   | 0b011010110u ->
 #if !EMULATION
@@ -5970,14 +5967,14 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VRINTZ (oneDt SIMDTypF32) OD.OprQdQm
   (* size = 00 or 1 1*)
   | 0b001010110u | 0b001010111u | 0b111010110u
-  | 0b111010111u -> raise UndefinedException
+  | 0b111010111u -> undefined ()
   | 0b101011001u -> raise ParsingFailureException
   (* xx1011000 VCVT *)
   | 0b011011000u ->
     let dt = twoDt (SIMDTypF16, SIMDTypF32)
     render phlp bin Op.VCVT dt OD.OprDdQm
   | 0b001011000u | 0b101011000u | 0b111011000u -> (* size != 01 *)
-    raise UndefinedException
+    undefined ()
   (* xx101101x VRINTM *)
   | 0b011011010u ->
 #if !EMULATION
@@ -6001,7 +5998,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VRINTM (oneDt SIMDTypF32) OD.OprQdQm
   (* size = 00 or 11*)
   | 0b001011010u | 0b001011011u | 0b111011010u
-  | 0b111011011u -> raise UndefinedException
+  | 0b111011011u -> undefined ()
   (* xx1011100 VCVT *)
   | 0b011011100u ->
 #if !EMULATION
@@ -6010,7 +6007,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     let dt = twoDt (SIMDTypF32, SIMDTypF16)
     render phlp bin Op.VCVT dt OD.OprQdDm
   | 0b001011100u | 0b101011100u | 0b111011100u -> (* size != 01 *)
-    raise UndefinedException
+    undefined ()
   | 0b001011101u | 0b011011101u | 0b101011101u | 0b111011101u -> (* xx1011101 *)
     raise ParsingFailureException
   (* xx101111x VRINTP *)
@@ -6036,7 +6033,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VRINTP (oneDt SIMDTypF32) OD.OprQdQm
   (* size = 00 or 11 *)
   | 0b001011110u | 0b001011111u | 0b111011110u
-  | 0b111011111u -> raise UndefinedException
+  | 0b111011111u -> undefined ()
   (* xx11000xx VCVTA *)
   | 0b011100000u ->
 #if !EMULATION
@@ -6088,7 +6085,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VCVTA dt OD.OprQdQm
   | 0b001100000u | 0b001100001u | 0b001100010u | 0b001100011u | 0b111100000u
   | 0b111100001u | 0b111100010u | 0b111100011u -> (* size = 00 or 11 *)
-    raise UndefinedException
+    undefined ()
   (* xx11001xx VCVTN *)
   | 0b011100100u ->
 #if !EMULATION
@@ -6140,7 +6137,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VCVTN dt OD.OprQdQm
   | 0b001100100u | 0b001100101u | 0b001100110u | 0b001100111u | 0b111100100u
   | 0b111100101u | 0b111100110u | 0b111100111u -> (* size = 00 or 11 *)
-    raise UndefinedException
+    undefined ()
   (* xx11010xx VCVTP *)
   | 0b011101000u ->
 #if !EMULATION
@@ -6192,7 +6189,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VCVTP dt OD.OprQdQm
   | 0b001101000u | 0b001101001u | 0b001101010u | 0b001101011u | 0b111101000u
   | 0b111101001u | 0b111101010u | 0b111101011u -> (* size = 00 or 11 *)
-    raise UndefinedException
+    undefined ()
   (* xx11011xx VCVTM *)
   | 0b011101100u ->
 #if !EMULATION
@@ -6244,7 +6241,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VCVTM dt OD.OprQdQm
   | 0b001101100u | 0b001101101u | 0b001101110u | 0b001101111u | 0b111101100u
   | 0b111101101u | 0b111101110u | 0b111101111u -> (* size = 00 or 11 *)
-    raise UndefinedException
+    undefined ()
   (* xx1110x0x VRECPE *)
   | 0b101110000u ->
 #if !EMULATION
@@ -6278,7 +6275,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VRECPE (oneDt SIMDTypF32) OD.OprQdQm
   | 0b001110000u | 0b001110001u | 0b001110100u | 0b001110101u | 0b111110000u
   | 0b111110001u | 0b111110100u | 0b111110101u -> (* size = 00 or 11 *)
-    raise UndefinedException
+    undefined ()
   (* xx1110x1x VRSQRTE *)
   | 0b101110010u ->
 #if !EMULATION
@@ -6312,7 +6309,7 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VRSQRTE (oneDt SIMDTypF32) OD.OprQdQm
   | 0b001110010u | 0b001110011u | 0b001110110u | 0b001110111u | 0b111110010u
   | 0b111110011u | 0b111110110u | 0b111110111u -> (* size = 00 or 11 *)
-    raise UndefinedException
+    undefined ()
   | 0b111011001u -> raise ParsingFailureException
   (* xx1111xxx VCVT *)
   | 0b011111000u ->
@@ -6413,10 +6410,10 @@ let parseAdvaSIMDTwoRegsMisc (phlp: ParsingHelper) bin =
     render phlp bin Op.VCVT dt OD.OprQdQm
   | 0b001111000u | 0b001111001u | 0b001111010u | 0b001111011u | 0b001111100u
   | 0b001111101u | 0b001111110u | 0b001111111u -> (* size = 00 *)
-    raise UndefinedException
+    undefined ()
   | 0b111111000u | 0b111111001u | 0b111111010u | 0b111111011u | 0b111111100u
   | 0b111111101u | 0b111111110u | 0b111111111u -> (* size = 11 *)
-    raise UndefinedException
+    undefined ()
   | _ -> raise ParsingFailureException
 
 /// Advanced SIMD duplicate (scalar) on page F4-4268.
@@ -7026,9 +7023,9 @@ let parseAdvSIMDDataProc (phlp: ParsingHelper) bin =
 let parseBarriers (phlp: ParsingHelper) bin =
   let option = pickFour bin 0
   match pickFour bin 4 (* opcode *) with
-  | 0b0000u -> raise UnpredictableException
+  | 0b0000u -> unpredictable ()
   | 0b0001u -> render phlp bin Op.CLREX None OD.OprNo
-  | 0b0010u | 0b0011u -> raise UnpredictableException
+  | 0b0010u | 0b0011u -> unpredictable ()
   | 0b0100u when (option <> 0b0000u) || (option <> 0b0100u) ->
     render phlp bin Op.DSB None OD.OprOpt
   | 0b0100u when option = 0b0000u ->
@@ -7039,7 +7036,7 @@ let parseBarriers (phlp: ParsingHelper) bin =
   | 0b0110u -> render phlp bin Op.ISB None OD.OprOpt
   | 0b0111u -> render phlp bin Op.SB None OD.OprNo
   (* 1xxx *)
-  | _ -> raise UnpredictableException
+  | _ -> unpredictable ()
 
 /// Preload (immediate) on page F4-4273.
 let parsePreloadImm (phlp: ParsingHelper) bin =
@@ -7078,19 +7075,19 @@ let parsePreloadReg (phlp: ParsingHelper) bin =
 let parseMemoryHintsAndBarriers (phlp: ParsingHelper) bin =
   match concat (pickFive bin 21) (pickBit bin 4) 1 (* op0:op1 *) with
   | b when b &&& 0b110010u = 0b000010u -> (* 00xx1x *)
-    raise UnpredictableException
+    unpredictable ()
   (* 01001x *)
-  | 0b010010u | 0b010011u -> raise UnpredictableException
+  | 0b010010u | 0b010011u -> unpredictable ()
   (* 01011x *)
   | 0b010110u | 0b010111u -> parseBarriers phlp bin
   | 0b011010u | 0b011011u | 0b011110u | 0b011111u -> (* 011x1x *)
-    raise UnpredictableException
+    unpredictable ()
   | b when b &&& 0b100010u = 0b000000u -> (* 0xxx0x *)
     parsePreloadImm phlp bin
   | b when b &&& 0b100011u = 0b100000u -> (* 1xxx00 *)
     parsePreloadReg phlp bin
   | b when b &&& 0b100011u = 0b100010u -> (* 1xxx10 *)
-    raise UnpredictableException
+    unpredictable ()
   (* 1xxxx1 *)
   | _ -> raise ParsingFailureException
 

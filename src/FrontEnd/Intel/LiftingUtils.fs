@@ -213,7 +213,7 @@ let inline private sIdx ins bld (r, s: Scale) =
 
 let private transMem bld useTmpVar ins insLen b index disp oprSize =
   let address =
-    match b, index, (disp: Disp option) with
+    match b, index, (disp: Displacement option) with
     | None, None, Some d ->
       numOfAddrSz ins bld d
     | None, Some i, Some d ->

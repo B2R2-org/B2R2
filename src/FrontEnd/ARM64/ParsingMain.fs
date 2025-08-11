@@ -663,8 +663,8 @@ let getOprSizeByVector = function
 
 let getOprSizeBySIMDReg reg =
   match reg with
-  | SIMDVecReg(_, v) -> getOprSizeByVector v
-  | SIMDVecRegWithIdx(_, v, _) -> getOprSizeByVector v
+  | VecReg(_, v) -> getOprSizeByVector v
+  | VecRegWithIdx(_, v, _) -> getOprSizeByVector v
   | _ -> raise InvalidOperandException
 
 let getFstOperand = function
@@ -706,7 +706,7 @@ let parseAddSubImm bin =
   let cond = extract bin 31u 29u (* sf:op:S *)
   match cond with
   | c when c &&& 0b000u = 0b000u && (extract bin 23u 22u >>> 1) = 0b1u ->
-    raise UnallocatedException
+    unallocated ()
   | 0b000u -> Op.ADD, getWSdWSnImmShf bin, 32<rt>
   | 0b001u -> Op.ADDS, getWdWSnImmShf bin, 32<rt>
   | 0b010u -> Op.SUB, getWSdWSnImmShf bin, 32<rt>
@@ -787,12 +787,12 @@ let changeToAliasOfBitfield bin instr =
 let parseBitfield bin =
   let cond = concat (extract bin 31u 29u) (pickBit bin 22u) 1 (* sf:opc:N *)
   match cond with
-  | c when c &&& 0b0110u = 0b0110u -> raise UnallocatedException
-  | c when c &&& 0b1001u = 0b0001u -> raise UnallocatedException
+  | c when c &&& 0b0110u = 0b0110u -> unallocated ()
+  | c when c &&& 0b1001u = 0b0001u -> unallocated ()
   | 0b0000u -> Op.SBFM, getWdWnImmrImms bin, 32<rt>
   | 0b0010u -> Op.BFM, getWdWnImmrImms bin, 32<rt>
   | 0b0100u -> Op.UBFM, getWdWnImmrImms bin, 32<rt>
-  | c when c &&& 0b1001u = 0b1000u -> raise UnallocatedException
+  | c when c &&& 0b1001u = 0b1000u -> unallocated ()
   | 0b1001u -> Op.SBFM, getXdXnImmrImms bin, 64<rt>
   | 0b1011u -> Op.BFM, getXdXnImmrImms bin, 64<rt>
   | 0b1101u -> Op.UBFM, getXdXnImmrImms bin, 64<rt>
@@ -809,16 +809,16 @@ let parseExtract bin =
   let cond = concat (concat (extract bin 31u 29u) (extract bin 22u 21u) 2)
                     (extract bin 15u 10u) 6 (* sf:op21:N:o0:imms *)
   match cond with
-  | c when c &&& 0b00100000000u = 0b00100000000u -> raise UnallocatedException
-  | c when c &&& 0b01101000000u = 0b00001000000u -> raise UnallocatedException
-  | c when c &&& 0b01000000000u = 0b01000000000u -> raise UnallocatedException
-  | c when c &&& 0b10000100000u = 0b00000100000u -> raise UnallocatedException
-  | c when c &&& 0b10010000000u = 0b00010000000u -> raise UnallocatedException
+  | c when c &&& 0b00100000000u = 0b00100000000u -> unallocated ()
+  | c when c &&& 0b01101000000u = 0b00001000000u -> unallocated ()
+  | c when c &&& 0b01000000000u = 0b01000000000u -> unallocated ()
+  | c when c &&& 0b10000100000u = 0b00000100000u -> unallocated ()
+  | c when c &&& 0b10010000000u = 0b00010000000u -> unallocated ()
   | c when c &&& 0b11111100000u = 0b00000000000u ->
     Op.EXTR, getWdWnWmLsb bin, 32<rt>
   | c when c &&& 0b11111000000u = 0b10010000000u ->
     Op.EXTR, getXdXnXmLsb bin, 64<rt>
-  | c when c &&& 0b10010000000u = 0b10000000000u -> raise UnallocatedException
+  | c when c &&& 0b10010000000u = 0b10000000000u -> unallocated ()
   | _ -> raise InvalidOperandException
   |> changeToAliasOfExtract
 
@@ -834,7 +834,7 @@ let changeToAliasOfLogical bin instr =
 let parseLogical bin =
   let cond = concat (extract bin 31u 29u) (pickBit bin 22u) 1 (* sf:opc:N *)
   match cond with
-  | c when c &&& 0b1001u = 0b0001u -> raise UnallocatedException
+  | c when c &&& 0b1001u = 0b0001u -> unallocated ()
   | 0b0000u -> Op.AND, getWSdWnImm bin, 32<rt>
   | 0b0010u -> Op.ORR, getWSdWnImm bin, 32<rt>
   | 0b0100u -> Op.EOR, getWSdWnImm bin, 32<rt>
@@ -869,8 +869,8 @@ let changeToAliasOfMoveWide bin instr =
 let parseMoveWide bin =
   let cond = concat (extract bin 31u 29u) (extract bin 22u 21u) 2
   match cond with (* sf:opc:hw *)
-  | c when c &&& 0b01100u = 0b00100u -> raise UnallocatedException
-  | c when c &&& 0b10010u = 0b00010u -> raise UnallocatedException
+  | c when c &&& 0b01100u = 0b00100u -> unallocated ()
+  | c when c &&& 0b10010u = 0b00010u -> unallocated ()
   | c when c &&& 0b11100u = 0b00000u -> Op.MOVN, getWdImmLShf bin, 32<rt>
   | c when c &&& 0b11100u = 0b01000u -> Op.MOVZ, getWdImmLShf bin, 32<rt>
   | c when c &&& 0b11100u = 0b01100u -> Op.MOVK, getWdImmLShf bin, 32<rt>
@@ -910,8 +910,8 @@ let parseCondBranchImm bin =
   let opCode =
     match cond with
     | 0b00u -> getConditionOpcode (extract bin 3u 0u |> byte)
-    | 0b01u -> raise UnallocatedException
-    | 0b10u | 0b11u -> raise UnallocatedException
+    | 0b01u -> unallocated ()
+    | 0b10u | 0b11u -> unallocated ()
     | _ -> raise InvalidOpcodeException
   let offs = memLabel (signExtend 21 64 (valImm19 bin <<< 2 |> uint64) |> int64)
   opCode, OneOperand offs, 64<rt>
@@ -921,26 +921,26 @@ let parseExcepGen bin =
   let cond = concat (extract bin 23u 21u) (extract bin 4u 0u) 5
   let opCode =
     match cond with (* opc:op2:LL *)
-    | c when c &&& 0b00000100u = 0b00000100u -> raise UnallocatedException
-    | c when c &&& 0b00001000u = 0b00001000u -> raise UnallocatedException
-    | c when c &&& 0b00010000u = 0b00010000u -> raise UnallocatedException
-    | 0b00000000u -> raise UnallocatedException
+    | c when c &&& 0b00000100u = 0b00000100u -> unallocated ()
+    | c when c &&& 0b00001000u = 0b00001000u -> unallocated ()
+    | c when c &&& 0b00010000u = 0b00010000u -> unallocated ()
+    | 0b00000000u -> unallocated ()
     | 0b00000001u -> Op.SVC
     | 0b00000010u -> Op.HVC
     | 0b00000011u -> Op.SMC
-    | c when c &&& 0b11111101u = 0b00100001u -> raise UnallocatedException
+    | c when c &&& 0b11111101u = 0b00100001u -> unallocated ()
     | 0b00100000u -> Op.BRK
-    | c when c &&& 0b11111110u = 0b00100010u -> raise UnallocatedException
-    | c when c &&& 0b11111101u = 0b01000001u -> raise UnallocatedException
+    | c when c &&& 0b11111110u = 0b00100010u -> unallocated ()
+    | c when c &&& 0b11111101u = 0b01000001u -> unallocated ()
     | 0b01000000u -> Op.HLT
-    | c when c &&& 0b11111110u = 0b01000010u -> raise UnallocatedException
-    | c when c &&& 0b11111100u = 0b01100000u -> raise UnallocatedException
-    | c when c &&& 0b11111100u = 0b10000000u -> raise UnallocatedException
-    | 0b10100000u -> raise UnallocatedException
+    | c when c &&& 0b11111110u = 0b01000010u -> unallocated ()
+    | c when c &&& 0b11111100u = 0b01100000u -> unallocated ()
+    | c when c &&& 0b11111100u = 0b10000000u -> unallocated ()
+    | 0b10100000u -> unallocated ()
     | 0b10100001u -> Op.DCPS1
     | 0b10100010u -> Op.DCPS2
     | 0b10100011u -> Op.DCPS3
-    | c when c &&& 0b11011100u = 0b11000000u -> raise UnallocatedException
+    | c when c &&& 0b11011100u = 0b11000000u -> unallocated ()
     | _ -> raise InvalidOpcodeException
   opCode, OneOperand(OprImm(valImm16 bin |> int64)), 16<rt>
 
@@ -975,24 +975,18 @@ let parseSystem bin =
   let crm = extract bin 11u 8u |> int64
   let isCRmZero = crm = 0b00000L
   match cond with (* L:op0:op1:CRn:CRm:op2 *)
-  | c when c &&& 0b1110001110000u = 0b0000000000000u ->
-    raise UnallocatedException
+  | c when c &&& 0b1110001110000u = 0b0000000000000u -> unallocated ()
   | c when c &&& 0b1110001111000u = 0b0000000100000u && not isRt1F ->
-    raise UnallocatedException
+    unallocated ()
   | c when c &&& 0b1110001111000u = 0b0000000100000u && isRt1F ->
     Op.MSR, getPstatefieldImm bin, 0<rt>
-  | c when c &&& 0b1110001111000u = 0b0000000101000u ->
-    raise UnallocatedException
-  | c when c &&& 0b1110001110000u = 0b0000000110000u ->
-    raise UnallocatedException
-  | c when c &&& 0b1110001000000u = 0b0000001000000u ->
-    raise UnallocatedException
-  | c when c &&& 0b1110011110000u = 0b0000000010000u ->
-    raise UnallocatedException
-  | c when c &&& 0b1110101110000u = 0b0000000010000u ->
-    raise UnallocatedException
+  | c when c &&& 0b1110001111000u = 0b0000000101000u -> unallocated ()
+  | c when c &&& 0b1110001110000u = 0b0000000110000u -> unallocated ()
+  | c when c &&& 0b1110001000000u = 0b0000001000000u -> unallocated ()
+  | c when c &&& 0b1110011110000u = 0b0000000010000u -> unallocated ()
+  | c when c &&& 0b1110101110000u = 0b0000000010000u -> unallocated ()
   | c when c &&& 0b1111111110000u = 0b0000110010000u && not isRt1F ->
-    raise UnallocatedException
+    unallocated ()
   | c when c &&& 0b1111111111000u = 0b0000110010000u &&
            not isCRmZero && isRt1F ->
     let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
@@ -1006,17 +1000,16 @@ let parseSystem bin =
   | c when c &&& 0b1111111111110u = 0b0000110010110u && isCRmZero && isRt1F ->
     let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
     Op.HINT, OneOperand(OprImm imm), 0<rt> (* Hints 6 and 7 variant *)
-  | 0b0000110011000u -> raise UnallocatedException
-  | 0b0000110011001u -> raise UnallocatedException
+  | 0b0000110011000u -> unallocated ()
+  | 0b0000110011001u -> unallocated ()
   | 0b0000110011010u when isRt1F ->
     Op.CLREX, OneOperand(OprImm crm), 0<rt>
-  | 0b0000110011011u -> raise UnallocatedException
+  | 0b0000110011011u -> unallocated ()
   | 0b0000110011100u when isRt1F -> Op.DSB, getOptionOrimm bin, 0<rt>
   | 0b0000110011101u when isRt1F -> Op.DMB, getOptionOrimm bin, 0<rt>
   | 0b0000110011110u when isRt1F -> Op.ISB, getISBOprs crm, 0<rt>
-  | 0b0000110011111u -> raise UnallocatedException
-  | c when c &&& 0b1111001110000u = 0b0001000010000u ->
-    raise UnallocatedException
+  | 0b0000110011111u -> unallocated ()
+  | c when c &&& 0b1111001110000u = 0b0001000010000u -> unallocated ()
   | c when c &&& 0b1110000000000u = 0b0010000000000u ->
     Op.SYS, getOp1cncmop2Xt bin, 0<rt>
   | c when c &&& 0b1100000000000u = 0b0100000000000u ->
@@ -1050,8 +1043,7 @@ let parseUncondBranchReg bin =
   let rn = extract bin 9u 5u
   let isRn1F = rn = 0b11111u
   let isOp4Zero = extract bin 4u 0u = 0b00000u
-  if not isOp4Zero || not isOp3Zero || not isOp21F then
-    raise UnallocatedException
+  if not isOp4Zero || not isOp3Zero || not isOp21F then unallocated ()
   match opc with
   | 0b0000u when isOp21F && isOp3Zero && isOp4Zero ->
     Op.BR,
@@ -1064,14 +1056,14 @@ let parseUncondBranchReg bin =
     Op.RET,
     OneOperand(OprRegister <| getRegister64 64<rt> (byte rn)),
     64<rt>
-  | 0b0011u -> raise UnallocatedException
-  | o when o &&& 1110u = 0100u && not isRn1F -> raise UnallocatedException
+  | 0b0011u -> unallocated ()
+  | o when o &&& 1110u = 0100u && not isRn1F -> unallocated ()
   | 0b0100u when isOp21F && isOp3Zero && isRn1F && isOp4Zero ->
     Op.ERET, NoOperand, 0<rt>
   | 0b0101u when isOp21F && isOp3Zero && isRn1F && isOp4Zero ->
     Op.DRPS, NoOperand, 0<rt>
-  | o when o &&& 1110u = 0110u -> raise UnallocatedException
-  | o when o &&& 1000u = 1000u -> raise UnallocatedException
+  | o when o &&& 1110u = 0110u -> unallocated ()
+  | o when o &&& 1000u = 1000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Branches, exception generating and system instructions
@@ -1081,16 +1073,16 @@ let parse64Group2 bin =
   let ops = concat op0 op1 4
   match ops with
   | ops when ops &&& 0b1111000u = 0b0100000u -> parseCondBranchImm bin
-  | ops when ops &&& 0b1111000u = 0b0101000u -> raise UnallocatedException
+  | ops when ops &&& 0b1111000u = 0b0101000u -> unallocated ()
   | ops when ops &&& 0b1111100u = 0b1100000u -> parseExcepGen bin
   | ops when ops &&& 0b1111111u = 0b1100100u -> parseSystem bin
-  | ops when ops &&& 0b1111111u = 0b1100101u -> raise UnallocatedException
-  | ops when ops &&& 0b1111110u = 0b1100110u -> raise UnallocatedException
+  | ops when ops &&& 0b1111111u = 0b1100101u -> unallocated ()
+  | ops when ops &&& 0b1111110u = 0b1100110u -> unallocated ()
   | ops when ops &&& 0b1111000u = 0b1101000u -> parseUncondBranchReg bin
   | ops when ops &&& 0b0110000u = 0b0000000u -> parseUncondBranchImm bin
   | ops when ops &&& 0b0111000u = 0b0010000u -> parseCompareAndBranchImm bin
   | ops when ops &&& 0b0111000u = 0b0011000u -> parseTestBranchImm bin
-  | ops when ops &&& 0b0110000u = 0b0110000u -> raise UnallocatedException
+  | ops when ops &&& 0b0110000u = 0b0110000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Advanced SIMD load/store multiple structures on page C4-281.
@@ -1099,31 +1091,31 @@ let parseAdvSIMDMul bin =
   let oprSize = getOprSizeByQ bin
   match cond with
   | 0b00000u -> Op.ST4, getVt4tMXSn bin sizeQ110b, oprSize
-  | 0b00001u -> raise UnallocatedException
+  | 0b00001u -> unallocated ()
   | 0b00010u -> Op.ST1, getVt4tMXSn bin resNone, oprSize
-  | 0b00011u -> raise UnallocatedException
+  | 0b00011u -> unallocated ()
   | 0b00100u -> Op.ST3, getVt3tMXSn bin sizeQ110b, oprSize
-  | 0b00101u -> raise UnallocatedException
+  | 0b00101u -> unallocated ()
   | 0b00110u -> Op.ST1, getVt3tMXSn bin resNone, oprSize
   | 0b00111u -> Op.ST1, getVt1tMXSn bin resNone, oprSize
   | 0b01000u -> Op.ST2, getVt2tMXSn bin sizeQ110b, oprSize
-  | 0b01001u -> raise UnallocatedException
+  | 0b01001u -> unallocated ()
   | 0b01010u -> Op.ST1, getVt2tMXSn bin resNone, oprSize
-  | 0b01011u -> raise UnallocatedException
-  | c when c &&& 0b11100u = 0b01100u -> raise UnallocatedException
+  | 0b01011u -> unallocated ()
+  | c when c &&& 0b11100u = 0b01100u -> unallocated ()
   | 0b10000u -> Op.LD4, getVt4tMXSn bin sizeQ110b, oprSize
-  | 0b10001u -> raise UnallocatedException
+  | 0b10001u -> unallocated ()
   | 0b10010u -> Op.LD1, getVt4tMXSn bin resNone, oprSize
-  | 0b10011u -> raise UnallocatedException
+  | 0b10011u -> unallocated ()
   | 0b10100u -> Op.LD3, getVt3tMXSn bin sizeQ110b, oprSize
-  | 0b10101u -> raise UnallocatedException
+  | 0b10101u -> unallocated ()
   | 0b10110u -> Op.LD1, getVt3tMXSn bin resNone, oprSize
   | 0b10111u -> Op.LD1, getVt1tMXSn bin resNone, oprSize
   | 0b11000u -> Op.LD2, getVt2tMXSn bin sizeQ110b, oprSize
-  | 0b11001u -> raise UnallocatedException
+  | 0b11001u -> unallocated ()
   | 0b11010u -> Op.LD1, getVt2tMXSn bin resNone, oprSize
-  | 0b11011u -> raise UnallocatedException
-  | c when c &&& 0b11100u = 0b11100u -> raise UnallocatedException
+  | 0b11011u -> unallocated ()
+  | c when c &&& 0b11100u = 0b11100u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Advanced SIMD load/store multiple structures (post-indexed) on page C4-282.
@@ -1132,12 +1124,12 @@ let parseAdvSIMDMulPostIndexed bin =
   let isRm11111 = (extract bin 20u 16u) = 0b11111u
   let oSz = getOprSizeByQ bin
   match cond with
-  | 0b00001u -> raise UnallocatedException
-  | 0b00011u -> raise UnallocatedException
-  | 0b00101u -> raise UnallocatedException
-  | 0b01001u -> raise UnallocatedException
-  | 0b01011u -> raise UnallocatedException
-  | c when c &&& 0b11100u = 0b01100u -> raise UnallocatedException
+  | 0b00001u -> unallocated ()
+  | 0b00011u -> unallocated ()
+  | 0b00101u -> unallocated ()
+  | 0b01001u -> unallocated ()
+  | 0b01011u -> unallocated ()
+  | c when c &&& 0b11100u = 0b01100u -> unallocated ()
   | 0b00000u when not isRm11111 ->
     Op.ST4, getVt4tPoXSnXm bin sizeQ110b, oSz
   | 0b00010u when not isRm11111 -> Op.ST1, getVt4tPoXSnXm bin resNone, oSz
@@ -1153,12 +1145,12 @@ let parseAdvSIMDMulPostIndexed bin =
   | 0b00111u when isRm11111 -> Op.ST1, getVt1tPoXSnImm1 bin resNone, oSz
   | 0b01000u when isRm11111 -> Op.ST2, getVt2tPoXSnImm1 bin sizeQ110b, oSz
   | 0b01010u when isRm11111 -> Op.ST1, getVt2tPoXSnImm1 bin resNone, oSz
-  | 0b10001u -> raise UnallocatedException
-  | 0b10011u -> raise UnallocatedException
-  | 0b10101u -> raise UnallocatedException
-  | 0b11001u -> raise UnallocatedException
-  | 0b11011u -> raise UnallocatedException
-  | c when c &&& 0b11100u = 0b11100u -> raise UnallocatedException
+  | 0b10001u -> unallocated ()
+  | 0b10011u -> unallocated ()
+  | 0b10101u -> unallocated ()
+  | 0b11001u -> unallocated ()
+  | 0b11011u -> unallocated ()
+  | c when c &&& 0b11100u = 0b11100u -> unallocated ()
   | 0b10000u when not isRm11111 -> Op.LD4, getVt4tPoXSnXm bin sizeQ110b, oSz
   | 0b10010u when not isRm11111 -> Op.LD1, getVt4tPoXSnXm bin resNone, oSz
   | 0b10100u when not isRm11111 -> Op.LD3, getVt3tPoXSnXm bin sizeQ110b, oSz
@@ -1180,108 +1172,105 @@ let parseAdvSIMDSingle bin =
   let cond = concat (extract bin 22u 21u) (extract bin 15u 10u) 6
   let oprSize = getOprSizeByQ bin
   match cond with (* L:R:opcode:S:size *)
-  | c when c &&& 0b10110000u = 0b00110000u -> raise UnallocatedException
+  | c when c &&& 0b10110000u = 0b00110000u -> unallocated ()
   | c when c &&& 0b11111000u = 0b00000000u ->
     Op.ST1, getVt1BidxMXSn bin, oprSize
   | c when c &&& 0b11111000u = 0b00001000u ->
     Op.ST3, getVt3BidxMXSn bin, oprSize
   | c when c &&& 0b11111001u = 0b00010000u ->
     Op.ST1, getVt1HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b00010001u ->
-    raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b00010001u -> unallocated ()
   | c when c &&& 0b11111001u = 0b00011000u ->
     Op.ST3, getVt3HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b00011001u ->
-    raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b00011001u -> unallocated ()
   | c when c &&& 0b11111011u = 0b00100000u ->
     Op.ST1, getVt1SidxMXSn bin, oprSize
-  | c when c &&& 0b11111010u = 0b00100010u ->
-    raise UnallocatedException
+  | c when c &&& 0b11111010u = 0b00100010u -> unallocated ()
   | 0b00100001u -> Op.ST1, getVt1DidxMXSn bin, oprSize
-  | 0b00100101u -> raise UnallocatedException
+  | 0b00100101u -> unallocated ()
   | c when c &&& 0b11111011u = 0b00101000u ->
     Op.ST3, getVt3SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b00101010u -> raise UnallocatedException
+  | c when c &&& 0b11111011u = 0b00101010u -> unallocated ()
   | 0b00101001u -> Op.ST3, getVt3DidxMXSn bin, oprSize
-  | 0b00101011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b00101101u -> raise UnallocatedException
+  | 0b00101011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b00101101u -> unallocated ()
   | c when c &&& 0b11111000u = 0b01000000u ->
     Op.ST2, getVt2BidxMXSn bin, oprSize
   | c when c &&& 0b11111000u = 0b01001000u ->
     Op.ST4, getVt4BidxMXSn bin, oprSize
   | c when c &&& 0b11111001u = 0b01010000u ->
     Op.ST2, getVt2HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b01010001u -> raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b01010001u -> unallocated ()
   | c when c &&& 0b11111001u = 0b01011000u ->
     Op.ST4, getVt4HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b01011001u -> raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b01011001u -> unallocated ()
   | c when c &&& 0b11111011u = 0b01100000u ->
     Op.ST2, getVt2SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b01100010u -> raise UnallocatedException
+  | c when c &&& 0b11111011u = 0b01100010u -> unallocated ()
   | 0b01100001u -> Op.ST2, getVt2DidxMXSn bin, oprSize
-  | 0b01100011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b01100101u -> raise UnallocatedException
+  | 0b01100011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b01100101u -> unallocated ()
   | c when c &&& 0b11111011u = 0b01101000u ->
     Op.ST4, getVt4SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b01101010u -> raise UnallocatedException
+  | c when c &&& 0b11111011u = 0b01101010u -> unallocated ()
   | 0b01101001u -> Op.ST4, getVt4DidxMXSn bin, oprSize
-  | 0b01101011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b01101101u -> raise UnallocatedException
+  | 0b01101011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b01101101u -> unallocated ()
   | c when c &&& 0b11111000u = 0b10000000u ->
     Op.LD1, getVt1BidxMXSn bin, oprSize
   | c when c &&& 0b11111000u = 0b10001000u ->
     Op.LD3, getVt3BidxMXSn bin, oprSize
   | c when c &&& 0b11111001u = 0b10010000u ->
     Op.LD1, getVt1HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b10010001u -> raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b10010001u -> unallocated ()
   | c when c &&& 0b11111001u = 0b10011000u ->
     Op.LD3, getVt3HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b10011001u -> raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b10011001u -> unallocated ()
   | c when c &&& 0b11111011u = 0b10100000u ->
     Op.LD1, getVt1SidxMXSn bin, oprSize
-  | c when c &&& 0b11111010u = 0b10100010u -> raise UnallocatedException
+  | c when c &&& 0b11111010u = 0b10100010u -> unallocated ()
   | 0b10100001u -> Op.LD1, getVt1DidxMXSn bin, oprSize
-  | 0b10100101u -> raise UnallocatedException
+  | 0b10100101u -> unallocated ()
   | c when c &&& 0b11111011u = 0b10101000u ->
     Op.LD3, getVt3SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b10101010u -> raise UnallocatedException
+  | c when c &&& 0b11111011u = 0b10101010u -> unallocated ()
   | 0b10101001u -> Op.LD3, getVt3DidxMXSn bin, oprSize
-  | 0b10101011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b10101101u -> raise UnallocatedException
+  | 0b10101011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b10101101u -> unallocated ()
   | c when c &&& 0b11111100u = 0b10110000u ->
     Op.LD1R, getVt1tMXSn bin resNone, oprSize
-  | c when c &&& 0b11111100u = 0b10110100u -> raise UnallocatedException
+  | c when c &&& 0b11111100u = 0b10110100u -> unallocated ()
   | c when c &&& 0b11111100u = 0b10111000u ->
     Op.LD3R, getVt3tMXSn bin resNone, oprSize
-  | c when c &&& 0b11111100u = 0b10111100u -> raise UnallocatedException
+  | c when c &&& 0b11111100u = 0b10111100u -> unallocated ()
   | c when c &&& 0b11111000u = 0b11000000u ->
     Op.LD2, getVt2BidxMXSn bin, oprSize
   | c when c &&& 0b11111000u = 0b11001000u ->
     Op.LD4, getVt4BidxMXSn bin, oprSize
   | c when c &&& 0b11111001u = 0b11010000u ->
     Op.LD2, getVt2HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b11010001u -> raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b11010001u -> unallocated ()
   | c when c &&& 0b11111001u = 0b11011000u ->
     Op.LD4, getVt4HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b11011001u -> raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b11011001u -> unallocated ()
   | c when c &&& 0b11111011u = 0b11100000u ->
     Op.LD2, getVt2SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b11100010u -> raise UnallocatedException
+  | c when c &&& 0b11111011u = 0b11100010u -> unallocated ()
   | 0b11100001u -> Op.LD2, getVt2DidxMXSn bin, oprSize
-  | 0b11100011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b11100101u -> raise UnallocatedException
+  | 0b11100011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b11100101u -> unallocated ()
   | c when c &&& 0b11111011u = 0b11101000u ->
     Op.LD4, getVt4SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b11101010u -> raise UnallocatedException
+  | c when c &&& 0b11111011u = 0b11101010u -> unallocated ()
   | 0b11101001u -> Op.LD4, getVt4DidxMXSn bin, oprSize
-  | 0b11101011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b11101101u -> raise UnallocatedException
+  | 0b11101011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b11101101u -> unallocated ()
   | c when c &&& 0b11111100u = 0b11110000u ->
     Op.LD2R, getVt2tMXSn bin resNone, oprSize
-  | c when c &&& 0b11111100u = 0b11110100u -> raise UnallocatedException
+  | c when c &&& 0b11111100u = 0b11110100u -> unallocated ()
   | c when c &&& 0b11111100u = 0b11111000u ->
     Op.LD4R, getVt4tMXSn bin resNone, oprSize
-  | c when c &&& 0b11111100u = 0b11111100u -> raise UnallocatedException
+  | c when c &&& 0b11111100u = 0b11111100u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Advanced SIMD load/store single structure (post-indexed) on page C4-286.
@@ -1290,14 +1279,14 @@ let parseAdvSIMDSinglePostIndexed bin =
   let isRm11111 = (extract bin 20u 16u) = 0b11111u
   let oprSize = getOprSizeByQ bin
   match cond with (* L:R:opcode:S:size *)
-  | c when c &&& 0b10110000u = 0b00110000u -> raise UnallocatedException
-  | c when c &&& 0b11111001u = 0b00010001u -> raise UnallocatedException
-  | c when c &&& 0b11111001u = 0b00011001u -> raise UnallocatedException
-  | c when c &&& 0b11111010u = 0b00100010u -> raise UnallocatedException
-  | c when c &&& 0b11111111u = 0b00100101u -> raise UnallocatedException
-  | c when c &&& 0b11111011u = 0b00101010u -> raise UnallocatedException
-  | c when c &&& 0b11111111u = 0b00101011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b00101101u -> raise UnallocatedException
+  | c when c &&& 0b10110000u = 0b00110000u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b00010001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b00011001u -> unallocated ()
+  | c when c &&& 0b11111010u = 0b00100010u -> unallocated ()
+  | c when c &&& 0b11111111u = 0b00100101u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b00101010u -> unallocated ()
+  | c when c &&& 0b11111111u = 0b00101011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b00101101u -> unallocated ()
   | c when c &&& 0b11111000u = 0b00000000u && not isRm11111 ->
     Op.ST1, getVt1BidxPoXSnXm bin, oprSize
   | c when c &&& 0b11111000u = 0b00001000u && not isRm11111 ->
@@ -1330,14 +1319,14 @@ let parseAdvSIMDSinglePostIndexed bin =
     Op.ST3, getVt3SidxPoXSnI12 bin, oprSize
   | c when c &&& 0b11111111u = 0b00101001u && isRm11111 ->
     Op.ST3, getVt3DidxPoXSnI24 bin, oprSize
-  | c when c &&& 0b11111001u = 0b01010001u -> raise UnallocatedException
-  | c when c &&& 0b11111001u = 0b01011001u -> raise UnallocatedException
-  | c when c &&& 0b11111011u = 0b01100010u -> raise UnallocatedException
-  | c when c &&& 0b11111111u = 0b01100011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b01100101u -> raise UnallocatedException
-  | c when c &&& 0b11111011u = 0b01101010u -> raise UnallocatedException
-  | c when c &&& 0b11111111u = 0b01101011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b01101101u -> raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b01010001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b01011001u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b01100010u -> unallocated ()
+  | c when c &&& 0b11111111u = 0b01100011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b01100101u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b01101010u -> unallocated ()
+  | c when c &&& 0b11111111u = 0b01101011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b01101101u -> unallocated ()
   | c when c &&& 0b11111000u = 0b01000000u && not isRm11111 ->
     Op.ST2, getVt2BidxPoXSnXm bin, oprSize
   | c when c &&& 0b11111000u = 0b01001000u && not isRm11111 ->
@@ -1370,15 +1359,15 @@ let parseAdvSIMDSinglePostIndexed bin =
     Op.ST4, getVt4SidxPoXSnI16 bin, oprSize
   | c when c &&& 0b11111111u = 0b01101001u && isRm11111 ->
     Op.ST4, getVt4DidxPoXSnI32 bin, oprSize
-  | c when c &&& 0b11111001u = 0b10010001u -> raise UnallocatedException
-  | c when c &&& 0b11111001u = 0b10011001u -> raise UnallocatedException
-  | c when c &&& 0b11111010u = 0b10100010u -> raise UnallocatedException
-  | c when c &&& 0b11111111u = 0b10100101u -> raise UnallocatedException
-  | c when c &&& 0b11111011u = 0b10101010u -> raise UnallocatedException
-  | c when c &&& 0b11111111u = 0b10101011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b10101101u -> raise UnallocatedException
-  | c when c &&& 0b11111100u = 0b10110100u -> raise UnallocatedException
-  | c when c &&& 0b11111100u = 0b10111100u -> raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b10010001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b10011001u -> unallocated ()
+  | c when c &&& 0b11111010u = 0b10100010u -> unallocated ()
+  | c when c &&& 0b11111111u = 0b10100101u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b10101010u -> unallocated ()
+  | c when c &&& 0b11111111u = 0b10101011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b10101101u -> unallocated ()
+  | c when c &&& 0b11111100u = 0b10110100u -> unallocated ()
+  | c when c &&& 0b11111100u = 0b10111100u -> unallocated ()
   | c when c &&& 0b11111000u = 0b10000000u && not isRm11111 ->
     Op.LD1, getVt1BidxPoXSnXm bin, oprSize
   | c when c &&& 0b11111000u = 0b10001000u && not isRm11111 ->
@@ -1419,16 +1408,16 @@ let parseAdvSIMDSinglePostIndexed bin =
     Op.LD1R, getVt1tPoXSnImm2 bin, oprSize
   | c when c &&& 0b11111100u = 0b10111000u && isRm11111 ->
     Op.LD3R, getVt3tPoXSnImm2 bin, oprSize
-  | c when c &&& 0b11111001u = 0b11010001u -> raise UnallocatedException
-  | c when c &&& 0b11111001u = 0b11011001u -> raise UnallocatedException
-  | c when c &&& 0b11111011u = 0b11100010u -> raise UnallocatedException
-  | c when c &&& 0b11111111u = 0b11100011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b11100101u -> raise UnallocatedException
-  | c when c &&& 0b11111011u = 0b11101010u -> raise UnallocatedException
-  | c when c &&& 0b11111111u = 0b11101011u -> raise UnallocatedException
-  | c when c &&& 0b11111101u = 0b11101101u -> raise UnallocatedException
-  | c when c &&& 0b11111100u = 0b11110100u -> raise UnallocatedException
-  | c when c &&& 0b11111100u = 0b11111100u -> raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b11010001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b11011001u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b11100010u -> unallocated ()
+  | c when c &&& 0b11111111u = 0b11100011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b11100101u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b11101010u -> unallocated ()
+  | c when c &&& 0b11111111u = 0b11101011u -> unallocated ()
+  | c when c &&& 0b11111101u = 0b11101101u -> unallocated ()
+  | c when c &&& 0b11111100u = 0b11110100u -> unallocated ()
+  | c when c &&& 0b11111100u = 0b11111100u -> unallocated ()
   | c when c &&& 0b11111000u = 0b11000000u && not isRm11111 ->
     Op.LD2, getVt2BidxPoXSnXm bin, oprSize
   | c when c &&& 0b11111000u = 0b11001000u && not isRm11111 ->
@@ -1482,7 +1471,7 @@ let parseLoadRegLiteral bin =
   | 0b100u -> Op.LDRSW, getXtLabel bin, 64<rt>
   | 0b101u -> Op.LDR, getQtLabel bin, 128<rt>
   | 0b110u -> Op.PRFM, getPrfopImm5Label bin, 64<rt>
-  | 0b111u -> raise UnallocatedException
+  | 0b111u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreExclusive bin =
@@ -1490,12 +1479,9 @@ let parseLoadStoreExclusive bin =
                     (pickBit bin 15u) 1 (* size:o2:L:o1:o0 *)
   let rt2 = extract bin 14u 10u
   match cond with
-  | c when c &&& 0b001011u = 0b001000u (* FEAT_LOR *) ->
-    raise UnallocatedException
-  | c when c &&& 0b001010u = 0b001010u && rt2 <> 0b11111u ->
-    raise UnallocatedException
-  | c when c &&& 0b100010u = 0b000010u && rt2 <> 0b11111u ->
-    raise UnallocatedException
+  | c when c &&& 0b001011u = 0b001000u (* FEAT_LOR *) -> unallocated ()
+  | c when c &&& 0b001010u = 0b001010u && rt2 <> 0b11111u -> unallocated ()
+  | c when c &&& 0b100010u = 0b000010u && rt2 <> 0b11111u -> unallocated ()
   | 0b000000u -> Op.STXRB, getWsWtMXSn bin, 32<rt>
   | 0b000001u -> Op.STLXRB, getWsWtMXSn bin, 32<rt>
   | 0b000100u -> Op.LDXRB, getWtMXSn bin, 32<rt>
@@ -1546,21 +1532,21 @@ let parseLoadStoreNoAllocatePairOffset bin =
   | 0b0001u -> Op.LDNP, getWt1Wt2BIXSnimm bin 2, 32<rt>
   | 0b0010u -> Op.STNP, getSt1St2BIXSnimm bin 2, 32<rt>
   | 0b0011u -> Op.LDNP, getSt1St2BIXSnimm bin 2, 32<rt>
-  | c when c &&& 0b1110u = 0b0100u -> raise UnallocatedException
+  | c when c &&& 0b1110u = 0b0100u -> unallocated ()
   | 0b0110u -> Op.STNP, getDt1Dt2BIXSnimm bin 3, 64<rt>
   | 0b0111u -> Op.LDNP, getDt1Dt2BIXSnimm bin 3, 64<rt>
   | 0b1000u -> Op.STNP, getXt1Xt2BIXSnimm bin 3, 64<rt>
   | 0b1001u -> Op.LDNP, getXt1Xt2BIXSnimm bin 3, 64<rt>
   | 0b1010u -> Op.STNP, getQt1Qt2BIXSnimm bin 4, 128<rt>
   | 0b1011u -> Op.LDNP, getQt1Qt2BIXSnimm bin 4, 128<rt>
-  | c when c &&& 0b1100u = 0b1100u -> raise UnallocatedException
+  | c when c &&& 0b1100u = 0b1100u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegImmPostIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
                     (extract bin 23u 22u) 2 (* size:V:opc *)
   match cond with
-  | c when c &&& 0b01110u = 0b01110u -> raise UnallocatedException
+  | c when c &&& 0b01110u = 0b01110u -> unallocated ()
   | 0b00000u -> Op.STRB, getWtPoXSnsimm bin, 32<rt>
   | 0b00001u -> Op.LDRB, getWtPoXSnsimm bin, 32<rt>
   | 0b00010u -> Op.LDRSB, getXtPoXSnsimm bin, 64<rt>
@@ -1575,8 +1561,8 @@ let parseLoadStoreRegImmPostIndexed bin =
   | 0b01011u -> Op.LDRSH, getWtPoXSnsimm bin, 32<rt>
   | 0b01100u -> Op.STR, getHtPoXSnsimm bin, 16<rt>
   | 0b01101u -> Op.LDR, getHtPoXSnsimm bin, 16<rt>
-  | c when c &&& 0b10111u = 0b10011u -> raise UnallocatedException
-  | c when c &&& 0b10110u = 0b10110u -> raise UnallocatedException
+  | c when c &&& 0b10111u = 0b10011u -> unallocated ()
+  | c when c &&& 0b10110u = 0b10110u -> unallocated ()
   | 0b10000u -> Op.STR, getWtPoXSnsimm bin, 32<rt>
   | 0b10001u -> Op.LDR, getWtPoXSnsimm bin, 32<rt>
   | 0b10010u -> Op.LDRSW, getXtPoXSnsimm bin, 64<rt>
@@ -1584,7 +1570,7 @@ let parseLoadStoreRegImmPostIndexed bin =
   | 0b10101u -> Op.LDR, getStPoXSnsimm bin, 32<rt>
   | 0b11000u -> Op.STR, getXtPoXSnsimm bin, 64<rt>
   | 0b11001u -> Op.LDR, getXtPoXSnsimm bin, 64<rt>
-  | 0b11010u -> raise UnallocatedException
+  | 0b11010u -> unallocated ()
   | 0b11100u -> Op.STR, getDtPoXSnsimm bin, 64<rt>
   | 0b11101u -> Op.LDR, getDtPoXSnsimm bin, 64<rt>
   | _ -> raise InvalidOpcodeException
@@ -1593,7 +1579,7 @@ let parseLoadStoreRegImmPreIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
                     (extract bin 23u 22u) 2 (* size:V:opc *)
   match cond with
-  | c when c &&& 0b01110u = 0b01110u -> raise UnallocatedException
+  | c when c &&& 0b01110u = 0b01110u -> unallocated ()
   | 0b00000u -> Op.STRB, getWtPrXSnsimm bin, 32<rt>
   | 0b00001u -> Op.LDRB, getWtPrXSnsimm bin, 32<rt>
   | 0b00010u -> Op.LDRSB, getXtPrXSnsimm bin, 64<rt>
@@ -1608,8 +1594,8 @@ let parseLoadStoreRegImmPreIndexed bin =
   | 0b01011u -> Op.LDRSH, getWtPrXSnsimm bin, 32<rt>
   | 0b01100u -> Op.STR, getHtPrXSnsimm bin, 16<rt>
   | 0b01101u -> Op.LDR, getHtPrXSnsimm bin, 16<rt>
-  | c when c &&& 0b10111u = 0b10011u -> raise UnallocatedException
-  | c when c &&& 0b10110u = 0b10110u -> raise UnallocatedException
+  | c when c &&& 0b10111u = 0b10011u -> unallocated ()
+  | c when c &&& 0b10110u = 0b10110u -> unallocated ()
   | 0b10000u -> Op.STR, getWtPrXSnsimm bin, 32<rt>
   | 0b10001u -> Op.LDR, getWtPrXSnsimm bin, 32<rt>
   | 0b10010u -> Op.LDRSW, getXtPrXSnsimm bin, 64<rt>
@@ -1617,7 +1603,7 @@ let parseLoadStoreRegImmPreIndexed bin =
   | 0b10101u -> Op.LDR, getStPrXSnsimm bin, 32<rt>
   | 0b11100u -> Op.STR, getDtPrXSnsimm bin, 64<rt>
   | 0b11101u -> Op.LDR, getDtPrXSnsimm bin, 64<rt>
-  | 0b11010u -> raise UnallocatedException
+  | 0b11010u -> unallocated ()
   | 0b11000u -> Op.STR, getXtPrXSnsimm bin, 64<rt>
   | 0b11001u -> Op.LDR, getXtPrXSnsimm bin, 64<rt>
   | _ -> raise InvalidOpcodeException
@@ -1628,9 +1614,9 @@ let parseLoadStoreRegOffset bin =
                     (extract bin 23u 22u) 2
   let option = extract bin 15u 13u
   let isOption011 = option = 0b011u
-  if option &&& 0b010u = 0b000u then raise UnallocatedException else ()
+  if option &&& 0b010u = 0b000u then unallocated () else ()
   match cond with (* size:V:opc *)
-  | c when c &&& 0b01110u = 0b01110u -> raise UnallocatedException
+  | c when c &&& 0b01110u = 0b01110u -> unallocated ()
   | 0b00000u when not isOption011 -> Op.STRB, getWtBEXSnrmamt bin 0L, 32<rt>
   | 0b00000u when isOption011 -> Op.STRB, getWtBRXSnxmamt bin, 32<rt>
   | 0b00001u when not isOption011 -> Op.LDRB, getWtBEXSnrmamt bin 0L, 32<rt>
@@ -1653,8 +1639,8 @@ let parseLoadStoreRegOffset bin =
   | 0b01011u -> Op.LDRSH, getWtBEXSnrmamt bin 1L, 32<rt>
   | 0b01100u -> Op.STR, getHtBEXSnrmamt bin, 16<rt>
   | 0b01101u -> Op.LDR, getHtBEXSnrmamt bin, 16<rt>
-  | c when c &&& 0b10111u = 0b10011u -> raise UnallocatedException
-  | c when c &&& 0b10110u = 0b10110u -> raise UnallocatedException
+  | c when c &&& 0b10111u = 0b10011u -> unallocated ()
+  | c when c &&& 0b10110u = 0b10110u -> unallocated ()
   | 0b10000u -> Op.STR, getWtBEXSnrmamt bin 2L, 32<rt>
   | 0b10001u -> Op.LDR, getWtBEXSnrmamt bin 2L, 32<rt>
   | 0b10010u -> Op.LDRSW, getXtBEXSnrmamt bin 2L, 64<rt>
@@ -1671,7 +1657,7 @@ let parseLoadStoreRegUnprivileged bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
                     (extract bin 23u 22u) 2 (* size:V:opc *)
   match cond with
-  | c when c &&& 0b00100u = 0b00100u -> raise UnallocatedException
+  | c when c &&& 0b00100u = 0b00100u -> unallocated ()
   | 0b00000u -> Op.STTRB, getWtBIXSnsimm bin, 32<rt>
   | 0b00001u -> Op.LDTRB, getWtBIXSnsimm bin, 32<rt>
   | 0b00010u -> Op.LDTRSB, getXtBIXSnsimm bin, 64<rt>
@@ -1680,13 +1666,13 @@ let parseLoadStoreRegUnprivileged bin =
   | 0b01001u -> Op.LDTRH, getWtBIXSnsimm bin, 32<rt>
   | 0b01010u -> Op.LDTRSH, getXtBIXSnsimm bin, 64<rt>
   | 0b01011u -> Op.LDTRSH, getWtBIXSnsimm bin, 32<rt>
-  | c when c &&& 0b10111u = 0b10011u -> raise UnallocatedException
+  | c when c &&& 0b10111u = 0b10011u -> unallocated ()
   | 0b10000u -> Op.STTR, getWtBIXSnsimm bin, 32<rt>
   | 0b10001u -> Op.LDTR, getWtBIXSnsimm bin, 32<rt>
   | 0b10010u -> Op.LDTRSW, getXtBIXSnsimm bin, 64<rt>
   | 0b11000u -> Op.STTR, getXtBIXSnsimm bin, 64<rt>
   | 0b11001u -> Op.LDTR, getXtBIXSnsimm bin, 64<rt>
-  | 0b11010u -> raise UnallocatedException
+  | 0b11010u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Load/store register (unscaled immediate) on page C4-296.
@@ -1694,7 +1680,7 @@ let parseLoadStoreRegUnscaledImm bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
                     (extract bin 23u 22u) 2 (* size:V:opc *)
   match cond with
-  | c when c &&& 0b01110u = 0b01110u -> raise UnallocatedException
+  | c when c &&& 0b01110u = 0b01110u -> unallocated ()
   | 0b00000u -> Op.STURB, getWtBIXSnsimm bin, 32<rt>
   | 0b00001u -> Op.LDURB, getWtBIXSnsimm bin, 32<rt>
   | 0b00010u -> Op.LDURSB, getXtBIXSnsimm bin, 64<rt>
@@ -1709,8 +1695,8 @@ let parseLoadStoreRegUnscaledImm bin =
   | 0b01011u -> Op.LDURSH, getWtBIXSnsimm bin, 32<rt>
   | 0b01100u -> Op.STUR, getHtBIXSnsimm bin, 16<rt>
   | 0b01101u -> Op.LDUR, getHtBIXSnsimm bin, 16<rt>
-  | c when c &&& 0b10111u = 0b10011u -> raise UnallocatedException
-  | c when c &&& 0b10110u = 0b10110u -> raise UnallocatedException
+  | c when c &&& 0b10111u = 0b10011u -> unallocated ()
+  | c when c &&& 0b10110u = 0b10110u -> unallocated ()
   | 0b10000u -> Op.STUR, getWtBIXSnsimm bin, 32<rt>
   | 0b10001u -> Op.LDUR, getWtBIXSnsimm bin, 32<rt>
   | 0b10010u -> Op.LDURSW, getXtBIXSnsimm bin, 64<rt>
@@ -1727,7 +1713,7 @@ let parseLoadStoreRegUnsignedImm bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
                     (extract bin 23u 22u) 2 (* size:V:opc *)
   match cond with
-  | c when c &&& 0b01110u = 0b01110u -> raise UnallocatedException
+  | c when c &&& 0b01110u = 0b01110u -> unallocated ()
   | 0b00000u -> Op.STRB, getWtBIXSnpimm bin 1u, 8<rt>
   | 0b00001u -> Op.LDRB, getWtBIXSnpimm bin 1u, 32<rt>
   | 0b00010u -> Op.LDRSB, getXtBIXSnpimm bin 1u, 64<rt>
@@ -1742,8 +1728,8 @@ let parseLoadStoreRegUnsignedImm bin =
   | 0b01011u -> Op.LDRSH, getWtBIXSnpimm bin 2u, 32<rt>
   | 0b01100u -> Op.STR, getHtBIXSnpimm bin, 16<rt>
   | 0b01101u -> Op.LDR, getHtBIXSnpimm bin, 16<rt>
-  | c when c &&& 0b10111u = 0b10011u -> raise UnallocatedException
-  | c when c &&& 0b10110u = 0b10110u -> raise UnallocatedException
+  | c when c &&& 0b10111u = 0b10011u -> unallocated ()
+  | c when c &&& 0b10110u = 0b10110u -> unallocated ()
   | 0b10000u -> Op.STR, getWtBIXSnpimm bin 4u, 32<rt>
   | 0b10001u -> Op.LDR, getWtBIXSnpimm bin 4u, 32<rt>
   | 0b10010u -> Op.LDRSW, getXtBIXSnpimm bin 4u, 64<rt>
@@ -1764,7 +1750,7 @@ let parseLoadStoreRegPairOffset bin =
   | 0b0001u -> Op.LDP, getWt1Wt2BIXSnimm bin 2, 32<rt>
   | 0b0010u -> Op.STP, getSt1St2BIXSnimm bin 2, 32<rt>
   | 0b0011u -> Op.LDP, getSt1St2BIXSnimm bin 2, 32<rt>
-  | 0b0100u -> raise UnallocatedException
+  | 0b0100u -> unallocated ()
   | 0b0101u -> Op.LDPSW, getXt1Xt2BIXSnimm bin 2, 64<rt>
   | 0b0110u -> Op.STP, getDt1Dt2BIXSnimm bin 3, 64<rt>
   | 0b0111u -> Op.LDP, getDt1Dt2BIXSnimm bin 3, 64<rt>
@@ -1772,7 +1758,7 @@ let parseLoadStoreRegPairOffset bin =
   | 0b1001u -> Op.LDP, getXt1Xt2BIXSnimm bin 3, 64<rt>
   | 0b1010u -> Op.STP, getQt1Qt2BIXSnimm bin 4, 128<rt>
   | 0b1011u -> Op.LDP, getQt1Qt2BIXSnimm bin 4, 128<rt>
-  | c when c &&& 0b1100u = 0b1100u -> raise UnallocatedException
+  | c when c &&& 0b1100u = 0b1100u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegPairPostIndexed bin =
@@ -1783,7 +1769,7 @@ let parseLoadStoreRegPairPostIndexed bin =
   | 0b0001u -> Op.LDP, getWt1Wt2PoXSnimm bin, 32<rt>
   | 0b0010u -> Op.STP, getSt1St2PoXSnimm bin, 32<rt>
   | 0b0011u -> Op.LDP, getSt1St2PoXSnimm bin, 32<rt>
-  | 0b0100u -> raise UnallocatedException
+  | 0b0100u -> unallocated ()
   | 0b0101u -> Op.LDPSW, getXt1Xt2PoXSnimm bin 2, 64<rt>
   | 0b0110u -> Op.STP, getDt1Dt2PoXSnimm bin, 64<rt>
   | 0b0111u -> Op.LDP, getDt1Dt2PoXSnimm bin, 64<rt>
@@ -1791,7 +1777,7 @@ let parseLoadStoreRegPairPostIndexed bin =
   | 0b1001u -> Op.LDP, getXt1Xt2PoXSnimm bin 3, 64<rt>
   | 0b1010u -> Op.STP, getQt1Qt2PoXSnimm bin, 128<rt>
   | 0b1011u -> Op.LDP, getQt1Qt2PoXSnimm bin, 128<rt>
-  | c when c &&& 0b1100u = 0b1100u -> raise UnallocatedException
+  | c when c &&& 0b1100u = 0b1100u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 let parseLoadStoreRegPairPreIndexed bin =
@@ -1802,7 +1788,7 @@ let parseLoadStoreRegPairPreIndexed bin =
   | 0b0001u -> Op.LDP, getWt1Wt2PrXSnimm bin, 32<rt>
   | 0b0010u -> Op.STP, getSt1St2PrXSnimm bin, 32<rt>
   | 0b0011u -> Op.LDP, getSt1St2PrXSnimm bin, 32<rt>
-  | 0b0100u -> raise UnallocatedException
+  | 0b0100u -> unallocated ()
   | 0b0101u -> Op.LDPSW, getXt1Xt2PrXSnimm bin 2, 64<rt>
   | 0b0110u -> Op.STP, getDt1Dt2PrXSnimm bin, 64<rt>
   | 0b0111u -> Op.LDP, getDt1Dt2PrXSnimm bin, 64<rt>
@@ -1810,7 +1796,7 @@ let parseLoadStoreRegPairPreIndexed bin =
   | 0b1001u -> Op.LDP, getXt1Xt2PrXSnimm bin 3, 64<rt>
   | 0b1010u -> Op.STP, getQt1Qt2PrXSnimm bin, 128<rt>
   | 0b1011u -> Op.LDP, getQt1Qt2PrXSnimm bin, 128<rt>
-  | c when c &&& 0b1100u = 0b1100u -> raise UnallocatedException
+  | c when c &&& 0b1100u = 0b1100u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Loads and stores
@@ -1827,32 +1813,23 @@ let parse64Group3 bin =
   | c when c &&& 0b11111111111100u = 0b00010000000000u -> parseAdvSIMDMul bin
   | c when c &&& 0b11111110000000u = 0b00010100000000u ->
     parseAdvSIMDMulPostIndexed bin
-  | c when c &&& 0b11111010000000u = 0b00010010000000u ->
-    raise UnallocatedException
+  | c when c &&& 0b11111010000000u = 0b00010010000000u -> unallocated ()
   | c when c &&& 0b11111101111100u = 0b00011000000000u ->
     parseAdvSIMDSingle bin
   | c when c &&& 0b11111100000000u = 0b00011100000000u ->
     parseAdvSIMDSinglePostIndexed bin
-  | c when c &&& 0b11110101000000u = 0b00010001000000u ->
-    raise UnallocatedException
-  | c when c &&& 0b11110100100000u = 0b00010000100000u ->
-    raise UnallocatedException
-  | c when c &&& 0b11110100010000u = 0b00010000010000u ->
-    raise UnallocatedException
-  | c when c &&& 0b11110100001000u = 0b00010000001000u ->
-    raise UnallocatedException
-  | c when c &&& 0b11110100000100u = 0b00010000000100u ->
-    raise UnallocatedException
-  | c when c &&& 0b11110000000000u = 0b10010000000000u ->
-    raise UnallocatedException
+  | c when c &&& 0b11110101000000u = 0b00010001000000u -> unallocated ()
+  | c when c &&& 0b11110100100000u = 0b00010000100000u -> unallocated ()
+  | c when c &&& 0b11110100010000u = 0b00010000010000u -> unallocated ()
+  | c when c &&& 0b11110100001000u = 0b00010000001000u -> unallocated ()
+  | c when c &&& 0b11110100000100u = 0b00010000000100u -> unallocated ()
+  | c when c &&& 0b11110000000000u = 0b10010000000000u -> unallocated ()
   | c when c &&& 0b01111000000000u = 0b00000000000000u ->
     parseLoadStoreExclusive bin
-  | c when c &&& 0b01111000000000u = 0b00001000000000u ->
-    raise UnallocatedException
+  | c when c &&& 0b01111000000000u = 0b00001000000000u -> unallocated ()
   | c when c &&& 0b01101000000000u = 0b00100000000000u ->
     parseLoadRegLiteral bin
-  | c when c &&& 0b01101000000000u = 0b00101000000000u ->
-    raise UnallocatedException
+  | c when c &&& 0b01101000000000u = 0b00101000000000u -> unallocated ()
   | c when c &&& 0b01101100000000u = 0b01000000000000u ->
     parseLoadStoreNoAllocatePairOffset bin
   | c when c &&& 0b01101100000000u = 0b01000100000000u ->
@@ -1869,14 +1846,11 @@ let parse64Group3 bin =
     parseLoadStoreRegUnprivileged bin
   | c when c &&& 0b01101010000011u = 0b01100000000011u ->
     parseLoadStoreRegImmPreIndexed bin
-  | c when c &&& 0b01101010000011u = 0b01100010000000u ->
-    raise UnallocatedException
-  | c when c &&& 0b01101010000011u = 0b01100010000001u ->
-    raise UnallocatedException
+  | c when c &&& 0b01101010000011u = 0b01100010000000u -> unallocated ()
+  | c when c &&& 0b01101010000011u = 0b01100010000001u -> unallocated ()
   | c when c &&& 0b01101010000011u = 0b01100010000010u ->
     parseLoadStoreRegOffset bin
-  | c when c &&& 0b01101010000011u = 0b01100010000011u ->
-    raise UnallocatedException
+  | c when c &&& 0b01101010000011u = 0b01100010000011u -> unallocated ()
   | c when c &&& 0b01101000000000u = 0b01101000000000u ->
     parseLoadStoreRegUnsignedImm bin
   | _ -> raise InvalidOpcodeException
@@ -1892,19 +1866,19 @@ let parseDataProcessing2Src bin =
   let cond = concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
                     (extract bin 15u 10u) 6  (* sf:S:opcode *)
   match cond with
-  | c when c &&& 0b00111110u = 0b00000000u -> raise UnallocatedException
-  | c when c &&& 0b00111000u = 0b00011000u -> raise UnallocatedException
-  | c when c &&& 0b00100000u = 0b00100000u -> raise UnallocatedException
-  | c when c &&& 0b01111100u = 0b00000100u -> raise UnallocatedException
-  | c when c &&& 0b01111100u = 0b00001100u -> raise UnallocatedException
-  | c when c &&& 0b01000000u = 0b01000000u -> raise UnallocatedException
+  | c when c &&& 0b00111110u = 0b00000000u -> unallocated ()
+  | c when c &&& 0b00111000u = 0b00011000u -> unallocated ()
+  | c when c &&& 0b00100000u = 0b00100000u -> unallocated ()
+  | c when c &&& 0b01111100u = 0b00000100u -> unallocated ()
+  | c when c &&& 0b01111100u = 0b00001100u -> unallocated ()
+  | c when c &&& 0b01000000u = 0b01000000u -> unallocated ()
   | 0b00000010u -> Op.UDIV, getWdWnWm bin, 32<rt>
   | 0b00000011u -> Op.SDIV, getWdWnWm bin, 32<rt>
   | 0b00001000u -> toAliasFromLSLV Op.LSLV, getWdWnWm bin, 32<rt>
   | 0b00001001u -> toAliasFromLSRV Op.LSRV, getWdWnWm bin, 32<rt>
   | 0b00001010u -> toAliasFromASRV Op.ASRV, getWdWnWm bin, 32<rt>
   | 0b00001011u -> Op.RORV, getWdWnWm bin, 32<rt>
-  | c when c &&& 0b11111011u = 0b00010011u -> raise UnallocatedException
+  | c when c &&& 0b11111011u = 0b00010011u -> unallocated ()
   | 0b00010000u -> Op.CRC32B, getWdWnWm bin, 32<rt>
   | 0b00010001u -> Op.CRC32H, getWdWnWm bin, 32<rt>
   | 0b00010010u -> Op.CRC32W, getWdWnWm bin, 32<rt>
@@ -1917,8 +1891,8 @@ let parseDataProcessing2Src bin =
   | 0b10001001u -> toAliasFromLSRV Op.LSRV, getXdXnXm bin, 64<rt>
   | 0b10001010u -> toAliasFromASRV Op.ASRV, getXdXnXm bin, 64<rt>
   | 0b10001011u -> Op.RORV, getXdXnXm bin, 64<rt>
-  | c when c &&& 0b11111001u = 0b10010000u -> raise UnallocatedException
-  | c when c &&& 0b11111010u = 0b10010000u -> raise UnallocatedException
+  | c when c &&& 0b11111001u = 0b10010000u -> unallocated ()
+  | c when c &&& 0b11111010u = 0b10010000u -> unallocated ()
   | 0b10010011u -> Op.CRC32X, getWdWnXm bin, 32<rt>
   | 0b10010111u -> Op.CRC32CX, getWdWnXm bin, 32<rt>
   | _ -> raise InvalidOpcodeException
@@ -1928,19 +1902,18 @@ let parseDataProcessing2Src bin =
 let parseDataProcessing1Src bin =
   let cond = concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
                     (extract bin 20u 10u) 11 (* sf:S:opcode2:opcode *)
-  let r = raise
   match cond with
-  | c when c &&& 0b0000000001000u = 0b0000000001000u -> r UnallocatedException
-  | c when c &&& 0b0000000010000u = 0b0000000010000u -> r UnallocatedException
-  | c when c &&& 0b0000000100000u = 0b0000000100000u -> r UnallocatedException
-  | c when c &&& 0b0000001000000u = 0b0000001000000u -> r UnallocatedException
-  | 0b0000000001001u | 0b1000000001001u -> r UnallocatedException
-  | c when c &&& 0b0111111111110u = 0b0000000001010u -> r UnallocatedException
-  | c when c &&& 0b0111111111100u = 0b0000000001100u -> r UnallocatedException
-  | c when c &&& 0b0111111110000u = 0b0000000010000u -> r UnallocatedException
-  | c when c &&& 0b0010000000000u = 0b0010000000000u -> r UnallocatedException
-  | c when c &&& 0b0100000000000u = 0b0100000000000u -> r UnallocatedException
-  | c when c &&& 0b1011111000000u = 0b0000001000000u -> r UnallocatedException
+  | c when c &&& 0b0000000001000u = 0b0000000001000u -> unallocated ()
+  | c when c &&& 0b0000000010000u = 0b0000000010000u -> unallocated ()
+  | c when c &&& 0b0000000100000u = 0b0000000100000u -> unallocated ()
+  | c when c &&& 0b0000001000000u = 0b0000001000000u -> unallocated ()
+  | 0b0000000001001u | 0b1000000001001u -> unallocated ()
+  | c when c &&& 0b0111111111110u = 0b0000000001010u -> unallocated ()
+  | c when c &&& 0b0111111111100u = 0b0000000001100u -> unallocated ()
+  | c when c &&& 0b0111111110000u = 0b0000000010000u -> unallocated ()
+  | c when c &&& 0b0010000000000u = 0b0010000000000u -> unallocated ()
+  | c when c &&& 0b0100000000000u = 0b0100000000000u -> unallocated ()
+  | c when c &&& 0b1011111000000u = 0b0000001000000u -> unallocated ()
   | 0b0000000000000u -> Op.RBIT, getWdWn bin, 32<rt>
   | 0b0000000000001u -> Op.REV16, getWdWn bin, 32<rt>
   | 0b0000000000010u -> Op.REV, getWdWn bin, 32<rt>
@@ -1975,7 +1948,7 @@ let parseLogicalShiftedReg bin =
   let imm6 = extract bin 15u 10u
   match cond with
   | c when c &&& 0b1000u = 0b0000u && imm6 &&& 0b100000u = 0b100000u ->
-    raise UnallocatedException
+    unallocated ()
   | 0b0000u -> Op.AND, getWdWnWmShfamt bin, 32<rt>
   | 0b0001u -> Op.BIC, getWdWnWmShfamt bin, 32<rt>
   | 0b0010u -> Op.ORR, getWdWnWmShfamt bin, 32<rt>
@@ -1997,21 +1970,21 @@ let parseLogicalShiftedReg bin =
 
 let changeToAliasOfAddSubShiftReg bin instr =
   match instr with
-  | Op.ADDS, FourOperands(_, rn, rm, shf), oprSize when valD bin = 0b11111u
-    -> Op.CMN, ThreeOperands(rn, rm, shf), oprSize
-  | Op.SUB, FourOperands(rd, _, rm, shf), oprSize when valN bin = 0b11111u
-    -> Op.NEG, ThreeOperands(rd, rm, shf), oprSize
-  | Op.SUBS, FourOperands(_, rn, rm, shf), oprSize when valD bin = 0b11111u
-    -> Op.CMP, ThreeOperands(rn, rm, shf), oprSize
-  | Op.SUBS, FourOperands(rd, _, rm, shf), oprSize when valN bin = 0b11111u
-    -> Op.NEGS, ThreeOperands(rd, rm, shf), oprSize
+  | Op.ADDS, FourOperands(_, rn, rm, shf), oprSize when valD bin = 0b11111u ->
+    Op.CMN, ThreeOperands(rn, rm, shf), oprSize
+  | Op.SUB, FourOperands(rd, _, rm, shf), oprSize when valN bin = 0b11111u ->
+    Op.NEG, ThreeOperands(rd, rm, shf), oprSize
+  | Op.SUBS, FourOperands(_, rn, rm, shf), oprSize when valD bin = 0b11111u ->
+    Op.CMP, ThreeOperands(rn, rm, shf), oprSize
+  | Op.SUBS, FourOperands(rd, _, rm, shf), oprSize when valN bin = 0b11111u ->
+    Op.NEGS, ThreeOperands(rd, rm, shf), oprSize
   | _ -> instr
 
 let parseAddSubShiftReg bin =
-  if valShift bin = 0b11u then raise UnallocatedException else ()
+  if valShift bin = 0b11u then unallocated () else ()
   match extract bin 31u 29u with
   | c when c &&& 0b100u = 0b000u && imm6 bin &&& 0b100000u = 0b100000u ->
-    raise UnallocatedException
+    unallocated ()
   | 0b000u -> Op.ADD, getWdWnWmShfamt bin, 32<rt>
   | 0b001u -> Op.ADDS, getWdWnWmShfamt bin, 32<rt>
   | 0b010u -> Op.SUB, getWdWnWmShfamt bin, 32<rt>
@@ -2024,20 +1997,20 @@ let parseAddSubShiftReg bin =
   |> changeToAliasOfAddSubShiftReg bin
 
 let changeToAliasOfExtReg bin = function
-  | Op.ADDS, FourOperands(_, rn, rm, ext), oprSize when valD bin = 0b11111u
-    -> Op.CMN, ThreeOperands(rn, rm, ext), oprSize
-  | Op.SUBS, FourOperands(_, rn, rm, ext), oprSize when valD bin = 0b11111u
-    -> Op.CMP, ThreeOperands(rn, rm, ext), oprSize
+  | Op.ADDS, FourOperands(_, rn, rm, ext), oprSize when valD bin = 0b11111u ->
+    Op.CMN, ThreeOperands(rn, rm, ext), oprSize
+  | Op.SUBS, FourOperands(_, rn, rm, ext), oprSize when valD bin = 0b11111u ->
+    Op.CMP, ThreeOperands(rn, rm, ext), oprSize
   | instr -> instr
 
 let parseAddSubExtReg bin =
   let imm3 = extract bin 12u 10u
-  if imm3 &&& 0b101u = 0b101u || imm3 &&& 0b110u = 0b110u then
-    raise UnallocatedException
+  if imm3 &&& 0b101u = 0b101u || imm3 &&& 0b110u = 0b110u then unallocated ()
+  else ()
   let cond = concat (extract bin 31u 29u) (extract bin 23u 22u) 2
   match cond with (* sf:op:S:opt *)
   | c when c &&& 0b00001u = 0b00001u || c &&& 0b00010u = 0b00010u ->
-    raise UnallocatedException
+    unallocated ()
   | 0b00000u -> Op.ADD, getWSdWSnWmExtamt bin, 32<rt>
   | 0b00100u -> Op.ADDS, getWSdWSnWmExtamt bin, 32<rt>
   | 0b01000u -> Op.SUB, getWSdWSnWmExtamt bin, 32<rt>
@@ -2050,22 +2023,20 @@ let parseAddSubExtReg bin =
   |> changeToAliasOfExtReg bin
 
 let changeToAliasOfWithCarry = function
-  | Op.SBC, ThreeOperands(rd, _, rm), oSz ->
-    Op.NGC, TwoOperands(rd, rm), oSz
-  | Op.SBCS, ThreeOperands(rd, _, rm), oSz ->
-    Op.NGCS, TwoOperands(rd, rm), oSz
+  | Op.SBC, ThreeOperands(rd, _, rm), oSz -> Op.NGC, TwoOperands(rd, rm), oSz
+  | Op.SBCS, ThreeOperands(rd, _, rm), oSz -> Op.NGCS, TwoOperands(rd, rm), oSz
   | instr -> instr
 
 let parseAddSubWithCarry bin =
   let cond = concat (extract bin 31u 29u) (extract bin 15u 10u) 6
   let instr =
     match cond with  (* sf:op:s:opcode2 *)
-    | c when c &&& 0b000111111u = 0b000000001u -> raise UnallocatedException
-    | c when c &&& 0b000111111u = 0b000000010u -> raise UnallocatedException
-    | c when c &&& 0b000111111u = 0b000000100u -> raise UnallocatedException
-    | c when c &&& 0b000111111u = 0b000001000u -> raise UnallocatedException
-    | c when c &&& 0b000111111u = 0b000010000u -> raise UnallocatedException
-    | c when c &&& 0b000111111u = 0b000100000u -> raise UnallocatedException
+    | c when c &&& 0b000111111u = 0b000000001u -> unallocated ()
+    | c when c &&& 0b000111111u = 0b000000010u -> unallocated ()
+    | c when c &&& 0b000111111u = 0b000000100u -> unallocated ()
+    | c when c &&& 0b000111111u = 0b000001000u -> unallocated ()
+    | c when c &&& 0b000111111u = 0b000010000u -> unallocated ()
+    | c when c &&& 0b000111111u = 0b000100000u -> unallocated ()
     | 0b000000000u -> Op.ADC, getWdWnWm bin, 32<rt>
     | 0b001000000u -> Op.ADCS, getWdWnWm bin, 32<rt>
     | 0b010000000u -> Op.SBC, getWdWnWm bin, 32<rt>
@@ -2081,9 +2052,9 @@ let parseCondCmpReg bin =
   let cond = concat (concat (extract bin 31u 29u) (pickBit bin 10u) 1)
                     (pickBit bin 4u) 1 (* sf:op:S:o2:o3 *)
   match cond with
-  | c when c &&& 0b00001u = 0b00001u -> raise UnallocatedException
-  | c when c &&& 0b00010u = 0b00010u -> raise UnallocatedException
-  | c when c &&& 0b00100u = 0b00000u -> raise UnallocatedException
+  | c when c &&& 0b00001u = 0b00001u -> unallocated ()
+  | c when c &&& 0b00010u = 0b00010u -> unallocated ()
+  | c when c &&& 0b00100u = 0b00000u -> unallocated ()
   | 0b00100u -> Op.CCMN, getWnWmNzcvCond bin, 32<rt>
   | 0b01100u -> Op.CCMP, getWnWmNzcvCond bin, 32<rt>
   | 0b10100u -> Op.CCMN, getXnXmNzcvCond bin, 64<rt>
@@ -2094,9 +2065,9 @@ let parseCondCmpImm bin =
   let cond = concat (concat (extract bin 31u 29u) (pickBit bin 10u) 1)
                     (pickBit bin 4u) 1 (* sf:op:S:o2:o3 *)
   match cond with
-  | c when c &&& 0b00001u = 0b00001u -> raise UnallocatedException
-  | c when c &&& 0b00010u = 0b00010u -> raise UnallocatedException
-  | c when c &&& 0b00100u = 0b00000u -> raise UnallocatedException
+  | c when c &&& 0b00001u = 0b00001u -> unallocated ()
+  | c when c &&& 0b00010u = 0b00010u -> unallocated ()
+  | c when c &&& 0b00100u = 0b00000u -> unallocated ()
   | 0b00100u -> Op.CCMN, getWnImmNzcvCond bin, 32<rt>
   | 0b01100u -> Op.CCMP, getWnImmNzcvCond bin, 32<rt>
   | 0b10100u -> Op.CCMN, getXnImmNzcvCond bin, 64<rt>
@@ -2129,8 +2100,8 @@ let changeToAliasOfCondSelect bin instr =
 let parseCondSelect bin =
   let cond = concat (extract bin 31u 29u) (extract bin 11u 10u) 2
   match cond with  (* sf:op:S:op2 *)
-  | c when c &&& 0b00010u = 0b00010u -> raise UnallocatedException
-  | c when c &&& 0b00100u = 0b00100u -> raise UnallocatedException
+  | c when c &&& 0b00010u = 0b00010u -> unallocated ()
+  | c when c &&& 0b00100u = 0b00100u -> unallocated ()
   | 0b00000u -> Op.CSEL, getWdWnWmCond bin, 32<rt>
   | 0b00001u -> Op.CSINC, getWdWnWmCond bin, 32<rt>
   | 0b01000u -> Op.CSINV, getWdWnWmCond bin, 32<rt>
@@ -2161,21 +2132,21 @@ let parseDataProcessing3Src bin =
   let cond = concat (concat (extract bin 31u 29u) (extract bin 23u 21u) 3)
                     (pickBit bin 15u) 1
   match cond with
-  | c when c &&& 0b0111111u = 0b0000101u -> raise UnallocatedException
-  | c when c &&& 0b0111110u = 0b0000110u -> raise UnallocatedException
-  | c when c &&& 0b0111110u = 0b0010000u -> raise UnallocatedException
-  | c when c &&& 0b0111111u = 0b0001101u -> raise UnallocatedException
-  | c when c &&& 0b0111110u = 0b0001110u -> raise UnallocatedException
-  | c when c &&& 0b0110000u = 0b0010000u -> raise UnallocatedException
-  | c when c &&& 0b0100000u = 0b0100000u -> raise UnallocatedException
+  | c when c &&& 0b0111111u = 0b0000101u -> unallocated ()
+  | c when c &&& 0b0111110u = 0b0000110u -> unallocated ()
+  | c when c &&& 0b0111110u = 0b0010000u -> unallocated ()
+  | c when c &&& 0b0111111u = 0b0001101u -> unallocated ()
+  | c when c &&& 0b0111110u = 0b0001110u -> unallocated ()
+  | c when c &&& 0b0110000u = 0b0010000u -> unallocated ()
+  | c when c &&& 0b0100000u = 0b0100000u -> unallocated ()
   | 0b0000000u -> Op.MADD, getWdWnWmWa bin, 32<rt>
   | 0b0000001u -> Op.MSUB, getWdWnWmWa bin, 32<rt>
-  | 0b0000010u -> raise UnallocatedException
-  | 0b0000011u -> raise UnallocatedException
-  | 0b0000100u -> raise UnallocatedException
-  | 0b0001010u -> raise UnallocatedException
-  | 0b0001011u -> raise UnallocatedException
-  | 0b0001100u -> raise UnallocatedException
+  | 0b0000010u -> unallocated ()
+  | 0b0000011u -> unallocated ()
+  | 0b0000100u -> unallocated ()
+  | 0b0001010u -> unallocated ()
+  | 0b0001011u -> unallocated ()
+  | 0b0001100u -> unallocated ()
   | 0b1000000u -> Op.MADD, getXdXnXmXa bin, 64<rt>
   | 0b1000001u -> Op.MSUB, getXdXnXmXa bin, 64<rt>
   | 0b1000010u -> Op.SMADDL, getXdWnWmXa bin, 64<rt>
@@ -2203,7 +2174,7 @@ let parse64Group4 bin =
   | 0b10010u when op3 = 0b0u -> parseCondCmpReg bin
   | 0b10010u when op3 = 0b1u -> parseCondCmpImm bin
   | 0b10100u -> parseCondSelect bin
-  | c when c &&& 0b11001u = 0b10001u -> raise UnallocatedException
+  | c when c &&& 0b11001u = 0b10001u -> unallocated ()
   | c when c &&& 0b11000u = 0b11000u -> parseDataProcessing3Src bin
   | _ -> raise InvalidOpcodeException
 
@@ -2211,15 +2182,15 @@ let parse64Group4 bin =
 let parseCryptAES bin =
   let cond = concat (extract bin 23u 22u) (extract bin 16u 12u) 5
   match cond with (* size:opcode *)
-  | c when c &&& 0b0001000u = 0b0001000u -> raise UnallocatedException
-  | c when c &&& 0b0011100u = 0b0000000u -> raise UnallocatedException
-  | c when c &&& 0b0010000u = 0b0010000u -> raise UnallocatedException
-  | c when c &&& 0b0100000u = 0b0100000u -> raise UnallocatedException
+  | c when c &&& 0b0001000u = 0b0001000u -> unallocated ()
+  | c when c &&& 0b0011100u = 0b0000000u -> unallocated ()
+  | c when c &&& 0b0010000u = 0b0010000u -> unallocated ()
+  | c when c &&& 0b0100000u = 0b0100000u -> unallocated ()
   | 0b0000100u -> Op.AESE, getVd16BVn16B bin, 128<rt>
   | 0b0000101u -> Op.AESD, getVd16BVn16B bin, 128<rt>
   | 0b0000110u -> Op.AESMC, getVd16BVn16B bin, 128<rt>
   | 0b0000111u -> Op.AESIMC, getVd16BVn16B bin, 128<rt>
-  | c when c &&& 0b1000000u = 0b1000000u -> raise UnallocatedException
+  | c when c &&& 0b1000000u = 0b1000000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Advanced SIMD table lookup on page C4-336.
@@ -2227,7 +2198,7 @@ let parseAdvSIMDTableLookup bin =
   let cond = concat (extract bin 23u 22u) (extract bin 14u 12u) 3
   let oprSize = getOprSizeByQ bin
   match cond with  (* op2:len:op *)
-  | c when c &&& 0b01000u = 0b01000u -> raise UnallocatedException
+  | c when c &&& 0b01000u = 0b01000u -> unallocated ()
   | 0b00000u -> Op.TBL, getVdtaVn116BVmta bin, oprSize
   | 0b00001u -> Op.TBX, getVdtaVn116BVmta bin, oprSize
   | 0b00010u -> Op.TBL, getVdtaVn216BVmta bin, oprSize
@@ -2236,18 +2207,18 @@ let parseAdvSIMDTableLookup bin =
   | 0b00101u -> Op.TBX, getVdtaVn316BVmta bin, oprSize
   | 0b00110u -> Op.TBL, getVdtaVn416BVmta bin, oprSize
   | 0b00111u -> Op.TBX, getVdtaVn416BVmta bin, oprSize
-  | c when c &&& 0b10000u = 0b10000u -> raise UnallocatedException
+  | c when c &&& 0b10000u = 0b10000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Advanced SIMD permute on page C4-337.
 let parseAdvSIMDPermute bin =
   let oprSize = getOprSizeByQ bin
   match extract bin 14u 12u with (* opcode *)
-  | 0b000u -> raise UnallocatedException
+  | 0b000u -> unallocated ()
   | 0b001u -> Op.UZP1, getVdtVntVmt bin sizeQ110, oprSize
   | 0b010u -> Op.TRN1, getVdtVntVmt bin sizeQ110, oprSize
   | 0b011u -> Op.ZIP1, getVdtVntVmt bin sizeQ110, oprSize
-  | 0b100u -> raise UnallocatedException
+  | 0b100u -> unallocated ()
   | 0b101u -> Op.UZP2, getVdtVntVmt bin sizeQ110, oprSize
   | 0b110u -> Op.TRN2, getVdtVntVmt bin sizeQ110, oprSize
   | 0b111u -> Op.ZIP2, getVdtVntVmt bin sizeQ110, oprSize
@@ -2256,9 +2227,9 @@ let parseAdvSIMDPermute bin =
 /// Advanced SIMD extract on page C4-338.
 let parseAdvSIMDExtract bin =
   match extract bin 23u 22u with
-  | c when c &&& 0b01u = 0b01u -> raise UnallocatedException
+  | c when c &&& 0b01u = 0b01u -> unallocated ()
   | 0b00u -> Op.EXT, getVdtVntVmtIdx bin, getOprSizeByQ bin
-  | c when c &&& 0b10u = 0b10u -> raise UnallocatedException
+  | c when c &&& 0b10u = 0b10u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 let changeToAliasOfAdvSIMDCopy bin =
@@ -2273,21 +2244,21 @@ let parseAdvSIMDCopy bin =
   let cond = concat (concat (extract bin 30u 29u) (extract bin 20u 16u) 5)
                     (extract bin 14u 11u) 4 (* Q:op:imm5:imm4 *)
   match cond with
-  | c when c &&& 0b00011110000u = 0b00000000000u -> raise UnallocatedException
+  | c when c &&& 0b00011110000u = 0b00000000000u -> unallocated ()
   | c when c &&& 0b01000001111u = 0b00000000000u ->
     Op.DUP, getVdtVntsidx bin, getOprSizeByQ bin
   | c when c &&& 0b01000001111u = 0b00000000001u ->
     Op.DUP, getVdtRn bin, getOprSizeByQ bin
-  | c when c &&& 0b01000001111u = 0b00000000010u -> raise UnallocatedException
-  | c when c &&& 0b01000001111u = 0b00000000100u -> raise UnallocatedException
-  | c when c &&& 0b01000001111u = 0b00000000110u -> raise UnallocatedException
-  | c when c &&& 0b01000001000u = 0b00000001000u -> raise UnallocatedException
-  | c when c &&& 0b11000001111u = 0b00000000011u -> raise UnallocatedException
+  | c when c &&& 0b01000001111u = 0b00000000010u -> unallocated ()
+  | c when c &&& 0b01000001111u = 0b00000000100u -> unallocated ()
+  | c when c &&& 0b01000001111u = 0b00000000110u -> unallocated ()
+  | c when c &&& 0b01000001000u = 0b00000001000u -> unallocated ()
+  | c when c &&& 0b11000001111u = 0b00000000011u -> unallocated ()
   | c when c &&& 0b11000001111u = 0b00000000101u ->
     Op.SMOV, getWdVntsidx bin imm5xxx00, 32<rt>
   | c when c &&& 0b11000001111u = 0b00000000111u ->
     Op.UMOV, getWdVntsidx bin imm5xx000, 32<rt>
-  | c when c &&& 0b11000000000u = 0b01000000000u -> raise UnallocatedException
+  | c when c &&& 0b11000000000u = 0b01000000000u -> unallocated ()
   | c when c &&& 0b11000001111u = 0b10000000011u ->
     Op.INS, getVdtsidxRn bin, 128<rt>
   | c when c &&& 0b11000001111u = 0b10000000101u ->
@@ -2307,13 +2278,13 @@ let parseAdvSIMDTwoReg bin =
                     (extract bin 16u 12u) 5 (* U:size:opcode *)
   let oprSize = getOprSizeByQ bin
   match cond with
-  | c when c &&& 0b00011110u = 0b00010000u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00010101u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00011110u -> raise UnallocatedException
-  | c when c &&& 0b01011100u = 0b00001100u -> raise UnallocatedException
-  | c when c &&& 0b01011111u = 0b00011111u -> raise UnallocatedException
-  | c when c &&& 0b01011111u = 0b01010110u -> raise UnallocatedException
-  | c when c &&& 0b01011111u = 0b01010111u -> raise UnallocatedException
+  | c when c &&& 0b00011110u = 0b00010000u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00010101u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00011110u -> unallocated ()
+  | c when c &&& 0b01011100u = 0b00001100u -> unallocated ()
+  | c when c &&& 0b01011111u = 0b00011111u -> unallocated ()
+  | c when c &&& 0b01011111u = 0b01010110u -> unallocated ()
+  | c when c &&& 0b01011111u = 0b01010111u -> unallocated ()
   | c when c &&& 0b10011111u = 0b00000000u ->
     Op.REV64, getVdtVnt bin sizeQ110, oprSize
   | c when c &&& 0b10011111u = 0b00000001u ->
@@ -2340,7 +2311,7 @@ let parseAdvSIMDTwoReg bin =
     Op.ABS, getVdtVnt bin sizeQ110, oprSize
   | c when c &&& 0b10011111u = 0b00010010u ->
     getOpcodeByQ bin Op.XTN Op.XTN2, getVdtbVnta bin sizeQ11x, 64<rt>
-  | c when c &&& 0b10011111u = 0b00010011u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b00010011u -> unallocated ()
   | c when c &&& 0b10011111u = 0b00010100u ->
     getOpcodeByQ bin Op.SQXTN Op.SQXTN2, getVdtbVnta bin sizeQ11x, 64<rt>
   | c when c &&& 0b11011111u = 0b00010110u ->
@@ -2379,10 +2350,10 @@ let parseAdvSIMDTwoReg bin =
     Op.URECPE, getVdtVnt2 bin szQ1x, oprSize
   | c when c &&& 0b11011111u = 0b01011101u ->
     Op.FRECPE, getVdtVnt2 bin szQ10, oprSize
-  | c when c &&& 0b11011111u = 0b01011111u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b01011111u -> unallocated ()
   | c when c &&& 0b10011111u = 0b10000000u ->
     Op.REV32, getVdtVnt bin sizeQ1xx, oprSize
-  | c when c &&& 0b10011111u = 0b10000001u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b10000001u -> unallocated ()
   | c when c &&& 0b10011111u = 0b10000010u ->
     Op.UADDLP, getVdtaVntb bin sizeQ11x, oprSize
   | c when c &&& 0b10011111u = 0b10000011u ->
@@ -2397,7 +2368,7 @@ let parseAdvSIMDTwoReg bin =
     Op.CMGE, getVdtVntI0 bin sizeQ110, oprSize
   | c when c &&& 0b10011111u = 0b10001001u ->
     Op.CMLE, getVdtVntI0 bin sizeQ110, oprSize
-  | c when c &&& 0b10011111u = 0b10001010u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b10001010u -> unallocated ()
   | c when c &&& 0b10011111u = 0b10001011u ->
     Op.NEG, getVdtVnt bin sizeQ110, oprSize
   | c when c &&& 0b10011111u = 0b10010010u ->
@@ -2408,7 +2379,7 @@ let parseAdvSIMDTwoReg bin =
     getOpcodeByQ bin Op.UQXTN Op.UQXTN2, getVdtbVnta bin sizeQ11x, 64<rt>
   | c when c &&& 0b11011111u = 0b10010110u ->
     getOpcodeByQ bin Op.FCVTXN Op.FCVTXN2, getVdtbVnta2 bin szQ0x, 64<rt>
-  | c when c &&& 0b11011111u = 0b10010111u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b10010111u -> unallocated ()
   | c when c &&& 0b11011111u = 0b10011000u ->
     Op.FRINTA, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b10011001u ->
@@ -2425,15 +2396,15 @@ let parseAdvSIMDTwoReg bin =
     toAliasFromNOT Op.NOT, getVdtVnt3 bin, oprSize
   | c when c &&& 0b11111111u = 0b10100101u ->
     Op.RBIT, getVdtVnt3 bin, oprSize
-  | c when c &&& 0b11011111u = 0b11000101u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b11000101u -> unallocated ()
   | c when c &&& 0b11011111u = 0b11001100u ->
     Op.FCMGE, getVdtVntF0 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b11001101u ->
     Op.FCMLE, getVdtVntF0 bin szQ10, oprSize
-  | c when c &&& 0b11011111u = 0b11001110u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b11001110u -> unallocated ()
   | c when c &&& 0b11011111u = 0b11001111u ->
     Op.FNEG, getVdtVnt2 bin szQ10, oprSize
-  | c when c &&& 0b11011111u = 0b11011000u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b11011000u -> unallocated ()
   | c when c &&& 0b11011111u = 0b11011001u ->
     Op.FRINTI, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b11011010u ->
@@ -2454,16 +2425,16 @@ let parseAdvSIMDAcrossLanes bin =
                     (extract bin 16u 12u) 5 (* U:size:opcode *)
   let oprSize = getOprSizeByQ bin
   match cond with
-  | c when c &&& 0b00011110u = 0b00000000u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00000010u -> raise UnallocatedException
-  | c when c &&& 0b00011100u = 0b00000100u -> raise UnallocatedException
-  | c when c &&& 0b00011110u = 0b00001000u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00001011u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00001101u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00001110u -> raise UnallocatedException
-  | c when c &&& 0b00011000u = 0b00010000u -> raise UnallocatedException
-  | c when c &&& 0b00011110u = 0b00011000u -> raise UnallocatedException
-  | c when c &&& 0b00011100u = 0b00011100u -> raise UnallocatedException
+  | c when c &&& 0b00011110u = 0b00000000u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00000010u -> unallocated ()
+  | c when c &&& 0b00011100u = 0b00000100u -> unallocated ()
+  | c when c &&& 0b00011110u = 0b00001000u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00001011u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00001101u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00001110u -> unallocated ()
+  | c when c &&& 0b00011000u = 0b00010000u -> unallocated ()
+  | c when c &&& 0b00011110u = 0b00011000u -> unallocated ()
+  | c when c &&& 0b00011100u = 0b00011100u -> unallocated ()
   | c when c &&& 0b10011111u = 0b00000011u ->
     Op.SADDLV, getVdVnt1 bin sizeQ10011x, oprSize
   | c when c &&& 0b10011111u = 0b00001010u ->
@@ -2478,7 +2449,7 @@ let parseAdvSIMDAcrossLanes bin =
     Op.UMAXV, getVdVnt2 bin sizeQ10011x, oprSize
   | c when c &&& 0b10011111u = 0b10011010u ->
     Op.UMINV, getVdVnt2 bin sizeQ10011x, oprSize
-  | c when c &&& 0b10011111u = 0b10011011u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b10011011u -> unallocated ()
   | c when c &&& 0b11011111u = 0b10001100u ->
     Op.FMAXNMV, getVdVnt3 bin szQx011, oprSize
   | c when c &&& 0b11011111u = 0b10001111u ->
@@ -2493,7 +2464,7 @@ let parseAdvSIMDAcrossLanes bin =
 let parseAdvSIMDThreeDiff bin =
   let cond = concat (pickBit bin 29u) (extract bin 15u 12u) 4 (* U:opcode *)
   match cond with
-  | c when c &&& 0b01111u = 0b01111u -> raise UnallocatedException
+  | c when c &&& 0b01111u = 0b01111u -> unallocated ()
   | 0b00000u ->
     getOpcodeByQ bin Op.SADDL Op.SADDL2, getVdtaVntbVmtb bin size11, 64<rt>
   | 0b00001u -> getOpcodeByQ bin Op.SADDW Op.SADDW2,
@@ -2542,14 +2513,14 @@ let parseAdvSIMDThreeDiff bin =
                 getVdtaVntbVmtb bin size11, 64<rt>
   | 0b11000u -> getOpcodeByQ bin Op.UMLAL Op.UMLAL2,
                 getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b11001u -> raise UnallocatedException
+  | 0b11001u -> unallocated ()
   | 0b11010u -> getOpcodeByQ bin Op.UMLSL Op.UMLSL2,
                 getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b11011u -> raise UnallocatedException
+  | 0b11011u -> unallocated ()
   | 0b11100u -> getOpcodeByQ bin Op.UMULL Op.UMULL2,
                 getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b11101u -> raise UnallocatedException
-  | 0b11110u -> raise UnallocatedException
+  | 0b11101u -> unallocated ()
+  | 0b11110u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 let changeToAliasOfAdvSIMDThreeSame bin = function
@@ -2613,7 +2584,7 @@ let parseAdvSIMDThreeSame b =
     Op.FMULX, getVdtVntVmt2 b szQ10
   | c when c &&& 0b11011111u = 0b00011100u ->
     Op.FCMEQ, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b00011101u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b00011101u -> unallocated ()
   | c when c &&& 0b11011111u = 0b00011110u -> Op.FMAX, getVdtVntVmt2 b szQ10
   | c when c &&& 0b11011111u = 0b00011111u ->
     Op.FRECPS, getVdtVntVmt2 b szQ10
@@ -2623,9 +2594,9 @@ let parseAdvSIMDThreeSame b =
     Op.FMINNM, getVdtVntVmt2 b szQ10
   | c when c &&& 0b11011111u = 0b01011001u -> Op.FMLS, getVdtVntVmt2 b szQ10
   | c when c &&& 0b11011111u = 0b01011010u -> Op.FSUB, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b01011011u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b01011100u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b01011101u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b01011011u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b01011100u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b01011101u -> unallocated ()
   | c when c &&& 0b11011111u = 0b01011110u -> Op.FMIN, getVdtVntVmt2 b szQ10
   | c when c &&& 0b11011111u = 0b01011111u ->
     Op.FRSQRTS, getVdtVntVmt2 b szQ10
@@ -2674,10 +2645,10 @@ let parseAdvSIMDThreeSame b =
     Op.UMINP, getVdtVntVmt1 b size11
   | c when c &&& 0b10011111u = 0b10010110u ->
     Op.SQRDMULH, getVdtVntVmt1 b size0011
-  | c when c &&& 0b10011111u = 0b10010111u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b10010111u -> unallocated ()
   | c when c &&& 0b11011111u = 0b10011000u ->
     Op.FMAXNMP, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b10011001u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b10011001u -> unallocated ()
   | c when c &&& 0b11011111u = 0b10011010u ->
     Op.FADDP, getVdtVntVmt2 b szQ10
   | c when c &&& 0b11011111u = 0b10011011u -> Op.FMUL, getVdtVntVmt2 b szQ10
@@ -2692,16 +2663,16 @@ let parseAdvSIMDThreeSame b =
   | c when c &&& 0b11111111u = 0b10100011u -> Op.BSL, getVdtVntVmt3 b
   | c when c &&& 0b11011111u = 0b11011000u ->
     Op.FMINNMP, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b11011001u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b11011001u -> unallocated ()
   | c when c &&& 0b11011111u = 0b11011010u -> Op.FABD, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b11011011u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b11011011u -> unallocated ()
   | c when c &&& 0b11011111u = 0b11011100u ->
     Op.FCMGT, getVdtVntVmt2 b szQ10
   | c when c &&& 0b11011111u = 0b11011101u ->
     Op.FACGT, getVdtVntVmt2 b szQ10
   | c when c &&& 0b11011111u = 0b11011110u ->
     Op.FMINP, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b11011111u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b11011111u -> unallocated ()
   | c when c &&& 0b11111111u = 0b11000011u -> Op.BIT, getVdtVntVmt3 b
   | c when c &&& 0b11111111u = 0b11100011u -> Op.BIF, getVdtVntVmt3 b
   | _ -> raise InvalidOpcodeException
@@ -2713,7 +2684,7 @@ let parseAdvSIMDModImm bin =
   let cond = concat (extract bin 30u 29u) (extract bin 15u 11u) 5
   let oprSize = getOprSizeByQ bin
   match cond with (* Q:op:cmode:o2 *)
-  | c when c &&& 0b0000001u = 0b0000001u -> raise UnallocatedException
+  | c when c &&& 0b0000001u = 0b0000001u -> unallocated ()
   | c when c &&& 0b0110011u = 0b0000000u ->
     Op.MOVI, getVdtImm8LAmt3 bin, oprSize
   | c when c &&& 0b0110011u = 0b0000010u ->
@@ -2738,7 +2709,7 @@ let parseAdvSIMDModImm bin =
   | c when c &&& 0b0111101u = 0b0111000u ->
     Op.MVNI, getVdtImm8MAmt bin, oprSize
   | c when c &&& 0b1111111u = 0b0111100u -> Op.MOVI, getDdImm bin, oprSize
-  | c when c &&& 0b1111111u = 0b0111110u -> raise UnallocatedException
+  | c when c &&& 0b1111111u = 0b0111110u -> unallocated ()
   | c when c &&& 0b1111111u = 0b1111100u -> Op.MOVI, getVd2DImm bin, oprSize
   | c when c &&& 0b1111111u = 0b1111110u -> Op.FMOV, getVd2DFImm bin, oprSize
   | _ -> raise InvalidOpcodeException
@@ -2748,25 +2719,25 @@ let getAdvSIMDShfByImm b =
   let cond = concat (pickBit b 29u) (extract b 15u 11u) 5 (* U:opcode *)
   let oprSize = getOprSizeByQ b
   match cond with
-  | c when c &&& 0b011111u = 0b000001u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b000011u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b000101u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b000111u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b001001u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b001011u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b001101u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b001111u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b010101u -> raise UnallocatedException
-  | c when c &&& 0b011110u = 0b010110u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b011101u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b011110u -> raise UnallocatedException
+  | c when c &&& 0b011111u = 0b000001u -> unallocated ()
+  | c when c &&& 0b011111u = 0b000011u -> unallocated ()
+  | c when c &&& 0b011111u = 0b000101u -> unallocated ()
+  | c when c &&& 0b011111u = 0b000111u -> unallocated ()
+  | c when c &&& 0b011111u = 0b001001u -> unallocated ()
+  | c when c &&& 0b011111u = 0b001011u -> unallocated ()
+  | c when c &&& 0b011111u = 0b001101u -> unallocated ()
+  | c when c &&& 0b011111u = 0b001111u -> unallocated ()
+  | c when c &&& 0b011111u = 0b010101u -> unallocated ()
+  | c when c &&& 0b011110u = 0b010110u -> unallocated ()
+  | c when c &&& 0b011111u = 0b011101u -> unallocated ()
+  | c when c &&& 0b011111u = 0b011110u -> unallocated ()
   | 0b000000u -> Op.SSHR, getVdtVntShf1 b, oprSize
   | 0b000010u -> Op.SSRA, getVdtVntShf1 b, oprSize
   | 0b000100u -> Op.SRSHR, getVdtVntShf1 b, oprSize
   | 0b000110u -> Op.SRSRA, getVdtVntShf1 b, oprSize
-  | 0b001000u -> raise UnallocatedException
+  | 0b001000u -> unallocated ()
   | 0b001010u -> Op.SHL, getVdtVntShf2 b, oprSize
-  | 0b001100u -> raise UnallocatedException
+  | 0b001100u -> unallocated ()
   | 0b001110u -> Op.SQSHL, getVdtVntShf2 b, oprSize
   | 0b010000u ->
     getOpcodeByQ b Op.SHRN Op.SHRN2, getVdtbVntaShf b immh1xxx, 64<rt>
@@ -2807,14 +2778,14 @@ let parseAdvSIMDVecXIdxElem bin =
   let cond = concat (concat (pickBit bin 29u) (extract bin 23u 22u) 2)
                     (extract bin 15u 12u) 4 (* U:size:opcode *)
   match cond with
-  | c when c &&& 0b0001110u = 0b0001110u -> raise UnallocatedException
-  | c when c &&& 0b1001111u = 0b0000000u -> raise UnallocatedException
+  | c when c &&& 0b0001110u = 0b0001110u -> unallocated ()
+  | c when c &&& 0b1001111u = 0b0000000u -> unallocated ()
   | c when c &&& 0b1001111u = 0b0000010u ->
     getOpcodeByQ bin Op.SMLAL Op.SMLAL2, getVdtaVntbVmtsidx bin size0011, 64<rt>
   | c when c &&& 0b1001111u = 0b0000011u ->
     getOpcodeByQ bin Op.SQDMLAL Op.SQDMLAL2,
     getVdtaVntbVmtsidx bin size0011, 64<rt>
-  | c when c &&& 0b1001111u = 0b0000100u -> raise UnallocatedException
+  | c when c &&& 0b1001111u = 0b0000100u -> unallocated ()
   | c when c &&& 0b1001111u = 0b0000110u ->
     getOpcodeByQ bin Op.SMLSL Op.SMLSL2, getVdtaVntbVmtsidx bin size0011, 64<rt>
   | c when c &&& 0b1001111u = 0b0000111u ->
@@ -2841,19 +2812,19 @@ let parseAdvSIMDVecXIdxElem bin =
     Op.MLA, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
   | c when c &&& 0b1001111u = 0b1000010u ->
     getOpcodeByQ bin Op.UMLAL Op.UMLAL2, getVdtaVntbVmtsidx bin size0011, 64<rt>
-  | c when c &&& 0b1001111u = 0b1000011u -> raise UnallocatedException
+  | c when c &&& 0b1001111u = 0b1000011u -> unallocated ()
   | c when c &&& 0b1001111u = 0b1000100u ->
     Op.MLS, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
   | c when c &&& 0b1001111u = 0b1000110u ->
     getOpcodeByQ bin Op.UMLSL Op.UMLSL2, getVdtaVntbVmtsidx bin size0011, 64<rt>
-  | c when c &&& 0b1001111u = 0b1000111u -> raise UnallocatedException
-  | c when c &&& 0b1001111u = 0b1001000u -> raise UnallocatedException
+  | c when c &&& 0b1001111u = 0b1000111u -> unallocated ()
+  | c when c &&& 0b1001111u = 0b1001000u -> unallocated ()
   | c when c &&& 0b1001111u = 0b1001010u ->
     getOpcodeByQ bin Op.UMULL Op.UMULL2, getVdtaVntbVmtsidx bin size0011, 64<rt>
-  | c when c &&& 0b1001111u = 0b1001011u -> raise UnallocatedException
-  | c when c &&& 0b1001110u = 0b1001100u -> raise UnallocatedException
-  | c when c &&& 0b1101111u = 0b1100001u -> raise UnallocatedException
-  | c when c &&& 0b1101111u = 0b1100101u -> raise UnallocatedException
+  | c when c &&& 0b1001111u = 0b1001011u -> unallocated ()
+  | c when c &&& 0b1001110u = 0b1001100u -> unallocated ()
+  | c when c &&& 0b1101111u = 0b1100001u -> unallocated ()
+  | c when c &&& 0b1101111u = 0b1100101u -> unallocated ()
   | c when c &&& 0b1101111u = 0b1101001u ->
     Op.FMULX, getVdtVntVmtsidx2 bin szL11, getOprSizeByQ bin
   | _ -> raise InvalidOpcodeException
@@ -2863,14 +2834,11 @@ let parse64Group5 bin =
   let cond = concat (concat (extract bin 31u 28u) (extract bin 24u 17u) 8)
                     (extract bin 15u 10u) 6 (* op0:op1:op2:op3:op4 *)
   match cond with
-  | c when c &&& 0b111110011111000011u = 0b000000010100000010u ->
-    raise UnallocatedException
-  | c when c &&& 0b111110011111000011u = 0b001000010100000010u ->
-    raise UnallocatedException
+  | c when c &&& 0b111110011111000011u = 0b000000010100000010u -> unallocated ()
+  | c when c &&& 0b111110011111000011u = 0b001000010100000010u -> unallocated ()
   | c when c &&& 0b111110011111000011u = 0b010000010100000010u ->
     parseCryptAES bin
-  | c when c &&& 0b111110011111000011u = 0b011000010100000010u ->
-    raise UnallocatedException
+  | c when c &&& 0b111110011111000011u = 0b011000010100000010u -> unallocated ()
   | c when c &&& 0b101110010000100011u = 0b000000000000000000u ->
     parseAdvSIMDTableLookup bin
   | c when c &&& 0b101110010000100011u = 0b000000000000000010u ->
@@ -2879,22 +2847,16 @@ let parse64Group5 bin =
     parseAdvSIMDExtract bin
   | c when c &&& 0b100111110000100001u = 0b000000000000000001u ->
     parseAdvSIMDCopy bin
-  | c when c &&& 0b100111010000100001u = 0b000001000000000001u ->
-    raise UnallocatedException
-  | c when c &&& 0b100110111111000011u = 0b000000011100000010u ->
-    raise UnallocatedException
-  | c when c &&& 0b100110110000110001u = 0b000000100000010001u ->
-    raise UnallocatedException
-  | c when c &&& 0b100110010000100000u = 0b000000000000100000u ->
-    raise UnallocatedException
+  | c when c &&& 0b100111010000100001u = 0b000001000000000001u -> unallocated ()
+  | c when c &&& 0b100110111111000011u = 0b000000011100000010u -> unallocated ()
+  | c when c &&& 0b100110110000110001u = 0b000000100000010001u -> unallocated ()
+  | c when c &&& 0b100110010000100000u = 0b000000000000100000u -> unallocated ()
   | c when c &&& 0b100110011111000011u = 0b000000010000000010u ->
     parseAdvSIMDTwoReg bin
   | c when c &&& 0b100110011111000011u = 0b000000011000000010u ->
     parseAdvSIMDAcrossLanes bin
-  | c when c &&& 0b100110010010000011u = 0b000000010010000010u ->
-    raise UnallocatedException
-  | c when c &&& 0b100110010001000011u = 0b000000010001000010u ->
-    raise UnallocatedException
+  | c when c &&& 0b100110010010000011u = 0b000000010010000010u -> unallocated ()
+  | c when c &&& 0b100110010001000011u = 0b000000010001000010u -> unallocated ()
   | c when c &&& 0b100110010000000011u = 0b000000010000000000u ->
     parseAdvSIMDThreeDiff bin
   | c when c &&& 0b100110010000000001u = 0b000000010000000001u ->
@@ -2903,20 +2865,18 @@ let parse64Group5 bin =
     parseAdvSIMDModImm bin
   | c when c &&& 0b100111000000000001u = 0b000010000000000001u &&
            extract c 11u 8u <> 0b0000u -> getAdvSIMDShfByImm bin
-  | c when c &&& 0b100111000000000001u = 0b000011000000000001u ->
-    raise UnallocatedException
+  | c when c &&& 0b100111000000000001u = 0b000011000000000001u -> unallocated ()
   | c when c &&& 0b100110000000000001u = 0b000010000000000000u ->
     parseAdvSIMDVecXIdxElem bin
-  | c when c &&& 0b100100000000000000u = 0b100000000000000000u ->
-    raise UnallocatedException
+  | c when c &&& 0b100100000000000000u = 0b100000000000000000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
  /// Cryptographic three-register SHA on page C4-323.
 let parseCryptThreeRegSHA bin =
   let cond = concat (extract bin 23u 22u) (extract bin 14u 12u) 3
   match cond with (* size:opcode *)
-  | c when c &&& 0b00111u = 0b00111u -> raise UnallocatedException
-  | c when c &&& 0b01000u = 0b01000u -> raise UnallocatedException
+  | c when c &&& 0b00111u = 0b00111u -> unallocated ()
+  | c when c &&& 0b01000u = 0b01000u -> unallocated ()
   | 0b00000u -> Op.SHA1C, getQdSnVm4S bin, 128<rt>
   | 0b00001u -> Op.SHA1P, getQdSnVm4S bin, 128<rt>
   | 0b00010u -> Op.SHA1M, getQdSnVm4S bin, 128<rt>
@@ -2930,15 +2890,15 @@ let parseCryptThreeRegSHA bin =
 let parseCryptTwoRegSHA bin =
   let cond = concat (extract bin 23u 22u) (extract bin 16u 12u) 5
   match cond with (* size:opcode *)
-  | c when c &&& 0b0000100u = 0b0000100u -> raise UnallocatedException
-  | c when c &&& 0b0001000u = 0b0001000u -> raise UnallocatedException
-  | c when c &&& 0b0010000u = 0b0010000u -> raise UnallocatedException
-  | c when c &&& 0b0100000u = 0b0100000u -> raise UnallocatedException
+  | c when c &&& 0b0000100u = 0b0000100u -> unallocated ()
+  | c when c &&& 0b0001000u = 0b0001000u -> unallocated ()
+  | c when c &&& 0b0010000u = 0b0010000u -> unallocated ()
+  | c when c &&& 0b0100000u = 0b0100000u -> unallocated ()
   | 0b0000000u -> Op.SHA1H, getSdSn bin, 32<rt>
   | 0b0000001u -> Op.SHA1SU1, getVd4SVn4S bin, 128<rt>
   | 0b0000010u -> Op.SHA256SU0, getVd4SVn4S bin, 128<rt>
-  | 0b0000011u -> raise UnallocatedException
-  | c when c &&& 0b1000000u = 0b1000000u -> raise UnallocatedException
+  | 0b0000011u -> unallocated ()
+  | c when c &&& 0b1000000u = 0b1000000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// This instruction is used by the alias MOV (scalar).
@@ -2950,14 +2910,14 @@ let parseAdvSIMDScalarCopy bin =
   let cond = concat (concat (pickBit bin 29u) (extract bin 20u 16u) 5)
                     (extract bin 14u 11u) 4 (* op:imm5:imm4 *)
   match cond with
-  | c when c &&& 0b1000000001u = 0b0000000001u -> raise UnallocatedException
-  | c when c &&& 0b1000000010u = 0b0000000010u -> raise UnallocatedException
-  | c when c &&& 0b1000000100u = 0b0000000100u -> raise UnallocatedException
+  | c when c &&& 0b1000000001u = 0b0000000001u -> unallocated ()
+  | c when c &&& 0b1000000010u = 0b0000000010u -> unallocated ()
+  | c when c &&& 0b1000000100u = 0b0000000100u -> unallocated ()
   | c when c &&& 0b1000001111u = 0b0000000000u ->
     toAliasFromDUP Op.DUP, getVdVntidx bin, getOprSizeByQ bin
-  | c when c &&& 0b1000001000u = 0b0000001000u -> raise UnallocatedException
-  | c when c &&& 0b1011111111u = 0b0000000000u -> raise UnallocatedException
-  | c when c &&& 0b1000000000u = 0b1000000000u -> raise UnallocatedException
+  | c when c &&& 0b1000001000u = 0b0000001000u -> unallocated ()
+  | c when c &&& 0b1011111111u = 0b0000000000u -> unallocated ()
+  | c when c &&& 0b1000000000u = 0b1000000000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
  /// Advanced SIMD scalar two-register miscellaneous on page C4-328.
@@ -2965,21 +2925,21 @@ let parseAdvSIMDScalarTwoReg bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
                     (extract bin 16u 12u) 5 (* U + size + opcode *)
   match cond with
-  | c when c &&& 0b00011110u = 0b00000000u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00000010u -> raise UnallocatedException
-  | c when c &&& 0b00011110u = 0b00000100u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00000110u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00001111u -> raise UnallocatedException
-  | c when c &&& 0b00011110u = 0b00010000u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00010011u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00010101u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00010111u -> raise UnallocatedException
-  | c when c &&& 0b00011110u = 0b00011000u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00011110u -> raise UnallocatedException
-  | c when c &&& 0b01011100u = 0b00001100u -> raise UnallocatedException
-  | c when c &&& 0b01011111u = 0b00011111u -> raise UnallocatedException
-  | c when c &&& 0b01011111u = 0b01010110u -> raise UnallocatedException
-  | c when c &&& 0b01011111u = 0b01011100u -> raise UnallocatedException
+  | c when c &&& 0b00011110u = 0b00000000u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00000010u -> unallocated ()
+  | c when c &&& 0b00011110u = 0b00000100u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00000110u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00001111u -> unallocated ()
+  | c when c &&& 0b00011110u = 0b00010000u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00010011u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00010101u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00010111u -> unallocated ()
+  | c when c &&& 0b00011110u = 0b00011000u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00011110u -> unallocated ()
+  | c when c &&& 0b01011100u = 0b00001100u -> unallocated ()
+  | c when c &&& 0b01011111u = 0b00011111u -> unallocated ()
+  | c when c &&& 0b01011111u = 0b01010110u -> unallocated ()
+  | c when c &&& 0b01011111u = 0b01011100u -> unallocated ()
   | c when c &&& 0b10011111u = 0b00000011u ->
     Op.SUQADD, getVdVn bin resNone, getOprSzBySize bin
   | c when c &&& 0b10011111u = 0b00000111u ->
@@ -2992,10 +2952,10 @@ let parseAdvSIMDScalarTwoReg bin =
     Op.CMLT, getVdVnI0 bin size0x10, getOprSzBySize bin
   | c when c &&& 0b10011111u = 0b00001011u ->
     Op.ABS, getVdVn bin size0x10, getOprSzBySize bin
-  | c when c &&& 0b10011111u = 0b00010010u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b00010010u -> unallocated ()
   | c when c &&& 0b10011111u = 0b00010100u ->
     Op.SQXTN, getVbdVan bin size11, getOprSzBySize bin
-  | c when c &&& 0b11011111u = 0b00010110u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b00010110u -> unallocated ()
   | c when c &&& 0b11011111u = 0b00011010u ->
     Op.FCVTNS, getVdVn2 bin, getOprSzBySz bin
   | c when c &&& 0b11011111u = 0b00011011u ->
@@ -3026,7 +2986,7 @@ let parseAdvSIMDScalarTwoReg bin =
     Op.CMGE, getVdVnI0 bin size0x10, getOprSzBySize bin
   | c when c &&& 0b10011111u = 0b10001001u ->
     Op.CMLE, getVdVnI0 bin size0x10, getOprSzBySize bin
-  | c when c &&& 0b10011111u = 0b10001010u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b10001010u -> unallocated ()
   | c when c &&& 0b10011111u = 0b10001011u ->
     Op.NEG, getVdVn bin size0x10, getOprSzBySize bin
   | c when c &&& 0b10011111u = 0b10010010u ->
@@ -3047,14 +3007,14 @@ let parseAdvSIMDScalarTwoReg bin =
     Op.FCMGE, getVdVnF0 bin, getOprSzBySz bin
   | c when c &&& 0b11011111u = 0b11001101u ->
     Op.FCMLE, getVdVnF0 bin, getOprSzBySz bin
-  | c when c &&& 0b11011111u = 0b11001110u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b11001110u -> unallocated ()
   | c when c &&& 0b11011111u = 0b11011010u ->
     Op.FCVTPU, getVdVn2 bin, getOprSzBySz bin
   | c when c &&& 0b11011111u = 0b11011011u ->
     Op.FCVTZU, getVdVn2 bin, getOprSzBySz bin
   | c when c &&& 0b11011111u = 0b11011101u ->
     Op.FRSQRTE, getVdVn2 bin, getOprSzBySz bin
-  | c when c &&& 0b11011111u = 0b11011111u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b11011111u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Advanced SIMD scalar pairwise on page C4-330.
@@ -3062,17 +3022,17 @@ let parseAdvSIMDScalarPairwise bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
                     (extract bin 16u 12u) 5 (* U:size:opcode *)
   match cond with
-  | c when c &&& 0b00011000u = 0b00000000u -> raise UnallocatedException
-  | c when c &&& 0b00011100u = 0b00001000u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00001110u -> raise UnallocatedException
-  | c when c &&& 0b00011000u = 0b00010000u -> raise UnallocatedException
-  | c when c &&& 0b00011110u = 0b00011000u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00011010u -> raise UnallocatedException
-  | c when c &&& 0b00011100u = 0b00011100u -> raise UnallocatedException
-  | c when c &&& 0b01011111u = 0b01001101u -> raise UnallocatedException
+  | c when c &&& 0b00011000u = 0b00000000u -> unallocated ()
+  | c when c &&& 0b00011100u = 0b00001000u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00001110u -> unallocated ()
+  | c when c &&& 0b00011000u = 0b00010000u -> unallocated ()
+  | c when c &&& 0b00011110u = 0b00011000u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00011010u -> unallocated ()
+  | c when c &&& 0b00011100u = 0b00011100u -> unallocated ()
+  | c when c &&& 0b01011111u = 0b01001101u -> unallocated ()
   | c when c &&& 0b10011111u = 0b00011011u ->
     Op.ADDP, getVdVnt4 bin size0x10, getOprSzBySize bin
-  | c when c &&& 0b10011111u = 0b10011011u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b10011011u -> unallocated ()
   | c when c &&& 0b11011111u = 0b10001100u ->
     Op.FMAXNMP, getVdVnt5 bin, 64<rt>
   | c when c &&& 0b11011111u = 0b10001101u -> Op.FADDP, getVdVnt5 bin, 64<rt>
@@ -3084,33 +3044,33 @@ let parseAdvSIMDScalarPairwise bin =
 let parseAdvSIMDScalarThreeDiff bin =
   let cond = concat (extract bin 29u 29u) (extract bin 15u 12u) 4
   match cond with
-  | c when c &&& 0b01100u = 0b00000u -> raise UnallocatedException
-  | c when c &&& 0b01100u = 0b00100u -> raise UnallocatedException
-  | c when c &&& 0b01111u = 0b01000u -> raise UnallocatedException
-  | c when c &&& 0b01111u = 0b01010u -> raise UnallocatedException
-  | c when c &&& 0b01111u = 0b01100u -> raise UnallocatedException
-  | c when c &&& 0b01110u = 0b01110u -> raise UnallocatedException
+  | c when c &&& 0b01100u = 0b00000u -> unallocated ()
+  | c when c &&& 0b01100u = 0b00100u -> unallocated ()
+  | c when c &&& 0b01111u = 0b01000u -> unallocated ()
+  | c when c &&& 0b01111u = 0b01010u -> unallocated ()
+  | c when c &&& 0b01111u = 0b01100u -> unallocated ()
+  | c when c &&& 0b01110u = 0b01110u -> unallocated ()
   | c when c &&& 0b11111u = 0b01001u ->
     Op.SQDMLAL, getVadVbnVbm bin size0011, getOprSzBySize bin
   | c when c &&& 0b11111u = 0b01011u ->
     Op.SQDMLSL, getVadVbnVbm bin size0011, getOprSzBySize bin
   | c when c &&& 0b11111u = 0b01101u ->
     Op.SQDMULL, getVadVbnVbm bin size0011, getOprSzBySize bin
-  | c when c &&& 0b11111u = 0b11001u -> raise UnallocatedException
-  | c when c &&& 0b11111u = 0b11011u -> raise UnallocatedException
-  | c when c &&& 0b11111u = 0b11101u -> raise UnallocatedException
+  | c when c &&& 0b11111u = 0b11001u -> unallocated ()
+  | c when c &&& 0b11111u = 0b11011u -> unallocated ()
+  | c when c &&& 0b11111u = 0b11101u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 let parseAdvSIMDScalarThreeSame bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
                     (extract bin 15u 11u) 5 (* U:size:opcode *)
   match cond with
-  | c when c &&& 0b00011111u = 0b00000000u -> raise UnallocatedException
-  | c when c &&& 0b00011110u = 0b00000010u -> raise UnallocatedException
-  | c when c &&& 0b00011111u = 0b00000100u -> raise UnallocatedException
-  | c when c &&& 0b00011100u = 0b00001100u -> raise UnallocatedException
-  | c when c &&& 0b00011110u = 0b00010010u -> raise UnallocatedException
-  | c when c &&& 0b01011111u = 0b01011011u -> raise UnallocatedException
+  | c when c &&& 0b00011111u = 0b00000000u -> unallocated ()
+  | c when c &&& 0b00011110u = 0b00000010u -> unallocated ()
+  | c when c &&& 0b00011111u = 0b00000100u -> unallocated ()
+  | c when c &&& 0b00011100u = 0b00001100u -> unallocated ()
+  | c when c &&& 0b00011110u = 0b00010010u -> unallocated ()
+  | c when c &&& 0b01011111u = 0b01011011u -> unallocated ()
   | c when c &&& 0b10011111u = 0b00000001u ->
     Op.SQADD, getVdVnVm1 bin resNone
   | c when c &&& 0b10011111u = 0b00000101u ->
@@ -3131,25 +3091,25 @@ let parseAdvSIMDScalarThreeSame bin =
     Op.ADD, getVdVnVm1 bin size0x10
   | c when c &&& 0b10011111u = 0b00010001u ->
     Op.CMTST, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b00010100u -> raise UnallocatedException
-  | c when c &&& 0b10011111u = 0b00010101u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b00010100u -> unallocated ()
+  | c when c &&& 0b10011111u = 0b00010101u -> unallocated ()
   | c when c &&& 0b10011111u = 0b00010110u ->
     Op.SQDMULH, getVdVnVm1 bin size0011
-  | c when c &&& 0b10011111u = 0b00010111u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b00011000u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b00011001u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b00011010u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b00010111u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b00011000u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b00011001u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b00011010u -> unallocated ()
   | c when c &&& 0b11011111u = 0b00011011u -> Op.FMULX, getVdVnVm2 bin
   | c when c &&& 0b11011111u = 0b00011100u -> Op.FCMEQ, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b00011101u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b00011110u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b00011101u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b00011110u -> unallocated ()
   | c when c &&& 0b11011111u = 0b00011111u -> Op.FRECPS, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b01011000u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b01011001u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b01011010u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b01011100u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b01011101u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b01011110u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b01011000u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b01011001u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b01011010u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b01011100u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b01011101u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b01011110u -> unallocated ()
   | c when c &&& 0b11011111u = 0b01011111u -> Op.FRSQRTS, getVdVnVm2 bin
   | c when c &&& 0b10011111u = 0b10000001u ->
     Op.UQADD, getVdVnVm1 bin resNone
@@ -3171,26 +3131,26 @@ let parseAdvSIMDScalarThreeSame bin =
     Op.SUB, getVdVnVm1 bin size0x10
   | c when c &&& 0b10011111u = 0b10010001u ->
     Op.CMEQ, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b10010100u -> raise UnallocatedException
-  | c when c &&& 0b10011111u = 0b10010101u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b10010100u -> unallocated ()
+  | c when c &&& 0b10011111u = 0b10010101u -> unallocated ()
   | c when c &&& 0b10011111u = 0b10010110u ->
     Op.SQRDMULH, getVdVnVm1 bin size0011
-  | c when c &&& 0b10011111u = 0b10010111u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b10011000u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b10011001u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b10011010u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b10011011u -> raise UnallocatedException
+  | c when c &&& 0b10011111u = 0b10010111u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b10011000u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b10011001u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b10011010u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b10011011u -> unallocated ()
   | c when c &&& 0b11011111u = 0b10011100u -> Op.FCMGE, getVdVnVm2 bin
   | c when c &&& 0b11011111u = 0b10011101u -> Op.FACGE, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b10011110u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b10011111u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b11011000u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b11011001u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b10011110u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b10011111u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b11011000u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b11011001u -> unallocated ()
   | c when c &&& 0b11011111u = 0b11011010u -> Op.FABD, getVdVnVm2 bin
   | c when c &&& 0b11011111u = 0b11011100u -> Op.FCMGT, getVdVnVm2 bin
   | c when c &&& 0b11011111u = 0b11011101u -> Op.FACGT, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b11011110u -> raise UnallocatedException
-  | c when c &&& 0b11011111u = 0b11011111u -> raise UnallocatedException
+  | c when c &&& 0b11011111u = 0b11011110u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b11011111u -> unallocated ()
   | _ -> raise InvalidOpcodeException
   |> getSIMDScalarOprSize (extract bin 15u 14u) (valSize1 bin)
 
@@ -3198,31 +3158,31 @@ let parseAdvSIMDScalarThreeSame bin =
 let parseAdvSIMDScalarShiftByImm bin =
   let cond = concat (extract bin 29u 29u) (extract bin 15u 11u) 5 (* U:opcode *)
   let isImmhZero = (extract bin 22u 19u) = 0b0000u
-  if isImmhZero then raise UnallocatedException
+  if isImmhZero then unallocated ()
   match cond with
-  | c when c &&& 0b011111u = 0b000001u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b000011u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b000101u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b000111u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b001001u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b001011u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b001101u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b001111u -> raise UnallocatedException
-  | c when c &&& 0b011100u = 0b010100u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b011001u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b011010u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b011101u -> raise UnallocatedException
-  | c when c &&& 0b011111u = 0b011110u -> raise UnallocatedException
+  | c when c &&& 0b011111u = 0b000001u -> unallocated ()
+  | c when c &&& 0b011111u = 0b000011u -> unallocated ()
+  | c when c &&& 0b011111u = 0b000101u -> unallocated ()
+  | c when c &&& 0b011111u = 0b000111u -> unallocated ()
+  | c when c &&& 0b011111u = 0b001001u -> unallocated ()
+  | c when c &&& 0b011111u = 0b001011u -> unallocated ()
+  | c when c &&& 0b011111u = 0b001101u -> unallocated ()
+  | c when c &&& 0b011111u = 0b001111u -> unallocated ()
+  | c when c &&& 0b011100u = 0b010100u -> unallocated ()
+  | c when c &&& 0b011111u = 0b011001u -> unallocated ()
+  | c when c &&& 0b011111u = 0b011010u -> unallocated ()
+  | c when c &&& 0b011111u = 0b011101u -> unallocated ()
+  | c when c &&& 0b011111u = 0b011110u -> unallocated ()
   | 0b000000u -> Op.SSHR, getVdVnShf bin immh0xxx, 64<rt>
   | 0b000010u -> Op.SSRA, getVdVnShf bin immh0xxx, 64<rt>
   | 0b000100u -> Op.SRSHR, getVdVnShf bin immh0xxx, 64<rt>
   | 0b000110u -> Op.SRSRA, getVdVnShf bin immh0xxx, 64<rt>
-  | 0b001000u -> raise UnallocatedException
+  | 0b001000u -> unallocated ()
   | 0b001010u -> Op.SHL, getVdVnShf2 bin immh0xxx, 64<rt>
-  | 0b001100u -> raise UnallocatedException
+  | 0b001100u -> unallocated ()
   | 0b001110u -> Op.SQSHL, getVdVnShf2 bin immh0000, getOprSzByHSB bin
-  | 0b010000u -> raise UnallocatedException
-  | 0b010001u -> raise UnallocatedException
+  | 0b010000u -> unallocated ()
+  | 0b010001u -> unallocated ()
   | 0b010010u -> Op.SQSHRN, getVbdVanShf bin immh00001xxx, getOprSzByHSB bin
   | 0b010011u -> Op.SQRSHRN, getVbdVanShf bin immh00001xxx, getOprSzByHSB bin
   | 0b011100u -> Op.SCVTF, getVdVnFbits bin immh00xx, getOprSzByImmh bin
@@ -3248,13 +3208,13 @@ let parseAdvSIMDScalarXIdxElem b =
   let cond = concat (concat (extract b 29u 29u) (extract b 23u 22u) 2)
                     (extract b 15u 12u) 4 (* U:size:opcode *)
   match cond with
-  | c when c &&& 0b0001111u = 0b0000000u -> raise UnallocatedException
-  | c when c &&& 0b0001111u = 0b0000100u -> raise UnallocatedException
-  | c when c &&& 0b0001111u = 0b0000100u -> raise UnallocatedException
-  | c when c &&& 0b0001111u = 0b0000110u -> raise UnallocatedException
-  | c when c &&& 0b0001111u = 0b0001000u -> raise UnallocatedException
-  | c when c &&& 0b0001111u = 0b0001010u -> raise UnallocatedException
-  | c when c &&& 0b0001110u = 0b0001110u -> raise UnallocatedException
+  | c when c &&& 0b0001111u = 0b0000000u -> unallocated ()
+  | c when c &&& 0b0001111u = 0b0000100u -> unallocated ()
+  | c when c &&& 0b0001111u = 0b0000100u -> unallocated ()
+  | c when c &&& 0b0001111u = 0b0000110u -> unallocated ()
+  | c when c &&& 0b0001111u = 0b0001000u -> unallocated ()
+  | c when c &&& 0b0001111u = 0b0001010u -> unallocated ()
+  | c when c &&& 0b0001110u = 0b0001110u -> unallocated ()
   | c when c &&& 0b1001111u = 0b0000011u ->
     Op.SQDMLAL, getVadVbnVmtsidx b size0011, getOprSzBySize b
   | c when c &&& 0b1001111u = 0b0000111u ->
@@ -3271,12 +3231,12 @@ let parseAdvSIMDScalarXIdxElem b =
     Op.FMLS, getVdVnVmtsidx2 b szL11, getOprSzBySize b
   | c when c &&& 0b1101111u = 0b0101001u ->
     Op.FMUL, getVdVnVmtsidx2 b szL11, getOprSzBySize b
-  | c when c &&& 0b1001111u = 0b1000011u -> raise UnallocatedException
-  | c when c &&& 0b1001111u = 0b1000111u -> raise UnallocatedException
-  | c when c &&& 0b1001111u = 0b1001011u -> raise UnallocatedException
-  | c when c &&& 0b1001110u = 0b1001100u -> raise UnallocatedException
-  | c when c &&& 0b1101111u = 0b1100001u -> raise UnallocatedException
-  | c when c &&& 0b1101111u = 0b1100101u -> raise UnallocatedException
+  | c when c &&& 0b1001111u = 0b1000011u -> unallocated ()
+  | c when c &&& 0b1001111u = 0b1000111u -> unallocated ()
+  | c when c &&& 0b1001111u = 0b1001011u -> unallocated ()
+  | c when c &&& 0b1001110u = 0b1001100u -> unallocated ()
+  | c when c &&& 0b1101111u = 0b1100001u -> unallocated ()
+  | c when c &&& 0b1101111u = 0b1100101u -> unallocated ()
   | c when c &&& 0b1101111u = 0b1101001u ->
     Op.FMULX, getVdVnVmtsidx2 b szL11, getOprSzBySize b
   | _ -> raise InvalidOpcodeException
@@ -3286,15 +3246,15 @@ let parseConvBetwFPAndFixedPt bin =
     (pickBit bin 31u <<< 8) ||| (pickBit bin 29u <<< 7) |||
     (extract bin 23u 22u <<< 5) ||| (extract bin 20u 16u)
   match cond with
-  | c when c &&& 0b000000100u = 0b000000100u -> raise UnallocatedException
-  | c when c &&& 0b000001110u = 0b000000000u -> raise UnallocatedException
-  | c when c &&& 0b000001110u = 0b000001010u -> raise UnallocatedException
-  | c when c &&& 0b000010110u = 0b000000000u -> raise UnallocatedException
-  | c when c &&& 0b000010110u = 0b000010010u -> raise UnallocatedException
-  | c when c &&& 0b001100000u = 0b001000000u -> raise UnallocatedException
-  | c when c &&& 0b010000000u = 0b010000000u -> raise UnallocatedException
+  | c when c &&& 0b000000100u = 0b000000100u -> unallocated ()
+  | c when c &&& 0b000001110u = 0b000000000u -> unallocated ()
+  | c when c &&& 0b000001110u = 0b000001010u -> unallocated ()
+  | c when c &&& 0b000010110u = 0b000000000u -> unallocated ()
+  | c when c &&& 0b000010110u = 0b000010010u -> unallocated ()
+  | c when c &&& 0b001100000u = 0b001000000u -> unallocated ()
+  | c when c &&& 0b010000000u = 0b010000000u -> unallocated ()
   | c when c &&& 0b100000000u = 0b000000000u &&
-           (extract bin 15u 10u) >>> 5 = 0b0u -> raise UnallocatedException
+           (extract bin 15u 10u) >>> 5 = 0b0u -> unallocated ()
   | 0b000000010u -> Op.SCVTF, getSdWnFbits bin, 32<rt>
   | 0b000000011u -> Op.UCVTF, getSdWnFbits bin, 32<rt>
   | 0b000011000u -> Op.FCVTZS, getWdSnFbits bin, 32<rt>
@@ -3321,14 +3281,14 @@ let parseConvBetwFPAndInt bin =
     (pickBit bin 31u <<< 8) ||| (pickBit bin 29u <<< 7) |||
     (extract bin 23u 22u <<< 5) ||| (extract bin 20u 16u)
   match cond with
-  | c when c &&& 0b000001110u = 0b000001010u -> raise UnallocatedException
-  | c when c &&& 0b000001110u = 0b000001100u -> raise UnallocatedException
-  | c when c &&& 0b000010110u = 0b000010010u -> raise UnallocatedException
-  | c when c &&& 0b000010110u = 0b000010100u -> raise UnallocatedException
-  | c when c &&& 0b011100100u = 0b001000000u -> raise UnallocatedException
-  | c when c &&& 0b011100110u = 0b001000100u -> raise UnallocatedException
-  | c when c &&& 0b010000000u = 0b010000000u -> raise UnallocatedException
-  | c when c &&& 0b111101110u = 0b000001110u -> raise UnallocatedException
+  | c when c &&& 0b000001110u = 0b000001010u -> unallocated ()
+  | c when c &&& 0b000001110u = 0b000001100u -> unallocated ()
+  | c when c &&& 0b000010110u = 0b000010010u -> unallocated ()
+  | c when c &&& 0b000010110u = 0b000010100u -> unallocated ()
+  | c when c &&& 0b011100100u = 0b001000000u -> unallocated ()
+  | c when c &&& 0b011100110u = 0b001000100u -> unallocated ()
+  | c when c &&& 0b010000000u = 0b010000000u -> unallocated ()
+  | c when c &&& 0b111101110u = 0b000001110u -> unallocated ()
   | 0b000000000u -> Op.FCVTNS, getWdSn bin, 32<rt>
   | 0b000000001u -> Op.FCVTNU, getWdSn bin, 32<rt>
   | 0b000000010u -> Op.SCVTF, getSdWn bin, 32<rt>
@@ -3339,12 +3299,12 @@ let parseConvBetwFPAndInt bin =
   | 0b000000111u -> Op.FMOV, getSdWn bin, 32<rt>
   | 0b000001000u -> Op.FCVTPS, getWdSn bin, 32<rt>
   | 0b000001001u -> Op.FCVTPU, getWdSn bin, 32<rt>
-  | c when c &&& 0b111110110u = 0b000010110u -> raise UnallocatedException
+  | c when c &&& 0b111110110u = 0b000010110u -> unallocated ()
   | 0b000010000u -> Op.FCVTMS, getWdSn bin, 32<rt>
   | 0b000010001u -> Op.FCVTMU, getWdSn bin, 32<rt>
   | 0b000011000u -> Op.FCVTZS, getWdSn bin, 32<rt>
   | 0b000011001u -> Op.FCVTZU, getWdSn bin, 32<rt>
-  | c when c &&& 0b111100110u = 0b000100110u -> raise UnallocatedException
+  | c when c &&& 0b111100110u = 0b000100110u -> unallocated ()
   | 0b000100000u -> Op.FCVTNS, getWdDn bin, 32<rt>
   | 0b000100001u -> Op.FCVTNU, getWdDn bin, 32<rt>
   | 0b000100010u -> Op.SCVTF, getDdWn bin, 64<rt>
@@ -3357,9 +3317,9 @@ let parseConvBetwFPAndInt bin =
   | 0b000110001u -> Op.FCVTMU, getWdDn bin, 32<rt>
   | 0b000111000u -> Op.FCVTZS, getWdDn bin, 32<rt>
   | 0b000111001u -> Op.FCVTZU, getWdDn bin, 32<rt>
-  | c when c &&& 0b111100110u = 0b001000110u -> raise UnallocatedException
+  | c when c &&& 0b111100110u = 0b001000110u -> unallocated ()
   | 0b001100010u -> Opcode.SCVTF, getHdWn bin, 32<rt> (* FEAT_FP16 *)
-  | c when c &&& 0b111100110u = 0b100000110u -> raise UnallocatedException
+  | c when c &&& 0b111100110u = 0b100000110u -> unallocated ()
   | 0b100000000u -> Op.FCVTNS, getXdSn bin, 64<rt>
   | 0b100000001u -> Op.FCVTNU, getXdSn bin, 64<rt>
   | 0b100000010u -> Op.SCVTF, getSdXn bin, 32<rt>
@@ -3372,7 +3332,7 @@ let parseConvBetwFPAndInt bin =
   | 0b100010001u -> Op.FCVTMU, getXdSn bin, 64<rt>
   | 0b100011000u -> Op.FCVTZS, getXdSn bin, 64<rt>
   | 0b100011001u -> Op.FCVTZU, getXdSn bin, 64<rt>
-  | c when c &&& 0b111101110u = 0b100101110u -> raise UnallocatedException
+  | c when c &&& 0b111101110u = 0b100101110u -> unallocated ()
   | 0b100100000u -> Op.FCVTNS, getXdDn bin, 64<rt>
   | 0b100100001u -> Op.FCVTNU, getXdDn bin, 64<rt>
   | 0b100100010u -> Op.SCVTF, getDdXn bin, 64<rt>
@@ -3383,15 +3343,15 @@ let parseConvBetwFPAndInt bin =
   | 0b100100111u -> Op.FMOV, getDdXn bin, 64<rt>
   | 0b100101000u -> Op.FCVTPS, getXdDn bin, 64<rt>
   | 0b100101001u -> Op.FCVTPU, getXdDn bin, 64<rt>
-  | c when c &&& 0b111110110u = 0b100110110u -> raise UnallocatedException
+  | c when c &&& 0b111110110u = 0b100110110u -> unallocated ()
   | 0b100110000u -> Op.FCVTMS, getXdDn bin, 64<rt>
   | 0b100110001u -> Op.FCVTMU, getXdDn bin, 64<rt>
   | 0b100111000u -> Op.FCVTZS, getXdDn bin, 64<rt>
   | 0b100111001u -> Op.FCVTZU, getXdDn bin, 64<rt>
-  | c when c &&& 0b111101110u = 0b101000110u -> raise UnallocatedException
+  | c when c &&& 0b111101110u = 0b101000110u -> unallocated ()
   | 0b101001110u -> Op.FMOV, getXdVnD1 bin, 64<rt>
   | 0b101001111u -> Op.FMOV, getVdD1Xn bin, 128<rt>
-  | c when c &&& 0b111110110u = 0b101010110u -> raise UnallocatedException
+  | c when c &&& 0b111110110u = 0b101010110u -> unallocated ()
   | 0b101100010u -> Op.SCVTF, getHdXn bin, 64<rt> (* FEAT_FP16 *)
   | _ -> raise InvalidOpcodeException
 
@@ -3401,23 +3361,23 @@ let parseFPDP1Src bin =
     (pickBit bin 31u <<< 9) ||| (pickBit bin 29u <<< 8) |||
     (extract bin 23u 22u <<< 6) ||| (extract bin 20u 15u)
   match cond with
-  | c when c &&& 0b0000010000u = 0b0000010000u -> raise UnallocatedException
-  | c when c &&& 0b0000100000u = 0b0000100000u -> raise UnallocatedException
-  | c when c &&& 0b0100000000u = 0b0100000000u -> raise UnallocatedException
+  | c when c &&& 0b0000010000u = 0b0000010000u -> unallocated ()
+  | c when c &&& 0b0000100000u = 0b0000100000u -> unallocated ()
+  | c when c &&& 0b0100000000u = 0b0100000000u -> unallocated ()
   | 0b0000000000u -> Op.FMOV, getSdSn bin, 32<rt>
   | 0b0000000001u -> Op.FABS, getSdSn bin, 32<rt>
   | 0b0000000010u -> Op.FNEG, getSdSn bin, 32<rt>
   | 0b0000000011u -> Op.FSQRT, getSdSn bin, 32<rt>
-  | 0b0000000100u -> raise UnallocatedException
+  | 0b0000000100u -> unallocated ()
   | 0b0000000101u -> Op.FCVT, getDdSn bin, 64<rt>
-  | 0b0000000110u -> raise UnallocatedException
+  | 0b0000000110u -> unallocated ()
   | 0b0000000111u -> Op.FCVT, getHdSn bin, 16<rt>
   | 0b0000001000u -> Op.FRINTN, getSdSn bin, 32<rt>
   | 0b0000001001u -> Op.FRINTP, getSdSn bin, 32<rt>
   | 0b0000001010u -> Op.FRINTM, getSdSn bin, 32<rt>
   | 0b0000001011u -> Op.FRINTZ, getSdSn bin, 32<rt>
   | 0b0000001100u -> Op.FRINTA, getSdSn bin, 32<rt>
-  | 0b0000001101u -> raise UnallocatedException
+  | 0b0000001101u -> unallocated ()
   | 0b0000001110u -> Op.FRINTX, getSdSn bin, 32<rt>
   | 0b0000001111u -> Op.FRINTI, getSdSn bin, 32<rt>
   | 0b0001000000u -> Op.FMOV, getDdDn bin, 64<rt>
@@ -3425,23 +3385,23 @@ let parseFPDP1Src bin =
   | 0b0001000010u -> Op.FNEG, getDdDn bin, 64<rt>
   | 0b0001000011u -> Op.FSQRT, getDdDn bin, 64<rt>
   | 0b0001000100u -> Op.FCVT, getSdDn bin, 32<rt>
-  | 0b0001000101u -> raise UnallocatedException
-  | 0b0001000110u -> raise UnallocatedException
+  | 0b0001000101u -> unallocated ()
+  | 0b0001000110u -> unallocated ()
   | 0b0001000111u -> Op.FCVT, getHdDn bin, 16<rt>
   | 0b0001001000u -> Op.FRINTN, getDdDn bin, 64<rt>
   | 0b0001001001u -> Op.FRINTP, getDdDn bin, 64<rt>
   | 0b0001001010u -> Op.FRINTM, getDdDn bin, 64<rt>
   | 0b0001001011u -> Op.FRINTZ, getDdDn bin, 64<rt>
   | 0b0001001100u -> Op.FRINTA, getDdDn bin, 64<rt>
-  | 0b0001001101u -> raise UnallocatedException
+  | 0b0001001101u -> unallocated ()
   | 0b0001001110u -> Op.FRINTX, getDdDn bin, 64<rt>
   | 0b0001001111u -> Op.FRINTI, getDdDn bin, 64<rt>
-  | c when c &&& 0b1111110000u = 0b0010000000u -> raise UnallocatedException
+  | c when c &&& 0b1111110000u = 0b0010000000u -> unallocated ()
   | 0b0011000100u -> Op.FCVT, getSdHn bin, 32<rt>
   | 0b0011000101u -> Op.FCVT, getDdHn bin, 64<rt>
-  | c when c &&& 0b1111111110u = 0b0011000110u -> raise UnallocatedException
-  | 0b0011001101u -> raise UnallocatedException
-  | c when c &&& 0b1000000000u = 0b1000000000u -> raise UnallocatedException
+  | c when c &&& 0b1111111110u = 0b0011000110u -> unallocated ()
+  | 0b0011001101u -> unallocated ()
+  | c when c &&& 0b1000000000u = 0b1000000000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Floating-point compare on page C4-365.
@@ -3451,13 +3411,13 @@ let parseFPCompare bin =
     (extract bin 23u 22u <<< 7) ||| (extract bin 15u 14u <<< 5) |||
     (extract bin 4u 0u)
   match cond with
-  | c when c &&& 0b00000000001u = 0b00000000001u -> raise UnallocatedException
-  | c when c &&& 0b00000000010u = 0b00000000010u -> raise UnallocatedException
-  | c when c &&& 0b00000000100u = 0b00000000100u -> raise UnallocatedException
-  | c when c &&& 0b00000100000u = 0b00000100000u -> raise UnallocatedException
-  | c when c &&& 0b00001000000u = 0b00001000000u -> raise UnallocatedException
-  | c when c &&& 0b00110000000u = 0b00100000000u -> raise UnallocatedException
-  | c when c &&& 0b01000000000u = 0b01000000000u -> raise UnallocatedException
+  | c when c &&& 0b00000000001u = 0b00000000001u -> unallocated ()
+  | c when c &&& 0b00000000010u = 0b00000000010u -> unallocated ()
+  | c when c &&& 0b00000000100u = 0b00000000100u -> unallocated ()
+  | c when c &&& 0b00000100000u = 0b00000100000u -> unallocated ()
+  | c when c &&& 0b00001000000u = 0b00001000000u -> unallocated ()
+  | c when c &&& 0b00110000000u = 0b00100000000u -> unallocated ()
+  | c when c &&& 0b01000000000u = 0b01000000000u -> unallocated ()
   | 0b00000000000u -> Op.FCMP, getSnSm bin, 32<rt>
   | 0b00000001000u -> Op.FCMP, getSnP0 bin, 32<rt>
   | 0b00000010000u -> Op.FCMPE, getSnSm bin, 32<rt>
@@ -3466,7 +3426,7 @@ let parseFPCompare bin =
   | 0b00010001000u -> Op.FCMP, getDnP0 bin, 64<rt>
   | 0b00010010000u -> Op.FCMPE, getDnDm bin, 64<rt>
   | 0b00010011000u -> Op.FCMPE, getDnP0 bin, 64<rt>
-  | c when c &&& 0b10000000000u = 0b10000000000u -> raise UnallocatedException
+  | c when c &&& 0b10000000000u = 0b10000000000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Floating-point immediate on page C4-366.
@@ -3475,16 +3435,16 @@ let parseFPImm bin =
     (pickBit bin 31u <<< 8) ||| (pickBit bin 29u <<< 7) |||
     (extract bin 23u 22u <<< 5) ||| (extract bin 9u 5u)
   match cond with
-  | c when c &&& 0b000000001u = 0b000000001u -> raise UnallocatedException
-  | c when c &&& 0b000000010u = 0b000000010u -> raise UnallocatedException
-  | c when c &&& 0b000000100u = 0b000000100u -> raise UnallocatedException
-  | c when c &&& 0b000001000u = 0b000001000u -> raise UnallocatedException
-  | c when c &&& 0b000010000u = 0b000010000u -> raise UnallocatedException
-  | c when c &&& 0b001100000u = 0b001000000u -> raise UnallocatedException
-  | c when c &&& 0b010000000u = 0b010000000u -> raise UnallocatedException
+  | c when c &&& 0b000000001u = 0b000000001u -> unallocated ()
+  | c when c &&& 0b000000010u = 0b000000010u -> unallocated ()
+  | c when c &&& 0b000000100u = 0b000000100u -> unallocated ()
+  | c when c &&& 0b000001000u = 0b000001000u -> unallocated ()
+  | c when c &&& 0b000010000u = 0b000010000u -> unallocated ()
+  | c when c &&& 0b001100000u = 0b001000000u -> unallocated ()
+  | c when c &&& 0b010000000u = 0b010000000u -> unallocated ()
   | 0b000000000u -> Op.FMOV, getSdImm8 bin, 32<rt>
   | 0b000100000u -> Op.FMOV, getDdImm8 bin, 64<rt>
-  | c when c &&& 0b100000000u = 0b100000000u -> raise UnallocatedException
+  | c when c &&& 0b100000000u = 0b100000000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Floating-point conditional compare on page C4-366.
@@ -3493,13 +3453,13 @@ let parseFPCondComp bin =
     (pickBit bin 31u <<< 4) ||| (pickBit bin 29u <<< 3) |||
     (extract bin 23u 22u <<< 1) ||| (pickBit bin 4u)
   match cond with
-  | c when c &&& 0b00110u = 0b00100u -> raise UnallocatedException
-  | c when c &&& 0b01000u = 0b01000u -> raise UnallocatedException
+  | c when c &&& 0b00110u = 0b00100u -> unallocated ()
+  | c when c &&& 0b01000u = 0b01000u -> unallocated ()
   | 0b00000u -> Op.FCCMP, getSnSmNZCVCond bin, 32<rt>
   | 0b00001u -> Op.FCCMPE, getSnSmNZCVCond bin, 32<rt>
   | 0b00010u -> Op.FCCMP, getDnDmNZCVCond bin, 64<rt>
   | 0b00011u -> Op.FCCMPE, getDnDmNZCVCond bin, 64<rt>
-  | c when c &&& 0b10000u = 0b10000u -> raise UnallocatedException
+  | c when c &&& 0b10000u = 0b10000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Floating-point data-processing (2 source) on page C4-367.
@@ -3508,11 +3468,11 @@ let parseFPDP2Src bin =
     (pickBit bin 31u <<< 7) ||| (pickBit bin 29u <<< 6) |||
     (extract bin 23u 22u <<< 4) ||| (extract bin 15u 12u)
   match cond with
-  | c when c &&& 0b00001001u = 0b00001001u -> raise UnallocatedException
-  | c when c &&& 0b00001010u = 0b00001010u -> raise UnallocatedException
-  | c when c &&& 0b00001100u = 0b00001100u -> raise UnallocatedException
-  | c when c &&& 0b00110000u = 0b00100000u -> raise UnallocatedException
-  | c when c &&& 0b01000000u = 0b01000000u -> raise UnallocatedException
+  | c when c &&& 0b00001001u = 0b00001001u -> unallocated ()
+  | c when c &&& 0b00001010u = 0b00001010u -> unallocated ()
+  | c when c &&& 0b00001100u = 0b00001100u -> unallocated ()
+  | c when c &&& 0b00110000u = 0b00100000u -> unallocated ()
+  | c when c &&& 0b01000000u = 0b01000000u -> unallocated ()
   | 0b00000000u -> Op.FMUL, getSdSnSm bin, 32<rt>
   | 0b00000001u -> Op.FDIV, getSdSnSm bin, 32<rt>
   | 0b00000010u -> Op.FADD, getSdSnSm bin, 32<rt>
@@ -3531,7 +3491,7 @@ let parseFPDP2Src bin =
   | 0b00010110u -> Op.FMAXNM, getDdDnDm bin, 64<rt>
   | 0b00010111u -> Op.FMINNM, getDdDnDm bin, 64<rt>
   | 0b00011000u -> Op.FNMUL, getDdDnDm bin, 64<rt>
-  | c when c &&& 0b10000000u = 0b10000000u -> raise UnallocatedException
+  | c when c &&& 0b10000000u = 0b10000000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Floating-point conditional select on page C4-368.
@@ -3539,11 +3499,11 @@ let parseFPCondSelect bin =
   let cond = concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
                     (extract bin 23u 22u) 2 (* M:S:type *)
   match cond with
-  | c when c &&& 0b0011u = 0b0010u -> raise UnallocatedException
-  | c when c &&& 0b0100u = 0b0100u -> raise UnallocatedException
+  | c when c &&& 0b0011u = 0b0010u -> unallocated ()
+  | c when c &&& 0b0100u = 0b0100u -> unallocated ()
   | 0b0000u -> Op.FCSEL, getSdSnSmCond bin, 32<rt>
   | 0b0001u -> Op.FCSEL, getDdDnDmCond bin, 64<rt>
-  | c when c &&& 0b1000u = 0b1000u -> raise UnallocatedException
+  | c when c &&& 0b1000u = 0b1000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Floating-point data-processing (3 source) on page C4-369.
@@ -3552,8 +3512,8 @@ let parseFPDP3Src bin =
     (pickBit bin 31u <<< 5) ||| (pickBit bin 29u <<< 4) |||
     (extract bin 23u 21u <<< 1) ||| (pickBit bin 15u)
   match cond with
-  | c when c &&& 0b001100u = 0b001000u -> raise UnallocatedException
-  | c when c &&& 0b010000u = 0b010000u -> raise UnallocatedException
+  | c when c &&& 0b001100u = 0b001000u -> unallocated ()
+  | c when c &&& 0b010000u = 0b010000u -> unallocated ()
   | 0b000000u -> Op.FMADD, getSdSnSmSa bin, 32<rt>
   | 0b000001u -> Op.FMSUB, getSdSnSmSa bin, 32<rt>
   | 0b000010u -> Op.FNMADD, getSdSnSmSa bin, 32<rt>
@@ -3562,7 +3522,7 @@ let parseFPDP3Src bin =
   | 0b000101u -> Op.FMSUB, getDdDnDmDa bin, 64<rt>
   | 0b000110u -> Op.FNMADD, getDdDnDmDa bin, 64<rt>
   | 0b000111u -> Op.FNMSUB, getDdDnDmDa bin, 64<rt>
-  | c when c &&& 0b100000u = 0b100000u -> raise UnallocatedException
+  | c when c &&& 0b100000u = 0b100000u -> unallocated ()
   | _ -> raise InvalidOpcodeException
 
 /// Data processing - SIMD and FP - 2
@@ -3572,46 +3532,36 @@ let parse64Group6 bin =
   match cond with
   | c when c &&& 0b111110010000100011u = 0b010100000000000000u ->
     parseCryptThreeRegSHA bin
-  | c when c &&& 0b111110010000100011u = 0b010100000000000010u ->
-    raise UnallocatedException
+  | c when c &&& 0b111110010000100011u = 0b010100000000000010u -> unallocated ()
   | c when c &&& 0b111110011111000011u = 0b010100010100000010u ->
     parseCryptTwoRegSHA bin
-  | c when c &&& 0b111110010000100001u = 0b011100000000000000u ->
-    raise UnallocatedException
-  | c when c &&& 0b111110011111000011u = 0b011100010100000010u ->
-    raise UnallocatedException
+  | c when c &&& 0b111110010000100001u = 0b011100000000000000u -> unallocated ()
+  | c when c &&& 0b111110011111000011u = 0b011100010100000010u -> unallocated ()
   | c when c &&& 0b110111110000100001u = 0b010100000000000001u ->
     parseAdvSIMDScalarCopy bin
-  | c when c &&& 0b110111010000100001u = 0b010101000000000001u ->
-    raise UnallocatedException
-  | c when c &&& 0b110110111111000011u = 0b010100011100000010u ->
-    raise UnallocatedException
+  | c when c &&& 0b110111010000100001u = 0b010101000000000001u -> unallocated ()
+  | c when c &&& 0b110110111111000011u = 0b010100011100000010u -> unallocated ()
   | c when c &&& 0b110110011111000011u = 0b010100010000000010u ->
     parseAdvSIMDScalarTwoReg bin
   | c when c &&& 0b110110011111000011u = 0b010100011000000010u ->
     parseAdvSIMDScalarPairwise bin
-  | c when c &&& 0b110110010010000011u = 0b010100010010000010u ->
-    raise UnallocatedException
-  | c when c &&& 0b110110010001000011u = 0b010100010001000010u ->
-    raise UnallocatedException
+  | c when c &&& 0b110110010010000011u = 0b010100010010000010u -> unallocated ()
+  | c when c &&& 0b110110010001000011u = 0b010100010001000010u -> unallocated ()
   | c when c &&& 0b110110010000000011u = 0b010100010000000000u ->
     parseAdvSIMDScalarThreeDiff bin
   | c when c &&& 0b110110010000000001u = 0b010100010000000001u ->
     parseAdvSIMDScalarThreeSame bin
   | c when c &&& 0b110111000000000001u = 0b010110000000000001u ->
     parseAdvSIMDScalarShiftByImm bin
-  | c when c &&& 0b110111000000000001u = 0b010111000000000001u ->
-    raise UnallocatedException
+  | c when c &&& 0b110111000000000001u = 0b010111000000000001u -> unallocated ()
   | c when c &&& 0b110110000000000001u = 0b010110000000000000u ->
     parseAdvSIMDScalarXIdxElem bin
-  | c when c &&& 0b110100000000000000u = 0b110100000000000000u ->
-    raise UnallocatedException
+  | c when c &&& 0b110100000000000000u = 0b110100000000000000u -> unallocated ()
   | c when c &&& 0b010110010000000000u = 0b000100000000000000u ->
     parseConvBetwFPAndFixedPt bin
   | c when c &&& 0b010110010000111111u = 0b000100010000000000u ->
     parseConvBetwFPAndInt bin
-  | c when c &&& 0b010110010000111111u = 0b000100010000100000u ->
-    raise UnallocatedException
+  | c when c &&& 0b010110010000111111u = 0b000100010000100000u -> unallocated ()
   | c when c &&& 0b010110010000011111u = 0b000100010000010000u ->
     parseFPDP1Src bin
   | c when c &&& 0b010110010000001111u = 0b000100010000001000u ->
@@ -3631,7 +3581,7 @@ let parse64Group6 bin =
 let parseByGroupOfB64 bin =
   let op0 = extract bin 28u 25u
   match op0 with
-  | op0 when op0 &&& 0b1100u = 0b0000u -> raise UnallocatedException
+  | op0 when op0 &&& 0b1100u = 0b0000u -> unallocated ()
   (* Data Processing -- Immediate on page C4-266 *)
   | op0 when op0 &&& 0b1110u = 0b1000u -> parse64Group1 bin
   (* Branches, Exception Generating and System instructions on page C4-271 *)

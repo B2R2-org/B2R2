@@ -28,8 +28,7 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Represents a parser for WASM instructions. Parser will return a
-/// platform-agnostic instruction type (Instruction).
+/// Represents a parser for WASM instructions.
 type WASMParser(reader) =
   let lifter =
     { new ILiftable with

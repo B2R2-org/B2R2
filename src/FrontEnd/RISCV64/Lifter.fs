@@ -261,7 +261,7 @@ let transOprToExpr (ins: Instruction) bld = function
       let mask = numI64 0xFFFFFFFF_FFFFFFFEL 64<rt>
       target .& mask
   | OpMem(b, None, sz) -> AST.loadLE sz (regVar bld b)
-  | OpAtomMemOper(_) -> numU32 0u 32<rt> // FIXME:
+  | OpAtomMemOperation(_) -> numU32 0u 32<rt> // FIXME:
   | OpCSR(csr) -> getCSRReg bld csr
   | _ -> raise InvalidOperandException
 

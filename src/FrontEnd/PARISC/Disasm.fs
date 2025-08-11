@@ -178,13 +178,6 @@ let opCodeToString = function
   | Op.XMPYU -> "xmpyu"
   | _ -> raise ParsingFailureException
 
-let roundModeToString = function
-  | RoundMode.RN -> "rn"
-  | RoundMode.RZ -> "rz"
-  | RoundMode.RP -> "rp"
-  | RoundMode.RM -> "rm"
-  | _ -> failwith "Invalid rounding mode"
-
 let condToString c =
   match c with
   | Completer.NEVER -> ""
@@ -406,18 +399,6 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, "(")
     builder.Accumulate(AsmWordKind.Variable, Register.toString b)
     builder.Accumulate(AsmWordKind.String, ")")
-  | OpAtomMemOper(aq, rl) ->
-    if aq then builder.Accumulate(AsmWordKind.String, "aq")
-    if rl then builder.Accumulate(AsmWordKind.String, "rl")
-  | OpRoundMode rm ->
-    builder.Accumulate(AsmWordKind.String, delim)
-    builder.Accumulate(AsmWordKind.String, roundModeToString rm)
-  | OpCSR csr ->
-    builder.Accumulate(AsmWordKind.String, delim)
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt16 csr)
-  | OpCond cond ->
-    builder.Accumulate(AsmWordKind.String, ",")
-    builder.Accumulate(AsmWordKind.String, condToString cond)
 
 let buildOprs (ins: Instruction) builder =
   match ins.Operands with

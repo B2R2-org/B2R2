@@ -29,6 +29,8 @@ open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.ARM64.Utils
 
+let unallocated () = raise ParsingFailureException
+
 let memBaseImm offset = OprMemory(BaseMode(ImmOffset(BaseOffset offset)))
 
 let memBaseReg offset = OprMemory(BaseMode(RegOffset offset))
@@ -43,9 +45,9 @@ let memPostIdxReg offset = OprMemory(PostIdxMode(RegOffset offset))
 
 let memLabel lbl = OprMemory(LiteralMode(ImmOffset(Lbl lbl)))
 
-let sVRegIdx vReg vec idx = SIMDVecRegWithIdx(vReg, vec, idx)
+let sVRegIdx vReg vec idx = VecRegWithIdx(vReg, vec, idx)
 
-let scalReg reg = OprSIMD(SIMDFPScalarReg reg)
+let scalReg reg = OprSIMD(ScalarReg reg)
 
 let getRegister64 oprSize = function
   | 0x0uy -> if oprSize = 32<rt> then R.W0 else R.X0
@@ -455,14 +457,14 @@ let getOption64 = function
   | _ -> None
 
 let getExtend = function
-  | 0b000u -> ExtUXTB
-  | 0b001u -> ExtUXTH
-  | 0b010u -> ExtUXTW
-  | 0b011u -> ExtUXTX
-  | 0b100u -> ExtSXTB
-  | 0b101u -> ExtSXTH
-  | 0b110u -> ExtSXTW
-  | 0b111u -> ExtSXTX
+  | 0b000u -> UXTB
+  | 0b001u -> UXTH
+  | 0b010u -> UXTW
+  | 0b011u -> UXTX
+  | 0b100u -> SXTB
+  | 0b101u -> SXTH
+  | 0b110u -> SXTW
+  | 0b111u -> SXTX
   | _ -> raise InvalidOperandException
 
 let getPstate = function
@@ -677,23 +679,22 @@ let getOprSizeBySfN bin =
 
 (* SIMD&FP scalar register *)
 let getSIMDFPscalReg oprSize value =
-  OprSIMD(SIMDFPScalarReg(getSIMDFPRegister64 oprSize (byte value)))
+  OprSIMD(ScalarReg(getSIMDFPRegister64 oprSize (byte value)))
 
 (* SIMD&FP vector register *)
 let getSIMDFPVecReg value t =
-  OprSIMD(SIMDVecReg(getVRegister64 (byte value), t))
+  OprSIMD(VecReg(getVRegister64 (byte value), t))
 
 let getSIMDFPRegWithIdx value t idx =
-  OprSIMD(SIMDVecRegWithIdx(getVRegister64 (byte value), t, idx))
+  OprSIMD(VecRegWithIdx(getVRegister64 (byte value), t, idx))
 
 (* SIMD vector register list *)
 let getSIMDVecReg t rLst =
-  List.map (fun v -> SIMDVecReg(v, t)) rLst |> OprSIMDList
+  List.map (fun v -> VecReg(v, t)) rLst |> OprSIMDList
 
 (* SIMD vector element list *)
 let getSIMDVecRegWithIdx vec idx rLst =
-  let srIdx v = SIMDVecRegWithIdx(v, vec, idx)
-  List.map (fun v -> SIMDVecRegWithIdx(v, vec, idx)) rLst |> OprSIMDList
+  List.map (fun v -> VecRegWithIdx(v, vec, idx)) rLst |> OprSIMDList
 
 let valA bin = extract bin 14u 10u (* T2 *)
 
@@ -863,8 +864,7 @@ let extRegOffset option amount = ExtRegOffset(getExtend option, amount)
 
 let getRegOffset s option amount =
   match option with
-  | 0b011u ->
-    if s = 0b0u then None else Some(ShiftOffset(SRTypeLSL, Imm amount))
+  | 0b011u -> if s = 0b0u then None else Some(ShiftOffset(LSL, Imm amount))
   | _ -> Some(extRegOffset option (if s = 0b0u then None else Some amount))
 
 let getWidthBySize1 = function
@@ -1288,9 +1288,9 @@ let amt32Ones bin = if pickBit bin 12u = 0b0u then 8L else 16L
 let lAmt bin amtFn =
   let amt = amtFn bin
   if amt = 0L then None
-  else Some(OprShift(SRTypeLSL, Imm amt)) (* LSL #<amount> *)
+  else Some(OprShift(LSL, Imm amt)) (* LSL #<amount> *)
 
-let mAmt bin = OprShift(SRTypeMSL, Imm(amt32Ones bin))
+let mAmt bin = OprShift(MSL, Imm(amt32Ones bin))
 
 let rshfAmt bin = (* Right shift amount *)
   OprImm(getShiftAmountByImmh1 (valImmb bin) (valImmh bin) |> int64)
@@ -1304,19 +1304,19 @@ let regOffset bin amount = getRegOffset (valS2 bin) (valOption bin) amount
 let wmxm bin = if pickBit bin 13u = 0b0u then w (valM bin) else x (valM bin)
 
 (* Shift *)
-let lshf1 bin = OprShift(SRTypeLSL, Imm(8 <<< (valSize1 bin |> int) |> int64))
+let lshf1 bin = OprShift(LSL, Imm(8 <<< (valSize1 bin |> int) |> int64))
 
 let lshf2 bin = (* FIXME: If shift amount is 0, not present. *)
-  OprShift(SRTypeLSL, Imm(getShiftAmountByShift (valShift bin) |> int64))
+  OprShift(LSL, Imm(getShiftAmountByShift (valShift bin) |> int64))
 
 let lshf3 bin = (* FIXME: If shift amount is 0, not present. *)
-  OprShift(SRTypeLSL, Imm((extract bin 22u 21u) <<< 4 |> int64))
+  OprShift(LSL, Imm((extract bin 22u 21u) <<< 4 |> int64))
 
 let shfamt bin =
   OprShift(decodeRegShift (valShift bin), Imm(imm6 bin |> int64))
 
 (* Extend *)
-let extamt bin = (* FIXME: refactoring *)
+let extamt bin =
   let amt = imm3 bin
   let o = valOption bin
   let oprSize = getOprSizeByMSB (valMSB bin)
@@ -1325,9 +1325,9 @@ let extamt bin = (* FIXME: refactoring *)
   | 32<rt> when isRdOrRn11111 && (o = 0b010u) && amt = 0b000L -> None
   | 64<rt> when isRdOrRn11111 && (o = 0b011u) && amt = 0b000L -> None
   | 32<rt> when isRdOrRn11111 && (o = 0b010u) ->
-    Some(ShiftOffset(SRTypeLSL, Imm amt))
+    Some(ShiftOffset(LSL, Imm amt))
   | 64<rt> when isRdOrRn11111 && (o = 0b011u) ->
-    Some(ShiftOffset(SRTypeLSL, Imm amt))
+    Some(ShiftOffset(LSL, Imm amt))
   | _ -> Some(ExtRegOffset(getExtend o, Some amt))
   |> OprExtReg
 

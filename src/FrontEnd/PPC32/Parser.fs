@@ -27,8 +27,7 @@ namespace B2R2.FrontEnd.PPC32
 open System
 open B2R2.FrontEnd.BinLifter
 
-/// Represents a parser for PPC32 instructions. Parser will return a
-/// platform-agnostic instruction type (Instruction).
+/// Represents a parser for PPC32 instructions.
 type PPC32Parser(reader) =
 
   let lifter =

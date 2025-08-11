@@ -124,10 +124,10 @@ let addWithCarry opr1 opr2 carryIn oSz =
 /// ==========
 /// Perform shift of a register operand
 let shiftReg reg amount oprSize = function
-  | SRTypeLSL -> reg << amount
-  | SRTypeLSR -> reg >> amount
-  | SRTypeASR -> reg ?>> amount
-  | SRTypeROR -> rorForIR reg amount (oprSzToExpr oprSize)
+  | ShiftOp.LSL -> reg << amount
+  | ShiftOp.LSR -> reg >> amount
+  | ShiftOp.ASR -> reg ?>> amount
+  | ShiftOp.ROR -> rorForIR reg amount (oprSzToExpr oprSize)
   | _ -> raise InvalidOperandException
 
 let transShiftAmout bld oprSize = function
@@ -158,14 +158,14 @@ let extendReg bld reg typ shift oprSize =
     | None -> 0L |> int
   let isUnsigned, len =
     match typ with
-    | ExtSXTB -> false, 8
-    | ExtSXTH -> false, 16
-    | ExtSXTW -> false, 32
-    | ExtSXTX -> false, 64
-    | ExtUXTB -> true, 8
-    | ExtUXTH -> true, 16
-    | ExtUXTW -> true, 32
-    | ExtUXTX -> true, 64
+    | SXTB -> false, 8
+    | SXTH -> false, 16
+    | SXTW -> false, 32
+    | SXTX -> false, 64
+    | UXTB -> true, 8
+    | UXTH -> true, 16
+    | UXTW -> true, 32
+    | UXTX -> true, 64
   let reg = regVar bld reg |> AST.zext oprSize
   let len = min len ((RegType.toBitWidth oprSize) - shift)
   extend (reg << numI32 shift oprSize) oprSize (len + shift) isUnsigned
@@ -189,15 +189,15 @@ let getElemDataSzAndElemsByVector = function
 
 /// esize, datasize, elements
 let rec getElemDataSzAndElems = function
-  | OprSIMD(SIMDFPScalarReg v) ->
+  | OprSIMD(ScalarReg v) ->
     struct (Register.toRegType v, Register.toRegType v, 1)
-  | OprSIMD(SIMDVecReg(_, v)) -> getElemDataSzAndElemsByVector v
-  | OprSIMD(SIMDVecRegWithIdx(_, v, _)) -> getElemDataSzAndElemsByVector v
+  | OprSIMD(VecReg(_, v)) -> getElemDataSzAndElemsByVector v
+  | OprSIMD(VecRegWithIdx(_, v, _)) -> getElemDataSzAndElemsByVector v
   | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
   | _ -> raise InvalidOperandException
 
 let transSIMDOprVPart bld eSize part = function
-  | OprSIMD(SIMDVecReg(reg, _)) ->
+  | OprSIMD(VecReg(reg, _)) ->
     let pos = int eSize
     let elems = 64<rt> / eSize
     if part = 128<rt> then
@@ -209,13 +209,13 @@ let transSIMDOprVPart bld eSize part = function
   | _ -> raise InvalidOperandException
 
 let transSIMDReg bld = function (* FIXME *)
-  | SIMDVecRegWithIdx(reg, v, idx) ->
+  | VecRegWithIdx(reg, v, idx) ->
     let struct (regB, regA) = pseudoRegVar128 bld reg
     let struct (esize, _, _) = getElemDataSzAndElemsByVector v
     let index = int idx * int esize
     if index < 64 then [| AST.extract regA esize index |]
     else [| AST.extract regB esize (index % 64) |]
-  | SIMDVecReg(reg, v) ->
+  | VecReg(reg, v) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElemsByVector v
     getPseudoRegVarToArr bld reg eSize dataSize elements
   | _ (* SIMDFPScalarReg *) -> raise InvalidOperandException
@@ -225,9 +225,9 @@ let transSIMDListToExpr bld = function (* FIXME *)
   | _ -> raise InvalidOperandException
 
 let transSIMD bld = function (* FIXME *)
-  | SIMDFPScalarReg reg -> regVar bld reg
-  | SIMDVecReg _ -> raise InvalidOperandException
-  | SIMDVecRegWithIdx(reg, v, idx) ->
+  | ScalarReg reg -> regVar bld reg
+  | VecReg _ -> raise InvalidOperandException
+  | VecRegWithIdx(reg, v, idx) ->
     let struct (regB, regA) = pseudoRegVar128 bld reg
     let struct (esize, _, _) = getElemDataSzAndElemsByVector v
     let index = int idx * int esize
@@ -348,21 +348,21 @@ let transFourOprsSepMem (ins: Instruction) bld addr =
   | _ -> raise InvalidOperandException
 
 let transOprToExpr128 ins bld addr = function
-  | OprSIMD(SIMDFPScalarReg reg) -> pseudoRegVar128 bld reg
-  | OprSIMD(SIMDVecReg(reg, _)) -> pseudoRegVar128 bld reg
-  | OprSIMD(SIMDVecRegWithIdx(reg, _, _)) -> pseudoRegVar128 bld reg
+  | OprSIMD(ScalarReg reg) -> pseudoRegVar128 bld reg
+  | OprSIMD(VecReg(reg, _)) -> pseudoRegVar128 bld reg
+  | OprSIMD(VecRegWithIdx(reg, _, _)) -> pseudoRegVar128 bld reg
   | OprMemory mem -> transMem ins bld addr mem |> getMemExpr128
   | _ -> raise InvalidOperandException
 
 let transSIMDOprToExpr bld eSize dataSize elements = function
-  | OprSIMD(SIMDFPScalarReg reg) ->
+  | OprSIMD(ScalarReg reg) ->
     if dataSize = 128<rt> then
       let struct (regB, regA) = pseudoRegVar128 bld reg
       [| regB; regA |]
     else [| regVar bld reg |]
-  | OprSIMD(SIMDVecReg(reg, _)) ->
+  | OprSIMD(VecReg(reg, _)) ->
     getPseudoRegVarToArr bld reg eSize dataSize elements
-  | OprSIMD(SIMDVecRegWithIdx _) -> raise InvalidOperandException
+  | OprSIMD(VecRegWithIdx _) -> raise InvalidOperandException
   | _ -> raise InvalidOperandException
 
 (* Barrel shift *)
@@ -371,9 +371,9 @@ let transBarrelShiftToExpr oprSize bld src shift =
   | OprImm imm, OprShift(typ, Imm amt) ->
     let imm =
       match typ with
-      | SRTypeLSL -> imm <<< int32 amt
-      | SRTypeLSR -> imm >>> int32 amt
-      | SRTypeMSL -> (imm <<< int32 amt) + (1L <<< int32 amt) - 1L
+      | LSL -> imm <<< int32 amt
+      | LSR -> imm >>> int32 amt
+      | MSL -> (imm <<< int32 amt) + (1L <<< int32 amt) - 1L
       | _ -> failwith "Not implement"
     numI64 imm oprSize
   | OprRegister reg, OprShift(typ, amt) ->
@@ -413,17 +413,17 @@ let isRegOffset opr =
 
 let isSIMDScalar opr =
   match opr with
-  | OprSIMD(SIMDFPScalarReg _) -> true
+  | OprSIMD(ScalarReg _) -> true
   | _ -> false
 
 let isSIMDVector opr =
   match opr with
-  | OprSIMD(SIMDVecReg _) -> true
+  | OprSIMD(VecReg _) -> true
   | _ -> false
 
 let isSIMDVectorIdx opr =
   match opr with
-  | OprSIMD(SIMDVecRegWithIdx _) -> true
+  | OprSIMD(VecRegWithIdx _) -> true
   | _ -> false
 
 let transOprToExprOfAND (ins: Instruction) bld addr =
@@ -1310,8 +1310,8 @@ let dstAssign oprSize dst src bld =
 /// The SIMDFP Scalar register needs a function to get the upper 64-bit.
 let dstAssignScalar ins bld addr dst src eSize =
   match dst with
-  | OprSIMD(SIMDFPScalarReg reg) ->
-    let reg = OprSIMD(SIMDFPScalarReg(Register.getOrgSIMDReg reg))
+  | OprSIMD(ScalarReg reg) ->
+    let reg = OprSIMD(ScalarReg(Register.getOrgSIMDReg reg))
     let struct (dstB, dstA) = transOprToExpr128 ins bld addr reg
     dstAssign eSize dstA src bld
     bld <+ (dstB := AST.num0 64<rt>)

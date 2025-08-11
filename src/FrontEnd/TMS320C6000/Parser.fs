@@ -28,8 +28,7 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Represents a parser for TMS320C6000 instructions. Parser will return a
-/// platform-agnostic instruction type (Instruction).
+/// Represents a parser for TMS320C6000 instructions.
 type TMS320C6000Parser(reader) =
   let mutable inParallel = false
 

@@ -27,8 +27,7 @@ namespace B2R2.FrontEnd.SPARC
 open System
 open B2R2.FrontEnd.BinLifter
 
-/// Represents a parser for SPARC instructions. Parser will return a
-/// platform-agnostic instruction type (Instruction).
+/// Represents a parser for SPARC instructions.
 type SPARCParser(reader) =
   let lifter =
     { new ILiftable with

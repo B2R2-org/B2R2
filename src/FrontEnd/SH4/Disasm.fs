@@ -189,17 +189,17 @@ let memToStr addrMode (builder: IDisasmBuilder) =
     let reg = Register.toString reg
     builder.Accumulate(AsmWordKind.String, "@")
     builder.Accumulate(AsmWordKind.Variable, reg)
-  | PostInc reg ->
+  | RegIndirPostInc reg ->
     let reg = Register.toString reg
     builder.Accumulate(AsmWordKind.String, "@")
     builder.Accumulate(AsmWordKind.Variable, reg)
     builder.Accumulate(AsmWordKind.String, "+")
-  | PreDec reg ->
+  | RegIndirPreDec reg ->
     let reg = Register.toString reg
     builder.Accumulate(AsmWordKind.String, "@")
     builder.Accumulate(AsmWordKind.String, "-")
     builder.Accumulate(AsmWordKind.Variable, reg)
-  | RegDisp(imm, reg) ->
+  | RegIndirDisp(imm, reg) ->
     let reg = Register.toString reg
     builder.Accumulate(AsmWordKind.String, "@")
     builder.Accumulate(AsmWordKind.String, "(")
@@ -207,7 +207,7 @@ let memToStr addrMode (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, ",")
     builder.Accumulate(AsmWordKind.Variable, reg)
     builder.Accumulate(AsmWordKind.String, ")")
-  | IdxIndir(R.R0, reg2) ->
+  | IdxRegIndir(R.R0, reg2) ->
     let reg1 = Register.toString R.R0
     let reg2 = Register.toString reg2
     builder.Accumulate(AsmWordKind.String, "@")
@@ -216,7 +216,7 @@ let memToStr addrMode (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, ",")
     builder.Accumulate(AsmWordKind.Variable, reg2)
     builder.Accumulate(AsmWordKind.String, ")")
-  | GbrDisp(imm, R.GBR) ->
+  | GBRIndirDisp(imm, R.GBR) ->
     let reg = Register.toString R.GBR
     builder.Accumulate(AsmWordKind.String, "@")
     builder.Accumulate(AsmWordKind.String, "(")
@@ -224,7 +224,7 @@ let memToStr addrMode (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, ",")
     builder.Accumulate(AsmWordKind.Variable, reg)
     builder.Accumulate(AsmWordKind.String, ")")
-  | IdxGbr(R.R0, R.GBR) ->
+  | IdxGBRIndir(R.R0, R.GBR) ->
     let reg1 = Register.toString R.R0
     let reg2 = Register.toString R.GBR
     builder.Accumulate(AsmWordKind.String, "@")
@@ -233,7 +233,7 @@ let memToStr addrMode (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, ",")
     builder.Accumulate(AsmWordKind.Variable, reg2)
     builder.Accumulate(AsmWordKind.String, ")")
-  | PCrDisp(imm, R.PC) ->
+  | PCRelDisp(imm, R.PC) ->
     let reg = Register.toString R.PC
     builder.Accumulate(AsmWordKind.String, "@")
     builder.Accumulate(AsmWordKind.String, "(")
@@ -241,7 +241,7 @@ let memToStr addrMode (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, ",")
     builder.Accumulate(AsmWordKind.Variable, reg)
     builder.Accumulate(AsmWordKind.String, ")")
-  | PCr imm ->
+  | PCRelative imm ->
     builder.Accumulate(AsmWordKind.Value, string imm)
   | Imm imm ->
     builder.Accumulate(AsmWordKind.String, "#")

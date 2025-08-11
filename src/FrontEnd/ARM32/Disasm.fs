@@ -730,11 +730,11 @@ let optionToString opt (builder: IDisasmBuilder) =
   builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 opt)
 
 let srTypeToString = function
-  | SRTypeLSL -> "lsl"
-  | SRTypeLSR -> "lsr"
-  | SRTypeASR -> "asr"
-  | SRTypeROR -> "ror"
-  | SRTypeRRX -> "rrx"
+  | ShiftOp.LSL -> "lsl"
+  | ShiftOp.LSR -> "lsr"
+  | ShiftOp.ASR -> "asr"
+  | ShiftOp.ROR -> "ror"
+  | ShiftOp.RRX -> "rrx"
 
 let prependDelimiter delimiter (builder: IDisasmBuilder) =
   match delimiter with

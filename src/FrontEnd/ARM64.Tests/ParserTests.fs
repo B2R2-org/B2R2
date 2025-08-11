@@ -45,7 +45,7 @@ module private Shortcut =
     static member MemBaseReg(baseReg, offsetReg, typ: ExtendType, imm) =
       memBaseReg (baseReg, offsetReg, Some <| ExtRegOffset(typ, imm))
 
-    static member MemBaseReg(baseReg, offsetReg, typ: SRType, imm) =
+    static member MemBaseReg(baseReg, offsetReg, typ: ShiftOp, imm) =
       memBaseReg (baseReg, offsetReg, Some <| ShiftOffset(typ, imm))
 
     static member MemBaseImm(register, imm) =
@@ -85,16 +85,16 @@ module private Shortcut =
       OprPstate st
 
     static member SIMDVecReg(reg, typ: SIMDVector) =
-      SIMDVecReg(reg, typ) |> OprSIMD
+      VecReg(reg, typ) |> OprSIMD
 
     static member SIMDVecRegWithIdx(reg, typ: SIMDVector, idx) =
-      (reg, typ, idx) |> SIMDVecRegWithIdx |> OprSIMD
+      (reg, typ, idx) |> VecRegWithIdx |> OprSIMD
 
     static member SIMDList(lst, typ: SIMDVector) =
-      lst |> List.map (fun r -> SIMDVecReg(r, typ)) |> OprSIMDList
+      lst |> List.map (fun r -> VecReg(r, typ)) |> OprSIMDList
 
     static member SIMDList(lst, typ: SIMDVector, idx: Index) =
-      OprSIMDList <| List.map (fun reg -> SIMDVecRegWithIdx(reg, typ, idx)) lst
+      OprSIMDList <| List.map (fun reg -> VecRegWithIdx(reg, typ, idx)) lst
 
     static member Prefetch v =
       OprPrfOp v
@@ -139,7 +139,8 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[AArch64] Add/subtract (immedate) Parse Test``() =
     "114dc4ba"
-    ++ ADD ** [ O.Reg W26; O.Reg W5; O.Imm 0x371L; O.Shift(SRTypeLSL, 12L) ]
+    ++ ADD
+    ** [ O.Reg W26; O.Reg W5; O.Imm 0x371L; O.Shift(ShiftOp.LSL, 12L) ]
     ||> test
 
   [<TestMethod>]
@@ -149,7 +150,7 @@ type ParserTests() =
     ||> test
 
   [<TestMethod>]
-  member _.``C4.2.3 Extract (1)``() =
+  member _.``C4.2.3 ExtendType.ract (1)``() =
     "93c00422"
     ++ EXTR ** [ O.Reg X2; O.Reg X1; O.Reg X0; O.LSB 0x1uy ]
     ||> test
@@ -187,7 +188,7 @@ type ParserTests() =
   [<TestMethod>]
   member _.``C4.2.5 Move wide (immediate) (1)``() =
     "92a00015"
-    ++ MOVN ** [ O.Reg X21; O.Imm 0x0L; O.Shift(SRTypeLSL, 0x10L) ]
+    ++ MOVN ** [ O.Reg X21; O.Imm 0x0L; O.Shift(ShiftOp.LSL, 0x10L) ]
     ||> test
 
   [<TestMethod>]
@@ -507,44 +508,45 @@ type ParserTests() =
   [<TestMethod>]
   member _.``C4.4.10 Load/store register (register offset) (1)``() =
     "38214867"
-    ++ STRB ** [ O.Reg W7; O.MemBaseReg(X3, W1, ExtUXTW, None) ]
+    ++ STRB ** [ O.Reg W7; O.MemBaseReg(X3, W1, ExtendType.UXTW, None) ]
     ||> test
 
   [<TestMethod>]
   member _.``C4.4.10 Load/store register (register offset) (2)``() =
     "38235867"
-    ++ STRB ** [ O.Reg W7; O.MemBaseReg(X3, W3, ExtUXTW, Some 0x0L) ]
+    ++ STRB ** [ O.Reg W7; O.MemBaseReg(X3, W3, ExtendType.UXTW, Some 0x0L) ]
     ||> test
 
   [<TestMethod>]
   member _.``C4.4.10 Load/store register (register offset) (3)``() =
     "3820782c"
-    ++ STRB ** [ O.Reg W12; O.MemBaseReg(X1, X0, SRTypeLSL, Imm 0x0L) ]
+    ++ STRB ** [ O.Reg W12; O.MemBaseReg(X1, X0, ShiftOp.LSL, Imm 0x0L) ]
     ||> test
 
   [<TestMethod>]
   member _.``C4.4.10 Load/store register (register offset) (4)``() =
     "7867cabf"
-    ++ LDRH ** [ O.Reg WZR; O.MemBaseReg(X21, W7, ExtSXTW, None) ]
+    ++ LDRH ** [ O.Reg WZR; O.MemBaseReg(X21, W7, ExtendType.SXTW, None) ]
     ||> test
 
   [<TestMethod>]
   member _.``C4.4.10 Load/store register (register offset) (5)``() =
     "78e37871"
-    ++ LDRSH ** [ O.Reg W17; O.MemBaseReg(X3, X3, SRTypeLSL, Imm 0x1L) ]
+    ++ LDRSH
+    ** [ O.Reg W17; O.MemBaseReg(X3, X3, ShiftOp.LSL, Imm 0x1L) ]
     ||> test
 
   [<TestMethod>]
   member _.``C4.4.10 Load/store register (register offset) (6)``() =
     "f8a35867"
-    ++ PRFM ** [ O.Imm 0x7L; O.MemBaseReg(X3, W3, ExtUXTW, Some 0x3L) ]
+    ++ PRFM ** [ O.Imm 0x7L; O.MemBaseReg(X3, W3, ExtendType.UXTW, Some 0x3L) ]
     ||> test
 
   [<TestMethod>]
   member _.``C4.4.10 Load/store register (register offset) (7)``() =
     "f8a3586c"
     ++ PRFM ** [ O.Prefetch PLIL3KEEP
-                 O.MemBaseReg(X3, W3, ExtUXTW, Some 0x3L) ]
+                 O.MemBaseReg(X3, W3, ExtendType.UXTW, Some 0x3L) ]
     ||> test
 
   [<TestMethod>]
@@ -637,7 +639,7 @@ type ParserTests() =
     ++ ADD ** [ O.Reg WSP
                 O.Reg WSP
                 O.Reg WZR
-                O.RegOffset(Some(ShiftOffset(SRTypeLSL, Imm 2L))) ]
+                O.RegOffset(Some(ShiftOffset(ShiftOp.LSL, Imm 2L))) ]
     ||> test
 
   [<TestMethod>]
@@ -646,7 +648,7 @@ type ParserTests() =
     ++ ADD ** [ O.Reg SP
                 O.Reg X10
                 O.Reg W10
-                O.RegOffset(Some(ExtRegOffset(ExtUXTW, Some 2L))) ]
+                O.RegOffset(Some(ExtRegOffset(ExtendType.UXTW, Some 2L))) ]
     ||> test
 
   [<TestMethod>]
@@ -654,25 +656,28 @@ type ParserTests() =
     "ab2e67ff"
     ++ CMN ** [ O.Reg SP
                 O.Reg X14
-                O.RegOffset(Some(ShiftOffset(SRTypeLSL, Imm 1L))) ]
+                O.RegOffset(Some(ShiftOffset(ShiftOp.LSL, Imm 1L))) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.5.2 Add/subtract (shifted register) (1)``() =
     "0b8e5f9b"
-    ++ ADD ** [ O.Reg W27; O.Reg W28; O.Reg W14; O.Shift(SRTypeASR, 23L) ]
+    ++ ADD
+    ** [ O.Reg W27; O.Reg W28; O.Reg W14; O.Shift(ShiftOp.ASR, 23L) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.5.2 Add/subtract (shifted register) (2)``() =
     "6b4e1fab"
-    ++ SUBS ** [ O.Reg W11; O.Reg W29; O.Reg W14; O.Shift(SRTypeLSR, 7L) ]
+    ++ SUBS
+    ** [ O.Reg W11; O.Reg W29; O.Reg W14; O.Shift(ShiftOp.LSR, 7L) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.5.2 Add/subtract (shifted register) (3)``() =
     "ab8e1fb2"
-    ++ ADDS ** [ O.Reg X18; O.Reg X29; O.Reg X14; O.Shift(SRTypeASR, 7L) ]
+    ++ ADDS
+    ** [ O.Reg X18; O.Reg X29; O.Reg X14; O.Shift(ShiftOp.ASR, 7L) ]
     ||> test
 
   [<TestMethod>]
@@ -870,19 +875,21 @@ type ParserTests() =
   [<TestMethod>]
   member _.``4.5.10 Logical (shifted register) (1)``() =
     "8a583945"
-    ++ AND ** [ O.Reg X5; O.Reg X10; O.Reg X24; O.Shift(SRTypeLSR, 14L) ]
+    ++ AND
+    ** [ O.Reg X5; O.Reg X10; O.Reg X24; O.Shift(ShiftOp.LSR, 14L) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.5.10 Logical (shifted register) (2)``() =
     "2af61fba"
-    ++ ORN ** [ O.Reg W26; O.Reg W29; O.Reg W22; O.Shift(SRTypeROR, 7L) ]
+    ++ ORN
+    ** [ O.Reg W26; O.Reg W29; O.Reg W22; O.Shift(ShiftOp.ROR, 7L) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.5.10 Logical (shifted register) (3)``() =
     "2af61ffa"
-    ++ MVN ** [ O.Reg W26; O.Reg W22; O.Shift(SRTypeROR, 0x7L) ]
+    ++ MVN ** [ O.Reg W26; O.Reg W22; O.Shift(ShiftOp.ROR, 0x7L) ]
     ||> test
 
   [<TestMethod>]
@@ -1036,7 +1043,7 @@ type ParserTests() =
     "4f056559"
     ++ MOVI ** [ O.SIMDVecReg(V25, FourS)
                  O.Imm 0xAAL
-                 O.Shift(SRTypeLSL, 24L) ]
+                 O.Shift(ShiftOp.LSL, 24L) ]
     ||> test
 
   [<TestMethod>]
@@ -1048,7 +1055,8 @@ type ParserTests() =
   [<TestMethod>]
   member _.``4.6.4 Advanced SIMD modified immediate (3)``() =
     "4f0234c5"
-    ++ ORR ** [ O.SIMDVecReg(V5, FourS); O.Imm 0x46L; O.Shift(SRTypeLSL, 8L) ]
+    ++ ORR
+    ** [ O.SIMDVecReg(V5, FourS); O.Imm 0x46L; O.Shift(ShiftOp.LSL, 8L) ]
     ||> test
 
   [<TestMethod>]
@@ -1060,7 +1068,8 @@ type ParserTests() =
   [<TestMethod>]
   member _.``4.6.4 Advanced SIMD modified immediate (5)``() =
     "0f06b4e5"
-    ++ ORR ** [ O.SIMDVecReg(V5, FourH); O.Imm 0xC7L; O.Shift(SRTypeLSL, 8L) ]
+    ++ ORR
+    ** [ O.SIMDVecReg(V5, FourH); O.Imm 0xC7L; O.Shift(ShiftOp.LSL, 8L) ]
     ||> test
 
   [<TestMethod>]
@@ -1068,7 +1077,7 @@ type ParserTests() =
     "4f04a759"
     ++ MOVI ** [ O.SIMDVecReg(V25, EightH)
                  O.Imm 0x9AL
-                 O.Shift(SRTypeLSL, 8L) ]
+                 O.Shift(ShiftOp.LSL, 8L) ]
     ||> test
 
   [<TestMethod>]
@@ -1076,7 +1085,7 @@ type ParserTests() =
     "4f05c655"
     ++ MOVI ** [ O.SIMDVecReg(V21, FourS)
                  O.Imm 0xB2L
-                 O.Shift(SRTypeMSL, 8L) ]
+                 O.Shift(ShiftOp.MSL, 8L) ]
     ||> test
 
   [<TestMethod>]
@@ -1090,13 +1099,14 @@ type ParserTests() =
     "6f0724d5"
     ++ MVNI ** [ O.SIMDVecReg(V21, FourS)
                  O.Imm 0xE6L
-                 O.Shift(SRTypeLSL, 8L) ]
+                 O.Shift(ShiftOp.LSL, 8L) ]
     ||> test
 
   [<TestMethod>]
   member _.``4.6.4 Advanced SIMD modified immediate (10)``() =
     "2f0536a7"
-    ++ BIC ** [ O.SIMDVecReg(V7, TwoS); O.Imm 0xB5L; O.Shift(SRTypeLSL, 8L) ]
+    ++ BIC
+    ** [ O.SIMDVecReg(V7, TwoS); O.Imm 0xB5L; O.Shift(ShiftOp.LSL, 8L) ]
     ||> test
 
   [<TestMethod>]
@@ -1104,7 +1114,7 @@ type ParserTests() =
     "6f07a4d5"
     ++ MVNI ** [ O.SIMDVecReg(V21, EightH)
                  O.Imm 0xE6L
-                 O.Shift(SRTypeLSL, 8L) ]
+                 O.Shift(ShiftOp.LSL, 8L) ]
     ||> test
 
   [<TestMethod>]
@@ -1118,7 +1128,7 @@ type ParserTests() =
     "6f07c4d5"
     ++ MVNI ** [ O.SIMDVecReg(V21, FourS)
                  O.Imm 0xE6L
-                 O.Shift(SRTypeMSL, 8L) ]
+                 O.Shift(ShiftOp.MSL, 8L) ]
     ||> test
 
   [<TestMethod>]
@@ -3346,7 +3356,7 @@ type ParserTests() =
     "2ea13a75"
     ++ SHLL ** [ O.SIMDVecReg(V21, TwoD)
                  O.SIMDVecReg(V19, TwoS)
-                 O.Shift(SRTypeLSL, 32L) ]
+                 O.Shift(ShiftOp.LSL, 32L) ]
     ||> test
 
   [<TestMethod>]
@@ -3354,7 +3364,7 @@ type ParserTests() =
     "6e613a7d"
     ++ SHLL2 ** [ O.SIMDVecReg(V29, FourS)
                   O.SIMDVecReg(V19, EightH)
-                  O.Shift(SRTypeLSL, 16L) ]
+                  O.Shift(ShiftOp.LSL, 16L) ]
     ||> test
 
   [<TestMethod>]

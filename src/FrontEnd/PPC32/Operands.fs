@@ -36,14 +36,14 @@ type Operands =
 /// Represents an operand used in a PPC32 instruction.
 and Operand =
   | OprReg of Register
-  | OprMem of D * Register
+  | OprMem of Disp * Register
   | OprImm of Imm
   | OprAddr of TargetAddr
   | OprBI of uint32
 
-/// Represents a 16-bit signed two's complement immediate value that is
-/// sign-extended to 32 bits in PPC32 instructions.
-and D = int32
+/// Represents the displacement value used in memory operands of PPC32
+/// instructions.
+and Disp = int32
 
 /// Represents an immediate value in PPC32 instructions.
 and Imm = uint64

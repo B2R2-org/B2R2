@@ -1549,13 +1549,13 @@ let opCodeToString = function
   | Opcode.ZIPQ2 -> "zipq2"
   | _ -> failwith "Unknown opcode encountered."
 
-let srtypeToString = function
-  | SRTypeLSL -> "lsl"
-  | SRTypeLSR -> "lsr"
-  | SRTypeASR -> "asr"
-  | SRTypeROR -> "ror"
-  | SRTypeRRX -> "rrx"
-  | SRTypeMSL -> "msl"
+let shiftOperationToString = function
+  | ShiftOp.LSL -> "lsl"
+  | ShiftOp.LSR -> "lsr"
+  | ShiftOp.ASR -> "asr"
+  | ShiftOp.ROR -> "ror"
+  | ShiftOp.RRX -> "rrx"
+  | ShiftOp.MSL -> "msl"
 
 let simdVectorToString = function
   | VecB -> "b"
@@ -1574,18 +1574,18 @@ let simdVectorToString = function
 
 let simdFPRegToString simdOpr (builder: IDisasmBuilder) =
   match simdOpr with
-  | SIMDFPScalarReg sReg ->
+  | ScalarReg sReg ->
     builder.Accumulate(AsmWordKind.Variable, Register.toString sReg)
-  | SIMDVecReg(reg, vec) ->
+  | VecReg(reg, vec) ->
     builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
     builder.Accumulate(AsmWordKind.String, "." + simdVectorToString vec)
-  | SIMDVecRegWithIdx(reg, vec, _) ->
+  | VecRegWithIdx(reg, vec, _) ->
     builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
     builder.Accumulate(AsmWordKind.String, "." + simdVectorToString vec)
 
 let finalOprSIMD s (builder: IDisasmBuilder) =
   match s with
-  | SIMDVecRegWithIdx(_, _, idx) ->
+  | VecRegWithIdx(_, _, idx) ->
     builder.Accumulate(AsmWordKind.String, "[")
     builder.Accumulate(AsmWordKind.String, string idx)
     builder.Accumulate(AsmWordKind.String, "]")
@@ -1656,19 +1656,19 @@ let shiftToString shift delim builder =
   | _, Imm 0L -> ()
   | s, amount ->
     prependDelimiter delim builder
-    builder.Accumulate(AsmWordKind.String, srtypeToString s)
+    builder.Accumulate(AsmWordKind.String, shiftOperationToString s)
     builder.Accumulate(AsmWordKind.String, " ")
     amountToString amount builder
 
 let extToString = function
-  | ExtUXTB -> "uxtb"
-  | ExtUXTH -> "uxth"
-  | ExtUXTW -> "uxtw"
-  | ExtUXTX -> "uxtx"
-  | ExtSXTB -> "sxtb"
-  | ExtSXTH -> "sxth"
-  | ExtSXTW -> "sxtw"
-  | ExtSXTX -> "sxtx"
+  | UXTB -> "uxtb"
+  | UXTH -> "uxth"
+  | UXTW -> "uxtw"
+  | UXTX -> "uxtx"
+  | SXTB -> "sxtb"
+  | SXTH -> "sxth"
+  | SXTW -> "sxtw"
+  | SXTX -> "sxtx"
 
 let extRegToString regOff delim builder =
   match regOff with

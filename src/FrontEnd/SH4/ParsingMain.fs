@@ -642,7 +642,8 @@ let parsePostInc0000 b16 =
   match getBits b16 4 1 with
   | 0b1111us ->
     Opcode.MACL,
-    TwoOperands(OpReg(PostInc(getReg1s b16)), OpReg(PostInc(getReg1d b16)))
+    TwoOperands(OpReg(RegIndirPostInc(getReg1s b16)),
+    OpReg(RegIndirPostInc(getReg1d b16)))
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// Register Indirect (Post-Increment)
@@ -651,48 +652,49 @@ let parsePostInc0100 b16 =
   match getBits b16 4 1 with
   | 0b1111us ->
     Opcode.MACW,
-    TwoOperands(OpReg(PostInc(getReg1s b16)), OpReg(PostInc(getReg1d b16)))
+    TwoOperands(OpReg(RegIndirPostInc(getReg1s b16)),
+    OpReg(RegIndirPostInc(getReg1d b16)))
   | 0b0111us ->
     match getBits b16 8 5 with
     | 0b0000us ->
       Opcode.LDCL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)), OpReg(Regdir(R.SR)))
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.SR)))
     | 0b0001us ->
       Opcode.LDCL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)), OpReg(Regdir(R.GBR)))
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.GBR)))
     | 0b0010us ->
       Opcode.LDCL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)), OpReg(Regdir(R.VBR)))
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.VBR)))
     | 0b0011us ->
       Opcode.LDCL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)), OpReg(Regdir(R.SSR)))
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.SSR)))
     | 0b0100us ->
       Opcode.LDCL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)), OpReg(Regdir(R.SPC)))
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.SPC)))
     | _ ->
       Opcode.LDCL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)),
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)),
       OpReg(Regdir(getReg1dBank b16)))
   | 0b0110us ->
     match getBits b16 8 5 with
     | 0b1111us ->
       Opcode.LDCL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)), OpReg(Regdir(R.DBR)))
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.DBR)))
     | 0b0000us ->
       Opcode.LDSL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)), OpReg(Regdir(R.MACH)))
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.MACH)))
     | 0b0001us ->
       Opcode.LDSL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)), OpReg(Regdir(R.MACL)))
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.MACL)))
     | 0b0010us ->
       Opcode.LDSL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)), OpReg(Regdir(R.PR)))
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.PR)))
     | 0b0110us ->
       Opcode.LDSL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)), OpReg(Regdir(R.FPSCR)))
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.FPSCR)))
     | 0b0101us ->
       Opcode.LDSL,
-      TwoOperands(OpReg(PostInc(getReg1d b16)), OpReg(Regdir(R.FPUL)))
+      TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.FPUL)))
     | _ -> Opcode.InvalidOp, NoOperand
   | _ -> Opcode.InvalidOp, NoOperand
 
@@ -702,13 +704,16 @@ let parsePostInc0110 b16 =
   match getBits b16 4 1 with
   | 0b0100us ->
     Opcode.MOVB,
-    TwoOperands(OpReg(PostInc(getReg1s b16)), OpReg(Regdir(getReg1d b16)))
+    TwoOperands(OpReg(RegIndirPostInc(getReg1s b16)),
+    OpReg(Regdir(getReg1d b16)))
   | 0b0101us ->
     Opcode.MOVW,
-    TwoOperands(OpReg(PostInc(getReg1s b16)), OpReg(Regdir(getReg1d b16)))
+    TwoOperands(OpReg(RegIndirPostInc(getReg1s b16)),
+    OpReg(Regdir(getReg1d b16)))
   | 0b0110us ->
     Opcode.MOVL,
-    TwoOperands(OpReg(PostInc(getReg1s b16)), OpReg(Regdir(getReg1d b16)))
+    TwoOperands(OpReg(RegIndirPostInc(getReg1s b16)),
+    OpReg(Regdir(getReg1d b16)))
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// Register Indirect (Post-Increment)
@@ -719,15 +724,15 @@ let parsePostInc1111 b16 =
     if getState () then
       if get1Bit b16 9 then
         Opcode.FMOV,
-        TwoOperands(OpReg(PostInc(getReg1s b16)),
+        TwoOperands(OpReg(RegIndirPostInc(getReg1s b16)),
         OpReg(Regdir(getReg1dXD b16)))
       else
         Opcode.FMOV,
-        TwoOperands(OpReg(PostInc(getReg1s b16)),
+        TwoOperands(OpReg(RegIndirPostInc(getReg1s b16)),
         OpReg(Regdir(getReg1dDR b16)))
     else
       Opcode.FMOVS,
-      TwoOperands(OpReg(PostInc(getReg1s b16)),
+      TwoOperands(OpReg(RegIndirPostInc(getReg1s b16)),
         OpReg(Regdir(getReg1dFR b16)))
   | _ -> Opcode.InvalidOp, NoOperand
 
@@ -737,13 +742,16 @@ let parsePreDec0010 b16 =
   match getBits b16 4 1 with
   | 0b0100us ->
     Opcode.MOVB,
-    TwoOperands(OpReg(Regdir(getReg1s b16)), OpReg(PreDec(getReg1d b16)))
+    TwoOperands(OpReg(Regdir(getReg1s b16)),
+    OpReg(RegIndirPreDec(getReg1d b16)))
   | 0b0101us ->
     Opcode.MOVW,
-    TwoOperands(OpReg(Regdir(getReg1s b16)), OpReg(PreDec(getReg1d b16)))
+    TwoOperands(OpReg(Regdir(getReg1s b16)),
+    OpReg(RegIndirPreDec(getReg1d b16)))
   | 0b0110us ->
     Opcode.MOVL,
-    TwoOperands(OpReg(Regdir(getReg1s b16)), OpReg(PreDec(getReg1d b16)))
+    TwoOperands(OpReg(Regdir(getReg1s b16)),
+    OpReg(RegIndirPreDec(getReg1d b16)))
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// Register Indirect (Pre-Decrement)
@@ -755,15 +763,15 @@ let parsePreDec1111 b16 =
       if get1Bit b16 5 then
         Opcode.FMOV,
         TwoOperands(OpReg(Regdir(getReg1sDR b16)),
-          OpReg(PreDec(getReg1d b16)))
+          OpReg(RegIndirPreDec(getReg1d b16)))
       else
         Opcode.FMOV,
         TwoOperands(OpReg(Regdir(getReg1sXD b16)),
-          OpReg(PreDec(getReg1d b16)))
+          OpReg(RegIndirPreDec(getReg1d b16)))
     else
       Opcode.FMOVS,
       TwoOperands(OpReg(Regdir(getReg1sFR b16)),
-        OpReg(PreDec(getReg1d b16)))
+        OpReg(RegIndirPreDec(getReg1d b16)))
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// Register Indirect (Pre-Decrement)
@@ -774,46 +782,46 @@ let parsePreDec0100 b16 =
     match getBits b16 8 5 with
     | 0b0000us ->
       Opcode.STCL,
-      TwoOperands(OpReg(Regdir(R.SR)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.SR)), OpReg(RegIndirPreDec(getReg1d b16)))
     | 0b0001us ->
       Opcode.STCL,
-      TwoOperands(OpReg(Regdir(R.GBR)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.GBR)), OpReg(RegIndirPreDec(getReg1d b16)))
     | 0b0010us ->
       Opcode.STCL,
-      TwoOperands(OpReg(Regdir(R.VBR)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.VBR)), OpReg(RegIndirPreDec(getReg1d b16)))
     | 0b0011us ->
       Opcode.STCL,
-      TwoOperands(OpReg(Regdir(R.SSR)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.SSR)), OpReg(RegIndirPreDec(getReg1d b16)))
     | 0b0100us ->
       Opcode.STCL,
-      TwoOperands(OpReg(Regdir(R.SPC)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.SPC)), OpReg(RegIndirPreDec(getReg1d b16)))
     | _  ->
       Opcode.STCL,
       TwoOperands(OpReg(Regdir(getReg1dBank b16)),
-        OpReg(PreDec(getReg1d b16)))
+        OpReg(RegIndirPreDec(getReg1d b16)))
   | 0b0010us ->
     match getBits b16 8 5 with
     | 0b0011us ->
       Opcode.STCL,
-      TwoOperands(OpReg(Regdir(R.SGR)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.SGR)), OpReg(RegIndirPreDec(getReg1d b16)))
     | 0b1111us ->
       Opcode.STCL,
-      TwoOperands(OpReg(Regdir(R.DBR)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.DBR)), OpReg(RegIndirPreDec(getReg1d b16)))
     | 0b0000us ->
       Opcode.STSL,
-      TwoOperands(OpReg(Regdir(R.MACH)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.MACH)), OpReg(RegIndirPreDec(getReg1d b16)))
     | 0b0001us ->
       Opcode.STSL,
-      TwoOperands(OpReg(Regdir(R.MACL)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.MACL)), OpReg(RegIndirPreDec(getReg1d b16)))
     | 0b0010us ->
       Opcode.STSL,
-      TwoOperands(OpReg(Regdir(R.PR)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.PR)), OpReg(RegIndirPreDec(getReg1d b16)))
     | 0b0110us ->
       Opcode.STSL,
-      TwoOperands(OpReg(Regdir(R.FPSCR)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.FPSCR)), OpReg(RegIndirPreDec(getReg1d b16)))
     | 0b0101us ->
       Opcode.STSL,
-      TwoOperands(OpReg(Regdir(R.FPUL)), OpReg(PreDec(getReg1d b16)))
+      TwoOperands(OpReg(Regdir(R.FPUL)), OpReg(RegIndirPreDec(getReg1d b16)))
     | _ -> Opcode.InvalidOp, NoOperand
   | _ -> Opcode.InvalidOp, NoOperand
 
@@ -824,18 +832,18 @@ let parseIndDisp1000 b16 =
   | 0b0000us ->
     Opcode.MOVB,
     TwoOperands(OpReg(Regdir(R.R0)),
-    OpReg(RegDisp(getDisp4b b16, getReg1s b16)))
+    OpReg(RegIndirDisp(getDisp4b b16, getReg1s b16)))
   | 0b0001us ->
     Opcode.MOVW,
     TwoOperands(OpReg(Regdir(R.R0)),
-    OpReg(RegDisp(getDisp4b b16, getReg1s b16)))
+    OpReg(RegIndirDisp(getDisp4b b16, getReg1s b16)))
   | 0b0100us ->
     Opcode.MOVB,
-    TwoOperands(OpReg(RegDisp(getDisp4b b16, getReg1s b16)),
+    TwoOperands(OpReg(RegIndirDisp(getDisp4b b16, getReg1s b16)),
     OpReg(Regdir(R.R0)))
   | 0b0101us ->
     Opcode.MOVW,
-    TwoOperands(OpReg(RegDisp(getDisp4b b16, getReg1s b16)),
+    TwoOperands(OpReg(RegIndirDisp(getDisp4b b16, getReg1s b16)),
     OpReg(Regdir(R.R0)))
   | _ -> Opcode.InvalidOp, NoOperand
 
@@ -844,13 +852,13 @@ let parseIndDisp1000 b16 =
 let parseIndDisp0001 b16 =
   Opcode.MOVL,
   TwoOperands(OpReg(Regdir(getReg1s b16)),
-  OpReg(RegDisp(getDisp4b b16, getReg1d b16)))
+  OpReg(RegIndirDisp(getDisp4b b16, getReg1d b16)))
 
 /// Register Indirect with Displacement
 /// 0101 ---- ---- ---- with source and destination operands.
 let parseIndDisp0101 b16 =
   Opcode.MOVL,
-  TwoOperands(OpReg(RegDisp(getDisp4b b16, getReg1s b16)),
+  TwoOperands(OpReg(RegIndirDisp(getDisp4b b16, getReg1s b16)),
   OpReg(Regdir(getReg1d b16)))
 
 /// Indexed Register Indirect
@@ -860,26 +868,26 @@ let parseIdxInd0000 b16 =
   | 0b0100us ->
     Opcode.MOVB,
     TwoOperands(OpReg(Regdir(getReg1s b16)),
-    OpReg(IdxIndir(R.R0, getReg1d b16)))
+    OpReg(IdxRegIndir(R.R0, getReg1d b16)))
   | 0b0101us ->
     Opcode.MOVW,
     TwoOperands(OpReg(Regdir(getReg1s b16)),
-    OpReg(IdxIndir(R.R0, getReg1d b16)))
+    OpReg(IdxRegIndir(R.R0, getReg1d b16)))
   | 0b0110us ->
     Opcode.MOVL,
     TwoOperands(OpReg(Regdir(getReg1s b16)),
-    OpReg(IdxIndir(R.R0, getReg1d b16)))
+    OpReg(IdxRegIndir(R.R0, getReg1d b16)))
   | 0b1100us ->
     Opcode.MOVB,
-    TwoOperands(OpReg(IdxIndir(R.R0, getReg1s b16)),
+    TwoOperands(OpReg(IdxRegIndir(R.R0, getReg1s b16)),
     OpReg(Regdir(getReg1d b16)))
   | 0b1101us ->
     Opcode.MOVW,
-    TwoOperands(OpReg(IdxIndir(R.R0, getReg1s b16)),
+    TwoOperands(OpReg(IdxRegIndir(R.R0, getReg1s b16)),
     OpReg(Regdir(getReg1d b16)))
   | 0b1110us ->
     Opcode.MOVL,
-    TwoOperands(OpReg(IdxIndir(R.R0, getReg1s b16)),
+    TwoOperands(OpReg(IdxRegIndir(R.R0, getReg1s b16)),
     OpReg(Regdir(getReg1d b16)))
   | _ -> Opcode.InvalidOp, NoOperand
 
@@ -890,26 +898,26 @@ let parseIdxInd1111 b16 =
   | 0b0110us ->
     if getState ()(*SZ*) then
       Opcode.FMOV,
-      TwoOperands(OpReg(IdxIndir(R.R0, getReg1s b16)),
+      TwoOperands(OpReg(IdxRegIndir(R.R0, getReg1s b16)),
       OpReg(Regdir(getReg1dDR b16)))
     else
       Opcode.FMOVS,
-      TwoOperands(OpReg(IdxIndir(R.R0, getReg1s b16)),
+      TwoOperands(OpReg(IdxRegIndir(R.R0, getReg1s b16)),
       OpReg(Regdir(getReg1dFR b16)))
   | 0b0111us ->
     if getState ()(*SZ*) then
       if get1Bit b16 5 then
         Opcode.FMOV,
         TwoOperands(OpReg(Regdir(getReg1sXD b16)),
-        OpReg(IdxIndir(R.R0, getReg1d b16)))
+        OpReg(IdxRegIndir(R.R0, getReg1d b16)))
       else
         Opcode.FMOV,
         TwoOperands(OpReg(Regdir(getReg1sFR b16)),
-        OpReg(IdxIndir(R.R0, getReg1d b16)))
+        OpReg(IdxRegIndir(R.R0, getReg1d b16)))
     else
       Opcode.FMOVS,
       TwoOperands(OpReg(Regdir(getReg1sFR b16)),
-      OpReg(IdxIndir(R.R0, getReg1d b16)))
+      OpReg(IdxRegIndir(R.R0, getReg1d b16)))
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// GBR Indirect with Displacement
@@ -918,22 +926,22 @@ let parseGBRIndDisp1100 b16 =
   match getBits b16 12 9 with
   | 0b0000us ->
     Opcode.MOVB,
-    TwoOperands(OpReg(Regdir(R.R0)), OpReg(GbrDisp(getDisp8b b16, R.GBR)))
+    TwoOperands(OpReg(Regdir(R.R0)), OpReg(GBRIndirDisp(getDisp8b b16, R.GBR)))
   | 0b0001us ->
     Opcode.MOVW,
-    TwoOperands(OpReg(Regdir(R.R0)), OpReg(GbrDisp(getDisp8b b16, R.GBR)))
+    TwoOperands(OpReg(Regdir(R.R0)), OpReg(GBRIndirDisp(getDisp8b b16, R.GBR)))
   | 0b0010us ->
     Opcode.MOVL,
-    TwoOperands(OpReg(Regdir(R.R0)), OpReg(GbrDisp(getDisp8b b16, R.GBR)))
+    TwoOperands(OpReg(Regdir(R.R0)), OpReg(GBRIndirDisp(getDisp8b b16, R.GBR)))
   | 0b0100us ->
     Opcode.MOVB,
-    TwoOperands(OpReg(GbrDisp(getDisp8b b16, R.GBR)), OpReg(Regdir(R.R0)))
+    TwoOperands(OpReg(GBRIndirDisp(getDisp8b b16, R.GBR)), OpReg(Regdir(R.R0)))
   | 0b0101us ->
     Opcode.MOVW,
-    TwoOperands(OpReg(GbrDisp(getDisp8b b16, R.GBR)), OpReg(Regdir(R.R0)))
+    TwoOperands(OpReg(GBRIndirDisp(getDisp8b b16, R.GBR)), OpReg(Regdir(R.R0)))
   | 0b0110us ->
     Opcode.MOVL,
-    TwoOperands(OpReg(GbrDisp(getDisp8b b16, R.GBR)), OpReg(Regdir(R.R0)))
+    TwoOperands(OpReg(GBRIndirDisp(getDisp8b b16, R.GBR)), OpReg(Regdir(R.R0)))
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// Indexed GBR Indirect
@@ -942,37 +950,37 @@ let parseIdxGBRInd1100 b16 =
   match getBits b16 12 9 with
   | 0b1101us ->
     Opcode.ANDB,
-    TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(IdxGbr(R.R0, R.GBR)))
+    TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(IdxGBRIndir(R.R0, R.GBR)))
   | 0b1111us ->
     Opcode.ORB,
-    TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(IdxGbr(R.R0, R.GBR)))
+    TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(IdxGBRIndir(R.R0, R.GBR)))
   | 0b1100us ->
     Opcode.TSTB,
-    TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(IdxGbr(R.R0, R.GBR)))
+    TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(IdxGBRIndir(R.R0, R.GBR)))
   | 0b1110us ->
     Opcode.XORB,
-    TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(IdxGbr(R.R0, R.GBR)))
+    TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(IdxGBRIndir(R.R0, R.GBR)))
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// PC Relative with Displacement
 /// 1001 ---- ---- ---- with source and destination operands.
 let parsePCDisp1001 b16 =
   Opcode.MOVW,
-  TwoOperands(OpReg(PCrDisp(getDisp8b b16, R.PC)),
+  TwoOperands(OpReg(PCRelDisp(getDisp8b b16, R.PC)),
     OpReg(Regdir(getReg1d b16)))
 
 /// PC Relative with Displacement
 /// 1101 ---- ---- ---- with source and destination operands.
 let parsePCDisp1101 b16 =
   Opcode.MOVL,
-  TwoOperands(OpReg(PCrDisp(getDisp8b b16, R.PC)),
+  TwoOperands(OpReg(PCRelDisp(getDisp8b b16, R.PC)),
     OpReg(Regdir(getReg1d b16)))
 
 /// PC Relative with Displacement
 /// 1100 ---- ---- ---- with source and destination operands.
 let parsePCDisp1100 b16 =
   Opcode.MOVA,
-  TwoOperands(OpReg(PCrDisp(getDisp8b b16, R.PC)), OpReg(Regdir(R.R0)))
+  TwoOperands(OpReg(PCRelDisp(getDisp8b b16, R.PC)), OpReg(Regdir(R.R0)))
 
 /// PC Relative using Rn
 /// 0000 ---- ---- ---- destination operand only.
@@ -985,19 +993,19 @@ let parsePCReg0000 b16 =
 /// PC Relative 1000 ---- ---- ---- destination operand only.
 let parsePC1000 b16 =
   match getBits b16 8 5 with
-  | 0b1011us -> Opcode.BF, OneOperand(OpReg(PCr(getDisp8b b16)))
-  | 0b1111us -> Opcode.BFS, OneOperand(OpReg(PCr(getDisp8b b16)))
-  | 0b1001us -> Opcode.BT, OneOperand(OpReg(PCr(getDisp8b b16)))
-  | 0b1101us -> Opcode.BTS, OneOperand(OpReg(PCr(getDisp8b b16)))
+  | 0b1011us -> Opcode.BF, OneOperand(OpReg(PCRelative(getDisp8b b16)))
+  | 0b1111us -> Opcode.BFS, OneOperand(OpReg(PCRelative(getDisp8b b16)))
+  | 0b1001us -> Opcode.BT, OneOperand(OpReg(PCRelative(getDisp8b b16)))
+  | 0b1101us -> Opcode.BTS, OneOperand(OpReg(PCRelative(getDisp8b b16)))
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// PC Relative 1010 ---- ---- ---- destination operand only.
 let parsePC1010 b16 =
-  Opcode.BRA, OneOperand(OpReg(PCr(getDisp12b b16)))
+  Opcode.BRA, OneOperand(OpReg(PCRelative(getDisp12b b16)))
 
 /// PC Relative 1011 ---- ---- ---- destination operand only.
 let parsePC1011 b16 =
-  Opcode.BSR, OneOperand(OpReg(PCr(getDisp12b b16)))
+  Opcode.BSR, OneOperand(OpReg(PCRelative(getDisp12b b16)))
 
 /// Immediate
 let parseImm1111 b16 =

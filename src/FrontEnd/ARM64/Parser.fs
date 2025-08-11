@@ -27,8 +27,7 @@ namespace B2R2.FrontEnd.ARM64
 open System
 open B2R2.FrontEnd.BinLifter
 
-/// Parser for 64-bit ARM instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
+/// Represents a parser for 64-bit ARM instructions.
 type ARM64Parser(reader) =
   let lifter =
     { new ILiftable with
