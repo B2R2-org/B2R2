@@ -252,3 +252,5 @@ with
       | SideEffect(e1, _), SideEffect(e2, _) -> e1 = e2
       | _ -> false
     | _ -> false
+
+  override this.ToString() = Stmt.ToString this

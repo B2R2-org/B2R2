@@ -387,3 +387,5 @@ with
       | Undefined(t1, s1, _), Undefined(t2, s2, _) -> t1 = t2 && s1 = s2
       | _ -> false
     | _ -> false
+
+  override this.ToString() = Expr.ToString this
