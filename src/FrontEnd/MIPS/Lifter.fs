@@ -67,21 +67,22 @@ let private transOprToFPConvert (ins: Instruction) bld = function
       | _ -> raise InvalidOperandException
   | _ -> raise InvalidOperandException
 
-let private transOprToFP bld = function
+let private transOprToSingleFP bld = function
   | OpReg reg ->
     if is32Bit bld then regVar bld reg
     else regVar bld reg |> AST.xtlo 32<rt>
   | _ -> raise InvalidOperandException
 
-let private transTwoFP bld (o1, o2) =
-  transOprToFP bld o1, transOprToFP bld o2
+let private transTwoSingleFP bld (o1, o2) =
+  transOprToSingleFP bld o1, transOprToSingleFP bld o2
 
-let private transThreeFP bld (o1, o2, o3) =
-  transOprToFP bld o1, transOprToFP bld o2, transOprToFP bld o3
+let private transThreeSingleFP bld (o1, o2, o3) =
+  transOprToSingleFP bld o1, transOprToSingleFP bld o2,
+  transOprToSingleFP bld o3
 
-let private transFourFP bld (o1, o2, o3, o4) =
-  transOprToFP bld o1, transOprToFP bld o2, transOprToFP bld o3,
-  transOprToFP bld o4
+let private transFourSingleFP bld (o1, o2, o3, o4) =
+  transOprToSingleFP bld o1, transOprToSingleFP bld o2,
+  transOprToSingleFP bld o3, transOprToSingleFP bld o4
 
 let transTwoOprFPConvert ins bld (o1, o2) =
   transOprToFPConvert ins bld o1, transOprToFPConvert ins bld o2
@@ -96,8 +97,7 @@ let private transOprToFPPair bld = function
 let private transOprToFPPairConcat bld = function
   | OpReg reg ->
     if is32Bit bld then
-      AST.concat (regVar bld (Register.getFPPairReg reg))
-        (regVar bld reg)
+      AST.concat (regVar bld (Register.getFPPairReg reg)) (regVar bld reg)
     else regVar bld reg
   | _ -> raise InvalidOperandException
 
@@ -458,17 +458,34 @@ let private mul64BitReg src1 src2 bld isSign =
 
 let abs ins insLen bld =
   let fd, fs = getTwoOprs ins
+  let is32Bit = is32Bit bld
   bld <!-- (ins.Address, insLen)
   match ins.Fmt with
-  | Some Fmt.D | Some Fmt.PS ->
+  | Some Fmt.D when is32Bit ->
     let fdB, fdA = transOprToFPPair bld fd
-    let fs = transOprToFPPairConcat bld fs
-    fpneg bld 64<rt> fs
-    dstAssignForFP fdB fdA fs bld
+    let fsB, fsA = transOprToFPPair bld fs
+    let mask = numU64 0x7FFFFFFFFFFFFFFFUL 64<rt>
+    let res = (AST.concat fsB fsA) .& mask
+    dstAssignForFP fdB fdA res bld
+  | Some Fmt.PS when is32Bit ->
+    let fdB, fdA = transOprToFPPair bld fd
+    let fsB, fsA = transOprToFPPair bld fs
+    let mask = numU64 0x7FFFFFFFUL 32<rt>
+    let resA = fsA .& mask
+    let resB = fsB .& mask
+    dstAssignForFP fdB fdA (AST.concat resB resA) bld
+  | Some Fmt.PS ->
+    let fd, fs = transTwoOprs ins bld (fd, fs)
+    let mask = numU64 0x7FFFFFFFUL 32<rt>
+    let resA = (AST.xtlo 32<rt> fs) .& mask
+    let resB = (AST.xthi 32<rt> fs) .& mask
+    bld <+ (fd := AST.concat resB resA)
   | _ ->
-    let fd, fs = transTwoFP bld (fd, fs)
-    fpneg bld 32<rt> fs
-    bld <+ (fd := fs)
+    let fd, fs = transTwoOprs ins bld (fd, fs)
+    let mask =
+      if is32Bit then numU64 0x7FFFFFFFUL 32<rt>
+      else numU64 0x7FFFFFFFFFFFFFFFUL 64<rt>
+    bld <+ (fd := fs .& mask)
   advancePC bld
   bld --!> insLen
 
@@ -499,7 +516,7 @@ let add (ins: Instruction) insLen bld =
     bld <+ (rd := result)
     bld <+ (AST.lmark lblEnd)
   | Some Fmt.S ->
-    let fd, fs, ft = transThreeFP bld (dst, src1, src2)
+    let fd, fs, ft = transThreeSingleFP bld (dst, src1, src2)
     let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
     reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
     bld <+ (result := AST.fadd tSrc1 tSrc2)
@@ -698,7 +715,7 @@ let private getCCondOpr (ins: Instruction) bld =
       let fs, ft = transFPConcatTwoOprs bld (fs, ft)
       64<rt>, 0, fs, ft, sameReg
     | _ ->
-      let fs, ft = transTwoFP bld (fs, ft)
+      let fs, ft = transTwoSingleFP bld (fs, ft)
       32<rt>, 0, fs, ft, sameReg
   | ThreeOperands(cc, fs, ft) ->
     let sameReg = fs = ft
@@ -709,7 +726,7 @@ let private getCCondOpr (ins: Instruction) bld =
       64<rt>, cc, fs, ft, sameReg
     | _ ->
       let cc = transOprToImmToInt cc
-      let fs, ft = transTwoFP bld (fs, ft)
+      let fs, ft = transTwoSingleFP bld (fs, ft)
       32<rt>, cc, fs, ft, sameReg
   | _ -> raise InvalidOperandException
 
@@ -1149,7 +1166,7 @@ let div (ins: Instruction) insLen bld =
     dstAssignForFP fdB fdA result bld
   | _ ->
     let fd, fs, ft = getThreeOprs ins
-    let dst, src1, src2 = transThreeFP bld (fd, fs, ft)
+    let dst, src1, src2 = transThreeSingleFP bld (fd, fs, ft)
     let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
     reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
     bld <+ (result := AST.fdiv tSrc1 tSrc2)
@@ -1380,7 +1397,7 @@ let sldc1 ins insLen bld stORld =
 
 let slwc1 ins insLen bld stORld =
   let ft, mem = getTwoOprs ins
-  let ft = transOprToFP bld ft
+  let ft = transOprToSingleFP bld ft
   let mem = transOprToExpr ins bld mem
   let ft = if is32Bit bld then ft else AST.xtlo 32<rt> ft
   bld <!-- (ins.Address, insLen)
@@ -1445,7 +1462,7 @@ let mAddSub (ins: Instruction) insLen bld opFn =
     dstAssignForFP fdB fdA result bld
   | _ ->
     let op = if opFn then AST.fadd else AST.fsub
-    let fd, fr, fs, ft = getFourOprs ins |> transFourFP bld
+    let fd, fr, fs, ft = getFourOprs ins |> transFourSingleFP bld
     let result = op (AST.fmul fs ft) fr
     bld <+ (fd := result)
   advancePC bld
@@ -1523,7 +1540,7 @@ let mtlo ins insLen bld =
 let mfc1 ins insLen bld =
   let rt, fs = getTwoOprs ins
   let rt = transOprToExpr ins bld rt
-  let fs = transOprToFP bld fs
+  let fs = transOprToSingleFP bld fs
   bld <!-- (ins.Address, insLen)
   bld <+ (rt := AST.sext bld.RegType fs)
   advancePC bld
@@ -1534,7 +1551,7 @@ let mov ins insLen bld =
   bld <!-- (ins.Address, insLen)
   match ins.Fmt with
   | Some Fmt.S ->
-    let fd, fs = transTwoFP bld (fd, fs)
+    let fd, fs = transTwoSingleFP bld (fd, fs)
     bld <+ (fd := fs)
   | Some Fmt.D ->
     let fdB, fdA = transOprToFPPair bld fd
@@ -1556,7 +1573,7 @@ let movt ins insLen bld =
     let dst, src = transTwoOprs ins bld (dst, src)
     bld <+ (dst := AST.ite cond src dst)
   | Some Fmt.S ->
-    let dst, src = transTwoFP bld (dst, src)
+    let dst, src = transTwoSingleFP bld (dst, src)
     bld <+ (dst := AST.ite cond src dst)
   | Some Fmt.D ->
     let dstB, dstA = transOprToFPPair bld dst
@@ -1577,7 +1594,7 @@ let movf ins insLen bld =
     let dst, src = transTwoOprs ins bld (dst, src)
     bld <+ (dst := AST.ite cond src dst)
   | Some Fmt.S ->
-    let dst, src = transTwoFP bld (dst, src)
+    let dst, src = transTwoSingleFP bld (dst, src)
     bld <+ (dst := AST.ite cond src dst)
   | Some Fmt.D ->
     let dstB, dstA = transOprToFPPair bld dst
@@ -1598,7 +1615,7 @@ let movzOrn ins insLen bld opFn =
     let dst, src = transTwoOprs ins bld (dst, src)
     bld <+ (dst := AST.ite cond src dst)
   | Some Fmt.S ->
-    let dst, src = transTwoFP bld (dst, src)
+    let dst, src = transTwoSingleFP bld (dst, src)
     bld <+ (dst := AST.ite cond src dst)
   | Some Fmt.D ->
     let dstB, dstA = transOprToFPPair bld dst
@@ -1612,7 +1629,7 @@ let movzOrn ins insLen bld opFn =
 let mtc1 ins insLen bld =
   let rt, fs = getTwoOprs ins
   let rt = transOprToExpr ins bld rt
-  let fs = transOprToFP bld fs
+  let fs = transOprToSingleFP bld fs
   bld <!-- (ins.Address, insLen)
   bld <+ (fs := AST.xtlo 32<rt> rt)
   advancePC bld
@@ -1634,7 +1651,7 @@ let mul ins insLen bld =
     bld <+ (hi := AST.undef bld.RegType "UNPREDICTABLE")
     bld <+ (lo := AST.undef bld.RegType "UNPREDICTABLE")
   | Some Fmt.S ->
-    let dst, fs, ft = transThreeFP bld (dst, src1, src2)
+    let dst, fs, ft = transThreeSingleFP bld (dst, src1, src2)
     let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
     reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
     bld <+ (result := AST.fmul tSrc1 tSrc2)
@@ -1695,16 +1712,34 @@ let multu ins insLen bld =
 
 let neg ins insLen bld =
   let fd, fs = getTwoOprs ins
+  let is32Bit = is32Bit bld
   bld <!-- (ins.Address, insLen)
   match ins.Fmt with
-  | Some Fmt.D | Some Fmt.PS ->
-    let fd, fs = transFPConcatTwoOprs bld (fd, fs)
-    fpneg bld 64<rt> fs
-    bld <+ (fd := fs)
+  | Some Fmt.D when is32Bit ->
+    let fdB, fdA = transOprToFPPair bld fd
+    let fsB, fsA = transOprToFPPair bld fs
+    let mask = numU64 0x8000000000000000UL 64<rt>
+    let res = (AST.concat fsB fsA) <+> mask
+    dstAssignForFP fdB fdA res bld
+  | Some Fmt.PS when is32Bit ->
+    let fdB, fdA = transOprToFPPair bld fd
+    let fsB, fsA = transOprToFPPair bld fs
+    let mask = numU64 0x80000000UL 32<rt>
+    let resA = fsA <+> mask
+    let resB = fsB <+> mask
+    dstAssignForFP fdB fdA (AST.concat resB resA) bld
+  | Some Fmt.PS ->
+    let fd, fs = transTwoOprs ins bld (fd, fs)
+    let mask = numU64 0x80000000UL 32<rt>
+    let resA = (AST.xtlo 32<rt> fs) <+> mask
+    let resB = (AST.xthi 32<rt> fs) <+> mask
+    bld <+ (fd := AST.concat resB resA)
   | _ ->
-    let fd, fs = transTwoFP bld (fd, fs)
-    fpneg bld 32<rt> fs
-    bld <+ (fd := fs)
+    let fd, fs = transTwoOprs ins bld (fd, fs)
+    let mask =
+      if bld.RegType = 32<rt> then numU64 0x80000000UL bld.RegType
+      else numU64 0x8000000000000000UL bld.RegType
+    bld <+ (fd := fs <+> mask)
   advancePC bld
   bld --!> insLen
 
@@ -1786,7 +1821,7 @@ let sqrt ins insLen bld =
   bld <!-- (ins.Address, insLen)
   match ins.Fmt with
   | Some Fmt.S ->
-    let fd, fs = transTwoFP bld (fd, fs)
+    let fd, fs = transTwoSingleFP bld (fd, fs)
     let cond = fs == numU32 0x80000000u 32<rt>
     bld <+ (fd := AST.ite cond (numU32 0x80000000u 32<rt>) (AST.fsqrt fs))
   | _ ->
@@ -1934,7 +1969,7 @@ let sub ins insLen bld =
     let dst, src1, src2 = transThreeOprs ins bld (dst, src1, src2)
     bld <+ (dst := src1 .- src2)
   | Some Fmt.S ->
-    let dst, fs, ft = transThreeFP bld (dst, src1, src2)
+    let dst, fs, ft = transThreeSingleFP bld (dst, src1, src2)
     let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
     reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
     bld <+ (result := AST.fsub tSrc1 tSrc2)
@@ -1994,7 +2029,7 @@ let truncw ins insLen bld =
   let struct (dst, src, inf, nan) =
     match ins.Fmt with
     | Some Fmt.S ->
-      let dst, src = transTwoFP bld (fd, fs)
+      let dst, src = transTwoSingleFP bld (fd, fs)
       bld <+ (exponent := getExponentFull src 32<rt>)
       let mantissa = tmpVar bld 32<rt>
       bld <+ (mantissa := getMantissa src 32<rt>)
@@ -2002,7 +2037,7 @@ let truncw ins insLen bld =
       let nan = isNaN 32<rt> exponent mantissa
       dst, src, inf, nan
     | _ ->
-      let dst = transOprToFP bld fd
+      let dst = transOprToSingleFP bld fd
       let src = transOprToFPPairConcat bld fs
       let tSrc = tmpVar bld 64<rt>
       bld <+ (tSrc := src)
@@ -2030,7 +2065,7 @@ let truncl ins insLen bld =
   let struct (src, inf, nan) =
     match ins.Fmt with
     | Some Fmt.S ->
-      let src = transOprToFP bld fs
+      let src = transOprToSingleFP bld fs
       bld <+ (exponent := getExponentFull src 32<rt>)
       let mantissa = tmpVar bld 32<rt>
       bld <+ (mantissa := getMantissa src 32<rt>)
@@ -2135,7 +2170,7 @@ let rsqrt ins insLen bld =
   bld <!-- (ins.Address, insLen)
   match ins.Fmt with
   | Some Fmt.S ->
-    let fd, fs = transTwoFP bld (fd, fs)
+    let fd, fs = transTwoSingleFP bld (fd, fs)
     let fnum = AST.cast CastKind.SIntToFloat 32<rt> (AST.num1 32<rt>)
     bld <+ (fd := AST.fdiv fnum (AST.fsqrt fs))
   | _ ->
