@@ -38,7 +38,7 @@ open B2R2
 type Register =
   /// Accumulator for operands and results data (64bit).
   | RAX = 0x0
-  /// TCounter for string and loop operations (64bit).
+  /// Counter for string and loop operations (64bit).
   | RCX = 0x1
   /// I/O pointer (64bit).
   | RDX = 0x2
