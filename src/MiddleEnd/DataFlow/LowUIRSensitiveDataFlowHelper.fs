@@ -30,14 +30,14 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 
-let MaxExpansionDepth = 64
+let maxExpansionDepth = 64
 
 let rec expandExpr state e = expandExprAux Set.empty 0 state e
 
 and expandExprAux visited depth (state: State<_, _>) e =
   let depth = depth + 1
   match e with
-  | _ when depth > MaxExpansionDepth -> e
+  | _ when depth > maxExpansionDepth -> e
   | SSA.Var var when Set.contains var visited -> e
   | SSA.Var var ->
     let visited = Set.add var visited
@@ -101,8 +101,8 @@ let rec findRootVars (state: State<_, _>) acc worklist =
           | _ -> None)
         |> List.append rest
         |> findRootVars state acc
-      | _ -> findRootVars state (var :: acc) rest (* End of the chain. *)
-    | _ -> findRootVars state (var :: acc) rest (* End of the chain. *)
+      | _ -> findRootVars state (var :: acc) rest
+    | _ -> findRootVars state (var :: acc) rest
 
 /// Returns the list of root variables, considering AND operators with jump
 /// destination addresses. Note that this function must be given a non-expanded
@@ -115,13 +115,15 @@ let rec findRootVarsFromJumpDstVar (state: State<_, _>) acc worklist =
     | Some(SSA.Def(_, e)) ->
       match e with
       | SSA.Var rdVar -> findRootVarsFromJumpDstVar state acc (rdVar :: rest)
-      | SSA.BinOp(BinOpType.AND, _, SSA.ExprList [ SSA.Var var1 ], SSA.ExprList [ SSA.Var var2 ]) ->
-        match expandExpr state (SSA.Var var1), expandExpr state (SSA.Var var2) with
+      | SSA.BinOp(BinOpType.AND, _, SSA.ExprList [ SSA.Var var1 ],
+                                    SSA.ExprList [ SSA.Var var2 ]) ->
+        match expandExpr state (SSA.Var var1),
+              expandExpr state (SSA.Var var2) with
         | SSA.Num bv_bitmask, SSA.Num _bv_dst
-          when bv_bitmask.BigValue () = 0xffffffffUL ->
+          when bv_bitmask.BigValue = bigint 0xffffffffUL ->
           findRootVarsFromJumpDstVar state acc (var2 :: rest)
         | SSA.Num _bv_dst, SSA.Num bv_bitmask
-          when bv_bitmask.BigValue () = 0xffffffffUL ->
+          when bv_bitmask.BigValue = bigint 0xffffffffUL ->
           findRootVarsFromJumpDstVar state acc (var1 :: rest)
         | _ -> acc
       | SSA.ExprList exprs ->
@@ -131,8 +133,8 @@ let rec findRootVarsFromJumpDstVar (state: State<_, _>) acc worklist =
           | _ -> None)
         |> List.append rest
         |> findRootVarsFromJumpDstVar state acc
-      | _ -> findRootVarsFromJumpDstVar state (var :: acc) rest (* End of the chain. *)
-    | _ -> findRootVarsFromJumpDstVar state (var :: acc) rest (* End of the chain. *)
+      | _ -> findRootVarsFromJumpDstVar state (var :: acc) rest
+    | _ -> findRootVarsFromJumpDstVar state (var :: acc) rest
 
 let extractVarsFromExpr e =
   match e with
@@ -151,7 +153,6 @@ let findRootVarsFromJumpDstExpr state e =
 let findRootVarsFromExpr state e =
   extractVarsFromExpr e
   |> findRootVars state []
-  // findRootVarsFromJumpDstExpr state e
 
 let getDefSiteVertex (g: IDiGraph<_, _>) (state: State<_, _>) var =
   let svp = state.SSAVarToDefSVP var

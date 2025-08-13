@@ -37,7 +37,7 @@ open B2R2.MiddleEnd.DataFlow.SensitiveDFHelper
 
 [<AutoOpen>]
 module private EVMCFGRecovery =
-  let UseCallFallthroughHeuristic = true
+  let useCallFallthroughHeuristic = true
 
   let summarizer = EVMFunctionSummarizer() :> IFunctionSummarizable<_, _>
 
@@ -72,8 +72,8 @@ module private EVMCFGRecovery =
                 SSA.BinOp(BinOpType.APP, _, SSA.FuncName "msg.data", _))
       -> true
     | SSA.BinOp(BinOpType.DIV, _,
-                SSA.BinOp (BinOpType.APP, _, SSA.FuncName "msg.data", _),
-                SSA.BinOp (BinOpType.APP, _, SSA.FuncName "exp",
+                SSA.BinOp(BinOpType.APP, _, SSA.FuncName "msg.data", _),
+                SSA.BinOp(BinOpType.APP, _, SSA.FuncName "exp",
                            SSA.ExprList [ SSA.Num bv_0x2; SSA.Num bv_0xe0 ]))
       -> true
     | SSA.BinOp(BinOpType.SHR, _,
@@ -181,11 +181,11 @@ module private EVMCFGRecovery =
     let p1Set = Set.ofList p1
     List.filter (fun v -> Set.contains v p1Set) p2
 
-  let UsesOptimizedReload = true
+  let usesOptimizedReload = true
 
   let removeReachableVertices ctx cfgRec root =
-    let removals = HashSet ()
-    let possiblyIncomings = HashSet ()
+    let removals = HashSet()
+    let possiblyIncomings = HashSet()
     let rec removeReachables (vs: IVertex<LowUIRBasicBlock> list) =
       match vs with
       | [] -> ()
@@ -207,7 +207,7 @@ module private EVMCFGRecovery =
     CFGRecovery.pushAction ctx <| ExpandCFG [ srcPP ]
 
   let removeAndReanalyze ctx cfgRec srcV newEP =
-    let ppoint = ProgramPoint (newEP, 0)
+    let ppoint = ProgramPoint(newEP, 0)
     match ctx.Vertices.TryGetValue ppoint with
     | false, _ -> reanalyzeVertex ctx srcV
     | true, ep ->
@@ -218,8 +218,8 @@ module private EVMCFGRecovery =
     assert (ep <> ctx.FunctionAddress)
     ctx.ManagerChannel.StartBuilding ep
     getFunctionUserContext ctx ep
-    |> Result.iter (fun userCtx -> userCtx.SetSharedRegion ())
-    if not UsesOptimizedReload then Some StopAndReload
+    |> Result.iter (fun userCtx -> userCtx.SetSharedRegion())
+    if not usesOptimizedReload then Some StopAndReload
     else removeAndReanalyze ctx cfgRec srcV ep; None
 
   let findAndIntroduceSharedRegion ctx cfgRec state v rdVars =
@@ -311,7 +311,7 @@ module private EVMCFGRecovery =
   let introduceNewFunction (ctx: CFGBuildingContext<_, _>) cfgRec srcV newEP =
     assert (newEP <> ctx.FunctionAddress)
     ctx.ManagerChannel.StartBuilding newEP
-    if not UsesOptimizedReload then Some StopAndReload
+    if not usesOptimizedReload then Some StopAndReload
     else removeAndReanalyze ctx cfgRec srcV newEP; None
 
   let isInfeasibleEntryPoint (ctx: CFGBuildingContext<_, _>) v =
@@ -424,7 +424,7 @@ module private EVMCFGRecovery =
     if not <| backEdges.Contains currSrcDstPair then false
     elif not <| state.PerVertexPossibleExeCtxs.ContainsKey dstV then false
     else
-      let delta = usrCtx.GetStackPointerDelta usrCtx.CP.State srcV
+      let delta = usrCtx.GetStackPointerDelta(usrCtx.CP.State, srcV)
       let srcOutSP = exeCtx.StackOffset + delta
       let dstExeCtxs = state.PerVertexPossibleExeCtxs[dstV]
       let dstSPs = Seq.map (fun t -> t.StackOffset) dstExeCtxs
@@ -433,7 +433,7 @@ module private EVMCFGRecovery =
       else
         true
 
-  let MaxExecutionContextsPerVertex = 8
+  let maxExecutionContextsPerVertex = 8
 
   let tooManyContexts (usrCtx: EVMFuncUserContext) dstV dstExeCtx =
     let state = usrCtx.CP.State
@@ -441,7 +441,7 @@ module private EVMCFGRecovery =
     | true, dstPossibleExeCtxs when dstPossibleExeCtxs.Contains dstExeCtx ->
       false
     | true, dstPossibleExeCtxs
-      when dstPossibleExeCtxs.Count >= MaxExecutionContextsPerVertex ->
+      when dstPossibleExeCtxs.Count >= maxExecutionContextsPerVertex ->
       true
     | _ ->
       false
@@ -540,7 +540,7 @@ module private EVMCFGRecovery =
   let scanBBLsAndConnect ctx cfgRec src dstAddr edgeKind =
     match CFGRecovery.scanBBLs ctx [ dstAddr ] with
     | Ok dividedEdges ->
-      let dstPPoint = ProgramPoint (dstAddr, 0)
+      let dstPPoint = ProgramPoint(dstAddr, 0)
       let v = scanAndGetVertex ctx cfgRec dstAddr
       CFGRecovery.connectEdge ctx cfgRec src v edgeKind
       reconnectVertices ctx cfgRec dividedEdges
@@ -555,7 +555,7 @@ module private EVMCFGRecovery =
   let hasCallFallthroughAddress (ctx: CFGBuildingContext<_, _>) srcV =
     let userCtx = ctx.UserContext :> EVMFuncUserContext
     let fallthroughAddr = getFallthroughAddress srcV
-    let fallthroughBV = BitVector.OfUInt64 fallthroughAddr 256<rt>
+    let fallthroughBV = BitVector(fallthroughAddr, 256<rt>)
     let state = userCtx.CP.State
     let maximumStackOff = -32
     let minimumStackOff = findLatestStackOffset ctx state srcV
@@ -583,7 +583,7 @@ module private EVMCFGRecovery =
     let dstAddr = BitVector.ToUInt64 dstBv
     match ctx.ManagerChannel.GetBuildingContext dstAddr with
     | FailedBuilding -> (* Ignore when the target is not a function. *)
-      if UseCallFallthroughHeuristic
+      if useCallFallthroughHeuristic
          && edgeKind = InterJmpEdge
          && not (srcV: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
          (* 0x2bb @ 0x003249c0beadbcf04c65bb0a392b810c23ffdc8b *)
@@ -595,7 +595,7 @@ module private EVMCFGRecovery =
         introduceNewFunction ctx cfgRec srcV dstAddr
       else
         match scanBBLsAndConnect ctx cfgRec srcV dstAddr edgeKind with
-        | Ok () ->
+        | Ok() ->
           let state = computeCPState ctx (* Recalculate the reaching defs. *)
           let dstV = scanAndGetVertex ctx cfgRec dstAddr
           let preds = ctx.CFG.GetPreds dstV
@@ -624,8 +624,8 @@ module private EVMCFGRecovery =
   let handleDirectJmpWithVars ctx cfgRec state srcV dstVars edge =
     match constantFoldSSAVars state dstVars with
     | ConstantDomain.Const dstBv -> handleJmpWithBV ctx cfgRec srcV dstBv edge
-    | _ -> None (* Function pointers not supported:
-                   0x000000000000cca70b6e0997a94681a3114eddd7 *)
+    (* Func pointers unsupported: 0x000000000000cca70b6e0997a94681a3114eddd7 *)
+    | _ -> None
 
   let findAndIntroduceFunction ctx cfgRec srcV rds rdVars =
     let sampledDefSite = Seq.head rds
@@ -798,12 +798,12 @@ module private EVMCFGRecovery =
         let rest = succs |> Array.toList |> List.append rest
         traverseForRemovalMark visited g pendingFn removalFn rest
 
-  let beforeRemoveVertex (ctx: CFGBuildingContext<EVMFuncUserContext, _>) v =
+  let onRemoveVertex (ctx: CFGBuildingContext<EVMFuncUserContext, _>) v =
     let g = ctx.CFG
     let visited = HashSet()
     let state = ctx.UserContext.CP.State
-    let pendingFn = state.MarkEdgeAsPending
-    let removalFn = state.MarkVertexAsRemoval
+    let pendingFn s d = state.MarkEdgeAsPending(s, d)
+    let removalFn v = state.MarkVertexAsRemoval v
     traverseForRemovalMark visited g pendingFn removalFn [ v ]
 
 type EVMCFGRecovery() as this =
@@ -841,8 +841,8 @@ type EVMCFGRecovery() as this =
                 let usrCtx = ctx.UserContext
                 if not <| usrCtx.PostponedVertices.Remove v then ()
                 else usrCtx.ResumableVertices.Add v |> ignore
-              member _.TryComputeExecutionContext src srcExeCtx dst edgeKind =
-                getSuccessorExecutionContext ctx src srcExeCtx dst edgeKind }
+              member _.TryComputeExecutionContext(src, srcExeCtx, dst, edge) =
+                getSuccessorExecutionContext ctx src srcExeCtx dst edge }
         let cp = LowUIRSensitiveConstantPropagation(ctx.BinHandle, scheme)
         ctx.UserContext.CP <- cp
 
@@ -903,11 +903,11 @@ type EVMCFGRecovery() as this =
       let hasEntryPointAddr = vData.PPoint.Address = ctx.FunctionAddress
       let isEntryPoint = not isAbstract && hasEntryPointAddr
       if not isEntryPoint then ()
-      else ctx.UserContext.CP.State.MarkEdgeAsPending null v
+      else ctx.UserContext.CP.State.MarkEdgeAsPending(null, v)
 
     member _.OnAddEdge(ctx, srcV, dstV, _kind) =
-      ctx.UserContext.CP.State.MarkEdgeAsPending srcV dstV
+      ctx.UserContext.CP.State.MarkEdgeAsPending(srcV, dstV)
       updateBackEdges ctx srcV dstV
 
-    member _.BeforeRemoveVertex(ctx, v) =
-      beforeRemoveVertex ctx v
+    member _.OnRemoveVertex(ctx, v) =
+      onRemoveVertex ctx v

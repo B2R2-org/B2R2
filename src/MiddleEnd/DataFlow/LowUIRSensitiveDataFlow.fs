@@ -670,7 +670,7 @@ module internal AnalysisCore = begin
     state.UseDefMap[id] <- defs
 
   let makeFakeDefSvp exeCtx vk =
-    let fakePp = ProgramPoint.GetFake ()
+    let fakePp = ProgramPoint.GetFake()
     let fakeSpp = { ProgramPoint = fakePp; ExecutionContext = exeCtx }
     { SensitiveProgramPoint = fakeSpp; VarKind = vk }
 
@@ -1025,7 +1025,7 @@ module internal AnalysisCore = begin
 
   let tryGetSuccessorExeCtx g (state: State<_, _>) src srcExeCtx dst =
     if isNull src then Some state.Scheme.DefaultExecutionContext
-    elif not <| (g: IGraphAccessible<_, _>).HasEdge src dst then None
+    elif not <| (g: IGraphAccessible<_, _>).HasEdge(src, dst) then None
     else
       let edge = g.FindEdge(src, dst)
       let edgeKind = edge.Label
