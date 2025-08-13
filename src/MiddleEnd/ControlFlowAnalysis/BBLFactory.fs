@@ -40,11 +40,17 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// not create multiple BBLs for the same address. As this is a per-function
 /// structure, each different function has its own BBLFactory.
 [<AllowNullLiteral>]
-type BBLFactory(hdl: BinHandle, instrs) =
+type BBLFactory(hdl: BinHandle, instrs, blkOptimizer: IIRBlockOptimizable) =
   /// Inter-instruction (i.e., disassembly level) leaders.
   let interLeaders = ConcurrentDictionary<Addr, unit>()
 
   let bbls = ConcurrentDictionary<ProgramPoint, LowUIRBasicBlock>()
+
+  let blkOptimizer =
+    if isNull blkOptimizer then
+      { new IIRBlockOptimizable with
+          member _.Optimize stmts = stmts }
+    else blkOptimizer
 
   let rec parseBlock (channel: BufferBlock<_>) acc insCount addr leader prev =
     match (instrs: InstructionCollection).TryFind addr with
@@ -114,7 +120,8 @@ type BBLFactory(hdl: BinHandle, instrs) =
     match instrs with
     | ins :: tl ->
       let stmts =
-        (lunit: LiftingUnit).LiftInstruction(ins = ins, optimize = false)
+        (lunit: LiftingUnit).LiftInstruction(ins = ins)
+        |> blkOptimizer.Optimize
 #if DEBUG
       assert (hasProperISMark stmts)
       assert (hasProperTerminator ins.Address stmts)
@@ -377,3 +384,6 @@ type BBLFactory(hdl: BinHandle, instrs) =
       )
     )
 #endif
+
+  new(hdl: BinHandle, instrs) =
+    BBLFactory(hdl, instrs, null)

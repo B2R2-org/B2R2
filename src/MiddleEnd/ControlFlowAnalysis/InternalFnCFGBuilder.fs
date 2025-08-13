@@ -108,13 +108,13 @@ type InternalFnCFGBuilder<'FnCtx,
 
   do ctx.ManagerChannel <- managerChannel
 
-  new(hdl: BinHandle, exnInfo, instrs, entryPoint, manager) =
+  new(hdl: BinHandle, exnInfo, instrs, entryPoint, manager, irBlkOptimizer) =
     let name =
       match hdl.File.TryFindName entryPoint with
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
     let cfg = LowUIRCFG Imperative
-    let bblFactory = BBLFactory(hdl, instrs)
+    let bblFactory = BBLFactory(hdl, instrs, irBlkOptimizer)
     let fnCtx = new 'FnCtx()
     let ctx =
       { FunctionAddress = entryPoint

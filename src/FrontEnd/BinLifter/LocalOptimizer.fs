@@ -56,8 +56,15 @@ type LocalOptimizer =
     | _ -> stmts
 
   /// Run optimization on a flattened IR statements (an array of IR statements).
-  static member Optimize stmts =
+  /// This always trims the last IEMark following a jump or a conditional jump.
+  static member Optimize(stmts, fnOptimize: Stmt[] -> Stmt[]) =
     LocalOptimizer.TrimIEMark stmts
     |> breakIntoBlocks
-    |> Array.collect
-      (ConstantFolding.optimize >> DeadCodeElimination.optimize)
+    |> Array.collect fnOptimize
+
+  /// Run optimization on a flattened IR statements (an array of IR statements)
+  /// with a default optimization function that performs constant folding and
+  /// dead code elimination.
+  static member Optimize stmts =
+    let fnOptimize = ConstantFolding.optimize >> DeadCodeElimination.optimize
+    LocalOptimizer.Optimize(stmts, fnOptimize)

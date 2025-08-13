@@ -22,6 +22,7 @@
     <Compile Include="AsmWordDisasmBuilder.fs" />
     <Compile Include="IInstruction.fs" />
     <Compile Include="IInstructionParsable.fs" />
+    <Compile Include="IIRBlockOptimizable.fs" />
     <Compile Include="ParsingUtils.fs" />
     <Compile Include="LiftingUtils.fs" />
     <Compile Include="ConstantFolding.fs" />

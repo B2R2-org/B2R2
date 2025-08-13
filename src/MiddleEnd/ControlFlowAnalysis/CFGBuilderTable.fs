@@ -34,7 +34,7 @@ type CFGBuilderTable<'FnCtx,
                      'GlCtx when 'FnCtx :> IResettable
                              and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)>
-  public(hdl, exnInfo, instrs) =
+  public(hdl, exnInfo, instrs, irBlkOptimizer) =
 
   let builders =
     SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>>()
@@ -63,7 +63,8 @@ type CFGBuilderTable<'FnCtx,
                              exnInfo,
                              instrs,
                              addr,
-                             managerMsgbox) :> ICFGBuildable<'FnCtx, 'GlCtx>
+                             managerMsgbox,
+                             irBlkOptimizer) :> ICFGBuildable<'FnCtx, 'GlCtx>
       builders[addr] <- builder
       updateNextFunctionAddrs builder addr
       builder

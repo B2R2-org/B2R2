@@ -28,6 +28,7 @@ open System.Runtime.InteropServices
 open System
 open System.Diagnostics
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
@@ -49,11 +50,12 @@ type BinaryBrew<'FnCtx,
                         and 'GlCtx: (new: unit -> 'GlCtx)>
   public(hdl: BinHandle,
          exnInfo: ExceptionInfo,
-         strategies: ICFGBuildingStrategy<_, _>[]) =
+         strategies: ICFGBuildingStrategy<_, _>[],
+         irBlkOptimizer: IIRBlockOptimizable) =
 
   let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
 
-  let builders = CFGBuilderTable(hdl, exnInfo, instrs)
+  let builders = CFGBuilderTable(hdl, exnInfo, instrs, irBlkOptimizer)
 
   let missions = strategies |> Array.map RecoveryMission<'FnCtx, 'GlCtx>
 
@@ -79,7 +81,14 @@ type BinaryBrew<'FnCtx,
 
   new(hdl: BinHandle, strategies) =
     let exnInfo = ExceptionInfo(hdl)
-    BinaryBrew(hdl, exnInfo, strategies)
+    BinaryBrew(hdl, exnInfo, strategies, null)
+
+  new(hdl: BinHandle, strategies, irBlkOptimizer) =
+    let exnInfo = ExceptionInfo(hdl)
+    BinaryBrew(hdl, exnInfo, strategies, irBlkOptimizer)
+
+  new(hdl: BinHandle, exnInfo, strategies) =
+    BinaryBrew(hdl, exnInfo, strategies, null)
 
   /// Low-level access to binary code and data.
   member _.BinHandle with get(): BinHandle = hdl
@@ -99,7 +108,7 @@ type BinaryBrew<'FnCtx,
 type BinaryBrew =
   inherit BinaryBrew<DummyContext, DummyContext>
 
-  new(hdl: BinHandle, exnInfo, strategies) =
+  new(hdl: BinHandle, exnInfo: ExceptionInfo, strategies) =
     { inherit BinaryBrew<DummyContext, DummyContext>(hdl, exnInfo, strategies) }
 
   new(hdl: BinHandle, strategies) =
@@ -119,4 +128,11 @@ type EVMBinaryBrew =
   inherit BinaryBrew<EVMFuncUserContext, DummyContext>
 
   new(hdl: BinHandle, strategies) =
-    { inherit BinaryBrew<EVMFuncUserContext, DummyContext>(hdl, strategies) }
+    let optimizer =
+      { new IIRBlockOptimizable with
+          (* Dead Code Analysis can disturb the data-flow analysis in
+             an inter-procedural level, so we disable it. *)
+          member _.Optimize stmts =
+            LocalOptimizer.Optimize(stmts, ConstantFolding.optimize) }
+    { inherit BinaryBrew<EVMFuncUserContext, DummyContext>(hdl, strategies,
+                                                           optimizer) }
