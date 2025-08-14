@@ -806,7 +806,7 @@ module private EVMCFGRecovery =
     let removalFn v = state.MarkVertexAsRemoval v
     traverseForRemovalMark visited g pendingFn removalFn [ v ]
 
-type EVMCFGRecovery() as this =
+type EVMCFGRecovery(fnCallback) as this =
   let syscallAnalysis = SyscallAnalysis()
   let jmptblAnalysis = JmpTableAnalysis None
 
@@ -911,3 +911,10 @@ type EVMCFGRecovery() as this =
 
     member _.OnRemoveVertex(ctx, v) =
       onRemoveVertex ctx v
+
+    member _.FindCandidatesForPostProcessing builders =
+      fnCallback builders
+
+  new() =
+    let fnCallback _ = [||] (* Does nothing. *)
+    EVMCFGRecovery(fnCallback)

@@ -887,6 +887,8 @@ type CFGRecovery<'FnCtx,
     member _.OnRemoveVertex(ctx, vertex) =
       CFGRecovery.markVertexAsRemovalForAnalysis ctx vertex
 
+    member _.FindCandidatesForPostProcessing _ = [||]
+
   new(allowBBLOverlap, useSSA) =
     let summarizer = FunctionSummarizer()
     let syscallAnalysis = SyscallAnalysis()
