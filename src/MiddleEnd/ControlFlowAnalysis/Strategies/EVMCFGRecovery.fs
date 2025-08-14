@@ -37,7 +37,9 @@ open B2R2.MiddleEnd.DataFlow.SensitiveDFHelper
 
 [<AutoOpen>]
 module private EVMCFGRecovery =
-  let useCallFallthroughHeuristic = true
+  let [<Literal>] private UseCallFallthroughHeuristic = true
+
+  let [<Literal>] private UsesOptimizedReload = true
 
   let summarizer = EVMFunctionSummarizer() :> IFunctionSummarizable<_, _>
 
@@ -181,8 +183,6 @@ module private EVMCFGRecovery =
     let p1Set = Set.ofList p1
     List.filter (fun v -> Set.contains v p1Set) p2
 
-  let usesOptimizedReload = true
-
   let removeReachableVertices ctx cfgRec root =
     let removals = HashSet()
     let possiblyIncomings = HashSet()
@@ -219,7 +219,7 @@ module private EVMCFGRecovery =
     ctx.ManagerChannel.StartBuilding ep
     getFunctionUserContext ctx ep
     |> Result.iter (fun userCtx -> userCtx.SetSharedRegion())
-    if not usesOptimizedReload then Some StopAndReload
+    if not UsesOptimizedReload then Some StopAndReload
     else removeAndReanalyze ctx cfgRec srcV ep; None
 
   let findAndIntroduceSharedRegion ctx cfgRec state v rdVars =
@@ -311,7 +311,7 @@ module private EVMCFGRecovery =
   let introduceNewFunction (ctx: CFGBuildingContext<_, _>) cfgRec srcV newEP =
     assert (newEP <> ctx.FunctionAddress)
     ctx.ManagerChannel.StartBuilding newEP
-    if not usesOptimizedReload then Some StopAndReload
+    if not UsesOptimizedReload then Some StopAndReload
     else removeAndReanalyze ctx cfgRec srcV newEP; None
 
   let isInfeasibleEntryPoint (ctx: CFGBuildingContext<_, _>) v =
@@ -583,7 +583,7 @@ module private EVMCFGRecovery =
     let dstAddr = BitVector.ToUInt64 dstBv
     match ctx.ManagerChannel.GetBuildingContext dstAddr with
     | FailedBuilding -> (* Ignore when the target is not a function. *)
-      if useCallFallthroughHeuristic
+      if UseCallFallthroughHeuristic
          && edgeKind = InterJmpEdge
          && not (srcV: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract
          (* 0x2bb @ 0x003249c0beadbcf04c65bb0a392b810c23ffdc8b *)

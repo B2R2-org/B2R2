@@ -30,14 +30,14 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 
-let maxExpansionDepth = 64
+let [<Literal>] MaxExpansionDepth = 64
 
 let rec expandExpr state e = expandExprAux Set.empty 0 state e
 
 and expandExprAux visited depth (state: State<_, _>) e =
   let depth = depth + 1
   match e with
-  | _ when depth > maxExpansionDepth -> e
+  | _ when depth > MaxExpansionDepth -> e
   | SSA.Var var when Set.contains var visited -> e
   | SSA.Var var ->
     let visited = Set.add var visited
