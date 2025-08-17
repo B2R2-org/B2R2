@@ -51,7 +51,7 @@ module HexDumper =
        coloredAscii |]
     |> Array.concat
     |> List.ofArray
-    |> ColoredString.compile
+    |> ColoredString
     |> OutputColored
 
   let internal regularHexDumper addrStr chuckSize (bytes: byte[]) =

@@ -36,18 +36,25 @@ let [<Literal>] private ToolName = "bindump"
 let [<Literal>] private UsageTail = "<binary file(s) | -s hexstring>"
 
 let private printFileName (filepath: string) =
-  out.PrintLine(String.wrapSqrdBracket filepath)
-  out.PrintLine()
+  Terminal.COut <=/ String.wrapSqrdBracket filepath
+  Terminal.COut.PrintLine()
 
 let private getTableConfig (isa: ISA) isLift =
-  if isLift then [ LeftAligned 10 ]
+  if isLift then
+    { Indentation = PrinterConst.Indentation
+      ColumnGap = 0
+      Columns = [ LeftAligned 10 ] }
   else
     let addrWidth = WordSize.toByteWidth isa.WordSize * 2
     let binaryWidth =
       match isa with
       | Intel -> 36
       | _ -> 16
-    [ LeftAligned addrWidth; LeftAligned binaryWidth; LeftAligned 10 ]
+    { Indentation = PrinterConst.Indentation
+      ColumnGap = 0
+      Columns = [ LeftAligned addrWidth
+                  LeftAligned binaryWidth
+                  LeftAligned 10 ] }
 
 let private isARM32 (hdl: BinHandle) =
   match hdl.File.ISA with
@@ -87,13 +94,13 @@ let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
   let ptr = hdl.File.GetBoundedPointer hdl.File.BaseAddress
   let prn = makeCodePrinter hdl cfg opts
   prn.Print ptr
-  out.PrintLine()
+  Terminal.COut.PrintLine()
 
 let printHexdump (opts: BinDumpOpts) (hdl: BinHandle) ptr =
   let bytes = hdl.ReadBytes(ptr = ptr, nBytes = ptr.MaxOffset - ptr.Offset + 1)
   let chunkSz = if opts.ShowWide then 32 else 16
   HexDumper.dump chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
-  |> Array.iter out.PrintLine
+  |> Array.iter Terminal.COut.PrintLine
 
 let private hasNoContent (file: IBinFile) secName =
   match file with
@@ -104,11 +111,12 @@ let private hasNoContent (file: IBinFile) secName =
   | _ -> false
 
 let dumpHex (hdl: BinHandle) (opts: BinDumpOpts) ptr secName =
-  out.PrintSectionTitle(String.wrapParen secName)
+  Terminal.COut.PrintSectionTitle(String.wrapParen secName)
   if hasNoContent hdl.File secName then
-    out.PrintTwoCols("", "NOBITS section.")
+    Terminal.COut.SetTableConfig TableConfig.DefaultTwoColumn
+    Terminal.COut.PrintRow([ ""; "NOBITS section." ])
   else printHexdump opts hdl ptr
-  out.PrintLine()
+  Terminal.COut.PrintLine()
 
 let private createBinHandleFromPath (opts: BinDumpOpts) filePath =
   BinHandle(filePath, opts.ISA, opts.BaseAddress)
@@ -124,10 +132,10 @@ let private isRawBinary (hdl: BinHandle) =
 
 let private printCodeOrTable (printer: BinPrinter) ptr =
   printer.Print ptr
-  out.PrintLine()
+  Terminal.COut.PrintLine()
 
 let private dumpOneSection (prn: BinPrinter) name ptr =
-  out.PrintSectionTitle(String.wrapParen name)
+  Terminal.COut.PrintSectionTitle(String.wrapParen name)
   printCodeOrTable prn ptr
 
 let private dumpELFSection hdl opts elf tableprn codeprn sec =
@@ -204,17 +212,17 @@ let dumpFile (opts: BinDumpOpts) filepath =
 let dumpFileMode files (opts: BinDumpOpts) =
   match List.partition IO.File.Exists files with
   | [], [] ->
-    Printer.PrintErrorToConsole "File(s) must be given."
+    Terminal.Out <=? "File(s) must be given."
     CmdOpts.PrintUsage(ToolName, UsageTail, Cmd.spec)
   | files, [] -> files |> List.iter (dumpFile opts)
   | _, errs ->
-    Printer.PrintErrorToConsole("File(s) " + errs.ToString() + " not found!")
+    Terminal.Out <=? "File(s) " + errs.ToString() + " not found!"
 
 let private assertBinaryLength isa isThumb hexstr =
   let multiplier = getInstructionAlignment isa isThumb
   if (Array.length hexstr) % multiplier = 0 then ()
   else
-    Printer.PrintErrorToConsole <|
+    Terminal.Out <=?
       "The hex string length must be multiple of " + multiplier.ToString()
     exit 1
 
@@ -230,7 +238,7 @@ let dumpHexStringMode (opts: BinDumpOpts) =
   let len = opts.InputHexStr.Length
   let ptr = BinFilePointer(baseAddr, baseAddr + uint64 len - 1UL, 0, len - 1)
   printer.Print ptr
-  out.PrintLine()
+  Terminal.COut.PrintLine()
 
 let private dump files (opts: BinDumpOpts) =
 #if DEBUG
@@ -241,7 +249,7 @@ let private dump files (opts: BinDumpOpts) =
     if Array.isEmpty opts.InputHexStr then dumpFileMode files opts
     else dumpHexStringMode opts
   finally
-    out.Flush()
+    Terminal.COut.Flush()
 #if DEBUG
   sw.Stop()
   eprintfn "Total dump time: %f sec." sw.Elapsed.TotalSeconds

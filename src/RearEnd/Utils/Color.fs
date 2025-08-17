@@ -24,23 +24,36 @@
 
 namespace B2R2.RearEnd.Utils
 
-/// Color type used to represent colors to print out in the console.
+/// Represents colors to print out in the console.
 type Color =
+  /// Red color.
   | Red
+  /// Green color.
   | Green
+  /// Yellow color.
   | Yellow
+  /// Blue color.
   | Blue
+  /// Dark cyan color.
   | DarkCyan
+  /// Dark yellow color.
   | DarkYellow
+  /// No color.
   | NoColor
+  /// Red highlight color.
   | RedHighlight
+  /// Green highlight color.
   | GreenHighlight
+with
+  static member FromByte(b: byte) =
+    if B2R2.Byte.isNull b then NoColor
+    elif B2R2.Byte.isPrintable b then Green
+    elif B2R2.Byte.isWhitespace b then Blue
+    elif B2R2.Byte.isControl b then Red
+    else Yellow
 
-[<RequireQualifiedAccess>]
-module Color =
-  /// Returns a string representation of a color.
-  [<CompiledName "ToString">]
-  let toString = function
+  override this.ToString() =
+    match this with
     | NoColor -> "nocolor"
     | Red -> "red"
     | Green -> "green"

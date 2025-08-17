@@ -37,31 +37,36 @@ let badAccess _ _ =
 
 let computeMagicBytes (file: IBinFile) =
   let span = System.ReadOnlySpan(file.RawBytes, 0, 16)
-  span.ToArray() |> ColoredString.ofBytes
+  span.ToArray()
+  |> ColoredString
+  |> OutputColored
 
 let computeEntryPoint (hdr: Header) =
-  [ ColoredSegment(Green, HexString.ofUInt64 hdr.EntryPoint) ]
+  ColoredString(Green, HexString.ofUInt64 hdr.EntryPoint)
+  |> OutputColored
 
 let dumpFileHeader (_: FileViewerOpts) (file: ELFBinFile) =
   let hdr = file.Header
-  out.PrintTwoColsWithColorOnSnd("Magic:", computeMagicBytes file)
-  out.PrintTwoCols("Class:", "ELF" + WordSize.toString hdr.Class)
-  out.PrintTwoCols("Data:", Endian.toString hdr.Endian)
-  out.PrintTwoCols("Version:", hdr.Version.ToString())
-  out.PrintTwoCols("ABI:", OSABI.toString hdr.OSABI)
-  out.PrintTwoCols("ABI version:", hdr.OSABIVersion.ToString())
-  out.PrintTwoCols("Type:", ELFType.toString hdr.ELFType)
-  out.PrintTwoCols("Machine:", hdr.MachineType.ToString())
-  out.PrintTwoColsWithColorOnSnd("Entry point:", computeEntryPoint hdr)
-  out.PrintTwoCols("PHdr table offset:", HexString.ofUInt64 hdr.PHdrTblOffset)
-  out.PrintTwoCols("SHdr table offset:", HexString.ofUInt64 hdr.SHdrTblOffset)
-  out.PrintTwoCols("Flags:", HexString.ofUInt64 (uint64 hdr.ELFFlags))
-  out.PrintTwoCols("Header size:", toNBytes (uint64 hdr.HeaderSize))
-  out.PrintTwoCols("PHdr Entry Size:", toNBytes (uint64 hdr.PHdrEntrySize))
-  out.PrintTwoCols("PHdr Entry Num:", hdr.PHdrNum.ToString())
-  out.PrintTwoCols("SHdr Entry Size:", toNBytes (uint64 (hdr.SHdrEntrySize)))
-  out.PrintTwoCols("SHdr Entry Num:", hdr.SHdrNum.ToString())
-  out.PrintTwoCols("SHdr string index:", hdr.SHdrStrIdx.ToString())
+  Terminal.Out
+  <== TableConfig.DefaultTwoColumn
+  <== [ OutputNormal "Magic:"; computeMagicBytes file ]
+  <== [ "Class:"; "ELF" + WordSize.toString hdr.Class ]
+  <== [ "Data:"; Endian.toString hdr.Endian ]
+  <== [ "Version:"; hdr.Version.ToString() ]
+  <== [ "ABI:"; OSABI.toString hdr.OSABI ]
+  <== [ "ABI version:"; hdr.OSABIVersion.ToString() ]
+  <== [ "Type:"; ELFType.toString hdr.ELFType ]
+  <== [ "Machine:"; hdr.MachineType.ToString() ]
+  <== [ OutputNormal "Entry point:"; computeEntryPoint hdr ]
+  <== [ "PHdr table offset:"; HexString.ofUInt64 hdr.PHdrTblOffset ]
+  <== [ "SHdr table offset:"; HexString.ofUInt64 hdr.SHdrTblOffset ]
+  <== [ "Flags:"; HexString.ofUInt64 (uint64 hdr.ELFFlags) ]
+  <== [ "Header size:"; toNBytes (uint64 hdr.HeaderSize) ]
+  <== [ "PHdr Entry Size:"; toNBytes (uint64 hdr.PHdrEntrySize) ]
+  <== [ "PHdr Entry Num:"; hdr.PHdrNum.ToString() ]
+  <== [ "SHdr Entry Size:"; toNBytes (uint64 (hdr.SHdrEntrySize)) ]
+  <== [ "SHdr Entry Num:"; hdr.SHdrNum.ToString() ]
+  <=/ [ "SHdr string index:"; hdr.SHdrStrIdx.ToString() ]
 
 let computeSectionEndAddr (s: SectionHeader) =
   if s.SecSize = 0UL then s.SecAddr
@@ -72,36 +77,38 @@ let dumpSectionHeaders (opts: FileViewerOpts) (elf: ELFBinFile) =
   let file = elf :> IBinFile
   if opts.Verbose then
     let cfg =
-      [ LeftAligned 4
-        addrColumn
-        addrColumn
-        LeftAligned 24
-        LeftAligned 14
-        LeftAligned 12
-        LeftAligned 8
-        LeftAligned 10
-        LeftAligned 4
-        LeftAligned 4
-        LeftAligned 6
-        LeftAligned 20 ]
-    out.PrintRow(true, cfg,
-      [ "Num"
-        "Start"
-        "End"
-        "Name"
-        "Type"
-        "Offset"
-        "Size"
-        "EntrySize"
-        "Link"
-        "Info"
-        "Align"
-        "Flags" ]
-    )
-    out.PrintLine "  ---"
+      { Indentation = 2
+        ColumnGap = 0
+        Columns = [ LeftAligned 4
+                    addrColumn
+                    addrColumn
+                    LeftAligned 24
+                    LeftAligned 14
+                    LeftAligned 12
+                    LeftAligned 8
+                    LeftAligned 10
+                    LeftAligned 4
+                    LeftAligned 4
+                    LeftAligned 6
+                    LeftAligned 20 ] }
+    Terminal.Out
+    <== cfg
+    <== [ "Num"
+          "Start"
+          "End"
+          "Name"
+          "Type"
+          "Offset"
+          "Size"
+          "EntrySize"
+          "Link"
+          "Info"
+          "Align"
+          "Flags" ]
+    <=/ "  ---"
     elf.SectionHeaders
     |> Array.iteri (fun idx s ->
-      out.PrintRow(true, cfg,
+      Terminal.Out <=/
         [ String.wrapSqrdBracket (idx.ToString())
           Addr.toString file.ISA.WordSize s.SecAddr
           Addr.toString file.ISA.WordSize (computeSectionEndAddr s)
@@ -114,37 +121,42 @@ let dumpSectionHeaders (opts: FileViewerOpts) (elf: ELFBinFile) =
           s.SecInfo.ToString()
           HexString.ofUInt64 s.SecAlignment
           normalizeEmpty (SectionFlags.toString s.SecFlags) ]
-      )
     )
   else
-    let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
-    out.PrintRow(true, cfg, [ "Num"; "Start"; "End"; "Name" ])
-    out.PrintLine "  ---"
+    let cfg =
+      { Indentation = 2
+        ColumnGap = 0
+        Columns = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ] }
+    Terminal.Out
+    <== cfg
+    <== [ "Num"; "Start"; "End"; "Name" ]
+    <=/ "  ---"
     elf.SectionHeaders
     |> Seq.iteri (fun idx s ->
-      out.PrintRow(true, cfg,
+      Terminal.Out <=/
         [ String.wrapSqrdBracket (idx.ToString())
           Addr.toString file.ISA.WordSize s.SecAddr
           Addr.toString file.ISA.WordSize (computeSectionEndAddr s)
           normalizeEmpty s.SecName ]
-      )
     )
 
 let dumpSectionDetails (secname: string) (file: ELFBinFile) =
   match file.TryFindSection secname with
   | Some section ->
-    out.PrintTwoCols("Section number:", section.SecNum.ToString())
-    out.PrintTwoCols("Section name:", section.SecName)
-    out.PrintTwoCols("Type:", SectionType.toString section.SecType)
-    out.PrintTwoCols("Address:", HexString.ofUInt64 section.SecAddr)
-    out.PrintTwoCols("Offset:", HexString.ofUInt64 section.SecOffset)
-    out.PrintTwoCols("Size:", HexString.ofUInt64 section.SecSize)
-    out.PrintTwoCols("Entry Size:", HexString.ofUInt64 section.SecEntrySize)
-    out.PrintTwoCols("Flag:", section.SecFlags.ToString())
-    out.PrintTwoCols("Link:", section.SecLink.ToString())
-    out.PrintTwoCols("Info:", section.SecInfo.ToString())
-    out.PrintTwoCols("Alignment:", HexString.ofUInt64 section.SecAlignment)
-  | None -> out.PrintLine "Not found."
+    Terminal.Out
+    <== TableConfig.DefaultTwoColumn
+    <== [ "Section number:"; section.SecNum.ToString() ]
+    <== [ "Section name:"; section.SecName ]
+    <== [ "Type:"; SectionType.toString section.SecType ]
+    <== [ "Address:"; HexString.ofUInt64 section.SecAddr ]
+    <== [ "Offset:"; HexString.ofUInt64 section.SecOffset ]
+    <== [ "Size:"; HexString.ofUInt64 section.SecSize ]
+    <== [ "Entry Size:"; HexString.ofUInt64 section.SecEntrySize ]
+    <== [ "Flag:"; section.SecFlags.ToString() ]
+    <== [ "Link:"; section.SecLink.ToString() ]
+    <== [ "Info:"; section.SecInfo.ToString() ]
+    <=/ [ "Alignment:"; HexString.ofUInt64 section.SecAlignment ]
+  | None -> Terminal.Out <=/ "Not found."
 
 let verInfoToString (verInfo: SymVerInfo option) =
   match verInfo with
@@ -156,70 +168,76 @@ let getSectionSymbolName (elf: ELFBinFile) (symb: Symbol) =
   | SymbolType.STT_SECTION, SectionIndex idx -> elf.SectionHeaders[idx].SecName
   | _ -> symb.SymName
 
-let printSymbolInfoVerbose (elf: ELFBinFile) (symb: Symbol) vis cfg =
-  out.PrintRow(true, cfg,
-    [ vis
-      Addr.toString (elf :> IBinFile).ISA.WordSize symb.Addr
-      getSectionSymbolName elf symb
-      verInfoToString symb.VerInfo
-      HexString.ofUInt64 symb.Size
-      SymbolType.toString symb.SymType
-      SymbolBind.toString symb.Bind
-      SymbolVisibility.toString symb.Vis
-      SectionHeaderIdx.ToString symb.SecHeaderIndex ]
-  )
+let printSymbolInfoVerbose elf (symb: Symbol) vis (cfg: TableConfig) =
+  Terminal.Out
+  <== cfg
+  <=/ [ vis
+        Addr.toString (elf :> IBinFile).ISA.WordSize symb.Addr
+        getSectionSymbolName elf symb
+        verInfoToString symb.VerInfo
+        HexString.ofUInt64 symb.Size
+        SymbolType.toString symb.SymType
+        SymbolBind.toString symb.Bind
+        SymbolVisibility.toString symb.Vis
+        SectionHeaderIdx.ToString symb.SecHeaderIndex ]
 
-let printSymbolInfoNonVerbose (file: IBinFile) (symb: Symbol) vis cfg =
-  out.PrintRow(true, cfg,
-    [ vis
-      SymbolType.toString symb.SymType
-      Addr.toString file.ISA.WordSize symb.Addr
-      normalizeEmpty symb.SymName
-      normalizeEmpty (verInfoToString symb.VerInfo) ]
-  )
+let printSymbolInfoNonVerbose file (symb: Symbol) vis (cfg: TableConfig) =
+  Terminal.Out
+  <== cfg
+  <=/ [ vis
+        SymbolType.toString symb.SymType
+        Addr.toString (file: IBinFile).ISA.WordSize symb.Addr
+        normalizeEmpty symb.SymName
+        normalizeEmpty (verInfoToString symb.VerInfo) ]
 
 let printSymbolInfo isVerbose (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   if isVerbose then
     let cfg =
-      [ LeftAligned 4
-        addrColumn
-        LeftAligned 55
-        LeftAligned 15
-        LeftAligned 8
-        LeftAligned 12
-        LeftAligned 8
-        LeftAligned 10
-        LeftAligned 8 ]
-    out.PrintRow(true, cfg,
-      [ "S/D"
-        "Address"
-        "Name"
-        "Lib Name"
-        "Size"
-        "Type"
-        "Bind"
-        "Visibility"
-        "SectionIndex" ]
-    )
-    out.PrintLine "  ---"
+      { Indentation = 2
+        ColumnGap = 0
+        Columns = [ LeftAligned 4
+                    addrColumn
+                    LeftAligned 55
+                    LeftAligned 15
+                    LeftAligned 8
+                    LeftAligned 12
+                    LeftAligned 8
+                    LeftAligned 10
+                    LeftAligned 8 ] }
+    Terminal.Out
+    <== cfg
+    <== [ "S/D"
+          "Address"
+          "Name"
+          "Lib Name"
+          "Size"
+          "Type"
+          "Bind"
+          "Visibility"
+          "SectionIndex" ]
+    <=/ "  ---"
     elf.Symbols.StaticSymbols
     |> Array.iter (fun s -> printSymbolInfoVerbose elf s "(s)" cfg)
-    out.PrintLine "  ---"
+    Terminal.Out <=/ "  ---"
     elf.Symbols.DynamicSymbols
     |> Array.iter (fun s -> printSymbolInfoVerbose elf s "(d)" cfg)
   else
     let cfg =
-      [ LeftAligned 3
-        LeftAligned 10
-        addrColumn
-        LeftAligned 75
-        LeftAligned 15 ]
-    out.PrintRow(true, cfg, [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ])
-    out.PrintLine "  ---"
+      { Indentation = 2
+        ColumnGap = 0
+        Columns = [ LeftAligned 3
+                    LeftAligned 10
+                    addrColumn
+                    LeftAligned 75
+                    LeftAligned 15 ] }
+    Terminal.Out
+    <== cfg
+    <== [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ]
+    <=/ "  ---"
     elf.Symbols.StaticSymbols
     |> Array.iter (fun s -> printSymbolInfoNonVerbose elf s "(s)" cfg)
-    out.PrintLine "  ---"
+    Terminal.Out <=/ "  ---"
     elf.Symbols.DynamicSymbols
     |> Array.iter (fun s -> printSymbolInfoNonVerbose elf s "(d)" cfg)
 
@@ -228,9 +246,11 @@ let dumpSymbols (opts: FileViewerOpts) (elf: ELFBinFile) =
 
 let dumpRelocs (_opts: FileViewerOpts) (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
-  let cfg = [ addrColumn; LeftAligned 24; RightAligned 8; LeftAligned 12 ]
-  out.PrintRow(true, cfg, [ "Address"; "Type"; "Addended"; "Symbol" ])
-  out.PrintLine "  ---"
+  let colfmts = [ addrColumn; LeftAligned 24; RightAligned 8; LeftAligned 12 ]
+  Terminal.Out
+  <== colfmts
+  <== [ "Address"; "Type"; "Addended"; "Symbol" ]
+  <=/ "  ---"
   elf.RelocationInfo.Entries
   |> Seq.sortBy (fun reloc -> reloc.RelOffset)
   |> Seq.iter (fun reloc ->
@@ -238,32 +258,33 @@ let dumpRelocs (_opts: FileViewerOpts) (elf: ELFBinFile) =
       match reloc.RelSymbol with
       | Some s when s.SymName.Length > 0 -> s.SymName
       | _ -> "(n/a)"
-    out.PrintRow(true, cfg,
-      [ Addr.toString (elf :> IBinFile).ISA.WordSize reloc.RelOffset
-        RelocationKind.ToString reloc.RelKind
-        reloc.RelAddend.ToString("x")
-        symbol ]
-    )
+    Terminal.Out
+    <=/ [ Addr.toString (elf :> IBinFile).ISA.WordSize reloc.RelOffset
+          RelocationKind.ToString reloc.RelKind
+          reloc.RelAddend.ToString("x")
+          symbol ]
   )
 
 let dumpFunctions (_: FileViewerOpts) (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   let cfg =
-    [ LeftAligned 3
-      LeftAligned 10
-      addrColumn
-      LeftAligned 75
-      LeftAligned 15 ]
+    { Indentation = 2
+      ColumnGap = 0
+      Columns = [ LeftAligned 3
+                  LeftAligned 10
+                  addrColumn
+                  LeftAligned 75
+                  LeftAligned 15 ] }
   for addr in (elf :> IBinFile).GetFunctionAddresses() do
     match elf.Symbols.TryFindSymbol addr with
     | Ok symb -> printSymbolInfoNonVerbose elf symb "" cfg
     | Error _ -> ()
 
-let dumpExceptionTable hdl (_opts: FileViewerOpts) (file: ELFBinFile) =
+let dumpExceptionTable hdl (_opts: FileViewerOpts) (_file: ELFBinFile) =
   let exnInfo = ExceptionInfo(hdl = hdl)
   exnInfo.ExceptionMap
   |> NoOverlapIntervalMap.iter (fun range catchBlkAddr ->
-    out.PrintLine $"{range.Min:x}:{range.Max:x} -> {catchBlkAddr:x}")
+    Terminal.Out <=/ $"{range.Min:x}:{range.Max:x} -> {catchBlkAddr:x}")
 
 let makeStringTableReader (file: IBinFile) dynEntries =
   dynEntries
@@ -280,9 +301,10 @@ let makeStringTableReader (file: IBinFile) dynEntries =
       ByteArray.extractCStringFromSpan buf 0)
 
 let dumpDynamicSection _ (file: ELFBinFile) =
-  let cfg = [ LeftAligned 20; LeftAligned 20 ]
-  out.PrintRow(true, cfg, [ "Tag"; "Name/Value" ])
-  out.PrintLine "  ---"
+  Terminal.Out
+  <== [ LeftAligned 20; LeftAligned 20 ]
+  <== [ "Tag"; "Name/Value" ]
+  <=/ "  ---"
   let dynEntries = file.DynamicArrayEntries
   let strtabReader = makeStringTableReader file dynEntries
   dynEntries
@@ -290,141 +312,129 @@ let dumpDynamicSection _ (file: ELFBinFile) =
     let tag = ent.DTag
     match tag, strtabReader with
     | DTag.DT_NEEDED, Some reader ->
-      out.PrintRow(true, cfg, [ $"{tag}"
-                                $"Shared library: [{reader ent.DVal}]" ])
+      Terminal.Out <=/ [ $"{tag}"; $"Shared library: [{reader ent.DVal}]" ]
     | DTag.DT_SONAME, Some reader ->
-      out.PrintRow(true, cfg, [ $"{tag}"
-                                $"Library soname: [{reader ent.DVal}]" ])
+      Terminal.Out <=/ [ $"{tag}"; $"Library soname: [{reader ent.DVal}]" ]
     | DTag.DT_RPATH, Some reader ->
-      out.PrintRow(true, cfg, [ $"{tag}"
-                                $"Library rpath: [{reader ent.DVal}]" ])
+      Terminal.Out <=/ [ $"{tag}"; $"Library rpath: [{reader ent.DVal}]" ]
     | DTag.DT_RUNPATH, Some reader ->
-      out.PrintRow(true, cfg, [ $"{tag}"
-                                $"Library runpath: [{reader ent.DVal}]" ])
+      Terminal.Out <=/ [ $"{tag}"; $"Library runpath: [{reader ent.DVal}]" ]
     | _ ->
-      out.PrintRow(true, cfg, [ $"{tag}"; "0x" + ent.DVal.ToString "x" ])
+      Terminal.Out <=/ [ $"{tag}"; "0x" + ent.DVal.ToString "x" ]
   )
 
 let dumpSegments (opts: FileViewerOpts) (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   let file = elf :> IBinFile
   if opts.Verbose then
-    let cfg =
-      [ LeftAligned 4
-        addrColumn
-        addrColumn
-        LeftAligned 10
-        LeftAligned 12
-        LeftAligned 8
-        addrColumn
-        addrColumn
-        LeftAligned 8
-        LeftAligned 8
-        LeftAligned 8 ]
-    out.PrintRow(true, cfg,
-      [ "Num"
-        "Start"
-        "End"
-        "Permission"
-        "Type"
-        "Offset"
-        "VirtAddr"
-        "PhysAddr"
-        "FileSize"
-        "MemSize"
-        "Alignment" ]
-    )
-    out.PrintLine "  ---"
+    Terminal.Out
+    <== [ LeftAligned 4
+          addrColumn
+          addrColumn
+          LeftAligned 10
+          LeftAligned 12
+          LeftAligned 8
+          addrColumn
+          addrColumn
+          LeftAligned 8
+          LeftAligned 8
+          LeftAligned 8 ]
+    <== [ "Num"
+          "Start"
+          "End"
+          "Permission"
+          "Type"
+          "Offset"
+          "VirtAddr"
+          "PhysAddr"
+          "FileSize"
+          "MemSize"
+          "Alignment" ]
+    <=/ "  ---"
     let wordSize = file.ISA.WordSize
     elf.ProgramHeaders
     |> Array.iteri (fun idx ph ->
-      out.PrintRow(true, cfg,
-        [ String.wrapSqrdBracket (idx.ToString())
-          Addr.toString wordSize ph.PHAddr
-          Addr.toString wordSize (ph.PHAddr + ph.PHMemSize - uint64 1)
-          Permission.toString (ProgramHeader.FlagsToPerm ph.PHFlags)
-          ProgramHeaderType.toString ph.PHType
-          HexString.ofUInt64 ph.PHOffset
-          Addr.toString wordSize ph.PHAddr
-          Addr.toString wordSize ph.PHPhyAddr
-          HexString.ofUInt64 ph.PHFileSize
-          HexString.ofUInt64 ph.PHMemSize
-          HexString.ofUInt64 ph.PHAlignment ]
-      )
+      Terminal.Out
+      <=/ [ String.wrapSqrdBracket (idx.ToString())
+            Addr.toString wordSize ph.PHAddr
+            Addr.toString wordSize (ph.PHAddr + ph.PHMemSize - uint64 1)
+            Permission.toString (ProgramHeader.FlagsToPerm ph.PHFlags)
+            ProgramHeaderType.toString ph.PHType
+            HexString.ofUInt64 ph.PHOffset
+            Addr.toString wordSize ph.PHAddr
+            Addr.toString wordSize ph.PHPhyAddr
+            HexString.ofUInt64 ph.PHFileSize
+            HexString.ofUInt64 ph.PHMemSize
+            HexString.ofUInt64 ph.PHAlignment ]
     )
   else
-    let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 10 ]
-    out.PrintRow(true, cfg, [ "Num"; "Start"; "End"; "Permission" ])
-    out.PrintLine "  ---"
+    Terminal.Out
+    <== [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 10 ]
+    <== [ "Num"; "Start"; "End"; "Permission" ]
+    <=/ "  ---"
     elf.ProgramHeaders
     |> Array.iteri (fun idx ph ->
-      out.PrintRow(true, cfg,
-        [ String.wrapSqrdBracket (idx.ToString())
-          Addr.toString file.ISA.WordSize ph.PHAddr
-          Addr.toString file.ISA.WordSize (ph.PHAddr + ph.PHMemSize - 1UL)
-          Permission.toString (ProgramHeader.FlagsToPerm ph.PHFlags) ]
-      )
+      Terminal.Out
+      <=/ [ String.wrapSqrdBracket (idx.ToString())
+            Addr.toString file.ISA.WordSize ph.PHAddr
+            Addr.toString file.ISA.WordSize (ph.PHAddr + ph.PHMemSize - 1UL)
+            Permission.toString (ProgramHeader.FlagsToPerm ph.PHFlags) ]
     )
 
 let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   let file = elf :> IBinFile
   if opts.Verbose then
-    let cfg =
-      [ addrColumn
-        addrColumn
-        LeftAligned 40
-        LeftAligned 15
-        LeftAligned 8
-        LeftAligned 6
-        LeftAligned 4 ]
-    out.PrintRow(true, cfg,
-      [ "PLT Addr"
-        "GOT Addr"
-        "FunctionName"
-        "Lib Name"
-        "Addend"
-        "SecIdx"
-        "Type" ]
-    )
-    out.PrintLine "  ---"
+    Terminal.Out
+    <== [ addrColumn
+          addrColumn
+          LeftAligned 40
+          LeftAligned 15
+          LeftAligned 8
+          LeftAligned 6
+          LeftAligned 4 ]
+    <== [ "PLT Addr"
+          "GOT Addr"
+          "FunctionName"
+          "Lib Name"
+          "Addend"
+          "SecIdx"
+          "Type" ]
+    <=/ "  ---"
     file.GetLinkageTableEntries()
     |> Seq.iter (fun e ->
       match elf.RelocationInfo.TryFind e.TableAddress with
       | Ok reloc ->
-        out.PrintRow(true, cfg,
-          [ Addr.toString file.ISA.WordSize e.TrampolineAddress
-            Addr.toString file.ISA.WordSize e.TableAddress
-            normalizeEmpty e.FuncName
-            (toLibString >> normalizeEmpty) e.LibraryName
-            reloc.RelAddend.ToString()
-            reloc.RelSecNumber.ToString()
-            RelocationKind.ToString reloc.RelKind ]
-        )
+        Terminal.Out
+        <=/ [ Addr.toString file.ISA.WordSize e.TrampolineAddress
+              Addr.toString file.ISA.WordSize e.TableAddress
+              normalizeEmpty e.FuncName
+              (toLibString >> normalizeEmpty) e.LibraryName
+              reloc.RelAddend.ToString()
+              reloc.RelSecNumber.ToString()
+              RelocationKind.ToString reloc.RelKind ]
       | _ ->
-        out.PrintRow(true, cfg,
-          [ Addr.toString file.ISA.WordSize e.TrampolineAddress
-            Addr.toString file.ISA.WordSize e.TableAddress
-            normalizeEmpty e.FuncName
-            (toLibString >> normalizeEmpty) e.LibraryName
-            "(n/a)"
-            "(n/a)"
-            "(n/a)" ]
-        )
+        Terminal.Out
+        <=/ [ Addr.toString file.ISA.WordSize e.TrampolineAddress
+              Addr.toString file.ISA.WordSize e.TableAddress
+              normalizeEmpty e.FuncName
+              (toLibString >> normalizeEmpty) e.LibraryName
+              "(n/a)"
+              "(n/a)"
+              "(n/a)" ]
     )
   else
-    let cfg = [ addrColumn; addrColumn; LeftAligned 20; LeftAligned 15 ]
-    out.PrintRow(true, cfg,
-      [ "PLT"; "GOT"; "FunctionName"; "Lib Name" ])
-    out.PrintLine "  ---"
+    Terminal.Out
+    <== [ addrColumn; addrColumn; LeftAligned 20; LeftAligned 15 ]
+    <== [ "PLT"; "GOT"; "FunctionName"; "Lib Name" ]
+    <=/ "  ---"
     file.GetLinkageTableEntries()
     |> Seq.iter (fun e ->
-      out.PrintRow(true, cfg,
-        [ Addr.toString file.ISA.WordSize e.TrampolineAddress
-          Addr.toString file.ISA.WordSize e.TableAddress
-          normalizeEmpty e.FuncName
-          (toLibString >> normalizeEmpty) e.LibraryName ]
-      )
+      Terminal.Out
+      <=/ [ Addr.toString file.ISA.WordSize e.TrampolineAddress
+            Addr.toString file.ISA.WordSize e.TableAddress
+            normalizeEmpty e.FuncName
+            (toLibString >> normalizeEmpty) e.LibraryName ]
     )
 
 let cfaToString (hdl: BinHandle) cfa =
@@ -441,50 +451,49 @@ let ruleToString (hdl: BinHandle) (rule: UnwindingRule) =
 
 let dumpEHFrame hdl (file: ELFBinFile) =
   let addrColumn = columnWidthOfAddr file |> LeftAligned
-  let cfg = [ addrColumn; LeftAligned 10; LeftAligned 50 ]
+  Terminal.Out <=/ [ addrColumn; LeftAligned 10; LeftAligned 50 ]
   file.ExceptionFrame
   |> List.iter (fun cfi ->
-    out.PrintLine("- CIE: \"{0}\" cf={1} df={2}",
+    Terminal.Out.PrintLine("- CIE: \"{0}\" cf={1} df={2}",
       cfi.CIE.AugmentationString,
       cfi.CIE.CodeAlignmentFactor.ToString("+0;-#"),
       cfi.CIE.DataAlignmentFactor.ToString("+0;-#")
     )
-    out.PrintLine()
+    Terminal.Out.PrintLine()
     for fde in cfi.FDEs do
-      out.PrintLine("  FDE pc={0}..{1}",
+      Terminal.Out.PrintLine("  FDE pc={0}..{1}",
         HexString.ofUInt64 fde.PCBegin,
         HexString.ofUInt64 fde.PCEnd
       )
       if fde.UnwindingInfo.IsEmpty then ()
       else
-        out.PrintLine "  ---"
-        out.PrintRow(true, cfg, [ "Location"; "CFA"; "Rules" ])
+        Terminal.Out.PrintLine "  ---"
+        Terminal.Out <=/ [ "Location"; "CFA"; "Rules" ]
       fde.UnwindingInfo
       |> List.iter (fun i ->
-        out.PrintRow(true, cfg,
-          [ HexString.ofUInt64 i.Location
-            cfaToString hdl i.CanonicalFrameAddress
-            ruleToString hdl i.Rule ]
-        )
+        Terminal.Out
+        <=/ [ HexString.ofUInt64 i.Location
+              cfaToString hdl i.CanonicalFrameAddress
+              ruleToString hdl i.Rule ]
       )
-      out.PrintLine()
+      Terminal.Out.PrintLine()
   )
 
 let dumpGccExceptTable _hdl (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   let file = elf :> IBinFile
-  let cfg = [ addrColumn; LeftAligned 15; LeftAligned 15; addrColumn ]
-  out.PrintRow(true, cfg, [ "Address"; "LP App"; "LP Val"; "TT End" ])
+  Terminal.Out
+  <== [ addrColumn; LeftAligned 15; LeftAligned 15; addrColumn ]
+  <=/ [ "Address"; "LP App"; "LP Val"; "TT End" ]
   elf.LSDATable
   |> Map.iter (fun lsdaAddr lsda ->
     let ttbase = lsda.TTBase |> Option.defaultValue 0UL
-    out.PrintRow(true, cfg,
-      [ Addr.toString file.ISA.WordSize lsdaAddr
-        lsda.LPAppEncoding.ToString()
-        lsda.LPValueEncoding.ToString()
-        ttbase |> Addr.toString file.ISA.WordSize ]
-    )
+    Terminal.Out
+    <=/ [ Addr.toString file.ISA.WordSize lsdaAddr
+          lsda.LPAppEncoding.ToString()
+          lsda.LPValueEncoding.ToString()
+          ttbase |> Addr.toString file.ISA.WordSize ]
   )
 
-let dumpNotes _hdl (file: ELFBinFile) =
+let dumpNotes _hdl (_file: ELFBinFile) =
   Terminator.futureFeature ()

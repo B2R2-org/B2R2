@@ -34,7 +34,6 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd.Utils
 open B2R2.RearEnd.Visualization
-open B2R2.RearEnd.BinExplorer.CmdUtils
 
 type BinExplorerOpts(isa) =
   inherit CmdOpts()
@@ -280,7 +279,7 @@ let runCommand cmdMap opts file cmd args =
   let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
   let brew = BinaryBrew(hdl, exnInfo, strategies)
   Cmd.handle cmdMap brew cmd args
-  |> Array.iter out.Print
+  |> Array.iter Terminal.Out.Print
 
 let [<Literal>] private ToolName = "binexplore"
 

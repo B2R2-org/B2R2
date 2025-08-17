@@ -30,20 +30,17 @@ open B2R2.RearEnd.Utils
 open B2R2.BinIR.LowUIR
 open B2R2.Peripheral.Assembly
 
-/// The console printer.
-let internal out = ConsolePrinter() :> Printer
-
 let [<Literal>] private NormalPrompt = "> "
 
 let private printIns (asm: AsmInterface) addr bs =
   let bCode = (BitConverter.ToString(bs)).Replace("-", "")
   let ins = asm.Parser.Parse(bs, addr)
-  out.PrintLine(sprintf "%08x: %-20s     %s" addr bCode (ins.Disasm()))
+  Terminal.Out.PrintLine(sprintf "%08x: %-20s     %s" addr bCode (ins.Disasm()))
   addr + uint64 (Array.length bs)
 
 let inline private printResult fn = function
   | Ok res -> fn res
-  | Error err -> Printer.PrintErrorToConsole err
+  | Error err -> Terminal.Out <=? err
 
 let getAssemblyPrinter (opts: AssemblerOpts) =
   match opts.Mode with
@@ -59,14 +56,14 @@ let getAssemblyPrinter (opts: AssemblerOpts) =
     let asm = AsmInterface(isa, opts.BaseAddress)
     fun str ->
       asm.LiftLowUIR(true, str)
-      |> printResult (Array.iter (Pp.stmtToString >> out.PrintLine))
+      |> printResult (Array.iter (Pp.stmtToString >> Terminal.Out.PrintLine))
 
 let rec private asmFromStdin (console: FsReadLine.Console) printer str =
   match console.ReadLine() with
   | "" -> asmFromStdin console printer str
   | input when isNull input || input = "q" || input = "quit" ->
-    out.PrintLine("Bye!")
-    out.Flush()
+    Terminal.Out.PrintLine("Bye!")
+    Terminal.Out.Flush()
   | input ->
     let input = input.Trim()
     let str =
@@ -82,9 +79,15 @@ let rec private asmFromStdin (console: FsReadLine.Console) printer str =
 let showBasicInfo (opts: AssemblerOpts) =
   match opts.Mode with
   | GeneralMode(isa) ->
-    out.PrintLine [ Blue, isa.ToString(); Green, " General Mode" ]
+    ColoredString()
+      .Add(Blue, isa.ToString())
+      .Add(Green, " General Mode")
+    |> Terminal.Out.PrintLine
   | LowUIRMode(isa) ->
-    out.PrintLine [ Blue, isa.ToString(); Green, " LowUIR Mode" ]
+    ColoredString()
+      .Add(Blue, isa.ToString())
+      .Add(Green, " LowUIR Mode")
+    |> Terminal.Out.PrintLine
 
 let private asmFromFiles files printer =
   files

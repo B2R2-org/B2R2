@@ -198,11 +198,13 @@ let handleHexview req resp arbiter =
   |> Seq.map (fun reg ->
     let size = reg.Max - reg.Min + 1UL
     let bs = brew.BinHandle.ReadBytes(reg.Min, int size)
-    let coloredHex = bs |> Array.map ColoredSegment.hexOfByte
-    let coloredAscii = bs |> Array.map ColoredSegment.asciiOfByte
+    let coloredHex =
+      bs |> Array.map (fun b -> Color.FromByte b, b.ToString("X2"))
+    let coloredAscii =
+      bs |> Array.map (fun b -> Color.FromByte b, Byte.getRepresentation b)
     let cha = (* DataColoredHexAscii *)
-      Array.map2 (fun (c, h) (_, a) ->
-        { Color = Color.toString c
+      Array.map2 (fun (c: Color, h) (_, a) ->
+        { Color = c.ToString()
           Hex = h
           Ascii = a }) coloredHex coloredAscii
     { SegAddr = reg.Min; SegBytes = bs; SegColoredHexAscii = cha })
@@ -211,8 +213,8 @@ let handleHexview req resp arbiter =
   |> Some
   |> answer req resp
 
-let private myprinter _ acc output =
-  acc + OutString.toString output + Environment.NewLine
+let private myprinter _ acc (output: OutString) =
+  acc + output.ToString() + Environment.NewLine
 
 let handleCommand req resp arbiter cmdMap (args: string) =
   let result = CLI.handle cmdMap arbiter args "" myprinter

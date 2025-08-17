@@ -32,12 +32,6 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.RearEnd.Utils
 
-/// The monotonic console printer.
-let internal out = ConsoleCachedPrinter() :> Printer
-
-/// The colorful console printer.
-let internal colorout = ConsolePrinter() :> Printer
-
 let [<Literal>] IllegalStr = "(illegal)"
 
 let getOptimizer (opts: BinDumpOpts) =
@@ -107,13 +101,15 @@ let convertToHexStr bytes =
 
 let printLowUIR (lowUIRStr: string) bytes cfg =
   let hexStr = convertToHexStr bytes |> String.wrapSqrdBracket
-  out.PrintRow(false, cfg, [ hexStr ])
-  out.PrintRow(false, cfg, [ lowUIRStr ])
+  Terminal.COut.SetTableConfig(cfg = cfg)
+  Terminal.COut.PrintRow([ hexStr ])
+  Terminal.COut.PrintRow([ lowUIRStr ])
 
 let printRegularDisasm disasmStr wordSize addr bytes cfg =
   let hexStr = convertToHexStr bytes
   let addrStr = Addr.toString wordSize addr + ":"
-  out.PrintRow(false, cfg, [ addrStr; hexStr; disasmStr ])
+  Terminal.COut.SetTableConfig(cfg = cfg)
+  Terminal.COut.PrintRow([ addrStr; hexStr; disasmStr ])
 
 let regularDisPrinter hdl liftingUnit wordSize showSymbs ptr ins cfg =
   (liftingUnit: LiftingUnit).ConfigureDisassembly(false, showSymbs)
@@ -128,23 +124,25 @@ let regularIRPrinter hdl (liftingUnit: LiftingUnit) optimizer ptr ins cfg =
   printLowUIR lowUIRStr bytes cfg
 
 let convertToDisasmStr (words: AsmWord []) =
-  words
-  |> Array.choose (fun word ->
+  let cs = ColoredString()
+  for word in words do
     match word.AsmWordKind with
-    | AsmWordKind.Address -> None
-    | AsmWordKind.Mnemonic -> Some [ Green, word.AsmWordValue ]
-    | AsmWordKind.Variable -> Some [ Blue, word.AsmWordValue ]
-    | AsmWordKind.Value -> Some [ Red, word.AsmWordValue ]
-    | _ -> Some [ NoColor, word.AsmWordValue ])
-  |> List.concat
+    | AsmWordKind.Address -> ()
+    | AsmWordKind.Mnemonic -> cs.Add(Green, word.AsmWordValue) |> ignore
+    | AsmWordKind.Variable -> cs.Add(Blue, word.AsmWordValue) |> ignore
+    | AsmWordKind.Value -> cs.Add(Red, word.AsmWordValue) |> ignore
+    | _ -> cs.Add(NoColor, word.AsmWordValue) |> ignore
+  cs
 
 let printColorDisasm words wordSize addr bytes cfg =
-  out.Flush()
+  Terminal.COut.Flush()
   let hexStr = convertToHexStr bytes
   let addrStr = Addr.toString wordSize addr + ":"
   let disasStr = convertToDisasmStr words
-  colorout.PrintRow(false, cfg,
-    [ [ Green, addrStr ]; [ NoColor, hexStr ]; disasStr ])
+  Terminal.Out.SetTableConfig(cfg = cfg)
+  Terminal.Out.PrintRow([ ColoredString(Green, addrStr)
+                          ColoredString(NoColor, hexStr)
+                          disasStr ])
 
 let colorDisPrinter (hdl: BinHandle) liftingUnit wordSize _ ptr ins cfg =
   (liftingUnit: LiftingUnit).ConfigureDisassembly false
@@ -163,8 +161,8 @@ let handleInvalidIns hdl (modeSwitch: ARM32.IModeSwitchable) ptr isLift cfg =
 let printFuncSymbol (dict: Dictionary<Addr, string>) addr =
   match (dict: Dictionary<Addr, string>).TryGetValue(addr) with
   | true, name ->
-    out.PrintLineIfPrevLineWasNotEmpty()
-    out.PrintLine(String.wrapAngleBracket name)
+    Terminal.COut.PrintLine()
+    Terminal.COut.PrintLine(String.wrapAngleBracket name)
   | false, _ -> ()
 
 let updateMode dict (modeSwitch: ARM32.IModeSwitchable) addr =

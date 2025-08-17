@@ -299,8 +299,9 @@ type DiffAction() =
                       line2
                       [| (NoColor, Environment.NewLine) |] |]) res1 res2
     |> Array.concat
-    |> Array.toList
-    |> ColoredString.compile
+    |> Array.fold (fun (cs: ColoredString) (col, str) ->
+      cs.Add(col, str)
+    ) (ColoredString())
     |> OutputColored
 
   interface IAction with

@@ -26,31 +26,21 @@ namespace B2R2.RearEnd.Utils
 
 open B2R2
 
-/// String segment with color. Multiple segments can be concatenated to form a
-/// colored string.
-type ColoredSegment = Color * string
+/// Represents a string segment with a single color. Multiple segments can be
+/// concatenated to form a colored string.
+type internal ColoredSegment = Color * string
 
 [<RequireQualifiedAccess>]
-module ColoredSegment =
-  let private getColor b =
-    if Byte.isNull b then NoColor
-    elif Byte.isPrintable b then Green
-    elif Byte.isWhitespace b then Blue
-    elif Byte.isControl b then Red
-    else Yellow
-
-  /// Return a colored hexadeciaml representation of a byte.
-  [<CompiledName "HexOfByte">]
+module internal ColoredSegment =
+  /// Returns a colored hexadecimal representation of a byte.
   let hexOfByte b =
-    getColor b, b.ToString("X2")
+    Color.FromByte b, b.ToString "X2"
 
-  /// Return a colored ASCII representation of a byte.
-  [<CompiledName "AsciiOfByte">]
+  /// Returns a colored ASCII representation of a byte.
   let asciiOfByte b =
-    getColor b, Byte.getRepresentation b
+    Color.FromByte b, Byte.getRepresentation b
 
-  /// Append a string (of the same color) to a colored segment.
-  [<CompiledName "AppendString">]
+  /// Appends a string (of the same color) to a colored segment.
   let appendString tail (segment: ColoredSegment) =
     let color, string = segment
     ColoredSegment(color, string + tail)

@@ -24,9 +24,9 @@
 
 namespace B2R2.RearEnd.Utils
 
+open System
 open B2R2
 open B2R2.FsOptParse
-open System
 
 /// A common set of command-line options used in analyzing binaries.
 type CmdOpts() =
@@ -39,9 +39,12 @@ type CmdOpts() =
     Option<'T>(descr,
                ?callback = callback,
                ?required = required,
-               ?extra = extra, ?help = help,
-               ?short = short, ?long = long,
-               ?dummy = dummy, ?descrColor = descrColor)
+               ?extra = extra,
+               ?help = help,
+               ?short = short,
+               ?long = long,
+               ?dummy = dummy,
+               ?descrColor = descrColor)
 
   /// "-v" or "--verbose" option turns on the verbose mode.
   static member OptVerbose() =
@@ -58,17 +61,20 @@ type CmdOpts() =
   /// Write B2R2 logo to console. We can selectively append a new line at the
   /// end.
   static member WriteB2R2 newLine =
-    [ ColoredSegment(DarkCyan, "B")
-      ColoredSegment(DarkYellow, "2")
-      ColoredSegment(DarkCyan, "R")
-      ColoredSegment(DarkYellow, "2") ]
-    |> Printer.PrintToConsole
-    if newLine then Printer.PrintToConsoleLine() else ()
+    ColoredString()
+      .Add(DarkCyan, "B")
+      .Add(DarkYellow, "2")
+      .Add(DarkCyan, "R")
+      .Add(DarkYellow, "2")
+    |> Terminal.Out.Print
+    if newLine then Terminal.Out.PrintLine()
+    else ()
 
   static member WriteIntro() =
     CmdOpts.WriteB2R2 false
-    Printer.PrintToConsoleLine(", the Next-Generation Reversing Platform")
-    Printer.PrintToConsoleLine(Attribution.Copyright + Environment.NewLine)
+    Terminal.Out
+    <== ", the Next-Generation Reversing Platform"
+    <=/ Attribution.Copyright + Environment.NewLine
 
   static member private CreateUsageGetter(tool, usageTail) =
     fun () ->
@@ -106,20 +112,18 @@ type CmdOpts() =
     let rest, opts = CmdOpts.ParseCmdOpts(spec, opts, args, tool, usageTail)
     if opts.Verbose then CmdOpts.WriteIntro() else ()
     try mainFn rest opts; 0
-    with e -> eprintfn "Error: %s" e.Message
-              eprintfn "%s" (if opts.Verbose then e.StackTrace else ""); 1
+    with e ->
+      eprintfn "Error: %s" e.Message
+      eprintfn "%s" (if opts.Verbose then e.StackTrace else ""); 1
 
   /// Check if the rest args contain an option string. If so, exit the program.
   /// Otherwise, do nothing.
   static member SanitizeRestArgs args =
     let rec sanitize = function
-      | (arg: string) :: rest ->
-        if arg.StartsWith('-') then
-          Printer.PrintErrorToConsole
-          <| sprintf "Invalid argument (%s) is used" arg
+      | arg :: rest ->
+        if (arg: string).StartsWith('-') then
+          Terminal.Out <=? sprintf "Invalid argument (%s) is used" arg
           exit 1
         else sanitize rest
       | [] -> ()
     sanitize args
-
-// vim: set tw=80 sts=2 sw=2:

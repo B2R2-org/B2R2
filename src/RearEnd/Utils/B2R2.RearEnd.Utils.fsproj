@@ -10,8 +10,14 @@
     <Compile Include="ColoredSegment.fs" />
     <Compile Include="ColoredString.fs" />
     <Compile Include="OutString.fs" />
-    <Compile Include="Printer.fs" />
+    <Compile Include="PrinterConst.fs" />
+    <Compile Include="TableConfig.fs" />
+    <Compile Include="IPrinter.fs" />
+    <Compile Include="ConsolePrinter.fs" />
+    <Compile Include="ConsoleCachedPrinter.fs" />
+    <Compile Include="ConsoleNullPrinter.fs" />
     <Compile Include="HexDumper.fs" />
+    <Compile Include="Terminal.fs" />
     <Compile Include="CmdOpts.fs" />
   </ItemGroup>
 

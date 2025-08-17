@@ -48,12 +48,12 @@ type private HelpAction(map: Map<string, IAction>) =
     member _.Signature with get() = "'a -> 'b"
     member _.Description with get() = ""
     member _.Transform(_args, _) =
-      Printer.PrintToConsoleLine()
+      Terminal.Out.PrintLine()
       CmdOpts.WriteIntro()
-      Printer.PrintToConsoleLine usage
+      Terminal.Out.PrintLine usage
       map |> Map.iter (fun id act ->
-        Printer.PrintToConsoleLine $"- {id}: {act.Signature}"
-        Printer.PrintToConsoleLine $"{act.Description}")
+        Terminal.Out.PrintLine $"- {id}: {act.Signature}"
+        Terminal.Out.PrintLine $"{act.Description}")
       exit 0
 
 let private accumulateActions map actions =
@@ -119,7 +119,7 @@ let private checkValidityOfCommandGroup cmdgrp =
   if actionIDs |> List.forall (fun actionID -> actionID = fstActionID) then
     ()
   else
-    Printer.PrintErrorToConsole "different actions in the same group."
+    Terminal.Out <=? "different actions in the same group."
     exit 1
 
 let private runCommand actionMap input (cmd: string list) =
@@ -129,26 +129,26 @@ let private runCommand actionMap input (cmd: string list) =
     match Map.tryFind (actionID.ToLowerInvariant()) actionMap with
     | Some act -> act
     | None ->
-      Printer.PrintErrorToConsole $"({actionID}) is not a valid action."
+      Terminal.Out <=? $"({actionID}) is not a valid action."
       exit 1
 #if DEBUG
-  if actionID <> "help" then Printer.PrintToConsoleLine $"[*] {actionID}"
+  if actionID <> "help" then Terminal.Out.PrintLine $"[*] {actionID}"
   else ()
 #endif
   try
     action.Transform(args, input)
   with
     | :? InvalidCastException ->
-      Printer.PrintErrorToConsole $"({actionID}) action type mismatch."
+      Terminal.Out <=? $"({actionID}) action type mismatch."
       exit 1
     | :? NullReferenceException ->
-      Printer.PrintErrorToConsole $"({actionID}) action should follow another."
+      Terminal.Out <=? $"({actionID}) action should follow another."
       exit 1
     | :? ArgumentException as e ->
-      Printer.PrintErrorToConsole $"{e.Message}"
+      Terminal.Out <=? $"{e.Message}"
       exit 1
     | e ->
-      Printer.PrintErrorToConsole $"({actionID}): {e}"
+      Terminal.Out <=? $"({actionID}): {e}"
       exit 1
 
 let inline private unwrap (c: ObjCollection) = c.Values

@@ -29,7 +29,8 @@ open B2R2
 open B2R2.RearEnd.Utils
 
 let showUsage () =
-  Printer.PrintToConsole $"""
+  Terminal.Out
+  <=/ $"""
          ''''''''''
       .;'          ';.
      ;' o      o     ';           888888b.           8888888b.
@@ -77,8 +78,7 @@ Usage: b2r2 [app name]{"\n"}
 let printMyVersion () =
   let asm = Assembly.GetEntryAssembly()
   let attr = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-  attr.InformationalVersion.ToString()
-  |> Printer.PrintToConsole
+  Terminal.Out <=/ attr.InformationalVersion.ToString()
 
 let handleCommands (cmd: string) (rest: string []) =
   match cmd.ToLowerInvariant() with

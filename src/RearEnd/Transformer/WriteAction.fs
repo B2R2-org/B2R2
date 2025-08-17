@@ -39,8 +39,8 @@ type WriteAction() =
     let hdl = Binary.Handle bin
     File.WriteAllBytes(fname, hdl.File.RawBytes)
 
-  and writeOutString fname os =
-    File.WriteAllText(fname, OutString.toString os)
+  and writeOutString fname (os: OutString) =
+    File.WriteAllText(fname, os.ToString())
 
   interface IAction with
     member _.ActionID with get() = "write"

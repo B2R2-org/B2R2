@@ -36,13 +36,13 @@ type PrintAction() =
     elif typ.IsArray then printArray o
     elif FSharpType.IsUnion typ
       && typ.BaseType = typeof<OutString> then printOutString o
-    else Printer.PrintToConsoleLine(o.ToString())
+    else Terminal.Out.PrintLine(o.ToString())
 
   and printObjCollection (o: obj) =
     let res = o :?> ObjCollection
     res.Values
     |> Array.iteri (fun idx v ->
-      Printer.PrintToConsoleLine $"[*] result({idx})"
+      Terminal.Out.PrintLine $"[*] result({idx})"
       print v)
 
   and printClusterResult (o: obj) =
@@ -51,7 +51,7 @@ type PrintAction() =
     |> Array.iteri (fun idx cluster ->
       cluster
       |> Array.iter (fun elem ->
-        Printer.PrintToConsoleLine $"  - Cluster({idx}): {elem}"))
+        Terminal.Out.PrintLine $"  - Cluster({idx}): {elem}"))
 
   and printArray (o: obj) =
     let arr = o :?> _[]
@@ -59,7 +59,7 @@ type PrintAction() =
 
   and printOutString (o: obj) =
     let os = o :?> OutString
-    Printer.PrintToConsoleLine os
+    Terminal.Out.PrintLine os
 
   interface IAction with
     member _.ActionID with get() = "print"

@@ -28,34 +28,36 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd
 open B2R2.RearEnd.Utils
-open B2R2.RearEnd.FileViewer.Helper
 
 let dumpBasic (file: IBinFile) =
-  let entry =
-    ColoredSegment(Green, String.entryPointToString file.EntryPoint)
-  out.PrintSectionTitle "Basic Information"
-  out.PrintTwoCols("File format:", FileFormat.toString file.Format)
-  out.PrintTwoCols("Architecture:", file.ISA.ToString())
-  out.PrintTwoCols("Endianness:", Endian.toString file.ISA.Endian)
-  out.PrintTwoCols("Word size:", WordSize.toString file.ISA.WordSize + " bit")
-  out.PrintTwoColsWithColorOnSnd("Entry point:", [ entry ])
-  out.PrintLine()
+  let entry = ColoredString(Green, String.entryPointToString file.EntryPoint)
+  Terminal.Out.PrintSectionTitle "Basic Information"
+  Terminal.Out
+  <== TableConfig.DefaultTwoColumn
+  <== [ "File format:"; FileFormat.toString file.Format ]
+  <== [ "Architecture:"; file.ISA.ToString() ]
+  <== [ "Endianness:"; Endian.toString file.ISA.Endian ]
+  <== [ "Word size:"; WordSize.toString file.ISA.WordSize + " bit" ]
+  <=/ [ OutputNormal "Entry point:"; OutputColored entry ]
+  Terminal.Out.PrintLine()
 
 let dumpSecurity (file: IBinFile) =
-  out.PrintSectionTitle "Security Information"
-  out.PrintTwoCols("Stripped binary:", file.IsStripped.ToString())
-  out.PrintTwoCols("DEP (NX) enabled:", file.IsNXEnabled.ToString())
-  out.PrintTwoCols("Relocatable (PIE):", file.IsRelocatable.ToString())
-  out.PrintLine()
+  Terminal.Out.PrintSectionTitle "Security Information"
+  Terminal.Out
+  <== TableConfig.DefaultTwoColumn
+  <== [ "Stripped binary:"; file.IsStripped.ToString() ]
+  <== [ "DEP (NX) enabled:"; file.IsNXEnabled.ToString() ]
+  <=/ [ "Relocatable (PIE):"; file.IsRelocatable.ToString() ]
+  Terminal.Out.PrintLine()
 
 let dumpSpecific opts (file: IBinFile) title elf pe mach =
-  out.PrintSectionTitle title
+  Terminal.Out.PrintSectionTitle title
   match file with
   | :? ELFBinFile as file -> elf opts file
   | :? PEBinFile as file -> pe opts file
   | :? MachBinFile as file -> mach opts file
   | _ -> Terminator.futureFeature ()
-  out.PrintLine()
+  Terminal.Out.PrintLine()
 
 let dumpFileHeader (opts: FileViewerOpts) (file: IBinFile) =
   dumpSpecific opts file "File Header Information"
@@ -160,8 +162,12 @@ let dumpSharedLibs (opts: FileViewerOpts) (file: IBinFile) =
     ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpSharedLibs
 
 let printFileName filepath =
-  [ Green, "["; Yellow, filepath; Green, "]" ] |> out.PrintLine
-  out.PrintLine()
+  ColoredString()
+    .Add(Green, "[")
+    .Add(Yellow, filepath)
+    .Add(Green, "]")
+  |> Terminal.Out.PrintLine
+  Terminal.Out.PrintLine()
 
 let printBasic file =
   dumpBasic file
@@ -234,14 +240,14 @@ let dump files opts =
   CmdOpts.SanitizeRestArgs files
   match files with
   | [] ->
-    Printer.PrintErrorToConsole "File(s) must be given."
+    Terminal.Out <=? "File(s) must be given."
     CmdOpts.PrintUsage(ToolName, UsageTail, Cmd.spec)
   | files ->
 #if DEBUG
     let sw = System.Diagnostics.Stopwatch.StartNew()
 #endif
     try files |> List.iter (dumpFile opts)
-    finally out.Flush()
+    finally Terminal.Out.Flush()
 #if DEBUG
     sw.Stop()
     eprintfn "Total time: %f sec." sw.Elapsed.TotalSeconds

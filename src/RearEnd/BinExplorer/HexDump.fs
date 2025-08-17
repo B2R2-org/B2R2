@@ -66,7 +66,7 @@ type CmdHexDump() =
       | Ok(addr, bytes: byte []) ->
         let wordSize = brew.BinHandle.File.ISA.WordSize
         HexDumper.dump 16 wordSize true addr bytes
-      | Error e -> [| OutputColored [ ColoredSegment(NoColor, e) ] |]
+      | Error e -> [| OutputColored(ColoredString(NoColor, e)) |]
     | _ -> [| this.CmdHelp |] |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

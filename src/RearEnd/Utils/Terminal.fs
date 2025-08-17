@@ -22,10 +22,15 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.BinExplorer.CmdUtils
+namespace B2R2.RearEnd.Utils
 
-open System
+type Terminal =
+  static let out = ConsolePrinter() :> IPrinter
 
-let convHexString (str: string) =
-  try Convert.ToUInt64(str, 16) |> Some
-  with _ -> None
+  static let cout = ConsoleCachedPrinter() :> IPrinter
+
+  /// Regular printer.
+  static member Out = out
+
+  /// Cached printer.
+  static member COut = cout

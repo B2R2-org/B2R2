@@ -26,11 +26,10 @@ module internal B2R2.RearEnd.BinExplorer.CLI
 
 open B2R2
 open B2R2.RearEnd.Utils
-open B2R2.RearEnd.BinExplorer.CmdUtils
 
 let cliPrinter arbiter () (output: OutString) =
-  out.PrintLine output
-  OutString.toString output |> Protocol.logString arbiter
+  Terminal.Out.PrintLine output
+  output.ToString() |> Protocol.logString arbiter
 
 let handle cmds arbiter (line: string) acc printer =
   match line.Split(' ') |> Array.toList with

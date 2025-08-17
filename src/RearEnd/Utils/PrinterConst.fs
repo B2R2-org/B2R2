@@ -22,10 +22,13 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.BinExplorer.CmdUtils
+module B2R2.RearEnd.Utils.PrinterConst
 
-open System
+/// Default indentation.
+let [<Literal>] Indentation = 2
 
-let convHexString (str: string) =
-  try Convert.ToUInt64(str, 16) |> Some
-  with _ -> None
+/// Default column width for printing.
+let [<Literal>] ColWidth = 24
+
+/// Default cache limit for cached printers.
+let [<Literal>] CacheLimit = 16777216

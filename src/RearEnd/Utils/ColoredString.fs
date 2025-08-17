@@ -25,71 +25,75 @@
 namespace B2R2.RearEnd.Utils
 
 open System
+open System.Collections.Generic
 
-/// String that can be printed out in the console with colors. A colored string
-/// is a list of colored segments, each of which represents a string with a
-/// specific color.
-type ColoredString = ColoredSegment list
+/// Represent a string that can be printed out in the console with colors. A
+/// colored string is a list of colored segments, each of which represents a
+/// string with a specific color.
+type ColoredString internal(inputSegs: IEnumerable<ColoredSegment>) =
+  let segments = LinkedList<ColoredSegment>()
 
-[<RequireQualifiedAccess>]
-module ColoredString =
-  /// Set the color.
-  let private setColor = function
-    | NoColor -> Console.ResetColor()
-    | Red ->
-      Console.ForegroundColor <- ConsoleColor.Red
-    | Green ->
-      Console.ForegroundColor <- ConsoleColor.Green
-    | Yellow ->
-      Console.ForegroundColor <- ConsoleColor.Yellow
-    | Blue ->
-      Console.ForegroundColor <- ConsoleColor.Blue
-    | DarkCyan ->
-      Console.ForegroundColor <- ConsoleColor.DarkCyan
-    | DarkYellow ->
-      Console.ForegroundColor <- ConsoleColor.DarkYellow
-    | RedHighlight ->
-      Console.ForegroundColor <- ConsoleColor.Red
-      Console.BackgroundColor <- ConsoleColor.Red
-    | GreenHighlight ->
-      Console.ForegroundColor <- ConsoleColor.Green
-      Console.BackgroundColor <- ConsoleColor.Green
+  let add col str =
+    if segments.Count = 0 then
+      segments.AddLast(ColoredSegment(col, str)) |> ignore
+    else
+      let lastCol, lastStr = segments.Last.Value
+      if lastCol = col then
+        segments.Last.Value <- ColoredSegment(col, lastStr + str)
+      else
+        segments.AddLast(ColoredSegment(col, str)) |> ignore
 
-  /// Compile the given colored string into a concise form.
-  let compile (s: ColoredString): ColoredString =
-    let rec loop prev acc = function
-      | [] -> prev :: acc |> List.rev |> List.choose id
-      | col, str as cur :: rest ->
-        match prev with
-        | Some(prevCol, prevStr) when prevCol = col ->
-          loop (Some(prevCol, prevStr + str)) acc rest
-        | Some(_) -> loop (Some cur) (prev :: acc) rest
-        | None -> loop (Some cur) acc rest
-    loop None [] s
+  do for col, str in inputSegs do add col str
 
-  let internal toConsole (s: ColoredString) =
-    s
-    |> List.iter (fun (c, s) ->
-      setColor c
-      Console.Write s)
-    Console.ResetColor()
+  new() =
+    ColoredString []
 
-  let internal toConsoleLine s =
-    toConsole s
-    Console.WriteLine()
+  /// Constructs a colored string from given a tuple of a color and a string.
+  new(col, str) =
+    ColoredString [ ColoredSegment(col, str) ]
 
-  /// Colored string to a normal string.
-  [<CompiledName "ToString">]
-  let toString (s: ColoredString) =
-    s |> List.map snd |> String.concat ""
-
-  /// Construct a colored string from a byte array.
-  [<CompiledName "OfBytes">]
-  let ofBytes (bs: byte[]) =
+  /// Constructs a colored string from a byte array.
+  new(bs: byte[]) =
     let lastIdx = bs.Length - 1
-    bs
-    |> Array.mapi (fun i b ->
-      if i = lastIdx then ColoredSegment.hexOfByte b
-      else ColoredSegment.hexOfByte b |> ColoredSegment.appendString " ")
-    |> Array.toList
+    ColoredString
+      [| for i in 0 .. bs.Length - 1 do
+           if i = lastIdx then
+             ColoredSegment.hexOfByte bs[i]
+           else
+             ColoredSegment.hexOfByte bs[i]
+             |> ColoredSegment.appendString " " |]
 
+  /// Returns the length of the colored string.
+  member _.Length with get() =
+    segments |> Seq.fold (fun len (_, s) -> String.length s + len) 0
+
+  /// Adds a colored segment to the string.
+  member this.Add(col, str) =
+    add col str
+    this
+
+  member private this.Pad(width, fn) =
+    let len = this.Length
+    if len >= width then
+      ()
+    else
+      let padding = String(' ', width - len)
+      fn (ColoredSegment(NoColor, padding))
+
+  /// Adds a padded string to the colored string. The string is padded with
+  /// spaces to the right if it is shorter than the given width.
+  member this.PadLeft(width) =
+    this.Pad(width, fun seg -> segments.AddFirst seg |> ignore)
+    this
+
+  /// Adds a padded string to the colored string. The string is padded with
+  /// spaces to the left if it is shorter than the given width.
+  member this.PadRight(width) =
+    this.Pad(width, fun seg -> segments.AddLast seg |> ignore)
+    this
+
+  /// Renders the colored string by applying the given function to each
+  /// colored segment.
+  member _.Render fn =
+    for col, s in segments do fn col s
+    Console.ResetColor()

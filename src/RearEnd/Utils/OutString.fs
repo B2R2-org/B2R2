@@ -24,26 +24,38 @@
 
 namespace B2R2.RearEnd.Utils
 
-open System
-open B2R2
-
-/// OutString represents an output string generated from rear-end applications.
+/// Represents an output string generated from rear-end applications.
 type OutString =
+  /// Normal string without color.
   | OutputNormal of string
+  /// Colored string.
   | OutputColored of ColoredString
+  /// A new line.
   | OutputNewLine
-
-module OutString =
-  let internal toConsole = function
-    | OutputNormal s -> Console.Write s
-    | OutputColored s -> ColoredString.toConsole s
-    | OutputNewLine -> Console.WriteLine()
-
-  let internal toConsoleLine outstring =
-    toConsole outstring
-    Console.WriteLine()
-
-  let toString = function
+with
+  override this.ToString() =
+    match this with
     | OutputNormal s -> s
-    | OutputColored cs -> ColoredString.toString cs
-    | OutputNewLine -> Environment.NewLine
+    | OutputColored cs -> cs.ToString()
+    | OutputNewLine -> "\n"
+
+  /// Pads the output string to the left with spaces up to the specified width.
+  member this.PadLeft(width) =
+    match this with
+    | OutputNormal s -> OutputNormal(s.PadLeft width)
+    | OutputColored cs -> OutputColored(cs.PadLeft width)
+    | OutputNewLine -> this
+
+  /// Pads the output string to the right with spaces up to the specified width.
+  member this.PadRight(width) =
+    match this with
+    | OutputNormal s -> OutputNormal(s.PadRight width)
+    | OutputColored cs -> OutputColored(cs.PadRight width)
+    | OutputNewLine -> this
+
+  /// Renders the output string using the provided function.
+  member this.Render fn =
+    match this with
+    | OutputNormal s -> fn NoColor s
+    | OutputColored cs -> cs.Render fn
+    | OutputNewLine -> fn NoColor System.Environment.NewLine
