@@ -88,7 +88,7 @@ module internal Section =
     for seg in segCmds do
       let entrySize = selectByWordSize hdr.Class 68 80
       let sectionSize = entrySize * int seg.NumSecs
-      let sectionOffset = int toolBox.MachOffset + seg.SecOff
+      let sectionOffset = seg.SecOff
       let sectionSpan = ReadOnlySpan(bytes, sectionOffset, sectionSize)
       for i = 0 to int seg.NumSecs - 1 do
         let offset = i * entrySize

@@ -81,7 +81,7 @@ module internal SymbolStore =
     symtabs |> Array.fold (fun cnt symtab -> int symtab.NumOfSym + cnt) 0
 
   let private getLibraryVerInfo (flags: MachFlag) libs nDesc =
-    if flags.HasFlag(MachFlag.MH_TWOLEVEL) then
+    if flags.HasFlag MachFlag.MH_TWOLEVEL then
       let ord = nDesc >>> 8 &&& 0xffs |> int
       if ord = 0 || ord = 254 then None
       else Some <| Array.get libs (ord - 1)

@@ -112,7 +112,7 @@ module internal LoadCommands =
     let cmdHdr = ReadOnlySpan(bytes, int offset, 8)
     let cmdType = reader.ReadInt32(cmdHdr, 0) |> LanguagePrimitives.EnumOfValue
     let cmdSize = reader.ReadInt32(cmdHdr, 4)
-    let cmdOffset = int (offset - toolBox.MachOffset)
+    let cmdOffset = int offset
     let span = ReadOnlySpan(bytes, int offset, cmdSize)
     let command =
       match cmdType with
@@ -137,8 +137,7 @@ module internal LoadCommands =
     struct (command, uint64 cmdSize)
 
   let parse ({ Header = hdr } as toolBox) =
-    let mutable cmdOffset =
-      selectByWordSize hdr.Class 28UL 32UL + toolBox.MachOffset
+    let mutable cmdOffset = selectByWordSize hdr.Class 28UL 32UL
     let numCmds = Convert.ToInt32 hdr.NumCmds
     let cmds = Array.zeroCreate numCmds
     for i = 0 to numCmds - 1 do

@@ -46,7 +46,8 @@ type internal Toolbox =
 with
   /// Initializes a toolbox for Mach-O files.
   static member Init(bytes, struct (hdr, reader, baseAddr, machOffset, isa)) =
-    { Bytes = bytes
+    let count = Array.length bytes - int machOffset
+    { Bytes = Array.sub bytes (int machOffset) count
       Reader = reader
       BaseAddress = baseAddr
       Header = hdr
