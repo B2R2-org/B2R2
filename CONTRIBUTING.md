@@ -209,11 +209,20 @@ src[ 1 .. 2 .. 10 ] // Bad
 
 ##### Type Annotation
 
-We prefer to have a space character between a colon and a type name. For
+We prefer to have a space character between a colon/star and a type name. For
 example,
 ```fsharp
-let fn (p: int) = ... // Good
-let fn (p:int) = ...  // Bad
+let fn (p: int) = ...         // Good
+type X = X of a: int * b: int // Good
+let x (x: int[]) = x          // Good
+let y (y: int * int) = y      // Good
+let fn (x: int -> string) = x // Good
+
+let fn (p:int) = ...         // Bad
+type X = X of a:int * b :int // Bad
+let x (x: int []) = x        // Bad
+let y (y: int*int) = y       // Bad
+let fn (x: int->string) = x  // Bad
 ```
 
 ##### Generic Type Argument
