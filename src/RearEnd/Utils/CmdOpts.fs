@@ -28,23 +28,32 @@ open System
 open B2R2
 open B2R2.FsOptParse
 
-/// A common set of command-line options used in analyzing binaries.
+/// Represents a common set of command-line options used in analyzing binaries.
 type CmdOpts() =
-  /// Verbosity
-  member val Verbose = false with get, set
+  let mutable verbose = false
+
+  /// Verbosity.
+  member _.Verbose with get() = verbose and set v = verbose <- v
 
   /// Just a wrapper function that instantiate an OptParse.Option object.
-  static member New<'T>(descr, ?callback, ?required, ?extra, ?help,
-                        ?short, ?long, ?dummy, ?descrColor) =
-    Option<'T>(descr,
-               ?callback = callback,
-               ?required = required,
-               ?extra = extra,
-               ?help = help,
-               ?short = short,
-               ?long = long,
-               ?dummy = dummy,
-               ?descrColor = descrColor)
+  static member New(descr,
+                    ?callback,
+                    ?required,
+                    ?extra,
+                    ?help,
+                    ?short,
+                    ?long,
+                    ?dummy,
+                    ?descrColor) =
+    CmdOpt(descr,
+           ?callback = callback,
+           ?required = required,
+           ?extra = extra,
+           ?help = help,
+           ?short = short,
+           ?long = long,
+           ?dummy = dummy,
+           ?descrColor = descrColor)
 
   /// "-v" or "--verbose" option turns on the verbose mode.
   static member OptVerbose() =
@@ -83,38 +92,39 @@ type CmdOpts() =
       String.Format("[Usage]{0}{0}b2r2 {1} %o{2}",
                     Environment.NewLine, tool, tail)
 
-  static member private TermFunction() = exit 1
-
   static member private ParseCmdOpts(spec, defaultOpts, argv, tool, usageTail) =
     let prog = Environment.GetCommandLineArgs()[0]
     let usageGetter = CmdOpts.CreateUsageGetter(tool, usageTail)
     try
-      optParse spec usageGetter prog argv defaultOpts
+      OptParse.Parse(spec, usageGetter, prog, argv, defaultOpts)
     with
-    | SpecErr msg ->
-      eprintfn "Invalid spec: %s" msg
+    | SpecError msg ->
+      Terminal.Out <=? $"Invalid spec: {msg}"
       exit 1
-    | RuntimeErr msg ->
-      eprintfn "Invalid command line args given: %s" msg
-      usagePrint spec prog usageGetter CmdOpts.TermFunction
+    | RuntimeError msg ->
+      Terminal.Out <=? $"Invalid command line args given: {msg}"
+      OptParse.PrintUsage(spec, prog, usageGetter)
     | e ->
-      eprintfn "Fatal error: %s" e.Message
-      usagePrint spec prog usageGetter CmdOpts.TermFunction
+      Terminal.Out <=? $"Fatal error: {e.Message}"
+      OptParse.PrintUsage(spec, prog, usageGetter)
 
   static member PrintUsage(tool, usageTail, spec) =
     let prog = Environment.GetCommandLineArgs()[0]
     let usageGetter = CmdOpts.CreateUsageGetter(tool, usageTail)
-    usagePrint spec prog usageGetter CmdOpts.TermFunction
+    OptParse.PrintUsage(spec, prog, usageGetter)
 
   /// Parse command line arguments, and run the mainFn
   static member ParseAndRun(mainFn, tool, usageTail, spec, opts: #CmdOpts
                             , args) =
     let rest, opts = CmdOpts.ParseCmdOpts(spec, opts, args, tool, usageTail)
     if opts.Verbose then CmdOpts.WriteIntro() else ()
-    try mainFn rest opts; 0
+    try
+      mainFn rest opts
+      0
     with e ->
-      eprintfn "Error: %s" e.Message
-      eprintfn "%s" (if opts.Verbose then e.StackTrace else ""); 1
+      Terminal.Out <=? $"Error: {e.Message}"
+      Terminal.Out <=? if opts.Verbose then e.StackTrace else ""
+      1
 
   /// Check if the rest args contain an option string. If so, exit the program.
   /// Otherwise, do nothing.

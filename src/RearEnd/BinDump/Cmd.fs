@@ -207,7 +207,7 @@ type BinDumpOpts() =
 
 [<RequireQualifiedAccess>]
 module Cmd =
-  let spec: BinDumpOpts FsOptParse.Option list =
+  let spec: FsOptParse.CmdOpt<BinDumpOpts> list =
     [ CmdOpts.New(descr = "[General options]", dummy = true)
       CmdOpts.New(descr = "", dummy = true)
       (* *)

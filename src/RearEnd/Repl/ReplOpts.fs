@@ -53,7 +53,7 @@ type ReplOpts() =
                 short = "-t", long = "--show-temporary")
 
 module ReplOpts =
-  let spec: ReplOpts FsOptParse.Option list =
+  let spec: FsOptParse.CmdOpt<ReplOpts> list =
     [ ReplOpts.OptISA()
       ReplOpts.OptShowTemp()
       CmdOpts.OptVerbose()

@@ -83,7 +83,7 @@ type AssemblerOpts() =
                 extra = 1, callback = cb, short = "-r", long = "--base-addr")
 
 module Cmd =
-  let spec: AssemblerOpts FsOptParse.Option list =
+  let spec: FsOptParse.CmdOpt<AssemblerOpts> list =
     [ CmdOpts.OptVerbose()
       CmdOpts.OptHelp()
       AssemblerOpts.OptLowUIR()

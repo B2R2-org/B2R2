@@ -232,7 +232,7 @@ type FileViewerOpts() =
 
 [<RequireQualifiedAccess>]
 module Cmd =
-  let spec: FileViewerOpts FsOptParse.Option list =
+  let spec: FsOptParse.CmdOpt<FileViewerOpts> list =
     [ CmdOpts.New(descr = "[General options]", dummy = true)
       CmdOpts.New(descr = "", dummy = true)
       (* *)

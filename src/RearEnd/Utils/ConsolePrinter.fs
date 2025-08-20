@@ -61,25 +61,33 @@ type ConsolePrinter() =
       Console.ForegroundColor <- ConsoleColor.Green
       Console.BackgroundColor <- ConsoleColor.Green
 
-  let renderer withNewLine (col: Color) (s: string) =
+  let renderer (col: Color) (s: string) =
     setColor col
-    if withNewLine then Console.WriteLine s
-    else Console.Write s
+    Console.Write s
 
   let printErrorPrefix () =
-    ColoredString().Add(NoColor, "[*] Error: ").Render(renderer false)
+    ColoredString()
+      .Add(NoColor, "[")
+      .Add(Red, "*")
+      .Add(NoColor, "] ")
+      .Add(Red, "Error")
+      .Add(NoColor, ": ")
+      .Render(renderer)
+
+  let printErrorSuffix () =
+    Console.WriteLine()
 
   interface IPrinter with
     member _.Print(s: string) =
       Console.Write s
 
     member _.Print(cs: ColoredString) =
-      cs.Render(renderer false)
+      cs.Render(renderer)
 
     member _.Print(os: OutString) =
       match os with
       | OutputNormal s -> Console.Write s
-      | OutputColored cs -> cs.Render(renderer false)
+      | OutputColored cs -> cs.Render(renderer)
       | OutputNewLine -> Console.WriteLine()
 
     member _.Print(s: string, [<ParamArray>] args) =
@@ -88,33 +96,37 @@ type ConsolePrinter() =
     member _.PrintError(s: string) =
       printErrorPrefix ()
       Console.WriteLine s
+      printErrorSuffix ()
 
     member _.PrintError(cs: ColoredString) =
       printErrorPrefix ()
-      cs.Render(renderer false)
+      cs.Render(renderer)
+      printErrorSuffix ()
 
     member _.PrintError(os: OutString) =
       printErrorPrefix ()
       match os with
       | OutputNormal s -> Console.WriteLine s
-      | OutputColored cs -> cs.Render(renderer false)
+      | OutputColored cs -> cs.Render(renderer)
       | OutputNewLine -> Console.WriteLine()
+      printErrorSuffix ()
 
     member _.PrintError(s: string, [<ParamArray>] args) =
       printErrorPrefix ()
       Console.WriteLine(s, args)
+      printErrorSuffix ()
 
     member _.PrintLine(s: string) =
       Console.WriteLine(s)
 
     member _.PrintLine(cs: ColoredString) =
-      cs.Render(renderer false)
+      cs.Render(renderer)
       Console.WriteLine()
 
     member _.PrintLine(os: OutString) =
       match os with
       | OutputNormal s -> Console.WriteLine s
-      | OutputColored cs -> cs.Render(renderer false); Console.WriteLine()
+      | OutputColored cs -> cs.Render(renderer); Console.WriteLine()
       | OutputNewLine -> Console.WriteLine()
 
     member _.PrintLine(fmt: string, [<ParamArray>] args) =
@@ -154,7 +166,7 @@ type ConsolePrinter() =
         if i > 0 && columnGap > 0 then Console.Write(String(' ', columnGap))
         else ()
         let isLast = i = lastIdx
-        colfmt.Pad(cs, isLast).Render(renderer false))
+        colfmt.Pad(cs, isLast).Render(renderer))
       Console.WriteLine()
 
     member _.PrintRow(oss: OutString list) =
@@ -165,11 +177,11 @@ type ConsolePrinter() =
         if i > 0 && columnGap > 0 then Console.Write(String(' ', columnGap))
         else ()
         let isLast = i = lastIdx
-        colfmt.Pad(os, isLast).Render(renderer false))
+        colfmt.Pad(os, isLast).Render(renderer))
       Console.WriteLine()
 
     member this.PrintSectionTitle title =
-      ColoredString().Add(Red, "# ").Add(NoColor, title).Render(renderer false)
+      ColoredString().Add(Red, "# ").Add(NoColor, title).Render(renderer)
       (this :> IPrinter).PrintLine()
 
     member this.PrintSubsectionTitle(str: string) =
