@@ -98,7 +98,7 @@ type SSAConstantPropagation(hdl: BinHandle) =
 
   let rec scheme =
     { new IScheme<ConstantDomain.Lattice> with
-        member _.Transfer(stmt, ssaCFG, blk)=
+        member _.Transfer(stmt, ssaCFG, blk) =
           match stmt with
           | Def(var, e) -> evalDef state var e
           | Phi(var, ns) -> evalPhi state ssaCFG blk var ns

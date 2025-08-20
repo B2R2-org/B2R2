@@ -37,7 +37,7 @@ type AsmParser(isa: ISA) =
   let builder = GroundWork.CreateBuilder(isa, regFactory)
 
   /// Run parsing from a given assembly string, and assemble binary code.
-  abstract Assemble: string -> Result<byte [] list, string>
+  abstract Assemble: string -> Result<byte[] list, string>
 
   member _.Parser with get() = parser
 

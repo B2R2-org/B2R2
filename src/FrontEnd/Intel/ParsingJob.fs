@@ -1719,7 +1719,7 @@ type internal OneOpD5() =
 
 type internal OneOpD6() =
   inherit ParsingJob()
-  override _.Run(_, _)= raise ParsingFailureException
+  override _.Run(_, _) = raise ParsingFailureException
 
 type internal OneOpD7() =
   inherit ParsingJob()

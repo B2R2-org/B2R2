@@ -613,7 +613,7 @@ let buildRotateMnemonic opcode ra rs n (builder: IDisasmBuilder) =
 
 let buildBC (ins: Instruction) builder =
   match ins.Operands with
-  | ThreeOperands(OprImm bo , OprBI bi, OprAddr addr) ->
+  | ThreeOperands(OprImm bo, OprBI bi, OprAddr addr) ->
     let bibit = bi % 4u
     match bo, bi, bibit with
     | 16UL, 0u, _ -> buildTargetMnemonic Op.BDNZ addr ins builder
@@ -632,7 +632,7 @@ let buildBC (ins: Instruction) builder =
 
 let buildBCA (ins: Instruction) builder =
   match ins.Operands with
-  | ThreeOperands(OprImm bo , OprBI bi, OprAddr addr) ->
+  | ThreeOperands(OprImm bo, OprBI bi, OprAddr addr) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 12UL, 0u -> buildSimpleMnemonic Op.BLTA bi addr ins builder
@@ -650,7 +650,7 @@ let buildBCA (ins: Instruction) builder =
 
 let buildBCL (ins: Instruction) builder =
   match ins.Operands with
-  | ThreeOperands(OprImm bo , OprBI bi, OprAddr addr) ->
+  | ThreeOperands(OprImm bo, OprBI bi, OprAddr addr) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 12UL, 0u -> buildSimpleMnemonic Op.BLTA bi addr ins builder
@@ -668,7 +668,7 @@ let buildBCL (ins: Instruction) builder =
 
 let buildBCLA (ins: Instruction) builder =
   match ins.Operands with
-  | ThreeOperands(OprImm bo , OprBI bi, OprAddr addr) ->
+  | ThreeOperands(OprImm bo, OprBI bi, OprAddr addr) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 12uL, 0u -> buildSimpleMnemonic Op.BLTLA bi addr ins builder
@@ -686,7 +686,7 @@ let buildBCLA (ins: Instruction) builder =
 
 let buildBCLR (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
-  | TwoOperands(OprImm bo , OprBI bi) ->
+  | TwoOperands(OprImm bo, OprBI bi) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 20uL, 0u ->
@@ -706,7 +706,7 @@ let buildBCLR (ins: Instruction) (builder: IDisasmBuilder) =
 
 let buildBCLRL (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
-  | TwoOperands(OprImm bo , OprBI bi) ->
+  | TwoOperands(OprImm bo, OprBI bi) ->
     match bo, bi with
     | 12UL, 0u -> buildCrMnemonic Op.BLTLRL bi builder
     | 12UL, 1u -> buildCrMnemonic Op.BGTLRL bi builder
@@ -733,7 +733,7 @@ let buildBCLRL (ins: Instruction) (builder: IDisasmBuilder) =
 
 let buildBCCTR (ins: Instruction) builder =
   match ins.Operands with
-  | TwoOperands(OprImm bo , OprBI bi) ->
+  | TwoOperands(OprImm bo, OprBI bi) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 12UL, 0u -> buildCrMnemonic Op.BLTCTR bi builder
@@ -751,7 +751,7 @@ let buildBCCTR (ins: Instruction) builder =
 
 let buildBCCTRL (ins: Instruction) builder =
   match ins.Operands with
-  | TwoOperands(OprImm bo , OprBI bi) ->
+  | TwoOperands(OprImm bo, OprBI bi) ->
     let bibit = bi % 4u
     match bo, bibit with
     | 12UL, 0u -> buildCrMnemonic Op.BLTCTRL bi builder

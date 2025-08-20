@@ -503,7 +503,7 @@ let cmpge ins len bld =
   bld <+ (regVar bld R.T := AST.extract t 1<rt> 1)
   bld --!> len
 
-let cmpgt ins len bld=
+let cmpgt ins len bld =
   let struct (src, dst) = trsTwoOpr ins bld
   let struct (op1, op2) = tmpVars2 bld 32<rt>
   let t = tmpVar bld 1<rt>

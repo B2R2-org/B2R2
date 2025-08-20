@@ -69,7 +69,7 @@ with
     RelocationKind(MachineType.EM_PARISC, uint64 reloc)
 
   /// Converts a relocation kind to a string representation.
-  static member ToString(RelocationKind(arch, relocValue))=
+  static member ToString(RelocationKind(arch, relocValue)) =
     match arch with
     | MachineType.EM_386 ->
       let kind: RelocationX86 = LanguagePrimitives.EnumOfValue relocValue

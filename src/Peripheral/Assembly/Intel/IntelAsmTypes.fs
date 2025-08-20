@@ -42,16 +42,16 @@ type AsmComponent =
   /// This component refers to an opcode that is now decided (completed) with a
   /// concrete value. It is just that we don't concretize the corresponding
   /// label, i.e., IncompLabel.
-  | CompOp of Opcode * Operands * byte [] * byte [] option
+  | CompOp of Opcode * Operands * byte[] * byte[] option
 
 type EncodedByteCode =
-  { Prefix: AsmComponent []
-    REXPrefix: AsmComponent []
-    Opcode: AsmComponent []
-    ModRM: AsmComponent []
-    SIB: AsmComponent []
-    Displacement: AsmComponent []
-    Immediate: AsmComponent [] }
+  { Prefix: AsmComponent[]
+    REXPrefix: AsmComponent[]
+    Opcode: AsmComponent[]
+    ModRM: AsmComponent[]
+    SIB: AsmComponent[]
+    Displacement: AsmComponent[]
+    Immediate: AsmComponent[] }
 
 type EncPrefix =
   struct

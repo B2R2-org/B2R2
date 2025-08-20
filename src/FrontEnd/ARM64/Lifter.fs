@@ -1221,7 +1221,7 @@ let fmul ins insLen bld addr =
     let src1 = transOprToExpr ins bld addr o2
     let src2 = transOprToExpr ins bld addr o3
     dstAssignScalar ins bld addr o1 (fpMul bld eSize src1 src2) eSize
-  | ThreeOperands(OprSIMD(SIMDVecReg _), _, OprSIMD(SIMDVecReg _) ) ->
+  | ThreeOperands(OprSIMD(SIMDVecReg _), _, OprSIMD(SIMDVecReg _)) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
     let src1 = transSIMDOprToExpr bld eSize dataSize elements src1

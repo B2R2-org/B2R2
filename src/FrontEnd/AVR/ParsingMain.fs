@@ -270,7 +270,7 @@ let parseTwoBytes bin =
   | 0b1010u -> parse1010 bin
   | _ -> parseFourBits bin
 
-let parseFourBytes b1=
+let parseFourBytes b1 =
   match concat (b1 >>> 25) ((b1 >>> 16) &&& 0b1111u) 4 with
   | 0b10010101110u | 0b10010101111u -> Opcode.CALL, parseOneOpr b1 getConst22
   | 0b10010101100u | 0b10010101101u -> Opcode.JMP, parseOneOpr b1 getConst22

@@ -63,9 +63,9 @@ let transMemOprToExpr (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg reg, OprMemory(PreIdxMode(reg1)))
     -> regVar bld reg, regVar bld reg1, -1
-  | TwoOperands(OprReg reg,OprMemory(PostIdxMode(reg1)))
+  | TwoOperands(OprReg reg, OprMemory(PostIdxMode(reg1)))
     -> regVar bld reg, regVar bld reg1, 1
-  | TwoOperands(OprReg reg,OprMemory(UnchMode(reg1)))
+  | TwoOperands(OprReg reg, OprMemory(UnchMode(reg1)))
     -> regVar bld reg, regVar bld reg1, 0
   | _ -> Terminator.impossible ()
 

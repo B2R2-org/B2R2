@@ -35,7 +35,7 @@ let peekVectorLen (bs: byte[]) (reader: IBinReader) offset =
 
 let peekVector bs (reader: IBinReader) offset pe =
   let vecLen, len = peekVectorLen bs reader offset
-  let rec loop (acc: _ []) (count: uint32) (nOff: int) =
+  let rec loop (acc: _[]) (count: uint32) (nOff: int) =
     if count = 0u then
       acc, uint32 (nOff - offset)
     else

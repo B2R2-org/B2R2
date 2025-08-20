@@ -166,7 +166,7 @@ let rec readIntValues (span: ByteSpan) reader cnt acc pos =
 
 let readStream (span: ByteSpan) reader blockSize blockMapAddrs =
   let size = List.length blockMapAddrs * blockSize
-  let buf: byte [] = Array.zeroCreate size
+  let buf: byte[] = Array.zeroCreate size
   let mutable idx = 0
   for blockMapAddr in blockMapAddrs do
     let offset = blockMapAddr * blockSize

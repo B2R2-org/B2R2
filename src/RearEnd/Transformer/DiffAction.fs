@@ -73,7 +73,7 @@ type DiffAction() =
         findChangedLines (lineNum - 1) (true :: rchg) lineToId lines
 
   let rec matchIndices n lineID rindex
-                       (rchg: bool[]) (lineToId: Dictionary<_,int>) lines =
+                       (rchg: bool[]) (lineToId: Dictionary<_, int>) lines =
     if n = Array.length lines then
       lineID, rindex
     elif rchg[n] then

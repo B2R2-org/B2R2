@@ -40,7 +40,7 @@ let private computeMaxLayer (vGraph: VisGraph) =
 let private generateVPerLayer vGraph =
   let maxLayer = computeMaxLayer vGraph
   let vPerLayer = Array.create (maxLayer + 1) []
-  let folder (vPerLayer: IVertex<VisBBlock> list []) v =
+  let folder (vPerLayer: IVertex<VisBBlock> list[]) v =
     let layer = VisGraph.getLayer v
     vPerLayer[layer] <- v :: vPerLayer[layer]
     vPerLayer

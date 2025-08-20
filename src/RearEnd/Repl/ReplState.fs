@@ -53,7 +53,7 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     |> Array.map regFactory.GetRegisterID
     |> Set.ofArray
 
-  member private _.EvaluateStmts(stmts: Stmt []) =
+  member private _.EvaluateStmts(stmts: Stmt[]) =
     rstate.PrepareInstrEval stmts
     Evaluator.evalStmts stmts rstate
 

@@ -99,7 +99,7 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
 
   let rec scheme =
     { new IScheme<UntouchedValueDomain.Lattice> with
-        member _.Transfer(stmt, ssaCFG, blk)=
+        member _.Transfer(stmt, ssaCFG, blk) =
           match stmt with
           | Def(var, e) -> evalDef state var e
           | Phi(var, ns) -> evalPhi state ssaCFG blk var ns

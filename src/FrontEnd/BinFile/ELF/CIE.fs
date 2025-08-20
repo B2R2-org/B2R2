@@ -78,7 +78,7 @@ module internal CIE =
     | 4uy -> 8
     | _ -> addrSize
 
-  let obtainAugData addrSize (arr: byte []) data offset = function
+  let obtainAugData addrSize (arr: byte[]) data offset = function
     | 'L' ->
       let struct (v, app) = ExceptionHeader.parseEncoding arr[offset]
       { Format = 'L'

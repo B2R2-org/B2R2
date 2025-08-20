@@ -984,7 +984,7 @@ and internal ParsingHelper(arch, isThumb, reader, addr, oprs, len, cond, isAdd,
   member _.IsThumb with get() = isThumb and set v = isThumb <- v
   member _.BinReader with get(): IBinReader = reader
   member _.InsAddr with get() = addr and set(a) = addr <- a
-  member _.OprParsers with get(): OperandParser [] = oprs
+  member _.OprParsers with get(): OperandParser[] = oprs
   member _.Len with get() = len and set(l) = len <- l
   member _.Cond with get() = cond and set(c) = cond <- c
   member _.IsAdd with get() = isAdd and set(a) = isAdd <- a
@@ -4311,7 +4311,7 @@ type internal OprRdRnRmShfT() =
 (* {<Rd>,} SP, <Rm> {, <shift> #<amount>} *)
 type internal OprRdSPRmShf() =
   inherit OperandParser()
-  override _.Render b=
+  override _.Render b =
     let rd = extract b 11 8 |> getRegister |> OprReg
     let rm = extract b 3 0 |> getRegister |> OprReg
     let struct (shift, amount) = (* stype, imm3:imm2 *)

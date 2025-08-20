@@ -54,13 +54,13 @@ type ByteArrayTests() =
          0x6cuy
          0x6cuy
          0x6fuy |]
-    let str= ByteArray.extractCString arr 0
+    let str = ByteArray.extractCString arr 0
     Assert.AreEqual<string>("hello", str)
 
   [<TestMethod>]
   member _.``CString Extraction without Null``() =
     let arr = [| 0x68uy; 0x65uy; 0x6cuy; 0x6cuy; 0x6fuy |]
-    let str= ByteArray.extractCString arr 0
+    let str = ByteArray.extractCString arr 0
     Assert.AreEqual<string>("hello", str)
 
   [<TestMethod>]

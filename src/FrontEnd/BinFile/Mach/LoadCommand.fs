@@ -32,17 +32,17 @@ type LoadCommand =
   /// Segment command (LC_SEGMENT or LC_SEGMENT_64).
   | Segment of cmd: CmdType * size: uint32 * SegCmd
   /// Symbol table command (LC_SYMTAB).
-  | SymTab of cmd: CmdType * size: uint32* SymTabCmd
+  | SymTab of cmd: CmdType * size: uint32 * SymTabCmd
   /// Dynamic symbol table command (LC_DYSYMTAB).
-  | DySymTab of cmd: CmdType * size: uint32* DySymTabCmd
+  | DySymTab of cmd: CmdType * size: uint32 * DySymTabCmd
   /// Dynamic shared library command (LC_LOAD_DYLIB).
-  | DyLib of cmd: CmdType * size: uint32* DyLibCmd
+  | DyLib of cmd: CmdType * size: uint32 * DyLibCmd
   /// Dynamic linker information command (LC_DYLD_INFO or LC_DYLD_INFO_ONLY).
-  | DyLdInfo of cmd: CmdType * size: uint32* DyLdInfoCmd
+  | DyLdInfo of cmd: CmdType * size: uint32 * DyLdInfoCmd
   /// Function starts command (LC_FUNCTION_STARTS).
-  | FuncStarts of cmd: CmdType * size: uint32* FuncStartsCmd
+  | FuncStarts of cmd: CmdType * size: uint32 * FuncStartsCmd
   /// Main command (LC_MAIN).
-  | Main of cmd: CmdType * size: uint32* MainCmd
+  | Main of cmd: CmdType * size: uint32 * MainCmd
   /// Unhandled command.
   | Unhandled of cmd: CmdType * size: uint32
 

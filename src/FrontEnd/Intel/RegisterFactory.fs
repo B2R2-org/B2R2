@@ -2153,7 +2153,7 @@ type RegisterFactory(wordSize) =
 
     member _.GetRegisterID expr =
       match expr with
-      | Var(_,id, _, _) -> id
+      | Var(_, id, _, _) -> id
       | PCVar(regT, _, _) ->
         if regT = 32<rt> then Register.toRegID EIP
         else Register.toRegID RIP

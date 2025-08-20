@@ -193,7 +193,7 @@ let transCmpOprs (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg o1, o2, o3) ->
     struct (transCRxToExpr bld o1, transOpr bld o2, transOpr bld o3)
-  | FourOperands(OprReg o1, _ , o3, o4) ->
+  | FourOperands(OprReg o1, _, o3, o4) ->
     struct (transCRxToExpr bld o1, transOpr bld o3, transOpr bld o4)
   | _ -> raise InvalidOperandException
 

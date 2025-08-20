@@ -123,7 +123,7 @@ let regularIRPrinter hdl (liftingUnit: LiftingUnit) optimizer ptr ins cfg =
   let bytes = (hdl: BinHandle).ReadBytes(ptr = ptr, nBytes = int ins.Length)
   printLowUIR lowUIRStr bytes cfg
 
-let convertToDisasmStr (words: AsmWord []) =
+let convertToDisasmStr (words: AsmWord[]) =
   let cs = ColoredString()
   for word in words do
     match word.AsmWordKind with

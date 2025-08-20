@@ -442,7 +442,7 @@ let private mul64BitReg src1 src2 bld isSign =
   bld <+ (hiSrc2 := (src2 >> n32) .& mask32) (* SRC2[63:32] *)
   bld <+ (loSrc2 := src2 .& mask32) (* SRC2[31:0] *)
   let pHigh = hiSrc1 .* hiSrc2
-  let pMid= (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
+  let pMid = (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
   let pLow = loSrc1 .* loSrc2
   let overFlowBit = checkOverfolwOnDMul (hiSrc1 .* loSrc2) (loSrc1 .* hiSrc2)
   let high = pHigh .+ ((pMid .+ (pLow >> n32)) >> n32) .+ overFlowBit
@@ -779,7 +779,7 @@ let cCond ins insLen bld =
   advancePC bld
   bld --!> insLen
 
-let ctc1 ins insLen bld=
+let ctc1 ins insLen bld =
   let rt, _ = getTwoOprs ins |> transTwoOprs ins bld
   let fcsr = regVar bld R.FCSR
   bld <!-- (ins.Address, insLen)
@@ -787,7 +787,7 @@ let ctc1 ins insLen bld=
   advancePC bld
   bld --!> insLen
 
-let cfc1 ins insLen bld=
+let cfc1 ins insLen bld =
   let rt, _ = getTwoOprs ins |> transTwoOprs ins bld
   let fcsr = regVar bld R.FCSR
   bld <!-- (ins.Address, insLen)

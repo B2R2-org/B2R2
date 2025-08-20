@@ -114,7 +114,7 @@ let rec private optimizeLoop (stmts: Stmt[]) (used: bool[]) idx len ctx =
 
 /// Assuming that the stmts are localized, i.e., those stmts represent a basic
 /// block, perform dead code elimination.
-let optimize (stmts: Stmt []) =
+let optimize (stmts: Stmt[]) =
   let used = Array.init stmts.Length (fun _ -> true)
   let len = stmts.Length
   let ctx =

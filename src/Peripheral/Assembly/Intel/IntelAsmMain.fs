@@ -34,7 +34,7 @@ type AssemblyInfo =
   { Index: int
     PC: Addr
     ByteStr: string
-    AsmComponents: AsmComponent []
+    AsmComponents: AsmComponent[]
     AsmLabel: string option }
 
 type UserState =
@@ -230,7 +230,7 @@ let computeIncompMaxLen = function
 
 let getImm imm = if Option.isSome imm then Option.get imm else [||]
 
-let computeMaxLen (components: AsmComponent [] list) =
+let computeMaxLen (components: AsmComponent[] list) =
   components
   |> List.map (fun comp ->
        match comp[0] with
@@ -281,7 +281,7 @@ let computeAddr idx realLenArr =
   | [||] -> 0L
   | arr -> Array.reduce (+) arr |> int64
 
-let decideOp parserState maxLenArr myIdx (comp: _ []) =
+let decideOp parserState maxLenArr myIdx (comp: _[]) =
   match comp[0] with
   | Normal _ | CompOp _ -> comp
   | IncompleteOp(op, (OneOperand(Label(lbl, _)) as oprs)) ->
@@ -294,7 +294,7 @@ let decideOp parserState maxLenArr myIdx (comp: _ []) =
 
 let computeRealLen components =
   components
-  |> List.map (fun (comp: AsmComponent []) ->
+  |> List.map (fun (comp: AsmComponent[]) ->
     match comp[0] with
     | CompOp(_, _, bytes, imm) ->
       match comp[1] with

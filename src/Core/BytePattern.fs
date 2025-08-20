@@ -65,7 +65,7 @@ module BytePattern =
   /// Check if the given byte array (bs) matches the pattern. The comparison
   /// starts at the very first byte of the arrays.
   [<CompiledName "Match">]
-  let ``match`` (pattern: BytePattern) (bs: byte []) =
+  let ``match`` (pattern: BytePattern) (bs: byte[]) =
     let patternLen = Array.length pattern
     if patternLen > bs.Length then false
     else

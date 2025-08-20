@@ -32,7 +32,7 @@ let toBytes (str: string) = str.ToCharArray() |> Array.map byte
 
 /// Converts a byte array to a string.
 [<CompiledName "FromBytes">]
-let fromBytes (bs: byte []) = Array.map char bs |> System.String
+let fromBytes (bs: byte[]) = Array.map char bs |> System.String
 
 /// Wraps a string with a pair of parentheses.
 [<CompiledName "WrapParen">]

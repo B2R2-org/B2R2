@@ -390,7 +390,7 @@ type internal MSExpr =
   | EnumType of EnumTypeKind * MSExpr
   /// For functions as arguements with PointerStrs, calling convention,
   /// return type , carry string, and Parameter types.
-  | FuncPointer of pointers : MSExpr list
+  | FuncPointer of pointers: MSExpr list
                  * callingConvention: CallConvention
                  * returnType: MSExpr
                  * interpretationHelperString: InterpHelperString

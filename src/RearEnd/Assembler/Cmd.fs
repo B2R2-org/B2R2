@@ -45,7 +45,7 @@ type AssemblerOpts() =
   inherit CmdOpts()
 
   /// Mode
-  member val Mode = GeneralMode (ISA Architecture.Intel) with get, set
+  member val Mode = GeneralMode(ISA Architecture.Intel) with get, set
 
   /// Base address
   member val BaseAddress: Addr = 0UL with get, set
@@ -57,7 +57,7 @@ type AssemblerOpts() =
 
   /// "-l" or "--lowuir" option for LowUIR mode
   static member OptLowUIR() =
-    let cb (opts: #CmdOpts) (_arg: string []) =
+    let cb (opts: #CmdOpts) (_arg: string[]) =
       (AssemblerOpts.ToThis opts).Mode <-
         AssemblerMode.toLowUIRMode (AssemblerOpts.ToThis opts).Mode
       opts
@@ -66,7 +66,7 @@ type AssemblerOpts() =
 
   /// "-i" or "--isa" option for specifying ISA.
   static member OptISA() =
-    let cb (opts: #CmdOpts) (arg: string []) =
+    let cb (opts: #CmdOpts) (arg: string[]) =
       (AssemblerOpts.ToThis opts).Mode <-
         AssemblerMode.changeISA (ISA arg[0])
           (AssemblerOpts.ToThis opts).Mode
@@ -76,7 +76,7 @@ type AssemblerOpts() =
 
   /// "-r" or "--base-addr" option for specifying a base address.
   static member OptBaseAddr() =
-    let cb (opts: #CmdOpts) (arg: string []) =
+    let cb (opts: #CmdOpts) (arg: string[]) =
       (AssemblerOpts.ToThis opts).BaseAddress <- Convert.ToUInt64(arg[0], 16)
       opts
     CmdOpts.New(descr = "Specify the base <address> in hex (default=0)",
