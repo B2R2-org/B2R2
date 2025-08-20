@@ -343,9 +343,9 @@ let private updateDomInfo g info edge =
   insert g info edge
 
 let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>)
-                            fwInfo (fwDT: Lazy<DominatorTree<_,_>>)
+                            fwInfo (fwDT: Lazy<DominatorTree<_, _>>)
                             (bwInfo: Lazy<DBSDomInfo<_, _>>)
-                            (bwDT: Lazy<DominatorTree<_,_>>)
+                            (bwDT: Lazy<DominatorTree<_, _>>)
                             (dfp: IDominanceFrontierProvider<_, _>) =
   let mutable dfProvider = null
   let mutable pdfProvider = null

@@ -87,68 +87,68 @@ type BinExplorerOpts(isa) =
   ///     netsh http add urlacl url=http://192.168.1.1:8282/ user=sangkilc
   /// (2) Make sure firewall does not block the connection.
   static member OptIP() =
-    let cb (opts: #CmdOpts) (arg: string []) =
+    let cb (opts: #CmdOpts) (arg: string[]) =
       (BinExplorerOpts.ToThis opts).IP <- arg[0]; opts
     CmdOpts.New(descr = "Specify IP <address> (default: localhost)",
                 extra = 1, callback = cb, long = "--ip")
 
   static member OptPort() =
-    let cb (opts: #CmdOpts) (arg: string []) =
+    let cb (opts: #CmdOpts) (arg: string[]) =
       (BinExplorerOpts.ToThis opts).Port <- int arg[0]; opts
     CmdOpts.New(descr = "Specify host port <number> (default: 8282)",
                 extra = 1, callback = cb, short = "-p", long = "--port")
 
   static member OptLogFile() =
-    let cb (opts: #CmdOpts) (arg: string []) =
+    let cb (opts: #CmdOpts) (arg: string[]) =
       (BinExplorerOpts.ToThis opts).LogFile <- arg[0]; opts
     CmdOpts.New(descr = "Specify log file <name> (default: B2R2.log)",
                 callback = cb, short = "-l", long = "--log")
 
   /// "-a" or "--isa" option for specifying ISA.
   static member OptISA() =
-    let cb (opts: #CmdOpts) (arg: string []) =
+    let cb (opts: #CmdOpts) (arg: string[]) =
       (BinExplorerOpts.ToThis opts).ISA <- ISA arg[0]; opts
     CmdOpts.New(descr = "Specify <ISA> (e.g., x86) for fat binaries",
                 extra = 1, callback = cb, short = "-a", long = "--isa")
 
   static member OptReadLine() =
-    let cb (opts: #CmdOpts) (_arg: string []) =
+    let cb (opts: #CmdOpts) (_arg: string[]) =
       (BinExplorerOpts.ToThis opts).EnableReadLine <- false; opts
     CmdOpts.New(descr = "Disable readline feature for BinExplorer",
                 callback = cb, long = "--no-readline")
 
   static member OptJsonDumpDir() =
-    let cb (opts: #CmdOpts) (arg: string []) =
+    let cb (opts: #CmdOpts) (arg: string[]) =
       (BinExplorerOpts.ToThis opts).JsonDumpDir <- arg[0]; opts
     CmdOpts.New(descr = "Directory name to dump CFG json (no dump if empty)",
                 extra = 1, callback = cb, short = "-j", long = "--jsondir")
 
   static member OptDisableNoReturn() =
-    let cb (opts: #CmdOpts) (_arg: string []) =
+    let cb (opts: #CmdOpts) (_arg: string[]) =
       (BinExplorerOpts.ToThis opts).EnableNoReturn <- false; opts
     CmdOpts.New(descr = "Disable no-return analysis.",
                 callback = cb, long = "--disable-no-return")
 
   static member OptDisableBranchRecovery() =
-    let cb (opts: #CmdOpts) (_arg: string []) =
+    let cb (opts: #CmdOpts) (_arg: string[]) =
       (BinExplorerOpts.ToThis opts).EnableBranchRecovery <- false; opts
     CmdOpts.New(descr = "Disable indirect branch recovery analysis.",
                 callback = cb, long = "--disable-branch-recovery")
 
   static member OptDisableSpeculativeGapCompletion() =
-    let cb (opts: #CmdOpts) (_arg: string []) =
+    let cb (opts: #CmdOpts) (_arg: string[]) =
       (BinExplorerOpts.ToThis opts).EnableGapComp <- false; opts
     CmdOpts.New(descr = "Disable speculative gap completion.",
                 callback = cb, long = "--disable-gap-completion")
 
   static member OptEVMAbiFile() =
-    let cb (opts: #CmdOpts) (arg: string []) =
+    let cb (opts: #CmdOpts) (arg: string[]) =
       (BinExplorerOpts.ToThis opts).EVMAbiFile <- arg[0]; opts
     CmdOpts.New(descr = "ABI file path for EVM bytecode.",
                 extra = 1, callback = cb, long = "--evmabi")
 
   static member OptDisableEVMAnalysis() =
-    let cb (opts: #CmdOpts) (_arg: string []) =
+    let cb (opts: #CmdOpts) (_arg: string[]) =
       (BinExplorerOpts.ToThis opts).EnableEVMAnalysis <- false; opts
     CmdOpts.New(descr = "Disable EVM analyses (for code copy and trampoline).",
                 callback = cb, long = "--disable-evm-analysis")

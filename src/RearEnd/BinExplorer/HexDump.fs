@@ -63,7 +63,7 @@ type CmdHexDump() =
         |> Result.bind (parseCount cnt)
         |> Result.bind (readBytes brew)
       match result with
-      | Ok(addr, bytes: byte []) ->
+      | Ok(addr, bytes: byte[]) ->
         let wordSize = brew.BinHandle.File.ISA.WordSize
         HexDumper.dump 16 wordSize true addr bytes
       | Error e -> [| OutputColored(ColoredString(NoColor, e)) |]

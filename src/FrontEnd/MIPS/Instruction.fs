@@ -144,7 +144,7 @@ type Instruction
         | TwoOperands(_, OpAddr(Relative offset)) ->
           addr <- (int64 this.Address + offset) |> uint64
           true
-        | ThreeOperands(_, _,OpAddr(Relative offset)) ->
+        | ThreeOperands(_, _, OpAddr(Relative offset)) ->
           addr <- (int64 this.Address + offset) |> uint64
           true
         | OneOperand(OpImm(imm)) ->

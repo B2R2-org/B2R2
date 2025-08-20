@@ -185,7 +185,7 @@ let private updateMapsAtDef maps dst src =
   | TempVar(_, n, _), _ -> maps.TempVarMap.Remove(n) |> ignore
   | _ -> ()
 
-let rec private optimizeLoop (stmts: Stmt []) idx maps =
+let rec private optimizeLoop (stmts: Stmt[]) idx maps =
   if Array.length stmts > idx then
     match stmts[idx] with
     | Store(endian, e1, e2, _) ->
@@ -239,6 +239,6 @@ let rec private optimizeLoop (stmts: Stmt []) idx maps =
 
 /// Assuming that the stmts are localized, i.e., those stmts represent a basic
 /// block, perform local constant folding.
-let optimize (stmts: Stmt []) =
+let optimize (stmts: Stmt[]) =
   let stmts = Array.copy stmts
   optimizeLoop stmts 0 { VarMap = Dictionary(); TempVarMap = Dictionary() }

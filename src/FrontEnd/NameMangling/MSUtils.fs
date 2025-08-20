@@ -179,7 +179,7 @@ let updatePrefix lst str =
 /// Changes any type of pointer to normal pointer while keeping its prefixes.
 let rec changeToNormalPointer (ptr: MSExpr) =
   match ptr with
-  | PointerStrT( _ , (pref, modifier), cvT) ->
+  | PointerStrT(_, (pref, modifier), cvT) ->
       PointerStrT(NormalPointer, (pref, modifier), cvT)
   | ModifiedType(typ, mods) -> ModifiedType(changeToNormalPointer typ, mods)
   | PointerT(ptrStr, typ) -> PointerT(changeToNormalPointer ptrStr, typ)

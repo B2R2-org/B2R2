@@ -173,7 +173,7 @@ let addrToString shift addr (builder: IDisasmBuilder) =
 
 let memToString addrMode (builder: IDisasmBuilder) =
   match addrMode with
-  | DispMode(reg,c) ->
+  | DispMode(reg, c) ->
     let reg = Register.toString reg
     builder.Accumulate(AsmWordKind.Variable, reg)
     builder.Accumulate(AsmWordKind.String, "+")

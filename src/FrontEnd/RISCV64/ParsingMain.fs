@@ -550,7 +550,7 @@ let parseCdotSR bin =
     if Bits.extract bin 11u 10u = 0u then Op.CdotSRLI else Op.CdotSRAI
   struct (opcode, ThreeOperands(dest, dest, imm |> OpShiftAmount))
 
-let parseCdotLUIADDI16SP bin wordSize=
+let parseCdotLUIADDI16SP bin wordSize =
   if Bits.extract bin 11u 7u = 2u then
     let from4to4 = Bits.pick bin 6u <<< 4
     let from5to5 = Bits.pick bin 2u <<< 5

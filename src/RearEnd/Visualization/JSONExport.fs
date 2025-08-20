@@ -36,7 +36,7 @@ type JSONCoordinate =
 
 type JSONNode =
   { PPoint: Addr
-    Terms: (string * string) [][]
+    Terms: (string * string)[][]
     Width: float
     Height: float
     Coordinate: JSONCoordinate }

@@ -338,7 +338,7 @@ let parseOprSImm span (phlp: ParsingHelper) immSize =
 /// Table for scales (of SIB). This tbl is indexbed by the scale value of SIB.
 let parseMEM16 span phlp modRM =
   let m = Operands.getMod modRM
-  let rm =Operands.getRM modRM
+  let rm = Operands.getRM modRM
   match (m <<< 3) ||| rm with (* Concatenation of mod and rm bit *)
   | 0 -> parseOprMem span phlp (Some R.BX) (Some(R.SI, Scale.X1)) 0
   | 1 -> parseOprMem span phlp (Some R.BX) (Some(R.DI, Scale.X1)) 0

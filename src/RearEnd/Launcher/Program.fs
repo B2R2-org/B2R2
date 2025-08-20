@@ -80,7 +80,7 @@ let printMyVersion () =
   let attr = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
   Terminal.Out <=/ attr.InformationalVersion.ToString()
 
-let handleCommands (cmd: string) (rest: string []) =
+let handleCommands (cmd: string) (rest: string[]) =
   match cmd.ToLowerInvariant() with
   | "help" | "--help" | "-h" -> showUsage (); 0
   | "fileviewer" | "file" | "fileview" | "peek" -> FileViewer.Program.main rest

@@ -130,7 +130,7 @@ let inline encRLI (ctx: EncContext) ins r op i immSz =
   let imm = immediate i immSz |> Array.map normalToByte |> Some
   [| CompOp(ins.Opcode, ins.Operands, op, imm); IncompLabel 32<rt> |]
 
-let inline encFR (op: byte []) r =
+let inline encFR (op: byte[]) r =
   let op = [| op[0]; op[1] + (regTo3Bit r) |]
   [| yield! Array.map Normal op |]
 

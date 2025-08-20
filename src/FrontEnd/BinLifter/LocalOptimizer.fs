@@ -28,7 +28,7 @@ open B2R2.BinIR.LowUIR
 
 [<AutoOpen>]
 module private Localizer =
-  let rec breakByMark acc (stmts: Stmt []) idx =
+  let rec breakByMark acc (stmts: Stmt[]) idx =
     if idx < stmts.Length then
       match stmts[idx] with
       | ISMark _
@@ -39,14 +39,14 @@ module private Localizer =
         breakByMark acc stmts (idx + 1)
     else List.rev (stmts :: acc) |> List.toArray
 
-  let breakIntoBlocks (stmts: Stmt []) =
+  let breakIntoBlocks (stmts: Stmt[]) =
     if Array.isEmpty stmts then [| stmts |]
     else breakByMark [] stmts 1
 
 /// Represents an intra-block local IR optimizer.
 type LocalOptimizer =
   /// Remove unnecessary IEMark to ease the analysis.
-  static member private TrimIEMark(stmts: Stmt []) =
+  static member private TrimIEMark(stmts: Stmt[]) =
     let last = stmts[stmts.Length - 1]
     let secondLast = stmts[stmts.Length - 2]
     match secondLast, last with

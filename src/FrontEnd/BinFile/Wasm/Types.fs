@@ -139,7 +139,7 @@ type SectionsInfo =
     /// Section summary by name.
     SecByName: Map<string, SectionSummary>
     /// Section summary by its number.
-    SecArray: SectionSummary [] }
+    SecArray: SectionSummary[] }
 
 type IndexKind =
   | Type
@@ -277,4 +277,4 @@ type Module =
     /// Contains a summary of all sections information.
     SectionsInfo: SectionsInfo
     /// An element location translation map (Index to/from Offset).
-    IndexMap: IndexInfo [] }
+    IndexMap: IndexInfo[] }

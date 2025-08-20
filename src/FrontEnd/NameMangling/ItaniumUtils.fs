@@ -197,7 +197,7 @@ let addOnCondition expr =
 let addArrayPointer expr =
   updateUserState (fun us ->
     match expr with
-    | ArrayPointer(Some _ , a, b) ->
+    | ArrayPointer(Some _, a, b) ->
       { us with Namelist = expr :: ArrayPointer(None, a, b) :: us.Namelist }
     | _ -> { us with Namelist = expr :: us.Namelist })
   >>. preturn expr

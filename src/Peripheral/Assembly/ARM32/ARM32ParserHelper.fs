@@ -52,7 +52,7 @@ let substituteParsedRegister (reg, dummyOffset) =
   | ImmOffset(_, signOpt, constOpt) -> ImmOffset(reg, signOpt, constOpt)
   | RegOffset(_, signOpt, shiftReg, shiftOpt) ->
     RegOffset(reg, signOpt, shiftReg, shiftOpt)
-  | AlignOffset( _, alignOpt, regOpt) -> AlignOffset(reg, alignOpt, regOpt)
+  | AlignOffset(_, alignOpt, regOpt) -> AlignOffset(reg, alignOpt, regOpt)
 
 let parseShiftOperation opcode imm =
   let srType =

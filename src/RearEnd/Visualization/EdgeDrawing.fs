@@ -245,7 +245,7 @@ let private computeHeightPerLayer boxes =
 /// Computes starting and ending y-coordinates for each layer.
 let private computeYPositionsPerLayer boxes =
   let heights = computeHeightPerLayer boxes
-  let starts = Array.map (fun (layer: Box []) -> layer[0].TopLeft.Y) boxes
+  let starts = Array.map (fun (layer: Box[]) -> layer[0].TopLeft.Y) boxes
   let ends = Array.map2 (+) starts heights
   Array.map2 (fun x y -> (x, y)) starts ends
 
@@ -269,7 +269,7 @@ let private boxesOverlapping leftBox rightBox =
   let left2, _ = rightBox.TopLeft.X, rightBox.TopRight.X
   left2 >= left1 && left2 <= right1
 
-let rec private getBoxLeftBound reference index (boxarr: Box []) widthLine =
+let rec private getBoxLeftBound reference index (boxarr: Box[]) widthLine =
   match index with
   | i when i < 0 -> fst widthLine
   | i ->
@@ -278,7 +278,7 @@ let rec private getBoxLeftBound reference index (boxarr: Box []) widthLine =
     then boxarr[i].TopRight.X
     else getBoxLeftBound reference (i - 1) boxarr widthLine
 
-let rec private getBoxRightBound reference index (boxarr: Box []) widthLine =
+let rec private getBoxRightBound reference index (boxarr: Box[]) widthLine =
   match index with
   | i when i > (Array.length boxarr) - 1 -> snd widthLine
   | i ->
@@ -287,7 +287,7 @@ let rec private getBoxRightBound reference index (boxarr: Box []) widthLine =
     then boxarr[i].TopLeft.X
     else getBoxRightBound reference (i + 1) boxarr widthLine
 
-let private initialBox box (boxarr: Box []) widthLine (_, bottom) =
+let private initialBox box (boxarr: Box[]) widthLine (_, bottom) =
   let idx = Array.findIndex ((=) box) boxarr
   let left = getBoxLeftBound idx idx boxarr widthLine
   let right = getBoxRightBound idx idx boxarr widthLine
@@ -303,7 +303,7 @@ let private interLayerBox yPositions (left, right) layerNum =
     makeBox left right top bottom true
 
 /// Computes a box corresponding to a particular dummy node.
-let private virtualNodeBox boxes widthLine (yPositions: _ []) shrinkBox dummy =
+let private virtualNodeBox boxes widthLine (yPositions: _[]) shrinkBox dummy =
   let dBox = dummy |> vertexToBox
   let dRow = Array.findIndex (Array.contains dBox) boxes
   let boxarr = boxes[dRow]

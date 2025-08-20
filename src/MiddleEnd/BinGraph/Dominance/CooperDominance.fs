@@ -136,9 +136,9 @@ let private computeDomInfo g =
   computeIDom info n
 
 let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
-                            (fwDT: Lazy<DominatorTree<_,_>>)
+                            (fwDT: Lazy<DominatorTree<_, _>>)
                             (bwInfo: Lazy<CPDomInfo<_>>)
-                            (bwDT: Lazy<DominatorTree<_,_>>)
+                            (bwDT: Lazy<DominatorTree<_, _>>)
                             (dfp: IDominanceFrontierProvider<_, _>) =
   let mutable dfProvider = null
   let mutable pdfProvider = null

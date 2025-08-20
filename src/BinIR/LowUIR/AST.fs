@@ -464,7 +464,7 @@ let concat e1 e2 =
   let t = TypeCheck.concat e1 e2
   binopWithType BinOpType.CONCAT t e1 e2
 
-let rec private concatLoop (arr: Expr []) sPos ePos =
+let rec private concatLoop (arr: Expr[]) sPos ePos =
   let diff = ePos - sPos
   if diff > 0 then concat (concatLoop arr (sPos + diff / 2 + 1) ePos)
                           (concatLoop arr sPos (sPos + diff / 2))

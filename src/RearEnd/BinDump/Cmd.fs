@@ -46,7 +46,7 @@ type BinDumpOpts() =
   member val InputSecName: string option = None with get, set
 
   /// Input hexstring from command line.
-  member val InputHexStr: byte [] = [||] with get, set
+  member val InputHexStr: byte[] = [||] with get, set
 
   /// Thumb mode.
   member val ThumbMode = false with get, set
@@ -89,7 +89,7 @@ type BinDumpOpts() =
 
   /// "-i" or "--isa" option for specifying ISA.
   static member OptISA() =
-    let cb opts (arg: string []) =
+    let cb opts (arg: string[]) =
       (BinDumpOpts.ToThis opts).ISA <- ISA arg[0]
       opts
     CmdOpts.New(descr = "Specify <ISA> (e.g., x86) from command line",
@@ -97,7 +97,7 @@ type BinDumpOpts() =
 
   /// "-r" or "--base-addr" option for specifying a base address.
   static member OptBaseAddr() =
-    let cb opts (arg: string []) =
+    let cb opts (arg: string[]) =
       (BinDumpOpts.ToThis opts).BaseAddress <-
         Some(Convert.ToUInt64(arg[0], 16))
       (BinDumpOpts.ToThis opts).ShowAddress <- true
@@ -108,7 +108,7 @@ type BinDumpOpts() =
   /// "--only-disasm" option for forcefully showing disassembly for all
   /// sections.
   static member OptOnlyDisasm() =
-    let cb opts (arg: string []) =
+    let cb opts (arg: string[]) =
       (BinDumpOpts.ToThis opts).OnlyDisasm <- true
       opts
     CmdOpts.New(
@@ -125,7 +125,7 @@ type BinDumpOpts() =
 
   /// "-S" or "--section" for displaying contents of a specific section.
   static member OptDumpSection() =
-    let cb opts (arg: string []) =
+    let cb opts (arg: string[]) =
       (BinDumpOpts.ToThis opts).InputSecName <- Some arg[0]
       opts
     CmdOpts.New(descr = "Display the contents of a specific section",
@@ -133,7 +133,7 @@ type BinDumpOpts() =
 
   /// "-s" option for specifying an input hexstring.
   static member OptInputHexString() =
-    let cb opts (arg: string []) =
+    let cb opts (arg: string[]) =
       (BinDumpOpts.ToThis opts).InputHexStr <- ByteArray.ofHexString arg[0]
       opts
     CmdOpts.New(descr = "Specify an input <hexstring> from command line",
@@ -141,7 +141,7 @@ type BinDumpOpts() =
 
   /// "-m" or "--mode" option for specifying Thumb mode.
   static member OptArchMode() =
-    let cb opts (arg: string []) =
+    let cb opts (arg: string[]) =
       match arg[0].ToLowerInvariant() with
       | "thumb" -> (BinDumpOpts.ToThis opts).ThumbMode <- true
       | _ -> ()

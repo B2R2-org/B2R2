@@ -1715,7 +1715,7 @@ let packedBlend src1 src2 imm =
   Array.mapi2 (fun i e1 e2 ->
     AST.ite (AST.extract imm 1<rt> (i % 8)) e1 e2) src1 src2
 
-let packedVblend src1 src2 (mask: Expr []) =
+let packedVblend src1 src2 (mask: Expr[]) =
   Array.mapi2 (fun i e1 e2 -> AST.ite (AST.xthi 1<rt> mask[i]) e1 e2) src1 src2
 
 let blendpd (ins: Instruction) insLen bld =
