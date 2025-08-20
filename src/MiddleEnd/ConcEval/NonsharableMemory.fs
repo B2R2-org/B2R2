@@ -24,16 +24,25 @@
 
 namespace B2R2.MiddleEnd.ConcEval
 
+open System.Collections.Generic
 open B2R2
 
-/// Raised when undefined expression is encountered.
-exception UndefExpException
+/// Represents a non-sharable memory.
+type NonsharableMemory() =
+  let mem = Dictionary<Addr, byte>()
 
-/// Raised when an invalid memory access.
-exception InvalidMemException of Addr
+  interface IMemory with
 
-/// A value is either defined or undefined.
-[<Struct>]
-type EvalValue =
-  | Undef
-  | Def of BitVector
+    member _.ByteRead(addr) =
+      if mem.ContainsKey addr then Ok mem[addr]
+      else Error ErrorCase.InvalidMemoryRead
+
+    member _.ByteWrite(addr, b) = mem[addr] <- b
+
+    member this.Read(addr, endian, typ) =
+      Memory.read addr endian typ this
+
+    member this.Write(addr, v, endian) =
+      Memory.write addr v endian this
+
+    member _.Clear() = mem.Clear()

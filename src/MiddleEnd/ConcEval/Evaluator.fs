@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-/// ConcEval.Evaluator is a concrete evaluation module for LowUIR.
+/// Represents a concrete evaluation module for LowUIR.
 module B2R2.MiddleEnd.ConcEval.Evaluator
 
 open B2R2
@@ -30,7 +30,9 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.ConcEval.EvalUtils
 
-let rec evalConcrete (st: EvalState) e =
+/// Evaluates a given expression in the context of the provided evaluation
+/// state.
+let rec evalExpr (st: EvalState) e =
   match e with
   | Num(n, _) -> n
   | Var(_, n, _, _) -> st.GetReg n
@@ -41,15 +43,15 @@ let rec evalConcrete (st: EvalState) e =
   | RelOp(t, e1, e2, _) -> evalRelOp st e1 e2 t
   | Load(endian, t, addr, _) -> evalLoad st endian t addr
   | Ite(cond, e1, e2, _) ->
-    let cond = evalConcrete st cond
-    if cond = tr then evalConcrete st e1 else evalConcrete st e2
+    let cond = evalExpr st cond
+    if cond = tr then evalExpr st e1 else evalExpr st e2
   | Cast(kind, t, e, _) -> evalCast st t e kind
-  | Extract(e, t, p, _) -> BitVector.Extract(evalConcrete st e, t, p)
+  | Extract(e, t, p, _) -> BitVector.Extract(evalExpr st e, t, p)
   | Undefined _ -> raise UndefExpException
   | _ -> raise InvalidExprException
 
 and private evalLoad st endian t addr =
-  let addr = evalConcrete st addr |> BitVector.ToUInt64
+  let addr = evalExpr st addr |> BitVector.ToUInt64
   match st.Memory.Read(addr, endian, t) with
   | Ok v -> v
   | Error e ->
@@ -58,19 +60,19 @@ and private evalLoad st endian t addr =
     | Error _ ->  raise (InvalidMemException addr)
 
 and private evalCast st t e = function
-  | CastKind.SignExt -> BitVector.SExt(evalConcrete st e, t)
-  | CastKind.ZeroExt -> BitVector.ZExt(evalConcrete st e, t)
-  | CastKind.FloatCast -> BitVector.FCast(evalConcrete st e, t)
-  | CastKind.SIntToFloat -> BitVector.Itof(evalConcrete st e, t, true)
-  | CastKind.UIntToFloat -> BitVector.Itof(evalConcrete st e, t, false)
-  | CastKind.FtoICeil -> BitVector.FtoiCeil(evalConcrete st e, t)
-  | CastKind.FtoIFloor -> BitVector.FtoiFloor(evalConcrete st e, t)
-  | CastKind.FtoIRound -> BitVector.FtoiRound(evalConcrete st e, t)
-  | CastKind.FtoITrunc -> BitVector.FtoiTrunc(evalConcrete st e, t)
+  | CastKind.SignExt -> BitVector.SExt(evalExpr st e, t)
+  | CastKind.ZeroExt -> BitVector.ZExt(evalExpr st e, t)
+  | CastKind.FloatCast -> BitVector.FCast(evalExpr st e, t)
+  | CastKind.SIntToFloat -> BitVector.Itof(evalExpr st e, t, true)
+  | CastKind.UIntToFloat -> BitVector.Itof(evalExpr st e, t, false)
+  | CastKind.FtoICeil -> BitVector.FtoiCeil(evalExpr st e, t)
+  | CastKind.FtoIFloor -> BitVector.FtoiFloor(evalExpr st e, t)
+  | CastKind.FtoIRound -> BitVector.FtoiRound(evalExpr st e, t)
+  | CastKind.FtoITrunc -> BitVector.FtoiTrunc(evalExpr st e, t)
   | _ -> raise IllegalASTTypeException
 
 and private evalUnOp st e typ =
-  let v = evalConcrete st e
+  let v = evalExpr st e
   match typ with
   | UnOpType.NEG -> BitVector.Neg v
   | UnOpType.NOT -> BitVector.Not v
@@ -82,8 +84,8 @@ and private evalUnOp st e typ =
   | _ -> raise IllegalASTTypeException
 
 and private evalBinOp st e1 e2 typ =
-  let e1 = evalConcrete st e1
-  let e2 = evalConcrete st e2
+  let e1 = evalExpr st e1
+  let e2 = evalExpr st e2
   match typ with
   | BinOpType.ADD -> BitVector.Add(e1, e2)
   | BinOpType.SUB -> BitVector.Sub(e1, e2)
@@ -108,8 +110,8 @@ and private evalBinOp st e1 e2 typ =
   | _ -> raise IllegalASTTypeException
 
 and private evalRelOp st e1 e2 typ =
-  let e1 = evalConcrete st e1
-  let e2 = evalConcrete st e2
+  let e1 = evalExpr st e1
+  let e2 = evalExpr st e2
   match typ with
   | RelOpType.EQ -> BitVector.Eq(e1, e2)
   | RelOpType.NEQ -> BitVector.Neq(e1, e2)
@@ -128,12 +130,12 @@ and private evalRelOp st e1 e2 typ =
   | _ -> raise IllegalASTTypeException
 
 let private evalPCUpdate st rhs =
-  let v = evalConcrete st rhs
+  let v = evalExpr st rhs
   st.PC <- BitVector.ToUInt64 v
 
 let private evalPut st lhs rhs =
   try
-    let v = evalConcrete st rhs
+    let v = evalExpr st rhs
     match lhs with
     | Var(_, n, _, _) -> st.SetReg(n, v)
     | TempVar(_, n, _) -> st.SetTmp(n, v)
@@ -144,8 +146,8 @@ let private evalPut st lhs rhs =
     | :? System.Collections.Generic.KeyNotFoundException -> ()
 
 let private evalStore st endian addr v =
-  let addr = evalConcrete st addr |> BitVector.ToUInt64
-  let v = evalConcrete st v
+  let addr = evalExpr st addr |> BitVector.ToUInt64
+  let v = evalExpr st v
   st.Memory.Write(addr, v, endian)
 
 let private evalJmp (st: EvalState) target =
@@ -154,16 +156,16 @@ let private evalJmp (st: EvalState) target =
   | _ -> raise InvalidExprException
 
 let private evalCJmp st cond t f =
-  let cond = evalConcrete st cond
+  let cond = evalExpr st cond
   if cond = tr then evalJmp st t else evalJmp st f
 
 let private evalIntCJmp st cond t f =
-  let cond = evalConcrete st cond
+  let cond = evalExpr st cond
   evalPCUpdate st (if cond = tr then t else f)
 
-let rec concretizeArgs st acc = function
+let rec private concretizeArgs st acc = function
   | arg :: tl ->
-    let v = evalConcrete st arg
+    let v = evalExpr st arg
     concretizeArgs st (v :: acc) tl
   | [] -> acc
 
@@ -173,8 +175,9 @@ let private evalArgs st args =
     args |> concretizeArgs st []
   | _ -> Terminator.impossible ()
 
-let evalStmt (st: EvalState) s =
-  match s with
+/// Evaluates a single statement in the context of the given EvalState.
+let evalStmt (st: EvalState) stmt =
+  match stmt with
   | ISMark(len, _) -> st.CurrentInsLen <- len; st.NextStmt()
   | IEMark(len, _) -> st.AdvancePC len; st.AbortInstr()
   | LMark _ -> st.NextStmt()
@@ -189,27 +192,3 @@ let evalStmt (st: EvalState) s =
   | ExternalCall(args, _) ->
     st.OnExternalCall(evalArgs st args, st) |> st.NextStmt
   | SideEffect(eff, _) -> st.OnSideEffect(eff, st)
-
-let internal tryEvaluate stmt st =
-  try evalStmt st stmt with
-  | UndefExpException
-  | InvalidMemException _ ->
-    if st.IgnoreUndef then st.NextStmt()
-    else raise UndefExpException
-
-/// Evaluate a sequence of statements, assuming that the statements are lifted
-/// from a single instruction.
-let rec evalStmts stmts (st: EvalState) =
-  let idx = st.StmtIdx
-  let numStmts = Array.length stmts
-  if numStmts > idx then
-    if st.IsInstrTerminated then
-      if st.NeedToEvaluateIEMark then
-        let stmt = stmts[numStmts - 1]
-        tryEvaluate stmt st
-      else ()
-    else
-      let stmt = stmts[idx]
-      tryEvaluate stmt st
-      evalStmts stmts st
-  else ()

@@ -28,7 +28,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
-/// Store labels of LowUIR statements.
+/// Represents a collection of labels used in the evaluation state.
 type Labels(lbls) =
   let lbls = lbls
 

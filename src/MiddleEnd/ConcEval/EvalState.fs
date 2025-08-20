@@ -28,19 +28,10 @@ open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinIR
 
-type LoadFailureEventHandler =
-  delegate of Addr * Addr * RegType * ErrorCase -> Result<BitVector, ErrorCase>
-
-and ExternalCallEventHandler =
-  delegate of BitVector list * EvalState -> unit
-
-and SideEffectEventHandler =
-  delegate of SideEffect * EvalState -> unit
-
-/// The main evaluation state that will be updated by evaluating every statement
-/// encountered during the course of execution. This can be considered as a
-/// single-threaded CPU context.
-and EvalState(regs, temps, lbls, mem, ignoreUndef) =
+/// Represents the main evaluation state that will be updated by evaluating
+/// every LowUIR statement encountered during the course of execution. This can
+/// be considered as a single-threaded CPU context.
+type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   let mutable pc = 0UL
   let mutable stmtIdx = 0
   let mutable currentInsLen = 0u
@@ -55,7 +46,7 @@ and EvalState(regs, temps, lbls, mem, ignoreUndef) =
     EvalState(Variables(),
               Variables(),
               Labels(),
-              NonsharableMemory() :> Memory,
+              NonsharableMemory() :> IMemory,
               false)
 
   /// This constructor will simply create a fresh new EvalState with the given
@@ -75,7 +66,7 @@ and EvalState(regs, temps, lbls, mem, ignoreUndef) =
     EvalState(Variables(),
               Variables(),
               Labels(),
-              NonsharableMemory() :> Memory,
+              NonsharableMemory() :> IMemory,
               ignoreUndef)
 
   /// Current PC.
@@ -226,3 +217,17 @@ and EvalState(regs, temps, lbls, mem, ignoreUndef) =
 
   /// Make a copy of this EvalState.
   member this.Clone() = this.Clone(mem)
+
+/// Represents a callback function that is invoked when a memory load fails.
+and LoadFailureEventHandler =
+  delegate of Addr * Addr * RegType * ErrorCase -> Result<BitVector, ErrorCase>
+
+/// Represents a callback function that is invoked when an external call is
+/// encountered during the evaluation.
+and ExternalCallEventHandler =
+  delegate of BitVector list * EvalState -> unit
+
+/// Represents a callback function that is invoked when a side effect is
+/// encountered during the evaluation.
+and SideEffectEventHandler =
+  delegate of SideEffect * EvalState -> unit

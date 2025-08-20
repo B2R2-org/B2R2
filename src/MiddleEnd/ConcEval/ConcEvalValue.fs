@@ -24,32 +24,21 @@
 
 namespace B2R2.MiddleEnd.ConcEval
 
-open System.Collections.Generic
 open B2R2
 
-/// Represents a collection of variables used in the evaluation state.
-type Variables(vars) =
-  let vars: Dictionary<int, BitVector> = vars
-
-  new() = Variables(Dictionary())
-
-  member _.TryGet k =
-    match vars.TryGetValue k with
-    | true, v -> Ok v
-    | false, _ -> Error ErrorCase.InvalidRegister
-
-  member _.Get k = vars[k]
-
-  member _.Set(k, v) = vars[k] <- v
-
-  member _.Unset k =
-    vars.Remove k |> ignore
-
-  member _.Count() =
-    vars.Count
-
-  member _.ToArray() =
-    vars |> Seq.map (fun (KeyValue(k, v))  -> k, v) |> Seq.toArray
-
-  member _.Clone() =
-    Variables(Dictionary(vars))
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for concrete evaluation of LowUIR statements.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Represents a value that can be evaluated in the context of concrete
+/// evaluation of LowUIR statements, which can be either defined or undefined.
+/// </summary>
+[<Struct>]
+type ConcEvalValue =
+  /// Undefined value.
+  | Undef
+  /// Concrete value.
+  | Def of BitVector

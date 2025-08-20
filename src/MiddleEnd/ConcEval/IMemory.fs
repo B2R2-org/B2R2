@@ -24,85 +24,61 @@
 
 namespace B2R2.MiddleEnd.ConcEval
 
-open System.Collections.Generic
-open System.Collections.Concurrent
 open B2R2
 
-[<AbstractClass>]
-type Memory() =
+/// Represents a memory used in the evaluation.
+type IMemory =
+  /// Reads a byte from the memory.
+  abstract ByteRead: Addr -> Result<byte, ErrorCase>
 
-  /// Read a byte from the memory.
-  abstract member ByteRead: Addr -> Result<byte, ErrorCase>
+  /// Writes a byte from the memory.
+  abstract ByteWrite: Addr * byte -> unit
 
-  /// Write a byte from the memory.
-  abstract member ByteWrite: Addr * byte -> unit
+  /// Reads a bitvector value from the memory.
+  abstract Read: Addr * Endian * RegType -> Result<BitVector, ErrorCase>
 
-  /// Clear up the memory contents; make the whole memory empty.
-  abstract member Clear: unit -> unit
+  /// Writes a bitvector value to the memory.
+  abstract Write: Addr * BitVector * Endian -> unit
 
-  member private this.ReadLE(acc, addr, i) =
+  /// Clears up the memory contents; make the whole memory empty.
+  abstract Clear: unit -> unit
+
+module private Memory =
+  let rec readLE acc addr i (mem: IMemory) =
     if i <= 0UL then Ok acc
     else
-      match this.ByteRead(addr + i - 1UL) with
-      | Ok b -> this.ReadLE(b :: acc, addr, i - 1UL)
+      match mem.ByteRead(addr + i - 1UL) with
+      | Ok b -> readLE (b :: acc) addr (i - 1UL) mem
       | Error e -> Error e
 
-  member private this.ReadBE(acc, len, addr, i) =
+  let rec readBE acc len addr i (mem: IMemory) =
     if i >= len then Ok acc
     else
-      match this.ByteRead(addr + i) with
-      | Ok b -> this.ReadBE(b :: acc, len, addr, i + 1UL)
+      match mem.ByteRead(addr + i) with
+      | Ok b -> readBE (b :: acc) len addr (i + 1UL) mem
       | Error e -> Error e
 
-  /// Read a bitvector value from the memory.
-  member this.Read(addr, endian, typ) =
+  /// Reads a bitvector value from the memory.
+  let read addr endian typ mem =
     let len = RegType.toByteWidth typ |> uint64
     match endian with
-    | Endian.Little -> this.ReadLE([], addr, len)
-    | _ -> this.ReadBE([], len, addr, 0UL)
+    | Endian.Little -> readLE [] addr len mem
+    | _ -> readBE [] len addr 0UL mem
     |> function
       | Ok lst -> Array.ofList lst |> BitVector |> Ok
       | Error e -> Error e
 
-  /// Write a bitvector value to the memory.
-  member this.Write(addr, v, endian) =
+  /// Writes a bitvector value to the memory.
+  let write addr v endian (mem: IMemory) =
     let len = BitVector.GetType v |> RegType.toByteWidth |> int
     let v = BitVector.GetValue v
     if endian = Endian.Big then
       for i = 1 to len do
         let offset = i - 1
         let b = (v >>> (offset * 8)) &&& 255I |> byte
-        this.ByteWrite(addr + uint64 (len - i), b)
+        mem.ByteWrite(addr + uint64 (len - i), b)
     else
       for i = 1 to len do
         let offset = i - 1
         let b = (v >>> (offset * 8)) &&& 255I |> byte
-        this.ByteWrite(addr + uint64 offset, b)
-
-/// Non-sharable memory.
-type NonsharableMemory() =
-  inherit Memory()
-
-  let mem = Dictionary<Addr, byte>()
-
-  override _.ByteRead(addr) =
-    if mem.ContainsKey addr then Ok mem[addr]
-    else Error ErrorCase.InvalidMemoryRead
-
-  override _.ByteWrite(addr, b) = mem[addr] <- b
-
-  override _.Clear() = mem.Clear()
-
-/// Thread-safe (sharable) memory.
-type SharableMemory() =
-  inherit Memory()
-
-  let mem = ConcurrentDictionary<Addr, byte>()
-
-  override _.ByteRead(addr) =
-    if mem.ContainsKey addr then Ok mem[addr]
-    else Error ErrorCase.InvalidMemoryRead
-
-  override _.ByteWrite(addr, b) = mem[addr] <- b
-
-  override _.Clear() = mem.Clear()
+        mem.ByteWrite(addr + uint64 offset, b)

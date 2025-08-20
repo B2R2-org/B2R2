@@ -26,6 +26,7 @@ module B2R2.MiddleEnd.ControlFlowAnalysis.CFGEvaluator
 
 open System
 open B2R2
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -63,6 +64,50 @@ let private initState hdl pc =
   |> fun regs -> st.InitializeContext(pc, regs)
   st
 
+let private tryEvaluate stmt st =
+  match SafeEvaluator.evalStmt st stmt with
+  | Ok() -> Ok st
+  | Error e ->
+    if st.IgnoreUndef then st.NextStmt(); Ok st
+    else Error e
+
+/// Evaluate a sequence of statements, which is lifted from a single
+/// instruction.
+let rec private evalStmts stmts result =
+  match result with
+  | Ok(st: EvalState) ->
+    let idx = st.StmtIdx
+    let numStmts = Array.length stmts
+    if numStmts > idx then
+      if st.IsInstrTerminated then
+        if st.NeedToEvaluateIEMark then tryEvaluate stmts[numStmts - 1] st
+        else Ok st
+      else
+        let stmt = stmts[idx]
+        evalStmts stmts (tryEvaluate stmt st)
+    else Ok st
+  | Error _ -> result
+
+let rec private evalBlockLoop idx (blk: Stmt[][]) result =
+  match result with
+  | Ok(st: EvalState) ->
+    if idx < blk.Length then
+      let stmts = blk[idx]
+      st.PrepareInstrEval stmts
+      evalStmts stmts (Ok st)
+      |> evalBlockLoop (idx + 1) blk
+    else result
+  | Error e -> Error e
+
+/// Evaluates a series of statement arrays, assuming that each array is obtained
+/// from a single machine instruction.
+let private evalBlock (st: EvalState) pc blk =
+  st.PC <- pc
+  evalBlockLoop 0 blk (Ok st)
+  |> function
+    | Ok st -> Ok st
+    | Error e -> Error e
+
 /// Concretely evaluate a basic block from an arbitrarily generated state.
 let evalBlockFromScratch hdl (blk: IVertex<LowUIRBasicBlock>) =
   let pc = blk.VData.Internals.PPoint.Address
@@ -70,6 +115,6 @@ let evalBlockFromScratch hdl (blk: IVertex<LowUIRBasicBlock>) =
   st.SideEffectEventHandler <- fun _ st -> st.AbortInstr()
   let stmts =
     blk.VData.Internals.LiftedInstructions |> Array.map (fun arr -> arr.Stmts)
-  match SafeEvaluator.evalBlock st pc stmts with
+  match evalBlock st pc stmts with
   | Ok st -> st
   | Error _ -> Terminator.impossible ()

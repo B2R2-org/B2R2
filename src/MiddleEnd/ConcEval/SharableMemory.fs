@@ -1,3 +1,4 @@
+
 (*
   B2R2 - the Next-Generation Reversing Platform
 
@@ -24,32 +25,25 @@
 
 namespace B2R2.MiddleEnd.ConcEval
 
-open System.Collections.Generic
+open System.Collections.Concurrent
 open B2R2
 
-/// Represents a collection of variables used in the evaluation state.
-type Variables(vars) =
-  let vars: Dictionary<int, BitVector> = vars
+/// Represents a thread-safe (sharable) memory.
+type SharableMemory() =
+  let mem = ConcurrentDictionary<Addr, byte>()
 
-  new() = Variables(Dictionary())
+  interface IMemory with
 
-  member _.TryGet k =
-    match vars.TryGetValue k with
-    | true, v -> Ok v
-    | false, _ -> Error ErrorCase.InvalidRegister
+    member _.ByteRead(addr) =
+      if mem.ContainsKey addr then Ok mem[addr]
+      else Error ErrorCase.InvalidMemoryRead
 
-  member _.Get k = vars[k]
+    member _.ByteWrite(addr, b) = mem[addr] <- b
 
-  member _.Set(k, v) = vars[k] <- v
+    member this.Read(addr, endian, typ) =
+      Memory.read addr endian typ this
 
-  member _.Unset k =
-    vars.Remove k |> ignore
+    member this.Write(addr, v, endian) =
+      Memory.write addr v endian this
 
-  member _.Count() =
-    vars.Count
-
-  member _.ToArray() =
-    vars |> Seq.map (fun (KeyValue(k, v))  -> k, v) |> Seq.toArray
-
-  member _.Clone() =
-    Variables(Dictionary(vars))
+    member _.Clear() = mem.Clear()

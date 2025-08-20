@@ -8,8 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ConcEvalTypes.fs" />
-    <Compile Include="Memory.fs" />
+    <Compile Include="ConcEvalValue.fs" />
+    <Compile Include="IMemory.fs" />
+    <Compile Include="NonsharableMemory.fs" />
+    <Compile Include="SharableMemory.fs" />
     <Compile Include="Variables.fs" />
     <Compile Include="Labels.fs" />
     <Compile Include="EvalState.fs" />

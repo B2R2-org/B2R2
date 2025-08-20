@@ -53,9 +53,32 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     |> Array.map regFactory.GetRegisterID
     |> Set.ofArray
 
+  let tryEvaluate stmt st =
+    try Evaluator.evalStmt st stmt
+    with _ ->
+      if st.IgnoreUndef then st.NextStmt()
+      else failwith "Undefined expression encountered."
+
+  /// Evaluates a sequence of statements, assuming that the statements are
+  /// lifted from a single instruction.
+  let rec evalStmts stmts (st: EvalState) =
+    let idx = st.StmtIdx
+    let numStmts = Array.length stmts
+    if numStmts > idx then
+      if st.IsInstrTerminated then
+        if st.NeedToEvaluateIEMark then
+          let stmt = stmts[numStmts - 1]
+          tryEvaluate stmt st
+        else ()
+      else
+        let stmt = stmts[idx]
+        tryEvaluate stmt st
+        evalStmts stmts st
+    else ()
+
   member private _.EvaluateStmts(stmts: Stmt[]) =
     rstate.PrepareInstrEval stmts
-    Evaluator.evalStmts stmts rstate
+    evalStmts stmts rstate
 
   member private _.ComputeDelta(prev, curr) =
     Array.fold2 (fun acc t1 t2 ->

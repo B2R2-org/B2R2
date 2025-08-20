@@ -26,4 +26,10 @@ module internal B2R2.MiddleEnd.ConcEval.EvalUtils
 
 open B2R2
 
+/// Raised when undefined expression is encountered.
+exception UndefExpException
+
+/// Raised when an invalid memory access.
+exception InvalidMemException of Addr
+
 let tr = BitVector.One 1<rt>
