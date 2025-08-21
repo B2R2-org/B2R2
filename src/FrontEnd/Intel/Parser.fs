@@ -30,8 +30,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel
 open LanguagePrimitives
 
-/// Represents a parser for Intel (x86 or x86-64) instructions, returning a
-/// platform-agnostic instruction type.
+/// Represents a parser for Intel (x86 or x86-64) instructions.
 type IntelParser(wordSz, reader) =
   let oparsers =
     [| OperandParsers.RmGpr() :> OperandParser

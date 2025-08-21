@@ -43,7 +43,7 @@ and Operand =
   /// access size of the operand, i.e., how many bytes do we read/write here.
   | OprMem of Register option
             * ScaledIndex option
-            * Disp option
+            * Displacement option
             * OperandSize
   /// OprDirAddr is a direct branch target address.
   | OprDirAddr of JumpTarget
@@ -69,18 +69,18 @@ and Scale =
   | X8 = 8
 
 /// Represents a displacement value used for memory offset calculations.
-and Disp = int64
+and Displacement = int64
 
 /// Represents operand size.
 and OperandSize = RegType
 
 /// Represents the target of a jump instruction.
 and JumpTarget =
-  | Absolute of Selector * Addr * OperandSize
+  | Absolute of SegmentSelector * Addr * OperandSize
   | Relative of Offset
 
 /// Represents a segment selector used in intel architecture.
-and Selector = int16
+and SegmentSelector = int16
 
 /// Represents an offset value used for relative jump instructions.
 and Offset = int64

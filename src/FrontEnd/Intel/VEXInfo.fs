@@ -34,7 +34,7 @@ type VEXInfo =
     VPrefixes: Prefix
     EVEXPrx: EVEXPrefix option }
 
-/// Represents the original VEX prefix type(Vector Extension).
+/// Represents the original VEX prefix type (Vector Extension).
 and VEXType =
   /// Original VEX that refers to two-byte opcode map.
   | TwoByteOp = 0x1

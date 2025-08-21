@@ -144,7 +144,7 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Branch Parse test (10)``() =
     "e8def017"
-    ++ TBH ** [ O.MemOffsetReg(LR, None, R7, SRTypeLSL, 1u) ]
+    ++ TBH ** [ O.MemOffsetReg(LR, None, R7, ShiftOp.LSL, 1u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   /// A4.4.1 Standard data-processing instructions
@@ -229,7 +229,8 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Standard data-processing Parse test (14)``() =
     "ea3c7605"
-    ++ BICS ** [ O.Reg R6; O.Reg IP; O.Reg R5; O.Shift(SRTypeLSL, 28u) ]
+    ++ BICS
+    ** [ O.Reg R6; O.Reg IP; O.Reg R5; O.Shift(ShiftOp.LSL, 28u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
@@ -259,7 +260,7 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Standard data-processing Parse test (19)``() =
     "000e"
-    ++ MOVS ** [ O.Reg R6; O.Reg R1; O.Shift(SRTypeLSL, 0u) ]
+    ++ MOVS ** [ O.Reg R6; O.Reg R1; O.Shift(ShiftOp.LSL, 0u) ]
     ||> testNoWbackNoQNoSimd Condition.UN
 
   [<TestMethod>]
@@ -271,7 +272,7 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Standard data-processing Parse test (21)``() =
     "ea6ff49e"
-    ++ MVN ** [ O.Reg R4; O.Reg LR; O.Shift(SRTypeLSR, 30u) ]
+    ++ MVN ** [ O.Reg R4; O.Reg LR; O.Shift(ShiftOp.LSR, 30u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
@@ -295,7 +296,7 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Standard data-processing Parse test (25)``() =
     "ea125f6b"
-    ++ TST ** [ O.Reg R2; O.Reg FP; O.Shift(SRTypeASR, 21u) ]
+    ++ TST ** [ O.Reg R2; O.Reg FP; O.Shift(ShiftOp.ASR, 21u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   /// A4.4.2 Shift instructions
@@ -400,7 +401,8 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Saturating Parse test (2)``() =
     "f3a31791"
-    ++ USAT ** [ O.Reg R7; O.Imm 17L; O.Reg R3; O.Shift(SRTypeASR, 6u) ]
+    ++ USAT
+    ** [ O.Reg R7; O.Imm 17L; O.Reg R3; O.Shift(ShiftOp.ASR, 6u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   /// A4.4.5 Saturating addition and subtraction instructions
@@ -414,19 +416,21 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Packing and unpacking Parse test (1)``() =
     "eacc404a"
-    ++ PKHBT ** [ O.Reg R0; O.Reg IP; O.Reg SL; O.Shift(SRTypeLSL, 17u) ]
+    ++ PKHBT
+    ** [ O.Reg R0; O.Reg IP; O.Reg SL; O.Shift(ShiftOp.LSL, 17u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
   member _.``[Thumb] Packing and unpacking Parse test (2)``() =
     "fa00f4b6"
-    ++ SXTAH ** [ O.Reg R4; O.Reg R0; O.Reg R6; O.Shift(SRTypeROR, 24u) ]
+    ++ SXTAH
+    ** [ O.Reg R4; O.Reg R0; O.Reg R6; O.Shift(ShiftOp.ROR, 24u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
   member _.``[Thumb] Packing and unpacking Parse test (3)``() =
     "fa2ff996"
-    ++ SXTB16 ** [ O.Reg SB; O.Reg R6; O.Shift(SRTypeROR, 8u) ]
+    ++ SXTB16 ** [ O.Reg SB; O.Reg R6; O.Shift(ShiftOp.ROR, 8u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
@@ -586,7 +590,8 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Load/store (Lord) Parse test (4)``() =
     "f859c038"
-    ++ LDR ** [ O.Reg IP; O.MemOffsetReg(SB, Some Plus, R8, SRTypeLSL, 3u) ]
+    ++ LDR
+    ** [ O.Reg IP; O.MemOffsetReg(SB, Some Plus, R8, ShiftOp.LSL, 3u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
@@ -628,7 +633,8 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Load/store (Lord) Parse test (11)``() =
     "f812a036"
-    ++ LDRB ** [ O.Reg SL; O.MemOffsetReg(R2, Some Plus, R6, SRTypeLSL, 3u) ]
+    ++ LDRB
+    ** [ O.Reg SL; O.MemOffsetReg(R2, Some Plus, R6, ShiftOp.LSL, 3u) ]
     ||> testNoQNoSimd Condition.AL false (* W *)
 
   [<TestMethod>]
@@ -652,7 +658,8 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Load/store (Lord) Parse test (15)``() =
     "f91e9020"
-    ++ LDRSB ** [ O.Reg SB; O.MemOffsetReg(LR, Some Plus, R0, SRTypeLSL, 2u) ]
+    ++ LDRSB
+    ** [ O.Reg SB; O.MemOffsetReg(LR, Some Plus, R0, ShiftOp.LSL, 2u) ]
     ||> testNoQNoSimd Condition.AL false (* W *)
 
   [<TestMethod>]
@@ -694,7 +701,8 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Load/store (Store) Parse test (6)``() =
     "f80a002c"
-    ++ STRB ** [ O.Reg R0; O.MemOffsetReg(SL, Some Plus, IP, SRTypeLSL, 2u) ]
+    ++ STRB
+    ** [ O.Reg R0; O.MemOffsetReg(SL, Some Plus, IP, ShiftOp.LSL, 2u) ]
     ||> testNoQNoSimd Condition.AL false (* W *)
 
   [<TestMethod>]
@@ -849,7 +857,7 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Miscellaneous Parse test (5)``() =
     "f81cf01b"
-    ++ PLD ** [ O.MemOffsetReg(IP, None, FP, SRTypeLSL, 1u) ]
+    ++ PLD ** [ O.MemOffsetReg(IP, None, FP, ShiftOp.LSL, 1u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
@@ -873,7 +881,7 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Miscellaneous Parse test (9)``() =
     "f837f01b"
-    ++ PLDW ** [ O.MemOffsetReg(R7, None, FP, SRTypeLSL, 1u) ]
+    ++ PLDW ** [ O.MemOffsetReg(R7, None, FP, ShiftOp.LSL, 1u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]

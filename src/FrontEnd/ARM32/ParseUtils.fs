@@ -64,18 +64,18 @@ let align (x: uint64) (y: uint64) = y * (x / y)
 /// The DecodeImmShift() function in the manual.
 let decodeImmShift typ imm5 =
   match typ with
-  | 0b00u -> struct (SRTypeLSL, imm5)
-  | 0b01u -> struct (SRTypeLSR, if imm5 = 0ul then 32ul else imm5)
-  | 0b10u -> struct (SRTypeASR, if imm5 = 0ul then 32ul else imm5)
-  | 0b11u when imm5 = 0ul -> struct (SRTypeRRX, 1ul)
-  | _ (* 0b11u *) -> struct (SRTypeROR, imm5)
+  | 0b00u -> struct (ShiftOp.LSL, imm5)
+  | 0b01u -> struct (ShiftOp.LSR, if imm5 = 0ul then 32ul else imm5)
+  | 0b10u -> struct (ShiftOp.ASR, if imm5 = 0ul then 32ul else imm5)
+  | 0b11u when imm5 = 0ul -> struct (ShiftOp.RRX, 1ul)
+  | _ (* 0b11u *) -> struct (ShiftOp.ROR, imm5)
 
 /// The DecodeRegShift() function in the manual.
 let decodeRegShift = function
-  | 0b00u -> SRTypeLSL
-  | 0b01u -> SRTypeLSR
-  | 0b10u -> SRTypeASR
-  | 0b11u -> SRTypeROR
+  | 0b00u -> ShiftOp.LSL
+  | 0b01u -> ShiftOp.LSR
+  | 0b10u -> ShiftOp.ASR
+  | 0b11u -> ShiftOp.ROR
   | _ -> Terminator.impossible ()
 
 /// Test if the current instruction is in an IT block.

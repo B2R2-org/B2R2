@@ -43,9 +43,9 @@ and Operand =
   | OpAddr of JumpTarget
   | OpShiftAmount of Imm
   | OpFenceMask of FenceMask * FenceMask
-  | OpAtomMemOper of Aq * Rl
+  | OpAtomMemOperation of Acquire * Release
   | OpRoundMode of RoundMode
-  | OpCSR of uint16
+  | OpCSR of uint16 (* Control and Status Register (CSR) *)
 
 /// Represents an immediate value in RISCV64 instructions.
 and Imm = uint64
@@ -68,10 +68,10 @@ and JumpTarget =
 and FenceMask = uint8
 
 /// Represents the acquire flag in atomic memory operations.
-and Aq = bool
+and Acquire = bool
 
 /// Represents the release flag in atomic memory operations.
-and Rl = bool
+and Release = bool
 
 /// Represents a rounding mode used in RISCV64 floating-point instructions.
 and RoundMode =

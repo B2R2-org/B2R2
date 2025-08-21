@@ -42,14 +42,25 @@ and Const = int32
 
 /// Represents addressing modes used in SH4 instructions.
 and AddressingMode =
+  /// Register direct
   | Regdir of Register
+  /// Register indirect
   | RegIndir of Register
-  | PostInc of Register
-  | PreDec of Register
-  | RegDisp of Const * Register
-  | IdxIndir of Register * Register
-  | GbrDisp of Const * Register
-  | IdxGbr of Register * Register
-  | PCrDisp of Const * Register
-  | PCr of Const
+  /// Register indirect with post-increment
+  | RegIndirPostInc of Register
+  /// Register indirect with pre-decrement
+  | RegIndirPreDec of Register
+  /// Register indirect with displacement
+  | RegIndirDisp of Const * Register
+  /// Indexed register indirect
+  | IdxRegIndir of Register * Register
+  /// GBR indirect with displacement
+  | GBRIndirDisp of Const * Register
+  /// Indexed GBR indirect
+  | IdxGBRIndir of Register * Register
+  /// PC-relative with displacement
+  | PCRelDisp of Const * Register
+  /// PC-relative
+  | PCRelative of Const
+  /// Immediate
   | Imm of Const

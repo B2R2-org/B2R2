@@ -45,7 +45,7 @@ and Operand =
   | OprImm of Const
   | OprFPImm of float
   | OprShift of Shift
-  | OprRegShift of SRType * Register
+  | OprRegShift of ShiftOp * Register
   | OprMemory of AddressingMode
   | OprOption of BarrierOption
   | OprIflag of Iflag
@@ -77,38 +77,42 @@ and PSRFlag =
 
 /// Represents a SIMD operand made of one or more SIMD/FP registers.
 and SIMDOperand =
-  | SFReg of SIMDFPRegister
-  | OneReg of SIMDFPRegister
-  | TwoRegs of SIMDFPRegister * SIMDFPRegister
-  | ThreeRegs of SIMDFPRegister * SIMDFPRegister * SIMDFPRegister
-  | FourRegs of
-    SIMDFPRegister * SIMDFPRegister * SIMDFPRegister * SIMDFPRegister
+  | SFReg of SIMDRegister
+  | OneReg of SIMDRegister
+  | TwoRegs of SIMDRegister * SIMDRegister
+  | ThreeRegs of SIMDRegister * SIMDRegister * SIMDRegister
+  | FourRegs of SIMDRegister * SIMDRegister * SIMDRegister * SIMDRegister
 
 /// Represents a SIMD/FP register, either vector or scalar with optional element
 /// index.
-and SIMDFPRegister =
+and SIMDRegister =
   | Vector of Register
-  | Scalar of Register * Element option
+  | Scalar of Register * Index option
 
 /// Represents an index into a SIMD scalar register element.
-and Element = uint8
+and Index = uint8
 
 /// Represents an immediate constant value in an instruction.
 and Const = int64
 
-/// Represents an immediate constant value in an instruction.
-and Shift = SRType * Amount
+/// Represents a shift operation applied to a register or immediate value.
+and Shift = ShiftOp * Amount
 
 /// Represents an immediate value used as a shift amount.
 and Amount = Imm of uint32
 
 /// Represents ARM32 shift operation types.
-and SRType =
-  | SRTypeLSL
-  | SRTypeLSR
-  | SRTypeASR
-  | SRTypeROR
-  | SRTypeRRX
+and ShiftOp =
+  /// Logical Shift Left.
+  | LSL
+  /// Logical Shift Right.
+  | LSR
+  /// Arithmetic Shift Right.
+  | ASR
+  /// Rotate Right.
+  | ROR
+  /// Rotate Right with Extend (RRX).
+  | RRX
 
 /// Represents the addressing mode used in ARM32 memory access.
 and AddressingMode =
@@ -125,7 +129,8 @@ and Label = Const
 and Offset =
   | ImmOffset of Register * Sign option * Const option
   | RegOffset of Register * Sign option * Register * Shift option
-  | AlignOffset of Register * Align option * Register option (* Advanced SIMD *)
+  /// Offset used by advanced SIMD instructions.
+  | AlignOffset of Register * Alignment option * Register option
 
 /// Represents the sign used in offset calculations.
 and Sign =
@@ -133,7 +138,7 @@ and Sign =
   | Minus
 
 /// Represents memory alignment value used in SIMD addressing.
-and Align = Const
+and Alignment = Const
 
 /// Represents memory barrier options used in ARM32 DMB and DSB instructions.
 and BarrierOption =

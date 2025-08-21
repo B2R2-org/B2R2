@@ -233,7 +233,8 @@ let getPred bin = Bits.extract bin 27u 24u |> uint8
 
 let getSucc bin = Bits.extract bin 23u 20u |> uint8
 
-let getAqRl bin = OpAtomMemOper(Bits.pick bin 26u > 0u, Bits.pick bin 25u > 0u)
+let getAqRl bin =
+  OpAtomMemOperation(Bits.pick bin 26u > 0u, Bits.pick bin 25u > 0u)
 
 let getRdImm20 b wordSz = TwoOperands(rd b, getUImm b wordSz |> OpImm)
 

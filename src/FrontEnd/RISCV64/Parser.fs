@@ -28,10 +28,8 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Represents a parser for RISCV64 instructions. Parser will return a
-/// platform-agnostic instruction type (Instruction).
+/// Represents a parser for RISCV64 instructions.
 type RISCV64Parser(isa: ISA, reader) =
-
   let wordSize = int isa.WordSize
 
   let lifter =

@@ -37,16 +37,16 @@ type Operands =
 and Operand =
   | OprRegister of Register
   (* SIMD&FP register *)
-  | OprSIMD of SIMDFPRegister
+  | OprSIMD of SIMDRegister
   (* SIMD vector register list or SIMD vector element list *)
-  | OprSIMDList of SIMDFPRegister list
+  | OprSIMDList of SIMDRegister list
   | OprImm of Const
   | OprFPImm of float
   | OprNZCV of uint8
   | OprShift of Shift
   | OprExtReg of RegisterOffset option
   | OprMemory of AddressingMode
-  | OprOption of OptionOpr
+  | OprOption of BarrierOperation
   | OprPstate of Pstate
   | OprPrfOp of PrefetchOperation
   | OprCond of Condition
@@ -55,19 +55,19 @@ and Operand =
 
 /// Represents a SIMD/FP register used in ARM64 instructions, including scalar
 /// and vector forms.
-and SIMDFPRegister =
-  | SIMDFPScalarReg of SIMDFPscalRegister
-  | SIMDVecReg of SIMDVectorRegister
-  | SIMDVecRegWithIdx of SIMDVectorRegisterWithIndex
+and SIMDRegister =
+  | ScalarReg of ScalRegister
+  | VecReg of VectorRegister
+  | VecRegWithIdx of VectorRegisterWithIndex
 
 /// Represents a scalar SIMD or FP register in ARM64.
-and SIMDFPscalRegister = Register
+and ScalRegister = Register
 
 /// Represents a SIMD vector register with a vector type.
-and SIMDVectorRegister = Register * SIMDVector
+and VectorRegister = Register * SIMDVector
 
 /// Represents a SIMD vector register with an element index.
-and SIMDVectorRegisterWithIndex = Register * SIMDVector * Index
+and VectorRegisterWithIndex = Register * SIMDVector * Index
 
 /// Represents SIMD vector types.
 and SIMDVector =
@@ -92,16 +92,16 @@ and Index = uint8
 and Const = int64
 
 /// Represents a shift operation with type and amount.
-and Shift = SRType * Amount
+and Shift = ShiftOp * Amount
 
 /// Represents shift types used in ARM64.
-and SRType =
-  | SRTypeLSL
-  | SRTypeLSR
-  | SRTypeASR
-  | SRTypeROR
-  | SRTypeRRX
-  | SRTypeMSL
+and ShiftOp =
+  | LSL
+  | LSR
+  | ASR
+  | ROR
+  | RRX
+  | MSL
 
 /// Represents an immediate or register-based shift amount.
 and Amount =
@@ -118,14 +118,14 @@ and ExtendRegisterOffset = ExtendType * Const option
 
 /// Represents value extension types used in ARM64 instructions.
 and ExtendType =
-  | ExtUXTB
-  | ExtUXTH
-  | ExtUXTW
-  | ExtUXTX
-  | ExtSXTB
-  | ExtSXTH
-  | ExtSXTW
-  | ExtSXTX
+  | UXTB
+  | UXTH
+  | UXTW
+  | UXTX
+  | SXTB
+  | SXTH
+  | SXTW
+  | SXTX
 
 /// Represents the addressing mode used in ARM64 memory access.
 and AddressingMode =
@@ -147,19 +147,32 @@ and ImmOffset =
 /// Represents a constant label used in PC-relative instructions.
 and Label = Const
 
-/// Represents data barrier options used in ARM64 system instructions.
-and OptionOpr =
+/// Represents an optional limitation on the barrier operation in ARM64 system
+/// instructions.
+and BarrierOperation =
+  /// Full system, reads/writes before and after
   | SY
+  /// Full system, writes only before and after
   | ST
+  /// Full system, reads before; reads/writes after
   | LD
+  /// Inner shareable, reads/writes before and after
   | ISH
+  /// Inner shareable, writes only before and after
   | ISHST
+  /// Inner shareable, reads before; reads/writes after
   | ISHLD
+  /// Non-shareable, reads/writes before and after
   | NSH
+  /// Non-shareable, writes only before and after
   | NSHST
+  /// Non-shareable, reads before; reads/writes after
   | NSHLD
+  /// Outer shareable, reads/writes before and after
   | OSH
+  /// Outer shareable, writes only before and after
   | OSHST
+  /// Outer shareable, reads before; reads/writes after
   | OSHLD
 
 /// Represents processor state specifiers for ARM64 system instructions.

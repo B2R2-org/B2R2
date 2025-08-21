@@ -11,6 +11,7 @@
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="Opcode.fs" />
     <Compile Include="Operands.fs" />
+    <Compile Include="Completer.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="Disasm.fs" />
     <Compile Include="Lifter.fs" />

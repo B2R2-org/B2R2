@@ -48,7 +48,7 @@ let bv1Check s =
 let trsOprToExpr bld = function
   | OpReg(Regdir r) -> regVar bld r
   | OpReg(RegIndir r) -> regVar bld r
-  | OpReg(IdxGbr(r, _)) -> regVar bld r
+  | OpReg(IdxGBRIndir(r, _)) -> regVar bld r
   | OpReg(Imm n) -> numI32PC n
   | _ -> Terminator.impossible ()
 
@@ -71,34 +71,34 @@ let trsThreeOpr (ins: Instruction) bld =
 
 let trsMemOpr1toExpr (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OpReg(PreDec r1), OpReg(Regdir r2))
-    -> struct (regVar bld r1, regVar bld r2, -1)
-  | TwoOperands(OpReg(PostInc r1), OpReg(Regdir r2))
-    -> struct (regVar bld r1, regVar bld r2, 1)
-  | TwoOperands(OpReg(RegIndir r1), OpReg(Regdir r2))
-    -> struct (regVar bld r1, regVar bld r2, 0)
+  | TwoOperands(OpReg(RegIndirPreDec r1), OpReg(Regdir r2)) ->
+    struct (regVar bld r1, regVar bld r2, -1)
+  | TwoOperands(OpReg(RegIndirPostInc r1), OpReg(Regdir r2)) ->
+     struct (regVar bld r1, regVar bld r2, 1)
+  | TwoOperands(OpReg(RegIndir r1), OpReg(Regdir r2)) ->
+    struct (regVar bld r1, regVar bld r2, 0)
   | _ -> Terminator.impossible ()
 
 let trsMemOpr2toExpr (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OpReg(Regdir r1), OpReg(PreDec r2))
-    -> (regVar bld r1, regVar bld r2, -1)
-  | TwoOperands(OpReg(Regdir r1), OpReg(PostInc r2))
-    -> (regVar bld r1, regVar bld r2, 1)
-  | TwoOperands(OpReg(Regdir r1), OpReg(RegIndir r2))
-    -> (regVar bld r1, regVar bld r2, 0)
+  | TwoOperands(OpReg(Regdir r1), OpReg(RegIndirPreDec r2)) ->
+    (regVar bld r1, regVar bld r2, -1)
+  | TwoOperands(OpReg(Regdir r1), OpReg(RegIndirPostInc r2)) ->
+    (regVar bld r1, regVar bld r2, 1)
+  | TwoOperands(OpReg(Regdir r1), OpReg(RegIndir r2)) ->
+    (regVar bld r1, regVar bld r2, 0)
   | _ -> Terminator.impossible ()
 
 let trsMemOpr3toExpr (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OpReg(RegDisp(imm, r1)), OpReg(Regdir r2))
-    -> struct (regVar bld r1, regVar bld r2, numI32 imm)
+  | TwoOperands(OpReg(RegIndirDisp(imm, r1)), OpReg(Regdir r2)) ->
+    struct (regVar bld r1, regVar bld r2, numI32 imm)
   | _ -> Terminator.impossible ()
 
 let trsMemOpr4toExpr (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OpReg(Regdir r1), OpReg(RegDisp(imm, r2)))
-    -> struct (regVar bld r1, regVar bld r2, numI32 imm)
+  | TwoOperands(OpReg(Regdir r1), OpReg(RegIndirDisp(imm, r2))) ->
+    struct (regVar bld r1, regVar bld r2, numI32 imm)
   | _ -> Terminator.impossible ()
 
 let illSlot1 (ins: Instruction) bld len =
@@ -968,19 +968,19 @@ let fmov ins len bld =
   | TwoOperands(OpReg(Regdir r1), OpReg(Regdir r2))//dr,dr
   | TwoOperands(OpReg(Regdir r1), OpReg(Regdir r2))//dr,xd
   | TwoOperands(OpReg(Regdir r1), OpReg(RegIndir r2))
-  | TwoOperands(OpReg(Regdir r1), OpReg(PreDec r2))
-  | TwoOperands(OpReg(Regdir r1), OpReg(IdxIndir r2))
+  | TwoOperands(OpReg(Regdir r1), OpReg(RedIndirPreDec r2))
+  | TwoOperands(OpReg(Regdir r1), OpReg(IdxRegIndir r2))
   | TwoOperands(OpReg(Regdir r1), OpReg(Regdir r2))//xd,dr
   | TwoOperands(OpReg(Regdir r1), OpReg(Regdir r2))//xd,xd
   | TwoOperands(OpReg(Regdir r1), OpReg(RegIndir r2))
-  | TwoOperands(OpReg(Regdir r1), OpReg(PreDec r2))
-  | TwoOperands(OpReg(Regdir r1), OpReg(IdxIndir r2))
+  | TwoOperands(OpReg(Regdir r1), OpReg(RedIndirPreDec r2))
+  | TwoOperands(OpReg(Regdir r1), OpReg(IdxRegIndir r2))
   | TwoOperands(OpReg(RegIndir r1), OpReg(Regdir r2))
-  | TwoOperands(OpReg(PostInc r1), OpReg(Regdir r2))
-  | TwoOperands(OpReg(IdxIndir r1), OpReg(Regdir r2))
+  | TwoOperands(OpReg(RegIndirPostInc r1), OpReg(Regdir r2))
+  | TwoOperands(OpReg(IdxRegIndir r1), OpReg(Regdir r2))
   | TwoOperands(OpReg(RegIndir r1), OpReg(Regdir r2))
-  | TwoOperands(OpReg(PostInc r1), OpReg(Regdir r2))
-  | TwoOperands(OpReg(IdxIndir r1), OpReg(Regdir r2))
+  | TwoOperands(OpReg(RegIndirPostInc r1), OpReg(Regdir r2))
+  | TwoOperands(OpReg(IdxRegIndir r1), OpReg(Regdir r2))
   *)
 
 let fmovs ins len = function
@@ -990,11 +990,11 @@ let fmovs ins len bld =
   match ins.Operands with
   | TwoOperands(OpReg(Regdir r1), OpReg(Regdir r2))
   | TwoOperands(OpReg(Regdir r1), OpReg(RegIndir r2))
-  | TwoOperands(OpReg(Regdir r1), OpReg(PreDec r2))
-  | TwoOperands(OpReg(Regdir r1), OpReg(IdxIndir r2))
+  | TwoOperands(OpReg(Regdir r1), OpReg(RedIndirPreDec r2))
+  | TwoOperands(OpReg(Regdir r1), OpReg(IdxRegIndir r2))
   | TwoOperands(OpReg(RegIndir r1), OpReg(Regdir r2))
-  | TwoOperands(OpReg(PostInc r1), OpReg(Regdir r2))
-  | TwoOperands(OpReg(IdxIndir r1), OpReg(Regdir r2))
+  | TwoOperands(OpReg(RegIndirPostInc r1), OpReg(Regdir r2))
+  | TwoOperands(OpReg(IdxRegIndir r1), OpReg(Regdir r2))
 *)
 
 let fmul ins len bld =
@@ -1600,7 +1600,7 @@ let movb (ins: Instruction) len bld =
     bld <+ (address := AST.zext 32<rt> op2)
     bld <+ (AST.store Endian.Little address op1)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(PreDec _)) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(RegIndirPreDec _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (op1, op2, address) = tmpVars3 bld 32<rt>
     bld <!-- (ins.Address, len)
@@ -1611,7 +1611,7 @@ let movb (ins: Instruction) len bld =
     bld <+ (op2 := address)
     bld <+ (dst := AST.xtlo 32<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(IdxIndir(_))) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(IdxRegIndir(_))) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (r0, op1, op2, address) = tmpVars4 bld 32<rt>
     bld <!-- (ins.Address, len)
@@ -1621,7 +1621,7 @@ let movb (ins: Instruction) len bld =
     bld <+ (address := (r0 .+ op2) |> AST.zext 32<rt>)
     bld <+ (AST.store Endian.Little address op1)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(GbrDisp _)) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(GBRIndirDisp _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (gbr, address) = tmpVars2 bld 32<rt>
     let disp = tmpVar bld 8<rt>
@@ -1633,7 +1633,7 @@ let movb (ins: Instruction) len bld =
     bld <+ (address := (gbr .+ disp) |> AST.zext 32<rt>)
     bld <+ (AST.store Endian.Little address r0)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(RegDisp _)) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(RegIndirDisp _)) ->
     let struct (src, dst, imm) = trsMemOpr4toExpr ins bld
     let struct (op2, address, r0) = tmpVars3 bld 32<rt>
     let disp = tmpVar bld 4<rt>
@@ -1654,7 +1654,7 @@ let movb (ins: Instruction) len bld =
     bld <+ (op2 := AST.loadLE 8<rt> address |> AST.sext 8<rt>)
     bld <+ (dst := AST.xtlo 8<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(PostInc _), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(RegIndirPostInc _), OpReg(Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (mField, nField) = tmpVars2 bld 4<rt>
     let op1 = tmpVar bld 32<rt>
@@ -1675,7 +1675,7 @@ let movb (ins: Instruction) len bld =
     bld <+ (src := AST.xtlo 32<rt> op1)
     bld <+ (dst := AST.xtlo 32<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(IdxIndir _), OpReg(Regdir(_))) ->
+  | TwoOperands(OpReg(IdxRegIndir _), OpReg(Regdir(_))) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (r0, op1, address) = tmpVars3 bld 32<rt>
     let op2 = tmpVar bld 8<rt>
@@ -1686,7 +1686,7 @@ let movb (ins: Instruction) len bld =
     bld <+ (op2 := AST.loadLE 8<rt> address |> AST.sext 8<rt>)
     bld <+ (dst := AST.xtlo 8<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(GbrDisp _), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(GBRIndirDisp _), OpReg(Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (gbr, address) = tmpVars2 bld 32<rt>
     let disp = tmpVar bld 8<rt>
@@ -1698,7 +1698,7 @@ let movb (ins: Instruction) len bld =
     bld <+ (r0 := AST.loadLE 8<rt> address |> AST.sext 8<rt>)
     bld <+ (dst := AST.xtlo 8<rt> r0)
     bld --!> len
-  | TwoOperands(OpReg(RegDisp _), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(RegIndirDisp _), OpReg(Regdir _)) ->
     let struct (src, dst, imm) = trsMemOpr3toExpr ins bld
     let struct (op2, address) = tmpVars2 bld 32<rt>
     let disp = tmpVar bld 4<rt>
@@ -1723,7 +1723,7 @@ let movl (ins: Instruction) len bld =
     bld <+ (address := AST.zext 32<rt> op2)
     bld <+ (AST.store Endian.Little address op1)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(PreDec _)) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(RegIndirPreDec _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (op1, op2, address) = tmpVars3 bld 32<rt>
     bld <!-- (ins.Address, len)
@@ -1734,7 +1734,7 @@ let movl (ins: Instruction) len bld =
     bld <+ (op2 := address)
     bld <+ (dst := AST.xtlo 32<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(IdxIndir(_))) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(IdxRegIndir(_))) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (r0, op1, op2, address) = tmpVars4 bld 32<rt>
     bld <!-- (ins.Address, len)
@@ -1744,7 +1744,7 @@ let movl (ins: Instruction) len bld =
     bld <+ (address := (r0 .+ op2) |> AST.zext 32<rt>)
     bld <+ (AST.store Endian.Little address op1)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(GbrDisp _)) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(GBRIndirDisp _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (gbr, address) = tmpVars2 bld 32<rt>
     let disp = tmpVar bld 8<rt>
@@ -1756,7 +1756,7 @@ let movl (ins: Instruction) len bld =
     bld <+ (address := (gbr .+ disp) |> AST.zext 32<rt>)
     bld <+ (AST.store Endian.Little address r0)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(RegDisp _)) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(RegIndirDisp _)) ->
     let struct (src, dst, imm) = trsMemOpr4toExpr ins bld
     let struct (op3, address, op1) = tmpVars3 bld 32<rt>
     let disp = tmpVar bld 4<rt>
@@ -1777,7 +1777,7 @@ let movl (ins: Instruction) len bld =
     bld <+ (op2 := AST.loadLE 32<rt> address |> AST.sext 32<rt>)
     bld <+ (dst := AST.xtlo 32<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(PostInc _), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(RegIndirPostInc _), OpReg(Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (mField, nField) = tmpVars2 bld 4<rt>
     let op1 = tmpVar bld 32<rt>
@@ -1798,7 +1798,7 @@ let movl (ins: Instruction) len bld =
     bld <+ (src := AST.xtlo 32<rt> op1)
     bld <+ (dst := AST.xtlo 32<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(IdxIndir _), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(IdxRegIndir _), OpReg(Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (r0, op1, address) = tmpVars3 bld 32<rt>
     let op2 = tmpVar bld 32<rt>
@@ -1809,7 +1809,7 @@ let movl (ins: Instruction) len bld =
     bld <+ (op2 := AST.loadLE 32<rt> address |> AST.sext 32<rt>)
     bld <+ (dst := AST.xtlo 32<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(GbrDisp _), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(GBRIndirDisp _), OpReg(Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (gbr, address) = tmpVars2 bld 32<rt>
     let disp = tmpVar bld 8<rt>
@@ -1821,7 +1821,7 @@ let movl (ins: Instruction) len bld =
     bld <+ (r0 := AST.loadLE 32<rt> address |> AST.sext 32<rt>)
     bld <+ (dst := AST.xtlo 32<rt> r0)
     bld --!> len
-  | TwoOperands(OpReg(PCrDisp _), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(PCRelDisp _), OpReg(Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (pc, address) = tmpVars2 bld 32<rt>
     let disp = tmpVar bld 8<rt>
@@ -1834,7 +1834,7 @@ let movl (ins: Instruction) len bld =
     bld <+ (op2 := AST.loadLE 32<rt> address |> AST.sext 32<rt>)
     bld <+ (dst := AST.xtlo 32<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(RegDisp _), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(RegIndirDisp _), OpReg(Regdir _)) ->
     let struct (src, dst, imm) = trsMemOpr3toExpr ins bld
     let struct (op2, address) = tmpVars2 bld 32<rt>
     let disp = tmpVar bld 4<rt>
@@ -1859,7 +1859,7 @@ let movw (ins: Instruction) len bld =
     bld <+ (address := AST.zext 32<rt> op2)
     bld <+ (AST.store Endian.Little address op1)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(PreDec _)) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(RegIndirPreDec _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (op1, op2, address) = tmpVars3 bld 32<rt>
     bld <!-- (ins.Address, len)
@@ -1870,7 +1870,7 @@ let movw (ins: Instruction) len bld =
     bld <+ (op2 := address)
     bld <+ (dst := AST.xtlo 32<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(IdxIndir(_))) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(IdxRegIndir(_))) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (r0, op1, op2, address) = tmpVars4 bld 32<rt>
     bld <!-- (ins.Address, len)
@@ -1880,7 +1880,7 @@ let movw (ins: Instruction) len bld =
     bld <+ (address := (r0 .+ op2) |> AST.zext 32<rt>)
     bld <+ (AST.store Endian.Little address op1)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(GbrDisp(_))) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(GBRIndirDisp(_))) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (gbr, address) = tmpVars2 bld 32<rt>
     let disp = tmpVar bld 8<rt>
@@ -1892,7 +1892,7 @@ let movw (ins: Instruction) len bld =
     bld <+ (address := (gbr .+ disp) |> AST.zext 32<rt>)
     bld <+ (AST.store Endian.Little address r0)
     bld --!> len
-  | TwoOperands(OpReg(Regdir _), OpReg(RegDisp(_))) ->
+  | TwoOperands(OpReg(Regdir _), OpReg(RegIndirDisp(_))) ->
     let struct (src, dst, imm) = trsMemOpr4toExpr ins bld
     let struct (op2, address, r0) = tmpVars3 bld 32<rt>
     let disp = tmpVar bld 4<rt>
@@ -1913,7 +1913,7 @@ let movw (ins: Instruction) len bld =
     bld <+ (op2 := AST.loadLE 16<rt> address |> AST.sext 16<rt>)
     bld <+ (dst := AST.xtlo 16<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(PostInc _), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(RegIndirPostInc _), OpReg(Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (mField, nField) = tmpVars2 bld 4<rt>
     let op1 = tmpVar bld 32<rt>
@@ -1934,7 +1934,7 @@ let movw (ins: Instruction) len bld =
     bld <+ (src := AST.xtlo 32<rt> op1)
     bld <+ (dst := AST.xtlo 16<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(IdxIndir(_)), OpReg(Regdir(_))) ->
+  | TwoOperands(OpReg(IdxRegIndir(_)), OpReg(Regdir(_))) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (r0, op1, address) = tmpVars3 bld 32<rt>
     let op2 = tmpVar bld 16<rt>
@@ -1945,7 +1945,7 @@ let movw (ins: Instruction) len bld =
     bld <+ (op2 := AST.loadLE 16<rt> address |> AST.sext 16<rt>)
     bld <+ (dst := AST.xtlo 16<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(GbrDisp(_)), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(GBRIndirDisp(_)), OpReg(Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (gbr, address) = tmpVars2 bld 32<rt>
     let disp = tmpVar bld 8<rt>
@@ -1957,7 +1957,7 @@ let movw (ins: Instruction) len bld =
     bld <+ (r0 := AST.loadLE 16<rt> address |> AST.sext 16<rt>)
     bld <+ (dst := AST.xtlo 16<rt> r0)
     bld --!> len
-  | TwoOperands(OpReg(PCrDisp(_)), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(PCRelDisp(_)), OpReg(Regdir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
     let struct (pc, address) = tmpVars2 bld 32<rt>
     let disp = tmpVar bld 8<rt>
@@ -1969,7 +1969,7 @@ let movw (ins: Instruction) len bld =
     bld <+ (op2 := AST.loadLE 16<rt> address |> AST.sext 16<rt>)
     bld <+ (dst := AST.xtlo 16<rt> op2)
     bld --!> len
-  | TwoOperands(OpReg(RegDisp(_)), OpReg(Regdir _)) ->
+  | TwoOperands(OpReg(RegIndirDisp(_)), OpReg(Regdir _)) ->
     let struct (src, dst, imm) = trsMemOpr3toExpr ins bld
     let struct (op2, address) = tmpVars2 bld 32<rt>
     let disp = tmpVar bld 4<rt>

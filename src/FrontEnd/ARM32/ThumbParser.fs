@@ -606,7 +606,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VRECPS (oneDt SIMDTypF16) N OD.OprQdQnQm
   (* VHADD xxx0000x0 *)
   | 0b011000000u | 0b011000010u | 0b111000000u | 0b111000010u (* x110000x0 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b000000000u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -761,7 +761,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VQADD (oneDt SIMDTypU64) N OD.OprQdQnQm
   (* VRHADD xxx0001x0 *)
   | 0b011000100u | 0b011000110u | 0b111000100u | 0b111000110u (* x110001x *) ->
-    raise UndefinedException
+    undefined ()
   | 0b000000100u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -823,7 +823,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VRHADD (oneDt SIMDTypU32) N OD.OprQdQnQm
   (* SHA1C 0001100x0 *)
-  | 0b000110000u (* Q != 1 *) -> raise UndefinedException
+  | 0b000110000u (* Q != 1 *) -> undefined ()
   | 0b000110010u ->
 #if !EMULATION
     chkITVdVnVm b itstate
@@ -831,7 +831,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.SHA1C (oneDt SIMDTyp32) N OD.OprQdQnQm
   (* VHSUB xxx0010x0 *)
   | 0b011001000u | 0b011001010u | 0b111001000u | 0b111001010u (* x110010x0 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b000001000u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -986,7 +986,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VQSUB (oneDt SIMDTypU64) N OD.OprQdQnQm
   (* VCGT xxx0011x0 *)
   | 0b011001100u | 0b011001110u | 0b111001100u | 0b111001110u (* x110011x0 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b000001100u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1049,7 +1049,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VCGT (oneDt SIMDTypU32) N OD.OprQdQnQm
   (* VCGE xxx0011x1 *)
   | 0b011001101u | 0b011001111u | 0b111001101u | 0b111001111u (* xxx0011x1 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b000001101u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1111,7 +1111,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VCGE (oneDt SIMDTypU32) N OD.OprQdQnQm
   (* SHA1P 0011100x0 *)
-  | 0b001110000u (* Q != 1 *) -> raise UndefinedException
+  | 0b001110000u (* Q != 1 *) -> undefined ()
   | 0b001110010u ->
 #if !EMULATION
     chkITVdVnVm b itstate
@@ -1358,7 +1358,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VORR None N OD.OprQdQnQm
   (* VTST 0xx1000x1 *)
-  | 0b011100001u | 0b011100011u (* 0111000x1 *) -> raise UndefinedException
+  | 0b011100001u | 0b011100011u (* 0111000x1 *) -> undefined ()
   | 0b000100001u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1471,7 +1471,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VQSHL (oneDt SIMDTypU64) N OD.OprQdQmQn
   (* VMLA 0xx1001x0, 0111001x0 *)
-  | 0b011100100u | 0b011100110u -> raise UndefinedException
+  | 0b011100100u | 0b011100110u -> undefined ()
   | 0b000100100u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1666,7 +1666,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VQRSHL (oneDt SIMDTypU64) N OD.OprQdQmQn
   (* VQDMULH 0xx1011x0 *)
   | 0b000101100u | 0b000101110u | 0b011101100u | 0b011101110u ->
-    raise UndefinedException (* size == '00' || size == '11' *)
+    undefined () (* size == '00' || size == '11' *)
   | 0b001101100u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1688,7 +1688,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VQDMULH (oneDt SIMDTypS32) N OD.OprQdQnQm
   (* SHA1M 0101100x0 *)
-  | 0b010110000u (* Q != 1 *) -> raise UndefinedException
+  | 0b010110000u (* Q != 1 *) -> undefined ()
   | 0b010110010u ->
 #if !EMULATION
     chkITVdVnVm b itstate
@@ -1696,7 +1696,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.SHA1M (oneDt SIMDTyp32) N OD.OprQdQnQm
   (* VPADD 0xx1011x1 *)
   | 0b011101101u | 0b011101111u | 0b000101111u | 0b001101111u | 0b010101111u ->
-    raise UndefinedException (* size == '11' || Q == '1' *)
+    undefined () (* size == '11' || Q == '1' *)
   | 0b000101101u ->
     render phlp &itstate 0 isInIT b Op.VPADD (oneDt SIMDTypI8) N OD.OprDdDnDm
   | 0b001101101u ->
@@ -1705,7 +1705,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VPADD (oneDt SIMDTypI32) N OD.OprDdDnDm
   (* VMAX xxx0110x0 *)
   | 0b011011000u | 0b011011010u | 0b111011000u | 0b111011010u (* x110110x0 *) ->
-    raise UndefinedException (* size == '11' *)
+    undefined () (* size == '11' *)
   | 0b000011000u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1779,7 +1779,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VORN None N OD.OprQdQnQm
   (* VMIN xxx0110x1 *)
   | 0b011011001u | 0b011011011u | 0b111011001u | 0b111011011u (* x110110x1 *) ->
-    raise UndefinedException (* size == '11' *)
+    undefined () (* size == '11' *)
   | 0b000011001u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1842,7 +1842,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VMIN (oneDt SIMDTypU32) N OD.OprQdQnQm
   (* VABD xxx0111x0 *)
   | 0b011011100u | 0b011011110u | 0b111011100u | 0b111011110u (* x110111x0 *) ->
-    raise UndefinedException (* size == '11' *)
+    undefined () (* size == '11' *)
   | 0b000011100u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1905,7 +1905,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VABD (oneDt SIMDTypU32) N OD.OprQdQnQm
   (* VABA xxx0111x1 *)
   | 0b011011101u | 0b011011111u | 0b111011101u | 0b111011111u (* x110111x1 *) ->
-    raise UndefinedException (* size == '11' *)
+    undefined () (* size == '11' *)
   | 0b000011101u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1967,14 +1967,14 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VABA (oneDt SIMDTypU32) N OD.OprQdQnQm
   (* SHA1SU0 0111100x0 *)
-  | 0b011110000u (* Q != '1' *) -> raise UndefinedException
+  | 0b011110000u (* Q != '1' *) -> undefined ()
   | 0b011110010u ->
 #if !EMULATION
     chkVdVnVm b
 #endif
     render phlp &itstate 0 isInIT b Op.SHA1SU0 (oneDt SIMDTyp32) N OD.OprQdQnQm
   (* VPADD 10x1101x0 *)
-  | 0b100110110u | 0b101110110u (* Q == '1' *) -> raise UndefinedException
+  | 0b100110110u | 0b101110110u (* Q == '1' *) -> undefined ()
   | 0b100110100u ->
 #if !EMULATION
     chkSzIT b itstate
@@ -2094,7 +2094,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
   (* VMUL xxx1001x1 *)
   | 0b011100101u | 0b011100111u | 0b111100101u | 0b111100111u (* size == '11' *)
   | 0b101100101u | 0b101100111u | 0b110100101u | 0b110100111u ->
-    raise UndefinedException (* op == '1' && size != '00' *)
+    undefined () (* op == '1' && size != '00' *)
   | 0b000100101u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -2136,14 +2136,14 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VMUL (oneDt SIMDTypP8) N OD.OprQdQnQm
   (* SHA256H 1001100x0 *)
-  | 0b100110000u (* Q != '1' *) -> raise UndefinedException
+  | 0b100110000u (* Q != '1' *) -> undefined ()
   | 0b100110010u ->
 #if !EMULATION
     chkITVdVnVm b itstate
 #endif
     render phlp &itstate 0 isInIT b Op.SHA256H (oneDt SIMDTyp32) N OD.OprQdQnQm
   (* VPMAX xxx101000 *)
-  | 0b011101000u | 0b111101000u (* size == '11' *) -> raise UndefinedException
+  | 0b011101000u | 0b111101000u (* size == '11' *) -> undefined ()
   | 0b000101000u ->
     render phlp &itstate 0 isInIT b Op.VPMAX (oneDt SIMDTypS8) N OD.OprDdDnDm
   | 0b001101000u ->
@@ -2168,7 +2168,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VBSL None N OD.OprQdQnQm
   (* VPMIN xxx101001 *)
-  | 0b011101001u | 0b111101001u (* size == '11' *) -> raise UndefinedException
+  | 0b011101001u | 0b111101001u (* size == '11' *) -> undefined ()
   | 0b000101001u ->
     render phlp &itstate 0 isInIT b Op.VPMIN (oneDt SIMDTypS8) N OD.OprDdDnDm
   | 0b001101001u ->
@@ -2184,7 +2184,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
   | b when b &&& 0b000111110u = 0b000101010u (* 0bxxx10101xu *) ->
     raise ParsingFailureException
   (* SHA256H2 1011100x0 *)
-  | 0b101110000u (* Q != '1' *) -> raise UndefinedException
+  | 0b101110000u (* Q != '1' *) -> undefined ()
   | 0b101110010u ->
 #if !EMULATION
     chkVdVnVm b
@@ -2338,7 +2338,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VBIT None N OD.OprQdQnQm
   (* VCEQ 1xx1000x1 *)
-  | 0b111100001u | 0b111100011u (* size == '11' *) -> raise UndefinedException
+  | 0b111100001u | 0b111100011u (* size == '11' *) -> undefined ()
   | 0b100100001u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -2370,7 +2370,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VCEQ (oneDt SIMDTypI32) N OD.OprQdQnQm
   (* VMLS 1xx1001x0 *)
-  | 00111100100u | 00111100110u (* size == '11' *) -> raise UndefinedException
+  | 00111100100u | 00111100110u (* size == '11' *) -> undefined ()
   | 0b100100100u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -2403,7 +2403,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VMLS (oneDt SIMDTypI32) N OD.OprQdQnQm
   (* VQRDMULH 1xx1011x0 *)
   | 0b100101100u | 0b100101110u | 0b111101100u | 0b111101110u ->
-    raise UndefinedException (* size == '00' || size == '11' *)
+    undefined () (* size == '00' || size == '11' *)
   | 0b101101100u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -2429,7 +2429,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     let dt = oneDt SIMDTypS32
     render phlp &itstate 0 isInIT b Op.VQRDMULH dt N OD.OprQdQnQm
   (* SHA256SU1 1101100x0 *)
-  | 0b110110000u (* Q != '1' *) -> raise UndefinedException
+  | 0b110110000u (* Q != '1' *) -> undefined ()
   | 0b110110010u ->
 #if !EMULATION
     chkITVdVnVm b itstate
@@ -2438,7 +2438,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.SHA256SU1 dt N OD.OprQdQnQm
   (* VQRDMLAH 1xx1011x1 Armv8.1 *)
   | 0b100101101u | 0b100101111u | 0b111101101u | 0b111101111u ->
-    raise UndefinedException (* size == '00' || size == '11' *)
+    undefined () (* size == '00' || size == '11' *)
   | 0b101101101u ->
 #if !EMULATION
     chkITQVdVnVm b itstate
@@ -2476,7 +2476,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VBIF None N OD.OprQdQnQm
   (* VQRDMLSH 1xx1100x1 Armv8.1 *)
   | 0b100110001u | 0b100110011u | 0b111110001u | 0b111110011u ->
-    raise UndefinedException (* size == '00' || size == '11' *)
+    undefined () (* size == '00' || size == '11' *)
   | 0b101110001u ->
 #if !EMULATION
     chkITQVdVnVm b itstate
@@ -2511,7 +2511,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     concat (pickFour b 16) (pickFive b 6) 5
   match decodeFields with
   (* VREV64 xx000000x *)
-  | 0b110000000u | 0b110000001u (* size = 11 *) -> raise UndefinedException
+  | 0b110000000u | 0b110000001u (* size = 11 *) -> undefined ()
   | 0b000000000u ->
 #if !EMULATION
     chkQVdVm b
@@ -2545,7 +2545,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VREV32 xx000001x *)
   | 0b100000010u | 0b100000011u (* size = 10 *)
   (* size = 11 *)
-  | 0b110000010u | 0b110000011u -> raise UndefinedException
+  | 0b110000010u | 0b110000011u -> undefined ()
   | 0b000000010u ->
 #if !EMULATION
     chkQVdVm b
@@ -2570,7 +2570,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   | 0b010000100u | 0b010000101u (* size = 01 *)
   (* size = 1x *)
   | 0b100000100u | 0b100000101u | 0b110000100u | 0b110000101u ->
-    raise UndefinedException
+    undefined ()
   | 0b000000100u ->
 #if !EMULATION
     chkQVdVm b
@@ -2585,7 +2585,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     raise ParsingFailureException
   (* VPADDL xx00010xx *)
   | 0b110001000u | 0b110001001u | 0b110001010u | 0b110001011u (* size = 11 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b000001000u ->
 #if !EMULATION
     chkQVdVm b
@@ -2648,7 +2648,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VPADDL (oneDt SIMDTypU32) N OD.OprQdQm
   (* AESE xx0001100 *)
   | 0b010001100u | 0b100001100u | 0b110001100u (* size != 00 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b000001100u ->
 #if !EMULATION
     chkITVdVm b itstate
@@ -2656,7 +2656,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.AESE (oneDt SIMDTyp8) N OD.OprQdQm
   (* AESD xx0001101 *)
   | 0b010001101u | 0b100001101u | 0b110001101u (* size != 00 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b000001101u ->
 #if !EMULATION
     chkITVdVm b itstate
@@ -2664,7 +2664,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.AESD (oneDt SIMDTyp8) N OD.OprQdQm
   (* AESMC xx0001110 *)
   | 0b010001110u | 0b100001110u | 0b110001110u (* size != 00 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b000001110u ->
 #if !EMULATION
     chkITVdVm b itstate
@@ -2672,14 +2672,14 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.AESMC (oneDt SIMDTyp8) N OD.OprQdQm
   (* AESIMC xx0001111 *)
   | 0b010001111u | 0b100001111u | 0b110001111u (* size != 00 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b000001111u ->
 #if !EMULATION
     chkITVdVm b itstate
 #endif
     render phlp &itstate 0 isInIT b Op.AESIMC (oneDt SIMDTyp8) N OD.OprQdQm
   (* VCLS xx001000x *)
-  | 0b110010000u | 0b110010001u (* size = 11 *) -> raise UndefinedException
+  | 0b110010000u | 0b110010001u (* size = 11 *) -> undefined ()
   | 0b000010000u ->
 #if !EMULATION
     chkQVdVm b
@@ -2722,7 +2722,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VSWP None N OD.OprQdQm
   (* VCLZ xx001001x *)
-  | 0b110010010u | 0b110010011u (* size = 11 *) -> raise UndefinedException
+  | 0b110010010u | 0b110010011u (* size = 11 *) -> undefined ()
   | 0b000010010u ->
 #if !EMULATION
     chkQVdVm b
@@ -2756,7 +2756,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VCNT xx001010x *)
   | 0b010010100u | 0b100010100u | 0b110010100u | 0b010010101u | 0b100010101u
   (* size != 00 *)
-  | 0b110010101u -> raise UndefinedException
+  | 0b110010101u -> undefined ()
   | 0b000010100u ->
 #if !EMULATION
     chkQVdVm b
@@ -2770,7 +2770,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VMVN xx001011x *)
   | 0b010010110u | 0b010010111u | 0b100010110u | 0b100010111u | 0b110010110u
   (* size != 00 *)
-  | 0b110010111u -> raise UndefinedException
+  | 0b110010111u -> undefined ()
   | 0b000010110u ->
 #if !EMULATION
     chkQVdVm b
@@ -2784,7 +2784,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   | 0b001011001u -> raise ParsingFailureException
   (* VPADAL xx00110xx *)
   | 0b110011000u | 0b110011001u | 0b110011010u | 0b110011011u (* size = 11 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b000011000u ->
 #if !EMULATION
     chkQVdVm b
@@ -2846,7 +2846,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VPADAL (oneDt SIMDTypU32) N OD.OprQdQm
   (* VQABS xx001110x *)
-  | 0b110011100u | 0b110011101u (* size = 11 *) -> raise UndefinedException
+  | 0b110011100u | 0b110011101u (* size = 11 *) -> undefined ()
   | 0b000011100u ->
 #if !EMULATION
     chkQVdVm b
@@ -2878,7 +2878,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VQABS (oneDt SIMDTypS32) N OD.OprQdQm
   (* VQNEG xx001111x *)
-  | 0b110011110u | 0b110011111u (* size = 11 *) -> raise UndefinedException
+  | 0b110011110u | 0b110011111u (* size = 11 *) -> undefined ()
   | 0b000011110u ->
 #if !EMULATION
     chkQVdVm b
@@ -2913,7 +2913,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   | 0b110100000u | 0b110100001u | 0b110110000u | 0b110110001u (* size = 11 *)
   (* F = 1 && size = 00 *)
   | 0b000110000u | 0b000110001u ->
-    raise UndefinedException
+    undefined ()
   | 0b000100000u ->
 #if !EMULATION
     chkFSzITQVdVm b itstate
@@ -2967,7 +2967,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VCGE xx01x001x *)
   | 0b110100010u | 0b110100011u | 0b110110010u | 0b110110011u (* size = 11 *)
   | 0b000110010u | 0b000110011u -> (* F = 1 && size = 00 *)
-    raise UndefinedException
+    undefined ()
   | 0b000100010u ->
 #if !EMULATION
     chkFSzITQVdVm b itstate
@@ -3021,7 +3021,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VCEQ xx01x010x *)
   | 0b110100100u | 0b110100101u | 0b110110100u | 0b110110101u (* size = 11 *)
   | 0b000110100u | 0b000110101u -> (* F = 1 && size = 00 *)
-    raise UndefinedException
+    undefined ()
   | 0b000100100u ->
 #if !EMULATION
     chkFSzITQVdVm b itstate
@@ -3075,7 +3075,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VCLE xx01x011x *)
   | 0b110100110u | 0b110100111u | 0b110110110u | 0b110110111u (* size = 11 *)
   | 0b000110110u | 0b000110111u -> (* F = 1 && size = 00 *)
-    raise UndefinedException
+    undefined ()
   | 0b000100110u ->
 #if !EMULATION
     chkFSzITQVdVm b itstate
@@ -3129,7 +3129,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VCLT xx01x100x *)
   | 0b110101000u | 0b110101001u | 0b110111000u | 0b110111001u (* size = 11 *)
   | 0b000111000u | 0b000111001u -> (* F = 1 && size = 00 *)
-    raise UndefinedException
+    undefined ()
   | 0b000101000u ->
 #if !EMULATION
     chkFSzITQVdVm b itstate
@@ -3183,7 +3183,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VABS xx01x110x *)
   | 0b110101100u | 0b110101101u | 0b110111100u | 0b110111101u (* size = 11 *)
   | 0b000111100u | 0b000111101u -> (* F = 1 && size = 00 *)
-    raise UndefinedException
+    undefined ()
   | 0b000101100u ->
 #if !EMULATION
     chkFSzITQVdVm b itstate
@@ -3237,7 +3237,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VNEG xx01x111x *)
   | 0b110101110u | 0b110101111u | 0b110111110u | 0b110111111u (* size = 11 *)
   | 0b000111110u | 0b000111111u -> (* F = 1 && size = 00 *)
-    raise UndefinedException
+    undefined ()
   | 0b000101110u ->
 #if !EMULATION
     chkFSzITQVdVm b itstate
@@ -3290,7 +3290,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VNEG (oneDt SIMDTypF32) N OD.OprQdQm
   (* SHA1H xx0101011 *)
   | 0b000101011u | 0b010101011u | 0b110101011u (* size != 10 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b100101011u ->
 #if !EMULATION
     chkITVdVm b itstate
@@ -3302,7 +3302,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     let dt = twoDt (BF16, SIMDTypF32)
     render phlp &itstate 0 isInIT b Op.VCVT dt N OD.OprDdQm
   (* VTRN xx100001x *)
-  | 0b111000010u | 0b111000011u (* size = 11 *) -> raise UndefinedException
+  | 0b111000010u | 0b111000011u (* size = 11 *) -> undefined ()
   | 0b001000010u ->
 #if !EMULATION
     chkQVdVm b
@@ -3335,7 +3335,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VTRN (oneDt SIMDTyp32) N OD.OprQdQm
   (* VUZP xx100010x *)
   | 0b111000100u | 0b111000101u (* size = 11 *)
-  | 0b101000100u (* Q = 0 && size = 10 *) -> raise UndefinedException
+  | 0b101000100u (* Q = 0 && size = 10 *) -> undefined ()
   | 0b001000100u ->
 #if !EMULATION
     chkQVdVm b
@@ -3363,7 +3363,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VUZP (oneDt SIMDTyp32) N OD.OprQdQm
   (* VZIP xx100011x *)
   | 0b111000110u | 0b111000111u (* size = 11 *)
-  | 0b101000110u (* Q = 0 && size = 10 *) -> raise UndefinedException
+  | 0b101000110u (* Q = 0 && size = 10 *) -> undefined ()
   | 0b001000110u ->
 #if !EMULATION
     chkQVdVm b
@@ -3390,7 +3390,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VZIP (oneDt SIMDTyp32) N OD.OprQdQm
   (* VMOVN xx1001000 *)
-  | 0b111001000u (* size = 11 *) -> raise UndefinedException
+  | 0b111001000u (* size = 11 *) -> undefined ()
   | 0b001001000u ->
 #if !EMULATION
     chkVm b
@@ -3407,7 +3407,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VMOVN (oneDt SIMDTypI64) N OD.OprDdQm
   (* VQMOVUN xx1001001 *)
-  | 00111001001u (* size = 11 *) -> raise UndefinedException
+  | 00111001001u (* size = 11 *) -> undefined ()
   | 0b001001001u ->
 #if !EMULATION
     chkVm b
@@ -3455,7 +3455,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VQMOVN (oneDt SIMDTypU64) N OD.OprDdQm
   (* VSHLL xx1001100 *)
-  | 0b111001100u (* size = 11 *) -> raise UndefinedException
+  | 0b111001100u (* size = 11 *) -> undefined ()
   | 0b001001100u ->
 #if !EMULATION
     chkVm b
@@ -3475,7 +3475,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VSHLL dt N OD.OprQdDmImm32
   (* SHA1SU1 xx1001110 *)
   | 0b001001110u | 0b011001110u | 0b111001110u (* size != 10 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b101001110u ->
 #if !EMULATION
     chkITVdVm b itstate
@@ -3483,7 +3483,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.SHA1SU1 (oneDt SIMDTyp32) N OD.OprQdQm
   (* SHA256SU0 xx1001111 *)
   | 0b001001111u | 0b011001111u | 0b111001111u (* size != 10 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b101001111u ->
 #if !EMULATION
     chkITVdVm b itstate
@@ -3491,7 +3491,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.SHA256SU0 (oneDt SIMDTyp32) N OD.OprQdQm
   (* VRINTN xx101000x *)
   | 0b001010000u | 0b001010001u (* size = 00 *)
-  | 0b111010000u | 0b111010001u (* size = 11 *) -> raise UndefinedException
+  | 0b111010000u | 0b111010001u (* size = 11 *) -> undefined ()
   | 0b011010000u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3514,7 +3514,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VRINTN (oneDt SIMDTypF32) N OD.OprQdQm
   (* VRINTX xx101001x *)
   | 0b001010010u | 0b001010011u (* size = 00 *)
-  | 0b111010010u | 0b111010011u (* size = 11 *) -> raise UndefinedException
+  | 0b111010010u | 0b111010011u (* size = 11 *) -> undefined ()
   | 0b011010010u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3537,7 +3537,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VRINTX (oneDt SIMDTypF32) N OD.OprQdQm
   (* VRINTA xx101010x *)
   | 0b001010100u | 0b001010101u (* size = 00 *)
-  | 0b111010100u | 0b111010101u (* size = 11 *) -> raise UndefinedException
+  | 0b111010100u | 0b111010101u (* size = 11 *) -> undefined ()
   | 0b011010100u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3560,7 +3560,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VRINTA (oneDt SIMDTypF32) N OD.OprQdQm
   (* VRINTZ xx101011x *)
   | 0b001010110u | 0b001010111u (* size = 00 *)
-  | 0b111010110u | 0b111010111u (* size = 11 *) -> raise UndefinedException
+  | 0b111010110u | 0b111010111u (* size = 11 *) -> undefined ()
   | 0b011010110u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3584,7 +3584,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   | 0b101011001u -> raise ParsingFailureException
   (* VCVT xx1011000 *)
   | 0b001011000u | 0b101011000u | 0b111011000u (* size != 01 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b011011000u ->
 #if !EMULATION
     chkOpVdVm b
@@ -3593,7 +3593,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VCVT dt N OD.OprDdQm
   (* VRINTM xx101101x *)
   | 0b001011010u | 0b001011011u (* size = 00 *)
-  | 0b111011010u | 0b111011011u (* size = 11 *) -> raise UndefinedException
+  | 0b111011010u | 0b111011011u (* size = 11 *) -> undefined ()
   | 0b011011010u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3616,7 +3616,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VRINTM (oneDt SIMDTypF32) N OD.OprQdQm
   (* VCVT xx1011100 *)
   | 0b001011100u | 0b101011100u | 0b111011100u (* size =! 01 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b011011100u ->
 #if !EMULATION
     chkOpVdVm b
@@ -3627,7 +3627,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     raise ParsingFailureException
   (* VRINTP xx101111x *)
   | 0b001011110u | 0b001011111u (* size = 00 *)
-  | 0b111011110u | 0b111011111u (* size = 11 *) -> raise UndefinedException
+  | 0b111011110u | 0b111011111u (* size = 11 *) -> undefined ()
   | 0b011011110u ->
 #if !EMULATION
     chkQVdVm b
@@ -3651,7 +3651,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VCVTA xx11000xx *)
   | 0b001100000u | 0b001100001u | 0b001100010u | 0b001100011u (* size = 00 *)
   | 0b111100000u | 0b111100001u | 0b111100010u | 0b111100011u (* size = 11 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b011100000u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3703,7 +3703,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VCVTN xx11001xx *)
   | 0b001100100u | 0b001100101u | 0b001100110u | 0b001100111u (* size = 00 *)
   | 0b111100100u | 0b111100101u | 0b111100110u | 0b111100111u (* size = 11 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b011100100u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3755,7 +3755,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VCVTP xx11010xx *)
   | 0b001101000u | 0b001101001u | 0b001101010u | 0b001101011u (* size = 00 *)
   | 0b111101000u | 0b111101001u | 0b111101010u | 0b111101011u (* size = 11 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b011101000u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3807,7 +3807,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VCVTM xx11011xx *)
   | 0b001101100u | 0b001101101u | 0b001101110u | 0b001101111u (* size = 00 *)
   | 0b111101100u | 0b111101101u | 0b111101110u | 0b111101111u (* size = 11 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b011101100u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3859,7 +3859,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VRECPE xx1110x0x *)
   | 0b001110000u | 0b001110001u | 0b001110100u | 0b001110101u (* size = 00 *)
   | 0b111110000u | 0b111110001u | 0b111110100u | 0b111110101u (* size = 11 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b101110000u ->
 #if !EMULATION
     chkQVdVmSzIT b itstate
@@ -3893,7 +3893,7 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VRSQRTE xx1110x1x *)
   | 0b001110010u | 0b001110011u | 0b001110110u | 0b001110111u (* size = 00 *)
   | 0b111110010u | 0b111110011u | 0b111110110u | 0b111110111u (* size = 11 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b101110010u ->
 #if !EMULATION
     chkQVdVmSzIT b itstate
@@ -3926,8 +3926,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VRSQRTE (oneDt SIMDTypF32) N OD.OprQdQm
   | 0b111011001u -> raise ParsingFailureException
   (* VCVT xx1111xxx *)
-  | b when pickTwo b 7 = 0b00u (* size = 00 *) -> raise UndefinedException
-  | b when pickTwo b 7 = 0b11u (* size = 11 *) -> raise UndefinedException
+  | b when pickTwo b 7 = 0b00u (* size = 00 *) -> undefined ()
+  | b when pickTwo b 7 = 0b11u (* size = 11 *) -> undefined ()
   | 0b011111000u ->
 #if !EMULATION
     chkQVdVmSzIT b itstate
@@ -4760,7 +4760,7 @@ let parseAdvSIMDAndFPLdSt phlp (itstate: byref<BL>) isInIT bin =
 #endif
     render phlp &itstate 0 isInIT bin Op.FLDMIAX None N OD.OprRnDreglist
   (* VSTR 1x00xx *)
-  | 0b100000u | 0b110000u (* size = 00 *) -> raise UndefinedException
+  | 0b100000u | 0b110000u (* size = 00 *) -> undefined ()
   | 0b100001u | 0b110001u ->
 #if !EMULATION
     chkSzIT bin itstate
@@ -4778,7 +4778,7 @@ let parseAdvSIMDAndFPLdSt phlp (itstate: byref<BL>) isInIT bin =
 #endif
     render phlp &itstate 0 isInIT bin Op.VSTR None N OD.OprDdMem
   (* VLDR 1x01xx *)
-  | 0b100100u | 0b110100u when isNot1111 -> raise UndefinedException
+  | 0b100100u | 0b110100u when isNot1111 -> undefined ()
   | 0b100101u | 0b110101u when isNot1111 ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -4828,7 +4828,7 @@ let parseAdvSIMDAndFPLdSt phlp (itstate: byref<BL>) isInIT bin =
 #endif
     render phlp &itstate 0 isInIT bin Op.FLDMDBX None N OD.OprRnDreglist
   (* VLDR 1x01xx *)
-  | 0b100100u | 0b110100u (* size = 00 *) -> raise UndefinedException
+  | 0b100100u | 0b110100u (* size = 00 *) -> undefined ()
   | 0b100101u | 0b110101u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -4922,7 +4922,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
   | b when b &&& 0b0000110u = 0u (* xxxx00x *) -> raise ParsingFailureException
   | 0b0000010u -> raise ParsingFailureException
   (* VABS 0000xx1 *)
-  | 0b0000001u (* size = 00 *) -> raise UndefinedException
+  | 0b0000001u (* size = 00 *) -> undefined ()
   | 0b0000011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -4949,7 +4949,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VMOV dt N OD.OprDdDm
   (* VNEG 0001xx0 *)
-  | 0b0001000u (* size = 00 *) -> raise UndefinedException
+  | 0b0001000u (* size = 00 *) -> undefined ()
   | 0b0001010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -4969,7 +4969,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VNEG dt N OD.OprDdDm
   (* VSQRT 0001xx1 *)
-  | 0b0001001u (* size = 00 *) -> raise UndefinedException
+  | 0b0001001u (* size = 00 *) -> undefined ()
   | 0b0001011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5022,7 +5022,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypF16, SIMDTypF64)
     render phlp &itstate 0 isInIT bin Op.VCVTT dt N OD.OprSdDm
   (* VCMP 0100xx0 *)
-  | 0b0100000u (* size = 00 *) -> raise UndefinedException
+  | 0b0100000u (* size = 00 *) -> undefined ()
   | 0b0100010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5042,7 +5042,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VCMP dt N OD.OprDdDm
   (* 0100xx1 VCMPE *)
-  | 0b0100001u (* size = 00 *) -> raise UndefinedException
+  | 0b0100001u (* size = 00 *) -> undefined ()
   | 0b0100011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5062,7 +5062,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VCMPE dt N OD.OprDdDm
   (* 0101xx0 VCMP *)
-  | 0b0101000u (* size = 00 *) -> raise UndefinedException
+  | 0b0101000u (* size = 00 *) -> undefined ()
   | 0b0101010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5082,7 +5082,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VCMP dt N OD.OprDdImm0
   (* 0101xx1 VCMPE *)
-  | 0b0101001u (* size = 00 *) -> raise UndefinedException
+  | 0b0101001u (* size = 00 *) -> undefined ()
   | 0b0101011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5121,7 +5121,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VRINTR dt N OD.OprDdDm
   (* 0110xx1 VRINTZ ARMv8 *)
-  | 0b0110001u (* size = 00 *) -> raise UndefinedException
+  | 0b0110001u (* size = 00 *) -> undefined ()
   | 0b0110011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5141,7 +5141,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VRINTZ dt N OD.OprDdDm
   (* 0111xx0 VRINTX ARMv8 *)
-  | 0b0111000u (* size = 00 *) -> raise UndefinedException
+  | 0b0111000u (* size = 00 *) -> undefined ()
   | 0b0111010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5168,7 +5168,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypF32, SIMDTypF64)
     render phlp &itstate 0 isInIT bin Op.VCVT dt N OD.OprSdDm
   (* 1000xxx VCVT *)
-  | 0b1000000u | 0b1000001u (* size = 00 *) -> raise UndefinedException
+  | 0b1000000u | 0b1000001u (* size = 00 *) -> undefined ()
   | 0b1000010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5214,7 +5214,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.VJCVT dt N OD.OprSdDm
   (* 101xxxx Op.VCVT *)
   | 0b1010000u | 0b1010001u | 0b1011000u | 0b1011001u (* sf = 00 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b1010010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5288,7 +5288,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypF64, SIMDTypU32)
     render phlp &itstate 0 isInIT bin Op.VCVT dt N OD.OprDdmDdmFbits
   (* 1100xx0 VCVTR *)
-  | 0b1100000u (* size = 00 *) -> raise UndefinedException
+  | 0b1100000u (* size = 00 *) -> undefined ()
   | 0b1100010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5308,7 +5308,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypU32, SIMDTypF64)
     render phlp &itstate 0 isInIT bin Op.VCVTR dt N OD.OprSdDm
   (* 1100xx1 VCVT *)
-  | 0b1100001u (* size = 00 *) -> raise UndefinedException
+  | 0b1100001u (* size = 00 *) -> undefined ()
   | 0b1100011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5328,7 +5328,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypU32, SIMDTypF64)
     render phlp &itstate 0 isInIT bin Op.VCVT dt N OD.OprSdDm
   (* 1101xx0 VCVTR *)
-  | 0b1101000u (* size = 00 *) -> raise UndefinedException
+  | 0b1101000u (* size = 00 *) -> undefined ()
   | 0b1101010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5348,7 +5348,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypS32, SIMDTypF64)
     render phlp &itstate 0 isInIT bin Op.VCVTR dt N OD.OprSdDm
   (* 1101xx1u VCVT *)
-  | 0b1101001u (* size = 00 *) -> raise UndefinedException
+  | 0b1101001u (* size = 00 *) -> undefined ()
   | 0b1101011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5369,7 +5369,7 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.VCVT dt N OD.OprSdDm
   (* 111xxxx VCVT *)
   | 0b1110000u | 0b1110001u | 0b1111000u | 0b1111001u (* size = 00 *) ->
-    raise UndefinedException
+    undefined ()
   | 0b1110010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5476,7 +5476,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
   | b when (b >>> 3 <> 0b111u) && (b &&& 0b000110u = 0b000u) (* != 111 00x *) ->
     raise ParsingFailureException
   (* 000xx0 VMLA *)
-  | 0b000000u (* size = 00 *) -> raise UndefinedException
+  | 0b000000u (* size = 00 *) -> undefined ()
   | 0b000010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5496,7 +5496,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VMLA dt N OD.OprDdDnDm
   (* 000xx1 VMLS *)
-  | 0b000001u (* size = 00 *) -> raise UndefinedException
+  | 0b000001u (* size = 00 *) -> undefined ()
   | 0b000011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5516,7 +5516,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VMLS dt N OD.OprDdDnDm
   (* 001xx0 VNMLS *)
-  | 0b001000u (* size = 00 *) -> raise UndefinedException
+  | 0b001000u (* size = 00 *) -> undefined ()
   | 0b001010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5536,7 +5536,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VNMLS dt N OD.OprDdDnDm
   (* 001xx1 VNMLA *)
-  | 0b001001u (* size = 00 *) -> raise UndefinedException
+  | 0b001001u (* size = 00 *) -> undefined ()
   | 0b001011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5556,7 +5556,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VNMLA dt N OD.OprDdDnDm
   (* 010xx0 VMUL *)
-  | 0b010000u (* size = 00 *) -> raise UndefinedException
+  | 0b010000u (* size = 00 *) -> undefined ()
   | 0b010010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5576,7 +5576,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VMUL dt N OD.OprDdDnDm
   (* 010xx1 VNMUL *)
-  | 0b010001u (* size = 00 *) -> raise UndefinedException
+  | 0b010001u (* size = 00 *) -> undefined ()
   | 0b010011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5596,7 +5596,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VNMUL dt N OD.OprDdDnDm
   (* 011xx0 VADD *)
-  | 0b011000u (* size = 00 *) -> raise UndefinedException
+  | 0b011000u (* size = 00 *) -> undefined ()
   | 0b011010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5616,7 +5616,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VADD dt N OD.OprDdDnDm
   (* 011xx1 VSUB *)
-  | 0b011001u (* size = 00 *) -> raise UndefinedException
+  | 0b011001u (* size = 00 *) -> undefined ()
   | 0b011011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5636,7 +5636,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VSUB dt N OD.OprDdDnDm
   (* 100xx0 VDIV *)
-  | 0b100000u (* size = 00 *) -> raise UndefinedException
+  | 0b100000u (* size = 00 *) -> undefined ()
   | 0b100010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5656,7 +5656,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VDIV dt N OD.OprDdDnDm
   (* 101xx0 VFNMS *)
-  | 0b101000u (* size = 00 *) -> raise UndefinedException
+  | 0b101000u (* size = 00 *) -> undefined ()
   | 0b101010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5676,7 +5676,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VFNMS dt N OD.OprDdDnDm
   (* 101xx1 VFNMA *)
-  | 0b101001u (* size = 00 *) -> raise UndefinedException
+  | 0b101001u (* size = 00 *) -> undefined ()
   | 0b101011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5696,7 +5696,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VFNMA dt N OD.OprDdDnDm
   (* 110xx0 VFMA *)
-  | 0b110000u (* size = 00 *) -> raise UndefinedException
+  | 0b110000u (* size = 00 *) -> undefined ()
   | 0b110010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5716,7 +5716,7 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VFMA dt N OD.OprDdDnDm
   (* 110xx1 VFMS *)
-  | 0b110001u (* size = 00 *) -> raise UndefinedException
+  | 0b110001u (* size = 00 *) -> undefined ()
   | 0b110011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5835,7 +5835,7 @@ let parseAdvSIMD8n16n32BitElemMoveDup phlp (itstate: byref<BL>) isInIT bin =
     chkPCRt bin
 #endif
     render phlp &itstate 0 isInIT bin Op.VMOV (oneDt SIMDTyp32) N OD.OprDd1Rt
-  | 0b000010u | 0b001010u -> raise UndefinedException
+  | 0b000010u | 0b001010u -> undefined ()
   (* xxx1xx VMOV (scalar to general-purpose register) *)
   | 0b010100u ->
 #if !EMULATION
@@ -5969,7 +5969,7 @@ let parseAdvSIMD8n16n32BitElemMoveDup phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.VMOV (oneDt SIMDTyp32) N OD.OprRtDn1
   | 0b100100u | 0b101100u (* 10x100 *)
   | 0b000110u | 0b001110u | 0b100110u | 0b101110u (* x0x110 *) ->
-    raise UndefinedException
+    undefined ()
   (* 1xx00x VDUP (general-purpose register) *)
   | 0b110000u ->
 #if !EMULATION
@@ -6001,7 +6001,7 @@ let parseAdvSIMD8n16n32BitElemMoveDup phlp (itstate: byref<BL>) isInIT bin =
     chkPCRt bin
 #endif
     render phlp &itstate 0 isInIT bin Op.VDUP (oneDt SIMDTyp32) N OD.OprQdRt
-  | 0b111001u | 0b110001u -> raise UndefinedException
+  | 0b111001u | 0b110001u -> undefined ()
   | _ (* 1xx01x *) -> raise ParsingFailureException
 
 /// System register 32-bit move on page F3-4183.
@@ -6308,7 +6308,7 @@ let parseVectorSelect phlp (itstate: byref<BL>) isInIT bin =
     inITBlock itstate |> checkUnpred
     let dt = oneDt SIMDTypF32
     render phlp &itstate 0 isInIT bin Op.VSELVS dt N OD.OprSdSnSm
-  | _ (* xx00 *) -> raise UndefinedException
+  | _ (* xx00 *) -> undefined ()
 
 /// Floating-point minNum/maxNum on page F3-4185.
 let parseFPMinMaxNum phlp (itstate: byref<BL>) isInIT bin =
@@ -7350,8 +7350,8 @@ let parseExceptionReturn phlp (itstate: byref<BL>) isInIT bin =
 
 /// DCPS on page F3-4195.
 let parseDCPS phlp (itstate: byref<BL>) isInIT bin =
-  if pickFour bin 16 <> 0b1111u (* imm4 *) then raise UndefinedException
-  elif extract bin 11 2 <> 0b0u (* imm10 *) then raise UndefinedException
+  if pickFour bin 16 <> 0b1111u (* imm4 *) then undefined ()
+  elif extract bin 11 2 <> 0b0u (* imm10 *) then undefined ()
   else
     match pickTwo bin 0 (* opt *) with
     | 0b00u -> raise ParsingFailureException
@@ -8844,7 +8844,7 @@ let parseDataProcTwoSrcRegs phlp (itstate: byref<BL>) isInIT bin =
     chkITPCRdRnRm bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.CRC32W None N OD.OprRdRnRmT32
-  | 0b10011u -> raise UnpredictableException
+  | 0b10011u -> unpredictable ()
   | 0b10100u ->
 #if !EMULATION
     chkITPCRdRnRm bin itstate
@@ -8860,7 +8860,7 @@ let parseDataProcTwoSrcRegs phlp (itstate: byref<BL>) isInIT bin =
     chkITPCRdRnRm bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.CRC32CW None N OD.OprRdRnRmT32
-  | 0b10111u -> raise UnpredictableException
+  | 0b10111u -> unpredictable ()
   | _ (* 11xxx *) -> raise ParsingFailureException
 
 /// Data-processing (register) on page F3-4209.

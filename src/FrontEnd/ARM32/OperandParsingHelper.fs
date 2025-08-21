@@ -416,7 +416,7 @@ module OperandParsingHelper =
       | 0b10u -> 8
       | 0b11u -> 11
       (* 00 *)
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
     let f = (8 <<< (int size)) - e - 1
     let sign = pickBit imm8 7 |> int64
     let exp =
@@ -462,7 +462,7 @@ module OperandParsingHelper =
   let getDTSign = function (* [21:20] *)
     | 0b001u -> SIMDTypS16
     | 0b010u -> SIMDTypS32
-    | _ -> raise UndefinedException
+    | _ -> undefined ()
 
   let getDTInt = function (* [21:20] *)
     | 0b00u -> SIMDTypI16
@@ -484,19 +484,19 @@ module OperandParsingHelper =
   let getDTF0 = function (* [21:20] *)
     | 0b01u -> SIMDTypI16
     | 0b10u -> SIMDTypI32
-    | _ (* 00 or 11 *) -> raise UndefinedException
+    | _ (* 00 or 11 *) -> undefined ()
 
   let getDTF1 = function (* [21:20] *)
     | 0b01u -> SIMDTypF16
     | 0b10u -> SIMDTypF32
-    | _ (* 00 or 11 *) -> raise UndefinedException
+    | _ (* 00 or 11 *) -> undefined ()
 
   let getDTImm4 = function (* [19:16] *)
     | 0b0001u | 0b0011u | 0b0101u | 0b0111u | 0b1001u | 0b1011u | 0b1101u
     | 0b1111u (* xxx1 *) -> SIMDTyp8
     | 0b0010u | 0b0110u | 0b1010u | 0b1110u (* xx10 *) -> SIMDTyp16
     | 0b0100u | 0b1100u (* x100 *) -> SIMDTyp32
-    | _ (* x000 *) -> raise UndefinedException
+    | _ (* x000 *) -> undefined ()
 
   let getDTLImmA bin =
     let isSign = pickBit bin 24 = 0u (* U *)
@@ -530,7 +530,7 @@ module OperandParsingHelper =
     | 0b101u -> SIMDTypU16
     | 0b110u -> SIMDTypU32
     (* x11 *)
-    | _ -> raise UndefinedException
+    | _ -> undefined ()
     |> oneDt
 
   let getDTUSzQ bin =
@@ -611,7 +611,7 @@ module OperandParsingHelper =
     | 0b0110u -> SIMDTypU32
     | 0b1000u -> SIMDTypP8
     | 0b1010u -> SIMDTypP64
-    | _ -> raise UndefinedException
+    | _ -> undefined ()
 
   /// Operand functions
   let getBankedReg r sysM =
@@ -649,7 +649,7 @@ module OperandParsingHelper =
     | 0b110110u -> R.SPSRund
     | 0b111100u -> R.SPSRmon
     | 0b111110u -> R.SPSRhyp
-    | _ -> raise UnpredictableException
+    | _ -> unpredictable ()
 
   let getAPSR = function
     | 0b00u -> struct (R.APSR, None)
@@ -802,7 +802,7 @@ module OperandParsingHelper =
   let getDTUSign = function (* [21:20] *)
     | 0b01u -> SIMDTypU16
     | 0b10u -> SIMDTypU32
-    | _ -> raise UndefinedException
+    | _ -> undefined ()
 
   (* 8 when L = 0, imm6<5:3> = 001
      16 when L = 0, imm6<5:3> = 01x
@@ -875,11 +875,11 @@ module OperandParsingHelper =
     | 0b0110u -> SIMDTypU32
     | 0b1000u -> SIMDTypP8
     | 0b1010u -> SIMDTypP64
-    | _ -> raise UndefinedException
+    | _ -> undefined ()
 
   let getDTFP bin =
     match extract bin 9 8 (* size *) with
-    | 0b00u -> raise UndefinedException
+    | 0b00u -> undefined ()
     | 0b01u -> SIMDTypF16
     | 0b10u -> SIMDTypF32
     | _ -> SIMDTypF64
@@ -888,7 +888,7 @@ module OperandParsingHelper =
   /// Data types: FP, sign, unsign
   let getDTFSU bin =
     match extract bin 9 7 (* size:op *) with
-    | 0b000u | 0b001u -> raise UndefinedException
+    | 0b000u | 0b001u -> undefined ()
     | 0b010u -> SIMDTypF16, SIMDTypU32
     | 0b011u -> SIMDTypF16, SIMDTypS32
     | 0b100u -> SIMDTypF32, SIMDTypU32
@@ -1448,7 +1448,7 @@ type internal OprDdDmx() =
         (* x100 *)
         | b when b &&& 0b0111u = 0b0100u -> pickBit b 3
         (* x000 *)
-        | _ -> raise UndefinedException
+        | _ -> undefined ()
         |> uint8
       let m = concat (pickBit bin 5) (extract bin 3 0) 4 (* M:Vm *)
       toSSReg (m |> getVecDReg, Some idx)
@@ -1470,7 +1470,7 @@ type internal OprQdDmx() =
         (* x100 *)
         | b when b &&& 0b0111u = 0b0100u -> pickBit b 3
         (* x000 *)
-        | _ -> raise UndefinedException
+        | _ -> undefined ()
         |> uint8
       let m = concat (pickBit bin 5) (extract bin 3 0) 4 (* M:Vm *)
       toSSReg (m |> getVecDReg, Some idx)
@@ -1978,7 +1978,7 @@ type internal OprListMem1() =
         (* <size> = 8 or a = 0 *)
         | 0b000u | 0b010u | 0b100u -> None
         (* 001 & 11x *)
-        | _ -> raise UndefinedException
+        | _ -> undefined ()
       toMemAlign rn align rm
     struct (TwoOperands(list, mem), wbackM bin, None, 32<rt>)
 
@@ -2001,7 +2001,7 @@ type internal OprListMem2() =
         (* xx0 - except 110 *)
         | 0b000u | 0b010u | 0b100u -> None
         (* 11x *)
-        | _ -> raise UndefinedException
+        | _ -> undefined ()
       toMemAlign rn align rm
     struct (TwoOperands(list, mem), wbackM bin, None, 32<rt>)
 
@@ -2026,7 +2026,7 @@ type internal OprListMem4() =
         (* xx0 - except 110 *)
         | 0b000u | 0b010u | 0b100u -> None
         (* 110 *)
-        | _ -> raise UndefinedException
+        | _ -> undefined ()
       toMemAlign rn align rm
     struct (TwoOperands(list, mem), wbackM bin, None, 32<rt>)
 
@@ -2065,7 +2065,7 @@ type internal OprListMemA() =
       | 0b01u -> extract (extract bin 7 4) 3 2
       | 0b10u -> pickBit (extract bin 7 4) 3
       (* 11 *)
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
       |> uint8 |> Some
     let list = getSIMDScalar idx [ getVecDReg (extract bin 15 12) (* Rd *) ]
     let mem =
@@ -2091,7 +2091,7 @@ type internal OprListMemB() =
       | 0b01u -> extract bin 7 6 (* index_align<3:2> *)
       | 0b10u -> pickBit bin 7 (* index_align<3> *)
       (* 11 *)
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
       |> uint8 |> Some
     let list =
       let d = concat (pickBit bin 22) (extract bin 15 12) 4 (* D:Vd *)
@@ -2101,7 +2101,7 @@ type internal OprListMemB() =
         if pickBit bin 5 = 0u then [ d; d + 1u ] else [ d; d + 2u ]
       | 0b10u -> (* index_align<2> *)
         if pickBit bin 6 = 0u then [ d; d + 1u ] else [ d; d + 2u ]
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
       |> List.map getVecDReg |> getSIMDScalar (idx)
     let mem =
       let rn = extract bin 19 16 |> getRegister
@@ -2124,7 +2124,7 @@ type internal OprListMemD() =
       | 0b00u -> extract bin 7 5 (* index_align<3:1> *)
       | 0b01u -> extract bin 7 6 (* index_align<3:2> *)
       | 0b10u -> pickBit bin 7 (* index_align<3> *)
-      | _ (* 11 *) -> raise UndefinedException
+      | _ (* 11 *) -> undefined ()
       |> uint8 |> Some
     let list =
       let d = concat (pickBit bin 22) (extract bin 15 12) 4 (* D:Vd *)
@@ -2136,7 +2136,7 @@ type internal OprListMemD() =
       | 0b10u -> (* index_align<2> *)
         if pickBit bin 6 = 0u then [ d; d + 1u; d + 2u; d + 3u ]
         else [ d; d + 2u; d + 4u; d + 6u ]
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
       |> List.map getVecDReg |> getSIMDScalar (idx)
     let mem =
       let rn = extract bin 19 16 |> getRegister
@@ -2163,7 +2163,7 @@ type internal OprListMemC() =
       | 0b00u -> extract bin 7 5 (* index_align<3:1> *)
       | 0b01u -> extract bin 7 6 (* index_align<3:2> *)
       | 0b10u -> pickBit bin 7 (* index_align<3> *)
-      | _ (* 11 *) -> raise UndefinedException
+      | _ (* 11 *) -> undefined ()
       |> uint8 |> Some
     let list =
       let d = concat (pickBit bin 22) (extract bin 15 12) 4 (* D:Vd *)
@@ -2177,7 +2177,7 @@ type internal OprListMemC() =
         if pickBit bin 6 = 0u (* index_align<2> *)
         then [ d; d + 1u; d + 2u ]
         else [ d; d + 2u; d + 4u ]
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
       |> List.map getVecDReg |> getSIMDScalar idx
     let mem =
       let rn = extract bin 19 16 |> getRegister
@@ -2406,12 +2406,12 @@ type internal OprDdDnDmx() =
       match extract bin 21 20 (* size *) with
       | 0b01u -> extract bin 2 0 (* Vm<2:0> *)
       | 0b10u -> extract bin 3 0 (* Vm *)
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
     let index =
       match extract bin 21 20 (* size *) with
       | 0b01u -> pickTwoBitsApart bin 5 3 (* M:Vm<3> *)
       | 0b10u -> pickBit bin 5 (* Vm *)
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
     let dd = (* D:Vd *)
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecDReg |> toSVReg
     let dn = (* N:Vn *)
@@ -2427,12 +2427,12 @@ type internal OprQdQnDmx() =
       match extract bin 21 20 (* size *) with
       | 0b01u -> extract bin 2 0 (* Vm<2:0> *)
       | 0b10u -> extract bin 3 0 (* Vm *)
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
     let index =
       match extract bin 21 20 (* size *) with
       | 0b01u -> pickTwoBitsApart bin 5 3 (* M:Vm<3> *)
       | 0b10u -> pickBit bin 5 (* Vm *)
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
     let qd = (* D:Vd *)
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecQReg |> toSVReg
     let qn = (* N:Vn *)
@@ -2448,12 +2448,12 @@ type internal OprQdDnDmx() =
       match extract bin 21 20 (* size *) with
       | 0b01u -> extract bin 2 0 (* Vm<2:0> *)
       | 0b10u -> extract bin 3 0 (* Vm *)
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
     let index =
       match extract bin 21 20 (* size *) with
       | 0b01u -> pickTwoBitsApart bin 5 3 (* M:Vm<3> *)
       | 0b10u -> pickBit bin 5 (* Vm *)
-      | _ -> raise UndefinedException
+      | _ -> undefined ()
     let qd = (* D:Vd *)
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecQReg |> toSVReg
     let dn = (* N:Vn *)
@@ -2556,7 +2556,7 @@ type internal OprRtRt2MemImmA() =
       | 0b10u -> memOffsetImm (rn, sign, if imm = 0L then None else Some imm)
       | 0b00u -> memPostIdxImm (rn, sign, Some imm)
       | 0b11u -> memPreIdxImm (rn, sign, Some imm)
-      | _ (* 10 *) -> raise UnpredictableException
+      | _ (* 10 *) -> unpredictable ()
     struct (ThreeOperands(rt, rt2, mem), wback bin, None, 32<rt>)
 
 (* <Rd>, <Rt>, [<Rn>] *)
@@ -2856,7 +2856,7 @@ type internal OprRdRmRorA() =
   override _.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let rm = extract bin 3 0 |> getRegister |> OprReg
-    let shift = OprShift(SRType.SRTypeROR, extract bin 11 10 <<< 3 |> Imm)
+    let shift = OprShift(ShiftOp.ROR, extract bin 11 10 <<< 3 |> Imm)
     struct (ThreeOperands(rd, rm, shift), false, None, 32<rt>)
 
 (* <Rd>, #<imm>, <Rn> *)
@@ -3072,7 +3072,7 @@ type internal OprRdRnRmRorA() =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let rn = extract bin 19 16 |> getRegister |> OprReg
     let rm = extract bin 3 0 |> getRegister |> OprReg
-    let shift = OprShift(SRType.SRTypeROR, extract bin 11 10 <<< 3 |> Imm)
+    let shift = OprShift(ShiftOp.ROR, extract bin 11 10 <<< 3 |> Imm)
     struct (FourOperands(rd, rn, rm, shift), false, None, 32<rt>)
 
 (* <Rd>, #<imm>, <Rn>, ASR #<amount> *)
@@ -3294,7 +3294,7 @@ type internal OprCoprocCRdMem() =
       | 0b01u -> memPostIdxImm (rn, sign, Some imm)
       | 0b00u when pickBit bin 23 = 1u ->
         memUnIdxImm (rn, extract bin 7 0 |> int64) (* imm8 *)
-      | _ (* 00 *) -> raise UndefinedException
+      | _ (* 00 *) -> undefined ()
     struct (ThreeOperands(coproc, crd, mem), wbackW bin, None, 32<rt>)
 
 (* <label> *)
@@ -3495,7 +3495,7 @@ type internal OprMemRegLSL1() =
   override _.Render bin =
     let rn = getRegister (extract bin 19 16)
     let rm = getRegister (extract bin 3 0)
-    let shf = Some(SRTypeLSL, Imm 1u)
+    let shf = Some(LSL, Imm 1u)
     struct (OneOperand(memOffsetReg (rn, None, rm, shf)), false, None, 32<rt>)
 
 (* [<Rn>, {+}<Rm> {, LSL #<amount>}] *)
@@ -3504,7 +3504,7 @@ type internal OprMemRegLSL() =
   override _.Render bin =
     let rn = getRegister (extract bin 19 16)
     let rm = getRegister (extract bin 3 0)
-    let shf = Some(SRTypeLSL, Imm(extract bin 5 4)) (* imm2 *)
+    let shf = Some(ShiftOp.LSL, Imm(extract bin 5 4)) (* imm2 *)
     struct (OneOperand(memOffsetReg (rn, None, rm, shf)), false, None, 32<rt>)
 
 (* <single_register_list> *)
@@ -3844,7 +3844,7 @@ type internal OprRtMemRegLSL() =
       let rn = extract bin 19 16 |> getRegister
       let rm = extract bin 3 0 |> getRegister
       let amount = Imm(extract bin 5 4) (* imm2 *)
-      memOffsetReg (rn, Some Plus, rm, Some(SRTypeLSL, amount))
+      memOffsetReg (rn, Some Plus, rm, Some(ShiftOp.LSL, amount))
     struct (TwoOperands(rt, mem), false, None, 32<rt>)
 
 (* <Rt>, [<Rn> {, #{+}<imm>}] *)
@@ -4201,7 +4201,7 @@ type internal OprRtRt2MemImmT() =
       | 0b10u -> memOffsetImm (rn, sign, Some imm)
       | 0b01u -> memPostIdxImm (rn, sign, Some imm)
       | 0b11u -> memPreIdxImm (rn, sign, Some imm)
-      | _ (* 00 *) -> raise UnpredictableException
+      | _ (* 00 *) -> unpredictable ()
     struct (ThreeOperands(rt, rt2, mem), wbackW bin, None, 32<rt>)
 
 (* <Rd>, <Rt>, [<Rn> {, #<imm>}] *)
@@ -4242,7 +4242,7 @@ type internal OprRdRmRorT() =
   override _.Render bin =
     let rd = extract bin 11 8 |> getRegister |> OprReg
     let rm = extract bin 3 0 |> getRegister |> OprReg
-    let shift = OprShift(SRType.SRTypeROR, extract bin 5 4 <<< 3 |> Imm)
+    let shift = OprShift(ShiftOp.ROR, extract bin 5 4 <<< 3 |> Imm)
     struct (ThreeOperands(rd, rm, shift), false, None, 32<rt>)
 
 (* {<Rd>,} <Rn>, #<const> *)
@@ -4324,7 +4324,8 @@ type internal OprRdmRdmLSLRs() =
   inherit OperandParser()
   override _.Render bin =
     let rdm = extract bin 2 0 |> getRegister |> OprReg
-    let shift = OprRegShift(SRTypeLSL, extract bin 5 3 |> getRegister) (* Rs *)
+    let shift =
+      OprRegShift(ShiftOp.LSL, extract bin 5 3 |> getRegister) (* Rs *)
     struct (ThreeOperands(rdm, rdm, shift), false, None, 32<rt>)
 
 (* <Rdm>, <Rdm>, LSR <Rs> *)
@@ -4332,7 +4333,8 @@ type internal OprRdmRdmLSRRs() =
   inherit OperandParser()
   override _.Render bin =
     let rdm = extract bin 2 0 |> getRegister |> OprReg
-    let shift = OprRegShift(SRTypeLSR, extract bin 5 3 |> getRegister) (* Rs *)
+    let shift =
+      OprRegShift(ShiftOp.LSR, extract bin 5 3 |> getRegister) (* Rs *)
     struct (ThreeOperands(rdm, rdm, shift), false, None, 32<rt>)
 
 (* <Rdm>, <Rdm>, ASR <Rs> *)
@@ -4340,7 +4342,8 @@ type internal OprRdmRdmASRRs() =
   inherit OperandParser()
   override _.Render bin =
     let rdm = extract bin 2 0 |> getRegister |> OprReg
-    let shift = OprRegShift(SRTypeASR, extract bin 5 3 |> getRegister) (* Rs *)
+    let shift =
+      OprRegShift(ShiftOp.ASR, extract bin 5 3 |> getRegister) (* Rs *)
     struct (ThreeOperands(rdm, rdm, shift), false, None, 32<rt>)
 
 (* <Rdm>, <Rdm>, ROR <Rs> *)
@@ -4348,7 +4351,8 @@ type internal OprRdmRdmRORRs() =
   inherit OperandParser()
   override _.Render bin =
     let rdm = extract bin 2 0 |> getRegister |> OprReg
-    let shift = OprRegShift(SRTypeROR, extract bin 5 3 |> getRegister) (* Rs *)
+    let shift =
+      OprRegShift(ShiftOp.ROR, extract bin 5 3 |> getRegister) (* Rs *)
     struct (ThreeOperands(rdm, rdm, shift), false, None, 32<rt>)
 
 (* {<Rd>,} <Rn>, <Rm> {, ROR #<amount>} *)
@@ -4358,7 +4362,7 @@ type internal OprRdRnRmRorT() =
     let rd = extract bin 11 8 |> getRegister |> OprReg
     let rn = extract bin 19 16 |> getRegister |> OprReg
     let rm = extract bin 3 0 |> getRegister |> OprReg
-    let shift = OprShift(SRType.SRTypeROR, extract bin 5 4 <<< 3 |> Imm)
+    let shift = OprShift(ShiftOp.ROR, extract bin 5 4 <<< 3 |> Imm)
     struct (FourOperands(rd, rn, rm, shift), false, None, 32<rt>)
 
 (* <Rd>, <Rn>, <Rm>, <Ra> *)

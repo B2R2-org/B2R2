@@ -59,11 +59,13 @@ let toSVReg vReg = vReg |> Vector |> SFReg |> OprSIMD
 
 let toSSReg scalar = scalar |> Scalar |> SFReg |> OprSIMD
 
-let inline checkUnpred cond =
-  if cond then raise ParsingFailureException else ()
+let unpredictable () = raise ParsingFailureException
 
-let inline checkUndef cond =
-  if cond then raise ParsingFailureException else ()
+let checkUnpred cond = if cond then unpredictable () else ()
+
+let undefined () = raise ParsingFailureException
+
+let checkUndef cond = if cond then undefined () else ()
 
 let oneDt dt = Some(OneDT dt)
 

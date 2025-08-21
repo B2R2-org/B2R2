@@ -12,7 +12,7 @@
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="Opcode.fs" />
     <Compile Include="Operands.fs" />
-    <Compile Include="Format.fs" />
+    <Compile Include="InstructionFormat.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="Disasm.fs" />
     <Compile Include="Helper.fs" />

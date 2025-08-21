@@ -28,8 +28,7 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Represents a parser for S390 instructions. Parser will return a
-/// platform-agnostic instruction type (Instruction).
+/// Represents a parser for S390 instructions.
 type S390Parser(isa: ISA, reader) =
   let wordSize = isa.WordSize
 
