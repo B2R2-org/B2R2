@@ -48,13 +48,11 @@ let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _>) =
   |> Seq.iter (fun func ->
     let id = func.ID
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    if isNull func.CFG then ()
-    else
-      let file = brew.BinHandle.File
-      let disasmBuilder = StringDisasmBuilder(true, file, file.ISA.WordSize)
-      let disasmcfg = DisasmCFG(disasmBuilder, func.CFG)
-      let s = Serializer.ToJson disasmcfg
-      File.WriteAllText(disasmJsonPath, s))
+    let file = brew.BinHandle.File
+    let disasmBuilder = StringDisasmBuilder(true, file, file.ISA.WordSize)
+    let disasmcfg = DisasmCFG(disasmBuilder, func.CFG)
+    let s = Serializer.ToJson disasmcfg
+    File.WriteAllText(disasmJsonPath, s))
 
 let initBinHdl isa (name: string) =
   BinHandle(name, isa, None)

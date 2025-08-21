@@ -27,7 +27,6 @@ namespace B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
 
 /// Graph interface.
-[<AllowNullLiteral>]
 type IGraph<'V, 'E when 'V: equality and 'E: equality> =
   inherit IGraphAccessible<'V, 'E>
 

@@ -29,7 +29,7 @@ open B2R2
 
 /// Persistent vertex.
 type PersistentVertex<'V when 'V: equality>
-  internal(id, vData: VertexData<'V>) =
+  internal(id, vData: VertexData<'V> | null) =
 
   /// Unique identifier of this vertex.
   member _.ID with get(): VertexID = id

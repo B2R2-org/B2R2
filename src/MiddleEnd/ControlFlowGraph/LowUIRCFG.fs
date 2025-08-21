@@ -33,18 +33,21 @@ open B2R2.MiddleEnd.BinGraph
 /// This is essentially a wrapper class of `IDiGraph<LowUIRBasicBlock,
 /// CFGEdgeKind>`, which provides a uniform interface for both imperative and
 /// persistent graphs.
-[<AllowNullLiteral>]
 type LowUIRCFG private(g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   let mutable g = g
 
   // FIXME: use this to later to remove dictionary from CFGBuildingContext.
-  let vertexCache = Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>()
+  // let vertexCache = Dictionary<ProgramPoint, IVertex<LowUIRBasicBlock>>()
 
   let addVertex (v, g') = g <- g'; v
 
   let update g' = g <- g'
 
-  /// Create a new CFG with the given implementation type.
+  /// Creates an empty persistent CFG.
+  new() =
+    LowUIRCFG(PersistentDiGraph<LowUIRBasicBlock, CFGEdgeKind>())
+
+  /// Creates a new CFG with the given implementation type.
   new(t: ImplementationType) =
     let g =
       match t with

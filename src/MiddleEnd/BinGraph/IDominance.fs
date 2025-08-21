@@ -29,11 +29,11 @@ open System.Collections.Generic
 /// Interface for computing dominance relationships of nodes in digraphs.
 type IDominance<'V, 'E when 'V: equality and 'E: equality> =
   abstract Dominators : IVertex<'V> -> IEnumerable<IVertex<'V>>
-  abstract ImmediateDominator : IVertex<'V> -> IVertex<'V>
+  abstract ImmediateDominator : IVertex<'V> -> IVertex<'V> | null
   abstract DominatorTree : DominatorTree<'V, 'E>
   abstract DominanceFrontier : IVertex<'V> -> IEnumerable<IVertex<'V>>
   abstract PostDominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
-  abstract ImmediatePostDominator: IVertex<'V> -> IVertex<'V>
+  abstract ImmediatePostDominator: IVertex<'V> -> IVertex<'V> | null
   abstract PostDominatorTree: DominatorTree<'V, 'E>
   abstract PostDominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
@@ -59,7 +59,8 @@ and IDominanceFrontierProvider<'V, 'E when 'V: equality and 'E: equality> =
 /// children are those nodes it immediately dominates.
 and DominatorTree<'V, 'E when 'V: equality
                           and 'E: equality>
-  public(g: IDiGraphAccessible<'V, 'E>, getIDom: IVertex<'V> -> IVertex<'V>) =
+  public(g: IDiGraphAccessible<'V, 'E>,
+         getIDom: IVertex<'V> -> IVertex<'V> | null) =
 
   let domTree = Dictionary<IVertex<'V>, List<IVertex<'V>>>()
   let dummyRoot = GraphUtils.makeDummyVertex ()

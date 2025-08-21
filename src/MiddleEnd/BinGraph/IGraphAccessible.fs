@@ -26,7 +26,6 @@ namespace B2R2.MiddleEnd.BinGraph
 
 /// Read-only graph information accessor. This interface provides a way to
 /// access the information of a graph without modifying it.
-[<AllowNullLiteral>]
 type IGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   /// Number of vertices.
   abstract Size: int
