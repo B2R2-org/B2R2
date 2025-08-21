@@ -7,7 +7,6 @@
   <ItemGroup>
     <Compile Include="LowUIRTests.fs" />
     <Compile Include="IntelTests.fs" />
-    <Compile Include="MIPSTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,7 +20,7 @@
     <ProjectReference Include="..\Assembly\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\Assembly\Intel\B2R2.Peripheral.Assembly.Intel.fsproj" />
     <ProjectReference Include="..\Assembly\MIPS\B2R2.Peripheral.Assembly.MIPS.fsproj" />
-    <ProjectReference Include="..\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj" />
+    <ProjectReference Include="..\Assembly\API\B2R2.Peripheral.Assembly.API.fsproj" />
   </ItemGroup>
 
 </Project>

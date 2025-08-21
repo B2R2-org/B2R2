@@ -27,33 +27,60 @@ namespace B2R2.Peripheral.Assembly.Intel
 open B2R2
 open B2R2.FrontEnd.Intel
 
-exception NotEncodableException
+/// Represents an assembly encoding context.
+type internal EncodingContext(wordSize: WordSize) =
+  member _.WordSize with get() = wordSize
 
-/// Basic components for assembling binaries.
-type AsmComponent =
-  /// Normal byte, which is not associated with a label.
-  | Normal of byte
-  /// This component refers to a label, which we didn't yet concretize. This
-  /// will eventually become a concrete number of RegType size.
-  | IncompLabel of RegType
-  /// Assembled instruction, whose byte values are not yet decided. IncompleteOp
-  /// will be transformed into two components: (CompOp, IncompLabel).
-  | IncompleteOp of Opcode * Operands
-  /// This component refers to an opcode that is now decided (completed) with a
-  /// concrete value. It is just that we don't concretize the corresponding
-  /// label, i.e., IncompLabel.
-  | CompOp of Opcode * Operands * byte[] * byte[] option
+  member _.PrefNormal with get() = EncPrefix(Prefix.None, false, false, true)
 
-type EncodedByteCode =
-  { Prefix: AsmComponent[]
-    REXPrefix: AsmComponent[]
-    Opcode: AsmComponent[]
-    ModRM: AsmComponent[]
-    SIB: AsmComponent[]
-    Displacement: AsmComponent[]
-    Immediate: AsmComponent[] }
+  member _.PrefREP with get() = EncPrefix(Prefix.None, false, true, true)
 
-type EncPrefix =
+  member _.PrefREP66 with get() = EncPrefix(Prefix.OPSIZE, false, true, true)
+
+  member _.PrefF3 with get() = EncPrefix(Prefix.REPZ, false, false, true)
+
+  member _.PrefF2 with get() = EncPrefix(Prefix.REPNZ, false, false, true)
+
+  member _.Pref66 with get() = EncPrefix(Prefix.OPSIZE, false, false, true)
+
+  member _.RexNormal with get() = EncREXPrefix(false, false)
+
+  member _.RexW with get() = EncREXPrefix(true, false)
+
+  member _.RexMR with get() = EncREXPrefix(false, true)
+
+  member _.RexWAndMR with get() = EncREXPrefix(true, true)
+
+  member _.VEX128n0F with get() =
+    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.None)
+
+  member _.VEX256n0F with get() =
+    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 256<rt>, Prefix.None)
+
+  member _.VEX128nF3n0F with get() =
+    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.REPZ)
+
+  member _.VEX128nF2n0F with get() =
+    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.REPNZ)
+
+  member _.VEX128n66n0F with get() =
+    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.OPSIZE)
+
+  member _.VEX256n66n0F with get() =
+    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 256<rt>, Prefix.OPSIZE)
+
+  member _.VEX128n66nWn0F with get() =
+    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.REXW, 128<rt>, Prefix.OPSIZE)
+
+  member _.VEX128n66n0F3A with get() =
+    EncVEXPrefix(VEXType.ThreeByteOpTwo, REXPrefix.NOREX, 128<rt>,
+      Prefix.OPSIZE)
+
+  member _.VEX256n66n0F3A with get() =
+    EncVEXPrefix(VEXType.ThreeByteOpTwo, REXPrefix.NOREX, 256<rt>,
+      Prefix.OPSIZE)
+
+and internal EncPrefix =
   struct
     val MandPrefix: Prefix (* Mandatory prefix (66H, F2H, or F3H) *)
     val CanLock: bool
@@ -66,7 +93,7 @@ type EncPrefix =
         CanSeg = s }
   end
 
-type EncREXPrefix =
+and internal EncREXPrefix =
   struct
     val RexW: bool
     val IsMemReg: bool
@@ -75,7 +102,7 @@ type EncREXPrefix =
         IsMemReg = mr }
   end
 
-type EncVEXPrefix =
+and internal EncVEXPrefix =
   struct
     val LeadingOpcode: VEXType
     val RexW: REXPrefix
@@ -87,39 +114,3 @@ type EncVEXPrefix =
         VecLen = l
         PP = p }
   end
-
-/// Assembly encoding context.
-type EncContext(wordSize: WordSize) =
-  member _.WordSize with get() = wordSize
-  member _.PrefNormal with get() = EncPrefix(Prefix.None, false, false, true)
-  member _.PrefREP with get() = EncPrefix(Prefix.None, false, true, true)
-  member _.PrefREP66 with get() = EncPrefix(Prefix.OPSIZE, false, true, true)
-  member _.PrefF3 with get() = EncPrefix(Prefix.REPZ, false, false, true)
-  member _.PrefF2 with get() = EncPrefix(Prefix.REPNZ, false, false, true)
-  member _.Pref66 with get() = EncPrefix(Prefix.OPSIZE, false, false, true)
-
-  member _.RexNormal with get() = EncREXPrefix(false, false)
-  member _.RexW with get() = EncREXPrefix(true, false)
-  member _.RexMR with get() = EncREXPrefix(false, true)
-  member _.RexWAndMR with get() = EncREXPrefix(true, true)
-
-  member _.VEX128n0F with get() =
-    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.None)
-  member _.VEX256n0F with get() =
-    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 256<rt>, Prefix.None)
-  member _.VEX128nF3n0F with get() =
-    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.REPZ)
-  member _.VEX128nF2n0F with get() =
-    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.REPNZ)
-  member _.VEX128n66n0F with get() =
-    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 128<rt>, Prefix.OPSIZE)
-  member _.VEX256n66n0F with get() =
-    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.NOREX, 256<rt>, Prefix.OPSIZE)
-  member _.VEX128n66nWn0F with get() =
-    EncVEXPrefix(VEXType.TwoByteOp, REXPrefix.REXW, 128<rt>, Prefix.OPSIZE)
-  member _.VEX128n66n0F3A with get() =
-    EncVEXPrefix(VEXType.ThreeByteOpTwo, REXPrefix.NOREX, 128<rt>,
-      Prefix.OPSIZE)
-  member _.VEX256n66n0F3A with get() =
-    EncVEXPrefix(VEXType.ThreeByteOpTwo, REXPrefix.NOREX, 256<rt>,
-      Prefix.OPSIZE)

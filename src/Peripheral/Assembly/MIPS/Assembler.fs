@@ -24,15 +24,21 @@
 
 namespace B2R2.Peripheral.Assembly.MIPS
 
+open System
+open FParsec
 open B2R2
 open B2R2.FrontEnd.MIPS
 open B2R2.Peripheral.Assembly.MIPS.ParserHelper
-open FParsec
-open System
 
-type LabelDefs = Map<string, Addr>
-
-type AsmParser(mipsISA: ISA, startAddress: Addr) =
+/// <namespacedoc>
+///   <summary>
+///   Contains MIPS-specific assembly components and types.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
+/// Represents an assembler for MIPS binaries.
+/// </summary>
+type Assembler(mipsISA: ISA, startAddress: Addr) =
 
   let mutable address = startAddress
 
@@ -207,5 +213,8 @@ type AsmParser(mipsISA: ISA, startAddress: Addr) =
 
   member _.Run assembly =
     match runParserOnString statements Map.empty<string, Addr> "" assembly with
-    | Success(result, us, _) -> SecondPass.updateInstructions result us
-    | Failure(str, _, _) -> printfn "Parser failed!\n%s" str; []
+    | Success(result, us, _) ->
+      SecondPass.updateInstructions result us |> ignore
+      Terminator.futureFeature ()
+    | Failure(str, _, _) ->
+      printfn "Parser failed!\n%s" str; []

@@ -61,9 +61,9 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.SSA", "..\Mi
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.ARM32", "..\Peripheral\Assembly\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj", "{996D2D5B-5053-455D-AD5C-10B454B84C66}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.AsmInterface", "..\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj", "{2E11B4A1-E74A-4336-B796-BB67583E3847}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.API", "..\Peripheral\Assembly\API\B2R2.Peripheral.Assembly.API.fsproj", "{2E11B4A1-E74A-4336-B796-BB67583E3847}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.Core", "..\Peripheral\Assembly\Core\B2R2.Peripheral.Assembly.Core.fsproj", "{B79E7779-FC4C-42F2-B7DB-F4E0BEC8E192}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.BinLowerer", "..\Peripheral\Assembly\BinLowerer\B2R2.Peripheral.Assembly.BinLowerer.fsproj", "{B79E7779-FC4C-42F2-B7DB-F4E0BEC8E192}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.Intel", "..\Peripheral\Assembly\Intel\B2R2.Peripheral.Assembly.Intel.fsproj", "{5288C2A0-C96F-4890-8ED8-7DEC709E2D5E}"
 EndProject

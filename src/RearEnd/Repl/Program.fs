@@ -26,49 +26,66 @@ module B2R2.RearEnd.Repl.Program
 
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.Peripheral.Assembly
 
 let cmds = [ "show"; "switch-parser"; "exit" ]
 
 let console = FsReadLine.Console("B2R2> ", cmds)
 
-let assemble (state: ReplState) (asm: AsmInterface) (input: string) =
-  let isLowUIRParser =
-    match state.CurrentParser with
-    | LowUIRParser -> true
-    | _ -> false
-  try asm.LiftLowUIR(isLowUIRParser, input.Trim())
-  with exc -> Error exc.Message
+let lift (asm: Assembler) builder (parser: IInstructionParsable) addr input =
+  asm.Lower input
+  |> Result.bind (fun bins ->
+    bins
+    |> List.fold (fun acc bs ->
+      let ins = parser.Parse(bs, addr)
+      ins.Translate builder :: acc
+    ) []
+    |> List.rev
+    |> Array.concat
+    |> Ok)
 
-let rec run showTemporary (state: ReplState) asm =
+let assemble state asm builder binParser uirParser (input: string) =
+  match (state: ReplState).CurrentParser with
+  | LowUIRParser ->
+    try (uirParser: LowUIR.Parser).Parse(input.Trim())
+    with exc -> Error exc.Message
+  | _ ->
+    try lift asm builder binParser asm.StartAddress (input.Trim())
+    with exc -> Error exc.Message
+
+let rec run showTemporary state asm builder binParser uirParser =
   let input = console.ReadLine()
   match ReplCommand.fromString input with
   | Quit -> ()
-  | NoInput -> run showTemporary state asm
+  | NoInput -> run showTemporary state asm builder binParser uirParser
   | SwitchParser ->
-    state.SwitchParser()
+    (state: ReplState).SwitchParser()
     state.ConsolePrompt |> console.UpdatePrompt
-    run showTemporary state asm
+    run showTemporary state asm builder binParser uirParser
   | Show ->
     Display.printRegisters showTemporary state []
-    run showTemporary state asm
+    run showTemporary state asm builder binParser uirParser
   | StmtInput input ->
-    match assemble state asm input with
+    match assemble state asm builder binParser uirParser input with
     | Error msg ->
       printfn "%s" msg
-      run showTemporary state asm
+      run showTemporary state asm builder binParser uirParser
     | Ok stmts ->
       let regdelta = state.Update stmts
       Display.printRegisters showTemporary state regdelta
-      run showTemporary state asm
+      run showTemporary state asm builder binParser uirParser
 
 let runRepl _args (opts: ReplOpts) =
-  let binhandler = BinHandle("", opts.ISA)
-  let state = ReplState(opts.ISA, binhandler.RegisterFactory, not opts.Verbose)
-  let asm = AsmInterface(opts.ISA, 0UL)
+  let hdl = BinHandle("", opts.ISA)
+  let state = ReplState(opts.ISA, hdl.RegisterFactory, not opts.Verbose)
+  let asm = Assembler(opts.ISA, 0UL)
+  let builder = GroundWork.CreateBuilder(opts.ISA, hdl.RegisterFactory)
+  let binParser = GroundWork.CreateParser(hdl.File.Reader, opts.ISA)
+  let uirParser = LowUIR.Parser(opts.ISA, hdl.RegisterFactory)
   Display.printBlue "Welcome to B2R2 REPL\n"
   state.ConsolePrompt |> console.UpdatePrompt
-  run opts.ShowTemp state asm
+  run opts.ShowTemp state asm builder binParser uirParser
 
 [<EntryPoint>]
 let main args =

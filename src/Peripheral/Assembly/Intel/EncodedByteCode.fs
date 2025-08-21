@@ -22,42 +22,34 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Peripheral.Assembly.Tests
+namespace B2R2.Peripheral.Assembly.Intel
 
-open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.Peripheral.Assembly.BinLowerer
-open B2R2.Peripheral.Assembly.Intel
+open B2R2.FrontEnd.Intel
 
-[<TestClass>]
-type IntelTests() =
-  let isa = ISA(Architecture.Intel, WordSize.Bit32)
-  let asm = Assembler(isa, 0UL) :> ILowerable
+/// <summary>
+/// Represents encoded bytecode for an Intel instruction.
+/// </summary>
+type internal EncodedByteCode =
+  { Prefix: AsmComponent[]
+    REXPrefix: AsmComponent[]
+    Opcode: AsmComponent[]
+    ModRM: AsmComponent[]
+    SIB: AsmComponent[]
+    Displacement: AsmComponent[]
+    Immediate: AsmComponent[] }
 
-  [<TestMethod>]
-  member _.``Basic Test``() =
-    let str = """
-  cmp ecx, ecx
-  jne cond
-  add edx, ecx
-  jmp done
-cond:
-  mov eax, done
-  inc ebx
-done:
-  ret
-"""
-    let result =
-      match asm.Lower str with
-      | Ok v -> v
-      | Error _ -> failwith "Bad value"
-    let expectation =
-      [ [| 0x3buy; 0xc9uy |]
-        [| 0x75uy; 0x04uy |]
-        [| 0x03uy; 0xd1uy |]
-        [| 0xebuy; 0x07uy |]
-        [| 0x8buy; 0x05uy; 0x0fuy; 0x00uy; 0x00uy; 0x00uy |]
-        [| 0x43uy |]
-        [| 0xc3uy |] ]
-    List.forall2 (=) result expectation
-    |> Assert.IsTrue
+/// Represents basic components for assembling binaries.
+and internal AsmComponent =
+  /// Normal byte, which is not associated with a label.
+  | Normal of byte
+  /// This component refers to a label, which we didn't yet concretize. This
+  /// will eventually become a concrete number of RegType size.
+  | IncompLabel of RegType
+  /// Assembled instruction, whose byte values are not yet decided. IncompleteOp
+  /// will be transformed into two components: (CompOp, IncompLabel).
+  | IncompleteOp of Opcode * Operands
+  /// This component refers to an opcode that is now decided (completed) with a
+  /// concrete value. It is just that we don't concretize the corresponding
+  /// label, i.e., IncompLabel.
+  | CompOp of Opcode * Operands * byte[] * byte[] option

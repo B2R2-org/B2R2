@@ -8,15 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="AsmParser.fs" />
-    <Compile Include="Utils.fs" />
+    <Compile Include="ILowerable.fs" />
+    <Compile Include="Exceptions.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="FParsec" Version="1.1.1" />
   </ItemGroup>
 
   <ItemGroup>

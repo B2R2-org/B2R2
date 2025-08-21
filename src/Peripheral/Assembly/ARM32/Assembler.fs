@@ -24,17 +24,21 @@
 
 namespace B2R2.Peripheral.Assembly.ARM32
 
-open FParsec
 open System
+open FParsec
 open B2R2
 open B2R2.FrontEnd.ARM32
 open B2R2.Peripheral.Assembly.ARM32.ParserHelper
 
-type UserState = Map<string, Addr>
-
-type Parser<'A> = Parser<'A, unit>
-
-type AsmParser(startAddress: Addr) =
+/// <namespacedoc>
+///   <summary>
+///   Contains ARM32-specific assembly components and types.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
+/// Represents an assembler for ARM32 binaries.
+/// </summary>
+type Assembler(startAddress: Addr) =
 
   let mutable address = startAddress
   let mutable isThumb: bool = false
@@ -391,5 +395,6 @@ type AsmParser(startAddress: Addr) =
   member _.Run assembly =
     match runParserOnString statements Map.empty<string, Addr> "" assembly with
     | Success(result, us, _) ->
-      SecondPass.updateInsInfos (filterInstructionLines result) us
+      SecondPass.updateInsInfos (filterInstructionLines result) us |> ignore
+      Terminator.futureFeature ()
     | Failure(str, _, _) -> printfn "Parser failed!\n%s" str; []

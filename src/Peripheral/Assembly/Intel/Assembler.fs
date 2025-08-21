@@ -26,19 +26,24 @@ namespace B2R2.Peripheral.Assembly.Intel
 
 open B2R2
 open B2R2.FrontEnd.Intel
-open B2R2.Peripheral.Assembly
+open B2R2.Peripheral.Assembly.BinLowerer
 open B2R2.Peripheral.Assembly.Intel.ParserHelper
 open B2R2.Peripheral.Assembly.Intel.AsmMain
 open FParsec
 open System
 
-/// Label name to relative index of instructions.
-type LabelDefs = Map<string, int>
-
-type IntelAsmParser(isa, baseAddr: Addr) =
-  inherit AsmParser(isa)
+/// <namespacedoc>
+///   <summary>
+///   Contains Intel-specific assembly components and types.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
+/// Reprsents an Intel assembler.
+/// </summary>
+type Assembler(isa: ISA, baseAddr: Addr) =
 
   let mutable inferredPrefix = Prefix.None
+
   let defaultRegType = isa.WordSize |> WordSize.toRegType
 
   let addLabeldef lbl =
@@ -226,12 +231,13 @@ type IntelAsmParser(isa, baseAddr: Addr) =
 
   let statements = sepEndBy statement terminator .>> (eof <?> "")
 
-  override _.Assemble assembly =
-    let st = { LabelMap = Map.empty; CurIndex = -1 }
-    match runParserOnString statements st "" assembly with
-    | Success(result, us, _) ->
-      filterInstructionLines result
-      |> assemble us isa.WordSize baseAddr
-      |> Result.Ok
-    | Failure(str, _, _) ->
-      Result.Error(str)
+  interface ILowerable with
+    override _.Lower assembly =
+      let st = { LabelMap = Map.empty; CurIndex = -1 }
+      match runParserOnString statements st "" assembly with
+      | Success(result, us, _) ->
+        filterInstructionLines result
+        |> assemble us isa.WordSize baseAddr
+        |> Result.Ok
+      | Failure(str, _, _) ->
+        Result.Error(str)

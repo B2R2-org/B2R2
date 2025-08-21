@@ -22,20 +22,31 @@
   SOFTWARE.
 *)
 
-module B2R2.Peripheral.Assembly.Utils
+namespace B2R2.Peripheral.Assembly
 
-open FParsec
+open B2R2
+open B2R2.Peripheral.Assembly.BinLowerer
 
-#if DEBUG
-/// This is a useful function to debug parsers.
-let (<!>) (p: Parser<_,_>) label : Parser<_,_> =
-  fun stream ->
-    printfn "%A: Entering %s" stream.Position label
-    let reply = p stream
-    printfn "%A: Leaving %s (%A)" stream.Position label reply.Status
-    if reply.Status = ReplyStatus.Ok then printfn "%A" reply.Result else ()
-    reply
-#endif
+/// <namespacedoc>
+///   <summary>
+///   Contains the APIs for the B2R2 assembly peripheral, which provides
+///   functionalities to lower assembly code into binary instructions.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
+/// Represents the main assembler class that can lower assembly code into binary
+/// instructions.
+/// </summary>
+type Assembler(isa: ISA, startAddress) =
 
-let pBetweenParen p =
-  between (pchar '(' >>. spaces) (spaces .>> pchar ')' .>> spaces) p
+  let assembler  =
+    match isa with
+    | Intel -> Intel.Assembler(isa, startAddress) :> ILowerable
+    | _ -> raise InvalidISAException
+
+  /// The start address of the binary instructions.
+  member _.StartAddress with get() = startAddress
+
+  /// Lowers the given assembly string down to a list of byte arrays, where each
+  /// array corresponds to a binary instruction.
+  member _.Lower asm = assembler.Lower asm

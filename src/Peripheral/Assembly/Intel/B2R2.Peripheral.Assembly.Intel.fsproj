@@ -8,13 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="IntelAsmTypes.fs" />
-    <Compile Include="IntelParserHelper.fs" />
-    <Compile Include="IntelAsmPrefix.fs" />
-    <Compile Include="IntelAsmOperands.fs" />
-    <Compile Include="IntelAsmOpcode.fs" />
-    <Compile Include="IntelAsmMain.fs" />
-    <Compile Include="IntelAsmParser.fs" />
+    <Compile Include="EncodedByteCode.fs" />
+    <Compile Include="EncodingContext.fs" />
+    <Compile Include="ParserHelper.fs" />
+    <Compile Include="AsmPrefix.fs" />
+    <Compile Include="AsmOperands.fs" />
+    <Compile Include="AsmOpcode.fs" />
+    <Compile Include="AsmMain.fs" />
+    <Compile Include="Assembler.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
@@ -22,7 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
-    <ProjectReference Include="..\Core\B2R2.Peripheral.Assembly.Core.fsproj" />
+    <ProjectReference Include="..\BinLowerer\B2R2.Peripheral.Assembly.BinLowerer.fsproj" />
   </ItemGroup>
 
 </Project>

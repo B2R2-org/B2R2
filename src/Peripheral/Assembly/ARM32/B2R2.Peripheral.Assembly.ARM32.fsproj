@@ -8,9 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ARM32ParserHelper.fs" />
-    <Compile Include="ARM32SecondPass.fs" />
-    <Compile Include="ARM32AsmParser.fs" />
+    <Compile Include="ParserHelper.fs" />
+    <Compile Include="SecondPass.fs" />
+    <Compile Include="Assembler.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

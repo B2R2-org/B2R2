@@ -22,28 +22,15 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Peripheral.Assembly
+module internal B2R2.Peripheral.Assembly.LowUIR.Helper
 
-open B2R2
-open B2R2.FrontEnd
+open B2R2.BinIR.LowUIR
+open FParsec
 
-type AsmInterface(isa: ISA, startAddress) =
-  let asmParser =
-    match isa with
-    | Intel -> Intel.IntelAsmParser(isa, startAddress) :> AsmParser
-    | _ -> raise InvalidISAException
-  let regFactory = GroundWork.CreateRegisterFactory isa
-  let uirParser = LowUIR.LowUIRParser(isa, regFactory)
+let typeCheck st =
+  if TypeCheck.stmt st then preturn st
+  else fail "Type check failed."
 
-  /// Parse the given assembly input, and assemble a list of byte arrays, where
-  /// each array corresponds to a binary instruction.
-  member _.AssembleBin asm = asmParser.Assemble asm
-
-  member _.Parser with get() = asmParser.Parser
-
-  /// Parse the given string input, and lift it to an array of LowUIR
-  /// statements. If the given string represents LowUIR instructions, then we
-  /// simply parse the assembly instructions and return the corresponding AST.
-  member _.LiftLowUIR(isFromLowUIR, asm) =
-    if isFromLowUIR then uirParser.Parse asm
-    else asmParser.Lift(asm, startAddress)
+let updateExpectedType e =
+  updateUserState (fun _ -> Expr.TypeOf e)
+  >>. preturn e

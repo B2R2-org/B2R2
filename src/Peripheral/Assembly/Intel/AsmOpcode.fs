@@ -26,6 +26,7 @@ module internal B2R2.Peripheral.Assembly.Intel.AsmOpcode
 
 open B2R2
 open B2R2.FrontEnd.Intel
+open B2R2.Peripheral.Assembly.BinLowerer
 open B2R2.Peripheral.Assembly.Intel.ParserHelper
 open B2R2.Peripheral.Assembly.Intel.AsmPrefix
 open B2R2.Peripheral.Assembly.Intel.AsmOperands
@@ -97,14 +98,14 @@ let normalToByte = function
   | Normal b -> b
   | _ -> Terminator.impossible ()
 
-let getCtxtByOprSz (ctx: EncContext) op8Byte opByte = function
+let getCtxtByOprSz (ctx: EncodingContext) op8Byte opByte = function
   | 8<rt> -> ctx.PrefNormal, ctx.RexNormal, op8Byte
   | 16<rt> -> ctx.Pref66, ctx.RexNormal, opByte
   | 32<rt> -> ctx.PrefNormal, ctx.RexNormal, opByte
   | 64<rt> -> ctx.PrefNormal, ctx.RexW, opByte
   | _ -> Terminator.impossible ()
 
-let inline encRL (ctx: EncContext) ins r op8Byte opByte =
+let inline encRL (ctx: EncodingContext) ins r op8Byte opByte =
   let pref, rex, opByte =
     getCtxtByOprSz ctx op8Byte opByte (Register.toRegType ctx.WordSize r)
   [| yield! prxRexOp ins ctx pref rex opByte
@@ -113,7 +114,7 @@ let inline encRL (ctx: EncContext) ins r op8Byte opByte =
   |> fun bytes ->
     [| CompOp(ins.Opcode, ins.Operands, bytes, None); IncompLabel 32<rt> |]
 
-let inline encLI (ctx: EncContext) ins regConstr i immSz op8Byte opByte =
+let inline encLI (ctx: EncodingContext) ins regConstr i immSz op8Byte opByte =
   let pref, rex, opByte = getCtxtByOprSz ctx op8Byte opByte 32<rt>
   let op =
     [| yield! prxRexOp ins ctx pref rex opByte
@@ -121,7 +122,7 @@ let inline encLI (ctx: EncContext) ins regConstr i immSz op8Byte opByte =
   let imm = immediate i immSz |> Array.map normalToByte |> Some
   [| CompOp(ins.Opcode, ins.Operands, op, imm); IncompLabel 32<rt> |]
 
-let inline encRLI (ctx: EncContext) ins r op i immSz =
+let inline encRLI (ctx: EncodingContext) ins r op i immSz =
   let pref, rex, opByte =
     getCtxtByOprSz ctx [||] op (Register.toRegType ctx.WordSize r)
   let op =
@@ -220,27 +221,27 @@ let inline encVexRRMI ins wordSz vvvv vex op r b s d i immSz =
      yield! mem b s d
      yield! immediate i immSz |]
 
-let aaa (ctx: EncContext) = function
+let aaa (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x37uy |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
-let aad (ctx: EncContext) = function
+let aad (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0xD5uy; Normal 0x0Auy |]
   | OneOperand(OprImm(imm, _)) ->
     no64Arch ctx.WordSize; [| Normal 0xD5uy; yield! immediate imm 8<rt> |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
-let aam (ctx: EncContext) = function
+let aam (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0xD4uy; Normal 0x0Auy |]
   | OneOperand(OprImm(imm, _)) ->
     no64Arch ctx.WordSize; [| Normal 0xD4uy; yield! immediate imm 8<rt> |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
-let aas (ctx: EncContext) = function
+let aas (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x3Fuy |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
-let adc (ctx: EncContext) ins =
+let adc (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
   | TwoOperands(OprReg Register.AL, OprImm(imm, _)) ->
@@ -336,9 +337,9 @@ let adc (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 ctx r ->
     no32Arch ctx.WordSize
     encRM ins ctx ctx.PrefNormal ctx.RexW [| 0x13uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let add (ctx: EncContext) ins =
+let add (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
   | TwoOperands(OprReg Register.AL, OprImm(imm, _)) ->
@@ -454,9 +455,9 @@ let add (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x03uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let addpd (ctx: EncContext) ins =
+let addpd (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -464,9 +465,9 @@ let addpd (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x58uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let addps (ctx: EncContext) ins =
+let addps (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -474,9 +475,9 @@ let addps (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x58uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let addsd (ctx: EncContext) ins =
+let addsd (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -484,9 +485,9 @@ let addsd (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x58uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let addss (ctx: EncContext) ins =
+let addss (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -494,9 +495,9 @@ let addss (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x58uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let logAnd (ctx: EncContext) ins =
+let logAnd (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm *)
   | TwoOperands(OprReg Register.AL, OprImm(imm, _)) ->
@@ -612,9 +613,9 @@ let logAnd (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x23uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let andpd (ctx: EncContext) ins =
+let andpd (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -622,9 +623,9 @@ let andpd (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x54uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let andps (ctx: EncContext) ins =
+let andps (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -632,9 +633,9 @@ let andps (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x54uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let bsr (ctx: EncContext) ins =
+let bsr (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isReg16 ctx r1 && isReg16 ctx r2 ->
     encRR ins ctx
@@ -656,9 +657,9 @@ let bsr (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBDuy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let bt (ctx: EncContext) ins =
+let bt (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isReg16 ctx r1 && isReg16 ctx r2 ->
     encRR ins ctx
@@ -704,9 +705,9 @@ let bt (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBAuy |] b s d 0b100uy imm 8<rt>
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let call (ctx: EncContext) ins =
+let call (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprDirAddr(Relative rel))
     when isInt16 rel && ctx.WordSize = WordSize.Bit32 ->
@@ -742,21 +743,21 @@ let call (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] r 0b010uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let cbw _ctx = function
   | NoOperand -> [| Normal 0x66uy; Normal 0x98uy |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
 let cdq _ctx = function
   | NoOperand -> [| Normal 0x99uy |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
-let cdqe (ctx: EncContext) = function
+let cdqe (ctx: EncodingContext) = function
   | NoOperand -> no32Arch ctx.WordSize; [| Normal 0x48uy; Normal 0x98uy |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
-let cmovcc (ctx: EncContext) ins opcode =
+let cmovcc (ctx: EncodingContext) ins opcode =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isReg16 ctx r1 && isReg16 ctx r2 ->
     encRR ins ctx
@@ -780,7 +781,7 @@ let cmovcc (ctx: EncContext) ins opcode =
     no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW opcode b s d r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let cmova ctx ins = cmovcc ctx ins [| 0x0Fuy; 0x47uy |]
 
@@ -814,7 +815,7 @@ let cmovs ctx ins = cmovcc ctx ins [| 0x0Fuy; 0x48uy |]
 
 let cmovz ctx ins = cmovcc ctx ins [| 0x0Fuy; 0x44uy |]
 
-let cmp (ctx: EncContext) ins =
+let cmp (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
   | TwoOperands(OprReg Register.AL, OprImm(imm, _)) ->
@@ -930,16 +931,16 @@ let cmp (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x3Buy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let cmpsb (ctx: EncContext) ins =
+let cmpsb (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP ctx.RexNormal [| 0xA6uy |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let cmpxchg (ctx: EncContext) ins =
+let cmpxchg (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isReg8 ctx r1 && isReg8 ctx r2 ->
     encRR ins ctx
@@ -969,24 +970,24 @@ let cmpxchg (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xB1uy |] b s d r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let cmpxchg8b (ctx: EncContext) ins =
+let cmpxchg8b (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xC7uy |] b s d 0b001uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let cmpxchg16b (ctx: EncContext) ins =
+let cmpxchg16b (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 128<rt>)) ->
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xC7uy |] b s d 0b001uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let cvtsd2ss (ctx: EncContext) ins =
+let cvtsd2ss (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -994,9 +995,9 @@ let cvtsd2ss (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x5Auy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let cvtsi2sd (ctx: EncContext) ins =
+let cvtsi2sd (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isReg32 ctx r2 ->
     encRR ins ctx
@@ -1010,9 +1011,9 @@ let cvtsi2sd (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexW [| 0x0Fuy; 0x2Auy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let cvtsi2ss (ctx: EncContext) ins =
+let cvtsi2ss (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isReg32 ctx r2 ->
     encRR ins ctx
@@ -1026,9 +1027,9 @@ let cvtsi2ss (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexW [| 0x0Fuy; 0x2Auy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let cvtss2si (ctx: EncContext) ins =
+let cvtss2si (ctx: EncodingContext) ins =
    match ins.Operands with
    | TwoOperands(OprReg r1, OprReg r2) when isReg32 ctx r1 && isXMMReg r2 ->
      encRR ins ctx
@@ -1042,9 +1043,9 @@ let cvtss2si (ctx: EncContext) ins =
    | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg64 ctx r ->
      encRM ins ctx
        ctx.PrefF3 ctx.RexW [| 0x0Fuy; 0x2Duy |] r b s d
-   | o -> printfn "%A" o; raise NotEncodableException
+   | o -> printfn "%A" o; raise EncodingFailureException
 
-let cvttss2si (ctx: EncContext) ins =
+let cvttss2si (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isReg32 ctx r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -1058,13 +1059,13 @@ let cvttss2si (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 ctx r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexW [| 0x0Fuy; 0x2Cuy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let cwde _ctx = function
   | NoOperand -> [| Normal 0x98uy |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
-let dec (ctx: EncContext) ins =
+let dec (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprReg r) when isReg8 ctx r ->
     encR ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFEuy |] r 1uy
@@ -1088,9 +1089,9 @@ let dec (ctx: EncContext) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexW [| 0xFFuy |] b s d 1uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let div (ctx: EncContext) ins =
+let div (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprReg r) when isReg8 ctx r ->
     encR ins ctx
@@ -1118,9 +1119,9 @@ let div (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b110uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let divsd (ctx: EncContext) ins =
+let divsd (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -1128,9 +1129,9 @@ let divsd (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x5Euy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let divss (ctx: EncContext) ins =
+let divss (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -1138,9 +1139,9 @@ let divss (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x5Euy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let fadd (ctx: EncContext) ins =
+let fadd (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     encM ins ctx
@@ -1152,15 +1153,15 @@ let fadd (ctx: EncContext) ins =
     encFR [| 0xD8uy; 0xC0uy |] r
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xC0uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let fcmovb _ctx ins =
   match ins.Operands with
   | TwoOperands(OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDAuy; 0xC0uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let fdiv (ctx: EncContext) ins =
+let fdiv (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     encM ins ctx
@@ -1172,21 +1173,21 @@ let fdiv (ctx: EncContext) ins =
     encFR [| 0xD8uy; 0xF0uy |] r
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xF8uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let fdivp _ctx = function
   | NoOperand -> [| Normal 0xDEuy; Normal 0xF9uy |]
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xF8uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let fdivrp _ctx = function
   | NoOperand -> [| Normal 0xDEuy; Normal 0xF1uy |]
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xF0uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let fild (ctx: EncContext) ins =
+let fild (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
     encM ins ctx
@@ -1197,9 +1198,9 @@ let fild (ctx: EncContext) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDFuy |] b s d 0b101uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let fistp (ctx: EncContext) ins =
+let fistp (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
     encM ins ctx
@@ -1210,9 +1211,9 @@ let fistp (ctx: EncContext) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDFuy |] b s d 0b111uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let fld (ctx: EncContext) ins =
+let fld (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     encM ins ctx
@@ -1224,24 +1225,24 @@ let fld (ctx: EncContext) ins =
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDBuy |] b s d 0b101uy
   | OneOperand(OprReg r) when isFPUReg r -> encFR [| 0xD9uy; 0xC0uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let fld1 _ctx = function
   | NoOperand -> [| Normal 0xD9uy; Normal 0xE8uy |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let fldcw (ctx: EncContext) ins =
+let fldcw (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xD9uy |] b s d 0b101uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let fldz _ctx = function
   | NoOperand -> [| Normal 0xD9uy; Normal 0xEEuy |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let fmul (ctx: EncContext) ins =
+let fmul (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     encM ins ctx
@@ -1253,22 +1254,22 @@ let fmul (ctx: EncContext) ins =
     encFR [| 0xD8uy; 0xC8uy |] r
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xC8uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let fmulp _ctx = function
   | NoOperand -> [| Normal 0xDEuy; Normal 0xC9uy |]
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xC8uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let fnstcw (ctx: EncContext) ins =
+let fnstcw (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xD9uy |] b s d 0b111uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let fstp (ctx: EncContext) ins =
+let fstp (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     encM ins ctx
@@ -1280,9 +1281,9 @@ let fstp (ctx: EncContext) ins =
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDBuy |] b s d 0b111uy
   | OneOperand(OprReg r) when isFPUReg r -> encFR [| 0xDDuy; 0xD8uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let fsub (ctx: EncContext) ins =
+let fsub (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     encM ins ctx
@@ -1294,9 +1295,9 @@ let fsub (ctx: EncContext) ins =
     encFR [| 0xD8uy; 0xE0uy |] r
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xE8uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let fsubr (ctx: EncContext) ins =
+let fsubr (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     encM ins ctx
@@ -1308,28 +1309,28 @@ let fsubr (ctx: EncContext) ins =
     encFR [| 0xD8uy; 0xE8uy |] r
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xE0uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let fucomi _ctx = function
   | TwoOperands(OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDBuy; 0xE8uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let fucomip _ctx = function
   | TwoOperands(OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDFuy; 0xE8uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let fxch _ctx = function
   | NoOperand -> [| Normal 0xD9uy; Normal 0xC9uy |]
   | OneOperand(OprReg r) when isFPUReg r -> encFR [| 0xD9uy; 0xC8uy |] r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let hlt _ctx = function
   | NoOperand -> [| Normal 0xF4uy |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
-let idiv (ctx: EncContext) ins =
+let idiv (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprReg r) when isReg8 ctx r ->
     encR ins ctx
@@ -1357,9 +1358,9 @@ let idiv (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b111uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let imul (ctx: EncContext) ins =
+let imul (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprReg r) when isReg8 ctx r ->
     encR ins ctx
@@ -1463,9 +1464,9 @@ let imul (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x69uy |] r b s d imm 32<rt>
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let inc (ctx: EncContext) ins =
+let inc (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprReg r) when isReg8 ctx r ->
     encR ins ctx ctx.PrefNormal ctx.RexNormal [| 0xFEuy |] r 0uy
@@ -1489,17 +1490,17 @@ let inc (ctx: EncContext) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexW [| 0xFFuy |] b s d 0uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let interrupt ins =
   match ins.Operands with
   | OneOperand(OprImm(n, _)) when isUInt8 n ->
     [| Normal 0xcduy; Normal(byte n) |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let interrupt3 () = [| Normal 0xccuy |]
 
-let jcc (ctx: EncContext) ins op8Byte opByte op =
+let jcc (ctx: EncodingContext) ins op8Byte opByte op =
   match ins.Operands with
   | OneOperand(Label _) ->
     encLbl ins
@@ -1513,7 +1514,7 @@ let jcc (ctx: EncContext) ins op8Byte opByte op =
   | OneOperand(OprDirAddr(Relative rel)) when isInt32 rel ->
     encD ins ctx
       ctx.PrefNormal ctx.RexNormal opByte rel 32<rt>
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let ja ctx ins = jcc ctx ins 0x77uy [| 0x0Fuy; 0x87uy |] Opcode.JA
 
@@ -1547,7 +1548,7 @@ let js ctx ins = jcc ctx ins 0x78uy [| 0x0Fuy; 0x88uy |] Opcode.JS
 
 let jz ctx ins = jcc ctx ins 0x74uy [| 0x0Fuy; 0x84uy |] Opcode.JZ
 
-let jmp (ctx: EncContext) ins =
+let jmp (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(Label _) ->
     encLbl ins
@@ -1573,13 +1574,13 @@ let jmp (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] b s d 0b100uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let lahf (ctx: EncContext) = function
+let lahf (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x9Fuy |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
-let lea (ctx: EncContext) ins =
+let lea (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r, Label _) ->
     encRL ctx ins r [||] [| 0x8Duy |]
@@ -1593,13 +1594,13 @@ let lea (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x8Duy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let leave (ctx: EncContext) = function
+let leave (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0xC9uy |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
-let mov (ctx: EncContext) ins =
+let mov (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg - Sreg *)
   | TwoOperands(OprReg r1, OprReg r2) when isReg16 ctx r1 && isSegReg r2 ->
@@ -1695,9 +1696,9 @@ let mov (ctx: EncContext) ins =
     no32Arch ctx.WordSize;
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xC7uy |] b s d 0b000uy imm 32<rt>
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let movaps (ctx: EncContext) ins =
+let movaps (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -1708,9 +1709,9 @@ let movaps (ctx: EncContext) ins =
   | TwoOperands(OprMem(b, s, d, 128<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x29uy |] b s d r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let movd (ctx: EncContext) ins =
+let movd (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isMMXReg r1 && isReg32 ctx r2 ->
     encRR ins ctx
@@ -1736,9 +1737,9 @@ let movd (ctx: EncContext) ins =
   | TwoOperands(OprMem(b, s, d, 32<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x7Euy |] b s d r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let movdqa (ctx: EncContext) ins =
+let movdqa (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -1749,9 +1750,9 @@ let movdqa (ctx: EncContext) ins =
   | TwoOperands(OprMem(b, s, d, 128<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x7Fuy |] b s d r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let movdqu (ctx: EncContext) ins =
+let movdqu (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -1762,9 +1763,9 @@ let movdqu (ctx: EncContext) ins =
   | TwoOperands(OprMem(b, s, d, 128<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x7Fuy |] b s d r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let movsd (ctx: EncContext) ins =
+let movsd (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand -> [| Normal 0xA5uy |]
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
@@ -1776,9 +1777,9 @@ let movsd (ctx: EncContext) ins =
   | TwoOperands(OprMem(b, s, d, 64<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x11uy |] b s d r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let movss (ctx: EncContext) ins =
+let movss (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -1786,9 +1787,9 @@ let movss (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x10uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let movsx (ctx: EncContext) ins =
+let movsx (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isReg16 ctx r1 && isReg8 ctx r2 ->
     encRR ins ctx
@@ -1826,9 +1827,9 @@ let movsx (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBFuy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let movsxd (ctx: EncContext) ins =
+let movsxd (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isReg64 ctx r1 && isReg32 ctx r2 ->
     no32Arch ctx.WordSize
@@ -1840,9 +1841,9 @@ let movsxd (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x63uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let movups (ctx: EncContext) ins =
+let movups (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -1853,9 +1854,9 @@ let movups (ctx: EncContext) ins =
   | TwoOperands(OprMem(b, s, d, 128<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x11uy |] b s d r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let movzx (ctx: EncContext) ins =
+let movzx (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isReg16 ctx r1 && isReg8 ctx r2 ->
     encRR ins ctx
@@ -1893,9 +1894,9 @@ let movzx (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xB7uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let mul (ctx: EncContext) ins =
+let mul (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprReg r) when isReg8 ctx r ->
     encR ins ctx
@@ -1923,9 +1924,9 @@ let mul (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b100uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let mulsd (ctx: EncContext) ins =
+let mulsd (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -1933,9 +1934,9 @@ let mulsd (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x59uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let mulss (ctx: EncContext) ins =
+let mulss (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -1943,9 +1944,9 @@ let mulss (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x59uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let neg (ctx: EncContext) ins =
+let neg (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprReg r) when isReg8 ctx r ->
     encR ins ctx
@@ -1973,9 +1974,9 @@ let neg (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b011uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let nop (ctx: EncContext) ins =
+let nop (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand -> [| Normal 0x90uy |]
   | OneOperand(OprReg r) when isReg16 ctx r ->
@@ -1990,9 +1991,9 @@ let nop (ctx: EncContext) ins =
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x1Fuy |] b s d 0b000uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let not (ctx: EncContext) ins =
+let not (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprReg r) when isReg8 ctx r ->
     encR ins ctx
@@ -2020,9 +2021,9 @@ let not (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b010uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let logOr (ctx: EncContext) ins =
+let logOr (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm *)
   | TwoOperands(OprReg Register.AL, OprImm(imm, _)) ->
@@ -2138,9 +2139,9 @@ let logOr (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Buy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let orpd (ctx: EncContext) ins =
+let orpd (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -2148,9 +2149,9 @@ let orpd (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x56uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let paddd (ctx: EncContext) ins =
+let paddd (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -2158,9 +2159,9 @@ let paddd (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0xFEuy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let palignr (ctx: EncContext) ins =
+let palignr (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg - Reg - Imm8 *)
   | ThreeOperands(OprReg r1, OprReg r2, OprImm(imm, _))
@@ -2182,9 +2183,9 @@ let palignr (ctx: EncContext) ins =
     when isXMMReg r ->
     encRMI ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x3Auy; 0x0Fuy |] r b s d imm 8<rt>
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let pop (ctx: EncContext) ins =
+let pop (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprReg Register.DS) ->
     no64Arch ctx.WordSize; [| Normal 0x1Fuy |]
@@ -2213,9 +2214,9 @@ let pop (ctx: EncContext) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexW [| 0x8Fuy |] b s d 0uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let pshufd (ctx: EncContext) ins =
+let pshufd (ctx: EncodingContext) ins =
   match ins.Operands with
   | ThreeOperands(OprReg r1, OprReg r2, OprImm(imm, _))
     when isXMMReg r1 && isXMMReg r2 ->
@@ -2225,9 +2226,9 @@ let pshufd (ctx: EncContext) ins =
     when isXMMReg r ->
     encRMI ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x70uy |] r b s d imm 8<rt>
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let punpckldq (ctx: EncContext) ins =
+let punpckldq (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isMMXReg r1 && isMMXReg r2 ->
     encRR ins ctx
@@ -2241,9 +2242,9 @@ let punpckldq (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x62uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let push (ctx: EncContext) ins =
+let push (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprReg Register.CS) ->
     no64Arch ctx.WordSize; [| Normal 0x0Euy |]
@@ -2282,9 +2283,9 @@ let push (ctx: EncContext) ins =
     encImm ins ctx ctx.Pref66 ctx.RexNormal [| 0x68uy |] imm 16<rt>
   | OneOperand(OprImm(imm, _)) when isUInt32 imm ->
     encImm ins ctx ctx.PrefNormal ctx.RexNormal [| 0x68uy |] imm 32<rt>
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let pxor (ctx: EncContext) ins =
+let pxor (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isMMXReg r1 && isMMXReg r2 ->
     encRR ins ctx
@@ -2298,9 +2299,9 @@ let pxor (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0xEFuy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let rotateOrShift (ctx: EncContext) ins regConstr =
+let rotateOrShift (ctx: EncodingContext) ins regConstr =
   match ins.Operands with
   | TwoOperands(OprReg r, OprImm(1L as imm, _)) when isReg8 ctx r ->
     encRI ins ctx
@@ -2382,7 +2383,7 @@ let rotateOrShift (ctx: EncContext) ins regConstr =
     no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xC1uy |] b s d regConstr imm 8<rt>
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let rcl ctx ins = rotateOrShift ctx ins 0b010uy
 
@@ -2392,7 +2393,7 @@ let rol ctx ins = rotateOrShift ctx ins 0b000uy
 
 let ror ctx ins = rotateOrShift ctx ins 0b001uy
 
-let ret (ctx: EncContext) ins =
+let ret (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand -> [| Normal 0xC3uy |]
   | OneOperand(OprDirAddr(Relative rel)) ->
@@ -2401,7 +2402,7 @@ let ret (ctx: EncContext) ins =
   | OneOperand(OprImm(imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xC2uy |] imm 16<rt>
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let sar ctx ins = rotateOrShift ctx ins 0b111uy
 
@@ -2409,11 +2410,11 @@ let shl ctx ins = rotateOrShift ctx ins 0b100uy
 
 let shr ctx ins = rotateOrShift ctx ins 0b101uy
 
-let sahf (ctx: EncContext) = function
+let sahf (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x9Euy |]
-  | _ -> raise NotEncodableException
+  | _ -> raise EncodingFailureException
 
-let sbb (ctx: EncContext) ins =
+let sbb (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
   | TwoOperands(OprReg Register.AL, OprImm(imm, _)) ->
@@ -2529,38 +2530,38 @@ let sbb (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x1Buy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let scasb (ctx: EncContext) ins =
+let scasb (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP ctx.RexNormal [| 0xAEuy |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let scasd (ctx: EncContext) ins =
+let scasd (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP ctx.RexNormal [| 0xAFuy |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let scasq (ctx: EncContext) ins =
+let scasq (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     no32Arch ctx.WordSize
     encNP ins ctx
       ctx.PrefREP ctx.RexW [| 0xAFuy |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let scasw (ctx: EncContext) ins =
+let scasw (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP66 ctx.RexNormal [| 0xAFuy |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let setcc (ctx: EncContext) ins op =
+let setcc (ctx: EncodingContext) ins op =
   match ins.Operands with
   | OneOperand(OprReg r) when isReg8 ctx r ->
     encR ins ctx
@@ -2568,7 +2569,7 @@ let setcc (ctx: EncContext) ins op =
   | OneOperand(OprMem(b, s, d, 8<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; op |] b s d 0b000uy
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let seta ctx ins = setcc ctx ins 0x97uy
 
@@ -2602,7 +2603,7 @@ let sets ctx ins = setcc ctx ins 0x98uy
 
 let setz ctx ins = setcc ctx ins 0x94uy
 
-let shld (ctx: EncContext) ins =
+let shld (ctx: EncodingContext) ins =
   match ins.Operands with
   | ThreeOperands(OprReg r1, OprReg r2, OprImm(imm, _))
     when isReg16 ctx r1 && isReg16 ctx r2 ->
@@ -2656,38 +2657,38 @@ let shld (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xA5uy |] b s d r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let stosb (ctx: EncContext) ins =
+let stosb (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP ctx.RexNormal [| 0xAAuy |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let stosd (ctx: EncContext) ins =
+let stosd (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP ctx.RexNormal [| 0xABuy |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let stosq (ctx: EncContext) ins =
+let stosq (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     no32Arch ctx.WordSize
     encNP ins ctx
       ctx.PrefREP ctx.RexW [| 0xABuy |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let stosw (ctx: EncContext) ins =
+let stosw (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP66 ctx.RexNormal [| 0xABuy |]
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let sub (ctx: EncContext) ins =
+let sub (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
   | TwoOperands(OprReg Register.AL, OprImm(imm, _)) ->
@@ -2803,9 +2804,9 @@ let sub (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x2Buy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let subsd (ctx: EncContext) ins =
+let subsd (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -2813,9 +2814,9 @@ let subsd (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x5Cuy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let subss (ctx: EncContext) ins =
+let subss (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -2823,9 +2824,9 @@ let subss (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x5Cuy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let test (ctx: EncContext) ins =
+let test (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm *)
   | TwoOperands(OprReg Register.AL, OprImm(imm, _)) ->
@@ -2901,9 +2902,9 @@ let test (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x85uy |] b s d r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let ucomiss (ctx: EncContext) ins =
+let ucomiss (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -2911,9 +2912,9 @@ let ucomiss (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x2Euy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let vaddpd (ctx: EncContext) ins =
+let vaddpd (ctx: EncodingContext) ins =
   match ins.Operands with
   | ThreeOperands(OprReg r1, OprReg r2, OprReg r3)
     when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
@@ -2927,9 +2928,9 @@ let vaddpd (ctx: EncContext) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 256<rt>))
     when isYMMReg r1 && isYMMReg r2 ->
     encVexRRM ins ctx.WordSize (Some r2) ctx.VEX256n66n0F [| 0x58uy |] r1 b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let vaddps (ctx: EncContext) ins =
+let vaddps (ctx: EncodingContext) ins =
   match ins.Operands with
   | ThreeOperands(OprReg r1, OprReg r2, OprReg r3)
     when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
@@ -2943,9 +2944,9 @@ let vaddps (ctx: EncContext) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 256<rt>))
     when isYMMReg r1 && isYMMReg r2 ->
     encVexRRM ins ctx.WordSize (Some r2) ctx.VEX256n0F [| 0x58uy |] r1 b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let vaddsd (ctx: EncContext) ins =
+let vaddsd (ctx: EncodingContext) ins =
   match ins.Operands with
   | ThreeOperands(OprReg r1, OprReg r2, OprReg r3)
     when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
@@ -2953,9 +2954,9 @@ let vaddsd (ctx: EncContext) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 64<rt>))
     when isXMMReg r1 && isXMMReg r2 ->
     encVexRRM ins ctx.WordSize (Some r2) ctx.VEX128nF2n0F [| 0x58uy |] r1 b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let vaddss (ctx: EncContext) ins =
+let vaddss (ctx: EncodingContext) ins =
   match ins.Operands with
   | ThreeOperands(OprReg r1, OprReg r2, OprReg r3)
     when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
@@ -2963,9 +2964,9 @@ let vaddss (ctx: EncContext) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 32<rt>))
     when isXMMReg r1 && isXMMReg r2 ->
     encVexRRM ins ctx.WordSize (Some r2) ctx.VEX128nF3n0F [| 0x58uy |] r1 b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let vpalignr (ctx: EncContext) ins =
+let vpalignr (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg - Reg - Reg - Imm8 *)
   | FourOperands(OprReg r1, OprReg r2, OprReg r3, OprImm(imm, _))
@@ -2985,9 +2986,9 @@ let vpalignr (ctx: EncContext) ins =
     when isYMMReg r1 && isYMMReg r2 ->
     encVexRRMI ins ctx.WordSize
       (Some r2) ctx.VEX256n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let xchg (ctx: EncContext) ins =
+let xchg (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg Register.AX, OprReg r)
   | TwoOperands(OprReg r, OprReg Register.AX) when isReg16 ctx r ->
@@ -2999,9 +3000,9 @@ let xchg (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprReg Register.RAX) when isReg64 ctx r ->
     no32Arch ctx.WordSize
     encO ins ctx ctx.PrefNormal ctx.RexW 0x90uy r
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let xor (ctx: EncContext) ins =
+let xor (ctx: EncodingContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1). *)
   | TwoOperands(OprReg Register.AL, OprImm(imm, _)) ->
@@ -3109,9 +3110,9 @@ let xor (ctx: EncContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x33uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
-let xorps (ctx: EncContext) ins =
+let xorps (ctx: EncodingContext) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins ctx
@@ -3119,7 +3120,7 @@ let xorps (ctx: EncContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x57uy |] r b s d
-  | o -> printfn "%A" o; raise NotEncodableException
+  | o -> printfn "%A" o; raise EncodingFailureException
 
 let syscall () =
   [| Normal 0x0Fuy; Normal 0x05uy |]

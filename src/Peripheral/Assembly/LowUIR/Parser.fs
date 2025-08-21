@@ -24,20 +24,25 @@
 
 namespace B2R2.Peripheral.Assembly.LowUIR
 
-open FParsec
 open System
 open System.Numerics
 open System.Globalization
+open FParsec
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
-open B2R2.Peripheral.Assembly.Utils
 open B2R2.Peripheral.Assembly.LowUIR.Helper
 
-type Parser<'T> = Parser<'T, RegType>
-
-type LowUIRParser(isa: ISA, regFactory: IRegisterFactory) =
+/// <namespacedoc>
+///   <summary>
+///   Contains LowUIR-specific assembly components and types.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
+/// Represents a parser for LowUIR statements.
+/// </summary>
+type Parser(isa: ISA, regFactory: IRegisterFactory) =
   let isAllowedFirstCharForID c = isAsciiLetter c
 
   let isAllowedCharForID c = isAsciiLetter c || isDigit c
@@ -182,6 +187,9 @@ type LowUIRParser(isa: ISA, regFactory: IRegisterFactory) =
     pchar '[' >>. ws
     >>. pint32 .>> ws .>> pchar ':' .>> ws .>>. pint32 .>> ws
     .>> pchar ']'
+
+  let pBetweenParen p =
+    between (pchar '(' >>. spaces) (spaces .>> pchar ')' .>> spaces) p
 
   let pParenOrExtract =
     pBetweenParen pOps .>>. opt pExtractPattern

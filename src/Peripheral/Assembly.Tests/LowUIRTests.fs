@@ -33,7 +33,7 @@ open B2R2.Peripheral.Assembly.LowUIR
 [<TestClass>]
 type LowUIRTests() =
   let regFactory = Intel.RegisterFactory WordSize.Bit64
-  let p = LowUIRParser(ISA Architecture.Intel, regFactory)
+  let p = Parser(ISA Architecture.Intel, regFactory)
   let size1Num = BitVector.T
   let size64Num = BitVector.Cast(size1Num, 64<rt>)
   let get = function Ok v -> v | Error _ -> failwith "Bad value"

@@ -28,13 +28,17 @@ open B2R2
 open B2R2.FrontEnd.Intel
 open B2R2.Peripheral.Assembly.Intel.ParserHelper
 
-let isReg8 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 8<rt>
+let isReg8 (ctx: EncodingContext) reg =
+  Register.toRegType ctx.WordSize reg = 8<rt>
 
-let isReg16 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 16<rt>
+let isReg16 (ctx: EncodingContext) reg =
+  Register.toRegType ctx.WordSize reg = 16<rt>
 
-let isReg32 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 32<rt>
+let isReg32 (ctx: EncodingContext) reg =
+  Register.toRegType ctx.WordSize reg = 32<rt>
 
-let isReg64 (ctx: EncContext) reg = Register.toRegType ctx.WordSize reg = 64<rt>
+let isReg64 (ctx: EncodingContext) reg =
+  Register.toRegType ctx.WordSize reg = 64<rt>
 
 let isMMXReg reg = Register.Kind.MMX = Register.getKind reg
 
@@ -46,7 +50,7 @@ let isSegReg reg = Register.Kind.Segment = Register.getKind reg
 
 let isFPUReg reg = Register.Kind.FPU = Register.getKind reg
 
-let private isHalfSplit (ctx: EncContext) reg =
+let private isHalfSplit (ctx: EncodingContext) reg =
   match ctx.WordSize, Register.toRegType ctx.WordSize reg with
   | WordSize.Bit64, 32<rt> -> true
   | WordSize.Bit32, 16<rt> -> true
@@ -193,7 +197,7 @@ let encodeRexRXB ctx isMR = function
   | ThreeOperands(OprReg r, Label _, OprImm _) -> encodeRexR r
   | o -> printfn "Inavlid Operand (%A)" o; Terminator.futureFeature ()
 
-let encodeREXPref ins (ctx: EncContext) (rexPrx: EncREXPrefix) =
+let encodeREXPref ins (ctx: EncodingContext) (rexPrx: EncREXPrefix) =
   if ctx.WordSize = WordSize.Bit32 then [||]
   else (* IntelX64 *)
     let rexW = if rexPrx.RexW then 0x48uy else 0uy

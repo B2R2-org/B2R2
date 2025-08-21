@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.Peripheral.Assembly.Intel.ParserHelper
+module internal B2R2.Peripheral.Assembly.Intel.ParserHelper
 
 open B2R2
 open B2R2.FrontEnd.Intel

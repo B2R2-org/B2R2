@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.Peripheral.Assembly.ARM32.ParserHelper
+module internal B2R2.Peripheral.Assembly.ARM32.ParserHelper
 
 open B2R2
 open B2R2.FrontEnd.ARM32
@@ -57,32 +57,32 @@ let substituteParsedRegister (reg, dummyOffset) =
 let parseShiftOperation opcode imm =
   let srType =
     match opcode with
-    | Opcode.LSL -> Some ShiftOp.LSL
-    | Opcode.LSR -> Some ShiftOp.LSR
-    | Opcode.ASR -> Some ShiftOp.ASR
-    | Opcode.ROR -> Some ShiftOp.ROR
-    | Opcode.RRX -> Some ShiftOp.RRX
+    | Opcode.LSL -> Some LSL
+    | Opcode.LSR -> Some LSR
+    | Opcode.ASR -> Some ASR
+    | Opcode.ROR -> Some ROR
+    | Opcode.RRX -> Some RRX
     | _ -> None
   if srType.IsNone then fail "not a shift opcode"
   else preturn (srType.Value, imm)
 
 let getSRType (str: string) =
   match str.ToLowerInvariant() with
-  | "lsl" -> ShiftOp.LSL
-  | "lsr" -> ShiftOp.LSR
-  | "asr" -> ShiftOp.ASR
-  | "ror" -> ShiftOp.ROR
-  | "rrx" -> ShiftOp.RRX
+  | "lsl" -> LSL
+  | "lsr" -> LSR
+  | "asr" -> ASR
+  | "ror" -> ROR
+  | "rrx" -> RRX
   | _ -> failwith "unknown SRType"
 
 let parseOprRegShiftOperand opcode reg =
   let srType =
     match opcode with
-    | Opcode.LSL -> Some ShiftOp.LSL
-    | Opcode.LSR -> Some ShiftOp.LSR
-    | Opcode.ASR -> Some ShiftOp.ASR
-    | Opcode.ROR -> Some ShiftOp.ROR
-    | Opcode.RRX -> Some ShiftOp.RRX
+    | Opcode.LSL -> Some LSL
+    | Opcode.LSR -> Some LSR
+    | Opcode.ASR -> Some ASR
+    | Opcode.ROR -> Some ROR
+    | Opcode.RRX -> Some RRX
     | _ -> None
   if srType.IsNone then fail "not a shift opcode"
   else preturn (OprRegShift(srType.Value, reg))

@@ -22,13 +22,13 @@
   SOFTWARE.
 *)
 
-module B2R2.Peripheral.Assembly.MIPS.SecondPass
+module internal B2R2.Peripheral.Assembly.ARM32.SecondPass
 
 open B2R2
-open B2R2.FrontEnd.MIPS
-open B2R2.Peripheral.Assembly.MIPS.ParserHelper
+open B2R2.FrontEnd.ARM32
+open B2R2.Peripheral.Assembly.ARM32.ParserHelper
 
-let updateOperands insAddress operandList labelToAddress =
+let updateOperands _insAddress operandList labelToAddress =
   let rec doChecking operands (mapping: Map<string, Addr>) result =
     match operands with
     | [] -> extractOperands (List.rev result)
@@ -37,23 +37,24 @@ let updateOperands insAddress operandList labelToAddress =
       | GoToLabel(a1) ->
         if mapping.ContainsKey a1 then
           let lblAddr = mapping[a1]
-          let value = OpAddr(Relative(int64 (lblAddr - insAddress) - 4L))
+          let value = LiteralMode(int64 lblAddr) |> OprMemory
           doChecking tail mapping (value :: result)
         else
+          printfn "the label %s is not defined" a1
           failwith "Incorrect Label"
       | _ -> doChecking tail mapping (hd :: result)
   doChecking operandList labelToAddress []
 
-/// This is the second pass. UpdateInstructions replaces every occurance of
-/// Labels coming as operands by their relative address values.
-let updateInstructions (insList: AsmInsInfo list) labelToAddress =
-  let rec doUpdate inss mapping result =
-    match inss with
+/// This is the second pass. UpdateInsInfos replaces every occurance of Labels
+/// coming as operands by their relative address values.
+let updateInsInfos (insInfoList: AsmInsInfo list) labelToAddress =
+  let rec doUpdate insInfos mapping result =
+    match insInfos with
     | [] -> List.rev result
     | hd :: tail ->
       let operands = hd.Operands
       let operands = getOperandsAsList operands
       let operands = updateOperands hd.Address operands mapping
-      let newInstruction = { hd with Operands = operands }
-      doUpdate tail mapping (newInstruction :: result)
-  doUpdate insList labelToAddress []
+      let newInsInfo = { hd with Operands = operands }
+      doUpdate tail mapping (newInsInfo :: result)
+  doUpdate insInfoList labelToAddress []

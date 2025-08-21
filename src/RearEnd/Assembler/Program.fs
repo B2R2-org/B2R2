@@ -26,15 +26,17 @@ module B2R2.RearEnd.Assembler.Program
 
 open System
 open B2R2
-open B2R2.RearEnd.Utils
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 open B2R2.Peripheral.Assembly
+open B2R2.RearEnd.Utils
 
 let [<Literal>] private NormalPrompt = "> "
 
-let private printIns (asm: AsmInterface) addr bs =
+let private printIns parser (asm: Assembler) addr bs =
   let bCode = (BitConverter.ToString(bs)).Replace("-", "")
-  let ins = asm.Parser.Parse(bs, addr)
+  let ins = (parser: IInstructionParsable).Parse(bs, addr)
   Terminal.Out.PrintLine(sprintf "%08x: %-20s     %s" addr bCode (ins.Disasm()))
   addr + uint64 (Array.length bs)
 
@@ -46,16 +48,19 @@ let getAssemblyPrinter (opts: AssemblerOpts) =
   match opts.Mode with
   | GeneralMode(isa) ->
     let baseAddr = opts.BaseAddress
-    let asm = AsmInterface(isa, baseAddr)
+    let reader = BinReader.Init isa.Endian
+    let parser = GroundWork.CreateParser(reader, isa)
+    let asm = Assembler(isa, baseAddr)
     fun str ->
-      asm.AssembleBin str
+      asm.Lower str
       |> printResult (fun res ->
-        List.fold (printIns asm) baseAddr res
+        List.fold (printIns parser asm) baseAddr res
         |> ignore)
   | LowUIRMode(isa) ->
-    let asm = AsmInterface(isa, opts.BaseAddress)
+    let regFactory = GroundWork.CreateRegisterFactory isa
+    let parser = LowUIR.Parser(isa, regFactory)
     fun str ->
-      asm.LiftLowUIR(true, str)
+      parser.Parse str
       |> printResult (Array.iter (Pp.stmtToString >> Terminal.Out.PrintLine))
 
 let rec private asmFromStdin (console: FsReadLine.Console) printer str =

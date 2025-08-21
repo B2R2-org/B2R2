@@ -22,15 +22,18 @@
   SOFTWARE.
 *)
 
-module B2R2.Peripheral.Assembly.LowUIR.Helper
+namespace B2R2.Peripheral.Assembly.BinLowerer
 
-open B2R2.BinIR.LowUIR
-open FParsec
-
-let typeCheck st =
-  if TypeCheck.stmt st then preturn st
-  else fail "Type check failed."
-
-let updateExpectedType e =
-  updateUserState (fun _ -> Expr.TypeOf e)
-  >>. preturn e
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for lowering assembly code into binary code.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
+/// Represents an interface for lowering binary code from an assembly string.
+/// </summary>
+type ILowerable =
+  /// Assembles binary code from a given assembly string, returning a list of
+  /// byte arrays, where each array corresponds to bytecode of a single
+  /// instruction.
+  abstract Lower: string -> Result<byte[] list, string>

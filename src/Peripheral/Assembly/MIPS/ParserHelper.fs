@@ -22,10 +22,14 @@
   SOFTWARE.
 *)
 
-module B2R2.Peripheral.Assembly.MIPS.ParserHelper
+module internal B2R2.Peripheral.Assembly.MIPS.ParserHelper
 
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd.MIPS
+
+[<assembly: InternalsVisibleTo("B2R2.Peripheral.Assembly.Tests")>]
+do ()
 
 type AsmInsInfo =
   { Address: Addr
