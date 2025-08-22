@@ -35,8 +35,8 @@ open B2R2.MiddleEnd.DataFlow
 /// SSACFG's vertex.
 type SSAVertex = IVertex<SSABasicBlock>
 
-/// A mapping from an address to an SSACFG vertex.
-type SSAVMap = Dictionary<ProgramPoint, SSAVertex>
+/// A mapping from an IRCFG vertex to an SSACFG vertex.
+type SSAVMap = Dictionary<IVertex<LowUIRBasicBlock>, SSAVertex>
 
 /// This is a mapping from an edge to an abstract vertex (for external function
 /// calls). We first separately create abstract vertices even if they are
@@ -68,16 +68,16 @@ module private SSALifterFactory =
 
   let getVertex stmtProcessor vMap g (src: IVertex<LowUIRBasicBlock>) =
     let bbl = src.VData :> ILowUIRBasicBlock
-    let ppoint = bbl.PPoint
-    match (vMap: SSAVMap).TryGetValue ppoint with
+    match (vMap: SSAVMap).TryGetValue src with
     | true, v -> v
     | false, _ ->
       let stmts = liftStmts stmtProcessor bbl.LiftedInstructions
       let lastAddr = bbl.LastInstruction.Address
       let endPoint = lastAddr + uint64 bbl.LastInstruction.Length - 1UL
+      let ppoint = bbl.PPoint
       let blk = SSABasicBlock.CreateRegular(stmts, ppoint, endPoint)
-      let v = (g: SSACFG).AddVertex blk
-      vMap.Add(ppoint, v)
+      let v = (g: SSACFG).AddVertex(blk)
+      vMap.Add(src, v)
       v
 
   let liftRundown stmtProcessor rundown =
@@ -261,6 +261,9 @@ module private SSALifterFactory =
       renameExpr stack target2
 
   let introduceDef (count: VarCountMap) (stack: IDStack) (v: Variable) =
+    if not <| count.ContainsKey v.Kind then (* Lazy initialization *)
+      count.Add(v.Kind, 0)
+      stack.Add(v.Kind, [ 0 ])
     count[v.Kind] <- count[v.Kind] + 1
     let i = count[v.Kind]
     stack[v.Kind] <- i :: stack[v.Kind]
@@ -317,9 +320,8 @@ module private SSALifterFactory =
     rename g domTree count stack g.SingleRoot
 
   /// Add phis and rename all the variables in the SSACFG.
-  let updatePhis ssaCFG =
+  let updatePhis ssaCFG dom =
     let defSites = DefSites()
-    let dom = computeDominatorInfo ssaCFG
     let globals = findDefVars ssaCFG defSites
     placePhis ssaCFG defSites globals
     renameVars ssaCFG defSites dom
@@ -376,16 +378,18 @@ module private SSALifterFactory =
       v.VData.Internals.Statements
       |> Array.choose (stmtChooser state)
       |> v.VData.Internals.UpdateStatements
-    updatePhis ssaCFG
 
   let create hdl stmtProcessor callback =
     { new ISSALiftable with
         member _.Lift cfg =
           let ssaCFG = SSACFG cfg.ImplementationType
           convertToSSA stmtProcessor cfg ssaCFG
-          updatePhis ssaCFG
+          let dom = computeDominatorInfo ssaCFG
+          updatePhis ssaCFG dom
           ssaCFG.IterVertex(fun v -> v.VData.Internals.UpdatePPoints())
           promote hdl ssaCFG callback
+          updatePhis ssaCFG dom
+          ssaCFG.IterVertex(fun v -> v.VData.Internals.UpdatePPoints())
           ssaCFG }
 
 /// The factory for SSA lifter.

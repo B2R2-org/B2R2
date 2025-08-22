@@ -94,7 +94,10 @@ type Instruction
       | REVERT | RETURN | SELFDESTRUCT | INVALID | STOP -> true
       | _ -> false
 
-    member _.IsNop = false
+    member _.IsNop =
+      match opcode with
+      | JUMPDEST -> true
+      | _ -> false
 
     member _.IsInlinedAssembly = false
 

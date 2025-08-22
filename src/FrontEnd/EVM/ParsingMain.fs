@@ -183,8 +183,11 @@ let private parseOpcode (span: ReadOnlySpan<byte>) =
   | 0xffuy -> struct (SELFDESTRUCT, 5000, 1u)
   | _ -> raise ParsingFailureException
 
+let parseWith lifter opcode gas instrLen offset addr =
+  Instruction(addr, instrLen, offset, opcode, gas, lifter)
+
 let parse lifter span offset addr =
   let struct (opcode, gas, instrLen) = parseOpcode span
-  Instruction(addr, instrLen, offset, opcode, gas, lifter)
+  parseWith lifter opcode gas instrLen offset addr
 
 // vim: set tw=80 sts=2 sw=2:

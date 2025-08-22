@@ -36,8 +36,6 @@ type ICFGRecovery<'UsrCtx, 'GlbCtx when 'UsrCtx :> IResettable
                                     and 'GlbCtx: (new: unit -> 'GlbCtx)> =
   inherit ICFGBuildingStrategy<'UsrCtx, 'GlbCtx>
   inherit IIndirectJmpAnalyzable<'UsrCtx, 'GlbCtx>
-  inherit ICallAnalyzable<'UsrCtx, 'GlbCtx>
-  inherit IAnalysisResumable<'UsrCtx, 'GlbCtx>
   inherit IGraphCallback<'UsrCtx, 'GlbCtx>
 
   /// Returns the function summarizer for this CFG recovery strategy.
@@ -61,28 +59,6 @@ and IIndirectJmpAnalyzable<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     * ProgramPoint
     * IVertex<LowUIRBasicBlock>
     -> Option<CFGResult>
-
-/// Handles the analysis of function calls with call-related CFG actions.
-and ICallAnalyzable<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                                    and 'FnCtx: (new: unit -> 'FnCtx)
-                                    and 'GlCtx: (new: unit -> 'GlCtx)> =
-  abstract AnalyzeCall:
-       CFGBuildingContext<'FnCtx, 'GlCtx>
-    * CallSite
-    * callee: Addr
-    * CalleeInfo
-    * isTailCall: bool
-    -> CFGResult
-
-/// Handles the resumption of CFG analysis with an CFG action `ResumeAnalysis`.
-and IAnalysisResumable<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                                       and 'FnCtx: (new: unit -> 'FnCtx)
-                                       and 'GlCtx: (new: unit -> 'GlCtx)> =
-  abstract ResumeAnalysis:
-       CFGBuildingContext<'FnCtx, 'GlCtx>
-    * ProgramPoint
-    * callback: CFGAction
-    -> CFGResult
 
 /// Represents a callback interface for graph operations in CFG recovery.
 and IGraphCallback<'FnCtx, 'GlCtx when 'FnCtx :> IResettable

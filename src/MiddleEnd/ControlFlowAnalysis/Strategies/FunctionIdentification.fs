@@ -66,4 +66,5 @@ type FunctionIdentification<'FnCtx,
     member _.OnCreate(_ctx) = ()
     member _.OnFinish(_ctx) = MoveOn
     member _.OnCyclicDependency(_) = Terminator.impossible ()
+    member _.FindCandidatesForPostProcessing _ = [||]
 

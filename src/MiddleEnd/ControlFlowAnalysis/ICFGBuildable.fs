@@ -172,3 +172,11 @@ and ICFGBuildingStrategy<'FnCtx,
   abstract OnCyclicDependency:
        (Addr * ICFGBuildable<'FnCtx, 'GlCtx>)[]
     -> ICFGBuildable<'FnCtx, 'GlCtx>
+
+  /// This is a callback that is called when all function builders are done
+  /// building. This function returns a list of candidate functions to analyze
+  /// based on the given list of function builders. When it returns an empty
+  /// array, it means that there are no candidates to analyze, and the recovery
+  /// process is done.
+  abstract FindCandidatesForPostProcessing:
+    ICFGBuildable<'FnCtx, 'GlCtx>[] -> Addr[]

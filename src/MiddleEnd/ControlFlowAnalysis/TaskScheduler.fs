@@ -219,7 +219,11 @@ type TaskScheduler<'FnCtx,
     if workingSet.Count = 0 then
       match builders.GetTerminationStatus() with
       | AllDone ->
-        terminateWorkers ()
+        match strategy.FindCandidatesForPostProcessing builders.Values with
+        | [||] ->
+          terminateWorkers ()
+        | nextCandidates ->
+          nextCandidates |> Array.iter (msgbox.Post << StartBuilding)
 #if CFGDEBUG
         dbglog ManagerTid "Termination" "All done."
 #endif

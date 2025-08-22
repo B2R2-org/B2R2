@@ -24,9 +24,145 @@
 
 module B2R2.MiddleEnd.DataFlow.SensitiveDFHelper
 
+open B2R2
 open B2R2.BinIR
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
+
+let [<Literal>] MaxExpansionDepth = 64
+
+let rec expandExpr state e = expandExprAux Set.empty 0 state e
+
+and expandExprAux visited depth (state: State<_, _>) e =
+  let depth = depth + 1
+  match e with
+  | _ when depth > MaxExpansionDepth -> e
+  | SSA.Var var when Set.contains var visited -> e
+  | SSA.Var var ->
+    let visited = Set.add var visited
+    (* Note that we use fake definition for variables that are not defined in
+       the current function. This is because we cannot find the definition of
+       such variables, and we assume that they are defined in the caller
+       function. *)
+    match state.TryFindSSADefStmtFromSSAVar var with
+    | Some(SSA.Def(_, e)) -> expandExprAux visited depth state e
+    | None -> e
+    | _ -> Terminator.impossible ()
+  | SSA.ExprList [ e ] -> expandExprAux visited depth state e
+  | SSA.ExprList el ->
+    el |> List.map (expandExprAux visited depth state) |> SSA.ExprList
+  | SSA.BinOp(op, rt, e1, e2) ->
+    let e1' = expandExprAux visited depth state e1
+    let e2' = expandExprAux visited depth state e2
+    SSA.BinOp(op, rt, e1', e2')
+  | SSA.UnOp(op, rt, e) ->
+    let e' = expandExprAux visited depth state e
+    SSA.UnOp(op, rt, e')
+  | SSA.Extract(e, rt, i) ->
+    let e' = expandExprAux visited depth state e
+    SSA.Extract(e', rt, i)
+  | SSA.Cast(castKind, rt, e) ->
+    let e' = expandExprAux visited depth state e
+    SSA.Cast(castKind, rt, e')
+  | SSA.Load(memVar, rt, e) ->
+    let e' = expandExprAux visited depth state e
+    SSA.Load(memVar, rt, e')
+  | SSA.Ite(cond, rt, tExpr, fExpr) ->
+    let cond' = expandExprAux visited depth state cond
+    let tExpr' = expandExprAux visited depth state tExpr
+    let fExpr' = expandExprAux visited depth state fExpr
+    SSA.Ite(cond', rt, tExpr', fExpr')
+  | SSA.RelOp(op, rt, e1, e2) ->
+    let e1' = expandExprAux visited depth state e1
+    let e2' = expandExprAux visited depth state e2
+    SSA.RelOp(op, rt, e1', e2')
+  | SSA.Store(memVar, rt, addr, value) ->
+    let addr' = expandExprAux visited depth state addr
+    let value' = expandExprAux visited depth state value
+    SSA.Store(memVar, rt, addr', value')
+  | SSA.Num _
+  | SSA.FuncName _
+  | SSA.Undefined _ -> e
+
+/// Returns the list of root variables for the given variables.
+let rec findRootVars (state: State<_, _>) acc worklist =
+  match worklist with
+  | [] -> acc
+  | var :: rest ->
+    match state.TryFindSSADefStmtFromSSAVar var with
+    | Some(SSA.Def(_, e)) ->
+      match e with
+      | SSA.Var rdVar -> findRootVars state acc (rdVar :: rest)
+      | SSA.ExprList exprs ->
+        exprs
+        |> List.choose (function
+          | SSA.Var rdVar -> Some rdVar
+          | _ -> None)
+        |> List.append rest
+        |> findRootVars state acc
+      | _ -> findRootVars state (var :: acc) rest
+    | _ -> findRootVars state (var :: acc) rest
+
+/// Returns the list of root variables, considering AND operators with jump
+/// destination addresses. Note that this function must be given a non-expanded
+/// expression.
+let rec findRootVarsFromJumpDstVar (state: State<_, _>) acc worklist =
+  match worklist with
+  | [] -> acc
+  | var :: rest ->
+    match state.TryFindSSADefStmtFromSSAVar var with
+    | Some(SSA.Def(_, e)) ->
+      match e with
+      | SSA.Var rdVar -> findRootVarsFromJumpDstVar state acc (rdVar :: rest)
+      | SSA.BinOp(BinOpType.AND, _, SSA.ExprList [ SSA.Var var1 ],
+                                    SSA.ExprList [ SSA.Var var2 ]) ->
+        match expandExpr state (SSA.Var var1),
+              expandExpr state (SSA.Var var2) with
+        | SSA.Num bv_bitmask, SSA.Num _bv_dst
+          when bv_bitmask.BigValue = bigint 0xffffffffUL ->
+          findRootVarsFromJumpDstVar state acc (var2 :: rest)
+        | SSA.Num _bv_dst, SSA.Num bv_bitmask
+          when bv_bitmask.BigValue = bigint 0xffffffffUL ->
+          findRootVarsFromJumpDstVar state acc (var1 :: rest)
+        | _ -> acc
+      | SSA.ExprList exprs ->
+        exprs
+        |> List.choose (function
+          | SSA.Var rdVar -> Some rdVar
+          | _ -> None)
+        |> List.append rest
+        |> findRootVarsFromJumpDstVar state acc
+      | _ -> findRootVarsFromJumpDstVar state (var :: acc) rest
+    | _ -> findRootVarsFromJumpDstVar state (var :: acc) rest
+
+let extractVarsFromExpr e =
+  match e with
+  | SSA.Var var -> [ var ]
+  | SSA.ExprList exprs ->
+    exprs
+    |> List.choose (function
+      | SSA.Var var -> Some var
+      | _ -> None)
+  | _ -> []
+
+let findRootVarsFromJumpDstExpr state e =
+  extractVarsFromExpr e
+  |> findRootVarsFromJumpDstVar state []
+
+let findRootVarsFromExpr state e =
+  extractVarsFromExpr e
+  |> findRootVars state []
+
+let getDefSiteVertex (g: IDiGraph<_, _>) (state: State<_, _>) var =
+  let svp = state.SSAVarToDefSVP var
+  let spp = svp.SensitiveProgramPoint
+  let pp = spp.ProgramPoint
+  if ProgramPoint.IsFake pp then
+    g.SingleRoot
+  else
+    assert state.StmtOfBBLs.ContainsKey pp
+    snd state.StmtOfBBLs[pp]
 
 let getTerminator (state: State<_, _>) v tag =
   let sstmts = state.GetSSAStmts(v, tag)

@@ -109,8 +109,6 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
 
   member _.EvalExpr(pp, e) = evaluateExpr pp e
 
-  member _.MarkEdgeAsPending(src, dst) = state.MarkEdgeAsPending(src, dst)
-
   member _.Reset() = state.Reset()
 
   member _.State with get() = state

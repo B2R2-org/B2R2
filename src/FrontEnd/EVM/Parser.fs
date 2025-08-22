@@ -41,6 +41,10 @@ type EVMParser(isa: ISA) =
 
   member _.CodeOffset with get() = codeOffset and set(o) = codeOffset <- o
 
+  member _.Parse(opcode, gas, instrLen, codeOffset, addr) =
+    ParsingMain.parseWith lifter opcode gas instrLen codeOffset addr
+    :> IInstruction
+
   interface IInstructionParsable with
     member _.Parse(bs: byte[], addr) =
       let span = ReadOnlySpan(bs)

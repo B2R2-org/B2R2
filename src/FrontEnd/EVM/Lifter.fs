@@ -175,25 +175,6 @@ let pop (ins: Instruction) bld =
   popFromStack bld |> ignore
   updateGas bld ins.GAS
 
-let mload (ins: Instruction) bld =
-  let addr = popFromStack bld
-  let expr = AST.loadBE OperationSize.regType addr
-  pushToStack bld expr
-  updateGas bld ins.GAS
-
-let mstore (ins: Instruction) bld =
-  let addr = popFromStack bld
-  let value = popFromStack bld
-  bld <+ AST.store Endian.Big addr value
-  updateGas bld ins.GAS
-
-let mstore8 (ins: Instruction) bld =
-  let addr = popFromStack bld
-  let value = popFromStack bld
-  let lsb = AST.extract value 8<rt> 0
-  bld <+ AST.store Endian.Big addr lsb
-  updateGas bld ins.GAS
-
 let jump (ins: Instruction) bld =
   try
     let dst = popFromStack bld
@@ -256,13 +237,8 @@ let call (ins: Instruction) bld fname =
   pushToStack bld expr
   updateGas bld ins.GAS
 
-let ret ins bld =
-  callExternFunc ins bld "return" 2 false
-  sideEffects Terminate bld
-
-let selfdestruct ins bld =
-  popFromStack bld |> ignore
-  callExternFunc ins bld "selfdestruct" 1 false
+let callAndTerminate ins name argCount bld =
+  callExternFunc ins bld name argCount false
   sideEffects Terminate bld
 
 let private translateOpcode ins bld = function
@@ -319,9 +295,9 @@ let private translateOpcode ins bld = function
   | SELFBALANCE -> callExternFunc ins bld "selfbalance" 0 true
   | BASEFEE -> callExternFunc ins bld "basefee" 0 true
   | POP -> pop ins bld
-  | MLOAD -> mload ins bld
-  | MSTORE -> mstore ins bld
-  | MSTORE8 -> mstore8 ins bld
+  | MLOAD -> callExternFunc ins bld "mload" 1 true
+  | MSTORE -> callExternFunc ins bld "mstore" 2 false
+  | MSTORE8 -> callExternFunc ins bld "mstore8" 2 false
   | SLOAD -> callExternFunc ins bld "sload" 1 true
   | SSTORE -> callExternFunc ins bld "sstore" 2 false
   | JUMP -> jump ins bld
@@ -398,7 +374,8 @@ let private translateOpcode ins bld = function
   | SWAP14 -> swap ins bld 14
   | SWAP15 -> swap ins bld 15
   | SWAP16 -> swap ins bld 16
-  | RETURN | REVERT -> ret ins bld
+  | RETURN -> callAndTerminate ins "return" 2 bld
+  | REVERT -> callAndTerminate ins "revert" 2 bld
   | CALL -> callExternFunc ins bld "call" 7 true
   | CALLCODE -> callExternFunc ins bld "callcode" 7 true
   | LOG0 -> callExternFunc ins bld "log0" 2 false
@@ -411,7 +388,7 @@ let private translateOpcode ins bld = function
   | CREATE2 -> callExternFunc ins bld "create2" 4 true
   | STATICCALL -> callExternFunc ins bld "staticcall" 6 true
   | INVALID -> sideEffects Terminate bld
-  | SELFDESTRUCT -> selfdestruct ins bld
+  | SELFDESTRUCT -> callAndTerminate ins "selfdestruct" 1 bld
 
 let translate (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.NumBytes)
