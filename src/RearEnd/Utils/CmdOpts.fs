@@ -22,118 +22,78 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Utils
+/// Provides utility functions for parsing command line options.
+module B2R2.RearEnd.Utils.CmdOpts
 
 open System
 open B2R2
 open B2R2.FsOptParse
 
-/// Represents a common set of command-line options used in analyzing binaries.
-type CmdOpts() =
-  let mutable verbose = false
+/// Writes B2R2 logo to console. We can selectively append a new line at the
+/// end.
+let writeB2R2 printNewLine =
+  ColoredString()
+    .Add(DarkCyan, "B")
+    .Add(DarkYellow, "2")
+    .Add(DarkCyan, "R")
+    .Add(DarkYellow, "2")
+  |> Terminal.Out.Print
+  if printNewLine then Terminal.Out.PrintLine()
+  else ()
 
-  /// Verbosity.
-  member _.Verbose with get() = verbose and set v = verbose <- v
+/// Writes introduction message to console.
+let writeIntro () =
+  writeB2R2 false
+  Terminal.Out
+  <== ", the Next-Generation Reversing Platform"
+  <=/ Attribution.Copyright + Environment.NewLine
 
-  /// Just a wrapper function that instantiate an OptParse.Option object.
-  static member New(descr,
-                    ?callback,
-                    ?required,
-                    ?extra,
-                    ?help,
-                    ?short,
-                    ?long,
-                    ?dummy,
-                    ?descrColor) =
-    CmdOpt(descr,
-           ?callback = callback,
-           ?required = required,
-           ?extra = extra,
-           ?help = help,
-           ?short = short,
-           ?long = long,
-           ?dummy = dummy,
-           ?descrColor = descrColor)
+let private createUsage tool usageTail =
+  writeIntro ()
+  let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
+  String.Format("[Usage]{0}{0}b2r2 {1} %o{2}", Environment.NewLine, tool, tail)
 
-  /// "-v" or "--verbose" option turns on the verbose mode.
-  static member OptVerbose() =
-    let cb (opts: #CmdOpts) _ =
-      opts.Verbose <- true; opts
-    CmdOpts.New(descr = "Verbose mode",
-                callback = cb, short = "-v", long = "--verbose")
+/// Prints out the usage message for the given tool.
+let printUsage tool usageTail spec =
+  let prog = Environment.GetCommandLineArgs()[0]
+  let usageGetter () = createUsage tool usageTail
+  OptParse.PrintUsage(spec, prog, usageGetter)
 
-  /// "-h" or "--help" option.
-  static member OptHelp() =
-    CmdOpts.New(descr = "Show this usage",
-                help = true, short = "-h", long = "--help")
-
-  /// Write B2R2 logo to console. We can selectively append a new line at the
-  /// end.
-  static member WriteB2R2 newLine =
-    ColoredString()
-      .Add(DarkCyan, "B")
-      .Add(DarkYellow, "2")
-      .Add(DarkCyan, "R")
-      .Add(DarkYellow, "2")
-    |> Terminal.Out.Print
-    if newLine then Terminal.Out.PrintLine()
-    else ()
-
-  static member WriteIntro() =
-    CmdOpts.WriteB2R2 false
-    Terminal.Out
-    <== ", the Next-Generation Reversing Platform"
-    <=/ Attribution.Copyright + Environment.NewLine
-
-  static member private CreateUsageGetter(tool, usageTail) =
-    fun () ->
-      CmdOpts.WriteIntro()
-      let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
-      String.Format("[Usage]{0}{0}b2r2 {1} %o{2}",
-                    Environment.NewLine, tool, tail)
-
-  static member private ParseCmdOpts(spec, defaultOpts, argv, tool, usageTail) =
-    let prog = Environment.GetCommandLineArgs()[0]
-    let usageGetter = CmdOpts.CreateUsageGetter(tool, usageTail)
-    try
-      OptParse.Parse(spec, usageGetter, prog, argv, defaultOpts)
-    with
-    | SpecError msg ->
-      Terminal.Out <=? $"Invalid spec: {msg}"
-      exit 1
-    | RuntimeError msg ->
-      Terminal.Out <=? $"Invalid command line args given: {msg}"
-      OptParse.PrintUsage(spec, prog, usageGetter)
-    | e ->
-      Terminal.Out <=? $"Fatal error: {e.Message}"
-      OptParse.PrintUsage(spec, prog, usageGetter)
-
-  static member PrintUsage(tool, usageTail, spec) =
-    let prog = Environment.GetCommandLineArgs()[0]
-    let usageGetter = CmdOpts.CreateUsageGetter(tool, usageTail)
+let private parseCmdOpts spec defaultOpts argv tool usageTail =
+  let prog = Environment.GetCommandLineArgs()[0]
+  let usageGetter () = createUsage tool usageTail
+  try
+    OptParse.Parse(spec, usageGetter, prog, argv, defaultOpts)
+  with
+  | SpecError msg ->
+    Terminal.Out <=? $"Invalid spec: {msg}"
+    exit 1
+  | RuntimeError msg ->
+    Terminal.Out <=? $"Invalid command line args given: {msg}"
+    OptParse.PrintUsage(spec, prog, usageGetter)
+  | e ->
+    Terminal.Out <=? $"Fatal error: {e.Message}"
     OptParse.PrintUsage(spec, prog, usageGetter)
 
-  /// Parse command line arguments, and run the mainFn
-  static member ParseAndRun(mainFn, tool, usageTail, spec, opts: #CmdOpts
-                            , args) =
-    let rest, opts = CmdOpts.ParseCmdOpts(spec, opts, args, tool, usageTail)
-    if opts.Verbose then CmdOpts.WriteIntro() else ()
-    try
-      mainFn rest opts
-      0
-    with e ->
-      Terminal.Out <=? $"Error: {e.Message}"
-      Terminal.Out <=? if opts.Verbose then e.StackTrace else ""
-      1
+/// Parses command line arguments and runs the mainFn
+let parseAndRun mainFn tool usageTail spec (opts: #IVerboseOption) args =
+  let rest, opts = parseCmdOpts spec opts args tool usageTail
+  if opts.IsVerbose then writeIntro () else ()
+  try
+    mainFn rest opts
+    0
+  with e ->
+    Terminal.Out <=? $"{e.Message}"
+    if opts.IsVerbose then Terminal.Out <=? e.StackTrace else ()
+    1
 
-  /// Check if the rest args contain an option string. If so, exit the program.
-  /// Otherwise, do nothing.
-  static member SanitizeRestArgs args =
-    let rec sanitize = function
-      | arg :: rest ->
-        if (arg: string).StartsWith('-') then
-          Terminal.Out <=? sprintf "Invalid argument (%s) is used" arg
-          exit 1
-        else sanitize rest
-      | [] -> ()
-    sanitize args
+/// Checks if the rest args contain an option string. If so, exit the program.
+/// Otherwise, do nothing.
+let rec sanitizeRestArgs args =
+  match args with
+  | arg :: rest ->
+    if (arg: string).StartsWith('-') then
+      Terminal.Out <=? sprintf "Invalid argument (%s) is used" arg
+      exit 1
+    else sanitizeRestArgs rest
+  | [] -> ()

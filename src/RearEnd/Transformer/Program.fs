@@ -49,7 +49,7 @@ type private HelpAction(map: Map<string, IAction>) =
     member _.Description with get() = ""
     member _.Transform(_args, _) =
       Terminal.Out.PrintLine()
-      CmdOpts.WriteIntro()
+      CmdOpts.writeIntro ()
       Terminal.Out.PrintLine usage
       map |> Map.iter (fun id act ->
         Terminal.Out.PrintLine $"- {id}: {act.Signature}"

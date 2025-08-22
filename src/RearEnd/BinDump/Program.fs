@@ -185,7 +185,7 @@ let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
 let private dumpRegularFile (hdl: BinHandle) (opts: BinDumpOpts) cfg =
   let codeprn = makeCodePrinter hdl cfg opts
   let tableprn = makeTablePrinter hdl cfg opts
-  opts.ShowSymbols <- true
+  let opts = { opts with ShowSymbols = true }
   match opts.InputSecName with
   | Some secName -> dumpOneSectionOfName hdl opts codeprn tableprn secName
   | None ->
@@ -202,7 +202,7 @@ let private dumpRegularFile (hdl: BinHandle) (opts: BinDumpOpts) cfg =
     | _ -> Terminator.futureFeature ()
 
 let dumpFile (opts: BinDumpOpts) filepath =
-  opts.ShowAddress <- true
+  let opts = { opts with ShowAddress = true }
   let hdl = createBinHandleFromPath opts filepath
   let cfg = getTableConfig hdl.File.ISA opts.ShowLowUIR
   printFileName hdl.File.Path
@@ -213,7 +213,7 @@ let dumpFileMode files (opts: BinDumpOpts) =
   match List.partition IO.File.Exists files with
   | [], [] ->
     Terminal.Out <=? "File(s) must be given."
-    CmdOpts.PrintUsage(ToolName, UsageTail, Cmd.spec)
+    CmdOpts.printUsage ToolName UsageTail BinDumpOpts.Spec
   | files, [] -> files |> List.iter (dumpFile opts)
   | _, errs ->
     Terminal.Out <=? "File(s) " + errs.ToString() + " not found!"
@@ -231,7 +231,7 @@ let dumpHexStringMode (opts: BinDumpOpts) =
   let hdl = BinHandle(opts.InputHexStr, isa, opts.BaseAddress, false)
   let cfg = getTableConfig hdl.File.ISA opts.ShowLowUIR
   assertBinaryLength isa isThumb opts.InputHexStr
-  opts.ShowColor <- true
+  let opts = { opts with ShowColor = true }
   let printer = makeCodePrinter hdl cfg opts
   printer.ModeSwitch.IsThumb <- isThumb
   let baseAddr = defaultArg opts.BaseAddress 0UL
@@ -244,7 +244,7 @@ let private dump files (opts: BinDumpOpts) =
 #if DEBUG
   let sw = Diagnostics.Stopwatch.StartNew()
 #endif
-  CmdOpts.SanitizeRestArgs files
+  CmdOpts.sanitizeRestArgs files
   try
     if Array.isEmpty opts.InputHexStr then dumpFileMode files opts
     else dumpHexStringMode opts
@@ -257,5 +257,5 @@ let private dump files (opts: BinDumpOpts) =
 
 [<EntryPoint>]
 let main args =
-  let opts = BinDumpOpts()
-  CmdOpts.ParseAndRun(dump, ToolName, UsageTail, Cmd.spec, opts, args)
+  let opts = BinDumpOpts.Default
+  CmdOpts.parseAndRun dump ToolName UsageTail BinDumpOpts.Spec opts args

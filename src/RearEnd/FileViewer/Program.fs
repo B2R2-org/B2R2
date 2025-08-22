@@ -237,11 +237,11 @@ let [<Literal>] private ToolName = "fileview"
 let [<Literal>] private UsageTail = "<binary file(s)>"
 
 let dump files opts =
-  CmdOpts.SanitizeRestArgs files
+  CmdOpts.sanitizeRestArgs files
   match files with
   | [] ->
     Terminal.Out <=? "File(s) must be given."
-    CmdOpts.PrintUsage(ToolName, UsageTail, Cmd.spec)
+    CmdOpts.printUsage ToolName UsageTail FileViewerOpts.Spec
   | files ->
 #if DEBUG
     let sw = System.Diagnostics.Stopwatch.StartNew()
@@ -255,5 +255,5 @@ let dump files opts =
 
 [<EntryPoint>]
 let main args =
-  let opts = FileViewerOpts()
-  CmdOpts.ParseAndRun(dump, ToolName, UsageTail, Cmd.spec, opts, args)
+  let opts = FileViewerOpts.Default
+  CmdOpts.parseAndRun dump ToolName UsageTail FileViewerOpts.Spec opts args

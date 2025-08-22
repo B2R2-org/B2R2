@@ -22,40 +22,9 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Repl
+namespace B2R2.RearEnd.Utils
 
-open B2R2
-open B2R2.RearEnd.Utils
-open B2R2.FsOptParse
-
-type ReplOpts =
-  { ISA: ISA
-    ShowTemp: bool
-    Verbose: bool }
-with
-  interface IVerboseOption with
-    member this.IsVerbose with get() = this.Verbose
-
-  static member Default =
-    { ISA = ISA Architecture.Intel
-      ShowTemp = false
-      Verbose = false }
-
-  static member Spec =
-    [ CmdOpt(descr = "Specify <ISA> (e.g., x86) for fat binaries",
-             short = "-a",
-             long = "--isa",
-             extra = 1,
-             callback = fun opts arg -> { opts with ISA = ISA arg[0] })
-      CmdOpt(descr = "Show temporary variables",
-             short = "-t",
-             long = "--show-temporary",
-             callback = fun opts arg -> { opts with ShowTemp = true })
-      CmdOpt(descr = "Show this usage",
-             help = true,
-             short = "-h",
-             long = "--help")
-      CmdOpt(descr = "Verbose mode",
-             short = "-v",
-             long = "--verbose",
-             callback = fun opts _ -> { opts with Verbose = true }) ]
+/// Represents a command line option that can control verbosity.
+type IVerboseOption =
+  /// Whether to print verbose messages.
+  abstract IsVerbose: bool

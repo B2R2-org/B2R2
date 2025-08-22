@@ -22,40 +22,63 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Repl
+namespace B2R2.RearEnd.Assembler
 
+open System
 open B2R2
 open B2R2.RearEnd.Utils
 open B2R2.FsOptParse
 
-type ReplOpts =
-  { ISA: ISA
-    ShowTemp: bool
+type AssemblerOpts =
+  { Mode: AssemblerMode
+    BaseAddress: Addr
     Verbose: bool }
 with
   interface IVerboseOption with
     member this.IsVerbose with get() = this.Verbose
 
   static member Default =
-    { ISA = ISA Architecture.Intel
-      ShowTemp = false
+    { Mode = GeneralMode(ISA Architecture.Intel)
+      BaseAddress = 0UL
       Verbose = false }
 
   static member Spec =
-    [ CmdOpt(descr = "Specify <ISA> (e.g., x86) for fat binaries",
-             short = "-a",
-             long = "--isa",
-             extra = 1,
-             callback = fun opts arg -> { opts with ISA = ISA arg[0] })
-      CmdOpt(descr = "Show temporary variables",
-             short = "-t",
-             long = "--show-temporary",
-             callback = fun opts arg -> { opts with ShowTemp = true })
-      CmdOpt(descr = "Show this usage",
+    [ CmdOpt(descr = "Show this usage",
              help = true,
-             short = "-h",
              long = "--help")
       CmdOpt(descr = "Verbose mode",
              short = "-v",
              long = "--verbose",
-             callback = fun opts _ -> { opts with Verbose = true }) ]
+             callback = fun opts _ -> { opts with Verbose = true })
+      CmdOpt(descr = "Take in LowUIR assembly code as input (ignore ISA)",
+             short = "-l",
+             long = "--lowuir",
+             callback = fun opts _ ->
+               { opts with Mode = AssemblerMode.ToLowUIRMode opts.Mode })
+      CmdOpt(descr = "Specify <ISA> (e.g., x86) from command line",
+             short = "-i",
+             long = "--isa",
+             extra = 1,
+             callback = fun opts arg ->
+               { opts with
+                   Mode = AssemblerMode.ChangeISA(ISA arg[0], opts.Mode) })
+      CmdOpt(descr = "Specify the base <address> in hex (default=0)",
+             short = "-r",
+             long = "--base-addr",
+             extra = 1,
+             callback = fun opts arg ->
+               { opts with BaseAddress = Convert.ToUInt64(arg[0], 16) }) ]
+
+and AssemblerMode =
+  | LowUIRMode of ISA
+  | GeneralMode of ISA
+with
+  static member ToLowUIRMode mode =
+    match mode with
+    | LowUIRMode isa
+    | GeneralMode isa -> LowUIRMode isa
+
+  static member ChangeISA(isa: ISA, mode) =
+    match mode with
+    | LowUIRMode _ -> LowUIRMode isa
+    | GeneralMode _ -> GeneralMode isa

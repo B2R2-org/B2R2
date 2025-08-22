@@ -18,6 +18,7 @@
     <Compile Include="ConsoleNullPrinter.fs" />
     <Compile Include="HexDumper.fs" />
     <Compile Include="Terminal.fs" />
+    <Compile Include="IVerboseOption.fs" />
     <Compile Include="CmdOpts.fs" />
   </ItemGroup>
 

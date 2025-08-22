@@ -108,5 +108,5 @@ let asmMain files opts =
 
 [<EntryPoint>]
 let main args =
-  let opts = AssemblerOpts()
-  CmdOpts.ParseAndRun(asmMain, "assembler", "", Cmd.spec, opts, args)
+  let opts = AssemblerOpts.Default
+  CmdOpts.parseAndRun asmMain "assembler" "" AssemblerOpts.Spec opts args

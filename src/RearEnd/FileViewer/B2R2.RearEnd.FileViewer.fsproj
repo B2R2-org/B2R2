@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <Compile Include="DisplayItem.fs" />
-    <Compile Include="Cmd.fs" />
+    <Compile Include="FileViewerOpts.fs" />
     <Compile Include="Helper.fs" />
     <Compile Include="ELFViewer.fs" />
     <Compile Include="MachViewer.fs" />

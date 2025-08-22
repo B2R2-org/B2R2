@@ -35,9 +35,8 @@ open B2R2.RearEnd.Utils
 let [<Literal>] IllegalStr = "(illegal)"
 
 let getOptimizer (opts: BinDumpOpts) =
-  match opts.DoOptimization with
-  | NoOptimize -> id
-  | Optimize -> LocalOptimizer.Optimize
+  if opts.DoOptimization then LocalOptimizer.Optimize
+  else id
 
 let makeFuncSymbolDic (hdl: BinHandle) =
   let funcs = Dictionary()

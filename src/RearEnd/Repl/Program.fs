@@ -28,6 +28,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.Peripheral.Assembly
+open B2R2.RearEnd.Utils
 
 let cmds = [ "show"; "switch-parser"; "exit" ]
 
@@ -77,7 +78,7 @@ let rec run showTemporary state asm builder binParser uirParser =
       run showTemporary state asm builder binParser uirParser
 
 let runRepl _args (opts: ReplOpts) =
-  let hdl = BinHandle("", opts.ISA)
+  let hdl = BinHandle(opts.ISA)
   let state = ReplState(opts.ISA, hdl.RegisterFactory, not opts.Verbose)
   let asm = Assembler(opts.ISA, 0UL)
   let builder = GroundWork.CreateBuilder(opts.ISA, hdl.RegisterFactory)
@@ -89,5 +90,5 @@ let runRepl _args (opts: ReplOpts) =
 
 [<EntryPoint>]
 let main args =
-  let opts = ReplOpts()
-  ReplOpts.ParseAndRun(runRepl, "repl", "", ReplOpts.spec, opts, args)
+  let opts = ReplOpts.Default
+  CmdOpts.parseAndRun runRepl "repl" "" ReplOpts.Spec opts args

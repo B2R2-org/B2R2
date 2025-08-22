@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Cmd.fs" />
+    <Compile Include="AssemblerOpts.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

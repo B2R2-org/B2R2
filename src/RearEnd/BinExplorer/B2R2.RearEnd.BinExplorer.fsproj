@@ -30,6 +30,7 @@
     <Compile Include="CmdSpec.fs" />
     <Compile Include="CLI.fs" />
     <Compile Include="HTTPServer.fs" />
+    <Compile Include="BinExplorerOpts.fs" />
     <Compile Include="Program.fs" />
     <None Include="WebUI\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

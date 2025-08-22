@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Cmd.fs" />
+    <Compile Include="BinDumpOpts.fs" />
     <Compile Include="DisasmLiftHelper.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
