@@ -30,7 +30,7 @@ open B2R2.FrontEnd
 open B2R2.RearEnd.Utils
 
 let dumpBasic (file: IBinFile) =
-  let entry = ColoredString(Green, String.entryPointToString file.EntryPoint)
+  let entry = ColoredString(Green, String.ofEntryPointOpt file.EntryPoint)
   Terminal.Out.PrintSectionTitle "Basic Information"
   Terminal.Out
   <== TableConfig.DefaultTwoColumn

@@ -24,6 +24,7 @@
 
 namespace B2R2.RearEnd.Utils
 
+/// Represents a printer interface shared by rear-end applications.
 type Terminal =
   static let out = ConsolePrinter() :> IPrinter
 

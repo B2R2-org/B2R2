@@ -22,6 +22,7 @@
   SOFTWARE.
 *)
 
+/// Defines constants used for pretty printing.
 module B2R2.RearEnd.Utils.PrinterConst
 
 /// Default indentation.

@@ -43,7 +43,7 @@ type ByteArray = byte[]
 /// </summary>
 module ByteArray =
 
-  /// Convert a hex string to a byte array.
+  /// Converts a hex string to a byte array.
   [<CompiledName "OfHexString">]
   let ofHexString (s: string) =
     Seq.windowed 2 s
@@ -53,7 +53,7 @@ module ByteArray =
       Byte.Parse(String(j), NumberStyles.AllowHexSpecifier))
     |> Array.ofSeq
 
-  /// Read int32 from the given byte array at the given offset.
+  /// Reads int32 from the given byte array at the given offset.
   [<CompiledName "ReadInt32">]
   let readInt32 (bs: ByteArray) offset =
     try
@@ -69,13 +69,13 @@ module ByteArray =
       | 0uy -> acc.ToString()
       | b -> extractCStringFromSpanAux span (char b |> acc.Append) (offset + 1)
 
-  /// Extract a C-string (string that ends with a NULL char) from a byte array.
+  /// Extracts a C-string (string that ends with a NULL char) from a byte array.
   [<CompiledName "ExtractCString">]
   let extractCString (bytes: ByteArray) offset =
     if bytes.Length = 0 || bytes.Length <= offset then ""
     else extractCStringFromSpanAux (ReadOnlySpan bytes) (StringBuilder()) offset
 
-  /// Extract a C-string (string that ends with a NULL char) from a byte array.
+  /// Extracts a C-string (string that ends with a NULL char) from a byte array.
   [<CompiledName "ExtractCStringFromSpan">]
   let extractCStringFromSpan (span: ReadOnlySpan<byte>) offset =
     if span.Length = 0 || span.Length <= offset then ""
@@ -139,13 +139,13 @@ module ByteArray =
       | None -> ret
     searchAll (patlen - 1) []
 
-  /// Find and return the offsets of all the matching byte positions. The final
-  /// byte positions are adjusted by the given offset.
+  /// Finds and returns the offsets of all the matching byte positions. The
+  /// final byte positions are adjusted by the given offset.
   [<CompiledName "FindIdxs">]
   let findIdxs offset pattern buf =
     bmSearch pattern buf |> List.map (fun x -> (uint64 x) + offset)
 
-  /// Find a matching byte position. If there is no match, this function will
+  /// Finds a matching byte position. If there is no match, this function will
   /// return None.
   [<CompiledName "TryFindIdx">]
   let tryFindIdx offset pattern buf =

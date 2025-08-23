@@ -22,12 +22,22 @@
   SOFTWARE.
 *)
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions used in rear-end applications.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Provides string utility functions used in RearEnd.
+/// </summary>
 [<RequireQualifiedAccess>]
 module B2R2.RearEnd.Utils.String
 
 open B2R2
 
-let entryPointToString (entryPoint: Addr option) =
+/// Converts an optional entry point to a string.
+let ofEntryPointOpt (entryPoint: Addr option) =
   match entryPoint with
   | None -> "none"
   | Some entry -> $"0x{entry:x}"

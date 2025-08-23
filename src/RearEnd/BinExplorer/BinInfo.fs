@@ -48,7 +48,7 @@ type CmdBinInfo() =
     let file = brew.BinHandle.File
     let isa = brew.BinHandle.File.ISA
     let fmt = brew.BinHandle.File.Format |> FileFormat.toString
-    let entry = file.EntryPoint |> String.entryPointToString
+    let entry = file.EntryPoint |> String.ofEntryPointOpt
     let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
     [| "[*] Binary information:\n"
        sprintf "- Executable Path: %s" file.Path
