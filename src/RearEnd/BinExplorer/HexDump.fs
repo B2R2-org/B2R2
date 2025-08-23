@@ -65,7 +65,7 @@ type CmdHexDump() =
       match result with
       | Ok(addr, bytes: byte[]) ->
         let wordSize = brew.BinHandle.File.ISA.WordSize
-        HexDumper.dump 16 wordSize true addr bytes
+        HexDump.render 16 wordSize true addr bytes
       | Error e -> [| OutputColored(ColoredString(NoColor, e)) |]
     | _ -> [| this.CmdHelp |] |> Array.map OutputNormal
 

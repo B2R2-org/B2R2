@@ -26,20 +26,22 @@ namespace B2R2.RearEnd.Utils
 
 open B2R2
 
-module HexDumper =
-  let internal padSpace chuckSize length =
-    let m = length % chuckSize
-    if m = 0 then Array.empty else Array.create (chuckSize - m) "  "
+/// Provides hex dumping functionality.
+[<RequireQualifiedAccess>]
+module HexDump =
+  let private padSpace numBytes length =
+    let m = length % numBytes
+    if m = 0 then Array.empty else Array.create (numBytes - m) "  "
 
-  let internal addSpace idx s =
+  let private addSpace idx s =
     match idx with
     | 0 -> s
     | 8 | 16 | 24 -> "  " + s
     | _ -> " " + s
 
-  let internal colorHexDumper addrStr chuckSize (bytes: byte[]) =
+  let private dumpColoredLine addrStr numBytes (bytes: byte[]) =
     let padding =
-      padSpace chuckSize bytes.Length
+      padSpace numBytes bytes.Length
       |> Array.map (fun pad -> ColoredSegment(NoColor, pad))
     let coloredHex =
       Array.append (bytes |> Array.map ColoredSegment.hexOfByte) padding
@@ -52,10 +54,9 @@ module HexDumper =
     |> Array.concat
     |> List.ofArray
     |> ColoredString
-    |> OutputColored
 
-  let internal regularHexDumper addrStr chuckSize (bytes: byte[]) =
-    let padding = padSpace chuckSize (bytes.Length)
+  let private dumpPlainLine addrStr numBytes (bytes: byte[]) =
+    let padding = padSpace numBytes (bytes.Length)
     let hex =
       Array.append (bytes |> Array.map (fun b -> b.ToString("X2"))) padding
       |> Array.mapi addSpace
@@ -63,13 +64,25 @@ module HexDumper =
     let ascii =
       bytes |> Array.fold (fun arr b -> arr + Byte.getRepresentation b) ""
     addrStr + ": " + hex + " | " + ascii
-    |> OutputNormal
 
-  let internal dumpLine chuckSize wordSize isColored addr linenum bytes =
-    let addrStr = Addr.toString wordSize (addr + uint64 (linenum * chuckSize))
-    let dumper = if isColored then colorHexDumper else regularHexDumper
-    dumper addrStr chuckSize bytes
+  let private dumpLine numBytes wordSize useColor addr lineIdx bytes =
+    let addrStr = Addr.toString wordSize (addr + uint64 (lineIdx * numBytes))
+    if useColor then dumpColoredLine addrStr numBytes bytes |> OutputColored
+    else dumpPlainLine addrStr numBytes bytes |> OutputNormal
 
-  let dump chuckSize wordSize isColored addr bytes =
-    Array.chunkBySize chuckSize bytes
-    |> Array.mapi (dumpLine chuckSize wordSize isColored addr)
+  /// <summary>
+  /// Converts a byte array into an array of hex dump lines, where each line
+  /// displays the address, hexadecimal values, and ASCII representation.
+  /// Supports both colored and plain text output.
+  /// </summary>
+  /// <param name="bytesPerLine">Number of bytes to display per line.</param>
+  /// <param name="wordSize">Word size used for address formatting.</param>
+  /// <param name="useColor">Whether to use colored output.</param>
+  /// <param name="addr">Starting address for the dump.</param>
+  /// <param name="bytes">The byte array to render.</param>
+  /// <returns>
+  /// An array of hex dump lines in either colored or plain text format.
+  /// </returns>
+  let render bytesPerLine wordSize useColor addr bytes =
+    Array.chunkBySize bytesPerLine bytes
+    |> Array.mapi (dumpLine bytesPerLine wordSize useColor addr)

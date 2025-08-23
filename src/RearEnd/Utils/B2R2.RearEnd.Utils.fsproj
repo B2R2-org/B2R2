@@ -16,7 +16,7 @@
     <Compile Include="ConsolePrinter.fs" />
     <Compile Include="ConsoleCachedPrinter.fs" />
     <Compile Include="ConsoleNullPrinter.fs" />
-    <Compile Include="HexDumper.fs" />
+    <Compile Include="HexDump.fs" />
     <Compile Include="Terminal.fs" />
     <Compile Include="IVerboseOption.fs" />
     <Compile Include="CmdOpts.fs" />

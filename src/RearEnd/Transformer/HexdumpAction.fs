@@ -38,7 +38,7 @@ type HexdumpAction() =
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes
     let baseAddr = hdl.File.BaseAddress
-    HexDumper.dump 16 hdl.File.ISA.WordSize true baseAddr bs
+    HexDump.render 16 hdl.File.ISA.WordSize true baseAddr bs
     |> box
 
   interface IAction with
