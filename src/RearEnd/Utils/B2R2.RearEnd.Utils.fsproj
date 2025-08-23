@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="B2R2.FsOptParse" Version="0.6.0" />
+    <PackageReference Include="B2R2.FsOptParse" Version="0.6.1" />
   </ItemGroup>
 
   <ItemGroup>

@@ -49,31 +49,35 @@ let writeIntro () =
   <=/ Attribution.Copyright + Environment.NewLine
 
 let private createUsage tool usageTail =
-  writeIntro ()
   let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
   String.Format("[Usage]{0}{0}b2r2 {1} %o{2}", Environment.NewLine, tool, tail)
+
+let private createUsageFormatter tool usageTail =
+  { new IUsageFormatter with
+      member _.UsageForm with get() = createUsage tool usageTail
+      member _.UsagePreCallback() = writeIntro () }
 
 /// Prints out the usage message for the given tool.
 let printUsage tool usageTail spec =
   let prog = Environment.GetCommandLineArgs()[0]
-  let usageGetter () = createUsage tool usageTail
-  OptParse.PrintUsage(spec, prog, usageGetter)
+  let usageFormatter = createUsageFormatter tool usageTail
+  OptParse.PrintUsage(spec, prog, usageFormatter)
 
 let private parseCmdOpts spec defaultOpts argv tool usageTail =
   let prog = Environment.GetCommandLineArgs()[0]
-  let usageGetter () = createUsage tool usageTail
+  let usageFormatter = createUsageFormatter tool usageTail
   try
-    OptParse.Parse(spec, usageGetter, prog, argv, defaultOpts)
+    OptParse.Parse(spec, usageFormatter, prog, argv, defaultOpts)
   with
   | SpecError msg ->
     Terminal.Out <=? $"Invalid spec: {msg}"
     exit 1
   | RuntimeError msg ->
     Terminal.Out <=? $"Invalid command line args given: {msg}"
-    OptParse.PrintUsage(spec, prog, usageGetter)
+    OptParse.PrintUsage(spec, prog, usageFormatter)
   | e ->
     Terminal.Out <=? $"Fatal error: {e.Message}"
-    OptParse.PrintUsage(spec, prog, usageGetter)
+    OptParse.PrintUsage(spec, prog, usageFormatter)
 
 /// Parses command line arguments and runs the mainFn
 let parseAndRun mainFn tool usageTail spec (opts: #IVerboseOption) args =
