@@ -70,7 +70,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>x86</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -79,7 +79,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>x86-64</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -88,7 +88,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>ARMv7</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -97,7 +97,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>ARMv8 (AArch64)</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -106,7 +106,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>MIPS32</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -115,7 +115,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>MIPS64</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -124,7 +124,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>EVM</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -133,7 +133,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>TMS320C6000</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:new_moon:</td>
@@ -142,7 +142,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>AVR</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -151,7 +151,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>PA-RISC</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:new_moon:</td>
@@ -160,7 +160,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>PPC32</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -169,7 +169,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>SPARC</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -178,7 +178,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>SH4</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:new_moon:</td>
@@ -187,7 +187,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>RISC-V</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -196,7 +196,7 @@ guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>S390</b></td>
-    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:new_moon:</td>
