@@ -7,7 +7,9 @@
 
   <ItemGroup>
     <Compile Include="BinDumpOpts.fs" />
-    <Compile Include="DisasmLiftHelper.fs" />
+    <Compile Include="IBinDumper.fs" />
+    <Compile Include="DumpMode.fs" />
+    <Compile Include="BinCodeDumper.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

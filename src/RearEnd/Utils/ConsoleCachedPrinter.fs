@@ -114,11 +114,10 @@ type ConsoleCachedPrinter() =
 
     member _.PrintRow(strs: string list) =
       let lastIdx = List.length columnFormats - 1
+      if indentation > 0 then String(' ', indentation) |> add else ()
       List.zip columnFormats strs
       |> List.iteri (fun i (colfmt, s) ->
-        if indentation > 0 then String(' ', indentation) |> add else ()
-        if i > 0 && columnGap > 0 then Console.Write(String(' ', columnGap))
-        else ()
+        if i > 0 && columnGap > 0 then String(' ', columnGap) |> add else ()
         let isLast = i = lastIdx
         match colfmt with
         | RightAligned width ->
@@ -130,22 +129,20 @@ type ConsoleCachedPrinter() =
 
     member _.PrintRow(css: ColoredString list) =
       let lastIdx = List.length columnFormats - 1
+      if indentation > 0 then String(' ', indentation) |> add else ()
       List.zip columnFormats css
       |> List.iteri (fun i (colfmt, cs) ->
-        if indentation > 0 then String(' ', indentation) |> add else ()
-        if i > 0 && columnGap > 0 then Console.Write(String(' ', columnGap))
-        else ()
+        if i > 0 && columnGap > 0 then String(' ', columnGap) |> add else ()
         let isLast = i = lastIdx
         colfmt.Pad(cs, isLast).ToString() |> add)
       add Environment.NewLine
 
     member _.PrintRow(oss: OutString list) =
       let lastIdx = List.length columnFormats - 1
+      if indentation > 0 then String(' ', indentation) |> add else ()
       List.zip columnFormats oss
       |> List.iteri (fun i (colfmt, cs) ->
-        if indentation > 0 then String(' ', indentation) |> add else ()
-        if i > 0 && columnGap > 0 then Console.Write(String(' ', columnGap))
-        else ()
+        if i > 0 && columnGap > 0 then String(' ', columnGap) |> add else ()
         let isLast = i = lastIdx
         colfmt.Pad(cs, isLast).ToString() |> add)
       add Environment.NewLine

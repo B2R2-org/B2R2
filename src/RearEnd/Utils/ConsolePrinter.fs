@@ -145,9 +145,9 @@ type ConsolePrinter() =
 
     member _.PrintRow(strs: string list) =
       let lastIdx = List.length columnFormats - 1
+      if indentation > 0 then Console.Write(String(' ', indentation)) else ()
       List.zip columnFormats strs
       |> List.iteri (fun i (colfmt, s) ->
-        if indentation > 0 then Console.Write(String(' ', indentation)) else ()
         if i > 0 && columnGap > 0 then Console.Write(String(' ', columnGap))
         else ()
         let isLast = i = lastIdx
@@ -160,9 +160,9 @@ type ConsolePrinter() =
 
     member _.PrintRow(css: ColoredString list) =
       let lastIdx = List.length columnFormats - 1
+      if indentation > 0 then Console.Write(String(' ', indentation)) else ()
       List.zip columnFormats css
       |> List.iteri (fun i (colfmt, cs) ->
-        if indentation > 0 then Console.Write(String(' ', indentation)) else ()
         if i > 0 && columnGap > 0 then Console.Write(String(' ', columnGap))
         else ()
         let isLast = i = lastIdx
@@ -171,9 +171,9 @@ type ConsolePrinter() =
 
     member _.PrintRow(oss: OutString list) =
       let lastIdx = List.length columnFormats - 1
+      if indentation > 0 then Console.Write(String(' ', indentation)) else ()
       List.zip columnFormats oss
       |> List.iteri (fun i (colfmt, os) ->
-        if indentation > 0 then Console.Write(String(' ', indentation)) else ()
         if i > 0 && columnGap > 0 then Console.Write(String(' ', columnGap))
         else ()
         let isLast = i = lastIdx
