@@ -199,7 +199,7 @@ let b ins insLen bld addr =
   let pc = numU64 (ins:Instruction).Address bld.RegType
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.interjmp (pc .+ label) InterJmpKind.Base)
-  bld --!> insLen
+  bld
 
 let bCond ins insLen bld addr cond =
   let label = transOneOpr ins bld addr
@@ -207,7 +207,7 @@ let bCond ins insLen bld addr cond =
   let fall = pc .+ numU32 insLen 64<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.intercjmp (conditionHolds bld cond) (pc .+ label) fall)
-  bld --!> insLen
+  bld
 
 let bfm (ins: Instruction) insLen bld addr dst src immr imms =
   let oSz = ins.OprSize
@@ -311,7 +311,7 @@ let bl ins insLen bld addr =
   bld <+ (regVar bld R.X30 := pc .+ numI64 4L ins.OprSize)
   (* FIXME: BranchTo (BranchType_DIRCALL) *)
   bld <+ (AST.interjmp (pc .+ label) InterJmpKind.IsCall)
-  bld --!> insLen
+  bld
 
 let blr ins insLen bld addr =
   let src = transOneOpr ins bld addr
@@ -320,14 +320,14 @@ let blr ins insLen bld addr =
   bld <+ (regVar bld R.X30 := pc .+ numI64 4L ins.OprSize)
   (* FIXME: BranchTo (BranchType_INDCALL) *)
   bld <+ (AST.interjmp src InterJmpKind.IsCall)
-  bld --!> insLen
+  bld
 
 let br ins insLen bld addr =
   let dst = transOneOpr ins bld addr
   bld <!-- (ins.Address, insLen)
   (* FIXME: BranchTo (BranchType_INDIR) *)
   bld <+ (AST.interjmp dst InterJmpKind.Base)
-  bld --!> insLen
+  bld
 
 let bsl (ins: Instruction) insLen bld addr =
   bld <!-- (ins.Address, insLen)
@@ -355,7 +355,7 @@ let inline private compareBranch ins insLen bld addr cmp =
   let fall = pc .+ numU32 insLen 64<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.intercjmp (cmp test (AST.num0 ins.OprSize)) (pc .+ label) fall)
-  bld --!> insLen
+  bld
 
 let compareAndSwap ins insLen bld addr =
   let dst, src, mem = transThreeOprs ins bld addr
@@ -2205,7 +2205,7 @@ let ret ins insLen bld addr =
   bld <!-- (ins.Address, insLen)
   bld <+ (target := src)
   branchTo ins bld target BrTypeRET InterJmpKind.IsRet
-  bld --!> insLen
+  bld
 
 let rev (ins: Instruction) insLen bld addr =
   let e = if ins.OprSize = 64<rt> then 7 else 3
@@ -2918,7 +2918,7 @@ let tbnz ins insLen bld addr =
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num1 ins.OprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.intercjmp cond (pc .+ label) fall)
-  bld --!> insLen
+  bld
 
 let tbz ins insLen bld addr =
   let test, imm, label = transThreeOprs ins bld addr
@@ -2927,7 +2927,7 @@ let tbz ins insLen bld addr =
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num0 ins.OprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.intercjmp cond (pc .+ label) fall)
-  bld --!> insLen
+  bld
 
 let trn1 ins insLen bld addr =
   let struct (o1, o2, o3) = getThreeOprs ins
