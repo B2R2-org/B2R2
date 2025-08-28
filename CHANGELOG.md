@@ -1,5 +1,26 @@
 # B2R2 Change Log
 
+## 0.9.0 (2025-08-28)
+
+### Added
+
+- Add PA-RISC 64-bit parser.
+- Add s390/s390x parser.
+- Add EVM CFG recovery support.
+- Introduce `ExprList` expression to LowUIR and remove `Cons` and `Nil`.
+- Introduce new APIs for front-end and middle-end modules.
+
+### Changed
+
+- Simplify LowUIR AST.
+- Use and employ new coding conventions for F#.
+- Use latest FsOptParse.
+- Turn off local optimizer in BBLFactory.
+- Update BitVector APIs.
+- Fix several bugs in BinFile.
+- Fix several lifting bugs.
+- Rename many types in `BinFile`.
+
 ## 0.8.0 (2025-03-28)
 
 ### Added
