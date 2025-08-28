@@ -967,7 +967,7 @@ let bl ins insLen bld =
   selectInstrSet bld isThumb
   bld <+ (branchWritePC alignedAddr callKind)
   putEndLabelForBranch bld lblIgnore ins
-  bld --!> insLen
+  bld
 
 let blxWithReg (ins: Instruction) insLen reg bld =
   let lr = regVar bld R.LR
@@ -982,7 +982,7 @@ let blxWithReg (ins: Instruction) insLen reg bld =
     bld <+ (lr := maskAndOR addr (AST.num1 32<rt>) 32<rt> 1)
   bxWritePC bld isUnconditional (regVar bld reg)
   putEndLabelForBranch bld lblIgnore ins
-  bld --!> insLen
+  bld
 
 let branchWithLink (ins: Instruction) insLen bld =
   match ins.Operands with
@@ -2185,7 +2185,7 @@ let b ins insLen bld =
   let lblIgnore = checkCondition ins bld isUnconditional
   bld <+ (branchWritePC e InterJmpKind.Base)
   putEndLabelForBranch bld lblIgnore ins
-  bld --!> insLen
+  bld
 
 let bx ins insLen bld =
   let rm = transOneOpr ins bld
@@ -2195,7 +2195,7 @@ let bx ins insLen bld =
   let rm = convertPCOpr ins bld rm
   bxWritePC bld isUnconditional rm
   putEndLabelForBranch bld lblIgnore ins
-  bld --!> insLen
+  bld
 
 let movtAssign dst src =
   let maskHigh16In32 = AST.num <| BitVector(4294901760I, 32<rt>)
@@ -2672,7 +2672,7 @@ let cbz nonZero ins insLen bld =
   let fallAddrExp = numU64 fallAddr 32<rt>
   bld <+ (AST.interjmp fallAddrExp InterJmpKind.Base)
   putEndLabelForBranch bld lblIgnore ins
-  bld --!> insLen
+  bld
 
 let parseOprOfTableBranch (ins: Instruction) insLen bld =
   match ins.Operands with
@@ -2701,7 +2701,7 @@ let tableBranch (ins: Instruction) insLen bld =
   let lblIgnore = checkCondition ins bld isUnconditional
   bld <+ (branchWritePC result InterJmpKind.Base)
   putEndLabel bld lblIgnore
-  bld --!> insLen
+  bld
 
 let parseOprOfBFC (ins: Instruction) insLen bld =
   match ins.Operands with
