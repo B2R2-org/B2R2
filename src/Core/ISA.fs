@@ -363,7 +363,7 @@ module ISA =
   [<return: Struct>]
   let (|MIPS64|_|) (isa: ISA) =
     match isa.Arch, isa.WordSize with
-    | Architecture.MIPS, WordSize.Bit32 -> ValueSome()
+    | Architecture.MIPS, WordSize.Bit64 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
