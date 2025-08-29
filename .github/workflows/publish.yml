@@ -24,8 +24,9 @@ jobs:
       run: dotnet pack -c Release --output .
     - name: Push
       env:
-        TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TOKEN: ${{ secrets.NUGET_TOKEN }}
       run: |
         dotnet nuget push *.nupkg \
-          --source "https://nuget.pkg.github.com/B2R2-org/index.json" \
-          --api-key ${TOKEN}
+          --source "https://api.nuget.org/v3/index.json" \
+          --api-key ${TOKEN} \
+          --skip-duplicate
