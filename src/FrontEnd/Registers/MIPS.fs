@@ -262,6 +262,7 @@ module Register =
     | "hi" -> Register.HI
     | "lo" -> Register.LO
     | "pc" -> Register.PC
+    | "npc" -> Register.NPC
     | "llbit" -> Register.LLBit
     | "fcsr" -> Register.FCSR
     | "fir" -> Register.FIR
@@ -345,6 +346,7 @@ module Register =
       | Register.HI  -> "hi"
       | Register.LO  -> "lo"
       | Register.PC  -> "pc"
+      | Register.NPC  -> "npc"
       | Register.LLBit -> "LLBit"
       | Register.FCSR -> "fcsr"
       | Register.FIR -> "fir"
@@ -418,6 +420,7 @@ module Register =
       | Register.HI  -> "hi"
       | Register.LO  -> "lo"
       | Register.PC  -> "pc"
+      | Register.NPC  -> "npc"
       | Register.LLBit -> "LLBit"
       | Register.FCSR -> "fcsr"
       | Register.FIR -> "fir"
