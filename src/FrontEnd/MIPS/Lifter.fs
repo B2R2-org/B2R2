@@ -498,6 +498,28 @@ let private reDupSrc opr1 opr2 expr1 expr2 tmp1 tmp2 bld =
     bld <+ (tmp1 := expr1)
     bld <+ (tmp2 := expr2)
 
+let private reDupSrc3 opr1 opr2 opr3 expr1 expr2 expr3 tmp1 tmp2 tmp3 bld =
+  if opr1 = opr2 && opr2 = opr3 then
+    bld <+ (tmp1 := expr1)
+    bld <+ (tmp2 := tmp1)
+    bld <+ (tmp3 := tmp1)
+  elif opr1 = opr2 then
+    bld <+ (tmp1 := expr1)
+    bld <+ (tmp2 := tmp1)
+    bld <+ (tmp3 := expr3)
+  elif opr1 = opr3 then
+    bld <+ (tmp1 := expr1)
+    bld <+ (tmp3 := tmp1)
+    bld <+ (tmp2 := expr2)
+  elif opr2 = opr3 then
+    bld <+ (tmp2 := expr2)
+    bld <+ (tmp3 := tmp2)
+    bld <+ (tmp1 := expr1)
+  else
+    bld <+ (tmp1 := expr1)
+    bld <+ (tmp2 := expr2)
+    bld <+ (tmp3 := expr3)
+
 let add (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let dst, src1, src2 = getThreeOprs ins
@@ -1513,18 +1535,17 @@ let movt ins insLen bld =
   let cond = fpConditionCode cc bld
   bld <!-- (ins.Address, insLen)
   match ins.Fmt with
-  | None ->
-    let dst, src = transTwoOprs ins bld (dst, src)
-    bld <+ (dst := AST.ite cond src dst)
   | Some Fmt.S ->
     let dst, src = transTwoSingleFP bld (dst, src)
     bld <+ (dst := AST.ite cond src dst)
-  | Some Fmt.D ->
+  | Some Fmt.D when is32Bit bld ->
     let dstB, dstA = transOprToFPPair bld dst
     let srcB, srcA = transOprToFPPair bld src
     bld <+ (dstB := AST.ite cond srcB dstB)
     bld <+ (dstA := AST.ite cond srcA dstA)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    let dst, src = transTwoOprs ins bld (dst, src)
+    bld <+ (dst := AST.ite cond src dst)
   advancePC bld insLen
 
 let movf ins insLen bld =
@@ -1533,18 +1554,17 @@ let movf ins insLen bld =
   let cond = AST.not (fpConditionCode cc bld)
   bld <!-- (ins.Address, insLen)
   match ins.Fmt with
-  | None ->
-    let dst, src = transTwoOprs ins bld (dst, src)
-    bld <+ (dst := AST.ite cond src dst)
   | Some Fmt.S ->
     let dst, src = transTwoSingleFP bld (dst, src)
     bld <+ (dst := AST.ite cond src dst)
-  | Some Fmt.D ->
+  | Some Fmt.D when is32Bit bld ->
     let dstB, dstA = transOprToFPPair bld dst
     let srcB, srcA = transOprToFPPair bld src
     bld <+ (dstB := AST.ite cond srcB dstB)
     bld <+ (dstA := AST.ite cond srcA dstA)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    let dst, src = transTwoOprs ins bld (dst, src)
+    bld <+ (dst := AST.ite cond src dst)
   advancePC bld insLen
 
 let movzOrn ins insLen bld opFn =
@@ -1553,18 +1573,17 @@ let movzOrn ins insLen bld opFn =
   let cond = opFn compare (AST.num0 bld.RegType)
   bld <!-- (ins.Address, insLen)
   match ins.Fmt with
-  | None ->
-    let dst, src = transTwoOprs ins bld (dst, src)
-    bld <+ (dst := AST.ite cond src dst)
   | Some Fmt.S ->
     let dst, src = transTwoSingleFP bld (dst, src)
     bld <+ (dst := AST.ite cond src dst)
-  | Some Fmt.D ->
+  | Some Fmt.D when is32Bit bld ->
     let dstB, dstA = transOprToFPPair bld dst
     let src = transOprToFPPairConcat bld src
     bld <+ (dstB := AST.ite cond (AST.xthi 32<rt> src) dstB)
     bld <+ (dstA := AST.ite cond (AST.xtlo 32<rt> src) dstA)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    let dst, src = transTwoOprs ins bld (dst, src)
+    bld <+ (dst := AST.ite cond src dst)
   advancePC bld insLen
 
 let mtc1 ins insLen bld =
@@ -1679,6 +1698,30 @@ let neg ins insLen bld =
     bld <+ (fd := fs <+> mask)
   advancePC bld insLen
 
+let nmadd ins insLen bld =
+  let fd, src1, src2, src3 = getFourOprs ins
+  bld <!-- (ins.Address, insLen)
+  match ins.Fmt with
+  | Some Fmt.S ->
+    let dst, fr, fs, ft = transFourSingleFP bld (fd, src1, src2, src3)
+    let struct (tSrc1, tSrc2, tSrc3, result) = tmpVars4 bld 32<rt>
+    reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
+    bld <+ (result := numU64 0x80000000UL 32<rt> <+>
+      (AST.fadd tSrc1 <| AST.fmul tSrc2 tSrc3))
+    normalizeValue 32<rt> result bld
+    bld <+ (dst := result)
+  | Some Fmt.D ->
+    let fdB, fdA = transOprToFPPair bld fd
+    let fr, fs, ft = transFPConcatThreeOprs bld (src1, src2, src3)
+    let struct (tSrc1, tSrc2, tSrc3, result) = tmpVars4 bld 64<rt>
+    reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
+    bld <+ (result := numU64 0x8000000000000000UL 64<rt> <+>
+      (AST.fadd tSrc1 <| AST.fmul tSrc2 tSrc3))
+    normalizeValue 64<rt> result bld
+    dstAssignForFP fdB fdA result bld
+  | _ -> raise InvalidOperandException
+  advancePC bld insLen
+
 let nop (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   advancePC bld insLen
@@ -1784,20 +1827,22 @@ let storeLeftRight ins insLen bld memShf regShf amtOp oprSz =
   let rRt, baseOffset =
     if oprSz = 32<rt> then
       if is32Bit bld then rt, baseOffset
-      else AST.xtlo 32<rt> rt, AST.xtlo 32<rt> baseOffset
+      else AST.xtlo 32<rt> rt, baseOffset
     else rt, baseOffset
   let baseOff = tmpVar bld bld.RegType
   let maskLd = if oprSz = 64<rt> then 0xFFFFFFF8 else 0xFFFFFFFC
-  let struct (t1, t2, t3, baseMask) = tmpVars4 bld oprSz
-  let mask = numI32 (((int oprSz) >>> 3) - 1) oprSz
-  let vaddr0To2 = (baseOff .& mask) <+> (transBigEndianCPU bld oprSz)
+  let struct (t1, t2, t3) = tmpVars3 bld oprSz
+  let baseMask = tmpVar bld bld.RegType
+  let mask = numI32 (((int oprSz) >>> 3) - 1) bld.RegType
+  let mask32 = numI32 (((int oprSz) >>> 3) - 1) oprSz
+  let vaddr0To2 = (baseOff .& mask) <+> (transBigEndianCPU bld bld.RegType)
   let baseAddress = AST.loadLE oprSz baseMask
   bld <!-- (ins.Address, insLen)
   bld <+ (baseOff := baseOffset)
-  bld <+ (baseMask := baseOff .& numI32 maskLd oprSz)
-  bld <+ (t1 := vaddr0To2)
-  bld <+ (t2 := (amtOp (mask .- t1) mask) .* numI32 8 oprSz)
-  bld <+ (t3 := ((amtOp t1 mask) .+ AST.num1 oprSz) .* numI32 8 oprSz)
+  bld <+ (baseMask := baseOff .& numI32 maskLd bld.RegType)
+  bld <+ (t1 := if is32Bit bld then vaddr0To2 else AST.xtlo oprSz vaddr0To2)
+  bld <+ (t2 := (amtOp (mask32 .- t1) mask32) .* numI32 8 oprSz)
+  bld <+ (t3 := ((amtOp t1 mask32) .+ AST.num1 oprSz) .* numI32 8 oprSz)
   bld <+ (baseAddress := shifterStore memShf regShf rRt t2 t3 baseAddress)
   advancePC bld insLen
 
@@ -2189,6 +2234,7 @@ let translate (ins: Instruction) insLen (bld: LowUIRBuilder) =
   | Op.MULT -> mult ins insLen bld
   | Op.MULTU -> multu ins insLen bld
   | Op.NEG -> neg ins insLen bld
+  | Op.NMADD -> nmadd ins insLen bld
   | Op.NOP -> nop ins insLen bld
   | Op.NOR -> nor ins insLen bld
   | Op.OR -> logOr ins insLen bld
