@@ -28,7 +28,6 @@ open System.Collections.Generic
 
 /// Read-only directed graph information accessor. This interface provides a way
 /// to access the information of a directed graph without modifying it.
-[<AllowNullLiteral>]
 type IDiGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   inherit IGraphAccessible<'V, 'E>
 

@@ -291,17 +291,14 @@ module private EVMCFGRecovery =
     | v :: path' when curr.VData.Internals.IsAbstract ->
       findFunctionEntryAux curr v path'
     (* 2. Call-fallthrough node cannot be an entry point. *)
-    | v :: path' when pred <> null
-                   && pred.VData.Internals.IsAbstract
+    | v :: path' when pred.VData.Internals.IsAbstract
                    && not curr.VData.Internals.IsAbstract ->
       findFunctionEntryAux curr v path'
     (* 3. Fallthrough node cannot be an entry point. *)
-    | v :: path' when pred <> null
-                   && not pred.VData.Internals.LastInstruction.IsBranch ->
+    | v :: path' when not pred.VData.Internals.LastInstruction.IsBranch ->
       findFunctionEntryAux curr v path'
     (* 4. Conditional branch's target is **less likely** to be an entry point.*)
-    | v :: path' when pred <> null
-                   && not pred.VData.Internals.IsAbstract
+    | v :: path' when not pred.VData.Internals.IsAbstract
                    && pred.VData.Internals.LastInstruction.IsCondBranch ->
       findFunctionEntryAux curr v path'
     (* 5. If the vertex is a function, then we found it. *)

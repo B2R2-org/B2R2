@@ -33,7 +33,7 @@ type private CPDomInfo<'V when 'V: equality> =
   { /// Vertex ID -> Num
     NumMap: Dictionary<VertexID, int>
     /// Num -> Vertex ID
-    Vertex: IVertex<'V>[]
+    Vertex: (IVertex<'V> | null)[]
     /// Num -> Num of the immediate dominator.
     IDom: int[]
     /// Num -> array of Num of the predecessors.

@@ -497,7 +497,7 @@ and ISubstate<'Lattice when 'Lattice: equality> =
 
   /// The edge queue for calculating the data flow.
   abstract FlowQueue:
-    UniqueQueue<IVertex<LowUIRBasicBlock> * IVertex<LowUIRBasicBlock>>
+    UniqueQueue<IVertex<LowUIRBasicBlock> | null * IVertex<LowUIRBasicBlock>>
 
   /// The definition site queue for calculating the data flow.
   abstract DefSiteQueue: UniqueQueue<ProgramPoint>

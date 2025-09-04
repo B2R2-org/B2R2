@@ -30,7 +30,7 @@ open B2R2
 
 /// Imperative vertex.
 type ImperativeVertex<'V when 'V: equality>
-  internal(id, vData: VertexData<'V>) =
+  internal(id, vData: VertexData<'V> | null) =
   let preds = List<ImperativeVertex<'V>>()
   let succs = List<ImperativeVertex<'V>>()
 

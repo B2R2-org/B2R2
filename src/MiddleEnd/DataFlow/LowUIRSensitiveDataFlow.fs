@@ -105,7 +105,7 @@ type State<'L, 'ExeCtx when 'L: equality
   let stmtOfBBLs = Dictionary<ProgramPoint, StmtOfBBL>()
 
   let edgesForProcessing =
-    HashSet<IVertex<LowUIRBasicBlock> * IVertex<LowUIRBasicBlock>>()
+    HashSet<IVertex<LowUIRBasicBlock> | null * IVertex<LowUIRBasicBlock>>()
 
   /// Queue of vertices that need to be removed.
   let verticesForRemoval = HashSet<IVertex<LowUIRBasicBlock>>()
@@ -577,7 +577,9 @@ and SubState<'L, 'ExeCtx when 'L: equality
 
   /// The edge queue for calculating the data flow.
   abstract FlowQueue:
-    UniqueQueue<IVertex<LowUIRBasicBlock> * 'ExeCtx * IVertex<LowUIRBasicBlock>>
+    UniqueQueue<IVertex<LowUIRBasicBlock> | null
+              * 'ExeCtx
+              * IVertex<LowUIRBasicBlock>>
 
   /// The definition site queue for calculating the data flow.
   abstract DefSiteQueue: UniqueQueue<SensitiveProgramPoint<'ExeCtx>>

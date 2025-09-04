@@ -51,8 +51,8 @@ let private computeDoms (g: IDiGraphAccessible<_, _>) =
 
 let private computeIDoms g (doms: Dictionary<_, _>) =
   let roots = (g: IDiGraphAccessible<_, _>).GetRoots()
-  let idoms = Dictionary<IVertex<_>, IVertex<_>>()
-  let tmps = Dictionary<IVertex<_>, Set<IVertex<_>>>()
+  let idoms = Dictionary<IVertex<_>, IVertex<_> | null>()
+  let tmps = Dictionary<IVertex<_>, Set<IVertex<_> | null>>()
   for v in g.Vertices do tmps[v] <- Set.remove v doms[v]
   for r in roots do idoms[r] <- null
   for v in g.Vertices do

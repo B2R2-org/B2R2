@@ -24,20 +24,20 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-/// Missing vertex.
+/// Raised when a vertex is not found in the graph.
 exception VertexNotFoundException
 
-/// Trying to access dummy data
+/// Raised when trying to access data from a dummy vertex that has no data.
 exception DummyDataAccessException
 
-/// Trying to access a single root vertex when there are multiple root vertices.
+/// Raised when there are multiple root vertices in a graph while only one is
+/// expected.
 exception MultipleRootVerticesException
 
-/// A unique ID for a vertex.
+/// Represents a unique ID for a vertex.
 type VertexID = int
 
-/// A vertex of a graph.
-[<AllowNullLiteral>]
+/// Represents a vertex of a graph.
 type IVertex<'V when 'V: equality> =
   inherit System.IComparable
   inherit System.IFormattable
@@ -55,7 +55,6 @@ type IVertex<'V when 'V: equality> =
 
 /// This is an internal data type used by a vertex implementation in order to
 /// represent nullable data.
-[<AllowNullLiteral>]
 type internal VertexData<'V when 'V: equality>(v) =
   member _.Value: 'V = v
 

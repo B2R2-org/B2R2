@@ -139,9 +139,9 @@ with
     else
       let _, v = (lst: SortedList<_, _ * IVertex<LowUIRBasicBlock>>).Values[idx]
       if v.VData.Internals.Range.Max >= nextFnAddr then
-        this.FindFunctionOverlap(lst, nextFnAddr, idx - 1, v)
-      elif isNull res then None
-      else Some res
+        this.FindFunctionOverlap(lst, nextFnAddr, idx - 1, Some v)
+      elif Option.isNone res then None
+      else res
 
   /// Find the first overlapping vertex in the CFG. We consider two cases: (1)
   /// two vertices share the same address, or (2) a vertex is beyond the range
@@ -186,7 +186,7 @@ with
     else
       match nextFnAddrOpt with
       | Some nextFnAddr ->
-        this.FindFunctionOverlap(lst, nextFnAddr, lst.Count - 1, null)
+        this.FindFunctionOverlap(lst, nextFnAddr, lst.Count - 1, None)
       | None -> None
 
   member private this.AddOrIgnore(acc, gapStart, gapEnd) =

@@ -34,7 +34,7 @@ type private LTDomInfo<'V when 'V: equality> =
   { /// Vertex ID -> DFNum
     DFPre: Dictionary<VertexID, int>
     /// DFNum -> Vertex
-    Vertex: IVertex<'V>[]
+    Vertex: (IVertex<'V> | null)[]
     /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
     Label: int[]
     /// DFNum -> DFNum of the parent node (zero if not exists).

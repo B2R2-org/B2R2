@@ -269,7 +269,7 @@ let private idom (g: IDiGraphAccessible<_, _>) info (v: IVertex<'V>) =
   if info.IDom.ContainsKey v.ID then
     let idomID = info.IDom[v.ID]
     if idomID = info.DummyRootID then null
-    else g.FindVertexByID idomID
+    else g.FindVertexByID idomID: IVertex<'V> | null
   else null
 
 let rec private domsAux acc info vid =
@@ -298,7 +298,7 @@ let private copyDomTree g info immediateDominator =
       if info.Children.ContainsKey v.ID then ()
       else
         info.Children.Add(v.ID, HashSet()) |> ignore
-      let idom: IVertex<_> = immediateDominator v
+      let idom: IVertex<_> | null = immediateDominator v
       let idomID =
         if isNull idom then info.DummyRootID
         else idom.ID
@@ -350,44 +350,44 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>)
   let mutable dfProvider = null
   let mutable pdfProvider = null
   { new IDominance<'V, 'E> with
-    member _.Dominators v =
+      member _.Dominators v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph fwG v
+        GraphUtils.checkVertexInGraph fwG v
 #endif
-      doms fwG fwInfo v
-    member _.ImmediateDominator v =
+        doms fwG fwInfo v
+      member _.ImmediateDominator v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph fwG v
+        GraphUtils.checkVertexInGraph fwG v
 #endif
-      idom fwG fwInfo v
-    member _.DominatorTree =
-      fwDT.Value
-    member this.DominanceFrontier v =
+        idom fwG fwInfo v
+      member _.DominatorTree =
+        fwDT.Value
+      member this.DominanceFrontier v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph fwG v
+        GraphUtils.checkVertexInGraph fwG v
 #endif
-      if isNull dfProvider then
-        dfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
-      dfProvider.DominanceFrontier v
-    member _.PostDominators v =
+        if isNull dfProvider then
+          dfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
+        dfProvider.DominanceFrontier v
+      member _.PostDominators v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph bwG.Value v
+        GraphUtils.checkVertexInGraph bwG.Value v
 #endif
-      doms bwG.Value bwInfo.Value v
-    member _.ImmediatePostDominator v =
+        doms bwG.Value bwInfo.Value v
+      member _.ImmediatePostDominator v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph bwG.Value v
+        GraphUtils.checkVertexInGraph bwG.Value v
 #endif
-      idom bwG.Value bwInfo.Value v
-    member _.PostDominatorTree =
-      bwDT.Value
-    member this.PostDominanceFrontier v =
+        idom bwG.Value bwInfo.Value v
+      member _.PostDominatorTree =
+        bwDT.Value
+      member this.PostDominanceFrontier v =
 #if DEBUG
-      GraphUtils.checkVertexInGraph bwG.Value v
+        GraphUtils.checkVertexInGraph bwG.Value v
 #endif
-      if isNull pdfProvider then
-        pdfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
-      pdfProvider.DominanceFrontier v }
+        if isNull pdfProvider then
+          pdfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
+        pdfProvider.DominanceFrontier v }
 
 let private computeDominance g dfp staticAlgo =
   let fwInfo = computeDomInfo g dfp staticAlgo

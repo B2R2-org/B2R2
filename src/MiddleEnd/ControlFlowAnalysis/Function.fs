@@ -28,9 +28,10 @@ open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Function is a chunk of code in a binary. Functions may overlap with each
-/// other in rare cases. Function overlapping is rare because we will create a
-/// new function when there is an incoming edge in the middle of a funcion,
+/// Represents a function in a binary, which is essentially a continuous chunk
+/// of code. Functions may overlap with each other in rare cases. Function
+/// overlapping is rare because we will create a new function when there is an
+/// incoming edge in the middle of a funcion,
 type Function(entryPoint,
               name,
               cfg,
@@ -41,7 +42,8 @@ type Function(entryPoint,
               isExtern) =
 
   new(entryPoint, name, noret, callers, jmptbls, isExtern) =
-    Function(entryPoint, name, null, noret, null, callers, jmptbls, isExtern)
+    let dummy = LowUIRCFG()
+    Function(entryPoint, name, dummy, noret, null, callers, jmptbls, isExtern)
 
   /// Function entry point address.
   member _.EntryPoint with get(): Addr = entryPoint
