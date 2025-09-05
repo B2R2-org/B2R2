@@ -78,18 +78,26 @@ Usage: b2r2 [app name]{"\n"}
 let printMyVersion () =
   let asm = Assembly.GetEntryAssembly()
   let attr = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-  Terminal.Out <=/ attr.InformationalVersion.ToString()
+  Terminal.Out <=/ "v" + attr.InformationalVersion.ToString()
 
 let handleCommands (cmd: string) (rest: string[]) =
   match cmd.ToLowerInvariant() with
-  | "help" | "--help" | "-h" -> showUsage (); 0
-  | "fileviewer" | "file" | "fileview" | "peek" -> FileViewer.Program.main rest
-  | "bindump" | "disasm" | "dump" | "disas" | "dis" -> BinDump.Program.main rest
+  | "help" | "--help" | "-h" ->
+    showUsage (); 0
+  | "version" | "--version" | "-v" ->
+    printMyVersion (); 0
+  | "fileviewer" | "file" | "fileview" | "peek" ->
+    FileViewer.Program.main rest
+  | "bindump" | "disasm" | "dump" | "disas" | "dis" ->
+    BinDump.Program.main rest
   | "binexplorer" | "explore" | "binexplore" | "analyze" ->
     BinExplorer.Program.main rest
-  | "repl" -> Repl.Program.main rest
-  | "assembler" | "asm" -> Assembler.Program.main rest
-  | _ -> Terminator.futureFeature ()
+  | "repl" ->
+    Repl.Program.main rest
+  | "assembler" | "asm" ->
+    Assembler.Program.main rest
+  | _ ->
+    Terminator.futureFeature ()
 
 [<EntryPoint>]
 let main argv =
