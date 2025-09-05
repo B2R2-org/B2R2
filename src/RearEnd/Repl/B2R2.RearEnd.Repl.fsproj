@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="B2R2.FsReadLine" Version="0.2.0" />
+    <PackageReference Include="B2R2.FsReadLine" Version="0.2.1" />
   </ItemGroup>
 
   <ItemGroup>
