@@ -31,47 +31,65 @@ open B2R2.RearEnd.Utils
 let showUsage () =
   Terminal.Out
   <=/ $"""
-         ''''''''''
+          _..-..._
       .;'          ';.
-     ;' o      o     ';           888888b.           8888888b.
+     ;' *      *     ';           888888b.           8888888b.
  .. ,,                ,, ..       888  "88b          888   "88b
-;''cl                  l:MMO      888  .88P  .oPYo.  888    888 .oPYo.
-l  c.dooooooooooooooood.:MMM      8888888K.      `8  888   d88P     `8
-:  cdMMMMMMMMMMMMMMMMMMd:MMk      888  "Y88b    oP'  8888888P"     oP'
- .. .WMMMMMWWMMMMMMWMMW. :/       888    888 .oP'    888 T88b   .oP'
-     'XMMMMl.MMMMMX.xX'           888   d88P 8'      888  T88b  8'
+;MMcl                  l:'':      888  .88P  .oPYo.  888    888 .oPYo.
+MMMc.dooooooooooooooood.:  |      8888888K.      `8  888   d88P     `8
+:MMcdMMMMMMMMMMMMMMMMMMd:  ;      888  "Y88b    oP'  8888888P"     oP'
+ .\c.WMMMMMWWMMMMMMWMMW. :/       888    888 .oP'    888 T88b   .oP'
+     'XMMMMX XMMMMX XM/           888   d88P 8'      888  T88b  8'
        cKMMMMMMMMMMKc             8888888P"  8ooooo  888   T88b 8ooooo
-         `dcoddocd'{"\n"}
+         `~co@@ocd'
+
 B2R2 is the next-generation binary reversing framework that runs
 purely on .NET, that is it runs on any platform that .NET supports.
 This is the B2R2 launcher, which is a .NET tool that can invoke
 various tools provided by our framework. To know more about B2R2,
-please visit our official website: https://b2r2.org/.{"\n"}
-Usage: b2r2 [app name]{"\n"}
-[Available Applications]{"\n"}
-- file (a.k.a. peek, fileview){"\n"}
+please visit our official website: https://b2r2.org/.
+
+Usage: b2r2 [app name]
+
+[Available Applications]
+
+- file (a.k.a. peek, fileview)
+
   This is a file format reader that is similar to readelf or otool.
   You can read various file format information using this app. To
-  learn more about the tool, type the following command:{"\n"}
-  $ b2r2 file --help{"\n"}
-- dump (a.k.a. disasm, bindump){"\n"}
+  learn more about the tool, type the following command:
+
+  $ b2r2 file --help
+
+- dump (a.k.a. disasm, bindump)
+
   This is a linear-sweep disassembler similar to objdump, although
   this app is more powerful and versatile. To learn more about the
-  tool, type the following command:{"\n"}
-  $ b2r2 dump --help{"\n"}
-- explore (a.k.a. binexplorer, analyze){"\n"}
+  tool, type the following command:
+
+  $ b2r2 dump --help
+
+- explore (a.k.a. binexplorer, analyze)
+
   This is a recursive-descent disassembler that provides a web-based
   GUI as well as its own CLI terminal. To learn more about the tool,
-  type the following command:{"\n"}
-  $ b2r2 explore --help{"\n"}
-- repl{"\n"}
+  type the following command:
+
+  $ b2r2 explore --help
+
+- repl
+
   This is a REPL (Read Evaluate Print Loop) for our binary IR as well
   as binary assembly languages. To learn more about the tool type the
-  following command:{"\n"}
-  $ b2r2 repl --help{"\n"}
-- asm (a.k.a. assembler){"\n"}
+  following command:
+
+  $ b2r2 repl --help
+
+- asm (a.k.a. assembler)
+
   This is a simple cross-platform assembler. To learn more about the
-  tool, type the following command:{"\n"}
+  tool, type the following command:
+
   $ b2r2 asm --help
 """
 
