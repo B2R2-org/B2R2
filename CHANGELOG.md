@@ -1,5 +1,18 @@
 # B2R2 Change Log
 
+## 0.9.1 (2025-09-05)
+
+### Added
+
+- Support more insturctions in MIPS
+
+### Changed
+
+- Fix lifting errors in MIPS
+- Fix Core ISA active patterns
+- Publish nuget packages directly from CI
+- Upgrade FsReadLine
+
 ## 0.9.0 (2025-08-28)
 
 ### Added
