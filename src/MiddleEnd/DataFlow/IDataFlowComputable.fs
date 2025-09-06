@@ -29,7 +29,6 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Represents a mapping from abstract locations to abstract values.
-[<AllowNullLiteral>]
 type IAbsValProvider<'AbsLoc, 'AbsVal when 'AbsLoc: equality> =
   /// Get the abstract value (AbsVal) for the given abstract location.
   abstract GetAbsValue: 'AbsLoc -> 'AbsVal
@@ -37,7 +36,6 @@ type IAbsValProvider<'AbsLoc, 'AbsVal when 'AbsLoc: equality> =
 /// Data-flow analysis that runs under the abstract interpretation framework.
 /// Abstract values are represented by 'AbsVal, which is stored in an abstract
 /// location 'AbsLoc.
-[<AllowNullLiteral>]
 type IDataFlowComputable<'AbsLoc,
                          'AbsVal,
                          'Provider,
@@ -62,7 +60,6 @@ type ILattice<'AbsVal when 'AbsVal: equality> =
   abstract Subsume: 'AbsVal * 'AbsVal -> bool
 
 /// Represents an interface for evaluating expressions in the given context.
-[<AllowNullLiteral>]
 type IExprEvaluatable<'Ctx, 'AbsVal when 'AbsVal: equality> =
   /// Returns the abstract value of the given expression in the specified
   /// context.

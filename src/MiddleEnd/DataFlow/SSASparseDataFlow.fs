@@ -41,7 +41,7 @@ type State<'Lattice when 'Lattice: equality>
          lattice: ILattice<'Lattice>,
          scheme: IScheme<'Lattice>) =
 
-  let mutable ssaEdges: SSAEdges = null
+  let mutable ssaEdges: SSAEdges | null = null
 
   /// Register values per SSA variable.
   let regValues = Dictionary<Variable, 'Lattice>()

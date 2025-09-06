@@ -38,7 +38,6 @@ type LogMessage =
   | Log of int * string
   | Flush of int
 
-[<AllowNullLiteral>]
 type CFGLogger(numThreads) =
   let logBuilders = Array.init (numThreads + 1) (fun _ -> StringBuilder ())
 
@@ -83,7 +82,7 @@ type CFGLogger(numThreads) =
   member inline _.Flush tid =
     agent.Post <| Flush tid
 
-let mutable logger: CFGLogger = null
+let mutable logger: CFGLogger | null = null
 
 let initLogger numThreads =
   if isNull logger then logger <- CFGLogger numThreads

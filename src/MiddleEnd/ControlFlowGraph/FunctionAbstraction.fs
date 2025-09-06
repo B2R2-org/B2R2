@@ -29,7 +29,6 @@ open B2R2
 /// An abstract information about a function to be used in an intra-procedural
 /// CFG. This exists per function call, not per function definition. Therefore,
 /// one function can have multiple `FunctionAbstraction` instances.
-[<AllowNullLiteral>]
 type FunctionAbstraction<'Stmt>(entryPoint,
                                 unwindingBytes,
                                 rundown,

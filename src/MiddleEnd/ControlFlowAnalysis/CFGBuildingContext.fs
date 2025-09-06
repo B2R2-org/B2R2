@@ -82,7 +82,7 @@ type CFGBuildingContext<'FnCtx,
     /// Is this an external function or not.
     IsExternal: bool
     /// The channel for accessing the state of the TaskManager.
-    mutable ManagerChannel: IManagerAccessible<'FnCtx, 'GlCtx>
+    mutable ManagerChannel: IManagerAccessible<'FnCtx, 'GlCtx> | null
     /// Thread ID that is currently building this function.
     mutable ThreadID: int }
 with
@@ -234,11 +234,10 @@ with
 and AbsCallEdge = Addr * Addr option
 
 /// The interface for accessing the state of the TaskManager.
-and [<AllowNullLiteral>]
-  IManagerAccessible<'FnCtx,
-                     'GlCtx when 'FnCtx :> IResettable
-                             and 'FnCtx: (new: unit -> 'FnCtx)
-                             and 'GlCtx: (new: unit -> 'GlCtx)> =
+and IManagerAccessible<'FnCtx,
+                       'GlCtx when 'FnCtx :> IResettable
+                               and 'FnCtx: (new: unit -> 'FnCtx)
+                               and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Start building a function at the given address if it is not (being) built.
   abstract StartBuilding:
        addr: Addr

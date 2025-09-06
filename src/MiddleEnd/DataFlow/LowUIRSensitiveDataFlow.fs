@@ -39,13 +39,12 @@ let inline toFrameOffset stackAddr =
   int (stackAddr - Constants.InitialStackPointer)
 
 /// Represents a state used in LowUIR-based sensitive dataflow analysis.
-[<AllowNullLiteral>]
 type State<'L, 'ExeCtx when 'L: equality
                         and 'ExeCtx: equality
                         and 'ExeCtx: comparison>
   public(hdl, lattice: ILattice<'L>, scheme: IScheme<'L, 'ExeCtx>) =
 
-  let mutable evaluator: IExprEvaluatable<_, _> = null
+  let mutable evaluator: IExprEvaluatable<_, _> | null = null
 
   let mutable freshSSAVarId = 1
 

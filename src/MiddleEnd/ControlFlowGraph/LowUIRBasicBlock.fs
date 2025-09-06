@@ -75,7 +75,7 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
   /// that the given address is within the range of the basic block. Otherwise,
   /// this function will raise an exception.
   member this.Cut(cutPoint: Addr) =
-    if isNull funcAbs then
+    if Option.isNone funcAbs then
       assert ((this :> IAddressable).Range.IsIncluding cutPoint)
       let fstInstrs, sndInstrs =
         liftedInss
@@ -95,17 +95,17 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
     member _.PPoint with get() = pp
 
     member _.Range with get() =
-      if isNull funcAbs then
+      if Option.isNone funcAbs then
         let lastIns = liftedInss[liftedInss.Length - 1].Original
         let lastAddr = lastIns.Address + uint64 lastIns.Length
         AddrRange(pp.Address, lastAddr - 1UL)
       else raise AbstractBlockAccessException
 
-    member _.IsAbstract with get() = not (isNull funcAbs)
+    member _.IsAbstract with get() = Option.isSome funcAbs
 
     member _.AbstractContent with get() =
-      if isNull funcAbs then raise AbstractBlockAccessException
-      else funcAbs
+      if Option.isNone funcAbs then raise AbstractBlockAccessException
+      else funcAbs.Value
 
     member _.LiftedInstructions with get() = liftedInss
 
@@ -115,13 +115,14 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
 
     /// Terminator statement of the basic block.
     member _.Terminator with get() =
-      assert ((isNull funcAbs && not <| Array.isEmpty liftedInss)
-           || (not <| isNull funcAbs && not <| Array.isEmpty funcAbs.Rundown))
+      assert ((Option.isNone funcAbs && not <| Array.isEmpty liftedInss)
+           || (Option.isSome funcAbs &&
+               not <| Array.isEmpty funcAbs.Value.Rundown))
       let stmts =
-        if isNull funcAbs then
+        if Option.isNone funcAbs then
           let stmts = liftedInss[liftedInss.Length - 1].Stmts
           stmts[stmts.Length - 2..]
-        else funcAbs.Rundown
+        else funcAbs.Value.Rundown
       stmts
       |> Array.filter isTerminatingStmt
       |> Array.tryExactlyOne
@@ -141,7 +142,7 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
     member _.BlockAddress with get() = pp.Address
 
     member _.Visualize() =
-      if isNull funcAbs then
+      if Option.isNone funcAbs then
         liftedInss
         |> Array.collect (fun liftedIns -> liftedIns.Stmts)
         |> Array.map (fun stmt ->
@@ -154,14 +155,13 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
       (this :> IAddressable).PPoint = (other :> IAddressable).PPoint
 
   static member CreateRegular(liftedInss, pp) =
-    LowUIRBasicBlock(pp, null, liftedInss, ImmutableDictionary.Empty)
+    LowUIRBasicBlock(pp, None, liftedInss, ImmutableDictionary.Empty)
 
   static member CreateRegular(liftedInss, pp, lblMap) =
-    LowUIRBasicBlock(pp, null, liftedInss, lblMap)
+    LowUIRBasicBlock(pp, None, liftedInss, lblMap)
 
   static member CreateAbstract(pp, summary) =
-    assert (not (isNull summary))
-    LowUIRBasicBlock(pp, summary, [||], ImmutableDictionary.Empty)
+    LowUIRBasicBlock(pp, Some summary, [||], ImmutableDictionary.Empty)
 
 /// Interface for a basic block containing a sequence of lifted LowUIR
 /// statements.

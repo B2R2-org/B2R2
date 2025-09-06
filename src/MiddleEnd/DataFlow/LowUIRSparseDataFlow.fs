@@ -39,7 +39,6 @@ let inline toFrameOffset stackAddr =
   int (stackAddr - Constants.InitialStackPointer)
 
 /// Represents a state used in LowUIR-based sparse dataflow analysis.
-[<AllowNullLiteral>]
 type State<'Lattice when 'Lattice: equality>
   public(hdl: BinHandle,
          lattice: ILattice<'Lattice>,

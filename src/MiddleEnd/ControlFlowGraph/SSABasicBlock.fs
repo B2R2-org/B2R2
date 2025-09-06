@@ -64,14 +64,14 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
     member _.PPoint with get() = ppoint
 
     member _.Range with get() =
-      if isNull funcAbs then AddrRange(ppoint.Address, lastAddr)
+      if Option.isNone funcAbs then AddrRange(ppoint.Address, lastAddr)
       else raise AbstractBlockAccessException
 
-    member _.IsAbstract with get() = not (isNull funcAbs)
+    member _.IsAbstract with get() = Option.isSome funcAbs
 
     member _.AbstractContent with get() =
-      if isNull funcAbs then raise AbstractBlockAccessException
-      else funcAbs
+      if Option.isNone funcAbs then raise AbstractBlockAccessException
+      else funcAbs.Value
 
     member _.Statements with get() = stmts
 
@@ -96,7 +96,7 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
     member _.BlockAddress with get() = ppoint.Address
 
     member _.Visualize() =
-      if isNull funcAbs then
+      if Option.isNone funcAbs then
         stmts
         |> Array.map (fun (_, stmt) ->
           [| { AsmWordKind = AsmWordKind.String
@@ -104,13 +104,12 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
       else [||]
 
   static member CreateRegular(stmts, ppoint, lastAddr) =
-    SSABasicBlock(ppoint, lastAddr, stmts, null)
+    SSABasicBlock(ppoint, lastAddr, stmts, None)
 
   /// Create an abstract basic block located at `ppoint`.
   static member CreateAbstract(ppoint, abs: FunctionAbstraction<SSA.Stmt>) =
-    assert (not (isNull abs))
     let rundown = abs.Rundown |> Array.map (fun s -> ProgramPoint.GetFake(), s)
-    SSABasicBlock(ppoint, 0UL, rundown, abs)
+    SSABasicBlock(ppoint, 0UL, rundown, Some abs)
 
 /// Interafce for a basic block containing a sequence of SSA statements.
 and ISSABasicBlock =

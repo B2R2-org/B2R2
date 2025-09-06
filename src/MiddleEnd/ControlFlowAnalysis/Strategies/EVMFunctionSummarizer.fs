@@ -77,7 +77,7 @@ type EVMFunctionSummarizer<'FnCtx,
 /// User-defined context for EVM functions. EVMFunctionSummarizer uses this
 /// information to summarize the function, especially the return target.
 and EVMFuncUserContext() =
-  let mutable cp: LowUIRSensitiveConstantPropagation<EVMExeCtx> = null
+  let mutable cp: LowUIRSensitiveConstantPropagation<EVMExeCtx> | null = null
 
   /// Stack pointer difference from the entry point of the function to the
   /// return block.

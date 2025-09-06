@@ -33,7 +33,6 @@ open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 /// Represents a LowUIR-based sensitive constant propagation analysis. This
 /// analysis is aware of stack pointers on basic blocks and distinguishes each
 /// basic block by its stack pointer value.
-[<AllowNullLiteral>]
 type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
   public(hdl: BinHandle, scheme: IScheme<ConstantDomain.Lattice, 'ExeCtx>) =
 

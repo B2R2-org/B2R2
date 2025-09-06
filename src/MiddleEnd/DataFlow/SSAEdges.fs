@@ -32,7 +32,6 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type private SSAStmtLocation = VertexID * int
 
 /// Represents SSA edges in a CFG.
-[<AllowNullLiteral>]
 type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
   let uses = Dictionary<SSA.Variable, Set<SSAStmtLocation>>()
   let defs = Dictionary<SSA.Variable, SSA.Stmt>()
