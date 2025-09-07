@@ -32,7 +32,6 @@ open B2R2.FrontEnd.BinLifter
 /// instantiated, it will automatically lift all possible instructions from the
 /// given binary, and store them in the internal collection. This is shared
 /// across all functions.
-[<AllowNullLiteral>]
 type InstructionCollection(collector: IInstructionCollectable) =
   let dict = ConcurrentDictionary<Addr, InstructionCandidate>()
   let updateFn (addr, insCandidate) = dict.TryAdd(addr, insCandidate) |> ignore

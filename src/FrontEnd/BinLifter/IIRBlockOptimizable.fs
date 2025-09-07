@@ -29,7 +29,6 @@ open B2R2.BinIR.LowUIR
 /// <summary>
 /// Provides an interface for optimizing a block of IR statements.
 /// </summary>
-[<AllowNullLiteral>]
 type IIRBlockOptimizable =
   /// Optimizes a block of IR statements.
   abstract Optimize: Stmt[] -> Stmt[]

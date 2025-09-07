@@ -29,7 +29,9 @@ open B2R2
 
 /// Represents a disassembly builder that accumulates <see
 /// cref='T:B2R2.FrontEnd.BinLifter.AsmWord'/>.
-type AsmWordDisasmBuilder(showAddr, symbolReader: INameReadable, wordSz) =
+type AsmWordDisasmBuilder(showAddr,
+                          symbolReader: INameReadable | null,
+                          wordSz) =
   let lst = List<AsmWord>()
   let hasSymbolReader = isNull symbolReader |> not
   let mutable showSymb = hasSymbolReader

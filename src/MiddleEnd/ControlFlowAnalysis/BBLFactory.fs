@@ -39,7 +39,9 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// Per-function factory for basic blocks. Each BBL is memoized so that we do
 /// not create multiple BBLs for the same address. As this is a per-function
 /// structure, each different function has its own BBLFactory.
-type BBLFactory(hdl: BinHandle, instrs, blkOptimizer: IIRBlockOptimizable) =
+type BBLFactory(hdl: BinHandle,
+                instrs,
+                blkOptimizer: IIRBlockOptimizable | null) =
   /// Inter-instruction (i.e., disassembly level) leaders.
   let interLeaders = ConcurrentDictionary<Addr, unit>()
 

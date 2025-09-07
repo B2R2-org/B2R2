@@ -29,7 +29,9 @@ open B2R2
 
 /// Represents a disassembly builder that simply accumulates strings without any
 /// type annotation.
-type StringDisasmBuilder(showAddr, symbolReader: INameReadable, wordSz) =
+type StringDisasmBuilder(showAddr,
+                         symbolReader: INameReadable | null,
+                         wordSz) =
   let sb = StringBuilder()
   let hasSymbolReader = isNull symbolReader |> not
   let mutable showSymb = hasSymbolReader
