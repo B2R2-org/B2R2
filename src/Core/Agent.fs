@@ -33,7 +33,6 @@ open System.Threading.Tasks.Dataflow
 /// Represents an agent that processes messages asynchronously using the TPL
 /// Dataflow. See also <see cref='T:B2R2.AgentReplyChannel`1'/>.
 /// </summary>
-[<AllowNullLiteral>]
 type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
 
   /// Post a message to the agent.

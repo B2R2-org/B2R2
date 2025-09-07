@@ -103,7 +103,6 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
       regPairs
       |> List.filter (fun (r, _) -> Set.contains r generalRegs)
     else regPairs
-    |> List.filter (fun (_, v) -> not (isNull v))
 
   member this.GetAllRegValString delta =
     let set = Set.ofList delta
@@ -117,7 +116,7 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
 
   /// Gets a temporary register name and EvalValue string representation.
   member private _.TempRegString(n: int, v) =
-    "T_" + string (n) + ": " + (if isNull v then "n/a" else v.ToString())
+    $"T_{n}: {v.ToString()}"
 
   member this.GetAllTempValString delta =
     let set = Set.ofList delta

@@ -46,7 +46,7 @@ type TaskScheduler<'FnCtx,
 
   let workingSet = HashSet<Addr>()
 
-  let mutable msgbox: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>> = null
+  let mutable msgbox: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>> | null = null
 
   let assignCFGBuildingTaskNow (builder: ICFGBuildable<_, _>) =
     builder.Authorize()

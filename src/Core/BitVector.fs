@@ -1373,7 +1373,6 @@ end (* The end of BitVector module. *)
 /// greater than 64. We intentionally do not sync SmallValue and BigValue for
 /// performance reasons.
 /// </summary>
-[<AllowNullLiteral>]
 type BitVector private(bv: IBV) =
 
   /// Returns a BitVector from a uint64 value.
