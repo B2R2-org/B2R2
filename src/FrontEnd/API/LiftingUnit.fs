@@ -46,7 +46,7 @@ type LiftingUnit(binFile: IBinFile,
     | ARM32 ->
       let switch = parser :?> ARM32.IModeSwitchable
       fun () -> if switch.IsThumb then 2 else 4
-    | AArch64 | MIPS | TMS320C6000 | PPC32 | PARISC -> fun () -> 4
+    | AArch64 | MIPS | TMS320C6000 | PPC32 | PPC | PARISC -> fun () -> 4
     | AVR | RISCV64 | SH4 | SPARC -> fun () -> 2
     | _ -> Terminator.futureFeature ()
 
