@@ -135,6 +135,7 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.BiHexLang", "src\RearEnd\BiHexLang\B2R2.RearEnd.BiHexLang.fsproj", "{E8FCBA00-1A3F-4D5B-8167-5BD088172BF4}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.BiHexLang.Tests", "src\RearEnd\BiHexLang.Tests\B2R2.RearEnd.BiHexLang.Tests.fsproj", "{096BC321-EE34-4AB8-97FB-1028F6B40FE3}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.PPC", "src\FrontEnd\PPC\B2R2.FrontEnd.PPC.fsproj", "{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -962,6 +963,18 @@ Global
 		{096BC321-EE34-4AB8-97FB-1028F6B40FE3}.Release|x64.Build.0 = Release|Any CPU
 		{096BC321-EE34-4AB8-97FB-1028F6B40FE3}.Release|x86.ActiveCfg = Release|Any CPU
 		{096BC321-EE34-4AB8-97FB-1028F6B40FE3}.Release|x86.Build.0 = Release|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Debug|x64.Build.0 = Debug|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Debug|x86.Build.0 = Debug|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Release|x64.ActiveCfg = Release|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Release|x64.Build.0 = Release|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Release|x86.ActiveCfg = Release|Any CPU
+		{CCE7F919-0FEB-3279-D1BD-D904A67E8CA2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

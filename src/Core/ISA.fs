@@ -184,6 +184,10 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(Architecture.PPC, Endian.Little, WordSize.Bit32)
     | "ppc32" | "ppc32be" ->
       ISA(Architecture.PPC, Endian.Big, WordSize.Bit32)
+    | "ppc64le" ->
+      ISA(Architecture.PPC, Endian.Little, WordSize.Bit64)
+    | "ppc64" | "ppc64be" ->
+      ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
     | "riscv64" ->
       ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
     | "sparc" | "sparc64" ->
@@ -249,6 +253,8 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.MIPS, Endian.Big, WordSize.Bit64 -> "mips64"
     | Architecture.PPC, Endian.Little, WordSize.Bit32 -> "ppc32le"
     | Architecture.PPC, Endian.Big, WordSize.Bit32 -> "ppc32"
+    | Architecture.PPC, Endian.Little, WordSize.Bit64 -> "ppc64le"
+    | Architecture.PPC, Endian.Big, WordSize.Bit64 -> "ppc64"
     | Architecture.RISCV, Endian.Little, WordSize.Bit64 -> "riscv64"
     | Architecture.SPARC, Endian.Big, WordSize.Bit64 -> "sparc64"
     | Architecture.S390, Endian.Big, WordSize.Bit32 -> "s390"
@@ -367,9 +373,21 @@ module ISA =
     | _ -> ValueNone
 
   [<return: Struct>]
+  let (|PPC|_|) (isa: ISA) =
+    match isa.Arch with
+    | Architecture.PPC -> ValueSome()
+    | _ -> ValueNone
+
+  [<return: Struct>]
   let (|PPC32|_|) (isa: ISA) =
     match isa.Arch, isa.WordSize with
     | Architecture.PPC, WordSize.Bit32 -> ValueSome()
+    | _ -> ValueNone
+
+  [<return: Struct>]
+  let (|PPC64|_|) (isa: ISA) =
+    match isa.Arch, isa.WordSize with
+    | Architecture.PPC, WordSize.Bit64 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
