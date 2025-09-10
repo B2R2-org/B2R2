@@ -15,6 +15,7 @@
     <Compile Include="Intel.fs" />
     <Compile Include="MIPS.fs" />
     <Compile Include="PARISC.fs" />
+    <Compile Include="PPC.fs" />
     <Compile Include="PPC32.fs" />
     <Compile Include="RISCV64.fs" />
     <Compile Include="S390.fs" />
