@@ -27,3 +27,9 @@ namespace B2R2.FrontEnd.PPC
 /// Represents a set of operands in a PPC instruction.
 type Operands =
   | NoOperand
+  | ThreeOperands of Operand * Operand * Operand
+
+/// Represents one operand in a PPC instruction.
+and Operand =
+  | Register of uint32
+  | Value of uint32
