@@ -30,11 +30,14 @@ open B2R2.FrontEnd.BinLifter.ParsingUtils
 
 let parseInstruction (bin: uint32) (addr: Addr) =
   match Bits.extract bin 31u 26u with
-  | 0b001110u -> struct (Op.ADDI, Operands.NoOperand)
+  | 0b001110u ->
+    let rt = Register(Bits.extract bin 25u 21u)
+    let ra = Register(Bits.extract bin 20u 16u)
+    let si = Value(Bits.extract bin 15u 0u)
+    struct (Op.ADDI, ThreeOperands(rt, ra, si))
   | _ -> Terminator.futureFeature ()
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) (addr: Addr) =
   let bin = reader.ReadUInt32(span, 0)
   let struct (opcode, operands) = parseInstruction bin addr
   Instruction(addr, 4u, opcode, operands, 64<rt>, 0UL, lifter)
-
