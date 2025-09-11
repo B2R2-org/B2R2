@@ -27,7 +27,8 @@ module internal B2R2.FrontEnd.PPC.Disasm
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-let opCodeToString = function
+let opCodeToString =
+  function
   | Op.ADDI -> "addi"
   | _ -> Terminator.futureFeature ()
 
@@ -35,6 +36,23 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate(AsmWordKind.Mnemonic, str)
 
+let inline buildOperand (opr: Operand) (builder: IDisasmBuilder) =
+  match opr with
+  | Value v -> builder.Accumulate(AsmWordKind.Value, "0x" + v.ToString "X")
+  | Register reg -> builder.Accumulate(AsmWordKind.Variable, "r" + string reg)
+
+let inline buildOperands (ins: Instruction) (builder: IDisasmBuilder) =
+  match ins.Operands with
+  | ThreeOperands(opr1, opr2, opr3) ->
+    buildOperand opr1 builder
+    builder.Accumulate(AsmWordKind.String, ", ")
+    buildOperand opr2 builder
+    builder.Accumulate(AsmWordKind.String, ", ")
+    buildOperand opr3 builder
+  | _ -> ()
+
 let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   builder.AccumulateAddrMarker ins.Address
   buildOpcode ins builder
+  builder.Accumulate(AsmWordKind.String, " ")
+  buildOperands ins builder
