@@ -257,10 +257,10 @@ Let's try to use B2R2 APIs.
 
     [<EntryPoint>]
     let main argv =
-      let isa = ISA.OfString "amd64"
+      let isa = ISA "amd64"
       let bytes = [| 0x65uy; 0xffuy; 0x15uy; 0x10uy; 0x00uy; 0x00uy; 0x00uy |]
-      let hdl = BinHandle (bytes, isa)
-      let lifter = hdl.NewLiftingUnit ()
+      let hdl = BinHandle(bytes, isa)
+      let lifter = hdl.NewLiftingUnit()
       let ins = lifter.ParseInstruction 0UL // parse the instruction at offset 0
       lifter.LiftInstruction ins |> printfn "%A"
       0
@@ -311,6 +311,7 @@ Publications
 
 Here are papers using our work. Please create a PR if you want to add yours.
 
+- EVMpress: Precise Type Inference for Next-Generation EVM Decompilation, CBT 2025 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-cbt25.pdf)
 - Towards Sound Reassembly of Modern x86-64 Binaries, ASPLOS 2025 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-asplos25.pdf)
 - PoE: A Domain-Specific Language for Exploitation, SVCC 2024 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-svcc24.pdf)
 - FunProbe: Probing Functions from Binary Code through Probabilistic Analysis, FSE 2023 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-fse23.pdf)
