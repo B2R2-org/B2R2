@@ -22,28 +22,29 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplorer.Commands
 
 open B2R2.FrontEnd.NameMangling
 open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BinExplorer
 
-type CmdDemangle() =
-  inherit Cmd()
-
-  override _.CmdName = "demangle"
-
-  override _.CmdAlias = [ "undecorate" ]
-
-  override _.CmdDescr = "Demangle the given mangled string."
-
-  override _.CmdHelp = "Usage: demangle <string>"
-
-  override _.SubCommands = []
-
-  member private _.MapResult = function
+type Demangle() =
+  let mapResult = function
     | Ok s -> [| OutputNormal s |]
     | Error _ -> [| OutputNormal "[*] Invalid input." |]
 
-  override this.CallBack(_, _, args) =
-    let mangled = String.concat " " args
-    Demangler.Demangle mangled |> this.MapResult
+  interface ICmd with
+
+    member _.CmdName = "demangle"
+
+    member _.CmdAlias = [ "undecorate" ]
+
+    member _.CmdDescr = "Demangle the given mangled string."
+
+    member _.CmdHelp = "Usage: demangle <string>"
+
+    member _.SubCommands = []
+
+    member _.CallBack(_, args) =
+      let mangled = String.concat " " args
+      Demangler.Demangle mangled |> mapResult

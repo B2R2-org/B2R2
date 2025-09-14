@@ -22,65 +22,37 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplorer.Commands
 
 open B2R2
 open B2R2.RearEnd.Utils
 open B2R2.RearEnd.ROP
+open B2R2.RearEnd.BinExplorer
 
-type CmdGadgetSearch() =
-  inherit Cmd()
+type GadgetSearch() =
+  interface ICmd with
 
-  override _.CmdName = "gadgetlist"
+    member _.CmdName = "gadgetlist"
 
-  override _.CmdAlias = [ "gl" ]
+    member _.CmdAlias = [ "gl" ]
 
-  override _.CmdDescr = "Search for the list of ROP gadgets."
+    member _.CmdDescr = "Search for the list of ROP gadgets."
 
-  override _.CmdHelp = "Usage: gadgetlist\n\n\
-                        Show the list of available ROP gadgets."
+    member _.CmdHelp = "Usage: gadgetlist\n\n\
+                          Show the list of available ROP gadgets."
 
-  override _.SubCommands = []
+    member _.SubCommands = []
 
-  override _.CallBack(_, ess, _args) =
-    let hdl = ess.BinHandle
-    let liftingUnit = hdl.NewLiftingUnit()
-    [| Galileo.findGadgets hdl |> GadgetMap.toString liftingUnit |]
-    |> Array.map OutputNormal
+    member _.CallBack(ess, _args) =
+      let hdl = ess.BinHandle
+      let liftingUnit = hdl.NewLiftingUnit()
+      [| Galileo.findGadgets hdl |> GadgetMap.toString liftingUnit |]
+      |> Array.map OutputNormal
 
-type CmdROP() =
-  inherit Cmd()
-
-  member _.ShowResult hdl = function
+type ROP() =
+  member private _.ShowResult hdl = function
     | Some payload -> [| ROPPayload.toString hdl 0u payload |]
     | None -> [| "Cannot find gadgets." |]
-
-  override _.CmdName = "rop"
-
-  override _.CmdAlias = []
-
-  override _.CmdDescr = "Compile an ROP chain."
-
-  override _.CmdHelp =
-    "Usage: rop <cmd> [options]\n\n\
-     Compile a ROP chain based on the given command.\n\
-     - exec: a ROP payload for invoking a shell (execve)\n\
-     - func: a ROP payload for calling a function at a specific target.\n\
-     - write: a ROP payload for writing a value to a target memory.\n\
-     - pivot: a ROP payload for stack pivoting."
-
-  override _.SubCommands = []
-
-  override this.CallBack(_, ess, args) =
-    let hdl = ess.BinHandle
-    match hdl.File.ISA with
-    | X86 ->
-      let rop = ROPHandle.init hdl 0UL
-      this.HandleSubCmd(rop, args)
-      |> Array.map OutputNormal
-    | isa ->
-      [| $"[*] We currently do not support {isa}" |]
-      |> Array.map OutputNormal
 
   member private this.HandleSubCmd(rop, args) =
     match args with
@@ -100,4 +72,31 @@ type CmdROP() =
       |> this.ShowResult rop.LiftingUnit
     | _ -> [| "[*] Unknown ROP cmd." |]
 
-// vim: set tw=80 sts=2 sw=2:
+  interface ICmd with
+
+    member _.CmdName = "rop"
+
+    member _.CmdAlias = []
+
+    member _.CmdDescr = "Compile an ROP chain."
+
+    member _.CmdHelp =
+      "Usage: rop <cmd> [options]\n\n\
+      Compile a ROP chain based on the given command.\n\
+      - exec: a ROP payload for invoking a shell (execve)\n\
+      - func: a ROP payload for calling a function at a specific target.\n\
+      - write: a ROP payload for writing a value to a target memory.\n\
+      - pivot: a ROP payload for stack pivoting."
+
+    member _.SubCommands = []
+
+    member this.CallBack(ess, args) =
+      let hdl = ess.BinHandle
+      match hdl.File.ISA with
+      | X86 ->
+        let rop = ROPHandle.init hdl 0UL
+        this.HandleSubCmd(rop, args)
+        |> Array.map OutputNormal
+      | isa ->
+        [| $"[*] We currently do not support {isa}" |]
+        |> Array.map OutputNormal

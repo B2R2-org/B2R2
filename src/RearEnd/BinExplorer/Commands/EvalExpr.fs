@@ -22,13 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplorer.Commands
 
 open FParsec
 open System.Numerics
-open SimpleArithHelper
-open SimpleArithConverter
 open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BinExplorer.SimpleArithHelper
+open B2R2.RearEnd.BinExplorer.SimpleArithConverter
+open B2R2.RearEnd.BinExplorer
 
 type SimpleArithEvaluator() =
   /// Concatenating given array of strings. Returning place of error when there
@@ -116,27 +117,27 @@ type SimpleArithEvaluator() =
       let space = sprintf "%*s^" err ""
       [| result + space + "\n" + "Expecting: Digit or Operator" |]
 
-type CmdEvalExpr(name, alias, descrSuffix, helpSuffix, outFormat) =
-  inherit Cmd()
-
+type EvalExpr(name, alias, descrSuffix, helpSuffix, outFormat) =
   let evaluator = SimpleArithEvaluator()
 
-  override _.CmdName = name
+  interface ICmd with
 
-  override _.CmdAlias = alias
+    member _.CmdName = name
 
-  override _.CmdDescr =
-    "Evaluate and display the value of an expression in " + descrSuffix + "."
+    member _.CmdAlias = alias
 
-  override _.CmdHelp =
-    "Usage: ?" + helpSuffix + " <expression>\n\n\
-     Evaluate the given expression and print out the value. This command\n\
-     supports basic arithmetic expressions."
+    member _.CmdDescr =
+      "Evaluate and display the value of an expression in " + descrSuffix + "."
 
-  override _.SubCommands = []
+    member _.CmdHelp =
+      "Usage: ?" + helpSuffix + " <expression>\n\n\
+      Evaluate the given expression and print out the value. This command\n\
+      supports basic arithmetic expressions."
 
-  override this.CallBack(_, _, args) =
-    match args with
-    | [] -> [| this.CmdHelp |]
-    | _ -> evaluator.Run(args, outFormat)
-    |> Array.map OutputNormal
+    member _.SubCommands = []
+
+    member this.CallBack(_, args) =
+      match args with
+      | [] -> [| (this :> ICmd).CmdHelp |]
+      | _ -> evaluator.Run(args, outFormat)
+      |> Array.map OutputNormal

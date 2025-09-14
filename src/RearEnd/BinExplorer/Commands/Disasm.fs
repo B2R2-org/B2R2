@@ -22,16 +22,15 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplorer.Commands
 
 open System
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BinExplorer
 
-type CmdDisasm() =
-  inherit Cmd()
-
+type Disasm() =
   let convertCount (str: string) =
     try Convert.ToInt32 str |> Ok
     with _ -> Error "[*] Invalid disassembly count given."
@@ -60,25 +59,25 @@ type CmdDisasm() =
     |> Result.bind (convertAddr addr)
     |> render bld instrs
 
-  override _.CmdName = "disasm"
+  interface ICmd with
 
-  override _.CmdAlias = [ "d" ]
+    member _.CmdName = "disasm"
 
-  override _.CmdDescr = "Display disassembly of the binary."
+    member _.CmdAlias = [ "d" ]
 
-  override _.CmdHelp =
-    "Usage: disasm <addr>\n\
-            disasm <cnt> <addr>\n\n\
-     Print <cnt> disassembled instructions starting from the given address.\n\
-     When the <cnt> argument is not given, it will print one instruction."
+    member _.CmdDescr = "Display disassembly of the binary."
 
-  override _.SubCommands = []
+    member _.CmdHelp =
+      "Usage: disasm <addr>\n\
+              disasm <cnt> <addr>\n\n\
+      Print <cnt> disassembled instructions starting from the given address.\n\
+      When the <cnt> argument is not given, it will print one instruction."
 
-  override this.CallBack(_, brew, args) =
-    match args with
-    | cnt :: addr :: _ -> disasm brew.BinHandle brew.Instructions cnt addr
-    | addr :: _ -> disasm brew.BinHandle brew.Instructions "1" addr
-    | _ -> [| this.CmdHelp |]
-    |> Array.map OutputNormal
+    member _.SubCommands = []
 
-// vim: set tw=80 sts=2 sw=2:
+    member this.CallBack(brew, args) =
+      match args with
+      | cnt :: addr :: _ -> disasm brew.BinHandle brew.Instructions cnt addr
+      | addr :: _ -> disasm brew.BinHandle brew.Instructions "1" addr
+      | _ -> [| (this :> ICmd).CmdHelp |]
+      |> Array.map OutputNormal

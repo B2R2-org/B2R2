@@ -22,16 +22,15 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplorer.Commands
 
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BinExplorer
 
-type CmdList() =
-  inherit Cmd()
-
+type List() =
   let createFuncString (hdl: BinHandle) (addr, name) =
     Addr.toString hdl.File.ISA.WordSize addr + ": " + name
 
@@ -56,28 +55,28 @@ type CmdList() =
     |> Seq.map (createRegionString wordSize)
     |> Seq.toArray
 
-  override _.CmdName = "list"
+  interface ICmd with
 
-  override _.CmdAlias = [ "ls" ]
+    member _.CmdName = "list"
 
-  override _.CmdDescr = "List the contents of the binary."
+    member _.CmdAlias = [ "ls" ]
 
-  override _.CmdHelp =
-    "Usage: list <cmds> [options]\n\n\
-     Currently available commands are:\n\
-     - functions: List functions in the binary.\n\
-     - segments: List segments to be loaded.\n\
-     - sections: List sections in the binary."
+    member _.CmdDescr = "List the contents of the binary."
 
-  override _.SubCommands = [ "functions"; "segments" ]
+    member _.CmdHelp =
+      "Usage: list <cmds> [options]\n\n\
+      Currently available commands are:\n\
+      - functions: List functions in the binary.\n\
+      - segments: List segments to be loaded.\n\
+      - sections: List sections in the binary."
 
-  override _.CallBack(_, brew, args) =
-    match args with
-    | "functions" :: _
-    | "funcs" :: _ -> listFunctions brew
-    | "segments" :: _
-    | "segs" :: _ -> listSegments brew.BinHandle
-    | _ -> [| "[*] Unknown list cmd is given." |]
-    |> Array.map OutputNormal
+    member _.SubCommands = [ "functions"; "segments" ]
 
-// vim: set tw=80 sts=2 sw=2:
+    member _.CallBack(brew, args) =
+      match args with
+      | "functions" :: _
+      | "funcs" :: _ -> listFunctions brew
+      | "segments" :: _
+      | "segs" :: _ -> listSegments brew.BinHandle
+      | _ -> [| "[*] Unknown list cmd is given." |]
+      |> Array.map OutputNormal

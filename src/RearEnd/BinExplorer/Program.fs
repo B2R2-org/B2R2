@@ -59,7 +59,7 @@ let initBinHdl isa (name: string) =
 
 let startGUIAndCLI (opts: BinExplorerOpts) brew =
   if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir brew else ()
-  let arbiter = Protocol.genArbiter brew opts.LogFile
+  let arbiter = Arbiter(brew, opts.LogFile)
   startGUI opts arbiter
   CLI.start opts.EnableReadLine arbiter
 
@@ -107,17 +107,17 @@ let toFileArray path =
   else [||]
 
 let batchRun opts paths fstParam restParams fn =
-  let cmdMap = CmdSpec.speclist |> CmdMap.build
+  let cmdStore = CLI.spec |> CmdStore
   let files = paths |> List.map toFileArray
   let numFiles = List.fold (fun cnt arr -> Array.length arr + cnt) 0 files
   files
   |> List.iteri (fun idx1 arr ->
-       Array.iteri (fun idx2 file ->
-         let idx = 1 + idx1 + idx2
-         printfn "Running %s ... (%d/%d)" file idx numFiles
-         fn cmdMap opts file fstParam restParams) arr)
+    Array.iteri (fun idx2 file ->
+      let idx = 1 + idx1 + idx2
+      printfn "Running %s ... (%d/%d)" file idx numFiles
+      fn cmdStore opts file fstParam restParams) arr)
 
-let runCommand cmdMap opts file cmd args =
+let runCommand (cmdStore: CmdStore) opts file cmd args =
   let isa = ISA Architecture.Intel
   let hdl = initBinHdl isa file
   let exnInfo = ExceptionInfo hdl
@@ -125,7 +125,7 @@ let runCommand cmdMap opts file cmd args =
   let cfgRecovery = Strategies.CFGRecovery()
   let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
   let brew = BinaryBrew(hdl, exnInfo, strategies)
-  Cmd.handle cmdMap brew cmd args
+  cmdStore.Handle(brew, cmd, args)
   |> Array.iter Terminal.Out.Print
 
 let [<Literal>] private ToolName = "binexplore"

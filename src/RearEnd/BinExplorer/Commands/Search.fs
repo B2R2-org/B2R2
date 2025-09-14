@@ -22,17 +22,16 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplorer.Commands
 
 open System
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BinExplorer
 
-type CmdSearch() =
-  inherit Cmd()
-
+type Search() =
   let toResult (idx: uint64) = $"Found @ {idx:x}"
 
   let search (hdl: BinHandle) pattern =
@@ -44,21 +43,6 @@ type CmdSearch() =
       |> List.map (fun idx -> idx + reg.Min))
     |> Seq.map toResult
     |> Seq.toList
-
-  override _.CmdName = "search"
-
-  override _.CmdAlias = [ "s" ]
-
-  override _.CmdDescr = "Search expressions."
-
-  override _.CmdHelp =
-    "Usage: search <type> [expr]\n\n\
-     Search the given expression from the binary.\n\
-     <type> is the data type for the expression, which can be:\n\
-       - s (string)\n\
-       - h (hex string)"
-
-  override _.SubCommands = []
 
   member _.Search(hdl, strPattern, bytePattern) =
     let ret = [| "[*] Searching for (" + strPattern + ") ..." |]
@@ -74,12 +58,29 @@ type CmdSearch() =
       this.Search(hdl, pattern, ByteArray.ofHexString pattern)
     | c -> [| "Unknown type " + c |]
 
-  override this.CallBack(_, ess, args) =
-    let res =
-      match args with
-      | []
-      | _ :: [] -> [| this.CmdHelp |]
-      | t :: pattern :: _ ->
-        t.ToLowerInvariant()
-        |> this.CmdHandle(ess.BinHandle, pattern)
-    Array.map OutputNormal res
+  interface ICmd with
+
+    member _.CmdName = "search"
+
+    member _.CmdAlias = [ "s" ]
+
+    member _.CmdDescr = "Search expressions."
+
+    member _.CmdHelp =
+      "Usage: search <type> [expr]\n\n\
+      Search the given expression from the binary.\n\
+      <type> is the data type for the expression, which can be:\n\
+        - s (string)\n\
+        - h (hex string)"
+
+    member _.SubCommands = []
+
+    member this.CallBack(ess, args) =
+      let res =
+        match args with
+        | []
+        | _ :: [] -> [| (this :> ICmd).CmdHelp |]
+        | t :: pattern :: _ ->
+          t.ToLowerInvariant()
+          |> this.CmdHandle(ess.BinHandle, pattern)
+      Array.map OutputNormal res

@@ -22,10 +22,25 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.BinExplorer.CmdUtils
+namespace B2R2.RearEnd.BinExplorer.Commands
 
-open System
+open B2R2
+open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BinExplorer
 
-let convHexString (str: string) =
-  try Convert.ToUInt64(str, 16) |> Some
-  with _ -> None
+type Credits() =
+  interface ICmd with
+
+    member _.CmdName = "credits"
+
+    member _.CmdAlias = [ "copyright" ]
+
+    member _.CmdDescr = "Show the credits for B2R2."
+
+    member _.CmdHelp = ""
+
+    member _.SubCommands = []
+
+    member _.CallBack(_, _args) =
+      [| Attribution.Copyright |]
+      |> Array.map OutputNormal

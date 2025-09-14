@@ -128,8 +128,8 @@ let answer (req: HttpListenerRequest) (resp: HttpListenerResponse) = function
     resp.StatusCode <- 404
     resp.Close()
 
-let handleBinInfo req resp arbiter =
-  let brew = Protocol.getBinaryBrew arbiter
+let handleBinInfo req resp (arbiter: Arbiter<_, _>) =
+  let brew = arbiter.GetBinaryBrew()
   let txt = brew.BinHandle.File.Path
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some(defaultEnc.GetBytes(txt)) |> answer req resp
@@ -164,8 +164,8 @@ let handleRegularCFG req resp funcID (brew: BinaryBrew<_, _>) cfgType =
     answer req resp None
 #endif
 
-let handleCFG req resp arbiter cfgType funcID =
-  let brew = Protocol.getBinaryBrew arbiter
+let handleCFG req resp (arbiter: Arbiter<_, _>) cfgType funcID =
+  let brew = arbiter.GetBinaryBrew()
   match cfgType with
   | CFGType.CallCFG ->
     try
@@ -180,8 +180,8 @@ let handleCFG req resp arbiter cfgType funcID =
 #endif
   | typ -> handleRegularCFG req resp funcID brew typ
 
-let handleFunctions req resp arbiter =
-  let brew = Protocol.getBinaryBrew arbiter
+let handleFunctions req resp (arbiter: Arbiter<_, _>) =
+  let brew = arbiter.GetBinaryBrew()
   let names =
     brew.Functions.Sequence
     |> Seq.sortBy (fun fn -> fn.EntryPoint)
@@ -190,8 +190,8 @@ let handleFunctions req resp arbiter =
   Some(json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)
   |> answer req resp
 
-let handleHexview req resp arbiter =
-  let brew = Protocol.getBinaryBrew arbiter
+let handleHexview req resp (arbiter: Arbiter<_, _>) =
+  let brew = arbiter.GetBinaryBrew()
   brew.BinHandle.File.GetVMMappedRegions()
   |> Seq.map (fun reg ->
     let size = reg.Max - reg.Min + 1UL
@@ -237,8 +237,8 @@ let getVarNames (hdl: BinHandle) = function
     |> Array.map (hdl.RegisterFactory.GetRegString)
   | _ -> [||]
 
-let handleDataflow req resp arbiter (args: string) =
-  let brew = Protocol.getBinaryBrew arbiter
+let handleDataflow req resp (arbiter: Arbiter<_, _>) (args: string) =
+  let brew = arbiter.GetBinaryBrew()
   let args = args.Split([| ',' |])
   let entry = args[0] |> uint64
   let addr = args[1] |> uint64
@@ -291,10 +291,8 @@ let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter m =
 
 let startServer arbiter ip port verbose =
   let host = "http://" + ip + ":" + port.ToString() + "/"
-  let cmdMap = CmdSpec.speclist |> CmdMap.build
+  let cmdMap = CLI.spec |> CmdStore
   let hdl (req: HttpListenerRequest) (resp: HttpListenerResponse) =
     try handle req resp arbiter cmdMap
     with e -> if verbose then eprintfn "%A" e else ()
   listener host hdl
-
-// vim: set tw=80 sts=2 sw=2:
