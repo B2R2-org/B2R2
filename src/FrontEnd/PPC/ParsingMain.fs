@@ -64,13 +64,29 @@ let getRegister (n: uint32) =
   | 31u -> Register.R31
   | _ -> Terminator.futureFeature ()
 
+let parseField (bin: uint32) (form: Form) (field: Field) =
+  match field, form with
+  | Field.RA, Form.D -> Bits.extract bin 20u 16u
+  | Field.RT, Form.D -> Bits.extract bin 25u 21u
+  | Field.SI, Form.D -> Bits.extract bin 15u 0u
+  | _ -> Terminator.futureFeature ()
+
+let parseExpr (bin: uint32) (form: Form) (expr: OprExpr) =
+  match expr with
+  | RegFrom field -> parseField bin form field |> getRegister |> OprReg
+  | ImmFrom field -> parseField bin form field |> uint64 |> OprImm
+
+let parseThreeOperands (bin: uint32) form e1 e2 e3 =
+  ThreeOperands(parseExpr bin form e1,
+                parseExpr bin form e2,
+                parseExpr bin form e3)
+
 let parseInstruction (bin: uint32) (addr: Addr) =
   match Bits.extract bin 31u 26u with
   | 0b001110u ->
-    let rt = Bits.extract bin 25u 21u |> getRegister |> OprReg
-    let ra = Bits.extract bin 20u 16u |> getRegister |> OprReg
-    let si = Bits.extract bin 15u 0u |> uint64 |> OprImm
-    struct (Op.ADDI, ThreeOperands(rt, ra, si))
+    let e1, e2, e3 =
+      RegFrom Field.RT, RegFrom Field.RA, ImmFrom Field.SI
+    struct (Op.ADDI, parseThreeOperands bin Form.D e1 e2 e3)
   | _ -> Terminator.futureFeature ()
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) (addr: Addr) =

@@ -24,18 +24,30 @@
 
 namespace B2R2.FrontEnd.PPC
 
-/// Represents a set of operands in a PPC instruction.
-type Operands =
-  | NoOperand
-  | ThreeOperands of Operand * Operand * Operand
-
-/// Represents one operand in a PPC instruction.
-and Operand =
-  | OprReg of Register
-  | OprImm of Imm
-
-and Imm = uint64
-
-type OprExpr =
-  | RegFrom of Field
-  | ImmFrom of Field
+/// Represents a PPC instruction format.
+type Form =
+  | A = 0
+  | B = 1
+  | D = 2
+  | DQ = 3
+  | DS = 4
+  | DX = 5
+  | I = 6
+  | M = 7
+  | MD = 8
+  | MDS = 9
+  | SC = 10
+  | VA = 11
+  | VC = 12
+  | VX = 13
+  | X = 14
+  | XFL = 15
+  | XFX = 16
+  | XL = 17
+  | XO = 18
+  | XS = 19
+  | XX2 = 20
+  | XX3 = 21
+  | XX4 = 22
+  | Z22 = 23
+  | Z23 = 24
