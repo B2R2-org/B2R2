@@ -31,5 +31,7 @@ type Operands =
 
 /// Represents one operand in a PPC instruction.
 and Operand =
-  | Register of uint32
-  | Value of uint32
+  | OprReg of Register
+  | OprImm of Imm
+
+and Imm = uint64
