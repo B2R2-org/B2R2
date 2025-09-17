@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <Compile Include="RegisterFactory.fs" />
+    <Compile Include="Field.fs" />
+    <Compile Include="Form.fs" />
     <Compile Include="Opcode.fs" />
     <Compile Include="Operands.fs" />
     <Compile Include="Instruction.fs" />
