@@ -28,12 +28,48 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ParsingUtils
 
+let getRegister (n: uint32) =
+  match n with
+  | 0u -> Register.R0
+  | 1u -> Register.R1
+  | 2u -> Register.R2
+  | 3u -> Register.R3
+  | 4u -> Register.R4
+  | 5u -> Register.R5
+  | 6u -> Register.R6
+  | 7u -> Register.R7
+  | 8u -> Register.R8
+  | 9u -> Register.R9
+  | 10u -> Register.R10
+  | 11u -> Register.R11
+  | 12u -> Register.R12
+  | 13u -> Register.R13
+  | 14u -> Register.R14
+  | 15u -> Register.R15
+  | 16u -> Register.R16
+  | 17u -> Register.R17
+  | 18u -> Register.R18
+  | 19u -> Register.R19
+  | 20u -> Register.R20
+  | 21u -> Register.R21
+  | 22u -> Register.R22
+  | 23u -> Register.R23
+  | 24u -> Register.R24
+  | 25u -> Register.R25
+  | 26u -> Register.R26
+  | 27u -> Register.R27
+  | 28u -> Register.R28
+  | 29u -> Register.R29
+  | 30u -> Register.R30
+  | 31u -> Register.R31
+  | _ -> Terminator.futureFeature ()
+
 let parseInstruction (bin: uint32) (addr: Addr) =
   match Bits.extract bin 31u 26u with
   | 0b001110u ->
-    let rt = Register(Bits.extract bin 25u 21u)
-    let ra = Register(Bits.extract bin 20u 16u)
-    let si = Value(Bits.extract bin 15u 0u)
+    let rt = Bits.extract bin 25u 21u |> getRegister |> OprReg
+    let ra = Bits.extract bin 20u 16u |> getRegister |> OprReg
+    let si = Bits.extract bin 15u 0u |> uint64 |> OprImm
     struct (Op.ADDI, ThreeOperands(rt, ra, si))
   | _ -> Terminator.futureFeature ()
 
