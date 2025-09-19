@@ -29,3 +29,5 @@ type Field =
   | RT = 0
   | RA = 1
   | SI = 2
+  | D_SPLIT = 3
+  | RB = 4
