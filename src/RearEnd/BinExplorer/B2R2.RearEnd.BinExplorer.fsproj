@@ -5,12 +5,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Arbiter.fs" />
-    <Compile Include="SimpleArithReference.fs" />
-    <Compile Include="SimpleArithTypes.fs" />
-    <Compile Include="SimpleArithHelper.fs" />
-    <Compile Include="SimpleArithConverter.fs" />
-    <Compile Include="SimpleArithOperator.fs" />
-    <Compile Include="SimpleArithParser.fs" />
     <Compile Include="ICmd.fs" />
     <Compile Include="CmdStore.fs" />
     <Compile Include="Commands\BinInfo.fs" />
@@ -37,9 +31,9 @@
     <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
     <ProjectReference Include="..\ROP\B2R2.RearEnd.ROP.fsproj" />
     <ProjectReference Include="..\Visualization\B2R2.RearEnd.Visualization.fsproj" />
+    <ProjectReference Include="..\BiHexLang\B2R2.RearEnd.BiHexLang.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="B2R2.FsReadLine" Version="0.2.1" />
-    <PackageReference Include="FParsec" Version="1.1.1" />
   </ItemGroup>
 </Project>

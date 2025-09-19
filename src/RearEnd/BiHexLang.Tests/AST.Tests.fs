@@ -22,43 +22,38 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer.Commands
+namespace B2R2.RearEnd.BiHexLang.Tests
 
-open B2R2.RearEnd.Utils
+open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.RearEnd.BiHexLang
-open B2R2.RearEnd.BinExplorer
 
-type SimpleArithEvaluator() =
+[<TestClass>]
+type ASTTests() =
   let parser = Parser()
-  let evaluator = Evaluator()
 
-  member _.Run(args) =
-    let args = String.concat " " args
-    match parser.Run args with
-    | Ok e -> [| evaluator.EvalExprToString e |]
-    | Error e -> [| $"{e}" |]
+  let (<=>) str (expected: string) =
+    match parser.Run str with
+    | Ok e ->
+      Assert.AreEqual<string>(expected, Expr.ToString e)
+    | Error e ->
+      System.Console.WriteLine $"{e}"
+      Assert.Fail("Parsing failed.")
 
-type EvalExpr(name, alias) =
-  let evaluator = SimpleArithEvaluator()
+  [<TestMethod>]
+  member _.``Arithmetic op tests``() =
+    "1 + 2 - 3" <=> "((0x01 + 0x02) - 0x03)"
+    "1 + 2 * 3 / 4" <=> "(0x01 + ((0x02 * 0x03) / 0x04))"
+    "(1 + 2) * (3 - 4)" <=> "((0x01 + 0x02) * (0x03 - 0x04))"
+    "1 + 2 * (3 / 4)" <=> "(0x01 + (0x02 * (0x03 / 0x04)))"
+    "1 % 2 + 3" <=> "((0x01 % 0x02) + 0x03)"
+    "1 | (2 << 1)" <=> "(0x01 | (0x02 << 0x01))"
+    "(1 & 2) ^ 3" <=> "((0x01 & 0x02) ^ 0x03)"
+    "~0x4242 + 1" <=> "(~0x4242 + 0x01)"
+    "-1 * 0x42 - 0x42" <=> "((-0x01 * 0x42) - 0x42)"
 
-  interface ICmd with
-
-    member _.CmdName = name
-
-    member _.CmdAlias = alias
-
-    member _.CmdDescr =
-      "Evaluate and display the value of an expression."
-
-    member _.CmdHelp =
-      "Usage: ? <expression>\n\n\
-      Evaluate the given BiHexLang expression and print out the value. This\n\
-      command supports basic arithmetic expressions."
-
-    member _.SubCommands = []
-
-    member this.CallBack(_, args) =
-      match args with
-      | [] -> [| (this :> ICmd).CmdHelp |]
-      | _ -> evaluator.Run(args)
-      |> Array.map OutputNormal
+  [<TestMethod>]
+  member _.``Casting op tests``() =
+    "(dec) 0x42 + 1" <=> "((dec) 0x42 + 0x01)"
+    "(dec) 0x42 + (hex) 1" <=> "((dec) 0x42 + (hex) 0x01)"
+    "(oct) (0x42 * 2 + 0x42)" <=> "(oct) ((0x42 * 0x02) + 0x42)"
+    "(hex) ((oct) 0x42 + 1)" <=> "(hex) ((oct) 0x42 + 0x01)"

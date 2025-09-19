@@ -26,15 +26,11 @@ module internal B2R2.RearEnd.BinExplorer.CLI
 
 open B2R2
 open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BiHexLang
 
 /// Command specification.
 let spec =
-  [ Commands.EvalExpr("?", [ "?x" ], "hex", "", HexadecimalF) :> ICmd
-    Commands.EvalExpr("?d", [], "decimal", "d", DecimalF)
-    Commands.EvalExpr("?b", [], "binary", "b", BinaryF)
-    Commands.EvalExpr("?o", [], "octal", "o", OctalF)
-    Commands.EvalExpr("?f", [], "float", "f", FloatingPointF)
-    Commands.EvalExpr("?c", [], "character", "c", CharacterF)
+  [ Commands.EvalExpr("?", []) :> ICmd
     Commands.BinInfo()
     Commands.Credits()
     Commands.Demangle()
