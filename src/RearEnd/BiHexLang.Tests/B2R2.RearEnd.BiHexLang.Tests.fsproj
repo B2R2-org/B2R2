@@ -5,7 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="MSTestSettings.fs" />
     <Compile Include="Number.Tests.fs" />
     <Compile Include="AST.Tests.fs" />
     <Compile Include="Evaluator.Tests.fs" />
