@@ -1,40 +1,31 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
-
   <ItemGroup>
-    <Compile Include="Protocol.fs" />
-    <Compile Include="CmdTypes.fs" />
-    <Compile Include="CmdUtils.fs" />
-    <Compile Include="BinInfo.fs" />
-    <Compile Include="Credits.fs" />
-    <Compile Include="Demangle.fs" />
-    <Compile Include="SimpleArithReference.fs" />
-    <Compile Include="SimpleArithTypes.fs" />
-    <Compile Include="SimpleArithHelper.fs" />
-    <Compile Include="SimpleArithConverter.fs" />
-    <Compile Include="SimpleArithOperator.fs" />
-    <Compile Include="SimpleArithParser.fs" />
-    <Compile Include="EvalExpr.fs" />
-    <Compile Include="List.fs" />
-    <Compile Include="Search.fs" />
-    <Compile Include="Show.fs" />
-    <Compile Include="HexDump.fs" />
-    <Compile Include="Print.fs" />
-    <Compile Include="Disasm.fs" />
-    <Compile Include="ROP.fs" />
-    <Compile Include="Help.fs" />
-    <Compile Include="CmdSpec.fs" />
+    <Compile Include="Arbiter.fs" />
+    <Compile Include="ICmd.fs" />
+    <Compile Include="CmdStore.fs" />
+    <Compile Include="Commands\BinInfo.fs" />
+    <Compile Include="Commands\Credits.fs" />
+    <Compile Include="Commands\Demangle.fs" />
+    <Compile Include="Commands\Disasm.fs" />
+    <Compile Include="Commands\EvalExpr.fs" />
+    <Compile Include="Commands\HexDump.fs" />
+    <Compile Include="Commands\List.fs" />
+    <Compile Include="Commands\Print.fs" />
+    <Compile Include="Commands\Search.fs" />
+    <Compile Include="Commands\Show.fs" />
+    <Compile Include="Commands\ROP.fs" />
     <Compile Include="CLI.fs" />
     <Compile Include="HTTPServer.fs" />
     <Compile Include="BinExplorerOpts.fs" />
+    <Compile Include="InteractiveMode.fs" />
+    <Compile Include="BatchMode.fs" />
     <Compile Include="Program.fs" />
     <None Include="WebUI\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\NameMangling\B2R2.FrontEnd.NameMangling.fsproj" />
@@ -42,11 +33,9 @@
     <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
     <ProjectReference Include="..\ROP\B2R2.RearEnd.ROP.fsproj" />
     <ProjectReference Include="..\Visualization\B2R2.RearEnd.Visualization.fsproj" />
+    <ProjectReference Include="..\BiHexLang\B2R2.RearEnd.BiHexLang.fsproj" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="B2R2.FsReadLine" Version="0.2.1" />
-    <PackageReference Include="FParsec" Version="1.1.1" />
   </ItemGroup>
-
 </Project>

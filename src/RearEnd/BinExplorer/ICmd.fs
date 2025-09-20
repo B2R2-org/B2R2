@@ -22,30 +22,29 @@
   SOFTWARE.
 *)
 
-module internal B2R2.RearEnd.BinExplorer.CmdSpec
+namespace B2R2.RearEnd.BinExplorer
 
-/// Command specification in *alphabetic* order. The entries in this list
-/// should match with the KeyWords of help commands (in defaultCmds).
-let speclist =
-  [ CmdBinInfo() :> Cmd
-    CmdCredits() :> Cmd
-    CmdDemangle() :> Cmd
-    CmdEvalExpr("?", [ "?x" ], "hex", "", HexadecimalF) :> Cmd
-    CmdEvalExpr("?d", [], "decimal", "d", DecimalF) :> Cmd
-    CmdEvalExpr("?b", [], "binary", "b", BinaryF) :> Cmd
-    CmdEvalExpr("?o", [], "octal", "o", OctalF) :> Cmd
-    CmdEvalExpr("?f", [], "float", "f", FloatingPointF) :> Cmd
-    CmdEvalExpr("?c", [], "character", "c", CharacterF) :> Cmd
-    CmdDisasm() :> Cmd
-    CmdGadgetSearch() :> Cmd
-    CmdROP() :> Cmd
-    CmdList() :> Cmd
-    CmdSearch() :> Cmd
-    CmdShow() :> Cmd
-    CmdHexDump() :> Cmd
-    CmdPrint() :> Cmd
-    (* Default commands *)
-    CmdHelp() :> Cmd
-    CmdExit() :> Cmd ]
+open B2R2.MiddleEnd
+open B2R2.RearEnd.Utils
 
-// vim: set tw=80 sts=2 sw=2:
+/// Represents a command that can be invoked within BinExplorer's CLI.
+type ICmd =
+  /// The name of the command.
+  abstract CmdName: string
+
+  /// Aliases for the command.
+  abstract CmdAlias: string list
+
+  /// Short command description.
+  abstract CmdDescr: string
+
+  /// Command-specific help string.
+  abstract CmdHelp: string
+
+  /// A list of sub-command strings that can be used with this command. This
+  /// list provides a way to tab-complete a keyword.
+  abstract SubCommands: string list
+
+  /// A command callback function. This function takes in an Agent (arbiter), a
+  /// list of arguments as input, and produces some side effects.
+  abstract CallBack: BinaryBrew<_, _> * string list -> OutString[]

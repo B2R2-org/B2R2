@@ -22,15 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplorer.Commands
 
 open System
 open B2R2.MiddleEnd
 open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BinExplorer
 
-type CmdHexDump() =
-  inherit Cmd()
-
+type HexDump() =
   let parseAddr addr =
     try Ok(Convert.ToUInt64(addr, 16))
     with _ -> Error "[*] Invalid address given."
@@ -43,30 +42,32 @@ type CmdHexDump() =
     try (addr, brew.BinHandle.ReadBytes(addr = addr, nBytes = count)) |> Ok
     with _ -> Error "[*] Failed to read bytes."
 
-  override _.CmdName = "hexdump"
+  interface ICmd with
 
-  override _.CmdAlias = [ "hd" ]
+    member _.CmdName = "hexdump"
 
-  override _.CmdDescr = "Dump the binary contents in a hex+ASCII format."
+    member _.CmdAlias = [ "hd" ]
 
-  override _.CmdHelp =
-    "Usage: hexdump <addr> <bytes>\n\n\
-     Dump the contents in a HEX + ASCII format up to the number of given bytes."
+    member _.CmdDescr = "Dump the binary contents in a hex+ASCII format."
 
-  override _.SubCommands = []
+    member _.CmdHelp =
+      "Usage: hexdump <addr> <bytes>\n\n\
+      Dump the contents in a HEX+ASCII format up to the number of given bytes."
 
-  override this.CallBack(_, brew, args) =
-    match args with
-    | addr :: cnt :: _ ->
-      let result =
-        parseAddr addr
-        |> Result.bind (parseCount cnt)
-        |> Result.bind (readBytes brew)
-      match result with
-      | Ok(addr, bytes: byte[]) ->
-        let wordSize = brew.BinHandle.File.ISA.WordSize
-        HexDump.render 16 wordSize true addr bytes
-      | Error e -> [| OutputColored(ColoredString(NoColor, e)) |]
-    | _ -> [| this.CmdHelp |] |> Array.map OutputNormal
+    member _.SubCommands = []
 
-// vim: set tw=80 sts=2 sw=2:
+    member this.CallBack(brew, args) =
+      match args with
+      | addr :: cnt :: _ ->
+        let result =
+          parseAddr addr
+          |> Result.bind (parseCount cnt)
+          |> Result.bind (readBytes brew)
+        match result with
+        | Ok(addr, bytes: byte[]) ->
+          let wordSize = brew.BinHandle.File.ISA.WordSize
+          HexDump.render 16 wordSize true addr bytes
+        | Error e -> [| OutputColored(ColoredString(NoColor, e)) |]
+      | _ ->
+        [| (this :> ICmd).CmdHelp |]
+        |> Array.map OutputNormal

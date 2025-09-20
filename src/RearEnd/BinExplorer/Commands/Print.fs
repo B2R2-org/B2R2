@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplorer.Commands
 
 open System
 open System.Text.RegularExpressions
@@ -30,6 +30,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BinExplorer
 
 type PrintFormat =
   | Hexadecimal
@@ -76,9 +77,7 @@ with
     | EightBytes -> 8
     | _ -> 0
 
-type CmdPrint() =
-  inherit Cmd()
-
+type Print() =
   let convertCount (v: string) =
     try Convert.ToInt32(v) |> Ok
     with _ -> Error("[*] Invalid count is given.")
@@ -158,36 +157,36 @@ type CmdPrint() =
       else iter hdl sz fmt addr endAddr []
     | Error str -> [| str |]
 
-  override _.CmdName = "print"
+  interface ICmd with
 
-  override _.CmdAlias = [ "p" ]
+    member _.CmdName = "print"
 
-  override _.CmdDescr = "Output the contents of the binary in a given format."
+    member _.CmdAlias = [ "p" ]
 
-  override _.CmdHelp =
-    "Usage: print <format> <addr>\n\n\
-     The <format> is a repeat count followed by a format letter, and a size\n\
-     letter. The size letter can be omitted only for string format.\n\n\
-     Format letters are:\n\
-     - d (signed decimal)\n\
-     - u (unsigned decimal)\n\
-     - x (hexadecimal)\n\
-     - s (string)\n\n\
-     Size letters are:\n\
-     - b (byte) or 1\n\
-     - h (half word) or 2\n\
-     - w (word) or 4\n\
-     - g (giant) or 8"
+    member _.CmdDescr = "Output the contents of the binary in a given format."
 
-  override _.SubCommands = []
+    member _.CmdHelp =
+      "Usage: print <format> <addr>\n\n\
+      The <format> is a repeat count followed by a format letter, and a size\n\
+      letter. The size letter can be omitted only for string format.\n\n\
+      Format letters are:\n\
+      - d (signed decimal)\n\
+      - u (unsigned decimal)\n\
+      - x (hexadecimal)\n\
+      - s (string)\n\n\
+      Size letters are:\n\
+      - b (byte) or 1\n\
+      - h (half word) or 2\n\
+      - w (word) or 4\n\
+      - g (giant) or 8"
 
-  override this.CallBack(_, brew, args) =
-    match args with
-    | fmt :: addr :: _ ->
-      parseFormat fmt
-      |> Result.bind (parseAddr addr)
-      |> validateRequest brew
-    | _ -> [| this.CmdHelp |]
-    |> Array.map OutputNormal
+    member _.SubCommands = []
 
-// vim: set tw=80 sts=2 sw=2:
+    member this.CallBack(brew, args) =
+      match args with
+      | fmt :: addr :: _ ->
+        parseFormat fmt
+        |> Result.bind (parseAddr addr)
+        |> validateRequest brew
+      | _ -> [| (this :> ICmd).CmdHelp |]
+      |> Array.map OutputNormal

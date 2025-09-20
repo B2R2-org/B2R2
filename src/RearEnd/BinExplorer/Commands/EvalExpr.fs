@@ -22,36 +22,43 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplorer.Commands
 
-open System.Text
-open B2R2
 open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BiHexLang
+open B2R2.RearEnd.BinExplorer
 
-type CmdShow() =
-  inherit Cmd()
+type SimpleArithEvaluator() =
+  let parser = Parser()
+  let evaluator = Evaluator()
 
-  override _.CmdName = "show"
+  member _.Run(args) =
+    let args = String.concat " " args
+    match parser.Run args with
+    | Ok e -> [| evaluator.EvalExprToString e |]
+    | Error e -> [| $"{e}" |]
 
-  override _.CmdAlias = []
+type EvalExpr(name, alias) =
+  let evaluator = SimpleArithEvaluator()
 
-  override _.CmdDescr = "Show information about an abstract component."
+  interface ICmd with
 
-  override _.CmdHelp =
-    "Usage: show <component> [option(s)]\n\n\
-     Show information about an abstract component.\n\
-     <component> is an abstract component in the binary, and subcommands are:\n\
-       - caller <instruction addr in hex>\n\
-       - callee/function <callee name or addr in hex>"
+    member _.CmdName = name
 
-  override _.SubCommands = []
+    member _.CmdAlias = alias
 
-  member private _.CallerToString(sb: StringBuilder, addr: Addr) =
-    sb.Append $"  - referenced by {addr:x}\n"
+    member _.CmdDescr =
+      "Evaluate and display the value of an expression."
 
-  override this.CallBack(_, ess, args) =
-    match args with
-    | _ -> [| this.CmdHelp |]
-    |> Array.map OutputNormal
+    member _.CmdHelp =
+      "Usage: ? <expression>\n\n\
+      Evaluate the given BiHexLang expression and print out the value. This\n\
+      command supports basic arithmetic expressions."
 
-// vim: set tw=80 sts=2 sw=2:
+    member _.SubCommands = []
+
+    member this.CallBack(_, args) =
+      match args with
+      | [] -> [| (this :> ICmd).CmdHelp |]
+      | _ -> evaluator.Run(args)
+      |> Array.map OutputNormal

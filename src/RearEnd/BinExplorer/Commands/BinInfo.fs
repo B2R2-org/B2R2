@@ -22,40 +22,39 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplorer.Commands
 
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BinExplorer
 
-type CmdBinInfo() =
-  inherit Cmd()
+type BinInfo() =
+  interface ICmd with
 
-  override _.CmdName = "bininfo"
+    member _.CmdName = "bininfo"
 
-  override _.CmdAlias = [ "bi" ]
+    member _.CmdAlias = [ "bi" ]
 
-  override _.CmdDescr = "Show the current binary information."
+    member _.CmdDescr = "Show the current binary information."
 
-  override _.CmdHelp =
-    "Usage: bininfo\n\n\
-     Show the current binary information. This command will show some basic\n\
-     information such as the entry point address, binary file format, symbol \n\
-     numbers, etc."
+    member _.CmdHelp =
+      "Usage: bininfo\n\n\
+      Show the current binary information. This command will show some basic\n\
+      information such as the entry point address, binary file format, symbol\n\
+      numbers, etc."
 
-  override _.SubCommands = []
+    member _.SubCommands = []
 
-  override _.CallBack(_, brew, _args) =
-    let file = brew.BinHandle.File
-    let isa = brew.BinHandle.File.ISA
-    let fmt = brew.BinHandle.File.Format |> FileFormat.toString
-    let entry = file.EntryPoint |> String.ofEntryPointOpt
-    let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
-    [| "[*] Binary information:\n"
-       sprintf "- Executable Path: %s" file.Path
-       sprintf "- Machine: %s" (isa.ToString())
-       sprintf "- File Format: %s" fmt
-       sprintf "- Entry Point Address: %s" entry
-       sprintf "- NX bit: %s" nx |]
-    |> Array.map OutputNormal
-
-// vim: set tw=80 sts=2 sw=2:
+    member _.CallBack(brew, _args) =
+      let file = brew.BinHandle.File
+      let isa = brew.BinHandle.File.ISA
+      let fmt = brew.BinHandle.File.Format |> FileFormat.toString
+      let entry = file.EntryPoint |> String.ofEntryPointOpt
+      let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
+      [| "[*] Binary information:\n"
+         sprintf "- Executable Path: %s" file.Path
+         sprintf "- Machine: %s" (isa.ToString())
+         sprintf "- File Format: %s" fmt
+         sprintf "- Entry Point Address: %s" entry
+         sprintf "- NX bit: %s" nx |]
+      |> Array.map OutputNormal
