@@ -46,7 +46,7 @@ and private ReplyMsg<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
   | Ack
   | ReplyBinaryBrew of BinaryBrew<'FnCtx, 'GlCtx>
 
-/// An arbiter that manages a BinaryBrew instance and logging.
+/// Represents an arbiter that manages a BinaryBrew instance and logging.
 type Arbiter<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
                                      and 'FnCtx: (new: unit -> 'FnCtx)
                                      and 'GlCtx: (new: unit -> 'GlCtx)>

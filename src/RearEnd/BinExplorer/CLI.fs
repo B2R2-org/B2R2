@@ -26,7 +26,6 @@ module internal B2R2.RearEnd.BinExplorer.CLI
 
 open B2R2
 open B2R2.RearEnd.Utils
-open B2R2.RearEnd.BiHexLang
 
 /// Command specification.
 let spec =
