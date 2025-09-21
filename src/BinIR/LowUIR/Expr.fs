@@ -207,7 +207,7 @@ with
   static member inline HashUndef(rt: RegType, s: string) =
     19 * (19 * int rt + s.GetHashCode()) + 13
 
-  static member AppendToString(expr, sb: StringBuilder) =
+  static member internal AppendToString(expr, sb: StringBuilder) =
     match expr with
     | Num(n, _) -> sb.Append(BitVector.ToString n) |> ignore
     | Var(_typ, _, n, _) -> sb.Append(n) |> ignore

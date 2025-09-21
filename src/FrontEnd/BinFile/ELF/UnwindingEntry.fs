@@ -80,5 +80,5 @@ with
     | Offset o -> "c" + (o.ToString("+0;-#"))
     | ValOffset o -> "v" + (o.ToString("+0;-#"))
     | Register rid -> "r(" + rid.ToString() + ")"
-    | ActionExpr e -> "exp:" + LowUIR.Pp.expToString e
-    | ActionValExpr e -> "val_exp:" + LowUIR.Pp.expToString e
+    | ActionExpr e -> "exp:" + PrettyPrinter.ToString e
+    | ActionValExpr e -> "val_exp:" + PrettyPrinter.ToString e

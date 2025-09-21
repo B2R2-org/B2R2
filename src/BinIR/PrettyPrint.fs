@@ -24,6 +24,9 @@
 
 namespace B2R2.BinIR
 
+open System
+open System.Text
+
 /// <summary>
 /// Exposes pretty printing functions for LowUIR and SSA statements.
 /// </summary>
@@ -31,13 +34,49 @@ type PrettyPrinter =
   /// <summary>
   ///   Given a list of LowUIR statements, return a well-formated string.
   /// </summary>
-  /// <param name="stmts">LowUIR statements.</param>
-  static member inline ToString(stmts: LowUIR.Stmt[]) =
-    LowUIR.Pp.stmtsToString stmts
+  /// <param name="lowuirStmts">LowUIR statements.</param>
+  static member ToString(lowuirStmts: LowUIR.Stmt[]) =
+    let sb = StringBuilder()
+    for stmt in lowuirStmts do
+      LowUIR.Stmt.AppendToString(stmt, sb)
+      sb.Append(Environment.NewLine) |> ignore
+    sb.ToString()
+
+  /// <summary>
+  ///   Given a LowUIR statement, return a well-formated string.
+  /// </summary>
+  /// <param name="lowuirStmt">LowUIR statement.</param>
+  static member inline ToString(lowuirStmt: LowUIR.Stmt) =
+    LowUIR.Stmt.ToString lowuirStmt
+
+  /// <summary>
+  ///   Given a LowUIR expression, return a well-formated string.
+  /// </summary>
+  /// <param name="lowuirExpr">LowUIR expression.</param>
+  static member inline ToString(lowuirExpr: LowUIR.Expr) =
+    LowUIR.Expr.ToString lowuirExpr
 
   /// <summary>
   ///   Given a list of SSA statements, return a well-formated string.
   /// </summary>
-  /// <param name="stmts">LowUIR statements.</param>
-  static member inline ToString(stmts: SSA.Stmt[]) =
-    SSA.Pp.stmtsToString stmts
+  /// <param name="ssaStmts">LowUIR statements.</param>
+  static member ToString(ssaStmts: SSA.Stmt[]) =
+    let sb = StringBuilder()
+    for stmt in ssaStmts do
+      SSA.Stmt.AppendToString(stmt, sb)
+      sb.Append(Environment.NewLine) |> ignore
+    sb.ToString()
+
+  /// <summary>
+  ///   Given an SSA statement, return a well-formated string.
+  /// </summary>
+  /// <param name="ssaStmt">SSA statement.</param>
+  static member inline ToString(ssaStmt: SSA.Stmt) =
+    SSA.Stmt.ToString ssaStmt
+
+  /// <summary>
+  ///   Given an SSA expression, return a well-formated string.
+  /// </summary>
+  /// <param name="ssaExpr">SSA expression.</param>
+  static member inline ToString(ssaExpr: SSA.Expr) =
+    SSA.Expr.ToString ssaExpr

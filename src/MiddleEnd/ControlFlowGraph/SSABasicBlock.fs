@@ -100,7 +100,7 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
         stmts
         |> Array.map (fun (_, stmt) ->
           [| { AsmWordKind = AsmWordKind.String
-               AsmWordValue = Pp.stmtToString stmt } |])
+               AsmWordValue = PrettyPrinter.ToString stmt } |])
       else [||]
 
   static member CreateRegular(stmts, ppoint, lastAddr) =

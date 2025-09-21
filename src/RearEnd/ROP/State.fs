@@ -44,7 +44,7 @@ type Value(expr) =
 
   member _.GetExpr() = expr
 
-  override _.ToString() = Pp.expToString expr
+  override _.ToString() = PrettyPrinter.ToString expr
 
 module Value =
   let toLinear (value: Value) =

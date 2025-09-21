@@ -35,7 +35,7 @@ open B2R2.BinIR
 let internal bool e =
   let t = Expr.TypeOf e
   if t <> 1<rt> then
-    raise <| TypeCheckException(Pp.expToString e + "must be boolean.")
+    raise <| TypeCheckException(Expr.ToString e + "must be boolean.")
   else ()
 #endif
 

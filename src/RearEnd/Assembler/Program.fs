@@ -26,7 +26,7 @@ module B2R2.RearEnd.Assembler.Program
 
 open System
 open B2R2
-open B2R2.BinIR.LowUIR
+open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.Peripheral.Assembly
@@ -61,7 +61,8 @@ let getAssemblyPrinter (opts: AssemblerOpts) =
     let parser = LowUIR.Parser(isa, regFactory)
     fun str ->
       parser.Parse str
-      |> printResult (Array.iter (Pp.stmtToString >> Terminal.Out.PrintLine))
+      |> printResult (fun stmts ->
+        stmts |> Array.iter (PrettyPrinter.ToString >> Terminal.Out.PrintLine))
 
 let rec private asmFromStdin (console: FsReadLine.Console) printer str =
   match console.ReadLine() with

@@ -24,6 +24,7 @@
 
 namespace B2R2.BinIR.SSA
 
+open System.Text
 open B2R2
 open B2R2.BinIR
 
@@ -99,3 +100,84 @@ with
     | Extract(_, rt, _) -> rt
     | Undefined(rt, _) -> rt
     | _ -> raise InvalidExprException
+
+  static member internal AppendToString(expr, sb: StringBuilder) =
+    match expr with
+    | Num n -> sb.Append(BitVector.ToString n) |> ignore
+    | Var(v) -> sb.Append(Variable.ToString v) |> ignore
+    | ExprList [] ->
+      ()
+    | ExprList(e :: []) ->
+      Expr.AppendToString(e, sb)
+    | ExprList(e :: more) ->
+      Expr.AppendToString(e, sb)
+      sb.Append ", " |> ignore
+      Expr.AppendToString(ExprList more, sb)
+    | FuncName(n) -> sb.Append n |> ignore
+    | UnOp(op, _, e) ->
+      sb.Append "(" |> ignore
+      sb.Append(UnOpType.toString op) |> ignore
+      sb.Append " " |> ignore
+      Expr.AppendToString(e, sb)
+      sb.Append ")" |> ignore
+    | BinOp(op, _, e1, e2) ->
+      sb.Append "(" |> ignore
+      Expr.AppendToString(e1, sb)
+      sb.Append " " |> ignore
+      sb.Append(BinOpType.toString op) |> ignore
+      sb.Append " " |> ignore
+      Expr.AppendToString(e2, sb)
+      sb.Append ")" |> ignore
+    | RelOp(op, _, e1, e2) ->
+      sb.Append "(" |> ignore
+      Expr.AppendToString(e1, sb)
+      sb.Append " " |> ignore
+      sb.Append(RelOpType.toString op) |> ignore
+      sb.Append " " |> ignore
+      Expr.AppendToString(e2, sb)
+      sb.Append ")" |> ignore
+    | Load(v, typ, e) ->
+      sb.Append(Variable.ToString v) |> ignore
+      sb.Append "[" |> ignore
+      Expr.AppendToString(e, sb)
+      sb.Append "]:" |> ignore
+      sb.Append(RegType.toString typ) |> ignore
+    | Store(v, _, addr, e) ->
+      sb.Append(Variable.ToString v) |> ignore
+      sb.Append "[" |> ignore
+      Expr.AppendToString(addr, sb)
+      sb.Append " <- " |> ignore
+      Expr.AppendToString(e, sb)
+      sb.Append "]" |> ignore
+    | Ite(cond, _, e1, e2) ->
+      sb.Append "(ite (" |> ignore
+      Expr.AppendToString(cond, sb)
+      sb.Append ") (" |> ignore
+      Expr.AppendToString(e1, sb)
+      sb.Append ") (" |> ignore
+      Expr.AppendToString(e2, sb)
+      sb.Append "))" |> ignore
+    | Cast(cast, typ, e) ->
+      sb.Append(CastKind.toString cast) |> ignore
+      sb.Append ":" |> ignore
+      sb.Append(RegType.toString typ) |> ignore
+      sb.Append "(" |> ignore
+      Expr.AppendToString(e, sb)
+      sb.Append ")" |> ignore
+    | Extract(e, typ, p) ->
+      sb.Append "(" |> ignore
+      Expr.AppendToString(e, sb)
+      sb.Append "[" |> ignore
+      sb.Append((int typ + p - 1).ToString() + ":" + p.ToString()) |> ignore
+      sb.Append "]" |> ignore
+      sb.Append ")" |> ignore
+    | Undefined(_, reason) ->
+      sb.Append("Undefined expression (") |> ignore
+      sb.Append reason |> ignore
+      sb.Append ")" |> ignore
+
+  /// Pretty-prints an SSA expression to a string.
+  static member ToString expr =
+    let sb = StringBuilder()
+    Expr.AppendToString(expr, sb)
+    sb.ToString()

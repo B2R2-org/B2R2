@@ -61,7 +61,7 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
 
   let regularIRPrinter hdl (liftingUnit: LiftingUnit) optimizer ptr ins =
     let stmts = optimizer (liftingUnit.LiftInstruction(ins = ins))
-    let lowUIRStr = LowUIR.Pp.stmtsToString stmts
+    let lowUIRStr = PrettyPrinter.ToString(lowuirStmts = stmts)
     let bytes = (hdl: BinHandle).ReadBytes(ptr = ptr, nBytes = int ins.Length)
     printLowUIR lowUIRStr bytes
 

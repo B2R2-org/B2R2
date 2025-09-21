@@ -147,7 +147,7 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
         |> Array.collect (fun liftedIns -> liftedIns.Stmts)
         |> Array.map (fun stmt ->
           [| { AsmWordKind = AsmWordKind.String
-               AsmWordValue = Pp.stmtToString stmt } |])
+               AsmWordValue = PrettyPrinter.ToString stmt } |])
       else [||]
 
   interface IEquatable<LowUIRBasicBlock> with

@@ -26,7 +26,7 @@ namespace B2R2.FrontEnd.Intel.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.BinIR.LowUIR
+open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel
 
@@ -37,7 +37,7 @@ type LifterTests() =
     let reader = BinReader.Init Endian.Little
     let parser = IntelParser(wordSize, reader) :> IInstructionParsable
     let ins = parser.Parse(bytes, 0UL)
-    let actual = ins.Translate builder |> Array.map Pp.stmtToString
+    let actual = ins.Translate builder |> Array.map PrettyPrinter.ToString
     CollectionAssert.AreEqual(expectedStmts, actual)
 
   let testX86 (hex: string) expectedStmts =

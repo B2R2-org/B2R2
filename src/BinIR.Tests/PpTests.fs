@@ -31,11 +31,11 @@ open B2R2.BinIR.LowUIR
 
 [<TestClass>]
 type PpTests() =
-  let assertEqualOfStrAndStmt (expected: string) stmt =
-    Assert.AreEqual<string>(expected, Pp.stmtToString stmt)
+  let assertEqualOfStrAndStmt (expected: string) (stmt: Stmt) =
+    Assert.AreEqual<string>(expected, PrettyPrinter.ToString stmt)
 
-  let assertEqualOfStrAndExpr (expected: string) expr =
-    Assert.AreEqual<string>(expected, Pp.expToString expr)
+  let assertEqualOfStrAndExpr (expected: string) (expr: Expr) =
+    Assert.AreEqual<string>(expected, PrettyPrinter.ToString expr)
 
   let tmpvarNum0 = AST.tmpvar 32<rt> 0
 

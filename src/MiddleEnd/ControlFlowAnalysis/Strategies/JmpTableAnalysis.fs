@@ -250,7 +250,7 @@ type JmpTableAnalysis<'FnCtx,
   let rec findSymbPattern expandPhi findConst findDef fnAddr insAddr depth exp =
 #if CFGDEBUG
     dbglog ManagerTid "JumpTable"
-    <| $"{insAddr:x} ({depth}): {Pp.expToString exp}"
+    <| $"{insAddr:x} ({depth}): {PrettyPrinter.ToString(ssaExpr = exp)}"
 #endif
     match detect findConst findDef insAddr exp with
     | Ok info ->

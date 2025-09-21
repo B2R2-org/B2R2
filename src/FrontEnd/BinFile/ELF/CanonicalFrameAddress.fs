@@ -41,5 +41,5 @@ with
     | RegPlusOffset(rid, offset) ->
       regFactory.GetRegString rid + (offset.ToString("+0;-#"))
     | Expression exp ->
-      LowUIR.Pp.expToString exp
+      PrettyPrinter.ToString exp
     | UnknownCFA -> "unknown"

@@ -25,7 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open System.Text
-open B2R2.BinIR.LowUIR
+open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 
@@ -35,7 +35,7 @@ type LiftAction() =
     if ptr.IsValid then
       match lifter.TryParseInstruction ptr with
       | Ok instr ->
-        let s = lifter.LiftInstruction instr |> Pp.stmtsToString
+        let s = lifter.LiftInstruction instr |> PrettyPrinter.ToString
         let ptr = ptr.Advance(instr.Length)
         lift (sb.Append s) lifter ptr
       | Error _ -> "Bad instruction found"
