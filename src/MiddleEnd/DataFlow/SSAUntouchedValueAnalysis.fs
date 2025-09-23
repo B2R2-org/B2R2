@@ -38,7 +38,7 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
     |> Array.iter (fun regExpr ->
       let rid = hdl.RegisterFactory.GetRegisterID regExpr
       let rt = hdl.RegisterFactory.GetRegType rid
-      let str = hdl.RegisterFactory.GetRegString rid
+      let str = hdl.RegisterFactory.GetRegisterName rid
       let var = { Kind = RegVar(rt, rid, str); Identifier = 0 }
       let vkind = VarKind.ofSSAVarKind var.Kind
       state.SetRegValueWithoutAdding(var,
@@ -47,7 +47,7 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
     match hdl.RegisterFactory.StackPointer with
     | Some sp ->
       let rt = hdl.RegisterFactory.GetRegType sp
-      let str = hdl.RegisterFactory.GetRegString sp
+      let str = hdl.RegisterFactory.GetRegisterName sp
       let var = { Kind = RegVar(rt, sp, str); Identifier = 0 }
       state.SetRegValueWithoutAdding(var, UntouchedValueDomain.Touched)
       state

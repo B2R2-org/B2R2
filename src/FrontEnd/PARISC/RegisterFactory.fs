@@ -374,10 +374,10 @@ type RegisterFactory(wordSize) =
          fpr30
          fpr31 |]
 
-    member this.GetAllRegStrings() =
+    member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory
       regFactory.GetAllRegVars()
-      |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegString)
+      |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
     member _.GetGeneralRegVars() =
       [| gr0
@@ -427,7 +427,7 @@ type RegisterFactory(wordSize) =
     member _.GetRegisterID str =
       Register.ofString str |> Register.toRegID
 
-    member _.GetRegString rid =
+    member _.GetRegisterName rid =
       Register.toString (Register.ofRegID rid)
 
     member _.GetRegType _rid =

@@ -203,7 +203,7 @@ type State<'L, 'ExeCtx when 'L: equality
       match svp.VarKind with
       | Regular rid ->
         let rt = hdl.RegisterFactory.GetRegType rid
-        let rname = hdl.RegisterFactory.GetRegString rid
+        let rname = hdl.RegisterFactory.GetRegisterName rid
         SSA.RegVar(rt, rid, rname)
       | StackLocal offset ->
         let rt = 0<rt>

@@ -446,7 +446,7 @@ let ruleToString (hdl: BinHandle) (rule: UnwindingRule) =
     match k with
     | ReturnAddress -> s + "(ra:" + UnwindingAction.ToString v + ")"
     | NormalReg rid ->
-      let reg = hdl.RegisterFactory.GetRegString rid
+      let reg = hdl.RegisterFactory.GetRegisterName rid
       s + "(" + reg + ":" + UnwindingAction.ToString v + ")") ""
 
 let dumpEHFrame hdl (file: ELFBinFile) =

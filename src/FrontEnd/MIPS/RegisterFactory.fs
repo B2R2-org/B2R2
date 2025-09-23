@@ -308,13 +308,13 @@ type RegisterFactory(wordSize) =
     member _.GetRegisterIDAliases rid =
       [| rid |]
 
-    member _.GetRegString rid =
+    member _.GetRegisterName rid =
       Register.toString (Register.ofRegID rid) wordSize
 
-    member this.GetAllRegStrings() =
+    member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory
       regFactory.GetAllRegVars()
-      |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegString)
+      |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
     member _.GetRegType _rid =
       WordSize.toRegType wordSize

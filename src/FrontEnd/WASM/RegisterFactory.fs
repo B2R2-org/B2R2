@@ -50,10 +50,10 @@ type RegisterFactory() =
 
     member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
 
-    member _.GetRegString rid =
+    member _.GetRegisterName rid =
       Register.ofRegID rid |> Register.toString
 
-    member _.GetAllRegStrings() = [||]
+    member _.GetAllRegisterNames() = [||]
 
     member _.GetRegType rid =
       Register.ofRegID rid |> Register.toRegType

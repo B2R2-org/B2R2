@@ -113,7 +113,7 @@ type SSAConstantPropagation(hdl: BinHandle) =
       match hdl.RegisterFactory.StackPointer with
       | Some sp ->
         let rt = hdl.RegisterFactory.GetRegType sp
-        let str = hdl.RegisterFactory.GetRegString sp
+        let str = hdl.RegisterFactory.GetRegisterName sp
         let var = { Kind = RegVar(rt, sp, str); Identifier = 0 }
         let spVal = BitVector(InitialStackPointer, rt)
         state.SetRegValueWithoutAdding(var, ConstantDomain.Const spVal)

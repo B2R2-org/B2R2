@@ -144,7 +144,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
 
   let untouchedArgIndexX64FromSSACFG hdl (ssa: SSACFG) absV state nth =
     let argReg = CallingConvention.FunctionArgRegister(hdl, OS.Linux, nth)
-    let name = hdl.RegisterFactory.GetRegString argReg
+    let name = hdl.RegisterFactory.GetRegisterName argReg
     let varKind = SSA.RegVar(64<rt>, argReg, name)
     match ssa.FindReachingDef(absV, varKind) with
     | Some(SSA.Def(var, _)) ->

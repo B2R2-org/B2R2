@@ -91,7 +91,7 @@ type LLVMIRBuilder(fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
 
   member this.EmitRegLoad reg =
     let struct (ptr, elm, sz) = this.LoadRegisterPtr reg
-    let rname = hdl.RegisterFactory.GetRegString reg
+    let rname = hdl.RegisterFactory.GetRegisterName reg
     let rvar = newID sz
     this.EmitStmt <| LLVMStmt.mkLoad rvar ptr (Some $"; {rname}")
     if RegType.toBitWidth elm.RType = elm.Size * 8 then
@@ -108,7 +108,7 @@ type LLVMIRBuilder(fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
 
   member this.EmitRegStore(lreg, rexp) =
     let struct (ptr, elm, sz) = this.LoadRegisterPtr lreg
-    let rname = hdl.RegisterFactory.GetRegString lreg
+    let rname = hdl.RegisterFactory.GetRegisterName lreg
     if RegType.toBitWidth elm.RType = elm.Size * 8 then (* normal case *)
       this.EmitStmt <| LLVMStmt.mkStore rexp ptr None (Some rname)
     else

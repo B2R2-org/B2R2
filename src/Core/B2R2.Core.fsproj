@@ -19,6 +19,7 @@
     <Compile Include="RegType.fs" />
     <Compile Include="WordSize.fs" />
     <Compile Include="RegisterID.fs" />
+    <Compile Include="IRegisterNameAccessor.fs" />
     <Compile Include="Endian.fs" />
     <Compile Include="OS.fs" />
     <Compile Include="Architecture.fs" />

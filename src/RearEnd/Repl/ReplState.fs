@@ -110,7 +110,7 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     |> Seq.toList
     |> this.Filter
     |> List.map (fun (r, v) ->
-      let regStr = regFactory.GetRegString r
+      let regStr = regFactory.GetRegisterName r
       let regVal = v.ToString()
       regStr + ": " + regVal, Set.contains r set)
 

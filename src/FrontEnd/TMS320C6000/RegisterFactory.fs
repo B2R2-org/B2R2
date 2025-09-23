@@ -57,9 +57,9 @@ type RegisterFactory(_wordSize) =
 
     member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
 
-    member _.GetRegString _ = Terminator.futureFeature ()
+    member _.GetRegisterName _ = Terminator.futureFeature ()
 
-    member _.GetAllRegStrings() = Terminator.futureFeature ()
+    member _.GetAllRegisterNames() = Terminator.futureFeature ()
 
     member _.GetRegType _ = Terminator.futureFeature ()
 

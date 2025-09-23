@@ -31,6 +31,7 @@ open B2R2.BinIR.LowUIR
 /// Provides a platform-agnostic interface for accessing register information.
 /// </summary>
 type IRegisterFactory =
+  inherit IRegisterNameAccessor
   inherit IRegisterVarAccessor
 
   /// Returns RegisterID from a given register var expression.
@@ -48,16 +49,6 @@ type IRegisterFactory =
   /// architecture of BinHandle.
   /// </summary>
   abstract GetRegisterIDAliases: RegisterID -> RegisterID[]
-
-  /// <summary>
-  /// Returns a register string from a given RegisterID. Depending on the
-  /// underlying architecture of the BinHandle, we may have a different string
-  /// result.
-  /// </summary>
-  abstract GetRegString: RegisterID -> string
-
-  /// Returns all register names.
-  abstract GetAllRegStrings: unit -> string[]
 
   /// <summary>
   /// Returns a RegType from a given RegisterID.

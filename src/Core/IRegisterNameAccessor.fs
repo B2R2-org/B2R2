@@ -22,24 +22,18 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
+namespace B2R2
 
-open B2R2
-open B2R2.BinIR
-open B2R2.FrontEnd.BinLifter
+/// <summary>
+/// Provides methods to retrieve register names in a platform-agnostic manner.
+/// </summary>
+type IRegisterNameAccessor =
+  /// <summary>
+  /// Returns a register name from a given RegisterID.
+  /// </summary>
+  abstract GetRegisterName: RegisterID -> string
 
-/// Represents the CFA, machine-independent representation of the current frame
-/// address. For example, (esp+8) on x86.
-type CanonicalFrameAddress =
-  | RegPlusOffset of RegisterID * int
-  | Expression of LowUIR.Expr
-  | UnknownCFA
-with
-  /// Returns a string representation of the CFA.
-  static member ToString(regFactory: IRegisterFactory, cfa) =
-    match cfa with
-    | RegPlusOffset(rid, offset) ->
-      regFactory.GetRegisterName rid + (offset.ToString("+0;-#"))
-    | Expression exp ->
-      PrettyPrinter.ToString exp
-    | UnknownCFA -> "unknown"
+  /// <summary>
+  /// Returns all register names used in the current architecture.
+  /// </summary>
+  abstract GetAllRegisterNames: unit -> string[]

@@ -107,7 +107,7 @@ type Parser(isa: ISA, regFactory: IRegisterFactory) =
 
   let pNum = pBitVector |>> AST.num
 
-  let regnames = regFactory.GetAllRegStrings()
+  let regnames = regFactory.GetAllRegisterNames()
 
   let pVar =
     regnames

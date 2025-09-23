@@ -78,8 +78,8 @@ type ILowUIRBuilder =
         member _.GetRegisterID expr = regFactory.GetRegisterID(expr = expr)
         member _.GetRegisterID name = regFactory.GetRegisterID(name = name)
         member _.GetRegisterIDAliases id = regFactory.GetRegisterIDAliases id
-        member _.GetRegString id = regFactory.GetRegString id
-        member _.GetAllRegStrings() = regFactory.GetAllRegStrings()
+        member _.GetRegisterName id = regFactory.GetRegisterName id
+        member _.GetAllRegisterNames() = regFactory.GetAllRegisterNames()
         member _.GetRegType id = regFactory.GetRegType id
         member _.ProgramCounter = regFactory.ProgramCounter
         member _.StackPointer with get() = regFactory.StackPointer

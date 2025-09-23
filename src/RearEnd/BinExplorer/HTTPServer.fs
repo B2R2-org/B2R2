@@ -234,7 +234,7 @@ let computeConnectedVars chain v =
 let getVarNames (hdl: BinHandle) = function
   | Regular v ->
     hdl.RegisterFactory.GetRegisterIDAliases v
-    |> Array.map (hdl.RegisterFactory.GetRegString)
+    |> Array.map (hdl.RegisterFactory.GetRegisterName)
   | _ -> [||]
 
 let handleDataflow req resp (arbiter: Arbiter<_, _>) (args: string) =

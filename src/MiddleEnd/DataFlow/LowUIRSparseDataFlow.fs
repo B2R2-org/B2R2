@@ -174,7 +174,7 @@ type State<'Lattice when 'Lattice: equality>
     match vk with
     | Regular rid ->
       let rt = hdl.RegisterFactory.GetRegType rid
-      let rname = hdl.RegisterFactory.GetRegString rid
+      let rname = hdl.RegisterFactory.GetRegisterName rid
       SSA.RegVar(rt, rid, rname)
     | Memory(Some _) -> SSA.MemVar
     | Memory None -> SSA.MemVar
