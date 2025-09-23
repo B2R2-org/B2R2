@@ -70,7 +70,7 @@ type ILowUIRBuilder =
           with get() = Terminator.impossible ()
             and set v = Terminator.impossible ()
 #endif
-        member _.GetRegVar id = regFactory.GetRegVar(id = id)
+        member _.GetRegVar rid = regFactory.GetRegVar(rid = rid)
         member _.GetRegVar name = regFactory.GetRegVar(name = name)
         member _.GetPseudoRegVar(id, idx) = regFactory.GetPseudoRegVar(id, idx)
         member _.GetAllRegVars() = regFactory.GetAllRegVars()

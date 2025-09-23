@@ -46,7 +46,7 @@ type LowUIRBuilder(isa: ISA,
 #if EMULATION
     member _.ConditionCodeOp with get() = ccop and set v = ccop <- v
 #endif
-    member _.GetRegVar id = regFactory.GetRegVar(id = id)
+    member _.GetRegVar rid = regFactory.GetRegVar(rid = rid)
     member _.GetRegVar name = regFactory.GetRegVar(name = name)
     member _.GetPseudoRegVar(id, idx) = regFactory.GetPseudoRegVar(id, idx)
     member _.GetAllRegVars() = regFactory.GetAllRegVars()

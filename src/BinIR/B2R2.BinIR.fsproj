@@ -20,6 +20,7 @@
     <Compile Include="HashConsingInfo.fs" />
     <Compile Include="LowUIR\Expr.fs" />
     <Compile Include="LowUIR\Stmt.fs" />
+    <Compile Include="LowUIR\IRegisterVarAccessor.fs" />
     <Compile Include="LowUIR\TypeCheck.fs" />
     <Compile Include="LowUIR\ValueOptimizer.fs" />
     <Compile Include="LowUIR\AST.fs" />
