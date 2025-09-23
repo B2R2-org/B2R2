@@ -19,7 +19,6 @@
     <ProjectReference Include="..\Intel\B2R2.Peripheral.Assembly.Intel.fsproj" />
     <ProjectReference Include="..\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\MIPS\B2R2.Peripheral.Assembly.MIPS.fsproj" />
-    <ProjectReference Include="..\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj" />
   </ItemGroup>
 
 </Project>

@@ -58,7 +58,7 @@ let getAssemblyPrinter (opts: AssemblerOpts) =
         |> ignore)
   | LowUIRMode(isa) ->
     let regFactory = GroundWork.CreateRegisterFactory isa
-    let parser = LowUIR.Parser(isa, regFactory)
+    let parser = LowUIR.Parser(isa, regFactory, regFactory)
     fun str ->
       parser.Parse str
       |> printResult (fun stmts ->

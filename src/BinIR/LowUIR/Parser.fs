@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Peripheral.Assembly.LowUIR
+namespace B2R2.BinIR.LowUIR
 
 open System
 open System.Numerics
@@ -31,18 +31,13 @@ open FParsec
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinLifter
-open B2R2.Peripheral.Assembly.LowUIR.Helper
 
-/// <namespacedoc>
-///   <summary>
-///   Contains LowUIR-specific assembly components and types.
-///   </summary>
-/// </namespacedoc>
 /// <summary>
 /// Represents a parser for LowUIR statements.
 /// </summary>
-type Parser(isa: ISA, regFactory: IRegisterFactory) =
+type Parser(isa: ISA,
+            regNameAccessor: IRegisterNameAccessor,
+            regVarAccessor: IRegisterVarAccessor) =
   let isAllowedFirstCharForID c = isAsciiLetter c
 
   let isAllowedCharForID c = isAsciiLetter c || isDigit c
@@ -107,13 +102,13 @@ type Parser(isa: ISA, regFactory: IRegisterFactory) =
 
   let pNum = pBitVector |>> AST.num
 
-  let regnames = regFactory.GetAllRegisterNames()
+  let regnames = regNameAccessor.GetAllRegisterNames()
 
   let pVar =
     regnames
     |> Array.map (pstringCI >> attempt)
     |> choice
-    |>> regFactory.GetRegVar
+    |>> regVarAccessor.GetRegVar
 
   let pTempVar =
     pstring "T_" >>. pint32 .>> ws
@@ -266,6 +261,10 @@ type Parser(isa: ISA, regFactory: IRegisterFactory) =
     ws >>. pchar ':' >>. pIdentifier
     |>> (fun name -> AST.label name 0 0UL |> AST.lmark)
 
+  let updateExpectedType e =
+    updateUserState (fun _ -> Expr.TypeOf e)
+    >>. preturn e
+
   let pPut =
     ws
     >>. ((attempt pTempVar <|> pVar) >>= updateExpectedType)
@@ -352,6 +351,10 @@ type Parser(isa: ISA, regFactory: IRegisterFactory) =
     ws
     >>. pstring "!!" .>> ws >>. pSideEffectKind
     |>> AST.sideEffect
+
+  let typeCheck st =
+    if TypeCheck.stmt st then preturn st
+    else fail "Type check failed."
 
   let pStatement =
     attempt pISMark

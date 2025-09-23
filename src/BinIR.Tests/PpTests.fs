@@ -22,7 +22,7 @@
   THE SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.Tests
+namespace B2R2.BinIR.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2

@@ -5,7 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="LowUIRTests.fs" />
     <Compile Include="IntelTests.fs" />
   </ItemGroup>
 
@@ -15,11 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
-    <ProjectReference Include="..\Assembly\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj" />
-    <ProjectReference Include="..\Assembly\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\Assembly\Intel\B2R2.Peripheral.Assembly.Intel.fsproj" />
-    <ProjectReference Include="..\Assembly\MIPS\B2R2.Peripheral.Assembly.MIPS.fsproj" />
     <ProjectReference Include="..\Assembly\API\B2R2.Peripheral.Assembly.API.fsproj" />
   </ItemGroup>
 

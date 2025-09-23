@@ -25,6 +25,7 @@
 module B2R2.RearEnd.Repl.Program
 
 open B2R2
+open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.Peripheral.Assembly
@@ -83,7 +84,8 @@ let runRepl _args (opts: ReplOpts) =
   let asm = Assembler(opts.ISA, 0UL)
   let builder = GroundWork.CreateBuilder(opts.ISA, hdl.RegisterFactory)
   let binParser = GroundWork.CreateParser(hdl.File.Reader, opts.ISA)
-  let uirParser = LowUIR.Parser(opts.ISA, hdl.RegisterFactory)
+  let regFactory = hdl.RegisterFactory
+  let uirParser = LowUIR.Parser(opts.ISA, regFactory, regFactory)
   Display.printBlue "Welcome to B2R2 REPL\n"
   state.ConsolePrompt |> console.UpdatePrompt
   run opts.ShowTemp state asm builder binParser uirParser

@@ -106,8 +106,6 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.Bi
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.Intel", "src\Peripheral\Assembly\Intel\B2R2.Peripheral.Assembly.Intel.fsproj", "{FAB1B546-EDE5-4E93-8AAC-65E13BDB892B}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.LowUIR", "src\Peripheral\Assembly\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj", "{F6DDBED9-7ABF-4565-86D8-E975D53561A3}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.MIPS", "src\Peripheral\Assembly\MIPS\B2R2.Peripheral.Assembly.MIPS.fsproj", "{4A6D45B7-6692-4DE5-94EF-A1274EBF3315}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.API", "src\Peripheral\Assembly\API\B2R2.Peripheral.Assembly.API.fsproj", "{8C0C08B4-B255-4FCE-B55C-B29C3A6A2060}"
@@ -782,18 +780,6 @@ Global
 		{FAB1B546-EDE5-4E93-8AAC-65E13BDB892B}.Release|x64.Build.0 = Release|Any CPU
 		{FAB1B546-EDE5-4E93-8AAC-65E13BDB892B}.Release|x86.ActiveCfg = Release|Any CPU
 		{FAB1B546-EDE5-4E93-8AAC-65E13BDB892B}.Release|x86.Build.0 = Release|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Debug|x64.Build.0 = Debug|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Debug|x86.Build.0 = Debug|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Release|x64.ActiveCfg = Release|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Release|x64.Build.0 = Release|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Release|x86.ActiveCfg = Release|Any CPU
-		{F6DDBED9-7ABF-4565-86D8-E975D53561A3}.Release|x86.Build.0 = Release|Any CPU
 		{4A6D45B7-6692-4DE5-94EF-A1274EBF3315}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4A6D45B7-6692-4DE5-94EF-A1274EBF3315}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4A6D45B7-6692-4DE5-94EF-A1274EBF3315}.Debug|x64.ActiveCfg = Debug|Any CPU
