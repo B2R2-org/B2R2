@@ -77,20 +77,20 @@ let dumpSectionHeaders (opts: FileViewerOpts) (elf: ELFBinFile) =
   let file = elf :> IBinFile
   if opts.Verbose then
     let cfg =
-      { Indentation = 2
-        ColumnGap = 0
-        Columns = [ LeftAligned 4
-                    addrColumn
-                    addrColumn
-                    LeftAligned 24
-                    LeftAligned 14
-                    LeftAligned 12
-                    LeftAligned 8
-                    LeftAligned 10
-                    LeftAligned 4
-                    LeftAligned 4
-                    LeftAligned 6
-                    LeftAligned 20 ] }
+      { TableConfig.DefaultTwoColumn with
+          Indentation = 2
+          Columns = [ LeftAligned 4
+                      addrColumn
+                      addrColumn
+                      LeftAligned 24
+                      LeftAligned 14
+                      LeftAligned 12
+                      LeftAligned 8
+                      LeftAligned 10
+                      LeftAligned 4
+                      LeftAligned 4
+                      LeftAligned 6
+                      LeftAligned 20 ] }
     Terminal.Out
     <== cfg
     <== [ "Num"
@@ -124,9 +124,9 @@ let dumpSectionHeaders (opts: FileViewerOpts) (elf: ELFBinFile) =
     )
   else
     let cfg =
-      { Indentation = 2
-        ColumnGap = 0
-        Columns = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ] }
+      { TableConfig.DefaultTwoColumn with
+          Indentation = 2
+          Columns = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ] }
     Terminal.Out
     <== cfg
     <== [ "Num"; "Start"; "End"; "Name" ]
@@ -194,17 +194,17 @@ let printSymbolInfo isVerbose (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   if isVerbose then
     let cfg =
-      { Indentation = 2
-        ColumnGap = 0
-        Columns = [ LeftAligned 4
-                    addrColumn
-                    LeftAligned 55
-                    LeftAligned 15
-                    LeftAligned 8
-                    LeftAligned 12
-                    LeftAligned 8
-                    LeftAligned 10
-                    LeftAligned 8 ] }
+      { TableConfig.DefaultTwoColumn with
+          Indentation = 2
+          Columns = [ LeftAligned 4
+                      addrColumn
+                      LeftAligned 55
+                      LeftAligned 15
+                      LeftAligned 8
+                      LeftAligned 12
+                      LeftAligned 8
+                      LeftAligned 10
+                      LeftAligned 8 ] }
     Terminal.Out
     <== cfg
     <== [ "S/D"
@@ -224,13 +224,13 @@ let printSymbolInfo isVerbose (elf: ELFBinFile) =
     |> Array.iter (fun s -> printSymbolInfoVerbose elf s "(d)" cfg)
   else
     let cfg =
-      { Indentation = 2
-        ColumnGap = 0
-        Columns = [ LeftAligned 3
-                    LeftAligned 10
-                    addrColumn
-                    LeftAligned 75
-                    LeftAligned 15 ] }
+      { TableConfig.DefaultTwoColumn with
+          Indentation = 2
+          Columns = [ LeftAligned 3
+                      LeftAligned 10
+                      addrColumn
+                      LeftAligned 75
+                      LeftAligned 15 ] }
     Terminal.Out
     <== cfg
     <== [ "S/D"; "Kind"; "Address"; "Name"; "Lib Name" ]
@@ -268,13 +268,13 @@ let dumpRelocs (_opts: FileViewerOpts) (elf: ELFBinFile) =
 let dumpFunctions (_: FileViewerOpts) (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   let cfg =
-    { Indentation = 2
-      ColumnGap = 0
-      Columns = [ LeftAligned 3
-                  LeftAligned 10
-                  addrColumn
-                  LeftAligned 75
-                  LeftAligned 15 ] }
+    { TableConfig.DefaultTwoColumn with
+        Indentation = 2
+        Columns = [ LeftAligned 3
+                    LeftAligned 10
+                    addrColumn
+                    LeftAligned 75
+                    LeftAligned 15 ] }
   for addr in (elf :> IBinFile).GetFunctionAddresses() do
     match elf.Symbols.TryFindSymbol addr with
     | Ok symb -> printSymbolInfoNonVerbose elf symb "" cfg

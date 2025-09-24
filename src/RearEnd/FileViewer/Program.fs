@@ -33,7 +33,6 @@ let dumpBasic (file: IBinFile) =
   let entry = ColoredString(Green, String.ofEntryPointOpt file.EntryPoint)
   Terminal.Out.PrintSectionTitle "Basic Information"
   Terminal.Out
-  <== TableConfig.DefaultTwoColumn
   <== [ "File format:"; FileFormat.toString file.Format ]
   <== [ "Architecture:"; file.ISA.ToString() ]
   <== [ "Endianness:"; Endian.toString file.ISA.Endian ]
@@ -44,7 +43,6 @@ let dumpBasic (file: IBinFile) =
 let dumpSecurity (file: IBinFile) =
   Terminal.Out.PrintSectionTitle "Security Information"
   Terminal.Out
-  <== TableConfig.DefaultTwoColumn
   <== [ "Stripped binary:"; file.IsStripped.ToString() ]
   <== [ "DEP (NX) enabled:"; file.IsNXEnabled.ToString() ]
   <=/ [ "Relocatable (PIE):"; file.IsRelocatable.ToString() ]
@@ -256,4 +254,5 @@ let dump files opts =
 [<EntryPoint>]
 let main args =
   let opts = FileViewerOpts.Default
+  Terminal.Out <=/ { TableConfig.DefaultTwoColumn with Indentation = 2 }
   CmdOpts.parseAndRun dump ToolName UsageTail FileViewerOpts.Spec opts args
