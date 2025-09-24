@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 Intel assembly library.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="EncodedByteCode.fs" />
+    <Compile Include="EncodingContext.fs" />
+    <Compile Include="ParserHelper.fs" />
+    <Compile Include="AsmPrefix.fs" />
+    <Compile Include="AsmOperands.fs" />
+    <Compile Include="AsmOpcode.fs" />
+    <Compile Include="AsmMain.fs" />
+    <Compile Include="Assembler.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
+    <ProjectReference Include="..\BinLowerer\B2R2.Assembly.BinLowerer.fsproj" />
+  </ItemGroup>
+
+</Project>

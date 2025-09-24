@@ -98,17 +98,17 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.LLVM", "src\
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.SSA", "src\MiddleEnd\SSA\B2R2.MiddleEnd.SSA.fsproj", "{94BC8005-6694-4F31-8401-B507E1D6EA2B}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.Tests", "src\Peripheral\Assembly.Tests\B2R2.Peripheral.Assembly.Tests.fsproj", "{2B411989-F9A9-4BBE-BDC0-76B001B2A5D9}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Assembly.Tests", "src\Assembly.Tests\B2R2.Assembly.Tests.fsproj", "{2B411989-F9A9-4BBE-BDC0-76B001B2A5D9}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.ARM32", "src\Peripheral\Assembly\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj", "{16BAADE1-0521-46FF-8B28-7ABB66CC17EB}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Assembly.ARM32", "src\Assembly\ARM32\B2R2.Assembly.ARM32.fsproj", "{16BAADE1-0521-46FF-8B28-7ABB66CC17EB}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.BinLowerer", "src\Peripheral\Assembly\BinLowerer\B2R2.Peripheral.Assembly.BinLowerer.fsproj", "{008E997A-676E-4A23-90D3-F251B345150D}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Assembly.BinLowerer", "src\Assembly\BinLowerer\B2R2.Assembly.BinLowerer.fsproj", "{008E997A-676E-4A23-90D3-F251B345150D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.Intel", "src\Peripheral\Assembly\Intel\B2R2.Peripheral.Assembly.Intel.fsproj", "{FAB1B546-EDE5-4E93-8AAC-65E13BDB892B}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Assembly.Intel", "src\Assembly\Intel\B2R2.Assembly.Intel.fsproj", "{FAB1B546-EDE5-4E93-8AAC-65E13BDB892B}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.MIPS", "src\Peripheral\Assembly\MIPS\B2R2.Peripheral.Assembly.MIPS.fsproj", "{4A6D45B7-6692-4DE5-94EF-A1274EBF3315}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Assembly.MIPS", "src\Assembly\MIPS\B2R2.Assembly.MIPS.fsproj", "{4A6D45B7-6692-4DE5-94EF-A1274EBF3315}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.API", "src\Peripheral\Assembly\API\B2R2.Peripheral.Assembly.API.fsproj", "{8C0C08B4-B255-4FCE-B55C-B29C3A6A2060}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Assembly.API", "src\Assembly\API\B2R2.Assembly.API.fsproj", "{8C0C08B4-B255-4FCE-B55C-B29C3A6A2060}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.Assembler", "src\RearEnd\Assembler\B2R2.RearEnd.Assembler.fsproj", "{6F3E3BE4-04D6-466A-86A3-6C826F53C017}"
 EndProject

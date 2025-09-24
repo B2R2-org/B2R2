@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 ARM32 assembly library.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ParserHelper.fs" />
+    <Compile Include="SecondPass.fs" />
+    <Compile Include="Assembler.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
+  </ItemGroup>
+
+</Project>

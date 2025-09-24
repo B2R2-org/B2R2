@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 assembly main interface.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="BinTranslator.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BinLowerer\B2R2.Assembly.BinLowerer.fsproj" />
+    <ProjectReference Include="..\Intel\B2R2.Assembly.Intel.fsproj" />
+    <ProjectReference Include="..\ARM32\B2R2.Assembly.ARM32.fsproj" />
+    <ProjectReference Include="..\MIPS\B2R2.Assembly.MIPS.fsproj" />
+  </ItemGroup>
+
+</Project>

@@ -29,7 +29,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
-open B2R2.Peripheral.Assembly
+open B2R2.Assembly
 open B2R2.RearEnd.Utils
 
 let [<Literal>] private NormalPrompt = "> "

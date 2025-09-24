@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.Intel.Tests")>]
-[<assembly: InternalsVisibleTo("B2R2.Peripheral.Assembly.Intel")>]
+[<assembly: InternalsVisibleTo("B2R2.Assembly.Intel")>]
 do ()
 
 /// Shortcut for Register type.
