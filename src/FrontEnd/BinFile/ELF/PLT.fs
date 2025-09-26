@@ -204,7 +204,10 @@ type GeneralPLTParser(shdrs, relocInfo, symbs, pltHdrSize, relKind) =
 
   member private this.CreateGeneralPLTDescriptor(rsec, sec) =
     let count = rsec.SecSize / rsec.SecEntrySize (* number of PLT entries *)
-    let pltEntrySize = (sec.SecSize - pltHdrSize) / count
+    let pltEntrySize = (* sometimes, plt section contains dummy data *)
+      if relocs.Length >= 2 && relocs[0].RelSymbol.IsSome then
+        relocs[1].RelSymbol.Value.Addr - relocs[0].RelSymbol.Value.Addr
+      else (sec.SecSize - pltHdrSize) / count
     let addr = sec.SecAddr + pltHdrSize
     assert (this.Relocs.Length = int count)
     newPLT DontCare AnyBinding false pltEntrySize 0UL addr
@@ -218,8 +221,11 @@ type GeneralPLTParser(shdrs, relocInfo, symbs, pltHdrSize, relKind) =
       | None -> UnknownPLT
 
   override this.ParseEntry(addr, idx, _sec, desc, _rdr, _span) =
+    let nextEntryAddr =
+      if this.Relocs.Length > (idx + 1) then addr + desc.EntrySize
+      else UInt64.MaxValue (* No more entries to parse. *)
     { EntryRelocAddr = this.Relocs[idx].RelOffset
-      NextEntryAddr = addr + desc.EntrySize }
+      NextEntryAddr = nextEntryAddr }
 
   override this.ParseSection(toolBox, sec, map) =
     match this.FindGeneralPLTType sec with
@@ -760,18 +766,6 @@ type MIPSPLTParser(hdr, shdrs, relocInfo, symbs: SymbolStore) =
     if List.isEmpty pltSections then this.ParseMIPSStubs toolBox
     else parseSections this toolBox NoOverlapIntervalMap.empty pltSections
 
-/// Classic PPC that uses the .plt section. Modern PPC binaries use the "glink".
-type PPCClassicPLTParser(shdrs, relocInfo, symbs, pltHdrSize, relKind) =
-  inherit GeneralPLTParser(shdrs, relocInfo, symbs, pltHdrSize, relKind)
-
-  override this.ParseEntry(_addr, idx, _sec, _desc, _rdr, _span) =
-    let nextIdx = idx + 1
-    let nextEntryAddr =
-      if this.Relocs.Length > nextIdx then this.Relocs[nextIdx].RelOffset
-      else UInt64.MaxValue (* No more entries to parse. *)
-    { EntryRelocAddr = this.Relocs[idx].RelOffset
-      NextEntryAddr = nextEntryAddr }
-
 /// PPC PLT parser.
 type PPCPLTParser(hdr, shdrs, relocInfo, symbs) =
   inherit PLTParser()
@@ -780,7 +774,8 @@ type PPCPLTParser(hdr, shdrs, relocInfo, symbs) =
 
   override _.ParseSection(toolBox, sec, map) =
     let rKind = RelocationKind.Create RelocationPPC32.R_PPC_JMP_SLOT
-    let p = PPCClassicPLTParser(shdrs, relocInfo, symbs, 0x48UL, rKind)
+    (* classic bins use the .plt section, while modern ones use the "glink". *)
+    let p = GeneralPLTParser(shdrs, relocInfo, symbs, 0x48UL, rKind)
     p.ParseSection(toolBox, sec, map)
 
   member private _.ComputeGLinkAddrWithGOT toolBox =
