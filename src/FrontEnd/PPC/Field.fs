@@ -26,8 +26,27 @@ namespace B2R2.FrontEnd.PPC
 
 /// Represents field in a PPC instruction.
 type Field =
-  | RT = 0
-  | RA = 1
-  | SI = 2
-  | D_SPLIT = 3
-  | RB = 4
+  | PO = 0
+  | RT = 1
+  | RA = 2
+  | SI_D = 3
+  | DSPLIT = 4
+  | RB = 5
+  | CY = 6
+  | L_X_14_15 = 7
+  | XO_X_21_30 = 8
+  | XO_XO = 9
+  | XO_Z23 = 10
+  | XO_DX = 11
+  | XO_XL = 12
+  | OE = 13
+  | Rc_XO = 14
+  | LI = 15
+  | AA = 16
+  | LK = 17
+  | BO = 18
+  | BI = 19
+  | BD = 20
+  | BH = 21
+
+type Fi = Field
