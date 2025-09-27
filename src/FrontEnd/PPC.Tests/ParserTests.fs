@@ -41,11 +41,23 @@ module private Shortcut =
     static member Imm(v) =
       OprImm v
 
-    static member CY(v) =
-      OprCY v
+    static member CY(cy) =
+      OprCY cy
 
-    static member L(v) =
-      OprL v
+    static member L(l) =
+      OprL l
+
+    static member Addr(addr) =
+      OprAddr addr
+
+    static member BO(bo) =
+      OprBO bo
+
+    static member BI(bi) =
+      OprBI bi
+
+    static member BH(bh) =
+      OprBH bh
 
   let test (isa: ISA) opcode (opr: Operands) bytes =
     let reader = BinReader.Init isa.Endian
@@ -65,6 +77,7 @@ module private Shortcut =
     let oprArr = Array.ofList oprList
     match oprArr.Length with
     | 0 -> NoOperand
+    | 1 -> OneOperand(oprArr[0])
     | 2 -> TwoOperands(oprArr[0], oprArr[1])
     | 3 -> ThreeOperands(oprArr[0], oprArr[1], oprArr[2])
     | 4 -> FourOperands(oprArr[0], oprArr[1], oprArr[2], oprArr[3])
@@ -554,4 +567,88 @@ type ArithmeticClass() =
   member _.``[PPC64] Arithmetic Instruction Test (80)``() =
     "7F2205E6"
     ++ (DARN ** [ O.Reg R25; O.L 0x2uy ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (1)``() =
+    "49F29274"
+    ++ (B ** [ O.Addr 0x1F29274UL ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (2)``() =
+    "489D902E"
+    ++ (BA ** [ O.Addr 0x9D902CUL ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (3)``() =
+    "4A946EF5"
+    ++ (BL ** [ O.Addr 0xFFFFFFFFFE946EF4UL ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (4)``() =
+    "49D8F883"
+    ++ (BLA ** [ O.Addr 0x1D8F880UL ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (5)``() =
+    "42C561B8"
+    ++ (BC ** [ O.BO 0x16uy; O.BI 0x5uy; O.Addr 0x61B8UL ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (6)``() =
+    "4066D85A"
+    ++ (BCA ** [ O.BO 0x3uy; O.BI 0x6uy; O.Addr 0xFFFFFFFFFFFFD858UL ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (7)``() =
+    "4009FEB9"
+    ++ (BCL ** [ O.BO 0x0uy; O.BI 0x9uy; O.Addr 0xFFFFFFFFFFFFFEB8UL ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (8)``() =
+    "42965543"
+    ++ (BCLA ** [ O.BO 0x14uy; O.BI 0x16uy; O.Addr 0x5540UL ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (9)``() =
+    "4F440820"
+    ++ (BCLR ** [ O.BO 0x1Auy; O.BI 0x4uy; O.BH 0x1uy ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (10)``() =
+    "4E2B1821"
+    ++ (BCLRL ** [ O.BO 0x11uy; O.BI 0xBuy; O.BH 0x3uy ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (11)``() =
+    "4E4A0420"
+    ++ (BCCTR ** [ O.BO 0x12uy; O.BI 0xAuy; O.BH 0x0uy ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (12)``() =
+    "4C371C21"
+    ++ (BCCTRL ** [ O.BO 0x1uy; O.BI 0x17uy; O.BH 0x3uy ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (13)``() =
+    "4DC20460"
+    ++ (BCTAR ** [ O.BO 0xEuy; O.BI 0x2uy; O.BH 0x0uy ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Branch Instruction Test (14)``() =
+    "4C1A1C61"
+    ++ (BCTARL ** [ O.BO 0x0uy; O.BI 0x1Auy; O.BH 0x3uy ])
     ||> testPPC WordSize.Bit64
