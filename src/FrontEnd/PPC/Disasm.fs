@@ -108,6 +108,20 @@ let opCodeToString =
   | Op.MODSW -> "modsw"
   | Op.MODUW -> "moduw"
   | Op.DARN -> "darn"
+  | Op.B -> "b"
+  | Op.BA -> "ba"
+  | Op.BL -> "bl"
+  | Op.BLA -> "bla"
+  | Op.BC -> "bc"
+  | Op.BCA -> "bca"
+  | Op.BCL -> "bcl"
+  | Op.BCLA -> "bcla"
+  | Op.BCLR -> "bclr"
+  | Op.BCLRL -> "bclrl"
+  | Op.BCCTR -> "bcctr"
+  | Op.BCCTRL -> "bcctrl"
+  | Op.BCTAR -> "bctar"
+  | Op.BCTARL -> "bctarl"
   | _ -> Terminator.futureFeature ()
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
@@ -124,10 +138,21 @@ let inline buildOperand (opr: Operand) (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.Value, "0x" + cy.ToString "X")
   | OprL l ->
     builder.Accumulate(AsmWordKind.Value, "0x" + l.ToString "X")
+  | OprAddr addr ->
+    builder.Accumulate(AsmWordKind.Value, "0x" + addr.ToString "X")
+  | OprBO bo ->
+    builder.Accumulate(AsmWordKind.Value, "0x" + bo.ToString "X")
+  | OprBI bi ->
+    builder.Accumulate(AsmWordKind.Value, "0x" + bi.ToString "X")
+  | OprBH bh ->
+    builder.Accumulate(AsmWordKind.Value, "0x" + bh.ToString "X")
 
 let inline buildOperands (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
   | NoOperand -> ()
+  | OneOperand opr ->
+    builder.Accumulate(AsmWordKind.String, " ")
+    buildOperand opr builder
   | TwoOperands(opr1, opr2) ->
     builder.Accumulate(AsmWordKind.String, " ")
     buildOperand opr1 builder
