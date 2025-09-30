@@ -72,29 +72,49 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
     getNeighbors g v
     |> Seq.exists (hasSameAddress v)
 
-  /// Collect pairs of vertices that can be merged. Such a pair should have only
-  /// one possible flow between them.
-  let collectVerticesToMerge (g: LowUIRCFG) =
-    let verticesToMerge = Dictionary()
+  let rec getCallSiteAddr cs =
+    match cs with
+    | LeafCallSite callSiteAddr -> callSiteAddr
+    | ChainedCallSite(previousCallSite, _) -> getCallSiteAddr previousCallSite
+
+  let findVertexIncludingAddr (g: LowUIRCFG) addr =
+    g.FindVertex(fun v ->
+      not <| v.VData.Internals.IsAbstract
+      && v.VData.Internals.Range.IsIncluding addr)
+
+  /// Find vertices to be merged or connected by fallthrough edges.
+  let findVertexConnectivity (g: LowUIRCFG) =
+    let vertexConnectivity = Dictionary()
     for v in g.Vertices do
       match g.GetSuccs v |> Seq.tryExactlyOne with
-      | Some succ when isMergableWithPredecessors g succ ->
-        (* Merge a caller node and its fallthrough node. *)
+      | Some succ when not succ.VData.Internals.IsAbstract
+                       && isMergableWithPredecessors g succ ->
+        (* Try to merge a caller node and its fallthrough node. *)
         if (v.VData :> IAbstractable<_>).IsAbstract then
-          let pred = g.GetPreds v |> Seq.exactlyOne
-          verticesToMerge[pred] <- succ
-          assert (pred.VData.Internals.PPoint < succ.VData.Internals.PPoint)
+          let callsite = v.VData.Internals.PPoint.CallSite.Value
+          let callsiteAddr = getCallSiteAddr callsite
+          let caller = findVertexIncludingAddr g callsiteAddr
+          let isFallthrough =
+            let last = caller.VData.Internals.LastInstruction
+            let fallthroughAddr = last.Address + uint64 last.Length
+            fallthroughAddr = succ.VData.Internals.PPoint.Address
+          (* If they are not located consecutively, we cannot merge them. *)
+          if not isFallthrough then
+            vertexConnectivity[caller] <- Connectable(succ)
+          else
+            vertexConnectivity[caller] <- Mergable(succ)
+            assert (caller.VData.Internals.PPoint < succ.VData.Internals.PPoint)
         (* Going in to an intra node *)
         elif not <| isIntraNode g v && isIntraNode g succ then
-          verticesToMerge[v] <- succ
+          vertexConnectivity[v] <- Mergable(succ)
           assert (v.VData.Internals.PPoint < succ.VData.Internals.PPoint)
         (* Going out from an intra node *)
         elif isIntraNode g v && not <| isIntraNode g succ then
-          verticesToMerge[v] <- succ
+          vertexConnectivity[v] <- Mergable(succ)
           assert (v.VData.Internals.PPoint < succ.VData.Internals.PPoint)
         else ()
       | _ -> ()
-    verticesToMerge
+    vertexConnectivity
 
   let sortVertices (g: LowUIRCFG) =
     g.Vertices |> Array.sortByDescending (fun v -> v.VData.Internals.PPoint)
@@ -152,23 +172,29 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
 
   let prepareDisasmCFGInfo (g: LowUIRCFG) =
     let vMap = DisasmVMap()
-    let verticesToMerge = collectVerticesToMerge g
+    let vertexConnectivity = findVertexConnectivity g
     for v in sortVertices g do
       if v.VData.Internals.IsAbstract then ()
       else
         initTempDisasmVertex vMap v.VData
-        match verticesToMerge.TryGetValue v with
-        | true, ft ->
+        match vertexConnectivity.TryGetValue v with
+        | true, Mergable ft when hasManyOutgoingEdges g v ->
           let srcAddr = v.VData.Internals.PPoint.Address
           let ftAddr = ft.VData.Internals.PPoint.Address
-          if hasManyOutgoingEdges g v then
-            addEdgeToDisasmVertex vMap srcAddr (Some(ftAddr, FallThroughEdge))
-            addEdgesToDisasmVertex g verticesToMerge vMap v
-          else mergeDisasmVertexInfos vMap srcAddr ftAddr
-        | false, _ ->
-          if v.VData.Internals.PPoint.Position = 0 then
-            addEdgesToDisasmVertex g verticesToMerge vMap v
-          else ()
+          addEdgeToDisasmVertex vMap srcAddr (Some(ftAddr, FallThroughEdge))
+          addEdgesToDisasmVertex g vertexConnectivity vMap v
+        | true, Mergable ft ->
+          let srcAddr = v.VData.Internals.PPoint.Address
+          let ftAddr = ft.VData.Internals.PPoint.Address
+          mergeDisasmVertexInfos vMap srcAddr ftAddr
+        | true, Connectable ft ->
+          let srcAddr = v.VData.Internals.PPoint.Address
+          let ftAddr = ft.VData.Internals.PPoint.Address
+          addEdgeToDisasmVertex vMap srcAddr (Some(ftAddr, FallThroughEdge))
+          addEdgesToDisasmVertex g vertexConnectivity vMap v
+        | false, _ when v.VData.Internals.PPoint.Position = 0 ->
+          addEdgesToDisasmVertex g vertexConnectivity vMap v
+        | _ -> ()
     vMap
 
   let addDisasmCFGVertices (vMap: DisasmVMap) newGraph =
@@ -184,9 +210,10 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
     vMap.Values |> Seq.fold (fun (g: IDiGraph<_, _>) tmpV ->
       let src = tmpV.Vertex
       tmpV.Successors |> Seq.fold (fun g (succ, label) ->
-        if vMap.ContainsKey succ |> not then ()
-        let dst = vMap[succ].Vertex
-        g.AddEdge(src, dst, label)
+        if not <| vMap.ContainsKey succ then g
+        else
+          let dst = vMap[succ].Vertex
+          g.AddEdge(src, dst, label)
       ) g
     ) newGraph
 
@@ -308,3 +335,38 @@ and private TemporaryDisasmVertex =
 
 /// Mapping from address to TemporaryDisasmVertex.
 and private DisasmVMap = Dictionary<Addr, TemporaryDisasmVertex>
+
+/// Represents the vertex connectivity information.
+and private VertexConnectivity =
+  /// Mergable with the given vertex.
+  /// When a node calls a function and the function returns to the next
+  /// instruction of the call instruction, we can merge them. Or, when we have
+  /// an intra-node edge introduced by IR lifting, we can also merge them.
+  /// For example:
+  /// 000000000000019d: jumpdest     // Block 19d.
+  /// 000000000000019e: push2 0x1b0
+  /// 00000000000001a1: push2 0x1ab
+  /// 00000000000001a4: calldatasize
+  /// 00000000000001a5: push1 0x4
+  /// 00000000000001a7: push2 0x3484
+  /// 00000000000001aa: jump         // This calls 3484 and returns to 1ab.
+  /// 00000000000001ab: jumpdest     // Block 1ab. This follows the caller block
+  ///                                // (19d), so we can merge them.
+  /// 00000000000001ac: push2 0x40a
+  /// 00000000000001af: jump
+  | Mergable of IVertex<LowUIRBasicBlock>
+  /// Not mergable, but connectable.
+  /// When a node calls a function and the function returns to a different
+  /// instruction (not the next instruction of the call instruction), we cannot
+  /// merge them, but we can connect them while removing abstract nodes in
+  /// between, which is commonly seen in optimized EVM bytecode.
+  /// For example:
+  /// 00000000000001b0: jumpdest    // Block 1b0.
+  /// 00000000000001b1: stop
+  /// 00000000000001b2: jumpdest    // Block 1b2.
+  /// 00000000000001b3: push2 0x1b0
+  /// ...
+  /// 00000000000001c4: jump        // This eventually returns to 1b0, which
+  ///                               // precedes the current block (1b2), and we
+  ///                               // can not merge them but connect them.
+  | Connectable of IVertex<LowUIRBasicBlock>
