@@ -29,124 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ParsingUtils
 
 let getRegister (n: uint32) =
-  match n with
-  | 0u -> Register.R0
-  | 1u -> Register.R1
-  | 2u -> Register.R2
-  | 3u -> Register.R3
-  | 4u -> Register.R4
-  | 5u -> Register.R5
-  | 6u -> Register.R6
-  | 7u -> Register.R7
-  | 8u -> Register.R8
-  | 9u -> Register.R9
-  | 10u -> Register.R10
-  | 11u -> Register.R11
-  | 12u -> Register.R12
-  | 13u -> Register.R13
-  | 14u -> Register.R14
-  | 15u -> Register.R15
-  | 16u -> Register.R16
-  | 17u -> Register.R17
-  | 18u -> Register.R18
-  | 19u -> Register.R19
-  | 20u -> Register.R20
-  | 21u -> Register.R21
-  | 22u -> Register.R22
-  | 23u -> Register.R23
-  | 24u -> Register.R24
-  | 25u -> Register.R25
-  | 26u -> Register.R26
-  | 27u -> Register.R27
-  | 28u -> Register.R28
-  | 29u -> Register.R29
-  | 30u -> Register.R30
-  | 31u -> Register.R31
-  | _ -> Terminator.futureFeature ()
-
-let extractAndErase (bin: uint32) ofs1 ofs2 =
-  let v = Bits.extract bin ofs1 ofs2
-  bin ^^^ (v <<< (min ofs1 ofs2 |> int)), v
-
-let extractField (bin: uint32) (field: Field) =
-  match field with
-  | Fi.PO -> extractAndErase bin 31u 26u
-  | Fi.RA -> extractAndErase bin 20u 16u
-  | Fi.RB -> extractAndErase bin 15u 11u
-  | Fi.RT -> extractAndErase bin 25u 21u
-  | Fi.SI_D -> extractAndErase bin 15u 0u
-  | Fi.DSPLIT ->
-    let bin0, d0 = extractAndErase bin 15u 6u
-    let bin1, d1 = extractAndErase bin0 20u 16u
-    let bin2, d2 = extractAndErase bin1 0u 0u
-    bin2, Bits.concat d0 (Bits.concat d1 d2 1) 6
-  | Fi.CY -> extractAndErase bin 10u 9u
-  | Fi.L_X_14_15 -> extractAndErase bin 17u 16u
-  | Fi.XO_X_21_30 -> extractAndErase bin 10u 1u
-  | Fi.XO_XO -> extractAndErase bin 9u 1u
-  | Fi.XO_DX -> extractAndErase bin 5u 1u
-  | Fi.XO_Z23 -> extractAndErase bin 8u 1u
-  | Fi.XO_XL -> extractAndErase bin 10u 1u
-  | Fi.OE -> extractAndErase bin 10u 10u
-  | Fi.Rc_XO -> extractAndErase bin 0u 0u
-  | Fi.LI -> extractAndErase bin 25u 2u
-  | Fi.AA -> extractAndErase bin 1u 1u
-  | Fi.LK -> extractAndErase bin 0u 0u
-  | Fi.BO -> extractAndErase bin 25u 21u
-  | Fi.BI -> extractAndErase bin 20u 16u
-  | Fi.BD -> extractAndErase bin 15u 2u
-  | Fi.BH -> extractAndErase bin 12u 11u
-  | _ -> Terminator.futureFeature ()
-
-let extractTwoFields (bin: uint32) f1 f2 =
-  let bin0, _ = extractField bin Fi.PO
-  let bin1, v1 = extractField bin0 f1
-  let bin2, v2 = extractField bin1 f2
-  if bin2 <> 0u then
-    raise ParsingFailureException
-  v1, v2
-
-let extractThreeFields (bin: uint32) f1 f2 f3 =
-  let bin0, _ = extractField bin Fi.PO
-  let bin1, v1 = extractField bin0 f1
-  let bin2, v2 = extractField bin1 f2
-  let bin3, v3 = extractField bin2 f3
-  if bin3 <> 0u then
-    raise ParsingFailureException
-  v1, v2, v3
-
-let extractFourFields (bin: uint32) f1 f2 f3 f4 =
-  let bin0, _ = extractField bin Fi.PO
-  let bin1, v1 = extractField bin0 f1
-  let bin2, v2 = extractField bin1 f2
-  let bin3, v3 = extractField bin2 f3
-  let bin4, v4 = extractField bin3 f4
-  if bin4 <> 0u then
-    raise ParsingFailureException
-  v1, v2, v3, v4
-
-let extractFiveFields (bin: uint32) f1 f2 f3 f4 f5 =
-  let bin0, _ = extractField bin Fi.PO
-  let bin1, v1 = extractField bin0 f1
-  let bin2, v2 = extractField bin1 f2
-  let bin3, v3 = extractField bin2 f3
-  let bin4, v4 = extractField bin3 f4
-  let bin5, v5 = extractField bin4 f5
-  if bin5 <> 0u then
-    raise ParsingFailureException
-  v1, v2, v3, v4, v5
-
-let extractSixFields (bin: uint32) f1 f2 f3 f4 f5 f6 =
-  let bin0, _ = extractField bin Fi.PO
-  let bin1, v1 = extractField bin0 f1
-  let bin2, v2 = extractField bin1 f2
-  let bin3, v3 = extractField bin2 f3
-  let bin4, v4 = extractField bin3 f4
-  let bin5, v5 = extractField bin4 f5
-  let bin6, v6 = extractField bin5 f6
-  if bin6 <> 0u then
-    raise ParsingFailureException
-  v1, v2, v3, v4, v5, v6
+  n |> int |> LanguagePrimitives.EnumOfValue
 
 let getOprReg (fieldValue: uint32) =
   fieldValue |> getRegister |> OprReg
@@ -171,6 +54,9 @@ let getOprBI (fieldValue: uint32) =
 
 let getOprBH (fieldValue: uint32) =
   fieldValue |> uint8 |> OprBH
+
+let checkIfZero (fieldValue: uint32) =
+  if fieldValue <> 0u then raise ParsingFailureException
 
 let getOpcodeExt19 (bin: uint32) =
   match Bits.extract bin 5u 1u with
@@ -300,108 +186,139 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
   | Op.ADDI
   | Op.ADDIS
   | Op.ADDIC | Op.ADDIC_DOT ->
-    let rt, ra, si =
-      extractThreeFields bin Fi.RT Fi.RA Fi.SI_D
-    ThreeOperands(getOprReg rt, getOprReg ra, getOprImm si)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let si = Bits.extract bin 15u 0u |> getOprImm
+    ThreeOperands(rt, ra, si)
   | Op.SUBFIC ->
-    let rt, ra, si =
-      extractThreeFields bin Fi.RT Fi.RA Fi.SI_D
-    ThreeOperands(getOprReg rt, getOprReg ra, getOprImm si)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let si = Bits.extract bin 15u 0u |> getOprImm
+    ThreeOperands(rt, ra, si)
   | Op.ADDPCIS ->
-    let rt, d, _ =
-      extractThreeFields bin Fi.RT Fi.DSPLIT Fi.XO_DX
-    TwoOperands(getOprReg rt, getOprImm d)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let d0 = Bits.extract bin 15u 6u
+    let d1 = Bits.extract bin 20u 16u
+    let d2 = Bits.extract bin 0u 0u
+    let d = Bits.concat d0 (Bits.concat d1 d2 1) 6 |> getOprImm
+    TwoOperands(rt, d)
   | Op.ADD | Op.ADD_DOT | Op.ADDO | Op.ADDO_DOT
   | Op.ADDC | Op.ADDC_DOT | Op.ADDCO | Op.ADDCO_DOT
   | Op.ADDE | Op.ADDE_DOT | Op.ADDEO | Op.ADDEO_DOT ->
-    let rt, ra, rb, _, _, _ =
-      extractSixFields bin Fi.RT Fi.RA Fi.RB Fi.OE Fi.XO_XO Fi.Rc_XO
-    ThreeOperands(getOprReg rt, getOprReg ra, getOprReg rb)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let rb = Bits.extract bin 15u 11u |> getOprReg
+    ThreeOperands(rt, ra, rb)
   | Op.SUBF | Op.SUBF_DOT | Op.SUBFO | Op.SUBFO_DOT
   | Op.SUBFC | Op.SUBFC_DOT | Op.SUBFCO | Op.SUBFCO_DOT
   | Op.SUBFE | Op.SUBFE_DOT | Op.SUBFEO | Op.SUBFEO_DOT ->
-    let rt, ra, rb, _, _, _ =
-      extractSixFields bin Fi.RT Fi.RA Fi.RB Fi.OE Fi.XO_XO Fi.Rc_XO
-    ThreeOperands(getOprReg rt, getOprReg ra, getOprReg rb)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let rb = Bits.extract bin 15u 11u |> getOprReg
+    ThreeOperands(rt, ra, rb)
   | Op.ADDME | Op.ADDME_DOT | Op.ADDMEO | Op.ADDMEO_DOT ->
-    let rt, ra, _, _, _ =
-      extractFiveFields bin Fi.RT Fi.RA Fi.OE Fi.XO_XO Fi.Rc_XO
-    TwoOperands(getOprReg rt, getOprReg ra)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let _ = Bits.extract bin 15u 11u |> checkIfZero
+    TwoOperands(rt, ra)
   | Op.SUBFME | Op.SUBFME_DOT | Op.SUBFMEO | Op.SUBFMEO_DOT ->
-    let rt, ra, _, _, _ =
-      extractFiveFields bin Fi.RT Fi.RA Fi.OE Fi.XO_XO Fi.Rc_XO
-    TwoOperands(getOprReg rt, getOprReg ra)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let _ = Bits.extract bin 15u 11u |> checkIfZero
+    TwoOperands(rt, ra)
   | Op.ADDEX ->
-    let rt, ra, rb, cy, _ =
-      extractFiveFields bin Fi.RT Fi.RA Fi.RB Fi.CY Fi.XO_Z23
-    FourOperands(getOprReg rt, getOprReg ra, getOprReg rb, getOprCY cy)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let rb = Bits.extract bin 15u 11u |> getOprReg
+    let cy = Bits.extract bin 10u 9u |> getOprCY
+    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    FourOperands(rt, ra, rb, cy)
   | Op.ADDZE | Op.ADDZE_DOT | Op.ADDZEO | Op.ADDZEO_DOT ->
-    let rt, ra, _, _, _ =
-      extractFiveFields bin Fi.RT Fi.RA Fi.OE Fi.XO_XO Fi.Rc_XO
-    TwoOperands(getOprReg rt, getOprReg ra)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let _ = Bits.extract bin 15u 11u |> checkIfZero
+    TwoOperands(rt, ra)
   | Op.SUBFZE | Op.SUBFZE_DOT | Op.SUBFZEO | Op.SUBFZEO_DOT ->
-    let rt, ra, _, _, _ =
-      extractFiveFields bin Fi.RT Fi.RA Fi.OE Fi.XO_XO Fi.Rc_XO
-    TwoOperands(getOprReg rt, getOprReg ra)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let _ = Bits.extract bin 15u 11u |> checkIfZero
+    TwoOperands(rt, ra)
   | Op.NEG | Op.NEG_DOT | Op.NEGO | Op.NEGO_DOT ->
-    let rt, ra, _, _, _ =
-      extractFiveFields bin Fi.RT Fi.RA Fi.OE Fi.XO_XO Fi.Rc_XO
-    TwoOperands(getOprReg rt, getOprReg ra)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let _ = Bits.extract bin 15u 11u |> checkIfZero
+    TwoOperands(rt, ra)
   | Op.MULLI ->
-    let rt, ra, si =
-      extractThreeFields bin Fi.RT Fi.RA Fi.SI_D
-    ThreeOperands(getOprReg rt, getOprReg ra, getOprImm si)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let si = Bits.extract bin 15u 0u |> getOprImm
+    ThreeOperands(rt, ra, si)
   | Op.MULHW | Op.MULHW_DOT
   | Op.MULHWU | Op.MULHWU_DOT ->
-    let rt, ra, rb, _, _ =
-      extractFiveFields bin Fi.RT Fi.RA Fi.RB Fi.XO_XO Fi.Rc_XO
-    ThreeOperands(getOprReg rt, getOprReg ra, getOprReg rb)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let rb = Bits.extract bin 15u 11u |> getOprReg
+    let _ = Bits.extract bin 10u 10u |> checkIfZero
+    ThreeOperands(rt, ra, rb)
   | Op.MULLW | Op.MULLW_DOT | Op.MULLWO | Op.MULLWO_DOT ->
-    let rt, ra, rb, _, _, _ =
-      extractSixFields bin Fi.RT Fi.RA Fi.RB Fi.OE Fi.XO_XO Fi.Rc_XO
-    ThreeOperands(getOprReg rt, getOprReg ra, getOprReg rb)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let rb = Bits.extract bin 15u 11u |> getOprReg
+    ThreeOperands(rt, ra, rb)
   | Op.DIVW | Op.DIVW_DOT | Op.DIVWO | Op.DIVWO_DOT
   | Op.DIVWU | Op.DIVWU_DOT | Op.DIVWUO | Op.DIVWUO_DOT
   | Op.DIVWE | Op.DIVWE_DOT | Op.DIVWEO | Op.DIVWEO_DOT
   | Op.DIVWEU | Op.DIVWEU_DOT | Op.DIVWEUO | Op.DIVWEUO_DOT ->
-    let rt, ra, rb, _, _, _ =
-      extractSixFields bin Fi.RT Fi.RA Fi.RB Fi.OE Fi.XO_XO Fi.Rc_XO
-    ThreeOperands(getOprReg rt, getOprReg ra, getOprReg rb)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let rb = Bits.extract bin 15u 11u |> getOprReg
+    ThreeOperands(rt, ra, rb)
   | Op.MODSW
   | Op.MODUW ->
-    let rt, ra, rb, _ =
-      extractFourFields bin Fi.RT Fi.RA Fi.RB Fi.XO_X_21_30
-    ThreeOperands(getOprReg rt, getOprReg ra, getOprReg rb)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let rb = Bits.extract bin 15u 11u |> getOprReg
+    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    ThreeOperands(rt, ra, rb)
   | Op.DARN ->
-    let rt, l, _ =
-      extractThreeFields bin Fi.RT Fi.L_X_14_15 Fi.XO_X_21_30
-    TwoOperands(getOprReg rt, getOprL l)
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let _ = Bits.extract bin 20u 18u |> checkIfZero
+    let l = Bits.extract bin 17u 16u |> getOprL
+    let _ = Bits.extract bin 15u 11u |> checkIfZero
+    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    TwoOperands(rt, l)
   | Op.B | Op.BL ->
-    let li, _, _ =
-      extractThreeFields bin Fi.LI Fi.AA Fi.LK
-    let targetAddr = addr + Bits.signExtend 26 64 (li |> uint64 <<< 2)
-    OneOperand(getOprAddr targetAddr)
+    let li = Bits.extract bin 25u 2u
+    let targetAddr =
+      addr + Bits.signExtend 26 64 (li |> uint64 <<< 2) |> getOprAddr
+    OneOperand(targetAddr)
   | Op.BA | Op.BLA ->
-    let li, _, _ =
-      extractThreeFields bin Fi.LI Fi.AA Fi.LK
-    let targetAddr = Bits.signExtend 26 64 (li |> uint64 <<< 2)
-    OneOperand(getOprAddr targetAddr)
+    let li = Bits.extract bin 25u 2u
+    let targetAddr =
+      Bits.signExtend 26 64 (li |> uint64 <<< 2) |> getOprAddr
+    OneOperand(targetAddr)
   | Op.BC | Op.BCL ->
-    let bo, bi, bd, _, _ =
-      extractFiveFields bin Fi.BO Fi.BI Fi.BD Fi.AA Fi.LK
-    let targetAddr = addr + Bits.signExtend 16 64 (bd |> uint64 <<< 2)
-    ThreeOperands(getOprBO bo, getOprBI bi, getOprAddr targetAddr)
+    let bo = Bits.extract bin 25u 21u |> getOprBO
+    let bi = Bits.extract bin 20u 16u |> getOprBI
+    let bd = Bits.extract bin 15u 2u
+    let targetAddr =
+      addr + Bits.signExtend 16 64 (bd |> uint64 <<< 2) |> getOprAddr
+    ThreeOperands(bo, bi, targetAddr)
   | Op.BCA | Op.BCLA ->
-    let bo, bi, bd, _, _ =
-      extractFiveFields bin Fi.BO Fi.BI Fi.BD Fi.AA Fi.LK
-    let targetAddr = Bits.signExtend 16 64 (bd |> uint64 <<< 2)
-    ThreeOperands(getOprBO bo, getOprBI bi, getOprAddr targetAddr)
+    let bo = Bits.extract bin 25u 21u |> getOprBO
+    let bi = Bits.extract bin 20u 16u |> getOprBI
+    let bd = Bits.extract bin 15u 2u
+    let targetAddr =
+      Bits.signExtend 16 64 (bd |> uint64 <<< 2) |> getOprAddr
+    ThreeOperands(bo, bi, targetAddr)
   | Op.BCLR | Op.BCLRL
   | Op.BCCTR | Op.BCCTRL
   | Op.BCTAR | Op.BCTARL ->
-    let bo, bi, bh, _, _ =
-      extractFiveFields bin Fi.BO Fi.BI Fi.BH Fi.XO_XL Fi.LK
-    ThreeOperands(getOprBO bo, getOprBI bi, getOprBH bh)
+    let bo = Bits.extract bin 25u 21u |> getOprBO
+    let bi = Bits.extract bin 20u 16u |> getOprBI
+    let _ = Bits.extract bin 15u 13u |> checkIfZero
+    let bh = Bits.extract bin 12u 11u |> getOprBH
+    ThreeOperands(bo, bi, bh)
   | _ -> Terminator.futureFeature ()
 
 let parseInstruction (bin: uint32) (addr: Addr) =
