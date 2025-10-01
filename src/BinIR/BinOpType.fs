@@ -74,56 +74,47 @@ type BinOpType =
 /// </summary>
 [<RequireQualifiedAccess>]
 module BinOpType =
+  let private symbols =
+    [ (BinOpType.ADD, "+")
+      (BinOpType.SUB, "-")
+      (BinOpType.MUL, "*")
+      (BinOpType.DIV, "/")
+      (BinOpType.SDIV, "?/")
+      (BinOpType.MOD, "%")
+      (BinOpType.SMOD, "?%")
+      (BinOpType.SHL, "<<")
+      (BinOpType.SHR, ">>")
+      (BinOpType.SAR, "?>>")
+      (BinOpType.AND, "&")
+      (BinOpType.OR, "|")
+      (BinOpType.XOR, "^")
+      (BinOpType.CONCAT, "++")
+      (BinOpType.APP, "@")
+      (BinOpType.FADD, "+.")
+      (BinOpType.FSUB, "-.")
+      (BinOpType.FMUL, "*.")
+      (BinOpType.FDIV, "/.")
+      (BinOpType.FPOW, "^^")
+      (BinOpType.FLOG, "lg") ]
+
+  let private opToStr = symbols |> Map.ofList
+
+  let private strToOp =
+    symbols
+    |> List.map (fun (k, v) -> (v, k))
+    |> Map.ofList
+
+  let private findOrRaise key map exc =
+    Map.tryFind key map |> Option.defaultWith (fun _ -> raise exc)
+
   /// <summary>
   /// Retrieves the string representation of the binary operator.
   /// </summary>
   [<CompiledName "ToString">]
-  let toString = function
-    | BinOpType.ADD -> "+"
-    | BinOpType.SUB -> "-"
-    | BinOpType.MUL -> "*"
-    | BinOpType.DIV -> "/"
-    | BinOpType.SDIV -> "?/"
-    | BinOpType.MOD -> "%"
-    | BinOpType.SMOD -> "?%"
-    | BinOpType.SHL -> "<<"
-    | BinOpType.SHR -> ">>"
-    | BinOpType.SAR -> "?>>"
-    | BinOpType.AND -> "&"
-    | BinOpType.OR -> "|"
-    | BinOpType.XOR -> "^"
-    | BinOpType.CONCAT -> "++"
-    | BinOpType.FADD -> "+."
-    | BinOpType.FSUB -> "-."
-    | BinOpType.FMUL -> "*."
-    | BinOpType.FDIV -> "/."
-    | BinOpType.FPOW -> "^^"
-    | BinOpType.FLOG -> "lg"
-    | _ -> raise IllegalASTTypeException
+  let toString opType = findOrRaise opType opToStr IllegalASTTypeException
 
   /// <summary>
   /// Retrieves the binary operator from a string.
   /// </summary>
   [<CompiledName "OfString">]
-  let ofString = function
-    | "+" -> BinOpType.ADD
-    | "-" -> BinOpType.SUB
-    | "*" -> BinOpType.MUL
-    | "/" -> BinOpType.DIV
-    | "?/" -> BinOpType.SDIV
-    | "%" -> BinOpType.MOD
-    | "?%" -> BinOpType.SMOD
-    | "<<" -> BinOpType.SHL
-    | ">>" -> BinOpType.SHR
-    | "?>>" -> BinOpType.SAR
-    | "&" -> BinOpType.AND
-    | "|" -> BinOpType.OR
-    | "^" -> BinOpType.XOR
-    | "++" -> BinOpType.CONCAT
-    | "+." -> BinOpType.FADD
-    | "-." -> BinOpType.FSUB
-    | "*." -> BinOpType.FMUL
-    | "/." -> BinOpType.FDIV
-    | "^^" -> BinOpType.FPOW
-    | "lg" -> BinOpType.FLOG
-    | _ -> raise IllegalASTTypeException
+  let ofString opStr = findOrRaise opStr strToOp IllegalASTTypeException
