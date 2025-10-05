@@ -122,6 +122,59 @@ let opCodeToString =
   | Op.BCCTRL -> "bcctrl"
   | Op.BCTAR -> "bctar"
   | Op.BCTARL -> "bctarl"
+  | Op.LBZ -> "lbz"
+  | Op.LBZX -> "lbzx"
+  | Op.LBZU -> "lbzu"
+  | Op.LBZUX -> "lbzux"
+  | Op.LHZ -> "lhz"
+  | Op.LHZX -> "lhzx"
+  | Op.LHZU -> "lhzu"
+  | Op.LHZUX -> "lhzux"
+  | Op.LHA -> "lha"
+  | Op.LHAX -> "lhax"
+  | Op.LHAU -> "lhau"
+  | Op.LHAUX -> "lhaux"
+  | Op.LWZ -> "lwz"
+  | Op.LWZX -> "lwzx"
+  | Op.LWZU -> "lwzu"
+  | Op.LWZUX -> "lwzux"
+  | Op.LWA -> "lw"
+  | Op.LWAX -> "lwax"
+  | Op.LWAUX -> "lwaux"
+  | Op.LD -> "ld"
+  | Op.LDX -> "ldx"
+  | Op.LDU -> "ldu"
+  | Op.LDUX -> "ldux"
+  | Op.STB -> "stb"
+  | Op.STBX -> "stbx"
+  | Op.STBU -> "stbu"
+  | Op.STBUX -> "stbux"
+  | Op.STH -> "sth"
+  | Op.STHX -> "sthx"
+  | Op.STHU -> "sthu"
+  | Op.STHUX -> "sthux"
+  | Op.STW -> "stw"
+  | Op.STWX -> "stwx"
+  | Op.STWU -> "stwu"
+  | Op.STWUX -> "stwux"
+  | Op.STD -> "std"
+  | Op.STDX -> "stdx"
+  | Op.STDU -> "stdu"
+  | Op.STDUX -> "stdux"
+  | Op.LQ -> "lq"
+  | Op.STQ -> "stq"
+  | Op.LHBRX -> "lhbrx"
+  | Op.STHBRX -> "sthbrx"
+  | Op.LWBRX -> "lwbrx"
+  | Op.STWBRX -> "stwbrx"
+  | Op.LDBRX -> "ldbrx"
+  | Op.STDBRX -> "stdbrx"
+  | Op.LMW -> "lmw"
+  | Op.STMW -> "stmw"
+  | Op.LSWI -> "lswi"
+  | Op.LSWX -> "lswx"
+  | Op.STSWI -> "stswi"
+  | Op.STSWX -> "stswx"
   | _ -> Terminator.futureFeature ()
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
@@ -130,22 +183,30 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
 
 let inline buildOperand (opr: Operand) (builder: IDisasmBuilder) =
   match opr with
-  | OprImm v ->
-    builder.Accumulate(AsmWordKind.Value, "0x" + v.ToString "X")
+  | OprImm imm ->
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 imm)
+  | OprMem(disp, reg) ->
+    if disp < 0 then
+      builder.Accumulate(AsmWordKind.Value, "-" + HexString.ofInt64 (-disp))
+    else
+      builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 disp)
+    builder.Accumulate(AsmWordKind.String, "(")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+    builder.Accumulate(AsmWordKind.String, ")")
   | OprReg reg ->
     builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
   | OprCY cy ->
-    builder.Accumulate(AsmWordKind.Value, "0x" + cy.ToString "X")
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 cy))
   | OprL l ->
-    builder.Accumulate(AsmWordKind.Value, "0x" + l.ToString "X")
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 l))
   | OprAddr addr ->
-    builder.Accumulate(AsmWordKind.Value, "0x" + addr.ToString "X")
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 addr)
   | OprBO bo ->
-    builder.Accumulate(AsmWordKind.Value, "0x" + bo.ToString "X")
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 bo))
   | OprBI bi ->
-    builder.Accumulate(AsmWordKind.Value, "0x" + bi.ToString "X")
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 bi))
   | OprBH bh ->
-    builder.Accumulate(AsmWordKind.Value, "0x" + bh.ToString "X")
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 bh))
 
 let inline buildOperands (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with

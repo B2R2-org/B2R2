@@ -35,12 +35,17 @@ type Operands =
 /// Represents one operand in a PPC instruction.
 and Operand =
   | OprReg of Register
+  | OprMem of Disp * Register
   | OprImm of Imm
   | OprCY of uint8
   | OprL of uint8
-  | OprAddr of uint64
+  | OprAddr of TargetAddr
   | OprBO of uint8
   | OprBI of uint8
   | OprBH of uint8
 
+and Disp = int64
+
 and Imm = uint64
+
+and TargetAddr = uint64

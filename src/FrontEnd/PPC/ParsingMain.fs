@@ -31,32 +31,40 @@ open B2R2.FrontEnd.BinLifter.ParsingUtils
 let getRegister (n: uint32) =
   n |> int |> LanguagePrimitives.EnumOfValue
 
-let getOprReg (fieldValue: uint32) =
-  fieldValue |> getRegister |> OprReg
+let getOprReg (reg: uint32) =
+  reg |> getRegister |> OprReg
 
-let getOprImm (fieldValue: uint32) =
-  fieldValue |> uint64 |> OprImm
+let getOprImm (imm: uint32) =
+  imm |> uint64 |> OprImm
 
-let getOprCY (fieldValue: uint32) =
-  fieldValue |> uint8 |> OprCY
+let getOprCY (cy: uint32) =
+  cy |> uint8 |> OprCY
 
-let getOprL (fieldValue: uint32) =
-  fieldValue |> uint8 |> OprL
+let getOprL (l: uint32) =
+  l |> uint8 |> OprL
 
 let getOprAddr (targetAddr: uint64) =
   targetAddr |> OprAddr
 
-let getOprBO (fieldValue: uint32) =
-  fieldValue |> uint8 |> OprBO
+let getOprBO (bo: uint32) =
+  bo |> uint8 |> OprBO
 
-let getOprBI (fieldValue: uint32) =
-  fieldValue |> uint8 |> OprBI
+let getOprBI (bi: uint32) =
+  bi |> uint8 |> OprBI
 
-let getOprBH (fieldValue: uint32) =
-  fieldValue |> uint8 |> OprBH
+let getOprBH (bh: uint32) =
+  bh |> uint8 |> OprBH
+
+let getOprMem (disp: uint64) (reg: uint32) =
+  OprMem(disp |> int64, reg |> getRegister)
 
 let checkIfZero (fieldValue: uint32) =
   if fieldValue <> 0u then raise ParsingFailureException
+
+let extractExtendedField (bin: uint32) ofs1 ofs2 shift =
+  let v = Bits.extract bin ofs1 ofs2
+  let sz = (max ofs1 ofs2 - min ofs1 ofs2 + 1u |> int) + shift
+  Bits.signExtend sz 64 (v |> uint64 <<< shift)
 
 let getOpcodeExt19 (bin: uint32) =
   match Bits.extract bin 5u 1u with
@@ -151,8 +159,52 @@ let getOpcodeExt31 (bin: uint32) =
   | 0b1110001011u ->
     if Bits.pick bin 0u = 0u then Op.DIVWEUO else Op.DIVWEUO_DOT
   | 0b1100001011u -> Op.MODSW
-  | 0b100001011u -> Op.MODUW
+  | 0b0100001011u -> Op.MODUW
   | 0b1011110011u -> Op.DARN
+  | 0b0001010111u -> Op.LBZX
+  | 0b0001110111u -> Op.LBZUX
+  | 0b0100010111u -> Op.LHZX
+  | 0b0100110111u -> Op.LHZUX
+  | 0b0101010111u -> Op.LHAX
+  | 0b0101110111u -> Op.LHAUX
+  | 0b0000010111u -> Op.LWZX
+  | 0b0000110111u -> Op.LWZUX
+  | 0b0101010101u -> Op.LWAX
+  | 0b0101110101u -> Op.LWAUX
+  | 0b0000010101u -> Op.LDX
+  | 0b0000110101u -> Op.LDUX
+  | 0b0011010111u -> Op.STBX
+  | 0b0011110111u -> Op.STBUX
+  | 0b0110010111u -> Op.STHX
+  | 0b0110110111u -> Op.STHUX
+  | 0b0010010111u -> Op.STWX
+  | 0b0010110111u -> Op.STWUX
+  | 0b0010010101u -> Op.STDX
+  | 0b0010110101u -> Op.STDUX
+  | 0b1100010110u -> Op.LHBRX
+  | 0b1110010110u -> Op.STHBRX
+  | 0b1000010110u -> Op.LWBRX
+  | 0b1010010110u -> Op.STWBRX
+  | 0b1000010100u -> Op.LDBRX
+  | 0b1010010100u -> Op.STDBRX
+  | 0b1001010101u -> Op.LSWI
+  | 0b1000010101u -> Op.LSWX
+  | 0b1011010101u -> Op.STSWI
+  | 0b1010010101u -> Op.STSWX
+  | _ -> Terminator.futureFeature ()
+
+let getOpcodeExt58 (bin: uint32) =
+  match Bits.extract bin 1u 0u with
+  | 0b00u -> Op.LD
+  | 0b01u -> Op.LDU
+  | 0b10u -> Op.LWA
+  | _ -> Terminator.futureFeature ()
+
+let getOpcodeExt62 (bin: uint32) =
+  match Bits.extract bin 1u 0u with
+  | 0b00u -> Op.STD
+  | 0b01u -> Op.STDU
+  | 0b10u -> Op.STQ
   | _ -> Terminator.futureFeature ()
 
 let getOpcode (bin: uint32) =
@@ -179,6 +231,25 @@ let getOpcode (bin: uint32) =
     | _ ->  raise ParsingFailureException
   | 0b010011u -> getOpcodeExt19 bin
   | 0b011111u -> getOpcodeExt31 bin
+  | 0b100010u -> Op.LBZ
+  | 0b100011u -> Op.LBZU
+  | 0b101000u -> Op.LHZ
+  | 0b101001u -> Op.LHZU
+  | 0b101010u -> Op.LHA
+  | 0b101011u -> Op.LHAU
+  | 0b100000u -> Op.LWZ
+  | 0b100001u -> Op.LWZU
+  | 0b111010u -> getOpcodeExt58 bin
+  | 0b100110u -> Op.STB
+  | 0b100111u -> Op.STBU
+  | 0b101100u -> Op.STH
+  | 0b101101u -> Op.STHU
+  | 0b100100u -> Op.STW
+  | 0b100101u -> Op.STWU
+  | 0b111110u -> getOpcodeExt62 bin
+  | 0b111000u -> Op.LQ
+  | 0b101110u -> Op.LMW
+  | 0b101111u -> Op.STMW
   | _ -> Terminator.futureFeature ()
 
 let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
@@ -288,28 +359,20 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
     let _ = Bits.extract bin 0u 0u |> checkIfZero
     TwoOperands(rt, l)
   | Op.B | Op.BL ->
-    let li = Bits.extract bin 25u 2u
-    let targetAddr =
-      addr + Bits.signExtend 26 64 (li |> uint64 <<< 2) |> getOprAddr
+    let targetAddr = addr + extractExtendedField bin 25u 2u 2 |> getOprAddr
     OneOperand(targetAddr)
   | Op.BA | Op.BLA ->
-    let li = Bits.extract bin 25u 2u
-    let targetAddr =
-      Bits.signExtend 26 64 (li |> uint64 <<< 2) |> getOprAddr
+    let targetAddr = extractExtendedField bin 25u 2u 2 |> getOprAddr
     OneOperand(targetAddr)
   | Op.BC | Op.BCL ->
     let bo = Bits.extract bin 25u 21u |> getOprBO
     let bi = Bits.extract bin 20u 16u |> getOprBI
-    let bd = Bits.extract bin 15u 2u
-    let targetAddr =
-      addr + Bits.signExtend 16 64 (bd |> uint64 <<< 2) |> getOprAddr
+    let targetAddr = addr + extractExtendedField bin 15u 2u 2 |> getOprAddr
     ThreeOperands(bo, bi, targetAddr)
   | Op.BCA | Op.BCLA ->
     let bo = Bits.extract bin 25u 21u |> getOprBO
     let bi = Bits.extract bin 20u 16u |> getOprBI
-    let bd = Bits.extract bin 15u 2u
-    let targetAddr =
-      Bits.signExtend 16 64 (bd |> uint64 <<< 2) |> getOprAddr
+    let targetAddr = extractExtendedField bin 15u 2u 2 |> getOprAddr
     ThreeOperands(bo, bi, targetAddr)
   | Op.BCLR | Op.BCLRL
   | Op.BCCTR | Op.BCCTRL
@@ -319,6 +382,90 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
     let _ = Bits.extract bin 15u 13u |> checkIfZero
     let bh = Bits.extract bin 12u 11u |> getOprBH
     ThreeOperands(bo, bi, bh)
+  | Op.LBZ | Op.LBZU
+  | Op.LHZ | Op.LHZU
+  | Op.LHA | Op.LHAU
+  | Op.LWZ | Op.LWZU ->
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u
+    let d = extractExtendedField bin 15u 0u 0
+    TwoOperands(rt, getOprMem d ra)
+  | Op.LBZX | Op.LBZUX
+  | Op.LHZX | Op.LHZUX
+  | Op.LHAX | Op.LHAUX
+  | Op.LWZX | Op.LWZUX
+  | Op.LWAX | Op.LWAUX
+  | Op.LDX | Op.LDUX ->
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let rb = Bits.extract bin 15u 11u |> getOprReg
+    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    ThreeOperands(rt, ra, rb)
+  | Op.LWA
+  | Op.LD | Op.LDU ->
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u
+    let ds = extractExtendedField bin 15u 2u 2
+    TwoOperands(rt, getOprMem ds ra)
+  | Op.STB | Op.STBU
+  | Op.STH | Op.STHU
+  | Op.STW | Op.STWU ->
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u
+    let d = extractExtendedField bin 15u 0u 0
+    TwoOperands(rt, getOprMem d ra)
+  | Op.STBX | Op.STBUX
+  | Op.STHX | Op.STHUX
+  | Op.STWX | Op.STWUX
+  | Op.STDX | Op.STDUX ->
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let rb = Bits.extract bin 15u 11u |> getOprReg
+    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    ThreeOperands(rt, ra, rb)
+  | Op.STD | Op.STDU ->
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u
+    let ds = extractExtendedField bin 15u 2u 2
+    TwoOperands(rt, getOprMem ds ra)
+  | Op.LQ ->
+    let rtp = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u
+    let dq = extractExtendedField bin 15u 4u 4
+    let _ = Bits.extract bin 3u 0u |> checkIfZero
+    TwoOperands(rtp, getOprMem dq ra)
+  | Op.STQ ->
+    let rsp = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u
+    let ds = extractExtendedField bin 15u 2u 2
+    TwoOperands(rsp, getOprMem ds ra)
+  | Op.LHBRX | Op.LWBRX | Op.LDBRX
+  | Op.STHBRX | Op.STWBRX | Op.STDBRX ->
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let rb = Bits.extract bin 15u 11u |> getOprReg
+    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    ThreeOperands(rt, ra, rb)
+  | Op.LMW
+  | Op.STMW ->
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u
+    let d = extractExtendedField bin 15u 0u 0
+    TwoOperands(rt, getOprMem d ra)
+  | Op.LSWI
+  | Op.STSWI ->
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let nb = Bits.extract bin 15u 11u |> getOprReg
+    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    ThreeOperands(rt, ra, nb)
+  | Op.LSWX
+  | Op.STSWX ->
+    let rt = Bits.extract bin 25u 21u |> getOprReg
+    let ra = Bits.extract bin 20u 16u |> getOprReg
+    let rb = Bits.extract bin 15u 11u |> getOprReg
+    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    ThreeOperands(rt, ra, rb)
   | _ -> Terminator.futureFeature ()
 
 let parseInstruction (bin: uint32) (addr: Addr) =

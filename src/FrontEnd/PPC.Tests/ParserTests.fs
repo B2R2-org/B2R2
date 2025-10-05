@@ -35,11 +35,14 @@ open type Register
 [<AutoOpen>]
 module private Shortcut =
   type O =
-    static member Reg(r) =
-      OprReg r
+    static member Reg(reg) =
+      OprReg reg
 
-    static member Imm(v) =
-      OprImm v
+    static member Mem(disp, reg) =
+      OprMem(disp, reg)
+
+    static member Imm(imm) =
+      OprImm imm
 
     static member CY(cy) =
       OprCY cy
@@ -651,4 +654,322 @@ type ArithmeticClass() =
   member _.``[PPC64] Branch Instruction Test (14)``() =
     "4C1A1C61"
     ++ (BCTARL ** [ O.BO 0x0uy; O.BI 0x1Auy; O.BH 0x3uy ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (1)``() =
+    "8A8DB26D"
+    ++ (LBZ ** [ O.Reg R20; O.Mem (-0x4D93L, R13) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (2)``() =
+    "7FE110AE"
+    ++ (LBZX ** [ O.Reg R31; O.Reg R1; O.Reg R2 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (3)``() =
+    "8DD4C77E"
+    ++ (LBZU ** [ O.Reg R14; O.Mem (-0x3882L, R20) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (4)``() =
+    "7CADC8EE"
+    ++ (LBZUX ** [ O.Reg R5; O.Reg R13; O.Reg R25 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (5)``() =
+    "A0B0695D"
+    ++ (LHZ ** [ O.Reg R5; O.Mem (0x695DL, R16) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (6)``() =
+    "7DD7E22E"
+    ++ (LHZX ** [ O.Reg R14; O.Reg R23; O.Reg R28 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (7)``() =
+    "A48EE571"
+    ++ (LHZU ** [ O.Reg R4; O.Mem (-0x1A8FL, R14) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (8)``() =
+    "7CDFF26E"
+    ++ (LHZUX ** [ O.Reg R6; O.Reg R31; O.Reg R30 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (9)``() =
+    "AAA5190F"
+    ++ (LHA ** [ O.Reg R21; O.Mem (0x190FL, R5) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (10)``() =
+    "7ED122AE"
+    ++ (LHAX ** [ O.Reg R22; O.Reg R17; O.Reg R4 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (11)``() =
+    "AE565FC8"
+    ++ (LHAU ** [ O.Reg R18; O.Mem (0x5FC8L, R22) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (12)``() =
+    "7F2EC2EE"
+    ++ (LHAUX ** [ O.Reg R25; O.Reg R14; O.Reg R24 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (13)``() =
+    "80017CDF"
+    ++ (LWZ ** [ O.Reg R0; O.Mem (0x7CDFL, R1) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (14)``() =
+    "7CF1482E"
+    ++ (LWZX ** [ O.Reg R7; O.Reg R17; O.Reg R9 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (15)``() =
+    "857A7148"
+    ++ (LWZU ** [ O.Reg R11; O.Mem (0x7148L, R26) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (16)``() =
+    "7C43786E"
+    ++ (LWZUX ** [ O.Reg R2; O.Reg R3; O.Reg R15 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (17)``() =
+    "EA76DE8A"
+    ++ (LWA ** [ O.Reg R19; O.Mem (-0x2178L, R22) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (18)``() =
+    "7DD0CAAA"
+    ++ (LWAX ** [ O.Reg R14; O.Reg R16; O.Reg R25 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (19)``() =
+    "7D8382EA"
+    ++ (LWAUX ** [ O.Reg R12; O.Reg R3; O.Reg R16 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (20)``() =
+    "EA55ABDC"
+    ++ (LD ** [ O.Reg R18; O.Mem (-0x5424L, R21) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (21)``() =
+    "7D2EA82A"
+    ++ (LDX ** [ O.Reg R9; O.Reg R14; O.Reg R21 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (22)``() =
+    "E8E0D551"
+    ++ (LDU ** [ O.Reg R7; O.Mem (-0x2AB0L, R0) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (23)``() =
+    "7E74406A"
+    ++ (LDUX ** [ O.Reg R19; O.Reg R20; O.Reg R8 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (24)``() =
+    "9AA52476"
+    ++ (STB ** [ O.Reg R21; O.Mem (0x2476L, R5) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (25)``() =
+    "7ED6C1AE"
+    ++ (STBX ** [ O.Reg R22; O.Reg R22; O.Reg R24 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (26)``() =
+    "9DFADA88"
+    ++ (STBU ** [ O.Reg R15; O.Mem (-0x2578L, R26) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (27)``() =
+    "7E2E29EE"
+    ++ (STBUX ** [ O.Reg R17; O.Reg R14; O.Reg R5 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (28)``() =
+    "B01B160A"
+    ++ (STH ** [ O.Reg R0; O.Mem (0x160AL, R27) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (29)``() =
+    "7F25F32E"
+    ++ (STHX ** [ O.Reg R25; O.Reg R5; O.Reg R30 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (30)``() =
+    "B55BF1F2"
+    ++ (STHU ** [ O.Reg R10; O.Mem (-0xE0EL, R27) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (31)``() =
+    "7E1FA36E"
+    ++ (STHUX ** [ O.Reg R16; O.Reg R31; O.Reg R20 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (32)``() =
+    "9084960D"
+    ++ (STW ** [ O.Reg R4; O.Mem (-0x69F3L, R4) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (33)``() =
+    "7DB7592E"
+    ++ (STWX ** [ O.Reg R13; O.Reg R23; O.Reg R11 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (34)``() =
+    "967D046A"
+    ++ (STWU ** [ O.Reg R19; O.Mem (0x46AL, R29) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (35)``() =
+    "7E20816E"
+    ++ (STWUX ** [ O.Reg R17; O.Reg R0; O.Reg R16 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (36)``() =
+    "F848C0D8"
+    ++ (STD ** [ O.Reg R2; O.Mem (-0x3F28L, R8) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (37)``() =
+    "7E83512A"
+    ++ (STDX ** [ O.Reg R20; O.Reg R3; O.Reg R10 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (38)``() =
+    "F9840741"
+    ++ (STDU ** [ O.Reg R12; O.Mem (0x740L, R4) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (39)``() =
+    "7EF4796A"
+    ++ (STDUX ** [ O.Reg R23; O.Reg R20; O.Reg R15 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (40)``() =
+    "E140B3F0"
+    ++ (LQ ** [ O.Reg R10; O.Mem (-0x4C10L, R0) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (41)``() =
+    "F9CE65BE"
+    ++ (STQ ** [ O.Reg R14; O.Mem (0x65BCL, R14) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (42)``() =
+    "7C516E2C"
+    ++ (LHBRX ** [ O.Reg R2; O.Reg R17; O.Reg R13 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (43)``() =
+    "7D484F2C"
+    ++ (STHBRX ** [ O.Reg R10; O.Reg R8; O.Reg R9 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (44)``() =
+    "7FF5B42C"
+    ++ (LWBRX ** [ O.Reg R31; O.Reg R21; O.Reg R22 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (45)``() =
+    "7F95AD2C"
+    ++ (STWBRX ** [ O.Reg R28; O.Reg R21; O.Reg R21 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (46)``() =
+    "7F722C28"
+    ++ (LDBRX ** [ O.Reg R27; O.Reg R18; O.Reg R5 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (47)``() =
+    "7DF4ED28"
+    ++ (STDBRX ** [ O.Reg R15; O.Reg R20; O.Reg R29 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (48)``() =
+    "B9817027"
+    ++ (LMW ** [ O.Reg R12; O.Mem (0x7027L, R1) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (49)``() =
+    "BF202D82"
+    ++ (STMW ** [ O.Reg R25; O.Mem (0x2D82L, R0) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (50)``() =
+    "7D3DDCAA"
+    ++ (LSWI ** [ O.Reg R9; O.Reg R29; O.Reg R27 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (51)``() =
+    "7F8D242A"
+    ++ (LSWX ** [ O.Reg R28; O.Reg R13; O.Reg R4 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (52)``() =
+    "7D2DF5AA"
+    ++ (STSWI ** [ O.Reg R9; O.Reg R13; O.Reg R30 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] Fixed-Point Load/Store Test (53)``() =
+    "7FD55D2A"
+    ++ (STSWX ** [ O.Reg R30; O.Reg R21; O.Reg R11 ])
     ||> testPPC WordSize.Bit64
