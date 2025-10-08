@@ -88,9 +88,9 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.Utils", "Utils
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.Visualization", "Visualization\B2R2.RearEnd.Visualization.fsproj", "{E03A7D88-EE4D-436A-A5C8-51B57FB71883}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.BiHexLang", "BiHexLang\B2R2.RearEnd.BiHexLang.fsproj", "{802BF871-7440-4772-9F04-AF3FBD832224}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.BinQL", "BinQL\B2R2.RearEnd.BinQL.fsproj", "{802BF871-7440-4772-9F04-AF3FBD832224}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.BiHexLang.Tests", "BiHexLang.Tests\B2R2.RearEnd.BiHexLang.Tests.fsproj", "{739BA741-1C1B-481A-97D1-604104E16208}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.BinQL.Tests", "BinQL.Tests\B2R2.RearEnd.BinQL.Tests.fsproj", "{739BA741-1C1B-481A-97D1-604104E16208}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

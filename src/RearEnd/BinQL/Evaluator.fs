@@ -22,12 +22,15 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BiHexLang
+namespace B2R2.RearEnd.BinQL
 
 open System
+open System.Collections.Generic
 
-/// Represents an evaluator for BiHexLang expressions.
+/// Represents an evaluator for BinQL expressions.
 type Evaluator() =
+  let fnTable = Intrinsics.initTable ()
+
   let unifyType ltyp rtyp =
     match ltyp, rtyp with
     | Hex, Hex -> Hex
@@ -112,6 +115,11 @@ type Evaluator() =
       let lhs = (bigintToZeroPaddedBytes lhs lcnt)[..lcnt - 1]
       let rhs = (bigintToZeroPaddedBytes rhs rcnt)[..rcnt - 1]
       bigint [| yield! rhs; yield! lhs; 0uy |], unifyType ltyp rtyp, lcnt + rcnt
+    | Paren e ->
+      eval e
+    | App(name, args) ->
+      let args = args |> List.map eval
+      fnApp name args
 
   and binop op lhs rhs =
     let lhs, ltyp, lcnt = eval lhs
@@ -122,6 +130,15 @@ type Evaluator() =
       let lhs = bigintToZeroPaddedBytes lhs (max lcnt rcnt) |> bigint
       let rhs = bigintToZeroPaddedBytes rhs (max lcnt rcnt) |> bigint
       op lhs rhs, unifyType ltyp rtyp, unifyByteCount lcnt rcnt
+
+  and fnApp name args =
+    match fnTable.TryGetValue name with
+    | false, _ ->
+      raise (ArgumentException $"Unknown function: {name}")
+    | true, fn ->
+      match fn.Apply args with
+      | Ok res -> res
+      | Error msg -> raise (ArgumentException msg)
 
   /// Evaluates the given expression and returns the result as a string.
   member _.EvalExprToString expr =

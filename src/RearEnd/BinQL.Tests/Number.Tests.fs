@@ -22,10 +22,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BiHexLang.Tests
+namespace B2R2.RearEnd.BinQL.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
-open B2R2.RearEnd.BiHexLang
+open B2R2.RearEnd.BinQL
 
 [<TestClass>]
 type NumberTests() =
@@ -48,12 +48,12 @@ type NumberTests() =
   [<TestMethod>]
   member _.``Hex number parsing tests``() =
     testNum Hex [| 0x00uy; 0x00uy; 0x00uy; 0x00uy |] <| parser.Run "0x00000000"
-    testNum Hex [| 0x23uy; 0x01uy |] <| parser.Run "123"
+    testNum Dec [| 0x7buy |] <| parser.Run "123"
     testNum Hex [| 0x34uy; 0x12uy |] <| parser.Run "0x1234"
-    testNum Hex [| 0x01uy |] <| parser.Run "1"
-    testNum Hex [| 0x42uy |] <| parser.Run "42"
+    testNum Dec [| 0x01uy |] <| parser.Run "1"
+    testNum Dec [| 0x2auy |] <| parser.Run "42"
     testNum Hex [| 0x42uy |] <| parser.Run "0x42"
-    testNum Hex [| 0x4uy; 0x3uy; 0x2uy; 0x1uy |] <| parser.Run "1020304"
+    testNum Dec [| 0x90uy; 0x91uy; 0x0fuy |] <| parser.Run "1020304"
     testNum Hex [| 0x4uy; 0x3uy; 0x2uy; 0x1uy |] <| parser.Run "0x1020304"
 
   [<TestMethod>]
@@ -84,7 +84,7 @@ type NumberTests() =
   [<TestMethod>]
   member _.``Number ToString tests``() =
     testToString "0x1234" "0x1234"
-    testToString "0x1234" "1234"
+    testToString "1234" "1234"
     testToString "0x00" "0x0"
     testToString "0x01" "0x1"
     testToString "0x12345678901234567890" "0x12345678901234567890"
@@ -97,6 +97,6 @@ type NumberTests() =
     testToString "0o12345" "0o12345"
     testToString "0o1234512345" "0o1234512345"
     testToString "0o123451234512345" "0o0000123451234512345"
-    testToString "0d0" "0d0"
-    testToString "0d42" "0d42"
-    testToString "0d175281381175281381" "0d175281381175281381"
+    testToString "0" "0d0"
+    testToString "42" "0d42"
+    testToString "175281381175281381" "0d175281381175281381"

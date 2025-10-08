@@ -33,7 +33,7 @@
     <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
     <ProjectReference Include="..\ROP\B2R2.RearEnd.ROP.fsproj" />
     <ProjectReference Include="..\Visualization\B2R2.RearEnd.Visualization.fsproj" />
-    <ProjectReference Include="..\BiHexLang\B2R2.RearEnd.BiHexLang.fsproj" />
+    <ProjectReference Include="..\BinQL\B2R2.RearEnd.BinQL.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="B2R2.FsReadLine" Version="0.2.1" />

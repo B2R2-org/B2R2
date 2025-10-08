@@ -22,12 +22,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BiHexLang
+namespace B2R2.RearEnd.BinQL
 
-/// Represents an expression in BiHexLang, which is a language for simple
-/// arithmetic expressions on numbers represented in binary and hexadecimal
-/// formats (as well as decimal for convenience). Every expression is evaluated
-/// to a byte array (little-endian) in the end.
+/// Represents an expression in BinQL, a language for convenient binary data
+/// querying.
 type Expr =
   /// Number literal.
   | Number of NumberType * byte[]
@@ -61,6 +59,10 @@ type Expr =
   | Cast of NumberType * Expr
   /// Concatenation.
   | Concat of Expr * Expr
+  /// Parenthesis.
+  | Paren of Expr
+  /// Function application.
+  | App of name: string * args: Expr list
 with
   /// Converts an expression back to string.
   static member ToString expr =
@@ -89,31 +91,29 @@ with
         |> String.concat ""
       "0o" + num
     | Number(Dec, bs) ->
-      let s = (bigint bs).ToString()
-      if s.StartsWith('-') then $"-0d{s[1..]}"
-      else $"0d{s}"
-    | Str(s) ->
+      (bigint bs).ToString()
+    | Str s ->
       $"\"{s}\""
     | Add(lhs, rhs) ->
-      $"({Expr.ToString lhs} + {Expr.ToString rhs})"
+      $"{Expr.ToString lhs} + {Expr.ToString rhs}"
     | Sub(lhs, rhs) ->
-      $"({Expr.ToString lhs} - {Expr.ToString rhs})"
+      $"{Expr.ToString lhs} - {Expr.ToString rhs}"
     | Mul(lhs, rhs) ->
-      $"({Expr.ToString lhs} * {Expr.ToString rhs})"
+      $"{Expr.ToString lhs} * {Expr.ToString rhs}"
     | Div(lhs, rhs) ->
-      $"({Expr.ToString lhs} / {Expr.ToString rhs})"
+      $"{Expr.ToString lhs} / {Expr.ToString rhs}"
     | Mod(lhs, rhs) ->
-      $"({Expr.ToString lhs} %% {Expr.ToString rhs})"
+      $"{Expr.ToString lhs} %% {Expr.ToString rhs}"
     | And(lhs, rhs) ->
-      $"({Expr.ToString lhs} & {Expr.ToString rhs})"
+      $"{Expr.ToString lhs} & {Expr.ToString rhs}"
     | Or(lhs, rhs) ->
-      $"({Expr.ToString lhs} | {Expr.ToString rhs})"
+      $"{Expr.ToString lhs} | {Expr.ToString rhs}"
     | Xor(lhs, rhs) ->
-      $"({Expr.ToString lhs} ^ {Expr.ToString rhs})"
+      $"{Expr.ToString lhs} ^ {Expr.ToString rhs}"
     | Shl(lhs, rhs) ->
-      $"({Expr.ToString lhs} << {Expr.ToString rhs})"
+      $"{Expr.ToString lhs} << {Expr.ToString rhs}"
     | Shr(lhs, rhs) ->
-      $"({Expr.ToString lhs} >> {Expr.ToString rhs})"
+      $"{Expr.ToString lhs} >> {Expr.ToString rhs}"
     | Neg e ->
       $"-{Expr.ToString e}"
     | Not e ->
@@ -127,7 +127,12 @@ with
     | Cast(Dec, e) ->
       $"(dec) {Expr.ToString e}"
     | Concat(lhs, rhs) ->
-      $"({Expr.ToString lhs} . {Expr.ToString rhs})"
+      $"{Expr.ToString lhs} . {Expr.ToString rhs}"
+    | Paren e ->
+      $"({Expr.ToString e})"
+    | App(name, args) ->
+      let args = args |> List.map Expr.ToString |> String.concat ", "
+      $"{name}({args})"
 
 /// Represents the type of number literal.
 and NumberType =

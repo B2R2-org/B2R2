@@ -7,6 +7,8 @@
   <ItemGroup>
     <Compile Include="Expr.fs" />
     <Compile Include="Parser.fs" />
+    <Compile Include="IFunctionApplicable.fs" />
+    <Compile Include="Intrinsics.fs" />
     <Compile Include="Evaluator.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />

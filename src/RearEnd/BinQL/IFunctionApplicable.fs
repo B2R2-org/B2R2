@@ -22,43 +22,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer.Commands
+namespace B2R2.RearEnd.BinQL
 
-open B2R2.RearEnd.Utils
-open B2R2.RearEnd.BinQL
-open B2R2.RearEnd.BinExplorer
-
-type SimpleArithEvaluator() =
-  let parser = Parser()
-  let evaluator = Evaluator()
-
-  member _.Run(args) =
-    let args = String.concat " " args
-    match parser.Run args with
-    | Ok e -> [| evaluator.EvalExprToString e |]
-    | Error e -> [| $"{e}" |]
-
-type EvalExpr(name, alias) =
-  let evaluator = SimpleArithEvaluator()
-
-  interface ICmd with
-
-    member _.CmdName = name
-
-    member _.CmdAlias = alias
-
-    member _.CmdDescr =
-      "Evaluate and display the value of an expression."
-
-    member _.CmdHelp =
-      "Usage: ? <expression>\n\n\
-      Evaluate the given BinQL expression and print out the value. This\n\
-      command supports basic arithmetic expressions."
-
-    member _.SubCommands = []
-
-    member this.CallBack(_, args) =
-      match args with
-      | [] -> [| (this :> ICmd).CmdHelp |]
-      | _ -> evaluator.Run(args)
-      |> Array.map OutputNormal
+/// Represents a function that can be applied to arguments.
+type IFunctionApplicable =
+  /// Applies the function to the given list of arguments.
+  abstract Apply: (bigint * NumberType * int) list
+        -> Result<bigint * NumberType * int, string>

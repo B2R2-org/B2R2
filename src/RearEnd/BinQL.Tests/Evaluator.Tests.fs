@@ -22,10 +22,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BiHexLang.Tests
+namespace B2R2.RearEnd.BinQL.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
-open B2R2.RearEnd.BiHexLang
+open B2R2.RearEnd.BinQL
 
 [<TestClass>]
 type EvaluatorTests() =
@@ -37,13 +37,13 @@ type EvaluatorTests() =
     | Ok e ->
       Assert.AreEqual<string>(expected, evaluator.EvalExprToString e)
     | _ ->
-      Assert.Fail("Parsing failed.")
+      Assert.Fail "Parsing failed."
 
   [<TestMethod>]
   member _.``Arithmetic evaluation tests``() =
-    "1 + 2 - 3" ==> "0x00"
+    "1 + 2 - 3" ==> "0"
     "0x1 * 2 - 0x4" ==> "0xFE"
-    "0d10 * 0d4 - 0d42" ==> "-0d2"
+    "0d10 * 0d4 - 0d42" ==> "-2"
     "0x00000000" ==> "0x00000000"
     "(0x00004200 ^ 0x42420042 & 0x00FFFFFF)" ==> "0x00424242"
     "0xFFFFFFFF + 0x1" ==> "0x00000000"
@@ -66,12 +66,13 @@ type EvaluatorTests() =
     "0xFF << 0x8" ==> "0x00"
     "0xFF >> 0x4" ==> "0x0F"
     "0xFF >> 0x8" ==> "0x00"
+    "hex(oct(0x42) + 1)" ==> "0x43"
 
   [<TestMethod>]
   member _.``String tests``() =
     "\"\"" ==> "0x00"
     "\"ABCD\"" ==> "0x41424344"
-    "(dec) \"a\"" ==> "0d97"
+    "dec(\"a\")" ==> "97"
     "\"AA\" * 4" ==> "0x4141414141414141"
     "0d10 * \"AB\"" ==> "0x4142414241424142414241424142414241424142"
 

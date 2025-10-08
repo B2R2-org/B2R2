@@ -22,43 +22,25 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer.Commands
+module B2R2.RearEnd.BinQL.Intrinsics
 
-open B2R2.RearEnd.Utils
-open B2R2.RearEnd.BinQL
-open B2R2.RearEnd.BinExplorer
+open System.Collections.Generic
 
-type SimpleArithEvaluator() =
-  let parser = Parser()
-  let evaluator = Evaluator()
+let addCastingIntrinsics (fnTable: Dictionary<_, _>) =
+  let castTo name typ =
+    { new IFunctionApplicable with
+        member _.Apply args =
+          if List.length args <> 1 then
+            Error $"{name}() takes exactly one argument."
+          else
+            let n, _, cnt = List.item 0 args
+            Ok(n, typ, cnt) }
+  fnTable.Add("hex", castTo "hex" Hex)
+  fnTable.Add("dec", castTo "dec" Dec)
+  fnTable.Add("oct", castTo "oct" Oct)
+  fnTable.Add("bin", castTo "bin" Bin)
+  fnTable
 
-  member _.Run(args) =
-    let args = String.concat " " args
-    match parser.Run args with
-    | Ok e -> [| evaluator.EvalExprToString e |]
-    | Error e -> [| $"{e}" |]
-
-type EvalExpr(name, alias) =
-  let evaluator = SimpleArithEvaluator()
-
-  interface ICmd with
-
-    member _.CmdName = name
-
-    member _.CmdAlias = alias
-
-    member _.CmdDescr =
-      "Evaluate and display the value of an expression."
-
-    member _.CmdHelp =
-      "Usage: ? <expression>\n\n\
-      Evaluate the given BinQL expression and print out the value. This\n\
-      command supports basic arithmetic expressions."
-
-    member _.SubCommands = []
-
-    member this.CallBack(_, args) =
-      match args with
-      | [] -> [| (this :> ICmd).CmdHelp |]
-      | _ -> evaluator.Run(args)
-      |> Array.map OutputNormal
+let initTable () =
+  Dictionary<string, IFunctionApplicable>()
+  |> addCastingIntrinsics

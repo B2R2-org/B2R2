@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BiHexLang\B2R2.RearEnd.BiHexLang.fsproj" />
+    <ProjectReference Include="..\BinQL\B2R2.RearEnd.BinQL.fsproj" />
   </ItemGroup>
 
 </Project>

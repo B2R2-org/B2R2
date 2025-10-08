@@ -22,11 +22,11 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BiHexLang
+namespace B2R2.RearEnd.BinQL
 
 open FParsec
 
-/// Represents a parser for BiHexLang expressions.
+/// Represents a parser for BinQL expressions.
 type Parser() =
   let convertHexCharsToBytes chars =
     Array.chunkBySize 2 chars
@@ -100,11 +100,14 @@ type Parser() =
   let pOctal =
     pstring "0o" >>. pOctalDigits
 
-  /// Parser for a decimal number.
-  let pDecimal =
-    pstring "0d" >>. many1 digit
+  let pDecimalWithoutPrefix =
+    many1 digit
     |>> (List.toArray >> System.String)
     |>> fun s -> Number(Dec, (bigint.Parse s).ToByteArray())
+
+  /// Parser for a decimal number.
+  let pDecimal =
+    pstring "0d" >>. pDecimalWithoutPrefix
 
   /// Parser for a number in various formats.
   let pNumber =
@@ -112,8 +115,7 @@ type Parser() =
     <|> attempt pBinary
     <|> attempt pOctal
     <|> attempt pDecimal
-    <|> attempt pHexWithoutPrefix
-    <|> pSingleHexWithoutPrefix
+    <|> attempt pDecimalWithoutPrefix
 
   /// Parser for a string literal.
   let pStringLiteral =
@@ -122,26 +124,44 @@ type Parser() =
     |>> fun chars ->
       Str(System.String(List.toArray chars))
 
+  let pIdent =
+    many1 (asciiLetter <|> digit)
+    |>> fun chars -> List.toArray chars |> System.String
+
   let opp = OperatorPrecedenceParser<Expr, unit, unit>()
 
-  let expr = opp.ExpressionParser
+  let pExpr = opp.ExpressionParser
+
+  let pParenthesizedExpr =
+    between (pstring "(" >>. spaces) (pstring ")" >>. spaces) pExpr
+    |>> fun e -> Paren e
+
+  let pFunctionArgs =
+    between (pstring "(" >>. spaces)
+            (pstring ")" >>. spaces)
+            (sepBy pExpr (pstring "," >>. spaces))
+
+  let pFunctionApplication =
+    pIdent .>> spaces .>>. pFunctionArgs
+    |>> fun (id, args) -> App(id, args)
 
   let pTerm =
     (pNumber .>> spaces)
     <|> (pStringLiteral .>> spaces)
-    <|> between (pstring "(" >>. spaces) (pstring ")" >>. spaces) expr
+    <|> pParenthesizedExpr
+    <|> pFunctionApplication
 
   let addInfixOp str prec assoc mapping =
     let op =
       InfixOperator(str, spaces, prec, assoc, (),
                     fun () leftTerm rightTerm -> mapping () leftTerm rightTerm)
-    opp.AddOperator(op)
+    opp.AddOperator op
 
   let addPrefixOp str prec mapping =
     let op =
       PrefixOperator(str, spaces, prec, true, (),
                      fun () term -> mapping () term)
-    opp.AddOperator(op)
+    opp.AddOperator op
 
   do
     opp.TermParser <- pTerm
@@ -155,15 +175,11 @@ type Parser() =
     addInfixOp "^" 2 Associativity.Left (fun () lhs rhs -> Xor(lhs, rhs))
     addInfixOp "<<" 2 Associativity.Left (fun () lhs rhs -> Shl(lhs, rhs))
     addInfixOp ">>" 2 Associativity.Left (fun () lhs rhs -> Shr(lhs, rhs))
-    addPrefixOp "-" 7 (fun () term -> Neg(term))
-    addPrefixOp "~" 7 (fun () term -> Not(term))
-    addPrefixOp "(hex)" 6 (fun () term -> Cast(Hex, term))
-    addPrefixOp "(bin)" 6 (fun () term -> Cast(Bin, term))
-    addPrefixOp "(oct)" 6 (fun () term -> Cast(Oct, term))
-    addPrefixOp "(dec)" 6 (fun () term -> Cast(Dec, term))
+    addPrefixOp "-" 7 (fun () term -> Neg term)
+    addPrefixOp "~" 7 (fun () term -> Not term)
     addInfixOp "." 5 Associativity.Left (fun () lhs rhs -> Concat(lhs, rhs))
 
-  /// Runs the BiHexLang parser on the given input string.
+  /// Runs the BinQL parser on the given input string.
   member _.Run str =
     match runParserOnString opp () "" str with
     | Success(expr, _, _) -> Result.Ok expr
