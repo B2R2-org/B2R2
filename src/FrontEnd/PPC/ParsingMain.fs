@@ -270,7 +270,7 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let d0 = Bits.extract bin 15u 6u
     let d1 = Bits.extract bin 20u 16u
-    let d2 = Bits.extract bin 0u 0u
+    let d2 = Bits.pick bin 0u
     let d = Bits.concat d0 (Bits.concat d1 d2 1) 6 |> getOprImm
     TwoOperands(rt, d)
   | Op.ADD | Op.ADD_DOT | Op.ADDO | Op.ADDO_DOT
@@ -290,34 +290,34 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
   | Op.ADDME | Op.ADDME_DOT | Op.ADDMEO | Op.ADDMEO_DOT ->
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
-    let _ = Bits.extract bin 15u 11u |> checkIfZero
+    Bits.extract bin 15u 11u |> checkIfZero
     TwoOperands(rt, ra)
   | Op.SUBFME | Op.SUBFME_DOT | Op.SUBFMEO | Op.SUBFMEO_DOT ->
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
-    let _ = Bits.extract bin 15u 11u |> checkIfZero
+    Bits.extract bin 15u 11u |> checkIfZero
     TwoOperands(rt, ra)
   | Op.ADDEX ->
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
     let rb = Bits.extract bin 15u 11u |> getOprReg
     let cy = Bits.extract bin 10u 9u |> getOprCY
-    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    Bits.pick bin 0u |> checkIfZero
     FourOperands(rt, ra, rb, cy)
   | Op.ADDZE | Op.ADDZE_DOT | Op.ADDZEO | Op.ADDZEO_DOT ->
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
-    let _ = Bits.extract bin 15u 11u |> checkIfZero
+    Bits.extract bin 15u 11u |> checkIfZero
     TwoOperands(rt, ra)
   | Op.SUBFZE | Op.SUBFZE_DOT | Op.SUBFZEO | Op.SUBFZEO_DOT ->
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
-    let _ = Bits.extract bin 15u 11u |> checkIfZero
+    Bits.extract bin 15u 11u |> checkIfZero
     TwoOperands(rt, ra)
   | Op.NEG | Op.NEG_DOT | Op.NEGO | Op.NEGO_DOT ->
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
-    let _ = Bits.extract bin 15u 11u |> checkIfZero
+    Bits.extract bin 15u 11u |> checkIfZero
     TwoOperands(rt, ra)
   | Op.MULLI ->
     let rt = Bits.extract bin 25u 21u |> getOprReg
@@ -329,7 +329,7 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
     let rb = Bits.extract bin 15u 11u |> getOprReg
-    let _ = Bits.extract bin 10u 10u |> checkIfZero
+    Bits.extract bin 10u 10u |> checkIfZero
     ThreeOperands(rt, ra, rb)
   | Op.MULLW | Op.MULLW_DOT | Op.MULLWO | Op.MULLWO_DOT ->
     let rt = Bits.extract bin 25u 21u |> getOprReg
@@ -349,14 +349,14 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
     let rb = Bits.extract bin 15u 11u |> getOprReg
-    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    Bits.pick bin 0u |> checkIfZero
     ThreeOperands(rt, ra, rb)
   | Op.DARN ->
     let rt = Bits.extract bin 25u 21u |> getOprReg
-    let _ = Bits.extract bin 20u 18u |> checkIfZero
+    Bits.extract bin 20u 18u |> checkIfZero
     let l = Bits.extract bin 17u 16u |> getOprL
-    let _ = Bits.extract bin 15u 11u |> checkIfZero
-    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    Bits.extract bin 15u 11u |> checkIfZero
+    Bits.pick bin 0u |> checkIfZero
     TwoOperands(rt, l)
   | Op.B | Op.BL ->
     let targetAddr = addr + extractExtendedField bin 25u 2u 2 |> getOprAddr
@@ -379,7 +379,7 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
   | Op.BCTAR | Op.BCTARL ->
     let bo = Bits.extract bin 25u 21u |> getOprBO
     let bi = Bits.extract bin 20u 16u |> getOprBI
-    let _ = Bits.extract bin 15u 13u |> checkIfZero
+    Bits.extract bin 15u 13u |> checkIfZero
     let bh = Bits.extract bin 12u 11u |> getOprBH
     ThreeOperands(bo, bi, bh)
   | Op.LBZ | Op.LBZU
@@ -399,7 +399,7 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
     let rb = Bits.extract bin 15u 11u |> getOprReg
-    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    Bits.pick bin 0u |> checkIfZero
     ThreeOperands(rt, ra, rb)
   | Op.LWA
   | Op.LD | Op.LDU ->
@@ -421,7 +421,7 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
     let rb = Bits.extract bin 15u 11u |> getOprReg
-    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    Bits.pick bin 0u |> checkIfZero
     ThreeOperands(rt, ra, rb)
   | Op.STD | Op.STDU ->
     let rt = Bits.extract bin 25u 21u |> getOprReg
@@ -432,7 +432,7 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
     let rtp = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u
     let dq = extractExtendedField bin 15u 4u 4
-    let _ = Bits.extract bin 3u 0u |> checkIfZero
+    Bits.extract bin 3u 0u |> checkIfZero
     TwoOperands(rtp, getOprMem dq ra)
   | Op.STQ ->
     let rsp = Bits.extract bin 25u 21u |> getOprReg
@@ -444,7 +444,7 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
     let rb = Bits.extract bin 15u 11u |> getOprReg
-    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    Bits.pick bin 0u |> checkIfZero
     ThreeOperands(rt, ra, rb)
   | Op.LMW
   | Op.STMW ->
@@ -457,14 +457,14 @@ let getOperands (opcode: Opcode) (bin: uint32) (addr: Addr) =
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
     let nb = Bits.extract bin 15u 11u |> getOprReg
-    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    Bits.pick bin 0u |> checkIfZero
     ThreeOperands(rt, ra, nb)
   | Op.LSWX
   | Op.STSWX ->
     let rt = Bits.extract bin 25u 21u |> getOprReg
     let ra = Bits.extract bin 20u 16u |> getOprReg
     let rb = Bits.extract bin 15u 11u |> getOprReg
-    let _ = Bits.extract bin 0u 0u |> checkIfZero
+    Bits.pick bin 0u |> checkIfZero
     ThreeOperands(rt, ra, rb)
   | _ -> Terminator.futureFeature ()
 
