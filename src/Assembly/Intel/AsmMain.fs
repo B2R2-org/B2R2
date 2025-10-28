@@ -45,7 +45,7 @@ type UserState =
     /// instruction, but labels would not change this.
     CurIndex: int }
 
-let encodeInstruction (ins: AsmInsInfo) ctx =
+let encodeInstruction ins ctx =
   match ins.Opcode with
   | Opcode.AAA -> aaa ctx ins.Operands
   | Opcode.AAD -> aad ctx ins.Operands

@@ -221,6 +221,19 @@ let inline encVexRRMI ins wordSz vvvv vex op r b s d i immSz =
      yield! mem b s d
      yield! immediate i immSz |]
 
+(* Special case *)
+let private resolveMemSizeFromReg ins (ctx: EncodingContext) =
+  let operands =
+    match ins.Operands with
+    | TwoOperands(OprMem(b, s, d, 0<rt>), OprReg r) ->
+      let mOSz = Register.toRegType ctx.WordSize r
+      TwoOperands(OprReg r, OprMem(b, s, d, mOSz))
+    | TwoOperands(OprReg r, OprMem(b, s, d, 0<rt>)) ->
+      let mOSz = Register.toRegType ctx.WordSize r
+      TwoOperands(OprReg r, OprMem(b, s, d, mOSz))
+    | _ -> ins.Operands
+  { ins with Operands = operands }
+
 let aaa (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x37uy |]
   | _ -> raise EncodingFailureException
@@ -1600,7 +1613,8 @@ let leave (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0xC9uy |]
   | _ -> raise EncodingFailureException
 
-let mov (ctx: EncodingContext) ins =
+let mov ctx ins =
+  let ins = resolveMemSizeFromReg ins ctx
   match ins.Operands with
   (* Reg - Sreg *)
   | TwoOperands(OprReg r1, OprReg r2) when isReg16 ctx r1 && isSegReg r2 ->

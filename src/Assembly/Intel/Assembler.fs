@@ -171,7 +171,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   let pDisp = pImm
 
   let pMemOpr sz =
-    let sz = Option.defaultValue defaultRegType sz
+    let sz = Option.defaultValue 0<rt> sz
     opt (attempt updatePrefix) >>. spaces >>. opt (attempt pMemBaseReg)
     .>> spaces .>>. opt (attempt pScaledIndexReg) .>> spaces .>>. opt pDisp
     |>> fun ((bReg, scaledInd), disp) -> OprMem(bReg, scaledInd, disp, sz)
