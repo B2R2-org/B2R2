@@ -26,4 +26,4 @@ namespace B2R2.Assembly.BinLowerer
 
 /// Raised when the given assembly code cannot be lowered to binary
 /// instructions.
-exception EncodingFailureException
+exception EncodingFailureException of string
