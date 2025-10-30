@@ -48,7 +48,10 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   let addLabeldef lbl =
     updateUserState (fun us ->
-      { us with LabelMap = Map.add lbl us.CurIndex us.LabelMap })
+     if Map.containsKey lbl us.LabelMap then
+       raise <| EncodingFailureException $"Label '{lbl}' already defined"
+     else
+       { us with LabelMap = Map.add lbl us.CurIndex us.LabelMap })
     >>. preturn ()
 
   let incrementIndex =
