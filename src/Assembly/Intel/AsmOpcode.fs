@@ -236,23 +236,23 @@ let private resolveMemSizeFromReg ins (ctx: EncodingContext) =
 
 let aaa (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x37uy |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let aad (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0xD5uy; Normal 0x0Auy |]
   | OneOperand(OprImm(imm, _)) ->
     no64Arch ctx.WordSize; [| Normal 0xD5uy; yield! immediate imm 8<rt> |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let aam (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0xD4uy; Normal 0x0Auy |]
   | OneOperand(OprImm(imm, _)) ->
     no64Arch ctx.WordSize; [| Normal 0xD4uy; yield! immediate imm 8<rt> |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let aas (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x3Fuy |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let adc (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -350,7 +350,7 @@ let adc (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 ctx r ->
     no32Arch ctx.WordSize
     encRM ins ctx ctx.PrefNormal ctx.RexW [| 0x13uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let add (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -468,7 +468,7 @@ let add (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x03uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let addpd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -478,7 +478,7 @@ let addpd (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x58uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let addps (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -488,7 +488,7 @@ let addps (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x58uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let addsd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -498,7 +498,7 @@ let addsd (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x58uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let addss (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -508,7 +508,7 @@ let addss (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x58uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let logAnd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -626,7 +626,7 @@ let logAnd (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x23uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let andpd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -636,7 +636,7 @@ let andpd (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x54uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let andps (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -646,7 +646,7 @@ let andps (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x54uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let bsr (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -670,7 +670,7 @@ let bsr (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBDuy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let bt (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -718,7 +718,7 @@ let bt (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBAuy |] b s d 0b100uy imm 8<rt>
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let call (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -756,19 +756,19 @@ let call (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] r 0b010uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cbw _ctx = function
   | NoOperand -> [| Normal 0x66uy; Normal 0x98uy |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cdq _ctx = function
   | NoOperand -> [| Normal 0x99uy |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cdqe (ctx: EncodingContext) = function
   | NoOperand -> no32Arch ctx.WordSize; [| Normal 0x48uy; Normal 0x98uy |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cmovcc (ctx: EncodingContext) ins opcode =
   match ins.Operands with
@@ -794,7 +794,7 @@ let cmovcc (ctx: EncodingContext) ins opcode =
     no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW opcode b s d r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cmova ctx ins = cmovcc ctx ins [| 0x0Fuy; 0x47uy |]
 
@@ -944,14 +944,14 @@ let cmp (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x3Buy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cmpsb (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP ctx.RexNormal [| 0xA6uy |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cmpxchg (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -983,14 +983,14 @@ let cmpxchg (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xB1uy |] b s d r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cmpxchg8b (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0xC7uy |] b s d 0b001uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cmpxchg16b (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -998,7 +998,7 @@ let cmpxchg16b (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xC7uy |] b s d 0b001uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cvtsd2ss (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1008,7 +1008,7 @@ let cvtsd2ss (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x5Auy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cvtsi2sd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1024,7 +1024,7 @@ let cvtsi2sd (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexW [| 0x0Fuy; 0x2Auy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cvtsi2ss (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1040,7 +1040,7 @@ let cvtsi2ss (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexW [| 0x0Fuy; 0x2Auy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cvtss2si (ctx: EncodingContext) ins =
    match ins.Operands with
@@ -1056,7 +1056,7 @@ let cvtss2si (ctx: EncodingContext) ins =
    | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg64 ctx r ->
      encRM ins ctx
        ctx.PrefF3 ctx.RexW [| 0x0Fuy; 0x2Duy |] r b s d
-   | o -> printfn "%A" o; raise EncodingFailureException
+   | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cvttss2si (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1072,11 +1072,11 @@ let cvttss2si (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 ctx r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexW [| 0x0Fuy; 0x2Cuy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let cwde _ctx = function
   | NoOperand -> [| Normal 0x98uy |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let dec (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1102,7 +1102,7 @@ let dec (ctx: EncodingContext) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexW [| 0xFFuy |] b s d 1uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let div (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1132,7 +1132,7 @@ let div (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b110uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let divsd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1142,7 +1142,7 @@ let divsd (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x5Euy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let divss (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1152,7 +1152,7 @@ let divss (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x5Euy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fadd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1166,13 +1166,13 @@ let fadd (ctx: EncodingContext) ins =
     encFR [| 0xD8uy; 0xC0uy |] r
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xC0uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fcmovb _ctx ins =
   match ins.Operands with
   | TwoOperands(OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDAuy; 0xC0uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fdiv (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1186,19 +1186,19 @@ let fdiv (ctx: EncodingContext) ins =
     encFR [| 0xD8uy; 0xF0uy |] r
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xF8uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fdivp _ctx = function
   | NoOperand -> [| Normal 0xDEuy; Normal 0xF9uy |]
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xF8uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fdivrp _ctx = function
   | NoOperand -> [| Normal 0xDEuy; Normal 0xF1uy |]
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xF0uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fild (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1211,7 +1211,7 @@ let fild (ctx: EncodingContext) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDFuy |] b s d 0b101uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fistp (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1224,7 +1224,7 @@ let fistp (ctx: EncodingContext) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDFuy |] b s d 0b111uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fld (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1238,22 +1238,22 @@ let fld (ctx: EncodingContext) ins =
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDBuy |] b s d 0b101uy
   | OneOperand(OprReg r) when isFPUReg r -> encFR [| 0xD9uy; 0xC0uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fld1 _ctx = function
   | NoOperand -> [| Normal 0xD9uy; Normal 0xE8uy |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fldcw (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xD9uy |] b s d 0b101uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fldz _ctx = function
   | NoOperand -> [| Normal 0xD9uy; Normal 0xEEuy |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fmul (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1267,20 +1267,20 @@ let fmul (ctx: EncodingContext) ins =
     encFR [| 0xD8uy; 0xC8uy |] r
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xC8uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fmulp _ctx = function
   | NoOperand -> [| Normal 0xDEuy; Normal 0xC9uy |]
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xC8uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fnstcw (ctx: EncodingContext) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xD9uy |] b s d 0b111uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fstp (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1294,7 +1294,7 @@ let fstp (ctx: EncodingContext) ins =
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xDBuy |] b s d 0b111uy
   | OneOperand(OprReg r) when isFPUReg r -> encFR [| 0xDDuy; 0xD8uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fsub (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1308,7 +1308,7 @@ let fsub (ctx: EncodingContext) ins =
     encFR [| 0xD8uy; 0xE0uy |] r
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xE8uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fsubr (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1322,26 +1322,26 @@ let fsubr (ctx: EncodingContext) ins =
     encFR [| 0xD8uy; 0xE8uy |] r
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; 0xE0uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fucomi _ctx = function
   | TwoOperands(OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDBuy; 0xE8uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fucomip _ctx = function
   | TwoOperands(OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDFuy; 0xE8uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let fxch _ctx = function
   | NoOperand -> [| Normal 0xD9uy; Normal 0xC9uy |]
   | OneOperand(OprReg r) when isFPUReg r -> encFR [| 0xD9uy; 0xC8uy |] r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let hlt _ctx = function
   | NoOperand -> [| Normal 0xF4uy |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let idiv (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1371,7 +1371,7 @@ let idiv (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b111uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let imul (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1477,7 +1477,7 @@ let imul (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0x69uy |] r b s d imm 32<rt>
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let inc (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1503,13 +1503,13 @@ let inc (ctx: EncodingContext) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexW [| 0xFFuy |] b s d 0uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let interrupt ins =
   match ins.Operands with
   | OneOperand(OprImm(n, _)) when isUInt8 n ->
     [| Normal 0xcduy; Normal(byte n) |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let interrupt3 () = [| Normal 0xccuy |]
 
@@ -1527,7 +1527,7 @@ let jcc (ctx: EncodingContext) ins op8Byte opByte op =
   | OneOperand(OprDirAddr(Relative rel)) when isInt32 rel ->
     encD ins ctx
       ctx.PrefNormal ctx.RexNormal opByte rel 32<rt>
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let ja ctx ins = jcc ctx ins 0x77uy [| 0x0Fuy; 0x87uy |] Opcode.JA
 
@@ -1587,11 +1587,11 @@ let jmp (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xFFuy |] b s d 0b100uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let lahf (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x9Fuy |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let lea (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1607,11 +1607,11 @@ let lea (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x8Duy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let leave (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0xC9uy |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let mov ctx ins =
   let ins = resolveMemSizeFromReg ins ctx
@@ -1710,7 +1710,7 @@ let mov ctx ins =
     no32Arch ctx.WordSize;
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xC7uy |] b s d 0b000uy imm 32<rt>
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let movaps (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1723,7 +1723,7 @@ let movaps (ctx: EncodingContext) ins =
   | TwoOperands(OprMem(b, s, d, 128<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x29uy |] b s d r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let movd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1751,7 +1751,7 @@ let movd (ctx: EncodingContext) ins =
   | TwoOperands(OprMem(b, s, d, 32<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x7Euy |] b s d r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let movdqa (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1764,7 +1764,7 @@ let movdqa (ctx: EncodingContext) ins =
   | TwoOperands(OprMem(b, s, d, 128<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x7Fuy |] b s d r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let movdqu (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1777,7 +1777,7 @@ let movdqu (ctx: EncodingContext) ins =
   | TwoOperands(OprMem(b, s, d, 128<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x7Fuy |] b s d r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let movsd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1791,7 +1791,7 @@ let movsd (ctx: EncodingContext) ins =
   | TwoOperands(OprMem(b, s, d, 64<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x11uy |] b s d r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let movss (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1801,7 +1801,7 @@ let movss (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x10uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let movsx (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1841,7 +1841,7 @@ let movsx (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xBFuy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let movsxd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1855,7 +1855,7 @@ let movsxd (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x63uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let movups (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1868,7 +1868,7 @@ let movups (ctx: EncodingContext) ins =
   | TwoOperands(OprMem(b, s, d, 128<rt>), OprReg r) when isXMMReg r ->
     encMR ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x11uy |] b s d r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let movzx (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1908,7 +1908,7 @@ let movzx (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xB7uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let mul (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1938,7 +1938,7 @@ let mul (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b100uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let mulsd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1948,7 +1948,7 @@ let mulsd (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x59uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let mulss (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1958,7 +1958,7 @@ let mulss (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x59uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let neg (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -1988,7 +1988,7 @@ let neg (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b011uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let nop (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2005,7 +2005,7 @@ let nop (ctx: EncodingContext) ins =
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x1Fuy |] b s d 0b000uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let not (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2035,7 +2035,7 @@ let not (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encM ins ctx
       ctx.PrefNormal ctx.RexW [| 0xF7uy |] b s d 0b010uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let logOr (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2153,7 +2153,7 @@ let logOr (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Buy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let orpd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2163,7 +2163,7 @@ let orpd (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x56uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let paddd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2173,7 +2173,7 @@ let paddd (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0xFEuy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let palignr (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2197,7 +2197,7 @@ let palignr (ctx: EncodingContext) ins =
     when isXMMReg r ->
     encRMI ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x3Auy; 0x0Fuy |] r b s d imm 8<rt>
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let pop (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2228,7 +2228,7 @@ let pop (ctx: EncodingContext) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch ctx.WordSize
     encM ins ctx ctx.PrefNormal ctx.RexW [| 0x8Fuy |] b s d 0uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let pshufd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2240,7 +2240,7 @@ let pshufd (ctx: EncodingContext) ins =
     when isXMMReg r ->
     encRMI ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x70uy |] r b s d imm 8<rt>
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let punpckldq (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2256,7 +2256,7 @@ let punpckldq (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0x62uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let push (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2297,7 +2297,7 @@ let push (ctx: EncodingContext) ins =
     encImm ins ctx ctx.Pref66 ctx.RexNormal [| 0x68uy |] imm 16<rt>
   | OneOperand(OprImm(imm, _)) when isUInt32 imm ->
     encImm ins ctx ctx.PrefNormal ctx.RexNormal [| 0x68uy |] imm 32<rt>
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let pxor (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2313,7 +2313,7 @@ let pxor (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.Pref66 ctx.RexNormal [| 0x0Fuy; 0xEFuy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let rotateOrShift (ctx: EncodingContext) ins regConstr =
   match ins.Operands with
@@ -2397,7 +2397,7 @@ let rotateOrShift (ctx: EncodingContext) ins regConstr =
     no32Arch ctx.WordSize
     encMI ins ctx
       ctx.PrefNormal ctx.RexW [| 0xC1uy |] b s d regConstr imm 8<rt>
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let rcl ctx ins = rotateOrShift ctx ins 0b010uy
 
@@ -2416,7 +2416,7 @@ let ret (ctx: EncodingContext) ins =
   | OneOperand(OprImm(imm, _)) ->
     encImm ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0xC2uy |] imm 16<rt>
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let sar ctx ins = rotateOrShift ctx ins 0b111uy
 
@@ -2426,7 +2426,7 @@ let shr ctx ins = rotateOrShift ctx ins 0b101uy
 
 let sahf (ctx: EncodingContext) = function
   | NoOperand -> no64Arch ctx.WordSize; [| Normal 0x9Euy |]
-  | _ -> raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let sbb (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2544,21 +2544,21 @@ let sbb (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x1Buy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let scasb (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP ctx.RexNormal [| 0xAEuy |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let scasd (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP ctx.RexNormal [| 0xAFuy |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let scasq (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2566,14 +2566,14 @@ let scasq (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encNP ins ctx
       ctx.PrefREP ctx.RexW [| 0xAFuy |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let scasw (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP66 ctx.RexNormal [| 0xAFuy |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let setcc (ctx: EncodingContext) ins op =
   match ins.Operands with
@@ -2583,7 +2583,7 @@ let setcc (ctx: EncodingContext) ins op =
   | OneOperand(OprMem(b, s, d, 8<rt>)) ->
     encM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; op |] b s d 0b000uy
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let seta ctx ins = setcc ctx ins 0x97uy
 
@@ -2671,21 +2671,21 @@ let shld (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x0Fuy; 0xA5uy |] b s d r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let stosb (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP ctx.RexNormal [| 0xAAuy |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let stosd (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP ctx.RexNormal [| 0xABuy |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let stosq (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2693,14 +2693,14 @@ let stosq (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encNP ins ctx
       ctx.PrefREP ctx.RexW [| 0xABuy |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let stosw (ctx: EncodingContext) ins =
   match ins.Operands with
   | NoOperand ->
     encNP ins ctx
       ctx.PrefREP66 ctx.RexNormal [| 0xABuy |]
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let sub (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2818,7 +2818,7 @@ let sub (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x2Buy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let subsd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2828,7 +2828,7 @@ let subsd (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF2 ctx.RexNormal [| 0x0Fuy; 0x5Cuy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let subss (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2838,7 +2838,7 @@ let subss (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefF3 ctx.RexNormal [| 0x0Fuy; 0x5Cuy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let test (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2916,7 +2916,7 @@ let test (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encMR ins ctx
       ctx.PrefNormal ctx.RexW [| 0x85uy |] b s d r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let ucomiss (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2926,7 +2926,7 @@ let ucomiss (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x2Euy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let vaddpd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2942,7 +2942,7 @@ let vaddpd (ctx: EncodingContext) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 256<rt>))
     when isYMMReg r1 && isYMMReg r2 ->
     encVexRRM ins ctx.WordSize (Some r2) ctx.VEX256n66n0F [| 0x58uy |] r1 b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let vaddps (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2958,7 +2958,7 @@ let vaddps (ctx: EncodingContext) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 256<rt>))
     when isYMMReg r1 && isYMMReg r2 ->
     encVexRRM ins ctx.WordSize (Some r2) ctx.VEX256n0F [| 0x58uy |] r1 b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let vaddsd (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2968,7 +2968,7 @@ let vaddsd (ctx: EncodingContext) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 64<rt>))
     when isXMMReg r1 && isXMMReg r2 ->
     encVexRRM ins ctx.WordSize (Some r2) ctx.VEX128nF2n0F [| 0x58uy |] r1 b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let vaddss (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -2978,7 +2978,7 @@ let vaddss (ctx: EncodingContext) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 32<rt>))
     when isXMMReg r1 && isXMMReg r2 ->
     encVexRRM ins ctx.WordSize (Some r2) ctx.VEX128nF3n0F [| 0x58uy |] r1 b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let vpalignr (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -3000,7 +3000,7 @@ let vpalignr (ctx: EncodingContext) ins =
     when isYMMReg r1 && isYMMReg r2 ->
     encVexRRMI ins ctx.WordSize
       (Some r2) ctx.VEX256n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let xchg (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -3014,7 +3014,7 @@ let xchg (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprReg Register.RAX) when isReg64 ctx r ->
     no32Arch ctx.WordSize
     encO ins ctx ctx.PrefNormal ctx.RexW 0x90uy r
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let xor (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -3124,7 +3124,7 @@ let xor (ctx: EncodingContext) ins =
     no32Arch ctx.WordSize
     encRM ins ctx
       ctx.PrefNormal ctx.RexW [| 0x33uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let xorps (ctx: EncodingContext) ins =
   match ins.Operands with
@@ -3134,7 +3134,7 @@ let xorps (ctx: EncodingContext) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins ctx
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x57uy |] r b s d
-  | o -> printfn "%A" o; raise EncodingFailureException
+  | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let syscall () =
   [| Normal 0x0Fuy; Normal 0x05uy |]
