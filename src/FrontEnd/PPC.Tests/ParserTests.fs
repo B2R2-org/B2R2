@@ -953,7 +953,7 @@ type ArithmeticClass() =
   [<TestMethod>]
   member _.``[PPC64] Fixed-Point Load/Store Test (50)``() =
     "7D3DDCAA"
-    ++ (LSWI ** [ O.Reg R9; O.Reg R29; O.Reg R27 ])
+    ++ (LSWI ** [ O.Reg R9; O.Reg R29; O.Imm 0x1BUL ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
@@ -965,7 +965,7 @@ type ArithmeticClass() =
   [<TestMethod>]
   member _.``[PPC64] Fixed-Point Load/Store Test (52)``() =
     "7D2DF5AA"
-    ++ (STSWI ** [ O.Reg R9; O.Reg R13; O.Reg R30 ])
+    ++ (STSWI ** [ O.Reg R9; O.Reg R13; O.Imm 0x1EUL ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
