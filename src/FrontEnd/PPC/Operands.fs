@@ -45,7 +45,11 @@ and Operand =
   | OprBI of uint8
   | OprBH of uint8
   | OprTO of uint8
-  | OprFXM of uint8
+  | OprCRMask of uint8
+  | OprFPSCRMask of uint8
+  | OprW of uint8
+  | OprDCM of uint8
+  | OprDGM of uint8
 
 and Disp = int64
 
