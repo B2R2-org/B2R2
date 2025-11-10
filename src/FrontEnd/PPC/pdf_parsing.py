@@ -8,11 +8,29 @@ def is_offset_line(line):
     for word in words:
         if not word.isdecimal():
             return False
-    return len(words) >= 3 and words[0] == "0" and words[1] == "6" and words[-1] == "31"
+    return len(words) >= 3 and words[0] == "0" and words[1] == "6" and words[-1].endswith("31")
+
+
+def offset_line_to_list(offsets_line):
+    offsets = []
+    for offset in offsets_line.split(" "):
+        offset_curr = ""
+        for chr in offset:
+            if int(offset_curr + chr) >= 32:
+                # If pdf parser does not put a space between two offsets, cut appropriately
+                assert not (len(offsets) > 0 and offsets[-1] >= int(offset_curr))
+                offsets.append(int(offset_curr))
+                offset_curr = ""
+            offset_curr += chr
+        
+        assert not (len(offsets) > 0 and offsets[-1] >= int(offset_curr))
+        offsets.append(int(offset_curr))
+    
+    return offsets
 
 def to_json(operands_line, fields_line, offsets_line):
     operands = list(filter(None, re.split("[ ,]", operands_line)))
-    offsets = list(map(int, offsets_line.split(" ")))
+    offsets = offset_line_to_list(offsets_line)
     fields = fields_line.split(" ")
 
     # If the last field range is 31~31
@@ -57,7 +75,7 @@ def to_json(operands_line, fields_line, offsets_line):
     return instr
 
 def extract_instrs(page):
-    lines = page.extract_text().split("\n")
+    lines = page.extract_text(x_tolerance = 1).split("\n")
     instrs = []
     for i in range(2, len(lines)):
         if not is_offset_line(lines[i]):
