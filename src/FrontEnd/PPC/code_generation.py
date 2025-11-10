@@ -2,7 +2,9 @@ import json
 import os
 import sys
 
-use_float = False
+f = open("ambiguous_info.json", "r")
+ambiguous_info = json.load(f)
+f.close()
 
 def opcode_to_enum(opcode):
     if opcode.endswith("."):
@@ -30,7 +32,7 @@ def operands_to_str(operands):
             operands_str = "FiveOperands"
         case _:
             print("too many operands")
-            sys.exit()
+            sys.exit(-1)
 
     return f"{operands_str}({", ".join(list(map(operand_to_str, operands)))})"
 
@@ -51,11 +53,53 @@ def extract_bits(bin, l, r):
 def operand_to_let_oprReg(operand, instr):
     return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprReg\n"
 
-def operand_to_let_BF(operand, instr):
-    if use_float:
-        return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprFPSCReg\n"
+def operand_to_let_oprFPReg(operand, instr):
+    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprFPReg\n"
+
+def should_use_CR(operand, instr):
+    use_CR = True
+    ambiguous_name = instr["opcode"] + "@" + operand
+
+    if ambiguous_name in ambiguous_info:
+        if ambiguous_info[ambiguous_name] == "CR":
+            use_CR = True
+        elif ambiguous_info[ambiguous_name] == "FPSCR":
+            use_CR = False
+        else:
+            print("invalid ambiguous infomation")
+            exit(-1)
     else:
+        print(f"detect ambiguous operand in instruction {instr["opcode"]}: {operand}.")
+        while True:
+            print("If use CR, type C. If use FPSCR, type F.")
+            chr = input()
+            if chr == "C":
+                ambiguous_info[ambiguous_name] = "CR"
+                use_CR = True
+                break
+            elif chr == "F":
+                ambiguous_info[ambiguous_name] = "FPSCR"
+                use_CR = False
+                break
+        f = open("ambiguous_info.json", "w")
+        f.write(json.dumps(ambiguous_info, indent=2))
+        f.close()
+    
+    return use_CR
+
+def operand_to_let_BF(operand, instr):
+    use_CR = should_use_CR(operand, instr)
+    if use_CR:
         return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprCondReg\n"
+    else:
+        return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprFPSCondReg\n"
+
+def operand_to_let_BT(operand, instr):
+    use_CR = should_use_CR(operand, instr)
+    if use_CR:
+        return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprCondBitReg\n"
+    else:
+        return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprFPSCondBitReg\n"
 
 def operand_to_let_BC(operand, instr):
     return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprCondBitReg\n"
@@ -88,7 +132,7 @@ def operand_to_let_target_addr(operand, instr):
         l, r = instr["fields"]["BD"]
     else:
         print("there is no field for target address")
-        assert False
+        sys.exit(-1)
     
     if extract_bits(instr["equal conditions"][1], 31 - instr["fields"]["AA"][1], 31 - instr["fields"]["AA"][0]) == 0:
         return f"    let {operand.lower()}Opr = addr + extractExtendedField bin {31 - l}u {31 - r}u 2 |> getOprAddr\n"
@@ -183,8 +227,14 @@ def operand_to_let_SPR(operand, instr):
         let3 = f"    let {operand.lower()}Opr = Bits.concat spr1 spr0 {sz_spr0} |> getOprSPReg\n"
         return let1 + let2 + let3
 
-def operand_to_let_oprFXM(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprFXM\n"
+def operand_to_let_oprCRMask(operand, instr):
+    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprCRMask\n"
+
+def operand_to_let_oprFPSCRMask(operand, instr):
+    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprFPSCRMask\n"
+
+def operand_to_let_oprW(operand, instr):
+    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprW\n"
 
 operand_type_dict = {
     "BC": operand_to_let_BC,
@@ -193,12 +243,24 @@ operand_type_dict = {
     "BH": operand_to_let_oprBH,
     "BI": operand_to_let_oprBI,
     "BO": operand_to_let_oprBO,
+    "BT": operand_to_let_BT,
     "CY" : operand_to_let_oprCY,
     "D" : operand_to_let_D,
     "D2RA": operand_to_let_eff_D_RA,
+    "DRM": operand_to_let_oprImm,
     "DS2RA": operand_to_let_eff_DS_RA,
     "DQ2RA": operand_to_let_eff_DQ_RA,
-    "FXM": operand_to_let_oprFXM,
+    "FRA": operand_to_let_oprFPReg,
+    "FRAp": operand_to_let_oprFPReg,
+    "FRB": operand_to_let_oprFPReg,
+    "FRBp": operand_to_let_oprFPReg,
+    "FRC": operand_to_let_oprFPReg,
+    "FRS": operand_to_let_oprFPReg,
+    "FRSp": operand_to_let_oprFPReg,
+    "FRT": operand_to_let_oprFPReg,
+    "FRTp": operand_to_let_oprFPReg,
+    "FXM": operand_to_let_oprCRMask,
+    "FLM": operand_to_let_oprFPSCRMask,
     "L" : operand_to_let_oprL,
     "MB": operand_to_let_MB,
     "ME": operand_to_let_ME,
@@ -206,6 +268,7 @@ operand_type_dict = {
     "RA": operand_to_let_oprReg,
     "RB": operand_to_let_oprReg,
     "RC": operand_to_let_oprReg,
+    "RM": operand_to_let_oprImm,
     "RS": operand_to_let_oprReg,
     "RSp": operand_to_let_oprReg,
     "RT": operand_to_let_oprReg,
@@ -215,13 +278,18 @@ operand_type_dict = {
     "SPR": operand_to_let_SPR,
     "TO": operand_to_let_oprTO,
     "targetaddr": operand_to_let_target_addr,
+    "U": operand_to_let_oprImm,
     "UI": operand_to_let_oprImm,
+    "W": operand_to_let_oprW,
     "XS": operand_to_let_XS,
     "XT": operand_to_let_XT
 }
 
-def operand_to_let(operand, fields_dict):
-    return operand_type_dict[operand](operand, fields_dict)
+def operand_to_let(operand, instr):
+    if not operand in operand_type_dict:
+        print(f"unimplemented operand in instr {instr["opcode"]}: {operand}")
+        sys.exit(-1)
+    return operand_type_dict[operand](operand, instr)
 
 
 
@@ -238,7 +306,7 @@ f_op_to_str = open("generated_codes/opCodeToString.txt", "w")
 f_op = open("generated_codes/opcode.txt", "w")
 f_parse = open("generated_codes/parseInstruction.txt", "w")
 
-enum_start_idx = 0
+enum_start_idx = 284
 
 for i, instr in enumerate(instr_data):
     opcode = instr["opcode"]
