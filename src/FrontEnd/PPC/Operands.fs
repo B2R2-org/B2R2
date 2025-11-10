@@ -31,6 +31,7 @@ type Operands =
   | TwoOperands of Operand * Operand
   | ThreeOperands of Operand * Operand * Operand
   | FourOperands of Operand * Operand * Operand * Operand
+  | FiveOperands of Operand * Operand * Operand * Operand * Operand
 
 /// Represents one operand in a PPC instruction.
 and Operand =
@@ -43,6 +44,8 @@ and Operand =
   | OprBO of uint8
   | OprBI of uint8
   | OprBH of uint8
+  | OprTO of uint8
+  | OprFXM of uint8
 
 and Disp = int64
 
