@@ -56,6 +56,12 @@ def operand_to_let_oprReg(operand, instr):
 def operand_to_let_oprFPReg(operand, instr):
     return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprFPReg\n"
 
+def operand_to_let_oprVReg(operand, instr):
+    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprVReg\n"
+
+def operand_to_let_oprVSReg(operand, instr):
+    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprVSReg\n"
+
 def should_use_CR(operand, instr):
     use_CR = True
     ambiguous_name = instr["opcode"] + "@" + operand
@@ -294,6 +300,11 @@ operand_type_dict = {
     "U": operand_to_let_oprImm,
     "UI": operand_to_let_oprImm,
     "UIM": operand_to_let_oprImm,
+    "VRA": operand_to_let_oprVReg,
+    "VRB": operand_to_let_oprVReg,
+    "VRC": operand_to_let_oprVReg,
+    "VRS": operand_to_let_oprVReg,
+    "VRT": operand_to_let_oprVReg,
     "W": operand_to_let_oprW,
     "XS": operand_to_let_XS,
     "XT": operand_to_let_XT

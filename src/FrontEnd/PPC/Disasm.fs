@@ -538,6 +538,18 @@ let opCodeToString =
   | Op.DSCRI_DOT -> "dscri."
   | Op.DSCRIQ -> "dscriq"
   | Op.DSCRIQ_DOT -> "dscriq."
+  | Op.LVEBX -> "lvebx"
+  | Op.LVEHX -> "lvehx"
+  | Op.LVEWX -> "lvewx"
+  | Op.LVX -> "lvx"
+  | Op.LVXL -> "lvxl"
+  | Op.STVEBX -> "stvebx"
+  | Op.STVEHX -> "stvehx"
+  | Op.STVEWX -> "stvewx"
+  | Op.STVX -> "stvx"
+  | Op.STVXL -> "stvxl"
+  | Op.LVSL -> "lvsl"
+  | Op.LVSR -> "lvsr"
   | _ -> Terminator.futureFeature ()
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
