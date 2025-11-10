@@ -236,6 +236,12 @@ def operand_to_let_oprFPSCRMask(operand, instr):
 def operand_to_let_oprW(operand, instr):
     return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprW\n"
 
+def operand_to_let_oprDCM(operand, instr):
+    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprDCM\n"
+
+def operand_to_let_oprDGM(operand, instr):
+    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprDGM\n"
+
 operand_type_dict = {
     "BC": operand_to_let_BC,
     "BF": operand_to_let_BF,
@@ -247,6 +253,8 @@ operand_type_dict = {
     "CY" : operand_to_let_oprCY,
     "D" : operand_to_let_D,
     "D2RA": operand_to_let_eff_D_RA,
+    "DCM": operand_to_let_oprDCM,
+    "DGM": operand_to_let_oprDGM,
     "DRM": operand_to_let_oprImm,
     "DS2RA": operand_to_let_eff_DS_RA,
     "DQ2RA": operand_to_let_eff_DQ_RA,
@@ -265,21 +273,27 @@ operand_type_dict = {
     "MB": operand_to_let_MB,
     "ME": operand_to_let_ME,
     "NB": operand_to_let_oprImm,
+    "R": operand_to_let_oprImm,
     "RA": operand_to_let_oprReg,
     "RB": operand_to_let_oprReg,
     "RC": operand_to_let_oprReg,
     "RM": operand_to_let_oprImm,
+    "RMC": operand_to_let_oprImm,
     "RS": operand_to_let_oprReg,
     "RSp": operand_to_let_oprReg,
     "RT": operand_to_let_oprReg,
     "RTp": operand_to_let_oprReg,
+    "S": operand_to_let_oprImm,
     "SH": operand_to_let_SH,
     "SI": operand_to_let_oprImm,
+    "SP": operand_to_let_oprImm,
     "SPR": operand_to_let_SPR,
+    "TE": operand_to_let_oprImm,
     "TO": operand_to_let_oprTO,
     "targetaddr": operand_to_let_target_addr,
     "U": operand_to_let_oprImm,
     "UI": operand_to_let_oprImm,
+    "UIM": operand_to_let_oprImm,
     "W": operand_to_let_oprW,
     "XS": operand_to_let_XS,
     "XT": operand_to_let_XT
@@ -306,7 +320,7 @@ f_op_to_str = open("generated_codes/opCodeToString.txt", "w")
 f_op = open("generated_codes/opcode.txt", "w")
 f_parse = open("generated_codes/parseInstruction.txt", "w")
 
-enum_start_idx = 284
+enum_start_idx = 0
 
 for i, instr in enumerate(instr_data):
     opcode = instr["opcode"]
