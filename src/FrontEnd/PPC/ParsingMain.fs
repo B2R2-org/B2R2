@@ -35,13 +35,19 @@ let getFPRegister (n: uint32) =
   0x20u + n |> int |> LanguagePrimitives.EnumOfValue
 
 let getVSRegister (n: uint32) =
-  0x40u + n |> int |> LanguagePrimitives.EnumOfValue
+  0x60u + n |> int |> LanguagePrimitives.EnumOfValue
 
 let getCondRegister (n: uint32) =
-  0x80u + n |> int |> LanguagePrimitives.EnumOfValue
+  0xA0u + n |> int |> LanguagePrimitives.EnumOfValue
 
 let getCondBitRegister (n: uint32) =
-  0x88u + n |> int |> LanguagePrimitives.EnumOfValue
+  0xA8u + n |> int |> LanguagePrimitives.EnumOfValue
+
+let getFPSCondRegister (n: uint32) =
+  0xC8u + n |> int |> LanguagePrimitives.EnumOfValue
+
+let getFPSCondBitRegister (n: uint32) =
+  0xD0u + n |> int |> LanguagePrimitives.EnumOfValue
 
 let getSPRegister (n: uint32) =
   match n with
@@ -95,6 +101,12 @@ let getOprCondReg (reg: uint32) =
 let getOprCondBitReg (reg: uint32) =
   reg |> getCondBitRegister |> OprReg
 
+let getOprFPSCondReg (reg: uint32) =
+  reg |> getFPSCondRegister |> OprReg
+
+let getOprFPSCondBitReg (reg: uint32) =
+  reg |> getFPSCondBitRegister |> OprReg
+
 let getOprSPReg (reg: uint32) =
   reg |> getSPRegister |> OprReg
 
@@ -122,8 +134,14 @@ let getOprBH (bh: uint32) =
 let getOprTO (toValue: uint32) =
   toValue |> uint8 |> OprTO
 
-let getOprFXM (toValue: uint32) =
-  toValue |> uint8 |> OprFXM
+let getOprCRMask (toValue: uint32) =
+  toValue |> uint8 |> OprCRMask
+
+let getOprFPSCRMask (toValue: uint32) =
+  toValue |> uint8 |> OprFPSCRMask
+
+let getOprW (toValue: uint32) =
+  toValue |> uint8 |> OprW
 
 let getOprMem (disp: uint64) (reg: uint32) =
   OprMem(disp |> int64, reg |> getRegister)
@@ -2157,20 +2175,20 @@ let parseInstruction (bin: uint32) (addr: Addr) =
   | b when b &&&
     0b11111100000100000000111111111111u = 0b1111100000100000000000100100000u ->
     let opcode = Opcode.MTOCRF
-    let fxmOpr = Bits.extract bin 19u 12u |> getOprFXM
+    let fxmOpr = Bits.extract bin 19u 12u |> getOprCRMask
     let rsOpr = Bits.extract bin 25u 21u |> getOprReg
     struct (opcode, TwoOperands(fxmOpr, rsOpr))
   | b when b &&&
     0b11111100000100000000111111111111u = 0b1111100000000000000000100100000u ->
     let opcode = Opcode.MTCRF
-    let fxmOpr = Bits.extract bin 19u 12u |> getOprFXM
+    let fxmOpr = Bits.extract bin 19u 12u |> getOprCRMask
     let rsOpr = Bits.extract bin 25u 21u |> getOprReg
     struct (opcode, TwoOperands(fxmOpr, rsOpr))
   | b when b &&&
     0b11111100000100000000111111111111u = 0b1111100000100000000000000100110u ->
     let opcode = Opcode.MFOCRF
     let rtOpr = Bits.extract bin 25u 21u |> getOprReg
-    let fxmOpr = Bits.extract bin 19u 12u |> getOprFXM
+    let fxmOpr = Bits.extract bin 19u 12u |> getOprCRMask
     struct (opcode, TwoOperands(rtOpr, fxmOpr))
   | b when b &&&
     0b11111100000111111111111111111111u = 0b1111100000000000000000000100110u ->
@@ -2183,6 +2201,912 @@ let parseInstruction (bin: uint32) (addr: Addr) =
     let rtOpr = Bits.extract bin 25u 21u |> getOprReg
     let bfaOpr = Bits.extract bin 20u 18u |> getOprCondReg
     struct (opcode, TwoOperands(rtOpr, bfaOpr))
+  | b when b &&&
+    0b11111100000000000000000000000000u = 0b11000000000000000000000000000000u ->
+    let opcode = Opcode.LFS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let ra = Bits.extract bin 20u 16u
+    let d = extractExtendedField bin 15u 0u 0
+    let d2raOpr = getOprMem d ra
+    struct (opcode, TwoOperands(frtOpr, d2raOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000010000101110u ->
+    let opcode = Opcode.LFSX
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frtOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000000000000000u = 0b11000100000000000000000000000000u ->
+    let opcode = Opcode.LFSU
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let ra = Bits.extract bin 20u 16u
+    let d = extractExtendedField bin 15u 0u 0
+    let d2raOpr = getOprMem d ra
+    struct (opcode, TwoOperands(frtOpr, d2raOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000010001101110u ->
+    let opcode = Opcode.LFSUX
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frtOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000000000000000u = 0b11001000000000000000000000000000u ->
+    let opcode = Opcode.LFD
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let ra = Bits.extract bin 20u 16u
+    let d = extractExtendedField bin 15u 0u 0
+    let d2raOpr = getOprMem d ra
+    struct (opcode, TwoOperands(frtOpr, d2raOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000010010101110u ->
+    let opcode = Opcode.LFDX
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frtOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000000000000000u = 0b11001100000000000000000000000000u ->
+    let opcode = Opcode.LFDU
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let ra = Bits.extract bin 20u 16u
+    let d = extractExtendedField bin 15u 0u 0
+    let d2raOpr = getOprMem d ra
+    struct (opcode, TwoOperands(frtOpr, d2raOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000010011101110u ->
+    let opcode = Opcode.LFDUX
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frtOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000011010101110u ->
+    let opcode = Opcode.LFIWAX
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frtOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000011011101110u ->
+    let opcode = Opcode.LFIWZX
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frtOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000000000000000u = 0b11010000000000000000000000000000u ->
+    let opcode = Opcode.STFS
+    let frsOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let ra = Bits.extract bin 20u 16u
+    let d = extractExtendedField bin 15u 0u 0
+    let d2raOpr = getOprMem d ra
+    struct (opcode, TwoOperands(frsOpr, d2raOpr))
+  | b when b &&&
+    0b11111100000000000000000000000000u = 0b11010100000000000000000000000000u ->
+    let opcode = Opcode.STFSU
+    let frsOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let ra = Bits.extract bin 20u 16u
+    let d = extractExtendedField bin 15u 0u 0
+    let d2raOpr = getOprMem d ra
+    struct (opcode, TwoOperands(frsOpr, d2raOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000010100101110u ->
+    let opcode = Opcode.STFSX
+    let frsOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frsOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000010101101110u ->
+    let opcode = Opcode.STFSUX
+    let frsOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frsOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000000000000000u = 0b11011000000000000000000000000000u ->
+    let opcode = Opcode.STFD
+    let frsOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let ra = Bits.extract bin 20u 16u
+    let d = extractExtendedField bin 15u 0u 0
+    let d2raOpr = getOprMem d ra
+    struct (opcode, TwoOperands(frsOpr, d2raOpr))
+  | b when b &&&
+    0b11111100000000000000000000000000u = 0b11011100000000000000000000000000u ->
+    let opcode = Opcode.STFDU
+    let frsOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let ra = Bits.extract bin 20u 16u
+    let d = extractExtendedField bin 15u 0u 0
+    let d2raOpr = getOprMem d ra
+    struct (opcode, TwoOperands(frsOpr, d2raOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000010110101110u ->
+    let opcode = Opcode.STFDX
+    let frsOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frsOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000010111101110u ->
+    let opcode = Opcode.STFDUX
+    let frsOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frsOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000011110101110u ->
+    let opcode = Opcode.STFIWX
+    let frsOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frsOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000000000000011u = 0b11100100000000000000000000000000u ->
+    let opcode = Opcode.LFDP
+    let frtpOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let ra = Bits.extract bin 20u 16u
+    let ds = extractExtendedField bin 15u 2u 2
+    let ds2raOpr = getOprMem ds ra
+    struct (opcode, TwoOperands(frtpOpr, ds2raOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000011000101110u ->
+    let opcode = Opcode.LFDPX
+    let frtpOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frtpOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000000000000000000000011u = 0b11110100000000000000000000000000u ->
+    let opcode = Opcode.STFDP
+    let frspOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let ra = Bits.extract bin 20u 16u
+    let ds = extractExtendedField bin 15u 2u 2
+    let ds2raOpr = getOprMem ds ra
+    struct (opcode, TwoOperands(frspOpr, ds2raOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b1111100000000000000011100101110u ->
+    let opcode = Opcode.STFDPX
+    let frspOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let raOpr = Bits.extract bin 20u 16u |> getOprReg
+    let rbOpr = Bits.extract bin 15u 11u |> getOprReg
+    struct (opcode, ThreeOperands(frspOpr, raOpr, rbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000010010000u ->
+    let opcode = Opcode.FMR
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000010010001u ->
+    let opcode = Opcode.FMR_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000001000010000u ->
+    let opcode = Opcode.FABS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000001000010001u ->
+    let opcode = Opcode.FABS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000100010000u ->
+    let opcode = Opcode.FNABS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000100010001u ->
+    let opcode = Opcode.FNABS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000001010000u ->
+    let opcode = Opcode.FNEG
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000001010001u ->
+    let opcode = Opcode.FNEG_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000000000010000u ->
+    let opcode = Opcode.FCPSGN
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000000000010001u ->
+    let opcode = Opcode.FCPSGN_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000011110001100u ->
+    let opcode = Opcode.FMRGEW
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000011010001100u ->
+    let opcode = Opcode.FMRGOW
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000000000101010u ->
+    let opcode = Opcode.FADD
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000000000101011u ->
+    let opcode = Opcode.FADD_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11101100000000000000000000101010u ->
+    let opcode = Opcode.FADDS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11101100000000000000000000101011u ->
+    let opcode = Opcode.FADDS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000000000101000u ->
+    let opcode = Opcode.FSUB
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000000000101001u ->
+    let opcode = Opcode.FSUB_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11101100000000000000000000101000u ->
+    let opcode = Opcode.FSUBS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11101100000000000000000000101001u ->
+    let opcode = Opcode.FSUBS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000001111100000111111u = 0b11111100000000000000000000110010u ->
+    let opcode = Opcode.FMUL
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frcOpr))
+  | b when b &&&
+    0b11111100000000001111100000111111u = 0b11111100000000000000000000110011u ->
+    let opcode = Opcode.FMUL_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frcOpr))
+  | b when b &&&
+    0b11111100000000001111100000111111u = 0b11101100000000000000000000110010u ->
+    let opcode = Opcode.FMULS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frcOpr))
+  | b when b &&&
+    0b11111100000000001111100000111111u = 0b11101100000000000000000000110011u ->
+    let opcode = Opcode.FMULS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frcOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000000000100100u ->
+    let opcode = Opcode.FDIV
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000000000100101u ->
+    let opcode = Opcode.FDIV_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11101100000000000000000000100100u ->
+    let opcode = Opcode.FDIVS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11101100000000000000000000100101u ->
+    let opcode = Opcode.FDIVS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(frtOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000101100u ->
+    let opcode = Opcode.FSQRT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000101101u ->
+    let opcode = Opcode.FSQRT_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11101100000000000000000000101100u ->
+    let opcode = Opcode.FSQRTS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11101100000000000000000000101101u ->
+    let opcode = Opcode.FSQRTS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000110000u ->
+    let opcode = Opcode.FRE
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000110001u ->
+    let opcode = Opcode.FRE_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11101100000000000000000000110000u ->
+    let opcode = Opcode.FRES
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11101100000000000000000000110001u ->
+    let opcode = Opcode.FRES_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000110100u ->
+    let opcode = Opcode.FRSQRTE
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000110101u ->
+    let opcode = Opcode.FRSQRTE_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11101100000000000000000000110100u ->
+    let opcode = Opcode.FRSQRTES
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11101100000000000000000000110101u ->
+    let opcode = Opcode.FRSQRTES_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100011000000000011111111111u = 0b11111100000000000000000100000000u ->
+    let opcode = Opcode.FTDIV
+    let bfOpr = Bits.extract bin 25u 23u |> getOprCondReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(bfOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100011111110000011111111111u = 0b11111100000000000000000101000000u ->
+    let opcode = Opcode.FTSQRT
+    let bfOpr = Bits.extract bin 25u 23u |> getOprCondReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(bfOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11111100000000000000000000111010u ->
+    let opcode = Opcode.FMADD
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11111100000000000000000000111011u ->
+    let opcode = Opcode.FMADD_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11101100000000000000000000111010u ->
+    let opcode = Opcode.FMADDS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11101100000000000000000000111011u ->
+    let opcode = Opcode.FMADDS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11111100000000000000000000111000u ->
+    let opcode = Opcode.FMSUB
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11111100000000000000000000111001u ->
+    let opcode = Opcode.FMSUB_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11101100000000000000000000111000u ->
+    let opcode = Opcode.FMSUBS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11101100000000000000000000111001u ->
+    let opcode = Opcode.FMSUBS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11111100000000000000000000111110u ->
+    let opcode = Opcode.FNMADD
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11111100000000000000000000111111u ->
+    let opcode = Opcode.FNMADD_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11101100000000000000000000111110u ->
+    let opcode = Opcode.FNMADDS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11101100000000000000000000111111u ->
+    let opcode = Opcode.FNMADDS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11111100000000000000000000111100u ->
+    let opcode = Opcode.FNMSUB
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11111100000000000000000000111101u ->
+    let opcode = Opcode.FNMSUB_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11101100000000000000000000111100u ->
+    let opcode = Opcode.FNMSUBS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11101100000000000000000000111101u ->
+    let opcode = Opcode.FNMSUBS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000011000u ->
+    let opcode = Opcode.FRSP
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000011001u ->
+    let opcode = Opcode.FRSP_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011001011100u ->
+    let opcode = Opcode.FCTID
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011001011101u ->
+    let opcode = Opcode.FCTID_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011001011110u ->
+    let opcode = Opcode.FCTIDZ
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011001011111u ->
+    let opcode = Opcode.FCTIDZ_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011101011100u ->
+    let opcode = Opcode.FCTIDU
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011101011101u ->
+    let opcode = Opcode.FCTIDU_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011101011110u ->
+    let opcode = Opcode.FCTIDUZ
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011101011111u ->
+    let opcode = Opcode.FCTIDUZ_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000011100u ->
+    let opcode = Opcode.FCTIW
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000011101u ->
+    let opcode = Opcode.FCTIW_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000011110u ->
+    let opcode = Opcode.FCTIWZ
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000000011111u ->
+    let opcode = Opcode.FCTIWZ_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000100011100u ->
+    let opcode = Opcode.FCTIWU
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000100011101u ->
+    let opcode = Opcode.FCTIWU_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000100011110u ->
+    let opcode = Opcode.FCTIWUZ
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000000100011111u ->
+    let opcode = Opcode.FCTIWUZ_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011010011100u ->
+    let opcode = Opcode.FCFID
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011010011101u ->
+    let opcode = Opcode.FCFID_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011110011100u ->
+    let opcode = Opcode.FCFIDU
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011110011101u ->
+    let opcode = Opcode.FCFIDU_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011010011100u ->
+    let opcode = Opcode.FCFIDS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000011010011101u ->
+    let opcode = Opcode.FCFIDS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11101100000000000000011110011100u ->
+    let opcode = Opcode.FCFIDUS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11101100000000000000011110011101u ->
+    let opcode = Opcode.FCFIDUS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000001100010000u ->
+    let opcode = Opcode.FRIN
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000001100010001u ->
+    let opcode = Opcode.FRIN_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000001101010000u ->
+    let opcode = Opcode.FRIZ
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000001101010001u ->
+    let opcode = Opcode.FRIZ_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000001110010000u ->
+    let opcode = Opcode.FRIP
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000001110010001u ->
+    let opcode = Opcode.FRIP_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000001111010000u ->
+    let opcode = Opcode.FRIM
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000000000000001111010001u ->
+    let opcode = Opcode.FRIM_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100011000000000011111111111u = 0b11111100000000000000000000000000u ->
+    let opcode = Opcode.FCMPU
+    let bfOpr = Bits.extract bin 25u 23u |> getOprCondReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(bfOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100011000000000011111111111u = 0b11111100000000000000000001000000u ->
+    let opcode = Opcode.FCMPO
+    let bfOpr = Bits.extract bin 25u 23u |> getOprCondReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, ThreeOperands(bfOpr, fraOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11111100000000000000000000101110u ->
+    let opcode = Opcode.FSEL
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000000000000000000111111u = 0b11111100000000000000000000101111u ->
+    let opcode = Opcode.FSEL_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let fraOpr = Bits.extract bin 20u 16u |> getOprFPReg
+    let frcOpr = Bits.extract bin 10u 6u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, FourOperands(frtOpr, fraOpr, frcOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111111111111111111111u = 0b11111100000000000000010010001110u ->
+    let opcode = Opcode.MFFS
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    struct (opcode, OneOperand(frtOpr))
+  | b when b &&&
+    0b11111100000111111111111111111111u = 0b11111100000000000000010010001111u ->
+    let opcode = Opcode.MFFS_DOT
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    struct (opcode, OneOperand(frtOpr))
+  | b when b &&&
+    0b11111100000111111111111111111111u = 0b11111100000000010000010010001110u ->
+    let opcode = Opcode.MFFSCE
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    struct (opcode, OneOperand(frtOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000101000000010010001110u ->
+    let opcode = Opcode.MFFSCDRN
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111111100011111111111u = 0b11111100000101010000010010001110u ->
+    let opcode = Opcode.MFFSCDRNI
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let drmOpr = Bits.extract bin 13u 11u |> getOprImm
+    struct (opcode, TwoOperands(frtOpr, drmOpr))
+  | b when b &&&
+    0b11111100000111110000011111111111u = 0b11111100000101100000010010001110u ->
+    let opcode = Opcode.MFFSCRN
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    struct (opcode, TwoOperands(frtOpr, frbOpr))
+  | b when b &&&
+    0b11111100000111111110011111111111u = 0b11111100000101110000010010001110u ->
+    let opcode = Opcode.MFFSCRNI
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    let rmOpr = Bits.extract bin 12u 11u |> getOprImm
+    struct (opcode, TwoOperands(frtOpr, rmOpr))
+  | b when b &&&
+    0b11111100000111111111111111111111u = 0b11111100000110000000010010001110u ->
+    let opcode = Opcode.MFFSL
+    let frtOpr = Bits.extract bin 25u 21u |> getOprFPReg
+    struct (opcode, OneOperand(frtOpr))
+  | b when b &&&
+    0b11111100011000111111111111111111u = 0b11111100000000000000000010000000u ->
+    let opcode = Opcode.MCRFS
+    let bfOpr = Bits.extract bin 25u 23u |> getOprCondReg
+    let bfaOpr = Bits.extract bin 20u 18u |> getOprFPSCondReg
+    struct (opcode, TwoOperands(bfOpr, bfaOpr))
+  | b when b &&&
+    0b11111100011111100000111111111111u = 0b11111100000000000000000100001100u ->
+    let opcode = Opcode.MTFSFI
+    let bfOpr = Bits.extract bin 25u 23u |> getOprFPSCondReg
+    let uOpr = Bits.extract bin 15u 12u |> getOprImm
+    let wOpr = Bits.pick bin 16u |> getOprW
+    struct (opcode, ThreeOperands(bfOpr, uOpr, wOpr))
+  | b when b &&&
+    0b11111100011111100000111111111111u = 0b11111100000000000000000100001101u ->
+    let opcode = Opcode.MTFSFI_DOT
+    let bfOpr = Bits.extract bin 25u 23u |> getOprCondReg
+    let uOpr = Bits.extract bin 15u 12u |> getOprImm
+    let wOpr = Bits.pick bin 16u |> getOprW
+    struct (opcode, ThreeOperands(bfOpr, uOpr, wOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000010110001110u ->
+    let opcode = Opcode.MTFSF
+    let flmOpr = Bits.extract bin 24u 17u |> getOprFPSCRMask
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    let lOpr = Bits.pick bin 25u |> getOprL
+    let wOpr = Bits.pick bin 16u |> getOprW
+    struct (opcode, FourOperands(flmOpr, frbOpr, lOpr, wOpr))
+  | b when b &&&
+    0b11111100000000000000011111111111u = 0b11111100000000000000010110001111u ->
+    let opcode = Opcode.MTFSF_DOT
+    let flmOpr = Bits.extract bin 24u 17u |> getOprFPSCRMask
+    let frbOpr = Bits.extract bin 15u 11u |> getOprFPReg
+    let lOpr = Bits.pick bin 25u |> getOprL
+    let wOpr = Bits.pick bin 16u |> getOprW
+    struct (opcode, FourOperands(flmOpr, frbOpr, lOpr, wOpr))
+  | b when b &&&
+    0b11111100000111111111111111111111u = 0b11111100000000000000000010001100u ->
+    let opcode = Opcode.MTFSB0
+    let btOpr = Bits.extract bin 25u 21u |> getOprFPSCondBitReg
+    struct (opcode, OneOperand(btOpr))
+  | b when b &&&
+    0b11111100000111111111111111111111u = 0b11111100000000000000000010001101u ->
+    let opcode = Opcode.MTFSB0_DOT
+    let btOpr = Bits.extract bin 25u 21u |> getOprCondBitReg
+    struct (opcode, OneOperand(btOpr))
+  | b when b &&&
+    0b11111100000111111111111111111111u = 0b11111100000000000000000001001100u ->
+    let opcode = Opcode.MTFSB1
+    let btOpr = Bits.extract bin 25u 21u |> getOprFPSCondBitReg
+    struct (opcode, OneOperand(btOpr))
+  | b when b &&&
+    0b11111100000111111111111111111111u = 0b11111100000000000000000001001101u ->
+    let opcode = Opcode.MTFSB1_DOT
+    let btOpr = Bits.extract bin 25u 21u |> getOprCondBitReg
+    struct (opcode, OneOperand(btOpr))
   | _ -> Terminator.futureFeature ()
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) (addr: Addr) =
