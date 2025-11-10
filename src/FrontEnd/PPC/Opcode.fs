@@ -537,5 +537,17 @@ type Opcode =
   | DSCRI_DOT = 506
   | DSCRIQ = 507
   | DSCRIQ_DOT = 508
+  | LVEBX = 509
+  | LVEHX = 510
+  | LVEWX = 511
+  | LVX = 512
+  | LVXL = 513
+  | STVEBX = 514
+  | STVEHX = 515
+  | STVEWX = 516
+  | STVX = 517
+  | STVXL = 518
+  | LVSL = 519
+  | LVSR = 520
 
 type internal Op = Opcode
