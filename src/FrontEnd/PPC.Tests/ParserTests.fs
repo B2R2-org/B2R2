@@ -62,6 +62,24 @@ module private Shortcut =
     static member BH(bh) =
       OprBH bh
 
+    static member TO(toValue) =
+      OprTO toValue
+
+    static member CRMask(mask) =
+      OprCRMask mask
+
+    static member FPSCRMask(mask) =
+      OprFPSCRMask mask
+
+    static member W(w) =
+      OprW w
+
+    static member DCM(dcm) =
+      OprDCM dcm
+
+    static member DGM(dgm) =
+      OprDGM dgm
+
   let test (isa: ISA) opcode (opr: Operands) bytes =
     let reader = BinReader.Init isa.Endian
     let parser = PPCParser(isa, reader) :> IInstructionParsable
