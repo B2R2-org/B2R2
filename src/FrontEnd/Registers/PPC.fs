@@ -284,27 +284,35 @@ type Register =
   | TFIAR = 0xF6
   | TEXASR = 0xF7
   | TEXASRU = 0xF8
-  | VRSAVE = 0xF9
-  | MMCR2 = 0xFA
-  | MMCRA = 0xFB
-  | PMC1 = 0xFC
-  | PMC2 = 0xFD
-  | PMC3 = 0xFE
-  | PMC4 = 0xFF
-  | PMC5 = 0x100
-  | PMC6 = 0x101
-  | MMCR0 = 0x102
-  | BESCRS = 0x103
-  | BESCRSU = 0x104
-  | BESCRR = 0x105
-  | BESCRRU = 0x106
-  | EBBHR = 0x107
-  | EBBRR = 0x108
-  | BESCR = 0x109
-  | ReservedSPR = 0x10A
-  | TAR = 0x10B
-  | PPR = 0x10C
-  | PPR32 = 0x10D
+  | CTRL = 0xF9
+  | VRSAVE = 0xFA
+  | SPRG3 = 0xFB
+  | TB = 0xFC
+  | TBU = 0xFD
+  | SIER = 0xFE
+  | MMCR2 = 0xFF
+  | MMCRA = 0x100
+  | PMC1 = 0x101
+  | PMC2 = 0x102
+  | PMC3 = 0x103
+  | PMC4 = 0x104
+  | PMC5 = 0x105
+  | PMC6 = 0x106
+  | MMCR0 = 0x107
+  | SIAR = 0x108
+  | SDAR = 0x109
+  | MMCR1 = 0x10A
+  | BESCRS = 0x10B
+  | BESCRSU = 0x10C
+  | BESCRR = 0x10D
+  | BESCRRU = 0x10E
+  | EBBHR = 0x10F
+  | EBBRR = 0x110
+  | BESCR = 0x111
+  | ReservedSPR = 0x112
+  | TAR = 0x113
+  | PPR = 0x114
+  | PPR32 = 0x115
 
 /// Provides functions to handle PPC registers.
 module Register =
@@ -566,7 +574,12 @@ module Register =
     | "tfiar" -> Register.TFIAR
     | "texasr" -> Register.TEXASR
     | "texasru" -> Register.TEXASRU
+    | "ctrl" -> Register.CTRL
     | "vrsave" -> Register.VRSAVE
+    | "sprg3" -> Register.SPRG3
+    | "tb" -> Register.TB
+    | "tbu" -> Register.TBU
+    | "sier" -> Register.SIER
     | "mmcr2" -> Register.MMCR2
     | "mmcra" -> Register.MMCRA
     | "pmc1" -> Register.PMC1
@@ -576,6 +589,9 @@ module Register =
     | "pmc5" -> Register.PMC5
     | "pmc6" -> Register.PMC6
     | "mmcr0" -> Register.MMCR0
+    | "siar" -> Register.SIAR
+    | "sdar" -> Register.SDAR
+    | "mmcr1" -> Register.MMCR1
     | "bescrs" -> Register.BESCRS
     | "bescrsu" -> Register.BESCRSU
     | "bescrr" -> Register.BESCRR
@@ -847,7 +863,12 @@ module Register =
     | Register.TFIAR -> "tfiar"
     | Register.TEXASR -> "texasr"
     | Register.TEXASRU -> "texasru"
+    | Register.CTRL -> "ctrl"
     | Register.VRSAVE -> "vrsave"
+    | Register.SPRG3 -> "sprg3"
+    | Register.TB -> "tb"
+    | Register.TBU -> "tbu"
+    | Register.SIER -> "sier"
     | Register.MMCR2 -> "mmcr2"
     | Register.MMCRA -> "mmcra"
     | Register.PMC1 -> "pmc1"
@@ -857,6 +878,9 @@ module Register =
     | Register.PMC5 -> "pmc5"
     | Register.PMC6 -> "pmc6"
     | Register.MMCR0 -> "mmcr0"
+    | Register.SIAR -> "siar"
+    | Register.SDAR -> "sdar"
+    | Register.MMCR1 -> "mmcr1"
     | Register.BESCRS -> "bescrs"
     | Register.BESCRSU -> "bescrsu"
     | Register.BESCRR -> "bescrr"

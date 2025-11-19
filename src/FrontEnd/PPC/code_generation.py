@@ -1,6 +1,70 @@
 import json
 import os
 import sys
+import random
+from enum import Enum
+
+class OprType(Enum):
+    Unknown = 0
+    Reg = 1
+    FPReg = 2
+    VReg = 3
+    VSReg = 4
+    CondReg = 5
+    CondBitReg = 6
+    FPSCondReg = 7
+    FPSCondBitReg = 8
+    SPReg = 9
+    Imm = 10
+    CY = 11
+    L = 12
+    Addr = 13
+    BO = 14
+    BI = 15
+    BH = 16
+    TO = 17
+    CRMask = 18
+    FPSCRMask = 19
+    W = 20
+    DCM = 21
+    DGM = 22
+    Mem = 23
+
+opr_type_conv_func_dict = {
+    OprType.Unknown: "unknown",
+    OprType.Reg: "getOprReg",
+    OprType.FPReg: "getOprFPReg",
+    OprType.VReg: "getOprVReg",
+    OprType.VSReg: "getOprVSReg",
+    OprType.CondReg: "getOprCondReg",
+    OprType.CondBitReg: "getOprCondBitReg",
+    OprType.FPSCondReg: "getOprFPSCondReg",
+    OprType.FPSCondBitReg: "getOprFPSCondBitReg",
+    OprType.SPReg: "getOprSPReg",
+    OprType.Imm: "getOprImm",
+    OprType.CY: "getOprCY",
+    OprType.L: "getOprL",
+    OprType.Addr: "getOprAddr",
+    OprType.BO: "getOprBO",
+    OprType.BI: "getOprBI",
+    OprType.BH: "getOprBH",
+    OprType.TO: "getOprTO",
+    OprType.CRMask: "getOprCRMask",
+    OprType.FPSCRMask: "getOprFPSCRMask",
+    OprType.W: "getOprW",
+    OprType.DCM: "getOprDCM",
+    OprType.DGM: "getOprDGM",
+    OprType.Mem: "getOprMem",
+}
+
+f = open("byte_codes.json", "r")
+instrs_byte_dict = json.load(f)
+f.close()
+
+if not os.path.exists("ambiguous_info.json"):
+    f = open("ambiguous_info.json", "w")
+    f.write(json.dumps({}, indent=2))
+    f.close()
 
 f = open("ambiguous_info.json", "r")
 ambiguous_info = json.load(f)
@@ -36,9 +100,11 @@ def operands_to_str(operands):
 
     return f"{operands_str}({", ".join(list(map(operand_to_str, operands)))})"
 
-def range_to_extract(ran):
+def range_to_extract(ran, extend_shift = None):
     l, r = ran
-    if l == r:
+    if extend_shift is not None:
+        return f"extractExtendedField bin {31 - l}u {31 - r}u {extend_shift}"
+    elif l == r:
         return f"Bits.pick bin {31 - l}u"
     else:
         return f"Bits.extract bin {31 - l}u {31 - r}u"
@@ -50,17 +116,6 @@ def range_to_size(ran):
 def extract_bits(bin, l, r):
     return (bin & ((1 << (r + 1)) - (1 << l))) >> l
 
-def operand_to_let_oprReg(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprReg\n"
-
-def operand_to_let_oprFPReg(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprFPReg\n"
-
-def operand_to_let_oprVReg(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprVReg\n"
-
-def operand_to_let_oprVSReg(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprVSReg\n"
 
 def should_use_CR(operand, instr):
     use_CR = True
@@ -93,230 +148,198 @@ def should_use_CR(operand, instr):
     
     return use_CR
 
-def operand_to_let_BF(operand, instr):
-    use_CR = should_use_CR(operand, instr)
-    if use_CR:
-        return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprCondReg\n"
+def get_ambiguous_opr_type(operand, instr):
+    if operand in ["BF", "BFA"]:
+        if should_use_CR(operand, instr):
+            return OprType.CondReg
+        else:
+            return OprType.FPSCondReg
+    elif operand == "BT":
+        if should_use_CR(operand, instr):
+            return OprType.CondBitReg
+        else:
+            return OprType.FPSCondBitReg
     else:
-        return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprFPSCondReg\n"
+        print("unimplemented ambiguous operand")
+        exit(-1)
 
-def operand_to_let_BT(operand, instr):
-    use_CR = should_use_CR(operand, instr)
-    if use_CR:
-        return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprCondBitReg\n"
-    else:
-        return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprFPSCondBitReg\n"
+def get_conv_func(opr_type):
+    return opr_type_conv_func_dict[opr_type]
 
-def operand_to_let_BC(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprCondBitReg\n"
+def operand_to_let_direct(operand, opr_type, instr):
+    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> {get_conv_func(opr_type)}\n"
 
-def operand_to_let_oprImm(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprImm\n"
-
-def operand_to_let_oprCY(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprCY\n"
-
-def operand_to_let_oprL(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprL\n"
-
-def operand_to_let_D(operand, instr):
+def operand_to_let_D(operand, opr_type, instr):
     if operand in instr["fields"]:
-        return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprImm\n"
+        return operand_to_let_direct(operand, opr_type, instr)
     else:
         let1 = f"    let d0 = {range_to_extract(instr["fields"]["d0"])}\n"
         let2 = f"    let d1 = {range_to_extract(instr["fields"]["d1"])}\n"
         let3 = f"    let d2 = {range_to_extract(instr["fields"]["d2"])}\n"
+
         sz_d2 = range_to_size(instr["fields"]["d2"])
         sz_d1 = range_to_size(instr["fields"]["d1"])
-        let4 = f"    let {operand.lower()}Opr = Bits.concat d0 (Bits.concat d1 d2 {sz_d2}) {sz_d1 + sz_d2} |> getOprImm\n"
+
+        let4 = f"    let {operand.lower()}Opr = Bits.concat d0 (Bits.concat d1 d2 {sz_d2}) {sz_d1 + sz_d2} |> {get_conv_func(opr_type)}\n"
         return let1 + let2 + let3 + let4
     
-def operand_to_let_target_addr(operand, instr):
+def operand_to_let_target_addr(operand, opr_type, instr):
     if "LI" in instr["fields"]:
-        l, r = instr["fields"]["LI"]
+        addr_field = "LI"
     elif "BD" in instr["fields"]:
-        l, r = instr["fields"]["BD"]
+        addr_field = "BD"
     else:
         print("there is no field for target address")
         sys.exit(-1)
     
     if extract_bits(instr["equal conditions"][1], 31 - instr["fields"]["AA"][1], 31 - instr["fields"]["AA"][0]) == 0:
-        return f"    let {operand.lower()}Opr = addr + extractExtendedField bin {31 - l}u {31 - r}u 2 |> getOprAddr\n"
+        return f"    let {operand.lower()}Opr = addr + {range_to_extract(instr["fields"][addr_field], 2)} |> {get_conv_func(opr_type)}\n"
     else:
-        return f"    let {operand.lower()}Opr = extractExtendedField bin {31 - l}u {31 - r}u 2 |> getOprAddr\n"
-    
-def operand_to_let_oprBO(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprBO\n"
+        return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][addr_field], 2)} |> {get_conv_func(opr_type)}\n"
 
-def operand_to_let_oprBI(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprBI\n"
-
-def operand_to_let_oprBH(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprBH\n"
-
-def operand_to_let_eff_D_RA(operand, instr):
-    l, r = instr["fields"]["D"]
+def operand_to_let_eff_D_RA(_, opr_type, instr):
     let1 = f"    let ra = {range_to_extract(instr["fields"]["RA"])}\n"
-    let2 = f"    let d = extractExtendedField bin {31 - l}u {31 - r}u 0\n"
-    let3 = f"    let d2raOpr = getOprMem d ra\n"
+    let2 = f"    let d = {range_to_extract(instr["fields"]["D"], 0)}\n"
+    let3 = f"    let d2raOpr = {get_conv_func(opr_type)} d ra\n"
     return let1 + let2 + let3
 
-def operand_to_let_eff_DS_RA(operand, instr):
-    l, r = instr["fields"]["DS"]
+def operand_to_let_eff_DS_RA(_, opr_type, instr):
     let1 = f"    let ra = {range_to_extract(instr["fields"]["RA"])}\n"
-    let2 = f"    let ds = extractExtendedField bin {31 - l}u {31 - r}u 2\n"
-    let3 = f"    let ds2raOpr = getOprMem ds ra\n"
+    let2 = f"    let ds = {range_to_extract(instr["fields"]["DS"], 2)}\n"
+    let3 = f"    let ds2raOpr = {get_conv_func(opr_type)} ds ra\n"
     return let1 + let2 + let3
 
-def operand_to_let_eff_DQ_RA(operand, instr):
-    l, r = instr["fields"]["DQ"]
+def operand_to_let_eff_DQ_RA(_, opr_type, instr):
     let1 = f"    let ra = {range_to_extract(instr["fields"]["RA"])}\n"
-    let2 = f"    let dq = extractExtendedField bin {31 - l}u {31 - r}u 4\n"
-    let3 = f"    let dq2raOpr = getOprMem dq ra\n"
+    let2 = f"    let dq = {range_to_extract(instr["fields"]["DQ"], 4)}\n"
+    let3 = f"    let dq2raOpr = {get_conv_func(opr_type)} dq ra\n"
     return let1 + let2 + let3
 
-def operand_to_let_oprTO(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprTO\n"
-
-def operand_to_let_MB(operand, instr):
+def operand_to_let_MB(operand, opr_type, instr):
     if "MB" in instr["fields"]:
-        return operand_to_let_oprImm(operand, instr)
+        return operand_to_let_direct(operand, opr_type, instr)
     else:
         l, r = instr["fields"]["mb"]
         let1 = f"    let mb0 = {range_to_extract((l, r - 1))}\n"
         let2 = f"    let mb1 = {range_to_extract((r, r))}\n"
         sz_mb0 = range_to_size((l, r - 1))
-        let3 = f"    let {operand.lower()}Opr = Bits.concat mb1 mb0 {sz_mb0} |> getOprImm\n"
+        let3 = f"    let {operand.lower()}Opr = Bits.concat mb1 mb0 {sz_mb0} |> {get_conv_func(opr_type)}\n"
         return let1 + let2 + let3
 
-def operand_to_let_ME(operand, instr):
+def operand_to_let_ME(operand, opr_type, instr):
     if "ME" in instr["fields"]:
-        return operand_to_let_oprImm(operand, instr)
+       return operand_to_let_direct(operand, opr_type, instr)
     else:
         l, r = instr["fields"]["me"]
         let1 = f"    let me0 = {range_to_extract((l, r - 1))}\n"
         let2 = f"    let me1 = {range_to_extract((r, r))}\n"
         sz_me0 = range_to_size((l, r - 1))
-        let3 = f"    let {operand.lower()}Opr = Bits.concat me1 me0 {sz_me0} |> getOprImm\n"
+        let3 = f"    let {operand.lower()}Opr = Bits.concat me1 me0 {sz_me0} |> {get_conv_func(opr_type)}\n"
         return let1 + let2 + let3
 
-def operand_to_let_SH(operand, instr):
+def operand_to_let_SH(operand, opr_type, instr):
     if "SH" in instr["fields"]:
-        return operand_to_let_oprImm(operand, instr)
+        return operand_to_let_direct(operand, opr_type, instr)
     else:
         let1 = f"    let sh0 = {range_to_extract(instr["fields"]["sh"])}\n"
         let2 = f"    let sh1 = {range_to_extract(instr["fields"]["sh1"])}\n"
         sz_sh0 = range_to_size(instr["fields"]["sh"])
-        let3 = f"    let {operand.lower()}Opr = Bits.concat sh1 sh0 {sz_sh0} |> getOprImm\n"
+        let3 = f"    let {operand.lower()}Opr = Bits.concat sh1 sh0 {sz_sh0} |> {get_conv_func(opr_type)}\n"
         return let1 + let2 + let3
     
-def operand_to_let_XS(operand, instr):
+def operand_to_let_XS(operand, opr_type, instr):
     let1 = f"    let s = {range_to_extract(instr["fields"]["S"])}\n"
     let2 = f"    let sx = {range_to_extract(instr["fields"]["SX"])}\n"
-    let3 = f"    let {operand.lower()}Opr = 32u * sx + s |> getOprVSReg\n"
+    let3 = f"    let {operand.lower()}Opr = 32u * sx + s |> {get_conv_func(opr_type)}\n"
     return let1 + let2 + let3
 
-def operand_to_let_XT(operand, instr):
+def operand_to_let_XT(operand, opr_type, instr):
     let1 = f"    let t = {range_to_extract(instr["fields"]["T"])}\n"
     let2 = f"    let tx = {range_to_extract(instr["fields"]["TX"])}\n"
-    let3 = f"    let {operand.lower()}Opr = 32u * tx + t |> getOprVSReg\n"
+    let3 = f"    let {operand.lower()}Opr = 32u * tx + t |> {get_conv_func(opr_type)}\n"
     return let1 + let2 + let3
 
-def operand_to_let_SPR(operand, instr):
+def operand_to_let_SPR(operand, opr_type, instr):
     if "SPR" in instr["fields"]:
-        return operand_to_let_oprImm(operand, instr)
+        return operand_to_let_direct(operand, opr_type, instr)
     else:
         l, r = instr["fields"]["spr"]
         let1 = f"    let spr0 = {range_to_extract((l, l + 4))}\n"
         let2 = f"    let spr1 = {range_to_extract((l + 5, r))}\n"
         sz_spr0 = range_to_size((l, l + 4))
-        let3 = f"    let {operand.lower()}Opr = Bits.concat spr1 spr0 {sz_spr0} |> getOprSPReg\n"
+        let3 = f"    let {operand.lower()}Opr = Bits.concat spr1 spr0 {sz_spr0} |> {get_conv_func(opr_type)}\n"
         return let1 + let2 + let3
 
-def operand_to_let_oprCRMask(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprCRMask\n"
-
-def operand_to_let_oprFPSCRMask(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprFPSCRMask\n"
-
-def operand_to_let_oprW(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprW\n"
-
-def operand_to_let_oprDCM(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprDCM\n"
-
-def operand_to_let_oprDGM(operand, instr):
-    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> getOprDGM\n"
-
 operand_type_dict = {
-    "BC": operand_to_let_BC,
-    "BF": operand_to_let_BF,
-    "BFA": operand_to_let_BF,
-    "BH": operand_to_let_oprBH,
-    "BI": operand_to_let_oprBI,
-    "BO": operand_to_let_oprBO,
-    "BT": operand_to_let_BT,
-    "CY" : operand_to_let_oprCY,
-    "D" : operand_to_let_D,
-    "D2RA": operand_to_let_eff_D_RA,
-    "DCM": operand_to_let_oprDCM,
-    "DGM": operand_to_let_oprDGM,
-    "DRM": operand_to_let_oprImm,
-    "DS2RA": operand_to_let_eff_DS_RA,
-    "DQ2RA": operand_to_let_eff_DQ_RA,
-    "FRA": operand_to_let_oprFPReg,
-    "FRAp": operand_to_let_oprFPReg,
-    "FRB": operand_to_let_oprFPReg,
-    "FRBp": operand_to_let_oprFPReg,
-    "FRC": operand_to_let_oprFPReg,
-    "FRS": operand_to_let_oprFPReg,
-    "FRSp": operand_to_let_oprFPReg,
-    "FRT": operand_to_let_oprFPReg,
-    "FRTp": operand_to_let_oprFPReg,
-    "FXM": operand_to_let_oprCRMask,
-    "FLM": operand_to_let_oprFPSCRMask,
-    "L" : operand_to_let_oprL,
-    "MB": operand_to_let_MB,
-    "ME": operand_to_let_ME,
-    "NB": operand_to_let_oprImm,
-    "R": operand_to_let_oprImm,
-    "RA": operand_to_let_oprReg,
-    "RB": operand_to_let_oprReg,
-    "RC": operand_to_let_oprReg,
-    "RM": operand_to_let_oprImm,
-    "RMC": operand_to_let_oprImm,
-    "RS": operand_to_let_oprReg,
-    "RSp": operand_to_let_oprReg,
-    "RT": operand_to_let_oprReg,
-    "RTp": operand_to_let_oprReg,
-    "S": operand_to_let_oprImm,
-    "SH": operand_to_let_SH,
-    "SI": operand_to_let_oprImm,
-    "SP": operand_to_let_oprImm,
-    "SPR": operand_to_let_SPR,
-    "TE": operand_to_let_oprImm,
-    "TO": operand_to_let_oprTO,
-    "targetaddr": operand_to_let_target_addr,
-    "U": operand_to_let_oprImm,
-    "UI": operand_to_let_oprImm,
-    "UIM": operand_to_let_oprImm,
-    "VRA": operand_to_let_oprVReg,
-    "VRB": operand_to_let_oprVReg,
-    "VRC": operand_to_let_oprVReg,
-    "VRS": operand_to_let_oprVReg,
-    "VRT": operand_to_let_oprVReg,
-    "W": operand_to_let_oprW,
-    "XS": operand_to_let_XS,
-    "XT": operand_to_let_XT
+    "BC": (operand_to_let_direct, OprType.CondBitReg),
+    "BF": (operand_to_let_direct, OprType.Unknown),
+    "BFA": (operand_to_let_direct, OprType.Unknown),
+    "BH": (operand_to_let_direct, OprType.BH),
+    "BI": (operand_to_let_direct, OprType.BI),
+    "BO": (operand_to_let_direct, OprType.BO),
+    "BT": (operand_to_let_direct, OprType.Unknown),
+    "CY" : (operand_to_let_direct, OprType.CY),
+    "D" : (operand_to_let_D, OprType.Imm),
+    "D2RA": (operand_to_let_eff_D_RA, OprType.Mem),
+    "DCM": (operand_to_let_direct, OprType.DCM),
+    "DGM": (operand_to_let_direct, OprType.DGM),
+    "DRM": (operand_to_let_direct, OprType.Imm),
+    "DS2RA": (operand_to_let_eff_DS_RA, OprType.Mem),
+    "DQ2RA": (operand_to_let_eff_DQ_RA, OprType.Mem),
+    "FRA": (operand_to_let_direct, OprType.FPReg),
+    "FRAp": (operand_to_let_direct, OprType.FPReg),
+    "FRB": (operand_to_let_direct, OprType.FPReg),
+    "FRBp": (operand_to_let_direct, OprType.FPReg),
+    "FRC": (operand_to_let_direct, OprType.FPReg),
+    "FRS": (operand_to_let_direct, OprType.FPReg),
+    "FRSp": (operand_to_let_direct, OprType.FPReg),
+    "FRT": (operand_to_let_direct, OprType.FPReg),
+    "FRTp": (operand_to_let_direct, OprType.FPReg),
+    "FXM": (operand_to_let_direct, OprType.CRMask),
+    "FLM": (operand_to_let_direct, OprType.FPSCRMask),
+    "L" : (operand_to_let_direct, OprType.L),
+    "MB": (operand_to_let_MB, OprType.Imm),
+    "ME": (operand_to_let_ME, OprType.Imm),
+    "NB": (operand_to_let_direct, OprType.Imm),
+    "R": (operand_to_let_direct, OprType.Imm),
+    "RA": (operand_to_let_direct, OprType.Reg),
+    "RB": (operand_to_let_direct, OprType.Reg),
+    "RC": (operand_to_let_direct, OprType.Reg),
+    "RM": (operand_to_let_direct, OprType.Imm),
+    "RMC": (operand_to_let_direct, OprType.Imm),
+    "RS": (operand_to_let_direct, OprType.Reg),
+    "RSp": (operand_to_let_direct, OprType.Reg),
+    "RT": (operand_to_let_direct, OprType.Reg),
+    "RTp": (operand_to_let_direct, OprType.Reg),
+    "S": (operand_to_let_direct, OprType.Imm),
+    "SH": (operand_to_let_SH, OprType.Imm),
+    "SI": (operand_to_let_direct, OprType.Imm),
+    "SP": (operand_to_let_direct, OprType.Imm),
+    "SPR": (operand_to_let_SPR, OprType.SPReg),
+    "TE": (operand_to_let_direct, OprType.Imm),
+    "TO": (operand_to_let_direct, OprType.TO),
+    "targetaddr": (operand_to_let_target_addr, OprType.Addr),
+    "U": (operand_to_let_direct, OprType.Imm),
+    "UI": (operand_to_let_direct, OprType.Imm),
+    "UIM": (operand_to_let_direct, OprType.Imm),
+    "VRA": (operand_to_let_direct, OprType.VReg),
+    "VRB": (operand_to_let_direct, OprType.VReg),
+    "VRC": (operand_to_let_direct, OprType.VReg),
+    "VRS": (operand_to_let_direct, OprType.VReg),
+    "VRT": (operand_to_let_direct, OprType.VReg),
+    "W": (operand_to_let_direct, OprType.W),
+    "XS": (operand_to_let_XS, OprType.VSReg),
+    "XT": (operand_to_let_XT, OprType.VSReg)
 }
 
 def operand_to_let(operand, instr):
     if not operand in operand_type_dict:
         print(f"unimplemented operand in instr {instr["opcode"]}: {operand}")
         sys.exit(-1)
-    return operand_type_dict[operand](operand, instr)
-
-
+    parse_func, opr_type = operand_type_dict[operand]
+    if opr_type == OprType.Unknown:
+        opr_type = get_ambiguous_opr_type(operand, instr)
+    return parse_func(operand, opr_type, instr)
 
 # Convert json datas in the input_json folder into F# parsing code
 
@@ -330,6 +353,7 @@ for instr_file in file_list:
 f_op_to_str = open("generated_codes/opCodeToString.txt", "w")
 f_op = open("generated_codes/opcode.txt", "w")
 f_parse = open("generated_codes/parseInstruction.txt", "w")
+f_byte = open("generated_codes/allBytes.txt", "w")
 
 enum_start_idx = 0
 
@@ -339,6 +363,7 @@ for i, instr in enumerate(instr_data):
 
     f_op_to_str.write(f"  | Op.{opcode_enum} -> \"{opcode}\"\n")
     f_op.write(f"  | {opcode_enum} = {enum_start_idx + i}\n")
+    f_byte.write(instrs_byte_dict[opcode])
     
     operands = instr["operands"]
     fields = instr["fields"]
@@ -376,3 +401,4 @@ for i, instr in enumerate(instr_data):
 f_op_to_str.close()
 f_op.close()
 f_parse.close()
+f_byte.close()
