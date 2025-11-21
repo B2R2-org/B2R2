@@ -127,6 +127,9 @@ let getOprSPReg (reg: uint32) =
 let getOprImm (imm: uint32) =
   imm |> uint64 |> OprImm
 
+let getOprImm64 (imm: uint64) =
+  imm |> OprImm
+
 let getOprCY (cy: uint32) =
   cy |> uint8 |> OprCY
 
@@ -1115,14 +1118,14 @@ let parseInstruction (bin: uint32) (addr: Addr) =
     let opcode = Opcode.ADDI
     let rtOpr = Bits.extract bin 25u 21u |> getOprReg
     let raOpr = Bits.extract bin 20u 16u |> getOprReg
-    let siOpr = Bits.extract bin 15u 0u |> getOprImm
+    let siOpr = extractExtendedField bin 15u 0u 0 |> getOprImm64
     struct (opcode, ThreeOperands(rtOpr, raOpr, siOpr))
   | b when b &&&
     0b11111100000000000000000000000000u = 0b111100000000000000000000000000u ->
     let opcode = Opcode.ADDIS
     let rtOpr = Bits.extract bin 25u 21u |> getOprReg
     let raOpr = Bits.extract bin 20u 16u |> getOprReg
-    let siOpr = Bits.extract bin 15u 0u |> getOprImm
+    let siOpr = extractExtendedField bin 15u 0u 0 |> getOprImm64
     struct (opcode, ThreeOperands(rtOpr, raOpr, siOpr))
   | b when b &&&
     0b11111100000000000000000000111110u = 0b1001100000000000000000000000100u ->
@@ -1131,7 +1134,8 @@ let parseInstruction (bin: uint32) (addr: Addr) =
     let d0 = Bits.extract bin 15u 6u
     let d1 = Bits.extract bin 20u 16u
     let d2 = Bits.pick bin 0u
-    let dOpr = Bits.concat d0 (Bits.concat d1 d2 1) 6 |> getOprImm
+    let d = Bits.concat d0 (Bits.concat d1 d2 1) 6 |> uint64
+    let dOpr = Bits.signExtend 16 64 d |> getOprImm64
     struct (opcode, TwoOperands(rtOpr, dOpr))
   | b when b &&&
     0b11111100000000000000011111111111u = 0b1111100000000000000001000010100u ->
@@ -1166,7 +1170,7 @@ let parseInstruction (bin: uint32) (addr: Addr) =
     let opcode = Opcode.ADDIC
     let rtOpr = Bits.extract bin 25u 21u |> getOprReg
     let raOpr = Bits.extract bin 20u 16u |> getOprReg
-    let siOpr = Bits.extract bin 15u 0u |> getOprImm
+    let siOpr = extractExtendedField bin 15u 0u 0 |> getOprImm64
     struct (opcode, ThreeOperands(rtOpr, raOpr, siOpr))
   | b when b &&&
     0b11111100000000000000011111111111u = 0b1111100000000000000000001010000u ->
@@ -1201,14 +1205,14 @@ let parseInstruction (bin: uint32) (addr: Addr) =
     let opcode = Opcode.ADDIC_DOT
     let rtOpr = Bits.extract bin 25u 21u |> getOprReg
     let raOpr = Bits.extract bin 20u 16u |> getOprReg
-    let siOpr = Bits.extract bin 15u 0u |> getOprImm
+    let siOpr = extractExtendedField bin 15u 0u 0 |> getOprImm64
     struct (opcode, ThreeOperands(rtOpr, raOpr, siOpr))
   | b when b &&&
     0b11111100000000000000000000000000u = 0b100000000000000000000000000000u ->
     let opcode = Opcode.SUBFIC
     let rtOpr = Bits.extract bin 25u 21u |> getOprReg
     let raOpr = Bits.extract bin 20u 16u |> getOprReg
-    let siOpr = Bits.extract bin 15u 0u |> getOprImm
+    let siOpr = extractExtendedField bin 15u 0u 0 |> getOprImm64
     struct (opcode, ThreeOperands(rtOpr, raOpr, siOpr))
   | b when b &&&
     0b11111100000000000000011111111111u = 0b1111100000000000000000000010100u ->
@@ -1455,7 +1459,7 @@ let parseInstruction (bin: uint32) (addr: Addr) =
     let opcode = Opcode.MULLI
     let rtOpr = Bits.extract bin 25u 21u |> getOprReg
     let raOpr = Bits.extract bin 20u 16u |> getOprReg
-    let siOpr = Bits.extract bin 15u 0u |> getOprImm
+    let siOpr = extractExtendedField bin 15u 0u 0 |> getOprImm64
     struct (opcode, ThreeOperands(rtOpr, raOpr, siOpr))
   | b when b &&&
     0b11111100000000000000011111111111u = 0b1111100000000000000000111010110u ->
@@ -1651,7 +1655,7 @@ let parseInstruction (bin: uint32) (addr: Addr) =
     let bfOpr = Bits.extract bin 25u 23u |> getOprCondReg
     let lOpr = Bits.pick bin 21u |> getOprL
     let raOpr = Bits.extract bin 20u 16u |> getOprReg
-    let siOpr = Bits.extract bin 15u 0u |> getOprImm
+    let siOpr = extractExtendedField bin 15u 0u 0 |> getOprImm64
     struct (opcode, FourOperands(bfOpr, lOpr, raOpr, siOpr))
   | b when b &&&
     0b11111100010000000000011111111111u = 0b1111100000000000000000000000000u ->
@@ -2697,7 +2701,7 @@ let parseInstruction (bin: uint32) (addr: Addr) =
     let opcode = Opcode.TWI
     let toOpr = Bits.extract bin 25u 21u |> getOprTO
     let raOpr = Bits.extract bin 20u 16u |> getOprReg
-    let siOpr = Bits.extract bin 15u 0u |> getOprImm
+    let siOpr = extractExtendedField bin 15u 0u 0 |> getOprImm64
     struct (opcode, ThreeOperands(toOpr, raOpr, siOpr))
   | b when b &&&
     0b11111100000000000000011111111111u = 0b1111100000000000000000000001000u ->
@@ -2711,7 +2715,7 @@ let parseInstruction (bin: uint32) (addr: Addr) =
     let opcode = Opcode.TDI
     let toOpr = Bits.extract bin 25u 21u |> getOprTO
     let raOpr = Bits.extract bin 20u 16u |> getOprReg
-    let siOpr = Bits.extract bin 15u 0u |> getOprImm
+    let siOpr = extractExtendedField bin 15u 0u 0 |> getOprImm64
     struct (opcode, ThreeOperands(toOpr, raOpr, siOpr))
   | b when b &&&
     0b11111100000000000000000000111111u = 0b1111100000000000000000000011110u ->
