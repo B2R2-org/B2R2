@@ -16,19 +16,20 @@ class OprType(Enum):
     FPSCondBitReg = 8
     SPReg = 9
     Imm = 10
-    CY = 11
-    L = 12
-    Addr = 13
-    BO = 14
-    BI = 15
-    BH = 16
-    TO = 17
-    CRMask = 18
-    FPSCRMask = 19
-    W = 20
-    DCM = 21
-    DGM = 22
-    Mem = 23
+    Imm64 = 11
+    CY = 12
+    L = 13
+    Addr = 14
+    BO = 15
+    BI = 16
+    BH = 17
+    TO = 18
+    CRMask = 19
+    FPSCRMask = 20
+    W = 21
+    DCM = 22
+    DGM = 23
+    Mem = 24
 
 opr_type_conv_func_dict = {
     OprType.Unknown: "unknown",
@@ -42,6 +43,7 @@ opr_type_conv_func_dict = {
     OprType.FPSCondBitReg: "getOprFPSCondBitReg",
     OprType.SPReg: "getOprSPReg",
     OprType.Imm: "getOprImm",
+    OprType.Imm64: "getOprImm64",
     OprType.CY: "getOprCY",
     OprType.L: "getOprL",
     OprType.Addr: "getOprAddr",
@@ -169,9 +171,12 @@ def get_conv_func(opr_type):
 def operand_to_let_direct(operand, opr_type, instr):
     return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand])} |> {get_conv_func(opr_type)}\n"
 
+def operand_to_let_direct_ext(operand, opr_type, instr):
+    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][operand], 0)} |> {get_conv_func(opr_type)}\n"
+
 def operand_to_let_D(operand, opr_type, instr):
     if operand in instr["fields"]:
-        return operand_to_let_direct(operand, opr_type, instr)
+        return operand_to_let_direct_ext(operand, opr_type, instr)
     else:
         let1 = f"    let d0 = {range_to_extract(instr["fields"]["d0"])}\n"
         let2 = f"    let d1 = {range_to_extract(instr["fields"]["d1"])}\n"
@@ -179,9 +184,11 @@ def operand_to_let_D(operand, opr_type, instr):
 
         sz_d2 = range_to_size(instr["fields"]["d2"])
         sz_d1 = range_to_size(instr["fields"]["d1"])
+        sz_d0 = range_to_size(instr["fields"]["d0"])
 
-        let4 = f"    let {operand.lower()}Opr = Bits.concat d0 (Bits.concat d1 d2 {sz_d2}) {sz_d1 + sz_d2} |> {get_conv_func(opr_type)}\n"
-        return let1 + let2 + let3 + let4
+        let4 = f"    let d = Bits.concat d0 (Bits.concat d1 d2 {sz_d2}) {sz_d1 + sz_d2} |> uint64\n"
+        let5 = f"    let {operand.lower()}Opr = Bits.signExtend {sz_d0 + sz_d1 + sz_d2} 64 d |> {get_conv_func(opr_type)}\n"
+        return let1 + let2 + let3 + let4 + let5
     
 def operand_to_let_target_addr(operand, opr_type, instr):
     if "LI" in instr["fields"]:
@@ -279,7 +286,7 @@ operand_type_dict = {
     "BO": (operand_to_let_direct, OprType.BO),
     "BT": (operand_to_let_direct, OprType.Unknown),
     "CY" : (operand_to_let_direct, OprType.CY),
-    "D" : (operand_to_let_D, OprType.Imm),
+    "D" : (operand_to_let_D, OprType.Imm64),
     "D2RA": (operand_to_let_eff_D_RA, OprType.Mem),
     "DCM": (operand_to_let_direct, OprType.DCM),
     "DGM": (operand_to_let_direct, OprType.DGM),
@@ -313,7 +320,7 @@ operand_type_dict = {
     "RTp": (operand_to_let_direct, OprType.Reg),
     "S": (operand_to_let_direct, OprType.Imm),
     "SH": (operand_to_let_SH, OprType.Imm),
-    "SI": (operand_to_let_direct, OprType.Imm),
+    "SI": (operand_to_let_direct_ext, OprType.Imm64),
     "SP": (operand_to_let_direct, OprType.Imm),
     "SPR": (operand_to_let_SPR, OprType.SPReg),
     "TE": (operand_to_let_direct, OprType.Imm),
