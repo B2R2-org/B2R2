@@ -228,11 +228,9 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
     |> addDisasmCFGEdges vMap
 
   let g =
-    prepareDisasmCFGInfo ircfg
+    ircfg
+    |> prepareDisasmCFGInfo
     |> createDisasmCFG
-#if DEBUG
-    |> fun g -> assert (g.Unreachables.Length = 1); g
-#endif
 
   /// Number of vertices.
   member _.Size with get() = g.Size
