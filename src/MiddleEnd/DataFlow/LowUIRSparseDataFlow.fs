@@ -830,7 +830,7 @@ module internal AnalysisCore = begin
   let calculateChains g state dom =
     let visited = HashSet<IVertex<LowUIRBasicBlock>>()
     placePhis g state dom
-    incrementalUpdate g state visited dom g.SingleRoot
+    for root in g.GetRoots() do incrementalUpdate g state visited dom root
     updatePhis g state visited
 
   let isStackRelatedRegister (hdl: BinHandle) rid =
