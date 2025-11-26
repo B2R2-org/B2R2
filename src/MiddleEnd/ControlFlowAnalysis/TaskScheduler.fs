@@ -74,6 +74,13 @@ type TaskScheduler<'FnCtx,
   let scheduleCFGBuilding entryPoint =
     StartBuilding entryPoint |> msgbox.Post
 
+  let startGapAnalysis (builder: ICFGBuildable<_, _>) addr =
+    let prio = strategy.ActionPrioritizer
+    let startGapAnalysis = StartGapAnalysis(addr)
+    let endGapAnalysis = EndGapAnalysis
+    builder.Context.ActionQueue.Push(prio, startGapAnalysis)
+    builder.Context.ActionQueue.Push(prio, endGapAnalysis)
+
   let resetBuilder (builder: ICFGBuildable<_, _>) =
     dependenceMap.RemoveCallEdgesFrom builder.EntryPoint
     builder.Reset()
@@ -126,26 +133,43 @@ type TaskScheduler<'FnCtx,
         assignCFGBuildingTaskNow callerBuilder
       else ()
 
-  /// Rollback the current builder and notify the callers to rollback if
-  /// necessary. N.B. the target builder should not be currently building,
-  /// otherwise its `JumpTableRecoveryStatus` could be invalid.
   let rec rollback (builder: ICFGBuildable<_, _>) =
-    match builder.Context.JumpTableRecoveryStatus.TryPeek() with
-    | true, (tblAddr, idx) ->
-#if CFGDEBUG
-      dbglog ManagerTid "Rollback"
-      <| $"{tblAddr:x}[{idx}] @ {builder.EntryPoint:x}"
-#endif
-      assert (idx > 0)
-      jmptblNotes.SetPotentialEndPointByIndex(tblAddr, idx - 1)
+    if rollbackOnGapAnalysis builder || rollbackOnJumpTable builder then
       restartBuilder builder
-    | false, _ ->
+    else
       let fnAddr = builder.EntryPoint
       let tempCallers = dependenceMap.RemoveTemporary fnAddr
       let confirmedCallers = dependenceMap.RemoveConfirmed fnAddr
       let callers = Array.append tempCallers confirmedCallers
       builder.Invalidate() (* the builder will stop later *)
       for callerFnAddr in callers do invalidateBuilder builders[callerFnAddr]
+
+  /// A builder was performing a gap analysis when it was rolled back, and we
+  /// add the gap address to the blacklist to avoid re-analyzing it.
+  and rollbackOnGapAnalysis (builder: ICFGBuildable<_, _>) =
+    match builder.Context.GapToAnalyze with
+    | None -> false
+    | Some(addr) ->
+#if CFGDEBUG
+      dbglog ManagerTid "Rollback for gap completion"
+      <| $"{addr:x} @ {builder.EntryPoint:x}"
+#endif
+      builder.Context.GapBlacklist.Add(addr) |> ignore
+      true
+
+  /// The builder was performing jump table recovery when it was rolled back,
+  /// and we adjust the jump table note accordingly.
+  and rollbackOnJumpTable (builder: ICFGBuildable<_, _>) =
+    match builder.Context.JumpTableRecoveryStatus.TryPeek() with
+    | false, _ -> false
+    | true, (tblAddr, idx) ->
+#if CFGDEBUG
+      dbglog ManagerTid "Rollback for jump table"
+      <| $"{tblAddr:x}[{idx}] @ {builder.EntryPoint:x}"
+#endif
+      assert (idx > 0)
+      jmptblNotes.SetPotentialEndPointByIndex(tblAddr, idx - 1)
+      true
 
   and invalidateBuilder builder =
 #if CFGDEBUG
@@ -314,6 +338,36 @@ type TaskScheduler<'FnCtx,
       caller.DelayedBuilderRequests.Enqueue
       <| NotifyCalleeChange(calleeAddr, calleeInfo)
 
+  /// Analyze gaps and return true if there was a meaningful gap to analyze so
+  /// that we have to resume the building process.
+  let analyzeGaps (builder: ICFGBuildable<_, _>) =
+    let nextFnAddrOpt = builder.NextFunctionAddress
+    if builder.Context.JumpTables.Count > 0 then
+      let gaps = builder.Context.AnalyzeGap(nextFnAddrOpt)
+      if List.isEmpty gaps then
+#if CFGDEBUG
+        dbglog ManagerTid "Gap" $"none @ {builder.EntryPoint:x}"
+#endif
+        false
+      else
+#if CFGDEBUG
+        gaps
+        |> List.iter (fun gap ->
+          dbglog ManagerTid "Gap" $"{gap} @ {builder.EntryPoint:x}")
+#endif
+        gaps
+        |> List.map (fun range -> range.Min)
+        |> List.filter (not << builder.Context.GapBlacklist.Contains)
+        |> List.sort
+        |> List.tryHead
+        |> function
+          | None -> false
+          | Some(addr) ->
+            startGapAnalysis builder addr
+            scheduleCFGBuilding builder.EntryPoint
+            true
+    else false (* Since there's no jmp table, no need to analyze gaps. *)
+
   /// This function is called when a callee has been successfully built. It
   /// propagates the success to its callers who are waiting for the builder.
   let finalizeBuilder (builder: ICFGBuildable<_, _>) entryPoint =
@@ -351,7 +405,7 @@ type TaskScheduler<'FnCtx,
       dbglog ManagerTid (nameof MoveOn) $"{entryPoint:x}"
 #endif
       builder.StartVerifying()
-      if consumeDelayedRequests builder then ()
+      if consumeDelayedRequests builder || analyzeGaps builder then ()
       else finalizeBuilder builder entryPoint
     | MoveOnButReloadCallers prevStatus ->
 #if CFGDEBUG

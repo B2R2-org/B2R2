@@ -47,6 +47,7 @@ module internal CFGRecoveryCommon =
           match action with
           | InitiateCFG -> 4
           | ExpandCFG _ -> 4
+          | StartGapAnalysis _ -> 4
           | MakeCall _ -> 3
           | MakeTlCall _ -> 3
           | MakeIndCall _ -> 3
@@ -56,7 +57,8 @@ module internal CFGRecoveryCommon =
           | ResumeAnalysis _ -> 2
           | UpdateCallEdges _ -> 1
           | StartTblRec _ -> 0
-          | EndTblRec _ -> 0 }
+          | EndTblRec _ -> 0
+          | EndGapAnalysis -> -1 }
 
   let addCallerVertex ctx callsiteAddr vertex =
     if ctx.CallerVertices.ContainsKey callsiteAddr then ()
@@ -73,21 +75,25 @@ module internal CFGRecoveryCommon =
     | Some addr -> ProgramPoint(callsite, addr, 0)
     | None -> ProgramPoint(callsite, 0UL, -1)
 
-  let makeVertex ctx cfgRec pp (bbl: LowUIRBasicBlock) =
+  let isDuringGapAnalysis ctx = ctx.GapToAnalyze.IsSome
+
+  let makeVertex ctx (cfgRec: ICFGRecovery<_, _>) pp (bbl: LowUIRBasicBlock) =
+    let v = ctx.CFG.AddVertex bbl
+    ctx.Vertices[pp] <- v
+    cfgRec.OnAddVertex(ctx, v)
+    if isDuringGapAnalysis ctx then ctx.GapAnalysisVertices.Add(pp) |> ignore
     match ctx.JumpTableRecoveryStatus.TryPeek() with
     | true, status -> bbl.DominatingJumpTableEntry <- Some status
     | false, _ -> ()
-    let v = ctx.CFG.AddVertex bbl
-    ctx.Vertices[pp] <- v
-    (cfgRec: ICFGRecovery<_, _>).OnAddVertex(ctx, v)
     v
 
   let makeAbsVertex ctx (cfgRec: ICFGRecovery<_, _>) csAddr calleeOpt abs =
-    let calleePPoint = getCalleePPoint csAddr calleeOpt
-    let bbl = LowUIRBasicBlock.CreateAbstract(calleePPoint, abs)
+    let pp = getCalleePPoint csAddr calleeOpt
+    let bbl = LowUIRBasicBlock.CreateAbstract(pp, abs)
     let v = ctx.CFG.AddVertex bbl
-    ctx.Vertices[calleePPoint] <- v
+    ctx.Vertices[pp] <- v
     cfgRec.OnAddVertex(ctx, v)
+    if isDuringGapAnalysis ctx then ctx.GapAnalysisVertices.Add(pp) |> ignore
     v
 
   /// Retrieves a vertex (which is either cached or newly created). This
@@ -154,19 +160,29 @@ module internal CFGRecoveryCommon =
     | false, _ ->
       [||], [||]
 
-  let connectEdge ctx cfgRec srcVertex dstVertex edgeKind =
-    ctx.CFG.AddEdge(srcVertex, dstVertex, edgeKind)
-    (cfgRec: ICFGRecovery<_, _>).OnAddEdge(ctx, srcVertex, dstVertex, edgeKind)
+  let isFromUnreachablesToReachables ctx srcV dstV =
+    let srcPP = (srcV: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint
+    let dstPP = (dstV: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint
+    ctx.GapAnalysisVertices.Contains(srcPP)
+    && not <| ctx.GapAnalysisVertices.Contains(dstPP)
+
+  let connectEdge ctx cfgRec srcV dstV edgeKind =
+    if isFromUnreachablesToReachables ctx srcV dstV then ()
+    else
+      ctx.CFG.AddEdge(srcV, dstV, edgeKind)
+      (cfgRec: ICFGRecovery<_, _>).OnAddEdge(ctx, srcV, dstV, edgeKind)
 #if CFGDEBUG
-    let edgeStr = CFGEdgeKind.toString edgeKind
-    let srcPPoint = (srcVertex.VData :> IAddressable).PPoint
-    let dstPPoint = (dstVertex.VData :> IAddressable).PPoint
-    dbglog ctx.ThreadID "ConnectEdge" $"{srcPPoint} -> {dstPPoint} ({edgeStr})"
+      let edgeStr = CFGEdgeKind.toString edgeKind
+      let srcPP = (srcV.VData :> IAddressable).PPoint
+      let dstPP = (dstV.VData :> IAddressable).PPoint
+      dbglog ctx.ThreadID "ConnectEdge" $"{srcPP} -> {dstPP} ({edgeStr})"
 #endif
 
   let reconnectVertices ctx (cfgRec: ICFGRecovery<_, _>)
-                        (dividedEdges: List<ProgramPoint * ProgramPoint>) =
+                        (dividedEdges: (ProgramPoint * ProgramPoint) seq) =
     for (srcPPoint, dstPPoint) in dividedEdges do
+      let srcVertex = getVertex ctx cfgRec srcPPoint
+      let isSrcRoot = ctx.CFG.Roots |> Array.contains srcVertex
       let preds, succs = tryRemoveVertexAt ctx cfgRec srcPPoint
       if Array.isEmpty preds && Array.isEmpty succs then
         (* Don't reconnect previously unseen blocks, which can be introduced by
@@ -175,6 +191,8 @@ module internal CFGRecoveryCommon =
       else
         let srcVertex = getVertex ctx cfgRec srcPPoint
         let dstVertex = getVertex ctx cfgRec dstPPoint
+        if isSrcRoot then (* If a root was re-added, register this again. *)
+          ctx.CFG.AddRoot(srcVertex) |> ignore
 #if CFGDEBUG
         dbglog ctx.ThreadID "Reconnect" $"{srcPPoint} -> {dstPPoint}"
 #endif
@@ -219,10 +237,28 @@ module internal CFGRecoveryCommon =
           Error ErrorCase.ItemNotFound
       | Error _ -> Error ErrorCase.ItemNotFound
 
+  /// Check if an edge that has the given address as a destination goes from
+  /// unreachables to reachables.
+  let isIntrudingReachables ctx dstAddr dividedEdges =
+    dividedEdges
+    |> Seq.exists (fun (srcPP, dstPP) ->
+      isDuringGapAnalysis ctx
+      && (dstPP: ProgramPoint).Address = dstAddr
+      && not <| ctx.GapAnalysisVertices.Contains(srcPP))
+
+  /// Filter out divided edges caused by edges that go from unreachables to
+  /// reachables.
+  let excludeUnreachableIncomings ctx dividedEdges =
+    if not <| isDuringGapAnalysis ctx then dividedEdges
+    else dividedEdges |> Seq.filter (fst >> ctx.GapAnalysisVertices.Contains)
+
   let scanBBLsAndConnect ctx cfgRec src dstAddr edgeKind =
     match scanBBLs ctx [ dstAddr ] with
-    | Ok dividedEdges ->
+    | Ok(dividedEdges) when isIntrudingReachables ctx dstAddr dividedEdges ->
+      Ok(())
+    | Ok(dividedEdges) ->
       let dstPPoint = ProgramPoint(dstAddr, 0)
+      let dividedEdges = excludeUnreachableIncomings ctx dividedEdges
       match getValidVertex ctx cfgRec dstPPoint with
       | Ok dstVertex ->
         connectEdge ctx cfgRec src dstVertex edgeKind
@@ -714,3 +750,28 @@ module internal CFGRecoveryCommon =
     <| $"target = {target.EntryPoint:x}"
 #endif
     target
+
+  let findVertexByAddr ctx addr =
+    ctx.Vertices.Values
+    |> Seq.find (fun v ->
+      let bbl = v.VData.Internals
+      not bbl.IsAbstract && bbl.Range.IsIncluding(addr))
+
+  let isNoReturnAbsVertex (v: IVertex<LowUIRBasicBlock>) =
+    v.VData.Internals.IsAbstract &&
+    v.VData.Internals.AbstractContent.ReturningStatus = NoRet
+
+  /// Try to fill a no-return fall-through edge if applicable. This recovers a
+  /// fall-through edge from an abstract no-return vertex to the next vertex,
+  /// which may be missing due to our precise analysis of no-return functions
+  /// whereas a compiler may have generated a fall-through edge after a call to
+  /// a no-return function.
+  let recoverNoReturnFallThroughEdge ctx v =
+    let g = ctx.CFG
+    let addr = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
+    let maybePredAddr = addr - 1UL
+    let maybePred = findVertexByAddr ctx maybePredAddr
+    match Array.tryExactlyOne <| g.GetSuccs(maybePred) with
+    | Some(succOfMaybePred) when isNoReturnAbsVertex succOfMaybePred ->
+      g.AddEdge(succOfMaybePred, v, NoReturnFallThroughEdge)
+    | _ -> ()

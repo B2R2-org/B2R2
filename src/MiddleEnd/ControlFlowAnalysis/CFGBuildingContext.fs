@@ -58,6 +58,20 @@ type CFGBuildingContext<'FnCtx,
     mutable NonReturningStatus: NonReturningStatus
     /// Which jump table entry is currently being recovered? (table addr, index)
     JumpTableRecoveryStatus: Stack<Addr * int>
+    /// Gap to be processed.
+    mutable GapToAnalyze: Option<Addr>
+    /// Vertices created during gap analysis. These will be added as a
+    /// unreachable code segment by default. The only exception is when we find
+    /// a non-returning call instruction and a gap starts right after it, as
+    /// this indicates that the gap has been considered reachable by the
+    /// compiler when generating the binary although our non-returning analysis
+    /// is more conservative (and precise), so we regard this gap as
+    /// non-reachable.
+    GapAnalysisVertices: HashSet<ProgramPoint>
+    /// Gap addresses, which have been identified as data. By adding these
+    /// addresses to this blacklist, we prevent performing gap analysis on
+    /// these addresses again.
+    GapBlacklist: HashSet<Addr>
     /// Jump tables associated with this function.
     JumpTables: List<JmpTableInfo>
     /// Table for maintaining intra-function call information of this function.
@@ -98,6 +112,8 @@ with
     (* this.NonReturningStatus <- UnknownNoRet *)
     this.JumpTableRecoveryStatus.Clear()
     this.JumpTables.Clear()
+    this.GapToAnalyze <- None
+    this.GapAnalysisVertices.Clear()
     this.IntraCallTable.Reset()
     this.Callers.Clear()
     this.VisitedPPoints.Clear()
