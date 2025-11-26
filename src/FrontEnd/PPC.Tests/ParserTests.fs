@@ -119,13 +119,13 @@ type ArithmeticClass() =
   [<TestMethod>]
   member _.``[PPC64] Arithmetic Instruction Test (2)``() =
     "3BC889D6"
-    ++ (ADDI ** [ O.Reg R30; O.Reg R8; O.Imm 0x89D6UL ])
+    ++ (ADDI ** [ O.Reg R30; O.Reg R8; O.Imm 0xFFFFFFFFFFFF89D6UL ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PPC64] Arithmetic Instruction Test (3)``() =
     "3D5CDCFE"
-    ++ (ADDIS ** [ O.Reg R10; O.Reg R28; O.Imm 0xDCFEUL ])
+    ++ (ADDIS ** [ O.Reg R10; O.Reg R28; O.Imm 0xFFFFFFFFFFFFDCFEUL ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
@@ -185,7 +185,7 @@ type ArithmeticClass() =
   [<TestMethod>]
   member _.``[PPC64] Arithmetic Instruction Test (13)``() =
     "31FEE03B"
-    ++ (ADDIC ** [ O.Reg R15; O.Reg R30; O.Imm 0xE03BUL ])
+    ++ (ADDIC ** [ O.Reg R15; O.Reg R30; O.Imm 0xFFFFFFFFFFFFE03BUL ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
@@ -197,7 +197,7 @@ type ArithmeticClass() =
   [<TestMethod>]
   member _.``[PPC64] Arithmetic Instruction Test (15)``() =
     "2193E4DB"
-    ++ (SUBFIC ** [ O.Reg R12; O.Reg R19; O.Imm 0xE4DBUL ])
+    ++ (SUBFIC ** [ O.Reg R12; O.Reg R19; O.Imm 0xFFFFFFFFFFFFE4DBUL ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
