@@ -280,39 +280,95 @@ type Register =
   | LR = 0xF2
   | CTR = 0xF3
   | AMR = 0xF4
-  | TFHAR = 0xF5
-  | TFIAR = 0xF6
-  | TEXASR = 0xF7
-  | TEXASRU = 0xF8
-  | CTRL = 0xF9
-  | VRSAVE = 0xFA
-  | SPRG3 = 0xFB
-  | TB = 0xFC
-  | TBU = 0xFD
-  | SIER = 0xFE
-  | MMCR2 = 0xFF
-  | MMCRA = 0x100
-  | PMC1 = 0x101
-  | PMC2 = 0x102
-  | PMC3 = 0x103
-  | PMC4 = 0x104
-  | PMC5 = 0x105
-  | PMC6 = 0x106
-  | MMCR0 = 0x107
-  | SIAR = 0x108
-  | SDAR = 0x109
-  | MMCR1 = 0x10A
-  | BESCRS = 0x10B
-  | BESCRSU = 0x10C
-  | BESCRR = 0x10D
-  | BESCRRU = 0x10E
-  | EBBHR = 0x10F
-  | EBBRR = 0x110
-  | BESCR = 0x111
-  | ReservedSPR = 0x112
-  | TAR = 0x113
-  | PPR = 0x114
-  | PPR32 = 0x115
+  | DSISR = 0xF5
+  | DAR = 0xF6
+  | DEC = 0xF7
+  | SRR0 = 0xF8
+  | SRR1 = 0xF9
+  | CFAR = 0xFA
+  | PIDR = 0xFB
+  | IAMR = 0xFC
+  | TFHAR = 0xFD
+  | TFIAR = 0xFE
+  | TEXASR = 0xFF
+  | TEXASRU = 0x100
+  | CTRL = 0x101
+  | TIDR = 0x102
+  | FSCR = 0x103
+  | UAMOR = 0x104
+  | NA = 0x105
+  | PSPB = 0x106
+  | DPDES = 0x107
+  | DAWR0 = 0x108
+  | RPR = 0x109
+  | CIABR = 0x10A
+  | DAWRX0 = 0x10B
+  | HFSCR = 0x10C
+  | VRSAVE = 0x10D
+  | TB = 0x10E
+  | TBU = 0x10F
+  | SPRG0 = 0x110
+  | SPRG1 = 0x111
+  | SPRG2 = 0x112
+  | SPRG3 = 0x113
+  | CIR = 0x114
+  | TBL = 0x115
+  | TBU40 = 0x116
+  | PVR = 0x117
+  | HSPRG0 = 0x118
+  | HSPRG1 = 0x119
+  | HDSISR = 0x11A
+  | HDAR = 0x11B
+  | SPURR = 0x11C
+  | PURR = 0x11D
+  | HDEC = 0x11E
+  | HRMOR = 0x11F
+  | HSRR0 = 0x120
+  | HSRR1 = 0x121
+  | LPCR = 0x122
+  | LPIDR = 0x123
+  | HMER = 0x124
+  | HMEER = 0x125
+  | PCR = 0x126
+  | HEIR = 0x127
+  | AMOR = 0x128
+  | TIR = 0x129
+  | PTCR = 0x12A
+  | USPRG0 = 0x12B
+  | USPRG1 = 0x12C
+  | URMOR = 0x12D
+  | USRR0 = 0x12E
+  | USRR1 = 0x12F
+  | SMFCTRL = 0x130
+  | SIER = 0x131
+  | MMCR2 = 0x132
+  | MMCRA = 0x133
+  | PMC1 = 0x134
+  | PMC2 = 0x135
+  | PMC3 = 0x136
+  | PMC4 = 0x137
+  | PMC5 = 0x138
+  | PMC6 = 0x139
+  | MMCR0 = 0x13A
+  | SIAR = 0x13B
+  | SDAR = 0x13C
+  | MMCR1 = 0x13D
+  | BESCRS = 0x13E
+  | BESCRSU = 0x13F
+  | BESCRR = 0x140
+  | BESCRRU = 0x141
+  | EBBHR = 0x142
+  | EBBRR = 0x143
+  | BESCR = 0x144
+  | ReservedSPR = 0x145
+  | TAR = 0x146
+  | ASDR = 0x147
+  | PSSCR = 0x148
+  | IC = 0x149
+  | VTB = 0x14A
+  | PPR = 0x14B
+  | PPR32 = 0x14C
+  | PIR = 0x14D
 
 /// Provides functions to handle PPC registers.
 module Register =
@@ -570,15 +626,66 @@ module Register =
     | "lr" -> Register.LR
     | "ctr" -> Register.CTR
     | "amr" -> Register.AMR
+    | "dsisr" -> Register.DSISR
+    | "dar" -> Register.DAR
+    | "dec" -> Register.DEC
+    | "srr0" -> Register.SRR0
+    | "srr1" -> Register.SRR1
+    | "cfar" -> Register.CFAR
+    | "pidr" -> Register.PIDR
+    | "iamr" -> Register.IAMR
     | "tfhar" -> Register.TFHAR
     | "tfiar" -> Register.TFIAR
     | "texasr" -> Register.TEXASR
     | "texasru" -> Register.TEXASRU
     | "ctrl" -> Register.CTRL
+    | "tidr" -> Register.TIDR
+    | "fscr" -> Register.FSCR
+    | "uamor" -> Register.UAMOR
+    | "na" -> Register.NA
+    | "pspb" -> Register.PSPB
+    | "dpdes" -> Register.DPDES
+    | "dawr0" -> Register.DAWR0
+    | "rpr" -> Register.RPR
+    | "ciabr" -> Register.CIABR
+    | "dawrx0" -> Register.DAWRX0
+    | "hfscr" -> Register.HFSCR
     | "vrsave" -> Register.VRSAVE
-    | "sprg3" -> Register.SPRG3
     | "tb" -> Register.TB
     | "tbu" -> Register.TBU
+    | "sprg0" -> Register.SPRG0
+    | "sprg1" -> Register.SPRG1
+    | "sprg2" -> Register.SPRG2
+    | "sprg3" -> Register.SPRG3
+    | "cir" -> Register.CIR
+    | "tbl" -> Register.TBL
+    | "tbu40" -> Register.TBU40
+    | "pvr" -> Register.PVR
+    | "hsprg0" -> Register.HSPRG0
+    | "hsprg1" -> Register.HSPRG1
+    | "hdsisr" -> Register.HDSISR
+    | "hdar" -> Register.HDAR
+    | "spurr" -> Register.SPURR
+    | "purr" -> Register.PURR
+    | "hdec" -> Register.HDEC
+    | "hrmor" -> Register.HRMOR
+    | "hsrr0" -> Register.HSRR0
+    | "hsrr1" -> Register.HSRR1
+    | "lpcr" -> Register.LPCR
+    | "lpidr" -> Register.LPIDR
+    | "hmer" -> Register.HMER
+    | "hmeer" -> Register.HMEER
+    | "pcr" -> Register.PCR
+    | "heir" -> Register.HEIR
+    | "amor" -> Register.AMOR
+    | "tir" -> Register.TIR
+    | "ptcr" -> Register.PTCR
+    | "usprg0" -> Register.USPRG0
+    | "usprg1" -> Register.USPRG1
+    | "urmor" -> Register.URMOR
+    | "usrr0" -> Register.USRR0
+    | "usrr1" -> Register.USRR1
+    | "smfctrl" -> Register.SMFCTRL
     | "sier" -> Register.SIER
     | "mmcr2" -> Register.MMCR2
     | "mmcra" -> Register.MMCRA
@@ -601,8 +708,13 @@ module Register =
     | "bescr" -> Register.BESCR
     | "reservedspr" -> Register.ReservedSPR
     | "tar" -> Register.TAR
+    | "asdr" -> Register.ASDR
+    | "psscr" -> Register.PSSCR
+    | "ic" -> Register.IC
+    | "vtb" -> Register.VTB
     | "ppr" -> Register.PPR
     | "ppr32" -> Register.PPR32
+    | "pir" -> Register.PIR
     | _ -> Terminator.futureFeature ()
 
   /// Returns the register ID of a PPC register.
@@ -859,15 +971,66 @@ module Register =
     | Register.LR -> "lr"
     | Register.CTR -> "ctr"
     | Register.AMR -> "amr"
+    | Register.DSISR -> "dsisr"
+    | Register.DAR -> "dar"
+    | Register.DEC -> "dec"
+    | Register.SRR0 -> "srr0"
+    | Register.SRR1 -> "srr1"
+    | Register.CFAR -> "cfar"
+    | Register.PIDR -> "pidr"
+    | Register.IAMR -> "iamr"
     | Register.TFHAR -> "tfhar"
     | Register.TFIAR -> "tfiar"
     | Register.TEXASR -> "texasr"
     | Register.TEXASRU -> "texasru"
     | Register.CTRL -> "ctrl"
+    | Register.TIDR -> "tidr"
+    | Register.FSCR -> "fscr"
+    | Register.UAMOR -> "uamor"
+    | Register.NA -> "na"
+    | Register.PSPB -> "pspb"
+    | Register.DPDES -> "dpdes"
+    | Register.DAWR0 -> "dawr0"
+    | Register.RPR -> "rpr"
+    | Register.CIABR -> "ciabr"
+    | Register.DAWRX0 -> "dawrx0"
+    | Register.HFSCR -> "hfscr"
     | Register.VRSAVE -> "vrsave"
-    | Register.SPRG3 -> "sprg3"
     | Register.TB -> "tb"
     | Register.TBU -> "tbu"
+    | Register.SPRG0 -> "sprg0"
+    | Register.SPRG1 -> "sprg1"
+    | Register.SPRG2 -> "sprg2"
+    | Register.SPRG3 -> "sprg3"
+    | Register.CIR -> "cir"
+    | Register.TBL -> "tbl"
+    | Register.TBU40 -> "tbu40"
+    | Register.PVR -> "pvr"
+    | Register.HSPRG0 -> "hsprg0"
+    | Register.HSPRG1 -> "hsprg1"
+    | Register.HDSISR -> "hdsisr"
+    | Register.HDAR -> "hdar"
+    | Register.SPURR -> "spurr"
+    | Register.PURR -> "purr"
+    | Register.HDEC -> "hdec"
+    | Register.HRMOR -> "hrmor"
+    | Register.HSRR0 -> "hsrr0"
+    | Register.HSRR1 -> "hsrr1"
+    | Register.LPCR -> "lpcr"
+    | Register.LPIDR -> "lpidr"
+    | Register.HMER -> "hmer"
+    | Register.HMEER -> "hmeer"
+    | Register.PCR -> "pcr"
+    | Register.HEIR -> "heir"
+    | Register.AMOR -> "amor"
+    | Register.TIR -> "tir"
+    | Register.PTCR -> "ptcr"
+    | Register.USPRG0 -> "usprg0"
+    | Register.USPRG1 -> "usprg1"
+    | Register.URMOR -> "urmor"
+    | Register.USRR0 -> "usrr0"
+    | Register.USRR1 -> "usrr1"
+    | Register.SMFCTRL -> "smfctrl"
     | Register.SIER -> "sier"
     | Register.MMCR2 -> "mmcr2"
     | Register.MMCRA -> "mmcra"
@@ -890,6 +1053,11 @@ module Register =
     | Register.BESCR -> "bescr"
     | Register.ReservedSPR -> "reservedspr"
     | Register.TAR -> "tar"
+    | Register.ASDR -> "asdr"
+    | Register.PSSCR -> "psscr"
+    | Register.IC -> "ic"
+    | Register.VTB -> "vtb"
     | Register.PPR -> "ppr"
     | Register.PPR32 -> "ppr32"
+    | Register.PIR -> "pir"
     | _ -> Terminator.futureFeature ()
