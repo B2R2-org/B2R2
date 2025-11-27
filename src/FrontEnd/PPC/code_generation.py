@@ -266,6 +266,24 @@ def operand_to_let_XT(operand, opr_type, instr):
     let3 = f"    let {operand.lower()}Opr = 32u * tx + t |> {get_conv_func(opr_type)}\n"
     return let1 + let2 + let3
 
+def operand_to_let_XA(operand, opr_type, instr):
+    let1 = f"    let a = {range_to_extract(instr["fields"]["A"])}\n"
+    let2 = f"    let ax = {range_to_extract(instr["fields"]["AX"])}\n"
+    let3 = f"    let {operand.lower()}Opr = 32u * ax + a |> {get_conv_func(opr_type)}\n"
+    return let1 + let2 + let3
+
+def operand_to_let_XB(operand, opr_type, instr):
+    let1 = f"    let b = {range_to_extract(instr["fields"]["B"])}\n"
+    let2 = f"    let bx = {range_to_extract(instr["fields"]["BX"])}\n"
+    let3 = f"    let {operand.lower()}Opr = 32u * bx + b |> {get_conv_func(opr_type)}\n"
+    return let1 + let2 + let3
+
+def operand_to_let_XC(operand, opr_type, instr):
+    let1 = f"    let c = {range_to_extract(instr["fields"]["C"])}\n"
+    let2 = f"    let cx = {range_to_extract(instr["fields"]["CX"])}\n"
+    let3 = f"    let {operand.lower()}Opr = 32u * cx + c |> {get_conv_func(opr_type)}\n"
+    return let1 + let2 + let3
+
 def operand_to_let_SPR(operand, opr_type, instr):
     if "SPR" in instr["fields"]:
         return operand_to_let_direct(operand, opr_type, instr)
@@ -278,6 +296,8 @@ def operand_to_let_SPR(operand, opr_type, instr):
         return let1 + let2 + let3
 
 operand_type_dict = {
+    "BA": (operand_to_let_direct, OprType.CondBitReg),
+    "BB": (operand_to_let_direct, OprType.CondBitReg),
     "BC": (operand_to_let_direct, OprType.CondBitReg),
     "BF": (operand_to_let_direct, OprType.Unknown),
     "BFA": (operand_to_let_direct, OprType.Unknown),
@@ -287,6 +307,7 @@ operand_type_dict = {
     "BT": (operand_to_let_direct, OprType.Unknown),
     "CY" : (operand_to_let_direct, OprType.CY),
     "D" : (operand_to_let_D, OprType.Imm64),
+    "DM" : (operand_to_let_direct, OprType.Imm),
     "D2RA": (operand_to_let_eff_D_RA, OprType.Mem),
     "DCM": (operand_to_let_direct, OprType.DCM),
     "DGM": (operand_to_let_direct, OprType.DGM),
@@ -320,7 +341,9 @@ operand_type_dict = {
     "RTp": (operand_to_let_direct, OprType.Reg),
     "S": (operand_to_let_direct, OprType.Imm),
     "SH": (operand_to_let_SH, OprType.Imm),
+    "SHB": (operand_to_let_direct, OprType.Imm),
     "SI": (operand_to_let_direct_ext, OprType.Imm64),
+    "SIM": (operand_to_let_direct_ext, OprType.Imm64),
     "SP": (operand_to_let_direct, OprType.Imm),
     "SPR": (operand_to_let_SPR, OprType.SPReg),
     "TE": (operand_to_let_direct, OprType.Imm),
@@ -335,6 +358,9 @@ operand_type_dict = {
     "VRS": (operand_to_let_direct, OprType.VReg),
     "VRT": (operand_to_let_direct, OprType.VReg),
     "W": (operand_to_let_direct, OprType.W),
+    "XA": (operand_to_let_XA, OprType.VSReg),
+    "XB": (operand_to_let_XB, OprType.VSReg),
+    "XC": (operand_to_let_XC, OprType.VSReg),
     "XS": (operand_to_let_XS, OprType.VSReg),
     "XT": (operand_to_let_XT, OprType.VSReg)
 }

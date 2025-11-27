@@ -75,7 +75,7 @@ def to_json(operands_line, fields_line, offsets_line):
     return instr
 
 def extract_instrs(page):
-    lines = page.extract_text(x_tolerance = 1).split("\n")
+    lines = page.extract_text(x_tolerance = 0.5).split("\n")
     instrs = []
     for i in range(2, len(lines)):
         if not is_offset_line(lines[i]):

@@ -658,4 +658,4 @@ let translate (ins: Instruction) insLen bld =
   | Op.DIVDEUO_DOT -> divde ins insLen bld false true true
   | Op.MODSD -> modd ins insLen bld false
   | Op.MODUD -> modd ins insLen bld true
-  | _ -> Terminator.futureFeature ()
+  | o -> raise (NotImplementedIRException(Disasm.opCodeToString o))
