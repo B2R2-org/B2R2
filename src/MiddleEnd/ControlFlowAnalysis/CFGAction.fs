@@ -36,6 +36,8 @@ type CFGAction =
   | InitiateCFG
   /// Add more reachable edges to the initial CFG using the new program points.
   | ExpandCFG of pps: ProgramPoint list
+  /// Expand a CFG from the given address for gap completion.
+  | StartGapAnalysis of addr: Addr
   /// Create an abstract call node and connect it to the caller and fallthrough
   /// nodes when necessary.
   | MakeCall of callSite: CallSite * calleeAddr: Addr * CalleeInfo
@@ -65,6 +67,8 @@ type CFGAction =
   /// Can be used to wait for an event to happen. It depends on the usage in a
   /// specific strategy.
   | ResumeAnalysis of pp: ProgramPoint * callbackAction: CFGAction
+    /// Report the end of the gap analysis.
+  | EndGapAnalysis
 with
   /// The priority of the action. Higher values mean higher priority.
   member this.Priority(p: IPrioritizable) = p.GetPriority this

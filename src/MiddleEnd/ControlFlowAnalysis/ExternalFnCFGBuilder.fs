@@ -42,12 +42,15 @@ type ExternalFnCFGBuilder<'FnCtx,
       BinHandle = hdl
       ExnInfo = exnInfo
       Vertices = null
+      GapAnalysisVertices = null
       CFG = null
       CP = null
       BBLFactory = null
       NonReturningStatus = noretStatus
       JumpTableRecoveryStatus = null
       JumpTables = null
+      GapToAnalyze = None
+      GapBlacklist = null
       Callers = HashSet()
       IntraCallTable = null
       VisitedPPoints = null

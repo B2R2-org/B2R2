@@ -122,12 +122,15 @@ type InternalFnCFGBuilder<'FnCtx,
         BinHandle = hdl
         ExnInfo = exnInfo
         Vertices = Dictionary()
+        GapAnalysisVertices = HashSet()
         CFG = cfg
         CP = ConstantPropagation(hdl, cfg.Vertices)
         BBLFactory = bblFactory
         NonReturningStatus = UnknownNoRet
         JumpTableRecoveryStatus = Stack()
         JumpTables = List()
+        GapToAnalyze = None
+        GapBlacklist = HashSet()
         Callers = HashSet()
         IntraCallTable = IntraCallTable()
         VisitedPPoints = HashSet()

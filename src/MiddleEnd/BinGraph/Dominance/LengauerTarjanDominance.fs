@@ -88,6 +88,7 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     DummyRoot = GraphUtils.makeDummyVertex () }
 
 let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) =
+  assert (info.DFPre.ContainsKey v.ID)
   info.DFPre[v.ID]
 
 let rec private prepare (g: IDiGraphAccessible<_, _>) info n = function

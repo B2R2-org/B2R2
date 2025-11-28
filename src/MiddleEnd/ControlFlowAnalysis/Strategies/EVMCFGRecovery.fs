@@ -901,7 +901,9 @@ module private EVMCFGRecovery =
       | MakeSyscall _
       | MakeIndEdges _
       | StartTblRec _
-      | EndTblRec _ ->
+      | EndTblRec _
+      | StartGapAnalysis _
+      | EndGapAnalysis ->
         Terminator.impossible ()
     with e ->
       Console.Error.WriteLine $"OnAction failed:\n{e}"

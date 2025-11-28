@@ -129,6 +129,21 @@ module private CFGRecovery =
         updateCallEdges ctx cfgRec calleeAddr calleeInfo
       | ResumeAnalysis(_) ->
         Terminator.impossible ()
+      | StartGapAnalysis(addr) ->
+        assert (ctx.GapToAnalyze.IsNone)
+        ctx.GapToAnalyze <- Some(addr)
+        match scanBBLs ctx [ addr ] with
+        | Ok(_) ->
+          let pp = ProgramPoint(addr, 0)
+          let v = getVertex ctx cfgRec pp
+          ctx.CFG.AddRoot(v)
+          recoverNoReturnFallThroughEdge ctx v
+          buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [ pp ]
+        | Error e -> FailStop e
+      | EndGapAnalysis ->
+        assert (ctx.GapToAnalyze.IsSome)
+        ctx.GapToAnalyze <- None
+        MoveOn
     with e ->
       Console.Error.WriteLine $"OnAction failed:\n{e}"
       FailStop ErrorCase.FailedToRecoverCFG

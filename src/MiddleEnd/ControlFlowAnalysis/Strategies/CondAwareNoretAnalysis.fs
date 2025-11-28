@@ -42,6 +42,12 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   /// Default value used for unknown non-returning status.
   let defaultStatus = if strict then NoRet else NotNoRet
 
+  let hasNoReturnFallThrough g (v: IVertex<LowUIRBasicBlock>) =
+    assert (v.VData.Internals.IsAbstract)
+    match (g: IDiGraph<_, _>).GetSuccEdges(v) |> Array.tryExactlyOne with
+    | Some(e) -> e.Label = NoReturnFallThroughEdge
+    | None -> false
+
   let meet a b =
     match a, b with
     | _ when a = b -> a
@@ -128,6 +134,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
         tryGetConnectedArgumentFromIRCFG ctx state.Value pp nth
         |> Option.bind (fun nth' -> Some(absV, nth'))
       | NotNoRet | UnknownNoRet -> None
+      | NoRet when hasNoReturnFallThrough cfg absV -> None
       | NoRet -> Terminator.impossible ())
 
   let untouchedArgIndexX86FromSSACFG (ssa: SSACFG) frameDist absV state nth =
