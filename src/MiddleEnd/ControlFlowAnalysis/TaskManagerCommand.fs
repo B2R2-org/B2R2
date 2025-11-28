@@ -51,7 +51,9 @@ type TaskManagerCommand<'FnCtx,
   /// Notify the manager that a new jump table entry is about to be recovered.
   /// The manager returns the decision about the next action.
   | NotifyJumpTableRecovery of
-    fn: Addr * tbl: JmpTableInfo * AgentReplyChannel<JumpTableRecoveryDecision>
+      fn: Addr
+    * tbl: JmpTableInfo
+    * AgentReplyChannel<JumpTableRecoveryDecision>
   /// Notify the manager that we found a bogus jump table entry. The manager
   /// returns whether the recovery should continue or not.
   | NotifyBogusJumpTableEntry of

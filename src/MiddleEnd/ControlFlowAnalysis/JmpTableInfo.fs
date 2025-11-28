@@ -38,4 +38,9 @@ type JmpTableInfo =
     /// The size of each entry in the jump table (in bytes).
     EntrySize: int
     /// The number of entries in the jump table.
-    mutable NumEntries: int }
+    mutable NumEntries: int
+    /// Indicates whether the jump table has only a single entry. We use this
+    /// information when the jump table is accessed via a constant address
+    /// without any index computation (e.g., jmp qword ptr [constant_address]).
+    /// If so, we do not expand the entries during jump table analysis.
+    IsSingleEntry: bool }

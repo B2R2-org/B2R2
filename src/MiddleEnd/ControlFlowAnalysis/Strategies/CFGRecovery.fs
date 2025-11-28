@@ -108,6 +108,7 @@ module private CFGRecovery =
         dbglog ctx.ThreadID (nameof StartTblRec)
         <| $"{jmptbl.InsAddr:x}[{idx}] -> {dstAddr:x} @ {fnAddr:x}"
 #endif
+        assert (if not jmptbl.IsSingleEntry then true else idx = 0)
         ctx.JumpTableRecoveryStatus.Push(jmptbl.TableAddress, idx)
         recoverJumpTableEntry ctx cfgRec queue jmptbl.InsAddr srcAddr dstAddr
       | EndTblRec(jmptbl, idx) ->

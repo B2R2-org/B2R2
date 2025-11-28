@@ -596,13 +596,14 @@ module internal CFGRecoveryCommon =
 
   let recoverIndirectBranches ctx (jmptblAnalysis: IJmpTableAnalyzable<_, _>)
                               queue insAddr bblAddr =
+    let funcAddr = ctx.FunctionAddress
     match jmptblAnalysis.Identify(ctx, insAddr, bblAddr) with
-    | Ok jmptbl ->
+    | Ok(jmptbl) ->
 #if CFGDEBUG
       dbglog ctx.ThreadID "JumpTable"
       <| $"{insAddr:x}: [{jmptbl.TableAddress:x}] w/ base {jmptbl.JumpBase:x}"
 #endif
-      ctx.ManagerChannel.NotifyJumpTableRecovery(ctx.FunctionAddress, jmptbl)
+      ctx.ManagerChannel.NotifyJumpTableRecovery(funcAddr, jmptbl)
       |> function
         | GoRecovery -> pushJmpTblRecoveryAction ctx queue bblAddr jmptbl 0
         | StopRecoveryButReload -> StopAndReload
@@ -627,8 +628,8 @@ module internal CFGRecoveryCommon =
     let srcVertex = getVertex ctx cfgRec (ProgramPoint(srcAddr, 0))
     let fnAddr = ctx.FunctionAddress
     if dstAddr < fnAddr
-      || not (isExecutableAddr ctx dstAddr)
-      || not (isWithinFunction ctx fnAddr dstAddr)
+       || not (isExecutableAddr ctx dstAddr)
+       || not (isWithinFunction ctx fnAddr dstAddr)
     then
       match ctx.JumpTableRecoveryStatus.TryPeek() with
       | true, (tblAddr, 0) ->

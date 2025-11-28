@@ -72,6 +72,9 @@ type JmpTableRecoveryNotebook() =
       match findOverlap tblAddr with
       | Some note -> OverlappingNote note (* Return the overlapping note. *)
       | None ->
+        let potentialEndPoint =
+          if jmptbl.IsSingleEntry then tblAddr
+          else System.UInt64.MaxValue
         let note =
           { HostFunctionAddr = fnAddr
             InsAddr = jmptbl.InsAddr
@@ -79,7 +82,7 @@ type JmpTableRecoveryNotebook() =
             EntrySize = jmptbl.EntrySize
             StartingPoint = tblAddr
             ConfirmedEndPoint = tblAddr
-            PotentialEndPoint = System.UInt64.MaxValue }
+            PotentialEndPoint = potentialEndPoint }
         notes[tblAddr] <- note
         syncAfterRegistration tblAddr note
         RegistrationSucceeded
