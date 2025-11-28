@@ -437,7 +437,7 @@ type TaskScheduler<'FnCtx,
       if builder.BuilderState = Invalid then ()
       else rollback builder
 
-  let handleJumpTableRecoveryRequest fnAddr (jmptbl: JmpTableInfo) =
+  let handleJumpTableRecoveryRequest fnAddr jmptbl =
     match jmptblNotes.Register(fnAddr, jmptbl) with
     | RegistrationSucceeded ->
 #if CFGDEBUG

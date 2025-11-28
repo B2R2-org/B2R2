@@ -135,6 +135,11 @@ type JmpTableAnalysis<'FnCtx,
       isJmpTable t e1 || isJmpTable t e2
     | _ -> false
 
+  let isSingleJmpTable = function
+    | Num(_) -> true
+    | BinOp(BinOpType.ADD, _, Num(_), Num(_)) -> true
+    | _ -> false
+
   let rec extractTableExpr = function
     | BinOp(BinOpType.ADD, _, BinOp(BinOpType.MUL, _, _, Num _), e)
     | BinOp(BinOpType.ADD, _, BinOp(BinOpType.MUL, _, Num _, _), e)
@@ -161,16 +166,17 @@ type JmpTableAnalysis<'FnCtx,
       | Num t -> Ok <| BitVector.ToUInt64 t
       | _ -> Error ErrorCase.ItemNotFound
 
-  let extractTblInfo findConst findDef insAddr baseExpr tblExpr rt =
+  let extractTblInfo findConst findDef insAddr baseExpr tblExpr rt singleEntry =
     let baseAddr = extractBaseAddr findConst findDef baseExpr
     let tblAddr = extractTableAddr findConst findDef tblExpr
     match baseAddr, tblAddr with
     | Ok baseAddr, Ok tblAddr ->
-      Ok { InsAddr = insAddr
+      Ok({ InsAddr = insAddr
            JumpBase = baseAddr
            TableAddress = tblAddr
            EntrySize = RegType.toByteWidth rt
-           NumEntries = 0 }
+           NumEntries = 0
+           IsSingleEntry = singleEntry })
     | _ -> Error ErrorCase.ItemNotFound
 
   let detect findConst findDef iAddr = function
@@ -179,24 +185,37 @@ type JmpTableAnalysis<'FnCtx,
     | BinOp(BinOpType.ADD, _, Num b, Cast(_, _, Load(_, t, memExpr)))
     | BinOp(BinOpType.ADD, _, Cast(_, _, Load(_, t, memExpr)), Num b) ->
       if isJmpTable t memExpr then
-        extractTblInfo findConst findDef iAddr (Num b) memExpr t
+        extractTblInfo findConst findDef iAddr (Num b) memExpr t false
+      elif isSingleJmpTable memExpr then
+        extractTblInfo findConst findDef iAddr (Num b) memExpr t true
       else
         Error ErrorCase.ItemNotFound
     | BinOp(BinOpType.ADD, _, (Load(_, _, e1) as m1), (Load(_, t, e2) as m2)) ->
-      if isJmpTable t e1 then extractTblInfo findConst findDef iAddr m2 e1 t
-      elif isJmpTable t e2 then extractTblInfo findConst findDef iAddr m1 e2 t
+      if isJmpTable t e1 then
+        extractTblInfo findConst findDef iAddr m2 e1 t false
+      elif isJmpTable t e2 then
+        extractTblInfo findConst findDef iAddr m1 e2 t false
+      elif isSingleJmpTable e1 then
+        extractTblInfo findConst findDef iAddr m2 e1 t true
+      elif isSingleJmpTable e2 then
+        extractTblInfo findConst findDef iAddr m1 e2 t true
       else Error ErrorCase.ItemNotFound
     | BinOp(BinOpType.ADD, _, baseExpr, Load(_, t, tblExpr))
     | BinOp(BinOpType.ADD, _, Load(_, t, tblExpr), baseExpr) ->
       if isJmpTable t tblExpr then
-        extractTblInfo findConst findDef iAddr baseExpr tblExpr t
+        extractTblInfo findConst findDef iAddr baseExpr tblExpr t false
+      elif isSingleJmpTable tblExpr then
+        extractTblInfo findConst findDef iAddr baseExpr tblExpr t true
       else
         Error ErrorCase.ItemNotFound
     | Load(_, t, memExpr)
     | Cast(_, _, Load(_, t, memExpr)) ->
       if isJmpTable t memExpr then
         let zero = BitVector.Zero t
-        extractTblInfo findConst findDef iAddr (Num zero) memExpr t
+        extractTblInfo findConst findDef iAddr (Num zero) memExpr t false
+      elif isSingleJmpTable memExpr then
+        let zero = BitVector.Zero t
+        extractTblInfo findConst findDef iAddr (Num zero) memExpr t true
       else
         Error ErrorCase.ItemNotFound
     | _ -> Error ErrorCase.ItemNotFound
@@ -253,11 +272,11 @@ type JmpTableAnalysis<'FnCtx,
     <| $"{insAddr:x} ({depth}): {PrettyPrinter.ToString(ssaExpr = exp)}"
 #endif
     match detect findConst findDef insAddr exp with
-    | Ok info ->
+    | Ok(info) ->
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable" $"detected @ {fnAddr:x}"
 #endif
-      Ok info
+      Ok(info)
     | Error _ ->
       if depth < MaxDepth then
         let e = symbExpand expandPhi findConst findDef true exp |> simplify
@@ -317,9 +336,9 @@ type JmpTableAnalysis<'FnCtx,
 
   let checkValidity (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) result =
     match result with
-    | Ok info ->
+    | Ok(info) ->
       let tblAddr = info.TableAddress
-      if ctx.BinHandle.File.IsInTextOrDataOnlySection tblAddr then Ok info
+      if ctx.BinHandle.File.IsInTextOrDataOnlySection tblAddr then result
       else Error ErrorCase.InvalidMemoryRead
     | Error e -> Error e
 

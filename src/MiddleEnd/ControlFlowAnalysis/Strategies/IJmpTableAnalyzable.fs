@@ -35,6 +35,6 @@ type IJmpTableAnalyzable<'FnCtx,
   /// information if it uses a jump table.
   abstract Identify:
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
-    * insAddr: Addr
-    * blkAddr: Addr
+     * insAddr: Addr
+     * blkAddr: Addr
     -> Result<JmpTableInfo, ErrorCase>
