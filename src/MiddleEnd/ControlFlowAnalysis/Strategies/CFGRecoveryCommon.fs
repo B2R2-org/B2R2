@@ -648,16 +648,13 @@ module internal CFGRecoveryCommon =
   let recoverJumpTableEntry ctx cfgRec queue insAddr srcAddr dstAddr =
     let srcVertex = getVertex ctx cfgRec (ProgramPoint(srcAddr, 0))
     let fnAddr = ctx.FunctionAddress
-    if dstAddr < fnAddr
-       || not (isExecutableAddr ctx dstAddr)
-       || not (isWithinFunction ctx fnAddr dstAddr)
-    then
+    if not (isExecutableAddr ctx dstAddr) then
       match ctx.JumpTableRecoveryStatus.TryPeek() with
       | true, (tblAddr, 0) ->
-        (* The first jump table entry was invalid. For example, the target could
-           be outside the boundary of the current function. In this case, we
-           conclude that the indirect jump is not using a jump table, and thus,
-           we simply ignore the indirect branch. *)
+        (* The first jump table entry was invalid. For example, the target was
+           not executable. In this case, we conclude that the indirect jump is
+           not using a jump table, and thus, we simply ignore the indirect
+           branch. *)
         ctx.ManagerChannel.CancelJumpTableRecovery(fnAddr, insAddr, tblAddr)
         popOffJmpTblRecoveryAction ctx
         ctx.JumpTableRecoveryStatus.Pop() |> ignore
