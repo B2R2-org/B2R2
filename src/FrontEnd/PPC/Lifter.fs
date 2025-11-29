@@ -31,6 +31,13 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 
+let transOperand bld = function
+  | OprReg reg -> regVar bld reg
+  | OprImm imm -> numU64 imm bld.RegType
+  | OprCY cy -> numU32 (cy |> uint32) 2<rt>
+  | OprL l -> numU32 (l |> uint32) 2<rt>
+  | _ -> Terminator.futureFeature ()
+
 let (|RawNumOf|) (_, opr) =
   match opr with
   | OprImm imm -> imm
@@ -39,6 +46,11 @@ let (|RawNumOf|) (_, opr) =
 let (|RawSftNumOf|) sft (_, opr) =
   match opr with
   | OprImm imm -> imm <<< sft
+  | _ -> raise InvalidOperandException
+
+let (|RawRegOf|) (bld, opr) =
+  match opr with
+  | OprReg reg -> reg
   | _ -> raise InvalidOperandException
 
 let (|RegOf|) (bld, opr) =
@@ -62,6 +74,33 @@ let (|SftNumOf|) sft (bld: ILowUIRBuilder, opr) =
   | OprImm imm -> numU64 (imm <<< sft) bld.RegType
   | _ -> raise InvalidOperandException
 
+let (|EAOrZeroOf|) (bld: ILowUIRBuilder, opr) =
+  match opr with
+  | OprMem(d, Register.R0) -> numI64 d bld.RegType
+  | OprMem(d, reg) -> regVar bld reg .+ numI64 d bld.RegType
+  | _ -> raise InvalidOperandException
+
+let (|EAAndRegOf|) (bld: ILowUIRBuilder, opr) =
+  match opr with
+  | OprMem(d, reg) ->
+    regVar bld reg .+ numI64 d bld.RegType, regVar bld reg
+  | _ -> raise InvalidOperandException
+
+let (|SftEAOrZeroOf|) sft (bld: ILowUIRBuilder, opr) =
+  match opr with
+  | OprMem(d, Register.R0) -> numI64 (d <<< sft) bld.RegType
+  | OprMem(d, reg) -> regVar bld reg .+ numI64 (d <<< sft) bld.RegType
+  | _ -> raise InvalidOperandException
+
+let (|SftEAAndRegOf|) sft (bld: ILowUIRBuilder, opr) =
+  match opr with
+  | OprMem(d, reg) ->
+    regVar bld reg .+ numI64 (d <<< sft) bld.RegType, regVar bld reg
+  | _ -> raise InvalidOperandException
+
+let (|AutoOf|) (bld: ILowUIRBuilder, opr) =
+  transOperand bld opr
+
 let minusOne64 = 0xFFFFFFFFFFFFFFFFUL
 
 let minusOne32 = 0xFFFFFFFFu
@@ -81,13 +120,6 @@ let getFourOperands (bld: ILowUIRBuilder) = function
     (bld, opr1), (bld, opr2), (bld, opr3), (bld, opr4)
   | _ -> raise InvalidOperandException
 
-let transOperand bld = function
-  | OprReg reg -> regVar bld reg
-  | OprImm imm -> numU64 imm bld.RegType
-  | OprCY cy -> numU32 (cy |> uint32) 2<rt>
-  | OprL l -> numU32 (l |> uint32) 2<rt>
-  | _ -> Terminator.futureFeature ()
-
 let transTwoOperands bld = function
   | TwoOperands(opr1, opr2) ->
     transOperand bld opr1, transOperand bld opr2
@@ -103,6 +135,14 @@ let transFourOperands bld = function
     transOperand bld opr1, transOperand bld opr2,
     transOperand bld opr3, transOperand bld opr4
   | _ -> raise InvalidOperandException
+
+let getRegisterPair (bld: ILowUIRBuilder) (reg: Register) =
+  if int reg &&& 1 = 0 then
+    match bld.Endianness with
+    | Endian.Big -> reg, int reg + 1 |> LanguagePrimitives.EnumOfValue
+    | Endian.Little -> int reg + 1 |> LanguagePrimitives.EnumOfValue, reg
+    | _ -> raise InvalidEndianException
+  else raise InvalidOperandException
 
 let setOVAndSO bld value =
   let ov = AST.extract (regVar bld Register.XER) 1<rt> 30
@@ -382,6 +422,41 @@ let appendMulAddHighDouble bld dst src1 src2 src3 isSigned =
   let in3 = extFunc 128<rt> src3
   bld <+ (dst := AST.xthi 64<rt> (in1 .* in2 .+ in3))
 
+let getLoadExpr (bld: ILowUIRBuilder) rt addr isRev =
+  match bld.Endianness with
+  | Endian.Big ->
+    (if isRev then AST.loadLE else AST.loadBE) rt addr
+  | Endian.Little ->
+    (if isRev then AST.loadBE else AST.loadLE) rt addr
+  | _ -> raise InvalidEndianException
+
+let appendLoad bld dst ea rt isAlgebraic isRev =
+  let extFunc = if isAlgebraic then AST.sext else AST.zext
+  match rt with
+  | 8<rt> | 16<rt> | 32<rt> ->
+    bld <+ (dst := extFunc 64<rt> (getLoadExpr bld rt ea isRev))
+  | 64<rt> -> bld <+ (dst := getLoadExpr bld rt ea isRev)
+  | _ -> raise InvalidOperandException
+
+let appendLoadWithUpdate bld dst ea baseReg rt isAlgebraic isRev =
+  let tmpEA = tmpVar bld 64<rt>
+  bld <+ (tmpEA := ea)
+  appendLoad bld dst tmpEA rt isAlgebraic isRev
+  bld <+ (baseReg := tmpEA)
+
+let appendStore bld src ea rt isRev =
+  match rt with
+  | 8<rt> | 16<rt> | 32<rt> ->
+    bld <+ (getLoadExpr bld rt ea isRev := AST.xtlo rt src)
+  | 64<rt> -> bld <+ (getLoadExpr bld rt ea isRev := src)
+  | _ -> raise InvalidOperandException
+
+let appendStoreWithUpdate bld src ea baseReg rt isRev =
+  let tmpEA = tmpVar bld 64<rt>
+  bld <+ (tmpEA := ea)
+  appendStore bld src tmpEA rt isRev
+  bld <+ (baseReg := tmpEA)
+
 let sideEffects (ins: Instruction) insLen bld eff =
   bld <!-- (ins.Address, insLen)
   bld <+ AST.sideEffect eff
@@ -547,6 +622,98 @@ let maddld (ins: Instruction) insLen bld isSigned =
   appendMulAddLowDouble bld dst src1 src2 src3 isSigned
   bld --!> insLen
 
+let lxx (ins: Instruction) insLen bld rt isAlgebraic isRev sft =
+  match getTwoOperands bld ins.Operands with
+  | AutoOf dst, SftEAOrZeroOf sft ea ->
+    bld <!-- (ins.Address, insLen)
+    appendLoad bld dst ea rt isAlgebraic isRev
+    bld --!> insLen
+
+let lxxx (ins: Instruction) insLen bld rt isAlgebraic isRev =
+  match getThreeOperands bld ins.Operands with
+  | AutoOf dst, RegOrZeroOf b, AutoOf d ->
+    bld <!-- (ins.Address, insLen)
+    appendLoad bld dst (b .+ d) rt isAlgebraic isRev
+    bld --!> insLen
+
+let lxxu (ins: Instruction) insLen bld rt isAlgebraic isRev sft =
+  match ins.Operands with
+  | TwoOperands(OprReg dst, OprMem(_, b)) when b = Register.R0 || dst = b ->
+    raise InvalidOperandException
+  | _ -> ()
+  match getTwoOperands bld ins.Operands with
+  | AutoOf dst, SftEAAndRegOf sft (ea, baseReg) ->
+    bld <!-- (ins.Address, insLen)
+    appendLoadWithUpdate bld dst ea baseReg rt isAlgebraic isRev
+    bld --!> insLen
+
+let lxxux (ins: Instruction) insLen bld rt isAlgebraic isRev =
+  match ins.Operands with
+  | ThreeOperands(OprReg dst, OprReg b, _) when b = Register.R0 || dst = b ->
+    raise InvalidOperandException
+  | _ -> ()
+  let dst, b, d = transThreeOperands bld ins.Operands
+  bld <!-- (ins.Address, insLen)
+  appendLoadWithUpdate bld dst (b .+ d) b rt isAlgebraic isRev
+  bld --!> insLen
+
+let lq (ins: Instruction) insLen bld sft =
+  match ins.Operands with
+  | TwoOperands(OprReg dst, OprMem(_, b)) when dst = b ->
+    raise InvalidOperandException
+  | _ -> ()
+  match getTwoOperands bld ins.Operands with
+  | RawRegOf dst, SftEAOrZeroOf sft ea ->
+    bld <!-- (ins.Address, insLen)
+    let dst1, dst2 = getRegisterPair bld dst
+    appendLoad bld (regVar bld dst1) ea 64<rt> false false
+    appendLoad bld (regVar bld dst2) (ea .+ numI32 8 64<rt>) 64<rt> false false
+    bld --!> insLen
+
+let stx (ins: Instruction) insLen bld rt isRev sft =
+  match getTwoOperands bld ins.Operands with
+  | AutoOf src, SftEAOrZeroOf sft ea ->
+    bld <!-- (ins.Address, insLen)
+    appendStore bld src ea rt isRev
+    bld --!> insLen
+
+let stxx (ins: Instruction) insLen bld rt isRev =
+  match getThreeOperands bld ins.Operands with
+  | AutoOf src, RegOrZeroOf b, AutoOf d ->
+    bld <!-- (ins.Address, insLen)
+    appendStore bld src (b .+ d) rt isRev
+    bld --!> insLen
+
+let stxu (ins: Instruction) insLen bld rt isRev sft =
+  match ins.Operands with
+  | TwoOperands(_, OprMem(_, b)) when b = Register.R0 ->
+    raise InvalidOperandException
+  | _ -> ()
+  match getTwoOperands bld ins.Operands with
+  | AutoOf src, SftEAAndRegOf sft (ea, baseReg) ->
+    bld <!-- (ins.Address, insLen)
+    appendStoreWithUpdate bld src ea baseReg rt isRev
+    bld --!> insLen
+
+let stxux (ins: Instruction) insLen bld rt isRev =
+  match ins.Operands with
+  | ThreeOperands(_, OprReg b, _) when b = Register.R0 ->
+    raise InvalidOperandException
+  | _ -> ()
+  let src, b, d = transThreeOperands bld ins.Operands
+  bld <!-- (ins.Address, insLen)
+  appendStoreWithUpdate bld src (b .+ d) b rt isRev
+  bld --!> insLen
+
+let stq (ins: Instruction) insLen bld sft =
+  match getTwoOperands bld ins.Operands with
+  | RawRegOf src, SftEAOrZeroOf sft ea ->
+    bld <!-- (ins.Address, insLen)
+    let src1, src2 = getRegisterPair bld src
+    appendStore bld (regVar bld src1) ea 64<rt> false
+    appendStore bld (regVar bld src2) (ea .+ numI32 8 64<rt>) 64<rt> false
+    bld --!> insLen
+
 /// Translate IR.
 let translate (ins: Instruction) insLen bld =
   match ins.Opcode with
@@ -658,4 +825,51 @@ let translate (ins: Instruction) insLen bld =
   | Op.DIVDEUO_DOT -> divde ins insLen bld false true true
   | Op.MODSD -> modd ins insLen bld false
   | Op.MODUD -> modd ins insLen bld true
+  | Op.LBZ -> lxx ins insLen bld 8<rt> false false 0
+  | Op.LBZX -> lxxx ins insLen bld 8<rt> false false
+  | Op.LBZU -> lxxu ins insLen bld 8<rt> false false 0
+  | Op.LBZUX -> lxxux ins insLen bld 8<rt> false false
+  | Op.LHZ -> lxx ins insLen bld 16<rt> false false 0
+  | Op.LHZX -> lxxx ins insLen bld 16<rt> false false
+  | Op.LHZU -> lxxu ins insLen bld 16<rt> false false 0
+  | Op.LHZUX -> lxxux ins insLen bld 16<rt> false false
+  | Op.LHA -> lxx ins insLen bld 16<rt> true false 0
+  | Op.LHAX -> lxxx ins insLen bld 16<rt> true false
+  | Op.LHAU -> lxxu ins insLen bld 16<rt> true false 0
+  | Op.LHAUX -> lxxux ins insLen bld 16<rt> true false
+  | Op.LWZ -> lxx ins insLen bld 32<rt> false false 0
+  | Op.LWZX -> lxxx ins insLen bld 32<rt> false false
+  | Op.LWZU -> lxxu ins insLen bld 32<rt> false false 0
+  | Op.LWZUX -> lxxux ins insLen bld 32<rt> false false
+  | Op.LWA -> lxx ins insLen bld 32<rt> true false 2
+  | Op.LWAX -> lxxx ins insLen bld 32<rt> true false
+  | Op.LWAUX -> lxxux ins insLen bld 32<rt> true false
+  | Op.LD -> lxx ins insLen bld 64<rt> false false 2
+  | Op.LDX -> lxxx ins insLen bld 64<rt> false false
+  | Op.LDU -> lxxu ins insLen bld 64<rt> false false 2
+  | Op.LDUX -> lxxux ins insLen bld 64<rt> false false
+  | Op.STB -> stx ins insLen bld 8<rt> false 0
+  | Op.STBX -> stxx ins insLen bld 8<rt> false
+  | Op.STBU -> stxu ins insLen bld 8<rt> false 0
+  | Op.STBUX -> stxux ins insLen bld 8<rt> false
+  | Op.STH -> stx ins insLen bld 16<rt> false 0
+  | Op.STHX -> stxx ins insLen bld 16<rt> false
+  | Op.STHU -> stxu ins insLen bld 16<rt> false 0
+  | Op.STHUX -> stxux ins insLen bld 16<rt> false
+  | Op.STW -> stx ins insLen bld 32<rt> false 0
+  | Op.STWX -> stxx ins insLen bld 32<rt> false
+  | Op.STWU -> stxu ins insLen bld 32<rt> false 0
+  | Op.STWUX -> stxux ins insLen bld 32<rt> false
+  | Op.STD -> stx ins insLen bld 64<rt> false 2
+  | Op.STDX -> stxx ins insLen bld 64<rt> false
+  | Op.STDU -> stxu ins insLen bld 64<rt> false 2
+  | Op.STDUX -> stxux ins insLen bld 64<rt> false
+  | Op.LQ -> lq ins insLen bld 4
+  | Op.STQ -> stq ins insLen bld 2
+  | Op.LHBRX -> lxxx ins insLen bld 16<rt> false true
+  | Op.LWBRX -> lxxx ins insLen bld 32<rt> false true
+  | Op.LDBRX -> lxxx ins insLen bld 64<rt> false true
+  | Op.STHBRX -> stxx ins insLen bld 16<rt> true
+  | Op.STWBRX -> stxx ins insLen bld 32<rt> true
+  | Op.STDBRX -> stxx ins insLen bld 64<rt> true
   | o -> raise (NotImplementedIRException(Disasm.opCodeToString o))
