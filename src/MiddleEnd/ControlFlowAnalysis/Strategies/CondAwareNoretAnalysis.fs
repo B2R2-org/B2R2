@@ -32,7 +32,7 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
-open type B2R2.MiddleEnd.DataFlow.UntouchedValueDomain.UntouchedTag
+open type UntouchedValueDomain.UntouchedTag
 
 /// This is a non-returning function identification strategy that can check
 /// conditionally non-returning functions. We currently support only those
@@ -212,6 +212,33 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | None -> NotNoRet
     | Some dom -> ConditionalNoRet <| Map.find dom argNumMap
 
+  /// Checks if the given exit vertex has a corrupted stack pointer value before
+  /// executing the return instruction. This means we cannot statically decide
+  /// whether the return instruction will jump to the caller or not.
+  let hasUndecidableReturnTarget ctx v =
+    let sp = ctx.BinHandle.RegisterFactory.StackPointer.Value
+    let fp = ctx.BinHandle.RegisterFactory.FramePointer.Value
+    (v: IVertex<LowUIRBasicBlock>).VData.Internals.LiftedInstructions
+    |> Array.exists (fun ins ->
+      ins.Stmts
+      |> Array.exists (fun stmt ->
+        match stmt with
+        | LowUIR.Put(LowUIR.Var(_, dst, _, _),
+                     LowUIR.Var(_, src, _, _), _) when dst = sp && src <> fp ->
+          true
+        | _ ->
+          false))
+#if CFGDEBUG
+    |> fun isCorrupted ->
+      if isCorrupted then
+        let blkAddr = v.VData.Internals.PPoint.Address
+        let fnAddr = ctx.FunctionAddress
+        dbglog ctx.ThreadID (nameof CondAwareNoretAnalysis)
+        <| $"[*] Undecidable return: {blkAddr:x} @ {fnAddr}"
+      else ()
+      isCorrupted
+#endif
+
   let analyze ctx condNoRetCalls =
     let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create ctx.CFG df
@@ -226,10 +253,11 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       i <- i + 1
       let vData = v.VData :> ILowUIRBasicBlock
       if not vData.IsAbstract then
-        if vData.LastInstruction.IsIndirectBranch then
+        if vData.LastInstruction.IsRET then
+          if hasUndecidableReturnTarget ctx v then updateStatus NoRet
+          else updateStatus (getStatusFromDominators dom absVSet argNumMap v)
+        elif vData.LastInstruction.IsIndirectBranch then
           updateStatus NotNoRet
-        elif vData.LastInstruction.IsRET then
-          updateStatus (getStatusFromDominators dom absVSet argNumMap v)
         else ()
       else
         match vData.AbstractContent.ReturningStatus with
