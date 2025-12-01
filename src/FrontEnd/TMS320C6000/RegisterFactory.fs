@@ -33,7 +33,7 @@ open B2R2.FrontEnd.BinLifter
 do ()
 
 /// Represents a factory for accessing various TMS320C6000 register variables.
-type RegisterFactory(_wordSize) =
+type RegisterFactory() =
   interface IRegisterFactory with
     member _.GetRegVar(id: RegisterID): Expr =
       match Register.ofRegID id with
