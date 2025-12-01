@@ -542,6 +542,31 @@ let appendCompare bld reg target1 target2 isSigned =
   let c = AST.ite eqCond (AST.num1 3<rt>) signCheck
   bld <+ (reg := AST.concat c so)
 
+let appendCountZeros bld dst src ofs1 ofs2 =
+  let rtRange = ((abs (ofs1 - ofs2)) + 1) * 1<rt>
+  let tmpSrc = tmpVar bld rtRange
+  let tmpCond = tmpVar bld 1<rt>
+  let rec countZeros rt pos =
+    if ofs1 < ofs2 then bld <+ (tmpCond := AST.xtlo rt tmpSrc == AST.num0 rt)
+    else bld <+ (tmpCond := AST.xthi rt tmpSrc == AST.num0 rt)
+    bld <+ (AST.extract dst 1<rt> pos := tmpCond)
+    if pos = 0 then ()
+    else
+      let newSrc =
+        if ofs1 < ofs2 then AST.zext rtRange (AST.xthi rt tmpSrc)
+        else AST.zext rtRange (AST.xtlo rt tmpSrc)
+      bld <+ (tmpSrc := AST.ite tmpCond newSrc tmpSrc)
+      countZeros (rt / 2) (pos - 1)
+  bld <+ (dst := AST.num0 64<rt>)
+  match rtRange with
+  | 64<rt> ->
+    bld <+ (tmpSrc := src)
+    countZeros 32<rt> 5
+  | 32<rt> ->
+    bld <+ (tmpSrc := AST.xtlo 32<rt> src)
+    countZeros 16<rt> 4
+  | _ -> raise InvalidOperandException
+
 let sideEffects (ins: Instruction) insLen bld eff =
   bld <!-- (ins.Address, insLen)
   bld <+ AST.sideEffect eff
@@ -865,13 +890,90 @@ let cmpi (ins: Instruction) insLen bld isSigned =
     else appendCompare bld dst src1 src2 isSigned
     bld --!> insLen
 
-let simplebinop (ins: Instruction) insLen bld op =
+let cntxzx (ins: Instruction) insLen bld ofs1 ofs2 rc =
+  let dst, src = transTwoOperands bld ins.Operands
+  bld <!-- (ins.Address, insLen)
+  appendCountZeros bld dst src ofs1 ofs2
+  if rc then setRecord0 bld dst else ()
+  bld --!> insLen
+
+let cmpb (ins: Instruction) insLen bld =
+  let dst, src1, src2 = transThreeOperands bld ins.Operands
+  bld <!-- (ins.Address, insLen)
+  for i in 0 .. 7 do
+    let src1B = AST.extract src1 8<rt> (i * 8)
+    let src2B = AST.extract src2 8<rt> (i * 8)
+    let dstB = AST.extract dst 8<rt> (i * 8)
+    let b1 = numU32 0xFFu 8<rt>
+    let b0 = AST.num0 8<rt>
+    bld <+ (dstB := AST.ite (src1B == src2B) b1 b0)
+  bld --!> insLen
+
+let exts (ins: Instruction) insLen bld rt rc =
+  let dst, src = transTwoOperands bld ins.Operands
+  bld <!-- (ins.Address, insLen)
+  bld <+ (dst := AST.sext 64<rt> (AST.xtlo rt src))
+  if rc then setRecord0 bld dst else ()
+  bld --!> insLen
+
+let popcnt (ins: Instruction) insLen bld rt =
+  let dst, src = transTwoOperands bld ins.Operands
+  let size = rt / 1<rt>
+  bld <!-- (ins.Address, insLen)
+  for i in 0..size..63 do
+    let sumFolder expr j =
+      expr .+ AST.zext rt (AST.extract src 1<rt> (i + j))
+    let firstTerm = AST.zext rt (AST.extract src 1<rt> i)
+    let addExpr = Seq.fold sumFolder firstTerm (seq {1 .. (size - 1)})
+    bld <+ (AST.extract dst rt i := addExpr)
+  bld --!> insLen
+
+let prty (ins: Instruction) insLen bld rt =
+  let dst, src = transTwoOperands bld ins.Operands
+  let tmpSrc = tmpVar bld rt
+  let rec calcParity rt =
+    let srcLow = AST.xtlo rt tmpSrc
+    let srcHigh = AST.extract tmpSrc rt (rt / 1<rt>)
+    bld <+ (srcLow := srcLow <+> srcHigh)
+    if rt = 1<rt> then ()
+    else calcParity (rt / 2)
+  let size = rt / 1<rt>
+  bld <!-- (ins.Address, insLen)
+  for i in 0..size..63 do
+    bld <+ (tmpSrc := AST.extract src rt i)
+    calcParity (rt / 2)
+    bld <+ (AST.extract dst rt i := AST.zext rt (AST.xtlo 1<rt> tmpSrc))
+  bld --!> insLen
+
+let simpleBinOp (ins: Instruction) insLen bld op =
   let dst, src1, src2 = transThreeOperands bld ins.Operands
   bld <!-- (ins.Address, insLen)
   bld <+ (dst := op src1 src2)
   bld --!> insLen
 
-let simplemove (ins: Instruction) insLen bld =
+let simpleBinOpRc (ins: Instruction) insLen bld op =
+  let dst, src1, src2 = transThreeOperands bld ins.Operands
+  bld <!-- (ins.Address, insLen)
+  bld <+ (dst := op src1 src2)
+  setRecord0 bld dst
+  bld --!> insLen
+
+let simpleBinOpSft (ins: Instruction) insLen bld sft op =
+  match getThreeOperands bld ins.Operands with
+  | AutoOf dst, AutoOf src1, SftNumOf sft src2 ->
+    bld <!-- (ins.Address, insLen)
+    bld <+ (dst := op src1 src2)
+    bld --!> insLen
+
+let simpleBinOpSftRc (ins: Instruction) insLen bld sft op =
+  match getThreeOperands bld ins.Operands with
+  | AutoOf dst, AutoOf src1, SftNumOf sft src2 ->
+    bld <!-- (ins.Address, insLen)
+    bld <+ (dst := op src1 src2)
+    setRecord0 bld dst
+    bld --!> insLen
+
+let simpleMove (ins: Instruction) insLen bld =
   let dst, src = transTwoOperands bld ins.Operands
   bld <!-- (ins.Address, insLen)
   bld <+ (dst := src)
@@ -1049,17 +1151,59 @@ let translate (ins: Instruction) insLen bld =
   | Op.BCCTRL -> bcctr ins insLen bld true
   | Op.BCTAR -> bctar ins insLen bld false
   | Op.BCTARL -> bctar ins insLen bld true
-  | Op.CRAND -> simplebinop ins insLen bld (.&)
-  | Op.CRNAND -> simplebinop ins insLen bld (fun x y -> AST.not (x .& y))
-  | Op.CROR -> simplebinop ins insLen bld (.|)
-  | Op.CRXOR -> simplebinop ins insLen bld (<+>)
-  | Op.CRNOR -> simplebinop ins insLen bld (fun x y -> AST.not (x .| y))
-  | Op.CREQV -> simplebinop ins insLen bld (==)
-  | Op.CRANDC -> simplebinop ins insLen bld (fun x y -> x .& AST.not y)
-  | Op.CRORC -> simplebinop ins insLen bld (fun x y -> x .| AST.not y)
-  | Op.MCRF -> simplemove ins insLen bld
+  | Op.CRAND -> simpleBinOp ins insLen bld (.&)
+  | Op.CRNAND -> simpleBinOp ins insLen bld (fun x y -> AST.not (x .& y))
+  | Op.CROR -> simpleBinOp ins insLen bld (.|)
+  | Op.CRXOR -> simpleBinOp ins insLen bld (<+>)
+  | Op.CRNOR -> simpleBinOp ins insLen bld (fun x y -> AST.not (x .| y))
+  | Op.CREQV -> simpleBinOp ins insLen bld (==)
+  | Op.CRANDC -> simpleBinOp ins insLen bld (fun x y -> x .& AST.not y)
+  | Op.CRORC -> simpleBinOp ins insLen bld (fun x y -> x .| AST.not y)
+  | Op.MCRF -> simpleMove ins insLen bld
   | Op.CMPI -> cmpi ins insLen bld true
   | Op.CMP -> cmp ins insLen bld true
   | Op.CMPLI -> cmpi ins insLen bld false
   | Op.CMPL -> cmp ins insLen bld false
+  | Op.ANDI_DOT -> simpleBinOpRc ins insLen bld (.&)
+  | Op.ANDIS_DOT -> simpleBinOpSftRc ins insLen bld 16 (.&)
+  | Op.ORI -> simpleBinOp ins insLen bld (.|)
+  | Op.ORIS -> simpleBinOpSft ins insLen bld 16 (.|)
+  | Op.XORI -> simpleBinOp ins insLen bld (<+>)
+  | Op.XORIS -> simpleBinOpSft ins insLen bld 16 (<+>)
+  | Op.AND -> simpleBinOp ins insLen bld (.&)
+  | Op.AND_DOT -> simpleBinOpRc ins insLen bld (.&)
+  | Op.XOR -> simpleBinOp ins insLen bld (<+>)
+  | Op.XOR_DOT -> simpleBinOpRc ins insLen bld (<+>)
+  | Op.NAND -> simpleBinOp ins insLen bld (fun x y -> AST.not (x .& y))
+  | Op.NAND_DOT -> simpleBinOpRc ins insLen bld (fun x y -> AST.not (x .& y))
+  | Op.OR -> simpleBinOp ins insLen bld (.|)
+  | Op.OR_DOT -> simpleBinOpRc ins insLen bld (.|)
+  | Op.NOR -> simpleBinOp ins insLen bld (fun x y -> AST.not (x .| y))
+  | Op.NOR_DOT -> simpleBinOpRc ins insLen bld (fun x y -> AST.not (x .| y))
+  | Op.ANDC -> simpleBinOp ins insLen bld (fun x y -> x .& AST.not y)
+  | Op.ANDC_DOT -> simpleBinOpRc ins insLen bld (fun x y -> x .& AST.not y)
+  | Op.EQV -> simpleBinOp ins insLen bld (fun x y -> AST.not (x <+> y))
+  | Op.EQV_DOT -> simpleBinOpRc ins insLen bld (fun x y -> AST.not (x <+> y))
+  | Op.ORC -> simpleBinOp ins insLen bld (fun x y -> x .| AST.not y)
+  | Op.ORC_DOT -> simpleBinOpRc ins insLen bld (fun x y -> x .| AST.not y)
+  | Op.EXTSB -> exts ins insLen bld 8<rt> false
+  | Op.EXTSB_DOT -> exts ins insLen bld 8<rt> true
+  | Op.EXTSH -> exts ins insLen bld 16<rt> false
+  | Op.EXTSH_DOT -> exts ins insLen bld 16<rt> true
+  | Op.EXTSW -> exts ins insLen bld 32<rt> false
+  | Op.EXTSW_DOT -> exts ins insLen bld 32<rt> true
+  | Op.CNTLZW -> cntxzx ins insLen bld 31 0 false
+  | Op.CNTLZW_DOT -> cntxzx ins insLen bld 31 0 true
+  | Op.CNTTZW -> cntxzx ins insLen bld 0 31 false
+  | Op.CNTTZW_DOT -> cntxzx ins insLen bld 0 31 true
+  | Op.CNTLZD -> cntxzx ins insLen bld 63 0 false
+  | Op.CNTLZD_DOT -> cntxzx ins insLen bld 63 0 true
+  | Op.CNTTZD -> cntxzx ins insLen bld 0 63 false
+  | Op.CNTTZD_DOT -> cntxzx ins insLen bld 0 63 true
+  | Op.CMPB -> cmpb ins insLen bld
+  | Op.POPCNTB -> popcnt ins insLen bld 8<rt>
+  | Op.POPCNTW -> popcnt ins insLen bld 32<rt>
+  | Op.POPCNTD -> popcnt ins insLen bld 64<rt>
+  | Op.PRTYD -> prty ins insLen bld 64<rt>
+  | Op.PRTYW -> prty ins insLen bld 32<rt>
   | o -> raise (NotImplementedIRException(Disasm.opCodeToString o))

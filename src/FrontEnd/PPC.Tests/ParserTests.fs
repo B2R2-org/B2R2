@@ -56,9 +56,6 @@ module private Shortcut =
     static member BO(bo) =
       OprBO bo
 
-    static member BI(bi) =
-      OprBI bi
-
     static member BH(bh) =
       OprBH bh
 
@@ -617,61 +614,61 @@ type ArithmeticClass() =
   [<TestMethod>]
   member _.``[PPC64] Branch Instruction Test (5)``() =
     "42C561B8"
-    ++ (BC ** [ O.BO 0x16uy; O.BI 0x5uy; O.Addr 0x61B8UL ])
+    ++ (BC ** [ O.BO 0x16uy; O.Reg CR1_1; O.Addr 0x61B8UL ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PPC64] Branch Instruction Test (6)``() =
     "4066D85A"
-    ++ (BCA ** [ O.BO 0x3uy; O.BI 0x6uy; O.Addr 0xFFFFFFFFFFFFD858UL ])
+    ++ (BCA ** [ O.BO 0x3uy; O.Reg CR1_2; O.Addr 0xFFFFFFFFFFFFD858UL ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PPC64] Branch Instruction Test (7)``() =
     "4009FEB9"
-    ++ (BCL ** [ O.BO 0x0uy; O.BI 0x9uy; O.Addr 0xFFFFFFFFFFFFFEB8UL ])
+    ++ (BCL ** [ O.BO 0x0uy; O.Reg CR2_1; O.Addr 0xFFFFFFFFFFFFFEB8UL ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PPC64] Branch Instruction Test (8)``() =
     "42965543"
-    ++ (BCLA ** [ O.BO 0x14uy; O.BI 0x16uy; O.Addr 0x5540UL ])
+    ++ (BCLA ** [ O.BO 0x14uy; O.Reg CR5_2; O.Addr 0x5540UL ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PPC64] Branch Instruction Test (9)``() =
     "4F440820"
-    ++ (BCLR ** [ O.BO 0x1Auy; O.BI 0x4uy; O.BH 0x1uy ])
+    ++ (BCLR ** [ O.BO 0x1Auy; O.Reg CR1_0; O.BH 0x1uy ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PPC64] Branch Instruction Test (10)``() =
     "4E2B1821"
-    ++ (BCLRL ** [ O.BO 0x11uy; O.BI 0xBuy; O.BH 0x3uy ])
+    ++ (BCLRL ** [ O.BO 0x11uy; O.Reg CR2_3; O.BH 0x3uy ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PPC64] Branch Instruction Test (11)``() =
     "4E4A0420"
-    ++ (BCCTR ** [ O.BO 0x12uy; O.BI 0xAuy; O.BH 0x0uy ])
+    ++ (BCCTR ** [ O.BO 0x12uy; O.Reg CR2_2; O.BH 0x0uy ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PPC64] Branch Instruction Test (12)``() =
     "4C371C21"
-    ++ (BCCTRL ** [ O.BO 0x1uy; O.BI 0x17uy; O.BH 0x3uy ])
+    ++ (BCCTRL ** [ O.BO 0x1uy; O.Reg CR5_3; O.BH 0x3uy ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PPC64] Branch Instruction Test (13)``() =
     "4DC20460"
-    ++ (BCTAR ** [ O.BO 0xEuy; O.BI 0x2uy; O.BH 0x0uy ])
+    ++ (BCTAR ** [ O.BO 0xEuy; O.Reg CR0_2; O.BH 0x0uy ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
   member _.``[PPC64] Branch Instruction Test (14)``() =
     "4C1A1C61"
-    ++ (BCTARL ** [ O.BO 0x0uy; O.BI 0x1Auy; O.BH 0x3uy ])
+    ++ (BCTARL ** [ O.BO 0x0uy; O.Reg CR6_2; O.BH 0x3uy ])
     ||> testPPC WordSize.Bit64
 
   [<TestMethod>]
