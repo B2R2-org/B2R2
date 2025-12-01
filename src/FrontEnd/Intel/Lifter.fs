@@ -208,6 +208,8 @@ let translate (ins: Instruction) insLen bld =
   | OP.LMSW | OP.LSL | OP.LTR | OP.OUT | OP.SGDT
   | OP.SIDT | OP.SLDT | OP.SMSW | OP.STR | OP.VERR ->
     LiftingUtils.sideEffects bld ins insLen UnsupportedPrivInstr
+  | OP.SHA1MSG1 | OP.SHA256RNDS2 ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
   | OP.MOVD -> MMXLifter.movd ins insLen bld
   | OP.MOVQ -> MMXLifter.movq ins insLen bld
   | OP.PACKSSDW -> MMXLifter.packssdw ins insLen bld
