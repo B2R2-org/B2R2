@@ -31,16 +31,54 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 
+let transRegister bld = function
+  | Register.CR0_0 -> AST.extract (regVar bld Register.CR0) 1<rt> 3
+  | Register.CR0_1 -> AST.extract (regVar bld Register.CR0) 1<rt> 2
+  | Register.CR0_2 -> AST.extract (regVar bld Register.CR0) 1<rt> 1
+  | Register.CR0_3 -> AST.extract (regVar bld Register.CR0) 1<rt> 0
+  | Register.CR1_0 -> AST.extract (regVar bld Register.CR1) 1<rt> 3
+  | Register.CR1_1 -> AST.extract (regVar bld Register.CR1) 1<rt> 2
+  | Register.CR1_2 -> AST.extract (regVar bld Register.CR1) 1<rt> 1
+  | Register.CR1_3 -> AST.extract (regVar bld Register.CR1) 1<rt> 0
+  | Register.CR2_0 -> AST.extract (regVar bld Register.CR2) 1<rt> 3
+  | Register.CR2_1 -> AST.extract (regVar bld Register.CR2) 1<rt> 2
+  | Register.CR2_2 -> AST.extract (regVar bld Register.CR2) 1<rt> 1
+  | Register.CR2_3 -> AST.extract (regVar bld Register.CR2) 1<rt> 0
+  | Register.CR3_0 -> AST.extract (regVar bld Register.CR3) 1<rt> 3
+  | Register.CR3_1 -> AST.extract (regVar bld Register.CR3) 1<rt> 2
+  | Register.CR3_2 -> AST.extract (regVar bld Register.CR3) 1<rt> 1
+  | Register.CR3_3 -> AST.extract (regVar bld Register.CR3) 1<rt> 0
+  | Register.CR4_0 -> AST.extract (regVar bld Register.CR4) 1<rt> 3
+  | Register.CR4_1 -> AST.extract (regVar bld Register.CR4) 1<rt> 2
+  | Register.CR4_2 -> AST.extract (regVar bld Register.CR4) 1<rt> 1
+  | Register.CR4_3 -> AST.extract (regVar bld Register.CR4) 1<rt> 0
+  | Register.CR5_0 -> AST.extract (regVar bld Register.CR5) 1<rt> 3
+  | Register.CR5_1 -> AST.extract (regVar bld Register.CR5) 1<rt> 2
+  | Register.CR5_2 -> AST.extract (regVar bld Register.CR5) 1<rt> 1
+  | Register.CR5_3 -> AST.extract (regVar bld Register.CR5) 1<rt> 0
+  | Register.CR6_0 -> AST.extract (regVar bld Register.CR6) 1<rt> 3
+  | Register.CR6_1 -> AST.extract (regVar bld Register.CR6) 1<rt> 2
+  | Register.CR6_2 -> AST.extract (regVar bld Register.CR6) 1<rt> 1
+  | Register.CR6_3 -> AST.extract (regVar bld Register.CR6) 1<rt> 0
+  | Register.CR7_0 -> AST.extract (regVar bld Register.CR7) 1<rt> 3
+  | Register.CR7_1 -> AST.extract (regVar bld Register.CR7) 1<rt> 2
+  | Register.CR7_2 -> AST.extract (regVar bld Register.CR7) 1<rt> 1
+  | Register.CR7_3 -> AST.extract (regVar bld Register.CR7) 1<rt> 0
+  | reg -> regVar bld reg
+
 let transOperand bld = function
-  | OprReg reg -> regVar bld reg
+  | OprReg reg -> transRegister bld reg
   | OprImm imm -> numU64 imm bld.RegType
+  | OprAddr addr -> numU64 addr 64<rt>
   | OprCY cy -> numU32 (cy |> uint32) 2<rt>
   | OprL l -> numU32 (l |> uint32) 2<rt>
   | _ -> Terminator.futureFeature ()
 
 let (|RawNumOf|) (_, opr) =
   match opr with
-  | OprImm imm -> imm
+  | OprImm imm -> imm |> uint64
+  | OprBO bo -> bo |> uint64
+  | OprBH bh -> bh |> uint64
   | _ -> raise InvalidOperandException
 
 let (|RawSftNumOf|) sft (_, opr) =
@@ -55,13 +93,13 @@ let (|RawRegOf|) (bld, opr) =
 
 let (|RegOf|) (bld, opr) =
   match opr with
-  | OprReg reg -> regVar bld reg
+  | OprReg reg -> transRegister bld reg
   | _ -> raise InvalidOperandException
 
 let (|RegOrZeroOf|) (bld: ILowUIRBuilder, opr) =
   match opr with
   | OprReg Register.R0 -> AST.num0 bld.RegType
-  | OprReg reg -> regVar bld reg
+  | OprReg reg -> transRegister bld reg
   | _ -> raise InvalidOperandException
 
 let (|NumOf|) (bld: ILowUIRBuilder, opr) =
@@ -77,25 +115,26 @@ let (|SftNumOf|) sft (bld: ILowUIRBuilder, opr) =
 let (|EAOrZeroOf|) (bld: ILowUIRBuilder, opr) =
   match opr with
   | OprMem(d, Register.R0) -> numI64 d bld.RegType
-  | OprMem(d, reg) -> regVar bld reg .+ numI64 d bld.RegType
+  | OprMem(d, reg) -> transRegister bld reg .+ numI64 d bld.RegType
   | _ -> raise InvalidOperandException
 
 let (|EAAndRegOf|) (bld: ILowUIRBuilder, opr) =
   match opr with
   | OprMem(d, reg) ->
-    regVar bld reg .+ numI64 d bld.RegType, regVar bld reg
+    transRegister bld reg .+ numI64 d bld.RegType, transRegister bld reg
   | _ -> raise InvalidOperandException
 
 let (|SftEAOrZeroOf|) sft (bld: ILowUIRBuilder, opr) =
   match opr with
   | OprMem(d, Register.R0) -> numI64 (d <<< sft) bld.RegType
-  | OprMem(d, reg) -> regVar bld reg .+ numI64 (d <<< sft) bld.RegType
+  | OprMem(d, reg) -> transRegister bld reg .+ numI64 (d <<< sft) bld.RegType
   | _ -> raise InvalidOperandException
 
 let (|SftEAAndRegOf|) sft (bld: ILowUIRBuilder, opr) =
   match opr with
   | OprMem(d, reg) ->
-    regVar bld reg .+ numI64 (d <<< sft) bld.RegType, regVar bld reg
+    transRegister bld reg .+ numI64 (d <<< sft) bld.RegType,
+    transRegister bld reg
   | _ -> raise InvalidOperandException
 
 let (|AutoOf|) (bld: ILowUIRBuilder, opr) =
@@ -104,6 +143,11 @@ let (|AutoOf|) (bld: ILowUIRBuilder, opr) =
 let minusOne64 = 0xFFFFFFFFFFFFFFFFUL
 
 let minusOne32 = 0xFFFFFFFFu
+
+let getOneOperand (bld: ILowUIRBuilder) = function
+  | OneOperand opr ->
+    (bld, opr)
+  | _ -> raise InvalidOperandException
 
 let getTwoOperands (bld: ILowUIRBuilder) = function
   | TwoOperands(opr1, opr2) ->
@@ -118,6 +162,11 @@ let getThreeOperands (bld: ILowUIRBuilder) = function
 let getFourOperands (bld: ILowUIRBuilder) = function
   | FourOperands(opr1, opr2, opr3, opr4) ->
     (bld, opr1), (bld, opr2), (bld, opr3), (bld, opr4)
+  | _ -> raise InvalidOperandException
+
+let transOneOperand bld = function
+  | OneOperand opr ->
+    transOperand bld opr
   | _ -> raise InvalidOperandException
 
 let transTwoOperands bld = function
@@ -181,7 +230,7 @@ let setAddOVs bld in1 in2 out =
   setOVAndSO bld (getAddOV bld in1 in2 out 63)
   setOV32 bld (getAddOV bld in1 in2 out 31)
 
-let getRecord bld target =
+let getRecord0 bld target =
   let so = AST.extract (regVar bld Register.XER) 1<rt> 31
   let msb = AST.xthi 1<rt> target
   let eqCond = target == AST.num0 64<rt>
@@ -189,17 +238,17 @@ let getRecord bld target =
   let c = AST.ite eqCond (AST.num1 3<rt>) signCheck
   AST.concat c so
 
-let setRecord bld target =
+let setRecord0 bld target =
   let cr0 = regVar bld Register.CR0
-  bld <+ (cr0 := getRecord bld target)
+  bld <+ (cr0 := getRecord0 bld target)
 
-let setRecordUndef bld target undefCond =
+let setRecord0Undef bld target undefCond =
   let cr0 = regVar bld Register.CR0
   let so = AST.extract (regVar bld Register.XER) 1<rt> 31
   let undefCr0 = AST.concat (AST.xthi 3<rt> cr0) so
-  bld <+ (cr0 := AST.ite undefCond undefCr0 (getRecord bld target))
+  bld <+ (cr0 := AST.ite undefCond undefCr0 (getRecord0 bld target))
 
-let setRecordSO bld =
+let setRecord0SO bld =
   let cr0 = regVar bld Register.CR0
   let so = AST.extract (regVar bld Register.XER) 1<rt> 31
   bld <+ (AST.xtlo 1<rt> cr0 := so)
@@ -224,7 +273,7 @@ let setAddCarrys bld in1 in2 out =
 let appendAdd bld dst src1 src2 ovCond rcCond caCond =
   bld <+ (dst := src1 .+ src2)
   if ovCond then setAddOVs bld src1 src2 dst else ()
-  if rcCond then setRecord bld dst else ()
+  if rcCond then setRecord0 bld dst else ()
   if caCond then setAddCarrys bld src1 src2 dst else ()
 
 let appendAddExt bld dst src1 src2 ovCond rcCond caCond =
@@ -233,7 +282,7 @@ let appendAddExt bld dst src1 src2 ovCond rcCond caCond =
   let sum = src1 .+ src2
   bld <+ (dst := AST.ite ca (sum .+ AST.num1 64<rt>) sum)
   if ovCond then setAddOVs bld src1 src2 dst else ()
-  if rcCond then setRecord bld dst else ()
+  if rcCond then setRecord0 bld dst else ()
   if caCond then setAddCarrys bld src1 src2 dst else ()
 
 let appendSubf bld dst src1 src2 ovCond rcCond caCond =
@@ -241,7 +290,7 @@ let appendSubf bld dst src1 src2 ovCond rcCond caCond =
   bld <+ (notSrc1 := AST.not src1)
   bld <+ (dst := notSrc1 .+ src2 .+ AST.num1 64<rt>)
   if ovCond then setAddOVs bld notSrc1 src2 dst else ()
-  if rcCond then setRecord bld dst else ()
+  if rcCond then setRecord0 bld dst else ()
   if caCond then setAddCarrys bld notSrc1 src2 dst else ()
 
 let appendSubfExt bld dst src1 src2 ovCond rcCond caCond =
@@ -252,7 +301,7 @@ let appendSubfExt bld dst src1 src2 ovCond rcCond caCond =
   bld <+ (notSrc1 := AST.not src1)
   bld <+ (dst := AST.ite ca (sum .+ AST.num1 64<rt>) sum)
   if ovCond then setAddOVs bld notSrc1 src2 dst else ()
-  if rcCond then setRecord bld dst else ()
+  if rcCond then setRecord0 bld dst else ()
   if caCond then setAddCarrys bld notSrc1 src2 dst else ()
 
 let getCannotReprIn bld out isDouble isSigned =
@@ -279,7 +328,7 @@ let appendMulLowWord bld dst src1 src2 isSigned ovCond rcCond =
   bld <+ (dst := in1 .* in2)
   if ovCond then
     setOVAndSOAndOV32 bld (getMulLowWordOV bld dst isSigned) else ()
-  if rcCond then setRecord bld dst else ()
+  if rcCond then setRecord0 bld dst else ()
 
 let appendMulHighWord bld dst src1 src2 isSigned rcCond =
   let struct (in1, in2) = tmpVars2 bld 64<rt>
@@ -287,7 +336,7 @@ let appendMulHighWord bld dst src1 src2 isSigned rcCond =
   bld <+ (in1 := extFunc 64<rt> (AST.xtlo 32<rt> src1))
   bld <+ (in2 := extFunc 64<rt> (AST.xtlo 32<rt> src2))
   bld <+ (AST.xtlo 32<rt> dst := AST.xthi 32<rt> (in1 .* in2))
-  if rcCond then setRecordSO bld else ()
+  if rcCond then setRecord0SO bld else ()
 
 let appendMulLowDouble bld dst src1 src2 isSigned ovCond rcCond =
   if ovCond then
@@ -300,7 +349,7 @@ let appendMulLowDouble bld dst src1 src2 isSigned ovCond rcCond =
     setOVAndSOAndOV32 bld (getMulLowDoubleOV bld out isSigned)
   else
     bld <+ (dst := src1 .* src2)
-  if rcCond then setRecord bld dst else ()
+  if rcCond then setRecord0 bld dst else ()
 
 let appendMulHighDouble bld dst src1 src2 isSigned rcCond =
   let struct (in1, in2, out) = tmpVars3 bld 128<rt>
@@ -309,7 +358,7 @@ let appendMulHighDouble bld dst src1 src2 isSigned rcCond =
   bld <+ (in2 := extFunc 128<rt> src2)
   bld <+ (out := in1 .* in2)
   bld <+ (dst := AST.xthi 64<rt> out)
-  if rcCond then setRecord bld dst else ()
+  if rcCond then setRecord0 bld dst else ()
 
 let getDivWordOV bld in1 in2 isSigned =
   if isSigned then
@@ -336,7 +385,7 @@ let appendDivWord bld dst src1 src2 isSigned ovCond rcCond =
   bld <+ (in2 := AST.xtlo 32<rt> src2)
   bld <+ (dst := AST.ite zeroCond dst out)
   if ovCond then setOVAndSOAndOV32 bld (getDivWordOV bld in1 in2 isSigned)
-  if rcCond then setRecordSO bld
+  if rcCond then setRecord0SO bld
 
 let appendDivDouble bld dst src1 src2 isSigned ovCond rcCond =
   let zeroCond = src2 == AST.num0 64<rt>
@@ -347,11 +396,11 @@ let appendDivDouble bld dst src1 src2 isSigned ovCond rcCond =
     let tmp = tmpVar bld 1<rt>
     bld <+ (tmp := getDivDoubleOV bld src1 src2 isSigned)
     setOVAndSOAndOV32 bld tmp
-    setRecordUndef bld dst tmp
+    setRecord0Undef bld dst tmp
   | true, false ->
     setOVAndSOAndOV32 bld (getDivDoubleOV bld src1 src2 isSigned)
   | false, true ->
-    setRecordUndef bld dst (getDivDoubleOV bld src1 src2 isSigned)
+    setRecord0Undef bld dst (getDivDoubleOV bld src1 src2 isSigned)
   | false, false -> ()
 
 let getDivWordExtendedOV bld in1 in2 out isSigned =
@@ -371,7 +420,7 @@ let appendDivWordExtended bld dst src1 src2 isSigned ovCond rcCond =
   bld <+ (dst := AST.ite zeroCond dst out)
   if ovCond then
     setOVAndSOAndOV32 bld (getDivWordExtendedOV bld in1 in2 tempOut isSigned)
-  if rcCond then setRecordSO bld
+  if rcCond then setRecord0SO bld
 
 let appendDivDoubleExtended bld dst src1 src2 isSigned ovCond rcCond =
   let struct (in1, in2, out) = tmpVars3 bld 128<rt>
@@ -387,11 +436,11 @@ let appendDivDoubleExtended bld dst src1 src2 isSigned ovCond rcCond =
     let tmp = tmpVar bld 1<rt>
     bld <+ (tmp := getDivDoubleExtendedOV bld in1 in2 out isSigned)
     setOVAndSOAndOV32 bld tmp
-    setRecordUndef bld dst tmp
+    setRecord0Undef bld dst tmp
   | true, false ->
     setOVAndSOAndOV32 bld (getDivDoubleExtendedOV bld in1 in2 out isSigned)
   | false, true ->
-    setRecordUndef bld dst (getDivDoubleExtendedOV bld in1 in2 out isSigned)
+    setRecord0Undef bld dst (getDivDoubleExtendedOV bld in1 in2 out isSigned)
   | false, false -> ()
 
 let appendModWord bld dst src1 src2 isSigned =
@@ -456,6 +505,33 @@ let appendStoreWithUpdate bld src ea baseReg rt isRev =
   bld <+ (tmpEA := ea)
   appendStore bld src tmpEA rt isRev
   bld <+ (baseReg := tmpEA)
+
+let appendBranch bld cia targetAddr lk =
+  if lk then bld <+ (regVar bld Register.LR := cia .+ numI32 4 64<rt>) else ()
+  bld <+ (AST.interjmp targetAddr InterJmpKind.Base)
+
+let appendCondBranch bld cia targetAddr lk bo bi =
+  let nia = cia .+ numI32 4 64<rt>
+  let bo0 = (bo >>> 4) &&& 1UL
+  let bo1 = (bo >>> 3) &&& 1UL
+  let bo2 = (bo >>> 2) &&& 1UL
+  let bo3 = (bo >>> 1) &&& 1UL
+  let ctr = regVar bld Register.CTR
+  let ctrOk =
+    if bo3 = 1UL then ctr == AST.num0 64<rt>
+    else ctr != AST.num0 64<rt>
+  let condOk = bi == numU64 bo1 1<rt>
+  let dst =
+    match bo0, bo2 with
+    | 0UL, 0UL -> AST.ite (ctrOk .& condOk) targetAddr nia
+    | _, 0UL -> AST.ite ctrOk targetAddr nia
+    | 0UL, _ -> AST.ite condOk targetAddr nia
+    | _, _ -> targetAddr
+  if lk then bld <+ (regVar bld Register.LR := nia) else ()
+  if bo0 = 0UL then
+    bld <+ (ctr := ctr .- AST.num1 64<rt>)
+  else ()
+  bld <+ (AST.interjmp dst InterJmpKind.Base)
 
 let sideEffects (ins: Instruction) insLen bld eff =
   bld <!-- (ins.Address, insLen)
@@ -714,6 +790,47 @@ let stq (ins: Instruction) insLen bld sft =
     appendStore bld (regVar bld src2) (ea .+ numI32 8 64<rt>) 64<rt> false
     bld --!> insLen
 
+let b (ins: Instruction) insLen bld lk =
+  let targetAddr = transOneOperand bld ins.Operands
+  bld <!-- (ins.Address, insLen)
+  appendBranch bld (numU64 ins.Address 64<rt>) targetAddr lk
+  bld --!> insLen
+
+let bc (ins: Instruction) insLen bld lk =
+  match getThreeOperands bld ins.Operands with
+  | RawNumOf bo, AutoOf bi, AutoOf targetAddr ->
+    bld <!-- (ins.Address, insLen)
+    appendCondBranch bld (numU64 ins.Address 64<rt>) targetAddr lk bo bi
+    bld --!> insLen
+
+let bclr (ins: Instruction) insLen bld lk =
+  match getThreeOperands bld ins.Operands with
+  | RawNumOf bo, AutoOf bi, RawNumOf _ ->
+    let lr = regVar bld Register.LR
+    let targetAddr = AST.concat (AST.xthi 62<rt> lr) (AST.num0 2<rt>)
+    bld <!-- (ins.Address, insLen)
+    appendCondBranch bld (numU64 ins.Address 64<rt>) targetAddr lk bo bi
+    bld --!> insLen
+
+let bcctr (ins: Instruction) insLen bld lk =
+  match getThreeOperands bld ins.Operands with
+  | RawNumOf bo, AutoOf bi, RawNumOf _ ->
+    if (bo >>> 2) &&& 1UL = 0UL then raise InvalidOperandException else ()
+    let ctr = regVar bld Register.CTR
+    let targetAddr = AST.concat (AST.xthi 62<rt> ctr) (AST.num0 2<rt>)
+    bld <!-- (ins.Address, insLen)
+    appendCondBranch bld (numU64 ins.Address 64<rt>) targetAddr lk bo bi
+    bld --!> insLen
+
+let bctar (ins: Instruction) insLen bld lk =
+  match getThreeOperands bld ins.Operands with
+  | RawNumOf bo, AutoOf bi, RawNumOf _ ->
+    let tar = regVar bld Register.TAR
+    let targetAddr = AST.concat (AST.xthi 62<rt> tar) (AST.num0 2<rt>)
+    bld <!-- (ins.Address, insLen)
+    appendCondBranch bld (numU64 ins.Address 64<rt>) targetAddr lk bo bi
+    bld --!> insLen
+
 /// Translate IR.
 let translate (ins: Instruction) insLen bld =
   match ins.Opcode with
@@ -872,4 +989,18 @@ let translate (ins: Instruction) insLen bld =
   | Op.STHBRX -> stxx ins insLen bld 16<rt> true
   | Op.STWBRX -> stxx ins insLen bld 32<rt> true
   | Op.STDBRX -> stxx ins insLen bld 64<rt> true
+  | Op.B -> b ins insLen bld false
+  | Op.BA -> b ins insLen bld false
+  | Op.BL -> b ins insLen bld true
+  | Op.BLA -> b ins insLen bld true
+  | Op.BC -> bc ins insLen bld false
+  | Op.BCA -> bc ins insLen bld false
+  | Op.BCL -> bc ins insLen bld true
+  | Op.BCLA -> bc ins insLen bld true
+  | Op.BCLR -> bclr ins insLen bld false
+  | Op.BCLRL -> bclr ins insLen bld true
+  | Op.BCCTR -> bcctr ins insLen bld false
+  | Op.BCCTRL -> bcctr ins insLen bld true
+  | Op.BCTAR -> bctar ins insLen bld false
+  | Op.BCTARL -> bctar ins insLen bld true
   | o -> raise (NotImplementedIRException(Disasm.opCodeToString o))

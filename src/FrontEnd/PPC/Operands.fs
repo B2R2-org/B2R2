@@ -42,7 +42,6 @@ and Operand =
   | OprL of uint8
   | OprAddr of TargetAddr
   | OprBO of uint8
-  | OprBI of uint8
   | OprBH of uint8
   | OprTO of uint8
   | OprCRMask of uint8
