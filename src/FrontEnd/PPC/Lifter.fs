@@ -77,6 +77,7 @@ let transOperand bld = function
 let (|RawNumOf|) (_, opr) =
   match opr with
   | OprImm imm -> imm |> uint64
+  | OprL l -> l |> uint64
   | OprBO bo -> bo |> uint64
   | OprBH bh -> bh |> uint64
   | _ -> raise InvalidOperandException
@@ -533,6 +534,14 @@ let appendCondBranch bld cia targetAddr lk bo bi =
   else ()
   bld <+ (AST.interjmp dst InterJmpKind.Base)
 
+let appendCompare bld reg target1 target2 isSigned =
+  let so = AST.extract (regVar bld Register.XER) 1<rt> 31
+  let eqCond = target1 == target2
+  let comp = if isSigned then target1 ?< target2 else target1 .< target2
+  let signCheck = AST.ite comp (numU32 4u 3<rt>) (numU32 2u 3<rt>)
+  let c = AST.ite eqCond (AST.num1 3<rt>) signCheck
+  bld <+ (reg := AST.concat c so)
+
 let sideEffects (ins: Instruction) insLen bld eff =
   bld <!-- (ins.Address, insLen)
   bld <+ AST.sideEffect eff
@@ -831,6 +840,31 @@ let bctar (ins: Instruction) insLen bld lk =
     appendCondBranch bld (numU64 ins.Address 64<rt>) targetAddr lk bo bi
     bld --!> insLen
 
+let cmp (ins: Instruction) insLen bld isSigned =
+  match getFourOperands bld ins.Operands with
+  | RegOf dst, RawNumOf l, RegOf src1, RegOf src2 ->
+    bld <!-- (ins.Address, insLen)
+    if l = 0UL then
+      let extFunc = if isSigned then AST.sext else AST.zext
+      let struct (tmp1, tmp2) = tmpVars2 bld 64<rt>
+      bld <+ (tmp1 := extFunc 64<rt> (AST.xtlo 32<rt> src1))
+      bld <+ (tmp2 := extFunc 64<rt> (AST.xtlo 32<rt> src2))
+      appendCompare bld dst tmp1 tmp2 isSigned
+    else appendCompare bld dst src1 src2 isSigned
+    bld --!> insLen
+
+let cmpi (ins: Instruction) insLen bld isSigned =
+  match getFourOperands bld ins.Operands with
+  | RegOf dst, RawNumOf l, RegOf src1, NumOf src2 ->
+    bld <!-- (ins.Address, insLen)
+    if l = 0UL then
+      let extFunc = if isSigned then AST.sext else AST.zext
+      let tmp = tmpVar bld 64<rt>
+      bld <+ (tmp := extFunc 64<rt> (AST.xtlo 32<rt> src1))
+      appendCompare bld dst tmp src2 isSigned
+    else appendCompare bld dst src1 src2 isSigned
+    bld --!> insLen
+
 let simplebinop (ins: Instruction) insLen bld op =
   let dst, src1, src2 = transThreeOperands bld ins.Operands
   bld <!-- (ins.Address, insLen)
@@ -1024,4 +1058,8 @@ let translate (ins: Instruction) insLen bld =
   | Op.CRANDC -> simplebinop ins insLen bld (fun x y -> x .& AST.not y)
   | Op.CRORC -> simplebinop ins insLen bld (fun x y -> x .| AST.not y)
   | Op.MCRF -> simplemove ins insLen bld
+  | Op.CMPI -> cmpi ins insLen bld true
+  | Op.CMP -> cmp ins insLen bld true
+  | Op.CMPLI -> cmpi ins insLen bld false
+  | Op.CMPL -> cmp ins insLen bld false
   | o -> raise (NotImplementedIRException(Disasm.opCodeToString o))
