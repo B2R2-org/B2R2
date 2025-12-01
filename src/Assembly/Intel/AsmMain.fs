@@ -26,6 +26,7 @@ module internal B2R2.Assembly.Intel.AsmMain
 
 open System
 open B2R2
+open B2R2.Assembly.BinLowerer
 open B2R2.FrontEnd.Intel
 open B2R2.Assembly.Intel.ParserHelper
 open B2R2.Assembly.Intel.AsmOpcode
@@ -45,7 +46,26 @@ type UserState =
     /// instruction, but labels would not change this.
     CurIndex: int }
 
-let encodeInstruction (ins: AsmInsInfo) ctx =
+let private isMemorySizeExceptionOpcode  = function
+  | Opcode.MOV -> true
+  | _ -> false
+
+let private checkMissingMemoryOperandSize (ins: AsmInsInfo) =
+  if isMemorySizeExceptionOpcode ins.Opcode then ()
+  else
+    match ins.Operands with
+    | OneOperand(OprMem(_, _, _, 0<rt>))
+    | TwoOperands(OprMem(_, _, _, 0<rt>), _)
+    | TwoOperands(_, OprMem(_, _, _, 0<rt>))
+    | ThreeOperands(OprMem(_, _, _, 0<rt>), _, _)
+    | ThreeOperands(_, OprMem(_, _, _, 0<rt>), _)
+    | ThreeOperands(_, _, OprMem(_, _, _, 0<rt>))
+    | FourOperands(_, _, OprMem(_, _, _, 0<rt>), _) ->
+      raise <| EncodingFailureException "Memory operand size is required."
+    | _ -> ()
+
+let encodeInstruction ins ctx =
+  checkMissingMemoryOperandSize ins
   match ins.Opcode with
   | Opcode.AAA -> aaa ctx ins.Operands
   | Opcode.AAD -> aad ctx ins.Operands

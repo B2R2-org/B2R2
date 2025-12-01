@@ -48,7 +48,10 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   let addLabeldef lbl =
     updateUserState (fun us ->
-      { us with LabelMap = Map.add lbl us.CurIndex us.LabelMap })
+     if Map.containsKey lbl us.LabelMap then
+       raise <| EncodingFailureException $"Label '{lbl}' already defined"
+     else
+       { us with LabelMap = Map.add lbl us.CurIndex us.LabelMap })
     >>. preturn ()
 
   let incrementIndex =
@@ -171,7 +174,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   let pDisp = pImm
 
   let pMemOpr sz =
-    let sz = Option.defaultValue defaultRegType sz
+    let sz = Option.defaultValue 0<rt> sz
     opt (attempt updatePrefix) >>. spaces >>. opt (attempt pMemBaseReg)
     .>> spaces .>>. opt (attempt pScaledIndexReg) .>> spaces .>>. opt pDisp
     |>> fun ((bReg, scaledInd), disp) -> OprMem(bReg, scaledInd, disp, sz)
