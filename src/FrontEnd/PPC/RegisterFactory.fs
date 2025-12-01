@@ -222,9 +222,9 @@ type RegisterFactory(wordSize: WordSize) =
          cr5
          cr6
          cr7
-         xer 
+         xer
          lr
-         ctr 
+         ctr
          tar |]
 
     member _.GetGeneralRegVars() =

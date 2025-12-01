@@ -831,6 +831,18 @@ let bctar (ins: Instruction) insLen bld lk =
     appendCondBranch bld (numU64 ins.Address 64<rt>) targetAddr lk bo bi
     bld --!> insLen
 
+let simplebinop (ins: Instruction) insLen bld op =
+  let dst, src1, src2 = transThreeOperands bld ins.Operands
+  bld <!-- (ins.Address, insLen)
+  bld <+ (dst := op src1 src2)
+  bld --!> insLen
+
+let simplemove (ins: Instruction) insLen bld =
+  let dst, src = transTwoOperands bld ins.Operands
+  bld <!-- (ins.Address, insLen)
+  bld <+ (dst := src)
+  bld --!> insLen
+
 /// Translate IR.
 let translate (ins: Instruction) insLen bld =
   match ins.Opcode with
@@ -1003,4 +1015,13 @@ let translate (ins: Instruction) insLen bld =
   | Op.BCCTRL -> bcctr ins insLen bld true
   | Op.BCTAR -> bctar ins insLen bld false
   | Op.BCTARL -> bctar ins insLen bld true
+  | Op.CRAND -> simplebinop ins insLen bld (.&)
+  | Op.CRNAND -> simplebinop ins insLen bld (fun x y -> AST.not (x .& y))
+  | Op.CROR -> simplebinop ins insLen bld (.|)
+  | Op.CRXOR -> simplebinop ins insLen bld (<+>)
+  | Op.CRNOR -> simplebinop ins insLen bld (fun x y -> AST.not (x .| y))
+  | Op.CREQV -> simplebinop ins insLen bld (==)
+  | Op.CRANDC -> simplebinop ins insLen bld (fun x y -> x .& AST.not y)
+  | Op.CRORC -> simplebinop ins insLen bld (fun x y -> x .| AST.not y)
+  | Op.MCRF -> simplemove ins insLen bld
   | o -> raise (NotImplementedIRException(Disasm.opCodeToString o))
