@@ -43,6 +43,14 @@ type FunctionSummarizer<'FnCtx,
     | true, v -> int v
     | false, _ -> 0
 
+  let returnValueDef hdl =
+    let retReg =
+      CallingConvention.ReturnRegister hdl
+      |> hdl.RegisterFactory.GetRegVar
+    let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
+    let e = AST.undef rt "ret"
+    [| (retReg, e) |]
+
   let stackPointerDef (hdl: BinHandle) unwindingAmount =
     match hdl.RegisterFactory.StackPointer with
     | Some sp ->
@@ -89,15 +97,11 @@ type FunctionSummarizer<'FnCtx,
   let computeLiveDefs ctx unwindingAmount =
     let hdl = ctx.BinHandle
     if ctx.IsExternal then
-      let retReg =
-        CallingConvention.ReturnRegister hdl
-        |> hdl.RegisterFactory.GetRegVar
-      let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
-      let e = AST.undef rt "ret"
-      [| (retReg, e)
+      [| yield! returnValueDef hdl
          yield! stackPointerDef hdl unwindingAmount |]
     else
-      [| yield! initializeLiveVarMap hdl ctx.FunctionAddress
+      [| yield! returnValueDef hdl
+         yield! initializeLiveVarMap hdl ctx.FunctionAddress
          yield! stackPointerDef hdl unwindingAmount |]
 
   /// Compute how many bytes are unwound by this function.
