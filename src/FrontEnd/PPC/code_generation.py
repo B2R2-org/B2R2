@@ -21,15 +21,14 @@ class OprType(Enum):
     L = 13
     Addr = 14
     BO = 15
-    BI = 16
-    BH = 17
-    TO = 18
-    CRMask = 19
-    FPSCRMask = 20
-    W = 21
-    DCM = 22
-    DGM = 23
-    Mem = 24
+    BH = 16
+    TO = 17
+    CRMask = 18
+    FPSCRMask = 19
+    W = 20
+    DCM = 21
+    DGM = 22
+    Mem = 23
 
 opr_type_conv_func_dict = {
     OprType.Unknown: "unknown",
@@ -48,7 +47,6 @@ opr_type_conv_func_dict = {
     OprType.L: "getOprL",
     OprType.Addr: "getOprAddr",
     OprType.BO: "getOprBO",
-    OprType.BI: "getOprBI",
     OprType.BH: "getOprBH",
     OprType.TO: "getOprTO",
     OprType.CRMask: "getOprCRMask",
@@ -302,7 +300,7 @@ operand_type_dict = {
     "BF": (operand_to_let_direct, OprType.Unknown),
     "BFA": (operand_to_let_direct, OprType.Unknown),
     "BH": (operand_to_let_direct, OprType.BH),
-    "BI": (operand_to_let_direct, OprType.BI),
+    "BI": (operand_to_let_direct, OprType.CondBitReg),
     "BO": (operand_to_let_direct, OprType.BO),
     "BT": (operand_to_let_direct, OprType.Unknown),
     "CY" : (operand_to_let_direct, OprType.CY),
