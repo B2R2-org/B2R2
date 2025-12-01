@@ -70,7 +70,17 @@ type RegisterFactory(wordSize: WordSize) =
   let r30 = AST.var rt (Register.toRegID R30) "R30"
   let r31 = AST.var rt (Register.toRegID R31) "R31"
   let cr0 = AST.var 4<rt> (Register.toRegID CR0) "CR0"
-  let xer = AST.var rt (Register.toRegID XER) "XER"
+  let cr1 = AST.var 4<rt> (Register.toRegID CR1) "CR1"
+  let cr2 = AST.var 4<rt> (Register.toRegID CR2) "CR2"
+  let cr3 = AST.var 4<rt> (Register.toRegID CR3) "CR3"
+  let cr4 = AST.var 4<rt> (Register.toRegID CR4) "CR4"
+  let cr5 = AST.var 4<rt> (Register.toRegID CR5) "CR5"
+  let cr6 = AST.var 4<rt> (Register.toRegID CR6) "CR6"
+  let cr7 = AST.var 4<rt> (Register.toRegID CR7) "CR7"
+  let xer = AST.var 64<rt> (Register.toRegID XER) "XER"
+  let lr = AST.var 64<rt> (Register.toRegID LR) "LR"
+  let ctr = AST.var 64<rt> (Register.toRegID CTR) "CTR"
+  let tar = AST.var 64<rt> (Register.toRegID TAR) "TAR"
 
   interface IRegisterFactory with
     member _.GetRegVar id =
@@ -108,7 +118,17 @@ type RegisterFactory(wordSize: WordSize) =
       | Register.R30 -> r30
       | Register.R31 -> r31
       | Register.CR0 -> cr0
+      | Register.CR1 -> cr1
+      | Register.CR2 -> cr2
+      | Register.CR3 -> cr3
+      | Register.CR4 -> cr4
+      | Register.CR5 -> cr5
+      | Register.CR6 -> cr6
+      | Register.CR7 -> cr7
       | Register.XER -> xer
+      | Register.LR -> lr
+      | Register.CTR -> ctr
+      | Register.TAR -> tar
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar(name: string) =
@@ -146,7 +166,17 @@ type RegisterFactory(wordSize: WordSize) =
       | "r30" -> r30
       | "r31" -> r31
       | "cr0" -> cr0
+      | "cr1" -> cr1
+      | "cr2" -> cr2
+      | "cr3" -> cr3
+      | "cr4" -> cr4
+      | "cr5" -> cr5
+      | "cr6" -> cr6
+      | "cr7" -> cr7
       | "xer" -> xer
+      | "lr" -> lr
+      | "ctr" -> ctr
+      | "tar" -> tar
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -185,7 +215,17 @@ type RegisterFactory(wordSize: WordSize) =
          r30
          r31
          cr0
-         xer |]
+         cr1
+         cr2
+         cr3
+         cr4
+         cr5
+         cr6
+         cr7
+         xer 
+         lr
+         ctr 
+         tar |]
 
     member _.GetGeneralRegVars() =
       [| r0

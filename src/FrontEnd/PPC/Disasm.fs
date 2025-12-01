@@ -617,8 +617,6 @@ let inline buildOperand (opr: Operand) (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 addr)
   | OprBO bo ->
     builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 bo))
-  | OprBI bi ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 bi))
   | OprBH bh ->
     builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 bh))
   | OprTO toValue ->
