@@ -56,10 +56,10 @@ type RegisterSetTests() =
     CollectionAssert.AreEqual([| 0; 8; 42; 64 |], lst)
 
   [<TestMethod>]
-  [<ExpectedException(typedefof<IndexOutOfRangeException>)>]
   member _.``Add Test 2``() =
     let s = RegisterSet(65)
-    s.Add 65
+    Assert.Throws<IndexOutOfRangeException>(fun () -> s.Add 65)
+    |> ignore
 
   [<TestMethod>]
   member _.``Add/Remove Test``() =

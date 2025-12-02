@@ -12,8 +12,6 @@ jobs:
     - uses: actions/checkout@v4
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 9.0.x
     - name: Lint files
       run: |
         git clone --depth 1 https://github.com/B2R2-org/FSLint.git

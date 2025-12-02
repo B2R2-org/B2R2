@@ -119,8 +119,4 @@
     <ProjectReference Include="..\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
     <ProjectReference Include="..\Registers\B2R2.FrontEnd.Registers.fsproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="System.Reflection.Metadata" Version="9.0.8" />
-  </ItemGroup>
 </Project>

@@ -43,14 +43,14 @@ with
   /// Returns the string value of the assembly word.
   static member ToString { AsmWordValue = s } = s
 
-  /// Returns a tuple of the assembly word value and its kind as a string.
-  static member ToStringTuple { AsmWordKind = k; AsmWordValue = s } =
+  /// Returns a tuple of the assembly word value and its kind as an array.
+  static member ToStringArray { AsmWordKind = k; AsmWordValue = s } =
     match k with
-    | AsmWordKind.Address -> s, "address"
-    | AsmWordKind.Mnemonic -> s, "mnemonic"
-    | AsmWordKind.Variable -> s, "variable"
-    | AsmWordKind.Value -> s, "value"
-    | AsmWordKind.String -> s, "string"
+    | AsmWordKind.Address -> [| s; "address" |]
+    | AsmWordKind.Mnemonic -> [| s; "mnemonic" |]
+    | AsmWordKind.Variable -> [| s; "variable" |]
+    | AsmWordKind.Value -> [| s; "value" |]
+    | AsmWordKind.String -> [| s; "string" |]
     | _ -> failwith "Impossible"
 
 /// Represents a kind of a assembly word.

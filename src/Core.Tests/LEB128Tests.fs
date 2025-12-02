@@ -144,21 +144,21 @@ type LEB128Tests() =
             0x7fuy |] |]
     overflow
     |> Array.iter (fun bs ->
-      Assert.ThrowsException<LEB128DecodeException>(fun () ->
+      Assert.Throws<LEB128DecodeException>(fun () ->
         LEB128.DecodeUInt64 bs |> ignore)
       |> ignore)
     overflow
     |> Array.iter (fun bs ->
-      Assert.ThrowsException<LEB128DecodeException>(fun () ->
+      Assert.Throws<LEB128DecodeException>(fun () ->
         LEB128.DecodeUInt32 bs |> ignore)
       |> ignore)
     overflow
     |> Array.iter (fun bs ->
-      Assert.ThrowsException<LEB128DecodeException>(fun () ->
+      Assert.Throws<LEB128DecodeException>(fun () ->
         LEB128.DecodeSInt64 bs |> ignore)
       |> ignore)
     overflow
     |> Array.iter (fun bs ->
-      Assert.ThrowsException<LEB128DecodeException>(fun () ->
+      Assert.Throws<LEB128DecodeException>(fun () ->
         LEB128.DecodeSInt32 bs |> ignore)
       |> ignore)
