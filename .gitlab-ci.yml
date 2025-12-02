@@ -3,7 +3,7 @@ stages:
     - extra
 
 lint:
-    image: mcr.microsoft.com/dotnet/sdk:9.0
+    image: mcr.microsoft.com/dotnet/sdk:10.0
     stage: build
     script:
         - git clone --depth 1 https://github.com/B2R2-org/FSLint.git
@@ -13,7 +13,7 @@ lint:
         - b2r2
 
 build-debug:
-    image: mcr.microsoft.com/dotnet/sdk:9.0
+    image: mcr.microsoft.com/dotnet/sdk:10.0
     stage: build
     script:
         - dotnet restore
@@ -23,7 +23,7 @@ build-debug:
         - b2r2
 
 build-release:
-    image: mcr.microsoft.com/dotnet/sdk:9.0
+    image: mcr.microsoft.com/dotnet/sdk:10.0
     stage: build
     script:
         - dotnet restore
@@ -34,7 +34,7 @@ build-release:
         - b2r2
 
 extra:
-    image: mcr.microsoft.com/dotnet/sdk:9.0
+    image: mcr.microsoft.com/dotnet/sdk:10.0
     stage: extra
     script:
         - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@softsec.kaist.ac.kr:8000/B2R2/ci-runner
