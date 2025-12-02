@@ -107,8 +107,8 @@ type ParserTests() =
 
   let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
 
-  member _.TestException<'E when 'E :> exn> testFn bytes (opcode, operands) =
-    Assert.Throws<'E>(fun () -> testFn bytes (opcode, operands) |> ignore)
+  let testException testFn bytes (opcode, operands) =
+    Assert.Throws(fun () -> testFn bytes (opcode, operands) |> ignore)
     |> ignore
 
   [<TestMethod>]
@@ -1847,38 +1847,38 @@ type ParserTests() =
 
 #if !EMULATION
   [<TestMethod>]
-  member this.``Size cond ParsingFailure Test (1)``() =
+  member _.``Size cond ParsingFailure Test (1)``() =
     "37"
     ++ AAA ** []
-    ||> this.TestException<ParsingFailureException> testX64NoPrefixNoSeg
+    ||> testException testX64NoPrefixNoSeg
 
   [<TestMethod>]
-  member this.``Size cond ParsingFailure Test (2)``() =
+  member _.``Size cond ParsingFailure Test (2)``() =
     "3F"
     ++ AAS ** []
-    ||> this.TestException<ParsingFailureException> testX64NoPrefixNoSeg
+    ||> testException testX64NoPrefixNoSeg
 
   [<TestMethod>]
-  member this.``Size cond ParsingFailure Test (3)``() =
+  member _.``Size cond ParsingFailure Test (3)``() =
     "ea123456789000"
     ++ JMPFar ** [ O.Addr(0x90s, 0x78563412UL, 32<rt>) ]
-    ||> this.TestException<ParsingFailureException> testX64NoPrefixNoSeg
+    ||> testException testX64NoPrefixNoSeg
 
   [<TestMethod>]
-  member this.``Size cond ParsingFailure Test (4)``() =
+  member _.``Size cond ParsingFailure Test (4)``() =
     "9a987654321000"
     ++ CALLFar ** [ O.Addr(0x10s, 0x32547698UL, 32<rt>) ]
-    ||> this.TestException<ParsingFailureException> testX64NoPrefixNoSeg
+    ||> testException testX64NoPrefixNoSeg
 
   [<TestMethod>]
-  member this.``Size cond ParsingFailure Test (5)``() =
+  member _.``Size cond ParsingFailure Test (5)``() =
     "c40f"
     ++ LES ** [ O.Reg R.ECX; O.Mem(R.EDI, 48<rt>) ]
-    ||> this.TestException<System.IndexOutOfRangeException> testX64NoPrefixNoSeg
+    ||> testException testX64NoPrefixNoSeg
 
   [<TestMethod>]
-  member this.``Size cond ParsingFailure Test (6)``() =
+  member _.``Size cond ParsingFailure Test (6)``() =
     "c511"
     ++ LDS ** [ O.Reg R.EDX; O.Mem(R.ECX, 48<rt>) ]
-    ||> this.TestException<System.IndexOutOfRangeException> testX64NoPrefixNoSeg
+    ||> testException testX64NoPrefixNoSeg
 #endif
