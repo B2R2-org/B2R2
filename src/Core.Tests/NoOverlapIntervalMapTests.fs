@@ -32,24 +32,26 @@ open B2R2.Collections
 type NoOverlapIntervalMapTests() =
 
   [<TestMethod>]
-  [<ExpectedException(typedefof<RangeOverlapException>)>]
   member _.``Overlap Test 1``() =
     let r1 = AddrRange(100UL, 199UL)
     let r2 = AddrRange(200UL, 299UL)
     let m = NoOverlapIntervalMap.empty
     let m = NoOverlapIntervalMap.add r1 1 m
     let m = NoOverlapIntervalMap.add r2 2 m
-    NoOverlapIntervalMap.addRange 99UL 100UL 3 m |> ignore
+    Assert.Throws<RangeOverlapException>(fun () ->
+      NoOverlapIntervalMap.addRange 99UL 100UL 3 m |> ignore)
+    |> ignore
 
   [<TestMethod>]
-  [<ExpectedException(typedefof<RangeOverlapException>)>]
   member _.``Overlap Test 2``() =
     let r1 = AddrRange(100UL, 199UL)
     let r2 = AddrRange(200UL, 299UL)
     let m = NoOverlapIntervalMap.empty
     let m = NoOverlapIntervalMap.add r1 1 m
     let m = NoOverlapIntervalMap.add r2 2 m
-    NoOverlapIntervalMap.addRange 0UL 400UL 3 m |> ignore
+    Assert.Throws<RangeOverlapException>(fun () ->
+      NoOverlapIntervalMap.addRange 0UL 400UL 3 m |> ignore)
+    |> ignore
 
   [<TestMethod>]
   member _.``NoOverlapIntervalMap.getOverlaps Test``() =

@@ -37,10 +37,10 @@ type LoopTests() =
     lst |> List.map (fun vid -> vmap[vid]) |> HashSet
 
   let assertLoop (edge: Edge<_, _>, vertices)
-                 (src: VertexID, dst: VertexID, expectedVS) =
+                 (src: VertexID, dst: VertexID, expectedVS: HashSet<_>) =
     Assert.AreEqual<VertexID>(edge.First.ID, src) (* backedge src *)
     Assert.AreEqual<VertexID>(edge.Second.ID, dst) (* backedge dst *)
-    Assert.IsTrue <| (expectedVS: HashSet<_>).SetEquals vertices
+    Assert.IsTrue(expectedVS.SetEquals vertices)
 
   static member GraphTypes = [| [| box Persistent |]; [| box Imperative |] |]
 

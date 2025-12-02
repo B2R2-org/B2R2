@@ -212,8 +212,9 @@ type IntervalTreeTests() =
     Assert.AreEqual(None, IntervalMap.tryFind range4 map)
 
   [<TestMethod>]
-  [<ExpectedException(typedefof<InvalidAddrRangeException>)>]
   member _.``IntervalMap Test Removal Exception``() =
     let range1 = AddrRange(0x100UL, 0x1FFUL)
     let map = IntervalMap.add range1 1 IntervalMap.empty
-    IntervalMap.remove (AddrRange(0x100UL, 0x199UL)) map |> ignore
+    Assert.Throws<InvalidAddrRangeException>(fun () ->
+      IntervalMap.remove (AddrRange(0x100UL, 0x199UL)) map |> ignore)
+    |> ignore

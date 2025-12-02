@@ -79,11 +79,7 @@ type SortedListTests() =
 
   [<TestMethod>]
   member _.``Boundary Conditions``() =
-    Assert.IsTrue
-      <| (SortedList.findGreatestLowerBoundKey 0 lst |> Option.isNone)
-    Assert.IsTrue
-      <| (SortedList.findGreatestLowerBoundKey 100 lst |> Option.isNone)
-    Assert.IsTrue
-      <| (SortedList.findLeastUpperBoundKey 400 lst |> Option.isNone)
-    Assert.IsTrue
-      <| (SortedList.findLeastUpperBoundKey 500 lst |> Option.isNone)
+    Assert.IsTrue(SortedList.findGreatestLowerBoundKey 0 lst |> Option.isNone)
+    Assert.IsTrue(SortedList.findGreatestLowerBoundKey 100 lst |> Option.isNone)
+    Assert.IsTrue(SortedList.findLeastUpperBoundKey 400 lst |> Option.isNone)
+    Assert.IsTrue(SortedList.findLeastUpperBoundKey 500 lst |> Option.isNone)
