@@ -60,8 +60,11 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
   let evaluateVarPoint (state: StackPointerPropagationState) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
-    | false, _ -> getBaseCase varKind (* initialize here *)
-    | true, defVp -> state.DomainSubState.GetAbsValue defVp
+    | true, defVp when ProgramPoint.IsFake(defVp.ProgramPoint) ->
+      getBaseCase varKind
+    | true, defVp ->
+      state.DomainSubState.GetAbsValue defVp
+    | false, _ -> StackPointerDomain.Undef
 
   let rec evaluateExpr (state: StackPointerPropagationState) pp e =
     match e with

@@ -96,24 +96,27 @@ type State<'Lattice when 'Lattice: equality>
 
   let domainGetAbsValue vp =
     match domainAbsValues.TryGetValue vp with
-    | false, _ -> lattice.Bottom
     | true, v -> v
-
-  let spGetAbsValue vp =
-    match spAbsValues.TryGetValue vp with
-    | false, _ -> StackPointerDomain.Undef
-    | true, c -> c
+    | false, _ when ProgramPoint.IsFake(vp.ProgramPoint) -> lattice.Bottom
+    | false, _ -> lattice.Bottom
 
   let spGetInitialAbsValue varKind =
     match spInitial with
     | Some(stackVar, c) when varKind = stackVar -> c
     | _ -> StackPointerDomain.Undef
 
+  let spGetAbsValue vp =
+    match spAbsValues.TryGetValue vp with
+    | true, c -> c
+    | false, _ when ProgramPoint.IsFake(vp.ProgramPoint) ->
+      spGetInitialAbsValue vp.VarKind
+    | false, _ -> StackPointerDomain.Undef
+
   let spEvaluateVar varKind pp =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match useDefMap.TryGetValue vp with
-    | false, _ -> spGetInitialAbsValue varKind
     | true, defVp -> spGetAbsValue defVp
+    | false, _ -> StackPointerDomain.Undef
 
   let rec spEvaluateExpr pp (e: Expr) =
     match e with
@@ -183,10 +186,15 @@ type State<'Lattice when 'Lattice: equality>
       let rt = 0<rt>
       SSA.TempVar(rt, n)
 
+  /// Returns an empty SSA variable for the given variable kind.
+  let mkEmptySSAVar vk = { SSA.Kind = toSSAVarKind vk; SSA.Identifier = 0 }
+
   /// Returns an SSA variable for the given variable point.
   let getSSAVar vp =
     match vpToSSAVar.TryGetValue vp with
     | true, v -> v
+    | false, _ when ProgramPoint.IsFake(vp.ProgramPoint) ->
+      mkEmptySSAVar vp.VarKind
     | false, _ ->
       let ssaVarId = getNewVarId ()
       let ssaVarKind = toSSAVarKind vp.VarKind
@@ -195,14 +203,11 @@ type State<'Lattice when 'Lattice: equality>
       ssaVarToVp[ssaVar] <- vp
       ssaVar
 
-  /// Returns an empty SSA variable for the given variable kind.
-  let mkEmptySSAVar vk = { SSA.Kind = toSSAVarKind vk; SSA.Identifier = 0 }
-
   /// Returns an SSA variable for the given use.
   let getSSAVarFromUse pp vk =
     let vp = { ProgramPoint = pp; VarKind = vk }
     match useDefMap.TryGetValue vp with
-    | false, _ -> mkEmptySSAVar vp.VarKind (* coming from its caller context *)
+    | false, _ -> Terminator.impossible ()
     | true, defVp -> getSSAVar defVp
 
   /// Translates an IR expression to its SSA expression.
@@ -635,14 +640,18 @@ module internal AnalysisCore = begin
   let updateUseDefChain state useVp defVp =
     (state: State<_>).UseDefMap[useVp] <- defVp
 
+  /// Get a fake variable point for the given variable kind. This is used when
+  /// there is no definition for the given variable kind (e.g., function
+  /// arguments).
+  let getFakeVarPoint vk =
+    { ProgramPoint = ProgramPoint.GetFake(); VarKind = vk }
+
   let updateChains state vk defs pp =
-    match Map.tryFind vk defs with
-    | None -> ()
-    | Some defVp ->
-      let useVp = { ProgramPoint = pp; VarKind = vk }
-      removeOldChains state useVp defVp
-      updateDefUseChain state useVp defVp
-      updateUseDefChain state useVp defVp
+    let defVp = Map.tryFind vk defs |> Option.defaultValue (getFakeVarPoint vk)
+    let useVp = { ProgramPoint = pp; VarKind = vk }
+    removeOldChains state useVp defVp
+    updateDefUseChain state useVp defVp
+    updateUseDefChain state useVp defVp
 
   let rec updateWithExpr state defs (pp: ProgramPoint) = function
     | Num(_)
@@ -810,13 +819,13 @@ module internal AnalysisCore = begin
     for v in visited do
       match state.PhiInfos.TryGetValue v with
       | true, phiInfo ->
-        for (KeyValue(vk, inDefs)) in phiInfo do
-          for pred in (g: IDiGraph<_, _>).GetPreds v do
-            match Map.tryFind vk <| getOutgoingDefs state pred with
-            | None -> ()
-            | Some def ->
-              { ProgramPoint = v.VData.Internals.PPoint; VarKind = vk }
-              |> updatePhiWithPredecessor state inDefs pred def
+        for pred in (g: IDiGraph<_, _>).GetPreds v do
+          let outDefs = getOutgoingDefs state pred
+          for (KeyValue(vk, inDefs)) in phiInfo do
+            let def =
+              Map.tryFind vk outDefs |> Option.defaultValue (getFakeVarPoint vk)
+            { ProgramPoint = v.VData.Internals.PPoint; VarKind = vk }
+            |> updatePhiWithPredecessor state inDefs pred def
       | false, _ -> ()
   #if DEBUG
       assert (hasProperPhiOperandNumbers state g v)

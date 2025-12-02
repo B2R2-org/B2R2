@@ -80,8 +80,8 @@ type ConstantPropagation(hdl, vs) =
   let evaluateVarPoint (state: ConstantPropagationState) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
-    | false, _ -> ConstantDomain.Undef
     | true, defVp -> (state: IAbsValProvider<_, _>).GetAbsValue defVp
+    | false, _ -> ConstantDomain.Undef
 
   let rec evaluateExpr state pp e =
     match e with
