@@ -24,41 +24,68 @@
 
 namespace B2R2.RearEnd.Visualization
 
+open System.IO
+open System.Text
+open System.Runtime.Serialization
+open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
-open Microsoft.FSharpLu.Json
 
+[<CLIMutable>]
+[<DataContract>]
 type JSONCoordinate =
-  { X: float
+  { [<field: DataMember(Name = "X")>]
+    X: float
+    [<field: DataMember(Name = "Y")>]
     Y: float }
 
+[<CLIMutable>]
+[<DataContract>]
 type JSONNode =
-  { PPoint: Addr
-    Terms: (string * string)[][]
+  { [<field: DataMember(Name = "PPoint")>]
+    PPoint: Addr
+    [<field: DataMember(Name = "Terms")>]
+    Terms: string[][][]
+    [<field: DataMember(Name = "Width")>]
     Width: float
+    [<field: DataMember(Name = "Height")>]
     Height: float
+    [<field: DataMember(Name = "Coordinate")>]
     Coordinate: JSONCoordinate }
 
+[<CLIMutable>]
+[<DataContract>]
 type JSONEdge =
-  { Type: CFGEdgeKind
-    Points: JSONCoordinate list
+  { [<field: DataMember(Name = "Type")>]
+    Type: string
+    [<field: DataMember(Name = "Points")>]
+    Points: JSONCoordinate[]
+    [<field: DataMember(Name = "IsBackEdge")>]
     IsBackEdge: bool }
 
 /// This is Visualization module's final output type.
+[<CLIMutable>]
+[<DataContract>]
 type JSONGraph =
-  { Roots: Addr list
-    Nodes: JSONNode list
-    Edges: JSONEdge list }
+  { [<field: DataMember(Name = "Roots")>]
+    Roots: Addr[]
+    [<field: DataMember(Name = "Nodes")>]
+    Nodes: JSONNode[]
+    [<field: DataMember(Name = "Edges")>]
+    Edges: JSONEdge[] }
 
 module JSONExport =
   let private getJSONTerms (visualizableAsm: AsmWord[][]) =
-    visualizableAsm |> Array.map (Array.map AsmWord.ToStringTuple)
+    visualizableAsm
+    |> Array.map (Array.map AsmWord.ToStringArray)
 
   let private ofVisGraph (g: VisGraph) (roots: IVertex<_> list) =
     let roots =
-      roots |> List.map (fun r -> (r.VData :> IVisualizable).BlockAddress)
+      roots
+      |> List.map (fun r -> (r.VData :> IVisualizable).BlockAddress)
+      |> List.toArray
     let nodes =
       g.FoldVertex((fun acc v ->
         let vData = v.VData :> IVisualizable
@@ -68,18 +95,34 @@ module JSONExport =
           Height = v.VData.Height
           Coordinate = { X = v.VData.Coordinate.X
                          Y = v.VData.Coordinate.Y } } :: acc), [])
+      |> List.toArray
     let edges =
       g.FoldEdge((fun acc e ->
         let e = e.Label
-        { Type = e.Type
-          Points = e.Points |> List.map (fun p -> { X = p.X; Y = p.Y })
+        let points = e.Points |> List.toArray
+        { Type = CFGEdgeKind.toString e.Type
+          Points = points |> Array.map (fun p -> { X = p.X; Y = p.Y })
           IsBackEdge = e.IsBackEdge } :: acc), [])
+      |> List.toArray
     { Roots = roots; Nodes = nodes; Edges = edges }
 
-  let toFile s roots g =
+  let private toJson (g: JSONGraph) =
+    let enc = Encoding.UTF8
+    use ms = new MemoryStream()
+    use writer = JsonReaderWriterFactory.CreateJsonWriter(ms, enc, true)
+    let ser = DataContractJsonSerializer(typedefof<JSONGraph>)
+    ser.WriteObject(writer, g)
+    writer.Flush()
+    ms.Position <- 0
+    use reader = new StreamReader(ms)
+    reader.ReadToEnd()
+
+  let toFile path roots g =
     ofVisGraph g roots
-    |> Compact.serializeToFile<JSONGraph> s
+    |> toJson
+    |> fun jsonStr ->
+      File.WriteAllText(path, jsonStr, Encoding.UTF8)
 
   let toStr roots g =
     ofVisGraph g roots
-    |> Compact.serialize<JSONGraph>
+    |> toJson

@@ -213,7 +213,6 @@ is to use a minimum number of libraries. Below is a list of libraries that we
 leverage.
 
 - [System.IO.Hashing](https://www.nuget.org/packages/System.IO.Hashing)
-- [Microsoft.FSharpLu.Json](https://www.nuget.org/packages/Microsoft.FSharpLu.Json)
 - [FSharp.Compiler.Service](https://www.nuget.org/packages/FSharp.Compiler.Service)
 - [FParsec](https://www.nuget.org/packages/FParsec)
 - [BenchmarkDotNet](https://www.nuget.org/packages/BenchmarkDotNet/)
