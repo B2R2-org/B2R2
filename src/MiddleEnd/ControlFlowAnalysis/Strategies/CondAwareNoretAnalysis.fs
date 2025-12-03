@@ -244,7 +244,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | Some(_, defStmt) -> Some(defStmt)
 
   /// SSACFG version of hasUndecidableReturnTarget.
-  let hasUndecidableReturnTargetInSSACFG hdl g state v =
+  let hasUndecidableReturnTargetInSSACFG ctx hdl g state v =
     let state =
       state :> Lazy<SSASparseDataFlow.State<StackPointerDomain.Lattice>>
     let rid = (hdl: BinHandle).RegisterFactory.StackPointer.Value
@@ -330,7 +330,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
         let condNoRetCalls =
           collectConditionalNoRetCallsFromSSACFG ctx g uvaState
         let fnCheckUndecidableRetTarget =
-          hasUndecidableReturnTargetInSSACFG hdl g sppState
+          hasUndecidableReturnTargetInSSACFG ctx hdl g sppState
         match analyze ctx fnCheckUndecidableRetTarget condNoRetCalls with
         | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
         | status -> ctx.NonReturningStatus <- status
