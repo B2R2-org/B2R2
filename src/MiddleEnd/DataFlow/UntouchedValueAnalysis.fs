@@ -45,13 +45,17 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
     match varKind with
     | Regular rid when isStackPointer rid -> UntouchedValueDomain.Touched
     | Regular _ -> mkUntouched varKind
-    | _ -> UntouchedValueDomain.Undef (* not intended *)
+    | _ -> UntouchedValueDomain.Undef
 
   let evaluateVarPoint (state: UntouchedValueState) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
-    | false, _ -> getBaseCase varKind (* initialize here *)
-    | true, defVp -> state.DomainSubState.GetAbsValue defVp
+    | true, defVp when ProgramPoint.IsFake(defVp.ProgramPoint) ->
+      getBaseCase varKind
+    | true, defVp ->
+      state.DomainSubState.GetAbsValue defVp
+    | false, _ ->
+      UntouchedValueDomain.Undef
 
   let rec evaluateExpr state pp e =
     match e with
