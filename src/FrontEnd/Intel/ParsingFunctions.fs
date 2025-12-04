@@ -4873,8 +4873,22 @@ let evex0F38C76W1 = function (* C7 /6 *)
   | MPref.MPrxF2
   | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+let nor0F38C8 = function
+  | MPref.MPrxNP -> struct (SHA1NEXTE, OD.GprRm, SZ.Dq, TT.NA) (* VdqWdq *)
+  | MPref.MPrx66
+  | MPref.MPrxF3
+  | MPref.MPrxF2
+  | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
 let nor0F38C9 = function
   | MPref.MPrxNP -> struct (SHA1MSG1, OD.GprRm, SZ.Dq, TT.NA) (* VdqWdq *)
+  | MPref.MPrx66
+  | MPref.MPrxF3
+  | MPref.MPrxF2
+  | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+let nor0F38CA = function
+  | MPref.MPrxNP -> struct (SHA1MSG2, OD.GprRm, SZ.Dq, TT.NA) (* VdqWdq *)
   | MPref.MPrx66
   | MPref.MPrxF3
   | MPref.MPrxF2
@@ -4892,6 +4906,20 @@ let evex0F38CBW1 = function
   | MPref.MPrx66 ->
     struct (VRCP28SD, OD.XmmVvXm, SZ.DqqDq, TT.NA) (* VdqHdqWdqq *)
   | MPref.MPrxF3 -> raise ParsingFailureException
+  | MPref.MPrxF2
+  | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+let nor0F38CC = function
+  | MPref.MPrxNP -> struct (SHA256MSG1, OD.GprRm, SZ.Dq, TT.NA) (* VdqWdq *)
+  | MPref.MPrx66
+  | MPref.MPrxF3
+  | MPref.MPrxF2
+  | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+let nor0F38CD = function
+  | MPref.MPrxNP -> struct (SHA256MSG2, OD.GprRm, SZ.Dq, TT.NA) (* VdqWdq *)
+  | MPref.MPrx66
+  | MPref.MPrxF3
   | MPref.MPrxF2
   | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
@@ -5997,6 +6025,14 @@ let evex0F3A73W1 = function
   | MPref.MPrxF2
   | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+let nor0F3ACC = function
+  | MPref.MPrxNP ->
+    struct (SHA1RNDS4, OD.GprRmImm8, SZ.Dq, TT.NA) (* VdqWdqIb *)
+  | MPref.MPrx66
+  | MPref.MPrxF3
+  | MPref.MPrxF2
+  | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
 let vex0F3ACEW1 = function
   | MPref.MPrxNP -> raise ParsingFailureException
   | MPref.MPrx66 ->
@@ -6728,9 +6764,12 @@ let parseThreeByteOp1 span (phlp: ParsingHelper) =
     parseEVEXW span phlp notEn notEn evex0F38C75W0 evex0F38C75W1
   | 0xC7uy when ParsingHelper.IsReg110(span, phlp) ->
     parseEVEXW span phlp notEn notEn evex0F38C76W0 evex0F38C76W1
+  | 0xC8uy -> parseVEX span phlp nor0F38C8 notEn
   | 0xC9uy -> parseVEX span phlp nor0F38C9 notEn
+  | 0xCAuy -> parseVEX span phlp nor0F38CA notEn
   | 0xCBuy -> parseEVEX span phlp nor0F38CB notEn notEn evex0F38CBW1
-  | 0xCDuy -> parseEVEXW span phlp notEn notEn notEn evex0F38CDW1
+  | 0xCCuy -> parseVEX span phlp nor0F38CC notEn
+  | 0xCDuy -> parseEVEX span phlp nor0F38CD notEn notEn evex0F38CDW1
   | 0xCFuy -> parseEVEXW span phlp evex0F38CFW0 notEn evex0F38CFW0 notEn
   | 0xDBuy -> parseVEX span phlp nor0F38DB notEn
   | 0xDCuy -> parseEVEX span phlp nor0F38DC vex0F38DC evex0F38DC evex0F38DC
@@ -6821,6 +6860,7 @@ let parseThreeByteOp2 span (phlp: ParsingHelper) =
   | 0x71uy -> parseEVEXW span phlp notEn notEn evex0F3A71W0 evex0F3A71W1
   | 0x72uy -> parseEVEXW span phlp notEn notEn notEn evex0F3A72W1
   | 0x73uy -> parseEVEXW span phlp notEn notEn evex0F3A73W0 evex0F3A73W1
+  | 0xCCuy -> parseVEX span phlp nor0F3ACC notEn
   | 0xCEuy -> parseEVEXW span phlp notEn vex0F3ACEW1 notEn evex0F3ACEW1
   | 0xCFuy -> parseEVEXW span phlp notEn vex0F3ACFW1 notEn evex0F3ACFW1
   | 0xDFuy -> parseVEX span phlp nor0F3ADF notEn
