@@ -28,6 +28,7 @@ open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -488,6 +489,23 @@ module internal CFGRecoveryCommon =
       Ok <| summarizer.Summarize(calleeCtx, retStatus, unwindingBytes, callIns)
     | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
 
+  /// Create an exception abstraction. Without calculating CFA, we can compute
+  /// how much stack pointer is adjusted before entering the landing pad, as we
+  /// introduce this abstraction only after a function call and thus we can
+  /// simply unwind the stack by the size of a single element for the return
+  /// address pushed by the call instruction.
+  let getExceptionAbstraction (hdl: BinHandle) =
+    let rid = hdl.RegisterFactory.StackPointer.Value
+    let rname = hdl.RegisterFactory.GetRegisterName(rid)
+    let rt = hdl.RegisterFactory.GetRegType(rid)
+    let dst = LowUIR.AST.var rt rid rname
+    let sp = LowUIR.AST.var rt rid rname
+    let wordSize = hdl.File.ISA.WordSize |> WordSize.toByteWidth
+    let unwindingAmount = BitVector(wordSize, rt) |> LowUIR.AST.num
+    let src = LowUIR.AST.binop BinOpType.ADD sp unwindingAmount
+    let rundown = [| LowUIR.AST.assign dst src |]
+    FunctionAbstraction(0UL, 0, rundown, false, NotNoRet)
+
   let connectAbsVertex ctx cfgRec caller calleeAddr isTail abs =
     let callerBBL = (caller: IVertex<LowUIRBasicBlock>).VData.Internals
     let callIns = callerBBL.LastInstruction
@@ -507,12 +525,15 @@ module internal CFGRecoveryCommon =
     Ok()
 
   let connectExnEdge ctx cfgRec (callsiteAddr: Addr) =
-    match ctx.ExnInfo.TryFindExceptionTarget callsiteAddr with
-    | Some target ->
+    match ctx.ExnInfo.TryFindExceptionTarget(callsiteAddr) with
+    | Some(landingPad) ->
+      let abs = getExceptionAbstraction ctx.BinHandle
+      let absV = getAbsVertex ctx cfgRec (LeafCallSite callsiteAddr) None abs
       (* Necessary to lookup the caller again as bbls could be divided *)
-      let callsite = LeafCallSite callsiteAddr
+      let callsite = LeafCallSite(callsiteAddr)
       let caller = ctx.CallerVertices[callsite]
-      scanBBLsAndConnect ctx cfgRec caller target ExceptionFallThroughEdge
+      connectEdge ctx cfgRec caller absV ExceptionFallThroughEdge
+      scanBBLsAndConnect ctx cfgRec absV landingPad ExceptionFallThroughEdge
     | None -> Ok()
 
   let connectCallWithFT ctx (cfgRec: ICFGRecovery<_, _>) caller calleeAddr

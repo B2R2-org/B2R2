@@ -299,17 +299,17 @@ type CFG2Tests() =
     let cfg = brew.Functions[0x0UL].CFG
     let disasm = StringDisasmBuilder(false, null, hdl.File.ISA.WordSize)
     let dcfg = DisasmCFG(disasm, cfg)
-    Assert.AreEqual<int>(1, dcfg.Size)
+    Assert.AreEqual<int>(3, dcfg.Size)
     let vMap = dcfg.FoldVertex((fun m v ->
       Map.add v.VData.Internals.PPoint.Address v m), Map.empty)
     let v = Map.find 0x00UL vMap
-    Assert.AreEqual<int>(13, v.VData.Internals.Disassemblies.Length)
+    Assert.AreEqual<int>(8, v.VData.Internals.Disassemblies.Length)
     let eMap = dcfg.FoldEdge((fun m e ->
       let v1, v2 = e.First, e.Second
       let key =
         v1.VData.Internals.PPoint.Address, v2.VData.Internals.PPoint.Address
       Map.add key e m), Map.empty)
-    Assert.AreEqual<int>(0, eMap.Count)
+    Assert.AreEqual<int>(3, eMap.Count)
 
   [<TestMethod>]
   member _.``SSAGraph Vertex Test: _start``() =
