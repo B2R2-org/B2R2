@@ -29,6 +29,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
@@ -177,7 +178,12 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       untouchedArgIndexX64FromSSACFG ctx.BinHandle ssa absSSAV state nth
     | _ -> None
 
-  let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG (state: Lazy<_>) =
+  let getLazyDataFlowState g (dfa: IDataFlowComputable<_, _, _, _>) =
+    lazy (dfa.Compute g)
+
+  let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG =
+    let hdl = ctx.BinHandle
+    let state = SSAUntouchedValueAnalysis hdl |> getLazyDataFlowState ssaCFG
     collectReturningAbsPPs ctx
     |> List.choose (fun pp ->
       let absV = ctx.Vertices[pp]
@@ -204,31 +210,33 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | None -> NotNoRet
     | Some dom -> ConditionalNoRet <| Map.find dom argNumMap
 
+  let isStackPointer ctx dst =
+    let regFactory = ctx.BinHandle.RegisterFactory
+    let rid = regFactory.StackPointer.Value
+    let rt = regFactory.GetRegType(rid)
+    let rname = regFactory.GetRegisterName(rid)
+    match dst with
+    | LowUIR.Var(dstRT, dstId, dstName, _) ->
+      dstRT = rt && dstId = rid && dstName = rname
+    | _ -> false
+
   /// Checks if the given exit vertex has a corrupted stack pointer value before
   /// executing the return instruction. This means we cannot statically decide
   /// whether the return instruction will jump to the caller or not.
-  let hasUndecidableReturnTarget ctx state v =
-    let state =
-      (state: Lazy<_>).Value
-      :> LowUIRSparseDataFlow.State<UntouchedValueDomain.Lattice>
-    let rid = ctx.BinHandle.RegisterFactory.StackPointer.Value
-    let rt = ctx.BinHandle.RegisterFactory.GetRegType(rid)
-    let rname = ctx.BinHandle.RegisterFactory.GetRegisterName(rid)
-    let e = LowUIR.AST.var rt rid rname
-    let varKind = VarKind.Regular(rid)
-    match state.PerVertexOutgoingDefs[v].TryGetValue(varKind) with
-    | false, _ -> false (* There was no definition in the reachable pathes. *)
-    | true, { ProgramPoint = pp } ->
-      match state.EvaluateStackPointerExpr(pp, e) with
-      | StackPointerDomain.ConstSP(_) -> false
-      | _ ->
+  let hasUndecidableReturnTarget ctx v =
+    let hdl = ctx.BinHandle
+    let st = CFGEvaluator.evalBlockFromScratch hdl v
+    let rid = hdl.RegisterFactory.StackPointer.Value
+    match st.TryGetReg(rid) with
+    | Def(_) -> false
+    | _ ->
 #if CFGDEBUG
-        let blkAddr = v.VData.Internals.PPoint.Address
-        let fnAddr = ctx.FunctionAddress
-        dbglog ctx.ThreadID (nameof CondAwareNoretAnalysis)
-        <| $"[*] Undecidable return: {blkAddr:x} @ {fnAddr}"
+      let blkAddr = v.VData.Internals.PPoint.Address
+      let fnAddr = ctx.FunctionAddress
+      dbglog ctx.ThreadID (nameof CondAwareNoretAnalysis)
+      <| $"[*] Undecidable return: {blkAddr:x} @ {fnAddr}"
 #endif
-        true
+      true
 
   let rec tryFindDef g varKind v =
     (v: IVertex<SSABasicBlock>).VData.Internals.Statements
@@ -269,7 +277,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
         true
     | _ -> Terminator.impossible ()
 
-  let analyze ctx fnCheckUndecidableRetTarget condNoRetCalls =
+  let analyze ctx condNoRetCalls =
     let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create ctx.CFG df
     let exits = ctx.CFG.Exits
@@ -284,7 +292,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       let vData = v.VData :> ILowUIRBasicBlock
       if not vData.IsAbstract then
         if vData.LastInstruction.IsRET then
-          if fnCheckUndecidableRetTarget v then updateStatus NoRet
+          if hasUndecidableReturnTarget ctx v then updateStatus NoRet
           else updateStatus (getStatusFromDominators dom absVSet argNumMap v)
         elif vData.LastInstruction.IsIndirectBranch then
           updateStatus NotNoRet
@@ -297,9 +305,6 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
         | status -> updateStatus status
     status
 
-  let getLazyDataFlowState g (dfa: IDataFlowComputable<_, _, _, _>) =
-    lazy (dfa.Compute g)
-
   (* Non-returning function identification for IR-based CFG. *)
   interface ICFGAnalysis<unit -> unit> with
     member _.Unwrap env =
@@ -310,8 +315,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
         let state =
           UntouchedValueAnalysis(hdl, g.Vertices) |> getLazyDataFlowState g
         let condNoRetCalls = collectConditionalNoRetCallsFromIRCFG ctx g state
-        let fnCheckUndecidableRetTarget = hasUndecidableReturnTarget ctx state
-        match analyze ctx fnCheckUndecidableRetTarget condNoRetCalls with
+        match analyze ctx condNoRetCalls with
         | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
         | status -> ctx.NonReturningStatus <- status
 #if CFGDEBUG
@@ -324,14 +328,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     member _.Unwrap env =
       let ctx = env.Context
       fun g ->
-        let hdl = ctx.BinHandle
-        let uvaState = SSAUntouchedValueAnalysis hdl |> getLazyDataFlowState g
-        let sppState = SSAStackPointerPropagation hdl |> getLazyDataFlowState g
-        let condNoRetCalls =
-          collectConditionalNoRetCallsFromSSACFG ctx g uvaState
-        let fnCheckUndecidableRetTarget =
-          hasUndecidableReturnTargetInSSACFG ctx hdl g sppState
-        match analyze ctx fnCheckUndecidableRetTarget condNoRetCalls with
+        let condNoRetCalls = collectConditionalNoRetCallsFromSSACFG ctx g
+        match analyze ctx condNoRetCalls with
         | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
         | status -> ctx.NonReturningStatus <- status
 #if CFGDEBUG
@@ -340,8 +338,6 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
 #endif
 
 module CondAwareNoretAnalysis =
-  open B2R2.MiddleEnd.ConcEval
-
   let private hasNonZeroOnX86 st nth =
     let esp = Intel.Register.ESP |> Intel.Register.toRegID
     match (st: EvalState).TryGetReg esp with
