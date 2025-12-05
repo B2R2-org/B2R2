@@ -65,7 +65,8 @@ type JmpTableAnalysis<'FnCtx,
     let stmExtractor (v: IVertex<SSABasicBlock>) = v.VData.Internals.LastStmt
     findJumpExpr stmExtractor ssaCFG v [ v ]
 
-  let rec simplify = function
+  let rec simplify e =
+    match e with
     | Load(v, rt, e) -> Load(v, rt, simplify e)
     | Store(v, rt, e1, e2) -> Store(v, rt, simplify e1, simplify e2)
     | BinOp(BinOpType.ADD, rt, BinOp(BinOpType.ADD, _, Num v1, e), Num v2)
@@ -125,101 +126,6 @@ type JmpTableAnalysis<'FnCtx,
       Extract(constantFold findConst findDef e, rt, pos)
     | e -> e
 
-  let rec isJmpTable t = function
-    | BinOp(BinOpType.MUL, _, _, Num n)
-    | BinOp(BinOpType.MUL, _, Num n, _) ->
-      (RegType.toByteWidth t = BitVector.ToInt32 n)
-    | BinOp(BinOpType.SHL, _, _, Num n) ->
-      (RegType.toByteWidth t = (1 <<< BitVector.ToInt32 n))
-    | BinOp(BinOpType.ADD, _, e1, e2) ->
-      isJmpTable t e1 || isJmpTable t e2
-    | _ -> false
-
-  let isSingleJmpTable = function
-    | Num(_) -> true
-    | BinOp(BinOpType.ADD, _, Num(_), Num(_)) -> true
-    | _ -> false
-
-  let rec extractTableExpr = function
-    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.MUL, _, _, Num _), e)
-    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.MUL, _, Num _, _), e)
-    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.SHL, _, _, Num _), e)
-    | BinOp(BinOpType.ADD, _, e, BinOp(BinOpType.MUL, _, _, Num _))
-    | BinOp(BinOpType.ADD, _, e, BinOp(BinOpType.MUL, _, Num _, _))
-    | BinOp(BinOpType.ADD, _, e, BinOp(BinOpType.SHL, _, _, Num _)) -> e
-    | BinOp(op, rt, e1, e2) ->
-      BinOp(op, rt, extractTableExpr e1, extractTableExpr e2)
-    | e -> e
-
-  let extractBaseAddr findConst findDef expr =
-    constantFold findConst findDef expr
-    |> simplify
-    |> function
-      | Num b -> Ok <| BitVector.ToUInt64 b
-      | _ -> Error ErrorCase.ItemNotFound
-
-  let extractTableAddr findConst findDef memExpr =
-    memExpr
-    |> extractTableExpr
-    |> constantFold findConst findDef
-    |> function
-      | Num t -> Ok <| BitVector.ToUInt64 t
-      | _ -> Error ErrorCase.ItemNotFound
-
-  let extractTblInfo findConst findDef insAddr baseExpr tblExpr rt singleEntry =
-    let baseAddr = extractBaseAddr findConst findDef baseExpr
-    let tblAddr = extractTableAddr findConst findDef tblExpr
-    match baseAddr, tblAddr with
-    | Ok baseAddr, Ok tblAddr ->
-      Ok({ InsAddr = insAddr
-           JumpBase = baseAddr
-           TableAddress = tblAddr
-           EntrySize = RegType.toByteWidth rt
-           NumEntries = 0
-           IsSingleEntry = singleEntry })
-    | _ -> Error ErrorCase.ItemNotFound
-
-  let detect findConst findDef iAddr = function
-    | BinOp(BinOpType.ADD, _, Num b, Load(_, t, memExpr))
-    | BinOp(BinOpType.ADD, _, Load(_, t, memExpr), Num b)
-    | BinOp(BinOpType.ADD, _, Num b, Cast(_, _, Load(_, t, memExpr)))
-    | BinOp(BinOpType.ADD, _, Cast(_, _, Load(_, t, memExpr)), Num b) ->
-      if isJmpTable t memExpr then
-        extractTblInfo findConst findDef iAddr (Num b) memExpr t false
-      elif isSingleJmpTable memExpr then
-        extractTblInfo findConst findDef iAddr (Num b) memExpr t true
-      else
-        Error ErrorCase.ItemNotFound
-    | BinOp(BinOpType.ADD, _, (Load(_, _, e1) as m1), (Load(_, t, e2) as m2)) ->
-      if isJmpTable t e1 then
-        extractTblInfo findConst findDef iAddr m2 e1 t false
-      elif isJmpTable t e2 then
-        extractTblInfo findConst findDef iAddr m1 e2 t false
-      elif isSingleJmpTable e1 then
-        extractTblInfo findConst findDef iAddr m2 e1 t true
-      elif isSingleJmpTable e2 then
-        extractTblInfo findConst findDef iAddr m1 e2 t true
-      else Error ErrorCase.ItemNotFound
-    | BinOp(BinOpType.ADD, _, baseExpr, Load(_, t, tblExpr))
-    | BinOp(BinOpType.ADD, _, Load(_, t, tblExpr), baseExpr) ->
-      if isJmpTable t tblExpr then
-        extractTblInfo findConst findDef iAddr baseExpr tblExpr t false
-      elif isSingleJmpTable tblExpr then
-        extractTblInfo findConst findDef iAddr baseExpr tblExpr t true
-      else
-        Error ErrorCase.ItemNotFound
-    | Load(_, t, memExpr)
-    | Cast(_, _, Load(_, t, memExpr)) ->
-      if isJmpTable t memExpr then
-        let zero = BitVector.Zero t
-        extractTblInfo findConst findDef iAddr (Num zero) memExpr t false
-      elif isSingleJmpTable memExpr then
-        let zero = BitVector.Zero t
-        extractTblInfo findConst findDef iAddr (Num zero) memExpr t true
-      else
-        Error ErrorCase.ItemNotFound
-    | _ -> Error ErrorCase.ItemNotFound
-
   /// Expand the given expression by recursively substituting the subexpressions
   /// with their definitions. The recursion stops after following the next
   /// definitions.
@@ -263,15 +169,150 @@ type JmpTableAnalysis<'FnCtx,
       Extract(e, rt, pos)
     | e -> e
 
+  /// Expand the given expression exhaustively by recursively substituting the
+  /// subexpressions with their definitions until no more expansion is possible.
+  let rec symbExpandExhaustively expandPhi findConst findDef e =
+    let e' = symbExpand expandPhi findConst findDef true e
+    if e = e' then e
+    else symbExpandExhaustively expandPhi findConst findDef e'
+
+  let rec simplifyMultiplication = function
+    | BinOp(BinOpType.ADD, rt, e1, e2) ->
+      let e1 = simplifyMultiplication e1
+      let e2 = simplifyMultiplication e2
+      match e1, e2 with
+      | e1, BinOp(BinOpType.SHL, _, e2, Num(n))
+      | BinOp(BinOpType.SHL, _, e2, Num(n)), e1 when e1 = e2 ->
+        let coeff = 1 + 1 <<< BitVector.ToInt32(n)
+        BinOp(BinOpType.MUL, rt, e1, Num(BitVector(coeff, rt)))
+      | _ -> BinOp(BinOpType.ADD, rt, e1, e2)
+    | BinOp(BinOpType.SHL, rt, e1, e2) ->
+      let e1 = simplifyMultiplication e1
+      let e2 = simplifyMultiplication e2
+      BinOp(BinOpType.SHL, rt, e1, e2)
+    | Cast(_, _, e) -> simplifyMultiplication e
+    | Extract(e, _, 0) -> simplifyMultiplication e
+    | e -> e
+
+  /// Check whether the given expression is a proper index expression, i.e., it
+  /// does not contain multiplication or shift with a constant.
+  let isProperIndex expandPhi findConst findDef e =
+    e
+    |> symbExpandExhaustively expandPhi findConst findDef
+    |> simplifyMultiplication
+    |> function
+      | BinOp(BinOpType.MUL, _, _, Num(_))
+      | BinOp(BinOpType.MUL, _, Num(_), _)
+      | BinOp(BinOpType.SHL, _, _, Num(_)) -> false
+      | _ -> true
+
+  let rec isJmpTable expandPhi findConst findDef t = function
+    | BinOp(BinOpType.MUL, _, idx, Num n)
+    | BinOp(BinOpType.MUL, _, Num n, idx)
+      when isProperIndex expandPhi findConst findDef idx ->
+      (RegType.toByteWidth t = BitVector.ToInt32 n)
+    | BinOp(BinOpType.SHL, _, idx, Num n)
+      when isProperIndex expandPhi findConst findDef idx ->
+      (RegType.toByteWidth t = (1 <<< BitVector.ToInt32 n))
+    | BinOp(BinOpType.ADD, _, e1, e2) ->
+      isJmpTable expandPhi findConst findDef t e1
+      || isJmpTable expandPhi findConst findDef t e2
+    | _ -> false
+
+  let isSingleEntryJmpTable = function
+    | Num(_) -> true
+    | BinOp(BinOpType.ADD, _, Num(_), Num(_)) -> true
+    | _ -> false
+
+  let rec extractTableExpr = function
+    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.MUL, _, _, Num _), e)
+    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.MUL, _, Num _, _), e)
+    | BinOp(BinOpType.ADD, _, BinOp(BinOpType.SHL, _, _, Num _), e)
+    | BinOp(BinOpType.ADD, _, e, BinOp(BinOpType.MUL, _, _, Num _))
+    | BinOp(BinOpType.ADD, _, e, BinOp(BinOpType.MUL, _, Num _, _))
+    | BinOp(BinOpType.ADD, _, e, BinOp(BinOpType.SHL, _, _, Num _)) -> e
+    | BinOp(op, rt, e1, e2) ->
+      BinOp(op, rt, extractTableExpr e1, extractTableExpr e2)
+    | e -> e
+
+  let extractBaseAddr findConst findDef expr =
+    constantFold findConst findDef expr
+    |> simplify
+    |> function
+      | Num b -> Ok <| BitVector.ToUInt64 b
+      | _ -> Error ErrorCase.ItemNotFound
+
+  let extractTableAddr findConst findDef memExpr =
+    memExpr
+    |> extractTableExpr
+    |> constantFold findConst findDef
+    |> function
+      | Num t -> Ok <| BitVector.ToUInt64 t
+      | _ -> Error ErrorCase.ItemNotFound
+
+  let extractTblInfo findConst findDef insAddr baseExpr tblExpr rt singleEntry =
+    let baseAddr = extractBaseAddr findConst findDef baseExpr
+    let tblAddr = extractTableAddr findConst findDef tblExpr
+    match baseAddr, tblAddr with
+    | Ok baseAddr, Ok tblAddr ->
+      Ok({ InsAddr = insAddr
+           JumpBase = baseAddr
+           TableAddress = tblAddr
+           EntrySize = RegType.toByteWidth rt
+           NumEntries = 0
+           IsSingleEntry = singleEntry })
+    | _ -> Error ErrorCase.ItemNotFound
+
+  let detect expandPhi findConst findDef iAddr = function
+    | BinOp(BinOpType.ADD, _, Num b, Load(_, t, memExpr))
+    | BinOp(BinOpType.ADD, _, Load(_, t, memExpr), Num b)
+    | BinOp(BinOpType.ADD, _, Num b, Cast(_, _, Load(_, t, memExpr)))
+    | BinOp(BinOpType.ADD, _, Cast(_, _, Load(_, t, memExpr)), Num b) ->
+      if isJmpTable expandPhi findConst findDef t memExpr then
+        extractTblInfo findConst findDef iAddr (Num b) memExpr t false
+      elif isSingleEntryJmpTable memExpr then
+        extractTblInfo findConst findDef iAddr (Num b) memExpr t true
+      else
+        Error ErrorCase.ItemNotFound
+    | BinOp(BinOpType.ADD, _, (Load(_, _, e1) as m1), (Load(_, t, e2) as m2)) ->
+      if isJmpTable expandPhi findConst findDef t e1 then
+        extractTblInfo findConst findDef iAddr m2 e1 t false
+      elif isJmpTable expandPhi findConst findDef t e2 then
+        extractTblInfo findConst findDef iAddr m1 e2 t false
+      elif isSingleEntryJmpTable e1 then
+        extractTblInfo findConst findDef iAddr m2 e1 t true
+      elif isSingleEntryJmpTable e2 then
+        extractTblInfo findConst findDef iAddr m1 e2 t true
+      else Error ErrorCase.ItemNotFound
+    | BinOp(BinOpType.ADD, _, baseExpr, Load(_, t, tblExpr))
+    | BinOp(BinOpType.ADD, _, Load(_, t, tblExpr), baseExpr) ->
+      if isJmpTable expandPhi findConst findDef t tblExpr then
+        extractTblInfo findConst findDef iAddr baseExpr tblExpr t false
+      elif isSingleEntryJmpTable tblExpr then
+        extractTblInfo findConst findDef iAddr baseExpr tblExpr t true
+      else
+        Error ErrorCase.ItemNotFound
+    | Load(_, t, memExpr)
+    | Cast(_, _, Load(_, t, memExpr)) ->
+      if isJmpTable expandPhi findConst findDef t memExpr then
+        let zero = BitVector.Zero t
+        extractTblInfo findConst findDef iAddr (Num zero) memExpr t false
+      elif isSingleEntryJmpTable memExpr then
+        let zero = BitVector.Zero t
+        extractTblInfo findConst findDef iAddr (Num zero) memExpr t true
+      else
+        Error ErrorCase.ItemNotFound
+    | _ -> Error ErrorCase.ItemNotFound
+
   /// This is a practical limit for the depth of symbolic expansion.
-  let [<Literal>] MaxDepth = 7
+  let [<Literal>] MaxDepth = 10
 
   let rec findSymbPattern expandPhi findConst findDef fnAddr insAddr depth exp =
 #if CFGDEBUG
     dbglog ManagerTid "JumpTable"
     <| $"{insAddr:x} ({depth}): {PrettyPrinter.ToString(ssaExpr = exp)}"
 #endif
-    match detect findConst findDef insAddr exp with
+    match detect expandPhi findConst findDef insAddr exp with
     | Ok(info) ->
 #if CFGDEBUG
       dbglog ManagerTid "JumpTable" $"detected @ {fnAddr:x}"
