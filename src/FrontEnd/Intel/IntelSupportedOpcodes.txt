@@ -106,6 +106,10 @@ CALLFar
 CALLNear
 /// Convert Byte to Word.
 CBW
+/// Chinese national cryptographic algorithms.
+CCS_ENCRYPT
+/// Chinese national cryptographic algorithms.
+CCS_HASH
 /// Convert Doubleword to Quadword.
 CDQ
 /// Convert Doubleword to Quadword.
@@ -782,6 +786,10 @@ MINSD
 MINSS
 /// Set Up Monitor Address.
 MONITOR
+/// Montgomery multiplier (PMM).
+MONTMUL
+/// Montgomery multiplier (PMM).
+MONTMUL2
 /// MOV.
 MOV
 /// Move Aligned Packed Double-Precision Floating-Point Values.
@@ -1342,6 +1350,8 @@ SHUFPS
 SIDT
 /// Store Local Descriptor Table Register.
 SLDT
+/// Chinese national cryptographic algorithms.
+SM2
 /// Store Machine Status Word.
 SMSW
 /// Compute packed square roots of packed double-precision FP values.
@@ -2760,6 +2770,16 @@ XADD
 XBEGIN
 /// Exchange Register/Memory with Register.
 XCHG
+/// Cipher Block Chaining.
+XCRYPTCBC
+/// Cipher Feedback Mode.
+XCRYPTCFB
+/// Counter Mode (ACE2).
+XCRYPTCTR
+/// Electronic code book.
+XCRYPTECB
+/// Output Feedback Mode.
+XCRYPTOFB
 /// Transactional End.
 XEND
 /// Value of Extended Control Register.
@@ -2768,6 +2788,8 @@ XGETBV
 XLAT
 /// Table Look-up Translation.
 XLATB
+/// Modular Multiplication.
+XMODEXP
 /// Logical Exclusive OR.
 XOR
 /// Bitwise Logical XOR for Double-Precision Floating-Point Values.
@@ -2776,6 +2798,8 @@ XORPD
 XORPS
 /// Prefix hint to the end of an HLE transaction region.
 XRELEASE
+/// Random Number Generation.
+XRNG2
 /// Restore Processor Extended States.
 XRSTOR
 /// Restore processor supervisor-mode extended states from memory.
@@ -2796,6 +2820,16 @@ XSAVES
 XSAVES64
 /// Set Extended Control Register.
 XSETBV
+/// Hash Function SHA-1.
+XSHA1
+/// Hash Function SHA-256.
+XSHA256
+/// Hash Function SHA-384.
+XSHA384
+/// Hash Function SHA-512.
+XSHA512
+/// Store Available Random Bytes.
+XSTORERNG
 /// Test If In Transactional Execution.
 XTEST
 /// Invalid Opcode.

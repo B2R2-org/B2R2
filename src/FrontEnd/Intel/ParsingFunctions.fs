@@ -6604,6 +6604,45 @@ let parseCETInstr span (phlp: ParsingHelper) =
   phlp.Prefixes <- Prefix.ClearGrp1PrefMask &&& phlp.Prefixes
   render span phlp op SzCond.Normal oidx sidx
 
+let parsePadLockInstr1 span (phlp: ParsingHelper) =
+  let opcode =
+    match phlp.PeekByte span with
+    | 0xC0uy ->
+      phlp.IncPos()
+      if Prefix.hasREPNZ phlp.Prefixes then
+        phlp.Prefixes <- Prefix.ClearGrp1PrefMask &&& phlp.Prefixes
+        SM2
+      else MONTMUL
+    | 0xC8uy -> phlp.IncPos(); XSHA1
+    | 0xD0uy -> phlp.IncPos(); XSHA256
+    | 0xD8uy -> phlp.IncPos(); XSHA384
+    | 0xE0uy -> phlp.IncPos(); XSHA512
+    | 0xE8uy ->
+      phlp.IncPos()
+      phlp.Prefixes <- Prefix.ClearGrp1PrefMask &&& phlp.Prefixes
+      CCS_HASH
+    | 0xF0uy -> phlp.IncPos(); MONTMUL2
+    | 0xF8uy -> phlp.IncPos(); XMODEXP
+    | _ -> raise InvalidOpcodeException
+  render span phlp opcode SzCond.Normal OD.No SZ.Def
+
+let parsePadLockInstr2 span (phlp: ParsingHelper) =
+  let opcode =
+    match phlp.PeekByte span with
+    | 0xC0uy -> phlp.IncPos(); XSTORERNG
+    | 0xC8uy -> phlp.IncPos(); XCRYPTECB
+    | 0xD0uy -> phlp.IncPos(); XCRYPTCBC
+    | 0xD8uy -> phlp.IncPos(); XCRYPTCTR
+    | 0xE0uy -> phlp.IncPos(); XCRYPTCFB
+    | 0xE8uy -> phlp.IncPos(); XCRYPTOFB
+    | 0xF0uy ->
+      phlp.IncPos()
+      phlp.Prefixes <- Prefix.ClearGrp1PrefMask &&& phlp.Prefixes
+      CCS_ENCRYPT
+    | 0xF8uy -> phlp.IncPos(); XRNG2
+    | _ -> raise InvalidOpcodeException
+  render span phlp opcode SzCond.Normal OD.No SZ.Def
+
 /// When the first two bytes are 0F38.
 /// Table A-4 of Volume 2 (Three-byte Opcode Map : First Two Bytes are 0F 38H)
 let parseThreeByteOp1 span (phlp: ParsingHelper) =
@@ -7064,6 +7103,8 @@ let parseTwoByteOpcode span (phlp: ParsingHelper) =
   | 0xA3uy -> render span phlp BT SzCond.Normal OD.RmGpr SZ.Def
   | 0xA4uy -> render span phlp SHLD SzCond.Normal OD.XmRegImm8 SZ.Def
   | 0xA5uy -> render span phlp SHLD SzCond.Normal OD.RmGprCL SZ.Def
+  | 0xA6uy -> parsePadLockInstr1 span phlp
+  | 0xA7uy -> parsePadLockInstr2 span phlp
   | 0xA8uy -> render span phlp PUSH SzCond.D64 OD.Gs SZ.RegW
   | 0xA9uy -> render span phlp POP SzCond.D64 OD.Gs SZ.RegW
   | 0xAAuy -> render span phlp RSM SzCond.Normal OD.No SZ.Def
