@@ -26,7 +26,7 @@
 open System.Text.RegularExpressions
 
 let split line =
-  let r = new Regex("(\/\/\/ .+)?([a-zA-Z0-9]+)?\s*(\(\*.+\*\))?")
+  let r = new Regex("(\/\/\/ .+)?([a-zA-Z0-9_]+)?\s*(\(\*.+\*\))?")
   let m = r.Match (line)
   m.Groups[1].ToString(), m.Groups[2].ToString(), m.Groups[3].ToString()
 
