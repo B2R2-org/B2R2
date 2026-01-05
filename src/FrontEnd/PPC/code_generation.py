@@ -4,6 +4,9 @@ import sys
 import random
 from enum import Enum
 
+class CodeGenerationError(Exception):
+    pass
+
 class OprType(Enum):
     Unknown = 0
     Reg = 1
@@ -83,7 +86,7 @@ def operands_to_str(operands):
     operands_str = ""
     match len(operands):
         case 0:
-            operands_str = "NoOperand"
+            return "NoOperand"
         case 1:
             operands_str = "OneOperand"
         case 2:
@@ -95,13 +98,15 @@ def operands_to_str(operands):
         case 5:
             operands_str = "FiveOperands"
         case _:
-            print("too many operands")
-            sys.exit(-1)
+            raise CodeGenerationError("too many operands")
 
     return f"{operands_str}({", ".join(list(map(operand_to_str, operands)))})"
 
 def range_to_extract(ran, extend_shift = None):
     l, r = ran
+    if not (0 <= l and l <= 31 and 0 <= r and r <= 31):
+        raise CodeGenerationError("invalid range")
+    
     if extend_shift is not None:
         return f"extractExtendedField bin {31 - l}u {31 - r}u {extend_shift}"
     elif l == r:
@@ -111,9 +116,15 @@ def range_to_extract(ran, extend_shift = None):
     
 def range_to_size(ran):
     l, r = ran
+    if not (0 <= l and l <= 31 and 0 <= r and r <= 31):
+        raise CodeGenerationError("invalid range")
+    
     return r - l + 1
 
 def extract_bits(bin, l, r):
+    if not (0 <= l and l <= 31 and 0 <= r and r <= 31):
+        raise CodeGenerationError("invalid range")
+    
     return (bin & ((1 << (r + 1)) - (1 << l))) >> l
 
 
@@ -127,8 +138,7 @@ def should_use_CR(operand, instr):
         elif ambiguous_info[ambiguous_name] == "FPSCR":
             use_CR = False
         else:
-            print("invalid ambiguous infomation")
-            exit(-1)
+            raise CodeGenerationError("invalid ambiguous infomation")
     else:
         print(f"detect ambiguous operand in instruction {instr["opcode"]}: {operand}.")
         while True:
@@ -160,8 +170,7 @@ def get_ambiguous_opr_type(operand, instr):
         else:
             return OprType.FPSCondBitReg
     else:
-        print("unimplemented ambiguous operand")
-        exit(-1)
+        raise CodeGenerationError("there is no field for target address")
 
 def get_conv_func(opr_type):
     return opr_type_conv_func_dict[opr_type]
@@ -188,19 +197,32 @@ def operand_to_let_D(operand, opr_type, instr):
         let5 = f"    let {operand.lower()}Opr = Bits.signExtend {sz_d0 + sz_d1 + sz_d2} 64 d |> {get_conv_func(opr_type)}\n"
         return let1 + let2 + let3 + let4 + let5
     
+def operand_to_let_DCMX(operand, opr_type, instr):
+    if operand in instr["fields"]:
+        return operand_to_let_direct(operand, opr_type, instr)
+    else:
+        let1 = f"    let dc = {range_to_extract(instr["fields"]["dc"])}\n"
+        let2 = f"    let dm = {range_to_extract(instr["fields"]["dm"])}\n"
+        let3 = f"    let dx = {range_to_extract(instr["fields"]["dx"])}\n"
+
+        sz_dx = range_to_size(instr["fields"]["dx"])
+        sz_dm = range_to_size(instr["fields"]["dm"])
+
+        let4 = f"    let {operand.lower()}Opr = Bits.concat dc (Bits.concat dm dx {sz_dx}) {sz_dm + sz_dx} |> {get_conv_func(opr_type)}\n"
+        return let1 + let2 + let3 + let4
+    
 def operand_to_let_target_addr(operand, opr_type, instr):
     if "LI" in instr["fields"]:
         addr_field = "LI"
     elif "BD" in instr["fields"]:
         addr_field = "BD"
     else:
-        print("there is no field for target address")
-        sys.exit(-1)
+        raise CodeGenerationError("invalid operands")
     
-    if extract_bits(instr["equal conditions"][1], 31 - instr["fields"]["AA"][1], 31 - instr["fields"]["AA"][0]) == 0:
-        return f"    let {operand.lower()}Opr = addr + {range_to_extract(instr["fields"][addr_field], 2)} |> {get_conv_func(opr_type)}\n"
-    else:
-        return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][addr_field], 2)} |> {get_conv_func(opr_type)}\n"
+    if not "AA" in instr["fields"]:
+        raise CodeGenerationError("invalid operands")
+    
+    return f"    let {operand.lower()}Opr = {range_to_extract(instr["fields"][addr_field], 2)} |> {get_conv_func(opr_type)}\n"
 
 def operand_to_let_eff_D_RA(_, opr_type, instr):
     let1 = f"    let ra = {range_to_extract(instr["fields"]["RA"])}\n"
@@ -294,24 +316,30 @@ def operand_to_let_SPR(operand, opr_type, instr):
         return let1 + let2 + let3
 
 operand_type_dict = {
+    "A": (operand_to_let_direct, OprType.Imm),
     "BA": (operand_to_let_direct, OprType.CondBitReg),
     "BB": (operand_to_let_direct, OprType.CondBitReg),
     "BC": (operand_to_let_direct, OprType.CondBitReg),
     "BF": (operand_to_let_direct, OprType.Unknown),
     "BFA": (operand_to_let_direct, OprType.Unknown),
     "BH": (operand_to_let_direct, OprType.BH),
+    "BHRBE": (operand_to_let_direct, OprType.Imm),
     "BI": (operand_to_let_direct, OprType.CondBitReg),
     "BO": (operand_to_let_direct, OprType.BO),
     "BT": (operand_to_let_direct, OprType.Unknown),
+    "CT" : (operand_to_let_direct, OprType.Imm),
     "CY" : (operand_to_let_direct, OprType.CY),
     "D" : (operand_to_let_D, OprType.Imm64),
-    "DM" : (operand_to_let_direct, OprType.Imm),
     "D2RA": (operand_to_let_eff_D_RA, OprType.Mem),
     "DCM": (operand_to_let_direct, OprType.DCM),
+    "DCMX" : (operand_to_let_DCMX, OprType.DCM),
     "DGM": (operand_to_let_direct, OprType.DGM),
+    "DM" : (operand_to_let_direct, OprType.Imm),
     "DRM": (operand_to_let_direct, OprType.Imm),
     "DS2RA": (operand_to_let_eff_DS_RA, OprType.Mem),
     "DQ2RA": (operand_to_let_eff_DQ_RA, OprType.Mem),
+    "EH": (operand_to_let_direct, OprType.Imm),
+    "FC": (operand_to_let_direct, OprType.Imm),
     "FRA": (operand_to_let_direct, OprType.FPReg),
     "FRAp": (operand_to_let_direct, OprType.FPReg),
     "FRB": (operand_to_let_direct, OprType.FPReg),
@@ -323,14 +351,20 @@ operand_type_dict = {
     "FRTp": (operand_to_let_direct, OprType.FPReg),
     "FXM": (operand_to_let_direct, OprType.CRMask),
     "FLM": (operand_to_let_direct, OprType.FPSCRMask),
+    "IH": (operand_to_let_direct, OprType.Imm),
+    "IMM8": (operand_to_let_direct, OprType.Imm),
     "L" : (operand_to_let_direct, OprType.L),
+    "LEV": (operand_to_let_direct, OprType.Imm),
     "MB": (operand_to_let_MB, OprType.Imm),
     "ME": (operand_to_let_ME, OprType.Imm),
     "NB": (operand_to_let_direct, OprType.Imm),
+    "PRS": (operand_to_let_direct, OprType.Imm),
+    "PS": (operand_to_let_direct, OprType.Imm),
     "R": (operand_to_let_direct, OprType.Imm),
     "RA": (operand_to_let_direct, OprType.Reg),
     "RB": (operand_to_let_direct, OprType.Reg),
     "RC": (operand_to_let_direct, OprType.Reg),
+    "RIC": (operand_to_let_direct, OprType.Imm),
     "RM": (operand_to_let_direct, OprType.Imm),
     "RMC": (operand_to_let_direct, OprType.Imm),
     "RS": (operand_to_let_direct, OprType.Reg),
@@ -340,11 +374,16 @@ operand_type_dict = {
     "S": (operand_to_let_direct, OprType.Imm),
     "SH": (operand_to_let_SH, OprType.Imm),
     "SHB": (operand_to_let_direct, OprType.Imm),
+    "SHW": (operand_to_let_direct, OprType.Imm),
     "SI": (operand_to_let_direct_ext, OprType.Imm64),
     "SIM": (operand_to_let_direct_ext, OprType.Imm64),
+    "SIX": (operand_to_let_direct, OprType.Imm),
     "SP": (operand_to_let_direct, OprType.Imm),
     "SPR": (operand_to_let_SPR, OprType.SPReg),
+    "ST": (operand_to_let_direct, OprType.Imm),
+    "TBR": (operand_to_let_direct, OprType.Imm),
     "TE": (operand_to_let_direct, OprType.Imm),
+    "TH": (operand_to_let_direct, OprType.Imm),
     "TO": (operand_to_let_direct, OprType.TO),
     "targetaddr": (operand_to_let_target_addr, OprType.Addr),
     "U": (operand_to_let_direct, OprType.Imm),
@@ -356,6 +395,7 @@ operand_type_dict = {
     "VRS": (operand_to_let_direct, OprType.VReg),
     "VRT": (operand_to_let_direct, OprType.VReg),
     "W": (operand_to_let_direct, OprType.W),
+    "WC": (operand_to_let_direct, OprType.Imm),
     "XA": (operand_to_let_XA, OprType.VSReg),
     "XB": (operand_to_let_XB, OprType.VSReg),
     "XC": (operand_to_let_XC, OprType.VSReg),
@@ -365,8 +405,7 @@ operand_type_dict = {
 
 def operand_to_let(operand, instr):
     if not operand in operand_type_dict:
-        print(f"unimplemented operand in instr {instr["opcode"]}: {operand}")
-        sys.exit(-1)
+        raise CodeGenerationError(f"unimplemented operand: {operand}")
     parse_func, opr_type = operand_type_dict[operand]
     if opr_type == OprType.Unknown:
         opr_type = get_ambiguous_opr_type(operand, instr)
@@ -386,15 +425,20 @@ f_op = open("generated_codes/opcode.txt", "w")
 f_parse = open("generated_codes/parseInstruction.txt", "w")
 f_byte = open("generated_codes/allBytes.txt", "w")
 
-enum_start_idx = 0
+enum_idx = 0
+generated_opcodes = set()
 
-for i, instr in enumerate(instr_data):
+for instr in instr_data:
     opcode = instr["opcode"]
     opcode_enum = opcode_to_enum(opcode)
 
-    f_op_to_str.write(f"  | Op.{opcode_enum} -> \"{opcode}\"\n")
-    f_op.write(f"  | {opcode_enum} = {enum_start_idx + i}\n")
-    f_byte.write(instrs_byte_dict[opcode])
+    if not opcode in instrs_byte_dict:
+        print(f"Code generation error: invalid opcode {opcode}")
+        continue
+
+    if opcode in generated_opcodes:
+        print(f"Code generation error: duplicated opcode {opcode}")
+        continue
     
     operands = instr["operands"]
     fields = instr["fields"]
@@ -423,13 +467,34 @@ for i, instr in enumerate(instr_data):
         fields_dict[field_name + field_name_num] = (field['field range'][0], field['field range'][1])
     instr["fields"] = fields_dict
 
-    f_parse.write(f"  | b when b &&&\n    {bitmask:#032b}u = {target_bit:#032b}u ->\n")
-    f_parse.write(f"    let opcode = Opcode.{opcode_enum}\n")
-    for operand in operands:
-        f_parse.write(operand_to_let(operand, instr))
-    f_parse.write(f"    struct (opcode, {operands_to_str(operands)})\n")
+    parsing_code = ""
+
+    parsing_code += f"  | b when b &&&\n    {bitmask:#032b}u = {target_bit:#032b}u ->\n"
+    parsing_code += f"    let opcode = Opcode.{opcode_enum}\n"
+    try:
+        for operand in operands:
+            parsing_code += operand_to_let(operand, instr)
+    except Exception as e:
+        print(f"Code generation error in instr {instr["opcode"]}: {e}")
+        continue
+    parsing_code += f"    struct (opcode, {operands_to_str(operands)})\n"
+
+    f_op_to_str.write(f"  | Op.{opcode_enum} -> \"{opcode}\"\n")
+    f_op.write(f"  | {opcode_enum} = {enum_idx}\n")
+    f_byte.write(instrs_byte_dict[opcode])
+    f_parse.write(parsing_code)
+
+    enum_idx += 1
+    generated_opcodes.add(opcode)
 
 f_op_to_str.close()
 f_op.close()
 f_parse.close()
 f_byte.close()
+
+missed_opcodes = instrs_byte_dict.keys() - generated_opcodes
+print("# of generated opcodes:", len(generated_opcodes))
+print("# of missed opcodes:", len(missed_opcodes))
+print("list:")
+for opcode in missed_opcodes:
+    print(opcode)
