@@ -101,5 +101,4 @@ type LowUIRStream(capacity) =
   /// Finishes the current instruction. This is used for the last statement of
   /// an instruction to create an IEMark statement.
   /// </summary>
-  member _.MarkEnd insLen =
-    base.Add(AST.iemark insLen)
+  member _.MarkEnd insLen = base.Add(AST.iemark insLen)

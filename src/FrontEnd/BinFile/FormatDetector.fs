@@ -63,8 +63,7 @@ let private isHexChar (b: byte) =
   b >= 0x41uy && b <= 0x46uy || (* A-F *)
   b >= 0x61uy && b <= 0x66uy    (* a-f *)
 
-let private allInHexChar (bytes: byte[]) =
-  Array.forall isHexChar bytes
+let private allInHexChar (bytes: byte[]) = Array.forall isHexChar bytes
 
 let private identifyHexString (bytes: byte[]) isa =
   let s =

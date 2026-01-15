@@ -64,7 +64,8 @@ type PrintAction() =
   interface IAction with
     member _.ActionID with get() = "print"
     member _.Signature with get() = "'a -> unit"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in an input object and print out its value.
 """
     member _.Transform(_args, o) =

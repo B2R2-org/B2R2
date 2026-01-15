@@ -69,8 +69,7 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     let vid = id + 1
     addVertex data vid vid
 
-  let addVertexWithDataAndID data vid =
-    addVertex data vid (max id vid)
+  let addVertexWithDataAndID data vid = addVertex data vid (max id vid)
 
   let addEdge (src: IVertex<'V>) (dst: IVertex<'V>) label =
     let srcid = src.ID
@@ -113,16 +112,14 @@ type PersistentDiGraph<'V, 'E when 'V: equality
 
     member _.IsEmpty() = vertices.Count = 0
 
-    member _.HasVertex vid =
-      vertices |> Map.containsKey vid
+    member _.HasVertex vid = vertices |> Map.containsKey vid
 
     member _.HasEdge(src, dst) =
       match succs.TryFind src.ID with
       | None -> raise VertexNotFoundException
       | Some edges -> edges |> List.exists (fun edge -> edge.Second.ID = dst.ID)
 
-    member _.FindVertexByID vid =
-      vertices |> Map.find vid :> IVertex<'V>
+    member _.FindVertexByID vid = vertices |> Map.find vid :> IVertex<'V>
 
     member _.TryFindVertexByID vid =
       vertices
@@ -181,11 +178,9 @@ type PersistentDiGraph<'V, 'E when 'V: equality
       Map.find v.ID succs
       |> List.toArray
 
-    member _.GetRoots() =
-      roots |> List.toArray
+    member _.GetRoots() = roots |> List.toArray
 
-    member this.Reverse(vs) =
-      GraphUtils.reverse this vs (PersistentDiGraph())
+    member this.Reverse(vs) = GraphUtils.reverse this vs (PersistentDiGraph())
 
     member _.FoldVertex(fn, acc) =
       vertices.Values
@@ -229,8 +224,7 @@ type PersistentDiGraph<'V, 'E when 'V: equality
     member _.AddEdge(src: IVertex<'V>, dst: IVertex<'V>, label) =
       addEdge src dst (EdgeLabel label)
 
-    member _.AddEdge(src: IVertex<'V>, dst: IVertex<'V>) =
-      addEdge src dst null
+    member _.AddEdge(src: IVertex<'V>, dst: IVertex<'V>) = addEdge src dst null
 
     member this.RemoveEdge(src: IVertex<'V>, dst: IVertex<'V>) =
       let edge = Edge(src, dst, null)
@@ -251,8 +245,6 @@ type PersistentDiGraph<'V, 'E when 'V: equality
       let roots = Seq.toList vs
       PersistentDiGraph(roots, vertices, preds, succs, id)
 
-    member this.Reverse(vs) =
-      GraphUtils.reverse this vs (PersistentDiGraph())
+    member this.Reverse(vs) = GraphUtils.reverse this vs (PersistentDiGraph())
 
-    member this.Clone() =
-      this
+    member this.Clone() = this

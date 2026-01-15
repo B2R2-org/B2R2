@@ -74,20 +74,22 @@ module SectionFlags =
   /// Returns the string representation of the section flags.
   [<CompiledName "ToString">]
   let toString (flags: SectionFlags) =
-    [ if flags.HasFlag SectionFlags.SHF_WRITE then "WRITE"
-      if flags.HasFlag SectionFlags.SHF_ALLOC then "ALLOC"
-      if flags.HasFlag SectionFlags.SHF_EXECINSTR then "EXECINSTR"
-      if flags.HasFlag SectionFlags.SHF_MERGE then "MERGE"
-      if flags.HasFlag SectionFlags.SHF_STRINGS then "STRINGS"
-      if flags.HasFlag SectionFlags.SHF_INFO_LINK then "INFO_LINK"
-      if flags.HasFlag SectionFlags.SHF_LINK_ORDER then "LINK_ORDER"
+    [ if flags.HasFlag SectionFlags.SHF_WRITE then "WRITE" else ()
+      if flags.HasFlag SectionFlags.SHF_ALLOC then "ALLOC" else ()
+      if flags.HasFlag SectionFlags.SHF_EXECINSTR then "EXECINSTR" else ()
+      if flags.HasFlag SectionFlags.SHF_MERGE then "MERGE" else ()
+      if flags.HasFlag SectionFlags.SHF_STRINGS then "STRINGS" else ()
+      if flags.HasFlag SectionFlags.SHF_INFO_LINK then "INFO_LINK" else ()
+      if flags.HasFlag SectionFlags.SHF_LINK_ORDER then "LINK_ORDER" else ()
       if flags.HasFlag SectionFlags.SHF_OS_NONCONFORMING then "OS_NONCONFORMING"
-      if flags.HasFlag SectionFlags.SHF_GROUP then "GROUP"
-      if flags.HasFlag SectionFlags.SHF_TLS then "TLS"
-      if flags.HasFlag SectionFlags.SHF_COMPRESSED then "COMPRESSED"
-      if flags.HasFlag SectionFlags.SHF_MASKOS then "MASKOS"
-      if flags.HasFlag SectionFlags.SHF_MASKPROC then "MASKPROC"
-      if flags.HasFlag SectionFlags.SHF_ORDERED then "ORDERED"
-      if flags.HasFlag SectionFlags.SHF_EXCLUDE then "EXCLUDE"
-      if flags.HasFlag SectionFlags.SHF_X86_64_LARGE then "X86_64_LARGE" ]
+      else ()
+      if flags.HasFlag SectionFlags.SHF_GROUP then "GROUP" else ()
+      if flags.HasFlag SectionFlags.SHF_TLS then "TLS" else ()
+      if flags.HasFlag SectionFlags.SHF_COMPRESSED then "COMPRESSED" else ()
+      if flags.HasFlag SectionFlags.SHF_MASKOS then "MASKOS" else ()
+      if flags.HasFlag SectionFlags.SHF_MASKPROC then "MASKPROC" else ()
+      if flags.HasFlag SectionFlags.SHF_ORDERED then "ORDERED" else ()
+      if flags.HasFlag SectionFlags.SHF_EXCLUDE then "EXCLUDE" else ()
+      if flags.HasFlag SectionFlags.SHF_X86_64_LARGE then "X86_64_LARGE"
+      else () ]
     |> String.concat ","

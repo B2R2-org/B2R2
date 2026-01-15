@@ -138,8 +138,7 @@ with
   static member inline HashStore(n: Endian, addr: Expr, e: Expr) =
     19 * (19 * (19 * int n + addr.Hash) + e.Hash) + 5
 
-  static member inline HashJmp(e: Expr) =
-    19 * (19 * e.Hash + 1) + 6
+  static member inline HashJmp(e: Expr) = 19 * (19 * e.Hash + 1) + 6
 
   static member inline HashCJmp(cond: Expr, t: Expr, f: Expr) =
     19 * (19 * (19 * cond.Hash + t.Hash) + f.Hash) + 7
@@ -150,11 +149,9 @@ with
   static member inline HashInterCJmp(cond: Expr, t: Expr, f: Expr) =
     19 * (19 * (19 * cond.Hash + t.Hash) + f.Hash) + 9
 
-  static member inline HashExtCall(e: Expr) =
-    (19 * e.Hash) + 10
+  static member inline HashExtCall(e: Expr) = (19 * e.Hash) + 10
 
-  static member inline HashSideEffect(e: SideEffect) =
-    (19 * hash e) + 11
+  static member inline HashSideEffect(e: SideEffect) = (19 * hash e) + 11
 
   static member AppendToString(stmt, sb: StringBuilder) =
     match stmt with

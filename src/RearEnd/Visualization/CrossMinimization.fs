@@ -53,8 +53,7 @@ let private alignVertices vertices =
   |> ignore
   arr
 
-let private generateVLayout vPerLayer =
-  Array.map alignVertices vPerLayer
+let private generateVLayout vPerLayer = Array.map alignVertices vPerLayer
 
 let private baryCenter (vGraph: IDiGraph<_, _>) isDown (v: IVertex<VisBBlock>) =
   let neighbor =
@@ -137,7 +136,9 @@ let private reverseOneLayer vGraph vLayout isDown maxLayer layer =
     let bcByValues = Map.toList bcByValues
     let bcByValues = List.sortBy fst bcByValues
     List.fold (reorderVertices vertices) 0 bcByValues |> ignore
-    if isReversed then phase1 vGraph vLayout isDown layer maxLayer
+    if isReversed then phase1 vGraph vLayout isDown layer maxLayer else ()
+  else
+    ()
 
 let private phase2 vGraph vLayout isDown maxLayer =
   let layers = if isDown then [ 1 .. maxLayer ] else [ maxLayer - 1 .. -1 .. 0 ]
@@ -154,6 +155,8 @@ let rec private sugiyamaReorder vGraph vLayout cnt hashSet =
     let hashCode = vLayout.GetHashCode()
     if not (Set.contains hashCode hashSet) then
       sugiyamaReorder vGraph vLayout (cnt + 1) (Set.add hashCode hashSet)
+    else
+      ()
 
 let minimizeCrosses vGraph =
   let vLayout = generateVPerLayer vGraph |> generateVLayout

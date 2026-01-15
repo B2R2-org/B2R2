@@ -44,8 +44,7 @@ type LowUIRCFG private(g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   let update g' = g <- g'
 
   /// Creates an empty persistent CFG.
-  new() =
-    LowUIRCFG(PersistentDiGraph<LowUIRBasicBlock, CFGEdgeKind>())
+  new() = LowUIRCFG(PersistentDiGraph<LowUIRBasicBlock, CFGEdgeKind>())
 
   /// Creates a new CFG with the given implementation type.
   new(t: ImplementationType) =

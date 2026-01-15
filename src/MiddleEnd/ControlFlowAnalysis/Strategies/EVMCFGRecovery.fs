@@ -38,9 +38,9 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.CFGRecoveryCommon
 
 [<AutoOpen>]
 module private EVMCFGRecovery =
-  let [<Literal>] private UseCallFallthroughHeuristic = true
+  let [<Literal>] UseCallFallthroughHeuristic = true
 
-  let [<Literal>] private UsesOptimizedReload = true
+  let [<Literal>] UsesOptimizedReload = true
 
   let summarizer = EVMFunctionSummarizer() :> IFunctionSummarizable<_, _>
 
@@ -63,8 +63,7 @@ module private EVMCFGRecovery =
 
   let fourBytesBitmaskBv = BitVector(UInt32.MaxValue, 256<rt>)
 
-  let isPossiblyFuncSig (bv: BitVector) =
-    bv &&& fourBytesBitmaskBv = bv
+  let isPossiblyFuncSig (bv: BitVector) = bv &&& fourBytesBitmaskBv = bv
 
   let isMsgDataDivision = function
     | SSA.BinOp(BinOpType.DIV, _,
@@ -633,7 +632,6 @@ module private EVMCFGRecovery =
     let hasAbstractPred =
       ctx.CFG.GetPreds srcV
       |> Array.exists (fun pred -> pred.VData.Internals.IsAbstract)
-    if newEntryPointAddr = 0x9acUL then ()
     if isInfeasibleEntryPoint ctx newEntryPoint || hasAbstractPred then
       introduceNewSharedRegion ctx cfgRec srcV newEntryPointAddr
     (* 0x00000000000006c7676171937c444f6bde3d6282: 0x3e6a *)
@@ -720,7 +718,7 @@ module private EVMCFGRecovery =
     connectEdge ctx cfgRec caller callee edgeKind
     callee
 
-  let private hasFinalContext ctx addr =
+  let hasFinalContext ctx addr =
     match ctx.ManagerChannel.GetBuildingContext addr with
     | FinalCtx _ -> true
     | _ -> false
@@ -760,12 +758,15 @@ module private EVMCFGRecovery =
       seen.Add u |> ignore
       onStack[u] <- true
       for v in g.GetSuccs u do
-        if not <| seen.Contains v then dfs v
+        if not <| seen.Contains v then
+          dfs v
         elif onStack.ContainsKey v && onStack[v] then
           backEdges.Add(u, v) |> ignore
+        else
+          ()
       onStack[u] <- false
     for v in g.Vertices do
-      if not <| seen.Contains v then dfs v
+      if not <| seen.Contains v then dfs v else ()
 
   /// Update the back-edges of the current function.
   /// TODO: We can use the dynamic DFS algorithm by Yang et al. (VLDB '19).
@@ -785,8 +786,7 @@ module private EVMCFGRecovery =
       (visited: HashSet<_>).Add v |> ignore
       for pred in (g: IDiGraph<_, _>).GetPreds v do (* For recalculation. *)
         pendingFn pred v
-      if v = g.SingleRoot then
-        pendingFn null v
+      if v = g.SingleRoot then pendingFn null v else ()
       if not <| removalFn v then
         traverseForRemovalMark visited g pendingFn removalFn rest
       else
@@ -925,8 +925,7 @@ type EVMCFGRecovery(fnCallback) as this =
     member _.OnAction(ctx, queue, action) =
       onAction ctx this queue syscallAnalysis false action
 
-    member _.OnCyclicDependency(builders) =
-      onCyclicDependency builders
+    member _.OnCyclicDependency(builders) = onCyclicDependency builders
 
     member _.OnCreate(ctx) =
       if isNull ctx.UserContext.CP then
@@ -947,6 +946,8 @@ type EVMCFGRecovery(fnCallback) as this =
                 getSuccessorExecutionContext ctx src srcExeCtx dst edge }
         let cp = LowUIRSensitiveConstantPropagation(ctx.BinHandle, scheme)
         ctx.UserContext.CP <- cp
+      else
+        ()
 
     member _.OnFinish(ctx) =
       let fnUserCtx = ctx.UserContext
@@ -981,11 +982,9 @@ type EVMCFGRecovery(fnCallback) as this =
       ctx.UserContext.CP.State.MarkEdgeAsPending(srcV, dstV)
       updateBackEdges ctx srcV dstV
 
-    member _.OnRemoveVertex(ctx, v) =
-      onRemoveVertex ctx v
+    member _.OnRemoveVertex(ctx, v) = onRemoveVertex ctx v
 
-    member _.FindCandidatesForPostProcessing builders =
-      fnCallback builders
+    member _.FindCandidatesForPostProcessing builders = fnCallback builders
 
   new() =
     let fnCallback _ = [||] (* Does nothing. *)

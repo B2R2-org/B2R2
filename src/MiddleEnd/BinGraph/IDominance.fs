@@ -28,10 +28,10 @@ open System.Collections.Generic
 
 /// Interface for computing dominance relationships of nodes in digraphs.
 type IDominance<'V, 'E when 'V: equality and 'E: equality> =
-  abstract Dominators : IVertex<'V> -> IEnumerable<IVertex<'V>>
-  abstract ImmediateDominator : IVertex<'V> -> IVertex<'V> | null
-  abstract DominatorTree : DominatorTree<'V, 'E>
-  abstract DominanceFrontier : IVertex<'V> -> IEnumerable<IVertex<'V>>
+  abstract Dominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
+  abstract ImmediateDominator: IVertex<'V> -> IVertex<'V> | null
+  abstract DominatorTree: DominatorTree<'V, 'E>
+  abstract DominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
   abstract PostDominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
   abstract ImmediatePostDominator: IVertex<'V> -> IVertex<'V> | null
   abstract PostDominatorTree: DominatorTree<'V, 'E>

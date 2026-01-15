@@ -30,8 +30,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.FileViewer.Helper
 open B2R2.RearEnd.Utils
 
-let badAccess _ _ =
-  raise InvalidFileFormatException
+let badAccess _ _ = raise InvalidFileFormatException
 
 let translateFlags flags =
   let enumFlags =
@@ -429,7 +428,9 @@ let dumpLoadCommands _ (file: MachBinFile) =
         if s.SegName = seg.SegCmdName then
           Terminal.Out.PrintLine()
           Terminal.Out.PrintSubsubsectionTitle(String.wrapSqrdBracket "Section")
-          dumpSectionDetails s.SecName file)
+          dumpSectionDetails s.SecName file
+        else
+          ())
     | Mach.SymTab(cmd, size, symtab) -> printSymTabCmd cmd size symtab idx
     | Mach.DySymTab(cmd, size, dysym) -> printDySymTabCmd cmd size dysym idx
     | Mach.DyLib(cmd, size, dylib) -> printDyLibCmd cmd size dylib idx

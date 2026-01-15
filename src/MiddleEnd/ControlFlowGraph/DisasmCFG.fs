@@ -148,8 +148,7 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
     for succ in dst.Successors do
       addEdgeToDisasmVertex vMap srcAddr <| Some succ
 
-  let isNonReturningAbsVertex (g: LowUIRCFG) v =
-    g.GetSuccs v |> Array.isEmpty
+  let isNonReturningAbsVertex (g: LowUIRCFG) v = g.GetSuccs v |> Array.isEmpty
 
   let addEdgesToDisasmVertex (g: LowUIRCFG) verticesToMerge vMap v =
     let edges = g.GetSuccEdges v

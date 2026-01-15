@@ -43,5 +43,4 @@ type Labels(lbls) =
 
   member _.Index sym = lbls[sym]
 
-  member _.Clone() =
-    Labels(Dictionary(lbls))
+  member _.Clone() = Labels(Dictionary(lbls))

@@ -42,8 +42,7 @@ type SliceAction() =
       |> fun newBs ->
         Binary.Init(Binary.MakeAnnotation("Sliced from ", bin), newBs)
 
-  let sliceBySectionName bin secName =
-    Terminator.futureFeature ()
+  let sliceBySectionName bin secName = Terminator.futureFeature ()
 
   let parseTwoArgs (a1: string) (a2: string) =
     let a1 = Convert.ToUInt64(a1, 16)
@@ -71,7 +70,8 @@ type SliceAction() =
   interface IAction with
     member _.ActionID with get() = "slice"
     member _.Signature with get() = "Binary * [optional arg(s)] -> Binary"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in a byte array or a BinHandle and return a byte array of a part of the
     binary along with its starting address. Users can specify a specific address
     range or a section name as argument(s), which are listed below.

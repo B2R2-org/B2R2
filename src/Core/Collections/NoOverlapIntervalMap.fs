@@ -92,10 +92,8 @@ module NoOverlapIntervalMap =
         if k' = k then
           if isReplace then Node(c, k', v, l, r)
           else raise RangeOverlapException
-        elif k.Min < k'.Min && k.Max < k'.Min then
-          balance (c, k', v', ins l, r)
-        elif k.Min > k'.Max && k.Max > k'.Max then
-          balance (c, k', v', l, ins r)
+        elif k.Min < k'.Min && k.Max < k'.Min then balance (c, k', v', ins l, r)
+        elif k.Min > k'.Max && k.Max > k'.Max then balance (c, k', v', l, ins r)
         else raise RangeOverlapException
     ins tree |> toBlack
 
@@ -152,12 +150,10 @@ module NoOverlapIntervalMap =
     | node -> Node node
 
   [<CompiledName("Remove")>]
-  let remove k tree =
-    del true k tree |> toBlack
+  let remove k tree = del true k tree |> toBlack
 
   [<CompiledName("RemoveAddr")>]
-  let removeAddr addr tree =
-    del false (AddrRange addr) tree
+  let removeAddr addr tree = del false (AddrRange addr) tree
 
   [<CompiledName("Empty")>]
   let empty = Leaf B
@@ -173,8 +169,7 @@ module NoOverlapIntervalMap =
     findLoop false (AddrRange addr) tree |> Result.isOk
 
   [<CompiledName("ContainsRange")>]
-  let containsRange range tree =
-    findLoop true range tree |> Result.isOk
+  let containsRange range tree = findLoop true range tree |> Result.isOk
 
   [<CompiledName("Find")>]
   let find range tree =

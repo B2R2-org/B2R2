@@ -151,7 +151,7 @@ module State =
                    Regs = updateRegs "EAX" nEAX state.Regs }
     | _ -> { state with SideEff = true }
 
-  let evalStmt state stmt  =
+  let evalStmt state stmt =
     match stmt with
     | ISMark _ | IEMark _ | LMark _ -> state
     | Put(Var(_, _, reg, _), value, _) -> evalPutVar state reg value

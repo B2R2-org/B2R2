@@ -32,8 +32,7 @@ open B2R2.FrontEnd.BinFile.ELF
 open B2R2.RearEnd.FileViewer.Helper
 open B2R2.RearEnd.Utils
 
-let badAccess _ _ =
-  raise InvalidFileFormatException
+let badAccess _ _ = raise InvalidFileFormatException
 
 let computeMagicBytes (file: IBinFile) =
   let span = System.ReadOnlySpan(file.RawBytes, 0, 16)
@@ -495,5 +494,4 @@ let dumpGccExceptTable _hdl (elf: ELFBinFile) =
           ttbase |> Addr.toString file.ISA.WordSize ]
   )
 
-let dumpNotes _hdl (_file: ELFBinFile) =
-  Terminator.futureFeature ()
+let dumpNotes _hdl (_file: ELFBinFile) = Terminator.futureFeature ()

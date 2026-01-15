@@ -626,35 +626,25 @@ let private fpuIntOp (ins: Instruction) insLen bld binOp leftToRight =
   castTo80Bit bld st0b st0a res
   bld --!> insLen
 
-let fpuadd ins insLen bld doPop =
-  fpuFBinOp ins insLen bld AST.fadd doPop true
+let fpuadd ins insLen bld doPop = fpuFBinOp ins insLen bld AST.fadd doPop true
 
-let fiadd ins insLen bld =
-  fpuIntOp ins insLen bld AST.fadd true
+let fiadd ins insLen bld = fpuIntOp ins insLen bld AST.fadd true
 
-let fpusub ins insLen bld doPop =
-  fpuFBinOp ins insLen bld AST.fsub doPop true
+let fpusub ins insLen bld doPop = fpuFBinOp ins insLen bld AST.fsub doPop true
 
-let fisub ins insLen bld =
-  fpuIntOp ins insLen bld AST.fsub true
+let fisub ins insLen bld = fpuIntOp ins insLen bld AST.fsub true
 
-let fsubr ins insLen bld doPop =
-  fpuFBinOp ins insLen bld AST.fsub doPop false
+let fsubr ins insLen bld doPop = fpuFBinOp ins insLen bld AST.fsub doPop false
 
-let fisubr ins insLen bld =
-  fpuIntOp ins insLen bld AST.fsub false
+let fisubr ins insLen bld = fpuIntOp ins insLen bld AST.fsub false
 
-let fpumul ins insLen bld doPop =
-  fpuFBinOp ins insLen bld AST.fmul doPop true
+let fpumul ins insLen bld doPop = fpuFBinOp ins insLen bld AST.fmul doPop true
 
-let fimul ins insLen bld =
-  fpuIntOp ins insLen bld AST.fmul true
+let fimul ins insLen bld = fpuIntOp ins insLen bld AST.fmul true
 
-let fpudiv ins insLen bld doPop =
-  fpuFBinOp ins insLen bld AST.fdiv doPop true
+let fpudiv ins insLen bld doPop = fpuFBinOp ins insLen bld AST.fdiv doPop true
 
-let fidiv ins insLen bld =
-  fpuIntOp ins insLen bld AST.fdiv true
+let fidiv ins insLen bld = fpuIntOp ins insLen bld AST.fdiv true
 
 let private isZero exponent significand =
   (exponent == (AST.num0 16<rt>)) .& (significand == (AST.num0 64<rt>))
@@ -708,15 +698,14 @@ let fdivr (ins: Instruction) insLen bld doPop =
   updateC1OnStore bld
   bld --!> insLen
 
-let fidivr ins insLen bld =
-  fpuIntOp ins insLen bld AST.fdiv false
+let fidivr ins insLen bld = fpuIntOp ins insLen bld AST.fdiv false
 
 let inline private castToF64 intexp =
   AST.cast CastKind.SIntToFloat 64<rt> intexp
 
 let getExponent isDouble src =
   if isDouble then
-    let numMantissa =  numI32 52 64<rt>
+    let numMantissa = numI32 52 64<rt>
     let mask = numI32 0x7FF 64<rt>
     AST.xtlo 32<rt> ((src >> numMantissa) .& mask)
   else
@@ -1038,11 +1027,9 @@ let private ftrig (ins: Instruction) insLen bld trigFunc =
   bld <+ (c1 := AST.b0)
   bld --!> insLen
 
-let fsin ins insLen bld =
-  ftrig ins insLen bld AST.fsin
+let fsin ins insLen bld = ftrig ins insLen bld AST.fsin
 
-let fcos ins insLen bld =
-  ftrig ins insLen bld AST.fcos
+let fcos ins insLen bld = ftrig ins insLen bld AST.fcos
 
 let fsincos (ins: Instruction) insLen bld =
   let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
@@ -1346,8 +1333,7 @@ let fldcw (ins: Instruction) insLen bld =
 #endif
   bld --!> insLen
 
-let inline private storeLE addr v =
-  AST.store Endian.Little addr v
+let inline private storeLE addr v = AST.store Endian.Little addr v
 
 let private m14fstenv dstAddr addrSize bld =
   let fiplo = AST.xtlo 16<rt> (regVar bld R.FIP)

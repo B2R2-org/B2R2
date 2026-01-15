@@ -29,17 +29,14 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ParsingUtils
 open B2R2.FrontEnd.RISCV64.Helper
 
-let isTwoBytes b =
-  b &&& 3us <> 3us
+let isTwoBytes b = b &&& 3us <> 3us
 
 let getRegister = function
   | _ -> raise ParsingFailureException
 
-let parseLUI bin wordSize =
-  struct (Op.LUI, getRdImm20 bin wordSize)
+let parseLUI bin wordSize = struct (Op.LUI, getRdImm20 bin wordSize)
 
-let parseAUIPC bin wordSize =
-  struct (Op.AUIPC, getPCRdImm20 bin wordSize)
+let parseAUIPC bin wordSize = struct (Op.AUIPC, getPCRdImm20 bin wordSize)
 
 let parseBranch bin wordSize =
   let opcode =

@@ -63,8 +63,7 @@ let regTo3Bit = function
   | Register.XMM15 | Register.YMM15 | Register.ST7 -> 0b111uy
   | _ -> Terminator.impossible ()
 
-let private getModRMByte md reg rm =
-  (md <<< 6) + (reg <<< 3) + rm |> Normal
+let private getModRMByte md reg rm = (md <<< 6) + (reg <<< 3) + rm |> Normal
 
 let private getRMBySIB baseReg si =
   match si, baseReg with
@@ -81,8 +80,7 @@ let private getMod baseReg = function
     | Some Register.RIP | None -> 0b00uy
     | _ -> if isDisp8 disp then 0b01uy else 0b10uy
 
-let modrmRR reg1 reg2 =
-  getModRMByte 0b11uy (regTo3Bit reg1) (regTo3Bit reg2)
+let modrmRR reg1 reg2 = getModRMByte 0b11uy (regTo3Bit reg1) (regTo3Bit reg2)
 
 let modrmMR baseReg si disp reg =
   getModRMByte (getMod baseReg disp) (regTo3Bit reg) (getRMBySIB baseReg si)
@@ -90,20 +88,16 @@ let modrmMR baseReg si disp reg =
 let modrmRM reg baseReg si disp =
   getModRMByte (getMod baseReg disp) (regTo3Bit reg) (getRMBySIB baseReg si)
 
-let modrmRL reg =
-  getModRMByte 0b00uy (regTo3Bit reg) 0b101uy
+let modrmRL reg = getModRMByte 0b00uy (regTo3Bit reg) 0b101uy
 
-let modrmLI regConstr =
-  getModRMByte 0b00uy regConstr 0b101uy
+let modrmLI regConstr = getModRMByte 0b00uy regConstr 0b101uy
 
-let modrmRI reg regConstr =
-  getModRMByte 0b11uy regConstr (regTo3Bit reg)
+let modrmRI reg regConstr = getModRMByte 0b11uy regConstr (regTo3Bit reg)
 
 let modrmMI baseReg si disp regConstr =
   getModRMByte (getMod baseReg disp) regConstr (getRMBySIB baseReg si)
 
-let modrmRC reg regConstr =
-  getModRMByte 0b11uy regConstr (regTo3Bit reg)
+let modrmRC reg regConstr = getModRMByte 0b11uy regConstr (regTo3Bit reg)
 
 let modrmMC baseReg si disp regConstr =
   getModRMByte (getMod baseReg disp) regConstr (getRMBySIB baseReg si)
@@ -111,8 +105,7 @@ let modrmMC baseReg si disp regConstr =
 let modrmM baseReg si disp regConstr =
   getModRMByte (getMod baseReg disp) regConstr (getRMBySIB baseReg si)
 
-let modrmR reg regConstr =
-  getModRMByte 0b11uy regConstr (regTo3Bit reg)
+let modrmR reg regConstr = getModRMByte 0b11uy regConstr (regTo3Bit reg)
 
 let private getScaleBit = function
   | Scale.X1 -> 0b00uy

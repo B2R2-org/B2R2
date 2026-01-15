@@ -1469,7 +1469,7 @@ let private buildDisplacement showSign (disp: Displacement) wordSize builder =
   let mask = WordSize.toRegType wordSize |> RegType.getMask |> uint64
   if showSign && disp < 0L then
     (builder: IDisasmBuilder).Accumulate(AsmWordKind.String, "-")
-    iToHexStr (- disp) builder
+    iToHexStr (-disp) builder
   elif showSign then
     builder.Accumulate(AsmWordKind.String, "+")
     iToHexStr disp builder

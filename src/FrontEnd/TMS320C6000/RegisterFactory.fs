@@ -35,6 +35,12 @@ do ()
 /// Represents a factory for accessing various TMS320C6000 register variables.
 type RegisterFactory() =
   interface IRegisterFactory with
+    member _.ProgramCounter = Terminator.futureFeature ()
+
+    member _.StackPointer = Terminator.futureFeature ()
+
+    member _.FramePointer = Terminator.futureFeature ()
+
     member _.GetRegVar(id: RegisterID): Expr =
       match Register.ofRegID id with
       | _ -> raise InvalidRegisterException
@@ -62,12 +68,6 @@ type RegisterFactory() =
     member _.GetAllRegisterNames() = Terminator.futureFeature ()
 
     member _.GetRegType _ = Terminator.futureFeature ()
-
-    member _.ProgramCounter = Terminator.futureFeature ()
-
-    member _.StackPointer = Terminator.futureFeature ()
-
-    member _.FramePointer = Terminator.futureFeature ()
 
     member _.IsProgramCounter _ = Terminator.futureFeature ()
 

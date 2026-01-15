@@ -807,7 +807,7 @@ let ret insAddr len opr bld =
   bld <!-- (insAddr, len)
   bld <+ (sp := sp .+ numI32PC 2)
   bld <+ (regVar bld PC := AST.loadLE 16<rt> sp)
-  if opr = Opcode.RETI then bld <+ (regVar bld IF := AST.b1)
+  if opr = Opcode.RETI then bld <+ (regVar bld IF := AST.b1) else ()
   bld --!> len
 
 let rcall ins len bld = (* ADD 22bit PC *)

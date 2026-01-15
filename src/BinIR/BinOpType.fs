@@ -41,7 +41,7 @@ type BinOpType =
   /// Signed modulo
   | SMOD = 6
   /// Shift left
-  | SHL= 7
+  | SHL = 7
   /// Shift right
   | SHR = 8
   /// Sign-extended shift right

@@ -145,8 +145,7 @@ let tmpvar t id =
 
 /// Construct a symbol (for a label) from a string and a IDCounter.
 [<CompiledName("Label")>]
-let inline label name id addr =
-  Label(name, id, addr)
+let inline label name id addr = Label(name, id, addr)
 
 /// Construct an unary operator (UnOp).
 [<CompiledName("UnOp")>]
@@ -477,8 +476,7 @@ let rec private concatLoop (arr: Expr[]) sPos ePos =
 /// (Num 3, Num 2), Concat (Num 1, Num 0))</c>.
 /// </summary>
 [<CompiledName("RevConcat")>]
-let revConcat (arr: Expr[]) =
-  concatLoop arr 0 (Array.length arr - 1)
+let revConcat (arr: Expr[]) = concatLoop arr 0 (Array.length arr - 1)
 
 /// Unwrap (casted) expression.
 [<CompiledName("Unwrap")>]
@@ -498,8 +496,7 @@ let sext addrSize expr = cast CastKind.SignExt addrSize expr
 
 /// Take the low half bits of an expression.
 [<CompiledName("XtLo")>]
-let xtlo addrSize expr =
-  extract expr addrSize 0
+let xtlo addrSize expr = extract expr addrSize 0
 
 /// Take the high half bits of an expression.
 [<CompiledName("XtHi")>]

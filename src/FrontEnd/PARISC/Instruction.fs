@@ -103,8 +103,7 @@ type Instruction
     member _.IndirectTrampolineAddr(_addr: byref<Addr>) =
       Terminator.futureFeature ()
 
-    member _.MemoryDereferences(_: byref<Addr[]>) =
-      Terminator.futureFeature ()
+    member _.MemoryDereferences(_: byref<Addr[]>) = Terminator.futureFeature ()
 
     member _.Immediate(_v: byref<int64>) = Terminator.futureFeature ()
 
@@ -112,21 +111,17 @@ type Instruction
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
-    member this.Translate builder =
-      lifter.Lift(this, builder).Stream.ToStmts()
+    member this.Translate builder = lifter.Lift(this, builder).Stream.ToStmts()
 
-    member this.TranslateToList builder =
-      lifter.Lift(this, builder).Stream
+    member this.TranslateToList builder = lifter.Lift(this, builder).Stream
 
-    member this.Disasm builder =
-      lifter.Disasm(this, builder).ToString()
+    member this.Disasm builder = lifter.Disasm(this, builder).ToString()
 
     member this.Disasm() =
       let builder = StringDisasmBuilder(false, null, wordSize)
       lifter.Disasm(this, builder).ToString()
 
-    member this.Decompose builder =
-      lifter.Disasm(this, builder).ToAsmWords()
+    member this.Decompose builder = lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
   abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder

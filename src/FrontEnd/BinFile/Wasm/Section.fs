@@ -47,8 +47,7 @@ let peekVector bs (reader: IBinReader) offset pe =
     Size = size }
 
 let peekByteVector (bs: byte[]) reader offset =
-  let pb (bs: byte[]) (_: IBinReader) (o: int) =
-    bs[o], o + 1
+  let pb (bs: byte[]) (_: IBinReader) (o: int) = bs[o], o + 1
   peekVector bs reader offset pb
 
 let peekName bs reader offset =
@@ -93,8 +92,7 @@ let parseCustomSec bs reader offset =
 let peekValTypeVec bs reader offset =
   let pvt (bs: byte[]) (r: IBinReader) (o: int) =
     let b = bs[o]
-    let valt: Wasm.ValueType =
-      b |> LanguagePrimitives.EnumOfValue
+    let valt: Wasm.ValueType = b |> LanguagePrimitives.EnumOfValue
     valt, o + 1
   peekVector bs reader offset pvt
 
@@ -181,8 +179,7 @@ let parseImportSec bs reader offset =
   parseSection bs reader offset peekImportSecContents
 
 let peekFunctionSecContents bs reader offset =
-  let pti (bs: byte[]) (r: IBinReader) o =
-    r.ReadUInt32LEB128(bs, o)
+  let pti (bs: byte[]) (r: IBinReader) o = r.ReadUInt32LEB128(bs, o)
   peekVector bs reader offset pti
 
 let parseFunctionSec bs reader offset =
@@ -248,12 +245,10 @@ let peekStartFunc (bs: byte[]) (reader: IBinReader) offset =
   let funcIdx, _ = reader.ReadUInt32LEB128(bs, offset)
   funcIdx
 
-let parseStartSec bs reader offset =
-  parseSection bs reader offset peekStartFunc
+let parseStartSec bs reader offset = parseSection bs reader offset peekStartFunc
 
 let peekElemSeg (bs: byte[]) (reader: IBinReader) offset =
-  let pti (bs: byte[]) (r: IBinReader) (o: int) =
-    r.ReadUInt32LEB128(bs, o)
+  let pti (bs: byte[]) (r: IBinReader) (o: int) = r.ReadUInt32LEB128(bs, o)
   let tableIdx, len = reader.ReadUInt32LEB128(bs, offset)
   let expr, no = peekConstExpr (ReadOnlySpan bs) reader (offset + len)
   let initFuncs = peekVector bs reader no pti

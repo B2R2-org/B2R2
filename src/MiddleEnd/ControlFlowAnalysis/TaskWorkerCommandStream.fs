@@ -49,8 +49,7 @@ type TaskWorkerCommandStream<'FnCtx,
       }
 
     /// Stop receiving nor producing commands.
-    member _.Close() =
-      stream.Complete()
+    member _.Close() = stream.Complete()
 
 /// Status of a task worker command.
 and TaskWorkerCommandStatus<'FnCtx,

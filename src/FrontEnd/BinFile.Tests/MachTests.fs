@@ -50,8 +50,7 @@ type MachTests() =
   static let x86File =
     parseFile "mach_x86_rm_stripped" Architecture.Intel WordSize.Bit32
 
-  static let x64File =
-    parseFile "mach_x64_wc" Architecture.Intel WordSize.Bit64
+  static let x64File = parseFile "mach_x64_wc" Architecture.Intel WordSize.Bit64
 
   static let x64SFile =
     parseFile "mach_x64_wc_stripped" Architecture.Intel WordSize.Bit64

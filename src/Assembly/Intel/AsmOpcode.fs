@@ -65,8 +65,7 @@ let inline prxRexOp ins ctx pref rex op =
      yield! encodeREXPref ins ctx rex
      yield! Array.map Normal op |]
 
-let inline encLbl ins =
-  [| IncompleteOp(ins.Opcode, ins.Operands) |]
+let inline encLbl ins = [| IncompleteOp(ins.Opcode, ins.Operands) |]
 
 let inline encImm ins ctx pref rex op i immSz =
   [| yield! prxRexOp ins ctx pref rex op
@@ -173,8 +172,7 @@ let inline encMC ins ctx pref rex op b s d c =
   [| yield! prxRexOp ins ctx pref rex op
      modrmMC b s d c |]
 
-let inline encNP ins ctx pref rex op =
-  [| yield! prxRexOp ins ctx pref rex op |]
+let inline encNP ins ctx pref rex op = [| yield! prxRexOp ins ctx pref rex op |]
 
 let inline encRRI ins ctx pref rex op r1 r2 i immSz =
   [| yield! prxRexOp ins ctx pref rex op
@@ -3136,7 +3134,6 @@ let xorps (ctx: EncodingContext) ins =
       ctx.PrefNormal ctx.RexNormal [| 0x0Fuy; 0x57uy |] r b s d
   | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
-let syscall () =
-  [| Normal 0x0Fuy; Normal 0x05uy |]
+let syscall () = [| Normal 0x0Fuy; Normal 0x05uy |]
 
 // vim: set tw=80 sts=2 sw=2:

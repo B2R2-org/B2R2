@@ -86,6 +86,5 @@ type SSALifter() =
       let ctx = env.Context
       fun () ->
         let vCallback = createCallback ctx
-        let ssaLifter =
-          SSALifterFactory.Create(ctx.BinHandle, vCallback)
+        let ssaLifter = SSALifterFactory.Create(ctx.BinHandle, vCallback)
         ssaLifter.Lift ctx.CFG

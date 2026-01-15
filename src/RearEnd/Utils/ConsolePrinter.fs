@@ -74,15 +74,12 @@ type ConsolePrinter() =
       .Add(NoColor, ": ")
       .Render(renderer)
 
-  let printErrorSuffix () =
-    Console.WriteLine()
+  let printErrorSuffix () = Console.WriteLine()
 
   interface IPrinter with
-    member _.Print(s: string) =
-      Console.Write s
+    member _.Print(s: string) = Console.Write s
 
-    member _.Print(cs: ColoredString) =
-      cs.Render(renderer)
+    member _.Print(cs: ColoredString) = cs.Render(renderer)
 
     member _.Print(os: OutString) =
       match os with
@@ -90,8 +87,7 @@ type ConsolePrinter() =
       | OutputColored cs -> cs.Render(renderer)
       | OutputNewLine -> Console.WriteLine()
 
-    member _.Print(s: string, [<ParamArray>] args) =
-      Console.Write(s, args)
+    member _.Print(s: string, [<ParamArray>] args) = Console.Write(s, args)
 
     member _.PrintError(s: string) =
       printErrorPrefix ()
@@ -116,8 +112,7 @@ type ConsolePrinter() =
       Console.WriteLine(s, args)
       printErrorSuffix ()
 
-    member _.PrintLine(s: string) =
-      Console.WriteLine(s)
+    member _.PrintLine(s: string) = Console.WriteLine(s)
 
     member _.PrintLine(cs: ColoredString) =
       cs.Render(renderer)
@@ -132,8 +127,7 @@ type ConsolePrinter() =
     member _.PrintLine(fmt: string, [<ParamArray>] args) =
       Console.WriteLine(fmt, args)
 
-    member _.PrintLine() =
-      Console.WriteLine()
+    member _.PrintLine() = Console.WriteLine()
 
     member _.SetTableConfig(cfg: TableConfig) =
       indentation <- cfg.Indentation

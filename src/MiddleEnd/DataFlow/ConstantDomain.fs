@@ -143,12 +143,10 @@ module ConstantDomain =
     | Const bv -> if bv.IsZero then c2 else c1
     | NotAConst -> join c1 c2
 
-  let cast op rt c =
-    unOp (fun bv -> op (bv, rt)) c
+  let cast op rt c = unOp (fun bv -> op (bv, rt)) c
 
   let signExt rt c = cast BitVector.SExt rt c
 
   let zeroExt rt c = cast BitVector.ZExt rt c
 
-  let extract c rt pos =
-    unOp (fun bv -> BitVector.Extract(bv, rt, pos)) c
+  let extract c rt pos = unOp (fun bv -> BitVector.Extract(bv, rt, pos)) c

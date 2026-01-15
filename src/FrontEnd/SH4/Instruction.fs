@@ -67,21 +67,17 @@ type Instruction internal(addr, numBytes, op, opr, lifter: ILiftable) =
     member _.GetNextInstrAddrs() = Terminator.futureFeature ()
     member _.InterruptNum _ = Terminator.futureFeature ()
 
-    member this.Translate builder =
-      lifter.Lift(this, builder).Stream.ToStmts()
+    member this.Translate builder = lifter.Lift(this, builder).Stream.ToStmts()
 
-    member this.TranslateToList builder =
-      lifter.Lift(this, builder).Stream
+    member this.TranslateToList builder = lifter.Lift(this, builder).Stream
 
-    member this.Disasm builder =
-      lifter.Disasm(this, builder).ToString()
+    member this.Disasm builder = lifter.Disasm(this, builder).ToString()
 
     member this.Disasm() =
       let builder = StringDisasmBuilder(false, null, WordSize.Bit32)
       lifter.Disasm(this, builder).ToString()
 
-    member this.Decompose builder =
-      lifter.Disasm(this, builder).ToAsmWords()
+    member this.Decompose builder = lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
   abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder

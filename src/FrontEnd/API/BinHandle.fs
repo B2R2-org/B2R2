@@ -117,8 +117,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
     let struct (fmt, isa) = FormatDetector.identify bytes isa
     BinHandle(path, bytes, fmt, isa, baseAddrOpt)
 
-  new(path, isa) =
-    BinHandle(path = path, isa = isa, baseAddrOpt = None)
+  new(path, isa) = BinHandle(path = path, isa = isa, baseAddrOpt = None)
 
   new(path) =
     let defaultISA = ISA(Architecture.Intel, WordSize.Bit64)
@@ -131,11 +130,9 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
     else
       BinHandle("", bytes, RawBinary, isa, baseAddrOpt)
 
-  new(bytes, isa) =
-    BinHandle("", bytes, RawBinary, isa, None)
+  new(bytes, isa) = BinHandle("", bytes, RawBinary, isa, None)
 
-  new(isa) =
-    BinHandle([||], isa, None, false)
+  new(isa) = BinHandle([||], isa, None, false)
 
   member _.File with get(): IBinFile = binFile
 
@@ -150,15 +147,13 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
     | _ -> ()
     LiftingUnit(binFile, regFactory, parser)
 
-  member _.TryReadBytes(ptr: BinFilePointer, nBytes) =
-    tryReadBytes ptr nBytes
+  member _.TryReadBytes(ptr: BinFilePointer, nBytes) = tryReadBytes ptr nBytes
 
   member _.TryReadBytes(addr: Addr, nBytes) =
     let ptr = binFile.GetBoundedPointer addr
     tryReadBytes ptr nBytes
 
-  member _.ReadBytes(ptr: BinFilePointer, nBytes) =
-    readBytes ptr nBytes
+  member _.ReadBytes(ptr: BinFilePointer, nBytes) = readBytes ptr nBytes
 
   member _.ReadBytes(addr: Addr, nBytes) =
     let ptr = binFile.GetBoundedPointer addr
@@ -206,8 +201,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
     let bs = readAscii [] ptr
     ByteArray.extractCString bs 0
 
-  member _.MakeNew(bs: byte[]) =
-    BinHandle(path, bs, fmt, isa, baseAddrOpt)
+  member _.MakeNew(bs: byte[]) = BinHandle(path, bs, fmt, isa, baseAddrOpt)
 
   member _.MakeNew(bs: byte[], baseAddr) =
     BinHandle(path, bs, fmt, isa, Some baseAddr)

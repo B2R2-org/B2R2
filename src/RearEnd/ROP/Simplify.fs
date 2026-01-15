@@ -76,7 +76,7 @@ let rec simplify expr =
   | Cast(kind, ty, e1, _) -> simplifyCast kind ty e1
   | _ -> expr (* Var, TempVar, Num, Name, PCVar *)
 
-and simplifyBinOp op ty e1 e2  =
+and simplifyBinOp op ty e1 e2 =
   match op, e1, e2 with
   | BinOpType.XOR, _, _ when e1 = e2 -> zeroNum ty
   | BinOpType.XOR, _, _ when isZero e1 -> simplify e2

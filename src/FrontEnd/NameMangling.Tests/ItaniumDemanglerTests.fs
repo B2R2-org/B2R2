@@ -296,10 +296,8 @@ type ItaniumDemanglerTests() =
 
   [<TestMethod>]
   member _.``ItaniumDemangler: Scope Encoding: Return values``() =
-    let mangled =
-      "_ZZ11wxCheckCastI18wxAuiMDIChildFrameEPT_PKvE12__FUNCTION__"
-    let result =
-      "wxCheckCast<wxAuiMDIChildFrame>(void const*)::__FUNCTION__"
+    let mangled = "_ZZ11wxCheckCastI18wxAuiMDIChildFrameEPT_PKvE12__FUNCTION__"
+    let result = "wxCheckCast<wxAuiMDIChildFrame>(void const*)::__FUNCTION__"
     Assert.Correct(mangled, result, ItaniumDemangler())
 
   [<TestMethod>]

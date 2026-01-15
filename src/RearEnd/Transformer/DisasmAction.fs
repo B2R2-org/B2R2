@@ -35,8 +35,7 @@ type DisasmAction() =
       match lifter.TryParseInstruction ptr with
       | Ok instr ->
         let insLen = int instr.Length
-        let insBytes =
-          IBinFile.Slice(lifter.File, ptr.Offset, insLen).ToArray()
+        let insBytes = IBinFile.Slice(lifter.File, ptr.Offset, insLen).ToArray()
         let ptr = ptr.Advance insLen
         let acc = ValidInstruction(instr, insBytes) :: acc
         disasm acc lifter ptr
@@ -61,7 +60,8 @@ type DisasmAction() =
   interface IAction with
     member _.ActionID with get() = "disasm"
     member _.Signature with get() = "Binary -> Instruction array"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in a binary and linearly disassemble the binary to return a list of
     instructions along with its corresponding bytes.
 """

@@ -64,8 +64,7 @@ type Parser(isa: ISA,
         else BigInteger.Parse(s)
       fun rt -> BitVector(bigInt, rt)
 
-  let pRegType =
-    (anyOf "IiFf") >>. pint32 |>> RegType.fromBitWidth
+  let pRegType = (anyOf "IiFf") >>. pint32 |>> RegType.fromBitWidth
 
   let pBitVector =
     pNumber
@@ -140,8 +139,7 @@ type Parser(isa: ISA,
     |>> toExtractExpr
 
   let pComment =
-    let isComment c =
-      isLetter c || isDigit c || Char.IsWhiteSpace c || c = '.'
+    let isComment c = isLetter c || isDigit c || Char.IsWhiteSpace c || c = '.'
     many1Satisfy isComment
 
   let pUndefinedExpr =
@@ -309,8 +307,7 @@ type Parser(isa: ISA,
 
   let comma = pstring ","
 
-  let pArgs =
-    sepBy (ws >>. pExpr) comma
+  let pArgs = sepBy (ws >>. pExpr) comma
 
   let pApp =
     ws
@@ -370,8 +367,7 @@ type Parser(isa: ISA,
     <|> attempt pSideEffect
     >>= typeCheck
 
-  let pLines =
-    sepBy (restOfLine false) newline
+  let pLines = sepBy (restOfLine false) newline
 
   member private _.SeparateLines str =
     match run pLines str with

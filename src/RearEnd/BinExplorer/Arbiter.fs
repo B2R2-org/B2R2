@@ -56,20 +56,21 @@ type Arbiter<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 
   let mailbox =
     MailboxProcessor.Start(fun inbox ->
-      let rec loop brew = async {
-        let! msg = inbox.Receive()
-        match msg with
-        | Command(GetBinaryBrew, ch) ->
-          ch.Reply(ReplyBinaryBrew brew)
-        | Command(LogString str, ch) ->
-          logger.WriteLine str
-          ch.Reply Ack
-        | Command(Terminate, ch) ->
-          logger.Close()
-          logger.Dispose()
-          ch.Reply Ack
-        return! loop brew
-      }
+      let rec loop brew =
+        async {
+          let! msg = inbox.Receive()
+          match msg with
+          | Command(GetBinaryBrew, ch) ->
+            ch.Reply(ReplyBinaryBrew brew)
+          | Command(LogString str, ch) ->
+            logger.WriteLine str
+            ch.Reply Ack
+          | Command(Terminate, ch) ->
+            logger.Close()
+            logger.Dispose()
+            ch.Reply Ack
+          return! loop brew
+        }
       loop brew
     )
 

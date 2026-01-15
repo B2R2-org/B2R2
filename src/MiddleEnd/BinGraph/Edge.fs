@@ -59,5 +59,4 @@ and internal EdgeLabel<'E when 'E: equality>(value: 'E) =
   override _.ToString() = $"{value}"
 
   interface System.IEquatable<EdgeLabel<'E>> with
-    member this.Equals(other: EdgeLabel<'E>) =
-      this.Value = other.Value
+    member this.Equals(other: EdgeLabel<'E>) = this.Value = other.Value

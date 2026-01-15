@@ -358,10 +358,8 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
 
   let lifter =
     { new ILiftable with
-        member _.Lift(ins, builder) =
-          Lifter.translate ins ins.Length builder
-        member _.Disasm(ins, builder) =
-          Disasm.disasm ins builder; builder }
+        member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
+        member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
   let phlp = ParsingHelper(isa.Arch, reader, oparsers, lifter)
 
@@ -371,6 +369,8 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
     member _.IsThumb with get() = isThumb and set v = isThumb <- v
 
   interface IInstructionParsable with
+    member _.MaxInstructionSize = 4
+
     member _.Parse(span: ByteSpan, addr) =
       phlp.IsThumb <- isThumb
       phlp.InsAddr <- addr
@@ -380,8 +380,6 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
     member this.Parse(bs: byte[], addr) =
       let span = ReadOnlySpan bs
       (this :> IInstructionParsable).Parse(span, addr)
-
-    member _.MaxInstructionSize = 4
 
 /// Represents a parsing mode switch between Thumb and ARM instructions.
 and IModeSwitchable =

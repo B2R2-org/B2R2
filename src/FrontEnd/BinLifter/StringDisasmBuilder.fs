@@ -44,8 +44,7 @@ type StringDisasmBuilder(showAddr,
 
     member _.ShowSymbol with get() = showSymb and set v = showSymb <- v
 
-    member _.Accumulate(_, value: string) =
-      sb.Append value |> ignore
+    member _.Accumulate(_, value: string) = sb.Append value |> ignore
 
     member _.AccumulateSymbol(addr, prefix, suffix, noSymbolMapper) =
       if hasSymbolReader && showSymb then
@@ -74,5 +73,4 @@ type StringDisasmBuilder(showAddr,
       [| { AsmWordKind = AsmWordKind.String
            AsmWordValue = (this :> IDisasmBuilder).ToString() } |]
 
-  override this.ToString() =
-    (this :> IDisasmBuilder).ToString()
+  override this.ToString() = (this :> IDisasmBuilder).ToString()

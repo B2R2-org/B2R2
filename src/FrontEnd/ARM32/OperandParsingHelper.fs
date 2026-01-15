@@ -396,13 +396,13 @@ module OperandParsingHelper =
            imm64 = Replicate(imm32, 2) *)
         let imm32 =
           ((pickBit imm8 7 |> int64) <<< 12 |||
-           (~~~ (pickBit imm8 6) |> int64) <<< 11 |||
+           (~~~(pickBit imm8 6) |> int64) <<< 11 |||
            (replicate (pickBit imm8 6 |> int64) 1 5<rt>) <<< 6 |||
            (extract imm8 5 0 |> int64)) <<< 19
         replicate imm32 32 64<rt>
       else (* cmode0 = 1u && op = 1u *)
         (((pickBit imm8 7 |> int64) <<< 15) |||
-         ((~~~ (pickBit imm8 6) |> int64) <<< 14) |||
+         ((~~~(pickBit imm8 6) |> int64) <<< 14) |||
          ((replicate (pickBit imm8 6 |> int64) 1 8<rt>) <<< 6) |||
          (extract imm8 5 0 |> int64)) <<< 48
     | _ -> raise ParsingFailureException
@@ -421,7 +421,7 @@ module OperandParsingHelper =
     let sign = pickBit imm8 7 |> int64
     let exp =
       let n = RegType.fromBitWidth (e - 3)
-      ((~~~ (pickBit imm8 6) &&& 0b1u) |> int64 <<< ((e - 3) + 2)) +
+      ((~~~(pickBit imm8 6) &&& 0b1u) |> int64 <<< ((e - 3) + 2)) +
       ((replicate (pickBit imm8 6 |> int64) 1 n) <<< 2) +
       ((extract imm8 5 4) |> int64)
     let frac = (extract imm8 3 0) <<< (f - 4) |> int64
@@ -718,8 +718,7 @@ module OperandParsingHelper =
   let getCoprocDReg n: Register =
     n + 0x73u |> int |> LanguagePrimitives.EnumOfValue
 
-  let getOption n: BarrierOption =
-    n |> int |> LanguagePrimitives.EnumOfValue
+  let getOption n: BarrierOption = n |> int |> LanguagePrimitives.EnumOfValue
 
   let getDRegList fReg rNum = (* fReg: First Register, rNum: Number of regs *)
     List.map (fun r -> r |> getVecDReg) [ fReg .. fReg + rNum - 1u ]
@@ -751,8 +750,7 @@ module OperandParsingHelper =
   let wbackM bin = extract bin 3 0 <> 15u
 
   /// Thumb operands
-  let updateITSTATE (itstate: byref<byte list>) =
-    itstate <- List.tail itstate
+  let updateITSTATE (itstate: byref<byte list>) = itstate <- List.tail itstate
 
   let getCondWithITSTATE itstate =
     match List.tryHead itstate with
@@ -923,8 +921,7 @@ module OperandParsingHelper =
       | _ -> SIMDTypF32
     twoDt (dt1, dt2)
 
-  let inverseCond cond =
-    (cond &&& 0xeuy) ||| ((~~~ cond) &&& 0b1uy)
+  let inverseCond cond = (cond &&& 0xeuy) ||| ((~~~cond) &&& 0b1uy)
 
   let getITOpcodeWithX cond x =
     let invCond = inverseCond cond
@@ -993,8 +990,7 @@ and internal ParsingHelper(arch, isThumb, reader, addr, oprs, len, cond, isAdd,
 
 type internal OprNo() =
   inherit OperandParser()
-  override _.Render _ =
-    struct (NoOperand, false, None, 0<rt>)
+  override _.Render _ = struct (NoOperand, false, None, 0<rt>)
 
 (* <Rn>{!} *)
 type internal OprRn() =
@@ -3120,8 +3116,7 @@ type internal OprRdRnLsbWidthM1A() =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let rn = extract bin 3 0 |> getRegister |> OprReg
     let lsb = extract bin 11 7 |> int64 |> OprImm
-    let width = (* widthm1 + 1 *)
-      (extract bin 20 16) + 1u |> int64 |> OprImm
+    let width = (* widthm1 + 1 *) (extract bin 20 16) + 1u |> int64 |> OprImm
     struct (FourOperands(rd, rn, lsb, width), false, None, 32<rt>)
 
 (* <Dd>, <Dn>, <Dm>, #<rotate> *)
@@ -4430,8 +4425,7 @@ type internal OprRdRnLsbWidthT() =
   override _.Render bin =
     let rd = extract bin 11 8 |> getRegister |> OprReg
     let rn = extract bin 19 16 |> getRegister |> OprReg
-    let lsb = (* imm3:imm2 *)
-      concat (extract bin 14 12) (extract bin 7 6) 2
+    let lsb = (* imm3:imm2 *) concat (extract bin 14 12) (extract bin 7 6) 2
     let width = (* msb - lsb + 1 *)
       (extract bin 4 0) - lsb + 1u |> int64 |> OprImm
     let oprs = FourOperands(rd, rn, OprImm(int64 lsb), width)
@@ -4445,8 +4439,7 @@ type internal OprRdRnLsbWidthM1T() =
     let rn = extract bin 19 16 |> getRegister |> OprReg
     let lsb = (* imm3:imm2 *)
       concat (extract bin 14 12) (extract bin 7 6) 2 |> int64 |> OprImm
-    let width = (* widthm1 + 1 *)
-      (extract bin 4 0) + 1u |> int64 |> OprImm
+    let width = (* widthm1 + 1 *) (extract bin 4 0) + 1u |> int64 |> OprImm
     struct (FourOperands(rd, rn, lsb, width), false, None, 32<rt>)
 
 // vim: set tw=80 sts=2 sw=2:

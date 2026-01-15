@@ -131,6 +131,15 @@ type RegisterFactory(wordSize) =
   let psw = AST.var 128<rt> (Register.toRegID Register.PSW) "PSW"
 
   interface IRegisterFactory with
+    member _.ProgramCounter = Register.PSW |> Register.toRegID
+
+    member _.StackPointer =
+      Register.R15
+      |> Register.toRegID
+      |> Some
+
+    member _.FramePointer = None
+
     member _.GetRegVar id =
       match Register.ofRegID id with
       | R.R0 -> r0
@@ -464,16 +473,14 @@ type RegisterFactory(wordSize) =
       | PCVar _ -> Register.toRegID Register.PSW
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID name =
-      Register.ofString name |> Register.toRegID
+    member _.GetRegisterID name = Register.ofString name |> Register.toRegID
 
     member _.GetRegisterIDAliases _rid =
       Register.ofRegID _rid
       |> Register.getAliases
       |> Array.map Register.toRegID
 
-    member _.GetRegisterName rid =
-      Register.ofRegID rid |> Register.toString
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
     member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory
@@ -483,21 +490,8 @@ type RegisterFactory(wordSize) =
     member _.GetRegType rid =
       Register.ofRegID rid |> Register.toRegType wordSize
 
-    member _.ProgramCounter =
-      Register.PSW |> Register.toRegID
+    member _.IsProgramCounter rid = Register.toRegID Register.PSW = rid
 
-    member _.StackPointer =
-      Register.R15
-      |> Register.toRegID
-      |> Some
-
-    member _.FramePointer =
-      None
-
-    member _.IsProgramCounter rid =
-      Register.toRegID Register.PSW = rid
-
-    member _.IsStackPointer rid =
-      Register.toRegID Register.R15 = rid
+    member _.IsStackPointer rid = Register.toRegID Register.R15 = rid
 
     member _.IsFramePointer _ = false

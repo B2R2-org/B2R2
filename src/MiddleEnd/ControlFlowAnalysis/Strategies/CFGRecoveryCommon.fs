@@ -34,8 +34,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Contains common functions for CFG recovery strategies.
 module internal CFGRecoveryCommon =
-  let inline markVertexAsPendingForAnalysis ctx v =
-    ctx.CP.MarkVertexAsPending v
+  let inline markVertexAsPendingForAnalysis ctx v = ctx.CP.MarkVertexAsPending v
 
   let inline markVertexAsRemovalForAnalysis ctx v =
     ctx.CP.MarkVertexAsRemoval v
@@ -82,6 +81,7 @@ module internal CFGRecoveryCommon =
     ctx.Vertices[pp] <- v
     cfgRec.OnAddVertex(ctx, v)
     if isDuringGapAnalysis ctx then ctx.GapAnalysisVertices.Add(pp) |> ignore
+    else ()
     match ctx.JumpTableRecoveryStatus.TryPeek() with
     | true, status -> bbl.DominatingJumpTableEntry <- Some status
     | false, _ -> ()
@@ -94,6 +94,7 @@ module internal CFGRecoveryCommon =
     ctx.Vertices[pp] <- v
     cfgRec.OnAddVertex(ctx, v)
     if isDuringGapAnalysis ctx then ctx.GapAnalysisVertices.Add(pp) |> ignore
+    else ()
     v
 
   /// Retrieves a vertex (which is either cached or newly created). This
@@ -193,6 +194,8 @@ module internal CFGRecoveryCommon =
         let dstVertex = getVertex ctx cfgRec dstPPoint
         if isSrcRoot then (* If a root was re-added, register this again. *)
           ctx.CFG.AddRoot(srcVertex) |> ignore
+        else
+          ()
 #if CFGDEBUG
         dbglog ctx.ThreadID "Reconnect" $"{srcPPoint} -> {dstPPoint}"
 #endif

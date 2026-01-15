@@ -474,7 +474,7 @@ let parseMULHWUx bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
   let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
   match Bits.pick bin 0u with
-  | 0b0u ->  struct (Op.MULHWU, ThreeOperands(rd, ra, rb))
+  | 0b0u -> struct (Op.MULHWU, ThreeOperands(rd, ra, rb))
   | _ (* 1 *) -> struct (Op.MULHWUdot, ThreeOperands(rd, ra, rb))
 
 let parseMFCR bin =
@@ -862,7 +862,7 @@ let parseADDMEx bin =
     struct (Op.ADDMEdot, TwoOperands(rd, ra))
   | 0b10u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.ADDMEO, TwoOperands(rd, ra))
-  | 0b11u when Bits.extract bin 15u 11u = 0u  ->
+  | 0b11u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.ADDMEOdot, TwoOperands(rd, ra))
   | _ -> raise ParsingFailureException
 
@@ -1017,7 +1017,7 @@ let parseMFSPR bin =
         getSPRegister (Bits.concat (Bits.extract bin 15u 11u)
                                    (Bits.extract bin 20u 16u) 5)
       struct (Op.MFSPR, TwoOperands(rd, spr))
-    | _ ->  raise ParsingFailureException
+    | _ -> raise ParsingFailureException
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseEIEIO bin =

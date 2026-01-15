@@ -87,8 +87,7 @@ module IntervalMap =
 
   /// Finds all overlapping intervals in the given range.
   [<CompiledName("FindAll")>]
-  let findAll range m =
-    findAllwithPredicate range m (fun _ -> true)
+  let findAll range m = findAllwithPredicate range m (fun _ -> true)
 
   /// Finds the first interval that exactly matches the given range.
   [<CompiledName("TryFind")>]

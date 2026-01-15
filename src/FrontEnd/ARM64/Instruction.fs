@@ -107,14 +107,11 @@ type Instruction
       | Opcode.BL | Opcode.BLR -> true
       | _ -> false
 
-    member _.IsRET =
-      op = Opcode.RET
+    member _.IsRET = op = Opcode.RET
 
-    member _.IsPush =
-      Terminator.futureFeature ()
+    member _.IsPush = Terminator.futureFeature ()
 
-    member _.IsPop =
-      Terminator.futureFeature ()
+    member _.IsPop = Terminator.futureFeature ()
 
     member _.IsInterrupt =
       match op with
@@ -127,8 +124,7 @@ type Instruction
       | Opcode.ERET -> true
       | _ -> false
 
-    member _.IsNop =
-      op = Opcode.NOP
+    member _.IsNop = op = Opcode.NOP
 
     member _.IsInlinedAssembly = false
 
@@ -156,8 +152,7 @@ type Instruction
         Terminator.futureFeature ()
       else false
 
-    member _.MemoryDereferences(_: byref<Addr[]>) =
-      Terminator.futureFeature ()
+    member _.MemoryDereferences(_: byref<Addr[]>) = Terminator.futureFeature ()
 
     member _.Immediate(v: byref<int64>) =
       match opr with
@@ -182,21 +177,17 @@ type Instruction
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
-    member this.Translate builder =
-      lifter.Lift(this, builder).Stream.ToStmts()
+    member this.Translate builder = lifter.Lift(this, builder).Stream.ToStmts()
 
-    member this.TranslateToList builder =
-      lifter.Lift(this, builder).Stream
+    member this.TranslateToList builder = lifter.Lift(this, builder).Stream
 
-    member this.Disasm builder =
-      lifter.Disasm(this, builder).ToString()
+    member this.Disasm builder = lifter.Disasm(this, builder).ToString()
 
     member this.Disasm() =
       let builder = StringDisasmBuilder(false, null, WordSize.Bit64)
       lifter.Disasm(this, builder).ToString()
 
-    member this.Decompose builder =
-      lifter.Disasm(this, builder).ToAsmWords()
+    member this.Decompose builder = lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
   abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder

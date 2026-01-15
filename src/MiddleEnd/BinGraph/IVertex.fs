@@ -61,5 +61,4 @@ type internal VertexData<'V when 'V: equality>(v) =
   override _.ToString() = $"{v}"
 
   interface System.IEquatable<VertexData<'V>> with
-    member this.Equals(other: VertexData<'V>) =
-      this.Value = other.Value
+    member this.Equals(other: VertexData<'V>) = this.Value = other.Value

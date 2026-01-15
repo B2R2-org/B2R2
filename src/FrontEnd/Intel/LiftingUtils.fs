@@ -31,16 +31,14 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 
-let numInsLen insLen (bld: ILowUIRBuilder) =
-  numU32 insLen bld.RegType
+let numInsLen insLen (bld: ILowUIRBuilder) = numU32 insLen bld.RegType
 
 let numOprSize = function
   | 8<rt> | 16<rt> | 32<rt> | 64<rt> | 128<rt> | 256<rt> | 512<rt> as rt ->
     numI32 (int rt) rt
   | _ -> raise InvalidOperandSizeException
 
-let inline is64bit (bld: ILowUIRBuilder) =
-  bld.RegType = 64<rt>
+let inline is64bit (bld: ILowUIRBuilder) = bld.RegType = 64<rt>
 
 let is64REXW bld (ins: Instruction) =
   is64bit bld && REXPrefix.hasW ins.REXPrefix
@@ -680,8 +678,7 @@ let osfOnAdd e1 e2 r bld =
     struct ((t1 == e2High) .& (t1 <+> t2), t2)
 
 /// OF on sub.
-let ofOnSub e1 e2 r =
-  AST.xthi 1<rt> ((e1 <+> e2) .& (e1 <+> r))
+let ofOnSub e1 e2 r = AST.xthi 1<rt> ((e1 <+> e2) .& (e1 <+> r))
 
 #if EMULATION
 let getCCSrc1 bld regType =

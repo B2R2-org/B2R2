@@ -274,9 +274,15 @@ type RegisterFactory(wordSize) =
   let csr1971 = AST.var rt (Register.toRegID Register.CSR1971) "CSR1971"
 
   interface IRegisterFactory with
+    member _.ProgramCounter = Register.PC |> Register.toRegID
+
+    member _.StackPointer = Register.X30 |> Register.toRegID |> Some
+
+    member _.FramePointer = Register.X29 |> Register.toRegID |> Some
+
     member _.GetRegVar rid =
       match Register.ofRegID rid with
-      | Register.PC  -> pc
+      | Register.PC -> pc
       | Register.RC -> rc
       | Register.X0 -> x0
       | Register.X1 -> x1
@@ -691,14 +697,11 @@ type RegisterFactory(wordSize) =
       | PCVar(_) -> Register.toRegID Register.PC
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID name =
-      Register.ofString name |> Register.toRegID
+    member _.GetRegisterID name = Register.ofString name |> Register.toRegID
 
-    member _.GetRegisterIDAliases _rid =
-      Terminator.futureFeature ()
+    member _.GetRegisterIDAliases _rid = Terminator.futureFeature ()
 
-    member _.GetRegisterName rid =
-      Register.ofRegID rid |> Register.toString
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
     member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory
@@ -708,20 +711,8 @@ type RegisterFactory(wordSize) =
     member _.GetRegType rid =
       Register.ofRegID rid |> Register.toRegType wordSize
 
-    member _.ProgramCounter =
-      Register.PC |> Register.toRegID
+    member _.IsProgramCounter rid = Register.toRegID Register.PC = rid
 
-    member _.StackPointer =
-      Register.X30 |> Register.toRegID |> Some
+    member _.IsStackPointer rid = Register.toRegID Register.X30 = rid
 
-    member _.FramePointer =
-      Register.X29 |> Register.toRegID |> Some
-
-    member _.IsProgramCounter rid =
-      Register.toRegID Register.PC = rid
-
-    member _.IsStackPointer rid =
-      Register.toRegID Register.X30 = rid
-
-    member _.IsFramePointer rid =
-      Register.toRegID Register.X29 = rid
+    member _.IsFramePointer rid = Register.toRegID Register.X29 = rid

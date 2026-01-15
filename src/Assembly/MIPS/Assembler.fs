@@ -47,8 +47,7 @@ type Assembler(mipsISA: ISA, startAddress: Addr) =
     updateUserState (fun (us: Map<string, Addr>) -> us.Add(lbl, address))
     >>. preturn ()
 
-  let incrementAddress =
-    preturn () |>> (fun _ -> address <- address + 4UL)
+  let incrementAddress = preturn () |>> (fun _ -> address <- address + 4UL)
 
   let registerNames =
     [| "zero"
@@ -140,8 +139,7 @@ type Assembler(mipsISA: ISA, startAddress: Addr) =
       |> choice
     )
 
-  let pFmt =
-    pFmtTemp .>> (opt pFmtTemp)
+  let pFmt = pFmtTemp .>> (opt pFmtTemp)
 
   let label = pId |>> Operand.GoToLabel
 
@@ -156,8 +154,7 @@ type Assembler(mipsISA: ISA, startAddress: Addr) =
   let pImm =
     numberLiteral numberFormat "number" |>> (fun x -> x.String |> uint64)
 
-  let pRegImm =
-    numberLiteral regNumberFormat "number" |>> (fun x -> x.String)
+  let pRegImm = numberLiteral regNumberFormat "number" |>> (fun x -> x.String)
 
   let operators = (pchar '+' |>> fun _ -> (+)) <|> (pchar '-' |>> fun _ -> (-))
 
@@ -171,8 +168,7 @@ type Assembler(mipsISA: ISA, startAddress: Addr) =
     |> Array.append registerNames
     |> Array.map pstringCI
 
-  let allRegistersList =
-    Array.append [| pRegImm |] registersList
+  let allRegistersList = Array.append [| pRegImm |] registersList
 
   let pReg =
     ((pchar '$' >>. (allRegistersList |> choice)) <|> (registersList |> choice))
@@ -206,8 +202,7 @@ type Assembler(mipsISA: ISA, startAddress: Addr) =
       |>> (fun (((opcode, cond), fmt), operands) ->
               newAssemblyIns mipsISA address opcode cond fmt operands)
 
-  let statement =
-    opt pLabelDef >>. spaces >>. pInsInfo .>> incrementAddress
+  let statement = opt pLabelDef >>. spaces >>. pInsInfo .>> incrementAddress
 
   let statements = sepEndBy statement terminator .>> eof
 

@@ -31,6 +31,12 @@ open B2R2.FrontEnd.BinLifter
 /// Represents a factory for accessing various WASM register variables.
 type RegisterFactory() =
   interface IRegisterFactory with
+    member _.ProgramCounter = Terminator.impossible ()
+
+    member _.StackPointer = Terminator.futureFeature ()
+
+    member _.FramePointer = Terminator.impossible ()
+
     member _.GetRegVar rid: Expr =
       match Register.ofRegID rid with
       | _ -> raise InvalidRegisterException
@@ -45,24 +51,15 @@ type RegisterFactory() =
 
     member _.GetRegisterID(_: Expr): RegisterID = Terminator.futureFeature ()
 
-    member _.GetRegisterID str =
-      Register.ofString str |> Register.toRegID
+    member _.GetRegisterID str = Register.ofString str |> Register.toRegID
 
     member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
 
-    member _.GetRegisterName rid =
-      Register.ofRegID rid |> Register.toString
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
     member _.GetAllRegisterNames() = [||]
 
-    member _.GetRegType rid =
-      Register.ofRegID rid |> Register.toRegType
-
-    member _.ProgramCounter = Terminator.impossible ()
-
-    member _.StackPointer = Terminator.futureFeature ()
-
-    member _.FramePointer = Terminator.impossible ()
+    member _.GetRegType rid = Register.ofRegID rid |> Register.toRegType
 
     member _.IsProgramCounter _ = Terminator.futureFeature ()
 

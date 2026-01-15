@@ -200,7 +200,7 @@ type DiffAction() =
     let overlap1 = traverseForward fmax fmin kvd idA idB box bmin bmax isOdd
     (* Backward *)
     let bmin, bmax = adjustBoundaryBackward kvd bmin bmax dmin dmax
-    let overlap2 =  traverseBackward bmax bmin kvd idA idB box fmin fmax isOdd
+    let overlap2 = traverseBackward bmax bmin kvd idA idB box fmin fmax isOdd
     match (overlap1, overlap2) with
     | (Some ov1, _) -> ov1
     | (_, Some ov2) -> ov2
@@ -307,7 +307,8 @@ type DiffAction() =
   interface IAction with
     member _.ActionID with get() = "diff"
     member _.Signature with get() = "Binary collection -> OutString"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in two binaries as input and return a diff string as output.
 """
     member _.Transform(args, collection) =

@@ -264,6 +264,8 @@ module private SSALifterFactory =
     if not <| count.ContainsKey v.Kind then (* Lazy initialization *)
       count.Add(v.Kind, 0)
       stack.Add(v.Kind, [ 0 ])
+    else
+      ()
     count[v.Kind] <- count[v.Kind] + 1
     let i = count[v.Kind]
     stack[v.Kind] <- i :: stack[v.Kind]

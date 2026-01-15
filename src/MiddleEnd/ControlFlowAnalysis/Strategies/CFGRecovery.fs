@@ -178,8 +178,7 @@ type CFGRecovery<'FnCtx,
 
     member _.AnalyzeIndirectCondJump(_, _, _, _) = None
 
-    member _.FindCandidates(builders) =
-      findCandidates builders
+    member _.FindCandidates(builders) = findCandidates builders
 
     member _.OnAction(ctx, queue, action) =
       onAction ctx this queue syscallAnalysis jmptblAnalysis
@@ -187,11 +186,9 @@ type CFGRecovery<'FnCtx,
 
     member _.OnCreate _ctx = ()
 
-    member _.OnFinish ctx =
-      onFinish ctx this postAnalysis
+    member _.OnFinish ctx = onFinish ctx this postAnalysis
 
-    member _.OnCyclicDependency deps =
-      onCyclicDependency deps
+    member _.OnCyclicDependency deps = onCyclicDependency deps
 
     member _.OnAddVertex(ctx, vertex) =
       if not useSSA then markVertexAsPendingForAnalysis ctx vertex
@@ -229,8 +226,7 @@ type CFGRecovery<'FnCtx,
 type CFGRecovery =
   inherit CFGRecovery<DummyContext, DummyContext>
 
-  new() =
-    { inherit CFGRecovery<DummyContext, DummyContext>(false, false) }
+  new() = { inherit CFGRecovery<DummyContext, DummyContext>(false, false) }
 
   new(allowBBLOverlap) =
     { inherit CFGRecovery<DummyContext, DummyContext>(allowBBLOverlap, false) }

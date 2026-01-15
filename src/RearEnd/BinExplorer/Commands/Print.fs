@@ -107,8 +107,7 @@ type Print() =
     try Ok(sz, count, fmt, Convert.ToUInt64(addr, 16))
     with _ -> Error "[*] Invalid address given."
 
-  let hexPrint sz (i: uint64) =
-    i.ToString("x" + (sz * 2).ToString())
+  let hexPrint sz (i: uint64) = i.ToString("x" + (sz * 2).ToString())
 
   let print (hdl: BinHandle) sz fmt addr =
     match fmt with
@@ -136,8 +135,7 @@ type Print() =
   let rec printStrings (hdl: BinHandle) addr cnt acc =
     if cnt <= 0 then List.rev acc |> List.toArray
     else
-      let s =
-        try hdl.ReadASCII(addr = addr) |> Some with _ -> None
+      let s = try hdl.ReadASCII(addr = addr) |> Some with _ -> None
       match s with
       | None -> printStrings hdl addr 0 acc
       | Some s ->

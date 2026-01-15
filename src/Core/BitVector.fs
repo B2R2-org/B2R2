@@ -38,8 +38,7 @@ module private BitVector = begin
   let inline adaptSmall (len: RegType) (n: uint64) =
     (UInt64.MaxValue >>> (64 - int len)) &&& n
 
-  let inline adaptBig (len: RegType) (n: bigint) =
-    ((1I <<< int len) - 1I) &&& n
+  let inline adaptBig (len: RegType) (n: bigint) = ((1I <<< int len) - 1I) &&& n
 
   let inline isSmallPositive (len: RegType) (n: uint64) =
     (n >>> (int len - 1)) &&& 1UL = 0UL
@@ -311,11 +310,9 @@ module private BitVector = begin
       | :? BitVectorSmall as obj -> len = obj.Length && n = obj.Value
       | _ -> false
 
-    override _.GetHashCode() =
-      HashCode.Combine<uint64, RegType>(n, len)
+    override _.GetHashCode() = HashCode.Combine<uint64, RegType>(n, len)
 
-    override _.ToString() =
-      HexString.ofUInt64 n + ":" + RegType.toString len
+    override _.ToString() = HexString.ofUInt64 n + ":" + RegType.toString len
 
     interface IBV with
       member _.Length = len
@@ -356,10 +353,10 @@ module private BitVector = begin
         let isPos1 = isSmallPositive len v1
         let isPos2 = isSmallPositive len v2
         let v1 =
-          int64 (if isPos1 then v1 else ((~~~ v1) + 1UL) |> adaptSmall len)
+          int64 (if isPos1 then v1 else ((~~~v1) + 1UL) |> adaptSmall len)
         let v2 =
-          int64 (if isPos2 then v2 else ((~~~ v2) + 1UL) |> adaptSmall len)
-        let result = if isPos1 = isPos2 then v1 / v2 else - (v1 / v2)
+          int64 (if isPos2 then v2 else ((~~~v2) + 1UL) |> adaptSmall len)
+        let result = if isPos1 = isPos2 then v1 / v2 else -(v1 / v2)
         BitVectorSmall(result |> uint64 |> adaptSmall len, len)
 
       member _.Div(rhs: uint64) =
@@ -376,10 +373,10 @@ module private BitVector = begin
         let isPos1 = isSmallPositive len v1
         let isPos2 = isSmallPositive len v2
         let v1 =
-          int64 (if isPos1 then v1 else ((~~~ v1) + 1UL) |> adaptSmall len)
+          int64 (if isPos1 then v1 else ((~~~v1) + 1UL) |> adaptSmall len)
         let v2 =
-          int64 (if isPos2 then v2 else ((~~~ v2) + 1UL) |> adaptSmall len)
-        let result = if isPos1 then v1 % v2 else - (v1 % v2)
+          int64 (if isPos2 then v2 else ((~~~v2) + 1UL) |> adaptSmall len)
+        let result = if isPos1 then v1 % v2 else -(v1 % v2)
         BitVectorSmall(result |> uint64 |> adaptSmall len, len) :> IBV
 
       member _.Mod(rhs: uint64) =
@@ -446,11 +443,9 @@ module private BitVector = begin
                  else UInt64.MaxValue >>> (64 - (int len - int v2)))
             BitVectorSmall(res ||| pad, len)
 
-      member _.Not() =
-        BitVectorSmall((~~~ n) |> adaptSmall len, len)
+      member _.Not() = BitVectorSmall((~~~n) |> adaptSmall len, len)
 
-      member _.Neg() =
-        BitVectorSmall(((~~~ n) + 1UL) |> adaptSmall len, len)
+      member _.Neg() = BitVectorSmall(((~~~n) + 1UL) |> adaptSmall len, len)
 
       member this.Cast targetLen =
         if targetLen <= 64<rt> then
@@ -459,12 +454,9 @@ module private BitVector = begin
           BitVectorBig(adaptBig targetLen (bigint this.Value), targetLen)
 
       member this.Extract(targetLen, pos) =
-        if len < targetLen then
-          raise ArithTypeMismatchException
-        elif len = targetLen then
-          this
-        else
-          BitVectorSmall(adaptSmall targetLen (n >>> pos), targetLen)
+        if len < targetLen then raise ArithTypeMismatchException
+        elif len = targetLen then this
+        else BitVectorSmall(adaptSmall targetLen (n >>> pos), targetLen)
 
       member this.Concat(rhs: IBV) =
         let rLen = rhs.Length
@@ -888,11 +880,9 @@ module private BitVector = begin
       | :? BitVectorBig as obj -> len = obj.Length && n = obj.Value
       | _ -> false
 
-    override _.GetHashCode() =
-      HashCode.Combine<bigint, RegType>(n, len)
+    override _.GetHashCode() = HashCode.Combine<bigint, RegType>(n, len)
 
-    override _.ToString() =
-      valToString () + ":" + RegType.toString len
+    override _.ToString() = valToString () + ":" + RegType.toString len
 
     interface IBV with
       member _.Length = len
@@ -909,22 +899,19 @@ module private BitVector = begin
 
       member _.IsOne = n = 1I
 
-      member _.Add(rhs: uint64) =
-        BitVectorBig(n + bigint rhs, len) :> IBV
+      member _.Add(rhs: uint64) = BitVectorBig(n + bigint rhs, len) :> IBV
 
       member _.Add(rhs: IBV) =
         if len <> rhs.Length then raise ArithTypeMismatchException else ()
         BitVectorBig(n + rhs.BigValue |> adaptBig len, len) :> IBV
 
-      member _.Sub(rhs: uint64) =
-        BitVectorBig(n - bigint rhs, len) :> IBV
+      member _.Sub(rhs: uint64) = BitVectorBig(n - bigint rhs, len) :> IBV
 
       member _.Sub(rhs: IBV) =
         if len <> rhs.Length then raise ArithTypeMismatchException else ()
         BitVectorBig(n - rhs.BigValue |> adaptBig len, len) :> IBV
 
-      member _.Mul(rhs: uint64) =
-        BitVectorBig(n * bigint rhs, len) :> IBV
+      member _.Mul(rhs: uint64) = BitVectorBig(n * bigint rhs, len) :> IBV
 
       member _.Mul(rhs: IBV) =
         if len <> rhs.Length then raise ArithTypeMismatchException else ()
@@ -941,8 +928,7 @@ module private BitVector = begin
         let result = if isPos1 = isPos2 then v1 / v2 else neg len (v1 / v2)
         BitVectorBig(result |> adaptBig len, len) :> IBV
 
-      member _.Div(rhs: uint64) =
-        BitVectorBig(n / bigint rhs, len) :> IBV
+      member _.Div(rhs: uint64) = BitVectorBig(n / bigint rhs, len) :> IBV
 
       member _.Div(rhs: IBV) =
         if len <> rhs.Length then raise ArithTypeMismatchException else ()
@@ -959,29 +945,25 @@ module private BitVector = begin
         let result = if isPos1 then v1 % v2 else neg len (v1 % v2)
         BitVectorBig(result |> adaptBig len, len)
 
-      member _.Mod(rhs: uint64) =
-        BitVectorBig(n % bigint rhs, len) :> IBV
+      member _.Mod(rhs: uint64) = BitVectorBig(n % bigint rhs, len) :> IBV
 
       member _.Mod(rhs: IBV) =
         if len <> rhs.Length then raise ArithTypeMismatchException else ()
         BitVectorBig(n % rhs.BigValue |> adaptBig len, len) :> IBV
 
-      member _.And(rhs: uint64) =
-        BitVectorBig(n &&& bigint rhs, len) :> IBV
+      member _.And(rhs: uint64) = BitVectorBig(n &&& bigint rhs, len) :> IBV
 
       member _.And(rhs: IBV) =
         if len <> rhs.Length then raise ArithTypeMismatchException else ()
         BitVectorBig(n &&& rhs.BigValue |> adaptBig len, len) :> IBV
 
-      member _.Or(rhs: uint64) =
-        BitVectorBig(n ||| bigint rhs, len) :> IBV
+      member _.Or(rhs: uint64) = BitVectorBig(n ||| bigint rhs, len) :> IBV
 
       member _.Or(rhs: IBV) =
         if len <> rhs.Length then raise ArithTypeMismatchException else ()
         BitVectorBig(n ||| rhs.BigValue |> adaptBig len, len) :> IBV
 
-      member _.Xor(rhs: uint64) =
-        BitVectorBig(n ^^^ bigint rhs, len) :> IBV
+      member _.Xor(rhs: uint64) = BitVectorBig(n ^^^ bigint rhs, len) :> IBV
 
       member _.Xor(rhs: IBV) =
         if len <> rhs.Length then raise ArithTypeMismatchException else ()
@@ -1013,11 +995,9 @@ module private BitVector = begin
             let pad = ((1I <<< int len) - 1I) - ((1I <<< (int len - v2)))
             BitVectorBig(res ||| pad, len)
 
-      member _.Not() =
-        BitVectorBig((1I <<< (int len)) - 1I - n, len)
+      member _.Not() = BitVectorBig((1I <<< (int len)) - 1I - n, len)
 
-      member _.Neg() =
-        BitVectorBig(adaptBig len ((1I <<< (int len)) - n), len)
+      member _.Neg() = BitVectorBig(adaptBig len ((1I <<< (int len)) - n), len)
 
       member _.Cast targetLen =
         if targetLen <= 64<rt> then
@@ -1213,7 +1193,7 @@ module private BitVector = begin
         | _ -> raise ArithTypeMismatchException
 
       member _.Itof(targetLen, _) =
-        let v = if isBigPositive len n then n else - n
+        let v = if isBigPositive len n then n else -n
         match targetLen with
         | 32<rt> ->
           let u64 = BitConverter.SingleToInt32Bits(float32 v) |> uint64
@@ -1396,17 +1376,15 @@ type BitVector private(bv: IBV) =
       BitVector(BitVectorSmall(uint64 i64 &&& mask, bitLen))
     else
       if i64 < 0L then
-        BitVector(BitVectorBig((1I <<< int bitLen) - (- i64 |> bigint), bitLen))
+        BitVector(BitVectorBig((1I <<< int bitLen) - (-i64 |> bigint), bitLen))
       else
         BitVector(BitVectorBig(bigint i64, bitLen))
 
   /// Returns a BitVector from a uint32 value.
-  new(u32: uint32, bitLen) =
-    BitVector(uint64 u32, bitLen)
+  new(u32: uint32, bitLen) = BitVector(uint64 u32, bitLen)
 
   /// Returns a BitVector from an int32 value.
-  new(i32: int32, bitLen) =
-    BitVector(int64 i32, bitLen)
+  new(i32: int32, bitLen) = BitVector(int64 i32, bitLen)
 
   /// Returns a BitVector from a bigint value. We assume that the given bitLen
   /// is big enough to hold the given bigint. Otherwise, the resulting BitVector
@@ -1457,6 +1435,24 @@ type BitVector private(bv: IBV) =
       let arr = Array.append arr [| 0uy |]
       BitVector(bigint arr, sz * 8<rt>)
 
+  /// Returns a BitVector representing a true (1-bit one) value.
+  static member T = Value.T |> BitVector
+
+  /// Returns a BitVector representing a false (1-bit zero) value.
+  static member F = Value.F |> BitVector
+
+  /// Returns a BitVector representing the maximum unsigned 8-bit value (255).
+  static member MaxUInt8 = BitVector(0xFFUL, 8<rt>)
+
+  /// Returns a BitVector representing the maximum unsigned 16-bit value.
+  static member MaxUInt16 = BitVector(0xFFFFUL, 16<rt>)
+
+  /// Returns a BitVector representing the maximum unsigned 32-bit value.
+  static member MaxUInt32 = BitVector(0xFFFFFFFFUL, 32<rt>)
+
+  /// Returns a BitVector representing the maximum unsigned 64-bit value.
+  static member MaxUInt64 = BitVector(0xFFFFFFFFFFFFFFFFUL, 64<rt>)
+
   member inline private _.V with get() = bv
 
   /// Returns the bit length of the BitVector.
@@ -1482,33 +1478,6 @@ type BitVector private(bv: IBV) =
 
   /// Checks if the given BitVector is "true".
   member _.IsTrue with get() = bv.Length = 1<rt> && bv.SmallValue = 1UL
-
-  override _.Equals obj =
-    match obj with
-    | :? BitVector as rhs -> bv.Equals(rhs.V)
-    | _ -> false
-
-  override _.GetHashCode() = bv.GetHashCode()
-
-  override _.ToString() = bv.ToString()
-
-  /// Returns a BitVector representing a true (1-bit one) value.
-  static member T = Value.T |> BitVector
-
-  /// Returns a BitVector representing a false (1-bit zero) value.
-  static member F = Value.F |> BitVector
-
-  /// Returns a BitVector representing the maximum unsigned 8-bit value (255).
-  static member MaxUInt8 = BitVector(0xFFUL, 8<rt>)
-
-  /// Returns a BitVector representing the maximum unsigned 16-bit value.
-  static member MaxUInt16 = BitVector(0xFFFFUL, 16<rt>)
-
-  /// Returns a BitVector representing the maximum unsigned 32-bit value.
-  static member MaxUInt32 = BitVector(0xFFFFFFFFUL, 32<rt>)
-
-  /// Returns a BitVector representing the maximum unsigned 64-bit value.
-  static member MaxUInt64 = BitVector(0xFFFFFFFFFFFFFFFFUL, 64<rt>)
 
   /// Returns zero (0) of the given bit length.
   static member Zero t =
@@ -1537,24 +1506,19 @@ type BitVector private(bv: IBV) =
     if bv1.V.SGt bv2.V = Value.T then bv1 else bv2
 
   /// Returns a uint64 value from a BitVector.
-  static member ToUInt64(bv: BitVector) =
-    bv.SmallValue
+  static member ToUInt64(bv: BitVector) = bv.SmallValue
 
   /// Returns an int64 value from a BitVector.
-  static member ToInt64(bv: BitVector) =
-    bv.SmallValue |> int64
+  static member ToInt64(bv: BitVector) = bv.SmallValue |> int64
 
   /// Returns a uint32 value from a BitVector.
-  static member ToUInt32(bv: BitVector) =
-    bv.SmallValue |> uint32
+  static member ToUInt32(bv: BitVector) = bv.SmallValue |> uint32
 
   /// Returns an int32 value from a BitVector.
-  static member ToInt32(bv: BitVector) =
-    bv.SmallValue |> int32
+  static member ToInt32(bv: BitVector) = bv.SmallValue |> int32
 
   /// Returns a numeric value (bigint) from a BitVector.
-  static member GetValue(bv: BitVector) =
-    bv.BigValue
+  static member GetValue(bv: BitVector) = bv.BigValue
 
   /// Returns the type (length of the BitVector).
   static member GetType(bv: BitVector) = bv.Length
@@ -1602,12 +1566,10 @@ type BitVector private(bv: IBV) =
     BitVector.UnsignedMax bv.Length = bv
 
   /// Checks if the given BitVector represents a signed max value?
-  static member IsSignedMax(bv: BitVector) =
-    BitVector.SignedMax bv.Length = bv
+  static member IsSignedMax(bv: BitVector) = BitVector.SignedMax bv.Length = bv
 
   /// Checks if the given BitVector represents a signed min value?
-  static member IsSignedMin(bv: BitVector) =
-    BitVector.SignedMin bv.Length = bv
+  static member IsSignedMin(bv: BitVector) = BitVector.SignedMin bv.Length = bv
 
   /// Checks if the given BitVector is positive when interpreted as a signed
   /// integer?
@@ -1618,24 +1580,19 @@ type BitVector private(bv: IBV) =
   static member IsNegative(bv: BitVector) = bv.V.IsNegative()
 
   /// Adds two BitVectors.
-  static member Add(v1: BitVector, v2: BitVector) =
-    v1.V.Add v2.V |> BitVector
+  static member Add(v1: BitVector, v2: BitVector) = v1.V.Add v2.V |> BitVector
 
   /// Subtracts two BitVectors.
-  static member Sub(v1: BitVector, v2: BitVector) =
-    v1.V.Sub v2.V |> BitVector
+  static member Sub(v1: BitVector, v2: BitVector) = v1.V.Sub v2.V |> BitVector
 
   /// Multiplies two BitVectors.
-  static member Mul(v1: BitVector, v2: BitVector) =
-    v1.V.Mul v2.V |> BitVector
+  static member Mul(v1: BitVector, v2: BitVector) = v1.V.Mul v2.V |> BitVector
 
   /// Divides two BitVectors (signed division).
-  static member SDiv(v1: BitVector, v2: BitVector) =
-    v1.V.SDiv v2.V |> BitVector
+  static member SDiv(v1: BitVector, v2: BitVector) = v1.V.SDiv v2.V |> BitVector
 
   /// Divides two BitVectors (unsigned division).
-  static member Div(v1: BitVector, v2: BitVector) =
-    v1.V.Div v2.V |> BitVector
+  static member Div(v1: BitVector, v2: BitVector) = v1.V.Div v2.V |> BitVector
 
   /// Calculates the signed modulo of two BitVectors.
   static member SModulo(v1: BitVector, v2: BitVector) =
@@ -1646,36 +1603,28 @@ type BitVector private(bv: IBV) =
     v1.V.Mod v2.V |> BitVector
 
   /// Calculates bitwise AND of two BitVectors.
-  static member And(v1: BitVector, v2: BitVector) =
-    v1.V.And v2.V |> BitVector
+  static member And(v1: BitVector, v2: BitVector) = v1.V.And v2.V |> BitVector
 
   /// Calculates bitwise OR of two BitVectors.
-  static member Or(v1: BitVector, v2: BitVector) =
-    v1.V.Or v2.V |> BitVector
+  static member Or(v1: BitVector, v2: BitVector) = v1.V.Or v2.V |> BitVector
 
   /// Calculates bitwise XOR of two BitVectors.
-  static member Xor(v1: BitVector, v2: BitVector) =
-    v1.V.Xor v2.V |> BitVector
+  static member Xor(v1: BitVector, v2: BitVector) = v1.V.Xor v2.V |> BitVector
 
   /// Calculates logical shift-left of v1 by v2.
-  static member Shl(v1: BitVector, v2: BitVector) =
-    v1.V.Shl v2.V |> BitVector
+  static member Shl(v1: BitVector, v2: BitVector) = v1.V.Shl v2.V |> BitVector
 
   /// Calculates logical shift-right of v1 by v2.
-  static member Shr(v1: BitVector, v2: BitVector) =
-    v1.V.Shr v2.V |> BitVector
+  static member Shr(v1: BitVector, v2: BitVector) = v1.V.Shr v2.V |> BitVector
 
   /// Calculates arithmetic shift-right of v1 by v2.
-  static member Sar(v1: BitVector, v2: BitVector) =
-    v1.V.Sar v2.V |> BitVector
+  static member Sar(v1: BitVector, v2: BitVector) = v1.V.Sar v2.V |> BitVector
 
   /// Calculates bitwise NOT of a BitVector.
-  static member Not(v1: BitVector) =
-    v1.V.Not() |> BitVector
+  static member Not(v1: BitVector) = v1.V.Not() |> BitVector
 
   /// Calculates the negation of a BitVector (as a signed integer).
-  static member Neg(v1: BitVector) =
-    v1.V.Neg() |> BitVector
+  static member Neg(v1: BitVector) = v1.V.Neg() |> BitVector
 
   /// Casts a BitVector to a target length.
   static member Cast(v1: BitVector, targetLen) =
@@ -1698,78 +1647,60 @@ type BitVector private(bv: IBV) =
     v1.V.ZExt targetLen |> BitVector
 
   /// Compares two BitVectors for equality.
-  static member Eq(v1: BitVector, v2: BitVector) =
-    v1.V.Eq v2.V |> BitVector
+  static member Eq(v1: BitVector, v2: BitVector) = v1.V.Eq v2.V |> BitVector
 
   /// Compares two BitVectors for inequality.
-  static member Neq(v1: BitVector, v2: BitVector) =
-    v1.V.Neq v2.V |> BitVector
+  static member Neq(v1: BitVector, v2: BitVector) = v1.V.Neq v2.V |> BitVector
 
   /// Checks if v1 is greater than v2.
-  static member Gt(v1: BitVector, v2: BitVector) =
-    v1.V.Gt v2.V |> BitVector
+  static member Gt(v1: BitVector, v2: BitVector) = v1.V.Gt v2.V |> BitVector
 
   /// Checks if v1 is greater than or equal to v2.
-  static member Ge(v1: BitVector, v2: BitVector) =
-    v1.V.Ge v2.V |> BitVector
+  static member Ge(v1: BitVector, v2: BitVector) = v1.V.Ge v2.V |> BitVector
 
   /// Checks if v1 is greater than v2 (considering them as signed integers).
-  static member SGt(v1: BitVector, v2: BitVector) =
-    v1.V.SGt v2.V |> BitVector
+  static member SGt(v1: BitVector, v2: BitVector) = v1.V.SGt v2.V |> BitVector
 
   /// Checks if v1 is greater than or equal to v2 (considering them as signed
   /// integers).
-  static member SGe(v1: BitVector, v2: BitVector) =
-    v1.V.SGe v2.V |> BitVector
+  static member SGe(v1: BitVector, v2: BitVector) = v1.V.SGe v2.V |> BitVector
 
   /// Checks if v1 is less than v2.
-  static member Lt(v1: BitVector, v2: BitVector) =
-    v1.V.Lt v2.V |> BitVector
+  static member Lt(v1: BitVector, v2: BitVector) = v1.V.Lt v2.V |> BitVector
 
   /// Checks if v1 is less than or equal to v2.
-  static member Le(v1: BitVector, v2: BitVector) =
-    v1.V.Le v2.V |> BitVector
+  static member Le(v1: BitVector, v2: BitVector) = v1.V.Le v2.V |> BitVector
 
   /// Checks if v1 is less than v2 (considering them as signed integers).
-  static member SLt(v1: BitVector, v2: BitVector) =
-    v1.V.SLt v2.V |> BitVector
+  static member SLt(v1: BitVector, v2: BitVector) = v1.V.SLt v2.V |> BitVector
 
   /// Checks if v1 is less than or equal to v2 (considering them as signed
   /// integers).
-  static member SLe(v1: BitVector, v2: BitVector) =
-    v1.V.SLe v2.V |> BitVector
+  static member SLe(v1: BitVector, v2: BitVector) = v1.V.SLe v2.V |> BitVector
 
   /// Calculates the absolute value of a BitVector (as a signed integer).
-  static member Abs(v1: BitVector) =
-    v1.V.Abs() |> BitVector
+  static member Abs(v1: BitVector) = v1.V.Abs() |> BitVector
 
   /// Adds two BitVectors as floating point numbers.
-  static member FAdd(v1: BitVector, v2: BitVector) =
-    v1.V.FAdd v2.V |> BitVector
+  static member FAdd(v1: BitVector, v2: BitVector) = v1.V.FAdd v2.V |> BitVector
 
   /// Subtracts two BitVectors as floating point numbers.
-  static member FSub(v1: BitVector, v2: BitVector) =
-    v1.V.FSub v2.V |> BitVector
+  static member FSub(v1: BitVector, v2: BitVector) = v1.V.FSub v2.V |> BitVector
 
   /// Multiplies two BitVectors as floating point numbers.
-  static member FMul(v1: BitVector, v2: BitVector) =
-    v1.V.FMul v2.V |> BitVector
+  static member FMul(v1: BitVector, v2: BitVector) = v1.V.FMul v2.V |> BitVector
 
   /// Divides two BitVectors as floating point numbers.
-  static member FDiv(v1: BitVector, v2: BitVector) =
-    v1.V.FDiv v2.V |> BitVector
+  static member FDiv(v1: BitVector, v2: BitVector) = v1.V.FDiv v2.V |> BitVector
 
   /// Calculates the logarithm of v2 to the base v1 as floating point numbers.
-  static member FLog(v1: BitVector, v2: BitVector) =
-    v1.V.FLog v2.V |> BitVector
+  static member FLog(v1: BitVector, v2: BitVector) = v1.V.FLog v2.V |> BitVector
 
   /// Calculates the power of v1 raised to v2 as floating point numbers.
-  static member FPow(v1: BitVector, v2: BitVector) =
-    v1.V.FPow v2.V |> BitVector
+  static member FPow(v1: BitVector, v2: BitVector) = v1.V.FPow v2.V |> BitVector
 
   /// Converts a BitVector to a floating point number of the specified type.
-  static member FCast(v1: BitVector, rt) =
-    v1.V.FCast rt |> BitVector
+  static member FCast(v1: BitVector, rt) = v1.V.FCast rt |> BitVector
 
   /// Converts a BitVector representing an integer to another BitVector
   /// representing a floating point number of the specified type.
@@ -1778,116 +1709,90 @@ type BitVector private(bv: IBV) =
 
   /// Converts a BitVector representing a floating point number to another
   /// BitVector representing an integer of the specified type with truncation.
-  static member FtoiTrunc(v1: BitVector, rt) =
-    v1.V.FtoiTrunc rt |> BitVector
+  static member FtoiTrunc(v1: BitVector, rt) = v1.V.FtoiTrunc rt |> BitVector
 
   /// Converts a BitVector representing a floating point number to another
   /// BitVector representing an integer of the specified type with rounding.
-  static member FtoiRound(v1: BitVector, rt) =
-    v1.V.FtoiRound rt |> BitVector
+  static member FtoiRound(v1: BitVector, rt) = v1.V.FtoiRound rt |> BitVector
 
   /// Converts a BitVector representing a floating point number to another
   /// BitVector representing an integer of the specified type with flooring.
-  static member FtoiFloor(v1: BitVector, rt) =
-    v1.V.FtoiFloor rt |> BitVector
+  static member FtoiFloor(v1: BitVector, rt) = v1.V.FtoiFloor rt |> BitVector
 
   /// Converts a BitVector representing a floating point number to another
   /// BitVector representing an integer of the specified type with ceiling.
-  static member FtoiCeil(v1: BitVector, rt) =
-    v1.V.FtoiCeil rt |> BitVector
+  static member FtoiCeil(v1: BitVector, rt) = v1.V.FtoiCeil rt |> BitVector
 
   /// Calculates the square root of a BitVector as a floating point number.
-  static member FSqrt(v1: BitVector) =
-    v1.V.FSqrt() |> BitVector
+  static member FSqrt(v1: BitVector) = v1.V.FSqrt() |> BitVector
 
   /// Calculates the tangent of a BitVector as a floating point number.
-  static member FTan(v1: BitVector) =
-    v1.V.FTan() |> BitVector
+  static member FTan(v1: BitVector) = v1.V.FTan() |> BitVector
 
   /// Calculates the sine of a BitVector as a floating point number.
-  static member FSin(v1: BitVector) =
-    v1.V.FSin() |> BitVector
+  static member FSin(v1: BitVector) = v1.V.FSin() |> BitVector
 
   /// Calculates the cosine of a BitVector as a floating point number.
-  static member FCos(v1: BitVector) =
-    v1.V.FCos() |> BitVector
+  static member FCos(v1: BitVector) = v1.V.FCos() |> BitVector
 
   /// Calculates the arctangent of a BitVector as a floating point number.
-  static member FAtan(v1: BitVector) =
-    v1.V.FATan() |> BitVector
+  static member FAtan(v1: BitVector) = v1.V.FATan() |> BitVector
 
   /// Compares two BitVectors as floating point numbers for greater than.
-  static member FGt(v1: BitVector, v2: BitVector) =
-    v1.V.FGt v2.V |> BitVector
+  static member FGt(v1: BitVector, v2: BitVector) = v1.V.FGt v2.V |> BitVector
 
   /// Compares two BitVectors as floating point numbers for greater than or
   /// equal.
-  static member FGe(v1: BitVector, v2: BitVector) =
-    v1.V.FGe v2.V |> BitVector
+  static member FGe(v1: BitVector, v2: BitVector) = v1.V.FGe v2.V |> BitVector
 
   /// Compares two BitVectors as floating point numbers for less than.
-  static member FLt(v1: BitVector, v2: BitVector) =
-    v1.V.FLt v2.V |> BitVector
+  static member FLt(v1: BitVector, v2: BitVector) = v1.V.FLt v2.V |> BitVector
 
   /// Compares two BitVectors as floating point numbers for less than or equal.
-  static member FLe(v1: BitVector, v2: BitVector) =
-    v1.V.FLe v2.V |> BitVector
+  static member FLe(v1: BitVector, v2: BitVector) = v1.V.FLe v2.V |> BitVector
 
   /// Adds a BitVector and a uint64 value.
-  static member (+) (v1: BitVector, v2: uint64) =
-    v1.V.Add v2 |> BitVector
+  static member (+) (v1: BitVector, v2: uint64) = v1.V.Add v2 |> BitVector
 
   /// Subtracts a uint64 value from a BitVector.
-  static member (-) (v1: BitVector, v2: uint64) =
-    v1.V.Sub v2 |> BitVector
+  static member (-) (v1: BitVector, v2: uint64) = v1.V.Sub v2 |> BitVector
 
   /// Multiplies a BitVector by a uint64 value.
-  static member (*) (v1: BitVector, v2: uint64) =
-    v1.V.Mul v2 |> BitVector
+  static member (*) (v1: BitVector, v2: uint64) = v1.V.Mul v2 |> BitVector
 
   /// Divides a BitVector by a uint64 value (unsigned division).
-  static member (/) (v1: BitVector, v2: uint64) =
-    v1.V.Div v2 |> BitVector
+  static member (/) (v1: BitVector, v2: uint64) = v1.V.Div v2 |> BitVector
 
   /// Calculates the modulo of a BitVector by a uint64 value (unsigned).
-  static member (%) (v1: BitVector, v2: uint64) =
-    v1.V.Mod v2 |> BitVector
+  static member (%) (v1: BitVector, v2: uint64) = v1.V.Mod v2 |> BitVector
 
   /// Calculates the bitwise AND of a BitVector and a uint64 value.
-  static member (&&&) (v1: BitVector, v2: uint64) =
-    v1.V.And v2 |> BitVector
+  static member (&&&) (v1: BitVector, v2: uint64) = v1.V.And v2 |> BitVector
 
   /// Calculates the bitwise OR of a BitVector and a uint64 value.
-  static member (|||) (v1: BitVector, v2: uint64) =
-    v1.V.Or v2 |> BitVector
+  static member (|||) (v1: BitVector, v2: uint64) = v1.V.Or v2 |> BitVector
 
   /// Calculates the bitwise XOR of a BitVector and a uint64 value.
-  static member (^^^) (v1: BitVector, v2: uint64) =
-    v1.V.Xor v2 |> BitVector
+  static member (^^^) (v1: BitVector, v2: uint64) = v1.V.Xor v2 |> BitVector
 
   /// Adds two BitVectors.
-  static member (+) (v1: BitVector, v2: BitVector) =
-    v1.V.Add v2.V |> BitVector
+  static member (+) (v1: BitVector, v2: BitVector) = v1.V.Add v2.V |> BitVector
 
   /// Subtracts two BitVectors.
-  static member (-) (v1: BitVector, v2: BitVector) =
-    v1.V.Sub v2.V |> BitVector
+  static member (-) (v1: BitVector, v2: BitVector) = v1.V.Sub v2.V |> BitVector
 
   /// Multiplies two BitVectors.
-  static member (*) (v1: BitVector, v2: BitVector) =
-    v1.V.Mul v2.V |> BitVector
+  static member (*) (v1: BitVector, v2: BitVector) = v1.V.Mul v2.V |> BitVector
 
   /// Divides two BitVectors (unsigned division).
-  static member (/) (v1: BitVector, v2: BitVector) =
-    v1.V.Div v2.V |> BitVector
+  static member (/) (v1: BitVector, v2: BitVector) = v1.V.Div v2.V |> BitVector
 
   /// Divides two BitVectors (signed division).
   static member (?/) (v1: BitVector, v2: BitVector) =
     v1.V.SDiv v2.V |> BitVector
 
   /// Calculates the unsigned modulo of a BitVector by another BitVector.
-  static member (%) (v1: BitVector, v2: BitVector) =
-    v1.V.Mod v2.V |> BitVector
+  static member (%) (v1: BitVector, v2: BitVector) = v1.V.Mod v2.V |> BitVector
 
   /// Calculates the signed modulo of a BitVector by another BitVector.
   static member (?%) (v1: BitVector, v2: BitVector) =
@@ -1898,17 +1803,23 @@ type BitVector private(bv: IBV) =
     v1.V.And v2.V |> BitVector
 
   /// Calculates the bitwise OR of two BitVectors.
-  static member (|||) (v1: BitVector, v2: BitVector) =
-    v1.V.Or v2.V |> BitVector
+  static member (|||) (v1: BitVector, v2: BitVector) = v1.V.Or v2.V |> BitVector
 
   /// Calculates the bitwise XOR of two BitVectors.
   static member (^^^) (v1: BitVector, v2: BitVector) =
     v1.V.Xor v2.V |> BitVector
 
   /// Calculates the bitwise NOT of a BitVector.
-  static member (~~~) (v1: BitVector) =
-    v1.V.Not() |> BitVector
+  static member (~~~) (v1: BitVector) = v1.V.Not() |> BitVector
 
   /// Calculates the negation of a BitVector (as a signed integer).
-  static member (~-) (v1: BitVector) =
-    v1.V.Neg() |> BitVector
+  static member (~-) (v1: BitVector) = v1.V.Neg() |> BitVector
+
+  override _.Equals obj =
+    match obj with
+    | :? BitVector as rhs -> bv.Equals(rhs.V)
+    | _ -> false
+
+  override _.GetHashCode() = bv.GetHashCode()
+
+  override _.ToString() = bv.ToString()

@@ -88,8 +88,7 @@ module DFS =
   /// Iterate vertices of the graph in a depth-first manner with the preorder
   /// traversal. This function visits every vertex in the graph including
   /// unreachable ones. For those unreachable vertices, the order is random.
-  let iterPreorder g fn =
-    foldPreorder g (fun () v -> fn v) ()
+  let iterPreorder g fn = foldPreorder g (fun () v -> fn v) ()
 
   /// Fold vertices of the graph in a depth-first manner with the postorder
   /// traversal, starting from the given root vertices.
@@ -116,8 +115,7 @@ module DFS =
   /// Iterate vertices of the graph in a depth-first manner with the postorder
   /// traversal. This function visits every vertex in the graph including
   /// unreachable ones. For those unreachable vertices, the order is random.
-  let iterPostorder g fn =
-    foldPostorder g (fun () v -> fn v) ()
+  let iterPostorder g fn = foldPostorder g (fun () v -> fn v) ()
 
   /// Fold vertices of the graph in a depth-first manner with the reverse
   /// postorder traversal, starting from the given root vertices.
@@ -156,9 +154,10 @@ module DFS =
         for s in g.GetSuccs v do
           visit s
         acc <- fn acc v
+      else
+        ()
     for r in roots do
-      if not (visited.Contains((r: IVertex<_>).ID)) then
-        visit r
+      if not (visited.Contains((r: IVertex<_>).ID)) then visit r else ()
     acc
 
   /// Fold vertices of the graph in a depth-first postorder manner.
@@ -171,12 +170,14 @@ module DFS =
         stack.Push(root, false)
         while stack.Count > 0 do
           let v, visitedChildren = stack.Pop()
-          if visitedChildren then acc <- fn acc v
+          if visitedChildren then
+            acc <- fn acc v
           else
             stack.Push(v, true)
             for succ in Seq.rev (g.GetSuccs v) do
-              if visited.Add succ.ID then
-                stack.Push(succ, false)
+              if visited.Add succ.ID then stack.Push(succ, false) else ()
+      else
+        ()
     acc
 
 /// Breadth-first traversal functions.
@@ -196,6 +197,8 @@ module BFS =
         if not (visited.Contains s.ID) then
           queue.Enqueue s
           visited.Add s.ID |> ignore
+        else
+          ()
     let mutable acc = acc
     for v in Seq.rev vertices do
       acc <- fn acc v

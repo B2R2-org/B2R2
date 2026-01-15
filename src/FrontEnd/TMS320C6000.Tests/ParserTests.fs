@@ -35,17 +35,13 @@ open type Register
 [<AutoOpen>]
 module private Shortcut =
   type O =
-    static member Reg(r) =
-      OpReg r
+    static member Reg(r) = OpReg r
 
-    static member Imm(v) =
-      Immediate v
+    static member Imm(v) = Immediate v
 
-    static member RegPair(r1, r2) =
-      RegisterPair(r1, r2)
+    static member RegPair(r1, r2) = RegisterPair(r1, r2)
 
-    static member Mem(r, modType, offset) =
-      OprMem(r, modType, offset)
+    static member Mem(r, modType, offset) = OprMem(r, modType, offset)
 
 [<TestClass>]
 type ParserTests() =

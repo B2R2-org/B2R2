@@ -36,8 +36,7 @@ type CFGBuilderTable<'FnCtx,
                              and 'GlCtx: (new: unit -> 'GlCtx)>
   public(hdl, exnInfo, instrs, irBlkOptimizer) =
 
-  let builders =
-    SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>>()
+  let builders = SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>>()
 
   let updateNextFunctionOfPrevBuilder idx addr =
     if idx <= 0 then ()

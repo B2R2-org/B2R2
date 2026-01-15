@@ -36,15 +36,12 @@ let fromBytes (bs: byte[]) = Array.map char bs |> System.String
 
 /// Wraps a string with a pair of parentheses.
 [<CompiledName "WrapParen">]
-let wrapParen s =
-  "(" + s + ")"
+let wrapParen s = "(" + s + ")"
 
 /// Wraps a string with a pair of square brackets.
 [<CompiledName "WrapSqrdBracket">]
-let wrapSqrdBracket s =
-  "[" + s + "]"
+let wrapSqrdBracket s = "[" + s + "]"
 
 /// Wraps a string with a pair of curly brackets.
 [<CompiledName "WrapCurlyBracket">]
-let wrapAngleBracket s =
-  "<" + s + ">"
+let wrapAngleBracket s = "<" + s + ">"

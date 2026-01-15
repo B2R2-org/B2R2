@@ -47,8 +47,7 @@ let addargumenttolist expr =
       { us with Namelist = second :: first :: us.Namelist }
     | BuiltinType(_) -> us
     | RefArg(ReferenceArg(v, Some value), TemplateSub(a, b)) ->
-      let first =
-        RefArg(ReferenceArg(Reference Empty, Some value), Specific b)
+      let first = RefArg(ReferenceArg(Reference Empty, Some value), Specific b)
       let second = RefArg(ReferenceArg(v, Some value), Specific b)
       { us with Namelist = second :: first :: us.Namelist }
     | RefArg(ReferenceArg(_, Some value), a2) ->
@@ -97,8 +96,7 @@ let removelast =
     else { us with Namelist = us.Namelist.Tail })
 
 /// Resetting carry.
-let clearCarry =
-  updateUserState (fun us -> { us with Carry = Dummy "" })
+let clearCarry = updateUserState (fun us -> { us with Carry = Dummy "" })
 
 /// Adding arguments of template into list before the whole template itself.
 let saveandreturn p =
@@ -139,11 +137,9 @@ let addTsubtolist expr =
 
 /// Functions for managing RetFlag. This flag is used to determine whether
 /// mangling includes return value or not.
-let flagOn =
-  updateUserState (fun us -> { us with RetFlag = 1 })
+let flagOn = updateUserState (fun us -> { us with RetFlag = 1 })
 
-let flagOff =
-  updateUserState (fun us -> { us with RetFlag = 0 })
+let flagOff = updateUserState (fun us -> { us with RetFlag = 0 })
 
 /// Parsing return with respect to flag.
 let newsaveandreturn p =

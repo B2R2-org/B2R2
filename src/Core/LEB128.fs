@@ -69,8 +69,7 @@ type LEB128 =
 
   /// Decode a LEB128-encoded integer into uint64. This function returns a tuple
   /// of (the decoded uint64, and the count of how many bytes were read).
-  static member DecodeUInt64 span =
-    decode span uint64 LEB128.Max64
+  static member DecodeUInt64 span = decode span uint64 LEB128.Max64
 
   /// Decode a LEB128-encoded integer into uint64. This function returns a tuple
   /// of (the decoded uint64, and the count of how many bytes were read).
@@ -79,8 +78,7 @@ type LEB128 =
 
   /// Decode a LEB128-encoded integer into uint32. This function returns a tuple
   /// of (the decoded uint32, and the count of how many bytes were read).
-  static member DecodeUInt32 span =
-    decode span uint32 LEB128.Max32
+  static member DecodeUInt32 span = decode span uint32 LEB128.Max32
 
   /// Decode a LEB128-encoded integer into uint32. This function returns a tuple
   /// of (the decoded uint32, and the count of how many bytes were read).

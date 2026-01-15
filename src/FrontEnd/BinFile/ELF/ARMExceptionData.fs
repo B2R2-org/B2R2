@@ -50,8 +50,7 @@ let [<Literal>] private ARMIndexTable = ".ARM.exidx"
 
 let [<Literal>] private ARMTable = ".ARM.extab"
 
-let inline private prel31ToI32 (v: int) =
-  ((v <<< 1) &&& 0x80000000) ||| v
+let inline private prel31ToI32 (v: int) = ((v <<< 1) &&& 0x80000000) ||| v
 
 let private toExceptionIndexValue myAddr v =
   if (v &&& 0xF0000000) = 0x80000000 then CompactEntry

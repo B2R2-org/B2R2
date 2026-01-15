@@ -42,8 +42,7 @@ let exprToInt (n: Expr) =
   | Num(a, _) -> a
   | _ -> Terminator.impossible ()
 
-let bv1Check s =
-  (exprToInt s).IsOne
+let bv1Check s = (exprToInt s).IsOne
 
 let trsOprToExpr bld = function
   | OpReg(Regdir r) -> regVar bld r
@@ -182,8 +181,7 @@ let resinst bld =
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
   bld <+ (AST.sideEffect (Exception("RESINST")))
 
-let fpuCheck fps n =
-  bv1Check (AST.extract fps 1<rt> n)
+let fpuCheck fps n = bv1Check (AST.extract fps 1<rt> n)
 
 let signedSaturate r =
   AST.ite ((r ?< numI32 (int ((-2.0) ** 32)))
@@ -233,7 +231,7 @@ let add ins len bld =
 let addc ins len bld =
   let struct (src, dst) = trsTwoOpr ins bld
   let oprSize = 32<rt>
-  let struct (t1,t2) = tmpVars2 bld oprSize
+  let struct (t1, t2) = tmpVars2 bld oprSize
   let t = tmpVar bld 1<rt>
   bld <!-- (ins.Address, len)
   bld <+ (t := AST.zext 1<rt> (regVar bld R.T))
@@ -248,7 +246,7 @@ let addc ins len bld =
 let addv ins len bld =
   let struct (src, dst) = trsTwoOpr ins bld
   let oprSize = 32<rt>
-  let struct (t1,t2) = tmpVars2 bld oprSize
+  let struct (t1, t2) = tmpVars2 bld oprSize
   let t = tmpVar bld 1<rt>
   bld <!-- (ins.Address, len)
   bld <+ (t1 := AST.sext 32<rt> src)
@@ -273,7 +271,7 @@ let ``and`` ins len bld =
     bld --!> len
   | Var(_, _, s, _) ->
     let oprSize = 32<rt>
-    let struct (t1,t2) = tmpVars2 bld oprSize
+    let struct (t1, t2) = tmpVars2 bld oprSize
     bld <!-- (ins.Address, len)
     bld <+ (t1 := Register.ofString s |> regVar bld |> AST.zext 32<rt>)
     bld <+ (t2 := AST.zext 32<rt> dst)
@@ -284,8 +282,8 @@ let ``and`` ins len bld =
 
 let andb ins len bld =
   let struct (src, _) = trsTwoOpr ins bld
-  let struct (r0,gbr,addr) = tmpVars3 bld 32<rt>
-  let struct (imm,value) = tmpVars2 bld 8<rt>
+  let struct (r0, gbr, addr) = tmpVars3 bld 32<rt>
+  let struct (imm, value) = tmpVars2 bld 8<rt>
   bld <!-- (ins.Address, len)
   bld <+ (r0 := R.R0 |> regVar bld |> AST.sext 32<rt>)
   bld <+ (gbr := R.GBR |> regVar bld |> AST.sext 32<rt>)
@@ -315,8 +313,7 @@ let bfHelper bld ins len =
   bld <+ (regVar bld R.PC .+ numI32 4 := AST.xtlo 32<rt> delayedPC)
   bld --!> len
 
-let bf ins len bld =
-  bfHelper bld ins len
+let bf ins len bld = bfHelper bld ins len
 
 let bfsHelper bld ins len =
   let disp = trsOneOpr ins bld
@@ -423,8 +420,7 @@ let btHelper bld ins len =
   bld <+ (regVar bld R.PC .+ numI32 4 := AST.xtlo 32<rt> delayedPC)
   bld --!> len
 
-let bt ins len bld =
-  btHelper bld ins len
+let bt ins len bld = btHelper bld ins len
 
 let btsHelper bld ins len =
   let disp = trsOneOpr ins bld
@@ -1593,7 +1589,7 @@ let movb (ins: Instruction) len bld =
   match ins.Operands with
   | TwoOperands(OpReg(Regdir _), OpReg(RegIndir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
-    let struct (op1, op2 ,address) = tmpVars3 bld 32<rt>
+    let struct (op1, op2, address) = tmpVars3 bld 32<rt>
     bld <!-- (ins.Address, len)
     bld <+ (op1 := AST.sext 32<rt> src)
     bld <+ (op2 := AST.sext 32<rt> dst)
@@ -1716,7 +1712,7 @@ let movl (ins: Instruction) len bld =
   match ins.Operands with
   | TwoOperands(OpReg(Regdir _), OpReg(RegIndir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
-    let struct (op1, op2 ,address) = tmpVars3 bld 32<rt>
+    let struct (op1, op2, address) = tmpVars3 bld 32<rt>
     bld <!-- (ins.Address, len)
     bld <+ (op1 := AST.sext 32<rt> src)
     bld <+ (op2 := AST.sext 32<rt> dst)
@@ -1852,7 +1848,7 @@ let movw (ins: Instruction) len bld =
   match ins.Operands with
   | TwoOperands(OpReg(Regdir _), OpReg(RegIndir _)) ->
     let struct (src, dst) = trsTwoOpr ins bld
-    let struct (op1, op2 ,address) = tmpVars3 bld 32<rt>
+    let struct (op1, op2, address) = tmpVars3 bld 32<rt>
     bld <!-- (ins.Address, len)
     bld <+ (op1 := AST.sext 32<rt> src)
     bld <+ (op2 := AST.sext 32<rt> dst)

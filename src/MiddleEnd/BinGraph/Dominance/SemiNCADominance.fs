@@ -65,8 +65,7 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     Roots = g.GetRoots()
     DummyRoot = GraphUtils.makeDummyVertex () }
 
-let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) =
-  info.DFPre[v.ID]
+let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) = info.DFPre[v.ID]
 
 let rec private computePostorderAux g (post: Dictionary<_, _>) n = function
   | v: IVertex<_> :: stack when not <| post.ContainsKey v.ID ->
@@ -115,8 +114,11 @@ let rec private compress info v =
     compress info a
     if info.Semi[info.Label[a]] < info.Semi[info.Label[v]] then
       info.Label[v] <- info.Label[a]
-    else ()
+    else
+      ()
     info.Ancestor[v] <- info.Ancestor[a]
+  else
+    ()
 
 let private eval info v =
   if info.Ancestor[v] = 0 then info.Label[v]
@@ -130,7 +132,7 @@ let private eval info v =
 let rec private computeSemiDom info v = function
   | pred :: preds ->
     let u = eval info pred
-    if info.Semi[u] < info.Semi[v] then info.Semi[v] <- info.Semi[u]
+    if info.Semi[u] < info.Semi[v] then info.Semi[v] <- info.Semi[u] else ()
     computeSemiDom info v preds
   | [] -> ()
 
@@ -199,8 +201,7 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
       GraphUtils.checkVertexInGraph fwG v
 #endif
       idomAux fwInfo v
-    member _.DominatorTree =
-      fwDT.Value
+    member _.DominatorTree = fwDT.Value
     member this.DominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
@@ -219,8 +220,7 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       idomAux bwInfo.Value v
-    member _.PostDominatorTree =
-      bwDT.Value
+    member _.PostDominatorTree = bwDT.Value
     member this.PostDominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
@@ -241,7 +241,7 @@ let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
 let private checkUnreachable info (src: IVertex<_>) =
   match info.DFPre.TryGetValue src.ID with
   | false, _
-  | true, -1  -> true
+  | true, -1 -> true
   | _ -> false
 
 [<CompiledName "Create">]

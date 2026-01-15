@@ -148,25 +148,25 @@ let getCoprocCRegister = function
   | 0x0Fuy -> R.C15
   | _ -> raise InvalidRegisterException
 
-let simdFP0  = [| R.B0; R.H0; R.S0; R.D0; R.Q0 |]
+let simdFP0 = [| R.B0; R.H0; R.S0; R.D0; R.Q0 |]
 
-let simdFP1  = [| R.B1; R.H1; R.S1; R.D1; R.Q1 |]
+let simdFP1 = [| R.B1; R.H1; R.S1; R.D1; R.Q1 |]
 
-let simdFP2  = [| R.B2; R.H2; R.S2; R.D2; R.Q2 |]
+let simdFP2 = [| R.B2; R.H2; R.S2; R.D2; R.Q2 |]
 
-let simdFP3  = [| R.B3; R.H3; R.S3; R.D3; R.Q3 |]
+let simdFP3 = [| R.B3; R.H3; R.S3; R.D3; R.Q3 |]
 
-let simdFP4  = [| R.B4; R.H4; R.S4; R.D4; R.Q4 |]
+let simdFP4 = [| R.B4; R.H4; R.S4; R.D4; R.Q4 |]
 
-let simdFP5  = [| R.B5; R.H5; R.S5; R.D5; R.Q5 |]
+let simdFP5 = [| R.B5; R.H5; R.S5; R.D5; R.Q5 |]
 
-let simdFP6  = [| R.B6; R.H6; R.S6; R.D6; R.Q6 |]
+let simdFP6 = [| R.B6; R.H6; R.S6; R.D6; R.Q6 |]
 
-let simdFP7  = [| R.B7; R.H7; R.S7; R.D7; R.Q7 |]
+let simdFP7 = [| R.B7; R.H7; R.S7; R.D7; R.Q7 |]
 
-let simdFP8  = [| R.B8; R.H8; R.S8; R.D8; R.Q8 |]
+let simdFP8 = [| R.B8; R.H8; R.S8; R.D8; R.Q8 |]
 
-let simdFP9  = [| R.B9; R.H9; R.S9; R.D9; R.Q9 |]
+let simdFP9 = [| R.B9; R.H9; R.S9; R.D9; R.Q9 |]
 
 let simdFP10 = [| R.B10; R.H10; R.S10; R.D10; R.Q10 |]
 
@@ -682,15 +682,13 @@ let getSIMDFPscalReg oprSize value =
   OprSIMD(ScalarReg(getSIMDFPRegister64 oprSize (byte value)))
 
 (* SIMD&FP vector register *)
-let getSIMDFPVecReg value t =
-  OprSIMD(VecReg(getVRegister64 (byte value), t))
+let getSIMDFPVecReg value t = OprSIMD(VecReg(getVRegister64 (byte value), t))
 
 let getSIMDFPRegWithIdx value t idx =
   OprSIMD(VecRegWithIdx(getVRegister64 (byte value), t, idx))
 
 (* SIMD vector register list *)
-let getSIMDVecReg t rLst =
-  List.map (fun v -> VecReg(v, t)) rLst |> OprSIMDList
+let getSIMDVecReg t rLst = List.map (fun v -> VecReg(v, t)) rLst |> OprSIMDList
 
 (* SIMD vector element list *)
 let getSIMDVecRegWithIdx vec idx rLst =
@@ -1079,7 +1077,7 @@ let getIdxByVecSize bin = function
   | VecD -> valQ bin (* Q *)
   | _ -> raise InvalidOperandException
 
-let getVRegsByNum bin n =  List.map (vt bin) [ 0u .. (n - 1u) ]
+let getVRegsByNum bin n = List.map (vt bin) [ 0u .. (n - 1u) ]
 
 let vtntidx b t n =
   getSIMDVecRegWithIdx t (getIdxByVecSize b t |> uint8) (getVRegsByNum b n)
@@ -1236,8 +1234,7 @@ let imm64 bin =
 
 let pimm12 bin scale = valImm12 bin * scale
 
-let simm7 bin scale =
-  extract bin 21u 15u |> uint64 |> signExtend 7 64 <<< scale
+let simm7 bin scale = extract bin 21u 15u |> uint64 |> signExtend 7 64 <<< scale
 
 let simm9 bin = extract bin 20u 12u |> uint64 |> signExtend 9 64
 
@@ -1312,8 +1309,7 @@ let lshf2 bin = (* FIXME: If shift amount is 0, not present. *)
 let lshf3 bin = (* FIXME: If shift amount is 0, not present. *)
   OprShift(LSL, Imm((extract bin 22u 21u) <<< 4 |> int64))
 
-let shfamt bin =
-  OprShift(decodeRegShift (valShift bin), Imm(imm6 bin |> int64))
+let shfamt bin = OprShift(decodeRegShift (valShift bin), Imm(imm6 bin |> int64))
 
 (* Extend *)
 let extamt bin =
@@ -1481,8 +1477,7 @@ let getOprSizeByQ bin = if valQ bin = 0u then 64<rt> else 128<rt>
 let getOprSzBySize bin = RegType.fromBitWidth (8 <<< (valSize1 bin |> int))
 
 /// by sz field (base 32).
-let getOprSzBySz bin =
-  RegType.fromBitWidth (32 <<< (pickBit bin 22u |> int))
+let getOprSzBySz bin = RegType.fromBitWidth (32 <<< (pickBit bin 22u |> int))
 
 /// by HighestSetBit.
 let getOprSzByHSB bin =

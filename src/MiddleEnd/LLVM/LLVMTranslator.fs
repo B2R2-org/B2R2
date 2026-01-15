@@ -236,5 +236,4 @@ let createBuilder (hdl: BinHandle) (addr: Addr) =
   let ctxt = LLVMIRHelper.initializeContext hdl.File.ISA
   LLVMIRBuilder(fname, addr, hdl, ctxt)
 
-let translate builder addr succs stmts =
-  translateStmts builder addr succs stmts
+let translate builder addr succs stmts = translateStmts builder addr succs stmts

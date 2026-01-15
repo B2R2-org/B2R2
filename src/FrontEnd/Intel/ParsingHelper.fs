@@ -56,7 +56,6 @@ type internal ParsingHelper(reader: IBinReader,
 
   member _.InsAddr with get(): Addr = addr and set a = addr <- a
   member _.CurrPos with get() = cpos and set p = cpos <- p
-  member _.IncPos() = cpos <- cpos + 1
   member _.Prefixes with get() = pref and set p = pref <- p
   member _.REXPrefix with get(): REXPrefix = rex and set r = rex <- r
   member _.VEXInfo with get(): VEXInfo option = vex and set v = vex <- v
@@ -71,57 +70,6 @@ type internal ParsingHelper(reader: IBinReader,
   member _.TupleType
     with get(): TupleType = tupleType and set t = tupleType <- t
   member _.Lifter with get(): ILiftable = lifter
-
-  member inline private _.ModCPos i = cpos <- cpos + i
-
-  member inline _.PeekByte(span: ByteSpan) = span[cpos]
-
-  member inline this.ReadByte(span: ByteSpan) =
-    let v = span[cpos]
-    this.ModCPos 1
-    v
-
-  member inline this.ReadInt8(span: ByteSpan) =
-    let v = reader.ReadInt8(span, cpos)
-    this.ModCPos 1
-    v
-
-  member inline this.ReadInt16(span: ByteSpan) =
-    let v = reader.ReadInt16(span, cpos)
-    this.ModCPos 2
-    v
-
-  member inline this.ReadInt32(span: ByteSpan) =
-    let v = reader.ReadInt32(span, cpos)
-    this.ModCPos 4
-    v
-
-  member inline this.ReadInt64(span: ByteSpan) =
-    let v = reader.ReadInt64(span, cpos)
-    this.ModCPos 8
-    v
-
-  member inline this.ReadUInt8(span: ByteSpan) =
-    let v = reader.ReadUInt8(span, cpos)
-    this.ModCPos 1
-    v
-
-  member inline this.ReadUInt16(span: ByteSpan) =
-    let v = reader.ReadUInt16(span, cpos)
-    this.ModCPos 2
-    v
-
-  member inline this.ReadUInt32(span: ByteSpan) =
-    let v = reader.ReadUInt32(span, cpos)
-    this.ModCPos 4
-    v
-
-  member inline this.ReadUInt64(span: ByteSpan) =
-    let v = reader.ReadUInt64(span, cpos)
-    this.ModCPos 8
-    v
-
-  member inline _.ParsedLen() = cpos
 
   static member inline Is64bit(phlp: ParsingHelper) =
     phlp.WordSize = WordSize.Bit64
@@ -180,6 +128,59 @@ type internal ParsingHelper(reader: IBinReader,
     if phlp.WordSize = WordSize.Bit32 then
       ParsingHelper.GetEffOprSize32 phlp.Prefixes
     else ParsingHelper.GetEffOprSize64(phlp.Prefixes, phlp.REXPrefix, sizeCond)
+
+  member _.IncPos() = cpos <- cpos + 1
+
+  member inline private _.ModCPos i = cpos <- cpos + i
+
+  member inline _.PeekByte(span: ByteSpan) = span[cpos]
+
+  member inline this.ReadByte(span: ByteSpan) =
+    let v = span[cpos]
+    this.ModCPos 1
+    v
+
+  member inline this.ReadInt8(span: ByteSpan) =
+    let v = reader.ReadInt8(span, cpos)
+    this.ModCPos 1
+    v
+
+  member inline this.ReadInt16(span: ByteSpan) =
+    let v = reader.ReadInt16(span, cpos)
+    this.ModCPos 2
+    v
+
+  member inline this.ReadInt32(span: ByteSpan) =
+    let v = reader.ReadInt32(span, cpos)
+    this.ModCPos 4
+    v
+
+  member inline this.ReadInt64(span: ByteSpan) =
+    let v = reader.ReadInt64(span, cpos)
+    this.ModCPos 8
+    v
+
+  member inline this.ReadUInt8(span: ByteSpan) =
+    let v = reader.ReadUInt8(span, cpos)
+    this.ModCPos 1
+    v
+
+  member inline this.ReadUInt16(span: ByteSpan) =
+    let v = reader.ReadUInt16(span, cpos)
+    this.ModCPos 2
+    v
+
+  member inline this.ReadUInt32(span: ByteSpan) =
+    let v = reader.ReadUInt32(span, cpos)
+    this.ModCPos 4
+    v
+
+  member inline this.ReadUInt64(span: ByteSpan) =
+    let v = reader.ReadUInt64(span, cpos)
+    this.ModCPos 8
+    v
+
+  member inline _.ParsedLen() = cpos
 
 /// Specific conditions for determining the size of operands.
 /// (See Table A-1, Appendix A.2.5 of Vol. 2D).

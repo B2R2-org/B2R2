@@ -43,8 +43,7 @@ type MSDemangler() =
   let saveScopeAndReturn p =
     getUserState >>= (fun parent -> p .>> updateUserState (fun _ -> parent))
 
-  let clearUserState =
-    updateUserState (fun _us -> MSUserState.Default)
+  let clearUserState = updateUserState (fun _us -> MSUserState.Default)
 
   (* Helper functions to parse name. *)
   let charListToStr lst = String(List.toArray lst)
@@ -101,8 +100,7 @@ type MSDemangler() =
     modifierPrefix .>>. (anyOf "2345" |>> CVModifier.fromChar)
 
   /// Parses the calling convention.
-  let pCallConv =
-    upper |>> CallConvention.fromChar
+  let pCallConv = upper |>> CallConvention.fromChar
 
   (*-------------------Non function mangled String.------------------------*)
   let pvalueInfo =
@@ -130,8 +128,7 @@ type MSDemangler() =
     |>> (fun (a, b) -> List.concat [ a; b ] |> charListToStr)
 
   /// Parses a simple varaible name fragment.
-  let pnameAndAt =
-    singleName .>> pchar '@' |>> Name
+  let pnameAndAt = singleName .>> pchar '@' |>> Name
 
   /// Parses anonymous namespaces
   let pAnonymousNameSpace =
@@ -140,17 +137,14 @@ type MSDemangler() =
                      >>. preturn (Name "`anonymous namespace'"))
 
   (* For special names*)
-  let pNSpecialName =
-     upper <|> anyOf "23456789" |>> getSpecialName
+  let pNSpecialName = upper <|> anyOf "23456789" |>> getSpecialName
   let pUSpecialName =
     pstring "_" >>. (noneOf [ 'R' ] <|> digit) |>> getUnderscoredSpecialName
-  let pDUSpecialName =
-    pstring "__" >>. (upper) |>> getdUnderscoredSpecialName
+  let pDUSpecialName = pstring "__" >>. (upper) |>> getdUnderscoredSpecialName
   let pUdtReturn =
     pstring "_P" >>. (pNSpecialName <|> pUSpecialName <|> pDUSpecialName)
     |>> (+) "'udt returning'"
-  let pReturnTypeOperator =
-    pchar 'B' >>. returnTypeOperator
+  let pReturnTypeOperator = pchar 'B' >>. returnTypeOperator
   let stringConstant =
     pstring "_C@_" >>. digit >>. pnameAndAt >>. many anyChar >>% "`string'"
   let complexDynamicSpecialName =
@@ -187,8 +181,7 @@ type MSDemangler() =
     pchar '0' >>. (pnameAndAt <|> pTemplate >>= addToNameList) |>> Constructor
   let deconstName =
     pchar '1' >>. (pnameAndAt <|> pTemplate >>= addToNameList) |>> Destructor
-  let constructedName =
-    pchar '?' >>. (constName <|> deconstName)
+  let constructedName = pchar '?' >>. (constName <|> deconstName)
   let nestedFunc =
     pstring "??" >>. (attempt pFunc <|> nonFunctionString) |>> NestedFunc
   /// Handles substitutions for the name components of the function.
@@ -288,8 +281,7 @@ type MSDemangler() =
     |>> ArrayPtr <??> " Array Pointer"
 
   /// Parses array type indicator and the following cv modifiers.
-  let arrayTypeHelper =
-    pstring "_O" >>. normalcvModifier
+  let arrayTypeHelper = pstring "_O" >>. normalcvModifier
   /// Array Type (not pointer to array).
   let arrayType =
     pipe3 arrayTypeHelper (many arrayTypeHelper) possibleType
@@ -332,17 +324,17 @@ type MSDemangler() =
     (pointerType |>> (fun p -> PointerStrT(p, ([], NoMod), Name "")))
     .>> anyOf "67" .>>. pCallConv .>>.
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
-    |>> (fun (((ptrStrs,fPtr), cc), lst) ->
+    |>> (fun (((ptrStrs, fPtr), cc), lst) ->
           FuncPointer(fPtr :: List.rev ptrStrs, cc, lst.Head, "", lst.Tail,
             None))
     <?> "function Type"
   let pMemberFuncPointer =
     many (attempt pointerAtFunc) .>>.
     (pointerType .>> anyOf "89" .>>. fullName .>> pchar '@' |>>
-     (fun (p,n) -> PointerStrT(p, ([], NoMod), FullName [ Name ""; n ])))
+     (fun (p, n) -> PointerStrT(p, ([], NoMod), FullName [ Name ""; n ])))
     .>>. normalcvModifier .>>. pCallConv .>>.
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
-    |>> (fun ((((ptrStrs,fPtr), mods), cc), lst) ->
+    |>> (fun ((((ptrStrs, fPtr), mods), cc), lst) ->
           FuncPointer(fPtr :: List.rev ptrStrs, cc, lst.Head, "", lst.Tail,
             Some mods))
     <?> "member function pointer Type"
@@ -353,7 +345,7 @@ type MSDemangler() =
          |>> (fun (p, n) -> PointerStrT(p, ([], NoMod), n)))
     .>>. pCallConv .>>.
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
-    |>> (fun (((ptrStrs,fPtr), cc), lst) ->
+    |>> (fun (((ptrStrs, fPtr), cc), lst) ->
       FuncPointer(fPtr :: List.rev ptrStrs, cc, lst.Head, "", lst.Tail, None))
 
   // All types of function pointers.
@@ -373,12 +365,12 @@ type MSDemangler() =
   let pReqMod =
     requireModS .>>. normalcvModifier .>>. pCallConv .>>. (opt returnTmodifier)
     .>>. (possibleType <|> emptyReturn) .>>. pFuncParameters
-    |>> (fun (((((s, modifier), cc), rtMod),r), tList) ->
+    |>> (fun (((((s, modifier), cc), rtMod), r), tList) ->
            s, modifier, cc, r :: tList, rtMod)
   let pNoMod =
     noModS .>>. pCallConv .>>. (opt returnTmodifier)
     .>>. (possibleType <|> emptyReturn) .>>. pFuncParameters
-    |>> (fun ((((s, cc),rtMod),r),tList) ->
+    |>> (fun ((((s, cc), rtMod), r), tList) ->
            s, ([], NoMod), cc, r :: tList, rtMod)
 
   /// Differentiates the scopes requiring modifiers for function from the

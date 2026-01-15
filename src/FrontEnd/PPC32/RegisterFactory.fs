@@ -141,6 +141,12 @@ type RegisterFactory(wordSize) =
   let res = AST.var 1<rt> (Register.toRegID RES) "RES"
 
   interface IRegisterFactory with
+    member _.ProgramCounter = Terminator.futureFeature ()
+
+    member _.StackPointer = R1 |> Register.toRegID |> Some
+
+    member _.FramePointer = None
+
     member _.GetRegVar id =
       match Register.ofRegID id with
       | Register.R0 -> r0
@@ -486,14 +492,11 @@ type RegisterFactory(wordSize) =
       | Var(_, id, _, _) -> id
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID name =
-      Register.ofString name |> Register.toRegID
+    member _.GetRegisterID name = Register.ofString name |> Register.toRegID
 
-    member _.GetRegisterIDAliases rid =
-      [| rid |]
+    member _.GetRegisterIDAliases rid = [| rid |]
 
-    member _.GetRegisterName rid =
-      Register.ofRegID rid |> Register.toString
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
     member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory
@@ -504,16 +507,8 @@ type RegisterFactory(wordSize) =
       if rid < 0x40<RegisterID.T> then WordSize.toRegType wordSize
       else 4<rt>
 
-    member _.ProgramCounter = Terminator.futureFeature ()
-
-    member _.StackPointer =
-      R1 |> Register.toRegID |> Some
-
-    member _.FramePointer = None
-
     member _.IsProgramCounter _ = false
 
-    member _.IsStackPointer rid =
-      Register.toRegID R1 = rid
+    member _.IsStackPointer rid = Register.toRegID R1 = rid
 
     member _.IsFramePointer _ = false

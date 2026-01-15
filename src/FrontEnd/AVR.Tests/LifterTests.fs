@@ -47,7 +47,7 @@ type LifterTests() =
 
   let ( !. ) reg = Register.toRegID reg |> regFactory.GetRegVar
 
-  let test (bytes: byte[], givenStmts: Stmt[])  =
+  let test (bytes: byte[], givenStmts: Stmt[]) =
     let parser = AVRParser(reader) :> IInstructionParsable
     let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
     let ins = parser.Parse(bytes, 0UL)

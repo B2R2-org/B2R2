@@ -42,14 +42,11 @@ type Variables(vars) =
 
   member _.Set(k, v) = vars[k] <- v
 
-  member _.Unset k =
-    vars.Remove k |> ignore
+  member _.Unset k = vars.Remove k |> ignore
 
-  member _.Count() =
-    vars.Count
+  member _.Count() = vars.Count
 
   member _.ToArray() =
-    vars |> Seq.map (fun (KeyValue(k, v))  -> k, v) |> Seq.toArray
+    vars |> Seq.map (fun (KeyValue(k, v)) -> k, v) |> Seq.toArray
 
-  member _.Clone() =
-    Variables(Dictionary(vars))
+  member _.Clone() = Variables(Dictionary(vars))

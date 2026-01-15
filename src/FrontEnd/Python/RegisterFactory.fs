@@ -43,6 +43,12 @@ do ()
 /// </summary>
 type RegisterFactory() =
   interface IRegisterFactory with
+    member _.ProgramCounter = Terminator.futureFeature ()
+
+    member _.StackPointer = Terminator.futureFeature ()
+
+    member _.FramePointer = Terminator.futureFeature ()
+
     member _.GetRegVar(_: RegisterID): Expr = Terminator.futureFeature ()
 
     member _.GetRegVar(_: string): Expr = Terminator.futureFeature ()
@@ -64,12 +70,6 @@ type RegisterFactory() =
     member _.GetAllRegisterNames() = [||]
 
     member _.GetRegType _rid = Terminator.futureFeature ()
-
-    member _.ProgramCounter = Terminator.futureFeature ()
-
-    member _.StackPointer = Terminator.futureFeature ()
-
-    member _.FramePointer = Terminator.futureFeature ()
 
     member _.IsProgramCounter _regid = Terminator.futureFeature ()
 

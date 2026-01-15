@@ -71,12 +71,10 @@ type PrettyPrinter =
   ///   Given an SSA statement, return a well-formated string.
   /// </summary>
   /// <param name="ssaStmt">SSA statement.</param>
-  static member inline ToString(ssaStmt: SSA.Stmt) =
-    SSA.Stmt.ToString ssaStmt
+  static member inline ToString(ssaStmt: SSA.Stmt) = SSA.Stmt.ToString ssaStmt
 
   /// <summary>
   ///   Given an SSA expression, return a well-formated string.
   /// </summary>
   /// <param name="ssaExpr">SSA expression.</param>
-  static member inline ToString(ssaExpr: SSA.Expr) =
-    SSA.Expr.ToString ssaExpr
+  static member inline ToString(ssaExpr: SSA.Expr) = SSA.Expr.ToString ssaExpr

@@ -47,11 +47,9 @@ type LLVMIRBuilder(fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
 
   member _.Address with get(): Addr = addr
 
-  member _.EmitStmt(s: LLVMStmt) =
-    stmts.Add s
+  member _.EmitStmt(s: LLVMStmt) = stmts.Add s
 
-  member this.EmitComment(s: string) =
-    Comment $"{Indent}; {s}" |> this.EmitStmt
+  member this.EmitComment(s: string) = Comment $"{Indent}; {s}" |> this.EmitStmt
 
   member private _.GetRegisterInfo reg =
     let elm = Map.find reg ctxt.Context
@@ -71,11 +69,9 @@ type LLVMIRBuilder(fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
     | 64<rt> -> "i64"
     | _ -> Terminator.futureFeature ()
 
-  member private _.AddrToLabel(addr: Addr) =
-    $"bbl.{addr:x}"
+  member private _.AddrToLabel(addr: Addr) = $"bbl.{addr:x}"
 
-  member this.EmitLabel addr =
-    this.AddrToLabel addr |> LMark |> this.EmitStmt
+  member this.EmitLabel addr = this.AddrToLabel addr |> LMark |> this.EmitStmt
 
   member this.Number(num: uint64, len: RegType) =
     Number(num, this.GetLLVMType len)

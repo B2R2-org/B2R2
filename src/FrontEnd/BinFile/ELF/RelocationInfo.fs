@@ -103,16 +103,13 @@ type RelocationInfo internal(toolBox, shdrs, symbs) =
   let relocMap = RelocMap.parse toolBox shdrs symbs
 
   /// Returns all relocation entries.
-  member _.Entries with get() =
-    relocMap.Values
+  member _.Entries with get() = relocMap.Values
 
   /// Checks if there exists a relocation entry at the given address.
-  member _.Contains addr =
-    relocMap.ContainsKey addr
+  member _.Contains addr = relocMap.ContainsKey addr
 
   /// Finds a relocation entry at the given address.
-  member _.Find addr =
-    relocMap[addr]
+  member _.Find addr = relocMap[addr]
 
   /// Tries to find a relocation entry at the given address.
   member _.TryFind addr =

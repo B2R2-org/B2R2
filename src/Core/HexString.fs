@@ -32,30 +32,24 @@ namespace B2R2
 module HexString =
   /// Convert an int16 value to a hex string.
   [<CompiledName "OfInt16">]
-  let inline ofInt16 (v: int16) =
-    $"0x{v:x}"
+  let inline ofInt16 (v: int16) = $"0x{v:x}"
 
   /// Convert a uint16 value to a hex string.
   [<CompiledName "OfUInt16">]
-  let inline ofUInt16 (v: uint16) =
-    $"0x{v:x}"
+  let inline ofUInt16 (v: uint16) = $"0x{v:x}"
 
   /// Convert an int32 value to a hex string.
   [<CompiledName "OfInt32">]
-  let inline ofInt32 (v: int) =
-    $"0x{v:x}"
+  let inline ofInt32 (v: int) = $"0x{v:x}"
 
   /// Convert a uint32 value to a hex string.
   [<CompiledName "OfUInt32">]
-  let inline ofUInt32 (v: uint32) =
-    $"0x{v:x}"
+  let inline ofUInt32 (v: uint32) = $"0x{v:x}"
 
   /// Convert an int64 value to a hex string.
   [<CompiledName "OfInt64">]
-  let inline ofInt64 (v: int64) =
-    $"0x{v:x}"
+  let inline ofInt64 (v: int64) = $"0x{v:x}"
 
   /// Convert a uint64 value to a hex string.
   [<CompiledName "OfUInt64">]
-  let inline ofUInt64 (v: uint64) =
-    $"0x{v:x}"
+  let inline ofUInt64 (v: uint64) = $"0x{v:x}"
