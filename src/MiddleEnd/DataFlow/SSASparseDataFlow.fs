@@ -102,8 +102,7 @@ type State<'Lattice when 'Lattice: equality>
     regValues[var] <- value
 
   /// Check if the register has been initialized.
-  member _.IsRegSet(var: Variable) =
-    regValues.ContainsKey var
+  member _.IsRegSet(var: Variable) = regValues.ContainsKey var
 
   /// Set register value.
   member _.SetRegValue(var: Variable, value: 'Lattice) =

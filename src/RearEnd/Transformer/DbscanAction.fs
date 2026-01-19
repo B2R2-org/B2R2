@@ -60,9 +60,9 @@ type DbscanAction() =
         cache[j, i] <- dist
     cache
 
-  let dist (cache: float[,]) i j = cache[i, j]
+  let dist (cache: float array2d) i j = cache[i, j]
 
-  let findNeighbors (cache: float[,]) i eps =
+  let findNeighbors (cache: float array2d) i eps =
     let neighbors = List<int>()
     for j = 0 to Array2D.length1 cache - 1 do
       if dist cache i j <= eps then
@@ -105,7 +105,8 @@ type DbscanAction() =
     member _.ActionID with get() = "dbscan"
     member _.Signature
       with get() = "Fingerprint collection * [eps] * [minPts] -> Cluster array"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in an array of fingerprints and return an array of clustered
     fingerprints. User may specify <eps> and <minPts> as arguments. If not, we
     use a default value of <eps> = 0.2 and <minPts> = 3.

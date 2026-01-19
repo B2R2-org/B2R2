@@ -53,8 +53,7 @@ module Addr =
   /// consistent names for functions when symbols are not available.
   /// </summary>
   [<CompiledName "ToFuncName">]
-  let toFuncName (addr: Addr) =
-    FunctionPrefix + addr.ToString "x"
+  let toFuncName (addr: Addr) = FunctionPrefix + addr.ToString "x"
 
   /// <summary>
   /// Convert a function name used in B2R2 to an address (<see

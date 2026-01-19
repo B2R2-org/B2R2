@@ -146,7 +146,7 @@ module private SymbolTables =
     let sname = ByteArray.extractCStringFromSpan strTbl (int nameIdx)
     let info = symbol[selectByWordSize cls 12 4]
     let other = symbol[selectByWordSize cls 13 5]
-    let ndx =  reader.ReadUInt16(symbol, selectByWordSize cls 14 6) |> int
+    let ndx = reader.ReadUInt16(symbol, selectByWordSize cls 14 6) |> int
     let parent = Array.tryItem ndx shdrs
     let secIdx = SectionHeaderIdx.IndexFromInt ndx
     let verInfo = getVerInfo toolBox verTbl verInfoTbl symIdx
@@ -231,12 +231,10 @@ type SymbolStore internal(toolBox, shdrs) =
 
   /// Adds a symbol to the symbol map. If the address already exists, it will
   /// be overwritten.
-  member _.AddSymbol(addr: Addr, sym: Symbol) =
-    symbolMap.Value[addr] <- sym
+  member _.AddSymbol(addr: Addr, sym: Symbol) = symbolMap.Value[addr] <- sym
 
   /// Finds a symbol by its address.
-  member _.FindSymbol(addr: Addr) =
-    symbolMap.Value[addr]
+  member _.FindSymbol(addr: Addr) = symbolMap.Value[addr]
 
   /// Tries to find a symbol by its address.
   member _.TryFindSymbol(addr: Addr) =

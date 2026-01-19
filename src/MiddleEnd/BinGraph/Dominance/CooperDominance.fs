@@ -117,7 +117,7 @@ let private prepareDomInfo (g: IDiGraphAccessible<_, _>) =
   let n = prepareWithDummyRoot g info
   info, n
 
-let private computeIDom info n  =
+let private computeIDom info n =
   let mutable changed = true
   while changed do
     changed <- false
@@ -129,6 +129,8 @@ let private computeIDom info n  =
       if info.IDom[i] <> newIdom then
         info.IDom[i] <- newIdom
         changed <- true
+      else
+        ()
   info
 
 let private computeDomInfo g =
@@ -153,8 +155,7 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
       GraphUtils.checkVertexInGraph fwG v
 #endif
       idomAux fwInfo v
-    member _.DominatorTree =
-      fwDT.Value
+    member _.DominatorTree = fwDT.Value
     member this.DominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
@@ -173,8 +174,7 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       idomAux bwInfo.Value v
-    member _.PostDominatorTree =
-      bwDT.Value
+    member _.PostDominatorTree = bwDT.Value
     member this.PostDominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v

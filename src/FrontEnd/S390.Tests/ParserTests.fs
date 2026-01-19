@@ -32,20 +32,15 @@ open type Opcode
 open type Register
 
 type O =
-  static member Reg r =
-    OpReg r
+  static member Reg r = OpReg r
 
-  static member Imm v =
-    OpImm v
+  static member Imm v = OpImm v
 
-  static member Mask m =
-    OpMask m
+  static member Mask m = OpMask m
 
-  static member Store v =
-    OpStore v
+  static member Store v = OpStore v
 
-  static member StoreLen v =
-    OpStoreLen v
+  static member StoreLen v = OpStoreLen v
 
 [<TestClass>]
 type ParserTests() =

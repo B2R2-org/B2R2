@@ -52,8 +52,7 @@ type InternalFnCFGBuilder<'FnCtx,
 
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
-        member _.StartBuilding(addr) =
-          manager.Post <| StartBuilding addr
+        member _.StartBuilding(addr) = manager.Post <| StartBuilding addr
 
         member _.AddDependency(caller, callee) =
           manager.PostAndReply(fun _ ch ->
@@ -169,8 +168,7 @@ type InternalFnCFGBuilder<'FnCtx,
       assert (state = InProgress)
       state <- Stopped
 
-    member _.ForceFinish() =
-      state <- ForceFinished
+    member _.ForceFinish() = state <- ForceFinished
 
     member _.StartVerifying() =
       assert (state = InProgress)
@@ -184,8 +182,7 @@ type InternalFnCFGBuilder<'FnCtx,
       assert (state = Finished || state = ForceFinished)
       state <- Initialized
 
-    member _.Invalidate() =
-      state <- Invalid
+    member _.Invalidate() = state <- Invalid
 
     member _.Build strategy =
       ctx.ActionQueue.Push(strategy.ActionPrioritizer, InitiateCFG)
@@ -196,8 +193,7 @@ type InternalFnCFGBuilder<'FnCtx,
       delayedBuilderRequests.Clear()
       ctx.Reset()
 
-    member _.MakeNew(manager) =
-      InternalFnCFGBuilder(ctx, nextFnAddr, manager)
+    member _.MakeNew(manager) = InternalFnCFGBuilder(ctx, nextFnAddr, manager)
 
     member _.ToFunction() =
       assert (state = Finished)

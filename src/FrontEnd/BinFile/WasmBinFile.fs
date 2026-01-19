@@ -66,11 +66,9 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.IsRelocatable = false
 
-    member _.Slice(addr, len) =
-      System.ReadOnlySpan(bytes, int addr, len)
+    member _.Slice(addr, len) = System.ReadOnlySpan(bytes, int addr, len)
 
-    member _.IsValidAddr(addr) =
-      addr >= 0UL && addr < (uint64 bytes.LongLength)
+    member _.IsValidAddr(addr) = addr >= 0UL && addr < (uint64 bytes.LongLength)
 
     member this.IsValidRange range =
       (this :> IContentAddressable).IsValidAddr range.Min
@@ -97,8 +95,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.GetVMMappedRegions _permission = [||]
 
-    member _.TryFindName _addr =
-      Terminator.futureFeature ()
+    member _.TryFindName _addr = Terminator.futureFeature ()
 
     member _.GetTextSectionPointer() =
       match wm.CodeSection with

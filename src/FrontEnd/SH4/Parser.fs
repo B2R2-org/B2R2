@@ -32,17 +32,15 @@ open B2R2.FrontEnd.BinLifter
 type SH4Parser(reader) =
   let lifter =
     { new ILiftable with
-        member _.Lift(ins, builder) =
-          Lifter.translate ins ins.Length builder
-        member _.Disasm(ins, builder) =
-          Disasm.disasm ins builder; builder }
+        member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
+        member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
   interface IInstructionParsable with
+    member _.MaxInstructionSize = 2
+
     member _.Parse(bs: byte[], addr: Addr) =
       let span = ReadOnlySpan bs
       ParsingMain.parse lifter span reader addr :> IInstruction
 
     member _.Parse(span: ByteSpan, addr: Addr) =
       ParsingMain.parse lifter span reader addr :> IInstruction
-
-    member _.MaxInstructionSize = 2

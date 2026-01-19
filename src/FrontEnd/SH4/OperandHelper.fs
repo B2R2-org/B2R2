@@ -129,8 +129,7 @@ let getBits (binary: uint16) (start: int)  (fin: int) =
   let mask = (pown 2 ((int) (s - e + 1))) - 1 |> uint16
   (binary >>> (e - 1)) &&& mask
 
-let get1Bit (binary: uint16) (pos: int) =
-  ((binary >>> (pos - 1)) &&& 1us) = 1us
+let get1Bit (binary: uint16) (pos: int) = ((binary >>> (pos - 1)) &&& 1us) = 1us
 
 let getReg1d b = getReg (getBits b 12 9)
 

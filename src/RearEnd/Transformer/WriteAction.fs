@@ -45,7 +45,8 @@ type WriteAction() =
   interface IAction with
     member _.ActionID with get() = "write"
     member _.Signature with get() = "'a * <file> -> unit"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in an input object and write out its content to the <file>.
 """
     member _.Transform(args, collection) =

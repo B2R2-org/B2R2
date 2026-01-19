@@ -213,8 +213,7 @@ let inline getCSRReg (bld: ILowUIRBuilder) csr =
       raise InvalidRegisterException
   Register.toRegID csrReg |> bld.GetRegVar
 
-let bvOfBaseAddr (bld: ILowUIRBuilder) addr =
-  numU64 addr bld.RegType
+let bvOfBaseAddr (bld: ILowUIRBuilder) addr = numU64 addr bld.RegType
 
 let bvOfInstrLen (bld: ILowUIRBuilder) (ins: Instruction) =
   numU32 ins.Length bld.RegType
@@ -582,18 +581,20 @@ let private mulWithOverflow src1 src2 bld (isSign, isUnsign) isLow =
     <+ (high := hiSrc1 .* hiSrc2
              .+ ((pMid .+ (pLow >> n32)) >> n32)
              .+ overFlowBit)
+  else
+    ()
   if isSign then
     bld <+ (signBit := src1IsNeg <+> src2IsNeg)
     bld <+ (tLow := AST.ite signBit (AST.neg low) low)
     if not isLow then
       let carry = AST.ite (AST.``and`` signBit (tLow == zero)) one zero
       bld <+ (tHigh := AST.ite signBit (AST.not high) high .+ carry)
+    else
+      ()
   else
-    if not isLow then
-      bld <+ (tHigh := high)
+    if not isLow then bld <+ (tHigh := high) else ()
     bld <+ (tLow := low)
-  if isLow then tLow
-  else tHigh
+  if isLow then tLow else tHigh
 
 let add ins insLen bld =
   let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
@@ -789,8 +790,7 @@ let jalr ins insLen bld =
 let beq ins insLen bld =
   let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
   let cond = rs1 == rs2
-  let fallThrough =
-    bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
+  let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.intercjmp cond offset fallThrough)
   bld --!> insLen
@@ -798,8 +798,7 @@ let beq ins insLen bld =
 let bne ins insLen bld =
   let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
   let cond = rs1 != rs2
-  let fallThrough =
-    bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
+  let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.intercjmp cond offset fallThrough)
   bld --!> insLen
@@ -807,8 +806,7 @@ let bne ins insLen bld =
 let blt ins insLen bld =
   let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
   let cond = rs1 ?< rs2
-  let fallThrough =
-    bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
+  let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.intercjmp cond offset fallThrough)
   bld --!> insLen
@@ -816,8 +814,7 @@ let blt ins insLen bld =
 let bge ins insLen bld =
   let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
   let cond = rs1 ?>= rs2
-  let fallThrough =
-    bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
+  let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.intercjmp cond offset fallThrough)
   bld --!> insLen
@@ -825,8 +822,7 @@ let bge ins insLen bld =
 let bltu ins insLen bld =
   let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
   let cond = rs1 .< rs2
-  let fallThrough =
-    bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
+  let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.intercjmp cond offset fallThrough)
   bld --!> insLen
@@ -834,8 +830,7 @@ let bltu ins insLen bld =
 let bgeu ins insLen bld =
   let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
   let cond = rs1 .>= rs2
-  let fallThrough =
-    bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
+  let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.intercjmp cond offset fallThrough)
   bld --!> insLen
@@ -1145,8 +1140,7 @@ let fltdots ins insLen bld =
   let lblL1 = label bld "L1"
   let lblEnd = label bld "End"
   let cond = AST.flt rs1 rs2
-  let rtVal =
-    AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
+  let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
   let fflags = regVar bld R.FFLAGS
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0))

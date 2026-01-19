@@ -43,14 +43,11 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
     | false, _ ->
       uses[var] <- Set.singleton loc
 
-  let addUses vars loc =
-    vars |> List.iter (fun v -> addUse v loc)
+  let addUses vars loc = vars |> List.iter (fun v -> addUse v loc)
 
-  let addDef var stmt =
-    defs[var] <- stmt
+  let addDef var stmt = defs[var] <- stmt
 
-  let addDefs vars stmt =
-    vars |> List.iter (fun v -> addDef v stmt)
+  let addDefs vars stmt = vars |> List.iter (fun v -> addDef v stmt)
 
   let rec computeUses loc expr =
     match expr with

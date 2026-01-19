@@ -39,7 +39,7 @@ open B2R2.Assembly.BinLowerer
 /// </summary>
 type Assembler(isa: ISA, startAddress) =
 
-  let assembler  =
+  let assembler =
     match isa with
     | Intel -> Intel.Assembler(isa, startAddress) :> ILowerable
     | _ -> raise InvalidISAException

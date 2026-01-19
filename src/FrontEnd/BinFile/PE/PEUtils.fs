@@ -54,5 +54,4 @@ let readStr secs (bytes: byte[]) rva =
   if rva = 0 then ""
   else readCString (ReadOnlySpan bytes) (getRawOffset secs rva)
 
-let inline addrFromRVA baseAddr rva =
-  uint64 rva + baseAddr
+let inline addrFromRVA baseAddr rva = uint64 rva + baseAddr

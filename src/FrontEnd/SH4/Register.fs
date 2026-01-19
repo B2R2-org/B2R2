@@ -51,7 +51,7 @@ module internal Register =
     | R.QACR0 | R.QACR1 | R.TRA | R.EXPEVT | R.INTEVT -> 32<rt>
     | R.DR0 | R.DR2 | R.DR4 | R.DR6 | R.DR8 | R.DR10 | R.DR12 | R.DR14
     | R.XD0 | R.XD2 | R.XD4 | R.XD6 | R.XD8 | R.XD10 | R.XD12
-    | R.XD14  -> 64<rt>
+    | R.XD14 -> 64<rt>
     | R.FV0 | R.FV4 | R.FV8 | R.FV12 -> 128<rt>
     | R.XMTRX -> 512<rt>
     | _ -> Terminator.impossible ()

@@ -72,7 +72,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     let absV = ctx.Vertices[pp]
     match tryGetValue state absV varKind with
     | Some(UntouchedValueDomain.Untouched(RegisterTag(StackLocal off))) ->
-      Some(- off / 4)
+      Some(-off / 4)
     | _ -> None
 
   let regIdToArgNumX64 hdl rid =
@@ -145,7 +145,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | SSA.Def(var, _) ->
         match (state: SSASparseDataFlow.State<_>).GetRegValue var with
         | UntouchedValueDomain.Untouched(RegisterTag(StackLocal off)) ->
-          Some(- off / 4)
+          Some(-off / 4)
         | _ -> None
       | _ -> None)
 

@@ -552,8 +552,7 @@ type State<'L, 'ExeCtx when 'L: equality
     this.TryFindSSADefStmtFromSSAVar var
     |> Option.get
 
-  member _.InvalidateSSAStmts(v, exeCtx) =
-    invalidateSSAStmts v exeCtx
+  member _.InvalidateSSAStmts(v, exeCtx) = invalidateSSAStmts v exeCtx
 
   member _.SSAVarToDefSVP var = getDefSvpFromSSAVar var
 
@@ -860,6 +859,8 @@ module internal AnalysisCore = begin
           let s = s, inSP
           let d = d
           queue.Enqueue(s, d)
+      else
+        ()
     queue
 
   let tryJoinRDs state src srcExeCtx dst dstExeCtx =
@@ -921,7 +922,7 @@ module internal AnalysisCore = begin
       | false, _ when not isFirstVisit -> None
       | false, _ -> Some dstOutDefs'
       | true, dstOutDefs' -> Some dstOutDefs'
-    if isFirstVisit then addPossibleExeCtx state dst dstExeCtx
+    if isFirstVisit then addPossibleExeCtx state dst dstExeCtx else ()
     match maybeJoinedOutDefs with
     | None -> ()
     | Some dstOutDefs' ->

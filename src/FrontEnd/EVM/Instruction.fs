@@ -63,8 +63,7 @@ type Instruction
 
     member _.IsDirectBranch = false
 
-    member this.IsIndirectBranch =
-      (this :> IInstruction).IsBranch
+    member this.IsIndirectBranch = (this :> IInstruction).IsBranch
 
     member _.IsCondBranch =
       match opcode with
@@ -121,21 +120,17 @@ type Instruction
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
-    member this.Translate builder =
-      lifter.Lift(this, builder).Stream.ToStmts()
+    member this.Translate builder = lifter.Lift(this, builder).Stream.ToStmts()
 
-    member this.TranslateToList builder =
-      lifter.Lift(this, builder).Stream
+    member this.TranslateToList builder = lifter.Lift(this, builder).Stream
 
-    member this.Disasm builder =
-      lifter.Disasm(this, builder).ToString()
+    member this.Disasm builder = lifter.Disasm(this, builder).ToString()
 
     member this.Disasm() =
       let builder = StringDisasmBuilder(false, null, WordSize.Bit256)
       lifter.Disasm(this, builder).ToString()
 
-    member this.Decompose builder =
-      lifter.Disasm(this, builder).ToAsmWords()
+    member this.Decompose builder = lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
   abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder

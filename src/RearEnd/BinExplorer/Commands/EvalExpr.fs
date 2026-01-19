@@ -47,8 +47,7 @@ type EvalExpr(name, alias) =
 
     member _.CmdAlias = alias
 
-    member _.CmdDescr =
-      "Evaluate and display the value of an expression."
+    member _.CmdDescr = "Evaluate and display the value of an expression."
 
     member _.CmdHelp =
       "Usage: ? <expression>\n\n\

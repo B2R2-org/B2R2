@@ -95,8 +95,7 @@ type InterMonoid<'A when 'A: comparison>(o, p) =
   member _.GetMax() = p.Value
   override _.ToString() = "(" + o.ToString() + "," + p.ToString() + ")"
   interface IMonoid<InterMonoid<'A>> with
-    member _.Zero =
-      InterMonoid(Ordered<'A>(), Priority<'A>())
+    member _.Zero = InterMonoid(Ordered<'A>(), Priority<'A>())
     member this.Assoc(rhs: InterMonoid<'A>) =
       let a1, b1 = this.Value
       let a2, b2 = rhs.Value
@@ -271,6 +270,13 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
                 and 'V: (new: unit -> 'V)
                 and 'A :> IMeasured<'V>>() =
 
+  static member private NodeAcc: 'A list -> Node<'V, 'A> list = function
+    | [ a; b ] -> [ Op.Node2(a, b) ]
+    | [ a; b; c ] -> [ Op.Node3(a, b, c) ]
+    | [ a; b; c; d ] -> [ Op.Node2(a, b); Op.Node2(c, d) ]
+    | a :: b :: c :: xs -> Op.Node3(a, b, c) :: Op.NodeAcc xs
+    | _ -> raise InvalidNodeException
+
   static member private Node2(a, b): Node<'V, 'A> =
     Node2(calib a ++ calib b, a, b)
 
@@ -385,13 +391,6 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
     | Two(a, b) -> a :: b :: acc
     | Three(a, b, c) -> a :: b :: c :: acc
     | Four(a, b, c, d) -> a :: b :: c :: d :: acc
-
-  static member private NodeAcc: 'A list -> Node<'V, 'A> list = function
-    | [ a; b ] -> [ Op.Node2(a, b) ]
-    | [ a; b; c ] -> [ Op.Node3(a, b, c) ]
-    | [ a; b; c; d ] -> [ Op.Node2(a, b); Op.Node2(c, d) ]
-    | a :: b :: c :: xs -> Op.Node3(a, b, c) :: Op.NodeAcc xs
-    | _ -> raise InvalidNodeException
 
   static member private Nodes(sf1, ts, pr2): Node<'V, 'A> list =
     Op.AddToLst(ts, sf1) @ Op.AddToLst([], pr2) |> Op.NodeAcc

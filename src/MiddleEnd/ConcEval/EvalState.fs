@@ -110,9 +110,20 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   /// This is particularly useful to quickly check some constants.
   member _.IgnoreUndef with get() = ignoreUndef
 
+  /// Memory load failure (access violation) event handler.
+  member _.LoadFailureEventHandler
+    with get() = loadFailureHdl and set(f) = loadFailureHdl <- f
+
+  /// External call event handler.
+  member _.ExternalCallEventHandler
+    with get() = externalCallEventHdl and set(f) = externalCallEventHdl <- f
+
+  /// Side-effect event handler.
+  member _.SideEffectEventHandler
+    with get() = sideEffectHdl and set(f) = sideEffectHdl <- f
+
   /// Update the current statement index to be the next (current + 1) statement.
-  member inline this.NextStmt() =
-    this.StmtIdx <- this.StmtIdx + 1
+  member inline this.NextStmt() = this.StmtIdx <- this.StmtIdx + 1
 
   /// Stop evaluating further statements of the current instruction, and move on
   /// the next instruction.
@@ -129,16 +140,13 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
     | Error _ -> Undef
 
   /// Get the value of the given temporary variable.
-  member inline this.GetTmp n =
-    this.Temporaries.Get(n)
+  member inline this.GetTmp n = this.Temporaries.Get(n)
 
   /// Set the value for the given temporary variable.
-  member inline this.SetTmp(n, v) =
-    this.Temporaries.Set(n, v)
+  member inline this.SetTmp(n, v) = this.Temporaries.Set(n, v)
 
   /// Unset the given temporary variable.
-  member inline this.UnsetTmp n =
-    this.Temporaries.Unset n
+  member inline this.UnsetTmp n = this.Temporaries.Unset n
 
   /// Get the value of the given register.
   member inline this.TryGetReg(r: RegisterID) =
@@ -147,16 +155,13 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
     | Error _ -> Undef
 
   /// Get the value of the given register.
-  member inline this.GetReg(r: RegisterID) =
-    this.Registers.Get(int r)
+  member inline this.GetReg(r: RegisterID) = this.Registers.Get(int r)
 
   /// Set the value for the given register.
-  member inline this.SetReg(r: RegisterID, v) =
-    this.Registers.Set(int r, v)
+  member inline this.SetReg(r: RegisterID, v) = this.Registers.Set(int r, v)
 
   /// Unset the given register.
-  member inline this.UnsetReg(r: RegisterID) =
-    this.Registers.Unset(int r)
+  member inline this.UnsetReg(r: RegisterID) = this.Registers.Unset(int r)
 
   /// Advance PC by `amount`.
   member inline this.AdvancePC(amount: uint32) =
@@ -168,8 +173,7 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
     regs |> Array.iter (fun (r, v) -> this.SetReg(r, v))
 
   /// Go to the statement of the given label.
-  member inline this.GoToLabel lbl =
-    this.StmtIdx <- this.Labels.Index lbl
+  member inline this.GoToLabel lbl = this.StmtIdx <- this.Labels.Index lbl
 
   /// Get ready for evaluating a new instruction.
   member inline this.PrepareInstrEval stmts =
@@ -177,18 +181,6 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
     this.NeedToEvaluateIEMark <- false
     this.Labels.Update stmts
     this.StmtIdx <- 0
-
-  /// Memory load failure (access violation) event handler.
-  member _.LoadFailureEventHandler
-    with get() = loadFailureHdl and set(f) = loadFailureHdl <- f
-
-  /// External call event handler.
-  member _.ExternalCallEventHandler
-    with get() = externalCallEventHdl and set(f) = externalCallEventHdl <- f
-
-  /// Side-effect event handler.
-  member _.SideEffectEventHandler
-    with get() = sideEffectHdl and set(f) = sideEffectHdl <- f
 
   member internal this.OnLoadFailure(pc, addr, rt, e) =
     this.LoadFailureEventHandler.Invoke(pc, addr, rt, e)

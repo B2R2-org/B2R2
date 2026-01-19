@@ -58,8 +58,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     updateUserState (fun us -> { us with CurIndex = us.CurIndex + 1 })
     >>. preturn ()
 
-  let resetPrefix =
-    preturn () |>> (fun _ -> inferredPrefix <- Prefix.None)
+  let resetPrefix = preturn () |>> (fun _ -> inferredPrefix <- Prefix.None)
 
   let isWhitespace c = [ ' '; '\t'; '\f' ] |> List.contains c
 
@@ -165,8 +164,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     |> choice
     |>> ptrStringToBitSize
 
-  let pMemBaseReg =
-    pReg .>> (notFollowedBy (spaces .>> pchar '*'))
+  let pMemBaseReg = pReg .>> (notFollowedBy (spaces .>> pchar '*'))
 
   let pScaledIndexReg =
     opt (pchar '+') >>. pReg .>> spaces .>>. pScale
@@ -190,8 +188,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   let pOprMem = opt (pMemOprSize .>> spaces) >>= pMemOpr
 
-  let pOprDirAddr opc =
-    check opc Opcode.isBranch >>. pJumpTarget |>> OprDirAddr
+  let pOprDirAddr opc = check opc Opcode.isBranch >>. pJumpTarget |>> OprDirAddr
 
   (* We just put dummy regsize here, as immediates will be replaced according to
      the decoding rules anyways. *)

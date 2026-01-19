@@ -30,8 +30,7 @@ let private chooser = function
   | Segment(_, _, s) -> Some s
   | _ -> None
 
-let extract cmds =
-  Array.choose chooser cmds
+let extract cmds = Array.choose chooser cmds
 
 let buildMap segs =
   segs

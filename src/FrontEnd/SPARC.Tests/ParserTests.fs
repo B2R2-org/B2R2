@@ -36,17 +36,13 @@ open type ConditionCode
 [<AutoOpen>]
 module private Shortcut =
   type O =
-    static member Reg(r) =
-      OprReg r
+    static member Reg(r) = OprReg r
 
-    static member Imm(v) =
-      OprImm v
+    static member Imm(v) = OprImm v
 
-    static member Addr(v) =
-      OprAddr v
+    static member Addr(v) = OprAddr v
 
-    static member CC(cond) =
-      OprCC cond
+    static member CC(cond) = OprCC cond
 
 [<TestClass>]
 type ParserTests() =

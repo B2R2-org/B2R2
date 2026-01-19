@@ -46,7 +46,7 @@ type UserState =
     /// instruction, but labels would not change this.
     CurIndex: int }
 
-let private isMemorySizeExceptionOpcode  = function
+let private isMemorySizeExceptionOpcode = function
   | Opcode.MOV -> true
   | _ -> false
 

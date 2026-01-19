@@ -44,7 +44,8 @@ type HexdumpAction() =
   interface IAction with
     member _.ActionID with get() = "hexdump"
     member _.Signature with get() = "Binary -> string"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in a binary and convert it to a hexdump string.
 """
     member _.Transform(args, collection) =

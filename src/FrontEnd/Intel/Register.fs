@@ -256,7 +256,7 @@ module internal Register = begin
     | R.RSP | R.ESP | R.SP | R.SPL -> R.RSP
     | R.RBP | R.EBP | R.BP | R.BPL -> R.RBP
     | R.RSI | R.ESI | R.SI | R.SIL -> R.RSI
-    | R.RDI | R.EDI | R.DI | R.DIL-> R.RDI
+    | R.RDI | R.EDI | R.DI | R.DIL -> R.RDI
     | R.R8  | R.R8D | R.R8B | R.R8W -> R.R8
     | R.R9  | R.R9D | R.R9B | R.R9W -> R.R9
     | R.R10 | R.R10D | R.R10B | R.R10W -> R.R10
@@ -329,32 +329,32 @@ module internal Register = begin
     | r -> [| r |]
 
   let regToPseudoReg = function
-    | R.XMM0  -> [ R.ZMM0B; R.ZMM0A ]
-    | R.XMM1  -> [ R.ZMM1B; R.ZMM1A ]
-    | R.XMM2  -> [ R.ZMM2B; R.ZMM2A ]
-    | R.XMM3  -> [ R.ZMM3B; R.ZMM3A ]
-    | R.XMM4  -> [ R.ZMM4B; R.ZMM4A ]
-    | R.XMM5  -> [ R.ZMM5B; R.ZMM5A ]
-    | R.XMM6  -> [ R.ZMM6B; R.ZMM6A ]
-    | R.XMM7  -> [ R.ZMM7B; R.ZMM7A ]
-    | R.XMM8  -> [ R.ZMM8B; R.ZMM8A ]
-    | R.XMM9  -> [ R.ZMM9B; R.ZMM9A ]
+    | R.XMM0 -> [ R.ZMM0B; R.ZMM0A ]
+    | R.XMM1 -> [ R.ZMM1B; R.ZMM1A ]
+    | R.XMM2 -> [ R.ZMM2B; R.ZMM2A ]
+    | R.XMM3 -> [ R.ZMM3B; R.ZMM3A ]
+    | R.XMM4 -> [ R.ZMM4B; R.ZMM4A ]
+    | R.XMM5 -> [ R.ZMM5B; R.ZMM5A ]
+    | R.XMM6 -> [ R.ZMM6B; R.ZMM6A ]
+    | R.XMM7 -> [ R.ZMM7B; R.ZMM7A ]
+    | R.XMM8 -> [ R.ZMM8B; R.ZMM8A ]
+    | R.XMM9 -> [ R.ZMM9B; R.ZMM9A ]
     | R.XMM10 -> [ R.ZMM10B; R.ZMM10A ]
     | R.XMM11 -> [ R.ZMM11B; R.ZMM11A ]
     | R.XMM12 -> [ R.ZMM12B; R.ZMM12A ]
     | R.XMM13 -> [ R.ZMM13B; R.ZMM13A ]
     | R.XMM14 -> [ R.ZMM14B; R.ZMM14A ]
     | R.XMM15 -> [ R.ZMM15B; R.ZMM15A ]
-    | R.YMM0  -> [ R.ZMM0D; R.ZMM0C; R.ZMM0B; R.ZMM0A ]
-    | R.YMM1  -> [ R.ZMM1D; R.ZMM1C; R.ZMM1B; R.ZMM1A ]
-    | R.YMM2  -> [ R.ZMM2D; R.ZMM2C; R.ZMM2B; R.ZMM2A ]
-    | R.YMM3  -> [ R.ZMM3D; R.ZMM3C; R.ZMM3B; R.ZMM3A ]
-    | R.YMM4  -> [ R.ZMM4D; R.ZMM4C; R.ZMM4B; R.ZMM4A ]
-    | R.YMM5  -> [ R.ZMM5D; R.ZMM5C; R.ZMM5B; R.ZMM5A ]
-    | R.YMM6  -> [ R.ZMM6D; R.ZMM6C; R.ZMM6B; R.ZMM6A ]
-    | R.YMM7  -> [ R.ZMM7D; R.ZMM7C; R.ZMM7B; R.ZMM7A ]
-    | R.YMM8  -> [ R.ZMM8D; R.ZMM8C; R.ZMM8B; R.ZMM8A ]
-    | R.YMM9  -> [ R.ZMM9D; R.ZMM9C; R.ZMM9B; R.ZMM9A ]
+    | R.YMM0 -> [ R.ZMM0D; R.ZMM0C; R.ZMM0B; R.ZMM0A ]
+    | R.YMM1 -> [ R.ZMM1D; R.ZMM1C; R.ZMM1B; R.ZMM1A ]
+    | R.YMM2 -> [ R.ZMM2D; R.ZMM2C; R.ZMM2B; R.ZMM2A ]
+    | R.YMM3 -> [ R.ZMM3D; R.ZMM3C; R.ZMM3B; R.ZMM3A ]
+    | R.YMM4 -> [ R.ZMM4D; R.ZMM4C; R.ZMM4B; R.ZMM4A ]
+    | R.YMM5 -> [ R.ZMM5D; R.ZMM5C; R.ZMM5B; R.ZMM5A ]
+    | R.YMM6 -> [ R.ZMM6D; R.ZMM6C; R.ZMM6B; R.ZMM6A ]
+    | R.YMM7 -> [ R.ZMM7D; R.ZMM7C; R.ZMM7B; R.ZMM7A ]
+    | R.YMM8 -> [ R.ZMM8D; R.ZMM8C; R.ZMM8B; R.ZMM8A ]
+    | R.YMM9 -> [ R.ZMM9D; R.ZMM9C; R.ZMM9B; R.ZMM9A ]
     | R.YMM10 -> [ R.ZMM10D; R.ZMM10C; R.ZMM10B; R.ZMM10A ]
     | R.YMM11 -> [ R.ZMM11D; R.ZMM11C; R.ZMM11B; R.ZMM11A ]
     | R.YMM12 -> [ R.ZMM12D; R.ZMM12C; R.ZMM12B; R.ZMM12A ]

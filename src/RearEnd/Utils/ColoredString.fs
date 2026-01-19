@@ -45,12 +45,10 @@ type ColoredString internal(inputSegs: IEnumerable<ColoredSegment>) =
 
   do for col, str in inputSegs do add col str
 
-  new() =
-    ColoredString []
+  new() = ColoredString []
 
   /// Constructs a colored string from given a tuple of a color and a string.
-  new(col, str) =
-    ColoredString [ ColoredSegment(col, str) ]
+  new(col, str) = ColoredString [ ColoredSegment(col, str) ]
 
   /// Constructs a colored string from a byte array.
   new(bs: byte[]) =

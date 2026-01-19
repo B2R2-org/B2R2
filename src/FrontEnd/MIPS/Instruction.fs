@@ -126,8 +126,7 @@ type Instruction
       | Opcode.DERET | Opcode.ERET | Opcode.ERETNC -> true
       | _ -> false
 
-    member _.IsNop =
-      op = Opcode.NOP
+    member _.IsNop = op = Opcode.NOP
 
     member _.IsInlinedAssembly = false
 
@@ -159,8 +158,7 @@ type Instruction
       else
         false
 
-    member _.MemoryDereferences(_: byref<Addr[]>) =
-      Terminator.futureFeature ()
+    member _.MemoryDereferences(_: byref<Addr[]>) = Terminator.futureFeature ()
 
     member _.Immediate(v: byref<int64>) =
       match opr with
@@ -188,15 +186,13 @@ type Instruction
       let builder = builder :?> LowUIRBuilder
       lifter.Lift(this, builder).Stream
 
-    member this.Disasm builder =
-      lifter.Disasm(this, builder).ToString()
+    member this.Disasm builder = lifter.Disasm(this, builder).ToString()
 
     member this.Disasm() =
       let builder = StringDisasmBuilder(false, null, wordSize)
       lifter.Disasm(this, builder).ToString()
 
-    member this.Decompose builder =
-      lifter.Disasm(this, builder).ToAsmWords()
+    member this.Decompose builder = lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
   abstract Lift: Instruction * LowUIRBuilder -> ILowUIRBuilder

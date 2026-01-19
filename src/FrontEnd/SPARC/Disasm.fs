@@ -444,7 +444,7 @@ let opCodeToString = function
   | Opcode.SWAP -> "swap"
   | Opcode.SWAPA -> "swapa"
   | Opcode.TADDcc -> "taddcc"
-  | Opcode.TADDccTV ->" taddcctv"
+  | Opcode.TADDccTV -> " taddcctv"
   | Opcode.Tcc -> "tcc"
   | Opcode.TA -> "ta"
   | Opcode.TN -> "tn"

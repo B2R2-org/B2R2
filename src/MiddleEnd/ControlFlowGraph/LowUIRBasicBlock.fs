@@ -70,6 +70,15 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
     with get(): (Addr * int) option = domJT
      and set(v) = domJT <- v
 
+  static member CreateRegular(liftedInss, pp) =
+    LowUIRBasicBlock(pp, None, liftedInss, ImmutableDictionary.Empty)
+
+  static member CreateRegular(liftedInss, pp, lblMap) =
+    LowUIRBasicBlock(pp, None, liftedInss, lblMap)
+
+  static member CreateAbstract(pp, summary) =
+    LowUIRBasicBlock(pp, Some summary, [||], ImmutableDictionary.Empty)
+
   /// Cut the basic block at the given address and return the two new basic
   /// blocks. This function does not modify the original basic block. We assume
   /// that the given address is within the range of the basic block. Otherwise,
@@ -153,15 +162,6 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
   interface IEquatable<LowUIRBasicBlock> with
     member this.Equals(other: LowUIRBasicBlock) =
       (this :> IAddressable).PPoint = (other :> IAddressable).PPoint
-
-  static member CreateRegular(liftedInss, pp) =
-    LowUIRBasicBlock(pp, None, liftedInss, ImmutableDictionary.Empty)
-
-  static member CreateRegular(liftedInss, pp, lblMap) =
-    LowUIRBasicBlock(pp, None, liftedInss, lblMap)
-
-  static member CreateAbstract(pp, summary) =
-    LowUIRBasicBlock(pp, Some summary, [||], ImmutableDictionary.Empty)
 
 /// Interface for a basic block containing a sequence of lifted LowUIR
 /// statements.

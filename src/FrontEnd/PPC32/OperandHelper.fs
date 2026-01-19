@@ -38,15 +38,11 @@ let getCRbitRegister (n: uint32): Register =
   n + 0x48u |> int |> LanguagePrimitives.EnumOfValue
 
 /// Used to specify in the FPSCR.
-let getFPSCRBit (bin: uint32) =
-  bin |> uint64 |> OprImm
+let getFPSCRBit (bin: uint32) = bin |> uint64 |> OprImm
 
-let getSegRegister (bin: uint32) =
-  bin |> uint64 |> OprImm
+let getSegRegister (bin: uint32) = bin |> uint64 |> OprImm
 
 /// UISA SPR Encodings for mfspr.
-let getSPRegister (bin: uint32) =
-  bin |> uint64 |> OprImm
+let getSPRegister (bin: uint32) = bin |> uint64 |> OprImm
 
-let getTBRRegister (bin: uint32) =
-  bin |> uint64 |> OprImm
+let getTBRRegister (bin: uint32) = bin |> uint64 |> OprImm

@@ -529,8 +529,7 @@ let parseVEXtoGPR (phlp: ParsingHelper) =
     |> LanguagePrimitives.EnumOfValue<int, Register>
     |> OprReg
 
-let parseMMXReg n =
-  Register.mm n |> OprReg
+let parseMMXReg n = Register.mm n |> OprReg
 
 let parseSegReg n =
   if n < 6 then Register.seg n |> OprReg
@@ -540,14 +539,11 @@ let parseBoundRegister n =
   if n < 4 then Register.bound n |> OprReg
   else raise ParsingFailureException
 
-let parseControlReg n =
-  Register.control n |> OprReg
+let parseControlReg n = Register.control n |> OprReg
 
-let parseDebugReg n =
-  Register.debug n |> OprReg
+let parseDebugReg n = Register.debug n |> OprReg
 
-let parseOpMaskReg n =
-  Register.opmask n |> OprReg
+let parseOpMaskReg n = Register.opmask n |> OprReg
 
 let parseOprOnlyDisp span (phlp: ParsingHelper) =
   let dispSz = RegType.toByteWidth phlp.MemEffAddrSize
@@ -809,38 +805,31 @@ type Imm() =
 
 type Es() =
   inherit OperandParser()
-  override _.Render(_, _) =
-    OneOperand(OprReg R.ES)
+  override _.Render(_, _) = OneOperand(OprReg R.ES)
 
 type Cs() =
   inherit OperandParser()
-  override _.Render(_, _) =
-    OneOperand(OprReg R.CS)
+  override _.Render(_, _) = OneOperand(OprReg R.CS)
 
 type Ss() =
   inherit OperandParser()
-  override _.Render(_, _) =
-    OneOperand(OprReg R.SS)
+  override _.Render(_, _) = OneOperand(OprReg R.SS)
 
 type Ds() =
   inherit OperandParser()
-  override _.Render(_, _) =
-    OneOperand(OprReg R.DS)
+  override _.Render(_, _) = OneOperand(OprReg R.DS)
 
 type Fs() =
   inherit OperandParser()
-  override _.Render(_, _) =
-    OneOperand(OprReg R.FS)
+  override _.Render(_, _) = OneOperand(OprReg R.FS)
 
 type Gs() =
   inherit OperandParser()
-  override _.Render(_, _) =
-    OneOperand(OprReg R.GS)
+  override _.Render(_, _) = OneOperand(OprReg R.GS)
 
 type ALDx() =
   inherit OperandParser()
-  override _.Render(_, _) =
-    TwoOperands(OprReg R.AL, OprReg R.DX)
+  override _.Render(_, _) = TwoOperands(OprReg R.AL, OprReg R.DX)
 
 type EaxDx() =
   inherit OperandParser()
@@ -856,13 +845,11 @@ type DxEax() =
 
 type DxAL() =
   inherit OperandParser()
-  override _.Render(span, phlp) =
-    TwoOperands(OprReg R.DX, OprReg R.AL)
+  override _.Render(span, phlp) = TwoOperands(OprReg R.DX, OprReg R.AL)
 
 type No() =
   inherit OperandParser()
-  override _.Render(span, phlp) =
-    NoOperand
+  override _.Render(span, phlp) = NoOperand
 
 type Eax() =
   inherit OperandParser()
@@ -963,66 +950,56 @@ type Rdi() =
 type RaxRax() =
   inherit OperandParser()
   override _.Render(span, phlp) =
-    let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
-    let o2 =
-      getOprFromRegGrpREX (int RegGrp.RG0) phlp
+    let o1 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
+    let o2 = getOprFromRegGrpREX (int RegGrp.RG0) phlp
     TwoOperands(o1, o2)
 
 type RaxRcx() =
   inherit OperandParser()
   override _.Render(span, phlp) =
-    let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
+    let o1 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG1) phlp
     TwoOperands(o1, o2)
 
 type RaxRdx() =
   inherit OperandParser()
   override _.Render(span, phlp) =
-    let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
-    let o2 =
-      getOprFromRegGrpREX (int RegGrp.RG2) phlp
+    let o1 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
+    let o2 = getOprFromRegGrpREX (int RegGrp.RG2) phlp
     TwoOperands(o1, o2)
 
 type RaxRbx() =
   inherit OperandParser()
   override _.Render(span, phlp) =
-    let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
+    let o1 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG3) phlp
     TwoOperands(o1, o2)
 
 type RaxRsp() =
   inherit OperandParser()
   override _.Render(span, phlp) =
-    let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
+    let o1 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG4) phlp
     TwoOperands(o1, o2)
 
 type RaxRbp() =
   inherit OperandParser()
   override _.Render(span, phlp) =
-    let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
+    let o1 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG5) phlp
     TwoOperands(o1, o2)
 
 type RaxRsi() =
   inherit OperandParser()
   override _.Render(span, phlp) =
-    let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
+    let o1 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG6) phlp
     TwoOperands(o1, o2)
 
 type RaxRdi() =
   inherit OperandParser()
   override _.Render(span, phlp) =
-    let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
+    let o1 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = getOprFromRegGrpREX (int RegGrp.RG7) phlp
     TwoOperands(o1, o2)
 
@@ -1071,8 +1048,7 @@ type Dir() =
 type RaxFar() =
   inherit OperandParser()
   override _.Render(span, phlp) =
-    let o1 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
+    let o1 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     let o2 = parseOprOnlyDisp span phlp
     TwoOperands(o1, o2)
 
@@ -1080,8 +1056,7 @@ type FarRax() =
   inherit OperandParser()
   override _.Render(span, phlp) =
     let o1 = parseOprOnlyDisp span phlp
-    let o2 =
-      getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
+    let o2 = getOprFromRegGrpNoREX (int RegGrp.RG0) phlp
     TwoOperands(o1, o2)
 
 type ALImm8() =
@@ -1142,43 +1117,35 @@ type BhImm8() =
 
 type RaxImm() =
   inherit OperandParser()
-  override _.Render(span, phlp) =
-    opGprImm span phlp RegGrp.RG0
+  override _.Render(span, phlp) = opGprImm span phlp RegGrp.RG0
 
 type RcxImm() =
   inherit OperandParser()
-  override _.Render(span, phlp) =
-    opGprImm span phlp RegGrp.RG1
+  override _.Render(span, phlp) = opGprImm span phlp RegGrp.RG1
 
 type RdxImm() =
   inherit OperandParser()
-  override _.Render(span, phlp) =
-    opGprImm span phlp RegGrp.RG2
+  override _.Render(span, phlp) = opGprImm span phlp RegGrp.RG2
 
 type RbxImm() =
   inherit OperandParser()
-  override _.Render(span, phlp) =
-    opGprImm span phlp RegGrp.RG3
+  override _.Render(span, phlp) = opGprImm span phlp RegGrp.RG3
 
 type RspImm() =
   inherit OperandParser()
-  override _.Render(span, phlp) =
-    opGprImm span phlp RegGrp.RG4
+  override _.Render(span, phlp) = opGprImm span phlp RegGrp.RG4
 
 type RbpImm() =
   inherit OperandParser()
-  override _.Render(span, phlp) =
-    opGprImm span phlp RegGrp.RG5
+  override _.Render(span, phlp) = opGprImm span phlp RegGrp.RG5
 
 type RsiImm() =
   inherit OperandParser()
-  override _.Render(span, phlp) =
-    opGprImm span phlp RegGrp.RG6
+  override _.Render(span, phlp) = opGprImm span phlp RegGrp.RG6
 
 type RdiImm() =
   inherit OperandParser()
-  override _.Render(span, phlp) =
-    opGprImm span phlp RegGrp.RG7
+  override _.Render(span, phlp) = opGprImm span phlp RegGrp.RG7
 
 type ImmImm() =
   inherit OperandParser()

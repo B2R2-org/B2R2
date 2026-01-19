@@ -244,7 +244,7 @@ let parseSixBits b32 =
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// Parse the instruction using only the first 4 bits
-let parseFourBits b32  =
+let parseFourBits b32 =
   match b32 >>> 12 with
   | 0b0111u -> Opcode.ANDI, parseTwoOpr b32 getReg4D getConst8K
   | 0b0011u -> Opcode.CPI, parseTwoOpr b32 getReg4D getConst8K

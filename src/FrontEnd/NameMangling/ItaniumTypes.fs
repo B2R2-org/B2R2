@@ -89,7 +89,7 @@ module internal BuiltinTypeIndicator =
     | "Dn" -> DecltypeNullptr
     | "Di" -> Char32
     | "Dh" -> Half
-    | _    -> Unknown
+    | _ -> Unknown
 
   let toString = function
     | Void -> "void"
@@ -143,7 +143,7 @@ module internal Sxabbreviation =
     | "Si" -> StdBasicIstream
     | "So" -> StdBasicOstream
     | "Sd" -> StdBasicIOStream
-    | _    -> Unknown
+    | _ -> Unknown
 
   let toString = function
     | Std -> "std"
@@ -267,7 +267,7 @@ module internal OperatorIndicator =
     | "ix" -> Brackets
     | "sr" -> DoubleColon
     | "qu" -> Question
-    | _    -> Unknown
+    | _ -> Unknown
 
   let toString = function
     | New -> " new"
@@ -329,7 +329,7 @@ module internal ConstructorDestructor =
   let ofChar = function
     | 'C' -> Constructor
     | 'D' -> Destructor
-    | _   -> Unknown
+    | _ -> Unknown
 
   let toChar = function
     | Constructor -> ""
@@ -396,7 +396,7 @@ module internal ReferenceQualifier =
     | "" -> Empty
     | "R" -> LValueReference
     | "O" -> RvalueReference
-    | _   -> Unknown
+    | _ -> Unknown
 
   let toString = function
     | LValueReference -> "&"

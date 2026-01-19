@@ -795,7 +795,7 @@ let parsePreDec0100 b16 =
     | 0b0100us ->
       Opcode.STCL,
       TwoOperands(OpReg(Regdir(R.SPC)), OpReg(RegIndirPreDec(getReg1d b16)))
-    | _  ->
+    | _ ->
       Opcode.STCL,
       TwoOperands(OpReg(Regdir(getReg1dBank b16)),
         OpReg(RegIndirPreDec(getReg1d b16)))
@@ -1000,12 +1000,10 @@ let parsePC1000 b16 =
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// PC Relative 1010 ---- ---- ---- destination operand only.
-let parsePC1010 b16 =
-  Opcode.BRA, OneOperand(OpReg(PCRelative(getDisp12b b16)))
+let parsePC1010 b16 = Opcode.BRA, OneOperand(OpReg(PCRelative(getDisp12b b16)))
 
 /// PC Relative 1011 ---- ---- ---- destination operand only.
-let parsePC1011 b16 =
-  Opcode.BSR, OneOperand(OpReg(PCRelative(getDisp12b b16)))
+let parsePC1011 b16 = Opcode.BSR, OneOperand(OpReg(PCRelative(getDisp12b b16)))
 
 /// Immediate
 let parseImm1111 b16 =

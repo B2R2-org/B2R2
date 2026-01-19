@@ -748,8 +748,7 @@ let private parseInstruction bin wordSz =
       parseMemoryManagementInstruction bin wordSz
     opcode, completer, None, None, operands
   | 0b000010u ->
-    let opcode, completer, cond, operands =
-      parseArithmeticLogicalInst bin
+    let opcode, completer, cond, operands = parseArithmeticLogicalInst bin
     opcode, completer, cond, None, operands
   | 0b101101u | 0b100101u | 0b101100u ->
     let opcode, completer, cond, operands =
@@ -809,7 +808,7 @@ let private parseInstruction bin wordSz =
     opcode, completer, None, None, operands
   | 0b100111u | 0b101111u | 0b111011u | 0b110010u | 0b110001u | 0b110011u
   | 0b110000u | 0b100000u | 0b100010u | 0b101000u | 0b101010u | 0b100001u
-  | 0b100011u | 0b101001u | 0b101011u  ->
+  | 0b100011u | 0b101001u | 0b101011u ->
     let opcode, completer, cond, operands =
       parseConditionalLocalBranchInstruction bin wordSz
     opcode, completer, cond, None, operands

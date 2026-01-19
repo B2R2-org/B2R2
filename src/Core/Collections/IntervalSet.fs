@@ -97,8 +97,7 @@ module IntervalSet =
 
   /// Finds and returns the first matching interval from the given address.
   [<CompiledName("TryFindByAddr")>]
-  let tryFindByAddr addr s =
-    tryFind (AddrRange(addr, addr)) s
+  let tryFindByAddr addr s = tryFind (AddrRange(addr, addr)) s
 
   /// Checks whether the given address exists in the interval set.
   [<CompiledName("ContainsAddr")>]

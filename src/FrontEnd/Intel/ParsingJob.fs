@@ -153,8 +153,7 @@ type internal OneOp0E() =
 
 type internal OneOp0F() =
   inherit ParsingJob()
-  override _.Run(span, phlp) =
-    parseTwoByteOpcode span phlp
+  override _.Run(span, phlp) = parseTwoByteOpcode span phlp
 
 type internal OneOp10() =
   inherit ParsingJob()

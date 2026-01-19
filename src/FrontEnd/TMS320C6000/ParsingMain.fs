@@ -285,8 +285,7 @@ let private parseRegPair v unit isCPath =
   let high, low = if v &&& 0b1u = 0b0u then v + 1u, v else v, v - 1u
   (parseReg high isCPath unit, parseReg low isCPath unit) |> RegisterPair
 
-let getB14orB15 value =
-  if value = 0b0u then Register.B14 else Register.B15
+let getB14orB15 value = if value = 0b0u then Register.B14 else Register.B15
 
 let private translateOperand unit (oprInfo: OperandInfo) =
   let v = oprInfo.OperandValue

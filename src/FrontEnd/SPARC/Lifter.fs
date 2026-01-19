@@ -124,7 +124,7 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.FNEGq -> fnegq ins insLen bld
   | Opcode.FsMULd -> fsmuld ins insLen bld
   | Opcode.FdMULq -> fdmulq ins insLen bld
-  | Opcode.FSQRTs  -> fsqrts ins insLen bld
+  | Opcode.FSQRTs -> fsqrts ins insLen bld
   | Opcode.FSQRTd -> fsqrtd ins insLen bld
   | Opcode.FSQRTq -> fsqrtq ins insLen bld
   | Opcode.FsTOx -> fstox ins insLen bld

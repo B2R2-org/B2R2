@@ -86,8 +86,7 @@ type Instruction
 
     member _.IsModeChanging = false
 
-    member _.IsDirectBranch =
-      Opcode.isBranch opcode && hasConcJmpTarget ()
+    member _.IsDirectBranch = Opcode.isBranch opcode && hasConcJmpTarget ()
 
     member _.IsIndirectBranch =
       Opcode.isBranch opcode && (not <| hasConcJmpTarget ())
@@ -239,21 +238,17 @@ type Instruction
         | _ -> false
       else false
 
-    member this.Translate builder =
-      lifter.Lift(this, builder).Stream.ToStmts()
+    member this.Translate builder = lifter.Lift(this, builder).Stream.ToStmts()
 
-    member this.TranslateToList builder =
-      lifter.Lift(this, builder).Stream
+    member this.TranslateToList builder = lifter.Lift(this, builder).Stream
 
-    member this.Disasm builder =
-      lifter.Disasm(this, builder).ToString()
+    member this.Disasm builder = lifter.Disasm(this, builder).ToString()
 
     member this.Disasm() =
       let builder = StringDisasmBuilder(false, null, wordSz)
       lifter.Disasm(this, builder).ToString()
 
-    member this.Decompose builder =
-      lifter.Disasm(this, builder).ToAsmWords()
+    member this.Decompose builder = lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
   abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder

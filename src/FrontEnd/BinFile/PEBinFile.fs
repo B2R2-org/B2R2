@@ -62,8 +62,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   member _.RawPDB with get() = rawpdb
 
   /// Finds the section index from the given RVA.
-  member _.FindSectionIdxFromRVA rva =
-    pe.FindSectionIdxFromRVA rva
+  member _.FindSectionIdxFromRVA rva = pe.FindSectionIdxFromRVA rva
 
   member _.HasCode(sec: SectionHeader) =
     sec.SectionCharacteristics.HasFlag SectionCharacteristics.MemExecute
@@ -183,11 +182,12 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
     member _.GetFunctionAddresses() =
       let staticAddrs =
         [| for s in pe.Symbols.SymbolArray do
-             if s.IsFunction then s.Address |]
+             if s.IsFunction then s.Address else () |]
       let dynamicAddrs =
         [| for addr in pe.ExportedSymbols.Addresses do
              let idx = pe.FindSectionIdxFromRVA(int (addr - pe.BaseAddr))
-             if idx <> -1 && isSectionExecutableByIndex pe idx then addr |]
+             if idx <> -1 && isSectionExecutableByIndex pe idx then addr
+             else () |]
       Array.concat [| staticAddrs; dynamicAddrs |]
 
     member _.HasRelocationInfo addr = hasRelocationSymbols pe addr

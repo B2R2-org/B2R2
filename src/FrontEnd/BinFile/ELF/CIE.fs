@@ -459,8 +459,7 @@ module internal CIE =
     if returnAddressReg = reg then ReturnAddress
     else DWRegister.toRegID isa reg |> NormalReg
 
-  let getOffset isa rr reg v =
-    getTarget isa rr reg, Offset v
+  let getOffset isa rr reg v = getTarget isa rr reg, Offset v
 
   let rec getUnwind acc cfa irule rst rule isa regs lr cf df rr span i loc =
     if i >= (span: ByteSpan).Length then

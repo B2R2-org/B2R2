@@ -58,6 +58,14 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
   /// Dominance frontier of this block.
   member _.DomFrontier with get() = frontier and set(f) = frontier <- f
 
+  static member CreateRegular(stmts, ppoint, lastAddr) =
+    SSABasicBlock(ppoint, lastAddr, stmts, None)
+
+  /// Create an abstract basic block located at `ppoint`.
+  static member CreateAbstract(ppoint, abs: FunctionAbstraction<SSA.Stmt>) =
+    let rundown = abs.Rundown |> Array.map (fun s -> ProgramPoint.GetFake(), s)
+    SSABasicBlock(ppoint, 0UL, rundown, Some abs)
+
   override _.ToString() = $"{nameof SSABasicBlock}({ppoint})"
 
   interface ISSABasicBlock with
@@ -77,13 +85,14 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
 
     member _.LastStmt with get() = snd stmts[stmts.Length - 1]
 
+    member _.BlockAddress with get() = ppoint.Address
+
     member _.PrependPhi(varKind, count) =
       let var = { Kind = varKind; Identifier = -1 }
       let pp = ProgramPoint.GetFake()
       stmts <- Array.append [| pp, Phi(var, Array.zeroCreate count) |] stmts
 
-    member _.UpdateStatements stmts' =
-      stmts <- stmts'
+    member _.UpdateStatements stmts' = stmts <- stmts'
 
     member _.UpdatePPoints() =
       stmts
@@ -93,8 +102,6 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
         ppoint') ppoint
       |> ignore
 
-    member _.BlockAddress with get() = ppoint.Address
-
     member _.Visualize() =
       if Option.isNone funcAbs then
         stmts
@@ -102,14 +109,6 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
           [| { AsmWordKind = AsmWordKind.String
                AsmWordValue = PrettyPrinter.ToString stmt } |])
       else [||]
-
-  static member CreateRegular(stmts, ppoint, lastAddr) =
-    SSABasicBlock(ppoint, lastAddr, stmts, None)
-
-  /// Create an abstract basic block located at `ppoint`.
-  static member CreateAbstract(ppoint, abs: FunctionAbstraction<SSA.Stmt>) =
-    let rundown = abs.Rundown |> Array.map (fun s -> ProgramPoint.GetFake(), s)
-    SSABasicBlock(ppoint, 0UL, rundown, Some abs)
 
 /// Interafce for a basic block containing a sequence of SSA statements.
 and ISSABasicBlock =

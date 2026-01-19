@@ -202,8 +202,7 @@ type BBLFactory(hdl: BinHandle,
     extractLabelInfo lblMap liftedIns insAddr (liftedIns.Stmts.Length - 1)
     |> ImmutableDictionary.CreateRange
 
-  let addInterInstructionLeader addr =
-    interLeaders.TryAdd(addr, ()) |> ignore
+  let addInterInstructionLeader addr = interLeaders.TryAdd(addr, ()) |> ignore
 
   let addIRBBL liftedInss lblMap prevInsNdx prevStmtNdx endNdx =
     let instrs = extractInstrs liftedInss (prevInsNdx, prevStmtNdx) endNdx
@@ -212,7 +211,7 @@ type BBLFactory(hdl: BinHandle,
     let lblMap = buildLabelMap lblMap lastIns
     let bbl = LowUIRBasicBlock.CreateRegular(instrs, ppoint, lblMap)
     if prevStmtNdx = 0 then addInterInstructionLeader ppoint.Address else ()
-    bbls.TryAdd (ppoint, bbl) |> ignore
+    bbls.TryAdd(ppoint, bbl) |> ignore
 
   let rec gatherIntraBBLs liftedInss lblMap prevInsNdx prevStmtNdx idxs =
     match idxs with
@@ -315,6 +314,8 @@ type BBLFactory(hdl: BinHandle,
     done
     Ok dividedEdges
 
+  new(hdl: BinHandle, instrs) = BBLFactory(hdl, instrs, null)
+
   /// Number of BBLs in the factory.
   member _.Count with get() = bbls.Count
 
@@ -385,6 +386,3 @@ type BBLFactory(hdl: BinHandle,
       )
     )
 #endif
-
-  new(hdl: BinHandle, instrs) =
-    BBLFactory(hdl, instrs, null)

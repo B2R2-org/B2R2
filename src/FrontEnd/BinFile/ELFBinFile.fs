@@ -91,12 +91,10 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     shdrs.Value |> Array.tryFind (fun s -> s.SecName = name)
 
   /// Find a section by its index.
-  member _.FindSection(idx: int) =
-    shdrs.Value[idx]
+  member _.FindSection(idx: int) = shdrs.Value[idx]
 
   /// Is this a PLT section?
-  member _.IsPLT sec =
-    PLT.isPLTSectionName sec.SecName
+  member _.IsPLT sec = PLT.isPLTSectionName sec.SecName
 
   /// Is this section contains executable code?
   member _.HasCode sec =
@@ -234,18 +232,17 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.GetFunctionAddresses() =
       let staticFuncs =
         [| for s in symbs.Value.StaticSymbols do
-             if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr |]
+             if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr else () |]
       let dynamicFuncs =
         [| for s in symbs.Value.DynamicSymbols do
-             if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr |]
+             if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr else () |]
       let extraFuncs =
         findExtraFnAddrs toolBox shdrs.Value loadables.Value relocs.Value
       Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
       |> Set.ofArray
       |> Set.toArray
 
-    member _.HasRelocationInfo addr =
-      relocs.Value.Contains addr
+    member _.HasRelocationInfo addr = relocs.Value.Contains addr
 
     member _.GetRelocatedAddr relocAddr =
       getRelocatedAddr relocs.Value relocAddr

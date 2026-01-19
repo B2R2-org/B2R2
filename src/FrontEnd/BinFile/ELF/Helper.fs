@@ -33,7 +33,7 @@ open B2R2.FrontEnd.BinFile.FileHelper
 
 let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
   if offsetToAddr then ptr + delta
-  else (* Addr to offset *) ptr - delta
+  else ptr - delta (* Addr to offset *)
 
 let translateWithSecs offsetToAddr ptr sections =
   let txtOffset =

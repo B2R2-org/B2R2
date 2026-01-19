@@ -148,6 +148,11 @@ type RegisterFactory(wordSize) =
   let fpr31 = AST.var rt (Register.toRegID FPR31) "FPR31"
 
   interface IRegisterFactory with
+    member _.ProgramCounter = IAOQ_Front |> Register.toRegID
+
+    member _.StackPointer = GR30 |> Register.toRegID |> Some
+
+    member _.FramePointer = GR3 |> Register.toRegID |> Some
 
     member _.GetRegVar rid =
       match Register.ofRegID rid with
@@ -424,32 +429,17 @@ type RegisterFactory(wordSize) =
       |> Register.toRegID
       |> (this :> IRegisterFactory).GetRegVar
 
-    member _.GetRegisterID str =
-      Register.ofString str |> Register.toRegID
+    member _.GetRegisterID str = Register.ofString str |> Register.toRegID
 
-    member _.GetRegisterName rid =
-      Register.toString (Register.ofRegID rid)
+    member _.GetRegisterName rid = Register.toString (Register.ofRegID rid)
 
-    member _.GetRegType _rid =
-      WordSize.toRegType wordSize
+    member _.GetRegType _rid = WordSize.toRegType wordSize
 
-    member _.GetRegisterIDAliases rid =
-      [| rid |]
-
-    member _.ProgramCounter =
-      IAOQ_Front |> Register.toRegID
-
-    member _.StackPointer =
-      GR30 |> Register.toRegID |> Some
-
-    member _.FramePointer =
-      GR3 |> Register.toRegID |> Some
+    member _.GetRegisterIDAliases rid = [| rid |]
 
     member this.IsProgramCounter rid =
       (this :> IRegisterFactory).ProgramCounter = rid
 
-    member _.IsStackPointer rid =
-      Register.toRegID GR30 = rid
+    member _.IsStackPointer rid = Register.toRegID GR30 = rid
 
-    member _.IsFramePointer rid =
-      Register.toRegID GR3 = rid
+    member _.IsFramePointer rid = Register.toRegID GR3 = rid

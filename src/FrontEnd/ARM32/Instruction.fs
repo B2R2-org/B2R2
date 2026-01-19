@@ -183,8 +183,7 @@ type Instruction
       | Opcode.ERET -> true
       | _ -> false
 
-    member this.IsNop =
-      this.Opcode = Op.NOP
+    member this.IsNop = this.Opcode = Op.NOP
 
     member _.IsInlinedAssembly = false
 
@@ -203,8 +202,7 @@ type Instruction
         | _ -> false
       else false
 
-    member _.IndirectTrampolineAddr(_: byref<Addr>) =
-      false
+    member _.IndirectTrampolineAddr(_: byref<Addr>) = false
 
     member this.IsTerminator _ =
       let ins = this :> IInstruction
@@ -257,21 +255,17 @@ type Instruction
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
-    member this.Translate builder =
-      lifter.Lift(this, builder).Stream.ToStmts()
+    member this.Translate builder = lifter.Lift(this, builder).Stream.ToStmts()
 
-    member this.TranslateToList builder =
-      lifter.Lift(this, builder).Stream
+    member this.TranslateToList builder = lifter.Lift(this, builder).Stream
 
-    member this.Disasm builder =
-      lifter.Disasm(this, builder).ToString()
+    member this.Disasm builder = lifter.Disasm(this, builder).ToString()
 
     member this.Disasm() =
       let builder = StringDisasmBuilder(false, null, WordSize.Bit32)
       lifter.Disasm(this, builder).ToString()
 
-    member this.Decompose builder =
-      lifter.Disasm(this, builder).ToAsmWords()
+    member this.Decompose builder = lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
   abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder

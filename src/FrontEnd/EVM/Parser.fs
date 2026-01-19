@@ -34,10 +34,8 @@ type EVMParser(isa: ISA) =
 
   let lifter =
     { new ILiftable with
-        member _.Lift(ins, builder) =
-          Lifter.translate ins builder
-        member _.Disasm(ins, builder) =
-          Disasm.disasm ins builder; builder }
+        member _.Lift(ins, builder) = Lifter.translate ins builder
+        member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
   member _.CodeOffset with get() = codeOffset and set(o) = codeOffset <- o
 
@@ -46,11 +44,11 @@ type EVMParser(isa: ISA) =
     :> IInstruction
 
   interface IInstructionParsable with
+    member _.MaxInstructionSize = 33
+
     member _.Parse(bs: byte[], addr) =
       let span = ReadOnlySpan(bs)
       ParsingMain.parse lifter span codeOffset addr :> IInstruction
 
     member _.Parse(span: ByteSpan, addr) =
       ParsingMain.parse lifter span codeOffset addr :> IInstruction
-
-    member _.MaxInstructionSize = 33

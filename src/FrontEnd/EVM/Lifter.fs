@@ -35,8 +35,7 @@ let inline private updateGas bld gas =
   let gasReg = regVar bld R.GAS
   bld <+ (gasReg := gasReg .+ numI32 gas 64<rt>)
 
-let sideEffects name bld =
-  bld <+ AST.sideEffect name
+let sideEffects name bld = bld <+ AST.sideEffect name
 
 let private getSPSize size = numI32 (32 * size) 256<rt>
 
@@ -182,7 +181,7 @@ let jump (ins: Instruction) bld =
     updateGas bld ins.GAS
     bld <+ AST.interjmp dstAddr InterJmpKind.Base
   with
-    | :? System.InvalidOperationException -> (* Special case: terminate func. *)
+    :? System.InvalidOperationException -> (* Special case: terminate func. *)
       sideEffects Terminate bld
 
 let jumpi (ins: Instruction) bld =

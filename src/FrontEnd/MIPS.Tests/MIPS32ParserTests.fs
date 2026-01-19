@@ -35,23 +35,17 @@ open type Register
 [<AutoOpen>]
 module private MIPS32Shortcut =
   type O =
-    static member Reg(r) =
-      OpReg r
+    static member Reg(r) = OpReg r
 
-    static member Imm(v) =
-      OpImm v
+    static member Imm(v) = OpImm v
 
-    static member Mem(r, o: int64, rt) =
-      OpMem(r, Imm o, rt)
+    static member Mem(r, o: int64, rt) = OpMem(r, Imm o, rt)
 
-    static member Mem(r, o, rt) =
-      OpMem(r, Reg o, rt)
+    static member Mem(r, o, rt) = OpMem(r, Reg o, rt)
 
-    static member Addr(t) =
-      OpAddr t
+    static member Addr(t) = OpAddr t
 
-    static member Shift(s)  =
-      OpShiftAmount s
+    static member Shift(s) = OpShiftAmount s
 
 [<TestClass>]
 type MIPS32ParserTests() =

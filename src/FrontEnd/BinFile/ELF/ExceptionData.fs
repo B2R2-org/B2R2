@@ -48,8 +48,7 @@ module internal ExceptionData =
     let hdr = toolBox.Header
     let cls = hdr.Class
     let isa = toolBox.ISA
-    let relocInfo =
-      if hdr.ELFType = ELFType.ET_REL then Some reloc else None
+    let relocInfo = if hdr.ELFType = ELFType.ET_REL then Some reloc else None
     let exns = ExceptionFrame.parse toolBox cls shdrs isa regFactory relocInfo
     let lsdas = LSDATable.parse toolBox cls shdrs
     match exns with

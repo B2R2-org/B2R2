@@ -108,6 +108,13 @@ type FunctionSummarizer<'FnCtx,
   abstract ComputeUnwindingAmount:
     ctx: CFGBuildingContext<'FnCtx, 'GlCtx> -> int
 
+  /// Summarize the function using LowUIR.
+  abstract Summarize:
+       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
+     * IInstruction
+     * unwindingAmount: int
+    -> Rundown<LowUIR.Stmt>
+
   /// This is the simplistic way of counting the unwinding amount. Assuming that
   /// "ret NN" instructions are used, compute how many bytes are unwound.
   default _.ComputeUnwindingAmount ctx =
@@ -123,13 +130,6 @@ type FunctionSummarizer<'FnCtx,
           amount <- newAmount
         else ()
     amount
-
-  /// Summarize the function using LowUIR.
-  abstract Summarize:
-       ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
-     * IInstruction
-     * unwindingAmount: int
-    -> Rundown<LowUIR.Stmt>
 
   /// Simply over-approximate the function semantics. Particularly, we are
   /// interested in several well-known "getpc" functions for x86.
@@ -163,5 +163,4 @@ type FunctionSummarizer<'FnCtx,
       let ssaRundown = [| yield! stmts; yield jmpToFallThrough |]
       FunctionAbstraction(0UL, 0, ssaRundown, false, NotNoRet)
 
-    member this.ComputeUnwindingAmount ctx =
-      this.ComputeUnwindingAmount ctx
+    member this.ComputeUnwindingAmount ctx = this.ComputeUnwindingAmount ctx

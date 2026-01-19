@@ -36,15 +36,15 @@ type RegisterSet(maxNumElems: int) =
 
   new() = RegisterSet(378) (* Number of registers for AARCH64 = 378 *)
 
-  /// Get the bucket and the offset from the given index.
-  member inline private _.GetBucketAndOffset idx =
-    struct (idx / 64, idx &&& 0x3F)
-
   /// Maximum number of elements that this set can hold.
   member _.MaxNumElems with get() = maxNumElems
 
   /// The bit array representing the set.
   member _.BitArray with get() = arr
+
+  /// Get the bucket and the offset from the given index.
+  member inline private _.GetBucketAndOffset idx =
+    struct (idx / 64, idx &&& 0x3F)
 
   /// Adds a register to the set by marking the corresponding bit.
   member this.Add(idx: int) =
@@ -79,8 +79,7 @@ type RegisterSet(maxNumElems: int) =
     (arr[bucket] &&& (1L <<< offset)) <> 0L
 
   /// Checks if the set is empty.
-  member _.IsEmpty() =
-    arr |> Array.forall (fun x -> x = 0L)
+  member _.IsEmpty() = arr |> Array.forall (fun x -> x = 0L)
 
   /// Clears the set.
   member _.Clear() =
@@ -94,4 +93,4 @@ type RegisterSet(maxNumElems: int) =
       while bucket <> 0L do
         let offset = BitOperations.TrailingZeroCount bucket
         fn (i * 64 + offset)
-        bucket <- bucket ^^^ (bucket &&& (- bucket))
+        bucket <- bucket ^^^ (bucket &&& (-bucket))

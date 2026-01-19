@@ -57,7 +57,7 @@ and private evalLoad st endian t addr =
   | Error e ->
     match st.OnLoadFailure(st.PC, addr, t, e) with
     | Ok v -> v
-    | Error _ ->  raise (InvalidMemException addr)
+    | Error _ -> raise (InvalidMemException addr)
 
 and private evalCast st t e = function
   | CastKind.SignExt -> BitVector.SExt(evalExpr st e, t)
@@ -89,7 +89,7 @@ and private evalBinOp st e1 e2 typ =
   match typ with
   | BinOpType.ADD -> BitVector.Add(e1, e2)
   | BinOpType.SUB -> BitVector.Sub(e1, e2)
-  | BinOpType.MUL  -> BitVector.Mul(e1, e2)
+  | BinOpType.MUL -> BitVector.Mul(e1, e2)
   | BinOpType.DIV -> BitVector.Div(e1, e2)
   | BinOpType.SDIV -> BitVector.SDiv(e1, e2)
   | BinOpType.MOD -> BitVector.Modulo(e1, e2)

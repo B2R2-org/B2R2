@@ -159,14 +159,6 @@ and EVMFuncUserContext() =
 
   member _.IsSharedRegion with get() = isSharedRegion
 
-  member _.SetStackPointerDiff diff = stackPointerDiff <- Some diff
-
-  member _.SetReturnTargetStackOff off = returnTargetStackOff <- off
-
-  member _.SetPublicFunction() = isPublicFunction <- true
-
-  member _.SetSharedRegion() = isSharedRegion <- true
-
   member _.PostponedVertices with get() = verticesPostponed
 
   member _.ResumableVertices with get() = verticesResumable
@@ -175,9 +167,17 @@ and EVMFuncUserContext() =
 
   member _.PerVertexStackPointerDelta with get() = perVertexStackPointerDelta
 
-  member _.GetStackPointerDelta(state, v) = getStackPointerDelta state v
-
   member _.CP with get() = cp and set(v) = cp <- v
+
+  member _.SetStackPointerDiff diff = stackPointerDiff <- Some diff
+
+  member _.SetReturnTargetStackOff off = returnTargetStackOff <- off
+
+  member _.SetPublicFunction() = isPublicFunction <- true
+
+  member _.SetSharedRegion() = isSharedRegion <- true
+
+  member _.GetStackPointerDelta(state, v) = getStackPointerDelta state v
 
   interface IResettable with
     member _.Reset() =

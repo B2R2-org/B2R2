@@ -50,7 +50,8 @@ type LoadAction() =
   interface IAction with
     member _.ActionID with get() = "load"
     member _.Signature with get() = "unit * <str> * [isa] : string -> Binary"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in a string <str> and return a binary object. The given input string
     can either represent a file path or a hexstring. If the given string
     represents a valid file path, then the raw file content will be loaded.

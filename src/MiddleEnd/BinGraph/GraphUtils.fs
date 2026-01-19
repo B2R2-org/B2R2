@@ -52,7 +52,7 @@ let reverse (inGraph: IDiGraphAccessible<_, _>) roots outGraph =
   inGraph.FoldVertex((fun (outGraph: IDiGraph<_, _>) v ->
     outGraph.AddVertex(v.VData, v.ID) |> snd), outGraph)
   |> fun outGraph ->
-    inGraph.FoldEdge((fun (outGraph: IDiGraph<_,_>) edge ->
+    inGraph.FoldEdge((fun (outGraph: IDiGraph<_, _>) edge ->
       let src = outGraph.FindVertexByID edge.First.ID
       let dst = outGraph.FindVertexByID edge.Second.ID
       outGraph.AddEdge(dst, src, edge.Label)), outGraph)

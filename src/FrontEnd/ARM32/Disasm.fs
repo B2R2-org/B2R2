@@ -809,8 +809,7 @@ let offsetToString ins addrMode offset builder =
     alignOffsetToString ins (bReg, align, reg) builder
 
 let processAddrExn32 (ins: Instruction) addr =
-  let pc =
-    if ins.IsThumb then addr + 4UL else addr + 8UL
+  let pc = if ins.IsThumb then addr + 4UL else addr + 8UL
   match ins.Opcode with
   | Op.CBZ | Op.CBNZ
   | Op.B | Op.BX -> pc

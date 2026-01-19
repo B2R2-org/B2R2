@@ -239,7 +239,7 @@ let getImmValue = function
   | OprBI imm -> imm
   | _ -> raise InvalidOperandException
 
-let getSPRReg bld imm  =
+let getSPRReg bld imm =
   match uint32 imm with
   | 1u -> regVar bld Register.XER
   | 8u -> regVar bld Register.LR
@@ -503,7 +503,7 @@ let b ins insLen bld lk =
   let addr = transOneOpr ins bld
   let lr = regVar bld Register.LR
   bld <!-- (ins.Address, insLen)
-  if lk then bld <+ (lr := numU64 ins.Address 32<rt> .+ numI32 4 32<rt>)
+  if lk then bld <+ (lr := numU64 ins.Address 32<rt> .+ numI32 4 32<rt>) else ()
   bld <+ (AST.interjmp addr InterJmpKind.Base)
   bld --!> insLen
 
@@ -521,7 +521,7 @@ let bc ins insLen bld aa lk =
   let nia = cia .+ numI32 4 32<rt>
   let temp = tmpVar bld 32<rt>
   bld <!-- (ins.Address, insLen)
-  if lk then bld <+ (lr := nia)
+  if lk then bld <+ (lr := nia) else ()
   bld <+ (ctr :=
           if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 32<rt>))
   bld <+ (ctrOk := bo2 .| ((ctr != AST.num0 32<rt>) <+> bo3))
@@ -551,7 +551,7 @@ let bclr ins insLen bld lk =
   bld <+ (condOk := bo0 .| (cr <+> AST.not bo1))
   bld <+ (temp := AST.ite (ctrOk .& condOk)
                           (lr .& numI32 0xfffffffc 32<rt>) nia)
-  if lk then bld <+ (lr := AST.ite (ctrOk .& condOk) nia lr)
+  if lk then bld <+ (lr := AST.ite (ctrOk .& condOk) nia lr) else ()
   bld <+ (AST.interjmp temp InterJmpKind.Base)
   bld --!> insLen
 
@@ -568,7 +568,7 @@ let bcctr ins insLen bld lk =
   bld <!-- (ins.Address, insLen)
   bld <+ (condOk := bo0 .| (cr <+> AST.not bo1))
   bld <+ (temp := AST.ite condOk (ctr .& numI32 0xfffffffc 32<rt>) nia)
-  if lk then bld <+ (lr := AST.ite condOk nia lr)
+  if lk then bld <+ (lr := AST.ite condOk nia lr) else ()
   bld <+ (AST.interjmp temp InterJmpKind.Base)
   bld --!> insLen
 
@@ -791,11 +791,9 @@ let fcmp ins insLen bld isOrdered =
   else ()
   bld --!> insLen
 
-let fcmpo ins insLen bld =
-  fcmp ins insLen bld true
+let fcmpo ins insLen bld = fcmp ins insLen bld true
 
-let fcmpu ins insLen bld =
-  fcmp ins insLen bld false
+let fcmpu ins insLen bld = fcmp ins insLen bld false
 
 let fdiv ins insLen updateCond isDouble bld =
   let struct (frd, fra, frb) = transThreeOprs ins bld
@@ -1250,7 +1248,7 @@ let lwz ins insLen bld =
   bld --!> insLen
 
 let lwzu ins insLen bld =
-  let struct (o1 , o2) = getTwoOprs ins
+  let struct (o1, o2) = getTwoOprs ins
   let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
   let rd = transOpr bld o1
   let tmpEA = tmpVar bld 32<rt>
@@ -1422,6 +1420,8 @@ let mtfsb0 ins insLen updateCond bld =
   bld <!-- (ins.Address, insLen)
   if crbD <> 1 && crbD <> 2 then
     bld <+ (AST.extract fpscr 1<rt> (31 - crbD) := AST.b0)
+  else
+    ()
   if updateCond then setCR1Reg bld else ()
   (* Affected: FX *)
   bld --!> insLen
@@ -1432,6 +1432,8 @@ let mtfsb1 ins insLen updateCond bld =
   bld <!-- (ins.Address, insLen)
   if crbD <> 1 && crbD <> 2 then
     bld <+ (AST.extract fpscr 1<rt> (31 - crbD) := AST.b1)
+  else
+    ()
   if updateCond then setCR1Reg bld else ()
   (* Affected: FX *)
   bld --!> insLen
@@ -1947,7 +1949,7 @@ let subfe ins insLen updateCond ovCond bld =
   if updateCond then setCR0Reg bld dst else ()
   bld --!> insLen
 
-let subfic ins insLen bld  =
+let subfic ins insLen bld =
   let struct (dst, src1, simm) = transThreeOprs ins bld
   let struct (t1, t2, t3) = tmpVars3 bld 64<rt>
   bld <!-- (ins.Address, insLen)
@@ -2103,7 +2105,7 @@ let translate (ins: Instruction) insLen bld =
   | Op.EQV -> eqvx ins insLen false bld
   | Op.EQVdot -> eqvx ins insLen true bld
   | Op.FABS -> fabs ins insLen false bld
-  | Op.FABSdot  -> fabs ins insLen true bld
+  | Op.FABSdot -> fabs ins insLen true bld
   | Op.FADD -> fadd ins insLen false true bld
   | Op.FADDS -> fadd ins insLen false false bld
   | Op.FADDdot -> fadd ins insLen true true bld

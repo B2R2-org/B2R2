@@ -112,7 +112,7 @@ and private evalUnOp st e = function
 and private evalBinOp st e1 e2 = function
   | BinOpType.ADD -> evalBinOpConc st e1 e2 BitVector.Add
   | BinOpType.SUB -> evalBinOpConc st e1 e2 BitVector.Sub
-  | BinOpType.MUL  -> evalBinOpConc st e1 e2 BitVector.Mul
+  | BinOpType.MUL -> evalBinOpConc st e1 e2 BitVector.Mul
   | BinOpType.DIV -> evalBinOpConc st e1 e2 BitVector.Div
   | BinOpType.SDIV -> evalBinOpConc st e1 e2 BitVector.SDiv
   | BinOpType.MOD -> evalBinOpConc st e1 e2 BitVector.Modulo

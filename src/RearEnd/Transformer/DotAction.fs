@@ -51,7 +51,8 @@ type DOTAction() =
   interface IAction with
     member _.ActionID with get() = "dot"
     member _.Signature with get() = "CFG -> string"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in a CFG as input, and returns a string representation of the CFG in
     DOT format.
 """

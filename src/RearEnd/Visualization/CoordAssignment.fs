@@ -265,15 +265,13 @@ let collectX xPerV (xs: FloatMap) =
     | Some(acc) -> Map.add v (xs[v] :: acc) xPerV
     | None -> Map.add v [ xs[v] ] xPerV) xPerV
 
-let setXPos (v: IVertex<VisBBlock>) x =
-  v.VData.Coordinate.X <- x
+let setXPos (v: IVertex<VisBBlock>) x = v.VData.Coordinate.X <- x
 
 let averageMedian (xAlignments: FloatMap list) =
   let xPerV = List.fold collectX Map.empty xAlignments
   let xPerV = Map.map (fun v xs -> List.toArray xs) xPerV
   let xPerV = Map.map (fun v xs -> Array.sort xs) xPerV
-  let medians =
-    Map.map (fun v (xs: float[]) -> (xs[1] + xs[2]) / 2.0) xPerV
+  let medians = Map.map (fun v (xs: float[]) -> (xs[1] + xs[2]) / 2.0) xPerV
   let xs = Map.fold (fun xs _ x -> x :: xs) [] medians
   let minX = List.min xs
   let maxX = List.max xs

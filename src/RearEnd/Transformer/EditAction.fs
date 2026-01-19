@@ -80,7 +80,8 @@ type EditAction() =
   interface IAction with
     member _.ActionID with get() = "edit"
     member _.Signature with get() = "Binary * <action> -> Binary"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in a binary as well as edit action as input and return a modified
     binary as output. There are following supported edit actions.
 

@@ -227,8 +227,7 @@ let bfm (ins: Instruction) insLen bld addr dst src immr imms =
 
 let bfi ins insLen bld addr =
   let struct (dst, src, lsb, width) = getFourOprs ins
-  let immr =
-    ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> OprImm
+  let immr = ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> OprImm
   let imms = getImmValue width - 1L |> OprImm
   bfm ins insLen bld addr dst src immr imms
 
@@ -944,8 +943,7 @@ let fcmgt (ins: Instruction) insLen bld addr =
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
   let struct (ones, zeros) = tmpVars2 bld eSize
   let chkNan e1 e2 = (isNaN eSize e1) .| (isNaN eSize e2)
-  let fpgt e1 e2 =
-    AST.fgt (checkZero bld eSize e1) (checkZero bld eSize e2)
+  let fpgt e1 e2 = AST.fgt (checkZero bld eSize e1) (checkZero bld eSize e2)
   bld <+ (ones := numI64 -1 eSize)
   bld <+ (zeros := AST.num0 eSize)
   match dst, src2 with
@@ -1381,8 +1379,7 @@ let frinta (ins: Instruction) insLen bld addr =
   | _ -> raise InvalidOperandException
   bld --!> insLen
 
-let frinti ins insLen bld addr =
-  fpCurrentRoundToInt ins insLen bld addr
+let frinti ins insLen bld addr = fpCurrentRoundToInt ins insLen bld addr
 
 let frintm ins insLen bld addr =
   fpRoundToInt ins insLen bld addr CastKind.FtoFFloor
@@ -1393,8 +1390,7 @@ let frintn ins insLen bld addr =
 let frintp ins insLen bld addr =
   fpRoundToInt ins insLen bld addr CastKind.FtoFCeil
 
-let frintx ins insLen bld addr =
-  fpCurrentRoundToInt ins insLen bld addr
+let frintx ins insLen bld addr = fpCurrentRoundToInt ins insLen bld addr
 
 let frintz ins insLen bld addr =
   fpRoundToInt ins insLen bld addr CastKind.FtoFTrunc
@@ -1489,6 +1485,8 @@ let loadStoreList (ins: Instruction) insLen bld addr isLoad =
     bld <+ (offs := numI32 (regLen * eByte) 64<rt>)
     if isRegOffset src then bld <+ (offs := mOffs) else ()
     bld <+ (bReg := address .+ offs)
+  else
+    ()
   bld --!> insLen
 
 let loadRep (ins: Instruction) insLen bld addr =
@@ -1514,6 +1512,8 @@ let loadRep (ins: Instruction) insLen bld addr =
     bld <+ (offs := numI32 (regLen * eByte) 64<rt>)
     if isRegOffset src then bld <+ (offs := mOffs) else ()
     bld <+ (bReg := address .+ offs)
+  else
+    ()
   bld --!> insLen
 
 let ldar ins insLen bld addr =
@@ -2033,7 +2033,7 @@ let movi (ins: Instruction) insLen bld addr =
 let private getWordMask (ins: Instruction) shift =
   match shift with
   | OprShift(LSL, Imm amt) ->
-    numI64 (~~~ (0xFFFFL <<< (int amt))) ins.OprSize
+    numI64 (~~~(0xFFFFL <<< (int amt))) ins.OprSize
   | _ -> raise InvalidOperandException
 
 let movk (ins: Instruction) insLen bld addr =
@@ -2341,8 +2341,7 @@ let icvtf (ins: Instruction) insLen bld addr unsigned =
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
     let src = transSIMDOprToExpr bld eSize dataSize elements o2
     let n0 = AST.num0 eSize
-    let result =
-      Array.map (fixedToFp bld eSize n0 unsigned) src
+    let result = Array.map (fixedToFp bld eSize n0 unsigned) src
     dstAssignForSIMD dstA dstB result dataSize elements bld
   | TwoOperands(OprSIMD(ScalarReg _) as dst, _) ->
     let struct (eSize, _, _) = getElemDataSzAndElems dst
@@ -3153,8 +3152,7 @@ let ubfm (ins: Instruction) insLen bld addr dst src immr imms =
 
 let ubfiz ins insLen bld addr =
   let struct (dst, src, lsb, width) = getFourOprs ins
-  let immr =
-    ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> OprImm
+  let immr = ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> OprImm
   let imms = getImmValue width - 1L |> OprImm
   ubfm ins insLen bld addr dst src immr imms
 

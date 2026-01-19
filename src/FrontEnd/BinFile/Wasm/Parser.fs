@@ -100,82 +100,68 @@ let updateSection bs reader wm id updateRec parseSec secsSumm =
     |> List.tryHead
   match secSumm with
   | Some sm ->
-    let secsSummary' =
-      secsSumm |> List.except [ sm ]
-    let sec =
-      parseSec bs reader sm.Offset
+    let secsSummary' = secsSumm |> List.except [ sm ]
+    let sec = parseSec bs reader sm.Offset
     (updateRec wm sec), secsSummary'
   | None -> wm, secsSumm
 
 let updateCustomSection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with CustomSections = wm.CustomSections @ [ sec ] }
+  let ur wm sec = { wm with CustomSections = wm.CustomSections @ [ sec ] }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Custom ur parseCustomSec
 
 let updateTypeSection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with TypeSection = Some sec }
+  let ur wm sec = { wm with TypeSection = Some sec }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Type ur parseTypeSec
 
 let updateImportSection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with ImportSection = Some sec }
+  let ur wm sec = { wm with ImportSection = Some sec }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Import ur parseImportSec
 
 let updateFunctionSection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with FunctionSection = Some sec }
+  let ur wm sec = { wm with FunctionSection = Some sec }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Function ur parseFunctionSec
 
 let updateTableSection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with TableSection = Some sec }
+  let ur wm sec = { wm with TableSection = Some sec }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Table ur parseTableSec
 
 let updateMemorySection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with MemorySection = Some sec }
+  let ur wm sec = { wm with MemorySection = Some sec }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Memory ur parseMemorySec
 
 let updateGlobalSection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with GlobalSection = Some sec }
+  let ur wm sec = { wm with GlobalSection = Some sec }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Global ur parseGlobalSec
 
 let updateExportSection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with ExportSection = Some sec }
+  let ur wm sec = { wm with ExportSection = Some sec }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Export ur parseExportSec
 
 let updateStartSection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with StartSection = Some sec }
+  let ur wm sec = { wm with StartSection = Some sec }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Start ur parseStartSec
 
 let updateElementSection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with ElementSection = Some sec }
+  let ur wm sec = { wm with ElementSection = Some sec }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Element ur parseElementSec
 
 let updateCodeSection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with CodeSection = Some sec }
+  let ur wm sec = { wm with CodeSection = Some sec }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Code ur parseCodeSec
 
 let updateDataSection bs reader wasmModule secsSummary =
-  let ur wm sec =
-    { wm with DataSection = Some sec }
+  let ur wm sec = { wm with DataSection = Some sec }
   secsSummary
   |> updateSection bs reader wasmModule SectionId.Data ur parseDataSec
 
@@ -323,8 +309,7 @@ let buildFuncIndexMap (wm: Module) =
   Only function index maps are supported for now,
   other index maps maybe added in the future as needed.
 *)
-let buildModuleIndexMap wm =
-  { wm with IndexMap = buildFuncIndexMap wm }
+let buildModuleIndexMap wm = { wm with IndexMap = buildFuncIndexMap wm }
 
 let parse (bs: byte[]) =
   let reader = BinReader.Init Endian.Little

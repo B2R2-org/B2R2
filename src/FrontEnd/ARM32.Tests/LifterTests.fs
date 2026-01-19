@@ -58,11 +58,9 @@ type LifterTests() =
     let liftInstr = ins.Translate builder
     CollectionAssert.AreEqual(givenStmts, unwrapStmts liftInstr)
 
-  let testARM (bytes: byte[], givenStmts: Stmt[]) =
-    test false bytes givenStmts
+  let testARM (bytes: byte[], givenStmts: Stmt[]) = test false bytes givenStmts
 
-  let testThumb (bytes: byte[], givenStmts: Stmt[]) =
-    test true bytes givenStmts
+  let testThumb (bytes: byte[], givenStmts: Stmt[]) = test true bytes givenStmts
 
   [<TestMethod>]
   member _.``[ARMv7] ADD (shifted register) lift test``() =

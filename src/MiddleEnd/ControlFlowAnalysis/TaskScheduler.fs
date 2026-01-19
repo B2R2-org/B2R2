@@ -68,11 +68,9 @@ type TaskScheduler<'FnCtx,
       | _ -> StillBuilding builder.Context
     | Error _ -> FailedBuilding
 
-  let terminateWorkers () =
-    taskStream.Close()
+  let terminateWorkers () = taskStream.Close()
 
-  let scheduleCFGBuilding entryPoint =
-    StartBuilding entryPoint |> msgbox.Post
+  let scheduleCFGBuilding entryPoint = StartBuilding entryPoint |> msgbox.Post
 
   let startGapAnalysis (builder: ICFGBuildable<_, _>) addr =
     let prio = strategy.ActionPrioritizer
@@ -607,14 +605,11 @@ type TaskScheduler<'FnCtx,
     msgbox
 
   /// Terminate the scheduler.
-  member _.Terminate() =
-    terminateWorkers ()
+  member _.Terminate() = terminateWorkers ()
 
   /// Post a `StartBuilding` message to the msgbox to start building this
   /// function.
-  member _.StartBuilding entryPoint =
-    scheduleCFGBuilding entryPoint
+  member _.StartBuilding entryPoint = scheduleCFGBuilding entryPoint
 
   /// Post a command to the msgbox.
-  member _.PostCommand cmd =
-    msgbox.Post cmd
+  member _.PostCommand cmd = msgbox.Post cmd

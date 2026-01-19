@@ -156,8 +156,7 @@ type ConstantPropagation(hdl, vs) =
                                 ConstantDomain.Lattice,
                                 ConstantPropagationState,
                                 LowUIRBasicBlock> with
-    member _.Compute cfg =
-      LowUIRSparseDataFlow.compute cfg state
+    member _.Compute cfg = LowUIRSparseDataFlow.compute cfg state
 
 and internal ConstantPropagationState =
   LowUIRSparseDataFlow.State<ConstantDomain.Lattice>

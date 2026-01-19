@@ -41,8 +41,7 @@ let inline numU64 n t = BitVector(u64 = n, bitLen = t) |> AST.num
 let inline numI64 n t = BitVector(i64 = n, bitLen = t) |> AST.num
 
 /// Creates a new temporary variable with the given type.
-let inline tmpVar (builder: ILowUIRBuilder) rt =
-  builder.Stream.NewTempVar rt
+let inline tmpVar (builder: ILowUIRBuilder) rt = builder.Stream.NewTempVar rt
 
 /// Creates two new temporary variables with the given type.
 let inline tmpVars2 (builder: ILowUIRBuilder) rt =
@@ -60,8 +59,7 @@ let inline tmpVars4 (builder: ILowUIRBuilder) rt =
           tmpVar builder rt)
 
 /// Creates a new label with the given name.
-let inline label (builder: ILowUIRBuilder) name =
-  builder.Stream.NewLabel name
+let inline label (builder: ILowUIRBuilder) name = builder.Stream.NewLabel name
 
 /// Creates a new register variable with the given register enum.
 let inline regVar (builder: ILowUIRBuilder) reg =
@@ -102,8 +100,7 @@ let inline pseudoRegVar512 (builder: ILowUIRBuilder) reg =
 /// Appends a statement to the given builder. A builder is defined for each
 /// different CPU architecture, so this function is only useful if the builder
 /// implements the `Stream` member.
-let inline (<+) (builder: ILowUIRBuilder) stmt =
-  builder.Stream.Append stmt
+let inline (<+) (builder: ILowUIRBuilder) stmt = builder.Stream.Append stmt
 
 /// Marks the start of an instruction by appending an ISMark statement to the
 /// given builder. A builder is defined for each different CPU architecture,

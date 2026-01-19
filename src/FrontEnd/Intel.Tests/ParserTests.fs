@@ -34,11 +34,9 @@ open type Opcode
 [<AutoOpen>]
 module private Shortcut =
   type O =
-    static member Reg(r) =
-      OprReg r
+    static member Reg(r) = OprReg r
 
-    static member Mem(bReg, rt) =
-      OprMem(Some bReg, None, None, rt)
+    static member Mem(bReg, rt) = OprMem(Some bReg, None, None, rt)
 
     static member Mem(bReg, disp: Displacement, rt) =
       OprMem(Some bReg, None, Some disp, rt)
@@ -52,8 +50,7 @@ module private Shortcut =
     static member Mem(disp: Displacement, rt) =
       OprMem(None, None, Some disp, rt)
 
-    static member Imm(v, rt) =
-      OprImm(v, rt)
+    static member Imm(v, rt) = OprImm(v, rt)
 
     static member Addr(selector, addr, rt) =
       OprDirAddr(Absolute(selector, addr, rt))

@@ -56,7 +56,6 @@ type internal ParsingHelper(reader: IBinReader,
 
   member _.InsAddr with get(): Addr = addr and set a = addr <- a
   member _.CurrPos with get() = cpos and set p = cpos <- p
-  member _.IncPos() = cpos <- cpos + 1
   member _.Prefixes with get() = pref and set p = pref <- p
   member _.REXPrefix with get(): REXPrefix = rex and set r = rex <- r
   member _.VEXInfo with get(): VEXInfo option = vex and set v = vex <- v
@@ -71,6 +70,66 @@ type internal ParsingHelper(reader: IBinReader,
   member _.TupleType
     with get(): TupleType = tupleType and set t = tupleType <- t
   member _.Lifter with get(): ILiftable = lifter
+
+  static member inline Is64bit(phlp: ParsingHelper) =
+    phlp.WordSize = WordSize.Bit64
+
+  static member inline HasNoPref(phlp: ParsingHelper) = (int phlp.Prefixes) = 0
+
+  static member inline HasNoREX(phlp: ParsingHelper) =
+    phlp.REXPrefix = REXPrefix.NOREX
+
+  static member inline IsReg001(span: ByteSpan, phlp: ParsingHelper) =
+    Operands.getReg span[phlp.CurrPos] = 1
+
+  static member inline IsReg010(span: ByteSpan, phlp: ParsingHelper) =
+    Operands.getReg span[phlp.CurrPos] = 2
+
+  static member inline IsReg101(span: ByteSpan, phlp: ParsingHelper) =
+    Operands.getReg span[phlp.CurrPos] = 5
+
+  static member inline IsReg110(span: ByteSpan, phlp: ParsingHelper) =
+    Operands.getReg span[phlp.CurrPos] = 6
+
+  static member inline IsReg111(span: ByteSpan, phlp: ParsingHelper) =
+    Operands.getReg span[phlp.CurrPos] = 7
+
+  static member inline IsEVEX(phlp: ParsingHelper) =
+    match phlp.VEXInfo with
+    | Some vInfo -> vInfo.VEXType &&& VEXType.EVEX = VEXType.EVEX
+    | _ -> false
+
+  static member inline GetOprSize(size, sizeCond) =
+    if sizeCond = SzCond.F64 ||
+      (size = 32<rt> && sizeCond = SzCond.D64) then 64<rt>
+    else size
+
+  static member inline GetEffOprSize32 prefs =
+    if Prefix.hasOprSz prefs then 16<rt> else 32<rt>
+
+  static member inline GetEffAddrSize32 prefs =
+    if Prefix.hasAddrSz prefs then 16<rt> else 32<rt>
+
+  static member inline GetEffOprSize64(prefs, rexPref, sizeCond) =
+    if REXPrefix.hasW rexPref then 64<rt>
+    else
+      if Prefix.hasOprSz prefs then ParsingHelper.GetOprSize(16<rt>, sizeCond)
+      else ParsingHelper.GetOprSize(32<rt>, sizeCond)
+
+  static member inline GetEffAddrSize64 prefs =
+    if Prefix.hasAddrSz prefs then 32<rt> else 64<rt>
+
+  static member inline GetEffAddrSize(phlp: ParsingHelper) =
+    if phlp.WordSize = WordSize.Bit32 then
+      ParsingHelper.GetEffAddrSize32 phlp.Prefixes
+    else ParsingHelper.GetEffAddrSize64 phlp.Prefixes
+
+  static member inline GetEffOprSize(phlp: ParsingHelper, sizeCond) =
+    if phlp.WordSize = WordSize.Bit32 then
+      ParsingHelper.GetEffOprSize32 phlp.Prefixes
+    else ParsingHelper.GetEffOprSize64(phlp.Prefixes, phlp.REXPrefix, sizeCond)
+
+  member _.IncPos() = cpos <- cpos + 1
 
   member inline private _.ModCPos i = cpos <- cpos + i
 
@@ -122,64 +181,6 @@ type internal ParsingHelper(reader: IBinReader,
     v
 
   member inline _.ParsedLen() = cpos
-
-  static member inline Is64bit(phlp: ParsingHelper) =
-    phlp.WordSize = WordSize.Bit64
-
-  static member inline HasNoPref(phlp: ParsingHelper) = (int phlp.Prefixes) = 0
-
-  static member inline HasNoREX(phlp: ParsingHelper) =
-    phlp.REXPrefix = REXPrefix.NOREX
-
-  static member inline IsReg001(span, phlp: ParsingHelper) =
-    Operands.getReg (phlp.PeekByte span) = 1
-
-  static member inline IsReg010(span, phlp: ParsingHelper) =
-    Operands.getReg (phlp.PeekByte span) = 2
-
-  static member inline IsReg101(span, phlp: ParsingHelper) =
-    Operands.getReg (phlp.PeekByte span) = 5
-
-  static member inline IsReg110(span, phlp: ParsingHelper) =
-    Operands.getReg (phlp.PeekByte span) = 6
-
-  static member inline IsReg111(span, phlp: ParsingHelper) =
-    Operands.getReg (phlp.PeekByte span) = 7
-
-  static member inline IsEVEX(phlp: ParsingHelper) =
-    match phlp.VEXInfo with
-    | Some vInfo -> vInfo.VEXType &&& VEXType.EVEX = VEXType.EVEX
-    | _ -> false
-
-  static member inline GetOprSize(size, sizeCond) =
-    if sizeCond = SzCond.F64 ||
-      (size = 32<rt> && sizeCond = SzCond.D64) then 64<rt>
-    else size
-
-  static member inline GetEffOprSize32 prefs =
-    if Prefix.hasOprSz prefs then 16<rt> else 32<rt>
-
-  static member inline GetEffAddrSize32 prefs =
-    if Prefix.hasAddrSz prefs then 16<rt> else 32<rt>
-
-  static member inline GetEffOprSize64(prefs, rexPref, sizeCond) =
-    if REXPrefix.hasW rexPref then 64<rt>
-    else
-      if Prefix.hasOprSz prefs then ParsingHelper.GetOprSize(16<rt>, sizeCond)
-      else ParsingHelper.GetOprSize(32<rt>, sizeCond)
-
-  static member inline GetEffAddrSize64 prefs =
-    if Prefix.hasAddrSz prefs then 32<rt> else 64<rt>
-
-  static member inline GetEffAddrSize(phlp: ParsingHelper) =
-    if phlp.WordSize = WordSize.Bit32 then
-      ParsingHelper.GetEffAddrSize32 phlp.Prefixes
-    else ParsingHelper.GetEffAddrSize64 phlp.Prefixes
-
-  static member inline GetEffOprSize(phlp: ParsingHelper, sizeCond) =
-    if phlp.WordSize = WordSize.Bit32 then
-      ParsingHelper.GetEffOprSize32 phlp.Prefixes
-    else ParsingHelper.GetEffOprSize64(phlp.Prefixes, phlp.REXPrefix, sizeCond)
 
 /// Specific conditions for determining the size of operands.
 /// (See Table A-1, Appendix A.2.5 of Vol. 2D).

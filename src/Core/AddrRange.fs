@@ -40,24 +40,24 @@ type AddrRange =
     if min > max then raise InvalidAddrRangeException else ()
     { Min = min; Max = max }
 
-  new(addr) =
-    { Min = addr; Max = addr }
+  new(addr) = { Min = addr; Max = addr }
 
-  override this.ToString() =
-    $"{this.Min:x} -- {this.Max:x}"
+  member this.Count with get() = this.Max - this.Min + 1UL
+
+  static member inline GetMin(range: AddrRange) = range.Min
+
+  static member inline GetMax(range: AddrRange) = range.Max
+
+  override this.ToString() = $"{this.Min:x} -- {this.Max:x}"
 
   override this.Equals(rhs: obj) =
     match rhs with
     | :? AddrRange as r -> this.Min = r.Min && this.Max = r.Max
     | _ -> raise InvalidAddrRangeException
 
-  override this.GetHashCode() =
-    hash (this.Min, this.Max)
+  override this.GetHashCode() = hash (this.Min, this.Max)
 
-  member this.Count with get() = this.Max - this.Min + 1UL
-
-  member this.ToTuple() =
-    this.Min, this.Max
+  member this.ToTuple() = this.Min, this.Max
 
   member this.Slice(target: AddrRange) =
     let l = max this.Min target.Min
@@ -67,9 +67,5 @@ type AddrRange =
   /// Check if the address range is including the given address.
   member inline this.IsIncluding(addr: Addr) =
     this.Min <= addr && addr <= this.Max
-
-  static member inline GetMin(range: AddrRange) = range.Min
-
-  static member inline GetMax(range: AddrRange) = range.Max
 
 // vim: set tw=80 sts=2 sw=2:

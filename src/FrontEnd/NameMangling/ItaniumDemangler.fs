@@ -298,11 +298,9 @@ type ItaniumDemangler() =
       | _ -> [ b ]
     ) |>> Arguments
 
-  let pMember =
-    pchar 'M' >>. (pNormalArg <|> prefArg) |>> MemberPointer
+  let pMember = pchar 'M' >>. (pNormalArg <|> prefArg) |>> MemberPointer
 
-  let pPointer =
-    many1 (pchar 'P' |>> SingleP <|> pMember) |>> Pointer
+  let pPointer = many1 (pchar 'P' |>> SingleP <|> pMember) |>> Pointer
 
   let pConstVolatile =
     attempt ((pPointer .>>. (pCVqualifier <|> pRCVqualifier))
@@ -394,8 +392,7 @@ type ItaniumDemangler() =
     |>> (fun ((a, b), c) -> (a, b, c))
     |>> BinaryExpr
 
-  let pUnaryExpr =
-    (pUOperator .>>. pSingleArgument) |>> UnaryExpr
+  let pUnaryExpr = (pUOperator .>>. pSingleArgument) |>> UnaryExpr
 
   let pCallExpr =
     pstring "cl" >>. many1 pSingleArgument .>> pchar 'E'
@@ -434,8 +431,7 @@ type ItaniumDemangler() =
     pstring "sp" >>. argPackFlagOn >>. pSingleArgument .>> argPackFlagOff
     |>> ExpressionArgPack
 
-  let pExpr =
-    pchar 'X' >>. (pExpression <|> pSingleArgument) .>> pchar 'E'
+  let pExpr = pchar 'X' >>. (pExpression <|> pSingleArgument) .>> pchar 'E'
 
   let pCastOperator =
     (pstring "cv"
@@ -505,7 +501,7 @@ type ItaniumDemangler() =
     .>>. (newsaveandreturn (pFunctionArg <|> pDecltype) <|> preturn (Name ""))
     .>>. (pArguments <|> preturn (Name ""))
     .>>. (pClone)
-    |>> (fun ((((a, b), c), d),e) -> (a, b, c, d, e))
+    |>> (fun ((((a, b), c), d), e) -> (a, b, c, d, e))
     |>> Function
 
   /// Parser for all Sx abbreviation.
@@ -589,8 +585,7 @@ type ItaniumDemangler() =
       <|> attempt (pFunctionRetArgs)
 
   /// Check if the given string is a well-formed mangled string.
-  static member IsWellFormed(str: string) =
-    str.Length > 2 && str[0..1] = "_Z"
+  static member IsWellFormed(str: string) = str.Length > 2 && str[0..1] = "_Z"
 
   interface IDemanglable with
     member _.Demangle str =

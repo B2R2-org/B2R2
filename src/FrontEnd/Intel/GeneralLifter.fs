@@ -48,17 +48,13 @@ let private undefZF = AST.undef 1<rt> "ZF is undefined."
 let private undefPF = AST.undef 1<rt> "PF is undefined."
 #endif
 
-let private getInstrPtr bld =
-  regVar bld (if is64bit bld then R.RIP else R.EIP)
+let private getInstrPtr bld = regVar bld (if is64bit bld then R.RIP else R.EIP)
 
-let private getStackPtr bld =
-  regVar bld (if is64bit bld then R.RSP else R.ESP)
+let private getStackPtr bld = regVar bld (if is64bit bld then R.RSP else R.ESP)
 
-let private getBasePtr bld =
-  regVar bld (if is64bit bld then R.RBP else R.EBP)
+let private getBasePtr bld = regVar bld (if is64bit bld then R.RBP else R.EBP)
 
-let private getRegOfSize bld oprSize regGrp =
-  regGrp oprSize |> regVar bld
+let private getRegOfSize bld oprSize regGrp = regGrp oprSize |> regVar bld
 
 let inline private getStackWidth wordSize oprSize =
   numI32 (RegType.toByteWidth oprSize) wordSize
@@ -687,11 +683,9 @@ let btc (ins: Instruction) insLen bld =
   if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
   bld --!> insLen
 
-let btr ins insLen bld =
-  bitTest ins insLen bld AST.b0
+let btr ins insLen bld = bitTest ins insLen bld AST.b0
 
-let bts ins insLen bld =
-  bitTest ins insLen bld AST.b1
+let bts ins insLen bld = bitTest ins insLen bld AST.b1
 
 let bzhi (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1391,7 +1385,7 @@ let private checkQuotientIDIV oprSize sz lblAssign lblErr q =
   let amount = numI32 (RegType.toBitWidth oprSize - 1) oprSize
   let mask = AST.num1 oprSize << amount
   let msb = AST.xthi 1<rt> q
-  let negRes =  q .< (AST.zext sz mask)
+  let negRes = q .< (AST.zext sz mask)
   let posRes = q .> (AST.zext sz (mask .- (AST.num1 oprSize)))
   let cond = AST.ite (msb == AST.b1) negRes posRes
   AST.cjmp cond (AST.jmpDest lblErr) (AST.jmpDest lblAssign)
@@ -1520,8 +1514,7 @@ let private imul64Bit src1 src2 bld =
   bld <+ (pMid2 := loSrc1 .* hiSrc2)
   bld <+ (pMid := pMid1 .+ pMid2)
   bld <+ (pLow := loSrc1 .* loSrc2)
-  let isOverflow =
-    pMid1 .> numI64 0xffffffff_ffffffffL 64<rt> .- pMid2
+  let isOverflow = pMid1 .> numI64 0xffffffff_ffffffffL 64<rt> .- pMid2
   let c = AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>)
   bld <+ (high := pHigh .+ ((pMid .+ (pLow >> n32)) >> n32) .+ c)
   bld <+ (low := pLow .+ ((pMid .& mask) << n32))
@@ -2731,23 +2724,23 @@ let scas (ins: Instruction) insLen bld =
 
 let private getCondOfSet (ins: Instruction) bld =
   match ins.Opcode with
-  | Opcode.SETO   -> regVar bld R.OF
-  | Opcode.SETNO  -> regVar bld R.OF == AST.b0
-  | Opcode.SETB   -> regVar bld R.CF
-  | Opcode.SETNB  -> regVar bld R.CF == AST.b0
-  | Opcode.SETZ   -> regVar bld R.ZF
-  | Opcode.SETNZ  -> regVar bld R.ZF == AST.b0
-  | Opcode.SETBE  -> (regVar bld R.CF) .| (regVar bld R.ZF)
-  | Opcode.SETA   -> ((regVar bld R.CF) .| (regVar bld R.ZF)) == AST.b0
-  | Opcode.SETS   -> regVar bld R.SF
-  | Opcode.SETNS  -> regVar bld R.SF == AST.b0
-  | Opcode.SETP   -> regVar bld R.PF
-  | Opcode.SETNP  -> regVar bld R.PF == AST.b0
-  | Opcode.SETL   -> regVar bld R.SF != regVar bld R.OF
-  | Opcode.SETNL  -> regVar bld R.SF == regVar bld R.OF
-  | Opcode.SETLE  -> regVar bld R.ZF .|
+  | Opcode.SETO -> regVar bld R.OF
+  | Opcode.SETNO -> regVar bld R.OF == AST.b0
+  | Opcode.SETB -> regVar bld R.CF
+  | Opcode.SETNB -> regVar bld R.CF == AST.b0
+  | Opcode.SETZ -> regVar bld R.ZF
+  | Opcode.SETNZ -> regVar bld R.ZF == AST.b0
+  | Opcode.SETBE -> (regVar bld R.CF) .| (regVar bld R.ZF)
+  | Opcode.SETA -> ((regVar bld R.CF) .| (regVar bld R.ZF)) == AST.b0
+  | Opcode.SETS -> regVar bld R.SF
+  | Opcode.SETNS -> regVar bld R.SF == AST.b0
+  | Opcode.SETP -> regVar bld R.PF
+  | Opcode.SETNP -> regVar bld R.PF == AST.b0
+  | Opcode.SETL -> regVar bld R.SF != regVar bld R.OF
+  | Opcode.SETNL -> regVar bld R.SF == regVar bld R.OF
+  | Opcode.SETLE -> regVar bld R.ZF .|
                      (regVar bld R.SF != regVar bld R.OF)
-  | Opcode.SETG   -> (regVar bld R.ZF == AST.b0) .&
+  | Opcode.SETG -> (regVar bld R.ZF == AST.b0) .&
                      (regVar bld R.SF == regVar bld R.OF)
   | _ -> raise InvalidOpcodeException
 
@@ -2845,11 +2838,9 @@ let inline shiftDblPrec (ins: Instruction) insLen bld fnDst fnSrc isShl =
   buildPF bld dst oprSz (Some(cond1 .| cond2))
   bld --!> insLen
 
-let shld ins insLen bld =
-  shiftDblPrec ins insLen bld (<<) (>>) true
+let shld ins insLen bld = shiftDblPrec ins insLen bld (<<) (>>) true
 
-let shrd ins insLen bld =
-  shiftDblPrec ins insLen bld (>>) (<<) false
+let shrd ins insLen bld = shiftDblPrec ins insLen bld (>>) (<<) false
 
 let private shiftWithoutFlags (ins: Instruction) insLen bld opFn =
   bld <!-- (ins.Address, insLen)

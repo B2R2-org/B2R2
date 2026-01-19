@@ -41,8 +41,7 @@ let rec interpret (sample: MSExpr) =
   | ExtendedBuiltInType t -> UnderscoredBuiltInType.toString t
   | PointerT(ptrStrT, PointerT(ptrStrT2, pt2)) ->
     let pointerStr = interpret ptrStrT
-    let mainType =
-      interpret (PointerT(changeToNormalPointer ptrStrT2, pt2))
+    let mainType = interpret (PointerT(changeToNormalPointer ptrStrT2, pt2))
     (mainType + pointerStr).Trim()
   | PointerT(ptrStrT, pointedType) ->
     let pointerStr = interpret ptrStrT
@@ -79,7 +78,7 @@ let rec interpret (sample: MSExpr) =
     let enumType = EnumTypeKind.toString c
     sprintf "enum%s %s" enumType enumName
   | FuncPointer(fPtrs, cc,
-       FuncPointer(fPtrs2, cc2, rt2, _ , pLst2, mod2), car, pLst, mod1) ->
+       FuncPointer(fPtrs2, cc2, rt2, _, pLst2, mod2), car, pLst, mod1) ->
     let args = makeFunParams (List.map interpret pLst)
     let ptrStrs =
       List.mapi (fun index ptr ->
@@ -122,8 +121,7 @@ let rec interpret (sample: MSExpr) =
   | ModifiedType(typeN, modInfo) ->
     let prefixes, modifier = modInfo
     let preStr, postStr = getPrefixModStr prefixes
-    let postModifiedStr =
-      if postStr.Length > 0 then postStr[1..] + " " else ""
+    let postModifiedStr = if postStr.Length > 0 then postStr[1..] + " " else ""
     interpret typeN + CVModifier.toString modifier + preStr + postModifiedStr
   | PointerStrT(p, (prefix, cvMod), pComp) ->
     let preP, postP = getPrefixModStr prefix

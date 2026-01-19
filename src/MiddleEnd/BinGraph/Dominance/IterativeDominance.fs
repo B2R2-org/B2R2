@@ -84,6 +84,14 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
   let mutable dfProvider = null
   let mutable pdfProvider = null
   interface IDominance<'V, 'E> with
+    member _.DominatorTree =
+      let _, _, domTree = forward
+      domTree.Value
+
+    member _.PostDominatorTree =
+      let _, _, domTree = backward.Value
+      domTree.Value
+
     member _.Dominators v =
 #if DEBUG
       GraphUtils.checkVertexInGraph g v
@@ -97,10 +105,6 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
 #endif
       let _, idoms, _ = forward
       idoms.Value[v]
-
-    member _.DominatorTree =
-      let _, _, domTree = forward
-      domTree.Value
 
     member this.DominanceFrontier v =
 #if DEBUG
@@ -124,10 +128,6 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
 #endif
       let _, idoms, _ = backward.Value
       idoms.Value[v]
-
-    member _.PostDominatorTree =
-      let _, _, domTree = backward.Value
-      domTree.Value
 
     member this.PostDominanceFrontier v =
 #if DEBUG

@@ -38,8 +38,8 @@ type CoffSymbolTypeLSB =
   | ImageSymTypeChar = 2uy
   | ImageSymTypeShort = 3uy
   | ImageSymTypeInt = 4uy
-  | ImageSymTypeLong= 5uy
-  | ImageSymTypeFloat= 6uy
+  | ImageSymTypeLong = 5uy
+  | ImageSymTypeFloat = 6uy
   | ImageSymTypeDouble = 7uy
   | ImageSymTypeStruct = 8uy
   | ImageSymTypeUnion = 9uy
@@ -114,8 +114,7 @@ let parseSymType typ =
   LanguagePrimitives.EnumOfValue<byte, CoffSymbolTypeLSB>(lsb),
   LanguagePrimitives.EnumOfValue<byte, CoffSymbolTypeMSB>(msb)
 
-let parseStorageClass b =
-  LanguagePrimitives.EnumOfValue<byte, StorageClass>(b)
+let parseStorageClass b = LanguagePrimitives.EnumOfValue<byte, StorageClass>(b)
 
 let getCoffSymbol name v secnum typ storage =
   { SymbName = name

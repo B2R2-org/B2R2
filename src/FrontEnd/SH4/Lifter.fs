@@ -30,12 +30,12 @@ open B2R2.FrontEnd.SH4.GeneralLifter
 /// Translate IR.
 let translate (ins: Instruction) insLen bld =
   match ins.Opcode with
-  | Opcode.ADD ->  add ins insLen bld
+  | Opcode.ADD -> add ins insLen bld
   | Opcode.ADDC -> addc ins insLen bld
   | Opcode.ADDV -> addv ins insLen bld
   | Opcode.AND -> ``and`` ins insLen bld
   | Opcode.ANDB -> andb ins insLen bld
-  | Opcode.BF ->  bf ins insLen bld
+  | Opcode.BF -> bf ins insLen bld
   | Opcode.BFS -> bfs ins insLen bld
   | Opcode.BRA -> bra ins insLen bld
   | Opcode.BRAF -> braf ins insLen bld
@@ -47,7 +47,7 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.CLRS -> clrs ins insLen bld
   | Opcode.CLRT -> clrt ins insLen bld
   | Opcode.CMPEQ -> cmpeq ins insLen bld
-  | Opcode.CMPGE  -> cmpge ins insLen bld
+  | Opcode.CMPGE -> cmpge ins insLen bld
   | Opcode.CMPGT -> cmpgt ins insLen bld
   | Opcode.CMPHI -> cmphi ins insLen bld
   | Opcode.CMPHS -> cmphs ins insLen bld

@@ -193,7 +193,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
     member _.GetFunctionAddresses() =
       let secText = Section.getTextSectionIndex secs.Value
       [| for s in syms.Value.Values do
-           if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr |]
+           if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr
+           else () |]
 
     member _.HasRelocationInfo addr =
       relocs.Value

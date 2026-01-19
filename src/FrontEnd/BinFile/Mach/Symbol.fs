@@ -112,7 +112,7 @@ and SymbolType =
   /// Compiler parameters.
   | N_PARAMS = 0x86
   /// Compiler version.
-  | N_VERSION= 0x88
+  | N_VERSION = 0x88
   /// Compiler optimization level.
   | N_OLEVEL = 0x8a
   /// Parameter.

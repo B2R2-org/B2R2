@@ -151,8 +151,7 @@ let getFourOprs (ins: Instruction) =
   | FourOperands(o1, o2, o3, o4) -> o1, o2, o3, o4
   | _ -> raise InvalidOperandException
 
-let transOneOpr ins bld opr =
-  transOprToExpr ins bld opr
+let transOneOpr ins bld opr = transOprToExpr ins bld opr
 
 let transTwoOprs ins bld (o1, o2) =
   transOprToExpr ins bld o1, transOprToExpr ins bld o2
@@ -751,7 +750,7 @@ let cCond ins insLen bld =
   let oprSz, cc, fs, ft, sameReg = getCCondOpr ins bld
   let num0 = AST.num0 oprSz
   let num1 = AST.num1 oprSz
-  let struct (tFs , tFt, mantissa) = tmpVars3 bld oprSz
+  let struct (tFs, tFt, mantissa) = tmpVars3 bld oprSz
   let struct (less, equal, unordered, condition) = tmpVars4 bld oprSz
   let struct (condNaN, exponent) = tmpVars2 bld 1<rt>
   let bit0, bit1, bit2 =
@@ -1648,7 +1647,7 @@ let mult ins insLen bld =
 let multu ins insLen bld =
   let rs, rt = getTwoOprs ins
   let src1, src2 = transTwoOprs ins bld (rs, rt)
-  let struct (tRs , tRt) = tmpVars2 bld bld.RegType
+  let struct (tRs, tRt) = tmpVars2 bld bld.RegType
   let hi = regVar bld R.HI
   let lo = regVar bld R.LO
   let mask = numI64 0xFFFFFFFFL 64<rt>
@@ -1908,8 +1907,7 @@ let shiftLeftRightVar ins insLen bld shf =
 let sltAndU ins insLen bld amtOp =
   let rd, rs, rt = getThreeOprs ins |> transThreeOprs ins bld
   let cond = amtOp rs rt
-  let rtVal =
-    AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
+  let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
   bld <!-- (ins.Address, insLen)
   bld <+ (rd := rtVal)
   advancePC bld insLen
@@ -1917,8 +1915,7 @@ let sltAndU ins insLen bld amtOp =
 let sltiAndU ins insLen bld amtOp =
   let rt, rs, imm = getThreeOprs ins |> transThreeOprs ins bld
   let cond = amtOp rs imm
-  let rtVal =
-    AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
+  let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
   bld <!-- (ins.Address, insLen)
   bld <+ (rt := rtVal)
   advancePC bld insLen
@@ -2227,7 +2224,7 @@ let translate (ins: Instruction) insLen (bld: LowUIRBuilder) =
   | Op.MOVF -> movf ins insLen bld
   | Op.MOVZ -> movzOrn ins insLen bld (==)
   | Op.MOVN -> movzOrn ins insLen bld (!=)
-  | Op.MSUB ->  mAddSub ins insLen bld false
+  | Op.MSUB -> mAddSub ins insLen bld false
   | Op.MSUBU -> mAdduSubu ins insLen bld false
   | Op.MTC1 -> mtc1 ins insLen bld
   | Op.MUL -> mul ins insLen bld

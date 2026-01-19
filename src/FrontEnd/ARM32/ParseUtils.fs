@@ -30,20 +30,15 @@ open B2R2.FrontEnd.ARM32
 let inline extract (binary: uint32) m n =
   (binary >>> n) &&& ((1u <<< (m - n + 1)) - 1u)
 
-let inline pickTwo (binary: uint32) n =
-  (binary >>> n) &&& 0b11u
+let inline pickTwo (binary: uint32) n = (binary >>> n) &&& 0b11u
 
-let inline pickThree (binary: uint32) n =
-  (binary >>> n) &&& 0b111u
+let inline pickThree (binary: uint32) n = (binary >>> n) &&& 0b111u
 
-let inline pickFour (binary: uint32) n =
-  (binary >>> n) &&& 0b1111u
+let inline pickFour (binary: uint32) n = (binary >>> n) &&& 0b1111u
 
-let inline pickFive (binary: uint32) n =
-  (binary >>> n) &&& 0b11111u
+let inline pickFive (binary: uint32) n = (binary >>> n) &&& 0b11111u
 
-let inline pickBit (binary: uint32) pos =
-  (binary >>> pos) &&& 0b1u
+let inline pickBit (binary: uint32) pos = (binary >>> pos) &&& 0b1u
 
 let inline pickTwoBitsApart (binary: uint32) pos1 pos2 =
   ((binary >>> (pos1 - 1)) &&& 0b10u) ||| ((binary >>> pos2) &&& 0b1u)
@@ -54,8 +49,7 @@ let inline pickFourBitsApart (binary: uint32) pos1 pos2 pos3 pos4 =
   ||| ((binary >>> (pos3 - 1)) &&& 0b0010u)
   ||| ((binary >>> pos4) &&& 0b0001u)
 
-let inline concat (n1: uint32) (n2: uint32) shift =
-  (n1 <<< shift) + n2
+let inline concat (n1: uint32) (n2: uint32) shift = (n1 <<< shift) + n2
 
 let halve bin = struct (bin &&& 0x0000ffffu, bin >>> 16)
 

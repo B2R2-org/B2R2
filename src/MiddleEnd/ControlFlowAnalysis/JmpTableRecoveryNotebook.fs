@@ -103,8 +103,7 @@ type JmpTableRecoveryNotebook() =
     target <= note.PotentialEndPoint
 
   /// Get the confirmed end point of the jump table.
-  member _.GetConfirmedEndPoint tblAddr =
-    notes[tblAddr].ConfirmedEndPoint
+  member _.GetConfirmedEndPoint tblAddr = notes[tblAddr].ConfirmedEndPoint
 
   /// Set the confirmed end point of the jump table.
   member _.SetConfirmedEndPoint(tblAddr, idx) =
@@ -133,8 +132,7 @@ type JmpTableRecoveryNotebook() =
 
   /// Get the indirect branch address that is associated with the given jump
   /// table address.
-  member _.GetIndBranchAddress tblAddr =
-    notes[tblAddr].InsAddr
+  member _.GetIndBranchAddress tblAddr = notes[tblAddr].InsAddr
 
   /// Get the string representation of the note.
   member _.GetNoteString tblAddr =

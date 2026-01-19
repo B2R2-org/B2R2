@@ -59,13 +59,11 @@ type Assembler(startAddress: Addr) =
   let checkWrightBack =
     opt (pchar '!') |>> fun x -> if x.IsNone then () else wBackFlag <- true
 
-  let setWBFlag =
-    wBackFlag <- true; preturn ()
+  let setWBFlag = wBackFlag <- true; preturn ()
 
   let clearWBackFlag = wBackFlag <- false; preturn ()
 
-  let getInsLength () =
-    if isThumb then 2u else 4u
+  let getInsLength () = if isThumb then 2u else 4u
 
   let incrementAddress =
     preturn ()
@@ -96,8 +94,7 @@ type Assembler(startAddress: Addr) =
 
   let pId = many1Satisfy alphanumericWithUnderscore
 
-  let pLabelDef =
-    pId .>>? pchar ':' >>= addLabeldef |> skipWhitespaces
+  let pLabelDef = pId .>>? pchar ':' >>= addLabeldef |> skipWhitespaces
 
   let pSIMDDataType =
     [ "8"
@@ -225,8 +222,7 @@ type Assembler(startAddress: Addr) =
     opt (pchar '#') >>.
     numberLiteral numberFormat "number" |>> (fun x -> x.String |> int64)
 
-  let pAmount =
-    opt (pchar '#') >>. pImm |>> uint32 |>> Imm
+  let pAmount = opt (pchar '#') >>. pImm |>> uint32 |>> Imm
 
   let registersList =
     Enum.GetNames typeof<Register>
@@ -316,8 +312,7 @@ type Assembler(startAddress: Addr) =
       <|> (pSIMDFPReg |>> SFReg) |>> OprSIMD
     else fail "not simd operand"
 
-  let pOprImm =
-    immWithOperators <|> pImm |>> Operand.OprImm
+  let pOprImm = immWithOperators <|> pImm |>> Operand.OprImm
 
   let pOprFPImm = pfloat |>> OprFPImm
 

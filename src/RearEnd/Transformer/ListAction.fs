@@ -28,13 +28,13 @@ open B2R2
 
 /// The `list` action.
 type ListAction() =
-  let listSections (input: obj) =
-    Terminator.futureFeature ()
+  let listSections (input: obj) = Terminator.futureFeature ()
 
   interface IAction with
     member _.ActionID with get() = "list"
     member _.Signature with get() = "Binary * [cmd] -> unit"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in a parsed binary and return a list of elements such as functions,
     sections, etc. The output type is determined by the extra [cmd] argument.
     Currently, we support the following [cmd]:

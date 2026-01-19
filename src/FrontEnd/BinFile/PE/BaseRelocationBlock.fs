@@ -91,7 +91,7 @@ and BaseRelocType =
   /// This relocation is only meaningful when the machine type is RISC-V. The
   /// base relocation applies to the low 12 bits of a 32-bit absolute address
   /// formed in RISC-V I-type instruction format.
-  | IMAGE_REL_BASED_RISCV_LOW12I =  7
+  | IMAGE_REL_BASED_RISCV_LOW12I = 7
   /// This relocation is only meaningful when the machine type is RISC-V. The
   /// base relocation applies to the low 12 bits of a 32-bit absolute address
   /// formed in RISC-V S-type instruction format.
