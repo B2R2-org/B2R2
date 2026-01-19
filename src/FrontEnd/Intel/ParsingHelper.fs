@@ -79,20 +79,20 @@ type internal ParsingHelper(reader: IBinReader,
   static member inline HasNoREX(phlp: ParsingHelper) =
     phlp.REXPrefix = REXPrefix.NOREX
 
-  static member inline IsReg001(span, phlp: ParsingHelper) =
-    Operands.getReg (phlp.PeekByte span) = 1
+  static member inline IsReg001(span: ByteSpan, phlp: ParsingHelper) =
+    Operands.getReg span[phlp.CurrPos] = 1
 
-  static member inline IsReg010(span, phlp: ParsingHelper) =
-    Operands.getReg (phlp.PeekByte span) = 2
+  static member inline IsReg010(span: ByteSpan, phlp: ParsingHelper) =
+    Operands.getReg span[phlp.CurrPos] = 2
 
-  static member inline IsReg101(span, phlp: ParsingHelper) =
-    Operands.getReg (phlp.PeekByte span) = 5
+  static member inline IsReg101(span: ByteSpan, phlp: ParsingHelper) =
+    Operands.getReg span[phlp.CurrPos] = 5
 
-  static member inline IsReg110(span, phlp: ParsingHelper) =
-    Operands.getReg (phlp.PeekByte span) = 6
+  static member inline IsReg110(span: ByteSpan, phlp: ParsingHelper) =
+    Operands.getReg span[phlp.CurrPos] = 6
 
-  static member inline IsReg111(span, phlp: ParsingHelper) =
-    Operands.getReg (phlp.PeekByte span) = 7
+  static member inline IsReg111(span: ByteSpan, phlp: ParsingHelper) =
+    Operands.getReg span[phlp.CurrPos] = 7
 
   static member inline IsEVEX(phlp: ParsingHelper) =
     match phlp.VEXInfo with
