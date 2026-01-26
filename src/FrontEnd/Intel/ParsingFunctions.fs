@@ -5163,6 +5163,22 @@ let vex0F3A02W0 = function
   | MPref.MPrxF2
   | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+let evex0F3A03W0 = function
+  | MPref.MPrxNP -> raise ParsingFailureException
+  | MPref.MPrx66 ->
+    struct (VALIGND, OD.XmmVvXmImm8, SZ.VecDef, TT.Full) (* VxVxWxIb *)
+  | MPref.MPrxF3 -> raise ParsingFailureException
+  | MPref.MPrxF2
+  | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+let evex0F3A03W1 = function
+  | MPref.MPrxNP -> raise ParsingFailureException
+  | MPref.MPrx66 ->
+    struct (VALIGNQ, OD.XmmVvXmImm8, SZ.VecDef, TT.Full) (* VxVxWxIb *)
+  | MPref.MPrxF3 -> raise ParsingFailureException
+  | MPref.MPrxF2
+  | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
 let vex0F3A04W0 = function
   | MPref.MPrxNP -> raise ParsingFailureException
   | MPref.MPrx66 ->
@@ -5647,6 +5663,14 @@ let vex0F3A39W0 = function
   | MPref.MPrxNP -> raise ParsingFailureException
   | MPref.MPrx66 ->
     struct (VEXTRACTI128, OD.XmRegImm8, SZ.DqQq, TT.NA) (* WdqVqqIb *)
+  | MPref.MPrxF3
+  | MPref.MPrxF2
+  | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+let evex0F3A39W0 = function
+  | MPref.MPrxNP -> raise ParsingFailureException
+  | MPref.MPrx66 ->
+    struct (VEXTRACTI32X4, OD.XmRegImm8, SZ.XDq, TT.Tuple4) (* WdqVxIb *)
   | MPref.MPrxF3
   | MPref.MPrxF2
   | _ (* MPrx66F2 *) -> raise ParsingFailureException
@@ -6301,6 +6325,13 @@ let getGrp12OpKind phlp b regBits =
 let getGrp13OpKind phlp b regBits =
   let prefix = selectPrefix phlp
   match Operands.modIsMemory b, regBits, Prefix.hasOprSz prefix with
+  | _, 0b000, true ->
+    if phlp.VEXInfo = None then raise ParsingFailureException
+    else
+      phlp.TupleType <- TT.Full
+      if REXPrefix.hasW phlp.REXPrefix then
+        struct (VPRORQ, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
+      else struct (VPRORD, OD.VvRmImm8, SZ.VecDef, SzCond.Normal)
   | false, 0b010, false -> struct (PSRLD, OD.MmxImm8, SZ.Q, SzCond.Normal)
   | false, 0b010, true ->
     if phlp.VEXInfo = None then
@@ -6831,6 +6862,7 @@ let parseThreeByteOp2 span (phlp: ParsingHelper) =
   | 0x00uy -> parseEVEXW span phlp notEn vex0F3A00W1 notEn notEn
   | 0x01uy -> parseEVEXW span phlp notEn vex0F3A01W1 notEn notEn
   | 0x02uy -> parseEVEXW span phlp vex0F3A02W0 notEn notEn notEn
+  | 0x03uy -> parseEVEXW span phlp notEn notEn evex0F3A03W0 evex0F3A03W1
   | 0x04uy -> parseEVEXW span phlp vex0F3A04W0 notEn notEn notEn
   | 0x05uy -> parseEVEXW span phlp vex0F3A05W0 notEn notEn notEn
   | 0x06uy -> parseVEXW span phlp notEn notEn vex0F3A06W0 notEn
@@ -6868,7 +6900,7 @@ let parseThreeByteOp2 span (phlp: ParsingHelper) =
   | 0x30uy -> parseVEXW span phlp notEn notEn vex0F3A30W0 vex0F3A30W1
   | 0x31uy -> parseVEXW span phlp notEn notEn vex0F3A31W0 vex0F3A31W1
   | 0x38uy -> parseVEX span phlp nor0F3A38 vex0F3A38
-  | 0x39uy -> parseEVEXW span phlp vex0F3A39W0 notEn notEn evex0F3A39W1
+  | 0x39uy -> parseEVEXW span phlp vex0F3A39W0 notEn evex0F3A39W0 evex0F3A39W1
   | 0x3Auy -> parseEVEXW span phlp notEn notEn evex0F3A3AW0 evex0F3A3AW1
   | 0x3Buy -> parseEVEXW span phlp notEn notEn evex0F3A3BW0 evex0F3A3BW1
   | 0x3Euy -> parseEVEXW span phlp notEn notEn evex0F3A3EW0 evex0F3A3EW1
