@@ -3310,6 +3310,14 @@ let vex0F3836W0 = function
   | MPref.MPrxF2
   | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+let evex0F3836W1 = function
+  | MPref.MPrxNP -> raise ParsingFailureException
+  | MPref.MPrx66 ->
+    struct (VPERMQ, OD.XmmVvXm, SZ.VecDef, TT.Full) (* VxHxWx *)
+  | MPref.MPrxF3
+  | MPref.MPrxF2
+  | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
 let nor0F3837 = function
   | MPref.MPrxNP -> raise ParsingFailureException
   | MPref.MPrx66 -> struct (PCMPGTQ, OD.GprRm, SZ.DqDq, TT.NA) (* VdqWdq *)
@@ -6724,7 +6732,7 @@ let parseThreeByteOp1 span (phlp: ParsingHelper) =
   | 0x33uy -> parseEVEX span phlp nor0F3833 vex0F3833 evex0F3833 evex0F3833
   | 0x34uy -> parseVEX span phlp nor0F3834 vex0F3834
   | 0x35uy -> parseEVEX span phlp nor0F3835 vex0F3835 evex0F3835W0 notEn
-  | 0x36uy -> parseEVEXW span phlp vex0F3836W0 notEn notEn notEn
+  | 0x36uy -> parseEVEXW span phlp vex0F3836W0 notEn notEn evex0F3836W1
   | 0x37uy -> parseVEX span phlp nor0F3837 vex0F3837
   | 0x38uy -> parseVEX span phlp nor0F3838 vex0F3838
   | 0x39uy -> parseEVEX span phlp nor0F3839 vex0F3839 evex0F3839W0 notEn
