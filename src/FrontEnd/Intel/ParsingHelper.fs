@@ -34,8 +34,6 @@ type internal ParsingHelper(reader: IBinReader,
                             rex,
                             vex,
                             wordSz,
-                            ops,
-                            szs,
                             lifter) =
   let mutable addr: Addr = addr
   let mutable cpos: int = cpos (* current position *)
@@ -49,11 +47,12 @@ type internal ParsingHelper(reader: IBinReader,
   let mutable regSz = 0<rt>
   let mutable operationSz = 0<rt>
   let mutable tupleType = TupleType.NA
+  let mutable opcodeClass = Normal OpcodeMap.OneByte
   let mutable isFar = false
 
-  new(reader, wordSz, oparsers, szcomputers, lifter) =
+  new(reader, wordSz, lifter) =
     ParsingHelper(reader, 0UL, 0, Prefix.None, REXPrefix.NOREX, None,
-                  wordSz, oparsers, szcomputers, lifter)
+                  wordSz, lifter)
 
   member _.InsAddr with get(): Addr = addr and set a = addr <- a
   member _.CurrPos with get() = cpos and set p = cpos <- p
@@ -61,8 +60,6 @@ type internal ParsingHelper(reader: IBinReader,
   member _.REXPrefix with get(): REXPrefix = rex and set r = rex <- r
   member _.VEXInfo with get(): VEXInfo option = vex and set v = vex <- v
   member _.WordSize with get(): WordSize = wordSize and set w = wordSize <- w
-  member _.OprParsers with get(): OperandParser[] = ops
-  member _.SzComputers with get(): InsSizeComputer[] = szs
   member _.MemEffOprSize with get() = memOprSz and set s = memOprSz <- s
   member _.MemEffAddrSize with get() = memAddrSz and set s = memAddrSz <- s
   member _.MemEffRegSize with get() = memRegSz and set s = memRegSz <- s
@@ -70,6 +67,8 @@ type internal ParsingHelper(reader: IBinReader,
   member _.OperationSize with get() = operationSz and set s = operationSz <- s
   member _.TupleType
     with get(): TupleType = tupleType and set t = tupleType <- t
+  member _.OpcodeClass
+    with get(): OpcodeClass = opcodeClass and set c = opcodeClass <- c
   member _.Lifter with get(): ILiftable = lifter
   member _.IsFar with get() = isFar and set f = isFar <- f
 
