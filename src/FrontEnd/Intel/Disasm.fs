@@ -1435,7 +1435,8 @@ let opCodeToString = function
   | Opcode.XSHA512 -> "xsha512"
   | Opcode.XSTORERNG -> "xstore-rng"
   | Opcode.XTEST -> "xtest"
-  | _ -> raise InvalidOpcodeException
+  | Opcode.InvalOP -> "(invalOp)"
+  | s -> printfn "%A" s; raise InvalidOpcodeException
 
 let inline private iToHexStr (i: int64) (builder: IDisasmBuilder) =
   builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 i)
