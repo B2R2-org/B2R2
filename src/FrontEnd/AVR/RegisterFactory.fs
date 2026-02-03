@@ -87,6 +87,12 @@ type RegisterFactory(wordSize) =
   let sp = AST.var 16<rt> (Register.toRegID SP) "SP"
 
   interface IRegisterFactory with
+    member _.ProgramCounter = Terminator.futureFeature ()
+
+    member _.StackPointer = Terminator.futureFeature ()
+
+    member _.FramePointer = Terminator.futureFeature ()
+
     member _.GetRegVar id =
       match Register.ofRegID id with
       | Register.R0 -> r0
@@ -131,7 +137,7 @@ type RegisterFactory(wordSize) =
       | Register.VF -> vF
       | Register.NF -> nF
       | Register.ZF -> zF
-      | Register.CF  -> cF
+      | Register.CF -> cF
       | Register.PC -> pc
       | Register.SP -> sp
       | _ -> raise InvalidRegisterException
@@ -158,12 +164,6 @@ type RegisterFactory(wordSize) =
     member _.GetAllRegisterNames() = Terminator.futureFeature ()
 
     member _.GetRegType _ = Terminator.futureFeature ()
-
-    member _.ProgramCounter = Terminator.futureFeature ()
-
-    member _.StackPointer = Terminator.futureFeature ()
-
-    member _.FramePointer = Terminator.futureFeature ()
 
     member _.IsProgramCounter _ = Terminator.futureFeature ()
 

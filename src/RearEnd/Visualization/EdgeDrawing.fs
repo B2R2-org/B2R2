@@ -179,11 +179,9 @@ let private vertexToBox (v: IVertex<VisBBlock>): Box =
   makeBox left right top bottom (isDummy v)
 
 /// Converts vertex arrays to Box arrays.
-let private verticesToBoxes1D vertices =
-  Array.map vertexToBox vertices
+let private verticesToBoxes1D vertices = Array.map vertexToBox vertices
 
-let private verticesToBoxes2D vLayout =
-  Array.map verticesToBoxes1D vLayout
+let private verticesToBoxes2D vLayout = Array.map verticesToBoxes1D vLayout
 
 let private makeLine left right y =
   { Left = makeVisPos (left, y); Right = makeVisPos (right, y) }
@@ -201,7 +199,7 @@ let private getIntersection upper lower =
     makeLine left right upperBottom
 
 let private getIntersectingLines boxes =
-  let rec aux acc (hd: Box) (tl: Box list)  =
+  let rec aux acc (hd: Box) (tl: Box list) =
     match tl with
     | [] ->
       List.rev ((makeLine hd.TopLeft.X hd.TopRight.X hd.BottomLeft.Y) :: acc)
@@ -233,14 +231,12 @@ let private findDummies q r (edge: VisEdge) dummyMap =
       | Some(_, dummies) -> dummies, true
       | None -> [], false
 
-let private computeBoxHeight (box: Box) =
-  box.BottomLeft.Y - box.TopLeft.Y
+let private computeBoxHeight (box: Box) = box.BottomLeft.Y - box.TopLeft.Y
 
 let private computeLayerHeight layer =
   Array.map computeBoxHeight layer |> Array.max
 
-let private computeHeightPerLayer boxes =
-  Array.map computeLayerHeight boxes
+let private computeHeightPerLayer boxes = Array.map computeLayerHeight boxes
 
 /// Computes starting and ending y-coordinates for each layer.
 let private computeYPositionsPerLayer boxes =
@@ -413,7 +409,7 @@ let private drawRegular g vLayout boxes dummyMap (q, r, edge: VisEdge) =
     List.map (virtualNodeBox boxes wLine yPositions isRecovered) dummies
   let boxes = (* Boxes between nodes q and r, from upper layer to lower *)
     initBox ::
-    ((List.fold2 (fun acc v i ->  i :: v :: acc) [ interLayerBoxes.Head ]
+    ((List.fold2 (fun acc v i -> i :: v :: acc) [ interLayerBoxes.Head ]
         virtualNodeBoxes interLayerBoxes.Tail) |> List.rev)
   let points = computeRegularEdgePoints isBackEdge dummies boxes q r qBox rBox
   match (g: VisGraph).TryFindEdge(q, r) with
@@ -494,7 +490,7 @@ let private computeSlope (q: VisPosition) (r: VisPosition) =
   let dy = (ry - qy)
   if abs dy < 0.1 then (* Approximately horizontal line. *)
     if qx < rx then infinity else -infinity
-  else (* Non-horizontal slope. *) (rx - qx) / dy
+  else (rx - qx) / dy (* Non-horizontal slope. *)
 
 let private getEdgeSlope isBackEdge isHeadPort (edge: VisEdge) =
   let points = edge.Points |> Array.ofList

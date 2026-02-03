@@ -46,7 +46,7 @@ module internal EnumTypeKind =
     | '5' -> UnsignedIntEnum
     | '6' -> LongEnum
     | '7' -> UnsignedLongEnum
-    |  _  -> UnknownEnumType
+    |  _ -> UnknownEnumType
 
   let toString = function
     | CharEnum -> " char"
@@ -70,12 +70,12 @@ type internal ComplexTypeKind =
 
 module internal ComplexTypeKind =
   let fromString = function
-    | "T"  -> Union
-    | "U"  -> Struct
-    | "V"  -> Class
-    | "Y"  -> Cointerface
+    | "T" -> Union
+    | "U" -> Struct
+    | "V" -> Class
+    | "Y" -> Cointerface
     | "_X" -> Coclass
-    |  _   -> UnknownComplexType
+    |  _ -> UnknownComplexType
 
   let toString = function
     | Union -> "union "
@@ -115,7 +115,7 @@ module internal CallConvention =
     | Fastcall -> "__fastcall"
     | Clrcall -> "__clrcall"
     | Free -> ""
-    | UnknownCallConvention-> "???"
+    | UnknownCallConvention -> "???"
 
 /// Indicates the calling scope(access level).
 type internal CallScope =
@@ -183,7 +183,7 @@ module internal ModifierPrefix =
     | 'G' -> ReferenceMod
     | 'H' -> DoubleReferenceMod
     | 'I' -> RestrictMod
-    |  _  -> UnknownPrefix
+    |  _ -> UnknownPrefix
 
 /// Indicates CV class modifier.
 type internal CVModifier =
@@ -196,7 +196,7 @@ type internal CVModifier =
 module internal CVModifier =
   let fromChar = function
     | 'A' | 'Q' | 'U' | 'Y' | 'M' | '2' -> NoMod
-    | 'B' | 'J' | 'R' | 'V' | 'Z' | 'N' |'3'-> Constant
+    | 'B' | 'J' | 'R' | 'V' | 'Z' | 'N' |'3' -> Constant
     | 'C' | 'G' | 'K' | 'S' | 'W' | 'O' | '0' | '4' -> Volatile
     | 'D' | 'H' | 'L' | 'T' | 'X' | 'P' | '1' | '5' -> ConstantVolatile
     | _ -> UnknownMod
@@ -232,7 +232,7 @@ module internal PointerTypeIndicator =
     | 'S' -> ConstantVolatilePointer
     | 'X' -> NormalRValueReference
     | 'Z' -> VolatileRValueReference
-    | _   -> UnknownPointer
+    | _ -> UnknownPointer
 
   let getPointerType = function
     | NormalPointer | NormalReference | EmptyPointer | NormalRValueReference ->
@@ -284,7 +284,7 @@ module internal NormalBuiltInType =
     | 'O' -> LongDouble
     | 'X' -> VoidP
     | 'Z' -> Ellipsis
-    |  _  -> UnknownNormalBuiltInType
+    |  _ -> UnknownNormalBuiltInType
 
   let toString = function
     | EmptyReturn -> ""
@@ -338,7 +338,7 @@ module internal UnderscoredBuiltInType =
     | 'S' -> Char16T
     | 'U' -> Char32T
     | 'W' -> WCharT
-    |  _  -> UnknownUnderscoredBuiltInType
+    |  _ -> UnknownUnderscoredBuiltInType
 
   let toString = function
     | Int8 -> "__int8"

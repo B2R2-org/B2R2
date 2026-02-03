@@ -35,20 +35,15 @@ open type Register
 [<AutoOpen>]
 module private Shortcut =
   type O =
-    static member Reg(r) =
-      OprReg r
+    static member Reg(r) = OprReg r
 
-    static member Imm(v) =
-      OprImm v
+    static member Imm(v) = OprImm v
 
-    static member Addr(v) =
-      OprAddr v
+    static member Addr(v) = OprAddr v
 
-    static member MemDisp(r, v) =
-      OprMemory(DispMode(r, v))
+    static member MemDisp(r, v) = OprMemory(DispMode(r, v))
 
-    static member MemPostIdx(r) =
-      OprMemory(PostIdxMode r)
+    static member MemPostIdx(r) = OprMemory(PostIdxMode r)
 
 type ParserTests() =
   let test (bytes: byte[]) (opcode, oprs: Operands) =

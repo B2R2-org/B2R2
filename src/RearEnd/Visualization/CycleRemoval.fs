@@ -50,7 +50,7 @@ let private collectSelfCycle backEdgeList (edge: Edge<_, VisEdge>) =
 
 let removeBackEdge (vGraph: VisGraph) src dst edge needToAddReverse =
   vGraph.RemoveEdge(src, dst) |> ignore
-  if needToAddReverse then vGraph.AddEdge(dst, src, edge) |> ignore
+  if needToAddReverse then vGraph.AddEdge(dst, src, edge) |> ignore else ()
 
 let removeCycles (vGraph: VisGraph) =
   vGraph.FoldEdge(collectSelfCycle, [])

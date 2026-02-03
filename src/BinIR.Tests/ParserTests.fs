@@ -67,8 +67,7 @@ type ParserTests() =
 
   [<TestMethod>]
   member _.``[LowUIRParser] Test Operation in Expression``() =
-    let result =
-      p.Parse "R := (0x1:I64 - 0x1:I64)" |> get |> Array.head
+    let result = p.Parse "R := (0x1:I64 - 0x1:I64)" |> get |> Array.head
     let answer =
       AST.put (AST.var 64<rt> regID "R")
               (AST.num (BitVector.Cast(BitVector.F, 64<rt>)))

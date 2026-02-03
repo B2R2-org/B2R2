@@ -37,7 +37,7 @@ open B2R2.FrontEnd.Intel.MMXLifter
 
 let getExponent isDouble src =
   if isDouble then
-    let numMantissa =  numI32 52 64<rt>
+    let numMantissa = numI32 52 64<rt>
     let mask = numI32 0x7FF 64<rt>
     AST.xtlo 32<rt> ((src >> numMantissa) .& mask)
   else
@@ -265,11 +265,9 @@ let private handleScalarFPOp (ins: Instruction) insLen bld sz op =
   bld <+ (dst1 := t3)
   bld --!> insLen
 
-let addss ins insLen bld =
-  handleScalarFPOp ins insLen bld 32<rt> AST.fadd
+let addss ins insLen bld = handleScalarFPOp ins insLen bld 32<rt> AST.fadd
 
-let addsd ins insLen bld =
-  handleScalarFPOp ins insLen bld 64<rt> AST.fadd
+let addsd ins insLen bld = handleScalarFPOp ins insLen bld 64<rt> AST.fadd
 
 let subps ins insLen bld =
   buildPackedInstr ins insLen bld false 32<rt> (opP AST.fsub)
@@ -277,11 +275,9 @@ let subps ins insLen bld =
 let subpd ins insLen bld =
   buildPackedInstr ins insLen bld false 64<rt> (opP AST.fsub)
 
-let subss ins insLen bld =
-  handleScalarFPOp ins insLen bld 32<rt> AST.fsub
+let subss ins insLen bld = handleScalarFPOp ins insLen bld 32<rt> AST.fsub
 
-let subsd ins insLen bld =
-  handleScalarFPOp ins insLen bld 64<rt> AST.fsub
+let subsd ins insLen bld = handleScalarFPOp ins insLen bld 64<rt> AST.fsub
 
 let mulps ins insLen bld =
   buildPackedInstr ins insLen bld false 32<rt> (opP AST.fmul)
@@ -289,11 +285,9 @@ let mulps ins insLen bld =
 let mulpd ins insLen bld =
   buildPackedInstr ins insLen bld false 64<rt> (opP AST.fmul)
 
-let mulss ins insLen bld =
-  handleScalarFPOp ins insLen bld 32<rt> AST.fmul
+let mulss ins insLen bld = handleScalarFPOp ins insLen bld 32<rt> AST.fmul
 
-let mulsd ins insLen bld =
-  handleScalarFPOp ins insLen bld 64<rt> AST.fmul
+let mulsd ins insLen bld = handleScalarFPOp ins insLen bld 64<rt> AST.fmul
 
 let divps ins insLen bld =
   buildPackedInstr ins insLen bld false 32<rt> (opP AST.fdiv)
@@ -301,11 +295,9 @@ let divps ins insLen bld =
 let divpd ins insLen bld =
   buildPackedInstr ins insLen bld false 64<rt> (opP AST.fdiv)
 
-let divss ins insLen bld =
-  handleScalarFPOp ins insLen bld 32<rt> AST.fdiv
+let divss ins insLen bld = handleScalarFPOp ins insLen bld 32<rt> AST.fdiv
 
-let divsd ins insLen bld =
-  handleScalarFPOp ins insLen bld 64<rt> AST.fdiv
+let divsd ins insLen bld = handleScalarFPOp ins insLen bld 64<rt> AST.fdiv
 
 let rcpps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -453,29 +445,21 @@ let private minMaxSD (ins: Instruction) insLen bld compare =
   bld <+ (dst := tmp)
   bld --!> insLen
 
-let maxps ins insLen bld =
-  minMaxPS ins insLen bld AST.fgt
+let maxps ins insLen bld = minMaxPS ins insLen bld AST.fgt
 
-let maxpd ins insLen bld =
-  minMaxPD ins insLen bld AST.fgt
+let maxpd ins insLen bld = minMaxPD ins insLen bld AST.fgt
 
-let maxss ins insLen bld =
-  minMaxSS ins insLen bld AST.fgt
+let maxss ins insLen bld = minMaxSS ins insLen bld AST.fgt
 
-let maxsd ins insLen bld =
-  minMaxSD ins insLen bld AST.fgt
+let maxsd ins insLen bld = minMaxSD ins insLen bld AST.fgt
 
-let minps ins insLen bld =
-  minMaxPS ins insLen bld AST.flt
+let minps ins insLen bld = minMaxPS ins insLen bld AST.flt
 
-let minpd ins insLen bld =
-  minMaxPD ins insLen bld AST.flt
+let minpd ins insLen bld = minMaxPD ins insLen bld AST.flt
 
-let minss ins insLen bld =
-  minMaxSS ins insLen bld AST.flt
+let minss ins insLen bld = minMaxSS ins insLen bld AST.flt
 
-let minsd ins insLen bld =
-  minMaxSD ins insLen bld AST.flt
+let minsd ins insLen bld = minMaxSD ins insLen bld AST.flt
 
 let private cmppCond bld ins insLen op3 isDbl c expr1 expr2 =
   let imm =
@@ -662,31 +646,23 @@ let ucomisd (ins: Instruction) insLen bld =
 #endif
   bld --!> insLen
 
-let andps ins insLen bld =
-  buildPackedInstr ins insLen bld false 32<rt> opPand
+let andps ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPand
 
-let andpd ins insLen bld =
-  buildPackedInstr ins insLen bld false 64<rt> opPand
+let andpd ins insLen bld = buildPackedInstr ins insLen bld false 64<rt> opPand
 
-let andnps ins insLen bld =
-  buildPackedInstr ins insLen bld false 32<rt> opPandn
+let andnps ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPandn
 
-let andnpd ins insLen bld =
-  buildPackedInstr ins insLen bld false 64<rt> opPandn
+let andnpd ins insLen bld = buildPackedInstr ins insLen bld false 64<rt> opPandn
 
-let orps ins insLen bld =
-  buildPackedInstr ins insLen bld false 32<rt> opPor
+let orps ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPor
 
-let orpd ins insLen bld =
-  buildPackedInstr ins insLen bld false 64<rt> opPor
+let orpd ins insLen bld = buildPackedInstr ins insLen bld false 64<rt> opPor
 
 let private opPxor _ = Array.map2 (<+>)
 
-let xorps ins insLen bld =
-  buildPackedInstr ins insLen bld false 32<rt> opPxor
+let xorps ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPxor
 
-let xorpd ins insLen bld =
-  buildPackedInstr ins insLen bld false 64<rt> opPxor
+let xorpd ins insLen bld = buildPackedInstr ins insLen bld false 64<rt> opPxor
 
 let shufps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -967,17 +943,13 @@ let extractps (ins: Instruction) insLen bld =
   bld <+ (dstAssign oprSize dst src[idx])
   bld --!> insLen
 
-let hsubpd ins insLen bld =
-  packedHorizon ins insLen bld 64<rt> (opP AST.fsub)
+let hsubpd ins insLen bld = packedHorizon ins insLen bld 64<rt> (opP AST.fsub)
 
-let hsubps ins insLen bld =
-  packedHorizon ins insLen bld 32<rt> (opP AST.fsub)
+let hsubps ins insLen bld = packedHorizon ins insLen bld 32<rt> (opP AST.fsub)
 
-let haddpd ins insLen bld =
-  packedHorizon ins insLen bld 64<rt> (opP AST.fadd)
+let haddpd ins insLen bld = packedHorizon ins insLen bld 64<rt> (opP AST.fadd)
 
-let haddps ins insLen bld =
-  packedHorizon ins insLen bld 32<rt> (opP AST.fadd)
+let haddps ins insLen bld = packedHorizon ins insLen bld 32<rt> (opP AST.fadd)
 
 let ldmxcsr (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1000,13 +972,11 @@ let private opAveragePackedInt (packSz: int<rt>) =
 
 let opPavgb _ = opAveragePackedInt 8<rt>
 
-let pavgb ins insLen bld =
-  buildPackedInstr ins insLen bld false 8<rt> opPavgb
+let pavgb ins insLen bld = buildPackedInstr ins insLen bld false 8<rt> opPavgb
 
 let opPavgw _ = opAveragePackedInt 16<rt>
 
-let pavgw ins insLen bld =
-  buildPackedInstr ins insLen bld false 16<rt> opPavgw
+let pavgw ins insLen bld = buildPackedInstr ins insLen bld false 16<rt> opPavgw
 
 let pextrb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1121,41 +1091,29 @@ let opPmaxs _ = opMaxMinPacked AST.sgt
 
 let opPmins _ = opMaxMinPacked AST.slt
 
-let pmaxub ins insLen bld =
-  buildPackedInstr ins insLen bld false 8<rt> opPmaxu
+let pmaxub ins insLen bld = buildPackedInstr ins insLen bld false 8<rt> opPmaxu
 
-let pmaxud ins insLen bld =
-  buildPackedInstr ins insLen bld false 32<rt> opPmaxu
+let pmaxud ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPmaxu
 
-let pmaxuw ins insLen bld =
-  buildPackedInstr ins insLen bld false 16<rt> opPmaxu
+let pmaxuw ins insLen bld = buildPackedInstr ins insLen bld false 16<rt> opPmaxu
 
-let pmaxsb ins insLen bld =
-  buildPackedInstr ins insLen bld false 8<rt> opPmaxs
+let pmaxsb ins insLen bld = buildPackedInstr ins insLen bld false 8<rt> opPmaxs
 
-let pmaxsd ins insLen bld =
-  buildPackedInstr ins insLen bld false 32<rt> opPmaxs
+let pmaxsd ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPmaxs
 
-let pmaxsw ins insLen bld =
-  buildPackedInstr ins insLen bld false 16<rt> opPmaxs
+let pmaxsw ins insLen bld = buildPackedInstr ins insLen bld false 16<rt> opPmaxs
 
-let pminub ins insLen bld =
-  buildPackedInstr ins insLen bld false 8<rt> opPminu
+let pminub ins insLen bld = buildPackedInstr ins insLen bld false 8<rt> opPminu
 
-let pminud ins insLen bld =
-  buildPackedInstr ins insLen bld false 32<rt> opPminu
+let pminud ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPminu
 
-let pminuw ins insLen bld =
-  buildPackedInstr ins insLen bld false 16<rt> opPminu
+let pminuw ins insLen bld = buildPackedInstr ins insLen bld false 16<rt> opPminu
 
-let pminsb ins insLen bld =
-  buildPackedInstr ins insLen bld false 8<rt> opPmins
+let pminsb ins insLen bld = buildPackedInstr ins insLen bld false 8<rt> opPmins
 
-let pminsd ins insLen bld =
-  buildPackedInstr ins insLen bld false 32<rt> opPmins
+let pminsd ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPmins
 
-let pminsw ins insLen bld =
-  buildPackedInstr ins insLen bld false 16<rt> opPmins
+let pminsw ins insLen bld = buildPackedInstr ins insLen bld false 16<rt> opPmins
 
 let private mskArrayInit cnt src =
   Array.init cnt (fun i -> AST.extract src 1<rt> (i * 8 + 7))
@@ -1365,8 +1323,7 @@ let pshuflw (ins: Instruction) insLen bld =
   let n16 = numI32 16 64<rt>
   let mask2 = numI32 3 64<rt> (* 2-bit mask *)
   for i in 1 .. 4 do
-    let imm =
-      (imm >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
+    let imm = (imm >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
     bld <+ (tmps[i - 1] := AST.xtlo 16<rt> (srcA >> (imm .* n16)))
   done
   bld <+ (dstA := AST.revConcat tmps)
@@ -1383,8 +1340,7 @@ let pshufhw (ins: Instruction) insLen bld =
   let n16 = numI32 16 64<rt>
   let mask2 = numI32 3 64<rt> (* 2-bit mask *)
   for i in 1 .. 4 do
-    let imm =
-      (imm >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
+    let imm = (imm >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
     bld <+ (tmps[i - 1] := AST.xtlo 16<rt> (srcB >> (imm .* n16)))
   done
   bld <+ (dstA := srcA)
@@ -1428,11 +1384,9 @@ let pshufb (ins: Instruction) insLen bld =
   | _ -> raise InvalidOperandSizeException
   bld --!> insLen
 
-let movdqa ins insLen bld =
-  buildMove ins insLen bld
+let movdqa ins insLen bld = buildMove ins insLen bld
 
-let movdqu ins insLen bld =
-  buildMove ins insLen bld
+let movdqu ins insLen bld = buildMove ins insLen bld
 
 let movq2dq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1867,7 +1821,7 @@ let private getPcmpstrInfo opCode (imm: Expr) =
     Len = len
     Ret = ret }
 
-let private setZFSFOfPCMPSTR bld ctrl src1 src2  =
+let private setZFSFOfPCMPSTR bld ctrl src1 src2 =
   let inline checkIfElemIsNull exps =
     Array.map (fun e -> (e == AST.num0 ctrl.PackSize)) exps |> Array.reduce (.|)
   let inline checkIndexOutOfBounds reg =

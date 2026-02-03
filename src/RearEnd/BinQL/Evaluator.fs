@@ -41,8 +41,7 @@ type Evaluator() =
     | Dec, _ | _, Dec -> Dec
     | Oct, _ | _, Oct -> Oct
 
-  let unifyByteCount lcnt rcnt =
-    if lcnt > rcnt then lcnt else rcnt
+  let unifyByteCount lcnt rcnt = if lcnt > rcnt then lcnt else rcnt
 
   let bigintToSignExtendedBytes (n: bigint) cnt =
     let bs = n.ToByteArray()
@@ -102,7 +101,7 @@ type Evaluator() =
       binop (fun l r -> l >>> int r) lhs rhs
     | Neg e ->
       let e, typ, cnt = eval e
-      - e, typ, cnt
+      -e, typ, cnt
     | Not e ->
       let e, typ, cnt = eval e
       Numerics.BigInteger.op_OnesComplement e, typ, cnt

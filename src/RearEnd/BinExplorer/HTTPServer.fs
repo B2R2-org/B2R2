@@ -64,16 +64,16 @@ type JsonSegInfo =
   { [<field: DataMember(Name = "addr")>]
     SegAddr: Addr
     [<field: DataMember(Name = "bytes")>]
-    SegBytes: byte []
+    SegBytes: byte[]
     [<field: DataMember(Name = "coloredHexAscii")>]
-    SegColoredHexAscii: DataColoredHexAscii [] }
+    SegColoredHexAscii: DataColoredHexAscii[] }
 
 [<DataContract>]
 type JsonVarPoint =
   { [<field: DataMember(Name = "addr")>]
     VarAddr: Addr
     [<field: DataMember(Name = "name")>]
-    VarNames: string [] }
+    VarNames: string[] }
 
 let rootDir =
   let asm = Reflection.Assembly.GetExecutingAssembly()
@@ -85,11 +85,12 @@ let listener host handler =
   hl.Prefixes.Add host
   hl.Start()
   let task = Async.FromBeginEnd(hl.BeginGetContext, hl.EndGetContext)
-  let rec loop () = async {
-    let! context = task
-    handler context.Request context.Response
-    return! loop ()
-  }
+  let rec loop () =
+    async {
+      let! context = task
+      handler context.Request context.Response
+      return! loop ()
+    }
   loop ()
 
 let defaultEnc = Text.Encoding.UTF8

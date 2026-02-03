@@ -58,7 +58,8 @@ type GrepAction() =
     member _.ActionID with get() = "grep"
     member _.Signature with get() =
       "'a array * <pattern> * [bytes before] * [bytes after] -> 'a array"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in an array as input and return one or more matched items from the
     array as in the `grep` command. The <pattern> represents a binary pattern
     using a regular expression with hexstrings. For example, the pattern

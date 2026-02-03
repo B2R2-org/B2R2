@@ -42,7 +42,8 @@ type CmdStore(spec) as this =
     [| "[*] Unknown command: '" + cmd + "'"
        "" (* for new line *) |]
 
-  let generalHelpStr = """
+  let generalHelpStr =
+    """
 [*] Current B2R2 commands (type 'help <command>' for more info):
   """
 
@@ -94,8 +95,7 @@ and private CmdHelp(cmdStore: CmdStore) =
       command will show. For example, type `help bininfo` to see the usage of\n\
       the command `bininfo`."
 
-    member _.SubCommands =
-      []
+    member _.SubCommands = []
 
     member _.CallBack(_, args) =
       match args with

@@ -214,8 +214,7 @@ let buildStreamMap span reader superBlock streamDir =
     lst.Add stream
   lst |> Seq.toArray
 
-let inline getStream (streamMap: (byte[] * int) array) idx =
-  streamMap[idx]
+let inline getStream (streamMap: (byte[] * int) array) idx = streamMap[idx]
 
 let parseDBIHeader (reader: IBinReader) (dbiStream: byte[]) =
   let span = ReadOnlySpan dbiStream
@@ -269,7 +268,7 @@ let readStr (bs: byte[]) pos =
   Text.Encoding.ASCII.GetString bs, nextPos
 
 let align offset n =
-  if offset &&& (n - 1) > 0 then (offset &&& (~~~ (n - 1))) + n
+  if offset &&& (n - 1) > 0 then (offset &&& (~~~(n - 1))) + n
   else offset
 
 let parseModuleInfo (reader: IBinReader) dbi (bs: byte[]) =

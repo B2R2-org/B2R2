@@ -428,8 +428,7 @@ let private opPaddsb oprSize src1 src2 =
   let src2 = src2 |> Array.map (AST.sext 16<rt>)
   (opP (.+)) 16<rt> src1 src2 |> Array.map saturateToSignedByte
 
-let paddsb ins insLen bld =
-  buildPackedInstr ins insLen bld false 8<rt> opPaddsb
+let paddsb ins insLen bld = buildPackedInstr ins insLen bld false 8<rt> opPaddsb
 
 let private opPaddsw oprSize src1 src2 =
   let src1 = src1 |> Array.map (AST.sext 32<rt>)
@@ -477,14 +476,11 @@ let packedHorizon (ins: Instruction) insLen bld packSz opFn =
   assignPackedInstr bld false ins insLen packNum oprSize dst result
   bld --!> insLen
 
-let phaddd ins insLen bld =
-  packedHorizon ins insLen bld 32<rt> (opP (.+))
+let phaddd ins insLen bld = packedHorizon ins insLen bld 32<rt> (opP (.+))
 
-let phaddw ins insLen bld =
-  packedHorizon ins insLen bld 16<rt> (opP (.+))
+let phaddw ins insLen bld = packedHorizon ins insLen bld 16<rt> (opP (.+))
 
-let phaddsw ins insLen bld =
-  packedHorizon ins insLen bld 16<rt> opPaddsw
+let phaddsw ins insLen bld = packedHorizon ins insLen bld 16<rt> opPaddsw
 
 let psubb ins insLen bld =
   buildPackedInstr ins insLen bld false 8<rt> (opP (.-))
@@ -500,8 +496,7 @@ let private opPsubsb oprSize src1 src2 =
   let src2 = src2 |> Array.map (AST.sext 16<rt>)
   (opP (.-)) 16<rt> src1 src2 |> Array.map saturateToSignedByte
 
-let psubsb ins insLen bld =
-  buildPackedInstr ins insLen bld false 8<rt> opPsubsb
+let psubsb ins insLen bld = buildPackedInstr ins insLen bld false 8<rt> opPsubsb
 
 let private opPsubsw oprSize src1 src2 =
   let src1 = src1 |> Array.map (AST.sext 32<rt>)
@@ -527,14 +522,11 @@ let private opPsubusw _ src1 src2 =
 let psubusw ins insLen bld =
   buildPackedInstr ins insLen bld false 16<rt> opPsubusw
 
-let phsubd ins insLen bld =
-  packedHorizon ins insLen bld 32<rt> (opP (.-))
+let phsubd ins insLen bld = packedHorizon ins insLen bld 32<rt> (opP (.-))
 
-let phsubw ins insLen bld =
-  packedHorizon ins insLen bld 16<rt> (opP (.-))
+let phsubw ins insLen bld = packedHorizon ins insLen bld 16<rt> (opP (.-))
 
-let phsubsw ins insLen bld =
-  packedHorizon ins insLen bld 16<rt> opPsubsw
+let phsubsw ins insLen bld = packedHorizon ins insLen bld 16<rt> opPsubsw
 
 let opPmul resType extr extSz packSz src1 src2 =
   Array.map2 (fun e1 e2 -> extr extSz e1 .* extr extSz e2) src1 src2
@@ -597,18 +589,15 @@ let pcmpgtd ins insLen bld =
 
 let opPand _ = Array.map2 (.&)
 
-let pand ins insLen bld =
-  buildPackedInstr ins insLen bld false 64<rt> opPand
+let pand ins insLen bld = buildPackedInstr ins insLen bld false 64<rt> opPand
 
 let opPandn _ = Array.map2 (fun e1 e2 -> (AST.not e1) .& e2)
 
-let pandn ins insLen bld =
-  buildPackedInstr ins insLen bld false 64<rt> opPandn
+let pandn ins insLen bld = buildPackedInstr ins insLen bld false 64<rt> opPandn
 
 let opPor _ = Array.map2 (.|)
 
-let por ins insLen bld =
-  buildPackedInstr ins insLen bld false 64<rt> opPor
+let por ins insLen bld = buildPackedInstr ins insLen bld false 64<rt> opPor
 
 let pxor (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -645,33 +634,27 @@ let private opShiftPackedDataLogical oprSize packSz shift src1 src2 =
 
 let private opPsllw oprSize = opShiftPackedDataLogical oprSize 16<rt> (<<)
 
-let psllw ins insLen bld =
-  buildPackedInstr ins insLen bld false 16<rt> opPsllw
+let psllw ins insLen bld = buildPackedInstr ins insLen bld false 16<rt> opPsllw
 
 let private opPslld oprSize = opShiftPackedDataLogical oprSize 32<rt> (<<)
 
-let pslld ins insLen bld =
-  buildPackedInstr ins insLen bld false 32<rt> opPslld
+let pslld ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPslld
 
 let private opPsllq oprSize = opShiftPackedDataLogical oprSize 64<rt> (<<)
 
-let psllq ins insLen bld =
-  buildPackedInstr ins insLen bld false 64<rt> opPsllq
+let psllq ins insLen bld = buildPackedInstr ins insLen bld false 64<rt> opPsllq
 
 let private opPsrlw oprSize = opShiftPackedDataLogical oprSize 16<rt> (>>)
 
-let psrlw ins insLen bld =
-  buildPackedInstr ins insLen bld false 16<rt> opPsrlw
+let psrlw ins insLen bld = buildPackedInstr ins insLen bld false 16<rt> opPsrlw
 
 let private opPsrld oprSize = opShiftPackedDataLogical oprSize 32<rt> (>>)
 
-let psrld ins insLen bld =
-  buildPackedInstr ins insLen bld false 32<rt> opPsrld
+let psrld ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPsrld
 
 let private opPsrlq oprSize = opShiftPackedDataLogical oprSize 64<rt> (>>)
 
-let psrlq ins insLen bld =
-  buildPackedInstr ins insLen bld false 64<rt> opPsrlq
+let psrlq ins insLen bld = buildPackedInstr ins insLen bld false 64<rt> opPsrlq
 
 let private opShiftPackedDataRightArith oprSize packSz src1 src2 =
   let pNum = int (oprSize / packSz)
@@ -690,13 +673,11 @@ let private opShiftPackedDataRightArith oprSize packSz src1 src2 =
 
 let private opPsraw oprSize = opShiftPackedDataRightArith oprSize 16<rt>
 
-let psraw ins insLen bld =
-  buildPackedInstr ins insLen bld false 16<rt> opPsraw
+let psraw ins insLen bld = buildPackedInstr ins insLen bld false 16<rt> opPsraw
 
 let private opPsrad oprSize = opShiftPackedDataRightArith oprSize 32<rt>
 
-let psrad ins insLen bld =
-  buildPackedInstr ins insLen bld false 32<rt> opPsrad
+let psrad ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPsrad
 
 let emms (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)

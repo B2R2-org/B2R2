@@ -157,7 +157,7 @@ let opCodeToString = function
   | Op.LWZUX -> "lwzux"
   | Op.LWZX -> "lwzx"
   | Op.CMP -> "cmp"
-  | Op.CMPL ->"cmpl"
+  | Op.CMPL -> "cmpl"
   | Op.MCRXR -> "mcrxr"
   | Op.MFCR -> "mfcr"
   | Op.MFMSR -> "mfmsr"

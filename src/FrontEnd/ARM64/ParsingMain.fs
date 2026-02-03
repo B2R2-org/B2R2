@@ -853,12 +853,12 @@ let changeToAliasOfMoveWide bin instr =
   (* C6.2.122 MOV (inverted wide immediate) *)
   | Op.MOVN, ThreeOperands(xd, OprImm imm16, OprShift(_, Imm amt)), oprSz
       when is64Bit && not (0b0L = imm16 && hw <> 0b00u) ->
-    let imm = ~~~ (imm16 <<< int32 amt)
+    let imm = ~~~(imm16 <<< int32 amt)
     Op.MOV, TwoOperands(xd, OprImm imm), oprSz
   | Op.MOVN, ThreeOperands(wd, OprImm imm16, OprShift(_, Imm amt)), oprSz
       when not is64Bit && not (0b0L = imm16 && hw <> 0b00u)
            && (0b1111111111111111L <> imm16) ->
-    let imm = ~~~ (uint32 (imm16 <<< int32 amt)) |> int64
+    let imm = ~~~(uint32 (imm16 <<< int32 amt)) |> int64
     Op.MOV, TwoOperands(wd, OprImm imm), oprSz
   (* C6.2.123 MOV (wide immediate) *)
   | Op.MOVZ, ThreeOperands(rd, OprImm imm16, OprShift(_, Imm amt)), oprSz
@@ -1043,7 +1043,7 @@ let parseUncondBranchReg bin =
   let rn = extract bin 9u 5u
   let isRn1F = rn = 0b11111u
   let isOp4Zero = extract bin 4u 0u = 0b00000u
-  if not isOp4Zero || not isOp3Zero || not isOp21F then unallocated ()
+  if not isOp4Zero || not isOp3Zero || not isOp21F then unallocated () else ()
   match opc with
   | 0b0000u when isOp21F && isOp3Zero && isOp4Zero ->
     Op.BR,
@@ -3158,7 +3158,7 @@ let parseAdvSIMDScalarThreeSame bin =
 let parseAdvSIMDScalarShiftByImm bin =
   let cond = concat (extract bin 29u 29u) (extract bin 15u 11u) 5 (* U:opcode *)
   let isImmhZero = (extract bin 22u 19u) = 0b0000u
-  if isImmhZero then unallocated ()
+  if isImmhZero then unallocated () else ()
   match cond with
   | c when c &&& 0b011111u = 0b000001u -> unallocated ()
   | c when c &&& 0b011111u = 0b000011u -> unallocated ()

@@ -194,8 +194,7 @@ let getSCTLR bld sctlrType =
   match sctlrType with
   | SCTLR_NMFI -> sctlr .& maskSCTLRForNMFIbit
 
-let isSetSCTLRForNMFI bld =
-  getSCTLR bld SCTLR_NMFI == maskSCTLRForNMFIbit
+let isSetSCTLRForNMFI bld = getSCTLR bld SCTLR_NMFI == maskSCTLRForNMFIbit
 
 let enablePSRBits bld reg psrType =
   let psr = regVar bld reg
@@ -263,16 +262,14 @@ let setPSR bld reg psrType expr =
   disablePSRBits bld reg psrType
   .| (AST.zext 32<rt> expr |> psrShift psrType)
 
-let getCarryFlag bld =
-  getPSR bld R.CPSR PSR.C >> (numI32 29 32<rt>)
+let getCarryFlag bld = getPSR bld R.CPSR PSR.C >> (numI32 29 32<rt>)
 
 let getZeroMask maskSize regType =
   BitVector(BigInteger.getMask maskSize, regType)
   |> BitVector.Not
   |> AST.num
 
-let zMaskAnd e regType maskSize =
-  e .& (getZeroMask maskSize regType)
+let zMaskAnd e regType maskSize = e .& (getZeroMask maskSize regType)
 
 let maskAndOR e1 e2 regType maskSize =
   let mask = getZeroMask maskSize regType
@@ -642,8 +639,7 @@ let isSecure bld =
 let currentModeIsNotUser bld =
   let modeM = getPSR bld R.CPSR PSR.M
   let modeCond = isBadMode modeM
-  let ite1 =
-    AST.ite (modeM == (numI32 0b10000 32<rt>)) AST.b0 AST.b1
+  let ite1 = AST.ite (modeM == (numI32 0b10000 32<rt>)) AST.b0 AST.b1
   AST.ite modeCond (AST.undef 1<rt> "UNPREDICTABLE") ite1
 
 /// Bitstring replication, on page AppxP-2652.
@@ -777,10 +773,8 @@ let itAdvance bld =
   let lblElse = label bld "LElse"
   let lblEnd = label bld "LEnd"
   let cpsr = regVar bld R.CPSR
-  let cpsrIT10 =
-    getPSR bld R.CPSR PSR.IT10 >> (numI32 25 32<rt>)
-  let cpsrIT72 =
-    getPSR bld R.CPSR PSR.IT72 >> (numI32 8 32<rt>)
+  let cpsrIT10 = getPSR bld R.CPSR PSR.IT10 >> (numI32 25 32<rt>)
+  let cpsrIT72 = getPSR bld R.CPSR PSR.IT72 >> (numI32 8 32<rt>)
   let mask10 = numI32 0x3 32<rt> (* For ITSTATE[1:0] *)
   let mask20 = numI32 0x7 32<rt> (* For ITSTATE[2:0] *)
   let mask40 = numI32 0x1f 32<rt> (* For ITSTATE[4:0] *)
@@ -929,8 +923,7 @@ let add isSetFlags ins insLen bld =
 /// function : Align()
 let align e1 e2 = e2 .* (e1 ./ e2)
 
-let pcOffset (ins: Instruction) =
-  if not ins.IsThumb then 8UL else 4UL
+let pcOffset (ins: Instruction) = if not ins.IsThumb then 8UL else 4UL
 
 let transLableOprsOfBL ins isThumb imm =
   let offset = pcOffset ins
@@ -1050,12 +1043,11 @@ let qdadd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
   let struct (dst, src1, src2) = transThreeOprs ins bld
-  let struct (sat1,sat2) = tmpVars2 bld 1<rt>
+  let struct (sat1, sat2) = tmpVars2 bld 1<rt>
   let struct (dou, sat) =
     sSatQ bld (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
   bld <+ (sat1 := sat)
-  let struct (r, sat) =
-    sSatQ bld (src1 .+ dou) (RegType.fromBitWidth 32)
+  let struct (r, sat) = sSatQ bld (src1 .+ dou) (RegType.fromBitWidth 32)
   bld <+ (dst := r)
   bld <+ (sat2 := sat)
   let cpsr = regVar bld R.CPSR
@@ -1068,7 +1060,7 @@ let qdsub (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
   let struct (dst, src1, src2) = transThreeOprs ins bld
-  let struct (sat1,sat2) = tmpVars2 bld 1<rt>
+  let struct (sat1, sat2) = tmpVars2 bld 1<rt>
   let struct (dou, sat) =
     sSatQ bld (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
   bld <+ (sat1 := sat)
@@ -1233,8 +1225,7 @@ let translateLogicOp (ins: Instruction) insLen bld =
     let t = tmpVar bld 32<rt>
     let struct (e1, e2) = transTwoOprs ins bld
     bld <+ (t := e2)
-    let shifted, carryOut =
-      shiftC t 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
+    let shifted, carryOut = shiftC t 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     e1, e1, shifted, carryOut
   | ThreeOperands(_, _, OprImm _) ->
     let struct (e1, e2, e3) = transThreeOprs ins bld
@@ -1244,8 +1235,7 @@ let translateLogicOp (ins: Instruction) insLen bld =
     let t = tmpVar bld 32<rt>
     let struct (e1, e2, e3) = transThreeOprs ins bld
     bld <+ (t := e3)
-    let shifted, carryOut =
-      shiftC t 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
+    let shifted, carryOut = shiftC t 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     e1, e2, shifted, carryOut
   | FourOperands(opr1, opr2, opr3, OprShift(typ, Imm imm)) ->
     let t = tmpVar bld 32<rt>
@@ -1543,8 +1533,7 @@ let transTwoOprsOfMVN (ins: Instruction) insLen bld =
     struct (e1, e2, getCarryFlag bld)
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
-    let shifted, carryOut =
-      shiftC e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
+    let shifted, carryOut = shiftC e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     struct (e1, shifted, carryOut)
   | _ -> raise InvalidOperandException
 
@@ -1622,8 +1611,7 @@ let transThreeOprsOfShiftInstr (ins: Instruction) shiftTyp bld tmp =
     let e1 = transOprToExpr ins bld opr1
     let e2 = transOprToExpr ins bld opr2
     let shiftN = getImmShiftFromShiftType (uint32 imm) shiftTyp
-    let shifted, carryOut =
-      shiftC tmp 32<rt> shiftTyp shiftN (getCarryFlag bld)
+    let shifted, carryOut = shiftC tmp 32<rt> shiftTyp shiftN (getCarryFlag bld)
     e1, e2, shifted, carryOut
   | ThreeOperands(_, _, OprReg _) ->
     let carryIn = getCarryFlag bld
@@ -2012,8 +2000,7 @@ let transOprsOfTST (ins: Instruction) insLen bld =
     struct (rn, imm, carryOut)
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
-    let shifted, carryOut =
-      shiftC e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
+    let shifted, carryOut = shiftC e2 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     struct (e1, shifted, carryOut)
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
@@ -2066,7 +2053,7 @@ let smmla (ins: Instruction) insLen bld isRound =
   let lblIgnore = checkCondition ins bld isUnconditional
   let ra = (AST.sext 64<rt> src3) << numI32 32 64<rt>
   bld <+ (result := ra .+ AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
-  if isRound then bld <+ (result := result .+ numU32 0x80000000u 64<rt>)
+  if isRound then bld <+ (result := result .+ numU32 0x80000000u 64<rt>) else ()
   bld <+ (dst := AST.xthi 32<rt> result)
   putEndLabel bld lblIgnore
   bld --!> insLen
@@ -2078,7 +2065,7 @@ let smmul (ins: Instruction) insLen bld isRound =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   let lblIgnore = checkCondition ins bld isUnconditional
   bld <+ (result := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
-  if isRound then bld <+ (result := result .+ numU32 0x80000000u 64<rt>)
+  if isRound then bld <+ (result := result .+ numU32 0x80000000u 64<rt>) else ()
   bld <+ (dst := AST.xthi 32<rt> result)
   putEndLabel bld lblIgnore
   bld --!> insLen
@@ -2330,13 +2317,11 @@ let parseMemOfLDR ins insLen bld = function
     struct (n .+ shift m 32<rt> ShiftOp.LSL 0u (getCarryFlag bld), None)
   | OprMemory(PreIdxMode(RegOffset(n, s, m, None))) ->
     let rn = regVar bld n
-    let offset =
-      shift (regVar bld m) 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
+    let offset = shift (regVar bld m) 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     struct (getOffAddrWithExpr s rn offset, Some(rn, None))
   | OprMemory(PostIdxMode(RegOffset(n, s, m, None))) ->
     let rn = regVar bld n
-    let offset =
-      shift (regVar bld m) 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
+    let offset = shift (regVar bld m) 32<rt> ShiftOp.LSL 0u (getCarryFlag bld)
     struct (rn, Some(rn, Some(getOffAddrWithExpr s rn offset)))
   | OprMemory(OffsetMode(RegOffset(n, s, m, Some(t, Imm i)))) ->
     let rn = regVar bld n |> convertPCOpr ins bld
@@ -2431,8 +2416,7 @@ let ldrd ins insLen bld =
   putEndLabel bld lblIgnore
   bld --!> insLen
 
-let sel8Bits r offset =
-  AST.extract r 8<rt> offset |> AST.zext 32<rt>
+let sel8Bits r offset = AST.extract r 8<rt> offset |> AST.zext 32<rt>
 
 let combine8bitResults t1 t2 t3 t4 =
   let mask = numI32 0xff 32<rt>
@@ -3742,8 +3726,7 @@ let vecMulAccOrSubByScalar (ins: Instruction) insLen bld add =
     let src1 = transOprToExpr ins bld src1
     for e in 0 .. p.Elements - 1 do
       let op1val = AST.sext p.RtESize (elem src1 e p.ESize)
-      let addend =
-        if add then op1val .* op2Val else AST.not (op1val .* op2Val)
+      let addend = if add then op1val .* op2Val else AST.not (op1val .* op2Val)
       bld <+ (elem dst e p.ESize := elem dst e p.ESize .+ addend)
   putEndLabel bld lblIgnore
   bld --!> insLen

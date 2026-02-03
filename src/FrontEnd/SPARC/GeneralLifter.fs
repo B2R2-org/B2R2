@@ -2893,7 +2893,7 @@ let movcc ins insLen bld =
     | Opcode.MOVFUG ->
       if (cc = getCCVar bld ConditionCode.Fcc0) then
         let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
-        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
         bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
       elif (cc = getCCVar bld ConditionCode.Fcc1) then
         let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
@@ -2923,7 +2923,7 @@ let movcc ins insLen bld =
     | Opcode.MOVFUL ->
       if (cc = getCCVar bld ConditionCode.Fcc0) then
         let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
-        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
         bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
       elif (cc = getCCVar bld ConditionCode.Fcc1) then
         let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
@@ -2940,7 +2940,7 @@ let movcc ins insLen bld =
     | Opcode.MOVFLG ->
       if (cc = getCCVar bld ConditionCode.Fcc0) then
         let cond = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
-        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
         bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
       elif (cc = getCCVar bld ConditionCode.Fcc1) then
         let cond = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
@@ -2991,7 +2991,7 @@ let movcc ins insLen bld =
     | Opcode.MOVFUE ->
       if (cc = getCCVar bld ConditionCode.Fcc0) then
         let cond = (AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>)
-        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
         bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
       elif (cc = getCCVar bld ConditionCode.Fcc1) then
         let cond = (AST.extract fsr 2<rt> 32 == numI32 3 2<rt>)
@@ -3008,7 +3008,7 @@ let movcc ins insLen bld =
     | Opcode.MOVFGE ->
       if (cc = getCCVar bld ConditionCode.Fcc0) then
         let cond = (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
-        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 2 2<rt>)
         bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
       elif (cc = getCCVar bld ConditionCode.Fcc1) then
         let cond = (AST.extract fsr 2<rt> 32 == numI32 0 2<rt>)
@@ -3046,7 +3046,7 @@ let movcc ins insLen bld =
     | Opcode.MOVFLE ->
       if (cc = getCCVar bld ConditionCode.Fcc0) then
         let cond = (AST.extract fsr 2<rt> 10) == (numI32 1 2<rt>)
-        let cond2 =  (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
+        let cond2 = (AST.extract fsr 2<rt> 10) == (numI32 0 2<rt>)
         bld <+ (dst := AST.ite (cond .| cond2) (src) (dst))
       elif (cc = getCCVar bld ConditionCode.Fcc1) then
         let cond = (AST.extract fsr 2<rt> 32 == numI32 1 2<rt>)
@@ -3104,6 +3104,8 @@ let movcc ins insLen bld =
         bld <+ (dst := AST.ite (cond .| cond2 .| cond3) (src) (dst))
     | _ ->
       raise InvalidOpcodeException
+  else
+    ()
   bld --!> insLen
 
 let movr ins insLen bld = (* TODO : check that destination is not g0*)
@@ -3141,8 +3143,7 @@ let mulscc ins insLen bld =
   bld <+ (src2 := AST.ite ((AST.extract y 1<rt> 0) == AST.b0)
     (AST.num0 32<rt>) (AST.extract src1 32<rt> 0))
   bld <+ (res := AST.zext 64<rt> (src32 .+ src2))
-  if (dst <> regVar bld Register.G0) then
-    bld <+ (dst := res)
+  if (dst <> regVar bld Register.G0) then bld <+ (dst := res) else ()
   bld <+ ((AST.extract y 32<rt> 0) := AST.concat (AST.extract src 1<rt> 0)
     (AST.extract y 31<rt> 1))
   bld <+ (hbyte := getConditionCodeMulscc res src src1)
@@ -3326,6 +3327,8 @@ let sdiv ins insLen bld =
     bld <+ (AST.lmark lblL1)
     if (dst <> regVar bld Register.G0) then
       bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
+    else
+      ()
     bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
       (numU64 0x0000FFFFUL 64<rt>))
@@ -3372,6 +3375,8 @@ let sdivcc ins insLen bld =
     bld <+ (AST.lmark lblL1)
     if (dst <> regVar bld Register.G0) then
       bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
+    else
+      ()
     bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
       (numU64 0x0000FFFFUL 64<rt>))
@@ -3429,6 +3434,8 @@ let sethi ins insLen bld =
   if (dst <> regVar bld Register.G0) then
     bld <+ (dst := AST.concat (AST.zext 32<rt> AST.b0)
       (AST.extract imm 32<rt> 0))
+  else
+    ()
   bld --!> insLen
 
 let sll ins insLen bld =
@@ -3442,7 +3449,7 @@ let sll ins insLen bld =
 
 let smul ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let yreg  = regVar bld Register.Y
+  let yreg = regVar bld Register.Y
   bld <!-- (ins.Address, insLen)
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
@@ -3455,8 +3462,8 @@ let smul ins insLen bld =
 
 let smulcc ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let yreg  = regVar bld Register.Y
-  let ccr  = regVar bld Register.CCR
+  let yreg = regVar bld Register.Y
+  let ccr = regVar bld Register.CCR
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   if (dst = regVar bld Register.G0) then
@@ -3678,6 +3685,8 @@ let udiv ins insLen bld =
     bld <+ (AST.lmark lblL1)
     if (dst <> regVar bld Register.G0) then
       bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
+    else
+      ()
     bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
       (numU64 0x0000FFFFUL 64<rt>))
@@ -3714,6 +3723,8 @@ let udivcc ins insLen bld =
     bld <+ (AST.lmark lblL1)
     if (dst <> regVar bld Register.G0) then
       bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
+    else
+      ()
     bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
       (numU64 0x0000FFFFUL 64<rt>))
@@ -3767,7 +3778,7 @@ let udivx ins insLen bld =
 
 let umul ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let yreg  = regVar bld Register.Y
+  let yreg = regVar bld Register.Y
   bld <!-- (ins.Address, insLen)
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
@@ -3780,7 +3791,7 @@ let umul ins insLen bld =
 
 let umulcc ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let yreg  = regVar bld Register.Y
+  let yreg = regVar bld Register.Y
   let ccr = regVar bld Register.CCR
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)

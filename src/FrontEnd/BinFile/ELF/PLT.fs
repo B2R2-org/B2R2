@@ -167,8 +167,7 @@ let private makePLTEntry symbs addr relocAddr (r: RelocationEntry) =
 let rec parseEntryLoop p sec rdr span desc symbs rel map idx eAddr addr =
   if addr >= eAddr then map
   else
-    let entry =
-      (p: IPLTParsable).ParseEntry(addr, idx, sec, desc, rdr, span)
+    let entry = (p: IPLTParsable).ParseEntry(addr, idx, sec, desc, rdr, span)
     let nextAddr = entry.NextEntryAddr
     match (rel: RelocationInfo).TryFind entry.EntryRelocAddr with
     | Ok r ->

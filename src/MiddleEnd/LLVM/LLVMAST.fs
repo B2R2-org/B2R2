@@ -50,8 +50,7 @@ type LLVMExpr =
   | TypedExpr of string * LLVMExpr
 
 module LLVMExpr =
-  let mkTypedId id =
-    TypedExpr(id.IDType, Ident id)
+  let mkTypedId id = TypedExpr(id.IDType, Ident id)
 
 /// Simplified LLVM statement.
 type LLVMStmt =
@@ -91,8 +90,7 @@ module LLVMStmt =
     | Some c -> Def(id, [| Opcode "load"; ExprList args; Token c |])
     | None -> Def(id, [| Opcode "load"; ExprList args |])
 
-  let mkStore v addr align comment =
-    Store(v, Ident addr, align, comment)
+  let mkStore v addr align comment = Store(v, Ident addr, align, comment)
 
   let mkBinop id op sz lhs rhs =
     Def(id, [| Opcode op; Token sz; ExprList [ lhs; rhs ] |])

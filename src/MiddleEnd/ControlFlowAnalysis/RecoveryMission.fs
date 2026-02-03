@@ -103,23 +103,25 @@ and private TaskWorker<'FnCtx,
 
   let mutable doContinue = true
 
-  let worker = task {
-    while doContinue do
-      match! stream.Receive(token) with
-      | NotAvailable -> doContinue <- false
-      | AvailableButNotReceived -> ()
-      | Received(BuildCFG builder) ->
-        builder.Context.ThreadID <- tid
-        try
-          let res = builder.Build strategy
-          scheduler.PostCommand <| ReportCFGResult(builder.EntryPoint, res)
-        with e ->
-          Console.Error.WriteLine $"Worker ({tid}) failed:\n{e}"
-          let failure = FailStop ErrorCase.UnexpectedError
-          scheduler.PostCommand <| ReportCFGResult(builder.EntryPoint, failure)
+  let worker =
+    task {
+      while doContinue do
+        match! stream.Receive(token) with
+        | NotAvailable -> doContinue <- false
+        | AvailableButNotReceived -> ()
+        | Received(BuildCFG builder) ->
+          builder.Context.ThreadID <- tid
+          try
+            let res = builder.Build strategy
+            scheduler.PostCommand <| ReportCFGResult(builder.EntryPoint, res)
+          with e ->
+            Console.Error.WriteLine $"Worker ({tid}) failed:\n{e}"
+            let failure = FailStop ErrorCase.UnexpectedError
+            scheduler.PostCommand
+            <| ReportCFGResult(builder.EntryPoint, failure)
 #if CFGDEBUG
-        flushLog tid
+          flushLog tid
 #endif
-  }
+    }
 
   member _.Task with get() = worker

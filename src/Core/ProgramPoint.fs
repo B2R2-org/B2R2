@@ -46,6 +46,17 @@ type ProgramPoint private(addr, pos, callsite) =
   /// vertex.
   member _.CallSite with get(): CallSite option = callsite
 
+  /// Gets a fake program point to represent a fake vertex, which does not exist
+  /// in a CFG. Fake vertices are useful for representing external function
+  /// calls and their nodes in the SCFG.
+  static member GetFake() = ProgramPoint(0UL, -1)
+
+  /// Checks if the given program point is a fake one.
+  static member IsFake(p: ProgramPoint) = p.Address = 0UL && p.Position = -1
+
+  static member Next(p: ProgramPoint) =
+    if ProgramPoint.IsFake p then p else ProgramPoint(p.Address, p.Position + 1)
+
   /// Compares against another program point.
   member this.CompareTo(rhs: ProgramPoint) =
     let result = compare this.Address rhs.Address
@@ -72,18 +83,6 @@ type ProgramPoint private(addr, pos, callsite) =
     match this.CallSite with
     | Some callsite -> $"{callsite:x}-{addr:x}"
     | None -> $"{addr:x}:{pos}"
-
-  /// Gets a fake program point to represent a fake vertex, which does not exist
-  /// in a CFG. Fake vertices are useful for representing external function
-  /// calls and their nodes in the SCFG.
-  static member GetFake() = ProgramPoint(0UL, -1)
-
-  /// Checks if the given program point is a fake one.
-  static member IsFake(p: ProgramPoint) = p.Address = 0UL && p.Position = -1
-
-  static member Next(p: ProgramPoint) =
-    if ProgramPoint.IsFake p then p
-    else ProgramPoint(p.Address, p.Position + 1)
 
   interface System.IComparable with
     member this.CompareTo(rhs) =

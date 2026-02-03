@@ -63,13 +63,11 @@ module RandomAccessQueue =
     let l, r = Op.Split((fun (elt: Size) -> i < elt.Value), q)
     RandomAccessQueue l, RandomAccessQueue r
 
-  let private snoc q v =
-    Op.Snoc(q, RandomAccessQueueElem v)
+  let private snoc q v = Op.Snoc(q, RandomAccessQueueElem v)
 
   /// Adds an item to the queue.
   [<CompiledName ("Enqueue")>]
-  let enqueue v (RandomAccessQueue q) =
-    snoc q v |> RandomAccessQueue
+  let enqueue v (RandomAccessQueue q) = snoc q v |> RandomAccessQueue
 
   /// Removes an item from the queue.
   [<CompiledName ("Dequeue")>]

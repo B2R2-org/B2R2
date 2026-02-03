@@ -36,7 +36,8 @@ type IntelTests() =
 
   [<TestMethod>]
   member _.``Basic Test``() =
-    let str = """
+    let str =
+      """
   cmp ecx, ecx
   jne cond
   add edx, ecx

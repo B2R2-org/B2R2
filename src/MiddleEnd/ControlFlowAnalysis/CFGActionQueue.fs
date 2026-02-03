@@ -39,6 +39,8 @@ type CFGActionQueue() =
   /// Count the number of actions in the queue.
   member _.Count with get() = pq.Count
 
+  member _.UnorderedItems with get() = pq.UnorderedItems
+
   /// Push an action to the queue.
   member _.Push(judge: IPrioritizable, action) =
     pq.Enqueue(action, toPriority (action.Priority judge))
@@ -54,7 +56,5 @@ type CFGActionQueue() =
 
   /// Clear the queue.
   member _.Clear() = pq.Clear()
-
-  member _.UnorderedItems with get() = pq.UnorderedItems
 
 and private Priority<'P> = 'P * int

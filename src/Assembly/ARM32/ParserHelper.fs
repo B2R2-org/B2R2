@@ -190,8 +190,7 @@ let isITInstruction = function
   | Opcode.ITTEE | Opcode.ITEEE -> true
   | _ -> false
 
-let isSIMDOpcode (opcode: Opcode) =
-  opcode.ToString() |> Seq.head = 'V'
+let isSIMDOpcode (opcode: Opcode) = opcode.ToString() |> Seq.head = 'V'
 
 let makeSIMDOperand = function
   | [ reg ] -> OneReg reg
@@ -219,5 +218,4 @@ let checkIfInstructionLine = function
   | InstructionLine ins -> Some ins
   | LabelDefLine -> None
 
-let filterInstructionLines lst =
-  List.choose checkIfInstructionLine lst
+let filterInstructionLines lst = List.choose checkIfInstructionLine lst

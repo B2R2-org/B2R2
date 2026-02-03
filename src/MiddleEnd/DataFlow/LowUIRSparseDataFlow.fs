@@ -401,12 +401,6 @@ type State<'Lattice when 'Lattice: equality>
   /// Scheme used for this data flow analysis.
   member _.Scheme with get() = scheme
 
-  /// Evaluate the given expression at the given program point in the
-  /// stack-pointer domain in order to retrieve a concrete stack pointer value
-  /// if exists.
-  member _.EvaluateStackPointerExpr(pp, e: Expr) =
-    spEvaluateExpr pp e
-
   /// Mapping from a CFG vertex to its phi information.
   member _.PhiInfos with get() = phiInfos
 
@@ -438,6 +432,11 @@ type State<'Lattice when 'Lattice: equality>
   /// Currently pending vertices for processing.
   member _.PendingVertices with get(): IEnumerable<IVertex<LowUIRBasicBlock>> =
     verticesForProcessing
+
+  /// Evaluate the given expression at the given program point in the
+  /// stack-pointer domain in order to retrieve a concrete stack pointer value
+  /// if exists.
+  member _.EvaluateStackPointerExpr(pp, e: Expr) = spEvaluateExpr pp e
 
   /// Mark the given vertex as pending, which means that the vertex needs to be
   /// processed.
@@ -567,17 +566,16 @@ module internal AnalysisCore = begin
       else
         workset.Add v |> ignore
         for succ in g.GetSuccs v do
-          if g.GetPreds succ |> Seq.length > 1 then
-            workset.Add succ |> ignore
+          if g.GetPreds succ |> Seq.length > 1 then workset.Add succ |> ignore
+          else ()
     workset
 
   let placePhi state v varKind =
     let phiInfos = (state: State<_>).PhiInfos
-    if not <| phiInfos.ContainsKey v then
-      phiInfos[v] <- PhiInfo ()
+    if not <| phiInfos.ContainsKey v then phiInfos[v] <- PhiInfo () else ()
     let phiInfo = phiInfos[v]
-    if not <| phiInfo.ContainsKey varKind then
-      phiInfo[varKind] <- Dictionary ()
+    if not <| phiInfo.ContainsKey varKind then phiInfo[varKind] <- Dictionary ()
+    else ()
 
   let isInnerScopeVarKind (v: IVertex<LowUIRBasicBlock>) = function
     | Temporary _ when v.VData.Internals.PPoint.Address = 0UL -> true
@@ -610,8 +608,8 @@ module internal AnalysisCore = begin
     for v in collectPhiInsertionCandidates g state do
       for affectingVertex in computeInverseDF g dom v do
         for varKind in getDefinedVarKinds memo state affectingVertex do
-          if not (isInnerScopeVarKind v varKind) then
-            placePhi state v varKind
+          if not (isInnerScopeVarKind v varKind) then placePhi state v varKind
+          else ()
 
   let updateIncomingDefsWithPhis state (v: IVertex<LowUIRBasicBlock>) ins =
     match (state: State<_>).PhiInfos.TryGetValue v with

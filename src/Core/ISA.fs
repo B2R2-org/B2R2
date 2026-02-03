@@ -28,26 +28,6 @@ namespace B2R2
 type ISA(arch, endian, wordSize, flags) =
   do assert (arch <> Architecture.UnknownISA)
 
-  /// CPU Architecture.
-  member _.Arch with get(): Architecture = arch
-
-  /// Endianness.
-  member _.Endian with get(): Endian = endian
-
-  /// Word size.
-  member _.WordSize with get(): WordSize = wordSize
-
-  /// Architecture-specific flags. Not every architecture has this.
-  member _.Flags with get(): int = flags
-
-  /// True if this ISA is Intel x86.
-  member _.IsX86 with get() =
-    arch = Architecture.Intel && wordSize = WordSize.Bit32
-
-  /// True if this ISA is Intel x86-64.
-  member _.IsX64 with get() =
-    arch = Architecture.Intel && wordSize = WordSize.Bit64
-
   /// Constructs an ISA object with the given architecture, endianness, and
   /// word size. The flags are set to 0.
   new(arch, endian, wordSize) = ISA(arch, endian, wordSize, 0)
@@ -232,6 +212,26 @@ type ISA(arch, endian, wordSize, flags) =
       ISA Architecture.WASM
     | _ ->
       ISA Architecture.UnknownISA
+
+  /// CPU Architecture.
+  member _.Arch with get(): Architecture = arch
+
+  /// Endianness.
+  member _.Endian with get(): Endian = endian
+
+  /// Word size.
+  member _.WordSize with get(): WordSize = wordSize
+
+  /// Architecture-specific flags. Not every architecture has this.
+  member _.Flags with get(): int = flags
+
+  /// True if this ISA is Intel x86.
+  member _.IsX86 with get() =
+    arch = Architecture.Intel && wordSize = WordSize.Bit32
+
+  /// True if this ISA is Intel x86-64.
+  member _.IsX64 with get() =
+    arch = Architecture.Intel && wordSize = WordSize.Bit64
 
   override _.ToString() =
     match arch, endian, wordSize with

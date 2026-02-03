@@ -106,15 +106,14 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
                              ConstantDomain.Lattice> with
           member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
+  member _.State with get() = state
+
   member _.EvalExpr(pp, e) = evaluateExpr pp e
 
   member _.Reset() = state.Reset()
-
-  member _.State with get() = state
 
   interface IDataFlowComputable<SensitiveVarPoint<'ExeCtx>,
                                 ConstantDomain.Lattice,
                                 State<ConstantDomain.Lattice, 'ExeCtx>,
                                 LowUIRBasicBlock> with
-    member _.Compute cfg =
-      compute cfg state
+    member _.Compute cfg = compute cfg state

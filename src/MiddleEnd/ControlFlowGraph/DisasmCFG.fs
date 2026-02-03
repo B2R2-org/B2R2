@@ -134,6 +134,8 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
       let s, d, e = e.First, e.Second, e.Label
       if not <| isAbsVertex s then
         connectOrMerge tempVMap g s (skipAbsVertices g d) e
+      else
+        ()
       dfs g tempVMap visited <| (collectFreshSuccEdges visited g d) @ rest
 
   /// Prepare DisasmCFG information while doing the following transformations:

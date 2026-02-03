@@ -92,14 +92,12 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
     member _.GetVMMappedRegions _permission =
       [| AddrRange(baseAddr, baseAddr + uint64 size - 1UL) |]
 
-    member _.TryFindName(_addr) =
-      Error ErrorCase.SymbolNotFound
+    member _.TryFindName(_addr) = Error ErrorCase.SymbolNotFound
 
     member _.GetTextSectionPointer() =
       BinFilePointer(baseAddr, baseAddr + uint64 size - 1UL, 0, size - 1)
 
-    member _.GetSectionPointer _ =
-      BinFilePointer.Null
+    member _.GetSectionPointer _ = BinFilePointer.Null
 
     member _.IsInTextOrDataOnlySection _ = true
 

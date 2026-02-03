@@ -153,8 +153,7 @@ let private toRISCVRegister (n: byte) =
 let private toPPC32Register (n: byte) =
   PPC32.Register.toRegID (EnumOfValue(int n))
 
-let private toSH4Register (n: byte) =
-  SH4.Register.toRegID (EnumOfValue(int n))
+let private toSH4Register (n: byte) = SH4.Register.toRegID (EnumOfValue(int n))
 
 let toRegID isa regnum =
   match isa with

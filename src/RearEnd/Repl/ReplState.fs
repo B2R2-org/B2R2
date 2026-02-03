@@ -76,6 +76,13 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
         evalStmts stmts st
     else ()
 
+  member _.CurrentParser with get() = parser
+
+  member _.ConsolePrompt with get() =
+    match parser with
+    | BinParser arch -> arch.ToString() + "> "
+    | LowUIRParser -> "LowUIR> "
+
   member private _.EvaluateStmts(stmts: Stmt[]) =
     rstate.PrepareInstrEval stmts
     evalStmts stmts rstate
@@ -115,8 +122,7 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
       regStr + ": " + regVal, Set.contains r set)
 
   /// Gets a temporary register name and EvalValue string representation.
-  member private _.TempRegString(n: int, v) =
-    $"T_{n}: {v.ToString()}"
+  member private _.TempRegString(n: int, v) = $"T_{n}: {v.ToString()}"
 
   member this.GetAllTempValString delta =
     let set = Set.ofList delta
@@ -128,10 +134,3 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     match parser with
     | BinParser _ -> parser <- LowUIRParser
     | LowUIRParser -> parser <- BinParser isa.Arch
-
-  member _.CurrentParser with get() = parser
-
-  member _.ConsolePrompt with get() =
-    match parser with
-    | BinParser arch -> arch.ToString() + "> "
-    | LowUIRParser -> "LowUIR> "

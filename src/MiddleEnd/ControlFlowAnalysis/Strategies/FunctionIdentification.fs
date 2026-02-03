@@ -59,12 +59,15 @@ type FunctionIdentification<'FnCtx,
 
     member _.AllowBBLOverlap with get() = false
 
-    member _.FindCandidates(_builders) =
-      getInitialEntryPoints ()
+    member _.FindCandidates(_builders) = getInitialEntryPoints ()
 
     member _.OnAction(_ctx, _queue, _action) = MoveOn
+
     member _.OnCreate(_ctx) = ()
+
     member _.OnFinish(_ctx) = MoveOn
+
     member _.OnCyclicDependency(_) = Terminator.impossible ()
+
     member _.FindCandidatesForPostProcessing _ = [||]
 

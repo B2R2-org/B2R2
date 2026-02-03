@@ -145,35 +145,25 @@ type IPrinter =
     pr.PrintRow oss
     pr
 
-  static member (<=/) (pr: IPrinter, cfg: TableConfig) =
-    pr.SetTableConfig cfg
+  static member (<=/) (pr: IPrinter, cfg: TableConfig) = pr.SetTableConfig cfg
 
   static member (<=/) (pr: IPrinter, colfmts: TableColumnFormat list) =
     pr.SetTableConfig colfmts
 
-  static member (<=/) (pr: IPrinter, s: string) =
-    pr.PrintLine s
+  static member (<=/) (pr: IPrinter, s: string) = pr.PrintLine s
 
-  static member (<=/) (pr: IPrinter, os: OutString) =
-    pr.PrintLine os
+  static member (<=/) (pr: IPrinter, os: OutString) = pr.PrintLine os
 
-  static member (<=/) (pr: IPrinter, cs: ColoredString) =
-    pr.PrintLine cs
+  static member (<=/) (pr: IPrinter, cs: ColoredString) = pr.PrintLine cs
 
-  static member (<=/) (pr: IPrinter, strs: string list) =
-    pr.PrintRow strs
+  static member (<=/) (pr: IPrinter, strs: string list) = pr.PrintRow strs
 
-  static member (<=/) (pr: IPrinter, css: ColoredString list) =
-    pr.PrintRow css
+  static member (<=/) (pr: IPrinter, css: ColoredString list) = pr.PrintRow css
 
-  static member (<=/) (pr: IPrinter, oss: OutString list) =
-    pr.PrintRow oss
+  static member (<=/) (pr: IPrinter, oss: OutString list) = pr.PrintRow oss
 
-  static member (<=?) (pr: IPrinter, s: string) =
-    pr.PrintError s
+  static member (<=?) (pr: IPrinter, s: string) = pr.PrintError s
 
-  static member (<=?) (pr: IPrinter, os: OutString) =
-    pr.PrintError os
+  static member (<=?) (pr: IPrinter, os: OutString) = pr.PrintError os
 
-  static member (<=?) (pr: IPrinter, cs: ColoredString) =
-    pr.PrintError cs
+  static member (<=?) (pr: IPrinter, cs: ColoredString) = pr.PrintError cs

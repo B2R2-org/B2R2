@@ -56,7 +56,8 @@ type LiftAction() =
   interface IAction with
     member _.ActionID with get() = "lift"
     member _.Signature with get() = "Binary -> string"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in a binary and linearly disassemble the binary and lift it to a
     sequence of LowUIR statements, and dump the result to a string.
 """

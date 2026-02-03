@@ -68,8 +68,7 @@ type Parser() =
       Number(Bin, buf)
 
   /// Parser for a binary number with 0b prefix.
-  let pBinary =
-    pstring "0b" >>. pBinaryDigits
+  let pBinary = pstring "0b" >>. pBinaryDigits
 
   let pOctalDigit = anyOf "01234567"
 
@@ -84,9 +83,9 @@ type Parser() =
       let b3 = n >>> 16 &&& 0xff
       let b2 = n >>> 8 &&& 0xff
       let b1 = n &&& 0xff
-      [| if b3 <> 0 || b2 <> 0 || b1 <> 0 then yield byte b1
-         if b3 <> 0 || b2 <> 0 then yield byte b2
-         if b3 <> 0 then yield byte b3 |])
+      [| if b3 <> 0 || b2 <> 0 || b1 <> 0 then yield byte b1 else ()
+         if b3 <> 0 || b2 <> 0 then yield byte b2 else ()
+         if b3 <> 0 then yield byte b3 else () |])
     |> Array.concat
     |> fun bs -> if bs.Length = 0 then [| 0uy |] else bs
 
@@ -97,8 +96,7 @@ type Parser() =
       Number(Oct, convertOctalCharsToBytes chars)
 
   /// Parser for an octal number with 0o prefix.
-  let pOctal =
-    pstring "0o" >>. pOctalDigits
+  let pOctal = pstring "0o" >>. pOctalDigits
 
   let pDecimalWithoutPrefix =
     many1 digit
@@ -106,8 +104,7 @@ type Parser() =
     |>> fun s -> Number(Dec, (bigint.Parse s).ToByteArray())
 
   /// Parser for a decimal number.
-  let pDecimal =
-    pstring "0d" >>. pDecimalWithoutPrefix
+  let pDecimal = pstring "0d" >>. pDecimalWithoutPrefix
 
   /// Parser for a number in various formats.
   let pNumber =

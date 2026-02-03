@@ -40,10 +40,8 @@ type SharableMemory() =
 
     member _.ByteWrite(addr, b) = mem[addr] <- b
 
-    member this.Read(addr, endian, typ) =
-      Memory.read addr endian typ this
+    member this.Read(addr, endian, typ) = Memory.read addr endian typ this
 
-    member this.Write(addr, v, endian) =
-      Memory.write addr v endian this
+    member this.Write(addr, v, endian) = Memory.write addr v endian this
 
     member _.Clear() = mem.Clear()

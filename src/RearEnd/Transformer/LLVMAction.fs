@@ -56,7 +56,8 @@ type LLVMAction() =
   interface IAction with
     member _.ActionID with get() = "llvm"
     member _.Signature with get() = "Binary -> string"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in a parsed binary and lift it to an LLVM function, and then dump the
     lifted function to a string.
 """

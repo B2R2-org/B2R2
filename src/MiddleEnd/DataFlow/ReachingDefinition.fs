@@ -84,8 +84,7 @@ type ReachingDefinitionAnalysis() =
 
   let lattice =
     { new ILattice<InsAndOuts> with
-        member _.Bottom =
-          { Ins = Set.empty; Outs = Set.empty }
+        member _.Bottom = { Ins = Set.empty; Outs = Set.empty }
 
         member _.Join(a, b) =
           { Ins = Set.union a.Ins b.Ins; Outs = Set.union a.Outs b.Outs }

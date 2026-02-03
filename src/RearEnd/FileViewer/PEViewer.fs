@@ -30,8 +30,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.FileViewer.Helper
 open B2R2.RearEnd.Utils
 
-let badAccess _ _ =
-  raise InvalidFileFormatException
+let badAccess _ _ = raise InvalidFileFormatException
 
 let translateChracteristics chars =
   let enumChars =
@@ -233,8 +232,7 @@ let printSymbolInfo (pe: PEBinFile) =
     printSymbolRow pe "(d)" $"{fwdBin},{fwdFunc}" 0UL name ""
   )
 
-let dumpSymbols _ (pe: PEBinFile) =
-  printSymbolInfo pe
+let dumpSymbols _ (pe: PEBinFile) = printSymbolInfo pe
 
 let dumpRelocs _ (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
@@ -262,8 +260,7 @@ let dumpFunctions _ (pe: PEBinFile) =
       <=/ [ Addr.toString (pe :> IBinFile).ISA.WordSize addr; name ]
     | Error _ -> ()
 
-let inline addrFromRVA baseAddr rva =
-  uint64 rva + baseAddr
+let inline addrFromRVA baseAddr rva = uint64 rva + baseAddr
 
 let dumpImports _ (file: PEBinFile) =
   Terminal.Out

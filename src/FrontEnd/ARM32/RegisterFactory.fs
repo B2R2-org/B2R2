@@ -162,6 +162,12 @@ type RegisterFactory() =
   let nsacr = AST.var 32<rt> (Register.toRegID NSACR) "NSACR"
 
   interface IRegisterFactory with
+    member _.ProgramCounter = PC |> Register.toRegID
+
+    member _.StackPointer = SP |> Register.toRegID |> Some
+
+    member _.FramePointer = FP |> Register.toRegID |> Some
+
     member _.GetRegVar name =
       match Register.ofRegID name with
       | R.R0 -> r0
@@ -560,31 +566,18 @@ type RegisterFactory() =
       | PCVar _ -> Register.toRegID PC
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID name =
-      Register.ofString name |> Register.toRegID
+    member _.GetRegisterID name = Register.ofString name |> Register.toRegID
 
-    member _.GetRegisterIDAliases rid =
-      [| rid |]
+    member _.GetRegisterIDAliases rid = [| rid |]
 
-    member _.GetRegisterName rid =
-      Register.ofRegID rid |> Register.toString
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
     member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory
       regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
-    member _.GetRegType rid =
-      Register.ofRegID rid |> Register.toRegType
-
-    member _.ProgramCounter =
-      PC |> Register.toRegID
-
-    member _.StackPointer =
-      SP |> Register.toRegID |> Some
-
-    member _.FramePointer =
-      FP |> Register.toRegID |> Some
+    member _.GetRegType rid = Register.ofRegID rid |> Register.toRegType
 
     member _.IsProgramCounter regid =
       let pcid = PC |> Register.toRegID

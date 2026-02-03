@@ -330,8 +330,7 @@ let getShortLoadStoreCmplt a m im5 =
 
 let getLoadCacheHints cc = if cc = 2u then Some Completer.SL else None
 
-let getLoadCWordCacheHints cc =
-  if cc = 1u then Some Completer.CO else None
+let getLoadCWordCacheHints cc = if cc = 1u then Some Completer.CO else None
 
 let getStoreCacheHints cc =
   match cc with
@@ -566,8 +565,7 @@ let getRs1Cr b = TwoOperands(rs1 b, cr b)
 
 let getCrRd b = TwoOperands(cr b, rd b)
 
-let getImmediate bin high low =
-  Bits.extract bin high low |> uint64
+let getImmediate bin high low = Bits.extract bin high low |> uint64
 
 let getImmLowSignExt bin high low wordSz =
   let imm = Bits.extract bin high low |> uint64
@@ -647,11 +645,9 @@ let getRs1Rs2SarRd b = FourOperands(rs1 b, rs2 b, OpReg CR11, rd b)
 
 let getRs1SarImm b imm = ThreeOperands(rs1 b, OpReg CR11, OpImm imm)
 
-let getRs2SarLenRs1 b clen =
-  FourOperands(rs2 b, OpReg CR11, OpImm clen, rs1 b)
+let getRs2SarLenRs1 b clen = FourOperands(rs2 b, OpReg CR11, OpImm clen, rs1 b)
 
-let getRs1SarLenRs2 b clen =
-  FourOperands(rs1 b, OpReg CR11, OpImm clen, rs2 b)
+let getRs1SarLenRs2 b clen = FourOperands(rs1 b, OpReg CR11, OpImm clen, rs2 b)
 
 let getImmSarLenRs2 b imm clen =
   FourOperands(OpImm imm, OpReg CR11, OpImm clen, rs2 b)
@@ -667,23 +663,19 @@ let getRs1SaRd b spos size = ThreeOperands(rs1 b, sa b spos size, rd b)
 
 let getRs2SaRd b spos size = ThreeOperands(rs2 b, sa b spos size, rd b)
 
-let getRs1SaRs2Rd b spos size =
-  FourOperands(rs1 b, sa b spos size, rs2 b, rd b)
+let getRs1SaRs2Rd b spos size = FourOperands(rs1 b, sa b spos size, rs2 b, rd b)
 
-let getRs1Rs2cCposRd b cp cpos =
-  FourOperands(rs1 b, rs2 b, cCpos cp cpos, rd b)
+let getRs1Rs2cCposRd b cp cpos = FourOperands(rs1 b, rs2 b, cCpos cp cpos, rd b)
 
 let getRs1CCposLenRs2 b cp cpos len =
   FourOperands(rs1 b, cCpos cp cpos, OpImm len, rs2 b)
 
-let getRs2Pos5to9LenRs1 b len =
-  FourOperands(rs2 b, pos5to9 b, OpImm len, rs1 b)
+let getRs2Pos5to9LenRs1 b len = FourOperands(rs2 b, pos5to9 b, OpImm len, rs1 b)
 
 let getRs2PosP5to9LenRs1 b len =
   FourOperands(rs2 b, posP5to9 b, OpImm len, rs1 b)
 
-let getMemBase b wordSz =
-  OneOperand(OpMem(br b, None, None, wordSz))
+let getMemBase b wordSz = OneOperand(OpMem(br b, None, None, wordSz))
 
 let getMemBaseRP b wordSz =
   TwoOperands(OpMem(br b, None, None, wordSz), OpReg GR2)
@@ -770,8 +762,7 @@ let getRs1Sr b sReg = TwoOperands(rs1 b, OpReg sReg)
 
 let getSrRd b sReg = TwoOperands(OpReg sReg, rd b)
 
-let getFe2Fe1Cbit b cbit =
-  ThreeOperands(frs2 b, frs1 b, OpImm cbit)
+let getFe2Fe1Cbit b cbit = ThreeOperands(frs2 b, frs1 b, OpImm cbit)
 
 let getFrs2Frs1FraFrd b =
   let ra = Bits.extract b 15u 13u <<< 2 ||| Bits.extract b 10u 9u

@@ -36,17 +36,13 @@ open type Completer
 [<AutoOpen>]
 module private Shortcut =
   type O =
-    static member Reg(r) =
-      OpReg r
+    static member Reg(r) = OpReg r
 
-    static member Imm(v) =
-      OpImm v
+    static member Imm(v) = OpImm v
 
-    static member Sat(v) =
-      OpShiftAmount v
+    static member Sat(v) = OpShiftAmount v
 
-    static member Mem(r, o: int64, rt) =
-      OpMem(r, None, Some(Imm o), rt)
+    static member Mem(r, o: int64, rt) = OpMem(r, None, Some(Imm o), rt)
 
     static member Mem(r, o: int64, rt, space) =
       OpMem(r, Some space, Some(Imm o), rt)

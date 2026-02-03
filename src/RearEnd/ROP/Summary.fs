@@ -85,8 +85,7 @@ module Summary =
       SysCall = state.SysCall |> List.map getSummary
       SideEff = state.SideEff }
 
-  let private calcOffset n =
-    if n % 4 = 0 && n >= 0 then Some(n / 4) else None
+  let private calcOffset n = if n % 4 = 0 && n >= 0 then Some(n / 4) else None
 
   let private getEspOff e =
     match e with

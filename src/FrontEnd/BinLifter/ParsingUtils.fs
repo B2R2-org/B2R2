@@ -39,13 +39,11 @@ module Bits =
     binary >>> int n &&& mask
 
   /// Pick a bit value at the given offset.
-  let pick (binary: uint32) (pos: uint32) =
-    binary >>> int pos &&& 0b1u
+  let pick (binary: uint32) (pos: uint32) = binary >>> int pos &&& 0b1u
 
   /// Concatenate n1 and n2 by shifting n1 to the left by the given shift
   //amount.
-  let concat (n1: uint32) (n2: uint32) shiftAmount =
-    (n1 <<< shiftAmount) + n2
+  let concat (n1: uint32) (n2: uint32) shiftAmount = (n1 <<< shiftAmount) + n2
 
   /// Get a bit mask (in uint64) of the given size.
   let getBitMask64 size =

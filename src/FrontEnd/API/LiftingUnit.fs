@@ -173,8 +173,7 @@ type LiftingUnit(binFile: IBinFile,
   /// <returns>
   /// Parsed basic block (i.e., an array of instructions).
   /// </returns>
-  member _.ParseBBlock(ptr: BinFilePointer) =
-    parseBBLByPtr null ptr 0 []
+  member _.ParseBBlock(ptr: BinFilePointer) = parseBBLByPtr null ptr 0 []
 
   /// <summary>
   /// Lifts an instruction at the given address (addr) and return the lifted IR
@@ -188,8 +187,7 @@ type LiftingUnit(binFile: IBinFile,
   /// <returns>
   /// Lifted IR statements.
   /// </returns>
-  member this.LiftInstruction(addr: Addr) =
-    this.LiftInstruction(addr, false)
+  member this.LiftInstruction(addr: Addr) = this.LiftInstruction(addr, false)
 
   /// <summary>
   /// Lifts an instruction at the given address (addr) and return the lifted IR
@@ -253,8 +251,7 @@ type LiftingUnit(binFile: IBinFile,
   /// <returns>
   /// Lifted IR statements.
   /// </returns>
-  member _.LiftInstruction(ins: IInstruction) =
-    ins.Translate irBuilder
+  member _.LiftInstruction(ins: IInstruction) = ins.Translate irBuilder
 
   /// <summary>
   /// Lifts the given instruction and return the lifted IR statements.
@@ -307,8 +304,7 @@ type LiftingUnit(binFile: IBinFile,
   /// Configure the disassembly output format for each disassembled instruction
   /// to show the address of the instruction or not.
   /// </summary>
-  member _.ConfigureDisassembly(showAddr) =
-    strDisasm.ShowAddress <- showAddr
+  member _.ConfigureDisassembly(showAddr) = strDisasm.ShowAddress <- showAddr
 
   /// <summary>
   /// Configure the disassembly output format for each disassembled instruction.
@@ -325,8 +321,7 @@ type LiftingUnit(binFile: IBinFile,
   /// <returns>
   /// Disassembled string.
   /// </returns>
-  member _.DisasmInstruction(ins: IInstruction) =
-    ins.Disasm strDisasm
+  member _.DisasmInstruction(ins: IInstruction) = ins.Disasm strDisasm
 
   /// <summary>
   /// Disassemble an instruction at the given address (addr) and return the
@@ -367,8 +362,7 @@ type LiftingUnit(binFile: IBinFile,
   /// <returns>
   /// Decomposed AsmWords.
   /// </returns>
-  member _.DecomposeInstruction(ins: IInstruction) =
-    ins.Decompose asmwordDisasm
+  member _.DecomposeInstruction(ins: IInstruction) = ins.Decompose asmwordDisasm
 
   /// <summary>
   /// Decompose an instruction at the given address (addr) and return the

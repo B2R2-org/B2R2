@@ -43,8 +43,7 @@ let checkIfInstructionLine = function
   | InstructionLine ins -> Some ins
   | LabelDefLine -> None
 
-let filterInstructionLines lst =
-  List.choose checkIfInstructionLine lst
+let filterInstructionLines lst = List.choose checkIfInstructionLine lst
 
 let extractOperands = function
   | [] -> NoOperand

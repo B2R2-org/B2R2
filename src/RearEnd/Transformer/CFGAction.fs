@@ -41,7 +41,8 @@ type CFGAction() =
   interface IAction with
     member _.ActionID with get() = "cfg"
     member _.Signature with get() = "Binary -> CFG"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in a Binary as input and returns an IR-level Control Flow Graph (CFG)
     as output. This action assumes that the given binary is well-formed, meaning
     that it has no bad instructions, and the control does not flow in the middle

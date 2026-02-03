@@ -38,6 +38,8 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality>(capacity: int) =
   let mutable tail: DoublyLinkedKeyValue<'K, 'V> = null
   let mutable size = 0
 
+  member _.Count with get() = size
+
   member inline private _.InsertBack v =
     if isNull head then head <- v else tail.Next <- v
     v.Prev <- tail
@@ -50,8 +52,6 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality>(capacity: int) =
     if isNull v.Prev then head <- v.Next else v.Prev.Next <- v.Next
     if isNull v.Next then tail <- v.Prev else v.Next.Prev <- v.Prev
     size <- size - 1
-
-  member _.Count with get() = size
 
   member this.TryGet(key: 'K) =
     match dict.TryGetValue key with
@@ -101,12 +101,13 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
   let mutable tail: DoublyLinkedKeyValue<'K, 'V> = null
   let mutable size = 0
 
+  member _.Count with get() = size
+
   member inline private _.AcquireLock() =
     try Monitor.Enter(lock)
     finally ()
 
-  member inline private _.ReleaseLock() =
-    Monitor.Exit(lock)
+  member inline private _.ReleaseLock() = Monitor.Exit(lock)
 
   member private _.InsertBack v =
     if isNull head then head <- v else tail.Next <- v
@@ -121,8 +122,6 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
     if isNull v.Next then tail <- v.Prev else v.Next.Prev <- v.Prev
     size <- size - 1
 
-  member _.Count with get() = size
-
   member this.GetOrAdd(key: 'K, op: ICacheableOperation<_, 'V>, arg) =
     this.AcquireLock()
     let v =
@@ -134,6 +133,8 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
         if size >= capacity then
           dict.Remove head.Key |> ignore
           this.Remove head
+        else
+          ()
         let v = DoublyLinkedKeyValue(null, null, key, op.Perform arg)
         dict.Add(key, v)
         this.InsertBack v

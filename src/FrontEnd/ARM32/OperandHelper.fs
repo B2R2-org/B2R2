@@ -86,8 +86,7 @@ let rec private getRegListLoop acc b = function
     getRegListLoop (getRegister (uint32 n) :: acc) b (n + 1)
   | n -> getRegListLoop acc b (n + 1)
 
-let inline getRegList b =
-  getRegListLoop [] b 0 |> List.rev
+let inline getRegList b = getRegListLoop [] b 0 |> List.rev
 
 (* SIMD vector register list *)
 let getSIMDVector rLst =

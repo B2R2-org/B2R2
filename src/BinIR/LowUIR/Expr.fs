@@ -152,11 +152,9 @@ with
   static member inline HashVar(rt: RegType, rid: RegisterID) =
     19 * (19 * int rt + int rid) + 1
 
-  static member inline HashPCVar(rt: RegType) =
-    19 * int rt + 2
+  static member inline HashPCVar(rt: RegType) = 19 * int rt + 2
 
-  static member inline HashTempVar(rt: RegType, n) =
-    19 * (19 * int rt + n) + 3
+  static member inline HashTempVar(rt: RegType, n) = 19 * (19 * int rt + n) + 3
 
   static member inline HashExprList(exprs: Expr list, hasCache) =
     exprs
@@ -171,8 +169,7 @@ with
   static member inline HashJmpDest(lbl: Label) =
     19 * (19 * lbl.GetHashCode()) + 5
 
-  static member inline HashFuncName(s: string) =
-    (19 * s.GetHashCode()) + 6
+  static member inline HashFuncName(s: string) = (19 * s.GetHashCode()) + 6
 
   static member inline HashBinOp(op, rt, e1: Expr, e2: Expr, hasCache) =
     if hasCache then

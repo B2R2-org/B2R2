@@ -35,19 +35,6 @@ open System.Threading.Tasks.Dataflow
 /// </summary>
 type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
 
-  /// Post a message to the agent.
-  member _.Post(msg: 'Msg) =
-    ch.Post msg |> ignore
-
-  /// Post a message and get a reply from the agent.
-  member _.PostAndReply callback =
-    use cts = new CancellationTokenSource()
-    let replyChan = BufferBlock<_>()
-    let reply = AgentReplyChannel<_>(replyChan.Post >> ignore)
-    let msg = callback cts reply
-    ch.Post msg |> ignore
-    replyChan.Receive cts.Token
-
   /// Agent's task.
   member _.Task with get() = task
 
@@ -75,6 +62,18 @@ type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
         Console.Error.WriteLine e.StackTrace
         exit 1
     Agent(ch, Task.Run(fn, cancellationToken = token))
+
+  /// Post a message to the agent.
+  member _.Post(msg: 'Msg) = ch.Post msg |> ignore
+
+  /// Post a message and get a reply from the agent.
+  member _.PostAndReply callback =
+    use cts = new CancellationTokenSource()
+    let replyChan = BufferBlock<_>()
+    let reply = AgentReplyChannel<_>(replyChan.Post >> ignore)
+    let msg = callback cts reply
+    ch.Post msg |> ignore
+    replyChan.Receive cts.Token
 
 /// <summary>
 /// Represents a reply channel for an agent (<see cref='T:B2R2.Agent`1'/>). The

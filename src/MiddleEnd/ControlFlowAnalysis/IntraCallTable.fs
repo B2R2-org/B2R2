@@ -58,20 +58,16 @@ type IntraCallTable() =
     callees[callsiteAddr] <- SyscallCallee isExit
 
   /// Get a callee information for the given call instruction address.
-  member _.GetCallee(callsite: CallSite) =
-    callees[callsite]
+  member _.GetCallee(callsite: CallSite) = callees[callsite]
 
   /// Try to get a callee information for the given call instruction address.
-  member _.TryGetCallee(callsite: CallSite) =
-    callees.TryGetValue callsite
+  member _.TryGetCallee(callsite: CallSite) = callees.TryGetValue callsite
 
   /// Get a set of callsite addresses of a callee.
-  member _.GetCallsites(calleeAddr: Addr) =
-    callsites[calleeAddr]
+  member _.GetCallsites(calleeAddr: Addr) = callsites[calleeAddr]
 
   /// Try to get a set of callsite addresses of a callee.
-  member _.TryGetCallsites(calleeAddr: Addr) =
-    callsites.TryGetValue calleeAddr
+  member _.TryGetCallsites(calleeAddr: Addr) = callsites.TryGetValue calleeAddr
 
   /// Update call frame distance information for the given callsite address.
   member _.UpdateFrameDistance(callsite: CallSite, distance) =

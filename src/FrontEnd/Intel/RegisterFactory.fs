@@ -406,6 +406,20 @@ type RegisterFactory(wordSize) =
 #endif
 
   interface IRegisterFactory with
+    member _.ProgramCounter =
+      if WordSize.is32 wordSize then EIP |> Register.toRegID
+      else RIP |> Register.toRegID
+
+    member _.StackPointer =
+      if WordSize.is32 wordSize then ESP |> Register.toRegID
+      else RSP |> Register.toRegID
+      |> Some
+
+    member _.FramePointer =
+      if WordSize.is32 wordSize then EBP |> Register.toRegID
+      else RBP |> Register.toRegID
+      |> Some
+
     member _.GetRegVar rid =
       match Register.ofRegID rid with
       | R.RAX ->
@@ -2159,16 +2173,14 @@ type RegisterFactory(wordSize) =
         else Register.toRegID RIP
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID name =
-      Register.ofString name |> Register.toRegID
+    member _.GetRegisterID name = Register.ofString name |> Register.toRegID
 
     member _.GetRegisterIDAliases rid =
       Register.ofRegID rid
       |> Register.getAliases
       |> Array.map Register.toRegID
 
-    member _.GetRegisterName rid =
-      Register.ofRegID rid |> Register.toString
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
     member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory
@@ -2177,20 +2189,6 @@ type RegisterFactory(wordSize) =
 
     member _.GetRegType rid =
       Register.ofRegID rid |> Register.toRegType wordSize
-
-    member _.ProgramCounter =
-      if WordSize.is32 wordSize then EIP |> Register.toRegID
-      else RIP |> Register.toRegID
-
-    member _.StackPointer =
-      if WordSize.is32 wordSize then ESP |> Register.toRegID
-      else RSP |> Register.toRegID
-      |> Some
-
-    member _.FramePointer =
-      if WordSize.is32 wordSize then EBP |> Register.toRegID
-      else RBP |> Register.toRegID
-      |> Some
 
     member this.IsProgramCounter regid =
       (this :> IRegisterFactory).ProgramCounter = regid

@@ -144,7 +144,7 @@ let extend reg oprSz regSize isUnsigned =
     if regSize = 64 then reg
     else
       let mBit = AST.extract reg 1<rt> (regSize - 1)
-      let sMask = ~~~ ((1L <<< regSize) - 1L)
+      let sMask = ~~~((1L <<< regSize) - 1L)
       AST.ite mBit (reg .| numI64 sMask oprSz) (reg .& uMask)
 
 /// aarch64/instrs/extendreg/ExtendReg
@@ -257,8 +257,7 @@ let transMemOffset ins bld = function
   | RegOffset(bReg, reg, regOffset) ->
     transRegOffset ins bld (bReg, reg, regOffset) |> AST.loadLE 64<rt>
 
-let transBaseMode ins bld offset =
-  transMemOffset ins bld offset
+let transBaseMode ins bld offset = transMemOffset ins bld offset
 
 let transMem ins bld _addr = function
   | BaseMode offset -> transBaseMode ins bld offset
@@ -780,7 +779,7 @@ let decodeBitMasks immr imms dataSize =
   let immN = dataSize / 64
   let immr = getImmValue immr |> int
   let imms = getImmValue imms |> int
-  let immNNot = immN <<< 6 ||| (~~~ imms &&& 0x3F)
+  let immNNot = immN <<< 6 ||| (~~~imms &&& 0x3F)
   let len = highestSetBit immNNot 7
   assert (len > 0)
   assert (int dataSize >= (1 <<< len))

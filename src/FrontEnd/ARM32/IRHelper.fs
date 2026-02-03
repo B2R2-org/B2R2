@@ -195,8 +195,7 @@ let currentModeIsHyp bld =
   AST.ite modeCond (AST.undef 1<rt> "UNPREDICTABLE") ite1
 
 /// Is this ARM instruction set, on page A2-51.
-let isInstrSetARM bld =
-  AST.not (isSetCPSRj bld) .& AST.not (isSetCPSRt bld)
+let isInstrSetARM bld = AST.not (isSetCPSRj bld) .& AST.not (isSetCPSRt bld)
 
 /// Is this Thumb instruction set, on page A2-51.
 let isInstrSetThumb bld = AST.not (isSetCPSRj bld) .& (isSetCPSRt bld)

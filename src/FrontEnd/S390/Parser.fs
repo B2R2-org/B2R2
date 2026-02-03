@@ -34,17 +34,15 @@ type S390Parser(isa: ISA, reader) =
 
   let lifter =
     { new ILiftable with
-        member _.Lift(_, _) =
-          Terminator.futureFeature ()
-        member _.Disasm(ins, builder) =
-          Disasm.disasm ins builder; builder }
+        member _.Lift(_, _) = Terminator.futureFeature ()
+        member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
   interface IInstructionParsable with
+    member _.MaxInstructionSize = 6
+
     member _.Parse(span: ByteSpan, addr: Addr) =
       ParsingMain.parse lifter span reader wordSize addr :> IInstruction
 
     member _.Parse(bs: byte[], addr: Addr) =
       let span = ReadOnlySpan bs
       ParsingMain.parse lifter span reader wordSize addr :> IInstruction
-
-    member _.MaxInstructionSize = 6

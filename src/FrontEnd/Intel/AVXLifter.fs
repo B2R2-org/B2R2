@@ -132,8 +132,7 @@ let vsqrtpd ins insLen bld =
   | 256<rt> ->
     let struct (dst4, dst3, dst2, dst1) =
       transOprToExpr256 bld false ins insLen dst
-    let struct (sr4, sr3, sr2, sr1) =
-      transOprToExpr256 bld false ins insLen src
+    let struct (sr4, sr3, sr2, sr1) = transOprToExpr256 bld false ins insLen src
     bld <+ (dst1 := AST.fsqrt sr1)
     bld <+ (dst2 := AST.fsqrt sr2)
     bld <+ (dst3 := AST.fsqrt sr3)
@@ -160,59 +159,41 @@ let private vsqrts (ins: Instruction) insLen bld sz =
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
 
-let vsqrtss ins insLen bld =
-  vsqrts ins insLen bld 32<rt>
+let vsqrtss ins insLen bld = vsqrts ins insLen bld 32<rt>
 
-let vsqrtsd ins insLen bld =
-  vsqrts ins insLen bld 64<rt>
+let vsqrtsd ins insLen bld = vsqrts ins insLen bld 64<rt>
 
-let vaddps ins insLen bld =
-  buildPackedFPInstr ins insLen bld 32<rt> AST.fadd
+let vaddps ins insLen bld = buildPackedFPInstr ins insLen bld 32<rt> AST.fadd
 
-let vaddpd ins insLen bld =
-  buildPackedFPInstr ins insLen bld 64<rt> AST.fadd
+let vaddpd ins insLen bld = buildPackedFPInstr ins insLen bld 64<rt> AST.fadd
 
-let vaddss ins insLen bld =
-  vexedScalarFPBinOp ins insLen bld 32<rt> AST.fadd
+let vaddss ins insLen bld = vexedScalarFPBinOp ins insLen bld 32<rt> AST.fadd
 
-let vaddsd ins insLen bld =
-  vexedScalarFPBinOp ins insLen bld 64<rt> AST.fadd
+let vaddsd ins insLen bld = vexedScalarFPBinOp ins insLen bld 64<rt> AST.fadd
 
-let vsubps ins insLen bld =
-  buildPackedFPInstr ins insLen bld 32<rt> AST.fsub
+let vsubps ins insLen bld = buildPackedFPInstr ins insLen bld 32<rt> AST.fsub
 
-let vsubpd ins insLen bld =
-  buildPackedFPInstr ins insLen bld 64<rt> AST.fsub
+let vsubpd ins insLen bld = buildPackedFPInstr ins insLen bld 64<rt> AST.fsub
 
-let vsubss ins insLen bld =
-  vexedScalarFPBinOp ins insLen bld 32<rt> AST.fsub
+let vsubss ins insLen bld = vexedScalarFPBinOp ins insLen bld 32<rt> AST.fsub
 
-let vsubsd ins insLen bld =
-  vexedScalarFPBinOp ins insLen bld 64<rt> AST.fsub
+let vsubsd ins insLen bld = vexedScalarFPBinOp ins insLen bld 64<rt> AST.fsub
 
-let vmulps ins insLen bld =
-  buildPackedFPInstr ins insLen bld 32<rt> AST.fmul
+let vmulps ins insLen bld = buildPackedFPInstr ins insLen bld 32<rt> AST.fmul
 
-let vmulpd ins insLen bld =
-  buildPackedFPInstr ins insLen bld 64<rt> AST.fmul
+let vmulpd ins insLen bld = buildPackedFPInstr ins insLen bld 64<rt> AST.fmul
 
-let vmulss ins insLen bld =
-  vexedScalarFPBinOp ins insLen bld 32<rt> AST.fmul
+let vmulss ins insLen bld = vexedScalarFPBinOp ins insLen bld 32<rt> AST.fmul
 
-let vmulsd ins insLen bld =
-  vexedScalarFPBinOp ins insLen bld 64<rt> AST.fmul
+let vmulsd ins insLen bld = vexedScalarFPBinOp ins insLen bld 64<rt> AST.fmul
 
-let vdivps ins insLen bld =
-  buildPackedFPInstr ins insLen bld 32<rt> AST.fdiv
+let vdivps ins insLen bld = buildPackedFPInstr ins insLen bld 32<rt> AST.fdiv
 
-let vdivpd ins insLen bld =
-  buildPackedFPInstr ins insLen bld 64<rt> AST.fdiv
+let vdivpd ins insLen bld = buildPackedFPInstr ins insLen bld 64<rt> AST.fdiv
 
-let vdivss ins insLen bld =
-  vexedScalarFPBinOp ins insLen bld 32<rt> AST.fdiv
+let vdivss ins insLen bld = vexedScalarFPBinOp ins insLen bld 32<rt> AST.fdiv
 
-let vdivsd ins insLen bld =
-  vexedScalarFPBinOp ins insLen bld 64<rt> AST.fdiv
+let vdivsd ins insLen bld = vexedScalarFPBinOp ins insLen bld 64<rt> AST.fdiv
 
 let vcvtsi2ss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -363,8 +344,7 @@ let vmovdqa ins insLen bld = buildVectorMove ins insLen bld 64<rt>
 
 let vmovdqa64 ins insLen bld = buildVectorMoveAVX512 ins insLen bld 64<rt>
 
-let vmovntdq ins insLen bld =
-  buildMove ins insLen bld
+let vmovntdq ins insLen bld = buildMove ins insLen bld
 
 let vmovups ins insLen bld = buildVectorMove ins insLen bld 32<rt>
 
@@ -393,11 +373,9 @@ let vmovddup (ins: Instruction) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
-let vmovntps ins insLen bld =
-  buildMove ins insLen bld
+let vmovntps ins insLen bld = buildMove ins insLen bld
 
-let vmovntpd ins insLen bld =
-  buildMove ins insLen bld
+let vmovntpd ins insLen bld = buildMove ins insLen bld
 
 let vmovhlps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -608,25 +586,19 @@ let vmovss (ins: Instruction) insLen bld =
     bld --!> insLen
   | _ -> raise InvalidOperandException
 
-let vandps ins insLen bld =
-  buildPackedFPInstr ins insLen bld 32<rt> (.&)
+let vandps ins insLen bld = buildPackedFPInstr ins insLen bld 32<rt> (.&)
 
-let vandpd ins insLen bld =
-  buildPackedFPInstr ins insLen bld 64<rt> (.&)
+let vandpd ins insLen bld = buildPackedFPInstr ins insLen bld 64<rt> (.&)
 
 let private andnpdOp e1 e2 = (AST.not e1) .& e2
 
-let vandnps ins insLen bld =
-  buildPackedFPInstr ins insLen bld 32<rt> andnpdOp
+let vandnps ins insLen bld = buildPackedFPInstr ins insLen bld 32<rt> andnpdOp
 
-let vandnpd ins insLen bld =
-  buildPackedFPInstr ins insLen bld 64<rt> andnpdOp
+let vandnpd ins insLen bld = buildPackedFPInstr ins insLen bld 64<rt> andnpdOp
 
-let vorps ins insLen bld =
-  buildPackedFPInstr ins insLen bld 32<rt> (.|)
+let vorps ins insLen bld = buildPackedFPInstr ins insLen bld 32<rt> (.|)
 
-let vorpd ins insLen bld =
-  buildPackedFPInstr ins insLen bld 64<rt> (.|)
+let vorpd ins insLen bld = buildPackedFPInstr ins insLen bld 64<rt> (.|)
 
 let vshufi32x4 (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -652,8 +624,7 @@ let vshufi32x4 (ins: Instruction) insLen bld =
   match oprSize with
   | 256<rt> ->
     let halfPNum = oprSize / packSz / 2
-    let orgDst =
-      transOprToArr bld false ins insLen packSz packNum oprSize dst
+    let orgDst = transOprToArr bld false ins insLen packSz packNum oprSize dst
     let tDstA = Array.init halfPNum (fun _ -> tmpVar bld packSz)
     let tDstB = Array.init halfPNum (fun _ -> tmpVar bld packSz)
     let imm0 (* imm8[0] *) = imm8 &&& 0b1L |> int
@@ -667,8 +638,7 @@ let vshufi32x4 (ins: Instruction) insLen bld =
     assignPackedInstr bld false ins insLen packNum oprSize dst result
   | 512<rt> ->
     let pNum = oprSize / packSz / 4
-    let orgDst =
-      transOprToArr bld false ins insLen packSz packNum oprSize dst
+    let orgDst = transOprToArr bld false ins insLen packSz packNum oprSize dst
     let tDstA = Array.init pNum (fun _ -> tmpVar bld packSz)
     let tDstB = Array.init pNum (fun _ -> tmpVar bld packSz)
     let tDstC = Array.init pNum (fun _ -> tmpVar bld packSz)
@@ -781,10 +751,8 @@ let vunpckhps (ins: Instruction) insLen bld =
   | 256<rt> ->
     let struct (dstD, dstC, dstB, dstA) =
       transOprToExpr256 bld false ins insLen dst
-    let struct (sr1D, _, sr1B, _) =
-      transOprToExpr256 bld false ins insLen src1
-    let struct (sr2D, _, sr2B, _) =
-      transOprToExpr256 bld false ins insLen src2
+    let struct (sr1D, _, sr1B, _) = transOprToExpr256 bld false ins insLen src1
+    let struct (sr2D, _, sr2B, _) = transOprToExpr256 bld false ins insLen src2
     bld <+ (AST.xtlo 32<rt> dstA := AST.xtlo 32<rt> sr1B)
     bld <+ (AST.xthi 32<rt> dstA := AST.xtlo 32<rt> sr2B)
     bld <+ (AST.xtlo 32<rt> dstB := AST.xthi 32<rt> sr1B)
@@ -812,10 +780,8 @@ let vunpckhpd (ins: Instruction) insLen bld =
   | 256<rt> ->
     let struct (dstD, dstC, dstB, dstA) =
       transOprToExpr256 bld false ins insLen dst
-    let struct (sr1D, _, sr1B, _) =
-      transOprToExpr256 bld false ins insLen src1
-    let struct (sr2D, _, sr2B, _) =
-      transOprToExpr256 bld false ins insLen src2
+    let struct (sr1D, _, sr1B, _) = transOprToExpr256 bld false ins insLen src1
+    let struct (sr2D, _, sr2B, _) = transOprToExpr256 bld false ins insLen src2
     bld <+ (dstA := sr1B)
     bld <+ (dstB := sr2B)
     bld <+ (dstC := sr1D)
@@ -841,10 +807,8 @@ let vunpcklps (ins: Instruction) insLen bld =
   | 256<rt> ->
     let struct (dstD, dstC, dstB, dstA) =
       transOprToExpr256 bld false ins insLen dst
-    let struct (_, src1C, _, src1A) =
-      transOprToExpr256 bld true ins insLen src1
-    let struct (_, src2C, _, src2A) =
-      transOprToExpr256 bld true ins insLen src2
+    let struct (_, src1C, _, src1A) = transOprToExpr256 bld true ins insLen src1
+    let struct (_, src2C, _, src2A) = transOprToExpr256 bld true ins insLen src2
     bld <+ (AST.xtlo 32<rt> dstA := AST.xtlo 32<rt> src1A)
     bld <+ (AST.xthi 32<rt> dstA := AST.xtlo 32<rt> src2A)
     bld <+ (AST.xtlo 32<rt> dstB := AST.xthi 32<rt> src1A)
@@ -871,10 +835,8 @@ let vunpcklpd (ins: Instruction) insLen bld =
   | 256<rt> ->
     let struct (dstD, dstC, dstB, dstA) =
       transOprToExpr256 bld false ins insLen dst
-    let struct (_, src1C, _, src1A) =
-      transOprToExpr256 bld true ins insLen src1
-    let struct (_, src2C, _, src2A) =
-      transOprToExpr256 bld true ins insLen src2
+    let struct (_, src1C, _, src1A) = transOprToExpr256 bld true ins insLen src1
+    let struct (_, src2C, _, src2A) = transOprToExpr256 bld true ins insLen src2
     bld <+ (dstA := src1A)
     bld <+ (dstB := src2A)
     bld <+ (dstC := src1C)
@@ -903,8 +865,7 @@ let vxorps (ins: Instruction) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
 
-let vxorpd ins insLen bld =
-  buildPackedFPInstr ins insLen bld 64<rt> (<+>)
+let vxorpd ins insLen bld = buildPackedFPInstr ins insLen bld 64<rt> (<+>)
 
 let vbroadcasti128 (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -961,8 +922,7 @@ let vextracti32x8 (ins: Instruction) insLen bld =
   let ePrx = getEVEXPrx ins.VEXInfo
   let k = regVar bld (ePrx.AAA |> int |> Register.opmask)
   let eDst = transOprToArr bld false ins insLen packSz packNum oprSize dst
-  let src =
-    transOprToArr bld false ins insLen packSz packNum (oprSize * 2) src
+  let src = transOprToArr bld false ins insLen packSz packNum (oprSize * 2) src
   let imm0 = getImmValue imm &&& 0b1L |> int (* imm8[0] *)
   let tmpDst = Array.sub src (allPackNum * imm0) allPackNum
   let result =
@@ -1104,11 +1064,9 @@ let vpalignr (ins: Instruction) insLen bld =
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
 
-let vpand ins insLen bld =
-  buildPackedInstr ins insLen bld true 64<rt> opPand
+let vpand ins insLen bld = buildPackedInstr ins insLen bld true 64<rt> opPand
 
-let vpandn ins insLen bld =
-  buildPackedInstr ins insLen bld true 64<rt> opPandn
+let vpandn ins insLen bld = buildPackedInstr ins insLen bld true 64<rt> opPandn
 
 let vblendvpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1947,6 +1905,8 @@ let vzeroupper (ins: Instruction) insLen bld =
     bld <+ (pseudoRegVar bld R.YMM14 4 := n0)
     bld <+ (pseudoRegVar bld R.YMM15 3 := n0)
     bld <+ (pseudoRegVar bld R.YMM15 4 := n0)
+  else
+    ()
   bld --!> insLen
 
 let vfmadd132sd (ins: Instruction) insLen bld =

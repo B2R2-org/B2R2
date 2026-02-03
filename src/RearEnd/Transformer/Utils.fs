@@ -30,8 +30,7 @@ open B2R2.FrontEnd.BinLifter
 
 let [<Literal>] MaxByteShow = 14
 
-let byteArrayToHexStringArray (bs: byte[]) =
-  bs |> Array.map (sprintf "%02x")
+let byteArrayToHexStringArray (bs: byte[]) = bs |> Array.map (sprintf "%02x")
 
 let makeSpanSummary (bs: ByteSpan) =
   if bs.Length > MaxByteShow then
@@ -45,8 +44,7 @@ let makeSpanSummary (bs: ByteSpan) =
     |> Array.map (sprintf "%02x")
     |> String.concat " "
 
-let makeByteArraySummary (bs: byte[]) =
-  makeSpanSummary (ReadOnlySpan bs)
+let makeByteArraySummary (bs: byte[]) = makeSpanSummary (ReadOnlySpan bs)
 
 let rec buildNgram acc n (span: ByteSpan) idx =
   if idx <= span.Length - n then

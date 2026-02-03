@@ -32,16 +32,16 @@ open type Register
 /// Represents a factory for accessing various ARM64 register variables.
 type RegisterFactory() =
   (* Registers *)
-  let x0  = AST.var 64<rt> (Register.toRegID X0) "X0"
-  let x1  = AST.var 64<rt> (Register.toRegID X1) "X1"
-  let x2  = AST.var 64<rt> (Register.toRegID X2) "X2"
-  let x3  = AST.var 64<rt> (Register.toRegID X3) "X3"
-  let x4  = AST.var 64<rt> (Register.toRegID X4) "X4"
-  let x5  = AST.var 64<rt> (Register.toRegID X5) "X5"
-  let x6  = AST.var 64<rt> (Register.toRegID X6) "X6"
-  let x7  = AST.var 64<rt> (Register.toRegID X7) "X7"
-  let x8  = AST.var 64<rt> (Register.toRegID X8) "X8"
-  let x9  = AST.var 64<rt> (Register.toRegID X9) "X9"
+  let x0 = AST.var 64<rt> (Register.toRegID X0) "X0"
+  let x1 = AST.var 64<rt> (Register.toRegID X1) "X1"
+  let x2 = AST.var 64<rt> (Register.toRegID X2) "X2"
+  let x3 = AST.var 64<rt> (Register.toRegID X3) "X3"
+  let x4 = AST.var 64<rt> (Register.toRegID X4) "X4"
+  let x5 = AST.var 64<rt> (Register.toRegID X5) "X5"
+  let x6 = AST.var 64<rt> (Register.toRegID X6) "X6"
+  let x7 = AST.var 64<rt> (Register.toRegID X7) "X7"
+  let x8 = AST.var 64<rt> (Register.toRegID X8) "X8"
+  let x9 = AST.var 64<rt> (Register.toRegID X9) "X9"
   let x10 = AST.var 64<rt> (Register.toRegID X10) "X10"
   let x11 = AST.var 64<rt> (Register.toRegID X11) "X11"
   let x12 = AST.var 64<rt> (Register.toRegID X12) "X12"
@@ -67,16 +67,16 @@ type RegisterFactory() =
   let sp = AST.var 64<rt> (Register.toRegID SP) "SP"
   let pc = AST.pcvar 64<rt> "PC"
 
-  let w0  = AST.xtlo 32<rt> x0
-  let w1  = AST.xtlo 32<rt> x1
-  let w2  = AST.xtlo 32<rt> x2
-  let w3  = AST.xtlo 32<rt> x3
-  let w4  = AST.xtlo 32<rt> x4
-  let w5  = AST.xtlo 32<rt> x5
-  let w6  = AST.xtlo 32<rt> x6
-  let w7  = AST.xtlo 32<rt> x7
-  let w8  = AST.xtlo 32<rt> x8
-  let w9  = AST.xtlo 32<rt> x9
+  let w0 = AST.xtlo 32<rt> x0
+  let w1 = AST.xtlo 32<rt> x1
+  let w2 = AST.xtlo 32<rt> x2
+  let w3 = AST.xtlo 32<rt> x3
+  let w4 = AST.xtlo 32<rt> x4
+  let w5 = AST.xtlo 32<rt> x5
+  let w6 = AST.xtlo 32<rt> x6
+  let w7 = AST.xtlo 32<rt> x7
+  let w8 = AST.xtlo 32<rt> x8
+  let w9 = AST.xtlo 32<rt> x9
   let w10 = AST.xtlo 32<rt> x10
   let w11 = AST.xtlo 32<rt> x11
   let w12 = AST.xtlo 32<rt> x12
@@ -101,26 +101,26 @@ type RegisterFactory() =
   let wzr = AST.xtlo 32<rt> xzr
   let wsp = AST.xtlo 32<rt> sp
 
-  let v0a  = AST.var 64<rt> (Register.toRegID V0A) "V0A"
-  let v0b  = AST.var 64<rt> (Register.toRegID V0B) "V0B"
-  let v1a  = AST.var 64<rt> (Register.toRegID V1A) "V1A"
-  let v1b  = AST.var 64<rt> (Register.toRegID V1B) "V1B"
-  let v2a  = AST.var 64<rt> (Register.toRegID V2A) "V2A"
-  let v2b  = AST.var 64<rt> (Register.toRegID V2B) "V2B"
-  let v3a  = AST.var 64<rt> (Register.toRegID V3A) "V3A"
-  let v3b  = AST.var 64<rt> (Register.toRegID V3B) "V3B"
-  let v4a  = AST.var 64<rt> (Register.toRegID V4A) "V4A"
-  let v4b  = AST.var 64<rt> (Register.toRegID V4B) "V4B"
-  let v5a  = AST.var 64<rt> (Register.toRegID V5A) "V5A"
-  let v5b  = AST.var 64<rt> (Register.toRegID V5B) "V5B"
-  let v6a  = AST.var 64<rt> (Register.toRegID V6A) "V6A"
-  let v6b  = AST.var 64<rt> (Register.toRegID V6B) "V6B"
-  let v7a  = AST.var 64<rt> (Register.toRegID V7A) "V7A"
-  let v7b  = AST.var 64<rt> (Register.toRegID V7B) "V7B"
-  let v8a  = AST.var 64<rt> (Register.toRegID V8A) "V8A"
-  let v8b  = AST.var 64<rt> (Register.toRegID V8B) "V8B"
-  let v9a  = AST.var 64<rt> (Register.toRegID V9A) "V9A"
-  let v9b  = AST.var 64<rt> (Register.toRegID V9B) "V9B"
+  let v0a = AST.var 64<rt> (Register.toRegID V0A) "V0A"
+  let v0b = AST.var 64<rt> (Register.toRegID V0B) "V0B"
+  let v1a = AST.var 64<rt> (Register.toRegID V1A) "V1A"
+  let v1b = AST.var 64<rt> (Register.toRegID V1B) "V1B"
+  let v2a = AST.var 64<rt> (Register.toRegID V2A) "V2A"
+  let v2b = AST.var 64<rt> (Register.toRegID V2B) "V2B"
+  let v3a = AST.var 64<rt> (Register.toRegID V3A) "V3A"
+  let v3b = AST.var 64<rt> (Register.toRegID V3B) "V3B"
+  let v4a = AST.var 64<rt> (Register.toRegID V4A) "V4A"
+  let v4b = AST.var 64<rt> (Register.toRegID V4B) "V4B"
+  let v5a = AST.var 64<rt> (Register.toRegID V5A) "V5A"
+  let v5b = AST.var 64<rt> (Register.toRegID V5B) "V5B"
+  let v6a = AST.var 64<rt> (Register.toRegID V6A) "V6A"
+  let v6b = AST.var 64<rt> (Register.toRegID V6B) "V6B"
+  let v7a = AST.var 64<rt> (Register.toRegID V7A) "V7A"
+  let v7b = AST.var 64<rt> (Register.toRegID V7B) "V7B"
+  let v8a = AST.var 64<rt> (Register.toRegID V8A) "V8A"
+  let v8b = AST.var 64<rt> (Register.toRegID V8B) "V8B"
+  let v9a = AST.var 64<rt> (Register.toRegID V9A) "V9A"
+  let v9b = AST.var 64<rt> (Register.toRegID V9B) "V9B"
   let v10a = AST.var 64<rt> (Register.toRegID V10A) "V10A"
   let v10b = AST.var 64<rt> (Register.toRegID V10B) "V10B"
   let v11a = AST.var 64<rt> (Register.toRegID V11A) "V11A"
@@ -166,16 +166,16 @@ type RegisterFactory() =
   let v31a = AST.var 64<rt> (Register.toRegID V31A) "V31A"
   let v31b = AST.var 64<rt> (Register.toRegID V31B) "V31B"
 
-  let d0  = v0a
-  let d1  = v1a
-  let d2  = v2a
-  let d3  = v3a
-  let d4  = v4a
-  let d5  = v5a
-  let d6  = v6a
-  let d7  = v7a
-  let d8  = v8a
-  let d9  = v9a
+  let d0 = v0a
+  let d1 = v1a
+  let d2 = v2a
+  let d3 = v3a
+  let d4 = v4a
+  let d5 = v5a
+  let d6 = v6a
+  let d7 = v7a
+  let d8 = v8a
+  let d9 = v9a
   let d10 = v10a
   let d11 = v11a
   let d12 = v12a
@@ -199,16 +199,16 @@ type RegisterFactory() =
   let d30 = v30a
   let d31 = v31a
 
-  let s0  = AST.xtlo 32<rt> v0a
-  let s1  = AST.xtlo 32<rt> v1a
-  let s2  = AST.xtlo 32<rt> v2a
-  let s3  = AST.xtlo 32<rt> v3a
-  let s4  = AST.xtlo 32<rt> v4a
-  let s5  = AST.xtlo 32<rt> v5a
-  let s6  = AST.xtlo 32<rt> v6a
-  let s7  = AST.xtlo 32<rt> v7a
-  let s8  = AST.xtlo 32<rt> v8a
-  let s9  = AST.xtlo 32<rt> v9a
+  let s0 = AST.xtlo 32<rt> v0a
+  let s1 = AST.xtlo 32<rt> v1a
+  let s2 = AST.xtlo 32<rt> v2a
+  let s3 = AST.xtlo 32<rt> v3a
+  let s4 = AST.xtlo 32<rt> v4a
+  let s5 = AST.xtlo 32<rt> v5a
+  let s6 = AST.xtlo 32<rt> v6a
+  let s7 = AST.xtlo 32<rt> v7a
+  let s8 = AST.xtlo 32<rt> v8a
+  let s9 = AST.xtlo 32<rt> v9a
   let s10 = AST.xtlo 32<rt> v10a
   let s11 = AST.xtlo 32<rt> v11a
   let s12 = AST.xtlo 32<rt> v12a
@@ -232,16 +232,16 @@ type RegisterFactory() =
   let s30 = AST.xtlo 32<rt> v30a
   let s31 = AST.xtlo 32<rt> v31a
 
-  let h0  = AST.xtlo 16<rt> v0a
-  let h1  = AST.xtlo 16<rt> v1a
-  let h2  = AST.xtlo 16<rt> v2a
-  let h3  = AST.xtlo 16<rt> v3a
-  let h4  = AST.xtlo 16<rt> v4a
-  let h5  = AST.xtlo 16<rt> v5a
-  let h6  = AST.xtlo 16<rt> v6a
-  let h7  = AST.xtlo 16<rt> v7a
-  let h8  = AST.xtlo 16<rt> v8a
-  let h9  = AST.xtlo 16<rt> v9a
+  let h0 = AST.xtlo 16<rt> v0a
+  let h1 = AST.xtlo 16<rt> v1a
+  let h2 = AST.xtlo 16<rt> v2a
+  let h3 = AST.xtlo 16<rt> v3a
+  let h4 = AST.xtlo 16<rt> v4a
+  let h5 = AST.xtlo 16<rt> v5a
+  let h6 = AST.xtlo 16<rt> v6a
+  let h7 = AST.xtlo 16<rt> v7a
+  let h8 = AST.xtlo 16<rt> v8a
+  let h9 = AST.xtlo 16<rt> v9a
   let h10 = AST.xtlo 16<rt> v10a
   let h11 = AST.xtlo 16<rt> v11a
   let h12 = AST.xtlo 16<rt> v12a
@@ -265,16 +265,16 @@ type RegisterFactory() =
   let h30 = AST.xtlo 16<rt> v30a
   let h31 = AST.xtlo 16<rt> v31a
 
-  let b0  = AST.xtlo 8<rt> v0a
-  let b1  = AST.xtlo 8<rt> v1a
-  let b2  = AST.xtlo 8<rt> v2a
-  let b3  = AST.xtlo 8<rt> v3a
-  let b4  = AST.xtlo 8<rt> v4a
-  let b5  = AST.xtlo 8<rt> v5a
-  let b6  = AST.xtlo 8<rt> v6a
-  let b7  = AST.xtlo 8<rt> v7a
-  let b8  = AST.xtlo 8<rt> v8a
-  let b9  = AST.xtlo 8<rt> v9a
+  let b0 = AST.xtlo 8<rt> v0a
+  let b1 = AST.xtlo 8<rt> v1a
+  let b2 = AST.xtlo 8<rt> v2a
+  let b3 = AST.xtlo 8<rt> v3a
+  let b4 = AST.xtlo 8<rt> v4a
+  let b5 = AST.xtlo 8<rt> v5a
+  let b6 = AST.xtlo 8<rt> v6a
+  let b7 = AST.xtlo 8<rt> v7a
+  let b8 = AST.xtlo 8<rt> v8a
+  let b9 = AST.xtlo 8<rt> v9a
   let b10 = AST.xtlo 8<rt> v10a
   let b11 = AST.xtlo 8<rt> v11a
   let b12 = AST.xtlo 8<rt> v12a
@@ -387,12 +387,9 @@ type RegisterFactory() =
   let tpidrel0 = AST.var 64<rt> (Register.toRegID TPIDREL0) "TPIDR_EL0"
 
   (* S<op0>_<op1>_<Cn>_<Cm>_<op2> *)
-  let s35c3c20 =
-    AST.var 64<rt> (Register.toRegID S3_5_C3_C2_0) "S3_5_C3_C2_0"
-  let s37c2c27 =
-    AST.var 64<rt> (Register.toRegID S3_7_C2_C2_7) "S3_7_C2_C2_7"
-  let s00c2c93 =
-    AST.var 64<rt> (Register.toRegID S0_0_C2_C9_3) "S0_0_C2_C9_3"
+  let s35c3c20 = AST.var 64<rt> (Register.toRegID S3_5_C3_C2_0) "S3_5_C3_C2_0"
+  let s37c2c27 = AST.var 64<rt> (Register.toRegID S3_7_C2_C2_7) "S3_7_C2_C2_7"
+  let s00c2c93 = AST.var 64<rt> (Register.toRegID S0_0_C2_C9_3) "S0_0_C2_C9_3"
   let s27c12c76 =
     AST.var 64<rt> (Register.toRegID S2_7_C12_C7_6) "S2_7_C12_C7_6"
 
@@ -401,19 +398,24 @@ type RegisterFactory() =
   let eret = AST.var 64<rt> (Register.toRegID ERET) "ERET"
 
   interface IRegisterFactory with
+    member _.ProgramCounter = PC |> Register.toRegID
+
+    member _.StackPointer = SP |> Register.toRegID |> Some
+
+    member _.FramePointer = None
 
     member _.GetRegVar rid =
       match Register.ofRegID rid with
-      | R.X0  -> x0
-      | R.X1  -> x1
-      | R.X2  -> x2
-      | R.X3  -> x3
-      | R.X4  -> x4
-      | R.X5  -> x5
-      | R.X6  -> x6
-      | R.X7  -> x7
-      | R.X8  -> x8
-      | R.X9  -> x9
+      | R.X0 -> x0
+      | R.X1 -> x1
+      | R.X2 -> x2
+      | R.X3 -> x3
+      | R.X4 -> x4
+      | R.X5 -> x5
+      | R.X6 -> x6
+      | R.X7 -> x7
+      | R.X8 -> x8
+      | R.X9 -> x9
       | R.X10 -> x10
       | R.X11 -> x11
       | R.X12 -> x12
@@ -436,16 +438,16 @@ type RegisterFactory() =
       | R.X29 -> x29
       | R.X30 -> x30
       | R.XZR -> xzr
-      | R.W0  -> w0
-      | R.W1  -> w1
-      | R.W2  -> w2
-      | R.W3  -> w3
-      | R.W4  -> w4
-      | R.W5  -> w5
-      | R.W6  -> w6
-      | R.W7  -> w7
-      | R.W8  -> w8
-      | R.W9  -> w9
+      | R.W0 -> w0
+      | R.W1 -> w1
+      | R.W2 -> w2
+      | R.W3 -> w3
+      | R.W4 -> w4
+      | R.W5 -> w5
+      | R.W6 -> w6
+      | R.W7 -> w7
+      | R.W8 -> w8
+      | R.W9 -> w9
       | R.W10 -> w10
       | R.W11 -> w11
       | R.W12 -> w12
@@ -468,19 +470,19 @@ type RegisterFactory() =
       | R.W29 -> w29
       | R.W30 -> w30
       | R.WZR -> wzr
-      | R.SP  -> sp
+      | R.SP -> sp
       | R.WSP -> wsp
-      | R.PC  -> pc
-      | R.D0  -> d0
-      | R.D1  -> d1
-      | R.D2  -> d2
-      | R.D3  -> d3
-      | R.D4  -> d4
-      | R.D5  -> d5
-      | R.D6  -> d6
-      | R.D7  -> d7
-      | R.D8  -> d8
-      | R.D9  -> d9
+      | R.PC -> pc
+      | R.D0 -> d0
+      | R.D1 -> d1
+      | R.D2 -> d2
+      | R.D3 -> d3
+      | R.D4 -> d4
+      | R.D5 -> d5
+      | R.D6 -> d6
+      | R.D7 -> d7
+      | R.D8 -> d8
+      | R.D9 -> d9
       | R.D10 -> d10
       | R.D11 -> d11
       | R.D12 -> d12
@@ -503,16 +505,16 @@ type RegisterFactory() =
       | R.D29 -> d29
       | R.D30 -> d30
       | R.D31 -> d31
-      | R.S0  -> s0
-      | R.S1  -> s1
-      | R.S2  -> s2
-      | R.S3  -> s3
-      | R.S4  -> s4
-      | R.S5  -> s5
-      | R.S6  -> s6
-      | R.S7  -> s7
-      | R.S8  -> s8
-      | R.S9  -> s9
+      | R.S0 -> s0
+      | R.S1 -> s1
+      | R.S2 -> s2
+      | R.S3 -> s3
+      | R.S4 -> s4
+      | R.S5 -> s5
+      | R.S6 -> s6
+      | R.S7 -> s7
+      | R.S8 -> s8
+      | R.S9 -> s9
       | R.S10 -> s10
       | R.S11 -> s11
       | R.S12 -> s12
@@ -535,16 +537,16 @@ type RegisterFactory() =
       | R.S29 -> s29
       | R.S30 -> s30
       | R.S31 -> s31
-      | R.H0  -> h0
-      | R.H1  -> h1
-      | R.H2  -> h2
-      | R.H3  -> h3
-      | R.H4  -> h4
-      | R.H5  -> h5
-      | R.H6  -> h6
-      | R.H7  -> h7
-      | R.H8  -> h8
-      | R.H9  -> h9
+      | R.H0 -> h0
+      | R.H1 -> h1
+      | R.H2 -> h2
+      | R.H3 -> h3
+      | R.H4 -> h4
+      | R.H5 -> h5
+      | R.H6 -> h6
+      | R.H7 -> h7
+      | R.H8 -> h8
+      | R.H9 -> h9
       | R.H10 -> h10
       | R.H11 -> h11
       | R.H12 -> h12
@@ -567,16 +569,16 @@ type RegisterFactory() =
       | R.H29 -> h29
       | R.H30 -> h30
       | R.H31 -> h31
-      | R.B0  -> b0
-      | R.B1  -> b1
-      | R.B2  -> b2
-      | R.B3  -> b3
-      | R.B4  -> b4
-      | R.B5  -> b5
-      | R.B6  -> b6
-      | R.B7  -> b7
-      | R.B8  -> b8
-      | R.B9  -> b9
+      | R.B0 -> b0
+      | R.B1 -> b1
+      | R.B2 -> b2
+      | R.B3 -> b3
+      | R.B4 -> b4
+      | R.B5 -> b5
+      | R.B6 -> b6
+      | R.B7 -> b7
+      | R.B8 -> b8
+      | R.B9 -> b9
       | R.B10 -> b10
       | R.B11 -> b11
       | R.B12 -> b12
@@ -1453,33 +1455,21 @@ type RegisterFactory() =
       | PCVar _ -> Register.toRegID PC
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID name =
-      Register.ofString name |> Register.toRegID
+    member _.GetRegisterID name = Register.ofString name |> Register.toRegID
 
     member _.GetRegisterIDAliases rid =
       Register.ofRegID rid
       |> Register.getAliases
       |> Array.map Register.toRegID
 
-    member _.GetRegisterName rid =
-      Register.ofRegID rid |> Register.toString
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
     member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory
       regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
-    member _.GetRegType rid =
-      Register.ofRegID rid |> Register.toRegType
-
-    member _.ProgramCounter =
-      PC |> Register.toRegID
-
-    member _.StackPointer =
-      SP |> Register.toRegID |> Some
-
-    member _.FramePointer =
-      None
+    member _.GetRegType rid = Register.ofRegID rid |> Register.toRegType
 
     member _.IsProgramCounter regid =
       let pcid = PC |> Register.toRegID

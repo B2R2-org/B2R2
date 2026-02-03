@@ -108,8 +108,7 @@ let private accumulateIfNotEmpty grp acc =
 let rec private parseActionCommands grps grp = function
   | [] -> List.rev (accumulateIfNotEmpty grp grps)
   | "--" :: rest ->
-    let grps =
-      if List.isEmpty grp then grps else accumulateIfNotEmpty grp grps
+    let grps = if List.isEmpty grp then grps else accumulateIfNotEmpty grp grps
     parseActionCommands grps [] rest
   | arg :: rest -> parseActionCommands grps (arg :: grp) rest
 

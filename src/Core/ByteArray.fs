@@ -83,7 +83,8 @@ module ByteArray =
 
   let private makeDelta1 pattern patlen =
     let delta1 = Array.create 256 patlen
-    let iter i x = if i < patlen - 1 then delta1[int x] <- patlen - 1 - i
+    let iter i x =
+      if i < patlen - 1 then delta1[int x] <- patlen - 1 - i else ()
     Array.iteri iter pattern
     delta1
 
@@ -106,7 +107,7 @@ module ByteArray =
     let mutable idx = patlen - 1
     let mutable last = patlen - 1
     while idx >= 0 do
-      if isPrefix pattern patlen (idx + 1) then last <- idx + 1
+      if isPrefix pattern patlen (idx + 1) then last <- idx + 1 else ()
       delta2[idx] <- last + patlen - 1 - idx
       idx <- idx - 1
     idx <- 0
@@ -114,12 +115,13 @@ module ByteArray =
       let slen = getSuffixLength pattern patlen idx
       if pattern[idx - slen] <> pattern[patlen - 1 - slen] then
         delta2[patlen - 1 - slen] <- patlen - 1 - idx + slen
+      else
+        ()
       idx <- idx + 1
     delta2
 
   let rec private getMatch (pattern: ByteArray) (buf: ByteArray) (i, j) =
-    if j >= 0 && buf[i] = pattern[j] then
-      getMatch pattern buf (i - 1, j - 1)
+    if j >= 0 && buf[i] = pattern[j] then getMatch pattern buf (i - 1, j - 1)
     else struct (i, j)
 
   let rec private searchOne i (buf: ByteArray) pattern (d1: int[]) (d2: int[]) =

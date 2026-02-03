@@ -63,8 +63,7 @@ with
 
   /// Checks if the pointer is virtual, meaning that it currently points to a
   /// region that is mapped to VM but not to the file.
-  member inline this.IsVirtual with get() =
-    this.Offset > this.MaxOffset
+  member inline this.IsVirtual with get() = this.Offset > this.MaxOffset
 
   /// Returns the amount of bytes that can be read from the pointer.
   member inline this.ReadableAmount with get() =
@@ -94,8 +93,7 @@ with
   static member Null = BinFilePointer(0UL, 0UL, -1, -1)
 
   /// Advances the pointer by a given amount.
-  static member Advance(p: BinFilePointer, amount: int) =
-    p.Advance amount
+  static member Advance(p: BinFilePointer, amount: int) = p.Advance amount
 
   override this.ToString() =
     $"{this.Addr:x}-{this.MaxAddr:x} ({this.Offset:x} of {this.MaxOffset:x})"

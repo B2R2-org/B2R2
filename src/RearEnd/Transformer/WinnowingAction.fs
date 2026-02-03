@@ -67,7 +67,8 @@ type WinnowingAction() =
   interface IAction with
     member _.ActionID with get() = "winnowing"
     member _.Signature with get() = "Binary * [n] * [wsz] -> Fingerprint"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in an input binary and returns its fingerprint, which is essentially a
     list of (hash * byte position) tuples.
 

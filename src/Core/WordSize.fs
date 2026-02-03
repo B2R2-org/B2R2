@@ -57,10 +57,10 @@ module WordSize =
   /// </summary>
   [<CompiledName "OfString">]
   let ofString = function
-    | "8"  -> WordSize.Bit8
-    | "16"  -> WordSize.Bit16
-    | "32"  -> WordSize.Bit32
-    | "64"  -> WordSize.Bit64
+    | "8" -> WordSize.Bit8
+    | "16" -> WordSize.Bit16
+    | "32" -> WordSize.Bit32
+    | "64" -> WordSize.Bit64
     | "128" -> WordSize.Bit128
     | "256" -> WordSize.Bit256
     | _ -> raise InvalidWordSizeException
@@ -78,8 +78,8 @@ module WordSize =
   let toRegType = function
     | WordSize.Bit8 -> 8<rt>
     | WordSize.Bit16 -> 16<rt>
-    | WordSize.Bit32  -> 32<rt>
-    | WordSize.Bit64  -> 64<rt>
+    | WordSize.Bit32 -> 32<rt>
+    | WordSize.Bit64 -> 64<rt>
     | WordSize.Bit128 -> 128<rt>
     | WordSize.Bit256 -> 256<rt>
     | _ -> raise InvalidWordSizeException

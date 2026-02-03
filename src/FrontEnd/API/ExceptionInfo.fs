@@ -96,21 +96,14 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
       computeExceptionTable elf.ExceptionFrame elf.LSDATable
     | _ -> NoOverlapIntervalMap.empty
 
-  new(hdl: BinHandle) =
-    ExceptionInfo(hdl.NewLiftingUnit())
+  new(hdl: BinHandle) = ExceptionInfo(hdl.NewLiftingUnit())
 
   /// Returns the exception handler mapping.
   member _.ExceptionMap with get() = exnTbl
 
   /// Returns an array of function entry points identified by the exception
   /// table.
-  member _.FunctionEntryPoints with get() =
-    fnRanges.Keys |> Seq.toArray
-
-  /// Checks if the given address is a function entry point according to the
-  /// FDE records in the exception table.
-  member _.ContainsFunctionEntryPoint addr =
-    fnRanges.ContainsKey addr
+  member _.FunctionEntryPoints with get() = fnRanges.Keys |> Seq.toArray
 
   /// Returns the coverage of the exception table, which is the ratio of
   /// addresses in the .text section that are covered by the exception table.
@@ -123,6 +116,10 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
         covered <- covered + float (endAddr - startAddr + 1UL)
       else ()
     covered / txtSize
+
+  /// Checks if the given address is a function entry point according to the
+  /// FDE records in the exception table.
+  member _.ContainsFunctionEntryPoint addr = fnRanges.ContainsKey addr
 
   /// Finds the exception target (landing pad) for a given instruction address.
   /// If the address is not in the exception table, it returns None.

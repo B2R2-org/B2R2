@@ -129,7 +129,7 @@ let encodeRexX reg = if isExtendReg reg then 0x42uy else 0x0uy
 
 let encodeRexB reg = if isExtendReg reg then 0x41uy else 0x0uy
 
-let convVEXRexByte rexByte = (~~~ rexByte) &&& 0b111uy
+let convVEXRexByte rexByte = (~~~rexByte) &&& 0b111uy
 
 let encodeVEXRexRB wordSize r1 r2 =
   if wordSize = WordSize.Bit32 then 0b101uy
@@ -247,8 +247,8 @@ let private getVLen = function
 let private getSIMDPref = function
   | Prefix.None -> 0b00uy
   | Prefix.OPSIZE (* 0x66 *) -> 0b01uy
-  | Prefix.REPZ   (* 0xF3 *) -> 0b10uy
-  | Prefix.REPNZ  (* 0xF2 *) -> 0b11uy
+  | Prefix.REPZ (* 0xF3 *) -> 0b10uy
+  | Prefix.REPNZ (* 0xF2 *) -> 0b11uy
   | _ -> Terminator.impossible ()
 
 let encodeTwoVEXPref rexR vvvv (vex: EncVEXPrefix) =

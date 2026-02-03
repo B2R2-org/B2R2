@@ -75,5 +75,4 @@ type AsmWordDisasmBuilder(showAddr,
       lst.Clear()
       arr
 
-  override this.ToString() =
-    (this :> IDisasmBuilder).ToString()
+  override this.ToString() = (this :> IDisasmBuilder).ToString()

@@ -39,6 +39,12 @@ type RegisterFactory() =
   member _.SP with get() = sp
 
   interface IRegisterFactory with
+    member _.ProgramCounter = Register.PC |> Register.toRegID
+
+    member _.StackPointer = Register.SP |> Register.toRegID |> Some
+
+    member _.FramePointer = Terminator.futureFeature ()
+
     member _.GetRegVar id =
       match Register.ofRegID id with
       | R.PC -> pc
@@ -60,31 +66,18 @@ type RegisterFactory() =
       | PCVar _ -> Register.toRegID Register.PC
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID name =
-      Register.ofString name |> Register.toRegID
+    member _.GetRegisterID name = Register.ofString name |> Register.toRegID
 
     member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
 
-    member _.GetRegisterName rid =
-      Register.ofRegID rid |> Register.toString
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
     member _.GetAllRegisterNames() = [||]
 
-    member _.GetRegType rid =
-      Register.ofRegID rid |> Register.toRegType
+    member _.GetRegType rid = Register.ofRegID rid |> Register.toRegType
 
-    member _.ProgramCounter =
-      Register.PC |> Register.toRegID
+    member _.IsProgramCounter regid = Register.toRegID Register.PC = regid
 
-    member _.StackPointer =
-      Register.SP |> Register.toRegID |> Some
-
-    member _.FramePointer = Terminator.futureFeature ()
-
-    member _.IsProgramCounter regid =
-      Register.toRegID Register.PC = regid
-
-    member _.IsStackPointer regid =
-      Register.toRegID Register.SP = regid
+    member _.IsStackPointer regid = Register.toRegID Register.SP = regid
 
     member _.IsFramePointer _ = false

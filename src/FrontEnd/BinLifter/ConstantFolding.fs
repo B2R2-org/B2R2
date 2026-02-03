@@ -108,11 +108,11 @@ let rec private replace maps expr =
   | Var(_, name, _, _) ->
     match maps.VarMap.TryGetValue name with
     | true, e -> struct (true, e)
-    | _  -> struct (false, expr)
+    | _ -> struct (false, expr)
   | TempVar(_, name, _) ->
     match maps.TempVarMap.TryGetValue name with
     | (true, e) -> struct (true, e)
-    | _  -> struct (false, expr)
+    | _ -> struct (false, expr)
   | UnOp(t, e, _) ->
     let struct (changed, e) = replace maps e
     if changed then

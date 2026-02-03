@@ -145,6 +145,12 @@ type RegisterFactory(wordSize) =
   let cleanwin = AST.var rt (Register.toRegID CLEANWIN) "CLEANWIN"
 
   interface IRegisterFactory with
+    member _.ProgramCounter = PC |> Register.toRegID
+
+    member _.StackPointer = O6 |> Register.toRegID |> Some
+
+    member _.FramePointer = I6 |> Register.toRegID |> Some
+
     member _.GetRegVar rid =
       match Register.ofRegID rid with
       | Register.G0 -> g0
@@ -277,17 +283,8 @@ type RegisterFactory(wordSize) =
 
     member _.GetRegType _ = Terminator.futureFeature ()
 
-    member _.ProgramCounter = PC |> Register.toRegID
+    member _.IsProgramCounter regid = Register.toRegID PC = regid
 
-    member _.StackPointer = O6 |> Register.toRegID |> Some
+    member _.IsStackPointer regid = Register.toRegID O6 = regid
 
-    member _.FramePointer = I6 |> Register.toRegID |> Some
-
-    member _.IsProgramCounter regid =
-      Register.toRegID PC = regid
-
-    member _.IsStackPointer regid =
-      Register.toRegID O6 = regid
-
-    member _.IsFramePointer regid =
-      Register.toRegID I6 = regid
+    member _.IsFramePointer regid = Register.toRegID I6 = regid

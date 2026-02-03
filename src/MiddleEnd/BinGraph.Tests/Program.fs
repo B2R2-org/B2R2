@@ -43,8 +43,7 @@ let private buildTestPersistentGraphs fileName size =
       let h = g.RemoveEdge edge
       loop ((g, edge) :: acc) h (i - 1)
   let constructor () = PersistentDiGraph() :> IDiGraph<string, string>
-  let json =
-    System.IO.File.ReadAllText("TestData/Benchmark/Vertex/" + fileName)
+  let json = System.IO.File.ReadAllText("TestData/Benchmark/Vertex/" + fileName)
   let g = Serializer.FromJson(json, constructor, id, id)
   let h, testList = loop [] g size
   g, h, testList

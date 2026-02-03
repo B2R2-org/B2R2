@@ -36,11 +36,9 @@ open type Register
 [<AutoOpen>]
 module private Shortcut =
   type O =
-    static member Reg(r) =
-      OprRegister r
+    static member Reg(r) = OprRegister r
 
-    static member RegOffset(r) =
-      OprExtReg r
+    static member RegOffset(r) = OprExtReg r
 
     static member MemBaseReg(baseReg, offsetReg, typ: ExtendType, imm) =
       memBaseReg (baseReg, offsetReg, Some <| ExtRegOffset(typ, imm))
@@ -48,11 +46,9 @@ module private Shortcut =
     static member MemBaseReg(baseReg, offsetReg, typ: ShiftOp, imm) =
       memBaseReg (baseReg, offsetReg, Some <| ShiftOffset(typ, imm))
 
-    static member MemBaseImm(register, imm) =
-      memBaseImm (register, Some imm)
+    static member MemBaseImm(register, imm) = memBaseImm (register, Some imm)
 
-    static member MemBaseImm register =
-      memBaseImm (register, None)
+    static member MemBaseImm register = memBaseImm (register, None)
 
     static member MemPreIdxImm(register, imm) =
       memPreIdxImm (register, Some imm)
@@ -69,23 +65,17 @@ module private Shortcut =
     static member MemPostIdxReg(baseReg, offsetReg) =
       memPostIdxReg (baseReg, offsetReg, None)
 
-    static member MemLabel label =
-      memLabel label
+    static member MemLabel label = memLabel label
 
-    static member Imm(v) =
-      OprImm v
+    static member Imm(v) = OprImm v
 
-    static member Shift(srType, v: int64) =
-      OprShift(srType, Imm v)
+    static member Shift(srType, v: int64) = OprShift(srType, Imm v)
 
-    static member LSB v =
-      OprLSB v
+    static member LSB v = OprLSB v
 
-    static member Pstate st =
-      OprPstate st
+    static member Pstate st = OprPstate st
 
-    static member SIMDVecReg(reg, typ: SIMDVector) =
-      VecReg(reg, typ) |> OprSIMD
+    static member SIMDVecReg(reg, typ: SIMDVector) = VecReg(reg, typ) |> OprSIMD
 
     static member SIMDVecRegWithIdx(reg, typ: SIMDVector, idx) =
       (reg, typ, idx) |> VecRegWithIdx |> OprSIMD
@@ -96,11 +86,9 @@ module private Shortcut =
     static member SIMDList(lst, typ: SIMDVector, idx: Index) =
       OprSIMDList <| List.map (fun reg -> VecRegWithIdx(reg, typ, idx)) lst
 
-    static member Prefetch v =
-      OprPrfOp v
+    static member Prefetch v = OprPrfOp v
 
-    static member ScalarReg r =
-      scalReg r
+    static member ScalarReg r = scalReg r
 
 /// - C4.2 Data processing - immediate
 /// - C4.3 Branches, exception generating and system instructions

@@ -108,23 +108,29 @@ type RegisterFactory(wordSize) =
   let fir = AST.var 32<rt> (Register.toRegID FIR) "FIR"
 
   interface IRegisterFactory with
+    member _.ProgramCounter = PC |> Register.toRegID
+
+    member _.StackPointer = R29 |> Register.toRegID |> Some
+
+    member _.FramePointer = R30 |> Register.toRegID |> Some
+
     member _.GetRegVar id =
       match Register.ofRegID id with
-      | R.HI  -> hi
-      | R.LO  -> lo
-      | R.PC  -> pc
-      | R.NPC  -> nextPC
+      | R.HI -> hi
+      | R.LO -> lo
+      | R.PC -> pc
+      | R.NPC -> nextPC
       | R.LLBit -> llbit
-      | R.R0  -> r0
-      | R.R1  -> r1
-      | R.R2  -> r2
-      | R.R3  -> r3
-      | R.R4  -> r4
-      | R.R5  -> r5
-      | R.R6  -> r6
-      | R.R7  -> r7
-      | R.R8  -> r8
-      | R.R9  -> r9
+      | R.R0 -> r0
+      | R.R1 -> r1
+      | R.R2 -> r2
+      | R.R3 -> r3
+      | R.R4 -> r4
+      | R.R5 -> r5
+      | R.R6 -> r6
+      | R.R7 -> r7
+      | R.R8 -> r8
+      | R.R9 -> r9
       | R.R10 -> r10
       | R.R11 -> r11
       | R.R12 -> r12
@@ -147,16 +153,16 @@ type RegisterFactory(wordSize) =
       | R.R29 -> r29
       | R.R30 -> r30
       | R.R31 -> r31
-      | R.F0  -> f0
-      | R.F1  -> f1
-      | R.F2  -> f2
-      | R.F3  -> f3
-      | R.F4  -> f4
-      | R.F5  -> f5
-      | R.F6  -> f6
-      | R.F7  -> f7
-      | R.F8  -> f8
-      | R.F9  -> f9
+      | R.F0 -> f0
+      | R.F1 -> f1
+      | R.F2 -> f2
+      | R.F3 -> f3
+      | R.F4 -> f4
+      | R.F5 -> f5
+      | R.F6 -> f6
+      | R.F7 -> f7
+      | R.F8 -> f8
+      | R.F9 -> f9
       | R.F10 -> f10
       | R.F11 -> f11
       | R.F12 -> f12
@@ -305,8 +311,7 @@ type RegisterFactory(wordSize) =
     member _.GetRegisterID name =
       Register.ofString name wordSize |> Register.toRegID
 
-    member _.GetRegisterIDAliases rid =
-      [| rid |]
+    member _.GetRegisterIDAliases rid = [| rid |]
 
     member _.GetRegisterName rid =
       Register.toString (Register.ofRegID rid) wordSize
@@ -316,23 +321,11 @@ type RegisterFactory(wordSize) =
       regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
-    member _.GetRegType _rid =
-      WordSize.toRegType wordSize
-
-    member _.ProgramCounter =
-      PC |> Register.toRegID
-
-    member _.StackPointer =
-      R29 |> Register.toRegID |> Some
-
-    member _.FramePointer =
-      R30 |> Register.toRegID |> Some
+    member _.GetRegType _rid = WordSize.toRegType wordSize
 
     member this.IsProgramCounter regid =
       (this :> IRegisterFactory).ProgramCounter = regid
 
-    member _.IsStackPointer regid =
-      Register.toRegID R29 = regid
+    member _.IsStackPointer regid = Register.toRegID R29 = regid
 
-    member _.IsFramePointer regid =
-      Register.toRegID R30 = regid
+    member _.IsFramePointer regid = Register.toRegID R30 = regid

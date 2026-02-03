@@ -83,5 +83,4 @@ type FunctionCollection<'FnCtx,
     | false, _ -> raise (KeyNotFoundException($"Function not found: {name}"))
 
   /// Find a function by its function ID.
-  member _.FindByID(id: string) =
-    findByAddr <| Addr.ofFuncName id
+  member _.FindByID(id: string) = findByAddr <| Addr.ofFuncName id

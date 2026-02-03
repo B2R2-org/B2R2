@@ -223,13 +223,14 @@ let moveWidePreferred bin = // sf immN imms immr
   // element size must equal total immediate size
   if isSfOne && (immNimms &&& 0b1000000u <> 0b1000000u) then false
   elif isSfOne && (immNimms &&& 0b1100000u <> 0b0000000u) then false
-  // for MOVZ must contain no more than 16 ones
-  // ones must not span halfword boundary when rotated
-  elif imms < 16u then 0xf &&& (- (int immr) % 16) <= (15 - (int imms))
-  // for MOVN must contain no more than 16 zeros
-  // zeros must not span halfword boundary when rotated
+  (* for MOVZ must contain no more than 16 ones *)
+  (* ones must not span halfword boundary when rotated *)
+  elif imms < 16u then 0xf &&& (-(int immr) % 16) <= (15 - (int imms))
+  (* for MOVN must contain no more than 16 zeros *)
+  (* zeros must not span halfword boundary when rotated *)
   elif (int imms) >= width - 15
-  then (int immr % 16) <= (int imms - (width - 15)) else false
+  then (int immr % 16) <= (int imms - (width - 15))
+  else false
 
 /// shared/functions/integer/AddWithCarry
 /// AddWithCarry()

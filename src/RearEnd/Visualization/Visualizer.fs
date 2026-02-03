@@ -46,5 +46,4 @@ let getJSONFromGraph iGraph roots =
     eprintfn "%s" <| e.ToString()
     "{}"
 
-let visualizeFromFile _inFile _outFile =
-  B2R2.Terminator.futureFeature ()
+let visualizeFromFile _inFile _outFile = B2R2.Terminator.futureFeature ()

@@ -88,8 +88,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     if src.Succs.Count = 0 then exits.Add src |> ignore else ()
     edges.Remove((srcid, dstid)) |> ignore
 
-  let findVertexBy fn =
-    vertices.Values |> Seq.find fn :> IVertex<'V>
+  let findVertexBy fn = vertices.Values |> Seq.find fn :> IVertex<'V>
 
   let tryFindVertexBy fn =
     vertices.Values
@@ -195,8 +194,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
 
-    member this.Reverse vs =
-      GraphUtils.reverse this vs (ImperativeDiGraph())
+    member this.Reverse vs = GraphUtils.reverse this vs (ImperativeDiGraph())
 
     member _.FoldVertex(fn, acc) =
       vertices.Values |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
@@ -204,23 +202,19 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     member _.IterVertex fn =
       vertices.Values |> Seq.iter (fun v -> fn (v :> IVertex<'V>))
 
-    member _.FoldEdge(fn, acc) =
-      edges.Values |> Seq.fold fn acc
+    member _.FoldEdge(fn, acc) = edges.Values |> Seq.fold fn acc
 
-    member _.IterEdge fn =
-      edges.Values |> Seq.iter fn
+    member _.IterEdge fn = edges.Values |> Seq.iter fn
 
   interface IDiGraph<'V, 'E> with
 
-    member this.AddVertex v =
-      addVertexWithData (VertexData v), this
+    member this.AddVertex v = addVertexWithData (VertexData v), this
 
     member this.AddVertex(v, vid) =
       assert ((this: IDiGraph<_, _>).HasVertex vid |> not)
       addVertexWithDataAndID (VertexData v) vid, this
 
-    member this.AddVertex() =
-      addVertexWithData null, this
+    member this.AddVertex() = addVertexWithData null, this
 
     member this.RemoveVertex v =
       let v = v :?> ImperativeVertex<'V>
@@ -262,8 +256,6 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
         roots.Add(v :?> ImperativeVertex<'V>)
       this
 
-    member this.Reverse(vs) =
-      GraphUtils.reverse this vs (ImperativeDiGraph())
+    member this.Reverse(vs) = GraphUtils.reverse this vs (ImperativeDiGraph())
 
-    member _.Clone() =
-      clone ()
+    member _.Clone() = clone ()

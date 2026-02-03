@@ -127,6 +127,8 @@ type Instruction
       | Op.BX, Condition.NV, _ -> false
       | Op.BX, Condition.UN, _ -> false
       | Op.BX, _, _ -> true
+      | Op.CBZ, _, _
+      | Op.CBNZ, _, _ -> true
       | Op.LDR, Condition.AL, TwoOperands(OprReg R.PC, _)
       | Op.LDR, Condition.NV, TwoOperands(OprReg R.PC, _)
       | Op.LDR, Condition.UN, TwoOperands(OprReg R.PC, _) -> false
@@ -181,15 +183,16 @@ type Instruction
       | Opcode.ERET -> true
       | _ -> false
 
-    member this.IsNop =
-      this.Opcode = Op.NOP
+    member this.IsNop = this.Opcode = Op.NOP
 
     member _.IsInlinedAssembly = false
 
     member this.DirectBranchTarget(addr: byref<Addr>) =
       if (this :> IInstruction).IsBranch then
-        match opr with
-        | OneOperand(OprMemory(LiteralMode target)) ->
+        match op, opr with
+        | _, OneOperand(OprMemory(LiteralMode target))
+        | Op.CBZ, TwoOperands(_, OprMemory(LiteralMode target))
+        | Op.CBNZ, TwoOperands(_, OprMemory(LiteralMode target)) ->
           (* The PC value of an instruction is its address plus 4 for a Thumb
              instruction, or plus 8 for an ARM instruction. *)
           let offset = if not this.IsThumb then 8L else 4L
@@ -199,8 +202,7 @@ type Instruction
         | _ -> false
       else false
 
-    member _.IndirectTrampolineAddr(_: byref<Addr>) =
-      false
+    member _.IndirectTrampolineAddr(_: byref<Addr>) = false
 
     member this.IsTerminator _ =
       let ins = this :> IInstruction
@@ -208,7 +210,8 @@ type Instruction
 
     member _.MemoryDereferences(addrs: byref<Addr[]>) =
       match opr with
-      | TwoOperands(_, OprMemory(LiteralMode target)) ->
+      | TwoOperands(_, OprMemory(LiteralMode target))
+        when op <> Op.CBZ && op <> Op.CBNZ ->
         let offset = if not isThumb then 8L else 4L
         let pc = (int64 addr + offset) / 4L * 4L (* Align by 4 *)
         addrs <- [| ((pc + target) &&& 0xFFFFFFFFL) |> uint64 |]
@@ -252,21 +255,17 @@ type Instruction
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
-    member this.Translate builder =
-      lifter.Lift(this, builder).Stream.ToStmts()
+    member this.Translate builder = lifter.Lift(this, builder).Stream.ToStmts()
 
-    member this.TranslateToList builder =
-      lifter.Lift(this, builder).Stream
+    member this.TranslateToList builder = lifter.Lift(this, builder).Stream
 
-    member this.Disasm builder =
-      lifter.Disasm(this, builder).ToString()
+    member this.Disasm builder = lifter.Disasm(this, builder).ToString()
 
     member this.Disasm() =
       let builder = StringDisasmBuilder(false, null, WordSize.Bit32)
       lifter.Disasm(this, builder).ToString()
 
-    member this.Decompose builder =
-      lifter.Disasm(this, builder).ToAsmWords()
+    member this.Decompose builder = lifter.Disasm(this, builder).ToAsmWords()
 
 and internal ILiftable =
   abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder

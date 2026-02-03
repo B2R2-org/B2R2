@@ -147,17 +147,13 @@ type private BinReaderLE() =
   interface IBinReader with
     member _.Endianness with get() = Endian.Little
 
-    member _.ReadInt8(bs: byte[], offset) =
-      bs[offset] |> int8
+    member _.ReadInt8(bs: byte[], offset) = bs[offset] |> int8
 
-    member _.ReadInt8(span: ByteSpan, offset) =
-      span[offset] |> int8
+    member _.ReadInt8(span: ByteSpan, offset) = span[offset] |> int8
 
-    member _.ReadUInt8(bs: byte[], offset) =
-      bs[offset] |> uint8
+    member _.ReadUInt8(bs: byte[], offset) = bs[offset] |> uint8
 
-    member _.ReadUInt8(span: ByteSpan, offset) =
-      span[offset] |> uint8
+    member _.ReadUInt8(span: ByteSpan, offset) = span[offset] |> uint8
 
     member _.ReadInt16(bs: byte[], offset) =
       let span = ReadOnlySpan(bs)
@@ -242,17 +238,13 @@ type private BinReaderBE() =
   interface IBinReader with
     member _.Endianness with get() = Endian.Big
 
-    member _.ReadInt8(bs: byte[], offset) =
-      bs[offset] |> int8
+    member _.ReadInt8(bs: byte[], offset) = bs[offset] |> int8
 
-    member _.ReadInt8(span: ByteSpan, offset) =
-      span[offset] |> int8
+    member _.ReadInt8(span: ByteSpan, offset) = span[offset] |> int8
 
-    member _.ReadUInt8(bs: byte[], offset) =
-      bs[offset] |> uint8
+    member _.ReadUInt8(bs: byte[], offset) = bs[offset] |> uint8
 
-    member _.ReadUInt8(span: ByteSpan, offset) =
-      span[offset] |> uint8
+    member _.ReadUInt8(span: ByteSpan, offset) = span[offset] |> uint8
 
     member _.ReadInt16(bs: byte[], offset) =
       let span = ReadOnlySpan(bs)

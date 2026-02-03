@@ -94,8 +94,7 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
                                 UntouchedValueLattice,
                                 UntouchedValueState,
                                 LowUIRBasicBlock> with
-    member _.Compute cfg =
-      LowUIRSparseDataFlow.compute cfg state
+    member _.Compute cfg = LowUIRSparseDataFlow.compute cfg state
 
 and internal UntouchedValueState =
   LowUIRSparseDataFlow.State<UntouchedValueLattice>

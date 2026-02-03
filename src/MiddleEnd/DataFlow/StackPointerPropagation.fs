@@ -105,8 +105,7 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
                                 StackPointerDomain.Lattice,
                                 StackPointerPropagationState,
                                 LowUIRBasicBlock> with
-    member _.Compute cfg =
-      LowUIRSparseDataFlow.compute cfg state
+    member _.Compute cfg = LowUIRSparseDataFlow.compute cfg state
 
 and internal StackPointerPropagationState =
   LowUIRSparseDataFlow.State<StackPointerDomain.Lattice>

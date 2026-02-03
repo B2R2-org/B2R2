@@ -639,7 +639,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.FISUB -> X87Lifter.fisub ins insLen bld
   | OP.FSUBR -> X87Lifter.fsubr ins insLen bld false
   | OP.FSUBRP -> X87Lifter.fsubr ins insLen bld true
-  | OP.FISUBR  -> X87Lifter.fisubr ins insLen bld
+  | OP.FISUBR -> X87Lifter.fisubr ins insLen bld
   | OP.FMUL -> X87Lifter.fpumul ins insLen bld false
   | OP.FMULP -> X87Lifter.fpumul ins insLen bld true
   | OP.FIMUL -> X87Lifter.fimul ins insLen bld

@@ -102,8 +102,7 @@ type Serializer =
     reader.ReadToEnd()
 
   /// Export the given graph to a string in the JSON format.
-  static member ToJson(g) =
-    Serializer.ToJson(Serializer.NewGraph g)
+  static member ToJson(g) = Serializer.ToJson(Serializer.NewGraph g)
 
   /// Export the given graph to a string in the JSON format with the given
   /// vertex and edge label functions.

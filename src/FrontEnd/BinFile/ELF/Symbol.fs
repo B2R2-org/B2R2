@@ -55,8 +55,7 @@ with
 
   /// Checks if the given symbol is defined. A symbol is defined if it has a
   /// section header index that is not SHN_UNDEF.
-  static member inline IsDefined(s: Symbol) =
-    s.SecHeaderIndex <> SHN_UNDEF
+  static member inline IsDefined(s: Symbol) = s.SecHeaderIndex <> SHN_UNDEF
 
   /// Returns the library name of the symbol. This is only valid if the symbol
   /// has version information.

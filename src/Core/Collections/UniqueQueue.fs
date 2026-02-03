@@ -32,6 +32,12 @@ type UniqueQueue<'T>() =
   let queue = Queue<'T>()
   let set = HashSet<'T>()
 
+  /// Get the number of elements in the queue.
+  member _.Count = queue.Count
+
+  /// Check if the queue is empty.
+  member _.IsEmpty with get() = queue.Count = 0
+
   /// Enqueue an element only if it is not already in the queue.
   member _.Enqueue(x: 'T) =
     if set.Add x |> not then ()
@@ -49,12 +55,5 @@ type UniqueQueue<'T>() =
     if not <| queue.TryDequeue(&result) then false
     else set.Remove result
 
-  /// Get the number of elements in the queue.
-  member _.Count = queue.Count
-
   /// Clear the queue.
   member _.Clear() = queue.Clear()
-
-  /// Check if the queue is empty.
-  member _.IsEmpty with get() = queue.Count = 0
-

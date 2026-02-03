@@ -161,8 +161,7 @@ let parseTwoOpr b op1 op2 = TwoOperands(op1 b, op2 b)
 
 let parseThrOpr b op1 op2 op3 = ThreeOperands(op1 b, op2 b, op3 b)
 
-let parseFourOpr b op1 op2 op3 op4 =
-  FourOperands(op1 b, op2 b, op3 b, op4 b)
+let parseFourOpr b op1 op2 op3 op4 = FourOperands(op1 b, op2 b, op3 b, op4 b)
 
 let parseOneCC cc1 = OneOperand(cc1)
 
@@ -180,11 +179,9 @@ let parseTwoOprOneReg b op1 op2 reg = ThreeOperands(op1 b, op2 b, reg)
 
 let parseOneRegTwoOpr b reg op1 op2 = ThreeOperands(reg, op1 b, op2 b)
 
-let parseThrOprOneReg b op1 op2 reg op3 =
-  FourOperands(op1 b, op2 b, reg, op3 b)
+let parseThrOprOneReg b op1 op2 reg op3 = FourOperands(op1 b, op2 b, reg, op3 b)
 
-let parseSTXA b op1 op2 op3 reg =
-  FourOperands(op1 b, op2 b, op3 b, reg)
+let parseSTXA b op1 op2 op3 reg = FourOperands(op1 b, op2 b, op3 b, reg)
 
 let extract binary n1 n2 =
   let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
@@ -231,22 +228,18 @@ let getRegFsr b = FSR |> OprReg
 
 let getConst22 b = extract b 21u 0u |> int32 |> OprImm
 
-let getimm22 b =
-  extract b 21u 0u <<< 10 |> int32 |> OprImm
+let getimm22 b = extract b 21u 0u <<< 10 |> int32 |> OprImm
 
-let getSimm13 b =
-  (extract b 12u 0u) <<< 19 |> int32 >>> 19 |> OprImm
+let getSimm13 b = (extract b 12u 0u) <<< 19 |> int32 >>> 19 |> OprImm
 
 let getSimm13Zero b =
   let checkSimm13 = (extract b 12u 0u) <<< 19 |> int32 >>> 19
   if checkSimm13 = 0 then getReg b 12u 0u |> OprReg
   else checkSimm13 |> OprImm
 
-let getSimm11 b =
-  (extract b 10u 0u) <<< 21 |> int32 >>> 21 |> OprImm
+let getSimm11 b = (extract b 10u 0u) <<< 21 |> int32 >>> 21 |> OprImm
 
-let getSimm10 b =
-  (extract b 9u 0u) <<< 22 |> int32 >>> 22 |> OprImm
+let getSimm10 b = (extract b 9u 0u) <<< 22 |> int32 >>> 22 |> OprImm
 
 let getAbit b = pickBit b 29u |> int32 |> OprImm
 
@@ -310,8 +303,7 @@ let getAddrRs1 b = getReg b 18u 14u |> OprReg
 
 let getAddrRs2 b = getReg b 4u 0u |> OprReg
 
-let getAddrSimm13 b =
-  (extract b 12u 0u) <<< 19 |> int32 >>> 19 |> OprImm
+let getAddrSimm13 b = (extract b 12u 0u) <<< 19 |> int32 >>> 19 |> OprImm
 
 let setPriReg r = r |> OprReg
 

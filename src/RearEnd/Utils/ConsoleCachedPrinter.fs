@@ -53,11 +53,9 @@ type ConsoleCachedPrinter() =
     else flush ()
 
   interface IPrinter with
-    member _.Print(s: string) =
-      add s
+    member _.Print(s: string) = add s
 
-    member _.Print(cs: ColoredString) =
-      cs.ToString() |> add
+    member _.Print(cs: ColoredString) = cs.ToString() |> add
 
     member _.Print(os: OutString) =
       match os with
@@ -86,8 +84,7 @@ type ConsoleCachedPrinter() =
     member _.PrintError(fmt: string, [<ParamArray>] args) =
       String.Format(errorPrefix + fmt, args) + Environment.NewLine |> add
 
-    member _.PrintLine(s: string) =
-      s + Environment.NewLine |> add
+    member _.PrintLine(s: string) = s + Environment.NewLine |> add
 
     member _.PrintLine(cs: ColoredString) =
       cs.ToString() + Environment.NewLine |> add
@@ -101,8 +98,7 @@ type ConsoleCachedPrinter() =
     member _.PrintLine(fmt: string, [<ParamArray>] args) =
       String.Format(fmt, args) + Environment.NewLine |> add
 
-    member _.PrintLine() =
-      add Environment.NewLine
+    member _.PrintLine() = add Environment.NewLine
 
     member _.SetTableConfig(cfg: TableConfig) =
       indentation <- cfg.Indentation

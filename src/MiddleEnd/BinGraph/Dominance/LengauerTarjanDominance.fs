@@ -118,8 +118,11 @@ let rec private compress info v =
     compress info a
     if info.Semi[info.Label[a]] < info.Semi[info.Label[v]] then
       info.Label[v] <- info.Label[a]
-    else ()
+    else
+      ()
     info.Ancestor[v] <- info.Ancestor[a]
+  else
+    ()
 
 let private eval info v =
   if info.Ancestor[v] = 0 then info.Label[v]
@@ -133,7 +136,7 @@ let private eval info v =
 let rec private computeSemiDom info v = function
   | pred :: preds ->
     let u = eval info pred
-    if info.Semi[u] < info.Semi[v] then info.Semi[v] <- info.Semi[u]
+    if info.Semi[u] < info.Semi[v] then info.Semi[v] <- info.Semi[u] else ()
     computeSemiDom info v preds
   | [] -> ()
 
@@ -154,6 +157,8 @@ let private link info v w =
     let t = s
     s <- info.Child[v]
     info.Child[v] <- t
+  else
+    ()
   while s <> 0 do
     info.Ancestor[s] <- v
     s <- info.Child[s]
@@ -251,8 +256,7 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
       GraphUtils.checkVertexInGraph fwG v
 #endif
       idomAux fwInfo v
-    member _.DominatorTree =
-      fwDT.Value
+    member _.DominatorTree = fwDT.Value
     member this.DominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph fwG v
@@ -271,8 +275,7 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       idomAux bwInfo.Value v
-    member _.PostDominatorTree =
-      bwDT.Value
+    member _.PostDominatorTree = bwDT.Value
     member this.PostDominanceFrontier v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v

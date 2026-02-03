@@ -515,10 +515,8 @@ type IntelParser(wordSz, reader) =
 
   let lifter =
     { new ILiftable with
-        member _.Lift(ins, builder) =
-          Lifter.translate ins ins.Length builder
-        member _.Disasm(ins, builder) =
-          disasm.Invoke(builder, ins); builder }
+        member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
+        member _.Disasm(ins, builder) = disasm.Invoke(builder, ins); builder }
 
   let phlp = ParsingHelper(reader, wordSz, oparsers, szcomputers, lifter)
 
@@ -560,6 +558,8 @@ type IntelParser(wordSz, reader) =
       else pos
 
   interface IInstructionParsable with
+    member _.MaxInstructionSize = 15
+
     member this.Parse(bs: byte[], addr) =
       (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
@@ -575,5 +575,3 @@ type IntelParser(wordSz, reader) =
       phlp.MarkPrefixEnd(prefEndPos)
 #endif
       oneByteParsers[int (phlp.ReadByte span)].Run(span, phlp) :> IInstruction
-
-    member _.MaxInstructionSize = 15

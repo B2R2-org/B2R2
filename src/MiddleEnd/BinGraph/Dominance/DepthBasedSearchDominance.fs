@@ -154,7 +154,7 @@ let rec private computeAffectedAux g info visited nca = function
 let private computeAffected g info nca trigger =
   computeAffectedAux g info (HashSet()) nca ([ trigger ], [ trigger ])
 
-let rec private updateDepth depth info v  =
+let rec private updateDepth depth info v =
   info.Depth[v] <- depth
   info.Children[v]
   |> Seq.iter (updateDepth (depth + 1) info)
@@ -339,8 +339,7 @@ let private copyDominance g dom dfp staticAlgo isForward =
   copyDomTree g info immediateDominator
   info
 
-let private updateDomInfo g info edge =
-  insert g info edge
+let private updateDomInfo g info edge = insert g info edge
 
 let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>)
                             fwInfo (fwDT: Lazy<DominatorTree<_, _>>)
@@ -360,14 +359,15 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>)
         GraphUtils.checkVertexInGraph fwG v
 #endif
         idom fwG fwInfo v
-      member _.DominatorTree =
-        fwDT.Value
+      member _.DominatorTree = fwDT.Value
       member this.DominanceFrontier v =
 #if DEBUG
         GraphUtils.checkVertexInGraph fwG v
 #endif
         if isNull dfProvider then
           dfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
+        else
+          ()
         dfProvider.DominanceFrontier v
       member _.PostDominators v =
 #if DEBUG
@@ -379,14 +379,15 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>)
         GraphUtils.checkVertexInGraph bwG.Value v
 #endif
         idom bwG.Value bwInfo.Value v
-      member _.PostDominatorTree =
-        bwDT.Value
+      member _.PostDominatorTree = bwDT.Value
       member this.PostDominanceFrontier v =
 #if DEBUG
         GraphUtils.checkVertexInGraph bwG.Value v
 #endif
         if isNull pdfProvider then
           pdfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
+        else
+          ()
         pdfProvider.DominanceFrontier v }
 
 let private computeDominance g dfp staticAlgo =

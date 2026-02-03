@@ -363,8 +363,7 @@ let inline relToString pc offset (builder: IDisasmBuilder) =
   let targetAddr = pc + uint64 offset
   builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 targetAddr)
 
-let printSpace space =
-  space <> Some Register.SR0 && space <> None
+let printSpace space = space <> Some Register.SR0 && space <> None
 
 let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
   match opr with
@@ -388,6 +387,8 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
       builder.Accumulate(AsmWordKind.Variable,
         Register.toString (Option.get space))
       builder.Accumulate(AsmWordKind.String, ",")
+    else
+      ()
     builder.Accumulate(AsmWordKind.Variable, Register.toString b)
     builder.Accumulate(AsmWordKind.String, ")")
   | OpAddr(Relative offset) ->

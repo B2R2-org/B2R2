@@ -36,50 +36,35 @@ open type Register
 [<AutoOpen>]
 module private Shortcut =
   type O =
-    static member Reg(r) =
-      OprReg r
+    static member Reg(r) = OprReg r
 
-    static member Imm(v) =
-      OprImm v
+    static member Imm(v) = OprImm v
 
-    static member RegShift(srType, r) =
-      OprRegShift(srType, r)
+    static member RegShift(srType, r) = OprRegShift(srType, r)
 
-    static member Shift(srType, v) =
-      OprShift(srType, Imm v)
+    static member Shift(srType, v) = OprShift(srType, Imm v)
 
-    static member SpecReg(r, psfFlag) =
-      OprSpecReg(r, Some psfFlag)
+    static member SpecReg(r, psfFlag) = OprSpecReg(r, Some psfFlag)
 
-    static member Iflag(flag) =
-      OprIflag flag
+    static member Iflag(flag) = OprIflag flag
 
-    static member RegList(lst) =
-      OprRegList lst
+    static member RegList(lst) = OprRegList lst
 
-    static member Option(barrier) =
-      OprOption barrier
+    static member Option(barrier) = OprOption barrier
 
-    static member Endian(endian) =
-      OprEndian endian
+    static member Endian(endian) = OprEndian endian
 
-    static member Cond(cond) =
-      OprCond cond
+    static member Cond(cond) = OprCond cond
 
-    static member SimdScalarReg(r, elem) =
-      toSSReg (r, elem)
+    static member SimdScalarReg(r, elem) = toSSReg (r, elem)
 
-    static member SimdVectorReg(r) =
-      toSVReg r
+    static member SimdVectorReg(r) = toSVReg r
 
-    static member MemLabel(v) =
-      memLabel v
+    static member MemLabel(v) = memLabel v
 
-    static member MemUnIdx(r, v) =
-      memUnIdxImm (r, v)
+    static member MemUnIdx(r, v) = memUnIdxImm (r, v)
 
-    static member MemOffsetImm(offset) =
-      memOffsetImm offset
+    static member MemOffsetImm(offset) = memOffsetImm offset
 
     static member MemOffsetReg(r1, signOpt, r2, srType, v) =
       memOffsetReg (r1, signOpt, r2, Some(srType, Imm v))
@@ -87,11 +72,9 @@ module private Shortcut =
     static member MemOffsetReg(r1, signOpt, r2) =
       memOffsetReg (r1, signOpt, r2, None)
 
-    static member MemOffsetAlign(offset) =
-      memOffsetAlign offset
+    static member MemOffsetAlign(offset) = memOffsetAlign offset
 
-    static member MemPreIdxImm(offset) =
-      memPreIdxImm offset
+    static member MemPreIdxImm(offset) = memPreIdxImm offset
 
     static member MemPreIdxReg(r1, signOpt, r2, srType, v) =
       memPreIdxReg (r1, signOpt, r2, Some(srType, Imm v))
@@ -99,11 +82,9 @@ module private Shortcut =
     static member MemPreIdxReg(r1, signOpt, r2) =
       memPreIdxReg (r1, signOpt, r2, None)
 
-    static member MemPreIdxAlign(offset) =
-      memPreIdxAlign offset
+    static member MemPreIdxAlign(offset) = memPreIdxAlign offset
 
-    static member MemPostIdxImm(offset) =
-      memPostIdxImm offset
+    static member MemPostIdxImm(offset) = memPostIdxImm offset
 
     static member MemPostIdxReg(r1, signOpt, r2, srType, v) =
       memPostIdxReg (r1, signOpt, r2, Some(srType, Imm v))
@@ -111,14 +92,11 @@ module private Shortcut =
     static member MemPostIdxReg(r1, signOpt, r2) =
       memPostIdxReg (r1, signOpt, r2, None)
 
-    static member MemPostIdxAlign(offset) =
-      memPostIdxAlign offset
+    static member MemPostIdxAlign(offset) = memPostIdxAlign offset
 
-    static member SimdScalarRegs(regList, elem) =
-      getSIMDScalar elem regList
+    static member SimdScalarRegs(regList, elem) = getSIMDScalar elem regList
 
-    static member SimdVectorRegs(regList) =
-      getSIMDVector regList
+    static member SimdVectorRegs(regList) = getSIMDVector regList
 
 /// - A4.3 Branch instructions
 /// - A4.4 Data-processing instructions

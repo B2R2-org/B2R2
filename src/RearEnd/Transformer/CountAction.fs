@@ -46,7 +46,8 @@ type CountAction() =
   interface IAction with
     member _.ActionID with get() = "count"
     member _.Signature with get() = "ObjCollection -> int"
-    member _.Description with get() = """
+    member _.Description with get() =
+      """
     Take in ObjCollection as input and returns how many objects are valid. This
     action is useful when counting the number of results obtained from grep
     action.

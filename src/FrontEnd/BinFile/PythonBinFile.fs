@@ -81,11 +81,9 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.IsRelocatable = false
 
-    member _.Slice(addr, len) =
-      System.ReadOnlySpan(bytes, int addr, len)
+    member _.Slice(addr, len) = System.ReadOnlySpan(bytes, int addr, len)
 
-    member _.IsValidAddr(addr) =
-      addr >= 0UL && addr < (uint64 bytes.LongLength)
+    member _.IsValidAddr(addr) = addr >= 0UL && addr < (uint64 bytes.LongLength)
 
     member this.IsValidRange range =
       (this :> IContentAddressable).IsValidAddr range.Min
@@ -105,14 +103,11 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.GetVMMappedRegions _permission = [||]
 
-    member _.TryFindName _ =
-      Error ErrorCase.SymbolNotFound
+    member _.TryFindName _ = Error ErrorCase.SymbolNotFound
 
-    member _.GetTextSectionPointer() =
-      Terminator.futureFeature ()
+    member _.GetTextSectionPointer() = Terminator.futureFeature ()
 
-    member _.GetSectionPointer _ =
-      Terminator.futureFeature ()
+    member _.GetSectionPointer _ = Terminator.futureFeature ()
 
     member _.IsInTextOrDataOnlySection _ = Terminator.futureFeature ()
 

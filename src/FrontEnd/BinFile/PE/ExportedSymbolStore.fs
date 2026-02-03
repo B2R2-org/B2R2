@@ -153,5 +153,4 @@ type ExportedSymbolStore private(exportMap, forwardMap) =
   member _.Forwards with get() = forwardMap
 
   /// Tries to find exported symbol name(s) by the given address.
-  member _.TryFind(addr: Addr) =
-    Map.tryFind addr exportMap
+  member _.TryFind(addr: Addr) = Map.tryFind addr exportMap
