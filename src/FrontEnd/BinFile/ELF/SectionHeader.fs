@@ -66,15 +66,19 @@ module internal SectionHeaders =
   /// names separated by null character.
   let private parseSectionNameTableInfo hdr ({ Reader = reader } as toolBox) =
     let secPtr = hdr.SHdrTblOffset + uint64 (hdr.SHdrStrIdx * hdr.SHdrEntrySize)
-    let ptrSize = WordSize.toByteWidth hdr.Class
+    let cls = hdr.Class
+    let ptrSize = WordSize.toByteWidth cls
     let shAddrOffset = 8UL + uint64 (ptrSize * 2)
     let shAddrPtr = secPtr + shAddrOffset (* pointer to sh_offset *)
     let shAddrSize = ptrSize * 2 (* sh_offset, sh_size *)
-    let span = ReadOnlySpan(toolBox.Bytes, int shAddrPtr, shAddrSize)
-    let offset = readUIntByWordSize span reader hdr.Class 0
-    let size =
-      readUIntByWordSize span reader hdr.Class (selectByWordSize hdr.Class 4 8)
-    ReadOnlySpan(toolBox.Bytes, int offset, int size)
+    try
+      let span = ReadOnlySpan(toolBox.Bytes, int shAddrPtr, shAddrSize)
+      let offset = readUIntByWordSize span reader cls 0
+      let size = readUIntByWordSize span reader cls (selectByWordSize cls 4 8)
+      ReadOnlySpan(toolBox.Bytes, int offset, int size)
+    with _ ->
+      eprintfn $"Warning: Failed to parse section name table."
+      ReadOnlySpan<byte>()
 
   let private peekSecType (span: ByteSpan) (reader: IBinReader) =
     reader.ReadUInt32(span, 4)
