@@ -25,7 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open FSharp.Reflection
-open B2R2.RearEnd.Utils
+open B2R2.Logging
 
 /// The `print` action.
 type PrintAction() =
@@ -36,13 +36,13 @@ type PrintAction() =
     elif typ.IsArray then printArray o
     elif FSharpType.IsUnion typ
       && typ.BaseType = typeof<OutString> then printOutString o
-    else Terminal.Out.PrintLine(o.ToString())
+    else Log.Out.PrintLine(o.ToString())
 
   and printObjCollection (o: obj) =
     let res = o :?> ObjCollection
     res.Values
     |> Array.iteri (fun idx v ->
-      Terminal.Out.PrintLine $"[*] result({idx})"
+      Log.Out.PrintLine $"[*] result({idx})"
       print v)
 
   and printClusterResult (o: obj) =
@@ -51,7 +51,7 @@ type PrintAction() =
     |> Array.iteri (fun idx cluster ->
       cluster
       |> Array.iter (fun elem ->
-        Terminal.Out.PrintLine $"  - Cluster({idx}): {elem}"))
+        Log.Out.PrintLine $"  - Cluster({idx}): {elem}"))
 
   and printArray (o: obj) =
     let arr = o :?> _[]
@@ -59,7 +59,7 @@ type PrintAction() =
 
   and printOutString (o: obj) =
     let os = o :?> OutString
-    Terminal.Out.PrintLine os
+    Log.Out.PrintLine os
 
   interface IAction with
     member _.ActionID with get() = "print"

@@ -24,21 +24,38 @@
 
 namespace B2R2.Logging
 
-open System
+/// Represents an output string generated from rear-end applications.
+type OutString =
+  /// Normal string without color.
+  | OutputNormal of string
+  /// Colored string.
+  | OutputColored of ColoredString
+  /// A new line.
+  | OutputNewLine
+with
+  override this.ToString() =
+    match this with
+    | OutputNormal s -> s
+    | OutputColored cs -> cs.ToString()
+    | OutputNewLine -> "\n"
 
-/// Provides the interface for a logger that can be used to log messages with
-/// different verbosity levels.
-type ILogger =
-  inherit IDisposable
+  /// Pads the output string to the left with spaces up to the specified width.
+  member this.PadLeft(width) =
+    match this with
+    | OutputNormal s -> OutputNormal(s.PadLeft width)
+    | OutputColored cs -> OutputColored(cs.PadLeft width)
+    | OutputNewLine -> this
 
-  /// Write a log message (without newline). If the given verbosity level (lvl)
-  /// is lower than it of the logger's, this will print out the given message.
-  /// If the logger's verbosity level is L4, then this function will always
-  /// print out messages regardless of the given `lvl`.
-  abstract Log: string * ?lvl: LogLevel -> unit
+  /// Pads the output string to the right with spaces up to the specified width.
+  member this.PadRight(width) =
+    match this with
+    | OutputNormal s -> OutputNormal(s.PadRight width)
+    | OutputColored cs -> OutputColored(cs.PadRight width)
+    | OutputNewLine -> this
 
-  /// Write a log message with a newline. If the given verbosity level (lvl) is
-  /// lower than it of the logger's, this will print out the given message. If
-  /// the logger's verbosity level is L4, then this function will always print
-  /// out messages regardless of the given `lvl`.
-  abstract LogLine: string * ?lvl: LogLevel -> unit
+  /// Renders the output string using the provided function.
+  member this.Render fn =
+    match this with
+    | OutputNormal s -> fn NoColor s
+    | OutputColored cs -> cs.Render fn
+    | OutputNewLine -> fn NoColor System.Environment.NewLine

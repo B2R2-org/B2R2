@@ -22,23 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Logging
+/// Defines constants used for pretty printing.
+module B2R2.Logging.PrinterConst
 
-open System.IO
+/// Default indentation.
+let [<Literal>] Indentation = 2
 
-/// Represents an implementation of <see cref='T:B2R2.Logging.ILogger'/> that
-/// writes log messages to a file.
-type FileLogger(filepath, ?level: LogLevel) =
-  let fs = File.CreateText(filepath, AutoFlush = true)
-  let llev = defaultArg level LogLevel.L2
+/// Default column width for printing.
+let [<Literal>] ColWidth = 24
 
-  interface ILogger with
-    member _.Dispose() = fs.Dispose()
-
-    member _.Log(str, ?lvl) =
-      let lvl = defaultArg lvl LogLevel.L2
-      if lvl <= llev then fs.Write str else ()
-
-    member _.LogLine(str, ?lvl) =
-      let lvl = defaultArg lvl LogLevel.L2
-      if lvl <= llev then fs.WriteLine str else ()
+/// Default cache limit for cached printers.
+let [<Literal>] CacheLimit = 16777216

@@ -26,12 +26,12 @@ module internal B2R2.RearEnd.BinExplorer.InteractiveMode
 
 open System.IO
 open B2R2
+open B2R2.Logging
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
-open B2R2.RearEnd.Utils
 
 /// Dumps each CFG into JSON file. This feature is implemented to ease the
 /// development and debugging process, and may be removed in the future.
@@ -60,8 +60,8 @@ let startGUIAndCLI (opts: BinExplorerOpts) brew =
 
 let main files (opts: BinExplorerOpts) =
   if List.isEmpty files then
-    Terminal.Out <=? "A file should be given as input."
-    Terminal.Out <=/ "Type --help or --batch to see more info."
+    Log.Out <=? "A file should be given as input."
+    Log.Out <=/ "Type --help or --batch to see more info."
     exit 1
   else
     let file = List.head files

@@ -6,18 +6,6 @@
 
   <ItemGroup>
     <Compile Include="String.fs" />
-    <Compile Include="Color.fs" />
-    <Compile Include="ColoredSegment.fs" />
-    <Compile Include="ColoredString.fs" />
-    <Compile Include="OutString.fs" />
-    <Compile Include="PrinterConst.fs" />
-    <Compile Include="TableConfig.fs" />
-    <Compile Include="IPrinter.fs" />
-    <Compile Include="ConsolePrinter.fs" />
-    <Compile Include="ConsoleCachedPrinter.fs" />
-    <Compile Include="ConsoleNullPrinter.fs" />
-    <Compile Include="HexDump.fs" />
-    <Compile Include="Terminal.fs" />
     <Compile Include="IVerboseOption.fs" />
     <Compile Include="CmdOpts.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

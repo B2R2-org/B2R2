@@ -26,6 +26,7 @@ module B2R2.RearEnd.BinDump.Program
 
 open System
 open B2R2
+open B2R2.Logging
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
@@ -36,8 +37,8 @@ let [<Literal>] private ToolName = "bindump"
 let [<Literal>] private UsageTail = "<binary file(s) | -s hexstring>"
 
 let private printFileName (filepath: string) =
-  Terminal.COut <=/ String.wrapSqrdBracket filepath
-  Terminal.COut.PrintLine()
+  Log.COut <=/ String.wrapSqrdBracket filepath
+  Log.COut.PrintLine()
 
 let private getTableConfig (isa: ISA) isLift =
   if isLift then
@@ -78,13 +79,13 @@ let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
   let ptr = hdl.File.GetBoundedPointer hdl.File.BaseAddress
   let dumper = makeCodeDumper hdl cfg opts
   dumper.Dump ptr
-  Terminal.COut.PrintLine()
+  Log.COut.PrintLine()
 
 let dumpHex (opts: BinDumpOpts) (hdl: BinHandle) ptr =
   let bytes = hdl.ReadBytes(ptr = ptr, nBytes = ptr.MaxOffset - ptr.Offset + 1)
   let chunkSz = if opts.ShowWide then 32 else 16
-  HexDump.render chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
-  |> Array.iter Terminal.COut.PrintLine
+  HexDump.makeLines chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
+  |> Array.iter Log.COut.PrintLine
 
 let private hasNoContent (file: IBinFile) secName =
   match file with
@@ -95,12 +96,12 @@ let private hasNoContent (file: IBinFile) secName =
   | _ -> false
 
 let dumpData (hdl: BinHandle) (opts: BinDumpOpts) ptr secName =
-  Terminal.COut.PrintSectionTitle(String.wrapParen secName)
+  Log.COut.PrintSectionTitle(String.wrapParen secName)
   if hasNoContent hdl.File secName then
-    Terminal.COut.SetTableConfig TableConfig.DefaultTwoColumn
-    Terminal.COut.PrintRow([ ""; "NOBITS section." ])
+    Log.COut.SetTableConfig TableConfig.DefaultTwoColumn
+    Log.COut.PrintRow([ ""; "NOBITS section." ])
   else dumpHex opts hdl ptr
-  Terminal.COut.PrintLine()
+  Log.COut.PrintLine()
 
 let private isRawBinary (hdl: BinHandle) =
   match hdl.File.Format with
@@ -112,9 +113,9 @@ let private isRawBinary (hdl: BinHandle) =
   | _ -> true
 
 let private dumpOneSection (dumper: IBinDumper) name ptr =
-  Terminal.COut.PrintSectionTitle(String.wrapParen name)
+  Log.COut.PrintSectionTitle(String.wrapParen name)
   dumper.Dump ptr
-  Terminal.COut.PrintLine()
+  Log.COut.PrintLine()
 
 let private dumpELFSection hdl opts elf tableprn codeprn sec =
   if (sec: ELF.SectionHeader).SecSize > 0UL then
@@ -190,18 +191,18 @@ let dumpFile (opts: BinDumpOpts) filePath =
 let private dumpFiles files opts =
   match List.partition IO.File.Exists files with
   | [], [] ->
-    Terminal.Out <=? "File(s) must be given."
+    Log.Out <=? "File(s) must be given."
     CmdOpts.printUsage ToolName UsageTail BinDumpOpts.Spec
   | files, [] ->
     files |> List.iter (dumpFile opts)
   | _, errs ->
-    Terminal.Out <=? "File(s) " + errs.ToString() + " not found!"
+    Log.Out <=? "File(s) " + errs.ToString() + " not found!"
 
 let private validateHexStringLength (liftingUnit: LiftingUnit) hexstr =
   let alignment = liftingUnit.InstructionAlignment
   if (Array.length hexstr) % alignment = 0 then ()
   else
-    Terminal.Out <=? $"The hex string length must be multiple of {alignment}"
+    Log.Out <=? $"The hex string length must be multiple of {alignment}"
     exit 1
 
 let private dumpDataString (opts: BinDumpOpts) =
@@ -217,7 +218,7 @@ let private dumpDataString (opts: BinDumpOpts) =
   let len = opts.InputHexStr.Length
   let ptr = BinFilePointer(baseAddr, baseAddr + uint64 len - 1UL, 0, len - 1)
   dumper.Dump ptr
-  Terminal.COut.PrintLine()
+  Log.COut.PrintLine()
 
 let private dumpMain files (opts: BinDumpOpts) =
 #if DEBUG
@@ -228,10 +229,10 @@ let private dumpMain files (opts: BinDumpOpts) =
     if Array.isEmpty opts.InputHexStr then dumpFiles files opts
     else dumpDataString opts
   finally
-    Terminal.COut.Flush()
+    Log.COut.Flush()
 #if DEBUG
   sw.Stop()
-  Terminal.Out <=/ $"Total dump time: {sw.Elapsed.TotalSeconds} sec."
+  Log.Out <=/ $"Total dump time: {sw.Elapsed.TotalSeconds} sec."
 #endif
 
 [<EntryPoint>]

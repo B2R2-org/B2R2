@@ -49,13 +49,13 @@ type CFGLogger(numThreads) =
     let fileName = Path.ChangeExtension(Path.GetRandomFileName(), "log")
     System.Console.Error.WriteLine $"[!] CFG log is written @ {fileName}"
     let path = Path.Combine(Directory.GetCurrentDirectory(), fileName)
-    new FileLogger(path) :> ILogger
+    new FilePrinter(path) :> IPrinter
 
   let flushLog tid =
     Monitor.Enter lock
     try
       let sb = logBuilders[tid]
-      sb.ToString() |> logger.Log
+      sb.ToString() |> logger.Print
       sb.Clear() |> ignore
     finally
       Monitor.Exit lock

@@ -27,6 +27,7 @@ module B2R2.RearEnd.Transformer.Program
 open System
 open System.IO
 open System.Reflection
+open B2R2.Logging
 open B2R2.RearEnd.Utils
 
 let private usage = $"""[Usage]
@@ -48,12 +49,12 @@ type private HelpAction(map: Map<string, IAction>) =
     member _.Signature with get() = "'a -> 'b"
     member _.Description with get() = ""
     member _.Transform(_args, _) =
-      Terminal.Out.PrintLine()
+      Log.Out.PrintLine()
       CmdOpts.writeIntro ()
-      Terminal.Out.PrintLine usage
+      Log.Out.PrintLine usage
       map |> Map.iter (fun id act ->
-        Terminal.Out.PrintLine $"- {id}: {act.Signature}"
-        Terminal.Out.PrintLine $"{act.Description}")
+        Log.Out.PrintLine $"- {id}: {act.Signature}"
+        Log.Out.PrintLine $"{act.Description}")
       exit 0
 
 let private accumulateActions map actions =
@@ -118,7 +119,7 @@ let private checkValidityOfCommandGroup cmdgrp =
   if actionIDs |> List.forall (fun actionID -> actionID = fstActionID) then
     ()
   else
-    Terminal.Out <=? "different actions in the same group."
+    Log.Out <=? "different actions in the same group."
     exit 1
 
 let private runCommand actionMap input (cmd: string list) =
@@ -128,26 +129,26 @@ let private runCommand actionMap input (cmd: string list) =
     match Map.tryFind (actionID.ToLowerInvariant()) actionMap with
     | Some act -> act
     | None ->
-      Terminal.Out <=? $"({actionID}) is not a valid action."
+      Log.Out <=? $"({actionID}) is not a valid action."
       exit 1
 #if DEBUG
-  if actionID <> "help" then Terminal.Out.PrintLine $"[*] {actionID}"
+  if actionID <> "help" then Log.Out.PrintLine $"[*] {actionID}"
   else ()
 #endif
   try
     action.Transform(args, input)
   with
     | :? InvalidCastException ->
-      Terminal.Out <=? $"({actionID}) action type mismatch."
+      Log.Out <=? $"({actionID}) action type mismatch."
       exit 1
     | :? NullReferenceException ->
-      Terminal.Out <=? $"({actionID}) action should follow another."
+      Log.Out <=? $"({actionID}) action should follow another."
       exit 1
     | :? ArgumentException as e ->
-      Terminal.Out <=? $"{e.Message}"
+      Log.Out <=? $"{e.Message}"
       exit 1
     | e ->
-      Terminal.Out <=? $"({actionID}): {e}"
+      Log.Out <=? $"({actionID}): {e}"
       exit 1
 
 let inline private unwrap (c: ObjCollection) = c.Values

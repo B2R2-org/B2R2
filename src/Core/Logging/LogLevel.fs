@@ -46,7 +46,8 @@ type LogLevel =
 /// Provides functions to convert between LogLevel and string.
 [<RequireQualifiedAccess>]
 module LogLevel =
-  /// Gets LogLevel from a given string.
+  /// Gets LogLevel from a given string. Higher the log level, more verbose
+  /// the logging output.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant() with

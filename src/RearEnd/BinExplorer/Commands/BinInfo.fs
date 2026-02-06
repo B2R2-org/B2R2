@@ -24,6 +24,7 @@
 
 namespace B2R2.RearEnd.BinExplorer.Commands
 
+open B2R2.Logging
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.Utils
 open B2R2.RearEnd.BinExplorer

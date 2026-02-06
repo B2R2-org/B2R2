@@ -22,13 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Utils
+namespace B2R2.Logging
 
-/// Represents a printer interface shared by rear-end applications.
-type Terminal =
-  static let out = ConsolePrinter() :> IPrinter
+/// Represents the main logging facility, shared by all B2R2 components.
+type Log =
+  static let out = new ConsolePrinter() :> IPrinter
 
-  static let cout = ConsoleCachedPrinter() :> IPrinter
+  static let cout = new ConsoleCachedPrinter() :> IPrinter
 
   /// Regular printer.
   static member Out = out

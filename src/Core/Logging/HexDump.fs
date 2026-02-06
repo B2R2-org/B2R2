@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Utils
+namespace B2R2.Logging
 
 open B2R2
 
@@ -71,9 +71,9 @@ module HexDump =
     else dumpPlainLine addrStr numBytes bytes |> OutputNormal
 
   /// <summary>
-  /// Converts a byte array into an array of hex dump lines, where each line
-  /// displays the address, hexadecimal values, and ASCII representation.
-  /// Supports both colored and plain text output.
+  /// Converts a byte array into an array of hex dump lines (OutString[]), where
+  /// each line displays the address, hexadecimal values, and ASCII
+  /// representation. Supports both colored and plain text output.
   /// </summary>
   /// <param name="bytesPerLine">Number of bytes to display per line.</param>
   /// <param name="wordSize">Word size used for address formatting.</param>
@@ -83,6 +83,6 @@ module HexDump =
   /// <returns>
   /// An array of hex dump lines in either colored or plain text format.
   /// </returns>
-  let render bytesPerLine wordSize useColor addr bytes =
+  let makeLines bytesPerLine wordSize useColor addr bytes =
     Array.chunkBySize bytesPerLine bytes
     |> Array.mapi (dumpLine bytesPerLine wordSize useColor addr)

@@ -25,7 +25,7 @@
 module internal B2R2.RearEnd.BinExplorer.CLI
 
 open B2R2
-open B2R2.RearEnd.Utils
+open B2R2.Logging
 
 /// Command specification.
 let spec =
@@ -43,7 +43,7 @@ let spec =
     Commands.ROP() ]
 
 let cliPrinter (arbiter: Arbiter<_, _>) () (output: OutString) =
-  Terminal.Out.PrintLine output
+  Log.Out.PrintLine output
   output.ToString() |> arbiter.LogString
 
 let handle cmds (arbiter: Arbiter<_, _>) (line: string) acc printer =

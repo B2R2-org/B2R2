@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Utils
+namespace B2R2.Logging
 
 open System
 
@@ -30,13 +30,15 @@ open System
 /// redirecting outputs to /dev/null.
 type ConsoleNullPrinter() =
   interface IPrinter with
-    member _.Print(_: string) = ()
+    member _.Dispose() = ()
 
-    member _.Print(_: ColoredString) = ()
+    member _.Print(_: string, _: LogLevel) = ()
 
-    member _.Print(_: OutString) = ()
+    member _.Print(_: ColoredString, _: LogLevel) = ()
 
-    member _.Print(_: string, [<ParamArray>] _args) = ()
+    member _.Print(_: OutString, _: LogLevel) = ()
+
+    member _.Print(_: string, [<ParamArray>] _args: obj[]) = ()
 
     member _.PrintError(_: string) = ()
 
@@ -46,15 +48,15 @@ type ConsoleNullPrinter() =
 
     member _.PrintError(_: string, [<ParamArray>] _args) = ()
 
-    member _.PrintLine(_: string) = ()
+    member _.PrintLine(_: string, _: LogLevel) = ()
 
-    member _.PrintLine(_: ColoredString) = ()
+    member _.PrintLine(_: ColoredString, _: LogLevel) = ()
 
-    member _.PrintLine(_: OutString) = ()
+    member _.PrintLine(_: OutString, _: LogLevel) = ()
 
-    member _.PrintLine(_: string, [<ParamArray>] _args) = ()
+    member _.PrintLine(_: string, [<ParamArray>] _args: obj[]) = ()
 
-    member _.PrintLine() = ()
+    member _.PrintLine(_: LogLevel) = ()
 
     member _.SetTableConfig(_: TableConfig) = ()
 

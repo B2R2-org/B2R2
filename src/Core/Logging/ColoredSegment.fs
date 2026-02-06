@@ -22,44 +22,23 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Utils
+namespace B2R2.Logging
 
-/// Represents colors to print out in the console.
-type Color =
-  /// Red color.
-  | Red
-  /// Green color.
-  | Green
-  /// Yellow color.
-  | Yellow
-  /// Blue color.
-  | Blue
-  /// Dark cyan color.
-  | DarkCyan
-  /// Dark yellow color.
-  | DarkYellow
-  /// No color.
-  | NoColor
-  /// Red highlight color.
-  | RedHighlight
-  /// Green highlight color.
-  | GreenHighlight
-with
-  static member FromByte(b: byte) =
-    if B2R2.Byte.isNull b then NoColor
-    elif B2R2.Byte.isPrintable b then Green
-    elif B2R2.Byte.isWhitespace b then Blue
-    elif B2R2.Byte.isControl b then Red
-    else Yellow
+open B2R2
 
-  override this.ToString() =
-    match this with
-    | NoColor -> "nocolor"
-    | Red -> "red"
-    | Green -> "green"
-    | Yellow -> "yellow"
-    | Blue -> "blue"
-    | DarkCyan -> "darkcyan"
-    | DarkYellow -> "darkyellow"
-    | RedHighlight -> "redhighlight"
-    | GreenHighlight -> "greenhighlight"
+/// Represents a string segment with a single color. Multiple segments can be
+/// concatenated to form a colored string.
+type internal ColoredSegment = Color * string
+
+[<RequireQualifiedAccess>]
+module internal ColoredSegment =
+  /// Returns a colored hexadecimal representation of a byte.
+  let hexOfByte b = Color.FromByte b, b.ToString "X2"
+
+  /// Returns a colored ASCII representation of a byte.
+  let asciiOfByte b = Color.FromByte b, Byte.getRepresentation b
+
+  /// Appends a string (of the same color) to a colored segment.
+  let appendString tail (segment: ColoredSegment) =
+    let color, string = segment
+    ColoredSegment(color, string + tail)

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Utils
+namespace B2R2.Logging
 
 open System
 open System.Text
@@ -31,13 +31,9 @@ open System.Text
 /// method is called. All the colored strings will be normalized to plain
 /// strings. It will simply stack up all the output candidates before Flush is
 /// called. This is useful for performance-critical applications.
-type ConsoleCachedPrinter() =
+type ConsoleCachedPrinter(myLevel: LogLevel) =
 
-  let mutable indentation = PrinterConst.Indentation
-
-  let mutable columnGap = 0
-
-  let mutable columnFormats = []
+  let mycfg = TableConfig.DefaultTwoColumn
 
   let cache = StringBuilder()
 
@@ -52,18 +48,28 @@ type ConsoleCachedPrinter() =
     if cache.Length <= PrinterConst.CacheLimit then ()
     else flush ()
 
+  new() = new ConsoleCachedPrinter(LogLevel.L2)
+
   interface IPrinter with
-    member _.Print(s: string) = add s
+    member _.Dispose() = ()
 
-    member _.Print(cs: ColoredString) = cs.ToString() |> add
+    member _.Print(s: string, lvl) =
+      if lvl <= myLevel then add s
+      else ()
 
-    member _.Print(os: OutString) =
-      match os with
-      | OutputNormal s -> add s
-      | OutputColored cs -> cs.ToString() |> add
-      | OutputNewLine -> Environment.NewLine |> add
+    member _.Print(cs: ColoredString, lvl) =
+      if lvl <= myLevel then cs.ToString() |> add
+      else ()
 
-    member _.Print(s: string, [<ParamArray>] args) =
+    member _.Print(os: OutString, lvl) =
+      if lvl <= myLevel then
+        match os with
+        | OutputNormal s -> add s
+        | OutputColored cs -> cs.ToString() |> add
+        | OutputNewLine -> Environment.NewLine |> add
+      else ()
+
+    member _.Print(s: string, [<ParamArray>] args: obj[]) =
       String.Format(s, args) |> add
 
     member _.PrintError(s: string) =
@@ -84,64 +90,47 @@ type ConsoleCachedPrinter() =
     member _.PrintError(fmt: string, [<ParamArray>] args) =
       String.Format(errorPrefix + fmt, args) + Environment.NewLine |> add
 
-    member _.PrintLine(s: string) = s + Environment.NewLine |> add
+    member _.PrintLine(s: string, lvl) =
+      if lvl <= myLevel then s + Environment.NewLine |> add
+      else ()
 
-    member _.PrintLine(cs: ColoredString) =
-      cs.ToString() + Environment.NewLine |> add
+    member _.PrintLine(cs: ColoredString, lvl) =
+      if lvl <= myLevel then cs.ToString() + Environment.NewLine |> add
+      else ()
 
-    member _.PrintLine os =
-      match os with
-      | OutputNormal s -> s + Environment.NewLine |> add
-      | OutputColored cs -> cs.ToString() + Environment.NewLine |> add
-      | OutputNewLine -> Environment.NewLine |> add
+    member _.PrintLine(os, lvl) =
+      if lvl <= myLevel then
+        match os with
+        | OutputNormal s -> s + Environment.NewLine |> add
+        | OutputColored cs -> cs.ToString() + Environment.NewLine |> add
+        | OutputNewLine -> Environment.NewLine |> add
+      else
+        ()
 
-    member _.PrintLine(fmt: string, [<ParamArray>] args) =
+    member _.PrintLine(fmt: string, [<ParamArray>] args: obj[]) =
       String.Format(fmt, args) + Environment.NewLine |> add
 
-    member _.PrintLine() = add Environment.NewLine
+    member _.PrintLine(lvl) =
+      if lvl <= myLevel then add Environment.NewLine
+      else ()
 
     member _.SetTableConfig(cfg: TableConfig) =
-      indentation <- cfg.Indentation
-      columnGap <- cfg.ColumnGap
-      columnFormats <- cfg.Columns
+      mycfg.Indentation <- cfg.Indentation
+      mycfg.ColumnGap <- cfg.ColumnGap
+      mycfg.Columns <- cfg.Columns
 
     member _.SetTableConfig(fmts: TableColumnFormat list) =
-      columnFormats <- fmts
+      mycfg.Columns <- fmts
 
-    member _.PrintRow(strs: string list) =
-      let lastIdx = List.length columnFormats - 1
-      if indentation > 0 then String(' ', indentation) |> add else ()
-      List.zip columnFormats strs
-      |> List.iteri (fun i (colfmt, s) ->
-        if i > 0 && columnGap > 0 then String(' ', columnGap) |> add else ()
-        let isLast = i = lastIdx
-        match colfmt with
-        | RightAligned width ->
-          s.PadLeft width |> add
-        | LeftAligned width ->
-          if isLast then add s
-          else s.PadRight width |> add)
-      add Environment.NewLine
+    member _.PrintRow(strs: string list) = mycfg.RenderRow(strs, add)
 
     member _.PrintRow(css: ColoredString list) =
-      let lastIdx = List.length columnFormats - 1
-      if indentation > 0 then String(' ', indentation) |> add else ()
-      List.zip columnFormats css
-      |> List.iteri (fun i (colfmt, cs) ->
-        if i > 0 && columnGap > 0 then String(' ', columnGap) |> add else ()
-        let isLast = i = lastIdx
-        colfmt.Pad(cs, isLast).ToString() |> add)
-      add Environment.NewLine
+      let renderer (cs: ColoredString) = cs.ToString() |> add
+      mycfg.RenderRow(css, renderer)
 
     member _.PrintRow(oss: OutString list) =
-      let lastIdx = List.length columnFormats - 1
-      if indentation > 0 then String(' ', indentation) |> add else ()
-      List.zip columnFormats oss
-      |> List.iteri (fun i (colfmt, cs) ->
-        if i > 0 && columnGap > 0 then String(' ', columnGap) |> add else ()
-        let isLast = i = lastIdx
-        colfmt.Pad(cs, isLast).ToString() |> add)
-      add Environment.NewLine
+      let renderer (os: OutString) = os.ToString() |> add
+      mycfg.RenderRow(oss, renderer)
 
     member _.PrintSectionTitle title =
       "# " + title + Environment.NewLine + Environment.NewLine |> add

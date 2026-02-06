@@ -25,9 +25,9 @@
 namespace B2R2.RearEnd.BinExplorer.Commands
 
 open B2R2
+open B2R2.Logging
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
-open B2R2.RearEnd.Utils
 open B2R2.RearEnd.BinExplorer
 
 type List() =

@@ -22,27 +22,54 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Utils
+namespace B2R2.Logging
 
 open System
+open System.Runtime.InteropServices
 
 /// <summary>
 /// Represents a printer interface. It is recommended to use this interface
-/// instead of language primitives, such as <c>System.Console</c> or
+/// instead of other language primitives, such as <c>System.Console</c> or
 /// <c>printfn</c>.
 /// </summary>
 [<Interface>]
 type IPrinter =
-  /// Prints out the given string.
-  abstract Print: s: string -> unit
+  inherit IDisposable
 
-  /// Prints out the given ColoredString.
-  abstract Print: cs: ColoredString -> unit
+  /// <summary>
+  /// Prints out the given string. If the optional log level `lvl` is
+  /// provided, the string is printed only if the current log level is equal to
+  /// or higher than `lvl`. By default, `lvl` is set to <c>LogLevel.L2</c>.
+  /// </summary>
+  abstract Print:
+      s: string
+    * [<Optional; DefaultParameterValue(LogLevel.L2)>] lvl: LogLevel
+    -> unit
 
-  /// Prints out the given OutString.
-  abstract Print: os: OutString -> unit
+  /// <summary>
+  /// Prints out the given ColoredString. If the optional log level `lvl` is
+  /// provided, the string is printed only if the current log level is equal to
+  /// or higher than `lvl`. By default, `lvl` is set to <c>LogLevel.L2</c>.
+  /// </summary>
+  abstract Print:
+       cs: ColoredString
+     * [<Optional; DefaultParameterValue(LogLevel.L2)>] lvl: LogLevel
+    -> unit
 
-  /// Prints out the formatted string.
+  /// <summary>
+  /// Prints out the given OutString. If the optional log level `lvl` is
+  /// provided, the string is printed only if the current log level is equal to
+  /// or higher than `lvl`. By default, `lvl` is set to <c>LogLevel.L2</c>.
+  /// </summary>
+  abstract Print:
+       os: OutString
+     * [<Optional; DefaultParameterValue(LogLevel.L2)>] lvl: LogLevel
+    -> unit
+
+  /// <summary>
+  /// Prints out the formatted string. This function does not take any log level
+  /// parameter; it always prints out the given string.
+  /// </summary>
   abstract Print: string * [<ParamArray>] args: obj[] -> unit
 
   /// Prints out the given string as an error message, meaning that it will be
@@ -65,20 +92,52 @@ type IPrinter =
   /// end.
   abstract PrintError: string * [<ParamArray>] args: obj[] -> unit
 
-  /// Prints out the given string with newline.
-  abstract PrintLine: s: string -> unit
+  /// <summary>
+  /// Prints out the given string with newline. If the optional log level `lvl`
+  /// is provided, the string is printed only if the current log level is equal
+  /// to or higher than `lvl`. By default, `lvl` is set to <c>LogLevel.L2</c>.
+  /// </summary>
+  abstract PrintLine:
+       s: string
+     * [<Optional; DefaultParameterValue(LogLevel.L2)>] lvl: LogLevel
+    -> unit
 
-  /// Prints out the given ColoredString with newline.
-  abstract PrintLine: cs: ColoredString -> unit
+  /// <summary>
+  /// Prints out the given ColoredString with newline. If the optional log level
+  /// `lvl` is provided, the string is printed only if the current log level is
+  /// equal to or higher than `lvl`. By default, `lvl` is set to
+  /// <c>LogLevel.L2</c>.
+  /// </summary>
+  abstract PrintLine:
+       cs: ColoredString
+     * [<Optional; DefaultParameterValue(LogLevel.L2)>] lvl: LogLevel
+    -> unit
 
-  /// Prints out the given OutString with newline.
-  abstract PrintLine: os: OutString -> unit
+  /// <summary>
+  /// Prints out the given OutString with newline. If the optional log level
+  /// `lvl` is provided, the string is printed only if the current log level is
+  /// equal to or higher than `lvl`. By default, `lvl` is set to
+  /// <c>LogLevel.L2</c>.
+  /// </summary>
+  abstract PrintLine:
+       os: OutString
+     * [<Optional; DefaultParameterValue(LogLevel.L2)>] lvl: LogLevel
+    -> unit
 
-  /// Prints out the formatted string with newline.
+  /// <summary>
+  /// Prints out the formatted string with newline. This function does not
+  /// take any log level parameter; it always prints out the given string.
+  /// </summary>
   abstract PrintLine: fmt: string * [<ParamArray>] args: obj[] -> unit
 
-  /// Prints out a newline.
-  abstract PrintLine: unit -> unit
+  /// <summary>
+  /// Prints out a newline. If the optional log level `lvl` is provided, the
+  /// newline is printed only if the current log level is equal to or higher
+  /// than `lvl`. By default, `lvl` is set to <c>LogLevel.L2</c>.
+  /// </summary>
+  abstract PrintLine:
+       [<Optional; DefaultParameterValue(LogLevel.L2)>] lvl: LogLevel
+    -> unit
 
   /// Sets the spacing for table-based printing, such as PrintRow, etc.
   abstract SetTableConfig: cfg: TableConfig -> unit

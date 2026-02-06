@@ -22,20 +22,16 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Utils
+namespace B2R2.Logging
 
 open System
 
 /// Represents a printer that simply prints out strings to console whenever a
 /// print method is called. This printer does not perform any caching, so it
 /// immediately flushes out all the strings to console.
-type ConsolePrinter() =
+type ConsolePrinter(myLevel: LogLevel) =
 
-  let mutable indentation = PrinterConst.Indentation
-
-  let mutable columnGap = 0
-
-  let mutable columnFormats = []
+  let mycfg = TableConfig.DefaultTwoColumn
 
   /// Sets the color.
   let setColor col =
@@ -76,18 +72,30 @@ type ConsolePrinter() =
 
   let printErrorSuffix () = Console.WriteLine()
 
+  new() = new ConsolePrinter(LogLevel.L2)
+
   interface IPrinter with
-    member _.Print(s: string) = Console.Write s
+    member _.Dispose() = ()
 
-    member _.Print(cs: ColoredString) = cs.Render(renderer)
+    member _.Print(s: string, lvl) =
+      if lvl <= myLevel then Console.Write s
+      else ()
 
-    member _.Print(os: OutString) =
-      match os with
-      | OutputNormal s -> Console.Write s
-      | OutputColored cs -> cs.Render(renderer)
-      | OutputNewLine -> Console.WriteLine()
+    member _.Print(cs: ColoredString, lvl) =
+      if lvl <= myLevel then cs.Render(renderer)
+      else ()
 
-    member _.Print(s: string, [<ParamArray>] args) = Console.Write(s, args)
+    member _.Print(os: OutString, lvl) =
+      if lvl <= myLevel then
+        match os with
+        | OutputNormal s -> Console.Write s
+        | OutputColored cs -> cs.Render(renderer)
+        | OutputNewLine -> Console.WriteLine()
+      else
+        ()
+
+    member _.Print(s: string, [<ParamArray>] args: obj[]) =
+      Console.Write(s, args)
 
     member _.PrintError(s: string) =
       printErrorPrefix ()
@@ -112,67 +120,52 @@ type ConsolePrinter() =
       Console.WriteLine(s, args)
       printErrorSuffix ()
 
-    member _.PrintLine(s: string) = Console.WriteLine(s)
+    member _.PrintLine(s: string, lvl) =
+      if lvl <= myLevel then Console.WriteLine(s)
+      else ()
 
-    member _.PrintLine(cs: ColoredString) =
-      cs.Render(renderer)
-      Console.WriteLine()
+    member _.PrintLine(cs: ColoredString, lvl) =
+      if lvl <= myLevel then
+        cs.Render(renderer)
+        Console.WriteLine()
+      else
+        ()
 
-    member _.PrintLine(os: OutString) =
-      match os with
-      | OutputNormal s -> Console.WriteLine s
-      | OutputColored cs -> cs.Render(renderer); Console.WriteLine()
-      | OutputNewLine -> Console.WriteLine()
+    member _.PrintLine(os: OutString, lvl) =
+      if lvl <= myLevel then
+        match os with
+        | OutputNormal s -> Console.WriteLine s
+        | OutputColored cs -> cs.Render(renderer); Console.WriteLine()
+        | OutputNewLine -> Console.WriteLine()
+      else
+        ()
 
-    member _.PrintLine(fmt: string, [<ParamArray>] args) =
+    member _.PrintLine(fmt: string, [<ParamArray>] args: obj[]) =
       Console.WriteLine(fmt, args)
 
-    member _.PrintLine() = Console.WriteLine()
+    member _.PrintLine(lvl) =
+      if lvl <= myLevel then Console.WriteLine()
+      else ()
 
     member _.SetTableConfig(cfg: TableConfig) =
-      indentation <- cfg.Indentation
-      columnGap <- cfg.ColumnGap
-      columnFormats <- cfg.Columns
+      mycfg.Indentation <- cfg.Indentation
+      mycfg.ColumnGap <- cfg.ColumnGap
+      mycfg.Columns <- cfg.Columns
 
     member _.SetTableConfig(fmts: TableColumnFormat list) =
-      columnFormats <- fmts
+      mycfg.Columns <- fmts
 
     member _.PrintRow(strs: string list) =
-      let lastIdx = List.length columnFormats - 1
-      if indentation > 0 then Console.Write(String(' ', indentation)) else ()
-      List.zip columnFormats strs
-      |> List.iteri (fun i (colfmt, s) ->
-        if i > 0 && columnGap > 0 then Console.Write(String(' ', columnGap))
-        else ()
-        let isLast = i = lastIdx
-        match colfmt with
-        | RightAligned width -> s.PadLeft width |> Console.Write
-        | LeftAligned width ->
-          if isLast then Console.Write s
-          else s.PadRight width |> Console.Write)
-      Console.WriteLine()
+      let renderer (s: string) = Console.Write s
+      mycfg.RenderRow(strs, renderer)
 
     member _.PrintRow(css: ColoredString list) =
-      let lastIdx = List.length columnFormats - 1
-      if indentation > 0 then Console.Write(String(' ', indentation)) else ()
-      List.zip columnFormats css
-      |> List.iteri (fun i (colfmt, cs) ->
-        if i > 0 && columnGap > 0 then Console.Write(String(' ', columnGap))
-        else ()
-        let isLast = i = lastIdx
-        colfmt.Pad(cs, isLast).Render(renderer))
-      Console.WriteLine()
+      let renderer (cs: ColoredString) = cs.Render(renderer)
+      mycfg.RenderRow(css, renderer)
 
     member _.PrintRow(oss: OutString list) =
-      let lastIdx = List.length columnFormats - 1
-      if indentation > 0 then Console.Write(String(' ', indentation)) else ()
-      List.zip columnFormats oss
-      |> List.iteri (fun i (colfmt, os) ->
-        if i > 0 && columnGap > 0 then Console.Write(String(' ', columnGap))
-        else ()
-        let isLast = i = lastIdx
-        colfmt.Pad(os, isLast).Render(renderer))
-      Console.WriteLine()
+      let renderer (os: OutString) = os.Render(renderer)
+      mycfg.RenderRow(oss, renderer)
 
     member this.PrintSectionTitle title =
       ColoredString().Add(Red, "# ").Add(NoColor, title).Render(renderer)

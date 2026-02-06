@@ -24,7 +24,7 @@
 
 namespace B2R2.RearEnd.Transformer
 
-open B2R2.RearEnd.Utils
+open B2R2.Logging
 
 /// The `hexdump` action.
 type HexdumpAction() =
@@ -38,7 +38,7 @@ type HexdumpAction() =
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes
     let baseAddr = hdl.File.BaseAddress
-    HexDump.render 16 hdl.File.ISA.WordSize true baseAddr bs
+    HexDump.makeLines 16 hdl.File.ISA.WordSize true baseAddr bs
     |> box
 
   interface IAction with

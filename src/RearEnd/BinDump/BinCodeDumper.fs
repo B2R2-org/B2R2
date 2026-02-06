@@ -27,10 +27,10 @@ namespace B2R2.RearEnd.BinDump
 open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
+open B2R2.Logging
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
-open B2R2.RearEnd.Utils
 
 /// Represents the main code dumper class.
 type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
@@ -45,13 +45,13 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
 
   let printLowUIR (lowUIRStr: string) bytes =
     let hexStr = convertToHexStr bytes |> String.wrapSqrdBracket
-    Terminal.COut.PrintRow([ hexStr ])
-    Terminal.COut.PrintRow([ lowUIRStr ])
+    Log.COut.PrintRow([ hexStr ])
+    Log.COut.PrintRow([ lowUIRStr ])
 
   let printRegularDisasm disasmStr wordSize addr bytes =
     let hexStr = convertToHexStr bytes
     let addrStr = Addr.toString wordSize addr + ":"
-    Terminal.COut.PrintRow([ addrStr; hexStr; disasmStr ])
+    Log.COut.PrintRow([ addrStr; hexStr; disasmStr ])
 
   let regularDisPrinter hdl liftingUnit wordSize showSymbs ptr ins =
     (liftingUnit: LiftingUnit).ConfigureDisassembly(false, showSymbs)
@@ -77,14 +77,14 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
     cs
 
   let printColorDisasm words wordSize addr bytes =
-    Terminal.COut.Flush()
+    Log.COut.Flush()
     let hexStr = convertToHexStr bytes
     let addrStr = Addr.toString wordSize addr + ":"
     let disasStr = convertToDisasmStr words
-    Terminal.Out.SetTableConfig(cfg = cfg)
-    Terminal.Out.PrintRow([ ColoredString(Green, addrStr)
-                            ColoredString(NoColor, hexStr)
-                            disasStr ])
+    Log.Out.SetTableConfig(cfg = cfg)
+    Log.Out.PrintRow([ ColoredString(Green, addrStr)
+                       ColoredString(NoColor, hexStr)
+                       disasStr ])
 
   let colorDisPrinter (hdl: BinHandle) liftingUnit wordSize _ ptr ins =
     (liftingUnit: LiftingUnit).ConfigureDisassembly false
@@ -146,8 +146,8 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
   let printFuncSymbol isFirst addr =
     match symbols.TryGetValue(addr) with
     | true, name ->
-      if not isFirst then Terminal.COut.PrintLine() else ()
-      Terminal.COut.PrintLine(String.wrapAngleBracket name)
+      if not isFirst then Log.COut.PrintLine() else ()
+      Log.COut.PrintLine(String.wrapAngleBracket name)
     | false, _ -> ()
 
   let wordSize = hdl.File.ISA.WordSize
@@ -186,5 +186,5 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
     member _.ModeSwitch with get() = modeSwitch
 
     member _.Dump ptr =
-      Terminal.COut.SetTableConfig(cfg = cfg)
+      Log.COut.SetTableConfig(cfg = cfg)
       binDump true ptr

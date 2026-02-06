@@ -25,8 +25,8 @@
 namespace B2R2.RearEnd.BinExplorer.Commands
 
 open System
+open B2R2.Logging
 open B2R2.MiddleEnd
-open B2R2.RearEnd.Utils
 open B2R2.RearEnd.BinExplorer
 
 type HexDump() =
@@ -66,7 +66,7 @@ type HexDump() =
         match result with
         | Ok(addr, bytes: byte[]) ->
           let wordSize = brew.BinHandle.File.ISA.WordSize
-          HexDump.render 16 wordSize true addr bytes
+          HexDump.makeLines 16 wordSize true addr bytes
         | Error e -> [| OutputColored(ColoredString(NoColor, e)) |]
       | _ ->
         [| (this :> ICmd).CmdHelp |]

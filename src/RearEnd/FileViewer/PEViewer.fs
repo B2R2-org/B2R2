@@ -26,9 +26,9 @@ module B2R2.RearEnd.FileViewer.PEViewer
 
 open System.Reflection.PortableExecutable
 open B2R2
+open B2R2.Logging
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.FileViewer.Helper
-open B2R2.RearEnd.Utils
 
 let badAccess _ _ = raise InvalidFileFormatException
 
@@ -48,7 +48,7 @@ let translateChracteristics chars =
 
 let dumpFileHeader _ (file: PEBinFile) =
   let hdr = file.PEHeaders.CoffHeader
-  Terminal.Out
+  Log.Out
   <== TableConfig.DefaultTwoColumn
   <== [ "Machine:"
         HexString.ofUInt64 (uint64 hdr.Machine)
@@ -62,7 +62,7 @@ let dumpFileHeader _ (file: PEBinFile) =
   <=/ [ "Characteristics:"
         HexString.ofUInt64 (uint64 hdr.Characteristics) ]
   translateChracteristics (uint64 hdr.Characteristics)
-  |> List.iter (fun str -> Terminal.Out <=/ [ ""; str ])
+  |> List.iter (fun str -> Log.Out <=/ [ ""; str ])
 
 let translateSectionChracteristics chars =
   let enumChars =
@@ -86,7 +86,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
   let file = pe :> IBinFile
   if opts.Verbose then
-    Terminal.Out
+    Log.Out
     <== [ LeftAligned 4
           addrColumn
           addrColumn
@@ -120,7 +120,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
       let size =
         uint64 (if s.VirtualSize = 0 then s.SizeOfRawData else s.VirtualSize)
       let characteristics = uint64 s.SectionCharacteristics
-      Terminal.Out
+      Log.Out
       <=/ [ String.wrapSqrdBracket (idx.ToString())
             Addr.toString file.ISA.WordSize startAddr
             Addr.toString file.ISA.WordSize (startAddr + size - uint64 1)
@@ -136,18 +136,18 @@ let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
             HexString.ofUInt64 characteristics ]
       translateSectionChracteristics characteristics
       |> List.iter (fun str ->
-        Terminal.Out
+        Log.Out
         <=/ [ ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; str ])
     )
   else
-    Terminal.Out
+    Log.Out
     <== [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
     <== [ "Num"; "Start"; "End"; "Name" ]
     <=/ "  ---"
     pe.SectionHeaders
     |> Array.iteri (fun idx s ->
       let addr = uint64 s.VirtualAddress + file.BaseAddress
-      Terminal.Out
+      Log.Out
       <=/ [ String.wrapSqrdBracket (idx.ToString())
             Addr.toString file.ISA.WordSize addr
             Addr.toString file.ISA.WordSize (addr + uint64 s.VirtualSize - 1UL)
@@ -162,7 +162,7 @@ let dumpSectionDetails (secname: string) (file: PEBinFile) =
   | Some idx ->
     let section = file.SectionHeaders[idx]
     let characteristics = uint64 section.SectionCharacteristics
-    Terminal.Out
+    Log.Out
     <== TableConfig.DefaultTwoColumn
     <== [ "Section number:"; String.wrapSqrdBracket (idx.ToString()) ]
     <== [ "Section name:"; section.Name ]
@@ -184,12 +184,12 @@ let dumpSectionDetails (secname: string) (file: PEBinFile) =
           section.NumberOfLineNumbers.ToString() ]
     <=/ [ "Characteristics:"; HexString.ofUInt64 characteristics ]
     translateSectionChracteristics characteristics
-    |> List.iter (fun str -> Terminal.Out <=/ [ ""; str ])
+    |> List.iter (fun str -> Log.Out <=/ [ ""; str ])
   | None ->
-    Terminal.Out <=/ [ ""; "Not found." ]
+    Log.Out <=/ [ ""; "Not found." ]
 
 let printSymbolRow pe vis flags addr name libName =
-  Terminal.Out
+  Log.Out
   <=/ [ vis
         flags
         Addr.toString (pe :> IBinFile).ISA.WordSize addr
@@ -198,7 +198,7 @@ let printSymbolRow pe vis flags addr name libName =
 
 let printSymbolInfo (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
-  Terminal.Out
+  Log.Out
   <== [ LeftAligned 3
         LeftAligned 10
         addrColumn
@@ -236,34 +236,34 @@ let dumpSymbols _ (pe: PEBinFile) = printSymbolInfo pe
 
 let dumpRelocs _ (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
-  Terminal.Out
+  Log.Out
   <== [ addrColumn; LeftAligned 50 ]
   <== [ "Address"; "Relocation Type" ]
   <=/ " ---"
   for block in pe.RelocBlocks do
     for entry in block.Entries do
       let addr = uint64 block.PageRVA + uint64 entry.Offset
-      Terminal.Out
+      Log.Out
       <=/ [ Addr.toString (pe :> IBinFile).ISA.WordSize addr
             $"{entry.Type}" ]
 
 let dumpFunctions _ (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
-  Terminal.Out
+  Log.Out
   <== [ addrColumn; LeftAligned 50 ]
   <== [ "Address"; "Function" ]
   <=/ " ---"
   for addr in (pe :> IBinFile).GetFunctionAddresses() do
     match (pe :> IBinFile).TryFindName addr with
     | Ok name ->
-      Terminal.Out
+      Log.Out
       <=/ [ Addr.toString (pe :> IBinFile).ISA.WordSize addr; name ]
     | Error _ -> ()
 
 let inline addrFromRVA baseAddr rva = uint64 rva + baseAddr
 
 let dumpImports _ (file: PEBinFile) =
-  Terminal.Out
+  Log.Out
   <== [ LeftAligned 50; LeftAligned 50; LeftAligned 20 ]
   <== [ "FunctionName"; "Lib Name"; "TableAddress" ]
   <=/ "  ---"
@@ -271,18 +271,18 @@ let dumpImports _ (file: PEBinFile) =
   |> Map.iter (fun addr info ->
     match info with
     | PE.ImportedSymbol.ByOrdinal(ordinal, dllname) ->
-      Terminal.Out
+      Log.Out
       <=/ [ "#" + ordinal.ToString()
             dllname
             HexString.ofUInt64 (addrFromRVA file.BaseAddress addr) ]
     | PE.ImportedSymbol.ByName(_, fname, dllname) ->
-      Terminal.Out
+      Log.Out
       <=/ [ fname
             dllname
             HexString.ofUInt64 (addrFromRVA file.BaseAddress addr) ])
 
 let dumpExports _ (file: PEBinFile) =
-  Terminal.Out
+  Log.Out
   <== [ LeftAligned 45; LeftAligned 20 ]
   <== [ "FunctionName"; "TableAddress" ]
   <=/ "  ---"
@@ -294,14 +294,14 @@ let dumpExports _ (file: PEBinFile) =
     | idx ->
       names
       |> List.iter (fun name ->
-        Terminal.Out <=/ [ name; HexString.ofUInt64 addr ]))
-  Terminal.Out.PrintLine()
-  Terminal.Out
+        Log.Out <=/ [ name; HexString.ofUInt64 addr ]))
+  Log.Out.PrintLine()
+  Log.Out
   <== [ "FunctionName"; "ForwardName" ]
   <=/ "  ---"
   file.ExportedSymbols.Forwards
   |> Map.iter (fun name (bin, func) ->
-    Terminal.Out <=/ [ name; bin + "!" + func ])
+    Log.Out <=/ [ name; bin + "!" + func ])
 
 let translateDllChracteristcs chars =
   let enumChars =
@@ -344,7 +344,7 @@ let dumpOptionalHeader _ (file: PEBinFile) =
   let importAddrDir = hdr.ImportAddressTableDirectory
   let delayImpDir = hdr.DelayImportTableDirectory
   let comDescDir = hdr.CorHeaderTableDirectory
-  Terminal.Out
+  Log.Out
   <== TableConfig.DefaultTwoColumn
   <== [ "Magic:"
         HexString.ofUInt64 (uint64 hdr.Magic)
@@ -388,8 +388,8 @@ let dumpOptionalHeader _ (file: PEBinFile) =
   <=/ [ "DLL characteristics:"
         HexString.ofUInt64 (uint64 hdr.DllCharacteristics) ]
   translateDllChracteristcs (uint64 hdr.DllCharacteristics)
-  |> List.iter (fun str -> Terminal.Out <=/ [ ""; str ])
-  Terminal.Out
+  |> List.iter (fun str -> Log.Out <=/ [ ""; str ])
+  Log.Out
   <== [ "Size of stack reserve:"
         HexString.ofUInt64 (uint64 hdr.SizeOfStackReserve) ]
   <== [ "Size of stack commit:"
@@ -476,7 +476,7 @@ let translateCorFlags flags =
 let dumpCLRHeader _ (file: PEBinFile) =
   let hdr = file.PEHeaders.CorHeader
   if isNull hdr then
-    Terminal.Out
+    Log.Out
     <== TableConfig.DefaultTwoColumn
     <=/ [ ""; "Not found." ]
   else
@@ -487,7 +487,7 @@ let dumpCLRHeader _ (file: PEBinFile) =
     let vTableFixups = hdr.VtableFixupsDirectory
     let exportAddrTblJmps = hdr.ExportAddressTableJumpsDirectory
     let managedNativeHdr = hdr.ManagedNativeHeaderDirectory
-    Terminal.Out
+    Log.Out
     <== TableConfig.DefaultTwoColumn
     <== [ "Runtime version:"
           hdr.MajorRuntimeVersion.ToString()
@@ -498,8 +498,8 @@ let dumpCLRHeader _ (file: PEBinFile) =
               (HexString.ofUInt64 (uint64 metaDataDir.Size)) ]
     <=/ [ "Flags:"; HexString.ofUInt64 (uint64 hdr.Flags) ]
     translateCorFlags (uint64 hdr.Flags)
-    |> List.iter (fun str -> Terminal.Out <=/ [ ""; str ])
-    Terminal.Out
+    |> List.iter (fun str -> Log.Out <=/ [ ""; str ])
+    Log.Out
     <== [ "RVA[size] of Resources Directory:"
           HexString.ofUInt64 (uint64 resourcesDir.RelativeVirtualAddress)
           + String.wrapSqrdBracket
@@ -528,4 +528,4 @@ let dumpDependencies _ (file: IBinFile) =
   file.GetLinkageTableEntries()
   |> Seq.map (fun e -> e.LibraryName)
   |> Set.ofSeq
-  |> Set.iter (fun s -> Terminal.Out <=/ [ ""; s ])
+  |> Set.iter (fun s -> Log.Out <=/ [ ""; s ])

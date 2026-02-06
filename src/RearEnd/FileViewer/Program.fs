@@ -25,37 +25,38 @@
 module B2R2.RearEnd.FileViewer.Program
 
 open B2R2
+open B2R2.Logging
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd
 open B2R2.RearEnd.Utils
 
 let dumpBasic (file: IBinFile) =
   let entry = ColoredString(Green, String.ofEntryPointOpt file.EntryPoint)
-  Terminal.Out.PrintSectionTitle "Basic Information"
-  Terminal.Out
+  Log.Out.PrintSectionTitle "Basic Information"
+  Log.Out
   <== [ "File format:"; FileFormat.toString file.Format ]
   <== [ "Architecture:"; file.ISA.ToString() ]
   <== [ "Endianness:"; Endian.toString file.ISA.Endian ]
   <== [ "Word size:"; WordSize.toString file.ISA.WordSize + " bit" ]
   <=/ [ OutputNormal "Entry point:"; OutputColored entry ]
-  Terminal.Out.PrintLine()
+  Log.Out.PrintLine()
 
 let dumpSecurity (file: IBinFile) =
-  Terminal.Out.PrintSectionTitle "Security Information"
-  Terminal.Out
+  Log.Out.PrintSectionTitle "Security Information"
+  Log.Out
   <== [ "Stripped binary:"; file.IsStripped.ToString() ]
   <== [ "DEP (NX) enabled:"; file.IsNXEnabled.ToString() ]
   <=/ [ "Relocatable (PIE):"; file.IsRelocatable.ToString() ]
-  Terminal.Out.PrintLine()
+  Log.Out.PrintLine()
 
 let dumpSpecific opts (file: IBinFile) title elf pe mach =
-  Terminal.Out.PrintSectionTitle title
+  Log.Out.PrintSectionTitle title
   match file with
   | :? ELFBinFile as file -> elf opts file
   | :? PEBinFile as file -> pe opts file
   | :? MachBinFile as file -> mach opts file
   | _ -> Terminator.futureFeature ()
-  Terminal.Out.PrintLine()
+  Log.Out.PrintLine()
 
 let dumpFileHeader (opts: FileViewerOpts) (file: IBinFile) =
   dumpSpecific opts file "File Header Information"
@@ -164,8 +165,8 @@ let printFileName filepath =
     .Add(Green, "[")
     .Add(Yellow, filepath)
     .Add(Green, "]")
-  |> Terminal.Out.PrintLine
-  Terminal.Out.PrintLine()
+  |> Log.Out.PrintLine
+  Log.Out.PrintLine()
 
 let printBasic file =
   dumpBasic file
@@ -238,14 +239,14 @@ let dump files opts =
   CmdOpts.sanitizeRestArgs files
   match files with
   | [] ->
-    Terminal.Out <=? "File(s) must be given."
+    Log.Out <=? "File(s) must be given."
     CmdOpts.printUsage ToolName UsageTail FileViewerOpts.Spec
   | files ->
 #if DEBUG
     let sw = System.Diagnostics.Stopwatch.StartNew()
 #endif
     try files |> List.iter (dumpFile opts)
-    finally Terminal.Out.Flush()
+    finally Log.Out.Flush()
 #if DEBUG
     sw.Stop()
     eprintfn "Total time: %f sec." sw.Elapsed.TotalSeconds
@@ -254,5 +255,5 @@ let dump files opts =
 [<EntryPoint>]
 let main args =
   let opts = FileViewerOpts.Default
-  Terminal.Out <=/ { TableConfig.DefaultTwoColumn with Indentation = 2 }
+  Log.Out <=/ { TableConfig.DefaultTwoColumn with Indentation = 2 }
   CmdOpts.parseAndRun dump ToolName UsageTail FileViewerOpts.Spec opts args

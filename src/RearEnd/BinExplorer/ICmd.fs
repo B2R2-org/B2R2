@@ -24,8 +24,8 @@
 
 namespace B2R2.RearEnd.BinExplorer
 
+open B2R2.Logging
 open B2R2.MiddleEnd
-open B2R2.RearEnd.Utils
 
 /// Represents a command that can be invoked within BinExplorer's CLI.
 type ICmd =
