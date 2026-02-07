@@ -26,7 +26,6 @@ module B2R2.RearEnd.Assembler.Program
 
 open System
 open B2R2
-open B2R2.Logging
 open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
@@ -38,12 +37,12 @@ let [<Literal>] private NormalPrompt = "> "
 let private printIns parser (asm: Assembler) addr bs =
   let bCode = (BitConverter.ToString(bs)).Replace("-", "")
   let ins = (parser: IInstructionParsable).Parse(bs, addr)
-  Log.Out.PrintLine(sprintf "%08x: %-20s     %s" addr bCode (ins.Disasm()))
+  printfn "%08x: %-20s     %s" addr bCode (ins.Disasm())
   addr + uint64 (Array.length bs)
 
 let inline private printResult fn = function
   | Ok res -> fn res
-  | Error err -> Log.Out <=? err
+  | Error err -> eprintsn err
 
 let getAssemblyPrinter (opts: AssemblerOpts) =
   match opts.Mode with
@@ -63,14 +62,13 @@ let getAssemblyPrinter (opts: AssemblerOpts) =
     fun str ->
       parser.Parse str
       |> printResult (fun stmts ->
-        stmts |> Array.iter (PrettyPrinter.ToString >> Log.Out.PrintLine))
+        stmts |> Array.iter (PrettyPrinter.ToString >> printsn))
 
 let rec private asmFromStdin (console: FsReadLine.Console) printer str =
   match console.ReadLine() with
   | "" -> asmFromStdin console printer str
   | input when isNull input || input = "q" || input = "quit" ->
-    Log.Out.PrintLine("Bye!")
-    Log.Out.Flush()
+    printsn "Bye!"
   | input ->
     let input = input.Trim()
     let str =
@@ -89,12 +87,12 @@ let showBasicInfo (opts: AssemblerOpts) =
     ColoredString()
       .Add(Blue, isa.ToString())
       .Add(Green, " General Mode")
-    |> Log.Out.PrintLine
+    |> printcn
   | LowUIRMode(isa) ->
     ColoredString()
       .Add(Blue, isa.ToString())
       .Add(Green, " LowUIR Mode")
-    |> Log.Out.PrintLine
+    |> printcn
 
 let private asmFromFiles files printer =
   files

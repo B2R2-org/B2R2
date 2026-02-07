@@ -27,7 +27,6 @@ namespace B2R2.RearEnd.BinDump
 open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
-open B2R2.Logging
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
@@ -45,13 +44,13 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
 
   let printLowUIR (lowUIRStr: string) bytes =
     let hexStr = convertToHexStr bytes |> String.wrapSqrdBracket
-    Log.COut.PrintRow([ hexStr ])
-    Log.COut.PrintRow([ lowUIRStr ])
+    printsr [ hexStr ]
+    printsr [ lowUIRStr ]
 
   let printRegularDisasm disasmStr wordSize addr bytes =
     let hexStr = convertToHexStr bytes
     let addrStr = Addr.toString wordSize addr + ":"
-    Log.COut.PrintRow([ addrStr; hexStr; disasmStr ])
+    printsr [ addrStr; hexStr; disasmStr ]
 
   let regularDisPrinter hdl liftingUnit wordSize showSymbs ptr ins =
     (liftingUnit: LiftingUnit).ConfigureDisassembly(false, showSymbs)
@@ -77,14 +76,13 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
     cs
 
   let printColorDisasm words wordSize addr bytes =
-    Log.COut.Flush()
     let hexStr = convertToHexStr bytes
     let addrStr = Addr.toString wordSize addr + ":"
     let disasStr = convertToDisasmStr words
-    Log.Out.SetTableConfig(cfg = cfg)
-    Log.Out.PrintRow([ ColoredString(Green, addrStr)
-                       ColoredString(NoColor, hexStr)
-                       disasStr ])
+    Logging.Log.Out.SetTableConfig(cfg = cfg)
+    printcr ([ ColoredString(Green, addrStr)
+               ColoredString(NoColor, hexStr)
+               disasStr ])
 
   let colorDisPrinter (hdl: BinHandle) liftingUnit wordSize _ ptr ins =
     (liftingUnit: LiftingUnit).ConfigureDisassembly false
@@ -146,8 +144,8 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
   let printFuncSymbol isFirst addr =
     match symbols.TryGetValue(addr) with
     | true, name ->
-      if not isFirst then Log.COut.PrintLine() else ()
-      Log.COut.PrintLine(String.wrapAngleBracket name)
+      if not isFirst then printsn "" else ()
+      printsn (String.wrapAngleBracket name)
     | false, _ -> ()
 
   let wordSize = hdl.File.ISA.WordSize
@@ -186,5 +184,5 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
     member _.ModeSwitch with get() = modeSwitch
 
     member _.Dump ptr =
-      Log.COut.SetTableConfig(cfg = cfg)
+      Logging.Log.Out.SetTableConfig(cfg = cfg)
       binDump true ptr

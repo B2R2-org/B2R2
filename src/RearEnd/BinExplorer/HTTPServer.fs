@@ -29,7 +29,6 @@ open System.Net
 open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
-open B2R2.Logging
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd

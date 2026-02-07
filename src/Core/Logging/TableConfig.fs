@@ -25,6 +25,7 @@
 namespace B2R2.Logging
 
 open System
+open B2R2
 
 /// Represents a table-like output configuration of a table. This is useful for
 /// formatting the output of console applications as we often align texts in a

@@ -24,7 +24,7 @@
 
 namespace B2R2.RearEnd.BinExplorer
 
-open B2R2.Logging
+open B2R2
 open B2R2.MiddleEnd
 
 /// Represents a command that can be invoked within BinExplorer's CLI.

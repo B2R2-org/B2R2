@@ -27,7 +27,7 @@ module B2R2.RearEnd.Transformer.Program
 open System
 open System.IO
 open System.Reflection
-open B2R2.Logging
+open B2R2
 open B2R2.RearEnd.Utils
 
 let private usage = $"""[Usage]
@@ -49,12 +49,12 @@ type private HelpAction(map: Map<string, IAction>) =
     member _.Signature with get() = "'a -> 'b"
     member _.Description with get() = ""
     member _.Transform(_args, _) =
-      Log.Out.PrintLine()
+      printsn ""
       CmdOpts.writeIntro ()
-      Log.Out.PrintLine usage
+      printsn usage
       map |> Map.iter (fun id act ->
-        Log.Out.PrintLine $"- {id}: {act.Signature}"
-        Log.Out.PrintLine $"{act.Description}")
+        printsn $"- {id}: {act.Signature}"
+        printsn $"{act.Description}")
       exit 0
 
 let private accumulateActions map actions =
@@ -119,7 +119,7 @@ let private checkValidityOfCommandGroup cmdgrp =
   if actionIDs |> List.forall (fun actionID -> actionID = fstActionID) then
     ()
   else
-    Log.Out <=? "different actions in the same group."
+    eprintsn "different actions in the same group."
     exit 1
 
 let private runCommand actionMap input (cmd: string list) =
@@ -129,26 +129,26 @@ let private runCommand actionMap input (cmd: string list) =
     match Map.tryFind (actionID.ToLowerInvariant()) actionMap with
     | Some act -> act
     | None ->
-      Log.Out <=? $"({actionID}) is not a valid action."
+      eprintsn $"({actionID}) is not a valid action."
       exit 1
 #if DEBUG
-  if actionID <> "help" then Log.Out.PrintLine $"[*] {actionID}"
+  if actionID <> "help" then printsn $"[*] {actionID}"
   else ()
 #endif
   try
     action.Transform(args, input)
   with
     | :? InvalidCastException ->
-      Log.Out <=? $"({actionID}) action type mismatch."
+      eprintsn $"({actionID}) action type mismatch."
       exit 1
     | :? NullReferenceException ->
-      Log.Out <=? $"({actionID}) action should follow another."
+      eprintsn $"({actionID}) action should follow another."
       exit 1
     | :? ArgumentException as e ->
-      Log.Out <=? $"{e.Message}"
+      eprintsn $"{e.Message}"
       exit 1
     | e ->
-      Log.Out <=? $"({actionID}): {e}"
+      eprintsn $"({actionID}): {e}"
       exit 1
 
 let inline private unwrap (c: ObjCollection) = c.Values

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Logging
+namespace B2R2
 
 /// Represents colors to print out in the console. When printing to a file,
 /// colors are ignored.
@@ -47,10 +47,10 @@ type Color =
   | GreenHighlight
 with
   static member FromByte(b: byte) =
-    if B2R2.Byte.isNull b then NoColor
-    elif B2R2.Byte.isPrintable b then Green
-    elif B2R2.Byte.isWhitespace b then Blue
-    elif B2R2.Byte.isControl b then Red
+    if Byte.isNull b then NoColor
+    elif Byte.isPrintable b then Green
+    elif Byte.isWhitespace b then Blue
+    elif Byte.isControl b then Red
     else Yellow
 
   override this.ToString() =

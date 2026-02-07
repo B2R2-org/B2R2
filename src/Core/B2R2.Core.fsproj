@@ -32,11 +32,11 @@
     <Compile Include="BytePattern.fs" />
     <Compile Include="LinuxSyscall.fs" />
     <Compile Include="Agent.fs" />
+    <Compile Include="Color.fs" />
+    <Compile Include="ColoredSegment.fs" />
+    <Compile Include="ColoredString.fs" />
+    <Compile Include="OutString.fs" />
     <Compile Include="Logging\LogLevel.fs" />
-    <Compile Include="Logging\Color.fs" />
-    <Compile Include="Logging\ColoredSegment.fs" />
-    <Compile Include="Logging\ColoredString.fs" />
-    <Compile Include="Logging\OutString.fs" />
     <Compile Include="Logging\PrinterConst.fs" />
     <Compile Include="Logging\TableConfig.fs" />
     <Compile Include="Logging\IPrinter.fs" />
@@ -59,6 +59,7 @@
     <Compile Include="Collections\IntervalMap.fs" />
     <Compile Include="Collections\IntervalSet.fs" />
     <Compile Include="Collections\RandomAccessQueue.fs" />
+    <Compile Include="LoggingPrelude.fs" />
     <Compile Include="Attribution.fs" />
     <None Include="..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />

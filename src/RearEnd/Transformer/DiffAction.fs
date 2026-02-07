@@ -26,7 +26,7 @@ namespace B2R2.RearEnd.Transformer
 
 open System
 open System.Collections.Generic
-open B2R2.Logging
+open B2R2
 open B2R2.RearEnd.Transformer.Utils
 
 type KVecDim =

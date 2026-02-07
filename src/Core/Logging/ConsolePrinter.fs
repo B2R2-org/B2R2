@@ -25,6 +25,7 @@
 namespace B2R2.Logging
 
 open System
+open B2R2
 
 /// Represents a printer that simply prints out strings to console whenever a
 /// print method is called. This printer does not perform any caching, so it
@@ -72,76 +73,69 @@ type ConsolePrinter(myLevel: LogLevel) =
 
   let printErrorSuffix () = Console.WriteLine()
 
+  let printErrorWithString (s: string) =
+    printErrorPrefix ()
+    Console.WriteLine s
+    printErrorSuffix ()
+
+  let printErrorWithColoredString (cs: ColoredString) =
+    printErrorPrefix ()
+    cs.Render(renderer)
+    printErrorSuffix ()
+
+  let printErrorWithOutString (os: OutString) =
+    printErrorPrefix ()
+    match os with
+    | OutputNormal s -> Console.WriteLine s
+    | OutputColored cs -> cs.Render(renderer)
+    | OutputNewLine -> Console.WriteLine()
+    printErrorSuffix ()
+
+  let printOutString (os: OutString) hasNewLineAtTheEnd =
+    match os with
+    | OutputNormal s ->
+      if hasNewLineAtTheEnd then Console.WriteLine s
+      else Console.Write s
+    | OutputColored cs ->
+      cs.Render(renderer)
+      if hasNewLineAtTheEnd then Console.WriteLine() else ()
+    | OutputNewLine ->
+      Console.WriteLine()
+
   new() = new ConsolePrinter(LogLevel.L2)
 
   interface IPrinter with
     member _.Dispose() = ()
 
     member _.Print(s: string, lvl) =
-      if lvl <= myLevel then Console.Write s
+      if lvl = LogLevel.L1 then printErrorWithString s
+      elif lvl <= myLevel then Console.Write s
       else ()
 
     member _.Print(cs: ColoredString, lvl) =
-      if lvl <= myLevel then cs.Render(renderer)
+      if lvl = LogLevel.L1 then printErrorWithColoredString cs
+      elif lvl <= myLevel then cs.Render(renderer)
       else ()
 
     member _.Print(os: OutString, lvl) =
-      if lvl <= myLevel then
-        match os with
-        | OutputNormal s -> Console.Write s
-        | OutputColored cs -> cs.Render(renderer)
-        | OutputNewLine -> Console.WriteLine()
-      else
-        ()
-
-    member _.Print(s: string, [<ParamArray>] args: obj[]) =
-      Console.Write(s, args)
-
-    member _.PrintError(s: string) =
-      printErrorPrefix ()
-      Console.WriteLine s
-      printErrorSuffix ()
-
-    member _.PrintError(cs: ColoredString) =
-      printErrorPrefix ()
-      cs.Render(renderer)
-      printErrorSuffix ()
-
-    member _.PrintError(os: OutString) =
-      printErrorPrefix ()
-      match os with
-      | OutputNormal s -> Console.WriteLine s
-      | OutputColored cs -> cs.Render(renderer)
-      | OutputNewLine -> Console.WriteLine()
-      printErrorSuffix ()
-
-    member _.PrintError(s: string, [<ParamArray>] args) =
-      printErrorPrefix ()
-      Console.WriteLine(s, args)
-      printErrorSuffix ()
+      if lvl = LogLevel.L1 then printErrorWithOutString os
+      elif lvl <= myLevel then printOutString os false
+      else ()
 
     member _.PrintLine(s: string, lvl) =
-      if lvl <= myLevel then Console.WriteLine(s)
+      if lvl = LogLevel.L1 then printErrorWithString s
+      elif lvl <= myLevel then Console.WriteLine s
       else ()
 
     member _.PrintLine(cs: ColoredString, lvl) =
-      if lvl <= myLevel then
-        cs.Render(renderer)
-        Console.WriteLine()
-      else
-        ()
+      if lvl = LogLevel.L1 then printErrorWithColoredString cs
+      elif lvl <= myLevel then cs.Render(renderer); Console.WriteLine()
+      else ()
 
     member _.PrintLine(os: OutString, lvl) =
-      if lvl <= myLevel then
-        match os with
-        | OutputNormal s -> Console.WriteLine s
-        | OutputColored cs -> cs.Render(renderer); Console.WriteLine()
-        | OutputNewLine -> Console.WriteLine()
-      else
-        ()
-
-    member _.PrintLine(fmt: string, [<ParamArray>] args: obj[]) =
-      Console.WriteLine(fmt, args)
+      if lvl = LogLevel.L1 then printErrorWithOutString os
+      elif lvl <= myLevel then printOutString os true
+      else ()
 
     member _.PrintLine(lvl) =
       if lvl <= myLevel then Console.WriteLine()
@@ -156,16 +150,25 @@ type ConsolePrinter(myLevel: LogLevel) =
       mycfg.Columns <- fmts
 
     member _.PrintRow(strs: string list) =
-      let renderer (s: string) = Console.Write s
-      mycfg.RenderRow(strs, renderer)
+      if myLevel >= LogLevel.L2 then
+        let renderer (s: string) = Console.Write s
+        mycfg.RenderRow(strs, renderer)
+      else
+        ()
 
     member _.PrintRow(css: ColoredString list) =
-      let renderer (cs: ColoredString) = cs.Render(renderer)
-      mycfg.RenderRow(css, renderer)
+      if myLevel >= LogLevel.L2 then
+        let renderer (cs: ColoredString) = cs.Render(renderer)
+        mycfg.RenderRow(css, renderer)
+      else
+        ()
 
     member _.PrintRow(oss: OutString list) =
-      let renderer (os: OutString) = os.Render(renderer)
-      mycfg.RenderRow(oss, renderer)
+      if myLevel >= LogLevel.L2 then
+        let renderer (os: OutString) = os.Render(renderer)
+        mycfg.RenderRow(oss, renderer)
+      else
+        ()
 
     member this.PrintSectionTitle title =
       ColoredString().Add(Red, "# ").Add(NoColor, title).Render(renderer)

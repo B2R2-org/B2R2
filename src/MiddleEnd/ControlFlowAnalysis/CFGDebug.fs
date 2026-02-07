@@ -30,7 +30,6 @@ open System.IO
 open System.Text
 open System.Threading
 open B2R2
-open B2R2.Logging
 
 let [<Literal>] ManagerTid = -1
 
@@ -47,9 +46,9 @@ type CFGLogger(numThreads) =
 
   let logger =
     let fileName = Path.ChangeExtension(Path.GetRandomFileName(), "log")
-    System.Console.Error.WriteLine $"[!] CFG log is written @ {fileName}"
+    printsn $"[!] CFG log is written @ {fileName}"
     let path = Path.Combine(Directory.GetCurrentDirectory(), fileName)
-    new FilePrinter(path) :> IPrinter
+    new Logging.FilePrinter(path) :> Logging.IPrinter
 
   let flushLog tid =
     Monitor.Enter lock

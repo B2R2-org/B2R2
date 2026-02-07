@@ -453,17 +453,17 @@ let dumpEHFrame hdl (file: ELFBinFile) =
   Log.Out <=/ [ addrColumn; LeftAligned 10; LeftAligned 50 ]
   file.ExceptionFrame
   |> List.iter (fun cfi ->
-    Log.Out.PrintLine("- CIE: \"{0}\" cf={1} df={2}",
+    System.String.Format("- CIE: \"{0}\" cf={1} df={2}",
       cfi.CIE.AugmentationString,
       cfi.CIE.CodeAlignmentFactor.ToString("+0;-#"),
       cfi.CIE.DataAlignmentFactor.ToString("+0;-#")
-    )
+    ) |> Log.Out.PrintLine
     Log.Out.PrintLine()
     for fde in cfi.FDEs do
-      Log.Out.PrintLine("  FDE pc={0}..{1}",
+      System.String.Format("  FDE pc={0}..{1}",
         HexString.ofUInt64 fde.PCBegin,
         HexString.ofUInt64 fde.PCEnd
-      )
+      ) |> Log.Out.PrintLine
       if fde.UnwindingInfo.IsEmpty then ()
       else
         Log.Out.PrintLine "  ---"

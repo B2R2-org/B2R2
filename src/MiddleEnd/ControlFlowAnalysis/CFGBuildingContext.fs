@@ -146,8 +146,7 @@ with
 #if DEBUG
       (* This is a fatal error when our function identification or noreturn
          analysis failed. *)
-      System.Console.Error.WriteLine
-        $"{this.FunctionAddress:x} overlapped with {nextFnAddr:x}"
+      eprintfn $"{this.FunctionAddress:x} overlapped with {nextFnAddr:x}"
       Terminator.impossible ()
 #else
       None (* Ignore this error in release mode. *)

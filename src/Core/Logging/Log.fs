@@ -26,12 +26,32 @@ namespace B2R2.Logging
 
 /// Represents the main logging facility, shared by all B2R2 components.
 type Log =
-  static let out = new ConsolePrinter() :> IPrinter
+  static let mutable out = new ConsolePrinter() :> IPrinter
 
-  static let cout = new ConsoleCachedPrinter() :> IPrinter
+  static let mutable isCached = false
 
-  /// Regular printer.
+  /// Represents the main console printer.
   static member Out = out
 
-  /// Cached printer.
-  static member COut = cout
+  /// Enables caching for the main console printer.
+  static member EnableCaching() =
+    if isCached then
+      ()
+    else
+      out <- new ConsoleCachedPrinter() :> IPrinter
+      isCached <- true
+
+  /// Disables caching for the main console printer.
+  static member DisableCaching() =
+    if isCached then
+      out <- new ConsolePrinter() :> IPrinter
+      isCached <- false
+    else
+      ()
+
+  /// Sets the log level for the main console printer.
+  static member SetLogLevel(level: LogLevel) =
+    if isCached then
+      out <- new ConsoleCachedPrinter(level) :> IPrinter
+    else
+      out <- new ConsolePrinter(level) :> IPrinter

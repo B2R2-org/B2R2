@@ -26,6 +26,7 @@ namespace B2R2.Logging
 
 open System
 open System.Runtime.InteropServices
+open B2R2
 
 /// <summary>
 /// Represents a printer interface. It is recommended to use this interface
@@ -67,32 +68,6 @@ type IPrinter =
     -> unit
 
   /// <summary>
-  /// Prints out the formatted string. This function does not take any log level
-  /// parameter; it always prints out the given string.
-  /// </summary>
-  abstract Print: string * [<ParamArray>] args: obj[] -> unit
-
-  /// Prints out the given string as an error message, meaning that it will be
-  /// printed with a certain prefix (e.g., "[*] Error: ") and newline at the
-  /// end.
-  abstract PrintError: s: string -> unit
-
-  /// Prints out the given ColoredString as an error message, meaning that it
-  /// will be printed with a certain prefix (e.g., "[*] Error: ") and newline at
-  /// the end.
-  abstract PrintError: cs: ColoredString -> unit
-
-  /// Prints out the given OutString as an error message, meaning that it will
-  /// be printed with a certain prefix (e.g., "[*] Error: ") and newline at the
-  /// end.
-  abstract PrintError: os: OutString -> unit
-
-  /// Prints out the formatted string as an error message, meaning that it will
-  /// be printed with a certain prefix (e.g., "[*] Error: ") and newline at the
-  /// end.
-  abstract PrintError: string * [<ParamArray>] args: obj[] -> unit
-
-  /// <summary>
   /// Prints out the given string with newline. If the optional log level `lvl`
   /// is provided, the string is printed only if the current log level is equal
   /// to or higher than `lvl`. By default, `lvl` is set to <c>LogLevel.L2</c>.
@@ -123,12 +98,6 @@ type IPrinter =
        os: OutString
      * [<Optional; DefaultParameterValue(LogLevel.L2)>] lvl: LogLevel
     -> unit
-
-  /// <summary>
-  /// Prints out the formatted string with newline. This function does not
-  /// take any log level parameter; it always prints out the given string.
-  /// </summary>
-  abstract PrintLine: fmt: string * [<ParamArray>] args: obj[] -> unit
 
   /// <summary>
   /// Prints out a newline. If the optional log level `lvl` is provided, the
@@ -172,57 +141,88 @@ type IPrinter =
   /// Flushes out everything.
   abstract Flush: unit -> unit
 
+  /// Reconfigures the printer and returns the printer itself. This operator is
+  /// useful for chaining multiple printing operations.
   static member (<==) (pr: IPrinter, cfg: TableConfig) =
     pr.SetTableConfig cfg
     pr
 
+  /// Reconfigures the printer with the given column formats and returns the
+  /// printer itself. This operator is useful for chaining multiple printing
+  /// operations.
   static member (<==) (pr: IPrinter, colfmts: TableColumnFormat list) =
     pr.SetTableConfig colfmts
     pr
 
+  /// Prints out the given string with newline and returns the printer itself.
+  /// This operator is useful for chaining multiple printing operations.
   static member (<==) (pr: IPrinter, s: string) =
     pr.PrintLine s
     pr
 
+  /// Prints out the given OutString with newline and returns the printer
+  /// itself. This operator is useful for chaining multiple printing operations.
   static member (<==) (pr: IPrinter, os: OutString) =
     pr.PrintLine os
     pr
 
+  /// Prints out the given ColoredString with newline and returns the printer
+  /// itself. This operator is useful for chaining multiple printing operations.
   static member (<==) (pr: IPrinter, cs: ColoredString) =
     pr.PrintLine cs
     pr
 
+  /// Prints out the given string list as a table row and returns the printer
+  /// itself. This operator is useful for chaining multiple printing operations.
   static member (<==) (pr: IPrinter, strs: string list) =
     pr.PrintRow strs
     pr
 
+  /// Prints out the given ColoredString list as a table row and returns the
+  /// printer itself. This operator is useful for chaining multiple printing
+  /// operations.
   static member (<==) (pr: IPrinter, css: ColoredString list) =
     pr.PrintRow css
     pr
 
+  /// Prints out the given OutString list as a table row and returns the printer
+  /// itself. This operator is useful for chaining multiple printing operations.
   static member (<==) (pr: IPrinter, oss: OutString list) =
     pr.PrintRow oss
     pr
 
+  /// Reconfigures the printer.
   static member (<=/) (pr: IPrinter, cfg: TableConfig) = pr.SetTableConfig cfg
 
+  /// Reconfigures the printer with the given column formats.
   static member (<=/) (pr: IPrinter, colfmts: TableColumnFormat list) =
     pr.SetTableConfig colfmts
 
+  /// Prints out the given string with newline.
   static member (<=/) (pr: IPrinter, s: string) = pr.PrintLine s
 
+  /// Prints out the given OutString with newline.
   static member (<=/) (pr: IPrinter, os: OutString) = pr.PrintLine os
 
+  /// Prints out the given ColoredString with newline.
   static member (<=/) (pr: IPrinter, cs: ColoredString) = pr.PrintLine cs
 
+  /// Prints out the given string list as a table row.
   static member (<=/) (pr: IPrinter, strs: string list) = pr.PrintRow strs
 
+  /// Prints out the given ColoredString list as a table row.
   static member (<=/) (pr: IPrinter, css: ColoredString list) = pr.PrintRow css
 
+  /// Prints out the given OutString list as a table row.
   static member (<=/) (pr: IPrinter, oss: OutString list) = pr.PrintRow oss
 
-  static member (<=?) (pr: IPrinter, s: string) = pr.PrintError s
+  /// Prints out the given string as an error message.
+  static member (<=?) (pr: IPrinter, s: string) = pr.PrintLine(s, LogLevel.L1)
 
-  static member (<=?) (pr: IPrinter, os: OutString) = pr.PrintError os
+  /// Prints out the given OutString as an error message.
+  static member (<=?) (pr: IPrinter, os: OutString) =
+    pr.PrintLine(os, LogLevel.L1)
 
-  static member (<=?) (pr: IPrinter, cs: ColoredString) = pr.PrintError cs
+  /// Prints out the given ColoredString as an error message.
+  static member (<=?) (pr: IPrinter, cs: ColoredString) =
+    pr.PrintLine(cs, LogLevel.L1)

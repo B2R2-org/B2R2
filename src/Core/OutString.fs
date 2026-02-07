@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Logging
+namespace B2R2
 
 /// Represents an output string generated from rear-end applications.
 type OutString =

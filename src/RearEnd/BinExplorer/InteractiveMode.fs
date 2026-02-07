@@ -26,7 +26,6 @@ module internal B2R2.RearEnd.BinExplorer.InteractiveMode
 
 open System.IO
 open B2R2
-open B2R2.Logging
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
@@ -60,8 +59,8 @@ let startGUIAndCLI (opts: BinExplorerOpts) brew =
 
 let main files (opts: BinExplorerOpts) =
   if List.isEmpty files then
-    Log.Out <=? "A file should be given as input."
-    Log.Out <=/ "Type --help or --batch to see more info."
+    eprintsn "A file should be given as input."
+    printsn "Type --help or --batch to see more info."
     exit 1
   else
     let file = List.head files

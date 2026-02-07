@@ -27,7 +27,6 @@ module B2R2.RearEnd.Utils.CmdOpts
 
 open System
 open B2R2
-open B2R2.Logging
 open B2R2.FsOptParse
 
 /// Writes B2R2 logo to console. We can selectively append a new line at the
@@ -38,14 +37,14 @@ let writeB2R2 printNewLine =
     .Add(DarkYellow, "2")
     .Add(DarkCyan, "R")
     .Add(DarkYellow, "2")
-  |> Log.Out.Print
-  if printNewLine then Log.Out.PrintLine()
+  |> printc
+  if printNewLine then printsn ""
   else ()
 
 /// Writes introduction message to console.
 let writeIntro () =
   writeB2R2 false
-  Log.Out
+  Logging.Log.Out
   <== ", the Next-Generation Reversing Platform"
   <=/ Attribution.Copyright + Environment.NewLine
 
@@ -71,13 +70,13 @@ let private parseCmdOpts spec defaultOpts argv tool usageTail =
     OptParse.Parse(spec, usageFormatter, prog, argv, defaultOpts)
   with
   | SpecError msg ->
-    Log.Out <=? $"Invalid spec: {msg}"
+    eprintsn $"Invalid spec: {msg}"
     exit 1
   | RuntimeError msg ->
-    Log.Out <=? $"Invalid command line args given: {msg}"
+    eprintsn $"Invalid command line args given: {msg}"
     OptParse.PrintUsage(spec, prog, usageFormatter)
   | e ->
-    Log.Out <=? $"Fatal error: {e.Message}"
+    eprintsn $"Fatal error: {e.Message}"
     OptParse.PrintUsage(spec, prog, usageFormatter)
 
 /// Parses command line arguments and runs the mainFn
@@ -88,8 +87,8 @@ let parseAndRun mainFn tool usageTail spec (opts: #IVerboseOption) args =
     mainFn rest opts
     0
   with e ->
-    Log.Out <=? $"{e.Message}"
-    if opts.IsVerbose then Log.Out <=? e.StackTrace else ()
+    eprintsn $"{e.Message}"
+    if opts.IsVerbose then eprintsn e.StackTrace else ()
     1
 
 /// Checks if the rest args contain an option string. If so, exit the program.
@@ -98,7 +97,7 @@ let rec sanitizeRestArgs args =
   match args with
   | arg :: rest ->
     if (arg: string).StartsWith('-') then
-      Log.Out <=? sprintf "Invalid argument (%s) is used" arg
+      eprintfn "Invalid argument (%s) is used" arg
       exit 1
     else sanitizeRestArgs rest
   | [] -> ()

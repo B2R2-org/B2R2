@@ -26,11 +26,10 @@ module B2R2.RearEnd.Launcher
 
 open System.Reflection
 open B2R2
-open B2R2.Logging
 
 let showUsage () =
-  Log.Out
-  <=/ $"""
+  printsn
+  <| $"""
           _..-..._
       .;'          ';.
      ;' *      *     ';           888888b.           8888888b.
@@ -96,7 +95,7 @@ Usage: b2r2 [app name]
 let printMyVersion () =
   let asm = Assembly.GetEntryAssembly()
   let attr = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-  Log.Out <=/ "v" + attr.InformationalVersion.ToString()
+  printsn <| "v" + attr.InformationalVersion.ToString()
 
 let handleCommands (cmd: string) (rest: string[]) =
   match cmd.ToLowerInvariant() with

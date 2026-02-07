@@ -26,7 +26,6 @@ module internal B2R2.RearEnd.BinExplorer.BatchMode
 
 open System.IO
 open B2R2
-open B2R2.Logging
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -60,10 +59,10 @@ let runCommand (cmdStore: CmdStore) opts file cmd args =
   let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
   let brew = BinaryBrew(hdl, exnInfo, strategies)
   cmdStore.Handle(brew, cmd, args)
-  |> Array.iter Log.Out.Print
+  |> Array.iter printon
 
 let showBatchUsage () =
-  Log.Out
+  Logging.Log.Out
   <== "dotnet run -- [file(s) ...] [opt(s) ...] --batch <cmd> [args ...]"
   <== ""
   <== "  Any regular BinExplorer commands will work in batch mode, but we"

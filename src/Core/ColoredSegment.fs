@@ -22,9 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Logging
-
-open B2R2
+namespace B2R2
 
 /// Represents a string segment with a single color. Multiple segments can be
 /// concatenated to form a colored string.

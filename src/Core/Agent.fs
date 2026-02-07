@@ -57,10 +57,7 @@ type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
           member _.Count with get() = ch.Count }
     let fn = fun () ->
       try taskFn receivable
-      with e ->
-        Console.Error.WriteLine e.Message
-        Console.Error.WriteLine e.StackTrace
-        exit 1
+      with e -> e.ToString() |> Terminator.fatalExit
     Agent(ch, Task.Run(fn, cancellationToken = token))
 
   /// Post a message to the agent.

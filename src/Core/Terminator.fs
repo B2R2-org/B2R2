@@ -42,8 +42,8 @@ open System.Diagnostics
 [<StackTraceHidden>]
 let futureFeature () =
   let trace = StackTrace(true)
-  printfn "FATAL ERROR: NOT IMPLEMENTED FEATURE."
-  trace.ToString() |> printfn "%s"
+  Console.Error.WriteLine "FATAL ERROR: NOT IMPLEMENTED FEATURE"
+  Console.Error.WriteLine(trace.ToString())
   raise <| NotImplementedException()
 
 /// Terminates the program with a message indicating this should never happen.
@@ -51,12 +51,13 @@ let futureFeature () =
 [<StackTraceHidden>]
 let impossible () =
   let trace = StackTrace(true)
-  printfn "FATAL ERROR: THIS IS INVALID AND SHOULD NEVER HAPPEN."
-  trace.ToString() |> printfn "%s"
+  Console.Error.WriteLine "FATAL ERROR: THIS IS INVALID AND SHOULD NEVER HAPPEN"
+  Console.Error.WriteLine(trace.ToString())
   raise <| InvalidOperationException()
 
 /// Exits the whole program including any child processes with a fatal error
-/// message.
+/// message. This function does not raise an exception, but directly exits the
+/// program.
 let fatalExit (msg: string) =
   Console.Error.WriteLine msg
   exit 1

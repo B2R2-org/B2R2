@@ -26,6 +26,7 @@ namespace B2R2.Logging
 
 open System
 open System.Text
+open B2R2
 
 /// Represents a printer that prints out non-colored strings only when the Flush
 /// method is called. All the colored strings will be normalized to plain
@@ -54,61 +55,36 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
     member _.Dispose() = ()
 
     member _.Print(s: string, lvl) =
-      if lvl <= myLevel then add s
+      if lvl = LogLevel.L1 then errorPrefix + s + Environment.NewLine |> add
+      elif lvl <= myLevel then add s
       else ()
 
-    member _.Print(cs: ColoredString, lvl) =
-      if lvl <= myLevel then cs.ToString() |> add
+    member this.Print(cs: ColoredString, lvl) =
+      if lvl <= myLevel then (this :> IPrinter).Print(cs.ToString(), lvl)
       else ()
 
-    member _.Print(os: OutString, lvl) =
-      if lvl <= myLevel then
-        match os with
-        | OutputNormal s -> add s
-        | OutputColored cs -> cs.ToString() |> add
-        | OutputNewLine -> Environment.NewLine |> add
+    member this.Print(os: OutString, lvl) =
+      if lvl <= myLevel then (this :> IPrinter).Print(os.ToString(), lvl)
       else ()
-
-    member _.Print(s: string, [<ParamArray>] args: obj[]) =
-      String.Format(s, args) |> add
-
-    member _.PrintError(s: string) =
-      errorPrefix + s + Environment.NewLine |> add
-
-    member _.PrintError(cs: ColoredString) =
-      errorPrefix + cs.ToString() + Environment.NewLine |> add
-
-    member _.PrintError(os: OutString) =
-      match os with
-      | OutputNormal s ->
-        errorPrefix + s + Environment.NewLine |> add
-      | OutputColored cs ->
-        errorPrefix + cs.ToString() + Environment.NewLine |> add
-      | OutputNewLine ->
-        errorPrefix + Environment.NewLine |> add
-
-    member _.PrintError(fmt: string, [<ParamArray>] args) =
-      String.Format(errorPrefix + fmt, args) + Environment.NewLine |> add
 
     member _.PrintLine(s: string, lvl) =
-      if lvl <= myLevel then s + Environment.NewLine |> add
+      if lvl = LogLevel.L1 then errorPrefix + s + Environment.NewLine |> add
+      elif lvl <= myLevel then s + Environment.NewLine |> add
       else ()
 
     member _.PrintLine(cs: ColoredString, lvl) =
-      if lvl <= myLevel then cs.ToString() + Environment.NewLine |> add
+      if lvl = LogLevel.L1 then
+        errorPrefix + cs.ToString() + Environment.NewLine |> add
+      elif lvl <= myLevel then
+        cs.ToString() + Environment.NewLine |> add
       else ()
 
-    member _.PrintLine(os, lvl) =
-      if lvl <= myLevel then
-        match os with
-        | OutputNormal s -> s + Environment.NewLine |> add
-        | OutputColored cs -> cs.ToString() + Environment.NewLine |> add
-        | OutputNewLine -> Environment.NewLine |> add
-      else
-        ()
-
-    member _.PrintLine(fmt: string, [<ParamArray>] args: obj[]) =
-      String.Format(fmt, args) + Environment.NewLine |> add
+    member _.PrintLine(os: OutString, lvl) =
+      if lvl = LogLevel.L1 then
+        errorPrefix + os.ToString() + Environment.NewLine |> add
+      elif lvl <= myLevel then
+        os.ToString() + Environment.NewLine |> add
+      else ()
 
     member _.PrintLine(lvl) =
       if lvl <= myLevel then add Environment.NewLine
@@ -122,15 +98,23 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
     member _.SetTableConfig(fmts: TableColumnFormat list) =
       mycfg.Columns <- fmts
 
-    member _.PrintRow(strs: string list) = mycfg.RenderRow(strs, add)
+    member _.PrintRow(strs: string list) =
+      if myLevel >= LogLevel.L2 then mycfg.RenderRow(strs, add)
+      else ()
 
     member _.PrintRow(css: ColoredString list) =
-      let renderer (cs: ColoredString) = cs.ToString() |> add
-      mycfg.RenderRow(css, renderer)
+      if myLevel >= LogLevel.L2 then
+        let renderer (cs: ColoredString) = cs.ToString() |> add
+        mycfg.RenderRow(css, renderer)
+      else
+        ()
 
     member _.PrintRow(oss: OutString list) =
-      let renderer (os: OutString) = os.ToString() |> add
-      mycfg.RenderRow(oss, renderer)
+      if myLevel >= LogLevel.L2 then
+        let renderer (os: OutString) = os.ToString() |> add
+        mycfg.RenderRow(oss, renderer)
+      else
+        ()
 
     member _.PrintSectionTitle title =
       "# " + title + Environment.NewLine + Environment.NewLine |> add

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Logging
+namespace B2R2
 
 open System
 open System.Collections.Generic

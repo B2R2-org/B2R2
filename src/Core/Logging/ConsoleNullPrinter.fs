@@ -24,7 +24,7 @@
 
 namespace B2R2.Logging
 
-open System
+open B2R2
 
 /// Represents a printer that does *not* print anything. This is the same as
 /// redirecting outputs to /dev/null.
@@ -38,23 +38,11 @@ type ConsoleNullPrinter() =
 
     member _.Print(_: OutString, _: LogLevel) = ()
 
-    member _.Print(_: string, [<ParamArray>] _args: obj[]) = ()
-
-    member _.PrintError(_: string) = ()
-
-    member _.PrintError(_: ColoredString) = ()
-
-    member _.PrintError(_: OutString) = ()
-
-    member _.PrintError(_: string, [<ParamArray>] _args) = ()
-
     member _.PrintLine(_: string, _: LogLevel) = ()
 
     member _.PrintLine(_: ColoredString, _: LogLevel) = ()
 
     member _.PrintLine(_: OutString, _: LogLevel) = ()
-
-    member _.PrintLine(_: string, [<ParamArray>] _args: obj[]) = ()
 
     member _.PrintLine(_: LogLevel) = ()
 

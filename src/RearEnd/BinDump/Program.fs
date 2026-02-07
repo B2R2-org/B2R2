@@ -37,8 +37,8 @@ let [<Literal>] private ToolName = "bindump"
 let [<Literal>] private UsageTail = "<binary file(s) | -s hexstring>"
 
 let private printFileName (filepath: string) =
-  Log.COut <=/ String.wrapSqrdBracket filepath
-  Log.COut.PrintLine()
+  Log.Out <=/ String.wrapSqrdBracket filepath
+  Log.Out.PrintLine()
 
 let private getTableConfig (isa: ISA) isLift =
   if isLift then
@@ -79,13 +79,13 @@ let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
   let ptr = hdl.File.GetBoundedPointer hdl.File.BaseAddress
   let dumper = makeCodeDumper hdl cfg opts
   dumper.Dump ptr
-  Log.COut.PrintLine()
+  Log.Out.PrintLine()
 
 let dumpHex (opts: BinDumpOpts) (hdl: BinHandle) ptr =
   let bytes = hdl.ReadBytes(ptr = ptr, nBytes = ptr.MaxOffset - ptr.Offset + 1)
   let chunkSz = if opts.ShowWide then 32 else 16
   HexDump.makeLines chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
-  |> Array.iter Log.COut.PrintLine
+  |> Array.iter Log.Out.PrintLine
 
 let private hasNoContent (file: IBinFile) secName =
   match file with
@@ -96,12 +96,12 @@ let private hasNoContent (file: IBinFile) secName =
   | _ -> false
 
 let dumpData (hdl: BinHandle) (opts: BinDumpOpts) ptr secName =
-  Log.COut.PrintSectionTitle(String.wrapParen secName)
+  Log.Out.PrintSectionTitle(String.wrapParen secName)
   if hasNoContent hdl.File secName then
-    Log.COut.SetTableConfig TableConfig.DefaultTwoColumn
-    Log.COut.PrintRow([ ""; "NOBITS section." ])
+    Log.Out.SetTableConfig TableConfig.DefaultTwoColumn
+    Log.Out.PrintRow([ ""; "NOBITS section." ])
   else dumpHex opts hdl ptr
-  Log.COut.PrintLine()
+  Log.Out.PrintLine()
 
 let private isRawBinary (hdl: BinHandle) =
   match hdl.File.Format with
@@ -113,9 +113,9 @@ let private isRawBinary (hdl: BinHandle) =
   | _ -> true
 
 let private dumpOneSection (dumper: IBinDumper) name ptr =
-  Log.COut.PrintSectionTitle(String.wrapParen name)
+  Log.Out.PrintSectionTitle(String.wrapParen name)
   dumper.Dump ptr
-  Log.COut.PrintLine()
+  Log.Out.PrintLine()
 
 let private dumpELFSection hdl opts elf tableprn codeprn sec =
   if (sec: ELF.SectionHeader).SecSize > 0UL then
@@ -218,9 +218,10 @@ let private dumpDataString (opts: BinDumpOpts) =
   let len = opts.InputHexStr.Length
   let ptr = BinFilePointer(baseAddr, baseAddr + uint64 len - 1UL, 0, len - 1)
   dumper.Dump ptr
-  Log.COut.PrintLine()
+  Log.Out.PrintLine()
 
 let private dumpMain files (opts: BinDumpOpts) =
+  Log.EnableCaching()
 #if DEBUG
   let sw = Diagnostics.Stopwatch.StartNew()
 #endif
@@ -229,7 +230,7 @@ let private dumpMain files (opts: BinDumpOpts) =
     if Array.isEmpty opts.InputHexStr then dumpFiles files opts
     else dumpDataString opts
   finally
-    Log.COut.Flush()
+    Log.Out.Flush()
 #if DEBUG
   sw.Stop()
   Log.Out <=/ $"Total dump time: {sw.Elapsed.TotalSeconds} sec."

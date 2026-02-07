@@ -249,7 +249,8 @@ let dump files opts =
     finally Log.Out.Flush()
 #if DEBUG
     sw.Stop()
-    eprintfn "Total time: %f sec." sw.Elapsed.TotalSeconds
+    let sec = sw.Elapsed.TotalSeconds
+    System.Console.Error.WriteLine $"Total time: {sec} sec."
 #endif
 
 [<EntryPoint>]

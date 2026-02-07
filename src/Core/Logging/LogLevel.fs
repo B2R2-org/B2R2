@@ -34,13 +34,13 @@ namespace B2R2.Logging
 /// Represents the verbosity level of logging messages.
 /// </summary>
 type LogLevel =
-  /// Most succinct = level 1.
+  /// Most succinct = level 1. Log only errors.
   | L1 = 1
-  /// Normal = level 2.
+  /// Normal = level 2. Default log level.
   | L2 = 2
-  /// Verbose = level 3.
+  /// Verbose = level 3. Log even more information.
   | L3 = 3
-  /// Most verbose = level 4.
+  /// Most verbose = level 4. Log everything including debugging info.
   | L4 = 4
 
 /// Provides functions to convert between LogLevel and string.
@@ -63,4 +63,4 @@ module LogLevel =
     | LogLevel.L2 -> "L2"
     | LogLevel.L3 -> "L3"
     | LogLevel.L4 -> "L4"
-    | _ -> B2R2.Terminator.impossible ()
+    | _ -> "Unknown"
