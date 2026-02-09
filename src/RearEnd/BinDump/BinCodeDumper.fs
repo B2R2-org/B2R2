@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.BinDump
 
 open System.Collections.Generic
 open B2R2
+open B2R2.Logging
 open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
@@ -44,13 +45,13 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
 
   let printLowUIR (lowUIRStr: string) bytes =
     let hexStr = convertToHexStr bytes |> String.wrapSqrdBracket
-    printsr [ hexStr ]
-    printsr [ lowUIRStr ]
+    printsr [| hexStr |]
+    printsr [| lowUIRStr |]
 
   let printRegularDisasm disasmStr wordSize addr bytes =
     let hexStr = convertToHexStr bytes
     let addrStr = Addr.toString wordSize addr + ":"
-    printsr [ addrStr; hexStr; disasmStr ]
+    printsr [| addrStr; hexStr; disasmStr |]
 
   let regularDisPrinter hdl liftingUnit wordSize showSymbs ptr ins =
     (liftingUnit: LiftingUnit).ConfigureDisassembly(false, showSymbs)
@@ -79,10 +80,9 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
     let hexStr = convertToHexStr bytes
     let addrStr = Addr.toString wordSize addr + ":"
     let disasStr = convertToDisasmStr words
-    Logging.Log.Out.SetTableConfig(cfg = cfg)
-    printcr ([ ColoredString(Green, addrStr)
+    printcr [| ColoredString(Green, addrStr)
                ColoredString(NoColor, hexStr)
-               disasStr ])
+               disasStr |]
 
   let colorDisPrinter (hdl: BinHandle) liftingUnit wordSize _ ptr ins =
     (liftingUnit: LiftingUnit).ConfigureDisassembly false
@@ -184,5 +184,7 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
     member _.ModeSwitch with get() = modeSwitch
 
     member _.Dump ptr =
-      Logging.Log.Out.SetTableConfig(cfg = cfg)
+      Log.Out.TableConfig.Indentation <- cfg.Indentation
+      Log.Out.TableConfig.ColumnGap <- cfg.ColumnGap
+      Log.Out.TableConfig.Columns <- cfg.Columns
       binDump true ptr

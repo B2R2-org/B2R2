@@ -77,8 +77,8 @@ module LoggingPrelude =
   /// Logs a normal colored string with a newline without formatting.
   let printcn (cs: ColoredString) = Log.Out.PrintLine(cs, LogLevel.L2)
 
-  /// Logs a normal list of colored strings as a table row.
-  let printcr (css: ColoredString list) = Log.Out.PrintRow(css)
+  /// Logs a normal array of colored strings as a table row.
+  let printcr (css: ColoredString[]) = Log.Out.PrintRow(css)
 
   /// Logs a normal OutString.
   let printo (os: OutString) = Log.Out.Print(os, LogLevel.L2)
@@ -86,8 +86,8 @@ module LoggingPrelude =
   /// Logs a normal OutString with a newline.
   let printon (os: OutString) = Log.Out.PrintLine(os, LogLevel.L2)
 
-  /// Logs a normal list of OutStrings as a table row.
-  let printor (oss: OutString list) = Log.Out.PrintRow(oss)
+  /// Logs a normal array of OutStrings as a table row.
+  let printor (oss: OutString[]) = Log.Out.PrintRow(oss)
 
   /// Logs a normal string without formatting.
   let prints (str: string) = Log.Out.Print(str, LogLevel.L2)
@@ -95,8 +95,8 @@ module LoggingPrelude =
   /// Logs a normal string with a newline without formatting.
   let printsn (str: string) = Log.Out.PrintLine(str, LogLevel.L2)
 
-  /// Logs a normal list of strings as a table row.
-  let printsr (strs: string list) = Log.Out.PrintRow(strs)
+  /// Logs a normal array of strings as a table row.
+  let printsr (strs: string[]) = Log.Out.PrintRow(strs)
 
   /// Logs an informational message.
   let iprintf fmt =

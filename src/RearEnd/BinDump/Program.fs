@@ -44,7 +44,7 @@ let private getTableConfig (isa: ISA) isLift =
   if isLift then
     { Indentation = 0
       ColumnGap = 1
-      Columns = [ LeftAligned 10 ] }
+      Columns = [| LeftAligned 10 |] }
   else
     let addrWidth = WordSize.toByteWidth isa.WordSize * 2
     let binaryWidth =
@@ -53,9 +53,9 @@ let private getTableConfig (isa: ISA) isLift =
       | _ -> 16
     { Indentation = 0
       ColumnGap = 1
-      Columns = [ LeftAligned addrWidth
-                  LeftAligned binaryWidth
-                  LeftAligned 10 ] }
+      Columns = [| LeftAligned addrWidth
+                   LeftAligned binaryWidth
+                   LeftAligned 10 |] }
 
 let private getOptimizer (opts: BinDumpOpts) =
   if opts.DoOptimization then LocalOptimizer.Optimize
@@ -98,9 +98,10 @@ let private hasNoContent (file: IBinFile) secName =
 let dumpData (hdl: BinHandle) (opts: BinDumpOpts) ptr secName =
   Log.Out.PrintSectionTitle(String.wrapParen secName)
   if hasNoContent hdl.File secName then
-    Log.Out.SetTableConfig TableConfig.DefaultTwoColumn
-    Log.Out.PrintRow([ ""; "NOBITS section." ])
-  else dumpHex opts hdl ptr
+    Log.Out.TableConfig.ResetDefault()
+    Log.Out.PrintRow([| ""; "NOBITS section." |])
+  else
+    dumpHex opts hdl ptr
   Log.Out.PrintLine()
 
 let private isRawBinary (hdl: BinHandle) =
@@ -233,7 +234,8 @@ let private dumpMain files (opts: BinDumpOpts) =
     Log.Out.Flush()
 #if DEBUG
   sw.Stop()
-  Log.Out <=/ $"Total dump time: {sw.Elapsed.TotalSeconds} sec."
+  Log.DisableCaching()
+  Console.Error.WriteLine $"Total dump time: {sw.Elapsed.TotalSeconds} sec."
 #endif
 
 [<EntryPoint>]

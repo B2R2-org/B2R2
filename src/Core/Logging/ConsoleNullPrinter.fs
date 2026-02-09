@@ -30,6 +30,8 @@ open B2R2
 /// redirecting outputs to /dev/null.
 type ConsoleNullPrinter() =
   interface IPrinter with
+    member _.TableConfig with get() = Terminator.impossible ()
+
     member _.Dispose() = ()
 
     member _.Print(_: string, _: LogLevel) = ()
@@ -46,15 +48,11 @@ type ConsoleNullPrinter() =
 
     member _.PrintLine(_: LogLevel) = ()
 
-    member _.SetTableConfig(_: TableConfig) = ()
+    member _.PrintRow(_: string[]) = ()
 
-    member _.SetTableConfig(_: TableColumnFormat list) = ()
+    member _.PrintRow(_: ColoredString[]) = ()
 
-    member _.PrintRow(_: string list) = ()
-
-    member _.PrintRow(_: ColoredString list) = ()
-
-    member _.PrintRow(_: OutString list) = ()
+    member _.PrintRow(_: OutString[]) = ()
 
     member _.PrintSectionTitle _ = ()
 

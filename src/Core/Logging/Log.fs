@@ -44,6 +44,7 @@ type Log =
   /// Disables caching for the main console printer.
   static member DisableCaching() =
     if isCached then
+      out.Flush()
       out <- new ConsolePrinter() :> IPrinter
       isCached <- false
     else

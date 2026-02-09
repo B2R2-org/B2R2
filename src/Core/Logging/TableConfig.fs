@@ -36,23 +36,23 @@ type TableConfig =
     /// The number of spaces between columns.
     mutable ColumnGap: int
     /// Format of each column.
-    mutable Columns: TableColumnFormat list }
+    mutable Columns: TableColumnFormat[] }
 with
-  /// Default table configuration with two columns.
-  static member DefaultTwoColumn =
+  /// Returns the default table configuration with two columns.
+  static member DefaultTwoColumn() =
     { Indentation = 0
       ColumnGap = 1
-      Columns = [ RightAligned PrinterConst.ColWidth
-                  LeftAligned PrinterConst.ColWidth ] }
+      Columns = [| RightAligned PrinterConst.ColWidth
+                   LeftAligned PrinterConst.ColWidth |] }
 
   member private this.Render(converter, padder, renderer, lst) =
-    let lastIdx = List.length this.Columns - 1
+    let lastIdx = this.Columns.Length - 1
     if this.Indentation > 0 then
       String(' ', this.Indentation) |> converter |> renderer
     else
       ()
-    List.zip this.Columns lst
-    |> List.iteri (fun i (colfmt, s) ->
+    Array.zip this.Columns lst
+    |> Array.iteri (fun i (colfmt, s) ->
       if i > 0 && this.ColumnGap > 0 then
         String(' ', this.ColumnGap) |> converter |> renderer
       else
@@ -62,23 +62,31 @@ with
     Environment.NewLine |> converter |> renderer
 
   /// Renders a row of the table using the given renderer function.
-  member this.RenderRow(strs: string list, renderer) =
+  member this.RenderRow(strs: string[], renderer) =
     let padder (colfmt: TableColumnFormat) isLast (s: string) =
       colfmt.Pad(s, isLast)
     this.Render(id, padder, renderer, strs)
 
   /// Renders a row of the table using the given renderer function.
-  member this.RenderRow(css: ColoredString list, renderer) =
+  member this.RenderRow(css: ColoredString[], renderer) =
     let converter (s: string) = ColoredString(NoColor, s)
     let padder (colfmt: TableColumnFormat) isLast (s: ColoredString) =
       colfmt.Pad(s, isLast)
     this.Render(converter, padder, renderer, css)
 
-  member this.RenderRow(oss: OutString list, renderer) =
+  /// Renders a row of the table using the given renderer function.
+  member this.RenderRow(oss: OutString[], renderer) =
     let converter (s: string) = OutputNormal s
     let padder (colfmt: TableColumnFormat) isLast (s: OutString) =
       colfmt.Pad(s, isLast)
     this.Render(converter, padder, renderer, oss)
+
+  /// Resets the table configuration to default values.
+  member this.ResetDefault() =
+    this.Indentation <- 0
+    this.ColumnGap <- 1
+    this.Columns <- [| RightAligned PrinterConst.ColWidth
+                       LeftAligned PrinterConst.ColWidth |]
 
 /// Represents a column of a table with a specified width in bytes (# of chars).
 and TableColumnFormat =

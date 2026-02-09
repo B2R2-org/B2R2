@@ -34,19 +34,19 @@ let dumpBasic (file: IBinFile) =
   let entry = ColoredString(Green, String.ofEntryPointOpt file.EntryPoint)
   Log.Out.PrintSectionTitle "Basic Information"
   Log.Out
-  <== [ "File format:"; FileFormat.toString file.Format ]
-  <== [ "Architecture:"; file.ISA.ToString() ]
-  <== [ "Endianness:"; Endian.toString file.ISA.Endian ]
-  <== [ "Word size:"; WordSize.toString file.ISA.WordSize + " bit" ]
-  <=/ [ OutputNormal "Entry point:"; OutputColored entry ]
+  <== [| "File format:"; FileFormat.toString file.Format |]
+  <== [| "Architecture:"; file.ISA.ToString() |]
+  <== [| "Endianness:"; Endian.toString file.ISA.Endian |]
+  <== [| "Word size:"; WordSize.toString file.ISA.WordSize + " bit" |]
+  <=/ [| OutputNormal "Entry point:"; OutputColored entry |]
   Log.Out.PrintLine()
 
 let dumpSecurity (file: IBinFile) =
   Log.Out.PrintSectionTitle "Security Information"
   Log.Out
-  <== [ "Stripped binary:"; file.IsStripped.ToString() ]
-  <== [ "DEP (NX) enabled:"; file.IsNXEnabled.ToString() ]
-  <=/ [ "Relocatable (PIE):"; file.IsRelocatable.ToString() ]
+  <== [| "Stripped binary:"; file.IsStripped.ToString() |]
+  <== [| "DEP (NX) enabled:"; file.IsNXEnabled.ToString() |]
+  <=/ [| "Relocatable (PIE):"; file.IsRelocatable.ToString() |]
   Log.Out.PrintLine()
 
 let dumpSpecific opts (file: IBinFile) title elf pe mach =
@@ -256,5 +256,5 @@ let dump files opts =
 [<EntryPoint>]
 let main args =
   let opts = FileViewerOpts.Default
-  Log.Out <=/ { TableConfig.DefaultTwoColumn with Indentation = 2 }
+  Log.Out.TableConfig.Indentation <- 2
   CmdOpts.parseAndRun dump ToolName UsageTail FileViewerOpts.Spec opts args

@@ -37,6 +37,9 @@ open B2R2
 type IPrinter =
   inherit IDisposable
 
+  /// Returns the current table configuration.
+  abstract TableConfig: TableConfig
+
   /// <summary>
   /// Prints out the given string. If the optional log level `lvl` is
   /// provided, the string is printed only if the current log level is equal to
@@ -108,26 +111,20 @@ type IPrinter =
        [<Optional; DefaultParameterValue(LogLevel.L2)>] lvl: LogLevel
     -> unit
 
-  /// Sets the spacing for table-based printing, such as PrintRow, etc.
-  abstract SetTableConfig: cfg: TableConfig -> unit
+  /// Prints out a table row for the given string array of column values. This
+  /// function only works if the current table configuration has the same number
+  /// of columns as the length of the given string array.
+  abstract PrintRow: string[] -> unit
 
-  /// Sets the spacing for table-based printing, such as PrintRow, etc.
-  abstract SetTableConfig: fmts: TableColumnFormat list -> unit
+  /// Prints out table row for the given ColoredString array of column values.
+  /// This function only works if the current table configuration  has the same
+  /// number of columns as the length of the given ColoredString array.
+  abstract PrintRow: ColoredString[] -> unit
 
-  /// Prints out table row for the given string list. This function only works
-  /// if the table configuration set by SetTableConfig has the same number of
-  /// columns as the length of the given string list.
-  abstract PrintRow: string list -> unit
-
-  /// Prints out table row for the given ColoredString list. This function only
-  /// works if the table configuration set by SetTableConfig has the same number
-  /// of columns as the length of the given ColoredString list.
-  abstract PrintRow: ColoredString list -> unit
-
-  /// Prints out table row for the given string list. This function only works
-  /// if the table configuration set by SetTableConfig has the same number of
-  /// columns as the length of the given OutString list.
-  abstract PrintRow: OutString list -> unit
+  /// Prints out table row for the given string array of column values. This
+  /// function only works if the current table configuration has the same number
+  /// of columns as the length of the given OutString array.
+  abstract PrintRow: OutString[] -> unit
 
   /// Prints out the section title.
   abstract PrintSectionTitle: string -> unit
@@ -140,19 +137,6 @@ type IPrinter =
 
   /// Flushes out everything.
   abstract Flush: unit -> unit
-
-  /// Reconfigures the printer and returns the printer itself. This operator is
-  /// useful for chaining multiple printing operations.
-  static member (<==) (pr: IPrinter, cfg: TableConfig) =
-    pr.SetTableConfig cfg
-    pr
-
-  /// Reconfigures the printer with the given column formats and returns the
-  /// printer itself. This operator is useful for chaining multiple printing
-  /// operations.
-  static member (<==) (pr: IPrinter, colfmts: TableColumnFormat list) =
-    pr.SetTableConfig colfmts
-    pr
 
   /// Prints out the given string with newline and returns the printer itself.
   /// This operator is useful for chaining multiple printing operations.
@@ -172,52 +156,53 @@ type IPrinter =
     pr.PrintLine cs
     pr
 
-  /// Prints out the given string list as a table row and returns the printer
+  /// Prints out the given string array as a table row and returns the printer
   /// itself. This operator is useful for chaining multiple printing operations.
-  static member (<==) (pr: IPrinter, strs: string list) =
+  static member (<==) (pr: IPrinter, strs: string[]) =
     pr.PrintRow strs
     pr
 
-  /// Prints out the given ColoredString list as a table row and returns the
+  /// Prints out the given ColoredString array as a table row and returns the
   /// printer itself. This operator is useful for chaining multiple printing
   /// operations.
-  static member (<==) (pr: IPrinter, css: ColoredString list) =
+  static member (<==) (pr: IPrinter, css: ColoredString[]) =
     pr.PrintRow css
     pr
 
-  /// Prints out the given OutString list as a table row and returns the printer
-  /// itself. This operator is useful for chaining multiple printing operations.
-  static member (<==) (pr: IPrinter, oss: OutString list) =
+  /// Prints out the given OutString array as a table row and returns the
+  /// printer itself. This operator is useful for chaining multiple printing
+  /// operations.
+  static member (<==) (pr: IPrinter, oss: OutString[]) =
     pr.PrintRow oss
     pr
 
-  /// Reconfigures the printer.
-  static member (<=/) (pr: IPrinter, cfg: TableConfig) = pr.SetTableConfig cfg
-
-  /// Reconfigures the printer with the given column formats.
-  static member (<=/) (pr: IPrinter, colfmts: TableColumnFormat list) =
-    pr.SetTableConfig colfmts
-
   /// Prints out the given string with newline.
-  static member (<=/) (pr: IPrinter, s: string) = pr.PrintLine s
+  static member (<=/) (pr: IPrinter, s: string) =
+    pr.PrintLine s
 
   /// Prints out the given OutString with newline.
-  static member (<=/) (pr: IPrinter, os: OutString) = pr.PrintLine os
+  static member (<=/) (pr: IPrinter, os: OutString) =
+    pr.PrintLine os
 
   /// Prints out the given ColoredString with newline.
-  static member (<=/) (pr: IPrinter, cs: ColoredString) = pr.PrintLine cs
+  static member (<=/) (pr: IPrinter, cs: ColoredString) =
+    pr.PrintLine cs
 
-  /// Prints out the given string list as a table row.
-  static member (<=/) (pr: IPrinter, strs: string list) = pr.PrintRow strs
+  /// Prints out the given string array as a table row.
+  static member (<=/) (pr: IPrinter, strs: string[]) =
+    pr.PrintRow strs
 
-  /// Prints out the given ColoredString list as a table row.
-  static member (<=/) (pr: IPrinter, css: ColoredString list) = pr.PrintRow css
+  /// Prints out the given ColoredString array as a table row.
+  static member (<=/) (pr: IPrinter, css: ColoredString[]) =
+    pr.PrintRow css
 
-  /// Prints out the given OutString list as a table row.
-  static member (<=/) (pr: IPrinter, oss: OutString list) = pr.PrintRow oss
+  /// Prints out the given OutString array as a table row.
+  static member (<=/) (pr: IPrinter, oss: OutString[]) =
+    pr.PrintRow oss
 
   /// Prints out the given string as an error message.
-  static member (<=?) (pr: IPrinter, s: string) = pr.PrintLine(s, LogLevel.L1)
+  static member (<=?) (pr: IPrinter, s: string) =
+    pr.PrintLine(s, LogLevel.L1)
 
   /// Prints out the given OutString as an error message.
   static member (<=?) (pr: IPrinter, os: OutString) =

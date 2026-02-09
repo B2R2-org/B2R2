@@ -34,7 +34,7 @@ open B2R2
 /// called. This is useful for performance-critical applications.
 type ConsoleCachedPrinter(myLevel: LogLevel) =
 
-  let mycfg = TableConfig.DefaultTwoColumn
+  let mycfg = TableConfig.DefaultTwoColumn()
 
   let cache = StringBuilder()
 
@@ -52,6 +52,8 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
   new() = new ConsoleCachedPrinter(LogLevel.L2)
 
   interface IPrinter with
+    member _.TableConfig with get() = mycfg
+
     member _.Dispose() = ()
 
     member _.Print(s: string, lvl) =
@@ -90,26 +92,18 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
       if lvl <= myLevel then add Environment.NewLine
       else ()
 
-    member _.SetTableConfig(cfg: TableConfig) =
-      mycfg.Indentation <- cfg.Indentation
-      mycfg.ColumnGap <- cfg.ColumnGap
-      mycfg.Columns <- cfg.Columns
-
-    member _.SetTableConfig(fmts: TableColumnFormat list) =
-      mycfg.Columns <- fmts
-
-    member _.PrintRow(strs: string list) =
+    member _.PrintRow(strs: string[]) =
       if myLevel >= LogLevel.L2 then mycfg.RenderRow(strs, add)
       else ()
 
-    member _.PrintRow(css: ColoredString list) =
+    member _.PrintRow(css: ColoredString[]) =
       if myLevel >= LogLevel.L2 then
         let renderer (cs: ColoredString) = cs.ToString() |> add
         mycfg.RenderRow(css, renderer)
       else
         ()
 
-    member _.PrintRow(oss: OutString list) =
+    member _.PrintRow(oss: OutString[]) =
       if myLevel >= LogLevel.L2 then
         let renderer (os: OutString) = os.ToString() |> add
         mycfg.RenderRow(oss, renderer)

@@ -32,7 +32,7 @@ open B2R2
 /// called.
 type FilePrinter(filePath, myLevel: LogLevel) =
 
-  let mycfg = TableConfig.DefaultTwoColumn
+  let mycfg = TableConfig.DefaultTwoColumn()
 
   let fs = File.CreateText(filePath, AutoFlush = true)
 
@@ -43,6 +43,8 @@ type FilePrinter(filePath, myLevel: LogLevel) =
   new(filePath) = new FilePrinter(filePath, LogLevel.L2)
 
   interface IPrinter with
+    member _.TableConfig with get() = mycfg
+
     member _.Dispose() = fs.Dispose()
 
     member _.Print(s: string, lvl) =
@@ -80,29 +82,21 @@ type FilePrinter(filePath, myLevel: LogLevel) =
       elif lvl <= myLevel then fs.WriteLine()
       else ()
 
-    member _.SetTableConfig(cfg: TableConfig) =
-      mycfg.Indentation <- cfg.Indentation
-      mycfg.ColumnGap <- cfg.ColumnGap
-      mycfg.Columns <- cfg.Columns
-
-    member _.SetTableConfig(fmts: TableColumnFormat list) =
-      mycfg.Columns <- fmts
-
-    member _.PrintRow(strs: string list) =
+    member _.PrintRow(strs: string[]) =
       if myLevel >= LogLevel.L2 then
         let renderer (s: string) = fs.Write s
         mycfg.RenderRow(strs, renderer)
       else
         ()
 
-    member _.PrintRow(css: ColoredString list) =
+    member _.PrintRow(css: ColoredString[]) =
       if myLevel >= LogLevel.L2 then
         let renderer (cs: ColoredString) = cs.ToString() |> fs.Write
         mycfg.RenderRow(css, renderer)
       else
         ()
 
-    member _.PrintRow(oss: OutString list) =
+    member _.PrintRow(oss: OutString[]) =
       if myLevel >= LogLevel.L2 then
         let renderer (os: OutString) = os.ToString() |> fs.Write
         mycfg.RenderRow(oss, renderer)
