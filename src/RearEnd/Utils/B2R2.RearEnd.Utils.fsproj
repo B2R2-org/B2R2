@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="String.fs" />
+    <Compile Include="Printer.fs" />
     <Compile Include="IVerboseOption.fs" />
     <Compile Include="CmdOpts.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

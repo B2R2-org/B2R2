@@ -32,7 +32,7 @@ open B2R2.RearEnd.Utils
 
 let dumpBasic (file: IBinFile) =
   let entry = ColoredString(Green, String.ofEntryPointOpt file.EntryPoint)
-  Log.Out.PrintSectionTitle "Basic Information"
+  printSectionTitle "Basic Information"
   Log.Out
   <== [| "File format:"; FileFormat.toString file.Format |]
   <== [| "Architecture:"; file.ISA.ToString() |]
@@ -42,7 +42,7 @@ let dumpBasic (file: IBinFile) =
   Log.Out.PrintLine()
 
 let dumpSecurity (file: IBinFile) =
-  Log.Out.PrintSectionTitle "Security Information"
+  printSectionTitle "Security Information"
   Log.Out
   <== [| "Stripped binary:"; file.IsStripped.ToString() |]
   <== [| "DEP (NX) enabled:"; file.IsNXEnabled.ToString() |]
@@ -50,7 +50,7 @@ let dumpSecurity (file: IBinFile) =
   Log.Out.PrintLine()
 
 let dumpSpecific opts (file: IBinFile) title elf pe mach =
-  Log.Out.PrintSectionTitle title
+  printSectionTitle title
   match file with
   | :? ELFBinFile as file -> elf opts file
   | :? PEBinFile as file -> pe opts file

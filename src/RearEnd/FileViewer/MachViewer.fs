@@ -28,6 +28,7 @@ open System
 open B2R2
 open B2R2.Logging
 open B2R2.FrontEnd.BinFile
+open B2R2.RearEnd.Utils
 open B2R2.RearEnd.FileViewer.Helper
 
 let badAccess _ _ = raise InvalidFileFormatException
@@ -301,7 +302,7 @@ let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
     |> Array.iteri (fun idx fat ->
       let cpu = fat.CPUType
       let cpusub = fat.CPUSubType
-      Log.Out.PrintSubsectionTitle("Architecture #" + idx.ToString())
+      printSubsectionTitle <| "Architecture #" + idx.ToString()
       Log.Out.TableConfig.ResetDefault()
       Log.Out
       <== [| "CPU Type:"; cpu.ToString() |]
@@ -312,7 +313,7 @@ let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
   else printfn "Not a FAT binary."
 
 let printSegCmd cmd size (seg: Mach.SegCmd) idx =
-  Log.Out.PrintSubsectionTitle("Load command " + idx.ToString())
+  printSubsectionTitle <| "Load command " + idx.ToString()
   Log.Out.TableConfig.ResetDefault()
   Log.Out
   <== [| "Cmd:"; cmd.ToString() |]
@@ -328,7 +329,7 @@ let printSegCmd cmd size (seg: Mach.SegCmd) idx =
   <=/ [| "SegFlag:"; HexString.ofUInt64 (uint64 seg.SegFlag) |]
 
 let printSymTabCmd cmd size (symtab: Mach.SymTabCmd) idx =
-  Log.Out.PrintSubsectionTitle("Load command " + idx.ToString())
+  printSubsectionTitle <| "Load command " + idx.ToString()
   Log.Out.TableConfig.ResetDefault()
   Log.Out
   <== [| "Cmd:"; cmd.ToString() |]
@@ -339,7 +340,7 @@ let printSymTabCmd cmd size (symtab: Mach.SymTabCmd) idx =
   <=/ [| "StrSize:"; toNBytes (uint64 symtab.StrSize) |]
 
 let printDySymTabCmd cmd size (dysymtab: Mach.DySymTabCmd) idx =
-  Log.Out.PrintSubsectionTitle("Load command " + idx.ToString())
+  printSubsectionTitle <| "Load command " + idx.ToString()
   Log.Out.TableConfig.ResetDefault()
   Log.Out
   <== [| "Cmd:"; cmd.ToString() |]
@@ -368,7 +369,7 @@ let toTimeStampString (v: uint32) =
   + TimeZoneInfo.Local.ToString()
 
 let printDyLibCmd cmd size (dylib: Mach.DyLibCmd) idx =
-  Log.Out.PrintSubsectionTitle("Load command " + idx.ToString())
+  printSubsectionTitle <| "Load command " + idx.ToString()
   Log.Out.TableConfig.ResetDefault()
   Log.Out
   <== [| "Cmd:"; cmd.ToString() |]
@@ -379,7 +380,7 @@ let printDyLibCmd cmd size (dylib: Mach.DyLibCmd) idx =
   <=/ [| "DyLibCmpVer:"; toVersionString dylib.DyLibCmpVer |]
 
 let printDyLdInfoCmd cmd size (ldinfo: Mach.DyLdInfoCmd) idx =
-  Log.Out.PrintSubsectionTitle("Load command " + idx.ToString())
+  printSubsectionTitle <| "Load command " + idx.ToString()
   Log.Out.TableConfig.ResetDefault()
   Log.Out
   <== [| "Cmd:"; cmd.ToString() |]
@@ -396,14 +397,14 @@ let printDyLdInfoCmd cmd size (ldinfo: Mach.DyLdInfoCmd) idx =
   <=/ [| "ExportSize:"; ldinfo.ExportSize.ToString() |]
 
 let printFuncStartsCmd (fnstart: Mach.FuncStartsCmd) idx =
-  Log.Out.PrintSubsectionTitle("Load command " + idx.ToString())
+  printSubsectionTitle <| "Load command " + idx.ToString()
   Log.Out.TableConfig.ResetDefault()
   Log.Out
   <== [| "DataOffset:"; fnstart.DataOffset.ToString() |]
   <=/ [| "DataSize:"; fnstart.DataSize.ToString() |]
 
 let printMainCmd cmd size (main: Mach.MainCmd) idx =
-  Log.Out.PrintSubsectionTitle("Load command " + idx.ToString())
+  printSubsectionTitle <| "Load command " + idx.ToString()
   Log.Out.TableConfig.ResetDefault()
   Log.Out
   <== [| "Cmd:"; cmd.ToString() |]
@@ -412,7 +413,7 @@ let printMainCmd cmd size (main: Mach.MainCmd) idx =
   <=/ [| "StackSize:"; main.StackSize.ToString() |]
 
 let printUnhandledCmd cmd size idx =
-  Log.Out.PrintSubsectionTitle("Load command " + idx.ToString())
+  printSubsectionTitle <| "Load command " + idx.ToString()
   Log.Out.TableConfig.ResetDefault()
   Log.Out
   <== [| "Cmd:"; cmd.ToString() |]
@@ -428,7 +429,7 @@ let dumpLoadCommands _ (file: MachBinFile) =
       |> Array.iter (fun s ->
         if s.SegName = seg.SegCmdName then
           Log.Out.PrintLine()
-          Log.Out.PrintSubsubsectionTitle(String.wrapSqrdBracket "Section")
+          printSubsubsectionTitle <| String.wrapSqrdBracket "Section"
           dumpSectionDetails s.SecName file
         else
           ())

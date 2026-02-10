@@ -26,14 +26,13 @@ namespace B2R2.RearEnd.BinDump
 
 open System.Collections.Generic
 open B2R2
-open B2R2.Logging
 open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
 /// Represents the main code dumper class.
-type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
+type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
 
   let [<Literal>] IllegalStr = "(illegal)"
 
@@ -184,7 +183,4 @@ type BinCodeDumper(hdl, cfg, isTable, showSymbol, showColor, dumpMode) =
     member _.ModeSwitch with get() = modeSwitch
 
     member _.Dump ptr =
-      Log.Out.TableConfig.Indentation <- cfg.Indentation
-      Log.Out.TableConfig.ColumnGap <- cfg.ColumnGap
-      Log.Out.TableConfig.Columns <- cfg.Columns
       binDump true ptr

@@ -22,36 +22,27 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Logging
+namespace B2R2.RearEnd.Utils
 
-open B2R2
+/// Provides printing utility functions used in RearEnd.
+[<AutoOpen>]
+module Printer =
+  open B2R2
+  open B2R2.Logging
 
-/// Represents a printer that does *not* print anything. This is the same as
-/// redirecting outputs to /dev/null.
-type ConsoleNullPrinter() =
-  interface IPrinter with
-    member _.TableConfig with get() = Terminator.impossible ()
+  /// Prints a section title.
+  let printSectionTitle (title: string) =
+    let cs = ColoredString().Add(Red, "# ").Add(NoColor, title)
+    Log.Out.PrintLine(cs)
+    Log.Out.PrintLine()
 
-    member _.Dispose() = ()
+  /// Prints a subsection title.
+  let printSubsectionTitle (title: string) =
+    Log.Out.PrintLine("    - " + title)
+    Log.Out.PrintLine()
 
-    member _.Print(_: string, _: LogLevel) = ()
+  /// Prints a subsubsection title.
+  let printSubsubsectionTitle (title: string) =
+    Log.Out.PrintLine("         * " + title)
+    Log.Out.PrintLine()
 
-    member _.Print(_: ColoredString, _: LogLevel) = ()
-
-    member _.Print(_: OutString, _: LogLevel) = ()
-
-    member _.PrintLine(_: string, _: LogLevel) = ()
-
-    member _.PrintLine(_: ColoredString, _: LogLevel) = ()
-
-    member _.PrintLine(_: OutString, _: LogLevel) = ()
-
-    member _.PrintLine(_: LogLevel) = ()
-
-    member _.PrintRow(_: string[]) = ()
-
-    member _.PrintRow(_: ColoredString[]) = ()
-
-    member _.PrintRow(_: OutString[]) = ()
-
-    member _.Flush() = ()

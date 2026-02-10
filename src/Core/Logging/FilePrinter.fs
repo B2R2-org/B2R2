@@ -103,11 +103,4 @@ type FilePrinter(filePath, myLevel: LogLevel) =
       else
         ()
 
-    member _.PrintSectionTitle title = "# " + title |> fs.WriteLine
-
-    member _.PrintSubsectionTitle(str: string) = "    - " + str |> fs.WriteLine
-
-    member _.PrintSubsubsectionTitle(str: string) =
-      "         * " + str |> fs.WriteLine
-
     member _.Flush() = ()

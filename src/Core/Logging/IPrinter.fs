@@ -126,15 +126,6 @@ type IPrinter =
   /// of columns as the length of the given OutString array.
   abstract PrintRow: OutString[] -> unit
 
-  /// Prints out the section title.
-  abstract PrintSectionTitle: string -> unit
-
-  /// Prints out the subsection title.
-  abstract PrintSubsectionTitle: string -> unit
-
-  /// Prints out the subsubsection title.
-  abstract PrintSubsubsectionTitle: string -> unit
-
   /// Flushes out everything.
   abstract Flush: unit -> unit
 

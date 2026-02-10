@@ -110,17 +110,6 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
       else
         ()
 
-    member _.PrintSectionTitle title =
-      "# " + title + Environment.NewLine + Environment.NewLine |> add
-
-    member _.PrintSubsectionTitle(str: string) =
-      "    - " + str |> add
-      add Environment.NewLine
-
-    member _.PrintSubsubsectionTitle(str: string) =
-      "         * " + str |> add
-      add Environment.NewLine
-
     member _.Flush() =
       cache.ToString() |> Console.Write
       cache.Clear() |> ignore

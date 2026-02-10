@@ -164,14 +164,4 @@ type ConsolePrinter(myLevel: LogLevel) =
       else
         ()
 
-    member this.PrintSectionTitle title =
-      ColoredString().Add(Red, "# ").Add(NoColor, title).Render(renderer)
-      (this :> IPrinter).PrintLine()
-
-    member this.PrintSubsectionTitle(str: string) =
-      (this :> IPrinter).PrintLine("    - " + str)
-
-    member this.PrintSubsubsectionTitle(str: string) =
-      (this :> IPrinter).PrintLine("         * " + str)
-
     member _.Flush() = ()

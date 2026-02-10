@@ -37,55 +37,55 @@ let [<Literal>] private ToolName = "bindump"
 let [<Literal>] private UsageTail = "<binary file(s) | -s hexstring>"
 
 let private printFileName (filepath: string) =
-  Log.Out <=/ String.wrapSqrdBracket filepath
-  Log.Out.PrintLine()
+  printsn <| String.wrapSqrdBracket filepath
+  printsn ""
 
-let private getTableConfig (isa: ISA) isLift =
+let private setTableConfig (isa: ISA) isLift =
   if isLift then
-    { Indentation = 0
-      ColumnGap = 1
-      Columns = [| LeftAligned 10 |] }
+    Log.Out.TableConfig.Indentation <- 0
+    Log.Out.TableConfig.ColumnGap <- 1
+    Log.Out.TableConfig.Columns <- [| LeftAligned 10 |]
   else
     let addrWidth = WordSize.toByteWidth isa.WordSize * 2
     let binaryWidth =
       match isa with
       | Intel -> 36
       | _ -> 16
-    { Indentation = 0
-      ColumnGap = 1
-      Columns = [| LeftAligned addrWidth
-                   LeftAligned binaryWidth
-                   LeftAligned 10 |] }
+    Log.Out.TableConfig.Indentation <- 0
+    Log.Out.TableConfig.ColumnGap <- 1
+    Log.Out.TableConfig.Columns <- [| LeftAligned addrWidth
+                                      LeftAligned binaryWidth
+                                      LeftAligned 10 |]
 
 let private getOptimizer (opts: BinDumpOpts) =
   if opts.DoOptimization then LocalOptimizer.Optimize
   else id
 
-let private makeCodeDumper hdl cfg (opts: BinDumpOpts) =
+let private makeCodeDumper hdl (opts: BinDumpOpts) =
   let mode =
     if opts.ShowLowUIR then LowUIR(getOptimizer opts)
     else Disassembly(opts.DisassemblySyntax)
-  BinCodeDumper(hdl, cfg, false, opts.ShowSymbols, opts.ShowColor, mode)
+  BinCodeDumper(hdl, false, opts.ShowSymbols, opts.ShowColor, mode)
   :> IBinDumper
 
-let private makeTableDumper hdl cfg (opts: BinDumpOpts) =
+let private makeTableDumper hdl (opts: BinDumpOpts) =
   let mode =
     if opts.ShowLowUIR then LowUIR(getOptimizer opts)
     else Disassembly(opts.DisassemblySyntax)
-  BinCodeDumper(hdl, cfg, true, true, opts.ShowColor, mode)
+  BinCodeDumper(hdl, true, true, opts.ShowColor, mode)
   :> IBinDumper
 
-let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
+let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) =
   let ptr = hdl.File.GetBoundedPointer hdl.File.BaseAddress
-  let dumper = makeCodeDumper hdl cfg opts
+  let dumper = makeCodeDumper hdl opts
   dumper.Dump ptr
-  Log.Out.PrintLine()
+  printsn ""
 
 let dumpHex (opts: BinDumpOpts) (hdl: BinHandle) ptr =
   let bytes = hdl.ReadBytes(ptr = ptr, nBytes = ptr.MaxOffset - ptr.Offset + 1)
   let chunkSz = if opts.ShowWide then 32 else 16
   HexDump.makeLines chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
-  |> Array.iter Log.Out.PrintLine
+  |> Array.iter printon
 
 let private hasNoContent (file: IBinFile) secName =
   match file with
@@ -96,13 +96,13 @@ let private hasNoContent (file: IBinFile) secName =
   | _ -> false
 
 let dumpData (hdl: BinHandle) (opts: BinDumpOpts) ptr secName =
-  Log.Out.PrintSectionTitle(String.wrapParen secName)
+  printSectionTitle <| String.wrapParen secName
   if hasNoContent hdl.File secName then
     Log.Out.TableConfig.ResetDefault()
-    Log.Out.PrintRow([| ""; "NOBITS section." |])
+    printsr [| ""; "NOBITS section." |]
   else
     dumpHex opts hdl ptr
-  Log.Out.PrintLine()
+  printsn ""
 
 let private isRawBinary (hdl: BinHandle) =
   match hdl.File.Format with
@@ -114,9 +114,9 @@ let private isRawBinary (hdl: BinHandle) =
   | _ -> true
 
 let private dumpOneSection (dumper: IBinDumper) name ptr =
-  Log.Out.PrintSectionTitle(String.wrapParen name)
+  printSectionTitle <| String.wrapParen name
   dumper.Dump ptr
-  Log.Out.PrintLine()
+  printsn ""
 
 let private dumpELFSection hdl opts elf tableprn codeprn sec =
   if (sec: ELF.SectionHeader).SecSize > 0UL then
@@ -162,9 +162,9 @@ let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
       | None -> ()
   | _ -> Terminator.futureFeature ()
 
-let private dumpRegularFile (hdl: BinHandle) (opts: BinDumpOpts) cfg =
-  let codeprn = makeCodeDumper hdl cfg opts
-  let tableprn = makeTableDumper hdl cfg opts
+let private dumpRegularFile (hdl: BinHandle) (opts: BinDumpOpts) =
+  let codeprn = makeCodeDumper hdl opts
+  let tableprn = makeTableDumper hdl opts
   let opts = { opts with ShowSymbols = true }
   match opts.InputSecName with
   | Some secName -> dumpOneSectionOfName hdl opts codeprn tableprn secName
@@ -181,45 +181,45 @@ let private dumpRegularFile (hdl: BinHandle) (opts: BinDumpOpts) cfg =
         dumpMachSection hdl opts mach tableprn codeprn sec
     | _ -> Terminator.futureFeature ()
 
-let dumpFile (opts: BinDumpOpts) filePath =
+let private dumpFile (opts: BinDumpOpts) filePath =
   let opts = { opts with ShowAddress = true }
   let hdl = BinHandle(filePath, opts.ISA, opts.BaseAddress)
-  let cfg = getTableConfig hdl.File.ISA opts.ShowLowUIR
+  setTableConfig hdl.File.ISA opts.ShowLowUIR
   printFileName hdl.File.Path
-  if isRawBinary hdl then dumpRawBinary hdl opts cfg
-  else dumpRegularFile hdl opts cfg
+  if isRawBinary hdl then dumpRawBinary hdl opts
+  else dumpRegularFile hdl opts
 
 let private dumpFiles files opts =
   match List.partition IO.File.Exists files with
   | [], [] ->
-    Log.Out <=? "File(s) must be given."
+    eprintsn "File(s) must be given."
     CmdOpts.printUsage ToolName UsageTail BinDumpOpts.Spec
   | files, [] ->
     files |> List.iter (dumpFile opts)
   | _, errs ->
-    Log.Out <=? "File(s) " + errs.ToString() + " not found!"
+    eprintsn <| "File(s) " + errs.ToString() + " not found!"
 
-let private validateHexStringLength (liftingUnit: LiftingUnit) hexstr =
+let private validateHexStringLength (hdl: BinHandle) hexstr =
+  let liftingUnit = hdl.NewLiftingUnit()
   let alignment = liftingUnit.InstructionAlignment
-  if (Array.length hexstr) % alignment = 0 then ()
+  if (Array.length hexstr) % alignment = 0 then
+    ()
   else
-    Log.Out <=? $"The hex string length must be multiple of {alignment}"
+    eprintsn $"The hex string length must be multiple of {alignment}"
     exit 1
 
-let private dumpDataString (opts: BinDumpOpts) =
+let private dumpHexString (opts: BinDumpOpts) =
   let hex, isa, isThumb = opts.InputHexStr, opts.ISA, opts.ThumbMode
   let hdl = BinHandle(hex, isa, opts.BaseAddress, detectFormat = false)
-  let liftingUnit = hdl.NewLiftingUnit()
-  let cfg = getTableConfig hdl.File.ISA opts.ShowLowUIR
-  validateHexStringLength liftingUnit opts.InputHexStr
-  let opts = { opts with ShowColor = true }
-  let dumper = makeCodeDumper hdl cfg opts
+  setTableConfig hdl.File.ISA opts.ShowLowUIR
+  validateHexStringLength hdl opts.InputHexStr
+  let dumper = makeCodeDumper hdl { opts with ShowColor = true }
   dumper.ModeSwitch.IsThumb <- isThumb
   let baseAddr = defaultArg opts.BaseAddress 0UL
   let len = opts.InputHexStr.Length
   let ptr = BinFilePointer(baseAddr, baseAddr + uint64 len - 1UL, 0, len - 1)
   dumper.Dump ptr
-  Log.Out.PrintLine()
+  printsn ""
 
 let private dumpMain files (opts: BinDumpOpts) =
   Log.EnableCaching()
@@ -229,7 +229,7 @@ let private dumpMain files (opts: BinDumpOpts) =
   CmdOpts.sanitizeRestArgs files
   try
     if Array.isEmpty opts.InputHexStr then dumpFiles files opts
-    else dumpDataString opts
+    else dumpHexString opts
   finally
     Log.Out.Flush()
 #if DEBUG
