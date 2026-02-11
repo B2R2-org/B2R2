@@ -467,7 +467,7 @@ let parseADDCx bin =
   | 0b00u -> struct (Op.ADDC, ThreeOperands(rd, ra, rb))
   | 0b01u -> struct (Op.ADDCdot, ThreeOperands(rd, ra, rb))
   | 0b10u -> struct (Op.ADDCO, ThreeOperands(rd, ra, rb))
-  | _ (* 11 *) ->  struct (Op.ADDCOdot, ThreeOperands(rd, ra, rb))
+  | _ (* 11 *) -> struct (Op.ADDCOdot, ThreeOperands(rd, ra, rb))
 
 let parseMULHWUx bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -572,7 +572,7 @@ let parseSUBFx bin =
   | 0b00u -> struct (Op.SUBF, ThreeOperands(rd, ra, rb))
   | 0b01u -> struct (Op.SUBFdot, ThreeOperands(rd, ra, rb))
   | 0b10u -> struct (Op.SUBFO, ThreeOperands(rd, ra, rb))
-  | _ (* 11 *) ->  struct (Op.SUBFOdot, ThreeOperands(rd, ra, rb))
+  | _ (* 11 *) -> struct (Op.SUBFOdot, ThreeOperands(rd, ra, rb))
 
 let parseDCBSTandTLBSYNC bin =
   match Bits.pick bin 10u with
