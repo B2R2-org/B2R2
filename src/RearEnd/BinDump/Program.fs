@@ -81,7 +81,7 @@ let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) =
   dumper.Dump ptr
   printsn ""
 
-let dumpHex (opts: BinDumpOpts) (hdl: BinHandle) ptr =
+let private dumpHex (opts: BinDumpOpts) (hdl: BinHandle) ptr =
   let bytes = hdl.ReadBytes(ptr = ptr, nBytes = ptr.MaxOffset - ptr.Offset + 1)
   let chunkSz = if opts.ShowWide then 32 else 16
   HexDump.makeLines chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
@@ -95,7 +95,7 @@ let private hasNoContent (file: IBinFile) secName =
     | None -> true
   | _ -> false
 
-let dumpData (hdl: BinHandle) (opts: BinDumpOpts) ptr secName =
+let private dumpData (hdl: BinHandle) (opts: BinDumpOpts) ptr secName =
   printSectionTitle <| String.wrapParen secName
   if hasNoContent hdl.File secName then
     Log.Out.TableConfig.ResetDefault()
@@ -162,24 +162,28 @@ let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
       | None -> ()
   | _ -> Terminator.futureFeature ()
 
+let private dumpAllSections (hdl: BinHandle) opts codeprn tableprn =
+  match hdl.File with
+  | :? ELFBinFile as elf ->
+    for sec in elf.SectionHeaders do
+      dumpELFSection hdl opts elf tableprn codeprn sec
+  | :? PEBinFile as pe ->
+    for sec in pe.SectionHeaders do
+      dumpPESection hdl opts pe tableprn codeprn sec
+  | :? MachBinFile as mach ->
+    for sec in mach.Sections do
+      dumpMachSection hdl opts mach tableprn codeprn sec
+  | _ -> Terminator.futureFeature ()
+
 let private dumpRegularFile (hdl: BinHandle) (opts: BinDumpOpts) =
   let codeprn = makeCodeDumper hdl opts
   let tableprn = makeTableDumper hdl opts
   let opts = { opts with ShowSymbols = true }
   match opts.InputSecName with
-  | Some secName -> dumpOneSectionOfName hdl opts codeprn tableprn secName
+  | Some secName ->
+    dumpOneSectionOfName hdl opts codeprn tableprn secName
   | None ->
-    match hdl.File with
-    | :? ELFBinFile as elf ->
-      for sec in elf.SectionHeaders do
-        dumpELFSection hdl opts elf tableprn codeprn sec
-    | :? PEBinFile as pe ->
-      for sec in pe.SectionHeaders do
-        dumpPESection hdl opts pe tableprn codeprn sec
-    | :? MachBinFile as mach ->
-      for sec in mach.Sections do
-        dumpMachSection hdl opts mach tableprn codeprn sec
-    | _ -> Terminator.futureFeature ()
+    dumpAllSections hdl opts codeprn tableprn
 
 let private dumpFile (opts: BinDumpOpts) filePath =
   let opts = { opts with ShowAddress = true }
@@ -195,7 +199,9 @@ let private dumpFiles files opts =
     eprintsn "File(s) must be given."
     CmdOpts.printUsage ToolName UsageTail BinDumpOpts.Spec
   | files, [] ->
+    Log.EnableCaching()
     files |> List.iter (dumpFile opts)
+    Log.DisableCaching()
   | _, errs ->
     eprintsn <| "File(s) " + errs.ToString() + " not found!"
 
@@ -208,21 +214,24 @@ let private validateHexStringLength (hdl: BinHandle) hexstr =
     eprintsn $"The hex string length must be multiple of {alignment}"
     exit 1
 
-let private dumpHexString (opts: BinDumpOpts) =
-  let hex, isa, isThumb = opts.InputHexStr, opts.ISA, opts.ThumbMode
+let private prepareHexStringDump (opts: BinDumpOpts) =
+  let hex, isa = opts.InputHexStr, opts.ISA
   let hdl = BinHandle(hex, isa, opts.BaseAddress, detectFormat = false)
   setTableConfig hdl.File.ISA opts.ShowLowUIR
   validateHexStringLength hdl opts.InputHexStr
+  hdl
+
+let private dumpHexString (opts: BinDumpOpts) =
+  let hdl = prepareHexStringDump opts
   let dumper = makeCodeDumper hdl { opts with ShowColor = true }
-  dumper.ModeSwitch.IsThumb <- isThumb
   let baseAddr = defaultArg opts.BaseAddress 0UL
   let len = opts.InputHexStr.Length
   let ptr = BinFilePointer(baseAddr, baseAddr + uint64 len - 1UL, 0, len - 1)
+  dumper.ModeSwitch.IsThumb <- opts.ThumbMode
   dumper.Dump ptr
   printsn ""
 
 let private dumpMain files (opts: BinDumpOpts) =
-  Log.EnableCaching()
 #if DEBUG
   let sw = Diagnostics.Stopwatch.StartNew()
 #endif
@@ -234,7 +243,6 @@ let private dumpMain files (opts: BinDumpOpts) =
     Log.Out.Flush()
 #if DEBUG
   sw.Stop()
-  Log.DisableCaching()
   Console.Error.WriteLine $"Total dump time: {sw.Elapsed.TotalSeconds} sec."
 #endif
 
