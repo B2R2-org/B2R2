@@ -130,11 +130,15 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
       { new ARM32.IModeSwitchable with
           member _.IsThumb with get() = false and set _ = () }
 
-  let updateMode addr =
-    match archmodes.TryGetValue addr with
-    | true, ELF.ARMLinkerSymbol.ARM -> modeSwitch.IsThumb <- false
-    | true, ELF.ARMLinkerSymbol.Thumb -> modeSwitch.IsThumb <- true
-    | _ -> ()
+  let checkAndUpdateArchMode =
+    if hdl.File.ISA.Arch = Architecture.ARMv7 then
+      fun addr ->
+        match archmodes.TryGetValue addr with
+        | true, ELF.ARMLinkerSymbol.ARM -> modeSwitch.IsThumb <- false
+        | true, ELF.ARMLinkerSymbol.Thumb -> modeSwitch.IsThumb <- true
+        | _ -> ()
+    else
+      fun _addr -> ()
 
   let symbols =
     if isTable then makeLinkageTblSymbolDic hdl
@@ -168,7 +172,7 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
   let rec binDump isFirst ptr =
     if (ptr: BinFilePointer).IsValid then
       printFuncSymbol isFirst ptr.Addr
-      updateMode ptr.Addr
+      checkAndUpdateArchMode ptr.Addr
       match liftingUnit.TryParseInstruction(ptr = ptr) with
       | Ok(ins) ->
         printInstr ptr ins
