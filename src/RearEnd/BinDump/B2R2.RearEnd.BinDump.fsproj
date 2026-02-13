@@ -9,6 +9,7 @@
     <Compile Include="BinDumpOpts.fs" />
     <Compile Include="IBinDumper.fs" />
     <Compile Include="DumpMode.fs" />
+    <Compile Include="FunctionSymbols.fs" />
     <Compile Include="BinCodeDumper.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

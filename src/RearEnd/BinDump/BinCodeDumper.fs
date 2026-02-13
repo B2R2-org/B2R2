@@ -36,6 +36,33 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
 
   let [<Literal>] IllegalStr = "(illegal)"
 
+  let wordSize = (hdl: BinHandle).File.ISA.WordSize
+
+  let liftingUnit = hdl.NewLiftingUnit()
+
+  let archmodes =
+    let modes = Dictionary() (* Addr to ArchMode *)
+    match hdl.File.Format, hdl.File.ISA with
+    | FileFormat.ELFBinary, ARM32 ->
+      let elf = hdl.File :?> ELFBinFile
+      for s in elf.Symbols.StaticSymbols do
+        if s.ARMLinkerSymbol <> ELF.ARMLinkerSymbol.None then
+          modes[s.Addr] <- s.ARMLinkerSymbol
+        else ()
+    | _ -> ()
+    modes
+
+  let modeSwitch =
+    if hdl.File.ISA.Arch = Architecture.ARMv7 then
+      liftingUnit.Parser :?> ARM32.IModeSwitchable
+    else
+      { new ARM32.IModeSwitchable with
+          member _.IsThumb with get() = false and set _ = () }
+
+  let fnSymbols =
+    if isTable then FunctionSymbols.ofLinkageTable hdl
+    else FunctionSymbols.ofText hdl
+
   let convertToHexStr bytes =
     bytes
     |> Array.fold (fun s (b: byte) ->
@@ -47,21 +74,20 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
     printsr [| hexStr |]
     printsr [| lowUIRStr |]
 
-  let printRegularDisasm disasmStr wordSize addr bytes =
+  let printRegularDisasm disasmStr addr bytes =
     let hexStr = convertToHexStr bytes
     let addrStr = Addr.toString wordSize addr + ":"
     printsr [| addrStr; hexStr; disasmStr |]
 
-  let regularDisPrinter hdl liftingUnit wordSize showSymbs ptr ins =
-    (liftingUnit: LiftingUnit).ConfigureDisassembly(false, showSymbs)
+  let regularDisPrinter ptr ins =
     let disasmStr = liftingUnit.DisasmInstruction(ins = ins)
-    let bytes = (hdl: BinHandle).ReadBytes(ptr = ptr, nBytes = int ins.Length)
-    printRegularDisasm disasmStr wordSize ptr.Addr bytes
+    let bytes = hdl.ReadBytes(ptr = ptr, nBytes = int ins.Length)
+    printRegularDisasm disasmStr ptr.Addr bytes
 
-  let regularIRPrinter hdl (liftingUnit: LiftingUnit) optimizer ptr ins =
+  let regularIRPrinter optimizer ptr ins =
     let stmts = optimizer (liftingUnit.LiftInstruction(ins = ins))
     let lowUIRStr = PrettyPrinter.ToString(lowuirStmts = stmts)
-    let bytes = (hdl: BinHandle).ReadBytes(ptr = ptr, nBytes = int ins.Length)
+    let bytes = hdl.ReadBytes(ptr = ptr, nBytes = int ins.Length)
     printLowUIR lowUIRStr bytes
 
   let convertToDisasmStr (words: AsmWord[]) =
@@ -75,7 +101,7 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
       | _ -> cs.Add(NoColor, word.AsmWordValue) |> ignore
     cs
 
-  let printColorDisasm words wordSize addr bytes =
+  let printColorDisasm words addr bytes =
     let hexStr = convertToHexStr bytes
     let addrStr = Addr.toString wordSize addr + ":"
     let disasStr = convertToDisasmStr words
@@ -83,52 +109,10 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
                ColoredString(NoColor, hexStr)
                disasStr |]
 
-  let colorDisPrinter (hdl: BinHandle) liftingUnit wordSize _ ptr ins =
-    (liftingUnit: LiftingUnit).ConfigureDisassembly false
+  let colorDisPrinter ptr ins =
     let words = liftingUnit.DecomposeInstruction(ins = ins)
     let bytes = hdl.ReadBytes(ptr = ptr, nBytes = int ins.Length)
-    printColorDisasm words wordSize ptr.Addr bytes
-
-  let liftingUnit = (hdl: BinHandle).NewLiftingUnit()
-
-  let makeFunctionSymbolDictionary (hdl: BinHandle) =
-    let funcs = Dictionary()
-    for addr in hdl.File.GetFunctionAddresses() do
-      match hdl.File.TryFindName addr with
-      | Ok name -> funcs.TryAdd(addr, name) |> ignore
-      | Error _ -> funcs.TryAdd(addr, Addr.toFuncName addr) |> ignore
-    for entry in hdl.File.GetLinkageTableEntries() do
-      if entry.TrampolineAddress = 0UL then ()
-      else funcs.TryAdd(entry.TrampolineAddress, entry.FuncName) |> ignore
-    funcs
-
-  let makeLinkageTblSymbolDic (hdl: BinHandle) =
-    let funcs = Dictionary()
-    for entry in hdl.File.GetLinkageTableEntries() do
-      if entry.TrampolineAddress = 0UL then ()
-      else funcs.TryAdd(entry.TrampolineAddress, entry.FuncName) |> ignore
-    funcs
-
-  let makeArchModeDictionary (hdl: BinHandle) =
-    let modes = Dictionary()
-    match hdl.File.Format, hdl.File.ISA with
-    | FileFormat.ELFBinary, ARM32 ->
-      let elf = hdl.File :?> ELFBinFile
-      for s in elf.Symbols.StaticSymbols do
-        if s.ARMLinkerSymbol <> ELF.ARMLinkerSymbol.None then
-          modes[s.Addr] <- s.ARMLinkerSymbol
-        else ()
-    | _ -> ()
-    modes
-
-  let archmodes = makeArchModeDictionary hdl
-
-  let modeSwitch =
-    if hdl.File.ISA.Arch = Architecture.ARMv7 then
-      liftingUnit.Parser :?> ARM32.IModeSwitchable
-    else
-      { new ARM32.IModeSwitchable with
-          member _.IsThumb with get() = false and set _ = () }
+    printColorDisasm words ptr.Addr bytes
 
   let checkAndUpdateArchMode =
     if hdl.File.ISA.Arch = Architecture.ARMv7 then
@@ -140,37 +124,33 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
     else
       fun _addr -> ()
 
-  let symbols =
-    if isTable then makeLinkageTblSymbolDic hdl
-    else makeFunctionSymbolDictionary hdl
-
   let printFuncSymbol isFirst addr =
-    match symbols.TryGetValue(addr) with
+    match fnSymbols.TryGetValue addr with
     | true, name ->
       if not isFirst then printsn "" else ()
       printsn (String.wrapAngleBracket name)
-    | false, _ -> ()
-
-  let wordSize = hdl.File.ISA.WordSize
+    | false, _ ->
+      ()
 
   let printInstr =
     match dumpMode with
-    | LowUIR optimizer -> regularIRPrinter hdl liftingUnit optimizer
+    | LowUIR optimizer ->
+      regularIRPrinter optimizer
     | Disassembly syntax ->
       liftingUnit.SetDisassemblySyntax syntax
-      if showColor then colorDisPrinter hdl liftingUnit wordSize showSymbol
-      else regularDisPrinter hdl liftingUnit wordSize showSymbol
+      liftingUnit.ConfigureDisassembly(false, showSymbol)
+      if showColor then colorDisPrinter
+      else regularDisPrinter
 
   let handleInvalidIns ptr =
-    let wordSize = hdl.File.ISA.WordSize
     let align = liftingUnit.InstructionAlignment
     let bytes = hdl.ReadBytes(ptr = ptr, nBytes = align)
     if dumpMode.IsLowUIR then printLowUIR IllegalStr bytes
-    else printRegularDisasm IllegalStr wordSize ptr.Addr bytes
+    else printRegularDisasm IllegalStr ptr.Addr bytes
     ptr.Advance align
 
-  let rec binDump isFirst ptr =
-    if (ptr: BinFilePointer).IsValid then
+  let rec binDump isFirst (ptr: BinFilePointer) =
+    if ptr.IsValid then
       printFuncSymbol isFirst ptr.Addr
       checkAndUpdateArchMode ptr.Addr
       match liftingUnit.TryParseInstruction(ptr = ptr) with
