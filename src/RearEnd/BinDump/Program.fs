@@ -232,10 +232,10 @@ let private dumpHexString (opts: BinDumpOpts) =
   printsn ""
 
 let private dumpMain files (opts: BinDumpOpts) =
+  CmdOpts.sanitizeRestArgs files
 #if DEBUG
   let sw = Diagnostics.Stopwatch.StartNew()
 #endif
-  CmdOpts.sanitizeRestArgs files
   try
     if Array.isEmpty opts.InputHexStr then dumpFiles files opts
     else dumpHexString opts
