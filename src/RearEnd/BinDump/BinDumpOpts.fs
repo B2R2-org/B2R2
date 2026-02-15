@@ -171,6 +171,4 @@ with
              dummy = true)
       CmdOpt(descr = "Perform bblock optimization for IL",
              long = "--optimize",
-             callback = fun opts _ -> { opts with DoOptimization = true })
-      CmdOpt(descr = "",
-             dummy = true) ]
+             callback = fun opts _ -> { opts with DoOptimization = true }) ]
