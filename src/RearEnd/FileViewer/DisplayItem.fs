@@ -24,30 +24,7 @@
 
 namespace B2R2.RearEnd.FileViewer
 
-/// Display items for ELF.
-type ELFDisplayItem =
-  | ELFDisplayProgramHeader
-  | ELFDisplayPLT
-  | ELFDisplayEHFrame
-  | ELFDisplayGccExceptTable
-  | ELFDisplayNotes
-
-/// Display items for PE.
-type PEDisplayItem =
-  | PEDisplayImports
-  | PEDisplayExports
-  | PEDisplayOptionalHeader
-  | PEDisplayCLRHeader
-  | PEDisplayDependencies
-
-/// Display items for Mach-O.
-type MachDisplayItem =
-  | MachDisplayArchiveHeader
-  | MachDisplayUniversalHeader
-  | MachDisplayLoadCommands
-  | MachDisplaySharedLibs
-
-/// Display items for FileViewer.
+/// Represents display items for FileViewer.
 type DisplayItem =
   /// Special item that represents all items.
   | DisplayAll
@@ -66,8 +43,31 @@ type DisplayItem =
   /// Exception table.
   | DisplayExceptionTable
   /// ELF-specific item.
-  | DisplayELFSpecific of ELFDisplayItem
+  | DisplayELF of ELFDisplayItem
   /// PE-specific item.
-  | DisplayPESpecific of PEDisplayItem
+  | DisplayPE of PEDisplayItem
   /// Mach-specific item.
-  | DisplayMachSpecific of MachDisplayItem
+  | DisplayMach of MachDisplayItem
+
+/// Display items for ELF.
+and ELFDisplayItem =
+  | ELFProgHeader
+  | ELFPLT
+  | ELFEHFrame
+  | ELFGccExceptTbl
+  | ELFNotes
+
+/// Display items for PE.
+and PEDisplayItem =
+  | PEImports
+  | PEExports
+  | PEOptionalHeader
+  | PECLRHeader
+  | PEDependencies
+
+/// Display items for Mach-O.
+and MachDisplayItem =
+  | MachArchiveHdr
+  | MachUniversalHdr
+  | MachLoadCmds
+  | MachSharedLibs

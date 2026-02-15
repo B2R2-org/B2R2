@@ -22,26 +22,15 @@
   SOFTWARE.
 *)
 
-/// <namespacedoc>
-///   <summary>
-///   Contains types and functions used in rear-end applications.
-///   </summary>
-/// </namespacedoc>
-///
-/// <summary>
-/// Provides string utility functions used in RearEnd.
-/// </summary>
-[<RequireQualifiedAccess>]
-module B2R2.RearEnd.Utils.String
+namespace B2R2.RearEnd.Utils
 
-open B2R2
+/// Provides utility functions for working with enumerations.
+[<AutoOpen>]
+module Enum =
+  open System
 
-/// Converts an optional entry point to a string.
-let ofEntryPointOpt (entryPoint: Addr option) =
-  match entryPoint with
-  | None -> "none"
-  | Some entry -> $"0x{entry:x}"
-
-/// Converts an enum value to an enumerated string with a bullet point.
-let inline ofEnum (v: System.Enum) =
-  $"- {v.ToString()}"
+  /// Enumerates the flags that are set in the given flags value and returns
+  /// them as an array.
+  let inline enumerateFlags<'T when 'T :> Enum> (flags: 'T) =
+    Enum.GetValues(typeof<'T>) :?> 'T[]
+    |> Array.filter (fun flag -> flags.HasFlag flag)

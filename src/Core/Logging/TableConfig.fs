@@ -81,13 +81,6 @@ with
       colfmt.Pad(s, isLast)
     this.Render(converter, padder, renderer, oss)
 
-  /// Resets the table configuration to default values.
-  member this.ResetDefault() =
-    this.Indentation <- 0
-    this.ColumnGap <- 1
-    this.Columns <- [| RightAligned PrinterConst.ColWidth
-                       LeftAligned PrinterConst.ColWidth |]
-
 /// Represents a column of a table with a specified width in bytes (# of chars).
 and TableColumnFormat =
   | RightAligned of width: int

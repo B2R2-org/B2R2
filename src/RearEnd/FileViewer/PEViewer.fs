@@ -22,513 +22,377 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.FileViewer.PEViewer
+module internal B2R2.RearEnd.FileViewer.PEViewer
 
 open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.Logging
 open B2R2.FrontEnd.BinFile
-open B2R2.RearEnd.FileViewer.Helper
+open B2R2.RearEnd.Utils
 
-let badAccess _ _ = raise InvalidFileFormatException
+let dumpFileHeader _ (pe: PEBinFile) =
+  let hdr = pe.PEHeaders.CoffHeader
+  let machine = hdr.Machine
+  let machineStr = $"{machine} ({HexString.ofUInt64 (uint64 machine)})"
+  let ptrToSymTab = HexString.ofInt32 hdr.PointerToSymbolTable
+  let sizeOfOptHdr = HexString.ofInt16 hdr.SizeOfOptionalHeader
+  let characteristics = uint32 hdr.Characteristics |> HexString.ofUInt32
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Machine:"; machineStr |]
+  printsr [| "Number of sections:"; hdr.NumberOfSections.ToString() |]
+  printsr [| "Time date stamp:"; hdr.TimeDateStamp.ToString() |]
+  printsr [| "Pointer to symbol table:"; ptrToSymTab |]
+  printsr [| "Size of optional header:"; sizeOfOptHdr |]
+  printsr [| "Characteristics:"; characteristics |]
+  for flag in enumerateFlags hdr.Characteristics do
+    printsr [| ""; String.ofEnum flag |]
+  printsn ""
 
-let translateChracteristics chars =
-  let enumChars =
-    System.Enum.GetValues(typeof<Characteristics>)
-    :?> Characteristics []
-    |> Array.toList
-  let rec loop acc chars = function
-    | [] -> List.rev acc
-    | enumChar :: tail ->
-      if uint64 enumChar &&& chars = uint64 enumChar then
-        loop ((" - " + enumChar.ToString()) :: acc) chars tail
-      else
-        loop acc chars tail
-  loop [] chars enumChars
+let makeSectionHeadersFormatVerbose addrColumn =
+  [| LeftAligned 4
+     addrColumn
+     addrColumn
+     LeftAligned 24
+     LeftAligned 8
+     LeftAligned 8
+     LeftAligned 8
+     LeftAligned 8
+     LeftAligned 8
+     LeftAligned 8
+     LeftAligned 8
+     LeftAligned 8
+     LeftAligned 15 |]
 
-let dumpFileHeader _ (file: PEBinFile) =
-  let hdr = file.PEHeaders.CoffHeader
-  Log.Out.TableConfig.ResetDefault()
-  Log.Out
-  <== [| "Machine:"
-         HexString.ofUInt64 (uint64 hdr.Machine)
-         + String.wrapParen (hdr.Machine.ToString()) |]
-  <== [| "Number of sections:"; hdr.NumberOfSections.ToString() |]
-  <== [| "Time date stamp:"; hdr.TimeDateStamp.ToString() |]
-  <== [| "Pointer to symbol table:"
-         HexString.ofUInt64 (uint64 hdr.PointerToSymbolTable) |]
-  <== [| "Size of optional header:"
-         HexString.ofUInt64 (uint64 hdr.SizeOfOptionalHeader) |]
-  <=/ [| "Characteristics:"
-         HexString.ofUInt64 (uint64 hdr.Characteristics) |]
-  translateChracteristics (uint64 hdr.Characteristics)
-  |> List.iter (fun str -> Log.Out <=/ [| ""; str |])
+let makeSectionHeadersTableHeaderVerbose () =
+  [| "Num"
+     "Start"
+     "End"
+     "Name"
+     "VirtSize"
+     "VirtAddr"
+     "RawSize"
+     "RawPtr"
+     "RelocPtr"
+     "LineNPtr"
+     "RelNum"
+     "LineNum"
+     "Characteristics" |]
 
-let translateSectionChracteristics chars =
-  let enumChars =
-    System.Enum.GetValues(typeof<SectionCharacteristics>)
-    :?> SectionCharacteristics []
-    |> Array.toList
-  if chars = uint64 0 then
-    [ " - TypeReg" ]
+let selectSize (s: SectionHeader) =
+  if s.VirtualSize = 0 then s.SizeOfRawData
+  else s.VirtualSize
+
+let enumSectionCharacteristics (ch: SectionCharacteristics) =
+  if uint64 ch = 0UL then
+    [| SectionCharacteristics.TypeReg |]
   else
-    let rec loop acc chars = function
-      | [] -> List.rev acc
-      | enumChar :: t ->
-        if uint64 enumChar &&& chars = uint64 enumChar
-          && (uint64 enumChar <> 0UL) then
-          loop ((" - " + enumChar.ToString()) :: acc) chars t
-        else
-          loop acc chars t
-    loop [] chars enumChars
+    enumerateFlags ch
+    |> Array.filter (fun flag -> uint64 flag <> 0UL)
+
+let dumpSectionHeadersVerbose (pe: PEBinFile) wordSize addrColumn =
+  setTableColumnFormats <| makeSectionHeadersFormatVerbose addrColumn
+  printDoubleHorizontalRule ()
+  printsr <| makeSectionHeadersTableHeaderVerbose ()
+  printSingleHorizontalRule ()
+  for i in 0 .. pe.SectionHeaders.Length - 1 do
+    let s = pe.SectionHeaders[i]
+    let startAddr = pe.BaseAddress + uint64 s.VirtualAddress
+    let size = uint64 (selectSize s)
+    let characteristics = uint64 s.SectionCharacteristics |> HexString.ofUInt64
+    printsr [| String.wrapSqrdBracket (i.ToString())
+               Addr.toString wordSize startAddr
+               Addr.toString wordSize (startAddr + size - uint64 1)
+               normalizeEmpty s.Name
+               HexString.ofUInt64 (uint64 s.VirtualSize)
+               HexString.ofUInt64 (uint64 s.VirtualAddress)
+               HexString.ofUInt64 (uint64 s.SizeOfRawData)
+               HexString.ofUInt64 (uint64 s.PointerToRawData)
+               HexString.ofUInt64 (uint64 s.PointerToRelocations)
+               HexString.ofUInt64 (uint64 s.PointerToLineNumbers)
+               s.NumberOfRelocations.ToString()
+               s.NumberOfLineNumbers.ToString()
+               characteristics |]
+    for ch in enumSectionCharacteristics s.SectionCharacteristics do
+      let str = String.ofEnum ch
+      printsr [| ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; str |]
+  printDoubleHorizontalRule ()
+  printsn ""
+
+let dumpSectionHeadersSimple (pe: PEBinFile) wordSize addrColumn =
+  let colfmts = [| LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 |]
+  setTableColumnFormats colfmts
+  printDoubleHorizontalRule ()
+  printsr [| "Num"; "Start"; "End"; "Name" |]
+  printSingleHorizontalRule ()
+  for i in 0 .. pe.SectionHeaders.Length - 1 do
+    let s = pe.SectionHeaders[i]
+    let addr = uint64 s.VirtualAddress + (pe :> IBinFile).BaseAddress
+    printsr [| String.wrapSqrdBracket (i.ToString())
+               Addr.toString wordSize addr
+               Addr.toString wordSize (addr + uint64 s.VirtualSize - 1UL)
+               normalizeEmpty s.Name |]
+  printDoubleHorizontalRule ()
+  printsn ""
 
 let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
-  let file = pe :> IBinFile
-  if opts.Verbose then
-    Log.Out.TableConfig.Columns <- [| LeftAligned 4
-                                      addrColumn
-                                      addrColumn
-                                      LeftAligned 24
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8 |]
-    Log.Out
-    <== [| "Num"
-           "Start"
-           "End"
-           "Name"
-           "VirtSize"
-           "VirtAddr"
-           "RawSize"
-           "RawPtr"
-           "RelocPtr"
-           "LineNPtr"
-           "RelocNum"
-           "LineNNum"
-           "Characteristics" |]
-    <=/ "  ---"
-    pe.SectionHeaders
-    |> Array.iteri (fun idx s ->
-      let startAddr = pe.BaseAddress + uint64 s.VirtualAddress
-      let size =
-        uint64 (if s.VirtualSize = 0 then s.SizeOfRawData else s.VirtualSize)
-      let characteristics = uint64 s.SectionCharacteristics
-      Log.Out
-      <=/ [| String.wrapSqrdBracket (idx.ToString())
-             Addr.toString file.ISA.WordSize startAddr
-             Addr.toString file.ISA.WordSize (startAddr + size - uint64 1)
-             normalizeEmpty s.Name
-             HexString.ofUInt64 (uint64 s.VirtualSize)
-             HexString.ofUInt64 (uint64 s.VirtualAddress)
-             HexString.ofUInt64 (uint64 s.SizeOfRawData)
-             HexString.ofUInt64 (uint64 s.PointerToRawData)
-             HexString.ofUInt64 (uint64 s.PointerToRelocations)
-             HexString.ofUInt64 (uint64 s.PointerToLineNumbers)
-             s.NumberOfRelocations.ToString()
-             s.NumberOfLineNumbers.ToString()
-             HexString.ofUInt64 characteristics |]
-      translateSectionChracteristics characteristics
-      |> List.iter (fun str ->
-        Log.Out
-        <=/ [| ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; str |])
-    )
-  else
-    let colfmt = [| LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 |]
-    Log.Out.TableConfig.Columns <- colfmt
-    Log.Out
-    <== [| "Num"; "Start"; "End"; "Name" |]
-    <=/ "  ---"
-    pe.SectionHeaders
-    |> Array.iteri (fun idx s ->
-      let addr = uint64 s.VirtualAddress + file.BaseAddress
-      Log.Out
-      <=/ [| String.wrapSqrdBracket (idx.ToString())
-             Addr.toString file.ISA.WordSize addr
-             Addr.toString file.ISA.WordSize (addr + uint64 s.VirtualSize - 1UL)
-             normalizeEmpty s.Name |]
-    )
+  let wordSize = (pe :> IBinFile).ISA.WordSize
+  if opts.Verbose then dumpSectionHeadersVerbose pe wordSize addrColumn
+  else dumpSectionHeadersSimple pe wordSize addrColumn
 
-let dumpSectionDetails (secname: string) (file: PEBinFile) =
-  let idx =
-    Array.tryFindIndex (fun (s: SectionHeader) ->
-      s.Name = secname) file.SectionHeaders
+let dumpSectionDetails (secName: string) (pe: PEBinFile) =
+  let idx = pe.SectionHeaders |> Array.tryFindIndex (fun s -> s.Name = secName)
   match idx with
   | Some idx ->
-    let section = file.SectionHeaders[idx]
-    let characteristics = uint64 section.SectionCharacteristics
-    Log.Out.TableConfig.ResetDefault()
-    Log.Out
-    <== [| "Section number:"; String.wrapSqrdBracket (idx.ToString()) |]
-    <== [| "Section name:"; section.Name |]
-    <== [| "Virtual size:"
-           HexString.ofUInt64 (uint64 section.VirtualSize) |]
-    <== [| "Virtual address:"
-           HexString.ofUInt64 (uint64 section.VirtualAddress) |]
-    <== [| "Size of raw data:"
-           HexString.ofUInt64 (uint64 section.SizeOfRawData) |]
-    <== [| "Pointer to raw data:"
-           HexString.ofUInt64 (uint64 section.PointerToRawData) |]
-    <== [| "Pointer to relocations:"
-           HexString.ofUInt64 (uint64 section.PointerToRelocations) |]
-    <== [| "Pointer to line numbers:"
-           HexString.ofUInt64 (uint64 section.PointerToLineNumbers) |]
-    <== [| "Number of relocations:"
-           section.NumberOfRelocations.ToString() |]
-    <== [| "Number of line numbers:"
-           section.NumberOfLineNumbers.ToString() |]
-    <=/ [| "Characteristics:"; HexString.ofUInt64 characteristics |]
-    translateSectionChracteristics characteristics
-    |> List.iter (fun str -> Log.Out <=/ [| ""; str |])
+    let sec = pe.SectionHeaders[idx]
+    let virtualSize = uint64 sec.VirtualSize |> HexString.ofUInt64
+    let virtualAddr = uint64 sec.VirtualAddress |> HexString.ofUInt64
+    let sizeOfRawData = uint64 sec.SizeOfRawData |> HexString.ofUInt64
+    let ptrToRawData = uint64 sec.PointerToRawData |> HexString.ofUInt64
+    let ptrToRelocs = uint64 sec.PointerToRelocations |> HexString.ofUInt64
+    let ptrToLineNums = uint64 sec.PointerToLineNumbers |> HexString.ofUInt64
+    let characteristics = uint64 sec.SectionCharacteristics
+    resetToDefaultTwoColumnConfig ()
+    printsr [| "Section number:"; String.wrapSqrdBracket (idx.ToString()) |]
+    printsr [| "Section name:"; sec.Name |]
+    printsr [| "Virtual size:"; virtualSize |]
+    printsr [| "Virtual address:"; virtualAddr |]
+    printsr [| "Size of raw data:"; sizeOfRawData |]
+    printsr [| "Pointer to raw data:"; ptrToRawData |]
+    printsr [| "Pointer to relocations:"; ptrToRelocs |]
+    printsr [| "Pointer to line numbers:"; ptrToLineNums |]
+    printsr [| "Number of relocations:"; sec.NumberOfRelocations.ToString() |]
+    printsr [| "Number of line numbers:"; sec.NumberOfLineNumbers.ToString() |]
+    printsr [| "Characteristics:"; HexString.ofUInt64 characteristics |]
+    for ch in enumSectionCharacteristics sec.SectionCharacteristics do
+      printsr [| ""; String.ofEnum ch |]
+    printsn ""
   | None ->
-    Log.Out <=/ [| ""; "Not found." |]
+    printsr [| ""; normalizeEmpty "" |]
+    printsn ""
 
-let printSymbolRow pe vis flags addr name libName =
-  Log.Out
-  <=/ [| vis
-         flags
-         Addr.toString (pe :> IBinFile).ISA.WordSize addr
-         normalizeEmpty name
-         libName |]
+let dumpSymbol wordSize (symb: PE.Symbol) =
+  printsr [| Addr.toString wordSize symb.Address
+             String.wrapSqrdBracket $"{symb.Segment}"
+             normalizeEmpty symb.Name |]
 
-let printSymbolInfo (pe: PEBinFile) =
+let dumpSymbols _ (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
-  Log.Out.TableConfig.Columns <- [| LeftAligned 3
-                                    LeftAligned 10
-                                    addrColumn
-                                    LeftAligned 50
-                                    LeftAligned 15 |]
-  Log.Out
-  <== [| "S/D"; "Kind"; "Address"; "Name"; "Lib Name" |]
-  <=/ "  ---"
+  setTableColumnFormats [| addrColumn; LeftAligned 10; LeftAligned 50 |]
+  printDoubleHorizontalRule ()
+  printsr [| "Address"; "SectionID"; "Name" |]
+  printSingleHorizontalRule ()
   for s in pe.Symbols.SymbolArray do
-    printSymbolRow pe "(s)" "" s.Address s.Name ""
+    dumpSymbol (pe :> IBinFile).ISA.WordSize s
+  printDoubleHorizontalRule ()
+  printsn ""
+
+let dumpRelocs _ (pe: PEBinFile) =
+  let addrColumn = columnWidthOfAddr pe |> LeftAligned
+  setTableColumnFormats [| addrColumn; LeftAligned 50 |]
+  printDoubleHorizontalRule ()
+  printsr [| "Address"; "Relocation Type" |]
+  printSingleHorizontalRule ()
+  for block in pe.RelocBlocks do
+    for entry in block.Entries do
+      let addr = uint64 block.PageRVA + uint64 entry.Offset
+      printsr [| Addr.toString (pe :> IBinFile).ISA.WordSize addr
+                 $"{entry.Type}" |]
+  printDoubleHorizontalRule ()
+  printsn ""
+
+let dumpFunctions _ (pe: PEBinFile) =
+  let addrColumn = columnWidthOfAddr pe |> LeftAligned
+  setTableColumnFormats [| addrColumn; LeftAligned 50 |]
+  printDoubleHorizontalRule ()
+  printsr [| "Address"; "Function" |]
+  printSingleHorizontalRule ()
+  for addr in (pe :> IBinFile).GetFunctionAddresses() do
+    match (pe :> IBinFile).TryFindName addr with
+    | Ok name ->
+      printsr [| Addr.toString (pe :> IBinFile).ISA.WordSize addr; name |]
+    | Error _ ->
+      ()
+  printDoubleHorizontalRule ()
+  printsn ""
+
+let inline addrFromRVA baseAddr rva = uint64 rva + baseAddr
+
+let dumpImportedSymbol pe addr name hint libName =
+  printsr [| Addr.toString (pe :> IBinFile).ISA.WordSize addr
+             normalizeEmpty name
+             $"{hint:x}"
+             libName |]
+
+let dumpImports _ (pe: PEBinFile) =
+  let addrColumn = columnWidthOfAddr pe |> LeftAligned
+  setTableColumnFormats
+    [| addrColumn; LeftAligned 50; LeftAligned 12; LeftAligned 15 |]
+  printDoubleHorizontalRule ()
+  printsr [| "Address"; "Name"; "Ordinal/Hint"; "Lib Name" |]
+  printSingleHorizontalRule ()
   pe.ImportedSymbols
   |> Map.iter (fun rva imp ->
     let addr = pe.BaseAddress + uint64 rva
     match imp with
     | PE.ByOrdinal(ord, dllname) ->
-      printSymbolRow pe "(d)" $"{ord}" addr $"#{ord}" dllname
+      let name = String.wrapSqrdBracket $"{ord}"
+      dumpImportedSymbol pe addr name ord dllname
     | PE.ByName(hint, fn, dllname) ->
-      printSymbolRow pe "(d)" $"{hint}" addr fn dllname
-  )
+      dumpImportedSymbol pe addr fn hint dllname)
+  printDoubleHorizontalRule ()
+  printsn ""
+
+let dumpExports _ (pe: PEBinFile) =
+  let addrColumn = columnWidthOfAddr pe |> LeftAligned
+  setTableColumnFormats [| addrColumn; LeftAligned 50 |]
+  printDoubleHorizontalRule ()
+  printsr [| "Address"; "Name" |]
+  printSingleHorizontalRule ()
   pe.ExportedSymbols.Exports
   |> Map.iter (fun addr names ->
     for name in names do
-      let rva = int (addr - pe.BaseAddress)
-      let idx = pe.FindSectionIdxFromRVA rva
-      if idx = -1 then ()
-      else
-        let schr = pe.SectionHeaders[idx].SectionCharacteristics
-        printSymbolRow pe "(d)" $"{schr}" addr name ""
-  )
+      printsr [| Addr.toString (pe :> IBinFile).ISA.WordSize addr
+                 normalizeEmpty name |])
   pe.ExportedSymbols.Forwards
   |> Map.iter (fun name (fwdBin, fwdFunc) ->
-    printSymbolRow pe "(d)" $"{fwdBin},{fwdFunc}" 0UL name ""
-  )
+    let str = $"{name} (forwarded to {fwdBin}.{fwdFunc})"
+    printsr [| ""; str |])
+  printDoubleHorizontalRule ()
+  printsn ""
 
-let dumpSymbols _ (pe: PEBinFile) = printSymbolInfo pe
+let dirEntToString (dirent: DirectoryEntry) =
+  let rva = HexString.ofInt32 dirent.RelativeVirtualAddress
+  let size = String.wrapParen (HexString.ofInt32 dirent.Size)
+  rva + " " + size
 
-let dumpRelocs _ (pe: PEBinFile) =
-  let addrColumn = columnWidthOfAddr pe |> LeftAligned
-  Log.Out.TableConfig.Columns <- [| addrColumn; LeftAligned 50 |]
-  Log.Out
-  <== [| "Address"; "Relocation Type" |]
-  <=/ " ---"
-  for block in pe.RelocBlocks do
-    for entry in block.Entries do
-      let addr = uint64 block.PageRVA + uint64 entry.Offset
-      Log.Out
-      <=/ [| Addr.toString (pe :> IBinFile).ISA.WordSize addr
-             $"{entry.Type}" |]
-
-let dumpFunctions _ (pe: PEBinFile) =
-  let addrColumn = columnWidthOfAddr pe |> LeftAligned
-  Log.Out.TableConfig.Columns <- [| addrColumn; LeftAligned 50 |]
-  Log.Out
-  <== [| "Address"; "Function" |]
-  <=/ " ---"
-  for addr in (pe :> IBinFile).GetFunctionAddresses() do
-    match (pe :> IBinFile).TryFindName addr with
-    | Ok name ->
-      Log.Out
-      <=/ [| Addr.toString (pe :> IBinFile).ISA.WordSize addr; name |]
-    | Error _ -> ()
-
-let inline addrFromRVA baseAddr rva = uint64 rva + baseAddr
-
-let dumpImports _ (file: PEBinFile) =
-  let colfmt = [| LeftAligned 50; LeftAligned 50; LeftAligned 20 |]
-  Log.Out.TableConfig.Columns <- colfmt
-  Log.Out
-  <== [| "FunctionName"; "Lib Name"; "TableAddress" |]
-  <=/ "  ---"
-  file.ImportedSymbols
-  |> Map.iter (fun addr info ->
-    match info with
-    | PE.ImportedSymbol.ByOrdinal(ordinal, dllname) ->
-      Log.Out
-      <=/ [| "#" + ordinal.ToString()
-             dllname
-             HexString.ofUInt64 (addrFromRVA file.BaseAddress addr) |]
-    | PE.ImportedSymbol.ByName(_, fname, dllname) ->
-      Log.Out
-      <=/ [| fname
-             dllname
-             HexString.ofUInt64 (addrFromRVA file.BaseAddress addr) |])
-
-let dumpExports _ (file: PEBinFile) =
-  Log.Out.TableConfig.Columns <- [| LeftAligned 45; LeftAligned 20 |]
-  Log.Out
-  <== [| "FunctionName"; "TableAddress" |]
-  <=/ "  ---"
-  file.ExportedSymbols.Exports
-  |> Map.iter (fun addr names ->
-    let rva = int (addr - file.BaseAddress)
-    match file.FindSectionIdxFromRVA rva with
-    | -1 -> ()
-    | idx ->
-      names
-      |> List.iter (fun name ->
-        Log.Out <=/ [| name; HexString.ofUInt64 addr |]))
-  Log.Out.PrintLine()
-  Log.Out
-  <== [| "FunctionName"; "ForwardName" |]
-  <=/ "  ---"
-  file.ExportedSymbols.Forwards
-  |> Map.iter (fun name (bin, func) ->
-    Log.Out <=/ [| name; bin + "!" + func |])
-
-let translateDllChracteristcs chars =
-  let enumChars =
-    System.Enum.GetValues(typeof<DllCharacteristics>)
-    :?> DllCharacteristics []
-    |> Array.toList
-  let rec loop acc chars = function
-    | [] -> List.rev acc
-    | enumChar :: tail as all ->
-      if uint64 enumChar &&& chars = uint64 enumChar then
-        loop ((" - " + enumChar.ToString()) :: acc) chars tail
-      elif uint64 0x0080 &&& chars = uint64 0x0080 then
-        loop (" - ForceIntegrity" :: acc) (chars ^^^ uint64 0x0080) all
-      elif uint64 0x4000 &&& chars = uint64 0x4000 then
-        loop (" - ControlFlowGuard" :: acc) (chars ^^^ uint64 0x4000) all
-      else
-        loop acc chars tail
-  loop [] chars enumChars
-
-let dumpOptionalHeader _ (file: PEBinFile) =
-  let hdr = file.PEHeaders.PEHeader
-  let imageBase = hdr.ImageBase
+let dumpExistingOptionalHeader (hdr: PEHeader) (pe: PEBinFile) =
+  let magicValue = HexString.ofUInt64 (uint64 hdr.Magic)
+  let magicString = String.wrapParen <| hdr.Magic.ToString()
+  let majorLinkerVer = hdr.MajorLinkerVersion.ToString()
+  let minorLinkerVer = hdr.MinorLinkerVersion.ToString()
+  let sizeOfInitData = HexString.ofUInt64 (uint64 hdr.SizeOfInitializedData)
+  let sizeOfUninitData = HexString.ofUInt64 (uint64 hdr.SizeOfUninitializedData)
+  let imgBase = hdr.ImageBase
   let sizeOfImage = uint64 hdr.SizeOfImage
-  let entryPoint =
-    HexString.ofUInt64 (imageBase + uint64 hdr.AddressOfEntryPoint)
-  let startImage = HexString.ofUInt64 imageBase
-  let endImage = HexString.ofUInt64 (imageBase + sizeOfImage - uint64 1)
-  let exportDir = hdr.ExportTableDirectory
-  let importDir = hdr.ImportTableDirectory
-  let resourceDir = hdr.ResourceTableDirectory
-  let exceptionDir = hdr.ExceptionTableDirectory
-  let certificateDir = hdr.CertificateTableDirectory
-  let baseRelocDir = hdr.BaseRelocationTableDirectory
-  let debugDir = hdr.DebugTableDirectory
-  let architectureDir = hdr.CopyrightTableDirectory
-  let globalPtrDir = hdr.GlobalPointerTableDirectory
-  let threadLoStorDir = hdr.ThreadLocalStorageTableDirectory
-  let loadConfigDir = hdr.ThreadLocalStorageTableDirectory
-  let boundImpDir = hdr.BoundImportTableDirectory
-  let importAddrDir = hdr.ImportAddressTableDirectory
-  let delayImpDir = hdr.DelayImportTableDirectory
-  let comDescDir = hdr.CorHeaderTableDirectory
-  Log.Out.TableConfig.ResetDefault()
-  Log.Out
-  <== [| "Magic:"
-         HexString.ofUInt64 (uint64 hdr.Magic)
-         + String.wrapParen (hdr.Magic.ToString()) |]
-  <== [| "Linker version:"
-         hdr.MajorLinkerVersion.ToString()
-         + "."
-         + hdr.MinorLinkerVersion.ToString() |]
-  <== [| "Size of code:"
-         HexString.ofUInt64 (uint64 hdr.SizeOfCode) |]
-  <== [| "Size of initialized data:"
-         HexString.ofUInt64 (uint64 hdr.SizeOfInitializedData) |]
-  <== [| "Size of uninitialized data:"
-         HexString.ofUInt64 (uint64 hdr.SizeOfUninitializedData) |]
-  <== [| "Entry point:"; entryPoint |]
-  <== [| "Base of code:"; HexString.ofUInt64 (uint64 hdr.BaseOfCode) |]
-  <== [| "Image base:"
-         HexString.ofUInt64 imageBase
-         + String.wrapParen (startImage + " to " + endImage) |]
-  <== [| "Section alignment:"
-         HexString.ofUInt64 (uint64 hdr.SectionAlignment) |]
-  <== [| "File Alignment:"
-         HexString.ofUInt64 (uint64 hdr.FileAlignment) |]
-  <== [| "Operating system version:"
-         hdr.MajorOperatingSystemVersion.ToString()
-         + "." + hdr.MinorOperatingSystemVersion.ToString() |]
-  <== [| "Image version:"
-         hdr.MajorImageVersion.ToString()
-         + "."
-         + hdr.MinorImageVersion.ToString() |]
-  <== [| "Subsystem version:"
-         hdr.MajorSubsystemVersion.ToString()
-         + "."
-         + hdr.MinorSubsystemVersion.ToString() |]
-  <== [| "Size of image:"; HexString.ofUInt64 sizeOfImage |]
-  <== [| "Size of headers:"; HexString.ofUInt64 (uint64 hdr.SizeOfHeaders) |]
-  <== [| "Checksum:"; HexString.ofUInt64 (uint64 hdr.CheckSum) |]
-  <== [| "Subsystem:"
-         HexString.ofUInt64 (uint64 hdr.Subsystem)
-         + String.wrapParen (hdr.Subsystem.ToString()) |]
-  <=/ [| "DLL characteristics:"
-         HexString.ofUInt64 (uint64 hdr.DllCharacteristics) |]
-  translateDllChracteristcs (uint64 hdr.DllCharacteristics)
-  |> List.iter (fun str -> Log.Out <=/ [| ""; str |])
-  Log.Out
-  <== [| "Size of stack reserve:"
-         HexString.ofUInt64 (uint64 hdr.SizeOfStackReserve) |]
-  <== [| "Size of stack commit:"
-         HexString.ofUInt64 (uint64 hdr.SizeOfStackCommit) |]
-  <== [| "Size of heap reserve:"
-         HexString.ofUInt64 (uint64 hdr.SizeOfHeapReserve) |]
-  <== [| "Size of heap commit:"
-         HexString.ofUInt64 (uint64 hdr.SizeOfHeapCommit) |]
-  <== [| "Loader flags (reserved):"; "0x0" |]
-  <== [| "Number of directories:"; hdr.NumberOfRvaAndSizes.ToString() |]
-  <== [| "RVA[size] of Export Table Directory:"
-         HexString.ofUInt64 (uint64 exportDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 exportDir.Size)) |]
-  <== [| "RVA[size] of Import Table Directory:"
-         HexString.ofUInt64 (uint64 importDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 importDir.Size)) |]
-  <== [| "RVA[size] of Resource Table Directory:"
-         HexString.ofUInt64 (uint64 resourceDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 resourceDir.Size)) |]
-  <== [| "RVA[size] of Exception Table Directory:"
-         HexString.ofUInt64 (uint64 exceptionDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 exceptionDir.Size)) |]
-  <== [| "RVA[size] of Certificate Table Directory:"
-         HexString.ofUInt64 (uint64 certificateDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 certificateDir.Size)) |]
-  <== [| "RVA[size] of Base Relocation Table Directory:"
-         HexString.ofUInt64 (uint64 baseRelocDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 baseRelocDir.Size)) |]
-  <== [| "RVA[size] of Debug Table Directory:"
-         HexString.ofUInt64 (uint64 debugDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket (HexString.ofUInt64 (uint64 debugDir.Size)) |]
-  <== [| "RVA[size] of Architecture Table Directory:"
-         HexString.ofUInt64 (uint64 architectureDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 architectureDir.Size)) |]
-  <== [| "RVA[size] of Global Pointer Table Directory:"
-         HexString.ofUInt64 (uint64 globalPtrDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 globalPtrDir.Size)) |]
-  <== [| "RVA[size] of Thread Storage Table Directory:"
-         HexString.ofUInt64 (uint64 threadLoStorDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 threadLoStorDir.Size)) |]
-  <== [| "RVA[size] of Load Configuration Table Directory:"
-         HexString.ofUInt64 (uint64 loadConfigDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 loadConfigDir.Size)) |]
-  <== [| "RVA[size] of Bound Import Table Directory:"
-         HexString.ofUInt64 (uint64 boundImpDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 boundImpDir.Size)) |]
-  <== [| "RVA[size] of Import Address Table Directory:"
-         HexString.ofUInt64 (uint64 importAddrDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 importAddrDir.Size)) |]
-  <== [| "RVA[size] of Delay Import Table Directory:"
-         HexString.ofUInt64 (uint64 delayImpDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 delayImpDir.Size)) |]
-  <== [| "RVA[size] of COM Descriptor Table Directory:"
-         HexString.ofUInt64 (uint64 comDescDir.RelativeVirtualAddress)
-         + String.wrapSqrdBracket
-             (HexString.ofUInt64 (uint64 comDescDir.Size)) |]
-  <=/ [| "RVA[size] of Reserved Directory:"; "0x0[0x0]" |]
+  let entryPoint = HexString.ofUInt64 (imgBase + uint64 hdr.AddressOfEntryPoint)
+  let startImage = HexString.ofUInt64 imgBase
+  let endImage = HexString.ofUInt64 (imgBase + sizeOfImage - uint64 1)
+  let imgRange = String.wrapParen (startImage + " to " + endImage)
+  let majorOSVer = hdr.MajorOperatingSystemVersion.ToString()
+  let minorOSVer = hdr.MinorOperatingSystemVersion.ToString()
+  let majorImgVer = hdr.MajorImageVersion.ToString()
+  let minorImgVer = hdr.MinorImageVersion.ToString()
+  let majorSubsysVer = hdr.MajorSubsystemVersion.ToString()
+  let minorSubsysVer = hdr.MinorSubsystemVersion.ToString()
+  let subSysHex = HexString.ofUInt64 (uint64 hdr.Subsystem)
+  let subSysStr = String.wrapParen (hdr.Subsystem.ToString())
+  let charsHex = HexString.ofUInt64 (uint64 hdr.DllCharacteristics)
+  let stackReserve = HexString.ofUInt64 hdr.SizeOfStackReserve
+  let stackCommit = HexString.ofUInt64 hdr.SizeOfStackCommit
+  let heapReserve = HexString.ofUInt64 hdr.SizeOfHeapReserve
+  let heapCommit = HexString.ofUInt64 hdr.SizeOfHeapCommit
+  let exportDir = dirEntToString hdr.ExportTableDirectory
+  let importDir = dirEntToString hdr.ImportTableDirectory
+  let resourceDir = dirEntToString hdr.ResourceTableDirectory
+  let exceptionDir = dirEntToString hdr.ExceptionTableDirectory
+  let certificateDir = dirEntToString hdr.CertificateTableDirectory
+  let baseRelocDir = dirEntToString hdr.BaseRelocationTableDirectory
+  let debugDir = dirEntToString hdr.DebugTableDirectory
+  let architectureDir = dirEntToString hdr.CopyrightTableDirectory
+  let globalPtrDir = dirEntToString hdr.GlobalPointerTableDirectory
+  let threadLoStorDir = dirEntToString hdr.ThreadLocalStorageTableDirectory
+  let loadConfigDir = dirEntToString hdr.ThreadLocalStorageTableDirectory
+  let boundImpDir = dirEntToString hdr.BoundImportTableDirectory
+  let importAddrDir = dirEntToString hdr.ImportAddressTableDirectory
+  let delayImpDir = dirEntToString hdr.DelayImportTableDirectory
+  let comDescDir = dirEntToString hdr.CorHeaderTableDirectory
+  setTableColumnFormats [| RightAligned 45; LeftAligned 40 |]
+  printsr [| "Magic:"; magicValue + " " + magicString |]
+  printsr [| "Linker version:"; majorLinkerVer + "." + minorLinkerVer |]
+  printsr [| "Size of code:"; HexString.ofUInt64 (uint64 hdr.SizeOfCode) |]
+  printsr [| "Size of initialized data:"; sizeOfInitData |]
+  printsr [| "Size of uninitialized data:"; sizeOfUninitData |]
+  printsr [| "Entry point:"; entryPoint |]
+  printsr [| "Base of code:"; HexString.ofUInt64 (uint64 hdr.BaseOfCode) |]
+  printsr [| "Image base:"; HexString.ofUInt64 imgBase + " " + imgRange |]
+  printsr [| "Section alignment:"; HexString.ofInt32 hdr.SectionAlignment |]
+  printsr [| "File Alignment:"; HexString.ofInt32 hdr.FileAlignment |]
+  printsr [| "Operating system version:"; majorOSVer + "." + minorOSVer |]
+  printsr [| "Image version:"; majorImgVer + "." + minorImgVer |]
+  printsr [| "Subsystem version:"; majorSubsysVer + "." + minorSubsysVer |]
+  printsr [| "Size of image:"; HexString.ofUInt64 sizeOfImage |]
+  printsr [| "Size of headers:"; HexString.ofInt32 hdr.SizeOfHeaders |]
+  printsr [| "Checksum:"; HexString.ofUInt64 (uint64 hdr.CheckSum) |]
+  printsr [| "Subsystem:"; subSysHex + " " + subSysStr |]
+  printsr [| "DLL characteristics:"; charsHex |]
+  for ch in enumerateFlags hdr.DllCharacteristics do
+    printsr [| ""; String.ofEnum ch |]
+  printsr [| "Size of stack reserve:"; stackReserve |]
+  printsr [| "Size of stack commit:"; stackCommit |]
+  printsr [| "Size of heap reserve:"; heapReserve |]
+  printsr [| "Size of heap commit:"; heapCommit |]
+  printsr [| "Number of directories:"; hdr.NumberOfRvaAndSizes.ToString() |]
+  printsr [| "RVA (size) of Export Directory:"; exportDir |]
+  printsr [| "RVA (size) of Import Directory:"; importDir |]
+  printsr [| "RVA (size) of Resource Directory:"; resourceDir |]
+  printsr [| "RVA (size) of Exception Directory:"; exceptionDir |]
+  printsr [| "RVA (size) of Certificate Directory:"; certificateDir |]
+  printsr [| "RVA (size) of Base Relocation Directory:"; baseRelocDir |]
+  printsr [| "RVA (size) of Debug Directory:"; debugDir |]
+  printsr [| "RVA (size) of Architecture Directory:"; architectureDir |]
+  printsr [| "RVA (size) of Global Pointer Directory:"; globalPtrDir |]
+  printsr [| "RVA (size) of Thread Storage Directory:"; threadLoStorDir |]
+  printsr [| "RVA (size) of Load Configuration Directory:"; loadConfigDir |]
+  printsr [| "RVA (size) of Bound Import Directory:"; boundImpDir |]
+  printsr [| "RVA (size) of Import Address Table Directory:"; importAddrDir |]
+  printsr [| "RVA (size) of Delay Import Table Directory:"; delayImpDir |]
+  printsr [| "RVA (size) of COM Descriptor Directory:"; comDescDir |]
+  printsn ""
 
-let translateCorFlags flags =
-  let enumFlags =
-    System.Enum.GetValues(typeof<CorFlags>)
-    :?> CorFlags []
-    |> Array.toList
-  let rec loop acc flags = function
-    | [] -> List.rev acc
-    | enumFlag :: tail ->
-      if uint64 enumFlag &&& flags = uint64 enumFlag then
-        loop ((" - " + enumFlag.ToString()) :: acc) flags tail
-      else
-        loop acc flags tail
-  loop [] flags enumFlags
-
-let dumpCLRHeader _ (file: PEBinFile) =
-  let hdr = file.PEHeaders.CorHeader
+let dumpOptionalHeader _ (pe: PEBinFile) =
+  let hdr = pe.PEHeaders.PEHeader
   if isNull hdr then
-    Log.Out.TableConfig.ResetDefault()
-    Log.Out <=/ [| ""; "Not found." |]
+    printsn (normalizeEmpty "")
+    printsn ""
   else
-    let metaDataDir = hdr.MetadataDirectory
-    let resourcesDir = hdr.ResourcesDirectory
-    let strongNameSigDir = hdr.StrongNameSignatureDirectory
-    let codeMgrTblDir = hdr.CodeManagerTableDirectory
-    let vTableFixups = hdr.VtableFixupsDirectory
-    let exportAddrTblJmps = hdr.ExportAddressTableJumpsDirectory
-    let managedNativeHdr = hdr.ManagedNativeHeaderDirectory
-    Log.Out.TableConfig.ResetDefault()
-    Log.Out
-    <== [| "Runtime version:"
-           hdr.MajorRuntimeVersion.ToString()
-           + "." + hdr.MinorRuntimeVersion.ToString() |]
-    <== [| "RVA[size] of Meta Data Directory:"
-           HexString.ofUInt64 (uint64 metaDataDir.RelativeVirtualAddress)
-           + String.wrapSqrdBracket
-               (HexString.ofUInt64 (uint64 metaDataDir.Size)) |]
-    <=/ [| "Flags:"; HexString.ofUInt64 (uint64 hdr.Flags) |]
-    translateCorFlags (uint64 hdr.Flags)
-    |> List.iter (fun str -> Log.Out <=/ [| ""; str |])
-    Log.Out
-    <== [| "RVA[size] of Resources Directory:"
-           HexString.ofUInt64 (uint64 resourcesDir.RelativeVirtualAddress)
-           + String.wrapSqrdBracket
-               (HexString.ofUInt64 (uint64 resourcesDir.Size)) |]
-    <== [| "RVA[size] of Strong Name Signature Directory:"
-           HexString.ofUInt64 (uint64 strongNameSigDir.RelativeVirtualAddress)
-           + String.wrapSqrdBracket
-               (HexString.ofInt32 strongNameSigDir.Size) |]
-    <== [| "RVA[size] of Code Manager Table Directory:"
-           HexString.ofUInt64 (uint64 codeMgrTblDir.RelativeVirtualAddress)
-           + String.wrapSqrdBracket
-               (HexString.ofUInt64 (uint64 codeMgrTblDir.Size)) |]
-    <== [| "RVA[size] of VTable Fixups Directory:"
-           HexString.ofUInt64 (uint64 vTableFixups.RelativeVirtualAddress)
-           + String.wrapSqrdBracket
-               (HexString.ofUInt64 (uint64 vTableFixups.Size)) |]
-    <== [| "RVA[size] of Export Address Table Jumps Directory:"
-           HexString.ofUInt64 (uint64 exportAddrTblJmps.RelativeVirtualAddress)
-           + String.wrapSqrdBracket
-               (HexString.ofUInt64 (uint64 exportAddrTblJmps.Size)) |]
-    <=/ [| "RVA[size] of Managed Native Header Directory:"
-           HexString.ofUInt64 (uint64 managedNativeHdr.RelativeVirtualAddress)
-           + String.wrapSqrdBracket (HexString.ofInt32 managedNativeHdr.Size) |]
+    dumpExistingOptionalHeader hdr pe
+
+let dumpCLRHeader _ (pe: PEBinFile) =
+  let hdr = pe.PEHeaders.CorHeader
+  setTableColumnFormats [| RightAligned 52; LeftAligned 40 |]
+  if isNull hdr then
+    printsn (normalizeEmpty "")
+    printsn ""
+  else
+    let majorRuntimeVer = hdr.MajorRuntimeVersion.ToString()
+    let minorRuntimeVer = hdr.MinorRuntimeVersion.ToString()
+    let metaDataDir = dirEntToString hdr.MetadataDirectory
+    let resourcesDir = dirEntToString hdr.ResourcesDirectory
+    let strongDir = dirEntToString hdr.StrongNameSignatureDirectory
+    let codeMgrTblDir = dirEntToString hdr.CodeManagerTableDirectory
+    let vTableFixups = dirEntToString hdr.VtableFixupsDirectory
+    let eatJmps = dirEntToString hdr.ExportAddressTableJumpsDirectory
+    let managedDir = dirEntToString hdr.ManagedNativeHeaderDirectory
+    printsr [| "Runtime version:"; majorRuntimeVer + "." + minorRuntimeVer |]
+    printsr [| "RVA (size) of Meta Data Directory:"; metaDataDir |]
+    printsr [| "Flags:"; HexString.ofUInt64 (uint64 hdr.Flags) |]
+    for ch in enumerateFlags hdr.Flags do
+      printsr [| ""; String.ofEnum ch |]
+    printsr [| "RVA (size) of Resources Directory:"; resourcesDir |]
+    printsr [| "RVA (size) of Strong Name Signature Directory:"; strongDir |]
+    printsr [| "RVA (size) of Code Manager Table Directory:"; codeMgrTblDir |]
+    printsr [| "RVA (size) of VTable Fixups Directory:"; vTableFixups |]
+    printsr [| "RVA (size) of Export Address Table Jumps Directory:"; eatJmps |]
+    printsr [| "RVA (size) of Managed Native Header Directory:"; managedDir |]
+    printsn ""
 
 let dumpDependencies _ (file: IBinFile) =
   file.GetLinkageTableEntries()
-  |> Seq.map (fun e -> e.LibraryName)
-  |> Set.ofSeq
-  |> Set.iter (fun s -> Log.Out <=/ [| ""; s |])
+  |> Array.map (fun e -> e.LibraryName)
+  |> Set.ofArray
+  |> Set.iter (fun s -> printsn $"- {s}")
+  printsn ""
+
+let dumpExceptionTable _ _ =
+  Terminator.futureFeature ()

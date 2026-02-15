@@ -22,16 +22,25 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.FileViewer.Helper
+namespace B2R2.RearEnd.FileViewer
 
 open B2R2
 open B2R2.FrontEnd.BinFile
 
-let normalizeEmpty s = if System.String.IsNullOrEmpty s then "(n/a)" else s
+[<AutoOpen>]
+module internal DisplayUtils =
+  /// Raises an exception when accessing a wrong file format.
+  let badAccess _ _ =
+    raise InvalidFileFormatException
 
-let toNBytes (v: uint64) = v.ToString() + " bytes"
+  let normalizeEmpty s =
+    if System.String.IsNullOrEmpty s then "(n/a)" else s
 
-let columnWidthOfAddr (file: IBinFile) =
-  WordSize.toByteWidth file.ISA.WordSize * 2
+  let toNBytes (v: uint64) =
+    v.ToString() + " bytes"
 
-let toLibString s = if System.String.IsNullOrEmpty s then s else "@" + s
+  let columnWidthOfAddr (file: IBinFile) =
+    WordSize.toByteWidth file.ISA.WordSize * 2
+
+  let toLibString s =
+    if System.String.IsNullOrEmpty s then s else "@" + s

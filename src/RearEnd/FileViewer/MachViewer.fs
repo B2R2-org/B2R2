@@ -22,153 +22,111 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.FileViewer.MachViewer
+module internal B2R2.RearEnd.FileViewer.MachViewer
 
 open System
 open B2R2
 open B2R2.Logging
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.Utils
-open B2R2.RearEnd.FileViewer.Helper
 
-let badAccess _ _ = raise InvalidFileFormatException
-
-let translateFlags flags =
-  let enumFlags =
-    Enum.GetValues(typeof<Mach.MachFlag>) :?> Mach.MachFlag []
-    |> Array.toList
-  let rec loop acc flags = function
-    | [] -> List.rev acc
-    | enumFlag :: tail ->
-      if uint64 enumFlag &&& flags = uint64 enumFlag then
-        loop ((" - " + enumFlag.ToString()) :: acc) flags tail
-      else
-        loop acc flags tail
-  loop [] flags enumFlags
+let magicToString (hdr: Mach.Header) =
+  let magic = hdr.Magic
+  HexString.ofUInt64 (uint64 magic) + String.wrapParen (magic.ToString())
 
 let dumpFileHeader _ (file: MachBinFile) =
   let hdr = file.Header
-  Log.Out.TableConfig.ResetDefault()
-  Log.Out
-  <== [| "Magic:"
-         HexString.ofUInt64 (uint64 hdr.Magic)
-         + String.wrapParen (hdr.Magic.ToString()) |]
-  <== [| "CPU type:"; hdr.CPUType.ToString() |]
-  <== [| "CPU subtype:"; HexString.ofInt32 (int hdr.CPUSubType) |]
-  <== [| "File type:"; hdr.FileType.ToString() |]
-  <== [| "Number of commands:"; hdr.NumCmds.ToString() |]
-  <== [| "Size of commands:"; hdr.SizeOfCmds.ToString() |]
-  <=/ [| "Flags:"; HexString.ofUInt64 (uint64 hdr.Flags) |]
-  translateFlags (uint64 hdr.Flags)
-  |> List.iter (fun str -> Log.Out <=/ [| ""; str |])
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Magic:"; magicToString hdr |]
+  printsr [| "CPU type:"; hdr.CPUType.ToString() |]
+  printsr [| "CPU subtype:"; HexString.ofInt32 (int hdr.CPUSubType) |]
+  printsr [| "File type:"; hdr.FileType.ToString() |]
+  printsr [| "Number of commands:"; hdr.NumCmds.ToString() |]
+  printsr [| "Size of commands:"; hdr.SizeOfCmds.ToString() |]
+  printsr [| "Flags:"; HexString.ofUInt64 (uint64 hdr.Flags) |]
+  for flag in enumerateFlags hdr.Flags do
+    printsr [| ""; String.ofEnum flag |]
+  printsn ""
 
-let translateAttribs attribs =
-  let enumAttribs =
-    System.Enum.GetValues(typeof<Mach.SectionAttribute>)
-    :?> Mach.SectionAttribute []
-    |> Array.toList
-  let rec loop acc attribs = function
-    | [] -> List.rev acc
-    | enumAttrib :: tail ->
-      if uint64 enumAttrib &&& attribs = uint64 enumAttrib then
-        loop ((" - " + enumAttrib.ToString()) :: acc) attribs tail
-      else
-        loop acc attribs tail
-  loop [] attribs enumAttribs
+let makeSectionHeadersFormatVerbose addrColumn =
+  [| LeftAligned 4
+     addrColumn
+     addrColumn
+     LeftAligned 16
+     LeftAligned 8
+     LeftAligned 8
+     LeftAligned 8
+     LeftAligned 8
+     LeftAligned 10
+     LeftAligned 8
+     LeftAligned 22
+     LeftAligned 4
+     LeftAligned 4
+     LeftAligned 8 |]
+
+let makeSectionHeadersTableHeaderVerbose () =
+  [| "Num"
+     "Start"
+     "End"
+     "Name"
+     "SegName"
+     "Size"
+     "Offset"
+     "Align"
+     "SecRelOff"
+     "NumReloc"
+     "Type"
+     "Res1"
+     "Res2"
+     "Attrib" |]
+
+let dumpSectionHeadersVerbose (mach: MachBinFile) wordSize addrColumn =
+  setTableColumnFormats <| makeSectionHeadersFormatVerbose addrColumn
+  printDoubleHorizontalRule ()
+  printsr <| makeSectionHeadersTableHeaderVerbose ()
+  printSingleHorizontalRule ()
+  for i in 0 .. mach.Sections.Length - 1 do
+    let s = mach.Sections[i]
+    printsr [| String.wrapSqrdBracket (i.ToString())
+               Addr.toString wordSize s.SecAddr
+               Addr.toString wordSize (s.SecAddr + s.SecSize - uint64 1)
+               normalizeEmpty s.SecName
+               normalizeEmpty s.SegName
+               HexString.ofUInt64 s.SecSize
+               HexString.ofUInt64 (uint64 s.SecOffset)
+               HexString.ofUInt64 (uint64 s.SecAlignment)
+               s.SecRelOff.ToString()
+               s.SecNumOfReloc.ToString()
+               s.SecType.ToString()
+               s.SecReserved1.ToString()
+               s.SecReserved2.ToString()
+               HexString.ofUInt32 (uint32 s.SecAttrib) |]
+    for attr in enumerateFlags s.SecAttrib do
+      let attr = String.ofEnum attr
+      printsr [| ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; attr |]
+  printDoubleHorizontalRule ()
+  printsn ""
+
+let dumpSectionHeadersSimple (mach: MachBinFile) wordSize addrColumn =
+  setTableColumnFormats
+    [| LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 |]
+  printDoubleHorizontalRule ()
+  printsr [| "Num"; "Start"; "End"; "Name" |]
+  printSingleHorizontalRule ()
+  for i in 0 .. mach.Sections.Length - 1 do
+    let s = mach.Sections[i]
+    printsr [| String.wrapSqrdBracket (i.ToString())
+               Addr.toString wordSize s.SecAddr
+               Addr.toString wordSize (s.SecAddr + uint64 s.SecSize - 1UL)
+               normalizeEmpty s.SecName |]
+  printDoubleHorizontalRule ()
+  printsn ""
 
 let dumpSectionHeaders (opts: FileViewerOpts) (mach: MachBinFile) =
   let addrColumn = columnWidthOfAddr mach |> LeftAligned
-  let file = mach :> IBinFile
-  if opts.Verbose then
-    Log.Out.TableConfig.Columns <- [| LeftAligned 4
-                                      addrColumn
-                                      addrColumn
-                                      LeftAligned 16
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 10
-                                      LeftAligned 6
-                                      LeftAligned 22
-                                      LeftAligned 4
-                                      LeftAligned 4
-                                      LeftAligned 8 |]
-    Log.Out
-    <== [| "Num"
-           "Start"
-           "End"
-           "Name"
-           "SegName"
-           "Size"
-           "Offset"
-           "Align"
-           "SecRelOff"
-           "#Reloc"
-           "Type"
-           "Res1"
-           "Res2"
-           "Attrib" |]
-    <=/ "  ---"
-    mach.Sections
-    |> Array.iteri (fun idx s ->
-      Log.Out
-      <=/ [| String.wrapSqrdBracket (idx.ToString())
-             Addr.toString file.ISA.WordSize s.SecAddr
-             Addr.toString file.ISA.WordSize (s.SecAddr + s.SecSize - uint64 1)
-             normalizeEmpty s.SecName
-             normalizeEmpty s.SegName
-             HexString.ofUInt64 s.SecSize
-             HexString.ofUInt64 (uint64 s.SecOffset)
-             HexString.ofUInt64 (uint64 s.SecAlignment)
-             s.SecRelOff.ToString()
-             s.SecNumOfReloc.ToString()
-             s.SecType.ToString()
-             s.SecReserved1.ToString()
-             s.SecReserved2.ToString()
-             HexString.ofUInt32 (uint32 s.SecAttrib) |]
-      translateAttribs (uint64 s.SecAttrib)
-      |> List.iter (fun str ->
-        Log.Out <=/
-          [| ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; ""; str |])
-    )
-  else
-    let colfmt = [| LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 |]
-    Log.Out.TableConfig.Columns <- colfmt
-    Log.Out
-    <== [| "Num"; "Start"; "End"; "Name" |]
-    <=/ "  ---"
-    mach.Sections
-    |> Array.iteri (fun idx s ->
-      Log.Out <=/
-        [| String.wrapSqrdBracket (idx.ToString())
-           Addr.toString file.ISA.WordSize s.SecAddr
-           Addr.toString file.ISA.WordSize (s.SecAddr + uint64 s.SecSize - 1UL)
-           normalizeEmpty s.SecName |]
-    )
-
-let dumpSectionDetails (secName: string) (file: MachBinFile) =
-  match file.Sections |> Array.tryFind (fun s -> s.SecName = secName) with
-  | Some section ->
-    Log.Out.TableConfig.ResetDefault()
-    Log.Out
-    <== [| "SecName:"; section.SecName |]
-    <== [| "SegName:"; section.SegName |]
-    <== [| "SecAddr:"; HexString.ofUInt64 section.SecAddr |]
-    <== [| "SecSize:"; HexString.ofUInt64 section.SecSize |]
-    <== [| "SecOffset:"; HexString.ofUInt64 (uint64 section.SecOffset) |]
-    <== [| "SecAlignment:"; HexString.ofUInt64 (uint64 section.SecAlignment) |]
-    <== [| "SecRelOff:"; HexString.ofUInt64 (uint64 section.SecRelOff) |]
-    <== [| "SecNumOfReloc:"; section.SecNumOfReloc.ToString() |]
-    <== [| "SecType:"; section.SecType.ToString() |]
-    <=/ [| "SecAttrib:"; HexString.ofInt32 (int section.SecAttrib) |]
-    translateAttribs (uint64 section.SecAttrib)
-    |> List.iter (fun str -> Log.Out <=/ [| ""; str |])
-    Log.Out
-    <== [| "SecReserved1:"; section.SecReserved1.ToString() |]
-    <=/ [| "SecReserved2:"; section.SecReserved2.ToString() |]
-  | None ->
-    Log.Out.PrintLine "Not found."
+  let wordSize = (mach :> IBinFile).ISA.WordSize
+  if opts.Verbose then dumpSectionHeadersVerbose mach wordSize addrColumn
+  else dumpSectionHeadersSimple mach wordSize addrColumn
 
 let toVersionString (v: uint32) =
   let major = (v &&& uint32 0xFFFF0000) >>> 16
@@ -178,280 +136,336 @@ let toVersionString (v: uint32) =
 
 let getSymbolLibName (symbol: Mach.Symbol) =
   match symbol.VerInfo with
-  | None -> ""
   | Some v -> toLibString v.DyLibName |> normalizeEmpty
+  | None -> normalizeEmpty ""
 
 let getLibName (symb: Mach.Symbol) =
   match symb.VerInfo with
   | Some info ->
-    info.DyLibName
-    + String.wrapParen
-      "compatibility version " + toVersionString info.DyLibCmpVer + ", "
-      + "current version" + toVersionString info.DyLibCurVer
-  | None -> "(n/a)"
+    let cmpVer = toVersionString info.DyLibCmpVer
+    let curVer = toVersionString info.DyLibCurVer
+    let verString = $"compatibility version {cmpVer}, current version {curVer}"
+    info.DyLibName + " " + String.wrapParen verString
+  | None ->
+    normalizeEmpty ""
 
-let printSymbolInfoVerbose file (symb: Mach.Symbol) vis =
-  Log.Out
-  <=/ [| vis
-         Addr.toString (file: IBinFile).ISA.WordSize symb.SymAddr
-         normalizeEmpty symb.SymName
-         getSymbolLibName symb
-         symb.SymType.ToString()
-         symb.SymDesc.ToString()
-         symb.IsExternal.ToString()
-         getLibName symb
-         String.wrapSqrdBracket (symb.SecNum.ToString())
-         ""
-         ""
-         "" |]
+let dumpSymbolVerbose wordSize vis (symb: Mach.Symbol) =
+  printsr [| vis
+             Addr.toString wordSize symb.SymAddr
+             normalizeEmpty symb.SymName
+             getSymbolLibName symb
+             symb.SymType.ToString()
+             symb.SymDesc.ToString()
+             symb.IsExternal.ToString()
+             getLibName symb
+             String.wrapSqrdBracket (symb.SecNum.ToString()) |]
 
-let printSymbolInfoNonVerbose mach (symb: Mach.Symbol) vis =
-  Log.Out
-  <=/ [| vis
-         $"{symb.SymType}"
-         Addr.toString (mach :> IBinFile).ISA.WordSize symb.SymAddr
-         normalizeEmpty symb.SymName
-         getLibName symb |]
+let makeSymbolsFormatVerbose addrColumn =
+  [| LeftAligned 3
+     addrColumn
+     LeftAligned 40
+     LeftAligned 35
+     LeftAligned 8
+     LeftAligned 11
+     LeftAligned 8
+     LeftAligned 8
+     LeftAligned 9 |]
 
-let printSymbolInfo isVerbose (mach: MachBinFile) =
-  let addrColumn = columnWidthOfAddr mach |> LeftAligned
-  if isVerbose then
-    Log.Out.TableConfig.Columns <- [| LeftAligned 3
-                                      addrColumn
-                                      LeftAligned 40
-                                      LeftAligned 35
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8
-                                      LeftAligned 8 |]
-    Log.Out
-    <== [| "S/D"
-           "Address"
-           "Name"
-           "Lib Name"
-           "Type"
-           "Description"
-           "External"
-           "Version"
-           "SectionIndex" |]
-    <=/ "  ---"
-    mach.StaticSymbols
-    |> Array.sortBy (fun s -> s.SymName)
-    |> Array.sortBy (fun s -> s.SymAddr)
-    |> Array.iter (fun s -> printSymbolInfoVerbose mach s "(s)")
-    mach.DynamicSymbols
-    |> Array.sortBy (fun s -> s.SymName)
-    |> Array.sortBy (fun s -> s.SymAddr)
-    |> Array.iter (fun s -> printSymbolInfoVerbose mach s "(d)")
-  else
-    Log.Out.TableConfig.Columns <- [| LeftAligned 3
-                                      LeftAligned 10
-                                      addrColumn
-                                      LeftAligned 55
-                                      LeftAligned 15 |]
-    Log.Out
-    <== [| "S/D"; "Kind"; "Address"; "Name"; "Lib Name" |]
-    <=/ "  ---"
-    mach.StaticSymbols
-    |> Array.sortBy (fun s -> s.SymName)
-    |> Array.sortBy (fun s -> s.SymAddr)
-    |> Array.iter (fun s -> printSymbolInfoNonVerbose mach s "(s)")
-    mach.DynamicSymbols
-    |> Array.sortBy (fun s -> s.SymName)
-    |> Array.sortBy (fun s -> s.SymAddr)
-    |> Array.iter (fun s -> printSymbolInfoNonVerbose mach s "(d)")
+let makeSymbolsTableHeaderVerbose () =
+  [| "S/D"
+     "Address"
+     "Name"
+     "LibName"
+     "Type"
+     "Description"
+     "External"
+     "Version"
+     "SectIndex" |]
+
+let dumpSymbolsVerbose (mach: MachBinFile) wordSize addrColumn =
+  setTableColumnFormats <| makeSymbolsFormatVerbose addrColumn
+  printDoubleHorizontalRule ()
+  printsr <| makeSymbolsTableHeaderVerbose ()
+  printSingleHorizontalRule ()
+  mach.StaticSymbols
+  |> Array.sortBy (fun s -> s.SymName)
+  |> Array.sortBy (fun s -> s.SymAddr)
+  |> Array.iter (dumpSymbolVerbose wordSize "(s)")
+  mach.DynamicSymbols
+  |> Array.sortBy (fun s -> s.SymName)
+  |> Array.sortBy (fun s -> s.SymAddr)
+  |> Array.iter (dumpSymbolVerbose wordSize "(d)")
+  printDoubleHorizontalRule ()
+  printsn ""
+
+let makeSymbolsFormatSimple addrColumn =
+  [| LeftAligned 3
+     LeftAligned 10
+     addrColumn
+     LeftAligned 55
+     LeftAligned 15 |]
+
+let dumpSymbolSimple wordSize vis (symb: Mach.Symbol) =
+  printsr [| vis
+             $"{symb.SymType}"
+             Addr.toString wordSize symb.SymAddr
+             normalizeEmpty symb.SymName
+             getLibName symb |]
+
+let dumpSymbolsSimple (mach: MachBinFile) wordSize addrColumn =
+  setTableColumnFormats <| makeSymbolsFormatSimple addrColumn
+  printDoubleHorizontalRule ()
+  printsr [| "S/D"; "Kind"; "Address"; "Name"; "Lib Name" |]
+  printSingleHorizontalRule ()
+  mach.StaticSymbols
+  |> Array.sortBy (fun s -> s.SymName)
+  |> Array.sortBy (fun s -> s.SymAddr)
+  |> Array.iter (dumpSymbolSimple wordSize "(s)")
+  mach.DynamicSymbols
+  |> Array.sortBy (fun s -> s.SymName)
+  |> Array.sortBy (fun s -> s.SymAddr)
+  |> Array.iter (dumpSymbolSimple wordSize "(d)")
+  printDoubleHorizontalRule ()
+  printsn ""
 
 let dumpSymbols (opts: FileViewerOpts) (mach: MachBinFile) =
-  printSymbolInfo opts.Verbose mach
-
-let dumpRelocs (_: FileViewerOpts) (mach: MachBinFile) =
   let addrColumn = columnWidthOfAddr mach |> LeftAligned
-  let colfmt = [| addrColumn; LeftAligned 55; LeftAligned 15 |]
-  Log.Out.TableConfig.Columns <- colfmt
-  Log.Out
-  <=/ [| "Address"; "Name"; "Length" |]
-  for reloc in mach.Relocations do
-    let addr = reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
-    let name = reloc.GetName(mach.Symbols.Values, mach.Sections)
-    let len = reloc.RelocAddr
-    Log.Out
-    <=/ [| Addr.toString (mach :> IBinFile).ISA.WordSize addr
-           name
-           $"{len}" |]
+  let wordSize = (mach :> IBinFile).ISA.WordSize
+  if opts.Verbose then dumpSymbolsVerbose mach wordSize addrColumn
+  else dumpSymbolsSimple mach wordSize addrColumn
 
-let dumpFunctions (opts: FileViewerOpts) (mach: MachBinFile) =
+let dumpRelocs _ (mach: MachBinFile) =
   let addrColumn = columnWidthOfAddr mach |> LeftAligned
-  Log.Out.TableConfig.Columns <- [| LeftAligned 3
-                                    LeftAligned 10
-                                    addrColumn
-                                    LeftAligned 55
-                                    LeftAligned 15 |]
+  setTableColumnFormats [| addrColumn; LeftAligned 55; LeftAligned 15 |]
+  printDoubleHorizontalRule ()
+  printsr [| "Address"; "Name"; "Length" |]
+  printSingleHorizontalRule ()
+  if mach.Relocations.Length = 0 then
+    printsn <| normalizeEmpty ""
+  else
+    for reloc in mach.Relocations do
+      let addr = reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
+      let name = reloc.GetName(mach.Symbols.Values, mach.Sections)
+      let len = reloc.RelocAddr
+      printsr [| Addr.toString (mach :> IBinFile).ISA.WordSize addr
+                 name
+                 $"{len}" |]
+  printDoubleHorizontalRule ()
+  printsn ""
+
+let makeFunctionsFormat addrColumn =
+  [| addrColumn
+     LeftAligned 55
+     LeftAligned 10 |]
+
+let dumpFunction wordSize (symb: Mach.Symbol) =
+  printsr [| Addr.toString wordSize symb.SymAddr
+             normalizeEmpty symb.SymName
+             $"{symb.SymType}" |]
+
+let dumpFunctions _ (mach: MachBinFile) =
+  let addrColumn = columnWidthOfAddr mach |> LeftAligned
+  let wordSize = (mach :> IBinFile).ISA.WordSize
+  setTableColumnFormats <| makeFunctionsFormat addrColumn
+  printDoubleHorizontalRule ()
+  printsr [| "Address"; "Name"; "Kind" |]
+  printSingleHorizontalRule ()
   for addr in (mach :> IBinFile).GetFunctionAddresses() do
     match mach.Symbols.SymbolMap.TryFind addr with
-    | Some symb -> printSymbolInfoNonVerbose mach symb ""
+    | Some symb -> dumpFunction wordSize symb
     | None -> ()
+  printDoubleHorizontalRule ()
+  printsn ""
 
-let dumpArchiveHeader (opts: FileViewerOpts) (file: MachBinFile) =
+let dumpArchiveHeader (_: FileViewerOpts) (_: MachBinFile) =
   Terminator.futureFeature ()
 
 let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
-  let bytes = IBinFile.Slice(mach, 0, 4).ToArray()
+  let bytes = (mach :> IBinFile).RawBytes
   if Mach.Header.IsFat bytes then
-    Mach.Fat.parseArchs bytes
-    |> Array.iteri (fun idx fat ->
-      let cpu = fat.CPUType
-      let cpusub = fat.CPUSubType
-      printSubsectionTitle <| "Architecture #" + idx.ToString()
-      Log.Out.TableConfig.ResetDefault()
-      Log.Out
-      <== [| "CPU Type:"; cpu.ToString() |]
-      <== [| "CPU Subtype:"; "0x" + (uint32 cpusub).ToString("x") |]
-      <== [| "Offset:"; "0x" + fat.Offset.ToString("x") |]
-      <=/ [| "Size:"; fat.Size.ToString() |]
-    )
-  else printfn "Not a FAT binary."
+    let archs = Mach.Fat.parseArchs bytes
+    for i in 0 .. archs.Length - 1 do
+      let arch = archs[i]
+      let cpusub = arch.CPUSubType
+      printSubsectionTitle <| $"Architecture No. {i.ToString()}"
+      resetToDefaultTwoColumnConfig ()
+      printsr [| "CPU Type:"; arch.CPUType.ToString() |]
+      printsr [| "CPU Subtype:"; "0x" + (uint32 cpusub).ToString("x") |]
+      printsr [| "Offset:"; "0x" + arch.Offset.ToString("x") |]
+      printsr [| "Size:"; arch.Size.ToString() |]
+      printsn ""
+  else
+    printsn "Not a FAT binary."
 
-let printSegCmd cmd size (seg: Mach.SegCmd) idx =
-  printSubsectionTitle <| "Load command " + idx.ToString()
-  Log.Out.TableConfig.ResetDefault()
-  Log.Out
-  <== [| "Cmd:"; cmd.ToString() |]
-  <== [| "CmdSize:"; size.ToString() |]
-  <== [| "SegCmdName:"; seg.SegCmdName |]
-  <== [| "VMAddr:"; HexString.ofUInt64 seg.VMAddr |]
-  <== [| "VMSize:"; HexString.ofUInt64 seg.VMSize |]
-  <== [| "FileOff:"; seg.FileOff.ToString() |]
-  <== [| "FileSize:"; seg.FileSize.ToString() |]
-  <== [| "MaxProt:"; HexString.ofUInt64 (uint64 seg.MaxProt) |]
-  <== [| "InitProt:"; HexString.ofUInt64 (uint64 seg.InitProt) |]
-  <== [| "NumSecs:"; seg.NumSecs.ToString() |]
-  <=/ [| "SegFlag:"; HexString.ofUInt64 (uint64 seg.SegFlag) |]
+let dumpSectionDetails (secName: string) (file: MachBinFile) =
+  match file.Sections |> Array.tryFind (fun s -> s.SecName = secName) with
+  | Some sec ->
+    resetToDefaultTwoColumnConfig ()
+    printsr [| "SecName:"; sec.SecName |]
+    printsr [| "SegName:"; sec.SegName |]
+    printsr [| "SecAddr:"; HexString.ofUInt64 sec.SecAddr |]
+    printsr [| "SecSize:"; HexString.ofUInt64 sec.SecSize |]
+    printsr [| "SecOffset:"; HexString.ofUInt64 (uint64 sec.SecOffset) |]
+    printsr [| "SecAlignment:"; HexString.ofUInt64 (uint64 sec.SecAlignment) |]
+    printsr [| "SecRelOff:"; HexString.ofUInt64 (uint64 sec.SecRelOff) |]
+    printsr [| "SecNumOfReloc:"; sec.SecNumOfReloc.ToString() |]
+    printsr [| "SecType:"; sec.SecType.ToString() |]
+    printsr [| "SecAttrib:"; HexString.ofInt32 (int sec.SecAttrib) |]
+    for flag in enumerateFlags sec.SecAttrib do
+      printsr [| ""; String.ofEnum flag |]
+    printsr [| "SecReserved1:"; sec.SecReserved1.ToString() |]
+    printsr [| "SecReserved2:"; sec.SecReserved2.ToString() |]
+  | None ->
+    printsn "Not found."
 
-let printSymTabCmd cmd size (symtab: Mach.SymTabCmd) idx =
+let dumpSegCmd (mach: MachBinFile) cmd size (seg: Mach.SegCmd) idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
-  Log.Out.TableConfig.ResetDefault()
-  Log.Out
-  <== [| "Cmd:"; cmd.ToString() |]
-  <== [| "CmdSize:"; size.ToString() |]
-  <== [| "SymOff:"; HexString.ofUInt64 (uint64 symtab.SymOff) |]
-  <== [| "NumOfSym:"; symtab.NumOfSym.ToString() |]
-  <== [| "StrOff:"; HexString.ofUInt64 (uint64 symtab.StrOff) |]
-  <=/ [| "StrSize:"; toNBytes (uint64 symtab.StrSize) |]
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  printsr [| "SegCmdName:"; seg.SegCmdName |]
+  printsr [| "VMAddr:"; HexString.ofUInt64 seg.VMAddr |]
+  printsr [| "VMSize:"; HexString.ofUInt64 seg.VMSize |]
+  printsr [| "FileOff:"; seg.FileOff.ToString() |]
+  printsr [| "FileSize:"; seg.FileSize.ToString() |]
+  printsr [| "MaxProt:"; HexString.ofUInt64 (uint64 seg.MaxProt) |]
+  printsr [| "InitProt:"; HexString.ofUInt64 (uint64 seg.InitProt) |]
+  printsr [| "NumSecs:"; seg.NumSecs.ToString() |]
+  printsr [| "SegFlag:"; HexString.ofUInt64 (uint64 seg.SegFlag) |]
+  printsn ""
+  for s in mach.Sections do
+    if s.SegName = seg.SegCmdName then
+      printSubsubsectionTitle "Section"
+      dumpSectionDetails s.SecName mach
+      printsn ""
+    else
+      ()
 
-let printDySymTabCmd cmd size (dysymtab: Mach.DySymTabCmd) idx =
+let dumpSymTabCmd cmd size (symtab: Mach.SymTabCmd) idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
-  Log.Out.TableConfig.ResetDefault()
-  Log.Out
-  <== [| "Cmd:"; cmd.ToString() |]
-  <== [| "CmdSize:"; size.ToString() |]
-  <== [| "IdxLocalSym:"; dysymtab.IdxLocalSym.ToString() |]
-  <== [| "NumLocalSym:"; dysymtab.NumLocalSym.ToString() |]
-  <== [| "IdxExtSym:"; dysymtab.IdxExtSym.ToString() |]
-  <== [| "NumExtSym:"; dysymtab.NumExtSym.ToString() |]
-  <== [| "IdxUndefSym:"; dysymtab.IdxUndefSym.ToString() |]
-  <== [| "NumUndefSym:"; dysymtab.NumUndefSym.ToString() |]
-  <== [| "TOCOffset:"; dysymtab.TOCOffset.ToString() |]
-  <== [| "NumTOCContents:"; dysymtab.NumTOCContents.ToString() |]
-  <== [| "ModTabOff:"; dysymtab.ModTabOff.ToString() |]
-  <== [| "NumModTab:"; dysymtab.NumModTab.ToString() |]
-  <== [| "ExtRefSymOff:"; dysymtab.ExtRefSymOff.ToString() |]
-  <== [| "NumExtRefSym:"; dysymtab.NumExtRefSym.ToString() |]
-  <== [| "IndirectSymOff:"; dysymtab.IndirectSymOff.ToString() |]
-  <== [| "NumIndirectSym:"; dysymtab.NumIndirectSym.ToString() |]
-  <== [| "ExtRelOff:"; dysymtab.ExtRelOff.ToString() |]
-  <== [| "NumExtRel:"; dysymtab.NumExtRel.ToString() |]
-  <== [| "LocalRelOff:"; dysymtab.LocalRelOff.ToString() |]
-  <=/ [| "NumLocalRel:"; dysymtab.NumLocalRel.ToString() |]
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  printsr [| "SymOff:"; HexString.ofUInt64 (uint64 symtab.SymOff) |]
+  printsr [| "NumOfSym:"; symtab.NumOfSym.ToString() |]
+  printsr [| "StrOff:"; HexString.ofUInt64 (uint64 symtab.StrOff) |]
+  printsr [| "StrSize:"; toNBytes (uint64 symtab.StrSize) |]
+  printsn ""
+
+let dumpDySymTabCmd cmd size (dysymtab: Mach.DySymTabCmd) idx =
+  printSubsectionTitle <| "Load command " + idx.ToString()
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  printsr [| "IdxLocalSym:"; dysymtab.IdxLocalSym.ToString() |]
+  printsr [| "NumLocalSym:"; dysymtab.NumLocalSym.ToString() |]
+  printsr [| "IdxExtSym:"; dysymtab.IdxExtSym.ToString() |]
+  printsr [| "NumExtSym:"; dysymtab.NumExtSym.ToString() |]
+  printsr [| "IdxUndefSym:"; dysymtab.IdxUndefSym.ToString() |]
+  printsr [| "NumUndefSym:"; dysymtab.NumUndefSym.ToString() |]
+  printsr [| "TOCOffset:"; dysymtab.TOCOffset.ToString() |]
+  printsr [| "NumTOCContents:"; dysymtab.NumTOCContents.ToString() |]
+  printsr [| "ModTabOff:"; dysymtab.ModTabOff.ToString() |]
+  printsr [| "NumModTab:"; dysymtab.NumModTab.ToString() |]
+  printsr [| "ExtRefSymOff:"; dysymtab.ExtRefSymOff.ToString() |]
+  printsr [| "NumExtRefSym:"; dysymtab.NumExtRefSym.ToString() |]
+  printsr [| "IndirectSymOff:"; dysymtab.IndirectSymOff.ToString() |]
+  printsr [| "NumIndirectSym:"; dysymtab.NumIndirectSym.ToString() |]
+  printsr [| "ExtRelOff:"; dysymtab.ExtRelOff.ToString() |]
+  printsr [| "NumExtRel:"; dysymtab.NumExtRel.ToString() |]
+  printsr [| "LocalRelOff:"; dysymtab.LocalRelOff.ToString() |]
+  printsr [| "NumLocalRel:"; dysymtab.NumLocalRel.ToString() |]
+  printsn ""
 
 let toTimeStampString (v: uint32) =
   DateTime.UnixEpoch.AddSeconds(float v).ToLocalTime().ToString()
   + TimeZoneInfo.Local.ToString()
 
-let printDyLibCmd cmd size (dylib: Mach.DyLibCmd) idx =
+let dumpDyLibCmd cmd size (dylib: Mach.DyLibCmd) idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
-  Log.Out.TableConfig.ResetDefault()
-  Log.Out
-  <== [| "Cmd:"; cmd.ToString() |]
-  <== [| "CmdSize:"; size.ToString() |]
-  <== [| "DyLibName:"; dylib.DyLibName |]
-  <== [| "DyLibTimeStamp:"; toTimeStampString dylib.DyLibTimeStamp |]
-  <== [| "DyLibCurVer:"; toVersionString dylib.DyLibCurVer |]
-  <=/ [| "DyLibCmpVer:"; toVersionString dylib.DyLibCmpVer |]
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  printsr [| "DyLibName:"; dylib.DyLibName |]
+  printsr [| "DyLibTimeStamp:"; toTimeStampString dylib.DyLibTimeStamp |]
+  printsr [| "DyLibCurVer:"; toVersionString dylib.DyLibCurVer |]
+  printsr [| "DyLibCmpVer:"; toVersionString dylib.DyLibCmpVer |]
+  printsn ""
 
-let printDyLdInfoCmd cmd size (ldinfo: Mach.DyLdInfoCmd) idx =
+let dumpDyLdInfoCmd cmd size (ldinfo: Mach.DyLdInfoCmd) idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
-  Log.Out.TableConfig.ResetDefault()
-  Log.Out
-  <== [| "Cmd:"; cmd.ToString() |]
-  <== [| "CmdSize:"; size.ToString() |]
-  <== [| "RebaseOff:"; ldinfo.RebaseOff.ToString() |]
-  <== [| "RebaseSize:"; ldinfo.RebaseSize.ToString() |]
-  <== [| "BindOff:"; ldinfo.BindOff.ToString() |]
-  <== [| "BindSize:"; ldinfo.BindSize.ToString() |]
-  <== [| "WeakBindOff:"; ldinfo.WeakBindOff.ToString() |]
-  <== [| "WeakBindSize:"; ldinfo.WeakBindSize.ToString() |]
-  <== [| "LazyBindOff:"; ldinfo.LazyBindOff.ToString() |]
-  <== [| "LazyBindSize:"; ldinfo.LazyBindSize.ToString() |]
-  <== [| "ExportOff:"; ldinfo.ExportOff.ToString() |]
-  <=/ [| "ExportSize:"; ldinfo.ExportSize.ToString() |]
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  printsr [| "RebaseOff:"; ldinfo.RebaseOff.ToString() |]
+  printsr [| "RebaseSize:"; ldinfo.RebaseSize.ToString() |]
+  printsr [| "BindOff:"; ldinfo.BindOff.ToString() |]
+  printsr [| "BindSize:"; ldinfo.BindSize.ToString() |]
+  printsr [| "WeakBindOff:"; ldinfo.WeakBindOff.ToString() |]
+  printsr [| "WeakBindSize:"; ldinfo.WeakBindSize.ToString() |]
+  printsr [| "LazyBindOff:"; ldinfo.LazyBindOff.ToString() |]
+  printsr [| "LazyBindSize:"; ldinfo.LazyBindSize.ToString() |]
+  printsr [| "ExportOff:"; ldinfo.ExportOff.ToString() |]
+  printsr [| "ExportSize:"; ldinfo.ExportSize.ToString() |]
+  printsn ""
 
-let printFuncStartsCmd (fnstart: Mach.FuncStartsCmd) idx =
+let dumpFuncStartsCmd (fnstart: Mach.FuncStartsCmd) idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
-  Log.Out.TableConfig.ResetDefault()
-  Log.Out
-  <== [| "DataOffset:"; fnstart.DataOffset.ToString() |]
-  <=/ [| "DataSize:"; fnstart.DataSize.ToString() |]
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "DataOffset:"; fnstart.DataOffset.ToString() |]
+  printsr [| "DataSize:"; fnstart.DataSize.ToString() |]
+  printsn ""
 
-let printMainCmd cmd size (main: Mach.MainCmd) idx =
+let dumpMainCmd cmd size (main: Mach.MainCmd) idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
-  Log.Out.TableConfig.ResetDefault()
-  Log.Out
-  <== [| "Cmd:"; cmd.ToString() |]
-  <== [| "CmdSize:"; size.ToString() |]
-  <== [| "EntryOff:"; main.EntryOff.ToString() |]
-  <=/ [| "StackSize:"; main.StackSize.ToString() |]
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  printsr [| "EntryOff:"; main.EntryOff.ToString() |]
+  printsr [| "StackSize:"; main.StackSize.ToString() |]
+  printsn ""
 
-let printUnhandledCmd cmd size idx =
+let dumpUnhandledCmd cmd size idx =
   printSubsectionTitle <| "Load command " + idx.ToString()
-  Log.Out.TableConfig.ResetDefault()
-  Log.Out
-  <== [| "Cmd:"; cmd.ToString() |]
-  <=/ [| "CmdSize:"; size.ToString() |]
+  resetToDefaultTwoColumnConfig ()
+  printsr [| "Cmd:"; cmd.ToString() |]
+  printsr [| "CmdSize:"; size.ToString() |]
+  printsn ""
 
 let dumpLoadCommands _ (file: MachBinFile) =
-  file.Commands
-  |> Array.iteri (fun idx cmd ->
-    match cmd with
+  for i in 0 .. file.Commands.Length - 1 do
+    match file.Commands[i] with
     | Mach.Segment(cmd, size, seg) ->
-      printSegCmd cmd size seg idx
-      file.Sections
-      |> Array.iter (fun s ->
-        if s.SegName = seg.SegCmdName then
-          Log.Out.PrintLine()
-          printSubsubsectionTitle <| String.wrapSqrdBracket "Section"
-          dumpSectionDetails s.SecName file
-        else
-          ())
-    | Mach.SymTab(cmd, size, symtab) -> printSymTabCmd cmd size symtab idx
-    | Mach.DySymTab(cmd, size, dysym) -> printDySymTabCmd cmd size dysym idx
-    | Mach.DyLib(cmd, size, dylib) -> printDyLibCmd cmd size dylib idx
-    | Mach.DyLdInfo(cmd, size, ldinfo) -> printDyLdInfoCmd cmd size ldinfo idx
-    | Mach.FuncStarts(_, _, fnstart) -> printFuncStartsCmd fnstart idx
-    | Mach.Main(cmd, size, main) -> printMainCmd cmd size main idx
-    | Mach.Unhandled(cmd, size) -> printUnhandledCmd cmd size idx
-    Log.Out.PrintLine())
+      dumpSegCmd file cmd size seg i
+    | Mach.SymTab(cmd, size, symtab) ->
+      dumpSymTabCmd cmd size symtab i
+    | Mach.DySymTab(cmd, size, dysym) ->
+      dumpDySymTabCmd cmd size dysym i
+    | Mach.DyLib(cmd, size, dylib) ->
+      dumpDyLibCmd cmd size dylib i
+    | Mach.DyLdInfo(cmd, size, ldinfo) ->
+      dumpDyLdInfoCmd cmd size ldinfo i
+    | Mach.FuncStarts(_, _, fnstart) ->
+      dumpFuncStartsCmd fnstart i
+    | Mach.Main(cmd, size, main) ->
+      dumpMainCmd cmd size main i
+    | Mach.Unhandled(cmd, size) ->
+      dumpUnhandledCmd cmd size i
 
 let dumpSharedLibs _ (file: MachBinFile) =
-  let colfmt = [| LeftAligned 35; LeftAligned 15; LeftAligned 15 |]
-  Log.Out.TableConfig.Columns <- colfmt
-  Log.Out <=/ [| "Lib Name"; "CurVersion"; "CompatVersion" |]
-  file.Commands
-  |> Array.iter (fun cmd ->
+  setTableColumnFormats [| LeftAligned 35; LeftAligned 15; LeftAligned 15 |]
+  printDoubleHorizontalRule ()
+  printsr [| "Lib Name"; "CurVersion"; "CompatVersion" |]
+  printSingleHorizontalRule ()
+  for cmd in file.Commands do
     match cmd with
     | Mach.DyLib(_, _, dyLibCmd) ->
-      Log.Out
-      <=/ [| dyLibCmd.DyLibName
-             toVersionString dyLibCmd.DyLibCurVer
-             toVersionString dyLibCmd.DyLibCmpVer |]
-    | _ -> ())
+      printsr [| dyLibCmd.DyLibName
+                 toVersionString dyLibCmd.DyLibCurVer
+                 toVersionString dyLibCmd.DyLibCmpVer |]
+    | _ -> ()
+  printDoubleHorizontalRule ()
+  printsn ""
+
+let dumpExceptionTable _ _ =
+  Terminator.futureFeature ()

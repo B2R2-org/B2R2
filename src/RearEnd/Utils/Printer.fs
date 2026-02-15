@@ -38,11 +38,60 @@ module Printer =
 
   /// Prints a subsection title.
   let printSubsectionTitle (title: string) =
-    Log.Out.PrintLine("    - " + title)
+    Log.Out.PrintLine("## " + title)
     Log.Out.PrintLine()
 
   /// Prints a subsubsection title.
   let printSubsubsectionTitle (title: string) =
-    Log.Out.PrintLine("         * " + title)
+    Log.Out.PrintLine("### " + title)
     Log.Out.PrintLine()
 
+  /// Prints a horizontal rule using the specified character.
+  let private printHorizontalRuleWith ch =
+    let symbol = string ch
+    let widths =
+      Log.Out.TableConfig.Columns
+      |> Array.map (fun col ->
+        match col with
+        | LeftAligned w
+        | RightAligned w -> w)
+    for i in 0 .. widths.Length - 1 do
+      let width =
+        if i < widths.Length - 1 then widths[i] + Log.Out.TableConfig.ColumnGap
+        else widths[i]
+      let s = String.replicate width symbol
+      Log.Out.Print(s)
+    if widths.Length > 0 then Log.Out.PrintLine()
+    else ()
+
+  /// Prints a single horizontal rule.
+  let printSingleHorizontalRule () =
+    printHorizontalRuleWith '-'
+
+  /// Prints a double horizontal rule.
+  let printDoubleHorizontalRule () =
+    printHorizontalRuleWith '='
+
+  /// Sets the column formats of the table.
+  let setTableColumnFormats colfmts =
+    Log.Out.TableConfig.Columns <- colfmts
+
+  /// Sets the table configuration according to the given configuration.
+  let inline setTableConfig indent gap cols =
+    Log.Out.TableConfig.Indentation <- indent
+    Log.Out.TableConfig.ColumnGap <- gap
+    Log.Out.TableConfig.Columns <- cols
+
+  let private defaultTwoColumnConfig = TableConfig.DefaultTwoColumn()
+
+  /// Resets the table configuration to the default two-column format.
+  let resetToDefaultTwoColumnConfig () =
+    setTableConfig
+      defaultTwoColumnConfig.Indentation
+      defaultTwoColumnConfig.ColumnGap
+      defaultTwoColumnConfig.Columns
+
+  /// Flushes the output buffer, ensuring that all pending output is written
+  /// out.
+  let flush () =
+    Log.Out.Flush()

@@ -40,22 +40,19 @@ let private printFileName (filepath: string) =
   printsn <| String.wrapSqrdBracket filepath
   printsn ""
 
-let private setTableConfig (isa: ISA) isLift =
+let private computeBinaryWidth isa =
+  match isa with
+  | Intel -> 36
+  | _ -> 16
+
+let private initTableConfig (isa: ISA) isLift =
   if isLift then
-    Log.Out.TableConfig.Indentation <- 0
-    Log.Out.TableConfig.ColumnGap <- 1
-    Log.Out.TableConfig.Columns <- [| LeftAligned 10 |]
+    setTableColumnFormats [| LeftAligned 10 |]
   else
     let addrWidth = WordSize.toByteWidth isa.WordSize * 2
-    let binaryWidth =
-      match isa with
-      | Intel -> 36
-      | _ -> 16
-    Log.Out.TableConfig.Indentation <- 0
-    Log.Out.TableConfig.ColumnGap <- 1
-    Log.Out.TableConfig.Columns <- [| LeftAligned addrWidth
-                                      LeftAligned binaryWidth
-                                      LeftAligned 10 |]
+    let binaryWidth = computeBinaryWidth isa
+    setTableColumnFormats
+      [| LeftAligned addrWidth; LeftAligned binaryWidth; LeftAligned 10 |]
 
 let private getOptimizer (opts: BinDumpOpts) =
   if opts.DoOptimization then LocalOptimizer.Optimize
@@ -98,7 +95,7 @@ let private hasNoContent (file: IBinFile) secName =
 let private dumpData (hdl: BinHandle) (opts: BinDumpOpts) ptr secName =
   printSectionTitle <| String.wrapParen secName
   if hasNoContent hdl.File secName then
-    Log.Out.TableConfig.ResetDefault()
+    resetToDefaultTwoColumnConfig ()
     printsr [| ""; "NOBITS section." |]
   else
     dumpHex opts hdl ptr
@@ -188,7 +185,7 @@ let private dumpRegularFile (hdl: BinHandle) (opts: BinDumpOpts) =
 let private dumpFile (opts: BinDumpOpts) filePath =
   let opts = { opts with ShowAddress = true }
   let hdl = BinHandle(filePath, opts.ISA, opts.BaseAddress)
-  setTableConfig hdl.File.ISA opts.ShowLowUIR
+  initTableConfig hdl.File.ISA opts.ShowLowUIR
   printFileName hdl.File.Path
   if isRawBinary hdl then dumpRawBinary hdl opts
   else dumpRegularFile hdl opts
@@ -217,7 +214,7 @@ let private validateHexStringLength (hdl: BinHandle) hexstr =
 let private prepareHexStringDump (opts: BinDumpOpts) =
   let hex, isa = opts.InputHexStr, opts.ISA
   let hdl = BinHandle(hex, isa, opts.BaseAddress, detectFormat = false)
-  setTableConfig hdl.File.ISA opts.ShowLowUIR
+  initTableConfig hdl.File.ISA opts.ShowLowUIR
   validateHexStringLength hdl opts.InputHexStr
   hdl
 
