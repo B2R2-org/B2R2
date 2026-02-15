@@ -57,6 +57,7 @@ type GroundWork =
     | PARISC -> PARISC.RegisterFactory isa.WordSize :> IRegisterFactory
     | EVM -> EVM.RegisterFactory() :> IRegisterFactory
     | Python -> Python.RegisterFactory() :> IRegisterFactory
+    | CIL -> CIL.RegisterFactory() :> IRegisterFactory
     | _ -> Terminator.futureFeature ()
 
   /// Creates a new parser (IInstructionParsable) for the given architecture.

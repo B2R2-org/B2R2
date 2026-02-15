@@ -431,3 +431,9 @@ module ISA =
     match isa.Arch with
     | Architecture.Python -> ValueSome()
     | _ -> ValueNone
+
+  [<return: Struct>]
+  let (|CIL|_|) (isa: ISA) =
+    match isa.Arch with
+    | Architecture.CIL -> ValueSome()
+    | _ -> ValueNone

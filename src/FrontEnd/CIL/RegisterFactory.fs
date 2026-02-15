@@ -29,12 +29,49 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various CIL register variables.
-type internal RegisterFactory() =
-  member _.PC with get() = AST.var 256<rt> (Register.toRegID Register.PC) "PC"
-  member _.SP with get() = AST.var 256<rt> (Register.toRegID Register.SP) "SP"
+type RegisterFactory() =
+  let pc = AST.var 256<rt> (Register.toRegID Register.PC) "PC"
+  let sp = AST.var 256<rt> (Register.toRegID Register.SP) "SP"
 
-  member this.GetRegVar(name) =
-    match name with
-    | Register.PC -> this.PC
-    | Register.SP -> this.SP
-    | _ -> raise InvalidRegisterException
+  interface IRegisterFactory with
+    member _.ProgramCounter = Register.PC |> Register.toRegID
+
+    member _.StackPointer = Register.SP |> Register.toRegID |> Some
+
+    member _.FramePointer = Terminator.futureFeature ()
+
+    member _.GetRegVar id =
+      match Register.ofRegID id with
+      | R.PC -> pc
+      | R.SP -> sp
+      | _ -> raise InvalidRegisterException
+
+    member _.GetRegVar(_: string): Expr = Terminator.futureFeature ()
+
+    member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
+
+    member _.GetAllRegVars() = Terminator.futureFeature ()
+
+    member _.GetGeneralRegVars() = Terminator.futureFeature ()
+
+    member _.GetRegisterID expr =
+      match expr with
+      | Var(_, id, _, _) -> id
+      | PCVar _ -> Register.toRegID Register.PC
+      | _ -> raise InvalidRegisterException
+
+    member _.GetRegisterID name = Register.ofString name |> Register.toRegID
+
+    member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
+
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
+
+    member _.GetAllRegisterNames() = [||]
+
+    member _.GetRegType rid = Register.ofRegID rid |> Register.toRegType
+
+    member _.IsProgramCounter regid = Register.toRegID Register.PC = regid
+
+    member _.IsStackPointer regid = Register.toRegID Register.SP = regid
+
+    member _.IsFramePointer _ = false
