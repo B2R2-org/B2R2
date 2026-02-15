@@ -88,11 +88,11 @@ module private ExportedSymbolStore =
 
   /// Decide the name of an exported address. The address may have been exported
   /// only with ordinal, and does not have a corresponding name in export name
-  /// pointer table. In such case, consider its name as "#<Ordinal>".
+  /// pointer table. In such case, consider its name as "[<Ordinal>]".
   let decideNameWithTable nameTbl ordBase idx =
     match List.tryFind (fun (_, ord) -> int16 idx = ord) nameTbl with
-    | None -> sprintf "#%d" (int16 idx + ordBase) // Exported with an ordinal.
-    | Some(name, _) -> name // ENTP has a corresponding name for this entry.
+    | None -> $"[{(int16 idx + ordBase)}]" (* Exported with an ordinal. *)
+    | Some(name, _) -> name (* ENTP has a corresponding name for this entry. *)
 
   let decodeForwardInfo (str: string) =
     let strInfo = str.Split('.')

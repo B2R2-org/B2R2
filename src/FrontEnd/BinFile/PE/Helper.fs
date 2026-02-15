@@ -113,7 +113,7 @@ let getImportTable pe =
   |> Map.fold (fun acc addr info ->
        match info with
        | ByOrdinal(ord, dllname) ->
-         { FuncName = "#" + ord.ToString()
+         { FuncName = $"[{ord.ToString()}]"
            LibraryName = dllname
            TrampolineAddress = 0UL
            TableAddress = addrFromRVA pe.BaseAddr addr } :: acc
