@@ -40,6 +40,9 @@ type IPrinter =
   /// Returns the current table configuration.
   abstract TableConfig: TableConfig
 
+  /// Returns the current log level of the printer.
+  abstract LogLevel: LogLevel
+
   /// <summary>
   /// Prints out the given string. If the optional log level `lvl` is
   /// provided, the string is printed only if the current log level is equal to
@@ -128,6 +131,11 @@ type IPrinter =
 
   /// Flushes out everything.
   abstract Flush: unit -> unit
+
+  /// Sets the current log level of the printer. The printer will only print out
+  /// messages with log level equal to or lower than the current log level. By
+  /// default, the log level is set to <c>LogLevel.L2</c>.
+  abstract SetLogLevel: LogLevel -> unit
 
   /// Prints out the given string with newline and returns the printer itself.
   /// This operator is useful for chaining multiple printing operations.

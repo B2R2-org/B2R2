@@ -34,6 +34,8 @@ open B2R2
 /// called. This is useful for performance-critical applications.
 type ConsoleCachedPrinter(myLevel: LogLevel) =
 
+  let mutable myLevel = myLevel
+
   let mycfg = TableConfig.DefaultTwoColumn()
 
   let cache = StringBuilder()
@@ -53,6 +55,8 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
 
   interface IPrinter with
     member _.TableConfig with get() = mycfg
+
+    member _.LogLevel with get() = myLevel
 
     member _.Dispose() = ()
 
@@ -113,3 +117,6 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
     member _.Flush() =
       cache.ToString() |> Console.Write
       cache.Clear() |> ignore
+
+    member _.SetLogLevel(lvl) =
+      myLevel <- lvl

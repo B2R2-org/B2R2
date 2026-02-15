@@ -32,6 +32,8 @@ open B2R2
 /// immediately flushes out all the strings to console.
 type ConsolePrinter(myLevel: LogLevel) =
 
+  let mutable myLevel = myLevel
+
   let mycfg = TableConfig.DefaultTwoColumn()
 
   /// Sets the color.
@@ -107,6 +109,8 @@ type ConsolePrinter(myLevel: LogLevel) =
   interface IPrinter with
     member _.TableConfig with get() = mycfg
 
+    member _.LogLevel with get() = myLevel
+
     member _.Dispose() = ()
 
     member _.Print(s: string, lvl) =
@@ -164,4 +168,8 @@ type ConsolePrinter(myLevel: LogLevel) =
       else
         ()
 
-    member _.Flush() = ()
+    member _.Flush() =
+      ()
+
+    member _.SetLogLevel(lvl) =
+      myLevel <- lvl

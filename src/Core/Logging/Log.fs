@@ -38,21 +38,18 @@ type Log =
     if isCached then
       ()
     else
-      out <- new ConsoleCachedPrinter() :> IPrinter
+      out <- new ConsoleCachedPrinter(out.LogLevel) :> IPrinter
       isCached <- true
 
   /// Disables caching for the main console printer.
   static member DisableCaching() =
     if isCached then
       out.Flush()
-      out <- new ConsolePrinter() :> IPrinter
+      out <- new ConsolePrinter(out.LogLevel) :> IPrinter
       isCached <- false
     else
       ()
 
   /// Sets the log level for the main console printer.
   static member SetLogLevel(level: LogLevel) =
-    if isCached then
-      out <- new ConsoleCachedPrinter(level) :> IPrinter
-    else
-      out <- new ConsolePrinter(level) :> IPrinter
+    out.SetLogLevel(level)

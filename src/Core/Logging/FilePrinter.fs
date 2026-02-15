@@ -32,6 +32,8 @@ open B2R2
 /// called.
 type FilePrinter(filePath, myLevel: LogLevel) =
 
+  let mutable myLevel = myLevel
+
   let mycfg = TableConfig.DefaultTwoColumn()
 
   let fs = File.CreateText(filePath, AutoFlush = true)
@@ -44,6 +46,8 @@ type FilePrinter(filePath, myLevel: LogLevel) =
 
   interface IPrinter with
     member _.TableConfig with get() = mycfg
+
+    member _.LogLevel with get() = myLevel
 
     member _.Dispose() = fs.Dispose()
 
@@ -103,4 +107,8 @@ type FilePrinter(filePath, myLevel: LogLevel) =
       else
         ()
 
-    member _.Flush() = ()
+    member _.Flush() =
+      ()
+
+    member _.SetLogLevel(lvl) =
+      myLevel <- lvl

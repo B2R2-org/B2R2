@@ -32,6 +32,8 @@ type ConsoleNullPrinter() =
   interface IPrinter with
     member _.TableConfig with get() = Terminator.impossible ()
 
+    member _.LogLevel with get() = Terminator.impossible ()
+
     member _.Dispose() = ()
 
     member _.Print(_: string, _: LogLevel) = ()
@@ -55,3 +57,5 @@ type ConsoleNullPrinter() =
     member _.PrintRow(_: OutString[]) = ()
 
     member _.Flush() = ()
+
+    member _.SetLogLevel(_) = ()
