@@ -29,24 +29,20 @@ open System
 open B2R2
 open B2R2.FsOptParse
 
-/// Writes B2R2 logo to console. We can selectively append a new line at the
-/// end.
-let writeB2R2 printNewLine =
+/// Creates a colored intro string for B2R2.
+let makeIntroString () =
   ColoredString()
     .Add(DarkCyan, "B")
     .Add(DarkYellow, "2")
     .Add(DarkCyan, "R")
     .Add(DarkYellow, "2")
-  |> printc
-  if printNewLine then printsn ""
-  else ()
+    .Add(NoColor, ", the Next-Generation Reversing Platform")
+    .Add(NoColor, Environment.NewLine)
+    .Add(NoColor, Attribution.Copyright + Environment.NewLine)
 
 /// Writes introduction message to console.
 let writeIntro () =
-  writeB2R2 false
-  Logging.Log.Out
-  <== ", the Next-Generation Reversing Platform"
-  <=/ Attribution.Copyright + Environment.NewLine
+  iprintcn <| makeIntroString ()
 
 let private createUsage tool usageTail =
   let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
@@ -55,7 +51,7 @@ let private createUsage tool usageTail =
 let private createUsageFormatter tool usageTail =
   { new IUsageFormatter with
       member _.UsageForm with get() = createUsage tool usageTail
-      member _.UsagePreCallback() = writeIntro () }
+      member _.UsagePreCallback() = () }
 
 /// Prints out the usage message for the given tool.
 let printUsage tool usageTail spec =
@@ -82,7 +78,8 @@ let private parseCmdOpts spec defaultOpts argv tool usageTail =
 /// Parses command line arguments and runs the mainFn
 let parseAndRun mainFn tool usageTail spec (opts: #IVerboseOption) args =
   let rest, opts = parseCmdOpts spec opts args tool usageTail
-  if opts.IsVerbose then writeIntro () else ()
+  if opts.IsVerbose then Logging.Log.SetLogLevel Logging.LogLevel.L3 else ()
+  writeIntro ()
   try
     mainFn rest opts
     0
