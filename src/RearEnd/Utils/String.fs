@@ -22,9 +22,13 @@
   SOFTWARE.
 *)
 
+namespace B2R2.RearEnd.Utils
+
+open B2R2
+
 /// <namespacedoc>
 ///   <summary>
-///   Contains types and functions used in rear-end applications.
+///   Contains types and utility functions used in rear-end applications.
 ///   </summary>
 /// </namespacedoc>
 ///
@@ -32,16 +36,24 @@
 /// Provides string utility functions used in RearEnd.
 /// </summary>
 [<RequireQualifiedAccess>]
-module B2R2.RearEnd.Utils.String
+module String =
 
-open B2R2
+  /// Converts an optional entry point to a string.
+  let ofEntryPointOpt (entryPoint: Addr option) =
+    match entryPoint with
+    | None -> "none"
+    | Some entry -> $"0x{entry:x}"
 
-/// Converts an optional entry point to a string.
-let ofEntryPointOpt (entryPoint: Addr option) =
-  match entryPoint with
-  | None -> "none"
-  | Some entry -> $"0x{entry:x}"
+  /// Converts an enum value to an enumerated string with a bullet point.
+  let inline ofEnum (v: System.Enum) =
+    $"- {v.ToString()}"
 
-/// Converts an enum value to an enumerated string with a bullet point.
-let inline ofEnum (v: System.Enum) =
-  $"- {v.ToString()}"
+  /// Converts a string to a ColoredString with the specified color.
+  let inline toColoredString (s: string) col =
+    ColoredString().Add(col, s)
+
+[<AutoOpen>]
+module StringUtils =
+  /// Converts a string to a ColoredString with no color.
+  let inline noCol s =
+    String.toColoredString s NoColor

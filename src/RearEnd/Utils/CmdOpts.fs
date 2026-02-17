@@ -46,12 +46,18 @@ let writeIntro () =
 
 let private createUsage tool usageTail =
   let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
-  String.Format("[Usage]{0}{0}b2r2 {1} %o{2}", Environment.NewLine, tool, tail)
+  String.Format("b2r2 {0} %o{1}", tool, tail)
 
 let private createUsageFormatter tool usageTail =
   { new IUsageFormatter with
       member _.UsageForm with get() = createUsage tool usageTail
-      member _.UsagePreCallback() = () }
+      member _.UsagePreCallback() =
+        ColoredString()
+          .Add(NoColor, "[")
+          .Add(DarkCyan, "Usage")
+          .Add(NoColor, "]")
+        |> printcn
+        printsn "" }
 
 /// Prints out the usage message for the given tool.
 let printUsage tool usageTail spec =
@@ -97,4 +103,5 @@ let rec sanitizeRestArgs args =
       eprintfn "Invalid argument (%s) is used" arg
       exit 1
     else sanitizeRestArgs rest
-  | [] -> ()
+  | [] ->
+    ()

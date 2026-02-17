@@ -102,73 +102,87 @@ with
     { opts with InputSecName = Some arg[0] }
 
   static member Spec =
-    [ CmdOpt(descr = "[General options]",
-             dummy = true)
-      CmdOpt(descr = "",
-             dummy = true)
-      CmdOpt(descr = "Show this usage",
-             short = "-h", long = "--help",
-             help = true)
-      CmdOpt(descr = "Verbose mode",
-             short = "-v", long = "--verbose",
-             callback = fun opts _ -> { opts with Verbose = true })
-      CmdOpt(descr = "Specify <ISA> (e.g., x86) from command line",
-             short = "-i", long = "--isa", extra = 1,
-             callback = fun opts arg -> { opts with ISA = ISA arg[0] })
-      CmdOpt(descr = "Specify the base <address> in hex (default=0)",
-             short = "-r", long = "--base-addr", extra = 1,
-             callback = cbBaseAddress)
-      CmdOpt(descr = "",
-             dummy = true)
-      CmdOpt(descr = "[Input Configuration]",
-             dummy = true)
-      CmdOpt(descr = "",
-             dummy = true)
-      CmdOpt(descr = "Specify an input <hexstring> from command line",
-             short = "-s", extra = 1,
-             callback = cbInputHexStr)
-      CmdOpt(descr = "Specify <operation mode> (e.g., thumb/arm) from cmdline",
-             short = "-m", long = "--mode", extra = 1,
-             callback = cbArchMode)
-      CmdOpt(descr = "Turn off file format detection",
-             long = "--raw-binary",
-             callback = fun opts _ -> { opts with AutoDetect = false })
-      CmdOpt(descr = "",
-             dummy = true)
-      CmdOpt(descr = "[Output Configuration]",
-             dummy = true)
-      CmdOpt(descr = "",
-             dummy = true)
-      CmdOpt(descr = "Use AT&T syntax for disassembling Intel instructions",
-             long = "--att",
-             callback = cbATTSyntax)
-      CmdOpt(descr = "Display the contents of a specific section",
-             short = "-S", long = "--section", extra = 1,
-             callback = cbSection)
-      CmdOpt(descr = "Always display disassembly for all sections.",
-             long = "--only-disasm",
-             callback = fun opts _ -> { opts with OnlyDisasm = true })
-      CmdOpt(descr = "Show addresses of hexstring",
-             long = "--show-addr",
-             callback = fun opts _ -> { opts with ShowAddress = true })
-      CmdOpt(descr = "Show symbols while disassembling binary",
-             long = "--hide-symbols",
-             callback = fun opts _ -> { opts with ShowSymbols = false })
-      CmdOpt(descr = "Show hexdump with 32 bytes per line",
-             long = "--show-wide",
-             callback = fun opts _ -> { opts with ShowWide = true })
-      CmdOpt(descr = "Show colored hexdump",
-             long = "--show-color",
-             callback = fun opts _ -> { opts with ShowColor = true })
-      CmdOpt(descr = "Show LowUIR of excutable sections",
-             long = "--lift",
-             callback = fun opts _ -> { opts with ShowLowUIR = true })
-      CmdOpt(descr = "",
-             dummy = true)
-      CmdOpt(descr = "[Optional Configuration]",
-             dummy = true)
-      CmdOpt(descr = "",
-             dummy = true)
-      CmdOpt(descr = "Perform bblock optimization for IL",
-             long = "--optimize",
-             callback = fun opts _ -> { opts with DoOptimization = true }) ]
+    [ Opt(descr = ColoredString().Add(NoColor, "[")
+                                 .Add(DarkCyan, "General Options")
+                                 .Add(NoColor, "]"),
+          descrPrinter = printcn,
+          dummy = true)
+      Opt(descr = noCol "",
+          dummy = true)
+      Opt(descr = noCol "Show this usage",
+          short = "-h", long = "--help",
+          help = true)
+      Opt(descr = noCol "Verbose mode",
+          short = "-v", long = "--verbose",
+          callback = fun opts _ -> { opts with Verbose = true })
+      Opt(descr = noCol "Specify <ISA> (e.g., x86)",
+          short = "-i", long = "--isa", extra = 1,
+          callback = fun opts arg -> { opts with ISA = ISA arg[0] })
+      Opt(descr = noCol "Specify the base <address> in hex (default=0)",
+          short = "-r", long = "--base-addr", extra = 1,
+          callback = cbBaseAddress)
+      Opt(descr = noCol "",
+          dummy = true)
+      Opt(descr = ColoredString().Add(NoColor, "[")
+                                 .Add(DarkCyan, "Input Configuration")
+                                 .Add(NoColor, "]"),
+          descrPrinter = printcn,
+          dummy = true)
+      Opt(descr = noCol "",
+          dummy = true)
+      Opt(descr = noCol "Specify an input <hexstring>",
+          short = "-s", extra = 1,
+          callback = cbInputHexStr)
+      Opt(descr = noCol "Specify <operation mode> (e.g., thumb/arm)",
+          short = "-m", long = "--mode", extra = 1,
+          callback = cbArchMode)
+      Opt(descr = noCol "Turn off file format detection",
+          long = "--raw-binary",
+          callback = fun opts _ -> { opts with AutoDetect = false })
+      Opt(descr = noCol "",
+          dummy = true)
+      Opt(descr = ColoredString().Add(NoColor, "[")
+                                 .Add(DarkCyan, "Output Configuration")
+                                 .Add(NoColor, "]"),
+          descrPrinter = printcn,
+          dummy = true)
+      Opt(descr = noCol "",
+          dummy = true)
+      Opt(descr = noCol "Use AT&T syntax for disassembling Intel instructions",
+          long = "--att",
+          callback = cbATTSyntax)
+      Opt(descr = noCol "Display the contents of a specific section",
+          short = "-S", long = "--section", extra = 1,
+          callback = cbSection)
+      Opt(descr = noCol "Always display disassembly for all sections.",
+          long = "--only-disasm",
+          callback = fun opts _ -> { opts with OnlyDisasm = true })
+      Opt(descr = noCol "Show addresses of hexstring",
+          long = "--show-addr",
+          callback = fun opts _ -> { opts with ShowAddress = true })
+      Opt(descr = noCol "Show symbols while disassembling binary",
+          long = "--hide-symbols",
+          callback = fun opts _ -> { opts with ShowSymbols = false })
+      Opt(descr = noCol "Show hexdump with 32 bytes per line",
+          long = "--show-wide",
+          callback = fun opts _ -> { opts with ShowWide = true })
+      Opt(descr = noCol "Show colored hexdump",
+          long = "--show-color",
+          callback = fun opts _ -> { opts with ShowColor = true })
+      Opt(descr = noCol "Show LowUIR of excutable sections",
+          long = "--lift",
+          callback = fun opts _ -> { opts with ShowLowUIR = true })
+      Opt(descr = noCol "",
+          dummy = true)
+      Opt(descr = ColoredString().Add(NoColor, "[")
+                                 .Add(DarkCyan, "Optional Configuration")
+                                 .Add(NoColor, "]"),
+          descrPrinter = printcn,
+          dummy = true)
+      Opt(descr = noCol "",
+          dummy = true)
+      Opt(descr = noCol "Perform bblock optimization for IL",
+          long = "--optimize",
+          callback = fun opts _ -> { opts with DoOptimization = true }) ]
+
+and Opt = CmdOpt<BinDumpOpts, ColoredString>

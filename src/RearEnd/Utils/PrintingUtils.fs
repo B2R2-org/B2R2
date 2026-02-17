@@ -26,7 +26,7 @@ namespace B2R2.RearEnd.Utils
 
 /// Provides printing utility functions used in RearEnd.
 [<AutoOpen>]
-module Printer =
+module PrintingUtils =
   open B2R2
   open B2R2.Logging
 

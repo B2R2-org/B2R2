@@ -7,7 +7,7 @@
   <ItemGroup>
     <Compile Include="String.fs" />
     <Compile Include="Enum.fs" />
-    <Compile Include="Printer.fs" />
+    <Compile Include="PrintingUtils.fs" />
     <Compile Include="IVerboseOption.fs" />
     <Compile Include="CmdOpts.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="B2R2.FsOptParse" Version="0.6.2" />
+    <PackageReference Include="B2R2.FsOptParse" Version="0.7.1" />
   </ItemGroup>
 
   <ItemGroup>
