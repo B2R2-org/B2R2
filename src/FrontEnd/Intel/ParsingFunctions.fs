@@ -793,6 +793,20 @@ let vex0F2F = function
   | MPref.MPrxF2
   | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+let vex0F44W0 = function
+  | MPref.MPrxNP -> struct (KNOTW, OD.KKn, SZ.Def, TT.NA) (* k1, k2 *)
+  | MPref.MPrx66 -> struct (KNOTB, OD.KKn, SZ.Def, TT.NA) (* k1, k2 *)
+  | MPref.MPrxF3
+  | MPref.MPrxF2
+  | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+let vex0F44W1 = function
+  | MPref.MPrxNP -> struct (KNOTQ, OD.KKn, SZ.Def, TT.NA) (* k1, k2 *)
+  | MPref.MPrx66 -> struct (KNOTD, OD.KKn, SZ.Def, TT.NA) (* k1, k2 *)
+  | MPref.MPrxF3
+  | MPref.MPrxF2
+  | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
 let nor0F50 = function
   | MPref.MPrxNP -> struct (MOVMSKPS, OD.GprRm, SZ.DqY, TT.NA) (* GyUdq *)
   | MPref.MPrx66 -> struct (MOVMSKPD, OD.GprRm, SZ.DqY, TT.NA) (* GyUdq *)
@@ -7022,7 +7036,8 @@ let parseTwoByteOpcode span (phlp: ParsingHelper) =
     if phlp.VEXInfo.IsSome then raise ParsingFailureException
     else render span phlp CMOVAE SzCond.Normal OD.GprRm SZ.Def
   | 0x44uy ->
-    if phlp.VEXInfo.IsSome then raise ParsingFailureException
+    if phlp.VEXInfo.IsSome then
+      parseVEXW span phlp notEn notEn vex0F44W0 vex0F44W1
     else render span phlp CMOVZ SzCond.Normal OD.GprRm SZ.Def
   | 0x45uy ->
     if phlp.VEXInfo.IsSome then raise ParsingFailureException
