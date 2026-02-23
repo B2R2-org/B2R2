@@ -617,13 +617,13 @@ let buildBC (ins: Instruction) builder =
     let bibit = bi % 4u
     match bo, bi, bibit with
     | 16UL, 0u, _ -> buildTargetMnemonic Op.BDNZ addr ins builder
-    | 12UL, _ , 0u -> buildTargetMnemonic Op.BLT addr ins builder
-    | 12UL, _ , 1u -> buildSimpleMnemonic Op.BGT bi addr ins builder
-    | 12UL, _ , 2u -> buildSimpleMnemonic Op.BEQ bi addr ins builder
-    | 12UL, _ , 3u -> buildSimpleMnemonic Op.BSO bi addr ins builder
-    | 4UL, _ , 0u -> buildSimpleMnemonic Op.BGE bi addr ins builder
-    | 4UL, _ , 1u -> buildSimpleMnemonic Op.BLE bi addr ins builder
-    | 4UL, _ , 2u -> buildSimpleMnemonic Op.BNE bi addr ins builder
+    | 12UL, _, 0u -> buildTargetMnemonic Op.BLT addr ins builder
+    | 12UL, _, 1u -> buildSimpleMnemonic Op.BGT bi addr ins builder
+    | 12UL, _, 2u -> buildSimpleMnemonic Op.BEQ bi addr ins builder
+    | 12UL, _, 3u -> buildSimpleMnemonic Op.BSO bi addr ins builder
+    | 4UL, _, 0u -> buildSimpleMnemonic Op.BGE bi addr ins builder
+    | 4UL, _, 1u -> buildSimpleMnemonic Op.BLE bi addr ins builder
+    | 4UL, _, 2u -> buildSimpleMnemonic Op.BNE bi addr ins builder
     | 4UL, _, 3u -> buildSimpleMnemonic Op.BNS bi addr ins builder
     | _ ->
       buildOpcode ins builder
@@ -773,12 +773,12 @@ let buildRLWINM (ins: Instruction) builder =
   match ins.Operands with
   | FiveOperands(OprReg ra, OprReg rs, OprImm sh, OprImm mb, OprImm me) ->
     match sh, mb, me with
-    | _ , 0UL, 31UL -> buildRotateMnemonic Op.ROTLWI ra rs sh builder
+    | _, 0UL, 31UL -> buildRotateMnemonic Op.ROTLWI ra rs sh builder
     | n1, 0UL, n2 when n2 = (31UL - n1) ->
       buildRotateMnemonic Op.SLWI ra rs sh builder
     | n1, n2, 31UL when n1 = (32UL - n2) ->
       buildRotateMnemonic Op.SRWI ra rs mb builder
-    | 0UL, _ , 31UL -> buildRotateMnemonic Op.CLRLWI ra rs mb builder
+    | 0UL, _, 31UL -> buildRotateMnemonic Op.CLRLWI ra rs mb builder
     | 0UL, 0UL, n -> buildRotateMnemonic Op.CLRRWI ra rs (31UL - me) builder
     | _ ->
       buildOpcode ins builder

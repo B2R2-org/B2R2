@@ -6282,31 +6282,31 @@ let getGrp9OpKind (phlp: ParsingHelper) b regBits =
   let hasREXWPref = REXPrefix.hasW phlp.REXPrefix
   let modIsMemory = Operands.modIsMemory b
   match modIsMemory, regBits, hasOprSzPref, hasREPZPref, hasREXWPref with
-  | true,  0b001, false, false, false ->
+  | true, 0b001, false, false, false ->
     struct (CMPXCHG8B, OD.Mem, SZ.Q, SzCond.Normal)
-  | true,  0b001, false, false, true ->
+  | true, 0b001, false, false, true ->
     struct (CMPXCHG16B, OD.Mem, SZ.Dq, SzCond.Normal)
-  | true,  0b011, false, false, false ->
+  | true, 0b011, false, false, false ->
     struct (XRSTORS, OD.Mem, SZ.Q, SzCond.Normal)
-  | true,  0b011, false, false, true ->
+  | true, 0b011, false, false, true ->
     struct (XRSTORS64, OD.Mem, SZ.Q, SzCond.Normal)
-  | true,  0b100, false, false, false ->
+  | true, 0b100, false, false, false ->
     struct (XSAVEC, OD.Mem, SZ.Q, SzCond.Normal)
-  | true,  0b100, false, false, true ->
+  | true, 0b100, false, false, true ->
     struct (XSAVEC64, OD.Mem, SZ.Q, SzCond.Normal)
-  | true,  0b101, false, false, false ->
+  | true, 0b101, false, false, false ->
     struct (XSAVES, OD.Mem, SZ.Q, SzCond.Normal)
-  | true,  0b101, false, false, true ->
+  | true, 0b101, false, false, true ->
     struct (XSAVES64, OD.Mem, SZ.Q, SzCond.Normal)
-  | true,  0b110, false, false, _ ->
+  | true, 0b110, false, false, _ ->
     struct (VMPTRLD, OD.Mem, SZ.Q, SzCond.Normal)
-  | true,  0b111, false, false, _ ->
+  | true, 0b111, false, false, _ ->
     struct (VMPTRST, OD.Mem, SZ.Q, SzCond.Normal)
-  | true,  0b110, true,  false, _ ->
+  | true, 0b110, true, false, _ ->
     struct (VMCLEAR, OD.Mem, SZ.Q, SzCond.Normal)
-  | true,  0b110, false, true,  _ ->
+  | true, 0b110, false, true, _ ->
     struct (VMXON, OD.Mem, SZ.Q, SzCond.Normal)
-  | true,  0b111, false, true,  _ ->
+  | true, 0b111, false, true, _ ->
     struct (VMPTRST, OD.Mem, SZ.Q, SzCond.Normal)
   | false, 0b110, false, false, _ ->
     struct (RDRAND, OD.Mem, SZ.Def, SzCond.Normal)
