@@ -596,7 +596,7 @@ let buildComment4 opr1 opr2 opr3 opr4 (builder: IDisasmBuilder) =
 
 let buildComment5 opr1 opr2 opr3 opr4 opr5 (builder: IDisasmBuilder) =
   match opr1, opr2, opr3, opr4, opr5 with
-  | OprImm imm, _, _, _ ,_ | _, OprImm imm, _, _, _ | _, _, OprImm imm, _, _
+  | OprImm imm, _, _, _, _ | _, OprImm imm, _, _, _ | _, _, OprImm imm, _, _
   | _, _, _, OprImm imm, _ | _, _, _, _, OprImm imm ->
     builder.Accumulate(AsmWordKind.String, "     ! ")
     builder.Accumulate(AsmWordKind.Value, string imm)

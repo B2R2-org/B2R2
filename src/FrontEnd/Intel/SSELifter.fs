@@ -198,7 +198,7 @@ let movss (ins: Instruction) insLen bld =
     let src = transOprToExpr bld false ins insLen src
     bld <+ (dstAssign 32<rt> dst1 src)
     bld <+ (dst2 := AST.num0 64<rt>)
-  | OprMem _ , OprReg r1 ->
+  | OprMem _, OprReg r1 ->
     let dst = transOprToExpr bld false ins insLen dst
     let src = pseudoRegVar bld r1 1 |> AST.xtlo 32<rt>
     bld <+ (dstAssign 32<rt> dst src)
@@ -221,7 +221,7 @@ let movsd (ins: Instruction) insLen bld =
       let src = transOprToExpr bld false ins insLen src
       bld <+ (dst1 := src)
       bld <+ (dst2 := AST.num0 64<rt>)
-    | OprMem _ , OprReg r1 ->
+    | OprMem _, OprReg r1 ->
       let dst = transOprToExpr bld false ins insLen dst
       let src = pseudoRegVar bld r1 1
       bld <+ (dstAssign 64<rt> dst src)
