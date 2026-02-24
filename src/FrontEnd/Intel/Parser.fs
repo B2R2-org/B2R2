@@ -105,18 +105,24 @@ type IntelParser(wordSz, reader) =
       | _ -> None) operands
     |> Array.distinct
 
-  let checkPrefix pref insPref operands =
+  let checkPrefix pref insPref compat =
     match pref with
-    // Legacy prefixes are not explicitly specified in the manual.
-    | Legacy P66 ->
-      match getOperandSize operands with
-      | [| Some sz |] ->
-        match sz with
-        | Sz16 -> true
-        | _ -> false
-      | _ -> true
-    | Mandatory _ -> pref = insPref
+    | Mandatory NP -> true
+    | Mandatory _ when compat = CompatLegMode.None -> pref = insPref
     | _ -> true
+
+  let checkSize pref operands =
+    let oprSz = getOperandSize operands
+    match oprSz with
+    | [| Some Sz16 |] | [| Some Sz16; _ |] | [| Some Sz16; _ |] ->
+      pref = Legacy P66 || pref = Mandatory P66 // XXX: NP
+    | _ -> true
+
+  let checkCPUMode wordSize mode64 compat =
+    match wordSize with
+    | WordSize.Bit64 -> mode64 <> Mode64.NE && mode64 <> Mode64.NS // ??
+    | WordSize.Bit32 -> compat <> CompatLegMode.NE
+    | _ -> failwith "Unsupported word size."
 
   let isGroupOpcode = function
     | ModRMType.ModRMOp0 | ModRMType.ModRMOp1 | ModRMType.ModRMOp2
@@ -137,7 +143,7 @@ type IntelParser(wordSz, reader) =
       | 5uy -> modRMType = ModRMType.ModRMOp5
       | 6uy -> modRMType = ModRMType.ModRMOp6
       | 7uy -> modRMType = ModRMType.ModRMOp7
-      | x -> false
+      | _ -> false
     else true
 
   let findSubIndex span (phlp: ParsingHelper) (ins: InstructionCore[]) =
@@ -150,17 +156,24 @@ type IntelParser(wordSz, reader) =
       let mutable i = 0
       while i < insLen && idx = -1 do
         let insCore = ins[i]
-        if (checkPrefix pref insCore.PrefixType insCore.Operands) &&
-           (checkREXPrefix phlp.REXPrefix insCore.REXPrefixType) &&
-           (checkVectorLength phlp.VEXInfo insCore.VectorLength) &&
-           (checkGroupOpcode span phlp insCore.ModRM)
-        then idx <- i
+        let p = checkPrefix pref insCore.PrefixType insCore.Compat
+        let s = checkSize pref insCore.Operands
+        let c = checkCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
+        let r = checkREXPrefix phlp.REXPrefix insCore.REXPrefixType
+        let v = checkVectorLength phlp.VEXInfo insCore.VectorLength
+        let g = checkGroupOpcode span phlp insCore.ModRM
+#if DEBUG
+        printfn "Checking %d: p=%b, s=%b, r=%b, v=%b, g=%b" i p s r v g
+#endif
+        if p && c && s && r && v && g then idx <- i
         else ()
         i <- i + 1
       if idx = -1 then
+#if DEBUG
         printfn "Fail: find sub index\n maps: %A, pref: %A, rex: %A, vex: %A"
           phlp.OpcodeClass pref phlp.REXPrefix phlp.VEXInfo
         Array.iter (printfn " %A") ins
+#endif
         failwithf "No matching instruction format."
       else ()
       idx
@@ -195,6 +208,19 @@ type IntelParser(wordSz, reader) =
       OperandParsers.parseOprImm span phlp (oprSzToRegType sz)
     | Rel sz ->
       OperandParsers.parseOprForRelJmp span phlp (oprSzToRegType sz)
+    | Unknown s -> // FIXME: need unknown operand type handling logic
+      match s with
+      | "M" ->
+        // FIXME: need operand size determination logic
+        let effAddrSz = ParsingHelper.GetEffAddrSize phlp
+        let effOprSz = ParsingHelper.GetEffOprSize(phlp, SzCond.Normal)
+        phlp.MemEffOprSize <- effOprSz
+        phlp.MemEffAddrSize <- effAddrSz
+        phlp.MemEffRegSize <- effOprSz
+        phlp.RegSize <- effOprSz
+        phlp.OperationSize <- effOprSz
+        OperandParsers.parseMemory modRM span (phlp: ParsingHelper)
+      | _ -> failwithf "Unsupported operand type: %s" s
     | o ->
       failwithf "Unsupported operand type: %A" o
 
@@ -345,7 +371,9 @@ type IntelParser(wordSz, reader) =
           | _ ->
             InstructionArrays.norOne[int (phlp.ReadByte span)]
       let subIdx = findSubIndex span phlp insCores
-      //printfn "InstructionCore: %A\nOpcode Class: %A"
-      //  insCores[subIdx] phlp.OpcodeClass
+#if DEBUG
+      printfn "InstructionCore: %A\nOpcode Class: %A"
+        insCores[subIdx] phlp.OpcodeClass
+#endif
       let operands = parseOperands span phlp insCores[subIdx]
       newInstruction phlp insCores[subIdx].Opcode operands :> IInstruction
