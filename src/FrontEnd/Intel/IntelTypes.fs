@@ -115,6 +115,23 @@ type OpEn =
   | VM = 34
   | ZO = 35
 
+type Mode64 =
+  | None = 0
+  | NE = 1
+  | NA = 2
+  | NS = 3
+  | Valid = 4
+  | Invalid = 5
+  | VNE = 6
+  | Inv = 7
+
+type CompatLegMode =
+  | None = 0
+  | NE = 1
+  | NA = 2
+  | Valid = 3
+  | Invalid = 4
+
 /// Core instruction representation used in the generated source code.
 type InstructionCore =
   { Opcode: Opcode
@@ -123,4 +140,6 @@ type InstructionCore =
     VectorLength: VectorLength
     ModRM: ModRMType
     Operands: OperandType[]
-    OpEn: OpEn }
+    OpEn: OpEn
+    Mode64: Mode64
+    Compat: CompatLegMode }
