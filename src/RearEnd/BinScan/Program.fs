@@ -230,11 +230,11 @@ let private dumpFile (opts: BinScanOpts) (filePath: string) =
   elif opts.DisplayItems.Contains DisplayAll then printAll opts hdl file
   else opts.DisplayItems |> Seq.iter (printSelectively hdl opts file)
 
-let [<Literal>] private ToolName = "fileview"
+let [<Literal>] private ToolName = "scan"
 
 let [<Literal>] private UsageTail = "<binary file(s)>"
 
-let private dump files opts =
+let private scan files opts =
   CmdOpts.sanitizeRestArgs files
   match files with
   | [] ->
@@ -255,4 +255,4 @@ let private dump files opts =
 [<EntryPoint>]
 let main args =
   let opts = BinScanOpts.Default()
-  CmdOpts.parseAndRun dump ToolName UsageTail BinScanOpts.Spec opts args
+  CmdOpts.parseAndRun scan ToolName UsageTail BinScanOpts.Spec opts args

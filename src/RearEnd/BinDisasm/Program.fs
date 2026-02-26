@@ -32,7 +32,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.RearEnd.Utils
 
-let [<Literal>] private ToolName = "bindump"
+let [<Literal>] private ToolName = "disasm"
 
 let [<Literal>] private UsageTail = "<binary file(s) | -s hexstring>"
 
@@ -228,7 +228,7 @@ let private dumpHexString (opts: BinDisasmOpts) =
   dumper.Dump ptr
   printsn ""
 
-let private dumpMain files (opts: BinDisasmOpts) =
+let private disasm files (opts: BinDisasmOpts) =
   CmdOpts.sanitizeRestArgs files
 #if DEBUG
   let sw = Diagnostics.Stopwatch.StartNew()
@@ -246,4 +246,4 @@ let private dumpMain files (opts: BinDisasmOpts) =
 [<EntryPoint>]
 let main args =
   let opts = BinDisasmOpts.Default
-  CmdOpts.parseAndRun dumpMain ToolName UsageTail BinDisasmOpts.Spec opts args
+  CmdOpts.parseAndRun disasm ToolName UsageTail BinDisasmOpts.Spec opts args

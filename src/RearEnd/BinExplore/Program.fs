@@ -27,7 +27,7 @@ module B2R2.RearEnd.BinExplore.Program
 open B2R2
 open B2R2.RearEnd.Utils
 
-let [<Literal>] private ToolName = "binexplore"
+let [<Literal>] private ToolName = "explore"
 
 [<EntryPoint>]
 let main args =
