@@ -10,7 +10,7 @@
       "rollForward": false
     },
     "b2r2.fslint": {
-      "version": "0.1.0",
+      "version": "1.0.4",
       "commands": [
         "fslint"
       ],
