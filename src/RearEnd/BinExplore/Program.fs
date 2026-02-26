@@ -22,40 +22,22 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer.Commands
+module B2R2.RearEnd.BinExplore.Program
 
 open B2R2
-open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.Utils
-open B2R2.RearEnd.BinExplorer
 
-type BinInfo() =
-  interface ICmd with
+let [<Literal>] private ToolName = "binexplore"
 
-    member _.CmdName = "bininfo"
-
-    member _.CmdAlias = [ "bi" ]
-
-    member _.CmdDescr = "Show the current binary information."
-
-    member _.CmdHelp =
-      "Usage: bininfo\n\n\
-      Show the current binary information. This command will show some basic\n\
-      information such as the entry point address, binary file format, symbol\n\
-      numbers, etc."
-
-    member _.SubCommands = []
-
-    member _.CallBack(brew, _args) =
-      let file = brew.BinHandle.File
-      let isa = brew.BinHandle.File.ISA
-      let fmt = brew.BinHandle.File.Format |> FileFormat.toString
-      let entry = file.EntryPoint |> String.ofEntryPointOpt
-      let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
-      [| "[*] Binary information:\n"
-         sprintf "- Executable Path: %s" file.Path
-         sprintf "- Machine: %s" (isa.ToString())
-         sprintf "- File Format: %s" fmt
-         sprintf "- Entry Point Address: %s" entry
-         sprintf "- NX bit: %s" nx |]
-      |> Array.map OutputNormal
+[<EntryPoint>]
+let main args =
+  let isa = ISA Architecture.Intel (* default ISA *)
+  let opts = BinExploreOpts.Default isa
+  let spec = BinExploreOpts.Spec
+  match Array.tryFindIndex (fun a -> a = "--batch") args with
+  | Some idx ->
+    let beforeOpts, afterOpts = Array.splitAt idx args
+    let cmds = Array.tail afterOpts |> Array.toList
+    CmdOpts.parseAndRun (BatchMode.main cmds) ToolName "" spec opts beforeOpts
+  | None ->
+    CmdOpts.parseAndRun InteractiveMode.main ToolName "<binfile>" spec opts args

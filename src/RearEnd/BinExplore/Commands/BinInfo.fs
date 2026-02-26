@@ -22,31 +22,40 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer.Commands
+namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
-open B2R2.RearEnd.BinExplorer
+open B2R2.FrontEnd.BinFile
+open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BinExplore
 
-type Show() =
+type BinInfo() =
   interface ICmd with
 
-    member _.CmdName = "show"
+    member _.CmdName = "bininfo"
 
-    member _.CmdAlias = []
+    member _.CmdAlias = [ "bi" ]
 
-    member _.CmdDescr = "Show information about an abstract component."
+    member _.CmdDescr = "Show the current binary information."
 
     member _.CmdHelp =
-      "Usage: show <component> [option(s)]\n\n\
-      Show information about an abstract component.\n\
-      <component> is an abstract component in the binary, and below are\n\
-      available subcommands:\n\
-        - caller <instruction addr in hex>\n\
-        - callee/function <callee name or addr in hex>"
+      "Usage: bininfo\n\n\
+      Show the current binary information. This command will show some basic\n\
+      information such as the entry point address, binary file format, symbol\n\
+      numbers, etc."
 
     member _.SubCommands = []
 
-    member this.CallBack(ess, args) =
-      match args with
-      | _ -> [| (this :> ICmd).CmdHelp |]
+    member _.CallBack(brew, _args) =
+      let file = brew.BinHandle.File
+      let isa = brew.BinHandle.File.ISA
+      let fmt = brew.BinHandle.File.Format |> FileFormat.toString
+      let entry = file.EntryPoint |> String.ofEntryPointOpt
+      let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
+      [| "[*] Binary information:\n"
+         sprintf "- Executable Path: %s" file.Path
+         sprintf "- Machine: %s" (isa.ToString())
+         sprintf "- File Format: %s" fmt
+         sprintf "- Entry Point Address: %s" entry
+         sprintf "- NX bit: %s" nx |]
       |> Array.map OutputNormal

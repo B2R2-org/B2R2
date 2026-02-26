@@ -22,24 +22,31 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer.Commands
+namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
-open B2R2.RearEnd.BinExplorer
+open B2R2.RearEnd.BinExplore
 
-type Credits() =
+type Show() =
   interface ICmd with
 
-    member _.CmdName = "credits"
+    member _.CmdName = "show"
 
-    member _.CmdAlias = [ "copyright" ]
+    member _.CmdAlias = []
 
-    member _.CmdDescr = "Show the credits for B2R2."
+    member _.CmdDescr = "Show information about an abstract component."
 
-    member _.CmdHelp = ""
+    member _.CmdHelp =
+      "Usage: show <component> [option(s)]\n\n\
+      Show information about an abstract component.\n\
+      <component> is an abstract component in the binary, and below are\n\
+      available subcommands:\n\
+        - caller <instruction addr in hex>\n\
+        - callee/function <callee name or addr in hex>"
 
     member _.SubCommands = []
 
-    member _.CallBack(_, _args) =
-      [| Attribution.Copyright |]
+    member this.CallBack(ess, args) =
+      match args with
+      | _ -> [| (this :> ICmd).CmdHelp |]
       |> Array.map OutputNormal

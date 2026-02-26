@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.RearEnd.BinExplorer.BatchMode
+module internal B2R2.RearEnd.BinExplore.BatchMode
 
 open System.IO
 open B2R2
@@ -65,7 +65,7 @@ let showBatchUsage () =
   Logging.Log.Out
   <== "dotnet run -- [file(s) ...] [opt(s) ...] --batch <cmd> [args ...]"
   <== ""
-  <== "  Any regular BinExplorer commands will work in batch mode, but we"
+  <== "  Any regular BinExplore commands will work in batch mode, but we"
   <== "  also provide a list of special commands as described below."
   <== ""
   <== "[Special Commands]"

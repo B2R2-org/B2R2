@@ -22,22 +22,29 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.BinExplorer.Program
+namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
-open B2R2.RearEnd.Utils
+open B2R2.FrontEnd.NameMangling
+open B2R2.RearEnd.BinExplore
 
-let [<Literal>] private ToolName = "binexplore"
+type Demangle() =
+  let mapResult = function
+    | Ok s -> [| OutputNormal s |]
+    | Error _ -> [| OutputNormal "[*] Invalid input." |]
 
-[<EntryPoint>]
-let main args =
-  let isa = ISA Architecture.Intel (* default ISA *)
-  let opts = BinExplorerOpts.Default isa
-  let spec = BinExplorerOpts.Spec
-  match Array.tryFindIndex (fun a -> a = "--batch") args with
-  | Some idx ->
-    let beforeOpts, afterOpts = Array.splitAt idx args
-    let cmds = Array.tail afterOpts |> Array.toList
-    CmdOpts.parseAndRun (BatchMode.main cmds) ToolName "" spec opts beforeOpts
-  | None ->
-    CmdOpts.parseAndRun InteractiveMode.main ToolName "<binfile>" spec opts args
+  interface ICmd with
+
+    member _.CmdName = "demangle"
+
+    member _.CmdAlias = [ "undecorate" ]
+
+    member _.CmdDescr = "Demangle the given mangled string."
+
+    member _.CmdHelp = "Usage: demangle <string>"
+
+    member _.SubCommands = []
+
+    member _.CallBack(_, args) =
+      let mangled = String.concat " " args
+      Demangler.Demangle mangled |> mapResult

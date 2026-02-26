@@ -22,13 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer.Commands
+namespace B2R2.RearEnd.BinExplore.Commands
 
 open System
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
-open B2R2.RearEnd.BinExplorer
+open B2R2.RearEnd.BinExplore
 
 type Search() =
   let toResult (idx: uint64) = $"Found @ {idx:x}"

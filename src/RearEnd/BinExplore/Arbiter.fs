@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplore
 
 open System.IO
 open B2R2

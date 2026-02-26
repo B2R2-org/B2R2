@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.RearEnd.BinExplorer.CLI
+module internal B2R2.RearEnd.BinExplore.CLI
 
 open B2R2
 

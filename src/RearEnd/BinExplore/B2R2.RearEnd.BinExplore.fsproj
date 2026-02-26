@@ -20,7 +20,7 @@
     <Compile Include="Commands\ROP.fs" />
     <Compile Include="CLI.fs" />
     <Compile Include="HTTPServer.fs" />
-    <Compile Include="BinExplorerOpts.fs" />
+    <Compile Include="BinExploreOpts.fs" />
     <Compile Include="InteractiveMode.fs" />
     <Compile Include="BatchMode.fs" />
     <Compile Include="Program.fs" />

@@ -22,29 +22,24 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer.Commands
+namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
-open B2R2.FrontEnd.NameMangling
-open B2R2.RearEnd.BinExplorer
+open B2R2.RearEnd.BinExplore
 
-type Demangle() =
-  let mapResult = function
-    | Ok s -> [| OutputNormal s |]
-    | Error _ -> [| OutputNormal "[*] Invalid input." |]
-
+type Credits() =
   interface ICmd with
 
-    member _.CmdName = "demangle"
+    member _.CmdName = "credits"
 
-    member _.CmdAlias = [ "undecorate" ]
+    member _.CmdAlias = [ "copyright" ]
 
-    member _.CmdDescr = "Demangle the given mangled string."
+    member _.CmdDescr = "Show the credits for B2R2."
 
-    member _.CmdHelp = "Usage: demangle <string>"
+    member _.CmdHelp = ""
 
     member _.SubCommands = []
 
-    member _.CallBack(_, args) =
-      let mangled = String.concat " " args
-      Demangler.Demangle mangled |> mapResult
+    member _.CallBack(_, _args) =
+      [| Attribution.Copyright |]
+      |> Array.map OutputNormal

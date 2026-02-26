@@ -22,13 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplore
 
 open B2R2
 open B2R2.RearEnd.Utils
 open B2R2.FsOptParse
 
-type BinExplorerOpts =
+type BinExploreOpts =
   { /// IP address to bind. We can specify an IP to use to enable remote access,
     /// but we should make sure the two things:
     /// (1) Make sure we have a permission to bind to the IP address. On
@@ -96,7 +96,7 @@ with
       (* *)
       CmdOpt(descr = "\n[Extra]\n", dummy = true)
       (* *)
-      CmdOpt(descr = "Disable readline feature for BinExplorer",
+      CmdOpt(descr = "Disable readline feature for BinExplore",
              long = "--no-readline",
              callback = fun opts arg -> { opts with EnableReadLine = false })
       CmdOpt(descr = "Directory name to dump CFG json (no dump if empty)",

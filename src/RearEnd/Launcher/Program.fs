@@ -124,7 +124,7 @@ let handleCommands (cmd: string) (rest: string[]) =
   | "bindisasm" | "disasm" ->
     BinDisasm.Program.main rest
   | "binexplore" | "explore" ->
-    BinExplorer.Program.main rest
+    BinExplore.Program.main rest
   | "repl" ->
     Repl.Program.main rest
   | "assembler" | "asm" ->

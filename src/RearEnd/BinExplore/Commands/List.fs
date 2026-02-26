@@ -22,12 +22,12 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer.Commands
+namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
-open B2R2.RearEnd.BinExplorer
+open B2R2.RearEnd.BinExplore
 
 type List() =
   let createFuncString (hdl: BinHandle) (addr, name) =

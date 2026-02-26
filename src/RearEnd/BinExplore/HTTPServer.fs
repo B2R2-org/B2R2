@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.RearEnd.BinExplorer.HTTPServer
+module internal B2R2.RearEnd.BinExplore.HTTPServer
 
 open System
 open System.Net

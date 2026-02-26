@@ -35,7 +35,7 @@
   <Project Path="../MiddleEnd/SSA/B2R2.MiddleEnd.SSA.fsproj" />
   <Project Path="Assembler/B2R2.RearEnd.Assembler.fsproj" />
   <Project Path="BinDisasm/B2R2.RearEnd.BinDisasm.fsproj" />
-  <Project Path="BinExplorer/B2R2.RearEnd.BinExplorer.fsproj" />
+  <Project Path="BinExplore/B2R2.RearEnd.BinExplore.fsproj" />
   <Project Path="BinQL.Tests/B2R2.RearEnd.BinQL.Tests.fsproj" />
   <Project Path="BinQL/B2R2.RearEnd.BinQL.fsproj" />
   <Project Path="BinScan/B2R2.RearEnd.BinScan.fsproj" />

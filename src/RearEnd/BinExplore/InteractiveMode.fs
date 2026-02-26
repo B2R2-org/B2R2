@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.RearEnd.BinExplorer.InteractiveMode
+module internal B2R2.RearEnd.BinExplore.InteractiveMode
 
 open System.IO
 open B2R2
@@ -47,17 +47,17 @@ let dumpJsonFiles jsonDir (brew: BinaryBrew<_, _>) =
     let s = BinGraph.Serializer.ToJson disasmcfg
     File.WriteAllText(disasmJsonPath, s))
 
-let startGUI (opts: BinExplorerOpts) arbiter =
+let startGUI (opts: BinExploreOpts) arbiter =
   HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose
   |> Async.Start
 
-let startGUIAndCLI (opts: BinExplorerOpts) brew =
+let startGUIAndCLI (opts: BinExploreOpts) brew =
   if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir brew else ()
   let arbiter = Arbiter(brew, opts.LogFile)
   startGUI opts arbiter
   CLI.start opts.EnableReadLine arbiter
 
-let main files (opts: BinExplorerOpts) =
+let main files (opts: BinExploreOpts) =
   if List.isEmpty files then
     eprintsn "A file should be given as input."
     printsn "Type --help or --batch to see more info."

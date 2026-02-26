@@ -22,12 +22,12 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd.BinExplore
 
 open B2R2
 open B2R2.MiddleEnd
 
-/// Represents a command that can be invoked within BinExplorer's CLI.
+/// Represents a command that can be invoked within BinExplore's CLI.
 type ICmd =
   /// The name of the command.
   abstract CmdName: string

@@ -22,7 +22,7 @@
     <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
     <ProjectReference Include="..\BinScan\B2R2.RearEnd.BinScan.fsproj" />
     <ProjectReference Include="..\BinDisasm\B2R2.RearEnd.BinDisasm.fsproj" />
-    <ProjectReference Include="..\BinExplorer\B2R2.RearEnd.BinExplorer.fsproj" />
+    <ProjectReference Include="..\BinExplore\B2R2.RearEnd.BinExplore.fsproj" />
     <ProjectReference Include="..\Repl\B2R2.RearEnd.Repl.fsproj" />
     <ProjectReference Include="..\Assembler\B2R2.RearEnd.Assembler.fsproj" />
     <ProjectReference Include="..\Transformer\B2R2.RearEnd.Transformer.fsproj" />
