@@ -13,7 +13,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Assembly\API\B2R2.Assembly.API.fsproj" />
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
-    <ProjectReference Include="..\BinDump\B2R2.RearEnd.BinDump.fsproj" />
     <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
   </ItemGroup>
 

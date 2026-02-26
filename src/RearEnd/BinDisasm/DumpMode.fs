@@ -22,16 +22,15 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinDump
+namespace B2R2.RearEnd.BinDisasm
 
-open B2R2.FrontEnd
-open B2R2.FrontEnd.BinFile
+open B2R2.BinIR
+open B2R2.FrontEnd.BinLifter
 
-///// Represents an interface for dumping binary contents.
-type IBinDumper =
-  /// The switch for changing the current mode (i.e., ARM/Thumb). For non-ARM32
-  /// architectures, this has no effect.
-  abstract ModeSwitch: ARM32.IModeSwitchable
+/// Represents the dumping mode.
+type DumpMode =
+  /// Dumps regular disassembly.
+  | Disassembly of DisasmSyntax
+  /// Dumps lifted LowUIR statements.
+  | LowUIR of (LowUIR.Stmt[] -> LowUIR.Stmt[])
 
-  /// Dumps the contents at the specified file pointer location.
-  abstract Dump: BinFilePointer -> unit

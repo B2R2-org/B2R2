@@ -122,7 +122,7 @@ let handleCommands (cmd: string) (rest: string[]) =
   | "fileviewer" | "file" | "fileview" | "peek" ->
     FileViewer.Program.main rest
   | "bindump" | "disasm" | "dump" | "disas" | "dis" ->
-    BinDump.Program.main rest
+    BinDisasm.Program.main rest
   | "binexplorer" | "explore" | "binexplore" | "analyze" ->
     BinExplorer.Program.main rest
   | "repl" ->

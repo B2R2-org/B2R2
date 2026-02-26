@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.BinDump.Program
+module B2R2.RearEnd.BinDisasm.Program
 
 open System
 open B2R2
@@ -54,31 +54,31 @@ let private initTableConfig (isa: ISA) isLift =
     setTableColumnFormats
       [| LeftAligned addrWidth; LeftAligned binaryWidth; LeftAligned 10 |]
 
-let private getOptimizer (opts: BinDumpOpts) =
+let private getOptimizer (opts: BinDisasmOpts) =
   if opts.DoOptimization then LocalOptimizer.Optimize
   else id
 
-let private makeCodeDumper hdl (opts: BinDumpOpts) =
+let private makeCodeDumper hdl (opts: BinDisasmOpts) =
   let mode =
     if opts.ShowLowUIR then LowUIR(getOptimizer opts)
     else Disassembly(opts.DisassemblySyntax)
   BinCodeDumper(hdl, false, opts.ShowSymbols, opts.ShowColor, mode)
   :> IBinDumper
 
-let private makeTableDumper hdl (opts: BinDumpOpts) =
+let private makeTableDumper hdl (opts: BinDisasmOpts) =
   let mode =
     if opts.ShowLowUIR then LowUIR(getOptimizer opts)
     else Disassembly(opts.DisassemblySyntax)
   BinCodeDumper(hdl, true, true, opts.ShowColor, mode)
   :> IBinDumper
 
-let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) =
+let private dumpRawBinary (hdl: BinHandle) (opts: BinDisasmOpts) =
   let ptr = hdl.File.GetBoundedPointer hdl.File.BaseAddress
   let dumper = makeCodeDumper hdl opts
   dumper.Dump ptr
   printsn ""
 
-let private dumpHex (opts: BinDumpOpts) (hdl: BinHandle) ptr =
+let private dumpHex (opts: BinDisasmOpts) (hdl: BinHandle) ptr =
   let bytes = hdl.ReadBytes(ptr = ptr, nBytes = ptr.MaxOffset - ptr.Offset + 1)
   let chunkSz = if opts.ShowWide then 32 else 16
   HexDump.makeLines chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
@@ -92,7 +92,7 @@ let private hasNoContent (file: IBinFile) secName =
     | None -> true
   | _ -> false
 
-let private dumpData (hdl: BinHandle) (opts: BinDumpOpts) ptr secName =
+let private dumpData (hdl: BinHandle) (opts: BinDisasmOpts) ptr secName =
   printSectionTitle <| String.wrapParen secName
   if hasNoContent hdl.File secName then
     resetToDefaultTwoColumnConfig ()
@@ -121,7 +121,7 @@ let private dumpELFSection hdl opts elf tableprn codeprn sec =
     let ptr = (hdl: BinHandle).File.GetSectionPointer name
     if (elf: ELFBinFile).IsPLT sec then dumpOneSection tableprn name ptr
     elif elf.HasCode sec then dumpOneSection codeprn name ptr
-    elif (opts: BinDumpOpts).OnlyDisasm then dumpOneSection codeprn name ptr
+    elif (opts: BinDisasmOpts).OnlyDisasm then dumpOneSection codeprn name ptr
     else dumpData hdl opts ptr name
   else ()
 
@@ -129,7 +129,7 @@ let private dumpPESection (hdl: BinHandle) opts pe _tableprn codeprn sec =
   let name = (sec: Reflection.PortableExecutable.SectionHeader).Name
   let ptr = (hdl: BinHandle).File.GetSectionPointer name
   if (pe: PEBinFile).HasCode sec then dumpOneSection codeprn name ptr
-  elif (opts: BinDumpOpts).OnlyDisasm then dumpOneSection codeprn name ptr
+  elif (opts: BinDisasmOpts).OnlyDisasm then dumpOneSection codeprn name ptr
   else dumpData hdl opts ptr name
 
 let private dumpMachSection (hdl: BinHandle) opts mach tableprn codeprn sec =
@@ -137,7 +137,7 @@ let private dumpMachSection (hdl: BinHandle) opts mach tableprn codeprn sec =
   let ptr = (hdl: BinHandle).File.GetSectionPointer name
   if (mach: MachBinFile).IsPLT sec then dumpOneSection tableprn name ptr
   elif mach.HasCode sec then dumpOneSection codeprn name ptr
-  elif (opts: BinDumpOpts).OnlyDisasm then dumpOneSection codeprn name ptr
+  elif (opts: BinDisasmOpts).OnlyDisasm then dumpOneSection codeprn name ptr
   else dumpData hdl opts ptr name
 
 let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
@@ -172,7 +172,7 @@ let private dumpAllSections (hdl: BinHandle) opts codeprn tableprn =
       dumpMachSection hdl opts mach tableprn codeprn sec
   | _ -> Terminator.futureFeature ()
 
-let private dumpRegularFile (hdl: BinHandle) (opts: BinDumpOpts) =
+let private dumpRegularFile (hdl: BinHandle) (opts: BinDisasmOpts) =
   let codeprn = makeCodeDumper hdl opts
   let tableprn = makeTableDumper hdl opts
   let opts = { opts with ShowSymbols = true }
@@ -182,7 +182,7 @@ let private dumpRegularFile (hdl: BinHandle) (opts: BinDumpOpts) =
   | None ->
     dumpAllSections hdl opts codeprn tableprn
 
-let private dumpFile (opts: BinDumpOpts) filePath =
+let private dumpFile (opts: BinDisasmOpts) filePath =
   let opts = { opts with ShowAddress = true }
   let hdl = BinHandle(filePath, opts.ISA, opts.BaseAddress)
   initTableConfig hdl.File.ISA opts.ShowLowUIR
@@ -194,7 +194,7 @@ let private dumpFiles files opts =
   match List.partition IO.File.Exists files with
   | [], [] ->
     eprintsn "File(s) must be given."
-    CmdOpts.printUsage ToolName UsageTail BinDumpOpts.Spec
+    CmdOpts.printUsage ToolName UsageTail BinDisasmOpts.Spec
   | files, [] ->
     Log.EnableCaching()
     files |> List.iter (dumpFile opts)
@@ -211,14 +211,14 @@ let private validateHexStringLength (hdl: BinHandle) hexstr =
     eprintsn $"The hex string length must be multiple of {alignment}"
     exit 1
 
-let private prepareHexStringDump (opts: BinDumpOpts) =
+let private prepareHexStringDump (opts: BinDisasmOpts) =
   let hex, isa = opts.InputHexStr, opts.ISA
   let hdl = BinHandle(hex, isa, opts.BaseAddress, detectFormat = false)
   initTableConfig hdl.File.ISA opts.ShowLowUIR
   validateHexStringLength hdl opts.InputHexStr
   hdl
 
-let private dumpHexString (opts: BinDumpOpts) =
+let private dumpHexString (opts: BinDisasmOpts) =
   let hdl = prepareHexStringDump opts
   let dumper = makeCodeDumper hdl { opts with ShowColor = true }
   let baseAddr = defaultArg opts.BaseAddress 0UL
@@ -228,7 +228,7 @@ let private dumpHexString (opts: BinDumpOpts) =
   dumper.Dump ptr
   printsn ""
 
-let private dumpMain files (opts: BinDumpOpts) =
+let private dumpMain files (opts: BinDisasmOpts) =
   CmdOpts.sanitizeRestArgs files
 #if DEBUG
   let sw = Diagnostics.Stopwatch.StartNew()
@@ -245,5 +245,5 @@ let private dumpMain files (opts: BinDumpOpts) =
 
 [<EntryPoint>]
 let main args =
-  let opts = BinDumpOpts.Default
-  CmdOpts.parseAndRun dumpMain ToolName UsageTail BinDumpOpts.Spec opts args
+  let opts = BinDisasmOpts.Default
+  CmdOpts.parseAndRun dumpMain ToolName UsageTail BinDisasmOpts.Spec opts args

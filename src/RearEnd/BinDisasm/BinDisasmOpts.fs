@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinDump
+namespace B2R2.RearEnd.BinDisasm
 
 open System
 open B2R2
@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FsOptParse
 open B2R2.RearEnd.Utils
 
-type BinDumpOpts =
+type BinDisasmOpts =
   { /// ISA.
     ISA: ISA
     /// Base address.
@@ -185,4 +185,4 @@ with
           long = "--optimize",
           callback = fun opts _ -> { opts with DoOptimization = true }) ]
 
-and Opt = CmdOpt<BinDumpOpts, ColoredString>
+and Opt = CmdOpt<BinDisasmOpts, ColoredString>

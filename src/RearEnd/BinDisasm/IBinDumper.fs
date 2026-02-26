@@ -22,26 +22,16 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.BinDump.FunctionSymbols
+namespace B2R2.RearEnd.BinDisasm
 
-open System.Collections.Generic
-open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 
-let ofLinkageTable (hdl: BinHandle) =
-  let funcs = Dictionary()
-  for entry in hdl.File.GetLinkageTableEntries() do
-    if entry.TrampolineAddress = 0UL then ()
-    else funcs.TryAdd(entry.TrampolineAddress, entry.FuncName) |> ignore
-  funcs
+///// Represents an interface for dumping binary contents.
+type IBinDumper =
+  /// The switch for changing the current mode (i.e., ARM/Thumb). For non-ARM32
+  /// architectures, this has no effect.
+  abstract ModeSwitch: ARM32.IModeSwitchable
 
-let ofText (hdl: BinHandle) =
-  let funcs = Dictionary()
-  for addr in hdl.File.GetFunctionAddresses() do
-    match hdl.File.TryFindName addr with
-    | Ok name -> funcs.TryAdd(addr, name) |> ignore
-    | Error _ -> funcs.TryAdd(addr, Addr.toFuncName addr) |> ignore
-  for entry in hdl.File.GetLinkageTableEntries() do
-    if entry.TrampolineAddress = 0UL then ()
-    else funcs.TryAdd(entry.TrampolineAddress, entry.FuncName) |> ignore
-  funcs
+  /// Dumps the contents at the specified file pointer location.
+  abstract Dump: BinFilePointer -> unit

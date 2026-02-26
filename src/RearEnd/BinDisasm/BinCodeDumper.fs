@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinDump
+namespace B2R2.RearEnd.BinDisasm
 
 open System.Collections.Generic
 open B2R2

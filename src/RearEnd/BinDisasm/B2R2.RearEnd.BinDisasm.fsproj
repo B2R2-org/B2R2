@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="BinDumpOpts.fs" />
+    <Compile Include="BinDisasmOpts.fs" />
     <Compile Include="IBinDumper.fs" />
     <Compile Include="DumpMode.fs" />
     <Compile Include="FunctionSymbols.fs" />

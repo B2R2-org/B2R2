@@ -22,15 +22,26 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinDump
+module B2R2.RearEnd.BinDisasm.FunctionSymbols
 
-open B2R2.BinIR
-open B2R2.FrontEnd.BinLifter
+open System.Collections.Generic
+open B2R2
+open B2R2.FrontEnd
 
-/// Represents the dumping mode.
-type DumpMode =
-  /// Dumps regular disassembly.
-  | Disassembly of DisasmSyntax
-  /// Dumps lifted LowUIR statements.
-  | LowUIR of (LowUIR.Stmt[] -> LowUIR.Stmt[])
+let ofLinkageTable (hdl: BinHandle) =
+  let funcs = Dictionary()
+  for entry in hdl.File.GetLinkageTableEntries() do
+    if entry.TrampolineAddress = 0UL then ()
+    else funcs.TryAdd(entry.TrampolineAddress, entry.FuncName) |> ignore
+  funcs
 
+let ofText (hdl: BinHandle) =
+  let funcs = Dictionary()
+  for addr in hdl.File.GetFunctionAddresses() do
+    match hdl.File.TryFindName addr with
+    | Ok name -> funcs.TryAdd(addr, name) |> ignore
+    | Error _ -> funcs.TryAdd(addr, Addr.toFuncName addr) |> ignore
+  for entry in hdl.File.GetLinkageTableEntries() do
+    if entry.TrampolineAddress = 0UL then ()
+    else funcs.TryAdd(entry.TrampolineAddress, entry.FuncName) |> ignore
+  funcs
