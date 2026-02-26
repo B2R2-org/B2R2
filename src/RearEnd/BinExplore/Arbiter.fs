@@ -48,8 +48,8 @@ and private ReplyMsg<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 
 /// Represents an arbiter that manages a BinaryBrew instance and logging.
 type Arbiter<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                                     and 'FnCtx: (new: unit -> 'FnCtx)
-                                     and 'GlCtx: (new: unit -> 'GlCtx)>
+                             and 'FnCtx: (new: unit -> 'FnCtx)
+                             and 'GlCtx: (new: unit -> 'GlCtx)>
   public(brew: BinaryBrew<'FnCtx, 'GlCtx>, logFile) =
 
   let logger = new StreamWriter(path = logFile, AutoFlush = true)
@@ -78,7 +78,6 @@ type Arbiter<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     match mailbox.PostAndReply(fun ch -> Command(GetBinaryBrew, ch)) with
     | ReplyBinaryBrew brew -> brew
     | _ -> Terminator.fatalExit "Failed to obtain the BinaryBrew."
-
 
   member _.LogString str =
     match mailbox.PostAndReply(fun ch -> Command(LogString str, ch)) with

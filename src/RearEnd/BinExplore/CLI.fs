@@ -28,7 +28,7 @@ open B2R2
 
 /// Command specification.
 let spec =
-  [ Commands.EvalExpr("?", []) :> ICmd
+  [ Commands.EvalExpr("?", []) :> Commands.ICmd
     Commands.BinInfo()
     Commands.Credits()
     Commands.Demangle()
@@ -41,43 +41,28 @@ let spec =
     Commands.GadgetSearch()
     Commands.ROP() ]
 
-let cliPrinter (arbiter: Arbiter<_, _>) () (output: OutString) =
+let runCommandLine (cmdStore: CmdStore) arbiter (line: string) =
+  match line.Split(' ') |> Array.toList with
+  | cmd :: args ->
+    let brew = (arbiter: Arbiter<_, _>).GetBinaryBrew()
+    cmdStore.Handle(brew, cmd, args)
+  | [] -> [||]
+
+let private cliPrinter (arbiter: Arbiter<_, _>) (output: OutString) =
   printon output
   output.ToString() |> arbiter.LogString
 
-let handle cmds (arbiter: Arbiter<_, _>) (line: string) acc printer =
-  match line.Split(' ') |> Array.toList with
-  | cmd :: args ->
-    let brew = arbiter.GetBinaryBrew()
-    let acc =
-      (cmds: CmdStore).Handle(brew, cmd, args)
-      |> Array.fold (printer arbiter) acc
-    printer arbiter acc (OutputNormal "")
-  | [] -> acc
-
-let rec cliLoop cmds (arbiter: Arbiter<_, _>) (console: FsReadLine.Console) =
-  let line = console.ReadLine()
-  match line with
-  | "" -> cliLoop cmds arbiter console
-  | "quit" | "q" | "exit" -> arbiter.Terminate()
+let rec private cliLoop cmdStore arbiter (console: FsReadLine.Console) =
+  match console.ReadLine() with
+  | "" ->
+    cliLoop cmdStore arbiter console
+  | "quit" | "q" | "exit" ->
+    (arbiter: Arbiter<_, _>).Terminate()
   | line ->
-    handle cmds arbiter line () cliPrinter
-    cliLoop cmds arbiter console
+    runCommandLine cmdStore arbiter line |> Array.iter (cliPrinter arbiter)
+    printsn ""
+    cliLoop cmdStore arbiter console
 
-let rec noReadLineLoop cmds (arbiter: Arbiter<_, _>) =
-  System.Console.Write("B2R2> ")
-  let line = System.Console.ReadLine()
-  match line with
-  | "" -> noReadLineLoop cmds arbiter
-  | "quit" | "q" | "exit" -> arbiter.Terminate()
-  | line ->
-    handle cmds arbiter line () cliPrinter
-    noReadLineLoop cmds arbiter
-
-let start enableReadLine arbiter =
-  let cmds = spec |> CmdStore
-  if enableReadLine then
-    FsReadLine.Console("B2R2> ", cmds.Commands)
-    |> cliLoop cmds arbiter
-  else
-    noReadLineLoop cmds arbiter
+let start arbiter (cmdStore: CmdStore) =
+  FsReadLine.Console(Prompt, cmdStore.Commands)
+  |> cliLoop cmdStore arbiter

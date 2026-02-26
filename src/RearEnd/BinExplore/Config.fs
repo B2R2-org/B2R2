@@ -22,28 +22,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplore.Commands
+[<AutoOpen>]
+module internal B2R2.RearEnd.BinExplore.Config
 
-open B2R2
-open B2R2.FrontEnd.NameMangling
+let encoding = System.Text.Encoding.UTF8
 
-type Demangle() =
-  let mapResult = function
-    | Ok s -> [| OutputNormal s |]
-    | Error _ -> [| OutputNormal "[*] Invalid input." |]
+let [<Literal>] Prompt = "B2R2> "
 
-  interface ICmd with
-
-    member _.CmdName = "demangle"
-
-    member _.CmdAlias = [ "undecorate" ]
-
-    member _.CmdDescr = "Demangle the given mangled string."
-
-    member _.CmdHelp = "Usage: demangle <string>"
-
-    member _.SubCommands = []
-
-    member _.CallBack(_, args) =
-      let mangled = String.concat " " args
-      Demangler.Demangle mangled |> mapResult

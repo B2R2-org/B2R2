@@ -28,6 +28,7 @@ open B2R2
 open B2R2.RearEnd.Utils
 open B2R2.FsOptParse
 
+/// Represents cmdline options for BinExplore.
 type BinExploreOpts =
   { /// IP address to bind. We can specify an IP to use to enable remote access,
     /// but we should make sure the two things:
@@ -41,16 +42,11 @@ type BinExploreOpts =
     Port: int
     /// Logging output file.
     LogFile: string
-    /// JSON dump directory. If this is not empty, we will dump each CFG
-    /// (in JSON format) into the given directory.
-    JsonDumpDir: string
     /// ISA of the target binary. This is only meaningful for universal (FAT)
     /// binaries because BinHandle will automatically detect file format by
     /// default. When a FAT binary is given, we need to choose which ISA to use
     /// with this option.
     ISA: ISA
-    /// Enable readline mode or not.
-    EnableReadLine: bool
     /// Verbosity.
     Verbose: bool }
 with
@@ -60,59 +56,44 @@ with
   static member Default(isa: ISA) =
     { IP = "localhost"
       Port = 8282
-      LogFile = "B2R2.log"
-      JsonDumpDir = ""
+      LogFile = "b2r2.log"
       ISA = isa
-      EnableReadLine = true
       Verbose = false }
 
   static member Spec =
-    [ CmdOpt(descr = "[Input Configuration]\n", dummy = true)
-      (* *)
-      CmdOpt(descr = "Specify <ISA> (e.g., x86) for fat binaries",
-             short = "-a",
-             long = "--isa",
-             extra = 1,
-             callback = fun opts arg -> { opts with ISA = ISA arg[0] })
-      (* *)
-      CmdOpt(descr = "\n[Host Configuration]\n", dummy = true)
-      (* *)
-      CmdOpt(descr = "Specify IP <address> (default: localhost)",
-             long = "--ip",
-             extra = 1,
-             callback = fun opts arg -> { opts with IP = arg[0] })
-      CmdOpt(descr = "Specify host port <number> (default: 8282)",
-             short = "-p",
-             long = "--port",
-             extra = 1,
-             callback = fun opts arg -> { opts with Port = int arg[0] })
-      (* *)
-      CmdOpt(descr = "\n[Logging Configuration]\n", dummy = true)
-      (* *)
-      CmdOpt(descr = "Specify log file <name> (default: B2R2.log)",
-             short = "-l",
-             long = "--log",
-             callback = fun opts arg -> { opts with LogFile = arg[0] })
-      (* *)
-      CmdOpt(descr = "\n[Extra]\n", dummy = true)
-      (* *)
-      CmdOpt(descr = "Disable readline feature for BinExplore",
-             long = "--no-readline",
-             callback = fun opts arg -> { opts with EnableReadLine = false })
-      CmdOpt(descr = "Directory name to dump CFG json (no dump if empty)",
-             short = "-j",
-             long = "--jsondir",
-             extra = 1,
-             callback = fun opts arg -> { opts with JsonDumpDir = arg[0] })
-      CmdOpt(descr = "Show this usage",
-             help = true,
-             short = "-h",
-             long = "--help")
-      CmdOpt(descr = "Verbose mode",
-             short = "-v",
-             long = "--verbose",
-             callback = fun opts _ -> { opts with Verbose = true })
-      (* *)
-      CmdOpt(descr = "\n[Batch Mode]\n", dummy = true)
-      CmdOpt(descr = "Run in batch mode (w/o interative shell).",
-             long = "--batch") ]
+    [ Opt(descr = ColoredString().Add(NoColor, "[")
+                                 .Add(DarkCyan, "General Options")
+                                 .Add(NoColor, "]"),
+          descrPrinter = printcn,
+          dummy = true)
+      Opt(descr = noCol "",
+          dummy = true)
+      Opt(descr = noCol "Show this usage",
+          short = "-h", long = "--help",
+          help = true)
+      Opt(descr = noCol "Verbose mode",
+          short = "-v", long = "--verbose",
+          callback = fun opts _ -> { opts with Verbose = true })
+      Opt(descr = noCol "Specify log file <name> (default: B2R2.log)",
+          short = "-l", long = "--log", extra = 1,
+          callback = fun opts arg -> { opts with LogFile = arg[0] })
+      Opt(descr = noCol "Specify <ISA> (e.g., x86) for fat binaries",
+          short = "-a", long = "--isa", extra = 1,
+          callback = fun opts arg -> { opts with ISA = ISA arg[0] })
+      Opt(descr = noCol "",
+          dummy = true)
+      Opt(descr = ColoredString().Add(NoColor, "[")
+                                 .Add(DarkCyan, "Host Configuration")
+                                 .Add(NoColor, "]"),
+          descrPrinter = printcn,
+          dummy = true)
+      Opt(descr = noCol "",
+          dummy = true)
+      Opt(descr = noCol "Specify IP <address> (default: localhost)",
+          short = "-i", long = "--ip", extra = 1,
+          callback = fun opts arg -> { opts with IP = arg[0] })
+      Opt(descr = noCol "Specify host port <number> (default: 8282)",
+          short = "-p", long = "--port", extra = 1,
+          callback = fun opts arg -> { opts with Port = int arg[0] }) ]
+
+and Opt = CmdOpt<BinExploreOpts, ColoredString>

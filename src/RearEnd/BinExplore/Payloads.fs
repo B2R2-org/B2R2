@@ -22,28 +22,39 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplore.Commands
+namespace B2R2.RearEnd.BinExplore
 
+open System.Text.Json.Serialization
 open B2R2
-open B2R2.FrontEnd.NameMangling
 
-type Demangle() =
-  let mapResult = function
-    | Ok s -> [| OutputNormal s |]
-    | Error _ -> [| OutputNormal "[*] Invalid input." |]
+[<CLIMutable>]
+type FuncInfo =
+  { [<JsonPropertyName("id")>]
+    FuncID: string
+    [<JsonPropertyName("name")>]
+    FuncName: string }
 
-  interface ICmd with
+[<CLIMutable>]
+type DataColoredHexAscii =
+  { [<JsonPropertyName("color")>]
+    Color: string
+    [<JsonPropertyName("hex")>]
+    Hex: string
+    [<JsonPropertyName("ascii")>]
+    Ascii: string }
 
-    member _.CmdName = "demangle"
+[<CLIMutable>]
+type SegInfo =
+  { [<JsonPropertyName("addr")>]
+    SegAddr: Addr
+    [<JsonPropertyName("bytes")>]
+    SegBytes: byte[]
+    [<JsonPropertyName("coloredHexAscii")>]
+    SegColoredHexAscii: DataColoredHexAscii[] }
 
-    member _.CmdAlias = [ "undecorate" ]
-
-    member _.CmdDescr = "Demangle the given mangled string."
-
-    member _.CmdHelp = "Usage: demangle <string>"
-
-    member _.SubCommands = []
-
-    member _.CallBack(_, args) =
-      let mangled = String.concat " " args
-      Demangler.Demangle mangled |> mapResult
+[<CLIMutable>]
+type VarPoint =
+  { [<JsonPropertyName("addr")>]
+    VarAddr: Addr
+    [<JsonPropertyName("name")>]
+    VarNames: string[] }

@@ -25,19 +25,48 @@
 module B2R2.RearEnd.BinExplore.Program
 
 open B2R2
+open B2R2.FrontEnd
+open B2R2.MiddleEnd
+open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd.Utils
 
 let [<Literal>] private ToolName = "explore"
+
+let [<Literal>] private UsageTail = "<binary file>"
+
+let private startGUIAndCLI (opts: BinExploreOpts) brew =
+  let arbiter = Arbiter(brew, opts.LogFile)
+  let cmdStore = CLI.spec |> CmdStore
+  HTTPServer.start arbiter opts.IP opts.Port opts.Verbose cmdStore
+  CLI.start arbiter cmdStore
+
+let private startWithFile file (opts: BinExploreOpts) =
+  let isa = opts.ISA
+  let hdl = BinHandle(file, isa, None)
+  match isa with
+  | EVM ->
+    let cfgRecovery = Strategies.EVMCFGRecovery()
+    EVMBinaryBrew(hdl, [| cfgRecovery |])
+    |> startGUIAndCLI opts
+  | _ ->
+    let exnInfo = ExceptionInfo hdl
+    let funcId = Strategies.FunctionIdentification(hdl, exnInfo)
+    let cfgRecovery = Strategies.CFGRecovery()
+    let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
+    BinaryBrew(hdl, exnInfo, strategies)
+    |> startGUIAndCLI opts
+
+let private explore files opts =
+  CmdOpts.sanitizeRestArgs files
+  match files with
+  | [] ->
+    eprintsn "File should be given as input."
+    CmdOpts.printUsage ToolName UsageTail BinExploreOpts.Spec
+  | file :: _ ->
+    startWithFile file opts
 
 [<EntryPoint>]
 let main args =
   let isa = ISA Architecture.Intel (* default ISA *)
   let opts = BinExploreOpts.Default isa
-  let spec = BinExploreOpts.Spec
-  match Array.tryFindIndex (fun a -> a = "--batch") args with
-  | Some idx ->
-    let beforeOpts, afterOpts = Array.splitAt idx args
-    let cmds = Array.tail afterOpts |> Array.toList
-    CmdOpts.parseAndRun (BatchMode.main cmds) ToolName "" spec opts beforeOpts
-  | None ->
-    CmdOpts.parseAndRun InteractiveMode.main ToolName "<binfile>" spec opts args
+  CmdOpts.parseAndRun explore ToolName UsageTail BinExploreOpts.Spec opts args

@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.BinExplore
 
 open System.Collections.Generic
 open B2R2
+open B2R2.RearEnd.BinExplore.Commands
 
 /// Raised when there are duplicate commands with the same name or alias.
 exception DuplicateCommandException

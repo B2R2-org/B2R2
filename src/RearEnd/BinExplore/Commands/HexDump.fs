@@ -27,7 +27,6 @@ namespace B2R2.RearEnd.BinExplore.Commands
 open System
 open B2R2
 open B2R2.MiddleEnd
-open B2R2.RearEnd.BinExplore
 
 type HexDump() =
   let parseAddr addr =

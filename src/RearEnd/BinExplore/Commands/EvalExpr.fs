@@ -26,7 +26,6 @@ namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
 open B2R2.RearEnd.BinQL
-open B2R2.RearEnd.BinExplore
 
 type SimpleArithEvaluator() =
   let parser = Parser()

@@ -4,9 +4,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Arbiter.fs" />
-    <Compile Include="ICmd.fs" />
-    <Compile Include="CmdStore.fs" />
+    <Compile Include="Commands\ICmd.fs" />
     <Compile Include="Commands\BinInfo.fs" />
     <Compile Include="Commands\Credits.fs" />
     <Compile Include="Commands\Demangle.fs" />
@@ -18,11 +16,14 @@
     <Compile Include="Commands\Search.fs" />
     <Compile Include="Commands\Show.fs" />
     <Compile Include="Commands\ROP.fs" />
+    <Compile Include="Config.fs" />
+    <Compile Include="Arbiter.fs" />
+    <Compile Include="CmdStore.fs" />
     <Compile Include="CLI.fs" />
+    <Compile Include="Payloads.fs" />
+    <Compile Include="API.fs" />
     <Compile Include="HTTPServer.fs" />
     <Compile Include="BinExploreOpts.fs" />
-    <Compile Include="InteractiveMode.fs" />
-    <Compile Include="BatchMode.fs" />
     <Compile Include="Program.fs" />
     <None Include="WebUI\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
