@@ -34,11 +34,11 @@
   <Project Path="../MiddleEnd/LLVM/B2R2.MiddleEnd.LLVM.fsproj" />
   <Project Path="../MiddleEnd/SSA/B2R2.MiddleEnd.SSA.fsproj" />
   <Project Path="Assembler/B2R2.RearEnd.Assembler.fsproj" />
-  <Project Path="BinDump/B2R2.RearEnd.BinDump.fsproj" />
-  <Project Path="BinExplorer/B2R2.RearEnd.BinExplorer.fsproj" />
+  <Project Path="BinDisasm/B2R2.RearEnd.BinDisasm.fsproj" />
+  <Project Path="BinExplore/B2R2.RearEnd.BinExplore.fsproj" />
   <Project Path="BinQL.Tests/B2R2.RearEnd.BinQL.Tests.fsproj" />
   <Project Path="BinQL/B2R2.RearEnd.BinQL.fsproj" />
-  <Project Path="FileViewer/B2R2.RearEnd.FileViewer.fsproj" />
+  <Project Path="BinScan/B2R2.RearEnd.BinScan.fsproj" />
   <Project Path="Launcher/B2R2.RearEnd.Launcher.fsproj" />
   <Project Path="Repl/B2R2.RearEnd.Repl.fsproj" />
   <Project Path="ROP/B2R2.RearEnd.ROP.fsproj" />

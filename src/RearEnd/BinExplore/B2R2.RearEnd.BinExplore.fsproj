@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Arbiter.fs" />
+    <Compile Include="ICmd.fs" />
+    <Compile Include="CmdStore.fs" />
+    <Compile Include="Commands\BinInfo.fs" />
+    <Compile Include="Commands\Credits.fs" />
+    <Compile Include="Commands\Demangle.fs" />
+    <Compile Include="Commands\Disasm.fs" />
+    <Compile Include="Commands\EvalExpr.fs" />
+    <Compile Include="Commands\HexDump.fs" />
+    <Compile Include="Commands\List.fs" />
+    <Compile Include="Commands\Print.fs" />
+    <Compile Include="Commands\Search.fs" />
+    <Compile Include="Commands\Show.fs" />
+    <Compile Include="Commands\ROP.fs" />
+    <Compile Include="CLI.fs" />
+    <Compile Include="HTTPServer.fs" />
+    <Compile Include="BinExploreOpts.fs" />
+    <Compile Include="InteractiveMode.fs" />
+    <Compile Include="BatchMode.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="WebUI\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\NameMangling\B2R2.FrontEnd.NameMangling.fsproj" />
+    <ProjectReference Include="..\..\MiddleEnd\API\B2R2.MiddleEnd.API.fsproj" />
+    <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
+    <ProjectReference Include="..\ROP\B2R2.RearEnd.ROP.fsproj" />
+    <ProjectReference Include="..\Visualization\B2R2.RearEnd.Visualization.fsproj" />
+    <ProjectReference Include="..\BinQL\B2R2.RearEnd.BinQL.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="B2R2.FsReadLine" Version="0.2.2" />
+  </ItemGroup>
+</Project>

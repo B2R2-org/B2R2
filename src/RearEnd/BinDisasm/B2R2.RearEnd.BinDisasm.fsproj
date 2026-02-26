@@ -6,18 +6,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="AssemblerOpts.fs" />
+    <Compile Include="BinDisasmOpts.fs" />
+    <Compile Include="IBinDumper.fs" />
+    <Compile Include="DumpMode.fs" />
+    <Compile Include="FunctionSymbols.fs" />
+    <Compile Include="BinCodeDumper.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Assembly\API\B2R2.Assembly.API.fsproj" />
-    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
     <ProjectReference Include="..\Utils\B2R2.RearEnd.Utils.fsproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="B2R2.FsReadLine" Version="0.2.2" />
   </ItemGroup>
 
 </Project>
