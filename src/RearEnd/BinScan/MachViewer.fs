@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.RearEnd.FileViewer.MachViewer
+module internal B2R2.RearEnd.BinScan.MachViewer
 
 open System
 open B2R2
@@ -122,7 +122,7 @@ let dumpSectionHeadersSimple (mach: MachBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpSectionHeaders (opts: FileViewerOpts) (mach: MachBinFile) =
+let dumpSectionHeaders (opts: BinScanOpts) (mach: MachBinFile) =
   let addrColumn = columnWidthOfAddr mach |> LeftAligned
   let wordSize = (mach :> IBinFile).ISA.WordSize
   if opts.Verbose then dumpSectionHeadersVerbose mach wordSize addrColumn
@@ -228,7 +228,7 @@ let dumpSymbolsSimple (mach: MachBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpSymbols (opts: FileViewerOpts) (mach: MachBinFile) =
+let dumpSymbols (opts: BinScanOpts) (mach: MachBinFile) =
   let addrColumn = columnWidthOfAddr mach |> LeftAligned
   let wordSize = (mach :> IBinFile).ISA.WordSize
   if opts.Verbose then dumpSymbolsVerbose mach wordSize addrColumn
@@ -277,10 +277,10 @@ let dumpFunctions _ (mach: MachBinFile) =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpArchiveHeader (_: FileViewerOpts) (_: MachBinFile) =
+let dumpArchiveHeader (_: BinScanOpts) (_: MachBinFile) =
   Terminator.futureFeature ()
 
-let dumpUniversalHeader (_opts: FileViewerOpts) (mach: MachBinFile) =
+let dumpUniversalHeader (_opts: BinScanOpts) (mach: MachBinFile) =
   let bytes = (mach :> IBinFile).RawBytes
   if Mach.Header.IsFat bytes then
     let archs = Mach.Fat.parseArchs bytes

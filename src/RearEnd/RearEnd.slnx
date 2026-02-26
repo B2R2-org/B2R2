@@ -38,7 +38,7 @@
   <Project Path="BinExplorer/B2R2.RearEnd.BinExplorer.fsproj" />
   <Project Path="BinQL.Tests/B2R2.RearEnd.BinQL.Tests.fsproj" />
   <Project Path="BinQL/B2R2.RearEnd.BinQL.fsproj" />
-  <Project Path="FileViewer/B2R2.RearEnd.FileViewer.fsproj" />
+  <Project Path="BinScan/B2R2.RearEnd.BinScan.fsproj" />
   <Project Path="Launcher/B2R2.RearEnd.Launcher.fsproj" />
   <Project Path="Repl/B2R2.RearEnd.Repl.fsproj" />
   <Project Path="ROP/B2R2.RearEnd.ROP.fsproj" />

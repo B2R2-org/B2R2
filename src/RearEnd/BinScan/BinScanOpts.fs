@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.FileViewer
+namespace B2R2.RearEnd.BinScan
 
 open System
 open System.Collections.Generic
@@ -30,8 +30,8 @@ open B2R2
 open B2R2.RearEnd.Utils
 open B2R2.FsOptParse
 
-/// Represents the command-line options for the FileViewer.
-type FileViewerOpts =
+/// Represents the command-line options for the BinScan.
+type BinScanOpts =
   { /// Display items.
     DisplayItems: HashSet<DisplayItem>
     ///  ISA. This is only meaningful for universal (FAT) binaries
@@ -47,12 +47,12 @@ with
   interface IVerboseOption with
     member this.IsVerbose with get() = this.Verbose
 
-  /// Adds a display item to the current FileViewerOpts.
+  /// Adds a display item to the current BinScanOpts.
   member private this.Add(item) =
     this.DisplayItems.Add item |> ignore
     this
 
-  /// Returns the default FileViewerOpts.
+  /// Returns the default BinScanOpts.
   static member Default() =
     { DisplayItems = HashSet<DisplayItem>()
       ISA = ISA Architecture.Intel

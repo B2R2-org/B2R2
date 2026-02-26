@@ -59,7 +59,7 @@
   <Project Path="src/RearEnd/BinExplorer/B2R2.RearEnd.BinExplorer.fsproj" />
   <Project Path="src/RearEnd/BinQL.Tests/B2R2.RearEnd.BinQL.Tests.fsproj" />
   <Project Path="src/RearEnd/BinQL/B2R2.RearEnd.BinQL.fsproj" />
-  <Project Path="src/RearEnd/FileViewer/B2R2.RearEnd.FileViewer.fsproj" />
+  <Project Path="src/RearEnd/BinScan/B2R2.RearEnd.BinScan.fsproj" />
   <Project Path="src/RearEnd/Launcher/B2R2.RearEnd.Launcher.fsproj" />
   <Project Path="src/RearEnd/Repl/B2R2.RearEnd.Repl.fsproj" />
   <Project Path="src/RearEnd/ROP/B2R2.RearEnd.ROP.fsproj" />

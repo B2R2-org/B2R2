@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.FileViewer
+namespace B2R2.RearEnd.BinScan
 
 open B2R2
 open B2R2.FrontEnd.BinFile

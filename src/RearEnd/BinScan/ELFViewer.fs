@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.RearEnd.FileViewer.ELFViewer
+module internal B2R2.RearEnd.BinScan.ELFViewer
 
 open System
 open B2R2
@@ -43,7 +43,7 @@ let computeEntryPoint (hdr: Header) =
   ColoredString(Green, HexString.ofUInt64 hdr.EntryPoint)
   |> OutputColored
 
-let dumpFileHeader (_: FileViewerOpts) (file: ELFBinFile) =
+let dumpFileHeader (_: BinScanOpts) (file: ELFBinFile) =
   let hdr = file.Header
   resetToDefaultTwoColumnConfig ()
   printor [| OutputNormal "Magic:"; computeMagicBytes file |]
@@ -142,7 +142,7 @@ let dumpSectionHeadersSimple (elf: ELFBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpSectionHeaders (opts: FileViewerOpts) (elf: ELFBinFile) =
+let dumpSectionHeaders (opts: BinScanOpts) (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   let wordSize = (elf :> IBinFile).ISA.WordSize
   if opts.Verbose then dumpSectionHeadersVerbose elf wordSize addrColumn
@@ -251,7 +251,7 @@ let dumpSymbolsSimple (elf: ELFBinFile) addrColumn =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpSymbols (opts: FileViewerOpts) elf =
+let dumpSymbols (opts: BinScanOpts) elf =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   if opts.Verbose then dumpSymbolsVerbose elf addrColumn
   else dumpSymbolsSimple elf addrColumn
@@ -397,7 +397,7 @@ let dumpSegmentsSimple (elf: ELFBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpSegments (opts: FileViewerOpts) (elf: ELFBinFile) =
+let dumpSegments (opts: BinScanOpts) (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   let wordSize = (elf :> IBinFile).ISA.WordSize
   if opts.Verbose then dumpSegmentsVerbose elf wordSize addrColumn
@@ -461,7 +461,7 @@ let dumpLinkageTableSimple (elf: ELFBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpLinkageTable (opts: FileViewerOpts) (elf: ELFBinFile) =
+let dumpLinkageTable (opts: BinScanOpts) (elf: ELFBinFile) =
   let addrColumn = columnWidthOfAddr elf |> LeftAligned
   let wordSize = (elf :> IBinFile).ISA.WordSize
   if opts.Verbose then dumpLinkageTableVerbose elf wordSize addrColumn

@@ -56,30 +56,30 @@ B2R2, please visit our official website: https://b2r2.org/."""
 """
   printcn
   <| ColoredString().Add(NoColor, "- ")
-                    .Add(DarkYellow, "file")
-                    .Add(NoColor, " (a.k.a. peek, fileview)")
+                    .Add(DarkYellow, "scan")
+                    .Add(NoColor, " (a.k.a. binscan)")
   printsn """
-  This is a file format reader that is similar to readelf or otool.
+  This is a file format scanner that is similar to readelf or otool.
   You can read various file format information using this app. To
   learn more about the tool, type the following command:
 
-  $ b2r2 file --help
+  $ b2r2 scan --help
 """
   printcn
   <| ColoredString().Add(NoColor, "- ")
-                    .Add(DarkYellow, "dump")
-                    .Add(NoColor, " (a.k.a. disasm, bindump)")
+                    .Add(DarkYellow, "disasm")
+                    .Add(NoColor, " (a.k.a. bindisasm)")
   printsn """
   This is a linear-sweep disassembler similar to objdump, although
   this app is more powerful and versatile. To learn more about the
   tool, type the following command:
 
-  $ b2r2 dump --help
+  $ b2r2 disasm --help
 """
   printcn
   <| ColoredString().Add(NoColor, "- ")
                     .Add(DarkYellow, "explore")
-                    .Add(NoColor, " (a.k.a. binexplorer, analyze)")
+                    .Add(NoColor, " (a.k.a. binexplore)")
   printsn """
   This is a recursive-descent disassembler that provides a web-based
   GUI as well as its own CLI terminal. To learn more about the tool,
@@ -119,11 +119,11 @@ let handleCommands (cmd: string) (rest: string[]) =
     showUsage (); 0
   | "version" | "--version" | "-v" ->
     printMyVersion (); 0
-  | "fileviewer" | "file" | "fileview" | "peek" ->
-    FileViewer.Program.main rest
-  | "bindump" | "disasm" | "dump" | "disas" | "dis" ->
+  | "binscan" | "scan" ->
+    BinScan.Program.main rest
+  | "bindisasm" | "disasm" ->
     BinDisasm.Program.main rest
-  | "binexplorer" | "explore" | "binexplore" | "analyze" ->
+  | "binexplore" | "explore" ->
     BinExplorer.Program.main rest
   | "repl" ->
     Repl.Program.main rest

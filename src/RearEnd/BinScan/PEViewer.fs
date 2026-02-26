@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.RearEnd.FileViewer.PEViewer
+module internal B2R2.RearEnd.BinScan.PEViewer
 
 open System.Reflection.PortableExecutable
 open B2R2
@@ -134,7 +134,7 @@ let dumpSectionHeadersSimple (pe: PEBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpSectionHeaders (opts: FileViewerOpts) (pe: PEBinFile) =
+let dumpSectionHeaders (opts: BinScanOpts) (pe: PEBinFile) =
   let addrColumn = columnWidthOfAddr pe |> LeftAligned
   let wordSize = (pe :> IBinFile).ISA.WordSize
   if opts.Verbose then dumpSectionHeadersVerbose pe wordSize addrColumn

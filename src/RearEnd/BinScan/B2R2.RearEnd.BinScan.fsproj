@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <Compile Include="DisplayItem.fs" />
-    <Compile Include="FileViewerOpts.fs" />
+    <Compile Include="BinScanOpts.fs" />
     <Compile Include="DisplayUtils.fs" />
     <Compile Include="ELFViewer.fs" />
     <Compile Include="MachViewer.fs" />

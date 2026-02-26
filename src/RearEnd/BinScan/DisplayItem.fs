@@ -22,9 +22,9 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.FileViewer
+namespace B2R2.RearEnd.BinScan
 
-/// Represents display items for FileViewer.
+/// Represents display items for BinScan.
 type DisplayItem =
   /// Special item that represents all items.
   | DisplayAll

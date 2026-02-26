@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.FileViewer.Program
+module B2R2.RearEnd.BinScan.Program
 
 open B2R2
 open B2R2.FrontEnd.BinFile
@@ -66,13 +66,13 @@ let private dumpSpecific opts (file: IBinFile) title elf pe mach =
   | :? MachBinFile as file -> mach opts file
   | _ -> Terminator.futureFeature ()
 
-let private dumpFileHeader (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpFileHeader (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "File Header Information"
     ELFViewer.dumpFileHeader
     PEViewer.dumpFileHeader
     MachViewer.dumpFileHeader
 
-let private dumpSectionHeaders (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpSectionHeaders (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Section Header Information"
     ELFViewer.dumpSectionHeaders
     PEViewer.dumpSectionHeaders
@@ -84,19 +84,19 @@ let private dumpSectionDetails (secname: string) (file: IBinFile) =
     PEViewer.dumpSectionDetails
     MachViewer.dumpSectionDetails
 
-let private dumpSymbols (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpSymbols (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Symbol Information"
     ELFViewer.dumpSymbols
     PEViewer.dumpSymbols
     MachViewer.dumpSymbols
 
-let private dumpRelocs (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpRelocs (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Relocation Information"
     ELFViewer.dumpRelocs
     PEViewer.dumpRelocs
     MachViewer.dumpRelocs
 
-let private dumpFunctions (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpFunctions (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Function Information"
     ELFViewer.dumpFunctions
     PEViewer.dumpFunctions
@@ -108,15 +108,15 @@ let private dumpExceptionTable hdl (file: IBinFile) =
     PEViewer.dumpExceptionTable
     MachViewer.dumpExceptionTable
 
-let private dumpDynamicSection (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpDynamicSection (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Dynamic Section Information"
     ELFViewer.dumpDynamicSection badAccess badAccess
 
-let private dumpSegments (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpSegments (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Segment Information"
     ELFViewer.dumpSegments badAccess badAccess
 
-let private dumpLinkageTable (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpLinkageTable (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Linkage Table Information"
     ELFViewer.dumpLinkageTable badAccess badAccess
 
@@ -132,39 +132,39 @@ let private dumpNotes hdl (file: IBinFile) =
   dumpSpecific hdl file ".notes Information"
     ELFViewer.dumpNotes badAccess badAccess
 
-let private dumpImports (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpImports (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Import table Information"
     badAccess PEViewer.dumpImports badAccess
 
-let private dumpExports (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpExports (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Export table Information"
     badAccess PEViewer.dumpExports badAccess
 
-let private dumpOptionalHeader (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpOptionalHeader (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Optional Header Information"
     badAccess PEViewer.dumpOptionalHeader badAccess
 
-let private dumpCLRHeader (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpCLRHeader (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "CLR Header Information"
     badAccess PEViewer.dumpCLRHeader badAccess
 
-let private dumpDependencies (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpDependencies (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Dependencies Information"
     badAccess PEViewer.dumpDependencies badAccess
 
-let private dumpArchiveHeader (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpArchiveHeader (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Archive Header Information"
     badAccess badAccess MachViewer.dumpArchiveHeader
 
-let private dumpUnivHeader (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpUnivHeader (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Universal Header Information"
     badAccess badAccess MachViewer.dumpUniversalHeader
 
-let private dumpLoadCommands (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpLoadCommands (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Load Commands Information"
     badAccess badAccess MachViewer.dumpLoadCommands
 
-let private dumpSharedLibs (opts: FileViewerOpts) (file: IBinFile) =
+let private dumpSharedLibs (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Shared Libs Information"
     badAccess badAccess MachViewer.dumpSharedLibs
 
@@ -222,7 +222,7 @@ let private printSelectively hdl opts file = function
   | DisplayMach MachLoadCmds -> dumpLoadCommands opts file
   | DisplayMach MachSharedLibs -> dumpSharedLibs opts file
 
-let private dumpFile (opts: FileViewerOpts) (filePath: string) =
+let private dumpFile (opts: BinScanOpts) (filePath: string) =
   let hdl = BinHandle(filePath, opts.ISA, opts.BaseAddress)
   let file = hdl.File
   printFileName file.Path
@@ -239,7 +239,7 @@ let private dump files opts =
   match files with
   | [] ->
     eprintsn "File(s) must be given."
-    CmdOpts.printUsage ToolName UsageTail FileViewerOpts.Spec
+    CmdOpts.printUsage ToolName UsageTail BinScanOpts.Spec
   | files ->
 #if DEBUG
     let sw = System.Diagnostics.Stopwatch.StartNew()
@@ -254,5 +254,5 @@ let private dump files opts =
 
 [<EntryPoint>]
 let main args =
-  let opts = FileViewerOpts.Default()
-  CmdOpts.parseAndRun dump ToolName UsageTail FileViewerOpts.Spec opts args
+  let opts = BinScanOpts.Default()
+  CmdOpts.parseAndRun dump ToolName UsageTail BinScanOpts.Spec opts args
