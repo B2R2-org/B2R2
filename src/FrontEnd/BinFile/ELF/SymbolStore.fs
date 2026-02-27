@@ -139,22 +139,30 @@ module private SymbolTables =
       |> Option.bind (retrieveVer verTbl)
     | None -> None
 
+  /// For STT_SECTION symbols, the symbol name is actually the section name.
+  /// This function adjusts the symbol name for such symbols.
+  let adjustSymbolName symName symbolType parent =
+    match symbolType, parent with
+    | SymbolType.STT_SECTION, Some sec -> sec.SecName
+    | _ -> symName
+
   let getSymbol toolBox shdrs strTbl verTbl symbol verInfoTbl txtOffset symIdx =
     let cls = toolBox.Header.Class
     let reader = toolBox.Reader
     let nameIdx = reader.ReadUInt32(span = symbol, offset = 0)
     let sname = ByteArray.extractCStringFromSpan strTbl (int nameIdx)
     let info = symbol[selectByWordSize cls 12 4]
+    let symType: SymbolType = info &&& 0xfuy |> LanguagePrimitives.EnumOfValue
     let other = symbol[selectByWordSize cls 13 5]
     let ndx = reader.ReadUInt16(symbol, selectByWordSize cls 14 6) |> int
     let parent = Array.tryItem ndx shdrs
     let secIdx = SectionHeaderIdx.IndexFromInt ndx
     let verInfo = getVerInfo toolBox verTbl verInfoTbl symIdx
     { Addr = readSymAddr toolBox.BaseAddress symbol reader cls parent txtOffset
-      SymName = sname
+      SymName = adjustSymbolName sname symType parent
       Size = readUIntByWordSize symbol reader cls (selectByWordSize cls 8 16)
       Bind = info >>> 4 |> LanguagePrimitives.EnumOfValue
-      SymType = info &&& 0xfuy |> LanguagePrimitives.EnumOfValue
+      SymType = symType
       Vis = other &&& 0x3uy |> LanguagePrimitives.EnumOfValue
       SecHeaderIndex = secIdx
       ParentSection = parent

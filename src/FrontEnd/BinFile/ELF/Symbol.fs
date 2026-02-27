@@ -42,7 +42,7 @@ type Symbol =
     Vis: SymbolVisibility
     /// The index of the relevant section with regard to this symbol.
     SecHeaderIndex: SectionHeaderIdx
-    /// Parent section of this section.
+    /// Parent section of this symbol.
     ParentSection: SectionHeader option
     /// Version information.
     VerInfo: SymVerInfo option
