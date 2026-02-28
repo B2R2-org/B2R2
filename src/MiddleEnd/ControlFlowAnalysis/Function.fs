@@ -70,5 +70,8 @@ type Function(entryPoint,
   /// Jump tables associated with this function.
   member _.JumpTables with get(): List<JmpTableInfo> = jmptbls
 
+  /// Whether this function is an external function.
+  member _.IsExternal with get(): bool = isExtern
+
   interface ILinkage with
     member _.IsExternal with get() = isExtern
