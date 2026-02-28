@@ -101,9 +101,7 @@ let getCFG (arbiter: Arbiter<_, _>) cfgType funcID =
 let inline private toJson<'T> (obj: 'T) =
   JsonSerializer.Serialize obj
 
-/// Returns the list of internal functions in the binary, sorted by their entry
-/// point.
-let getFunctions (arbiter: Arbiter<_, _>) =
+let private getInternalFunctions (arbiter: Arbiter<_, _>) =
   let brew = arbiter.GetBinaryBrew()
   let names =
     brew.Functions.Sequence
@@ -112,6 +110,23 @@ let getFunctions (arbiter: Arbiter<_, _>) =
     |> Seq.map (fun fn -> { FuncID = fn.ID; FuncName = fn.Name })
     |> Seq.toArray
   Some(toJson names |> encoding.GetBytes)
+
+let private getExternalFunctions (arbiter: Arbiter<_, _>) =
+  let brew = arbiter.GetBinaryBrew()
+  let names =
+    brew.Functions.Sequence
+    |> Seq.filter (fun fn -> fn.IsExternal)
+    |> Seq.sortBy (fun fn -> fn.EntryPoint)
+    |> Seq.map (fun fn -> { FuncID = fn.ID; FuncName = fn.Name })
+    |> Seq.toArray
+  Some(toJson names |> encoding.GetBytes)
+
+/// Returns the list of functions in the binary, sorted by their entry points.
+/// If `isInternal` is true, only internal functions are returned; otherwise,
+/// only external functions are returned.
+let getFunctions (arbiter: Arbiter<_, _>) isInternal =
+  if isInternal then getInternalFunctions arbiter
+  else getExternalFunctions arbiter
 
 /// Returns the hex view of the binary, including the address, bytes, and ASCII
 /// representation.

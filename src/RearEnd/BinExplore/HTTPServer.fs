@@ -72,7 +72,7 @@ let invokeAPI (req: HttpListenerRequest) arbiter cmdStore =
   | "LowUIR" -> API.getCFG arbiter API.CFGKind.IR args
   | "SSA" -> API.getCFG arbiter API.CFGKind.SSA args
   | "CG" -> API.getCFG arbiter API.CFGKind.Call args
-  | "Functions" -> API.getFunctions arbiter
+  | "Functions" -> API.getFunctions arbiter true
   | "Hexview" -> API.getHexview arbiter
   | "Command" -> API.runCommand arbiter cmdStore args
   | "DataFlow" -> API.getDataflow arbiter args
