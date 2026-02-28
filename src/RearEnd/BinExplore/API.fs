@@ -51,18 +51,18 @@ let private cfgToJSON cfgType (brew: BinaryBrew<_, _>) (g: LowUIRCFG) =
   match cfgType with
   | CFGKind.IR ->
     let roots = g.Roots |> Seq.toList
-    Visualizer.getJSONFromGraph g roots
+    Visualizer.toJSON g roots
   | CFGKind.Disasm ->
     let file = brew.BinHandle.File
     let disasmBuilder = AsmWordDisasmBuilder(true, file, file.ISA.WordSize)
     let g = DisasmCFG(disasmBuilder, g)
     let roots = g.Roots |> Seq.toList
-    Visualizer.getJSONFromGraph g roots
+    Visualizer.toJSON g roots
   | CFGKind.SSA ->
     let factory = SSA.SSALifterFactory.Create brew.BinHandle
     let ssaCFG = factory.Lift g
     let roots = ssaCFG.Roots |> List.ofArray
-    Visualizer.getJSONFromGraph ssaCFG roots
+    Visualizer.toJSON ssaCFG roots
   | _ ->
     failwith "Invalid CFG type"
 
@@ -86,7 +86,7 @@ let getCFG (arbiter: Arbiter<_, _>) cfgType funcID =
   | CFGKind.Call ->
     try
       let g, roots = CallGraph.create BinGraph.Imperative brew
-      let s = Visualizer.getJSONFromGraph g roots
+      let s = Visualizer.toJSON g roots
       Some(encoding.GetBytes s)
     with e ->
 #if DEBUG
