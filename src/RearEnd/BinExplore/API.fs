@@ -40,8 +40,8 @@ type CFGKind =
   | SSA = 2
   | Call = 3
 
-/// Returns the binary file path of the given arbiter.
-let getBinInfo (arbiter: Arbiter<_, _>) =
+/// Returns the current binary file path.
+let getFilePath (arbiter: Arbiter<_, _>) =
   let brew = arbiter.GetBinaryBrew()
   let txt = brew.BinHandle.File.Path
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
@@ -66,7 +66,8 @@ let private cfgToJSON cfgType (brew: BinaryBrew<_, _>) (g: LowUIRCFG) =
   | _ ->
     failwith "Invalid CFG type"
 
-let getRegularCFG funcID (brew: BinaryBrew<_, _>) cfgType =
+let private getCFG (arbiter: Arbiter<_, _>) funcID cfgType =
+  let brew = arbiter.GetBinaryBrew()
   let func = brew.Functions.FindByID funcID
   try
     let s = cfgToJSON cfgType brew func.CFG
@@ -79,24 +80,32 @@ let getRegularCFG funcID (brew: BinaryBrew<_, _>) cfgType =
     None
 #endif
 
-/// Returns the CFG of the given function ID and CFG type.
-let getCFG (arbiter: Arbiter<_, _>) cfgType funcID =
+/// Returns the disassembly CFG of the given function ID.
+let getDisasmCFG (arbiter: Arbiter<_, _>) funcID =
+  getCFG arbiter funcID CFGKind.Disasm
+
+/// Returns the LowUIR CFG of the given function ID.
+let getLowUIRCFG (arbiter: Arbiter<_, _>) funcID =
+  getCFG arbiter funcID CFGKind.IR
+
+/// Returns the SSA CFG of the given function ID.
+let getSSACFG (arbiter: Arbiter<_, _>) funcID =
+  getCFG arbiter funcID CFGKind.SSA
+
+/// Returns the call graph of the binary.
+let getCallCFG (arbiter: Arbiter<_, _>) =
   let brew = arbiter.GetBinaryBrew()
-  match cfgType with
-  | CFGKind.Call ->
-    try
-      let g, roots = CallGraph.create BinGraph.Imperative brew
-      let s = Visualizer.toJSON g roots
-      Some(encoding.GetBytes s)
-    with e ->
+  try
+    let g, roots = CallGraph.create BinGraph.Imperative brew
+    let s = Visualizer.toJSON g roots
+    Some(encoding.GetBytes s)
+  with e ->
 #if DEBUG
-      eprintfn "%A" e
-      failwith "[FATAL]: Failed to generate CG"
+    eprintfn "%A" e
+    failwith "[FATAL]: Failed to generate CG"
 #else
-      None
+    None
 #endif
-  | typ ->
-    getRegularCFG funcID brew typ
 
 let inline private toJson<'T> (obj: 'T) =
   JsonSerializer.Serialize obj
@@ -128,14 +137,13 @@ let getFunctions (arbiter: Arbiter<_, _>) isInternal =
   if isInternal then getInternalFunctions arbiter
   else getExternalFunctions arbiter
 
-/// Returns the hex view of the binary, including the address, bytes, and ASCII
-/// representation.
-let getHexview (arbiter: Arbiter<_, _>) =
+/// Returns the hexdump of the binary in color.
+let getHexdump (arbiter: Arbiter<_, _>) =
   let brew = arbiter.GetBinaryBrew()
   brew.BinHandle.File.GetVMMappedRegions()
   |> Array.map (fun region ->
-    let size = region.Max - region.Min + 1UL
-    let bs = brew.BinHandle.ReadBytes(region.Min, int size)
+    let ptr = brew.BinHandle.File.GetBoundedPointer region.Min
+    let bs = brew.BinHandle.ReadBytes(ptr, ptr.ReadableAmount)
     let coloredHex =
       bs |> Array.map (fun b -> Color.FromByte b, b.ToString("X2"))
     let coloredAscii =

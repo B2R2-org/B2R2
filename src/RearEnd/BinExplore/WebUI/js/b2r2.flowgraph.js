@@ -59,7 +59,7 @@ class FlowGraph extends Graph {
     const myself = this;
     const root = roots[0];
     const args = [root, addr, tag, term];
-    query({ "q": "DataFlow", "args": args }, function (_status, json) {
+    query({ "q": "getDataflow", "args": args }, function (_status, json) {
       let nodes = myself.linemap[addr].Tokens[term];
       for (let i = 0; i < json.length; i++) {
         const addr = json[i].addr;
@@ -284,7 +284,7 @@ class FlowGraph extends Graph {
 
   fetchAndDraw(id, kind) {
     const myself = this;
-    query({ "q": kind, "args": id }, function (_status, json) {
+    query({ "q": "get" + kind + "CFG", "args": id }, function (_status, json) {
       myself.json = json;
       myself.draw(json);
     });

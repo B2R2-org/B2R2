@@ -67,15 +67,15 @@ let answer (req: HttpListenerRequest) (resp: HttpListenerResponse) = function
 let invokeAPI (req: HttpListenerRequest) arbiter cmdStore =
   let query, args = req.QueryString["q"], req.QueryString["args"]
   match query with
-  | "BinInfo" -> API.getBinInfo arbiter
-  | "Disasm" -> API.getCFG arbiter API.CFGKind.Disasm args
-  | "LowUIR" -> API.getCFG arbiter API.CFGKind.IR args
-  | "SSA" -> API.getCFG arbiter API.CFGKind.SSA args
-  | "CG" -> API.getCFG arbiter API.CFGKind.Call args
-  | "Functions" -> API.getFunctions arbiter true
-  | "Hexview" -> API.getHexview arbiter
-  | "Command" -> API.runCommand arbiter cmdStore args
-  | "DataFlow" -> API.getDataflow arbiter args
+  | "getFilePath" -> API.getFilePath arbiter
+  | "getDisasmCFG" -> API.getDisasmCFG arbiter args
+  | "getLowUIRCFG" -> API.getLowUIRCFG arbiter args
+  | "getSSACFG" -> API.getSSACFG arbiter args
+  | "getCallCFG" -> API.getCallCFG arbiter
+  | "getFunctions" -> API.getFunctions arbiter true
+  | "getHexdump" -> API.getHexdump arbiter
+  | "runCommand" -> API.runCommand arbiter cmdStore args
+  | "getDataflow" -> API.getDataflow arbiter args
   | _ -> None
 
 let [<Literal>] WebBaseDir = "WebUI"

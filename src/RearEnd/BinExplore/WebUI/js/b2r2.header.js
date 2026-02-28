@@ -37,7 +37,7 @@ class BinInfo {
   }
 
   static update() {
-    query({ "q": "BinInfo" }, BinInfo.updateBinInfo);
+    query({ "q": "getFilePath" }, BinInfo.updateBinInfo);
   }
 }
 
