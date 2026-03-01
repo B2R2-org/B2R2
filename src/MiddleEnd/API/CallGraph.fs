@@ -56,7 +56,7 @@ module CallGraph =
   let private buildCG callCFG vMap (brew: BinaryBrew<_, _>) =
     brew.Functions.Sequence
     |> Seq.fold (fun callCFG func ->
-      func.Callees
+      if isNull func.Callees then Seq.empty else func.Callees
       |> Seq.fold (fun callCFG (KeyValue(_, callee)) ->
         match callee with
         | RegularCallee target ->
