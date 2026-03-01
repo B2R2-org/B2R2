@@ -28,7 +28,7 @@ class SideMenu {
   static registerEvents(winManager) {
     d3.select("#js-sidemenu__cg").on("click", function () {
       const name = "[-] Call Graph"
-      winManager.createWindow(name, name, "CG", true);
+      winManager.createWindow(name, name, "Call", true);
     });
     d3.select("#js-sidemenu__hexview").on("click", function () {
       const name = "[-] Hexview"

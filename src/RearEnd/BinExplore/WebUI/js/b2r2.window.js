@@ -81,7 +81,7 @@ class WindowManager {
     const div = this.graphView.append("div").classed("c-graph", true);
     switch (kind) {
       case "Hexview":
-        return new HexGraph(div, kind);
+        return new HexGraph(div);
       case "Term":
         return new TermGraph(div, kind);
       default:
@@ -152,7 +152,7 @@ class WindowManager {
       winManager.funcList.focusEntry(funcID);
       winManager.funcList.pinEntry(funcID);
     };
-    query({ "q": "Functions" }, function (_status, funcs) {
+    query({ "q": "getFunctions" }, function (_status, funcs) {
       $.each(funcs, function (_, funcinfo) {
         const id = funcinfo.id;
         const name = funcinfo.name;

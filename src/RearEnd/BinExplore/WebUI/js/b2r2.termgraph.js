@@ -63,7 +63,7 @@ _|_|_|    _|_|_|_|  _|    _|  _|_|_|_|");
     } else {
       const myself = this;
       myself.appendResult(this.promptstring + " " + cmd);
-      query({ "q": "Command", "args": cmd }, function (_, result) {
+      query({ "q": "runCommand", "args": cmd }, function (_, result) {
         myself.appendResult(result);
       });
     }

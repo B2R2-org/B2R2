@@ -25,9 +25,9 @@
 "use strict";
 
 class HexGraph extends Graph {
-  constructor(div, kind) {
-    super(div, kind);
-    this.fetchAndDraw(kind);
+  constructor(div) {
+    super(div, "hexgraph");
+    this.fetchAndDraw();
   }
 
   drawSegSelectorBtn(btndiv) {
@@ -84,7 +84,7 @@ class HexGraph extends Graph {
         break;
       }
     }
-    return cnt;
+    return cnt === null ? dumpview.style("height") : cnt;
   }
 
   fillAddrView(addrview, addr, size, numCharsPerLine) {
@@ -179,8 +179,15 @@ class HexGraph extends Graph {
     this.registerEvents(dumpview, asciiview, numCharsPerLine);
   }
 
+  decodeBytes(segarr) {
+    for (let i = 0; i < segarr.length; i++) {
+      segarr[i].bytes = Uint8Array.fromBase64(segarr[i].bytes);
+    }
+  }
+
   draw(segarr) {
     this.drawSegSelector(segarr);
+    this.decodeBytes(segarr);
     const wrapper =
       this.container.append("div").classed("l-graph__segment", true);
     for (let i = 0; i < segarr.length; i++) {
@@ -189,9 +196,9 @@ class HexGraph extends Graph {
     }
   }
 
-  fetchAndDraw(kind) {
+  fetchAndDraw() {
     const myself = this;
-    query({ "q": kind, "args": "" }, function (_status, json) {
+    query({ "q": "getHexdump", "args": "" }, function (_status, json) {
       myself.json = json;
       myself.draw(json);
     });

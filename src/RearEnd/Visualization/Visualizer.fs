@@ -24,7 +24,9 @@
 
 module B2R2.RearEnd.Visualization.Visualizer
 
-let getJSONFromGraph iGraph roots =
+open B2R2.MiddleEnd.BinGraph
+
+let private convertToJSON iGraph roots =
   try
     let vGraph, roots = VisGraph.ofCFG iGraph roots
   #if DEBUG
@@ -46,4 +48,7 @@ let getJSONFromGraph iGraph roots =
     eprintfn "%s" <| e.ToString()
     "{}"
 
-let visualizeFromFile _inFile _outFile = B2R2.Terminator.futureFeature ()
+/// Converts the given graph to JSON format.
+let toJSON (iGraph: IDiGraphAccessible<_, _>) roots =
+  if iGraph.Size = 0 then "{}"
+  else convertToJSON iGraph roots

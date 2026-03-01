@@ -33,7 +33,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 /// A lens that converts a BinaryBrew to a CallCFG.
 [<RequireQualifiedAccess>]
 module CallGraph =
-  /// A mapping from an addrbrew to a CallCFG vertex.
+  /// A mapping from an address to a CallCFG vertex.
   type private CallVMap = Dictionary<Addr, IVertex<CallBasicBlock>>
 
   let private getVertex (brew: BinaryBrew<_, _>) vMap addr g =
@@ -56,7 +56,7 @@ module CallGraph =
   let private buildCG callCFG vMap (brew: BinaryBrew<_, _>) =
     brew.Functions.Sequence
     |> Seq.fold (fun callCFG func ->
-      func.Callees
+      if isNull func.Callees then Seq.empty else func.Callees
       |> Seq.fold (fun callCFG (KeyValue(_, callee)) ->
         match callee with
         | RegularCallee target ->
