@@ -40,8 +40,7 @@ type CmdStore(spec) as this =
   let cmdList = ResizeArray<string>()
 
   let warnUnknown (cmd: string) =
-    [| "[*] Unknown command: '" + cmd + "'"
-       "" (* for new line *) |]
+    [| "[*] Unknown command: '" + cmd + "'" |]
 
   let generalHelpStr =
     """

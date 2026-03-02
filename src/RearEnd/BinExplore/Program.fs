@@ -63,6 +63,8 @@ let private explore files opts =
     eprintsn "File should be given as input."
     CmdOpts.printUsage ToolName UsageTail BinExploreOpts.Spec
   | file :: _ ->
+    String.replicate System.Console.WindowHeight System.Environment.NewLine
+    |> System.Console.Write
     startWithFile file opts
 
 [<EntryPoint>]

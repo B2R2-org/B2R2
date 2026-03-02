@@ -48,6 +48,57 @@ let runCommandLine (cmdStore: CmdStore) arbiter (line: string) =
     cmdStore.Handle(brew, cmd, args)
   | [] -> [||]
 
+let private clearCmdWindow paddingHeight =
+  let rows = System.Console.WindowHeight
+  for i = rows downto rows - 1 - paddingHeight do
+    System.Console.Write $"\x1B[{i};1H\x1B[K"
+
+let private redrawCmdWindow windowHeight prompt (input: string) candidates =
+  if windowHeight > 0 then
+    clearCmdWindow windowHeight
+    System.Console.Write $"{prompt}"
+    if Array.isEmpty candidates then System.Console.Write input
+    else ()
+  else
+    ()
+
+let private drawCandidates (candidates: string[]) =
+  System.Console.WriteLine()
+  for candidate in candidates do
+    System.Console.WriteLine candidate
+  candidates.Length
+
+let private showCandidates height prompt candidates =
+  clearCmdWindow height
+  System.Console.Write $"{prompt}"
+  let struct (x, y) = System.Console.GetCursorPosition()
+  let candidateLineCount = drawCandidates candidates + 1
+  let diff =
+    if candidateLineCount <= height then 0
+    else candidateLineCount - height
+  System.Console.SetCursorPosition(x, y - diff)
+  candidateLineCount
+
+let private callback =
+  let mutable lastWindowHeight = 0
+  { new FsReadLine.ICallback with
+      member _.OnReadLine line =
+        clearCmdWindow lastWindowHeight
+        if System.String.IsNullOrWhiteSpace line then
+          ()
+        else
+          System.Console.WriteLine $"{DefaultPrompt}{line}"
+          lastWindowHeight <- 0
+      member _.OnTabComplete(prompt, input, candidates) =
+        match candidates with
+        | [||]
+        | [| _ |] ->
+          redrawCmdWindow lastWindowHeight prompt input candidates
+        | _ ->
+          let count = showCandidates lastWindowHeight prompt candidates
+          lastWindowHeight <- max lastWindowHeight count
+      member _.OnClearScreen _ = () }
+
 let private cliPrinter (arbiter: Arbiter<_, _>) (output: OutString) =
   printon output
   output.ToString() |> arbiter.LogString
@@ -63,6 +114,11 @@ let rec private cliLoop cmdStore arbiter (console: FsReadLine.Console) =
     printsn ""
     cliLoop cmdStore arbiter console
 
+let private getDivider () =
+  String.replicate System.Console.WindowWidth "━"
+
 let start arbiter (cmdStore: CmdStore) =
-  FsReadLine.Console(Prompt, cmdStore.Commands)
-  |> cliLoop cmdStore arbiter
+  let console = FsReadLine.Console(DefaultPrompt, cmdStore.Commands, callback)
+  let div = getDivider ()
+  console.UpdatePrompt $"{div}{System.Environment.NewLine}{DefaultPrompt}"
+  cliLoop cmdStore arbiter console

@@ -27,5 +27,5 @@ module internal B2R2.RearEnd.BinExplore.Config
 
 let encoding = System.Text.Encoding.UTF8
 
-let [<Literal>] Prompt = "B2R2> "
+let [<Literal>] DefaultPrompt = "B2R2> "
 
