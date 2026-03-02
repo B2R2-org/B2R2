@@ -36,8 +36,8 @@ class Minimap {
     this.svg = this.graph.append("svg");
     this.stage = this.svg.append("g");
     this.linefunc = d3.line()
-      .x(function (d) { return d.X * minimapRatio; })
-      .y(function (d) { return d.Y * minimapRatio; })
+      .x(function (d) { return d.x * minimapRatio; })
+      .y(function (d) { return d.y * minimapRatio; })
       .curve(d3.curveLinear);
   }
 
@@ -76,22 +76,22 @@ class Minimap {
   }
 
   drawNode(v) {
-    const x = v.Coordinate.X * minimapRatio;
-    const y = v.Coordinate.Y * minimapRatio;
+    const x = v.coordinate.x * minimapRatio;
+    const y = v.coordinate.y * minimapRatio;
     this.stage.append("rect")
       .classed("c-minimap__node", true)
       .attr("rx", "1").attr("ry", "1")
-      .attr("width", v.Width * minimapRatio)
-      .attr("height", v.Height * minimapRatio)
+      .attr("width", v.width * minimapRatio)
+      .attr("height", v.height * minimapRatio)
       .attr("transform", "translate(" + x + "," + y + ")");
   }
 
   drawEdge(e) {
     const path = this.stage.append("path")
       .classed("c-minimap__edge", true)
-      .datum(e.Points)
+      .datum(e.points)
       .attr("d", this.linefunc);
-    if (e.IsBackEdge) path.attr("stroke-dasharray", "2, 2");
+    if (e.isBackEdge) path.attr("stroke-dasharray", "2, 2");
   }
 
   registerViewbox(vpDim) {

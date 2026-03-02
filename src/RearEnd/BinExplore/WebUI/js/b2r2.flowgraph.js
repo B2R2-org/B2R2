@@ -50,8 +50,8 @@ class FlowGraph extends Graph {
 
   initializeLineFunc() {
     this.linefunc = d3.line()
-      .x(function (d) { return d.X; })
-      .y(function (d) { return d.Y; })
+      .x(function (d) { return d.x; })
+      .y(function (d) { return d.y; })
       .curve(d3.curveMonotoneY);
   }
 
@@ -107,8 +107,8 @@ class FlowGraph extends Graph {
   }
 
   drawTextOfNode(v, roots, txt) {
-    for (let i = 0; i < v.Terms.length; i++) {
-      const line = v.Terms[i];
+    for (let i = 0; i < v.terms.length; i++) {
+      const line = v.terms[i];
       const addr = parseInt(line[0], 16);
       const stmt = txt.append("div").classed("c-graph__stmt", true);
       stmt
@@ -149,17 +149,17 @@ class FlowGraph extends Graph {
 
   drawNode(v, roots) {
     this.minimap.drawNode(v);
-    const x = v.Coordinate.X;
-    const y = v.Coordinate.Y;
+    const x = v.coordinate.x;
+    const y = v.coordinate.y;
     const g = this.cfg.append("g")
       .attr("transform", "translate(" + x + "," + y + ")");
     g.append("rect")
       .classed("c-graph__node", true)
-      .attr("width", v.Width)
-      .attr("height", v.Height);
+      .attr("width", v.width)
+      .attr("height", v.height);
     const fo = g.append("foreignObject")
-      .attr("width", v.Width)
-      .attr("height", v.Height);
+      .attr("width", v.width)
+      .attr("height", v.height);
     const txt = fo.append("xhtml:div").classed("c-graph__text", true);
     this.addContextMenu(txt);
     this.drawTextOfNode(v, roots, txt);
@@ -167,8 +167,8 @@ class FlowGraph extends Graph {
 
   drawNodes(json) {
     if (!isEmpty(json)) {
-      for (let i = 0; i < json.Nodes.length; i++) {
-        this.drawNode(json.Nodes[i], json.Roots);
+      for (let i = 0; i < json.nodes.length; i++) {
+        this.drawNode(json.nodes[i], json.roots);
       }
     }
   }
@@ -177,17 +177,17 @@ class FlowGraph extends Graph {
     this.minimap.drawEdge(e);
     const path = this.cfg.append("path")
       .classed("c-graph__edge", true)
-      .classed("c-graph__" + e.Type.toLowerCase(), true)
-      .datum(e.Points)
+      .classed("c-graph__" + e.type.toLowerCase(), true)
+      .datum(e.points)
       .attr("d", this.linefunc)
-      .attr("marker-end", "url(#" + "js-" + e.Type.toLowerCase() + ")");
-    if (e.IsBackEdge) path.attr("stroke-dasharray", "4, 4");
+      .attr("marker-end", "url(#" + "js-" + e.type.toLowerCase() + ")");
+    if (e.isBackEdge) path.attr("stroke-dasharray", "4, 4");
   }
 
   drawEdges(json) {
     if (!isEmpty(json)) {
-      for (let i = 0; i < json.Edges.length; i++) {
-        this.drawEdge(json.Edges[i]);
+      for (let i = 0; i < json.edges.length; i++) {
+        this.drawEdge(json.edges[i]);
       }
     }
   }
@@ -242,10 +242,10 @@ class FlowGraph extends Graph {
       const firstpt = pts[0];
       const lastpt = pts[pts.length - 1];
       const pt =
-           (goingUp && firstpt.Y > lastpt.Y)
-        || (!goingUp && firstpt.Y < lastpt.Y)
+           (goingUp && firstpt.y > lastpt.y)
+        || (!goingUp && firstpt.y < lastpt.y)
         ? lastpt : firstpt;
-      const r = myself.computeTranslate(pt.X, pt.Y);
+      const r = myself.computeTranslate(pt.x, pt.y);
       const x = r.x, y = r.y, k = r.k;
       myself.svg.transition().duration(700)
         .call(myself.zoom.transform, d3.zoomIdentity.translate(x, y).scale(k));
@@ -310,10 +310,10 @@ class FlowGraph extends Graph {
   search(q) {
     const myself = this;
     let results = [];
-    for (let i = 0; i < this.json.Nodes.length; i++) {
-      const v = this.json.Nodes[i];
-      for (let j = 0; j < v.Terms.length; j++) {
-        const term = v.Terms[j];
+    for (let i = 0; i < this.json.nodes.length; i++) {
+      const v = this.json.nodes[i];
+      for (let j = 0; j < v.terms.length; j++) {
+        const term = v.terms[j];
         let str = "";
         for (let k = 0; k < term.length; k++) {
           const elm = term[k];
@@ -326,8 +326,8 @@ class FlowGraph extends Graph {
             addr: addr,
             val: this.createResultValue(patternIdx, q.length, str),
             onclick: function () {
-              const coord = v.Coordinate;
-              const r = myself.computeTranslate(coord.X + v.Width / 2, coord.Y);
+              const coord = v.coordinate;
+              const r = myself.computeTranslate(coord.x + v.width / 2, coord.y);
               const x = r.x, y = r.y, k = r.k;
               myself.deactivateHighlights();
               myself.svg.transition().duration(500)

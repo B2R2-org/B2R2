@@ -26,54 +26,50 @@ namespace B2R2.RearEnd.Visualization
 
 open System.IO
 open System.Text
-open System.Runtime.Serialization
-open System.Runtime.Serialization.Json
+open System.Text.Json
+open System.Text.Json.Serialization
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 [<CLIMutable>]
-[<DataContract>]
 type JSONCoordinate =
-  { [<field: DataMember(Name = "X")>]
+  { [<JsonPropertyName("x")>]
     X: float
-    [<field: DataMember(Name = "Y")>]
+    [<JsonPropertyName("y")>]
     Y: float }
 
 [<CLIMutable>]
-[<DataContract>]
 type JSONNode =
-  { [<field: DataMember(Name = "PPoint")>]
+  { [<JsonPropertyName("pPoint")>]
     PPoint: Addr
-    [<field: DataMember(Name = "Terms")>]
+    [<JsonPropertyName("terms")>]
     Terms: string[][][]
-    [<field: DataMember(Name = "Width")>]
+    [<JsonPropertyName("width")>]
     Width: float
-    [<field: DataMember(Name = "Height")>]
+    [<JsonPropertyName("height")>]
     Height: float
-    [<field: DataMember(Name = "Coordinate")>]
+    [<JsonPropertyName("coordinate")>]
     Coordinate: JSONCoordinate }
 
 [<CLIMutable>]
-[<DataContract>]
 type JSONEdge =
-  { [<field: DataMember(Name = "Type")>]
+  { [<JsonPropertyName("type")>]
     Type: string
-    [<field: DataMember(Name = "Points")>]
+    [<JsonPropertyName("points")>]
     Points: JSONCoordinate[]
-    [<field: DataMember(Name = "IsBackEdge")>]
+    [<JsonPropertyName("isBackEdge")>]
     IsBackEdge: bool }
 
 /// This is Visualization module's final output type.
 [<CLIMutable>]
-[<DataContract>]
 type JSONGraph =
-  { [<field: DataMember(Name = "Roots")>]
+  { [<JsonPropertyName("roots")>]
     Roots: Addr[]
-    [<field: DataMember(Name = "Nodes")>]
+    [<JsonPropertyName("nodes")>]
     Nodes: JSONNode[]
-    [<field: DataMember(Name = "Edges")>]
+    [<JsonPropertyName("edges")>]
     Edges: JSONEdge[] }
 
 module JSONExport =
@@ -106,23 +102,10 @@ module JSONExport =
       |> List.toArray
     { Roots = roots; Nodes = nodes; Edges = edges }
 
-  let private toJson (g: JSONGraph) =
-    let enc = Encoding.UTF8
-    use ms = new MemoryStream()
-    use writer = JsonReaderWriterFactory.CreateJsonWriter(ms, enc, true)
-    let ser = DataContractJsonSerializer(typedefof<JSONGraph>)
-    ser.WriteObject(writer, g)
-    writer.Flush()
-    ms.Position <- 0
-    use reader = new StreamReader(ms)
-    reader.ReadToEnd()
-
-  let toFile path roots g =
-    ofVisGraph g roots
-    |> toJson
-    |> fun jsonStr ->
-      File.WriteAllText(path, jsonStr, Encoding.UTF8)
-
   let toStr roots g =
     ofVisGraph g roots
-    |> toJson
+    |> JsonSerializer.Serialize
+
+  let toFile path roots g =
+    let jsonStr = toStr roots g
+    File.WriteAllText(path, jsonStr, Encoding.UTF8)
