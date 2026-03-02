@@ -41,7 +41,7 @@ type BinExploreOpts =
     /// Host port number.
     Port: int
     /// Logging output file.
-    LogFile: string
+    LogFile: string option
     /// ISA of the target binary. This is only meaningful for universal (FAT)
     /// binaries because BinHandle will automatically detect file format by
     /// default. When a FAT binary is given, we need to choose which ISA to use
@@ -56,7 +56,7 @@ with
   static member Default(isa: ISA) =
     { IP = "localhost"
       Port = 8282
-      LogFile = "b2r2.log"
+      LogFile = None
       ISA = isa
       Verbose = false }
 
@@ -74,9 +74,9 @@ with
       Opt(descr = noCol "Verbose mode",
           short = "-v", long = "--verbose",
           callback = fun opts _ -> { opts with Verbose = true })
-      Opt(descr = noCol "Specify log file <name> (default: B2R2.log)",
+      Opt(descr = noCol "Specify log file <name>",
           short = "-l", long = "--log", extra = 1,
-          callback = fun opts arg -> { opts with LogFile = arg[0] })
+          callback = fun opts arg -> { opts with LogFile = Some arg[0] })
       Opt(descr = noCol "Specify <ISA> (e.g., x86) for fat binaries",
           short = "-a", long = "--isa", extra = 1,
           callback = fun opts arg -> { opts with ISA = ISA arg[0] })

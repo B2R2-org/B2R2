@@ -24,8 +24,8 @@
 
 namespace B2R2.RearEnd.BinExplore
 
-open System.IO
 open B2R2
+open B2R2.Logging
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
@@ -52,7 +52,10 @@ type Arbiter<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
                              and 'GlCtx: (new: unit -> 'GlCtx)>
   public(brew: BinaryBrew<'FnCtx, 'GlCtx>, logFile) =
 
-  let logger = new StreamWriter(path = logFile, AutoFlush = true)
+  let logger =
+    match logFile with
+    | Some path -> new FilePrinter(path) :> IPrinter
+    | None -> new ConsoleNullPrinter() :> IPrinter
 
   let mailbox =
     MailboxProcessor.Start(fun inbox ->
@@ -63,10 +66,9 @@ type Arbiter<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
           | Command(GetBinaryBrew, ch) ->
             ch.Reply(ReplyBinaryBrew brew)
           | Command(LogString str, ch) ->
-            logger.WriteLine str
+            logger.PrintLine str
             ch.Reply Ack
           | Command(Terminate, ch) ->
-            logger.Close()
             logger.Dispose()
             ch.Reply Ack
           return! loop brew
