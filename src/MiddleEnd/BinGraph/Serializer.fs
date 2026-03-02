@@ -24,42 +24,9 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-open System.IO
 open System.Text
-open System.Runtime.Serialization
-open System.Runtime.Serialization.Json
+open System.Text.Json
 open System.Collections.Generic
-
-[<CLIMutable>]
-[<DataContract>]
-type private SerializableVertex =
-  { [<field: DataMember(Name = "id")>]
-    ID: int
-    [<field: DataMember(Name = "label")>]
-    Label: string }
-
-[<CLIMutable>]
-[<DataContract>]
-type private SerializableEdge =
-  { [<field: DataMember(Name = "from")>]
-    From: int
-    [<field: DataMember(Name = "to")>]
-    To: int
-    [<field: DataMember(Name = "label")>]
-    Label: string }
-
-/// Serializable graph. This is not supposed to be used as a graph
-/// representation in the middle-end, but rather as a temporary data structure
-/// for importing/exporting graphs.
-[<CLIMutable>]
-[<DataContract>]
-type private SerializableGraph =
-  { [<field: DataMember(Name = "roots")>]
-    Roots: VertexID[]
-    [<field: DataMember(Name = "vertices")>]
-    Vertices: SerializableVertex[]
-    [<field: DataMember(Name = "edges")>]
-    Edges: SerializableEdge[] }
 
 /// The serializer of a graph.
 type Serializer =
@@ -91,18 +58,11 @@ type Serializer =
     { Roots = roots; Vertices = vertices; Edges = edges }
 
   static member private ToJson(g: SerializableGraph) =
-    let enc = Encoding.UTF8
-    use ms = new MemoryStream()
-    use writer = JsonReaderWriterFactory.CreateJsonWriter(ms, enc, true, true)
-    let ser = DataContractJsonSerializer(typedefof<SerializableGraph>)
-    ser.WriteObject(writer, g)
-    writer.Flush()
-    ms.Position <- 0
-    use reader = new StreamReader(ms)
-    reader.ReadToEnd()
+    JsonSerializer.Serialize(g)
 
   /// Export the given graph to a string in the JSON format.
-  static member ToJson(g) = Serializer.ToJson(Serializer.NewGraph g)
+  static member ToJson(g) =
+    Serializer.ToJson(Serializer.NewGraph g)
 
   /// Export the given graph to a string in the JSON format with the given
   /// vertex and edge label functions.
@@ -140,9 +100,7 @@ type Serializer =
                                                    gConstructor,
                                                    vConstructor,
                                                    eConstructor) =
-    use ms = new MemoryStream(Encoding.ASCII.GetBytes json)
-    let ser = DataContractJsonSerializer(typeof<SerializableGraph>)
-    let sg = ser.ReadObject(ms) :?> SerializableGraph
+    let sg = JsonSerializer.Deserialize<SerializableGraph>(json)
     let g: IDiGraph<'V, 'E> = gConstructor ()
     Serializer.CopyGraph(sg, g, vConstructor, eConstructor)
 
