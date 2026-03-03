@@ -37,6 +37,6 @@
     <ProjectReference Include="..\BinQL\B2R2.RearEnd.BinQL.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="B2R2.FsReadLine" Version="0.2.7" />
+    <PackageReference Include="B2R2.FsReadLine" Version="0.3.0" />
   </ItemGroup>
 </Project>
