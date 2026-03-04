@@ -34,38 +34,44 @@ let [<Literal>] private ToolName = "explore"
 
 let [<Literal>] private UsageTail = "<binary file>"
 
-let private startGUIAndCLI (opts: BinExploreOpts) brew =
-  let arbiter = Arbiter(brew, opts.LogFile)
+let private loadAllFiles (arbiter: Arbiter<_, _>) files =
+  files
+  |> List.forall (fun file -> arbiter.AddBinary file |> Result.isOk)
+  |> fun ok -> assert ok
+
+let private startServerAndCLI files (opts: BinExploreOpts) loader =
+  let arbiter = Arbiter(loader, opts.LogFile)
   let cmdStore = CLI.spec |> CmdStore
+  loadAllFiles arbiter files
   HTTPServer.start arbiter opts.IP opts.Port opts.Verbose cmdStore
   CLI.start arbiter cmdStore
 
-let private startWithFile file (opts: BinExploreOpts) =
-  let isa = opts.ISA
-  let hdl = BinHandle(file, isa, None)
-  match isa with
+let private runWithBrewLoader files (opts: BinExploreOpts) =
+  match opts.ISA with
   | EVM ->
-    let cfgRecovery = Strategies.EVMCFGRecovery()
-    EVMBinaryBrew(hdl, [| cfgRecovery |])
-    |> startGUIAndCLI opts
+    { new IBrewLoadable<_, _> with
+        member _.LoadBrew file =
+          let hdl = BinHandle(file, opts.ISA, None)
+          let cfgRecovery = Strategies.EVMCFGRecovery()
+          EVMBinaryBrew(hdl, [| cfgRecovery |]) }
+    |> startServerAndCLI files opts
   | _ ->
-    let exnInfo = ExceptionInfo hdl
-    let funcId = Strategies.FunctionIdentification(hdl, exnInfo)
-    let cfgRecovery = Strategies.CFGRecovery()
-    let strategies = [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
-    BinaryBrew(hdl, exnInfo, strategies)
-    |> startGUIAndCLI opts
+    { new IBrewLoadable<_, _> with
+        member _.LoadBrew file =
+          let hdl = BinHandle(file, opts.ISA, None)
+          let exnInfo = ExceptionInfo hdl
+          let funcId = Strategies.FunctionIdentification(hdl, exnInfo)
+          let cfgRecovery = Strategies.CFGRecovery()
+          let strategies =
+            [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
+          BinaryBrew(hdl, exnInfo, strategies) }
+    |> startServerAndCLI files opts
 
 let private explore files opts =
   CmdOpts.sanitizeRestArgs files
-  match files with
-  | [] ->
-    eprintsn "File should be given as input."
-    CmdOpts.printUsage ToolName UsageTail BinExploreOpts.Spec
-  | file :: _ ->
-    String.replicate System.Console.WindowHeight System.Environment.NewLine
-    |> System.Console.Write
-    startWithFile file opts
+  String.replicate System.Console.WindowHeight System.Environment.NewLine
+  |> System.Console.Write
+  runWithBrewLoader files opts
 
 [<EntryPoint>]
 let main args =

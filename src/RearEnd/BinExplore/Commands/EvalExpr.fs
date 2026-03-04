@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
 open B2R2.RearEnd.BinQL
+open B2R2.RearEnd.BinExplore
 
 type SimpleArithEvaluator() =
   let parser = Parser()
@@ -38,6 +39,8 @@ type SimpleArithEvaluator() =
     | Error e -> [| $"{e}" |]
 
 type EvalExpr(name, alias) =
+  let [<Literal>] Desc = "Evaluate and display the value of an expression."
+
   let evaluator = SimpleArithEvaluator()
 
   interface ICmd with
@@ -46,17 +49,21 @@ type EvalExpr(name, alias) =
 
     member _.CmdAlias = alias
 
-    member _.CmdDescr = "Evaluate and display the value of an expression."
+    member _.CmdDescr = Desc
 
     member _.CmdHelp =
-      "Usage: ? <expression>\n\n\
-      Evaluate the given BinQL expression and print out the value. This\n\
-      command supports basic arithmetic expressions."
+      let extra =
+        "Evaluate the given BinQL expression and print out the value. This\n\
+        command supports basic arithmetic expressions."
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{name}")
+        .Add(NoColor, " <expression>\n\n")
+        .Add(NoColor, $"{extra}")
 
     member _.SubCommands = []
 
     member this.CallBack(_, args) =
       match args with
-      | [] -> [| (this :> ICmd).CmdHelp |]
-      | _ -> evaluator.Run(args)
-      |> Array.map OutputNormal
+      | [] -> [| (this :> ICmd).CmdHelp |] |> Array.map OutputColored
+      | _ -> evaluator.Run(args) |> Array.map OutputNormal

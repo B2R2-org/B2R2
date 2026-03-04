@@ -26,21 +26,31 @@ namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
 open B2R2.FrontEnd.NameMangling
+open B2R2.RearEnd.BinExplore
 
 type Demangle() =
+  let [<Literal>] CmdName = "demangle"
+
+  let [<Literal>] Desc = "Demangle the given mangled string."
+
   let mapResult = function
     | Ok s -> [| OutputNormal s |]
     | Error _ -> [| OutputNormal "[*] Invalid input." |]
 
   interface ICmd with
 
-    member _.CmdName = "demangle"
+    member _.CmdName = CmdName
 
     member _.CmdAlias = [ "undecorate" ]
 
-    member _.CmdDescr = "Demangle the given mangled string."
+    member _.CmdDescr = Desc
 
-    member _.CmdHelp = "Usage: demangle <string>"
+    member _.CmdHelp =
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}")
+        .Add(NoColor, " <string>\n\n")
+        .Add(NoColor, Desc)
 
     member _.SubCommands = []
 

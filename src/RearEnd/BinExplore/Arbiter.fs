@@ -36,57 +36,86 @@ type private ArbiterCommand<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
   | Command of Action * AsyncReplyChannel<ReplyMsg<'FnCtx, 'GlCtx>>
 
 and private Action =
-  | GetBinaryBrew
+  /// Adds a binary instance to the workspace with the given file path.
+  | AddBinary of string
+  /// Gets a binary brew instance by the given file path. If the given path is
+  /// None, it returns the current binary brew instance.
+  | GetBinaryBrew of string option
+  /// Logs a string message to the arbiter's logger.
   | LogString of string
+  /// Terminates the arbiter and releases all resources.
   | Terminate
 
 and private ReplyMsg<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
                                      and 'FnCtx: (new: unit -> 'FnCtx)
                                      and 'GlCtx: (new: unit -> 'GlCtx)> =
-  | Ack
-  | ReplyBinaryBrew of BinaryBrew<'FnCtx, 'GlCtx>
+  | Ack of Result<unit, string>
+  | ReplyBinaryBrew of BinaryBrew<'FnCtx, 'GlCtx> option
 
-/// Represents an arbiter that manages a BinaryBrew instance and logging.
+/// Represents an arbiter that manages Workspace instances.
 type Arbiter<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
                              and 'FnCtx: (new: unit -> 'FnCtx)
                              and 'GlCtx: (new: unit -> 'GlCtx)>
-  public(brew: BinaryBrew<'FnCtx, 'GlCtx>, logFile) =
+  public(brewLoader: IBrewLoadable<'FnCtx, 'GlCtx>, logFile) =
 
   let logger =
     match logFile with
     | Some path -> new FilePrinter(path) :> IPrinter
     | None -> new ConsoleNullPrinter() :> IPrinter
 
+  let ok = Ack(Ok())
+
+  let mutable workspace = Workspace<'FnCtx, 'GlCtx>(brewLoader)
+
   let mailbox =
     MailboxProcessor.Start(fun inbox ->
-      let rec loop brew =
+      let rec loop () =
         async {
           let! msg = inbox.Receive()
           match msg with
-          | Command(GetBinaryBrew, ch) ->
+          | Command(AddBinary(path), ch) ->
+            ch.Reply(Ack(workspace.AddBinary(path)))
+          | Command(GetBinaryBrew(None), ch) ->
+            let brew = workspace.CurrentBinary
+            ch.Reply(ReplyBinaryBrew brew)
+          | Command(GetBinaryBrew(Some path), ch) ->
+            let brew = workspace.TryFindBinary path
             ch.Reply(ReplyBinaryBrew brew)
           | Command(LogString str, ch) ->
             logger.PrintLine str
-            ch.Reply Ack
+            ch.Reply ok
           | Command(Terminate, ch) ->
             logger.Dispose()
-            ch.Reply Ack
-          return! loop brew
+            ch.Reply ok
+            return ()
+          return! loop ()
         }
-      loop brew
+      loop ()
     )
 
+  member _.AddBinary(path) =
+    match mailbox.PostAndReply(fun ch -> Command(AddBinary(path), ch)) with
+    | Ack(Ok()) -> printsn $"[*] Successfully loaded {path}"; Ok()
+    | Ack(Error e) -> Error e
+    | _ -> Terminator.fatalExit "Failed to add binary."
+
   member _.GetBinaryBrew() =
-    match mailbox.PostAndReply(fun ch -> Command(GetBinaryBrew, ch)) with
+    match mailbox.PostAndReply(fun ch -> Command(GetBinaryBrew None, ch)) with
     | ReplyBinaryBrew brew -> brew
-    | _ -> Terminator.fatalExit "Failed to obtain the BinaryBrew."
+    | _ -> None
+
+  member _.GetBinaryBrew(path) =
+    let path = Some path
+    match mailbox.PostAndReply(fun ch -> Command(GetBinaryBrew path, ch)) with
+    | ReplyBinaryBrew brew -> brew
+    | _ -> None
 
   member _.LogString str =
     match mailbox.PostAndReply(fun ch -> Command(LogString str, ch)) with
-    | Ack -> ()
+    | Ack(Ok()) -> ()
     | _ -> Terminator.fatalExit "Failed to log message."
 
   member _.Terminate() =
     match mailbox.PostAndReply(fun ch -> Command(Terminate, ch)) with
-    | Ack -> ()
+    | Ack(Ok()) -> ()
     | _ -> Terminator.fatalExit "Failed to terminate."

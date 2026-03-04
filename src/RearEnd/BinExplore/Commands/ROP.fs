@@ -26,28 +26,44 @@ namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
 open B2R2.RearEnd.ROP
+open B2R2.RearEnd.BinExplore
 
 type GadgetSearch() =
+  let [<Literal>] CmdName = "gadgetlist"
+
+  let [<Literal>] Desc = "Search for the list of ROP gadgets."
+
   interface ICmd with
 
-    member _.CmdName = "gadgetlist"
+    member _.CmdName = CmdName
 
     member _.CmdAlias = [ "gl" ]
 
-    member _.CmdDescr = "Search for the list of ROP gadgets."
+    member _.CmdDescr = Desc
 
-    member _.CmdHelp = "Usage: gadgetlist\n\n\
-                          Show the list of available ROP gadgets."
+    member _.CmdHelp =
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}\n\n")
+        .Add(NoColor, $"{Desc}")
 
     member _.SubCommands = []
 
-    member _.CallBack(ess, _args) =
-      let hdl = ess.BinHandle
-      let liftingUnit = hdl.NewLiftingUnit()
-      [| Galileo.findGadgets hdl |> GadgetMap.toString liftingUnit |]
-      |> Array.map OutputNormal
+    member _.CallBack(arbiter, _args) =
+      match arbiter.GetBinaryBrew() with
+      | Some brew ->
+        let hdl = brew.BinHandle
+        let liftingUnit = hdl.NewLiftingUnit()
+        [| Galileo.findGadgets hdl |> GadgetMap.toString liftingUnit |]
+        |> Array.map OutputNormal
+      | None ->
+        [| OutputNormal "[*] No binary loaded." |]
 
 type ROP() =
+  let [<Literal>] CmdName = "rop"
+
+  let [<Literal>] Desc = "Compile a ROP chain."
+
   member private _.ShowResult hdl = function
     | Some payload -> [| ROPPayload.toString hdl 0u payload |]
     | None -> [| "Cannot find gadgets." |]
@@ -72,29 +88,37 @@ type ROP() =
 
   interface ICmd with
 
-    member _.CmdName = "rop"
+    member _.CmdName = CmdName
 
     member _.CmdAlias = []
 
-    member _.CmdDescr = "Compile an ROP chain."
+    member _.CmdDescr = Desc
 
     member _.CmdHelp =
-      "Usage: rop <cmd> [options]\n\n\
-      Compile a ROP chain based on the given command.\n\
-      - exec: a ROP payload for invoking a shell (execve)\n\
-      - func: a ROP payload for calling a function at a specific target.\n\
-      - write: a ROP payload for writing a value to a target memory.\n\
-      - pivot: a ROP payload for stack pivoting."
+      let extra =
+        "- exec: a ROP payload for invoking a shell (execve)\n\
+         - func: a ROP payload for calling a function at a specific target.\n\
+         - write: a ROP payload for writing a value to a target memory.\n\
+         - pivot: a ROP payload for stack pivoting."
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}")
+        .Add(NoColor, " <cmd> [options]\n\n")
+        .Add(NoColor, $"{Desc}\n\n{extra}")
 
     member _.SubCommands = []
 
-    member this.CallBack(ess, args) =
-      let hdl = ess.BinHandle
-      match hdl.File.ISA with
-      | X86 ->
-        let rop = ROPHandle.init hdl 0UL
-        this.HandleSubCmd(rop, args)
-        |> Array.map OutputNormal
-      | isa ->
-        [| $"[*] We currently do not support {isa}" |]
-        |> Array.map OutputNormal
+    member this.CallBack(arbiter, args) =
+      match arbiter.GetBinaryBrew() with
+      | Some brew ->
+        let hdl = brew.BinHandle
+        match hdl.File.ISA with
+        | X86 ->
+          let rop = ROPHandle.init hdl 0UL
+          this.HandleSubCmd(rop, args)
+          |> Array.map OutputNormal
+        | isa ->
+          [| $"[*] We currently do not support {isa}" |]
+          |> Array.map OutputNormal
+      | None ->
+        [| OutputNormal "[*] No binary loaded." |]

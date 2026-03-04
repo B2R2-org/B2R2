@@ -22,39 +22,37 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplore.Commands
+namespace B2R2.RearEnd.BinExplore
 
 open B2R2
-open B2R2.RearEnd.BinExplore
 
-type Show() =
-  let [<Literal>] CmdName = "show"
+/// Represents a command that can be invoked within BinExplore's CLI.
+type ICmd =
+  /// The name of the command.
+  abstract CmdName: string
 
-  let [<Literal>] Desc = "Show information about an abstract component."
+  /// Aliases for the command.
+  abstract CmdAlias: string list
 
-  interface ICmd with
+  /// Short command description.
+  abstract CmdDescr: string
 
-    member _.CmdName = CmdName
+  /// Command-specific help string.
+  abstract CmdHelp: ColoredString
 
-    member _.CmdAlias = []
+  /// A list of sub-command strings that can be used with this command. This
+  /// list provides a way to tab-complete a keyword.
+  abstract SubCommands: string list
 
-    member _.CmdDescr = Desc
+  /// A command callback function. This function takes in the arbiter instance
+  /// and a list of arguments as input, and produces some side effects.
+  abstract CallBack: Arbiter<_, _> * string list -> OutString[]
 
-    member _.CmdHelp =
-      let extra =
-        "<component> is an abstract component in the binary, and below are\n\
-         available subcommands:\n\
-         - caller <instruction addr in hex>\n\
-         - callee/function <callee name or addr in hex>"
-      ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " <component> [option(s)]\n\n")
-        .Add(NoColor, $"{Desc}\n\n{extra}")
-
-    member _.SubCommands = []
-
-    member this.CallBack(_, args) =
-      match args with
-      | _ -> [| (this :> ICmd).CmdHelp |]
-      |> Array.map OutputColored
+module internal ICmd =
+  /// Builds an output for an error message.
+  let buildErrorOutput msg =
+    [| ColoredString()
+         .Add(NoColor, "[")
+         .Add(Red, "*")
+         .Add(NoColor, $"] {msg}") |]
+    |> Array.map OutputColored

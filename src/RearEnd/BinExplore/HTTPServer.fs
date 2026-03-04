@@ -74,7 +74,6 @@ let invokeAPI (req: HttpListenerRequest) arbiter cmdStore =
   | "getCallCFG" -> API.getCallCFG arbiter
   | "getFunctions" -> API.getFunctions arbiter true
   | "getHexdump" -> API.getHexdump arbiter
-  | "runCommand" -> API.runCommand arbiter cmdStore args
   | "getDataflow" -> API.getDataflow arbiter args
   | _ -> None
 

@@ -28,13 +28,14 @@ open B2R2
 
 /// Command specification.
 let spec =
-  [ Commands.EvalExpr("?", []) :> Commands.ICmd
+  [ Commands.EvalExpr("?", []) :> ICmd
     Commands.BinInfo()
     Commands.Credits()
     Commands.Demangle()
     Commands.Disasm()
     Commands.HexDump()
     Commands.List()
+    Commands.Load()
     Commands.Print()
     Commands.Search()
     Commands.Show()
@@ -43,9 +44,7 @@ let spec =
 
 let runCommandLine (cmdStore: CmdStore) arbiter (line: string) =
   match line.Split(' ') |> Array.toList with
-  | cmd :: args ->
-    let brew = (arbiter: Arbiter<_, _>).GetBinaryBrew()
-    cmdStore.Handle(brew, cmd, args)
+  | cmd :: args -> cmdStore.Handle(arbiter, cmd, args)
   | [] -> [||]
 
 let private clearCmdWindow paddingHeight =

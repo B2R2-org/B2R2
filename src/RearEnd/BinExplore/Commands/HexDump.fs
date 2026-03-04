@@ -27,8 +27,13 @@ namespace B2R2.RearEnd.BinExplore.Commands
 open System
 open B2R2
 open B2R2.MiddleEnd
+open B2R2.RearEnd.BinExplore
 
 type HexDump() =
+  let [<Literal>] CmdName = "hexdump"
+
+  let [<Literal>] Desc = "Dump the binary contents in a hex+ASCII format."
+
   let parseAddr addr =
     try Ok(Convert.ToUInt64(addr, 16))
     with _ -> Error "[*] Invalid address given."
@@ -43,21 +48,24 @@ type HexDump() =
 
   interface ICmd with
 
-    member _.CmdName = "hexdump"
+    member _.CmdName = CmdName
 
     member _.CmdAlias = [ "hd" ]
 
-    member _.CmdDescr = "Dump the binary contents in a hex+ASCII format."
+    member _.CmdDescr = Desc
 
     member _.CmdHelp =
-      "Usage: hexdump <addr> <bytes>\n\n\
-      Dump the contents in a HEX+ASCII format up to the number of given bytes."
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}")
+        .Add(NoColor, " <addr> <bytes>\n\n")
+        .Add(NoColor, $"{Desc}")
 
     member _.SubCommands = []
 
-    member this.CallBack(brew, args) =
-      match args with
-      | addr :: cnt :: _ ->
+    member this.CallBack(arbiter, args) =
+      match args, arbiter.GetBinaryBrew() with
+      | addr :: cnt :: _, Some brew ->
         let result =
           parseAddr addr
           |> Result.bind (parseCount cnt)
@@ -69,4 +77,4 @@ type HexDump() =
         | Error e -> [| OutputColored(ColoredString(NoColor, e)) |]
       | _ ->
         [| (this :> ICmd).CmdHelp |]
-        |> Array.map OutputNormal
+        |> Array.map OutputColored

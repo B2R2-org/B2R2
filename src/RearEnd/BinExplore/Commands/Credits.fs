@@ -25,17 +25,26 @@
 namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
+open B2R2.RearEnd.BinExplore
 
 type Credits() =
+  let [<Literal>] CmdName = "credits"
+
+  let [<Literal>] Desc = "Show the credits for B2R2."
+
   interface ICmd with
 
-    member _.CmdName = "credits"
+    member _.CmdName = CmdName
 
     member _.CmdAlias = [ "copyright" ]
 
-    member _.CmdDescr = "Show the credits for B2R2."
+    member _.CmdDescr = Desc
 
-    member _.CmdHelp = ""
+    member _.CmdHelp =
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}\n\n")
+        .Add(NoColor, Desc)
 
     member _.SubCommands = []
 

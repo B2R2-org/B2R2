@@ -25,26 +25,35 @@
 namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
-open B2R2.MiddleEnd
+open B2R2.RearEnd.BinExplore
 
-/// Represents a command that can be invoked within BinExplore's CLI.
-type ICmd =
-  /// The name of the command.
-  abstract CmdName: string
+type Load() =
+  let [<Literal>] CmdName = "load"
 
-  /// Aliases for the command.
-  abstract CmdAlias: string list
+  let [<Literal>] Desc = "Load the given binary to the current workspace"
 
-  /// Short command description.
-  abstract CmdDescr: string
+  interface ICmd with
 
-  /// Command-specific help string.
-  abstract CmdHelp: string
+    member _.CmdName = CmdName
 
-  /// A list of sub-command strings that can be used with this command. This
-  /// list provides a way to tab-complete a keyword.
-  abstract SubCommands: string list
+    member _.CmdAlias = [ "open" ]
 
-  /// A command callback function. This function takes in an Agent (arbiter), a
-  /// list of arguments as input, and produces some side effects.
-  abstract CallBack: BinaryBrew<_, _> * string list -> OutString[]
+    member _.CmdDescr = Desc
+
+    member _.CmdHelp =
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}")
+        .Add(NoColor, " <path>\n\n")
+        .Add(NoColor, $"{Desc}")
+
+    member _.SubCommands = []
+
+    member _.CallBack(arbiter, args) =
+      match args with
+      | file :: _ ->
+        match arbiter.AddBinary file with
+        | Ok() -> [||] |> Array.map OutputNormal
+        | Error e -> ICmd.buildErrorOutput e
+      | [] ->
+        ICmd.buildErrorOutput "File must be given."

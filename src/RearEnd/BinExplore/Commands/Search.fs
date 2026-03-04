@@ -28,8 +28,13 @@ open System
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
+open B2R2.RearEnd.BinExplore
 
 type Search() =
+  let [<Literal>] CmdName = "search"
+
+  let [<Literal>] Desc = "Search the given expression from the binary."
+
   let toResult (idx: uint64) = $"Found @ {idx:x}"
 
   let search (hdl: BinHandle) pattern =
@@ -58,27 +63,32 @@ type Search() =
 
   interface ICmd with
 
-    member _.CmdName = "search"
+    member _.CmdName = CmdName
 
     member _.CmdAlias = [ "s" ]
 
-    member _.CmdDescr = "Search expressions."
+    member _.CmdDescr = Desc
 
     member _.CmdHelp =
-      "Usage: search <type> [expr]\n\n\
-      Search the given expression from the binary.\n\
-      <type> is the data type for the expression, which can be:\n\
-        - s (string)\n\
-        - h (hex string)"
+      let extra =
+        "<type> is the data type for the expression, which can be:\n\
+         - s (string)\n\
+         - h (hex string)"
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}")
+        .Add(NoColor, " <type> [expr]\n\n")
+        .Add(NoColor, $"{Desc}\n\n")
+        .Add(NoColor, $"{extra}\n\n")
 
     member _.SubCommands = []
 
-    member this.CallBack(ess, args) =
-      let res =
-        match args with
-        | []
-        | _ :: [] -> [| (this :> ICmd).CmdHelp |]
-        | t :: pattern :: _ ->
-          t.ToLowerInvariant()
-          |> this.CmdHandle(ess.BinHandle, pattern)
-      Array.map OutputNormal res
+    member this.CallBack(arbiter, args) =
+      match args, arbiter.GetBinaryBrew() with
+      | t :: pattern :: _, Some brew ->
+        t.ToLowerInvariant()
+        |> this.CmdHandle(brew.BinHandle, pattern)
+        |> Array.map OutputNormal
+      | _ ->
+        [| (this :> ICmd).CmdHelp |]
+        |> Array.map OutputColored

@@ -28,8 +28,13 @@ open System
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
+open B2R2.RearEnd.BinExplore
 
 type Disasm() =
+  let [<Literal>] CmdName = "disasm"
+
+  let [<Literal>] Desc = "Display disassembly of the binary."
+
   let convertCount (str: string) =
     try Convert.ToInt32 str |> Ok
     with _ -> Error "[*] Invalid disassembly count given."
@@ -60,23 +65,36 @@ type Disasm() =
 
   interface ICmd with
 
-    member _.CmdName = "disasm"
+    member _.CmdName = CmdName
 
     member _.CmdAlias = [ "d" ]
 
-    member _.CmdDescr = "Display disassembly of the binary."
+    member _.CmdDescr = Desc
 
     member _.CmdHelp =
-      "Usage: disasm <addr>\n\
-              disasm <cnt> <addr>\n\n\
-      Print <cnt> disassembled instructions starting from the given address.\n\
-      When the <cnt> argument is not given, it will print one instruction."
+      let extra =
+        "Print <cnt> disassembled instructions starting from the given\n\
+         address. When the <cnt> argument is not given, it will print one\n\
+         instruction."
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}")
+        .Add(NoColor, " <addr>\n")
+        .Add(NoColor, "       ")
+        .Add(DarkCyan, $"{CmdName}")
+        .Add(NoColor, " <cnt> <addr>\n\n")
+        .Add(NoColor, $"{extra}")
 
     member _.SubCommands = []
 
-    member this.CallBack(brew, args) =
-      match args with
-      | cnt :: addr :: _ -> disasm brew.BinHandle brew.Instructions cnt addr
-      | addr :: _ -> disasm brew.BinHandle brew.Instructions "1" addr
-      | _ -> [| (this :> ICmd).CmdHelp |]
-      |> Array.map OutputNormal
+    member this.CallBack(arbiter, args) =
+      match args, arbiter.GetBinaryBrew() with
+      | cnt :: addr :: _, Some brew ->
+        disasm brew.BinHandle brew.Instructions cnt addr
+        |> Array.map OutputNormal
+      | addr :: _, Some brew ->
+        disasm brew.BinHandle brew.Instructions "1" addr
+        |> Array.map OutputNormal
+      | _ ->
+        [| (this :> ICmd).CmdHelp |]
+        |> Array.map OutputColored

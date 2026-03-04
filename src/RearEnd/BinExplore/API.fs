@@ -40,12 +40,20 @@ type CFGKind =
   | SSA = 2
   | Call = 3
 
-/// Returns the current binary file path.
-let getFilePath (arbiter: Arbiter<_, _>) =
-  let brew = arbiter.GetBinaryBrew()
+let inline private (>>=) opt ([<InlineIfLambda>] f) =
+  match opt with
+  | Some x -> f x
+  | None -> None
+
+let private getEncodedFilePath (brew: BinaryBrew<_, _>) =
   let txt = brew.BinHandle.File.Path
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some(encoding.GetBytes(txt))
+
+/// Returns the current binary file path.
+let getFilePath (arbiter: Arbiter<_, _>) =
+  arbiter.GetBinaryBrew()
+  >>= getEncodedFilePath
 
 let private cfgToJSON cfgType (brew: BinaryBrew<_, _>) (g: LowUIRCFG) =
   match cfgType with
@@ -66,8 +74,7 @@ let private cfgToJSON cfgType (brew: BinaryBrew<_, _>) (g: LowUIRCFG) =
   | _ ->
     failwith "Invalid CFG type"
 
-let private getCFG (arbiter: Arbiter<_, _>) funcID cfgType =
-  let brew = arbiter.GetBinaryBrew()
+let private getCFG funcID cfgType (brew: BinaryBrew<_, _>) =
   let func = brew.Functions.FindByID funcID
   try
     let s = cfgToJSON cfgType brew func.CFG
@@ -82,19 +89,20 @@ let private getCFG (arbiter: Arbiter<_, _>) funcID cfgType =
 
 /// Returns the disassembly CFG of the given function ID.
 let getDisasmCFG (arbiter: Arbiter<_, _>) funcID =
-  getCFG arbiter funcID CFGKind.Disasm
+  arbiter.GetBinaryBrew()
+  >>= getCFG funcID CFGKind.Disasm
 
 /// Returns the LowUIR CFG of the given function ID.
 let getLowUIRCFG (arbiter: Arbiter<_, _>) funcID =
-  getCFG arbiter funcID CFGKind.IR
+  arbiter.GetBinaryBrew()
+  >>= getCFG funcID CFGKind.IR
 
 /// Returns the SSA CFG of the given function ID.
 let getSSACFG (arbiter: Arbiter<_, _>) funcID =
-  getCFG arbiter funcID CFGKind.SSA
+  arbiter.GetBinaryBrew()
+  >>= getCFG funcID CFGKind.SSA
 
-/// Returns the call graph of the binary.
-let getCallCFG (arbiter: Arbiter<_, _>) =
-  let brew = arbiter.GetBinaryBrew()
+let private getCallGraph (brew: BinaryBrew<_, _>) =
   try
     let g, roots = CallGraph.create BinGraph.Imperative brew
     let s = Visualizer.toJSON g roots
@@ -107,11 +115,15 @@ let getCallCFG (arbiter: Arbiter<_, _>) =
     None
 #endif
 
+/// Returns the call graph of the binary.
+let getCallCFG (arbiter: Arbiter<_, _>) =
+  arbiter.GetBinaryBrew()
+  >>= getCallGraph
+
 let inline private toJson<'T> (obj: 'T) =
   JsonSerializer.Serialize obj
 
-let private getInternalFunctions (arbiter: Arbiter<_, _>) =
-  let brew = arbiter.GetBinaryBrew()
+let private getInternalFunctions (brew: BinaryBrew<_, _>) =
   let names =
     brew.Functions.Sequence
     |> Seq.filter (fun fn -> not fn.IsExternal)
@@ -120,8 +132,7 @@ let private getInternalFunctions (arbiter: Arbiter<_, _>) =
     |> Seq.toArray
   Some(toJson names |> encoding.GetBytes)
 
-let private getExternalFunctions (arbiter: Arbiter<_, _>) =
-  let brew = arbiter.GetBinaryBrew()
+let private getExternalFunctions (brew: BinaryBrew<_, _>) =
   let names =
     brew.Functions.Sequence
     |> Seq.filter (fun fn -> fn.IsExternal)
@@ -134,12 +145,10 @@ let private getExternalFunctions (arbiter: Arbiter<_, _>) =
 /// If `isInternal` is true, only internal functions are returned; otherwise,
 /// only external functions are returned.
 let getFunctions (arbiter: Arbiter<_, _>) isInternal =
-  if isInternal then getInternalFunctions arbiter
-  else getExternalFunctions arbiter
+  if isInternal then arbiter.GetBinaryBrew() >>= getInternalFunctions
+  else arbiter.GetBinaryBrew() >>= getExternalFunctions
 
-/// Returns the hexdump of the binary in color.
-let getHexdump (arbiter: Arbiter<_, _>) =
-  let brew = arbiter.GetBinaryBrew()
+let private getEncodedHexdump (brew: BinaryBrew<_, _>) =
   brew.BinHandle.File.GetVMMappedRegions()
   |> Array.map (fun region ->
     let ptr = brew.BinHandle.File.GetBoundedPointer region.Min
@@ -153,23 +162,17 @@ let getHexdump (arbiter: Arbiter<_, _>) =
         { Color = c.ToString()
           Hex = h
           Ascii = a }) coloredHex coloredAscii
-    { SegAddr = region.Min; SegBytes = bs; SegColoredHexAscii = coloredBytes })
+    { SegAddr = region.Min
+      SegBytes = bs
+      SegColoredHexAscii = coloredBytes })
   |> toJson
   |> encoding.GetBytes
   |> Some
 
-let private myprinter acc (output: OutString) =
-  acc + output.ToString() + System.Environment.NewLine
-
-/// Executes the given command with the provided arguments and returns the
-/// result as a JSON string.
-let runCommand arbiter cmdStore (line: string) =
-  CLI.runCommandLine cmdStore arbiter line
-  |> Array.fold myprinter ""
-  |> fun s -> s + System.Environment.NewLine
-  |> toJson
-  |> encoding.GetBytes
-  |> Some
+/// Returns the hexdump of the binary in color.
+let getHexdump (arbiter: Arbiter<_, _>) =
+  arbiter.GetBinaryBrew()
+  >>= getEncodedHexdump
 
 let private computeConnectedVars chain v =
   match Map.tryFind v chain.UseDefChain with
@@ -190,10 +193,7 @@ let private getVarNames (hdl: BinHandle) = function
     |> Array.map (hdl.RegisterFactory.GetRegisterName)
   | _ -> [||]
 
-/// Returns the dataflow information of the given variable at the specified
-/// program point.
-let getDataflow (arbiter: Arbiter<_, _>) (args: string) =
-  let brew = arbiter.GetBinaryBrew()
+let private getEncodedDataflow (args: string) (brew: BinaryBrew<_, _>) =
   let args = args.Split([| ',' |])
   let entry, addr, tag = args[0] |> uint64, args[1] |> uint64, args[2]
   match tag with
@@ -220,3 +220,9 @@ let getDataflow (arbiter: Arbiter<_, _>) (args: string) =
 #endif
   | _ ->
     None
+
+/// Returns the dataflow information of the given variable at the specified
+/// program point.
+let getDataflow (arbiter: Arbiter<_, _>) args =
+  arbiter.GetBinaryBrew()
+  >>= getEncodedDataflow args

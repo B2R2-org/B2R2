@@ -27,8 +27,13 @@ namespace B2R2.RearEnd.BinExplore.Commands
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.RearEnd.BinExplore
 
 type List() =
+  let [<Literal>] CmdName = "list"
+
+  let [<Literal>] Desc = "List the contents of the binary."
+
   let createFuncString (hdl: BinHandle) (addr, name) =
     Addr.toString hdl.File.ISA.WordSize addr + ": " + name
 
@@ -55,26 +60,36 @@ type List() =
 
   interface ICmd with
 
-    member _.CmdName = "list"
+    member _.CmdName = CmdName
 
     member _.CmdAlias = [ "ls" ]
 
-    member _.CmdDescr = "List the contents of the binary."
+    member _.CmdDescr = Desc
 
     member _.CmdHelp =
-      "Usage: list <cmds> [options]\n\n\
-      Currently available commands are:\n\
-      - functions: List functions in the binary.\n\
-      - segments: List segments to be loaded.\n\
-      - sections: List sections in the binary."
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}")
+        .Add(NoColor, " <cmds> [options]\n\n")
+        .Add(NoColor, $"{Desc}\n\n")
+        .Add(NoColor, $"Currently available commands are:\n")
+        .Add(NoColor, $"- functions: List functions in the binary.\n")
+        .Add(NoColor, $"- segments: List segments in the binary.\n")
+        .Add(NoColor, $"- sections: List sections in the binary.")
 
     member _.SubCommands = [ "functions"; "segments" ]
 
-    member _.CallBack(brew, args) =
-      match args with
-      | "functions" :: _
-      | "funcs" :: _ -> listFunctions brew
-      | "segments" :: _
-      | "segs" :: _ -> listSegments brew.BinHandle
-      | _ -> [| "[*] Unknown list cmd is given." |]
-      |> Array.map OutputNormal
+    member _.CallBack(arbiter, args) =
+      match args, arbiter.GetBinaryBrew() with
+      | "functions" :: _, Some brew
+      | "funcs" :: _, Some brew ->
+        listFunctions brew
+        |> Array.map OutputNormal
+      | "segments" :: _, Some brew
+      | "segs" :: _, Some brew ->
+        listSegments brew.BinHandle
+        |> Array.map OutputNormal
+      | _, None ->
+        ICmd.buildErrorOutput "No binary is currently loaded."
+      | _ ->
+        ICmd.buildErrorOutput "Unknown list cmd is given."

@@ -29,6 +29,7 @@ open System.Text.RegularExpressions
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd
+open B2R2.RearEnd.BinExplore
 
 type PrintFormat =
   | Hexadecimal
@@ -76,6 +77,10 @@ with
     | _ -> 0
 
 type Print() =
+  let [<Literal>] CmdName = "print"
+
+  let [<Literal>] Desc = "Output the contents of the binary in a given format."
+
   let convertCount (v: string) =
     try Convert.ToInt32(v) |> Ok
     with _ -> Error("[*] Invalid count is given.")
@@ -155,34 +160,42 @@ type Print() =
 
   interface ICmd with
 
-    member _.CmdName = "print"
+    member _.CmdName = CmdName
 
     member _.CmdAlias = [ "p" ]
 
-    member _.CmdDescr = "Output the contents of the binary in a given format."
+    member _.CmdDescr = Desc
 
     member _.CmdHelp =
-      "Usage: print <format> <addr>\n\n\
-      The <format> is a repeat count followed by a format letter, and a size\n\
-      letter. The size letter can be omitted only for string format.\n\n\
-      Format letters are:\n\
-      - d (signed decimal)\n\
-      - u (unsigned decimal)\n\
-      - x (hexadecimal)\n\
-      - s (string)\n\n\
-      Size letters are:\n\
-      - b (byte) or 1\n\
-      - h (half word) or 2\n\
-      - w (word) or 4\n\
-      - g (giant) or 8"
+      let extra =
+        "The <format> is a repeat count followed by a format letter, and a\n\
+         size letter. The size letter can be omitted only for string\n\
+         format.\n\n\
+         Format letters are:\n\
+         - d (signed decimal)\n\
+         - u (unsigned decimal)\n\
+         - x (hexadecimal)\n\
+         - s (string)\n\n\
+         Size letters are:\n\
+         - b (byte) or 1\n\
+         - h (half word) or 2\n\
+         - w (word) or 4\n\
+         - g (giant) or 8"
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}")
+        .Add(NoColor, " <format> <addr>\n\n")
+        .Add(NoColor, extra)
 
     member _.SubCommands = []
 
-    member this.CallBack(brew, args) =
-      match args with
-      | fmt :: addr :: _ ->
+    member this.CallBack(arbiter, args) =
+      match args, arbiter.GetBinaryBrew() with
+      | fmt :: addr :: _, Some brew ->
         parseFormat fmt
         |> Result.bind (parseAddr addr)
         |> validateRequest brew
-      | _ -> [| (this :> ICmd).CmdHelp |]
-      |> Array.map OutputNormal
+        |> Array.map OutputNormal
+      | _ ->
+        [| (this :> ICmd).CmdHelp |]
+        |> Array.map OutputColored

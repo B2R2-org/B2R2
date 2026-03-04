@@ -24,9 +24,9 @@
 
 namespace B2R2.RearEnd.BinExplore
 
+open System
 open System.Collections.Generic
 open B2R2
-open B2R2.RearEnd.BinExplore.Commands
 
 /// Raised when there are duplicate commands with the same name or alias.
 exception DuplicateCommandException
@@ -40,28 +40,53 @@ type CmdStore(spec) as this =
   let cmdList = ResizeArray<string>()
 
   let warnUnknown (cmd: string) =
-    [| "[*] Unknown command: '" + cmd + "'" |]
+    let msg =
+      ColoredString()
+        .Add(NoColor, "[")
+        .Add(Red, "*")
+        .Add(NoColor, "] Unknown command: '")
+        .Add(Red, cmd)
+        .Add(NoColor, "'")
+    [| msg |]
 
   let generalHelpStr =
-    """
-[*] Current B2R2 commands (type 'help <command>' for more info):
-  """
+    ColoredString()
+      .Add(NoColor, "[")
+      .Add(DarkCyan, "*")
+      .Add(NoColor, "] Current B2R2 commands (type '")
+      .Add(DarkCyan, "help")
+      .Add(NoColor, " <command>' for more info):")
 
   let generalHelp () =
     [| yield generalHelpStr
        for KeyValue(name, cmd) in cmdMap do
-         if cmd.CmdName = name then yield "- " + name + ": " + cmd.CmdDescr
+         if cmd.CmdName = name then
+           let item =
+             ColoredString()
+               .Add(NoColor, "- ")
+               .Add(DarkCyan, name)
+               .Add(NoColor, ": " + cmd.CmdDescr)
+           yield item
          else () |]
 
   let specificHelp cmd =
     match cmdMap.TryGetValue cmd with
     | true, cmd ->
-      [| yield "[*] Usage of the command (" + cmd.CmdName + ")\n"
-         if cmd.CmdHelp.Length > 0 then yield cmd.CmdHelp else () |]
-    | false, _ -> warnUnknown cmd
+      let head =
+        ColoredString()
+          .Add(NoColor, "[")
+          .Add(DarkCyan, "*")
+          .Add(NoColor, "] Usage of the command '")
+          .Add(DarkCyan, cmd.CmdName)
+          .Add(NoColor, "':\n")
+      [| yield head
+         if cmd.CmdHelp.Length > 0 then yield cmd.CmdHelp
+         else () |]
+    | false, _ ->
+      warnUnknown cmd
 
   do
-    for cmd in spec @ [ CmdHelp this :> ICmd; CmdExit() ] do
+    for cmd in [ CmdHelp this :> ICmd; CmdExit(); yield! spec ] do
       cmd.SubCommands
       |> List.map (fun sub -> cmd.CmdName + " " + sub)
       |> List.append (cmd.CmdName :: cmd.CmdAlias)
@@ -74,45 +99,70 @@ type CmdStore(spec) as this =
   member _.Handle(brew, cmd, args) =
     match cmdMap.TryGetValue cmd with
     | true, cmd -> cmd.CallBack(brew, args)
-    | false, _ -> warnUnknown cmd |> Array.map OutputNormal
+    | false, _ -> warnUnknown cmd |> Array.map OutputColored
 
-  member _.CreateHelpString() = generalHelp ()
+  member _.CreateHelpString() =
+    generalHelp ()
+    |> Array.map OutputColored
 
-  member _.CreateHelpString cmd = specificHelp cmd
+  member _.CreateHelpString cmd =
+    specificHelp cmd
+    |> Array.map OutputColored
 
 and private CmdHelp(cmdStore: CmdStore) =
+
+  let [<Literal>] CmdName = "help"
+
+  let [<Literal>] Desc = "Show the usage."
+
   interface ICmd with
 
-    member _.CmdName = "help"
+    member _.CmdName = CmdName
 
-    member _.CmdAlias = []
+    member _.CmdAlias = [ "h" ]
 
-    member _.CmdDescr = "Show the usage."
+    member _.CmdDescr = Desc
 
     member _.CmdHelp =
-      "Usage: help [cmd]\n\n\
-      If the optional argument [cmd] presents, the specific usage of the\n\
-      command will show. For example, type `help bininfo` to see the usage of\n\
-      the command `bininfo`."
+      let extra =
+        "If the optional argument [cmd] presents, the specific usage of the\n\
+         command will show. For example, type `help bininfo` to see the usage\n\
+         of the command `bininfo`."
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}")
+        .Add(NoColor, " [cmd]\n\n")
+        .Add(NoColor, extra)
 
     member _.SubCommands = []
 
     member _.CallBack(_, args) =
       match args with
-      | [] -> cmdStore.CreateHelpString()
-      | cmd :: _ -> cmdStore.CreateHelpString cmd
-      |> Array.map OutputNormal
+      | [] ->
+        cmdStore.CreateHelpString()
+      | cmd :: _ when String.IsNullOrEmpty cmd ->
+        cmdStore.CreateHelpString()
+      | cmd :: _ ->
+        cmdStore.CreateHelpString cmd
 
 and private CmdExit() =
+  let [<Literal>] CmdName = "exit"
+
+  let [<Literal>] Desc = "Exit B2R2."
+
   interface ICmd with
 
-    member _.CmdName = "exit"
+    member _.CmdName = CmdName
 
     member _.CmdAlias = [ "quit"; "q" ]
 
-    member _.CmdDescr = "Exit B2R2."
+    member _.CmdDescr = Desc
 
-    member _.CmdHelp = "Usage: exit"
+    member _.CmdHelp =
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}\n\n")
+        .Add(NoColor, $"{Desc}")
 
     member _.SubCommands = []
 

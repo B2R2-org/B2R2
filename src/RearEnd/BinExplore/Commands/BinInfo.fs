@@ -27,34 +27,46 @@ namespace B2R2.RearEnd.BinExplore.Commands
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd.Utils
+open B2R2.RearEnd.BinExplore
 
 type BinInfo() =
+  let [<Literal>] CmdName = "bininfo"
+
+  let [<Literal>] Desc = "Show the current binary information."
+
   interface ICmd with
 
-    member _.CmdName = "bininfo"
+    member _.CmdName = CmdName
 
     member _.CmdAlias = [ "bi" ]
 
-    member _.CmdDescr = "Show the current binary information."
+    member _.CmdDescr = Desc
 
     member _.CmdHelp =
-      "Usage: bininfo\n\n\
-      Show the current binary information. This command will show some basic\n\
-      information such as the entry point address, binary file format, symbol\n\
-      numbers, etc."
+      let extra =
+        "This command will show some basic information such as the entry\n\
+         point address, binary file format, symbol numbers, etc."
+      ColoredString()
+        .Add(NoColor, "Usage: ")
+        .Add(DarkCyan, $"{CmdName}\n\n")
+        .Add(NoColor, $"{Desc}\n\n{extra}")
 
     member _.SubCommands = []
 
-    member _.CallBack(brew, _args) =
-      let file = brew.BinHandle.File
-      let isa = brew.BinHandle.File.ISA
-      let fmt = brew.BinHandle.File.Format |> FileFormat.toString
-      let entry = file.EntryPoint |> String.ofEntryPointOpt
-      let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
-      [| "[*] Binary information:\n"
-         sprintf "- Executable Path: %s" file.Path
-         sprintf "- Machine: %s" (isa.ToString())
-         sprintf "- File Format: %s" fmt
-         sprintf "- Entry Point Address: %s" entry
-         sprintf "- NX bit: %s" nx |]
-      |> Array.map OutputNormal
+    member _.CallBack(arbiter, _args) =
+      match arbiter.GetBinaryBrew() with
+      | Some brew ->
+        let file = brew.BinHandle.File
+        let isa = brew.BinHandle.File.ISA
+        let fmt = brew.BinHandle.File.Format |> FileFormat.toString
+        let entry = file.EntryPoint |> String.ofEntryPointOpt
+        let nx = if file.IsNXEnabled then "Enabled" else "Disabled"
+        [| "[*] Binary information:\n"
+           sprintf "- Executable Path: %s" file.Path
+           sprintf "- Machine: %s" (isa.ToString())
+           sprintf "- File Format: %s" fmt
+           sprintf "- Entry Point Address: %s" entry
+           sprintf "- NX bit: %s" nx |]
+        |> Array.map OutputNormal
+      | None ->
+        ICmd.buildErrorOutput "Binary is not loaded."
