@@ -275,7 +275,7 @@ let averageMedian (xAlignments: FloatMap list) =
   let xs = Map.fold (fun xs _ x -> x :: xs) [] medians
   let minX = List.min xs
   let maxX = List.max xs
-  let mid = minX + maxX / 2.0
+  let mid = (minX + maxX) / 2.0
   let medians = Map.map (fun _ xs -> xs - mid) medians
   Map.iter setXPos medians
 
