@@ -22,14 +22,21 @@
   SOFTWARE.
 *)
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module B2R2.RearEnd.BinExplore.GUI
+namespace B2R2.RearEnd.BinExplore.GUI
 
 open Avalonia
+open Avalonia.Themes.Fluent
+open Avalonia.Controls.ApplicationLifetimes
 
-let start arbiter =
-  AppBuilder
-    .Configure<GUI.App>(fun () -> GUI.App(arbiter))
-    .UsePlatformDetect()
-    .UseSkia()
-    .StartWithClassicDesktopLifetime([||])
+type App(arbiter) =
+  inherit Application()
+
+  override this.Initialize() =
+    this.Styles.Add(FluentTheme())
+    this.RequestedThemeVariant <- Styling.ThemeVariant.Dark
+
+  override this.OnFrameworkInitializationCompleted() =
+    match this.ApplicationLifetime with
+    | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime ->
+      desktopLifetime.MainWindow <- MainWindow(arbiter)
+    | _ -> ()

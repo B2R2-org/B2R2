@@ -22,14 +22,12 @@
   SOFTWARE.
 *)
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module B2R2.RearEnd.BinExplore.GUI
+namespace B2R2.RearEnd.BinExplore.GUI
 
-open Avalonia
-
-let start arbiter =
-  AppBuilder
-    .Configure<GUI.App>(fun () -> GUI.App(arbiter))
-    .UsePlatformDetect()
-    .UseSkia()
-    .StartWithClassicDesktopLifetime([||])
+/// Represents messages that can be sent to the main view.
+type Message =
+  | LoadBinary of string
+  | CloseWorkspace
+  | SelectFunction of string
+  | UpdateStatus of string
+  | NoOp

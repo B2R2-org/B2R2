@@ -22,14 +22,10 @@
   SOFTWARE.
 *)
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module B2R2.RearEnd.BinExplore.GUI
+namespace B2R2.RearEnd.BinExplore.GUI
 
-open Avalonia
-
-let start arbiter =
-  AppBuilder
-    .Configure<GUI.App>(fun () -> GUI.App(arbiter))
-    .UsePlatformDetect()
-    .UseSkia()
-    .StartWithClassicDesktopLifetime([||])
+type Model =
+  { LoadedBinary: string option
+    Functions: string list
+    SelectedFunction: string option
+    StatusMessage: string }
