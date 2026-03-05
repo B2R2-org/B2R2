@@ -26,6 +26,10 @@
     <Compile Include="CLI.fs" />
     <Compile Include="GUI\Message.fs" />
     <Compile Include="GUI\Model.fs" />
+    <Compile Include="gui\views\Welcome.fs" />
+    <Compile Include="gui\views\MenuBar.fs" />
+    <Compile Include="gui\views\StatusBar.fs" />
+    <Compile Include="gui\views\ContentArea.fs" />
     <Compile Include="GUI\Views\MainView.fs" />
     <Compile Include="GUI\MainWindow.fs" />
     <Compile Include="GUI\App.fs" />

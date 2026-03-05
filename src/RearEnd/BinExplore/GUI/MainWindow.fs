@@ -34,12 +34,14 @@ type MainWindow(arbiter) as this =
   let init arbiter =
     { LoadedBinary = None
       Functions = []
-      SelectedFunction = None
+      ActiveFunction = None
+      OpenTabs = []
+      PreviewTab = None
       StatusMessage = "Welcome to BinExplore!" }
 
   let update (msg: Message) (model: Model) =
     match msg with
-    | LoadBinary path ->
+    | OpenBinary path ->
       { model with
           LoadedBinary = Some "sample_binary.exe"
           Functions = [
@@ -49,20 +51,54 @@ type MainWindow(arbiter) as this =
             "baz"
           ]
           StatusMessage = "Loaded binary: sample_binary.exe" }
-    | CloseWorkspace ->
+    | CloseBinary ->
       { model with
           LoadedBinary = None
           Functions = []
-          SelectedFunction = None
+          ActiveFunction = None
+          OpenTabs = []
+          PreviewTab = None
           StatusMessage = "Workspace closed. Open a file to start exploring." }
-    | SelectFunction func ->
+    | OpenTab funcName ->
+      if List.contains funcName model.OpenTabs then
+        { model with
+            ActiveFunction = Some funcName
+            StatusMessage = $"Switched to tab: {funcName}" }
+      else
+        { model with
+            ActiveFunction = Some funcName
+            PreviewTab = Some funcName
+            StatusMessage = $"Opened tab: {funcName}" }
+    | PinTab funcName ->
+      let isPreview = model.PreviewTab = Some funcName
+      let newOpenTabs =
+        if List.contains funcName model.OpenTabs then model.OpenTabs
+        else funcName :: model.OpenTabs
       { model with
-          SelectedFunction = Some func
-          StatusMessage = $"Selected function: {func}" }
+          ActiveFunction = Some funcName
+          OpenTabs = newOpenTabs
+          PreviewTab = if isPreview then None else model.PreviewTab
+          StatusMessage = $"Pinned tab: {funcName}" }
+    | CloseTab funcName ->
+      let newOpenTabs = model.OpenTabs |> List.filter ((<>) funcName)
+      let isPreview = model.PreviewTab = Some funcName
+      let newPreviewTab = if isPreview then None else model.PreviewTab
+      let newActiveFunction =
+        if model.ActiveFunction = Some funcName then
+          newOpenTabs |> List.tryHead |> Option.orElse newPreviewTab
+        else
+          model.ActiveFunction
+      { model with
+          ActiveFunction = newActiveFunction
+          OpenTabs = newOpenTabs
+          PreviewTab = newPreviewTab
+          StatusMessage = $"Closed tab: {funcName}" }
+    | SwitchTab funcName ->
+      { model with
+          ActiveFunction = Some funcName
+          StatusMessage = $"Switched to tab: {funcName}" }
     | UpdateStatus msg ->
       { model with StatusMessage = msg }
-    | NoOp ->
-      model
 
   do
     base.Title <- "BinExplore"

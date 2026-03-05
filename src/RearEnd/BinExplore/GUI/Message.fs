@@ -26,8 +26,17 @@ namespace B2R2.RearEnd.BinExplore.GUI
 
 /// Represents messages that can be sent to the main view.
 type Message =
-  | LoadBinary of string
-  | CloseWorkspace
-  | SelectFunction of string
+  /// Message to open a binary file, carrying the file path.
+  | OpenBinary of string
+  /// Message to close the currently loaded binary file.
+  | CloseBinary
+  /// Message to open a new tab for a specific function.
+  | OpenTab of string
+  /// Message to pin a tab, making it persist.
+  | PinTab of string
+  /// Message to close a specific tab.
+  | CloseTab of string
+  /// Message to switch to a specific tab, making it active.
+  | SwitchTab of string
+  /// Message to update the status message in the status bar.
   | UpdateStatus of string
-  | NoOp

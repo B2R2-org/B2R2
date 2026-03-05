@@ -22,21 +22,41 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.BinExplore.GUI.MainView
+module B2R2.RearEnd.BinExplore.GUI.Welcome
 
 open Avalonia.FuncUI.DSL
 open Avalonia.Controls
+open Avalonia.Layout
+open Avalonia.Media
 
-let private mainContent (model: Model) dispatch =
-  match model.LoadedBinary with
-  | None -> Welcome.view model dispatch
-  | Some _ -> ContentArea.view model dispatch
-
-let view (model: Model) (dispatch: Message -> unit) =
-  DockPanel.create [
-    DockPanel.children [
-      MenuBar.view model dispatch
-      StatusBar.view model
-      mainContent model dispatch
+let view _model _dispatch =
+  Grid.create [
+    Grid.background "#1E1E1E"
+    Grid.children [
+      Border.create [
+        Border.child (
+          StackPanel.create [
+            StackPanel.verticalAlignment VerticalAlignment.Center
+            StackPanel.horizontalAlignment HorizontalAlignment.Center
+            StackPanel.children [
+              TextBlock.create [
+                TextBlock.text "B2R2 BinExplore"
+                TextBlock.fontSize 32.0
+                TextBlock.fontWeight FontWeight.Bold
+                TextBlock.foreground "#FFFFFF"
+                TextBlock.horizontalAlignment HorizontalAlignment.Center
+                TextBlock.margin (0.0, 0.0, 0.0, 20.0)
+              ]
+              TextBlock.create [
+                TextBlock.text "Open a binary file to start exploring"
+                TextBlock.fontSize 16.0
+                TextBlock.foreground "#A0A0A0"
+                TextBlock.horizontalAlignment HorizontalAlignment.Center
+              ]
+            ]
+          ]
+        )
+      ]
     ]
   ]
+

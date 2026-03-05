@@ -22,19 +22,35 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplore.GUI
+module B2R2.RearEnd.BinExplore.GUI.MenuBar
 
-/// Represents the state of the main view.
-type Model =
-  { /// Currently loaded binary file.
-    LoadedBinary: string option
-    /// List of functions extracted from the loaded binary.
-    Functions: string list
-    /// Currently active (selected) function in the function list.
-    ActiveFunction: string option
-    /// List of currently open tabs in the main view, excluding the preview tab.
-    OpenTabs: string list
-    /// Currently open preview tab, if any.
-    PreviewTab: string option
-    /// Status message to be displayed in the status bar.
-    StatusMessage: string }
+open Avalonia.FuncUI.DSL
+open Avalonia.Controls
+
+let view model dispatch =
+  Menu.create [
+    Menu.dock Dock.Top
+    Menu.viewItems [
+      MenuItem.create [
+        MenuItem.header "File"
+        MenuItem.viewItems [
+          MenuItem.create [
+            MenuItem.header "Open"
+            MenuItem.onClick (fun _ -> dispatch (OpenBinary ""))
+          ]
+          MenuItem.create [
+            MenuItem.header "Close"
+            MenuItem.isEnabled model.LoadedBinary.IsSome
+            MenuItem.onClick (fun _ -> dispatch CloseBinary)
+          ]
+          MenuItem.create [
+            MenuItem.header "-"
+          ]
+          MenuItem.create [
+            MenuItem.header "Exit"
+            MenuItem.onClick (fun _ -> ())
+          ]
+        ]
+      ]
+    ]
+  ]

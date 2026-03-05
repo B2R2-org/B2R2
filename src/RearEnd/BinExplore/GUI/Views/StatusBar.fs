@@ -22,19 +22,23 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplore.GUI
+module B2R2.RearEnd.BinExplore.GUI.StatusBar
 
-/// Represents the state of the main view.
-type Model =
-  { /// Currently loaded binary file.
-    LoadedBinary: string option
-    /// List of functions extracted from the loaded binary.
-    Functions: string list
-    /// Currently active (selected) function in the function list.
-    ActiveFunction: string option
-    /// List of currently open tabs in the main view, excluding the preview tab.
-    OpenTabs: string list
-    /// Currently open preview tab, if any.
-    PreviewTab: string option
-    /// Status message to be displayed in the status bar.
-    StatusMessage: string }
+open Avalonia.FuncUI.DSL
+open Avalonia.Controls
+
+let view (model: Model) =
+  Border.create [
+    Border.dock Dock.Bottom
+    Border.background "#2D2D30"
+    Border.borderThickness 1.0
+    Border.borderBrush "#3E3E42"
+    Border.padding 5.0
+    Border.child (
+      TextBlock.create [
+        TextBlock.text model.StatusMessage
+        TextBlock.fontSize 12.0
+      ]
+    )
+  ]
+
