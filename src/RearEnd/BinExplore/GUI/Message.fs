@@ -40,3 +40,5 @@ type Message =
   | SwitchTab of string
   /// Message to update the status message in the status bar.
   | UpdateStatus of string
+  /// Message to exit the application.
+  | ExitApplication

@@ -99,6 +99,9 @@ type MainWindow(arbiter) as this =
           StatusMessage = $"Switched to tab: {funcName}" }
     | UpdateStatus msg ->
       { model with StatusMessage = msg }
+    | ExitApplication ->
+      this.Close()
+      model
 
   do
     base.Title <- "BinExplore"

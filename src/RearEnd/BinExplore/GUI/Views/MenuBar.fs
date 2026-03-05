@@ -48,7 +48,7 @@ let view model dispatch =
           ]
           MenuItem.create [
             MenuItem.header "Exit"
-            MenuItem.onClick (fun _ -> ())
+            MenuItem.onClick (fun _ -> dispatch ExitApplication)
           ]
         ]
       ]
