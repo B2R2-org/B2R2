@@ -24,6 +24,7 @@
     <Compile Include="Commands\ROP.fs" />
     <Compile Include="CmdStore.fs" />
     <Compile Include="CLI.fs" />
+    <Compile Include="GUI.fs" />
     <Compile Include="HTTPServer.fs" />
     <Compile Include="BinExploreOpts.fs" />
     <Compile Include="Program.fs" />
@@ -40,5 +41,9 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="B2R2.FsReadLine" Version="0.3.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
+    <PackageReference Include="Avalonia.FuncUI" Version="1.5.2" />
+    <PackageReference Include="Avalonia.FuncUI.Elmish" Version="1.5.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
   </ItemGroup>
 </Project>
