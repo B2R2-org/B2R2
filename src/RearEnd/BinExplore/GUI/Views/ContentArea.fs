@@ -109,6 +109,10 @@ let private getTabFontStyle (model: Model) tabName =
   if model.PreviewTab = Some tabName then FontStyle.Italic
   else FontStyle.Normal
 
+let [<Literal>] private TabMaxWidth = 220.0
+
+let [<Literal>] private TabTextMaxWidth = 165.0
+
 let private onTabDrag tabName dispatch (e: DragEventArgs) =
   let draggedTab = DataTransferExtensions.TryGetText e.DataTransfer
   if not (String.IsNullOrWhiteSpace draggedTab) then
@@ -151,6 +155,7 @@ let private tabBar (model: Model) dispatch =
               |> List.map (fun tabName ->
                 Border.create [
                   Border.background (getTabBorderColor model tabName)
+                  Border.maxWidth TabMaxWidth
                   Border.borderThickness (0.0, 0.0, 1.0, 0.0)
                   Border.borderBrush "#3E3E42"
                   Border.padding (10.0, 5.0, 5.0, 5.0)
@@ -171,6 +176,10 @@ let private tabBar (model: Model) dispatch =
                           TextBlock.padding (5.0, 0.0, 0.0, 0.0)
                           TextBlock.fontSize 12.0
                           TextBlock.fontStyle (getTabFontStyle model tabName)
+                          TextBlock.maxWidth TabTextMaxWidth
+                          TextBlock.textWrapping TextWrapping.NoWrap
+                          TextBlock.textTrimming TextTrimming.CharacterEllipsis
+                          ToolTip.tip tabName
                           TextBlock.onPointerPressed (fun e ->
                             onTabClick tabName dispatch e)
                           TextBlock.onPointerReleased (fun _ ->
