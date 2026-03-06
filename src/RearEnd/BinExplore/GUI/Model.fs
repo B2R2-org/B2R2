@@ -38,6 +38,10 @@ type Model =
     OpenTabs: string list
     /// Currently open preview tab, if any.
     PreviewTab: string option
+    /// Registered custom themes.
+    CustomThemes: Map<ThemeId, Theme>
+    /// Current theme mode.
+    ThemeMode: ThemeMode
     /// Current UI theme.
     Theme: Theme
     /// Tab currently being dragged for reordering, if any.

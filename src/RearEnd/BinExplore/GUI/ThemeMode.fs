@@ -24,33 +24,15 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
-/// Represents messages that can be sent to the main view.
-type Message =
-  /// Message to open a binary file, carrying the file path.
-  | OpenBinary of string
-  /// Message to close the currently loaded binary file.
-  | CloseBinary
-  /// Message to open a new tab for a specific function.
-  | OpenTab of string
-  /// Message to pin a tab, making it persist.
-  | PinTab of string
-  /// Message to close a specific tab.
-  | CloseTab of string
-  /// Message to switch to a specific tab, making it active.
-  | SwitchTab of string
-  /// Message to start dragging a tab for reordering.
-  | StartTabDrag of string
-  /// Message to reorder tabs using explicit dragged/target tab names.
-  | ReorderTab of draggedTab: string * targetTab: string
-  /// Message to end dragging of a tab.
-  | EndTabDrag
-  /// Message to register a custom theme.
-  | RegisterCustomTheme of ThemeId * Theme
-  /// Message to set the current UI theme mode.
-  | SetThemeMode of ThemeMode
-  /// Message to update function filter text.
-  | UpdateFunctionFilter of string
-  /// Message to update the status message in the status bar.
-  | UpdateStatus of string
-  /// Message to exit the application.
-  | ExitApplication
+/// Represents a selectable theme mode.
+type ThemeMode =
+  | Builtin of BuiltinTheme
+  | Custom of ThemeId
+
+/// Represents a theme identifier.
+and ThemeId = ThemeId of string
+
+/// Represents builtin theme presets.
+and BuiltinTheme =
+  | Dark
+  | Light

@@ -63,7 +63,7 @@ and CommonTheme =
 
 [<RequireQualifiedAccess>]
 module Theme =
-  let defaultTheme =
+  let darkTheme =
     { Name = "Dark"
       Window = { Background = "#1E1E1E" }
       Panel =
@@ -79,3 +79,40 @@ module Theme =
           InactiveBackground = "#2D2D30"
           CloseForeground = "#AAAAAA" }
       Common = { Transparent = "Transparent" } }
+
+  let lightTheme =
+    { Name = "Light"
+      Window = { Background = "#F3F3F3" }
+      Panel =
+        { Background = "#FFFFFF"
+          AltBackground = "#ECECEC"
+          Border = "#CFCFCF" }
+      Text =
+        { Primary = "#111111"
+          Secondary = "#555555"
+          Muted = "#707070" }
+      Tab =
+        { ActiveBackground = "#FFFFFF"
+          InactiveBackground = "#E6E6E6"
+          CloseForeground = "#666666" }
+      Common = { Transparent = "Transparent" } }
+
+  let ofBuiltin = function
+    | Dark -> darkTheme
+    | Light -> lightTheme
+
+  let defaultMode = Builtin Dark
+
+  let defaultTheme = ofBuiltin Dark
+
+  let resolve mode customThemes =
+    match mode with
+    | Builtin builtin ->
+      ofBuiltin builtin
+    | Custom themeId ->
+      customThemes |> Map.tryFind themeId |> Option.defaultValue defaultTheme
+
+  let modeName = function
+    | Builtin Dark -> "Dark"
+    | Builtin Light -> "Light"
+    | Custom(ThemeId id) -> id

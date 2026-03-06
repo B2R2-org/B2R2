@@ -27,6 +27,7 @@ namespace B2R2.RearEnd.BinExplore.GUI
 open Avalonia.FuncUI
 open Avalonia.FuncUI.Hosts
 open Avalonia.Controls
+open Avalonia.Styling
 
 type MainWindow(arbiter) as this =
   inherit HostWindow()
@@ -34,13 +35,17 @@ type MainWindow(arbiter) as this =
   let [<Literal>] WelcomeMessage = "Welcome to BinExplore!"
 
   let init arbiter =
+    let themeMode = Theme.defaultMode
+    let customThemes = Map.empty
     { LoadedBinary = None
       Functions = []
       FunctionFilter = ""
       ActiveFunction = None
       OpenTabs = []
       PreviewTab = None
-      Theme = Theme.defaultTheme
+      CustomThemes = customThemes
+      ThemeMode = themeMode
+      Theme = Theme.resolve themeMode customThemes
       DraggingTab = None
       StatusMessage = WelcomeMessage }
 
@@ -62,6 +67,11 @@ type MainWindow(arbiter) as this =
       None
 
   let update (msg: Message) (model: Model) =
+    let applyThemeVariant mode =
+      match mode with
+      | Builtin Light -> this.RequestedThemeVariant <- ThemeVariant.Light
+      | Builtin Dark -> this.RequestedThemeVariant <- ThemeVariant.Dark
+      | Custom _ -> ()
     match msg with
     | OpenBinary _path ->
       { model with
@@ -143,6 +153,23 @@ type MainWindow(arbiter) as this =
         { model with DraggingTab = None }
       else
         model
+    | RegisterCustomTheme(themeId, theme) ->
+      let customThemes = model.CustomThemes |> Map.add themeId theme
+      let currentTheme =
+        match model.ThemeMode with
+        | ThemeMode.Custom selected when selected = themeId -> theme
+        | _ -> model.Theme
+      { model with
+          CustomThemes = customThemes
+          Theme = currentTheme
+          StatusMessage = $"Registered theme: {theme.Name}" }
+    | SetThemeMode mode ->
+      applyThemeVariant mode
+      let theme = Theme.resolve mode model.CustomThemes
+      { model with
+          ThemeMode = mode
+          Theme = theme
+          StatusMessage = $"Theme changed: {Theme.modeName mode}" }
     | UpdateFunctionFilter text ->
       { model with FunctionFilter = text }
     | UpdateStatus msg ->

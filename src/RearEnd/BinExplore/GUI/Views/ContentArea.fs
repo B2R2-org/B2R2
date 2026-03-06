@@ -31,6 +31,7 @@ open Avalonia.Controls.Presenters
 open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.Input
+open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 
@@ -44,6 +45,11 @@ let private filterFunctions model =
 
 let private functionList (model: Model) dispatch =
   let filteredFunctions = filterFunctions model
+  let themeViewKey =
+    match model.ThemeMode with
+    | Builtin Dark -> "builtin-dark"
+    | Builtin Light -> "builtin-light"
+    | Custom(ThemeId themeId) -> $"custom-{themeId}"
   let selectedFunction =
     match model.ActiveFunction with
     | Some func when List.contains func filteredFunctions -> box func
@@ -64,6 +70,7 @@ let private functionList (model: Model) dispatch =
                 TextBox.text model.FunctionFilter
                 TextBox.watermark "Filter functions..."
                 TextBox.fontSize 13.0
+                TextBox.foreground model.Theme.Text.Primary
                 TextBox.onTextChanged (fun text ->
                   dispatch (UpdateFunctionFilter text))
               ]
@@ -71,7 +78,16 @@ let private functionList (model: Model) dispatch =
           ]
           ListBox.create [
             ListBox.background model.Theme.Panel.Background
+            ListBox.foreground model.Theme.Text.Primary
             ListBox.dataItems filteredFunctions
+            ItemsControl.itemTemplate (
+              DataTemplateView<string>.create (fun funcName ->
+                TextBlock.create [
+                  TextBlock.text funcName
+                  TextBlock.foreground model.Theme.Text.Primary
+                ]
+              )
+            )
             ListBox.selectedItem selectedFunction
             ListBox.autoScrollToSelectedItem true
             ListBox.onSelectedItemChanged (fun item ->
@@ -91,7 +107,7 @@ let private functionList (model: Model) dispatch =
               | _ ->
                 ()
             )
-          ]
+          ] |> View.withKey $"function-list-{themeViewKey}"
         ]
       ]
     )
@@ -227,6 +243,7 @@ let private cfgViewPanel (model: Model) dispatch =
                   | None ->
                     "Select a function to view its control flow graph"
                 )
+                TextBlock.foreground model.Theme.Text.Primary
                 TextBlock.fontSize 14.0
                 TextBlock.margin 10.0
               ]

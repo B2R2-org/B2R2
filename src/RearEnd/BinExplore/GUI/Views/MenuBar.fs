@@ -28,27 +28,94 @@ open Avalonia.FuncUI.DSL
 open Avalonia.Controls
 
 let view model dispatch =
+  let isDarkSelected =
+    match model.ThemeMode with
+    | Builtin Dark -> true
+    | _ -> false
+  let isLightSelected =
+    match model.ThemeMode with
+    | Builtin Light -> true
+    | _ -> false
+  let isCustomSelected =
+    match model.ThemeMode with
+    | Custom _ -> true
+    | _ -> false
+  let menuBg = model.Theme.Panel.AltBackground
+  let menuFg = model.Theme.Text.Primary
   Menu.create [
     Menu.dock Dock.Top
+    Menu.background menuBg
+    Menu.foreground menuFg
     Menu.viewItems [
       MenuItem.create [
         MenuItem.header "File"
+        MenuItem.background menuBg
+        MenuItem.foreground menuFg
         MenuItem.viewItems [
           MenuItem.create [
-            MenuItem.header "Open"
+            MenuItem.header "Open Binary..."
+            MenuItem.background menuBg
+            MenuItem.foreground menuFg
             MenuItem.onClick (fun _ -> dispatch (OpenBinary ""))
           ]
           MenuItem.create [
-            MenuItem.header "Close"
+            MenuItem.header "Close Binary"
+            MenuItem.background menuBg
+            MenuItem.foreground menuFg
             MenuItem.isEnabled model.LoadedBinary.IsSome
             MenuItem.onClick (fun _ -> dispatch CloseBinary)
           ]
           MenuItem.create [
             MenuItem.header "-"
+            MenuItem.background menuBg
+            MenuItem.foreground menuFg
           ]
           MenuItem.create [
             MenuItem.header "Exit"
+            MenuItem.background menuBg
+            MenuItem.foreground menuFg
             MenuItem.onClick (fun _ -> dispatch ExitApplication)
+          ]
+        ]
+      ]
+      MenuItem.create [
+        MenuItem.header "View"
+        MenuItem.background menuBg
+        MenuItem.foreground menuFg
+        MenuItem.viewItems [
+          MenuItem.create [
+            MenuItem.header "Themes"
+            MenuItem.background menuBg
+            MenuItem.foreground menuFg
+            MenuItem.viewItems [
+              MenuItem.create [
+                MenuItem.header "Dark"
+                MenuItem.background menuBg
+                MenuItem.foreground menuFg
+                MenuItem.toggleType MenuItemToggleType.Radio
+                MenuItem.isChecked isDarkSelected
+                MenuItem.onClick (fun _ ->
+                  dispatch (SetThemeMode(Builtin Dark)))
+              ]
+              MenuItem.create [
+                MenuItem.header "Light"
+                MenuItem.background menuBg
+                MenuItem.foreground menuFg
+                MenuItem.toggleType MenuItemToggleType.Radio
+                MenuItem.isChecked isLightSelected
+                MenuItem.onClick (fun _ ->
+                  dispatch (SetThemeMode(Builtin Light)))
+              ]
+              MenuItem.create [
+                MenuItem.header "Custom..."
+                MenuItem.background menuBg
+                MenuItem.foreground menuFg
+                MenuItem.toggleType MenuItemToggleType.Radio
+                MenuItem.isChecked isCustomSelected
+                MenuItem.onClick (fun _ ->
+                  dispatch (UpdateStatus "Not implemented yet."))
+              ]
+            ]
           ]
         ]
       ]
