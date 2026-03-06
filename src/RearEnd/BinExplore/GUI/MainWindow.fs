@@ -58,6 +58,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       LoadingBinaryPath = None
       StatusMessage = WelcomeMessage }, Elmish.Cmd.none
 
+  let functionLabel func = FunctionItem.displayName func
+
   let loadBinaryAsync (filePath: string) =
     async {
       return arbiter.AddBinary filePath
@@ -134,9 +136,14 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     | OpenBinaryCompleted filePath ->
       if model.LoadingBinaryPath = Some filePath then
         let statusFileName = Path.GetFileName filePath
+        let brew = arbiter.GetBinaryBrew filePath |> Option.get
+        let functions =
+          brew.Functions.Sequence
+          |> Seq.map FunctionItem.ofFunction
+          |> Seq.toList
         { model with
             LoadedBinary = Some filePath
-            Functions = []
+            Functions = functions
             FunctionFilter = ""
             ActiveFunction = None
             OpenTabs = []
@@ -167,38 +174,38 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
           LoadingBinaryPath = None
           StatusMessage = "Workspace closed. Open a file to start exploring." },
       Elmish.Cmd.none
-    | OpenTab funcName ->
-      if List.contains funcName model.OpenTabs then
+    | OpenTab func ->
+      if List.contains func model.OpenTabs then
         { model with
-            ActiveFunction = Some funcName
-            StatusMessage = $"Switched to tab: {funcName}" },
+            ActiveFunction = Some func
+            StatusMessage = $"Switched to tab: {functionLabel func}" },
         Elmish.Cmd.none
       else
         { model with
-            ActiveFunction = Some funcName
-            PreviewTab = Some funcName
-            StatusMessage = $"Opened tab: {funcName}" },
+            ActiveFunction = Some func
+            PreviewTab = Some func
+            StatusMessage = $"Opened tab: {functionLabel func}" },
         Elmish.Cmd.none
-    | PinTab funcName ->
-      let isPreview = model.PreviewTab = Some funcName
+    | PinTab func ->
+      let isPreview = model.PreviewTab = Some func
       let newOpenTabs =
-        if List.contains funcName model.OpenTabs then model.OpenTabs
-        else funcName :: model.OpenTabs
+        if List.contains func model.OpenTabs then model.OpenTabs
+        else func :: model.OpenTabs
       { model with
-          ActiveFunction = Some funcName
+          ActiveFunction = Some func
           OpenTabs = newOpenTabs
           PreviewTab = if isPreview then None else model.PreviewTab
-          StatusMessage = $"Pinned tab: {funcName}" },
+          StatusMessage = $"Pinned tab: {functionLabel func}" },
       Elmish.Cmd.none
-    | CloseTab funcName ->
-      let newOpenTabs = model.OpenTabs |> List.filter ((<>) funcName)
-      let isPreview = model.PreviewTab = Some funcName
+    | CloseTab func ->
+      let newOpenTabs = model.OpenTabs |> List.filter ((<>) func)
+      let isPreview = model.PreviewTab = Some func
       let newPreviewTab = if isPreview then None else model.PreviewTab
       let newDraggingTab =
-        if model.DraggingTab = Some funcName then None
+        if model.DraggingTab = Some func then None
         else model.DraggingTab
       let newActiveFunction =
-        if model.ActiveFunction = Some funcName then
+        if model.ActiveFunction = Some func then
           newOpenTabs |> List.tryHead |> Option.orElse newPreviewTab
         else
           model.ActiveFunction
@@ -207,16 +214,16 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
           OpenTabs = newOpenTabs
           PreviewTab = newPreviewTab
           DraggingTab = newDraggingTab
-          StatusMessage = $"Closed tab: {funcName}" },
+          StatusMessage = $"Closed tab: {functionLabel func}" },
       Elmish.Cmd.none
-    | SwitchTab funcName ->
+    | SwitchTab func ->
       { model with
-          ActiveFunction = Some funcName
-          StatusMessage = $"Switched to tab: {funcName}" },
+          ActiveFunction = Some func
+          StatusMessage = $"Switched to tab: {functionLabel func}" },
       Elmish.Cmd.none
-    | StartTabDrag funcName ->
-      if List.contains funcName model.OpenTabs then
-        { model with DraggingTab = Some funcName }, Elmish.Cmd.none
+    | StartTabDrag func ->
+      if List.contains func model.OpenTabs then
+        { model with DraggingTab = Some func }, Elmish.Cmd.none
       else
         model, Elmish.Cmd.none
     | ReorderTab(draggedTab, targetTab) ->

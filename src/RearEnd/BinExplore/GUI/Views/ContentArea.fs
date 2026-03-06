@@ -41,8 +41,11 @@ let private filterFunctions model =
     model.Functions
   else
     model.Functions
-    |> List.filter (fun name ->
-      name.Contains(model.FunctionFilter, StringComparison.OrdinalIgnoreCase))
+    |> List.filter (fun func ->
+      func.Name.Contains(
+        model.FunctionFilter,
+        StringComparison.OrdinalIgnoreCase
+      ))
 
 let private functionList (model: Model) dispatch =
   let filteredFunctions = filterFunctions model
@@ -82,9 +85,9 @@ let private functionList (model: Model) dispatch =
             ListBox.foreground model.Theme.Text.Primary
             ListBox.dataItems filteredFunctions
             ItemsControl.itemTemplate (
-              DataTemplateView<string>.create (fun funcName ->
+              DataTemplateView<FunctionItem>.create (fun func ->
                 TextBlock.create [
-                  TextBlock.text funcName
+                  TextBlock.text (FunctionItem.displayName func)
                   TextBlock.foreground model.Theme.Text.Primary
                 ]
               )
@@ -93,18 +96,16 @@ let private functionList (model: Model) dispatch =
             ListBox.autoScrollToSelectedItem true
             ListBox.onSelectedItemChanged (fun item ->
               if not (isNull item) then
-                let funcName = item :?> string
-                dispatch (OpenTab funcName)
+                let func = item :?> FunctionItem
+                dispatch (OpenTab func)
               else
                 ()
             )
             ListBox.onDoubleTapped (fun e ->
               match e.Source with
               | :? ContentPresenter as presenter ->
-                let text = presenter.Content :?> string
-                dispatch (PinTab text)
-              | :? TextBlock as textBlock ->
-                dispatch (PinTab textBlock.Text)
+                let func = presenter.Content :?> FunctionItem
+                dispatch (PinTab func)
               | _ ->
                 ()
             )
@@ -114,16 +115,16 @@ let private functionList (model: Model) dispatch =
     )
   ]
 
-let private getTabBorderColor (model: Model) tabName =
-  if model.ActiveFunction = Some tabName then model.Theme.Tab.ActiveBackground
+let private getTabBorderColor (model: Model) tab =
+  if model.ActiveFunction = Some tab then model.Theme.Tab.ActiveBackground
   else model.Theme.Tab.InactiveBackground
 
-let private getTabTextColor (model: Model) tabName =
-  if model.ActiveFunction = Some tabName then model.Theme.Text.Primary
+let private getTabTextColor (model: Model) tab =
+  if model.ActiveFunction = Some tab then model.Theme.Text.Primary
   else model.Theme.Text.Secondary
 
-let private getTabFontStyle (model: Model) tabName =
-  if model.PreviewTab = Some tabName then FontStyle.Italic
+let private getTabFontStyle (model: Model) tab =
+  if model.PreviewTab = Some tab then FontStyle.Italic
   else FontStyle.Normal
 
 let [<Literal>] private TabMaxWidth = 220.0
@@ -157,22 +158,39 @@ let private getCfgTabIconSource model =
   if isBrightTextColor then cfgTabIconDarkSource
   else cfgTabIconLightSource
 
-let private onTabDrag tabName dispatch (e: DragEventArgs) =
-  let draggedTab = DataTransferExtensions.TryGetText e.DataTransfer
-  if not (String.IsNullOrWhiteSpace draggedTab) then
-    dispatch (ReorderTab(draggedTab, tabName))
-    e.DragEffects <- DragDropEffects.Move
+let private findTabByFuncID model funcID =
+  let allTabs =
+    match model.PreviewTab with
+    | Some preview -> preview :: model.OpenTabs
+    | None -> model.OpenTabs
+  allTabs |> List.tryFind (fun tab -> tab.FuncID = funcID)
+
+let private onTabDrag model targetTab dispatch (e: DragEventArgs) =
+  let draggedTabID = DataTransferExtensions.TryGetText e.DataTransfer
+  if not (String.IsNullOrWhiteSpace draggedTabID) then
+    match findTabByFuncID model draggedTabID with
+    | Some draggedTab ->
+      dispatch (ReorderTab(draggedTab, targetTab))
+      e.DragEffects <- DragDropEffects.Move
+    | None ->
+      e.DragEffects <- DragDropEffects.None
   else
     e.DragEffects <- DragDropEffects.None
   e.Handled <- true
 
-let private onTabClick tabName dispatch (e: PointerPressedEventArgs) =
-  dispatch (SwitchTab tabName)
-  dispatch (StartTabDrag tabName)
+let private onTabClick tab dispatch (e: PointerPressedEventArgs) =
+  dispatch (SwitchTab tab)
+  dispatch (StartTabDrag tab)
   let data = new DataTransfer()
-  data.Add(DataTransferItem.CreateText tabName)
+  data.Add(DataTransferItem.CreateText tab.FuncID)
   DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
   |> ignore
+
+let private tabDisplayName tab = FunctionItem.displayName tab
+
+let private tabKeySuffix tab = tab.FuncID
+
+let private tabStatusLabel tab = tabDisplayName tab
 
 let private tabBar (model: Model) dispatch =
   let allTabs =
@@ -196,15 +214,15 @@ let private tabBar (model: Model) dispatch =
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children (
               allTabs
-              |> List.map (fun tabName ->
+              |> List.map (fun tab ->
                 Border.create [
-                  Border.background (getTabBorderColor model tabName)
+                  Border.background (getTabBorderColor model tab)
                   Border.maxWidth TabMaxWidth
                   Border.borderThickness (0.0, 0.0, 1.0, 0.0)
                   Border.borderBrush model.Theme.Panel.Border
                   Border.padding (10.0, 5.0, 5.0, 5.0)
                   Control.allowDrop true
-                  Control.onDragOver (onTabDrag tabName dispatch)
+                  Control.onDragOver (onTabDrag model tab dispatch)
                   Control.onDrop (fun e ->
                     dispatch EndTabDrag
                     e.Handled <- true)
@@ -217,10 +235,10 @@ let private tabBar (model: Model) dispatch =
                           StackPanel.verticalAlignment VerticalAlignment.Center
                           StackPanel.background model.Theme.Common.Transparent
                           Control.onPointerPressed (fun e ->
-                            onTabClick tabName dispatch e)
+                            onTabClick tab dispatch e)
                           Control.onPointerReleased (fun _ ->
                             dispatch EndTabDrag)
-                          ToolTip.tip tabName
+                          ToolTip.tip (tabDisplayName tab)
                           StackPanel.children [
                             Image.create [
                               Image.source (getCfgTabIconSource model)
@@ -229,26 +247,26 @@ let private tabBar (model: Model) dispatch =
                               Image.stretch Stretch.Uniform
                               Image.verticalAlignment VerticalAlignment.Center
                               Image.margin (0.0, 0.0, 4.0, 0.0)
-                            ] |> View.withKey $"{tabName}-icon"
+                            ] |> View.withKey $"{tabKeySuffix tab}-icon"
                             TextBlock.create [
                               StackPanel.verticalAlignment
                                 VerticalAlignment.Center
-                              TextBlock.text tabName
+                              TextBlock.text (tabDisplayName tab)
                               TextBlock.background
                                 model.Theme.Common.Transparent
                               TextBlock.foreground
-                                (getTabTextColor model tabName)
+                                (getTabTextColor model tab)
                               TextBlock.padding (5.0, 0.0, 0.0, 0.0)
                               TextBlock.fontSize 12.0
                               TextBlock.fontStyle
-                                (getTabFontStyle model tabName)
+                                (getTabFontStyle model tab)
                               TextBlock.maxWidth TabTextMaxWidth
                               TextBlock.textWrapping TextWrapping.NoWrap
                               TextBlock.textTrimming
                                 TextTrimming.CharacterEllipsis
-                            ] |> View.withKey $"{tabName}-label"
+                            ] |> View.withKey $"{tabKeySuffix tab}-label"
                           ]
-                        ] |> View.withKey $"{tabName}-clickarea"
+                        ] |> View.withKey $"{tabKeySuffix tab}-clickarea"
                         Button.create [
                           Button.content "\u00D7"
                           Button.background model.Theme.Common.Transparent
@@ -257,12 +275,12 @@ let private tabBar (model: Model) dispatch =
                           Button.padding (5.0, 0.0, 5.0, 0.0)
                           Button.fontSize 16.0
                           Button.onClick (fun _ ->
-                            dispatch (CloseTab tabName))
-                        ] |> View.withKey $"{tabName}-close"
+                            dispatch (CloseTab tab))
+                        ] |> View.withKey $"{tabKeySuffix tab}-close"
                       ]
                     ]
                   )
-                ] |> View.withKey $"{tabName}-tab" :> IView
+                ] |> View.withKey $"{tabKeySuffix tab}-tab" :> IView
               )
             )
           ]
@@ -287,7 +305,7 @@ let private cfgViewPanel (model: Model) dispatch =
                 TextBlock.text (
                   match model.ActiveFunction with
                   | Some func ->
-                    $"Control Flow Graph for: {func}\n\n(Coming Soon)"
+                    $"Control Flow Graph for: {tabStatusLabel func}"
                   | None ->
                     "Select a function to view its control flow graph"
                 )

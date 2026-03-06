@@ -24,29 +24,22 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
-/// Represents the state of the main view.
-type Model =
-  { /// Currently loaded binary file.
-    LoadedBinary: string option
-    /// List of functions extracted from the loaded binary.
-    Functions: FunctionItem list
-    /// Search text used to filter the function list.
-    FunctionFilter: string
-    /// Currently active (selected) function in the function list.
-    ActiveFunction: FunctionItem option
-    /// List of currently open tabs in the main view, excluding the preview tab.
-    OpenTabs: FunctionItem list
-    /// Currently open preview tab, if any.
-    PreviewTab: FunctionItem option
-    /// Registered custom themes.
-    CustomThemes: Map<ThemeId, Theme>
-    /// Current theme mode.
-    ThemeMode: ThemeMode
-    /// Current UI theme.
-    Theme: Theme
-    /// Tab currently being dragged for reordering, if any.
-    DraggingTab: FunctionItem option
-    /// Path of the binary currently loading.
-    LoadingBinaryPath: string option
-    /// Status message to be displayed in the status bar.
-    StatusMessage: string }
+open B2R2
+open B2R2.MiddleEnd.ControlFlowAnalysis
+
+/// Represents a function entry in the UI.
+type FunctionItem =
+  { FuncID: string
+    Address: Addr
+    Name: string }
+
+[<RequireQualifiedAccess>]
+module FunctionItem =
+  let displayName (item: FunctionItem) =
+    $"0x{item.Address:X} ({item.Name})"
+
+  /// Converts from a Function into a FunctionItem for display in the UI.
+  let ofFunction (func: Function) =
+    { FuncID = func.ID
+      Address = func.EntryPoint
+      Name = func.Name }
