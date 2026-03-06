@@ -34,6 +34,7 @@ open Avalonia.Input
 open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
+open Avalonia.Svg.Skia
 
 let private filterFunctions model =
   if String.IsNullOrWhiteSpace model.FunctionFilter then
@@ -129,6 +130,33 @@ let [<Literal>] private TabMaxWidth = 220.0
 
 let [<Literal>] private TabTextMaxWidth = 165.0
 
+let private cfgTabIconLightSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/cfg-light.svg"
+  svgImage :> IImage
+
+let private cfgTabIconDarkSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/cfg-dark.svg"
+  svgImage :> IImage
+
+let private getCfgTabIconSource model =
+  let isBrightTextColor =
+    match Color.TryParse model.Theme.Text.Primary with
+    | true, color ->
+      let luminance =
+        (0.299 * float color.R + 0.587 * float color.G + 0.114 * float color.B)
+        / 255.0
+      luminance >= 0.5
+    | _ ->
+      match model.ThemeMode with
+      | Builtin Dark -> true
+      | _ -> false
+  if isBrightTextColor then cfgTabIconDarkSource
+  else cfgTabIconLightSource
+
 let private onTabDrag tabName dispatch (e: DragEventArgs) =
   let draggedTab = DataTransferExtensions.TryGetText e.DataTransfer
   if not (String.IsNullOrWhiteSpace draggedTab) then
@@ -184,23 +212,43 @@ let private tabBar (model: Model) dispatch =
                     StackPanel.create [
                       StackPanel.orientation Orientation.Horizontal
                       StackPanel.children [
-                        TextBlock.create [
+                        StackPanel.create [
+                          StackPanel.orientation Orientation.Horizontal
                           StackPanel.verticalAlignment VerticalAlignment.Center
-                          TextBlock.text tabName
-                          TextBlock.background model.Theme.Common.Transparent
-                          TextBlock.foreground (getTabTextColor model tabName)
-                          TextBlock.padding (5.0, 0.0, 0.0, 0.0)
-                          TextBlock.fontSize 12.0
-                          TextBlock.fontStyle (getTabFontStyle model tabName)
-                          TextBlock.maxWidth TabTextMaxWidth
-                          TextBlock.textWrapping TextWrapping.NoWrap
-                          TextBlock.textTrimming TextTrimming.CharacterEllipsis
-                          ToolTip.tip tabName
-                          TextBlock.onPointerPressed (fun e ->
+                          StackPanel.background model.Theme.Common.Transparent
+                          Control.onPointerPressed (fun e ->
                             onTabClick tabName dispatch e)
-                          TextBlock.onPointerReleased (fun _ ->
+                          Control.onPointerReleased (fun _ ->
                             dispatch EndTabDrag)
-                        ] |> View.withKey $"{tabName}-label"
+                          ToolTip.tip tabName
+                          StackPanel.children [
+                            Image.create [
+                              Image.source (getCfgTabIconSource model)
+                              Image.width 14.0
+                              Image.height 14.0
+                              Image.stretch Stretch.Uniform
+                              Image.verticalAlignment VerticalAlignment.Center
+                              Image.margin (0.0, 0.0, 4.0, 0.0)
+                            ] |> View.withKey $"{tabName}-icon"
+                            TextBlock.create [
+                              StackPanel.verticalAlignment
+                                VerticalAlignment.Center
+                              TextBlock.text tabName
+                              TextBlock.background
+                                model.Theme.Common.Transparent
+                              TextBlock.foreground
+                                (getTabTextColor model tabName)
+                              TextBlock.padding (5.0, 0.0, 0.0, 0.0)
+                              TextBlock.fontSize 12.0
+                              TextBlock.fontStyle
+                                (getTabFontStyle model tabName)
+                              TextBlock.maxWidth TabTextMaxWidth
+                              TextBlock.textWrapping TextWrapping.NoWrap
+                              TextBlock.textTrimming
+                                TextTrimming.CharacterEllipsis
+                            ] |> View.withKey $"{tabName}-label"
+                          ]
+                        ] |> View.withKey $"{tabName}-clickarea"
                         Button.create [
                           Button.content "\u00D7"
                           Button.background model.Theme.Common.Transparent

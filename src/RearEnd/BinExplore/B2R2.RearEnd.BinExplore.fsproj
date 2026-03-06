@@ -51,10 +51,12 @@
     <ProjectReference Include="..\BinQL\B2R2.RearEnd.BinQL.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
     <PackageReference Include="B2R2.FsReadLine" Version="0.3.0" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
     <PackageReference Include="Avalonia.FuncUI" Version="1.5.2" />
     <PackageReference Include="Avalonia.FuncUI.Elmish" Version="1.5.2" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+    <PackageReference Include="Svg.Controls.Skia.Avalonia" Version="11.3.9.2" />
   </ItemGroup>
 </Project>
