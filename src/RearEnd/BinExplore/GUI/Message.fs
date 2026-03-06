@@ -38,6 +38,12 @@ type Message =
   | CloseTab of string
   /// Message to switch to a specific tab, making it active.
   | SwitchTab of string
+  /// Message to start dragging a tab for reordering.
+  | StartTabDrag of string
+  /// Message to reorder tabs using explicit dragged/target tab names.
+  | ReorderTab of draggedTab: string * targetTab: string
+  /// Message to end dragging of a tab.
+  | EndTabDrag
   /// Message to update function filter text.
   | UpdateFunctionFilter of string
   /// Message to update the status message in the status bar.

@@ -31,6 +31,8 @@ open Avalonia.Controls
 type MainWindow(arbiter) as this =
   inherit HostWindow()
 
+  let [<Literal>] WelcomeMessage = "Welcome to BinExplore!"
+
   let init arbiter =
     { LoadedBinary = None
       Functions = []
@@ -38,11 +40,29 @@ type MainWindow(arbiter) as this =
       ActiveFunction = None
       OpenTabs = []
       PreviewTab = None
-      StatusMessage = "Welcome to BinExplore!" }
+      DraggingTab = None
+      StatusMessage = WelcomeMessage }
+
+  let reorderOpenTabs model draggedTab targetTab =
+    if draggedTab <> targetTab
+        && List.contains draggedTab model.OpenTabs
+        && List.contains targetTab model.OpenTabs then
+      let draggedIndex = model.OpenTabs |> List.findIndex ((=) draggedTab)
+      let targetIndex = model.OpenTabs |> List.findIndex ((=) targetTab)
+      let openTabsWithoutDragged =
+        model.OpenTabs |> List.filter ((<>) draggedTab)
+      let targetIndexInNew =
+        openTabsWithoutDragged |> List.findIndex ((=) targetTab)
+      let insertIndex =
+        if draggedIndex < targetIndex then targetIndexInNew + 1
+        else targetIndexInNew
+      openTabsWithoutDragged |> List.insertAt insertIndex draggedTab |> Some
+    else
+      None
 
   let update (msg: Message) (model: Model) =
     match msg with
-    | OpenBinary path ->
+    | OpenBinary _path ->
       { model with
           LoadedBinary = Some "sample_binary.exe"
           Functions = [
@@ -61,6 +81,7 @@ type MainWindow(arbiter) as this =
           ActiveFunction = None
           OpenTabs = []
           PreviewTab = None
+          DraggingTab = None
           StatusMessage = "Workspace closed. Open a file to start exploring." }
     | OpenTab funcName ->
       if List.contains funcName model.OpenTabs then
@@ -86,6 +107,9 @@ type MainWindow(arbiter) as this =
       let newOpenTabs = model.OpenTabs |> List.filter ((<>) funcName)
       let isPreview = model.PreviewTab = Some funcName
       let newPreviewTab = if isPreview then None else model.PreviewTab
+      let newDraggingTab =
+        if model.DraggingTab = Some funcName then None
+        else model.DraggingTab
       let newActiveFunction =
         if model.ActiveFunction = Some funcName then
           newOpenTabs |> List.tryHead |> Option.orElse newPreviewTab
@@ -95,11 +119,29 @@ type MainWindow(arbiter) as this =
           ActiveFunction = newActiveFunction
           OpenTabs = newOpenTabs
           PreviewTab = newPreviewTab
+          DraggingTab = newDraggingTab
           StatusMessage = $"Closed tab: {funcName}" }
     | SwitchTab funcName ->
       { model with
           ActiveFunction = Some funcName
           StatusMessage = $"Switched to tab: {funcName}" }
+    | StartTabDrag funcName ->
+      if List.contains funcName model.OpenTabs then
+        { model with DraggingTab = Some funcName }
+      else
+        model
+    | ReorderTab(draggedTab, targetTab) ->
+      match reorderOpenTabs model draggedTab targetTab with
+      | Some reorderedTabs ->
+        { model with
+            OpenTabs = reorderedTabs
+            DraggingTab = Some draggedTab }
+      | None -> model
+    | EndTabDrag ->
+      if model.DraggingTab.IsSome then
+        { model with DraggingTab = None }
+      else
+        model
     | UpdateFunctionFilter text ->
       { model with FunctionFilter = text }
     | UpdateStatus msg ->

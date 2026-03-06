@@ -30,7 +30,9 @@ open Avalonia.Controls.Primitives
 open Avalonia.Controls.Presenters
 open Avalonia.Layout
 open Avalonia.Media
+open Avalonia.Input
 open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Types
 
 let private filterFunctions model =
   if String.IsNullOrWhiteSpace model.FunctionFilter then
@@ -107,6 +109,23 @@ let private getTabFontStyle (model: Model) tabName =
   if model.PreviewTab = Some tabName then FontStyle.Italic
   else FontStyle.Normal
 
+let private onTabDrag tabName dispatch (e: DragEventArgs) =
+  let draggedTab = DataTransferExtensions.TryGetText e.DataTransfer
+  if not (String.IsNullOrWhiteSpace draggedTab) then
+    dispatch (ReorderTab(draggedTab, tabName))
+    e.DragEffects <- DragDropEffects.Move
+  else
+    e.DragEffects <- DragDropEffects.None
+  e.Handled <- true
+
+let private onTabClick tabName dispatch (e: PointerPressedEventArgs) =
+  dispatch (SwitchTab tabName)
+  dispatch (StartTabDrag tabName)
+  let data = new DataTransfer()
+  data.Add(DataTransferItem.CreateText tabName)
+  DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
+  |> ignore
+
 let private tabBar (model: Model) dispatch =
   let allTabs =
     match model.PreviewTab with
@@ -118,10 +137,14 @@ let private tabBar (model: Model) dispatch =
     Border.borderThickness 0.0
     Border.child (
       ScrollViewer.create [
+        Control.allowDrop true
         ScrollViewer.horizontalScrollBarVisibility ScrollBarVisibility.Auto
         ScrollViewer.verticalScrollBarVisibility ScrollBarVisibility.Disabled
+        ScrollViewer.onPointerReleased (fun _ ->
+          dispatch EndTabDrag)
         ScrollViewer.content (
           StackPanel.create [
+            Control.allowDrop true
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children (
               allTabs
@@ -131,6 +154,11 @@ let private tabBar (model: Model) dispatch =
                   Border.borderThickness (0.0, 0.0, 1.0, 0.0)
                   Border.borderBrush "#3E3E42"
                   Border.padding (10.0, 5.0, 5.0, 5.0)
+                  Control.allowDrop true
+                  Control.onDragOver (onTabDrag tabName dispatch)
+                  Control.onDrop (fun e ->
+                    dispatch EndTabDrag
+                    e.Handled <- true)
                   Border.child (
                     StackPanel.create [
                       StackPanel.orientation Orientation.Horizontal
@@ -143,9 +171,11 @@ let private tabBar (model: Model) dispatch =
                           TextBlock.padding (5.0, 0.0, 0.0, 0.0)
                           TextBlock.fontSize 12.0
                           TextBlock.fontStyle (getTabFontStyle model tabName)
-                          TextBlock.onPointerPressed (fun _ ->
-                            dispatch (SwitchTab tabName))
-                        ] |> View.withKey tabName
+                          TextBlock.onPointerPressed (fun e ->
+                            onTabClick tabName dispatch e)
+                          TextBlock.onPointerReleased (fun _ ->
+                            dispatch EndTabDrag)
+                        ] |> View.withKey $"{tabName}-label"
                         Button.create [
                           Button.content "\u00D7"
                           Button.background "Transparent"
@@ -155,11 +185,11 @@ let private tabBar (model: Model) dispatch =
                           Button.fontSize 16.0
                           Button.onClick (fun _ ->
                             dispatch (CloseTab tabName))
-                        ] |> View.withKey tabName
+                        ] |> View.withKey $"{tabName}-close"
                       ]
                     ]
                   )
-                ]
+                ] |> View.withKey $"{tabName}-tab" :> IView
               )
             )
           ]

@@ -38,5 +38,7 @@ type Model =
     OpenTabs: string list
     /// Currently open preview tab, if any.
     PreviewTab: string option
+    /// Tab currently being dragged for reordering, if any.
+    DraggingTab: string option
     /// Status message to be displayed in the status bar.
     StatusMessage: string }
