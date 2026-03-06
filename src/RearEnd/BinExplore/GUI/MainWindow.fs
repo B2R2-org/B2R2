@@ -34,6 +34,7 @@ type MainWindow(arbiter) as this =
   let init arbiter =
     { LoadedBinary = None
       Functions = []
+      FunctionFilter = ""
       ActiveFunction = None
       OpenTabs = []
       PreviewTab = None
@@ -50,11 +51,13 @@ type MainWindow(arbiter) as this =
             "bar"
             "baz"
           ]
+          FunctionFilter = ""
           StatusMessage = "Loaded binary: sample_binary.exe" }
     | CloseBinary ->
       { model with
           LoadedBinary = None
           Functions = []
+          FunctionFilter = ""
           ActiveFunction = None
           OpenTabs = []
           PreviewTab = None
@@ -97,6 +100,8 @@ type MainWindow(arbiter) as this =
       { model with
           ActiveFunction = Some funcName
           StatusMessage = $"Switched to tab: {funcName}" }
+    | UpdateFunctionFilter text ->
+      { model with FunctionFilter = text }
     | UpdateStatus msg ->
       { model with StatusMessage = msg }
     | ExitApplication ->

@@ -38,6 +38,8 @@ type Message =
   | CloseTab of string
   /// Message to switch to a specific tab, making it active.
   | SwitchTab of string
+  /// Message to update function filter text.
+  | UpdateFunctionFilter of string
   /// Message to update the status message in the status bar.
   | UpdateStatus of string
   /// Message to exit the application.

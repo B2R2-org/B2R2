@@ -24,6 +24,7 @@
 
 module B2R2.RearEnd.BinExplore.GUI.ContentArea
 
+open System
 open Avalonia.Controls
 open Avalonia.Controls.Primitives
 open Avalonia.Controls.Presenters
@@ -31,7 +32,20 @@ open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.FuncUI.DSL
 
+let private filterFunctions model =
+  if String.IsNullOrWhiteSpace model.FunctionFilter then
+    model.Functions
+  else
+    model.Functions
+    |> List.filter (fun name ->
+      name.Contains(model.FunctionFilter, StringComparison.OrdinalIgnoreCase))
+
 let private functionList (model: Model) dispatch =
+  let filteredFunctions = filterFunctions model
+  let selectedFunction =
+    match model.ActiveFunction with
+    | Some func when List.contains func filteredFunctions -> box func
+    | _ -> null
   Border.create [
     Border.background "#252526"
     Border.borderThickness 1.0
@@ -44,21 +58,19 @@ let private functionList (model: Model) dispatch =
             Border.background "#2D2D30"
             Border.padding 5.0
             Border.child (
-              TextBlock.create [
-                TextBlock.text "Functions"
-                TextBlock.fontSize 14.0
-                TextBlock.fontWeight FontWeight.Bold
+              TextBox.create [
+                TextBox.text model.FunctionFilter
+                TextBox.watermark "Filter functions..."
+                TextBox.fontSize 13.0
+                TextBox.onTextChanged (fun text ->
+                  dispatch (UpdateFunctionFilter text))
               ]
             )
           ]
           ListBox.create [
             ListBox.background "#252526"
-            ListBox.dataItems model.Functions
-            ListBox.selectedItem (
-              match model.ActiveFunction with
-              | None -> null
-              | Some func -> box func
-            )
+            ListBox.dataItems filteredFunctions
+            ListBox.selectedItem selectedFunction
             ListBox.autoScrollToSelectedItem true
             ListBox.onSelectedItemChanged (fun item ->
               if not (isNull item) then

@@ -30,6 +30,8 @@ type Model =
     LoadedBinary: string option
     /// List of functions extracted from the loaded binary.
     Functions: string list
+    /// Search text used to filter the function list.
+    FunctionFilter: string
     /// Currently active (selected) function in the function list.
     ActiveFunction: string option
     /// List of currently open tabs in the main view, excluding the preview tab.
