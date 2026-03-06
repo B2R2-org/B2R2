@@ -28,6 +28,10 @@ namespace B2R2.RearEnd.BinExplore.GUI
 type Message =
   /// Message to open a binary file, carrying the file path.
   | OpenBinary of string
+  /// Message emitted when binary loading has finished.
+  | OpenBinaryCompleted of string
+  /// Message emitted when binary loading failed.
+  | OpenBinaryFailed of path: string * reason: string
   /// Message to close the currently loaded binary file.
   | CloseBinary
   /// Message to open a new tab for a specific function.

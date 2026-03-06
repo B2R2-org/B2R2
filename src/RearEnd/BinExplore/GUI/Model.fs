@@ -46,5 +46,7 @@ type Model =
     Theme: Theme
     /// Tab currently being dragged for reordering, if any.
     DraggingTab: string option
+    /// Path of the binary currently loading.
+    LoadingBinaryPath: string option
     /// Status message to be displayed in the status bar.
     StatusMessage: string }

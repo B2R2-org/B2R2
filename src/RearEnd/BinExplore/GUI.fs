@@ -29,7 +29,7 @@ open Avalonia
 
 let start arbiter =
   AppBuilder
-    .Configure<GUI.App>(fun () -> GUI.App(arbiter))
+    .Configure<GUI.App<_, _>>(fun () -> GUI.App(arbiter))
     .UsePlatformDetect()
     .UseSkia()
     .StartWithClassicDesktopLifetime([||])

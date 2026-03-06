@@ -24,17 +24,25 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
+open System
+open System.IO
 open Avalonia.FuncUI
 open Avalonia.FuncUI.Hosts
 open Avalonia.Controls
 open Avalonia.Styling
+open Avalonia.Threading
+open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.RearEnd.BinExplore
 
-type MainWindow(arbiter) as this =
+type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
+                                and 'FnCtx: (new: unit -> 'FnCtx)
+                                and 'GlCtx: (new: unit -> 'GlCtx)>
+  public(arbiter: Arbiter<'FnCtx, 'GlCtx>) as this =
   inherit HostWindow()
 
   let [<Literal>] WelcomeMessage = "Welcome to BinExplore!"
 
-  let init arbiter =
+  let init () =
     let themeMode = Theme.defaultMode
     let customThemes = Map.empty
     { LoadedBinary = None
@@ -47,7 +55,47 @@ type MainWindow(arbiter) as this =
       ThemeMode = themeMode
       Theme = Theme.resolve themeMode customThemes
       DraggingTab = None
-      StatusMessage = WelcomeMessage }
+      LoadingBinaryPath = None
+      StatusMessage = WelcomeMessage }, Elmish.Cmd.none
+
+  let loadBinaryAsync (filePath: string) =
+    async {
+      return arbiter.AddBinary filePath
+    }
+
+  let cmdOfSub (sub: Elmish.Dispatch<Message> -> unit): Elmish.Cmd<Message> =
+    [ sub ]
+
+  let startLoadWorkflowCmd (filePath: string) =
+    cmdOfSub (fun dispatch ->
+      let displayName = Path.GetFileName filePath
+      let dispatchOnUi msg =
+        Dispatcher.UIThread.Post(fun () -> dispatch msg)
+      let mutable running = true
+      let dots = [| "."; ".."; "..." |]
+      let animate =
+        async {
+          let mutable i = 0
+          while running do
+            dispatchOnUi
+            <| UpdateStatus $"Loading {displayName} {dots[i % dots.Length]}"
+            do! Async.Sleep 250
+            i <- i + 1
+        }
+      Async.Start animate
+      Async.Start(async {
+        try
+          match! loadBinaryAsync filePath with
+          | Ok() ->
+            running <- false
+            dispatchOnUi (OpenBinaryCompleted filePath)
+          | Error reason ->
+            running <- false
+            dispatchOnUi (OpenBinaryFailed(filePath, reason))
+        with ex ->
+          running <- false
+          dispatchOnUi (OpenBinaryFailed(filePath, ex.Message))
+      }))
 
   let reorderOpenTabs model draggedTab targetTab =
     if draggedTab <> targetTab
@@ -73,17 +121,40 @@ type MainWindow(arbiter) as this =
       | Builtin Dark -> this.RequestedThemeVariant <- ThemeVariant.Dark
       | Custom _ -> ()
     match msg with
-    | OpenBinary _path ->
-      { model with
-          LoadedBinary = Some "sample_binary.exe"
-          Functions = [
-            "main"
-            "foo"
-            "bar"
-            "baz"
-          ]
-          FunctionFilter = ""
-          StatusMessage = "Loaded binary: sample_binary.exe" }
+    | OpenBinary filePath ->
+      if String.IsNullOrWhiteSpace filePath then
+        model, Elmish.Cmd.none
+      else
+        let displayName = Path.GetFileName filePath
+        let updatedModel =
+          { model with
+              LoadingBinaryPath = Some filePath
+              StatusMessage = $"Loading {displayName} ." }
+        updatedModel, startLoadWorkflowCmd filePath
+    | OpenBinaryCompleted filePath ->
+      if model.LoadingBinaryPath = Some filePath then
+        let statusFileName = Path.GetFileName filePath
+        { model with
+            LoadedBinary = Some filePath
+            Functions = []
+            FunctionFilter = ""
+            ActiveFunction = None
+            OpenTabs = []
+            PreviewTab = None
+            DraggingTab = None
+            LoadingBinaryPath = None
+            StatusMessage = statusFileName },
+        Elmish.Cmd.none
+      else
+        model, Elmish.Cmd.none
+    | OpenBinaryFailed(filePath, reason) ->
+      if model.LoadingBinaryPath = Some filePath then
+        { model with
+            LoadingBinaryPath = None
+            StatusMessage = $"Failed to load binary: {reason}" },
+        Elmish.Cmd.none
+      else
+        model, Elmish.Cmd.none
     | CloseBinary ->
       { model with
           LoadedBinary = None
@@ -93,17 +164,21 @@ type MainWindow(arbiter) as this =
           OpenTabs = []
           PreviewTab = None
           DraggingTab = None
-          StatusMessage = "Workspace closed. Open a file to start exploring." }
+          LoadingBinaryPath = None
+          StatusMessage = "Workspace closed. Open a file to start exploring." },
+      Elmish.Cmd.none
     | OpenTab funcName ->
       if List.contains funcName model.OpenTabs then
         { model with
             ActiveFunction = Some funcName
-            StatusMessage = $"Switched to tab: {funcName}" }
+            StatusMessage = $"Switched to tab: {funcName}" },
+        Elmish.Cmd.none
       else
         { model with
             ActiveFunction = Some funcName
             PreviewTab = Some funcName
-            StatusMessage = $"Opened tab: {funcName}" }
+            StatusMessage = $"Opened tab: {funcName}" },
+        Elmish.Cmd.none
     | PinTab funcName ->
       let isPreview = model.PreviewTab = Some funcName
       let newOpenTabs =
@@ -113,7 +188,8 @@ type MainWindow(arbiter) as this =
           ActiveFunction = Some funcName
           OpenTabs = newOpenTabs
           PreviewTab = if isPreview then None else model.PreviewTab
-          StatusMessage = $"Pinned tab: {funcName}" }
+          StatusMessage = $"Pinned tab: {funcName}" },
+      Elmish.Cmd.none
     | CloseTab funcName ->
       let newOpenTabs = model.OpenTabs |> List.filter ((<>) funcName)
       let isPreview = model.PreviewTab = Some funcName
@@ -131,28 +207,31 @@ type MainWindow(arbiter) as this =
           OpenTabs = newOpenTabs
           PreviewTab = newPreviewTab
           DraggingTab = newDraggingTab
-          StatusMessage = $"Closed tab: {funcName}" }
+          StatusMessage = $"Closed tab: {funcName}" },
+      Elmish.Cmd.none
     | SwitchTab funcName ->
       { model with
           ActiveFunction = Some funcName
-          StatusMessage = $"Switched to tab: {funcName}" }
+          StatusMessage = $"Switched to tab: {funcName}" },
+      Elmish.Cmd.none
     | StartTabDrag funcName ->
       if List.contains funcName model.OpenTabs then
-        { model with DraggingTab = Some funcName }
+        { model with DraggingTab = Some funcName }, Elmish.Cmd.none
       else
-        model
+        model, Elmish.Cmd.none
     | ReorderTab(draggedTab, targetTab) ->
       match reorderOpenTabs model draggedTab targetTab with
       | Some reorderedTabs ->
         { model with
             OpenTabs = reorderedTabs
-            DraggingTab = Some draggedTab }
-      | None -> model
+            DraggingTab = Some draggedTab },
+        Elmish.Cmd.none
+      | None -> model, Elmish.Cmd.none
     | EndTabDrag ->
       if model.DraggingTab.IsSome then
-        { model with DraggingTab = None }
+        { model with DraggingTab = None }, Elmish.Cmd.none
       else
-        model
+        model, Elmish.Cmd.none
     | RegisterCustomTheme(themeId, theme) ->
       let customThemes = model.CustomThemes |> Map.add themeId theme
       let currentTheme =
@@ -162,21 +241,23 @@ type MainWindow(arbiter) as this =
       { model with
           CustomThemes = customThemes
           Theme = currentTheme
-          StatusMessage = $"Registered theme: {theme.Name}" }
+          StatusMessage = $"Registered theme: {theme.Name}" },
+      Elmish.Cmd.none
     | SetThemeMode mode ->
       applyThemeVariant mode
       let theme = Theme.resolve mode model.CustomThemes
       { model with
           ThemeMode = mode
           Theme = theme
-          StatusMessage = $"Theme changed: {Theme.modeName mode}" }
+          StatusMessage = $"Theme changed: {Theme.modeName mode}" },
+      Elmish.Cmd.none
     | UpdateFunctionFilter text ->
-      { model with FunctionFilter = text }
+      { model with FunctionFilter = text }, Elmish.Cmd.none
     | UpdateStatus msg ->
-      { model with StatusMessage = msg }
+      { model with StatusMessage = msg }, Elmish.Cmd.none
     | ExitApplication ->
       this.Close()
-      model
+      model, Elmish.Cmd.none
 
   do
     base.Title <- "BinExplore"
@@ -189,6 +270,6 @@ type MainWindow(arbiter) as this =
       base.WindowStartupLocation <- WindowStartupLocation.CenterScreen
     else
       ()
-    Elmish.Program.mkSimple (fun () -> init arbiter) update MainView.view
+    Elmish.Program.mkProgram init update MainView.view
     |> Elmish.Program.withHost this
     |> Elmish.Program.run

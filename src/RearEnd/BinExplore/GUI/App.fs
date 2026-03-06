@@ -27,8 +27,13 @@ namespace B2R2.RearEnd.BinExplore.GUI
 open Avalonia
 open Avalonia.Themes.Fluent
 open Avalonia.Controls.ApplicationLifetimes
+open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.RearEnd.BinExplore
 
-type App(arbiter) =
+type App<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
+                         and 'FnCtx: (new: unit -> 'FnCtx)
+                         and 'GlCtx: (new: unit -> 'GlCtx)>
+  public(arbiter: Arbiter<'FnCtx, 'GlCtx>) =
   inherit Application()
 
   override this.Initialize() =

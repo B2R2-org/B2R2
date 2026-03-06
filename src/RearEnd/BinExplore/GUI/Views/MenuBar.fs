@@ -26,6 +26,40 @@ module B2R2.RearEnd.BinExplore.GUI.MenuBar
 
 open Avalonia.FuncUI.DSL
 open Avalonia.Controls
+open Avalonia.Controls.Primitives
+open Avalonia.Platform.Storage
+
+let private tryGetHostTopLevel (source: obj) =
+  match source with
+  | :? Control as control ->
+    match TopLevel.GetTopLevel control with
+    | :? PopupRoot as popup when not (isNull popup.ParentTopLevel) ->
+      popup.ParentTopLevel
+    | topLevel ->
+      topLevel
+  | _ ->
+    null
+
+let private openBinaryDialog dispatch (source: obj) =
+  let topLevel = tryGetHostTopLevel source
+  if isNull topLevel then
+    ()
+  else
+    async {
+      try
+        let options = FilePickerOpenOptions()
+        options.Title <- "Open Binary"
+        options.AllowMultiple <- false
+        let! files =
+          topLevel.StorageProvider.OpenFilePickerAsync options
+          |> Async.AwaitTask
+        files
+        |> Seq.tryHead
+        |> Option.iter (fun file ->
+          dispatch (OpenBinary file.Path.AbsolutePath))
+      with ex ->
+        dispatch (UpdateStatus $"Failed to open file dialog: {ex.Message}")
+    } |> Async.StartImmediate
 
 let view model dispatch =
   let isDarkSelected =
@@ -56,7 +90,7 @@ let view model dispatch =
             MenuItem.header "Open Binary..."
             MenuItem.background menuBg
             MenuItem.foreground menuFg
-            MenuItem.onClick (fun _ -> dispatch (OpenBinary ""))
+            MenuItem.onClick (fun e -> openBinaryDialog dispatch e.Source)
           ]
           MenuItem.create [
             MenuItem.header "Close Binary"
