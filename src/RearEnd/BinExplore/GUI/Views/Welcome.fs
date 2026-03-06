@@ -29,9 +29,9 @@ open Avalonia.Controls
 open Avalonia.Layout
 open Avalonia.Media
 
-let view _model _dispatch =
+let view model _dispatch =
   Grid.create [
-    Grid.background "#1E1E1E"
+    Grid.background model.Theme.Window.Background
     Grid.children [
       Border.create [
         Border.child (
@@ -43,14 +43,14 @@ let view _model _dispatch =
                 TextBlock.text "B2R2 BinExplore"
                 TextBlock.fontSize 32.0
                 TextBlock.fontWeight FontWeight.Bold
-                TextBlock.foreground "#FFFFFF"
+                TextBlock.foreground model.Theme.Text.Primary
                 TextBlock.horizontalAlignment HorizontalAlignment.Center
                 TextBlock.margin (0.0, 0.0, 0.0, 20.0)
               ]
               TextBlock.create [
                 TextBlock.text "Open a binary file to start exploring"
                 TextBlock.fontSize 16.0
-                TextBlock.foreground "#A0A0A0"
+                TextBlock.foreground model.Theme.Text.Muted
                 TextBlock.horizontalAlignment HorizontalAlignment.Center
               ]
             ]
@@ -59,4 +59,3 @@ let view _model _dispatch =
       ]
     ]
   ]
-

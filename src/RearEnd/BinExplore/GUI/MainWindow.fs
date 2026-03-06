@@ -40,6 +40,7 @@ type MainWindow(arbiter) as this =
       ActiveFunction = None
       OpenTabs = []
       PreviewTab = None
+      Theme = Theme.defaultTheme
       DraggingTab = None
       StatusMessage = WelcomeMessage }
 

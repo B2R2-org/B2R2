@@ -30,15 +30,15 @@ open Avalonia.Controls
 let view (model: Model) =
   Border.create [
     Border.dock Dock.Bottom
-    Border.background "#2D2D30"
+    Border.background model.Theme.Panel.AltBackground
     Border.borderThickness 1.0
-    Border.borderBrush "#3E3E42"
+    Border.borderBrush model.Theme.Panel.Border
     Border.padding 5.0
     Border.child (
       TextBlock.create [
         TextBlock.text model.StatusMessage
         TextBlock.fontSize 12.0
+        TextBlock.foreground model.Theme.Text.Secondary
       ]
     )
   ]
-

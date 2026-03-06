@@ -24,6 +24,7 @@
     <Compile Include="Commands\ROP.fs" />
     <Compile Include="CmdStore.fs" />
     <Compile Include="CLI.fs" />
+    <Compile Include="GUI\Theme.fs" />
     <Compile Include="GUI\Message.fs" />
     <Compile Include="GUI\Model.fs" />
     <Compile Include="GUI\Views\Welcome.fs" />

@@ -49,15 +49,15 @@ let private functionList (model: Model) dispatch =
     | Some func when List.contains func filteredFunctions -> box func
     | _ -> null
   Border.create [
-    Border.background "#252526"
+    Border.background model.Theme.Panel.Background
     Border.borderThickness 1.0
-    Border.borderBrush "#3E3E42"
+    Border.borderBrush model.Theme.Panel.Border
     Border.child (
       DockPanel.create [
         DockPanel.children [
           Border.create [
             Border.dock Dock.Top
-            Border.background "#2D2D30"
+            Border.background model.Theme.Panel.AltBackground
             Border.padding 5.0
             Border.child (
               TextBox.create [
@@ -70,7 +70,7 @@ let private functionList (model: Model) dispatch =
             )
           ]
           ListBox.create [
-            ListBox.background "#252526"
+            ListBox.background model.Theme.Panel.Background
             ListBox.dataItems filteredFunctions
             ListBox.selectedItem selectedFunction
             ListBox.autoScrollToSelectedItem true
@@ -98,12 +98,12 @@ let private functionList (model: Model) dispatch =
   ]
 
 let private getTabBorderColor (model: Model) tabName =
-  if model.ActiveFunction = Some tabName then "#1E1E1E"
-  else "#2D2D30"
+  if model.ActiveFunction = Some tabName then model.Theme.Tab.ActiveBackground
+  else model.Theme.Tab.InactiveBackground
 
 let private getTabTextColor (model: Model) tabName =
-  if model.ActiveFunction = Some tabName then "#FFFFFF"
-  else "#AAAAAA"
+  if model.ActiveFunction = Some tabName then model.Theme.Text.Primary
+  else model.Theme.Text.Secondary
 
 let private getTabFontStyle (model: Model) tabName =
   if model.PreviewTab = Some tabName then FontStyle.Italic
@@ -137,7 +137,7 @@ let private tabBar (model: Model) dispatch =
     | _ -> model.OpenTabs
   Border.create [
     Border.dock Dock.Top
-    Border.background "#2D2D30"
+    Border.background model.Theme.Panel.AltBackground
     Border.borderThickness 0.0
     Border.child (
       ScrollViewer.create [
@@ -157,7 +157,7 @@ let private tabBar (model: Model) dispatch =
                   Border.background (getTabBorderColor model tabName)
                   Border.maxWidth TabMaxWidth
                   Border.borderThickness (0.0, 0.0, 1.0, 0.0)
-                  Border.borderBrush "#3E3E42"
+                  Border.borderBrush model.Theme.Panel.Border
                   Border.padding (10.0, 5.0, 5.0, 5.0)
                   Control.allowDrop true
                   Control.onDragOver (onTabDrag tabName dispatch)
@@ -171,7 +171,7 @@ let private tabBar (model: Model) dispatch =
                         TextBlock.create [
                           StackPanel.verticalAlignment VerticalAlignment.Center
                           TextBlock.text tabName
-                          TextBlock.background "Transparent"
+                          TextBlock.background model.Theme.Common.Transparent
                           TextBlock.foreground (getTabTextColor model tabName)
                           TextBlock.padding (5.0, 0.0, 0.0, 0.0)
                           TextBlock.fontSize 12.0
@@ -187,8 +187,8 @@ let private tabBar (model: Model) dispatch =
                         ] |> View.withKey $"{tabName}-label"
                         Button.create [
                           Button.content "\u00D7"
-                          Button.background "Transparent"
-                          Button.foreground "#AAAAAA"
+                          Button.background model.Theme.Common.Transparent
+                          Button.foreground model.Theme.Tab.CloseForeground
                           Button.borderThickness 0.0
                           Button.padding (5.0, 0.0, 5.0, 0.0)
                           Button.fontSize 16.0
@@ -210,9 +210,9 @@ let private tabBar (model: Model) dispatch =
 let private cfgViewPanel (model: Model) dispatch =
   Border.create [
     Grid.column 2 (* Third column *)
-    Border.background "#1E1E1E"
+    Border.background model.Theme.Window.Background
     Border.borderThickness 1.0
-    Border.borderBrush "#3E3E42"
+    Border.borderBrush model.Theme.Panel.Border
     Border.child (
       DockPanel.create [
         DockPanel.children [
@@ -244,7 +244,7 @@ let view model dispatch =
       functionList model dispatch
       GridSplitter.create [
         GridSplitter.column 1
-        GridSplitter.background "#3E3E42"
+        GridSplitter.background model.Theme.Panel.Border
         GridSplitter.resizeDirection GridResizeDirection.Columns
       ]
       cfgViewPanel model dispatch
