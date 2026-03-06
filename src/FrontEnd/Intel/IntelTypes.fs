@@ -44,8 +44,14 @@ type OperandType =
   | RM of OprSize
   | RMdiff of OprSize * OprSize
   | Reg of OprSize
+  | FixedReg of Register * Visibility
+  | STReg of Register option
+  | BM of OprSize
+  | BndReg
+  | MMXReg
   | Mem of OprSize
   | Imm of OprSize
+  | FixedImm of int
   | Rel of OprSize
   | Unknown of string (* XXX: Temp *)
 
@@ -54,9 +60,15 @@ and OprSize =
   | Sz16
   | Sz32
   | Sz64
+  | Sz80
   | Sz128
   | Sz256
   | Sz512
+  | SzUnknown
+
+and Visibility =
+  | Explicit
+  | Implicit
 
 //type Operands =
 //  | NoOperand
@@ -134,7 +146,8 @@ type CompatLegMode =
 
 /// Core instruction representation used in the generated source code.
 type InstructionCore =
-  { Opcode: Opcode
+  { OpcodeByte: uint32
+    Opcode: Opcode
     PrefixType: PrefixType
     REXPrefixType: REXPrefixType
     VectorLength: VectorLength
