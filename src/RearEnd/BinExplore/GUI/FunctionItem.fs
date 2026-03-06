@@ -36,7 +36,7 @@ type FunctionItem =
 [<RequireQualifiedAccess>]
 module FunctionItem =
   let displayName (item: FunctionItem) =
-    $"0x{item.Address:X} ({item.Name})"
+    $"{item.Address:X}: {item.Name}"
 
   /// Converts from a Function into a FunctionItem for display in the UI.
   let ofFunction (func: Function) =

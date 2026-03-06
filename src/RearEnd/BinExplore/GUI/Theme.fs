@@ -48,7 +48,8 @@ and PanelTheme =
 and TextTheme =
   { Primary: string
     Secondary: string
-    Muted: string }
+    Muted: string
+    Highlight: string }
 
 /// Represents the theme settings for tabs within the application.
 and TabTheme =
@@ -73,7 +74,8 @@ module Theme =
       Text =
         { Primary = "#FFFFFF"
           Secondary = "#AAAAAA"
-          Muted = "#A0A0A0" }
+          Muted = "#A0A0A0"
+          Highlight = "#55CCFF" }
       Tab =
         { ActiveBackground = "#1E1E1E"
           InactiveBackground = "#2D2D30"
@@ -90,7 +92,8 @@ module Theme =
       Text =
         { Primary = "#111111"
           Secondary = "#555555"
-          Muted = "#707070" }
+          Muted = "#707070"
+          Highlight = "#EE0055" }
       Tab =
         { ActiveBackground = "#FFFFFF"
           InactiveBackground = "#E6E6E6"
