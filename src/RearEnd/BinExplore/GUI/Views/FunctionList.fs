@@ -30,6 +30,7 @@ open Avalonia.Controls
 open Avalonia.Controls.Presenters
 open Avalonia.Layout
 open Avalonia.Media
+open Avalonia.Input
 open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
@@ -100,6 +101,19 @@ let private filterFunctions model =
         StringComparison.OrdinalIgnoreCase
       ))
 
+let onDoubleClick dispatch (e: TappedEventArgs) =
+  match e.Source with
+  | :? ContentPresenter as presenter ->
+    let tab =
+      presenter.Content :?> FunctionItem |> Tab.ofFunctionItem
+    dispatch (PinTab tab)
+  | :? TextBlock as textBlock ->
+    let tab =
+      textBlock.DataContext :?> FunctionItem |> Tab.ofFunctionItem
+    dispatch (PinTab tab)
+  | _ ->
+    ()
+
 let view (model: Model) dispatch =
   let filteredFunctions = filterFunctions model
   let themeViewKey =
@@ -156,15 +170,7 @@ let view (model: Model) dispatch =
               else
                 ()
             )
-            ListBox.onDoubleTapped (fun e ->
-              match e.Source with
-              | :? ContentPresenter as presenter ->
-                let tab =
-                  presenter.Content :?> FunctionItem |> Tab.ofFunctionItem
-                dispatch (PinTab tab)
-              | _ ->
-                ()
-            )
+            ListBox.onDoubleTapped (onDoubleClick dispatch)
           ] |> View.withKey $"fnlist-{themeViewKey}-{model.FunctionFilter}"
         ]
       ]
