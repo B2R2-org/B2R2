@@ -31,24 +31,19 @@ open Avalonia.FuncUI.DSL
 let view (model: Model) _dispatch =
   Border.create [
     Border.background model.Theme.Window.Background
-    Border.borderThickness 1.0
-    Border.borderBrush model.Theme.Panel.Border
+    Border.borderThickness 0.0
     Border.child (
-      ScrollViewer.create [
-        ScrollViewer.content (
-          TextBlock.create [
-            TextBlock.text (
-              match model.ActiveTab with
-              | Some { Content = CFGTab _ } ->
-                $"Control Flow Graph."
-              | _ ->
-                "Select a function to view its control flow graph"
-            )
-            TextBlock.foreground model.Theme.Text.Primary
-            TextBlock.fontSize 14.0
-            TextBlock.margin 10.0
-          ]
+      TextBlock.create [
+        TextBlock.text (
+          match model.ActiveTab with
+          | Some { Content = CFGTab(fn, _) } ->
+            $"Control Flow Graph: {fn.Address:x}"
+          | _ ->
+            "Select a function to view its control flow graph"
         )
+        TextBlock.foreground model.Theme.Text.Primary
+        TextBlock.fontSize 14.0
+        TextBlock.margin 10.0
       ]
     )
   ]

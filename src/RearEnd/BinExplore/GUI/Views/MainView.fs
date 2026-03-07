@@ -102,8 +102,7 @@ let private tabContentView model dispatch =
   | Some { Content = HexTab _ } ->
     Border.create [
       Border.background model.Theme.Window.Background
-      Border.borderThickness 1.0
-      Border.borderBrush model.Theme.Panel.Border
+      Border.borderThickness 0.0
       Border.child (
         TextBlock.create [
           TextBlock.text "Hex dump view placeholder."
@@ -116,8 +115,7 @@ let private tabContentView model dispatch =
   | Some { Content = SectionTab } ->
     Border.create [
       Border.background model.Theme.Window.Background
-      Border.borderThickness 1.0
-      Border.borderBrush model.Theme.Panel.Border
+      Border.borderThickness 0.0
       Border.child (
         TextBlock.create [
           TextBlock.text "Section tab view placeholder."

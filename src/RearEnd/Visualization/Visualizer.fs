@@ -26,7 +26,7 @@ module B2R2.RearEnd.Visualization.Visualizer
 
 open B2R2.MiddleEnd.BinGraph
 
-let private convertToJSON iGraph roots =
+let private convert iGraph roots =
   try
     let vGraph, roots = VisGraph.ofCFG iGraph roots
   #if DEBUG
@@ -43,12 +43,25 @@ let private convertToJSON iGraph roots =
     let vLayout = CrossMinimization.minimizeCrosses vGraph
     CoordAssignment.assignCoordinates vGraph vLayout
     EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
-    JSONExport.toStr roots vGraph
+    Some(roots, vGraph)
   with e ->
     eprintfn "%s" <| e.ToString()
-    "{}"
+    None
 
 /// Converts the given graph to JSON format.
 let toJSON (iGraph: IDiGraphAccessible<_, _>) roots =
-  if iGraph.Size = 0 then "{}"
-  else convertToJSON iGraph roots
+  if iGraph.Size = 0 then
+    "{}"
+  else
+    match convert iGraph roots with
+    | Some(roots, vGraph) -> JSONExport.toStr roots vGraph
+    | None -> "{}"
+
+/// Converts the given graph to a VisGraph for visualization.
+let toVisGraph (iGraph: IDiGraphAccessible<_, _>) roots =
+  if iGraph.Size = 0 then
+    VisGraph.init ()
+  else
+    convert iGraph roots
+    |> Option.map snd
+    |> Option.defaultValue (VisGraph.init ())

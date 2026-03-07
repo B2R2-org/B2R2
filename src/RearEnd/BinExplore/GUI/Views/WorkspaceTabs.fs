@@ -145,7 +145,7 @@ let view (model: Model) dispatch =
                 Border.create [
                   Border.background (getTabBorderColor model tab)
                   Border.maxWidth TabMaxWidth
-                  Border.borderThickness (0.0, 0.0, 1.0, 0.0)
+                  Border.borderThickness (0.0, 0.0, 0.0, 0.0)
                   Border.borderBrush model.Theme.Panel.Border
                   Border.padding (10.0, 5.0, 5.0, 5.0)
                   Control.allowDrop true

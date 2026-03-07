@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.BinExplore.GUI
 
 open B2R2
+open B2R2.RearEnd.Visualization
 
 /// Represents a tab in the UI.
 type Tab =
@@ -38,11 +39,18 @@ type Tab =
 /// Represents the content of a tab.
 and TabContent =
   /// A tab displaying the control flow graph of a function.
-  | CFGTab of FunctionItem
+  | CFGTab of FunctionItem * TabContentState<VisGraph>
   /// A tab displaying the hexadecimal view of a specific address.
   | HexTab of baseAddr: Addr
   /// A tab displaying sections of the binary.
   | SectionTab
+
+/// Represents the loading state of a tab's content, which can be not loaded,
+/// currently loading, or fully loaded with the content of type 'T.
+and TabContentState<'T> =
+  | NotLoaded
+  | Loading
+  | Loaded of 'T
 
 [<RequireQualifiedAccess>]
 module Tab =
@@ -52,4 +60,4 @@ module Tab =
   let ofFunctionItem func =
     { ID = $"fn-{func.FuncID}"
       Title = func.Name
-      Content = CFGTab func }
+      Content = CFGTab(func, NotLoaded) }
