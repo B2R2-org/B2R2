@@ -61,31 +61,33 @@ let private functionLabelWithHighlight model func =
   let parts =
     if String.IsNullOrWhiteSpace query then [ false, label ]
     else splitByMatch label query
-  let mkText (color: string) txt =
-    TextBlock.create [
-      TextBlock.text txt
-      TextBlock.foreground color
-    ] :> IView
+  let mkText (color: string) isBold txt =
+    TextBlock.create
+      [ TextBlock.text txt
+        TextBlock.foreground color
+        TextBlock.fontFamily model.Theme.Font.FunctionText
+        TextBlock.fontWeight
+          (if isBold then FontWeight.Bold else FontWeight.Regular) ] :> IView
   let rec build pos parts acc =
     match parts with
     | [] -> List.rev acc
     | (isMatch, segment) :: rest ->
       if isMatch then
-        let view = mkText model.Theme.Text.Highlight segment
+        let view = mkText model.Theme.Text.Highlight true segment
         build (pos + segment.Length) rest (view :: acc)
       else
         let remainingInAddress = max 0 (addressPrefixLen - pos)
         if remainingInAddress <= 0 then
-          let view = mkText model.Theme.Text.Primary segment
+          let view = mkText model.Theme.Text.Primary false segment
           build (pos + segment.Length) rest (view :: acc)
         elif remainingInAddress >= segment.Length then
-          let view = mkText model.Theme.Text.Muted segment
+          let view = mkText model.Theme.Text.Muted false segment
           build (pos + segment.Length) rest (view :: acc)
         else
           let addrPart = segment.Substring(0, remainingInAddress)
           let namePart = segment.Substring remainingInAddress
-          let nameView = mkText model.Theme.Text.Primary namePart
-          let addrView = mkText model.Theme.Text.Muted addrPart
+          let nameView = mkText model.Theme.Text.Primary false namePart
+          let addrView = mkText model.Theme.Text.Muted false addrPart
           build (pos + segment.Length) rest (nameView :: addrView :: acc)
   build 0 parts []
 
@@ -239,11 +241,9 @@ let private onTabClick tab dispatch (e: PointerPressedEventArgs) =
   DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
   |> ignore
 
-let private tabDisplayName tab = FunctionItem.displayName tab
+let private tabDisplayName (item: FunctionItem) = item.Name
 
 let private tabKeySuffix tab = tab.FuncID
-
-let private tabStatusLabel tab = tabDisplayName tab
 
 let private tabBar (model: Model) dispatch =
   let allTabs =
@@ -305,12 +305,14 @@ let private tabBar (model: Model) dispatch =
                               StackPanel.verticalAlignment
                                 VerticalAlignment.Center
                               TextBlock.text (tabDisplayName tab)
+                              TextBlock.fontFamily
+                                model.Theme.Font.FunctionText
                               TextBlock.background
                                 model.Theme.Common.Transparent
                               TextBlock.foreground
                                 (getTabTextColor model tab)
-                              TextBlock.padding (5.0, 0.0, 0.0, 0.0)
-                              TextBlock.fontSize 12.0
+                              TextBlock.padding (5.0, 0.0, 5.0, 0.0)
+                              TextBlock.fontSize 14.0
                               TextBlock.fontStyle
                                 (getTabFontStyle model tab)
                               TextBlock.maxWidth TabTextMaxWidth
@@ -321,6 +323,7 @@ let private tabBar (model: Model) dispatch =
                           ]
                         ] |> View.withKey $"{tabKeySuffix tab}-clickarea"
                         Button.create [
+                          StackPanel.verticalAlignment VerticalAlignment.Center
                           Button.content "\u00D7"
                           Button.background model.Theme.Common.Transparent
                           Button.foreground model.Theme.Tab.CloseForeground
@@ -358,7 +361,7 @@ let private cfgViewPanel (model: Model) dispatch =
                 TextBlock.text (
                   match model.ActiveFunction with
                   | Some func ->
-                    $"Control Flow Graph for: {tabStatusLabel func}"
+                    $"Control Flow Graph for: {tabDisplayName func}"
                   | None ->
                     "Select a function to view its control flow graph"
                 )

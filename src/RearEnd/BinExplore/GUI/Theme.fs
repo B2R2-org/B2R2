@@ -31,6 +31,7 @@ type Theme =
     Window: WindowTheme
     Panel: PanelTheme
     Text: TextTheme
+    Font: FontTheme
     Tab: TabTheme
     Common: CommonTheme }
 
@@ -51,6 +52,10 @@ and TextTheme =
     Muted: string
     Highlight: string }
 
+/// Represents the font settings used in the application.
+and FontTheme =
+  { FunctionText: string }
+
 /// Represents the theme settings for tabs within the application.
 and TabTheme =
   { ActiveBackground: string
@@ -64,6 +69,9 @@ and CommonTheme =
 
 [<RequireQualifiedAccess>]
 module Theme =
+  let private defaultFunctionTextFont =
+    "avares://B2R2.RearEnd.BinExplore/Assets/Fonts#Inconsolata"
+
   let darkTheme =
     { Name = "Dark"
       Window = { Background = "#1E1E1E" }
@@ -76,6 +84,8 @@ module Theme =
           Secondary = "#AAAAAA"
           Muted = "#A0A0A0"
           Highlight = "#55CCFF" }
+      Font =
+        { FunctionText = defaultFunctionTextFont }
       Tab =
         { ActiveBackground = "#1E1E1E"
           InactiveBackground = "#2D2D30"
@@ -94,6 +104,8 @@ module Theme =
           Secondary = "#555555"
           Muted = "#707070"
           Highlight = "#EE0055" }
+      Font =
+        { FunctionText = defaultFunctionTextFont }
       Tab =
         { ActiveBackground = "#FFFFFF"
           InactiveBackground = "#E6E6E6"
