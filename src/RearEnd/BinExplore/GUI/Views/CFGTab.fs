@@ -23,7 +23,7 @@
 *)
 
 [<RequireQualifiedAccess>]
-module B2R2.RearEnd.BinExplore.GUI.CFGPanel
+module B2R2.RearEnd.BinExplore.GUI.CFGTab
 
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL

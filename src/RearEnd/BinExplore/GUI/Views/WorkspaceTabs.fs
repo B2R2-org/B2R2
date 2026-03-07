@@ -23,7 +23,7 @@
 *)
 
 [<RequireQualifiedAccess>]
-module B2R2.RearEnd.BinExplore.GUI.TabBar
+module B2R2.RearEnd.BinExplore.GUI.WorkspaceTabs
 
 open System
 open Avalonia.Controls

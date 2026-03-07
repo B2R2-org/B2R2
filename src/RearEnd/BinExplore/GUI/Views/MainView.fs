@@ -90,45 +90,15 @@ let private sideMenuView model dispatch =
     )
   ]
 
-let private sectionListView model _dispatch =
-  Border.create [
-    Border.background model.Theme.Panel.Background
-    Border.borderThickness 1.0
-    Border.borderBrush model.Theme.Panel.Border
-    Border.child (
-      DockPanel.create [
-        DockPanel.children [
-          Border.create [
-            Border.dock Dock.Top
-            Border.background model.Theme.Panel.AltBackground
-            Border.padding 8.0
-            Border.child (
-              TextBlock.create [
-                TextBlock.text "Sections"
-                TextBlock.fontSize 13.0
-                TextBlock.foreground model.Theme.Text.Secondary
-              ]
-            )
-          ]
-          TextBlock.create [
-            TextBlock.text "Section list content will be added here."
-            TextBlock.margin 10.0
-            TextBlock.foreground model.Theme.Text.Muted
-            TextBlock.fontSize 13.0
-          ]
-        ]
-      ]
-    )
-  ]
-
 let private leftPanelView model dispatch =
   match model.WorkspacePanel with
   | FunctionPanel -> FunctionList.view model dispatch
-  | SectionPanel -> sectionListView model dispatch
+  | SectionPanel -> SectionList.view model dispatch
 
 let private tabContentView model dispatch =
   match model.ActiveTab with
-  | Some { Content = CFGTab _ } -> CFGPanel.view model dispatch
+  | Some { Content = CFGTab _ } ->
+    CFGTab.view model dispatch
   | Some { Content = HexTab _ } ->
     Border.create [
       Border.background model.Theme.Window.Background
@@ -158,7 +128,7 @@ let private tabContentView model dispatch =
       )
     ]
   | None ->
-    CFGPanel.view model dispatch
+    CFGTab.view model dispatch
 
 let private workspaceView model dispatch =
   Grid.create [
@@ -179,7 +149,7 @@ let private workspaceView model dispatch =
       DockPanel.create [
         Grid.column 3
         DockPanel.children [
-          TabBar.view model dispatch
+          WorkspaceTabs.view model dispatch
           tabContentView model dispatch
         ]
       ]

@@ -24,31 +24,7 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
-/// Represents the state of the main view.
-type Model =
-  { /// Currently loaded binary file.
-    LoadedBinary: string option
-    /// List of functions extracted from the loaded binary.
-    Functions: FunctionItem list
-    /// Search text used to filter the function list.
-    FunctionFilter: string
-    /// Currently active (selected) tab.
-    ActiveTab: Tab option
-    /// List of currently open tabs in the main view, excluding the preview tab.
-    OpenTabs: Tab list
-    /// Currently open preview tab, if any.
-    PreviewTab: Tab option
-    /// Registered custom themes.
-    CustomThemes: Map<ThemeId, Theme>
-    /// Current theme mode.
-    ThemeMode: ThemeMode
-    /// Current UI theme.
-    Theme: Theme
-    /// Tab currently being dragged for reordering, if any.
-    DraggingTab: Tab option
-    /// Path of the binary currently loading.
-    LoadingBinaryPath: string option
-    /// Selected panel shown in the middle workspace column.
-    WorkspacePanel: WorkspacePanel
-    /// Status message to be displayed in the status bar.
-    StatusMessage: string }
+/// Represents the currently selected navigation panel in the workspace.
+type WorkspacePanel =
+  | FunctionPanel
+  | SectionPanel
