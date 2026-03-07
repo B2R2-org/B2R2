@@ -28,33 +28,27 @@ module B2R2.RearEnd.BinExplore.GUI.CFGPanel
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
 
-let view (model: Model) dispatch =
+let view (model: Model) _dispatch =
   Border.create [
-    Grid.column 2 (* Third column *)
     Border.background model.Theme.Window.Background
     Border.borderThickness 1.0
     Border.borderBrush model.Theme.Panel.Border
     Border.child (
-      DockPanel.create [
-        DockPanel.children [
-          TabBar.view model dispatch
-          ScrollViewer.create [
-            ScrollViewer.content (
-              TextBlock.create [
-                TextBlock.text (
-                  match model.ActiveFunction with
-                  | Some func ->
-                    $"Control Flow Graph."
-                  | None ->
-                    "Select a function to view its control flow graph"
-                )
-                TextBlock.foreground model.Theme.Text.Primary
-                TextBlock.fontSize 14.0
-                TextBlock.margin 10.0
-              ]
+      ScrollViewer.create [
+        ScrollViewer.content (
+          TextBlock.create [
+            TextBlock.text (
+              match model.ActiveFunction with
+              | Some _ ->
+                $"Control Flow Graph."
+              | None ->
+                "Select a function to view its control flow graph"
             )
+            TextBlock.foreground model.Theme.Text.Primary
+            TextBlock.fontSize 14.0
+            TextBlock.margin 10.0
           ]
-        ]
+        )
       ]
     )
   ]

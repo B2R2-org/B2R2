@@ -24,10 +24,10 @@
 
 module B2R2.RearEnd.BinExplore.GUI.MainView
 
-open Avalonia.FuncUI.DSL
 open Avalonia.Controls
+open Avalonia.FuncUI.DSL
 
-let private cfgView model dispatch =
+let private workspaceView model dispatch =
   Grid.create [
     Grid.columnDefinitions "250,5,*"
     Grid.children [
@@ -37,14 +37,20 @@ let private cfgView model dispatch =
         GridSplitter.background model.Theme.Panel.Border
         GridSplitter.resizeDirection GridResizeDirection.Columns
       ]
-      CFGPanel.view model dispatch
+      DockPanel.create [
+        Grid.column 2
+        DockPanel.children [
+          TabBar.view model dispatch
+          CFGPanel.view model dispatch
+        ]
+      ]
     ]
   ]
 
 let private mainArea (model: Model) dispatch =
   match model.LoadedBinary with
   | None -> Welcome.view model dispatch
-  | Some _ -> cfgView model dispatch
+  | Some _ -> workspaceView model dispatch
 
 let view (model: Model) (dispatch: Message -> unit) =
   DockPanel.create [
