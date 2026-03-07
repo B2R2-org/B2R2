@@ -33,7 +33,6 @@ open Avalonia.Media
 open Avalonia.Input
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
-open Avalonia.Svg.Skia
 
 let [<Literal>] private TabMaxWidth = 220.0
 
@@ -51,32 +50,46 @@ let private getTabFontStyle (model: Model) tab =
   if model.PreviewTab = Some tab then FontStyle.Italic
   else FontStyle.Normal
 
-let private cfgTabIconLightSource: IImage =
-  let svgImage = SvgImage()
-  svgImage.Source <-
-    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/cfg-light.svg"
-  svgImage :> IImage
+let private getTabIconText (tab: Tab) =
+  match tab.Content with
+  | CFGTab _ -> None
+  | HexTab _ -> Some "Hx"
+  | SectionTab -> Some "\u2261"
 
-let private cfgTabIconDarkSource: IImage =
-  let svgImage = SvgImage()
-  svgImage.Source <-
-    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/cfg-dark.svg"
-  svgImage :> IImage
+let private tabIconView model tab =
+  match getTabIconText tab with
+  | Some iconText ->
+    TextBlock.create [
+      TextBlock.text iconText
+      TextBlock.fontFamily model.Theme.Font.FunctionText
+      TextBlock.foreground (getTabTextColor model tab)
+      TextBlock.verticalAlignment VerticalAlignment.Center
+      TextBlock.margin (0.0, 0.0, 6.0, 0.0)
+    ] |> View.withKey $"{tab.ID}-icon-text" :> IView
+  | None ->
+    Image.create [
+      Image.source (IconAssets.cfgIcon model)
+      Image.width 14.0
+      Image.height 14.0
+      Image.stretch Stretch.Uniform
+      Image.verticalAlignment VerticalAlignment.Center
+      Image.margin (0.0, 0.0, 4.0, 0.0)
+    ] |> View.withKey $"{tab.ID}-icon" :> IView
 
-let private getCfgTabIconSource model =
-  let isBrightTextColor =
-    match Color.TryParse model.Theme.Text.Primary with
-    | true, color ->
-      let luminance =
-        (0.299 * float color.R + 0.587 * float color.G + 0.114 * float color.B)
-        / 255.0
-      luminance >= 0.5
-    | _ ->
-      match model.ThemeMode with
-      | Builtin Dark -> true
-      | _ -> false
-  if isBrightTextColor then cfgTabIconDarkSource
-  else cfgTabIconLightSource
+let private tabLabelView model tab =
+  TextBlock.create [
+    StackPanel.verticalAlignment VerticalAlignment.Center
+    TextBlock.text tab.Title
+    TextBlock.fontFamily model.Theme.Font.FunctionText
+    TextBlock.background model.Theme.Common.Transparent
+    TextBlock.foreground (getTabTextColor model tab)
+    TextBlock.padding (5.0, 0.0, 5.0, 0.0)
+    TextBlock.fontSize 14.0
+    TextBlock.fontStyle (getTabFontStyle model tab)
+    TextBlock.maxWidth TabTextMaxWidth
+    TextBlock.textWrapping TextWrapping.NoWrap
+    TextBlock.textTrimming TextTrimming.CharacterEllipsis
+  ] |> View.withKey $"{tab.ID}-label" :> IView
 
 let private findTabByID model id =
   let allTabs =
@@ -154,33 +167,8 @@ let view (model: Model) dispatch =
                             dispatch EndTabDrag)
                           ToolTip.tip tab.Title
                           StackPanel.children [
-                            Image.create [
-                              Image.source (getCfgTabIconSource model)
-                              Image.width 14.0
-                              Image.height 14.0
-                              Image.stretch Stretch.Uniform
-                              Image.verticalAlignment VerticalAlignment.Center
-                              Image.margin (0.0, 0.0, 4.0, 0.0)
-                            ] |> View.withKey $"{tab.ID}-icon"
-                            TextBlock.create [
-                              StackPanel.verticalAlignment
-                                VerticalAlignment.Center
-                              TextBlock.text tab.Title
-                              TextBlock.fontFamily
-                                model.Theme.Font.FunctionText
-                              TextBlock.background
-                                model.Theme.Common.Transparent
-                              TextBlock.foreground
-                                (getTabTextColor model tab)
-                              TextBlock.padding (5.0, 0.0, 5.0, 0.0)
-                              TextBlock.fontSize 14.0
-                              TextBlock.fontStyle
-                                (getTabFontStyle model tab)
-                              TextBlock.maxWidth TabTextMaxWidth
-                              TextBlock.textWrapping TextWrapping.NoWrap
-                              TextBlock.textTrimming
-                                TextTrimming.CharacterEllipsis
-                            ] |> View.withKey $"{tab.ID}-label"
+                            tabIconView model tab
+                            tabLabelView model tab
                           ]
                         ] |> View.withKey $"{tab.ID}-clickarea"
                         Button.create [

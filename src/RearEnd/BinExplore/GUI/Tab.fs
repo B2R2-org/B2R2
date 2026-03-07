@@ -41,6 +41,8 @@ and TabContent =
   | CFGTab of FunctionItem
   /// A tab displaying the hexadecimal view of a specific address.
   | HexTab of baseAddr: Addr
+  /// A tab displaying sections of the binary.
+  | SectionTab
 
 [<RequireQualifiedAccess>]
 module Tab =

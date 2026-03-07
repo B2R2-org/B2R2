@@ -54,6 +54,8 @@ type Message =
   | SetThemeMode of ThemeMode
   /// Message to update function filter text.
   | UpdateFunctionFilter of string
+  /// Message to switch the visible workspace panel.
+  | SelectWorkspacePanel of WorkspacePanel
   /// Message to update the status message in the status bar.
   | UpdateStatus of string
   /// Message to exit the application.

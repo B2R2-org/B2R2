@@ -56,6 +56,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Theme = Theme.resolve themeMode customThemes
       DraggingTab = None
       LoadingBinaryPath = None
+      WorkspacePanel = FunctionPanel
       StatusMessage = WelcomeMessage }, Elmish.Cmd.none
 
   let loadBinaryAsync (filePath: string) =
@@ -148,6 +149,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
             PreviewTab = None
             DraggingTab = None
             LoadingBinaryPath = None
+            WorkspacePanel = FunctionPanel
             StatusMessage = statusFileName },
         Elmish.Cmd.none
       else
@@ -170,6 +172,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
           PreviewTab = None
           DraggingTab = None
           LoadingBinaryPath = None
+          WorkspacePanel = FunctionPanel
           StatusMessage = "Workspace closed. Open a file to start exploring." },
       Elmish.Cmd.none
     | OpenTab tab ->
@@ -258,6 +261,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Elmish.Cmd.none
     | UpdateFunctionFilter text ->
       { model with FunctionFilter = text }, Elmish.Cmd.none
+    | SelectWorkspacePanel panel ->
+      { model with WorkspacePanel = panel }, Elmish.Cmd.none
     | UpdateStatus msg ->
       { model with StatusMessage = msg }, Elmish.Cmd.none
     | ExitApplication ->

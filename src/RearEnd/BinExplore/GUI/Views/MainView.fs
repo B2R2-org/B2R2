@@ -25,23 +25,162 @@
 module B2R2.RearEnd.BinExplore.GUI.MainView
 
 open Avalonia.Controls
+open Avalonia.Layout
 open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Types
+open Avalonia.Media
+
+let private navButton model panel (icon: IView) (tooltip: string) onClick =
+  let isSelected = model.WorkspacePanel = panel
+  Button.create [
+    Button.width 36.0
+    Button.height 36.0
+    Button.margin (8.0, 6.0, 8.0, 0.0)
+    Button.background (
+      if isSelected then model.Theme.Tab.ActiveBackground
+      else model.Theme.Common.Transparent
+    )
+    Button.foreground model.Theme.Text.Primary
+    Button.borderThickness 0.0
+    Button.content icon
+    Button.onClick onClick
+    ToolTip.tip tooltip
+  ]
+
+let private cfgMenuIconView model =
+  Image.create [
+    Image.source (IconAssets.cfgIcon model)
+    Image.width 16.0
+    Image.height 16.0
+    Image.stretch Stretch.Uniform
+  ]
+
+let private sectionMenuIconView model =
+  Image.create [
+    Image.source (IconAssets.listIcon model)
+    Image.width 16.0
+    Image.height 16.0
+    Image.stretch Stretch.Uniform
+  ]
+
+let private sideMenuView model dispatch =
+  Border.create [
+    Border.background model.Theme.Panel.AltBackground
+    Border.borderThickness (0.0, 0.0, 1.0, 0.0)
+    Border.borderBrush model.Theme.Panel.Border
+    Border.child (
+      StackPanel.create [
+        StackPanel.orientation Orientation.Vertical
+        StackPanel.horizontalAlignment HorizontalAlignment.Center
+        StackPanel.children [
+          navButton
+            model
+            FunctionPanel
+            (cfgMenuIconView model)
+            "Functions and CFGs"
+            (fun _ -> dispatch (SelectWorkspacePanel FunctionPanel))
+          navButton
+            model
+            SectionPanel
+            (sectionMenuIconView model)
+            "Sections"
+            (fun _ -> dispatch (SelectWorkspacePanel SectionPanel))
+        ]
+      ]
+    )
+  ]
+
+let private sectionListView model _dispatch =
+  Border.create [
+    Border.background model.Theme.Panel.Background
+    Border.borderThickness 1.0
+    Border.borderBrush model.Theme.Panel.Border
+    Border.child (
+      DockPanel.create [
+        DockPanel.children [
+          Border.create [
+            Border.dock Dock.Top
+            Border.background model.Theme.Panel.AltBackground
+            Border.padding 8.0
+            Border.child (
+              TextBlock.create [
+                TextBlock.text "Sections"
+                TextBlock.fontSize 13.0
+                TextBlock.foreground model.Theme.Text.Secondary
+              ]
+            )
+          ]
+          TextBlock.create [
+            TextBlock.text "Section list content will be added here."
+            TextBlock.margin 10.0
+            TextBlock.foreground model.Theme.Text.Muted
+            TextBlock.fontSize 13.0
+          ]
+        ]
+      ]
+    )
+  ]
+
+let private leftPanelView model dispatch =
+  match model.WorkspacePanel with
+  | FunctionPanel -> FunctionList.view model dispatch
+  | SectionPanel -> sectionListView model dispatch
+
+let private tabContentView model dispatch =
+  match model.ActiveTab with
+  | Some { Content = CFGTab _ } -> CFGPanel.view model dispatch
+  | Some { Content = HexTab _ } ->
+    Border.create [
+      Border.background model.Theme.Window.Background
+      Border.borderThickness 1.0
+      Border.borderBrush model.Theme.Panel.Border
+      Border.child (
+        TextBlock.create [
+          TextBlock.text "Hex dump view placeholder."
+          TextBlock.foreground model.Theme.Text.Primary
+          TextBlock.fontSize 14.0
+          TextBlock.margin 10.0
+        ]
+      )
+    ]
+  | Some { Content = SectionTab } ->
+    Border.create [
+      Border.background model.Theme.Window.Background
+      Border.borderThickness 1.0
+      Border.borderBrush model.Theme.Panel.Border
+      Border.child (
+        TextBlock.create [
+          TextBlock.text "Section tab view placeholder."
+          TextBlock.foreground model.Theme.Text.Primary
+          TextBlock.fontSize 14.0
+          TextBlock.margin 10.0
+        ]
+      )
+    ]
+  | None ->
+    CFGPanel.view model dispatch
 
 let private workspaceView model dispatch =
   Grid.create [
-    Grid.columnDefinitions "250,5,*"
+    Grid.columnDefinitions "52,250,5,*"
     Grid.children [
-      FunctionList.view model dispatch
+      sideMenuView model dispatch
+      Grid.create [
+        Grid.column 1
+        Grid.children [
+          leftPanelView model dispatch
+        ]
+      ]
       GridSplitter.create [
-        GridSplitter.column 1
+        GridSplitter.column 2
         GridSplitter.background model.Theme.Panel.Border
         GridSplitter.resizeDirection GridResizeDirection.Columns
       ]
       DockPanel.create [
-        Grid.column 2
+        Grid.column 3
         DockPanel.children [
           TabBar.view model dispatch
-          CFGPanel.view model dispatch
+          tabContentView model dispatch
         ]
       ]
     ]

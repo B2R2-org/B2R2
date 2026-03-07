@@ -24,6 +24,11 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
+/// Represents the currently selected navigation panel in the workspace.
+type WorkspacePanel =
+  | FunctionPanel
+  | SectionPanel
+
 /// Represents the state of the main view.
 type Model =
   { /// Currently loaded binary file.
@@ -48,5 +53,7 @@ type Model =
     DraggingTab: Tab option
     /// Path of the binary currently loading.
     LoadingBinaryPath: string option
+    /// Selected panel shown in the middle workspace column.
+    WorkspacePanel: WorkspacePanel
     /// Status message to be displayed in the status bar.
     StatusMessage: string }
