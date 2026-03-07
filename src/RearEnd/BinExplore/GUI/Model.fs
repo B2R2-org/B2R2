@@ -32,12 +32,12 @@ type Model =
     Functions: FunctionItem list
     /// Search text used to filter the function list.
     FunctionFilter: string
-    /// Currently active (selected) function in the function list.
-    ActiveFunction: FunctionItem option
+    /// Currently active (selected) tab.
+    ActiveTab: Tab option
     /// List of currently open tabs in the main view, excluding the preview tab.
-    OpenTabs: FunctionItem list
+    OpenTabs: Tab list
     /// Currently open preview tab, if any.
-    PreviewTab: FunctionItem option
+    PreviewTab: Tab option
     /// Registered custom themes.
     CustomThemes: Map<ThemeId, Theme>
     /// Current theme mode.
@@ -45,7 +45,7 @@ type Model =
     /// Current UI theme.
     Theme: Theme
     /// Tab currently being dragged for reordering, if any.
-    DraggingTab: FunctionItem option
+    DraggingTab: Tab option
     /// Path of the binary currently loading.
     LoadingBinaryPath: string option
     /// Status message to be displayed in the status bar.

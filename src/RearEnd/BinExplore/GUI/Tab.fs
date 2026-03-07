@@ -22,33 +22,32 @@
   SOFTWARE.
 *)
 
+namespace B2R2.RearEnd.BinExplore.GUI
+
+open B2R2
+
+/// Represents a tab in the UI.
+type Tab =
+  { /// The unique identifier of the tab.
+    ID: string
+    /// The title of the tab displayed in the UI.
+    Title: string
+    /// The content of the tab.
+    Content: TabContent }
+
+/// Represents the content of a tab.
+and TabContent =
+  /// A tab displaying the control flow graph of a function.
+  | CFGTab of FunctionItem
+  /// A tab displaying the hexadecimal view of a specific address.
+  | HexTab of baseAddr: Addr
+
 [<RequireQualifiedAccess>]
-module B2R2.RearEnd.BinExplore.GUI.CFGPanel
+module Tab =
 
-open Avalonia.Controls
-open Avalonia.FuncUI.DSL
-
-let view (model: Model) _dispatch =
-  Border.create [
-    Border.background model.Theme.Window.Background
-    Border.borderThickness 1.0
-    Border.borderBrush model.Theme.Panel.Border
-    Border.child (
-      ScrollViewer.create [
-        ScrollViewer.content (
-          TextBlock.create [
-            TextBlock.text (
-              match model.ActiveTab with
-              | Some { Content = CFGTab _ } ->
-                $"Control Flow Graph."
-              | _ ->
-                "Select a function to view its control flow graph"
-            )
-            TextBlock.foreground model.Theme.Text.Primary
-            TextBlock.fontSize 14.0
-            TextBlock.margin 10.0
-          ]
-        )
-      ]
-    )
-  ]
+  /// Creates a new Tab instance for a given FunctionItem, with the content set
+  /// to a CFGTab.
+  let ofFunctionItem func =
+    { ID = $"fn-{func.FuncID}"
+      Title = func.Name
+      Content = CFGTab func }

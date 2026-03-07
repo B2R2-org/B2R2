@@ -35,17 +35,17 @@ type Message =
   /// Message to close the currently loaded binary file.
   | CloseBinary
   /// Message to open a new tab for a specific function.
-  | OpenTab of FunctionItem
+  | OpenTab of Tab
   /// Message to pin a tab, making it persist.
-  | PinTab of FunctionItem
+  | PinTab of Tab
   /// Message to close a specific tab.
-  | CloseTab of FunctionItem
+  | CloseTab of Tab
   /// Message to switch to a specific tab, making it active.
-  | SwitchTab of FunctionItem
+  | SwitchTab of Tab
   /// Message to start dragging a tab for reordering.
-  | StartTabDrag of FunctionItem
+  | StartTabDrag of Tab
   /// Message to reorder tabs using explicit dragged/target tab names.
-  | ReorderTab of draggedTab: FunctionItem * targetTab: FunctionItem
+  | ReorderTab of draggedTab: Tab * targetTab: Tab
   /// Message to end dragging of a tab.
   | EndTabDrag
   /// Message to register a custom theme.

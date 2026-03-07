@@ -40,11 +40,11 @@ let [<Literal>] private TabMaxWidth = 220.0
 let [<Literal>] private TabTextMaxWidth = 165.0
 
 let private getTabBorderColor (model: Model) tab =
-  if model.ActiveFunction = Some tab then model.Theme.Tab.ActiveBackground
+  if model.ActiveTab = Some tab then model.Theme.Tab.ActiveBackground
   else model.Theme.Tab.InactiveBackground
 
 let private getTabTextColor (model: Model) tab =
-  if model.ActiveFunction = Some tab then model.Theme.Text.Primary
+  if model.ActiveTab = Some tab then model.Theme.Text.Primary
   else model.Theme.Text.Secondary
 
 let private getTabFontStyle (model: Model) tab =
@@ -78,17 +78,17 @@ let private getCfgTabIconSource model =
   if isBrightTextColor then cfgTabIconDarkSource
   else cfgTabIconLightSource
 
-let private findTabByFuncID model funcID =
+let private findTabByID model id =
   let allTabs =
     match model.PreviewTab with
     | Some preview -> preview :: model.OpenTabs
     | None -> model.OpenTabs
-  allTabs |> List.tryFind (fun tab -> tab.FuncID = funcID)
+  allTabs |> List.tryFind (fun tab -> tab.ID = id)
 
 let private onTabDrag model targetTab dispatch (e: DragEventArgs) =
   let draggedTabID = DataTransferExtensions.TryGetText e.DataTransfer
   if not (String.IsNullOrWhiteSpace draggedTabID) then
-    match findTabByFuncID model draggedTabID with
+    match findTabByID model draggedTabID with
     | Some draggedTab ->
       dispatch (ReorderTab(draggedTab, targetTab))
       e.DragEffects <- DragDropEffects.Move
@@ -102,13 +102,9 @@ let private onTabClick tab dispatch (e: PointerPressedEventArgs) =
   dispatch (SwitchTab tab)
   dispatch (StartTabDrag tab)
   let data = new DataTransfer()
-  data.Add(DataTransferItem.CreateText tab.FuncID)
+  data.Add(DataTransferItem.CreateText tab.ID)
   DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
   |> ignore
-
-let private tabDisplayName (item: FunctionItem) = item.Name
-
-let private tabKey tab = tab.FuncID
 
 let view (model: Model) dispatch =
   let allTabs =
@@ -156,7 +152,7 @@ let view (model: Model) dispatch =
                             onTabClick tab dispatch e)
                           Control.onPointerReleased (fun _ ->
                             dispatch EndTabDrag)
-                          ToolTip.tip (tabDisplayName tab)
+                          ToolTip.tip tab.Title
                           StackPanel.children [
                             Image.create [
                               Image.source (getCfgTabIconSource model)
@@ -165,11 +161,11 @@ let view (model: Model) dispatch =
                               Image.stretch Stretch.Uniform
                               Image.verticalAlignment VerticalAlignment.Center
                               Image.margin (0.0, 0.0, 4.0, 0.0)
-                            ] |> View.withKey $"{tabKey tab}-icon"
+                            ] |> View.withKey $"{tab.ID}-icon"
                             TextBlock.create [
                               StackPanel.verticalAlignment
                                 VerticalAlignment.Center
-                              TextBlock.text (tabDisplayName tab)
+                              TextBlock.text tab.Title
                               TextBlock.fontFamily
                                 model.Theme.Font.FunctionText
                               TextBlock.background
@@ -184,9 +180,9 @@ let view (model: Model) dispatch =
                               TextBlock.textWrapping TextWrapping.NoWrap
                               TextBlock.textTrimming
                                 TextTrimming.CharacterEllipsis
-                            ] |> View.withKey $"{tabKey tab}-label"
+                            ] |> View.withKey $"{tab.ID}-label"
                           ]
-                        ] |> View.withKey $"{tabKey tab}-clickarea"
+                        ] |> View.withKey $"{tab.ID}-clickarea"
                         Button.create [
                           StackPanel.verticalAlignment VerticalAlignment.Center
                           Button.content "\u00D7"
@@ -197,11 +193,11 @@ let view (model: Model) dispatch =
                           Button.fontSize 16.0
                           Button.onClick (fun _ ->
                             dispatch (CloseTab tab))
-                        ] |> View.withKey $"{tabKey tab}-close"
+                        ] |> View.withKey $"{tab.ID}-close"
                       ]
                     ]
                   )
-                ] |> View.withKey $"{tabKey tab}-tab" :> IView
+                ] |> View.withKey $"{tab.ID}-tab" :> IView
               )
             )
           ]

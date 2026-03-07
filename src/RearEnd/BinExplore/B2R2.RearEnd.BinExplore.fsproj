@@ -27,6 +27,7 @@
     <Compile Include="GUI\ThemeMode.fs" />
     <Compile Include="GUI\Theme.fs" />
     <Compile Include="GUI\FunctionItem.fs" />
+    <Compile Include="GUI\Tab.fs" />
     <Compile Include="GUI\Model.fs" />
     <Compile Include="GUI\Message.fs" />
     <Compile Include="GUI\Views\Welcome.fs" />

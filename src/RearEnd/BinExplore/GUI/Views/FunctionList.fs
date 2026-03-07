@@ -108,8 +108,10 @@ let view (model: Model) dispatch =
     | Builtin Light -> "builtin-light"
     | Custom(ThemeId themeId) -> $"custom-{themeId}"
   let selectedFunction =
-    match model.ActiveFunction with
-    | Some func when List.contains func filteredFunctions -> box func
+    match model.ActiveTab with
+    | Some { Content = CFGTab func } ->
+      if List.contains func filteredFunctions then box func
+      else null
     | _ -> null
   Border.create [
     Border.background model.Theme.Panel.Background
@@ -149,16 +151,17 @@ let view (model: Model) dispatch =
             ListBox.autoScrollToSelectedItem true
             ListBox.onSelectedItemChanged (fun item ->
               if not (isNull item) then
-                let func = item :?> FunctionItem
-                dispatch (OpenTab func)
+                let tab = item :?> FunctionItem |> Tab.ofFunctionItem
+                dispatch (OpenTab tab)
               else
                 ()
             )
             ListBox.onDoubleTapped (fun e ->
               match e.Source with
               | :? ContentPresenter as presenter ->
-                let func = presenter.Content :?> FunctionItem
-                dispatch (PinTab func)
+                let tab =
+                  presenter.Content :?> FunctionItem |> Tab.ofFunctionItem
+                dispatch (PinTab tab)
               | _ ->
                 ()
             )
