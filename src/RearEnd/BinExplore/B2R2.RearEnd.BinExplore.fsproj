@@ -32,7 +32,9 @@
     <Compile Include="GUI\Views\Welcome.fs" />
     <Compile Include="GUI\Views\MenuBar.fs" />
     <Compile Include="GUI\Views\StatusBar.fs" />
-    <Compile Include="GUI\Views\ContentArea.fs" />
+    <Compile Include="GUI\Views\FunctionList.fs" />
+    <Compile Include="GUI\Views\TabBar.fs" />
+    <Compile Include="GUI\Views\CFGPanel.fs" />
     <Compile Include="GUI\Views\MainView.fs" />
     <Compile Include="GUI\MainWindow.fs" />
     <Compile Include="GUI\App.fs" />

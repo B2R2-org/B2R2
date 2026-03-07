@@ -22,35 +22,39 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.BinExplore.GUI.MainView
+[<RequireQualifiedAccess>]
+module B2R2.RearEnd.BinExplore.GUI.CFGPanel
 
-open Avalonia.FuncUI.DSL
 open Avalonia.Controls
+open Avalonia.FuncUI.DSL
 
-let private cfgView model dispatch =
-  Grid.create [
-    Grid.columnDefinitions "250,5,*"
-    Grid.children [
-      FunctionList.view model dispatch
-      GridSplitter.create [
-        GridSplitter.column 1
-        GridSplitter.background model.Theme.Panel.Border
-        GridSplitter.resizeDirection GridResizeDirection.Columns
+let view (model: Model) dispatch =
+  Border.create [
+    Grid.column 2 (* Third column *)
+    Border.background model.Theme.Window.Background
+    Border.borderThickness 1.0
+    Border.borderBrush model.Theme.Panel.Border
+    Border.child (
+      DockPanel.create [
+        DockPanel.children [
+          TabBar.view model dispatch
+          ScrollViewer.create [
+            ScrollViewer.content (
+              TextBlock.create [
+                TextBlock.text (
+                  match model.ActiveFunction with
+                  | Some func ->
+                    $"Control Flow Graph."
+                  | None ->
+                    "Select a function to view its control flow graph"
+                )
+                TextBlock.foreground model.Theme.Text.Primary
+                TextBlock.fontSize 14.0
+                TextBlock.margin 10.0
+              ]
+            )
+          ]
+        ]
       ]
-      CFGPanel.view model dispatch
-    ]
-  ]
-
-let private mainArea (model: Model) dispatch =
-  match model.LoadedBinary with
-  | None -> Welcome.view model dispatch
-  | Some _ -> cfgView model dispatch
-
-let view (model: Model) (dispatch: Message -> unit) =
-  DockPanel.create [
-    DockPanel.children [
-      MenuBar.view model dispatch
-      StatusBar.view model
-      mainArea model dispatch
-    ]
+    )
   ]
