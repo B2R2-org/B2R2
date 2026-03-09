@@ -28,6 +28,8 @@ namespace B2R2.RearEnd.BinExplore.GUI
 type Model =
   { /// Currently loaded binary file.
     LoadedBinary: string option
+    /// Path of the binary currently loading.
+    LoadingBinaryPath: string option
     /// List of functions extracted from the loaded binary.
     Functions: FunctionItem list
     /// Search text used to filter the function list.
@@ -46,9 +48,13 @@ type Model =
     Theme: Theme
     /// Tab currently being dragged for reordering, if any.
     DraggingTab: Tab option
-    /// Path of the binary currently loading.
-    LoadingBinaryPath: string option
     /// Selected panel shown in the middle workspace column.
     WorkspacePanel: WorkspacePanel
+    /// Flag indicating whether the user is currently panning in the CFG view.
+    CFGIsPanning: bool
+    /// Last pointer position used for CFG panning.
+    CFGPanPointer: (float * float) option
+    /// Width and height of the CFG viewport.
+    CFGViewportSize: float * float
     /// Status message to be displayed in the status bar.
     StatusMessage: string }

@@ -91,31 +91,20 @@ let private tabLabelView model tab =
     TextBlock.textTrimming TextTrimming.CharacterEllipsis
   ] |> View.withKey $"{tab.ID}-label" :> IView
 
-let private findTabByID model id =
-  let allTabs =
-    match model.PreviewTab with
-    | Some preview -> preview :: model.OpenTabs
-    | None -> model.OpenTabs
-  allTabs |> List.tryFind (fun tab -> tab.ID = id)
-
-let private onTabDrag model targetTab dispatch (e: DragEventArgs) =
+let private onTabDrag targetTabID dispatch (e: DragEventArgs) =
   let draggedTabID = DataTransferExtensions.TryGetText e.DataTransfer
   if not (String.IsNullOrWhiteSpace draggedTabID) then
-    match findTabByID model draggedTabID with
-    | Some draggedTab ->
-      dispatch (ReorderTab(draggedTab, targetTab))
-      e.DragEffects <- DragDropEffects.Move
-    | None ->
-      e.DragEffects <- DragDropEffects.None
+    dispatch (ReorderTab(draggedTabID, targetTabID))
+    e.DragEffects <- DragDropEffects.Move
   else
     e.DragEffects <- DragDropEffects.None
   e.Handled <- true
 
-let private onTabClick tab dispatch (e: PointerPressedEventArgs) =
-  dispatch (SwitchTab tab)
-  dispatch (StartTabDrag tab)
+let private onTabClick tabID dispatch (e: PointerPressedEventArgs) =
+  dispatch (SwitchTab tabID)
+  dispatch (StartTabDrag tabID)
   let data = new DataTransfer()
-  data.Add(DataTransferItem.CreateText tab.ID)
+  data.Add(DataTransferItem.CreateText tabID)
   DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
   |> ignore
 
@@ -149,7 +138,7 @@ let view (model: Model) dispatch =
                   Border.borderBrush model.Theme.Panel.Border
                   Border.padding (10.0, 5.0, 5.0, 5.0)
                   Control.allowDrop true
-                  Control.onDragOver (onTabDrag model tab dispatch)
+                  Control.onDragOver (onTabDrag tab.ID dispatch)
                   Control.onDrop (fun e ->
                     dispatch EndTabDrag
                     e.Handled <- true)
@@ -162,7 +151,7 @@ let view (model: Model) dispatch =
                           StackPanel.verticalAlignment VerticalAlignment.Center
                           StackPanel.background model.Theme.Common.Transparent
                           Control.onPointerPressed (fun e ->
-                            onTabClick tab dispatch e)
+                            onTabClick tab.ID dispatch e)
                           Control.onPointerReleased (fun _ ->
                             dispatch EndTabDrag)
                           ToolTip.tip tab.Title
@@ -180,7 +169,7 @@ let view (model: Model) dispatch =
                           Button.padding (5.0, 0.0, 5.0, 0.0)
                           Button.fontSize 16.0
                           Button.onClick (fun _ ->
-                            dispatch (CloseTab tab))
+                            dispatch (CloseTab tab.ID))
                         ] |> View.withKey $"{tab.ID}-close"
                       ]
                     ]

@@ -39,7 +39,7 @@ type Tab =
 /// Represents the content of a tab.
 and TabContent =
   /// A tab displaying the control flow graph of a function.
-  | CFGTab of FunctionItem * TabContentState<VisGraph>
+  | CFGTab of FunctionItem * TabContentState<VisGraph * CFGViewState>
   /// A tab displaying the hexadecimal view of a specific address.
   | HexTab of baseAddr: Addr
   /// A tab displaying sections of the binary.

@@ -24,6 +24,8 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
+open B2R2.RearEnd.Visualization
+
 /// Represents messages that can be sent to the main view.
 type Message =
   /// Message to open a binary file, carrying the file path.
@@ -35,17 +37,17 @@ type Message =
   /// Message to close the currently loaded binary file.
   | CloseBinary
   /// Message to open a new tab for a specific function.
-  | OpenTab of Tab
+  | OpenCFGTab of fn: FunctionItem
   /// Message to pin a tab, making it persist.
-  | PinTab of Tab
+  | PinCFGTab of fn: FunctionItem
   /// Message to close a specific tab.
-  | CloseTab of Tab
+  | CloseTab of tabID: string
   /// Message to switch to a specific tab, making it active.
-  | SwitchTab of Tab
+  | SwitchTab of tabID: string
   /// Message to start dragging a tab for reordering.
-  | StartTabDrag of Tab
+  | StartTabDrag of tabID: string
   /// Message to reorder tabs using explicit dragged/target tab names.
-  | ReorderTab of draggedTab: Tab * targetTab: Tab
+  | ReorderTab of draggedTabID: string * targetTabID: string
   /// Message to end dragging of a tab.
   | EndTabDrag
   /// Message to register a custom theme.
@@ -56,6 +58,23 @@ type Message =
   | UpdateFunctionFilter of string
   /// Message to switch the visible workspace panel.
   | SelectWorkspacePanel of WorkspacePanel
+  /// Message emitted when CFG loading has completed.
+  | LoadCFGCompleted of tabID: string * cfg: VisGraph
+  /// Message emitted when CFG loading failed.
+  | LoadCFGFailed of tabID: string * reason: string
+  /// Message to update CFG zoom factor, carrying the zoom delta and the mouse
+  /// position.
+  | SetCFGZoom of delta: float * x: float * y: float
+  /// Message to start panning the CFG view, carrying the initial mouse
+  /// position.
+  | StartCFGPan of x: float * y: float
+  /// Message to update the CFG pan offset, carrying the current mouse position.
+  | MoveCFGPan of x: float * y: float
+  /// Message to end panning the CFG view.
+  | EndCFGPan
+  /// Message to update the size of the CFG viewport, carrying the new width and
+  /// height.
+  | UpdateCFGViewportSize of width: float * height: float
   /// Message to update the status message in the status bar.
   | UpdateStatus of string
   /// Message to exit the application.

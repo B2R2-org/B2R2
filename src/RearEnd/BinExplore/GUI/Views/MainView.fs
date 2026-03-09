@@ -95,6 +95,9 @@ let private leftPanelView model dispatch =
   | FunctionPanel -> FunctionList.view model dispatch
   | SectionPanel -> SectionList.view model dispatch
 
+let private onSizeChanged dispatch (e: SizeChangedEventArgs) =
+  dispatch (UpdateCFGViewportSize(e.NewSize.Width, e.NewSize.Height))
+
 let private tabContentView model dispatch =
   match model.ActiveTab with
   | Some { Content = CFGTab _ } ->
@@ -148,7 +151,13 @@ let private workspaceView model dispatch =
         Grid.column 3
         DockPanel.children [
           WorkspaceTabs.view model dispatch
-          tabContentView model dispatch
+          Border.create [
+            Border.padding 0.0
+            Border.margin 0.0
+            Border.borderThickness 0.0
+            Control.onSizeChanged (onSizeChanged dispatch)
+            Border.child (tabContentView model dispatch)
+          ]
         ]
       ]
     ]

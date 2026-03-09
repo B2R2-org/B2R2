@@ -104,13 +104,11 @@ let private filterFunctions model =
 let onDoubleClick dispatch (e: TappedEventArgs) =
   match e.Source with
   | :? ContentPresenter as presenter ->
-    let tab =
-      presenter.Content :?> FunctionItem |> Tab.ofFunctionItem
-    dispatch (PinTab tab)
+    let fn = presenter.Content :?> FunctionItem
+    dispatch (PinCFGTab fn)
   | :? TextBlock as textBlock ->
-    let tab =
-      textBlock.DataContext :?> FunctionItem |> Tab.ofFunctionItem
-    dispatch (PinTab tab)
+    let fn = textBlock.DataContext :?> FunctionItem
+    dispatch (PinCFGTab fn)
   | _ ->
     ()
 
@@ -165,8 +163,8 @@ let view (model: Model) dispatch =
             ListBox.autoScrollToSelectedItem true
             ListBox.onSelectedItemChanged (fun item ->
               if not (isNull item) then
-                let tab = item :?> FunctionItem |> Tab.ofFunctionItem
-                dispatch (OpenTab tab)
+                let fn = item :?> FunctionItem
+                dispatch (OpenCFGTab fn)
               else
                 ()
             )
