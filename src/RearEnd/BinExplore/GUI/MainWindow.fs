@@ -256,6 +256,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         let brew = arbiter.GetBinaryBrew filePath |> Option.get
         let functions =
           brew.Functions.Sequence
+          |> Seq.filter (fun fn -> not fn.IsExternal)
           |> Seq.map FunctionItem.ofFunction
           |> Seq.toList
         { model with
