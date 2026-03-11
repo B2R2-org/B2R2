@@ -114,7 +114,7 @@ let private pointerXY (e: PointerEventArgs) =
     struct (p.X, p.Y)
   | _ -> struct (0.0, 0.0)
 
-let [<Literal>] private ZoomDelta = 0.02
+let [<Literal>] private ZoomDelta = 0.05
 
 let private onWheel dispatch (e: PointerWheelEventArgs) =
   let delta = if e.Delta.Y > 0.0 then ZoomDelta else -ZoomDelta

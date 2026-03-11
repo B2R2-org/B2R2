@@ -219,8 +219,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       let rootCenterX = topNode.VData.Coordinate.X + topNode.VData.Width / 2.0
       let rootCenterY = topNode.VData.Coordinate.Y + topNode.VData.Height / 2.0
       let viewportWidth, viewportHeight = model.CFGViewportSize
-      let minZoomW = (viewportWidth * 0.9) / graphWidth
-      let minZoomH = (viewportHeight * 0.9) / graphHeight
+      let minZoomW = min ((viewportWidth * 0.9) / graphWidth) 1.0
+      let minZoomH = min ((viewportHeight * 0.9) / graphHeight) 1.0
       let minZoom = min minZoomW minZoomH
       { CFGViewState.init with
           PanX = viewportWidth / 2.0 - rootCenterX
@@ -429,7 +429,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       | Some tab ->
         let update viewState =
           let oldZoom = viewState.Zoom
-          let newZoom = min (max (oldZoom + delta) viewState.MinimumZoom) 1.0
+          let newZoom = min (max (oldZoom + delta) viewState.MinimumZoom) 2.0
           let graphX = (mouseX - viewState.PanX) / oldZoom
           let graphY = (mouseY - viewState.PanY) / oldZoom
           let newPanX = mouseX - graphX * newZoom
