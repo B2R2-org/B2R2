@@ -31,6 +31,8 @@ open Avalonia.Media
 open Avalonia.Input
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
+open Avalonia.Controls.Documents
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.RearEnd.Visualization
 
@@ -60,6 +62,7 @@ let private graphCanvas model (cfg: VisGraph) viewState =
       |> Array.toList
       |> List.map (fun n ->
         let x, y = n.VData.Coordinate.X, n.VData.Coordinate.Y
+        let lines = (n.VData :> IVisualizable).Visualize()
         Border.create
           [ Canvas.left (x * zoom + panX)
             Canvas.top (y * zoom + panY)
@@ -71,11 +74,31 @@ let private graphCanvas model (cfg: VisGraph) viewState =
             Border.cornerRadius 4.0
             Border.child (
               TextBlock.create
-                [ TextBlock.text $"{(n.VData :> IVisualizable).BlockAddress:x}"
+                [ TextBlock.inlines (
+                    [ for words in lines do
+                        for word in words do
+                          Run.create
+                            [ match word.AsmWordKind with
+                              | AsmWordKind.Address ->
+                                Run.text word.AsmWordValue
+                                Run.foreground model.Theme.Text.Address
+                              | AsmWordKind.Mnemonic ->
+                                Run.text word.AsmWordValue
+                                Run.foreground model.Theme.Text.Mnemonic
+                              | AsmWordKind.Variable ->
+                                Run.text word.AsmWordValue
+                                Run.foreground model.Theme.Text.Variable
+                              | AsmWordKind.Value ->
+                                Run.text word.AsmWordValue
+                                Run.foreground model.Theme.Text.Value
+                              | _ ->
+                                Run.text word.AsmWordValue ] :> IView
+                        LineBreak.create [] :> IView ]
+                  )
                   TextBlock.foreground model.Theme.Text.Primary
                   TextBlock.fontSize (12.0 * zoom |> max 10.0 |> min 20.0)
                   TextBlock.margin 6.0
-                  TextBlock.textTrimming TextTrimming.CharacterEllipsis
+                  TextBlock.fontFamily model.Theme.Font.DisassemblyText
                   TextBlock.textWrapping TextWrapping.NoWrap ]
             ) ] |> View.withKey $"node-{x}.{y}-{zoom}-{panX}-{panY}" :> IView)
     )

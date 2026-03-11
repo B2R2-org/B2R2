@@ -50,11 +50,16 @@ and TextTheme =
   { Primary: string
     Secondary: string
     Muted: string
-    Highlight: string }
+    Highlight: string
+    Address: string
+    Mnemonic: string
+    Variable: string
+    Value: string }
 
 /// Represents the font settings used in the application.
 and FontTheme =
-  { FunctionText: string }
+  { FunctionText: string
+    DisassemblyText: string }
 
 /// Represents the theme settings for tabs within the application.
 and TabTheme =
@@ -69,7 +74,7 @@ and CommonTheme =
 
 [<RequireQualifiedAccess>]
 module Theme =
-  let private defaultFunctionTextFont =
+  let private defaultTTFont =
     "avares://B2R2.RearEnd.BinExplore/Assets/Fonts#Inconsolata"
 
   let darkTheme =
@@ -83,9 +88,14 @@ module Theme =
         { Primary = "#FFFFFF"
           Secondary = "#AAAAAA"
           Muted = "#A0A0A0"
-          Highlight = "#55CCFF" }
+          Highlight = "#55CCFF"
+          Address = "#99A0A0"
+          Mnemonic = "#2CB174"
+          Variable = "#9CDCFE"
+          Value = "#CE9178" }
       Font =
-        { FunctionText = defaultFunctionTextFont }
+        { FunctionText = defaultTTFont
+          DisassemblyText = defaultTTFont }
       Tab =
         { ActiveBackground = "#1E1E1E"
           InactiveBackground = "#2D2D30"
@@ -103,9 +113,14 @@ module Theme =
         { Primary = "#111111"
           Secondary = "#555555"
           Muted = "#707070"
-          Highlight = "#EE0055" }
+          Highlight = "#EE0055"
+          Address = "#607070"
+          Mnemonic = "#0A7A4A"
+          Variable = "#0000CC"
+          Value = "#1A5090" }
       Font =
-        { FunctionText = defaultFunctionTextFont }
+        { FunctionText = defaultTTFont
+          DisassemblyText = defaultTTFont }
       Tab =
         { ActiveBackground = "#FFFFFF"
           InactiveBackground = "#E6E6E6"
