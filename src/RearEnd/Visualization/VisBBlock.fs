@@ -28,16 +28,16 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main vertex type used for visualization.
-type VisBBlock(blk: IVisualizable, isDummy) =
+type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
   let mutable layer = -1
 
   let mutable index = -1
 
   let pos = { X = 0.0; Y = 0.0 }
 
-  let [<Literal>] TSpanOffset = 4.0
-
   let [<Literal>] Padding = 4.0
+
+  let [<Literal>] Border = 1.0
 
   let visualizableAsm =
     let block = blk.Visualize()
@@ -51,20 +51,23 @@ type VisBBlock(blk: IVisualizable, isDummy) =
 
   let maxLine = visualizableAsm |> Array.maxBy lineWidth
 
-  let maxLineWidth = lineWidth maxLine |> float
+  let maxNumChars = lineWidth maxLine |> float
 
-  /// This number (7.5) is empirically obtained with the current font. For some
-  /// reasons, we cannot precisely determine the width of each text even though
-  /// we are using a fixed-width font. *)
   let mutable width =
-    if isDummy then 0.0 else maxLineWidth * 7.5 + Padding * 2.0
+    if isDummy then 0.0
+    else maxNumChars * charWidth + Padding * 2.0 + Border * 2.0
 
   let numLines = visualizableAsm |> Array.length
 
-  /// This number (14), as in the width case, is empirically obtained with the
-  /// current font.
   let height =
-    if isDummy then 0.0 else float numLines * 14.0 + TSpanOffset + Padding * 2.0
+    if isDummy then 0.0
+    else float numLines * charHeight + Padding * 2.0 + Border * 2.0
+
+  new(blk, isDummy) =
+    (* These numbers (7.5 and 14) are empirically obtained with the current
+       font. For some reasons, we cannot precisely determine the width of each
+       text even though we are using a fixed-width font. *)
+    VisBBlock(blk, 7.5, 14.0, isDummy)
 
   member _.IsDummy with get() = isDummy
 

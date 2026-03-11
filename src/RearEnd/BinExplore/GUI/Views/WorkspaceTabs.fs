@@ -61,7 +61,7 @@ let private tabIconView model tab =
   | Some iconText ->
     TextBlock.create [
       TextBlock.text iconText
-      TextBlock.fontFamily model.Theme.Font.FunctionText
+      TextBlock.fontFamily model.Theme.Font.Function.FontFamily
       TextBlock.foreground (getTabTextColor model tab)
       TextBlock.verticalAlignment VerticalAlignment.Center
       TextBlock.margin (0.0, 0.0, 6.0, 0.0)
@@ -80,7 +80,7 @@ let private tabLabelView model tab =
   TextBlock.create [
     StackPanel.verticalAlignment VerticalAlignment.Center
     TextBlock.text tab.Title
-    TextBlock.fontFamily model.Theme.Font.FunctionText
+    TextBlock.fontFamily model.Theme.Font.Function.FontFamily
     TextBlock.background model.Theme.Common.Transparent
     TextBlock.foreground (getTabTextColor model tab)
     TextBlock.padding (5.0, 0.0, 5.0, 0.0)

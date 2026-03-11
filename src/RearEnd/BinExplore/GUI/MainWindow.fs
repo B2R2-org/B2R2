@@ -28,6 +28,8 @@ open System
 open System.IO
 open Avalonia.FuncUI
 open Avalonia.FuncUI.Hosts
+open Avalonia.Media
+open Avalonia.Media.Fonts
 open Avalonia.Controls
 open Avalonia.Styling
 open Avalonia.Threading
@@ -143,7 +145,24 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     if oldTab.ID = tabID then newTab
     else oldTab
 
-  let loadCFGCmd (fn: FunctionItem) (tab: Tab) =
+  let mkText typeface fontSize text =
+    FormattedText(
+      text,
+      Globalization.CultureInfo.CurrentCulture,
+      FlowDirection.LeftToRight,
+      typeface,
+      fontSize,
+      Brushes.Black
+    )
+
+  let measureMaxCharSize model =
+    let fontFamily = FontFamily model.Theme.Font.Disassembly.FontFamily
+    let fontSize = model.Theme.Font.Disassembly.FontSize
+    let typeface = Typeface fontFamily
+    let txt = mkText typeface fontSize "M"
+    txt.Width, txt.Height
+
+  let loadCFGCmd model (fn: FunctionItem) (tab: Tab) =
     cmdOfSub (fun dispatch ->
       Async.Start(async {
         try
@@ -155,7 +174,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
             let cfg = brew.Functions[fn.Address].CFG
             let disasmCFG = DisasmCFG(disasmBuilder, cfg)
             let roots = disasmCFG.Roots |> List.ofArray
-            let visGraph = Visualizer.toVisGraph disasmCFG roots
+            let cw, ch = measureMaxCharSize model
+            let visGraph = Visualizer.toVisGraph disasmCFG roots cw ch
             dispatchOnUi dispatch (LoadCFGCompleted(tab.ID, visGraph))
           | None ->
             dispatchOnUi dispatch (LoadCFGFailed(tab.ID, "No binary loaded"))
@@ -170,7 +190,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       { model with
           ActiveTab = Some loadingTab
           PreviewTab = Some loadingTab },
-      loadCFGCmd fn loadingTab
+      loadCFGCmd model fn loadingTab
     | _ ->
       model, Elmish.Cmd.none
 

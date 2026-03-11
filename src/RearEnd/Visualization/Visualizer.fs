@@ -26,9 +26,9 @@ module B2R2.RearEnd.Visualization.Visualizer
 
 open B2R2.MiddleEnd.BinGraph
 
-let private convert iGraph roots =
+let private convert iGraph roots charWidth charHeight =
   try
-    let vGraph, roots = VisGraph.ofCFG iGraph roots
+    let vGraph, roots = VisGraph.ofCFG iGraph roots charWidth charHeight
   #if DEBUG
     VisDebug.logn "# Original"
     VisDebug.pp vGraph
@@ -49,19 +49,25 @@ let private convert iGraph roots =
     None
 
 /// Converts the given graph to JSON format.
-let toJSON (iGraph: IDiGraphAccessible<_, _>) roots =
+let toJSON (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
   if iGraph.Size = 0 then
     "{}"
   else
-    match convert iGraph roots with
+    match convert iGraph roots charWidth charHeight with
     | Some(roots, vGraph) -> JSONExport.toStr roots vGraph
     | None -> "{}"
 
 /// Converts the given graph to a VisGraph for visualization.
-let toVisGraph (iGraph: IDiGraphAccessible<_, _>) roots =
+let toVisGraph (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
   if iGraph.Size = 0 then
     VisGraph.init ()
   else
-    convert iGraph roots
+    convert iGraph roots charWidth charHeight
     |> Option.map snd
     |> Option.defaultValue (VisGraph.init ())
+
+/// Default character width used for layout calculations.
+let [<Literal>] CharWidth = 7.5
+
+/// Default character height used for layout calculations.
+let [<Literal>] CharHeight = 14.0

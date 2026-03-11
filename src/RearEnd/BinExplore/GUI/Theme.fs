@@ -58,8 +58,13 @@ and TextTheme =
 
 /// Represents the font settings used in the application.
 and FontTheme =
-  { FunctionText: string
-    DisassemblyText: string }
+  { Function: FontStyle
+    Disassembly: FontStyle }
+
+/// Represents a font style.
+and FontStyle =
+  { FontFamily: string
+    FontSize: float }
 
 /// Represents the theme settings for tabs within the application.
 and TabTheme =
@@ -74,8 +79,12 @@ and CommonTheme =
 
 [<RequireQualifiedAccess>]
 module Theme =
-  let private defaultTTFont =
+  let [<Literal>] private DefaultTTFamily =
     "avares://B2R2.RearEnd.BinExplore/Assets/Fonts#Inconsolata"
+
+  let private defaultTTFont =
+    { FontFamily = DefaultTTFamily
+      FontSize = 12.0 }
 
   let darkTheme =
     { Name = "Dark"
@@ -94,8 +103,8 @@ module Theme =
           Variable = "#9CDCFE"
           Value = "#CE9178" }
       Font =
-        { FunctionText = defaultTTFont
-          DisassemblyText = defaultTTFont }
+        { Function = defaultTTFont
+          Disassembly = defaultTTFont }
       Tab =
         { ActiveBackground = "#1E1E1E"
           InactiveBackground = "#2D2D30"
@@ -119,8 +128,8 @@ module Theme =
           Variable = "#0000CC"
           Value = "#1A5090" }
       Font =
-        { FunctionText = defaultTTFont
-          DisassemblyText = defaultTTFont }
+        { Function = defaultTTFont
+          Disassembly = defaultTTFont }
       Tab =
         { ActiveBackground = "#FFFFFF"
           InactiveBackground = "#E6E6E6"

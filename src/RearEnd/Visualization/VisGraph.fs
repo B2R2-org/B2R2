@@ -36,13 +36,13 @@ module VisGraph =
     ImperativeDiGraph<VisBBlock, VisEdge>()
     :> VisGraph
 
-  let ofCFG g roots =
+  let ofCFG g roots charWidth charHeight =
     let newGraph = init ()
     let visited = Dictionary<VertexID, IVertex<VisBBlock>>()
     (g: IDiGraphAccessible<_, _>).IterVertex(fun v ->
       if visited.ContainsKey v.ID then ()
       else
-        let blk = VisBBlock(v.VData, false)
+        let blk = VisBBlock(v.VData, charWidth, charHeight, false)
         let v', _ = newGraph.AddVertex blk
         visited[v.ID] <- v'
     )

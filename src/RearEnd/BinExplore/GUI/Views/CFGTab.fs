@@ -55,6 +55,7 @@ let private stateTextView model text =
 let private graphCanvas model (cfg: VisGraph) viewState =
   let zoom = viewState.Zoom
   let panX, panY = viewState.PanX, viewState.PanY
+  let fontSize = model.Theme.Font.Disassembly.FontSize
   Canvas.create [
     Canvas.background model.Theme.Window.Background
     Canvas.children (
@@ -62,15 +63,18 @@ let private graphCanvas model (cfg: VisGraph) viewState =
       |> Array.toList
       |> List.map (fun n ->
         let x, y = n.VData.Coordinate.X, n.VData.Coordinate.Y
+        let w = ceil (n.VData.Width * zoom) + 1.1 (* to avoid clipping *)
+        let h = ceil (n.VData.Height * zoom) + 1.1
         let lines = (n.VData :> IVisualizable).Visualize()
         Border.create
           [ Canvas.left (x * zoom + panX)
             Canvas.top (y * zoom + panY)
-            Border.width (n.VData.Width * zoom)
-            Border.height (n.VData.Height * zoom)
+            Border.clipToBounds false
+            Border.width w
+            Border.height h
             Border.background model.Theme.Panel.AltBackground
             Border.borderBrush model.Theme.Panel.Border
-            Border.borderThickness 1.0
+            Border.borderThickness (1.0 * zoom)
             Border.cornerRadius 4.0
             Border.child (
               TextBlock.create
@@ -96,9 +100,10 @@ let private graphCanvas model (cfg: VisGraph) viewState =
                         LineBreak.create [] :> IView ]
                   )
                   TextBlock.foreground model.Theme.Text.Primary
-                  TextBlock.fontSize (12.0 * zoom |> max 10.0 |> min 20.0)
-                  TextBlock.margin 6.0
-                  TextBlock.fontFamily model.Theme.Font.DisassemblyText
+                  TextBlock.fontSize (fontSize * zoom)
+                  TextBlock.margin (4.0 * zoom)
+                  TextBlock.padding 0.0
+                  TextBlock.fontFamily model.Theme.Font.Disassembly.FontFamily
                   TextBlock.textWrapping TextWrapping.NoWrap ]
             ) ] |> View.withKey $"node-{x}.{y}-{zoom}-{panX}-{panY}" :> IView)
     )
