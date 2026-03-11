@@ -22,8 +22,6 @@
   SOFTWARE.
 *)
 
-/// Orthogonal edge drawing for hierarchical (Sugiyama-style) graphs.
-/// Forward edges only. All segments are strictly horizontal or vertical.
 module internal B2R2.RearEnd.Visualization.EdgeDrawing
 
 open System
@@ -38,15 +36,11 @@ let [<Literal>] private StubMargin = 20.0
 
 let private pos x y = VisPosition.Create(x, y)
 
-let private posOfCenterOutEdge (v: IVertex<VisBBlock>) =
+let private posOfPort (v: IVertex<VisBBlock>) =
   let x = VisGraph.getXPos v + VisGraph.getWidth v / 2.0
-  let y = VisGraph.getYPos v + VisGraph.getHeight v
-  x, y
-
-let private posOfCenterInEdge (v: IVertex<VisBBlock>) =
-  let x = VisGraph.getXPos v + VisGraph.getWidth v / 2.0
-  let y = VisGraph.getYPos v
-  x, y
+  let inY = VisGraph.getYPos v
+  let outY = VisGraph.getYPos v + VisGraph.getHeight v
+  x, (inY, outY)
 
 let private isNearlyEqualX srcX dstX = abs (dstX - srcX) <= 4.0
 
@@ -92,6 +86,11 @@ let private inForwardEdge dst originalEdges =
   (originalEdges: (IVertex<VisBBlock> * IVertex<VisBBlock> * VisEdge) list)
   |> List.choose (fun (s, d, e) ->
     if d = dst && not e.IsBackEdge && s <> dst then Some(s, e) else None)
+
+let private selfEdge vertex originEdges =
+  originEdges
+  |> List.choose (fun (src, dst, edge) ->
+    if src = vertex && dst = vertex then Some(dst, edge) else None)
 
 let private vertexBounds vertex =
   let left = VisGraph.getXPos vertex - StubMargin
@@ -177,7 +176,25 @@ let private checkEdgeHitsVertex (layer: IVertex<VisBBlock>[]) src dst curX =
     curX > left && curX < right
   )
 
-let private gapDir gaps blocker preferRight =
+let private getLeftSpace vLayout v =
+  (vLayout: IVertex<VisBBlock>[][])[VisGraph.getLayer v]
+  |> Array.filter (fun u ->
+    not (u.VData.IsDummy) && u <> v && VisGraph.getXPos u < VisGraph.getXPos v)
+  |> Array.map (fun u ->
+    VisGraph.getXPos v - (VisGraph.getXPos u + VisGraph.getWidth u))
+  |> fun distance ->
+    if distance.Length = 0 then Double.MaxValue else Array.min distance
+
+let private getRightSpace vLayout v =
+  (vLayout: IVertex<VisBBlock>[][])[VisGraph.getLayer v]
+  |> Array.filter (fun u ->
+    not (u.VData.IsDummy) && u <> v && VisGraph.getXPos u > VisGraph.getXPos v)
+  |> Array.map (fun u ->
+    VisGraph.getXPos u - (VisGraph.getXPos v + VisGraph.getWidth v))
+  |> fun distance ->
+    if distance.Length = 0 then Double.MaxValue else Array.min distance
+
+let private chooseSpace gaps blocker preferRight =
   let left, right, _, _ = vertexBounds blocker
   if preferRight then
     gaps
@@ -191,7 +208,7 @@ let private gapDir gaps blocker preferRight =
     |> Option.map (fun (_, _, mid) -> mid)
     |> Option.defaultValue left
 
-let private decideBendPoint (layerGaps: (float * float * float)[][])
+let private avoidBoxes (layerGaps: (float * float * float)[][])
   sharedBendY src dst srcX dstX vLayout =
   let srcLayer = VisGraph.getLayer src
   let dstLayer = VisGraph.getLayer dst
@@ -201,7 +218,7 @@ let private decideBendPoint (layerGaps: (float * float * float)[][])
       let curLayer = (vLayout: IVertex<VisBBlock>[][])[layerIdx]
       let nextX =
         match checkEdgeHitsVertex curLayer src dst curX with
-        | Some blocker -> gapDir layerGaps[layerIdx] blocker (dstX >= curX)
+        | Some blocker -> chooseSpace layerGaps[layerIdx] blocker (dstX >= curX)
         | None -> sharedBendX layerGaps[layerIdx] curX
       if abs (nextX - curX) > 0.5 then
         let bendY = (sharedBendY: float[])[layerIdx - 1]
@@ -215,13 +232,31 @@ let private decideBendPoint (layerGaps: (float * float * float)[][])
   else
     bendPoint
 
-let private routeEdge vLayout layerGaps (bendY: float[]) src dst
+let private countPorts pivot tagged =
+  let left = tagged |> List.filter (fun (_, _, x) -> x < pivot) |> List.length
+  let right = tagged |> List.filter (fun (_, _, x) -> x >= pivot) |> List.length
+  left, right
+
+let private buildPortMap vLayout originalEdges =
+  let dict = Dictionary<int, int * int * int * int * float>()
+  vLayout |> Array.iter (Array.iter (fun (v: IVertex<VisBBlock>) ->
+    if v.VData.IsDummy |> not then
+      let cx, _ = posOfPort v
+      let pivot = cx - 0.5
+      let outLeft, outRight =
+        countPorts pivot (assignPortOffset cx (outForwardEdge v originalEdges))
+      let inLeft, inRight =
+        countPorts pivot (assignPortOffset cx (inForwardEdge v originalEdges))
+      dict[v.ID] <- (outLeft, outRight, inLeft, inRight, cx)
+    else
+      ()))
+  dict
+
+let private routeForwardEdge vLayout layerGaps (bendY: float[]) src dst
   (edge: VisEdge) srcX srcY dstX dstY =
   if VisGraph.getLayer dst - VisGraph.getLayer src = 1 then
     if isNearlyEqualX srcX dstX then
-      edge.Points <-
-        [ pos srcX srcY
-          pos dstX dstY ]
+      edge.Points <- [ pos srcX srcY; pos dstX dstY ]
     else
       edge.Points <-
         [ pos srcX srcY
@@ -229,25 +264,56 @@ let private routeEdge vLayout layerGaps (bendY: float[]) src dst
           pos dstX bendY[VisGraph.getLayer src]
           pos dstX dstY ]
   else
-    let bendPoint = decideBendPoint layerGaps bendY src dst srcX dstX vLayout
+    let bendPoint = avoidBoxes layerGaps bendY src dst srcX dstX vLayout
     let pts = pos dstX dstY :: pos dstX (dstY - StubMargin) :: bendPoint
     edge.Points <- pos srcX srcY :: pos srcX (srcY + StubMargin) :: List.rev pts
 
-let drawForwardEdges layerGaps sharedBendY vLayout originalEdges src =
+let private drawForwardEdges layerGaps sharedBendY vLayout originalEdges src =
   let outEdges = outForwardEdge src originalEdges
   if List.isEmpty outEdges then
     ()
   else
-  let srcCenterX, srcY = posOfCenterOutEdge src
-  let srcTagged = assignPortOffset srcCenterX outEdges
-  for (dst, edge, srcX) in srcTagged do
-    let dstCenterX, dstY = posOfCenterInEdge dst
-    let inEdges = inForwardEdge dst originalEdges
-    let dstX =
-      assignPortOffset dstCenterX inEdges
-      |> List.tryPick (fun (s, _, x) -> if s = src then Some x else None)
-      |> Option.defaultValue dstCenterX
-    routeEdge vLayout layerGaps sharedBendY src dst edge srcX srcY dstX dstY
+    let srcCx, (_, srcY) = posOfPort src
+    let sortedOut = outEdges |> List.sortBy (fun (v, _) -> posOfPort v |> fst)
+    for (dst, edge, srcX) in assignPortOffset srcCx sortedOut do
+      let dstCx, (dstY, _) = posOfPort dst
+      let dstX =
+        assignPortOffset dstCx (inForwardEdge dst originalEdges)
+        |> List.tryPick (fun (s, _, x) -> if s = src then Some x else None)
+        |> Option.defaultValue dstCx
+      routeForwardEdge vLayout layerGaps sharedBendY src dst edge srcX srcY dstX
+        dstY
+
+let private drawSelfCycleEdges vLayout originEdges v =
+  let portMap = buildPortMap vLayout originEdges
+  let edges = selfEdge v originEdges
+  if List.isEmpty edges then
+    ()
+  else
+  let outLeft, outRight, inLeft, inRight, center = portMap[v.ID]
+  let _, (dstY, srcY) = posOfPort v
+  let leftSpace = getLeftSpace vLayout v
+  let rightSpace = getRightSpace vLayout v
+  let goRight = rightSpace >= leftSpace
+  let left, right, _, _ = vertexBounds v
+  let sideX = if goRight then right else left
+  let outEdgeBaseOffset =
+    (if goRight then float outRight else -float outLeft) * PortSpacingX + center
+  let inEdgeBaseOffset =
+    (if goRight then float inRight else -float inLeft) * PortSpacingX + center
+  edges
+  |> List.iteri (fun i (_, edge: VisEdge) ->
+    let offset = (float i - float (List.length edges - 1) / 2.0) * PortSpacingX
+    let srcX = outEdgeBaseOffset + offset
+    let dstX = inEdgeBaseOffset + offset
+    edge.Points <-
+      [ pos srcX srcY
+        pos srcX (srcY + StubMargin)
+        pos sideX (srcY + StubMargin)
+        pos sideX (dstY - StubMargin)
+        pos dstX (dstY - StubMargin)
+        pos dstX dstY ]
+  )
 
 let drawEdges g vLayout backEdgeList dummyMap =
   List.iter (restoreBackEdge g) backEdgeList
@@ -257,6 +323,7 @@ let drawEdges g vLayout backEdgeList dummyMap =
   let verticalGaps = Array.map verticalGapInLayer vLayout
   g.IterVertex(fun v ->
     if v.VData.IsDummy |> not then
+      drawSelfCycleEdges vLayout originEdges v
       drawForwardEdges verticalGaps sharedBendY vLayout originEdges v
     else
       ())
