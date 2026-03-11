@@ -119,6 +119,79 @@ let private pointerXY (e: PointerEventArgs) =
     struct (p.X, p.Y)
   | _ -> struct (0.0, 0.0)
 
+let private minimapPanFactor viewState minimapScale =
+  if minimapScale <= 0.0 then 0.0
+  else viewState.Zoom / -minimapScale
+
+let private onMinimapClicked dispatch model minimapDim viewState e =
+  match (e: PointerPressedEventArgs).Source with
+  | :? Control as ctrl ->
+    let p = e.GetPosition ctrl
+    let scale = minimapDim.Scale
+    let offsetX = minimapDim.Width / 2.0
+    let gx = (p.X - offsetX) / scale
+    let gy = p.Y / scale
+    let viewportWidth, viewportHeight = model.CFGViewportSize
+    let newPanX = viewportWidth / 2.0 - gx * viewState.Zoom
+    let newPanY = viewportHeight / 2.0 - gy * viewState.Zoom
+    dispatch (JumpCFGPan(newPanX, newPanY))
+    let struct (sx, sy) = pointerXY e
+    let factor = minimapPanFactor viewState scale
+    dispatch (StartCFGPan(sx * factor, sy * factor))
+    e.Pointer.Capture ctrl
+    e.Handled <- true
+  | _ -> ()
+
+let private onRectMoved dispatch viewState minimapScale e =
+  let struct (x, y) = pointerXY e
+  let factor = minimapPanFactor viewState minimapScale
+  dispatch (MoveCFGPan(x * factor, y * factor))
+  e.Handled <- true
+
+let private onRectReleased dispatch (e: PointerReleasedEventArgs) =
+  dispatch EndCFGPan
+  match e.Source with
+  | :? Control -> e.Pointer.Capture null
+  | _ -> ()
+  e.Handled <- true
+
+let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
+  let scale = minimapDim.Scale
+  let offsetX = minimapDim.Width / 2.0
+  Border.create
+    [ Border.width minimapDim.Width
+      Border.height minimapDim.Height
+      Border.background "#44000000"
+      Border.borderBrush model.Theme.Panel.Border
+      Border.borderThickness 1.0
+      Border.cornerRadius 4.0
+      Border.cursor (new Cursor(StandardCursorType.SizeAll))
+      Border.child (
+        Canvas.create
+          [ Canvas.width minimapDim.Width
+            Canvas.height minimapDim.Height
+            Canvas.background Brushes.Transparent
+            Control.onPointerPressed (
+              onMinimapClicked dispatch model minimapDim viewState
+            )
+            Control.onPointerMoved (
+              onRectMoved dispatch viewState minimapDim.Scale
+            )
+            Control.onPointerReleased (onRectReleased dispatch)
+            Canvas.children (
+              (graph.Vertices
+              |> Array.toList
+              |> List.map (fun n ->
+                Border.create
+                  [ Canvas.left (n.VData.Coordinate.X * scale + offsetX)
+                    Canvas.top (n.VData.Coordinate.Y * scale)
+                    Border.width (n.VData.Width * scale)
+                    Border.height (n.VData.Height * scale)
+                    Border.background model.Theme.Text.Secondary
+                    Border.opacity 0.45
+                    Border.isHitTestVisible false ]))
+              ) ]) ]
+
 let [<Literal>] private ZoomDelta = 0.05
 
 let private onWheel dispatch (e: PointerWheelEventArgs) =
@@ -147,6 +220,15 @@ let private onReleased dispatch (e: PointerReleasedEventArgs) =
   | _ -> ()
   e.Handled <- true
 
+let private onRectPressed dispatch viewState minimapScale e =
+  let struct (x, y) = pointerXY e
+  let factor = minimapPanFactor viewState minimapScale
+  dispatch (StartCFGPan(x * factor, y * factor))
+  match e.Source with
+  | :? Control as ctrl -> e.Pointer.Capture ctrl
+  | _ -> ()
+  e.Handled <- true
+
 let [<Literal>] private MinimapDefaultWidth = 220.0
 
 let private computeMinimapDimension model graphWidth graphHeight =
@@ -167,34 +249,7 @@ let private computeMinimapDimension model graphWidth graphHeight =
       Height = maxLen
       Scale = maxLen / referenceHeight }
 
-let private minimapView model minimapDim (graph: VisGraph) =
-  let scale = minimapDim.Scale
-  let offsetX = minimapDim.Width / 2.0
-  Border.create
-    [ Border.width minimapDim.Width
-      Border.height minimapDim.Height
-      Border.background "#44000000"
-      Border.borderBrush model.Theme.Panel.Border
-      Border.borderThickness 1.0
-      Border.cornerRadius 4.0
-      Border.child (
-        Canvas.create
-          [ Canvas.width minimapDim.Width
-            Canvas.height minimapDim.Height
-            Canvas.children (
-              (graph.Vertices
-              |> Array.toList
-              |> List.map (fun n ->
-                Border.create
-                  [ Canvas.left (n.VData.Coordinate.X * scale + offsetX)
-                    Canvas.top (n.VData.Coordinate.Y * scale)
-                    Border.width (n.VData.Width * scale)
-                    Border.height (n.VData.Height * scale)
-                    Border.background model.Theme.Text.Secondary
-                    Border.opacity 0.45 ]))
-              ) ]) ]
-
-let private minimapViewport model minimapDim viewState =
+let private minimapViewport model dispatch minimapDim viewState =
   let scale = minimapDim.Scale
   let offsetX = minimapDim.Width / 2.0
   let viewportWidth, viewportHeight = model.CFGViewportSize
@@ -227,6 +282,10 @@ let private minimapViewport model minimapDim viewState =
               Border.background Brushes.Transparent
               Border.borderBrush Brushes.White
               Border.borderThickness 3.0
+              Border.cursor (new Cursor(StandardCursorType.SizeAll))
+              Control.onPointerPressed (onRectPressed dispatch viewState scale)
+              Control.onPointerMoved (onRectMoved dispatch viewState scale)
+              Control.onPointerReleased (onRectReleased dispatch)
             ]
           ]
         ]) ] :> IView
@@ -258,9 +317,11 @@ let private loadedView model dispatch cfg viewState =
                       Border.horizontalAlignment HorizontalAlignment.Right
                       Border.verticalAlignment VerticalAlignment.Bottom
                       Border.margin 12.0
-                      Border.child (minimapView model minimapDim cfg)
+                      Border.child (
+                        minimapView model dispatch minimapDim cfg viewState
+                      )
                     ]
-                    minimapViewport model minimapDim viewState
+                    minimapViewport model dispatch minimapDim viewState
                   ]
                 ]) ] ] ]
 

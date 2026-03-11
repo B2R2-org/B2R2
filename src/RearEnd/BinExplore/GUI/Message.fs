@@ -72,6 +72,9 @@ type Message =
   | MoveCFGPan of x: float * y: float
   /// Message to end panning the CFG view.
   | EndCFGPan
+  /// Message to jump the CFG view to a specific pan position (e.g., from
+  /// minimap click).
+  | JumpCFGPan of panX: float * panY: float
   /// Message to update the size of the CFG viewport, carrying the new width and
   /// height.
   | UpdateCFGViewportSize of width: float * height: float

@@ -522,6 +522,23 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
             CFGViewportSize = (width, height) }, Elmish.Cmd.none
       | _ ->
         model, Elmish.Cmd.none
+    | JumpCFGPan(panX, panY) ->
+      match model.ActiveTab with
+      | Some tab ->
+        let update viewState =
+          let clampedPanX, clampedPanY =
+            clampPanToGraphBounds panX panY viewState model
+          { viewState with PanX = clampedPanX; PanY = clampedPanY }
+        let tab = updateCFGViewState tab update
+        let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID tab)
+        let preview = model.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
+        let active = model.ActiveTab |> Option.map (replaceTabByID tab.ID tab)
+        { model with
+            OpenTabs = opens
+            PreviewTab = preview
+            ActiveTab = active }, Elmish.Cmd.none
+      | _ ->
+        model, Elmish.Cmd.none
     | UpdateStatus msg ->
       { model with StatusMessage = msg }, Elmish.Cmd.none
     | ExitApplication ->
