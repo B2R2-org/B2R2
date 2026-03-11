@@ -30,6 +30,7 @@ open System.Collections.Generic
 /// The main graph type for visualization.
 type VisGraph = IDiGraph<VisBBlock, VisEdge>
 
+[<RequireQualifiedAccess>]
 module VisGraph =
   let init () =
     ImperativeDiGraph<VisBBlock, VisEdge>()
