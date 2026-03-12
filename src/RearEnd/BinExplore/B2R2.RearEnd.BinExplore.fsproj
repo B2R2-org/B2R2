@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <ApplicationIcon>Assets\b2r2.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Config.fs" />

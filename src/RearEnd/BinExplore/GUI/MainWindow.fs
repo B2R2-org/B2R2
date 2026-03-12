@@ -30,6 +30,7 @@ open Avalonia.FuncUI
 open Avalonia.FuncUI.Hosts
 open Avalonia.Media
 open Avalonia.Controls
+open Avalonia.Platform
 open Avalonia.Styling
 open Avalonia.Threading
 open B2R2.FrontEnd.BinLifter
@@ -566,6 +567,9 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 
   do
     base.Title <- "BinExplore"
+    let iconUri = Uri("avares://B2R2.RearEnd.BinExplore/Assets/b2r2.ico")
+    use iconStream = AssetLoader.Open(iconUri)
+    base.Icon <- WindowIcon(iconStream)
     base.MinWidth <- 800.0
     base.MinHeight <- 600.0
     let screen = this.Screens.Primary
