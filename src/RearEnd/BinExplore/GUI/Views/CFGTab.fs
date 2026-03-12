@@ -94,62 +94,92 @@ let private getEdgeColor model = function
   | RetEdge -> model.Theme.Graph.Return
   | _ -> model.Theme.Graph.InterJmpEdge
 
+let private isNodeVisible x y w h vpLeft vpRight vpTop vpBottom =
+  x < vpRight && x + w > vpLeft && y < vpBottom && y + h > vpTop
+
+let private isEdgeVisible pts vpLeft vpRight vpTop vpBottom =
+  let rec check = function
+    | p1 :: ((p2 :: _) as rest) ->
+      let minX, maxX = min p1.X p2.X, max p1.X p2.X
+      let minY, maxY = min p1.Y p2.Y, max p1.Y p2.Y
+      if minX < vpRight && maxX > vpLeft && minY < vpBottom && maxY > vpTop then
+        true
+      else
+        check rest
+    | _ ->
+      false
+  check pts
+
 let private graphCanvas model (cfg: VisGraph) viewState =
   let zoom = viewState.Zoom
   let panX, panY = viewState.PanX, viewState.PanY
+  let viewportWidth, viewportHeight = model.CFGViewportSize
+  let vpLeft = -panX / zoom
+  let vpRight = (viewportWidth - panX) / zoom
+  let vpTop = -panY / zoom
+  let vpBottom = (viewportHeight - panY) / zoom
   let fontSize = model.Theme.Font.Disassembly.FontSize
+  let fontFamily = model.Theme.Font.Disassembly.FontFamily
   Canvas.create [
     Canvas.background model.Theme.Window.Background
     Canvas.children (
       [ for e in cfg.Edges do
-          let color = getEdgeColor model e.Label.Type
-          yield! edgeView e.Label.Points zoom panX panY color
+          let pts = e.Label.Points
+          if isEdgeVisible pts vpLeft vpRight vpTop vpBottom then
+            let color = getEdgeColor model e.Label.Type
+            yield! edgeView pts zoom panX panY color
+          else
+            ()
         for n in cfg.Vertices do
           let x, y = n.VData.Coordinate.X, n.VData.Coordinate.Y
-          let w = ceil (n.VData.Width * zoom) + 1.1 (* to avoid clipping *)
-          let h = ceil (n.VData.Height * zoom) + 1.1
-          let lines = (n.VData :> IVisualizable).Visualize()
-          Border.create
-            [ Canvas.left (x * zoom + panX)
-              Canvas.top (y * zoom + panY)
-              Border.clipToBounds false
-              Border.width w
-              Border.height h
-              Border.background model.Theme.Panel.AltBackground
-              Border.borderBrush model.Theme.Panel.Border
-              Border.borderThickness (1.0 * zoom)
-              Border.cornerRadius 4.0
-              Border.child (
-                TextBlock.create
-                  [ TextBlock.inlines (
-                      [ for words in lines do
-                          for word in words do
-                            Run.create
-                              [ match word.AsmWordKind with
-                                | AsmWordKind.Address ->
-                                  Run.text word.AsmWordValue
-                                  Run.foreground model.Theme.Text.Address
-                                | AsmWordKind.Mnemonic ->
-                                  Run.text word.AsmWordValue
-                                  Run.foreground model.Theme.Text.Mnemonic
-                                | AsmWordKind.Variable ->
-                                  Run.text word.AsmWordValue
-                                  Run.foreground model.Theme.Text.Variable
-                                | AsmWordKind.Value ->
-                                  Run.text word.AsmWordValue
-                                  Run.foreground model.Theme.Text.Value
-                                | _ ->
-                                  Run.text word.AsmWordValue ] :> IView
-                          LineBreak.create [] :> IView ]
-                    )
-                    TextBlock.foreground model.Theme.Text.Primary
-                    TextBlock.fontSize (fontSize * zoom)
-                    TextBlock.margin (4.0 * zoom)
-                    TextBlock.padding 0.0
-                    TextBlock.fontFamily model.Theme.Font.Disassembly.FontFamily
-                    TextBlock.textWrapping TextWrapping.NoWrap ]
-              ) ]
-            |> View.withKey $"node-{x}.{y}-{zoom}-{panX}-{panY}" :> IView ]
+          let w, h = n.VData.Width, n.VData.Height
+          if not (isNodeVisible x y w h vpLeft vpRight vpTop vpBottom) then
+            ()
+          else
+            let w = ceil (w * zoom) + 1.1 (* to avoid clipping *)
+            let h = ceil (h * zoom) + 1.1
+            let lines = (n.VData :> IVisualizable).Visualize()
+            Border.create
+              [ Canvas.left (x * zoom + panX)
+                Canvas.top (y * zoom + panY)
+                Border.clipToBounds false
+                Border.width w
+                Border.height h
+                Border.background model.Theme.Panel.AltBackground
+                Border.borderBrush model.Theme.Panel.Border
+                Border.borderThickness (1.0 * zoom)
+                Border.cornerRadius 4.0
+                Border.child (
+                  TextBlock.create
+                    [ TextBlock.inlines (
+                        [ for words in lines do
+                            for word in words do
+                              Run.create
+                                [ match word.AsmWordKind with
+                                  | AsmWordKind.Address ->
+                                    Run.text word.AsmWordValue
+                                    Run.foreground model.Theme.Text.Address
+                                  | AsmWordKind.Mnemonic ->
+                                    Run.text word.AsmWordValue
+                                    Run.foreground model.Theme.Text.Mnemonic
+                                  | AsmWordKind.Variable ->
+                                    Run.text word.AsmWordValue
+                                    Run.foreground model.Theme.Text.Variable
+                                  | AsmWordKind.Value ->
+                                    Run.text word.AsmWordValue
+                                    Run.foreground model.Theme.Text.Value
+                                  | _ ->
+                                    Run.text word.AsmWordValue ] :> IView
+                            LineBreak.create [] :> IView ]
+                      )
+                      TextBlock.foreground model.Theme.Text.Primary
+                      TextBlock.fontSize (fontSize * zoom)
+                      TextBlock.margin (4.0 * zoom)
+                      TextBlock.padding 0.0
+                      TextBlock.fontFamily fontFamily
+                      TextBlock.textWrapping TextWrapping.NoWrap ]
+                ) ]
+              |> View.withKey $"node-{x}.{y}-{zoom}-{panX}-{panY}" :> IView ]
     )
   ]
 
