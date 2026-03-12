@@ -28,9 +28,72 @@ open Avalonia
 open Avalonia.Controls
 open Avalonia.Layout
 open Avalonia.Media
+open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Types
 
-let view (model: Model) (_dispatch: Message -> unit) =
+let searchView model =
+  Grid.create [
+    Grid.width 240.0
+    Grid.height 24.0
+    Grid.children [
+      TextBox.create
+        [ TextBox.width 240.0
+          TextBox.height 24.0
+          TextBox.fontSize 12.0
+          TextBox.watermark "Search..."
+          TextBox.verticalContentAlignment VerticalAlignment.Center
+          TextBox.background model.Theme.Panel.Background
+          TextBox.foreground model.Theme.Text.Primary
+          TextBox.borderBrush model.Theme.Panel.Border
+          TextBox.borderThickness (1.0, 1.0, 1.0, 1.0)
+          TextBox.cornerRadius (CornerRadius(4.0, 0.0, 0.0, 4.0))
+          TextBox.padding (6.0, 0.0, 28.0, 0.0) ] :> IView
+      Button.create
+        [ Button.width 26.0
+          Button.height 24.0
+          Button.horizontalAlignment HorizontalAlignment.Right
+          Button.background model.Theme.Panel.Background
+          Button.borderBrush model.Theme.Panel.Border
+          Button.borderThickness (1.0, 1.0, 1.0, 1.0)
+          Button.cornerRadius (CornerRadius(0.0, 4.0, 4.0, 0.0))
+          Button.padding (4.0, 0.0)
+          Button.margin (0.0, 0.0, 2.0, 0.0)
+          Button.content (
+            Image.create [
+              Image.source (IconAssets.searchIcon model)
+              Image.width 14.0
+              Image.height 14.0
+              Image.stretch Stretch.Uniform
+              Image.verticalAlignment VerticalAlignment.Center
+              Image.horizontalAlignment HorizontalAlignment.Center
+            ]) ]
+    ]
+  ]
+
+let private graphSelectView model dispatch =
+  ComboBox.create [
+    ComboBox.width 140.0
+    ComboBox.maxHeight 200.0
+    ComboBox.background model.Theme.Panel.Background
+    ComboBox.foreground model.Theme.Text.Primary
+    ComboBox.borderBrush model.Theme.Panel.Border
+    ComboBox.borderThickness 1.0
+    ComboBox.dataItems [ "A"; "B"; "C" ]
+    ItemsControl.itemTemplate (
+      DataTemplateView<string>.create (fun txt ->
+        TextBlock.create [
+          TextBlock.text txt
+          TextBlock.foreground model.Theme.Text.Primary
+          TextBlock.fontFamily model.Theme.Font.Function.FontFamily
+          TextBlock.fontSize 12.0
+          TextBlock.padding (4.0, 2.0)
+        ]
+      )
+    )
+  ]
+
+let view (model: Model) (dispatch: Message -> unit) =
   Border.create [
     Border.dock Dock.Top
     Border.background model.Theme.Panel.AltBackground
@@ -42,38 +105,8 @@ let view (model: Model) (_dispatch: Message -> unit) =
         StackPanel.orientation Orientation.Horizontal
         StackPanel.spacing 4.0
         StackPanel.children [
-          TextBox.create [
-            TextBox.width 240.0
-            TextBox.height 24.0
-            TextBox.fontSize 12.0
-            TextBox.watermark "Search..."
-            TextBox.verticalContentAlignment VerticalAlignment.Center
-            TextBox.background model.Theme.Panel.Background
-            TextBox.foreground model.Theme.Text.Primary
-            TextBox.borderBrush model.Theme.Panel.Border
-            TextBox.borderThickness (1.0, 1.0, 1.0, 1.0)
-            TextBox.cornerRadius (CornerRadius(4.0, 0.0, 0.0, 4.0))
-            TextBox.padding (6.0, 0.0)
-          ]
-          Button.create [
-            Button.width 26.0
-            Button.height 24.0
-            Button.background model.Theme.Panel.Background
-            Button.borderBrush model.Theme.Panel.Border
-            Button.borderThickness (1.0, 1.0, 1.0, 1.0)
-            Button.cornerRadius (CornerRadius(0.0, 4.0, 4.0, 0.0))
-            Button.padding (4.0, 0.0)
-            Button.content (
-              Image.create [
-                Image.source (IconAssets.searchIcon model)
-                Image.width 14.0
-                Image.height 14.0
-                Image.stretch Stretch.Uniform
-                Image.verticalAlignment VerticalAlignment.Center
-                Image.horizontalAlignment HorizontalAlignment.Center
-              ]
-            )
-          ]
+          searchView model
+          graphSelectView model dispatch
         ]
       ]
     )
