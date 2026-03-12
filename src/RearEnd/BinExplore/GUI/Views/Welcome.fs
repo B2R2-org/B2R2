@@ -24,12 +24,16 @@
 
 module B2R2.RearEnd.BinExplore.GUI.Welcome
 
+open System
 open Avalonia.FuncUI.DSL
 open Avalonia.Controls
 open Avalonia.Layout
 open Avalonia.Media
+open Avalonia.Media.Imaging
+open Avalonia.Platform
 
 let view model _dispatch =
+  let imageUri = Uri("avares://B2R2.RearEnd.BinExplore/Assets/b2r2.png")
   Grid.create [
     Grid.background model.Theme.Window.Background
     Grid.children [
@@ -38,20 +42,34 @@ let view model _dispatch =
           StackPanel.create [
             StackPanel.verticalAlignment VerticalAlignment.Center
             StackPanel.horizontalAlignment HorizontalAlignment.Center
+            StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
-              TextBlock.create [
-                TextBlock.text "B2R2 BinExplore"
-                TextBlock.fontSize 32.0
-                TextBlock.fontWeight FontWeight.Bold
-                TextBlock.foreground model.Theme.Text.Primary
-                TextBlock.horizontalAlignment HorizontalAlignment.Center
-                TextBlock.margin (0.0, 0.0, 0.0, 20.0)
+              Image.create [
+                Image.source (new Bitmap(AssetLoader.Open(imageUri)))
+                Image.width 200.0
+                Image.height 200.0
+                Image.stretch Stretch.Uniform
+                Image.verticalAlignment VerticalAlignment.Center
+                Image.margin (0.0, 0.0, 40.0, 0.0)
               ]
-              TextBlock.create [
-                TextBlock.text "Open a binary file to start exploring"
-                TextBlock.fontSize 16.0
-                TextBlock.foreground model.Theme.Text.Muted
-                TextBlock.horizontalAlignment HorizontalAlignment.Center
+              StackPanel.create [
+                StackPanel.verticalAlignment VerticalAlignment.Center
+                StackPanel.children [
+                  TextBlock.create [
+                    TextBlock.text "B2R2 BinExplore"
+                    TextBlock.fontSize 32.0
+                    TextBlock.fontWeight FontWeight.Bold
+                    TextBlock.foreground model.Theme.Text.Primary
+                    TextBlock.horizontalAlignment HorizontalAlignment.Center
+                    TextBlock.margin (0.0, 0.0, 0.0, 20.0)
+                  ]
+                  TextBlock.create [
+                    TextBlock.text "Open a binary file to start exploring"
+                    TextBlock.fontSize 16.0
+                    TextBlock.foreground model.Theme.Text.Muted
+                    TextBlock.horizontalAlignment HorizontalAlignment.Center
+                  ]
+                ]
               ]
             ]
           ]
