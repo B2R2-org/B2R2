@@ -77,7 +77,7 @@ let private explore files opts =
   CmdOpts.sanitizeRestArgs files
   runWithBrewLoader files opts
 
-[<EntryPoint>]
+[<EntryPoint; System.STAThread>]
 let main args =
   let isa = ISA Architecture.Intel (* default ISA *)
   let opts = BinExploreOpts.Default isa

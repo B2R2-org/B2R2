@@ -26,16 +26,37 @@ module B2R2.RearEnd.BinExplore.GUI.Welcome
 
 open System
 open Avalonia.FuncUI.DSL
+open Avalonia.Input
 open Avalonia.Controls
 open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.Media.Imaging
 open Avalonia.Platform
 
-let view model _dispatch =
-  let imageUri = Uri("avares://B2R2.RearEnd.BinExplore/Assets/b2r2.png")
+let private tryGetDroppedFilePath (e: DragEventArgs) =
+  let files = DataTransferExtensions.TryGetFiles e.DataTransfer
+  if isNull files then
+    None
+  else
+    files
+    |> Seq.tryHead
+    |> Option.map (fun f -> f.Path.LocalPath)
+
+let view model dispatch =
+  let imageUri = Uri "avares://B2R2.RearEnd.BinExplore/Assets/b2r2.png"
   Grid.create [
     Grid.background model.Theme.Window.Background
+    Control.allowDrop true
+    Control.onDragOver (fun e ->
+      e.DragEffects <-
+        if e.DataTransfer.Contains DataFormat.File then DragDropEffects.Copy
+        else DragDropEffects.None
+      e.Handled <- true)
+    Control.onDrop (fun e ->
+      tryGetDroppedFilePath e
+      |> Option.iter (fun path -> dispatch (OpenBinary path))
+      e.Handled <- true
+    )
     Grid.children [
       Border.create [
         Border.child (
