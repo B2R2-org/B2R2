@@ -33,6 +33,7 @@ type Theme =
     Text: TextTheme
     Font: FontTheme
     Tab: TabTheme
+    Graph: GraphTheme
     Common: CommonTheme }
 
 /// Represents the theme settings for the main window.
@@ -72,6 +73,18 @@ and TabTheme =
     InactiveBackground: string
     CloseForeground: string }
 
+/// Represents the theme settings for graph elements within the application.
+and GraphTheme =
+  { InterJmpEdge: string
+    InterCJmpTrue: string
+    InterCJmpFalse: string
+    IntraJmpEdge: string
+    IntraCJmpTrue: string
+    IntraCJmpFalse: string
+    Fallthrough: string
+    Call: string
+    Return: string }
+
 /// Represents common theme settings that can be used across different UI
 /// elements.
 and CommonTheme =
@@ -109,6 +122,16 @@ module Theme =
         { ActiveBackground = "#1E1E1E"
           InactiveBackground = "#2D2D30"
           CloseForeground = "#AAAAAA" }
+      Graph =
+        { InterJmpEdge = "#FFB86C"
+          InterCJmpTrue = "#3E9955"
+          InterCJmpFalse = "#AA2222"
+          IntraJmpEdge = "#FFB86C"
+          IntraCJmpTrue = "#3E9955"
+          IntraCJmpFalse = "#AA2222"
+          Fallthrough = "#BD93F9"
+          Call = "#8BE9FD"
+          Return = "#FF79C6" }
       Common = { Transparent = "Transparent" } }
 
   let lightTheme =
@@ -134,6 +157,16 @@ module Theme =
         { ActiveBackground = "#FFFFFF"
           InactiveBackground = "#E6E6E6"
           CloseForeground = "#666666" }
+      Graph =
+        { InterJmpEdge = "#C87020"
+          InterCJmpTrue = "#1A7A3A"
+          InterCJmpFalse = "#CC2222"
+          IntraJmpEdge = "#C87020"
+          IntraCJmpTrue = "#1A7A3A"
+          IntraCJmpFalse = "#CC2222"
+          Fallthrough = "#7336B5"
+          Call = "#0A6080"
+          Return = "#8B2880" }
       Common = { Transparent = "Transparent" } }
 
   let ofBuiltin = function

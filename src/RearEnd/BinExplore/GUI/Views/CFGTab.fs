@@ -25,7 +25,10 @@
 [<RequireQualifiedAccess>]
 module B2R2.RearEnd.BinExplore.GUI.CFGTab
 
+open System
+open Avalonia
 open Avalonia.Controls
+open Avalonia.Controls.Shapes
 open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.Input
@@ -52,6 +55,45 @@ let private stateTextView model text =
           TextBlock.margin 12.0
         ]) ] :> IView
 
+let private arrowheadPoints (tip: Point) (angleDeg: float) (size: float) =
+  let rad = angleDeg * Math.PI / 180.0
+  let bx = tip.X - size * cos rad
+  let by = tip.Y - size * sin rad
+  let lx, ly = bx + (size / 2.0) * sin rad, by - (size / 2.0) * cos rad
+  let rx, ry = bx - (size / 2.0) * sin rad, by + (size / 2.0) * cos rad
+  [| tip; Point(lx, ly); Point(rx, ry) |]
+
+let private edgeView (pts: VisPosition list) zoom panX panY (color: string) =
+  match pts with
+  | _ :: _ :: _ ->
+    let scaled =
+      pts |> List.map (fun p -> Point(p.X * zoom + panX, p.Y * zoom + panY))
+    let tip = List.last scaled
+    let prev = scaled |> List.item (scaled.Length - 2)
+    let angle = Math.Atan2(tip.Y - prev.Y, tip.X - prev.X) * 180.0 / Math.PI
+    [ Polyline.create
+        [ Polyline.points (scaled |> Array.ofList)
+          Polyline.stroke color
+          Polyline.strokeThickness (1.0 * zoom)
+          Polyline.isHitTestVisible false ] :> IView
+      Polygon.create
+        [ Polygon.points (arrowheadPoints tip angle (8.0 * zoom))
+          Polygon.fill color
+          Polygon.isHitTestVisible false ] :> IView ]
+  | _ -> []
+
+let private getEdgeColor model = function
+  | InterJmpEdge -> model.Theme.Graph.InterJmpEdge
+  | InterCJmpTrueEdge -> model.Theme.Graph.InterCJmpTrue
+  | InterCJmpFalseEdge -> model.Theme.Graph.InterCJmpFalse
+  | IntraJmpEdge -> model.Theme.Graph.IntraJmpEdge
+  | IntraCJmpTrueEdge -> model.Theme.Graph.IntraCJmpTrue
+  | IntraCJmpFalseEdge -> model.Theme.Graph.IntraCJmpFalse
+  | FallThroughEdge -> model.Theme.Graph.Fallthrough
+  | CallEdge -> model.Theme.Graph.Call
+  | RetEdge -> model.Theme.Graph.Return
+  | _ -> model.Theme.Graph.InterJmpEdge
+
 let private graphCanvas model (cfg: VisGraph) viewState =
   let zoom = viewState.Zoom
   let panX, panY = viewState.PanX, viewState.PanY
@@ -59,53 +101,55 @@ let private graphCanvas model (cfg: VisGraph) viewState =
   Canvas.create [
     Canvas.background model.Theme.Window.Background
     Canvas.children (
-      cfg.Vertices
-      |> Array.toList
-      |> List.map (fun n ->
-        let x, y = n.VData.Coordinate.X, n.VData.Coordinate.Y
-        let w = ceil (n.VData.Width * zoom) + 1.1 (* to avoid clipping *)
-        let h = ceil (n.VData.Height * zoom) + 1.1
-        let lines = (n.VData :> IVisualizable).Visualize()
-        Border.create
-          [ Canvas.left (x * zoom + panX)
-            Canvas.top (y * zoom + panY)
-            Border.clipToBounds false
-            Border.width w
-            Border.height h
-            Border.background model.Theme.Panel.AltBackground
-            Border.borderBrush model.Theme.Panel.Border
-            Border.borderThickness (1.0 * zoom)
-            Border.cornerRadius 4.0
-            Border.child (
-              TextBlock.create
-                [ TextBlock.inlines (
-                    [ for words in lines do
-                        for word in words do
-                          Run.create
-                            [ match word.AsmWordKind with
-                              | AsmWordKind.Address ->
-                                Run.text word.AsmWordValue
-                                Run.foreground model.Theme.Text.Address
-                              | AsmWordKind.Mnemonic ->
-                                Run.text word.AsmWordValue
-                                Run.foreground model.Theme.Text.Mnemonic
-                              | AsmWordKind.Variable ->
-                                Run.text word.AsmWordValue
-                                Run.foreground model.Theme.Text.Variable
-                              | AsmWordKind.Value ->
-                                Run.text word.AsmWordValue
-                                Run.foreground model.Theme.Text.Value
-                              | _ ->
-                                Run.text word.AsmWordValue ] :> IView
-                        LineBreak.create [] :> IView ]
-                  )
-                  TextBlock.foreground model.Theme.Text.Primary
-                  TextBlock.fontSize (fontSize * zoom)
-                  TextBlock.margin (4.0 * zoom)
-                  TextBlock.padding 0.0
-                  TextBlock.fontFamily model.Theme.Font.Disassembly.FontFamily
-                  TextBlock.textWrapping TextWrapping.NoWrap ]
-            ) ] |> View.withKey $"node-{x}.{y}-{zoom}-{panX}-{panY}" :> IView)
+      [ for e in cfg.Edges do
+          let color = getEdgeColor model e.Label.Type
+          yield! edgeView e.Label.Points zoom panX panY color
+        for n in cfg.Vertices do
+          let x, y = n.VData.Coordinate.X, n.VData.Coordinate.Y
+          let w = ceil (n.VData.Width * zoom) + 1.1 (* to avoid clipping *)
+          let h = ceil (n.VData.Height * zoom) + 1.1
+          let lines = (n.VData :> IVisualizable).Visualize()
+          Border.create
+            [ Canvas.left (x * zoom + panX)
+              Canvas.top (y * zoom + panY)
+              Border.clipToBounds false
+              Border.width w
+              Border.height h
+              Border.background model.Theme.Panel.AltBackground
+              Border.borderBrush model.Theme.Panel.Border
+              Border.borderThickness (1.0 * zoom)
+              Border.cornerRadius 4.0
+              Border.child (
+                TextBlock.create
+                  [ TextBlock.inlines (
+                      [ for words in lines do
+                          for word in words do
+                            Run.create
+                              [ match word.AsmWordKind with
+                                | AsmWordKind.Address ->
+                                  Run.text word.AsmWordValue
+                                  Run.foreground model.Theme.Text.Address
+                                | AsmWordKind.Mnemonic ->
+                                  Run.text word.AsmWordValue
+                                  Run.foreground model.Theme.Text.Mnemonic
+                                | AsmWordKind.Variable ->
+                                  Run.text word.AsmWordValue
+                                  Run.foreground model.Theme.Text.Variable
+                                | AsmWordKind.Value ->
+                                  Run.text word.AsmWordValue
+                                  Run.foreground model.Theme.Text.Value
+                                | _ ->
+                                  Run.text word.AsmWordValue ] :> IView
+                          LineBreak.create [] :> IView ]
+                    )
+                    TextBlock.foreground model.Theme.Text.Primary
+                    TextBlock.fontSize (fontSize * zoom)
+                    TextBlock.margin (4.0 * zoom)
+                    TextBlock.padding 0.0
+                    TextBlock.fontFamily model.Theme.Font.Disassembly.FontFamily
+                    TextBlock.textWrapping TextWrapping.NoWrap ]
+              ) ]
+            |> View.withKey $"node-{x}.{y}-{zoom}-{panX}-{panY}" :> IView ]
     )
   ]
 
@@ -155,6 +199,20 @@ let private onRectReleased dispatch (e: PointerReleasedEventArgs) =
   | _ -> ()
   e.Handled <- true
 
+let private minimapEdgeView model scale offsetX (positions: VisPosition list) =
+  match positions with
+  | _ :: _ :: _ ->
+    let pts =
+      positions
+      |> List.map (fun p ->
+        Point(p.X * scale + offsetX, p.Y * scale))
+    [ Polyline.create
+        [ Polyline.points (pts |> Array.ofList)
+          Polyline.stroke model.Theme.Text.Secondary
+          Polyline.strokeThickness 0.5
+          Polyline.isHitTestVisible false ] :> IView ]
+  | _ -> []
+
 let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
   let scale = minimapDim.Scale
   let offsetX = minimapDim.Width / 2.0
@@ -170,7 +228,8 @@ let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
         Canvas.create
           [ Canvas.width minimapDim.Width
             Canvas.height minimapDim.Height
-            Canvas.background Brushes.Transparent
+            Canvas.background model.Theme.Panel.AltBackground
+            Canvas.opacity 0.9
             Control.onPointerPressed (
               onMinimapClicked dispatch model minimapDim viewState
             )
@@ -179,18 +238,17 @@ let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
             )
             Control.onPointerReleased (onRectReleased dispatch)
             Canvas.children (
-              (graph.Vertices
-              |> Array.toList
-              |> List.map (fun n ->
-                Border.create
-                  [ Canvas.left (n.VData.Coordinate.X * scale + offsetX)
-                    Canvas.top (n.VData.Coordinate.Y * scale)
-                    Border.width (n.VData.Width * scale)
-                    Border.height (n.VData.Height * scale)
-                    Border.background model.Theme.Text.Secondary
-                    Border.opacity 0.45
-                    Border.isHitTestVisible false ]))
-              ) ]) ]
+              [ for e in graph.Edges do
+                  yield! minimapEdgeView model scale offsetX e.Label.Points
+                for n in graph.Vertices do
+                  Border.create
+                    [ Canvas.left (n.VData.Coordinate.X * scale + offsetX)
+                      Canvas.top (n.VData.Coordinate.Y * scale)
+                      Border.width (n.VData.Width * scale)
+                      Border.height (n.VData.Height * scale)
+                      Border.background model.Theme.Text.Secondary
+                      Border.isHitTestVisible false ] ]
+            ) ]) ]
 
 let [<Literal>] private ZoomDelta = 0.05
 
@@ -238,7 +296,7 @@ let private computeMinimapDimension model graphWidth graphHeight =
   let aspectRatio = referenceWidth / referenceHeight
   let ratio = MinimapDefaultWidth / referenceWidth
   let maxLen =
-    if ratio < 0.01 then viewportWidth / 2.0
+    if ratio < 0.01 then viewportWidth / 3.0
     else MinimapDefaultWidth
   if aspectRatio >= 1.0 then
     { Width = maxLen
