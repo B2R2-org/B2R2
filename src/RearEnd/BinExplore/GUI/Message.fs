@@ -26,6 +26,10 @@ namespace B2R2.RearEnd.BinExplore.GUI
 
 open B2R2.RearEnd.Visualization
 
+type CFGPanSpace =
+  | ViewportSpace
+  | MinimapSpace of minimapScale: float
+
 /// Represents messages that can be sent to the main view.
 type Message =
   /// Message to open a binary file, carrying the file path.
@@ -68,13 +72,13 @@ type Message =
   /// Message to start panning the CFG view, carrying the initial mouse
   /// position.
   | StartCFGPan of x: float * y: float
-  /// Message to update the CFG pan offset, carrying the current mouse position.
-  | MoveCFGPan of x: float * y: float
+  /// Message to update the CFG pan offset, carrying the current mouse position
+  /// and its coordinate space.
+  | MoveCFGPan of x: float * y: float * space: CFGPanSpace
   /// Message to end panning the CFG view.
   | EndCFGPan
-  /// Message to jump the CFG view to a specific pan position (e.g., from
-  /// minimap click).
-  | JumpCFGPan of panX: float * panY: float
+  /// Message to jump the CFG view to a specific graph coordinate.
+  | JumpCFGPan of gx: float * gy: float
   /// Message to update the size of the CFG viewport, carrying the new width and
   /// height.
   | UpdateCFGViewportSize of width: float * height: float

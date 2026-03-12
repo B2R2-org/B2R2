@@ -195,10 +195,6 @@ let private pointerXY (e: PointerEventArgs) =
     struct (p.X, p.Y)
   | _ -> struct (0.0, 0.0)
 
-let private minimapPanFactor viewState minimapScale =
-  if minimapScale <= 0.0 then 0.0
-  else viewState.Zoom / -minimapScale
-
 let private onMinimapClicked dispatch model minimapDim viewState e =
   match (e: PointerPressedEventArgs).Source with
   | :? Control as ctrl ->
@@ -206,21 +202,16 @@ let private onMinimapClicked dispatch model minimapDim viewState e =
     let scale = minimapDim.Scale
     let gx = (p.X - minimapDim.OffsetX) / scale + viewState.GraphMinX
     let gy = (p.Y - minimapDim.OffsetY) / scale + viewState.GraphMinY
-    let viewportWidth, viewportHeight = model.CFGViewportSize
-    let newPanX = viewportWidth / 2.0 - gx * viewState.Zoom
-    let newPanY = viewportHeight / 2.0 - gy * viewState.Zoom
-    dispatch (JumpCFGPan(newPanX, newPanY))
+    dispatch (JumpCFGPan(gx, gy))
     let struct (sx, sy) = pointerXY e
-    let factor = minimapPanFactor viewState scale
-    dispatch (StartCFGPan(sx * factor, sy * factor))
+    dispatch (StartCFGPan(sx, sy))
     e.Pointer.Capture ctrl
     e.Handled <- true
   | _ -> ()
 
-let private onRectMoved dispatch viewState minimapScale e =
+let private onRectMoved dispatch minimapScale e =
   let struct (x, y) = pointerXY e
-  let factor = minimapPanFactor viewState minimapScale
-  dispatch (MoveCFGPan(x * factor, y * factor))
+  dispatch (MoveCFGPan(x, y, MinimapSpace minimapScale))
   e.Handled <- true
 
 let private onRectReleased dispatch (e: PointerReleasedEventArgs) =
@@ -267,9 +258,7 @@ let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
             Control.onPointerPressed (
               onMinimapClicked dispatch model minimapDim viewState
             )
-            Control.onPointerMoved (
-              onRectMoved dispatch viewState minimapDim.Scale
-            )
+            Control.onPointerMoved (onRectMoved dispatch minimapDim.Scale)
             Control.onPointerReleased (onRectReleased dispatch)
             Canvas.children (
               [ for e in graph.Edges do
@@ -303,7 +292,7 @@ let private onPressed dispatch (e: PointerPressedEventArgs) =
 
 let private onMoved dispatch (e: PointerEventArgs) =
   let struct (x, y) = pointerXY e
-  dispatch (MoveCFGPan(x, y))
+  dispatch (MoveCFGPan(x, y, ViewportSpace))
   e.Handled <- true
 
 let private onReleased dispatch (e: PointerReleasedEventArgs) =
@@ -313,10 +302,9 @@ let private onReleased dispatch (e: PointerReleasedEventArgs) =
   | _ -> ()
   e.Handled <- true
 
-let private onRectPressed dispatch viewState minimapScale e =
+let private onRectPressed dispatch e =
   let struct (x, y) = pointerXY e
-  let factor = minimapPanFactor viewState minimapScale
-  dispatch (StartCFGPan(x * factor, y * factor))
+  dispatch (StartCFGPan(x, y))
   match e.Source with
   | :? Control as ctrl -> e.Pointer.Capture ctrl
   | _ -> ()
@@ -387,8 +375,8 @@ let private minimapViewport model dispatch minimapDim viewState =
               Border.borderBrush Brushes.White
               Border.borderThickness 3.0
               Border.cursor (new Cursor(StandardCursorType.SizeAll))
-              Control.onPointerPressed (onRectPressed dispatch viewState scale)
-              Control.onPointerMoved (onRectMoved dispatch viewState scale)
+              Control.onPointerPressed (onRectPressed dispatch)
+              Control.onPointerMoved (onRectMoved dispatch scale)
               Control.onPointerReleased (onRectReleased dispatch)
             ]
           ]

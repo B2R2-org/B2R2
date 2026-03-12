@@ -480,12 +480,23 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       { model with
           CFGIsPanning = true
           CFGPanPointer = Some(x, y) }, Elmish.Cmd.none
-    | MoveCFGPan(x, y) ->
+    | MoveCFGPan(x, y, space) ->
       match model.CFGIsPanning, model.CFGPanPointer, model.ActiveTab with
       | true, Some(prevX, prevY), Some tab ->
         let update viewState =
-          let newPanX = viewState.PanX + x - prevX
-          let newPanY = viewState.PanY + y - prevY
+          let dx = x - prevX
+          let dy = y - prevY
+          let dx, dy =
+            match space with
+            | ViewportSpace ->
+              dx, dy
+            | MinimapSpace minimapScale when minimapScale > 0.0 ->
+              let factor = viewState.Zoom / -minimapScale
+              dx * factor, dy * factor
+            | MinimapSpace _ ->
+              0.0, 0.0
+          let newPanX = viewState.PanX + dx
+          let newPanY = viewState.PanY + dy
           let clampedPanX, clampedPanY =
             clampPanToGraphBounds newPanX newPanY viewState model
           { viewState with
@@ -527,10 +538,13 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
             CFGViewportSize = (width, height) }, Elmish.Cmd.none
       | _ ->
         model, Elmish.Cmd.none
-    | JumpCFGPan(panX, panY) ->
+    | JumpCFGPan(gx, gy) ->
       match model.ActiveTab with
       | Some tab ->
         let update viewState =
+          let viewportWidth, viewportHeight = model.CFGViewportSize
+          let panX = viewportWidth / 2.0 - gx * viewState.Zoom
+          let panY = viewportHeight / 2.0 - gy * viewState.Zoom
           let clampedPanX, clampedPanY =
             clampPanToGraphBounds panX panY viewState model
           { viewState with PanX = clampedPanX; PanY = clampedPanY }
