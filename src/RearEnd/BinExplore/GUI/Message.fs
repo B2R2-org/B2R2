@@ -38,8 +38,8 @@ type Message =
   | OpenBinaryCompleted of string
   /// Message emitted when binary loading failed.
   | OpenBinaryFailed of path: string * reason: string
-  /// Message to close the currently loaded binary file.
-  | CloseBinary
+  /// Message to close the current workspace.
+  | CloseWorkspace
   /// Message to open a new tab for a specific function.
   | OpenCFGTab of fn: FunctionItem
   /// Message to pin a tab, making it persist.

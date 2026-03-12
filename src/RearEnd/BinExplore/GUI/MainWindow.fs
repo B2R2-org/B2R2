@@ -307,7 +307,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         Elmish.Cmd.none
       else
         model, Elmish.Cmd.none
-    | CloseBinary ->
+    | CloseWorkspace ->
+      arbiter.CloseSession()
       { model with
           LoadedBinary = None
           LoadingBinaryPath = None

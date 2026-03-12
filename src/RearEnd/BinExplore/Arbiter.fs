@@ -43,6 +43,8 @@ and private Action =
   | GetBinaryBrew of string option
   /// Logs a string message to the arbiter's logger.
   | LogString of string
+  /// Closes the current session.
+  | CloseSession
   /// Terminates the arbiter and releases all resources.
   | Terminate
 
@@ -84,6 +86,9 @@ type Arbiter<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
           | Command(LogString str, ch) ->
             logger.PrintLine str
             ch.Reply ok
+          | Command(CloseSession, ch) ->
+            session <- AnalysisSession<'FnCtx, 'GlCtx>(brewLoader)
+            ch.Reply ok
           | Command(Terminate, ch) ->
             logger.Dispose()
             ch.Reply ok
@@ -114,6 +119,11 @@ type Arbiter<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     match mailbox.PostAndReply(fun ch -> Command(LogString str, ch)) with
     | Ack(Ok()) -> ()
     | _ -> Terminator.fatalExit "Failed to log message."
+
+  member _.CloseSession() =
+    match mailbox.PostAndReply(fun ch -> Command(CloseSession, ch)) with
+    | Ack(Ok()) -> printsn "[*] Session closed."
+    | _ -> Terminator.fatalExit "Failed to close session."
 
   member _.Terminate() =
     match mailbox.PostAndReply(fun ch -> Command(Terminate, ch)) with

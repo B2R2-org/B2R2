@@ -93,11 +93,11 @@ let view model dispatch =
             MenuItem.onClick (fun e -> openBinaryDialog dispatch e.Source)
           ]
           MenuItem.create [
-            MenuItem.header "Close Binary"
+            MenuItem.header "Close Session"
             MenuItem.background menuBg
             MenuItem.foreground menuFg
             MenuItem.isEnabled model.LoadedBinary.IsSome
-            MenuItem.onClick (fun _ -> dispatch CloseBinary)
+            MenuItem.onClick (fun _ -> dispatch CloseWorkspace)
           ]
           MenuItem.create [
             MenuItem.header "-"
