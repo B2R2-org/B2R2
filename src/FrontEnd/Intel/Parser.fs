@@ -94,8 +94,16 @@ type IntelParser(wordSz, reader) =
     | None ->
       let baseType =
         match maps with
-        | Normal OneByte -> Legacy
-        | Normal TwoBytes when opByte = 0x1Fuy (* NOP *) -> Legacy
+        | Normal OneByte ->
+          match opByte with
+          | 0x90uy when Prefix.hasREPZ pref -> Mandatory (* PAUSE *)
+          | _ -> Legacy
+        | Normal TwoBytes ->
+          match opByte with
+          | 0x00uy (* Grp 6 *)
+          | 0x02uy (* LAR *)
+          | 0x1Fuy (* NOP *) -> Legacy
+          | _ -> Mandatory
         | _ -> Mandatory // FIXME: Two-byte opcodes(0x0F) are not always
                          // mandatory. Need more precise handling logic.
       toPrefixType baseType pref
