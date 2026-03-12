@@ -112,6 +112,24 @@ let private isEdgeVisible pts vpLeft vpRight vpTop vpBottom =
       false
   check pts
 
+let private disasmView model lines =
+  [ for words in lines do
+      for word in words do
+        Run.create
+          [ Run.text word.AsmWordValue
+            match word.AsmWordKind with
+            | AsmWordKind.Address ->
+              Run.foreground model.Theme.Text.Address
+            | AsmWordKind.Mnemonic ->
+              Run.foreground model.Theme.Text.Mnemonic
+            | AsmWordKind.Variable ->
+              Run.foreground model.Theme.Text.Variable
+            | AsmWordKind.Value ->
+              Run.foreground model.Theme.Text.Value
+            | _ ->
+              () ] :> IView
+      LineBreak.create [] :> IView ]
+
 let private graphCanvas model (cfg: VisGraph) viewState =
   let zoom = viewState.Zoom
   let panX, panY = viewState.PanX, viewState.PanY
@@ -138,9 +156,11 @@ let private graphCanvas model (cfg: VisGraph) viewState =
           if not (isNodeVisible x y w h vpLeft vpRight vpTop vpBottom) then
             ()
           else
-            let w = ceil (w * zoom) + 1.1 (* to avoid clipping *)
+            let w = ceil (w * zoom) + 1.1 (* margin to avoid clipping *)
             let h = ceil (h * zoom) + 1.1
-            let lines = (n.VData :> IVisualizable).Visualize()
+            let lines =
+              if fontSize * zoom < 6.0 then [||]
+              else (n.VData :> IVisualizable).Visualize()
             Border.create
               [ Canvas.left (x * zoom + panX)
                 Canvas.top (y * zoom + panY)
@@ -153,27 +173,7 @@ let private graphCanvas model (cfg: VisGraph) viewState =
                 Border.cornerRadius 4.0
                 Border.child (
                   TextBlock.create
-                    [ TextBlock.inlines (
-                        [ for words in lines do
-                            for word in words do
-                              Run.create
-                                [ match word.AsmWordKind with
-                                  | AsmWordKind.Address ->
-                                    Run.text word.AsmWordValue
-                                    Run.foreground model.Theme.Text.Address
-                                  | AsmWordKind.Mnemonic ->
-                                    Run.text word.AsmWordValue
-                                    Run.foreground model.Theme.Text.Mnemonic
-                                  | AsmWordKind.Variable ->
-                                    Run.text word.AsmWordValue
-                                    Run.foreground model.Theme.Text.Variable
-                                  | AsmWordKind.Value ->
-                                    Run.text word.AsmWordValue
-                                    Run.foreground model.Theme.Text.Value
-                                  | _ ->
-                                    Run.text word.AsmWordValue ] :> IView
-                            LineBreak.create [] :> IView ]
-                      )
+                    [ TextBlock.inlines (disasmView model lines)
                       TextBlock.foreground model.Theme.Text.Primary
                       TextBlock.fontSize (fontSize * zoom)
                       TextBlock.margin (4.0 * zoom)
@@ -195,7 +195,7 @@ let private pointerXY (e: PointerEventArgs) =
     struct (p.X, p.Y)
   | _ -> struct (0.0, 0.0)
 
-let private onMinimapClicked dispatch model minimapDim viewState e =
+let private onMinimapClicked dispatch minimapDim viewState e =
   match (e: PointerPressedEventArgs).Source with
   | :? Control as ctrl ->
     let p = e.GetPosition ctrl
@@ -256,7 +256,7 @@ let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
             Canvas.background model.Theme.Panel.AltBackground
             Canvas.opacity 0.9
             Control.onPointerPressed (
-              onMinimapClicked dispatch model minimapDim viewState
+              onMinimapClicked dispatch minimapDim viewState
             )
             Control.onPointerMoved (onRectMoved dispatch minimapDim.Scale)
             Control.onPointerReleased (onRectReleased dispatch)
