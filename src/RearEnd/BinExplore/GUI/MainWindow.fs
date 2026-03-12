@@ -551,8 +551,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     base.MinHeight <- 600.0
     let screen = this.Screens.Primary
     if screen <> null then
-      base.Width <- float screen.WorkingArea.Width * 0.8
-      base.Height <- float screen.WorkingArea.Height * 0.8
+      base.Width <- float screen.WorkingArea.Width / screen.Scaling * 0.8
+      base.Height <- float screen.WorkingArea.Height / screen.Scaling * 0.8
       base.WindowStartupLocation <- WindowStartupLocation.CenterScreen
     else
       ()
