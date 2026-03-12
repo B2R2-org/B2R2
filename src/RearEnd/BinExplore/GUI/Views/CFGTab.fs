@@ -400,6 +400,7 @@ let private loadedView model dispatch cfg viewState =
                       Border.cursor Cursor.Default
                       Border.horizontalAlignment HorizontalAlignment.Stretch
                       Border.verticalAlignment VerticalAlignment.Stretch
+                      Control.focusable true
                       Control.onPointerWheelChanged (onWheel dispatch)
                       Control.onPointerPressed (onPressed dispatch)
                       Control.onPointerMoved (onMoved dispatch)

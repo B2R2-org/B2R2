@@ -150,6 +150,7 @@ let view (model: Model) dispatch =
                           StackPanel.orientation Orientation.Horizontal
                           StackPanel.verticalAlignment VerticalAlignment.Center
                           StackPanel.background model.Theme.Common.Transparent
+                          Control.focusable true
                           Control.onPointerPressed (fun e ->
                             onTabClick tab.ID dispatch e)
                           Control.onPointerReleased (fun _ ->

@@ -52,6 +52,18 @@ let private listIconDarkSource: IImage =
     SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/list-dark.svg"
   svgImage :> IImage
 
+let private searchIconLightSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/search-light.svg"
+  svgImage :> IImage
+
+let private searchIconDarkSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/search-dark.svg"
+  svgImage :> IImage
+
 let private isBrightPrimaryText model =
   match Color.TryParse model.Theme.Text.Primary with
   | true, color ->
@@ -73,3 +85,7 @@ let cfgIcon model =
 let listIcon model =
   if isBrightPrimaryText model then listIconDarkSource
   else listIconLightSource
+
+let searchIcon model =
+  if isBrightPrimaryText model then searchIconDarkSource
+  else searchIconLightSource

@@ -150,6 +150,7 @@ let private workspaceView model dispatch =
       DockPanel.create [
         Grid.column 3
         DockPanel.children [
+          Toolbar.view model dispatch
           WorkspaceTabs.view model dispatch
           Border.create [
             Border.padding 0.0
