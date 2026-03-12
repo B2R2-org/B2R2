@@ -29,7 +29,6 @@ open System.IO
 open Avalonia.FuncUI
 open Avalonia.FuncUI.Hosts
 open Avalonia.Media
-open Avalonia.Media.Fonts
 open Avalonia.Controls
 open Avalonia.Styling
 open Avalonia.Threading
@@ -234,6 +233,12 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         minY <- min minY y
         maxX <- max maxX right
         maxY <- max maxY bottom
+      for e in cfg.Edges do
+        for p in e.Label.Points do
+          minX <- min minX p.X
+          minY <- min minY p.Y
+          maxX <- max maxX p.X
+          maxY <- max maxY p.Y
       let graphWidth = maxX - minX
       let graphHeight = maxY - minY
       let rootCenterX = topNode.VData.Coordinate.X + topNode.VData.Width / 2.0

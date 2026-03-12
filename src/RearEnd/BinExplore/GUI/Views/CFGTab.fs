@@ -42,7 +42,9 @@ open B2R2.RearEnd.Visualization
 type Dimension =
   { Width: float
     Height: float
-    Scale: float }
+    Scale: float
+    OffsetX: float
+    OffsetY: float }
 
 let private stateTextView model text =
   Border.create
@@ -202,9 +204,8 @@ let private onMinimapClicked dispatch model minimapDim viewState e =
   | :? Control as ctrl ->
     let p = e.GetPosition ctrl
     let scale = minimapDim.Scale
-    let offsetX = minimapDim.Width / 2.0
-    let gx = (p.X - offsetX) / scale
-    let gy = p.Y / scale
+    let gx = (p.X - minimapDim.OffsetX) / scale + viewState.GraphMinX
+    let gy = (p.Y - minimapDim.OffsetY) / scale + viewState.GraphMinY
     let viewportWidth, viewportHeight = model.CFGViewportSize
     let newPanX = viewportWidth / 2.0 - gx * viewState.Zoom
     let newPanY = viewportHeight / 2.0 - gy * viewState.Zoom
@@ -229,13 +230,13 @@ let private onRectReleased dispatch (e: PointerReleasedEventArgs) =
   | _ -> ()
   e.Handled <- true
 
-let private minimapEdgeView model scale offsetX (positions: VisPosition list) =
+let private minimapEdgeView model scale minX minY offX offY positions =
   match positions with
   | _ :: _ :: _ ->
     let pts =
       positions
       |> List.map (fun p ->
-        Point(p.X * scale + offsetX, p.Y * scale))
+        Point((p.X - minX) * scale + offX, (p.Y - minY) * scale + offY))
     [ Polyline.create
         [ Polyline.points (pts |> Array.ofList)
           Polyline.stroke model.Theme.Text.Secondary
@@ -245,7 +246,10 @@ let private minimapEdgeView model scale offsetX (positions: VisPosition list) =
 
 let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
   let scale = minimapDim.Scale
-  let offsetX = minimapDim.Width / 2.0
+  let minX = viewState.GraphMinX
+  let minY = viewState.GraphMinY
+  let offX = minimapDim.OffsetX
+  let offY = minimapDim.OffsetY
   Border.create
     [ Border.width minimapDim.Width
       Border.height minimapDim.Height
@@ -269,11 +273,12 @@ let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
             Control.onPointerReleased (onRectReleased dispatch)
             Canvas.children (
               [ for e in graph.Edges do
-                  yield! minimapEdgeView model scale offsetX e.Label.Points
+                  let pts = e.Label.Points
+                  yield! minimapEdgeView model scale minX minY offX offY pts
                 for n in graph.Vertices do
                   Border.create
-                    [ Canvas.left (n.VData.Coordinate.X * scale + offsetX)
-                      Canvas.top (n.VData.Coordinate.Y * scale)
+                    [ Canvas.left ((n.VData.Coordinate.X - minX) * scale + offX)
+                      Canvas.top ((n.VData.Coordinate.Y - minY) * scale + offY)
                       Border.width (n.VData.Width * scale)
                       Border.height (n.VData.Height * scale)
                       Border.background model.Theme.Text.Secondary
@@ -329,27 +334,38 @@ let private computeMinimapDimension model graphWidth graphHeight =
     if ratio < 0.01 then viewportWidth / 3.0
     else MinimapDefaultWidth
   if aspectRatio >= 1.0 then
-    { Width = maxLen
-      Height = maxLen / aspectRatio
-      Scale = maxLen / referenceWidth }
+    let w = maxLen
+    let h = maxLen / aspectRatio
+    let scale = maxLen / referenceWidth
+    { Width = w
+      Height = h
+      Scale = scale
+      OffsetX = (w - graphWidth * scale) / 2.0
+      OffsetY = (h - graphHeight * scale) / 2.0 }
   else
-    { Width = maxLen * aspectRatio
-      Height = maxLen
-      Scale = maxLen / referenceHeight }
+    let w = maxLen * aspectRatio
+    let h = maxLen
+    let scale = maxLen / referenceHeight
+    { Width = w
+      Height = h
+      Scale = scale
+      OffsetX = (w - graphWidth * scale) / 2.0
+      OffsetY = (h - graphHeight * scale) / 2.0 }
 
 let private minimapViewport model dispatch minimapDim viewState =
   let scale = minimapDim.Scale
-  let offsetX = minimapDim.Width / 2.0
   let viewportWidth, viewportHeight = model.CFGViewportSize
   let zoom, panX, panY = viewState.Zoom, viewState.PanX, viewState.PanY
+  let minX, minY = viewState.GraphMinX, viewState.GraphMinY
+  let offX, offY = minimapDim.OffsetX, minimapDim.OffsetY
   let graphLeft = -panX / zoom
   let graphTop = -panY / zoom
   let graphRight = (viewportWidth - panX) / zoom
   let graphBottom = (viewportHeight - panY) / zoom
-  let minimapLeft = graphLeft * scale + offsetX
-  let minimapTop = graphTop * scale
-  let minimapRight = graphRight * scale + offsetX
-  let minimapBottom = graphBottom * scale
+  let minimapLeft = (graphLeft - minX) * scale + offX
+  let minimapTop = (graphTop - minY) * scale + offY
+  let minimapRight = (graphRight - minX) * scale + offX
+  let minimapBottom = (graphBottom - minY) * scale + offY
   let minimapViewportWidth = minimapRight - minimapLeft
   let minimapViewportHeight = minimapBottom - minimapTop
   Border.create
