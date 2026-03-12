@@ -25,22 +25,20 @@
 namespace B2R2.RearEnd.BinExplore
 
 open System.Collections.Generic
-open B2R2
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// Represents a workspace that holds the state of the current session of
-/// BinExplore.
-type Workspace<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                               and 'FnCtx: (new: unit -> 'FnCtx)
-                               and 'GlCtx: (new: unit -> 'GlCtx)>
+/// Represents a session that holds the state of the current analysis.
+type AnalysisSession<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
+                                     and 'FnCtx: (new: unit -> 'FnCtx)
+                                     and 'GlCtx: (new: unit -> 'GlCtx)>
   public(brewLoader: IBrewLoadable<'FnCtx, 'GlCtx>) =
 
   let binaries = Dictionary<string, BinaryBrew<'FnCtx, 'GlCtx>>()
 
   let mutable currentBinary: BinaryBrew<'FnCtx, 'GlCtx> | null = null
 
-  /// Target binaries that are currently open in the workspace. The key is
+  /// Target binaries that are currently open in the session. The key is
   /// the file path of the binary.
   member _.Binaries with get() = binaries
 
@@ -49,8 +47,8 @@ type Workspace<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     if isNull currentBinary then None
     else Some currentBinary
 
-  /// Adds a binary instance to the workspace. If the file path of the binary is
-  /// already present in the workspace, it does nothing and returns an error.
+  /// Adds a binary instance to the session. If the file path of the binary is
+  /// already present in the session, it does nothing and returns an error.
   member _.AddBinary(path) =
     if binaries.ContainsKey path then
       Error $"File ({path}) is already loaded."
@@ -64,11 +62,11 @@ type Workspace<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         Error e.Message
 
   /// Checks if a binary instance with the given file path is present in the
-  /// workspace.
+  /// session.
   member _.HasBinary path = binaries.ContainsKey path
 
   /// Finds a binary instance by the given file path. The file path must be
-  /// present in the workspace, otherwise it returns None.
+  /// present in the session, otherwise it returns None.
   member _.TryFindBinary path =
     match binaries.TryGetValue path with
     | true, brew -> currentBinary <- brew; Some brew

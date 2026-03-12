@@ -6,7 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Config.fs" />
-    <Compile Include="Workspace.fs" />
+    <Compile Include="AnalysisSession.fs" />
     <Compile Include="Arbiter.fs" />
     <Compile Include="Payloads.fs" />
     <Compile Include="API.fs" />
