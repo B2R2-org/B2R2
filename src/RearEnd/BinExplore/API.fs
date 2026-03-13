@@ -31,11 +31,12 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 open B2R2.RearEnd.Visualization
 
+/// Represents the kind of control flow graph (CFG) to be displayed.
 type CFGKind =
   /// Disassembly CFG.
   | Disasm = 0
   /// LowUIR CFG.
-  | IR = 1
+  | LowUIR = 1
   /// SSA form of the IR CFG.
   | SSA = 2
   /// Call graph.
@@ -59,7 +60,7 @@ module API =
       let func = brew.Functions.Find(addr = fnAddr)
       let g = func.CFG
       match cfgType with
-      | CFGKind.IR ->
+      | CFGKind.LowUIR ->
         let roots = g.Roots |> Seq.toList
         Visualizer.toVisGraph g roots cw ch
         |> Ok
@@ -94,7 +95,7 @@ module API =
   /// Returns the LowUIR CFG of the given function address.
   let getLowUIRCFG (arbiter: Arbiter<_, _>) fnAddr cw ch =
     arbiter.GetBinaryBrew()
-    >>= getCFG fnAddr cw ch CFGKind.IR
+    >>= getCFG fnAddr cw ch CFGKind.LowUIR
 
   /// Returns the SSA CFG of the given function address.
   let getSSACFG (arbiter: Arbiter<_, _>) fnAddr cw ch =

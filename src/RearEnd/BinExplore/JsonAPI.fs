@@ -28,7 +28,6 @@ module B2R2.RearEnd.BinExplore.JsonAPI
 open System
 open System.Text.Json
 open System.Text.Json.Serialization
-open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open B2R2.RearEnd.Visualization

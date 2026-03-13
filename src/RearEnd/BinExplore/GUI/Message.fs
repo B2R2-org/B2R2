@@ -25,10 +25,7 @@
 namespace B2R2.RearEnd.BinExplore.GUI
 
 open B2R2.RearEnd.Visualization
-
-type CFGPanSpace =
-  | ViewportSpace
-  | MinimapSpace of minimapScale: float
+open B2R2.RearEnd.BinExplore
 
 /// Represents messages that can be sent to the main view.
 type Message =
@@ -63,7 +60,7 @@ type Message =
   /// Message to switch the visible workspace panel.
   | SelectWorkspacePanel of WorkspacePanel
   /// Message emitted when CFG loading has completed.
-  | LoadCFGCompleted of tabID: string * cfg: VisGraph
+  | LoadCFGCompleted of tabID: string * CFGKind * cfg: VisGraph
   /// Message emitted when CFG loading failed.
   | LoadCFGFailed of tabID: string * reason: string
   /// Message to update CFG zoom factor, carrying the zoom delta and the mouse
@@ -82,7 +79,14 @@ type Message =
   /// Message to update the size of the CFG viewport, carrying the new width and
   /// height.
   | UpdateCFGViewportSize of width: float * height: float
+  /// Message to update the kind of CFG being displayed (e.g., Disassembly, IR,
+  /// SSA, Call).
+  | ChangeCFGKind of CFGKind
   /// Message to update the status message in the status bar.
   | UpdateStatus of string
   /// Message to exit the application.
   | ExitApplication
+
+and CFGPanSpace =
+  | ViewportSpace
+  | MinimapSpace of minimapScale: float

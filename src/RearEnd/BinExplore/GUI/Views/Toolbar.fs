@@ -31,6 +31,7 @@ open Avalonia.Media
 open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
+open B2R2.RearEnd.BinExplore
 
 let searchView model =
   Grid.create [
@@ -72,14 +73,25 @@ let searchView model =
   ]
 
 let private graphSelectView model dispatch =
+  let currentCFGKind, isEnabled, tabKey =
+    match model.ActiveTab with
+    | Some { ID = id; Content = CFGTab(_, Loaded(_, { CFGKind = kind })) } ->
+      kind, true, id
+    | _ -> CFGKind.Disasm, false, "none"
   ComboBox.create [
-    ComboBox.width 140.0
+    ComboBox.width 100.0
     ComboBox.maxHeight 200.0
     ComboBox.background model.Theme.Panel.Background
     ComboBox.foreground model.Theme.Text.Primary
     ComboBox.borderBrush model.Theme.Panel.Border
     ComboBox.borderThickness 1.0
-    ComboBox.dataItems [ "A"; "B"; "C" ]
+    ComboBox.dataItems [ CFGKind.Disasm; CFGKind.LowUIR; CFGKind.SSA ]
+    ComboBox.selectedItem (box currentCFGKind)
+    ComboBox.isEnabled isEnabled
+    ComboBox.onSelectedItemChanged (fun args ->
+      match args with
+      | :? CFGKind as newKind -> dispatch (ChangeCFGKind newKind)
+      | _ -> ())
     ItemsControl.itemTemplate (
       DataTemplateView<string>.create (fun txt ->
         TextBlock.create [
@@ -91,7 +103,7 @@ let private graphSelectView model dispatch =
         ]
       )
     )
-  ]
+  ] |> View.withKey $"graph-select-{tabKey}"
 
 let view (model: Model) (dispatch: Message -> unit) =
   Border.create [

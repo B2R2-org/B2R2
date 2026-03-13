@@ -24,6 +24,8 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
+open B2R2.RearEnd.BinExplore
+
 /// Represents the view state of the control flow graph (CFG), including
 /// transformation and graph size information.
 type CFGViewState =
@@ -36,6 +38,9 @@ type CFGViewState =
     /// The vertical pan offset of the CFG view, where 0.0 represents the
     /// default position.
     PanY: float
+    /// The kind of CFG being displayed, which can be Disassembly, IR, SSA, or
+    /// Call.
+    CFGKind: CFGKind
     /// The minimum allowed zoom level for the CFG view, preventing excessive
     /// zooming out.
     MinimumZoom: float
@@ -60,6 +65,7 @@ module CFGViewState =
     { Zoom = 1.0
       PanX = 0.0
       PanY = 0.0
+      CFGKind = CFGKind.Disasm
       MinimumZoom = 0.15
       GraphWidth = 0.0
       GraphHeight = 0.0

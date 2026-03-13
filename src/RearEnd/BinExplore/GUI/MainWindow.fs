@@ -165,7 +165,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     | CFGKind.Disasm ->
       measureMaxCharSize model
       ||> API.getDisasmCFG arbiter addr
-    | CFGKind.IR ->
+    | CFGKind.LowUIR ->
       measureMaxCharSize model
       ||> API.getLowUIRCFG arbiter addr
     | CFGKind.SSA ->
@@ -180,7 +180,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         try
           match getCFG model cfgKind fn.Address with
           | Ok cfg ->
-            dispatchOnUi dispatch (LoadCFGCompleted(tab.ID, cfg))
+            dispatchOnUi dispatch (LoadCFGCompleted(tab.ID, cfgKind, cfg))
           | Error e ->
             dispatchOnUi dispatch (LoadCFGFailed(tab.ID, e))
         with ex ->
@@ -217,7 +217,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     let clampedPanY = viewportHeight / 2.0 - clampedCenterY * viewState.Zoom
     clampedPanX, clampedPanY
 
-  let computeInitialCFGViewState (cfg: VisGraph) model =
+  let computeInitialCFGViewState cfgKind (cfg: VisGraph) model =
     let vs = cfg.Vertices
     if vs.Length = 0 then
       CFGViewState.init
@@ -255,6 +255,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       { CFGViewState.init with
           PanX = viewportWidth / 2.0 - rootCenterX
           PanY = viewportHeight / 2.0 - rootCenterY
+          CFGKind = cfgKind
           MinimumZoom = minZoom
           GraphWidth = graphWidth
           GraphHeight = graphHeight
@@ -420,11 +421,11 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       { model with FunctionFilter = text }, Elmish.Cmd.none
     | SelectWorkspacePanel panel ->
       { model with WorkspacePanel = panel }, Elmish.Cmd.none
-    | LoadCFGCompleted(tabID, cfg) ->
+    | LoadCFGCompleted(tabID, cfgKind, cfg) ->
       let visibleTabs = getAllVisibleTabs model
       match tryFindTab visibleTabs tabID with
       | Some tab ->
-        let viewState = computeInitialCFGViewState cfg model
+        let viewState = computeInitialCFGViewState cfgKind cfg model
         let tab = mapCFGTabState (Loaded(cfg, viewState)) tab
         let opens = model.OpenTabs |> List.map (replaceTabByID tabID tab)
         let preview = model.PreviewTab |> Option.map (replaceTabByID tabID tab)
