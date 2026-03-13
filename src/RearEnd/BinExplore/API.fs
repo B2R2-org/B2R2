@@ -22,12 +22,9 @@
   SOFTWARE.
 *)
 
-[<RequireQualifiedAccess>]
-module B2R2.RearEnd.BinExplore.API
+namespace B2R2.RearEnd.BinExplore
 
-open System.Text.Json
 open B2R2
-open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -35,194 +32,155 @@ open B2R2.MiddleEnd.DataFlow
 open B2R2.RearEnd.Visualization
 
 type CFGKind =
+  /// Disassembly CFG.
   | Disasm = 0
+  /// LowUIR CFG.
   | IR = 1
+  /// SSA form of the IR CFG.
   | SSA = 2
+  /// Call graph.
   | Call = 3
 
-let inline private (>>=) opt ([<InlineIfLambda>] f) =
-  match opt with
-  | Some x -> f x
-  | None -> None
+[<RequireQualifiedAccess>]
+module API =
 
-let private getEncodedFilePath (brew: BinaryBrew<_, _>) =
-  let txt = brew.BinHandle.File.Path
-  let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
-  Some(encoding.GetBytes(txt))
+  let inline private (>>=) opt ([<InlineIfLambda>] f) =
+    match opt with
+    | Ok x -> f x
+    | Error e -> Error e
 
-/// Returns the current binary file path.
-let getFilePath (arbiter: Arbiter<_, _>) =
-  arbiter.GetBinaryBrew()
-  >>= getEncodedFilePath
+  /// Returns the current binary file path.
+  let getFilePath (arbiter: Arbiter<_, _>) =
+    arbiter.GetBinaryBrew()
+    >>= fun brew -> Ok brew.BinHandle.File.Path
 
-let private cfgToJSON cfgType (brew: BinaryBrew<_, _>) (g: LowUIRCFG) =
-  match cfgType with
-  | CFGKind.IR ->
-    let roots = g.Roots |> Seq.toList
-    Visualizer.toJSON g roots Visualizer.CharWidth Visualizer.CharHeight
-  | CFGKind.Disasm ->
-    let file = brew.BinHandle.File
-    let disasmBuilder = AsmWordDisasmBuilder(true, file, file.ISA.WordSize)
-    let g = DisasmCFG(disasmBuilder, g)
-    let roots = g.Roots |> Seq.toList
-    Visualizer.toJSON g roots Visualizer.CharWidth Visualizer.CharHeight
-  | CFGKind.SSA ->
-    let factory = SSA.SSALifterFactory.Create brew.BinHandle
-    let ssaCFG = factory.Lift g
-    let roots = ssaCFG.Roots |> List.ofArray
-    Visualizer.toJSON ssaCFG roots Visualizer.CharWidth Visualizer.CharHeight
-  | _ ->
-    failwith "Invalid CFG type"
+  let private getCFG fnAddr cw ch cfgType (brew: BinaryBrew<_, _>) =
+    try
+      let func = brew.Functions.Find(addr = fnAddr)
+      let g = func.CFG
+      match cfgType with
+      | CFGKind.IR ->
+        let roots = g.Roots |> Seq.toList
+        Visualizer.toVisGraph g roots cw ch
+        |> Ok
+      | CFGKind.Disasm ->
+        let file = brew.BinHandle.File
+        let disasmBuilder = AsmWordDisasmBuilder(true, file, file.ISA.WordSize)
+        let g = DisasmCFG(disasmBuilder, g)
+        let roots = g.Roots |> Seq.toList
+        Visualizer.toVisGraph g roots cw ch
+        |> Ok
+      | CFGKind.SSA ->
+        let factory = SSA.SSALifterFactory.Create brew.BinHandle
+        let ssaCFG = factory.Lift g
+        let roots = ssaCFG.Roots |> List.ofArray
+        Visualizer.toVisGraph ssaCFG roots cw ch
+        |> Ok
+      | _ ->
+        Error $"Bad CFG type given: {cfgType}"
+    with e ->
+  #if DEBUG
+      eprintfn "%A" e
+      Error e.Message
+  #else
+      Error e.Message
+  #endif
 
-let private getCFG funcID cfgType (brew: BinaryBrew<_, _>) =
-  let func = brew.Functions.FindByID funcID
-  try
-    let s = cfgToJSON cfgType brew func.CFG
-    Some(encoding.GetBytes s)
-  with e ->
-#if DEBUG
-    eprintfn "%A" e
-    failwith "[FATAL]: Failed to generate CFG"
-#else
-    None
-#endif
+  /// Returns the disassembly CFG of the given function address.
+  let getDisasmCFG (arbiter: Arbiter<_, _>) fnAddr cw ch =
+    arbiter.GetBinaryBrew()
+    >>= getCFG fnAddr cw ch CFGKind.Disasm
 
-/// Returns the disassembly CFG of the given function ID.
-let getDisasmCFG (arbiter: Arbiter<_, _>) funcID =
-  arbiter.GetBinaryBrew()
-  >>= getCFG funcID CFGKind.Disasm
+  /// Returns the LowUIR CFG of the given function address.
+  let getLowUIRCFG (arbiter: Arbiter<_, _>) fnAddr cw ch =
+    arbiter.GetBinaryBrew()
+    >>= getCFG fnAddr cw ch CFGKind.IR
 
-/// Returns the LowUIR CFG of the given function ID.
-let getLowUIRCFG (arbiter: Arbiter<_, _>) funcID =
-  arbiter.GetBinaryBrew()
-  >>= getCFG funcID CFGKind.IR
+  /// Returns the SSA CFG of the given function address.
+  let getSSACFG (arbiter: Arbiter<_, _>) fnAddr cw ch =
+    arbiter.GetBinaryBrew()
+    >>= getCFG fnAddr cw ch CFGKind.SSA
 
-/// Returns the SSA CFG of the given function ID.
-let getSSACFG (arbiter: Arbiter<_, _>) funcID =
-  arbiter.GetBinaryBrew()
-  >>= getCFG funcID CFGKind.SSA
+  let private getCallGraph (brew: BinaryBrew<_, _>) =
+    try
+      let g, roots = CallGraph.create BinGraph.Imperative brew
+      let cw, ch = Visualizer.CharWidth, Visualizer.CharHeight
+      Visualizer.toVisGraph g roots cw ch
+      |> Ok
+    with e ->
+  #if DEBUG
+      eprintfn "%A" e
+      failwith "[FATAL]: Failed to generate CG"
+  #else
+      Error e.Message
+  #endif
 
-let private getCallGraph (brew: BinaryBrew<_, _>) =
-  try
-    let g, roots = CallGraph.create BinGraph.Imperative brew
-    let s = Visualizer.toJSON g roots Visualizer.CharWidth Visualizer.CharHeight
-    Some(encoding.GetBytes s)
-  with e ->
-#if DEBUG
-    eprintfn "%A" e
-    failwith "[FATAL]: Failed to generate CG"
-#else
-    None
-#endif
+  /// Returns the call graph of the binary.
+  let getCallCFG (arbiter: Arbiter<_, _>) =
+    arbiter.GetBinaryBrew()
+    >>= getCallGraph
 
-/// Returns the call graph of the binary.
-let getCallCFG (arbiter: Arbiter<_, _>) =
-  arbiter.GetBinaryBrew()
-  >>= getCallGraph
-
-let inline private toJson<'T> (obj: 'T) =
-  JsonSerializer.Serialize obj
-
-let private getInternalFunctions (brew: BinaryBrew<_, _>) =
-  let names =
+  let private getInternalFunctions (brew: BinaryBrew<_, _>) =
     brew.Functions.Sequence
     |> Seq.filter (fun fn -> not fn.IsExternal)
     |> Seq.sortBy (fun fn -> fn.EntryPoint)
-    |> Seq.map (fun fn -> { FuncID = fn.ID; FuncName = fn.Name })
     |> Seq.toArray
-  Some(toJson names |> encoding.GetBytes)
+    |> Ok
 
-let private getExternalFunctions (brew: BinaryBrew<_, _>) =
-  let names =
+  let private getExternalFunctions (brew: BinaryBrew<_, _>) =
     brew.Functions.Sequence
     |> Seq.filter (fun fn -> fn.IsExternal)
     |> Seq.sortBy (fun fn -> fn.EntryPoint)
-    |> Seq.map (fun fn -> { FuncID = fn.ID; FuncName = fn.Name })
     |> Seq.toArray
-  Some(toJson names |> encoding.GetBytes)
+    |> Ok
 
-/// Returns the list of functions in the binary, sorted by their entry points.
-/// If `isInternal` is true, only internal functions are returned; otherwise,
-/// only external functions are returned.
-let getFunctions (arbiter: Arbiter<_, _>) isInternal =
-  if isInternal then arbiter.GetBinaryBrew() >>= getInternalFunctions
-  else arbiter.GetBinaryBrew() >>= getExternalFunctions
+  /// Returns the list of functions in the binary, sorted by their entry points.
+  /// If `isInternal` is true, only internal functions are returned; otherwise,
+  /// only external functions are returned.
+  let getFunctions (arbiter: Arbiter<_, _>) isInternal =
+    if isInternal then arbiter.GetBinaryBrew() >>= getInternalFunctions
+    else arbiter.GetBinaryBrew() >>= getExternalFunctions
 
-let private getEncodedHexdump (brew: BinaryBrew<_, _>) =
-  brew.BinHandle.File.GetVMMappedRegions()
-  |> Array.map (fun region ->
-    let ptr = brew.BinHandle.File.GetBoundedPointer region.Min
-    let bs = brew.BinHandle.ReadBytes(ptr, ptr.ReadableAmount)
-    let coloredHex =
-      bs |> Array.map (fun b -> Color.FromByte b, b.ToString("X2"))
-    let coloredAscii =
-      bs |> Array.map (fun b -> Color.FromByte b, Byte.getRepresentation b)
-    let coloredBytes = (* DataColoredHexAscii *)
-      Array.map2 (fun (c: Color, h) (_, a) ->
-        { Color = c.ToString()
-          Hex = h
-          Ascii = a }) coloredHex coloredAscii
-    { SegAddr = region.Min
-      SegBytes = bs
-      SegColoredHexAscii = coloredBytes })
-  |> toJson
-  |> encoding.GetBytes
-  |> Some
+  /// Returns the raw bytes at the given address and the size.
+  let getBytes (arbiter: Arbiter<_, _>) addr size =
+    arbiter.GetBinaryBrew()
+    >>= fun brew ->
+      let ptr = brew.BinHandle.File.GetBoundedPointer(addr)
+      brew.BinHandle.TryReadBytes(ptr, size)
+      |> Result.mapError (fun e -> ErrorCase.toString e)
 
-/// Returns the hexdump of the binary in color.
-let getHexdump (arbiter: Arbiter<_, _>) =
-  arbiter.GetBinaryBrew()
-  >>= getEncodedHexdump
+  let private computeConnectedVars chain v =
+    match Map.tryFind v chain.UseDefChain with
+    | None ->
+      match Map.tryFind v chain.DefUseChain with
+      | None -> Set.singleton v
+      | Some us -> us
+    | Some ds ->
+      ds
+      |> Set.fold (fun s d ->
+        match Map.tryFind d chain.DefUseChain with
+        | None -> s
+        | Some us -> Set.union us s) ds
 
-let private computeConnectedVars chain v =
-  match Map.tryFind v chain.UseDefChain with
-  | None ->
-    match Map.tryFind v chain.DefUseChain with
-    | None -> Set.singleton v
-    | Some us -> us
-  | Some ds ->
-    ds
-    |> Set.fold (fun s d ->
-      match Map.tryFind d chain.DefUseChain with
-      | None -> s
-      | Some us -> Set.union us s) ds
-
-let private getVarNames (hdl: BinHandle) = function
-  | Regular v ->
-    hdl.RegisterFactory.GetRegisterIDAliases v
-    |> Array.map (hdl.RegisterFactory.GetRegisterName)
-  | _ -> [||]
-
-let private getEncodedDataflow (args: string) (brew: BinaryBrew<_, _>) =
-  let args = args.Split([| ',' |])
-  let entry, addr, tag = args[0] |> uint64, args[1] |> uint64, args[2]
-  match tag with
-  | "variable" ->
+  let private getEncodedDataflow fnAddr insAddr reg (brew: BinaryBrew<_, _>) =
     try
-      let var = args[3] |> brew.BinHandle.RegisterFactory.GetRegisterID
-      let cfg = brew.Functions[entry].CFG
+      let cfg = brew.Functions[fnAddr].CFG
       let chain = DataFlowChain.init cfg true
-      let v = { ProgramPoint = ProgramPoint(addr, 0); VarKind = Regular var }
+      let rid = brew.BinHandle.RegisterFactory.GetRegisterID(name = reg)
+      let v = { ProgramPoint = ProgramPoint(insAddr, 0); VarKind = Regular rid }
       computeConnectedVars chain v
       |> Set.toArray
-      |> Array.map (fun vp ->
-        { VarAddr = vp.ProgramPoint.Address
-          VarNames = getVarNames brew.BinHandle vp.VarKind })
-      |> toJson
-      |> encoding.GetBytes
-      |> Some
+      |> Ok
     with e ->
-#if DEBUG
+  #if DEBUG
       eprintfn "%A" e
       failwith "[FATAL]: Failed to obtain dataflow info"
-#else
-      None
-#endif
-  | _ ->
-    None
+  #else
+      Error e.Message
+  #endif
 
-/// Returns the dataflow information of the given variable at the specified
-/// program point.
-let getDataflow (arbiter: Arbiter<_, _>) args =
-  arbiter.GetBinaryBrew()
-  >>= getEncodedDataflow args
+  /// Returns the immediate dataflow chain of the given register at the given
+  /// instruction address in the given function.
+  let getImmediateDataflowChain (arbiter: Arbiter<_, _>) fnAddr insAddr reg =
+    arbiter.GetBinaryBrew()
+    >>= getEncodedDataflow fnAddr insAddr reg

@@ -33,8 +33,6 @@ open Avalonia.Controls
 open Avalonia.Platform
 open Avalonia.Styling
 open Avalonia.Threading
-open B2R2.FrontEnd.BinLifter
-open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd.BinExplore
 open B2R2.RearEnd.Visualization
@@ -162,23 +160,29 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     let txt = mkText typeface fontSize "M"
     txt.Width, txt.Height
 
-  let loadCFGCmd model (fn: FunctionItem) (tab: Tab) =
+  let getCFG model cfgKind addr =
+    match cfgKind with
+    | CFGKind.Disasm ->
+      measureMaxCharSize model
+      ||> API.getDisasmCFG arbiter addr
+    | CFGKind.IR ->
+      measureMaxCharSize model
+      ||> API.getLowUIRCFG arbiter addr
+    | CFGKind.SSA ->
+      measureMaxCharSize model
+      ||> API.getSSACFG arbiter addr
+    | _ ->
+      API.getCallCFG arbiter
+
+  let loadCFGCmd model (fn: FunctionItem) cfgKind (tab: Tab) =
     cmdOfSub (fun dispatch ->
       Async.Start(async {
         try
-          match arbiter.GetBinaryBrew() with
-          | Some brew ->
-            let file = brew.BinHandle.File
-            let wordSize = file.ISA.WordSize
-            let disasmBuilder = AsmWordDisasmBuilder(true, file, wordSize)
-            let cfg = brew.Functions[fn.Address].CFG
-            let disasmCFG = DisasmCFG(disasmBuilder, cfg)
-            let roots = disasmCFG.Roots |> List.ofArray
-            let cw, ch = measureMaxCharSize model
-            let visGraph = Visualizer.toVisGraph disasmCFG roots cw ch
-            dispatchOnUi dispatch (LoadCFGCompleted(tab.ID, visGraph))
-          | None ->
-            dispatchOnUi dispatch (LoadCFGFailed(tab.ID, "No binary loaded"))
+          match getCFG model cfgKind fn.Address with
+          | Ok cfg ->
+            dispatchOnUi dispatch (LoadCFGCompleted(tab.ID, cfg))
+          | Error e ->
+            dispatchOnUi dispatch (LoadCFGFailed(tab.ID, e))
         with ex ->
           dispatchOnUi dispatch (LoadCFGFailed(tab.ID, ex.Message))
       }))
@@ -190,7 +194,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       { model with
           ActiveTab = Some loadingTab
           PreviewTab = Some loadingTab },
-      loadCFGCmd model fn loadingTab
+      loadCFGCmd model fn CFGKind.Disasm loadingTab
     | _ ->
       model, Elmish.Cmd.none
 
@@ -279,12 +283,10 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     | OpenBinaryCompleted filePath ->
       if model.LoadingBinaryPath = Some filePath then
         let statusFileName = Path.GetFileName filePath
-        let brew = arbiter.GetBinaryBrew filePath |> Option.get
         let functions =
-          brew.Functions.Sequence
-          |> Seq.filter (fun fn -> not fn.IsExternal)
-          |> Seq.map FunctionItem.ofFunction
-          |> Seq.toList
+          match API.getFunctions arbiter true with
+          | Ok fns -> fns |> Array.map FunctionItem.ofFunction |> List.ofArray
+          | _ -> []
         { model with
             LoadedBinary = Some filePath
             LoadingBinaryPath = None
@@ -519,6 +521,21 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       { model with
           CFGIsPanning = false
           CFGPanPointer = None }, Elmish.Cmd.none
+    | ChangeCFGKind kind ->
+      match model.ActiveTab with
+      | Some { Content = CFGTab(fn, Loaded(_, { CFGKind = currentKind })) }
+        when currentKind <> kind ->
+        let tabContent = CFGTab(fn, NotLoaded)
+        let tab = { model.ActiveTab.Value with Content = tabContent }
+        let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID tab)
+        let preview = model.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
+        let active = model.ActiveTab |> Option.map (replaceTabByID tab.ID tab)
+        { model with
+            OpenTabs = opens
+            PreviewTab = preview
+            ActiveTab = active }, loadCFGCmd model fn kind tab
+      | _ ->
+        model, Elmish.Cmd.none
     | UpdateCFGViewportSize(width, height) ->
       match model.ActiveTab with
       | Some tab when width > 0.0 && height > 0.0 ->

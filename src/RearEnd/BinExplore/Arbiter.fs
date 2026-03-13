@@ -106,14 +106,14 @@ type Arbiter<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 
   member _.GetBinaryBrew() =
     match mailbox.PostAndReply(fun ch -> Command(GetBinaryBrew None, ch)) with
-    | ReplyBinaryBrew brew -> brew
-    | _ -> None
+    | ReplyBinaryBrew(Some brew) -> Ok brew
+    | _ -> Error "Failed to get current binary brew."
 
   member _.GetBinaryBrew(path) =
     let path = Some path
     match mailbox.PostAndReply(fun ch -> Command(GetBinaryBrew path, ch)) with
-    | ReplyBinaryBrew brew -> brew
-    | _ -> None
+    | ReplyBinaryBrew(Some(brew)) -> Ok brew
+    | _ -> Error $"Failed to get binary brew for ({path})"
 
   member _.LogString str =
     match mailbox.PostAndReply(fun ch -> Command(LogString str, ch)) with

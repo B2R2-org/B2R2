@@ -41,13 +41,13 @@ let private loadAllFiles (arbiter: Arbiter<_, _>) files =
 
 let private startServerAndUI files (opts: BinExploreOpts) loader =
   let arbiter = Arbiter(loader, opts.LogFile)
-  let cmdStore = CLI.spec |> CmdStore
   loadAllFiles arbiter files
-  HTTPServer.start arbiter opts.IP opts.Port opts.Verbose cmdStore
+  HTTPServer.start arbiter opts.IP opts.Port opts.Verbose
   if opts.UseGUI then
     GUI.start arbiter
     |> ignore
   else
+    let cmdStore = CLI.spec |> CmdStore
     String.replicate System.Console.WindowHeight System.Environment.NewLine
     |> System.Console.Write
     CLI.start arbiter cmdStore

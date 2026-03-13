@@ -85,7 +85,7 @@ type Search() =
 
     member this.CallBack(arbiter, args) =
       match args, arbiter.GetBinaryBrew() with
-      | t :: pattern :: _, Some brew ->
+      | t :: pattern :: _, Ok brew ->
         t.ToLowerInvariant()
         |> this.CmdHandle(brew.BinHandle, pattern)
         |> Array.map OutputNormal

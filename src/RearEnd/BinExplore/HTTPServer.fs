@@ -44,19 +44,12 @@ let listen host reqHandler =
   loop ()
   |> Async.Start
 
-let pathToContentType (path: string) =
-  match Path.GetExtension path with
-  | ".css" -> "text/css"
-  | ".js" -> "text/javascript"
-  | ".png" -> "image/png"
-  | ".jpg" -> "image/jpeg"
-  | ".ico" -> "image/x-icon"
-  | ".woff2" -> "font/woff2"
-  | _ -> "text/html"
+let [<Literal>] private ContentType = "application/json"
 
-let answer (req: HttpListenerRequest) (resp: HttpListenerResponse) = function
-  | Some bytes ->
-    resp.ContentType <- pathToContentType req.Url.LocalPath
+let answer (resp: HttpListenerResponse) = function
+  | Some(json: string) ->
+    let bytes = encoding.GetBytes(json)
+    resp.ContentType <- ContentType
     resp.ContentEncoding <- encoding
     resp.OutputStream.Write(bytes, 0, bytes.Length)
     resp.OutputStream.Close()
@@ -64,18 +57,48 @@ let answer (req: HttpListenerRequest) (resp: HttpListenerResponse) = function
     resp.StatusCode <- 404
     resp.Close()
 
-let invokeAPI (req: HttpListenerRequest) arbiter cmdStore =
-  let query, args = req.QueryString["q"], req.QueryString["args"]
+let invokeAPI (req: HttpListenerRequest) arbiter =
+  let query = req.QueryString["q"]
   match query with
-  | "getFilePath" -> API.getFilePath arbiter
-  | "getDisasmCFG" -> API.getDisasmCFG arbiter args
-  | "getLowUIRCFG" -> API.getLowUIRCFG arbiter args
-  | "getSSACFG" -> API.getSSACFG arbiter args
-  | "getCallCFG" -> API.getCallCFG arbiter
-  | "getFunctions" -> API.getFunctions arbiter true
-  | "getHexdump" -> API.getHexdump arbiter
-  | "getDataflow" -> API.getDataflow arbiter args
-  | _ -> None
+  | "getFilePath" ->
+    JsonAPI.getFilePath arbiter
+    |> Some
+  | "getDisasmCFG" ->
+    let addr = req.QueryString["addr"]
+    let cw = req.QueryString["cw"]
+    let ch = req.QueryString["ch"]
+    JsonAPI.getDisasmCFG arbiter addr cw ch
+    |> Some
+  | "getLowUIRCFG" ->
+    let addr = req.QueryString["addr"]
+    let cw = req.QueryString["cw"]
+    let ch = req.QueryString["ch"]
+    JsonAPI.getLowUIRCFG arbiter addr cw ch
+    |> Some
+  | "getSSACFG" ->
+    let addr = req.QueryString["addr"]
+    let cw = req.QueryString["cw"]
+    let ch = req.QueryString["ch"]
+    JsonAPI.getSSACFG arbiter addr cw ch
+    |> Some
+  | "getCallCFG" ->
+    JsonAPI.getCallCFG arbiter
+    |> Some
+  | "getFunctions" ->
+    JsonAPI.getFunctions arbiter true
+    |> Some
+  | "getBytes" ->
+    JsonAPI.getBytes arbiter req.QueryString["addr"] req.QueryString["size"]
+    |> Some
+  | "getImmediateDataflowChain" ->
+    let fnAddr = req.QueryString["fnAddr"]
+    let insAddr = req.QueryString["insAddr"]
+    let register = req.QueryString["register"]
+    JsonAPI.getImmediateDataflowChain arbiter fnAddr insAddr register
+    |> Some
+  | _ ->
+    eprintsn $"Unknown API query: {query}"
+    None
 
 let [<Literal>] WebBaseDir = "WebUI"
 
@@ -88,23 +111,18 @@ let readIfExists path =
   if File.Exists path then Some(File.ReadAllBytes(path))
   else None
 
-let handleWebRequest (req: HttpListenerRequest) resp arbiter cmdStore =
+let handleWebRequest (req: HttpListenerRequest) resp arbiter =
   match req.Url.LocalPath.Remove(0, 1) with (* Remove the first '/' *)
-  | "ajax/" ->
-    invokeAPI req arbiter cmdStore
-    |> answer req resp
-  | "" ->
-    Path.Combine(rootDir, "index.html")
-    |> readIfExists
-    |> answer req resp
-  | path ->
-    Path.Combine(rootDir, path)
-    |> readIfExists
-    |> answer req resp
+  | "api/" ->
+    invokeAPI req arbiter
+    |> answer resp
+  | _ ->
+    None
+    |> answer resp
 
-let start arbiter ip (port: int) isVerbose cmdStore =
+let start arbiter ip (port: int) isVerbose =
   let host = $"http://{ip}:{port.ToString()}/"
   let reqHandler (req: HttpListenerRequest) (resp: HttpListenerResponse) =
-    try handleWebRequest req resp arbiter cmdStore
+    try handleWebRequest req resp arbiter
     with e -> if isVerbose then eprintfn "%A" e else ()
   listen host reqHandler

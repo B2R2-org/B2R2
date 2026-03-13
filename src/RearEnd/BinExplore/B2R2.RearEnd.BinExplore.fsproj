@@ -8,8 +8,9 @@
     <Compile Include="Config.fs" />
     <Compile Include="AnalysisSession.fs" />
     <Compile Include="Arbiter.fs" />
-    <Compile Include="Payloads.fs" />
     <Compile Include="API.fs" />
+    <Compile Include="Payloads.fs" />
+    <Compile Include="JsonAPI.fs" />
     <Compile Include="ICmd.fs" />
     <Compile Include="Commands\BinInfo.fs" />
     <Compile Include="Commands\Credits.fs" />

@@ -191,7 +191,7 @@ type Print() =
 
     member this.CallBack(arbiter, args) =
       match args, arbiter.GetBinaryBrew() with
-      | fmt :: addr :: _, Some brew ->
+      | fmt :: addr :: _, Ok brew ->
         parseFormat fmt
         |> Result.bind (parseAddr addr)
         |> validateRequest brew

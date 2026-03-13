@@ -65,7 +65,7 @@ type HexDump() =
 
     member this.CallBack(arbiter, args) =
       match args, arbiter.GetBinaryBrew() with
-      | addr :: cnt :: _, Some brew ->
+      | addr :: cnt :: _, Ok brew ->
         let result =
           parseAddr addr
           |> Result.bind (parseCount cnt)

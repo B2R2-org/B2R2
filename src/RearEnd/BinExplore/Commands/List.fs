@@ -81,15 +81,15 @@ type List() =
 
     member _.CallBack(arbiter, args) =
       match args, arbiter.GetBinaryBrew() with
-      | "functions" :: _, Some brew
-      | "funcs" :: _, Some brew ->
+      | "functions" :: _, Ok brew
+      | "funcs" :: _, Ok brew ->
         listFunctions brew
         |> Array.map OutputNormal
-      | "segments" :: _, Some brew
-      | "segs" :: _, Some brew ->
+      | "segments" :: _, Ok brew
+      | "segs" :: _, Ok brew ->
         listSegments brew.BinHandle
         |> Array.map OutputNormal
-      | _, None ->
+      | _, Error _ ->
         ICmd.buildErrorOutput "No binary is currently loaded."
       | _ ->
         ICmd.buildErrorOutput "Unknown list cmd is given."
