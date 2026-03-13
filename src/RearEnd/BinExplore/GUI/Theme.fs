@@ -34,7 +34,8 @@ type Theme =
     Font: FontTheme
     Tab: TabTheme
     Graph: GraphTheme
-    Common: CommonTheme }
+    Common: CommonTheme
+    Search: SearchTheme }
 
 /// Represents the theme settings for the main window.
 and WindowTheme =
@@ -90,6 +91,15 @@ and GraphTheme =
 and CommonTheme =
   { Transparent: string }
 
+/// Represents the theme settings for the search dropdown in the toolbar.
+and SearchTheme =
+  { /// Background color of the dropdown panel.
+    Background: string
+    /// Background color of the currently selected/highlighted result item.
+    SelectedBackground: string
+    /// Foreground color of the result text.
+    Foreground: string }
+
 [<RequireQualifiedAccess>]
 module Theme =
   let [<Literal>] private DefaultTTFamily =
@@ -132,7 +142,11 @@ module Theme =
           Fallthrough = "#BD93F9"
           Call = "#8BE9FD"
           Return = "#FF79C6" }
-      Common = { Transparent = "Transparent" } }
+      Common = { Transparent = "Transparent" }
+      Search =
+        { Background = "#080C12"
+          SelectedBackground = "#0E639C"
+          Foreground = "#FFFFFF" } }
 
   let lightTheme =
     { Name = "Light"
@@ -167,7 +181,11 @@ module Theme =
           Fallthrough = "#7336B5"
           Call = "#0A6080"
           Return = "#8B2880" }
-      Common = { Transparent = "Transparent" } }
+      Common = { Transparent = "Transparent" }
+      Search =
+        { Background = "#FFFFFF"
+          SelectedBackground = "#BEE3FF"
+          Foreground = "#111111" } }
 
   let ofBuiltin = function
     | Dark -> darkTheme
