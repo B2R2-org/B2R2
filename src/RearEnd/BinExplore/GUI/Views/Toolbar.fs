@@ -39,6 +39,8 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.RearEnd.BinExplore
 open B2R2.RearEnd.Visualization
 
+let [<Literal>] private ToolbarHeight = 32.0
+
 let private splitByMatch (query: string) (s: string) =
   let rec loop start acc =
     let idx = s.IndexOf(query, start, StringComparison.OrdinalIgnoreCase)
@@ -161,11 +163,11 @@ let private searchView model dispatch =
       selectedIdx.Set -1
     Grid.create
       [ Grid.width 240.0
-        Grid.height 24.0
+        Grid.height ToolbarHeight
         Grid.children
           [ TextBox.create
               [ TextBox.width 240.0
-                TextBox.height 24.0
+                TextBox.height ToolbarHeight
                 TextBox.fontSize 12.0
                 TextBox.watermark "Search..."
                 TextBox.verticalContentAlignment VerticalAlignment.Center
@@ -204,12 +206,13 @@ let private searchView model dispatch =
                     ()), OnChangeOf results) ] :> IView
             Button.create
               [ Button.width 26.0
-                Button.height 24.0
+                Button.height (ToolbarHeight - 4.0)
+                Button.isHitTestVisible false
+                Button.focusable false
                 Button.horizontalAlignment HorizontalAlignment.Right
                 Button.background model.Theme.Panel.Background
                 Button.borderBrush model.Theme.Panel.Border
                 Button.borderThickness (1.0, 1.0, 1.0, 1.0)
-                Button.cornerRadius (CornerRadius(0.0, 4.0, 4.0, 0.0))
                 Button.padding (4.0, 0.0)
                 Button.margin (0.0, 0.0, 2.0, 0.0)
                 Button.content (
@@ -237,6 +240,39 @@ let private searchView model dispatch =
                 ) ] ] ]
   )
 
+let private minimapToggleView model dispatch =
+  let isEnabled, isActive, tabKey =
+    match model.ActiveTab with
+    | Some { ID = id; Content = CFGTab(_, Loaded(_, { ShowMinimap = flg })) } ->
+      true, flg, id
+    | _ -> false, false, "none"
+  ToggleButton.create
+    [ ToggleButton.width 26.0
+      ToggleButton.height ToolbarHeight
+      ToggleButton.padding (4.0, 0.0)
+      ToggleButton.isChecked isActive
+      ToggleButton.isEnabled isEnabled
+      ToggleButton.background (
+        if isActive then model.Theme.Tab.ActiveBackground
+        else model.Theme.Panel.Background)
+      ToggleButton.foreground model.Theme.Text.Primary
+      ToggleButton.borderBrush model.Theme.Panel.Border
+      ToggleButton.borderThickness 1.0
+      ToggleButton.cornerRadius 4.0
+      ToggleButton.onChecked (fun _ ->
+        dispatch (ToggleMinimap(tabKey, true)))
+      ToggleButton.onUnchecked (fun _ ->
+        dispatch (ToggleMinimap(tabKey, false)))
+      ToggleButton.content (
+        Image.create [
+          Image.source (IconAssets.mapIcon model)
+          Image.width 20.0
+          Image.height 20.0
+          Image.stretch Stretch.Uniform
+          Image.verticalAlignment VerticalAlignment.Center
+          Image.horizontalAlignment HorizontalAlignment.Center
+        ]) ] |> View.withKey $"minimap-toggle-{tabKey}"
+
 let private graphSelectView model dispatch =
   let currentCFGKind, isEnabled, tabKey =
     match model.ActiveTab with
@@ -245,6 +281,7 @@ let private graphSelectView model dispatch =
     | _ -> CFGKind.Disasm, false, "none"
   ComboBox.create [
     ComboBox.width 100.0
+    ComboBox.height ToolbarHeight
     ComboBox.maxHeight 200.0
     ComboBox.background model.Theme.Panel.Background
     ComboBox.foreground model.Theme.Text.Primary
@@ -284,6 +321,7 @@ let view (model: Model) (dispatch: Message -> unit) =
         StackPanel.children [
           searchView model dispatch
           graphSelectView model dispatch
+          minimapToggleView model dispatch
         ]
       ]
     )

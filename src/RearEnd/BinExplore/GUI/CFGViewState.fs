@@ -41,6 +41,8 @@ type CFGViewState =
     /// The kind of CFG being displayed, which can be Disassembly, IR, SSA, or
     /// Call.
     CFGKind: CFGKind
+    /// Indicates whether the minimap is currently shown in the CFG view.
+    ShowMinimap: bool
     /// The minimum allowed zoom level for the CFG view, preventing excessive
     /// zooming out.
     MinimumZoom: float
@@ -66,6 +68,7 @@ module CFGViewState =
       PanX = 0.0
       PanY = 0.0
       CFGKind = CFGKind.Disasm
+      ShowMinimap = true
       MinimumZoom = 0.15
       GraphWidth = 0.0
       GraphHeight = 0.0

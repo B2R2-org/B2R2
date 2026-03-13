@@ -260,7 +260,7 @@ let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
             )
             Control.onPointerMoved (onRectMoved dispatch minimapDim.Scale)
             Control.onPointerReleased (onRectReleased dispatch)
-            Canvas.children (
+            Canvas.children
               [ for e in graph.Edges do
                   let pts = e.Label.Points
                   yield! minimapEdgeView model scale minX minY offX offY pts
@@ -271,8 +271,7 @@ let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
                       Border.width (n.VData.Width * scale)
                       Border.height (n.VData.Height * scale)
                       Border.background model.Theme.Text.Secondary
-                      Border.isHitTestVisible false ] ]
-            ) ]) ]
+                      Border.isHitTestVisible false ] ] ]) ]
 
 let [<Literal>] private ZoomDelta = 0.05
 
@@ -406,15 +405,18 @@ let private loadedView model dispatch cfg viewState =
                       Control.onPointerMoved (onMoved dispatch)
                       Control.onPointerReleased (onReleased dispatch)
                     ]
-                    Border.create [
-                      Border.horizontalAlignment HorizontalAlignment.Right
-                      Border.verticalAlignment VerticalAlignment.Bottom
-                      Border.margin 12.0
-                      Border.child (
-                        minimapView model dispatch minimapDim cfg viewState
-                      )
-                    ]
-                    minimapViewport model dispatch minimapDim viewState
+                    if viewState.ShowMinimap then
+                      Border.create [
+                        Border.horizontalAlignment HorizontalAlignment.Right
+                        Border.verticalAlignment VerticalAlignment.Bottom
+                        Border.margin 12.0
+                        Border.child (
+                          minimapView model dispatch minimapDim cfg viewState
+                        )
+                      ]
+                      minimapViewport model dispatch minimapDim viewState
+                    else
+                      ()
                   ]
                 ]) ] ] ]
 

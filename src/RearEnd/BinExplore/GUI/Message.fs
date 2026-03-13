@@ -82,6 +82,9 @@ type Message =
   /// Message to update the kind of CFG being displayed (e.g., Disassembly, IR,
   /// SSA, Call).
   | ChangeCFGKind of CFGKind
+  /// Message to toggle the minimap visibility in the CFG view, carrying the tab
+  /// ID and the desired activation state.
+  | ToggleMinimap of tabID: string * activate: bool
   /// Message to update the status message in the status bar.
   | UpdateStatus of string
   /// Message to exit the application.

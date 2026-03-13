@@ -89,3 +89,19 @@ let listIcon model =
 let searchIcon model =
   if isBrightPrimaryText model then searchIconDarkSource
   else searchIconLightSource
+
+let private mapIconLightSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/map-light.svg"
+  svgImage :> IImage
+
+let private mapIconDarkSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/map-dark.svg"
+  svgImage :> IImage
+
+let mapIcon model =
+  if isBrightPrimaryText model then mapIconDarkSource
+  else mapIconLightSource

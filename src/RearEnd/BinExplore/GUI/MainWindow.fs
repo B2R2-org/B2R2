@@ -522,19 +522,24 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       { model with
           CFGIsPanning = false
           CFGPanPointer = None }, Elmish.Cmd.none
-    | ChangeCFGKind kind ->
+    | JumpCFGPan(gx, gy) ->
       match model.ActiveTab with
-      | Some { Content = CFGTab(fn, Loaded(_, { CFGKind = currentKind })) }
-        when currentKind <> kind ->
-        let tabContent = CFGTab(fn, NotLoaded)
-        let tab = { model.ActiveTab.Value with Content = tabContent }
+      | Some tab ->
+        let update viewState =
+          let viewportWidth, viewportHeight = model.CFGViewportSize
+          let panX = viewportWidth / 2.0 - gx * viewState.Zoom
+          let panY = viewportHeight / 2.0 - gy * viewState.Zoom
+          let clampedPanX, clampedPanY =
+            clampPanToGraphBounds panX panY viewState model
+          { viewState with PanX = clampedPanX; PanY = clampedPanY }
+        let tab = updateCFGViewState tab update
         let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID tab)
         let preview = model.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
         let active = model.ActiveTab |> Option.map (replaceTabByID tab.ID tab)
         { model with
             OpenTabs = opens
             PreviewTab = preview
-            ActiveTab = active }, loadCFGCmd model fn kind tab
+            ActiveTab = active }, Elmish.Cmd.none
       | _ ->
         model, Elmish.Cmd.none
     | UpdateCFGViewportSize(width, height) ->
@@ -558,17 +563,29 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
             CFGViewportSize = (width, height) }, Elmish.Cmd.none
       | _ ->
         model, Elmish.Cmd.none
-    | JumpCFGPan(gx, gy) ->
+    | ChangeCFGKind kind ->
       match model.ActiveTab with
-      | Some tab ->
-        let update viewState =
-          let viewportWidth, viewportHeight = model.CFGViewportSize
-          let panX = viewportWidth / 2.0 - gx * viewState.Zoom
-          let panY = viewportHeight / 2.0 - gy * viewState.Zoom
-          let clampedPanX, clampedPanY =
-            clampPanToGraphBounds panX panY viewState model
-          { viewState with PanX = clampedPanX; PanY = clampedPanY }
-        let tab = updateCFGViewState tab update
+      | Some { Content = CFGTab(fn, Loaded(_, { CFGKind = currentKind })) }
+        when currentKind <> kind ->
+        let tabContent = CFGTab(fn, NotLoaded)
+        let tab = { model.ActiveTab.Value with Content = tabContent }
+        let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID tab)
+        let preview = model.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
+        let active = model.ActiveTab |> Option.map (replaceTabByID tab.ID tab)
+        { model with
+            OpenTabs = opens
+            PreviewTab = preview
+            ActiveTab = active }, loadCFGCmd model fn kind tab
+      | _ ->
+        model, Elmish.Cmd.none
+    | ToggleMinimap(tabID, activate) ->
+      match model.ActiveTab with
+      | Some { ID = activeID; Content = CFGTab(fn, Loaded(cfg, viewState)) }
+        when activeID = tabID && viewState.ShowMinimap <> activate ->
+        let newViewState = { viewState with ShowMinimap = activate }
+        let tab =
+          { model.ActiveTab.Value
+              with Content = CFGTab(fn, Loaded(cfg, newViewState)) }
         let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID tab)
         let preview = model.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
         let active = model.ActiveTab |> Option.map (replaceTabByID tab.ID tab)
