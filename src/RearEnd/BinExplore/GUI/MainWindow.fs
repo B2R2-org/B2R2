@@ -191,9 +191,13 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     match tab.Content with
     | CFGTab(fn, NotLoaded) ->
       let loadingTab = mapCFGTabState Loading tab
+      let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID loadingTab)
+      let preview =
+        model.PreviewTab |> Option.map (replaceTabByID tab.ID loadingTab)
       { model with
           ActiveTab = Some loadingTab
-          PreviewTab = Some loadingTab },
+          OpenTabs = opens
+          PreviewTab = preview },
       loadCFGCmd model fn CFGKind.Disasm loadingTab
     | _ ->
       model, Elmish.Cmd.none
@@ -341,17 +345,16 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
               StatusMessage = $"Opened tab: {tab.Title}" }
     | PinCFGTab fnItem ->
       let tab = Tab.ofFunctionItem fnItem
-      let isPreview = model.PreviewTab |> Option.exists (fun t -> t.ID = tab.ID)
-      let newOpenTabs, tab =
+      let newOpenTabs, tab, preview =
         match tryFindTab model.OpenTabs tab.ID, model.PreviewTab with
-        | Some tab, _ -> model.OpenTabs, tab
-        | None, Some tab -> tab :: model.OpenTabs, tab
-        | None, None -> tab :: model.OpenTabs, tab
+        | Some tab, preview -> model.OpenTabs, tab, preview
+        | None, Some tab -> tab :: model.OpenTabs, tab, None
+        | None, None -> tab :: model.OpenTabs, tab, None
       startLoadIfNeeded tab
         { model with
             ActiveTab = Some tab
             OpenTabs = newOpenTabs
-            PreviewTab = if isPreview then None else model.PreviewTab
+            PreviewTab = preview
             StatusMessage = $"Pinned tab: {tab.Title}" }
     | CloseTab tabID ->
       let openTabs = model.OpenTabs |> List.filter (fun t -> t.ID <> tabID)

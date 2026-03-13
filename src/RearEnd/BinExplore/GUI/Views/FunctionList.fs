@@ -101,6 +101,29 @@ let private filterFunctions model =
         StringComparison.OrdinalIgnoreCase
       ))
 
+let private functionContextMenu model dispatch func =
+  ContextMenu.create [
+    ContextMenu.viewItems [
+      MenuItem.create [
+        MenuItem.header "Open CFG"
+        MenuItem.onClick (fun _ -> dispatch (OpenCFGTab func))
+      ]
+      MenuItem.create [
+        MenuItem.header "Pin CFG Tab"
+        MenuItem.onClick (fun _ -> dispatch (PinCFGTab func))
+      ]
+    ]
+  ]
+
+let private onFunctionPressed dispatch func (e: PointerPressedEventArgs) =
+  let props = e.GetCurrentPoint(null).Properties
+  if props.IsLeftButtonPressed then
+    dispatch (OpenCFGTab func)
+  elif props.IsRightButtonPressed then
+    e.Handled <- true
+  else
+    ()
+
 let onDoubleClick dispatch (e: TappedEventArgs) =
   match e.Source with
   | :? ContentPresenter as presenter ->
@@ -152,10 +175,17 @@ let view (model: Model) dispatch =
             ListBox.foreground model.Theme.Text.Primary
             ListBox.dataItems filteredFunctions
             ItemsControl.itemTemplate (
-              DataTemplateView<FunctionItem>.create (fun func ->
-                StackPanel.create [
-                  StackPanel.orientation Orientation.Horizontal
-                  StackPanel.children (functionLabelWithHighlight model func)
+              DataTemplateView<FunctionItem>.create (fun fn ->
+                Border.create [
+                  Border.background Brushes.Transparent
+                  Control.contextMenu (functionContextMenu model dispatch fn)
+                  Control.onPointerPressed (onFunctionPressed dispatch fn)
+                  Border.child (
+                    StackPanel.create [
+                      StackPanel.orientation Orientation.Horizontal
+                      StackPanel.children (functionLabelWithHighlight model fn)
+                    ]
+                  )
                 ]
               )
             )
