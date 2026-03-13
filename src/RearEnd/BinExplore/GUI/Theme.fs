@@ -76,7 +76,10 @@ and TabTheme =
 
 /// Represents the theme settings for graph elements within the application.
 and GraphTheme =
-  { InterJmpEdge: string
+  { MinimapNode: string
+    MinimapEdge: string
+    ViewportRect: string
+    InterJmpEdge: string
     InterCJmpTrue: string
     InterCJmpFalse: string
     IntraJmpEdge: string
@@ -133,7 +136,10 @@ module Theme =
           InactiveBackground = "#2D2D30"
           CloseForeground = "#AAAAAA" }
       Graph =
-        { InterJmpEdge = "#FFB86C"
+        { MinimapNode = "#888888"
+          MinimapEdge = "#AAAAAA"
+          ViewportRect = "#FFFFFF"
+          InterJmpEdge = "#FFB86C"
           InterCJmpTrue = "#3E9955"
           InterCJmpFalse = "#AA2222"
           IntraJmpEdge = "#FFB86C"
@@ -172,7 +178,10 @@ module Theme =
           InactiveBackground = "#E6E6E6"
           CloseForeground = "#666666" }
       Graph =
-        { InterJmpEdge = "#C87020"
+        { MinimapNode = "#AAAAAA"
+          MinimapEdge = "#777777"
+          ViewportRect = "#1250E0"
+          InterJmpEdge = "#C87020"
           InterCJmpTrue = "#1A7A3A"
           InterCJmpFalse = "#CC2222"
           IntraJmpEdge = "#C87020"

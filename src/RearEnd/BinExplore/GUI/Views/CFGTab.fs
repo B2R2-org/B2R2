@@ -230,7 +230,7 @@ let private minimapEdgeView model scale minX minY offX offY positions =
         Point((p.X - minX) * scale + offX, (p.Y - minY) * scale + offY))
     [ Polyline.create
         [ Polyline.points (pts |> Array.ofList)
-          Polyline.stroke model.Theme.Text.Secondary
+          Polyline.stroke model.Theme.Graph.MinimapEdge
           Polyline.strokeThickness 0.5
           Polyline.isHitTestVisible false ] :> IView ]
   | _ -> []
@@ -270,7 +270,7 @@ let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
                       Canvas.top ((n.VData.Coordinate.Y - minY) * scale + offY)
                       Border.width (n.VData.Width * scale)
                       Border.height (n.VData.Height * scale)
-                      Border.background model.Theme.Text.Secondary
+                      Border.background model.Theme.Graph.MinimapNode
                       Border.isHitTestVisible false ] ] ]) ]
 
 let [<Literal>] private ZoomDelta = 0.05
@@ -371,7 +371,7 @@ let private minimapViewport model dispatch minimapDim viewState =
               Border.width minimapViewportWidth
               Border.height minimapViewportHeight
               Border.background Brushes.Transparent
-              Border.borderBrush Brushes.White
+              Border.borderBrush model.Theme.Graph.ViewportRect
               Border.borderThickness 3.0
               Border.cursor (new Cursor(StandardCursorType.SizeAll))
               Control.onPointerPressed (onRectPressed dispatch)

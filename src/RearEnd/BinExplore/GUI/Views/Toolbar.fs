@@ -137,7 +137,12 @@ let private searchView model dispatch =
     | Some { ID = id; Content = CFGTab(_, Loaded _) } -> $"{id}-loaded"
     | Some { ID = id } -> $"{id}"
     | None -> "none"
-  Component.create ($"search-view-{tabID}", fun ctx ->
+  let themeKey =
+    match model.ThemeMode with
+    | Builtin Dark -> "dark"
+    | Builtin Light -> "light"
+    | _ -> "custom"
+  Component.create ($"search-view-{tabID}-{themeKey}", fun ctx ->
     let searchText = ctx.useState ""
     let isOpen = ctx.useState false
     let selectedIdx = ctx.useState -1
