@@ -606,7 +606,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 
   do
     base.Title <- "BinExplore"
-    let iconUri = Uri("avares://B2R2.RearEnd.BinExplore/Assets/b2r2.ico")
+    let iconUri = Uri "avares://B2R2.RearEnd.BinExplore/Assets/b2r2.ico"
     use iconStream = AssetLoader.Open(iconUri)
     base.Icon <- WindowIcon(iconStream)
     base.MinWidth <- 800.0
