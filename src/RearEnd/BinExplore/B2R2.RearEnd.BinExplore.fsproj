@@ -50,7 +50,6 @@
     <Compile Include="HTTPServer.fs" />
     <Compile Include="BinExploreOpts.fs" />
     <Compile Include="Program.fs" />
-    <None Include="WebUI\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />

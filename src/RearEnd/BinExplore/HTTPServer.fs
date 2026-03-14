@@ -100,13 +100,6 @@ let invokeAPI (req: HttpListenerRequest) arbiter =
     eprintsn $"Unknown API query: {query}"
     None
 
-let [<Literal>] WebBaseDir = "WebUI"
-
-let rootDir =
-  let asm = Reflection.Assembly.GetExecutingAssembly()
-  let outDir = Path.GetDirectoryName asm.Location
-  Path.Combine(outDir, WebBaseDir)
-
 let readIfExists path =
   if File.Exists path then Some(File.ReadAllBytes(path))
   else None
