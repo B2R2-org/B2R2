@@ -44,6 +44,9 @@ type BinExploreOpts =
     LogFile: string option
     /// Whether to use GUI or not.
     UseGUI: bool
+    /// Whether to use dark theme or light theme. This is only meaningful when
+    /// UseGUI is true.
+    UseDarkTheme: bool
     /// ISA of the target binary. This is only meaningful for universal (FAT)
     /// binaries because BinHandle will automatically detect file format by
     /// default. When a FAT binary is given, we need to choose which ISA to use
@@ -60,6 +63,7 @@ with
       Port = 8282
       LogFile = None
       UseGUI = true
+      UseDarkTheme = true
       ISA = isa
       Verbose = false }
 
@@ -86,6 +90,9 @@ with
       Opt(descr = noCol "Disable GUI (enabled by default)",
           long = "--no-gui",
           callback = fun opts _-> { opts with UseGUI = false })
+      Opt(descr = noCol "Use light theme for GUI",
+          long = "--light-theme",
+          callback = fun opts _-> { opts with UseDarkTheme = false })
       Opt(descr = noCol "",
           dummy = true)
       Opt(descr = ColoredString().Add(NoColor, "[")

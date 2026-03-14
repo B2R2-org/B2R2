@@ -40,13 +40,13 @@ open B2R2.RearEnd.Visualization
 type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
                                 and 'FnCtx: (new: unit -> 'FnCtx)
                                 and 'GlCtx: (new: unit -> 'GlCtx)>
-  public(arbiter: Arbiter<'FnCtx, 'GlCtx>) as this =
+  public(arbiter: Arbiter<'FnCtx, 'GlCtx>, useDarkTheme) as this =
   inherit HostWindow()
 
   let [<Literal>] WelcomeMessage = "Welcome to BinExplore!"
 
   let init () =
-    let themeMode = Theme.defaultMode
+    let themeMode = if useDarkTheme then Builtin Dark else Builtin Light
     let customThemes = Map.empty
     { LoadedBinary = None
       LoadingBinaryPath = None

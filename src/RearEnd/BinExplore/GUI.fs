@@ -27,9 +27,9 @@ module B2R2.RearEnd.BinExplore.GUI
 
 open Avalonia
 
-let start arbiter =
+let start arbiter useDarkTheme =
   AppBuilder
-    .Configure<GUI.App<_, _>>(fun () -> GUI.App(arbiter))
+    .Configure<GUI.App<_, _>>(fun () -> GUI.App(arbiter, useDarkTheme))
     .UsePlatformDetect()
     .UseSkia()
     .StartWithClassicDesktopLifetime([||])
