@@ -94,11 +94,11 @@ type IntelParser(wordSz, reader) =
     | None ->
       let baseType =
         match maps with
-        | Normal OneByte ->
+        | OpcodeClass.Normal OneByte ->
           match opByte with
           | 0x90uy when Prefix.hasREPZ pref -> Mandatory (* PAUSE *)
           | _ -> Legacy
-        | Normal TwoBytes ->
+        | OpcodeClass.Normal TwoBytes ->
           match opByte with
           | 0x00uy (* Grp 6 *)
           | 0x02uy (* LAR *)
@@ -122,6 +122,16 @@ type IntelParser(wordSz, reader) =
       if insPref = Legacy NP then false
       else pref = insPref
     | _ -> true
+
+  let checkPrefix2 (pref: Prefix) insPref =
+    let mPref = pref &&& (Prefix.OPSIZE ||| Prefix.REPZ ||| Prefix.REPNZ)
+    if Prefix.hasOprSz mPref then insPref = Mandatory P66 || insPref = Legacy NP
+    elif Prefix.hasREPZ mPref then insPref = Mandatory F3 || insPref = Legacy NP
+    elif Prefix.hasREPNZ mPref then
+      insPref = Mandatory F2 || insPref = Legacy NP
+    elif mPref = Prefix.None then
+      insPref = Legacy NP || insPref = Mandatory NP
+    else false
 
   let containsSz16 oprSz =
     match oprSz with
@@ -354,7 +364,7 @@ type IntelParser(wordSz, reader) =
       let mutable i = 0
       while i < insLen && idx = -1 do
         let insCore = ins[i]
-        let p = checkPrefix pref insCore.PrefixType
+        let p = checkPrefix2 phlp.Prefixes insCore.PrefixType
         let s = checkSize pref insCore.Operands insCore.OpEn
         let c = checkCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
         let r = checkREXPrefix phlp.REXPrefix insCore.REXPrefixType
@@ -417,9 +427,9 @@ type IntelParser(wordSz, reader) =
       // FIXME: need operand size determination logic
       phlp.MemEffOprSize <- memSz
       phlp.MemEffAddrSize <- ParsingHelper.GetEffAddrSize phlp
-      phlp.MemEffRegSize <- memSz
+      phlp.MemEffRegSize <- regSz
       phlp.RegSize <- regSz
-      phlp.OperationSize <- memSz
+      phlp.OperationSize <- regSz
       OperandParsers.parseMemOrReg modRM span phlp
     | Reg sz when ic.OpEn = OpEn.O || ic.OpEn = OpEn.OI ->
       // Opcode[2:0] contains the operand.
@@ -575,16 +585,16 @@ type IntelParser(wordSz, reader) =
     | 0x0Fuy ->
       match bs[pos + 1] with
       | 0x38uy ->
-        phlp.OpcodeClass <- Normal ThreeBytes38
+        phlp.OpcodeClass <- OpcodeClass.Normal ThreeBytes38
         pos + 2
       | 0x3Auy ->
-        phlp.OpcodeClass <- Normal ThreeBytes3A
+        phlp.OpcodeClass <- OpcodeClass.Normal ThreeBytes3A
         pos + 2
       | _ ->
-        phlp.OpcodeClass <- Normal TwoBytes
+        phlp.OpcodeClass <- OpcodeClass.Normal TwoBytes
         pos + 1
     | _ ->
-      phlp.OpcodeClass <- Normal OneByte
+      phlp.OpcodeClass <- OpcodeClass.Normal OneByte
       pos
 
   interface IInstructionParsable with
@@ -614,32 +624,32 @@ type IntelParser(wordSz, reader) =
           | v when v &&& VEXType.EVEX = VEXType.EVEX ->
             match vInfo.VEXType &&& (~~~VEXType.EVEX) with
             | VEXType.TwoByteOp ->
-              phlp.OpcodeClass <- EVEX TwoBytes
+              phlp.OpcodeClass <- OpcodeClass.EVEX TwoBytes
               InstructionArrays.evexTwo[int (phlp.ReadByte span)]
             | VEXType.ThreeByteOpOne ->
-              phlp.OpcodeClass <- EVEX ThreeBytes38
+              phlp.OpcodeClass <- OpcodeClass.EVEX ThreeBytes38
               InstructionArrays.evexThree38[int (phlp.ReadByte span)]
             | VEXType.ThreeByteOpTwo ->
-              phlp.OpcodeClass <- EVEX ThreeBytes3A
+              phlp.OpcodeClass <- OpcodeClass.EVEX ThreeBytes3A
               InstructionArrays.evexThree3A[int (phlp.ReadByte span)]
             | _ -> raise ParsingFailureException
           | VEXType.TwoByteOp ->
-            phlp.OpcodeClass <- VEX TwoBytes
+            phlp.OpcodeClass <- OpcodeClass.VEX TwoBytes
             InstructionArrays.vexTwo[int (phlp.ReadByte span)]
           | VEXType.ThreeByteOpOne ->
-            phlp.OpcodeClass <- VEX ThreeBytes38
+            phlp.OpcodeClass <- OpcodeClass.VEX ThreeBytes38
             InstructionArrays.vexThree38[int (phlp.ReadByte span)]
           | VEXType.ThreeByteOpTwo ->
-            phlp.OpcodeClass <- VEX ThreeBytes3A
+            phlp.OpcodeClass <- OpcodeClass.VEX ThreeBytes3A
             InstructionArrays.vexThree3A[int (phlp.ReadByte span)]
           | _ -> raise ParsingFailureException
         | None ->
           match phlp.OpcodeClass with
-          | Normal ThreeBytes38 ->
+          | OpcodeClass.Normal ThreeBytes38 ->
             InstructionArrays.norThree38[int (phlp.ReadByte span)]
-          | Normal ThreeBytes3A ->
+          | OpcodeClass.Normal ThreeBytes3A ->
             InstructionArrays.norThree3A[int (phlp.ReadByte span)]
-          | Normal TwoBytes ->
+          | OpcodeClass.Normal TwoBytes ->
             handleTwoByteOpcodeExtension (phlp.ReadByte span)
           | _ -> handleOneByteOpcodeExtension (phlp.ReadByte span)
       let subIdx = findSubIndex span phlp insCores
