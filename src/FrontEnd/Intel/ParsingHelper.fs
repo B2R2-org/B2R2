@@ -47,7 +47,7 @@ type internal ParsingHelper(reader: IBinReader,
   let mutable regSz = 0<rt>
   let mutable operationSz = 0<rt>
   let mutable tupleType = TupleType.NA
-  let mutable opcodeClass = Normal OpcodeMap.OneByte
+  let mutable opcodeClass = OpcodeClass.Normal OpcodeMap.OneByte
   let mutable isFar = false
 
   new(reader, wordSz, lifter) =

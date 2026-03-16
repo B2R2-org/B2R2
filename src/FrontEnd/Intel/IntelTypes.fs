@@ -1,5 +1,6 @@
 namespace B2R2.FrontEnd.Intel
 
+[<RequireQualifiedAccess>]
 type OpcodeClass =
   | Normal of OpcodeMap
   | VEX of OpcodeMap
