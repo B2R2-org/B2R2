@@ -533,6 +533,11 @@ type IntelParser(wordSz, reader) =
       InstructionArrays.norTwo[0xC8]
     | _ -> InstructionArrays.norTwo[int opcodeByte]
 
+  let filterPrefixes (phlp: ParsingHelper) prefixType =
+    match prefixType with
+    | Mandatory _ -> phlp.Prefixes <- filterPrefs phlp.Prefixes
+    | _ -> ()
+
   member _.SetDisassemblySyntax syntax =
     match syntax with
     | DefaultSyntax -> disasm <- Disasm.Delegate Disasm.IntelSyntax.disasm
@@ -666,5 +671,7 @@ type IntelParser(wordSz, reader) =
           | 0xFBuy -> subIdx
           | _ -> raise ParsingFailureException
         | _ -> subIdx
-      let operands = parseOperands span phlp insCores[subIdx]
-      newInstruction phlp insCores[subIdx].Opcode operands :> IInstruction
+      let insCore = insCores[subIdx]
+      let operands = parseOperands span phlp insCore
+      filterPrefixes phlp insCore.PrefixType
+      newInstruction phlp insCore.Opcode operands :> IInstruction
