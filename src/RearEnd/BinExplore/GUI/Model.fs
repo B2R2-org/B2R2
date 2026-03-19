@@ -58,5 +58,5 @@ type Model =
     CFGPanPointer: (float * float) option
     /// Width and height of the CFG viewport.
     CFGViewportSize: float * float
-    /// Status message to be displayed in the status bar.
-    StatusMessage: string }
+    /// Status bar information.
+    StatusBarState: StatusBarState }

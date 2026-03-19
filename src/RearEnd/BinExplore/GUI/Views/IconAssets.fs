@@ -64,6 +64,18 @@ let private searchIconDarkSource: IImage =
     SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/search-dark.svg"
   svgImage :> IImage
 
+let private mapIconLightSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/map-light.svg"
+  svgImage :> IImage
+
+let private mapIconDarkSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/map-dark.svg"
+  svgImage :> IImage
+
 let private isBrightPrimaryText model =
   match Color.TryParse model.Theme.Text.Primary with
   | true, color ->
@@ -82,26 +94,20 @@ let cfgIcon model =
   if isBrightPrimaryText model then cfgIconDarkSource
   else cfgIconLightSource
 
+/// Returns the appropriate list icon based on the current theme mode and text
+/// color.
 let listIcon model =
   if isBrightPrimaryText model then listIconDarkSource
   else listIconLightSource
 
+/// Returns the appropriate search icon based on the current theme mode and text
+/// color.
 let searchIcon model =
   if isBrightPrimaryText model then searchIconDarkSource
   else searchIconLightSource
 
-let private mapIconLightSource: IImage =
-  let svgImage = SvgImage()
-  svgImage.Source <-
-    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/map-light.svg"
-  svgImage :> IImage
-
-let private mapIconDarkSource: IImage =
-  let svgImage = SvgImage()
-  svgImage.Source <-
-    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/map-dark.svg"
-  svgImage :> IImage
-
+/// Returns the appropriate map icon based on the current theme mode and text
+/// color.
 let mapIcon model =
   if isBrightPrimaryText model then mapIconDarkSource
   else mapIconLightSource

@@ -26,8 +26,18 @@ module B2R2.RearEnd.BinExplore.GUI.StatusBar
 
 open Avalonia.FuncUI.DSL
 open Avalonia.Controls
+open Avalonia.Layout
+
+let private separator model =
+  Border.create [
+    Border.dock Dock.Left
+    Border.width 1.0
+    Border.margin (5.0, 2.0, 5.0, 2.0)
+    Border.background model.Theme.Panel.Border
+  ]
 
 let view (model: Model) =
+  let s = model.StatusBarState
   Border.create [
     Border.dock Dock.Bottom
     Border.background model.Theme.Panel.AltBackground
@@ -35,10 +45,35 @@ let view (model: Model) =
     Border.borderBrush model.Theme.Panel.Border
     Border.padding 5.0
     Border.child (
-      TextBlock.create [
-        TextBlock.text model.StatusMessage
-        TextBlock.fontSize 12.0
-        TextBlock.foreground model.Theme.Text.Secondary
+      DockPanel.create [
+        DockPanel.children [
+          TextBlock.create [
+            TextBlock.dock Dock.Left
+            TextBlock.width 300.0
+            TextBlock.clipToBounds true
+            TextBlock.text s.FilePath
+            TextBlock.fontSize 12.0
+            TextBlock.foreground model.Theme.Text.Secondary
+            TextBlock.verticalAlignment VerticalAlignment.Center
+          ]
+          separator model
+          TextBlock.create [
+            TextBlock.dock Dock.Left
+            TextBlock.width 50.0
+            TextBlock.clipToBounds true
+            TextBlock.text s.FileType
+            TextBlock.fontSize 12.0
+            TextBlock.foreground model.Theme.Text.Secondary
+            TextBlock.verticalAlignment VerticalAlignment.Center
+          ]
+          separator model
+          TextBlock.create [
+            TextBlock.text s.Message
+            TextBlock.fontSize 12.0
+            TextBlock.foreground model.Theme.Text.Secondary
+            TextBlock.verticalAlignment VerticalAlignment.Center
+          ]
+        ]
       ]
     )
   ]

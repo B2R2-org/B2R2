@@ -42,21 +42,55 @@ let private tryGetDroppedFilePath (e: DragEventArgs) =
     |> Seq.tryHead
     |> Option.map (fun f -> f.Path.LocalPath)
 
+let private onDragOver (e: DragEventArgs) =
+  e.DragEffects <-
+    if e.DataTransfer.Contains DataFormat.File then DragDropEffects.Copy
+    else DragDropEffects.None
+  e.Handled <- true
+
+let private onDrop dispatch (e: DragEventArgs) =
+  tryGetDroppedFilePath e
+  |> Option.iter (fun path -> dispatch (OpenBinary path))
+  e.Handled <- true
+
+let private imageView imageUri =
+  Image.create [
+    Image.source (new Bitmap(AssetLoader.Open(imageUri)))
+    Image.width 200.0
+    Image.height 200.0
+    Image.stretch Stretch.Uniform
+    Image.verticalAlignment VerticalAlignment.Center
+    Image.margin (0.0, 0.0, 40.0, 0.0)
+  ]
+
+let private textPanelView model =
+  StackPanel.create [
+    StackPanel.verticalAlignment VerticalAlignment.Center
+    StackPanel.children [
+      TextBlock.create [
+        TextBlock.text "B2R2 BinExplore"
+        TextBlock.fontSize 32.0
+        TextBlock.fontWeight FontWeight.Bold
+        TextBlock.foreground model.Theme.Text.Primary
+        TextBlock.horizontalAlignment HorizontalAlignment.Center
+        TextBlock.margin (0.0, 0.0, 0.0, 20.0)
+      ]
+      TextBlock.create [
+        TextBlock.text "Open a binary file to start exploring"
+        TextBlock.fontSize 16.0
+        TextBlock.foreground model.Theme.Text.Muted
+        TextBlock.horizontalAlignment HorizontalAlignment.Center
+      ]
+    ]
+  ]
+
 let view model dispatch =
   let imageUri = Uri "avares://B2R2.RearEnd.BinExplore/Assets/b2r2.png"
   Grid.create [
     Grid.background model.Theme.Window.Background
     Control.allowDrop true
-    Control.onDragOver (fun e ->
-      e.DragEffects <-
-        if e.DataTransfer.Contains DataFormat.File then DragDropEffects.Copy
-        else DragDropEffects.None
-      e.Handled <- true)
-    Control.onDrop (fun e ->
-      tryGetDroppedFilePath e
-      |> Option.iter (fun path -> dispatch (OpenBinary path))
-      e.Handled <- true
-    )
+    Control.onDragOver onDragOver
+    Control.onDrop (onDrop dispatch)
     Grid.children [
       Border.create [
         Border.child (
@@ -65,33 +99,8 @@ let view model dispatch =
             StackPanel.horizontalAlignment HorizontalAlignment.Center
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
-              Image.create [
-                Image.source (new Bitmap(AssetLoader.Open(imageUri)))
-                Image.width 200.0
-                Image.height 200.0
-                Image.stretch Stretch.Uniform
-                Image.verticalAlignment VerticalAlignment.Center
-                Image.margin (0.0, 0.0, 40.0, 0.0)
-              ]
-              StackPanel.create [
-                StackPanel.verticalAlignment VerticalAlignment.Center
-                StackPanel.children [
-                  TextBlock.create [
-                    TextBlock.text "B2R2 BinExplore"
-                    TextBlock.fontSize 32.0
-                    TextBlock.fontWeight FontWeight.Bold
-                    TextBlock.foreground model.Theme.Text.Primary
-                    TextBlock.horizontalAlignment HorizontalAlignment.Center
-                    TextBlock.margin (0.0, 0.0, 0.0, 20.0)
-                  ]
-                  TextBlock.create [
-                    TextBlock.text "Open a binary file to start exploring"
-                    TextBlock.fontSize 16.0
-                    TextBlock.foreground model.Theme.Text.Muted
-                    TextBlock.horizontalAlignment HorizontalAlignment.Center
-                  ]
-                ]
-              ]
+              imageView imageUri
+              textPanelView model
             ]
           ]
         )

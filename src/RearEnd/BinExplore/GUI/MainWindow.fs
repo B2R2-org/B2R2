@@ -43,8 +43,6 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
   public(arbiter: Arbiter<'FnCtx, 'GlCtx>, useDarkTheme) as this =
   inherit HostWindow()
 
-  let [<Literal>] WelcomeMessage = "Welcome to BinExplore!"
-
   let init () =
     let themeMode = if useDarkTheme then Builtin Dark else Builtin Light
     let customThemes = Map.empty
@@ -64,7 +62,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       CFGIsPanning = false
       CFGPanPointer = None
       CFGViewportSize = (0.0, 0.0)
-      StatusMessage = WelcomeMessage }, Elmish.Cmd.none
+      StatusBarState = StatusBarState.empty }, Elmish.Cmd.none
 
   let loadBinaryAsync (filePath: string) =
     async {
@@ -280,15 +278,14 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       if String.IsNullOrWhiteSpace filePath then
         model, Elmish.Cmd.none
       else
-        let displayName = Path.GetFileName filePath
-        let updatedModel =
-          { model with
-              LoadingBinaryPath = Some filePath
-              StatusMessage = $"Loading {displayName} ." }
+        let updatedModel = { model with LoadingBinaryPath = Some filePath }
         updatedModel, startLoadWorkflowCmd filePath
     | OpenBinaryCompleted filePath ->
       if model.LoadingBinaryPath = Some filePath then
-        let statusFileName = Path.GetFileName filePath
+        let statusBar =
+          { model.StatusBarState with
+              FilePath = filePath
+              Message = "" }
         let functions =
           match API.getFunctions arbiter true with
           | Ok fns -> fns |> Array.map FunctionItem.ofFunction |> List.ofArray
@@ -303,15 +300,16 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
             PreviewTab = None
             DraggingTab = None
             WorkspacePanel = FunctionPanel
-            StatusMessage = statusFileName },
+            StatusBarState = statusBar },
         Elmish.Cmd.none
       else
         model, Elmish.Cmd.none
     | OpenBinaryFailed(filePath, reason) ->
       if model.LoadingBinaryPath = Some filePath then
+        let statusBar = StatusBarState.init $"Failed to load binary: {reason}"
         { model with
             LoadingBinaryPath = None
-            StatusMessage = $"Failed to load binary: {reason}" },
+            StatusBarState = statusBar },
         Elmish.Cmd.none
       else
         model, Elmish.Cmd.none
@@ -327,23 +325,19 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
           PreviewTab = None
           DraggingTab = None
           WorkspacePanel = FunctionPanel
-          StatusMessage = "Workspace closed. Open a file to start exploring." },
+          StatusBarState = StatusBarState.empty },
       Elmish.Cmd.none
     | OpenCFGTab fnItem ->
       let visibleTabs = getAllVisibleTabs model
       let tab = Tab.ofFunctionItem fnItem
       match tryFindTab visibleTabs tab.ID with
       | Some tab ->
-        startLoadIfNeeded tab
-          { model with
-              ActiveTab = Some tab
-              StatusMessage = $"Switched to tab: {tab.Title}" }
+        startLoadIfNeeded tab { model with ActiveTab = Some tab }
       | None ->
         startLoadIfNeeded tab
           { model with
               ActiveTab = Some tab
-              PreviewTab = Some tab
-              StatusMessage = $"Opened tab: {tab.Title}" }
+              PreviewTab = Some tab }
     | PinCFGTab fnItem ->
       let tab = Tab.ofFunctionItem fnItem
       let newOpenTabs, tab, preview =
@@ -355,8 +349,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         { model with
             ActiveTab = Some tab
             OpenTabs = newOpenTabs
-            PreviewTab = preview
-            StatusMessage = $"Pinned tab: {tab.Title}" }
+            PreviewTab = preview }
     | CloseTab tabID ->
       let openTabs = model.OpenTabs |> List.filter (fun t -> t.ID <> tabID)
       let preview = model.PreviewTab |> Option.filter (fun t -> t.ID <> tabID)
@@ -371,16 +364,13 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
           ActiveTab = active
           OpenTabs = openTabs
           PreviewTab = preview
-          DraggingTab = dragging
-          StatusMessage = $"Closed tab: {tabID}" },
+          DraggingTab = dragging },
       Elmish.Cmd.none
     | SwitchTab tabID ->
       let visibleTabs = getAllVisibleTabs model
       match tryFindTab visibleTabs tabID with
       | Some tab ->
-        { model with
-            ActiveTab = Some tab
-            StatusMessage = $"Switched to tab: {tab.Title}" }, Elmish.Cmd.none
+        { model with ActiveTab = Some tab }, Elmish.Cmd.none
       | None ->
         model, Elmish.Cmd.none
     | StartTabDrag tabID ->
@@ -410,16 +400,14 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         | _ -> model.Theme
       { model with
           CustomThemes = customThemes
-          Theme = currentTheme
-          StatusMessage = $"Registered theme: {theme.Name}" },
+          Theme = currentTheme },
       Elmish.Cmd.none
     | SetThemeMode mode ->
       applyThemeVariant mode
       let theme = Theme.resolve mode model.CustomThemes
       { model with
           ThemeMode = mode
-          Theme = theme
-          StatusMessage = $"Theme changed: {Theme.modeName mode}" },
+          Theme = theme },
       Elmish.Cmd.none
     | UpdateFunctionFilter text ->
       { model with FunctionFilter = text }, Elmish.Cmd.none
@@ -449,12 +437,11 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         { model with
             OpenTabs = opens
             PreviewTab = preview
-            ActiveTab = active
-            StatusMessage = $"CFG loaded for: {tab.Title}" },
+            ActiveTab = active },
         Elmish.Cmd.none
       | None ->
         model, Elmish.Cmd.none
-    | LoadCFGFailed(tabID, reason) ->
+    | LoadCFGFailed(tabID, _reason) ->
       let visibleTabs = getAllVisibleTabs model
       match tryFindTab visibleTabs tabID with
       | Some tab ->
@@ -465,8 +452,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         { model with
             OpenTabs = opens
             PreviewTab = preview
-            ActiveTab = active
-            StatusMessage = $"CFG load failed: {reason}" },
+            ActiveTab = active },
         Elmish.Cmd.none
       | None ->
         model, Elmish.Cmd.none
@@ -612,7 +598,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       | _ ->
         model, Elmish.Cmd.none
     | UpdateStatus msg ->
-      { model with StatusMessage = msg }, Elmish.Cmd.none
+      let statusBar = { model.StatusBarState with Message = msg }
+      { model with StatusBarState = statusBar }, Elmish.Cmd.none
     | ExitApplication ->
       this.Close()
       model, Elmish.Cmd.none

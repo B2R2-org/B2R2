@@ -33,6 +33,7 @@
     <Compile Include="GUI\CFGViewState.fs" />
     <Compile Include="GUI\Tab.fs" />
     <Compile Include="GUI\WorkspacePanel.fs" />
+    <Compile Include="GUI\StatusBarState.fs" />
     <Compile Include="GUI\Model.fs" />
     <Compile Include="GUI\Message.fs" />
     <Compile Include="GUI\Views\Welcome.fs" />
