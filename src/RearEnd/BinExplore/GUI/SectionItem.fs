@@ -22,46 +22,34 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplore
+namespace B2R2.RearEnd.BinExplore.GUI
 
-open System.Text.Json.Serialization
+open System
 open B2R2
+open B2R2.FrontEnd.BinFile
 
-[<CLIMutable>]
-type FuncInfo =
-  { [<JsonPropertyName("id")>]
-    FuncID: string
-    [<JsonPropertyName("name")>]
-    FuncName: string }
+/// Represents a section entry in the UI.
+type SectionItem =
+  { Address: Addr
+    Name: string
+    Content: SectionContent }
 
-[<CLIMutable>]
-type SectionInfo =
-  { [<JsonPropertyName("addr")>]
-    SectionAddr: Addr
-    [<JsonPropertyName("name")>]
-    SectionName: string }
+and SectionContent =
+  | ELF of ELF.SectionHeader
+  | Empty
 
-[<CLIMutable>]
-type DataColoredHexAscii =
-  { [<JsonPropertyName("color")>]
-    Color: string
-    [<JsonPropertyName("hex")>]
-    Hex: string
-    [<JsonPropertyName("ascii")>]
-    Ascii: string }
-
-[<CLIMutable>]
-type SegInfo =
-  { [<JsonPropertyName("addr")>]
-    SegAddr: Addr
-    [<JsonPropertyName("bytes")>]
-    SegBytes: byte[]
-    [<JsonPropertyName("coloredHexAscii")>]
-    SegColoredHexAscii: DataColoredHexAscii[] }
-
-[<CLIMutable>]
-type VarPoint =
-  { [<JsonPropertyName("addr")>]
-    VarAddr: Addr
-    [<JsonPropertyName("name")>]
-    VarNames: string[] }
+[<RequireQualifiedAccess>]
+module SectionItem =
+  /// Creates a SectionItem from address and name.
+  let make (item: {| Addr: Addr
+                     Name: string
+                     ELFSectionHeader: ELF.SectionHeader option |}) =
+    match item.ELFSectionHeader with
+    | Some sh ->
+      { Address = item.Addr
+        Name = if String.IsNullOrEmpty item.Name then "(null)" else item.Name
+        Content = ELF sh }
+    | None ->
+      { Address = item.Addr
+        Name = if String.IsNullOrEmpty item.Name then "(n/a)" else item.Name
+        Content = Empty }

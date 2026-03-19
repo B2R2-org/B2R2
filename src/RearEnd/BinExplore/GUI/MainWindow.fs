@@ -52,6 +52,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       LoadingBinaryPath = None
       Functions = []
       FunctionFilter = ""
+      Sections = []
       ActiveTab = None
       OpenTabs = []
       PreviewTab = None
@@ -154,8 +155,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     )
 
   let measureMaxCharSize model =
-    let fontFamily = FontFamily model.Theme.Font.Disassembly.FontFamily
-    let fontSize = model.Theme.Font.Disassembly.FontSize
+    let fontFamily = FontFamily model.Theme.Font.Monospace.FontFamily
+    let fontSize = model.Theme.Font.Monospace.FontSize
     let typeface = Typeface fontFamily
     let txt = mkText typeface fontSize "M"
     txt.Width, txt.Height
@@ -422,6 +423,18 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Elmish.Cmd.none
     | UpdateFunctionFilter text ->
       { model with FunctionFilter = text }, Elmish.Cmd.none
+    | SelectWorkspacePanel SectionPanel ->
+      let sections =
+        match API.getSections arbiter with
+        | Ok secs ->
+          secs
+          |> Array.map SectionItem.make
+          |> List.ofArray
+        | Error _ ->
+          []
+      { model with
+          Sections = sections
+          WorkspacePanel = SectionPanel }, Elmish.Cmd.none
     | SelectWorkspacePanel panel ->
       { model with WorkspacePanel = panel }, Elmish.Cmd.none
     | LoadCFGCompleted(tabID, cfgKind, cfg) ->

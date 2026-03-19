@@ -138,8 +138,8 @@ let private graphCanvas model (cfg: VisGraph) viewState =
   let vpRight = (viewportWidth - panX) / zoom
   let vpTop = -panY / zoom
   let vpBottom = (viewportHeight - panY) / zoom
-  let fontSize = model.Theme.Font.Disassembly.FontSize
-  let fontFamily = model.Theme.Font.Disassembly.FontFamily
+  let fontSize = model.Theme.Font.Monospace.FontSize
+  let fontFamily = model.Theme.Font.Monospace.FontFamily
   Canvas.create [
     Canvas.background model.Theme.Window.Background
     Canvas.children (

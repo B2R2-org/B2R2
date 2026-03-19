@@ -60,8 +60,7 @@ and TextTheme =
 
 /// Represents the font settings used in the application.
 and FontTheme =
-  { Function: FontStyle
-    Disassembly: FontStyle }
+  { Monospace: FontStyle }
 
 /// Represents a font style.
 and FontStyle =
@@ -129,8 +128,7 @@ module Theme =
           Variable = "#9CDCFE"
           Value = "#CE9178" }
       Font =
-        { Function = defaultTTFont
-          Disassembly = defaultTTFont }
+        { Monospace = defaultTTFont }
       Tab =
         { ActiveBackground = "#1E1E1E"
           InactiveBackground = "#2D2D30"
@@ -171,8 +169,7 @@ module Theme =
           Variable = "#0000CC"
           Value = "#1A5090" }
       Font =
-        { Function = defaultTTFont
-          Disassembly = defaultTTFont }
+        { Monospace = defaultTTFont }
       Tab =
         { ActiveBackground = "#FFFFFF"
           InactiveBackground = "#E6E6E6"

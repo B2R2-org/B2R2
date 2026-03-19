@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.BinExplore
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
@@ -185,3 +186,35 @@ module API =
   let getImmediateDataflowChain (arbiter: Arbiter<_, _>) fnAddr insAddr reg =
     arbiter.GetBinaryBrew()
     >>= getEncodedDataflow fnAddr insAddr reg
+
+  /// Returns an array of section infos in the binary.
+  let getSections (arbiter: Arbiter<_, _>) =
+    arbiter.GetBinaryBrew()
+    >>= fun brew ->
+      match brew.BinHandle.File.Format with
+      | FileFormat.ELFBinary ->
+        let elf = brew.BinHandle.File :?> ELFBinFile
+        elf.SectionHeaders
+        |> Array.map (fun sh ->
+          {| Addr = sh.SecAddr
+             Name = sh.SecName
+             ELFSectionHeader = Some sh |})
+        |> Ok
+      | FileFormat.PEBinary ->
+        let pe = brew.BinHandle.File :?> PEBinFile
+        pe.SectionHeaders
+        |> Array.map (fun sh ->
+          {| Addr = uint64 sh.VirtualAddress
+             Name = sh.Name
+             ELFSectionHeader = None |})
+        |> Ok
+      | FileFormat.MachBinary ->
+        let macho = brew.BinHandle.File :?> MachBinFile
+        macho.Sections
+        |> Array.map (fun sh ->
+          {| Addr = sh.SecAddr
+             Name = sh.SecName
+             ELFSectionHeader = None |})
+        |> Ok
+      | _ ->
+        Ok [||]

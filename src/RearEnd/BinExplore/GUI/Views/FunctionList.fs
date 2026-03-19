@@ -64,7 +64,7 @@ let private functionLabelWithHighlight model func =
     TextBlock.create
       [ TextBlock.text txt
         TextBlock.foreground color
-        TextBlock.fontFamily model.Theme.Font.Function.FontFamily
+        TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
         TextBlock.fontWeight
           (if isBold then FontWeight.Bold else FontWeight.Regular) ] :> IView
   let rec build pos parts acc =

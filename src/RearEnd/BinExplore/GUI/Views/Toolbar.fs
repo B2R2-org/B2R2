@@ -63,14 +63,14 @@ let private searchResultView model query result =
         |> List.map (fun (isMatch, segment) ->
           TextBlock.create
             [ TextBlock.text segment
-              TextBlock.fontFamily model.Theme.Font.Disassembly.FontFamily
+              TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
               TextBlock.foreground (
                 if isMatch then model.Theme.Text.Highlight
                 else model.Theme.Search.Foreground)
               TextBlock.fontWeight (
                 if isMatch then FontWeight.Bold
                 else FontWeight.Regular)
-              TextBlock.fontSize model.Theme.Font.Function.FontSize ] :> IView)
+              TextBlock.fontSize model.Theme.Font.Monospace.FontSize ] :> IView)
       ) ]
 
 let [<Literal>] private SearchItemHeight = 28.0
@@ -304,7 +304,7 @@ let private graphSelectView model dispatch =
         TextBlock.create [
           TextBlock.text txt
           TextBlock.foreground model.Theme.Text.Primary
-          TextBlock.fontFamily model.Theme.Font.Function.FontFamily
+          TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
           TextBlock.fontSize 12.0
           TextBlock.padding (4.0, 2.0)
         ]

@@ -34,6 +34,8 @@ type Model =
     Functions: FunctionItem list
     /// Search text used to filter the function list.
     FunctionFilter: string
+    /// List of sections extracted from the loaded binary.
+    Sections: SectionItem list
     /// Currently active (selected) tab.
     ActiveTab: Tab option
     /// List of currently open tabs in the main view, excluding the preview tab.
