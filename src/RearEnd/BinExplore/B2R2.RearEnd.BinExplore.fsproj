@@ -36,10 +36,11 @@
     <Compile Include="GUI\StatusBarState.fs" />
     <Compile Include="GUI\Model.fs" />
     <Compile Include="GUI\Message.fs" />
+    <Compile Include="GUI\Views\IconAssets.fs" />
+    <Compile Include="GUI\Views\StringUtils.fs" />
     <Compile Include="GUI\Views\Welcome.fs" />
     <Compile Include="GUI\Views\MenuBar.fs" />
     <Compile Include="GUI\Views\StatusBar.fs" />
-    <Compile Include="GUI\Views\IconAssets.fs" />
     <Compile Include="GUI\Views\FunctionList.fs" />
     <Compile Include="GUI\Views\SectionList.fs" />
     <Compile Include="GUI\Views\WorkspaceTabs.fs" />

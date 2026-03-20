@@ -41,25 +41,11 @@ open B2R2.RearEnd.Visualization
 
 let [<Literal>] private ToolbarHeight = 32.0
 
-let private splitByMatch (query: string) (s: string) =
-  let rec loop start acc =
-    let idx = s.IndexOf(query, start, StringComparison.OrdinalIgnoreCase)
-    if idx < 0 then
-      if start < s.Length then List.rev ((false, s.Substring start) :: acc)
-      else List.rev acc
-    else
-      let acc =
-        if idx > start then (false, s.Substring(start, idx - start)) :: acc
-        else acc
-      loop (idx + query.Length) ((true, s.Substring(idx, query.Length)) :: acc)
-  if String.IsNullOrEmpty query then [ false, s ]
-  else loop 0 []
-
 let private searchResultView model query result =
   StackPanel.create
     [ StackPanel.orientation Orientation.Horizontal
       StackPanel.children (
-        splitByMatch query result
+        StringUtils.splitByMatch query result
         |> List.map (fun (isMatch, segment) ->
           TextBlock.create
             [ TextBlock.text segment

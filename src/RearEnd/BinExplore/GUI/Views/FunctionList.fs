@@ -35,60 +35,21 @@ open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 
-let private splitByMatch (text: string) (query: string) =
-  let rec loop start acc =
-    let idx = text.IndexOf(query, start, StringComparison.OrdinalIgnoreCase)
-    if idx < 0 then
-      if start < text.Length then
-        List.rev ((false, text.Substring start) :: acc)
-      else
-        List.rev acc
-    else
-      let acc =
-        if idx > start then (false, text.Substring(start, idx - start)) :: acc
-        else acc
-      let matched = text.Substring(idx, query.Length)
-      loop (idx + query.Length) ((true, matched) :: acc)
-  if String.IsNullOrEmpty query then [ false, text ]
-  else loop 0 []
-
-let private functionLabelWithHighlight model func =
-  let label = FunctionItem.displayName func
-  let addressPrefix = $"{func.Address:X}: "
-  let addressPrefixLen = addressPrefix.Length
-  let query = model.FunctionFilter
-  let parts =
-    if String.IsNullOrWhiteSpace query then [ false, label ]
-    else splitByMatch label query
-  let mkText (color: string) isBold txt =
-    TextBlock.create
-      [ TextBlock.text txt
-        TextBlock.foreground color
-        TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-        TextBlock.fontWeight
-          (if isBold then FontWeight.Bold else FontWeight.Regular) ] :> IView
-  let rec build pos parts acc =
-    match parts with
-    | [] -> List.rev acc
-    | (isMatch, segment) :: rest ->
-      if isMatch then
-        let view = mkText model.Theme.Text.Highlight true segment
-        build (pos + segment.Length) rest (view :: acc)
-      else
-        let remainingInAddress = max 0 (addressPrefixLen - pos)
-        if remainingInAddress <= 0 then
-          let view = mkText model.Theme.Text.Primary false segment
-          build (pos + segment.Length) rest (view :: acc)
-        elif remainingInAddress >= segment.Length then
-          let view = mkText model.Theme.Text.Muted false segment
-          build (pos + segment.Length) rest (view :: acc)
-        else
-          let addrPart = segment.Substring(0, remainingInAddress)
-          let namePart = segment.Substring remainingInAddress
-          let nameView = mkText model.Theme.Text.Primary false namePart
-          let addrView = mkText model.Theme.Text.Muted false addrPart
-          build (pos + segment.Length) rest (nameView :: addrView :: acc)
-  build 0 parts []
+let private userInputView model dispatch =
+  Border.create [
+    Border.dock Dock.Top
+    Border.background model.Theme.Panel.AltBackground
+    Border.padding 5.0
+    Border.child (
+      TextBox.create [
+        TextBox.text model.FunctionFilter
+        TextBox.watermark "Filter functions..."
+        TextBox.fontSize 13.0
+        TextBox.foreground model.Theme.Text.Primary
+        TextBox.onTextChanged (fun text -> dispatch (UpdateFunctionFilter text))
+      ]
+    )
+  ]
 
 let private filterFunctions model =
   if String.IsNullOrWhiteSpace model.FunctionFilter then
@@ -124,6 +85,67 @@ let private onFunctionPressed dispatch func (e: PointerPressedEventArgs) =
   else
     ()
 
+let private mkText model (color: string) isBold txt =
+  TextBlock.create
+    [ TextBlock.text txt
+      TextBlock.foreground color
+      TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
+      TextBlock.fontWeight
+        (if isBold then FontWeight.Bold else FontWeight.Regular) ] :> IView
+
+let private functionLabelWithHighlight model func =
+  let label = FunctionItem.displayName func
+  let addressPrefix = $"{func.Address:X}: "
+  let addressPrefixLen = addressPrefix.Length
+  let query = model.FunctionFilter
+  let parts =
+    if String.IsNullOrWhiteSpace query then [ false, label ]
+    else StringUtils.splitByMatch query label
+  let rec build pos parts acc =
+    match parts with
+    | [] -> List.rev acc
+    | (isMatch, segment) :: rest ->
+      if isMatch then
+        let view = mkText model model.Theme.Text.Highlight true segment
+        build (pos + segment.Length) rest (view :: acc)
+      else
+        let remainingInAddress = max 0 (addressPrefixLen - pos)
+        if remainingInAddress <= 0 then
+          let view = mkText model model.Theme.Text.Primary false segment
+          build (pos + segment.Length) rest (view :: acc)
+        elif remainingInAddress >= segment.Length then
+          let view = mkText model model.Theme.Text.Muted false segment
+          build (pos + segment.Length) rest (view :: acc)
+        else
+          let addrPart = segment.Substring(0, remainingInAddress)
+          let namePart = segment.Substring remainingInAddress
+          let nameView = mkText model model.Theme.Text.Primary false namePart
+          let addrView = mkText model model.Theme.Text.Muted false addrPart
+          build (pos + segment.Length) rest (nameView :: addrView :: acc)
+  build 0 parts []
+
+let private listItemTemplate model dispatch =
+  DataTemplateView<FunctionItem>.create (fun fn ->
+    Border.create [
+      Border.background Brushes.Transparent
+      Control.contextMenu (functionContextMenu model dispatch fn)
+      Control.onPointerPressed (onFunctionPressed dispatch fn)
+      Border.child (
+        StackPanel.create [
+          StackPanel.orientation Orientation.Horizontal
+          StackPanel.children (functionLabelWithHighlight model fn)
+        ]
+      )
+    ]
+  )
+
+let private onSelectedItemChanged dispatch (item: obj) =
+  if not (isNull item) then
+    let fn = item :?> FunctionItem
+    dispatch (OpenCFGTab fn)
+  else
+    ()
+
 let onDoubleClick dispatch (e: TappedEventArgs) =
   match e.Source with
   | :? ContentPresenter as presenter ->
@@ -135,7 +157,7 @@ let onDoubleClick dispatch (e: TappedEventArgs) =
   | _ ->
     ()
 
-let view (model: Model) dispatch =
+let private listBoxView model dispatch =
   let filteredFunctions = filterFunctions model
   let themeViewKey =
     match model.ThemeMode with
@@ -148,6 +170,18 @@ let view (model: Model) dispatch =
       if List.contains func filteredFunctions then box func
       else null
     | _ -> null
+  ListBox.create [
+    ListBox.background model.Theme.Panel.Background
+    ListBox.foreground model.Theme.Text.Primary
+    ListBox.dataItems filteredFunctions
+    ItemsControl.itemTemplate (listItemTemplate model dispatch)
+    ListBox.selectedItem selectedFunction
+    ListBox.autoScrollToSelectedItem true
+    ListBox.onSelectedItemChanged (onSelectedItemChanged dispatch)
+    ListBox.onDoubleTapped (onDoubleClick dispatch)
+  ] |> View.withKey $"fnlist-{themeViewKey}-{model.FunctionFilter}"
+
+let view (model: Model) dispatch =
   Border.create [
     Border.background model.Theme.Panel.Background
     Border.borderThickness 1.0
@@ -155,51 +189,8 @@ let view (model: Model) dispatch =
     Border.child (
       DockPanel.create [
         DockPanel.children [
-          Border.create [
-            Border.dock Dock.Top
-            Border.background model.Theme.Panel.AltBackground
-            Border.padding 5.0
-            Border.child (
-              TextBox.create [
-                TextBox.text model.FunctionFilter
-                TextBox.watermark "Filter functions..."
-                TextBox.fontSize 13.0
-                TextBox.foreground model.Theme.Text.Primary
-                TextBox.onTextChanged (fun text ->
-                  dispatch (UpdateFunctionFilter text))
-              ]
-            )
-          ]
-          ListBox.create [
-            ListBox.background model.Theme.Panel.Background
-            ListBox.foreground model.Theme.Text.Primary
-            ListBox.dataItems filteredFunctions
-            ItemsControl.itemTemplate (
-              DataTemplateView<FunctionItem>.create (fun fn ->
-                Border.create [
-                  Border.background Brushes.Transparent
-                  Control.contextMenu (functionContextMenu model dispatch fn)
-                  Control.onPointerPressed (onFunctionPressed dispatch fn)
-                  Border.child (
-                    StackPanel.create [
-                      StackPanel.orientation Orientation.Horizontal
-                      StackPanel.children (functionLabelWithHighlight model fn)
-                    ]
-                  )
-                ]
-              )
-            )
-            ListBox.selectedItem selectedFunction
-            ListBox.autoScrollToSelectedItem true
-            ListBox.onSelectedItemChanged (fun item ->
-              if not (isNull item) then
-                let fn = item :?> FunctionItem
-                dispatch (OpenCFGTab fn)
-              else
-                ()
-            )
-            ListBox.onDoubleTapped (onDoubleClick dispatch)
-          ] |> View.withKey $"fnlist-{themeViewKey}-{model.FunctionFilter}"
+          userInputView model dispatch
+          listBoxView model dispatch
         ]
       ]
     )
