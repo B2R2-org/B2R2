@@ -229,7 +229,6 @@ type ItaniumDemangler() =
     ((many1CharsTill (letter <|> digit) (pchar 'E')) |>> Name)
     |>> Literal
 
-
   let pCallOfset =
     (pchar 'h' .>> opt (pchar 'n') .>> pint32 .>> pchar '_')
     <|> (pchar 'v' .>> opt (pchar 'n') .>> pint32 .>> pchar '_'
