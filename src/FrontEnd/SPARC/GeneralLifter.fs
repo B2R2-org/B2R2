@@ -263,7 +263,7 @@ let getNextReg bld reg =
 let getFloatClass bld freg =
   if (freg = regVar bld Register.F0 || freg = regVar bld Register.F2
     || freg = regVar bld Register.F4 || freg = regVar bld Register.F6
-    || freg = regVar bld Register.F8|| freg = regVar bld Register.F10
+    || freg = regVar bld Register.F8 || freg = regVar bld Register.F10
     || freg = regVar bld Register.F12 || freg = regVar bld Register.F14
     || freg = regVar bld Register.F16 || freg = regVar bld Register.F18
     || freg = regVar bld Register.F20 || freg = regVar bld Register.F22
