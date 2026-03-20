@@ -43,9 +43,9 @@
     <Compile Include="GUI\Views\StatusBar.fs" />
     <Compile Include="GUI\Views\FunctionList.fs" />
     <Compile Include="GUI\Views\SectionList.fs" />
+    <Compile Include="GUI\Views\Toolbar.fs" />
     <Compile Include="GUI\Views\WorkspaceTabs.fs" />
     <Compile Include="GUI\Views\CFGTab.fs" />
-    <Compile Include="GUI\Views\Toolbar.fs" />
     <Compile Include="GUI\Views\MainView.fs" />
     <Compile Include="GUI\MainWindow.fs" />
     <Compile Include="GUI\App.fs" />

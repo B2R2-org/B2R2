@@ -108,7 +108,7 @@ let private onTabClick tabID dispatch (e: PointerPressedEventArgs) =
   DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
   |> ignore
 
-let view (model: Model) dispatch =
+let view model dispatch =
   let allTabs =
     match model.PreviewTab with
     | Some preview -> preview :: model.OpenTabs

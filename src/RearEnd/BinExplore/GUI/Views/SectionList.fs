@@ -33,8 +33,94 @@ open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open B2R2.FrontEnd.BinFile
 
+let private panelHeaderView model =
+  Border.create [
+    Border.dock Dock.Top
+    Border.background model.Theme.Panel.AltBackground
+    Border.padding 8.0
+    Border.child (
+      Grid.create [
+        Grid.columnDefinitions "*,Auto"
+        Grid.children [
+          TextBlock.create [
+            TextBlock.text "Sections"
+            TextBlock.fontSize 13.0
+            TextBlock.foreground model.Theme.Text.Secondary
+          ]
+          TextBlock.create [
+            Grid.column 1
+            TextBlock.text $"({List.length model.Sections})"
+            TextBlock.fontSize 12.0
+            TextBlock.foreground model.Theme.Text.Muted
+            TextBlock.verticalAlignment VerticalAlignment.Center
+          ]
+        ]
+      ]
+    )
+  ]
+
+let private emptyStateView model =
+  TextBlock.create [
+    TextBlock.text "No sections loaded."
+    TextBlock.margin 10.0
+    TextBlock.foreground model.Theme.Text.Muted
+    TextBlock.fontSize 13.0
+  ]
+
 let private sectionAddressText (section: SectionItem) =
   $"0x{section.Address:X}"
+
+let private sectionItemHeaderText model (section: SectionItem) =
+  Grid.create [
+    Grid.columnDefinitions "*,Auto"
+    Grid.margin (4.0, 0.0)
+    Grid.children [
+      TextBlock.create [
+        TextBlock.text section.Name
+        TextBlock.foreground model.Theme.Text.Primary
+        TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
+        TextBlock.fontSize 13.0
+        TextBlock.fontWeight FontWeight.SemiBold
+      ]
+      TextBlock.create [
+        Grid.column 1
+        TextBlock.margin (4.0, 0.0, 0.0, 0.0)
+        TextBlock.text (sectionAddressText section)
+        TextBlock.foreground model.Theme.Text.Muted
+        TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
+        TextBlock.fontSize 12.0
+        TextBlock.verticalAlignment VerticalAlignment.Center
+      ]
+    ]
+  ]
+
+let private sectionItemHeaderView model section (isExpanded: IWritable<bool>) =
+  Button.create [
+    Button.background model.Theme.Common.Transparent
+    Button.foreground model.Theme.Text.Primary
+    Button.borderThickness 0.0
+    Button.padding (8.0, 6.0)
+    Button.horizontalContentAlignment HorizontalAlignment.Stretch
+    Button.content (
+      Grid.create [
+        Grid.columnDefinitions "Auto,*,Auto"
+        Grid.children [
+          TextBlock.create [
+            TextBlock.text (if isExpanded.Current then "▼" else "▶")
+            TextBlock.margin (0.0, 0.0, 8.0, 0.0)
+            TextBlock.foreground model.Theme.Text.Muted
+            TextBlock.fontSize 11.0
+            TextBlock.verticalAlignment VerticalAlignment.Center
+          ]
+          Grid.create [
+            Grid.column 1
+            Grid.children [ sectionItemHeaderText model section ]
+          ]
+        ]
+      ]
+    )
+    Button.onClick (fun _ -> isExpanded.Set(not isExpanded.Current))
+  ]
 
 let private detailRow model label value =
   DockPanel.create
@@ -77,31 +163,7 @@ let private detailContent model (content: SectionContent) =
       detailRow model "Alignment" align ]
   | Empty -> []
 
-let private sectionHeaderView (model: Model) (section: SectionItem) =
-  Grid.create [
-    Grid.columnDefinitions "*,Auto"
-    Grid.margin (4.0, 0.0)
-    Grid.children [
-      TextBlock.create [
-        TextBlock.text section.Name
-        TextBlock.foreground model.Theme.Text.Primary
-        TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-        TextBlock.fontSize 13.0
-        TextBlock.fontWeight FontWeight.SemiBold
-      ]
-      TextBlock.create [
-        Grid.column 1
-        TextBlock.margin (4.0, 0.0, 0.0, 0.0)
-        TextBlock.text (sectionAddressText section)
-        TextBlock.foreground model.Theme.Text.Muted
-        TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-        TextBlock.fontSize 12.0
-        TextBlock.verticalAlignment VerticalAlignment.Center
-      ]
-    ]
-  ]
-
-let private sectionDetailView (model: Model) (section: SectionItem) =
+let private sectionItemDetailView (model: Model) (section: SectionItem) =
   Border.create [
     Border.margin (18.0, 6.0, 4.0, 10.0)
     Border.padding 10.0
@@ -121,46 +183,18 @@ let private sectionDetailView (model: Model) (section: SectionItem) =
     )
   ]
 
-let private sectionItemView (model: Model) (section: SectionItem): IView =
+let private sectionItemView (model: Model) (section: SectionItem) =
   Component.create ($"section-item-{section.Address:X}", fun ctx ->
     let isExpanded = ctx.useState false
-    let headerView =
-      Button.create [
-        Button.background model.Theme.Common.Transparent
-        Button.foreground model.Theme.Text.Primary
-        Button.borderThickness 0.0
-        Button.padding (8.0, 6.0)
-        Button.horizontalContentAlignment HorizontalAlignment.Stretch
-        Button.content (
-          Grid.create [
-            Grid.columnDefinitions "Auto,*,Auto"
-            Grid.children [
-              TextBlock.create [
-                TextBlock.text (if isExpanded.Current then "▼" else "▶")
-                TextBlock.margin (0.0, 0.0, 8.0, 0.0)
-                TextBlock.foreground model.Theme.Text.Muted
-                TextBlock.fontSize 11.0
-                TextBlock.verticalAlignment VerticalAlignment.Center
-              ]
-              Grid.create [
-                Grid.column 1
-                Grid.children [
-                  sectionHeaderView model section
-                ]
-              ]
-            ]
-          ]
-        )
-        Button.onClick (fun _ -> isExpanded.Set(not isExpanded.Current))
-      ]
     Border.create [
       Border.borderThickness (0.0, 0.0, 0.0, 1.0)
       Border.borderBrush model.Theme.Panel.Border
+      Border.padding (4.0, 0.0)
       Border.child (
         StackPanel.create [
           StackPanel.children [
-            headerView :> IView
-            if isExpanded.Current then sectionDetailView model section
+            sectionItemHeaderView model section isExpanded
+            if isExpanded.Current then sectionItemDetailView model section
             else ()
           ]
         ]
@@ -168,12 +202,20 @@ let private sectionItemView (model: Model) (section: SectionItem): IView =
     ]
   )
 
-let private emptyStateView model =
-  TextBlock.create [
-    TextBlock.text "No sections loaded."
-    TextBlock.margin 10.0
-    TextBlock.foreground model.Theme.Text.Muted
-    TextBlock.fontSize 13.0
+let private listBodyView model =
+  ScrollViewer.create [
+    ScrollViewer.content (
+      if List.isEmpty model.Sections then
+        emptyStateView model :> IView
+      else
+        StackPanel.create [
+          StackPanel.children (
+            model.Sections
+            |> List.map (fun section ->
+              sectionItemView model section)
+          )
+        ]
+    )
   ]
 
 let view model _dispatch =
@@ -184,44 +226,8 @@ let view model _dispatch =
     Border.child (
       DockPanel.create [
         DockPanel.children [
-          Border.create [
-            Border.dock Dock.Top
-            Border.background model.Theme.Panel.AltBackground
-            Border.padding 8.0
-            Border.child (
-              Grid.create [
-                Grid.columnDefinitions "*,Auto"
-                Grid.children [
-                  TextBlock.create [
-                    TextBlock.text "Sections"
-                    TextBlock.fontSize 13.0
-                    TextBlock.foreground model.Theme.Text.Secondary
-                  ]
-                  TextBlock.create [
-                    Grid.column 1
-                    TextBlock.text $"({List.length model.Sections})"
-                    TextBlock.fontSize 12.0
-                    TextBlock.foreground model.Theme.Text.Muted
-                    TextBlock.verticalAlignment VerticalAlignment.Center
-                  ]
-                ]
-              ]
-            )
-          ]
-          ScrollViewer.create [
-            ScrollViewer.content (
-              if List.isEmpty model.Sections then
-                emptyStateView model :> IView
-              else
-                StackPanel.create [
-                  StackPanel.children (
-                    model.Sections
-                    |> List.map (fun section ->
-                      sectionItemView model section)
-                  )
-                ]
-            )
-          ]
+          panelHeaderView model
+          listBodyView model
         ]
       ]
     )
