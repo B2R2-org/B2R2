@@ -3,14 +3,14 @@
   "isRoot": true,
   "tools": {
     "fsdocs-tool": {
-      "version": "20.0.1",
+      "version": "21.0.0",
       "commands": [
         "fsdocs"
       ],
       "rollForward": false
     },
     "b2r2.fslint": {
-      "version": "1.0.4",
+      "version": "1.0.5",
       "commands": [
         "fslint"
       ],
