@@ -25,11 +25,18 @@
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module B2R2.RearEnd.BinExplore.GUI
 
+open System
 open Avalonia
 
 let start arbiter useDarkTheme =
-  AppBuilder
-    .Configure<GUI.App<_, _>>(fun () -> GUI.App(arbiter, useDarkTheme))
-    .UsePlatformDetect()
-    .UseSkia()
-    .StartWithClassicDesktopLifetime([||])
+  let builder =
+    AppBuilder
+      .Configure<GUI.App<_, _>>(fun () -> GUI.App(arbiter, useDarkTheme))
+      .UsePlatformDetect()
+      .UseSkia()
+  let builder =
+    if OperatingSystem.IsMacOS() then
+      builder.With(AvaloniaNativePlatformOptions(OverlayPopups = true))
+    else
+      builder
+  builder.StartWithClassicDesktopLifetime([||])
