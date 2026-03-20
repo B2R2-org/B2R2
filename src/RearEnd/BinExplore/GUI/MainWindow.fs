@@ -33,6 +33,7 @@ open Avalonia.Controls
 open Avalonia.Platform
 open Avalonia.Styling
 open Avalonia.Threading
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd.BinExplore
 open B2R2.RearEnd.Visualization
@@ -62,7 +63,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       CFGIsPanning = false
       CFGPanPointer = None
       CFGViewportSize = (0.0, 0.0)
-      StatusBarState = StatusBarState.empty }, Elmish.Cmd.none
+      StatusBarState = EmptyStatus }, Elmish.Cmd.none
 
   let loadBinaryAsync (filePath: string) =
     async {
@@ -282,14 +283,13 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         updatedModel, startLoadWorkflowCmd filePath
     | OpenBinaryCompleted filePath ->
       if model.LoadingBinaryPath = Some filePath then
-        let statusBar =
-          { model.StatusBarState with
-              FilePath = filePath
-              Message = "" }
-        let functions =
-          match API.getFunctions arbiter true with
-          | Ok fns -> fns |> Array.map FunctionItem.ofFunction |> List.ofArray
-          | _ -> []
+        let functions, statusBar =
+          match API.getFunctions arbiter true, API.getFileFormat arbiter with
+          | Ok fns, Ok fmt ->
+            fns |> Array.map FunctionItem.ofFunction |> List.ofArray,
+            FileLoaded(filePath, FileFormat.toString fmt)
+          | _ ->
+            [], EmptyStatus
         { model with
             LoadedBinary = Some filePath
             LoadingBinaryPath = None
@@ -306,10 +306,9 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         model, Elmish.Cmd.none
     | OpenBinaryFailed(filePath, reason) ->
       if model.LoadingBinaryPath = Some filePath then
-        let statusBar = StatusBarState.init $"Failed to load binary: {reason}"
         { model with
             LoadingBinaryPath = None
-            StatusBarState = statusBar },
+            StatusBarState = MessageOnly $"Failed to load binary: {reason}" },
         Elmish.Cmd.none
       else
         model, Elmish.Cmd.none
@@ -325,7 +324,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
           PreviewTab = None
           DraggingTab = None
           WorkspacePanel = FunctionPanel
-          StatusBarState = StatusBarState.empty },
+          StatusBarState = EmptyStatus },
       Elmish.Cmd.none
     | OpenCFGTab fnItem ->
       let visibleTabs = getAllVisibleTabs model
@@ -598,8 +597,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       | _ ->
         model, Elmish.Cmd.none
     | UpdateStatus msg ->
-      let statusBar = { model.StatusBarState with Message = msg }
-      { model with StatusBarState = statusBar }, Elmish.Cmd.none
+      { model with StatusBarState = MessageOnly msg }, Elmish.Cmd.none
     | ExitApplication ->
       this.Close()
       model, Elmish.Cmd.none

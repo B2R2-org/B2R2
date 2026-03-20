@@ -27,53 +27,75 @@ module B2R2.RearEnd.BinExplore.GUI.StatusBar
 open Avalonia.FuncUI.DSL
 open Avalonia.Controls
 open Avalonia.Layout
+open Avalonia.Media
+
+let private messageView model msg =
+  TextBlock.create [
+    TextBlock.dock Dock.Left
+    TextBlock.margin (8.0, 0.0)
+    TextBlock.text msg
+    TextBlock.fontSize 12.0
+    TextBlock.foreground model.Theme.Text.Secondary
+    TextBlock.verticalAlignment VerticalAlignment.Center
+  ]
 
 let private separator model =
   Border.create [
     Border.dock Dock.Left
     Border.width 1.0
     Border.margin (5.0, 2.0, 5.0, 2.0)
-    Border.background model.Theme.Panel.Border
+    Border.background model.Theme.Text.Secondary
+  ]
+
+let private filePathView model path =
+  TextBlock.create [
+    TextBlock.dock Dock.Left
+    TextBlock.margin (8.0, 0.0)
+    TextBlock.width 300.0
+    TextBlock.clipToBounds true
+    TextBlock.text path
+    TextBlock.fontSize 12.0
+    TextBlock.foreground model.Theme.Text.Secondary
+    TextBlock.verticalAlignment VerticalAlignment.Center
+    ToolTip.tip (
+      TextBlock.create [
+        TextBlock.text path
+        TextBlock.textWrapping TextWrapping.NoWrap
+      ]
+    )
+  ]
+
+let private fileFormatView model fmt =
+  TextBlock.create [
+    TextBlock.dock Dock.Left
+    TextBlock.margin (8.0, 0.0)
+    TextBlock.text fmt
+    TextBlock.fontSize 12.0
+    TextBlock.foreground model.Theme.Text.Secondary
+    TextBlock.verticalAlignment VerticalAlignment.Center
+    TextBlock.textAlignment TextAlignment.Center
   ]
 
 let view (model: Model) =
-  let s = model.StatusBarState
   Border.create [
     Border.dock Dock.Bottom
     Border.background model.Theme.Panel.AltBackground
-    Border.borderThickness 1.0
-    Border.borderBrush model.Theme.Panel.Border
-    Border.padding 5.0
+    Border.padding 4.0
     Border.child (
       DockPanel.create [
-        DockPanel.children [
-          TextBlock.create [
-            TextBlock.dock Dock.Left
-            TextBlock.width 300.0
-            TextBlock.clipToBounds true
-            TextBlock.text s.FilePath
-            TextBlock.fontSize 12.0
-            TextBlock.foreground model.Theme.Text.Secondary
-            TextBlock.verticalAlignment VerticalAlignment.Center
-          ]
-          separator model
-          TextBlock.create [
-            TextBlock.dock Dock.Left
-            TextBlock.width 50.0
-            TextBlock.clipToBounds true
-            TextBlock.text s.FileType
-            TextBlock.fontSize 12.0
-            TextBlock.foreground model.Theme.Text.Secondary
-            TextBlock.verticalAlignment VerticalAlignment.Center
-          ]
-          separator model
-          TextBlock.create [
-            TextBlock.text s.Message
-            TextBlock.fontSize 12.0
-            TextBlock.foreground model.Theme.Text.Secondary
-            TextBlock.verticalAlignment VerticalAlignment.Center
-          ]
-        ]
+        DockPanel.children (
+          match model.StatusBarState with
+          | EmptyStatus ->
+            [ messageView model "" ]
+          | MessageOnly msg ->
+            [ messageView model msg ]
+          | FileLoaded(path, fmt) ->
+            [ filePathView model path
+              separator model
+              fileFormatView model fmt
+              separator model
+              messageView model "" ]
+        )
       ]
     )
   ]

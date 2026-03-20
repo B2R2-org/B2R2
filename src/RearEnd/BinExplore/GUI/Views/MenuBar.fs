@@ -54,7 +54,7 @@ let private openBinaryDialog dispatch (source: obj) =
         files
         |> Seq.tryHead
         |> Option.iter (fun file ->
-          dispatch (OpenBinary file.Path.AbsolutePath))
+          dispatch (OpenBinary file.Path.LocalPath))
       with ex ->
         dispatch (UpdateStatus $"Failed to open file dialog: {ex.Message}")
     } |> Async.StartImmediate

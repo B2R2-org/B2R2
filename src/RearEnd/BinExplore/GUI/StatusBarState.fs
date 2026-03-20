@@ -26,23 +26,6 @@ namespace B2R2.RearEnd.BinExplore.GUI
 
 /// Represents the state of the status bar in the main view.
 type StatusBarState =
-  { /// Path of the currently loaded binary file, if any.
-    FilePath: string
-    /// Loaded file type.
-    FileType: string
-    /// Message to be displayed in the status bar, such as loading status or
-    /// error messages.
-    Message: string }
-
-[<RequireQualifiedAccess>]
-module StatusBarState =
-  let empty =
-    { FilePath = ""
-      FileType = ""
-      Message = "" }
-
-  /// Returns the initial state of the status bar with a message.
-  let init msg =
-    { FilePath = ""
-      FileType = ""
-      Message = msg }
+  | EmptyStatus
+  | MessageOnly of msg: string
+  | FileLoaded of path: string * fmt: string

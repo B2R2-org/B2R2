@@ -104,6 +104,11 @@ let getFunctions arbiter isInternal =
     |> Array.map (fun fn -> { FuncID = fn.ID; FuncName = fn.Name }))
   |> toJson
 
+let getFileFormat arbiter =
+  API.getFileFormat arbiter
+  |> Result.map (fun fmt -> BinFile.FileFormat.toString fmt)
+  |> toJson
+
 let getBytes arbiter addrString (sizeString: string) =
   let addr = try Convert.ToUInt64(addrString, 16) with _ -> 0UL
   let size = try Convert.ToInt32(sizeString) with _ -> 0
