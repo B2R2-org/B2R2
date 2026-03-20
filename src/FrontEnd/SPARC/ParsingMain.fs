@@ -3555,7 +3555,7 @@ let parse10 b32 =
     | _ -> struct (Opcode.InvalidOp, NoOperand)
   | 0b101000u ->
     match pickBit b32 13u with
-    | 0b0u -> parse101000  b32
+    | 0b0u -> parse101000 b32
     | _ ->
       match pickBit b32 25u with
       | 0u ->

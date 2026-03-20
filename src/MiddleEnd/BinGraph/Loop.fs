@@ -39,7 +39,7 @@ let private findNaturalLoopBody g (edge: Edge<_, _>) =
   let stack = Stack()
   let n, h = edge.First, edge.Second
   body.Add h |> ignore
-  stack.Push  n
+  stack.Push n
   while stack.Count > 0 do
     let v = stack.Pop()
     if not (body.Contains v) then

@@ -1486,7 +1486,7 @@ let private parseMUnitCompound bin =
   | 0b11100u -> parseXiIntInt bin Op.SSHVL unit
   | 0b11101u -> parseXUiUiUi bin Op.ROTL unit
   | 0b11110u -> parseXUiUc5Ui bin Op.ROTL unit
-  | _ -> Terminator.impossible  ()
+  | _ -> Terminator.impossible ()
 
 /// Appendix E. page 743. Fig. E-2
 let private parseMUnitUnaryExt bin =

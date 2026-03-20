@@ -405,7 +405,7 @@ type MSDemangler() =
     <|> anonymousParam
   let constructedTemplate =
     pstring "?$?" >>. anyOf "01"
-    >>. many (specialTemplateParams <|> possibleType) .>> pchar '@'.>>.
+    >>. many (specialTemplateParams <|> possibleType) .>> pchar '@' .>>.
     ((pnameAndAt <|> attempt pTemplate) >>= addToNameList <|> nameFragment)
     |>> ConstructedTemplate
 
