@@ -89,7 +89,6 @@ type Assembler(startAddress: Addr) =
   let betweenCurlyBraces s =
     s |> skipWhitespaces |> between (pchar '{') (pchar '}')
 
-
   let alphanumericWithUnderscore s = Char.IsLetterOrDigit s || s = '_'
 
   let pId = many1Satisfy alphanumericWithUnderscore
