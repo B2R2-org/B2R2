@@ -39,11 +39,11 @@ type Tab =
 /// Represents the content of a tab.
 and TabContent =
   /// A tab displaying the control flow graph of a function.
-  | CFGTab of FunctionItem * TabContentState<VisGraph * CFGViewState>
+  | CFGContent of FunctionItem * TabContentState<VisGraph * CFGViewState>
   /// A tab displaying the hexadecimal view of a specific address.
-  | HexTab of baseAddr: Addr
+  | HexContent of baseAddr: Addr
   /// A tab displaying sections of the binary.
-  | SectionTab
+  | SectionContent
 
 /// Represents the loading state of a tab's content, which can be not loaded,
 /// currently loading, or fully loaded with the content of type 'T.
@@ -60,4 +60,4 @@ module Tab =
   let ofFunctionItem func =
     { ID = $"fn-{func.FuncID}"
       Title = func.Name
-      Content = CFGTab(func, NotLoaded) }
+      Content = CFGContent(func, NotLoaded) }

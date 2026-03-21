@@ -64,7 +64,7 @@ module private SearchBox = begin
 
   let getTabID model =
     match model.ActiveTab with
-    | Some { ID = id; Content = CFGTab(_, Loaded _) } -> $"{id}-loaded"
+    | Some { ID = id; Content = CFGContent(_, Loaded _) } -> $"{id}-loaded"
     | Some { ID = id } -> $"{id}"
     | None -> "none"
 
@@ -83,7 +83,7 @@ module private SearchBox = begin
       [||]
     else
       match model.ActiveTab with
-      | Some { Content = CFGTab(_, Loaded(g, _)) } ->
+      | Some { Content = CFGContent(_, Loaded(g, _)) } ->
         [| for v in g.Vertices do
              let cx = v.VData.Coordinate.X + v.VData.Width / 2.0
              let cy = v.VData.Coordinate.Y + v.VData.Height / 2.0
@@ -278,8 +278,8 @@ module private CFGKindSelect = begin
 
   let getState model =
     match model.ActiveTab with
-    | Some { ID = id; Content = CFGTab(_, Loaded(_, { CFGKind = kind })) } ->
-      kind, true, id
+    | Some { ID = id; Content = CFGContent(_, Loaded(_, { CFGKind = cfg })) } ->
+      cfg, true, id
     | _ -> CFGKind.Disasm, false, "none"
 
   let onGraphKindChanged dispatch (args: obj) =
@@ -321,7 +321,8 @@ module private MinimapToggle = begin
 
   let getState model =
     match model.ActiveTab with
-    | Some { ID = id; Content = CFGTab(_, Loaded(_, { ShowMinimap = flg })) } ->
+    | Some { ID = id
+             Content = CFGContent(_, Loaded(_, { ShowMinimap = flg })) } ->
       true, flg, id
     | _ -> false, false, "none"
 

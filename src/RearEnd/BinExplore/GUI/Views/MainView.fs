@@ -100,9 +100,9 @@ let private onSizeChanged dispatch (e: SizeChangedEventArgs) =
 
 let private tabContentView model dispatch =
   match model.ActiveTab with
-  | Some { Content = CFGTab _ } ->
-    CFGTab.view model dispatch
-  | Some { Content = HexTab _ } ->
+  | Some { Content = CFGContent _ } ->
+    CFGContent.view model dispatch
+  | Some { Content = HexContent _ } ->
     Border.create [
       Border.background model.Theme.Window.Background
       Border.borderThickness 0.0
@@ -115,7 +115,7 @@ let private tabContentView model dispatch =
         ]
       )
     ]
-  | Some { Content = SectionTab } ->
+  | Some { Content = SectionContent } ->
     Border.create [
       Border.background model.Theme.Window.Background
       Border.borderThickness 0.0
@@ -129,7 +129,7 @@ let private tabContentView model dispatch =
       )
     ]
   | None ->
-    CFGTab.view model dispatch
+    CFGContent.view model dispatch
 
 let private workspaceView model dispatch =
   Grid.create [

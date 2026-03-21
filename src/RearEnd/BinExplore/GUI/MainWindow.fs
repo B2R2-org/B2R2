@@ -129,8 +129,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 
   let mapCFGTabState newState (tab: Tab) =
     match tab.Content with
-    | CFGTab(func, _) ->
-      { tab with Content = CFGTab(func, newState) }
+    | CFGContent(func, _) ->
+      { tab with Content = CFGContent(func, newState) }
     | _ ->
       tab
 
@@ -184,7 +184,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 
   let startLoadIfNeeded tab model =
     match tab.Content with
-    | CFGTab(fn, NotLoaded) ->
+    | CFGContent(fn, NotLoaded) ->
       let loadingTab = mapCFGTabState Loading tab
       let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID loadingTab)
       let preview =
@@ -199,9 +199,9 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 
   let updateCFGViewState target update =
     match target with
-    | { Content = CFGTab(fn, Loaded(cfg, viewState)) } ->
+    | { Content = CFGContent(fn, Loaded(cfg, viewState)) } ->
       let viewState' = update viewState
-      { target with Content = CFGTab(fn, Loaded(cfg, viewState')) }
+      { target with Content = CFGContent(fn, Loaded(cfg, viewState')) }
     | _ -> target
 
   let clampPanToGraphBounds panX panY viewState model =
@@ -561,9 +561,9 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         model, Elmish.Cmd.none
     | ChangeCFGKind kind ->
       match model.ActiveTab with
-      | Some { Content = CFGTab(fn, Loaded(_, { CFGKind = currentKind })) }
+      | Some { Content = CFGContent(fn, Loaded(_, { CFGKind = currentKind })) }
         when currentKind <> kind ->
-        let tabContent = CFGTab(fn, NotLoaded)
+        let tabContent = CFGContent(fn, NotLoaded)
         let tab = { model.ActiveTab.Value with Content = tabContent }
         let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID tab)
         let preview = model.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
@@ -576,12 +576,12 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         model, Elmish.Cmd.none
     | ToggleMinimap(tabID, activate) ->
       match model.ActiveTab with
-      | Some { ID = activeID; Content = CFGTab(fn, Loaded(cfg, viewState)) }
+      | Some { ID = activeID; Content = CFGContent(fn, Loaded(cfg, viewState)) }
         when activeID = tabID && viewState.ShowMinimap <> activate ->
         let newViewState = { viewState with ShowMinimap = activate }
         let tab =
           { model.ActiveTab.Value
-              with Content = CFGTab(fn, Loaded(cfg, newViewState)) }
+              with Content = CFGContent(fn, Loaded(cfg, newViewState)) }
         let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID tab)
         let preview = model.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
         let active = model.ActiveTab |> Option.map (replaceTabByID tab.ID tab)

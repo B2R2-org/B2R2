@@ -65,9 +65,9 @@ let private getTabBorderColor (model: Model) tab =
 
 let private getTabIconText (tab: Tab) =
   match tab.Content with
-  | CFGTab _ -> None
-  | HexTab _ -> Some "Hx"
-  | SectionTab -> Some "\u2261"
+  | CFGContent _ -> None
+  | HexContent _ -> Some "Hx"
+  | SectionContent -> Some "\u2261"
 
 let private getTabTextColor (model: Model) tab =
   if model.ActiveTab = Some tab then model.Theme.Text.Primary

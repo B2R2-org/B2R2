@@ -166,7 +166,7 @@ let private listBoxView model dispatch =
     | Custom(ThemeId themeId) -> $"custom-{themeId}"
   let selectedFunction =
     match model.ActiveTab with
-    | Some { Content = CFGTab(func, _) } ->
+    | Some { Content = CFGContent(func, _) } ->
       if List.contains func filteredFunctions then box func
       else null
     | _ -> null
