@@ -60,3 +60,10 @@ type Model =
     CFGViewportSize: float * float
     /// Status bar information.
     StatusBarState: StatusBarState }
+
+module Model =
+  /// Returns all tabs to be displayed, including the preview tab if present.
+  let getVisibleTabs model =
+    match model.PreviewTab with
+    | Some preview -> preview :: model.OpenTabs
+    | _ -> model.OpenTabs

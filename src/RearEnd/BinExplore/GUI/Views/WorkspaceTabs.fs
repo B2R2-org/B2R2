@@ -38,9 +38,36 @@ let [<Literal>] private TabMaxWidth = 220.0
 
 let [<Literal>] private TabTextMaxWidth = 165.0
 
+let private onTabClick tabID dispatch (e: PointerPressedEventArgs) =
+  dispatch (SwitchTab tabID)
+  dispatch (StartTabDrag tabID)
+  let data = new DataTransfer()
+  data.Add(DataTransferItem.CreateText tabID)
+  DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
+  |> ignore
+
+let private onTabDrag targetTabID dispatch (e: DragEventArgs) =
+  let draggedTabID = DataTransferExtensions.TryGetText e.DataTransfer
+  if not (String.IsNullOrWhiteSpace draggedTabID) then
+    dispatch (ReorderTab(draggedTabID, targetTabID))
+    e.DragEffects <- DragDropEffects.Move
+  else
+    e.DragEffects <- DragDropEffects.None
+  e.Handled <- true
+
+let private onTabDrop dispatch (e: DragEventArgs) =
+  dispatch EndTabDrag
+  e.Handled <- true
+
 let private getTabBorderColor (model: Model) tab =
   if model.ActiveTab = Some tab then model.Theme.Tab.ActiveBackground
   else model.Theme.Tab.InactiveBackground
+
+let private getTabIconText (tab: Tab) =
+  match tab.Content with
+  | CFGTab _ -> None
+  | HexTab _ -> Some "Hx"
+  | SectionTab -> Some "\u2261"
 
 let private getTabTextColor (model: Model) tab =
   if model.ActiveTab = Some tab then model.Theme.Text.Primary
@@ -49,12 +76,6 @@ let private getTabTextColor (model: Model) tab =
 let private getTabFontStyle (model: Model) tab =
   if model.PreviewTab = Some tab then FontStyle.Italic
   else FontStyle.Normal
-
-let private getTabIconText (tab: Tab) =
-  match tab.Content with
-  | CFGTab _ -> None
-  | HexTab _ -> Some "Hx"
-  | SectionTab -> Some "\u2261"
 
 let private tabIconView model tab =
   match getTabIconText tab with
@@ -91,28 +112,62 @@ let private tabLabelView model tab =
     TextBlock.textTrimming TextTrimming.CharacterEllipsis
   ] |> View.withKey $"{tab.ID}-label" :> IView
 
-let private onTabDrag targetTabID dispatch (e: DragEventArgs) =
-  let draggedTabID = DataTransferExtensions.TryGetText e.DataTransfer
-  if not (String.IsNullOrWhiteSpace draggedTabID) then
-    dispatch (ReorderTab(draggedTabID, targetTabID))
-    e.DragEffects <- DragDropEffects.Move
-  else
-    e.DragEffects <- DragDropEffects.None
-  e.Handled <- true
+let private tabButtonView model dispatch tab =
+  Button.create [
+    StackPanel.verticalAlignment VerticalAlignment.Center
+    Button.content "\u00D7"
+    Button.background model.Theme.Common.Transparent
+    Button.foreground model.Theme.Tab.CloseForeground
+    Button.borderThickness 0.0
+    Button.padding (5.0, 0.0, 5.0, 0.0)
+    Button.fontSize 16.0
+    Button.onClick (fun _ -> dispatch (CloseTab tab.ID))
+  ] |> View.withKey $"{tab.ID}-close"
 
-let private onTabClick tabID dispatch (e: PointerPressedEventArgs) =
-  dispatch (SwitchTab tabID)
-  dispatch (StartTabDrag tabID)
-  let data = new DataTransfer()
-  data.Add(DataTransferItem.CreateText tabID)
-  DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
-  |> ignore
+let private tabContentView model dispatch (tab: Tab) =
+  StackPanel.create [
+    StackPanel.orientation Orientation.Horizontal
+    StackPanel.children [
+      StackPanel.create [
+        StackPanel.orientation Orientation.Horizontal
+        StackPanel.verticalAlignment VerticalAlignment.Center
+        StackPanel.background model.Theme.Common.Transparent
+        Control.focusable true
+        Control.onPointerPressed (onTabClick tab.ID dispatch)
+        Control.onPointerReleased (fun _ -> dispatch EndTabDrag)
+        ToolTip.tip tab.Title
+        StackPanel.children [
+          tabIconView model tab
+          tabLabelView model tab
+        ]
+      ] |> View.withKey $"{tab.ID}-clickarea"
+      tabButtonView model dispatch tab
+    ]
+  ]
+
+let private tabStripView model dispatch =
+  StackPanel.create [
+    Control.allowDrop true
+    StackPanel.orientation Orientation.Horizontal
+    StackPanel.children (
+      Model.getVisibleTabs model
+      |> List.map (fun tab ->
+        Border.create [
+          Border.background (getTabBorderColor model tab)
+          Border.maxWidth TabMaxWidth
+          Border.borderThickness (0.0, 0.0, 0.0, 0.0)
+          Border.borderBrush model.Theme.Panel.Border
+          Border.padding (10.0, 5.0, 5.0, 5.0)
+          Control.allowDrop true
+          Control.onDragOver (onTabDrag tab.ID dispatch)
+          Control.onDrop (onTabDrop dispatch)
+          Border.child (tabContentView model dispatch tab)
+        ] |> View.withKey $"{tab.ID}-tab" :> IView
+      )
+    )
+  ]
 
 let view model dispatch =
-  let allTabs =
-    match model.PreviewTab with
-    | Some preview -> preview :: model.OpenTabs
-    | _ -> model.OpenTabs
   Border.create [
     Border.dock Dock.Top
     Border.background model.Theme.Panel.AltBackground
@@ -122,64 +177,8 @@ let view model dispatch =
         Control.allowDrop true
         ScrollViewer.horizontalScrollBarVisibility ScrollBarVisibility.Auto
         ScrollViewer.verticalScrollBarVisibility ScrollBarVisibility.Disabled
-        ScrollViewer.onPointerReleased (fun _ ->
-          dispatch EndTabDrag)
-        ScrollViewer.content (
-          StackPanel.create [
-            Control.allowDrop true
-            StackPanel.orientation Orientation.Horizontal
-            StackPanel.children (
-              allTabs
-              |> List.map (fun tab ->
-                Border.create [
-                  Border.background (getTabBorderColor model tab)
-                  Border.maxWidth TabMaxWidth
-                  Border.borderThickness (0.0, 0.0, 0.0, 0.0)
-                  Border.borderBrush model.Theme.Panel.Border
-                  Border.padding (10.0, 5.0, 5.0, 5.0)
-                  Control.allowDrop true
-                  Control.onDragOver (onTabDrag tab.ID dispatch)
-                  Control.onDrop (fun e ->
-                    dispatch EndTabDrag
-                    e.Handled <- true)
-                  Border.child (
-                    StackPanel.create [
-                      StackPanel.orientation Orientation.Horizontal
-                      StackPanel.children [
-                        StackPanel.create [
-                          StackPanel.orientation Orientation.Horizontal
-                          StackPanel.verticalAlignment VerticalAlignment.Center
-                          StackPanel.background model.Theme.Common.Transparent
-                          Control.focusable true
-                          Control.onPointerPressed (fun e ->
-                            onTabClick tab.ID dispatch e)
-                          Control.onPointerReleased (fun _ ->
-                            dispatch EndTabDrag)
-                          ToolTip.tip tab.Title
-                          StackPanel.children [
-                            tabIconView model tab
-                            tabLabelView model tab
-                          ]
-                        ] |> View.withKey $"{tab.ID}-clickarea"
-                        Button.create [
-                          StackPanel.verticalAlignment VerticalAlignment.Center
-                          Button.content "\u00D7"
-                          Button.background model.Theme.Common.Transparent
-                          Button.foreground model.Theme.Tab.CloseForeground
-                          Button.borderThickness 0.0
-                          Button.padding (5.0, 0.0, 5.0, 0.0)
-                          Button.fontSize 16.0
-                          Button.onClick (fun _ ->
-                            dispatch (CloseTab tab.ID))
-                        ] |> View.withKey $"{tab.ID}-close"
-                      ]
-                    ]
-                  )
-                ] |> View.withKey $"{tab.ID}-tab" :> IView
-              )
-            )
-          ]
-        )
+        ScrollViewer.onPointerReleased (fun _ -> dispatch EndTabDrag)
+        ScrollViewer.content (tabStripView model dispatch)
       ]
     )
   ]

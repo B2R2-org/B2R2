@@ -134,11 +134,6 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     | _ ->
       tab
 
-  let getAllVisibleTabs model =
-    match model.PreviewTab with
-    | Some preview -> preview :: model.OpenTabs
-    | None -> model.OpenTabs
-
   let replaceTabByID tabID newTab oldTab =
     if oldTab.ID = tabID then newTab
     else oldTab
@@ -327,7 +322,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
           StatusBarState = EmptyStatus },
       Elmish.Cmd.none
     | OpenCFGTab fnItem ->
-      let visibleTabs = getAllVisibleTabs model
+      let visibleTabs = Model.getVisibleTabs model
       let tab = Tab.ofFunctionItem fnItem
       match tryFindTab visibleTabs tab.ID with
       | Some tab ->
@@ -366,14 +361,14 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
           DraggingTab = dragging },
       Elmish.Cmd.none
     | SwitchTab tabID ->
-      let visibleTabs = getAllVisibleTabs model
+      let visibleTabs = Model.getVisibleTabs model
       match tryFindTab visibleTabs tabID with
       | Some tab ->
         { model with ActiveTab = Some tab }, Elmish.Cmd.none
       | None ->
         model, Elmish.Cmd.none
     | StartTabDrag tabID ->
-      let visibleTabs = getAllVisibleTabs model
+      let visibleTabs = Model.getVisibleTabs model
       match tryFindTab visibleTabs tabID with
       | Some tab -> { model with DraggingTab = Some tab }, Elmish.Cmd.none
       | None -> model, Elmish.Cmd.none
@@ -425,7 +420,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     | SelectWorkspacePanel panel ->
       { model with WorkspacePanel = panel }, Elmish.Cmd.none
     | LoadCFGCompleted(tabID, cfgKind, cfg) ->
-      let visibleTabs = getAllVisibleTabs model
+      let visibleTabs = Model.getVisibleTabs model
       match tryFindTab visibleTabs tabID with
       | Some tab ->
         let viewState = computeInitialCFGViewState cfgKind cfg model
@@ -441,7 +436,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       | None ->
         model, Elmish.Cmd.none
     | LoadCFGFailed(tabID, _reason) ->
-      let visibleTabs = getAllVisibleTabs model
+      let visibleTabs = Model.getVisibleTabs model
       match tryFindTab visibleTabs tabID with
       | Some tab ->
         let tab = mapCFGTabState NotLoaded tab
