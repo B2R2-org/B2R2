@@ -38,13 +38,23 @@ let [<Literal>] private TabMaxWidth = 220.0
 
 let [<Literal>] private TabTextMaxWidth = 165.0
 
+let rec private originatedFromButton (source: obj) =
+  match source with
+  | :? Button -> true
+  | :? Control as control when not (isNull control.Parent) ->
+    originatedFromButton (control.Parent :> obj)
+  | _ -> false
+
 let private onTabClick tabID dispatch (e: PointerPressedEventArgs) =
-  dispatch (SwitchTab tabID)
-  dispatch (StartTabDrag tabID)
-  let data = new DataTransfer()
-  data.Add(DataTransferItem.CreateText tabID)
-  DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
-  |> ignore
+  if originatedFromButton e.Source then
+    ()
+  else
+    dispatch (SwitchTab tabID)
+    dispatch (StartTabDrag tabID)
+    let data = new DataTransfer()
+    data.Add(DataTransferItem.CreateText tabID)
+    DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
+    |> ignore
 
 let private onTabDrag targetTabID dispatch (e: DragEventArgs) =
   let draggedTabID = DataTransferExtensions.TryGetText e.DataTransfer
@@ -133,8 +143,6 @@ let private tabContentView model dispatch (tab: Tab) =
         StackPanel.verticalAlignment VerticalAlignment.Center
         StackPanel.background model.Theme.Common.Transparent
         Control.focusable true
-        Control.onPointerPressed (onTabClick tab.ID dispatch)
-        Control.onPointerReleased (fun _ -> dispatch EndTabDrag)
         ToolTip.tip tab.Title
         StackPanel.children [
           tabIconView model tab
@@ -159,6 +167,8 @@ let private tabStripView model dispatch =
           Border.borderBrush model.Theme.Panel.Border
           Border.padding (10.0, 5.0, 5.0, 5.0)
           Control.allowDrop true
+          Control.onPointerPressed (onTabClick tab.ID dispatch)
+          Control.onPointerReleased (fun _ -> dispatch EndTabDrag)
           Control.onDragOver (onTabDrag tab.ID dispatch)
           Control.onDrop (onTabDrop dispatch)
           Border.child (tabContentView model dispatch tab)
