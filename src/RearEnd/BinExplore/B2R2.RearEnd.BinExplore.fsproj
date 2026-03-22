@@ -47,6 +47,7 @@
     <Compile Include="GUI\Views\WorkspaceTabs.fs" />
     <Compile Include="GUI\Views\CFGContent.fs" />
     <Compile Include="GUI\Views\MainView.fs" />
+    <Compile Include="GUI\Update.fs" />
     <Compile Include="GUI\MainWindow.fs" />
     <Compile Include="GUI\App.fs" />
     <Compile Include="GUI.fs" />
