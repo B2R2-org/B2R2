@@ -460,6 +460,10 @@ let private loadedView model dispatch cfg viewState =
   ]
 
 let view (model: Model) dispatch =
+  let viewKey =
+    match model.ActiveTab with
+    | Some tab -> $"cfg-{tab.ID}"
+    | None -> "cfg-none"
   Border.create [
     Border.background model.Theme.Window.Background
     Border.borderThickness 0.0
@@ -474,4 +478,4 @@ let view (model: Model) dispatch =
       | _ ->
         unloadedView model "Select a function to view its CFG."
     )
-  ]
+  ] |> View.withKey viewKey
