@@ -57,7 +57,9 @@ type CFGViewState =
     /// The maximum X coordinate of the graph.
     GraphMaxX: float
     /// The maximum Y coordinate of the graph.
-    GraphMaxY: float }
+    GraphMaxY: float
+    /// The ID of the currently hovered node, if any.
+    HoveredEdge: int option }
 
 [<RequireQualifiedAccess>]
 module CFGViewState =
@@ -75,4 +77,5 @@ module CFGViewState =
       GraphMinX = 0.0
       GraphMinY = 0.0
       GraphMaxX = 0.0
-      GraphMaxY = 0.0 }
+      GraphMaxY = 0.0
+      HoveredEdge = None }

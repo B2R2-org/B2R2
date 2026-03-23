@@ -86,7 +86,8 @@ and GraphTheme =
     IntraCJmpFalse: string
     Fallthrough: string
     Call: string
-    Return: string }
+    Return: string
+    HoveredEdge: string }
 
 /// Represents common theme settings that can be used across different UI
 /// elements.
@@ -145,7 +146,8 @@ module Theme =
           IntraCJmpFalse = "#AA2222"
           Fallthrough = "#BD93F9"
           Call = "#8BE9FD"
-          Return = "#FF79C6" }
+          Return = "#FF79C6"
+          HoveredEdge = "#55CCFF" }
       Common = { Transparent = "Transparent" }
       Search =
         { Background = "#080C12"
@@ -186,7 +188,8 @@ module Theme =
           IntraCJmpFalse = "#CC2222"
           Fallthrough = "#7336B5"
           Call = "#0A6080"
-          Return = "#8B2880" }
+          Return = "#8B2880"
+          HoveredEdge = "#EE0055" }
       Common = { Transparent = "Transparent" }
       Search =
         { Background = "#FFFFFF"

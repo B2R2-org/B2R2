@@ -115,6 +115,19 @@ let private edgeLineView (pts: Point array) zoom (color: string) =
     Polyline.isHitTestVisible false
   ] :> IView
 
+let private edgeHitAreaThickness zoom =
+  5.0 / sqrt zoom |> max 6.0 |> min 14.0
+
+let private edgeHitAreaView dispatch (pts: Point array) zoom edgeID =
+  Polyline.create [
+    Polyline.points pts
+    Polyline.stroke "#00FFFFFF"
+    Polyline.strokeThickness (edgeHitAreaThickness zoom)
+    Control.onPointerEntered (fun _ ->
+      dispatch (SetHoveredCFGEdge(Some edgeID)))
+    Control.onPointerExited (fun _ -> dispatch (SetHoveredCFGEdge None))
+  ] :> IView
+
 let private arrowheadView (tip: Point) (angle: float) zoom (color: string) =
   Polygon.create [
     Polygon.points (arrowheadPoints tip angle (8.0 * zoom))
@@ -122,8 +135,8 @@ let private arrowheadView (tip: Point) (angle: float) zoom (color: string) =
     Polygon.isHitTestVisible false
   ] :> IView
 
-let private edgeView (pts: VisPosition list) zoom panX panY (color: string) =
-  match pts with
+let private edgeView dispatch pts zoom panX panY color edgeID =
+  match (pts: VisPosition list) with
   | _ :: _ :: _ ->
     let scaled =
       pts
@@ -132,16 +145,23 @@ let private edgeView (pts: VisPosition list) zoom panX panY (color: string) =
     let tip = scaled[scaled.Length - 1]
     let prev = scaled[scaled.Length - 2]
     let angle = Math.Atan2(tip.Y - prev.Y, tip.X - prev.X) * 180.0 / Math.PI
-    [ edgeLineView scaled zoom color
-      arrowheadView tip angle zoom color ]
+    Canvas.create [
+      Canvas.children [
+        edgeHitAreaView dispatch scaled zoom edgeID
+        edgeLineView scaled zoom color
+        arrowheadView tip angle zoom color
+      ]
+    ] |> View.withKey $"edge-{edgeID}" :> IView |> List.singleton
   | _ -> []
 
-let private graphEdges model (cfg: VisGraph) zoom panX panY isEdgeVisible =
-  [ for e in cfg.Edges do
+let private graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible =
+  [ for edgeID, e in Array.indexed (cfg: VisGraph).Edges do
       let pts = e.Label.Points
       if isEdgeVisible pts then
-        let color = getEdgeColor model e.Label.Type
-        yield! edgeView pts zoom panX panY color
+        let color =
+          if hovered = Some edgeID then model.Theme.Graph.HoveredEdge
+          else getEdgeColor model e.Label.Type
+        yield! edgeView dispatch pts zoom panX panY color edgeID
       else
         () ]
 
@@ -168,6 +188,7 @@ let private nodeView model zoom panX panY fontSize x y w h lines =
     Canvas.left (x * zoom + panX)
     Canvas.top (y * zoom + panY)
     Border.clipToBounds false
+    Border.isHitTestVisible false
     Border.width w
     Border.height h
     Border.background model.Theme.Panel.AltBackground
@@ -201,35 +222,6 @@ let private graphNodes model (cfg: VisGraph) zoom panX panY isNodeVisible =
           if fontSize * zoom < 6.0 then [||]
           else (n.VData :> IVisualizable).Visualize()
         nodeView model zoom panX panY fontSize x y w h lines ]
-
-let private graphCanvasView model (cfg: VisGraph) viewState =
-  let zoom = viewState.Zoom
-  let panX, panY = viewState.PanX, viewState.PanY
-  let viewportWidth, viewportHeight = model.CFGViewportSize
-  let vpLeft = -panX / zoom
-  let vpRight = (viewportWidth - panX) / zoom
-  let vpTop = -panY / zoom
-  let vpBottom = (viewportHeight - panY) / zoom
-  let rec isEdgeVisible pts =
-    match pts with
-    | p1 :: ((p2 :: _) as rest) ->
-      let minX, maxX = min p1.X p2.X, max p1.X p2.X
-      let minY, maxY = min p1.Y p2.Y, max p1.Y p2.Y
-      if minX < vpRight && maxX > vpLeft && minY < vpBottom && maxY > vpTop then
-        true
-      else
-        isEdgeVisible rest
-    | _ ->
-      false
-  let isNodeVisible x y w h =
-    x < vpRight && x + w > vpLeft && y < vpBottom && y + h > vpTop
-  Canvas.create [
-    Canvas.background model.Theme.Window.Background
-    Canvas.children [
-      yield! graphEdges model cfg zoom panX panY isEdgeVisible
-      yield! graphNodes model cfg zoom panX panY isNodeVisible
-    ]
-  ]
 
 let [<Literal>] private ZoomDelta = 0.05
 
@@ -269,17 +261,38 @@ let private onReleased dispatch (e: PointerReleasedEventArgs) =
   | _ -> ()
   e.Handled <- true
 
-let private inputOverlayView model dispatch =
-  Border.create [
-    Border.background model.Theme.Common.Transparent
-    Border.cursor Cursor.Default
-    Border.horizontalAlignment HorizontalAlignment.Stretch
-    Border.verticalAlignment VerticalAlignment.Stretch
-    Control.focusable true
+let private graphCanvasView model dispatch (cfg: VisGraph) viewState =
+  let zoom = viewState.Zoom
+  let panX, panY = viewState.PanX, viewState.PanY
+  let hovered = viewState.HoveredEdge
+  let viewportWidth, viewportHeight = model.CFGViewportSize
+  let vpLeft = -panX / zoom
+  let vpRight = (viewportWidth - panX) / zoom
+  let vpTop = -panY / zoom
+  let vpBottom = (viewportHeight - panY) / zoom
+  let rec isEdgeVisible pts =
+    match pts with
+    | p1 :: ((p2 :: _) as rest) ->
+      let minX, maxX = min p1.X p2.X, max p1.X p2.X
+      let minY, maxY = min p1.Y p2.Y, max p1.Y p2.Y
+      if minX < vpRight && maxX > vpLeft && minY < vpBottom && maxY > vpTop then
+        true
+      else
+        isEdgeVisible rest
+    | _ ->
+      false
+  let isNodeVisible x y w h =
+    x < vpRight && x + w > vpLeft && y < vpBottom && y + h > vpTop
+  Canvas.create [
+    Canvas.background model.Theme.Window.Background
     Control.onPointerWheelChanged (onWheel dispatch)
     Control.onPointerPressed (onPressed dispatch)
     Control.onPointerMoved (onMoved dispatch)
     Control.onPointerReleased (onReleased dispatch)
+    Canvas.children [
+      yield! graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible
+      yield! graphNodes model cfg zoom panX panY isNodeVisible
+    ]
   ]
 
 let private onMinimapClick dispatch minimapDim viewState e =
@@ -439,8 +452,7 @@ let private loadedView model dispatch cfg viewState =
     Border.child (
       Grid.create [
         Grid.children [
-          graphCanvasView model cfg viewState
-          inputOverlayView model dispatch
+          graphCanvasView model dispatch cfg viewState
           yield! minimapOverlayView model dispatch minimapDim cfg viewState
         ]
       ]

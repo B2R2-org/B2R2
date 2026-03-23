@@ -76,6 +76,9 @@ type Message =
   | EndCFGPan
   /// Message to jump the CFG view to a specific graph coordinate.
   | JumpCFGPan of gx: float * gy: float
+  /// Message to set the currently hovered edge in the CFG, carrying the edge
+  /// ID or None if edge is not hovered anymore.
+  | SetHoveredCFGEdge of edgeID: int option
   /// Message to update the size of the CFG viewport, carrying the new width and
   /// height.
   | UpdateCFGViewportSize of width: float * height: float
