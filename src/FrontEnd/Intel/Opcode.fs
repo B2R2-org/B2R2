@@ -28,2842 +28,1632 @@ namespace B2R2.FrontEnd.Intel
 /// <c>scripts/genOpcode.fsx</c> from the `IntelSupportedOpcodes.txt` file.
 /// </summary>
 type Opcode =
-  /// ASCII Adjust After Addition.
   | AAA = 0
-  /// ASCII Adjust AX Before Division.
   | AAD = 1
-  /// ASCII Adjust AX After Multiply.
   | AAM = 2
-  /// ASCII Adjust AL After Subtraction.
   | AAS = 3
-  /// Add with Carry.
   | ADC = 4
-  /// Unsigned integer add with carry.
   | ADCX = 5
-  /// Add.
   | ADD = 6
-  /// Add Packed Double-Precision Floating-Point Values.
   | ADDPD = 7
-  /// Add Packed Single-Precision Floating-Point Values.
   | ADDPS = 8
-  /// Add Scalar Double-Precision Floating-Point Values.
   | ADDSD = 9
-  /// Add Scalar Single-Precision Floating-Point Values.
   | ADDSS = 10
-  /// Packed Double-FP Add/Subtract.
   | ADDSUBPD = 11
-  /// Packed Single-FP Add/Subtract.
   | ADDSUBPS = 12
-  /// Unsigned integer add with overflow.
   | ADOX = 13
-  /// Perform an AES decryption round using an 128-bit state and a round key.
   | AESDEC = 14
-  /// Perform Last Round of an AES Decryption Flow.
-  | AESDECLAST = 15
-  /// Perform an AES encryption round using an 128-bit state and a round key.
-  | AESENC = 16
-  /// Perform Last Round of an AES Encryption Flow.
-  | AESENCLAST = 17
-  /// Perform an inverse mix column transformation primitive.
-  | AESIMC = 18
-  /// Assist the creation of round keys with a key expansion schedule.
-  | AESKEYGENASSIST = 19
-  /// Logical AND.
-  | AND = 20
-  /// Bitwise AND of first source with inverted 2nd source operands.
-  | ANDN = 21
-  /// Bitwise Logical AND of Packed Double-Precision Floating-Point Values.
-  | ANDNPD = 22
-  /// Bitwise Logical AND of Packed Single-Precision Floating-Point Values.
-  | ANDNPS = 23
-  /// Bitwise Logical AND NOT of Packed Double-Precision Floating-Point Values.
-  | ANDPD = 24
-  /// Bitwise Logical AND NOT of Packed Single-Precision Floating-Point Values.
-  | ANDPS = 25
-  /// Adjust RPL Field of Segment Selector.
-  | ARPL = 26
-  /// Contiguous bitwise extract.
-  | BEXTR = 27
-  /// Blend Packed Double Precision Floating-Point Values.
-  | BLENDPD = 28
-  /// Blend Packed Single Precision Floating-Point Values.
-  | BLENDPS = 29
-  /// Variable Blend Packed Double Precision Floating-Point Values.
-  | BLENDVPD = 30
-  /// Variable Blend Packed Single Precision Floating-Point Values.
-  | BLENDVPS = 31
-  /// Extract lowest set bit.
-  | BLSI = 32
-  /// Set all lower bits below first set bit to 1.
-  | BLSMSK = 33
-  /// Reset lowest set bit.
-  | BLSR = 34
-  /// Check the address of a memory reference against a LowerBound.
-  | BNDCL = 35
-  /// Check Upper Bound.
-  | BNDCN = 36
-  /// Check Upper Bound.
-  | BNDCU = 37
-  /// Load Extended Bounds Using Address Translation.
-  | BNDLDX = 38
-  /// Create a LowerBound and a UpperBound in a register.
-  | BNDMK = 39
-  /// Move Bounds.
-  | BNDMOV = 40
-  /// Store bounds using address translation.
-  | BNDSTX = 41
-  /// Check Array Index Against Bounds.
-  | BOUND = 42
-  /// Bit Scan Forward.
-  | BSF = 43
-  /// Bit Scan Reverse.
-  | BSR = 44
-  /// Byte Swap.
-  | BSWAP = 45
-  /// Bit Test.
-  | BT = 46
-  /// Bit Test and Complement.
-  | BTC = 47
-  /// Bit Test and Reset.
-  | BTR = 48
-  /// Bit Test and Set.
-  | BTS = 49
-  /// Zero high bits starting from specified bit position.
-  | BZHI = 50
-  /// Far call.
-  | CALLFar = 51
-  /// Near call.
-  | CALLNear = 52
-  /// Convert Byte to Word.
-  | CBW = 53
-  /// Chinese national cryptographic algorithms.
-  | CCS_ENCRYPT = 54
-  /// Chinese national cryptographic algorithms.
-  | CCS_HASH = 55
-  /// Convert Doubleword to Quadword.
-  | CDQ = 56
-  /// Convert Doubleword to Quadword.
-  | CDQE = 57
-  /// Clear AC Flag in EFLAGS Register.
-  | CLAC = 58
-  /// Clear Carry Flag.
-  | CLC = 59
-  /// Clear Direction Flag.
-  | CLD = 60
-  /// Flush Cache Line.
-  | CLFLUSH = 61
-  /// Flush Cache Line Optimized.
-  | CLFLUSHOPT = 62
-  /// Clear Interrupt Flag.
-  | CLI = 63
-  /// Clear busy bit in a supervisor shadow stack token.
-  | CLRSSBSY = 64
-  /// Clear Task-Switched Flag in CR0.
-  | CLTS = 65
-  /// Cache Line Write Back.
-  | CLWB = 66
-  /// Complement Carry Flag.
-  | CMC = 67
-  /// Conditional Move (Move if above (CF = 0 and ZF = 0)).
-  | CMOVA = 68
-  /// Conditional Move (Move if above or equal (CF = 0)).
-  | CMOVAE = 69
-  /// Conditional Move (Move if below (CF = 1)).
-  | CMOVB = 70
-  /// Conditional Move (Move if below or equal (CF = 1 or ZF = 1)).
-  | CMOVBE = 71
-  /// Conditional move if carry.
-  | CMOVC = 72
-  /// Conditional Move (Move if greater (ZF = 0 and SF = OF)).
-  | CMOVG = 73
-  /// Conditional Move (Move if greater or equal (SF = OF)).
-  | CMOVGE = 74
-  /// Conditional Move (Move if less (SF <> OF)).
-  | CMOVL = 75
-  /// Conditional Move (Move if less or equal (ZF = 1 or SF <> OF)).
-  | CMOVLE = 76
-  /// Conditional move if not carry.
-  | CMOVNC = 77
-  /// Conditional Move (Move if not overflow (OF = 0)).
-  | CMOVNO = 78
-  /// Conditional Move (Move if not parity (PF = 0)).
-  | CMOVNP = 79
-  /// Conditional Move (Move if not sign (SF = 0)).
-  | CMOVNS = 80
-  /// Conditional Move (Move if not zero (ZF = 0)).
-  | CMOVNZ = 81
-  /// Conditional Move (Move if overflow (OF = 1)).
-  | CMOVO = 82
-  /// Conditional Move (Move if parity (PF = 1)).
-  | CMOVP = 83
-  /// Conditional Move (Move if sign (SF = 1)).
-  | CMOVS = 84
-  /// Conditional Move (Move if zero (ZF = 1)).
-  | CMOVZ = 85
-  /// Compare Two Operands.
-  | CMP = 86
-  /// Compare packed double-precision floating-point values.
-  | CMPPD = 87
-  /// Compare packed single-precision floating-point values.
-  | CMPPS = 88
-  /// Compare String Operands (byte).
-  | CMPSB = 89
-  /// Compare String Operands (dword) or Compare scalar dbl-precision FP values.
-  | CMPSD = 90
-  /// Compare String Operands (quadword).
-  | CMPSQ = 91
-  /// Compare scalar single-precision floating-point values.
-  | CMPSS = 92
-  /// Compare String Operands (word).
-  | CMPSW = 93
-  /// Compare and Exchange.
-  | CMPXCHG = 94
-  /// Compare and Exchange Bytes.
-  | CMPXCHG16B = 95
-  /// Compare and Exchange Bytes.
-  | CMPXCHG8B = 96
-  /// Compare Scalar Ordered Double-Precision FP Values and Set EFLAGS.
-  | COMISD = 97
-  /// Compare Scalar Ordered Single-Precision FP Values and Set EFLAGS.
-  | COMISS = 98
-  /// CPU Identification.
-  | CPUID = 99
-  /// Convert Quadword to Octaword.
-  | CQO = 100
-  /// Accumulate CRC32 Value.
-  | CRC32 = 101
-  /// Convert Packed Dword Integers to Packed Double-Precision FP Values.
-  | CVTDQ2PD = 102
-  /// Convert Packed Dword Integers to Packed Single-Precision FP Values.
-  | CVTDQ2PS = 103
-  /// Convert Packed Double-Precision FP Values to Packed Dword Integers.
-  | CVTPD2DQ = 104
-  /// Convert Packed Double-Precision FP Values to Packed Dword Integers.
-  | CVTPD2PI = 105
-  /// Convert Packed Double-Precision FP Values to Packed Single-Precision FP.
-  | CVTPD2PS = 106
-  /// Convert Packed Dword Integers to Packed Double-Precision FP Values.
-  | CVTPI2PD = 107
-  /// Convert Packed Dword Integers to Packed Single-Precision FP Values.
-  | CVTPI2PS = 108
-  /// Convert Packed Single-Precision FP Values to Packed Dword Integers.
-  | CVTPS2DQ = 109
-  /// Convert Packed Single-Precision FP Values to Packed Double-Precision FP.
-  | CVTPS2PD = 110
-  /// Convert Packed Single-Precision FP Values to Packed Dword Integers.
-  | CVTPS2PI = 111
-  /// Convert Scalar Double-Precision FP Value to Integer.
-  | CVTSD2SI = 112
-  /// Convert Scalar Double-Precision FP Value to Scalar Single-Precision FP.
-  | CVTSD2SS = 113
-  /// Convert Dword Integer to Scalar Double-Precision FP Value.
-  | CVTSI2SD = 114
-  /// Convert Dword Integer to Scalar Single-Precision FP Value.
-  | CVTSI2SS = 115
-  /// Convert Scalar Single-Precision FP Value to Scalar Double-Precision FP.
-  | CVTSS2SD = 116
-  /// Convert Scalar Single-Precision FP Value to Dword Integer.
-  | CVTSS2SI = 117
-  /// Convert with Truncation Packed Double-Precision FP Values to Packed Dword.
-  | CVTTPD2DQ = 118
-  /// Convert with Truncation Packed Double-Precision FP Values to Packed Dword.
-  | CVTTPD2PI = 119
-  /// Convert with Truncation Packed Single-Precision FP Values to Packed Dword.
-  | CVTTPS2DQ = 120
-  /// Convert with Truncation Packed Single-Precision FP Values to Packed Dword.
-  | CVTTPS2PI = 121
-  /// Convert with Truncation Scalar Double-Precision FP Value to Signed.
-  | CVTTSD2SI = 122
-  /// Convert with Truncation Scalar Single-Precision FP Value to Dword Integer.
-  | CVTTSS2SI = 123
-  /// Convert Word to Doubleword.
-  | CWD = 124
-  /// Convert Word to Doubleword.
-  | CWDE = 125
-  /// Decimal Adjust AL after Addition.
-  | DAA = 126
-  /// Decimal Adjust AL after Subtraction.
-  | DAS = 127
-  /// Decrement by 1.
-  | DEC = 128
-  /// Unsigned Divide.
-  | DIV = 129
-  /// Divide Packed Double-Precision Floating-Point Values.
-  | DIVPD = 130
-  /// Divide Packed Single-Precision Floating-Point Values.
-  | DIVPS = 131
-  /// Divide Scalar Double-Precision Floating-Point Values.
-  | DIVSD = 132
-  /// Divide Scalar Single-Precision Floating-Point Values.
-  | DIVSS = 133
-  /// Perform double-precision dot product for up to 2 elements and broadcast.
-  | DPPD = 134
-  /// Perform single-precision dot products for up to 4 elements and broadcast.
-  | DPPS = 135
-  /// Empty MMX Technology State.
-  | EMMS = 136
-  /// Execute an Enclave System Function of Specified Leaf Number.
-  | ENCLS = 137
-  /// Execute an Enclave User Function of Specified Leaf Number.
-  | ENCLU = 138
-  /// Terminate an Indirect Branch in 32-bit and Compatibility Mode.
-  | ENDBR32 = 139
-  /// Terminate an Indirect Branch in 64-bit Mode.
-  | ENDBR64 = 140
-  /// Make Stack Frame for Procedure Parameters.
-  | ENTER = 141
-  /// Extract Packed Floating-Point Values.
-  | EXTRACTPS = 142
-  /// Extract Field from Register.
-  | EXTRQ = 143
-  /// Compute 2x-1.
-  | F2XM1 = 144
-  /// Absolute Value.
-  | FABS = 145
-  /// Add.
-  | FADD = 146
-  /// Add and pop the register stack.
-  | FADDP = 147
-  /// Load Binary Coded Decimal.
-  | FBLD = 148
-  /// Store BCD Integer and Pop.
-  | FBSTP = 149
-  /// Change Sign.
-  | FCHS = 150
-  /// Clear Exceptions.
-  | FCLEX = 151
-  /// Floating-Point Conditional Move (if below (CF = 1)).
-  | FCMOVB = 152
-  /// Floating-Point Conditional Move (if below or equal (CF = 1 or ZF = 1)).
-  | FCMOVBE = 153
-  /// Floating-Point Conditional Move (if equal (ZF = 1)).
-  | FCMOVE = 154
-  /// Floating-Point Conditional Move (if not below (CF = 0)).
-  | FCMOVNB = 155
-  /// FP Conditional Move (if not below or equal (CF = 0 and ZF = 0)).
-  | FCMOVNBE = 156
-  /// Floating-Point Conditional Move (if not equal (ZF = 0)).
-  | FCMOVNE = 157
-  /// Floating-Point Conditional Move (if not unordered (PF = 0)).
-  | FCMOVNU = 158
-  /// Floating-Point Conditional Move (if unordered (PF = 1)).
-  | FCMOVU = 159
-  /// Compare Floating Point Values.
-  | FCOM = 160
-  /// Compare Floating Point Values and Set EFLAGS.
-  | FCOMI = 161
-  /// Compare Floating Point Values and Set EFLAGS.
-  | FCOMIP = 162
-  /// Compare Floating Point Values and pop register stack.
-  | FCOMP = 163
-  /// Compare Floating Point Values and pop register stack twice.
-  | FCOMPP = 164
-  /// Cosine.
-  | FCOS = 165
-  /// Decrement Stack-Top Pointer.
-  | FDECSTP = 166
-  /// Divide.
-  | FDIV = 167
-  /// Divide and pop the register stack.
-  | FDIVP = 168
-  /// Reverse Divide.
-  | FDIVR = 169
-  /// Reverse Divide and pop the register stack.
-  | FDIVRP = 170
-  /// Free Floating-Point Register.
-  | FFREE = 171
-  /// Performs FFREE ST(i) and pop stack.
-  | FFREEP = 172
-  /// Add.
-  | FIADD = 173
-  /// Compare Integer.
-  | FICOM = 174
-  /// Compare Integer and pop the register stack.
-  | FICOMP = 175
-  /// Divide.
-  | FIDIV = 176
-  /// Reverse Divide.
-  | FIDIVR = 177
-  /// Load Integer.
-  | FILD = 178
-  /// Multiply.
-  | FIMUL = 179
-  /// Increment Stack-Top Pointer.
-  | FINCSTP = 180
-  /// Initialize Floating-Point Unit.
-  | FINIT = 181
-  /// Store Integer.
-  | FIST = 182
-  /// Store Integer and pop the register stack.
-  | FISTP = 183
-  /// Store Integer with Truncation.
-  | FISTTP = 184
-  /// Subtract.
-  | FISUB = 185
-  /// Reverse Subtract.
-  | FISUBR = 186
-  /// Load Floating Point Value.
-  | FLD = 187
-  /// Load Constant (Push +1.0 onto the FPU register stack).
-  | FLD1 = 188
-  /// Load x87 FPU Control Word.
-  | FLDCW = 189
-  /// Load x87 FPU Environment.
-  | FLDENV = 190
-  /// Load Constant (Push log2e onto the FPU register stack).
-  | FLDL2E = 191
-  /// Load Constant (Push log210 onto the FPU register stack).
-  | FLDL2T = 192
-  /// Load Constant (Push log102 onto the FPU register stack).
-  | FLDLG2 = 193
-  /// Load Constant (Push loge2 onto the FPU register stack).
-  | FLDLN2 = 194
-  /// Load Constant (Push Pi onto the FPU register stack).
-  | FLDPI = 195
-  /// Load Constant (Push +0.0 onto the FPU register stack).
-  | FLDZ = 196
-  /// Multiply.
-  | FMUL = 197
-  /// Multiply and pop the register stack.
-  | FMULP = 198
-  /// Clear FP exception flags without checking for error conditions.
-  | FNCLEX = 199
-  /// Initialize FPU without checking error conditions.
-  | FNINIT = 200
-  /// No Operation.
-  | FNOP = 201
-  /// Save FPU state without checking error conditions.
-  | FNSAVE = 202
-  /// Store x87 FPU Control Word.
-  | FNSTCW = 203
-  /// Store FPU environment without checking error conditions.
-  | FNSTENV = 204
-  /// Store FPU status word without checking error conditions.
-  | FNSTSW = 205
-  /// Partial Arctangent.
-  | FPATAN = 206
-  /// Partial Remainder.
-  | FPREM = 207
-  /// Partial Remainder.
-  | FPREM1 = 208
-  /// Partial Tangent.
-  | FPTAN = 209
-  /// Round to Integer.
-  | FRNDINT = 210
-  /// Restore x87 FPU State.
-  | FRSTOR = 211
-  /// Store x87 FPU State.
-  | FSAVE = 212
-  /// Scale.
-  | FSCALE = 213
-  /// Sine.
-  | FSIN = 214
-  /// Sine and Cosine.
-  | FSINCOS = 215
-  /// Square Root.
-  | FSQRT = 216
-  /// Store Floating Point Value.
-  | FST = 217
-  /// Store FPU control word after checking error conditions.
-  | FSTCW = 218
-  /// Store x87 FPU Environment.
-  | FSTENV = 219
-  /// Store Floating Point Value.
-  | FSTP = 220
-  /// Store x87 FPU Status Word.
-  | FSTSW = 221
-  /// Subtract.
-  | FSUB = 222
-  /// Subtract and pop register stack.
-  | FSUBP = 223
-  /// Reverse Subtract.
-  | FSUBR = 224
-  /// Reverse Subtract and pop register stack.
-  | FSUBRP = 225
-  /// TEST.
-  | FTST = 226
-  /// Unordered Compare Floating Point Values.
-  | FUCOM = 227
-  /// Compare Floating Point Values and Set EFLAGS.
-  | FUCOMI = 228
-  /// Compare Floating Point Values and Set EFLAGS and pop register stack.
-  | FUCOMIP = 229
-  /// Unordered Compare Floating Point Values.
-  | FUCOMP = 230
-  /// Unordered Compare Floating Point Values.
-  | FUCOMPP = 231
-  /// Wait for FPU.
-  | FWAIT = 232
-  /// Examine ModR/M.
-  | FXAM = 233
-  /// Exchange Register Contents.
-  | FXCH = 234
-  /// Restore x87 FPU, MMX, XMM, and MXCSR State.
-  | FXRSTOR = 235
-  /// Restore x87 FPU, MMX, XMM, and MXCSR State.
-  | FXRSTOR64 = 236
-  /// Save x87 FPU, MMX Technology, and SSE State.
-  | FXSAVE = 237
-  /// Save x87 FPU, MMX Technology, and SSE State.
-  | FXSAVE64 = 238
-  /// Extract Exponent and Significand.
-  | FXTRACT = 239
-  /// compute y * log2x.
-  | FYL2X = 240
-  /// compute y * log2(x+1).
-  | FYL2XP1 = 241
-  /// GETSEC.
-  | GETSEC = 242
-  /// Galois Field Affine Transformation Inverse.
-  | GF2P8AFFINEINVQB = 243
-  /// Galois Field Affine Transformation.
-  | GF2P8AFFINEQB = 244
-  /// Galois Field Multiply Bytes.
-  | GF2P8MULB = 245
-  /// Packed Double-FP Horizontal Add.
-  | HADDPD = 246
-  /// Packed Single-FP Horizontal Add.
-  | HADDPS = 247
-  /// Halt.
-  | HLT = 248
-  /// Packed Double-FP Horizontal Subtract.
-  | HSUBPD = 249
-  /// Packed Single-FP Horizontal Subtract.
-  | HSUBPS = 250
-  /// Signed Divide.
-  | IDIV = 251
-  /// Signed Multiply.
-  | IMUL = 252
-  /// Input from Port.
-  | IN = 253
-  /// Increment by 1.
-  | INC = 254
-  /// Increment the shadow stack pointer (SSP).
-  | INCSSPD = 255
-  /// Increment the shadow stack pointer (SSP).
-  | INCSSPQ = 256
-  /// Input from Port to String.
-  | INS = 257
-  /// Input from Port to String (byte).
-  | INSB = 258
-  /// Input from Port to String (doubleword).
-  | INSD = 259
-  /// Insert Scalar Single-Precision Floating-Point Value.
-  | INSERTPS = 260
-  /// Inserts Field from a source Register to a destination Register.
-  | INSERTQ = 261
-  /// Input from Port to String (word).
-  | INSW = 262
-  /// Call to Interrupt (Interrupt vector specified by immediate byte).
-  | INT = 263
-  /// Call to Interrupt Procedure (Debug trap).
-  | INT1 = 264
-  /// Call to Interrupt (Interrupt 3-trap to debugger).
-  | INT3 = 265
-  /// Call to Interrupt (InteInterrupt 4-if overflow flag is 1).
-  | INTO = 266
-  /// Invalidate Internal Caches.
-  | INVD = 267
-  /// Invalidate Translations Derived from EPT.
-  | INVEPT = 268
-  /// Invalidate TLB Entries.
-  | INVLPG = 269
-  /// Invalidate Process-Context Identifier.
-  | INVPCID = 270
-  /// Invalidate Translations Based on VPID.
-  | INVVPID = 271
-  /// Return from interrupt.
-  | IRET = 272
-  /// Interrupt return (32-bit operand size).
-  | IRETD = 273
-  /// Interrupt return (64-bit operand size).
-  | IRETQ = 274
-  /// Interrupt return (16-bit operand size).
-  | IRETW = 275
-  /// Jump if Condition Is Met (Jump near if not below, CF = 0).
-  | JAE = 276
-  | JNC = 276
-  | JNB = 276
-  /// Jump if Condition Is Met (Jump short if below, CF = 1).
-  | JC = 277
-  | JNAE = 277
-  | JB = 277
-  /// Jump if Condition Is Met (Jump short if CX register is 0).
-  | JCXZ = 278
-  /// Jump if Condition Is Met (Jump short if ECX register is 0).
-  | JECXZ = 279
-  /// Jump if Condition Is Met (Jump near if not less, SF = OF).
-  | JGE = 280
-  | JNL = 280
-  /// Far jmp.
-  | JMPFar = 281
-  /// Near jmp.
-  | JMPNear = 282
-  /// Jump if Condition Is Met (Jump short if below or equal, CF = 1 or ZF).
-  | JNA = 283
-  | JBE = 283
-  /// Jump if Condition Is Met (Jump short if above, CF = 0 and ZF = 0).
-  | JNBE = 284
-  | JA = 284
-  /// Jump if Cond Is Met (Jump short if less or equal, ZF = 1 or SF <> OF).
-  | JNG = 285
-  | JLE = 285
-  /// Jump if Condition Is Met (Jump short if less, SF <> OF).
-  | JNGE = 286
-  | JL = 286
-  /// Jump if Condition Is Met (Jump short if greater, ZF = 0 and SF = OF).
-  | JNLE = 287
-  | JG = 287
-  /// Jump if Condition Is Met (Jump near if not overflow, OF = 0).
-  | JNO = 288
-  /// Jump if Condition Is Met (Jump near if not sign, SF = 0).
-  | JNS = 289
-  /// Jump if Condition Is Met (Jump near if not zero, ZF = 0).
-  | JNZ = 290
-  | JNE = 290
-  /// Jump if Condition Is Met (Jump near if overflow, OF = 1).
-  | JO = 291
-  /// Jump if Condition Is Met (Jump near if parity, PF = 1).
-  | JP = 292
-  | JPE = 292
-  /// Jump if Condition Is Met (Jump near if not parity, PF = 0).
-  | JPO = 293
-  | JNP = 293
-  /// Jump if Condition Is Met (Jump short if RCX register is 0).
-  | JRCXZ = 294
-  /// Jump if Condition Is Met (Jump short if sign, SF = 1).
-  | JS = 295
-  /// Jump if Condition Is Met (Jump short if zero, ZF = 1).
-  | JZ = 296
-  | JE = 296
-  /// Add two 8-bit opmasks.
-  | KADDB = 297
-  /// Add two 32-bit opmasks.
-  | KADDD = 298
-  /// Add two 64-bit opmasks.
-  | KADDQ = 299
-  /// Add two 16-bit opmasks.
-  | KADDW = 300
-  /// Logical AND two 8-bit opmasks.
-  | KANDB = 301
-  /// Logical AND two 32-bit opmasks.
-  | KANDD = 302
-  /// Logical AND NOT two 8-bit opmasks.
-  | KANDNB = 303
-  /// Logical AND NOT two 32-bit opmasks.
-  | KANDND = 304
-  /// Logical AND NOT two 64-bit opmasks.
-  | KANDNQ = 305
-  /// Logical AND NOT two 16-bit opmasks.
-  | KANDNW = 306
-  /// Logical AND two 64-bit opmasks.
-  | KANDQ = 307
-  /// Logical AND two 16-bit opmasks.
-  | KANDW = 308
-  /// Move from or move to opmask register of 8-bit data.
-  | KMOVB = 309
-  /// Move from or move to opmask register of 32-bit data.
-  | KMOVD = 310
-  /// Move from or move to opmask register of 64-bit data.
-  | KMOVQ = 311
-  /// Move from or move to opmask register of 16-bit data.
-  | KMOVW = 312
-  /// Bitwise NOT of two 8-bit opmasks.
-  | KNOTB = 313
-  /// Bitwise NOT of two 32-bit opmasks.
-  | KNOTD = 314
-  /// Bitwise NOT of two 64-bit opmasks.
-  | KNOTQ = 315
-  /// Bitwise NOT of two 16-bit opmasks.
-  | KNOTW = 316
-  /// Logical OR two 8-bit opmasks.
-  | KORB = 317
-  /// Logical OR two 32-bit opmasks.
-  | KORD = 318
-  /// Logical OR two 64-bit opmasks.
-  | KORQ = 319
-  /// Update EFLAGS according to the result of bitwise OR of two 8-bit opmasks.
-  | KORTESTB = 320
-  /// Update EFLAGS according to the result of bitwise OR of two 32-bit opmasks.
-  | KORTESTD = 321
-  /// Update EFLAGS according to the result of bitwise OR of two 64-bit opmasks.
-  | KORTESTQ = 322
-  /// Update EFLAGS according to the result of bitwise OR of two 16-bit opmasks.
-  | KORTESTW = 323
-  /// Logical OR two 16-bit opmasks.
-  | KORW = 324
-  /// Shift left 8-bitopmask by specified count.
-  | KSHIFTLB = 325
-  /// Shift left 32-bitopmask by specified count.
-  | KSHIFTLD = 326
-  /// Shift left 64-bitopmask by specified count.
-  | KSHIFTLQ = 327
-  /// Shift left 16-bitopmask by specified count.
-  | KSHIFTLW = 328
-  /// Shift right 8-bit opmask by specified count.
-  | KSHIFTRB = 329
-  /// Shift right 32-bit opmask by specified count.
-  | KSHIFTRD = 330
-  /// Shift right 64-bit opmask by specified count.
-  | KSHIFTRQ = 331
-  /// Shift right 16-bit opmask by specified count.
-  | KSHIFTRW = 332
-  /// Update EFLAGS according to result of bitwise TEST of two 8-bit opmasks.
-  | KTESTB = 333
-  /// Update EFLAGS according to result of bitwise TEST of two 32-bit opmasks.
-  | KTESTD = 334
-  /// Update EFLAGS according to result of bitwise TEST of two 64-bit opmasks.
-  | KTESTQ = 335
-  /// Update EFLAGS according to result of bitwise TEST of two 16-bit opmasks.
-  | KTESTW = 336
-  /// Unpack and interleave two 8-bit opmasks into 16-bit mask.
-  | KUNPCKBW = 337
-  /// Unpack and interleave two 32-bit opmasks into 64-bit mask.
-  | KUNPCKDQ = 338
-  /// Unpack and interleave two 16-bit opmasks into 32-bit mask.
-  | KUNPCKWD = 339
-  /// Bitwise logical XNOR of two 8-bit opmasks.
-  | KXNORB = 340
-  /// Bitwise logical XNOR of two 32-bit opmasks.
-  | KXNORD = 341
-  /// Bitwise logical XNOR of two 64-bit opmasks.
-  | KXNORQ = 342
-  /// Bitwise logical XNOR of two 16-bit opmasks.
-  | KXNORW = 343
-  /// Logical XOR of two 8-bit opmasks.
-  | KXORB = 344
-  /// Logical XOR of two 32-bit opmasks.
-  | KXORD = 345
-  /// Logical XOR of two 64-bit opmasks.
-  | KXORQ = 346
-  /// Logical XOR of two 16-bit opmasks.
-  | KXORW = 347
-  /// Load Status Flags into AH Register.
-  | LAHF = 348
-  /// Load Access Rights Byte.
-  | LAR = 349
-  /// Load Unaligned Integer 128 Bits.
-  | LDDQU = 350
-  /// Load MXCSR Register.
-  | LDMXCSR = 351
-  /// Load Far Pointer (DS).
-  | LDS = 352
-  /// Load Effective Address.
-  | LEA = 353
-  /// High Level Procedure Exit.
-  | LEAVE = 354
-  /// Load Far Pointer (ES).
-  | LES = 355
-  /// Load Fence.
-  | LFENCE = 356
-  /// Load Far Pointer (FS).
-  | LFS = 357
-  /// Load GlobalDescriptor Table Register.
-  | LGDT = 358
-  /// Load Far Pointer (GS).
-  | LGS = 359
-  /// Load Interrupt Descriptor Table Register.
-  | LIDT = 360
-  /// Load Local Descriptor Table Register.
-  | LLDT = 361
-  /// Load Machine Status Word.
-  | LMSW = 362
-  /// Assert LOCK# Signal Prefix.
-  | LOCK = 363
-  /// Load String (byte).
-  | LODSB = 364
-  /// Load String (doubleword).
-  | LODSD = 365
-  /// Load String (quadword).
-  | LODSQ = 366
-  /// Load String (word).
-  | LODSW = 367
-  /// Loop According to ECX Counter (count <> 0).
-  | LOOP = 368
-  /// Loop According to ECX Counter (count <> 0 and ZF = 1).
-  | LOOPE = 369
-  /// Loop According to ECX Counter (count <> 0 and ZF = 0).
-  | LOOPNE = 370
-  /// Load Segment Limit.
-  | LSL = 371
-  /// Load Far Pointer (SS).
-  | LSS = 372
-  /// Load Task Register.
-  | LTR = 373
-  /// the Number of Leading Zero Bits.
-  | LZCNT = 374
-  /// Store Selected Bytes of Double Quadword.
-  | MASKMOVDQU = 375
-  /// Store Selected Bytes of Quadword.
-  | MASKMOVQ = 376
-  /// Return Maximum Packed Double-Precision Floating-Point Values.
-  | MAXPD = 377
-  /// Return Maximum Packed Single-Precision Floating-Point Values.
-  | MAXPS = 378
-  /// Return Maximum Scalar Double-Precision Floating-Point Values.
-  | MAXSD = 379
-  /// Return Maximum Scalar Single-Precision Floating-Point Values.
-  | MAXSS = 380
-  /// Memory Fence.
-  | MFENCE = 381
-  /// Return Minimum Packed Double-Precision Floating-Point Values.
-  | MINPD = 382
-  /// Return Minimum Packed Single-Precision Floating-Point Values.
-  | MINPS = 383
-  /// Return Minimum Scalar Double-Precision Floating-Point Values.
-  | MINSD = 384
-  /// Return Minimum Scalar Single-Precision Floating-Point Values.
-  | MINSS = 385
-  /// Set Up Monitor Address.
-  | MONITOR = 386
-  /// Montgomery multiplier (PMM).
-  | MONTMUL = 387
-  /// Montgomery multiplier (PMM).
-  | MONTMUL2 = 388
-  /// MOV.
-  | MOV = 389
-  /// Move Aligned Packed Double-Precision Floating-Point Values.
-  | MOVAPD = 390
-  /// Move Aligned Packed Single-Precision Floating-Point Values.
-  | MOVAPS = 391
-  /// Move Data After Swapping Bytes.
-  | MOVBE = 392
-  /// Move Doubleword.
-  | MOVD = 393
-  /// Move One Double-FP and Duplicate.
-  | MOVDDUP = 394
-  /// Move Quadword from XMM to MMX Technology Register.
-  | MOVDQ2Q = 395
-  /// Move Aligned Double Quadword.
-  | MOVDQA = 396
-  /// Move Unaligned Double Quadword.
-  | MOVDQU = 397
-  /// Move Packed Single-Precision Floating-Point Values High to Low.
-  | MOVHLPS = 398
-  /// Move High Packed Double-Precision Floating-Point Value.
-  | MOVHPD = 399
-  /// Move High Packed Single-Precision Floating-Point Values.
-  | MOVHPS = 400
-  /// Move Packed Single-Precision Floating-Point Values Low to High.
-  | MOVLHPS = 401
-  /// Move Low Packed Double-Precision Floating-Point Value.
-  | MOVLPD = 402
-  /// Move Low Packed Single-Precision Floating-Point Values.
-  | MOVLPS = 403
-  /// Extract Packed Double-Precision Floating-Point Sign Mask.
-  | MOVMSKPD = 404
-  /// Extract Packed Single-Precision Floating-Point Sign Mask.
-  | MOVMSKPS = 405
-  /// Load Double Quadword Non-Temporal Aligned Hint.
-  | MOVNTDQ = 406
-  /// Load Double Quadword Non-Temporal Aligned Hint.
-  | MOVNTDQA = 407
-  /// Store Doubleword Using Non-Temporal Hint.
-  | MOVNTI = 408
-  /// Store Packed Double-Precision FP Values Using Non-Temporal Hint.
-  | MOVNTPD = 409
-  /// Store Packed Single-Precision FP Values Using Non-Temporal Hint.
-  | MOVNTPS = 410
-  /// Store of Quadword Using Non-Temporal Hint.
-  | MOVNTQ = 411
-  /// Move Quadword.
-  | MOVQ = 412
-  /// Move Quadword from MMX Technology to XMM Register.
-  | MOVQ2DQ = 413
-  /// Move Data from String to String (byte).
-  | MOVSB = 414
-  /// Move Data from String to String (doubleword).
-  | MOVSD = 415
-  /// Move Packed Single-FP High and Duplicate.
-  | MOVSHDUP = 416
-  /// Move Packed Single-FP Low and Duplicate.
-  | MOVSLDUP = 417
-  /// Move Data from String to String (quadword).
-  | MOVSQ = 418
-  /// Move Scalar Single-Precision Floating-Point Values.
-  | MOVSS = 419
-  /// Move Data from String to String (word).
-  | MOVSW = 420
-  /// Move with Sign-Extension.
-  | MOVSX = 421
-  /// Move with Sign-Extension (doubleword to quadword).
-  | MOVSXD = 422
-  /// Move Unaligned Packed Double-Precision Floating-Point Values.
-  | MOVUPD = 423
-  /// Move Unaligned Packed Single-Precision Floating-Point Values.
-  | MOVUPS = 424
-  /// Move with Zero-Extend.
-  | MOVZX = 425
-  /// Compute Multiple Packed Sums of Absolute Difference.
-  | MPSADBW = 426
-  /// Unsigned Multiply.
-  | MUL = 427
-  /// Multiply Packed Double-Precision Floating-Point Values.
-  | MULPD = 428
-  /// Multiply Packed Single-Precision Floating-Point Values.
-  | MULPS = 429
-  /// Multiply Scalar Double-Precision Floating-Point Values.
-  | MULSD = 430
-  /// Multiply Scalar Single-Precision Floating-Point Values.
-  | MULSS = 431
-  /// Unsigned multiply without affecting arithmetic flags.
-  | MULX = 432
-  /// Monitor Wait.
-  | MWAIT = 433
-  /// Two's Complement Negation.
-  | NEG = 434
-  /// No Operation.
-  | NOP = 435
-  /// One's Complement Negation.
-  | NOT = 436
-  /// Logical Inclusive OR.
-  | OR = 437
-  /// Bitwise Logical OR of Double-Precision Floating-Point Values.
-  | ORPD = 438
-  /// Bitwise Logical OR of Single-Precision Floating-Point Values.
-  | ORPS = 439
-  /// Output to Port.
-  | OUT = 440
-  /// Output String to Port.
-  | OUTS = 441
-  /// Output String to Port (byte).
-  | OUTSB = 442
-  /// Output String to Port (doubleword).
-  | OUTSD = 443
-  /// Output String to Port (word).
-  | OUTSW = 444
-  /// Computes the absolute value of each signed byte data element.
-  | PABSB = 445
-  /// Computes the absolute value of each signed 32-bit data element.
-  | PABSD = 446
-  /// Computes the absolute value of each signed 16-bit data element.
-  | PABSW = 447
-  /// Pack with Signed Saturation.
-  | PACKSSDW = 448
-  /// Pack with Signed Saturation.
-  | PACKSSWB = 449
-  /// Pack with Unsigned Saturation.
-  | PACKUSDW = 450
-  /// Pack with Unsigned Saturation.
-  | PACKUSWB = 451
-  /// Add Packed byte Integers.
-  | PADDB = 452
-  /// Add Packed Doubleword Integers.
-  | PADDD = 453
-  /// Add Packed Quadword Integers.
-  | PADDQ = 454
-  /// Add Packed Signed Integers with Signed Saturation (byte).
-  | PADDSB = 455
-  /// Add Packed Signed Integers with Signed Saturation (word).
-  | PADDSW = 456
-  /// Add Packed Unsigned Integers with Unsigned Saturation (byte).
-  | PADDUSB = 457
-  /// Add Packed Unsigned Integers with Unsigned Saturation (word).
-  | PADDUSW = 458
-  /// Add Packed word Integers.
-  | PADDW = 459
-  /// Packed Align Right.
-  | PALIGNR = 460
-  /// Logical AND.
-  | PAND = 461
-  /// Logical AND NOT.
-  | PANDN = 462
-  /// Spin Loop Hint.
-  | PAUSE = 463
-  /// Average Packed Integers (byte).
-  | PAVGB = 464
-  /// Average Packed Integers (word).
-  | PAVGW = 465
-  /// Variable Blend Packed Bytes.
-  | PBLENDVB = 466
-  /// Blend Packed Words.
-  | PBLENDW = 467
-  /// Perform carryless multiplication of two 64-bit numbers.
-  | PCLMULQDQ = 468
-  /// Compare Packed Data for Equal (byte).
-  | PCMPEQB = 469
-  /// Compare Packed Data for Equal (doubleword).
-  | PCMPEQD = 470
-  /// Compare Packed Data for Equal (quadword).
-  | PCMPEQQ = 471
-  /// Compare packed words for equal.
-  | PCMPEQW = 472
-  /// Packed Compare Explicit Length Strings, Return Index.
-  | PCMPESTRI = 473
-  /// Packed Compare Explicit Length Strings, Return Mask.
-  | PCMPESTRM = 474
-  /// Compare Packed Signed Integers for Greater Than (byte).
-  | PCMPGTB = 475
-  /// Compare Packed Signed Integers for Greater Than (doubleword).
-  | PCMPGTD = 476
-  /// Performs logical compare of greater-than on packed integer quadwords.
-  | PCMPGTQ = 477
-  /// Compare Packed Signed Integers for Greater Than (word).
-  | PCMPGTW = 478
-  /// Packed Compare Implicit Length Strings, Return Index.
-  | PCMPISTRI = 479
-  /// Packed Compare Implicit Length Strings, Return Mask.
-  | PCMPISTRM = 480
-  /// Parallel deposit of bits using a mask.
-  | PDEP = 481
-  /// Parallel extraction of bits using a mask.
-  | PEXT = 482
-  /// Extract Byte.
-  | PEXTRB = 483
-  /// Extract Dword.
-  | PEXTRD = 484
-  /// Extract Qword.
-  | PEXTRQ = 485
-  /// Extract Word.
-  | PEXTRW = 486
-  /// Packed Horizontal Add.
-  | PHADDD = 487
-  /// Packed Horizontal Add and Saturate.
-  | PHADDSW = 488
-  /// Packed Horizontal Add.
-  | PHADDW = 489
-  /// Packed Horizontal Word Minimum.
-  | PHMINPOSUW = 490
-  /// Packed Horizontal Subtract.
-  | PHSUBD = 491
-  /// Packed Horizontal Subtract and Saturate.
-  | PHSUBSW = 492
-  /// Packed Horizontal Subtract.
-  | PHSUBW = 493
-  /// Insert Byte.
-  | PINSRB = 494
-  /// Insert a dword value from 32-bit register or memory into an XMM register.
-  | PINSRD = 495
-  /// Insert a qword value from 64-bit register or memory into an XMM register.
-  | PINSRQ = 496
-  /// Insert Word.
-  | PINSRW = 497
-  /// Multiply and Add Packed Signed and Unsigned Bytes.
-  | PMADDUBSW = 498
-  /// Multiply and Add Packed Integers.
-  | PMADDWD = 499
-  /// Compare packed signed byte integers.
-  | PMAXSB = 500
-  /// Compare packed signed dword integers.
-  | PMAXSD = 501
-  /// Maximum of Packed Signed Word Integers.
-  | PMAXSW = 502
-  /// Maximum of Packed Unsigned Byte Integers.
-  | PMAXUB = 503
-  /// Compare packed unsigned dword integers.
-  | PMAXUD = 504
-  /// Compare packed unsigned word integers.
-  | PMAXUW = 505
-  /// Minimum of Packed Signed Byte Integers.
-  | PMINSB = 506
-  /// Compare packed signed dword integers.
-  | PMINSD = 507
-  /// Minimum of Packed Signed Word Integers.
-  | PMINSW = 508
-  /// Minimum of Packed Unsigned Byte Integers.
-  | PMINUB = 509
-  /// Minimum of Packed Dword Integers.
-  | PMINUD = 510
-  /// Compare packed unsigned word integers.
-  | PMINUW = 511
-  /// Move Byte Mask.
-  | PMOVMSKB = 512
-  /// Packed Move with Sign Extend.
-  | PMOVSXBD = 513
-  /// Packed Move with Sign Extend.
-  | PMOVSXBQ = 514
-  /// Packed Move with Sign Extend.
-  | PMOVSXBW = 515
-  /// Packed Move with Sign Extend.
-  | PMOVSXDQ = 516
-  /// Packed Move with Sign Extend.
-  | PMOVSXWD = 517
-  /// Packed Move with Sign Extend.
-  | PMOVSXWQ = 518
-  /// Packed Move with Zero Extend.
-  | PMOVZXBD = 519
-  /// Packed Move with Zero Extend.
-  | PMOVZXBQ = 520
-  /// Packed Move with Zero Extend.
-  | PMOVZXBW = 521
-  /// Packed Move with Zero Extend.
-  | PMOVZXDQ = 522
-  /// Packed Move with Zero Extend.
-  | PMOVZXWD = 523
-  /// Packed Move with Zero Extend.
-  | PMOVZXWQ = 524
-  /// Multiply Packed Doubleword Integers.
-  | PMULDQ = 525
-  /// Packed Multiply High with Round and Scale.
-  | PMULHRSW = 526
-  /// Multiply Packed Unsigned Integers and Store High Result.
-  | PMULHUW = 527
-  /// Multiply Packed Signed Integers and Store High Result.
-  | PMULHW = 528
-  /// Multiply Packed Integers and Store Low Result.
-  | PMULLD = 529
-  /// Multiply Packed Signed Integers and Store Low Result.
-  | PMULLW = 530
-  /// Multiply Packed Unsigned Doubleword Integers.
-  | PMULUDQ = 531
-  /// Pop a Value from the Stack.
-  | POP = 532
-  /// Pop All General-Purpose Registers (word).
-  | POPA = 533
-  /// Pop All General-Purpose Registers (doubleword).
-  | POPAD = 534
-  /// Return the Count of Number of Bits Set to 1.
-  | POPCNT = 535
-  /// Pop Stack into EFLAGS Register (lower 16bits EFLAGS).
-  | POPF = 536
-  /// Pop Stack into EFLAGS Register (EFLAGS).
-  | POPFD = 537
-  /// Pop Stack into EFLAGS Register (RFLAGS).
-  | POPFQ = 538
-  /// Bitwise Logical OR.
-  | POR = 539
-  /// Prefetch Data Into Caches (using NTA hint).
-  | PREFETCHNTA = 540
-  /// Prefetch Data Into Caches (using T0 hint).
-  | PREFETCHT0 = 541
-  /// Prefetch Data Into Caches (using T1 hint).
-  | PREFETCHT1 = 542
-  /// Prefetch Data Into Caches (using T2 hint).
-  | PREFETCHT2 = 543
-  /// Prefetch Data into Caches in Anticipation of a Write.
-  | PREFETCHW = 544
-  /// Prefetch Vector Data Into Caches with Intent to Write and T1 Hint.
-  | PREFETCHWT1 = 545
-  /// Compute Sum of Absolute Differences.
-  | PSADBW = 546
-  /// Packed Shuffle Bytes.
-  | PSHUFB = 547
-  /// Shuffle Packed Doublewords.
-  | PSHUFD = 548
-  /// Shuffle Packed High Words.
-  | PSHUFHW = 549
-  /// Shuffle Packed Low Words.
-  | PSHUFLW = 550
-  /// Shuffle Packed Words.
-  | PSHUFW = 551
-  /// Packed Sign Byte.
-  | PSIGNB = 552
-  /// Packed Sign Doubleword.
-  | PSIGND = 553
-  /// Packed Sign Word.
-  | PSIGNW = 554
-  /// Shift Packed Data Left Logical (doubleword).
-  | PSLLD = 555
-  /// Shift Double Quadword Left Logical.
-  | PSLLDQ = 556
-  /// Shift Packed Data Left Logical (quadword).
-  | PSLLQ = 557
-  /// Shift Packed Data Left Logical (word).
-  | PSLLW = 558
-  /// Shift Packed Data Right Arithmetic (doubleword).
-  | PSRAD = 559
-  /// Shift Packed Data Right Arithmetic (word).
-  | PSRAW = 560
-  /// Shift Packed Data Right Logical (doubleword).
-  | PSRLD = 561
-  /// Shift Double Quadword Right Logical.
-  | PSRLDQ = 562
-  /// Shift Packed Data Right Logical (quadword).
-  | PSRLQ = 563
-  /// Shift Packed Data Right Logical (word).
-  | PSRLW = 564
-  /// Subtract Packed Integers (byte).
-  | PSUBB = 565
-  /// Subtract Packed Integers (doubleword).
-  | PSUBD = 566
-  /// Subtract Packed Integers (quadword).
-  | PSUBQ = 567
-  /// Subtract Packed Signed Integers with Signed Saturation (byte).
-  | PSUBSB = 568
-  /// Subtract Packed Signed Integers with Signed Saturation (word).
-  | PSUBSW = 569
-  /// Subtract Packed Unsigned Integers with Unsigned Saturation (byte).
-  | PSUBUSB = 570
-  /// Subtract Packed Unsigned Integers with Unsigned Saturation (word).
-  | PSUBUSW = 571
-  /// Subtract Packed Integers (word).
-  | PSUBW = 572
-  /// Logical Compare.
-  | PTEST = 573
-  /// Unpack High Data.
-  | PUNPCKHBW = 574
-  /// Unpack High Data.
-  | PUNPCKHDQ = 575
-  /// Unpack High Data.
-  | PUNPCKHQDQ = 576
-  /// Unpack High Data.
-  | PUNPCKHWD = 577
-  /// Unpack Low Data.
-  | PUNPCKLBW = 578
-  /// Unpack Low Data.
-  | PUNPCKLDQ = 579
-  /// Unpack Low Data.
-  | PUNPCKLQDQ = 580
-  /// Unpack Low Data.
-  | PUNPCKLWD = 581
-  /// Push Word, Doubleword or Quadword Onto the Stack.
-  | PUSH = 582
-  /// Push All General-Purpose Registers (word).
-  | PUSHA = 583
-  /// Push All General-Purpose Registers (doubleword).
-  | PUSHAD = 584
-  /// Push EFLAGS Register onto the Stack (16bits of EFLAGS).
-  | PUSHF = 585
-  /// Push EFLAGS Register onto the Stack (EFLAGS).
-  | PUSHFD = 586
-  /// Push EFLAGS Register onto the Stack (RFLAGS).
-  | PUSHFQ = 587
-  /// Logical Exclusive OR.
-  | PXOR = 588
-  /// Rotate x bits (CF, r/m(x)) left once.
-  | RCL = 589
-  /// Compute reciprocals of packed single-precision floating-point values.
-  | RCPPS = 590
-  /// Compute reciprocal of scalar single-precision floating-point values.
-  | RCPSS = 591
-  /// Rotate x bits (CF, r/m(x)) right once.
-  | RCR = 592
-  /// Read FS Segment Base.
-  | RDFSBASE = 593
-  /// Read GS Segment Base.
-  | RDGSBASE = 594
-  /// Read from Model Specific Register.
-  | RDMSR = 595
-  /// Read Protection Key Rights for User Pages.
-  | RDPKRU = 596
-  /// Read Performance-Monitoring Counters.
-  | RDPMC = 597
-  /// Read Random Number.
-  | RDRAND = 598
-  /// Read Random SEED.
-  | RDSEED = 599
-  /// Read shadow stack point (SSP).
-  | RDSSPD = 600
-  /// Read shadow stack point (SSP).
-  | RDSSPQ = 601
-  /// Read Time-Stamp Counter.
-  | RDTSC = 602
-  /// Read Time-Stamp Counter and Processor ID.
-  | RDTSCP = 603
-  /// Repeat while ECX not zero.
-  | REP = 604
-  /// Repeat while equal/Repeat while zero.
-  | REPE = 605
-  /// Repeat while not equal/Repeat while not zero.
-  | REPNE = 606
-  /// Repeat while not equal/Repeat while not zero.
-  | REPNZ = 607
-  /// Repeat while equal/Repeat while zero.
-  | REPZ = 608
-  /// Far return.
-  | RETFar = 609
-  /// Far return w/ immediate.
-  | RETFarImm = 610
-  /// Near return.
-  | RETNear = 611
-  /// Near return w/ immediate .
-  | RETNearImm = 612
-  /// Rotate x bits r/m(x) left once.
-  | ROL = 613
-  /// Rotate x bits r/m(x) right once.
-  | ROR = 614
-  /// Rotate right without affecting arithmetic flags.
-  | RORX = 615
-  /// Round Packed Double Precision Floating-Point Values.
-  | ROUNDPD = 616
-  /// Round Packed Single Precision Floating-Point Values.
-  | ROUNDPS = 617
-  /// Round Scalar Double Precision Floating-Point Values.
-  | ROUNDSD = 618
-  /// Round Scalar Single Precision Floating-Point Values.
-  | ROUNDSS = 619
-  /// Resume from System Management Mode.
-  | RSM = 620
-  /// Compute reciprocals of square roots of packed single-precision FP values.
-  | RSQRTPS = 621
-  /// Compute reciprocal of square root of scalar single-precision FP values.
-  | RSQRTSS = 622
-  /// Restore a shadow stack pointer (SSP).
-  | RSTORSSP = 623
-  /// Store AH into Flags.
-  | SAHF = 624
-  /// Shift.
-  | SAR = 625
-  /// Shift arithmetic right.
-  | SARX = 626
-  /// Save previous shadow stack pointer (SSP).
-  | SAVEPREVSSP = 627
-  /// Integer Subtraction with Borrow.
-  | SBB = 628
-  /// Scan String (byte).
-  | SCASB = 629
-  /// Scan String (doubleword).
-  | SCASD = 630
-  /// Scan String (quadword).
-  | SCASQ = 631
-  /// Scan String (word).
-  | SCASW = 632
-  /// Set byte if above (CF = 0 and ZF = 0).
-  | SETA = 633
-  /// Set byte if below (CF = 1).
-  | SETB = 634
-  /// Set byte if below or equal (CF = 1 or ZF = 1).
-  | SETBE = 635
-  /// Set byte if greater (ZF = 0 and SF = OF).
-  | SETG = 636
-  /// Set byte if less (SF <> OF).
-  | SETL = 637
-  /// Set byte if less or equal (ZF = 1 or SF <> OF).
-  | SETLE = 638
-  /// Set byte if not below (CF = 0).
-  | SETNB = 639
-  /// Set byte if not less (SF = OF).
-  | SETNL = 640
-  /// Set byte if not overflow (OF = 0).
-  | SETNO = 641
-  /// Set byte if not parity (PF = 0).
-  | SETNP = 642
-  /// Set byte if not sign (SF = 0).
-  | SETNS = 643
-  /// Set byte if not zero (ZF = 0).
-  | SETNZ = 644
-  /// Set byte if overflow (OF = 1).
-  | SETO = 645
-  /// Set byte if parity (PF = 1).
-  | SETP = 646
-  /// Set byte if sign (SF = 1).
-  | SETS = 647
-  /// Set busy bit in a supervisor shadow stack token.
-  | SETSSBSY = 648
-  /// Set byte if sign (ZF = 1).
-  | SETZ = 649
-  /// Store Fence.
-  | SFENCE = 650
-  /// Store Global Descriptor Table Register.
-  | SGDT = 651
-  /// Perform an Intermediate Calculation for the Next Four SHA1 Message Dwords.
-  | SHA1MSG1 = 652
-  /// Perform a Final Calculation for the Next Four SHA1 Message Dwords.
-  | SHA1MSG2 = 653
-  /// Calculate SHA1 state E after four rounds.
-  | SHA1NEXTE = 654
-  /// Perform four rounds of SHA1 operations.
-  | SHA1RNDS4 = 655
-  /// Perform an intermediate calculation for the next 4 SHA256 message dwords.
-  | SHA256MSG1 = 656
-  /// Perform the final calculation for the next four SHA256 message dwords.
-  | SHA256MSG2 = 657
-  /// Perform two rounds of SHA256 operations.
-  | SHA256RNDS2 = 658
-  /// Shift.
-  | SHL = 659
-  /// Double Precision Shift Left.
-  | SHLD = 660
-  /// Shift logic left.
-  | SHLX = 661
-  /// Shift.
-  | SHR = 662
-  /// Double Precision Shift Right.
-  | SHRD = 663
-  /// Shift logic right.
-  | SHRX = 664
-  /// Shuffle Packed Double-Precision Floating-Point Values.
-  | SHUFPD = 665
-  /// Shuffle Packed Single-Precision Floating-Point Values.
-  | SHUFPS = 666
-  /// Store Interrupt Descriptor Table Register.
-  | SIDT = 667
-  /// Store Local Descriptor Table Register.
-  | SLDT = 668
-  /// Chinese national cryptographic algorithms.
-  | SM2 = 669
-  /// Store Machine Status Word.
-  | SMSW = 670
-  /// Compute packed square roots of packed double-precision FP values.
-  | SQRTPD = 671
-  /// Compute square roots of packed single-precision floating-point values.
-  | SQRTPS = 672
-  /// Compute scalar square root of scalar double-precision FP values.
-  | SQRTSD = 673
-  /// Compute square root of scalar single-precision floating-point values.
-  | SQRTSS = 674
-  /// Set AC Flag in EFLAGS Register.
-  | STAC = 675
-  /// Set Carry Flag.
-  | STC = 676
-  /// Set Direction Flag.
-  | STD = 677
-  /// Set Interrupt Flag.
-  | STI = 678
-  /// Store MXCSR Register State.
-  | STMXCSR = 679
-  /// Store String (store AL).
-  | STOSB = 680
-  /// Store String (store EAX).
-  | STOSD = 681
-  /// Store String (store RAX).
-  | STOSQ = 682
-  /// Store String (store AX).
-  | STOSW = 683
-  /// Store Task Register.
-  | STR = 684
-  /// Subtract.
-  | SUB = 685
-  /// Subtract Packed Double-Precision Floating-Point Values.
-  | SUBPD = 686
-  /// Subtract Packed Single-Precision Floating-Point Values.
-  | SUBPS = 687
-  /// Subtract Scalar Double-Precision Floating-Point Values.
-  | SUBSD = 688
-  /// Subtract Scalar Single-Precision Floating-Point Values.
-  | SUBSS = 689
-  /// Swap GS Base Register.
-  | SWAPGS = 690
-  /// Fast System Call.
-  | SYSCALL = 691
-  /// Fast System Call.
-  | SYSENTER = 692
-  /// Fast Return from Fast System Call.
-  | SYSEXIT = 693
-  /// Return From Fast System Call.
-  | SYSRET = 694
-  /// Logical Compare.
-  | TEST = 695
-  /// Count the Number of Trailing Zero Bits.
-  | TZCNT = 696
-  /// Unordered Compare Scalar Double-Precision FP Values and Set EFLAGS.
-  | UCOMISD = 697
-  /// Unordered Compare Scalar Single-Precision FPValues and Set EFLAGS.
-  | UCOMISS = 698
-  /// Undefined instruction (Raise invalid opcode exception).
-  | UD0 = 699
-  /// Undefined Instruction (Raise invalid opcode exception).
-  | UD1 = 700
-  /// Undefined Instruction (Raise invalid opcode exception).
-  | UD2 = 701
-  /// Unpack and Interleave High Packed Double-Precision Floating-Point Values.
-  | UNPCKHPD = 702
-  /// Unpack and Interleave High Packed Single-Precision Floating-Point Values.
-  | UNPCKHPS = 703
-  /// Unpack and Interleave Low Packed Double-Precision Floating-Point Values.
-  | UNPCKLPD = 704
-  /// Unpack and Interleave Low Packed Single-Precision Floating-Point Values.
-  | UNPCKLPS = 705
-  /// Packed Single-Precision Floating-Point Fused Multiply-Add.
-  | V4FMADDPS = 706
-  /// Scalar Single-Precision Floating-Point Fused Multiply-Add.
-  | V4FMADDSS = 707
-  /// Packed Single-Precision Floating-Point Fused Multiply-Add and Negate.
-  | V4FNMADDPS = 708
-  /// Scalar Single-Precision Floating-Point Fused Multiply-Add and Negate.
-  | V4FNMADDSS = 709
-  /// Add Packed Double-Precision Floating-Point Values.
-  | VADDPD = 710
-  /// Add Packed Double-Precision Floating-Point Values.
-  | VADDPS = 711
-  /// Add Scalar Double-Precision Floating-Point Values.
-  | VADDSD = 712
-  /// Add Scalar Single-Precision Floating-Point Values.
-  | VADDSS = 713
-  /// Packed Double-FP Add/Subtract.
-  | VADDSUBPD = 714
-  /// Packed Single-FP Add/Subtract.
-  | VADDSUBPS = 715
-  /// Perform One Round of an AES Decryption Flow.
-  | VAESDEC = 716
-  /// Perform Last Round of an AES Decryption Flow.
-  | VAESDECLAST = 717
-  /// Perform One Round of an AES Encryption Flow.
-  | VAESENC = 718
-  /// Perform Last Round of an AES Encryption Flow.
-  | VAESENCLAST = 719
-  /// Perform dword alignment of two concatenated source vectors.
-  | VALIGND = 720
-  /// Perform qword alignment of two concatenated source vectors.
-  | VALIGNQ = 721
-  /// Bitwise Logical AND of Packed Double-Precision Floating-Point Values.
-  | VANDNPD = 722
-  /// Bitwise Logical AND of Packed Single-Precision Floating-Point Values.
-  | VANDNPS = 723
-  /// Bitwise Logical AND NOT of Packed Double-Precision Floating-Point Values.
-  | VANDPD = 724
-  /// Bitwise Logical AND NOT of Packed Single-Precision Floating-Point Values.
-  | VANDPS = 725
-  /// Replace the VBLENDVPD instructions (using opmask as select control).
-  | VBLENDMPD = 726
-  /// Replace the VBLENDVPS instructions (using opmask as select control).
-  | VBLENDMPS = 727
-  /// Blend Packed Double-Precision Floats.
-  | VBLENDPD = 728
-  /// Blend Packed Single-Precision Floats.
-  | VBLENDPS = 729
-  /// Variable Blend Packed Double-Precision Floats.
-  | VBLENDVPD = 730
-  /// Variable Blend Packed Single-Precision Floats.
-  | VBLENDVPS = 731
-  /// Load with Broadcast Floating-Point Data.
-  | VBROADCASTF128 = 732
-  /// Broadcast 128 bits of int data in mem to low and high 128-bits in ymm1.
-  | VBROADCASTI128 = 733
-  /// Broadcast two dword elements.
-  | VBROADCASTI32X2 = 734
-  /// Broadcast four dword elements.
-  | VBROADCASTI32X4 = 735
-  /// Broadcast eight dword elements.
-  | VBROADCASTI32X8 = 736
-  /// Broadcast two qword elements.
-  | VBROADCASTI64X2 = 737
-  /// Broadcast four qword elements.
-  | VBROADCASTI64X4 = 738
-  /// Broadcast low double-precision floating-point element.
-  | VBROADCASTSD = 739
-  /// Broadcast Floating-Point Data.
-  | VBROADCASTSS = 740
-  /// Compare Packed Double-Precision Floating-Point Values.
-  | VCMPPD = 741
-  /// Compare Packed Single-Precision Floating-Point Values.
-  | VCMPPS = 742
-  /// Compare Scalar Double-Precision Floating-Point Values.
-  | VCMPSD = 743
-  /// Scalar Single-Precision Floating-Point Values.
-  | VCMPSS = 744
-  /// Compare Scalar Ordered Double-Precision FP Values and Set EFLAGS.
-  | VCOMISD = 745
-  /// Compare Scalar Ordered Single-Precision FP Values and Set EFLAGS.
-  | VCOMISS = 746
-  /// Compress packed DP elements of a vector.
-  | VCOMPRESSPD = 747
-  /// Compress packed SP elements of a vector.
-  | VCOMPRESSPS = 748
-  /// Convert two packed signed doubleword integers.
-  | VCVTDQ2PD = 749
-  /// Convert Packed Dword Integers to Packed Single-Precision FP Values.
-  | VCVTDQ2PS = 750
-  /// Convert Two Packed Single Data to One Packed BF16 Data.
-  | VCVTNE2PS2BF16 = 751
-  /// Convert Packed Single Data to Packed BF16 Data.
-  | VCVTNEPS2BF16 = 752
-  /// Convert Packed Double-Precision FP Values to Packed Doubleword Integers.
-  | VCVTPD2DQ = 753
-  /// Convert two packed double-precision floating-point values.
-  | VCVTPD2PS = 754
-  /// Convert Packed Double-Precision FP Values to Packed Quadword Integers.
-  | VCVTPD2QQ = 755
-  /// Convert Packed DP FP Values to Packed Unsigned DWord Integers.
-  | VCVTPD2UDQ = 756
-  /// Convert Packed DP FP Values to Packed Unsigned QWord Integers.
-  | VCVTPD2UQQ = 757
-  /// Convert 16-bit FP values to Single-Precision FP values.
-  | VCVTPH2PS = 758
-  /// Conv Packed Single-Precision FP Values to Packed Signed DWord Int Values.
-  | VCVTPS2DQ = 759
-  /// Conv Packed Single-Precision FP Values to Packed Dbl-Precision FP Values.
-  | VCVTPS2PD = 760
-  /// Convert Single-Precision FP value to 16-bit FP value.
-  | VCVTPS2PH = 761
-  /// Convert Packed SP FP Values to Packed Signed QWord Int Values.
-  | VCVTPS2QQ = 762
-  /// Convert Packed SP FP Values to Packed Unsigned DWord Int Values.
-  | VCVTPS2UDQ = 763
-  /// Convert Packed SP FP Values to Packed Unsigned QWord Int Values.
-  | VCVTPS2UQQ = 764
-  /// Convert Packed Quadword Integers to Packed Double-Precision FP Values.
-  | VCVTQQ2PD = 765
-  /// Convert Packed Quadword Integers to Packed Single-Precision FP Values.
-  | VCVTQQ2PS = 766
-  /// Convert Scalar Double-Precision FP Value to Integer.
-  | VCVTSD2SI = 767
-  /// Convert Scalar Double-Precision FP Val to Scalar Single-Precision FP Val.
-  | VCVTSD2SS = 768
-  /// Convert Scalar Double-Precision FP Value to Unsigned Doubleword Integer.
-  | VCVTSD2USI = 769
-  /// Convert Dword Integer to Scalar Double-Precision FP Value.
-  | VCVTSI2SD = 770
-  /// Convert Dword Integer to Scalar Single-Precision FP Value.
-  | VCVTSI2SS = 771
-  /// Convert Scalar Single-Precision FP Val to Scalar Double-Precision FP Val.
-  | VCVTSS2SD = 772
-  /// Convert Scalar Single-Precision FP Value to Dword Integer.
-  | VCVTSS2SI = 773
-  /// Convert Scalar Single-Precision FP Value to Unsigned Doubleword Integer.
-  | VCVTSS2USI = 774
-  /// Conv with Trunc Packed Double-Precision FP Val to Packed Dword Integers.
-  | VCVTTPD2DQ = 775
-  /// Convert with Truncation Packed DP FP Values to Packed QWord Integers.
-  | VCVTTPD2QQ = 776
-  /// Convert with Truncation Packed DP FP Values to Packed Unsigned DWord Int.
-  | VCVTTPD2UDQ = 777
-  /// Convert with Truncation Packed DP FP Values to Packed Unsigned QWord Int.
-  | VCVTTPD2UQQ = 778
-  /// Conv with Trunc Packed Single-Precision FP Val to Packed Dword Integers.
-  | VCVTTPS2DQ = 779
-  /// Convert with Truncation Packed SP FP Values to Packed Signed QWord Int.
-  | VCVTTPS2QQ = 780
-  /// Convert with Truncation Packed SP FP Values to Packed Unsigned DWord Int.
-  | VCVTTPS2UDQ = 781
-  /// Convert with Truncation Packed SP FP Values to Packed Unsigned QWord Int.
-  | VCVTTPS2UQQ = 782
-  /// Convert with Truncation Scalar Double-Precision FP Value to Signed.
-  | VCVTTSD2SI = 783
-  /// Convert with Truncation Scalar DP FP Value to Unsigned Integer.
-  | VCVTTSD2USI = 784
-  /// Convert with Truncation Scalar Single-Precision FP Value to Dword Integer.
-  | VCVTTSS2SI = 785
-  /// Convert with Truncation Scalar Single-Precision FP Value to Unsigned Int.
-  | VCVTTSS2USI = 786
-  /// Convert Packed Unsigned DWord Integers to Packed DP FP Values.
-  | VCVTUDQ2PD = 787
-  /// Convert Packed Unsigned DWord Integers to Packed SP FP Values.
-  | VCVTUDQ2PS = 788
-  /// Convert Packed Unsigned QWord Integers to Packed DP FP Values.
-  | VCVTUQQ2PD = 789
-  /// Convert Packed Unsigned QWord Integers to Packed SP FP Values.
-  | VCVTUQQ2PS = 790
-  /// Convert an signed integer to the low DP FP elem and merge to a vector.
-  | VCVTUSI2SD = 791
-  /// Convert an signed integer to the low SP FP elem and merge to a vector.
-  | VCVTUSI2SS = 792
-  /// Convert an unsigned integer to the low DP FP elem and merge to a vector.
-  | VCVTUSI2USD = 793
-  /// Convert an unsigned integer to the low SP FP elem and merge to a vector.
-  | VCVTUSI2USS = 794
-  /// Double Block Packed Sum-Absolute-Differences (SAD) on Unsigned Bytes.
-  | VDBPSADBW = 795
-  /// Divide Packed Double-Precision Floating-Point Values.
-  | VDIVPD = 796
-  /// Divide Packed Single-Precision Floating-Point Values.
-  | VDIVPS = 797
-  /// Divide Scalar Double-Precision Floating-Point Values.
-  | VDIVSD = 798
-  /// Divide Scalar Single-Precision Floating-Point Values.
-  | VDIVSS = 799
-  /// Dot Product of BF16 Pairs Accumulated into Packed Single Precision.
-  | VDPBF16PS = 800
-  /// Packed Double-Precision Dot Products.
-  | VDPPD = 801
-  /// Packed Single-Precision Dot Products.
-  | VDPPS = 802
-  /// Verify a Segment for Reading.
-  | VERR = 803
-  /// Verify a Segment for Writing.
-  | VERW = 804
-  /// Compute approximate base-2 exponential of packed DP FP elems of a vector.
-  | VEXP2PD = 805
-  /// Compute approximate base-2 exponential of packed SP FP elems of a vector.
-  | VEXP2PS = 806
-  /// Compute approximate base-2 exponential of the low DP FP elem of a vector.
-  | VEXP2SD = 807
-  /// Compute approximate base-2 exponential of the low SP FP elem of a vector.
-  | VEXP2SS = 808
-  /// Load Sparse Packed Double-Precision FP Values from Dense Memory.
-  | VEXPANDPD = 809
-  /// Load Sparse Packed Single-Precision FP Values from Dense Memory.
-  | VEXPANDPS = 810
-  /// Extract Packed Floating-Point Values.
-  | VEXTRACTF128 = 811
-  /// Extract a vector from a full-length vector with 32-bit granular update.
-  | VEXTRACTF32X4 = 812
-  /// Extract a vector from a full-length vector with 32-bit granular update.
-  | VEXTRACTF32X8 = 813
-  /// Extract a vector from a full-length vector with 64-bit granular update.
-  | VEXTRACTF64X2 = 814
-  /// Extract a vector from a full-length vector with 64-bit granular update.
-  | VEXTRACTF64X4 = 815
-  /// Extract packed Integer Values.
-  | VEXTRACTI128 = 816
-  /// Extract a vector from a full-length vector with 32-bit granular update.
-  | VEXTRACTI32X4 = 817
-  /// Extract a vector from a full-length vector with 32-bit granular update.
-  | VEXTRACTI32X8 = 818
-  /// Extract a vector from a full-length vector with 64-bit granular update.
-  | VEXTRACTI64X2 = 819
-  /// Extract a vector from a full-length vector with 64-bit granular update.
-  | VEXTRACTI64X4 = 820
-  /// Extract From Packed Single-Precision Floats.
-  | VEXTRACTPS = 821
-  /// Fix Up Special Packed Float64 Values.
-  | VFIXUPIMMPD = 822
-  /// Fix Up Special Packed Float32 Values.
-  | VFIXUPIMMPS = 823
-  /// Fix Up Special Scalar Float64 Value.
-  | VFIXUPIMMSD = 824
-  /// Fix Up Special Scalar Float32 Value.
-  | VFIXUPIMMSS = 825
-  /// Fused Multiply-Add of Packed Double-Precision Floating-Point Values.
-  | VFMADD132PD = 826
-  /// Fused Multiply-Add of Packed Single-Precision Floating-Point Values.
-  | VFMADD132PS = 827
-  /// Fused Multiply-Add of Scalar Double-Precision Floating-Point Values.
-  | VFMADD132SD = 828
-  /// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
-  | VFMADD132SS = 829
-  /// Fused Multiply-Add of Packed Double-Precision Floating-Point Values.
-  | VFMADD213PD = 830
-  /// Fused Multiply-Add of Packed Single-Precision Floating-Point Values.
-  | VFMADD213PS = 831
-  /// Fused Multiply-Add of Scalar Double-Precision Floating-Point Values.
-  | VFMADD213SD = 832
-  /// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
-  | VFMADD213SS = 833
-  /// Fused Multiply-Add of Packed Double-Precision Floating-Point Value.
-  | VFMADD231PD = 834
-  /// Fused Multiply-Add of Packed Single-Precision Floating-Point Values.
-  | VFMADD231PS = 835
-  /// Fused Multiply-Add of Scalar Double-Precision Floating-Point Values.
-  | VFMADD231SD = 836
-  /// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
-  | VFMADD231SS = 837
-  /// Multiply and Add Packed Double-Precision Floating-Point(Only AMD).
-  | VFMADDPD = 838
-  /// Multiply and Add Packed Single-Precision Floating-Point(Only AMD).
-  | VFMADDPS = 839
-  /// Multiply and Add Scalar Double-Precision Floating-Point(Only AMD).
-  | VFMADDSD = 840
-  /// Multiply and Add Scalar Single-Precision Floating-Point(Only AMD).
-  | VFMADDSS = 841
-  /// Fused Multiply-Alternating Add/Sub of Packed Double-Precision FP Values.
-  | VFMADDSUB132PD = 842
-  /// Fused Multiply-Alternating Add/Sub of Packed Single-Precision FP Values.
-  | VFMADDSUB132PS = 843
-  /// Fused Multiply-Alternating Add/Sub of Packed Double-Precision FP Values.
-  | VFMADDSUB213PD = 844
-  /// Fused Multiply-Alternating Add/Sub of Packed Single-Precision FP Values.
-  | VFMADDSUB213PS = 845
-  /// Fused Multiply-Alternating Add/Sub of Packed Double-Precision FP Values.
-  | VFMADDSUB231PD = 846
-  /// Fused Multiply-Alternating Add/Sub of Packed Single-Precision FP Values.
-  | VFMADDSUB231PS = 847
-  /// Fused Multiply-Subtract of Packed Double-Precision Floating-Point Values.
-  | VFMSUB132PD = 848
-  /// Fused Multiply-Subtract of Packed Single-Precision Floating-Point Values.
-  | VFMSUB132PS = 849
-  /// Fused Multiply-Subtract of Scalar Double-Precision Floating-Point Values.
-  | VFMSUB132SD = 850
-  /// Fused Multiply-Subtract of Scalar Single-Precision Floating-Point Values.
-  | VFMSUB132SS = 851
-  /// Fused Multiply-Subtract of Packed Double-Precision Floating-Point Values.
-  | VFMSUB213PD = 852
-  /// Fused Multiply-Subtract of Packed Single-Precision Floating-Point Values.
-  | VFMSUB213PS = 853
-  /// Fused Multiply-Subtract of Scalar Double-Precision Floating-Point Values.
-  | VFMSUB213SD = 854
-  /// Fused Multiply-Subtract of Scalar Single-Precision Floating-Point Values.
-  | VFMSUB213SS = 855
-  /// Fused Multiply-Subtract of Packed Double-Precision Floating-Point Values.
-  | VFMSUB231PD = 856
-  /// Fused Multiply-Subtract of Packed Single-Precision Floating-Point Values.
-  | VFMSUB231PS = 857
-  /// Fused Multiply-Subtract of Scalar Double-Precision Floating-Point Values.
-  | VFMSUB231SD = 858
-  /// Fused Multiply-Subtract of Scalar Single-Precision Floating-Point Values.
-  | VFMSUB231SS = 859
-  /// Fused Multiply-Alternating Sub/Add of Packed Double-Precision FP Values.
-  | VFMSUBADD132PD = 860
-  /// Fused Multiply-Alternating Sub/Add of Packed Single-Precision FP Values.
-  | VFMSUBADD132PS = 861
-  /// Fused Multiply-Alternating Sub/Add of Packed Double-Precision FP Values.
-  | VFMSUBADD213PD = 862
-  /// Fused Multiply-Alternating Sub/Add of Packed Single-Precision FP Values.
-  | VFMSUBADD213PS = 863
-  /// Fused Multiply-Alternating Sub/Add of Packed Double-Precision FP Values.
-  | VFMSUBADD231PD = 864
-  /// Fused Multiply-Alternating Sub/Add of Packed Single-Precision FP Values.
-  | VFMSUBADD231PS = 865
-  /// Fused Negative Multiply-Add of Packed Double-Precision FP Values.
-  | VFNMADD132PD = 866
-  /// Fused Negative Mul-Add of Packed Single-Precision Floating-Point Values.
-  | VFNMADD132PS = 867
-  /// Fused Negative Multiply-Add of Scalar Double-Precision FP Values.
-  | VFNMADD132SD = 868
-  /// Fused Negative Mul-Add of Scalar Single-Precision Floating-Point Values.
-  | VFNMADD132SS = 869
-  /// Fused Negative Multiply-Add of Packed Double-Precision FP Values.
-  | VFNMADD213PD = 870
-  /// Fused Negative Mul-Add of Packed Single-Precision Floating-Point Values.
-  | VFNMADD213PS = 871
-  /// Fused Negative Multiply-Add of Scalar Double-Precision FP Values.
-  | VFNMADD213SD = 872
-  /// Fused Negative Mul-Add of Scalar Single-Precision Floating-Point Values.
-  | VFNMADD213SS = 873
-  /// Fused Negative Multiply-Add of Packed Double-Precision FP Values.
-  | VFNMADD231PD = 874
-  /// Fused Negative Mul-Add of Packed Single-Precision Floating-Point Values.
-  | VFNMADD231PS = 875
-  /// Fused Negative Multiply-Add of Scalar Double-Precision FP Values.
-  | VFNMADD231SD = 876
-  /// Fused Negative Mul-Add of Scalar Single-Precision Floating-Point Values.
-  | VFNMADD231SS = 877
-  /// Fused Negative Multiply-Subtract of Packed Double-Precision FP Values.
-  | VFNMSUB132PD = 878
-  /// Fused Negative Multiply-Subtract of Packed Single-Precision FP Values.
-  | VFNMSUB132PS = 879
-  /// Fused Negative Multiply-Subtract of Scalar Double-Precision FP Values.
-  | VFNMSUB132SD = 880
-  /// Fused Negative Multiply-Subtract of Scalar Single-Precision FP Values.
-  | VFNMSUB132SS = 881
-  /// Fused Negative Multiply-Subtract of Packed Double-Precision FP Values.
-  | VFNMSUB213PD = 882
-  /// Fused Negative Multiply-Subtract of Packed Single-Precision FP Values.
-  | VFNMSUB213PS = 883
-  /// Fused Negative Multiply-Subtract of Scalar Double-Precision FP Values.
-  | VFNMSUB213SD = 884
-  /// Fused Negative Multiply-Subtract of Scalar Single-Precision FP Values.
-  | VFNMSUB213SS = 885
-  /// Fused Negative Multiply-Subtract of Packed Double-Precision FP Values.
-  | VFNMSUB231PD = 886
-  /// Fused Negative Multiply-Subtract of Packed Single-Precision FP Values.
-  | VFNMSUB231PS = 887
-  /// Fused Negative Multiply-Subtract of Scalar Double-Precision FP Values.
-  | VFNMSUB231SD = 888
-  /// Fused Negative Multiply-Subtract of Scalar Single-Precision FP Values.
-  | VFNMSUB231SS = 889
-  /// Tests Types Of a Packed Float64 Values.
-  | VFPCLASSPD = 890
-  /// Tests Types Of a Packed Float32 Values.
-  | VFPCLASSPS = 891
-  /// Tests Types Of a Scalar Float64 Values.
-  | VFPCLASSSD = 892
-  /// Tests Types Of a Scalar Float32 Values.
-  | VFPCLASSSS = 893
-  /// Gather Packed DP FP Values Using Signed Dword/Qword Indices.
-  | VGATHERDPD = 894
-  /// Gather Packed SP FP values Using Signed Dword/Qword Indices.
-  | VGATHERDPS = 895
-  /// Sparse prefetch of packed DP FP vector with T0 hint using dword indices.
-  | VGATHERPF0DPD = 896
-  /// Sparse prefetch of packed SP FP vector with T0 hint using dword indices.
-  | VGATHERPF0DPS = 897
-  /// Sparse prefetch of packed DP FP vector with T0 hint using qword indices.
-  | VGATHERPF0QPD = 898
-  /// Sparse prefetch of packed SP FP vector with T0 hint using qword indices.
-  | VGATHERPF0QPS = 899
-  /// Sparse prefetch of packed DP FP vector with T1 hint using dword indices.
-  | VGATHERPF1DPD = 900
-  /// Sparse prefetch of packed SP FP vector with T1 hint using dword indices.
-  | VGATHERPF1DPS = 901
-  /// Sparse prefetch of packed DP FP vector with T1 hint using qword indices.
-  | VGATHERPF1QPD = 902
-  /// Sparse prefetch of packed SP FP vector with T1 hint using qword indices.
-  | VGATHERPF1QPS = 903
-  /// Gather Packed DP FP Values Using Signed Dword/Qword Indices.
-  | VGATHERQPD = 904
-  /// Gather Packed SP FP values Using Signed Dword/Qword Indices.
-  | VGATHERQPS = 905
-  /// Convert Exponents of Packed DP FP Values to DP FP Values.
-  | VGETEXPPD = 906
-  /// Convert Exponents of Packed SP FP Values to SP FP Values.
-  | VGETEXPPS = 907
-  /// Convert Exponents of Scalar DP FP Values to DP FP Value.
-  | VGETEXPSD = 908
-  /// Convert Exponents of Scalar SP FP Values to SP FP Value.
-  | VGETEXPSS = 909
-  /// Extract Float64 Vector of Normalized Mantissas from Float64 Vector.
-  | VGETMANTPD = 910
-  /// Extract Float32 Vector of Normalized Mantissas from Float32 Vector.
-  | VGETMANTPS = 911
-  /// Extract Float64 of Normalized Mantissas from Float64 Scalar.
-  | VGETMANTSD = 912
-  /// Extract Float32 Vector of Normalized Mantissa from Float32 Vector.
-  | VGETMANTSS = 913
-  /// Galois Field Affine Transformation Inverse.
-  | VGF2P8AFFINEINVQB = 914
-  /// Galois Field Affine Transformation.
-  | VGF2P8AFFINEQB = 915
-  /// Galois Field Multiply Bytes.
-  | VGF2P8MULB = 916
-  /// Packed Double-FP Horizontal Add.
-  | VHADDPD = 917
-  /// Packed Single-FP Horizontal Add.
-  | VHADDPS = 918
-  /// Packed Double-FP Horizontal Subtract.
-  | VHSUBPD = 919
-  /// Packed Single-FP Horizontal Subtract.
-  | VHSUBPS = 920
-  /// Insert Packed Floating-Point Values.
-  | VINSERTF128 = 921
-  /// Insert Packed Floating-Point Values.
-  | VINSERTF32X4 = 922
-  /// Insert Packed Floating-Point Values.
-  | VINSERTF64X2 = 923
-  /// Insert Packed Floating-Point Values.
-  | VINSERTF64X4 = 924
-  /// Insert Packed Integer Values.
-  | VINSERTI128 = 925
-  /// Insert 256 bits of packed doubleword integer values.
-  | VINSERTI32X8 = 926
-  /// Insert Packed Floating-Point Values.
-  | VINSERTI64X2 = 927
-  /// Insert 256 bits of packed quadword integer values.
-  | VINSERTI64X4 = 928
-  /// Insert Into Packed Single-Precision Floats.
-  | VINSERTPS = 929
-  /// Load Unaligned Integer 128 Bits.
-  | VLDDQU = 930
-  /// Store Selected Bytes of Double Quadword.
-  | VMASKMOVDQU = 931
-  /// Conditional SIMD Packed Loads and Stores.
-  | VMASKMOVPD = 932
-  /// Conditional SIMD Packed Loads and Stores.
-  | VMASKMOVPS = 933
-  /// Return Maximum Packed Double-Precision Floating-Point Values.
-  | VMAXPD = 934
-  /// Maximum of Packed Single-Precision Floating-Point Values.
-  | VMAXPS = 935
-  /// Return Maximum Scalar Double-Precision Floating-Point Value.
-  | VMAXSD = 936
-  /// Return Maximum Scalar Single-Precision Floating-Point Value.
-  | VMAXSS = 937
-  /// Call to VM Monitor.
-  | VMCALL = 938
-  /// Clear Virtual-Machine Control Structure.
-  | VMCLEAR = 939
-  /// Invoke VM function.
-  | VMFUNC = 940
-  /// Return Minimum Packed Double-Precision Floating-Point Values.
-  | VMINPD = 941
-  /// Return Minimum Packed Single-Precision Floating-Point Values.
-  | VMINPS = 942
-  /// Return Minimum Scalar Double-Precision Floating-Point Value.
-  | VMINSD = 943
-  /// Return Minimum Scalar Single-Precision Floating-Point Value.
-  | VMINSS = 944
-  /// Launch Virtual Machine.
-  | VMLAUNCH = 945
-  /// Move Aligned Packed Double-Precision Floating-Point Values.
-  | VMOVAPD = 946
-  /// Move Aligned Packed Single-Precision Floating-Point Values.
-  | VMOVAPS = 947
-  /// Move Doubleword.
-  | VMOVD = 948
-  /// Move One Double-FP and Duplicate.
-  | VMOVDDUP = 949
-  /// Move Aligned Double Quadword.
-  | VMOVDQA = 950
-  /// Move Aligned Double Quadword.
-  | VMOVDQA32 = 951
-  /// Move Aligned Double Quadword.
-  | VMOVDQA64 = 952
-  /// Move Unaligned Double Quadword.
-  | VMOVDQU = 953
-  /// VMOVDQU with 16-bit granular conditional update.
-  | VMOVDQU16 = 954
-  /// Move Unaligned Double Quadword.
-  | VMOVDQU32 = 955
-  /// Move Unaligned Double Quadword.
-  | VMOVDQU64 = 956
-  /// VMOVDQU with 8-bit granular conditional update.
-  | VMOVDQU8 = 957
-  /// Move Packed Single-Precision Floating-Point Values High to Low.
-  | VMOVHLPS = 958
-  /// Move High Packed Double-Precision Floating-Point Value.
-  | VMOVHPD = 959
-  /// Move High Packed Single-Precision Floating-Point Values.
-  | VMOVHPS = 960
-  /// Move Packed Single-Precision Floating-Point Values Low to High.
-  | VMOVLHPS = 961
-  /// Move Low Packed Double-Precision Floating-Point Value.
-  | VMOVLPD = 962
-  /// Move Low Packed Single-Precision Floating-Point Values.
-  | VMOVLPS = 963
-  /// Extract Packed Double-Precision Floating-Point Sign Mask.
-  | VMOVMSKPD = 964
-  /// Extract Packed Single-Precision Floating-Point Sign Mask.
-  | VMOVMSKPS = 965
-  /// Load Double Quadword Non-Temporal Aligned Hint.
-  | VMOVNTDQ = 966
-  /// Load Double Quadword Non-temporal Aligned.
-  | VMOVNTDQA = 967
-  /// Store Packed Double-Precision FP Values Using Non-Temporal Hint.
-  | VMOVNTPD = 968
-  /// Store Packed Single-Precision FP Values Using Non-Temporal Hint.
-  | VMOVNTPS = 969
-  /// Move Quadword.
-  | VMOVQ = 970
-  /// Move Data from String to String (doubleword).
-  | VMOVSD = 971
-  /// Move Packed Single-FP High and Duplicate.
-  | VMOVSHDUP = 972
-  /// Move Packed Single-FP Low and Duplicate.
-  | VMOVSLDUP = 973
-  /// Move Scalar Single-Precision Floating-Point Values.
-  | VMOVSS = 974
-  /// Move Unaligned Packed Double-Precision Floating-Point Values.
-  | VMOVUPD = 975
-  /// Move Unaligned Packed Single-Precision Floating-Point Values.
-  | VMOVUPS = 976
-  /// Compute Multiple Packed Sums of Absolute Difference.
-  | VMPSADBW = 977
-  /// Load Pointer to Virtual-Machine Control Structure.
-  | VMPTRLD = 978
-  /// Store Pointer to Virtual-Machine Control Structure.
-  | VMPTRST = 979
-  /// Reads a component from the VMCS and stores it into a destination operand.
-  | VMREAD = 980
-  /// Resume Virtual Machine.
-  | VMRESUME = 981
-  /// Multiply Packed Double-Precision Floating-Point Values.
-  | VMULPD = 982
-  /// Multiply Packed Single-Precision Floating-Point Values.
-  | VMULPS = 983
-  /// Multiply Scalar Double-Precision Floating-Point Values.
-  | VMULSD = 984
-  /// Multiply Scalar Single-Precision Floating-Point Values.
-  | VMULSS = 985
-  /// Writes a component to the VMCS from a source operand.
-  | VMWRITE = 986
-  /// Leave VMX Operation.
-  | VMXOFF = 987
-  /// Enter VMX Operation.
-  | VMXON = 988
-  /// Bitwise Logical OR of Double-Precision Floating-Point Values.
-  | VORPD = 989
-  /// Bitwise Logical OR of Single-Precision Floating-Point Values.
-  | VORPS = 990
-  /// Compute Intersection Between dwords.
-  | VP2INTERSECTD = 991
-  /// Compute Intersection Between qwords.
-  | VP2INTERSECTQ = 992
-  /// Dot Product of Signed Words with Dword Accumulation.
-  | VP4DPWSSD = 993
-  /// Dot Product of Signed Words with Dword Accumulation and Saturation.
-  | VP4DPWSSDS = 994
-  /// Packed Absolute Value (byte).
-  | VPABSB = 995
-  /// Packed Absolute Value (dword).
-  | VPABSD = 996
-  /// Packed Absolute Value (qword).
-  | VPABSQ = 997
-  /// Packed Absolute Value (word).
-  | VPABSW = 998
-  /// Pack with Signed Saturation.
-  | VPACKSSDW = 999
-  /// Pack with Signed Saturation.
-  | VPACKSSWB = 1000
-  /// Pack with Unsigned Saturation.
-  | VPACKUSDW = 1001
-  /// Pack with Unsigned Saturation.
-  | VPACKUSWB = 1002
-  /// Add Packed byte Integers.
-  | VPADDB = 1003
-  /// Add Packed Doubleword Integers.
-  | VPADDD = 1004
-  /// Add Packed Quadword Integers.
-  | VPADDQ = 1005
-  /// Add Packed Signed Integers with Signed Saturation (byte).
-  | VPADDSB = 1006
-  /// Add Packed Signed Integers with Signed Saturation (word).
-  | VPADDSW = 1007
-  /// Add Packed Unsigned Integers with Unsigned Saturation (byte).
-  | VPADDUSB = 1008
-  /// Add Packed Unsigned Integers with Unsigned Saturation (word).
-  | VPADDUSW = 1009
-  /// Add Packed word Integers.
-  | VPADDW = 1010
-  /// Packed Align Right.
-  | VPALIGNR = 1011
-  /// Logical AND.
-  | VPAND = 1012
-  /// Logical AND.
-  | VPANDD = 1013
-  /// Logical AND NOT.
-  | VPANDN = 1014
-  /// Logical AND.
-  | VPANDQ = 1015
-  /// Average Packed Integers (byte).
-  | VPAVGB = 1016
-  /// Average Packed Integers (word).
-  | VPAVGW = 1017
-  /// Blend Packed Dwords.
-  | VPBLENDD = 1018
-  /// Blend Byte/Word Vectors Using an Opmask Control.
-  | VPBLENDMB = 1019
-  /// Blend Int32/Int64 Vectors Using an OpMask Control.
-  | VPBLENDMD = 1020
-  /// Blend qword elements using opmask as select control.
-  | VPBLENDMQ = 1021
-  /// Blend word elements using opmask as select control.
-  | VPBLENDMW = 1022
-  /// Variable Blend Packed Bytes.
-  | VPBLENDVB = 1023
-  /// Blend Packed Words.
-  | VPBLENDW = 1024
-  /// Broadcast Integer Data.
-  | VPBROADCASTB = 1025
-  /// Broadcast from general-purpose register to vector register.
-  | VPBROADCASTD = 1026
-  /// Broadcast Mask to Vector Register.
-  | VPBROADCASTM = 1027
-  /// Broadcast low byte value in k1.
-  | VPBROADCASTMB2Q = 1028
-  /// Broadcast low word value in k1.
-  | VPBROADCASTMW2D = 1029
-  /// Broadcast from general-purpose register to vector register.
-  | VPBROADCASTQ = 1030
-  /// Broadcast from general-purpose register to vector register.
-  | VPBROADCASTW = 1031
-  /// Carry-Less Multiplication Quadword.
-  | VPCLMULQDQ = 1032
-  /// Compare packed signed bytes using specified primitive.
-  | VPCMPB = 1033
-  /// Compare packed signed dwords using specified primitive.
-  | VPCMPD = 1034
-  /// Compare Packed Data for Equal (byte).
-  | VPCMPEQB = 1035
-  /// Compare Packed Data for Equal (doubleword).
-  | VPCMPEQD = 1036
-  /// Compare Packed Data for Equal (quadword).
-  | VPCMPEQQ = 1037
-  /// Compare Packed Data for Equal (word).
-  | VPCMPEQW = 1038
-  /// Packed Compare Explicit Length Strings, Return Index.
-  | VPCMPESTRI = 1039
-  /// Packed Compare Explicit Length Strings, Return Mask.
-  | VPCMPESTRM = 1040
-  /// Compare Packed Signed Integers for Greater Than (byte).
-  | VPCMPGTB = 1041
-  /// Compare Packed Signed Integers for Greater Than (doubleword).
-  | VPCMPGTD = 1042
-  /// Compare Packed Data for Greater Than (qword).
-  | VPCMPGTQ = 1043
-  /// Compare Packed Signed Integers for Greater Than (word).
-  | VPCMPGTW = 1044
-  /// Packed Compare Implicit Length Strings, Return Index.
-  | VPCMPISTRI = 1045
-  /// Packed Compare Implicit Length Strings, Return Mask.
-  | VPCMPISTRM = 1046
-  /// Compare packed signed quadwords using specified primitive.
-  | VPCMPQ = 1047
-  /// Compare packed unsigned bytes using specified primitive.
-  | VPCMPUB = 1048
-  /// Compare packed unsigned dwords using specified primitive.
-  | VPCMPUD = 1049
-  /// Compare packed unsigned quadwords using specified primitive.
-  | VPCMPUQ = 1050
-  /// Compare packed unsigned words using specified primitive.
-  | VPCMPUW = 1051
-  /// Compare packed signed words using specified primitive.
-  | VPCMPW = 1052
-  /// Compare packed unsigned bytes using specified primitive.
-  | VPCMUB = 1053
-  /// Compare packed unsigned dwords using specified primitive.
-  | VPCMUD = 1054
-  /// Compare packed unsigned quadwords using specified primitive.
-  | VPCMUQ = 1055
-  /// Compare packed unsigned words using specified primitive.
-  | VPCMUW = 1056
-  /// Store Sparse Packed Byte Integer Values into Dense Memory/Register.
-  | VPCOMPRESSB = 1057
-  /// Store Sparse Packed Doubleword Integer Values into Dense Memory/Register.
-  | VPCOMPRESSD = 1058
-  /// Store Sparse Packed Quadword Integer Values into Dense Memory/Register.
-  | VPCOMPRESSQ = 1059
-  /// Store Sparse Packed Word Integer Values into Dense Memory/Register.
-  | VPCOMPRESSW = 1060
-  /// Detect conflicts within a vector of packed 32/64-bit integers.
-  | VPCONFLICTD = 1061
-  /// Detect conflicts within a vector of packed 64-bit integers.
-  | VPCONFLICTQ = 1062
-  /// Multiply and Add Unsigned and Signed Bytes.
-  | VPDPBUSD = 1063
-  /// Multiply and Add Unsigned and Signed Bytes with Saturation.
-  | VPDPBUSDS = 1064
-  /// Multiply and Add Signed Word Integers.
-  | VPDPWSSD = 1065
-  /// Multiply and Add Signed Word Integers with Saturation.
-  | VPDPWSSDS = 1066
-  /// Permute Floating-Point Values.
-  | VPERM2F128 = 1067
-  /// Permute Integer Values.
-  | VPERM2I128 = 1068
-  /// Permute packed bytes elements.
-  | VPERMB = 1069
-  /// Permute Packed Doublewords/Words Elements.
-  | VPERMD = 1070
-  /// Full Permute of Bytes from Two Tables Overwriting the Index.
-  | VPERMI2B = 1071
-  /// Full permute of two tables of dword elements overwriting the index vector.
-  | VPERMI2D = 1072
-  /// Full permute of two tables of DP elements overwriting the index vector.
-  | VPERMI2PD = 1073
-  /// Full permute of two tables of SP elements overwriting the index vector.
-  | VPERMI2PS = 1074
-  /// Full permute of two tables of qword elements overwriting the index vector.
-  | VPERMI2Q = 1075
-  /// Full Permute From Two Tables Overwriting the Index.
-  | VPERMI2W = 1076
-  /// Permute Double-Precision Floating-Point Values.
-  | VPERMILPD = 1077
-  /// Permute Single-Precision Floating-Point Values.
-  | VPERMILPS = 1078
-  /// Permute Double-Precision Floating-Point Elements.
-  | VPERMPD = 1079
-  /// Permute Single-Precision Floating-Point Elements.
-  | VPERMPS = 1080
-  /// Qwords Element Permutation.
-  | VPERMQ = 1081
-  /// Full permute of two tables of byte elements overwriting one source table.
-  | VPERMT2B = 1082
-  /// Full permute of two tables of dword elements overwriting one source table.
-  | VPERMT2D = 1083
-  /// Full permute of two tables of DP elements overwriting one source table.
-  | VPERMT2PD = 1084
-  /// Full permute of two tables of SP elements overwriting one source table.
-  | VPERMT2PS = 1085
-  /// Full permute of two tables of qword elements overwriting one source table.
-  | VPERMT2Q = 1086
-  /// Full permute of two tables of word elements overwriting one source table.
-  | VPERMT2W = 1087
-  /// Permute packed word elements.
-  | VPERMW = 1088
-  /// Load Sparse Packed Byte Integer Values from Dense Memory / Register.
-  | VPEXPANDB = 1089
-  /// Load Sparse Packed Doubleword Integer Values from Dense Memory / Register.
-  | VPEXPANDD = 1090
-  /// Load Sparse Packed Quadword Integer Values from Dense Memory / Register.
-  | VPEXPANDQ = 1091
-  /// Load Sparse Packed Word Integer Values from Dense Memory / Register.
-  | VPEXPANDW = 1092
-  /// Extract Byte.
-  | VPEXTRB = 1093
-  /// Extract Dword.
-  | VPEXTRD = 1094
-  /// Extract Qword.
-  | VPEXTRQ = 1095
-  /// Extract Word.
-  | VPEXTRW = 1096
-  /// Gather packed dword values using signed Dword/Qword indices.
-  | VPGATHERDD = 1097
-  /// Gather Packed Qword Values Using Signed Dword/Qword Indices.
-  | VPGATHERDQ = 1098
-  /// Gather Packed Dword Values Using Signed Dword/Qword Indices.
-  | VPGATHERQD = 1099
-  /// Gather Packed Qword Values Using Signed Dword/Qword Indices.
-  | VPGATHERQQ = 1100
-  /// Packed Horizontal Add (32-bit).
-  | VPHADDD = 1101
-  /// Packed Horizontal Add and Saturate (16-bit).
-  | VPHADDSW = 1102
-  /// Packed Horizontal Add (16-bit).
-  | VPHADDW = 1103
-  /// Packed Horizontal Word Minimum.
-  | VPHMINPOSUW = 1104
-  /// Packed Horizontal Subtract (32-bit).
-  | VPHSUBD = 1105
-  /// Packed Horizontal Subtract and Saturate (16-bit).
-  | VPHSUBSW = 1106
-  /// Packed Horizontal Subtract (16-bit).
-  | VPHSUBW = 1107
-  /// Insert Byte.
-  | VPINSRB = 1108
-  /// Insert Dword.
-  | VPINSRD = 1109
-  /// Insert Qword.
-  | VPINSRQ = 1110
-  /// Insert Word.
-  | VPINSRW = 1111
-  /// Count the number of leading zero bits of packed dword elements.
-  | VPLZCNTD = 1112
-  /// Count the number of leading zero bits of packed qword elements.
-  | VPLZCNTQ = 1113
-  /// Packed Multiply of Unsigned 52-bit and Add High 52-bit Products.
-  | VPMADD52HUQ = 1114
-  /// Packed Multiply of Unsigned 52-bit and Add Low 52-bit Products.
-  | VPMADD52LUQ = 1115
-  /// Multiply and Add Packed Signed and Unsigned Bytes.
-  | VPMADDUBSW = 1116
-  /// Multiply and Add Packed Integers.
-  | VPMADDWD = 1117
-  /// Conditional SIMD Integer Packed Loads and Stores.
-  | VPMASKMOVD = 1118
-  /// Conditional SIMD Integer Packed Loads and Stores.
-  | VPMASKMOVQ = 1119
-  /// Maximum of Packed Signed Integers (byte).
-  | VPMAXSB = 1120
-  /// Maximum of Packed Signed Integers (dword).
-  | VPMAXSD = 1121
-  /// Compute maximum of packed signed 64-bit integer elements.
-  | VPMAXSQ = 1122
-  /// Maximum of Packed Signed Word Integers.
-  | VPMAXSW = 1123
-  /// Maximum of Packed Unsigned Byte Integers.
-  | VPMAXUB = 1124
-  /// Maximum of Packed Unsigned Integers (dword).
-  | VPMAXUD = 1125
-  /// Compute maximum of packed unsigned 64-bit integer elements.
-  | VPMAXUQ = 1126
-  /// Maximum of Packed Unsigned Integers (word).
-  | VPMAXUW = 1127
-  /// Minimum of Packed Signed Integers (byte).
-  | VPMINSB = 1128
-  /// Minimum of Packed Signed Integers (dword).
-  | VPMINSD = 1129
-  /// Compute minimum of packed signed 64-bit integer elements.
-  | VPMINSQ = 1130
-  /// Minimum of Packed Signed Word Integers.
-  | VPMINSW = 1131
-  /// Minimum of Packed Unsigned Byte Integers.
-  | VPMINUB = 1132
-  /// Minimum of Packed Dword Integers.
-  | VPMINUD = 1133
-  /// Compute minimum of packed unsigned 64-bit integer elements.
-  | VPMINUQ = 1134
-  /// Minimum of Packed Unsigned Integers (word).
-  | VPMINUW = 1135
-  /// Convert a vector register in 32/64-bit granularity to an opmask register.
-  | VPMOVB2D = 1136
-  /// Convert a Vector Register to a Mask.
-  | VPMOVB2M = 1137
-  /// Convert dword vector register to mask register.
-  | VPMOVD2M = 1138
-  /// Down Convert DWord to Byte.
-  | VPMOVDB = 1139
-  /// Down Convert DWord to Word.
-  | VPMOVDW = 1140
-  /// Convert opmask register to vector register in 8-bit granularity.
-  | VPMOVM2B = 1141
-  /// Convert opmask register to vector register in 32-bit granularity.
-  | VPMOVM2D = 1142
-  /// Convert opmask register to vector register in 64-bit granularity.
-  | VPMOVM2Q = 1143
-  /// Convert opmask register to vector register in 16-bit granularity.
-  | VPMOVM2W = 1144
-  /// Move Byte Mask.
-  | VPMOVMSKB = 1145
-  /// Convert qword vector register to mask register.
-  | VPMOVQ2M = 1146
-  /// Down Convert QWord to Byte.
-  | VPMOVQB = 1147
-  /// Down Convert QWord to DWord.
-  | VPMOVQD = 1148
-  /// Down Convert QWord to Word.
-  | VPMOVQW = 1149
-  /// Down Convert DWord to Byte.
-  | VPMOVSDB = 1150
-  /// Down Convert DWord to Word.
-  | VPMOVSDW = 1151
-  /// Down Convert QWord to Byte.
-  | VPMOVSQB = 1152
-  /// Down Convert QWord to Dword.
-  | VPMOVSQD = 1153
-  /// Down Convert QWord to Word.
-  | VPMOVSQW = 1154
-  /// Down Convert Word to Byte.
-  | VPMOVSWB = 1155
-  /// Packed Move with Sign Extend (8-bit to 32-bit).
-  | VPMOVSXBD = 1156
-  /// Packed Move with Sign Extend (8-bit to 64-bit).
-  | VPMOVSXBQ = 1157
-  /// Packed Move with Sign Extend (8-bit to 16-bit).
-  | VPMOVSXBW = 1158
-  /// Packed Move with Sign Extend (32-bit to 64-bit).
-  | VPMOVSXDQ = 1159
-  /// Packed Move with Sign Extend (16-bit to 32-bit).
-  | VPMOVSXWD = 1160
-  /// Packed Move with Sign Extend (16-bit to 64-bit).
-  | VPMOVSXWQ = 1161
-  /// Down Convert DWord to Byte.
-  | VPMOVUSDB = 1162
-  /// Down Convert DWord to Word.
-  | VPMOVUSDW = 1163
-  /// Down Convert QWord to Byte.
-  | VPMOVUSQB = 1164
-  /// Down Convert QWord to DWord.
-  | VPMOVUSQD = 1165
-  /// Down Convert QWord to Word.
-  | VPMOVUSQW = 1166
-  /// Down Convert Word to Byte.
-  | VPMOVUSWB = 1167
-  /// Convert a vector register in 16-bit granularity to an opmask register.
-  | VPMOVW2M = 1168
-  /// Down convert word elements in a vector to byte elements using truncation.
-  | VPMOVWB = 1169
-  /// Packed Move with Zero Extend (8-bit to 32-bit).
-  | VPMOVZXBD = 1170
-  /// Packed Move with Zero Extend (8-bit to 64-bit).
-  | VPMOVZXBQ = 1171
-  /// Packed Move with Zero Extend (8-bit to 16-bit).
-  | VPMOVZXBW = 1172
-  /// Packed Move with Zero Extend (32-bit to 64-bit).
-  | VPMOVZXDQ = 1173
-  /// Packed Move with Zero Extend (16-bit to 32-bit).
-  | VPMOVZXWD = 1174
-  /// Packed Move with Zero Extend (16-bit to 64-bit).
-  | VPMOVZXWQ = 1175
-  /// Multiply Packed Doubleword Integers.
-  | VPMULDQ = 1176
-  /// Packed Multiply High with Round and Scale.
-  | VPMULHRSW = 1177
-  /// Multiply Packed Unsigned Integers and Store High Result.
-  | VPMULHUW = 1178
-  /// Multiply Packed Signed Integers and Store High Result.
-  | VPMULHW = 1179
-  /// Multiply Packed Integers and Store Low Result.
-  | VPMULLD = 1180
-  /// Multiply Packed Integers and Store Low Result.
-  | VPMULLQ = 1181
-  /// Multiply Packed Signed Integers and Store Low Result.
-  | VPMULLW = 1182
-  /// Select Packed Unaligned Bytes from Quadword Sources.
-  | VPMULTISHIFTQB = 1183
-  /// Multiply Packed Unsigned Doubleword Integers.
-  | VPMULUDQ = 1184
-  /// Return the Count of Number of Bits Set to 1 in byte.
-  | VPOPCNTB = 1185
-  /// Return the Count of Number of Bits Set to 1 in dword.
-  | VPOPCNTD = 1186
-  /// Return the Count of Number of Bits Set to 1 in qword.
-  | VPOPCNTQ = 1187
-  /// Return the Count of Number of Bits Set to 1 in word.
-  | VPOPCNTW = 1188
-  /// Bitwise Logical OR.
-  | VPOR = 1189
-  /// Bitwise Logical OR.
-  | VPORD = 1190
-  /// Bitwise Logical OR.
-  | VPORQ = 1191
-  /// Rotate dword elem left by a constant shift count with conditional update.
-  | VPROLD = 1192
-  /// Rotate qword elem left by a constant shift count with conditional update.
-  | VPROLQ = 1193
-  /// Rotate dword element left by shift counts specified.
-  | VPROLVD = 1194
-  /// Rotate qword element left by shift counts specified.
-  | VPROLVQ = 1195
-  /// Rotate dword element right by a constant shift count.
-  | VPRORD = 1196
-  /// Rotate qword element right by a constant shift count.
-  | VPRORQ = 1197
-  /// Rotate dword element right by shift counts specified.
-  | VPRORRD = 1198
-  /// Rotate qword element right by shift counts specified.
-  | VPRORRQ = 1199
-  /// Rotate dword element right by shift counts specified.
-  | VPRORVD = 1200
-  /// Rotate qword element right by shift counts specified.
-  | VPRORVQ = 1201
-  /// Compute Sum of Absolute Differences.
-  | VPSADBW = 1202
-  /// Scatter dword elements in a vector to memory using dword indices.
-  | VPSCATTERDD = 1203
-  /// Scatter qword elements in a vector to memory using dword indices.
-  | VPSCATTERDQ = 1204
-  /// Scatter dword elements in a vector to memory using qword indices.
-  | VPSCATTERQD = 1205
-  /// Scatter qword elements in a vector to memory using qword indices.
-  | VPSCATTERQQ = 1206
-  /// Concatenate and Shift Packed Data Left Logical.
-  | VPSHLDD = 1207
-  /// Concatenate and Shift Packed Data Left Logical.
-  | VPSHLDQ = 1208
-  /// Concatenate and Variable Shift Packed Data Left Logical.
-  | VPSHLDVD = 1209
-  /// Concatenate and Variable Shift Packed Data Left Logical.
-  | VPSHLDVQ = 1210
-  /// Concatenate and Variable Shift Packed Data Left Logical.
-  | VPSHLDVW = 1211
-  /// Concatenate and Shift Packed Data Left Logical.
-  | VPSHLDW = 1212
-  /// Concatenate and Shift Packed Data Right Logical.
-  | VPSHRDD = 1213
-  /// Concatenate and Shift Packed Data Right Logical.
-  | VPSHRDQ = 1214
-  /// Concatenate and Variable Shift Packed Data Right Logical.
-  | VPSHRDVD = 1215
-  /// Concatenate and Variable Shift Packed Data Right Logical.
-  | VPSHRDVQ = 1216
-  /// Concatenate and Variable Shift Packed Data Right Logical.
-  | VPSHRDVW = 1217
-  /// Concatenate and Shift Packed Data Right Logical.
-  | VPSHRDW = 1218
-  /// Packed Shuffle Bytes.
-  | VPSHUFB = 1219
-  /// Shuffle Bits from Quadword Elements Using Byte Indexes into Mask.
-  | VPSHUFBITQMB = 1220
-  /// Shuffle Packed Doublewords.
-  | VPSHUFD = 1221
-  /// Shuffle Packed High Words.
-  | VPSHUFHW = 1222
-  /// Shuffle Packed Low Words.
-  | VPSHUFLW = 1223
-  /// Packed SIGN (byte).
-  | VPSIGNB = 1224
-  /// Packed SIGN (doubleword).
-  | VPSIGND = 1225
-  /// Packed SIGN (word).
-  | VPSIGNW = 1226
-  /// Shift Packed Data Left Logical (doubleword).
-  | VPSLLD = 1227
-  /// Shift Double Quadword Left Logical.
-  | VPSLLDQ = 1228
-  /// Shift Packed Data Left Logical (quadword).
-  | VPSLLQ = 1229
-  /// Variable Bit Shift Left Logical.
-  | VPSLLVD = 1230
-  /// Variable Bit Shift Left Logical.
-  | VPSLLVQ = 1231
-  /// Variable Bit Shift Left Logical.
-  | VPSLLVW = 1232
-  /// Shift Packed Data Left Logical (word).
-  | VPSLLW = 1233
-  /// Shift Packed Data Right Arithmetic (doubleword).
-  | VPSRAD = 1234
-  /// Shift qwords right by a constant shift count and shifting in sign bits.
-  | VPSRAQ = 1235
-  /// Variable Bit Shift Right Arithmetic.
-  | VPSRAVD = 1236
-  /// Shift qwords right by shift counts in a vector and shifting in sign bits.
-  | VPSRAVQ = 1237
-  /// Variable Bit Shift Right Arithmetic.
-  | VPSRAVW = 1238
-  /// Shift Packed Data Right Arithmetic (word).
-  | VPSRAW = 1239
-  /// Shift Packed Data Right Logical (doubleword).
-  | VPSRLD = 1240
-  /// Shift Double Quadword Right Logical.
-  | VPSRLDQ = 1241
-  /// Shift Packed Data Right Logical (quadword).
-  | VPSRLQ = 1242
-  /// Variable Bit Shift Right Logical.
-  | VPSRLVD = 1243
-  /// Variable Bit Shift Right Logical.
-  | VPSRLVQ = 1244
-  /// Variable Bit Shift Right Logical.
-  | VPSRLVW = 1245
-  /// Shift Packed Data Right Logical (word).
-  | VPSRLW = 1246
-  /// Subtract Packed Integers (byte).
-  | VPSUBB = 1247
-  /// Subtract Packed Integers (doubleword).
-  | VPSUBD = 1248
-  /// Subtract Packed Integers (quadword).
-  | VPSUBQ = 1249
-  /// Subtract Packed Signed Integers with Signed Saturation (byte).
-  | VPSUBSB = 1250
-  /// Subtract Packed Signed Integers with Signed Saturation (word).
-  | VPSUBSW = 1251
-  /// Subtract Packed Unsigned Integers with Unsigned Saturation (byte).
-  | VPSUBUSB = 1252
-  /// Subtract Packed Unsigned Integers with Unsigned Saturation (word).
-  | VPSUBUSW = 1253
-  /// Subtract Packed Integers (word).
-  | VPSUBW = 1254
-  /// Perform bitwise ternary logic operation of three vectors.
-  | VPTERLOGD = 1255
-  /// Perform bitwise ternary logic operation of three vectors.
-  | VPTERLOGQ = 1256
-  /// Bitwise Ternary Logic.
-  | VPTERNLOGD = 1257
-  /// Bitwise Ternary Logic.
-  | VPTERNLOGQ = 1258
-  /// Logical Compare.
-  | VPTEST = 1259
-  /// Perform bitwise AND of byte elems of two vecs and write results to opmask.
-  | VPTESTMB = 1260
-  /// Perform bitwise AND of dword elems of 2-vecs and write results to opmask.
-  | VPTESTMD = 1261
-  /// Perform bitwise AND of qword elems of 2-vecs and write results to opmask.
-  | VPTESTMQ = 1262
-  /// Perform bitwise AND of word elems of two vecs and write results to opmask.
-  | VPTESTMW = 1263
-  /// Perform bitwise NAND of byte elems of 2-vecs and write results to opmask.
-  | VPTESTNMB = 1264
-  /// Perform bitwise NAND of dword elems of 2-vecs and write results to opmask.
-  | VPTESTNMD = 1265
-  /// Perform bitwise NAND of qword elems of 2-vecs and write results to opmask.
-  | VPTESTNMQ = 1266
-  /// Perform bitwise NAND of word elems of 2-vecs and write results to opmask.
-  | VPTESTNMW = 1267
-  /// Unpack High Data.
-  | VPUNPCKHBW = 1268
-  /// Unpack High Data.
-  | VPUNPCKHDQ = 1269
-  /// Unpack High Data.
-  | VPUNPCKHQDQ = 1270
-  /// Unpack High Data.
-  | VPUNPCKHWD = 1271
-  /// Unpack Low Data.
-  | VPUNPCKLBW = 1272
-  /// Unpack Low Data.
-  | VPUNPCKLDQ = 1273
-  /// Unpack Low Data.
-  | VPUNPCKLQDQ = 1274
-  /// Unpack Low Data.
-  | VPUNPCKLWD = 1275
-  /// Logical Exclusive OR.
-  | VPXOR = 1276
-  /// Bitwise XOR of packed doubleword integers.
-  | VPXORD = 1277
-  /// Bitwise XOR of packed quadword integers.
-  | VPXORQ = 1278
-  /// Range Restriction Calculation For Packed Pairs of Float64 Values.
-  | VRANGEPD = 1279
-  /// Range Restriction Calculation For Packed Pairs of Float32 Values.
-  | VRANGEPS = 1280
-  /// Range Restriction Calculation From a pair of Scalar Float64 Values.
-  | VRANGESD = 1281
-  /// Range Restriction Calculation From a Pair of Scalar Float32 Values.
-  | VRANGESS = 1282
-  /// Compute Approximate Reciprocals of Packed Float64 Values.
-  | VRCP14PD = 1283
-  /// Compute Approximate Reciprocals of Packed Float32 Values.
-  | VRCP14PS = 1284
-  /// Compute Approximate Reciprocal of Scalar Float64 Value.
-  | VRCP14SD = 1285
-  /// Compute Approximate Reciprocal of Scalar Float32 Value.
-  | VRCP14SS = 1286
-  /// Computes the reciprocal approximation of the float64 values.
-  | VRCP28PD = 1287
-  /// Computes the reciprocal approximation of the float32 values.
-  | VRCP28PS = 1288
-  /// Computes the reciprocal approximation of the low float64 value.
-  | VRCP28SD = 1289
-  /// Computes the reciprocal approximation of the low float32 value.
-  | VRCP28SS = 1290
-  /// Compute reciprocals of packed single-precision floating-point values.
-  | VRCPPS = 1291
-  /// Compute Reciprocal of Scalar Single-Precision Floating-Point Values.
-  | VRCPSS = 1292
-  /// Perform Reduction Transformation on Packed Float64 Values.
-  | VREDUCEPD = 1293
-  /// Perform Reduction Transformation on Packed Float32 Values.
-  | VREDUCEPS = 1294
-  /// Perform a Reduction Transformation on a Scalar Float64 Value.
-  | VREDUCESD = 1295
-  /// Perform a Reduction Transformation on a Scalar Float32 Value.
-  | VREDUCESS = 1296
-  /// Round Packed Float64 Values To Include A Given Number Of Fraction Bits.
-  | VRNDSCALEPD = 1297
-  /// Round Packed Float32 Values To Include A Given Number Of Fraction Bits.
-  | VRNDSCALEPS = 1298
-  /// Round Scalar Float64 Value To Include A Given Number Of Fraction Bits.
-  | VRNDSCALESD = 1299
-  /// Round Scalar Float32 Value To Include A Given Number Of Fraction Bits.
-  | VRNDSCALESS = 1300
-  /// Round Packed Double-Precision Values.
-  | VROUNDPD = 1301
-  /// Round Packed Single-Precision Values.
-  | VROUNDPS = 1302
-  /// Round Scalar Double-Precision Value.
-  | VROUNDSD = 1303
-  /// Round Scalar Single-Precision Value.
-  | VROUNDSS = 1304
-  /// Compute Approximate Reciprocals of Square Roots of Packed Float64 Values.
-  | VRSQRT14PD = 1305
-  /// Compute Approximate Reciprocals of Square Roots of Packed Float32 Values.
-  | VRSQRT14PS = 1306
-  /// Compute Approximate Reciprocal of Square Root of Scalar Float64 Value.
-  | VRSQRT14SD = 1307
-  /// Compute Approximate Reciprocal of Square Root of Scalar Float32 Value.
-  | VRSQRT14SS = 1308
-  /// Computes the reciprocal square root of the float64 values.
-  | VRSQRT28PD = 1309
-  /// Computes the reciprocal square root of the float32 values.
-  | VRSQRT28PS = 1310
-  /// Computes the reciprocal square root of the low float64 value.
-  | VRSQRT28SD = 1311
-  /// Computes the reciprocal square root of the low float32 value.
-  | VRSQRT28SS = 1312
-  /// Compute Reciprocals of Square Roots of Packed Single-Precision FP Values.
-  | VRSQRTPS = 1313
-  /// Compute Reciprocal of Square Root of Scalar Single-Precision FP Value.
-  | VRSQRTSS = 1314
-  /// Scale Packed Float64 Values With Float64 Values.
-  | VSCALEFPD = 1315
-  /// Scale Packed Float32 Values With Float32 Values.
-  | VSCALEFPS = 1316
-  /// Scale Scalar Float64 Values With Float64 Values.
-  | VSCALEFSD = 1317
-  /// Scale Scalar Float32 Value With Float32 Value.
-  | VSCALEFSS = 1318
-  /// Multiply packed DP FP elements of a vector by powers.
-  | VSCALEPD = 1319
-  /// Multiply packed SP FP elements of a vector by powers.
-  | VSCALEPS = 1320
-  /// Multiply the low DP FP element of a vector by powers.
-  | VSCALESD = 1321
-  /// Multiply the low SP FP element of a vector by powers.
-  | VSCALESS = 1322
-  /// Scatter SP/DP FP elements in a vector to memory using dword indices.
-  | VSCATTERDD = 1323
-  /// Scatter packed double with signed dword indices.
-  | VSCATTERDPD = 1324
-  /// Scatter packed single with signed dword indices.
-  | VSCATTERDPS = 1325
-  /// Scatter SP/DP FP elements in a vector to memory using dword indices.
-  | VSCATTERDQ = 1326
-  /// Sparse prefetch packed DP FP with T0 hint to write using dword indices.
-  | VSCATTERPF0DPD = 1327
-  /// Sparse prefetch packed SP FP with T0 hint to write using dword indices.
-  | VSCATTERPF0DPS = 1328
-  /// Sparse prefetch packed DP FP with T0 hint to write using qword indices.
-  | VSCATTERPF0QPD = 1329
-  /// Sparse prefetch packed SP FP with T0 hint to write using qword indices.
-  | VSCATTERPF0QPS = 1330
-  /// Sparse prefetch packed DP FP with T1 hint to write using dword indices.
-  | VSCATTERPF1DPD = 1331
-  /// Sparse prefetch packed SP FP with T1 hint to write using dword indices.
-  | VSCATTERPF1DPS = 1332
-  /// Sparse prefetch packed DP FP with T1 hint to write using qword indices.
-  | VSCATTERPF1QPD = 1333
-  /// Sparse prefetch packed SP FP with T1 hint to write using qword indices.
-  | VSCATTERPF1QPS = 1334
-  /// Scatter SP/DP FP elements in a vector to memory using qword indices.
-  | VSCATTERQD = 1335
-  /// Scatter packed double with signed qword indices.
-  | VSCATTERQPD = 1336
-  /// Scatter packed single with signed qword indices.
-  | VSCATTERQPS = 1337
-  /// Scatter SP/DP FP elements in a vector to memory using qword indices.
-  | VSCATTERQQ = 1338
-  /// Shuffle 128-bit lanes of a vector with 32 bit granular conditional update.
-  | VSHUFF32X4 = 1339
-  /// Shuffle 128-bit lanes of a vector with 64 bit granular conditional update.
-  | VSHUFF64X2 = 1340
-  /// Shuffle 128-bit lanes of a vector with 32 bit granular conditional update.
-  | VSHUFI32X4 = 1341
-  /// Shuffle 128-bit lanes of a vector with 64 bit granular conditional update.
-  | VSHUFI64X2 = 1342
-  /// Shuffle Packed Double-Precision Floating-Point Values.
-  | VSHUFPD = 1343
-  /// Shuffle Packed Single-Precision Floating-Point Values.
-  | VSHUFPS = 1344
-  /// Compute packed square roots of packed double-precision FP values.
-  | VSQRTPD = 1345
-  /// Compute square roots of packed single-precision floating-point values.
-  | VSQRTPS = 1346
-  /// Compute scalar square root of scalar double-precision FP values.
-  | VSQRTSD = 1347
-  /// Compute square root of scalar single-precision floating-point values.
-  | VSQRTSS = 1348
-  /// Subtract Packed Double-Precision Floating-Point Values.
-  | VSUBPD = 1349
-  /// Subtract Packed Single-Precision Floating-Point Values.
-  | VSUBPS = 1350
-  /// Subtract Scalar Double-Precision Floating-Point Values.
-  | VSUBSD = 1351
-  /// Subtract Scalar Single-Precision Floating-Point Values.
-  | VSUBSS = 1352
-  /// Packed Bit Test.
-  | VTESTPD = 1353
-  /// Packed Bit Test.
-  | VTESTPS = 1354
-  /// Unordered Compare Scalar Double-Precision FP Values and Set EFLAGS.
-  | VUCOMISD = 1355
-  /// Unordered Compare Scalar Single-Precision FPValues and Set EFLAGS.
-  | VUCOMISS = 1356
-  /// Unpack and Interleave High Packed Double-Precision Floating-Point Values.
-  | VUNPCKHPD = 1357
-  /// Unpack and Interleave High Packed Single-Precision Floating-Point Values.
-  | VUNPCKHPS = 1358
-  /// Unpack and Interleave Low Packed Double-Precision Floating-Point Values.
-  | VUNPCKLPD = 1359
-  /// Unpack and Interleave Low Packed Single-Precision Floating-Point Values.
-  | VUNPCKLPS = 1360
-  /// Bitwise Logical XOR for Double-Precision Floating-Point Values.
-  | VXORPD = 1361
-  /// Bitwise Logical XOR for Single-Precision Floating-Point Values.
-  | VXORPS = 1362
-  /// Zero Upper Bits of YMM Registers.
-  | VZEROUPPER = 1363
-  /// Wait.
-  | WAIT = 1364
-  /// Write Back and Invalidate Cache.
-  | WBINVD = 1365
-  /// Write FS Segment Base.
-  | WRFSBASE = 1366
-  /// Write GS Segment Base.
-  | WRGSBASE = 1367
-  /// Write to Model Specific Register.
-  | WRMSR = 1368
-  /// Write Data to User Page Key Register.
-  | WRPKRU = 1369
-  /// Write to a shadow stack.
-  | WRSSD = 1370
-  /// Write to a shadow stack.
-  | WRSSQ = 1371
-  /// Write to a user mode shadow stack.
-  | WRUSSD = 1372
-  /// Write to a user mode shadow stack.
-  | WRUSSQ = 1373
-  /// Transactional Abort.
-  | XABORT = 1374
-  /// Prefix hint to the beginning of an HLE transaction region.
-  | XACQUIRE = 1375
-  /// Exchange and Add.
-  | XADD = 1376
-  /// Transactional Begin.
-  | XBEGIN = 1377
-  /// Exchange Register/Memory with Register.
-  | XCHG = 1378
-  /// Cipher Block Chaining.
-  | XCRYPTCBC = 1379
-  /// Cipher Feedback Mode.
-  | XCRYPTCFB = 1380
-  /// Counter Mode (ACE2).
-  | XCRYPTCTR = 1381
-  /// Electronic code book.
-  | XCRYPTECB = 1382
-  /// Output Feedback Mode.
-  | XCRYPTOFB = 1383
-  /// Transactional End.
-  | XEND = 1384
-  /// Value of Extended Control Register.
-  | XGETBV = 1385
-  /// Table lookup translation.
-  | XLAT = 1386
-  /// Table Look-up Translation.
-  | XLATB = 1387
-  /// Modular Multiplication.
-  | XMODEXP = 1388
-  /// Logical Exclusive OR.
-  | XOR = 1389
-  /// Bitwise Logical XOR for Double-Precision Floating-Point Values.
-  | XORPD = 1390
-  /// Bitwise Logical XOR for Single-Precision Floating-Point Values.
-  | XORPS = 1391
-  /// Prefix hint to the end of an HLE transaction region.
-  | XRELEASE = 1392
-  /// Random Number Generation.
-  | XRNG2 = 1393
-  /// Restore Processor Extended States.
-  | XRSTOR = 1394
-  /// Restore processor supervisor-mode extended states from memory.
-  | XRSTORS = 1395
-  /// Restore processor supervisor-mode extended states from memory.
-  | XRSTORS64 = 1396
-  /// Save Processor Extended States.
-  | XSAVE = 1397
-  /// Save processor extended states with compaction to memory.
-  | XSAVEC = 1398
-  /// Save processor extended states with compaction to memory.
-  | XSAVEC64 = 1399
-  /// Save Processor Extended States Optimized.
-  | XSAVEOPT = 1400
-  /// Save processor supervisor-mode extended states to memory.
-  | XSAVES = 1401
-  /// Save processor supervisor-mode extended states to memory.
-  | XSAVES64 = 1402
-  /// Set Extended Control Register.
-  | XSETBV = 1403
-  /// Hash Function SHA-1.
-  | XSHA1 = 1404
-  /// Hash Function SHA-256.
-  | XSHA256 = 1405
-  /// Hash Function SHA-384.
-  | XSHA384 = 1406
-  /// Hash Function SHA-512.
-  | XSHA512 = 1407
-  /// Store Available Random Bytes.
-  | XSTORERNG = 1408
-  /// Test If In Transactional Execution.
-  | XTEST = 1409
-  /// Invalid Opcode.
-  | InvalOP = 1410
+  | AESDEC128KL = 15
+  | AESDEC256KL = 16
+  | AESDECLAST = 17
+  | AESDECWIDE128KL = 18
+  | AESDECWIDE256KL = 19
+  | AESENC = 20
+  | AESENC128KL = 21
+  | AESENC256KL = 22
+  | AESENCLAST = 23
+  | AESENCWIDE128KL = 24
+  | AESENCWIDE256KL = 25
+  | AESIMC = 26
+  | AESKEYGENASSIST = 27
+  | AND = 28
+  | ANDN = 29
+  | ANDNPD = 30
+  | ANDNPS = 31
+  | ANDPD = 32
+  | ANDPS = 33
+  | ARPL = 34
+  | BEXTR = 35
+  | BLENDPD = 36
+  | BLENDPS = 37
+  | BLENDVPD = 38
+  | BLENDVPS = 39
+  | BLSI = 40
+  | BLSMSK = 41
+  | BLSR = 42
+  | BNDCL = 43
+  | BNDCN = 44
+  | BNDCU = 45
+  | BNDLDX = 46
+  | BNDMK = 47
+  | BNDMOV = 48
+  | BNDSTX = 49
+  | BOUND = 50
+  | BSF = 51
+  | BSR = 52
+  | BSWAP = 53
+  | BT = 54
+  | BTC = 55
+  | BTR = 56
+  | BTS = 57
+  | BZHI = 58
+  | CALL = 59
+  | CBW = 60
+  | CDQ = 61
+  | CDQE = 62
+  | CLAC = 63
+  | CLC = 64
+  | CLD = 65
+  | CLDEMOTE = 66
+  | CLFLUSH = 67
+  | CLFLUSHOPT = 68
+  | CLI = 69
+  | CLRSSBSY = 70
+  | CLTS = 71
+  | CLUI = 72
+  | CLWB = 73
+  | CMC = 74
+  | CMOVA = 75
+  | CMOVAE = 76
+  | CMOVB = 77
+  | CMOVBE = 78
+  | CMOVC = 79
+  | CMOVE = 80
+  | CMOVG = 81
+  | CMOVGE = 82
+  | CMOVL = 83
+  | CMOVLE = 84
+  | CMOVNA = 85
+  | CMOVNAE = 86
+  | CMOVNB = 87
+  | CMOVNBE = 88
+  | CMOVNC = 89
+  | CMOVNE = 90
+  | CMOVNG = 91
+  | CMOVNGE = 92
+  | CMOVNL = 93
+  | CMOVNLE = 94
+  | CMOVNO = 95
+  | CMOVNP = 96
+  | CMOVNS = 97
+  | CMOVNZ = 98
+  | CMOVO = 99
+  | CMOVP = 100
+  | CMOVPE = 101
+  | CMOVPO = 102
+  | CMOVS = 103
+  | CMOVZ = 104
+  | CMP = 105
+  | CMPBEXADD = 106
+  | CMPBXADD = 107
+  | CMPLEXADD = 108
+  | CMPLXADD = 109
+  | CMPNBEXADD = 110
+  | CMPNBXADD = 111
+  | CMPNLEXADD = 112
+  | CMPNLXADD = 113
+  | CMPNOXADD = 114
+  | CMPNPXADD = 115
+  | CMPNSXADD = 116
+  | CMPNZXADD = 117
+  | CMPOXADD = 118
+  | CMPPD = 119
+  | CMPPS = 120
+  | CMPPXADD = 121
+  | CMPS = 122
+  | CMPSB = 123
+  | CMPSD = 124
+  | CMPSQ = 125
+  | CMPSS = 126
+  | CMPSW = 127
+  | CMPSXADD = 128
+  | CMPXCHG = 129
+  | CMPXCHG16B = 130
+  | CMPXCHG8B = 131
+  | CMPZXADD = 132
+  | COMISD = 133
+  | COMISS = 134
+  | CPUID = 135
+  | CQO = 136
+  | CRC32 = 137
+  | CVTDQ2PD = 138
+  | CVTDQ2PS = 139
+  | CVTPD2DQ = 140
+  | CVTPD2PI = 141
+  | CVTPD2PS = 142
+  | CVTPI2PD = 143
+  | CVTPI2PS = 144
+  | CVTPS2DQ = 145
+  | CVTPS2PD = 146
+  | CVTPS2PI = 147
+  | CVTSD2SI = 148
+  | CVTSD2SS = 149
+  | CVTSI2SD = 150
+  | CVTSI2SS = 151
+  | CVTSS2SD = 152
+  | CVTSS2SI = 153
+  | CVTTPD2DQ = 154
+  | CVTTPD2PI = 155
+  | CVTTPS2DQ = 156
+  | CVTTPS2PI = 157
+  | CVTTSD2SI = 158
+  | CVTTSS2SI = 159
+  | CWD = 160
+  | CWDE = 161
+  | DAA = 162
+  | DAS = 163
+  | DEC = 164
+  | DIV = 165
+  | DIVPD = 166
+  | DIVPS = 167
+  | DIVSD = 168
+  | DIVSS = 169
+  | DPPD = 170
+  | DPPS = 171
+  | EMMS = 172
+  | ENCODEKEY128 = 173
+  | ENCODEKEY256 = 174
+  | ENDBR32 = 175
+  | ENDBR64 = 176
+  | ENQCMD = 177
+  | ENQCMDS = 178
+  | ENTER = 179
+  | EXTRACTPS = 180
+  | F2XM1 = 181
+  | FABS = 182
+  | FADD = 183
+  | FADDP = 184
+  | FBLD = 185
+  | FBSTP = 186
+  | FCHS = 187
+  | FCLEX = 188
+  | FCMOVB = 189
+  | FCMOVBE = 190
+  | FCMOVE = 191
+  | FCMOVNB = 192
+  | FCMOVNBE = 193
+  | FCMOVNE = 194
+  | FCMOVNU = 195
+  | FCMOVU = 196
+  | FCOM = 197
+  | FCOMI = 198
+  | FCOMIP = 199
+  | FCOMP = 200
+  | FCOMPP = 201
+  | FCOS = 202
+  | FDECSTP = 203
+  | FDIV = 204
+  | FDIVP = 205
+  | FDIVR = 206
+  | FDIVRP = 207
+  | FFREE = 208
+  | FIADD = 209
+  | FICOM = 210
+  | FICOMP = 211
+  | FIDIV = 212
+  | FIDIVR = 213
+  | FILD = 214
+  | FIMUL = 215
+  | FINCSTP = 216
+  | FINIT = 217
+  | FIST = 218
+  | FISTP = 219
+  | FISTTP = 220
+  | FISUB = 221
+  | FISUBR = 222
+  | FLD = 223
+  | FLD1 = 224
+  | FLDCW = 225
+  | FLDENV = 226
+  | FLDL2E = 227
+  | FLDL2T = 228
+  | FLDLG2 = 229
+  | FLDLN2 = 230
+  | FLDPI = 231
+  | FLDZ = 232
+  | FMUL = 233
+  | FMULP = 234
+  | FNCLEX = 235
+  | FNINIT = 236
+  | FNOP = 237
+  | FNSAVE = 238
+  | FNSTCW = 239
+  | FNSTENV = 240
+  | FNSTSW = 241
+  | FPATAN = 242
+  | FPREM = 243
+  | FPREM1 = 244
+  | FPTAN = 245
+  | FRNDINT = 246
+  | FRSTOR = 247
+  | FSAVE = 248
+  | FSCALE = 249
+  | FSIN = 250
+  | FSINCOS = 251
+  | FSQRT = 252
+  | FST = 253
+  | FSTCW = 254
+  | FSTENV = 255
+  | FSTP = 256
+  | FSTSW = 257
+  | FSUB = 258
+  | FSUBP = 259
+  | FSUBR = 260
+  | FSUBRP = 261
+  | FTST = 262
+  | FUCOM = 263
+  | FUCOMI = 264
+  | FUCOMIP = 265
+  | FUCOMP = 266
+  | FUCOMPP = 267
+  | FWAIT = 268
+  | FXAM = 269
+  | FXCH = 270
+  | FXRSTOR = 271
+  | FXRSTOR64 = 272
+  | FXSAVE = 273
+  | FXSAVE64 = 274
+  | FXTRACT = 275
+  | FYL2X = 276
+  | FYL2XP1 = 277
+  | GETSEC = 278
+  | GF2P8AFFINEINVQB = 279
+  | GF2P8AFFINEQB = 280
+  | GF2P8MULB = 281
+  | HADDPD = 282
+  | HADDPS = 283
+  | HLT = 284
+  | HRESET = 285
+  | HSUBPD = 286
+  | HSUBPS = 287
+  | IDIV = 288
+  | IMUL = 289
+  | IN = 290
+  | INC = 291
+  | INCSSPD = 292
+  | INCSSPQ = 293
+  | INS = 294
+  | INSB = 295
+  | INSD = 296
+  | INSERTPS = 297
+  | INSW = 298
+  | INT = 299
+  | INT1 = 300
+  | INT3 = 301
+  | INTO = 302
+  | INVD = 303
+  | INVLPG = 304
+  | INVPCID = 305
+  | IRET = 306
+  | IRETD = 307
+  | IRETQ = 308
+  | JA = 309
+  | JAE = 310
+  | JB = 311
+  | JBE = 312
+  | JC = 313
+  | JCXZ = 314
+  | JE = 315
+  | JECXZ = 316
+  | JG = 317
+  | JGE = 318
+  | JL = 319
+  | JLE = 320
+  | JMP = 321
+  | JNA = 322
+  | JNAE = 323
+  | JNB = 324
+  | JNBE = 325
+  | JNC = 326
+  | JNE = 327
+  | JNG = 328
+  | JNGE = 329
+  | JNL = 330
+  | JNLE = 331
+  | JNO = 332
+  | JNP = 333
+  | JNS = 334
+  | JNZ = 335
+  | JO = 336
+  | JP = 337
+  | JPE = 338
+  | JPO = 339
+  | JRCXZ = 340
+  | JS = 341
+  | JZ = 342
+  | KADDB = 343
+  | KADDD = 344
+  | KADDQ = 345
+  | KADDW = 346
+  | KANDB = 347
+  | KANDD = 348
+  | KANDNB = 349
+  | KANDND = 350
+  | KANDNQ = 351
+  | KANDNW = 352
+  | KANDQ = 353
+  | KANDW = 354
+  | KMOVB = 355
+  | KMOVD = 356
+  | KMOVQ = 357
+  | KMOVW = 358
+  | KNOTB = 359
+  | KNOTD = 360
+  | KNOTQ = 361
+  | KNOTW = 362
+  | KORB = 363
+  | KORD = 364
+  | KORQ = 365
+  | KORTESTB = 366
+  | KORTESTD = 367
+  | KORTESTQ = 368
+  | KORTESTW = 369
+  | KORW = 370
+  | KSHIFTLB = 371
+  | KSHIFTLD = 372
+  | KSHIFTLQ = 373
+  | KSHIFTLW = 374
+  | KSHIFTRB = 375
+  | KSHIFTRD = 376
+  | KSHIFTRQ = 377
+  | KSHIFTRW = 378
+  | KTESTB = 379
+  | KTESTD = 380
+  | KTESTQ = 381
+  | KTESTW = 382
+  | KUNPCKBW = 383
+  | KUNPCKDQ = 384
+  | KUNPCKWD = 385
+  | KXNORB = 386
+  | KXNORD = 387
+  | KXNORQ = 388
+  | KXNORW = 389
+  | KXORB = 390
+  | KXORD = 391
+  | KXORQ = 392
+  | KXORW = 393
+  | LAHF = 394
+  | LAR = 395
+  | LDDQU = 396
+  | LDMXCSR = 397
+  | LDS = 398
+  | LDTILECFG = 399
+  | LEA = 400
+  | LEAVE = 401
+  | LES = 402
+  | LFENCE = 403
+  | LFS = 404
+  | LGDT = 405
+  | LGS = 406
+  | LIDT = 407
+  | LLDT = 408
+  | LMSW = 409
+  | LOADIWKEY = 410
+  | LOCK = 411
+  | LODS = 412
+  | LODSB = 413
+  | LODSD = 414
+  | LODSQ = 415
+  | LODSW = 416
+  | LOOP = 417
+  | LOOPE = 418
+  | LOOPNE = 419
+  | LSL = 420
+  | LSS = 421
+  | LTR = 422
+  | LZCNT = 423
+  | MASKMOVDQU = 424
+  | MASKMOVQ = 425
+  | MAXPD = 426
+  | MAXPS = 427
+  | MAXSD = 428
+  | MAXSS = 429
+  | MFENCE = 430
+  | MINPD = 431
+  | MINPS = 432
+  | MINSD = 433
+  | MINSS = 434
+  | MONITOR = 435
+  | MOV = 436
+  | MOVAPD = 437
+  | MOVAPS = 438
+  | MOVBE = 439
+  | MOVD = 440
+  | MOVDDUP = 441
+  | MOVDIR64B = 442
+  | MOVDIRI = 443
+  | MOVDQ2Q = 444
+  | MOVDQA = 445
+  | MOVDQU = 446
+  | MOVHLPS = 447
+  | MOVHPD = 448
+  | MOVHPS = 449
+  | MOVLHPS = 450
+  | MOVLPD = 451
+  | MOVLPS = 452
+  | MOVMSKPD = 453
+  | MOVMSKPS = 454
+  | MOVNTDQ = 455
+  | MOVNTDQA = 456
+  | MOVNTI = 457
+  | MOVNTPD = 458
+  | MOVNTPS = 459
+  | MOVNTQ = 460
+  | MOVQ = 461
+  | MOVQ2DQ = 462
+  | MOVS = 463
+  | MOVSB = 464
+  | MOVSD = 465
+  | MOVSHDUP = 466
+  | MOVSLDUP = 467
+  | MOVSQ = 468
+  | MOVSS = 469
+  | MOVSW = 470
+  | MOVSX = 471
+  | MOVSXD = 472
+  | MOVUPD = 473
+  | MOVUPS = 474
+  | MOVZX = 475
+  | MPSADBW = 476
+  | MUL = 477
+  | MULPD = 478
+  | MULPS = 479
+  | MULSD = 480
+  | MULSS = 481
+  | MULX = 482
+  | MWAIT = 483
+  | NEG = 484
+  | NOP = 485
+  | NOT = 486
+  | OR = 487
+  | ORPD = 488
+  | ORPS = 489
+  | OUT = 490
+  | OUTS = 491
+  | OUTSB = 492
+  | OUTSD = 493
+  | OUTSW = 494
+  | PABSB = 495
+  | PABSD = 496
+  | PABSW = 497
+  | PACKSSDW = 498
+  | PACKSSWB = 499
+  | PACKUSDW = 500
+  | PACKUSWB = 501
+  | PADDB = 502
+  | PADDD = 503
+  | PADDQ = 504
+  | PADDSB = 505
+  | PADDSW = 506
+  | PADDUSB = 507
+  | PADDUSW = 508
+  | PADDW = 509
+  | PALIGNR = 510
+  | PAND = 511
+  | PANDN = 512
+  | PAUSE = 513
+  | PAVGB = 514
+  | PAVGW = 515
+  | PBLENDVB = 516
+  | PBLENDW = 517
+  | PCLMULQDQ = 518
+  | PCMPEQB = 519
+  | PCMPEQD = 520
+  | PCMPEQQ = 521
+  | PCMPEQW = 522
+  | PCMPESTRI = 523
+  | PCMPESTRM = 524
+  | PCMPGTB = 525
+  | PCMPGTD = 526
+  | PCMPGTQ = 527
+  | PCMPGTW = 528
+  | PCMPISTRI = 529
+  | PCMPISTRM = 530
+  | PCONFIG = 531
+  | PDEP = 532
+  | PEXT = 533
+  | PEXTRB = 534
+  | PEXTRD = 535
+  | PEXTRQ = 536
+  | PEXTRW = 537
+  | PHADDD = 538
+  | PHADDSW = 539
+  | PHADDW = 540
+  | PHMINPOSUW = 541
+  | PHSUBD = 542
+  | PHSUBSW = 543
+  | PHSUBW = 544
+  | PINSRB = 545
+  | PINSRD = 546
+  | PINSRQ = 547
+  | PINSRW = 548
+  | PMADDUBSW = 549
+  | PMADDWD = 550
+  | PMAXSB = 551
+  | PMAXSD = 552
+  | PMAXSW = 553
+  | PMAXUB = 554
+  | PMAXUD = 555
+  | PMAXUW = 556
+  | PMINSB = 557
+  | PMINSD = 558
+  | PMINSW = 559
+  | PMINUB = 560
+  | PMINUD = 561
+  | PMINUW = 562
+  | PMOVMSKB = 563
+  | PMOVSXBD = 564
+  | PMOVSXBQ = 565
+  | PMOVSXBW = 566
+  | PMOVSXDQ = 567
+  | PMOVSXWD = 568
+  | PMOVSXWQ = 569
+  | PMOVZXBD = 570
+  | PMOVZXBQ = 571
+  | PMOVZXBW = 572
+  | PMOVZXDQ = 573
+  | PMOVZXWD = 574
+  | PMOVZXWQ = 575
+  | PMULDQ = 576
+  | PMULHRSW = 577
+  | PMULHUW = 578
+  | PMULHW = 579
+  | PMULLD = 580
+  | PMULLW = 581
+  | PMULUDQ = 582
+  | POP = 583
+  | POPA = 584
+  | POPAD = 585
+  | POPCNT = 586
+  | POPF = 587
+  | POPFD = 588
+  | POPFQ = 589
+  | POR = 590
+  | PREFETCHIT0 = 591
+  | PREFETCHIT1 = 592
+  | PREFETCHNTA = 593
+  | PREFETCHT0 = 594
+  | PREFETCHT1 = 595
+  | PREFETCHT2 = 596
+  | PREFETCHW = 597
+  | PREFETCHWT1 = 598
+  | PSADBW = 599
+  | PSHUFB = 600
+  | PSHUFD = 601
+  | PSHUFHW = 602
+  | PSHUFLW = 603
+  | PSHUFW = 604
+  | PSIGNB = 605
+  | PSIGND = 606
+  | PSIGNW = 607
+  | PSLLD = 608
+  | PSLLDQ = 609
+  | PSLLQ = 610
+  | PSLLW = 611
+  | PSRAD = 612
+  | PSRAW = 613
+  | PSRLD = 614
+  | PSRLDQ = 615
+  | PSRLQ = 616
+  | PSRLW = 617
+  | PSUBB = 618
+  | PSUBD = 619
+  | PSUBQ = 620
+  | PSUBSB = 621
+  | PSUBSW = 622
+  | PSUBUSB = 623
+  | PSUBUSW = 624
+  | PSUBW = 625
+  | PTEST = 626
+  | PTWRITE = 627
+  | PUNPCKHBW = 628
+  | PUNPCKHDQ = 629
+  | PUNPCKHQDQ = 630
+  | PUNPCKHWD = 631
+  | PUNPCKLBW = 632
+  | PUNPCKLDQ = 633
+  | PUNPCKLQDQ = 634
+  | PUNPCKLWD = 635
+  | PUSH = 636
+  | PUSHA = 637
+  | PUSHAD = 638
+  | PUSHF = 639
+  | PUSHFD = 640
+  | PUSHFQ = 641
+  | PXOR = 642
+  | RCL = 643
+  | RCPPS = 644
+  | RCPSS = 645
+  | RCR = 646
+  | RDFSBASE = 647
+  | RDGSBASE = 648
+  | RDMSR = 649
+  | RDMSRLIST = 650
+  | RDPID = 651
+  | RDPKRU = 652
+  | RDPMC = 653
+  | RDRAND = 654
+  | RDSEED = 655
+  | RDSSPD = 656
+  | RDSSPQ = 657
+  | RDTSC = 658
+  | RDTSCP = 659
+  | RET = 660
+  | ROL = 661
+  | ROR = 662
+  | RORX = 663
+  | ROUNDPD = 664
+  | ROUNDPS = 665
+  | ROUNDSD = 666
+  | ROUNDSS = 667
+  | RSM = 668
+  | RSQRTPS = 669
+  | RSQRTSS = 670
+  | RSTORSSP = 671
+  | SAHF = 672
+  | SAL = 673
+  | SAR = 674
+  | SARX = 675
+  | SAVEPREVSSP = 676
+  | SBB = 677
+  | SCAS = 678
+  | SCASB = 679
+  | SCASD = 680
+  | SCASQ = 681
+  | SCASW = 682
+  | SENDUIPI = 683
+  | SERIALIZE = 684
+  | SETA = 685
+  | SETAE = 686
+  | SETB = 687
+  | SETBE = 688
+  | SETC = 689
+  | SETE = 690
+  | SETG = 691
+  | SETGE = 692
+  | SETL = 693
+  | SETLE = 694
+  | SETNA = 695
+  | SETNAE = 696
+  | SETNB = 697
+  | SETNBE = 698
+  | SETNC = 699
+  | SETNE = 700
+  | SETNG = 701
+  | SETNGE = 702
+  | SETNL = 703
+  | SETNLE = 704
+  | SETNO = 705
+  | SETNP = 706
+  | SETNS = 707
+  | SETNZ = 708
+  | SETO = 709
+  | SETP = 710
+  | SETPE = 711
+  | SETPO = 712
+  | SETS = 713
+  | SETSSBSY = 714
+  | SETZ = 715
+  | SFENCE = 716
+  | SGDT = 717
+  | SHA1MSG1 = 718
+  | SHA1MSG2 = 719
+  | SHA1NEXTE = 720
+  | SHA1RNDS4 = 721
+  | SHA256MSG1 = 722
+  | SHA256MSG2 = 723
+  | SHA256RNDS2 = 724
+  | SHL = 725
+  | SHLD = 726
+  | SHLX = 727
+  | SHR = 728
+  | SHRD = 729
+  | SHRX = 730
+  | SHUFPD = 731
+  | SHUFPS = 732
+  | SIDT = 733
+  | SLDT = 734
+  | SMSW = 735
+  | SQRTPD = 736
+  | SQRTPS = 737
+  | SQRTSD = 738
+  | SQRTSS = 739
+  | STAC = 740
+  | STC = 741
+  | STD = 742
+  | STI = 743
+  | STMXCSR = 744
+  | STOS = 745
+  | STOSB = 746
+  | STOSD = 747
+  | STOSQ = 748
+  | STOSW = 749
+  | STR = 750
+  | STTILECFG = 751
+  | STUI = 752
+  | SUB = 753
+  | SUBPD = 754
+  | SUBPS = 755
+  | SUBSD = 756
+  | SUBSS = 757
+  | SWAPGS = 758
+  | SYSCALL = 759
+  | SYSENTER = 760
+  | SYSEXIT = 761
+  | SYSRET = 762
+  | TDPBF16PS = 763
+  | TDPBSSD = 764
+  | TDPBSUD = 765
+  | TDPBUSD = 766
+  | TDPBUUD = 767
+  | TDPFP16PS = 768
+  | TEST = 769
+  | TESTUI = 770
+  | TILELOADD = 771
+  | TILELOADDT1 = 772
+  | TILERELEASE = 773
+  | TILESTORED = 774
+  | TILEZERO = 775
+  | TPAUSE = 776
+  | TZCNT = 777
+  | UCOMISD = 778
+  | UCOMISS = 779
+  | UD0 = 780
+  | UD1 = 781
+  | UD2 = 782
+  | UDB = 783
+  | UIRET = 784
+  | UMONITOR = 785
+  | UMWAIT = 786
+  | UNPCKHPD = 787
+  | UNPCKHPS = 788
+  | UNPCKLPD = 789
+  | UNPCKLPS = 790
+  | V4FMADDPS = 791
+  | V4FMADDSS = 792
+  | V4FNMADDPS = 793
+  | V4FNMADDSS = 794
+  | VADDPD = 795
+  | VADDPH = 796
+  | VADDPS = 797
+  | VADDSD = 798
+  | VADDSH = 799
+  | VADDSS = 800
+  | VADDSUBPD = 801
+  | VADDSUBPS = 802
+  | VAESDEC = 803
+  | VAESDECLAST = 804
+  | VAESENC = 805
+  | VAESENCLAST = 806
+  | VAESIMC = 807
+  | VAESKEYGENASSIST = 808
+  | VALIGND = 809
+  | VALIGNQ = 810
+  | VANDNPD = 811
+  | VANDNPS = 812
+  | VANDPD = 813
+  | VANDPS = 814
+  | VBCSTNEBF162PS = 815
+  | VBCSTNESH2PS = 816
+  | VBLENDMPD = 817
+  | VBLENDMPS = 818
+  | VBLENDPD = 819
+  | VBLENDPS = 820
+  | VBLENDVPD = 821
+  | VBLENDVPS = 822
+  | VBROADCASTF128 = 823
+  | VBROADCASTF32X2 = 824
+  | VBROADCASTF32X4 = 825
+  | VBROADCASTF32X8 = 826
+  | VBROADCASTF64X2 = 827
+  | VBROADCASTF64X4 = 828
+  | VBROADCASTI128 = 829
+  | VBROADCASTI32X2 = 830
+  | VBROADCASTI32X4 = 831
+  | VBROADCASTI32X8 = 832
+  | VBROADCASTI64X2 = 833
+  | VBROADCASTI64X4 = 834
+  | VBROADCASTSD = 835
+  | VBROADCASTSS = 836
+  | VCMPPD = 837
+  | VCMPPH = 838
+  | VCMPPS = 839
+  | VCMPSD = 840
+  | VCMPSH = 841
+  | VCMPSS = 842
+  | VCOMISD = 843
+  | VCOMISH = 844
+  | VCOMISS = 845
+  | VCOMPRESSPD = 846
+  | VCOMPRESSPS = 847
+  | VCVTDQ2PD = 848
+  | VCVTDQ2PH = 849
+  | VCVTDQ2PS = 850
+  | VCVTNE2PS2BF16 = 851
+  | VCVTNEEBF162PS = 852
+  | VCVTNEEPH2PS = 853
+  | VCVTNEOBF162PS = 854
+  | VCVTNEOPH2PS = 855
+  | VCVTNEPS2BF16 = 856
+  | VCVTPD2DQ = 857
+  | VCVTPD2PH = 858
+  | VCVTPD2PS = 859
+  | VCVTPD2QQ = 860
+  | VCVTPD2UDQ = 861
+  | VCVTPD2UQQ = 862
+  | VCVTPH2DQ = 863
+  | VCVTPH2PD = 864
+  | VCVTPH2PS = 865
+  | VCVTPH2PSX = 866
+  | VCVTPH2QQ = 867
+  | VCVTPH2UDQ = 868
+  | VCVTPH2UQQ = 869
+  | VCVTPH2UW = 870
+  | VCVTPH2W = 871
+  | VCVTPS2DQ = 872
+  | VCVTPS2PD = 873
+  | VCVTPS2PH = 874
+  | VCVTPS2PHX = 875
+  | VCVTPS2QQ = 876
+  | VCVTPS2UDQ = 877
+  | VCVTPS2UQQ = 878
+  | VCVTQQ2PD = 879
+  | VCVTQQ2PH = 880
+  | VCVTQQ2PS = 881
+  | VCVTSD2SH = 882
+  | VCVTSD2SI = 883
+  | VCVTSD2SS = 884
+  | VCVTSD2USI = 885
+  | VCVTSH2SD = 886
+  | VCVTSH2SI = 887
+  | VCVTSH2SS = 888
+  | VCVTSH2USI = 889
+  | VCVTSI2SD = 890
+  | VCVTSI2SH = 891
+  | VCVTSI2SS = 892
+  | VCVTSS2SD = 893
+  | VCVTSS2SH = 894
+  | VCVTSS2SI = 895
+  | VCVTSS2USI = 896
+  | VCVTTPD2DQ = 897
+  | VCVTTPD2QQ = 898
+  | VCVTTPD2UDQ = 899
+  | VCVTTPD2UQQ = 900
+  | VCVTTPH2DQ = 901
+  | VCVTTPH2QQ = 902
+  | VCVTTPH2UDQ = 903
+  | VCVTTPH2UQQ = 904
+  | VCVTTPH2UW = 905
+  | VCVTTPH2W = 906
+  | VCVTTPS2DQ = 907
+  | VCVTTPS2QQ = 908
+  | VCVTTPS2UDQ = 909
+  | VCVTTPS2UQQ = 910
+  | VCVTTSD2SI = 911
+  | VCVTTSD2USI = 912
+  | VCVTTSH2SI = 913
+  | VCVTTSH2USI = 914
+  | VCVTTSS2SI = 915
+  | VCVTTSS2USI = 916
+  | VCVTUDQ2PD = 917
+  | VCVTUDQ2PH = 918
+  | VCVTUDQ2PS = 919
+  | VCVTUQQ2PD = 920
+  | VCVTUQQ2PH = 921
+  | VCVTUQQ2PS = 922
+  | VCVTUSI2SD = 923
+  | VCVTUSI2SH = 924
+  | VCVTUSI2SS = 925
+  | VCVTUW2PH = 926
+  | VCVTW2PH = 927
+  | VDBPSADBW = 928
+  | VDIVPD = 929
+  | VDIVPH = 930
+  | VDIVPS = 931
+  | VDIVSD = 932
+  | VDIVSH = 933
+  | VDIVSS = 934
+  | VDPBF16PS = 935
+  | VDPPD = 936
+  | VDPPS = 937
+  | VERR = 938
+  | VERW = 939
+  | VEXP2PD = 940
+  | VEXP2PS = 941
+  | VEXPANDPD = 942
+  | VEXPANDPS = 943
+  | VEXTRACTF128 = 944
+  | VEXTRACTF32X4 = 945
+  | VEXTRACTF32X8 = 946
+  | VEXTRACTF64X2 = 947
+  | VEXTRACTF64X4 = 948
+  | VEXTRACTI128 = 949
+  | VEXTRACTI32X4 = 950
+  | VEXTRACTI32X8 = 951
+  | VEXTRACTI64X2 = 952
+  | VEXTRACTI64X4 = 953
+  | VEXTRACTPS = 954
+  | VFCMADDCPH = 955
+  | VFCMADDCSH = 956
+  | VFCMULCPH = 957
+  | VFCMULCSH = 958
+  | VFIXUPIMMPD = 959
+  | VFIXUPIMMPS = 960
+  | VFIXUPIMMSD = 961
+  | VFIXUPIMMSS = 962
+  | VFMADD132PD = 963
+  | VFMADD132PH = 964
+  | VFMADD132PS = 965
+  | VFMADD132SD = 966
+  | VFMADD132SH = 967
+  | VFMADD132SS = 968
+  | VFMADD213PD = 969
+  | VFMADD213PH = 970
+  | VFMADD213PS = 971
+  | VFMADD213SD = 972
+  | VFMADD213SH = 973
+  | VFMADD213SS = 974
+  | VFMADD231PD = 975
+  | VFMADD231PH = 976
+  | VFMADD231PS = 977
+  | VFMADD231SD = 978
+  | VFMADD231SH = 979
+  | VFMADD231SS = 980
+  | VFMADDCPH = 981
+  | VFMADDCSH = 982
+  | VFMADDSUB132PD = 983
+  | VFMADDSUB132PH = 984
+  | VFMADDSUB132PS = 985
+  | VFMADDSUB213PD = 986
+  | VFMADDSUB213PH = 987
+  | VFMADDSUB213PS = 988
+  | VFMADDSUB231PD = 989
+  | VFMADDSUB231PH = 990
+  | VFMADDSUB231PS = 991
+  | VFMSUB132PD = 992
+  | VFMSUB132PH = 993
+  | VFMSUB132PS = 994
+  | VFMSUB132SD = 995
+  | VFMSUB132SH = 996
+  | VFMSUB132SS = 997
+  | VFMSUB213PD = 998
+  | VFMSUB213PH = 999
+  | VFMSUB213PS = 1000
+  | VFMSUB213SD = 1001
+  | VFMSUB213SH = 1002
+  | VFMSUB213SS = 1003
+  | VFMSUB231PD = 1004
+  | VFMSUB231PH = 1005
+  | VFMSUB231PS = 1006
+  | VFMSUB231SD = 1007
+  | VFMSUB231SH = 1008
+  | VFMSUB231SS = 1009
+  | VFMSUBADD132PD = 1010
+  | VFMSUBADD132PH = 1011
+  | VFMSUBADD132PS = 1012
+  | VFMSUBADD213PD = 1013
+  | VFMSUBADD213PH = 1014
+  | VFMSUBADD213PS = 1015
+  | VFMSUBADD231PD = 1016
+  | VFMSUBADD231PH = 1017
+  | VFMSUBADD231PS = 1018
+  | VFMULCPH = 1019
+  | VFMULCSH = 1020
+  | VFNMADD132PD = 1021
+  | VFNMADD132PH = 1022
+  | VFNMADD132PS = 1023
+  | VFNMADD132SD = 1024
+  | VFNMADD132SH = 1025
+  | VFNMADD132SS = 1026
+  | VFNMADD213PD = 1027
+  | VFNMADD213PH = 1028
+  | VFNMADD213PS = 1029
+  | VFNMADD213SD = 1030
+  | VFNMADD213SH = 1031
+  | VFNMADD213SS = 1032
+  | VFNMADD231PD = 1033
+  | VFNMADD231PH = 1034
+  | VFNMADD231PS = 1035
+  | VFNMADD231SD = 1036
+  | VFNMADD231SH = 1037
+  | VFNMADD231SS = 1038
+  | VFNMSUB132PD = 1039
+  | VFNMSUB132PH = 1040
+  | VFNMSUB132PS = 1041
+  | VFNMSUB132SD = 1042
+  | VFNMSUB132SH = 1043
+  | VFNMSUB132SS = 1044
+  | VFNMSUB213PD = 1045
+  | VFNMSUB213PH = 1046
+  | VFNMSUB213PS = 1047
+  | VFNMSUB213SD = 1048
+  | VFNMSUB213SH = 1049
+  | VFNMSUB213SS = 1050
+  | VFNMSUB231PD = 1051
+  | VFNMSUB231PH = 1052
+  | VFNMSUB231PS = 1053
+  | VFNMSUB231SD = 1054
+  | VFNMSUB231SH = 1055
+  | VFNMSUB231SS = 1056
+  | VFPCLASSPD = 1057
+  | VFPCLASSPH = 1058
+  | VFPCLASSPS = 1059
+  | VFPCLASSSD = 1060
+  | VFPCLASSSH = 1061
+  | VFPCLASSSS = 1062
+  | VGATHERDPD = 1063
+  | VGATHERDPS = 1064
+  | VGATHERPF0DPD = 1065
+  | VGATHERPF0DPS = 1066
+  | VGATHERPF0QPD = 1067
+  | VGATHERPF0QPS = 1068
+  | VGATHERPF1DPD = 1069
+  | VGATHERPF1DPS = 1070
+  | VGATHERPF1QPD = 1071
+  | VGATHERPF1QPS = 1072
+  | VGATHERQPD = 1073
+  | VGATHERQPS = 1074
+  | VGETEXPPD = 1075
+  | VGETEXPPH = 1076
+  | VGETEXPPS = 1077
+  | VGETEXPSD = 1078
+  | VGETEXPSH = 1079
+  | VGETEXPSS = 1080
+  | VGETMANTPD = 1081
+  | VGETMANTPH = 1082
+  | VGETMANTPS = 1083
+  | VGETMANTSD = 1084
+  | VGETMANTSH = 1085
+  | VGETMANTSS = 1086
+  | VGF2P8AFFINEINVQB = 1087
+  | VGF2P8AFFINEQB = 1088
+  | VGF2P8MULB = 1089
+  | VHADDPD = 1090
+  | VHADDPS = 1091
+  | VHSUBPD = 1092
+  | VHSUBPS = 1093
+  | VINSERTF128 = 1094
+  | VINSERTF32X4 = 1095
+  | VINSERTF32X8 = 1096
+  | VINSERTF64X2 = 1097
+  | VINSERTF64X4 = 1098
+  | VINSERTI128 = 1099
+  | VINSERTI32X4 = 1100
+  | VINSERTI32X8 = 1101
+  | VINSERTI64X2 = 1102
+  | VINSERTI64X4 = 1103
+  | VINSERTPS = 1104
+  | VLDDQU = 1105
+  | VLDMXCSR = 1106
+  | VMASKMOVDQU = 1107
+  | VMASKMOVPD = 1108
+  | VMASKMOVPS = 1109
+  | VMAXPD = 1110
+  | VMAXPH = 1111
+  | VMAXPS = 1112
+  | VMAXSD = 1113
+  | VMAXSH = 1114
+  | VMAXSS = 1115
+  | VMINPD = 1116
+  | VMINPH = 1117
+  | VMINPS = 1118
+  | VMINSD = 1119
+  | VMINSH = 1120
+  | VMINSS = 1121
+  | VMOVAPD = 1122
+  | VMOVAPS = 1123
+  | VMOVD = 1124
+  | VMOVDDUP = 1125
+  | VMOVDQA = 1126
+  | VMOVDQA32 = 1127
+  | VMOVDQA64 = 1128
+  | VMOVDQU = 1129
+  | VMOVDQU16 = 1130
+  | VMOVDQU32 = 1131
+  | VMOVDQU64 = 1132
+  | VMOVDQU8 = 1133
+  | VMOVHLPS = 1134
+  | VMOVHPD = 1135
+  | VMOVHPS = 1136
+  | VMOVLHPS = 1137
+  | VMOVLPD = 1138
+  | VMOVLPS = 1139
+  | VMOVMSKPD = 1140
+  | VMOVMSKPS = 1141
+  | VMOVNTDQ = 1142
+  | VMOVNTDQA = 1143
+  | VMOVNTPD = 1144
+  | VMOVNTPS = 1145
+  | VMOVQ = 1146
+  | VMOVSD = 1147
+  | VMOVSH = 1148
+  | VMOVSHDUP = 1149
+  | VMOVSLDUP = 1150
+  | VMOVSS = 1151
+  | VMOVUPD = 1152
+  | VMOVUPS = 1153
+  | VMOVW = 1154
+  | VMPSADBW = 1155
+  | VMULPD = 1156
+  | VMULPH = 1157
+  | VMULPS = 1158
+  | VMULSD = 1159
+  | VMULSH = 1160
+  | VMULSS = 1161
+  | VORPD = 1162
+  | VORPS = 1163
+  | VP2INTERSECTD = 1164
+  | VP2INTERSECTQ = 1165
+  | VP4DPWSSD = 1166
+  | VP4DPWSSDS = 1167
+  | VPABSB = 1168
+  | VPABSD = 1169
+  | VPABSQ = 1170
+  | VPABSW = 1171
+  | VPACKSSDW = 1172
+  | VPACKSSWB = 1173
+  | VPACKUSDW = 1174
+  | VPACKUSWB = 1175
+  | VPADDB = 1176
+  | VPADDD = 1177
+  | VPADDQ = 1178
+  | VPADDSB = 1179
+  | VPADDSW = 1180
+  | VPADDUSB = 1181
+  | VPADDUSW = 1182
+  | VPADDW = 1183
+  | VPALIGNR = 1184
+  | VPAND = 1185
+  | VPANDD = 1186
+  | VPANDN = 1187
+  | VPANDND = 1188
+  | VPANDNQ = 1189
+  | VPANDQ = 1190
+  | VPAVGB = 1191
+  | VPAVGW = 1192
+  | VPBLENDD = 1193
+  | VPBLENDMB = 1194
+  | VPBLENDMD = 1195
+  | VPBLENDMQ = 1196
+  | VPBLENDMW = 1197
+  | VPBLENDVB = 1198
+  | VPBLENDW = 1199
+  | VPBROADCASTB = 1200
+  | VPBROADCASTD = 1201
+  | VPBROADCASTMB2Q = 1202
+  | VPBROADCASTMW2D = 1203
+  | VPBROADCASTQ = 1204
+  | VPBROADCASTW = 1205
+  | VPCLMULQDQ = 1206
+  | VPCMPB = 1207
+  | VPCMPD = 1208
+  | VPCMPEQB = 1209
+  | VPCMPEQD = 1210
+  | VPCMPEQQ = 1211
+  | VPCMPEQW = 1212
+  | VPCMPESTRI = 1213
+  | VPCMPESTRM = 1214
+  | VPCMPGTB = 1215
+  | VPCMPGTD = 1216
+  | VPCMPGTQ = 1217
+  | VPCMPGTW = 1218
+  | VPCMPISTRI = 1219
+  | VPCMPISTRM = 1220
+  | VPCMPQ = 1221
+  | VPCMPUB = 1222
+  | VPCMPUD = 1223
+  | VPCMPUQ = 1224
+  | VPCMPUW = 1225
+  | VPCMPW = 1226
+  | VPCOMPRESSB = 1227
+  | VPCOMPRESSD = 1228
+  | VPCOMPRESSQ = 1229
+  | VPCOMPRESSW = 1230
+  | VPCONFLICTD = 1231
+  | VPCONFLICTQ = 1232
+  | VPDPBSSD = 1233
+  | VPDPBSSDS = 1234
+  | VPDPBSUD = 1235
+  | VPDPBSUDS = 1236
+  | VPDPBUSD = 1237
+  | VPDPBUSDS = 1238
+  | VPDPBUUD = 1239
+  | VPDPBUUDS = 1240
+  | VPDPWSSD = 1241
+  | VPDPWSSDS = 1242
+  | VPDPWSUD = 1243
+  | VPDPWSUDS = 1244
+  | VPDPWUSD = 1245
+  | VPDPWUSDS = 1246
+  | VPDPWUUD = 1247
+  | VPDPWUUDS = 1248
+  | VPERM2F128 = 1249
+  | VPERM2I128 = 1250
+  | VPERMB = 1251
+  | VPERMD = 1252
+  | VPERMI2B = 1253
+  | VPERMI2D = 1254
+  | VPERMI2PD = 1255
+  | VPERMI2PS = 1256
+  | VPERMI2Q = 1257
+  | VPERMI2W = 1258
+  | VPERMILPD = 1259
+  | VPERMILPS = 1260
+  | VPERMPD = 1261
+  | VPERMPS = 1262
+  | VPERMQ = 1263
+  | VPERMT2B = 1264
+  | VPERMT2D = 1265
+  | VPERMT2PD = 1266
+  | VPERMT2PS = 1267
+  | VPERMT2Q = 1268
+  | VPERMT2W = 1269
+  | VPERMW = 1270
+  | VPEXPANDB = 1271
+  | VPEXPANDD = 1272
+  | VPEXPANDQ = 1273
+  | VPEXPANDW = 1274
+  | VPEXTRB = 1275
+  | VPEXTRD = 1276
+  | VPEXTRQ = 1277
+  | VPEXTRW = 1278
+  | VPGATHERDD = 1279
+  | VPGATHERDQ = 1280
+  | VPGATHERQD = 1281
+  | VPGATHERQQ = 1282
+  | VPHADDD = 1283
+  | VPHADDSW = 1284
+  | VPHADDW = 1285
+  | VPHMINPOSUW = 1286
+  | VPHSUBD = 1287
+  | VPHSUBSW = 1288
+  | VPHSUBW = 1289
+  | VPINSRB = 1290
+  | VPINSRD = 1291
+  | VPINSRQ = 1292
+  | VPINSRW = 1293
+  | VPLZCNTD = 1294
+  | VPLZCNTQ = 1295
+  | VPMADD52HUQ = 1296
+  | VPMADD52LUQ = 1297
+  | VPMADDUBSW = 1298
+  | VPMADDWD = 1299
+  | VPMASKMOVD = 1300
+  | VPMASKMOVQ = 1301
+  | VPMAXSB = 1302
+  | VPMAXSD = 1303
+  | VPMAXSQ = 1304
+  | VPMAXSW = 1305
+  | VPMAXUB = 1306
+  | VPMAXUD = 1307
+  | VPMAXUQ = 1308
+  | VPMAXUW = 1309
+  | VPMINSB = 1310
+  | VPMINSD = 1311
+  | VPMINSQ = 1312
+  | VPMINSW = 1313
+  | VPMINUB = 1314
+  | VPMINUD = 1315
+  | VPMINUQ = 1316
+  | VPMINUW = 1317
+  | VPMOVB2M = 1318
+  | VPMOVD2M = 1319
+  | VPMOVDB = 1320
+  | VPMOVDW = 1321
+  | VPMOVM2B = 1322
+  | VPMOVM2D = 1323
+  | VPMOVM2Q = 1324
+  | VPMOVM2W = 1325
+  | VPMOVMSKB = 1326
+  | VPMOVQ2M = 1327
+  | VPMOVQB = 1328
+  | VPMOVQD = 1329
+  | VPMOVQW = 1330
+  | VPMOVSDB = 1331
+  | VPMOVSDW = 1332
+  | VPMOVSQB = 1333
+  | VPMOVSQD = 1334
+  | VPMOVSQW = 1335
+  | VPMOVSWB = 1336
+  | VPMOVSXBD = 1337
+  | VPMOVSXBQ = 1338
+  | VPMOVSXBW = 1339
+  | VPMOVSXDQ = 1340
+  | VPMOVSXWD = 1341
+  | VPMOVSXWQ = 1342
+  | VPMOVUSDB = 1343
+  | VPMOVUSDW = 1344
+  | VPMOVUSQB = 1345
+  | VPMOVUSQD = 1346
+  | VPMOVUSQW = 1347
+  | VPMOVUSWB = 1348
+  | VPMOVW2M = 1349
+  | VPMOVWB = 1350
+  | VPMOVZXBD = 1351
+  | VPMOVZXBQ = 1352
+  | VPMOVZXBW = 1353
+  | VPMOVZXDQ = 1354
+  | VPMOVZXWD = 1355
+  | VPMOVZXWQ = 1356
+  | VPMULDQ = 1357
+  | VPMULHRSW = 1358
+  | VPMULHUW = 1359
+  | VPMULHW = 1360
+  | VPMULLD = 1361
+  | VPMULLQ = 1362
+  | VPMULLW = 1363
+  | VPMULTISHIFTQB = 1364
+  | VPMULUDQ = 1365
+  | VPOPCNTB = 1366
+  | VPOPCNTD = 1367
+  | VPOPCNTQ = 1368
+  | VPOPCNTW = 1369
+  | VPOR = 1370
+  | VPORD = 1371
+  | VPORQ = 1372
+  | VPROLD = 1373
+  | VPROLQ = 1374
+  | VPROLVD = 1375
+  | VPROLVQ = 1376
+  | VPRORD = 1377
+  | VPRORQ = 1378
+  | VPRORVD = 1379
+  | VPRORVQ = 1380
+  | VPSADBW = 1381
+  | VPSCATTERDD = 1382
+  | VPSCATTERDQ = 1383
+  | VPSCATTERQD = 1384
+  | VPSCATTERQQ = 1385
+  | VPSHLDD = 1386
+  | VPSHLDQ = 1387
+  | VPSHLDVD = 1388
+  | VPSHLDVQ = 1389
+  | VPSHLDVW = 1390
+  | VPSHLDW = 1391
+  | VPSHRDD = 1392
+  | VPSHRDQ = 1393
+  | VPSHRDVD = 1394
+  | VPSHRDVQ = 1395
+  | VPSHRDVW = 1396
+  | VPSHRDW = 1397
+  | VPSHUFB = 1398
+  | VPSHUFBITQMB = 1399
+  | VPSHUFD = 1400
+  | VPSHUFHW = 1401
+  | VPSHUFLW = 1402
+  | VPSIGNB = 1403
+  | VPSIGND = 1404
+  | VPSIGNW = 1405
+  | VPSLLD = 1406
+  | VPSLLDQ = 1407
+  | VPSLLQ = 1408
+  | VPSLLVD = 1409
+  | VPSLLVQ = 1410
+  | VPSLLVW = 1411
+  | VPSLLW = 1412
+  | VPSRAD = 1413
+  | VPSRAQ = 1414
+  | VPSRAVD = 1415
+  | VPSRAVQ = 1416
+  | VPSRAVW = 1417
+  | VPSRAW = 1418
+  | VPSRLD = 1419
+  | VPSRLDQ = 1420
+  | VPSRLQ = 1421
+  | VPSRLVD = 1422
+  | VPSRLVQ = 1423
+  | VPSRLVW = 1424
+  | VPSRLW = 1425
+  | VPSUBB = 1426
+  | VPSUBD = 1427
+  | VPSUBQ = 1428
+  | VPSUBSB = 1429
+  | VPSUBSW = 1430
+  | VPSUBUSB = 1431
+  | VPSUBUSW = 1432
+  | VPSUBW = 1433
+  | VPTERNLOGD = 1434
+  | VPTERNLOGQ = 1435
+  | VPTEST = 1436
+  | VPTESTMB = 1437
+  | VPTESTMD = 1438
+  | VPTESTMQ = 1439
+  | VPTESTMW = 1440
+  | VPTESTNMB = 1441
+  | VPTESTNMD = 1442
+  | VPTESTNMQ = 1443
+  | VPTESTNMW = 1444
+  | VPUNPCKHBW = 1445
+  | VPUNPCKHDQ = 1446
+  | VPUNPCKHQDQ = 1447
+  | VPUNPCKHWD = 1448
+  | VPUNPCKLBW = 1449
+  | VPUNPCKLDQ = 1450
+  | VPUNPCKLQDQ = 1451
+  | VPUNPCKLWD = 1452
+  | VPXOR = 1453
+  | VPXORD = 1454
+  | VPXORQ = 1455
+  | VRANGEPD = 1456
+  | VRANGEPS = 1457
+  | VRANGESD = 1458
+  | VRANGESS = 1459
+  | VRCP14PD = 1460
+  | VRCP14PS = 1461
+  | VRCP14SD = 1462
+  | VRCP14SS = 1463
+  | VRCP28PD = 1464
+  | VRCP28PS = 1465
+  | VRCP28SD = 1466
+  | VRCP28SS = 1467
+  | VRCPPH = 1468
+  | VRCPPS = 1469
+  | VRCPSH = 1470
+  | VRCPSS = 1471
+  | VREDUCEPD = 1472
+  | VREDUCEPH = 1473
+  | VREDUCEPS = 1474
+  | VREDUCESD = 1475
+  | VREDUCESH = 1476
+  | VREDUCESS = 1477
+  | VRNDSCALEPD = 1478
+  | VRNDSCALEPH = 1479
+  | VRNDSCALEPS = 1480
+  | VRNDSCALESD = 1481
+  | VRNDSCALESH = 1482
+  | VRNDSCALESS = 1483
+  | VROUNDPD = 1484
+  | VROUNDPS = 1485
+  | VROUNDSD = 1486
+  | VROUNDSS = 1487
+  | VRSQRT14PD = 1488
+  | VRSQRT14PS = 1489
+  | VRSQRT14SD = 1490
+  | VRSQRT14SS = 1491
+  | VRSQRT28PD = 1492
+  | VRSQRT28PS = 1493
+  | VRSQRT28SD = 1494
+  | VRSQRT28SS = 1495
+  | VRSQRTPH = 1496
+  | VRSQRTPS = 1497
+  | VRSQRTSH = 1498
+  | VRSQRTSS = 1499
+  | VSCALEFPD = 1500
+  | VSCALEFPH = 1501
+  | VSCALEFPS = 1502
+  | VSCALEFSD = 1503
+  | VSCALEFSH = 1504
+  | VSCALEFSS = 1505
+  | VSCATTERDPD = 1506
+  | VSCATTERDPS = 1507
+  | VSCATTERPF0DPD = 1508
+  | VSCATTERPF0DPS = 1509
+  | VSCATTERPF0QPD = 1510
+  | VSCATTERPF0QPS = 1511
+  | VSCATTERPF1DPD = 1512
+  | VSCATTERPF1DPS = 1513
+  | VSCATTERPF1QPD = 1514
+  | VSCATTERPF1QPS = 1515
+  | VSCATTERQPD = 1516
+  | VSCATTERQPS = 1517
+  | VSHA512MSG1 = 1518
+  | VSHA512MSG2 = 1519
+  | VSHA512RNDS2 = 1520
+  | VSHUFF32X4 = 1521
+  | VSHUFF64X2 = 1522
+  | VSHUFI32X4 = 1523
+  | VSHUFI64X2 = 1524
+  | VSHUFPD = 1525
+  | VSHUFPS = 1526
+  | VSM3MSG1 = 1527
+  | VSM3MSG2 = 1528
+  | VSM3RNDS2 = 1529
+  | VSM4KEY4 = 1530
+  | VSM4RNDS4 = 1531
+  | VSQRTPD = 1532
+  | VSQRTPH = 1533
+  | VSQRTPS = 1534
+  | VSQRTSD = 1535
+  | VSQRTSH = 1536
+  | VSQRTSS = 1537
+  | VSTMXCSR = 1538
+  | VSUBPD = 1539
+  | VSUBPH = 1540
+  | VSUBPS = 1541
+  | VSUBSD = 1542
+  | VSUBSH = 1543
+  | VSUBSS = 1544
+  | VTESTPD = 1545
+  | VTESTPS = 1546
+  | VUCOMISD = 1547
+  | VUCOMISH = 1548
+  | VUCOMISS = 1549
+  | VUNPCKHPD = 1550
+  | VUNPCKHPS = 1551
+  | VUNPCKLPD = 1552
+  | VUNPCKLPS = 1553
+  | VXORPD = 1554
+  | VXORPS = 1555
+  | VZEROALL = 1556
+  | VZEROUPPER = 1557
+  | WAIT = 1558
+  | WBINVD = 1559
+  | WBNOINVD = 1560
+  | WRFSBASE = 1561
+  | WRGSBASE = 1562
+  | WRMSR = 1563
+  | WRMSRLIST = 1564
+  | WRMSRNS = 1565
+  | WRPKRU = 1566
+  | WRSSD = 1567
+  | WRSSQ = 1568
+  | WRUSSD = 1569
+  | WRUSSQ = 1570
+  | XABORT = 1571
+  | XACQUIRE = 1572
+  | XADD = 1573
+  | XBEGIN = 1574
+  | XCHG = 1575
+  | XEND = 1576
+  | XGETBV = 1577
+  | XLAT = 1578
+  | XLATB = 1579
+  | XOR = 1580
+  | XORPD = 1581
+  | XORPS = 1582
+  | XRELEASE = 1583
+  | XRESLDTRK = 1584
+  | XRSTOR = 1585
+  | XRSTOR64 = 1586
+  | XRSTORS = 1587
+  | XRSTORS64 = 1588
+  | XSAVE = 1589
+  | XSAVE64 = 1590
+  | XSAVEC = 1591
+  | XSAVEC64 = 1592
+  | XSAVEOPT = 1593
+  | XSAVEOPT64 = 1594
+  | XSAVES = 1595
+  | XSAVES64 = 1596
+  | XSETBV = 1597
+  | XSUSLDTRK = 1598
+  | XTEST = 1599
+  | FFREEP = 1600
+  | VMREAD = 1601
+  | EXTRQ = 1602
+  | INSERTQ = 1603
+  | VFMADDPS = 1604
+  | VFMADDPD = 1605
+  | VFMADDSS = 1606
+  | VFMADDSD = 1607
+  | VMCALL = 1608
+  | VMLAUNCH = 1609
+  | VMRESUME = 1610
+  | VMXOFF = 1611
+  | VMFUNC = 1612
+  | VMPTRLD = 1613
+  | VMPTRST = 1614
+  | VMCLEAR = 1615
+  | VMXON = 1616
+  | JMPFar = 1617
+  | JMPNear = 1618
+  | CALLFar = 1619
+  | CALLNear = 1620
+  | RETFar = 1621
+  | RETFarImm = 1622
+  | RETNear = 1623
+  | RETNearImm = 1624
+  | InvalOP = 1625
 
 /// Provides functions to check properties of opcodes.
 [<RequireQualifiedAccess>]
@@ -2884,3 +1674,1632 @@ module internal Opcode =
     | Opcode.SAVEPREVSSP | Opcode.RSTORSSP | Opcode.WRSSD | Opcode.WRSSQ
     | Opcode.WRUSSD | Opcode.WRUSSQ | Opcode.SETSSBSY | Opcode.CLRSSBSY -> true
     | _ -> false
+
+  let opcodeToString = function
+    | Opcode.AAA -> "aaa"
+    | Opcode.AAD -> "aad"
+    | Opcode.AAM -> "aam"
+    | Opcode.AAS -> "aas"
+    | Opcode.ADC -> "adc"
+    | Opcode.ADCX -> "adcx"
+    | Opcode.ADD -> "add"
+    | Opcode.ADDPD -> "addpd"
+    | Opcode.ADDPS -> "addps"
+    | Opcode.ADDSD -> "addsd"
+    | Opcode.ADDSS -> "addss"
+    | Opcode.ADDSUBPD -> "addsubpd"
+    | Opcode.ADDSUBPS -> "addsubps"
+    | Opcode.ADOX -> "adox"
+    | Opcode.AESDEC -> "aesdec"
+    | Opcode.AESDEC128KL -> "aesdec128kl"
+    | Opcode.AESDEC256KL -> "aesdec256kl"
+    | Opcode.AESDECLAST -> "aesdeclast"
+    | Opcode.AESDECWIDE128KL -> "aesdecwide128kl"
+    | Opcode.AESDECWIDE256KL -> "aesdecwide256kl"
+    | Opcode.AESENC -> "aesenc"
+    | Opcode.AESENC128KL -> "aesenc128kl"
+    | Opcode.AESENC256KL -> "aesenc256kl"
+    | Opcode.AESENCLAST -> "aesenclast"
+    | Opcode.AESENCWIDE128KL -> "aesencwide128kl"
+    | Opcode.AESENCWIDE256KL -> "aesencwide256kl"
+    | Opcode.AESIMC -> "aesimc"
+    | Opcode.AESKEYGENASSIST -> "aeskeygenassist"
+    | Opcode.AND -> "and"
+    | Opcode.ANDN -> "andn"
+    | Opcode.ANDNPD -> "andnpd"
+    | Opcode.ANDNPS -> "andnps"
+    | Opcode.ANDPD -> "andpd"
+    | Opcode.ANDPS -> "andps"
+    | Opcode.ARPL -> "arpl"
+    | Opcode.BEXTR -> "bextr"
+    | Opcode.BLENDPD -> "blendpd"
+    | Opcode.BLENDPS -> "blendps"
+    | Opcode.BLENDVPD -> "blendvpd"
+    | Opcode.BLENDVPS -> "blendvps"
+    | Opcode.BLSI -> "blsi"
+    | Opcode.BLSMSK -> "blsmsk"
+    | Opcode.BLSR -> "blsr"
+    | Opcode.BNDCL -> "bndcl"
+    | Opcode.BNDCN -> "bndcn"
+    | Opcode.BNDCU -> "bndcu"
+    | Opcode.BNDLDX -> "bndldx"
+    | Opcode.BNDMK -> "bndmk"
+    | Opcode.BNDMOV -> "bndmov"
+    | Opcode.BNDSTX -> "bndstx"
+    | Opcode.BOUND -> "bound"
+    | Opcode.BSF -> "bsf"
+    | Opcode.BSR -> "bsr"
+    | Opcode.BSWAP -> "bswap"
+    | Opcode.BT -> "bt"
+    | Opcode.BTC -> "btc"
+    | Opcode.BTR -> "btr"
+    | Opcode.BTS -> "bts"
+    | Opcode.BZHI -> "bzhi"
+    | Opcode.CALL -> "call"
+    | Opcode.CBW -> "cbw"
+    | Opcode.CDQ -> "cdq"
+    | Opcode.CDQE -> "cdqe"
+    | Opcode.CLAC -> "clac"
+    | Opcode.CLC -> "clc"
+    | Opcode.CLD -> "cld"
+    | Opcode.CLDEMOTE -> "cldemote"
+    | Opcode.CLFLUSH -> "clflush"
+    | Opcode.CLFLUSHOPT -> "clflushopt"
+    | Opcode.CLI -> "cli"
+    | Opcode.CLRSSBSY -> "clrssbsy"
+    | Opcode.CLTS -> "clts"
+    | Opcode.CLUI -> "clui"
+    | Opcode.CLWB -> "clwb"
+    | Opcode.CMC -> "cmc"
+    | Opcode.CMOVA -> "cmova"
+    | Opcode.CMOVAE -> "cmovae"
+    | Opcode.CMOVB -> "cmovb"
+    | Opcode.CMOVBE -> "cmovbe"
+    | Opcode.CMOVC -> "cmovc"
+    | Opcode.CMOVE -> "cmove"
+    | Opcode.CMOVG -> "cmovg"
+    | Opcode.CMOVGE -> "cmovge"
+    | Opcode.CMOVL -> "cmovl"
+    | Opcode.CMOVLE -> "cmovle"
+    | Opcode.CMOVNA -> "cmovna"
+    | Opcode.CMOVNAE -> "cmovnae"
+    | Opcode.CMOVNB -> "cmovnb"
+    | Opcode.CMOVNBE -> "cmovnbe"
+    | Opcode.CMOVNC -> "cmovnc"
+    | Opcode.CMOVNE -> "cmovne"
+    | Opcode.CMOVNG -> "cmovng"
+    | Opcode.CMOVNGE -> "cmovnge"
+    | Opcode.CMOVNL -> "cmovnl"
+    | Opcode.CMOVNLE -> "cmovnle"
+    | Opcode.CMOVNO -> "cmovno"
+    | Opcode.CMOVNP -> "cmovnp"
+    | Opcode.CMOVNS -> "cmovns"
+    | Opcode.CMOVNZ -> "cmovnz"
+    | Opcode.CMOVO -> "cmovo"
+    | Opcode.CMOVP -> "cmovp"
+    | Opcode.CMOVPE -> "cmovpe"
+    | Opcode.CMOVPO -> "cmovpo"
+    | Opcode.CMOVS -> "cmovs"
+    | Opcode.CMOVZ -> "cmovz"
+    | Opcode.CMP -> "cmp"
+    | Opcode.CMPBEXADD -> "cmpbexadd"
+    | Opcode.CMPBXADD -> "cmpbxadd"
+    | Opcode.CMPLEXADD -> "cmplexadd"
+    | Opcode.CMPLXADD -> "cmplxadd"
+    | Opcode.CMPNBEXADD -> "cmpnbexadd"
+    | Opcode.CMPNBXADD -> "cmpnbxadd"
+    | Opcode.CMPNLEXADD -> "cmpnlexadd"
+    | Opcode.CMPNLXADD -> "cmpnlxadd"
+    | Opcode.CMPNOXADD -> "cmpnoxadd"
+    | Opcode.CMPNPXADD -> "cmpnpxadd"
+    | Opcode.CMPNSXADD -> "cmpnsxadd"
+    | Opcode.CMPNZXADD -> "cmpnzxadd"
+    | Opcode.CMPOXADD -> "cmpoxadd"
+    | Opcode.CMPPD -> "cmppd"
+    | Opcode.CMPPS -> "cmpps"
+    | Opcode.CMPPXADD -> "cmppxadd"
+    | Opcode.CMPS -> "cmps"
+    | Opcode.CMPSB -> "cmpsb"
+    | Opcode.CMPSD -> "cmpsd"
+    | Opcode.CMPSQ -> "cmpsq"
+    | Opcode.CMPSS -> "cmpss"
+    | Opcode.CMPSW -> "cmpsw"
+    | Opcode.CMPSXADD -> "cmpsxadd"
+    | Opcode.CMPXCHG -> "cmpxchg"
+    | Opcode.CMPXCHG16B -> "cmpxchg16b"
+    | Opcode.CMPXCHG8B -> "cmpxchg8b"
+    | Opcode.CMPZXADD -> "cmpzxadd"
+    | Opcode.COMISD -> "comisd"
+    | Opcode.COMISS -> "comiss"
+    | Opcode.CPUID -> "cpuid"
+    | Opcode.CQO -> "cqo"
+    | Opcode.CRC32 -> "crc32"
+    | Opcode.CVTDQ2PD -> "cvtdq2pd"
+    | Opcode.CVTDQ2PS -> "cvtdq2ps"
+    | Opcode.CVTPD2DQ -> "cvtpd2dq"
+    | Opcode.CVTPD2PI -> "cvtpd2pi"
+    | Opcode.CVTPD2PS -> "cvtpd2ps"
+    | Opcode.CVTPI2PD -> "cvtpi2pd"
+    | Opcode.CVTPI2PS -> "cvtpi2ps"
+    | Opcode.CVTPS2DQ -> "cvtps2dq"
+    | Opcode.CVTPS2PD -> "cvtps2pd"
+    | Opcode.CVTPS2PI -> "cvtps2pi"
+    | Opcode.CVTSD2SI -> "cvtsd2si"
+    | Opcode.CVTSD2SS -> "cvtsd2ss"
+    | Opcode.CVTSI2SD -> "cvtsi2sd"
+    | Opcode.CVTSI2SS -> "cvtsi2ss"
+    | Opcode.CVTSS2SD -> "cvtss2sd"
+    | Opcode.CVTSS2SI -> "cvtss2si"
+    | Opcode.CVTTPD2DQ -> "cvttpd2dq"
+    | Opcode.CVTTPD2PI -> "cvttpd2pi"
+    | Opcode.CVTTPS2DQ -> "cvttps2dq"
+    | Opcode.CVTTPS2PI -> "cvttps2pi"
+    | Opcode.CVTTSD2SI -> "cvttsd2si"
+    | Opcode.CVTTSS2SI -> "cvttss2si"
+    | Opcode.CWD -> "cwd"
+    | Opcode.CWDE -> "cwde"
+    | Opcode.DAA -> "daa"
+    | Opcode.DAS -> "das"
+    | Opcode.DEC -> "dec"
+    | Opcode.DIV -> "div"
+    | Opcode.DIVPD -> "divpd"
+    | Opcode.DIVPS -> "divps"
+    | Opcode.DIVSD -> "divsd"
+    | Opcode.DIVSS -> "divss"
+    | Opcode.DPPD -> "dppd"
+    | Opcode.DPPS -> "dpps"
+    | Opcode.EMMS -> "emms"
+    | Opcode.ENCODEKEY128 -> "encodekey128"
+    | Opcode.ENCODEKEY256 -> "encodekey256"
+    | Opcode.ENDBR32 -> "endbr32"
+    | Opcode.ENDBR64 -> "endbr64"
+    | Opcode.ENQCMD -> "enqcmd"
+    | Opcode.ENQCMDS -> "enqcmds"
+    | Opcode.ENTER -> "enter"
+    | Opcode.EXTRACTPS -> "extractps"
+    | Opcode.F2XM1 -> "f2xm1"
+    | Opcode.FABS -> "fabs"
+    | Opcode.FADD -> "fadd"
+    | Opcode.FADDP -> "faddp"
+    | Opcode.FBLD -> "fbld"
+    | Opcode.FBSTP -> "fbstp"
+    | Opcode.FCHS -> "fchs"
+    | Opcode.FCLEX -> "fclex"
+    | Opcode.FCMOVB -> "fcmovb"
+    | Opcode.FCMOVBE -> "fcmovbe"
+    | Opcode.FCMOVE -> "fcmove"
+    | Opcode.FCMOVNB -> "fcmovnb"
+    | Opcode.FCMOVNBE -> "fcmovnbe"
+    | Opcode.FCMOVNE -> "fcmovne"
+    | Opcode.FCMOVNU -> "fcmovnu"
+    | Opcode.FCMOVU -> "fcmovu"
+    | Opcode.FCOM -> "fcom"
+    | Opcode.FCOMI -> "fcomi"
+    | Opcode.FCOMIP -> "fcomip"
+    | Opcode.FCOMP -> "fcomp"
+    | Opcode.FCOMPP -> "fcompp"
+    | Opcode.FCOS -> "fcos"
+    | Opcode.FDECSTP -> "fdecstp"
+    | Opcode.FDIV -> "fdiv"
+    | Opcode.FDIVP -> "fdivp"
+    | Opcode.FDIVR -> "fdivr"
+    | Opcode.FDIVRP -> "fdivrp"
+    | Opcode.FFREE -> "ffree"
+    | Opcode.FIADD -> "fiadd"
+    | Opcode.FICOM -> "ficom"
+    | Opcode.FICOMP -> "ficomp"
+    | Opcode.FIDIV -> "fidiv"
+    | Opcode.FIDIVR -> "fidivr"
+    | Opcode.FILD -> "fild"
+    | Opcode.FIMUL -> "fimul"
+    | Opcode.FINCSTP -> "fincstp"
+    | Opcode.FINIT -> "finit"
+    | Opcode.FIST -> "fist"
+    | Opcode.FISTP -> "fistp"
+    | Opcode.FISTTP -> "fisttp"
+    | Opcode.FISUB -> "fisub"
+    | Opcode.FISUBR -> "fisubr"
+    | Opcode.FLD -> "fld"
+    | Opcode.FLD1 -> "fld1"
+    | Opcode.FLDCW -> "fldcw"
+    | Opcode.FLDENV -> "fldenv"
+    | Opcode.FLDL2E -> "fldl2e"
+    | Opcode.FLDL2T -> "fldl2t"
+    | Opcode.FLDLG2 -> "fldlg2"
+    | Opcode.FLDLN2 -> "fldln2"
+    | Opcode.FLDPI -> "fldpi"
+    | Opcode.FLDZ -> "fldz"
+    | Opcode.FMUL -> "fmul"
+    | Opcode.FMULP -> "fmulp"
+    | Opcode.FNCLEX -> "fnclex"
+    | Opcode.FNINIT -> "fninit"
+    | Opcode.FNOP -> "fnop"
+    | Opcode.FNSAVE -> "fnsave"
+    | Opcode.FNSTCW -> "fnstcw"
+    | Opcode.FNSTENV -> "fnstenv"
+    | Opcode.FNSTSW -> "fnstsw"
+    | Opcode.FPATAN -> "fpatan"
+    | Opcode.FPREM -> "fprem"
+    | Opcode.FPREM1 -> "fprem1"
+    | Opcode.FPTAN -> "fptan"
+    | Opcode.FRNDINT -> "frndint"
+    | Opcode.FRSTOR -> "frstor"
+    | Opcode.FSAVE -> "fsave"
+    | Opcode.FSCALE -> "fscale"
+    | Opcode.FSIN -> "fsin"
+    | Opcode.FSINCOS -> "fsincos"
+    | Opcode.FSQRT -> "fsqrt"
+    | Opcode.FST -> "fst"
+    | Opcode.FSTCW -> "fstcw"
+    | Opcode.FSTENV -> "fstenv"
+    | Opcode.FSTP -> "fstp"
+    | Opcode.FSTSW -> "fstsw"
+    | Opcode.FSUB -> "fsub"
+    | Opcode.FSUBP -> "fsubp"
+    | Opcode.FSUBR -> "fsubr"
+    | Opcode.FSUBRP -> "fsubrp"
+    | Opcode.FTST -> "ftst"
+    | Opcode.FUCOM -> "fucom"
+    | Opcode.FUCOMI -> "fucomi"
+    | Opcode.FUCOMIP -> "fucomip"
+    | Opcode.FUCOMP -> "fucomp"
+    | Opcode.FUCOMPP -> "fucompp"
+    | Opcode.FWAIT -> "fwait"
+    | Opcode.FXAM -> "fxam"
+    | Opcode.FXCH -> "fxch"
+    | Opcode.FXRSTOR -> "fxrstor"
+    | Opcode.FXRSTOR64 -> "fxrstor64"
+    | Opcode.FXSAVE -> "fxsave"
+    | Opcode.FXSAVE64 -> "fxsave64"
+    | Opcode.FXTRACT -> "fxtract"
+    | Opcode.FYL2X -> "fyl2x"
+    | Opcode.FYL2XP1 -> "fyl2xp1"
+    | Opcode.GETSEC -> "getsec"
+    | Opcode.GF2P8AFFINEINVQB -> "gf2p8affineinvqb"
+    | Opcode.GF2P8AFFINEQB -> "gf2p8affineqb"
+    | Opcode.GF2P8MULB -> "gf2p8mulb"
+    | Opcode.HADDPD -> "haddpd"
+    | Opcode.HADDPS -> "haddps"
+    | Opcode.HLT -> "hlt"
+    | Opcode.HRESET -> "hreset"
+    | Opcode.HSUBPD -> "hsubpd"
+    | Opcode.HSUBPS -> "hsubps"
+    | Opcode.IDIV -> "idiv"
+    | Opcode.IMUL -> "imul"
+    | Opcode.IN -> "in"
+    | Opcode.INC -> "inc"
+    | Opcode.INCSSPD -> "incsspd"
+    | Opcode.INCSSPQ -> "incsspq"
+    | Opcode.INS -> "ins"
+    | Opcode.INSB -> "insb"
+    | Opcode.INSD -> "insd"
+    | Opcode.INSERTPS -> "insertps"
+    | Opcode.INSW -> "insw"
+    | Opcode.INT -> "int"
+    | Opcode.INT1 -> "int1"
+    | Opcode.INT3 -> "int3"
+    | Opcode.INTO -> "into"
+    | Opcode.INVD -> "invd"
+    | Opcode.INVLPG -> "invlpg"
+    | Opcode.INVPCID -> "invpcid"
+    | Opcode.IRET -> "iret"
+    | Opcode.IRETD -> "iretd"
+    | Opcode.IRETQ -> "iretq"
+    | Opcode.JA -> "ja"
+    | Opcode.JAE -> "jae"
+    | Opcode.JB -> "jb"
+    | Opcode.JBE -> "jbe"
+    | Opcode.JC -> "jc"
+    | Opcode.JCXZ -> "jcxz"
+    | Opcode.JE -> "je"
+    | Opcode.JECXZ -> "jecxz"
+    | Opcode.JG -> "jg"
+    | Opcode.JGE -> "jge"
+    | Opcode.JL -> "jl"
+    | Opcode.JLE -> "jle"
+    | Opcode.JMP -> "jmp"
+    | Opcode.JNA -> "jna"
+    | Opcode.JNAE -> "jnae"
+    | Opcode.JNB -> "jnb"
+    | Opcode.JNBE -> "jnbe"
+    | Opcode.JNC -> "jnc"
+    | Opcode.JNE -> "jne"
+    | Opcode.JNG -> "jng"
+    | Opcode.JNGE -> "jnge"
+    | Opcode.JNL -> "jnl"
+    | Opcode.JNLE -> "jnle"
+    | Opcode.JNO -> "jno"
+    | Opcode.JNP -> "jnp"
+    | Opcode.JNS -> "jns"
+    | Opcode.JNZ -> "jnz"
+    | Opcode.JO -> "jo"
+    | Opcode.JP -> "jp"
+    | Opcode.JPE -> "jpe"
+    | Opcode.JPO -> "jpo"
+    | Opcode.JRCXZ -> "jrcxz"
+    | Opcode.JS -> "js"
+    | Opcode.JZ -> "jz"
+    | Opcode.KADDB -> "kaddb"
+    | Opcode.KADDD -> "kaddd"
+    | Opcode.KADDQ -> "kaddq"
+    | Opcode.KADDW -> "kaddw"
+    | Opcode.KANDB -> "kandb"
+    | Opcode.KANDD -> "kandd"
+    | Opcode.KANDNB -> "kandnb"
+    | Opcode.KANDND -> "kandnd"
+    | Opcode.KANDNQ -> "kandnq"
+    | Opcode.KANDNW -> "kandnw"
+    | Opcode.KANDQ -> "kandq"
+    | Opcode.KANDW -> "kandw"
+    | Opcode.KMOVB -> "kmovb"
+    | Opcode.KMOVD -> "kmovd"
+    | Opcode.KMOVQ -> "kmovq"
+    | Opcode.KMOVW -> "kmovw"
+    | Opcode.KNOTB -> "knotb"
+    | Opcode.KNOTD -> "knotd"
+    | Opcode.KNOTQ -> "knotq"
+    | Opcode.KNOTW -> "knotw"
+    | Opcode.KORB -> "korb"
+    | Opcode.KORD -> "kord"
+    | Opcode.KORQ -> "korq"
+    | Opcode.KORTESTB -> "kortestb"
+    | Opcode.KORTESTD -> "kortestd"
+    | Opcode.KORTESTQ -> "kortestq"
+    | Opcode.KORTESTW -> "kortestw"
+    | Opcode.KORW -> "korw"
+    | Opcode.KSHIFTLB -> "kshiftlb"
+    | Opcode.KSHIFTLD -> "kshiftld"
+    | Opcode.KSHIFTLQ -> "kshiftlq"
+    | Opcode.KSHIFTLW -> "kshiftlw"
+    | Opcode.KSHIFTRB -> "kshiftrb"
+    | Opcode.KSHIFTRD -> "kshiftrd"
+    | Opcode.KSHIFTRQ -> "kshiftrq"
+    | Opcode.KSHIFTRW -> "kshiftrw"
+    | Opcode.KTESTB -> "ktestb"
+    | Opcode.KTESTD -> "ktestd"
+    | Opcode.KTESTQ -> "ktestq"
+    | Opcode.KTESTW -> "ktestw"
+    | Opcode.KUNPCKBW -> "kunpckbw"
+    | Opcode.KUNPCKDQ -> "kunpckdq"
+    | Opcode.KUNPCKWD -> "kunpckwd"
+    | Opcode.KXNORB -> "kxnorb"
+    | Opcode.KXNORD -> "kxnord"
+    | Opcode.KXNORQ -> "kxnorq"
+    | Opcode.KXNORW -> "kxnorw"
+    | Opcode.KXORB -> "kxorb"
+    | Opcode.KXORD -> "kxord"
+    | Opcode.KXORQ -> "kxorq"
+    | Opcode.KXORW -> "kxorw"
+    | Opcode.LAHF -> "lahf"
+    | Opcode.LAR -> "lar"
+    | Opcode.LDDQU -> "lddqu"
+    | Opcode.LDMXCSR -> "ldmxcsr"
+    | Opcode.LDS -> "lds"
+    | Opcode.LDTILECFG -> "ldtilecfg"
+    | Opcode.LEA -> "lea"
+    | Opcode.LEAVE -> "leave"
+    | Opcode.LES -> "les"
+    | Opcode.LFENCE -> "lfence"
+    | Opcode.LFS -> "lfs"
+    | Opcode.LGDT -> "lgdt"
+    | Opcode.LGS -> "lgs"
+    | Opcode.LIDT -> "lidt"
+    | Opcode.LLDT -> "lldt"
+    | Opcode.LMSW -> "lmsw"
+    | Opcode.LOADIWKEY -> "loadiwkey"
+    | Opcode.LOCK -> "lock"
+    | Opcode.LODS -> "lods"
+    | Opcode.LODSB -> "lodsb"
+    | Opcode.LODSD -> "lodsd"
+    | Opcode.LODSQ -> "lodsq"
+    | Opcode.LODSW -> "lodsw"
+    | Opcode.LOOP -> "loop"
+    | Opcode.LOOPE -> "loope"
+    | Opcode.LOOPNE -> "loopne"
+    | Opcode.LSL -> "lsl"
+    | Opcode.LSS -> "lss"
+    | Opcode.LTR -> "ltr"
+    | Opcode.LZCNT -> "lzcnt"
+    | Opcode.MASKMOVDQU -> "maskmovdqu"
+    | Opcode.MASKMOVQ -> "maskmovq"
+    | Opcode.MAXPD -> "maxpd"
+    | Opcode.MAXPS -> "maxps"
+    | Opcode.MAXSD -> "maxsd"
+    | Opcode.MAXSS -> "maxss"
+    | Opcode.MFENCE -> "mfence"
+    | Opcode.MINPD -> "minpd"
+    | Opcode.MINPS -> "minps"
+    | Opcode.MINSD -> "minsd"
+    | Opcode.MINSS -> "minss"
+    | Opcode.MONITOR -> "monitor"
+    | Opcode.MOV -> "mov"
+    | Opcode.MOVAPD -> "movapd"
+    | Opcode.MOVAPS -> "movaps"
+    | Opcode.MOVBE -> "movbe"
+    | Opcode.MOVD -> "movd"
+    | Opcode.MOVDDUP -> "movddup"
+    | Opcode.MOVDIR64B -> "movdir64b"
+    | Opcode.MOVDIRI -> "movdiri"
+    | Opcode.MOVDQ2Q -> "movdq2q"
+    | Opcode.MOVDQA -> "movdqa"
+    | Opcode.MOVDQU -> "movdqu"
+    | Opcode.MOVHLPS -> "movhlps"
+    | Opcode.MOVHPD -> "movhpd"
+    | Opcode.MOVHPS -> "movhps"
+    | Opcode.MOVLHPS -> "movlhps"
+    | Opcode.MOVLPD -> "movlpd"
+    | Opcode.MOVLPS -> "movlps"
+    | Opcode.MOVMSKPD -> "movmskpd"
+    | Opcode.MOVMSKPS -> "movmskps"
+    | Opcode.MOVNTDQ -> "movntdq"
+    | Opcode.MOVNTDQA -> "movntdqa"
+    | Opcode.MOVNTI -> "movnti"
+    | Opcode.MOVNTPD -> "movntpd"
+    | Opcode.MOVNTPS -> "movntps"
+    | Opcode.MOVNTQ -> "movntq"
+    | Opcode.MOVQ -> "movq"
+    | Opcode.MOVQ2DQ -> "movq2dq"
+    | Opcode.MOVS -> "movs"
+    | Opcode.MOVSB -> "movsb"
+    | Opcode.MOVSD -> "movsd"
+    | Opcode.MOVSHDUP -> "movshdup"
+    | Opcode.MOVSLDUP -> "movsldup"
+    | Opcode.MOVSQ -> "movsq"
+    | Opcode.MOVSS -> "movss"
+    | Opcode.MOVSW -> "movsw"
+    | Opcode.MOVSX -> "movsx"
+    | Opcode.MOVSXD -> "movsxd"
+    | Opcode.MOVUPD -> "movupd"
+    | Opcode.MOVUPS -> "movups"
+    | Opcode.MOVZX -> "movzx"
+    | Opcode.MPSADBW -> "mpsadbw"
+    | Opcode.MUL -> "mul"
+    | Opcode.MULPD -> "mulpd"
+    | Opcode.MULPS -> "mulps"
+    | Opcode.MULSD -> "mulsd"
+    | Opcode.MULSS -> "mulss"
+    | Opcode.MULX -> "mulx"
+    | Opcode.MWAIT -> "mwait"
+    | Opcode.NEG -> "neg"
+    | Opcode.NOP -> "nop"
+    | Opcode.NOT -> "not"
+    | Opcode.OR -> "or"
+    | Opcode.ORPD -> "orpd"
+    | Opcode.ORPS -> "orps"
+    | Opcode.OUT -> "out"
+    | Opcode.OUTS -> "outs"
+    | Opcode.OUTSB -> "outsb"
+    | Opcode.OUTSD -> "outsd"
+    | Opcode.OUTSW -> "outsw"
+    | Opcode.PABSB -> "pabsb"
+    | Opcode.PABSD -> "pabsd"
+    | Opcode.PABSW -> "pabsw"
+    | Opcode.PACKSSDW -> "packssdw"
+    | Opcode.PACKSSWB -> "packsswb"
+    | Opcode.PACKUSDW -> "packusdw"
+    | Opcode.PACKUSWB -> "packuswb"
+    | Opcode.PADDB -> "paddb"
+    | Opcode.PADDD -> "paddd"
+    | Opcode.PADDQ -> "paddq"
+    | Opcode.PADDSB -> "paddsb"
+    | Opcode.PADDSW -> "paddsw"
+    | Opcode.PADDUSB -> "paddusb"
+    | Opcode.PADDUSW -> "paddusw"
+    | Opcode.PADDW -> "paddw"
+    | Opcode.PALIGNR -> "palignr"
+    | Opcode.PAND -> "pand"
+    | Opcode.PANDN -> "pandn"
+    | Opcode.PAUSE -> "pause"
+    | Opcode.PAVGB -> "pavgb"
+    | Opcode.PAVGW -> "pavgw"
+    | Opcode.PBLENDVB -> "pblendvb"
+    | Opcode.PBLENDW -> "pblendw"
+    | Opcode.PCLMULQDQ -> "pclmulqdq"
+    | Opcode.PCMPEQB -> "pcmpeqb"
+    | Opcode.PCMPEQD -> "pcmpeqd"
+    | Opcode.PCMPEQQ -> "pcmpeqq"
+    | Opcode.PCMPEQW -> "pcmpeqw"
+    | Opcode.PCMPESTRI -> "pcmpestri"
+    | Opcode.PCMPESTRM -> "pcmpestrm"
+    | Opcode.PCMPGTB -> "pcmpgtb"
+    | Opcode.PCMPGTD -> "pcmpgtd"
+    | Opcode.PCMPGTQ -> "pcmpgtq"
+    | Opcode.PCMPGTW -> "pcmpgtw"
+    | Opcode.PCMPISTRI -> "pcmpistri"
+    | Opcode.PCMPISTRM -> "pcmpistrm"
+    | Opcode.PCONFIG -> "pconfig"
+    | Opcode.PDEP -> "pdep"
+    | Opcode.PEXT -> "pext"
+    | Opcode.PEXTRB -> "pextrb"
+    | Opcode.PEXTRD -> "pextrd"
+    | Opcode.PEXTRQ -> "pextrq"
+    | Opcode.PEXTRW -> "pextrw"
+    | Opcode.PHADDD -> "phaddd"
+    | Opcode.PHADDSW -> "phaddsw"
+    | Opcode.PHADDW -> "phaddw"
+    | Opcode.PHMINPOSUW -> "phminposuw"
+    | Opcode.PHSUBD -> "phsubd"
+    | Opcode.PHSUBSW -> "phsubsw"
+    | Opcode.PHSUBW -> "phsubw"
+    | Opcode.PINSRB -> "pinsrb"
+    | Opcode.PINSRD -> "pinsrd"
+    | Opcode.PINSRQ -> "pinsrq"
+    | Opcode.PINSRW -> "pinsrw"
+    | Opcode.PMADDUBSW -> "pmaddubsw"
+    | Opcode.PMADDWD -> "pmaddwd"
+    | Opcode.PMAXSB -> "pmaxsb"
+    | Opcode.PMAXSD -> "pmaxsd"
+    | Opcode.PMAXSW -> "pmaxsw"
+    | Opcode.PMAXUB -> "pmaxub"
+    | Opcode.PMAXUD -> "pmaxud"
+    | Opcode.PMAXUW -> "pmaxuw"
+    | Opcode.PMINSB -> "pminsb"
+    | Opcode.PMINSD -> "pminsd"
+    | Opcode.PMINSW -> "pminsw"
+    | Opcode.PMINUB -> "pminub"
+    | Opcode.PMINUD -> "pminud"
+    | Opcode.PMINUW -> "pminuw"
+    | Opcode.PMOVMSKB -> "pmovmskb"
+    | Opcode.PMOVSXBD -> "pmovsxbd"
+    | Opcode.PMOVSXBQ -> "pmovsxbq"
+    | Opcode.PMOVSXBW -> "pmovsxbw"
+    | Opcode.PMOVSXDQ -> "pmovsxdq"
+    | Opcode.PMOVSXWD -> "pmovsxwd"
+    | Opcode.PMOVSXWQ -> "pmovsxwq"
+    | Opcode.PMOVZXBD -> "pmovzxbd"
+    | Opcode.PMOVZXBQ -> "pmovzxbq"
+    | Opcode.PMOVZXBW -> "pmovzxbw"
+    | Opcode.PMOVZXDQ -> "pmovzxdq"
+    | Opcode.PMOVZXWD -> "pmovzxwd"
+    | Opcode.PMOVZXWQ -> "pmovzxwq"
+    | Opcode.PMULDQ -> "pmuldq"
+    | Opcode.PMULHRSW -> "pmulhrsw"
+    | Opcode.PMULHUW -> "pmulhuw"
+    | Opcode.PMULHW -> "pmulhw"
+    | Opcode.PMULLD -> "pmulld"
+    | Opcode.PMULLW -> "pmullw"
+    | Opcode.PMULUDQ -> "pmuludq"
+    | Opcode.POP -> "pop"
+    | Opcode.POPA -> "popa"
+    | Opcode.POPAD -> "popad"
+    | Opcode.POPCNT -> "popcnt"
+    | Opcode.POPF -> "popf"
+    | Opcode.POPFD -> "popfd"
+    | Opcode.POPFQ -> "popfq"
+    | Opcode.POR -> "por"
+    | Opcode.PREFETCHIT0 -> "prefetchit0"
+    | Opcode.PREFETCHIT1 -> "prefetchit1"
+    | Opcode.PREFETCHNTA -> "prefetchnta"
+    | Opcode.PREFETCHT0 -> "prefetcht0"
+    | Opcode.PREFETCHT1 -> "prefetcht1"
+    | Opcode.PREFETCHT2 -> "prefetcht2"
+    | Opcode.PREFETCHW -> "prefetchw"
+    | Opcode.PREFETCHWT1 -> "prefetchwt1"
+    | Opcode.PSADBW -> "psadbw"
+    | Opcode.PSHUFB -> "pshufb"
+    | Opcode.PSHUFD -> "pshufd"
+    | Opcode.PSHUFHW -> "pshufhw"
+    | Opcode.PSHUFLW -> "pshuflw"
+    | Opcode.PSHUFW -> "pshufw"
+    | Opcode.PSIGNB -> "psignb"
+    | Opcode.PSIGND -> "psignd"
+    | Opcode.PSIGNW -> "psignw"
+    | Opcode.PSLLD -> "pslld"
+    | Opcode.PSLLDQ -> "pslldq"
+    | Opcode.PSLLQ -> "psllq"
+    | Opcode.PSLLW -> "psllw"
+    | Opcode.PSRAD -> "psrad"
+    | Opcode.PSRAW -> "psraw"
+    | Opcode.PSRLD -> "psrld"
+    | Opcode.PSRLDQ -> "psrldq"
+    | Opcode.PSRLQ -> "psrlq"
+    | Opcode.PSRLW -> "psrlw"
+    | Opcode.PSUBB -> "psubb"
+    | Opcode.PSUBD -> "psubd"
+    | Opcode.PSUBQ -> "psubq"
+    | Opcode.PSUBSB -> "psubsb"
+    | Opcode.PSUBSW -> "psubsw"
+    | Opcode.PSUBUSB -> "psubusb"
+    | Opcode.PSUBUSW -> "psubusw"
+    | Opcode.PSUBW -> "psubw"
+    | Opcode.PTEST -> "ptest"
+    | Opcode.PTWRITE -> "ptwrite"
+    | Opcode.PUNPCKHBW -> "punpckhbw"
+    | Opcode.PUNPCKHDQ -> "punpckhdq"
+    | Opcode.PUNPCKHQDQ -> "punpckhqdq"
+    | Opcode.PUNPCKHWD -> "punpckhwd"
+    | Opcode.PUNPCKLBW -> "punpcklbw"
+    | Opcode.PUNPCKLDQ -> "punpckldq"
+    | Opcode.PUNPCKLQDQ -> "punpcklqdq"
+    | Opcode.PUNPCKLWD -> "punpcklwd"
+    | Opcode.PUSH -> "push"
+    | Opcode.PUSHA -> "pusha"
+    | Opcode.PUSHAD -> "pushad"
+    | Opcode.PUSHF -> "pushf"
+    | Opcode.PUSHFD -> "pushfd"
+    | Opcode.PUSHFQ -> "pushfq"
+    | Opcode.PXOR -> "pxor"
+    | Opcode.RCL -> "rcl"
+    | Opcode.RCPPS -> "rcpps"
+    | Opcode.RCPSS -> "rcpss"
+    | Opcode.RCR -> "rcr"
+    | Opcode.RDFSBASE -> "rdfsbase"
+    | Opcode.RDGSBASE -> "rdgsbase"
+    | Opcode.RDMSR -> "rdmsr"
+    | Opcode.RDMSRLIST -> "rdmsrlist"
+    | Opcode.RDPID -> "rdpid"
+    | Opcode.RDPKRU -> "rdpkru"
+    | Opcode.RDPMC -> "rdpmc"
+    | Opcode.RDRAND -> "rdrand"
+    | Opcode.RDSEED -> "rdseed"
+    | Opcode.RDSSPD -> "rdsspd"
+    | Opcode.RDSSPQ -> "rdsspq"
+    | Opcode.RDTSC -> "rdtsc"
+    | Opcode.RDTSCP -> "rdtscp"
+    | Opcode.RET -> "ret"
+    | Opcode.ROL -> "rol"
+    | Opcode.ROR -> "ror"
+    | Opcode.RORX -> "rorx"
+    | Opcode.ROUNDPD -> "roundpd"
+    | Opcode.ROUNDPS -> "roundps"
+    | Opcode.ROUNDSD -> "roundsd"
+    | Opcode.ROUNDSS -> "roundss"
+    | Opcode.RSM -> "rsm"
+    | Opcode.RSQRTPS -> "rsqrtps"
+    | Opcode.RSQRTSS -> "rsqrtss"
+    | Opcode.RSTORSSP -> "rstorssp"
+    | Opcode.SAHF -> "sahf"
+    | Opcode.SAL -> "sal"
+    | Opcode.SAR -> "sar"
+    | Opcode.SARX -> "sarx"
+    | Opcode.SAVEPREVSSP -> "saveprevssp"
+    | Opcode.SBB -> "sbb"
+    | Opcode.SCAS -> "scas"
+    | Opcode.SCASB -> "scasb"
+    | Opcode.SCASD -> "scasd"
+    | Opcode.SCASQ -> "scasq"
+    | Opcode.SCASW -> "scasw"
+    | Opcode.SENDUIPI -> "senduipi"
+    | Opcode.SERIALIZE -> "serialize"
+    | Opcode.SETA -> "seta"
+    | Opcode.SETAE -> "setae"
+    | Opcode.SETB -> "setb"
+    | Opcode.SETBE -> "setbe"
+    | Opcode.SETC -> "setc"
+    | Opcode.SETE -> "sete"
+    | Opcode.SETG -> "setg"
+    | Opcode.SETGE -> "setge"
+    | Opcode.SETL -> "setl"
+    | Opcode.SETLE -> "setle"
+    | Opcode.SETNA -> "setna"
+    | Opcode.SETNAE -> "setnae"
+    | Opcode.SETNB -> "setnb"
+    | Opcode.SETNBE -> "setnbe"
+    | Opcode.SETNC -> "setnc"
+    | Opcode.SETNE -> "setne"
+    | Opcode.SETNG -> "setng"
+    | Opcode.SETNGE -> "setnge"
+    | Opcode.SETNL -> "setnl"
+    | Opcode.SETNLE -> "setnle"
+    | Opcode.SETNO -> "setno"
+    | Opcode.SETNP -> "setnp"
+    | Opcode.SETNS -> "setns"
+    | Opcode.SETNZ -> "setnz"
+    | Opcode.SETO -> "seto"
+    | Opcode.SETP -> "setp"
+    | Opcode.SETPE -> "setpe"
+    | Opcode.SETPO -> "setpo"
+    | Opcode.SETS -> "sets"
+    | Opcode.SETSSBSY -> "setssbsy"
+    | Opcode.SETZ -> "setz"
+    | Opcode.SFENCE -> "sfence"
+    | Opcode.SGDT -> "sgdt"
+    | Opcode.SHA1MSG1 -> "sha1msg1"
+    | Opcode.SHA1MSG2 -> "sha1msg2"
+    | Opcode.SHA1NEXTE -> "sha1nexte"
+    | Opcode.SHA1RNDS4 -> "sha1rnds4"
+    | Opcode.SHA256MSG1 -> "sha256msg1"
+    | Opcode.SHA256MSG2 -> "sha256msg2"
+    | Opcode.SHA256RNDS2 -> "sha256rnds2"
+    | Opcode.SHL -> "shl"
+    | Opcode.SHLD -> "shld"
+    | Opcode.SHLX -> "shlx"
+    | Opcode.SHR -> "shr"
+    | Opcode.SHRD -> "shrd"
+    | Opcode.SHRX -> "shrx"
+    | Opcode.SHUFPD -> "shufpd"
+    | Opcode.SHUFPS -> "shufps"
+    | Opcode.SIDT -> "sidt"
+    | Opcode.SLDT -> "sldt"
+    | Opcode.SMSW -> "smsw"
+    | Opcode.SQRTPD -> "sqrtpd"
+    | Opcode.SQRTPS -> "sqrtps"
+    | Opcode.SQRTSD -> "sqrtsd"
+    | Opcode.SQRTSS -> "sqrtss"
+    | Opcode.STAC -> "stac"
+    | Opcode.STC -> "stc"
+    | Opcode.STD -> "std"
+    | Opcode.STI -> "sti"
+    | Opcode.STMXCSR -> "stmxcsr"
+    | Opcode.STOS -> "stos"
+    | Opcode.STOSB -> "stosb"
+    | Opcode.STOSD -> "stosd"
+    | Opcode.STOSQ -> "stosq"
+    | Opcode.STOSW -> "stosw"
+    | Opcode.STR -> "str"
+    | Opcode.STTILECFG -> "sttilecfg"
+    | Opcode.STUI -> "stui"
+    | Opcode.SUB -> "sub"
+    | Opcode.SUBPD -> "subpd"
+    | Opcode.SUBPS -> "subps"
+    | Opcode.SUBSD -> "subsd"
+    | Opcode.SUBSS -> "subss"
+    | Opcode.SWAPGS -> "swapgs"
+    | Opcode.SYSCALL -> "syscall"
+    | Opcode.SYSENTER -> "sysenter"
+    | Opcode.SYSEXIT -> "sysexit"
+    | Opcode.SYSRET -> "sysret"
+    | Opcode.TDPBF16PS -> "tdpbf16ps"
+    | Opcode.TDPBSSD -> "tdpbssd"
+    | Opcode.TDPBSUD -> "tdpbsud"
+    | Opcode.TDPBUSD -> "tdpbusd"
+    | Opcode.TDPBUUD -> "tdpbuud"
+    | Opcode.TDPFP16PS -> "tdpfp16ps"
+    | Opcode.TEST -> "test"
+    | Opcode.TESTUI -> "testui"
+    | Opcode.TILELOADD -> "tileloadd"
+    | Opcode.TILELOADDT1 -> "tileloaddt1"
+    | Opcode.TILERELEASE -> "tilerelease"
+    | Opcode.TILESTORED -> "tilestored"
+    | Opcode.TILEZERO -> "tilezero"
+    | Opcode.TPAUSE -> "tpause"
+    | Opcode.TZCNT -> "tzcnt"
+    | Opcode.UCOMISD -> "ucomisd"
+    | Opcode.UCOMISS -> "ucomiss"
+    | Opcode.UD0 -> "ud0"
+    | Opcode.UD1 -> "ud1"
+    | Opcode.UD2 -> "ud2"
+    | Opcode.UDB -> "udb"
+    | Opcode.UIRET -> "uiret"
+    | Opcode.UMONITOR -> "umonitor"
+    | Opcode.UMWAIT -> "umwait"
+    | Opcode.UNPCKHPD -> "unpckhpd"
+    | Opcode.UNPCKHPS -> "unpckhps"
+    | Opcode.UNPCKLPD -> "unpcklpd"
+    | Opcode.UNPCKLPS -> "unpcklps"
+    | Opcode.V4FMADDPS -> "v4fmaddps"
+    | Opcode.V4FMADDSS -> "v4fmaddss"
+    | Opcode.V4FNMADDPS -> "v4fnmaddps"
+    | Opcode.V4FNMADDSS -> "v4fnmaddss"
+    | Opcode.VADDPD -> "vaddpd"
+    | Opcode.VADDPH -> "vaddph"
+    | Opcode.VADDPS -> "vaddps"
+    | Opcode.VADDSD -> "vaddsd"
+    | Opcode.VADDSH -> "vaddsh"
+    | Opcode.VADDSS -> "vaddss"
+    | Opcode.VADDSUBPD -> "vaddsubpd"
+    | Opcode.VADDSUBPS -> "vaddsubps"
+    | Opcode.VAESDEC -> "vaesdec"
+    | Opcode.VAESDECLAST -> "vaesdeclast"
+    | Opcode.VAESENC -> "vaesenc"
+    | Opcode.VAESENCLAST -> "vaesenclast"
+    | Opcode.VAESIMC -> "vaesimc"
+    | Opcode.VAESKEYGENASSIST -> "vaeskeygenassist"
+    | Opcode.VALIGND -> "valignd"
+    | Opcode.VALIGNQ -> "valignq"
+    | Opcode.VANDNPD -> "vandnpd"
+    | Opcode.VANDNPS -> "vandnps"
+    | Opcode.VANDPD -> "vandpd"
+    | Opcode.VANDPS -> "vandps"
+    | Opcode.VBCSTNEBF162PS -> "vbcstnebf162ps"
+    | Opcode.VBCSTNESH2PS -> "vbcstnesh2ps"
+    | Opcode.VBLENDMPD -> "vblendmpd"
+    | Opcode.VBLENDMPS -> "vblendmps"
+    | Opcode.VBLENDPD -> "vblendpd"
+    | Opcode.VBLENDPS -> "vblendps"
+    | Opcode.VBLENDVPD -> "vblendvpd"
+    | Opcode.VBLENDVPS -> "vblendvps"
+    | Opcode.VBROADCASTF128 -> "vbroadcastf128"
+    | Opcode.VBROADCASTF32X2 -> "vbroadcastf32x2"
+    | Opcode.VBROADCASTF32X4 -> "vbroadcastf32x4"
+    | Opcode.VBROADCASTF32X8 -> "vbroadcastf32x8"
+    | Opcode.VBROADCASTF64X2 -> "vbroadcastf64x2"
+    | Opcode.VBROADCASTF64X4 -> "vbroadcastf64x4"
+    | Opcode.VBROADCASTI128 -> "vbroadcasti128"
+    | Opcode.VBROADCASTI32X2 -> "vbroadcasti32x2"
+    | Opcode.VBROADCASTI32X4 -> "vbroadcasti32x4"
+    | Opcode.VBROADCASTI32X8 -> "vbroadcasti32x8"
+    | Opcode.VBROADCASTI64X2 -> "vbroadcasti64x2"
+    | Opcode.VBROADCASTI64X4 -> "vbroadcasti64x4"
+    | Opcode.VBROADCASTSD -> "vbroadcastsd"
+    | Opcode.VBROADCASTSS -> "vbroadcastss"
+    | Opcode.VCMPPD -> "vcmppd"
+    | Opcode.VCMPPH -> "vcmpph"
+    | Opcode.VCMPPS -> "vcmpps"
+    | Opcode.VCMPSD -> "vcmpsd"
+    | Opcode.VCMPSH -> "vcmpsh"
+    | Opcode.VCMPSS -> "vcmpss"
+    | Opcode.VCOMISD -> "vcomisd"
+    | Opcode.VCOMISH -> "vcomish"
+    | Opcode.VCOMISS -> "vcomiss"
+    | Opcode.VCOMPRESSPD -> "vcompresspd"
+    | Opcode.VCOMPRESSPS -> "vcompressps"
+    | Opcode.VCVTDQ2PD -> "vcvtdq2pd"
+    | Opcode.VCVTDQ2PH -> "vcvtdq2ph"
+    | Opcode.VCVTDQ2PS -> "vcvtdq2ps"
+    | Opcode.VCVTNE2PS2BF16 -> "vcvtne2ps2bf16"
+    | Opcode.VCVTNEEBF162PS -> "vcvtneebf162ps"
+    | Opcode.VCVTNEEPH2PS -> "vcvtneeph2ps"
+    | Opcode.VCVTNEOBF162PS -> "vcvtneobf162ps"
+    | Opcode.VCVTNEOPH2PS -> "vcvtneoph2ps"
+    | Opcode.VCVTNEPS2BF16 -> "vcvtneps2bf16"
+    | Opcode.VCVTPD2DQ -> "vcvtpd2dq"
+    | Opcode.VCVTPD2PH -> "vcvtpd2ph"
+    | Opcode.VCVTPD2PS -> "vcvtpd2ps"
+    | Opcode.VCVTPD2QQ -> "vcvtpd2qq"
+    | Opcode.VCVTPD2UDQ -> "vcvtpd2udq"
+    | Opcode.VCVTPD2UQQ -> "vcvtpd2uqq"
+    | Opcode.VCVTPH2DQ -> "vcvtph2dq"
+    | Opcode.VCVTPH2PD -> "vcvtph2pd"
+    | Opcode.VCVTPH2PS -> "vcvtph2ps"
+    | Opcode.VCVTPH2PSX -> "vcvtph2psx"
+    | Opcode.VCVTPH2QQ -> "vcvtph2qq"
+    | Opcode.VCVTPH2UDQ -> "vcvtph2udq"
+    | Opcode.VCVTPH2UQQ -> "vcvtph2uqq"
+    | Opcode.VCVTPH2UW -> "vcvtph2uw"
+    | Opcode.VCVTPH2W -> "vcvtph2w"
+    | Opcode.VCVTPS2DQ -> "vcvtps2dq"
+    | Opcode.VCVTPS2PD -> "vcvtps2pd"
+    | Opcode.VCVTPS2PH -> "vcvtps2ph"
+    | Opcode.VCVTPS2PHX -> "vcvtps2phx"
+    | Opcode.VCVTPS2QQ -> "vcvtps2qq"
+    | Opcode.VCVTPS2UDQ -> "vcvtps2udq"
+    | Opcode.VCVTPS2UQQ -> "vcvtps2uqq"
+    | Opcode.VCVTQQ2PD -> "vcvtqq2pd"
+    | Opcode.VCVTQQ2PH -> "vcvtqq2ph"
+    | Opcode.VCVTQQ2PS -> "vcvtqq2ps"
+    | Opcode.VCVTSD2SH -> "vcvtsd2sh"
+    | Opcode.VCVTSD2SI -> "vcvtsd2si"
+    | Opcode.VCVTSD2SS -> "vcvtsd2ss"
+    | Opcode.VCVTSD2USI -> "vcvtsd2usi"
+    | Opcode.VCVTSH2SD -> "vcvtsh2sd"
+    | Opcode.VCVTSH2SI -> "vcvtsh2si"
+    | Opcode.VCVTSH2SS -> "vcvtsh2ss"
+    | Opcode.VCVTSH2USI -> "vcvtsh2usi"
+    | Opcode.VCVTSI2SD -> "vcvtsi2sd"
+    | Opcode.VCVTSI2SH -> "vcvtsi2sh"
+    | Opcode.VCVTSI2SS -> "vcvtsi2ss"
+    | Opcode.VCVTSS2SD -> "vcvtss2sd"
+    | Opcode.VCVTSS2SH -> "vcvtss2sh"
+    | Opcode.VCVTSS2SI -> "vcvtss2si"
+    | Opcode.VCVTSS2USI -> "vcvtss2usi"
+    | Opcode.VCVTTPD2DQ -> "vcvttpd2dq"
+    | Opcode.VCVTTPD2QQ -> "vcvttpd2qq"
+    | Opcode.VCVTTPD2UDQ -> "vcvttpd2udq"
+    | Opcode.VCVTTPD2UQQ -> "vcvttpd2uqq"
+    | Opcode.VCVTTPH2DQ -> "vcvttph2dq"
+    | Opcode.VCVTTPH2QQ -> "vcvttph2qq"
+    | Opcode.VCVTTPH2UDQ -> "vcvttph2udq"
+    | Opcode.VCVTTPH2UQQ -> "vcvttph2uqq"
+    | Opcode.VCVTTPH2UW -> "vcvttph2uw"
+    | Opcode.VCVTTPH2W -> "vcvttph2w"
+    | Opcode.VCVTTPS2DQ -> "vcvttps2dq"
+    | Opcode.VCVTTPS2QQ -> "vcvttps2qq"
+    | Opcode.VCVTTPS2UDQ -> "vcvttps2udq"
+    | Opcode.VCVTTPS2UQQ -> "vcvttps2uqq"
+    | Opcode.VCVTTSD2SI -> "vcvttsd2si"
+    | Opcode.VCVTTSD2USI -> "vcvttsd2usi"
+    | Opcode.VCVTTSH2SI -> "vcvttsh2si"
+    | Opcode.VCVTTSH2USI -> "vcvttsh2usi"
+    | Opcode.VCVTTSS2SI -> "vcvttss2si"
+    | Opcode.VCVTTSS2USI -> "vcvttss2usi"
+    | Opcode.VCVTUDQ2PD -> "vcvtudq2pd"
+    | Opcode.VCVTUDQ2PH -> "vcvtudq2ph"
+    | Opcode.VCVTUDQ2PS -> "vcvtudq2ps"
+    | Opcode.VCVTUQQ2PD -> "vcvtuqq2pd"
+    | Opcode.VCVTUQQ2PH -> "vcvtuqq2ph"
+    | Opcode.VCVTUQQ2PS -> "vcvtuqq2ps"
+    | Opcode.VCVTUSI2SD -> "vcvtusi2sd"
+    | Opcode.VCVTUSI2SH -> "vcvtusi2sh"
+    | Opcode.VCVTUSI2SS -> "vcvtusi2ss"
+    | Opcode.VCVTUW2PH -> "vcvtuw2ph"
+    | Opcode.VCVTW2PH -> "vcvtw2ph"
+    | Opcode.VDBPSADBW -> "vdbpsadbw"
+    | Opcode.VDIVPD -> "vdivpd"
+    | Opcode.VDIVPH -> "vdivph"
+    | Opcode.VDIVPS -> "vdivps"
+    | Opcode.VDIVSD -> "vdivsd"
+    | Opcode.VDIVSH -> "vdivsh"
+    | Opcode.VDIVSS -> "vdivss"
+    | Opcode.VDPBF16PS -> "vdpbf16ps"
+    | Opcode.VDPPD -> "vdppd"
+    | Opcode.VDPPS -> "vdpps"
+    | Opcode.VERR -> "verr"
+    | Opcode.VERW -> "verw"
+    | Opcode.VEXP2PD -> "vexp2pd"
+    | Opcode.VEXP2PS -> "vexp2ps"
+    | Opcode.VEXPANDPD -> "vexpandpd"
+    | Opcode.VEXPANDPS -> "vexpandps"
+    | Opcode.VEXTRACTF128 -> "vextractf128"
+    | Opcode.VEXTRACTF32X4 -> "vextractf32x4"
+    | Opcode.VEXTRACTF32X8 -> "vextractf32x8"
+    | Opcode.VEXTRACTF64X2 -> "vextractf64x2"
+    | Opcode.VEXTRACTF64X4 -> "vextractf64x4"
+    | Opcode.VEXTRACTI128 -> "vextracti128"
+    | Opcode.VEXTRACTI32X4 -> "vextracti32x4"
+    | Opcode.VEXTRACTI32X8 -> "vextracti32x8"
+    | Opcode.VEXTRACTI64X2 -> "vextracti64x2"
+    | Opcode.VEXTRACTI64X4 -> "vextracti64x4"
+    | Opcode.VEXTRACTPS -> "vextractps"
+    | Opcode.VFCMADDCPH -> "vfcmaddcph"
+    | Opcode.VFCMADDCSH -> "vfcmaddcsh"
+    | Opcode.VFCMULCPH -> "vfcmulcph"
+    | Opcode.VFCMULCSH -> "vfcmulcsh"
+    | Opcode.VFIXUPIMMPD -> "vfixupimmpd"
+    | Opcode.VFIXUPIMMPS -> "vfixupimmps"
+    | Opcode.VFIXUPIMMSD -> "vfixupimmsd"
+    | Opcode.VFIXUPIMMSS -> "vfixupimmss"
+    | Opcode.VFMADD132PD -> "vfmadd132pd"
+    | Opcode.VFMADD132PH -> "vfmadd132ph"
+    | Opcode.VFMADD132PS -> "vfmadd132ps"
+    | Opcode.VFMADD132SD -> "vfmadd132sd"
+    | Opcode.VFMADD132SH -> "vfmadd132sh"
+    | Opcode.VFMADD132SS -> "vfmadd132ss"
+    | Opcode.VFMADD213PD -> "vfmadd213pd"
+    | Opcode.VFMADD213PH -> "vfmadd213ph"
+    | Opcode.VFMADD213PS -> "vfmadd213ps"
+    | Opcode.VFMADD213SD -> "vfmadd213sd"
+    | Opcode.VFMADD213SH -> "vfmadd213sh"
+    | Opcode.VFMADD213SS -> "vfmadd213ss"
+    | Opcode.VFMADD231PD -> "vfmadd231pd"
+    | Opcode.VFMADD231PH -> "vfmadd231ph"
+    | Opcode.VFMADD231PS -> "vfmadd231ps"
+    | Opcode.VFMADD231SD -> "vfmadd231sd"
+    | Opcode.VFMADD231SH -> "vfmadd231sh"
+    | Opcode.VFMADD231SS -> "vfmadd231ss"
+    | Opcode.VFMADDCPH -> "vfmaddcph"
+    | Opcode.VFMADDCSH -> "vfmaddcsh"
+    | Opcode.VFMADDSUB132PD -> "vfmaddsub132pd"
+    | Opcode.VFMADDSUB132PH -> "vfmaddsub132ph"
+    | Opcode.VFMADDSUB132PS -> "vfmaddsub132ps"
+    | Opcode.VFMADDSUB213PD -> "vfmaddsub213pd"
+    | Opcode.VFMADDSUB213PH -> "vfmaddsub213ph"
+    | Opcode.VFMADDSUB213PS -> "vfmaddsub213ps"
+    | Opcode.VFMADDSUB231PD -> "vfmaddsub231pd"
+    | Opcode.VFMADDSUB231PH -> "vfmaddsub231ph"
+    | Opcode.VFMADDSUB231PS -> "vfmaddsub231ps"
+    | Opcode.VFMSUB132PD -> "vfmsub132pd"
+    | Opcode.VFMSUB132PH -> "vfmsub132ph"
+    | Opcode.VFMSUB132PS -> "vfmsub132ps"
+    | Opcode.VFMSUB132SD -> "vfmsub132sd"
+    | Opcode.VFMSUB132SH -> "vfmsub132sh"
+    | Opcode.VFMSUB132SS -> "vfmsub132ss"
+    | Opcode.VFMSUB213PD -> "vfmsub213pd"
+    | Opcode.VFMSUB213PH -> "vfmsub213ph"
+    | Opcode.VFMSUB213PS -> "vfmsub213ps"
+    | Opcode.VFMSUB213SD -> "vfmsub213sd"
+    | Opcode.VFMSUB213SH -> "vfmsub213sh"
+    | Opcode.VFMSUB213SS -> "vfmsub213ss"
+    | Opcode.VFMSUB231PD -> "vfmsub231pd"
+    | Opcode.VFMSUB231PH -> "vfmsub231ph"
+    | Opcode.VFMSUB231PS -> "vfmsub231ps"
+    | Opcode.VFMSUB231SD -> "vfmsub231sd"
+    | Opcode.VFMSUB231SH -> "vfmsub231sh"
+    | Opcode.VFMSUB231SS -> "vfmsub231ss"
+    | Opcode.VFMSUBADD132PD -> "vfmsubadd132pd"
+    | Opcode.VFMSUBADD132PH -> "vfmsubadd132ph"
+    | Opcode.VFMSUBADD132PS -> "vfmsubadd132ps"
+    | Opcode.VFMSUBADD213PD -> "vfmsubadd213pd"
+    | Opcode.VFMSUBADD213PH -> "vfmsubadd213ph"
+    | Opcode.VFMSUBADD213PS -> "vfmsubadd213ps"
+    | Opcode.VFMSUBADD231PD -> "vfmsubadd231pd"
+    | Opcode.VFMSUBADD231PH -> "vfmsubadd231ph"
+    | Opcode.VFMSUBADD231PS -> "vfmsubadd231ps"
+    | Opcode.VFMULCPH -> "vfmulcph"
+    | Opcode.VFMULCSH -> "vfmulcsh"
+    | Opcode.VFNMADD132PD -> "vfnmadd132pd"
+    | Opcode.VFNMADD132PH -> "vfnmadd132ph"
+    | Opcode.VFNMADD132PS -> "vfnmadd132ps"
+    | Opcode.VFNMADD132SD -> "vfnmadd132sd"
+    | Opcode.VFNMADD132SH -> "vfnmadd132sh"
+    | Opcode.VFNMADD132SS -> "vfnmadd132ss"
+    | Opcode.VFNMADD213PD -> "vfnmadd213pd"
+    | Opcode.VFNMADD213PH -> "vfnmadd213ph"
+    | Opcode.VFNMADD213PS -> "vfnmadd213ps"
+    | Opcode.VFNMADD213SD -> "vfnmadd213sd"
+    | Opcode.VFNMADD213SH -> "vfnmadd213sh"
+    | Opcode.VFNMADD213SS -> "vfnmadd213ss"
+    | Opcode.VFNMADD231PD -> "vfnmadd231pd"
+    | Opcode.VFNMADD231PH -> "vfnmadd231ph"
+    | Opcode.VFNMADD231PS -> "vfnmadd231ps"
+    | Opcode.VFNMADD231SD -> "vfnmadd231sd"
+    | Opcode.VFNMADD231SH -> "vfnmadd231sh"
+    | Opcode.VFNMADD231SS -> "vfnmadd231ss"
+    | Opcode.VFNMSUB132PD -> "vfnmsub132pd"
+    | Opcode.VFNMSUB132PH -> "vfnmsub132ph"
+    | Opcode.VFNMSUB132PS -> "vfnmsub132ps"
+    | Opcode.VFNMSUB132SD -> "vfnmsub132sd"
+    | Opcode.VFNMSUB132SH -> "vfnmsub132sh"
+    | Opcode.VFNMSUB132SS -> "vfnmsub132ss"
+    | Opcode.VFNMSUB213PD -> "vfnmsub213pd"
+    | Opcode.VFNMSUB213PH -> "vfnmsub213ph"
+    | Opcode.VFNMSUB213PS -> "vfnmsub213ps"
+    | Opcode.VFNMSUB213SD -> "vfnmsub213sd"
+    | Opcode.VFNMSUB213SH -> "vfnmsub213sh"
+    | Opcode.VFNMSUB213SS -> "vfnmsub213ss"
+    | Opcode.VFNMSUB231PD -> "vfnmsub231pd"
+    | Opcode.VFNMSUB231PH -> "vfnmsub231ph"
+    | Opcode.VFNMSUB231PS -> "vfnmsub231ps"
+    | Opcode.VFNMSUB231SD -> "vfnmsub231sd"
+    | Opcode.VFNMSUB231SH -> "vfnmsub231sh"
+    | Opcode.VFNMSUB231SS -> "vfnmsub231ss"
+    | Opcode.VFPCLASSPD -> "vfpclasspd"
+    | Opcode.VFPCLASSPH -> "vfpclassph"
+    | Opcode.VFPCLASSPS -> "vfpclassps"
+    | Opcode.VFPCLASSSD -> "vfpclasssd"
+    | Opcode.VFPCLASSSH -> "vfpclasssh"
+    | Opcode.VFPCLASSSS -> "vfpclassss"
+    | Opcode.VGATHERDPD -> "vgatherdpd"
+    | Opcode.VGATHERDPS -> "vgatherdps"
+    | Opcode.VGATHERPF0DPD -> "vgatherpf0dpd"
+    | Opcode.VGATHERPF0DPS -> "vgatherpf0dps"
+    | Opcode.VGATHERPF0QPD -> "vgatherpf0qpd"
+    | Opcode.VGATHERPF0QPS -> "vgatherpf0qps"
+    | Opcode.VGATHERPF1DPD -> "vgatherpf1dpd"
+    | Opcode.VGATHERPF1DPS -> "vgatherpf1dps"
+    | Opcode.VGATHERPF1QPD -> "vgatherpf1qpd"
+    | Opcode.VGATHERPF1QPS -> "vgatherpf1qps"
+    | Opcode.VGATHERQPD -> "vgatherqpd"
+    | Opcode.VGATHERQPS -> "vgatherqps"
+    | Opcode.VGETEXPPD -> "vgetexppd"
+    | Opcode.VGETEXPPH -> "vgetexpph"
+    | Opcode.VGETEXPPS -> "vgetexpps"
+    | Opcode.VGETEXPSD -> "vgetexpsd"
+    | Opcode.VGETEXPSH -> "vgetexpsh"
+    | Opcode.VGETEXPSS -> "vgetexpss"
+    | Opcode.VGETMANTPD -> "vgetmantpd"
+    | Opcode.VGETMANTPH -> "vgetmantph"
+    | Opcode.VGETMANTPS -> "vgetmantps"
+    | Opcode.VGETMANTSD -> "vgetmantsd"
+    | Opcode.VGETMANTSH -> "vgetmantsh"
+    | Opcode.VGETMANTSS -> "vgetmantss"
+    | Opcode.VGF2P8AFFINEINVQB -> "vgf2p8affineinvqb"
+    | Opcode.VGF2P8AFFINEQB -> "vgf2p8affineqb"
+    | Opcode.VGF2P8MULB -> "vgf2p8mulb"
+    | Opcode.VHADDPD -> "vhaddpd"
+    | Opcode.VHADDPS -> "vhaddps"
+    | Opcode.VHSUBPD -> "vhsubpd"
+    | Opcode.VHSUBPS -> "vhsubps"
+    | Opcode.VINSERTF128 -> "vinsertf128"
+    | Opcode.VINSERTF32X4 -> "vinsertf32x4"
+    | Opcode.VINSERTF32X8 -> "vinsertf32x8"
+    | Opcode.VINSERTF64X2 -> "vinsertf64x2"
+    | Opcode.VINSERTF64X4 -> "vinsertf64x4"
+    | Opcode.VINSERTI128 -> "vinserti128"
+    | Opcode.VINSERTI32X4 -> "vinserti32x4"
+    | Opcode.VINSERTI32X8 -> "vinserti32x8"
+    | Opcode.VINSERTI64X2 -> "vinserti64x2"
+    | Opcode.VINSERTI64X4 -> "vinserti64x4"
+    | Opcode.VINSERTPS -> "vinsertps"
+    | Opcode.VLDDQU -> "vlddqu"
+    | Opcode.VLDMXCSR -> "vldmxcsr"
+    | Opcode.VMASKMOVDQU -> "vmaskmovdqu"
+    | Opcode.VMASKMOVPD -> "vmaskmovpd"
+    | Opcode.VMASKMOVPS -> "vmaskmovps"
+    | Opcode.VMAXPD -> "vmaxpd"
+    | Opcode.VMAXPH -> "vmaxph"
+    | Opcode.VMAXPS -> "vmaxps"
+    | Opcode.VMAXSD -> "vmaxsd"
+    | Opcode.VMAXSH -> "vmaxsh"
+    | Opcode.VMAXSS -> "vmaxss"
+    | Opcode.VMINPD -> "vminpd"
+    | Opcode.VMINPH -> "vminph"
+    | Opcode.VMINPS -> "vminps"
+    | Opcode.VMINSD -> "vminsd"
+    | Opcode.VMINSH -> "vminsh"
+    | Opcode.VMINSS -> "vminss"
+    | Opcode.VMOVAPD -> "vmovapd"
+    | Opcode.VMOVAPS -> "vmovaps"
+    | Opcode.VMOVD -> "vmovd"
+    | Opcode.VMOVDDUP -> "vmovddup"
+    | Opcode.VMOVDQA -> "vmovdqa"
+    | Opcode.VMOVDQA32 -> "vmovdqa32"
+    | Opcode.VMOVDQA64 -> "vmovdqa64"
+    | Opcode.VMOVDQU -> "vmovdqu"
+    | Opcode.VMOVDQU16 -> "vmovdqu16"
+    | Opcode.VMOVDQU32 -> "vmovdqu32"
+    | Opcode.VMOVDQU64 -> "vmovdqu64"
+    | Opcode.VMOVDQU8 -> "vmovdqu8"
+    | Opcode.VMOVHLPS -> "vmovhlps"
+    | Opcode.VMOVHPD -> "vmovhpd"
+    | Opcode.VMOVHPS -> "vmovhps"
+    | Opcode.VMOVLHPS -> "vmovlhps"
+    | Opcode.VMOVLPD -> "vmovlpd"
+    | Opcode.VMOVLPS -> "vmovlps"
+    | Opcode.VMOVMSKPD -> "vmovmskpd"
+    | Opcode.VMOVMSKPS -> "vmovmskps"
+    | Opcode.VMOVNTDQ -> "vmovntdq"
+    | Opcode.VMOVNTDQA -> "vmovntdqa"
+    | Opcode.VMOVNTPD -> "vmovntpd"
+    | Opcode.VMOVNTPS -> "vmovntps"
+    | Opcode.VMOVQ -> "vmovq"
+    | Opcode.VMOVSD -> "vmovsd"
+    | Opcode.VMOVSH -> "vmovsh"
+    | Opcode.VMOVSHDUP -> "vmovshdup"
+    | Opcode.VMOVSLDUP -> "vmovsldup"
+    | Opcode.VMOVSS -> "vmovss"
+    | Opcode.VMOVUPD -> "vmovupd"
+    | Opcode.VMOVUPS -> "vmovups"
+    | Opcode.VMOVW -> "vmovw"
+    | Opcode.VMPSADBW -> "vmpsadbw"
+    | Opcode.VMULPD -> "vmulpd"
+    | Opcode.VMULPH -> "vmulph"
+    | Opcode.VMULPS -> "vmulps"
+    | Opcode.VMULSD -> "vmulsd"
+    | Opcode.VMULSH -> "vmulsh"
+    | Opcode.VMULSS -> "vmulss"
+    | Opcode.VORPD -> "vorpd"
+    | Opcode.VORPS -> "vorps"
+    | Opcode.VP2INTERSECTD -> "vp2intersectd"
+    | Opcode.VP2INTERSECTQ -> "vp2intersectq"
+    | Opcode.VP4DPWSSD -> "vp4dpwssd"
+    | Opcode.VP4DPWSSDS -> "vp4dpwssds"
+    | Opcode.VPABSB -> "vpabsb"
+    | Opcode.VPABSD -> "vpabsd"
+    | Opcode.VPABSQ -> "vpabsq"
+    | Opcode.VPABSW -> "vpabsw"
+    | Opcode.VPACKSSDW -> "vpackssdw"
+    | Opcode.VPACKSSWB -> "vpacksswb"
+    | Opcode.VPACKUSDW -> "vpackusdw"
+    | Opcode.VPACKUSWB -> "vpackuswb"
+    | Opcode.VPADDB -> "vpaddb"
+    | Opcode.VPADDD -> "vpaddd"
+    | Opcode.VPADDQ -> "vpaddq"
+    | Opcode.VPADDSB -> "vpaddsb"
+    | Opcode.VPADDSW -> "vpaddsw"
+    | Opcode.VPADDUSB -> "vpaddusb"
+    | Opcode.VPADDUSW -> "vpaddusw"
+    | Opcode.VPADDW -> "vpaddw"
+    | Opcode.VPALIGNR -> "vpalignr"
+    | Opcode.VPAND -> "vpand"
+    | Opcode.VPANDD -> "vpandd"
+    | Opcode.VPANDN -> "vpandn"
+    | Opcode.VPANDND -> "vpandnd"
+    | Opcode.VPANDNQ -> "vpandnq"
+    | Opcode.VPANDQ -> "vpandq"
+    | Opcode.VPAVGB -> "vpavgb"
+    | Opcode.VPAVGW -> "vpavgw"
+    | Opcode.VPBLENDD -> "vpblendd"
+    | Opcode.VPBLENDMB -> "vpblendmb"
+    | Opcode.VPBLENDMD -> "vpblendmd"
+    | Opcode.VPBLENDMQ -> "vpblendmq"
+    | Opcode.VPBLENDMW -> "vpblendmw"
+    | Opcode.VPBLENDVB -> "vpblendvb"
+    | Opcode.VPBLENDW -> "vpblendw"
+    | Opcode.VPBROADCASTB -> "vpbroadcastb"
+    | Opcode.VPBROADCASTD -> "vpbroadcastd"
+    | Opcode.VPBROADCASTMB2Q -> "vpbroadcastmb2q"
+    | Opcode.VPBROADCASTMW2D -> "vpbroadcastmw2d"
+    | Opcode.VPBROADCASTQ -> "vpbroadcastq"
+    | Opcode.VPBROADCASTW -> "vpbroadcastw"
+    | Opcode.VPCLMULQDQ -> "vpclmulqdq"
+    | Opcode.VPCMPB -> "vpcmpb"
+    | Opcode.VPCMPD -> "vpcmpd"
+    | Opcode.VPCMPEQB -> "vpcmpeqb"
+    | Opcode.VPCMPEQD -> "vpcmpeqd"
+    | Opcode.VPCMPEQQ -> "vpcmpeqq"
+    | Opcode.VPCMPEQW -> "vpcmpeqw"
+    | Opcode.VPCMPESTRI -> "vpcmpestri"
+    | Opcode.VPCMPESTRM -> "vpcmpestrm"
+    | Opcode.VPCMPGTB -> "vpcmpgtb"
+    | Opcode.VPCMPGTD -> "vpcmpgtd"
+    | Opcode.VPCMPGTQ -> "vpcmpgtq"
+    | Opcode.VPCMPGTW -> "vpcmpgtw"
+    | Opcode.VPCMPISTRI -> "vpcmpistri"
+    | Opcode.VPCMPISTRM -> "vpcmpistrm"
+    | Opcode.VPCMPQ -> "vpcmpq"
+    | Opcode.VPCMPUB -> "vpcmpub"
+    | Opcode.VPCMPUD -> "vpcmpud"
+    | Opcode.VPCMPUQ -> "vpcmpuq"
+    | Opcode.VPCMPUW -> "vpcmpuw"
+    | Opcode.VPCMPW -> "vpcmpw"
+    | Opcode.VPCOMPRESSB -> "vpcompressb"
+    | Opcode.VPCOMPRESSD -> "vpcompressd"
+    | Opcode.VPCOMPRESSQ -> "vpcompressq"
+    | Opcode.VPCOMPRESSW -> "vpcompressw"
+    | Opcode.VPCONFLICTD -> "vpconflictd"
+    | Opcode.VPCONFLICTQ -> "vpconflictq"
+    | Opcode.VPDPBSSD -> "vpdpbssd"
+    | Opcode.VPDPBSSDS -> "vpdpbssds"
+    | Opcode.VPDPBSUD -> "vpdpbsud"
+    | Opcode.VPDPBSUDS -> "vpdpbsuds"
+    | Opcode.VPDPBUSD -> "vpdpbusd"
+    | Opcode.VPDPBUSDS -> "vpdpbusds"
+    | Opcode.VPDPBUUD -> "vpdpbuud"
+    | Opcode.VPDPBUUDS -> "vpdpbuuds"
+    | Opcode.VPDPWSSD -> "vpdpwssd"
+    | Opcode.VPDPWSSDS -> "vpdpwssds"
+    | Opcode.VPDPWSUD -> "vpdpwsud"
+    | Opcode.VPDPWSUDS -> "vpdpwsuds"
+    | Opcode.VPDPWUSD -> "vpdpwusd"
+    | Opcode.VPDPWUSDS -> "vpdpwusds"
+    | Opcode.VPDPWUUD -> "vpdpwuud"
+    | Opcode.VPDPWUUDS -> "vpdpwuuds"
+    | Opcode.VPERM2F128 -> "vperm2f128"
+    | Opcode.VPERM2I128 -> "vperm2i128"
+    | Opcode.VPERMB -> "vpermb"
+    | Opcode.VPERMD -> "vpermd"
+    | Opcode.VPERMI2B -> "vpermi2b"
+    | Opcode.VPERMI2D -> "vpermi2d"
+    | Opcode.VPERMI2PD -> "vpermi2pd"
+    | Opcode.VPERMI2PS -> "vpermi2ps"
+    | Opcode.VPERMI2Q -> "vpermi2q"
+    | Opcode.VPERMI2W -> "vpermi2w"
+    | Opcode.VPERMILPD -> "vpermilpd"
+    | Opcode.VPERMILPS -> "vpermilps"
+    | Opcode.VPERMPD -> "vpermpd"
+    | Opcode.VPERMPS -> "vpermps"
+    | Opcode.VPERMQ -> "vpermq"
+    | Opcode.VPERMT2B -> "vpermt2b"
+    | Opcode.VPERMT2D -> "vpermt2d"
+    | Opcode.VPERMT2PD -> "vpermt2pd"
+    | Opcode.VPERMT2PS -> "vpermt2ps"
+    | Opcode.VPERMT2Q -> "vpermt2q"
+    | Opcode.VPERMT2W -> "vpermt2w"
+    | Opcode.VPERMW -> "vpermw"
+    | Opcode.VPEXPANDB -> "vpexpandb"
+    | Opcode.VPEXPANDD -> "vpexpandd"
+    | Opcode.VPEXPANDQ -> "vpexpandq"
+    | Opcode.VPEXPANDW -> "vpexpandw"
+    | Opcode.VPEXTRB -> "vpextrb"
+    | Opcode.VPEXTRD -> "vpextrd"
+    | Opcode.VPEXTRQ -> "vpextrq"
+    | Opcode.VPEXTRW -> "vpextrw"
+    | Opcode.VPGATHERDD -> "vpgatherdd"
+    | Opcode.VPGATHERDQ -> "vpgatherdq"
+    | Opcode.VPGATHERQD -> "vpgatherqd"
+    | Opcode.VPGATHERQQ -> "vpgatherqq"
+    | Opcode.VPHADDD -> "vphaddd"
+    | Opcode.VPHADDSW -> "vphaddsw"
+    | Opcode.VPHADDW -> "vphaddw"
+    | Opcode.VPHMINPOSUW -> "vphminposuw"
+    | Opcode.VPHSUBD -> "vphsubd"
+    | Opcode.VPHSUBSW -> "vphsubsw"
+    | Opcode.VPHSUBW -> "vphsubw"
+    | Opcode.VPINSRB -> "vpinsrb"
+    | Opcode.VPINSRD -> "vpinsrd"
+    | Opcode.VPINSRQ -> "vpinsrq"
+    | Opcode.VPINSRW -> "vpinsrw"
+    | Opcode.VPLZCNTD -> "vplzcntd"
+    | Opcode.VPLZCNTQ -> "vplzcntq"
+    | Opcode.VPMADD52HUQ -> "vpmadd52huq"
+    | Opcode.VPMADD52LUQ -> "vpmadd52luq"
+    | Opcode.VPMADDUBSW -> "vpmaddubsw"
+    | Opcode.VPMADDWD -> "vpmaddwd"
+    | Opcode.VPMASKMOVD -> "vpmaskmovd"
+    | Opcode.VPMASKMOVQ -> "vpmaskmovq"
+    | Opcode.VPMAXSB -> "vpmaxsb"
+    | Opcode.VPMAXSD -> "vpmaxsd"
+    | Opcode.VPMAXSQ -> "vpmaxsq"
+    | Opcode.VPMAXSW -> "vpmaxsw"
+    | Opcode.VPMAXUB -> "vpmaxub"
+    | Opcode.VPMAXUD -> "vpmaxud"
+    | Opcode.VPMAXUQ -> "vpmaxuq"
+    | Opcode.VPMAXUW -> "vpmaxuw"
+    | Opcode.VPMINSB -> "vpminsb"
+    | Opcode.VPMINSD -> "vpminsd"
+    | Opcode.VPMINSQ -> "vpminsq"
+    | Opcode.VPMINSW -> "vpminsw"
+    | Opcode.VPMINUB -> "vpminub"
+    | Opcode.VPMINUD -> "vpminud"
+    | Opcode.VPMINUQ -> "vpminuq"
+    | Opcode.VPMINUW -> "vpminuw"
+    | Opcode.VPMOVB2M -> "vpmovb2m"
+    | Opcode.VPMOVD2M -> "vpmovd2m"
+    | Opcode.VPMOVDB -> "vpmovdb"
+    | Opcode.VPMOVDW -> "vpmovdw"
+    | Opcode.VPMOVM2B -> "vpmovm2b"
+    | Opcode.VPMOVM2D -> "vpmovm2d"
+    | Opcode.VPMOVM2Q -> "vpmovm2q"
+    | Opcode.VPMOVM2W -> "vpmovm2w"
+    | Opcode.VPMOVMSKB -> "vpmovmskb"
+    | Opcode.VPMOVQ2M -> "vpmovq2m"
+    | Opcode.VPMOVQB -> "vpmovqb"
+    | Opcode.VPMOVQD -> "vpmovqd"
+    | Opcode.VPMOVQW -> "vpmovqw"
+    | Opcode.VPMOVSDB -> "vpmovsdb"
+    | Opcode.VPMOVSDW -> "vpmovsdw"
+    | Opcode.VPMOVSQB -> "vpmovsqb"
+    | Opcode.VPMOVSQD -> "vpmovsqd"
+    | Opcode.VPMOVSQW -> "vpmovsqw"
+    | Opcode.VPMOVSWB -> "vpmovswb"
+    | Opcode.VPMOVSXBD -> "vpmovsxbd"
+    | Opcode.VPMOVSXBQ -> "vpmovsxbq"
+    | Opcode.VPMOVSXBW -> "vpmovsxbw"
+    | Opcode.VPMOVSXDQ -> "vpmovsxdq"
+    | Opcode.VPMOVSXWD -> "vpmovsxwd"
+    | Opcode.VPMOVSXWQ -> "vpmovsxwq"
+    | Opcode.VPMOVUSDB -> "vpmovusdb"
+    | Opcode.VPMOVUSDW -> "vpmovusdw"
+    | Opcode.VPMOVUSQB -> "vpmovusqb"
+    | Opcode.VPMOVUSQD -> "vpmovusqd"
+    | Opcode.VPMOVUSQW -> "vpmovusqw"
+    | Opcode.VPMOVUSWB -> "vpmovuswb"
+    | Opcode.VPMOVW2M -> "vpmovw2m"
+    | Opcode.VPMOVWB -> "vpmovwb"
+    | Opcode.VPMOVZXBD -> "vpmovzxbd"
+    | Opcode.VPMOVZXBQ -> "vpmovzxbq"
+    | Opcode.VPMOVZXBW -> "vpmovzxbw"
+    | Opcode.VPMOVZXDQ -> "vpmovzxdq"
+    | Opcode.VPMOVZXWD -> "vpmovzxwd"
+    | Opcode.VPMOVZXWQ -> "vpmovzxwq"
+    | Opcode.VPMULDQ -> "vpmuldq"
+    | Opcode.VPMULHRSW -> "vpmulhrsw"
+    | Opcode.VPMULHUW -> "vpmulhuw"
+    | Opcode.VPMULHW -> "vpmulhw"
+    | Opcode.VPMULLD -> "vpmulld"
+    | Opcode.VPMULLQ -> "vpmullq"
+    | Opcode.VPMULLW -> "vpmullw"
+    | Opcode.VPMULTISHIFTQB -> "vpmultishiftqb"
+    | Opcode.VPMULUDQ -> "vpmuludq"
+    | Opcode.VPOPCNTB -> "vpopcntb"
+    | Opcode.VPOPCNTD -> "vpopcntd"
+    | Opcode.VPOPCNTQ -> "vpopcntq"
+    | Opcode.VPOPCNTW -> "vpopcntw"
+    | Opcode.VPOR -> "vpor"
+    | Opcode.VPORD -> "vpord"
+    | Opcode.VPORQ -> "vporq"
+    | Opcode.VPROLD -> "vprold"
+    | Opcode.VPROLQ -> "vprolq"
+    | Opcode.VPROLVD -> "vprolvd"
+    | Opcode.VPROLVQ -> "vprolvq"
+    | Opcode.VPRORD -> "vprord"
+    | Opcode.VPRORQ -> "vprorq"
+    | Opcode.VPRORVD -> "vprorvd"
+    | Opcode.VPRORVQ -> "vprorvq"
+    | Opcode.VPSADBW -> "vpsadbw"
+    | Opcode.VPSCATTERDD -> "vpscatterdd"
+    | Opcode.VPSCATTERDQ -> "vpscatterdq"
+    | Opcode.VPSCATTERQD -> "vpscatterqd"
+    | Opcode.VPSCATTERQQ -> "vpscatterqq"
+    | Opcode.VPSHLDD -> "vpshldd"
+    | Opcode.VPSHLDQ -> "vpshldq"
+    | Opcode.VPSHLDVD -> "vpshldvd"
+    | Opcode.VPSHLDVQ -> "vpshldvq"
+    | Opcode.VPSHLDVW -> "vpshldvw"
+    | Opcode.VPSHLDW -> "vpshldw"
+    | Opcode.VPSHRDD -> "vpshrdd"
+    | Opcode.VPSHRDQ -> "vpshrdq"
+    | Opcode.VPSHRDVD -> "vpshrdvd"
+    | Opcode.VPSHRDVQ -> "vpshrdvq"
+    | Opcode.VPSHRDVW -> "vpshrdvw"
+    | Opcode.VPSHRDW -> "vpshrdw"
+    | Opcode.VPSHUFB -> "vpshufb"
+    | Opcode.VPSHUFBITQMB -> "vpshufbitqmb"
+    | Opcode.VPSHUFD -> "vpshufd"
+    | Opcode.VPSHUFHW -> "vpshufhw"
+    | Opcode.VPSHUFLW -> "vpshuflw"
+    | Opcode.VPSIGNB -> "vpsignb"
+    | Opcode.VPSIGND -> "vpsignd"
+    | Opcode.VPSIGNW -> "vpsignw"
+    | Opcode.VPSLLD -> "vpslld"
+    | Opcode.VPSLLDQ -> "vpslldq"
+    | Opcode.VPSLLQ -> "vpsllq"
+    | Opcode.VPSLLVD -> "vpsllvd"
+    | Opcode.VPSLLVQ -> "vpsllvq"
+    | Opcode.VPSLLVW -> "vpsllvw"
+    | Opcode.VPSLLW -> "vpsllw"
+    | Opcode.VPSRAD -> "vpsrad"
+    | Opcode.VPSRAQ -> "vpsraq"
+    | Opcode.VPSRAVD -> "vpsravd"
+    | Opcode.VPSRAVQ -> "vpsravq"
+    | Opcode.VPSRAVW -> "vpsravw"
+    | Opcode.VPSRAW -> "vpsraw"
+    | Opcode.VPSRLD -> "vpsrld"
+    | Opcode.VPSRLDQ -> "vpsrldq"
+    | Opcode.VPSRLQ -> "vpsrlq"
+    | Opcode.VPSRLVD -> "vpsrlvd"
+    | Opcode.VPSRLVQ -> "vpsrlvq"
+    | Opcode.VPSRLVW -> "vpsrlvw"
+    | Opcode.VPSRLW -> "vpsrlw"
+    | Opcode.VPSUBB -> "vpsubb"
+    | Opcode.VPSUBD -> "vpsubd"
+    | Opcode.VPSUBQ -> "vpsubq"
+    | Opcode.VPSUBSB -> "vpsubsb"
+    | Opcode.VPSUBSW -> "vpsubsw"
+    | Opcode.VPSUBUSB -> "vpsubusb"
+    | Opcode.VPSUBUSW -> "vpsubusw"
+    | Opcode.VPSUBW -> "vpsubw"
+    | Opcode.VPTERNLOGD -> "vpternlogd"
+    | Opcode.VPTERNLOGQ -> "vpternlogq"
+    | Opcode.VPTEST -> "vptest"
+    | Opcode.VPTESTMB -> "vptestmb"
+    | Opcode.VPTESTMD -> "vptestmd"
+    | Opcode.VPTESTMQ -> "vptestmq"
+    | Opcode.VPTESTMW -> "vptestmw"
+    | Opcode.VPTESTNMB -> "vptestnmb"
+    | Opcode.VPTESTNMD -> "vptestnmd"
+    | Opcode.VPTESTNMQ -> "vptestnmq"
+    | Opcode.VPTESTNMW -> "vptestnmw"
+    | Opcode.VPUNPCKHBW -> "vpunpckhbw"
+    | Opcode.VPUNPCKHDQ -> "vpunpckhdq"
+    | Opcode.VPUNPCKHQDQ -> "vpunpckhqdq"
+    | Opcode.VPUNPCKHWD -> "vpunpckhwd"
+    | Opcode.VPUNPCKLBW -> "vpunpcklbw"
+    | Opcode.VPUNPCKLDQ -> "vpunpckldq"
+    | Opcode.VPUNPCKLQDQ -> "vpunpcklqdq"
+    | Opcode.VPUNPCKLWD -> "vpunpcklwd"
+    | Opcode.VPXOR -> "vpxor"
+    | Opcode.VPXORD -> "vpxord"
+    | Opcode.VPXORQ -> "vpxorq"
+    | Opcode.VRANGEPD -> "vrangepd"
+    | Opcode.VRANGEPS -> "vrangeps"
+    | Opcode.VRANGESD -> "vrangesd"
+    | Opcode.VRANGESS -> "vrangess"
+    | Opcode.VRCP14PD -> "vrcp14pd"
+    | Opcode.VRCP14PS -> "vrcp14ps"
+    | Opcode.VRCP14SD -> "vrcp14sd"
+    | Opcode.VRCP14SS -> "vrcp14ss"
+    | Opcode.VRCP28PD -> "vrcp28pd"
+    | Opcode.VRCP28PS -> "vrcp28ps"
+    | Opcode.VRCP28SD -> "vrcp28sd"
+    | Opcode.VRCP28SS -> "vrcp28ss"
+    | Opcode.VRCPPH -> "vrcpph"
+    | Opcode.VRCPPS -> "vrcpps"
+    | Opcode.VRCPSH -> "vrcpsh"
+    | Opcode.VRCPSS -> "vrcpss"
+    | Opcode.VREDUCEPD -> "vreducepd"
+    | Opcode.VREDUCEPH -> "vreduceph"
+    | Opcode.VREDUCEPS -> "vreduceps"
+    | Opcode.VREDUCESD -> "vreducesd"
+    | Opcode.VREDUCESH -> "vreducesh"
+    | Opcode.VREDUCESS -> "vreducess"
+    | Opcode.VRNDSCALEPD -> "vrndscalepd"
+    | Opcode.VRNDSCALEPH -> "vrndscaleph"
+    | Opcode.VRNDSCALEPS -> "vrndscaleps"
+    | Opcode.VRNDSCALESD -> "vrndscalesd"
+    | Opcode.VRNDSCALESH -> "vrndscalesh"
+    | Opcode.VRNDSCALESS -> "vrndscaless"
+    | Opcode.VROUNDPD -> "vroundpd"
+    | Opcode.VROUNDPS -> "vroundps"
+    | Opcode.VROUNDSD -> "vroundsd"
+    | Opcode.VROUNDSS -> "vroundss"
+    | Opcode.VRSQRT14PD -> "vrsqrt14pd"
+    | Opcode.VRSQRT14PS -> "vrsqrt14ps"
+    | Opcode.VRSQRT14SD -> "vrsqrt14sd"
+    | Opcode.VRSQRT14SS -> "vrsqrt14ss"
+    | Opcode.VRSQRT28PD -> "vrsqrt28pd"
+    | Opcode.VRSQRT28PS -> "vrsqrt28ps"
+    | Opcode.VRSQRT28SD -> "vrsqrt28sd"
+    | Opcode.VRSQRT28SS -> "vrsqrt28ss"
+    | Opcode.VRSQRTPH -> "vrsqrtph"
+    | Opcode.VRSQRTPS -> "vrsqrtps"
+    | Opcode.VRSQRTSH -> "vrsqrtsh"
+    | Opcode.VRSQRTSS -> "vrsqrtss"
+    | Opcode.VSCALEFPD -> "vscalefpd"
+    | Opcode.VSCALEFPH -> "vscalefph"
+    | Opcode.VSCALEFPS -> "vscalefps"
+    | Opcode.VSCALEFSD -> "vscalefsd"
+    | Opcode.VSCALEFSH -> "vscalefsh"
+    | Opcode.VSCALEFSS -> "vscalefss"
+    | Opcode.VSCATTERDPD -> "vscatterdpd"
+    | Opcode.VSCATTERDPS -> "vscatterdps"
+    | Opcode.VSCATTERPF0DPD -> "vscatterpf0dpd"
+    | Opcode.VSCATTERPF0DPS -> "vscatterpf0dps"
+    | Opcode.VSCATTERPF0QPD -> "vscatterpf0qpd"
+    | Opcode.VSCATTERPF0QPS -> "vscatterpf0qps"
+    | Opcode.VSCATTERPF1DPD -> "vscatterpf1dpd"
+    | Opcode.VSCATTERPF1DPS -> "vscatterpf1dps"
+    | Opcode.VSCATTERPF1QPD -> "vscatterpf1qpd"
+    | Opcode.VSCATTERPF1QPS -> "vscatterpf1qps"
+    | Opcode.VSCATTERQPD -> "vscatterqpd"
+    | Opcode.VSCATTERQPS -> "vscatterqps"
+    | Opcode.VSHA512MSG1 -> "vsha512msg1"
+    | Opcode.VSHA512MSG2 -> "vsha512msg2"
+    | Opcode.VSHA512RNDS2 -> "vsha512rnds2"
+    | Opcode.VSHUFF32X4 -> "vshuff32x4"
+    | Opcode.VSHUFF64X2 -> "vshuff64x2"
+    | Opcode.VSHUFI32X4 -> "vshufi32x4"
+    | Opcode.VSHUFI64X2 -> "vshufi64x2"
+    | Opcode.VSHUFPD -> "vshufpd"
+    | Opcode.VSHUFPS -> "vshufps"
+    | Opcode.VSM3MSG1 -> "vsm3msg1"
+    | Opcode.VSM3MSG2 -> "vsm3msg2"
+    | Opcode.VSM3RNDS2 -> "vsm3rnds2"
+    | Opcode.VSM4KEY4 -> "vsm4key4"
+    | Opcode.VSM4RNDS4 -> "vsm4rnds4"
+    | Opcode.VSQRTPD -> "vsqrtpd"
+    | Opcode.VSQRTPH -> "vsqrtph"
+    | Opcode.VSQRTPS -> "vsqrtps"
+    | Opcode.VSQRTSD -> "vsqrtsd"
+    | Opcode.VSQRTSH -> "vsqrtsh"
+    | Opcode.VSQRTSS -> "vsqrtss"
+    | Opcode.VSTMXCSR -> "vstmxcsr"
+    | Opcode.VSUBPD -> "vsubpd"
+    | Opcode.VSUBPH -> "vsubph"
+    | Opcode.VSUBPS -> "vsubps"
+    | Opcode.VSUBSD -> "vsubsd"
+    | Opcode.VSUBSH -> "vsubsh"
+    | Opcode.VSUBSS -> "vsubss"
+    | Opcode.VTESTPD -> "vtestpd"
+    | Opcode.VTESTPS -> "vtestps"
+    | Opcode.VUCOMISD -> "vucomisd"
+    | Opcode.VUCOMISH -> "vucomish"
+    | Opcode.VUCOMISS -> "vucomiss"
+    | Opcode.VUNPCKHPD -> "vunpckhpd"
+    | Opcode.VUNPCKHPS -> "vunpckhps"
+    | Opcode.VUNPCKLPD -> "vunpcklpd"
+    | Opcode.VUNPCKLPS -> "vunpcklps"
+    | Opcode.VXORPD -> "vxorpd"
+    | Opcode.VXORPS -> "vxorps"
+    | Opcode.VZEROALL -> "vzeroall"
+    | Opcode.VZEROUPPER -> "vzeroupper"
+    | Opcode.WAIT -> "wait"
+    | Opcode.WBINVD -> "wbinvd"
+    | Opcode.WBNOINVD -> "wbnoinvd"
+    | Opcode.WRFSBASE -> "wrfsbase"
+    | Opcode.WRGSBASE -> "wrgsbase"
+    | Opcode.WRMSR -> "wrmsr"
+    | Opcode.WRMSRLIST -> "wrmsrlist"
+    | Opcode.WRMSRNS -> "wrmsrns"
+    | Opcode.WRPKRU -> "wrpkru"
+    | Opcode.WRSSD -> "wrssd"
+    | Opcode.WRSSQ -> "wrssq"
+    | Opcode.WRUSSD -> "wrussd"
+    | Opcode.WRUSSQ -> "wrussq"
+    | Opcode.XABORT -> "xabort"
+    | Opcode.XACQUIRE -> "xacquire"
+    | Opcode.XADD -> "xadd"
+    | Opcode.XBEGIN -> "xbegin"
+    | Opcode.XCHG -> "xchg"
+    | Opcode.XEND -> "xend"
+    | Opcode.XGETBV -> "xgetbv"
+    | Opcode.XLAT -> "xlat"
+    | Opcode.XLATB -> "xlatb"
+    | Opcode.XOR -> "xor"
+    | Opcode.XORPD -> "xorpd"
+    | Opcode.XORPS -> "xorps"
+    | Opcode.XRELEASE -> "xrelease"
+    | Opcode.XRESLDTRK -> "xresldtrk"
+    | Opcode.XRSTOR -> "xrstor"
+    | Opcode.XRSTOR64 -> "xrstor64"
+    | Opcode.XRSTORS -> "xrstors"
+    | Opcode.XRSTORS64 -> "xrstors64"
+    | Opcode.XSAVE -> "xsave"
+    | Opcode.XSAVE64 -> "xsave64"
+    | Opcode.XSAVEC -> "xsavec"
+    | Opcode.XSAVEC64 -> "xsavec64"
+    | Opcode.XSAVEOPT -> "xsaveopt"
+    | Opcode.XSAVEOPT64 -> "xsaveopt64"
+    | Opcode.XSAVES -> "xsaves"
+    | Opcode.XSAVES64 -> "xsaves64"
+    | Opcode.XSETBV -> "xsetbv"
+    | Opcode.XSUSLDTRK -> "xsusldtrk"
+    | Opcode.XTEST -> "xtest"
+    | Opcode.FFREEP -> "ffreep"
+    | Opcode.VMREAD -> "vmread"
+    | Opcode.EXTRQ -> "extrq"
+    | Opcode.INSERTQ -> "insertq"
+    | Opcode.VFMADDPS -> "vfmaddps"
+    | Opcode.VFMADDPD -> "vfmaddpd"
+    | Opcode.VFMADDSS -> "vfmaddss"
+    | Opcode.VFMADDSD -> "vfmaddsd"
+    | Opcode.VMCALL -> "vmcall"
+    | Opcode.VMLAUNCH -> "vmlaunch"
+    | Opcode.VMRESUME -> "vmresume"
+    | Opcode.VMXOFF -> "vmxoff"
+    | Opcode.VMFUNC -> "vmfunc"
+    | Opcode.VMPTRLD -> "vmptrld"
+    | Opcode.VMPTRST -> "vmptrst"
+    | Opcode.VMCLEAR -> "vmclear"
+    | Opcode.VMXON -> "vmxon"
+    | Opcode.JMPFar -> "jmp"
+    | Opcode.JMPNear -> "jmp"
+    | Opcode.CALLFar -> "call"
+    | Opcode.CALLNear -> "call"
+    | Opcode.RETFar -> "ret"
+    | Opcode.RETFarImm -> "ret"
+    | Opcode.RETNear -> "ret"
+    | Opcode.RETNearImm -> "ret"
+    | Opcode.InvalOP -> "(InvalOp)"
+    | s -> printfn "%A" s; failwith "InvalidOpcodeException"

@@ -57,7 +57,7 @@ type IntelParser(wordSz, reader) =
 
   let phlp = ParsingHelper(reader, wordSz, lifter)
 
-  let checkVectorLength (vex: VEXInfo option) insVecLen =
+  let matchesVectorLength (vex: VEXInfo option) insVecLen =
     if insVecLen = VectorLength.None then true
     else
       match vex with
@@ -69,8 +69,22 @@ type IntelParser(wordSz, reader) =
         | _ -> false
       | _ -> true
 
-  let checkREXPrefix (rex: REXPrefix) insREX =
-    match rex with
+  let getOperandSize operands =
+    Array.map (fun o ->
+      match o with
+      | RM sz | Reg sz | Mem sz | Imm sz | Rel sz -> Some sz
+      | _ -> None) operands
+    |> Array.distinct
+
+  let contains8BitOperandSize oprSz =
+    match oprSz with
+    | [| Some Sz8 |] -> true
+    | _ -> false
+
+  let matchesREXPrefix (phlp: ParsingHelper) (insCore: InstructionCore) =
+    let insREX = insCore.REXPrefixType
+    match phlp.REXPrefix with
+    | _ when contains8BitOperandSize (getOperandSize insCore.Operands) -> true
     | REXPrefix.NOREX ->
       (insREX = REXPrefixType.WIG) || (insREX = REXPrefixType.W0) ||
       (insREX = REXPrefixType.NOREX)
@@ -108,14 +122,7 @@ type IntelParser(wordSz, reader) =
                          // mandatory. Need more precise handling logic.
       toPrefixType baseType pref
 
-  let getOperandSize operands =
-    Array.map (fun o ->
-      match o with
-      | RM sz | Reg sz | Mem sz | Imm sz | Rel sz -> Some sz
-      | _ -> None) operands
-    |> Array.distinct
-
-  let checkPrefix pref insPref =
+  let matchesPrefixType pref insPref =
     match pref with
     | Mandatory NP -> insPref = Mandatory NP || insPref = Legacy NP
     | Mandatory _ ->
@@ -123,7 +130,11 @@ type IntelParser(wordSz, reader) =
       else pref = insPref
     | _ -> true
 
-  let checkPrefix2 (pref: Prefix) insPref =
+  let matchesInstructionPrefix (phlp: ParsingHelper) insPref =
+    let pref =
+      match phlp.VEXInfo with
+      | Some v -> v.VPrefixes
+      | _ -> phlp.Prefixes
     let mPref = pref &&& (Prefix.OPSIZE ||| Prefix.REPZ ||| Prefix.REPNZ)
     if Prefix.hasOprSz mPref then insPref = Mandatory P66 || insPref = Legacy NP
     elif Prefix.hasREPZ mPref then insPref = Mandatory F3 || insPref = Legacy NP
@@ -133,251 +144,266 @@ type IntelParser(wordSz, reader) =
       insPref = Legacy NP || insPref = Mandatory NP
     else false
 
-  let containsSz16 oprSz =
+  let contains16BitOperandSize oprSz opcode =
     match oprSz with
+    | [| Some Sz16 |] when opcode = Opcode.RETNear -> false
+    | [| Some Sz16; _ |] when opcode = Opcode.ENTER -> false
+    | [| None; Some Sz16 |] when opcode = Opcode.MOV -> false
     | [| Some Sz16 |]
     | [| Some Sz16; _ |]
     | [| None; Some Sz16 |] (* Temp *) -> true
     | _ -> false
 
-  let checkSize pref operands opEn =
-    if opEn = OpEn.None then true
+  let matchesOperandSize pref (insCore: InstructionCore) =
+    if insCore.OpEn = OpEn.None then true
     else
-      let oprSz = getOperandSize operands
-      if containsSz16 oprSz then
+      let oprSz = getOperandSize insCore.Operands
+      if contains16BitOperandSize oprSz insCore.Opcode then
         // FIXME: 16-bit operands do not always require a 66h prefix.
-        pref = Legacy P66 || pref = Mandatory P66
+        pref = Prefix.OPSIZE
       else true
 
-  let checkCPUMode wordSize mode64 compat =
+  let matchesCPUMode wordSize mode64 compat =
     match wordSize with
+    | WordSize.Bit64 when mode64 = Mode64.Invalid -> false
     | WordSize.Bit64 -> mode64 <> Mode64.NE && mode64 <> Mode64.NS // ??
     | WordSize.Bit32 -> compat <> CompatLegMode.NE
     | _ -> failwith "Unsupported word size."
 
-  let isOpcodeExtensions = function
-    | ModRMType.ModRMOp0 | ModRMType.ModRMOp1 | ModRMType.ModRMOp2
-    | ModRMType.ModRMOp3 | ModRMType.ModRMOp4 | ModRMType.ModRMOp5
-    | ModRMType.ModRMOp6 | ModRMType.ModRMOp7 -> true
+  let hasOpcodeExtension = function
+    | ModRMType.ModRMOp0 _ | ModRMType.ModRMOp1 _ | ModRMType.ModRMOp2 _
+    | ModRMType.ModRMOp3 _ | ModRMType.ModRMOp4 _ | ModRMType.ModRMOp5 _
+    | ModRMType.ModRMOp6 _ | ModRMType.ModRMOp7 _ -> true
     | _ -> false
 
-  let checkOpcodeExtensions (span: ByteSpan) (phlp: ParsingHelper) modRMType =
-    if isOpcodeExtensions modRMType then
+  let matchesOpcodeExtensionGroup (span: ByteSpan) (phlp: ParsingHelper)
+    (i: InstructionCore) =
+    if hasOpcodeExtension i.ModRM then
       let modRM = span[phlp.CurrPos]
       let reg = (modRM >>> 3) &&& 0b111uy
       match reg with
-      | 0uy -> modRMType = ModRMType.ModRMOp0
-      | 1uy -> modRMType = ModRMType.ModRMOp1
-      | 2uy -> modRMType = ModRMType.ModRMOp2
-      | 3uy -> modRMType = ModRMType.ModRMOp3
-      | 4uy -> modRMType = ModRMType.ModRMOp4
-      | 5uy -> modRMType = ModRMType.ModRMOp5
-      | 6uy -> modRMType = ModRMType.ModRMOp6
-      | 7uy -> modRMType = ModRMType.ModRMOp7
+      | 0uy -> i.ModRM = ModRMType.ModRMOp0 OpRegMem
+      | 1uy -> i.ModRM = ModRMType.ModRMOp1 OpRegMem
+      | 2uy -> i.ModRM = ModRMType.ModRMOp2 OpRegMem
+      | 3uy -> i.ModRM = ModRMType.ModRMOp3 OpRegMem
+      | 4uy -> i.ModRM = ModRMType.ModRMOp4 OpRegMem
+      | 5uy -> i.ModRM = ModRMType.ModRMOp5 OpRegMem
+      | 6uy -> i.ModRM = ModRMType.ModRMOp6 OpRegMem
+      | 7uy -> i.ModRM = ModRMType.ModRMOp7 OpRegMem
       | _ -> false
     else true
 
-  let checkD8Escape span phlp (i: InstructionCore) modRM =
+  let matchesModRMConstraint (span: ByteSpan) (phlp: ParsingHelper)
+    (i: InstructionCore)
+    oprType insReg =
+    let modRM = span[phlp.CurrPos]
+    let reg = Operands.getReg modRM
+    match oprType with
+    | OpReg -> Operands.modIsReg modRM && reg = insReg
+    | OpMem -> Operands.modIsMemory modRM && reg = insReg
+    | _ -> reg = insReg
+
+  let matchesInstructionModRM (span: ByteSpan) (phlp: ParsingHelper)
+    (i: InstructionCore) =
+    match i.ModRM with
+    | ModRMType.ModRMOp0 o -> matchesModRMConstraint span phlp i o 0
+    | ModRMType.ModRMOp1 o -> matchesModRMConstraint span phlp i o 1
+    | ModRMType.ModRMOp2 o -> matchesModRMConstraint span phlp i o 2
+    | ModRMType.ModRMOp3 o -> matchesModRMConstraint span phlp i o 3
+    | ModRMType.ModRMOp4 o -> matchesModRMConstraint span phlp i o 4
+    | ModRMType.ModRMOp5 o -> matchesModRMConstraint span phlp i o 5
+    | ModRMType.ModRMOp6 o -> matchesModRMConstraint span phlp i o 6
+    | ModRMType.ModRMOp7 o -> matchesModRMConstraint span phlp i o 7
+    | ModRMType.FixedModRM v -> span[phlp.CurrPos] = v
+    | _ -> true
+
+  let matchesX87Escape span phlp (i: InstructionCore) modRM registerFormMatcher =
     if Operands.getMod modRM = 0b11 then
-      if i.ModRM = ModRMType.NoModRM then
-        match modRM &&& 0xF8uy with
-        | 0xC0uy -> i.Opcode = Opcode.FADD
-        | 0xC8uy -> i.Opcode = Opcode.FMUL
-        | 0xD0uy -> i.Opcode = Opcode.FCOM
-        | 0xD8uy -> i.Opcode = Opcode.FCOMP
-        | 0xE0uy -> i.Opcode = Opcode.FSUB
-        | 0xE8uy -> i.Opcode = Opcode.FSUBR
-        | 0xF0uy -> i.Opcode = Opcode.FDIV
-        | 0xF8uy -> i.Opcode = Opcode.FDIVR
-        | _ -> false
+      if i.ModRM = ModRMType.NoModRM then registerFormMatcher modRM
       else false
     else
       if i.ModRM = ModRMType.NoModRM then false
-      else checkOpcodeExtensions span phlp i.ModRM
+      else matchesOpcodeExtensionGroup span phlp i
 
-  let checkD9Escape span phlp (i: InstructionCore) modRM =
-    if Operands.getMod modRM = 0b11 then
-      if i.ModRM = ModRMType.NoModRM then
+  let matchesD8Escape span phlp (i: InstructionCore) modRM =
+    matchesX87Escape span phlp i modRM (fun modRM ->
+      match modRM &&& 0xF8uy with
+      | 0xC0uy -> i.Opcode = Opcode.FADD
+      | 0xC8uy -> i.Opcode = Opcode.FMUL
+      | 0xD0uy -> i.Opcode = Opcode.FCOM
+      | 0xD8uy -> i.Opcode = Opcode.FCOMP
+      | 0xE0uy -> i.Opcode = Opcode.FSUB
+      | 0xE8uy -> i.Opcode = Opcode.FSUBR
+      | 0xF0uy -> i.Opcode = Opcode.FDIV
+      | 0xF8uy -> i.Opcode = Opcode.FDIVR
+      | _ -> false)
+
+  let matchesD9Escape span phlp (i: InstructionCore) modRM =
+    matchesX87Escape span phlp i modRM (fun modRM ->
+      match modRM with
+      | 0xC0uy | 0xC1uy | 0xC2uy | 0xC3uy | 0xC4uy | 0xC5uy | 0xC6uy | 0xC7uy ->
+        i.Opcode = Opcode.FLD
+      | 0xC8uy | 0xC9uy | 0xCAuy | 0xCBuy | 0xCCuy | 0xCDuy | 0xCEuy | 0xCFuy ->
+        i.Opcode = Opcode.FXCH
+      | 0xD0uy -> i.Opcode = Opcode.FNOP
+      | 0xD1uy | 0xD2uy | 0xD3uy | 0xD4uy | 0xD5uy | 0xD6uy | 0xD7uy | 0xD8uy
+      | 0xD9uy | 0xDAuy | 0xDBuy | 0xDCuy | 0xDDuy | 0xDEuy | 0xDFuy -> false
+      | 0xE0uy -> i.Opcode = Opcode.FCHS
+      | 0xE1uy -> i.Opcode = Opcode.FABS
+      | 0xE2uy | 0xE3uy -> false
+      | 0xE4uy -> i.Opcode = Opcode.FTST
+      | 0xE5uy -> i.Opcode = Opcode.FXAM
+      | 0xE6uy | 0xE7uy -> false
+      | 0xE8uy -> i.Opcode = Opcode.FLD1
+      | 0xE9uy -> i.Opcode = Opcode.FLDL2T
+      | 0xEAuy -> i.Opcode = Opcode.FLDL2E
+      | 0xEBuy -> i.Opcode = Opcode.FLDPI
+      | 0xECuy -> i.Opcode = Opcode.FLDLG2
+      | 0xEDuy -> i.Opcode = Opcode.FLDLN2
+      | 0xEEuy -> i.Opcode = Opcode.FLDZ
+      | 0xEFuy -> false
+      | 0xF0uy -> i.Opcode = Opcode.F2XM1
+      | 0xF1uy -> i.Opcode = Opcode.FYL2X
+      | 0xF2uy -> i.Opcode = Opcode.FPTAN
+      | 0xF3uy -> i.Opcode = Opcode.FPATAN
+      | 0xF4uy -> i.Opcode = Opcode.FXTRACT
+      | 0xF5uy -> i.Opcode = Opcode.FPREM1
+      | 0xF6uy -> i.Opcode = Opcode.FDECSTP
+      | 0xF7uy -> i.Opcode = Opcode.FINCSTP
+      | 0xF8uy -> i.Opcode = Opcode.FPREM
+      | 0xF9uy -> i.Opcode = Opcode.FYL2XP1
+      | 0xFAuy -> i.Opcode = Opcode.FSQRT
+      | 0xFBuy -> i.Opcode = Opcode.FSINCOS
+      | 0xFCuy -> i.Opcode = Opcode.FRNDINT
+      | 0xFDuy -> i.Opcode = Opcode.FSCALE
+      | 0xFEuy -> i.Opcode = Opcode.FSIN
+      | 0xFFuy -> i.Opcode = Opcode.FCOS
+      | _ -> false)
+
+  let matchesDAEscape span phlp (i: InstructionCore) modRM =
+    matchesX87Escape span phlp i modRM (fun modRM ->
+      match modRM &&& 0xF8uy with
+      | 0xC0uy -> i.Opcode = Opcode.FCMOVB
+      | 0xC8uy -> i.Opcode = Opcode.FCMOVE
+      | 0xD0uy -> i.Opcode = Opcode.FCMOVBE
+      | 0xD8uy -> i.Opcode = Opcode.FCMOVU
+      | 0xE8uy ->
         match modRM with
-        | 0xC0uy | 0xC1uy | 0xC2uy | 0xC3uy | 0xC4uy | 0xC5uy | 0xC6uy
-        | 0xC7uy -> i.Opcode = Opcode.FLD
-        | 0xC8uy | 0xC9uy | 0xCAuy | 0xCBuy | 0xCCuy | 0xCDuy | 0xCEuy
-        | 0xD0uy -> i.Opcode = Opcode.FNOP
-        | 0xD1uy | 0xD2uy | 0xD3uy | 0xD4uy | 0xD5uy | 0xD6uy | 0xD7uy | 0xD8uy
-        | 0xD9uy | 0xDAuy | 0xDBuy | 0xDCuy | 0xDDuy | 0xDEuy | 0xDFuy -> false
-        | 0xE0uy -> i.Opcode = Opcode.FCHS
-        | 0xE1uy -> i.Opcode = Opcode.FABS
-        | 0xE2uy | 0xE3uy -> false
-        | 0xE4uy -> i.Opcode = Opcode.FTST
-        | 0xE5uy -> i.Opcode = Opcode.FXAM
-        | 0xE6uy | 0xE7uy -> false
-        | 0xE8uy -> i.Opcode = Opcode.FLD1
-        | 0xE9uy -> i.Opcode = Opcode.FLDL2T
-        | 0xEAuy -> i.Opcode = Opcode.FLDL2E
-        | 0xEBuy -> i.Opcode = Opcode.FLDPI
-        | 0xECuy -> i.Opcode = Opcode.FLDLG2
-        | 0xEDuy -> i.Opcode = Opcode.FLDLN2
-        | 0xEEuy -> i.Opcode = Opcode.FLDZ
-        | 0xEFuy -> false
-        | 0xF0uy -> i.Opcode = Opcode.F2XM1
-        | 0xF1uy -> i.Opcode = Opcode.FYL2X
-        | 0xF2uy -> i.Opcode = Opcode.FPTAN
-        | 0xF3uy -> i.Opcode = Opcode.FPATAN
-        | 0xF4uy -> i.Opcode = Opcode.FXTRACT
-        | 0xF5uy -> i.Opcode = Opcode.FPREM1
-        | 0xF6uy -> i.Opcode = Opcode.FDECSTP
-        | 0xF7uy -> i.Opcode = Opcode.FINCSTP
-        | 0xF8uy -> i.Opcode = Opcode.FPREM
-        | 0xF9uy -> i.Opcode = Opcode.FYL2XP1
-        | 0xFAuy -> i.Opcode = Opcode.FSQRT
-        | 0xFBuy -> i.Opcode = Opcode.FSINCOS
-        | 0xFCuy -> i.Opcode = Opcode.FRNDINT
-        | 0xFDuy -> i.Opcode = Opcode.FSCALE
-        | 0xFEuy -> i.Opcode = Opcode.FSIN
-        | 0xFFuy -> i.Opcode = Opcode.FCOS
+        | 0xE9uy -> i.Opcode = Opcode.FUCOMPP
         | _ -> false
-      else false
-    else
-      if i.ModRM = ModRMType.NoModRM then false
-      else checkOpcodeExtensions span phlp i.ModRM
+      | _ -> false)
 
-  let checkDBEscape span phlp (i: InstructionCore) modRM =
-    if Operands.getMod modRM = 0b11 then
-      if i.ModRM = ModRMType.NoModRM then
-        match modRM &&& 0xF8uy with
-        | 0xC0uy -> i.Opcode = Opcode.FCMOVNB
-        | 0xC8uy -> i.Opcode = Opcode.FCMOVNE
-        | 0xD0uy -> i.Opcode = Opcode.FCMOVNBE
-        | 0xD8uy -> i.Opcode = Opcode.FCMOVNU
-        | 0xE0uy ->
-          match modRM with
-          | 0xE2uy -> i.Opcode = Opcode.FCLEX
-          | 0xE3uy -> i.Opcode = Opcode.FINIT
-          | _ -> false
-        | 0xE8uy -> i.Opcode = Opcode.FUCOMI
-        | 0xF0uy -> i.Opcode = Opcode.FCOMI
-        | 0xF8uy -> false
+  let matchesDBEscape span phlp (i: InstructionCore) modRM =
+    matchesX87Escape span phlp i modRM (fun modRM ->
+      match modRM &&& 0xF8uy with
+      | 0xC0uy -> i.Opcode = Opcode.FCMOVNB
+      | 0xC8uy -> i.Opcode = Opcode.FCMOVNE
+      | 0xD0uy -> i.Opcode = Opcode.FCMOVNBE
+      | 0xD8uy -> i.Opcode = Opcode.FCMOVNU
+      | 0xE0uy ->
+        match modRM with
+        | 0xE2uy -> i.Opcode = Opcode.FCLEX
+        | 0xE3uy -> i.Opcode = Opcode.FINIT
         | _ -> false
-      else false
-    else
-      if i.ModRM = ModRMType.NoModRM then false
-      else checkOpcodeExtensions span phlp i.ModRM
+      | 0xE8uy -> i.Opcode = Opcode.FUCOMI
+      | 0xF0uy -> i.Opcode = Opcode.FCOMI
+      | 0xF8uy -> false
+      | _ -> false)
 
-  let checkDCEscape span phlp (i: InstructionCore) modRM =
-    if Operands.getMod modRM = 0b11 then
-      if i.ModRM = ModRMType.NoModRM then
-        match modRM &&& 0xF8uy with
-        | 0xC0uy -> i.Opcode = Opcode.FADD
-        | 0xC8uy -> i.Opcode = Opcode.FMUL
-        | 0xD0uy | 0xD8uy -> false
-        | 0xE0uy -> i.Opcode = Opcode.FSUBR
-        | 0xE8uy -> i.Opcode = Opcode.FSUB
-        | 0xF0uy -> i.Opcode = Opcode.FDIVR
-        | 0xF8uy -> i.Opcode = Opcode.FDIV
+  let matchesDCEscape span phlp (i: InstructionCore) modRM =
+    matchesX87Escape span phlp i modRM (fun modRM ->
+      match modRM &&& 0xF8uy with
+      | 0xC0uy -> i.Opcode = Opcode.FADD
+      | 0xC8uy -> i.Opcode = Opcode.FMUL
+      | 0xD0uy | 0xD8uy -> false
+      | 0xE0uy -> i.Opcode = Opcode.FSUBR
+      | 0xE8uy -> i.Opcode = Opcode.FSUB
+      | 0xF0uy -> i.Opcode = Opcode.FDIVR
+      | 0xF8uy -> i.Opcode = Opcode.FDIV
+      | _ -> false)
+
+  let matchesDDEscape span phlp (i: InstructionCore) modRM =
+    matchesX87Escape span phlp i modRM (fun modRM ->
+      match modRM &&& 0xF8uy with
+      | 0xC0uy -> i.Opcode = Opcode.FFREE
+      | 0xC8uy -> false
+      | 0xD0uy -> i.Opcode = Opcode.FST
+      | 0xD8uy -> i.Opcode = Opcode.FSTP
+      | 0xE0uy -> i.Opcode = Opcode.FUCOM
+      | 0xE8uy -> i.Opcode = Opcode.FUCOMP
+      | 0xF0uy | 0xF8uy -> false
+      | _ -> false)
+
+  let matchesDEEscape span phlp (i: InstructionCore) modRM =
+    matchesX87Escape span phlp i modRM (fun modRM ->
+      match modRM &&& 0xF8uy with
+      | 0xC0uy -> i.Opcode = Opcode.FADDP
+      | 0xC8uy -> i.Opcode = Opcode.FMULP
+      | 0xD0uy -> false
+      | 0xD8uy ->
+        match modRM with
+        | 0xD9uy -> i.Opcode = Opcode.FCOMPP
         | _ -> false
-      else false
-    else
-      if i.ModRM = ModRMType.NoModRM then false
-      else checkOpcodeExtensions span phlp i.ModRM
+      | 0xE0uy -> i.Opcode = Opcode.FSUBRP
+      | 0xE8uy -> i.Opcode = Opcode.FSUBP
+      | 0xF0uy -> i.Opcode = Opcode.FDIVRP
+      | 0xF8uy -> i.Opcode = Opcode.FDIVP
+      | _ -> false)
 
-  let checkDDEscape span phlp (i: InstructionCore) modRM =
-    if Operands.getMod modRM = 0b11 then
-      if i.ModRM = ModRMType.NoModRM then
-        match modRM &&& 0xF8uy with
-        | 0xC0uy -> i.Opcode = Opcode.FFREE
-        | 0xC8uy -> false
-        | 0xD0uy -> i.Opcode = Opcode.FST
-        | 0xD8uy -> i.Opcode = Opcode.FSTP
-        | 0xE0uy -> i.Opcode = Opcode.FUCOM
-        | 0xE8uy -> i.Opcode = Opcode.FUCOMP
-        | 0xF0uy | 0xF8uy -> false
+  let matchesDFEscape span phlp (i: InstructionCore) modRM =
+    matchesX87Escape span phlp i modRM (fun modRM ->
+      match modRM &&& 0xF8uy with
+      | 0xC0uy | 0xC8uy | 0xD0uy | 0xD8uy -> false
+      | 0xE0uy ->
+        match modRM with
+        | 0xE0uy -> i.Opcode = Opcode.FSTSW || i.Opcode = Opcode.FNSTSW
         | _ -> false
-      else false
-    else
-      if i.ModRM = ModRMType.NoModRM then false
-      else checkOpcodeExtensions span phlp i.ModRM
+      | 0xE8uy -> i.Opcode = Opcode.FUCOMIP
+      | 0xF0uy -> i.Opcode = Opcode.FCOMIP
+      | 0xF8uy -> false
+      | _ -> false)
 
-  let checkDEEscape span phlp (i: InstructionCore) modRM =
-    if Operands.getMod modRM = 0b11 then
-      if i.ModRM = ModRMType.NoModRM then
-        match modRM &&& 0xF8uy with
-        | 0xC0uy -> i.Opcode = Opcode.FADDP && i.ModRM = ModRMType.NoModRM
-        | 0xC8uy -> i.Opcode = Opcode.FMULP && i.ModRM = ModRMType.NoModRM
-        | 0xD0uy -> false
-        | 0xD8uy ->
-          match modRM with
-          | 0xD9uy -> i.Opcode = Opcode.FCOMPP && i.ModRM = ModRMType.NoModRM
-          | _ -> false
-        | 0xE0uy -> i.Opcode = Opcode.FSUBRP && i.ModRM = ModRMType.NoModRM
-        | 0xE8uy -> i.Opcode = Opcode.FSUBP && i.ModRM = ModRMType.NoModRM
-        | 0xF0uy -> i.Opcode = Opcode.FDIVRP && i.ModRM = ModRMType.NoModRM
-        | 0xF8uy -> i.Opcode = Opcode.FDIVP && i.ModRM = ModRMType.NoModRM
-        | _ -> false
-      else false
-    else
-      if i.ModRM = ModRMType.NoModRM then false
-      else checkOpcodeExtensions span phlp i.ModRM
-
-  let checkDFEscape span phlp (i: InstructionCore) modRM =
-    if Operands.getMod modRM = 0b11 then
-      if i.ModRM = ModRMType.NoModRM then
-        match modRM &&& 0xF8uy with
-        | 0xC0uy | 0xC8uy | 0xD0uy | 0xD8uy -> false
-        | 0xE0uy ->
-          match modRM with
-          | 0xE0uy -> i.Opcode = Opcode.FSTSW && i.ModRM = ModRMType.NoModRM
-          | _ -> false
-        | 0xE8uy -> i.Opcode = Opcode.FUCOMIP && i.ModRM = ModRMType.NoModRM
-        | 0xF0uy -> i.Opcode = Opcode.FCOMIP && i.ModRM = ModRMType.NoModRM
-        | 0xF8uy -> false
-        | _ -> false
-      else false
-    else
-      if i.ModRM = ModRMType.NoModRM then false
-      else checkOpcodeExtensions span phlp i.ModRM
-
-  let checkEscape (span: ByteSpan) (phlp: ParsingHelper) (i: InstructionCore) =
+  let matchesEscapeOpcode (span: ByteSpan) (phlp: ParsingHelper)
+    (i: InstructionCore) =
     match i.OpEn with
     | OpEn.None ->
       let modRM = span[phlp.CurrPos]
       match i.OpcodeByte with
-      | 0xD8u -> checkD8Escape span phlp i modRM
-      | 0xD9u -> checkD9Escape span phlp i modRM
-      | 0xDBu -> checkDBEscape span phlp i modRM
-      | 0xDCu -> checkDCEscape span phlp i modRM
-      | 0xDDu -> checkDDEscape span phlp i modRM
-      | 0xDEu -> checkDEEscape span phlp i modRM
-      | 0xDFu -> checkDFEscape span phlp i modRM
+      | 0xD8u -> matchesD8Escape span phlp i modRM
+      | 0xD9u -> matchesD9Escape span phlp i modRM
+      | 0xDAu -> matchesDAEscape span phlp i modRM
+      | 0xDBu -> matchesDBEscape span phlp i modRM
+      | 0xDCu -> matchesDCEscape span phlp i modRM
+      | 0xDDu -> matchesDDEscape span phlp i modRM
+      | 0xDEu -> matchesDEEscape span phlp i modRM
+      | 0xDFu -> matchesDFEscape span phlp i modRM
       | _ -> false
     | _ -> true
 
-  let findSubIndex (span: ByteSpan) (phlp: ParsingHelper)
+  let findMatchingSubIndex (span: ByteSpan) (phlp: ParsingHelper)
     (ins: InstructionCore[]) =
     let insLen = ins.Length
     if insLen = 0 then failwith "Error: Instruction core array is empty."
-    elif insLen = 1 then 0
     else
-      let opcodeByte = span[phlp.CurrPos - 1]
-      let pref =
-        convertPrefix phlp.OpcodeClass phlp.Prefixes phlp.VEXInfo opcodeByte
       let mutable idx = -1
       let mutable i = 0
       while i < insLen && idx = -1 do
         let insCore = ins[i]
-        let p = checkPrefix2 phlp.Prefixes insCore.PrefixType
-        let s = checkSize pref insCore.Operands insCore.OpEn
-        let c = checkCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
-        let r = checkREXPrefix phlp.REXPrefix insCore.REXPrefixType
-        let v = checkVectorLength phlp.VEXInfo insCore.VectorLength
-        let e = checkEscape span phlp insCore
-        let x = checkOpcodeExtensions span phlp insCore.ModRM
+        let p = matchesInstructionPrefix phlp insCore.PrefixType
+        let s = matchesOperandSize phlp.Prefixes insCore
+        let c = matchesCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
+        let r = matchesREXPrefix phlp insCore
+        let v = matchesVectorLength phlp.VEXInfo insCore.VectorLength
+        let e = matchesEscapeOpcode span phlp insCore
+        let x = matchesInstructionModRM span phlp insCore
 #if DEBUG
-        printfn "Checking %d: p=%b, s=%b, r=%b, v=%b, e=%b, x=%b" i p s r v e x
+        printfn "Checking %d: p=%b, s=%b, c=%b, r=%b, v=%b, e=%b, x=%b"
+          i p s c r v e x
 #endif
         if p && c && s && r && v && e && x then
 #if DEBUG
           printfn "[Success] maps: %A, pref: %A, rex: %A, vex: %A\nIdx:%d\n%A"
-            phlp.OpcodeClass pref phlp.REXPrefix phlp.VEXInfo i insCore
+            phlp.OpcodeClass phlp.Prefixes phlp.REXPrefix phlp.VEXInfo i insCore
 #endif
           idx <- i
         else ()
@@ -385,14 +411,14 @@ type IntelParser(wordSz, reader) =
       if idx = -1 then
 #if DEBUG
         printfn "Fail: find sub index\n maps: %A, pref: %A, rex: %A, vex: %A"
-          phlp.OpcodeClass pref phlp.REXPrefix phlp.VEXInfo
-        Array.iter (printfn " %A") ins
+          phlp.OpcodeClass phlp.Prefixes phlp.REXPrefix phlp.VEXInfo
+        Array.iteri (printfn "[%d] %A") ins
 #endif
         failwithf "No matching instruction format."
       else ()
       idx
 
-  let oprSzToRegType = function
+  let oprSizeToRegType = function
     | OprSize.Sz8 -> 8<rt>
     | OprSize.Sz16 -> 16<rt>
     | OprSize.Sz32 -> 32<rt>
@@ -403,69 +429,64 @@ type IntelParser(wordSz, reader) =
     | OprSize.Sz512 -> 512<rt>
     | OprSize.SzUnknown -> 0<rt>
 
-  let getImmSz = function
+  let getImmediateSize = function
     | [| Some Sz8; None |] -> 8<rt>
     | [| Some Sz16; None |] -> 16<rt>
     | [| Some Sz32; None |] -> 32<rt>
     | [| Some Sz64; None |] -> 64<rt>
     | _ -> 0<rt> // Temp
 
+  let setMemoryOperandContext (phlp: ParsingHelper) addrSz regSz memSz =
+    phlp.MemEffOprSize <- memSz
+    phlp.MemEffAddrSize <- addrSz
+    phlp.MemEffRegSize <- regSz
+    phlp.RegSize <- regSz
+    phlp.OperationSize <- regSz
+
+  let setMemoryOperandContextWithCurrentAddr (phlp: ParsingHelper) regSz memSz =
+    let effAddrSz = ParsingHelper.GetEffAddrSize phlp
+    setMemoryOperandContext phlp effAddrSz regSz memSz
+
   let parseOperand span (phlp: ParsingHelper) sz modRM (ic: InstructionCore) i =
     function
     | RM sz ->
-      let sz = oprSzToRegType sz
+      let sz = oprSizeToRegType sz
       // FIXME: need operand size determination logic
-      phlp.MemEffOprSize <- sz
-      phlp.MemEffAddrSize <- ParsingHelper.GetEffAddrSize phlp
-      phlp.MemEffRegSize <- sz
-      phlp.RegSize <- sz
-      phlp.OperationSize <- sz
+      setMemoryOperandContextWithCurrentAddr phlp sz sz
       OperandParsers.parseMemOrReg modRM span phlp
     | RMdiff(regSz, memSz) ->
-      let regSz = oprSzToRegType regSz
-      let memSz = oprSzToRegType memSz
+      let regSz = oprSizeToRegType regSz
+      let memSz = oprSizeToRegType memSz
       // FIXME: need operand size determination logic
-      phlp.MemEffOprSize <- memSz
-      phlp.MemEffAddrSize <- ParsingHelper.GetEffAddrSize phlp
-      phlp.MemEffRegSize <- regSz
-      phlp.RegSize <- regSz
-      phlp.OperationSize <- regSz
+      setMemoryOperandContextWithCurrentAddr phlp regSz memSz
       OperandParsers.parseMemOrReg modRM span phlp
     | Reg sz when ic.OpEn = OpEn.O || ic.OpEn = OpEn.OI ->
       // Opcode[2:0] contains the operand.
       let regBit = Operands.getRM (uint8 ic.OpcodeByte)
-      OperandParsers.findRegRBits (oprSzToRegType sz) phlp.REXPrefix regBit
+      OperandParsers.findRegRBits (oprSizeToRegType sz) phlp.REXPrefix regBit
       |> OprReg
     | Reg sz ->
       match ic.OpEn with
       | OpEn.RVM when i = 1 -> OperandParsers.parseVVVVReg phlp
       | _ ->
-        OperandParsers.findRegRBits (oprSzToRegType sz) phlp.REXPrefix
+        OperandParsers.findRegRBits (oprSizeToRegType sz) phlp.REXPrefix
           (Operands.getReg modRM)
         |> OprReg
     | Mem SzUnknown ->
       // FIXME: need operand size determination logic
       let effAddrSz = ParsingHelper.GetEffAddrSize phlp
       let effOprSz = ParsingHelper.GetEffOprSize(phlp, SzCond.Normal)
-      phlp.MemEffOprSize <- effOprSz
-      phlp.MemEffAddrSize <- effAddrSz
-      phlp.MemEffRegSize <- effOprSz
-      phlp.RegSize <- effOprSz
-      phlp.OperationSize <- effOprSz
+      setMemoryOperandContext phlp effAddrSz effOprSz effOprSz
       OperandParsers.parseMemory modRM span (phlp: ParsingHelper)
     | Mem sz ->
       // FIXME: need operand size determination logic
-      let sz = oprSzToRegType sz
-      phlp.MemEffOprSize <- sz
-      phlp.MemEffAddrSize <- ParsingHelper.GetEffAddrSize phlp
-      phlp.MemEffRegSize <- sz
-      phlp.RegSize <- sz
-      phlp.OperationSize <- sz
+      let sz = oprSizeToRegType sz
+      setMemoryOperandContextWithCurrentAddr phlp sz sz
       OperandParsers.parseMemory modRM span phlp
     | Imm sz ->
-      OperandParsers.parseOprImm span phlp (oprSzToRegType sz)
+      OperandParsers.parseOprImm span phlp (oprSizeToRegType sz)
     | Rel sz ->
-      OperandParsers.parseOprForRelJmp span phlp (oprSzToRegType sz)
+      OperandParsers.parseOprForRelJmp span phlp (oprSizeToRegType sz)
     | FixedReg(reg, _) -> OprReg reg
     | STReg None -> Operands.getRM modRM |> Operands.getSTReg
     | STReg(Some reg) -> OprReg reg
@@ -473,22 +494,47 @@ type IntelParser(wordSz, reader) =
       if Operands.modIsReg modRM then
         OperandParsers.parseBoundRegister (Operands.getRM modRM)
       else
-        let sz = oprSzToRegType sz
-        phlp.MemEffOprSize <- sz
-        phlp.MemEffAddrSize <- ParsingHelper.GetEffAddrSize phlp
-        phlp.MemEffRegSize <- sz
-        phlp.RegSize <- sz
-        phlp.OperationSize <- sz
+        let sz = oprSizeToRegType sz
+        setMemoryOperandContextWithCurrentAddr phlp sz sz
         OperandParsers.parseMemory modRM span phlp
     | BndReg -> OperandParsers.parseBoundRegister (Operands.getReg modRM)
     | MMXReg -> OperandParsers.parseMMXReg (Operands.getReg modRM)
-    | FixedImm imm -> OprImm(int64 imm, getImmSz sz)
+    | MM sz ->
+      if Operands.modIsReg modRM then
+        OperandParsers.parseMMXReg (Operands.getRM modRM)
+      else
+        let sz = oprSizeToRegType sz
+        setMemoryOperandContextWithCurrentAddr phlp sz sz
+        OperandParsers.parseMemory modRM span phlp
+    | FixedImm imm -> OprImm(int64 imm, getImmediateSize sz)
+    | Moffs sz ->
+      let sz = oprSizeToRegType sz
+      setMemoryOperandContextWithCurrentAddr phlp sz sz
+      OperandParsers.parseOprOnlyDisp span phlp
+    | Sreg -> OperandParsers.parseSegReg (Operands.getReg modRM)
+    | Far sz -> // XXX
+      let effAddrSz = ParsingHelper.GetEffAddrSize phlp
+      let effOprSz = ParsingHelper.GetEffOprSize(phlp, SzCond.Normal)
+      let struct (regSz, oprSz) =
+        if sz = Sz16 then struct (16<rt>, 32<rt>)
+        elif sz = Sz32 then struct (32<rt>, 48<rt>)
+        else struct (64<rt>, 80<rt>)
+      phlp.MemEffOprSize <- oprSz
+      phlp.MemEffAddrSize <- effAddrSz
+      phlp.MemEffRegSize <- regSz
+      phlp.RegSize <- effOprSz
+      phlp.OperationSize <- oprSz
+      let addrSz = RegType.toByteWidth phlp.MemEffAddrSize
+      let addrValue = OperandParsers.parseUnsignedImm span phlp addrSz
+      let selector = phlp.ReadInt16 span
+      let absAddr = Absolute(selector, addrValue, RegType.fromByteWidth addrSz)
+      OprDirAddr absAddr
     | Unknown s ->
       failwithf "Need unknown operand type handling logic: %s" s
     | o ->
       failwithf "Unsupported operand type: %A" o
 
-  let arrayToOperands = function
+  let operandsArrayToOperands = function
     | [||] -> Operands.NoOperand
     | [| op1 |] -> Operands.OneOperand(op1)
     | [| op1; op2 |] -> Operands.TwoOperands(op1, op2)
@@ -504,7 +550,7 @@ type IntelParser(wordSz, reader) =
       | ModRMType.NoModRM when ic.OpEn = OpEn.None ->
         phlp.ReadByte span (* Escape Opcode *)
       | ModRMType.NoModRM -> 0uy
-      | _ -> phlp.ReadByte span
+      | _ -> phlp.ReadByte span (* all other ModRM, including FixedModRM *)
     match ic.Operands with
     | [| NoOpr |] -> Operands.NoOperand
     | _ ->
@@ -513,27 +559,38 @@ type IntelParser(wordSz, reader) =
       for i = 0 to ic.Operands.Length - 1 do
         let opr = ic.Operands[i]
         operands[i] <- parseOperand span phlp sz modRM ic i opr
-      operands |> arrayToOperands
+      operands |> operandsArrayToOperands
 
-  let handleOneByteOpcodeExtension opcodeByte =
+  let getOneByteInstructionCores opcodeByte =
     match opcodeByte with
-    (* MOV *)
-    | 0xB9uy | 0xBAuy | 0xBBuy | 0xBCuy | 0xBDuy | 0xBEuy | 0xBFuy ->
-      InstructionArrays.norOne[0xB8]
+    (* INC (Only x86) *)
+    | 0x41uy | 0x42uy | 0x43uy | 0x44uy | 0x45uy | 0x46uy | 0x47uy ->
+      InstructionArrays.norOne[0x40]
+    (* DEC (Only x86) *)
+    | 0x49uy | 0x4Auy | 0x4Buy | 0x4Cuy | 0x4Duy | 0x4Euy | 0x4Fuy ->
+      InstructionArrays.norOne[0x48]
     (* PUSH *)
     | 0x51uy | 0x52uy | 0x53uy | 0x54uy | 0x55uy | 0x56uy | 0x57uy
     | 0x58uy | 0x59uy | 0x5Auy | 0x5Buy | 0x5Cuy | 0x5Duy | 0x5Euy | 0x5Fuy ->
       InstructionArrays.norOne[0x50]
+    (* XOR *)
+    | 0x91uy | 0x92uy | 0x93uy | 0x94uy | 0x95uy | 0x96uy | 0x97uy ->
+      InstructionArrays.norOne[0x90]
+    (* MOV *)
+    | 0xB1uy | 0xB2uy | 0xB3uy | 0xB4uy | 0xB5uy | 0xB6uy | 0xB7uy ->
+      InstructionArrays.norOne[0xB0]
+    | 0xB9uy | 0xBAuy | 0xBBuy | 0xBCuy | 0xBDuy | 0xBEuy | 0xBFuy ->
+      InstructionArrays.norOne[0xB8]
     | _ -> InstructionArrays.norOne[int opcodeByte]
 
-  let handleTwoByteOpcodeExtension opcodeByte =
+  let getTwoByteInstructionCores opcodeByte =
     match opcodeByte with
     (* BSWAP *)
     | 0xC9uy | 0xCAuy | 0xCBuy | 0xCCuy | 0xCDuy | 0xCEuy | 0xCFuy ->
       InstructionArrays.norTwo[0xC8]
     | _ -> InstructionArrays.norTwo[int opcodeByte]
 
-  let filterPrefixes (phlp: ParsingHelper) prefixType =
+  let applyMandatoryPrefixFilter (phlp: ParsingHelper) prefixType =
     match prefixType with
     | Mandatory _ -> phlp.Prefixes <- filterPrefs phlp.Prefixes
     | _ -> ()
@@ -621,7 +678,6 @@ type IntelParser(wordSz, reader) =
 #if LCACHE
       phlp.MarkPrefixEnd(prefEndPos)
 #endif
-      //oneByteParsers[int (phlp.ReadByte span)].Run(span, phlp) :> IInstruction
       let insCores =
         match phlp.VEXInfo with
         | Some vInfo ->
@@ -655,23 +711,14 @@ type IntelParser(wordSz, reader) =
           | OpcodeClass.Normal ThreeBytes3A ->
             InstructionArrays.norThree3A[int (phlp.ReadByte span)]
           | OpcodeClass.Normal TwoBytes ->
-            handleTwoByteOpcodeExtension (phlp.ReadByte span)
-          | _ -> handleOneByteOpcodeExtension (phlp.ReadByte span)
-      let subIdx = findSubIndex span phlp insCores
+            getTwoByteInstructionCores (phlp.ReadByte span)
+          | _ -> getOneByteInstructionCores (phlp.ReadByte span)
+      let subIdx = findMatchingSubIndex span phlp insCores
 #if DEBUG
       //printfn "\nSelected InstructionCore(%d)\n%A\nOpcode Class: %A"
       //  subIdx insCores[subIdx] phlp.OpcodeClass
 #endif
-      let subIdx =
-        match insCores[subIdx].Opcode with
-        | Opcode.ENDBR32 ->
-          match phlp.ReadByte(span) with
-          | 0xFAuy when insCores[subIdx + 1].Opcode = Opcode.ENDBR64 ->
-            subIdx + 1
-          | 0xFBuy -> subIdx
-          | _ -> raise ParsingFailureException
-        | _ -> subIdx
       let insCore = insCores[subIdx]
       let operands = parseOperands span phlp insCore
-      filterPrefixes phlp insCore.PrefixType
+      applyMandatoryPrefixFilter phlp insCore.PrefixType
       newInstruction phlp insCore.Opcode operands :> IInstruction
