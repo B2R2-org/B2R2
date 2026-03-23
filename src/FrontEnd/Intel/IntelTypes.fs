@@ -45,12 +45,16 @@ type OperandType =
   | RM of OprSize
   | RMdiff of OprSize * OprSize
   | Reg of OprSize
+  | Sreg
   | FixedReg of Register * Visibility
   | STReg of Register option
   | BM of OprSize
   | BndReg
+  | MM of OprSize
   | MMXReg
   | Mem of OprSize
+  | Moffs of OprSize
+  | Far of OprSize
   | Imm of OprSize
   | FixedImm of int
   | Rel of OprSize
@@ -79,16 +83,22 @@ and Visibility =
 //  | FourOperands of OperandType * OperandType * OperandType * OperandType
 
 type ModRMType =
-  | NoModRM = 0
-  | ModRM = 1 (* /r *)
-  | ModRMOp0 = 2 (* /0 *)
-  | ModRMOp1 = 3 (* /1 *)
-  | ModRMOp2 = 4 (* /2 *)
-  | ModRMOp3 = 5 (* /3 *)
-  | ModRMOp4 = 6 (* /4 *)
-  | ModRMOp5 = 7 (* /5 *)
-  | ModRMOp6 = 8 (* /6 *)
-  | ModRMOp7 = 9 (* /7 *)
+  | NoModRM
+  | ModRM of OprType (* /r *)
+  | ModRMOp0 of OprType (* /0 *)
+  | ModRMOp1 of OprType (* /1 *)
+  | ModRMOp2 of OprType (* /2 *)
+  | ModRMOp3 of OprType (* /3 *)
+  | ModRMOp4 of OprType (* /4 *)
+  | ModRMOp5 of OprType (* /5 *)
+  | ModRMOp6 of OprType (* /6 *)
+  | ModRMOp7 of OprType (* /7 *)
+  | FixedModRM of byte (* /digit *)
+
+and OprType =
+  | OpReg
+  | OpMem
+  | OpRegMem
 
 type OpEn =
   | None = 0

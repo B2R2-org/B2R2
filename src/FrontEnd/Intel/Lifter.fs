@@ -211,8 +211,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.XRSTOR | OP.XRSTORS | OP.XSAVE | OP.XSAVEC
   | OP.XSAVEC64 | OP.XSAVEOPT | OP.XSAVES | OP.XSAVES64 ->
     LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
-  | OP.XTEST ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
+  | OP.XTEST -> LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.IN | OP.INVD | OP.INVLPG | OP.IRET | OP.IRETQ | OP.IRETW | OP.IRETD
   | OP.LAR | OP.LGDT | OP.LIDT | OP.LLDT
   | OP.LMSW | OP.LSL | OP.LTR | OP.OUT | OP.SGDT
@@ -541,8 +540,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.VEXTRACTI64X4 -> AVXLifter.vextracti64x4 ins insLen bld
   | OP.VEXTRACTPS -> SSELifter.extractps ins insLen bld
   | OP.VINSERTI128 -> AVXLifter.vinserti128 ins insLen bld
-  | OP.VMPTRLD ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
+  | OP.VMPTRLD -> LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.VPADDB -> AVXLifter.vpaddb ins insLen bld
   | OP.VPADDD -> AVXLifter.vpaddd ins insLen bld
   | OP.VPADDQ -> AVXLifter.vpaddq ins insLen bld
