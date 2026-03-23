@@ -89,14 +89,14 @@ let private computeMinimapDimension model graphWidth graphHeight =
 
 let private getEdgeColor model = function
   | InterJmpEdge -> model.Theme.Graph.InterJmpEdge
-  | InterCJmpTrueEdge -> model.Theme.Graph.InterCJmpTrue
-  | InterCJmpFalseEdge -> model.Theme.Graph.InterCJmpFalse
+  | InterCJmpTrueEdge -> model.Theme.Graph.InterCJmpTrueEdge
+  | InterCJmpFalseEdge -> model.Theme.Graph.InterCJmpFalseEdge
   | IntraJmpEdge -> model.Theme.Graph.IntraJmpEdge
-  | IntraCJmpTrueEdge -> model.Theme.Graph.IntraCJmpTrue
-  | IntraCJmpFalseEdge -> model.Theme.Graph.IntraCJmpFalse
-  | FallThroughEdge -> model.Theme.Graph.Fallthrough
-  | CallEdge -> model.Theme.Graph.Call
-  | RetEdge -> model.Theme.Graph.Return
+  | IntraCJmpTrueEdge -> model.Theme.Graph.IntraCJmpTrueEdge
+  | IntraCJmpFalseEdge -> model.Theme.Graph.IntraCJmpFalseEdge
+  | FallThroughEdge -> model.Theme.Graph.FallthroughEdge
+  | CallEdge -> model.Theme.Graph.CallEdge
+  | RetEdge -> model.Theme.Graph.ReturnEdge
   | _ -> model.Theme.Graph.InterJmpEdge
 
 let private arrowheadPoints (tip: Point) (angleDeg: float) (size: float) =

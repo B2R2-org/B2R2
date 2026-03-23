@@ -79,14 +79,14 @@ and GraphTheme =
     MinimapEdge: string
     ViewportRect: string
     InterJmpEdge: string
-    InterCJmpTrue: string
-    InterCJmpFalse: string
+    InterCJmpTrueEdge: string
+    InterCJmpFalseEdge: string
     IntraJmpEdge: string
-    IntraCJmpTrue: string
-    IntraCJmpFalse: string
-    Fallthrough: string
-    Call: string
-    Return: string
+    IntraCJmpTrueEdge: string
+    IntraCJmpFalseEdge: string
+    FallthroughEdge: string
+    CallEdge: string
+    ReturnEdge: string
     HoveredEdge: string }
 
 /// Represents common theme settings that can be used across different UI
@@ -139,14 +139,14 @@ module Theme =
           MinimapEdge = "#AAAAAA"
           ViewportRect = "#FFFFFF"
           InterJmpEdge = "#FFB86C"
-          InterCJmpTrue = "#3E9955"
-          InterCJmpFalse = "#AA2222"
+          InterCJmpTrueEdge = "#3E9955"
+          InterCJmpFalseEdge = "#AA2222"
           IntraJmpEdge = "#FFB86C"
-          IntraCJmpTrue = "#3E9955"
-          IntraCJmpFalse = "#AA2222"
-          Fallthrough = "#BD93F9"
-          Call = "#8BE9FD"
-          Return = "#FF79C6"
+          IntraCJmpTrueEdge = "#3E9955"
+          IntraCJmpFalseEdge = "#AA2222"
+          FallthroughEdge = "#BD93F9"
+          CallEdge = "#8BE9FD"
+          ReturnEdge = "#FF79C6"
           HoveredEdge = "#55CCFF" }
       Common = { Transparent = "Transparent" }
       Search =
@@ -181,14 +181,14 @@ module Theme =
           MinimapEdge = "#777777"
           ViewportRect = "#1250E0"
           InterJmpEdge = "#C87020"
-          InterCJmpTrue = "#1A7A3A"
-          InterCJmpFalse = "#CC2222"
+          InterCJmpTrueEdge = "#1A7A3A"
+          InterCJmpFalseEdge = "#CC2222"
           IntraJmpEdge = "#C87020"
-          IntraCJmpTrue = "#1A7A3A"
-          IntraCJmpFalse = "#CC2222"
-          Fallthrough = "#7336B5"
-          Call = "#0A6080"
-          Return = "#8B2880"
+          IntraCJmpTrueEdge = "#1A7A3A"
+          IntraCJmpFalseEdge = "#CC2222"
+          FallthroughEdge = "#7336B5"
+          CallEdge = "#0A6080"
+          ReturnEdge = "#8B2880"
           HoveredEdge = "#EE0055" }
       Common = { Transparent = "Transparent" }
       Search =
