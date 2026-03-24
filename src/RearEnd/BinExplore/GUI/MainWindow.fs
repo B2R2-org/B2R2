@@ -55,6 +55,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       DraggingTab = None
       WorkspacePanel = FunctionPanel
       CFGIsPanning = false
+      CFGPressedPointer = None
       CFGPanPointer = None
       CFGViewportSize = (0.0, 0.0)
       StatusBarState = EmptyStatus }, Elmish.Cmd.none

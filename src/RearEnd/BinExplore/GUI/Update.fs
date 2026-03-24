@@ -459,42 +459,59 @@ let setCFGZoom model delta mouseX mouseY =
   | _ ->
     model, Elmish.Cmd.none
 
+let [<Literal>] private CFGPanStartThresholdSquared = 16.0
+
 let startCFGPan model x y =
   { model with
-      CFGIsPanning = true
-      CFGPanPointer = Some(x, y) }, Elmish.Cmd.none
+      CFGIsPanning = false
+      CFGPressedPointer = Some(x, y)
+      CFGPanPointer = None }, Elmish.Cmd.none
 
 let moveCFGPan model x y space =
-  match model.CFGIsPanning, model.CFGPanPointer, model.ActiveTab with
-  | true, Some(prevX, prevY), Some tab ->
-    let update viewState =
-      let dx = x - prevX
-      let dy = y - prevY
-      let dx, dy =
-        match space with
-        | ViewportSpace ->
-          dx, dy
-        | MinimapSpace minimapScale when minimapScale > 0.0 ->
-          let factor = viewState.Zoom / -minimapScale
-          dx * factor, dy * factor
-        | MinimapSpace _ ->
-          0.0, 0.0
-      let newPanX = viewState.PanX + dx
-      let newPanY = viewState.PanY + dy
-      let clampedPanX, clampedPanY =
-        clampPanToGraphBounds newPanX newPanY viewState model
-      { viewState with
-          PanX = clampedPanX
-          PanY = clampedPanY }
-    let tab = updateCFGViewState tab update
-    { replaceTabReferences model tab with CFGPanPointer = Some(x, y) },
-    Elmish.Cmd.none
+  match model.CFGPressedPointer, model.ActiveTab with
+  | Some(pressedX, pressedY), Some tab when not model.CFGIsPanning ->
+    let dx = x - pressedX
+    let dy = y - pressedY
+    if dx * dx + dy * dy < CFGPanStartThresholdSquared then
+      model, Elmish.Cmd.none
+    else
+      { model with
+          CFGIsPanning = true
+          CFGPanPointer = Some(x, y) }, Elmish.Cmd.none
+  | Some _, Some tab ->
+    match model.CFGPanPointer with
+    | Some(prevX, prevY) ->
+      let update viewState =
+        let dx = x - prevX
+        let dy = y - prevY
+        let dx, dy =
+          match space with
+          | ViewportSpace ->
+            dx, dy
+          | MinimapSpace minimapScale when minimapScale > 0.0 ->
+            let factor = viewState.Zoom / -minimapScale
+            dx * factor, dy * factor
+          | MinimapSpace _ ->
+            0.0, 0.0
+        let newPanX = viewState.PanX + dx
+        let newPanY = viewState.PanY + dy
+        let clampedPanX, clampedPanY =
+          clampPanToGraphBounds newPanX newPanY viewState model
+        { viewState with
+            PanX = clampedPanX
+            PanY = clampedPanY }
+      let tab = updateCFGViewState tab update
+      { replaceTabReferences model tab with CFGPanPointer = Some(x, y) },
+      Elmish.Cmd.none
+    | None ->
+      { model with CFGPanPointer = Some(x, y) }, Elmish.Cmd.none
   | _ ->
     model, Elmish.Cmd.none
 
 let endCFGPan model =
   { model with
       CFGIsPanning = false
+      CFGPressedPointer = None
       CFGPanPointer = None }, Elmish.Cmd.none
 
 let jumpCFGPan model gx gy =

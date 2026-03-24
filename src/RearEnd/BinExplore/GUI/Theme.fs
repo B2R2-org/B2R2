@@ -179,7 +179,7 @@ module Theme =
       Graph =
         { MinimapNode = "#AAAAAA"
           MinimapEdge = "#777777"
-          ViewportRect = "#1250E0"
+          ViewportRect = "#8A6A00"
           InterJmpEdge = "#C87020"
           InterCJmpTrueEdge = "#1A7A3A"
           InterCJmpFalseEdge = "#CC2222"
@@ -189,7 +189,7 @@ module Theme =
           FallthroughEdge = "#7336B5"
           CallEdge = "#0A6080"
           ReturnEdge = "#8B2880"
-          HoveredEdge = "#EE0055" }
+          HoveredEdge = "#0078FF" }
       Common = { Transparent = "Transparent" }
       Search =
         { Background = "#FFFFFF"

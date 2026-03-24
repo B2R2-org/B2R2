@@ -48,6 +48,8 @@ type private Dimension =
     OffsetX: float
     OffsetY: float }
 
+let mutable private graphCanvas: Canvas option = None
+
 let private unloadedView model text =
   Border.create [
     Border.background model.Theme.Window.Background
@@ -118,14 +120,40 @@ let private edgeLineView (pts: Point array) zoom (color: string) =
 let private edgeHitAreaThickness zoom =
   5.0 / sqrt zoom |> max 6.0 |> min 14.0
 
-let private edgeHitAreaView dispatch (pts: Point array) zoom edgeID =
+let private distSquared x1 y1 x2 y2 =
+  let dx = x1 - x2
+  let dy = y1 - y2
+  dx * dx + dy * dy
+
+let private pointerXYOnGraphCanvas (e: PointerEventArgs) =
+  match graphCanvas with
+  | Some canvas ->
+    let p = e.GetPosition canvas
+    struct (p.X, p.Y)
+  | None ->
+    struct (0.0, 0.0)
+
+let private onEdgePressed dispatch zoom panX panY p1 p2 e =
+  if (e: PointerPressedEventArgs).ClickCount = 2 then
+    let struct (x, y) = pointerXYOnGraphCanvas e
+    let gx = (x - panX) / zoom
+    let gy = (y - panY) / zoom
+    let distToP1 = distSquared gx gy p1.X p1.Y
+    let distToP2 = distSquared gx gy p2.X p2.Y
+    let target = if distToP1 <= distToP2 then p2 else p1
+    dispatch (JumpCFGPan(target.X, target.Y))
+    e.Handled <- true
+  else
+    ()
+
+let private edgeHitAreaView dispatch (pts: Point[]) zoom panX panY p1 p2 eid =
   Polyline.create [
     Polyline.points pts
-    Polyline.stroke "#00FFFFFF"
+    Polyline.stroke "#01FFFFFF"
     Polyline.strokeThickness (edgeHitAreaThickness zoom)
-    Control.onPointerEntered (fun _ ->
-      dispatch (SetHoveredCFGEdge(Some edgeID)))
+    Control.onPointerEntered (fun _ -> dispatch (SetHoveredCFGEdge(Some eid)))
     Control.onPointerExited (fun _ -> dispatch (SetHoveredCFGEdge None))
+    Control.onPointerPressed (onEdgePressed dispatch zoom panX panY p1 p2)
   ] :> IView
 
 let private arrowheadView (tip: Point) (angle: float) zoom (color: string) =
@@ -138,6 +166,8 @@ let private arrowheadView (tip: Point) (angle: float) zoom (color: string) =
 let private edgeView dispatch pts zoom panX panY color edgeID =
   match (pts: VisPosition list) with
   | _ :: _ :: _ ->
+    let p1 = List.head pts
+    let p2 = List.last pts
     let scaled =
       pts
       |> Array.ofList
@@ -147,11 +177,13 @@ let private edgeView dispatch pts zoom panX panY color edgeID =
     let angle = Math.Atan2(tip.Y - prev.Y, tip.X - prev.X) * 180.0 / Math.PI
     Canvas.create [
       Canvas.children [
-        edgeHitAreaView dispatch scaled zoom edgeID
+        edgeHitAreaView dispatch scaled zoom panX panY p1 p2 edgeID
         edgeLineView scaled zoom color
         arrowheadView tip angle zoom color
       ]
-    ] |> View.withKey $"edge-{edgeID}" :> IView |> List.singleton
+    ]
+    |> View.withKey $"edge-{edgeID}-{zoom}-{panX}-{panY}" :> IView
+    |> List.singleton
   | _ -> []
 
 let private graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible =
@@ -224,6 +256,7 @@ let private graphNodes model (cfg: VisGraph) zoom panX panY isNodeVisible =
         nodeView model zoom panX panY fontSize x y w h lines ]
 
 let [<Literal>] private ZoomDelta = 0.05
+let [<Literal>] private CFGPanStartThresholdSquared = 16.0
 
 let private pointerXY (e: PointerEventArgs) =
   match e.Source with
@@ -244,22 +277,32 @@ let private onWheel dispatch (e: PointerWheelEventArgs) =
 let private onPressed dispatch (e: PointerPressedEventArgs) =
   let struct (x, y) = pointerXY e
   dispatch (StartCFGPan(x, y))
-  match e.Source with
-  | :? Control as ctrl -> e.Pointer.Capture ctrl
-  | _ -> ()
-  e.Handled <- true
 
-let private onMoved dispatch (e: PointerEventArgs) =
+let private onMoved model dispatch (e: PointerEventArgs) =
   let struct (x, y) = pointerXY e
+  let shouldStartPan =
+    match model.CFGPressedPointer with
+    | Some(pressedX, pressedY) when not model.CFGIsPanning ->
+      let dx = x - pressedX
+      let dy = y - pressedY
+      dx * dx + dy * dy >= CFGPanStartThresholdSquared
+    | _ -> false
+  if shouldStartPan then
+    match e.Source with
+    | :? Control as ctrl -> e.Pointer.Capture ctrl
+    | _ -> ()
   dispatch (MoveCFGPan(x, y, ViewportSpace))
-  e.Handled <- true
+  if shouldStartPan || model.CFGIsPanning then
+    e.Handled <- true
 
-let private onReleased dispatch (e: PointerReleasedEventArgs) =
+let private onReleased model dispatch (e: PointerReleasedEventArgs) =
   dispatch EndCFGPan
-  match e.Source with
-  | :? Control -> e.Pointer.Capture null
-  | _ -> ()
-  e.Handled <- true
+  if model.CFGIsPanning then
+    match e.Source with
+    | :? Control -> e.Pointer.Capture null
+    | _ -> ()
+  if model.CFGIsPanning || model.CFGPressedPointer.IsSome then
+    e.Handled <- true
 
 let private graphCanvasView model dispatch (cfg: VisGraph) viewState =
   let zoom = viewState.Zoom
@@ -287,13 +330,13 @@ let private graphCanvasView model dispatch (cfg: VisGraph) viewState =
     Canvas.background model.Theme.Window.Background
     Control.onPointerWheelChanged (onWheel dispatch)
     Control.onPointerPressed (onPressed dispatch)
-    Control.onPointerMoved (onMoved dispatch)
-    Control.onPointerReleased (onReleased dispatch)
+    Control.onPointerMoved (onMoved model dispatch)
+    Control.onPointerReleased (onReleased model dispatch)
     Canvas.children [
       yield! graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible
       yield! graphNodes model cfg zoom panX panY isNodeVisible
     ]
-  ]
+  ] |> View.withOutlet (fun (canvas: Canvas) -> graphCanvas <- Some canvas)
 
 let private onMinimapClick dispatch minimapDim viewState e =
   match (e: PointerPressedEventArgs).Source with

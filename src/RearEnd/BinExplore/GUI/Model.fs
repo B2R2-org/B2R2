@@ -54,6 +54,8 @@ type Model =
     WorkspacePanel: WorkspacePanel
     /// Flag indicating whether the user is currently panning in the CFG view.
     CFGIsPanning: bool
+    /// Initial pointer position recorded when the user presses in the CFG view.
+    CFGPressedPointer: (float * float) option
     /// Last pointer position used for CFG panning.
     CFGPanPointer: (float * float) option
     /// Width and height of the CFG viewport.
