@@ -76,6 +76,9 @@ type Message =
   | EndCFGPan
   /// Message to jump the CFG view to a specific graph coordinate.
   | JumpCFGPan of gx: float * gy: float
+  /// Message to select a disassembly token in the CFG, carrying node, line, and
+  /// word indices.
+  | SelectCFGToken of nodeID: int * lineIdx: int * wordIdx: int
   /// Message to set the currently hovered edge in the CFG, carrying the edge
   /// ID or None if edge is not hovered anymore.
   | SetHoveredCFGEdge of edgeID: int option

@@ -106,6 +106,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Update.endCFGPan model
     | JumpCFGPan(gx, gy) ->
       Update.jumpCFGPan model gx gy
+    | SelectCFGToken(nodeID, lineIdx, wordIdx) ->
+      Update.selectCFGToken model nodeID lineIdx wordIdx
     | SetHoveredCFGEdge edgeID ->
       Update.setHoveredCFGEdge model edgeID
     | UpdateCFGViewportSize(width, height) ->

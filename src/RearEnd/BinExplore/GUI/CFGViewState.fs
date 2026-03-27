@@ -58,6 +58,9 @@ type CFGViewState =
     GraphMaxX: float
     /// The maximum Y coordinate of the graph.
     GraphMaxY: float
+    /// The currently selected disassembly token represented by node, line, and
+    /// word indices.
+    SelectedToken: (int * int * int) option
     /// The ID of the currently hovered node, if any.
     HoveredEdge: int option }
 
@@ -78,4 +81,5 @@ module CFGViewState =
       GraphMinY = 0.0
       GraphMaxX = 0.0
       GraphMaxY = 0.0
+      SelectedToken = None
       HoveredEdge = None }

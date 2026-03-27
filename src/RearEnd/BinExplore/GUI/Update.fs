@@ -529,6 +529,16 @@ let jumpCFGPan model gx gy =
   | None ->
     model, Elmish.Cmd.none
 
+let selectCFGToken model nodeID lineIdx wordIdx =
+  match model.ActiveTab with
+  | Some tab ->
+    let update viewState =
+      { viewState with SelectedToken = Some(nodeID, lineIdx, wordIdx) }
+    let tab = updateCFGViewState tab update
+    replaceTabReferences model tab, Elmish.Cmd.none
+  | None ->
+    model, Elmish.Cmd.none
+
 let setHoveredCFGEdge model edgeID =
   match model.ActiveTab with
   | Some tab ->

@@ -34,7 +34,6 @@ open Avalonia.Media
 open Avalonia.Input
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
-open Avalonia.Controls.Documents
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.RearEnd.Visualization
@@ -197,31 +196,70 @@ let private graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible =
       else
         () ]
 
-let private disasmView model lines =
-  [ for words in lines do
-      for word in words do
-        Run.create [
-          Run.text word.AsmWordValue
-          match word.AsmWordKind with
-          | AsmWordKind.Address ->
-            Run.foreground model.Theme.Text.Address
-          | AsmWordKind.Mnemonic ->
-            Run.foreground model.Theme.Text.Mnemonic
-          | AsmWordKind.Variable ->
-            Run.foreground model.Theme.Text.Variable
-          | AsmWordKind.Value ->
-            Run.foreground model.Theme.Text.Value
-          | _ ->
-            ()
-        ] :> IView
-      LineBreak.create [] :> IView ]
+let private tokenForeground model word =
+  match word.AsmWordKind with
+  | AsmWordKind.Address -> model.Theme.Text.Address
+  | AsmWordKind.Mnemonic -> model.Theme.Text.Mnemonic
+  | AsmWordKind.Variable -> model.Theme.Text.Variable
+  | AsmWordKind.Value -> model.Theme.Text.Value
+  | _ -> model.Theme.Text.Primary
 
-let private nodeView model nodeID zoom panX panY fontSize x y w h lines =
+let inline private isSelectableToken word =
+  word.AsmWordKind <> AsmWordKind.String
+
+let private tokenTextView model word =
+  TextBlock.create [
+    TextBlock.text word.AsmWordValue
+    TextBlock.foreground (tokenForeground model word)
+    TextBlock.fontSize model.Theme.Font.Monospace.FontSize
+    TextBlock.padding 0.0
+    TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
+    TextBlock.textWrapping TextWrapping.NoWrap
+  ]
+
+let private tokenView model dispatch selected nodeID lineIdx wordIdx word =
+  if not (isSelectableToken word) then
+    tokenTextView model word :> IView
+  else
+    let isSelected = selected = Some(nodeID, lineIdx, wordIdx)
+    Border.create [
+      Border.background (
+        if isSelected then model.Theme.Search.SelectedBackground
+        else model.Theme.Common.Transparent
+      )
+      Border.cornerRadius 2.0
+      Control.onTapped (fun e ->
+        dispatch (SelectCFGToken(nodeID, lineIdx, wordIdx))
+        e.Handled <- true
+      )
+      Border.child (tokenTextView model word)
+    ] |> View.withKey $"token-{nodeID}-{lineIdx}-{wordIdx}" :> IView
+
+let private disasmLineView model dispatch selected nodeID lineIdx words =
+  StackPanel.create [
+    StackPanel.orientation Orientation.Horizontal
+    StackPanel.children [
+      for wordIdx, word in Array.indexed words do
+        tokenView model dispatch selected nodeID lineIdx wordIdx word
+    ]
+  ] |> View.withKey $"line-{nodeID}-{lineIdx}" :> IView
+
+let private disasmView model dispatch selected nodeID lines =
+  StackPanel.create [
+    StackPanel.orientation Orientation.Vertical
+    StackPanel.horizontalAlignment HorizontalAlignment.Left
+    StackPanel.verticalAlignment VerticalAlignment.Top
+    StackPanel.children [
+      for lineIdx, words in Array.indexed lines do
+        disasmLineView model dispatch selected nodeID lineIdx words
+    ]
+  ]
+
+let private nodeView model dispatch selected nID zoom panX panY x y w h lines =
   Border.create [
     Canvas.left (x * zoom + panX)
     Canvas.top (y * zoom + panY)
     Border.clipToBounds false
-    Border.isHitTestVisible false
     Border.width w
     Border.height h
     Border.background model.Theme.Panel.AltBackground
@@ -229,24 +267,27 @@ let private nodeView model nodeID zoom panX panY fontSize x y w h lines =
     Border.borderThickness (1.0 * zoom)
     Border.cornerRadius 4.0
     Border.child (
-      TextBlock.create [
-        TextBlock.inlines (disasmView model lines)
-        TextBlock.foreground model.Theme.Text.Primary
-        TextBlock.fontSize (fontSize * zoom)
-        TextBlock.margin (4.0 * zoom)
-        TextBlock.padding 0.0
-        TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-        TextBlock.textWrapping TextWrapping.NoWrap
+      Border.create [
+        Border.margin (4.0 * zoom)
+        Border.background model.Theme.Common.Transparent
+        Border.child (
+          Viewbox.create [
+            Viewbox.stretch Stretch.Uniform
+            Viewbox.horizontalAlignment HorizontalAlignment.Left
+            Viewbox.verticalAlignment VerticalAlignment.Top
+            Viewbox.child (disasmView model dispatch selected nID lines)
+          ]
+        )
       ]
     )
-  ] |> View.withKey $"node-{nodeID}" :> IView
+  ] |> View.withKey $"node-{nID}" :> IView
 
-let private graphNodes model (cfg: VisGraph) zoom panX panY isNodeVisible =
+let private graphNodes model dispatch selected cfg zoom panX panY isVisible =
   let fontSize = model.Theme.Font.Monospace.FontSize
-  [ for nodeID, n in Array.indexed cfg.Vertices do
+  [ for nodeID, n in Array.indexed (cfg: VisGraph).Vertices do
       let x, y = n.VData.Coordinate.X, n.VData.Coordinate.Y
       let w, h = n.VData.Width, n.VData.Height
-      if not (isNodeVisible x y w h) then
+      if not (isVisible x y w h) then
         ()
       else
         let w = ceil (w * zoom) + 1.1 (* margin to avoid clipping *)
@@ -254,20 +295,41 @@ let private graphNodes model (cfg: VisGraph) zoom panX panY isNodeVisible =
         let lines =
           if fontSize * zoom < 6.0 then [||]
           else (n.VData :> IVisualizable).Visualize()
-        nodeView model nodeID zoom panX panY fontSize x y w h lines ]
+        nodeView model dispatch selected nodeID zoom panX panY x y w h lines ]
 
 let [<Literal>] private ZoomDelta = 0.05
 let [<Literal>] private CFGPanStartThresholdSquared = 16.0
 
 let private pointerXY (e: PointerEventArgs) =
-  match e.Source with
-  | :? Control as ctrl ->
-    let root = TopLevel.GetTopLevel ctrl
-    let p =
-      if isNull root then e.GetPosition ctrl
-      else e.GetPosition root
+  match graphCanvas with
+  | Some canvas ->
+    let p = e.GetPosition canvas
     struct (p.X, p.Y)
-  | _ -> struct (0.0, 0.0)
+  | None ->
+    match e.Source with
+    | :? Control as ctrl ->
+      let root = TopLevel.GetTopLevel ctrl
+      let p =
+        if isNull root then e.GetPosition ctrl
+        else e.GetPosition root
+      struct (p.X, p.Y)
+    | _ -> struct (0.0, 0.0)
+
+let private setPointerCapture shouldCapture (e: PointerEventArgs) =
+  match graphCanvas with
+  | Some canvas ->
+    e.Pointer.Capture(if shouldCapture then canvas else null)
+  | None ->
+    match e.Source with
+    | :? Control as ctrl ->
+      e.Pointer.Capture(if shouldCapture then ctrl else null)
+    | _ -> ()
+
+let private capturePointer e =
+  setPointerCapture true e
+
+let private releasePointer e =
+  setPointerCapture false e
 
 let private onWheel dispatch (e: PointerWheelEventArgs) =
   let delta = if e.Delta.Y > 0.0 then ZoomDelta else -ZoomDelta
@@ -288,32 +350,24 @@ let private onMoved model dispatch (e: PointerEventArgs) =
       let dy = y - pressedY
       dx * dx + dy * dy >= CFGPanStartThresholdSquared
     | _ -> false
-  if shouldStartPan then
-    match e.Source with
-    | :? Control as ctrl -> e.Pointer.Capture ctrl
-    | _ -> ()
+  if shouldStartPan then capturePointer e else ()
   dispatch (MoveCFGPan(x, y, ViewportSpace))
-  if shouldStartPan || model.CFGIsPanning then
-    e.Handled <- true
+  if shouldStartPan || model.CFGIsPanning then e.Handled <- true else ()
 
 let private onReleased model dispatch (e: PointerReleasedEventArgs) =
   dispatch EndCFGPan
-  if model.CFGIsPanning then
-    match e.Source with
-    | :? Control -> e.Pointer.Capture null
-    | _ -> ()
-  if model.CFGIsPanning || model.CFGPressedPointer.IsSome then
-    e.Handled <- true
+  if model.CFGIsPanning then releasePointer e else ()
+  if model.CFGIsPanning || model.CFGPressedPointer.IsSome then e.Handled <- true
+  else ()
 
 let private graphCanvasView model dispatch (cfg: VisGraph) viewState =
   let zoom = viewState.Zoom
   let panX, panY = viewState.PanX, viewState.PanY
   let hovered = viewState.HoveredEdge
+  let selected = viewState.SelectedToken
   let viewportWidth, viewportHeight = model.CFGViewportSize
-  let vpLeft = -panX / zoom
-  let vpRight = (viewportWidth - panX) / zoom
-  let vpTop = -panY / zoom
-  let vpBottom = (viewportHeight - panY) / zoom
+  let vpLeft, vpRight = -panX / zoom, (viewportWidth - panX) / zoom
+  let vpTop, vpBottom = -panY / zoom, (viewportHeight - panY) / zoom
   let rec isEdgeVisible pts =
     match pts with
     | p1 :: ((p2 :: _) as rest) ->
@@ -335,7 +389,7 @@ let private graphCanvasView model dispatch (cfg: VisGraph) viewState =
     Control.onPointerReleased (onReleased model dispatch)
     Canvas.children [
       yield! graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible
-      yield! graphNodes model cfg zoom panX panY isNodeVisible
+      yield! graphNodes model dispatch selected cfg zoom panX panY isNodeVisible
     ]
   ] |> View.withOutlet (fun (canvas: Canvas) -> graphCanvas <- Some canvas)
 
