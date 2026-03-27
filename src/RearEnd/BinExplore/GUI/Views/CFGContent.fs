@@ -182,7 +182,7 @@ let private edgeView dispatch pts zoom panX panY color edgeID =
         arrowheadView tip angle zoom color
       ]
     ]
-    |> View.withKey $"edge-{edgeID}-{zoom}-{panX}-{panY}" :> IView
+    |> View.withKey $"edge-{edgeID}" :> IView
     |> List.singleton
   | _ -> []
 
@@ -200,22 +200,23 @@ let private graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible =
 let private disasmView model lines =
   [ for words in lines do
       for word in words do
-        Run.create
-          [ Run.text word.AsmWordValue
-            match word.AsmWordKind with
-            | AsmWordKind.Address ->
-              Run.foreground model.Theme.Text.Address
-            | AsmWordKind.Mnemonic ->
-              Run.foreground model.Theme.Text.Mnemonic
-            | AsmWordKind.Variable ->
-              Run.foreground model.Theme.Text.Variable
-            | AsmWordKind.Value ->
-              Run.foreground model.Theme.Text.Value
-            | _ ->
-              () ] :> IView
+        Run.create [
+          Run.text word.AsmWordValue
+          match word.AsmWordKind with
+          | AsmWordKind.Address ->
+            Run.foreground model.Theme.Text.Address
+          | AsmWordKind.Mnemonic ->
+            Run.foreground model.Theme.Text.Mnemonic
+          | AsmWordKind.Variable ->
+            Run.foreground model.Theme.Text.Variable
+          | AsmWordKind.Value ->
+            Run.foreground model.Theme.Text.Value
+          | _ ->
+            ()
+        ] :> IView
       LineBreak.create [] :> IView ]
 
-let private nodeView model zoom panX panY fontSize x y w h lines =
+let private nodeView model nodeID zoom panX panY fontSize x y w h lines =
   Border.create [
     Canvas.left (x * zoom + panX)
     Canvas.top (y * zoom + panY)
@@ -238,11 +239,11 @@ let private nodeView model zoom panX panY fontSize x y w h lines =
         TextBlock.textWrapping TextWrapping.NoWrap
       ]
     )
-  ] |> View.withKey $"node-{x}.{y}-{zoom}-{panX}-{panY}" :> IView
+  ] |> View.withKey $"node-{nodeID}" :> IView
 
 let private graphNodes model (cfg: VisGraph) zoom panX panY isNodeVisible =
   let fontSize = model.Theme.Font.Monospace.FontSize
-  [ for n in cfg.Vertices do
+  [ for nodeID, n in Array.indexed cfg.Vertices do
       let x, y = n.VData.Coordinate.X, n.VData.Coordinate.Y
       let w, h = n.VData.Width, n.VData.Height
       if not (isNodeVisible x y w h) then
@@ -253,7 +254,7 @@ let private graphNodes model (cfg: VisGraph) zoom panX panY isNodeVisible =
         let lines =
           if fontSize * zoom < 6.0 then [||]
           else (n.VData :> IVisualizable).Visualize()
-        nodeView model zoom panX panY fontSize x y w h lines ]
+        nodeView model nodeID zoom panX panY fontSize x y w h lines ]
 
 let [<Literal>] private ZoomDelta = 0.05
 let [<Literal>] private CFGPanStartThresholdSquared = 16.0
