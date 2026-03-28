@@ -17,7 +17,7 @@
     <Compile Include="Commands\Demangle.fs" />
     <Compile Include="Commands\Disasm.fs" />
     <Compile Include="Commands\EvalExpr.fs" />
-    <Compile Include="Commands\HexDump.fs" />
+    <Compile Include="Commands\Hexdump.fs" />
     <Compile Include="Commands\Load.fs" />
     <Compile Include="Commands\List.fs" />
     <Compile Include="Commands\Print.fs" />
@@ -42,6 +42,7 @@
     <Compile Include="GUI\Views\MenuBar.fs" />
     <Compile Include="GUI\Views\StatusBar.fs" />
     <Compile Include="GUI\Views\FunctionList.fs" />
+    <Compile Include="GUI\Views\Hexdump.fs" />
     <Compile Include="GUI\Views\SectionList.fs" />
     <Compile Include="GUI\Views\Toolbar.fs" />
     <Compile Include="GUI\Views\WorkspaceTabs.fs" />

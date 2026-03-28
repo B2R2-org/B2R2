@@ -22,10 +22,18 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplore.GUI
+[<RequireQualifiedAccess>]
+module B2R2.RearEnd.BinExplore.GUI.Hexdump
 
-/// Represents the currently selected navigation panel in the workspace.
-type WorkspacePanel =
-  | FunctionPanel
-  | HexdumpPanel
-  | SectionPanel
+open Avalonia.Controls
+open Avalonia.Layout
+open Avalonia.FuncUI.DSL
+
+let view model dispatch =
+  TextBlock.create [
+    TextBlock.text "Hexdump view is under construction."
+    TextBlock.foreground model.Theme.Text.Secondary
+    TextBlock.fontSize 14.0
+    TextBlock.horizontalAlignment HorizontalAlignment.Center
+    TextBlock.verticalAlignment VerticalAlignment.Center
+  ]

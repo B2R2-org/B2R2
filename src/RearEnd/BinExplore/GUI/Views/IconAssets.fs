@@ -76,6 +76,18 @@ let private mapIconDarkSource: IImage =
     SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/map-dark.svg"
   svgImage :> IImage
 
+let private binaryIconDarkSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/binary-dark.svg"
+  svgImage :> IImage
+
+let private binaryIconLightSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/binary-light.svg"
+  svgImage :> IImage
+
 let private isBrightPrimaryText model =
   match Color.TryParse model.Theme.Text.Primary with
   | true, color ->
@@ -111,3 +123,9 @@ let searchIcon model =
 let mapIcon model =
   if isBrightPrimaryText model then mapIconDarkSource
   else mapIconLightSource
+
+/// Returns the appropriate binary icon based on the current theme mode and text
+/// color.
+let binaryIcon model =
+  if isBrightPrimaryText model then binaryIconDarkSource
+  else binaryIconLightSource

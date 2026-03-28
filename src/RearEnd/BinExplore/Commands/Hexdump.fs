@@ -29,7 +29,7 @@ open B2R2
 open B2R2.MiddleEnd
 open B2R2.RearEnd.BinExplore
 
-type HexDump() =
+type Hexdump() =
   let [<Literal>] CmdName = "hexdump"
 
   let [<Literal>] Desc = "Dump the binary contents in a hex+ASCII format."

@@ -55,6 +55,14 @@ let private cfgMenuIconView model =
     Image.stretch Stretch.Uniform
   ]
 
+let private binaryMenuIconView model =
+  Image.create [
+    Image.source (IconAssets.binaryIcon model)
+    Image.width 16.0
+    Image.height 16.0
+    Image.stretch Stretch.Uniform
+  ]
+
 let private sectionMenuIconView model =
   Image.create [
     Image.source (IconAssets.listIcon model)
@@ -62,6 +70,30 @@ let private sectionMenuIconView model =
     Image.height 16.0
     Image.stretch Stretch.Uniform
   ]
+
+let private functionNavButtonView model dispatch =
+  navButton
+    model
+    FunctionPanel
+    (cfgMenuIconView model)
+    "Functions and CFGs"
+    (fun _ -> dispatch (SelectWorkspacePanel FunctionPanel))
+
+let private hexdumpNavButtonView model dispatch =
+  navButton
+    model
+    HexdumpPanel
+    (binaryMenuIconView model)
+    "Hexdump"
+    (fun _ -> dispatch (SelectWorkspacePanel HexdumpPanel))
+
+let private sectionNavButtonView model dispatch =
+  navButton
+    model
+    SectionPanel
+    (sectionMenuIconView model)
+    "Sections"
+    (fun _ -> dispatch (SelectWorkspacePanel SectionPanel))
 
 let private sideMenuView model dispatch =
   Border.create [
@@ -73,18 +105,9 @@ let private sideMenuView model dispatch =
         StackPanel.orientation Orientation.Vertical
         StackPanel.horizontalAlignment HorizontalAlignment.Center
         StackPanel.children [
-          navButton
-            model
-            FunctionPanel
-            (cfgMenuIconView model)
-            "Functions and CFGs"
-            (fun _ -> dispatch (SelectWorkspacePanel FunctionPanel))
-          navButton
-            model
-            SectionPanel
-            (sectionMenuIconView model)
-            "Sections"
-            (fun _ -> dispatch (SelectWorkspacePanel SectionPanel))
+          functionNavButtonView model dispatch
+          hexdumpNavButtonView model dispatch
+          sectionNavButtonView model dispatch
         ]
       ]
     )
@@ -92,7 +115,8 @@ let private sideMenuView model dispatch =
 
 let private leftPanelView model dispatch =
   match model.WorkspacePanel with
-  | FunctionPanel -> FunctionList.view model dispatch
+  | FunctionPanel -> FunctionList.view model dispatch :> IView
+  | HexdumpPanel -> Hexdump.view model dispatch
   | SectionPanel -> SectionList.view model dispatch
 
 let private onSizeChanged dispatch (e: SizeChangedEventArgs) =
