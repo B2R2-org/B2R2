@@ -54,6 +54,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Theme = Theme.resolve themeMode customThemes
       DraggingTab = None
       WorkspacePanel = FunctionPanel
+      Hexdump = HexdumpState.empty
       CFGIsPanning = false
       CFGPressedPointer = None
       CFGPanPointer = None
@@ -116,6 +117,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Update.changeCFGKind arbiter model kind
     | ToggleMinimap(tabID, activate) ->
       Update.toggleMinimap model tabID activate
+    | HexdumpMsg msg ->
+      Update.updateHexdump model msg
     | UpdateStatus msg ->
       Update.updateStatus model msg
     | ExitApplication ->

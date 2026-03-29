@@ -143,6 +143,11 @@ module API =
     if isInternal then arbiter.GetBinaryBrew() >>= getInternalFunctions
     else arbiter.GetBinaryBrew() >>= getExternalFunctions
 
+  /// Returns the loaded binary (IBinFile instance).
+  let getFile (arbiter: Arbiter<_, _>) =
+    arbiter.GetBinaryBrew()
+    >>= fun brew -> Ok brew.BinHandle.File
+
   /// Returns the file format of the loaded binary.
   let getFileFormat (arbiter: Arbiter<_, _>) =
     arbiter.GetBinaryBrew()

@@ -119,8 +119,14 @@ let private leftPanelView model dispatch =
   | HexdumpPanel -> Hexdump.view model dispatch
   | SectionPanel -> SectionList.view model dispatch
 
-let private onSizeChanged dispatch (e: SizeChangedEventArgs) =
+let private onLeftPanelSizeChanged dispatch (e: SizeChangedEventArgs) =
+  let w, h = e.NewSize.Width, e.NewSize.Height
+  dispatch (HexdumpMsg(UpdateViewport(SideHexView, w, h)))
+
+let private onTabSizeChanged dispatch (e: SizeChangedEventArgs) =
   dispatch (UpdateCFGViewportSize(e.NewSize.Width, e.NewSize.Height))
+
+let [<Literal>] private MinSidePanelWidth = 190.0
 
 let private tabContentView model dispatch =
   match model.ActiveTab with
@@ -156,12 +162,15 @@ let private tabContentView model dispatch =
     CFGContent.view model dispatch
 
 let private workspaceView model dispatch =
+  let columnDefs = ColumnDefinitions.Parse "52,250,5,*"
+  columnDefs[1].MinWidth <- MinSidePanelWidth
   Grid.create [
-    Grid.columnDefinitions "52,250,5,*"
+    Grid.columnDefinitions columnDefs
     Grid.children [
       sideMenuView model dispatch
       Grid.create [
         Grid.column 1
+        Control.onSizeChanged (onLeftPanelSizeChanged dispatch)
         Grid.children [
           leftPanelView model dispatch
         ]
@@ -180,7 +189,7 @@ let private workspaceView model dispatch =
             Border.padding 0.0
             Border.margin 0.0
             Border.borderThickness 0.0
-            Control.onSizeChanged (onSizeChanged dispatch)
+            Control.onSizeChanged (onTabSizeChanged dispatch)
             Border.child (tabContentView model dispatch)
           ]
         ]

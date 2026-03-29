@@ -91,6 +91,8 @@ type Message =
   /// Message to toggle the minimap visibility in the CFG view, carrying the tab
   /// ID and the desired activation state.
   | ToggleMinimap of tabID: string * activate: bool
+  /// Message to route hexdump-specific updates to the shared hexdump state.
+  | HexdumpMsg of HexdumpMessage
   /// Message to update the status message in the status bar.
   | UpdateStatus of string
   /// Message to exit the application.
@@ -99,3 +101,35 @@ type Message =
 and CFGPanSpace =
   | ViewportSpace
   | MinimapSpace of minimapScale: float
+
+/// Represents messages that affect the shared hexdump document or one of its
+/// active views.
+and HexdumpMessage =
+  /// Replaces the current hexdump document, or clears it when None.
+  | SetDocument of HexDocument option
+  /// Replaces the current hexdump highlight spans.
+  | SetHighlightSpans of HexSpanStyle list
+  /// Updates the viewport size of a specific hexdump view.
+  | UpdateViewport of viewID: HexViewId * width: float * height: float
+  /// Updates the measured font metrics of a specific hexdump view.
+  | UpdateFontMetrics of viewID: HexViewId * charWidth: float * rowHeight: float
+  /// Sets the vertical scroll row of a specific hexdump view.
+  | SetScrollRow of viewID: HexViewId * row: int64
+  /// Scrolls a specific hexdump view by a row delta.
+  | ScrollRows of viewID: HexViewId * delta: int64
+  /// Sets whether the address column is shown for a specific hexdump view.
+  | SetShowAddress of viewID: HexViewId * showAddress: bool
+  /// Sets whether the ASCII column is shown for a specific hexdump view.
+  | SetShowAscii of viewID: HexViewId * showAscii: bool
+  /// Updates the currently focused byte index shared by every hexdump view.
+  | SetCaret of byteIndex: int64 option
+  /// Replaces the shared hexdump selection.
+  | SetSelection of HexSelection option
+  /// Starts a new selection anchored at the given byte index.
+  | StartSelection of viewID: HexViewId * byteIndex: int64
+  /// Extends the current selection to the given byte index.
+  | UpdateSelection of viewID: HexViewId * byteIndex: int64
+  /// Ends the current selection gesture.
+  | EndSelection
+  /// Sets the byte currently hovered in a specific hexdump view.
+  | SetHoveredByte of viewID: HexViewId * byteIndex: int64 option

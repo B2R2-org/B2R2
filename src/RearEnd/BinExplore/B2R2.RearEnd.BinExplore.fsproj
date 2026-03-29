@@ -31,6 +31,7 @@
     <Compile Include="GUI\FunctionItem.fs" />
     <Compile Include="GUI\SectionItem.fs" />
     <Compile Include="GUI\CFGViewState.fs" />
+    <Compile Include="GUI\HexdumpState.fs" />
     <Compile Include="GUI\Tab.fs" />
     <Compile Include="GUI\WorkspacePanel.fs" />
     <Compile Include="GUI\StatusBarState.fs" />

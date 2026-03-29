@@ -81,15 +81,64 @@ let openBinary (arbiter: Arbiter<_, _>) model filePath =
     { model with LoadingBinaryPath = Some filePath },
     startLoadWorkflowCmd arbiter filePath
 
+let private mkText typeface fontSize text =
+  FormattedText(
+    text,
+    Globalization.CultureInfo.CurrentCulture,
+    FlowDirection.LeftToRight,
+    typeface,
+    fontSize,
+    Brushes.Black
+  )
+
+let private measureMaxCharSize model =
+  let fontFamily = FontFamily model.Theme.Font.Monospace.FontFamily
+  let fontSize = model.Theme.Font.Monospace.FontSize
+  let typeface = Typeface fontFamily
+  let txt = mkText typeface fontSize "M"
+  txt.Width, txt.Height
+
+let private computeHexBytesPerRow viewState =
+  let charWidth = max viewState.CharWidth 1.0
+  let viewportChars = max 0.0 ((viewState.ViewportWidth - 16.0) / charWidth)
+  let addressChars = float (viewState.AddressDigits + 3)
+  let asciiGapChars =
+    if viewState.ShowAscii then 2.0 else 0.0
+  let perByteChars =
+    if viewState.ShowAscii then 4.0 else 3.0
+  let bytes =
+    floor ((viewportChars - addressChars - asciiGapChars) / perByteChars)
+    |> int
+  let quantized = if bytes <= 4 then 4 else (bytes / 4) * 4
+  max 4 quantized
+
+let private initializeHexdumpState model baseAddr rawBytes numDigits =
+  let charWidth, rowHeight = measureMaxCharSize model
+  let hexdump = HexdumpState.ofBytes baseAddr rawBytes numDigits
+  let sideView =
+    { hexdump.SideView with
+        ViewportWidth = model.Hexdump.SideView.ViewportWidth
+        ViewportHeight = model.Hexdump.SideView.ViewportHeight
+        CharWidth = charWidth
+        RowHeight = rowHeight }
+  let sideView =
+    if sideView.ViewportWidth > 0.0 then
+      { sideView with BytesPerRow = computeHexBytesPerRow sideView }
+    else sideView
+  { hexdump with SideView = sideView }
+
 let openBinaryCompleted (arbiter: Arbiter<_, _>) model filePath =
   if model.LoadingBinaryPath = Some filePath then
-    let functions, statusBar =
-      match API.getFunctions arbiter true, API.getFileFormat arbiter with
-      | Ok fns, Ok fmt ->
+    let functions, statusBar, baseAddr, rawBytes, numDigits =
+      match API.getFunctions arbiter true, API.getFile arbiter with
+      | Ok fns, Ok file ->
         fns |> Array.map FunctionItem.ofFunction |> List.ofArray,
-        FileLoaded(filePath, FileFormat.toString fmt)
+        FileLoaded(filePath, FileFormat.toString file.Format),
+        file.BaseAddress,
+        file.RawBytes,
+        file.ISA.WordSize |> B2R2.WordSize.toByteWidth
       | _ ->
-        [], EmptyStatus
+        [], EmptyStatus, 0UL, [||], 16
     { model with
         LoadedBinary = Some filePath
         LoadingBinaryPath = None
@@ -100,6 +149,7 @@ let openBinaryCompleted (arbiter: Arbiter<_, _>) model filePath =
         PreviewTab = None
         DraggingTab = None
         WorkspacePanel = FunctionPanel
+        Hexdump = initializeHexdumpState model baseAddr rawBytes numDigits
         StatusBarState = statusBar },
     Elmish.Cmd.none
   else
@@ -126,6 +176,7 @@ let closeWorkspace (arbiter: Arbiter<_, _>) model =
       PreviewTab = None
       DraggingTab = None
       WorkspacePanel = FunctionPanel
+      Hexdump = HexdumpState.empty
       StatusBarState = EmptyStatus },
   Elmish.Cmd.none
 
@@ -143,22 +194,39 @@ let private mapCFGTabState newState (tab: Tab) =
   | _ ->
     tab
 
-let private mkText typeface fontSize text =
-  FormattedText(
-    text,
-    Globalization.CultureInfo.CurrentCulture,
-    FlowDirection.LeftToRight,
-    typeface,
-    fontSize,
-    Brushes.Black
-  )
+let private mapHexViewState viewID update hexdump =
+  match viewID with
+  | SideHexView ->
+    { hexdump with SideView = update hexdump.SideView }
+  | TabHexView ->
+    let tabView = hexdump.TabView |> Option.map update
+    { hexdump with TabView = tabView }
 
-let private measureMaxCharSize model =
-  let fontFamily = FontFamily model.Theme.Font.Monospace.FontFamily
-  let fontSize = model.Theme.Font.Monospace.FontSize
-  let typeface = Typeface fontFamily
-  let txt = mkText typeface fontSize "M"
-  txt.Width, txt.Height
+let private recomputeHexViewLayout model viewID updateView =
+  let charWidth, rowHeight = measureMaxCharSize model
+  let update viewState =
+    let nextView =
+      updateView viewState
+      |> fun v -> { v with CharWidth = charWidth; RowHeight = rowHeight }
+    { nextView with BytesPerRow = computeHexBytesPerRow nextView }
+  { model with
+      Hexdump = mapHexViewState viewID update model.Hexdump }, Elmish.Cmd.none
+
+let updateHexdump model msg =
+  match msg with
+  | UpdateViewport(viewID, width, height) when width > 0.0 && height > 0.0 ->
+    recomputeHexViewLayout model viewID (fun viewState ->
+      { viewState with ViewportWidth = width; ViewportHeight = height })
+  | UpdateFontMetrics(viewID, charWidth, rowHeight)
+    when charWidth > 0.0 && rowHeight > 0.0 ->
+    let update viewState =
+      let nextView =
+        { viewState with CharWidth = charWidth; RowHeight = rowHeight }
+      { nextView with BytesPerRow = computeHexBytesPerRow nextView }
+    { model with Hexdump = mapHexViewState viewID update model.Hexdump },
+    Elmish.Cmd.none
+  | _ ->
+    model, Elmish.Cmd.none
 
 let private getCFG (arbiter: Arbiter<_, _>) model cfgKind addr =
   match cfgKind with
