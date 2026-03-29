@@ -26,38 +26,29 @@
 module B2R2.RearEnd.BinExplore.GUI.Hexdump
 
 open System
+open Avalonia
 open Avalonia.Controls
 open Avalonia.Layout
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 
-let [<Literal>] private MaxPreviewRows = 256
+let [<Literal>] private OverscanRows = 12
 
-let private panelHeaderView model (doc: HexDocument option) =
-  let title =
-    match doc with
-    | Some doc -> $"Hexdump ({doc.Length} bytes)"
-    | None -> "Hexdump"
-  Border.create [
-    Border.dock Dock.Top
-    Border.background model.Theme.Panel.AltBackground
-    Border.padding 8.0
-    Border.child (
-      TextBlock.create [
-        TextBlock.text title
-        TextBlock.fontSize 13.0
-        TextBlock.foreground model.Theme.Text.Secondary
-      ]
-    )
-  ]
-
-let private emptyStateView model =
-  TextBlock.create [
-    TextBlock.text "No bytes loaded."
-    TextBlock.margin 10.0
-    TextBlock.foreground model.Theme.Text.Muted
-    TextBlock.fontSize 13.0
-  ]
+let private onScrollChanged viewState dispatch (args: ScrollChangedEventArgs) =
+  let deltaY = args.OffsetDelta.Y
+  match viewState.PendingScrollRestoreDelta, args.Source with
+  | Some expected, :? ScrollViewer when abs (deltaY - expected) <= 0.5 ->
+    dispatch (HexdumpMsg ClearPendingScrollRestore)
+  | Some _, _ when abs deltaY <= 0.0 ->
+    dispatch (HexdumpMsg ClearPendingScrollRestore)
+  | Some _, _ ->
+    dispatch (HexdumpMsg ClearPendingScrollRestore)
+    dispatch (HexdumpMsg(ScrollOffsetBy(deltaY)))
+  | None, _ ->
+    if abs deltaY <= 0.0 then
+      ()
+    else
+      dispatch (HexdumpMsg(ScrollOffsetBy(deltaY)))
 
 let private byteToAscii b =
   if b >= 0x20uy && b <= 0x7Euy then char b
@@ -74,8 +65,9 @@ let private formatHexBytes bytes =
 let private formatAscii bytes =
   bytes |> Array.map byteToAscii |> String
 
-let private addressView model address =
+let private addressView model width address =
   TextBlock.create [
+    TextBlock.width width
     TextBlock.margin (0.0, 0.0, 8.0, 0.0)
     TextBlock.text address
     TextBlock.foreground model.Theme.Text.Address
@@ -83,16 +75,18 @@ let private addressView model address =
     TextBlock.fontSize model.Theme.Font.Monospace.FontSize
   ]
 
-let private hexBytesView model hexText =
+let private hexBytesView model width hexText =
   TextBlock.create [
+    TextBlock.width width
     TextBlock.text hexText
     TextBlock.foreground model.Theme.Text.Primary
     TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
     TextBlock.fontSize model.Theme.Font.Monospace.FontSize
   ]
 
-let private asciiView model asciiText =
+let private asciiView model width asciiText =
   TextBlock.create [
+    TextBlock.width width
     TextBlock.margin (12.0, 0.0, 0.0, 0.0)
     TextBlock.text asciiText
     TextBlock.foreground model.Theme.Text.Secondary
@@ -100,69 +94,95 @@ let private asciiView model asciiText =
     TextBlock.fontSize model.Theme.Font.Monospace.FontSize
   ]
 
-let private rowView model (doc: HexDocument) bytesPerRow rowIndex rowBytes =
+let private rowView model viewState doc bytesPerRow rowIndex rowBytes =
   let offset = rowIndex * bytesPerRow
-  let numDigits = model.Hexdump.SideView.AddressDigits
+  let numDigits = viewState.AddressDigits
+  let charWidth = max viewState.CharWidth 1.0
+  let rowHeight = max viewState.RowHeight 1.0
+  let addressWidth = charWidth * float (numDigits + 2)
+  let hexWidth = charWidth * float (max 0 (bytesPerRow * 3 - 1))
+  let asciiWidth = charWidth * float bytesPerRow
   let address = formatAddress numDigits doc.BaseAddress offset
   let hexText = formatHexBytes rowBytes
   let asciiText = formatAscii rowBytes
-  StackPanel.create [
-    StackPanel.orientation Orientation.Horizontal
-    StackPanel.margin (8.0, 1.0, 8.0, 1.0)
-    StackPanel.children [
-      addressView model address :> IView
-      hexBytesView model hexText :> IView
-      if model.Hexdump.SideView.ShowAscii then
-        asciiView model asciiText :> IView
-      else
-        ()
-    ]
-  ]
-
-let private previewNoticeView model totalRows =
-  TextBlock.create [
-    TextBlock.text $"Showing first {MaxPreviewRows} of {totalRows} rows."
-    TextBlock.margin (8.0, 8.0, 8.0, 4.0)
-    TextBlock.foreground model.Theme.Text.Muted
-    TextBlock.fontSize 12.0
-  ]
-
-let private bodyView model =
-  match model.Hexdump.Document with
-  | None ->
-    emptyStateView model :> IView
-  | Some doc ->
-    let bytesPerRow = max 1 model.Hexdump.SideView.BytesPerRow
-    let rows = doc.Bytes |> Array.chunkBySize bytesPerRow
-    let totalRows = rows.Length
-    let previewRows = rows |> Array.truncate MaxPreviewRows
-    ScrollViewer.create [
-      ScrollViewer.content (
-        StackPanel.create [
-          StackPanel.children [
-            if totalRows > MaxPreviewRows then
-              previewNoticeView model totalRows :> IView
-            yield!
-              previewRows
-              |> Array.mapi (fun rowIndex rowBytes ->
-                rowView model doc bytesPerRow rowIndex rowBytes :> IView)
-              |> Array.toList
-          ]
-        ]
-      )
-    ]
-
-let view model dispatch =
   Border.create [
-    Border.background model.Theme.Panel.Background
-    Border.borderThickness 1.0
-    Border.borderBrush model.Theme.Panel.Border
+    Canvas.left 0.0
+    Canvas.top (float rowIndex * rowHeight)
+    Border.height rowHeight
+    Border.padding (8.0, 1.0, 8.0, 1.0)
+    Border.background model.Theme.Common.Transparent
     Border.child (
-      DockPanel.create [
-        DockPanel.children [
-          panelHeaderView model model.Hexdump.Document
-          bodyView model
+      StackPanel.create [
+        StackPanel.orientation Orientation.Horizontal
+        StackPanel.children [
+          addressView model addressWidth address :> IView
+          hexBytesView model hexWidth hexText
+          if viewState.ShowAscii then asciiView model asciiWidth asciiText
+          else ()
         ]
       ]
     )
+  ] |> View.withKey $"hex-row-{rowIndex}" :> IView
+
+let private computeTotalRows docLength bytesPerRow =
+  if docLength <= 0L then 0
+  else int ((docLength + int64 bytesPerRow - 1L) / int64 bytesPerRow)
+
+let private sliceRowBytes (doc: HexDocument) bytesPerRow rowIndex =
+  let offset = rowIndex * bytesPerRow
+  let remaining = doc.Bytes.Length - offset
+  let count = min bytesPerRow remaining
+  Array.sub doc.Bytes offset count
+
+let private computeVisibleRowRange viewState totalRows =
+  if totalRows <= 0 then
+    0, 0
+  else
+    let rowHeight = max viewState.RowHeight 1.0
+    let visibleRows =
+      max 1 (int (ceil (viewState.ViewportHeight / rowHeight)))
+    let scrollRow = int (floor (viewState.ScrollOffsetY / rowHeight))
+    let startRow = max 0 (scrollRow - OverscanRows)
+    let endRow = min totalRows (scrollRow + visibleRows + OverscanRows)
+    startRow, endRow
+
+let private emptyStateView model =
+  TextBlock.create [
+    TextBlock.text "No bytes loaded."
+    TextBlock.margin 10.0
+    TextBlock.foreground model.Theme.Text.Muted
+    TextBlock.fontSize 13.0
+  ]
+
+let private bodyView model dispatch =
+  match model.Hexdump.Document, model.Hexdump.View with
+  | Some doc, Some viewState ->
+    let bytesPerRow = max 1 viewState.BytesPerRow
+    let totalRows = computeTotalRows doc.Length bytesPerRow
+    let startRow, endRow = computeVisibleRowRange viewState totalRows
+    let rowHeight = max viewState.RowHeight 1.0
+    let canvasHeight = rowHeight * float totalRows
+    let scrollOffsetY = viewState.ScrollOffsetY
+    ScrollViewer.create [
+      ScrollViewer.offset (Vector(0.0, scrollOffsetY))
+      ScrollViewer.onScrollChanged (onScrollChanged viewState dispatch)
+      ScrollViewer.content (
+        Canvas.create [
+          Canvas.height canvasHeight
+          Canvas.children [
+            for rowIndex in startRow .. endRow - 1 do
+              let rowBytes = sliceRowBytes doc bytesPerRow rowIndex
+              rowView model viewState doc bytesPerRow rowIndex rowBytes
+          ]
+        ]
+      )
+    ] :> IView
+  | _ ->
+    emptyStateView model :> IView
+
+let view model dispatch =
+  Border.create [
+    Border.background model.Theme.Window.Background
+    Border.borderThickness 0.0
+    Border.child (bodyView model dispatch)
   ]

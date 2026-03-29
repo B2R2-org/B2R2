@@ -73,6 +73,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Update.closeWorkspace arbiter model
     | OpenCFGTab fnItem ->
       Update.openCFGTab arbiter model fnItem
+    | OpenHexdumpTab ->
+      Update.openHexdumpTab model
     | PinCFGTab fnItem ->
       Update.pinCFGTab arbiter model fnItem
     | CloseTab tabID ->

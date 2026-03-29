@@ -30,16 +30,16 @@ open B2R2
 /// active view instances.
 type HexdumpState =
   { Document: HexDocument option
-    Shared: HexSharedState
-    SideView: HexViewState
-    TabView: HexViewState option }
+    Caret: int64 option
+    Selection: HexSelection option
+    HighlightSpans: HexSpanStyle list
+    View: HexViewState option }
 
 /// Represents the shared hexdump document data.
 and HexDocument =
   { BaseAddress: Addr
     Length: int64
-    Bytes: byte[]
-    HighlightSpans: HexSpanStyle list }
+    Bytes: byte[] }
 
 /// Represents style information applied to a byte span.
 and HexSpanStyle =
@@ -49,11 +49,6 @@ and HexSpanStyle =
     Background: string option
     Priority: int }
 
-/// Represents interaction state shared by every hexdump view.
-and HexSharedState =
-  { Caret: int64 option
-    Selection: HexSelection option }
-
 /// Represents a contiguous selection inside the hexdump.
 and HexSelection =
   { Anchor: int64
@@ -62,6 +57,7 @@ and HexSelection =
 /// Represents layout and scroll state for a specific hexdump view.
 and HexViewState =
   { ScrollRow: int64
+    ScrollOffsetY: float
     ViewportWidth: float
     ViewportHeight: float
     CharWidth: float
@@ -69,23 +65,14 @@ and HexViewState =
     BytesPerRow: int
     ShowAscii: bool
     AddressDigits: int
-    HoveredByte: int64 option }
-
-/// Identifies an individual hexdump view instance.
-and HexViewId =
-  | SideHexView
-  | TabHexView
-
-[<RequireQualifiedAccess>]
-module HexSharedState =
-  let empty =
-    { Caret = None
-      Selection = None }
+    HoveredByte: int64 option
+    PendingScrollRestoreDelta: float option }
 
 [<RequireQualifiedAccess>]
 module HexViewState =
   let init numDigits =
     { ScrollRow = 0L
+      ScrollOffsetY = 0.0
       ViewportWidth = 0.0
       ViewportHeight = 0.0
       CharWidth = 0.0
@@ -93,26 +80,27 @@ module HexViewState =
       BytesPerRow = 16
       ShowAscii = true
       AddressDigits = numDigits
-      HoveredByte = None }
+      HoveredByte = None
+      PendingScrollRestoreDelta = None }
 
 [<RequireQualifiedAccess>]
 module HexDocument =
   let ofBytes baseAddress (bytes: byte[]) =
     { BaseAddress = baseAddress
       Length = bytes.LongLength
-      Bytes = bytes
-      HighlightSpans = [] }
+      Bytes = bytes }
 
 [<RequireQualifiedAccess>]
 module HexdumpState =
   let empty =
     { Document = None
-      Shared = HexSharedState.empty
-      SideView = HexViewState.init 16
-      TabView = None }
+      Caret = None
+      Selection = None
+      HighlightSpans = []
+      View = Some(HexViewState.init 16) }
 
   let init numDigits =
-    { empty with SideView = HexViewState.init numDigits }
+    { empty with View = Some(HexViewState.init numDigits) }
 
   let ofBytes baseAddress bytes numDigits =
     { init numDigits

@@ -73,12 +73,6 @@ let private getTabBorderColor (model: Model) tab =
   if model.ActiveTab = Some tab then model.Theme.Tab.ActiveBackground
   else model.Theme.Tab.InactiveBackground
 
-let private getTabIconText (tab: Tab) =
-  match tab.Content with
-  | CFGContent _ -> None
-  | HexContent _ -> Some "Hx"
-  | SectionContent -> Some "\u2261"
-
 let private getTabTextColor (model: Model) tab =
   if model.ActiveTab = Some tab then model.Theme.Text.Primary
   else model.Theme.Text.Secondary
@@ -87,17 +81,9 @@ let private getTabFontStyle (model: Model) tab =
   if model.PreviewTab = Some tab then FontStyle.Italic
   else FontStyle.Normal
 
-let private tabIconView model tab =
-  match getTabIconText tab with
-  | Some iconText ->
-    TextBlock.create [
-      TextBlock.text iconText
-      TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-      TextBlock.foreground (getTabTextColor model tab)
-      TextBlock.verticalAlignment VerticalAlignment.Center
-      TextBlock.margin (0.0, 0.0, 6.0, 0.0)
-    ] |> View.withKey $"{tab.ID}-icon-text" :> IView
-  | None ->
+let private tabIconView model (tab: Tab) =
+  match tab.Content with
+  | CFGContent _ ->
     Image.create [
       Image.source (IconAssets.cfgIcon model)
       Image.width 14.0
@@ -105,6 +91,24 @@ let private tabIconView model tab =
       Image.stretch Stretch.Uniform
       Image.verticalAlignment VerticalAlignment.Center
       Image.margin (0.0, 0.0, 4.0, 0.0)
+    ] |> View.withKey $"{tab.ID}-icon" :> IView
+  | HexContent _ ->
+    Image.create [
+      Image.source (IconAssets.binaryIcon model)
+      Image.width 14.0
+      Image.height 14.0
+      Image.stretch Stretch.Uniform
+      Image.verticalAlignment VerticalAlignment.Center
+      Image.margin (0.0, 0.0, 4.0, 0.0)
+    ] |> View.withKey $"{tab.ID}-icon" :> IView
+  | _ ->
+    TextBlock.create [
+      TextBlock.text ""
+      TextBlock.fontSize 10.0
+      TextBlock.fontWeight FontWeight.Bold
+      TextBlock.foreground (getTabTextColor model tab)
+      TextBlock.verticalAlignment VerticalAlignment.Center
+      TextBlock.margin (0.0, 0.0, 4.0, 0.0)
     ] |> View.withKey $"{tab.ID}-icon" :> IView
 
 let private tabLabelView model tab =

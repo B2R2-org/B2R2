@@ -109,23 +109,50 @@ let private computeHexBytesPerRow viewState =
   let bytes =
     floor ((viewportChars - addressChars - asciiGapChars) / perByteChars)
     |> int
-  let quantized = if bytes <= 4 then 4 else (bytes / 4) * 4
+  let quantized = if bytes <= 4 then 4 else bytes / 4 * 4
   max 4 quantized
 
-let private initializeHexdumpState model baseAddr rawBytes numDigits =
-  let charWidth, rowHeight = measureMaxCharSize model
-  let hexdump = HexdumpState.ofBytes baseAddr rawBytes numDigits
-  let sideView =
-    { hexdump.SideView with
-        ViewportWidth = model.Hexdump.SideView.ViewportWidth
-        ViewportHeight = model.Hexdump.SideView.ViewportHeight
+let private computeHexTotalRows hexdump viewState =
+  match hexdump.Document with
+  | None -> 0L
+  | Some doc ->
+    let bytesPerRow = max 1 viewState.BytesPerRow
+    if doc.Length <= 0L then 0L
+    else (doc.Length + int64 bytesPerRow - 1L) / int64 bytesPerRow
+
+let private clampHexScrollState hexdump viewState =
+  let totalRows = computeHexTotalRows hexdump viewState
+  let rowHeight = max viewState.RowHeight 1.0
+  let contentHeight = float totalRows * rowHeight
+  let maxScrollOffset = max 0.0 (contentHeight - viewState.ViewportHeight)
+  let scrollOffsetY = max 0.0 (min maxScrollOffset viewState.ScrollOffsetY)
+  let scrollRow = int64 (floor (scrollOffsetY / rowHeight))
+  { viewState with ScrollOffsetY = scrollOffsetY; ScrollRow = scrollRow }
+
+let private initializeHexdumpTabView model =
+  let view = model.Hexdump.View |> Option.defaultValue (HexViewState.init 16)
+  let viewportWidth, viewportHeight = model.CFGViewportSize
+  let charWidth, rowHeight =
+    if view.CharWidth > 0.0 && view.RowHeight > 0.0 then
+      view.CharWidth, view.RowHeight
+    else
+      measureMaxCharSize model
+  let nextView =
+    { view with
+        ViewportWidth = viewportWidth
+        ViewportHeight = viewportHeight
         CharWidth = charWidth
         RowHeight = rowHeight }
-  let sideView =
-    if sideView.ViewportWidth > 0.0 then
-      { sideView with BytesPerRow = computeHexBytesPerRow sideView }
-    else sideView
-  { hexdump with SideView = sideView }
+  { nextView with
+      BytesPerRow =
+        if viewportWidth > 0.0 then computeHexBytesPerRow nextView
+        else nextView.BytesPerRow }
+
+let private prepareHexdumpViewForActivation viewState =
+  { viewState with
+      PendingScrollRestoreDelta =
+        if viewState.ScrollOffsetY > 0.0 then Some viewState.ScrollOffsetY
+        else None }
 
 let openBinaryCompleted (arbiter: Arbiter<_, _>) model filePath =
   if model.LoadingBinaryPath = Some filePath then
@@ -136,7 +163,7 @@ let openBinaryCompleted (arbiter: Arbiter<_, _>) model filePath =
         FileLoaded(filePath, FileFormat.toString file.Format),
         file.BaseAddress,
         file.RawBytes,
-        file.ISA.WordSize |> B2R2.WordSize.toByteWidth
+        (file.ISA.WordSize |> B2R2.WordSize.toByteWidth) * 2
       | _ ->
         [], EmptyStatus, 0UL, [||], 16
     { model with
@@ -149,7 +176,7 @@ let openBinaryCompleted (arbiter: Arbiter<_, _>) model filePath =
         PreviewTab = None
         DraggingTab = None
         WorkspacePanel = FunctionPanel
-        Hexdump = initializeHexdumpState model baseAddr rawBytes numDigits
+        Hexdump = HexdumpState.ofBytes baseAddr rawBytes numDigits
         StatusBarState = statusBar },
     Elmish.Cmd.none
   else
@@ -180,6 +207,27 @@ let closeWorkspace (arbiter: Arbiter<_, _>) model =
       StatusBarState = EmptyStatus },
   Elmish.Cmd.none
 
+let openHexdumpTab model =
+  match model.Hexdump.Document with
+  | None ->
+    model, Elmish.Cmd.none
+  | Some doc ->
+    let tab = Tab.ofHexdump doc.BaseAddress
+    let visibleTabs = Model.getVisibleTabs model
+    let view = initializeHexdumpTabView model |> prepareHexdumpViewForActivation
+    match visibleTabs |> List.tryFind (fun t -> t.ID = Tab.HexdumpTabID) with
+    | Some existing ->
+      { model with
+          ActiveTab = Some existing
+          Hexdump = { model.Hexdump with View = Some view } },
+      Elmish.Cmd.none
+    | None ->
+      { model with
+          ActiveTab = Some tab
+          OpenTabs = model.OpenTabs @ [ tab ]
+          Hexdump = { model.Hexdump with View = Some view } },
+      Elmish.Cmd.none
+
 let private tryFindTab tabs tabID =
   tabs |> List.tryFind (fun t -> t.ID = tabID)
 
@@ -194,37 +242,102 @@ let private mapCFGTabState newState (tab: Tab) =
   | _ ->
     tab
 
-let private mapHexViewState viewID update hexdump =
-  match viewID with
-  | SideHexView ->
-    { hexdump with SideView = update hexdump.SideView }
-  | TabHexView ->
-    let tabView = hexdump.TabView |> Option.map update
-    { hexdump with TabView = tabView }
+let private updateHexViewState model update =
+  let hexdump =
+    let view =
+      model.Hexdump.View
+      |> Option.map (fun state ->
+        update state
+        |> clampHexScrollState model.Hexdump)
+    { model.Hexdump with View = view }
+  { model with Hexdump = hexdump }, Elmish.Cmd.none
 
-let private recomputeHexViewLayout model viewID updateView =
+let private recomputeHexViewLayout model updateView =
   let charWidth, rowHeight = measureMaxCharSize model
-  let update viewState =
+  updateHexViewState model (fun viewState ->
+    let topByte = viewState.ScrollRow * int64 (max 1 viewState.BytesPerRow)
     let nextView =
       updateView viewState
       |> fun v -> { v with CharWidth = charWidth; RowHeight = rowHeight }
-    { nextView with BytesPerRow = computeHexBytesPerRow nextView }
-  { model with
-      Hexdump = mapHexViewState viewID update model.Hexdump }, Elmish.Cmd.none
+    let nextView =
+      { nextView with BytesPerRow = computeHexBytesPerRow nextView }
+    let nextScrollRow = topByte / int64 (max 1 nextView.BytesPerRow)
+    { nextView with
+        ScrollRow = nextScrollRow
+        ScrollOffsetY = float nextScrollRow * nextView.RowHeight })
+
+let private resizeOpenedHexdumpTab model width height =
+  let hasOpenedHexdumpTab =
+    model.OpenTabs |> List.exists (fun tab -> tab.ID = Tab.HexdumpTabID)
+  if hasOpenedHexdumpTab then
+    let view =
+      model.Hexdump.View
+      |> Option.map (fun viewState ->
+        let charWidth, rowHeight = measureMaxCharSize model
+        let nextView =
+          { viewState with
+              ViewportWidth = width
+              ViewportHeight = height
+              CharWidth = charWidth
+              RowHeight = rowHeight }
+        { nextView with BytesPerRow = computeHexBytesPerRow nextView }
+      )
+    { model with Hexdump = { model.Hexdump with View = view } }
+  else
+    model
 
 let updateHexdump model msg =
   match msg with
-  | UpdateViewport(viewID, width, height) when width > 0.0 && height > 0.0 ->
-    recomputeHexViewLayout model viewID (fun viewState ->
+  | UpdateViewport(width, height) when width > 0.0 && height > 0.0 ->
+    recomputeHexViewLayout model (fun viewState ->
       { viewState with ViewportWidth = width; ViewportHeight = height })
-  | UpdateFontMetrics(viewID, charWidth, rowHeight)
+  | UpdateFontMetrics(charWidth, rowHeight)
     when charWidth > 0.0 && rowHeight > 0.0 ->
-    let update viewState =
+    updateHexViewState model (fun viewState ->
+      let topByte = viewState.ScrollRow * int64 (max 1 viewState.BytesPerRow)
       let nextView =
         { viewState with CharWidth = charWidth; RowHeight = rowHeight }
-      { nextView with BytesPerRow = computeHexBytesPerRow nextView }
-    { model with Hexdump = mapHexViewState viewID update model.Hexdump },
-    Elmish.Cmd.none
+      let nextView =
+        { nextView with BytesPerRow = computeHexBytesPerRow nextView }
+      let nextScrollRow = topByte / int64 (max 1 nextView.BytesPerRow)
+      { nextView with
+          ScrollRow = nextScrollRow
+          ScrollOffsetY = float nextScrollRow * nextView.RowHeight })
+  | SetScrollOffset(offsetY) ->
+    updateHexViewState model (fun viewState ->
+      let rowHeight = max viewState.RowHeight 1.0
+      let scrollRow = int64 (floor (offsetY / rowHeight))
+      { viewState with
+          ScrollOffsetY = offsetY
+          ScrollRow = scrollRow
+          PendingScrollRestoreDelta = None })
+  | ScrollOffsetBy(deltaY) ->
+    updateHexViewState model (fun viewState ->
+      let nextOffsetY = viewState.ScrollOffsetY + deltaY
+      let rowHeight = max viewState.RowHeight 1.0
+      let scrollRow = int64 (floor (nextOffsetY / rowHeight))
+      { viewState with
+          ScrollOffsetY = nextOffsetY
+          ScrollRow = scrollRow
+          PendingScrollRestoreDelta = None })
+  | ClearPendingScrollRestore ->
+    updateHexViewState model (fun viewState ->
+      { viewState with PendingScrollRestoreDelta = None })
+  | SetScrollRow(row) ->
+    updateHexViewState model (fun viewState ->
+      let rowHeight = max viewState.RowHeight 1.0
+      { viewState with
+          ScrollRow = row
+          ScrollOffsetY = float row * rowHeight
+          PendingScrollRestoreDelta = None })
+  | ScrollRows(delta) ->
+    updateHexViewState model (fun viewState ->
+      let rowHeight = max viewState.RowHeight 1.0
+      let scrollRow = viewState.ScrollRow + delta
+      { viewState with
+          ScrollRow = scrollRow
+          ScrollOffsetY = float scrollRow * rowHeight
+          PendingScrollRestoreDelta = None })
   | _ ->
     model, Elmish.Cmd.none
 
@@ -296,6 +409,7 @@ let pinCFGTab (arbiter: Arbiter<_, _>) model fnItem =
         PreviewTab = preview }
 
 let closeTab model tabID =
+  let closingHexdump = tabID = Tab.HexdumpTabID
   let openTabs = model.OpenTabs |> List.filter (fun t -> t.ID <> tabID)
   let preview = model.PreviewTab |> Option.filter (fun t -> t.ID <> tabID)
   let dragging = model.DraggingTab |> Option.filter (fun t -> t.ID <> tabID)
@@ -309,14 +423,24 @@ let closeTab model tabID =
       ActiveTab = active
       OpenTabs = openTabs
       PreviewTab = preview
-      DraggingTab = dragging },
+      DraggingTab = dragging
+      Hexdump =
+        if closingHexdump then
+          { model.Hexdump with View = None }
+        else model.Hexdump },
   Elmish.Cmd.none
 
 let switchTab model tabID =
   let visibleTabs = Model.getVisibleTabs model
   match tryFindTab visibleTabs tabID with
   | Some tab ->
-    { model with ActiveTab = Some tab }, Elmish.Cmd.none
+    let hexdump =
+      if tab.ID = Tab.HexdumpTabID then
+        let view =
+          model.Hexdump.View |> Option.map prepareHexdumpViewForActivation
+        { model.Hexdump with View = view }
+      else model.Hexdump
+    { model with ActiveTab = Some tab; Hexdump = hexdump }, Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
@@ -618,20 +742,24 @@ let setHoveredCFGEdge model edgeID =
     model, Elmish.Cmd.none
 
 let updateCFGViewportSize model width height =
-  match model.ActiveTab with
-  | Some tab when width > 0.0 && height > 0.0 ->
-    let currentWidth, currentHeight = model.CFGViewportSize
-    let deltaX = width / 2.0 - currentWidth / 2.0
-    let deltaY = height / 2.0 - currentHeight / 2.0
-    let update viewState =
-      { viewState with
-          PanX = viewState.PanX + deltaX
-          PanY = viewState.PanY + deltaY }
-    let tab = updateCFGViewState tab update
-    { replaceTabReferences model tab with CFGViewportSize = (width, height) },
-    Elmish.Cmd.none
-  | _ ->
+  if width <= 0.0 || height <= 0.0 then
     model, Elmish.Cmd.none
+  else
+    let currentWidth, currentHeight = model.CFGViewportSize
+    let model = { model with CFGViewportSize = (width, height) }
+    let model = resizeOpenedHexdumpTab model width height
+    match model.ActiveTab with
+    | Some tab ->
+      let deltaX = width / 2.0 - currentWidth / 2.0
+      let deltaY = height / 2.0 - currentHeight / 2.0
+      let update viewState =
+        { viewState with
+            PanX = viewState.PanX + deltaX
+            PanY = viewState.PanY + deltaY }
+      let tab = updateCFGViewState tab update
+      replaceTabReferences model tab, Elmish.Cmd.none
+    | None ->
+      model, Elmish.Cmd.none
 
 let changeCFGKind (arbiter: Arbiter<_, _>) model kind =
   match model.ActiveTab with

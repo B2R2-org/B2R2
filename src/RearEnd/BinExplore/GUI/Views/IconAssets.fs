@@ -88,6 +88,18 @@ let private binaryIconLightSource: IImage =
     SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/binary-light.svg"
   svgImage :> IImage
 
+let private popoutIconDarkSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/popout-dark.svg"
+  svgImage :> IImage
+
+let private popoutIconLightSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/popout-light.svg"
+  svgImage :> IImage
+
 let private isBrightPrimaryText model =
   match Color.TryParse model.Theme.Text.Primary with
   | true, color ->
@@ -129,3 +141,9 @@ let mapIcon model =
 let binaryIcon model =
   if isBrightPrimaryText model then binaryIconDarkSource
   else binaryIconLightSource
+
+/// Returns the appropriate popout icon based on the current theme mode and text
+/// color.
+let popoutIcon model =
+  if isBrightPrimaryText model then popoutIconDarkSource
+  else popoutIconLightSource

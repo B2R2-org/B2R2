@@ -39,6 +39,9 @@ type Message =
   | CloseWorkspace
   /// Message to open a new tab for a specific function.
   | OpenCFGTab of fn: FunctionItem
+  /// Message to open the shared hexdump in a tab, or activate it if already
+  /// open.
+  | OpenHexdumpTab
   /// Message to pin a tab, making it persist.
   | PinCFGTab of fn: FunctionItem
   /// Message to close a specific tab.
@@ -110,26 +113,34 @@ and HexdumpMessage =
   /// Replaces the current hexdump highlight spans.
   | SetHighlightSpans of HexSpanStyle list
   /// Updates the viewport size of a specific hexdump view.
-  | UpdateViewport of viewID: HexViewId * width: float * height: float
+  | UpdateViewport of width: float * height: float
   /// Updates the measured font metrics of a specific hexdump view.
-  | UpdateFontMetrics of viewID: HexViewId * charWidth: float * rowHeight: float
+  | UpdateFontMetrics of charWidth: float * rowHeight: float
+  /// Sets the vertical scroll offset of a specific hexdump view in pixels.
+  /// Use this for programmatic jumps such as "go to address".
+  | SetScrollOffset of offsetY: float
+  /// Scrolls a specific hexdump view by a vertical pixel delta.
+  /// Use this for user-driven scrolling events emitted by the UI.
+  | ScrollOffsetBy of deltaY: float
+  /// Clears the one-shot scroll-restore guard used when remounting the view.
+  | ClearPendingScrollRestore
   /// Sets the vertical scroll row of a specific hexdump view.
-  | SetScrollRow of viewID: HexViewId * row: int64
+  | SetScrollRow of row: int64
   /// Scrolls a specific hexdump view by a row delta.
-  | ScrollRows of viewID: HexViewId * delta: int64
+  | ScrollRows of delta: int64
   /// Sets whether the address column is shown for a specific hexdump view.
-  | SetShowAddress of viewID: HexViewId * showAddress: bool
+  | SetShowAddress of showAddress: bool
   /// Sets whether the ASCII column is shown for a specific hexdump view.
-  | SetShowAscii of viewID: HexViewId * showAscii: bool
+  | SetShowAscii of showAscii: bool
   /// Updates the currently focused byte index shared by every hexdump view.
   | SetCaret of byteIndex: int64 option
   /// Replaces the shared hexdump selection.
   | SetSelection of HexSelection option
   /// Starts a new selection anchored at the given byte index.
-  | StartSelection of viewID: HexViewId * byteIndex: int64
+  | StartSelection of byteIndex: int64
   /// Extends the current selection to the given byte index.
-  | UpdateSelection of viewID: HexViewId * byteIndex: int64
+  | UpdateSelection of byteIndex: int64
   /// Ends the current selection gesture.
   | EndSelection
   /// Sets the byte currently hovered in a specific hexdump view.
-  | SetHoveredByte of viewID: HexViewId * byteIndex: int64 option
+  | SetHoveredByte of byteIndex: int64 option

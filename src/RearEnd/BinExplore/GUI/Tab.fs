@@ -55,9 +55,16 @@ and TabContentState<'T> =
 [<RequireQualifiedAccess>]
 module Tab =
 
+  let [<Literal>] HexdumpTabID = "hexdump"
+
   /// Creates a new Tab instance for a given FunctionItem, with the content set
   /// to a CFGTab.
   let ofFunctionItem func =
     { ID = $"fn-{func.FuncID}"
       Title = func.Name
       Content = CFGContent(func, NotLoaded) }
+
+  let ofHexdump baseAddr =
+    { ID = HexdumpTabID
+      Title = "Hexdump"
+      Content = HexContent baseAddr }

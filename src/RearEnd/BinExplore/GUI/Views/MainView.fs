@@ -79,13 +79,13 @@ let private functionNavButtonView model dispatch =
     "Functions and CFGs"
     (fun _ -> dispatch (SelectWorkspacePanel FunctionPanel))
 
-let private hexdumpNavButtonView model dispatch =
+let private hexOverviewNavButtonView model dispatch =
   navButton
     model
-    HexdumpPanel
+    HexOverviewPanel
     (binaryMenuIconView model)
-    "Hexdump"
-    (fun _ -> dispatch (SelectWorkspacePanel HexdumpPanel))
+    "Hex Overview"
+    (fun _ -> dispatch (SelectWorkspacePanel HexOverviewPanel))
 
 let private sectionNavButtonView model dispatch =
   navButton
@@ -106,7 +106,7 @@ let private sideMenuView model dispatch =
         StackPanel.horizontalAlignment HorizontalAlignment.Center
         StackPanel.children [
           functionNavButtonView model dispatch
-          hexdumpNavButtonView model dispatch
+          hexOverviewNavButtonView model dispatch
           sectionNavButtonView model dispatch
         ]
       ]
@@ -116,15 +116,17 @@ let private sideMenuView model dispatch =
 let private leftPanelView model dispatch =
   match model.WorkspacePanel with
   | FunctionPanel -> FunctionList.view model dispatch :> IView
-  | HexdumpPanel -> Hexdump.view model dispatch
+  | HexOverviewPanel -> HexOverview.view model dispatch
   | SectionPanel -> SectionList.view model dispatch
 
-let private onLeftPanelSizeChanged dispatch (e: SizeChangedEventArgs) =
+let private onContentSizeChanged model dispatch (e: SizeChangedEventArgs) =
   let w, h = e.NewSize.Width, e.NewSize.Height
-  dispatch (HexdumpMsg(UpdateViewport(SideHexView, w, h)))
-
-let private onTabSizeChanged dispatch (e: SizeChangedEventArgs) =
-  dispatch (UpdateCFGViewportSize(e.NewSize.Width, e.NewSize.Height))
+  dispatch (UpdateCFGViewportSize(w, h))
+  match model.ActiveTab with
+  | Some { Content = HexContent _ } ->
+    dispatch (HexdumpMsg(UpdateViewport(w, h)))
+  | _ ->
+    ()
 
 let [<Literal>] private MinSidePanelWidth = 190.0
 
@@ -133,18 +135,7 @@ let private tabContentView model dispatch =
   | Some { Content = CFGContent _ } ->
     CFGContent.view model dispatch
   | Some { Content = HexContent _ } ->
-    Border.create [
-      Border.background model.Theme.Window.Background
-      Border.borderThickness 0.0
-      Border.child (
-        TextBlock.create [
-          TextBlock.text "Hex dump view placeholder."
-          TextBlock.foreground model.Theme.Text.Primary
-          TextBlock.fontSize 14.0
-          TextBlock.margin 10.0
-        ]
-      )
-    ]
+    Hexdump.view model dispatch
   | Some { Content = SectionContent } ->
     Border.create [
       Border.background model.Theme.Window.Background
@@ -170,7 +161,6 @@ let private workspaceView model dispatch =
       sideMenuView model dispatch
       Grid.create [
         Grid.column 1
-        Control.onSizeChanged (onLeftPanelSizeChanged dispatch)
         Grid.children [
           leftPanelView model dispatch
         ]
@@ -189,7 +179,7 @@ let private workspaceView model dispatch =
             Border.padding 0.0
             Border.margin 0.0
             Border.borderThickness 0.0
-            Control.onSizeChanged (onTabSizeChanged dispatch)
+            Control.onSizeChanged (onContentSizeChanged model dispatch)
             Border.child (tabContentView model dispatch)
           ]
         ]
