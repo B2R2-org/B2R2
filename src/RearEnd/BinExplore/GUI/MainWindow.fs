@@ -95,30 +95,32 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Update.updateFunctionFilter model text
     | SelectWorkspacePanel panel ->
       Update.selectWorkspacePanel arbiter model panel
-    | LoadCFGCompleted(tabID, cfgKind, cfg) ->
-      Update.loadCFGCompleted model tabID cfgKind cfg
-    | LoadCFGFailed(tabID, _reason) ->
-      Update.loadCFGFailed model tabID _reason
-    | SetCFGZoom(delta, mouseX, mouseY) ->
-      Update.setCFGZoom model delta mouseX mouseY
-    | StartCFGPan(x, y) ->
-      Update.startCFGPan model x y
-    | MoveCFGPan(x, y, space) ->
-      Update.moveCFGPan model x y space
-    | EndCFGPan ->
-      Update.endCFGPan model
-    | JumpCFGPan(gx, gy) ->
-      Update.jumpCFGPan model gx gy
-    | SelectCFGToken(nodeID, lineIdx, wordIdx) ->
-      Update.selectCFGToken model nodeID lineIdx wordIdx
-    | SetHoveredCFGEdge edgeID ->
-      Update.setHoveredCFGEdge model edgeID
-    | UpdateCFGViewportSize(width, height) ->
-      Update.updateCFGViewportSize model width height
-    | ChangeCFGKind kind ->
-      Update.changeCFGKind arbiter model kind
-    | ToggleMinimap(tabID, activate) ->
-      Update.toggleMinimap model tabID activate
+    | CFGMsg cfgMsg ->
+      match cfgMsg with
+      | LoadCompleted(tabID, cfgKind, cfg) ->
+        Update.loadCFGCompleted model tabID cfgKind cfg
+      | LoadFailed(tabID, reason) ->
+        Update.loadCFGFailed model tabID reason
+      | SetZoom(delta, mouseX, mouseY) ->
+        Update.setCFGZoom model delta mouseX mouseY
+      | StartPan(x, y) ->
+        Update.startCFGPan model x y
+      | MovePan(x, y, space) ->
+        Update.moveCFGPan model x y space
+      | EndPan ->
+        Update.endCFGPan model
+      | JumpPan(gx, gy) ->
+        Update.jumpCFGPan model gx gy
+      | SelectToken(nodeID, lineIdx, wordIdx) ->
+        Update.selectCFGToken model nodeID lineIdx wordIdx
+      | SetHoveredEdge edgeID ->
+        Update.setHoveredCFGEdge model edgeID
+      | UpdateViewportSize(width, height) ->
+        Update.updateCFGViewportSize model width height
+      | ChangeKind kind ->
+        Update.changeCFGKind arbiter model kind
+      | ToggleMinimap(tabID, activate) ->
+        Update.toggleMinimap model tabID activate
     | HexdumpMsg msg ->
       Update.updateHexdump model msg
     | UpdateStatus msg ->

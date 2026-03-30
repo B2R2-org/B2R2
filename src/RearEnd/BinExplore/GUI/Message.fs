@@ -62,38 +62,8 @@ type Message =
   | UpdateFunctionFilter of string
   /// Message to switch the visible workspace panel.
   | SelectWorkspacePanel of WorkspacePanel
-  /// Message emitted when CFG loading has completed.
-  | LoadCFGCompleted of tabID: string * CFGKind * cfg: VisGraph
-  /// Message emitted when CFG loading failed.
-  | LoadCFGFailed of tabID: string * reason: string
-  /// Message to update CFG zoom factor, carrying the zoom delta and the mouse
-  /// position.
-  | SetCFGZoom of delta: float * x: float * y: float
-  /// Message to start panning the CFG view, carrying the initial mouse
-  /// position.
-  | StartCFGPan of x: float * y: float
-  /// Message to update the CFG pan offset, carrying the current mouse position
-  /// and its coordinate space.
-  | MoveCFGPan of x: float * y: float * space: CFGPanSpace
-  /// Message to end panning the CFG view.
-  | EndCFGPan
-  /// Message to jump the CFG view to a specific graph coordinate.
-  | JumpCFGPan of gx: float * gy: float
-  /// Message to select a disassembly token in the CFG, carrying node, line, and
-  /// word indices.
-  | SelectCFGToken of nodeID: int * lineIdx: int * wordIdx: int
-  /// Message to set the currently hovered edge in the CFG, carrying the edge
-  /// ID or None if edge is not hovered anymore.
-  | SetHoveredCFGEdge of edgeID: int option
-  /// Message to update the size of the CFG viewport, carrying the new width and
-  /// height.
-  | UpdateCFGViewportSize of width: float * height: float
-  /// Message to update the kind of CFG being displayed (e.g., Disassembly, IR,
-  /// SSA, Call).
-  | ChangeCFGKind of CFGKind
-  /// Message to toggle the minimap visibility in the CFG view, carrying the tab
-  /// ID and the desired activation state.
-  | ToggleMinimap of tabID: string * activate: bool
+  /// Message to route CFG-specific updates to the active CFG state.
+  | CFGMsg of CFGMessage
   /// Message to route hexdump-specific updates to the shared hexdump state.
   | HexdumpMsg of HexdumpMessage
   /// Message to update the status message in the status bar.
@@ -104,6 +74,41 @@ type Message =
 and CFGPanSpace =
   | ViewportSpace
   | MinimapSpace of minimapScale: float
+
+/// Represents messages that affect the active CFG view or CFG loading state.
+and CFGMessage =
+  /// Message emitted when CFG loading has completed.
+  | LoadCompleted of tabID: string * CFGKind * cfg: VisGraph
+  /// Message emitted when CFG loading failed.
+  | LoadFailed of tabID: string * reason: string
+  /// Message to update CFG zoom factor, carrying the zoom delta and the mouse
+  /// position.
+  | SetZoom of delta: float * x: float * y: float
+  /// Message to start panning the CFG view, carrying the initial mouse
+  /// position.
+  | StartPan of x: float * y: float
+  /// Message to update the CFG pan offset, carrying the current mouse position
+  /// and its coordinate space.
+  | MovePan of x: float * y: float * space: CFGPanSpace
+  /// Message to end panning the CFG view.
+  | EndPan
+  /// Message to jump the CFG view to a specific graph coordinate.
+  | JumpPan of gx: float * gy: float
+  /// Message to select a disassembly token in the CFG, carrying node, line, and
+  /// word indices.
+  | SelectToken of nodeID: int * lineIdx: int * wordIdx: int
+  /// Message to set the currently hovered edge in the CFG, carrying the edge
+  /// ID or None if edge is not hovered anymore.
+  | SetHoveredEdge of edgeID: int option
+  /// Message to update the size of the CFG viewport, carrying the new width and
+  /// height.
+  | UpdateViewportSize of width: float * height: float
+  /// Message to update the kind of CFG being displayed (e.g., Disassembly, IR,
+  /// SSA, Call).
+  | ChangeKind of CFGKind
+  /// Message to toggle the minimap visibility in the CFG view, carrying the tab
+  /// ID and the desired activation state.
+  | ToggleMinimap of tabID: string * activate: bool
 
 /// Represents messages that affect the shared hexdump document or one of its
 /// active views.

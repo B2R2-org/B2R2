@@ -235,7 +235,7 @@ module private SearchBox = begin
   let onSearchItemSelect dispatch localState target _evt =
     match target with
     | CFGPoint(cx, cy) ->
-      dispatch (JumpCFGPan(cx, cy))
+      dispatch (CFGMsg(JumpPan(cx, cy)))
     | HexRange(byteIndex, length) ->
       dispatch (HexdumpMsg(JumpToRange(byteIndex, length)))
     localState.IsOpen.Set false
@@ -410,7 +410,7 @@ module private CFGKindSelect = begin
 
   let onGraphKindChanged dispatch (args: obj) =
     match args with
-    | :? CFGKind as newKind -> dispatch (ChangeCFGKind newKind)
+    | :? CFGKind as newKind -> dispatch (CFGMsg(ChangeKind newKind))
     | _ -> ()
 
   let itemTemplate model =
@@ -469,9 +469,10 @@ module private MinimapToggle = begin
         ToggleButton.borderBrush model.Theme.Panel.Border
         ToggleButton.borderThickness 1.0
         ToggleButton.cornerRadius 4.0
-        ToggleButton.onChecked (fun _ -> dispatch (ToggleMinimap(tabKey, true)))
+        ToggleButton.onChecked (fun _ ->
+          dispatch (CFGMsg(ToggleMinimap(tabKey, true))))
         ToggleButton.onUnchecked (fun _ ->
-          dispatch (ToggleMinimap(tabKey, false)))
+          dispatch (CFGMsg(ToggleMinimap(tabKey, false))))
         ToggleButton.content (mkIcon (IconAssets.mapIcon model) 20.0) ]
       |> View.withKey $"minimap-toggle-{tabKey}"
 

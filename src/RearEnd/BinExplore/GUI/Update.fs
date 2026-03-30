@@ -449,11 +449,11 @@ let private loadCFGCmd arbiter model (fn: FunctionItem) cfgKind (tab: Tab) =
       try
         match getCFG arbiter model cfgKind fn.Address with
         | Ok cfg ->
-          dispatchOnUi dispatch (LoadCFGCompleted(tab.ID, cfgKind, cfg))
+          dispatchOnUi dispatch (CFGMsg(LoadCompleted(tab.ID, cfgKind, cfg)))
         | Error e ->
-          dispatchOnUi dispatch (LoadCFGFailed(tab.ID, e))
+          dispatchOnUi dispatch (CFGMsg(LoadFailed(tab.ID, e)))
       with ex ->
-        dispatchOnUi dispatch (LoadCFGFailed(tab.ID, ex.Message))
+        dispatchOnUi dispatch (CFGMsg(LoadFailed(tab.ID, ex.Message)))
     }))
 
 let private startLoadIfNeeded (arbiter: Arbiter<_, _>) tab model =

@@ -121,7 +121,7 @@ let private leftPanelView model dispatch =
 
 let private onContentSizeChanged model dispatch (e: SizeChangedEventArgs) =
   let w, h = e.NewSize.Width, e.NewSize.Height
-  dispatch (UpdateCFGViewportSize(w, h))
+  dispatch (CFGMsg(UpdateViewportSize(w, h)))
   match model.ActiveTab with
   | Some { Content = HexContent _ } ->
     dispatch (HexdumpMsg(UpdateViewport(w, h)))

@@ -140,18 +140,19 @@ let private onEdgePressed dispatch zoom panX panY p1 p2 e =
     let distToP1 = distSquared gx gy p1.X p1.Y
     let distToP2 = distSquared gx gy p2.X p2.Y
     let target = if distToP1 <= distToP2 then p2 else p1
-    dispatch (JumpCFGPan(target.X, target.Y))
+    dispatch (CFGMsg(JumpPan(target.X, target.Y)))
     e.Handled <- true
   else
     ()
 
 let private edgeHitAreaView dispatch (pts: Point[]) zoom panX panY p1 p2 eid =
+  let eid = Some eid
   Polyline.create [
     Polyline.points pts
     Polyline.stroke "#01FFFFFF"
     Polyline.strokeThickness (edgeHitAreaThickness zoom)
-    Control.onPointerEntered (fun _ -> dispatch (SetHoveredCFGEdge(Some eid)))
-    Control.onPointerExited (fun _ -> dispatch (SetHoveredCFGEdge None))
+    Control.onPointerEntered (fun _ -> dispatch (CFGMsg(SetHoveredEdge eid)))
+    Control.onPointerExited (fun _ -> dispatch (CFGMsg(SetHoveredEdge None)))
     Control.onPointerPressed (onEdgePressed dispatch zoom panX panY p1 p2)
   ] :> IView
 
@@ -229,7 +230,7 @@ let private tokenView model dispatch selected nodeID lineIdx wordIdx word =
       )
       Border.cornerRadius 2.0
       Control.onTapped (fun e ->
-        dispatch (SelectCFGToken(nodeID, lineIdx, wordIdx))
+        dispatch (CFGMsg(SelectToken(nodeID, lineIdx, wordIdx)))
         e.Handled <- true
       )
       Border.child (tokenTextView model word)
@@ -334,12 +335,12 @@ let private releasePointer e =
 let private onWheel dispatch (e: PointerWheelEventArgs) =
   let delta = if e.Delta.Y > 0.0 then ZoomDelta else -ZoomDelta
   let struct (x, y) = pointerXY e
-  dispatch (SetCFGZoom(delta, x, y))
+  dispatch (CFGMsg(SetZoom(delta, x, y)))
   e.Handled <- true
 
 let private onPressed dispatch (e: PointerPressedEventArgs) =
   let struct (x, y) = pointerXY e
-  dispatch (StartCFGPan(x, y))
+  dispatch (CFGMsg(StartPan(x, y)))
 
 let private onMoved model dispatch (e: PointerEventArgs) =
   let struct (x, y) = pointerXY e
@@ -351,11 +352,11 @@ let private onMoved model dispatch (e: PointerEventArgs) =
       dx * dx + dy * dy >= CFGPanStartThresholdSquared
     | _ -> false
   if shouldStartPan then capturePointer e else ()
-  dispatch (MoveCFGPan(x, y, ViewportSpace))
+  dispatch (CFGMsg(MovePan(x, y, ViewportSpace)))
   if shouldStartPan || model.CFGIsPanning then e.Handled <- true else ()
 
 let private onReleased model dispatch (e: PointerReleasedEventArgs) =
-  dispatch EndCFGPan
+  dispatch (CFGMsg EndPan)
   if model.CFGIsPanning then releasePointer e else ()
   if model.CFGIsPanning || model.CFGPressedPointer.IsSome then e.Handled <- true
   else ()
@@ -400,20 +401,20 @@ let private onMinimapClick dispatch minimapDim viewState e =
     let scale = minimapDim.Scale
     let gx = (p.X - minimapDim.OffsetX) / scale + viewState.GraphMinX
     let gy = (p.Y - minimapDim.OffsetY) / scale + viewState.GraphMinY
-    dispatch (JumpCFGPan(gx, gy))
+    dispatch (CFGMsg(JumpPan(gx, gy)))
     let struct (sx, sy) = pointerXY e
-    dispatch (StartCFGPan(sx, sy))
+    dispatch (CFGMsg(StartPan(sx, sy)))
     e.Pointer.Capture ctrl
     e.Handled <- true
   | _ -> ()
 
 let private onRectMoved dispatch minimapScale e =
   let struct (x, y) = pointerXY e
-  dispatch (MoveCFGPan(x, y, MinimapSpace minimapScale))
+  dispatch (CFGMsg(MovePan(x, y, MinimapSpace minimapScale)))
   e.Handled <- true
 
 let private onRectReleased dispatch (e: PointerReleasedEventArgs) =
-  dispatch EndCFGPan
+  dispatch (CFGMsg EndPan)
   match e.Source with
   | :? Control -> e.Pointer.Capture null
   | _ -> ()
@@ -478,7 +479,7 @@ let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
 
 let private onRectPressed dispatch e =
   let struct (x, y) = pointerXY e
-  dispatch (StartCFGPan(x, y))
+  dispatch (CFGMsg(StartPan(x, y)))
   match e.Source with
   | :? Control as ctrl -> e.Pointer.Capture ctrl
   | _ -> ()
