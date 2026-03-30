@@ -55,6 +55,15 @@ let private mkIcon (img: IImage) size =
 module private SearchBox = begin
 
   let [<Literal>] SearchItemHeight = 28.0
+  let [<Literal>] MaxSearchResults = 50
+
+  type SearchTarget =
+    | CFGPoint of gx: float * gy: float
+    | HexRange of byteIndex: int64 * length: int64
+
+  type SearchResult =
+    { Label: string
+      Target: SearchTarget }
 
   type SearchLocalState =
     { SearchText: IWritable<string>
@@ -78,21 +87,132 @@ module private SearchBox = begin
     asmLine
     |> Array.fold (fun acc word -> acc + word.AsmWordValue) ""
 
+  let appendResult acc item =
+    if List.length acc < MaxSearchResults then item :: acc
+    else acc
+
+  let normalizeHexDigits (input: string) =
+    input
+    |> Seq.filter (fun ch -> not (Char.IsWhiteSpace ch))
+    |> Array.ofSeq
+    |> String
+
+  let tryParseHexAddress (input: string) =
+    let trimmed = input.Trim()
+    let digits =
+      if trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase) then
+        trimmed.Substring 2
+      else
+        trimmed
+    if String.IsNullOrWhiteSpace digits then None
+    elif digits |> Seq.forall Uri.IsHexDigit then
+      match UInt64.TryParse(
+        digits,
+        Globalization.NumberStyles.HexNumber,
+        Globalization.CultureInfo.InvariantCulture
+      ) with
+      | true, addr -> Some addr
+      | _ -> None
+    else None
+
+  let tryParseHexBytes (input: string) =
+    let digits = normalizeHexDigits input
+    if String.IsNullOrWhiteSpace digits || digits.Length % 2 <> 0 then None
+    elif digits |> Seq.forall Uri.IsHexDigit then
+      let bytes =
+        [| for i in 0 .. 2 .. digits.Length - 2 do
+             Convert.ToByte(digits.Substring(i, 2), 16) |]
+      Some bytes
+    else None
+
+  let tryGetAsciiBytes (input: string) =
+    if input |> Seq.forall (fun ch -> int ch <= 0x7F) then
+      Some(input |> Seq.map byte |> Array.ofSeq)
+    else None
+
+  let findBytePattern (haystack: byte[]) (needle: byte[]) =
+    if needle.Length = 0 || haystack.Length < needle.Length then
+      [||]
+    else
+      [| for startIdx in 0 .. haystack.Length - needle.Length do
+           let mutable matched = true
+           let mutable i = 0
+           while matched && i < needle.Length do
+             if haystack[startIdx + i] <> needle[i] then matched <- false
+             i <- i + 1
+           if matched then int64 startIdx |]
+
+  let formatAddressLabel addr =
+    $"[addr] 0x{addr:X}"
+
+  let formatHexLabel addr (matched: byte[]) =
+    let hexText =
+      matched
+      |> Array.map (fun b -> $"{b:X2}")
+      |> String.concat " "
+    $"[hex] 0x{addr:X}: {hexText}"
+
+  let formatAsciiLabel addr (matched: string) =
+    $"[ascii] 0x{addr:X}: {matched}"
+
+  let searchHexdump doc (input: string) =
+    let input = input.Trim()
+    let mutable results = []
+    match tryParseHexAddress input with
+    | Some addr when addr >= doc.BaseAddress
+                     && addr < doc.BaseAddress + uint64 doc.Length ->
+      let byteIndex = int64 (addr - doc.BaseAddress)
+      results <-
+        appendResult results
+          { Label = formatAddressLabel addr
+            Target = HexRange(byteIndex, 1L) }
+    | _ -> ()
+    match tryParseHexBytes input with
+    | Some needle ->
+      for idx in findBytePattern doc.Bytes needle do
+        let addr = doc.BaseAddress + uint64 idx
+        let result =
+          { Label = formatHexLabel addr needle
+            Target = HexRange(idx, int64 needle.Length) }
+        results <- appendResult results result
+    | None -> ()
+    match tryGetAsciiBytes input with
+    | Some asciiBytes when asciiBytes.Length > 0 ->
+      for idx in findBytePattern doc.Bytes asciiBytes do
+        let addr = doc.BaseAddress + uint64 idx
+        let result =
+          { Label = formatAsciiLabel addr input
+            Target = HexRange(idx, int64 asciiBytes.Length) }
+        results <- appendResult results result
+    | _ -> ()
+    results |> List.rev |> List.truncate MaxSearchResults |> List.toArray
+
+  let searchCFGTab (g: VisGraph) (input: string) =
+    [| for v in g.Vertices do
+         let cx = v.VData.Coordinate.X + v.VData.Width / 2.0
+         let cy = v.VData.Coordinate.Y + v.VData.Height / 2.0
+         for line in (v.VData :> IVisualizable).Visualize() do
+           let s = asmLineToString line
+           if s.Contains(input, StringComparison.OrdinalIgnoreCase) then
+             { Label = s
+               Target = CFGPoint(cx, cy) }
+           else
+             () |]
+
+  let searchHexTab (model: Model) (input: string) =
+    match model.Hexdump.Document with
+    | Some doc -> searchHexdump doc input
+    | None -> [||]
+
   let search model (input: string) =
     if String.IsNullOrWhiteSpace input then
       [||]
     else
       match model.ActiveTab with
       | Some { Content = CFGContent(_, Loaded(g, _)) } ->
-        [| for v in g.Vertices do
-             let cx = v.VData.Coordinate.X + v.VData.Width / 2.0
-             let cy = v.VData.Coordinate.Y + v.VData.Height / 2.0
-             for line in (v.VData :> IVisualizable).Visualize() do
-               let s = asmLineToString line
-               if s.Contains(input, StringComparison.OrdinalIgnoreCase) then
-                 (s, cx, cy)
-               else
-                 () |]
+        searchCFGTab g input
+      | Some { Content = HexContent _ } ->
+        searchHexTab model input
       | _ ->
         [||]
 
@@ -112,8 +232,12 @@ module private SearchBox = begin
         ()
     | _ -> ()
 
-  let onSearchItemSelect dispatch localState cx cy _evt =
-    dispatch (JumpCFGPan(cx, cy))
+  let onSearchItemSelect dispatch localState target _evt =
+    match target with
+    | CFGPoint(cx, cy) ->
+      dispatch (JumpCFGPan(cx, cy))
+    | HexRange(byteIndex, length) ->
+      dispatch (HexdumpMsg(JumpToRange(byteIndex, length)))
     localState.IsOpen.Set false
     localState.SelectedIdx.Set -1
 
@@ -140,8 +264,8 @@ module private SearchBox = begin
       if newIdx >= 0 then scrollToItem localState newIdx else ()
       e.Handled <- true
     | Key.Enter when localState.SelectedIdx.Current >= 0 ->
-      let _, cx, cy = results[localState.SelectedIdx.Current]
-      onSearchItemSelect dispatch localState cx cy null
+      let result = results[localState.SelectedIdx.Current]
+      onSearchItemSelect dispatch localState result.Target null
       e.Handled <- true
     | _ -> ()
 
@@ -213,8 +337,8 @@ module private SearchBox = begin
     let query = localState.SearchText.Current
     results
     |> Array.toList
-    |> List.mapi (fun i (result: string, cx, cy) ->
-      let patch = OnChangeOf(cx, cy)
+    |> List.mapi (fun i result ->
+      let patch = OnChangeOf result.Target
       Button.create [
           Button.height SearchItemHeight
           Button.verticalContentAlignment VerticalAlignment.Center
@@ -222,8 +346,10 @@ module private SearchBox = begin
           Button.foreground model.Theme.Search.Foreground
           Button.borderThickness 0.0
           Button.horizontalAlignment HorizontalAlignment.Stretch
-          Button.content (searchResultItemView model query result)
-          Button.onClick (onSearchItemSelect dispatch localState cx cy, patch)
+          Button.content (searchResultItemView model query result.Label)
+          Button.onClick (
+            onSearchItemSelect dispatch localState result.Target, patch
+          )
       ] :> IView
     )
 

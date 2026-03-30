@@ -66,7 +66,13 @@ and HexViewState =
     ShowAscii: bool
     AddressDigits: int
     HoveredByte: int64 option
-    PendingScrollRestoreDelta: float option }
+    ScrollGuard: HexScrollGuard }
+
+/// Represents a one-shot scroll guard for programmatic hexdump jumps.
+and HexScrollGuard =
+  | NoScrollGuard
+  | IgnoreNextProgrammatic of deltaY: float
+  | IgnoreNextEcho of deltaY: float
 
 [<RequireQualifiedAccess>]
 module HexViewState =
@@ -81,7 +87,7 @@ module HexViewState =
       ShowAscii = true
       AddressDigits = numDigits
       HoveredByte = None
-      PendingScrollRestoreDelta = None }
+      ScrollGuard = NoScrollGuard }
 
 [<RequireQualifiedAccess>]
 module HexDocument =

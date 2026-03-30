@@ -40,6 +40,17 @@ let private dispatchOnUi dispatch msg =
 let private cmdOfSub sub: Elmish.Cmd<Message> =
   [ sub ]
 
+let private deferHexdumpScrollCmd offsetY: Elmish.Cmd<Message> =
+  cmdOfSub (fun dispatch ->
+    Dispatcher.UIThread.Post(
+      (fun () ->
+        Dispatcher.UIThread.Post(
+          (fun () -> dispatch (HexdumpMsg(SetScrollOffset offsetY))),
+          DispatcherPriority.Background
+        )),
+      DispatcherPriority.Background
+    ))
+
 let private loadBinaryAsync (arbiter: Arbiter<_, _>) (filePath: string) =
   async {
     return arbiter.AddBinary filePath
@@ -150,9 +161,11 @@ let private initializeHexdumpTabView model =
 
 let private prepareHexdumpViewForActivation viewState =
   { viewState with
-      PendingScrollRestoreDelta =
-        if viewState.ScrollOffsetY > 0.0 then Some viewState.ScrollOffsetY
-        else None }
+      ScrollGuard =
+        if viewState.ScrollOffsetY > 0.0 then
+          IgnoreNextProgrammatic viewState.ScrollOffsetY
+        else
+          NoScrollGuard }
 
 let openBinaryCompleted (arbiter: Arbiter<_, _>) model filePath =
   if model.LoadingBinaryPath = Some filePath then
@@ -286,8 +299,59 @@ let private resizeOpenedHexdumpTab model width height =
   else
     model
 
+let private jumpHexdump model byteIndex length =
+  match model.Hexdump.Document, model.Hexdump.View with
+  | Some doc, Some viewState when doc.Length > 0L ->
+    let byteIndex = max 0L (min (doc.Length - 1L) byteIndex)
+    let matchLength = max 1L length
+    let selectionEnd = min (doc.Length - 1L) (byteIndex + matchLength - 1L)
+    let highlightLength = selectionEnd - byteIndex + 1L
+    let rowHeight = max viewState.RowHeight 1.0
+    let bytesPerRow = max 1 viewState.BytesPerRow
+    let targetRow = byteIndex / int64 bytesPerRow
+    let targetOffsetY = float targetRow * rowHeight
+    let scrolledView =
+      { viewState with ScrollGuard = NoScrollGuard }
+      |> clampHexScrollState model.Hexdump
+    let targetOffsetY =
+      max 0.0
+        (min targetOffsetY
+          (let totalRows = computeHexTotalRows model.Hexdump scrolledView
+           let contentHeight = float totalRows * rowHeight
+           max 0.0 (contentHeight - scrolledView.ViewportHeight)))
+    let pendingDelta = targetOffsetY - viewState.ScrollOffsetY
+    let nextView =
+      { scrolledView with
+          ScrollGuard =
+            if abs pendingDelta > 0.5 then
+              IgnoreNextProgrammatic pendingDelta
+            else
+              NoScrollGuard }
+    let hexdump =
+      { model.Hexdump with
+          Caret = Some byteIndex
+          Selection = None
+          HighlightSpans =
+            [ { Start = byteIndex
+                Length = highlightLength
+                Foreground = Some model.Theme.Search.Foreground
+                Background = Some model.Theme.Search.SelectedBackground
+                Priority = 100 } ]
+          View = Some nextView }
+    let cmd =
+      if abs pendingDelta > 0.5 then
+        deferHexdumpScrollCmd targetOffsetY
+      else
+        Elmish.Cmd.none
+    { model with Hexdump = hexdump }, cmd
+  | _ ->
+    model, Elmish.Cmd.none
+
 let updateHexdump model msg =
   match msg with
+  | SetHighlightSpans spans ->
+    { model with Hexdump = { model.Hexdump with HighlightSpans = spans } },
+    Elmish.Cmd.none
   | UpdateViewport(width, height) when width > 0.0 && height > 0.0 ->
     recomputeHexViewLayout model (fun viewState ->
       { viewState with ViewportWidth = width; ViewportHeight = height })
@@ -303,6 +367,42 @@ let updateHexdump model msg =
       { nextView with
           ScrollRow = nextScrollRow
           ScrollOffsetY = float nextScrollRow * nextView.RowHeight })
+  | JumpToRange(byteIndex, length) ->
+    jumpHexdump model byteIndex length
+  | HandleScrollChanged(deltaY) ->
+    let currentGuard =
+      model.Hexdump.View
+      |> Option.map (fun v -> v.ScrollGuard)
+      |> Option.defaultValue NoScrollGuard
+    match currentGuard with
+    | IgnoreNextProgrammatic expected when abs (deltaY - expected) <= 0.5 ->
+      updateHexViewState model (fun viewState ->
+        { viewState with ScrollGuard = IgnoreNextEcho deltaY })
+    | IgnoreNextProgrammatic _ when abs deltaY <= 0.0 ->
+      model, Elmish.Cmd.none
+    | IgnoreNextProgrammatic _ ->
+      updateHexViewState model (fun viewState ->
+        let nextOffsetY = viewState.ScrollOffsetY + deltaY
+        let rowHeight = max viewState.RowHeight 1.0
+        let scrollRow = int64 (floor (nextOffsetY / rowHeight))
+        { viewState with
+            ScrollOffsetY = nextOffsetY
+            ScrollRow = scrollRow
+            ScrollGuard = NoScrollGuard })
+    | IgnoreNextEcho expected when abs (deltaY - expected) <= 0.5 ->
+      updateHexViewState model (fun viewState ->
+        { viewState with ScrollGuard = NoScrollGuard })
+    | _ when abs deltaY <= 0.0 ->
+      model, Elmish.Cmd.none
+    | _ ->
+      updateHexViewState model (fun viewState ->
+        let nextOffsetY = viewState.ScrollOffsetY + deltaY
+        let rowHeight = max viewState.RowHeight 1.0
+        let scrollRow = int64 (floor (nextOffsetY / rowHeight))
+        { viewState with
+            ScrollOffsetY = nextOffsetY
+            ScrollRow = scrollRow
+            ScrollGuard = NoScrollGuard })
   | SetScrollOffset(offsetY) ->
     updateHexViewState model (fun viewState ->
       let rowHeight = max viewState.RowHeight 1.0
@@ -310,26 +410,14 @@ let updateHexdump model msg =
       { viewState with
           ScrollOffsetY = offsetY
           ScrollRow = scrollRow
-          PendingScrollRestoreDelta = None })
-  | ScrollOffsetBy(deltaY) ->
-    updateHexViewState model (fun viewState ->
-      let nextOffsetY = viewState.ScrollOffsetY + deltaY
-      let rowHeight = max viewState.RowHeight 1.0
-      let scrollRow = int64 (floor (nextOffsetY / rowHeight))
-      { viewState with
-          ScrollOffsetY = nextOffsetY
-          ScrollRow = scrollRow
-          PendingScrollRestoreDelta = None })
-  | ClearPendingScrollRestore ->
-    updateHexViewState model (fun viewState ->
-      { viewState with PendingScrollRestoreDelta = None })
+          ScrollGuard = viewState.ScrollGuard })
   | SetScrollRow(row) ->
     updateHexViewState model (fun viewState ->
       let rowHeight = max viewState.RowHeight 1.0
       { viewState with
           ScrollRow = row
           ScrollOffsetY = float row * rowHeight
-          PendingScrollRestoreDelta = None })
+          ScrollGuard = NoScrollGuard })
   | ScrollRows(delta) ->
     updateHexViewState model (fun viewState ->
       let rowHeight = max viewState.RowHeight 1.0
@@ -337,7 +425,7 @@ let updateHexdump model msg =
       { viewState with
           ScrollRow = scrollRow
           ScrollOffsetY = float scrollRow * rowHeight
-          PendingScrollRestoreDelta = None })
+          ScrollGuard = NoScrollGuard })
   | _ ->
     model, Elmish.Cmd.none
 
