@@ -26,10 +26,14 @@
 module B2R2.RearEnd.BinExplore.GUI.Hexdump
 
 open System
+open System.Collections.Generic
 open Avalonia
 open Avalonia.Controls
+open Avalonia.Controls.Documents
+open Avalonia.FuncUI.Builder
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
+open Avalonia.Media
 
 let [<Literal>] private OverscanRows = 12
 
@@ -37,6 +41,64 @@ type private RowHighlightSegment =
   { StartOffset: int
     Length: int
     Background: string }
+
+type private TextHighlightRange =
+  { Start: int
+    Length: int
+    Brush: IBrush }
+
+type private HexdumpRowTextBlock() =
+  inherit TextBlock()
+
+  static let highlightRangesProperty =
+    AvaloniaProperty.Register<HexdumpRowTextBlock, TextHighlightRange list>(
+      nameof Unchecked.defaultof<HexdumpRowTextBlock>.HighlightRanges, []
+    )
+
+  static member HighlightRangesProperty = highlightRangesProperty
+
+  static member Highlight value =
+    AttrBuilder<'t>.CreateProperty<TextHighlightRange list>(
+      HexdumpRowTextBlock.HighlightRangesProperty, value, ValueNone
+    )
+
+  member this.HighlightRanges
+    with get() = this.GetValue highlightRangesProperty
+    and set value = this.SetValue(highlightRangesProperty, value) |> ignore
+
+  static member FillHighlightRect(context, origin: Point, brush, rect: Rect) =
+    if rect.Width > 0.0 && rect.Height > 0.0 then
+      let rect =
+        Rect(
+          origin.X + rect.X,
+          origin.Y + rect.Y,
+          rect.Width,
+          rect.Height
+        )
+      (context: DrawingContext).FillRectangle(brush, rect)
+    else
+      ()
+
+  override this.OnPropertyChanged change =
+    base.OnPropertyChanged change
+    if change.Property = highlightRangesProperty then this.InvalidateVisual()
+    else ()
+
+  override this.RenderTextLayout(context: DrawingContext, origin: Point) =
+    let textLayout = this.TextLayout
+    for range in this.HighlightRanges do
+      let brush = range.Brush
+      if range.Length > 0 then
+        for rect in textLayout.HitTestTextRange(range.Start, range.Length) do
+          HexdumpRowTextBlock.FillHighlightRect(context, origin, brush, rect)
+      else
+        ()
+    base.RenderTextLayout(context, origin)
+
+[<RequireQualifiedAccess>]
+module private HexdumpRowTextBlock =
+  let create (attrs: IAttr<HexdumpRowTextBlock> list) =
+    View.createGeneric<HexdumpRowTextBlock> attrs
 
 let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
   let deltaY = args.OffsetDelta.Y
@@ -72,9 +134,59 @@ let private rowBackground model rowStart rowLength selection =
   | None ->
     model.Theme.Common.Transparent
 
-let private hexHighlightWidth charWidth count =
-  if count <= 0 then 0.0
-  else charWidth * float (count * 3 - 1)
+let private gapText charWidth gap =
+  let spaces = max 1 (int (round (gap / max charWidth 1.0)))
+  String.replicate spaces " "
+
+let private rowTextRuns model addr addrGapText hexText asciiGapText asciiText =
+  [ Run.create [
+      Run.text addr
+      Run.foreground model.Theme.Text.Address
+    ] :> IView
+    Run.create [
+      Run.text addrGapText
+    ] :> IView
+    Run.create [
+      Run.text hexText
+      Run.foreground model.Theme.Text.Primary
+    ] :> IView
+    Run.create [
+      Run.text asciiGapText
+    ] :> IView
+    Run.create [
+      Run.text asciiText
+      Run.foreground model.Theme.Text.Secondary
+    ] :> IView ]
+
+let private hexTextRangeLength count =
+  if count <= 0 then 0
+  else count * 3 - 1
+
+let private brushOfColor =
+  let cache = Dictionary<string, IBrush>()
+  fun color ->
+    match cache.TryGetValue color with
+    | true, brush -> brush
+    | _ ->
+      let brush = Brush.Parse color
+      cache[color] <- brush
+      brush
+
+let private rowHighlightRanges hexStart asciiStart
+    (segments: RowHighlightSegment list) =
+  segments
+  |> List.collect (fun segment ->
+    let hexLength = hexTextRangeLength segment.Length
+    let brush = brushOfColor segment.Background
+    let hexRange: TextHighlightRange =
+      { Start = hexStart + segment.StartOffset * 3
+        Length = hexLength
+        Brush = brush }
+    let asciiRange: TextHighlightRange =
+      { Start = asciiStart + segment.StartOffset
+        Length = segment.Length
+        Brush = brush }
+    [ hexRange; asciiRange ])
 
 let private sliceHighlights model bytesPerRow startRow endRow state =
   let visibleRowCount = max 0 (endRow - startRow)
@@ -107,30 +219,6 @@ let private sliceHighlights model bytesPerRow startRow endRow state =
   rowBuckets
   |> Array.map (fun bucket -> bucket |> Seq.toList)
 
-let private rowHighlightBoxes charWidth rowHeight hexLeft asciiLeft
-    (segments: RowHighlightSegment list) showAscii =
-  segments
-  |> List.collect (fun segment ->
-    let hexBox =
-      Border.create [
-        Canvas.left (hexLeft + charWidth * float (segment.StartOffset * 3))
-        Canvas.top 0.0
-        Border.width (hexHighlightWidth charWidth segment.Length)
-        Border.height rowHeight
-        Border.background segment.Background
-      ] :> IView
-    let asciiBoxes =
-      if showAscii then
-        [ Border.create [
-            Canvas.left (asciiLeft + charWidth * float segment.StartOffset)
-            Canvas.top 0.0
-            Border.width (charWidth * float segment.Length)
-            Border.height rowHeight
-            Border.background segment.Background
-          ] :> IView ]
-      else []
-    hexBox :: asciiBoxes)
-
 let private rowView model state doc segments bytesPerRow rowIdx rowBytes =
   let offset = rowIdx * bytesPerRow
   let rowStart = int64 offset
@@ -147,9 +235,14 @@ let private rowView model state doc segments bytesPerRow rowIdx rowBytes =
   let address = formatAddress numDigits doc.BaseAddress offset
   let hexText = formatHexBytes rowBytes
   let asciiText = formatAscii rowBytes
-  let highlightBoxes =
-    rowHighlightBoxes charWidth rowHeight hexLeft asciiLeft
-      segments state.View.ShowAscii
+  let addrGapText = gapText charWidth addressGap
+  let asciiGapText = gapText charWidth asciiGap
+  let lineWidth = asciiLeft + asciiWidth
+  let hexStart = address.Length + addrGapText.Length
+  let asciiStart = hexStart + hexText.Length + asciiGapText.Length
+  let textRuns =
+    rowTextRuns model address addrGapText hexText asciiGapText asciiText
+  let highlightRanges = rowHighlightRanges hexStart asciiStart segments
   Border.create [
     Canvas.left 0.0
     Canvas.top (float rowIdx * rowHeight)
@@ -162,36 +255,16 @@ let private rowView model state doc segments bytesPerRow rowIdx rowBytes =
       Canvas.create [
         Canvas.height rowHeight
         Canvas.children [
-          yield! highlightBoxes
-          TextBlock.create [
+          HexdumpRowTextBlock.create [
             Canvas.left 0.0
             Canvas.top 0.0
-            TextBlock.width addressWidth
-            TextBlock.text address
-            TextBlock.foreground model.Theme.Text.Address
+            TextBlock.width lineWidth
             TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
             TextBlock.fontSize model.Theme.Font.Monospace.FontSize
+            TextBlock.inlines textRuns
+            HexdumpRowTextBlock.Highlight highlightRanges
+            TextBlock.isHitTestVisible false
           ]
-          TextBlock.create [
-            Canvas.left hexLeft
-            Canvas.top 0.0
-            TextBlock.width hexWidth
-            TextBlock.text hexText
-            TextBlock.foreground model.Theme.Text.Primary
-            TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-            TextBlock.fontSize model.Theme.Font.Monospace.FontSize
-          ]
-          if state.View.ShowAscii then
-            TextBlock.create [
-              Canvas.left asciiLeft
-              Canvas.top 0.0
-              TextBlock.width asciiWidth
-              TextBlock.text asciiText
-              TextBlock.foreground model.Theme.Text.Secondary
-              TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-              TextBlock.fontSize model.Theme.Font.Monospace.FontSize
-            ]
-          else ()
         ]
       ]
     )

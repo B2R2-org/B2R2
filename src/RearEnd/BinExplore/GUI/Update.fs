@@ -113,10 +113,8 @@ let private computeHexBytesPerRow viewState =
   let charWidth = max viewState.CharWidth 1.0
   let viewportChars = max 0.0 ((viewState.ViewportWidth - 16.0) / charWidth)
   let addressChars = float (viewState.AddressDigits + 3)
-  let asciiGapChars =
-    if viewState.ShowAscii then 2.0 else 0.0
-  let perByteChars =
-    if viewState.ShowAscii then 4.0 else 3.0
+  let asciiGapChars = 2.0
+  let perByteChars = 4.0
   let bytes =
     floor ((viewportChars - addressChars - asciiGapChars) / perByteChars)
     |> int

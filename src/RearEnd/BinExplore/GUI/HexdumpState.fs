@@ -63,7 +63,6 @@ and HexViewState =
     CharWidth: float
     RowHeight: float
     BytesPerRow: int
-    ShowAscii: bool
     AddressDigits: int
     HoveredByte: int64 option
     ScrollGuard: HexScrollGuard }
@@ -84,7 +83,6 @@ module HexViewState =
       CharWidth = 0.0
       RowHeight = 0.0
       BytesPerRow = 16
-      ShowAscii = true
       AddressDigits = numDigits
       HoveredByte = None
       ScrollGuard = NoScrollGuard }
