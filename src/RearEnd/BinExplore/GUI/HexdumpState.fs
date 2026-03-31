@@ -64,6 +64,7 @@ and HexViewState =
     RowHeight: float
     BytesPerRow: int
     AddressDigits: int
+    IsSelecting: bool
     HoveredByte: int64 option
     ScrollGuard: HexScrollGuard }
 
@@ -84,6 +85,7 @@ module HexViewState =
       RowHeight = 0.0
       BytesPerRow = 16
       AddressDigits = numDigits
+      IsSelecting = false
       HoveredByte = None
       ScrollGuard = NoScrollGuard }
 

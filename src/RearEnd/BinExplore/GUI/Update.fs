@@ -386,6 +386,10 @@ let private jumpHexdump model byteIndex length =
   | _ ->
     model, Elmish.Cmd.none
 
+let private clampHexByteIndex hexdump byteIndex =
+  if hexdump.Document.Length <= 0L then None
+  else Some(max 0L (min (hexdump.Document.Length - 1L) byteIndex))
+
 let updateHexdump model msg =
   match msg with
   | SetHighlightSpans spans ->
@@ -481,6 +485,56 @@ let updateHexdump model msg =
             ScrollOffsetY = float scrollRow * rowHeight
             ScrollGuard = NoScrollGuard }
       { hexdump with View = view })
+  | SetCaret byteIndex ->
+    updateHexdumpState model (fun hexdump ->
+      let caret = byteIndex |> Option.bind (clampHexByteIndex hexdump)
+      { hexdump with Caret = caret })
+  | SetSelection selection ->
+    updateHexdumpState model (fun hexdump ->
+      let selection =
+        selection
+        |> Option.bind (fun sel ->
+          match clampHexByteIndex hexdump sel.Anchor,
+                clampHexByteIndex hexdump sel.Caret with
+          | Some anchor, Some caret -> Some { Anchor = anchor; Caret = caret }
+          | _ -> None)
+      { hexdump with Selection = selection })
+  | StartSelection byteIndex ->
+    updateHexdumpState model (fun hexdump ->
+      match clampHexByteIndex hexdump byteIndex with
+      | Some byteIndex ->
+        { hexdump with
+            Caret = Some byteIndex
+            Selection = Some { Anchor = byteIndex; Caret = byteIndex }
+            View = { hexdump.View with IsSelecting = true } }
+      | None ->
+        hexdump)
+  | UpdateSelection byteIndex ->
+    updateHexdumpState model (fun hexdump ->
+      match hexdump.View.IsSelecting,
+            clampHexByteIndex hexdump byteIndex,
+            hexdump.Selection with
+      | true, Some byteIndex, Some selection ->
+        { hexdump with
+            Caret = Some byteIndex
+            Selection = Some { selection with Caret = byteIndex } }
+      | true, Some byteIndex, None ->
+        { hexdump with
+            Caret = Some byteIndex
+            Selection = Some { Anchor = byteIndex; Caret = byteIndex } }
+      | _ ->
+        hexdump)
+  | EndSelection ->
+    updateHexdumpState model (fun hexdump ->
+      { hexdump with View = { hexdump.View with IsSelecting = false } })
+  | SetHoveredByte byteIndex ->
+    updateHexViewState model (fun viewState ->
+      let hovered =
+        match model.ActiveTab with
+        | Some { Content = HexContent hexdump } ->
+          byteIndex |> Option.bind (clampHexByteIndex hexdump)
+        | _ -> None
+      { viewState with HoveredByte = hovered })
   | _ ->
     model, Elmish.Cmd.none
 
