@@ -178,16 +178,49 @@ type private HexdumpInteractionCanvas() as this =
     let row = clampIfNeeded shouldClamp 0L maxRow row
     if row < 0L || row > maxRow then None else Some row
 
-  let tryGetHexColumn shouldClamp (layout: HexdumpLayout) x =
-    let localX = x - layout.PaddingX
-    let hexX = localX - layout.HexLeft
-    let hexX = clampIfNeeded shouldClamp 0.0 layout.HexWidth hexX
-    if hexX < 0.0 || hexX > layout.HexWidth then None
+  let tryGetColumn shouldClamp paddingX left width cellWidth maxCol x =
+    let localX = x - paddingX
+    let columnX = localX - left
+    let columnX = clampIfNeeded shouldClamp 0.0 width columnX
+    if columnX < 0.0 || columnX > width then
+      None
     else
-      let maxCol = int64 (layout.BytesPerRow - 1)
-      let col = int64 (floor (hexX / layout.HexCellWidth))
+      let col = int64 (floor (columnX / cellWidth))
       let col = clampIfNeeded shouldClamp 0L maxCol col
       if col < 0L || col > maxCol then None else Some col
+
+  let tryGetHexColumn shouldClamp (layout: HexdumpLayout) x =
+    let maxCol = int64 (layout.BytesPerRow - 1)
+    let paddingX, left, width = layout.PaddingX, layout.HexLeft, layout.HexWidth
+    tryGetColumn shouldClamp paddingX left width layout.HexCellWidth maxCol x
+
+  let tryGetAsciiColumn shouldClamp (layout: HexdumpLayout) x =
+    let maxCol = int64 (layout.BytesPerRow - 1)
+    let paddingX = layout.PaddingX
+    let left, width = layout.AsciiLeft, layout.AsciiWidth
+    tryGetColumn shouldClamp paddingX left width layout.CharWidth maxCol x
+
+  let tryGetColumnAtPoint shouldClamp (layout: HexdumpLayout) x =
+    let localX = x - layout.PaddingX
+    let hexRight = layout.HexLeft + layout.HexWidth
+    let asciiRight = layout.AsciiLeft + layout.AsciiWidth
+    let gapMid = hexRight + ((layout.AsciiLeft - hexRight) / 2.0)
+    if localX < layout.HexLeft then
+      if shouldClamp then tryGetHexColumn true layout x else None
+    elif localX <= hexRight then
+      tryGetHexColumn shouldClamp layout x
+    elif localX < layout.AsciiLeft then
+      if shouldClamp then
+        if localX < gapMid then tryGetHexColumn true layout x
+        else tryGetAsciiColumn true layout x
+      else
+        None
+    elif localX <= asciiRight then
+      tryGetAsciiColumn shouldClamp layout x
+    elif shouldClamp then
+      tryGetAsciiColumn true layout x
+    else
+      None
 
   let tryGetByteIndex docLength bytesPerRow shouldClamp row col =
     let byteIndex = row * int64 bytesPerRow + col
@@ -208,7 +241,7 @@ type private HexdumpInteractionCanvas() as this =
       | None ->
         None
       | Some row ->
-        match tryGetHexColumn shouldClamp layout x with
+        match tryGetColumnAtPoint shouldClamp layout x with
         | None ->
           None
         | Some col ->
