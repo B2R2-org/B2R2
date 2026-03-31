@@ -32,6 +32,8 @@ let [<Literal>] private StubMargin = 50.0
 let [<Literal>] private EdgeOffset = 4.0
 let [<Literal>] private XTolerance = 4.0
 
+let private portOffset = max EdgeOffset 4.0
+
 type private Layout = IVertex<VisBBlock>[][]
 type private EdgeInfo = IVertex<VisBBlock> * IVertex<VisBBlock> * VisEdge
 type private PortMap = Dictionary<VisEdge, float>
@@ -181,7 +183,7 @@ let private cleanupGraph g vLayout backEdgeList dummyMap =
   layoutWithoutDummy, edges
 
 let private centreHalfWidth count =
-  if count = 0 then 0.0 else float ((count + 1) / 2) * EdgeOffset
+  if count = 0 then 0.0 else float ((count + 1) / 2) * portOffset
 
 let private partitionByX cx edges =
   let lefts, midRights =
@@ -194,13 +196,13 @@ let private partitionByX cx edges =
 let private assignCentrePorts cx edges =
   let count = List.length edges
   edges |> List.mapi (fun i (_, edge) ->
-    edge, cx + (float i - float (count - 1) / 2.0) * EdgeOffset)
+    edge, cx + (float i - float (count - 1) / 2.0) * portOffset)
 
 let private assignSidePorts cx centreCount goRight edges =
   let sideCount = List.length edges
   let offset = centreHalfWidth centreCount
   edges |> List.mapi (fun i (_, edge) ->
-    let distance = offset + float (sideCount - i) * EdgeOffset
+    let distance = offset + float (sideCount - i) * portOffset
     let portX = if goRight then cx + distance else cx - distance
     edge, portX)
 
@@ -278,7 +280,7 @@ let private assignBackPorts getEdges getFwdEdges defaultGoRight getSortKey
       sideEdges
       |> List.sortBy getSortKey
       |> List.mapi (fun i (_, edge) ->
-        let offset = float (i + 1) * EdgeOffset
+        let offset = float (i + 1) * portOffset
         edge, baseX + (if goRight then offset else -offset))
     buildSidePorts false fwdBaseLeft leftEdges
     @ buildSidePorts true fwdBaseRight rightEdges
@@ -351,7 +353,7 @@ let private routeSelfCycles v layer edges outMap inMap backOutMap backInMap =
       let backBase = outermostPort goRight cx backInXs
       if goRight then max fwdBase backBase else min fwdBase backBase
     cycles |> List.iteri (fun i edge ->
-      let step = float (i + 1) * EdgeOffset
+      let step = float (i + 1) * portOffset
       let outX = outermostOut + if goRight then step else -step
       let inX = outermostIn + if goRight then step else -step
       edge.Points <-
