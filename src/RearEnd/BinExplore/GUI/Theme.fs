@@ -101,7 +101,9 @@ and SearchTheme =
     /// Background color of the currently selected/highlighted result item.
     SelectedBackground: string
     /// Foreground color of the result text.
-    Foreground: string }
+    Foreground: string
+    /// Foreground color of the clear-search button.
+    ClearForeground: string }
 
 [<RequireQualifiedAccess>]
 module Theme =
@@ -152,7 +154,8 @@ module Theme =
       Search =
         { Background = "#080C12"
           SelectedBackground = "#0E639C"
-          Foreground = "#FFFFFF" } }
+          Foreground = "#FFFFFF"
+          ClearForeground = "#E05A5A" } }
 
   let lightTheme =
     { Name = "Light"
@@ -194,7 +197,8 @@ module Theme =
       Search =
         { Background = "#FFFFFF"
           SelectedBackground = "#BEE3FF"
-          Foreground = "#111111" } }
+          Foreground = "#111111"
+          ClearForeground = "#C42B1C" } }
 
   let ofBuiltin = function
     | Dark -> darkTheme

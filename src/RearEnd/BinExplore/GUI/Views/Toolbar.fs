@@ -244,13 +244,23 @@ module private SearchBox = begin
     localState.SelectedIdx.Set -1
     localState.IsOpen.Set(not (String.IsNullOrWhiteSpace txt))
 
-  let onSearchKeyDown dispatch localState (results: _[]) (e: KeyEventArgs) =
+  let clearSearch model dispatch localState =
+    localState.SearchText.Set ""
+    localState.IsOpen.Set false
+    localState.SelectedIdx.Set -1
+    match model.ActiveTab with
+    | Some { Content = HexContent _ } ->
+      dispatch (HexdumpMsg(SetHighlightSpans []))
+      dispatch (HexdumpMsg(SetSelection None))
+      dispatch (HexdumpMsg(SetCaret None))
+    | _ ->
+      ()
+
+  let onSearchKeyDown model dispatch localState (results: _[]) e =
     let count = Array.length results
-    match e.Key with
+    match (e: KeyEventArgs).Key with
     | Key.Escape ->
-      localState.SearchText.Set ""
-      localState.IsOpen.Set false
-      localState.SelectedIdx.Set -1
+      clearSearch model dispatch localState
     | Key.Down when count > 0 ->
       let newIdx = min (localState.SelectedIdx.Current + 1) (count - 1)
       localState.SelectedIdx.Set newIdx
@@ -268,9 +278,12 @@ module private SearchBox = begin
     | _ -> ()
 
   let searchInputView model dispatch localState (results: _[]) =
+    let hasSearchText =
+      not (String.IsNullOrEmpty localState.SearchText.Current)
     TextBox.create [
       TextBox.width 240.0
       TextBox.height ToolbarHeight
+      TextBox.text localState.SearchText.Current
       TextBox.fontSize 12.0
       TextBox.watermark "Search..."
       TextBox.verticalContentAlignment VerticalAlignment.Center
@@ -279,12 +292,40 @@ module private SearchBox = begin
       TextBox.borderBrush model.Theme.Panel.Border
       TextBox.borderThickness (1.0, 1.0, 1.0, 1.0)
       TextBox.cornerRadius (CornerRadius(4.0, 0.0, 0.0, 4.0))
-      TextBox.padding (6.0, 0.0, 28.0, 0.0)
+      TextBox.padding (
+        if hasSearchText then Thickness(6.0, 0.0, 54.0, 0.0)
+        else Thickness(6.0, 0.0, 28.0, 0.0)
+      )
       TextBox.onTextChanged (onSearchTextChanged localState)
       TextBox.onKeyDown (
-        onSearchKeyDown dispatch localState results, OnChangeOf results
+        onSearchKeyDown model dispatch localState results, OnChangeOf results
       )
     ] :> IView
+
+  let searchClearView model dispatch localState =
+    Button.create [
+      Button.width 26.0
+      Button.height (ToolbarHeight - 4.0)
+      Button.focusable false
+      Button.background model.Theme.Common.Transparent
+      Button.borderBrush model.Theme.Common.Transparent
+      Button.borderThickness 0.0
+      Button.padding 0.0
+      Control.onPointerPressed (fun args ->
+        clearSearch model dispatch localState
+        args.Handled <- true)
+      Button.content (
+        TextBlock.create [
+          TextBlock.text "x"
+          TextBlock.foreground model.Theme.Search.ClearForeground
+          TextBlock.fontSize 14.0
+          TextBlock.fontWeight FontWeight.Bold
+          TextBlock.verticalAlignment VerticalAlignment.Center
+          TextBlock.horizontalAlignment HorizontalAlignment.Center
+        ]
+      )
+      Button.onClick (fun _ -> clearSearch model dispatch localState)
+    ]
 
   let searchIconView model =
     Button.create [
@@ -299,6 +340,19 @@ module private SearchBox = begin
       Button.padding (4.0, 0.0)
       Button.margin (0.0, 0.0, 2.0, 0.0)
       Button.content (mkIcon (IconAssets.searchIcon model) 14.0)
+    ]
+
+  let searchAdornmentView model dispatch localState =
+    let hasSearchText =
+      not (String.IsNullOrEmpty localState.SearchText.Current)
+    StackPanel.create [
+      StackPanel.orientation Orientation.Horizontal
+      StackPanel.horizontalAlignment HorizontalAlignment.Right
+      StackPanel.children [
+        if hasSearchText then
+          yield searchClearView model dispatch localState :> IView
+        yield searchIconView model :> IView
+      ]
     ]
 
   let searchResultColor model isMatch =
@@ -370,7 +424,7 @@ module private SearchBox = begin
       Popup.placement PlacementMode.Bottom
       Popup.verticalOffset 4.0
       Popup.width 240.0
-      Popup.isLightDismissEnabled true
+      Popup.isLightDismissEnabled false
       Popup.onClosed (fun _ -> localState.IsOpen.Set false)
       Popup.child (searchResultListView model dispatch localState results)
     ]
@@ -390,7 +444,7 @@ module private SearchBox = begin
         Grid.height ToolbarHeight
         Grid.children [
           searchInputView model dispatch localState results
-          searchIconView model
+          searchAdornmentView model dispatch localState
           searchResultView model dispatch localState results
         ]
       ]
