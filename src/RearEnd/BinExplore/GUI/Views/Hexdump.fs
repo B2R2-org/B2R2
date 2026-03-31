@@ -29,6 +29,7 @@ open System
 open System.Collections.Generic
 open Avalonia
 open Avalonia.Controls
+open Avalonia.Controls.Primitives
 open Avalonia.Controls.Documents
 open Avalonia.FuncUI.Builder
 open Avalonia.FuncUI.DSL
@@ -88,11 +89,74 @@ let private computeLayout (viewState: HexViewState) =
     AsciiWidth = asciiWidth
     LineWidth = asciiLeft + asciiWidth }
 
-type private HexdumpInteractionCanvas() =
+let private byteToAscii b =
+  if b >= 0x20uy && b <= 0x7Euy then char b
+  else '.'
+
+let private formatHexBytes bytes =
+  bytes |> Array.map (fun b -> $"{b:X2}") |> String.concat " "
+
+let private formatHexString bytes =
+  bytes |> Array.map (fun b -> $"{b:X2}") |> String.concat ""
+
+let private formatEscapedHexString bytes =
+  bytes |> Array.map (fun b -> $"\\x{b:X2}") |> String.concat ""
+
+let private formatAsciiString bytes =
+  bytes |> Array.map byteToAscii |> String
+
+let private tryGetHostTopLevel (source: obj) =
+  match source with
+  | :? Control as control ->
+    match TopLevel.GetTopLevel control with
+    | :? PopupRoot as popup when not (isNull popup.ParentTopLevel) ->
+      popup.ParentTopLevel
+    | topLevel ->
+      topLevel
+  | _ ->
+    null
+
+let private tryGetSelectionBytes state =
+  match state.Selection with
+  | Some selection ->
+    let startByte = min selection.Anchor selection.Caret
+    let endByte = max selection.Anchor selection.Caret
+    let offset = int startByte
+    let count = int (endByte - startByte + 1L)
+    let docLength = state.Document.Bytes.Length
+    if count > 0 && offset >= 0 && offset + count <= docLength then
+      Some(Array.sub state.Document.Bytes offset count)
+    else
+      None
+  | None ->
+    None
+
+let private copySelection formatBytes dispatch source state =
+  match tryGetSelectionBytes state with
+  | Some bytes ->
+    let topLevel = tryGetHostTopLevel source
+    if isNull topLevel then
+      dispatch (UpdateStatus "Clipboard is unavailable.")
+    else
+      Async.StartImmediate(async {
+        try
+          let text = formatBytes bytes
+          do! topLevel.Clipboard.SetTextAsync text |> Async.AwaitTask
+        with ex ->
+          dispatch (UpdateStatus $"Failed to copy bytes: {ex.Message}")
+      })
+  | None ->
+    ()
+
+type private HexdumpInteractionCanvas() as this =
   inherit Canvas()
 
   let mutable pressedByte = None
   let mutable pendingSelectionToggle = None
+  let copyHexMenuItem = MenuItem(Header = "Copy Hex")
+  let copyEscapedHexMenuItem = MenuItem(Header = "Copy Escaped Hex")
+  let copyAsciiMenuItem = MenuItem(Header = "Copy ASCII")
+  let contextMenu = ContextMenu()
 
   let clampIfNeeded shouldClamp minValue maxValue value =
     if shouldClamp then max minValue (min maxValue value)
@@ -137,16 +201,46 @@ type private HexdumpInteractionCanvas() =
       None
     else
       let layout = computeLayout state.View
-      let totalRows =
-        int ((doc.Length + int64 layout.BytesPerRow - 1L) / int64 layout.BytesPerRow)
+      let rowWidth = int64 layout.BytesPerRow
+      let totalRows = int ((doc.Length + rowWidth - 1L) / rowWidth)
       let maxRow = int64 totalRows - 1L
       match tryGetRow shouldClamp maxRow layout.RowHeight y with
       | None ->
         None
       | Some row ->
         match tryGetHexColumn shouldClamp layout x with
-        | None -> None
-        | Some col -> tryGetByteIndex doc.Length layout.BytesPerRow shouldClamp row col
+        | None ->
+          None
+        | Some col ->
+          tryGetByteIndex doc.Length layout.BytesPerRow shouldClamp row col
+
+  let openContextMenu () =
+    match this.CurrentState with
+    | Some state ->
+      let isEnabled = state.Selection.IsSome
+      copyHexMenuItem.IsEnabled <- isEnabled
+      copyEscapedHexMenuItem.IsEnabled <- isEnabled
+      copyAsciiMenuItem.IsEnabled <- isEnabled
+      contextMenu.Open this |> ignore
+    | None ->
+      ()
+
+  let copyCurrentSelection formatBytes =
+    match this.CurrentState with
+    | Some state -> copySelection formatBytes this.Dispatcher this state
+    | None -> ()
+
+  do
+    copyHexMenuItem.Click.Add(fun _ -> copyCurrentSelection formatHexString)
+    copyEscapedHexMenuItem.Click.Add(fun _ ->
+      copyCurrentSelection formatEscapedHexString
+    )
+    copyAsciiMenuItem.Click.Add(fun _ -> copyCurrentSelection formatAsciiString)
+    contextMenu.ItemsSource <-
+      [| copyHexMenuItem
+         copyEscapedHexMenuItem
+         copyAsciiMenuItem |]
+    this.ContextMenu <- contextMenu
 
   static let stateProperty =
     AvaloniaProperty.Register<HexdumpInteractionCanvas, HexdumpState option>(
@@ -188,19 +282,32 @@ type private HexdumpInteractionCanvas() =
     match this.CurrentState with
     | Some state ->
       let p = e.GetPosition this
+      let props = e.GetCurrentPoint(this).Properties
       match tryGetByteIndexAtPoint state false p.X p.Y with
       | Some byteIndex ->
-        pressedByte <- Some byteIndex
-        e.Pointer.Capture this
-        if isByteSelected state byteIndex then
-          pendingSelectionToggle <- Some byteIndex
-        else
+        if props.IsRightButtonPressed then
+          pressedByte <- None
           pendingSelectionToggle <- None
-          this.DispatchHexdump(StartSelection byteIndex)
-          this.DispatchHexdump(SetHoveredByte(Some byteIndex))
-        e.Handled <- true
+          if isByteSelected state byteIndex then
+            openContextMenu ()
+            e.Handled <- true
+          else
+            this.DispatchHexdump(StartSelection byteIndex)
+            this.DispatchHexdump(EndSelection)
+            this.DispatchHexdump(SetHoveredByte(Some byteIndex))
+            e.Handled <- true
+        else
+          pressedByte <- Some byteIndex
+          e.Pointer.Capture this
+          if isByteSelected state byteIndex then
+            pendingSelectionToggle <- Some byteIndex
+          else
+            pendingSelectionToggle <- None
+            this.DispatchHexdump(StartSelection byteIndex)
+            this.DispatchHexdump(SetHoveredByte(Some byteIndex))
+          e.Handled <- true
       | None ->
-        ()
+        if props.IsRightButtonPressed then e.Handled <- true else ()
     | None ->
       ()
 
@@ -329,20 +436,13 @@ let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
   let deltaY = args.OffsetDelta.Y
   dispatch (HexdumpMsg(HandleScrollChanged deltaY))
 
-let private byteToAscii b =
-  if b >= 0x20uy && b <= 0x7Euy then char b
-  else '.'
-
 let private formatAddress digits baseAddress offset =
   let addr = baseAddress + uint64 offset
   let txt = addr.ToString("X").PadLeft(digits, '0')
   $"0x{txt}"
 
-let private formatHexBytes bytes =
-  bytes |> Array.map (fun b -> $"{b:X2}") |> String.concat " "
-
 let private formatAscii bytes =
-  bytes |> Array.map byteToAscii |> String
+  formatAsciiString bytes
 
 let private selectionRange selection =
   min selection.Anchor selection.Caret, max selection.Anchor selection.Caret
