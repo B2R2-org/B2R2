@@ -63,7 +63,7 @@ let private unloadedView model text =
   ] :> IView
 
 let private computeMinimapDimension model graphWidth graphHeight =
-  let viewportWidth, viewportHeight = model.CFGViewportSize
+  let viewportWidth, viewportHeight = model.ContentViewportSize
   let referenceWidth = max graphWidth viewportWidth
   let referenceHeight = max graphHeight viewportHeight
   let aspectRatio = referenceWidth / referenceHeight
@@ -366,7 +366,7 @@ let private graphCanvasView model dispatch (cfg: VisGraph) viewState =
   let panX, panY = viewState.PanX, viewState.PanY
   let hovered = viewState.HoveredEdge
   let selected = viewState.SelectedToken
-  let viewportWidth, viewportHeight = model.CFGViewportSize
+  let viewportWidth, viewportHeight = model.ContentViewportSize
   let vpLeft, vpRight = -panX / zoom, (viewportWidth - panX) / zoom
   let vpTop, vpBottom = -panY / zoom, (viewportHeight - panY) / zoom
   let rec isEdgeVisible pts =
@@ -487,7 +487,7 @@ let private onRectPressed dispatch e =
 
 let private minimapViewport model dispatch minimapDim viewState =
   let scale = minimapDim.Scale
-  let viewportWidth, viewportHeight = model.CFGViewportSize
+  let viewportWidth, viewportHeight = model.ContentViewportSize
   let zoom, panX, panY = viewState.Zoom, viewState.PanX, viewState.PanY
   let minX, minY = viewState.GraphMinX, viewState.GraphMinY
   let offX, offY = minimapDim.OffsetX, minimapDim.OffsetY

@@ -54,11 +54,10 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Theme = Theme.resolve themeMode customThemes
       DraggingTab = None
       WorkspacePanel = FunctionPanel
-      Hexdump = HexdumpState.empty
       CFGIsPanning = false
       CFGPressedPointer = None
       CFGPanPointer = None
-      CFGViewportSize = (0.0, 0.0)
+      ContentViewportSize = (0.0, 0.0)
       StatusBarState = EmptyStatus }, Elmish.Cmd.none
 
   let update (msg: Message) (model: Model) =
@@ -74,7 +73,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     | OpenCFGTab fnItem ->
       Update.openCFGTab arbiter model fnItem
     | OpenHexdumpTab ->
-      Update.openHexdumpTab model
+      Update.openHexdumpTab arbiter model
     | PinCFGTab fnItem ->
       Update.pinCFGTab arbiter model fnItem
     | CloseTab tabID ->

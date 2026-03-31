@@ -70,47 +70,25 @@ let private headerView model dispatch =
     )
   ]
 
-let private emptyStateView model =
-  TextBlock.create [
-    TextBlock.text "No bytes loaded."
-    TextBlock.margin 10.0
-    TextBlock.foreground model.Theme.Text.Muted
-    TextBlock.fontSize 13.0
-  ]
-
 let private overviewBodyView model =
-  match model.Hexdump.Document with
-  | None ->
-    emptyStateView model :> IView
-  | Some doc ->
-    StackPanel.create [
-      StackPanel.margin 10.0
-      StackPanel.spacing 8.0
-      StackPanel.children [
-        TextBlock.create [
-          TextBlock.text $"Binary size: {doc.Length} bytes"
-          TextBlock.foreground model.Theme.Text.Primary
-          TextBlock.fontSize 14.0
-        ]
-        TextBlock.create [
-          TextBlock.text $"Base address: 0x{doc.BaseAddress:X}"
-          TextBlock.foreground model.Theme.Text.Secondary
-          TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-          TextBlock.fontSize model.Theme.Font.Monospace.FontSize
-        ]
-        TextBlock.create [
-          TextBlock.text "Overview minimap placeholder."
-          TextBlock.foreground model.Theme.Text.Muted
-          TextBlock.fontSize 13.0
-        ]
-        TextBlock.create [
-          TextBlock.text "This panel will become a high-level binary minimap."
-          TextBlock.foreground model.Theme.Text.Muted
-          TextBlock.textWrapping TextWrapping.Wrap
-          TextBlock.fontSize 12.0
-        ]
+  StackPanel.create [
+    StackPanel.margin 10.0
+    StackPanel.spacing 8.0
+    StackPanel.children [
+      TextBlock.create [
+        TextBlock.text "Hex Overview is currently a placeholder."
+        TextBlock.foreground model.Theme.Text.Primary
+        TextBlock.fontSize 14.0
+        TextBlock.textWrapping TextWrapping.Wrap
       ]
-    ] :> IView
+      TextBlock.create [
+        TextBlock.text "Open the Hexdump tab to inspect bytes."
+        TextBlock.foreground model.Theme.Text.Muted
+        TextBlock.fontSize 12.0
+        TextBlock.textWrapping TextWrapping.Wrap
+      ]
+    ]
+  ] :> IView
 
 let view model dispatch =
   Border.create [

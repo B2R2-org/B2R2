@@ -52,16 +52,14 @@ type Model =
     DraggingTab: Tab option
     /// Selected panel shown in the middle workspace column.
     WorkspacePanel: WorkspacePanel
-    /// State of the shared hexdump workspace views.
-    Hexdump: HexdumpState
     /// Flag indicating whether the user is currently panning in the CFG view.
     CFGIsPanning: bool
     /// Initial pointer position recorded when the user presses in the CFG view.
     CFGPressedPointer: (float * float) option
     /// Last pointer position used for CFG panning.
     CFGPanPointer: (float * float) option
-    /// Width and height of the CFG viewport.
-    CFGViewportSize: float * float
+    /// Width and height of the active content viewport.
+    ContentViewportSize: float * float
     /// Status bar information.
     StatusBarState: StatusBarState }
 

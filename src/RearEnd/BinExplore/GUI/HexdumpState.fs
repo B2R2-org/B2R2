@@ -29,11 +29,11 @@ open B2R2
 /// Represents the full hexdump state, including the shared document and all
 /// active view instances.
 type HexdumpState =
-  { Document: HexDocument option
+  { Document: HexDocument
     Caret: int64 option
     Selection: HexSelection option
     HighlightSpans: HexSpanStyle list
-    View: HexViewState option }
+    View: HexViewState }
 
 /// Represents the shared hexdump document data.
 and HexDocument =
@@ -98,16 +98,9 @@ module HexDocument =
 
 [<RequireQualifiedAccess>]
 module HexdumpState =
-  let empty =
-    { Document = None
+  let ofBytes baseAddress bytes numDigits =
+    { Document = HexDocument.ofBytes baseAddress bytes
       Caret = None
       Selection = None
       HighlightSpans = []
-      View = Some(HexViewState.init 16) }
-
-  let init numDigits =
-    { empty with View = Some(HexViewState.init numDigits) }
-
-  let ofBytes baseAddress bytes numDigits =
-    { init numDigits
-        with Document = Some(HexDocument.ofBytes baseAddress bytes) }
+      View = HexViewState.init numDigits }

@@ -40,8 +40,8 @@ type Tab =
 and TabContent =
   /// A tab displaying the control flow graph of a function.
   | CFGContent of FunctionItem * TabContentState<VisGraph * CFGViewState>
-  /// A tab displaying the hexadecimal view of a specific address.
-  | HexContent of baseAddr: Addr
+  /// A tab displaying the hexadecimal view and its state.
+  | HexContent of HexdumpState
   /// A tab displaying sections of the binary.
   | SectionContent
 
@@ -64,7 +64,12 @@ module Tab =
       Title = func.Name
       Content = CFGContent(func, NotLoaded) }
 
-  let ofHexdump baseAddr =
+  let ofHexdump hexdump =
     { ID = HexdumpTabID
       Title = "Hexdump"
-      Content = HexContent baseAddr }
+      Content = HexContent hexdump }
+
+  let mapHexdumpState update tab =
+    match tab.Content with
+    | HexContent state -> { tab with Content = HexContent(update state) }
+    | _ -> tab

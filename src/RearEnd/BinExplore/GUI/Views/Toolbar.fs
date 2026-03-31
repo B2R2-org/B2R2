@@ -199,10 +199,8 @@ module private SearchBox = begin
            else
              () |]
 
-  let searchHexTab (model: Model) (input: string) =
-    match model.Hexdump.Document with
-    | Some doc -> searchHexdump doc input
-    | None -> [||]
+  let searchHexTab state (input: string) =
+    searchHexdump state.Document input
 
   let search model (input: string) =
     if String.IsNullOrWhiteSpace input then
@@ -211,8 +209,8 @@ module private SearchBox = begin
       match model.ActiveTab with
       | Some { Content = CFGContent(_, Loaded(g, _)) } ->
         searchCFGTab g input
-      | Some { Content = HexContent _ } ->
-        searchHexTab model input
+      | Some { Content = HexContent state } ->
+        searchHexTab state input
       | _ ->
         [||]
 

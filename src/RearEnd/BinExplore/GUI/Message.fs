@@ -113,8 +113,6 @@ and CFGMessage =
 /// Represents messages that affect the shared hexdump document or one of its
 /// active views.
 and HexdumpMessage =
-  /// Replaces the current hexdump document, or clears it when None.
-  | SetDocument of HexDocument option
   /// Replaces the current hexdump highlight spans.
   | SetHighlightSpans of HexSpanStyle list
   /// Updates the viewport size of a specific hexdump view.
