@@ -204,7 +204,7 @@ let private arrowheadView (tip: Point) (angle: float) zoom (color: string) =
     Polygon.isHitTestVisible false
   ] :> IView
 
-let private edgeView dispatch pts zoom panX panY color edgeID =
+let private edgeView model dispatch pts zoom panX panY color edgeID =
   if Array.length pts >= 2 then
     let p1 = Array.head pts
     let p2 = Array.last pts
@@ -216,7 +216,8 @@ let private edgeView dispatch pts zoom panX panY color edgeID =
     let angle = Math.Atan2(tip.Y - prev.Y, tip.X - prev.X) * 180.0 / Math.PI
     Canvas.create [
       Canvas.children [
-        edgeHitAreaView dispatch scaled zoom panX panY p1 p2 edgeID
+        if model.CFGIsPanning then ()
+        else edgeHitAreaView dispatch scaled zoom panX panY p1 p2 edgeID
         edgeLineView scaled zoom color
         arrowheadView tip angle zoom color
       ]
@@ -233,7 +234,7 @@ let private graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible =
         let color =
           if hovered = Some edgeID then model.Theme.Graph.HoveredEdge
           else getEdgeColor model e.Label.Type
-        yield! edgeView dispatch pts zoom panX panY color edgeID
+        yield! edgeView model dispatch pts zoom panX panY color edgeID
       else
         () ]
 
