@@ -14,7 +14,9 @@
     <Compile Include="LayerAssignment.fs" />
     <Compile Include="CrossMinimization.fs" />
     <Compile Include="CoordAssignment.fs" />
+    <Compile Include="PortMap.fs" />
     <Compile Include="EdgeDrawing.fs" />
+    <Compile Include="EdgeDebug.fs" />
     <Compile Include="Visualizer.fs" />
   </ItemGroup>
 

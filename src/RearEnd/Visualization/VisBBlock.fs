@@ -68,6 +68,8 @@ type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
     if isDummy then 0.0
     else float numLines * charHeight + Padding * 2.0 + Border * 2.0
 
+  let addressable = blk :?> IAddressable
+
   new(blk, isDummy) =
     (* These numbers (7.5 and 14) are empirically obtained with the current
        font. For some reasons, we cannot precisely determine the width of each
@@ -90,6 +92,8 @@ type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
 
   /// X-Y coordinate in the visualized graph.
   member _.Coordinate with get() = pos
+
+  member _.BlockAddress with get() = blk.BlockAddress
 
   interface IVisualizable with
     member _.BlockAddress with get() = blk.BlockAddress
