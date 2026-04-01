@@ -29,19 +29,10 @@ open B2R2.MiddleEnd.BinGraph
 let private convert iGraph roots charWidth charHeight =
   try
     let vGraph, roots = VisGraph.ofCFG iGraph roots charWidth charHeight
-  #if DEBUG
-    VisDebug.logn "# Original"
-    VisDebug.pp vGraph
-  #endif
-    let backEdgeList = CycleRemoval.removeCycles vGraph
-  #if DEBUG
-    VisDebug.logn "# After cycle removal"
-    VisDebug.pp vGraph
-  #endif
-    let backEdgeList, dummyMap =
-      LayerAssignment.assignLayers vGraph backEdgeList
-    let vLayout = CrossMinimization.minimizeCrosses vGraph
-    CoordAssignment.assignCoordinates vGraph vLayout
+    let backEdgeList = CycleRemoval.run vGraph
+    let backEdgeList, dummyMap = LayerAssignment.run vGraph backEdgeList
+    let vLayout = CrossMinimization.run vGraph
+    CoordAssignment.run vGraph vLayout
     EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
     Some(roots, vGraph)
   with e ->

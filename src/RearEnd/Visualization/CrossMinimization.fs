@@ -22,6 +22,7 @@
   SOFTWARE.
 *)
 
+[<RequireQualifiedAccess>]
 module internal B2R2.RearEnd.Visualization.CrossMinimization
 
 open B2R2.MiddleEnd.BinGraph
@@ -158,7 +159,7 @@ let rec private sugiyamaReorder vGraph vLayout cnt hashSet =
     else
       ()
 
-let minimizeCrosses vGraph =
+let run vGraph =
   let vLayout = generateVPerLayer vGraph |> generateVLayout
   sugiyamaReorder vGraph vLayout 0 (Set.add (vLayout.GetHashCode()) Set.empty)
   vLayout

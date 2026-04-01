@@ -22,6 +22,7 @@
   SOFTWARE.
 *)
 
+[<RequireQualifiedAccess>]
 module internal B2R2.RearEnd.Visualization.LayerAssignment
 
 open B2R2.MiddleEnd.BinGraph
@@ -97,6 +98,6 @@ let assignDummyNodes (vGraph: VisGraph) backEdges =
   |> List.fold (addDummyNodes vGraph) (backEdges, Map.empty)
 
 /// Assign layers to each node. The root node should be layer zero (0).
-let assignLayers vGraph backEdges =
+let run vGraph backEdges =
   kahnAssignLayers vGraph
   assignDummyNodes vGraph backEdges
