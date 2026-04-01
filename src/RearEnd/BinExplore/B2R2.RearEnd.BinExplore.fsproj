@@ -44,11 +44,11 @@
     <Compile Include="GUI\Views\StatusBar.fs" />
     <Compile Include="GUI\Views\FunctionList.fs" />
     <Compile Include="GUI\Views\HexOverview.fs" />
-    <Compile Include="GUI\Views\Hexdump.fs" />
     <Compile Include="GUI\Views\SectionList.fs" />
     <Compile Include="GUI\Views\Toolbar.fs" />
     <Compile Include="GUI\Views\WorkspaceTabs.fs" />
     <Compile Include="GUI\Views\CFGContent.fs" />
+    <Compile Include="GUI\Views\Hexdump.fs" />
     <Compile Include="GUI\Views\MainView.fs" />
     <Compile Include="GUI\Update.fs" />
     <Compile Include="GUI\MainWindow.fs" />
