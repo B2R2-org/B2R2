@@ -351,7 +351,8 @@ let private jumpHexdump model byteIndex length =
           (let totalRows = computeHexTotalRows hexdump scrolledView
            let contentHeight = float totalRows * rowHeight
            max 0.0 (contentHeight - scrolledView.ViewportHeight)))
-    let pendingDelta = targetOffsetY - viewState.ScrollOffsetY
+    let currentOffsetY = float viewState.ScrollRow * rowHeight
+    let pendingDelta = targetOffsetY - currentOffsetY
     let nextView =
       { scrolledView with
           ScrollGuard =
@@ -415,26 +416,16 @@ let updateHexdump model msg =
   | HandleScrollChanged(deltaY) ->
     let currentGuard = getActiveHexScrollGuard model
     match currentGuard with
-    | IgnoreNextProgrammatic expected when abs (deltaY - expected) <= 0.5 ->
-      updateHexdumpState model (fun hexdump ->
-        let view =
-          { hexdump.View with ScrollGuard = IgnoreNextEcho deltaY }
-        { hexdump with View = view })
     | IgnoreNextProgrammatic _ when abs deltaY <= 0.0 ->
       model, Elmish.Cmd.none
     | IgnoreNextProgrammatic _ ->
       updateHexdumpState model (fun hexdump ->
-        let viewState = hexdump.View
-        let nextOffsetY = viewState.ScrollOffsetY + deltaY
-        let rowHeight = max viewState.RowHeight 1.0
-        let scrollRow = int64 (floor (nextOffsetY / rowHeight))
         let view =
-          { viewState with
-              ScrollOffsetY = nextOffsetY
-              ScrollRow = scrollRow
-              ScrollGuard = NoScrollGuard }
+          { hexdump.View with ScrollGuard = NoScrollGuard }
         { hexdump with View = view })
-    | IgnoreNextEcho expected when abs (deltaY - expected) <= 0.5 ->
+    | IgnoreNextEcho _ when abs deltaY <= 0.0 ->
+      model, Elmish.Cmd.none
+    | IgnoreNextEcho _ ->
       updateHexdumpState model (fun hexdump ->
         let view =
           { hexdump.View with ScrollGuard = NoScrollGuard }
