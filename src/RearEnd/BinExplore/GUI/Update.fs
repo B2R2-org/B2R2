@@ -787,7 +787,8 @@ let loadCFGCompleted model tabID cfgKind cfg =
     let loaded =
       { Graph = cfg
         ViewState = viewState
-        Minimap = createMinimapCache model viewState cfg }
+        Minimap = createMinimapCache model viewState cfg
+        RenderCache = CFGRenderCache.create cfg }
     let tab = mapCFGTabState (Loaded loaded) tab
     replaceTabReferences model tab, Elmish.Cmd.none
   | None ->

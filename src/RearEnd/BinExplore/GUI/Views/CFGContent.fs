@@ -230,7 +230,7 @@ let private edgeView model dispatch pts zoom panX panY color edgeID =
 let private graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible =
   [ for edgeID, e in Array.indexed (cfg: VisGraph).Edges do
       let pts = e.Label.Points
-      if isEdgeVisible pts then
+      if isEdgeVisible edgeID then
         let color =
           if hovered = Some edgeID then model.Theme.Graph.HoveredEdge
           else getEdgeColor model e.Label.Type
@@ -402,7 +402,7 @@ let private onReleased model dispatch (e: PointerReleasedEventArgs) =
   if model.CFGIsPanning || model.CFGPressedPointer.IsSome then e.Handled <- true
   else ()
 
-let private graphCanvasView model dispatch (cfg: VisGraph) viewState =
+let private graphCanvasView model dispatch cfg renderCache viewState =
   let zoom = viewState.Zoom
   let panX, panY = viewState.PanX, viewState.PanY
   let hovered = viewState.HoveredEdge
@@ -410,18 +410,8 @@ let private graphCanvasView model dispatch (cfg: VisGraph) viewState =
   let viewportWidth, viewportHeight = model.ContentViewportSize
   let vpLeft, vpRight = -panX / zoom, (viewportWidth - panX) / zoom
   let vpTop, vpBottom = -panY / zoom, (viewportHeight - panY) / zoom
-  let isEdgeVisible (pts: VisPosition[]) =
-    let mutable visible = false
-    let mutable i = 0
-    while not visible && i < pts.Length - 1 do
-      let p1 = pts[i]
-      let p2 = pts[i + 1]
-      let minX, maxX = min p1.X p2.X, max p1.X p2.X
-      let minY, maxY = min p1.Y p2.Y, max p1.Y p2.Y
-      visible <-
-        minX < vpRight && maxX > vpLeft && minY < vpBottom && maxY > vpTop
-      i <- i + 1
-    visible
+  let isEdgeVisible eID =
+    CFGRenderCache.isEdgeVisible renderCache eID vpLeft vpRight vpTop vpBottom
   let isNodeVisible x y w h =
     x < vpRight && x + w > vpLeft && y < vpBottom && y + h > vpTop
   Canvas.create [
@@ -567,7 +557,7 @@ let private loadedView model dispatch (loaded: LoadedCFGState) =
     Border.child (
       Grid.create [
         Grid.children [
-          graphCanvasView model dispatch cfg viewState
+          graphCanvasView model dispatch cfg loaded.RenderCache viewState
           yield! minimapOverlayView model dispatch minimap viewState
         ]
       ]
