@@ -207,8 +207,8 @@ module private SearchBox = begin
       [||]
     else
       match model.ActiveTab with
-      | Some { Content = CFGContent(_, Loaded(g, _)) } ->
-        searchCFGTab g input
+      | Some { Content = CFGContent(_, Loaded loaded) } ->
+        searchCFGTab loaded.Graph input
       | Some { Content = HexContent state } ->
         searchHexTab state input
       | _ ->
@@ -456,9 +456,10 @@ module private CFGKindSelect = begin
 
   let getState model =
     match model.ActiveTab with
-    | Some { ID = id; Content = CFGContent(_, Loaded(_, { CFGKind = cfg })) } ->
-      cfg, true, id
-    | _ -> CFGKind.Disasm, false, "none"
+    | Some { ID = id; Content = CFGContent(_, Loaded { ViewState = view }) } ->
+      view.CFGKind, true, id
+    | _ ->
+      CFGKind.Disasm, false, "none"
 
   let onGraphKindChanged dispatch (args: obj) =
     match args with
@@ -499,10 +500,10 @@ module private MinimapToggle = begin
 
   let getState model =
     match model.ActiveTab with
-    | Some { ID = id
-             Content = CFGContent(_, Loaded(_, { ShowMinimap = flg })) } ->
-      true, flg, id
-    | _ -> false, false, "none"
+    | Some { ID = id; Content = CFGContent(_, Loaded { ViewState = view }) } ->
+      true, view.ShowMinimap, id
+    | _ ->
+      false, false, "none"
 
   let background model isActive =
     if isActive then model.Theme.Tab.ActiveBackground

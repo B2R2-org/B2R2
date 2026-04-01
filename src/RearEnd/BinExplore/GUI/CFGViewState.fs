@@ -24,7 +24,9 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
+open Avalonia
 open B2R2.RearEnd.BinExplore
+open B2R2.RearEnd.Visualization
 
 /// Represents the view state of the control flow graph (CFG), including
 /// transformation and graph size information.
@@ -83,3 +85,75 @@ module CFGViewState =
       GraphMaxY = 0.0
       SelectedToken = None
       HoveredEdge = None }
+
+type MinimapStaticCache =
+  { Width: float
+    Height: float
+    Scale: float
+    OffsetX: float
+    OffsetY: float
+    EdgePolylines: Point array array
+    NodeRects: Rect array }
+
+type LoadedCFGState =
+  { Graph: VisGraph
+    ViewState: CFGViewState
+    Minimap: MinimapStaticCache }
+
+[<RequireQualifiedAccess>]
+module MinimapStaticCache =
+  let [<Literal>] private MaxSize = 220.0
+
+  let private computeDimension viewportWidth viewportHeight gWidth gHeight =
+    let referenceWidth = max gWidth viewportWidth |> max 1.0
+    let referenceHeight = max gHeight viewportHeight |> max 1.0
+    let aspectRatio = referenceWidth / referenceHeight
+    let ratio = MaxSize / referenceWidth
+    let maxLen = if ratio < 0.01 then viewportWidth / 3.0 else MaxSize
+    if aspectRatio >= 1.0 then
+      let w = maxLen
+      let h = maxLen / aspectRatio
+      let scale = maxLen / referenceWidth
+      w, h, scale
+    else
+      let w = maxLen * aspectRatio
+      let h = maxLen
+      let scale = maxLen / referenceHeight
+      w, h, scale
+
+  let private buildEdgePolylines minX minY scale offsetX offsetY graph =
+    (graph: VisGraph).Edges
+    |> Array.map (fun e ->
+      e.Label.Points
+      |> Array.map (fun p ->
+        Point((p.X - minX) * scale + offsetX, (p.Y - minY) * scale + offsetY)))
+
+  let private buildNodeRects minX minY scale offsetX offsetY (graph: VisGraph) =
+    graph.Vertices
+    |> Array.map (fun n ->
+      Rect(
+        (n.VData.Coordinate.X - minX) * scale + offsetX,
+        (n.VData.Coordinate.Y - minY) * scale + offsetY,
+        n.VData.Width * scale,
+        n.VData.Height * scale
+      ))
+
+  let create (viewportWidth, viewportHeight) viewState (graph: VisGraph) =
+    let width, height, scale =
+      computeDimension viewportWidth viewportHeight
+        viewState.GraphWidth viewState.GraphHeight
+    let offsetX = (width - viewState.GraphWidth * scale) / 2.0
+    let offsetY = (height - viewState.GraphHeight * scale) / 2.0
+    let minX = viewState.GraphMinX
+    let minY = viewState.GraphMinY
+    let edgePolylines =
+      buildEdgePolylines minX minY scale offsetX offsetY graph
+    let nodeRects =
+      buildNodeRects minX minY scale offsetX offsetY graph
+    { Width = width
+      Height = height
+      Scale = scale
+      OffsetX = offsetX
+      OffsetY = offsetY
+      EdgePolylines = edgePolylines
+      NodeRects = nodeRects }

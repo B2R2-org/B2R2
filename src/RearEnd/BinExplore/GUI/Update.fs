@@ -269,6 +269,19 @@ let private mapCFGTabState newState (tab: Tab) =
   | _ ->
     tab
 
+let private createMinimapCache model viewState cfg =
+  MinimapStaticCache.create model.ContentViewportSize viewState cfg
+
+let private refreshCFGTabMinimap model tab =
+  match tab.Content with
+  | CFGContent(fn, Loaded loaded) ->
+    let loaded =
+      { loaded with
+          Minimap = createMinimapCache model loaded.ViewState loaded.Graph }
+    { tab with Content = CFGContent(fn, Loaded loaded) }
+  | _ ->
+    tab
+
 let private updateHexdumpState model update =
   let visibleTabs = Model.getVisibleTabs model
   match visibleTabs |> List.tryFind (fun t -> t.ID = Tab.HexdumpTabID) with
@@ -569,7 +582,8 @@ let private startLoadIfNeeded (arbiter: Arbiter<_, _>) tab model =
         PreviewTab = preview },
     loadCFGCmd arbiter model fn CFGKind.Disasm loadingTab
   | _ ->
-    model, Elmish.Cmd.none
+    let tab = refreshCFGTabMinimap model tab
+    replaceTabReferences model tab, Elmish.Cmd.none
 
 let openCFGTab (arbiter: Arbiter<_, _>) model fnItem =
   let visibleTabs = Model.getVisibleTabs model
@@ -621,7 +635,7 @@ let switchTab model tabID =
       if tab.ID = Tab.HexdumpTabID then
         Tab.mapHexdumpState prepareHexdumpViewForActivation tab
       else
-        tab
+        refreshCFGTabMinimap model tab
     replaceTabReferences { model with ActiveTab = Some tab } tab,
     Elmish.Cmd.none
   | None ->
@@ -770,7 +784,11 @@ let loadCFGCompleted model tabID cfgKind cfg =
   match tryFindTab visibleTabs tabID with
   | Some tab ->
     let viewState = computeInitialCFGViewState cfgKind cfg model
-    let tab = mapCFGTabState (Loaded(cfg, viewState)) tab
+    let loaded =
+      { Graph = cfg
+        ViewState = viewState
+        Minimap = createMinimapCache model viewState cfg }
+    let tab = mapCFGTabState (Loaded loaded) tab
     replaceTabReferences model tab, Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
@@ -785,10 +803,11 @@ let loadCFGFailed model tabID _reason =
     model, Elmish.Cmd.none
 
 let private updateCFGViewState target update =
-  match target with
-  | { Content = CFGContent(fn, Loaded(cfg, viewState)) } ->
-    let viewState' = update viewState
-    { target with Content = CFGContent(fn, Loaded(cfg, viewState')) }
+  match target.Content with
+  | CFGContent(fn, Loaded loaded) ->
+    let viewState = update loaded.ViewState
+    let loaded = { loaded with ViewState = viewState }
+    { target with Content = CFGContent(fn, Loaded loaded) }
   | _ -> target
 
 let private clampPanToGraphBounds panX panY viewState model =
@@ -930,15 +949,15 @@ let updateCFGViewportSize model width height =
         { viewState with
             PanX = viewState.PanX + deltaX
             PanY = viewState.PanY + deltaY }
-      let tab = updateCFGViewState tab update
+      let tab = updateCFGViewState tab update |> refreshCFGTabMinimap model
       replaceTabReferences model tab, Elmish.Cmd.none
     | None ->
       model, Elmish.Cmd.none
 
 let changeCFGKind (arbiter: Arbiter<_, _>) model kind =
   match model.ActiveTab with
-  | Some { Content = CFGContent(fn, Loaded(_, { CFGKind = currentKind })) }
-    when currentKind <> kind ->
+  | Some { Content = CFGContent(fn, Loaded { ViewState = view }) }
+    when view.CFGKind <> kind ->
     let tabContent = CFGContent(fn, NotLoaded)
     let tab = { model.ActiveTab.Value with Content = tabContent }
     replaceTabReferences model tab, loadCFGCmd arbiter model fn kind tab
@@ -947,12 +966,12 @@ let changeCFGKind (arbiter: Arbiter<_, _>) model kind =
 
 let toggleMinimap model tabID activate =
   match model.ActiveTab with
-  | Some { ID = activeID; Content = CFGContent(fn, Loaded(cfg, viewState)) }
-    when activeID = tabID && viewState.ShowMinimap <> activate ->
-    let newViewState = { viewState with ShowMinimap = activate }
+  | Some { ID = activeID; Content = CFGContent(fn, Loaded loaded) }
+    when activeID = tabID && loaded.ViewState.ShowMinimap <> activate ->
+    let newViewState = { loaded.ViewState with ShowMinimap = activate }
+    let content = { loaded with ViewState = newViewState }
     let tab =
-      { model.ActiveTab.Value
-          with Content = CFGContent(fn, Loaded(cfg, newViewState)) }
+      { model.ActiveTab.Value with Content = CFGContent(fn, Loaded content) }
     replaceTabReferences model tab, Elmish.Cmd.none
   | _ ->
     model, Elmish.Cmd.none

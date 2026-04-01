@@ -26,9 +26,11 @@
 module B2R2.RearEnd.BinExplore.GUI.CFGContent
 
 open System
+open System.Collections.Generic
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.Shapes
+open Avalonia.FuncUI.Builder
 open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.Input
@@ -37,15 +39,6 @@ open Avalonia.FuncUI.Types
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.RearEnd.Visualization
-
-let [<Literal>] private MinimapMaxSize = 220.0
-
-type private Dimension =
-  { Width: float
-    Height: float
-    Scale: float
-    OffsetX: float
-    OffsetY: float }
 
 let mutable private graphCanvas: Canvas option = None
 
@@ -62,31 +55,79 @@ let private unloadedView model text =
     )
   ] :> IView
 
-let private computeMinimapDimension model graphWidth graphHeight =
-  let viewportWidth, viewportHeight = model.ContentViewportSize
-  let referenceWidth = max graphWidth viewportWidth
-  let referenceHeight = max graphHeight viewportHeight
-  let aspectRatio = referenceWidth / referenceHeight
-  let ratio = MinimapMaxSize / referenceWidth
-  let maxLen = if ratio < 0.01 then viewportWidth / 3.0 else MinimapMaxSize
-  if aspectRatio >= 1.0 then
-    let w = maxLen
-    let h = maxLen / aspectRatio
-    let scale = maxLen / referenceWidth
-    { Width = w
-      Height = h
-      Scale = scale
-      OffsetX = (w - graphWidth * scale) / 2.0
-      OffsetY = (h - graphHeight * scale) / 2.0 }
-  else
-    let w = maxLen * aspectRatio
-    let h = maxLen
-    let scale = maxLen / referenceHeight
-    { Width = w
-      Height = h
-      Scale = scale
-      OffsetX = (w - graphWidth * scale) / 2.0
-      OffsetY = (h - graphHeight * scale) / 2.0 }
+let private brushOfColor =
+  let cache = Dictionary<string, IBrush>()
+  fun color ->
+    match cache.TryGetValue color with
+    | true, brush -> brush
+    | _ ->
+      let brush = Brush.Parse color
+      cache[color] <- brush
+      brush
+
+type private MinimapStaticLayer() =
+  inherit Control()
+
+  static let cacheProperty =
+    AvaloniaProperty.Register<MinimapStaticLayer, MinimapStaticCache>(
+      nameof Unchecked.defaultof<MinimapStaticLayer>.CurrentCache,
+      Unchecked.defaultof<MinimapStaticCache>
+    )
+
+  static let themeProperty =
+    AvaloniaProperty.Register<MinimapStaticLayer, Theme>(
+      nameof Unchecked.defaultof<MinimapStaticLayer>.CurrentTheme,
+      Unchecked.defaultof<Theme>
+    )
+
+  static member CacheProperty = cacheProperty
+
+  static member ThemeProperty = themeProperty
+
+  static member Cache value =
+    AttrBuilder<'t>.CreateProperty<MinimapStaticCache>(
+      MinimapStaticLayer.CacheProperty, value, ValueNone
+    )
+
+  static member Theme value =
+    AttrBuilder<'t>.CreateProperty<Theme>(
+      MinimapStaticLayer.ThemeProperty, value, ValueNone
+    )
+
+  member this.CurrentCache
+    with get() = this.GetValue cacheProperty
+    and set value = this.SetValue(cacheProperty, value) |> ignore
+
+  member this.CurrentTheme
+    with get() = this.GetValue themeProperty
+    and set value = this.SetValue(themeProperty, value) |> ignore
+
+  override this.OnPropertyChanged change =
+    base.OnPropertyChanged change
+    if change.Property = cacheProperty || change.Property = themeProperty then
+      this.InvalidateVisual()
+    else
+      ()
+
+  override this.Render(ctx: DrawingContext) =
+    base.Render ctx
+    let cache = this.CurrentCache
+    let theme = this.CurrentTheme
+    if isNull (box cache) || isNull (box theme) then
+      ()
+    else
+      let edgePen = Pen(brushOfColor theme.Graph.MinimapEdge, 0.5)
+      let nodeBrush = brushOfColor theme.Graph.MinimapNode
+      for pts in cache.EdgePolylines do
+        for i in 0 .. pts.Length - 2 do
+          ctx.DrawLine(edgePen, pts[i], pts[i + 1])
+      for rect in cache.NodeRects do
+        ctx.FillRectangle(nodeBrush, rect)
+
+[<RequireQualifiedAccess>]
+module private MinimapStaticLayer =
+  let create (attrs: IAttr<MinimapStaticLayer> list) =
+    View.createGeneric<MinimapStaticLayer> attrs
 
 let private getEdgeColor model = function
   | InterJmpEdge -> model.Theme.Graph.InterJmpEdge
@@ -394,13 +435,13 @@ let private graphCanvasView model dispatch (cfg: VisGraph) viewState =
     ]
   ] |> View.withOutlet (fun (canvas: Canvas) -> graphCanvas <- Some canvas)
 
-let private onMinimapClick dispatch minimapDim viewState e =
+let private onMinimapClick dispatch (minimap: MinimapStaticCache) viewState e =
   match (e: PointerPressedEventArgs).Source with
   | :? Control as ctrl ->
     let p = e.GetPosition ctrl
-    let scale = minimapDim.Scale
-    let gx = (p.X - minimapDim.OffsetX) / scale + viewState.GraphMinX
-    let gy = (p.Y - minimapDim.OffsetY) / scale + viewState.GraphMinY
+    let scale = minimap.Scale
+    let gx = (p.X - minimap.OffsetX) / scale + viewState.GraphMinX
+    let gy = (p.Y - minimap.OffsetY) / scale + viewState.GraphMinY
     dispatch (CFGMsg(JumpPan(gx, gy)))
     let struct (sx, sy) = pointerXY e
     dispatch (CFGMsg(StartPan(sx, sy)))
@@ -420,41 +461,10 @@ let private onRectReleased dispatch (e: PointerReleasedEventArgs) =
   | _ -> ()
   e.Handled <- true
 
-let private minimapEdges model scale minX minY offX offY (g: VisGraph) =
-  g.Edges
-  |> Array.map (fun e ->
-    let pts =
-      e.Label.Points
-      |> Array.map (fun p ->
-        Point((p.X - minX) * scale + offX, (p.Y - minY) * scale + offY))
-    Polyline.create [
-        Polyline.points pts
-        Polyline.stroke model.Theme.Graph.MinimapEdge
-        Polyline.strokeThickness 0.5
-        Polyline.isHitTestVisible false
-    ] :> IView
-  )
-
-let private minimapNodes model scale minX minY offX offY (g: VisGraph) =
-  g.Vertices
-  |> Array.map (fun n ->
-    Border.create [
-      Canvas.left ((n.VData.Coordinate.X - minX) * scale + offX)
-      Canvas.top ((n.VData.Coordinate.Y - minY) * scale + offY)
-      Border.width (n.VData.Width * scale)
-      Border.height (n.VData.Height * scale)
-      Border.background model.Theme.Graph.MinimapNode
-      Border.isHitTestVisible false
-    ] :> IView
-  )
-
-let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
-  let scale = minimapDim.Scale
-  let minX, minY = viewState.GraphMinX, viewState.GraphMinY
-  let offX, offY = minimapDim.OffsetX, minimapDim.OffsetY
+let private minimapView model dispatch (minimap: MinimapStaticCache) viewState =
   Border.create [
-    Border.width minimapDim.Width
-    Border.height minimapDim.Height
+    Border.width minimap.Width
+    Border.height minimap.Height
     Border.background "#44000000"
     Border.borderBrush model.Theme.Panel.Border
     Border.borderThickness 1.0
@@ -462,16 +472,21 @@ let private minimapView model dispatch minimapDim (graph: VisGraph) viewState =
     Border.cursor (new Cursor(StandardCursorType.SizeAll))
     Border.child (
       Canvas.create [
-        Canvas.width minimapDim.Width
-        Canvas.height minimapDim.Height
+        Canvas.width minimap.Width
+        Canvas.height minimap.Height
         Canvas.background model.Theme.Panel.AltBackground
         Canvas.opacity 0.9
-        Control.onPointerPressed (onMinimapClick dispatch minimapDim viewState)
-        Control.onPointerMoved (onRectMoved dispatch minimapDim.Scale)
+        Control.onPointerPressed (onMinimapClick dispatch minimap viewState)
+        Control.onPointerMoved (onRectMoved dispatch minimap.Scale)
         Control.onPointerReleased (onRectReleased dispatch)
         Canvas.children [
-          yield! minimapEdges model scale minX minY offX offY graph
-          yield! minimapNodes model scale minX minY offX offY graph
+          MinimapStaticLayer.create [
+            Control.width minimap.Width
+            Control.height minimap.Height
+            Control.isHitTestVisible false
+            MinimapStaticLayer.Cache minimap
+            MinimapStaticLayer.Theme model.Theme
+          ]
         ]
       ]
     )
@@ -485,12 +500,12 @@ let private onRectPressed dispatch e =
   | _ -> ()
   e.Handled <- true
 
-let private minimapViewport model dispatch minimapDim viewState =
-  let scale = minimapDim.Scale
+let private minimapViewport model dispatch minimap viewState =
+  let scale = minimap.Scale
   let viewportWidth, viewportHeight = model.ContentViewportSize
   let zoom, panX, panY = viewState.Zoom, viewState.PanX, viewState.PanY
   let minX, minY = viewState.GraphMinX, viewState.GraphMinY
-  let offX, offY = minimapDim.OffsetX, minimapDim.OffsetY
+  let offX, offY = minimap.OffsetX, minimap.OffsetY
   let graphLeft = -panX / zoom
   let graphTop = -panY / zoom
   let graphRight = (viewportWidth - panX) / zoom
@@ -507,8 +522,8 @@ let private minimapViewport model dispatch minimapDim viewState =
     Border.margin 12.0
     Border.child (
       Canvas.create [
-        Canvas.width minimapDim.Width
-        Canvas.height minimapDim.Height
+        Canvas.width minimap.Width
+        Canvas.height minimap.Height
         Canvas.clipToBounds true
         Canvas.children [
           Border.create [
@@ -529,22 +544,22 @@ let private minimapViewport model dispatch minimapDim viewState =
     )
   ]
 
-let private minimapOverlayView model dispatch minimapDim cfg viewState =
+let private minimapOverlayView model dispatch minimap viewState =
   if viewState.ShowMinimap then
     [ Border.create [
         Border.horizontalAlignment HorizontalAlignment.Right
         Border.verticalAlignment VerticalAlignment.Bottom
         Border.margin 12.0
-        Border.child (minimapView model dispatch minimapDim cfg viewState)
+        Border.child (minimapView model dispatch minimap viewState)
       ] :> IView
-      minimapViewport model dispatch minimapDim viewState ]
+      minimapViewport model dispatch minimap viewState ]
   else
     []
 
-let private loadedView model dispatch cfg viewState =
-  let cfgWidth = viewState.GraphWidth
-  let cfgHeight = viewState.GraphHeight
-  let minimapDim = computeMinimapDimension model cfgWidth cfgHeight
+let private loadedView model dispatch (loaded: LoadedCFGState) =
+  let cfg = loaded.Graph
+  let viewState = loaded.ViewState
+  let minimap = loaded.Minimap
   Border.create [
     Border.background model.Theme.Window.Background
     Border.clipToBounds true
@@ -552,7 +567,7 @@ let private loadedView model dispatch cfg viewState =
       Grid.create [
         Grid.children [
           graphCanvasView model dispatch cfg viewState
-          yield! minimapOverlayView model dispatch minimapDim cfg viewState
+          yield! minimapOverlayView model dispatch minimap viewState
         ]
       ]
     )
@@ -572,8 +587,8 @@ let view (model: Model) dispatch =
         unloadedView model "CFG is not loaded."
       | Some { Content = CFGContent(_, Loading) } ->
         unloadedView model "CFG is now loading ..."
-      | Some { Content = CFGContent(_, Loaded(cfg, viewState)) } ->
-        loadedView model dispatch cfg viewState
+      | Some { Content = CFGContent(_, Loaded loaded) } ->
+        loadedView model dispatch loaded
       | _ ->
         unloadedView model "Select a function to view its CFG."
     )
