@@ -164,13 +164,11 @@ let private arrowheadView (tip: Point) (angle: float) zoom (color: string) =
   ] :> IView
 
 let private edgeView dispatch pts zoom panX panY color edgeID =
-  match (pts: VisPosition list) with
-  | _ :: _ :: _ ->
-    let p1 = List.head pts
-    let p2 = List.last pts
+  if Array.length pts >= 2 then
+    let p1 = Array.head pts
+    let p2 = Array.last pts
     let scaled =
       pts
-      |> Array.ofList
       |> Array.map (fun p -> Point(p.X * zoom + panX, p.Y * zoom + panY))
     let tip = scaled[scaled.Length - 1]
     let prev = scaled[scaled.Length - 2]
@@ -184,7 +182,8 @@ let private edgeView dispatch pts zoom panX panY color edgeID =
     ]
     |> View.withKey $"edge-{edgeID}" :> IView
     |> List.singleton
-  | _ -> []
+  else
+    []
 
 let private graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible =
   [ for edgeID, e in Array.indexed (cfg: VisGraph).Edges do
@@ -369,17 +368,18 @@ let private graphCanvasView model dispatch (cfg: VisGraph) viewState =
   let viewportWidth, viewportHeight = model.ContentViewportSize
   let vpLeft, vpRight = -panX / zoom, (viewportWidth - panX) / zoom
   let vpTop, vpBottom = -panY / zoom, (viewportHeight - panY) / zoom
-  let rec isEdgeVisible pts =
-    match pts with
-    | p1 :: ((p2 :: _) as rest) ->
+  let isEdgeVisible (pts: VisPosition[]) =
+    let mutable visible = false
+    let mutable i = 0
+    while not visible && i < pts.Length - 1 do
+      let p1 = pts[i]
+      let p2 = pts[i + 1]
       let minX, maxX = min p1.X p2.X, max p1.X p2.X
       let minY, maxY = min p1.Y p2.Y, max p1.Y p2.Y
-      if minX < vpRight && maxX > vpLeft && minY < vpBottom && maxY > vpTop then
-        true
-      else
-        isEdgeVisible rest
-    | _ ->
-      false
+      visible <-
+        minX < vpRight && maxX > vpLeft && minY < vpBottom && maxY > vpTop
+      i <- i + 1
+    visible
   let isNodeVisible x y w h =
     x < vpRight && x + w > vpLeft && y < vpBottom && y + h > vpTop
   Canvas.create [
@@ -425,10 +425,10 @@ let private minimapEdges model scale minX minY offX offY (g: VisGraph) =
   |> Array.map (fun e ->
     let pts =
       e.Label.Points
-      |> List.map (fun p ->
+      |> Array.map (fun p ->
         Point((p.X - minX) * scale + offX, (p.Y - minY) * scale + offY))
     Polyline.create [
-        Polyline.points (pts |> Array.ofList)
+        Polyline.points pts
         Polyline.stroke model.Theme.Graph.MinimapEdge
         Polyline.strokeThickness 0.5
         Polyline.isHitTestVisible false

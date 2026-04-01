@@ -95,9 +95,8 @@ module JSONExport =
     let edges =
       g.FoldEdge((fun acc e ->
         let e = e.Label
-        let points = e.Points |> List.toArray
         { Type = CFGEdgeKind.toString e.Type
-          Points = points |> Array.map (fun p -> { X = p.X; Y = p.Y })
+          Points = e.Points |> Array.map (fun p -> { X = p.X; Y = p.Y })
           IsBackEdge = e.IsBackEdge } :: acc), [])
       |> List.toArray
     { Roots = roots; Nodes = nodes; Edges = edges }

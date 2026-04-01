@@ -357,12 +357,12 @@ let private routeSelfCycles v layer edges outMap inMap backOutMap backInMap =
       let outX = outermostOut + if goRight then step else -step
       let inX = outermostIn + if goRight then step else -step
       edge.Points <-
-        [ pos outX botY
-          pos outX (botY + StubMargin)
-          pos sideX (botY + StubMargin)
-          pos sideX (topY - StubMargin)
-          pos inX (topY - StubMargin)
-          pos inX topY ])
+        [| pos outX botY
+           pos outX (botY + StubMargin)
+           pos sideX (botY + StubMargin)
+           pos sideX (topY - StubMargin)
+           pos inX (topY - StubMargin)
+           pos inX topY |])
   else
     ()
 
@@ -438,7 +438,7 @@ let private routeVertical slots layout src dst portX srcBotY dstTopY =
   appendBlockerDetours slots layout src dst portX pts
   addPoint pts portX (dstTopY - StubMargin)
   addPoint pts portX dstTopY
-  pts |> Seq.toList
+  pts |> Seq.toArray
 
 let private routeHorizontal slots layout src dst sPortX dPortX botY topY bandY =
   let pts = ResizeArray<VisPosition>()
@@ -453,15 +453,15 @@ let private routeHorizontal slots layout src dst sPortX dPortX botY topY bandY =
   then addPoint pts dPortX (topY - StubMargin)
   else ()
   addPoint pts dPortX topY
-  pts |> Seq.toList
+  pts |> Seq.toArray
 
 let private routeBackEdgeOuter sPortX dPortX sBotY dTopY rX stubBotY stubTopY =
-  [ pos sPortX sBotY
-    pos sPortX stubBotY
-    pos rX stubBotY
-    pos rX stubTopY
-    pos dPortX stubTopY
-    pos dPortX dTopY ]
+  [| pos sPortX sBotY
+     pos sPortX stubBotY
+     pos rX stubBotY
+     pos rX stubTopY
+     pos dPortX stubTopY
+     pos dPortX dTopY |]
 
 let private routeBackEdges layout edges backOutMap backInMap backGeom =
   layout
@@ -597,7 +597,7 @@ let private computeBackEdgeGeometry layout edges bandEdgesRight bandEdgesLeft =
   let goRightOf src = prefersRightRail globalLeft globalRight src
   let fwdCount bandIndex =
     bucketCount bandEdgesRight bandIndex + bucketCount bandEdgesLeft bandIndex
-  let countBackForBand selector bandIndex goRight =
+  let countBackForBand bandIndex goRight selector =
     backEdges |> List.sumBy (fun (src, dst, _) ->
       if selector src dst bandIndex && goRightOf src = goRight then 1 else 0)
   let botBaseY = Dictionary<int * bool, float>()
@@ -605,21 +605,20 @@ let private computeBackEdgeGeometry layout edges bandEdgesRight bandEdgesLeft =
   for bandIndex in 0 .. layout.Length - 2 do
     let bandStartY = layerBotY layout[bandIndex] + StubMargin
     let botRight =
-      countBackForBand
+      countBackForBand bandIndex true
         (fun src _ currentBand -> VisGraph.getLayer src = currentBand)
-        bandIndex true
     let botLeft =
       countBackForBand
-        (fun src _ currentBand -> VisGraph.getLayer src = currentBand)
         bandIndex false
+        (fun src _ currentBand -> VisGraph.getLayer src = currentBand)
     botBaseY[(bandIndex, true)] <- bandStartY
     botBaseY[(bandIndex, false)] <- bandStartY + float botRight * EdgeOffset
     let topStart =
       bandStartY + float (botRight + botLeft + fwdCount bandIndex) * EdgeOffset
     let topRight =
       countBackForBand
-        (fun _ dst currentBand -> VisGraph.getLayer dst = currentBand + 1)
         bandIndex true
+        (fun _ dst currentBand -> VisGraph.getLayer dst = currentBand + 1)
     topBaseY[(bandIndex + 1, true)] <- topStart
     topBaseY[(bandIndex + 1, false)] <- topStart + float topRight * EdgeOffset
   let edgeSlotMap = Dictionary<VisEdge, int * int>()

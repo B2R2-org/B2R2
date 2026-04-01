@@ -29,7 +29,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// The main edge data type for visualization.
 type VisEdge(ty) =
   let mutable isBackEdge = false
-  let mutable points: VisPosition list = []
+  let mutable points: VisPosition[] = [||]
 
   member _.Type: CFGEdgeKind = ty
 
