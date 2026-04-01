@@ -23,7 +23,7 @@
 *)
 
 [<RequireQualifiedAccess>]
-module B2R2.RearEnd.BinExplore.GUI.Hexdump
+module B2R2.RearEnd.BinExplore.GUI.HexContent
 
 open System
 open System.Collections.Generic
@@ -47,7 +47,7 @@ type private CachedRowVisual =
     Hex: FormattedText
     Ascii: FormattedText }
 
-type private HexdumpLayout =
+type private HexviewLayout =
   { PaddingX: float
     RowHeight: float
     BytesPerRow: int
@@ -185,18 +185,18 @@ type private HexdumpInteractionCanvas() as this =
       let col = clampIfNeeded shouldClamp 0L maxCol col
       if col < 0L || col > maxCol then None else Some col
 
-  let tryGetHexColumn shouldClamp (layout: HexdumpLayout) x =
+  let tryGetHexColumn shouldClamp (layout: HexviewLayout) x =
     let maxCol = int64 (layout.BytesPerRow - 1)
     let paddingX, left, width = layout.PaddingX, layout.HexLeft, layout.HexWidth
     tryGetColumn shouldClamp paddingX left width layout.HexCellWidth maxCol x
 
-  let tryGetAsciiColumn shouldClamp (layout: HexdumpLayout) x =
+  let tryGetAsciiColumn shouldClamp (layout: HexviewLayout) x =
     let maxCol = int64 (layout.BytesPerRow - 1)
     let paddingX = layout.PaddingX
     let left, width = layout.AsciiLeft, layout.AsciiWidth
     tryGetColumn shouldClamp paddingX left width layout.CharWidth maxCol x
 
-  let tryGetColumnAtPoint shouldClamp (layout: HexdumpLayout) x =
+  let tryGetColumnAtPoint shouldClamp (layout: HexviewLayout) x =
     let localX = x - layout.PaddingX
     let hexRight = layout.HexLeft + layout.HexWidth
     let asciiRight = layout.AsciiLeft + layout.AsciiWidth

@@ -135,7 +135,7 @@ let private tabContentView model dispatch =
   | Some { Content = CFGContent _ } ->
     CFGContent.view model dispatch
   | Some { Content = HexContent _ } ->
-    Hexdump.view model dispatch
+    HexContent.view model dispatch
   | Some { Content = SectionContent } ->
     Border.create [
       Border.background model.Theme.Window.Background
