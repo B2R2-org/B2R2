@@ -306,6 +306,16 @@ let private getActiveHexScrollGuard model =
   | Some { Content = HexContent hexdump } -> hexdump.View.ScrollGuard
   | _ -> NoScrollGuard
 
+let private syncHexScrollOffset hexdump offsetY scrollGuard =
+  let rowHeight = max hexdump.View.RowHeight 1.0
+  let view =
+    { hexdump.View with
+        ScrollOffsetY = offsetY
+        ScrollRow = int64 (floor (offsetY / rowHeight))
+        ScrollGuard = scrollGuard }
+    |> clampHexScrollState hexdump
+  { hexdump with View = { view with ScrollGuard = scrollGuard } }
+
 let private recomputeHexViewLayout model updateView =
   let charWidth, rowHeight = measureMaxCharSize model
   updateHexdumpState model (fun hexdump ->
@@ -364,10 +374,12 @@ let private jumpHexdump model byteIndex length =
           (let totalRows = computeHexTotalRows hexdump scrolledView
            let contentHeight = float totalRows * rowHeight
            max 0.0 (contentHeight - scrolledView.ViewportHeight)))
-    let currentOffsetY = float viewState.ScrollRow * rowHeight
+    let currentOffsetY = viewState.ScrollOffsetY
     let pendingDelta = targetOffsetY - currentOffsetY
     let nextView =
       { scrolledView with
+          ScrollOffsetY = targetOffsetY
+          ScrollRow = targetRow
           ScrollGuard =
             if abs pendingDelta > 0.5 then
               IgnoreNextProgrammatic pendingDelta
@@ -426,48 +438,28 @@ let updateHexdump model msg =
           ScrollOffsetY = float nextScrollRow * nextView.RowHeight })
   | JumpToRange(byteIndex, length) ->
     jumpHexdump model byteIndex length
-  | HandleScrollChanged(deltaY) ->
+  | HandleScrollChanged(offsetY, deltaY) ->
     let currentGuard = getActiveHexScrollGuard model
-    match currentGuard with
-    | IgnoreNextProgrammatic _ when abs deltaY <= 0.0 ->
+    if Double.IsNaN offsetY then
       model, Elmish.Cmd.none
-    | IgnoreNextProgrammatic _ ->
-      updateHexdumpState model (fun hexdump ->
-        let view =
-          { hexdump.View with ScrollGuard = NoScrollGuard }
-        { hexdump with View = view })
-    | IgnoreNextEcho _ when abs deltaY <= 0.0 ->
-      model, Elmish.Cmd.none
-    | IgnoreNextEcho _ ->
-      updateHexdumpState model (fun hexdump ->
-        let view =
-          { hexdump.View with ScrollGuard = NoScrollGuard }
-        { hexdump with View = view })
-    | _ when abs deltaY <= 0.0 ->
-      model, Elmish.Cmd.none
-    | _ ->
-      updateHexdumpState model (fun hexdump ->
-        let viewState = hexdump.View
-        let nextOffsetY = viewState.ScrollOffsetY + deltaY
-        let rowHeight = max viewState.RowHeight 1.0
-        let scrollRow = int64 (floor (nextOffsetY / rowHeight))
-        let view =
-          { viewState with
-              ScrollOffsetY = nextOffsetY
-              ScrollRow = scrollRow
-              ScrollGuard = NoScrollGuard }
-        { hexdump with View = view })
+    else
+      match currentGuard with
+      | IgnoreNextProgrammatic _ when abs deltaY <= 0.0 ->
+        model, Elmish.Cmd.none
+      | IgnoreNextProgrammatic _ ->
+        updateHexdumpState model (fun hexdump ->
+          syncHexScrollOffset hexdump offsetY NoScrollGuard)
+      | IgnoreNextEcho _ when abs deltaY <= 0.0 ->
+        model, Elmish.Cmd.none
+      | IgnoreNextEcho _ ->
+        updateHexdumpState model (fun hexdump ->
+          syncHexScrollOffset hexdump offsetY NoScrollGuard)
+      | _ ->
+        updateHexdumpState model (fun hexdump ->
+          syncHexScrollOffset hexdump offsetY NoScrollGuard)
   | SetScrollOffset(offsetY) ->
     updateHexdumpState model (fun hexdump ->
-      let viewState = hexdump.View
-      let rowHeight = max viewState.RowHeight 1.0
-      let scrollRow = int64 (floor (offsetY / rowHeight))
-      let view =
-        { viewState with
-            ScrollOffsetY = offsetY
-            ScrollRow = scrollRow
-            ScrollGuard = viewState.ScrollGuard }
-      { hexdump with View = view })
+      syncHexScrollOffset hexdump offsetY hexdump.View.ScrollGuard)
   | SetScrollRow(row) ->
     updateHexdumpState model (fun hexdump ->
       let viewState = hexdump.View

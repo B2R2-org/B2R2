@@ -121,8 +121,9 @@ and HexdumpMessage =
   | UpdateFontMetrics of charWidth: float * rowHeight: float
   /// Jumps the hexdump view to a specific byte range.
   | JumpToRange of byteIndex: int64 * length: int64
-  /// Handles a raw scroll delta emitted by the UI scroll viewer.
-  | HandleScrollChanged of deltaY: float
+  /// Handles a scroll change emitted by the UI scroll viewer, carrying the
+  /// current absolute offset and the raw delta.
+  | HandleScrollChanged of offsetY: float * deltaY: float
   /// Sets the vertical scroll offset of a specific hexdump view in pixels.
   /// Use this for programmatic jumps such as "go to address".
   | SetScrollOffset of offsetY: float

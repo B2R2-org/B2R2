@@ -401,7 +401,13 @@ module private HexdumpInteractionCanvas =
 
 let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
   let deltaY = args.OffsetDelta.Y
-  dispatch (HexdumpMsg(HandleScrollChanged deltaY))
+  let currentOffsetY =
+    match args.Source with
+    | :? ScrollViewer as scrollViewer ->
+      scrollViewer.Offset.Y
+    | _ ->
+      Double.NaN
+  dispatch (HexdumpMsg(HandleScrollChanged(currentOffsetY, deltaY)))
 
 let private formatAddress digits baseAddress offset =
   let addr = baseAddress + uint64 offset
@@ -785,10 +791,7 @@ let private bodyView model dispatch =
           ]
         ]
       )
-      if viewState.ScrollGuard <> NoScrollGuard then
-        ScrollViewer.offset (Vector(0.0, -scrollOffsetY))
-      else
-        ()
+      ScrollViewer.offset (Vector(0.0, scrollOffsetY))
     ]
     |> View.withKey "hexdump-scroll" :> IView
   | _ ->
