@@ -31,6 +31,7 @@ open Avalonia.Media
 open Avalonia.Styling
 open Avalonia.Threading
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.ELF
 open B2R2.RearEnd.BinExplore
 open B2R2.RearEnd.Visualization
 
@@ -235,6 +236,81 @@ let private replaceTabReferences model tab =
       PreviewTab = preview
       ActiveTab = active }
 
+let private isLinkageSectionName = function
+  | ".plt" | ".plt.sec" | ".plt.got"
+  | ".got" | ".got.plt"
+  | ".dynamic"
+  | ".rela.plt" | ".rel.plt" -> true
+  | _ -> false
+
+let private isExceptionSectionName = function
+  | ".eh_frame" | ".eh_frame_hdr" | ".gcc_except_table"
+  | ".ARM.exidx" | ".ARM.extab" -> true
+  | _ -> false
+
+let private isMetadataSectionType = function
+  | SectionType.SHT_NULL
+  | SectionType.SHT_SYMTAB
+  | SectionType.SHT_STRTAB
+  | SectionType.SHT_RELA
+  | SectionType.SHT_HASH
+  | SectionType.SHT_NOTE
+  | SectionType.SHT_REL
+  | SectionType.SHT_SHLIB
+  | SectionType.SHT_DYNSYM
+  | SectionType.SHT_GROUP
+  | SectionType.SHT_SYMTAB_SHNDX
+  | SectionType.SHT_GNU_HASH
+  | SectionType.SHT_GNU_verdef
+  | SectionType.SHT_GNU_verneed
+  | SectionType.SHT_GNU_versym -> true
+  | _ -> false
+
+let private selectionHighlightSpec (theme: Theme) (shdr: SectionHeader) =
+  let name = shdr.SecName
+  if isExceptionSectionName name then
+    struct (theme.Hex.ExceptionArea, 8)
+  elif isLinkageSectionName name then
+    struct (theme.Hex.LinkageArea, 9)
+  elif shdr.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR then
+    struct (theme.Hex.CodeArea, 10)
+  elif shdr.SecFlags.HasFlag SectionFlags.SHF_ALLOC
+       && not (isMetadataSectionType shdr.SecType) then
+    if shdr.SecFlags.HasFlag SectionFlags.SHF_WRITE then
+      struct (theme.Hex.WritableDataArea, 7)
+    else
+      struct (theme.Hex.ReadOnlyDataArea, 7)
+  else
+    struct (theme.Hex.MetadataArea, 6)
+
+let private buildSpansForELF (theme: Theme) (elf: ELFBinFile) =
+  let fileLength = int64 (elf :> IBinFile).RawBytes.Length
+  [ for shdr in elf.SectionHeaders do
+      let start, length = shdr.SecOffset, shdr.SecSize
+      let isFileBacked = shdr.SecType <> SectionType.SHT_NOBITS
+      let start = int64 start
+      let length = int64 length
+      if isFileBacked && length > 0L && start >= 0L && start < fileLength then
+        let length = min length (fileLength - start)
+        let struct (bg, prio) = selectionHighlightSpec theme shdr
+        { Start = int64 start
+          Length = length
+          Foreground = None
+          Background = Some bg
+          Priority = prio }
+      else
+        () ]
+
+let private buildHexAnnotations
+    (theme: Theme) (file: IBinFile) (state: HexdumpState) =
+  match file.Format with
+  | FileFormat.ELFBinary ->
+    let elf = file :?> ELFBinFile
+    let spans = buildSpansForELF theme elf
+    { state with AnnotationSpans = spans }
+  | _ ->
+    state
+
 let openHexdumpTab (arbiter: Arbiter<_, _>) model =
   let visibleTabs = Model.getVisibleTabs model
   match visibleTabs |> List.tryFind (fun t -> t.ID = Tab.HexdumpTabID) with
@@ -253,6 +329,7 @@ let openHexdumpTab (arbiter: Arbiter<_, _>) model =
       let numDigits = (file.ISA.WordSize |> B2R2.WordSize.toByteWidth) * 2
       let hexdump =
         HexdumpState.ofBytes file.BaseAddress file.RawBytes numDigits
+        |> buildHexAnnotations model.Theme file
         |> activateHexdumpView model
       let tab = Tab.ofHexdump hexdump
       { model with

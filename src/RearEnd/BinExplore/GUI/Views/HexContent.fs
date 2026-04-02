@@ -486,23 +486,41 @@ let private addSelectionHighlight theme buckets startRow endRow rowWidth sel =
   let background = theme.Search.SelectedBackground
   addSegs buckets startRow endRow rowWidth selStart (selEnd + 1L) background
 
-let private sliceHighlights theme bytesPerRow startRow endRow state =
-  let visibleRowCount = max 0 (endRow - startRow)
-  let buckets = Array.init visibleRowCount (fun _ -> ResizeArray<_>())
-  let rowWidth = int64 (max 1 bytesPerRow)
+let private addSpans theme buckets startRow endRow rowWidth spans =
   let visStart = int64 startRow * rowWidth
   let visEnd = int64 endRow * rowWidth
   let spans =
-    state.HighlightSpans |> List.sortByDescending (fun s -> s.Priority)
+    spans |> List.sortByDescending (fun (s: HexSpanStyle) -> s.Priority)
   for span in spans do
     addSpan theme buckets startRow endRow rowWidth visStart visEnd span
+
+let private collectBuckets buckets =
+  buckets |> Array.map (fun bucket -> bucket |> Seq.toList)
+
+let private buildAnnotationRows theme docLength bytesPerRow spans =
+  let totalRows =
+    if docLength <= 0L then 0
+    else int ((docLength + int64 bytesPerRow - 1L) / int64 bytesPerRow)
+  if totalRows <= 0 || List.isEmpty spans then
+    [||]
+  else
+    let buckets = Array.init totalRows (fun _ -> ResizeArray<_>())
+    let rowWidth = int64 (max 1 bytesPerRow)
+    addSpans theme buckets 0 totalRows rowWidth spans
+    collectBuckets buckets
+
+let private sliceTransientHighlights theme layout startRow endRow state =
+  let bytesPerRow = layout.BytesPerRow
+  let visibleRowCount = max 0 (endRow - startRow)
+  let buckets = Array.init visibleRowCount (fun _ -> ResizeArray<_>())
+  let rowWidth = int64 (max 1 bytesPerRow)
+  addSpans theme buckets startRow endRow rowWidth state.HighlightSpans
   match state.Selection with
   | Some selection ->
     addSelectionHighlight theme buckets startRow endRow rowWidth selection
   | None ->
     ()
-  buckets
-  |> Array.map (fun bucket -> bucket |> Seq.toList)
+  collectBuckets buckets
 
 let private computeTotalRows docLength bytesPerRow =
   if docLength <= 0L then 0
@@ -532,6 +550,11 @@ type private HexdumpRenderLayer() =
   let mutable cachedAddressColor = ""
   let mutable cachedPrimaryColor = ""
   let mutable cachedSecondaryColor = ""
+  let mutable cachedAnnotationBytes: byte[] = null
+  let mutable cachedAnnotationSpans: HexSpanStyle list = []
+  let mutable cachedAnnotationBytesPerRow = 0
+  let mutable cachedAnnotationFallback = ""
+  let mutable cachedAnnotationRows: RowHighlightSegment list array = [||]
 
   let clearRowCache () =
     rowCache.Clear()
@@ -569,7 +592,28 @@ type private HexdumpRenderLayer() =
       cachedAddressColor <- theme.Text.Address
       cachedPrimaryColor <- theme.Text.Primary
       cachedSecondaryColor <- theme.Text.Secondary
+    else
+      ()
     Typeface(FontFamily fontFamily), fontSize
+
+  let ensureAnnotationCache (state: HexdumpState) theme layout =
+    let cacheInvalid =
+      not (obj.ReferenceEquals(cachedAnnotationBytes, state.Document.Bytes))
+      || not (obj.ReferenceEquals(box cachedAnnotationSpans,
+                                  box state.AnnotationSpans))
+      || cachedAnnotationBytesPerRow <> layout.BytesPerRow
+      || cachedAnnotationFallback <> theme.Search.SelectedBackground
+    if cacheInvalid then
+      cachedAnnotationBytes <- state.Document.Bytes
+      cachedAnnotationSpans <- state.AnnotationSpans
+      cachedAnnotationBytesPerRow <- layout.BytesPerRow
+      cachedAnnotationFallback <- theme.Search.SelectedBackground
+      cachedAnnotationRows <-
+        buildAnnotationRows theme state.Document.Length
+                            layout.BytesPerRow state.AnnotationSpans
+    else
+      ()
+    cachedAnnotationRows
 
   let pruneRowCache startRow endRow =
     let minKeep = max 0 (startRow - OverscanRows * 2)
@@ -599,7 +643,7 @@ type private HexdumpRenderLayer() =
               typeface fontSize (brushOfColor theme.Text.Primary) hexText
           Ascii =
             makeFormattedText
-              typeface fontSize (brushOfColor theme.Text.Secondary) asciiText }
+              typeface fontSize (brushOfColor theme.Text.Primary) asciiText }
       rowCache[rowIdx] <- cached
       cached
 
@@ -718,12 +762,18 @@ type private HexdumpRenderLayer() =
         let layout = computeLayout state.View
         let startRow = this.RenderStartRow
         let endRow = this.RenderEndRow
-        let visibleRowHighlights =
-          sliceHighlights theme layout.BytesPerRow startRow endRow state
+        let annotationRows = ensureAnnotationCache state theme layout
+        let transientRows =
+          sliceTransientHighlights theme layout startRow endRow state
         let typeface, fontSize = ensureCacheSignature state theme
         pruneRowCache startRow endRow
         for rowIdx in startRow .. endRow - 1 do
-          let rowHighlights = visibleRowHighlights[rowIdx - startRow]
+          let annotationHighlights =
+            if rowIdx < annotationRows.Length then annotationRows[rowIdx]
+            else []
+          let transientHighlights = transientRows[rowIdx - startRow]
+          let rowHighlights =
+            List.append annotationHighlights transientHighlights
           drawRow ctx state theme layout typeface fontSize
                   startRow rowIdx rowHighlights
       | _ ->

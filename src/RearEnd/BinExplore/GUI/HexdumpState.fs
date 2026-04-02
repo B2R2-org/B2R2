@@ -32,6 +32,7 @@ type HexdumpState =
   { Document: HexDocument
     Caret: int64 option
     Selection: HexSelection option
+    AnnotationSpans: HexSpanStyle list
     HighlightSpans: HexSpanStyle list
     View: HexViewState }
 
@@ -102,5 +103,6 @@ module HexdumpState =
     { Document = HexDocument.ofBytes baseAddress bytes
       Caret = None
       Selection = None
+      AnnotationSpans = []
       HighlightSpans = []
       View = HexViewState.init numDigits }

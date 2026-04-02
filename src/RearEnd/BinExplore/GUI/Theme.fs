@@ -34,6 +34,7 @@ type Theme =
     Font: FontTheme
     Tab: TabTheme
     Graph: GraphTheme
+    Hex: HexTheme
     Common: CommonTheme
     Search: SearchTheme }
 
@@ -88,6 +89,15 @@ and GraphTheme =
     CallEdge: string
     ReturnEdge: string
     HoveredEdge: string }
+
+/// Represents the theme settings for the hexdump view.
+and HexTheme =
+  { CodeArea: string
+    LinkageArea: string
+    ReadOnlyDataArea: string
+    WritableDataArea: string
+    ExceptionArea: string
+    MetadataArea: string }
 
 /// Represents common theme settings that can be used across different UI
 /// elements.
@@ -150,6 +160,13 @@ module Theme =
           CallEdge = "#8BE9FD"
           ReturnEdge = "#FF79C6"
           HoveredEdge = "#55CCFF" }
+      Hex =
+        { CodeArea = "#2F82F7"
+          LinkageArea = "#C066FF"
+          ReadOnlyDataArea = "#3FBB44"
+          WritableDataArea = "#22AA99"
+          ExceptionArea = "#FFBB44"
+          MetadataArea = "#778888" }
       Common = { Transparent = "Transparent" }
       Search =
         { Background = "#080C12"
@@ -193,6 +210,13 @@ module Theme =
           CallEdge = "#0A6080"
           ReturnEdge = "#8B2880"
           HoveredEdge = "#0078FF" }
+      Hex =
+        { CodeArea = "#2F81F766"
+          LinkageArea = "#C061FF66"
+          ReadOnlyDataArea = "#3FB95066"
+          WritableDataArea = "#2AA19866"
+          ExceptionArea = "#FFB34766"
+          MetadataArea = "#8B949E44" }
       Common = { Transparent = "Transparent" }
       Search =
         { Background = "#FFFFFF"
