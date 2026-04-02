@@ -217,169 +217,6 @@ type IntelParser(wordSz, reader) =
     | ModRMType.FixedModRM v -> span[phlp.CurrPos] = v
     | _ -> true
 
-  let matchesX87Escape span phlp (i: InstructionCore) modRM registerFormMatcher =
-    if Operands.getMod modRM = 0b11 then
-      if i.ModRM = ModRMType.NoModRM then registerFormMatcher modRM
-      else false
-    else
-      if i.ModRM = ModRMType.NoModRM then false
-      else matchesOpcodeExtensionGroup span phlp i
-
-  let matchesD8Escape span phlp (i: InstructionCore) modRM =
-    matchesX87Escape span phlp i modRM (fun modRM ->
-      match modRM &&& 0xF8uy with
-      | 0xC0uy -> i.Opcode = Opcode.FADD
-      | 0xC8uy -> i.Opcode = Opcode.FMUL
-      | 0xD0uy -> i.Opcode = Opcode.FCOM
-      | 0xD8uy -> i.Opcode = Opcode.FCOMP
-      | 0xE0uy -> i.Opcode = Opcode.FSUB
-      | 0xE8uy -> i.Opcode = Opcode.FSUBR
-      | 0xF0uy -> i.Opcode = Opcode.FDIV
-      | 0xF8uy -> i.Opcode = Opcode.FDIVR
-      | _ -> false)
-
-  let matchesD9Escape span phlp (i: InstructionCore) modRM =
-    matchesX87Escape span phlp i modRM (fun modRM ->
-      match modRM with
-      | 0xC0uy | 0xC1uy | 0xC2uy | 0xC3uy | 0xC4uy | 0xC5uy | 0xC6uy | 0xC7uy ->
-        i.Opcode = Opcode.FLD
-      | 0xC8uy | 0xC9uy | 0xCAuy | 0xCBuy | 0xCCuy | 0xCDuy | 0xCEuy | 0xCFuy ->
-        i.Opcode = Opcode.FXCH
-      | 0xD0uy -> i.Opcode = Opcode.FNOP
-      | 0xD1uy | 0xD2uy | 0xD3uy | 0xD4uy | 0xD5uy | 0xD6uy | 0xD7uy | 0xD8uy
-      | 0xD9uy | 0xDAuy | 0xDBuy | 0xDCuy | 0xDDuy | 0xDEuy | 0xDFuy -> false
-      | 0xE0uy -> i.Opcode = Opcode.FCHS
-      | 0xE1uy -> i.Opcode = Opcode.FABS
-      | 0xE2uy | 0xE3uy -> false
-      | 0xE4uy -> i.Opcode = Opcode.FTST
-      | 0xE5uy -> i.Opcode = Opcode.FXAM
-      | 0xE6uy | 0xE7uy -> false
-      | 0xE8uy -> i.Opcode = Opcode.FLD1
-      | 0xE9uy -> i.Opcode = Opcode.FLDL2T
-      | 0xEAuy -> i.Opcode = Opcode.FLDL2E
-      | 0xEBuy -> i.Opcode = Opcode.FLDPI
-      | 0xECuy -> i.Opcode = Opcode.FLDLG2
-      | 0xEDuy -> i.Opcode = Opcode.FLDLN2
-      | 0xEEuy -> i.Opcode = Opcode.FLDZ
-      | 0xEFuy -> false
-      | 0xF0uy -> i.Opcode = Opcode.F2XM1
-      | 0xF1uy -> i.Opcode = Opcode.FYL2X
-      | 0xF2uy -> i.Opcode = Opcode.FPTAN
-      | 0xF3uy -> i.Opcode = Opcode.FPATAN
-      | 0xF4uy -> i.Opcode = Opcode.FXTRACT
-      | 0xF5uy -> i.Opcode = Opcode.FPREM1
-      | 0xF6uy -> i.Opcode = Opcode.FDECSTP
-      | 0xF7uy -> i.Opcode = Opcode.FINCSTP
-      | 0xF8uy -> i.Opcode = Opcode.FPREM
-      | 0xF9uy -> i.Opcode = Opcode.FYL2XP1
-      | 0xFAuy -> i.Opcode = Opcode.FSQRT
-      | 0xFBuy -> i.Opcode = Opcode.FSINCOS
-      | 0xFCuy -> i.Opcode = Opcode.FRNDINT
-      | 0xFDuy -> i.Opcode = Opcode.FSCALE
-      | 0xFEuy -> i.Opcode = Opcode.FSIN
-      | 0xFFuy -> i.Opcode = Opcode.FCOS
-      | _ -> false)
-
-  let matchesDAEscape span phlp (i: InstructionCore) modRM =
-    matchesX87Escape span phlp i modRM (fun modRM ->
-      match modRM &&& 0xF8uy with
-      | 0xC0uy -> i.Opcode = Opcode.FCMOVB
-      | 0xC8uy -> i.Opcode = Opcode.FCMOVE
-      | 0xD0uy -> i.Opcode = Opcode.FCMOVBE
-      | 0xD8uy -> i.Opcode = Opcode.FCMOVU
-      | 0xE8uy ->
-        match modRM with
-        | 0xE9uy -> i.Opcode = Opcode.FUCOMPP
-        | _ -> false
-      | _ -> false)
-
-  let matchesDBEscape span phlp (i: InstructionCore) modRM =
-    matchesX87Escape span phlp i modRM (fun modRM ->
-      match modRM &&& 0xF8uy with
-      | 0xC0uy -> i.Opcode = Opcode.FCMOVNB
-      | 0xC8uy -> i.Opcode = Opcode.FCMOVNE
-      | 0xD0uy -> i.Opcode = Opcode.FCMOVNBE
-      | 0xD8uy -> i.Opcode = Opcode.FCMOVNU
-      | 0xE0uy ->
-        match modRM with
-        | 0xE2uy -> i.Opcode = Opcode.FCLEX
-        | 0xE3uy -> i.Opcode = Opcode.FINIT
-        | _ -> false
-      | 0xE8uy -> i.Opcode = Opcode.FUCOMI
-      | 0xF0uy -> i.Opcode = Opcode.FCOMI
-      | 0xF8uy -> false
-      | _ -> false)
-
-  let matchesDCEscape span phlp (i: InstructionCore) modRM =
-    matchesX87Escape span phlp i modRM (fun modRM ->
-      match modRM &&& 0xF8uy with
-      | 0xC0uy -> i.Opcode = Opcode.FADD
-      | 0xC8uy -> i.Opcode = Opcode.FMUL
-      | 0xD0uy | 0xD8uy -> false
-      | 0xE0uy -> i.Opcode = Opcode.FSUBR
-      | 0xE8uy -> i.Opcode = Opcode.FSUB
-      | 0xF0uy -> i.Opcode = Opcode.FDIVR
-      | 0xF8uy -> i.Opcode = Opcode.FDIV
-      | _ -> false)
-
-  let matchesDDEscape span phlp (i: InstructionCore) modRM =
-    matchesX87Escape span phlp i modRM (fun modRM ->
-      match modRM &&& 0xF8uy with
-      | 0xC0uy -> i.Opcode = Opcode.FFREE
-      | 0xC8uy -> false
-      | 0xD0uy -> i.Opcode = Opcode.FST
-      | 0xD8uy -> i.Opcode = Opcode.FSTP
-      | 0xE0uy -> i.Opcode = Opcode.FUCOM
-      | 0xE8uy -> i.Opcode = Opcode.FUCOMP
-      | 0xF0uy | 0xF8uy -> false
-      | _ -> false)
-
-  let matchesDEEscape span phlp (i: InstructionCore) modRM =
-    matchesX87Escape span phlp i modRM (fun modRM ->
-      match modRM &&& 0xF8uy with
-      | 0xC0uy -> i.Opcode = Opcode.FADDP
-      | 0xC8uy -> i.Opcode = Opcode.FMULP
-      | 0xD0uy -> false
-      | 0xD8uy ->
-        match modRM with
-        | 0xD9uy -> i.Opcode = Opcode.FCOMPP
-        | _ -> false
-      | 0xE0uy -> i.Opcode = Opcode.FSUBRP
-      | 0xE8uy -> i.Opcode = Opcode.FSUBP
-      | 0xF0uy -> i.Opcode = Opcode.FDIVRP
-      | 0xF8uy -> i.Opcode = Opcode.FDIVP
-      | _ -> false)
-
-  let matchesDFEscape span phlp (i: InstructionCore) modRM =
-    matchesX87Escape span phlp i modRM (fun modRM ->
-      match modRM &&& 0xF8uy with
-      | 0xC0uy | 0xC8uy | 0xD0uy | 0xD8uy -> false
-      | 0xE0uy ->
-        match modRM with
-        | 0xE0uy -> i.Opcode = Opcode.FSTSW || i.Opcode = Opcode.FNSTSW
-        | _ -> false
-      | 0xE8uy -> i.Opcode = Opcode.FUCOMIP
-      | 0xF0uy -> i.Opcode = Opcode.FCOMIP
-      | 0xF8uy -> false
-      | _ -> false)
-
-  let matchesEscapeOpcode (span: ByteSpan) (phlp: ParsingHelper)
-    (i: InstructionCore) =
-    match i.OpEn with
-    | OpEn.None ->
-      let modRM = span[phlp.CurrPos]
-      match i.OpcodeByte with
-      | 0xD8u -> matchesD8Escape span phlp i modRM
-      | 0xD9u -> matchesD9Escape span phlp i modRM
-      | 0xDAu -> matchesDAEscape span phlp i modRM
-      | 0xDBu -> matchesDBEscape span phlp i modRM
-      | 0xDCu -> matchesDCEscape span phlp i modRM
-      | 0xDDu -> matchesDDEscape span phlp i modRM
-      | 0xDEu -> matchesDEEscape span phlp i modRM
-      | 0xDFu -> matchesDFEscape span phlp i modRM
-      | _ -> false
-    | _ -> true
-
   let findMatchingSubIndex (span: ByteSpan) (phlp: ParsingHelper)
     (ins: InstructionCore[]) =
     let insLen = ins.Length
@@ -394,13 +231,12 @@ type IntelParser(wordSz, reader) =
         let c = matchesCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
         let r = matchesREXPrefix phlp insCore
         let v = matchesVectorLength phlp.VEXInfo insCore.VectorLength
-        let e = matchesEscapeOpcode span phlp insCore
         let x = matchesInstructionModRM span phlp insCore
 #if DEBUG
-        printfn "Checking %d: p=%b, s=%b, c=%b, r=%b, v=%b, e=%b, x=%b"
-          i p s c r v e x
+        printfn "Checking %d: p=%b, s=%b, c=%b, r=%b, v=%b, x=%b"
+          i p s c r v x
 #endif
-        if p && c && s && r && v && e && x then
+        if p && c && s && r && v && x then
 #if DEBUG
           printfn "[Success] maps: %A, pref: %A, rex: %A, vex: %A\nIdx:%d\n%A"
             phlp.OpcodeClass phlp.Prefixes phlp.REXPrefix phlp.VEXInfo i insCore
