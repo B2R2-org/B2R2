@@ -65,3 +65,14 @@ let [<Literal>] PLT = ".plt"
 
 /// The name of the section that contains Global Offset Table (GOT): ".got".
 let [<Literal>] GOT = ".got"
+
+/// The name of the section that contains debugging information: ".debug_info".
+let [<Literal>] DebugInfo = ".debug_info"
+
+/// The name of the section that contains debugging information about types:
+/// ".debug_types".
+let [<Literal>] DebugTypes = ".debug_types"
+
+/// The name of the section that contains debugging information about
+/// abbreviations: ".debug_abbrev".
+let [<Literal>] DebugAbbrev = ".debug_abbrev"
