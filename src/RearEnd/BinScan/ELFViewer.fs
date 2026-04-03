@@ -548,3 +548,9 @@ let dumpGccExceptTable _hdl (elf: ELFBinFile) =
 
 let dumpNotes _hdl (_file: ELFBinFile) =
   Terminator.futureFeature ()
+
+let dumpDebugInfo _hdl (file: ELFBinFile) =
+  for die in file.DebugInfo do
+    printfn "%x: %A" die.Offset die.Tag
+    for attr in die.Attributes do
+      printfn "  %A: %A" attr.Attribute attr.Value

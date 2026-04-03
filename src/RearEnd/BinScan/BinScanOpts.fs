@@ -127,6 +127,9 @@ with
       CmdOpt(descr = noCol "Display the notes information",
              long = "--notes",
              callback = fun opts _ -> opts.Add(DisplayELF ELFNotes))
+      CmdOpt(descr = noCol "Display the debug information",
+             long = "--debug",
+             callback = fun opts _ -> opts.Add(DisplayELF ELFDebugInfo))
       CmdOpt(descr = noCol "",
              dummy = true)
       CmdOpt(descr = ColoredString().Add(NoColor, "[")

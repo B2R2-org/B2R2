@@ -56,6 +56,7 @@ and ELFDisplayItem =
   | ELFEHFrame
   | ELFGccExceptTbl
   | ELFNotes
+  | ELFDebugInfo
 
 /// Display items for PE.
 and PEDisplayItem =
