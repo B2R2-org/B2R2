@@ -34,7 +34,9 @@ open type Register
 do ()
 
 /// Represents a factory for accessing various AVR register variables.
-type RegisterFactory(wordSize) =
+type RegisterFactory(isa: ISA) =
+  let wordSize = isa.WordSize
+
   let regType = WordSize.toRegType wordSize
 
   let reg16 reg1 reg2 = AST.concat reg1 reg2
@@ -87,6 +89,8 @@ type RegisterFactory(wordSize) =
   let sp = AST.var 16<rt> (Register.toRegID SP) "SP"
 
   interface IRegisterFactory with
+    member _.ISA = ISA Architecture.AVR
+
     member _.ProgramCounter = Terminator.futureFeature ()
 
     member _.StackPointer = Terminator.futureFeature ()

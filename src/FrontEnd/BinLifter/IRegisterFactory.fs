@@ -34,6 +34,26 @@ type IRegisterFactory =
   inherit IRegisterNameAccessor
   inherit IRegisterVarAccessor
 
+  /// <summary>
+  /// Returns the ISA associated with the current register factory.
+  /// </summary>
+  abstract ISA: ISA
+
+  /// <summary>
+  /// Returns a program counter register for a given BinHandle.
+  /// </summary>
+  abstract ProgramCounter: RegisterID
+
+  /// <summary>
+  /// Returns a stack pointer register for a given BinHandle.
+  /// </summary>
+  abstract StackPointer: RegisterID option
+
+  /// <summary>
+  /// Returns a frame pointer register for a given BinHandle.
+  /// </summary>
+  abstract FramePointer: RegisterID option
+
   /// Returns RegisterID from a given register var expression.
   abstract GetRegisterID: expr: Expr -> RegisterID
 
@@ -54,21 +74,6 @@ type IRegisterFactory =
   /// Returns a RegType from a given RegisterID.
   /// </summary>
   abstract GetRegType: RegisterID -> RegType
-
-  /// <summary>
-  /// Returns a program counter register for a given BinHandle.
-  /// </summary>
-  abstract ProgramCounter: RegisterID
-
-  /// <summary>
-  /// Returns a stack pointer register for a given BinHandle.
-  /// </summary>
-  abstract StackPointer: RegisterID option
-
-  /// <summary>
-  /// Returns a frame pointer register for a given BinHandle.
-  /// </summary>
-  abstract FramePointer: RegisterID option
 
   /// <summary>
   /// Checks if the given RegisterID represents PC.

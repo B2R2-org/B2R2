@@ -34,8 +34,8 @@ open type Register
 do ()
 
 /// Represents a factory for accessing various PPC32 register variables.
-type RegisterFactory(wordSize) =
-  let rt = WordSize.toRegType wordSize
+type RegisterFactory(isa: ISA) =
+  let rt = WordSize.toRegType isa.WordSize
 
   let r0 = AST.var rt (Register.toRegID R0) "R0"
   let r1 = AST.var rt (Register.toRegID R1) "R1"
@@ -141,6 +141,8 @@ type RegisterFactory(wordSize) =
   let res = AST.var 1<rt> (Register.toRegID RES) "RES"
 
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter = Terminator.futureFeature ()
 
     member _.StackPointer = R1 |> Register.toRegID |> Some
@@ -504,7 +506,7 @@ type RegisterFactory(wordSize) =
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
     member _.GetRegType rid =
-      if rid < 0x40<RegisterID.T> then WordSize.toRegType wordSize
+      if rid < 0x40<RegisterID.T> then WordSize.toRegType isa.WordSize
       else 4<rt>
 
     member _.IsProgramCounter _ = false

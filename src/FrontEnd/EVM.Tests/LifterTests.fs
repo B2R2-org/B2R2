@@ -40,7 +40,7 @@ type LifterTests() =
 
   let isa = ISA Architecture.EVM
 
-  let regFactory = RegisterFactory() :> IRegisterFactory
+  let regFactory = RegisterFactory isa :> IRegisterFactory
 
   let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
 

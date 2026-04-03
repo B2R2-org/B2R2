@@ -46,6 +46,7 @@ type LowUIRBuilder(isa: ISA,
   member _.RegType with get() = regType
 
   interface ILowUIRBuilder with
+    member _.ISA with get() = isa
     member _.WordSize with get() = wordSize
     member _.RegType with get() = regType
     member _.Endianness with get() = endian

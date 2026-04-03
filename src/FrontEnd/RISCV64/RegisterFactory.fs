@@ -30,8 +30,8 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various RISCV64 register variables.
-type RegisterFactory(wordSize) =
-  let rt = WordSize.toRegType wordSize
+type RegisterFactory(isa: ISA) =
+  let rt = WordSize.toRegType isa.WordSize
   let fflags = AST.var 32<rt> (Register.toRegID Register.FFLAGS) "FFLAGS"
   let frm = AST.var 32<rt> (Register.toRegID Register.FRM) "FRM"
 
@@ -274,6 +274,8 @@ type RegisterFactory(wordSize) =
   let csr1971 = AST.var rt (Register.toRegID Register.CSR1971) "CSR1971"
 
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter = Register.PC |> Register.toRegID
 
     member _.StackPointer = Register.X30 |> Register.toRegID |> Some
@@ -709,7 +711,7 @@ type RegisterFactory(wordSize) =
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
     member _.GetRegType rid =
-      Register.ofRegID rid |> Register.toRegType wordSize
+      Register.ofRegID rid |> Register.toRegType isa.WordSize
 
     member _.IsProgramCounter rid = Register.toRegID Register.PC = rid
 

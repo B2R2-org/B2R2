@@ -38,7 +38,7 @@ type LifterTests() =
 
   let reader = BinReader.Init Endian.Little
 
-  let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
+  let regFactory = RegisterFactory isa :> IRegisterFactory
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 

@@ -33,8 +33,10 @@ open B2R2.FrontEnd.BinLifter
 do ()
 
 /// Represents a factory for accessing various TMS320C6000 register variables.
-type RegisterFactory() =
+type RegisterFactory(isa: ISA) =
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter = Terminator.futureFeature ()
 
     member _.StackPointer = Terminator.futureFeature ()

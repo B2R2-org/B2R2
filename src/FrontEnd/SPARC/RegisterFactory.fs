@@ -34,8 +34,8 @@ open type Register
 do ()
 
 /// Represents a factory for accessing various SPARC register variables.
-type RegisterFactory(wordSize) =
-  let rt = WordSize.toRegType wordSize
+type RegisterFactory(isa: ISA) =
+  let rt = WordSize.toRegType isa.WordSize
   let fRegType = WordSize.toRegType WordSize.Bit32
 
   let g0 = AST.var rt (Register.toRegID G0) "g0"
@@ -43,9 +43,9 @@ type RegisterFactory(wordSize) =
   let g2 = AST.var rt (Register.toRegID G2) "g2"
   let g3 = AST.var rt (Register.toRegID G3) "g3"
   let g4 = AST.var rt (Register.toRegID G4) "g4"
-  let g5 = AST.var rt (Register.toRegID G1) "g5"
+  let g5 = AST.var rt (Register.toRegID G5) "g5"
   let g6 = AST.var rt (Register.toRegID G6) "g6"
-  let g7 = AST.var rt (Register.toRegID G1) "g7"
+  let g7 = AST.var rt (Register.toRegID G7) "g7"
   let o0 = AST.var rt (Register.toRegID O0) "o0"
   let o1 = AST.var rt (Register.toRegID O1) "o1"
   let o2 = AST.var rt (Register.toRegID O2) "o2"
@@ -145,6 +145,8 @@ type RegisterFactory(wordSize) =
   let cleanwin = AST.var rt (Register.toRegID CLEANWIN) "CLEANWIN"
 
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter = PC |> Register.toRegID
 
     member _.StackPointer = O6 |> Register.toRegID |> Some

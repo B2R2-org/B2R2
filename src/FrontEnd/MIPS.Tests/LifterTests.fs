@@ -48,7 +48,7 @@ type LifterTests() =
 
   let test (isa: ISA) (bytes: byte[], givenStmts) =
     let reader = BinReader.Init isa.Endian
-    let regFactory = RegisterFactory isa.WordSize
+    let regFactory = RegisterFactory isa
     let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
     let parser = MIPSParser(isa, reader) :> IInstructionParsable
     let ins = parser.Parse(bytes, 0UL)
@@ -57,7 +57,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[MIPS64] ADD lift test``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
-    let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
+    let regFactory = RegisterFactory isa :> IRegisterFactory
     let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
     let stream = LowUIRStream()
     let lblL0 = stream.NewLabel "L0"
@@ -78,7 +78,7 @@ type LifterTests() =
   [<TestMethod>]
   member _.``[MIPS32] ADD lift test``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
-    let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
+    let regFactory = RegisterFactory isa :> IRegisterFactory
     let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
     let stream = LowUIRStream()
     let lblL0 = stream.NewLabel "L0"

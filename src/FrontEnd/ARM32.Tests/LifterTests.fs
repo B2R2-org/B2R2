@@ -44,7 +44,7 @@ type LifterTests() =
 
   let reader = BinReader.Init Endian.Big
 
-  let regFactory = RegisterFactory() :> IRegisterFactory
+  let regFactory = RegisterFactory isa :> IRegisterFactory
 
   let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
 

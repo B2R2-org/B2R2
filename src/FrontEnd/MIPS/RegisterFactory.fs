@@ -30,8 +30,8 @@ open B2R2.FrontEnd.BinLifter
 open type Register
 
 /// Represents a factory for accessing various MIPS register variables.
-type RegisterFactory(wordSize) =
-  let rt = WordSize.toRegType wordSize
+type RegisterFactory(isa: ISA) =
+  let rt = WordSize.toRegType isa.WordSize
 
   let r0 = AST.var rt (Register.toRegID R0) "R0"
   let r1 = AST.var rt (Register.toRegID R1) "R1"
@@ -108,6 +108,8 @@ type RegisterFactory(wordSize) =
   let fir = AST.var 32<rt> (Register.toRegID FIR) "FIR"
 
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter = PC |> Register.toRegID
 
     member _.StackPointer = R29 |> Register.toRegID |> Some
@@ -190,7 +192,7 @@ type RegisterFactory(wordSize) =
       | _ -> raise InvalidRegisterException
 
     member this.GetRegVar name =
-      Register.ofString name wordSize
+      Register.ofString name isa.WordSize
       |> Register.toRegID
       |> (this :> IRegisterFactory).GetRegVar
 
@@ -309,19 +311,19 @@ type RegisterFactory(wordSize) =
       | _ -> raise InvalidRegisterException
 
     member _.GetRegisterID name =
-      Register.ofString name wordSize |> Register.toRegID
+      Register.ofString name isa.WordSize |> Register.toRegID
 
     member _.GetRegisterIDAliases rid = [| rid |]
 
     member _.GetRegisterName rid =
-      Register.toString (Register.ofRegID rid) wordSize
+      Register.toString (Register.ofRegID rid) isa.WordSize
 
     member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory
       regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
-    member _.GetRegType _rid = WordSize.toRegType wordSize
+    member _.GetRegType _rid = WordSize.toRegType isa.WordSize
 
     member this.IsProgramCounter regid =
       (this :> IRegisterFactory).ProgramCounter = regid

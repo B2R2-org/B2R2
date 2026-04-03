@@ -32,7 +32,9 @@ open type Register
 open type WordSize
 
 /// Represents a factory for accessing various Intel register variables.
-type RegisterFactory(wordSize) =
+type RegisterFactory(isa: ISA) =
+  let wordSize = isa.WordSize
+
   let reg64 wordSize t name =
     if wordSize = Bit32 then AST.undef 64<rt> name
     else AST.var 64<rt> t name
@@ -406,6 +408,8 @@ type RegisterFactory(wordSize) =
 #endif
 
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter =
       if WordSize.is32 wordSize then EIP |> Register.toRegID
       else RIP |> Register.toRegID

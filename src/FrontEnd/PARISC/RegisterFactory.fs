@@ -34,8 +34,8 @@ open type Register
 do ()
 
 /// Represents a factory for accessing various PARISC register variables.
-type RegisterFactory(wordSize) =
-  let rt = WordSize.toRegType wordSize
+type RegisterFactory(isa: ISA) =
+  let rt = WordSize.toRegType isa.WordSize
 
   let gr0 = AST.var rt (Register.toRegID GR0) "GR0"
   let gr1 = AST.var rt (Register.toRegID GR1) "GR1"
@@ -148,6 +148,8 @@ type RegisterFactory(wordSize) =
   let fpr31 = AST.var rt (Register.toRegID FPR31) "FPR31"
 
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter = IAOQ_Front |> Register.toRegID
 
     member _.StackPointer = GR30 |> Register.toRegID |> Some
@@ -433,7 +435,7 @@ type RegisterFactory(wordSize) =
 
     member _.GetRegisterName rid = Register.toString (Register.ofRegID rid)
 
-    member _.GetRegType _rid = WordSize.toRegType wordSize
+    member _.GetRegType _rid = WordSize.toRegType isa.WordSize
 
     member _.GetRegisterIDAliases rid = [| rid |]
 

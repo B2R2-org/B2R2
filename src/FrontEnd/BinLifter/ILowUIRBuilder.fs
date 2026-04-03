@@ -65,6 +65,7 @@ type ILowUIRBuilder =
         member _.RegType with get() = regType
         member _.Endianness with get() = endian
         member _.Stream with get() = stream
+        member _.ISA with get() = isa
 #if EMULATION
         member _.ConditionCodeOp
           with get() = Terminator.impossible ()

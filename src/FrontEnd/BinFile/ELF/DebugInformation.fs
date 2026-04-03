@@ -155,10 +155,10 @@ module internal DebugInformation =
     let bytes, offset = readBytes span len offset
     ctor bytes, offset
 
-  let readExpr (span: ByteSpan) regFactory len offset =
+  let readExpr (span: ByteSpan) (regFactory: IRegisterFactory) len offset =
     let bytes, offset = readBytes span len offset
     let span = ReadOnlySpan bytes
-    let isa = ISA Architecture.Intel
+    let isa = regFactory.ISA
     let expr = DWExpression.parse isa regFactory [] span 0 span.Length
     DWExprLoc expr, offset
 
