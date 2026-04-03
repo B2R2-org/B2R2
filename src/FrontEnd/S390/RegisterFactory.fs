@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various s390 register variables.
-type RegisterFactory(wordSize) =
+type RegisterFactory(isa: ISA) =
   let r0 = AST.var 64<rt> (Register.toRegID Register.R0) "R0"
   let r1 = AST.var 64<rt> (Register.toRegID Register.R1) "R1"
   let r2 = AST.var 64<rt> (Register.toRegID Register.R2) "R2"
@@ -131,6 +131,8 @@ type RegisterFactory(wordSize) =
   let psw = AST.var 128<rt> (Register.toRegID Register.PSW) "PSW"
 
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter = Register.PSW |> Register.toRegID
 
     member _.StackPointer =
@@ -488,7 +490,7 @@ type RegisterFactory(wordSize) =
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
     member _.GetRegType rid =
-      Register.ofRegID rid |> Register.toRegType wordSize
+      Register.ofRegID rid |> Register.toRegType isa.WordSize
 
     member _.IsProgramCounter rid = Register.toRegID Register.PSW = rid
 

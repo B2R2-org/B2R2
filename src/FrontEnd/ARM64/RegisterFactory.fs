@@ -30,7 +30,7 @@ open B2R2.BinIR.LowUIR
 open type Register
 
 /// Represents a factory for accessing various ARM64 register variables.
-type RegisterFactory() =
+type RegisterFactory(isa: ISA) =
   (* Registers *)
   let x0 = AST.var 64<rt> (Register.toRegID X0) "X0"
   let x1 = AST.var 64<rt> (Register.toRegID X1) "X1"
@@ -398,6 +398,8 @@ type RegisterFactory() =
   let eret = AST.var 64<rt> (Register.toRegID ERET) "ERET"
 
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter = PC |> Register.toRegID
 
     member _.StackPointer = SP |> Register.toRegID |> Some

@@ -65,3 +65,21 @@ let [<Literal>] PLT = ".plt"
 
 /// The name of the section that contains Global Offset Table (GOT): ".got".
 let [<Literal>] GOT = ".got"
+
+/// The name of the section that contains debugging information: ".debug_info".
+let [<Literal>] DebugInfo = ".debug_info"
+
+/// The name of the section that contains debugging information about types:
+/// ".debug_types".
+let [<Literal>] DebugTypes = ".debug_types"
+
+/// The name of the section that contains debugging information about
+/// abbreviations: ".debug_abbrev".
+let [<Literal>] DebugAbbrev = ".debug_abbrev"
+
+/// The name of the section that contains DWARF debug strings: ".debug_str".
+let [<Literal>] DebugStr = ".debug_str"
+
+/// The name of the section that contains DWARF line strings:
+/// ".debug_line_str".
+let [<Literal>] DebugLineStr = ".debug_line_str"

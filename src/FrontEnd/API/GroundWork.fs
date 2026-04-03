@@ -43,21 +43,21 @@ type GroundWork =
   /// architecture.
   static member CreateRegisterFactory isa =
     match isa with
-    | Intel -> Intel.RegisterFactory isa.WordSize :> IRegisterFactory
-    | ARM32 -> ARM32.RegisterFactory() :> IRegisterFactory
-    | AArch64 -> ARM64.RegisterFactory() :> IRegisterFactory
-    | MIPS -> MIPS.RegisterFactory isa.WordSize :> IRegisterFactory
-    | TMS320C6000 -> TMS320C6000.RegisterFactory() :> IRegisterFactory
-    | AVR -> AVR.RegisterFactory isa.WordSize
-    | S390 -> S390.RegisterFactory isa.WordSize :> IRegisterFactory
-    | SH4 -> SH4.RegisterFactory isa.WordSize :> IRegisterFactory
-    | PPC32 -> PPC32.RegisterFactory isa.WordSize :> IRegisterFactory
-    | RISCV64 -> RISCV64.RegisterFactory isa.WordSize :> IRegisterFactory
-    | SPARC -> SPARC.RegisterFactory isa.WordSize :> IRegisterFactory
-    | PARISC -> PARISC.RegisterFactory isa.WordSize :> IRegisterFactory
-    | EVM -> EVM.RegisterFactory() :> IRegisterFactory
-    | Python -> Python.RegisterFactory() :> IRegisterFactory
-    | CIL -> CIL.RegisterFactory() :> IRegisterFactory
+    | Intel -> Intel.RegisterFactory isa :> IRegisterFactory
+    | ARM32 -> ARM32.RegisterFactory isa :> IRegisterFactory
+    | AArch64 -> ARM64.RegisterFactory isa :> IRegisterFactory
+    | MIPS -> MIPS.RegisterFactory isa :> IRegisterFactory
+    | TMS320C6000 -> TMS320C6000.RegisterFactory isa :> IRegisterFactory
+    | AVR -> AVR.RegisterFactory isa
+    | S390 -> S390.RegisterFactory isa :> IRegisterFactory
+    | SH4 -> SH4.RegisterFactory isa :> IRegisterFactory
+    | PPC32 -> PPC32.RegisterFactory isa :> IRegisterFactory
+    | RISCV64 -> RISCV64.RegisterFactory isa :> IRegisterFactory
+    | SPARC -> SPARC.RegisterFactory isa :> IRegisterFactory
+    | PARISC -> PARISC.RegisterFactory isa :> IRegisterFactory
+    | EVM -> EVM.RegisterFactory isa :> IRegisterFactory
+    | Python -> Python.RegisterFactory isa :> IRegisterFactory
+    | CIL -> CIL.RegisterFactory isa :> IRegisterFactory
     | _ -> Terminator.futureFeature ()
 
   /// Creates a new parser (IInstructionParsable) for the given architecture.

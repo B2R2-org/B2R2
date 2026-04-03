@@ -41,8 +41,10 @@ do ()
 /// <summary>
 /// Represents a factory for accessing various Python register variables.
 /// </summary>
-type RegisterFactory() =
+type RegisterFactory(isa: ISA) =
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter = Terminator.futureFeature ()
 
     member _.StackPointer = Terminator.futureFeature ()

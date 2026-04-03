@@ -42,7 +42,7 @@ type LifterTest() =
 
   let reader = BinReader.Init Endian.Little
 
-  let regFactory = RegisterFactory isa.WordSize :> IRegisterFactory
+  let regFactory = RegisterFactory isa :> IRegisterFactory
 
   let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
 

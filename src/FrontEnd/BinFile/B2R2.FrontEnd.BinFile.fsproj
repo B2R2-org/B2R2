@@ -51,8 +51,13 @@
     <Compile Include="ELF\ExceptionHeaderValue.fs" />
     <Compile Include="ELF\ExceptionHeader.fs" />
     <Compile Include="ELF\CFAInstruction.fs" />
+    <Compile Include="ELF\DWTag.fs" />
+    <Compile Include="ELF\DWAttribute.fs" />
+    <Compile Include="ELF\DWUnitType.fs" />
+    <Compile Include="ELF\DWForm.fs" />
     <Compile Include="ELF\DWOperation.fs" />
     <Compile Include="ELF\DWRegister.fs" />
+    <Compile Include="ELF\DWExpression.fs" />
     <Compile Include="ELF\CanonicalFrameAddress.fs" />
     <Compile Include="ELF\UnwindingEntry.fs" />
     <Compile Include="ELF\CIE.fs" />
@@ -62,6 +67,8 @@
     <Compile Include="ELF\LSDATable.fs" />
     <Compile Include="ELF\ARMExceptionData.fs" />
     <Compile Include="ELF\ExceptionData.fs" />
+    <Compile Include="ELF\DIE.fs" />
+    <Compile Include="ELF\DebugInformation.fs" />
     <Compile Include="ELF\Helper.fs" />
     <Compile Include="Mach\Magic.fs" />
     <Compile Include="Mach\CPUSubType.fs" />

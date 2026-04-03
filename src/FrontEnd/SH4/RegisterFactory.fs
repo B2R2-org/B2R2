@@ -29,8 +29,8 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various SH4 register variables.
-type RegisterFactory(wordSize) =
-  let rt = WordSize.toRegType wordSize
+type RegisterFactory(isa: ISA) =
+  let rt = WordSize.toRegType isa.WordSize
 
   let r0 = AST.var rt (Register.toRegID R.R0) "R0"
   let r1 = AST.var rt (Register.toRegID R.R1) "R1"
@@ -169,6 +169,8 @@ type RegisterFactory(wordSize) =
   let fpscrFR = AST.var rt (Register.toRegID R.FPSCR_FR) "FPSCR_FR"
 
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter = Register.PC |> Register.toRegID
 
     member _.StackPointer = Register.R15 |> Register.toRegID |> Some

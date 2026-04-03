@@ -29,11 +29,13 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various CIL register variables.
-type RegisterFactory() =
+type RegisterFactory(isa: ISA) =
   let pc = AST.var 256<rt> (Register.toRegID Register.PC) "PC"
   let sp = AST.var 256<rt> (Register.toRegID Register.SP) "SP"
 
   interface IRegisterFactory with
+    member _.ISA = isa
+
     member _.ProgramCounter = Register.PC |> Register.toRegID
 
     member _.StackPointer = Register.SP |> Register.toRegID |> Some

@@ -22,53 +22,20 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinScan
+namespace B2R2.FrontEnd.BinFile.ELF
 
-/// Represents display items for BinScan.
-type DisplayItem =
-  /// Special item that represents all items.
-  | DisplayAll
-  /// Basic file header information.
-  | DisplayFileHeader
-  /// Section headers.
-  | DisplaySectionHeaders
-  /// Section details.
-  | DisplaySectionDetails of string
-  /// Symbols.
-  | DisplaySymbols
-  /// Relocations.
-  | DisplayRelocations
-  /// Functions.
-  | DisplayFunctions
-  /// Exception table.
-  | DisplayExceptionTable
-  /// ELF-specific item.
-  | DisplayELF of ELFDisplayItem
-  /// PE-specific item.
-  | DisplayPE of PEDisplayItem
-  /// Mach-specific item.
-  | DisplayMach of MachDisplayItem
+type DWUnitType =
+  | DW_UT_compile = 0x01uy
+  | DW_UT_type = 0x02uy
+  | DW_UT_partial = 0x03uy
+  | DW_UT_skeleton = 0x04uy
+  | DW_UT_split_compile = 0x05uy
+  | DW_UT_split_type = 0x06uy
+  | DW_UT_lo_user = 0x80uy
+  | DW_UT_hi_user = 0xffuy
 
-/// Display items for ELF.
-and ELFDisplayItem =
-  | ELFProgHeader
-  | ELFPLT
-  | ELFEHFrame
-  | ELFGccExceptTbl
-  | ELFNotes
-  | ELFDebugInfo
+[<RequireQualifiedAccess>]
+module internal DWUnitType =
+  open LanguagePrimitives
 
-/// Display items for PE.
-and PEDisplayItem =
-  | PEImports
-  | PEExports
-  | PEOptionalHeader
-  | PECLRHeader
-  | PEDependencies
-
-/// Display items for Mach-O.
-and MachDisplayItem =
-  | MachArchiveHdr
-  | MachUniversalHdr
-  | MachLoadCmds
-  | MachSharedLibs
+  let parse (b: byte) = EnumOfValue<byte, DWUnitType> b

@@ -31,6 +31,8 @@ open B2R2.FrontEnd.BinLifter
 /// Represents a factory for accessing various WASM register variables.
 type RegisterFactory() =
   interface IRegisterFactory with
+    member _.ISA = ISA Architecture.WASM
+
     member _.ProgramCounter = Terminator.impossible ()
 
     member _.StackPointer = Terminator.futureFeature ()

@@ -156,3 +156,14 @@ module ByteArray =
     let delta2 = makeDelta2 pattern patlen
     searchOne (patlen - 1) buf pattern delta1 delta2
     |> Option.map (fun idx -> uint64 idx + offset)
+
+  /// Converts a byte array to a hex string. Only the first 32 bytes are
+  /// converted to avoid producing a very long string in case of a large byte
+  /// array.
+  [<CompiledName "ToHexString">]
+  let toHexString (bs: ByteArray) =
+    let span = ReadOnlySpan(bs).Slice(min 32 bs.Length)
+    let sb = StringBuilder()
+    for b in span do sb.Append($"{b:x2}") |> ignore
+    if bs.Length > 32 then sb.Append("...") |> ignore else ()
+    sb.ToString().TrimEnd()

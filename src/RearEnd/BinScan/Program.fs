@@ -132,6 +132,10 @@ let private dumpNotes hdl (file: IBinFile) =
   dumpSpecific hdl file ".notes Information"
     ELFViewer.dumpNotes badAccess badAccess
 
+let private dumpDebugInfo hdl (file: IBinFile) =
+  dumpSpecific hdl file ".debug_info Information"
+    ELFViewer.dumpDebugInfo badAccess badAccess
+
 let private dumpImports (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Import table Information"
     badAccess PEViewer.dumpImports badAccess
@@ -187,6 +191,7 @@ let private printAll opts hdl (file: IBinFile) =
     dumpExceptionTable hdl file
     dumpEHFrame hdl file
     dumpGccExceptTable hdl file
+    dumpDebugInfo hdl file
   | :? PEBinFile as file ->
     dumpImports opts file
     dumpExports opts file
@@ -212,6 +217,7 @@ let private printSelectively hdl opts file = function
   | DisplayELF ELFEHFrame -> dumpEHFrame hdl file
   | DisplayELF ELFGccExceptTbl -> dumpGccExceptTable hdl file
   | DisplayELF ELFNotes -> dumpNotes hdl file
+  | DisplayELF ELFDebugInfo -> dumpDebugInfo hdl file
   | DisplayPE PEImports -> dumpImports opts file
   | DisplayPE PEExports -> dumpExports opts file
   | DisplayPE PEOptionalHeader -> dumpOptionalHeader opts file

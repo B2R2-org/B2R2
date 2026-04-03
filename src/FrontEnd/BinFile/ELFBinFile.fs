@@ -44,6 +44,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
   let notInFileRanges = lazy invalidRangesByFileBounds hdr loadables.Value
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
+  let dbginfo = lazy DebugInformation.parse toolBox rfOpt shdrs.Value
 
   /// ELF Header information.
   member _.Header with get() = hdr
@@ -75,6 +76,9 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   /// Relocation information.
   member _.RelocationInfo with get() = relocs.Value
+
+  /// Debug information.
+  member _.DebugInfo with get() = dbginfo.Value
 
   /// Returns Global Pointer (GP) value when it is known. This is only available
   /// in MIPS binaries.
