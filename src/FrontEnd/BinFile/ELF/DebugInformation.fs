@@ -342,7 +342,8 @@ module internal DebugInformation =
         elif
           offset = span.Length then List.rev acc |> List.toArray
         else
-          eprintsn "Unexpected null DIE at top level"; Terminator.impossible ()
+          eprintsn "Unexpected null DIE at top level"
+          List.rev acc |> List.toArray
       else
         match Map.tryFind abbrevNumber unit.AbbrevTable with
         | Some abbrev ->

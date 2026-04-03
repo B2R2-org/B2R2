@@ -92,6 +92,9 @@ let parseLoad (isa: ISA) exprs =
   let rt = isa.WordSize |> WordSize.toRegType
   AST.loadLE rt addr :: exprs
 
+let pushRegExpr isa regs exprs reg =
+  DWRegister.toRegisterExpr isa regs reg :: exprs
+
 let cfaRegister (regFactory: IRegisterFactory) = function
   | Some rid -> regFactory.GetRegVar(rid = rid)
   | None -> RegisterID.create 0 |> regFactory.GetRegVar
@@ -387,4 +390,68 @@ let rec parse isa regs exprs (span: ByteSpan) i maxIdx =
     | DWOperation.DW_OP_deref ->
       let exprs = parseLoad isa exprs
       parse isa regs exprs span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg0 ->
+      parse isa regs (pushRegExpr isa regs exprs 0uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg1 ->
+      parse isa regs (pushRegExpr isa regs exprs 1uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg2 ->
+      parse isa regs (pushRegExpr isa regs exprs 2uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg3 ->
+      parse isa regs (pushRegExpr isa regs exprs 3uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg4 ->
+      parse isa regs (pushRegExpr isa regs exprs 4uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg5 ->
+      parse isa regs (pushRegExpr isa regs exprs 5uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg6 ->
+      parse isa regs (pushRegExpr isa regs exprs 6uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg7 ->
+      parse isa regs (pushRegExpr isa regs exprs 7uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg8 ->
+      parse isa regs (pushRegExpr isa regs exprs 8uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg9 ->
+      parse isa regs (pushRegExpr isa regs exprs 9uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg10 ->
+      parse isa regs (pushRegExpr isa regs exprs 10uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg11 ->
+      parse isa regs (pushRegExpr isa regs exprs 11uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg12 ->
+      parse isa regs (pushRegExpr isa regs exprs 12uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg13 ->
+      parse isa regs (pushRegExpr isa regs exprs 13uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg14 ->
+      parse isa regs (pushRegExpr isa regs exprs 14uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg15 ->
+      parse isa regs (pushRegExpr isa regs exprs 15uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg16 ->
+      parse isa regs (pushRegExpr isa regs exprs 16uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg17 ->
+      parse isa regs (pushRegExpr isa regs exprs 17uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg18 ->
+      parse isa regs (pushRegExpr isa regs exprs 18uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg19 ->
+      parse isa regs (pushRegExpr isa regs exprs 19uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg20 ->
+      parse isa regs (pushRegExpr isa regs exprs 20uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg21 ->
+      parse isa regs (pushRegExpr isa regs exprs 21uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg22 ->
+      parse isa regs (pushRegExpr isa regs exprs 22uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg23 ->
+      parse isa regs (pushRegExpr isa regs exprs 23uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg24 ->
+      parse isa regs (pushRegExpr isa regs exprs 24uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg25 ->
+      parse isa regs (pushRegExpr isa regs exprs 25uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg26 ->
+      parse isa regs (pushRegExpr isa regs exprs 26uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg27 ->
+      parse isa regs (pushRegExpr isa regs exprs 27uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg28 ->
+      parse isa regs (pushRegExpr isa regs exprs 28uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg29 ->
+      parse isa regs (pushRegExpr isa regs exprs 29uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg30 ->
+      parse isa regs (pushRegExpr isa regs exprs 30uy) span (i + 1) maxIdx
+    | DWOperation.DW_OP_reg31 ->
+      parse isa regs (pushRegExpr isa regs exprs 31uy) span (i + 1) maxIdx
     | op -> printfn "TODO: %A" op; Terminator.futureFeature ()
