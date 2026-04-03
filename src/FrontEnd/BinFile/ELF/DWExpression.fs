@@ -25,6 +25,7 @@
 [<RequireQualifiedAccess>]
 module internal B2R2.FrontEnd.BinFile.ELF.DWExpression
 
+open System.Buffers.Binary
 open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinIR
@@ -33,6 +34,14 @@ open B2R2.FrontEnd.BinLifter
 
 /// Raised when invalid sequence of dwarf instructions encountered.
 exception InvalidDWInstructionExpException
+
+let readNativeNum (isa: ISA) (span: ByteSpan) =
+  if isa.WordSize = WordSize.Bit32 then
+    let n = BinaryPrimitives.ReadUInt32LittleEndian span
+    struct (uint64 n, 4)
+  else
+    let n = BinaryPrimitives.ReadUInt64LittleEndian span
+    struct (n, 8)
 
 let num (isa: ISA) n =
   let rt = isa.WordSize |> WordSize.toRegType
@@ -94,6 +103,10 @@ let rec parse isa regs exprs (span: ByteSpan) i maxIdx =
     | _ -> raise InvalidDWInstructionExpException
   else
     match span[i] |> DWOperation.parse with
+    | DWOperation.DW_OP_addr ->
+      let struct (addr, cnt) = readNativeNum isa (span.Slice(i + 1))
+      let exprs = num isa addr :: exprs
+      parse isa regs exprs span (i + 1 + cnt) maxIdx
     | DWOperation.DW_OP_breg0 ->
       let struct (exprs, i') = parseOpBReg isa regs exprs span (i + 1) 0uy
       parse isa regs exprs span i' maxIdx
