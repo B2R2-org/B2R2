@@ -551,6 +551,7 @@ let dumpNotes _hdl (_file: ELFBinFile) =
 
 let dumpDebugInfo _hdl (file: ELFBinFile) =
   for die in file.DebugInfo do
-    printfn "%x: %A" die.Offset die.Tag
+    printsn $"{die.Offset:x}: {die.Tag.ToString()}"
     for attr in die.Attributes do
-      printfn "  %A: %A" attr.Attribute attr.Value
+      let value = DWAttributeValue.ToString attr.Value
+      printsn $"  {attr.Attribute.ToString()}: {value}"
