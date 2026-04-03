@@ -30,3 +30,5 @@ type VisPosition =
     mutable X: float
     /// Y position.
     mutable Y: float }
+with
+  static member Create(x, y) = { X = x; Y = y }
