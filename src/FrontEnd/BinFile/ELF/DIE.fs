@@ -31,6 +31,7 @@ type DIE =
   { Offset: uint64
     Tag: DWTag
     HasChildren: bool
+    Level: int
     Attributes: DWParsedAttribute list }
 
 /// Represents a parsed DWARF attribute with its form and value.
