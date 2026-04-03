@@ -76,3 +76,6 @@ let [<Literal>] DebugTypes = ".debug_types"
 /// The name of the section that contains debugging information about
 /// abbreviations: ".debug_abbrev".
 let [<Literal>] DebugAbbrev = ".debug_abbrev"
+
+/// The name of the section that contains DWARF debug strings: ".debug_str".
+let [<Literal>] DebugStr = ".debug_str"

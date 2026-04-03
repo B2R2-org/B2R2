@@ -47,7 +47,7 @@ and DWAttributeValue =
   | DWSInt of int64
   | DWBool of bool
   | DWString of string
-  | DWStringOffset of uint64
+  | DWStringOffset of string
   | DWLineStringOffset of uint64
   | DWBlock of byte[]
   | DWExprLoc of LowUIR.Expr

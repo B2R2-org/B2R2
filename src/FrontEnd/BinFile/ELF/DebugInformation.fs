@@ -39,7 +39,8 @@ type internal DWUnitInfo =
     AbbrevOffset: uint64
     AbbrevTable: DWAbbrevTable
     OffsetSize: int
-    BodyOffset: uint64 }
+    BodyOffset: uint64
+    Sections: DebugSections }
 
 /// Represents a DWARF abbreviation table keyed by abbreviation code.
 and internal DWAbbrevTable = Map<uint64, DWAbbrevEntry>
@@ -56,6 +57,12 @@ and internal DWAbbrevAttributeSpec =
   { Attribute: DWAttribute
     Form: DWForm
     ImplicitConst: int64 option }
+
+/// Represents the main DWARF sections needed for parsing debug information.
+and DebugSections =
+  { InfoSection: SectionHeader option
+    AbbrevSection: SectionHeader option
+    StringSection: SectionHeader option }
 
 [<RequireQualifiedAccess>]
 module internal DWAbbrevTable =
@@ -106,13 +113,16 @@ module internal DWAbbrevTable =
 [<RequireQualifiedAccess>]
 module internal DebugInformation =
   let findMainSections (shdrs: SectionHeader[]) =
-    let mutable infoSec, abbrevSec = None, None
+    let mutable infoSec, abbrevSec, strSec = None, None, None
     for shdr in shdrs do
       match shdr.SecName with
       | Section.DebugInfo -> infoSec <- Some shdr
       | Section.DebugAbbrev -> abbrevSec <- Some shdr
+      | Section.DebugStr -> strSec <- Some shdr
       | _ -> ()
-    struct (infoSec, abbrevSec)
+    { InfoSection = infoSec
+      AbbrevSection = abbrevSec
+      StringSection = strSec }
 
   let assertSupportedUnitType = function
     | None -> ()
@@ -190,11 +200,24 @@ module internal DebugInformation =
   let readOffsetValue reader span offsetSize offset ctor =
     ctor (readUIntBySize reader span offsetSize offset), offset + offsetSize
 
+  let readDebugStringValue toolBox reader strSectionOpt span unit offset =
+    let offsetSize = unit.OffsetSize
+    let strOff = readUIntBySize reader span offsetSize offset
+    match strSectionOpt with
+    | Some strSection ->
+      let secOffset, secSize = strSection.SecOffset, strSection.SecSize
+      let strSpan = ReadOnlySpan(toolBox.Bytes, int secOffset, int secSize)
+      let s = readCString strSpan (int strOff)
+      DWStringOffset s, offset + offsetSize
+    | None ->
+      DWStringOffset $"<invalid string offset: {strOff:x}>", offset + offsetSize
+
   let readRefAddrValue reader span unit offset =
     let size = if unit.Version = 2us then unit.AddrSize else unit.OffsetSize
     DWDebugInfoRef(readUIntBySize reader span size offset), offset + size
 
-  let rec readFormValue reader span regFactory unit spec offset =
+  let rec readFormValue toolBox span regFactory unit spec offset =
+    let reader = toolBox.Reader
     match spec.Form with
     | DWForm.DW_FORM_addr ->
       let addrSize = unit.AddrSize
@@ -229,7 +252,8 @@ module internal DebugInformation =
     | DWForm.DW_FORM_strp
     | DWForm.DW_FORM_strp_sup
     | DWForm.DW_FORM_GNU_strp_alt ->
-      readOffsetValue reader span unit.OffsetSize offset DWStringOffset
+      let strSection = unit.Sections.StringSection
+      readDebugStringValue toolBox reader strSection span unit offset
     | DWForm.DW_FORM_udata ->
       let v, offset = readULEB128 span offset
       DWUInt v, offset
@@ -250,7 +274,7 @@ module internal DebugInformation =
       let form, offset = readULEB128 span offset
       let form = DWForm.parse (uint16 form)
       let spec = { spec with Form = form; ImplicitConst = None }
-      let value, offset = readFormValue reader span regFactory unit spec offset
+      let value, offset = readFormValue toolBox span regFactory unit spec offset
       DWIndirect(form, value), offset
     | DWForm.DW_FORM_sec_offset ->
       readOffsetValue reader span unit.OffsetSize offset DWSectionOffset
@@ -313,21 +337,20 @@ module internal DebugInformation =
     | _ ->
       Terminator.impossible ()
 
-  let rec readAttributeValuesLoop reader span regFactory unit offset acc =
+  let rec readAttributeValuesLoop toolBox span regFactory unit offset acc =
     function
     | [] -> List.rev acc, offset
     | spec :: rest ->
-      let value, offset = readFormValue reader span regFactory unit spec offset
+      let value, offset = readFormValue toolBox span regFactory unit spec offset
       let attr =
         { Attribute = spec.Attribute
           Form = spec.Form
           Value = value }
       let acc = attr :: acc
-      readAttributeValuesLoop reader span regFactory unit offset acc rest
+      readAttributeValuesLoop toolBox span regFactory unit offset acc rest
 
   let readAttributeValues toolBox regFactory unit span offset specs =
-    let reader = toolBox.Reader
-    readAttributeValuesLoop reader span regFactory unit offset [] specs
+    readAttributeValuesLoop toolBox span regFactory unit offset [] specs
 
   let rec parseUnitDIEs toolBox regFactory span unit offset level acc =
     if offset = (span: ByteSpan).Length then
@@ -362,7 +385,7 @@ module internal DebugInformation =
           eprintsn $"Abbreviation code {abbrevNumber} not found."
           Terminator.impossible ()
 
-  let rec scanCompilationUnits toolBox regFactory abbrevSec span offset acc =
+  let rec scanCompilationUnits toolBox regFactory secs span offset acc =
     let reader = toolBox.Reader
     if offset < (span: ByteSpan).Length then
       let unitOffset = offset
@@ -370,6 +393,7 @@ module internal DebugInformation =
                   abbrevOffset, offsetSize, bodyOffset) =
         parseUnitHeader reader span offset
       assertSupportedUnitType unitType
+      let abbrevSec = secs.AbbrevSection
       let abbrevTable = DWAbbrevTable.parse toolBox abbrevSec abbrevOffset
       let unit =
         { UnitOffset = unitOffset
@@ -380,21 +404,22 @@ module internal DebugInformation =
           AbbrevOffset = abbrevOffset
           AbbrevTable = abbrevTable
           OffsetSize = offsetSize
-          BodyOffset = uint64 bodyOffset }
+          BodyOffset = uint64 bodyOffset
+          Sections = secs }
       let bodySpan = span.Slice(bodyOffset, unitEnd - bodyOffset)
       let dies = parseUnitDIEs toolBox regFactory bodySpan unit 0 0 []
       let acc = dies :: acc
-      scanCompilationUnits toolBox regFactory abbrevSec span unitEnd acc
+      scanCompilationUnits toolBox regFactory secs span unitEnd acc
     else
       List.rev acc
       |> Array.concat
 
   let parse toolBox regFactoryOpt (shdrs: SectionHeader[]) =
-    let struct (infoSec, abbrevSec) = findMainSections shdrs
-    match infoSec, regFactoryOpt with
+    let secs = findMainSections shdrs
+    match secs.InfoSection, regFactoryOpt with
     | Some shdr, Some regFactory ->
       let shOffset, shSize = shdr.SecOffset, shdr.SecSize
       let span = ReadOnlySpan(toolBox.Bytes, int shOffset, int shSize)
-      scanCompilationUnits toolBox regFactory abbrevSec span 0 []
+      scanCompilationUnits toolBox regFactory secs span 0 []
     | _ ->
       [||]
