@@ -48,7 +48,7 @@ and DWAttributeValue =
   | DWBool of bool
   | DWString of string
   | DWStringOffset of string
-  | DWLineStringOffset of uint64
+  | DWLineStringOffset of string
   | DWBlock of byte[]
   | DWExprLoc of LowUIR.Expr
   | DWSectionOffset of uint64
@@ -72,7 +72,7 @@ with
     | DWBool v -> if v then "true" else "false"
     | DWString s -> $"\"{s}\""
     | DWStringOffset s -> $"\"{s}\""
-    | DWLineStringOffset off -> $"(line string offset: 0x{off:x})"
+    | DWLineStringOffset s -> $"\"{s}\""
     | DWBlock bytes -> $"{B2R2.ByteArray.toHexString bytes}"
     | DWExprLoc expr -> $"{PrettyPrinter.ToString expr}"
     | DWSectionOffset off -> $"(section offset: 0x{off:x})"

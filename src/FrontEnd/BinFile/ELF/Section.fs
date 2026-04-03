@@ -79,3 +79,7 @@ let [<Literal>] DebugAbbrev = ".debug_abbrev"
 
 /// The name of the section that contains DWARF debug strings: ".debug_str".
 let [<Literal>] DebugStr = ".debug_str"
+
+/// The name of the section that contains DWARF line strings:
+/// ".debug_line_str".
+let [<Literal>] DebugLineStr = ".debug_line_str"

@@ -62,7 +62,8 @@ and internal DWAbbrevAttributeSpec =
 and DebugSections =
   { InfoSection: SectionHeader option
     AbbrevSection: SectionHeader option
-    StringSection: SectionHeader option }
+    StringSection: SectionHeader option
+    LineStringSection: SectionHeader option }
 
 [<RequireQualifiedAccess>]
 module internal DWAbbrevTable =
@@ -113,16 +114,18 @@ module internal DWAbbrevTable =
 [<RequireQualifiedAccess>]
 module internal DebugInformation =
   let findMainSections (shdrs: SectionHeader[]) =
-    let mutable infoSec, abbrevSec, strSec = None, None, None
+    let mutable infoSec, abbrevSec, strSec, lineStrSec = None, None, None, None
     for shdr in shdrs do
       match shdr.SecName with
       | Section.DebugInfo -> infoSec <- Some shdr
       | Section.DebugAbbrev -> abbrevSec <- Some shdr
       | Section.DebugStr -> strSec <- Some shdr
+      | Section.DebugLineStr -> lineStrSec <- Some shdr
       | _ -> ()
     { InfoSection = infoSec
       AbbrevSection = abbrevSec
-      StringSection = strSec }
+      StringSection = strSec
+      LineStringSection = lineStrSec }
 
   let assertSupportedUnitType = function
     | None -> ()
@@ -200,7 +203,7 @@ module internal DebugInformation =
   let readOffsetValue reader span offsetSize offset ctor =
     ctor (readUIntBySize reader span offsetSize offset), offset + offsetSize
 
-  let readDebugStringValue toolBox reader strSectionOpt span unit offset =
+  let readDebugStringValue toolBox reader strSectionOpt span unit offset ctor =
     let offsetSize = unit.OffsetSize
     let strOff = readUIntBySize reader span offsetSize offset
     match strSectionOpt with
@@ -208,9 +211,9 @@ module internal DebugInformation =
       let secOffset, secSize = strSection.SecOffset, strSection.SecSize
       let strSpan = ReadOnlySpan(toolBox.Bytes, int secOffset, int secSize)
       let s = readCString strSpan (int strOff)
-      DWStringOffset s, offset + offsetSize
+      ctor s, offset + offsetSize
     | None ->
-      DWStringOffset $"<invalid string offset: {strOff:x}>", offset + offsetSize
+      ctor $"<invalid string offset: {strOff:x}>", offset + offsetSize
 
   let readRefAddrValue reader span unit offset =
     let size = if unit.Version = 2us then unit.AddrSize else unit.OffsetSize
@@ -252,8 +255,8 @@ module internal DebugInformation =
     | DWForm.DW_FORM_strp
     | DWForm.DW_FORM_strp_sup
     | DWForm.DW_FORM_GNU_strp_alt ->
-      let strSection = unit.Sections.StringSection
-      readDebugStringValue toolBox reader strSection span unit offset
+      let s = unit.Sections.StringSection
+      readDebugStringValue toolBox reader s span unit offset DWStringOffset
     | DWForm.DW_FORM_udata ->
       let v, offset = readULEB128 span offset
       DWUInt v, offset
@@ -299,7 +302,8 @@ module internal DebugInformation =
       let bytes, offset = readBytes span 16 offset
       DWBytes bytes, offset
     | DWForm.DW_FORM_line_strp ->
-      readOffsetValue reader span unit.OffsetSize offset DWLineStringOffset
+      let s = unit.Sections.LineStringSection
+      readDebugStringValue toolBox reader s span unit offset DWLineStringOffset
     | DWForm.DW_FORM_implicit_const ->
       match spec.ImplicitConst with
       | Some value -> DWImplicitConst value, offset
