@@ -34,7 +34,7 @@ type internal DWUnitInfo =
   { UnitOffset: int
     UnitLength: int
     Version: uint16
-    UnitType: DWUnitType
+    UnitType: DWUnitType option
     AddrSize: int
     AbbrevOffset: uint64
     AbbrevTable: DWAbbrevTable
@@ -115,12 +115,37 @@ module internal DebugInformation =
     struct (infoSec, abbrevSec)
 
   let assertSupportedUnitType = function
-    | DWUnitType.DW_UT_compile
-    | DWUnitType.DW_UT_partial ->
+    | None -> ()
+    | Some DWUnitType.DW_UT_compile
+    | Some DWUnitType.DW_UT_partial ->
       ()
-    | t ->
+    | Some t ->
       eprintsn $"Unsupported DWARF unit type: {t}"
       Terminator.futureFeature ()
+
+  let parseUnitHeader (reader: IBinReader) (span: ByteSpan) offset =
+    let unitOffset = offset
+    let len = reader.ReadInt32(span = span, offset = offset)
+    let len, initialLengthSize, cls =
+      if len <> 0xffffffff then len, 4, WordSize.Bit32
+      else int (reader.ReadInt64(span, offset + 4)), 12, WordSize.Bit64
+    let unitEnd = unitOffset + initialLengthSize + len
+    assert (unitEnd <= span.Length)
+    let version = reader.ReadUInt16(span, offset + initialLengthSize)
+    let offsetSize = selectByWordSize cls 4 8
+    let headerOffset = unitOffset + initialLengthSize + 2
+    if version >= 5us then
+      let uty = reader.ReadUInt8(span, headerOffset) |> DWUnitType.parse |> Some
+      let ptrSz =
+        reader.ReadUInt8(span, headerOffset + 1) |> int
+      let abbrOff = readUIntByWordSize span reader cls (headerOffset + 2)
+      let bodyOff = headerOffset + 2 + offsetSize
+      struct (len, unitEnd, version, uty, ptrSz, abbrOff, offsetSize, bodyOff)
+    else
+      let abbrOff = readUIntByWordSize span reader cls headerOffset
+      let ptrSz = reader.ReadUInt8(span, headerOffset + offsetSize) |> int
+      let bodyOff = headerOffset + offsetSize + 1
+      struct (len, unitEnd, version, None, ptrSz, abbrOff, offsetSize, bodyOff)
 
   let readUInt24 (reader: IBinReader) (span: ByteSpan) offset =
     let b0 = uint64 span[offset]
@@ -165,6 +190,10 @@ module internal DebugInformation =
   let readOffsetValue reader span offsetSize offset ctor =
     ctor (readUIntBySize reader span offsetSize offset), offset + offsetSize
 
+  let readRefAddrValue reader span unit offset =
+    let size = if unit.Version = 2us then unit.AddrSize else unit.OffsetSize
+    DWDebugInfoRef(readUIntBySize reader span size offset), offset + size
+
   let rec readFormValue reader span regFactory unit spec offset =
     match spec.Form with
     | DWForm.DW_FORM_addr ->
@@ -205,7 +234,7 @@ module internal DebugInformation =
       let v, offset = readULEB128 span offset
       DWUInt v, offset
     | DWForm.DW_FORM_ref_addr ->
-      readOffsetValue reader span unit.OffsetSize offset DWDebugInfoRef
+      readRefAddrValue reader span unit offset
     | DWForm.DW_FORM_ref1 ->
       DWUnitRef(uint64 (reader.ReadUInt8(span, offset))), offset + 1
     | DWForm.DW_FORM_ref2 ->
@@ -336,38 +365,25 @@ module internal DebugInformation =
     let reader = toolBox.Reader
     if offset < (span: ByteSpan).Length then
       let unitOffset = offset
-      let len = reader.ReadInt32(span = span, offset = offset)
-      let len, initialLengthSize, cls =
-        if len <> 0xffffffff then len, 4, WordSize.Bit32
-        else int (reader.ReadInt64(span, offset + 4)), 12, WordSize.Bit64
-      let unitEnd = unitOffset + initialLengthSize + len
-      assert (unitEnd <= span.Length)
-      let version = reader.ReadUInt16(span, offset + initialLengthSize)
-      if version < 5us then
-        Terminator.futureFeature ()
-      else
-        let headerOffset = unitOffset + initialLengthSize + 2
-        let unitType = reader.ReadUInt8(span, headerOffset) |> DWUnitType.parse
-        let ptrSize = reader.ReadUInt8(span, headerOffset + 1) |> int
-        let abbrevOffset = readUIntByWordSize span reader cls (headerOffset + 2)
-        let offsetSize = selectByWordSize cls 4 8
-        let bodyOffset = headerOffset + 2 + offsetSize
-        assertSupportedUnitType unitType
-        let abbrevTable = DWAbbrevTable.parse toolBox abbrevSec abbrevOffset
-        let unit =
-          { UnitOffset = unitOffset
-            UnitLength = len
-            Version = version
-            UnitType = unitType
-            AddrSize = ptrSize
-            AbbrevOffset = abbrevOffset
-            AbbrevTable = abbrevTable
-            OffsetSize = offsetSize
-            BodyOffset = uint64 bodyOffset }
-        let bodySpan = span.Slice(bodyOffset, unitEnd - bodyOffset)
-        let dies = parseUnitDIEs toolBox regFactory bodySpan unit 0 0 []
-        let acc = dies :: acc
-        scanCompilationUnits toolBox regFactory abbrevSec span unitEnd acc
+      let struct (len, unitEnd, version, unitType, ptrSize,
+                  abbrevOffset, offsetSize, bodyOffset) =
+        parseUnitHeader reader span offset
+      assertSupportedUnitType unitType
+      let abbrevTable = DWAbbrevTable.parse toolBox abbrevSec abbrevOffset
+      let unit =
+        { UnitOffset = unitOffset
+          UnitLength = len
+          Version = version
+          UnitType = unitType
+          AddrSize = ptrSize
+          AbbrevOffset = abbrevOffset
+          AbbrevTable = abbrevTable
+          OffsetSize = offsetSize
+          BodyOffset = uint64 bodyOffset }
+      let bodySpan = span.Slice(bodyOffset, unitEnd - bodyOffset)
+      let dies = parseUnitDIEs toolBox regFactory bodySpan unit 0 0 []
+      let acc = dies :: acc
+      scanCompilationUnits toolBox regFactory abbrevSec span unitEnd acc
     else
       List.rev acc
       |> Array.concat
