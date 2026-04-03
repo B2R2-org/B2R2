@@ -57,6 +57,7 @@
     <Compile Include="ELF\DWForm.fs" />
     <Compile Include="ELF\DWOperation.fs" />
     <Compile Include="ELF\DWRegister.fs" />
+    <Compile Include="ELF\DWExpression.fs" />
     <Compile Include="ELF\CanonicalFrameAddress.fs" />
     <Compile Include="ELF\UnwindingEntry.fs" />
     <Compile Include="ELF\CIE.fs" />

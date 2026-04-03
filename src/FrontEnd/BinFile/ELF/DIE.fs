@@ -24,6 +24,8 @@
 
 namespace B2R2.FrontEnd.BinFile.ELF
 
+open B2R2.BinIR
+
 /// Debugging Information Entry (DIE) in DWARF format.
 type DIE =
   { Offset: uint64
@@ -48,7 +50,7 @@ and DWAttributeValue =
   | DWStringOffset of uint64
   | DWLineStringOffset of uint64
   | DWBlock of byte[]
-  | DWExprLoc of byte[]
+  | DWExprLoc of LowUIR.Expr
   | DWSectionOffset of uint64
   | DWUnitRef of uint64
   | DWDebugInfoRef of uint64

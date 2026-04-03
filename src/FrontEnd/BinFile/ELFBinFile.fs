@@ -44,7 +44,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
   let notInFileRanges = lazy invalidRangesByFileBounds hdr loadables.Value
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
-  let dbginfo = lazy DebugInformation.parse toolBox shdrs.Value
+  let dbginfo = lazy DebugInformation.parse toolBox rfOpt shdrs.Value
 
   /// ELF Header information.
   member _.Header with get() = hdr
