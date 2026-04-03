@@ -381,6 +381,7 @@ module internal DebugInformation =
             { Offset = dieOffset
               Tag = abbrev.Tag
               HasChildren = abbrev.HasChildren
+              Level = level
               Attributes = attrs }
           let nextLevel = if abbrev.HasChildren then level + 1 else level
           let acc = die :: acc
