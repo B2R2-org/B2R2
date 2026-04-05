@@ -212,7 +212,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
       |> function
         | Some s ->
-          BinFilePointer(s.SecAddr, s.SecAddr + uint64 s.SecSize - 1UL,
+          BinFilePointer(s.SecAddr, s.SecAddr + s.SecSize - 1UL,
                          int s.SecOffset, int s.SecOffset + int s.SecSize - 1)
         | None -> BinFilePointer.Null
 
@@ -222,7 +222,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> function
         | Some sec ->
           BinFilePointer(sec.SecAddr,
-                         sec.SecAddr + uint64 sec.SecSize - 1UL,
+                         sec.SecAddr + sec.SecSize - 1UL,
                          int sec.SecOffset,
                          int sec.SecOffset + int sec.SecSize - 1)
         | None -> BinFilePointer.Null
@@ -230,10 +230,29 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.IsInTextOrDataOnlySection addr =
       shdrs.Value
       |> Array.tryFind (fun sec ->
-        addr >= sec.SecAddr && addr < sec.SecAddr + uint64 sec.SecSize)
+        addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
       |> function
         | Some sec -> sec.SecName = Section.Text || sec.SecName = Section.ROData
         | None -> false
+
+    member _.TryFindSectionName addr =
+      shdrs.Value
+      |> Array.tryFind (fun sec ->
+        addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+      |> function
+        | Some sec -> Ok sec.SecName
+        | None -> Error ErrorCase.ItemNotFound
+
+    member _.TryFindSectionName(offset: uint32) =
+      let offset = uint64 offset
+      shdrs.Value
+      |> Array.tryFind (fun sec ->
+        sec.SecType <> SectionType.SHT_NOBITS
+        && offset >= sec.SecOffset
+        && offset < sec.SecOffset + sec.SecSize)
+      |> function
+        | Some sec -> Ok sec.SecName
+        | None -> Error ErrorCase.ItemNotFound
 
     member _.GetFunctionAddresses() =
       let staticFuncs =

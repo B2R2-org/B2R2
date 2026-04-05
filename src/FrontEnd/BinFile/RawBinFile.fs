@@ -101,6 +101,12 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.IsInTextOrDataOnlySection _ = true
 
+    member _.TryFindSectionName(_: Addr): Result<string, ErrorCase> =
+      Error ErrorCase.ItemNotFound
+
+    member _.TryFindSectionName(_: uint32): Result<string, ErrorCase> =
+      Error ErrorCase.ItemNotFound
+
     member _.GetFunctionAddresses() = [||]
 
     member _.HasRelocationInfo _ = false

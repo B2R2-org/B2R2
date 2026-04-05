@@ -51,6 +51,18 @@ type IBinOrganization =
   abstract IsInTextOrDataOnlySection: addr: Addr -> bool
 
   /// <summary>
+  /// Returns the name of the section that contains the given address. If the
+  /// address is not in any section, then this function returns an error.
+  /// </summary>
+  abstract TryFindSectionName: addr: Addr -> Result<string, ErrorCase>
+
+  /// <summary>
+  /// Returns the name of the section that contains the given file offset. If
+  /// the offset is not in any section, then this function returns an error.
+  /// </summary>
+  abstract TryFindSectionName: offset: uint32 -> Result<string, ErrorCase>
+
+  /// <summary>
   /// Returns an array of local function addresses (excluding external
   /// functions) from a given BinFile. This function only considers addresses
   /// that are certain. We do not include the entry point address (e.g., _start)

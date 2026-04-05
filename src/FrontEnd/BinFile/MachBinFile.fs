@@ -190,6 +190,22 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
         | Some sec -> sec.SecName = Section.SecText
         | None -> false
 
+    member _.TryFindSectionName addr =
+      secs.Value
+      |> Array.tryFind (fun sec ->
+        addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+      |> function
+        | Some sec -> Ok sec.SecName
+        | None -> Error ErrorCase.ItemNotFound
+
+    member _.TryFindSectionName offset =
+      secs.Value
+      |> Array.tryFind (fun sec ->
+        offset >= sec.SecOffset && offset < sec.SecOffset + uint32 sec.SecSize)
+      |> function
+        | Some sec -> Ok sec.SecName
+        | None -> Error ErrorCase.ItemNotFound
+
     member _.GetFunctionAddresses() =
       let secText = Section.getTextSectionIndex secs.Value
       [| for s in syms.Value.Values do
