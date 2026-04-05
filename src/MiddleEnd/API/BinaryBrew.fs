@@ -90,21 +90,31 @@ type BinaryBrew<'FnCtx,
   new(hdl: BinHandle, exnInfo, strategies) =
     BinaryBrew(hdl, exnInfo, strategies, null)
 
+  /// <summary>
   /// Low-level access to binary code and data.
+  /// </summary>
   member _.BinHandle with get(): BinHandle = hdl
 
+  /// <summary>
   /// Recovered functions.
+  /// </summary>
   member _.Functions with get() = funcs
 
+  /// <summary>
   /// Exception information.
+  /// </summary>
   member _.ExceptionInfo with get() = exnInfo
 
+  /// <summary>
   /// Get the instruction at the given address.
+  /// </summary>
   member _.Instructions with get() = instrs
 
   member _.Builders with get() = builders
 
+/// <summary>
 /// Default BinaryBrew type that internally uses SSA IR to recover CFGs.
+/// </summary>
 type BinaryBrew =
   inherit BinaryBrew<DummyContext, DummyContext>
 
@@ -123,7 +133,9 @@ type BinaryBrew =
          CFGRecovery(allowBBLOverlap) |]
     { inherit BinaryBrew<DummyContext, DummyContext>(hdl, exnInfo, strategies) }
 
+/// <summary>
 /// Default BinaryBrew type that uses EVM-specific user context.
+/// </summary>
 type EVMBinaryBrew =
   inherit BinaryBrew<EVMFuncUserContext, DummyContext>
 

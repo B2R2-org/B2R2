@@ -38,8 +38,10 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
     let lsda: ELF.LSDA = Map.find lsdaPointer lsdaTbl
     lsda.CallSiteTable
 
+  /// <summary>
   /// If a landing pad has a direct branch to another function, then we consider
   /// the frame containing the lading pad as a non-function FDE.
+  /// </summary>
   let checkIfFDEIsFunction (fde: ELF.FDE) landingPad =
     match liftingUnit.ParseBBlock(addr = landingPad) with
     | Ok(blk) ->
@@ -98,15 +100,21 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
 
   new(hdl: BinHandle) = ExceptionInfo(hdl.NewLiftingUnit())
 
+  /// <summary>
   /// Returns the exception handler mapping.
+  /// </summary>
   member _.ExceptionMap with get() = exnTbl
 
+  /// <summary>
   /// Returns an array of function entry points identified by the exception
   /// table.
+  /// </summary>
   member _.FunctionEntryPoints with get() = fnRanges.Keys |> Seq.toArray
 
+  /// <summary>
   /// Returns the coverage of the exception table, which is the ratio of
   /// addresses in the .text section that are covered by the exception table.
+  /// </summary>
   member _.ExceptionCoverage with get() =
     let ptr = liftingUnit.File.GetTextSectionPointer()
     let txtSize = float (ptr.MaxAddr - ptr.Addr)
@@ -117,11 +125,15 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
       else ()
     covered / txtSize
 
+  /// <summary>
   /// Checks if the given address is a function entry point according to the
   /// FDE records in the exception table.
+  /// </summary>
   member _.ContainsFunctionEntryPoint addr = fnRanges.ContainsKey addr
 
+  /// <summary>
   /// Finds the exception target (landing pad) for a given instruction address.
   /// If the address is not in the exception table, it returns None.
+  /// </summary>
   member _.TryFindExceptionTarget insAddr =
     NoOverlapIntervalMap.tryFindByAddr insAddr exnTbl

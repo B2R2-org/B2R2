@@ -81,15 +81,21 @@ type LiftingUnit(binFile: IBinFile,
         else Error <| toReversedArray (cnt + 1) (ins :: acc)
     | Error _ -> Error <| toReversedArray cnt acc
 
+  /// <summary>
   /// Binary file to be lifted.
+  /// </summary>
   member _.File with get() = binFile
 
+  /// <summary>
   /// Parser of this lifting unit.
+  /// </summary>
   member _.Parser with get() = parser
 
+  /// <summary>
   /// The instruction alignment (in bytes) enforced by the CPU. For example, ARM
   /// requires instructions to be aligned to 4 bytes, while x86 does not have
   /// such a requirement (i.e., 1-byte alignment).
+  /// </summary>
   member _.InstructionAlignment with get() = getAlignment ()
 
   /// <summary>

@@ -29,27 +29,37 @@
 [<RequireQualifiedAccess>]
 module B2R2.Byte
 
+/// <summary>
 /// Check if a byte is null.
+/// </summary>
 [<CompiledName "IsNull">]
 let isNull b = b = 0uy
 
+/// <summary>
 /// Check if a byte is printable.
+/// </summary>
 [<CompiledName "IsPrintable">]
 let isPrintable b = b >= 33uy && b <= 126uy
 
+/// <summary>
 /// Check if a byte is a whitespace.
+/// </summary>
 [<CompiledName "IsWhitespace">]
 let isWhitespace b = b = 32uy || (b >= 9uy && b <= 13uy)
 
+/// <summary>
 /// Check if a byte is a control character.
+/// </summary>
 [<CompiledName "IsControl">]
 let isControl b =
   b = 127uy || (b >= 1uy && b <= 8uy) || (b >= 14uy && b <= 31uy)
 
+/// <summary>
 /// Get a string representation of a byte used in B2R2. A null byte is
 /// represented as a dot, a printable byte is represented as an ASCII
 /// character, a whitespace is represented as an underscore, and a control
 /// character is represented as an asterisk.
+/// </summary>
 [<CompiledName "GetRepresentation">]
 let getRepresentation (b: byte) =
   if isNull b then "."

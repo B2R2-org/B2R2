@@ -24,7 +24,9 @@
 
 namespace B2R2
 
+/// <summary>
 /// Raised when an invalid WordSize is encountered.
+/// </summary>
 exception InvalidWordSizeException
 
 /// <summary>
@@ -32,17 +34,29 @@ exception InvalidWordSizeException
 /// the CPU can naturally process in a single operation.
 /// </summary>
 type WordSize =
+  /// <summary>
   /// 8-bit word size.
+  /// </summary>
   | Bit8 = 8
+  /// <summary>
   /// 16-bit word size.
+  /// </summary>
   | Bit16 = 16
+  /// <summary>
   /// 32-bit word size.
+  /// </summary>
   | Bit32 = 32
+  /// <summary>
   /// 64-bit word size.
+  /// </summary>
   | Bit64 = 64
+  /// <summary>
   /// 128-bit word size.
+  /// </summary>
   | Bit128 = 128
+  /// <summary>
   /// 256-bit word size.
+  /// </summary>
   | Bit256 = 256
 
 /// <summary>
@@ -91,18 +105,26 @@ module WordSize =
   [<CompiledName "ToString">]
   let toString wordSz = (toRegType wordSz).ToString()
 
+  /// <summary>
   /// Checks if the given word size is 32 bit.
+  /// </summary>
   [<CompiledName "Is32">]
   let is32 wordSz = wordSz = WordSize.Bit32
 
+  /// <summary>
   /// Checks if the given word size is 64 bit.
+  /// </summary>
   [<CompiledName "Is64">]
   let is64 wordSz = wordSz = WordSize.Bit64
 
+  /// <summary>
   /// Checks if the given word size is 128 bit.
+  /// </summary>
   [<CompiledName "Is128">]
   let is128 wordSz = wordSz = WordSize.Bit128
 
+  /// <summary>
   /// Checks if the given word size is 256 bit.
+  /// </summary>
   [<CompiledName "Is256">]
   let is256 wordSz = wordSz = WordSize.Bit256

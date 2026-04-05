@@ -26,13 +26,17 @@ namespace B2R2.FrontEnd
 
 open B2R2
 
+/// <summary>
 /// Provides a set of functions to obtain calling convention information for
 /// different architectures. This includes the list of volatile registers, the
 /// register used for syscall return values, and the register used for syscall
 /// numbers.
+/// </summary>
 type CallingConvention =
 
+  /// <summary>
   /// Obtain the list of volatile register IDs
+  /// </summary>
   static member VolatileRegisters(hdl: BinHandle) =
     match hdl.File.ISA with
     | X86 ->
@@ -71,7 +75,9 @@ type CallingConvention =
          MIPS.Register.toRegID MIPS.Register.R15 |]
     | _ -> Terminator.futureFeature ()
 
+  /// <summary>
   /// Obtain the register ID used for storing syscall return values.
+  /// </summary>
   static member ReturnRegister(hdl: BinHandle) =
     match hdl.File.ISA with
     | X86 -> Intel.Register.EAX |> Intel.Register.toRegID
@@ -81,7 +87,9 @@ type CallingConvention =
     | MIPS -> MIPS.Register.R2 |> MIPS.Register.toRegID
     | _ -> Terminator.futureFeature ()
 
+  /// <summary>
   /// Obtain the register ID used for storing a syscall number.
+  /// </summary>
   static member SyscallNumRegister(hdl: BinHandle) =
     match hdl.File.ISA with
     | X86 -> Intel.Register.EAX |> Intel.Register.toRegID
@@ -91,7 +99,9 @@ type CallingConvention =
     | MIPS -> MIPS.Register.R2 |> MIPS.Register.toRegID
     | _ -> Terminator.futureFeature ()
 
+  /// <summary>
   /// Obtain the register ID used for the nth syscall parameter.
+  /// </summary>
   static member SyscallArgRegister(hdl: BinHandle, os, num) =
     match os, hdl.File.ISA with
     | OS.Linux, X86 ->
@@ -141,10 +151,12 @@ type CallingConvention =
       | _ -> Terminator.impossible ()
     | _ -> Terminator.futureFeature ()
 
+  /// <summary>
   /// Obtain the register ID used for the nth function call parameter. Since
   /// actual calling convention may vary depending on the binaries, this
   /// function only returns a generally used register for the given architecture
   /// and the file format.
+  /// </summary>
   static member FunctionArgRegister(hdl: BinHandle, os, num) =
     match os, hdl.File.ISA with
     | OS.Windows, X86 -> (* fast call *)
@@ -170,9 +182,11 @@ type CallingConvention =
       | _ -> Terminator.impossible ()
     | _ -> Terminator.futureFeature ()
 
+  /// <summary>
   /// Check if the given register is non-volatile register in the given binary.
   /// Non-volatile registers are preserved by callee, i.e., callee-saved
   /// registers.
+  /// </summary>
   static member IsNonVolatile(hdl: BinHandle, os, rid) =
     match os, hdl.File.ISA with
     | OS.Linux, X86 -> (* CDECL *)

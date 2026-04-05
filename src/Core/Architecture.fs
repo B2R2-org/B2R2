@@ -24,44 +24,76 @@
 
 namespace B2R2
 
+/// <summary>
 /// Raised when an invalid ISA is given as a parameter.
+/// </summary>
 exception InvalidISAException
 
 /// <summary>
 /// Represents CPU architecture types that are supported by B2R2.
 /// </summary>
 type Architecture =
+  /// <summary>
   /// Intel x86 or x86-64.
+  /// </summary>
   | Intel = 0
+  /// <summary>
   /// ARMv7.
+  /// </summary>
   | ARMv7 = 1
+  /// <summary>
   /// ARMv8 (aarch32 and aarch64)
+  /// </summary>
   | ARMv8 = 2
+  /// <summary>
   /// MIPS.
+  /// </summary>
   | MIPS = 3
+  /// <summary>
   /// PowerPC.
+  /// </summary>
   | PPC = 4
+  /// <summary>
   /// RISC-V.
+  /// </summary>
   | RISCV = 5
+  /// <summary>
   /// SPARC.
+  /// </summary>
   | SPARC = 6
   ///// IBM System/390.
   | S390 = 7
+  /// <summary>
   /// SuperH (SH-4).
+  /// </summary>
   | SH4 = 8
+  /// <summary>
   /// PA-RISC.
+  /// </summary>
   | PARISC = 9
+  /// <summary>
   /// Atmel AVR 8-bit microcontroller.
+  /// </summary>
   | AVR = 20
   ///// TMS320C64x, TMS320C67x, etc.
   | TMS320C6000 = 21
+  /// <summary>
   /// EVM.
+  /// </summary>
   | EVM = 30
+  /// <summary>
   /// Python bytecode.
+  /// </summary>
   | Python = 31
+  /// <summary>
   /// WASM
+  /// </summary>
   | WASM = 32
+  /// <summary>
   /// Common Intermediate Language (CIL), aka MSIL.
+  /// </summary>
   | CIL = 33
+  /// <summary>
   /// Unknown ISA.
+  /// </summary>
   | UnknownISA = 42

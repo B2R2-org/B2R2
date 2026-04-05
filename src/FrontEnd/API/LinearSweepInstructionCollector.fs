@@ -27,8 +27,10 @@ namespace B2R2.FrontEnd
 open B2R2
 open B2R2.FrontEnd.BinFile
 
+/// <summary>
 /// Represents a linear sweep instruction collector, which is the most basic
 /// instruction collector performing linear sweep disassembly.
+/// </summary>
 type LinearSweepInstructionCollector(hdl: BinHandle, liftingUnit: LiftingUnit) =
   let rec update updateFn (ptr: BinFilePointer) =
     if ptr.IsValid then

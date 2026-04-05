@@ -30,10 +30,14 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
+/// <summary>
 /// A lens that converts a BinaryBrew to a CallCFG.
+/// </summary>
 [<RequireQualifiedAccess>]
 module CallGraph =
+  /// <summary>
   /// A mapping from an address to a CallCFG vertex.
+  /// </summary>
   type private CallVMap = Dictionary<Addr, IVertex<CallBasicBlock>>
 
   let private getVertex (brew: BinaryBrew<_, _>) vMap addr g =
@@ -71,7 +75,9 @@ module CallGraph =
         | NullCallee -> callCFG
       ) callCFG) callCFG
 
+  /// <summary>
   /// Create a CallCFG from a BinaryBrew.
+  /// </summary>
   [<CompiledName "Create">]
   let create implType brew =
     let callGraph = CallCFG implType

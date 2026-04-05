@@ -24,16 +24,22 @@
 
 namespace B2R2
 
+/// <summary>
 /// Represents the Instruction Set Architecture (ISA).
+/// </summary>
 type ISA(arch, endian, wordSize, flags) =
   do assert (arch <> Architecture.UnknownISA)
 
+  /// <summary>
   /// Constructs an ISA object with the given architecture, endianness, and
   /// word size. The flags are set to 0.
+  /// </summary>
   new(arch, endian, wordSize) = ISA(arch, endian, wordSize, 0)
 
+  /// <summary>
   /// Constructs an ISA object with the given architecture. The endianness and
   /// word size are set to the default values for the given architecture.
+  /// </summary>
   new(arch) =
     match arch with
     | Architecture.Intel -> ISA(arch, Endian.Little, WordSize.Bit64)
@@ -55,9 +61,11 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.CIL -> ISA(arch, Endian.Little, WordSize.Bit64)
     | _ -> ISA(Architecture.UnknownISA, Endian.Little, WordSize.Bit64)
 
+  /// <summary>
   /// Constructs an ISA object with the given architecture and endianness. The
   /// word size is set to the default value for the given architecture and
   /// endianness.
+  /// </summary>
   new(arch, endian) =
     match arch with
     | Architecture.Intel when endian = Endian.Little ->
@@ -81,8 +89,10 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.CIL -> ISA(arch, endian, WordSize.Bit64)
     | _ -> ISA(Architecture.UnknownISA, endian, WordSize.Bit64)
 
+  /// <summary>
   /// Constructs an ISA object with the given architecture and word size. The
   /// endianness is set to the default value for the given architecture.
+  /// </summary>
   new(arch, wordSize) =
     match arch with
     | Architecture.Intel when wordSize = WordSize.Bit32
@@ -213,23 +223,35 @@ type ISA(arch, endian, wordSize, flags) =
     | _ ->
       ISA Architecture.UnknownISA
 
+  /// <summary>
   /// CPU Architecture.
+  /// </summary>
   member _.Arch with get(): Architecture = arch
 
+  /// <summary>
   /// Endianness.
+  /// </summary>
   member _.Endian with get(): Endian = endian
 
+  /// <summary>
   /// Word size.
+  /// </summary>
   member _.WordSize with get(): WordSize = wordSize
 
+  /// <summary>
   /// Architecture-specific flags. Not every architecture has this.
+  /// </summary>
   member _.Flags with get(): int = flags
 
+  /// <summary>
   /// True if this ISA is Intel x86.
+  /// </summary>
   member _.IsX86 with get() =
     arch = Architecture.Intel && wordSize = WordSize.Bit32
 
+  /// <summary>
   /// True if this ISA is Intel x86-64.
+  /// </summary>
   member _.IsX64 with get() =
     arch = Architecture.Intel && wordSize = WordSize.Bit64
 
@@ -280,35 +302,63 @@ type ISA(arch, endian, wordSize, flags) =
       | _ -> raise InvalidISAException
     | _ -> raise InvalidISAException
 
+/// <summary>
 /// Represents the kind of CIL code: only CIL, CIL for x86, or CIL for x64.
+/// </summary>
 and CILKind =
+  /// <summary>
   /// Only CIL code.
+  /// </summary>
   | CILOnly = 0
+  /// <summary>
   /// CIL code for x86.
+  /// </summary>
   | CILx86 = 1
+  /// <summary>
   /// CIL code for x86-64.
+  /// </summary>
   | CILx64 = 2
 
+/// <summary>
 /// Represents the Python version.
+/// </summary>
 and PythonVersion =
+  /// <summary>
   /// Python 3.8.
+  /// </summary>
   | Python308 = 308
+  /// <summary>
   /// Python 3.9.
+  /// </summary>
   | Python309 = 309
+  /// <summary>
   /// Python 3.10.
+  /// </summary>
   | Python310 = 310
+  /// <summary>
   /// Python 3.11.
+  /// </summary>
   | Python311 = 311
+  /// <summary>
   /// Python 3.12.
+  /// </summary>
   | Python312 = 312
+  /// <summary>
   /// Python 3.13.
+  /// </summary>
   | Python313 = 313
+  /// <summary>
   /// Python 3.14.
+  /// </summary>
   | Python314 = 314
+  /// <summary>
   /// Python 3.15.
+  /// </summary>
   | Python315 = 315
 
+/// <summary>
 /// Provides active patterns for matching against specific ISAs.
+/// </summary>
 [<AutoOpen>]
 module ISA =
   [<return: Struct>]

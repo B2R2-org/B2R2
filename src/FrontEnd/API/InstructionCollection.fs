@@ -28,16 +28,20 @@ open System.Collections.Concurrent
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
+/// <summary>
 /// Represents a collection of lifted instructions. When this class is
 /// instantiated, it will automatically lift all possible instructions from the
 /// given binary, and store them in the internal collection. This is shared
 /// across all functions.
+/// </summary>
 type InstructionCollection(collector: IInstructionCollectable) =
   let dict = ConcurrentDictionary<Addr, InstructionCandidate>()
   let updateFn (addr, insCandidate) = dict.TryAdd(addr, insCandidate) |> ignore
   do task { collector.Collect updateFn } |> ignore
 
+  /// <summary>
   /// Number of instructions in the collection.
+  /// </summary>
   member _.Count with get() = dict.Count
 
   member inline private _.ExtractInstruction candidate =
@@ -45,7 +49,9 @@ type InstructionCollection(collector: IInstructionCollectable) =
     | OnlyOne ins -> Ok ins
     | _ -> Error ErrorCase.ParsingFailure
 
+  /// <summary>
   /// Find cached one or parse (and cache) the instruction at the given address.
+  /// </summary>
   member this.TryFind(addr: Addr) =
     match dict.TryGetValue addr with
     | true, candidate -> this.ExtractInstruction candidate
@@ -57,25 +63,35 @@ type InstructionCollection(collector: IInstructionCollectable) =
         ins
       | Error e -> Error e
 
+  /// <summary>
   /// Get the instruction at the given address. Raise an exception if not found.
+  /// </summary>
   member _.Find(addr: Addr) =
     match dict[addr] with
     | OnlyOne ins -> ins
     | _ -> raise ParsingFailureException
 
+/// <summary>
 /// Represents one or more candidate instructions located at the same address.
 /// There could be two instructions at the same address when considering the
 /// operation mode of ARM CPU: one for ARM and the other for Thumb mode.
+/// </summary>
 and InstructionCandidate =
   | OnlyOne of IInstruction
   | MaybeTwo of IInstruction option * IInstruction option (* arm or thumb *)
 
+/// <summary>
 /// Provides an interface for collecting instructions.
+/// </summary>
 and IInstructionCollectable =
+  /// <summary>
   /// Collects instructions from the binary. The `updateFn` is called for each
   /// instruction that is parsed.
+  /// </summary>
   abstract Collect: updateFn: (Addr * InstructionCandidate -> unit) -> unit
 
+  /// <summary>
   /// Parses one or more instruction candidates from the given address.
+  /// </summary>
   abstract ParseInstructionCandidate:
     Addr -> Result<InstructionCandidate, ErrorCase>

@@ -39,8 +39,10 @@ open B2R2.FrontEnd.BinFile
 /// parsers and IR builders, to use the B2R2 front-end.
 /// </summary>
 type GroundWork =
+  /// <summary>
   /// Creates a new architecture-specific register factory for the given
   /// architecture.
+  /// </summary>
   static member CreateRegisterFactory isa =
     match isa with
     | Intel -> Intel.RegisterFactory isa :> IRegisterFactory
@@ -60,7 +62,9 @@ type GroundWork =
     | CIL -> CIL.RegisterFactory isa :> IRegisterFactory
     | _ -> Terminator.futureFeature ()
 
+  /// <summary>
   /// Creates a new parser (IInstructionParsable) for the given architecture.
+  /// </summary>
   static member CreateParser(reader, isa: ISA) =
     match isa with
     | Intel ->
@@ -92,7 +96,9 @@ type GroundWork =
     | _ ->
       Terminator.futureFeature ()
 
+  /// <summary>
   /// Create a new parser (IInstructionParsable) for the given file.
+  /// </summary>
   static member CreateParser(binFile: IBinFile) =
     match binFile.ISA with
     | Python ->
@@ -100,7 +106,9 @@ type GroundWork =
     | _ ->
       GroundWork.CreateParser(binFile.Reader, binFile.ISA)
 
+  /// <summary>
   /// Creates a new LowUIR builder for the given architecture.
+  /// </summary>
   static member CreateBuilder(isa, regFactory) =
     let stream = LowUIRStream()
     match isa with

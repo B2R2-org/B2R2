@@ -24,17 +24,27 @@
 
 namespace B2R2
 
+/// <summary>
 /// Raised when an invalid Endian value is used.
+/// </summary>
 exception InvalidEndianException
 
+/// <summary>
 /// Represents the endianness used in a binary.
+/// </summary>
 type Endian =
+  /// <summary>
   /// Little endian
+  /// </summary>
   | Little = 1
+  /// <summary>
   /// Big endian
+  /// </summary>
   | Big = 2
 
+/// <summary>
 /// Provides functions to work with Endian.
+/// </summary>
 [<RequireQualifiedAccess>]
 module Endian =
   /// <summary>
