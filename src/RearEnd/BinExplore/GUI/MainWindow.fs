@@ -95,31 +95,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     | SelectWorkspacePanel panel ->
       Update.selectWorkspacePanel arbiter model panel
     | CFGMsg cfgMsg ->
-      match cfgMsg with
-      | LoadCompleted(tabID, cfgKind, cfg) ->
-        Update.loadCFGCompleted model tabID cfgKind cfg
-      | LoadFailed(tabID, reason) ->
-        Update.loadCFGFailed model tabID reason
-      | SetZoom(delta, mouseX, mouseY) ->
-        Update.setCFGZoom model delta mouseX mouseY
-      | StartPan(x, y) ->
-        Update.startCFGPan model x y
-      | MovePan(x, y, space) ->
-        Update.moveCFGPan model x y space
-      | EndPan ->
-        Update.endCFGPan model
-      | JumpPan(gx, gy) ->
-        Update.jumpCFGPan model gx gy
-      | SelectToken(nodeID, lineIdx, wordIdx) ->
-        Update.selectCFGToken model nodeID lineIdx wordIdx
-      | SetHoveredEdge edgeID ->
-        Update.setHoveredCFGEdge model edgeID
-      | UpdateViewportSize(width, height) ->
-        Update.updateCFGViewportSize model width height
-      | ChangeKind kind ->
-        Update.changeCFGKind arbiter model kind
-      | ToggleMinimap(tabID, activate) ->
-        Update.toggleMinimap model tabID activate
+      Update.updateCFG arbiter model cfgMsg
     | HexdumpMsg msg ->
       Update.updateHexdump arbiter model msg
     | UpdateStatusMsg msg ->

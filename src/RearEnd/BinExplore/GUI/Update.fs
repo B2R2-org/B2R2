@@ -1101,6 +1101,33 @@ let toggleMinimap model tabID activate =
   | _ ->
     model, Elmish.Cmd.none
 
+let updateCFG arbiter model msg =
+  match msg with
+  | LoadCompleted(tabID, cfgKind, cfg) ->
+    loadCFGCompleted model tabID cfgKind cfg
+  | LoadFailed(tabID, reason) ->
+    loadCFGFailed model tabID reason
+  | SetZoom(delta, mouseX, mouseY) ->
+    setCFGZoom model delta mouseX mouseY
+  | StartPan(x, y) ->
+    startCFGPan model x y
+  | MovePan(x, y, space) ->
+    moveCFGPan model x y space
+  | EndPan ->
+    endCFGPan model
+  | JumpPan(gx, gy) ->
+    jumpCFGPan model gx gy
+  | SelectToken(nodeID, lineIdx, wordIdx) ->
+    selectCFGToken model nodeID lineIdx wordIdx
+  | SetHoveredEdge edgeID ->
+    setHoveredCFGEdge model edgeID
+  | UpdateViewportSize(width, height) ->
+    updateCFGViewportSize model width height
+  | ChangeKind kind ->
+    changeCFGKind arbiter model kind
+  | ToggleMinimap(tabID, activate) ->
+    toggleMinimap model tabID activate
+
 let updateStatusMsg model msg =
   { model with StatusBarState = MessageOnly msg }, Elmish.Cmd.none
 
