@@ -35,9 +35,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 /// </summary>
 [<RequireQualifiedAccess>]
 module CallGraph =
-  /// <summary>
   /// A mapping from an address to a CallCFG vertex.
-  /// </summary>
   type private CallVMap = Dictionary<Addr, IVertex<CallBasicBlock>>
 
   let private getVertex (brew: BinaryBrew<_, _>) vMap addr g =

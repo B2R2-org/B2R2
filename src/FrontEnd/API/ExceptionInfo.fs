@@ -38,10 +38,8 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
     let lsda: ELF.LSDA = Map.find lsdaPointer lsdaTbl
     lsda.CallSiteTable
 
-  /// <summary>
   /// If a landing pad has a direct branch to another function, then we consider
   /// the frame containing the lading pad as a non-function FDE.
-  /// </summary>
   let checkIfFDEIsFunction (fde: ELF.FDE) landingPad =
     match liftingUnit.ParseBBlock(addr = landingPad) with
     | Ok(blk) ->
