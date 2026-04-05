@@ -25,6 +25,7 @@
 module B2R2.RearEnd.BinExplore.GUI.StatusBar
 
 open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Types
 open Avalonia.Controls
 open Avalonia.Layout
 open Avalonia.Media
@@ -76,6 +77,60 @@ let private fileFormatView model fmt =
     TextBlock.textAlignment TextAlignment.Center
   ]
 
+let private offsetTextView model (foreground: string) text =
+  TextBlock.create [
+    TextBlock.text text
+    TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
+    TextBlock.fontSize model.Theme.Font.Monospace.FontSize
+    TextBlock.foreground foreground
+    TextBlock.verticalAlignment VerticalAlignment.Center
+  ] :> IView
+
+let private rangeSeparatorView model =
+  offsetTextView model model.Theme.Text.Muted " - "
+
+let private addressRangeViews model range =
+  if range.Start = range.End then
+    [ offsetTextView model model.Theme.Text.Highlight
+        $"0x{range.Start:X8}" ]
+  else
+    [ offsetTextView model model.Theme.Text.Highlight
+        $"0x{range.Start:X8}"
+      rangeSeparatorView model
+      offsetTextView model model.Theme.Text.Highlight
+        $"0x{range.End:X8}" ]
+
+let private sectionRangeViews model sectionRange =
+  match sectionRange with
+  | NoSection -> []
+  | SingleSection name ->
+    [ offsetTextView model model.Theme.Text.Muted " ("
+      offsetTextView model model.Theme.Text.Primary name
+      offsetTextView model model.Theme.Text.Muted ")" ]
+  | MultipleSections(s1, s2) ->
+    [ offsetTextView model model.Theme.Text.Muted " ("
+      offsetTextView model model.Theme.Text.Primary s1
+      rangeSeparatorView model
+      offsetTextView model model.Theme.Text.Primary s2
+      offsetTextView model model.Theme.Text.Muted ")" ]
+
+let private fileOffsetCtxView model offsetCtx =
+  match offsetCtx with
+  | Some ctx ->
+    StackPanel.create [
+      StackPanel.dock Dock.Left
+      StackPanel.margin (8.0, 0.0)
+      StackPanel.orientation Orientation.Horizontal
+      StackPanel.spacing 0.0
+      StackPanel.verticalAlignment VerticalAlignment.Center
+      StackPanel.children [
+        yield! addressRangeViews model ctx.Range
+        yield! sectionRangeViews model ctx.SectionRange
+      ]
+    ] :> IView
+  | None ->
+    messageView model "" :> IView
+
 let view (model: Model) =
   Border.create [
     Border.dock Dock.Bottom
@@ -89,12 +144,12 @@ let view (model: Model) =
             [ messageView model "" ]
           | MessageOnly msg ->
             [ messageView model msg ]
-          | FileLoaded(path, fmt) ->
+          | FileLoaded(path, fmt, offsetCtx) ->
             [ filePathView model path
               separator model
               fileFormatView model fmt
               separator model
-              messageView model "" ]
+              fileOffsetCtxView model offsetCtx ]
         )
       ]
     )

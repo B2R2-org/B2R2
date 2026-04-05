@@ -132,14 +132,14 @@ let private copySelection formatBytes dispatch source state =
   | Some bytes ->
     let topLevel = tryGetHostTopLevel source
     if isNull topLevel then
-      dispatch (UpdateStatus "Clipboard is unavailable.")
+      dispatch (UpdateStatusMsg "Clipboard is unavailable.")
     else
       Async.StartImmediate(async {
         try
           let text = formatBytes bytes
           do! topLevel.Clipboard.SetTextAsync text |> Async.AwaitTask
         with ex ->
-          dispatch (UpdateStatus $"Failed to copy bytes: {ex.Message}")
+          dispatch (UpdateStatusMsg $"Failed to copy bytes: {ex.Message}")
       })
   | None ->
     ()

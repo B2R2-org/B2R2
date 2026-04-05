@@ -56,7 +56,7 @@ let private openBinaryDialog dispatch (source: obj) =
         |> Option.iter (fun file ->
           dispatch (OpenBinary file.Path.LocalPath))
       with ex ->
-        dispatch (UpdateStatus $"Failed to open file dialog: {ex.Message}")
+        dispatch (UpdateStatusMsg $"Failed to open file dialog: {ex.Message}")
     } |> Async.StartImmediate
 
 let private menuFile model dispatch =
@@ -141,7 +141,7 @@ let private menuView model dispatch =
             MenuItem.toggleType MenuItemToggleType.Radio
             MenuItem.isChecked (isCustomSelected model)
             MenuItem.onClick (fun _ ->
-              dispatch (UpdateStatus "Not implemented yet."))
+              dispatch (UpdateStatusMsg "Not implemented yet."))
           ]
         ]
       ]

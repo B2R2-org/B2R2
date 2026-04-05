@@ -67,7 +67,10 @@ type Message =
   /// Message to route hexdump-specific updates to the shared hexdump state.
   | HexdumpMsg of HexdumpMessage
   /// Message to update the status message in the status bar.
-  | UpdateStatus of string
+  | UpdateStatusMsg of string
+  /// Message to update the file offset context (range and section) shown in the
+  /// status bar.
+  | UpdateStatusOffsetCtx of sOff: uint32 * eOff: uint32 * sects: string list
   /// Message to exit the application.
   | ExitApplication
 

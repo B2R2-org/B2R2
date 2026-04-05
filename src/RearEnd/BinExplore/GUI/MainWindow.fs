@@ -121,9 +121,11 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       | ToggleMinimap(tabID, activate) ->
         Update.toggleMinimap model tabID activate
     | HexdumpMsg msg ->
-      Update.updateHexdump model msg
-    | UpdateStatus msg ->
-      Update.updateStatus model msg
+      Update.updateHexdump arbiter model msg
+    | UpdateStatusMsg msg ->
+      Update.updateStatusMsg model msg
+    | UpdateStatusOffsetCtx(sOff, eOff, sects) ->
+      Update.updateStatusOffsetCtx model sOff eOff sects
     | ExitApplication ->
       this.Close()
       model, Elmish.Cmd.none

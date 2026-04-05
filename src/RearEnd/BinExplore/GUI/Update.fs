@@ -67,7 +67,7 @@ let private startLoadWorkflowCmd (arbiter: Arbiter<_, _>) (filePath: string) =
         let mutable i = 0
         while running do
           dispatchOnUi dispatch
-          <| UpdateStatus $"Loading {displayName} {dots[i % dots.Length]}"
+          <| UpdateStatusMsg $"Loading {displayName} {dots[i % dots.Length]}"
           do! Async.Sleep 250
           i <- i + 1
       }
@@ -172,13 +172,20 @@ let private prepareHexdumpViewForActivation hexdump =
 let private activateHexdumpView model =
   initializeHexdumpTabView model >> prepareHexdumpViewForActivation
 
+let private buildSectionRange sections =
+  match sections with
+  | [] -> NoSection
+  | [ sec ] -> SingleSection sec
+  | [ sec1; sec2 ] -> MultipleSections(sec1, sec2)
+  | _ -> MultipleSections(List.head sections, List.last sections)
+
 let openBinaryCompleted (arbiter: Arbiter<_, _>) model filePath =
   if model.LoadingBinaryPath = Some filePath then
     let functions, statusBar =
       match API.getFunctions arbiter true, API.getFile arbiter with
       | Ok fns, Ok file ->
         fns |> Array.map FunctionItem.ofFunction |> List.ofArray,
-        FileLoaded(filePath, FileFormat.toString file.Format)
+        FileLoaded(filePath, FileFormat.toString file.Format, None)
       | _ ->
         [], EmptyStatus
     { model with
@@ -493,7 +500,39 @@ let private clampHexByteIndex hexdump byteIndex =
   if hexdump.Document.Length <= 0L then None
   else Some(max 0L (min (hexdump.Document.Length - 1L) byteIndex))
 
-let updateHexdump model msg =
+let private clearStatusRange model =
+  match model.StatusBarState with
+  | FileLoaded(path, fmt, _) ->
+    { model with StatusBarState = FileLoaded(path, fmt, None) }
+  | _ ->
+    model
+
+let private tryGetSelectedFileOffsetRange selection =
+  let startOffset = min selection.Anchor selection.Caret
+  let endOffset = max selection.Anchor selection.Caret
+  let maxOffset = int64 UInt32.MaxValue
+  if startOffset < 0L || endOffset < 0L then
+    None
+  elif startOffset > maxOffset || endOffset > maxOffset then
+    None
+  else
+    Some(uint32 startOffset, uint32 endOffset)
+
+let private findSectionRange (f: IBinFile) (sOff: uint32) (eOff: uint32) =
+  match f.TryFindSectionName sOff, f.TryFindSectionName eOff with
+  | Ok secStart, Ok secEnd when secStart = secEnd -> [ secStart ]
+  | Ok secStart, Ok secEnd -> [ secStart; secEnd ]
+  | _ -> []
+
+let private statusRangeCmd (arbiter: Arbiter<_, _>) selection =
+  match tryGetSelectedFileOffsetRange selection, API.getFile arbiter with
+  | Some(sOff, eOff), Ok file ->
+    let sec = findSectionRange file sOff eOff
+    cmdOfSub (fun dispatch -> dispatch (UpdateStatusOffsetCtx(sOff, eOff, sec)))
+  | _ ->
+    Elmish.Cmd.none
+
+let updateHexdump arbiter model msg =
   match msg with
   | SetHighlightSpans spans ->
     updateHexdumpState model (fun hexdump ->
@@ -563,15 +602,21 @@ let updateHexdump model msg =
       let caret = byteIndex |> Option.bind (clampHexByteIndex hexdump)
       { hexdump with Caret = caret })
   | SetSelection selection ->
-    updateHexdumpState model (fun hexdump ->
-      let selection =
-        selection
-        |> Option.bind (fun sel ->
-          match clampHexByteIndex hexdump sel.Anchor,
-                clampHexByteIndex hexdump sel.Caret with
-          | Some anchor, Some caret -> Some { Anchor = anchor; Caret = caret }
-          | _ -> None)
-      { hexdump with Selection = selection })
+    let nextModel, _ =
+      updateHexdumpState model (fun hexdump ->
+        let selection =
+          selection
+          |> Option.bind (fun sel ->
+            match clampHexByteIndex hexdump sel.Anchor,
+                  clampHexByteIndex hexdump sel.Caret with
+            | Some anchor, Some caret -> Some { Anchor = anchor; Caret = caret }
+            | _ -> None)
+        { hexdump with Selection = selection })
+    match nextModel.ActiveTab with
+    | Some { Content = HexContent hexdump } when hexdump.Selection.IsNone ->
+      clearStatusRange nextModel, Elmish.Cmd.none
+    | _ ->
+      nextModel, Elmish.Cmd.none
   | StartSelection byteIndex ->
     updateHexdumpState model (fun hexdump ->
       match clampHexByteIndex hexdump byteIndex with
@@ -598,8 +643,18 @@ let updateHexdump model msg =
       | _ ->
         hexdump)
   | EndSelection ->
-    updateHexdumpState model (fun hexdump ->
-      { hexdump with View = { hexdump.View with IsSelecting = false } })
+    let nextModel, _ =
+      updateHexdumpState model (fun hexdump ->
+        { hexdump with View = { hexdump.View with IsSelecting = false } })
+    match nextModel.ActiveTab with
+    | Some { Content = HexContent hexdump } ->
+      match hexdump.Selection with
+      | Some selection ->
+        nextModel, statusRangeCmd arbiter selection
+      | None ->
+        clearStatusRange nextModel, Elmish.Cmd.none
+    | _ ->
+      nextModel, Elmish.Cmd.none
   | SetHoveredByte byteIndex ->
     updateHexViewState model (fun viewState ->
       let hovered =
@@ -1046,5 +1101,16 @@ let toggleMinimap model tabID activate =
   | _ ->
     model, Elmish.Cmd.none
 
-let updateStatus model msg =
+let updateStatusMsg model msg =
   { model with StatusBarState = MessageOnly msg }, Elmish.Cmd.none
+
+let updateStatusOffsetCtx model sOff eOff sections =
+  match model.StatusBarState with
+  | FileLoaded(path, fmt, _) ->
+    let range = { Start = sOff; End = eOff }
+    let sectionRange = buildSectionRange sections
+    let ctx = Some { Range = range; SectionRange = sectionRange }
+    { model with
+        StatusBarState = FileLoaded(path, fmt, ctx) }, Elmish.Cmd.none
+  | _ ->
+    model, Elmish.Cmd.none

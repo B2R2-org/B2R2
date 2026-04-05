@@ -28,4 +28,21 @@ namespace B2R2.RearEnd.BinExplore.GUI
 type StatusBarState =
   | EmptyStatus
   | MessageOnly of msg: string
-  | FileLoaded of path: string * fmt: string
+  | FileLoaded of path: string * fmt: string * offsetCtx: OffsetContext option
+
+/// Represents the context of a file offset, which includes the range and the
+/// section name (if available).
+and OffsetContext =
+  { Range: FileOffsetRange
+    SectionRange: SectionRange }
+
+/// Represents a file offset range.
+and FileOffsetRange =
+  { Start: uint32
+    End: uint32 }
+
+/// Represents the section range corresponding to a file offset range.
+and SectionRange =
+  | NoSection
+  | SingleSection of string
+  | MultipleSections of string * string
