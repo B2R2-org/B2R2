@@ -301,9 +301,10 @@ type IntelParser(wordSz, reader) =
       OperandParsers.parseMemOrReg modRM span phlp
     | Reg sz when ic.OpEn = OpEn.O || ic.OpEn = OpEn.OI ->
       // Opcode[2:0] contains the operand.
+      let sz = oprSizeToRegType sz
+      setMemoryOperandContextWithCurrentAddr phlp sz sz
       let regBit = Operands.getRM (uint8 ic.OpcodeByte)
-      OperandParsers.findRegRBits (oprSizeToRegType sz) phlp.REXPrefix regBit
-      |> OprReg
+      OperandParsers.getOprFromRegGrpREX regBit phlp
     | Reg sz ->
       match ic.OpEn with
       | OpEn.RVM when i = 1 -> OperandParsers.parseVVVVReg phlp
