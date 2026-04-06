@@ -75,13 +75,6 @@ and Visibility =
   | Explicit
   | Implicit
 
-//type Operands =
-//  | NoOperand
-//  | OneOperand of OperandType
-//  | TwoOperands of OperandType * OperandType
-//  | ThreeOperands of OperandType * OperandType * OperandType
-//  | FourOperands of OperandType * OperandType * OperandType * OperandType
-
 type ModRMType =
   | NoModRM
   | ModRM of OprType (* /r *)
@@ -93,7 +86,8 @@ type ModRMType =
   | ModRMOp5 of OprType (* /5 *)
   | ModRMOp6 of OprType (* /6 *)
   | ModRMOp7 of OprType (* /7 *)
-  | FixedModRM of byte (* /digit *)
+  | FixedModRM of byte (* /digit: fully fixed ModRM byte *)
+  | STiModRM of byte (* ex) C0+i: mod=11, low 3 bits select ST(i) *)
 
 and OprType =
   | OpReg

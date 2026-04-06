@@ -215,6 +215,9 @@ type IntelParser(wordSz, reader) =
     | ModRMType.ModRMOp6 o -> matchesModRMConstraint span phlp i o 6
     | ModRMType.ModRMOp7 o -> matchesModRMConstraint span phlp i o 7
     | ModRMType.FixedModRM v -> span[phlp.CurrPos] = v
+    | ModRMType.STiModRM v ->
+      let modRM = span[phlp.CurrPos]
+      v <= modRM && modRM <= v + 7uy
     | _ -> true
 
   let findMatchingSubIndex (span: ByteSpan) (phlp: ParsingHelper)
@@ -397,35 +400,6 @@ type IntelParser(wordSz, reader) =
         operands[i] <- parseOperand span phlp sz modRM ic i opr
       operands |> operandsArrayToOperands
 
-  let getOneByteInstructionCores opcodeByte =
-    match opcodeByte with
-    (* INC (Only x86) *)
-    | 0x41uy | 0x42uy | 0x43uy | 0x44uy | 0x45uy | 0x46uy | 0x47uy ->
-      InstructionArrays.norOne[0x40]
-    (* DEC (Only x86) *)
-    | 0x49uy | 0x4Auy | 0x4Buy | 0x4Cuy | 0x4Duy | 0x4Euy | 0x4Fuy ->
-      InstructionArrays.norOne[0x48]
-    (* PUSH *)
-    | 0x51uy | 0x52uy | 0x53uy | 0x54uy | 0x55uy | 0x56uy | 0x57uy
-    | 0x58uy | 0x59uy | 0x5Auy | 0x5Buy | 0x5Cuy | 0x5Duy | 0x5Euy | 0x5Fuy ->
-      InstructionArrays.norOne[0x50]
-    (* XOR *)
-    | 0x91uy | 0x92uy | 0x93uy | 0x94uy | 0x95uy | 0x96uy | 0x97uy ->
-      InstructionArrays.norOne[0x90]
-    (* MOV *)
-    | 0xB1uy | 0xB2uy | 0xB3uy | 0xB4uy | 0xB5uy | 0xB6uy | 0xB7uy ->
-      InstructionArrays.norOne[0xB0]
-    | 0xB9uy | 0xBAuy | 0xBBuy | 0xBCuy | 0xBDuy | 0xBEuy | 0xBFuy ->
-      InstructionArrays.norOne[0xB8]
-    | _ -> InstructionArrays.norOne[int opcodeByte]
-
-  let getTwoByteInstructionCores opcodeByte =
-    match opcodeByte with
-    (* BSWAP *)
-    | 0xC9uy | 0xCAuy | 0xCBuy | 0xCCuy | 0xCDuy | 0xCEuy | 0xCFuy ->
-      InstructionArrays.norTwo[0xC8]
-    | _ -> InstructionArrays.norTwo[int opcodeByte]
-
   let applyMandatoryPrefixFilter (phlp: ParsingHelper) prefixType =
     match prefixType with
     | Mandatory _ -> phlp.Prefixes <- filterPrefs phlp.Prefixes
@@ -550,8 +524,8 @@ type IntelParser(wordSz, reader) =
           | OpcodeClass.Normal ThreeBytes3A ->
             InstructionArrays.norThree3A[int (phlp.ReadByte span)]
           | OpcodeClass.Normal TwoBytes ->
-            getTwoByteInstructionCores (phlp.ReadByte span)
-          | _ -> getOneByteInstructionCores (phlp.ReadByte span)
+            InstructionArrays.norTwo[int (phlp.ReadByte span)]
+          | _ -> InstructionArrays.norOne[int (phlp.ReadByte span)]
       let subIdx = findMatchingSubIndex span phlp insCores
 #if DEBUG
       //printfn "\nSelected InstructionCore(%d)\n%A\nOpcode Class: %A"
