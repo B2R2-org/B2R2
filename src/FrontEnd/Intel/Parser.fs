@@ -146,7 +146,7 @@ type IntelParser(wordSz, reader) =
 
   let contains16BitOperandSize oprSz opcode =
     match oprSz with
-    | [| Some Sz16 |] when opcode = Opcode.RETNear -> false
+    | [| Some Sz16 |] when opcode = Opcode.RET -> false
     | [| Some Sz16; _ |] when opcode = Opcode.ENTER -> false
     | [| None; Some Sz16 |] when opcode = Opcode.MOV -> false
     | [| Some Sz16 |]
@@ -307,7 +307,7 @@ type IntelParser(wordSz, reader) =
       OperandParsers.getOprFromRegGrpREX regBit phlp
     | Reg sz ->
       match ic.OpEn with
-      | OpEn.RVM when i = 1 -> OperandParsers.parseVVVVReg phlp
+      | OpEn.RVM | OpEn.RVMI when i = 1 -> OperandParsers.parseVVVVReg phlp
       | _ ->
         OperandParsers.findRegRBits (oprSizeToRegType sz) phlp.REXPrefix
           (Operands.getReg modRM)
@@ -533,6 +533,7 @@ type IntelParser(wordSz, reader) =
       //  subIdx insCores[subIdx] phlp.OpcodeClass
 #endif
       let insCore = insCores[subIdx]
+      phlp.TupleType <- insCore.TupleType
       let operands = parseOperands span phlp insCore
       applyMandatoryPrefixFilter phlp insCore.PrefixType
       newInstruction phlp insCore.Opcode operands :> IInstruction
