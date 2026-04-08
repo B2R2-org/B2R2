@@ -73,6 +73,7 @@ type IntelParser(wordSz, reader) =
     Array.map (fun o ->
       match o with
       | RM sz | Reg sz | Mem sz | Imm sz | Rel sz -> Some sz
+      | FixedReg(Register.AX, Explicit) -> Some Sz16
       | _ -> None) operands
     |> Array.distinct
 
@@ -144,11 +145,12 @@ type IntelParser(wordSz, reader) =
       insPref = Legacy NP || insPref = Mandatory NP
     else false
 
-  let contains16BitOperandSize oprSz opcode =
+  let contains16BitOperandSize oprSz op =
     match oprSz with
-    | [| Some Sz16 |] when opcode = Opcode.RETNear -> false
-    | [| Some Sz16; _ |] when opcode = Opcode.ENTER -> false
-    | [| None; Some Sz16 |] when opcode = Opcode.MOV -> false
+    | [| Some Sz16 |] when op = Opcode.RETNearImm || op = Opcode.RETFarImm ->
+      false
+    | [| Some Sz16; _ |] when op = Opcode.ENTER -> false
+    | [| None; Some Sz16 |] when op = Opcode.MOV -> false
     | [| Some Sz16 |]
     | [| Some Sz16; _ |]
     | [| None; Some Sz16 |] (* Temp *) -> true
@@ -261,6 +263,7 @@ type IntelParser(wordSz, reader) =
     | OprSize.Sz8 -> 8<rt>
     | OprSize.Sz16 -> 16<rt>
     | OprSize.Sz32 -> 32<rt>
+    | OprSize.Sz48 -> 48<rt>
     | OprSize.Sz64 -> 64<rt>
     | OprSize.Sz80 -> 80<rt>
     | OprSize.Sz128 -> 128<rt>
@@ -327,7 +330,10 @@ type IntelParser(wordSz, reader) =
       OperandParsers.parseOprImm span phlp (oprSizeToRegType sz)
     | Rel sz ->
       OperandParsers.parseOprForRelJmp span phlp (oprSizeToRegType sz)
-    | FixedReg(reg, _) -> OprReg reg
+    | FixedReg(reg, _) ->
+      let sz = Register.toRegType phlp.WordSize reg
+      setMemoryOperandContextWithCurrentAddr phlp sz sz
+      OprReg reg
     | STReg None -> Operands.getRM modRM |> Operands.getSTReg
     | STReg(Some reg) -> OprReg reg
     | BM sz ->
@@ -446,9 +452,13 @@ type IntelParser(wordSz, reader) =
   member inline private _.ParseVEX(bs: ByteSpan, pos, rex: REXPrefix byref,
     vex: VEXInfo option byref) =
     match bs[pos] with
+    | 0xC5uy when bs[pos + 1] < 0xC0uy && wordSz <> WordSize.Bit64 ->
+      pos
     | 0xC5uy ->
       vex <- Some(getTwoVEXInfo bs &rex (pos + 1))
       pos + 2
+    | 0xC4uy when bs[pos + 1] < 0xC0uy && wordSz <> WordSize.Bit64 ->
+      pos
     | 0xC4uy ->
       vex <- Some(getThreeVEXInfo bs &rex (pos + 1))
       pos + 3

@@ -64,6 +64,7 @@ and OprSize =
   | Sz8
   | Sz16
   | Sz32
+  | Sz48
   | Sz64
   | Sz80
   | Sz128
