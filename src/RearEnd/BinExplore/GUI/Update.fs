@@ -458,12 +458,13 @@ let private jumpHexdump model byteIndex length =
           (let totalRows = computeHexTotalRows hexdump scrolledView
            let contentHeight = float totalRows * rowHeight
            max 0.0 (contentHeight - scrolledView.ViewportHeight)))
+    let targetScrollRow = int64 (floor (targetOffsetY / rowHeight))
     let currentOffsetY = viewState.ScrollOffsetY
     let pendingDelta = targetOffsetY - currentOffsetY
     let nextView =
       { scrolledView with
           ScrollOffsetY = targetOffsetY
-          ScrollRow = targetRow
+          ScrollRow = targetScrollRow
           ScrollGuard =
             if abs pendingDelta > 0.5 then
               IgnoreNextProgrammatic pendingDelta
