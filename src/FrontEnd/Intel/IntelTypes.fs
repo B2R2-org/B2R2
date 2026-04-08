@@ -149,6 +149,30 @@ type CompatLegMode =
   | Valid = 3
   | Invalid = 4
 
+/// The tupletype will be referenced in the instruction operand encoding table
+/// in the reference page of each instruction, providing the cross reference for
+/// the scaling factor N to encoding memory addressing operand.
+type TupleType =
+  /// Compressed Displacement (DISP8*N) Affected by Embedded Broadcast.
+  | Full = 0
+  | Half = 1
+  /// EVEX DISP8*N for Instructions Not Affected by Embedded Broadcast.
+  | FullMem = 2
+  | Tuple1Scalar = 3
+  | Tuple1Fixed = 4
+  | Tuple2 = 5
+  | Tuple4 = 6
+  | Tuple8 = 7
+  | HalfMem = 8
+  | QuarterMem = 9
+  | EighthMem = 10
+  | Mem128 = 11
+  | MOVDDUP = 12
+  | Quarter = 13
+  | Scalar = 14
+  | Tuple1_4X = 15
+  | NA = 16 (* N/A *)
+
 /// Core instruction representation used in the generated source code.
 type InstructionCore =
   { OpcodeByte: uint32
@@ -160,4 +184,5 @@ type InstructionCore =
     Operands: OperandType[]
     OpEn: OpEn
     Mode64: Mode64
-    Compat: CompatLegMode }
+    Compat: CompatLegMode
+    TupleType: TupleType }
