@@ -22,63 +22,131 @@
   SOFTWARE.
 *)
 
-/// A modified version of Gasner et al.
 module internal B2R2.RearEnd.Visualization.EdgeDrawing
 
-open B2R2
+open System
+open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-/// Very simple Box record consisting of four corner points.
-type private Box =
-  { TopLeft: VisPosition
-    TopRight: VisPosition
-    BottomLeft: VisPosition
-    BottomRight: VisPosition
-    IsVirtual: bool }
+let [<Literal>] private StubMargin = 50.0
+let [<Literal>] private EdgeOffset = 4.0
+let [<Literal>] private XTolerance = 4.0
 
-/// An intersecting line between two boxes.
-type private Line =
-  { Left: VisPosition
-    Right: VisPosition }
+let private portOffset = max EdgeOffset 4.0
 
-/// Categorized edges.
-type private PartitionedEdges =
-  { ForwardEdges: VisEdge list
-    BackEdgesFromLeft: VisEdge list
-    BackEdgesFromRight: VisEdge list
-    SelfLoops: VisEdge list }
+type private Layout = IVertex<VisBBlock>[][]
+type private EdgeInfo = IVertex<VisBBlock> * IVertex<VisBBlock> * VisEdge
+type private PortMap = Dictionary<VisEdge, float>
+type private BandBuckets = Dictionary<int, ResizeArray<float * VisEdge>>
+type private BypassSlots = Dictionary<VertexID * bool, int>
+type private BackGeomMap = Dictionary<VisEdge, bool * float * float * float>
 
-let private emptyPartitionedEdges =
-  { ForwardEdges = []
-    BackEdgesFromLeft = []
-    BackEdgesFromRight = []
-    SelfLoops = [] }
+let private pos x y = VisPosition.Create(x, y)
 
-/// The X offset between starting points of two adjacent edges.
-let [<Literal>] private EdgeOffsetX = 4.0
+let private chooseEdges chooser (edges: EdgeInfo list) =
+  edges |> List.choose chooser
 
-/// The Y offset between starting points of two adjacent edges.
-let [<Literal>] private EdgeOffsetY = 4.0
+let private selectEdges predicate project (edges: EdgeInfo list) =
+  chooseEdges (fun (src, dst, edge) ->
+    if predicate src dst edge then Some(project src dst edge) else None) edges
 
-/// The length of the last segment of an edge. This value should be at least
-/// less than the half of blockIntervalY.
-let [<Literal>] private LastSegLen = 20.0
+let private getOrDefault (dict: Dictionary<'Key, 'Value>) key defaultValue =
+  match dict.TryGetValue key with
+  | true, value -> value
+  | _ -> defaultValue
 
-/// An offset from a node to the surrounding box. This is to give some margin
-/// for the box.
-let [<Literal>] private NodeBoxOffset = 20.0
+let private getOrCreateBucket (buckets: BandBuckets) bandIndex =
+  match buckets.TryGetValue bandIndex with
+  | true, bucket -> bucket
+  | _ ->
+    let bucket = ResizeArray()
+    buckets[bandIndex] <- bucket
+    bucket
 
-/// The margin to prevent an overlap between a node and its back edges.
-let [<Literal>] private BackEdgeMargin = 10.0
+let private backGeomValue selector defaultValue (backGeom: BackGeomMap) edge =
+  match backGeom.TryGetValue edge with
+  | true, geom -> selector geom
+  | _ -> defaultValue
 
-/// A margin for deciding line fitness.
-let [<Literal>] private FitErrorMargin = 1.0
+let private populatePortMap (portMap: PortMap) assignments =
+  assignments |> List.iter (fun (edge, x) -> portMap[edge] <- x)
 
-/// If the number of incoming/outgoing edges of a layer exceeds this threshold,
-/// then we expand the layer's height.
-let [<Literal>] private LayerHeightExpansionThreshold = 15
+let private addPoint (pts: ResizeArray<VisPosition>) x y = pts.Add(pos x y)
 
-let inline private isDummy (v: IVertex<VisBBlock>) = v.VData.IsDummy
+let private geomCx (v: IVertex<VisBBlock>) =
+  VisGraph.getXPos v + VisGraph.getWidth v / 2.0
+
+let private vertexGeom (v: IVertex<VisBBlock>) =
+  let cx = geomCx v
+  let top = VisGraph.getYPos v
+  let bot = top + VisGraph.getHeight v
+  cx, top, bot
+
+let private safeBox (v: IVertex<VisBBlock>) =
+  let x = VisGraph.getXPos v
+  let y = VisGraph.getYPos v
+  x - StubMargin,
+  x + VisGraph.getWidth v + StubMargin,
+  y - StubMargin,
+  y + VisGraph.getHeight v + StubMargin
+
+let private layerBotY (layer: IVertex<VisBBlock>[]) =
+  layer
+  |> Array.map (fun v -> VisGraph.getYPos v + VisGraph.getHeight v)
+  |> Array.max
+
+let private layerTopY (layer: IVertex<VisBBlock>[]) =
+  layer |> Array.map VisGraph.getYPos |> Array.min
+
+let private layoutBounds (layout: Layout) =
+  let left =
+    layout
+    |> Array.collect (fun layer ->
+      layer |> Array.map (fun v -> let l, _, _, _ = safeBox v in l))
+    |> Array.min
+  let right =
+    layout
+    |> Array.collect (fun layer ->
+      layer |> Array.map (fun v -> let _, r, _, _ = safeBox v in r))
+    |> Array.max
+  left, right
+
+let private prefersRightRail globalLeft globalRight (v: IVertex<VisBBlock>) =
+  let cx = geomCx v
+  globalRight - cx <= cx - globalLeft
+
+let private backGeomSide defaultValue backGeom edge =
+  backGeomValue (fun (goRight, _, _, _) -> goRight) defaultValue backGeom edge
+
+let private backGeomStubBotY backGeom edge =
+  backGeomValue (fun (_, _, stubBotY, _) -> stubBotY) 0.0 backGeom edge
+
+let private backGeomStubTopY backGeom edge =
+  backGeomValue (fun (_, _, _, stubTopY) -> stubTopY) 0.0 backGeom edge
+
+let private intermediateLayers (layout: Layout) src dst =
+  let srcLayer = VisGraph.getLayer src
+  let dstLayer = VisGraph.getLayer dst
+  if dstLayer - srcLayer <= 1 then [||] else layout[srcLayer + 1..dstLayer - 1]
+
+let private outFwdEdges (v: IVertex<VisBBlock>) (edges: EdgeInfo list) =
+  selectEdges (fun src dst edge -> src = v && dst <> v && not edge.IsBackEdge)
+    (fun _ dst edge -> dst, edge) edges
+
+let private inFwdEdges (v: IVertex<VisBBlock>) (edges: EdgeInfo list) =
+  selectEdges (fun src dst edge -> dst = v && src <> v && not edge.IsBackEdge)
+    (fun src _ edge -> src, edge) edges
+
+let private selfCycleEdges (v: IVertex<VisBBlock>) (edges: EdgeInfo list) =
+  selectEdges (fun src dst _ -> src = v && dst = v) (fun _ _ edge -> edge) edges
+
+let private outBackEdges (v: IVertex<VisBBlock>) (edges: EdgeInfo list) =
+  selectEdges (fun src dst edge -> src = v && dst <> v && edge.IsBackEdge)
+    (fun _ dst edge -> dst, edge) edges
+
+let private inBackEdges (v: IVertex<VisBBlock>) (edges: EdgeInfo list) =
+  selectEdges (fun src dst edge -> dst = v && src <> v && edge.IsBackEdge)
+    (fun src _ edge -> src, edge) edges
 
 let private restoreBackEdge (g: VisGraph) (src, dst, edge: VisEdge) =
   match g.TryFindEdge(dst, src) with
@@ -86,530 +154,559 @@ let private restoreBackEdge (g: VisGraph) (src, dst, edge: VisEdge) =
   | _ -> ()
   g.AddEdge(src, dst, edge) |> ignore
 
-let private restoreBackEdges g backEdgeList =
-  List.iter (restoreBackEdge g) backEdgeList
-
-/// Compute the original destination vertex, given dummy source node src.
-let rec private getOriginalDst (g: IDiGraph<_, _>) (v: IVertex<VisBBlock>) =
-  if isDummy v then
-    let succs = g.GetSuccs v
-    getOriginalDst g (Seq.head succs)
-  else v
-
-/// Given src is original, add original edge to acc.
-let private accOriginalEdge g acc (edge: Edge<_, VisEdge>) =
-  let src, dst = edge.First, edge.Second
-  if isDummy src then acc
-  elif isDummy dst then (src, getOriginalDst g dst, edge.Label) :: acc
-  else (src, dst, edge.Label) :: acc
-
-/// Sort vertices by the x-coordinates.
-let private sortLayers vLayout =
-  vLayout
-  |> Array.map (fun layer -> Array.sortBy (fun v -> (VisGraph.getXPos v)) layer)
-
-let private countDegree edges (getter: _ -> IVertex<VisBBlock>) v =
-  edges
-  |> List.fold (fun cnt e -> if getter e = v then cnt + 1 else cnt) 0
-
-let private getMaxDegree edges getter layer =
-  layer
-  |> Array.map (countDegree edges getter)
-  |> Array.max
-
-let private downShiftLayers layers degree =
-  Array.iter (Array.iter (fun (v: IVertex<VisBBlock>) ->
-    let blk = v.VData
-    let newY = blk.Coordinate.Y + EdgeOffsetY * float degree
-    blk.Coordinate.Y <- newY)) layers
-
-let rec private adjustLayers isIncoming layerNum vLayout = function
-  | [] -> ()
-  | degree :: tl ->
-    if degree >= LayerHeightExpansionThreshold then
-      let shiftStart = if isIncoming then layerNum else layerNum + 1
-      if shiftStart < Array.length vLayout then
-        downShiftLayers vLayout[shiftStart..] degree
-      else ()
-    else ()
-    adjustLayers isIncoming (layerNum + 1) vLayout tl
-
-/// Expand a layer's height if it contains excessive number of incoming/outgoing
-/// edges.
-let private adjustLayerYPositions edges vLayout =
-  let maxIncomingDegrees =
-    vLayout
-    |> Array.map (getMaxDegree edges (fun (_, d, _) -> d))
-    |> Array.toList
-  let maxOutgoingDegrees =
-    vLayout
-    |> Array.map (getMaxDegree edges (fun (s, _, _) -> s))
-    |> Array.toList
-  adjustLayers true 0 vLayout maxIncomingDegrees
-  adjustLayers false 0 vLayout maxOutgoingDegrees
-
-let private getEntryPoint (v: IVertex<VisBBlock>) =
-  let x, y = VisGraph.getXPos v, VisGraph.getYPos v
-  (x + VisGraph.getWidth v / 2.0), (y + VisGraph.getHeight v)
-
-let private getExitPoint (v: IVertex<VisBBlock>) =
-  let x, y = VisGraph.getXPos v, VisGraph.getYPos v
-  (x + VisGraph.getWidth v / 2.0), y
-
-let private makeVisPos (x, y): VisPosition = { X = x; Y = y }
-
-let private makeBox left right top bottom isVirtual =
-  { TopLeft = makeVisPos (left, top)
-    TopRight = makeVisPos (right, top)
-    BottomLeft = makeVisPos (left, bottom)
-    BottomRight = makeVisPos (right, bottom)
-    IsVirtual = isVirtual }
-
-let private makeDummyBox () = makeBox 0.0 0.0 0.0 0.0 true
-
-/// Convert a Vertex into a Box.
-let private vertexToBox (v: IVertex<VisBBlock>): Box =
-  let left = VisGraph.getXPos v - if (isDummy v) then 0.0 else NodeBoxOffset
-  let right =
-    (VisGraph.getXPos v + VisGraph.getWidth v
-    * if (isDummy v) then 0.5 else 1.0)
-    + if (isDummy v) then 0.0 else NodeBoxOffset
-  let top = VisGraph.getYPos v - NodeBoxOffset
-  let bottom = (VisGraph.getYPos v + VisGraph.getHeight v) + NodeBoxOffset
-  makeBox left right top bottom (isDummy v)
-
-/// Converts vertex arrays to Box arrays.
-let private verticesToBoxes1D vertices = Array.map vertexToBox vertices
-
-let private verticesToBoxes2D vLayout = Array.map verticesToBoxes1D vLayout
-
-let private makeLine left right y =
-  { Left = makeVisPos (left, y); Right = makeVisPos (right, y) }
-
-let private makeDummyLine () =
-  { Left = makeVisPos (-10000.0, 0.0); Right = makeVisPos (-10000.0, 0.0) }
-
-/// Get intersection line segment between two neighbouring boxes.
-let private getIntersection upper lower =
-  let upperBottom, lowerTop = upper.BottomLeft.Y, lower.TopLeft.Y
-  if int upperBottom <> int lowerTop then makeDummyLine ()
-  else
-    let left = max (upper.BottomLeft.X) (lower.TopLeft.X)
-    let right = min (upper.BottomRight.X) (lower.BottomRight.X)
-    makeLine left right upperBottom
-
-let private getIntersectingLines boxes =
-  let rec aux acc (hd: Box) (tl: Box list) =
-    match tl with
-    | [] ->
-      List.rev ((makeLine hd.TopLeft.X hd.TopRight.X hd.BottomLeft.Y) :: acc)
-    | th :: tt -> aux ((getIntersection hd th) :: acc) th tt
-  match boxes with
-  | hd :: tl ->
-    (makeLine hd.TopLeft.X hd.TopRight.X hd.TopLeft.Y) :: (aux [] hd tl)
-  | _ -> Terminator.impossible ()
-
-let private getBasicComponents (vLayout: _[][]) (boxes: _[][]) v =
-  let layer = VisGraph.getLayer (v: IVertex<VisBBlock>)
-  let nth = Array.findIndex ((=) v) vLayout[layer]
-  let boxarr = boxes[layer]
-  let box: Box = boxes[layer][nth]
-  struct (layer, boxarr, box)
-
-let private computeLayerDiff q r =
-  abs (VisGraph.getLayer r - VisGraph.getLayer q)
-
-let private findDummies q r (edge: VisEdge) dummyMap =
-  match (Map.tryFind (q, r) dummyMap) with
-  | Some(_, dummies) ->
-    if edge.IsBackEdge then List.rev dummies, false
-    else dummies, false
-  | None ->
-    if not edge.IsBackEdge || (computeLayerDiff q r) = 1 then [], false
-    else (* Dummy node deleted. Refer to existing forward edge. *)
-      match Map.tryFind (r, q) dummyMap with
-      | Some(_, dummies) -> dummies, true
-      | None -> [], false
-
-let private computeBoxHeight (box: Box) = box.BottomLeft.Y - box.TopLeft.Y
-
-let private computeLayerHeight layer =
-  Array.map computeBoxHeight layer |> Array.max
-
-let private computeHeightPerLayer boxes = Array.map computeLayerHeight boxes
-
-/// Computes starting and ending y-coordinates for each layer.
-let private computeYPositionsPerLayer boxes =
-  let heights = computeHeightPerLayer boxes
-  let starts = Array.map (fun (layer: Box[]) -> layer[0].TopLeft.Y) boxes
-  let ends = Array.map2 (+) starts heights
-  Array.map2 (fun x y -> (x, y)) starts ends
-
-/// Given vertex boxes, return two x-coordinates defining the width line of the
-/// graph.
-let private computeWidthLine boxes =
-   let lefts = Array.map (Array.map (fun b -> b.TopLeft.X)) boxes
-   let rights = Array.map (Array.map (fun b -> b.TopRight.X)) boxes
-   let leftmost = Array.min (Array.concat lefts)
-   let rightmost = Array.max (Array.concat rights)
-   leftmost, rightmost
-
-/// Return a list of layers between q (qLayer) and r (rLayer).
-let getLayersBetween (dummies: IVertex<VisBBlock> list) qLayer rLayer =
-  if dummies.IsEmpty then [ (min qLayer rLayer) ]
-  else [ (min qLayer rLayer) .. (max qLayer rLayer) - 1 ]
-
-/// Assume leftBox is on the left of rightBox, check if those two boxes overlap.
-let private boxesOverlapping leftBox rightBox =
-  let left1, right1 = leftBox.TopLeft.X, leftBox.TopRight.X
-  let left2, _ = rightBox.TopLeft.X, rightBox.TopRight.X
-  left2 >= left1 && left2 <= right1
-
-let rec private getBoxLeftBound reference index (boxarr: Box[]) widthLine =
-  match index with
-  | i when i < 0 -> fst widthLine
-  | i ->
-    if not (boxesOverlapping boxarr[i] boxarr[reference])
-      || (reference <> i && not (boxarr[i].IsVirtual))
-    then boxarr[i].TopRight.X
-    else getBoxLeftBound reference (i - 1) boxarr widthLine
-
-let rec private getBoxRightBound reference index (boxarr: Box[]) widthLine =
-  match index with
-  | i when i > (Array.length boxarr) - 1 -> snd widthLine
-  | i ->
-    if not (boxesOverlapping boxarr[reference] boxarr[i])
-      || (reference <> i && not (boxarr[i].IsVirtual))
-    then boxarr[i].TopLeft.X
-    else getBoxRightBound reference (i + 1) boxarr widthLine
-
-let private initialBox box (boxarr: Box[]) widthLine (_, bottom) =
-  let idx = Array.findIndex ((=) box) boxarr
-  let left = getBoxLeftBound idx idx boxarr widthLine
-  let right = getBoxRightBound idx idx boxarr widthLine
-  let top = box.BottomLeft.Y
-  makeBox left right top bottom true
-
-/// Computes an inter-layer Box right under given layerNum.
-let private interLayerBox yPositions (left, right) layerNum =
-  if layerNum >= Array.length yPositions - 1 then makeDummyBox ()
-  else
-    let top = yPositions[layerNum] |> snd
-    let bottom = yPositions[layerNum + 1] |> fst
-    makeBox left right top bottom true
-
-/// Computes a box corresponding to a particular dummy node.
-let private virtualNodeBox boxes widthLine (yPositions: _[]) shrinkBox dummy =
-  let dBox = dummy |> vertexToBox
-  let dRow = Array.findIndex (Array.contains dBox) boxes
-  let boxarr = boxes[dRow]
-  let dCol = Array.findIndex ((=) dBox) boxarr
-  let left = getBoxLeftBound dCol dCol boxarr widthLine
-  let right = getBoxRightBound dCol dCol boxarr widthLine
-  let top = yPositions[dRow] |> fst
-  let bottom = yPositions[dRow] |> snd
-  let delta = (right - left) / 3.0
-  if shrinkBox then makeBox (left + delta) (right - delta) top bottom true
-  else makeBox left right top bottom true
-
-let private nodeIsLeft (q: IVertex<VisBBlock>) (r: IVertex<VisBBlock>) =
-  let qx, rx = VisGraph.getXPos q, VisGraph.getXPos r
-  qx + 1.5 * (VisGraph.getWidth q) < rx
-
-let private centerX (box: Box) =
-  box.TopLeft.X + (box.TopRight.X - box.TopLeft.X) / 2.0
-
-let private boxIsLeft b1 b2 = centerX b1 < centerX b2
-
-/// Compute tuple of (distance between q-r line and the line segment, left
-/// endpoint is closer or not).
-let private lineFits (q: VisPosition) (r: VisPosition) line =
-  let left, right = line.Left, line.Right
-  let qx, qy, rx, ry = q.X, q.Y, r.X, r.Y
-  let dy = (ry - qy)
-  let m = (rx - qx) / dy
-  let x = qx + m * (left.Y - qy)
-  let xFits = (x >= left.X - FitErrorMargin && x <= right.X + FitErrorMargin)
-  if xFits || (abs dy) < 0.1 then (-1, false)
-  else
-    if x < left.X then abs (int (x - left.X)), true
-    else abs (int (x - right.X)), false
-
-let private getLineFitArray lArray (q: VisPosition) (r: VisPosition) =
-  Array.map (lineFits q r) lArray
-
-let rec private computePList (interLines: Line array) q r =
-  let fitTupleArray = getLineFitArray interLines q r
-  let furthestLineIndex =
-    fitTupleArray
-    |> Array.mapi (fun i v -> i, v)
-    |> Array.maxBy (fun (_, (dist, _)) -> dist)
-    |> fst
-  let farthestDist, isAtLeft = fitTupleArray[furthestLineIndex]
-  let splitLine = interLines[furthestLineIndex]
-  if farthestDist > 0 then
-    let p = if isAtLeft then splitLine.Left else splitLine.Right
-    let slice1 = interLines[..furthestLineIndex]
-    let slice2 = interLines[furthestLineIndex..]
-    let segment1 = (computePList slice1 q p)
-    let segment2 = (computePList slice2 p r)
-    segment1 @ (p :: segment2)
-  else []
-
-let private computeRegularEdgePoints isBackEdge dummies boxes q r qBox rBox =
-  let intersectingLines = getIntersectingLines boxes
-  let tailQ, headR = getEntryPoint q, getExitPoint r (* Key points *)
-  let q1 = makeVisPos tailQ
-  let q2 = { q1 with Y = q1.Y + NodeBoxOffset }
-  let r1 = makeVisPos headR
-  let r2 = { r1 with Y = r1.Y - NodeBoxOffset }
-  let qWidth = VisGraph.getWidth q
-  if isBackEdge then
-    let dummyBoxes = dummies |> Array.ofList |> Array.map vertexToBox
-    let n = Array.length dummyBoxes
-    let departLeft, arriveLeft =
-      if n < 1 then nodeIsLeft r q, nodeIsLeft q r
-      else boxIsLeft dummyBoxes[n - 1] qBox, boxIsLeft dummyBoxes[0] rBox
-    let q3 =
-      { q2 with X = q2.X + 0.55 * qWidth * if departLeft then -1.0 else 1.0 }
-    let r3 =
-      { r2 with X = r2.X + 0.55 * qWidth * if arriveLeft then -1.0 else 1.0 }
-    let q4 = { q3 with Y = qBox.TopLeft.Y }
-    let r4 = { r3 with Y = rBox.BottomLeft.Y }
-    [ q1
-      q2
-      q3
-      q4
-      yield! (computePList (Array.ofList intersectingLines) r4 q4 |> List.rev)
-      r4
-      r3
-      r2
-      r1 ]
-  else
-    [ q1
-      q2
-      yield! (computePList (intersectingLines |> Array.ofList) q2 r2)
-      r2
-      r1 ]
-
-/// Draw a regular edge from q to r.
-let private drawRegular g vLayout boxes dummyMap (q, r, edge: VisEdge) =
-  let isBackEdge = edge.IsBackEdge
-  let struct (qLayer, qBoxArr, qBox) = getBasicComponents vLayout boxes q
-  let struct (rLayer, rBoxArr, rBox) = getBasicComponents vLayout boxes r
-  let dummies, isRecovered = findDummies q r edge dummyMap
-  let yPositions = computeYPositionsPerLayer boxes
-  let wLine = computeWidthLine boxes
-  let interLayers = getLayersBetween dummies qLayer rLayer
-  let initBox =
-    if isBackEdge then initialBox rBox rBoxArr wLine yPositions[rLayer]
-    else initialBox qBox qBoxArr wLine yPositions[qLayer]
-  let interLayerBoxes = List.map (interLayerBox yPositions wLine) interLayers
-  let virtualNodeBoxes =
-    List.map (virtualNodeBox boxes wLine yPositions isRecovered) dummies
-  let boxes = (* Boxes between nodes q and r, from upper layer to lower *)
-    initBox ::
-    ((List.fold2 (fun acc v i -> i :: v :: acc) [ interLayerBoxes.Head ]
-        virtualNodeBoxes interLayerBoxes.Tail) |> List.rev)
-  let points = computeRegularEdgePoints isBackEdge dummies boxes q r qBox rBox
-  match (g: VisGraph).TryFindEdge(q, r) with
-  | None -> (* Imaginary edges for display purposes only *)
-    let newEdge = VisEdge(edge.Type)
-    newEdge.IsBackEdge <- isBackEdge
-    newEdge.Points <- points
-    g.AddEdge(q, r, newEdge) |> ignore
-  | Some e -> e.Label.Points <- points
-
-let private drawSelfLoop g (v: IVertex<VisBBlock>) =
-  let nodeWidth = VisGraph.getWidth v
-  let e = (g: VisGraph).FindEdge(v, v)
-  let startP, endP = getEntryPoint v, getExitPoint v
-  let p1 = (fst startP), (snd startP + LastSegLen)
-  let p2 = ((fst p1) + nodeWidth / 2.0 + BackEdgeMargin), (snd p1)
-  let p3 = (fst p2), (snd endP) - LastSegLen
-  let p4 = (fst endP), snd p3
-  let points = [ startP; p1; p2; p3; p4; endP ] |> List.map makeVisPos
-  e.Label.Points <- points
-
-let private drawBoxes g vLayout boxes dummyMap (src, dst, edge) =
-  if isDummy src || isDummy dst then ()
-  elif src = dst then drawSelfLoop g src
-  else drawRegular g vLayout boxes dummyMap (src, dst, edge)
-
-let rec private removeDummyLoop (g: VisGraph) src dst points = function
-  | dummy :: rest ->
-    let e = g.FindEdge(src, dummy)
-    g.RemoveEdge(src, dummy) |> ignore
-    removeDummyLoop g dummy dst (points @ e.Label.Points) rest
-  | [] ->
-    let e = g.FindEdge(src, dst)
-    g.RemoveEdge(src, dst) |> ignore
-    points @ e.Label.Points
-
-let private makeSmooth isBack points =
-  let rec loop acc prev = function
-    | [] -> acc
-    | h1 :: h2 :: [] -> List.rev (h2 :: h1 :: acc)
-    | (hd: VisPosition) :: tl ->
-      match prev with
-      | None -> loop (hd :: acc) (Some hd.Y) tl
-      | Some p ->
-        if (isBack && p >= hd.Y) || (not isBack && p <= hd.Y) then
-          loop (hd :: acc) (Some hd.Y) tl
-        else loop acc prev tl
-  match points with
-  | hd1 :: hd2 :: rest -> hd1 :: hd2 :: loop [] None rest
-  | _ -> points
-
-let private removeDummy g (src, dst) ((edge: VisEdge), dummies) =
-  let pts = removeDummyLoop g src dst [] dummies |> makeSmooth edge.IsBackEdge
-  let newEdge = VisEdge(edge.Type)
-  newEdge.IsBackEdge <- edge.IsBackEdge
-  newEdge.Points <- pts
-  g.AddEdge(src, dst, newEdge) |> ignore
+let private removeDummy (g: VisGraph) (src, dst) ((edge: VisEdge), dummies) =
+  let rec chain prev = function
+    | dummy :: rest ->
+      g.RemoveEdge(prev, dummy) |> ignore
+      chain dummy rest
+    | [] -> g.RemoveEdge(prev, dst) |> ignore
+  chain src dummies
+  let edgeCreated = VisEdge(edge.Type)
+  edgeCreated.IsBackEdge <- edge.IsBackEdge
+  g.AddEdge(src, dst, edgeCreated) |> ignore
   dummies |> List.iter (g.RemoveVertex >> ignore)
 
-let private categorizeEdge isHeadPort acc (q, r, edge: Edge<_, VisEdge>) =
-  let edge = edge.Label
-  let points = edge.Points |> Array.ofList
-  let n = Array.length points
-  if n < 4 then acc
-  else
-    if q = r then { acc with SelfLoops = edge :: acc.SelfLoops }
-    elif edge.IsBackEdge then
-      let p1Index, p2Index = if isHeadPort then n - 2, n - 3 else 1, 2
-      if points[p2Index].X < points[p1Index].X then
-        { acc with BackEdgesFromLeft = edge :: acc.BackEdgesFromLeft }
-      else { acc with BackEdgesFromRight = edge :: acc.BackEdgesFromRight }
-    else { acc with ForwardEdges = edge :: acc.ForwardEdges }
-
-/// Compute the slope of the given vector q -> r under an assumption: the vector
-/// always directed downwards (q.Y < r.Y).
-let private computeSlope (q: VisPosition) (r: VisPosition) =
-  let qx, qy, rx, ry = q.X, q.Y, r.X, r.Y
-  let dy = (ry - qy)
-  if abs dy < 0.1 then (* Approximately horizontal line. *)
-    if qx < rx then infinity else -infinity
-  else (rx - qx) / dy (* Non-horizontal slope. *)
-
-let private getEdgeSlope isBackEdge isHeadPort (edge: VisEdge) =
-  let points = edge.Points |> Array.ofList
-  let n = Array.length points
-  let qIndex, rIndex =
-    match isBackEdge, isHeadPort with
-    | true, true -> n - 4, n - 5
-    | true, false -> 4, 3
-    | false, true -> n - 3, n - 2
-    | false, false -> 1, 2
-  computeSlope points[qIndex] points[rIndex]
-
-let private sortPartitions isHead descending p =
-  let sort = if descending then List.sortByDescending else List.sortBy
-  { ForwardEdges = sort (getEdgeSlope false isHead) p.ForwardEdges
-    BackEdgesFromLeft = sort (getEdgeSlope true isHead) p.BackEdgesFromLeft
-    BackEdgesFromRight = sort (getEdgeSlope true isHead) p.BackEdgesFromRight
-    SelfLoops = sort (getEdgeSlope true isHead) p.SelfLoops }
-
-let rec private shiftHorizontally toLeft (edges: VisEdge list) offset =
-  match edges with
-  | [] -> ()
-  | edge :: rest ->
-    let points = edge.Points |> Array.ofList
-    let n = Array.length points
-    points[n - 3].X <- points[n - 3].X + offset
-    points[n - 4].X <- points[n - 4].X + offset
-    let nextOffset = offset + if toLeft then -EdgeOffsetX else EdgeOffsetX
-    shiftHorizontally toLeft rest nextOffset
-
-let private splitAux isHeadPort edge =
-  if not isHeadPort then getEdgeSlope false false edge > 0.0
-  else getEdgeSlope false true edge < 0.0
-
-let rec private splitEdgeList isHeadPort edges =
-  let edgeArray = Array.ofList edges
-  match Array.tryFindIndex (splitAux isHeadPort) edgeArray with
-  | None -> edges, []
-  | Some v ->
-    let left, right = Array.splitAt v edgeArray
-    List.ofArray left, List.ofArray right
-
-let private partitionsToMergedList partition =
-  partition.BackEdgesFromLeft
-  @ partition.ForwardEdges
-  @ partition.BackEdgesFromRight
-  @ partition.SelfLoops
-
-let private offsetX center i = float (i - center) * EdgeOffsetX
-
-let private shiftSegments isHeadPort (edge: VisEdge) offset =
-  let pts = edge.Points |> Array.ofList
-  let n = Array.length pts
-  let i1, i2 =
-    match edge.IsBackEdge, isHeadPort with
-    | true, true -> n - 2, n - 1
-    | true, false -> 0, 1
-    | false, true -> n - 2, n - 1
-    | false, false -> 0, 1
-  pts[i1].X <- pts[i1].X + offset
-  pts[i2].X <- pts[i2].X + offset
-
-let rec private shiftVertically isHeadPort offset = function
-  | [] -> ()
-  | (edge: VisEdge) :: rest ->
-    let pts = edge.Points |> Array.ofList
-    if isHeadPort then
-      let n = Array.length pts
-      pts[n - 2].Y <- pts[n - 2].Y + offset
-      if edge.IsBackEdge then pts[n - 3].Y <- pts[n - 3].Y + offset else ()
-    else
-      pts[1].Y <- pts[1].Y + offset
-      if edge.IsBackEdge then pts[2].Y <- pts[2].Y + offset else ()
-    let offset = offset + (if isHeadPort then -EdgeOffsetY else EdgeOffsetY)
-    shiftVertically isHeadPort offset rest
-
-/// Give some offsets to each neighboring edge of v.
-let private giveOffsets (g: VisGraph) (v: IVertex<VisBBlock>) =
-  let preds = g.GetPreds v |> Seq.toArray
-  let succs = g.GetSuccs v |> Seq.toArray
-  let incoming = preds |> Array.map (fun p -> p, v, g.FindEdge(p, v))
-  let outgoing = succs |> Array.map (fun s -> v, s, g.FindEdge(v, s))
-  let ins =
-    Array.fold (categorizeEdge true) emptyPartitionedEdges incoming
-    |> sortPartitions true true
-  let outs =
-    Array.fold (categorizeEdge false) emptyPartitionedEdges outgoing
-    |> sortPartitions false false
-  shiftHorizontally true ins.BackEdgesFromLeft 0.0
-  shiftHorizontally true outs.BackEdgesFromLeft 0.0
-  shiftHorizontally false (List.rev ins.BackEdgesFromRight) 0.0
-  shiftHorizontally false (List.rev outs.BackEdgesFromRight) 0.0
-  let inFwdFromLeft, inFwdFromRight = splitEdgeList true ins.ForwardEdges
-  let outFwdToLeft, outFwdToRight = splitEdgeList false outs.ForwardEdges
-  let incomingFromLeft, incomingFromRight =
-    ins.BackEdgesFromLeft @ inFwdFromLeft,
-    inFwdFromRight @ ins.BackEdgesFromRight @ ins.SelfLoops
-  let outgoingToLeft, outgoingToRight =
-    outs.BackEdgesFromLeft @ outFwdToLeft,
-    outFwdToRight @ outs.BackEdgesFromRight @ outs.SelfLoops
-  let incomingMerged = partitionsToMergedList ins
-  let outGoingMerged = partitionsToMergedList outs
-  let iCenter = (List.length incomingMerged) / 2
-  let oCenter = (List.length outGoingMerged) / 2
-  let headOffsets = List.mapi (fun i _ -> offsetX iCenter i) incomingMerged
-  let tailOffsets = List.mapi (fun i _ -> offsetX oCenter i) outGoingMerged
-  List.iter2 (shiftSegments true) incomingMerged headOffsets
-  List.iter2 (shiftSegments false) outGoingMerged tailOffsets
-  shiftVertically true 0.0 incomingFromLeft
-  shiftVertically true 0.0 (incomingFromRight |> List.rev)
-  shiftVertically false 0.0 outgoingToLeft
-  shiftVertically false 0.0 (outgoingToRight |> List.rev)
-
-let drawEdges (g: VisGraph) vLayout backEdgeList dummyMap =
-  restoreBackEdges g backEdgeList
-  let originalEdgeList = g.FoldEdge(accOriginalEdge g, [])
-  let vLayoutSorted = sortLayers vLayout
-  adjustLayerYPositions originalEdgeList vLayoutSorted
-  let boxes = verticesToBoxes2D vLayoutSorted
-  List.iter (drawBoxes g vLayoutSorted boxes dummyMap) originalEdgeList
+let private cleanupGraph g vLayout backEdgeList dummyMap =
   Map.iter (removeDummy g) dummyMap
-  g.IterVertex(giveOffsets g)
+  backEdgeList
+  |> List.filter (fun (src: IVertex<VisBBlock>, dst: IVertex<VisBBlock>, _) ->
+    not src.VData.IsDummy && not dst.VData.IsDummy)
+  |> List.iter (restoreBackEdge g)
+  let layoutWithoutDummy =
+    vLayout
+    |> Array.map (
+      Array.filter (fun (v: IVertex<VisBBlock>) -> not v.VData.IsDummy))
+    |> Array.filter (fun layer -> layer.Length > 0)
+  let edges =
+    (g: VisGraph).FoldEdge((fun acc (e: Edge<_, VisEdge>) ->
+      (e.First, e.Second, e.Label) :: acc), [])
+  layoutWithoutDummy, edges
+
+let private centreHalfWidth count =
+  if count = 0 then 0.0 else float ((count + 1) / 2) * portOffset
+
+let private partitionByX cx edges =
+  let lefts, midRights =
+    edges |> List.partition (fun (v, _) -> geomCx v < cx - XTolerance)
+  let centres, rights =
+    midRights
+    |> List.partition (fun (v, _) -> abs (geomCx v - cx) <= XTolerance)
+  lefts, centres, rights
+
+let private assignCentrePorts cx edges =
+  let count = List.length edges
+  edges |> List.mapi (fun i (_, edge) ->
+    edge, cx + (float i - float (count - 1) / 2.0) * portOffset)
+
+let private assignSidePorts cx centreCount goRight edges =
+  let sideCount = List.length edges
+  let offset = centreHalfWidth centreCount
+  edges |> List.mapi (fun i (_, edge) ->
+    let distance = offset + float (sideCount - i) * portOffset
+    let portX = if goRight then cx + distance else cx - distance
+    edge, portX)
+
+let private layerGap dstLayer (src: IVertex<VisBBlock>) =
+  abs (VisGraph.getLayer src - dstLayer)
+
+let private sortByLayerGap dstLayer sortBucket edges =
+  edges
+  |> List.groupBy (fun (src, _) -> layerGap dstLayer src)
+  |> List.sortBy fst
+  |> List.collect (fun (_, bucket) -> sortBucket bucket)
+
+let private assignPorts getEdges sortL sortR (v: IVertex<VisBBlock>) edges =
+  let cx = geomCx v
+  let portEdges = getEdges v edges
+  if List.isEmpty portEdges then
+    []
+  else
+    let lefts, centres, rights = partitionByX cx portEdges
+    let centreCount = List.length centres
+    let leftPorts = lefts |> sortL |> assignSidePorts cx centreCount false
+    let rightPorts = rights |> sortR |> assignSidePorts cx centreCount true
+    leftPorts @ assignCentrePorts cx centres @ rightPorts
+
+let private assignOutPorts (v: IVertex<VisBBlock>) (edges: EdgeInfo list) =
+  assignPorts outFwdEdges (List.sortBy (fun (dst, _) -> geomCx dst))
+    (List.sortByDescending (fun (dst, _) -> geomCx dst)) v edges
+
+let private assignInPorts (v: IVertex<VisBBlock>) (edges: EdgeInfo list) =
+  let dstLayer = VisGraph.getLayer v
+  assignPorts inFwdEdges
+    (sortByLayerGap dstLayer (List.sortBy (fun (s, _) -> geomCx s)))
+    (sortByLayerGap dstLayer (List.sortByDescending (fun (s, _) -> geomCx s)))
+    v edges
+
+let private buildPortMaps (layout: Layout) (edges: EdgeInfo list) =
+  let outMap = PortMap()
+  let inMap = PortMap()
+  layout
+  |> Array.iter (fun layer ->
+    layer
+    |> Array.iter (fun v ->
+      assignOutPorts v edges |> populatePortMap outMap
+      assignInPorts v edges |> populatePortMap inMap))
+  outMap, inMap
+
+let private outermostFwdX (portMap: PortMap) getEdges goRight cx v edges =
+  let sideXs =
+    getEdges v edges
+    |> List.choose (fun (_, edge) ->
+      match portMap.TryGetValue edge with
+      | true, x when goRight && x >= cx - XTolerance -> Some x
+      | true, x when not goRight && x <= cx + XTolerance -> Some x
+      | _ -> None)
+  if List.isEmpty sideXs then cx
+  elif goRight then List.max sideXs
+  else List.min sideXs
+
+let private assignBackPorts getEdges getFwdEdges defaultGoRight getSortKey
+  (v: IVertex<VisBBlock>) (edges: EdgeInfo list) (fwdMap: PortMap)
+  (backGeom: BackGeomMap) =
+  let cx = geomCx v
+  let backEdges = getEdges v edges
+  if List.isEmpty backEdges then
+    []
+  else
+    let fwdBaseLeft = outermostFwdX fwdMap getFwdEdges false cx v edges
+    let fwdBaseRight = outermostFwdX fwdMap getFwdEdges true cx v edges
+    let fallbackGoRight = defaultGoRight cx backEdges
+    let rightEdges, leftEdges =
+      backEdges
+      |> List.partition (fun (_, edge) ->
+        backGeomSide fallbackGoRight backGeom edge)
+    let buildSidePorts goRight baseX sideEdges =
+      sideEdges
+      |> List.sortBy getSortKey
+      |> List.mapi (fun i (_, edge) ->
+        let offset = float (i + 1) * portOffset
+        edge, baseX + (if goRight then offset else -offset))
+    buildSidePorts false fwdBaseLeft leftEdges
+    @ buildSidePorts true fwdBaseRight rightEdges
+
+let private assignBackOutPorts (v: IVertex<VisBBlock>) (edges: EdgeInfo list)
+  (fwdOutMap: PortMap) (backGeom: BackGeomMap) =
+  assignBackPorts outBackEdges outFwdEdges
+    (fun cx outs -> geomCx (fst (List.head outs)) >= cx)
+    (fun (_, edge) -> -backGeomStubBotY backGeom edge)
+    v edges fwdOutMap backGeom
+
+let private assignBackInPorts (v: IVertex<VisBBlock>) (edges: EdgeInfo list)
+  (fwdInMap: PortMap) (backGeom: BackGeomMap) =
+  assignBackPorts inBackEdges inFwdEdges (fun _ _ -> true)
+    (fun (_, edge) -> backGeomStubTopY backGeom edge)
+    v edges fwdInMap backGeom
+
+let private buildBackPortMaps layout edges outMap inMap (bGeom: BackGeomMap) =
+  let backOutMap = PortMap()
+  let backInMap = PortMap()
+  layout
+  |> Array.iter (fun layer ->
+    layer
+    |> Array.iter (fun v ->
+      assignBackOutPorts v edges outMap bGeom |> populatePortMap backOutMap
+      assignBackInPorts v edges inMap bGeom |> populatePortMap backInMap))
+  backOutMap, backInMap
+
+let private sideSpace layer (v: IVertex<VisBBlock>) goRight =
+  let vx = VisGraph.getXPos v
+  (layer: IVertex<VisBBlock>[])
+  |> Array.choose (fun u ->
+    let ux = VisGraph.getXPos u
+    if u = v then None
+    elif goRight && ux > vx then Some(ux - (vx + VisGraph.getWidth v))
+    elif not goRight && ux < vx then Some(vx - (ux + VisGraph.getWidth u))
+    else None)
+  |> fun distances ->
+    if distances.Length = 0 then Double.MaxValue else Array.min distances
+
+let private portXsOnSide (portMap: PortMap) getEdges goRight cx v edges =
+  getEdges v edges
+  |> List.choose (fun (_, edge) ->
+    match portMap.TryGetValue edge with
+    | true, x when goRight && x >= cx || not goRight && x <= cx -> Some x
+    | _ -> None)
+
+let private outermostPort goRight cx portXs =
+  if List.isEmpty portXs then cx
+  elif goRight then List.max portXs
+  else List.min portXs
+
+let private routeSelfCycles v layer edges outMap inMap backOutMap backInMap =
+  let cycles = selfCycleEdges (v: IVertex<VisBBlock>) edges
+  if not (List.isEmpty cycles) then
+    let cx, topY, botY = vertexGeom v
+    let goRight = sideSpace layer v true >= sideSpace layer v false
+    let leftX, rightX, _, _ = safeBox v
+    let sideX = if goRight then rightX else leftX
+    let fwdOutXs = portXsOnSide outMap outFwdEdges goRight cx v edges
+    let fwdInXs = portXsOnSide inMap inFwdEdges goRight cx v edges
+    let backOutXs = portXsOnSide backOutMap outBackEdges goRight cx v edges
+    let backInXs = portXsOnSide backInMap inBackEdges goRight cx v edges
+    let outermostOut =
+      let fwdBase = outermostPort goRight cx fwdOutXs
+      let backBase = outermostPort goRight cx backOutXs
+      if goRight then max fwdBase backBase else min fwdBase backBase
+    let outermostIn =
+      let fwdBase = outermostPort goRight cx fwdInXs
+      let backBase = outermostPort goRight cx backInXs
+      if goRight then max fwdBase backBase else min fwdBase backBase
+    cycles |> List.iteri (fun i edge ->
+      let step = float (i + 1) * portOffset
+      let outX = outermostOut + if goRight then step else -step
+      let inX = outermostIn + if goRight then step else -step
+      edge.Points <-
+        [ pos outX botY
+          pos outX (botY + StubMargin)
+          pos sideX (botY + StubMargin)
+          pos sideX (topY - StubMargin)
+          pos inX (topY - StubMargin)
+          pos inX topY ])
+  else
+    ()
+
+let private isBlocked x src dst obstacle =
+  if obstacle = src || obstacle = dst then false
+  else
+    let leftX, rightX, _, _ = safeBox obstacle
+    x > leftX && x < rightX
+
+let private findBlocker layer src dst x =
+  (layer: IVertex<VisBBlock>[]) |> Array.tryFind (isBlocked x src dst)
+
+let private nearSide (blocker: IVertex<VisBBlock>) x =
+  let leftX, rightX, _, _ = safeBox blocker
+  if abs (x - leftX) <= abs (x - rightX) then leftX else rightX
+
+let private computeBypassX (slots: BypassSlots) layout src dst columnX =
+  let midLayers = intermediateLayers layout src dst
+  let allBlockers =
+    midLayers |> Array.choose (fun layer -> findBlocker layer src dst columnX)
+  if allBlockers.Length = 0 then None
+  else
+    let baseX = nearSide allBlockers[0] columnX
+    let goRight = baseX > columnX
+    let key = allBlockers[0].ID, goRight
+    let slotIndex = getOrDefault slots key 0
+    slots[key] <- slotIndex + 1
+    let candidateX =
+      if goRight then baseX + float (slotIndex + 1) * EdgeOffset
+      else baseX - float (slotIndex + 1) * EdgeOffset
+    let worstX =
+      midLayers
+      |> Array.fold (fun acc layer ->
+        match findBlocker layer src dst acc with
+        | None -> acc
+        | Some obstacle ->
+          let leftX, rightX, _, _ = safeBox obstacle
+          if goRight then rightX + float (slotIndex + 1) * EdgeOffset
+          else leftX - float (slotIndex + 1) * EdgeOffset) candidateX
+    Some(worstX, goRight, slotIndex)
+
+let private getApproachColumnX (slots: BypassSlots) layout src dst dstPortX =
+  match computeBypassX slots layout src dst dstPortX with
+  | None -> dstPortX
+  | Some(safeX, _, _) -> safeX
+
+let private appendBlockerDetours slots layout src dst columnX pts =
+  let midLayers = intermediateLayers layout src dst
+  if midLayers.Length > 0 then
+    match computeBypassX slots layout src dst columnX with
+    | None -> ()
+    | Some(bypassX, _, slotIndex) ->
+      let blockers =
+        midLayers
+        |> Array.choose (fun layer -> findBlocker layer src dst columnX)
+      let firstBlocker = blockers[0]
+      let lastBlocker = blockers[blockers.Length - 1]
+      let _, _, enterTop, _ = safeBox firstBlocker
+      let _, _, _, exitBot = safeBox lastBlocker
+      let jogTop = enterTop - float slotIndex * EdgeOffset
+      let jogBot = exitBot + float slotIndex * EdgeOffset
+      addPoint pts columnX jogTop
+      addPoint pts bypassX jogTop
+      addPoint pts bypassX jogBot
+      addPoint pts columnX jogBot
+  else
+    ()
+
+let private routeVertical slots layout src dst portX srcBotY dstTopY =
+  let pts = ResizeArray<VisPosition>()
+  addPoint pts portX srcBotY
+  addPoint pts portX (srcBotY + StubMargin)
+  appendBlockerDetours slots layout src dst portX pts
+  addPoint pts portX (dstTopY - StubMargin)
+  addPoint pts portX dstTopY
+  pts |> Seq.toList
+
+let private routeHorizontal slots layout src dst sPortX dPortX botY topY bandY =
+  let pts = ResizeArray<VisPosition>()
+  let approachX = getApproachColumnX slots layout src dst dPortX
+  addPoint pts sPortX botY
+  addPoint pts sPortX (botY + StubMargin)
+  addPoint pts sPortX bandY
+  addPoint pts approachX bandY
+  appendBlockerDetours slots layout src dst approachX pts
+  addPoint pts approachX (topY - StubMargin)
+  if abs (approachX - dPortX) > XTolerance
+  then addPoint pts dPortX (topY - StubMargin)
+  else ()
+  addPoint pts dPortX topY
+  pts |> Seq.toList
+
+let private routeBackEdgeOuter sPortX dPortX sBotY dTopY rX stubBotY stubTopY =
+  [ pos sPortX sBotY
+    pos sPortX stubBotY
+    pos rX stubBotY
+    pos rX stubTopY
+    pos dPortX stubTopY
+    pos dPortX dTopY ]
+
+let private routeBackEdges layout edges backOutMap backInMap backGeom =
+  layout
+  |> Array.iter (fun layer ->
+    layer
+    |> Array.sortBy VisGraph.getXPos
+    |> Array.iter (fun src ->
+      let srcCx = geomCx src
+      let _, _, sBotY = vertexGeom src
+      outBackEdges src edges
+      |> List.iter (fun (dst, edge) ->
+        let dstCx = geomCx dst
+        let sPortX = getOrDefault backOutMap edge srcCx
+        let dPortX = getOrDefault backInMap edge dstCx
+        let _, dTopY, _ = vertexGeom dst
+        match (backGeom: BackGeomMap).TryGetValue edge with
+        | true, (_, railX, stubBotY, stubTopY) ->
+          edge.Points <-
+            routeBackEdgeOuter sPortX dPortX sBotY dTopY railX stubBotY stubTopY
+        | _ -> ())))
+
+let private addBandEdge (buckets: BandBuckets) bandIndex portX edge =
+  let bucket = getOrCreateBucket buckets bandIndex
+  bucket.Add(portX, edge)
+
+let private collectBandEdges layout edges outMap =
+  let bandEdgesRight = BandBuckets()
+  let bandEdgesLeft = BandBuckets()
+  layout
+  |> Array.iteri (fun layerIndex layer ->
+    layer
+    |> Array.iter (fun v ->
+      let srcCx = geomCx v
+      outFwdEdges v edges
+      |> List.iter (fun (dst, edge) ->
+        let dstCx = geomCx dst
+        let srcPortX = getOrDefault outMap edge srcCx
+        if dstCx > srcCx + XTolerance then
+          addBandEdge bandEdgesRight layerIndex srcPortX edge
+        elif dstCx < srcCx - XTolerance then
+          addBandEdge bandEdgesLeft layerIndex srcPortX edge
+        else
+          ())))
+  bandEdgesRight, bandEdgesLeft
+
+let private bucketCount (buckets: BandBuckets) bandIndex =
+  match buckets.TryGetValue bandIndex with
+  | true, bucket -> bucket.Count
+  | _ -> 0
+
+let private countBackEdges edges predicate =
+  edges |> List.sumBy (fun (src: IVertex<VisBBlock>, dst, edge: VisEdge) ->
+    if edge.IsBackEdge && src <> dst && predicate src dst then 1 else 0)
+
+let private shiftLayersDown (layout: Layout) startIndex delta =
+  for layerIndex in startIndex .. layout.Length - 1 do
+    layout[layerIndex]
+    |> Array.iter (fun v ->
+      v.VData.Coordinate.Y <- v.VData.Coordinate.Y + delta)
+
+let private expandBands (layout: Layout) bandEdgesRight bandEdgesLeft edges =
+  for bandIndex in 0 .. layout.Length - 2 do
+    let fwdCount =
+      bucketCount bandEdgesRight bandIndex + bucketCount bandEdgesLeft bandIndex
+    let backBotCount =
+      countBackEdges edges (fun src _ -> VisGraph.getLayer src = bandIndex)
+    let backTopCount =
+      countBackEdges edges (fun _ dst -> VisGraph.getLayer dst = bandIndex + 1)
+    let totalCount = fwdCount + backBotCount + backTopCount
+    if totalCount > 0 then
+      let topY = layerBotY layout[bandIndex]
+      let botY = layerTopY layout[bandIndex + 1]
+      let required = 2.0 * StubMargin + float totalCount * EdgeOffset
+      let deficit = required - (botY - topY)
+      if deficit > 0.0 then shiftLayersDown layout (bandIndex + 1) deficit
+      else ()
+    else
+      ()
+
+let private safeRailX (layout: Layout) goRight slotIndex =
+  let globalLeft, globalRight = layoutBounds layout
+  let boundary = if goRight then globalRight else globalLeft
+  if goRight then boundary + float (slotIndex + 1) * EdgeOffset
+  else boundary - float (slotIndex + 1) * EdgeOffset
+
+let private nonSelfBackEdges edges =
+  edges
+  |> List.choose (fun (src: IVertex<VisBBlock>, dst, edge: VisEdge) ->
+    if edge.IsBackEdge && src <> dst then Some(src, dst, edge) else None)
+
+let private assignBandSlots (bandYMap: Dictionary<VisEdge, float>) bandStartY
+  sortPorts bucket =
+  bucket
+  |> Seq.toArray
+  |> sortPorts
+  |> Array.iteri (fun slotIndex (_, edge) ->
+    bandYMap[edge] <- bandStartY + float slotIndex * EdgeOffset)
+
+let private buildBandYMap layout bandEdgesRight bandEdgesLeft edges =
+  let bandYMap = Dictionary<VisEdge, float>()
+  let globalLeft, globalRight = layoutBounds layout
+  for bandIndex in 0 .. layout.Length - 2 do
+    let bandStartY = layerBotY layout[bandIndex] + StubMargin
+    let countBackEdgesOnSide goRight =
+      countBackEdges edges (fun src _ ->
+        VisGraph.getLayer src = bandIndex
+        && prefersRightRail globalLeft globalRight src = goRight)
+    let backBotRight = countBackEdgesOnSide true
+    let backBotLeft = countBackEdgesOnSide false
+    let fwdStartY = bandStartY + float (backBotRight + backBotLeft) * EdgeOffset
+    let rightCount =
+      match (bandEdgesRight: BandBuckets).TryGetValue bandIndex with
+      | true, bucket ->
+        assignBandSlots bandYMap fwdStartY (Array.sortByDescending fst) bucket
+        bucket.Count
+      | _ -> 0
+    match (bandEdgesLeft: BandBuckets).TryGetValue bandIndex with
+    | true, bucket ->
+      let leftStartY = fwdStartY + float rightCount * EdgeOffset
+      assignBandSlots bandYMap leftStartY (Array.sortBy fst) bucket
+    | _ -> ()
+  bandYMap
+
+let private computeBackEdgeGeometry layout edges bandEdgesRight bandEdgesLeft =
+  let result = BackGeomMap()
+  let globalLeft, globalRight = layoutBounds layout
+  let backEdges =
+    nonSelfBackEdges edges
+    |> List.sortBy (fun (src, dst, _) ->
+      -(VisGraph.getLayer src - VisGraph.getLayer dst),
+      VisGraph.getLayer dst,
+      geomCx dst)
+  let goRightOf src = prefersRightRail globalLeft globalRight src
+  let fwdCount bandIndex =
+    bucketCount bandEdgesRight bandIndex + bucketCount bandEdgesLeft bandIndex
+  let countBackForBand selector bandIndex goRight =
+    backEdges |> List.sumBy (fun (src, dst, _) ->
+      if selector src dst bandIndex && goRightOf src = goRight then 1 else 0)
+  let botBaseY = Dictionary<int * bool, float>()
+  let topBaseY = Dictionary<int * bool, float>()
+  for bandIndex in 0 .. layout.Length - 2 do
+    let bandStartY = layerBotY layout[bandIndex] + StubMargin
+    let botRight =
+      countBackForBand
+        (fun src _ currentBand -> VisGraph.getLayer src = currentBand)
+        bandIndex true
+    let botLeft =
+      countBackForBand
+        (fun src _ currentBand -> VisGraph.getLayer src = currentBand)
+        bandIndex false
+    botBaseY[(bandIndex, true)] <- bandStartY
+    botBaseY[(bandIndex, false)] <- bandStartY + float botRight * EdgeOffset
+    let topStart =
+      bandStartY + float (botRight + botLeft + fwdCount bandIndex) * EdgeOffset
+    let topRight =
+      countBackForBand
+        (fun _ dst currentBand -> VisGraph.getLayer dst = currentBand + 1)
+        bandIndex true
+    topBaseY[(bandIndex + 1, true)] <- topStart
+    topBaseY[(bandIndex + 1, false)] <- topStart + float topRight * EdgeOffset
+  let edgeSlotMap = Dictionary<VisEdge, int * int>()
+  let edgeRailSlot = Dictionary<VisEdge, int>()
+  let railGroups =
+    backEdges
+    |> List.groupBy (fun (src, _, _) -> VisGraph.getLayer src, goRightOf src)
+  let railBase = Dictionary<bool, int>()
+  for (_, goRight), group in railGroups do
+    let baseIndex = getOrDefault railBase goRight 0
+    railBase[goRight] <- baseIndex + group.Length
+    let sorted =
+      if goRight then
+        group |> List.sortByDescending (fun (src, _, _) -> geomCx src)
+      else
+        group |> List.sortBy (fun (src, _, _) -> geomCx src)
+    sorted |> List.iteri (fun i (_, _, edge) ->
+      edgeRailSlot[edge] <- baseIndex + i
+      edgeSlotMap[edge] <- i, group.Length - 1 - i)
+  let topGroups =
+    backEdges
+    |> List.groupBy (fun (src, dst, _) -> VisGraph.getLayer dst, goRightOf src)
+  for (_, goRight), group in topGroups do
+    let sorted =
+      if goRight then
+        group |> List.sortByDescending (fun (src, _, _) -> geomCx src)
+      else
+        group |> List.sortBy (fun (src, _, _) -> geomCx src)
+    sorted |> List.iteri (fun i (_, _, edge) ->
+      let botSlot, _ = getOrDefault edgeSlotMap edge (0, 0)
+      edgeSlotMap[edge] <- botSlot, group.Length - 1 - i)
+  for src, dst, edge in backEdges do
+    let srcLayer = VisGraph.getLayer src
+    let dstLayer = VisGraph.getLayer dst
+    let goRight = goRightOf src
+    let railX = safeRailX layout goRight (getOrDefault edgeRailSlot edge 0)
+    let botSlot, topSlot = getOrDefault edgeSlotMap edge (0, 0)
+    let stubBotY =
+      match botBaseY.TryGetValue((srcLayer, goRight)) with
+      | true, baseY -> baseY + float botSlot * EdgeOffset
+      | _ -> layerBotY layout[srcLayer] + StubMargin
+    let stubTopY =
+      match topBaseY.TryGetValue((dstLayer, goRight)) with
+      | true, baseY -> baseY + float topSlot * EdgeOffset
+      | _ -> layerTopY layout[dstLayer] - StubMargin
+    result[edge] <- goRight, railX, stubBotY, stubTopY
+  result
+
+let private routeForwardEdges layout edges outMap inMap bandYMap =
+  let slots = BypassSlots()
+  layout
+  |> Array.iter (fun layer ->
+    layer
+    |> Array.sortBy VisGraph.getXPos
+    |> Array.iter (fun src ->
+      let srcCx = geomCx src
+      let srcLayer = VisGraph.getLayer src
+      let _, _, sBotY = vertexGeom src
+      outFwdEdges src edges
+      |> List.iter (fun (dst, edge) ->
+        let dstCx = geomCx dst
+        let sPortX = getOrDefault outMap edge srcCx
+        let dPortX = getOrDefault inMap edge dstCx
+        let _, dTopY, _ = vertexGeom dst
+        if abs (srcCx - dstCx) <= XTolerance then
+          edge.Points <- routeVertical slots layout src dst sPortX sBotY dTopY
+        else
+          let defaultBandY = layerBotY layout[srcLayer] + StubMargin
+          let bandY = getOrDefault bandYMap edge defaultBandY
+          edge.Points <-
+            routeHorizontal slots layout src dst sPortX dPortX sBotY dTopY bandY
+      )))
+
+let drawEdges g vLayout backEdgeList dummyMap =
+  let layout, edges = cleanupGraph g vLayout backEdgeList dummyMap
+  let outMap, inMap = buildPortMaps layout edges
+  let bandEdgesRight, bandEdgesLeft = collectBandEdges layout edges outMap
+  expandBands layout bandEdgesRight bandEdgesLeft edges
+  let bandYMap = buildBandYMap layout bandEdgesRight bandEdgesLeft edges
+  let backGeom =
+    computeBackEdgeGeometry layout edges bandEdgesRight bandEdgesLeft
+  let backOutMap, backInMap =
+    buildBackPortMaps layout edges outMap inMap backGeom
+  routeForwardEdges layout edges outMap inMap bandYMap
+  routeBackEdges layout edges backOutMap backInMap backGeom
+  layout
+  |> Array.iter (fun layer ->
+    layer
+    |> Array.iter (fun v ->
+      routeSelfCycles v layer edges outMap inMap backOutMap backInMap))
