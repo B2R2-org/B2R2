@@ -184,7 +184,7 @@ let openBinaryCompleted (arbiter: Arbiter<_, _>) model filePath =
     let functions, statusBar =
       match API.getFunctions arbiter true, API.getFile arbiter with
       | Ok fns, Ok file ->
-        fns |> Array.map FunctionItem.ofFunction |> List.ofArray,
+        fns |> Array.map (FunctionItem.ofFunction file) |> List.ofArray,
         FileLoaded(filePath, FileFormat.toString file.Format, None)
       | _ ->
         [], EmptyStatus
@@ -433,7 +433,8 @@ let private syncStatusBarWithActiveTab (arbiter: Arbiter<_, _>) model =
   | Some { Content = CFGContent(func, Loaded _) } ->
     match API.getFile arbiter with
     | Ok file ->
-      let struct (sOff, eOff) = FunctionItem.computeOffsetRange file func
+      let sOff = uint32 func.OffsetRange.Value.Min
+      let eOff = uint32 func.OffsetRange.Value.Max
       let sec = findSectionRange file sOff eOff
       setStatusOffsetCtx model sOff eOff sec
     | _ ->
