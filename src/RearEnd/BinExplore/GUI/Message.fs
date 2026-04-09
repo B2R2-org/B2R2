@@ -62,6 +62,8 @@ type Message =
   | UpdateFunctionFilter of string
   /// Message to switch the visible workspace panel.
   | SelectWorkspacePanel of WorkspacePanel
+  /// Message to enable or disable CFG-to-hexdump synchronization.
+  | SetHexSyncEnabled of bool
   /// Message to route CFG-specific updates to the active CFG state.
   | CFGMsg of CFGMessage
   /// Message to route hexdump-specific updates to the shared hexdump state.

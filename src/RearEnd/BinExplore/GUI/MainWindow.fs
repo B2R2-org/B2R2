@@ -58,6 +58,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       CFGPressedPointer = None
       CFGPanPointer = None
       ContentViewportSize = (0.0, 0.0)
+      HexSyncEnabled = true
       StatusBarState = EmptyStatus }, Elmish.Cmd.none
 
   let update (msg: Message) (model: Model) =
@@ -94,6 +95,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Update.updateFunctionFilter model text
     | SelectWorkspacePanel panel ->
       Update.selectWorkspacePanel arbiter model panel
+    | SetHexSyncEnabled enabled ->
+      Update.setHexSyncEnabled arbiter model enabled
     | CFGMsg cfgMsg ->
       Update.updateCFG arbiter model cfgMsg
     | HexdumpMsg msg ->

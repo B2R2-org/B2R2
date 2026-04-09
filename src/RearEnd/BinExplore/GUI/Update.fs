@@ -512,50 +512,55 @@ let private resizeOpenedHexdumpTab arbiter model width height =
   else
     model
 
+let private computeJumpedHexdump theme hexdump byteIndex length =
+  let doc = hexdump.Document
+  let viewState = hexdump.View
+  let byteIndex = max 0L (min (doc.Length - 1L) byteIndex)
+  let matchLength = max 1L length
+  let selectionEnd = min (doc.Length - 1L) (byteIndex + matchLength - 1L)
+  let highlightLength = selectionEnd - byteIndex + 1L
+  let rowHeight = max viewState.RowHeight 1.0
+  let bytesPerRow = max 1 viewState.BytesPerRow
+  let targetRow = byteIndex / int64 bytesPerRow
+  let targetOffsetY = float targetRow * rowHeight
+  let scrolledView =
+    { viewState with ScrollGuard = NoScrollGuard }
+    |> clampHexScrollState hexdump
+  let targetOffsetY =
+    max 0.0
+      (min targetOffsetY
+        (let totalRows = computeHexTotalRows hexdump scrolledView
+         let contentHeight = float totalRows * rowHeight
+         max 0.0 (contentHeight - scrolledView.ViewportHeight)))
+  let targetScrollRow = int64 (floor (targetOffsetY / rowHeight))
+  let currentOffsetY = viewState.ScrollOffsetY
+  let pendingDelta = targetOffsetY - currentOffsetY
+  let nextView =
+    { scrolledView with
+        ScrollOffsetY = targetOffsetY
+        ScrollRow = targetScrollRow
+        ScrollGuard =
+          if abs pendingDelta > 0.5 then
+            IgnoreNextProgrammatic pendingDelta
+          else
+            NoScrollGuard }
+  { hexdump with
+      Selection = None
+      HighlightSpans =
+        [ { Start = byteIndex
+            Length = highlightLength
+            Foreground = Some theme.Search.Foreground
+            Background = Some theme.Search.SelectedBackground
+            Priority = 100 } ]
+      View = nextView },
+  targetOffsetY,
+  pendingDelta
+
 let private jumpHexdump model byteIndex length =
   match model.ActiveTab with
   | Some { Content = HexContent hexdump } ->
-    let doc = hexdump.Document
-    let viewState = hexdump.View
-    let byteIndex = max 0L (min (doc.Length - 1L) byteIndex)
-    let matchLength = max 1L length
-    let selectionEnd = min (doc.Length - 1L) (byteIndex + matchLength - 1L)
-    let highlightLength = selectionEnd - byteIndex + 1L
-    let rowHeight = max viewState.RowHeight 1.0
-    let bytesPerRow = max 1 viewState.BytesPerRow
-    let targetRow = byteIndex / int64 bytesPerRow
-    let targetOffsetY = float targetRow * rowHeight
-    let scrolledView =
-      { viewState with ScrollGuard = NoScrollGuard }
-      |> clampHexScrollState hexdump
-    let targetOffsetY =
-      max 0.0
-        (min targetOffsetY
-          (let totalRows = computeHexTotalRows hexdump scrolledView
-           let contentHeight = float totalRows * rowHeight
-           max 0.0 (contentHeight - scrolledView.ViewportHeight)))
-    let targetScrollRow = int64 (floor (targetOffsetY / rowHeight))
-    let currentOffsetY = viewState.ScrollOffsetY
-    let pendingDelta = targetOffsetY - currentOffsetY
-    let nextView =
-      { scrolledView with
-          ScrollOffsetY = targetOffsetY
-          ScrollRow = targetScrollRow
-          ScrollGuard =
-            if abs pendingDelta > 0.5 then
-              IgnoreNextProgrammatic pendingDelta
-            else
-              NoScrollGuard }
-    let nextHexdump =
-      { hexdump with
-          Selection = None
-          HighlightSpans =
-            [ { Start = byteIndex
-                Length = highlightLength
-                Foreground = Some model.Theme.Search.Foreground
-                Background = Some model.Theme.Search.SelectedBackground
-                Priority = 100 } ]
-          View = nextView }
+    let nextHexdump, targetOffsetY, pendingDelta =
+      computeJumpedHexdump model.Theme hexdump byteIndex length
     let activeTab =
       model.ActiveTab
       |> Option.map (Tab.mapHexdumpState (fun _ -> nextHexdump))
@@ -571,6 +576,27 @@ let private jumpHexdump model byteIndex length =
     model, cmd
   | _ ->
     model, Elmish.Cmd.none
+
+let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) model =
+  let visibleTabs = Model.getVisibleTabs model
+  let hasOpenedHexdump =
+    visibleTabs |> List.exists (fun tab -> tab.ID = Tab.HexdumpTabID)
+  match hasOpenedHexdump, model.ActiveTab with
+  | true, Some { Content = CFGContent(fn, _) } ->
+    match API.getFile arbiter with
+    | Ok file when file.IsValidAddr fn.Address ->
+      let ptr = file.GetBoundedPointer fn.Address
+      updateHexdumpState arbiter model (fun hexdump ->
+        computeJumpedHexdump model.Theme hexdump (int64 ptr.Offset) 1L
+        |> fun (nextHexdump, _, _) -> nextHexdump)
+    | _ ->
+      model, Elmish.Cmd.none
+  | _ ->
+    model, Elmish.Cmd.none
+
+let private trySyncHexdumpWithActiveCFG (arbiter: Arbiter<_, _>) model =
+  if model.HexSyncEnabled then syncHexdumpwithActiveCFG arbiter model
+  else model, Elmish.Cmd.none
 
 let private clampHexByteIndex hexdump byteIndex =
   if hexdump.Document.Length <= 0L then None
@@ -737,11 +763,17 @@ let openCFGTab (arbiter: Arbiter<_, _>) model fnItem =
   match tryFindTab visibleTabs tab.ID with
   | Some tab ->
     startLoadIfNeeded arbiter tab { model with ActiveTab = Some tab }
+    |> fun (nextModel, cmd) ->
+      let syncedModel, syncCmd = trySyncHexdumpWithActiveCFG arbiter nextModel
+      syncedModel, Elmish.Cmd.batch [ cmd; syncCmd ]
   | None ->
     startLoadIfNeeded arbiter tab
       { model with
           ActiveTab = Some tab
           PreviewTab = Some tab }
+    |> fun (nextModel, cmd) ->
+      let syncedModel, syncCmd = trySyncHexdumpWithActiveCFG arbiter nextModel
+      syncedModel, Elmish.Cmd.batch [ cmd; syncCmd ]
 
 let pinCFGTab (arbiter: Arbiter<_, _>) model fnItem =
   let tab = Tab.ofFunctionItem fnItem
@@ -755,6 +787,9 @@ let pinCFGTab (arbiter: Arbiter<_, _>) model fnItem =
         ActiveTab = Some tab
         OpenTabs = newOpenTabs
         PreviewTab = preview }
+  |> fun (nextModel, cmd) ->
+    let syncedModel, syncCmd = trySyncHexdumpWithActiveCFG arbiter nextModel
+    syncedModel, Elmish.Cmd.batch [ cmd; syncCmd ]
 
 let closeTab arbiter model tabID =
   let openTabs = model.OpenTabs |> List.filter (fun t -> t.ID <> tabID)
@@ -784,10 +819,15 @@ let switchTab arbiter model tabID =
       else
         refreshCFGTabMinimap model tab
     replaceTabReferences { model with ActiveTab = Some tab } tab
-    |> syncStatusBarWithActiveTab arbiter,
-    Elmish.Cmd.none
+    |> syncStatusBarWithActiveTab arbiter
+    |> trySyncHexdumpWithActiveCFG arbiter
   | None ->
     model, Elmish.Cmd.none
+
+let setHexSyncEnabled (arbiter: Arbiter<_, _>) model enabled =
+  let model = { model with HexSyncEnabled = enabled }
+  if enabled then trySyncHexdumpWithActiveCFG arbiter model
+  else model, Elmish.Cmd.none
 
 let startTabDrag model tabID =
   let visibleTabs = Model.getVisibleTabs model

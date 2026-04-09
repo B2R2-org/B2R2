@@ -60,6 +60,8 @@ type Model =
     CFGPanPointer: (float * float) option
     /// Width and height of the active content viewport.
     ContentViewportSize: float * float
+    /// Flag indicating whether the hex view is synchronized with the CFG view.
+    HexSyncEnabled: bool
     /// Status bar information.
     StatusBarState: StatusBarState }
 

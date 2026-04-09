@@ -100,6 +100,18 @@ let private popoutIconLightSource: IImage =
     SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/popout-light.svg"
   svgImage :> IImage
 
+let private syncIconDarkSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/sync-dark.svg"
+  svgImage :> IImage
+
+let private syncIconLightSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/sync-light.svg"
+  svgImage :> IImage
+
 let private isBrightPrimaryText model =
   match Color.TryParse model.Theme.Text.Primary with
   | true, color ->
@@ -147,3 +159,9 @@ let binaryIcon model =
 let popoutIcon model =
   if isBrightPrimaryText model then popoutIconDarkSource
   else popoutIconLightSource
+
+/// Returns the appropriate sync icon based on the current theme mode and text
+/// color.
+let syncIcon model =
+  if isBrightPrimaryText model then syncIconDarkSource
+  else syncIconLightSource

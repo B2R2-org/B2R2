@@ -530,6 +530,27 @@ module private MinimapToggle = begin
 
 end
 
+module private HexSyncToggle = begin
+
+  let view model dispatch =
+    ToggleButton.create
+      [ ToggleButton.width 26.0
+        ToggleButton.height ToolbarHeight
+        ToggleButton.padding (4.0, 0.0)
+        ToggleButton.isChecked model.HexSyncEnabled
+        ToggleButton.isEnabled model.ActiveTab.IsSome
+        ToggleButton.background model.Theme.Panel.Background
+        ToggleButton.foreground model.Theme.Text.Primary
+        ToggleButton.borderBrush model.Theme.Panel.Border
+        ToggleButton.borderThickness 1.0
+        ToggleButton.cornerRadius 4.0
+        ToggleButton.onChecked (fun _ -> dispatch (SetHexSyncEnabled true))
+        ToggleButton.onUnchecked (fun _ -> dispatch (SetHexSyncEnabled false))
+        ToggleButton.content (mkIcon (IconAssets.syncIcon model) 20.0) ]
+      |> View.withKey "hex-sync-toggle"
+
+end
+
 /// The main toolbar view, which contains the search box and other controls.
 let view (model: Model) (dispatch: Message -> unit) =
   Border.create [
@@ -546,6 +567,7 @@ let view (model: Model) (dispatch: Message -> unit) =
           SearchBox.view model dispatch
           CFGKindSelect.view model dispatch
           MinimapToggle.view model dispatch
+          HexSyncToggle.view model dispatch
         ]
       ]
     )
