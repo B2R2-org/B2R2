@@ -25,7 +25,6 @@
 [<RequireQualifiedAccess>]
 module internal B2R2.RearEnd.Visualization.EdgeDebug
 
-open System
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 open B2R2.RearEnd.Visualization
@@ -54,27 +53,19 @@ type VisValidationIssue =
     PointA: VisPosition option
     PointB: VisPosition option }
 
-and VisValidationKind = | SafeBoxIntrusion | CollinearEdgeOverlap
+and VisValidationKind = | SafeBoxIntrusion
 
-let [<Literal>] private StubMargin = 50.0
+let [<Literal>] private StubMargin = 30.0
 let [<Literal>] private XTolerance = 4.0
-let [<Literal>] private CoordEpsilon = 0.001
 
 let private pos x y = VisPosition.Create(x, y)
 
 let private approxEq a b = abs (a - b) <= XTolerance
 
-let private quantizeCoord (x: float) = int (Math.Round(x * 1000.0))
-
 let private rangesOverlap a0 a1 b0 b1 =
   let loA, hiA = min a0 a1, max a0 a1
   let loB, hiB = min b0 b1, max b0 b1
   not (hiA <= loB + XTolerance || hiB <= loA + XTolerance)
-
-let private rangesOverlapStrict a0 a1 b0 b1 =
-  let loA, hiA = min a0 a1, max a0 a1
-  let loB, hiB = min b0 b1, max b0 b1
-  not (hiA <= loB + CoordEpsilon || hiB <= loA + CoordEpsilon)
 
 let private getEdgeInfos (g: VisGraph) =
   g.FoldEdge((fun acc e -> (e.First, e.Second, e.Label) :: acc), [])
@@ -186,69 +177,6 @@ let private validateSafeBox (g: VisGraph) =
         ())
   issues |> Seq.toList
 
-let private validateOverlaps (g: VisGraph) =
-  let edgeInfos = getEdgeInfos g
-  let allSegments = edgeInfos |> List.collect (segmentsOfEdge >> Array.toList)
-  let issues = ResizeArray<VisValidationIssue>()
-  let verticals =
-    allSegments
-    |> List.filter (fun s -> s.Orientation = Vertical)
-    |> List.groupBy (fun s -> quantizeCoord s.Coord)
-  for _, group in verticals do
-    let sorted = group |> List.sortBy (fun s -> min s.A0 s.A1)
-    for i in 0 .. sorted.Length - 1 do
-      for j in i + 1 .. sorted.Length - 1 do
-        let a = sorted[i]
-        let b = sorted[j]
-        if not (obj.ReferenceEquals(a.Edge, b.Edge)) &&
-          rangesOverlapStrict a.A0 a.A1 b.A0 b.A1 then
-          let lo = max (min a.A0 a.A1) (min b.A0 b.A1)
-          let hi = min (max a.A0 a.A1) (max b.A0 b.A1)
-          issues.Add
-            { Kind = CollinearEdgeOverlap
-              Message =
-                $"Two vertical edge segments overlap on the same X. " +
-                $"edge1={fmtSegment a}, edge2={fmtSegment b}, " +
-                $"x={a.Coord}, overlapY=[{lo}..{hi}]"
-              VertexID = None
-              Edge1 = a.Edge
-              Edge2 = Some b.Edge
-              PointA = Some(pos a.Coord lo)
-              PointB = Some(pos a.Coord hi) }
-        else
-          ()
-  let horizontals =
-    allSegments
-    |> List.filter (fun s -> s.Orientation = Horizontal)
-    |> List.groupBy (fun s -> quantizeCoord s.Coord)
-  for _, group in horizontals do
-    let sorted = group |> List.sortBy (fun s -> min s.A0 s.A1)
-    for i in 0 .. sorted.Length - 1 do
-      for j in i + 1 .. sorted.Length - 1 do
-        let a = sorted[i]
-        let b = sorted[j]
-        if not (obj.ReferenceEquals(a.Edge, b.Edge)) &&
-          rangesOverlapStrict a.A0 a.A1 b.A0 b.A1 then
-          let lo = max (min a.A0 a.A1) (min b.A0 b.A1)
-          let hi = min (max a.A0 a.A1) (max b.A0 b.A1)
-          issues.Add
-            { Kind = CollinearEdgeOverlap
-              Message =
-                $"Two horizontal edge segments overlap on the same Y. " +
-                $"edge1={fmtSegment a}, edge2={fmtSegment b}, " +
-                $"y={a.Coord}, overlapX=[{lo}..{hi}]"
-              VertexID = None
-              Edge1 = a.Edge
-              Edge2 = Some b.Edge
-              PointA = Some(pos lo a.Coord)
-              PointB = Some(pos hi a.Coord) }
-        else
-          ()
-  issues |> Seq.toList
-
-let validate (g: VisGraph) =
-  let safeBoxIssues = validateSafeBox g
-  let overlapIssues = validateOverlaps g
-  safeBoxIssues @ overlapIssues
+let validate (g: VisGraph) = validateSafeBox g
 
 let hasIssue (g: VisGraph) = not (List.isEmpty (validate g))

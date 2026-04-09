@@ -63,12 +63,11 @@ with
     | true, edge -> List.rev edge
     | false, _ -> []
 
-  member this.GetEdges(v: IVertex<VisBBlock>) =
-    this.GetFwdOutEdges v
-    @ this.GetFwdInEdges v
-    @ this.GetBwdOutEdges v
-    @ this.GetBwdInEdges v
-    @ this.GetSelfCycleEdge v
+  member this.GetInEdges(v: IVertex<VisBBlock>) =
+    this.GetFwdInEdges v @ this.GetBwdInEdges v
+
+  member this.GetOutEdges(v: IVertex<VisBBlock>) =
+    this.GetFwdOutEdges v @ this.GetBwdOutEdges v
 
   static member Empty =
     { FwdInEdges = Dictionary()
@@ -91,6 +90,7 @@ with
       if src <> dst then
         if kind.IsBackEdge then
           addEdge src (dst, kind) sets.BwdOutEdges
+          addEdge dst (src, kind) sets.BwdInEdges
         else
           addEdge src (dst, kind) sets.FwdOutEdges
           addEdge dst (src, kind) sets.FwdInEdges

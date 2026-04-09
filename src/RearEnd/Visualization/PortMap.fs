@@ -36,7 +36,9 @@ type PortMap =
     FwdEdgeSlot: Dictionary<VertexID * bool, int>
     BwdOutPorts: Dictionary<VisEdge, float>
     BwdInPorts: Dictionary<VisEdge, float>
-    BwdEdgeBends: Dictionary<VisEdge, EdgeBend> }
+    SelfOutPort: Dictionary<VisEdge, float>
+    SelfInPort: Dictionary<VisEdge, float>
+    BwdEdgeBendPoints: Dictionary<VisEdge, BendPoint> }
 
 with
   static member Empty =
@@ -45,9 +47,11 @@ with
       FwdEdgeSlot = Dictionary()
       BwdOutPorts = Dictionary()
       BwdInPorts = Dictionary()
-      BwdEdgeBends = Dictionary() }
+      SelfOutPort = Dictionary()
+      SelfInPort = Dictionary()
+      BwdEdgeBendPoints = Dictionary() }
 
-and [<RequireQualifiedAccess>] EdgeBend =
-  | Left
-  | Mid
-  | Right
+and BendPoint =
+  | FromSourceToDest of isSrcLeft: bool * isDstLeft: bool
+  | FromSourceToDummy of isSrcLeft: bool
+  | FromDummyToDest of isDstLeft: bool
