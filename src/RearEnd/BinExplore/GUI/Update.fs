@@ -430,9 +430,14 @@ let private syncStatusBarWithActiveTab (arbiter: Arbiter<_, _>) model =
       setStatusOffsetCtx model sOff eOff sec
     | _ ->
       clearStatusRange model
-  | Some { Content = CFGContent(func, Loaded _) } ->
-    match API.getFile arbiter with
-    | Ok file ->
+  | Some { Content = CFGContent(func, Loaded st) } ->
+    match API.getFile arbiter, st.ViewState.SelectedToken with
+    | Ok file, Some token ->
+      let sOff = uint32 token.Range.Min
+      let eOff = uint32 token.Range.Max
+      let sec = findSectionRange file sOff eOff
+      setStatusOffsetCtx model sOff eOff sec
+    | Ok file, None ->
       let sOff = uint32 func.OffsetRange.Value.Min
       let eOff = uint32 func.OffsetRange.Value.Max
       let sec = findSectionRange file sOff eOff
@@ -593,8 +598,10 @@ let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) model =
   let hasOpenedHexdump =
     visibleTabs |> List.exists (fun tab -> tab.ID = Tab.HexdumpTabID)
   match hasOpenedHexdump, model.ActiveTab with
-  | true, Some { Content = CFGContent(fn, _) } ->
-    jumpHexdumpToAddress arbiter model fn.Address
+  | true, Some { Content = CFGContent(fn, Loaded st) } ->
+    match st.ViewState.SelectedToken with
+    | Some token -> jumpHexdumpToAddress arbiter model token.Range.Min
+    | None -> jumpHexdumpToAddress arbiter model fn.OffsetRange.Value.Min
   | _ ->
     model, Elmish.Cmd.none
 
