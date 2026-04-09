@@ -139,8 +139,9 @@ module private SearchBox = begin
            let mutable i = 0
            while matched && i < needle.Length do
              if haystack[startIdx + i] <> needle[i] then matched <- false
+             else ()
              i <- i + 1
-           if matched then int64 startIdx |]
+           if matched then int64 startIdx else () |]
 
   let formatAddressLabel addr =
     $"[addr] 0x{addr:X}"
@@ -350,6 +351,8 @@ module private SearchBox = begin
       StackPanel.children [
         if hasSearchText then
           yield searchClearView model dispatch localState :> IView
+        else
+          ()
         yield searchIconView model :> IView
       ]
     ]

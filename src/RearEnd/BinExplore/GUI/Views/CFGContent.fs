@@ -85,6 +85,14 @@ type private MinimapStaticLayer() =
 
   static member ThemeProperty = themeProperty
 
+  member this.CurrentCache
+    with get() = this.GetValue cacheProperty
+    and set value = this.SetValue(cacheProperty, value) |> ignore
+
+  member this.CurrentTheme
+    with get() = this.GetValue themeProperty
+    and set value = this.SetValue(themeProperty, value) |> ignore
+
   static member Cache value =
     AttrBuilder<'t>.CreateProperty<MinimapStaticCache>(
       MinimapStaticLayer.CacheProperty, value, ValueNone
@@ -94,14 +102,6 @@ type private MinimapStaticLayer() =
     AttrBuilder<'t>.CreateProperty<Theme>(
       MinimapStaticLayer.ThemeProperty, value, ValueNone
     )
-
-  member this.CurrentCache
-    with get() = this.GetValue cacheProperty
-    and set value = this.SetValue(cacheProperty, value) |> ignore
-
-  member this.CurrentTheme
-    with get() = this.GetValue themeProperty
-    and set value = this.SetValue(themeProperty, value) |> ignore
 
   override this.OnPropertyChanged change =
     base.OnPropertyChanged change

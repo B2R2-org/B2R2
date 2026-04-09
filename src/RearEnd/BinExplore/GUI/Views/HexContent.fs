@@ -285,6 +285,14 @@ type private HexdumpInteractionCanvas() as this =
 
   static member DispatchProperty = dispatchProperty
 
+  member this.CurrentState
+    with get() = this.GetValue stateProperty
+    and set value = this.SetValue(stateProperty, value) |> ignore
+
+  member this.Dispatcher
+    with get() = this.GetValue dispatchProperty
+    and set value = this.SetValue(dispatchProperty, value) |> ignore
+
   static member State value =
     AttrBuilder<'t>.CreateProperty<HexdumpState option>(
       HexdumpInteractionCanvas.StateProperty, value, ValueNone
@@ -294,14 +302,6 @@ type private HexdumpInteractionCanvas() as this =
     AttrBuilder<'t>.CreateProperty<Message -> unit>(
       HexdumpInteractionCanvas.DispatchProperty, value, ValueNone
     )
-
-  member this.CurrentState
-    with get() = this.GetValue stateProperty
-    and set value = this.SetValue(stateProperty, value) |> ignore
-
-  member this.Dispatcher
-    with get() = this.GetValue dispatchProperty
-    and set value = this.SetValue(dispatchProperty, value) |> ignore
 
   member this.DispatchHexdump msg =
     this.Dispatcher(HexdumpMsg msg)
@@ -694,6 +694,22 @@ type private HexdumpRenderLayer() =
   static member StartRowProperty = startRowProperty
   static member EndRowProperty = endRowProperty
 
+  member this.CurrentState
+    with get() = this.GetValue stateProperty
+    and set value = this.SetValue(stateProperty, value) |> ignore
+
+  member this.CurrentTheme
+    with get() = this.GetValue themeProperty
+    and set value = this.SetValue(themeProperty, value) |> ignore
+
+  member this.RenderStartRow
+    with get() = this.GetValue startRowProperty
+    and set value = this.SetValue(startRowProperty, value) |> ignore
+
+  member this.RenderEndRow
+    with get() = this.GetValue endRowProperty
+    and set value = this.SetValue(endRowProperty, value) |> ignore
+
   static member State value =
     AttrBuilder<'t>.CreateProperty<HexdumpState option>(
       HexdumpRenderLayer.StateProperty, value, ValueNone
@@ -713,22 +729,6 @@ type private HexdumpRenderLayer() =
     AttrBuilder<'t>.CreateProperty<int>(
       HexdumpRenderLayer.EndRowProperty, value, ValueNone
     )
-
-  member this.CurrentState
-    with get() = this.GetValue stateProperty
-    and set value = this.SetValue(stateProperty, value) |> ignore
-
-  member this.CurrentTheme
-    with get() = this.GetValue themeProperty
-    and set value = this.SetValue(themeProperty, value) |> ignore
-
-  member this.RenderStartRow
-    with get() = this.GetValue startRowProperty
-    and set value = this.SetValue(startRowProperty, value) |> ignore
-
-  member this.RenderEndRow
-    with get() = this.GetValue endRowProperty
-    and set value = this.SetValue(endRowProperty, value) |> ignore
 
   override this.OnPropertyChanged change =
     base.OnPropertyChanged change
