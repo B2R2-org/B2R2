@@ -37,6 +37,7 @@ open Avalonia.Input
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open B2R2.FrontEnd.BinLifter
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.RearEnd.Visualization
 
@@ -259,11 +260,18 @@ let private tokenTextView model word =
     TextBlock.textWrapping TextWrapping.NoWrap
   ]
 
-let private tokenView model dispatch selected nodeID lineIdx wordIdx word =
+let private tokenView model dispatch selected nID lineIdx wordIdx word range =
   if not (isSelectableToken word) then
     tokenTextView model word :> IView
   else
-    let isSelected = selected = Some(nodeID, lineIdx, wordIdx)
+    let isSelected =
+      match selected with
+      | Some sel ->
+        sel.NodeID = nID &&
+        sel.LineIndex = lineIdx &&
+        sel.WordIndex = wordIdx
+      | None ->
+        false
     Border.create [
       Border.background (
         if isSelected then model.Theme.Search.SelectedBackground
@@ -271,33 +279,37 @@ let private tokenView model dispatch selected nodeID lineIdx wordIdx word =
       )
       Border.cornerRadius 2.0
       Control.onTapped (fun e ->
-        dispatch (CFGMsg(SelectToken(nodeID, lineIdx, wordIdx)))
+        dispatch (CFGMsg(SelectToken(nID, lineIdx, wordIdx, range)))
         e.Handled <- true
       )
       Border.child (tokenTextView model word)
-    ] |> View.withKey $"token-{nodeID}-{lineIdx}-{wordIdx}" :> IView
+    ] |> View.withKey $"token-{nID}-{lineIdx}-{wordIdx}" :> IView
 
-let private disasmLineView model dispatch selected nodeID lineIdx words =
+let private disasmLineView model dispatch selected nodeID lineIdx words range =
   StackPanel.create [
     StackPanel.orientation Orientation.Horizontal
     StackPanel.children [
       for wordIdx, word in Array.indexed words do
-        tokenView model dispatch selected nodeID lineIdx wordIdx word
+        tokenView model dispatch selected nodeID lineIdx wordIdx word range
     ]
   ] |> View.withKey $"line-{nodeID}-{lineIdx}" :> IView
 
-let private disasmView model dispatch selected nodeID lines =
+let private disasmView model dispatch selected nodeID zoom n =
+  let lines =
+    if model.Theme.Font.Monospace.FontSize * zoom < 6.0 then [||]
+    else ((n: IVertex<_>).VData :> IVisualizable).Visualize()
+  let range = (n.VData :> IAddressable).Range
   StackPanel.create [
     StackPanel.orientation Orientation.Vertical
     StackPanel.horizontalAlignment HorizontalAlignment.Left
     StackPanel.verticalAlignment VerticalAlignment.Top
     StackPanel.children [
       for lineIdx, words in Array.indexed lines do
-        disasmLineView model dispatch selected nodeID lineIdx words
+        disasmLineView model dispatch selected nodeID lineIdx words range
     ]
   ]
 
-let private nodeView model dispatch selected nID zoom panX panY x y w h lines =
+let private nodeView model dispatch selected nID zoom panX panY x y w h n =
   Border.create [
     Canvas.left (x * zoom + panX)
     Canvas.top (y * zoom + panY)
@@ -317,7 +329,7 @@ let private nodeView model dispatch selected nID zoom panX panY x y w h lines =
             Viewbox.stretch Stretch.Uniform
             Viewbox.horizontalAlignment HorizontalAlignment.Left
             Viewbox.verticalAlignment VerticalAlignment.Top
-            Viewbox.child (disasmView model dispatch selected nID lines)
+            Viewbox.child (disasmView model dispatch selected nID zoom n)
           ]
         )
       ]
@@ -325,7 +337,6 @@ let private nodeView model dispatch selected nID zoom panX panY x y w h lines =
   ] |> View.withKey $"node-{nID}" :> IView
 
 let private graphNodes model dispatch selected cfg zoom panX panY isVisible =
-  let fontSize = model.Theme.Font.Monospace.FontSize
   [ for nodeID, n in Array.indexed (cfg: VisGraph).Vertices do
       let x, y = n.VData.Coordinate.X, n.VData.Coordinate.Y
       let w, h = n.VData.Width, n.VData.Height
@@ -334,10 +345,7 @@ let private graphNodes model dispatch selected cfg zoom panX panY isVisible =
       else
         let w = ceil (w * zoom) + 1.1 (* margin to avoid clipping *)
         let h = ceil (h * zoom) + 1.1
-        let lines =
-          if fontSize * zoom < 6.0 then [||]
-          else (n.VData :> IVisualizable).Visualize()
-        nodeView model dispatch selected nodeID zoom panX panY x y w h lines ]
+        nodeView model dispatch selected nodeID zoom panX panY x y w h n ]
 
 let [<Literal>] private ZoomDelta = 0.05
 let [<Literal>] private CFGPanStartThresholdSquared = 16.0

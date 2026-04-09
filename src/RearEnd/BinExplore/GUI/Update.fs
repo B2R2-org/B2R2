@@ -577,20 +577,23 @@ let private jumpHexdump model byteIndex length =
   | _ ->
     model, Elmish.Cmd.none
 
+let private jumpHexdumpToAddress (arbiter: Arbiter<_, _>) model addr =
+  match API.getFile arbiter with
+  | Ok file when file.IsValidAddr addr ->
+    let ptr = file.GetBoundedPointer addr
+    updateHexdumpState arbiter model (fun hexdump ->
+      computeJumpedHexdump model.Theme hexdump (int64 ptr.Offset) 1L
+      |> fun (nextHexdump, _, _) -> nextHexdump)
+  | _ ->
+    model, Elmish.Cmd.none
+
 let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) model =
   let visibleTabs = Model.getVisibleTabs model
   let hasOpenedHexdump =
     visibleTabs |> List.exists (fun tab -> tab.ID = Tab.HexdumpTabID)
   match hasOpenedHexdump, model.ActiveTab with
   | true, Some { Content = CFGContent(fn, _) } ->
-    match API.getFile arbiter with
-    | Ok file when file.IsValidAddr fn.Address ->
-      let ptr = file.GetBoundedPointer fn.Address
-      updateHexdumpState arbiter model (fun hexdump ->
-        computeJumpedHexdump model.Theme hexdump (int64 ptr.Offset) 1L
-        |> fun (nextHexdump, _, _) -> nextHexdump)
-    | _ ->
-      model, Elmish.Cmd.none
+    jumpHexdumpToAddress arbiter model fn.Address
   | _ ->
     model, Elmish.Cmd.none
 
@@ -1104,13 +1107,19 @@ let jumpCFGPan model gx gy =
   | None ->
     model, Elmish.Cmd.none
 
-let selectCFGToken model nodeID lineIdx wordIdx =
+let selectCFGToken arbiter model nodeID lineIdx wordIdx range =
   match model.ActiveTab with
   | Some tab ->
     let update viewState =
-      { viewState with SelectedToken = Some(nodeID, lineIdx, wordIdx) }
+      let selectedToken =
+        { NodeID = nodeID
+          LineIndex = lineIdx
+          WordIndex = wordIdx
+          Range = range }
+      { viewState with SelectedToken = Some selectedToken }
     let tab = updateCFGViewState tab update
-    replaceTabReferences model tab, Elmish.Cmd.none
+    let model = replaceTabReferences model tab
+    jumpHexdumpToAddress arbiter model range.Min
   | None ->
     model, Elmish.Cmd.none
 
@@ -1182,8 +1191,8 @@ let updateCFG arbiter model msg =
     endCFGPan model
   | JumpPan(gx, gy) ->
     jumpCFGPan model gx gy
-  | SelectToken(nodeID, lineIdx, wordIdx) ->
-    selectCFGToken model nodeID lineIdx wordIdx
+  | SelectToken(nodeID, lineIdx, wordIdx, range) ->
+    selectCFGToken arbiter model nodeID lineIdx wordIdx range
   | SetHoveredEdge edgeID ->
     setHoveredCFGEdge model edgeID
   | UpdateViewportSize(width, height) ->

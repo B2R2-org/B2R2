@@ -29,6 +29,11 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main vertex type used for visualization.
 type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
+  let addressable =
+    match blk with
+    | :? IAddressable as a -> a
+    | _ -> invalidArg (nameof blk) "VisBBlock requires an IAddressable block."
+
   let mutable layer = -1
 
   let mutable index = -1
@@ -90,3 +95,8 @@ type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
     member _.BlockAddress with get() = blk.BlockAddress
 
     member _.Visualize() = visualizableAsm
+
+  interface IAddressable with
+    member _.PPoint with get() = addressable.PPoint
+
+    member _.Range with get() = addressable.Range

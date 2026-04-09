@@ -24,8 +24,7 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
-open System
-open Avalonia
+open B2R2
 open B2R2.RearEnd.BinExplore
 
 /// Represents the view state of the control flow graph (CFG), including
@@ -62,9 +61,15 @@ type CFGViewState =
     GraphMaxY: float
     /// The currently selected disassembly token represented by node, line, and
     /// word indices.
-    SelectedToken: (int * int * int) option
+    SelectedToken: SelectedToken option
     /// The ID of the currently hovered node, if any.
     HoveredEdge: int option }
+
+and SelectedToken =
+  { NodeID: int
+    LineIndex: int
+    WordIndex: int
+    Range: AddrRange }
 
 [<RequireQualifiedAccess>]
 module CFGViewState =
