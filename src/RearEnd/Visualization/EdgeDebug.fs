@@ -179,7 +179,11 @@ let private validateSafeBox (g: VisGraph) =
               Edge1 = seg.Edge
               Edge2 = None
               PointA = Some p0
-              PointB = Some p1 }))
+              PointB = Some p1 }
+        else
+          ())
+      else
+        ())
   issues |> Seq.toList
 
 let private validateOverlaps (g: VisGraph) =

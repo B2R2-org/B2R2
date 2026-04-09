@@ -33,10 +33,21 @@ open System.Collections.Generic
 type PortMap =
   { FwdOutPorts: Dictionary<VisEdge, float>
     FwdInPorts: Dictionary<VisEdge, float>
-    FwdEdgeSlot: Dictionary<VertexID * bool, int> }
+    FwdEdgeSlot: Dictionary<VertexID * bool, int>
+    BwdOutPorts: Dictionary<VisEdge, float>
+    BwdInPorts: Dictionary<VisEdge, float>
+    BwdEdgeBends: Dictionary<VisEdge, EdgeBend> }
 
 with
   static member Empty =
-    { FwdOutPorts = Dictionary<VisEdge, float>()
-      FwdInPorts = Dictionary<VisEdge, float>()
-      FwdEdgeSlot = Dictionary<VertexID * bool, int>() }
+    { FwdOutPorts = Dictionary()
+      FwdInPorts = Dictionary()
+      FwdEdgeSlot = Dictionary()
+      BwdOutPorts = Dictionary()
+      BwdInPorts = Dictionary()
+      BwdEdgeBends = Dictionary() }
+
+and [<RequireQualifiedAccess>] EdgeBend =
+  | Left
+  | Mid
+  | Right

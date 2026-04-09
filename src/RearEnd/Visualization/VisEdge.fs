@@ -24,6 +24,8 @@
 
 namespace B2R2.RearEnd.Visualization
 
+open System.Collections.Generic
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main edge data type for visualization.
