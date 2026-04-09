@@ -522,21 +522,9 @@ let private sliceTransientHighlights theme layout startRow endRow state =
     ()
   collectBuckets buckets
 
-let private computeTotalRows docLength bytesPerRow =
-  if docLength <= 0L then 0
-  else int ((docLength + int64 bytesPerRow - 1L) / int64 bytesPerRow)
-
-let private computeVisibleRowRange (viewState: HexViewState) totalRows =
-  if totalRows <= 0 then
-    0, 0
-  else
-    let rowHeight = max viewState.RowHeight 1.0
-    let visibleRows =
-      max 1 (int (ceil (viewState.ViewportHeight / rowHeight)))
-    let scrollRow = int viewState.ScrollRow
-    let startRow = max 0 (scrollRow - OverscanRows)
-    let endRow = min totalRows (scrollRow + visibleRows + OverscanRows)
-    startRow, endRow
+let private expandRowRangeWithOverscan totalRows (startRow, endRow) =
+  max 0 (startRow - OverscanRows),
+  min totalRows (endRow + OverscanRows)
 
 type private HexdumpRenderLayer() =
   inherit Control()
@@ -809,8 +797,10 @@ let private bodyView model dispatch =
   | Some { Content = HexContent state } ->
     let viewState, doc = state.View, state.Document
     let bytesPerRow = max 1 viewState.BytesPerRow
-    let totalRows = computeTotalRows doc.Length bytesPerRow
-    let startRow, endRow = computeVisibleRowRange viewState totalRows
+    let totalRows = HexdumpState.computeTotalRows doc.Length bytesPerRow
+    let startRow, endRow =
+      HexdumpState.computeViewportRowRange viewState totalRows
+      |> expandRowRangeWithOverscan totalRows
     let layout = computeLayout viewState
     let canvasWidth = layout.PaddingX * 2.0 + layout.LineWidth
     let canvasHeight = layout.RowHeight * float totalRows

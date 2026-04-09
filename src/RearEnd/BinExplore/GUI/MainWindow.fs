@@ -77,9 +77,9 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     | PinCFGTab fnItem ->
       Update.pinCFGTab arbiter model fnItem
     | CloseTab tabID ->
-      Update.closeTab model tabID
+      Update.closeTab arbiter model tabID
     | SwitchTab tabID ->
-      Update.switchTab model tabID
+      Update.switchTab arbiter model tabID
     | StartTabDrag tabID ->
       Update.startTabDrag model tabID
     | ReorderTab(draggedTabID, targetTabID) ->

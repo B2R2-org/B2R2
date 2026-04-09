@@ -366,7 +366,74 @@ let private refreshCFGTabMinimap model tab =
   | _ ->
     tab
 
-let private updateHexdumpState model update =
+let private clearStatusRange model =
+  match model.StatusBarState with
+  | FileLoaded(path, fmt, _) ->
+    { model with StatusBarState = FileLoaded(path, fmt, None) }
+  | _ ->
+    model
+
+let private tryGetSelectedFileOffsetRange selection =
+  let startOffset = min selection.Anchor selection.Caret
+  let endOffset = max selection.Anchor selection.Caret
+  let maxOffset = int64 UInt32.MaxValue
+  if startOffset < 0L || endOffset < 0L then
+    None
+  elif startOffset > maxOffset || endOffset > maxOffset then
+    None
+  else
+    Some(uint32 startOffset, uint32 endOffset)
+
+let private findSectionRange (f: IBinFile) (sOff: uint32) (eOff: uint32) =
+  match f.TryFindSectionName sOff, f.TryFindSectionName eOff with
+  | Ok secStart, Ok secEnd when secStart = secEnd -> [ secStart ]
+  | Ok secStart, Ok secEnd -> [ secStart; secEnd ]
+  | _ -> []
+
+let private setStatusOffsetCtx model sOff eOff sections =
+  match model.StatusBarState with
+  | FileLoaded(path, fmt, _) ->
+    let range = { Start = sOff; End = eOff }
+    let sectionRange = buildSectionRange sections
+    let ctx = Some { Range = range; SectionRange = sectionRange }
+    { model with StatusBarState = FileLoaded(path, fmt, ctx) }
+  | _ ->
+    model
+
+let private updateStatusRange model (arbiter: Arbiter<_, _>) selection =
+  match tryGetSelectedFileOffsetRange selection, API.getFile arbiter with
+  | Some(sOff, eOff), Ok file ->
+    let sec = findSectionRange file sOff eOff
+    setStatusOffsetCtx model sOff eOff sec
+  | _ ->
+    model
+
+let private tryGetVisibleFileOffsetRange hexdump =
+  match HexdumpState.tryGetVisibleByteRange hexdump with
+  | Some(startOffset, endOffset) ->
+    let maxOffset = int64 UInt32.MaxValue
+    if startOffset > maxOffset then
+      None
+    else
+      Some(uint32 startOffset, uint32 (min maxOffset endOffset))
+  | None ->
+    None
+
+let private syncStatusBarWithActiveTab (arbiter: Arbiter<_, _>) model =
+  match model.ActiveTab with
+  | Some { Content = HexContent { Selection = Some sel } } ->
+    updateStatusRange model arbiter sel
+  | Some { Content = HexContent hexdump } ->
+    match tryGetVisibleFileOffsetRange hexdump, API.getFile arbiter with
+    | Some(sOff, eOff), Ok file ->
+      let sec = findSectionRange file sOff eOff
+      setStatusOffsetCtx model sOff eOff sec
+    | _ ->
+      clearStatusRange model
+  | _ ->
+    clearStatusRange model
+
+let private updateHexdumpState arbiter model update =
   let visibleTabs = Model.getVisibleTabs model
   match visibleTabs |> List.tryFind (fun t -> t.ID = Tab.HexdumpTabID) with
   | Some({ Content = HexContent hexdump } as tab) ->
@@ -376,12 +443,13 @@ let private updateHexdumpState model update =
         let view = clampHexScrollState state state.View
         { state with View = view }
     let tab = Tab.mapHexdumpState (fun _ -> hexdump) tab
-    replaceTabReferences model tab, Elmish.Cmd.none
+    replaceTabReferences model tab |> syncStatusBarWithActiveTab arbiter,
+    Elmish.Cmd.none
   | _ ->
     model, Elmish.Cmd.none
 
-let private updateHexViewState model updateView =
-  updateHexdumpState model (fun hexdump ->
+let private updateHexViewState arbiter model updateView =
+  updateHexdumpState arbiter model (fun hexdump ->
     let view = updateView hexdump.View
     { hexdump with View = view })
 
@@ -400,9 +468,9 @@ let private syncHexScrollOffset hexdump offsetY scrollGuard =
     |> clampHexScrollState hexdump
   { hexdump with View = { view with ScrollGuard = scrollGuard } }
 
-let private recomputeHexViewLayout model updateView =
+let private recomputeHexViewLayout arbiter model updateView =
   let charWidth, rowHeight = measureMaxCharSize model
-  updateHexdumpState model (fun hexdump ->
+  updateHexdumpState arbiter model (fun hexdump ->
     let viewState = hexdump.View
     let topByte = viewState.ScrollRow * int64 (max 1 viewState.BytesPerRow)
     let nextView =
@@ -417,11 +485,11 @@ let private recomputeHexViewLayout model updateView =
           ScrollOffsetY = float nextScrollRow * nextView.RowHeight }
     { hexdump with View = view })
 
-let private resizeOpenedHexdumpTab model width height =
+let private resizeOpenedHexdumpTab arbiter model width height =
   let hasOpenedHexdumpTab =
     model.OpenTabs |> List.exists (fun tab -> tab.ID = Tab.HexdumpTabID)
   if hasOpenedHexdumpTab then
-    updateHexdumpState model (fun hexdump ->
+    updateHexdumpState arbiter model (fun hexdump ->
       let viewState = hexdump.View
       let charWidth, rowHeight = measureMaxCharSize model
       let nextView =
@@ -501,49 +569,17 @@ let private clampHexByteIndex hexdump byteIndex =
   if hexdump.Document.Length <= 0L then None
   else Some(max 0L (min (hexdump.Document.Length - 1L) byteIndex))
 
-let private clearStatusRange model =
-  match model.StatusBarState with
-  | FileLoaded(path, fmt, _) ->
-    { model with StatusBarState = FileLoaded(path, fmt, None) }
-  | _ ->
-    model
-
-let private tryGetSelectedFileOffsetRange selection =
-  let startOffset = min selection.Anchor selection.Caret
-  let endOffset = max selection.Anchor selection.Caret
-  let maxOffset = int64 UInt32.MaxValue
-  if startOffset < 0L || endOffset < 0L then
-    None
-  elif startOffset > maxOffset || endOffset > maxOffset then
-    None
-  else
-    Some(uint32 startOffset, uint32 endOffset)
-
-let private findSectionRange (f: IBinFile) (sOff: uint32) (eOff: uint32) =
-  match f.TryFindSectionName sOff, f.TryFindSectionName eOff with
-  | Ok secStart, Ok secEnd when secStart = secEnd -> [ secStart ]
-  | Ok secStart, Ok secEnd -> [ secStart; secEnd ]
-  | _ -> []
-
-let private statusRangeCmd (arbiter: Arbiter<_, _>) selection =
-  match tryGetSelectedFileOffsetRange selection, API.getFile arbiter with
-  | Some(sOff, eOff), Ok file ->
-    let sec = findSectionRange file sOff eOff
-    cmdOfSub (fun dispatch -> dispatch (UpdateStatusOffsetCtx(sOff, eOff, sec)))
-  | _ ->
-    Elmish.Cmd.none
-
 let updateHexdump arbiter model msg =
   match msg with
   | SetHighlightSpans spans ->
-    updateHexdumpState model (fun hexdump ->
+    updateHexdumpState arbiter model (fun hexdump ->
       { hexdump with HighlightSpans = spans })
   | UpdateViewport(width, height) when width > 0.0 && height > 0.0 ->
-    recomputeHexViewLayout model (fun viewState ->
+    recomputeHexViewLayout arbiter model (fun viewState ->
       { viewState with ViewportWidth = width; ViewportHeight = height })
   | UpdateFontMetrics(charWidth, rowHeight)
     when charWidth > 0.0 && rowHeight > 0.0 ->
-    updateHexViewState model (fun viewState ->
+    updateHexViewState arbiter model (fun viewState ->
       let topByte = viewState.ScrollRow * int64 (max 1 viewState.BytesPerRow)
       let nextView =
         { viewState with CharWidth = charWidth; RowHeight = rowHeight }
@@ -564,21 +600,21 @@ let updateHexdump arbiter model msg =
       | IgnoreNextProgrammatic _ when abs deltaY <= 0.0 ->
         model, Elmish.Cmd.none
       | IgnoreNextProgrammatic _ ->
-        updateHexdumpState model (fun hexdump ->
+        updateHexdumpState arbiter model (fun hexdump ->
           syncHexScrollOffset hexdump offsetY NoScrollGuard)
       | IgnoreNextEcho _ when abs deltaY <= 0.0 ->
         model, Elmish.Cmd.none
       | IgnoreNextEcho _ ->
-        updateHexdumpState model (fun hexdump ->
+        updateHexdumpState arbiter model (fun hexdump ->
           syncHexScrollOffset hexdump offsetY NoScrollGuard)
       | _ ->
-        updateHexdumpState model (fun hexdump ->
+        updateHexdumpState arbiter model (fun hexdump ->
           syncHexScrollOffset hexdump offsetY NoScrollGuard)
   | SetScrollOffset(offsetY) ->
-    updateHexdumpState model (fun hexdump ->
+    updateHexdumpState arbiter model (fun hexdump ->
       syncHexScrollOffset hexdump offsetY hexdump.View.ScrollGuard)
   | SetScrollRow(row) ->
-    updateHexdumpState model (fun hexdump ->
+    updateHexdumpState arbiter model (fun hexdump ->
       let viewState = hexdump.View
       let rowHeight = max viewState.RowHeight 1.0
       let view =
@@ -588,7 +624,7 @@ let updateHexdump arbiter model msg =
             ScrollGuard = NoScrollGuard }
       { hexdump with View = view })
   | ScrollRows(delta) ->
-    updateHexdumpState model (fun hexdump ->
+    updateHexdumpState arbiter model (fun hexdump ->
       let viewState = hexdump.View
       let rowHeight = max viewState.RowHeight 1.0
       let scrollRow = viewState.ScrollRow + delta
@@ -599,27 +635,21 @@ let updateHexdump arbiter model msg =
             ScrollGuard = NoScrollGuard }
       { hexdump with View = view })
   | SetCaret byteIndex ->
-    updateHexdumpState model (fun hexdump ->
+    updateHexdumpState arbiter model (fun hexdump ->
       let caret = byteIndex |> Option.bind (clampHexByteIndex hexdump)
       { hexdump with Caret = caret })
   | SetSelection selection ->
-    let nextModel, _ =
-      updateHexdumpState model (fun hexdump ->
-        let selection =
-          selection
-          |> Option.bind (fun sel ->
-            match clampHexByteIndex hexdump sel.Anchor,
-                  clampHexByteIndex hexdump sel.Caret with
-            | Some anchor, Some caret -> Some { Anchor = anchor; Caret = caret }
-            | _ -> None)
-        { hexdump with Selection = selection })
-    match nextModel.ActiveTab with
-    | Some { Content = HexContent hexdump } when hexdump.Selection.IsNone ->
-      clearStatusRange nextModel, Elmish.Cmd.none
-    | _ ->
-      nextModel, Elmish.Cmd.none
+    updateHexdumpState arbiter model (fun hexdump ->
+      let selection =
+        selection
+        |> Option.bind (fun sel ->
+          match clampHexByteIndex hexdump sel.Anchor,
+                clampHexByteIndex hexdump sel.Caret with
+          | Some anchor, Some caret -> Some { Anchor = anchor; Caret = caret }
+          | _ -> None)
+      { hexdump with Selection = selection })
   | StartSelection byteIndex ->
-    updateHexdumpState model (fun hexdump ->
+    updateHexdumpState arbiter model (fun hexdump ->
       match clampHexByteIndex hexdump byteIndex with
       | Some byteIndex ->
         { hexdump with
@@ -629,7 +659,7 @@ let updateHexdump arbiter model msg =
       | None ->
         hexdump)
   | UpdateSelection byteIndex ->
-    updateHexdumpState model (fun hexdump ->
+    updateHexdumpState arbiter model (fun hexdump ->
       match hexdump.View.IsSelecting,
             clampHexByteIndex hexdump byteIndex,
             hexdump.Selection with
@@ -644,20 +674,10 @@ let updateHexdump arbiter model msg =
       | _ ->
         hexdump)
   | EndSelection ->
-    let nextModel, _ =
-      updateHexdumpState model (fun hexdump ->
-        { hexdump with View = { hexdump.View with IsSelecting = false } })
-    match nextModel.ActiveTab with
-    | Some { Content = HexContent hexdump } ->
-      match hexdump.Selection with
-      | Some selection ->
-        nextModel, statusRangeCmd arbiter selection
-      | None ->
-        clearStatusRange nextModel, Elmish.Cmd.none
-    | _ ->
-      nextModel, Elmish.Cmd.none
+    updateHexdumpState arbiter model (fun hexdump ->
+      { hexdump with View = { hexdump.View with IsSelecting = false } })
   | SetHoveredByte byteIndex ->
-    updateHexViewState model (fun viewState ->
+    updateHexViewState arbiter model (fun viewState ->
       let hovered =
         match model.ActiveTab with
         | Some { Content = HexContent hexdump } ->
@@ -708,7 +728,8 @@ let private startLoadIfNeeded (arbiter: Arbiter<_, _>) tab model =
     loadCFGCmd arbiter model fn CFGKind.Disasm loadingTab
   | _ ->
     let tab = refreshCFGTabMinimap model tab
-    replaceTabReferences model tab, Elmish.Cmd.none
+    replaceTabReferences model tab |> syncStatusBarWithActiveTab arbiter,
+    Elmish.Cmd.none
 
 let openCFGTab (arbiter: Arbiter<_, _>) model fnItem =
   let visibleTabs = Model.getVisibleTabs model
@@ -735,7 +756,7 @@ let pinCFGTab (arbiter: Arbiter<_, _>) model fnItem =
         OpenTabs = newOpenTabs
         PreviewTab = preview }
 
-let closeTab model tabID =
+let closeTab arbiter model tabID =
   let openTabs = model.OpenTabs |> List.filter (fun t -> t.ID <> tabID)
   let preview = model.PreviewTab |> Option.filter (fun t -> t.ID <> tabID)
   let dragging = model.DraggingTab |> Option.filter (fun t -> t.ID <> tabID)
@@ -749,10 +770,11 @@ let closeTab model tabID =
       ActiveTab = active
       OpenTabs = openTabs
       PreviewTab = preview
-      DraggingTab = dragging },
+      DraggingTab = dragging }
+  |> syncStatusBarWithActiveTab arbiter,
   Elmish.Cmd.none
 
-let switchTab model tabID =
+let switchTab arbiter model tabID =
   let visibleTabs = Model.getVisibleTabs model
   match tryFindTab visibleTabs tabID with
   | Some tab ->
@@ -761,7 +783,8 @@ let switchTab model tabID =
         Tab.mapHexdumpState prepareHexdumpViewForActivation tab
       else
         refreshCFGTabMinimap model tab
-    replaceTabReferences { model with ActiveTab = Some tab } tab,
+    replaceTabReferences { model with ActiveTab = Some tab } tab
+    |> syncStatusBarWithActiveTab arbiter,
     Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
@@ -1060,13 +1083,13 @@ let setHoveredCFGEdge model edgeID =
   | None ->
     model, Elmish.Cmd.none
 
-let updateCFGViewportSize model width height =
+let updateCFGViewportSize arbiter model width height =
   if width <= 0.0 || height <= 0.0 then
     model, Elmish.Cmd.none
   else
     let currentWidth, currentHeight = model.ContentViewportSize
     let model = { model with ContentViewportSize = (width, height) }
-    let model = resizeOpenedHexdumpTab model width height
+    let model = resizeOpenedHexdumpTab arbiter model width height
     match model.ActiveTab with
     | Some tab ->
       let deltaX = width / 2.0 - currentWidth / 2.0
@@ -1123,7 +1146,7 @@ let updateCFG arbiter model msg =
   | SetHoveredEdge edgeID ->
     setHoveredCFGEdge model edgeID
   | UpdateViewportSize(width, height) ->
-    updateCFGViewportSize model width height
+    updateCFGViewportSize arbiter model width height
   | ChangeKind kind ->
     changeCFGKind arbiter model kind
   | ToggleMinimap(tabID, activate) ->
@@ -1133,12 +1156,4 @@ let updateStatusMsg model msg =
   { model with StatusBarState = MessageOnly msg }, Elmish.Cmd.none
 
 let updateStatusOffsetCtx model sOff eOff sections =
-  match model.StatusBarState with
-  | FileLoaded(path, fmt, _) ->
-    let range = { Start = sOff; End = eOff }
-    let sectionRange = buildSectionRange sections
-    let ctx = Some { Range = range; SectionRange = sectionRange }
-    { model with
-        StatusBarState = FileLoaded(path, fmt, ctx) }, Elmish.Cmd.none
-  | _ ->
-    model, Elmish.Cmd.none
+  setStatusOffsetCtx model sOff eOff sections, Elmish.Cmd.none

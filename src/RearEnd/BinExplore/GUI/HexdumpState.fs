@@ -106,3 +106,37 @@ module HexdumpState =
       AnnotationSpans = []
       HighlightSpans = []
       View = HexViewState.init numDigits }
+
+  let computeTotalRows docLength bytesPerRow =
+    if docLength <= 0L then 0
+    else int ((docLength + int64 bytesPerRow - 1L) / int64 bytesPerRow)
+
+  let computeViewportRowRange (viewState: HexViewState) totalRows =
+    if totalRows <= 0 then
+      0, 0
+    else
+      let rowHeight = max viewState.RowHeight 1.0
+      let startRow =
+        max 0 (int (floor (viewState.ScrollOffsetY / rowHeight)))
+      let endRowExclusive =
+        max (startRow + 1)
+          (int (ceil ((viewState.ScrollOffsetY + viewState.ViewportHeight)
+                      / rowHeight)))
+      startRow, min totalRows endRowExclusive
+
+  let tryGetVisibleByteRange state =
+    let docLength = state.Document.Length
+    if docLength <= 0L then
+      None
+    else
+      let bytesPerRow = max 1 state.View.BytesPerRow
+      let totalRows = computeTotalRows docLength bytesPerRow
+      let startRow, endRowExclusive =
+        computeViewportRowRange state.View totalRows
+      let startOffset = int64 startRow * int64 bytesPerRow
+      let endOffset =
+        min (docLength - 1L) (int64 endRowExclusive * int64 bytesPerRow - 1L)
+      if startOffset < 0L || endOffset < 0L || startOffset > endOffset then
+        None
+      else
+        Some(startOffset, endOffset)
