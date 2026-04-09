@@ -30,7 +30,6 @@ open B2R2
 /// active view instances.
 type HexdumpState =
   { Document: HexDocument
-    Caret: int64 option
     Selection: HexSelection option
     AnnotationSpans: HexSpanStyle list
     HighlightSpans: HexSpanStyle list
@@ -101,7 +100,6 @@ module HexDocument =
 module HexdumpState =
   let ofBytes baseAddress bytes numDigits =
     { Document = HexDocument.ofBytes baseAddress bytes
-      Caret = None
       Selection = None
       AnnotationSpans = []
       HighlightSpans = []

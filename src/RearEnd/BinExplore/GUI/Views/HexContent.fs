@@ -373,7 +373,6 @@ type private HexdumpInteractionCanvas() as this =
       | Some pendingByte, Some anchorByte, Some byteIndex
         when pendingByte = anchorByte && byteIndex = anchorByte ->
         this.DispatchHexdump(SetSelection None)
-        this.DispatchHexdump(SetCaret None)
       | Some _, _, _ ->
         ()
       | None, _, Some byteIndex ->

@@ -540,7 +540,6 @@ let private jumpHexdump model byteIndex length =
               NoScrollGuard }
     let nextHexdump =
       { hexdump with
-          Caret = Some byteIndex
           Selection = None
           HighlightSpans =
             [ { Start = byteIndex
@@ -634,10 +633,6 @@ let updateHexdump arbiter model msg =
             ScrollOffsetY = float scrollRow * rowHeight
             ScrollGuard = NoScrollGuard }
       { hexdump with View = view })
-  | SetCaret byteIndex ->
-    updateHexdumpState arbiter model (fun hexdump ->
-      let caret = byteIndex |> Option.bind (clampHexByteIndex hexdump)
-      { hexdump with Caret = caret })
   | SetSelection selection ->
     updateHexdumpState arbiter model (fun hexdump ->
       let selection =
@@ -653,7 +648,6 @@ let updateHexdump arbiter model msg =
       match clampHexByteIndex hexdump byteIndex with
       | Some byteIndex ->
         { hexdump with
-            Caret = Some byteIndex
             Selection = Some { Anchor = byteIndex; Caret = byteIndex }
             View = { hexdump.View with IsSelecting = true } }
       | None ->
@@ -665,11 +659,9 @@ let updateHexdump arbiter model msg =
             hexdump.Selection with
       | true, Some byteIndex, Some selection ->
         { hexdump with
-            Caret = Some byteIndex
             Selection = Some { selection with Caret = byteIndex } }
       | true, Some byteIndex, None ->
         { hexdump with
-            Caret = Some byteIndex
             Selection = Some { Anchor = byteIndex; Caret = byteIndex } }
       | _ ->
         hexdump)

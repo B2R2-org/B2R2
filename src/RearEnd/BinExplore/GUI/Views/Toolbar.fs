@@ -252,7 +252,6 @@ module private SearchBox = begin
     | Some { Content = HexContent _ } ->
       dispatch (HexdumpMsg(SetHighlightSpans []))
       dispatch (HexdumpMsg(SetSelection None))
-      dispatch (HexdumpMsg(SetCaret None))
     | _ ->
       ()
 

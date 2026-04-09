@@ -138,8 +138,6 @@ and HexdumpMessage =
   | SetShowAddress of showAddress: bool
   /// Sets whether the ASCII column is shown for a specific hexdump view.
   | SetShowAscii of showAscii: bool
-  /// Updates the currently focused byte index shared by every hexdump view.
-  | SetCaret of byteIndex: int64 option
   /// Replaces the shared hexdump selection.
   | SetSelection of HexSelection option
   /// Starts a new selection anchored at the given byte index.
