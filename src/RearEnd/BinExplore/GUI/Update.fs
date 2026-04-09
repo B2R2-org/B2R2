@@ -430,6 +430,14 @@ let private syncStatusBarWithActiveTab (arbiter: Arbiter<_, _>) model =
       setStatusOffsetCtx model sOff eOff sec
     | _ ->
       clearStatusRange model
+  | Some { Content = CFGContent(func, Loaded _) } ->
+    match API.getFile arbiter with
+    | Ok file ->
+      let struct (sOff, eOff) = FunctionItem.computeOffsetRange file func
+      let sec = findSectionRange file sOff eOff
+      setStatusOffsetCtx model sOff eOff sec
+    | _ ->
+      clearStatusRange model
   | _ ->
     clearStatusRange model
 
@@ -919,7 +927,7 @@ let private computeInitialCFGViewState cfgKind (cfg: VisGraph) model =
         GraphMaxX = maxX
         GraphMaxY = maxY }
 
-let loadCFGCompleted model tabID cfgKind cfg =
+let loadCFGCompleted arbiter model tabID cfgKind cfg =
   let visibleTabs = Model.getVisibleTabs model
   match tryFindTab visibleTabs tabID with
   | Some tab ->
@@ -930,7 +938,8 @@ let loadCFGCompleted model tabID cfgKind cfg =
         Minimap = createMinimapCache model viewState cfg
         RenderCache = CFGRenderCache.create cfg }
     let tab = mapCFGTabState (Loaded loaded) tab
-    replaceTabReferences model tab, Elmish.Cmd.none
+    replaceTabReferences model tab |> syncStatusBarWithActiveTab arbiter,
+    Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
@@ -1120,7 +1129,7 @@ let toggleMinimap model tabID activate =
 let updateCFG arbiter model msg =
   match msg with
   | LoadCompleted(tabID, cfgKind, cfg) ->
-    loadCFGCompleted model tabID cfgKind cfg
+    loadCFGCompleted arbiter model tabID cfgKind cfg
   | LoadFailed(tabID, reason) ->
     loadCFGFailed model tabID reason
   | SetZoom(delta, mouseX, mouseY) ->

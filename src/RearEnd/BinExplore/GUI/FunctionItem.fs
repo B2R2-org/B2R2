@@ -25,12 +25,16 @@
 namespace B2R2.RearEnd.BinExplore.GUI
 
 open B2R2
+open B2R2.FrontEnd.BinFile
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Represents a function entry in the UI.
 type FunctionItem =
-  { FuncID: string
+  { Function: Function
+    FuncID: string
     Address: Addr
+    mutable OffsetRange: (uint32 * uint32) option
     Name: string }
 
 [<RequireQualifiedAccess>]
@@ -38,8 +42,28 @@ module FunctionItem =
   let displayName (item: FunctionItem) =
     $"{item.Address:X}: {item.Name}"
 
+  let private computeMaxAddr (cfg: LowUIRCFG) =
+    cfg.Vertices
+    |> Array.fold (fun maxAddr v ->
+      if v.VData.Internals.IsAbstract then maxAddr
+      else max maxAddr v.VData.Internals.Range.Max
+    ) 0UL
+
+  let computeOffsetRange (file: IBinFile) (item: FunctionItem) =
+    match item.OffsetRange with
+    | Some(sOff, eOff) ->
+      struct (sOff, eOff)
+    | None ->
+      let ptr = file.GetBoundedPointer item.Address
+      let maxAddr = computeMaxAddr item.Function.CFG
+      let maxPtr = file.GetBoundedPointer maxAddr
+      item.OffsetRange <- Some(uint32 ptr.Offset, uint32 maxPtr.Offset)
+      struct (uint32 ptr.Offset, uint32 maxPtr.Offset)
+
   /// Converts from a Function into a FunctionItem for display in the UI.
   let ofFunction (func: Function) =
-    { FuncID = func.ID
+    { Function = func
+      FuncID = func.ID
       Address = func.EntryPoint
+      OffsetRange = None
       Name = func.Name }
