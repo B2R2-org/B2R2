@@ -94,6 +94,8 @@ type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
   interface IVisualizable with
     member _.BlockAddress with get() = blk.BlockAddress
 
+    member _.LineAddrRanges with get() = blk.LineAddrRanges
+
     member _.Visualize() = visualizableAsm
 
   interface IAddressable with

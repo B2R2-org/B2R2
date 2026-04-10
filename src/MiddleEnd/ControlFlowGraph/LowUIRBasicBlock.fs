@@ -152,6 +152,13 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
 
     member _.BlockAddress with get() = pp.Address
 
+    member _.LineAddrRanges with get() =
+      liftedInss
+      |> Array.map (fun liftedIns ->
+        let insAddr = liftedIns.Original.Address
+        let insEndAddr = insAddr + uint64 liftedIns.Original.Length - 1UL
+        AddrRange(insAddr, insEndAddr))
+
     member _.Visualize() =
       if Option.isNone funcAbs then
         liftedInss

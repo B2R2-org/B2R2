@@ -433,12 +433,12 @@ let private syncStatusBarWithActiveTab (arbiter: Arbiter<_, _>) model =
       clearStatusRange model
   | Some { Content = CFGContent(func, Loaded st) } ->
     match API.getFile arbiter, st.ViewState.SelectedToken with
-    | Ok file, Some token ->
-      let sOff = uint32 token.Range.Min
-      let eOff = uint32 token.Range.Max
+    | Ok file, Some { Range = Some range } ->
+      let sOff = uint32 range.Min
+      let eOff = uint32 range.Max
       let sec = findSectionRange file sOff eOff
       setStatusOffsetCtx model sOff eOff sec
-    | Ok file, None ->
+    | Ok file, _ ->
       let sOff = uint32 func.OffsetRange.Value.Min
       let eOff = uint32 func.OffsetRange.Value.Max
       let sec = findSectionRange file sOff eOff
@@ -629,10 +629,10 @@ let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) model =
   match hasOpenedHexdump, model.ActiveTab with
   | true, Some { Content = CFGContent(fn, Loaded st) } ->
     match st.ViewState.SelectedToken with
-    | Some token ->
-      let model = setHexdumpSelectionFromAddrRange arbiter model token.Range
-      jumpHexdumpToAddress arbiter model token.Range.Min
-    | None ->
+    | Some { Range = Some range } ->
+      let model = setHexdumpSelectionFromAddrRange arbiter model range
+      jumpHexdumpToAddress arbiter model range.Min
+    | _ ->
       let model = setHexdumpSelection arbiter model None
       jumpHexdumpToAddress arbiter model fn.OffsetRange.Value.Min
   | _ ->
@@ -1147,10 +1147,13 @@ let selectCFGToken arbiter model selectedToken =
     let update viewState =
       { viewState with SelectedToken = Some selectedToken }
     let tab = updateCFGViewState tab update
-    let range = selectedToken.Range
-    let model = replaceTabReferences model tab
-    let model = setHexdumpSelectionFromAddrRange arbiter model range
-    jumpHexdumpToAddress arbiter model range.Min, Elmish.Cmd.none
+    match selectedToken.Range with
+    | Some range ->
+      let model = replaceTabReferences model tab
+      let model = setHexdumpSelectionFromAddrRange arbiter model range
+      jumpHexdumpToAddress arbiter model range.Min, Elmish.Cmd.none
+    | None ->
+      replaceTabReferences model tab, Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 

@@ -71,7 +71,7 @@ and SelectedToken =
   { NodeID: int
     LineIndex: int
     WordIndex: int
-    Range: AddrRange }
+    Range: AddrRange option }
 
 [<RequireQualifiedAccess>]
 module CFGViewState =

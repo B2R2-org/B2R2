@@ -52,6 +52,13 @@ type DisasmBasicBlock(disasmBuilder: IDisasmBuilder,
 
     member _.BlockAddress with get() = ppoint.Address
 
+    member _.LineAddrRanges with get() =
+      instrs
+      |> Array.map (fun ins ->
+        let insAddr = ins.Address
+        let insEndAddr = insAddr + uint64 ins.Length - 1UL
+        AddrRange(insAddr, insEndAddr))
+
     member _.Visualize() =
       instrs
       |> Array.map (fun ins -> ins.Decompose disasmBuilder)

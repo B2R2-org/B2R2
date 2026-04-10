@@ -303,13 +303,15 @@ let private disasmView model dispatch selected nodeID zoom n =
   let lines =
     if model.Theme.Font.Monospace.FontSize * zoom < 6.0 then [||]
     else ((n: IVertex<_>).VData :> IVisualizable).Visualize()
-  let range = (n.VData :> IAddressable).Range
+  let ranges = (n.VData :> IVisualizable).LineAddrRanges
   StackPanel.create [
     StackPanel.orientation Orientation.Vertical
     StackPanel.horizontalAlignment HorizontalAlignment.Left
     StackPanel.verticalAlignment VerticalAlignment.Top
     StackPanel.children [
       for lineIdx, words in Array.indexed lines do
+        let range =
+          if lineIdx < ranges.Length then Some ranges[lineIdx] else None
         disasmLineView model dispatch selected nodeID lineIdx words range
     ]
   ]

@@ -87,6 +87,9 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
 
     member _.BlockAddress with get() = ppoint.Address
 
+    member _.LineAddrRanges with get() =
+      [| AddrRange(ppoint.Address, ppoint.Address) |]
+
     member _.PrependPhi(varKind, count) =
       let var = { Kind = varKind; Identifier = -1 }
       let pp = ProgramPoint.GetFake()
