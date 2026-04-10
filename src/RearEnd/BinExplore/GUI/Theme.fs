@@ -161,16 +161,16 @@ module Theme =
           ReturnEdge = "#FF79C6"
           HoveredEdge = "#55CCFF" }
       Hex =
-        { CodeArea = "#2F82F7"
-          LinkageArea = "#C066FF"
-          ReadOnlyDataArea = "#3FBB44"
-          WritableDataArea = "#22AA99"
-          ExceptionArea = "#FFBB44"
-          MetadataArea = "#778888" }
+        { CodeArea = "#001155"
+          LinkageArea = "#770055"
+          ReadOnlyDataArea = "#338822"
+          WritableDataArea = "#117777"
+          ExceptionArea = "#997711"
+          MetadataArea = "#555555" }
       Common = { Transparent = "Transparent" }
       Search =
         { Background = "#080C12"
-          SelectedBackground = "#0E639C"
+          SelectedBackground = "#3366AA"
           Foreground = "#FFFFFF"
           ClearForeground = "#E05A5A" } }
 
