@@ -65,6 +65,8 @@ type CFGViewState =
     /// The ID of the currently hovered node, if any.
     HoveredEdge: int option }
 
+/// Represents a selected token in the disassembly view, including its position
+/// and the corresponding address range.
 and SelectedToken =
   { NodeID: int
     LineIndex: int

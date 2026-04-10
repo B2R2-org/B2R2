@@ -102,7 +102,7 @@ and CFGMessage =
   | JumpPan of gx: float * gy: float
   /// Message to select a disassembly token in the CFG, carrying node, line, and
   /// word indices.
-  | SelectToken of nodeID: int * lineIdx: int * wordIdx: int * range: AddrRange
+  | SelectToken of token: SelectedToken
   /// Message to set the currently hovered edge in the CFG, carrying the edge
   /// ID or None if edge is not hovered anymore.
   | SetHoveredEdge of edgeID: int option

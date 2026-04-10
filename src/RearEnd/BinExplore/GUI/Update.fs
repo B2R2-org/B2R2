@@ -30,6 +30,7 @@ open Avalonia.Controls
 open Avalonia.Media
 open Avalonia.Styling
 open Avalonia.Threading
+open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.RearEnd.BinExplore
@@ -457,15 +458,14 @@ let private updateHexdumpState arbiter model update =
         let view = clampHexScrollState state state.View
         { state with View = view }
     let tab = Tab.mapHexdumpState (fun _ -> hexdump) tab
-    replaceTabReferences model tab |> syncStatusBarWithActiveTab arbiter,
-    Elmish.Cmd.none
+    replaceTabReferences model tab |> syncStatusBarWithActiveTab arbiter
   | _ ->
-    model, Elmish.Cmd.none
+    model
 
 let private updateHexViewState arbiter model updateView =
   updateHexdumpState arbiter model (fun hexdump ->
     let view = updateView hexdump.View
-    { hexdump with View = view })
+    { hexdump with View = view }), Elmish.Cmd.none
 
 let private getActiveHexScrollGuard model =
   match model.ActiveTab with
@@ -497,7 +497,7 @@ let private recomputeHexViewLayout arbiter model updateView =
       { nextView with
           ScrollRow = nextScrollRow
           ScrollOffsetY = float nextScrollRow * nextView.RowHeight }
-    { hexdump with View = view })
+    { hexdump with View = view }), Elmish.Cmd.none
 
 let private resizeOpenedHexdumpTab arbiter model width height =
   let hasOpenedHexdumpTab =
@@ -514,7 +514,6 @@ let private resizeOpenedHexdumpTab arbiter model width height =
             RowHeight = rowHeight }
       let view = { nextView with BytesPerRow = computeHexBytesPerRow nextView }
       { hexdump with View = view })
-    |> fst
   else
     model
 
@@ -551,7 +550,6 @@ let private computeJumpedHexdump theme hexdump byteIndex length =
           else
             NoScrollGuard }
   { hexdump with
-      Selection = None
       HighlightSpans =
         [ { Start = byteIndex
             Length = highlightLength
@@ -591,7 +589,38 @@ let private jumpHexdumpToAddress (arbiter: Arbiter<_, _>) model addr =
       computeJumpedHexdump model.Theme hexdump (int64 ptr.Offset) 1L
       |> fun (nextHexdump, _, _) -> nextHexdump)
   | _ ->
-    model, Elmish.Cmd.none
+    model
+
+let private clampHexByteIndex hexdump byteIndex =
+  if hexdump.Document.Length <= 0L then None
+  else Some(max 0L (min (hexdump.Document.Length - 1L) byteIndex))
+
+let private clampHexSelection hexdump selection =
+  selection
+  |> Option.bind (fun sel ->
+    match clampHexByteIndex hexdump sel.Anchor,
+          clampHexByteIndex hexdump sel.Caret with
+    | Some anchor, Some caret -> Some { Anchor = anchor; Caret = caret }
+    | _ -> None)
+
+let private setHexdumpSelection arbiter model selection =
+  updateHexdumpState arbiter model (fun hexdump ->
+    { hexdump with Selection = clampHexSelection hexdump selection })
+
+let private setHexdumpSelectionFromAddrRange arbiter model (range: AddrRange) =
+  match API.getFile arbiter with
+  | Ok file when file.IsValidAddr range.Min ->
+    let startPtr = file.GetBoundedPointer range.Min
+    let endPtr =
+      if file.IsValidAddr range.Max then file.GetBoundedPointer range.Max
+      else startPtr
+    let selection =
+      Some
+        { Anchor = int64 startPtr.Offset
+          Caret = max (int64 startPtr.Offset) (int64 endPtr.Offset) }
+    setHexdumpSelection arbiter model selection
+  | _ ->
+    model
 
 let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) model =
   let visibleTabs = Model.getVisibleTabs model
@@ -600,24 +629,25 @@ let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) model =
   match hasOpenedHexdump, model.ActiveTab with
   | true, Some { Content = CFGContent(fn, Loaded st) } ->
     match st.ViewState.SelectedToken with
-    | Some token -> jumpHexdumpToAddress arbiter model token.Range.Min
-    | None -> jumpHexdumpToAddress arbiter model fn.OffsetRange.Value.Min
+    | Some token ->
+      let model = setHexdumpSelectionFromAddrRange arbiter model token.Range
+      jumpHexdumpToAddress arbiter model token.Range.Min
+    | None ->
+      let model = setHexdumpSelection arbiter model None
+      jumpHexdumpToAddress arbiter model fn.OffsetRange.Value.Min
   | _ ->
-    model, Elmish.Cmd.none
+    model
 
 let private trySyncHexdumpWithActiveCFG (arbiter: Arbiter<_, _>) model =
   if model.HexSyncEnabled then syncHexdumpwithActiveCFG arbiter model
-  else model, Elmish.Cmd.none
-
-let private clampHexByteIndex hexdump byteIndex =
-  if hexdump.Document.Length <= 0L then None
-  else Some(max 0L (min (hexdump.Document.Length - 1L) byteIndex))
+  else model
 
 let updateHexdump arbiter model msg =
   match msg with
   | SetHighlightSpans spans ->
     updateHexdumpState arbiter model (fun hexdump ->
-      { hexdump with HighlightSpans = spans })
+      { hexdump with HighlightSpans = spans }),
+    Elmish.Cmd.none
   | UpdateViewport(width, height) when width > 0.0 && height > 0.0 ->
     recomputeHexViewLayout arbiter model (fun viewState ->
       { viewState with ViewportWidth = width; ViewportHeight = height })
@@ -634,6 +664,7 @@ let updateHexdump arbiter model msg =
           ScrollRow = nextScrollRow
           ScrollOffsetY = float nextScrollRow * nextView.RowHeight })
   | JumpToRange(byteIndex, length) ->
+    let model = setHexdumpSelection arbiter model None
     jumpHexdump model byteIndex length
   | HandleScrollChanged(offsetY, deltaY) ->
     let currentGuard = getActiveHexScrollGuard model
@@ -645,18 +676,19 @@ let updateHexdump arbiter model msg =
         model, Elmish.Cmd.none
       | IgnoreNextProgrammatic _ ->
         updateHexdumpState arbiter model (fun hexdump ->
-          syncHexScrollOffset hexdump offsetY NoScrollGuard)
+          syncHexScrollOffset hexdump offsetY NoScrollGuard), Elmish.Cmd.none
       | IgnoreNextEcho _ when abs deltaY <= 0.0 ->
         model, Elmish.Cmd.none
       | IgnoreNextEcho _ ->
         updateHexdumpState arbiter model (fun hexdump ->
-          syncHexScrollOffset hexdump offsetY NoScrollGuard)
+          syncHexScrollOffset hexdump offsetY NoScrollGuard), Elmish.Cmd.none
       | _ ->
         updateHexdumpState arbiter model (fun hexdump ->
-          syncHexScrollOffset hexdump offsetY NoScrollGuard)
+          syncHexScrollOffset hexdump offsetY NoScrollGuard), Elmish.Cmd.none
   | SetScrollOffset(offsetY) ->
     updateHexdumpState arbiter model (fun hexdump ->
-      syncHexScrollOffset hexdump offsetY hexdump.View.ScrollGuard)
+      syncHexScrollOffset hexdump offsetY hexdump.View.ScrollGuard),
+    Elmish.Cmd.none
   | SetScrollRow(row) ->
     updateHexdumpState arbiter model (fun hexdump ->
       let viewState = hexdump.View
@@ -666,7 +698,7 @@ let updateHexdump arbiter model msg =
             ScrollRow = row
             ScrollOffsetY = float row * rowHeight
             ScrollGuard = NoScrollGuard }
-      { hexdump with View = view })
+      { hexdump with View = view }), Elmish.Cmd.none
   | ScrollRows(delta) ->
     updateHexdumpState arbiter model (fun hexdump ->
       let viewState = hexdump.View
@@ -677,17 +709,9 @@ let updateHexdump arbiter model msg =
             ScrollRow = scrollRow
             ScrollOffsetY = float scrollRow * rowHeight
             ScrollGuard = NoScrollGuard }
-      { hexdump with View = view })
+      { hexdump with View = view }), Elmish.Cmd.none
   | SetSelection selection ->
-    updateHexdumpState arbiter model (fun hexdump ->
-      let selection =
-        selection
-        |> Option.bind (fun sel ->
-          match clampHexByteIndex hexdump sel.Anchor,
-                clampHexByteIndex hexdump sel.Caret with
-          | Some anchor, Some caret -> Some { Anchor = anchor; Caret = caret }
-          | _ -> None)
-      { hexdump with Selection = selection })
+    setHexdumpSelection arbiter model selection, Elmish.Cmd.none
   | StartSelection byteIndex ->
     updateHexdumpState arbiter model (fun hexdump ->
       match clampHexByteIndex hexdump byteIndex with
@@ -696,7 +720,7 @@ let updateHexdump arbiter model msg =
             Selection = Some { Anchor = byteIndex; Caret = byteIndex }
             View = { hexdump.View with IsSelecting = true } }
       | None ->
-        hexdump)
+        hexdump), Elmish.Cmd.none
   | UpdateSelection byteIndex ->
     updateHexdumpState arbiter model (fun hexdump ->
       match hexdump.View.IsSelecting,
@@ -709,10 +733,11 @@ let updateHexdump arbiter model msg =
         { hexdump with
             Selection = Some { Anchor = byteIndex; Caret = byteIndex } }
       | _ ->
-        hexdump)
+        hexdump), Elmish.Cmd.none
   | EndSelection ->
     updateHexdumpState arbiter model (fun hexdump ->
-      { hexdump with View = { hexdump.View with IsSelecting = false } })
+      { hexdump with View = { hexdump.View with IsSelecting = false } }),
+    Elmish.Cmd.none
   | SetHoveredByte byteIndex ->
     updateHexViewState arbiter model (fun viewState ->
       let hovered =
@@ -775,16 +800,16 @@ let openCFGTab (arbiter: Arbiter<_, _>) model fnItem =
   | Some tab ->
     startLoadIfNeeded arbiter tab { model with ActiveTab = Some tab }
     |> fun (nextModel, cmd) ->
-      let syncedModel, syncCmd = trySyncHexdumpWithActiveCFG arbiter nextModel
-      syncedModel, Elmish.Cmd.batch [ cmd; syncCmd ]
+      let syncedModel = trySyncHexdumpWithActiveCFG arbiter nextModel
+      syncedModel, cmd
   | None ->
     startLoadIfNeeded arbiter tab
       { model with
           ActiveTab = Some tab
           PreviewTab = Some tab }
     |> fun (nextModel, cmd) ->
-      let syncedModel, syncCmd = trySyncHexdumpWithActiveCFG arbiter nextModel
-      syncedModel, Elmish.Cmd.batch [ cmd; syncCmd ]
+      let syncedModel = trySyncHexdumpWithActiveCFG arbiter nextModel
+      syncedModel, cmd
 
 let pinCFGTab (arbiter: Arbiter<_, _>) model fnItem =
   let tab = Tab.ofFunctionItem fnItem
@@ -799,8 +824,8 @@ let pinCFGTab (arbiter: Arbiter<_, _>) model fnItem =
         OpenTabs = newOpenTabs
         PreviewTab = preview }
   |> fun (nextModel, cmd) ->
-    let syncedModel, syncCmd = trySyncHexdumpWithActiveCFG arbiter nextModel
-    syncedModel, Elmish.Cmd.batch [ cmd; syncCmd ]
+    let syncedModel = trySyncHexdumpWithActiveCFG arbiter nextModel
+    syncedModel, cmd
 
 let closeTab arbiter model tabID =
   let openTabs = model.OpenTabs |> List.filter (fun t -> t.ID <> tabID)
@@ -831,13 +856,14 @@ let switchTab arbiter model tabID =
         refreshCFGTabMinimap model tab
     replaceTabReferences { model with ActiveTab = Some tab } tab
     |> syncStatusBarWithActiveTab arbiter
-    |> trySyncHexdumpWithActiveCFG arbiter
+    |> trySyncHexdumpWithActiveCFG arbiter,
+    Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
 let setHexSyncEnabled (arbiter: Arbiter<_, _>) model enabled =
   let model = { model with HexSyncEnabled = enabled }
-  if enabled then trySyncHexdumpWithActiveCFG arbiter model
+  if enabled then trySyncHexdumpWithActiveCFG arbiter model, Elmish.Cmd.none
   else model, Elmish.Cmd.none
 
 let startTabDrag model tabID =
@@ -1115,19 +1141,16 @@ let jumpCFGPan model gx gy =
   | None ->
     model, Elmish.Cmd.none
 
-let selectCFGToken arbiter model nodeID lineIdx wordIdx range =
+let selectCFGToken arbiter model selectedToken =
   match model.ActiveTab with
   | Some tab ->
     let update viewState =
-      let selectedToken =
-        { NodeID = nodeID
-          LineIndex = lineIdx
-          WordIndex = wordIdx
-          Range = range }
       { viewState with SelectedToken = Some selectedToken }
     let tab = updateCFGViewState tab update
+    let range = selectedToken.Range
     let model = replaceTabReferences model tab
-    jumpHexdumpToAddress arbiter model range.Min
+    let model = setHexdumpSelectionFromAddrRange arbiter model range
+    jumpHexdumpToAddress arbiter model range.Min, Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
@@ -1199,8 +1222,8 @@ let updateCFG arbiter model msg =
     endCFGPan model
   | JumpPan(gx, gy) ->
     jumpCFGPan model gx gy
-  | SelectToken(nodeID, lineIdx, wordIdx, range) ->
-    selectCFGToken arbiter model nodeID lineIdx wordIdx range
+  | SelectToken token ->
+    selectCFGToken arbiter model token
   | SetHoveredEdge edgeID ->
     setHoveredCFGEdge model edgeID
   | UpdateViewportSize(width, height) ->

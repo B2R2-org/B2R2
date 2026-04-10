@@ -279,7 +279,12 @@ let private tokenView model dispatch selected nID lineIdx wordIdx word range =
       )
       Border.cornerRadius 2.0
       Control.onTapped (fun e ->
-        dispatch (CFGMsg(SelectToken(nID, lineIdx, wordIdx, range)))
+        let token =
+          { NodeID = nID
+            LineIndex = lineIdx
+            WordIndex = wordIdx
+            Range = range }
+        dispatch (CFGMsg(SelectToken token))
         e.Handled <- true
       )
       Border.child (tokenTextView model word)
