@@ -141,8 +141,8 @@ let private listItemTemplate model dispatch =
 
 let private onSelectedItemChanged dispatch (item: obj) =
   if not (isNull item) then
-    let fn = item :?> FunctionItem
-    dispatch (OpenCFGTab fn)
+    let func = item :?> FunctionItem
+    dispatch (OpenCFGTab func)
   else
     ()
 
@@ -165,7 +165,7 @@ let private listBoxView model dispatch =
     | Builtin Light -> "builtin-light"
     | Custom(ThemeId themeId) -> $"custom-{themeId}"
   let selectedFunction =
-    match model.ActiveTab with
+    match Model.tryGetFocusedActiveTab model with
     | Some { Content = CFGContent(func, _) } ->
       if List.contains func filteredFunctions then box func
       else null

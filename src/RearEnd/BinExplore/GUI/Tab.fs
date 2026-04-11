@@ -24,9 +24,6 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
-open B2R2
-open B2R2.RearEnd.Visualization
-
 /// Represents a tab in the UI.
 type Tab =
   { /// The unique identifier of the tab.

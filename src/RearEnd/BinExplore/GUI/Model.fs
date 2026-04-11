@@ -36,20 +36,18 @@ type Model =
     FunctionFilter: string
     /// List of sections extracted from the loaded binary.
     Sections: SectionItem list
-    /// Currently active (selected) tab.
-    ActiveTab: Tab option
-    /// List of currently open tabs in the main view, excluding the preview tab.
-    OpenTabs: Tab list
-    /// Currently open preview tab, if any.
-    PreviewTab: Tab option
+    /// Root of the editor pane tree.
+    RootPane: Pane
+    /// Currently focused leaf pane.
+    FocusedPaneID: PaneID option
+    /// Tab currently being dragged across panes/tabs, if any.
+    DraggingTab: TabDragState option
     /// Registered custom themes.
     CustomThemes: Map<ThemeId, Theme>
     /// Current theme mode.
     ThemeMode: ThemeMode
     /// Current UI theme.
     Theme: Theme
-    /// Tab currently being dragged for reordering, if any.
-    DraggingTab: Tab option
     /// Selected panel shown in the middle workspace column.
     WorkspacePanel: WorkspacePanel
     /// Flag indicating whether the user is currently panning in the CFG view.
@@ -58,16 +56,85 @@ type Model =
     CFGPressedPointer: (float * float) option
     /// Last pointer position used for CFG panning.
     CFGPanPointer: (float * float) option
-    /// Width and height of the active content viewport.
-    ContentViewportSize: float * float
     /// Flag indicating whether the hex view is synchronized with the CFG view.
     HexSyncEnabled: bool
     /// Status bar information.
     StatusBarState: StatusBarState }
 
+and TabDragState =
+  { SourcePaneID: PaneID
+    Tab: Tab }
+
 module Model =
+  let rec tryFindFirstLeaf = function
+    | Leaf(paneID, paneState) -> Some(paneID, paneState)
+    | Split(_, _, first, second) ->
+      match tryFindFirstLeaf first with
+      | Some _ as found -> found
+      | None -> tryFindFirstLeaf second
+
+  let getDefaultPaneID model =
+    match tryFindFirstLeaf model.RootPane with
+    | Some(paneID, _) -> paneID
+    | None -> model.RootPane.ID
+
+  let getFocusedPaneID model =
+    match model.FocusedPaneID with
+    | Some paneID -> paneID
+    | None -> getDefaultPaneID model
+
+  let tryGetFocusedPane model =
+    match model.FocusedPaneID with
+    | Some paneID -> Pane.tryFindLeaf paneID model.RootPane
+    | None -> None
+
+  let getFocusedPaneOrDefault model =
+    match tryGetFocusedPane model with
+    | Some pane -> pane
+    | None ->
+      match tryFindFirstLeaf model.RootPane with
+      | Some(_, pane) -> pane
+      | None -> failwith "No leaf pane exists in the model."
+
+  let tryGetFocusedActiveTab model =
+    tryGetFocusedPane model
+    |> Option.bind (fun pane -> pane.ActiveTab)
+
+  let rec private mapPaneState paneID fn = function
+    | Leaf(id, paneState) when id = paneID -> Leaf(id, fn paneState)
+    | Leaf _ as leaf -> leaf
+    | Split(id, axis, fst, snd) ->
+      Split(id, axis, mapPaneState paneID fn fst, mapPaneState paneID fn snd)
+
+  let mapPaneByID paneID fn model =
+    { model with RootPane = mapPaneState paneID fn model.RootPane }
+
+  let mapFocusedPane fn model =
+    let paneID = getFocusedPaneID model
+    mapPaneByID paneID fn { model with FocusedPaneID = Some paneID }
+
+  let getVisibleTabsFromPane pane =
+    match pane.PreviewTab with
+    | Some preview -> preview :: pane.OpenTabs
+    | None -> pane.OpenTabs
+
   /// Returns all tabs to be displayed, including the preview tab if present.
   let getVisibleTabs model =
-    match model.PreviewTab with
-    | Some preview -> preview :: model.OpenTabs
-    | _ -> model.OpenTabs
+    match tryGetFocusedPane model with
+    | Some pane ->
+      getVisibleTabsFromPane pane
+    | None ->
+      []
+
+type Model with
+  member this.ActiveTab =
+    (Model.getFocusedPaneOrDefault this).ActiveTab
+
+  member this.OpenTabs =
+    (Model.getFocusedPaneOrDefault this).OpenTabs
+
+  member this.PreviewTab =
+    (Model.getFocusedPaneOrDefault this).PreviewTab
+
+  member this.ContentViewportSize =
+    (Model.getFocusedPaneOrDefault this).ContentViewportSize

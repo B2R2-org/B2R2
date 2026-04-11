@@ -24,7 +24,6 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
-open B2R2
 open B2R2.RearEnd.Visualization
 open B2R2.RearEnd.BinExplore
 
@@ -38,6 +37,8 @@ type Message =
   | OpenBinaryFailed of path: string * reason: string
   /// Message to close the current workspace.
   | CloseWorkspace
+  /// Message to focus a specific pane by its ID.
+  | FocusPane of paneID: PaneID
   /// Message to open a new tab for a specific function.
   | OpenCFGTab of fn: FunctionItem
   /// Message to open the shared hexdump in a tab, or activate it if already
@@ -46,15 +47,32 @@ type Message =
   /// Message to pin a tab, making it persist.
   | PinCFGTab of fn: FunctionItem
   /// Message to close a specific tab.
-  | CloseTab of tabID: string
+  | CloseTab of paneID: PaneID * tabID: string
   /// Message to switch to a specific tab, making it active.
-  | SwitchTab of tabID: string
+  | SwitchTab of paneID: PaneID * tabID: string
   /// Message to start dragging a tab for reordering.
-  | StartTabDrag of tabID: string
+  | StartTabDrag of paneID: PaneID * tabID: string
   /// Message to reorder tabs using explicit dragged/target tab names.
-  | ReorderTab of draggedTabID: string * targetTabID: string
+  | ReorderTab of paneID: PaneID * draggedTabID: string * targetTabID: string
+  /// Message to move a tab from a source pane to a target pane.
+  | MoveTabToPane of sourcePaneID: PaneID * targetPaneID: PaneID * tabID: string
+  /// Message to move a tab relative to another tab. This may involve creating a
+  /// new pane if there is no existing pane that can accommodate the new tab in
+  /// the desired position.
+  | MoveTabRelative of placement: PanePlacement * tabID: string
   /// Message to end dragging of a tab.
   | EndTabDrag
+  /// Message to update the size of the viewport, carrying the new width and
+  /// height.
+  | UpdateViewportSize of paneID: PaneID * width: float * height: float
+  /// Message to route CFG loading completion/failure updates to the active CFG
+  /// tab.
+  | CFGLoadMsg of CFGLoadMessage
+  /// Message to route CFG view updates (e.g., zoom, pan, token selection) to
+  /// the current active CFG tab.
+  | CFGPaneMsg of CFGPaneMessage
+  /// Message to route hexdump-specific updates to the shared hexdump state.
+  | HexdumpPaneMsg of HexdumpPaneMessage
   /// Message to register a custom theme.
   | RegisterCustomTheme of ThemeId * Theme
   /// Message to set the current UI theme mode.
@@ -65,10 +83,6 @@ type Message =
   | SelectWorkspacePanel of WorkspacePanel
   /// Message to enable or disable CFG-to-hexdump synchronization.
   | SetHexSyncEnabled of bool
-  /// Message to route CFG-specific updates to the active CFG state.
-  | CFGMsg of CFGMessage
-  /// Message to route hexdump-specific updates to the shared hexdump state.
-  | HexdumpMsg of HexdumpMessage
   /// Message to update the status message in the status bar.
   | UpdateStatusMsg of string
   /// Message to update the file offset context (range and section) shown in the
@@ -77,16 +91,27 @@ type Message =
   /// Message to exit the application.
   | ExitApplication
 
+/// Represents the target location for dropping a tab during drag-and-drop
+/// operations.
+and TabDropTarget =
+  | OnPane of paneID: PaneID
+  | BeforeTab of paneID: PaneID * tabID: string
+
 and CFGPanSpace =
   | ViewportSpace
   | MinimapSpace of minimapScale: float
 
-/// Represents messages that affect the active CFG view or CFG loading state.
-and CFGMessage =
+/// Represents messages related to CFG loading results, carrying necessary
+/// information to update the corresponding CFG tab state.
+and CFGLoadMessage =
   /// Message emitted when CFG loading has completed.
   | LoadCompleted of tabID: string * CFGKind * cfg: VisGraph
   /// Message emitted when CFG loading failed.
   | LoadFailed of tabID: string * reason: string
+
+/// Represents messages related to user interactions in the current active CFG
+/// tab.
+and CFGPaneMessage =
   /// Message to update CFG zoom factor, carrying the zoom delta and the mouse
   /// position.
   | SetZoom of delta: float * x: float * y: float
@@ -106,9 +131,6 @@ and CFGMessage =
   /// Message to set the currently hovered edge in the CFG, carrying the edge
   /// ID or None if edge is not hovered anymore.
   | SetHoveredEdge of edgeID: int option
-  /// Message to update the size of the CFG viewport, carrying the new width and
-  /// height.
-  | UpdateViewportSize of width: float * height: float
   /// Message to update the kind of CFG being displayed (e.g., Disassembly, IR,
   /// SSA, Call).
   | ChangeKind of CFGKind
@@ -116,13 +138,10 @@ and CFGMessage =
   /// ID and the desired activation state.
   | ToggleMinimap of tabID: string * activate: bool
 
-/// Represents messages that affect the shared hexdump document or one of its
-/// active views.
-and HexdumpMessage =
+/// Represents messages that affect the active hexdump tab.
+and HexdumpPaneMessage =
   /// Replaces the current hexdump highlight spans.
   | SetHighlightSpans of HexSpanStyle list
-  /// Updates the viewport size of a specific hexdump view.
-  | UpdateViewport of width: float * height: float
   /// Updates the measured font metrics of a specific hexdump view.
   | UpdateFontMetrics of charWidth: float * rowHeight: float
   /// Jumps the hexdump view to a specific byte range.

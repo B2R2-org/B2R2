@@ -119,23 +119,21 @@ let private leftPanelView model dispatch =
   | HexOverviewPanel -> HexOverview.view model dispatch
   | SectionPanel -> SectionList.view model dispatch
 
-let private onContentSizeChanged model dispatch (e: SizeChangedEventArgs) =
+let private isFocusedPane model paneID =
+  model.FocusedPaneID = Some paneID
+
+let private onContentSizeChanged paneID dispatch (e: SizeChangedEventArgs) =
   let w, h = e.NewSize.Width, e.NewSize.Height
-  dispatch (CFGMsg(UpdateViewportSize(w, h)))
-  match model.ActiveTab with
-  | Some { Content = HexContent _ } ->
-    dispatch (HexdumpMsg(UpdateViewport(w, h)))
-  | _ ->
-    ()
+  dispatch (UpdateViewportSize(paneID, w, h))
 
 let [<Literal>] private MinSidePanelWidth = 190.0
 
-let private tabContentView model dispatch =
-  match model.ActiveTab with
+let private tabContentView pane model dispatch =
+  match pane.ActiveTab with
   | Some { Content = CFGContent _ } ->
-    CFGContent.view model dispatch
+    CFGContent.view pane model dispatch
   | Some { Content = HexContent _ } ->
-    HexContent.view model dispatch
+    HexContent.view pane model dispatch
   | Some { Content = SectionContent } ->
     Border.create [
       Border.background model.Theme.Window.Background
@@ -150,7 +148,65 @@ let private tabContentView model dispatch =
       )
     ]
   | None ->
-    CFGContent.view model dispatch
+    CFGContent.view pane model dispatch
+
+let rec private paneView pane model dispatch =
+  match pane with
+  | Leaf(paneID, paneState) ->
+    Border.create [
+      Border.borderThickness 1.0
+      Border.borderBrush (
+        if isFocusedPane model paneID then model.Theme.Panel.Border
+        else model.Theme.Common.Transparent
+      )
+      Control.onPointerPressed (fun _ -> dispatch (FocusPane paneID))
+      Border.child (
+        DockPanel.create [
+          DockPanel.children [
+            WorkspaceTabs.view paneID model dispatch
+            Border.create [
+              Border.padding 0.0
+              Border.margin 0.0
+              Border.borderThickness 0.0
+              Control.onSizeChanged (onContentSizeChanged paneID dispatch)
+              Border.child (tabContentView paneState model dispatch)
+            ]
+          ]
+        ]
+      )
+    ] :> IView
+  | Split(_, LeftRight, first, second) ->
+    Grid.create [
+      Grid.columnDefinitions (ColumnDefinitions.Parse "*,5,*")
+      Grid.children [
+        paneView first model dispatch
+        GridSplitter.create [
+          GridSplitter.column 1
+          GridSplitter.background model.Theme.Panel.Border
+          GridSplitter.resizeDirection GridResizeDirection.Columns
+        ]
+        Border.create [
+          Grid.column 2
+          Border.child (paneView second model dispatch)
+        ]
+      ]
+    ] :> IView
+  | Split(_, TopBottom, first, second) ->
+    Grid.create [
+      Grid.rowDefinitions (RowDefinitions.Parse "*,5,*")
+      Grid.children [
+        paneView first model dispatch
+        GridSplitter.create [
+          GridSplitter.row 1
+          GridSplitter.background model.Theme.Panel.Border
+          GridSplitter.resizeDirection GridResizeDirection.Rows
+        ]
+        Border.create [
+          Grid.row 2
+          Border.child (paneView second model dispatch)
+        ]
+      ]
+    ] :> IView
 
 let private workspaceView model dispatch =
   let columnDefs = ColumnDefinitions.Parse "52,250,5,*"
@@ -174,14 +230,7 @@ let private workspaceView model dispatch =
         Grid.column 3
         DockPanel.children [
           Toolbar.view model dispatch
-          WorkspaceTabs.view model dispatch
-          Border.create [
-            Border.padding 0.0
-            Border.margin 0.0
-            Border.borderThickness 0.0
-            Control.onSizeChanged (onContentSizeChanged model dispatch)
-            Border.child (tabContentView model dispatch)
-          ]
+          paneView model.RootPane model dispatch
         ]
       ]
     ]

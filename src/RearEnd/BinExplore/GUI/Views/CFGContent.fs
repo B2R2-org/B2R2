@@ -41,7 +41,13 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.RearEnd.Visualization
 
-let mutable private graphCanvas: Canvas option = None
+type private GraphCanvas() =
+  inherit Canvas()
+
+[<RequireQualifiedAccess>]
+module private GraphCanvas =
+  let create (attrs: IAttr<GraphCanvas> list) =
+    View.createGeneric<GraphCanvas> attrs
 
 let private unloadedView model text =
   Border.create [
@@ -166,8 +172,17 @@ let private distSquared x1 y1 x2 y2 =
   let dy = y1 - y2
   dx * dx + dy * dy
 
+let rec private tryFindGraphCanvas (source: obj) =
+  match source with
+  | :? GraphCanvas as canvas ->
+    Some canvas
+  | :? StyledElement as element when not (isNull element.Parent) ->
+    tryFindGraphCanvas (element.Parent :> obj)
+  | _ ->
+    None
+
 let private pointerXYOnGraphCanvas (e: PointerEventArgs) =
-  match graphCanvas with
+  match tryFindGraphCanvas e.Source with
   | Some canvas ->
     let p = e.GetPosition canvas
     struct (p.X, p.Y)
@@ -182,7 +197,7 @@ let private onEdgePressed dispatch zoom panX panY p1 p2 e =
     let distToP1 = distSquared gx gy p1.X p1.Y
     let distToP2 = distSquared gx gy p2.X p2.Y
     let target = if distToP1 <= distToP2 then p2 else p1
-    dispatch (CFGMsg(JumpPan(target.X, target.Y)))
+    dispatch (CFGPaneMsg(JumpPan(target.X, target.Y)))
     e.Handled <- true
   else
     ()
@@ -193,8 +208,10 @@ let private edgeHitAreaView dispatch (pts: Point[]) zoom panX panY p1 p2 eid =
     Polyline.points pts
     Polyline.stroke "#01FFFFFF"
     Polyline.strokeThickness (edgeHitAreaThickness zoom)
-    Control.onPointerEntered (fun _ -> dispatch (CFGMsg(SetHoveredEdge eid)))
-    Control.onPointerExited (fun _ -> dispatch (CFGMsg(SetHoveredEdge None)))
+    Control.onPointerEntered (fun _ ->
+      dispatch (CFGPaneMsg(SetHoveredEdge eid)))
+    Control.onPointerExited (fun _ ->
+      dispatch (CFGPaneMsg(SetHoveredEdge None)))
     Control.onPointerPressed (onEdgePressed dispatch zoom panX panY p1 p2)
   ] :> IView
 
@@ -284,7 +301,7 @@ let private tokenView model dispatch selected nID lineIdx wordIdx word range =
             LineIndex = lineIdx
             WordIndex = wordIdx
             Range = range }
-        dispatch (CFGMsg(SelectToken token))
+        dispatch (CFGPaneMsg(SelectToken token))
         e.Handled <- true
       )
       Border.child (tokenTextView model word)
@@ -358,7 +375,7 @@ let [<Literal>] private ZoomDelta = 0.05
 let [<Literal>] private CFGPanStartThresholdSquared = 16.0
 
 let private pointerXY (e: PointerEventArgs) =
-  match graphCanvas with
+  match tryFindGraphCanvas e.Source with
   | Some canvas ->
     let p = e.GetPosition canvas
     struct (p.X, p.Y)
@@ -373,13 +390,19 @@ let private pointerXY (e: PointerEventArgs) =
     | _ -> struct (0.0, 0.0)
 
 let private setPointerCapture shouldCapture (e: PointerEventArgs) =
-  match graphCanvas with
+  match tryFindGraphCanvas e.Source with
   | Some canvas ->
-    e.Pointer.Capture(if shouldCapture then canvas else null)
+    let target: IInputElement =
+      if shouldCapture then canvas :> IInputElement
+      else null
+    e.Pointer.Capture target
   | None ->
     match e.Source with
     | :? Control as ctrl ->
-      e.Pointer.Capture(if shouldCapture then ctrl else null)
+      let target: IInputElement =
+        if shouldCapture then ctrl :> IInputElement
+        else null
+      e.Pointer.Capture target
     | _ -> ()
 
 let private capturePointer e =
@@ -391,12 +414,12 @@ let private releasePointer e =
 let private onWheel dispatch (e: PointerWheelEventArgs) =
   let delta = if e.Delta.Y > 0.0 then ZoomDelta else -ZoomDelta
   let struct (x, y) = pointerXY e
-  dispatch (CFGMsg(SetZoom(delta, x, y)))
+  dispatch (CFGPaneMsg(SetZoom(delta, x, y)))
   e.Handled <- true
 
 let private onPressed dispatch (e: PointerPressedEventArgs) =
   let struct (x, y) = pointerXY e
-  dispatch (CFGMsg(StartPan(x, y)))
+  dispatch (CFGPaneMsg(StartPan(x, y)))
 
 let private onMoved model dispatch (e: PointerEventArgs) =
   let struct (x, y) = pointerXY e
@@ -408,28 +431,28 @@ let private onMoved model dispatch (e: PointerEventArgs) =
       dx * dx + dy * dy >= CFGPanStartThresholdSquared
     | _ -> false
   if shouldStartPan then capturePointer e else ()
-  dispatch (CFGMsg(MovePan(x, y, ViewportSpace)))
+  dispatch (CFGPaneMsg(MovePan(x, y, ViewportSpace)))
   if shouldStartPan || model.CFGIsPanning then e.Handled <- true else ()
 
 let private onReleased model dispatch (e: PointerReleasedEventArgs) =
-  dispatch (CFGMsg EndPan)
+  dispatch (CFGPaneMsg EndPan)
   if model.CFGIsPanning then releasePointer e else ()
   if model.CFGIsPanning || model.CFGPressedPointer.IsSome then e.Handled <- true
   else ()
 
-let private graphCanvasView model dispatch cfg renderCache viewState =
+let private graphCanvasView model vpSize dispatch cfg renderCache viewState =
   let zoom = viewState.Zoom
   let panX, panY = viewState.PanX, viewState.PanY
   let hovered = viewState.HoveredEdge
   let selected = viewState.SelectedToken
-  let viewportWidth, viewportHeight = model.ContentViewportSize
+  let viewportWidth, viewportHeight = vpSize
   let vpLeft, vpRight = -panX / zoom, (viewportWidth - panX) / zoom
   let vpTop, vpBottom = -panY / zoom, (viewportHeight - panY) / zoom
   let isEdgeVisible eID =
     CFGRenderCache.isEdgeVisible renderCache eID vpLeft vpRight vpTop vpBottom
   let isNodeVisible x y w h =
     x < vpRight && x + w > vpLeft && y < vpBottom && y + h > vpTop
-  Canvas.create [
+  GraphCanvas.create [
     Canvas.background model.Theme.Window.Background
     Control.onPointerWheelChanged (onWheel dispatch)
     Control.onPointerPressed (onPressed dispatch)
@@ -439,7 +462,7 @@ let private graphCanvasView model dispatch cfg renderCache viewState =
       yield! graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible
       yield! graphNodes model dispatch selected cfg zoom panX panY isNodeVisible
     ]
-  ] |> View.withOutlet (fun (canvas: Canvas) -> graphCanvas <- Some canvas)
+  ]
 
 let private onMinimapClick dispatch (minimap: MinimapStaticCache) viewState e =
   match (e: PointerPressedEventArgs).Source with
@@ -448,20 +471,20 @@ let private onMinimapClick dispatch (minimap: MinimapStaticCache) viewState e =
     let scale = minimap.Scale
     let gx = (p.X - minimap.OffsetX) / scale + viewState.GraphMinX
     let gy = (p.Y - minimap.OffsetY) / scale + viewState.GraphMinY
-    dispatch (CFGMsg(JumpPan(gx, gy)))
+    dispatch (CFGPaneMsg(JumpPan(gx, gy)))
     let struct (sx, sy) = pointerXY e
-    dispatch (CFGMsg(StartPan(sx, sy)))
+    dispatch (CFGPaneMsg(StartPan(sx, sy)))
     e.Pointer.Capture ctrl
     e.Handled <- true
   | _ -> ()
 
 let private onRectMoved dispatch minimapScale e =
   let struct (x, y) = pointerXY e
-  dispatch (CFGMsg(MovePan(x, y, MinimapSpace minimapScale)))
+  dispatch (CFGPaneMsg(MovePan(x, y, MinimapSpace minimapScale)))
   e.Handled <- true
 
 let private onRectReleased dispatch (e: PointerReleasedEventArgs) =
-  dispatch (CFGMsg EndPan)
+  dispatch (CFGPaneMsg EndPan)
   match e.Source with
   | :? Control -> e.Pointer.Capture null
   | _ -> ()
@@ -500,15 +523,15 @@ let private minimapView model dispatch (minimap: MinimapStaticCache) viewState =
 
 let private onRectPressed dispatch e =
   let struct (x, y) = pointerXY e
-  dispatch (CFGMsg(StartPan(x, y)))
+  dispatch (CFGPaneMsg(StartPan(x, y)))
   match e.Source with
   | :? Control as ctrl -> e.Pointer.Capture ctrl
   | _ -> ()
   e.Handled <- true
 
-let private minimapViewport model dispatch minimap viewState =
+let private minimapViewport model vpSize dispatch minimap viewState =
   let scale = minimap.Scale
-  let viewportWidth, viewportHeight = model.ContentViewportSize
+  let viewportWidth, viewportHeight = vpSize
   let zoom, panX, panY = viewState.Zoom, viewState.PanX, viewState.PanY
   let minX, minY = viewState.GraphMinX, viewState.GraphMinY
   let offX, offY = minimap.OffsetX, minimap.OffsetY
@@ -550,7 +573,7 @@ let private minimapViewport model dispatch minimap viewState =
     )
   ]
 
-let private minimapOverlayView model dispatch minimap viewState =
+let private minimapOverlayView model vpSize dispatch minimap viewState =
   if viewState.ShowMinimap then
     [ Border.create [
         Border.horizontalAlignment HorizontalAlignment.Right
@@ -558,11 +581,11 @@ let private minimapOverlayView model dispatch minimap viewState =
         Border.margin 12.0
         Border.child (minimapView model dispatch minimap viewState)
       ] :> IView
-      minimapViewport model dispatch minimap viewState ]
+      minimapViewport model vpSize dispatch minimap viewState ]
   else
     []
 
-let private loadedView model dispatch (loaded: LoadedCFGState) =
+let private loadedView model vpSize dispatch (loaded: LoadedCFGState) =
   let cfg = loaded.Graph
   let viewState = loaded.ViewState
   let minimap = loaded.Minimap
@@ -572,30 +595,30 @@ let private loadedView model dispatch (loaded: LoadedCFGState) =
     Border.child (
       Grid.create [
         Grid.children [
-          graphCanvasView model dispatch cfg loaded.RenderCache viewState
-          yield! minimapOverlayView model dispatch minimap viewState
+          graphCanvasView model vpSize dispatch cfg loaded.RenderCache viewState
+          yield! minimapOverlayView model vpSize dispatch minimap viewState
         ]
       ]
     )
   ]
 
-let view (model: Model) dispatch =
+let view pane (model: Model) dispatch =
   let viewKey =
-    match model.ActiveTab with
+    match pane.ActiveTab with
     | Some tab -> $"cfg-{tab.ID}"
     | None -> "cfg-none"
   Border.create [
     Border.background model.Theme.Window.Background
     Border.borderThickness 0.0
     Border.child (
-      match model.ActiveTab with
+      match pane.ActiveTab with
       | Some { Content = CFGContent(_, NotLoaded) } ->
         unloadedView model "CFG is not loaded."
       | Some { Content = CFGContent(_, Loading) } ->
         unloadedView model "CFG is now loading ..."
       | Some { Content = CFGContent(_, Loaded loaded) } ->
-        loadedView model dispatch loaded
+        loadedView model pane.ContentViewportSize dispatch loaded
       | _ ->
         unloadedView model "Select a function to view its CFG."
     )
-  ] |> View.withKey viewKey
+  ] |> View.withKey viewKey :> IView

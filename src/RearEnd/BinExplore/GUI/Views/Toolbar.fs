@@ -72,7 +72,7 @@ module private SearchBox = begin
       ScrollViewer: IWritable<ScrollViewer option> }
 
   let getTabID model =
-    match model.ActiveTab with
+    match Model.tryGetFocusedActiveTab model with
     | Some { ID = id; Content = CFGContent(_, Loaded _) } -> $"{id}-loaded"
     | Some { ID = id } -> $"{id}"
     | None -> "none"
@@ -207,7 +207,7 @@ module private SearchBox = begin
     if String.IsNullOrWhiteSpace input then
       [||]
     else
-      match model.ActiveTab with
+      match Model.tryGetFocusedActiveTab model with
       | Some { Content = CFGContent(_, Loaded loaded) } ->
         searchCFGTab loaded.Graph input
       | Some { Content = HexContent state } ->
@@ -234,9 +234,9 @@ module private SearchBox = begin
   let onSearchItemSelect dispatch localState target _evt =
     match target with
     | CFGPoint(cx, cy) ->
-      dispatch (CFGMsg(JumpPan(cx, cy)))
+      dispatch (CFGPaneMsg(JumpPan(cx, cy)))
     | HexRange(byteIndex, length) ->
-      dispatch (HexdumpMsg(JumpToRange(byteIndex, length)))
+      dispatch (HexdumpPaneMsg(JumpToRange(byteIndex, length)))
     localState.IsOpen.Set false
     localState.SelectedIdx.Set -1
 
@@ -249,10 +249,10 @@ module private SearchBox = begin
     localState.SearchText.Set ""
     localState.IsOpen.Set false
     localState.SelectedIdx.Set -1
-    match model.ActiveTab with
+    match Model.tryGetFocusedActiveTab model with
     | Some { Content = HexContent _ } ->
-      dispatch (HexdumpMsg(SetHighlightSpans []))
-      dispatch (HexdumpMsg(SetSelection None))
+      dispatch (HexdumpPaneMsg(SetHighlightSpans []))
+      dispatch (HexdumpPaneMsg(SetSelection None))
     | _ ->
       ()
 
@@ -457,7 +457,7 @@ end
 module private CFGKindSelect = begin
 
   let getState model =
-    match model.ActiveTab with
+    match Model.tryGetFocusedActiveTab model with
     | Some { ID = id; Content = CFGContent(_, Loaded { ViewState = view }) } ->
       view.CFGKind, true, id
     | _ ->
@@ -465,7 +465,7 @@ module private CFGKindSelect = begin
 
   let onGraphKindChanged dispatch (args: obj) =
     match args with
-    | :? CFGKind as newKind -> dispatch (CFGMsg(ChangeKind newKind))
+    | :? CFGKind as newKind -> dispatch (CFGPaneMsg(ChangeKind newKind))
     | _ -> ()
 
   let itemTemplate model =
@@ -501,7 +501,7 @@ end
 module private MinimapToggle = begin
 
   let getState model =
-    match model.ActiveTab with
+    match Model.tryGetFocusedActiveTab model with
     | Some { ID = id; Content = CFGContent(_, Loaded { ViewState = view }) } ->
       true, view.ShowMinimap, id
     | _ ->
@@ -525,9 +525,9 @@ module private MinimapToggle = begin
         ToggleButton.borderThickness 1.0
         ToggleButton.cornerRadius 4.0
         ToggleButton.onChecked (fun _ ->
-          dispatch (CFGMsg(ToggleMinimap(tabKey, true))))
+          dispatch (CFGPaneMsg(ToggleMinimap(tabKey, true))))
         ToggleButton.onUnchecked (fun _ ->
-          dispatch (CFGMsg(ToggleMinimap(tabKey, false))))
+          dispatch (CFGPaneMsg(ToggleMinimap(tabKey, false))))
         ToggleButton.content (mkIcon (IconAssets.mapIcon model) 20.0) ]
       |> View.withKey $"minimap-toggle-{tabKey}"
 
@@ -536,12 +536,13 @@ end
 module private HexSyncToggle = begin
 
   let view model dispatch =
+    let isEnabled = Model.tryGetFocusedActiveTab model |> Option.isSome
     ToggleButton.create
       [ ToggleButton.width 26.0
         ToggleButton.height ToolbarHeight
         ToggleButton.padding (4.0, 0.0)
         ToggleButton.isChecked model.HexSyncEnabled
-        ToggleButton.isEnabled model.ActiveTab.IsSome
+        ToggleButton.isEnabled isEnabled
         ToggleButton.background model.Theme.Panel.Background
         ToggleButton.foreground model.Theme.Text.Primary
         ToggleButton.borderBrush model.Theme.Panel.Border

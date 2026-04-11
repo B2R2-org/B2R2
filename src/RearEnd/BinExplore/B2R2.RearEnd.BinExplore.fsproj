@@ -34,8 +34,9 @@
     <Compile Include="GUI\CFGRenderCache.fs" />
     <Compile Include="GUI\LoadedCFGState.fs" />
     <Compile Include="GUI\HexdumpState.fs" />
-    <Compile Include="GUI\Tab.fs" />
     <Compile Include="GUI\WorkspacePanel.fs" />
+    <Compile Include="GUI\Tab.fs" />
+    <Compile Include="GUI\Pane.fs" />
     <Compile Include="GUI\StatusBarState.fs" />
     <Compile Include="GUI\Model.fs" />
     <Compile Include="GUI\Message.fs" />

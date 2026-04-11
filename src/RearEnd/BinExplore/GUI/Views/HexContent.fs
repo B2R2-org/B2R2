@@ -304,7 +304,7 @@ type private HexdumpInteractionCanvas() as this =
     )
 
   member this.DispatchHexdump msg =
-    this.Dispatcher(HexdumpMsg msg)
+    this.Dispatcher(HexdumpPaneMsg msg)
 
   override this.OnPointerPressed e =
     base.OnPointerPressed e
@@ -406,7 +406,7 @@ let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
       scrollViewer.Offset.Y
     | _ ->
       Double.NaN
-  dispatch (HexdumpMsg(HandleScrollChanged(currentOffsetY, deltaY)))
+  dispatch (HexdumpPaneMsg(HandleScrollChanged(currentOffsetY, deltaY)))
 
 let private formatAddress digits baseAddress offset =
   let addr = baseAddress + uint64 offset
@@ -560,8 +560,9 @@ type private HexdumpRenderLayer() =
     let view = state.View
     let fontFamily = theme.Font.Monospace.FontFamily
     let fontSize = theme.Font.Monospace.FontSize
+    let bytesRefEqual = obj.ReferenceEquals(cachedBytes, state.Document.Bytes)
     let cacheInvalid =
-      not (obj.ReferenceEquals(cachedBytes, state.Document.Bytes))
+      not bytesRefEqual
       || cachedBytesPerRow <> view.BytesPerRow
       || cachedAddressDigits <> view.AddressDigits
       || cachedFontFamily <> fontFamily
@@ -584,10 +585,13 @@ type private HexdumpRenderLayer() =
     Typeface(FontFamily fontFamily), fontSize
 
   let ensureAnnotationCache (state: HexdumpState) theme layout =
+    let bytesRefEqual =
+      obj.ReferenceEquals(cachedAnnotationBytes, state.Document.Bytes)
+    let spansRefEqual =
+      obj.ReferenceEquals(box cachedAnnotationSpans, box state.AnnotationSpans)
     let cacheInvalid =
-      not (obj.ReferenceEquals(cachedAnnotationBytes, state.Document.Bytes))
-      || not (obj.ReferenceEquals(box cachedAnnotationSpans,
-                                  box state.AnnotationSpans))
+      not bytesRefEqual
+      || not spansRefEqual
       || cachedAnnotationBytesPerRow <> layout.BytesPerRow
       || cachedAnnotationFallback <> theme.Search.SelectedBackground
     if cacheInvalid then
@@ -783,6 +787,46 @@ module private HexdumpRenderLayer =
   let create (attrs: IAttr<HexdumpRenderLayer> list) =
     View.createGeneric<HexdumpRenderLayer> attrs
 
+let private bodyView model dispatch state =
+  let viewState, doc = state.View, state.Document
+  let bytesPerRow = max 1 viewState.BytesPerRow
+  let totalRows = HexdumpState.computeTotalRows doc.Length bytesPerRow
+  let startRow, endRow =
+    HexdumpState.computeViewportRowRange viewState totalRows
+    |> expandRowRangeWithOverscan totalRows
+  let layout = computeLayout viewState
+  let canvasWidth = layout.PaddingX * 2.0 + layout.LineWidth
+  let canvasHeight = layout.RowHeight * float totalRows
+  let renderTop = float startRow * layout.RowHeight
+  let renderHeight = float (max 0 (endRow - startRow)) * layout.RowHeight
+  let scrollOffsetY = viewState.ScrollOffsetY
+  ScrollViewer.create [
+    ScrollViewer.onScrollChanged (onScrollChanged dispatch)
+    ScrollViewer.content (
+      HexdumpInteractionCanvas.create [
+        HexdumpInteractionCanvas.State(Some state)
+        HexdumpInteractionCanvas.Dispatch dispatch
+        Canvas.background model.Theme.Common.Transparent
+        Canvas.width canvasWidth
+        Canvas.height canvasHeight
+        Canvas.children [
+          HexdumpRenderLayer.create [
+            Canvas.left 0.0
+            Canvas.top renderTop
+            Control.width canvasWidth
+            Control.height renderHeight
+            Control.isHitTestVisible false
+            HexdumpRenderLayer.State(Some state)
+            HexdumpRenderLayer.Theme model.Theme
+            HexdumpRenderLayer.StartRow startRow
+            HexdumpRenderLayer.EndRow endRow
+          ]
+        ]
+      ]
+    )
+    ScrollViewer.offset (Vector(0.0, scrollOffsetY))
+  ] :> IView
+
 let private emptyStateView model =
   TextBlock.create [
     TextBlock.text "No bytes loaded."
@@ -791,54 +835,9 @@ let private emptyStateView model =
     TextBlock.fontSize 13.0
   ]
 
-let private bodyView model dispatch =
-  match model.ActiveTab with
+let view pane model dispatch =
+  match pane.ActiveTab with
   | Some { Content = HexContent state } ->
-    let viewState, doc = state.View, state.Document
-    let bytesPerRow = max 1 viewState.BytesPerRow
-    let totalRows = HexdumpState.computeTotalRows doc.Length bytesPerRow
-    let startRow, endRow =
-      HexdumpState.computeViewportRowRange viewState totalRows
-      |> expandRowRangeWithOverscan totalRows
-    let layout = computeLayout viewState
-    let canvasWidth = layout.PaddingX * 2.0 + layout.LineWidth
-    let canvasHeight = layout.RowHeight * float totalRows
-    let renderTop = float startRow * layout.RowHeight
-    let renderHeight = float (max 0 (endRow - startRow)) * layout.RowHeight
-    let scrollOffsetY = viewState.ScrollOffsetY
-    ScrollViewer.create [
-      ScrollViewer.onScrollChanged (onScrollChanged dispatch)
-      ScrollViewer.content (
-        HexdumpInteractionCanvas.create [
-          HexdumpInteractionCanvas.State(Some state)
-          HexdumpInteractionCanvas.Dispatch dispatch
-          Canvas.background model.Theme.Common.Transparent
-          Canvas.width canvasWidth
-          Canvas.height canvasHeight
-          Canvas.children [
-            HexdumpRenderLayer.create [
-              Canvas.left 0.0
-              Canvas.top renderTop
-              Control.width canvasWidth
-              Control.height renderHeight
-              Control.isHitTestVisible false
-              HexdumpRenderLayer.State(Some state)
-              HexdumpRenderLayer.Theme model.Theme
-              HexdumpRenderLayer.StartRow startRow
-              HexdumpRenderLayer.EndRow endRow
-            ]
-          ]
-        ]
-      )
-      ScrollViewer.offset (Vector(0.0, scrollOffsetY))
-    ]
-    |> View.withKey "hexdump-scroll" :> IView
+    bodyView model dispatch state
   | _ ->
-    emptyStateView model :> IView
-
-let view model dispatch =
-  Border.create [
-    Border.background model.Theme.Window.Background
-    Border.borderThickness 0.0
-    Border.child (bodyView model dispatch)
-  ]
+    emptyStateView model

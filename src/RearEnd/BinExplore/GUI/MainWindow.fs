@@ -41,23 +41,22 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
   let init () =
     let themeMode = if useDarkTheme then Builtin Dark else Builtin Light
     let customThemes = Map.empty
+    let rootPane = Pane.createLeaf ()
     { LoadedBinary = None
       LoadingBinaryPath = None
       Functions = []
       FunctionFilter = ""
       Sections = []
-      ActiveTab = None
-      OpenTabs = []
-      PreviewTab = None
+      RootPane = rootPane
+      FocusedPaneID = Some rootPane.ID
+      DraggingTab = None
       CustomThemes = customThemes
       ThemeMode = themeMode
       Theme = Theme.resolve themeMode customThemes
-      DraggingTab = None
       WorkspacePanel = FunctionPanel
       CFGIsPanning = false
       CFGPressedPointer = None
       CFGPanPointer = None
-      ContentViewportSize = (0.0, 0.0)
       HexSyncEnabled = true
       StatusBarState = EmptyStatus }, Elmish.Cmd.none
 
@@ -77,16 +76,30 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Update.openHexdumpTab arbiter model
     | PinCFGTab fnItem ->
       Update.pinCFGTab arbiter model fnItem
-    | CloseTab tabID ->
-      Update.closeTab arbiter model tabID
-    | SwitchTab tabID ->
-      Update.switchTab arbiter model tabID
-    | StartTabDrag tabID ->
-      Update.startTabDrag model tabID
-    | ReorderTab(draggedTabID, targetTabID) ->
-      Update.reorderTab model draggedTabID targetTabID
+    | FocusPane paneID ->
+      Update.focusPane model paneID
+    | CloseTab(paneID, tabID) ->
+      Update.closeTab arbiter model paneID tabID
+    | SwitchTab(paneID, tabID) ->
+      Update.switchTab arbiter model paneID tabID
+    | StartTabDrag(paneID, tabID) ->
+      Update.startTabDrag model paneID tabID
+    | ReorderTab(paneID, draggedTabID, targetTabID) ->
+      Update.reorderTab model paneID draggedTabID targetTabID
+    | MoveTabToPane(sourcePaneID, targetPaneID, tabID) ->
+      Update.moveTabToPane arbiter model sourcePaneID targetPaneID tabID
+    | MoveTabRelative(placement, tabID) ->
+      Update.moveTabRelative arbiter model placement tabID
     | EndTabDrag ->
       Update.endTabDrag model
+    | UpdateViewportSize(paneID, width, height) ->
+      Update.updateViewportSize arbiter model paneID width height
+    | CFGLoadMsg cfgMsg ->
+      Update.updateCFGLoad arbiter model cfgMsg
+    | CFGPaneMsg cfgMsg ->
+      Update.updateCFG arbiter model cfgMsg
+    | HexdumpPaneMsg msg ->
+      Update.updateHexdump arbiter model msg
     | RegisterCustomTheme(themeId, theme) ->
       Update.registerCustomTheme model themeId theme
     | SetThemeMode mode ->
@@ -97,10 +110,6 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Update.selectWorkspacePanel arbiter model panel
     | SetHexSyncEnabled enabled ->
       Update.setHexSyncEnabled arbiter model enabled
-    | CFGMsg cfgMsg ->
-      Update.updateCFG arbiter model cfgMsg
-    | HexdumpMsg msg ->
-      Update.updateHexdump arbiter model msg
     | UpdateStatusMsg msg ->
       Update.updateStatusMsg model msg
     | UpdateStatusOffsetCtx(sOff, eOff, sects) ->

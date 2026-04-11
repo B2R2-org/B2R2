@@ -38,6 +38,8 @@ let [<Literal>] private TabMaxWidth = 220.0
 
 let [<Literal>] private TabTextMaxWidth = 165.0
 
+let [<Literal>] private DragPayloadSeparator = "|"
+
 let rec private originatedFromButton (source: obj) =
   match source with
   | :? Button -> true
@@ -45,43 +47,121 @@ let rec private originatedFromButton (source: obj) =
     originatedFromButton (control.Parent :> obj)
   | _ -> false
 
-let private onTabClick tabID dispatch (e: PointerPressedEventArgs) =
+let private buildDragPayload paneID tabID =
+  $"{paneID}{DragPayloadSeparator}{tabID}"
+
+let private tryParseDragPayload (e: DragEventArgs) =
+  let payload = DataTransferExtensions.TryGetText e.DataTransfer
+  if String.IsNullOrWhiteSpace payload then
+    None
+  else
+    let parts =
+      payload.Split([| DragPayloadSeparator |], 2, StringSplitOptions.None)
+    if parts.Length <> 2 then None
+    else
+      match Guid.TryParse parts[0] with
+      | true, paneID -> Some(paneID, parts[1])
+      | _ -> None
+
+let private getVisibleTabs pane =
+  match pane.PreviewTab with
+  | Some preview -> preview :: pane.OpenTabs
+  | None -> pane.OpenTabs
+
+let private onTabClick paneID tabID dispatch (e: PointerPressedEventArgs) =
   if originatedFromButton e.Source then
     ()
   else
-    dispatch (SwitchTab tabID)
-    dispatch (StartTabDrag tabID)
-    let data = new DataTransfer()
-    data.Add(DataTransferItem.CreateText tabID)
-    DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
-    |> ignore
+    let props = e.GetCurrentPoint(null).Properties
+    if props.IsRightButtonPressed then
+      dispatch (SwitchTab(paneID, tabID))
+    elif props.IsLeftButtonPressed then
+      dispatch (SwitchTab(paneID, tabID))
+      dispatch (StartTabDrag(paneID, tabID))
+      let data = new DataTransfer()
+      data.Add(DataTransferItem.CreateText(buildDragPayload paneID tabID))
+      DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move)
+      |> ignore
+    else
+      ()
 
-let private onTabDrag targetTabID dispatch (e: DragEventArgs) =
-  let draggedTabID = DataTransferExtensions.TryGetText e.DataTransfer
-  if not (String.IsNullOrWhiteSpace draggedTabID) then
-    dispatch (ReorderTab(draggedTabID, targetTabID))
+let private tabContextMenu paneID dispatch tab =
+  let left = LeftOf paneID
+  let right = RightOf paneID
+  let above = Above paneID
+  let below = Below paneID
+  ContextMenu.create [
+    ContextMenu.viewItems [
+      MenuItem.create [
+        MenuItem.header "Move to Left"
+        MenuItem.onClick (fun _ -> dispatch (MoveTabRelative(left, tab.ID)))
+      ]
+      MenuItem.create [
+        MenuItem.header "Move to Right"
+        MenuItem.onClick (fun _ -> dispatch (MoveTabRelative(right, tab.ID)))
+      ]
+      MenuItem.create [
+        MenuItem.header "Move to Top"
+        MenuItem.onClick (fun _ -> dispatch (MoveTabRelative(above, tab.ID)))
+      ]
+      MenuItem.create [
+        MenuItem.header "Move to Bottom"
+        MenuItem.onClick (fun _ -> dispatch (MoveTabRelative(below, tab.ID)))
+      ]
+    ]
+  ]
+
+let private onTabDrag paneID targetTabID dispatch e =
+  match tryParseDragPayload e with
+  | Some(sourcePaneID, draggedTabID) ->
+    if sourcePaneID = paneID then
+      dispatch (ReorderTab(paneID, draggedTabID, targetTabID))
+    else
+      ()
     e.DragEffects <- DragDropEffects.Move
-  else
+  | None ->
     e.DragEffects <- DragDropEffects.None
   e.Handled <- true
 
-let private onTabDrop dispatch (e: DragEventArgs) =
+let private onTabDrop paneID dispatch e =
+  match tryParseDragPayload e with
+  | Some(sourcePaneID, draggedTabID) when sourcePaneID <> paneID ->
+    dispatch (MoveTabToPane(sourcePaneID, paneID, draggedTabID))
+  | _ ->
+    ()
   dispatch EndTabDrag
   e.Handled <- true
 
-let private getTabBorderColor (model: Model) tab =
-  if model.ActiveTab = Some tab then model.Theme.Tab.ActiveBackground
+let private onPaneDragOver e =
+  match tryParseDragPayload e with
+  | Some _ ->
+    e.DragEffects <- DragDropEffects.Move
+    e.Handled <- true
+  | None ->
+    e.DragEffects <- DragDropEffects.None
+
+let private onPaneDrop paneID dispatch e =
+  match tryParseDragPayload e with
+  | Some(sourcePaneID, draggedTabID) when sourcePaneID <> paneID ->
+    dispatch (MoveTabToPane(sourcePaneID, paneID, draggedTabID))
+  | _ ->
+    ()
+  dispatch EndTabDrag
+  e.Handled <- true
+
+let private getTabBorderColor model pane tab =
+  if pane.ActiveTab = Some tab then model.Theme.Tab.ActiveBackground
   else model.Theme.Tab.InactiveBackground
 
-let private getTabTextColor (model: Model) tab =
-  if model.ActiveTab = Some tab then model.Theme.Text.Primary
+let private getTabTextColor model pane tab =
+  if pane.ActiveTab = Some tab then model.Theme.Text.Primary
   else model.Theme.Text.Secondary
 
-let private getTabFontStyle (model: Model) tab =
-  if model.PreviewTab = Some tab then FontStyle.Italic
+let private getTabFontStyle pane tab =
+  if pane.PreviewTab = Some tab then FontStyle.Italic
   else FontStyle.Normal
 
-let private tabIconView model (tab: Tab) =
+let private tabIconView model pane (tab: Tab) =
   match tab.Content with
   | CFGContent _ ->
     Image.create [
@@ -106,27 +186,27 @@ let private tabIconView model (tab: Tab) =
       TextBlock.text ""
       TextBlock.fontSize 10.0
       TextBlock.fontWeight FontWeight.Bold
-      TextBlock.foreground (getTabTextColor model tab)
+      TextBlock.foreground (getTabTextColor model pane tab)
       TextBlock.verticalAlignment VerticalAlignment.Center
       TextBlock.margin (0.0, 0.0, 4.0, 0.0)
     ] |> View.withKey $"{tab.ID}-icon" :> IView
 
-let private tabLabelView model tab =
+let private tabLabelView model pane tab =
   TextBlock.create [
     StackPanel.verticalAlignment VerticalAlignment.Center
     TextBlock.text tab.Title
     TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
     TextBlock.background model.Theme.Common.Transparent
-    TextBlock.foreground (getTabTextColor model tab)
+    TextBlock.foreground (getTabTextColor model pane tab)
     TextBlock.padding (5.0, 0.0, 5.0, 0.0)
     TextBlock.fontSize 14.0
-    TextBlock.fontStyle (getTabFontStyle model tab)
+    TextBlock.fontStyle (getTabFontStyle pane tab)
     TextBlock.maxWidth TabTextMaxWidth
     TextBlock.textWrapping TextWrapping.NoWrap
     TextBlock.textTrimming TextTrimming.CharacterEllipsis
   ] |> View.withKey $"{tab.ID}-label" :> IView
 
-let private tabButtonView model dispatch tab =
+let private tabButtonView paneID model dispatch tab =
   Button.create [
     StackPanel.verticalAlignment VerticalAlignment.Center
     Button.content "\u00D7"
@@ -135,10 +215,10 @@ let private tabButtonView model dispatch tab =
     Button.borderThickness 0.0
     Button.padding (5.0, 0.0, 5.0, 0.0)
     Button.fontSize 16.0
-    Button.onClick (fun _ -> dispatch (CloseTab tab.ID))
+    Button.onClick (fun _ -> dispatch (CloseTab(paneID, tab.ID)))
   ] |> View.withKey $"{tab.ID}-close"
 
-let private tabContentView model dispatch (tab: Tab) =
+let private tabContentView paneID pane model dispatch (tab: Tab) =
   StackPanel.create [
     StackPanel.orientation Orientation.Horizontal
     StackPanel.children [
@@ -149,50 +229,59 @@ let private tabContentView model dispatch (tab: Tab) =
         Control.focusable true
         ToolTip.tip tab.Title
         StackPanel.children [
-          tabIconView model tab
-          tabLabelView model tab
+          tabIconView model pane tab
+          tabLabelView model pane tab
         ]
       ] |> View.withKey $"{tab.ID}-clickarea"
-      tabButtonView model dispatch tab
+      tabButtonView paneID model dispatch tab
     ]
   ]
 
-let private tabStripView model dispatch =
+let private tabStripView paneID pane model dispatch =
   StackPanel.create [
     Control.allowDrop true
+    Control.onDragOver onPaneDragOver
+    Control.onDrop (onPaneDrop paneID dispatch)
     StackPanel.orientation Orientation.Horizontal
     StackPanel.children (
-      Model.getVisibleTabs model
+      getVisibleTabs pane
       |> List.map (fun tab ->
         Border.create [
-          Border.background (getTabBorderColor model tab)
+          Border.background (getTabBorderColor model pane tab)
           Border.maxWidth TabMaxWidth
           Border.borderThickness (0.0, 0.0, 0.0, 0.0)
           Border.borderBrush model.Theme.Panel.Border
           Border.padding (10.0, 5.0, 5.0, 5.0)
+          Control.contextMenu (tabContextMenu paneID dispatch tab)
           Control.allowDrop true
-          Control.onPointerPressed (onTabClick tab.ID dispatch)
+          Control.onPointerPressed (onTabClick paneID tab.ID dispatch)
           Control.onPointerReleased (fun _ -> dispatch EndTabDrag)
-          Control.onDragOver (onTabDrag tab.ID dispatch)
-          Control.onDrop (onTabDrop dispatch)
-          Border.child (tabContentView model dispatch tab)
+          Control.onDragOver (onTabDrag paneID tab.ID dispatch)
+          Control.onDrop (onTabDrop paneID dispatch)
+          Border.child (tabContentView paneID pane model dispatch tab)
         ] |> View.withKey $"{tab.ID}-tab" :> IView
       )
     )
   ]
 
-let view model dispatch =
-  Border.create [
-    Border.dock Dock.Top
-    Border.background model.Theme.Panel.AltBackground
-    Border.borderThickness 0.0
-    Border.child (
-      ScrollViewer.create [
-        Control.allowDrop true
-        ScrollViewer.horizontalScrollBarVisibility ScrollBarVisibility.Auto
-        ScrollViewer.verticalScrollBarVisibility ScrollBarVisibility.Disabled
-        ScrollViewer.onPointerReleased (fun _ -> dispatch EndTabDrag)
-        ScrollViewer.content (tabStripView model dispatch)
-      ]
-    )
-  ]
+let view paneID model dispatch =
+  match Pane.tryFindLeaf paneID model.RootPane with
+  | Some pane ->
+    Border.create [
+      Border.dock Dock.Top
+      Border.background model.Theme.Panel.AltBackground
+      Border.borderThickness 0.0
+      Border.child (
+        ScrollViewer.create [
+          Control.allowDrop true
+          Control.onDragOver onPaneDragOver
+          Control.onDrop (onPaneDrop paneID dispatch)
+          ScrollViewer.horizontalScrollBarVisibility ScrollBarVisibility.Auto
+          ScrollViewer.verticalScrollBarVisibility ScrollBarVisibility.Disabled
+          ScrollViewer.onPointerReleased (fun _ -> dispatch EndTabDrag)
+          ScrollViewer.content (tabStripView paneID pane model dispatch)
+        ]
+      )
+    ]
+  | None ->
+    Border.create []

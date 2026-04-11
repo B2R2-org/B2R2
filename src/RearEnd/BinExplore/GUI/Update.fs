@@ -47,7 +47,7 @@ let private deferHexdumpScrollCmd offsetY: Elmish.Cmd<Message> =
     Dispatcher.UIThread.Post(
       (fun () ->
         Dispatcher.UIThread.Post(
-          (fun () -> dispatch (HexdumpMsg(SetScrollOffset offsetY))),
+          (fun () -> dispatch (HexdumpPaneMsg(SetScrollOffset offsetY))),
           DispatcherPriority.Background
         )),
       DispatcherPriority.Background
@@ -138,7 +138,7 @@ let private clampHexScrollState hexdump viewState =
   let scrollRow = int64 (floor (scrollOffsetY / rowHeight))
   { viewState with ScrollOffsetY = scrollOffsetY; ScrollRow = scrollRow }
 
-let private initializeHexdumpTabView model hexdump =
+let private initializeHexdumpTabView (model: Model) hexdump =
   let view = hexdump.View
   let viewportWidth, viewportHeight = model.ContentViewportSize
   let charWidth, rowHeight =
@@ -170,7 +170,7 @@ let private prepareHexdumpViewForActivation hexdump =
               else
                 NoScrollGuard } }
 
-let private activateHexdumpView model =
+let private activateHexdumpView (model: Model) =
   initializeHexdumpTabView model >> prepareHexdumpViewForActivation
 
 let private buildSectionRange sections =
@@ -180,7 +180,7 @@ let private buildSectionRange sections =
   | [ sec1; sec2 ] -> MultipleSections(sec1, sec2)
   | _ -> MultipleSections(List.head sections, List.last sections)
 
-let openBinaryCompleted (arbiter: Arbiter<_, _>) model filePath =
+let openBinaryCompleted (arbiter: Arbiter<_, _>) (model: Model) filePath =
   if model.LoadingBinaryPath = Some filePath then
     let functions, statusBar =
       match API.getFunctions arbiter true, API.getFile arbiter with
@@ -189,17 +189,20 @@ let openBinaryCompleted (arbiter: Arbiter<_, _>) model filePath =
         FileLoaded(filePath, FileFormat.toString file.Format, None)
       | _ ->
         [], EmptyStatus
-    { model with
-        LoadedBinary = Some filePath
-        LoadingBinaryPath = None
-        Functions = functions
-        FunctionFilter = ""
-        ActiveTab = None
-        OpenTabs = []
-        PreviewTab = None
-        DraggingTab = None
-        WorkspacePanel = FunctionPanel
-        StatusBarState = statusBar },
+    Model.mapFocusedPane
+      (fun pane ->
+        { pane with
+            ActiveTab = None
+            OpenTabs = []
+            PreviewTab = None })
+      { model with
+          LoadedBinary = Some filePath
+          LoadingBinaryPath = None
+          Functions = functions
+          FunctionFilter = ""
+          DraggingTab = None
+          WorkspacePanel = FunctionPanel
+          StatusBarState = statusBar },
     Elmish.Cmd.none
   else
     model, Elmish.Cmd.none
@@ -213,19 +216,22 @@ let openBinaryFailed model filePath reason =
   else
     model, Elmish.Cmd.none
 
-let closeWorkspace (arbiter: Arbiter<_, _>) model =
+let closeWorkspace (arbiter: Arbiter<_, _>) (model: Model) =
   arbiter.CloseSession()
-  { model with
-      LoadedBinary = None
-      LoadingBinaryPath = None
-      Functions = []
-      FunctionFilter = ""
-      ActiveTab = None
-      OpenTabs = []
-      PreviewTab = None
-      DraggingTab = None
-      WorkspacePanel = FunctionPanel
-      StatusBarState = EmptyStatus },
+  Model.mapFocusedPane
+    (fun pane ->
+      { pane with
+          ActiveTab = None
+          OpenTabs = []
+          PreviewTab = None })
+    { model with
+        LoadedBinary = None
+        LoadingBinaryPath = None
+        Functions = []
+        FunctionFilter = ""
+        DraggingTab = None
+        WorkspacePanel = FunctionPanel
+        StatusBarState = EmptyStatus },
   Elmish.Cmd.none
 
 let private tryFindTab tabs tabID =
@@ -235,14 +241,18 @@ let private replaceTabByID tabID newTab oldTab =
   if oldTab.ID = tabID then newTab
   else oldTab
 
-let private replaceTabReferences model tab =
-  let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID tab)
-  let preview = model.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
-  let active = model.ActiveTab |> Option.map (replaceTabByID tab.ID tab)
-  { model with
-      OpenTabs = opens
-      PreviewTab = preview
-      ActiveTab = active }
+let private replaceTabReferences (model: Model) tab =
+  let paneID =
+    Pane.tryFindLeafByTabID tab.ID model.RootPane
+    |> Option.defaultValue (Model.getFocusedPaneID model)
+  Model.mapPaneByID paneID (fun pane ->
+    let opens = pane.OpenTabs |> List.map (replaceTabByID tab.ID tab)
+    let preview = pane.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
+    let active = pane.ActiveTab |> Option.map (replaceTabByID tab.ID tab)
+    { pane with
+        OpenTabs = opens
+        PreviewTab = preview
+        ActiveTab = active }) model
 
 let private isLinkageSectionName = function
   | ".plt" | ".plt.sec" | ".plt.got"
@@ -319,17 +329,18 @@ let private buildHexAnnotations
   | _ ->
     state
 
-let openHexdumpTab (arbiter: Arbiter<_, _>) model =
+let openHexdumpTab (arbiter: Arbiter<_, _>) (model: Model) =
   let visibleTabs = Model.getVisibleTabs model
   match visibleTabs |> List.tryFind (fun t -> t.ID = Tab.HexdumpTabID) with
   | Some tab ->
     let tab = Tab.mapHexdumpState (activateHexdumpView model) tab
-    let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID tab)
-    let preview = model.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
-    { model with
-        ActiveTab = Some tab
-        OpenTabs = opens
-        PreviewTab = preview },
+    Model.mapFocusedPane (fun pane ->
+      let opens = pane.OpenTabs |> List.map (replaceTabByID tab.ID tab)
+      let preview = pane.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
+      { pane with
+          ActiveTab = Some tab
+          OpenTabs = opens
+          PreviewTab = preview }) model,
     Elmish.Cmd.none
   | None ->
     match API.getFile arbiter with
@@ -340,9 +351,10 @@ let openHexdumpTab (arbiter: Arbiter<_, _>) model =
         |> buildHexAnnotations model.Theme file
         |> activateHexdumpView model
       let tab = Tab.ofHexdump hexdump
-      { model with
-          ActiveTab = Some tab
-          OpenTabs = tab :: model.OpenTabs },
+      Model.mapFocusedPane (fun pane ->
+        { pane with
+            ActiveTab = Some tab
+            OpenTabs = tab :: pane.OpenTabs }) model,
       Elmish.Cmd.none
     | Error _ ->
       model, Elmish.Cmd.none
@@ -354,15 +366,27 @@ let private mapCFGTabState newState (tab: Tab) =
   | _ ->
     tab
 
-let private createMinimapCache model viewState cfg =
+let private createMinimapCache (model: Model) viewState cfg =
   MinimapStaticCache.create model.ContentViewportSize viewState cfg
 
-let private refreshCFGTabMinimap model tab =
+let private refreshCFGTabMinimap (model: Model) tab =
   match tab.Content with
   | CFGContent(fn, Loaded loaded) ->
     let loaded =
       { loaded with
           Minimap = createMinimapCache model loaded.ViewState loaded.Graph }
+    { tab with Content = CFGContent(fn, Loaded loaded) }
+  | _ ->
+    tab
+
+let private refreshCFGTabMinimapForViewport viewportSize tab =
+  match tab.Content with
+  | CFGContent(fn, Loaded loaded) ->
+    let loaded =
+      { loaded with
+          Minimap =
+            MinimapStaticCache.create
+              viewportSize loaded.ViewState loaded.Graph }
     { tab with Content = CFGContent(fn, Loaded loaded) }
   | _ ->
     tab
@@ -420,7 +444,7 @@ let private tryGetVisibleFileOffsetRange hexdump =
   | None ->
     None
 
-let private syncStatusBarWithActiveTab (arbiter: Arbiter<_, _>) model =
+let private syncStatusBarWithActiveTab (arbiter: Arbiter<_, _>) (model: Model) =
   match model.ActiveTab with
   | Some { Content = HexContent { Selection = Some sel } } ->
     updateStatusRange model arbiter sel
@@ -448,9 +472,19 @@ let private syncStatusBarWithActiveTab (arbiter: Arbiter<_, _>) model =
   | _ ->
     clearStatusRange model
 
-let private updateHexdumpState arbiter model update =
-  let visibleTabs = Model.getVisibleTabs model
-  match visibleTabs |> List.tryFind (fun t -> t.ID = Tab.HexdumpTabID) with
+let private tryGetHexdumpTab (model: Model) =
+  Pane.tryFindLeafByTabID Tab.HexdumpTabID model.RootPane
+  |> Option.bind (fun paneID ->
+    Pane.tryFindLeaf paneID model.RootPane
+    |> Option.bind (fun pane ->
+      Model.getVisibleTabsFromPane pane
+      |> List.tryFind (fun t -> t.ID = Tab.HexdumpTabID)))
+
+let private hasHexdumpTab (model: Model) =
+  tryGetHexdumpTab model |> Option.isSome
+
+let private updateHexdumpState arbiter (model: Model) update =
+  match tryGetHexdumpTab model with
   | Some({ Content = HexContent hexdump } as tab) ->
     let hexdump =
       update hexdump
@@ -462,13 +496,13 @@ let private updateHexdumpState arbiter model update =
   | _ ->
     model
 
-let private updateHexViewState arbiter model updateView =
+let private updateHexViewState arbiter (model: Model) updateView =
   updateHexdumpState arbiter model (fun hexdump ->
     let view = updateView hexdump.View
     { hexdump with View = view }), Elmish.Cmd.none
 
-let private getActiveHexScrollGuard model =
-  match model.ActiveTab with
+let private getActiveHexScrollGuard (model: Model) =
+  match tryGetHexdumpTab model with
   | Some { Content = HexContent hexdump } -> hexdump.View.ScrollGuard
   | _ -> NoScrollGuard
 
@@ -482,7 +516,7 @@ let private syncHexScrollOffset hexdump offsetY scrollGuard =
     |> clampHexScrollState hexdump
   { hexdump with View = { view with ScrollGuard = scrollGuard } }
 
-let private recomputeHexViewLayout arbiter model updateView =
+let private recomputeHexViewLayout arbiter (model: Model) updateView =
   let charWidth, rowHeight = measureMaxCharSize model
   updateHexdumpState arbiter model (fun hexdump ->
     let viewState = hexdump.View
@@ -499,12 +533,15 @@ let private recomputeHexViewLayout arbiter model updateView =
           ScrollOffsetY = float nextScrollRow * nextView.RowHeight }
     { hexdump with View = view }), Elmish.Cmd.none
 
-let private resizeOpenedHexdumpTab arbiter model width height =
-  let hasOpenedHexdumpTab =
-    model.OpenTabs |> List.exists (fun tab -> tab.ID = Tab.HexdumpTabID)
-  if hasOpenedHexdumpTab then
+let private resizeOpenedHexdumpTab arbiter (model: Model) paneID width height =
+  let containsHexdumpTab pane =
+    Model.getVisibleTabsFromPane pane
+    |> List.exists (fun t -> t.ID = Tab.HexdumpTabID)
+  match Pane.tryFindLeaf paneID model.RootPane with
+  | Some pane when containsHexdumpTab pane ->
     updateHexdumpState arbiter model (fun hexdump ->
       let viewState = hexdump.View
+      let topByte = viewState.ScrollRow * int64 (max 1 viewState.BytesPerRow)
       let charWidth, rowHeight = measureMaxCharSize model
       let nextView =
         { viewState with
@@ -512,9 +549,15 @@ let private resizeOpenedHexdumpTab arbiter model width height =
             ViewportHeight = height
             CharWidth = charWidth
             RowHeight = rowHeight }
-      let view = { nextView with BytesPerRow = computeHexBytesPerRow nextView }
+      let nextView =
+        { nextView with BytesPerRow = computeHexBytesPerRow nextView }
+      let nextScrollRow = topByte / int64 (max 1 nextView.BytesPerRow)
+      let view =
+        { nextView with
+            ScrollRow = nextScrollRow
+            ScrollOffsetY = float nextScrollRow * nextView.RowHeight }
       { hexdump with View = view })
-  else
+  | _ ->
     model
 
 let private computeJumpedHexdump theme hexdump byteIndex length =
@@ -560,7 +603,7 @@ let private computeJumpedHexdump theme hexdump byteIndex length =
   targetOffsetY,
   pendingDelta
 
-let private jumpHexdump model byteIndex length =
+let private jumpHexdump (model: Model) byteIndex length =
   match model.ActiveTab with
   | Some { Content = HexContent hexdump } ->
     let nextHexdump, targetOffsetY, pendingDelta =
@@ -622,7 +665,7 @@ let private setHexdumpSelectionFromAddrRange arbiter model (range: AddrRange) =
   | _ ->
     model
 
-let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) model =
+let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) (model: Model) =
   let visibleTabs = Model.getVisibleTabs model
   let hasOpenedHexdump =
     visibleTabs |> List.exists (fun tab -> tab.ID = Tab.HexdumpTabID)
@@ -638,19 +681,16 @@ let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) model =
   | _ ->
     model
 
-let private trySyncHexdumpWithActiveCFG (arbiter: Arbiter<_, _>) model =
+let private trySyncHexdumpWithActiveCFG arbiter model =
   if model.HexSyncEnabled then syncHexdumpwithActiveCFG arbiter model
   else model
 
-let updateHexdump arbiter model msg =
+let updateHexdump arbiter (model: Model) msg =
   match msg with
   | SetHighlightSpans spans ->
     updateHexdumpState arbiter model (fun hexdump ->
       { hexdump with HighlightSpans = spans }),
     Elmish.Cmd.none
-  | UpdateViewport(width, height) when width > 0.0 && height > 0.0 ->
-    recomputeHexViewLayout arbiter model (fun viewState ->
-      { viewState with ViewportWidth = width; ViewportHeight = height })
   | UpdateFontMetrics(charWidth, rowHeight)
     when charWidth > 0.0 && rowHeight > 0.0 ->
     updateHexViewState arbiter model (fun viewState ->
@@ -749,7 +789,7 @@ let updateHexdump arbiter model msg =
   | _ ->
     model, Elmish.Cmd.none
 
-let private getCFG (arbiter: Arbiter<_, _>) model cfgKind addr =
+let private getCFG (arbiter: Arbiter<_, _>) (model: Model) cfgKind addr =
   match cfgKind with
   | CFGKind.Disasm ->
     measureMaxCharSize model
@@ -763,89 +803,135 @@ let private getCFG (arbiter: Arbiter<_, _>) model cfgKind addr =
   | _ ->
     API.getCallCFG arbiter
 
-let private loadCFGCmd arbiter model (fn: FunctionItem) cfgKind (tab: Tab) =
+let private loadCFGCmd arbiter model (fn: FunctionItem) kind (tab: Tab) =
   cmdOfSub (fun dispatch ->
     Async.Start(async {
       try
-        match getCFG arbiter model cfgKind fn.Address with
+        match getCFG arbiter model kind fn.Address with
         | Ok cfg ->
-          dispatchOnUi dispatch (CFGMsg(LoadCompleted(tab.ID, cfgKind, cfg)))
+          dispatchOnUi dispatch (CFGLoadMsg(LoadCompleted(tab.ID, kind, cfg)))
         | Error e ->
-          dispatchOnUi dispatch (CFGMsg(LoadFailed(tab.ID, e)))
+          dispatchOnUi dispatch (CFGLoadMsg(LoadFailed(tab.ID, e)))
       with ex ->
-        dispatchOnUi dispatch (CFGMsg(LoadFailed(tab.ID, ex.Message)))
+        dispatchOnUi dispatch (CFGLoadMsg(LoadFailed(tab.ID, ex.Message)))
     }))
 
-let private startLoadIfNeeded (arbiter: Arbiter<_, _>) tab model =
+let private startLoadIfNeeded (arbiter: Arbiter<_, _>) tab (model: Model) =
   match tab.Content with
   | CFGContent(fn, NotLoaded) ->
     let loadingTab = mapCFGTabState Loading tab
-    let opens = model.OpenTabs |> List.map (replaceTabByID tab.ID loadingTab)
-    let preview =
-      model.PreviewTab |> Option.map (replaceTabByID tab.ID loadingTab)
-    { model with
-        ActiveTab = Some loadingTab
-        OpenTabs = opens
-        PreviewTab = preview },
+    let model =
+      Model.mapFocusedPane (fun pane ->
+        let opens = pane.OpenTabs |> List.map (replaceTabByID tab.ID loadingTab)
+        let preview =
+          pane.PreviewTab |> Option.map (replaceTabByID tab.ID loadingTab)
+        { pane with
+            ActiveTab = Some loadingTab
+            OpenTabs = opens
+            PreviewTab = preview }) model
+    model,
     loadCFGCmd arbiter model fn CFGKind.Disasm loadingTab
   | _ ->
     let tab = refreshCFGTabMinimap model tab
     replaceTabReferences model tab |> syncStatusBarWithActiveTab arbiter,
     Elmish.Cmd.none
 
-let openCFGTab (arbiter: Arbiter<_, _>) model fnItem =
+let openCFGTab (arbiter: Arbiter<_, _>) (model: Model) fnItem =
   let visibleTabs = Model.getVisibleTabs model
   let tab = Tab.ofFunctionItem fnItem
   match tryFindTab visibleTabs tab.ID with
   | Some tab ->
-    startLoadIfNeeded arbiter tab { model with ActiveTab = Some tab }
+    startLoadIfNeeded arbiter tab (Model.mapFocusedPane
+      (fun pane -> { pane with ActiveTab = Some tab }) model)
     |> fun (nextModel, cmd) ->
       let syncedModel = trySyncHexdumpWithActiveCFG arbiter nextModel
       syncedModel, cmd
   | None ->
-    startLoadIfNeeded arbiter tab
-      { model with
-          ActiveTab = Some tab
-          PreviewTab = Some tab }
+    startLoadIfNeeded arbiter tab (Model.mapFocusedPane
+      (fun pane -> { pane with ActiveTab = Some tab; PreviewTab = Some tab })
+      model)
     |> fun (nextModel, cmd) ->
       let syncedModel = trySyncHexdumpWithActiveCFG arbiter nextModel
       syncedModel, cmd
 
-let pinCFGTab (arbiter: Arbiter<_, _>) model fnItem =
+let pinCFGTab (arbiter: Arbiter<_, _>) (model: Model) fnItem =
   let tab = Tab.ofFunctionItem fnItem
   let newOpenTabs, tab, preview =
     match tryFindTab model.OpenTabs tab.ID, model.PreviewTab with
     | Some tab, preview -> model.OpenTabs, tab, preview
     | None, Some tab -> tab :: model.OpenTabs, tab, None
     | None, None -> tab :: model.OpenTabs, tab, None
-  startLoadIfNeeded arbiter tab
-    { model with
-        ActiveTab = Some tab
-        OpenTabs = newOpenTabs
-        PreviewTab = preview }
+  startLoadIfNeeded arbiter tab (Model.mapFocusedPane
+    (fun pane ->
+      { pane with
+          ActiveTab = Some tab
+          OpenTabs = newOpenTabs
+          PreviewTab = preview }) model)
   |> fun (nextModel, cmd) ->
     let syncedModel = trySyncHexdumpWithActiveCFG arbiter nextModel
     syncedModel, cmd
 
-let closeTab arbiter model tabID =
-  let openTabs = model.OpenTabs |> List.filter (fun t -> t.ID <> tabID)
-  let preview = model.PreviewTab |> Option.filter (fun t -> t.ID <> tabID)
-  let dragging = model.DraggingTab |> Option.filter (fun t -> t.ID <> tabID)
-  let active =
-    match model.ActiveTab with
-    | Some t when t.ID = tabID ->
-      openTabs |> List.tryHead |> Option.orElse preview
-    | _ ->
-      model.ActiveTab
-  { model with
-      ActiveTab = active
-      OpenTabs = openTabs
-      PreviewTab = preview
-      DraggingTab = dragging }
-  |> syncStatusBarWithActiveTab arbiter,
-  Elmish.Cmd.none
+let private isPaneEmpty pane =
+  pane.ActiveTab.IsNone
+  && pane.PreviewTab.IsNone
+  && List.isEmpty pane.OpenTabs
 
-let switchTab arbiter model tabID =
+let rec private collapseEmptyPanes = function
+  | Leaf(_, paneState) when isPaneEmpty paneState ->
+    None
+  | Leaf _ as leaf ->
+    Some leaf
+  | Split(_, axis, first, second) ->
+    match collapseEmptyPanes first, collapseEmptyPanes second with
+    | Some first, Some second ->
+      Some(Split(Guid.NewGuid(), axis, first, second))
+    | Some only, None
+    | None, Some only ->
+      Some only
+    | None, None ->
+      None
+
+let private normalizePaneModel model =
+  let rootPane =
+    collapseEmptyPanes model.RootPane
+    |> Option.defaultValue model.RootPane
+  let focusedPaneID =
+    match model.FocusedPaneID with
+    | Some paneID when Pane.tryFindLeaf paneID rootPane |> Option.isSome ->
+      Some paneID
+    | _ ->
+      Model.tryFindFirstLeaf rootPane |> Option.map fst
+  { model with RootPane = rootPane; FocusedPaneID = focusedPaneID }
+
+let closeTab arbiter (model: Model) paneID tabID =
+  match Pane.tryFindLeaf paneID model.RootPane with
+  | Some pane ->
+    let openTabs = pane.OpenTabs |> List.filter (fun t -> t.ID <> tabID)
+    let preview = pane.PreviewTab |> Option.filter (fun t -> t.ID <> tabID)
+    let dragging =
+      model.DraggingTab |> Option.filter (fun drag -> drag.Tab.ID <> tabID)
+    let active =
+      match pane.ActiveTab with
+      | Some t when t.ID = tabID ->
+        openTabs |> List.tryHead |> Option.orElse preview
+      | _ ->
+        pane.ActiveTab
+    Model.mapPaneByID paneID
+      (fun pane ->
+        { pane with
+            ActiveTab = active
+            OpenTabs = openTabs
+            PreviewTab = preview })
+      { model with
+          FocusedPaneID = Some paneID
+          DraggingTab = dragging }
+    |> normalizePaneModel
+    |> syncStatusBarWithActiveTab arbiter, Elmish.Cmd.none
+  | None ->
+    model, Elmish.Cmd.none
+
+let switchTab arbiter (model: Model) paneID tabID =
+  let model = { model with FocusedPaneID = Some paneID }
   let visibleTabs = Model.getVisibleTabs model
   match tryFindTab visibleTabs tabID with
   | Some tab ->
@@ -854,31 +940,39 @@ let switchTab arbiter model tabID =
         Tab.mapHexdumpState prepareHexdumpViewForActivation tab
       else
         refreshCFGTabMinimap model tab
-    replaceTabReferences { model with ActiveTab = Some tab } tab
+    replaceTabReferences (Model.mapFocusedPane
+      (fun pane -> { pane with ActiveTab = Some tab }) model) tab
     |> syncStatusBarWithActiveTab arbiter
     |> trySyncHexdumpWithActiveCFG arbiter,
     Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
-let setHexSyncEnabled (arbiter: Arbiter<_, _>) model enabled =
+let setHexSyncEnabled (arbiter: Arbiter<_, _>) (model: Model) enabled =
   let model = { model with HexSyncEnabled = enabled }
   if enabled then trySyncHexdumpWithActiveCFG arbiter model, Elmish.Cmd.none
   else model, Elmish.Cmd.none
 
-let startTabDrag model tabID =
+let startTabDrag (model: Model) paneID tabID =
+  let model = { model with FocusedPaneID = Some paneID }
   let visibleTabs = Model.getVisibleTabs model
   match tryFindTab visibleTabs tabID with
-  | Some tab -> { model with DraggingTab = Some tab }, Elmish.Cmd.none
+  | Some tab ->
+    { model with DraggingTab = Some { SourcePaneID = paneID; Tab = tab } },
+    Elmish.Cmd.none
   | None -> model, Elmish.Cmd.none
 
-let private findTwoTabs model tabID1 tabID2 =
-  let tab1 = model.OpenTabs |> List.tryFind (fun t -> t.ID = tabID1)
-  let tab2 = model.OpenTabs |> List.tryFind (fun t -> t.ID = tabID2)
+let private findTwoTabs (model: Model) paneID tabID1 tabID2 =
+  let tabs =
+    Pane.tryFindLeaf paneID model.RootPane
+    |> Option.map Model.getVisibleTabsFromPane
+    |> Option.defaultValue []
+  let tab1 = tabs |> List.tryFind (fun t -> t.ID = tabID1)
+  let tab2 = tabs |> List.tryFind (fun t -> t.ID = tabID2)
   tab1, tab2
 
-let private reorderOpenTabs model draggedTabID targetTabID =
-  match findTwoTabs model draggedTabID targetTabID with
+let private reorderOpenTabs (model: Model) paneID draggedTabID targetTabID =
+  match findTwoTabs model paneID draggedTabID targetTabID with
   | Some draggedTab, Some targetTab ->
     if draggedTab = targetTab then
       None
@@ -891,17 +985,19 @@ let private reorderOpenTabs model draggedTabID targetTabID =
         None
   | _ -> None
 
-let reorderTab model draggedTabID targetTabID =
-  match reorderOpenTabs model draggedTabID targetTabID with
+let reorderTab (model: Model) paneID draggedTabID targetTabID =
+  let model = { model with FocusedPaneID = Some paneID }
+  match reorderOpenTabs model paneID draggedTabID targetTabID with
   | Some(reorderedTabs, draggedTab) ->
-    { model with
-        OpenTabs = reorderedTabs
-        DraggingTab = Some draggedTab },
+    Model.mapFocusedPane
+      (fun pane -> { pane with OpenTabs = reorderedTabs })
+      { model with
+          DraggingTab = Some { SourcePaneID = paneID; Tab = draggedTab } },
     Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
-let endTabDrag model =
+let endTabDrag (model: Model) =
   if model.DraggingTab.IsSome then
     { model with DraggingTab = None }, Elmish.Cmd.none
   else
@@ -978,7 +1074,7 @@ let private findTopNodeAndBounds (cfg: VisGraph) =
       maxY <- max maxY p.Y
   struct (topNode, minX, minY, maxX, maxY)
 
-let private computeInitialCFGViewState cfgKind (cfg: VisGraph) model =
+let private computeInitialCFGViewState cfgKind (cfg: VisGraph) (model: Model) =
   let vs = cfg.Vertices
   if vs.Length = 0 then
     CFGViewState.init
@@ -1004,7 +1100,7 @@ let private computeInitialCFGViewState cfgKind (cfg: VisGraph) model =
         GraphMaxX = maxX
         GraphMaxY = maxY }
 
-let loadCFGCompleted arbiter model tabID cfgKind cfg =
+let loadCFGCompleted arbiter (model: Model) tabID cfgKind cfg =
   let visibleTabs = Model.getVisibleTabs model
   match tryFindTab visibleTabs tabID with
   | Some tab ->
@@ -1020,7 +1116,7 @@ let loadCFGCompleted arbiter model tabID cfgKind cfg =
   | None ->
     model, Elmish.Cmd.none
 
-let loadCFGFailed model tabID _reason =
+let loadCFGFailed (model: Model) tabID _reason =
   let visibleTabs = Model.getVisibleTabs model
   match tryFindTab visibleTabs tabID with
   | Some tab ->
@@ -1037,7 +1133,7 @@ let private updateCFGViewState target update =
     { target with Content = CFGContent(fn, Loaded loaded) }
   | _ -> target
 
-let private clampPanToGraphBounds panX panY viewState model =
+let private clampPanToGraphBounds panX panY viewState (model: Model) =
   let viewportWidth, viewportHeight = model.ContentViewportSize
   let cameraCenterX = (viewportWidth / 2.0 - panX) / viewState.Zoom
   let cameraCenterY = (viewportHeight / 2.0 - panY) / viewState.Zoom
@@ -1049,7 +1145,7 @@ let private clampPanToGraphBounds panX panY viewState model =
   let clampedPanY = viewportHeight / 2.0 - clampedCenterY * viewState.Zoom
   clampedPanX, clampedPanY
 
-let setCFGZoom model delta mouseX mouseY =
+let setCFGZoom (model: Model) delta mouseX mouseY =
   match model.ActiveTab with
   | Some tab ->
     let update viewState =
@@ -1073,13 +1169,13 @@ let setCFGZoom model delta mouseX mouseY =
 
 let [<Literal>] private CFGPanStartThresholdSquared = 16.0
 
-let startCFGPan model x y =
+let startCFGPan (model: Model) x y =
   { model with
       CFGIsPanning = false
       CFGPressedPointer = Some(x, y)
       CFGPanPointer = None }, Elmish.Cmd.none
 
-let moveCFGPan model x y space =
+let moveCFGPan (model: Model) x y space =
   match model.CFGPressedPointer, model.ActiveTab with
   | Some(pressedX, pressedY), Some tab when not model.CFGIsPanning ->
     let dx = x - pressedX
@@ -1120,13 +1216,13 @@ let moveCFGPan model x y space =
   | _ ->
     model, Elmish.Cmd.none
 
-let endCFGPan model =
+let endCFGPan (model: Model) =
   { model with
       CFGIsPanning = false
       CFGPressedPointer = None
       CFGPanPointer = None }, Elmish.Cmd.none
 
-let jumpCFGPan model gx gy =
+let jumpCFGPan (model: Model) gx gy =
   match model.ActiveTab with
   | Some tab ->
     let update viewState =
@@ -1141,7 +1237,7 @@ let jumpCFGPan model gx gy =
   | None ->
     model, Elmish.Cmd.none
 
-let selectCFGToken arbiter model selectedToken =
+let selectCFGToken arbiter (model: Model) selectedToken =
   match model.ActiveTab with
   | Some tab ->
     let update viewState =
@@ -1157,7 +1253,7 @@ let selectCFGToken arbiter model selectedToken =
   | None ->
     model, Elmish.Cmd.none
 
-let setHoveredCFGEdge model edgeID =
+let setHoveredCFGEdge (model: Model) edgeID =
   match model.ActiveTab with
   | Some tab ->
     let update viewState =
@@ -1167,27 +1263,37 @@ let setHoveredCFGEdge model edgeID =
   | None ->
     model, Elmish.Cmd.none
 
-let updateCFGViewportSize arbiter model width height =
+let updateCFGViewportSize arbiter (model: Model) paneID width height =
   if width <= 0.0 || height <= 0.0 then
     model, Elmish.Cmd.none
   else
-    let currentWidth, currentHeight = model.ContentViewportSize
-    let model = { model with ContentViewportSize = (width, height) }
-    let model = resizeOpenedHexdumpTab arbiter model width height
-    match model.ActiveTab with
-    | Some tab ->
-      let deltaX = width / 2.0 - currentWidth / 2.0
-      let deltaY = height / 2.0 - currentHeight / 2.0
-      let update viewState =
-        { viewState with
-            PanX = viewState.PanX + deltaX
-            PanY = viewState.PanY + deltaY }
-      let tab = updateCFGViewState tab update |> refreshCFGTabMinimap model
-      replaceTabReferences model tab, Elmish.Cmd.none
+    match Pane.tryFindLeaf paneID model.RootPane with
     | None ->
       model, Elmish.Cmd.none
+    | Some pane ->
+      let currentWidth, currentHeight = pane.ContentViewportSize
+      let viewportSize = (width, height)
+      let model =
+        Model.mapPaneByID paneID
+          (fun pane -> { pane with ContentViewportSize = viewportSize })
+          model
+      let model = resizeOpenedHexdumpTab arbiter model paneID width height
+      match pane.ActiveTab with
+      | Some tab ->
+        let deltaX = width / 2.0 - currentWidth / 2.0
+        let deltaY = height / 2.0 - currentHeight / 2.0
+        let update viewState =
+          { viewState with
+              PanX = viewState.PanX + deltaX
+              PanY = viewState.PanY + deltaY }
+        let tab =
+          updateCFGViewState tab update
+          |> refreshCFGTabMinimapForViewport viewportSize
+        replaceTabReferences model tab, Elmish.Cmd.none
+      | None ->
+        model, Elmish.Cmd.none
 
-let changeCFGKind (arbiter: Arbiter<_, _>) model kind =
+let changeCFGKind (arbiter: Arbiter<_, _>) (model: Model) kind =
   match model.ActiveTab with
   | Some { Content = CFGContent(fn, Loaded { ViewState = view }) }
     when view.CFGKind <> kind ->
@@ -1197,7 +1303,7 @@ let changeCFGKind (arbiter: Arbiter<_, _>) model kind =
   | _ ->
     model, Elmish.Cmd.none
 
-let toggleMinimap model tabID activate =
+let toggleMinimap (model: Model) tabID activate =
   match model.ActiveTab with
   | Some { ID = activeID; Content = CFGContent(fn, Loaded loaded) }
     when activeID = tabID && loaded.ViewState.ShowMinimap <> activate ->
@@ -1209,12 +1315,204 @@ let toggleMinimap model tabID activate =
   | _ ->
     model, Elmish.Cmd.none
 
-let updateCFG arbiter model msg =
+let focusPane (model: Model) paneID =
+  if model.FocusedPaneID = Some paneID then
+    model, Elmish.Cmd.none
+  elif Pane.tryFindLeaf paneID model.RootPane |> Option.isSome then
+    { model with FocusedPaneID = Some paneID }, Elmish.Cmd.none
+  else
+    model, Elmish.Cmd.none
+
+let private removeTabFromPane tabID pane =
+  match Model.getVisibleTabsFromPane pane with
+  | [] | [ _ ] ->
+    pane, None, false
+  | visibleTabs ->
+    match tryFindTab visibleTabs tabID, pane.PreviewTab with
+    | Some _, Some preview when preview.ID = tabID ->
+      let active =
+        match pane.ActiveTab with
+        | Some active when active.ID = tabID -> pane.OpenTabs |> List.tryHead
+        | _ -> pane.ActiveTab
+      { pane with
+          ActiveTab = active
+          PreviewTab = None }, Some preview, true
+    | Some tab, _ ->
+      let openTabs = pane.OpenTabs |> List.filter (fun t -> t.ID <> tabID)
+      let active =
+        match pane.ActiveTab with
+        | Some active when active.ID = tabID ->
+          openTabs |> List.tryHead |> Option.orElse pane.PreviewTab
+        | _ ->
+          pane.ActiveTab
+      { pane with
+          ActiveTab = active
+          OpenTabs = openTabs }, Some tab, false
+    | None, _ ->
+      pane, None, false
+
+let private insertMovedTabToPane tab wasPreview pane =
+  let openTabs = pane.OpenTabs |> List.filter (fun t -> t.ID <> tab.ID)
+  let preview =
+    match pane.PreviewTab with
+    | Some existing when existing.ID = tab.ID -> None
+    | existing -> existing
+  if wasPreview && preview.IsNone then
+    { pane with
+        ActiveTab = Some tab
+        OpenTabs = openTabs
+        PreviewTab = Some tab }
+  else
+    { pane with
+        ActiveTab = Some tab
+        OpenTabs = tab :: openTabs
+        PreviewTab = preview }
+
+let rec private replacePane paneID replacement = function
+  | Leaf(id, _) when id = paneID ->
+    replacement
+  | Leaf _ as leaf ->
+    leaf
+  | Split(id, axis, first, second) ->
+    Split(
+      id,
+      axis,
+      replacePane paneID replacement first,
+      replacePane paneID replacement second
+    )
+
+let private finalizeMovedTab arbiter model =
+  model
+  |> syncStatusBarWithActiveTab arbiter
+  |> trySyncHexdumpWithActiveCFG arbiter
+
+let private moveTabBetweenPanes arbiter model sourcePaneID targetPaneID tabID =
+  match Pane.tryFindLeaf sourcePaneID model.RootPane,
+        Pane.tryFindLeaf targetPaneID model.RootPane with
+  | Some sourcePane, Some targetPane when sourcePaneID <> targetPaneID ->
+    let sourcePane, tabOpt, wasPreview = removeTabFromPane tabID sourcePane
+    match tabOpt with
+    | Some tab ->
+      let targetPane = insertMovedTabToPane tab wasPreview targetPane
+      let nextRoot =
+        model.RootPane
+        |> replacePane sourcePaneID (Leaf(sourcePaneID, sourcePane))
+        |> replacePane targetPaneID (Leaf(targetPaneID, targetPane))
+      { model with
+          RootPane = nextRoot
+          FocusedPaneID = Some targetPaneID
+          DraggingTab = None }
+      |> normalizePaneModel
+      |> finalizeMovedTab arbiter,
+      Elmish.Cmd.none
+    | None ->
+      model, Elmish.Cmd.none
+  | _ ->
+    model, Elmish.Cmd.none
+
+let private decomposePlacement = function
+  | LeftOf srcID -> srcID, LeftRight, fun src dst -> dst, src
+  | RightOf srcID -> srcID, LeftRight, fun src dst -> src, dst
+  | Above srcID -> srcID, TopBottom, fun src dst -> dst, src
+  | Below srcID -> srcID, TopBottom, fun src dst -> src, dst
+
+let private moveTabToNewSibling arbiter model placement tabID =
+  let sourcePaneID, axis, swapChildren = decomposePlacement placement
+  match Pane.tryFindLeaf sourcePaneID model.RootPane with
+  | Some sourcePane ->
+    let sourcePane, tabOpt, wasPreview = removeTabFromPane tabID sourcePane
+    match tabOpt with
+    | Some tab ->
+      match Pane.createLeaf () with
+      | Leaf(targetPaneID, targetPane) ->
+        let targetPane =
+          { targetPane with
+              ContentViewportSize = sourcePane.ContentViewportSize }
+        let targetPane = insertMovedTabToPane tab wasPreview targetPane
+        let src = Leaf(sourcePaneID, sourcePane)
+        let dst = Leaf(targetPaneID, targetPane)
+        let left, right = swapChildren src dst
+        let replacement = Split(Guid.NewGuid(), axis, left, right)
+        let nextRoot = replacePane sourcePaneID replacement model.RootPane
+        { model with
+            RootPane = nextRoot
+            FocusedPaneID = Some targetPaneID
+            DraggingTab = None }
+        |> normalizePaneModel
+        |> finalizeMovedTab arbiter,
+        Elmish.Cmd.none
+      | Split _ ->
+        model, Elmish.Cmd.none
+    | None ->
+      model, Elmish.Cmd.none
+  | None ->
+    model, Elmish.Cmd.none
+
+let moveTabToPane arbiter model sourcePaneID targetPaneID tabID =
+  moveTabBetweenPanes arbiter model sourcePaneID targetPaneID tabID
+
+let rec private tryFindParentSplitOfLeaf paneID = function
+  | Split(_, _, Leaf(id, _), _) as split when id = paneID ->
+    Some split
+  | Split(_, _, _, Leaf(id, _)) as split when id = paneID ->
+    Some split
+  | Split(_, _, first, second) ->
+    tryFindParentSplitOfLeaf paneID first
+    |> Option.orElse (tryFindParentSplitOfLeaf paneID second)
+  | Leaf _ ->
+    None
+
+let rec private tryFindEdgeLeafID pickChild = function
+  | Leaf(id, _) ->
+    Some id
+  | Split(_, _, first, second) ->
+    tryFindEdgeLeafID pickChild (pickChild first second)
+
+let private tryResolveAdjacentPaneIDs model = function
+  | LeftOf srcID ->
+    match tryFindParentSplitOfLeaf srcID model.RootPane with
+    | Some(Split(_, LeftRight, left, Leaf(id, _))) when id = srcID ->
+      tryFindEdgeLeafID (fun _ r -> r) left
+      |> Option.map (fun dstID -> srcID, dstID)
+    | _ -> None
+  | RightOf srcID ->
+    match tryFindParentSplitOfLeaf srcID model.RootPane with
+    | Some(Split(_, LeftRight, Leaf(id, _), right)) when id = srcID ->
+      tryFindEdgeLeafID (fun l _ -> l) right
+      |> Option.map (fun dstID -> srcID, dstID)
+    | _ -> None
+  | Above srcID ->
+    match tryFindParentSplitOfLeaf srcID model.RootPane with
+    | Some(Split(_, TopBottom, above, Leaf(id, _))) when id = srcID ->
+      tryFindEdgeLeafID (fun _ r -> r) above
+      |> Option.map (fun dstID -> srcID, dstID)
+    | _ -> None
+  | Below srcID ->
+    match tryFindParentSplitOfLeaf srcID model.RootPane with
+    | Some(Split(_, TopBottom, Leaf(id, _), below)) when id = srcID ->
+      tryFindEdgeLeafID (fun l _ -> l) below
+      |> Option.map (fun dstID -> srcID, dstID)
+    | _ -> None
+
+let moveTabRelative arbiter model placement tabID =
+  match tryResolveAdjacentPaneIDs model placement with
+  | Some(srcID, dstID) ->
+    moveTabBetweenPanes arbiter model srcID dstID tabID
+  | _ ->
+    moveTabToNewSibling arbiter model placement tabID
+
+let updateViewportSize arbiter (model: Model) paneID width height =
+  updateCFGViewportSize arbiter model paneID width height
+
+let updateCFGLoad arbiter (model: Model) msg =
   match msg with
   | LoadCompleted(tabID, cfgKind, cfg) ->
     loadCFGCompleted arbiter model tabID cfgKind cfg
   | LoadFailed(tabID, reason) ->
     loadCFGFailed model tabID reason
+
+let updateCFG arbiter (model: Model) msg =
+  match msg with
   | SetZoom(delta, mouseX, mouseY) ->
     setCFGZoom model delta mouseX mouseY
   | StartPan(x, y) ->
@@ -1229,15 +1527,13 @@ let updateCFG arbiter model msg =
     selectCFGToken arbiter model token
   | SetHoveredEdge edgeID ->
     setHoveredCFGEdge model edgeID
-  | UpdateViewportSize(width, height) ->
-    updateCFGViewportSize arbiter model width height
   | ChangeKind kind ->
     changeCFGKind arbiter model kind
   | ToggleMinimap(tabID, activate) ->
     toggleMinimap model tabID activate
 
-let updateStatusMsg model msg =
+let updateStatusMsg (model: Model) msg =
   { model with StatusBarState = MessageOnly msg }, Elmish.Cmd.none
 
-let updateStatusOffsetCtx model sOff eOff sections =
+let updateStatusOffsetCtx (model: Model) sOff eOff sections =
   setStatusOffsetCtx model sOff eOff sections, Elmish.Cmd.none
