@@ -1277,7 +1277,8 @@ let updateCFGViewportSize arbiter (model: Model) paneID width height =
           model
       let model = resizeOpenedHexdumpTab arbiter model paneID width height
       match pane.ActiveTab with
-      | Some tab ->
+      | Some { Content = CFGContent _ } as activeTab ->
+        let tab = activeTab.Value
         let deltaX = width / 2.0 - currentWidth / 2.0
         let deltaY = height / 2.0 - currentHeight / 2.0
         let update viewState =
@@ -1288,6 +1289,8 @@ let updateCFGViewportSize arbiter (model: Model) paneID width height =
           updateCFGViewState tab update
           |> refreshCFGTabMinimapForViewport viewportSize
         replaceTabReferences model tab, Elmish.Cmd.none
+      | Some _ ->
+        model, Elmish.Cmd.none
       | None ->
         model, Elmish.Cmd.none
 
