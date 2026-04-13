@@ -118,13 +118,26 @@ module Model =
     | Some preview -> preview :: pane.OpenTabs
     | None -> pane.OpenTabs
 
-  /// Returns all tabs to be displayed, including the preview tab if present.
-  let getVisibleTabs model =
+  /// Returns all tabs to be displayed from the currently focused pane,
+  /// including the preview tab if it exists.
+  let getVisibleTabsFromFocusedPane model =
     match tryGetFocusedPane model with
     | Some pane ->
       getVisibleTabsFromPane pane
     | None ->
       []
+
+  let tryFindTab model tabID =
+    let rec findAllPane = function
+      | Leaf(_, paneState) ->
+        match paneState.PreviewTab with
+        | Some preview when preview.ID = tabID -> Some preview
+        | _ -> paneState.OpenTabs |> List.tryFind (fun tab -> tab.ID = tabID)
+      | Split(_, _, first, second) ->
+        match findAllPane first with
+        | Some tab -> Some tab
+        | None -> findAllPane second
+    findAllPane model.RootPane
 
 type Model with
   member this.ActiveTab =
