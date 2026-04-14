@@ -30,8 +30,8 @@ open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Media
 
-let private navButton model panel (icon: IView) (tooltip: string) onClick =
-  let isSelected = model.WorkspacePanel = panel
+let private navButton model isSelected (icon: IView) (tooltip: string) onClick =
+  let isSelected = isSelected model.WorkspacePanel
   Button.create [
     Button.width 36.0
     Button.height 36.0
@@ -71,29 +71,37 @@ let private sectionMenuIconView model =
     Image.stretch Stretch.Uniform
   ]
 
+let private hexdumpNavButtonView model dispatch =
+  navButton
+    model
+    (fun _ -> false)
+    (binaryMenuIconView model)
+    "Hexdump"
+    (fun _ -> dispatch OpenHexdumpTab)
+
 let private functionNavButtonView model dispatch =
   navButton
     model
-    FunctionPanel
+    (fun wp -> wp = FunctionPanel)
     (cfgMenuIconView model)
     "Functions and CFGs"
     (fun _ -> dispatch (SelectWorkspacePanel FunctionPanel))
 
-let private hexOverviewNavButtonView model dispatch =
-  navButton
-    model
-    HexOverviewPanel
-    (binaryMenuIconView model)
-    "Hex Overview"
-    (fun _ -> dispatch (SelectWorkspacePanel HexOverviewPanel))
-
 let private sectionNavButtonView model dispatch =
   navButton
     model
-    SectionPanel
+    (fun wp -> wp = SectionPanel)
     (sectionMenuIconView model)
     "Sections"
     (fun _ -> dispatch (SelectWorkspacePanel SectionPanel))
+
+let private sideMenuSeparatorView model =
+  Border.create [
+    Border.width 50.0
+    Border.height 2.0
+    Border.margin (0.0, 20.0, 0.0, 20.0)
+    Border.background model.Theme.Panel.Border
+  ]
 
 let private sideMenuView model dispatch =
   Border.create [
@@ -105,9 +113,11 @@ let private sideMenuView model dispatch =
         StackPanel.orientation Orientation.Vertical
         StackPanel.horizontalAlignment HorizontalAlignment.Center
         StackPanel.children [
+          hexdumpNavButtonView model dispatch
           functionNavButtonView model dispatch
-          hexOverviewNavButtonView model dispatch
           sectionNavButtonView model dispatch
+          sideMenuSeparatorView model
+          HexOverview.view model dispatch
         ]
       ]
     )
@@ -116,7 +126,6 @@ let private sideMenuView model dispatch =
 let private leftPanelView model dispatch =
   match model.WorkspacePanel with
   | FunctionPanel -> FunctionList.view model dispatch :> IView
-  | HexOverviewPanel -> HexOverview.view model dispatch
   | SectionPanel -> SectionList.view model dispatch
 
 let private isFocusedPane model paneID =
@@ -132,7 +141,7 @@ let private tabContentView pane model dispatch =
   match pane.ActiveTab with
   | Some { Content = CFGContent _ } ->
     CFGContent.view pane model dispatch
-  | Some { Content = HexContent _ } ->
+  | Some { Content = HexContent } ->
     HexContent.view pane model dispatch
   | Some { Content = SectionContent } ->
     Border.create [

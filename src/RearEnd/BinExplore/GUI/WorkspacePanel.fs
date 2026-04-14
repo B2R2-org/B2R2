@@ -27,5 +27,4 @@ namespace B2R2.RearEnd.BinExplore.GUI
 /// Represents the currently selected navigation panel in the workspace.
 type WorkspacePanel =
   | FunctionPanel
-  | HexOverviewPanel
   | SectionPanel

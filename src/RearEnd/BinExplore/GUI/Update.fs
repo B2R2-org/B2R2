@@ -180,77 +180,6 @@ let private buildSectionRange sections =
   | [ sec1; sec2 ] -> MultipleSections(sec1, sec2)
   | _ -> MultipleSections(List.head sections, List.last sections)
 
-let openBinaryCompleted (arbiter: Arbiter<_, _>) (model: Model) filePath =
-  if model.LoadingBinaryPath = Some filePath then
-    let functions, statusBar =
-      match API.getFunctions arbiter true, API.getFile arbiter with
-      | Ok fns, Ok file ->
-        fns |> Array.map (FunctionItem.ofFunction file) |> List.ofArray,
-        FileLoaded(filePath, FileFormat.toString file.Format, None)
-      | _ ->
-        [], EmptyStatus
-    Model.mapFocusedPane
-      (fun pane ->
-        { pane with
-            ActiveTab = None
-            OpenTabs = []
-            PreviewTab = None })
-      { model with
-          LoadedBinary = Some filePath
-          LoadingBinaryPath = None
-          Functions = functions
-          FunctionFilter = ""
-          DraggingTab = None
-          WorkspacePanel = FunctionPanel
-          StatusBarState = statusBar },
-    Elmish.Cmd.none
-  else
-    model, Elmish.Cmd.none
-
-let openBinaryFailed model filePath reason =
-  if model.LoadingBinaryPath = Some filePath then
-    { model with
-        LoadingBinaryPath = None
-        StatusBarState = MessageOnly $"Failed to load binary: {reason}" },
-    Elmish.Cmd.none
-  else
-    model, Elmish.Cmd.none
-
-let closeWorkspace (arbiter: Arbiter<_, _>) (model: Model) =
-  arbiter.CloseSession()
-  Model.mapFocusedPane
-    (fun pane ->
-      { pane with
-          ActiveTab = None
-          OpenTabs = []
-          PreviewTab = None })
-    { model with
-        LoadedBinary = None
-        LoadingBinaryPath = None
-        Functions = []
-        FunctionFilter = ""
-        DraggingTab = None
-        WorkspacePanel = FunctionPanel
-        StatusBarState = EmptyStatus },
-  Elmish.Cmd.none
-
-let private replaceTabByID tabID newTab oldTab =
-  if oldTab.ID = tabID then newTab
-  else oldTab
-
-let private replaceTabReferences (model: Model) tab =
-  let paneID =
-    Pane.tryFindLeafByTabID tab.ID model.RootPane
-    |> Option.defaultValue (Model.getFocusedPaneID model)
-  Model.mapPaneByID paneID (fun pane ->
-    let opens = pane.OpenTabs |> List.map (replaceTabByID tab.ID tab)
-    let preview = pane.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
-    let active = pane.ActiveTab |> Option.map (replaceTabByID tab.ID tab)
-    { pane with
-        OpenTabs = opens
-        PreviewTab = preview
-        ActiveTab = active }) model
-
 let private isLinkageSectionName = function
   | ".plt" | ".plt.sec" | ".plt.got"
   | ".got" | ".got.plt"
@@ -326,34 +255,111 @@ let private buildHexAnnotations
   | _ ->
     state
 
-let openHexdumpTab (arbiter: Arbiter<_, _>) (model: Model) =
+let openBinaryCompleted (arbiter: Arbiter<_, _>) (model: Model) filePath =
+  if model.LoadingBinaryPath = Some filePath then
+    let functions, hexdump, statusBar =
+      match API.getFunctions arbiter true, API.getFile arbiter with
+      | Ok fns, Ok file ->
+        let numDigits = (file.ISA.WordSize |> WordSize.toByteWidth) * 2
+        let hexdump =
+          HexdumpState.ofBytes file.BaseAddress file.RawBytes numDigits
+          |> buildHexAnnotations model.Theme file
+          |> initializeHexdumpTabView model
+        fns |> Array.map (FunctionItem.ofFunction file) |> List.ofArray,
+        Some hexdump,
+        FileLoaded(filePath, FileFormat.toString file.Format, None)
+      | _ ->
+        [], None, EmptyStatus
+    Model.mapFocusedPane
+      (fun pane ->
+        { pane with
+            ActiveTab = None
+            OpenTabs = []
+            PreviewTab = None })
+      { model with
+          LoadedBinary = Some filePath
+          LoadingBinaryPath = None
+          Functions = functions
+          FunctionFilter = ""
+          DraggingTab = None
+          WorkspacePanel = FunctionPanel
+          Hexdump = hexdump
+          StatusBarState = statusBar },
+      Elmish.Cmd.none
+  else
+    model, Elmish.Cmd.none
+
+let openBinaryFailed model filePath reason =
+  if model.LoadingBinaryPath = Some filePath then
+    { model with
+        LoadingBinaryPath = None
+        StatusBarState = MessageOnly $"Failed to load binary: {reason}" },
+    Elmish.Cmd.none
+  else
+    model, Elmish.Cmd.none
+
+let closeWorkspace (arbiter: Arbiter<_, _>) (model: Model) =
+  arbiter.CloseSession()
+  Model.mapFocusedPane
+    (fun pane ->
+      { pane with
+          ActiveTab = None
+          OpenTabs = []
+          PreviewTab = None })
+    { model with
+        LoadedBinary = None
+        LoadingBinaryPath = None
+        Functions = []
+        FunctionFilter = ""
+        DraggingTab = None
+        WorkspacePanel = FunctionPanel
+        Hexdump = None
+        StatusBarState = EmptyStatus },
+  Elmish.Cmd.none
+
+let private replaceTabByID tabID newTab oldTab =
+  if oldTab.ID = tabID then newTab
+  else oldTab
+
+let private replaceTabReferences (model: Model) tab =
+  let paneID =
+    Pane.tryFindLeafByTabID tab.ID model.RootPane
+    |> Option.defaultValue (Model.getFocusedPaneID model)
+  Model.mapPaneByID paneID (fun pane ->
+    let opens = pane.OpenTabs |> List.map (replaceTabByID tab.ID tab)
+    let preview = pane.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
+    let active = pane.ActiveTab |> Option.map (replaceTabByID tab.ID tab)
+    { pane with
+        OpenTabs = opens
+        PreviewTab = preview
+        ActiveTab = active }) model
+
+let openHexdumpTab (model: Model) =
+  let model =
+    match model.Hexdump with
+    | Some hexdump ->
+      { model with Hexdump = Some(activateHexdumpView model hexdump) }
+    | None ->
+      model
   match Model.tryFindTab model Tab.HexdumpTabID with
   | Some(paneID, _, tab, _) ->
-    let tab = Tab.mapHexdumpState (activateHexdumpView model) tab
     Model.mapPaneByID paneID (fun pane ->
-      let opens = pane.OpenTabs |> List.map (replaceTabByID tab.ID tab)
-      let preview = pane.PreviewTab |> Option.map (replaceTabByID tab.ID tab)
       { pane with
           ActiveTab = Some tab
-          OpenTabs = opens
-          PreviewTab = preview }) model
+          OpenTabs = pane.OpenTabs
+          PreviewTab = pane.PreviewTab }) model
     |> fun nextModel ->
       { nextModel with FocusedPaneID = Some paneID }, Elmish.Cmd.none
   | None ->
-    match API.getFile arbiter with
-    | Ok file ->
-      let numDigits = (file.ISA.WordSize |> WordSize.toByteWidth) * 2
-      let hexdump =
-        HexdumpState.ofBytes file.BaseAddress file.RawBytes numDigits
-        |> buildHexAnnotations model.Theme file
-        |> activateHexdumpView model
-      let tab = Tab.ofHexdump hexdump
+    match model.Hexdump with
+    | Some _ ->
+      let tab = Tab.ofHexdump ()
       Model.mapFocusedPane (fun pane ->
-        { pane with
-            ActiveTab = Some tab
-            OpenTabs = tab :: pane.OpenTabs }) model,
-      Elmish.Cmd.none
-    | Error _ ->
+          { pane with
+              ActiveTab = Some tab
+              OpenTabs = tab :: pane.OpenTabs }) model,
+        Elmish.Cmd.none
+    | None ->
       model, Elmish.Cmd.none
 
 let private mapCFGTabState newState (tab: Tab) =
@@ -442,17 +448,17 @@ let private tryGetVisibleFileOffsetRange hexdump =
     None
 
 let private syncStatusBarWithActiveTab (arbiter: Arbiter<_, _>) (model: Model) =
-  match model.ActiveTab with
-  | Some { Content = HexContent { Selection = Some sel } } ->
+  match model.ActiveTab, model.Hexdump with
+  | Some { Content = HexContent }, Some { Selection = Some sel } ->
     updateStatusRange model arbiter sel
-  | Some { Content = HexContent hexdump } ->
+  | Some { Content = HexContent }, Some hexdump ->
     match tryGetVisibleFileOffsetRange hexdump, API.getFile arbiter with
     | Some(sOff, eOff), Ok file ->
       let sec = findSectionRange file sOff eOff
       setStatusOffsetCtx model sOff eOff sec
     | _ ->
       clearStatusRange model
-  | Some { Content = CFGContent(func, Loaded st) } ->
+  | Some { Content = CFGContent(func, Loaded st) }, _ ->
     match API.getFile arbiter, st.ViewState.SelectedToken with
     | Ok file, Some { Range = Some range } ->
       let sOff = uint32 range.Min
@@ -469,24 +475,15 @@ let private syncStatusBarWithActiveTab (arbiter: Arbiter<_, _>) (model: Model) =
   | _ ->
     clearStatusRange model
 
-let private tryGetHexdumpTab (model: Model) =
-  Pane.tryFindLeafByTabID Tab.HexdumpTabID model.RootPane
-  |> Option.bind (fun paneID ->
-    Pane.tryFindLeaf paneID model.RootPane
-    |> Option.bind (fun pane ->
-      Model.getVisibleTabsFromPane pane
-      |> List.tryFind (fun t -> t.ID = Tab.HexdumpTabID)))
-
 let private updateHexdumpState arbiter (model: Model) update =
-  match tryGetHexdumpTab model with
-  | Some({ Content = HexContent hexdump } as tab) ->
+  match model.Hexdump with
+  | Some hexdump ->
     let hexdump =
       update hexdump
       |> fun state ->
         let view = clampHexScrollState state state.View
         { state with View = view }
-    let tab = Tab.mapHexdumpState (fun _ -> hexdump) tab
-    replaceTabReferences model tab |> syncStatusBarWithActiveTab arbiter
+    { model with Hexdump = Some hexdump } |> syncStatusBarWithActiveTab arbiter
   | _ ->
     model
 
@@ -496,8 +493,8 @@ let private updateHexViewState arbiter (model: Model) updateView =
     { hexdump with View = view }), Elmish.Cmd.none
 
 let private getActiveHexScrollGuard (model: Model) =
-  match tryGetHexdumpTab model with
-  | Some { Content = HexContent hexdump } -> hexdump.View.ScrollGuard
+  match model.Hexdump with
+  | Some hexdump -> hexdump.View.ScrollGuard
   | _ -> NoScrollGuard
 
 let private syncHexScrollOffset hexdump offsetY scrollGuard =
@@ -598,19 +595,14 @@ let private computeJumpedHexdump theme hexdump byteIndex length =
   pendingDelta
 
 let private jumpHexdump (model: Model) byteIndex length =
-  match model.ActiveTab with
-  | Some { Content = HexContent hexdump } ->
+  match model.Hexdump with
+  | Some hexdump ->
     let nextHexdump, targetOffsetY, pendingDelta =
       computeJumpedHexdump model.Theme hexdump byteIndex length
-    let activeTab =
-      model.ActiveTab
-      |> Option.map (Tab.mapHexdumpState (fun _ -> nextHexdump))
-    let model =
-      match activeTab with
-      | Some tab -> replaceTabReferences model tab
-      | None -> model
+    let model = { model with Hexdump = Some nextHexdump }
+    let hasHexdumpTab = Model.tryFindTab model Tab.HexdumpTabID |> Option.isSome
     let cmd =
-      if abs pendingDelta > 0.5 then
+      if hasHexdumpTab && abs pendingDelta > 0.5 then
         deferHexdumpScrollCmd targetOffsetY
       else
         Elmish.Cmd.none
@@ -660,9 +652,8 @@ let private setHexdumpSelectionFromAddrRange arbiter model (range: AddrRange) =
     model
 
 let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) (model: Model) =
-  let hasHexdump = Model.tryFindTab model Tab.HexdumpTabID |> Option.isSome
-  match hasHexdump, model.ActiveTab with
-  | true, Some { Content = CFGContent(fn, Loaded st) } ->
+  match model.Hexdump, model.ActiveTab with
+  | Some _, Some { Content = CFGContent(fn, Loaded st) } ->
     match st.ViewState.SelectedToken with
     | Some { Range = Some range } ->
       let model = setHexdumpSelectionFromAddrRange arbiter model range
@@ -773,8 +764,8 @@ let updateHexdump arbiter (model: Model) msg =
   | SetHoveredByte byteIndex ->
     updateHexViewState arbiter model (fun viewState ->
       let hovered =
-        match model.ActiveTab with
-        | Some { Content = HexContent hexdump } ->
+        match model.Hexdump with
+        | Some hexdump ->
           byteIndex |> Option.bind (clampHexByteIndex hexdump)
         | _ -> None
       { viewState with HoveredByte = hovered })
@@ -928,11 +919,19 @@ let switchTab arbiter (model: Model) paneID tabID =
   let model = { model with FocusedPaneID = Some paneID }
   match Model.tryFindVisibleTab model tabID with
   | Some tab ->
-    let tab =
+    let model =
       if tab.ID = Tab.HexdumpTabID then
-        Tab.mapHexdumpState prepareHexdumpViewForActivation tab
+        match model.Hexdump with
+        | Some hexdump ->
+          { model with
+              Hexdump = Some (prepareHexdumpViewForActivation hexdump) }
+        | None ->
+          model
       else
-        refreshCFGTabMinimap model tab
+        model
+    let tab =
+      if tab.ID = Tab.HexdumpTabID then tab
+      else refreshCFGTabMinimap model tab
     replaceTabReferences (Model.mapFocusedPane
       (fun pane -> { pane with ActiveTab = Some tab }) model) tab
     |> syncStatusBarWithActiveTab arbiter

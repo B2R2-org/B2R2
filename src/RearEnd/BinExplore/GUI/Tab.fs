@@ -37,8 +37,8 @@ type Tab =
 and TabContent =
   /// A tab displaying the control flow graph of a function.
   | CFGContent of FunctionItem * TabContentState<LoadedCFGState>
-  /// A tab displaying the hexadecimal view and its state.
-  | HexContent of HexdumpState
+  /// A tab displaying the shared hexadecimal view.
+  | HexContent
   /// A tab displaying sections of the binary.
   | SectionContent
 
@@ -61,12 +61,7 @@ module Tab =
       Title = func.Name
       Content = CFGContent(func, NotLoaded) }
 
-  let ofHexdump hexdump =
+  let ofHexdump () =
     { ID = HexdumpTabID
       Title = "Hexdump"
-      Content = HexContent hexdump }
-
-  let mapHexdumpState update tab =
-    match tab.Content with
-    | HexContent state -> { tab with Content = HexContent(update state) }
-    | _ -> tab
+      Content = HexContent }

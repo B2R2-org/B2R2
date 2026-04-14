@@ -210,8 +210,10 @@ module private SearchBox = begin
       match Model.tryGetFocusedActiveTab model with
       | Some { Content = CFGContent(_, Loaded loaded) } ->
         searchCFGTab loaded.Graph input
-      | Some { Content = HexContent state } ->
-        searchHexTab state input
+      | Some { Content = HexContent } ->
+        model.Hexdump
+        |> Option.map (fun state -> searchHexTab state input)
+        |> Option.defaultValue [||]
       | _ ->
         [||]
 
@@ -250,7 +252,7 @@ module private SearchBox = begin
     localState.IsOpen.Set false
     localState.SelectedIdx.Set -1
     match Model.tryGetFocusedActiveTab model with
-    | Some { Content = HexContent _ } ->
+    | Some { Content = HexContent } ->
       dispatch (HexdumpPaneMsg(SetHighlightSpans []))
       dispatch (HexdumpPaneMsg(SetSelection None))
     | _ ->

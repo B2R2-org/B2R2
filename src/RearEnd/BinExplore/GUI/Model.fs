@@ -58,6 +58,8 @@ type Model =
     CFGPanPointer: (float * float) option
     /// Flag indicating whether the hex view is synchronized with the CFG view.
     HexSyncEnabled: bool
+    /// Shared hexdump state for the loaded binary.
+    Hexdump: HexdumpState option
     /// Status bar information.
     StatusBarState: StatusBarState }
 

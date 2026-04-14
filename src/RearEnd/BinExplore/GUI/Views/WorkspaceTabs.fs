@@ -172,7 +172,7 @@ let private tabIconView model pane (tab: Tab) =
       Image.verticalAlignment VerticalAlignment.Center
       Image.margin (0.0, 0.0, 4.0, 0.0)
     ] |> View.withKey $"{tab.ID}-icon" :> IView
-  | HexContent _ ->
+  | HexContent ->
     Image.create [
       Image.source (IconAssets.binaryIcon model)
       Image.width 14.0

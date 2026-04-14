@@ -26,65 +26,18 @@
 module B2R2.RearEnd.BinExplore.GUI.HexOverview
 
 open Avalonia.Controls
-open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 
-let private popoutIconView model =
-  Image.create [
-    Image.source (IconAssets.popoutIcon model)
-    Image.width 14.0
-    Image.height 14.0
-    Image.stretch Stretch.Uniform
-  ]
-
-let private headerView model dispatch =
-  Border.create [
-    Border.dock Dock.Top
-    Border.background model.Theme.Panel.AltBackground
-    Border.padding 8.0
-    Border.child (
-      Grid.create [
-        Grid.columnDefinitions "*,Auto"
-        Grid.children [
-          TextBlock.create [
-            TextBlock.text "Hex Overview"
-            TextBlock.fontSize 13.0
-            TextBlock.foreground model.Theme.Text.Secondary
-            TextBlock.verticalAlignment VerticalAlignment.Center
-          ]
-          Button.create [
-            Grid.column 1
-            Button.width 24.0
-            Button.height 24.0
-            Button.padding 0.0
-            Button.background model.Theme.Common.Transparent
-            Button.borderThickness 0.0
-            Button.content (popoutIconView model)
-            Button.onClick (fun _ -> dispatch OpenHexdumpTab)
-            ToolTip.tip "Open in Tab"
-          ]
-        ]
-      ]
-    )
-  ]
-
 let private overviewBodyView model =
   StackPanel.create [
-    StackPanel.margin 10.0
-    StackPanel.spacing 8.0
     StackPanel.children [
       TextBlock.create [
-        TextBlock.text "Hex Overview is currently a placeholder."
+        TextBlock.margin (2.0, 2.0, 0.0, 0.0)
+        TextBlock.text "TODO"
         TextBlock.foreground model.Theme.Text.Primary
         TextBlock.fontSize 14.0
-        TextBlock.textWrapping TextWrapping.Wrap
-      ]
-      TextBlock.create [
-        TextBlock.text "Open the Hexdump tab to inspect bytes."
-        TextBlock.foreground model.Theme.Text.Muted
-        TextBlock.fontSize 12.0
         TextBlock.textWrapping TextWrapping.Wrap
       ]
     ]
@@ -98,7 +51,6 @@ let view model dispatch =
     Border.child (
       DockPanel.create [
         DockPanel.children [
-          headerView model dispatch
           overviewBodyView model
         ]
       ]

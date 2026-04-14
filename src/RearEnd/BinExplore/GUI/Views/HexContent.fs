@@ -836,8 +836,8 @@ let private emptyStateView model =
   ]
 
 let view pane model dispatch =
-  match pane.ActiveTab with
-  | Some { Content = HexContent state } ->
+  match pane.ActiveTab, model.Hexdump with
+  | Some { Content = HexContent }, Some state ->
     bodyView model dispatch state
   | _ ->
     emptyStateView model
