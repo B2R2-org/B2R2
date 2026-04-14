@@ -924,7 +924,7 @@ let switchTab arbiter (model: Model) paneID tabID =
         match model.Hexdump with
         | Some hexdump ->
           { model with
-              Hexdump = Some (prepareHexdumpViewForActivation hexdump) }
+              Hexdump = Some(prepareHexdumpViewForActivation hexdump) }
         | None ->
           model
       else

@@ -109,14 +109,20 @@ let private sideMenuView model dispatch =
     Border.borderThickness (0.0, 0.0, 1.0, 0.0)
     Border.borderBrush model.Theme.Panel.Border
     Border.child (
-      StackPanel.create [
-        StackPanel.orientation Orientation.Vertical
-        StackPanel.horizontalAlignment HorizontalAlignment.Center
-        StackPanel.children [
-          hexdumpNavButtonView model dispatch
-          functionNavButtonView model dispatch
-          sectionNavButtonView model dispatch
-          sideMenuSeparatorView model
+      DockPanel.create [
+        DockPanel.lastChildFill true
+        DockPanel.children [
+          StackPanel.create [
+            DockPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Vertical
+            StackPanel.horizontalAlignment HorizontalAlignment.Center
+            StackPanel.children [
+              hexdumpNavButtonView model dispatch
+              functionNavButtonView model dispatch
+              sectionNavButtonView model dispatch
+              sideMenuSeparatorView model
+            ]
+          ]
           HexOverview.view model dispatch
         ]
       ]

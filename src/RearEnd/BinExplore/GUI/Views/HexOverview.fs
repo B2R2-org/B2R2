@@ -25,26 +25,283 @@
 [<RequireQualifiedAccess>]
 module B2R2.RearEnd.BinExplore.GUI.HexOverview
 
+open System
+open System.Collections.Generic
+open Avalonia
 open Avalonia.Controls
+open Avalonia.FuncUI.Builder
+open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 
+let private brushOfColor =
+  let cache = Dictionary<string, IBrush>()
+  fun color ->
+    match cache.TryGetValue color with
+    | true, brush -> brush
+    | _ ->
+      let brush = Brush.Parse color
+      cache[color] <- brush
+      brush
+
+let [<Literal>] private MaxBarWidth = 10.0
+
+let [<Literal>] private MinBarWidth = 6.0
+
+let [<Literal>] private HorizontalPadding = 8.0
+
+let private computeBarRect width height =
+  let barWidth =
+    width - HorizontalPadding * 2.0
+    |> min MaxBarWidth
+    |> max MinBarWidth
+  let barLeft = (width - barWidth) / 2.0
+  Rect(barLeft, 0.0, barWidth, height)
+
+let private computeBucketCount height =
+  max 1 (int (floor height))
+
+let private computeBucketRange docLength bucketCount bucketIdx =
+  let rangeStart =
+    int64 (
+      (float docLength * float bucketIdx)
+      / float bucketCount
+    )
+  let rangeEndExclusive =
+    if bucketIdx = bucketCount - 1 then docLength
+    else
+      int64 (
+        (float docLength * float (bucketIdx + 1))
+        / float bucketCount
+      )
+  rangeStart, rangeEndExclusive
+
+let private computeOffsetDigits docLength =
+  let maxOffset = max 0L (docLength - 1L)
+  max 8 (maxOffset.ToString("X").Length)
+
+let private formatOffset digits (offset: int64) =
+  let txt = offset.ToString("X").PadLeft(digits, '0')
+  $"0x{txt}"
+
+let private formatOffsetRange digits startOff endOff =
+  $"{formatOffset digits startOff} - {formatOffset digits endOff}"
+
+let private formatBucketTooltip docLength bucketCount bucketIdx =
+  let rangeStart, rangeEndExclusive =
+    computeBucketRange docLength bucketCount bucketIdx
+  let rangeEndInclusive = max rangeStart (rangeEndExclusive - 1L)
+  let digits = computeOffsetDigits docLength
+  if rangeStart = rangeEndInclusive then
+    formatOffset digits rangeStart
+  else
+    formatOffsetRange digits rangeStart rangeEndInclusive
+
+let private tryGetCurrentOffsetRange model =
+  match model.StatusBarState with
+  | FileLoaded(_, _, Some ctx) -> Some ctx.Range
+  | _ -> None
+
+let private hasBytes (state: HexdumpState) =
+  state.Document.Length > 0L
+
+let private getColoredSpans (state: HexdumpState): HexSpanStyle list =
+  state.AnnotationSpans
+  |> List.filter (fun (span: HexSpanStyle) ->
+    span.Length > 0L && span.Background.IsSome)
+
+let private tryPickBucketColor
+    (spans: HexSpanStyle list) rangeStart rangeEnd =
+  let step (bestPrio, bestOverlap, bestColor) (span: HexSpanStyle) =
+    let spanEnd = span.Start + span.Length
+    let overlapStart = max rangeStart span.Start
+    let overlapEnd = min rangeEnd spanEnd
+    let overlap = max 0L (overlapEnd - overlapStart)
+    if overlap <= 0L then
+      bestPrio, bestOverlap, bestColor
+    elif span.Priority > bestPrio
+      || (span.Priority = bestPrio && overlap > bestOverlap) then
+      span.Priority, overlap, span.Background
+    else
+      bestPrio, bestOverlap, bestColor
+  let _, _, color =
+    List.fold step (Int32.MinValue, 0L, None) spans
+  color
+
+let private drawBuckets (ctx: DrawingContext) state (barRect: Rect) height =
+  let bucketCount = computeBucketCount height
+  let bucketHeight = height / float bucketCount
+  let spans = getColoredSpans state
+  for bucketIdx in 0 .. bucketCount - 1 do
+    let rangeStart, rangeEnd =
+      computeBucketRange state.Document.Length bucketCount bucketIdx
+    match tryPickBucketColor spans rangeStart rangeEnd with
+    | Some color ->
+      let top = float bucketIdx * bucketHeight
+      let rect = Rect(barRect.X, top, barRect.Width, bucketHeight)
+      ctx.FillRectangle(brushOfColor color, rect)
+    | None ->
+      ()
+
+let private tryGetRangeOverlayRect
+    docLength width height (range: FileOffsetRange) =
+  let clampOffset offset =
+    max 0L (min (docLength - 1L) offset)
+  if docLength <= 0L || width <= 0.0 || height <= 0.0 then
+    None
+  else
+    let startOff = clampOffset (int64 range.Start)
+    let endOff = clampOffset (int64 range.End)
+    let clampedStart = min startOff endOff
+    let clampedEnd = max startOff endOff
+    let top = float clampedStart / float docLength * height
+    let bottomExclusive = float (clampedEnd + 1L) / float docLength * height
+    let overlayHeight = max 1.0 (bottomExclusive - top)
+    Some(Rect(0.0, top, width, overlayHeight))
+
+type private HexOverviewLayer() =
+  inherit Control()
+
+  static let stateProperty =
+    AvaloniaProperty.Register<HexOverviewLayer, HexdumpState option>(
+      nameof Unchecked.defaultof<HexOverviewLayer>.CurrentState, None
+    )
+
+  static let themeProperty =
+    AvaloniaProperty.Register<HexOverviewLayer, Theme>(
+      nameof Unchecked.defaultof<HexOverviewLayer>.CurrentTheme,
+      Unchecked.defaultof<Theme>
+    )
+
+  static let rangeProperty =
+    AvaloniaProperty.Register<HexOverviewLayer, FileOffsetRange option>(
+      nameof Unchecked.defaultof<HexOverviewLayer>.CurrentRange, None
+    )
+
+  static member StateProperty = stateProperty
+
+  static member ThemeProperty = themeProperty
+
+  static member RangeProperty = rangeProperty
+
+  member this.CurrentState
+    with get() = this.GetValue stateProperty
+    and set value = this.SetValue(stateProperty, value) |> ignore
+
+  member this.CurrentTheme
+    with get() = this.GetValue themeProperty
+    and set value = this.SetValue(themeProperty, value) |> ignore
+
+  member this.CurrentRange
+    with get() = this.GetValue rangeProperty
+    and set value = this.SetValue(rangeProperty, value) |> ignore
+
+  static member State value =
+    AttrBuilder<'t>.CreateProperty<HexdumpState option>(
+      HexOverviewLayer.StateProperty, value, ValueNone
+    )
+
+  static member Theme value =
+    AttrBuilder<'t>.CreateProperty<Theme>(
+      HexOverviewLayer.ThemeProperty, value, ValueNone
+    )
+
+  static member Range value =
+    AttrBuilder<'t>.CreateProperty<FileOffsetRange option>(
+      HexOverviewLayer.RangeProperty, value, ValueNone
+    )
+
+  member this.DrawCurrentRangeOverlay(ctx, width, height, docLength) =
+    match this.CurrentRange
+          |> Option.bind (tryGetRangeOverlayRect docLength width height) with
+    | Some overlayRect ->
+      use _ = (ctx: DrawingContext).PushOpacity(0.35)
+      let brush = brushOfColor this.CurrentTheme.Text.Highlight
+      ctx.FillRectangle(brush, overlayRect)
+    | None ->
+      ()
+
+  override this.OnPropertyChanged change =
+    base.OnPropertyChanged change
+    if change.Property = stateProperty
+      || change.Property = themeProperty
+      || change.Property = rangeProperty then
+      this.InvalidateVisual()
+    else
+      ()
+
+  override this.OnPointerMoved e =
+    base.OnPointerMoved e
+    let state = this.CurrentState
+    let bounds = this.Bounds
+    if bounds.Width <= 0.0 || bounds.Height <= 0.0 then
+      ToolTip.SetTip(this, null)
+    else
+      match state with
+      | Some state when state.Document.Length > 0L ->
+        let p = e.GetPosition this
+        let barRect = computeBarRect bounds.Width bounds.Height
+        if barRect.Contains p then
+          let bucketCount = computeBucketCount bounds.Height
+          let bucketIdx =
+            p.Y / bounds.Height * float bucketCount
+            |> floor
+            |> int
+            |> max 0
+            |> min (bucketCount - 1)
+          let tip =
+            formatBucketTooltip state.Document.Length bucketCount bucketIdx
+          ToolTip.SetTip(this, tip)
+        else
+          ToolTip.SetTip(this, null)
+      | _ ->
+        ToolTip.SetTip(this, null)
+
+  override this.OnPointerExited e =
+    base.OnPointerExited e
+    ToolTip.SetTip(this, null)
+
+  override this.Render(ctx: DrawingContext) =
+    base.Render ctx
+    let state = this.CurrentState
+    let theme = this.CurrentTheme
+    let bounds = this.Bounds
+    let width = bounds.Width
+    let height = bounds.Height
+    if isNull (box theme) || width <= 0.0 || height <= 0.0 then
+      ()
+    else
+      let barRect = computeBarRect width height
+      ctx.FillRectangle(brushOfColor theme.Panel.AltBackground, barRect)
+      match state with
+      | Some state when hasBytes state ->
+        drawBuckets ctx state barRect height
+        this.DrawCurrentRangeOverlay(ctx, width, height, state.Document.Length)
+      | _ ->
+        ()
+      let pen = Pen(brushOfColor theme.Panel.Border, 1.0)
+      ctx.DrawRectangle(null, pen, barRect)
+
+[<RequireQualifiedAccess>]
+module private HexOverviewLayer =
+  let create (attrs: IAttr<HexOverviewLayer> list) =
+    View.createGeneric<HexOverviewLayer> attrs
+
 let private overviewBodyView model =
-  StackPanel.create [
-    StackPanel.children [
-      TextBlock.create [
-        TextBlock.margin (2.0, 2.0, 0.0, 0.0)
-        TextBlock.text "TODO"
-        TextBlock.foreground model.Theme.Text.Primary
-        TextBlock.fontSize 14.0
-        TextBlock.textWrapping TextWrapping.Wrap
-      ]
-    ]
+  HexOverviewLayer.create [
+    Control.horizontalAlignment HorizontalAlignment.Stretch
+    Control.verticalAlignment VerticalAlignment.Stretch
+    Control.isHitTestVisible true
+    HexOverviewLayer.State model.Hexdump
+    HexOverviewLayer.Theme model.Theme
+    HexOverviewLayer.Range(tryGetCurrentOffsetRange model)
   ] :> IView
 
 let view model dispatch =
   Border.create [
+    Border.horizontalAlignment HorizontalAlignment.Stretch
+    Border.verticalAlignment VerticalAlignment.Stretch
     Border.background model.Theme.Panel.Background
     Border.borderThickness 1.0
     Border.borderBrush model.Theme.Panel.Border
