@@ -82,7 +82,7 @@ let encodeInstruction ins ctx =
   | Opcode.ANDPS -> andps ctx ins
   | Opcode.BSR -> bsr ctx ins
   | Opcode.BT -> bt ctx ins
-  | Opcode.CALLNear -> call ctx ins
+  | Opcode.CALLNear | Opcode.CALL -> call ctx ins
   | Opcode.CBW -> cbw ctx ins.Operands
   | Opcode.CDQ -> cdq ctx ins.Operands
   | Opcode.CDQE -> cdqe ctx ins.Operands
@@ -154,12 +154,12 @@ let encodeInstruction ins ctx =
   | Opcode.JNO -> jno ctx ins
   | Opcode.JNP -> jnp ctx ins
   | Opcode.JNS -> jns ctx ins
-  | Opcode.JNZ -> jnz ctx ins
+  | Opcode.JNZ | Opcode.JNE -> jnz ctx ins
   | Opcode.JO -> jo ctx ins
   | Opcode.JP -> jp ctx ins
   | Opcode.JS -> js ctx ins
   | Opcode.JZ -> jz ctx ins
-  | Opcode.JMPNear -> jmp ctx ins
+  | Opcode.JMPNear | Opcode.JMP -> jmp ctx ins
   | Opcode.LAHF -> lahf ctx ins.Operands
   | Opcode.LEA -> lea ctx ins
   | Opcode.LEAVE -> leave ctx ins.Operands
@@ -190,7 +190,7 @@ let encodeInstruction ins ctx =
   | Opcode.PUSH -> push ctx ins
   | Opcode.PXOR -> pxor ctx ins
   | Opcode.RCL -> rcl ctx ins
-  | Opcode.RETNear | Opcode.RETNearImm -> ret ctx ins
+  | Opcode.RETNear | Opcode.RETNearImm | Opcode.RET -> ret ctx ins
   | Opcode.ROL -> rol ctx ins
   | Opcode.ROR -> ror ctx ins
   | Opcode.SAR -> sar ctx ins
@@ -241,12 +241,12 @@ let encodeInstruction ins ctx =
 
 let computeIncompMaxLen = function
   | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> 2
-  | Opcode.CALLNear | Opcode.JMPNear -> 5
+  | Opcode.CALLNear | Opcode.JMPNear | Opcode.CALL | Opcode.JMP -> 5
   | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JG | Opcode.JL | Opcode.JLE
   | Opcode.JNB | Opcode.JNL | Opcode.JNO | Opcode.JNP | Opcode.JNS | Opcode.JNZ
-  | Opcode.JO | Opcode.JP | Opcode.JS | Opcode.JZ
+  | Opcode.JNE  | Opcode.JO | Opcode.JP | Opcode.JS | Opcode.JZ
   | Opcode.XBEGIN -> 6
-  | _ -> Terminator.futureFeature ()
+  | o -> printfn "%A" o; Terminator.futureFeature ()
 
 let getImm imm = if Option.isSome imm then Option.get imm else [||]
 
@@ -268,7 +268,8 @@ let computeFitType dist =
   else failwith "Invalid Relative length"
 
 let getOpByteOfIncomp relSz = function
-  | Opcode.JMPNear -> if relSz = 8<rt> then [| 0xEBuy |] else [| 0xE9uy |]
+  | Opcode.JMPNear | Opcode.JMP ->
+    if relSz = 8<rt> then [| 0xEBuy |] else [| 0xE9uy |]
   | Opcode.JA -> if relSz = 8<rt> then [| 0x77uy |] else [| 0x0Fuy; 0x87uy |]
   | Opcode.JB -> if relSz = 8<rt> then [| 0x72uy |] else [| 0x0Fuy; 0x82uy |]
   | Opcode.JBE -> if relSz = 8<rt> then [| 0x76uy |] else [| 0x0Fuy; 0x86uy |]
@@ -280,13 +281,14 @@ let getOpByteOfIncomp relSz = function
   | Opcode.JNO -> if relSz = 8<rt> then [| 0x71uy |] else [| 0x0Fuy; 0x81uy |]
   | Opcode.JNP -> if relSz = 8<rt> then [| 0x7Buy |] else [| 0x0Fuy; 0x8Buy |]
   | Opcode.JNS -> if relSz = 8<rt> then [| 0x79uy |] else [| 0x0Fuy; 0x89uy |]
-  | Opcode.JNZ -> if relSz = 8<rt> then [| 0x75uy |] else [| 0x0Fuy; 0x85uy |]
+  | Opcode.JNZ | Opcode.JNE ->
+    if relSz = 8<rt> then [| 0x75uy |] else [| 0x0Fuy; 0x85uy |]
   | Opcode.JO -> if relSz = 8<rt> then [| 0x70uy |] else [| 0x0Fuy; 0x80uy |]
   | Opcode.JP -> if relSz = 8<rt> then [| 0x7auy |] else [| 0x0Fuy; 0x8Auy |]
   | Opcode.JS -> if relSz = 8<rt> then [| 0x78uy |] else [| 0x0Fuy; 0x88uy |]
   | Opcode.JZ -> if relSz = 8<rt> then [| 0x74uy |] else [| 0x0Fuy; 0x84uy |]
-  | Opcode.CALLNear -> [| 0xE8uy |]
-  | _ -> Terminator.futureFeature ()
+  | Opcode.CALLNear | Opcode.CALL -> [| 0xE8uy |]
+  | o -> printfn "%A" o; Terminator.futureFeature ()
 
 let computeDistance myIdx labelIdx maxLenArr =
   let sIdx, count, sign =
