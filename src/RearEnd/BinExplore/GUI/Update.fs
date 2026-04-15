@@ -343,8 +343,7 @@ let private mkOffsetRangeInfo sOff eOff sections =
   { Range = { Start = sOff; End = eOff }
     SectionRange = buildSectionRange sections }
 
-let private tryGetOffsetRangeInfo
-    (arbiter: Arbiter<_, _>) (sOff: uint32) (eOff: uint32) =
+let private tryGetOffsetRangeInfo arbiter (sOff: uint32) (eOff: uint32) =
   match API.getFile arbiter with
   | Ok file ->
     let sec = findSectionRange file sOff eOff
@@ -610,7 +609,7 @@ let private jumpHexdump (model: Model) byteIndex length =
   | _ ->
     model, Elmish.Cmd.none
 
-let private jumpHexdumpToAddress (arbiter: Arbiter<_, _>) model addr =
+let private jumpHexdumpToAddress arbiter model addr =
   match API.getFile arbiter with
   | Ok file when file.IsValidAddr addr ->
     let ptr = file.GetBoundedPointer addr
@@ -651,7 +650,7 @@ let private setHexdumpSelectionFromAddrRange arbiter model (range: AddrRange) =
   | _ ->
     model
 
-let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) (model: Model) =
+let private syncHexdumpWithActiveCFG (arbiter: Arbiter<_, _>) (model: Model) =
   match model.Hexdump, model.ActiveTab with
   | Some _, Some { Content = CFGContent(fn, Loaded st) } ->
     match st.ViewState.SelectedToken with
@@ -659,13 +658,14 @@ let private syncHexdumpwithActiveCFG (arbiter: Arbiter<_, _>) (model: Model) =
       let model = setHexdumpSelectionFromAddrRange arbiter model range
       jumpHexdumpToAddress arbiter model range.Min
     | _ ->
-      let model = setHexdumpSelection arbiter model None
-      jumpHexdumpToAddress arbiter model fn.OffsetRange.Value.Min
+      let offsetRange = fn.OffsetRange.Value
+      let model = setHexdumpSelectionFromAddrRange arbiter model offsetRange
+      jumpHexdumpToAddress arbiter model offsetRange.Min
   | _ ->
     model
 
 let private trySyncHexdumpWithActiveCFG arbiter model =
-  if model.HexSyncEnabled then syncHexdumpwithActiveCFG arbiter model
+  if model.HexSyncEnabled then syncHexdumpWithActiveCFG arbiter model
   else model
 
 let updateHexdump arbiter (model: Model) msg =
