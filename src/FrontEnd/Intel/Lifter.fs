@@ -54,8 +54,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.BTR -> GeneralLifter.btr ins insLen bld
   | OP.BTS -> GeneralLifter.bts ins insLen bld
   | OP.BZHI -> GeneralLifter.bzhi ins insLen bld
-  | OP.CALLNear -> GeneralLifter.call ins insLen bld
-  | OP.CALLFar -> LiftingUtils.sideEffects bld ins insLen UnsupportedFAR
+  | OP.CALL -> GeneralLifter.call ins insLen bld
   | OP.CBW | OP.CWDE | OP.CDQE ->
     GeneralLifter.convBWQ ins insLen bld
   | OP.CLC -> GeneralLifter.clearFlag ins insLen bld R.CF
@@ -93,7 +92,7 @@ let translate (ins: Instruction) insLen bld =
     LiftingUtils.sideEffects bld ins insLen UnsupportedPrivInstr
   | OP.INT | OP.INTO -> GeneralLifter.interrupt ins insLen bld
   | OP.INT3 -> LiftingUtils.sideEffects bld ins insLen Breakpoint
-  | OP.JMPFar | OP.JMPNear -> GeneralLifter.jmp ins insLen bld
+  | OP.JMP -> GeneralLifter.jmp ins insLen bld
   | OP.JO
   | OP.JNO
   | OP.JB | OP.JC | OP.JNAE
@@ -158,10 +157,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.RDSSPD | OP.RDSSPQ -> GeneralLifter.nop ins.Address insLen bld
   | OP.RDTSC -> LiftingUtils.sideEffects bld ins insLen ClockCounter
   | OP.RDTSCP -> LiftingUtils.sideEffects bld ins insLen ClockCounter
-  | OP.RETNear -> GeneralLifter.ret ins insLen bld
-  | OP.RETNearImm -> GeneralLifter.retWithImm ins insLen bld
-  | OP.RETFar -> LiftingUtils.sideEffects bld ins insLen UnsupportedFAR
-  | OP.RETFarImm -> LiftingUtils.sideEffects bld ins insLen UnsupportedFAR
+  | OP.RET -> GeneralLifter.ret ins insLen bld
   | OP.ROL -> GeneralLifter.rol ins insLen bld
   | OP.ROR -> GeneralLifter.ror ins insLen bld
   | OP.RORX -> GeneralLifter.rorx ins insLen bld

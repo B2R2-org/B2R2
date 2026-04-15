@@ -6161,11 +6161,11 @@ let grp4Op = function
 let grp5 b = function
   | 0 -> struct (INC, OD.Mem, SZ.Def, SzCond.Normal)
   | 1 -> struct (DEC, OD.Mem, SZ.Def, SzCond.Normal)
-  | 2 -> struct (CALLNear, OD.Mem, SZ.Def, SzCond.F64)
-  | 3 -> struct (CALLFar, OD.Mem, SZ.P, SzCond.Normal)
-  | 4 -> struct (JMPNear, OD.Mem, SZ.Def, SzCond.F64)
+  | 2 -> struct (CALL, OD.Mem, SZ.Def, SzCond.F64)
+  | 3 -> struct (CALL, OD.Mem, SZ.P, SzCond.Normal)
+  | 4 -> struct (JMP, OD.Mem, SZ.Def, SzCond.F64)
   | 5 -> if Operands.modIsMemory b then
-           struct (JMPFar, OD.Mem, SZ.P, SzCond.Normal)
+           struct (JMP, OD.Mem, SZ.P, SzCond.Normal)
          else raise ParsingFailureException
   | 6 -> struct (PUSH, OD.Mem, SZ.Def, SzCond.D64)
   | _ -> raise ParsingFailureException

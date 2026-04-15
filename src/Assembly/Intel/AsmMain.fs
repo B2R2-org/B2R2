@@ -82,7 +82,7 @@ let encodeInstruction ins ctx =
   | Opcode.ANDPS -> andps ctx ins
   | Opcode.BSR -> bsr ctx ins
   | Opcode.BT -> bt ctx ins
-  | Opcode.CALLNear | Opcode.CALL -> call ctx ins
+  | Opcode.CALL -> call ctx ins
   | Opcode.CBW -> cbw ctx ins.Operands
   | Opcode.CDQ -> cdq ctx ins.Operands
   | Opcode.CDQE -> cdqe ctx ins.Operands
@@ -159,7 +159,7 @@ let encodeInstruction ins ctx =
   | Opcode.JP -> jp ctx ins
   | Opcode.JS -> js ctx ins
   | Opcode.JZ -> jz ctx ins
-  | Opcode.JMPNear | Opcode.JMP -> jmp ctx ins
+  | Opcode.JMP -> jmp ctx ins
   | Opcode.LAHF -> lahf ctx ins.Operands
   | Opcode.LEA -> lea ctx ins
   | Opcode.LEAVE -> leave ctx ins.Operands
@@ -190,7 +190,7 @@ let encodeInstruction ins ctx =
   | Opcode.PUSH -> push ctx ins
   | Opcode.PXOR -> pxor ctx ins
   | Opcode.RCL -> rcl ctx ins
-  | Opcode.RETNear | Opcode.RETNearImm | Opcode.RET -> ret ctx ins
+  | Opcode.RET -> ret ctx ins
   | Opcode.ROL -> rol ctx ins
   | Opcode.ROR -> ror ctx ins
   | Opcode.SAR -> sar ctx ins
@@ -241,7 +241,7 @@ let encodeInstruction ins ctx =
 
 let computeIncompMaxLen = function
   | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> 2
-  | Opcode.CALLNear | Opcode.JMPNear | Opcode.CALL | Opcode.JMP -> 5
+  | Opcode.CALL | Opcode.JMP -> 5
   | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JG | Opcode.JL | Opcode.JLE
   | Opcode.JNB | Opcode.JNL | Opcode.JNO | Opcode.JNP | Opcode.JNS | Opcode.JNZ
   | Opcode.JNE  | Opcode.JO | Opcode.JP | Opcode.JS | Opcode.JZ
@@ -268,8 +268,7 @@ let computeFitType dist =
   else failwith "Invalid Relative length"
 
 let getOpByteOfIncomp relSz = function
-  | Opcode.JMPNear | Opcode.JMP ->
-    if relSz = 8<rt> then [| 0xEBuy |] else [| 0xE9uy |]
+  | Opcode.JMP -> if relSz = 8<rt> then [| 0xEBuy |] else [| 0xE9uy |]
   | Opcode.JA -> if relSz = 8<rt> then [| 0x77uy |] else [| 0x0Fuy; 0x87uy |]
   | Opcode.JB -> if relSz = 8<rt> then [| 0x72uy |] else [| 0x0Fuy; 0x82uy |]
   | Opcode.JBE -> if relSz = 8<rt> then [| 0x76uy |] else [| 0x0Fuy; 0x86uy |]
@@ -287,7 +286,7 @@ let getOpByteOfIncomp relSz = function
   | Opcode.JP -> if relSz = 8<rt> then [| 0x7auy |] else [| 0x0Fuy; 0x8Auy |]
   | Opcode.JS -> if relSz = 8<rt> then [| 0x78uy |] else [| 0x0Fuy; 0x88uy |]
   | Opcode.JZ -> if relSz = 8<rt> then [| 0x74uy |] else [| 0x0Fuy; 0x84uy |]
-  | Opcode.CALLNear | Opcode.CALL -> [| 0xE8uy |]
+  | Opcode.CALL -> [| 0xE8uy |]
   | o -> printfn "%A" o; Terminator.futureFeature ()
 
 let computeDistance myIdx labelIdx maxLenArr =
@@ -309,7 +308,7 @@ let decideOp parserState maxLenArr myIdx (comp: _[]) =
   | IncompleteOp(op, (OneOperand(Label(lbl, _)) as oprs)) ->
     let labelIdx = Map.find lbl parserState.LabelMap
     let t = computeDistance myIdx labelIdx maxLenArr |> computeFitType
-    let t = if op = Opcode.CALLNear then 32<rt> (* FIXME *) else t
+    let t = if op = Opcode.CALL then 32<rt> (* FIXME *) else t
     [| CompOp(op, oprs, getOpByteOfIncomp t op, None)
        IncompLabel t |]
   | _ -> Terminator.impossible ()

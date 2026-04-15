@@ -125,9 +125,10 @@ module IntelSyntax = begin
       builder.Accumulate(AsmWordKind.Variable, Register.toString b)
       memScaleDispToStr false si disp wordSize builder
 
-  let inline private isFar (ins: Instruction) =
-    match ins.Opcode with
-    | Opcode.JMPFar | Opcode.CALLFar -> true
+  let inline isFar (ins: Instruction) =
+    match ins.Opcode, ins.Operands with
+    | Opcode.JMP, OneOperand(OprDirAddr(Absolute _))
+    | Opcode.CALL, OneOperand(OprDirAddr(Absolute _)) -> true
     | _ -> false
 
   let private ptrDirectiveString isFar = function
@@ -562,10 +563,10 @@ module ATTSyntax = begin
     | Opcode.VPBROADCASTQ ->
       buildOpcode ins.Opcode builder
     (* Far jmp/call *)
-    | Opcode.JMPFar ->
+    | Opcode.JMP when IntelSyntax.isFar ins ->
       builder.Accumulate(AsmWordKind.Mnemonic, "ljmp")
       buildOpSuffix ins.Operands builder
-    | Opcode.CALLFar ->
+    | Opcode.CALL when IntelSyntax.isFar ins ->
       builder.Accumulate(AsmWordKind.Mnemonic, "lcall")
       buildOpSuffix ins.Operands builder
     | opcode ->

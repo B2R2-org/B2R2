@@ -711,23 +711,27 @@ let bzhi (ins: Instruction) insLen bld =
   bld --!> insLen
 
 let call (ins: Instruction) insLen bld =
-  bld <!-- (ins.Address, insLen)
-  let pc = numU64 (ins: Instruction).Address bld.RegType
-  let oprSize = getOperationSize ins
+  match ins.Operands with
+  | OneOperand(OprDirAddr(Absolute _)) ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedFAR
+  | _ ->
+    bld <!-- (ins.Address, insLen)
+    let pc = numU64 (ins: Instruction).Address bld.RegType
+    let oprSize = getOperationSize ins
 #if EMULATION
-  setCCOp bld
-  bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
+    setCCOp bld
+    bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #endif
-  let struct (target, ispcrel) = transJumpTargetOpr bld false ins pc insLen
-  if ispcrel || not (hasStackPtr ins) then
-    auxPush oprSize bld (pc .+ numInsLen insLen bld)
-    bld <+ (AST.interjmp target InterJmpKind.IsCall)
-  else
-    let t = tmpVar bld oprSize (* Use tmpvar because the target can use RSP *)
-    bld <+ (t := target)
-    auxPush oprSize bld (pc .+ numInsLen insLen bld)
-    bld <+ (AST.interjmp t InterJmpKind.IsCall)
-  bld
+    let struct (target, ispcrel) = transJumpTargetOpr bld false ins pc insLen
+    if ispcrel || not (hasStackPtr ins) then
+      auxPush oprSize bld (pc .+ numInsLen insLen bld)
+      bld <+ (AST.interjmp target InterJmpKind.IsCall)
+    else
+      let t = tmpVar bld oprSize (* Use tmpvar because the target can use RSP *)
+      bld <+ (t := target)
+      auxPush oprSize bld (pc .+ numInsLen insLen bld)
+      bld <+ (AST.interjmp t InterJmpKind.IsCall)
+    bld
 
 let convBWQ (ins: Instruction) insLen bld =
   let opr = regVar bld (if is64bit bld then R.RAX else R.EAX)
@@ -2486,30 +2490,26 @@ let rdpkru ins insLen bld =
   bld <+ (edx := AST.num0 bld.RegType)
   bld --!> insLen
 
-let retWithImm (ins: Instruction) insLen bld =
-  bld <!-- (ins.Address, insLen)
-  let oprSize = getOperationSize ins
-  let t = tmpVar bld oprSize
-  let sp = getStackPtr bld
-  let src = transOneOpr bld ins insLen
-#if EMULATION
-  setCCOp bld
-  bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
-#endif
-  auxPop oprSize bld t
-  bld <+ (sp := sp .+ (AST.zext oprSize src))
-  bld <+ (AST.interjmp t InterJmpKind.IsRet)
-  bld
-
-let ret ins insLen bld =
+let ret (ins: Instruction) insLen bld =
   let oprSize = getOperationSize ins
   let t = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
+  match ins.Operands with
+  | NoOperand ->
 #if EMULATION
-  setCCOp bld
-  bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
+    setCCOp bld
+    bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #endif
-  auxPop oprSize bld t
+    auxPop oprSize bld t
+  | _ (* OneOperand *) ->
+    let sp = getStackPtr bld
+    let src = transOneOpr bld ins insLen
+#if EMULATION
+    setCCOp bld
+    bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
+#endif
+    auxPop oprSize bld t
+    bld <+ (sp := sp .+ (AST.zext oprSize src))
   bld <+ (AST.interjmp t InterJmpKind.IsRet)
   bld
 

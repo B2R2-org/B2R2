@@ -123,14 +123,12 @@ type Instruction
 
     member _.IsCall =
       match opcode with
-      | Opcode.CALLFar | Opcode.CALLNear -> true
+      | Opcode.CALL -> true
       | _ -> false
 
     member _.IsRET =
       match opcode with
-      | Opcode.RETFar | Opcode.RETFarImm
-      | Opcode.RETNear | Opcode.RETNearImm ->
-        true
+      | Opcode.RET -> true
       | _ -> false
 
     member _.IsPush =
