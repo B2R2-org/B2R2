@@ -104,20 +104,60 @@ let private tryPickBucketColor
     List.fold step (Int32.MinValue, 0L, None) spans
   color
 
-let private drawBuckets (ctx: DrawingContext) state (barRect: Rect) height =
+type private CachedBucketSegment =
+  { StartBucket: int
+    EndBucketExclusive: int
+    Background: string }
+
+type private OverviewStaticCache =
+  { BucketCount: int
+    Segments: CachedBucketSegment list }
+
+let private buildBucketCache state height =
   let bucketCount = computeBucketCount height
-  let bucketHeight = height / float bucketCount
   let spans = getColoredSpans state
-  for bucketIdx in 0 .. bucketCount - 1 do
-    let rangeStart, rangeEnd =
-      computeBucketRange state.Document.Length bucketCount bucketIdx
-    match tryPickBucketColor spans rangeStart rangeEnd with
-    | Some color ->
-      let top = float bucketIdx * bucketHeight
-      let rect = Rect(barRect.X, top, barRect.Width, bucketHeight)
-      ctx.FillRectangle(brushOfColor color, rect)
-    | None ->
-      ()
+  if bucketCount <= 0 || List.isEmpty spans then
+    { BucketCount = bucketCount
+      Segments = [] }
+  else
+    let segments = ResizeArray<_>()
+    let mutable segmentStart = 0
+    let mutable currentColor = None
+    let flushSegment endBucketExclusive colorOpt =
+      match colorOpt with
+      | Some color when endBucketExclusive > segmentStart ->
+        segments.Add
+          { StartBucket = segmentStart
+            EndBucketExclusive = endBucketExclusive
+            Background = color }
+      | _ ->
+        ()
+    for bucketIdx in 0 .. bucketCount - 1 do
+      let rangeStart, rangeEnd =
+        computeBucketRange state.Document.Length bucketCount bucketIdx
+      let color = tryPickBucketColor spans rangeStart rangeEnd
+      if color <> currentColor then
+        flushSegment bucketIdx currentColor
+        segmentStart <- bucketIdx
+        currentColor <- color
+      else
+        ()
+    flushSegment bucketCount currentColor
+    { BucketCount = bucketCount
+      Segments = segments |> Seq.toList }
+
+let private drawCachedBuckets
+    (ctx: DrawingContext) (barRect: Rect) height cache =
+  if cache.BucketCount > 0 then
+    let bucketHeight = height / float cache.BucketCount
+    for segment in cache.Segments do
+      let top = float segment.StartBucket * bucketHeight
+      let segmentHeight =
+        float (segment.EndBucketExclusive - segment.StartBucket) * bucketHeight
+      let rect = Rect(barRect.X, top, barRect.Width, segmentHeight)
+      ctx.FillRectangle(brushOfColor segment.Background, rect)
+  else
+    ()
 
 let private tryGetRangeOverlayRect
     docLength width height (range: FileOffsetRange) =
@@ -139,6 +179,38 @@ type private HexOverviewLayer() =
   inherit Control()
 
   let mutable dragOffsetY = None
+  let mutable cachedDocLength = -1L
+  let mutable cachedAnnotationSpans: HexSpanStyle list = []
+  let mutable cachedBucketCount = -1
+  let mutable cachedStaticSegments: CachedBucketSegment list = []
+
+  let clearStaticCache () =
+    cachedDocLength <- -1L
+    cachedAnnotationSpans <- []
+    cachedBucketCount <- -1
+    cachedStaticSegments <- []
+
+  let isStaticCacheReusable (state: HexdumpState) =
+    cachedDocLength = state.Document.Length
+    && obj.ReferenceEquals(
+      box cachedAnnotationSpans, box state.AnnotationSpans
+    )
+
+  let ensureStaticCache (state: HexdumpState) height =
+    let bucketCount = computeBucketCount height
+    let shouldRebuild =
+      not (isStaticCacheReusable state)
+      || cachedBucketCount <> bucketCount
+    if shouldRebuild then
+      let cache = buildBucketCache state height
+      cachedDocLength <- state.Document.Length
+      cachedAnnotationSpans <- state.AnnotationSpans
+      cachedBucketCount <- cache.BucketCount
+      cachedStaticSegments <- cache.Segments
+    else
+      ()
+    { BucketCount = cachedBucketCount
+      Segments = cachedStaticSegments }
 
   static let stateProperty =
     AvaloniaProperty.Register<HexOverviewLayer, HexdumpState option>(
@@ -269,6 +341,17 @@ type private HexOverviewLayer() =
       || change.Property = rangeProperty
       || change.Property = viewportRangeProperty
       || change.Property = dispatchProperty then
+      if change.Property = stateProperty then
+        match this.CurrentState with
+        | Some state ->
+          if not (isStaticCacheReusable state) then
+            clearStaticCache ()
+          else
+            ()
+        | None ->
+          clearStaticCache ()
+      else
+        ()
       this.InvalidateVisual()
     else
       ()
@@ -345,7 +428,8 @@ type private HexOverviewLayer() =
       ctx.FillRectangle(brushOfColor theme.Panel.AltBackground, barRect)
       match state with
       | Some state when hasBytes state ->
-        drawBuckets ctx state barRect height
+        let cache = ensureStaticCache state height
+        drawCachedBuckets ctx barRect height cache
         this.DrawViewportRangeOverlay(ctx, width, height, state.Document.Length)
         this.DrawCurrentRangeOverlay(ctx, width, height, state.Document.Length)
       | _ ->
