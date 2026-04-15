@@ -34,6 +34,7 @@ open Avalonia.FuncUI.Builder
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Media
+open B2R2
 
 let [<Literal>] private OverscanRows = 12
 
@@ -46,6 +47,24 @@ type private CachedRowVisual =
   { Address: FormattedText
     Hex: FormattedText
     Ascii: FormattedText }
+
+type private RenderSignature =
+  { BytesRef: byte[]
+    AnnotationSpansRef: HexSpanStyle list
+    HighlightSpansRef: HexSpanStyle list
+    BaseAddress: Addr
+    BytesPerRow: int
+    AddressDigits: int
+    CharWidth: float
+    RowHeight: float
+    StartRow: int
+    EndRow: int
+    Selection: HexSelection option
+    FontFamily: string
+    FontSize: float
+    AddressColor: string
+    PrimaryColor: string
+    SelectionBackground: string }
 
 type private HexviewLayout =
   { PaddingX: float
@@ -525,10 +544,47 @@ let private expandRowRangeWithOverscan totalRows (startRow, endRow) =
   max 0 (startRow - OverscanRows),
   min totalRows (endRow + OverscanRows)
 
+let private computeRenderSignature state theme startRow endRow =
+  { BytesRef = state.Document.Bytes
+    AnnotationSpansRef = state.AnnotationSpans
+    HighlightSpansRef = state.HighlightSpans
+    BaseAddress = state.Document.BaseAddress
+    BytesPerRow = state.View.BytesPerRow
+    AddressDigits = state.View.AddressDigits
+    CharWidth = state.View.CharWidth
+    RowHeight = state.View.RowHeight
+    StartRow = startRow
+    EndRow = endRow
+    Selection = state.Selection
+    FontFamily = theme.Font.Monospace.FontFamily
+    FontSize = theme.Font.Monospace.FontSize
+    AddressColor = theme.Text.Address
+    PrimaryColor = theme.Text.Primary
+    SelectionBackground = theme.Search.SelectedBackground }
+
+let private sameRenderSignature left right =
+  obj.ReferenceEquals(left.BytesRef, right.BytesRef)
+  && obj.ReferenceEquals(left.AnnotationSpansRef, right.AnnotationSpansRef)
+  && obj.ReferenceEquals(left.HighlightSpansRef, right.HighlightSpansRef)
+  && left.BaseAddress = right.BaseAddress
+  && left.BytesPerRow = right.BytesPerRow
+  && left.AddressDigits = right.AddressDigits
+  && left.CharWidth = right.CharWidth
+  && left.RowHeight = right.RowHeight
+  && left.StartRow = right.StartRow
+  && left.EndRow = right.EndRow
+  && left.Selection = right.Selection
+  && left.FontFamily = right.FontFamily
+  && left.FontSize = right.FontSize
+  && left.AddressColor = right.AddressColor
+  && left.PrimaryColor = right.PrimaryColor
+  && left.SelectionBackground = right.SelectionBackground
+
 type private HexdumpRenderLayer() =
   inherit Control()
 
   let rowCache = Dictionary<int, CachedRowVisual>()
+  let mutable lastRenderSignature: RenderSignature option = None
   let mutable cachedBytes: byte[] = null
   let mutable cachedBytesPerRow = 0
   let mutable cachedAddressDigits = 0
@@ -736,12 +792,29 @@ type private HexdumpRenderLayer() =
 
   override this.OnPropertyChanged change =
     base.OnPropertyChanged change
-    if change.Property = stateProperty
-      || change.Property = themeProperty
-      || change.Property = startRowProperty
-      || change.Property = endRowProperty then
-      this.InvalidateVisual()
-    else ()
+    let shouldInvalidate =
+      if change.Property = stateProperty
+        || change.Property = themeProperty
+        || change.Property = startRowProperty
+        || change.Property = endRowProperty then
+        match this.CurrentState with
+        | Some state when not (isNull (box this.CurrentTheme)) ->
+          let signature =
+            computeRenderSignature
+              state this.CurrentTheme this.RenderStartRow this.RenderEndRow
+          match lastRenderSignature with
+          | Some prev when sameRenderSignature prev signature ->
+            false
+          | _ ->
+            lastRenderSignature <- Some signature
+            true
+        | _ ->
+          let changed = lastRenderSignature.IsSome
+          lastRenderSignature <- None
+          changed
+      else
+        false
+    if shouldInvalidate then this.InvalidateVisual() else ()
 
   override this.Render(ctx: DrawingContext) =
     base.Render ctx
