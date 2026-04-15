@@ -26,6 +26,7 @@
 module internal B2R2.RearEnd.Visualization.LayerAssignment
 
 open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ControlFlowGraph
 
 let assignLayerFromPred (vGraph: VisGraph) vData =
   let v = vGraph.FindVertexByData vData
@@ -40,9 +41,9 @@ let kahnAssignLayers (vGraph: VisGraph) =
   |> List.rev
   |> List.iter (assignLayerFromPred vGraph)
 
-let rec addDummy (g: VisGraph) (backEdges, dummies) k src dst (e: VisEdge) cnt =
+let rec addDummy (g: VisGraph) (backEdges, dummies) k parWidth src dst e cnt =
   if cnt = 0 then
-    let edge = VisEdge(e.Type)
+    let edge = VisEdge((e: VisEdge).Type)
     edge.IsBackEdge <- e.IsBackEdge
     g.AddEdge(src, dst, edge) |> ignore
     let backEdges =
@@ -52,6 +53,7 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k src dst (e: VisEdge) cnt =
   else
     let vNode = VisBBlock(src.VData, true)
     let dummy, _ = g.AddVertex vNode
+    dummy.VData.Width <- parWidth
     VisGraph.setLayer dummy <| VisGraph.getLayer src + 1
     let edge = VisEdge(e.Type)
     edge.IsBackEdge <- e.IsBackEdge
@@ -61,7 +63,7 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k src dst (e: VisEdge) cnt =
       else backEdges
     let eData, vertices = Map.find k dummies
     let dummies = Map.add k (eData, dummy :: vertices) dummies
-    addDummy g (backEdges, dummies) k dummy dst e (cnt - 1)
+    addDummy g (backEdges, dummies) k parWidth dummy dst e (cnt - 1)
 
 let siftBackEdgesAndPickLongEdges (backEdges, longEdges) edge =
   let src, dst = (edge: Edge<_, VisEdge>).First, edge.Second
@@ -83,7 +85,8 @@ let addDummyNodes vGraph (backEdges, dummies) (src, dst, edge, delta) =
     else src, dst
   let dummies = Map.add k (edge.Label, []) dummies
   let backEdges, dummies =
-    addDummy vGraph (backEdges, dummies) k src dst edge.Label (delta - 1)
+    addDummy vGraph (backEdges, dummies) k src.VData.Width src dst edge.Label
+      (delta - 1)
   let dummies =
     if not edge.Label.IsBackEdge then
       let eData, vertices = Map.find k dummies

@@ -16,6 +16,7 @@
     <Compile Include="CoordAssignment.fs" />
     <Compile Include="EdgeSet.fs" />
     <Compile Include="PortMap.fs" />
+    <Compile Include="EdgePost.fs" />
     <Compile Include="EdgeDrawing.fs" />
     <Compile Include="EdgeDebug.fs" />
     <Compile Include="Visualizer.fs" />

@@ -26,6 +26,23 @@ module B2R2.RearEnd.Visualization.Visualizer
 
 open B2R2.MiddleEnd.BinGraph
 
+type EdgeRelationshipMetrics =
+  { ForwardCrossingCount: int
+    BackCrossingCount: int
+    TotalCrossingCount: int
+    ForwardBentEdgeCount: int
+    BackBentEdgeCount: int
+    TotalBentEdgeCount: int }
+
+let private ofDebugMetrics
+    (metrics: EdgeDebug.VisEdgeRelationshipMetrics) : EdgeRelationshipMetrics =
+  { ForwardCrossingCount = metrics.ForwardCrossingCount
+    BackCrossingCount = metrics.BackCrossingCount
+    TotalCrossingCount = metrics.TotalCrossingCount
+    ForwardBentEdgeCount = metrics.ForwardBentEdgeCount
+    BackBentEdgeCount = metrics.BackBentEdgeCount
+    TotalBentEdgeCount = metrics.TotalBentEdgeCount }
+
 let private convert iGraph roots charWidth charHeight =
   try
     let vGraph, roots = VisGraph.ofCFG iGraph roots charWidth charHeight
@@ -34,7 +51,11 @@ let private convert iGraph roots charWidth charHeight =
     let vLayout = CrossMinimization.run vGraph
     CoordAssignment.run vGraph vLayout
     EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
-    Some(roots, vGraph)
+    let metrics =
+      vGraph
+      |> EdgeDebug.evaluate
+      |> ofDebugMetrics
+    Some(roots, vGraph, metrics)
   with e ->
     eprintfn "%s" <| e.ToString()
     None
@@ -45,7 +66,7 @@ let toJSON (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
     "{}"
   else
     match convert iGraph roots charWidth charHeight with
-    | Some(roots, vGraph) -> JSONExport.toStr roots vGraph
+    | Some(roots, vGraph, _) -> JSONExport.toStr roots vGraph
     | None -> "{}"
 
 /// Converts the given graph to a VisGraph for visualization.
@@ -54,8 +75,25 @@ let toVisGraph (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
     VisGraph.init ()
   else
     convert iGraph roots charWidth charHeight
-    |> Option.map snd
+    |> Option.map (fun (_, vGraph, _) -> vGraph)
     |> Option.defaultValue (VisGraph.init ())
+
+/// Computes edge relationship metrics from the final routed visualization graph
+let getEdgeRelationshipMetrics
+    (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
+  let zero =
+    { ForwardCrossingCount = 0
+      BackCrossingCount = 0
+      TotalCrossingCount = 0
+      ForwardBentEdgeCount = 0
+      BackBentEdgeCount = 0
+      TotalBentEdgeCount = 0 }
+  if iGraph.Size = 0 then
+    zero
+  else
+    convert iGraph roots charWidth charHeight
+    |> Option.map (fun (_, _, metrics) -> metrics)
+    |> Option.defaultValue zero
 
 /// Default character width used for layout calculations.
 let [<Literal>] CharWidth = 7.5

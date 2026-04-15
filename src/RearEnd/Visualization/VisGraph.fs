@@ -42,7 +42,7 @@ module VisGraph =
     for v in g.Vertices do
       if vblocks.ContainsKey v.ID then ()
       else
-        let blk = VisBBlock(v.VData, charWidth, charHeight, false)
+        let blk = VisBBlock(v.VData, charWidth, charHeight, false, None)
         let v', _ = newGraph.AddVertex blk
         vblocks[v.ID] <- v'
     let roots = roots |> List.map (fun (root: IVertex<_>) -> vblocks[root.ID])
