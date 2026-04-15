@@ -30,6 +30,7 @@ open System.Collections.Generic
 open Avalonia
 open Avalonia.Controls
 open Avalonia.FuncUI.Builder
+open Avalonia.Input
 open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.FuncUI.DSL
@@ -71,6 +72,10 @@ let private computeBucketRange docLength bucketCount bucketIdx =
 
 let private tryGetCurrentOffsetRange model =
   model.OffsetSnapshot.Selection
+  |> Option.map (fun ctx -> ctx.Range)
+
+let private tryGetViewportOffsetRange model =
+  model.OffsetSnapshot.Viewport
   |> Option.map (fun ctx -> ctx.Range)
 
 let private hasBytes (state: HexdumpState) =
@@ -133,6 +138,8 @@ let private tryGetRangeOverlayRect
 type private HexOverviewLayer() =
   inherit Control()
 
+  let mutable dragOffsetY = None
+
   static let stateProperty =
     AvaloniaProperty.Register<HexOverviewLayer, HexdumpState option>(
       nameof Unchecked.defaultof<HexOverviewLayer>.CurrentState, None
@@ -149,11 +156,25 @@ type private HexOverviewLayer() =
       nameof Unchecked.defaultof<HexOverviewLayer>.CurrentRange, None
     )
 
+  static let viewportRangeProperty =
+    AvaloniaProperty.Register<HexOverviewLayer, FileOffsetRange option>(
+      nameof Unchecked.defaultof<HexOverviewLayer>.CurrentViewportRange, None
+    )
+
+  static let dispatchProperty =
+    AvaloniaProperty.Register<HexOverviewLayer, Message -> unit>(
+      nameof Unchecked.defaultof<HexOverviewLayer>.Dispatcher, ignore
+    )
+
   static member StateProperty = stateProperty
 
   static member ThemeProperty = themeProperty
 
   static member RangeProperty = rangeProperty
+
+  static member ViewportRangeProperty = viewportRangeProperty
+
+  static member DispatchProperty = dispatchProperty
 
   member this.CurrentState
     with get() = this.GetValue stateProperty
@@ -166,6 +187,14 @@ type private HexOverviewLayer() =
   member this.CurrentRange
     with get() = this.GetValue rangeProperty
     and set value = this.SetValue(rangeProperty, value) |> ignore
+
+  member this.CurrentViewportRange
+    with get() = this.GetValue viewportRangeProperty
+    and set value = this.SetValue(viewportRangeProperty, value) |> ignore
+
+  member this.Dispatcher
+    with get() = this.GetValue dispatchProperty
+    and set value = this.SetValue(dispatchProperty, value) |> ignore
 
   static member State value =
     AttrBuilder<'t>.CreateProperty<HexdumpState option>(
@@ -182,6 +211,16 @@ type private HexOverviewLayer() =
       HexOverviewLayer.RangeProperty, value, ValueNone
     )
 
+  static member ViewportRange value =
+    AttrBuilder<'t>.CreateProperty<FileOffsetRange option>(
+      HexOverviewLayer.ViewportRangeProperty, value, ValueNone
+    )
+
+  static member Dispatch value =
+    AttrBuilder<'t>.CreateProperty<Message -> unit>(
+      HexOverviewLayer.DispatchProperty, value, ValueNone
+    )
+
   member this.DrawCurrentRangeOverlay(ctx, width, height, docLength) =
     match this.CurrentRange
           |> Option.bind (tryGetRangeOverlayRect docLength width height) with
@@ -192,14 +231,102 @@ type private HexOverviewLayer() =
     | None ->
       ()
 
+  member this.DrawViewportRangeOverlay(ctx, width, height, docLength) =
+    match this.CurrentViewportRange
+          |> Option.bind (tryGetRangeOverlayRect docLength width height) with
+    | Some overlayRect ->
+      use _ = (ctx: DrawingContext).PushOpacity(0.2)
+      let brush = brushOfColor this.CurrentTheme.Graph.ViewportRect
+      ctx.FillRectangle(brush, overlayRect)
+      let pen = Pen(brushOfColor this.CurrentTheme.Graph.ViewportRect, 1.0)
+      ctx.DrawRectangle(null, pen, overlayRect)
+    | None ->
+      ()
+
+  member this.TryGetViewportOverlayRect(width, height, docLength) =
+    this.CurrentViewportRange
+    |> Option.bind (tryGetRangeOverlayRect docLength width height)
+
+  member this.ScrollHexdumpToOverlayTop(pointerY, overlayRect: Rect, state) =
+    let height = this.Bounds.Height
+    if height > 0.0 then
+      let targetTop =
+        pointerY - dragOffsetY.Value
+        |> max 0.0
+        |> min (max 0.0 (height - overlayRect.Height))
+      let targetStartOffset =
+        int64 (floor (targetTop / height * float state.Document.Length))
+      let targetRow =
+        targetStartOffset / int64 (max 1 state.View.BytesPerRow)
+      this.Dispatcher(HexdumpPaneMsg(SetScrollRow targetRow))
+    else
+      ()
+
   override this.OnPropertyChanged change =
     base.OnPropertyChanged change
     if change.Property = stateProperty
       || change.Property = themeProperty
-      || change.Property = rangeProperty then
+      || change.Property = rangeProperty
+      || change.Property = viewportRangeProperty
+      || change.Property = dispatchProperty then
       this.InvalidateVisual()
     else
       ()
+
+  override this.OnPointerPressed e =
+    base.OnPointerPressed e
+    match this.CurrentState with
+    | Some state ->
+      let props = e.GetCurrentPoint(this).Properties
+      let p = e.GetPosition this
+      match this.TryGetViewportOverlayRect(
+              this.Bounds.Width, this.Bounds.Height, state.Document.Length) with
+      | Some overlayRect
+        when props.IsLeftButtonPressed && overlayRect.Contains p ->
+        dragOffsetY <- Some(p.Y - overlayRect.Y)
+        e.Pointer.Capture this
+        e.Handled <- true
+      | Some overlayRect when props.IsLeftButtonPressed ->
+        dragOffsetY <- Some(overlayRect.Height / 2.0)
+        this.ScrollHexdumpToOverlayTop(p.Y, overlayRect, state)
+        e.Pointer.Capture this
+        e.Handled <- true
+      | _ ->
+        ()
+    | None ->
+      ()
+
+  override this.OnPointerMoved e =
+    base.OnPointerMoved e
+    match dragOffsetY, this.CurrentState with
+    | Some _, Some state when e.Pointer.Captured = this ->
+      let p = e.GetPosition this
+      match this.TryGetViewportOverlayRect(
+              this.Bounds.Width, this.Bounds.Height, state.Document.Length) with
+      | Some overlayRect ->
+        this.ScrollHexdumpToOverlayTop(p.Y, overlayRect, state)
+        e.Handled <- true
+      | None ->
+        ()
+    | _ ->
+      ()
+
+  override this.OnPointerReleased e =
+    base.OnPointerReleased e
+    match dragOffsetY, this.CurrentState with
+    | Some _, Some state when e.Pointer.Captured = this ->
+      let p = e.GetPosition this
+      match this.TryGetViewportOverlayRect(
+              this.Bounds.Width, this.Bounds.Height, state.Document.Length) with
+      | Some overlayRect ->
+        this.ScrollHexdumpToOverlayTop(p.Y, overlayRect, state)
+      | None ->
+        ()
+      dragOffsetY <- None
+      e.Pointer.Capture null
+      e.Handled <- true
+    | _ ->
+      dragOffsetY <- None
 
   override this.Render(ctx: DrawingContext) =
     base.Render ctx
@@ -211,11 +338,15 @@ type private HexOverviewLayer() =
     if isNull (box theme) || width <= 0.0 || height <= 0.0 then
       ()
     else
+      (* Fill the whole control with a transparent brush so clicks on the
+         horizontal padding are also hit-tested by this layer. *)
+      ctx.FillRectangle(Brushes.Transparent, bounds)
       let barRect = computeBarRect width height
       ctx.FillRectangle(brushOfColor theme.Panel.AltBackground, barRect)
       match state with
       | Some state when hasBytes state ->
         drawBuckets ctx state barRect height
+        this.DrawViewportRangeOverlay(ctx, width, height, state.Document.Length)
         this.DrawCurrentRangeOverlay(ctx, width, height, state.Document.Length)
       | _ ->
         ()
@@ -227,7 +358,7 @@ module private HexOverviewLayer =
   let create (attrs: IAttr<HexOverviewLayer> list) =
     View.createGeneric<HexOverviewLayer> attrs
 
-let private overviewBodyView model =
+let private overviewBodyView model dispatch =
   HexOverviewLayer.create [
     Control.horizontalAlignment HorizontalAlignment.Stretch
     Control.verticalAlignment VerticalAlignment.Stretch
@@ -235,6 +366,8 @@ let private overviewBodyView model =
     HexOverviewLayer.State model.Hexdump
     HexOverviewLayer.Theme model.Theme
     HexOverviewLayer.Range(tryGetCurrentOffsetRange model)
+    HexOverviewLayer.ViewportRange(tryGetViewportOffsetRange model)
+    HexOverviewLayer.Dispatch dispatch
   ] :> IView
 
 let view model dispatch =
@@ -247,7 +380,7 @@ let view model dispatch =
     Border.child (
       DockPanel.create [
         DockPanel.children [
-          overviewBodyView model
+          overviewBodyView model dispatch
         ]
       ]
     )
