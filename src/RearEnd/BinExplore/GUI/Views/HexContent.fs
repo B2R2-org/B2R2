@@ -112,7 +112,7 @@ let private tryGetHostTopLevel (source: obj) =
   | _ ->
     null
 
-let private tryGetSelectionBytes state =
+let private tryGetSelectionBytes (state: HexdumpState) =
   match state.Selection with
   | Some selection ->
     let startByte = min selection.Anchor selection.Caret
@@ -127,7 +127,7 @@ let private tryGetSelectionBytes state =
   | None ->
     None
 
-let private copySelection formatBytes dispatch source state =
+let private copySelection formatBytes dispatch source (state: HexdumpState) =
   match tryGetSelectionBytes state with
   | Some bytes ->
     let topLevel = tryGetHostTopLevel source
@@ -161,7 +161,7 @@ type private HexdumpInteractionCanvas() as this =
   let selectionRange selection =
     min selection.Anchor selection.Caret, max selection.Anchor selection.Caret
 
-  let isByteSelected state byteIndex =
+  let isByteSelected (state: HexdumpState) byteIndex =
     match state.Selection with
     | Some selection ->
       let startByte, endByte = selectionRange selection
@@ -224,7 +224,7 @@ type private HexdumpInteractionCanvas() as this =
     elif shouldClamp then Some(docLength - 1L)
     else None
 
-  let tryGetByteIndexAtPoint state shouldClamp x y =
+  let tryGetByteIndexAtPoint (state: HexdumpState) shouldClamp x y =
     let doc = state.Document
     if doc.Length <= 0L then
       None
@@ -286,14 +286,14 @@ type private HexdumpInteractionCanvas() as this =
   static member DispatchProperty = dispatchProperty
 
   member this.CurrentState
-    with get() = this.GetValue stateProperty
-    and set value = this.SetValue(stateProperty, value) |> ignore
+    with get(): HexdumpState option = this.GetValue stateProperty
+    and set(value) = this.SetValue(stateProperty, value) |> ignore
 
   member this.Dispatcher
     with get() = this.GetValue dispatchProperty
     and set value = this.SetValue(dispatchProperty, value) |> ignore
 
-  static member State value =
+  static member State(value: HexdumpState option) =
     AttrBuilder<'t>.CreateProperty<HexdumpState option>(
       HexdumpInteractionCanvas.StateProperty, value, ValueNone
     )

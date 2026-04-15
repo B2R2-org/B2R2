@@ -91,7 +91,9 @@ let openBinary (arbiter: Arbiter<_, _>) model filePath =
   if String.IsNullOrWhiteSpace filePath then
     model, Elmish.Cmd.none
   else
-    { model with LoadingBinaryPath = Some filePath },
+    { model with
+        LoadingBinaryPath = Some filePath
+        OffsetSnapshot = OffsetSnapshot.empty },
     startLoadWorkflowCmd arbiter filePath
 
 let private mkText typeface fontSize text =
@@ -267,7 +269,7 @@ let openBinaryCompleted (arbiter: Arbiter<_, _>) (model: Model) filePath =
           |> initializeHexdumpTabView model
         fns |> Array.map (FunctionItem.ofFunction file) |> List.ofArray,
         Some hexdump,
-        FileLoaded(filePath, FileFormat.toString file.Format, None)
+        FileLoaded(filePath, FileFormat.toString file.Format)
       | _ ->
         [], None, EmptyStatus
     Model.mapFocusedPane
@@ -284,6 +286,7 @@ let openBinaryCompleted (arbiter: Arbiter<_, _>) (model: Model) filePath =
           DraggingTab = None
           WorkspacePanel = FunctionPanel
           Hexdump = hexdump
+          OffsetSnapshot = OffsetSnapshot.empty
           StatusBarState = statusBar },
       Elmish.Cmd.none
   else
@@ -293,6 +296,7 @@ let openBinaryFailed model filePath reason =
   if model.LoadingBinaryPath = Some filePath then
     { model with
         LoadingBinaryPath = None
+        OffsetSnapshot = OffsetSnapshot.empty
         StatusBarState = MessageOnly $"Failed to load binary: {reason}" },
     Elmish.Cmd.none
   else
@@ -314,8 +318,81 @@ let closeWorkspace (arbiter: Arbiter<_, _>) (model: Model) =
         DraggingTab = None
         WorkspacePanel = FunctionPanel
         Hexdump = None
+        OffsetSnapshot = OffsetSnapshot.empty
         StatusBarState = EmptyStatus },
   Elmish.Cmd.none
+
+let private tryGetSelectedFileOffsetRange selection =
+  let startOffset = min selection.Anchor selection.Caret
+  let endOffset = max selection.Anchor selection.Caret
+  let maxOffset = int64 UInt32.MaxValue
+  if startOffset < 0L || endOffset < 0L then
+    None
+  elif startOffset > maxOffset || endOffset > maxOffset then
+    None
+  else
+    Some(uint32 startOffset, uint32 endOffset)
+
+let private findSectionRange (f: IBinFile) (sOff: uint32) (eOff: uint32) =
+  match f.TryFindSectionName sOff, f.TryFindSectionName eOff with
+  | Ok secStart, Ok secEnd when secStart = secEnd -> [ secStart ]
+  | Ok secStart, Ok secEnd -> [ secStart; secEnd ]
+  | _ -> []
+
+let private mkOffsetRangeInfo sOff eOff sections =
+  { Range = { Start = sOff; End = eOff }
+    SectionRange = buildSectionRange sections }
+
+let private tryGetOffsetRangeInfo
+    (arbiter: Arbiter<_, _>) (sOff: uint32) (eOff: uint32) =
+  match API.getFile arbiter with
+  | Ok file ->
+    let sec = findSectionRange file sOff eOff
+    Some(mkOffsetRangeInfo sOff eOff sec)
+  | Error _ ->
+    None
+
+let private tryGetVisibleFileOffsetRange hexdump =
+  match HexdumpState.tryGetVisibleByteRange hexdump with
+  | Some(startOffset, endOffset) ->
+    let maxOffset = int64 UInt32.MaxValue
+    if startOffset > maxOffset then
+      None
+    else
+      Some(uint32 startOffset, uint32 (min maxOffset endOffset))
+  | None ->
+    None
+
+let private tryGetSelectionOffsetRangeInfo arbiter (model: Model) =
+  match model.ActiveTab, model.Hexdump with
+  | Some { Content = HexContent }, Some { Selection = Some sel } ->
+    tryGetSelectedFileOffsetRange sel
+    |> Option.bind (fun (sOff, eOff) -> tryGetOffsetRangeInfo arbiter sOff eOff)
+  | Some { Content = CFGContent(func, Loaded st) }, _ ->
+    match st.ViewState.SelectedToken with
+    | Some { Range = Some range } ->
+      tryGetOffsetRangeInfo arbiter (uint32 range.Min) (uint32 range.Max)
+    | _ ->
+      tryGetOffsetRangeInfo
+        arbiter
+        (uint32 func.OffsetRange.Value.Min)
+        (uint32 func.OffsetRange.Value.Max)
+  | _ ->
+    None
+
+let private tryGetViewportOffsetRangeInfo arbiter (model: Model) =
+  match model.Hexdump, Model.tryFindTab model Tab.HexdumpTabID with
+  | Some hexdump, Some _ ->
+    tryGetVisibleFileOffsetRange hexdump
+    |> Option.bind (fun (sOff, eOff) -> tryGetOffsetRangeInfo arbiter sOff eOff)
+  | _ ->
+    None
+
+let private syncOffsetSnapshotWithActiveTab arbiter (model: Model) =
+  let snapshot =
+    { Selection = tryGetSelectionOffsetRangeInfo arbiter model
+      Viewport = tryGetViewportOffsetRangeInfo arbiter model }
+  { model with OffsetSnapshot = snapshot }
 
 let private replaceTabByID tabID newTab oldTab =
   if oldTab.ID = tabID then newTab
@@ -334,7 +411,7 @@ let private replaceTabReferences (model: Model) tab =
         PreviewTab = preview
         ActiveTab = active }) model
 
-let openHexdumpTab (model: Model) =
+let openHexdumpTab (arbiter: Arbiter<_, _>) (model: Model) =
   let model =
     match model.Hexdump with
     | Some hexdump ->
@@ -349,7 +426,9 @@ let openHexdumpTab (model: Model) =
           OpenTabs = pane.OpenTabs
           PreviewTab = pane.PreviewTab }) model
     |> fun nextModel ->
-      { nextModel with FocusedPaneID = Some paneID }, Elmish.Cmd.none
+      { nextModel with FocusedPaneID = Some paneID }
+      |> syncOffsetSnapshotWithActiveTab arbiter,
+      Elmish.Cmd.none
   | None ->
     match model.Hexdump with
     | Some _ ->
@@ -357,7 +436,8 @@ let openHexdumpTab (model: Model) =
       Model.mapFocusedPane (fun pane ->
           { pane with
               ActiveTab = Some tab
-              OpenTabs = tab :: pane.OpenTabs }) model,
+              OpenTabs = tab :: pane.OpenTabs }) model
+      |> syncOffsetSnapshotWithActiveTab arbiter,
         Elmish.Cmd.none
     | None ->
       model, Elmish.Cmd.none
@@ -394,87 +474,6 @@ let private refreshCFGTabMinimapForViewport viewportSize tab =
   | _ ->
     tab
 
-let private clearStatusRange model =
-  match model.StatusBarState with
-  | FileLoaded(path, fmt, _) ->
-    { model with StatusBarState = FileLoaded(path, fmt, None) }
-  | _ ->
-    model
-
-let private tryGetSelectedFileOffsetRange selection =
-  let startOffset = min selection.Anchor selection.Caret
-  let endOffset = max selection.Anchor selection.Caret
-  let maxOffset = int64 UInt32.MaxValue
-  if startOffset < 0L || endOffset < 0L then
-    None
-  elif startOffset > maxOffset || endOffset > maxOffset then
-    None
-  else
-    Some(uint32 startOffset, uint32 endOffset)
-
-let private findSectionRange (f: IBinFile) (sOff: uint32) (eOff: uint32) =
-  match f.TryFindSectionName sOff, f.TryFindSectionName eOff with
-  | Ok secStart, Ok secEnd when secStart = secEnd -> [ secStart ]
-  | Ok secStart, Ok secEnd -> [ secStart; secEnd ]
-  | _ -> []
-
-let private setStatusOffsetCtx model sOff eOff sections =
-  match model.StatusBarState with
-  | FileLoaded(path, fmt, _) ->
-    let range = { Start = sOff; End = eOff }
-    let sectionRange = buildSectionRange sections
-    let ctx = Some { Range = range; SectionRange = sectionRange }
-    { model with StatusBarState = FileLoaded(path, fmt, ctx) }
-  | _ ->
-    model
-
-let private updateStatusRange model (arbiter: Arbiter<_, _>) selection =
-  match tryGetSelectedFileOffsetRange selection, API.getFile arbiter with
-  | Some(sOff, eOff), Ok file ->
-    let sec = findSectionRange file sOff eOff
-    setStatusOffsetCtx model sOff eOff sec
-  | _ ->
-    model
-
-let private tryGetVisibleFileOffsetRange hexdump =
-  match HexdumpState.tryGetVisibleByteRange hexdump with
-  | Some(startOffset, endOffset) ->
-    let maxOffset = int64 UInt32.MaxValue
-    if startOffset > maxOffset then
-      None
-    else
-      Some(uint32 startOffset, uint32 (min maxOffset endOffset))
-  | None ->
-    None
-
-let private syncStatusBarWithActiveTab (arbiter: Arbiter<_, _>) (model: Model) =
-  match model.ActiveTab, model.Hexdump with
-  | Some { Content = HexContent }, Some { Selection = Some sel } ->
-    updateStatusRange model arbiter sel
-  | Some { Content = HexContent }, Some hexdump ->
-    match tryGetVisibleFileOffsetRange hexdump, API.getFile arbiter with
-    | Some(sOff, eOff), Ok file ->
-      let sec = findSectionRange file sOff eOff
-      setStatusOffsetCtx model sOff eOff sec
-    | _ ->
-      clearStatusRange model
-  | Some { Content = CFGContent(func, Loaded st) }, _ ->
-    match API.getFile arbiter, st.ViewState.SelectedToken with
-    | Ok file, Some { Range = Some range } ->
-      let sOff = uint32 range.Min
-      let eOff = uint32 range.Max
-      let sec = findSectionRange file sOff eOff
-      setStatusOffsetCtx model sOff eOff sec
-    | Ok file, _ ->
-      let sOff = uint32 func.OffsetRange.Value.Min
-      let eOff = uint32 func.OffsetRange.Value.Max
-      let sec = findSectionRange file sOff eOff
-      setStatusOffsetCtx model sOff eOff sec
-    | _ ->
-      clearStatusRange model
-  | _ ->
-    clearStatusRange model
-
 let private updateHexdumpState arbiter (model: Model) update =
   match model.Hexdump with
   | Some hexdump ->
@@ -483,7 +482,8 @@ let private updateHexdumpState arbiter (model: Model) update =
       |> fun state ->
         let view = clampHexScrollState state state.View
         { state with View = view }
-    { model with Hexdump = Some hexdump } |> syncStatusBarWithActiveTab arbiter
+    { model with Hexdump = Some hexdump }
+    |> syncOffsetSnapshotWithActiveTab arbiter
   | _ ->
     model
 
@@ -816,7 +816,7 @@ let private startLoadIfNeeded arbiter tab (model: Model) =
     loadCFGCmd arbiter model fn CFGKind.Disasm loadingTab
   | _ ->
     let tab = refreshCFGTabMinimap model tab
-    replaceTabReferences model tab |> syncStatusBarWithActiveTab arbiter,
+    replaceTabReferences model tab |> syncOffsetSnapshotWithActiveTab arbiter,
     Elmish.Cmd.none
 
 let openCFGTab (arbiter: Arbiter<_, _>) (model: Model) fnItem =
@@ -911,7 +911,7 @@ let closeTab arbiter (model: Model) paneID tabID =
           FocusedPaneID = Some paneID
           DraggingTab = dragging }
     |> normalizePaneModel
-    |> syncStatusBarWithActiveTab arbiter, Elmish.Cmd.none
+    |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
@@ -934,7 +934,7 @@ let switchTab arbiter (model: Model) paneID tabID =
       else refreshCFGTabMinimap model tab
     replaceTabReferences (Model.mapFocusedPane
       (fun pane -> { pane with ActiveTab = Some tab }) model) tab
-    |> syncStatusBarWithActiveTab arbiter
+    |> syncOffsetSnapshotWithActiveTab arbiter
     |> trySyncHexdumpWithActiveCFG arbiter,
     Elmish.Cmd.none
   | None ->
@@ -1101,7 +1101,7 @@ let loadCFGCompleted arbiter (model: Model) tabID cfgKind cfg =
         Minimap = createMinimapCache model viewState cfg
         RenderCache = CFGRenderCache.create cfg }
     let tab = mapCFGTabState (Loaded loaded) tab
-    replaceTabReferences model tab |> syncStatusBarWithActiveTab arbiter,
+    replaceTabReferences model tab |> syncOffsetSnapshotWithActiveTab arbiter,
     Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
@@ -1307,11 +1307,13 @@ let toggleMinimap (model: Model) tabID activate =
   | _ ->
     model, Elmish.Cmd.none
 
-let focusPane (model: Model) paneID =
+let focusPane (arbiter: Arbiter<_, _>) (model: Model) paneID =
   if model.FocusedPaneID = Some paneID then
     model, Elmish.Cmd.none
   elif Pane.tryFindLeaf paneID model.RootPane |> Option.isSome then
-    { model with FocusedPaneID = Some paneID }, Elmish.Cmd.none
+    { model with FocusedPaneID = Some paneID }
+    |> syncOffsetSnapshotWithActiveTab arbiter,
+    Elmish.Cmd.none
   else
     model, Elmish.Cmd.none
 
@@ -1375,7 +1377,7 @@ let rec private replacePane paneID replacement = function
 
 let private finalizeMovedTab arbiter model =
   model
-  |> syncStatusBarWithActiveTab arbiter
+  |> syncOffsetSnapshotWithActiveTab arbiter
   |> trySyncHexdumpWithActiveCFG arbiter
 
 let private moveTabBetweenPanes arbiter model sourcePaneID targetPaneID tabID =
@@ -1528,4 +1530,8 @@ let updateStatusMsg (model: Model) msg =
   { model with StatusBarState = MessageOnly msg }, Elmish.Cmd.none
 
 let updateStatusOffsetCtx (model: Model) sOff eOff sections =
-  setStatusOffsetCtx model sOff eOff sections, Elmish.Cmd.none
+  let selection = Some(mkOffsetRangeInfo sOff eOff sections)
+  { model with
+      OffsetSnapshot =
+        { model.OffsetSnapshot with Selection = selection } },
+  Elmish.Cmd.none

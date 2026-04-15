@@ -60,6 +60,8 @@ type Model =
     HexSyncEnabled: bool
     /// Shared hexdump state for the loaded binary.
     Hexdump: HexdumpState option
+    /// Shared file-offset snapshot consumed by the status bar and overview.
+    OffsetSnapshot: OffsetSnapshot
     /// Status bar information.
     StatusBarState: StatusBarState }
 

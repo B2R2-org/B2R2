@@ -59,6 +59,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       CFGPanPointer = None
       HexSyncEnabled = true
       Hexdump = None
+      OffsetSnapshot = OffsetSnapshot.empty
       StatusBarState = EmptyStatus }, Elmish.Cmd.none
 
   let update (msg: Message) (model: Model) =
@@ -74,11 +75,11 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     | OpenCFGTab fnItem ->
       Update.openCFGTab arbiter model fnItem
     | OpenHexdumpTab ->
-      Update.openHexdumpTab model
+      Update.openHexdumpTab arbiter model
     | PinCFGTab fnItem ->
       Update.pinCFGTab arbiter model fnItem
     | FocusPane paneID ->
-      Update.focusPane model paneID
+      Update.focusPane arbiter model paneID
     | CloseTab(paneID, tabID) ->
       Update.closeTab arbiter model paneID tabID
     | SwitchTab(paneID, tabID) ->

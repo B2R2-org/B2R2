@@ -37,6 +37,7 @@
     <Compile Include="GUI\WorkspacePanel.fs" />
     <Compile Include="GUI\Tab.fs" />
     <Compile Include="GUI\Pane.fs" />
+    <Compile Include="GUI\OffsetSnapshot.fs" />
     <Compile Include="GUI\StatusBarState.fs" />
     <Compile Include="GUI\Model.fs" />
     <Compile Include="GUI\Message.fs" />

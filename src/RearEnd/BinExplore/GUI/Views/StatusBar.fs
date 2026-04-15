@@ -131,6 +131,10 @@ let private fileOffsetCtxView model offsetCtx =
   | None ->
     messageView model "" :> IView
 
+let private getDisplayedOffsetRangeInfo model =
+  model.OffsetSnapshot.Selection
+  |> Option.orElse model.OffsetSnapshot.Viewport
+
 let view (model: Model) =
   Border.create [
     Border.dock Dock.Bottom
@@ -144,12 +148,12 @@ let view (model: Model) =
             [ messageView model "" ]
           | MessageOnly msg ->
             [ messageView model msg ]
-          | FileLoaded(path, fmt, offsetCtx) ->
+          | FileLoaded(path, fmt) ->
             [ filePathView model path
               separator model
               fileFormatView model fmt
               separator model
-              fileOffsetCtxView model offsetCtx ]
+              fileOffsetCtxView model (getDisplayedOffsetRangeInfo model) ]
         )
       ]
     )

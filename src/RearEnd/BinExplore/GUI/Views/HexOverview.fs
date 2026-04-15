@@ -63,45 +63,15 @@ let private computeBucketCount height =
   max 1 (int (floor height))
 
 let private computeBucketRange docLength bucketCount bucketIdx =
-  let rangeStart =
-    int64 (
-      (float docLength * float bucketIdx)
-      / float bucketCount
-    )
+  let rangeStart = int64 (float docLength * float bucketIdx / float bucketCount)
   let rangeEndExclusive =
     if bucketIdx = bucketCount - 1 then docLength
-    else
-      int64 (
-        (float docLength * float (bucketIdx + 1))
-        / float bucketCount
-      )
+    else int64 (float docLength * float (bucketIdx + 1) / float bucketCount)
   rangeStart, rangeEndExclusive
 
-let private computeOffsetDigits docLength =
-  let maxOffset = max 0L (docLength - 1L)
-  max 8 (maxOffset.ToString("X").Length)
-
-let private formatOffset digits (offset: int64) =
-  let txt = offset.ToString("X").PadLeft(digits, '0')
-  $"0x{txt}"
-
-let private formatOffsetRange digits startOff endOff =
-  $"{formatOffset digits startOff} - {formatOffset digits endOff}"
-
-let private formatBucketTooltip docLength bucketCount bucketIdx =
-  let rangeStart, rangeEndExclusive =
-    computeBucketRange docLength bucketCount bucketIdx
-  let rangeEndInclusive = max rangeStart (rangeEndExclusive - 1L)
-  let digits = computeOffsetDigits docLength
-  if rangeStart = rangeEndInclusive then
-    formatOffset digits rangeStart
-  else
-    formatOffsetRange digits rangeStart rangeEndInclusive
-
 let private tryGetCurrentOffsetRange model =
-  match model.StatusBarState with
-  | FileLoaded(_, _, Some ctx) -> Some ctx.Range
-  | _ -> None
+  model.OffsetSnapshot.Selection
+  |> Option.map (fun ctx -> ctx.Range)
 
 let private hasBytes (state: HexdumpState) =
   state.Document.Length > 0L
@@ -230,37 +200,6 @@ type private HexOverviewLayer() =
       this.InvalidateVisual()
     else
       ()
-
-  override this.OnPointerMoved e =
-    base.OnPointerMoved e
-    let state = this.CurrentState
-    let bounds = this.Bounds
-    if bounds.Width <= 0.0 || bounds.Height <= 0.0 then
-      ToolTip.SetTip(this, null)
-    else
-      match state with
-      | Some state when state.Document.Length > 0L ->
-        let p = e.GetPosition this
-        let barRect = computeBarRect bounds.Width bounds.Height
-        if barRect.Contains p then
-          let bucketCount = computeBucketCount bounds.Height
-          let bucketIdx =
-            p.Y / bounds.Height * float bucketCount
-            |> floor
-            |> int
-            |> max 0
-            |> min (bucketCount - 1)
-          let tip =
-            formatBucketTooltip state.Document.Length bucketCount bucketIdx
-          ToolTip.SetTip(this, tip)
-        else
-          ToolTip.SetTip(this, null)
-      | _ ->
-        ToolTip.SetTip(this, null)
-
-  override this.OnPointerExited e =
-    base.OnPointerExited e
-    ToolTip.SetTip(this, null)
 
   override this.Render(ctx: DrawingContext) =
     base.Render ctx

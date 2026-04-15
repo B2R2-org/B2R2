@@ -24,8 +24,33 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
-/// Represents the state of the status bar in the main view.
-type StatusBarState =
-  | EmptyStatus
-  | MessageOnly of msg: string
-  | FileLoaded of path: string * fmt: string
+/// Represents the shared file-offset snapshot consumed by views such as the
+/// status bar and hex overview. `Selection` describes the currently focused
+/// byte range, while `Viewport` describes the byte range currently visible in
+/// the hexdump view.
+type OffsetSnapshot =
+  { Selection: OffsetRangeInfo option
+    Viewport: OffsetRangeInfo option }
+
+/// Represents metadata associated with a single file-offset range, including
+/// the covered byte range itself and the corresponding section information.
+and OffsetRangeInfo =
+  { Range: FileOffsetRange
+    SectionRange: SectionRange }
+
+/// Represents a file offset range.
+and FileOffsetRange =
+  { Start: uint32
+    End: uint32 }
+
+/// Represents the section range corresponding to a file offset range.
+and SectionRange =
+  | NoSection
+  | SingleSection of string
+  | MultipleSections of string * string
+
+[<RequireQualifiedAccess>]
+module OffsetSnapshot =
+  let empty =
+    { Selection = None
+      Viewport = None }
