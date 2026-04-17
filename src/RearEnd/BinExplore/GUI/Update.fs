@@ -106,12 +106,21 @@ let private mkText typeface fontSize text =
     Brushes.Black
   )
 
-let private measureMaxCharSize model =
+let [<Literal>] private MinHexdumpFontSize = 8.0
+
+let [<Literal>] private MaxHexdumpFontSize = 32.0
+
+let private clampHexdumpFontSize fontSize =
+  max MinHexdumpFontSize (min MaxHexdumpFontSize fontSize)
+
+let private measureMaxCharSizeWithFontSize model fontSize =
   let fontFamily = FontFamily model.Theme.Font.Monospace.FontFamily
-  let fontSize = model.Theme.Font.Monospace.FontSize
   let typeface = Typeface fontFamily
   let txt = mkText typeface fontSize "M"
   txt.Width, txt.Height
+
+let private measureMaxCharSize model =
+  measureMaxCharSizeWithFontSize model model.Theme.Font.Monospace.FontSize
 
 let private computeHexBytesPerRow viewState =
   let charWidth = max viewState.CharWidth 1.0
@@ -143,15 +152,19 @@ let private clampHexScrollState hexdump viewState =
 let private initializeHexdumpTabView (model: Model) hexdump =
   let view = hexdump.View
   let viewportWidth, viewportHeight = model.ContentViewportSize
+  let fontSize =
+    if view.FontSize > 0.0 then clampHexdumpFontSize view.FontSize
+    else model.Theme.Font.Monospace.FontSize
   let charWidth, rowHeight =
     if view.CharWidth > 0.0 && view.RowHeight > 0.0 then
       view.CharWidth, view.RowHeight
     else
-      measureMaxCharSize model
+      measureMaxCharSizeWithFontSize model fontSize
   let nextView =
     { view with
         ViewportWidth = viewportWidth
         ViewportHeight = viewportHeight
+        FontSize = fontSize
         CharWidth = charWidth
         RowHeight = rowHeight }
   { hexdump with
@@ -264,7 +277,11 @@ let openBinaryCompleted (arbiter: Arbiter<_, _>) (model: Model) filePath =
       | Ok fns, Ok file ->
         let numDigits = (file.ISA.WordSize |> WordSize.toByteWidth) * 2
         let hexdump =
-          HexdumpState.ofBytes file.BaseAddress file.RawBytes numDigits
+          HexdumpState.ofBytes
+            file.BaseAddress
+            file.RawBytes
+            numDigits
+            model.Theme.Font.Monospace.FontSize
           |> buildHexAnnotations model.Theme file
           |> initializeHexdumpTabView model
         fns |> Array.map (FunctionItem.ofFunction file) |> List.ofArray,
@@ -507,13 +524,17 @@ let private syncHexScrollOffset hexdump offsetY scrollGuard =
   { hexdump with View = { view with ScrollGuard = scrollGuard } }
 
 let private recomputeHexViewLayout arbiter (model: Model) updateView =
-  let charWidth, rowHeight = measureMaxCharSize model
   updateHexdumpState arbiter model (fun hexdump ->
     let viewState = hexdump.View
     let topByte = viewState.ScrollRow * int64 (max 1 viewState.BytesPerRow)
+    let nextView = updateView viewState
+    let fontSize = clampHexdumpFontSize nextView.FontSize
+    let charWidth, rowHeight = measureMaxCharSizeWithFontSize model fontSize
     let nextView =
-      updateView viewState
-      |> fun v -> { v with CharWidth = charWidth; RowHeight = rowHeight }
+      { nextView with
+          FontSize = fontSize
+          CharWidth = charWidth
+          RowHeight = rowHeight }
     let nextView =
       { nextView with BytesPerRow = computeHexBytesPerRow nextView }
     let nextScrollRow = topByte / int64 (max 1 nextView.BytesPerRow)
@@ -532,11 +553,14 @@ let private resizeOpenedHexdumpTab arbiter (model: Model) paneID width height =
     updateHexdumpState arbiter model (fun hexdump ->
       let viewState = hexdump.View
       let topByte = viewState.ScrollRow * int64 (max 1 viewState.BytesPerRow)
-      let charWidth, rowHeight = measureMaxCharSize model
+      let fontSize = clampHexdumpFontSize viewState.FontSize
+      let charWidth, rowHeight =
+        measureMaxCharSizeWithFontSize model fontSize
       let nextView =
         { viewState with
             ViewportWidth = width
             ViewportHeight = height
+            FontSize = fontSize
             CharWidth = charWidth
             RowHeight = rowHeight }
       let nextView =
@@ -674,6 +698,10 @@ let updateHexdump arbiter (model: Model) msg =
     updateHexdumpState arbiter model (fun hexdump ->
       { hexdump with HighlightSpans = spans }),
     Elmish.Cmd.none
+  | ChangeFontSize delta when abs delta > 0.0 ->
+    recomputeHexViewLayout arbiter model (fun viewState ->
+      let fontSize = clampHexdumpFontSize (viewState.FontSize + delta)
+      { viewState with FontSize = fontSize })
   | UpdateFontMetrics(charWidth, rowHeight)
     when charWidth > 0.0 && rowHeight > 0.0 ->
     updateHexViewState arbiter model (fun viewState ->

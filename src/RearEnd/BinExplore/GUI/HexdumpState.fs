@@ -60,6 +60,7 @@ and HexViewState =
     ScrollOffsetY: float
     ViewportWidth: float
     ViewportHeight: float
+    FontSize: float
     CharWidth: float
     RowHeight: float
     BytesPerRow: int
@@ -76,11 +77,12 @@ and HexScrollGuard =
 
 [<RequireQualifiedAccess>]
 module HexViewState =
-  let init numDigits =
+  let init numDigits fontSize =
     { ScrollRow = 0L
       ScrollOffsetY = 0.0
       ViewportWidth = 0.0
       ViewportHeight = 0.0
+      FontSize = fontSize
       CharWidth = 0.0
       RowHeight = 0.0
       BytesPerRow = 16
@@ -98,12 +100,12 @@ module HexDocument =
 
 [<RequireQualifiedAccess>]
 module HexdumpState =
-  let ofBytes baseAddress bytes numDigits =
+  let ofBytes baseAddress bytes numDigits fontSize =
     { Document = HexDocument.ofBytes baseAddress bytes
       Selection = None
       AnnotationSpans = []
       HighlightSpans = []
-      View = HexViewState.init numDigits }
+      View = HexViewState.init numDigits fontSize }
 
   let computeTotalRows docLength bytesPerRow =
     if docLength <= 0L then 0

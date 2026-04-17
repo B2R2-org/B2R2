@@ -33,6 +33,7 @@ open Avalonia.Controls.Primitives
 open Avalonia.FuncUI.Builder
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
+open Avalonia.Input
 open Avalonia.Media
 open B2R2
 
@@ -325,6 +326,21 @@ type private HexdumpInteractionCanvas() as this =
   member this.DispatchHexdump msg =
     this.Dispatcher(HexdumpPaneMsg msg)
 
+  override this.OnPointerWheelChanged e =
+    base.OnPointerWheelChanged e
+    if e.KeyModifiers.HasFlag KeyModifiers.Control then
+      let delta =
+        if e.Delta.Y > 0.0 then 1.0
+        elif e.Delta.Y < 0.0 then -1.0
+        else 0.0
+      if abs delta > 0.0 then
+        this.DispatchHexdump(ChangeFontSize delta)
+        e.Handled <- true
+      else
+        ()
+    else
+      ()
+
   override this.OnPointerPressed e =
     base.OnPointerPressed e
     match this.CurrentState with
@@ -557,7 +573,7 @@ let private computeRenderSignature state theme startRow endRow =
     EndRow = endRow
     Selection = state.Selection
     FontFamily = theme.Font.Monospace.FontFamily
-    FontSize = theme.Font.Monospace.FontSize
+    FontSize = state.View.FontSize
     AddressColor = theme.Text.Address
     PrimaryColor = theme.Text.Primary
     SelectionBackground = theme.Search.SelectedBackground }
@@ -615,7 +631,7 @@ type private HexdumpRenderLayer() =
   let ensureCacheSignature (state: HexdumpState) (theme: Theme) =
     let view = state.View
     let fontFamily = theme.Font.Monospace.FontFamily
-    let fontSize = theme.Font.Monospace.FontSize
+    let fontSize = view.FontSize
     let bytesRefEqual = obj.ReferenceEquals(cachedBytes, state.Document.Bytes)
     let cacheInvalid =
       not bytesRefEqual

@@ -142,6 +142,8 @@ and CFGPaneMessage =
 and HexdumpPaneMessage =
   /// Replaces the current hexdump highlight spans.
   | SetHighlightSpans of HexSpanStyle list
+  /// Changes the hexdump font size by the given delta.
+  | ChangeFontSize of delta: float
   /// Updates the measured font metrics of a specific hexdump view.
   | UpdateFontMetrics of charWidth: float * rowHeight: float
   /// Jumps the hexdump view to a specific byte range.
