@@ -85,31 +85,29 @@ let private onTabClick paneID tabID dispatch (e: PointerPressedEventArgs) =
     else
       ()
 
-let private tabContextMenu paneID dispatch tab =
-  let left = LeftOf paneID
-  let right = RightOf paneID
-  let above = Above paneID
-  let below = Below paneID
-  ContextMenu.create [
-    ContextMenu.viewItems [
-      MenuItem.create [
-        MenuItem.header "Move to Left"
-        MenuItem.onClick (fun _ -> dispatch (MoveTabRelative(left, tab.ID)))
-      ]
-      MenuItem.create [
-        MenuItem.header "Move to Right"
-        MenuItem.onClick (fun _ -> dispatch (MoveTabRelative(right, tab.ID)))
-      ]
-      MenuItem.create [
-        MenuItem.header "Move to Top"
-        MenuItem.onClick (fun _ -> dispatch (MoveTabRelative(above, tab.ID)))
-      ]
-      MenuItem.create [
-        MenuItem.header "Move to Bottom"
-        MenuItem.onClick (fun _ -> dispatch (MoveTabRelative(below, tab.ID)))
-      ]
+let private tabContextMenu paneID (pane: PaneState) dispatch (tab: Tab) =
+  let moveMenuItem (header: string) placement =
+    MenuItem.create [
+      MenuItem.header header
+      MenuItem.onClick (fun _ -> dispatch (MoveTabRelative(placement, tab.ID)))
     ]
-  ]
+  let pinMenu =
+    match tab.Content with
+    | CFGContent(func, _) when pane.PreviewTab = Some tab ->
+      [ MenuItem.create [
+          MenuItem.header "Pin this tab"
+          MenuItem.onClick (fun _ -> dispatch (PinCFGTab func))
+        ] :> IView
+        Separator.create [] ]
+    | _ ->
+      []
+  let items =
+    [ yield! pinMenu
+      moveMenuItem "Move to Left" (LeftOf paneID)
+      moveMenuItem "Move to Right" (RightOf paneID)
+      moveMenuItem "Move to Top" (Above paneID)
+      moveMenuItem "Move to Bottom" (Below paneID) ]
+  ContextMenu.create [ ContextMenu.viewItems items ]
 
 let private onTabDrag paneID targetTabID dispatch e =
   match tryParseDragPayload e with
@@ -252,7 +250,7 @@ let private tabStripView paneID pane model dispatch =
           Border.borderThickness (0.0, 0.0, 0.0, 0.0)
           Border.borderBrush model.Theme.Panel.Border
           Border.padding (10.0, 5.0, 5.0, 5.0)
-          Control.contextMenu (tabContextMenu paneID dispatch tab)
+          Control.contextMenu (tabContextMenu paneID pane dispatch tab)
           Control.allowDrop true
           Control.onPointerPressed (onTabClick paneID tab.ID dispatch)
           Control.onPointerReleased (fun _ -> dispatch EndTabDrag)
