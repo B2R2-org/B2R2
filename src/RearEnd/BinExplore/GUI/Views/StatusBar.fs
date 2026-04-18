@@ -49,7 +49,7 @@ let private separator model =
   ]
 
 let private filePathView model path =
-  TextBlock.create [
+  SelectableTextBlock.create [
     TextBlock.dock Dock.Left
     TextBlock.margin (8.0, 0.0)
     TextBlock.width 300.0
@@ -78,7 +78,7 @@ let private fileFormatView model fmt =
   ]
 
 let private offsetTextView model (foreground: string) text =
-  TextBlock.create [
+  SelectableTextBlock.create [
     TextBlock.text text
     TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
     TextBlock.fontSize model.Theme.Font.Monospace.FontSize
