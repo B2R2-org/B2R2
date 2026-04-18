@@ -34,6 +34,7 @@ open Avalonia.FuncUI.Builder
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Input
+open Avalonia.Layout
 open Avalonia.Media
 open B2R2
 
@@ -895,6 +896,8 @@ let private bodyView model dispatch state =
       HexdumpInteractionCanvas.create [
         HexdumpInteractionCanvas.State(Some state)
         HexdumpInteractionCanvas.Dispatch dispatch
+        Control.horizontalAlignment HorizontalAlignment.Left
+        Control.verticalAlignment VerticalAlignment.Top
         Canvas.background model.Theme.Common.Transparent
         Canvas.width canvasWidth
         Canvas.height canvasHeight
