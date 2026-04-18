@@ -301,7 +301,7 @@ let private tokenView model dispatch selected nID lineIdx wordIdx word range =
             LineIndex = lineIdx
             WordIndex = wordIdx
             Range = range }
-        dispatch (CFGPaneMsg(SelectToken token))
+        dispatch (CFGPaneMsg(SetSelectedToken(Some token)))
         e.Handled <- true
       )
       Border.child (tokenTextView model word)
@@ -421,6 +421,10 @@ let private onPressed dispatch (e: PointerPressedEventArgs) =
   let struct (x, y) = pointerXY e
   dispatch (CFGPaneMsg(StartPan(x, y)))
 
+let private onTapped dispatch (e: TappedEventArgs) =
+  dispatch (CFGPaneMsg(SetSelectedToken None))
+  e.Handled <- true
+
 let private onMoved model dispatch (e: PointerEventArgs) =
   let struct (x, y) = pointerXY e
   let shouldStartPan =
@@ -456,6 +460,7 @@ let private graphCanvasView model vpSize dispatch cfg renderCache viewState =
     Canvas.background model.Theme.Window.Background
     Control.onPointerWheelChanged (onWheel dispatch)
     Control.onPointerPressed (onPressed dispatch)
+    Control.onTapped (onTapped dispatch)
     Control.onPointerMoved (onMoved model dispatch)
     Control.onPointerReleased (onReleased model dispatch)
     Canvas.children [

@@ -1254,19 +1254,24 @@ let jumpCFGPan (model: Model) gx gy =
   | None ->
     model, Elmish.Cmd.none
 
-let selectCFGToken arbiter (model: Model) selectedToken =
+let setCFGSelectedToken arbiter (model: Model) selectedToken =
   match model.ActiveTab with
   | Some tab ->
     let update viewState =
-      { viewState with SelectedToken = Some selectedToken }
+      { viewState with SelectedToken = selectedToken }
     let tab = updateCFGViewState tab update
-    match selectedToken.Range with
-    | Some range ->
+    match selectedToken with
+    | Some { Range = Some range } ->
       let model = replaceTabReferences model tab
       let model = setHexdumpSelectionFromAddrRange arbiter model range
       jumpHexdumpToAddress arbiter model range.Min, Elmish.Cmd.none
-    | None ->
+    | Some _ ->
       replaceTabReferences model tab, Elmish.Cmd.none
+    | None ->
+      replaceTabReferences model tab
+      |> syncOffsetSnapshotWithActiveTab arbiter
+      |> trySyncHexdumpWithActiveCFG arbiter,
+      Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
@@ -1545,8 +1550,8 @@ let updateCFG arbiter (model: Model) msg =
     endCFGPan model
   | JumpPan(gx, gy) ->
     jumpCFGPan model gx gy
-  | SelectToken token ->
-    selectCFGToken arbiter model token
+  | SetSelectedToken token ->
+    setCFGSelectedToken arbiter model token
   | SetHoveredEdge edgeID ->
     setHoveredCFGEdge model edgeID
   | ChangeKind kind ->

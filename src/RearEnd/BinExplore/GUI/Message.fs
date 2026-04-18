@@ -125,9 +125,8 @@ and CFGPaneMessage =
   | EndPan
   /// Message to jump the CFG view to a specific graph coordinate.
   | JumpPan of gx: float * gy: float
-  /// Message to select a disassembly token in the CFG, carrying node, line, and
-  /// word indices.
-  | SelectToken of token: SelectedToken
+  /// Message to update the currently selected disassembly token in the CFG.
+  | SetSelectedToken of token: SelectedToken option
   /// Message to set the currently hovered edge in the CFG, carrying the edge
   /// ID or None if edge is not hovered anymore.
   | SetHoveredEdge of edgeID: int option
