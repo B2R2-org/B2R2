@@ -374,20 +374,30 @@ let private graphNodes model dispatch selected cfg zoom panX panY isVisible =
 let [<Literal>] private ZoomDelta = 0.05
 let [<Literal>] private CFGPanStartThresholdSquared = 16.0
 
+let private tryGetCapturedGraphCanvas (e: PointerEventArgs) =
+  match e.Pointer.Captured with
+  | null -> None
+  | captured -> tryFindGraphCanvas (captured :> obj)
+
 let private pointerXY (e: PointerEventArgs) =
-  match tryFindGraphCanvas e.Source with
+  match tryGetCapturedGraphCanvas e with
   | Some canvas ->
     let p = e.GetPosition canvas
     struct (p.X, p.Y)
   | None ->
-    match e.Source with
-    | :? Control as ctrl ->
-      let root = TopLevel.GetTopLevel ctrl
-      let p =
-        if isNull root then e.GetPosition ctrl
-        else e.GetPosition root
+    match tryFindGraphCanvas e.Source with
+    | Some canvas ->
+      let p = e.GetPosition canvas
       struct (p.X, p.Y)
-    | _ -> struct (0.0, 0.0)
+    | None ->
+      match e.Source with
+      | :? Control as ctrl ->
+        let root = TopLevel.GetTopLevel ctrl
+        let p =
+          if isNull root then e.GetPosition ctrl
+          else e.GetPosition root
+        struct (p.X, p.Y)
+      | _ -> struct (0.0, 0.0)
 
 let private setPointerCapture shouldCapture (e: PointerEventArgs) =
   match tryFindGraphCanvas e.Source with
