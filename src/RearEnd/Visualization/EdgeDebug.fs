@@ -69,6 +69,22 @@ type VisGraphAnalysis =
   { Metrics: VisEdgeRelationshipMetrics
     ValidationIssues: VisValidationIssue list }
 
+type EdgeRelationshipMetrics =
+  { ForwardCrossingCount: int
+    BackCrossingCount: int
+    TotalCrossingCount: int
+    ForwardBentEdgeCount: int
+    BackBentEdgeCount: int
+    TotalBentEdgeCount: int }
+
+let ofDebugMetrics (metrics: VisEdgeRelationshipMetrics) =
+  { ForwardCrossingCount = metrics.ForwardCrossingCount
+    BackCrossingCount = metrics.BackCrossingCount
+    TotalCrossingCount = metrics.TotalCrossingCount
+    ForwardBentEdgeCount = metrics.ForwardBentEdgeCount
+    BackBentEdgeCount = metrics.BackBentEdgeCount
+    TotalBentEdgeCount = metrics.TotalBentEdgeCount }
+
 let [<Literal>] private StubMargin = 30.0
 let [<Literal>] private XTolerance = 4.0
 let [<Literal>] private CoordTolerance = 0.001
@@ -228,7 +244,9 @@ let private validateSafeBoxes
               PointA = Some p0
               PointB = Some p1 }
         else
-          ()))
+          ())
+    else
+      ())
   issues |> Seq.toList
 
 let private orientation
@@ -305,7 +323,8 @@ let private isBentEdge ((src, dst, edge): EdgeInfo) =
 let private countBentEdges (edgeInfos: EdgeInfo list) =
   edgeInfos |> List.filter isBentEdge |> List.length
 
-let private computeMetrics (edgeInfos: EdgeInfo list) =
+let private computeMetrics
+  (edgeInfos: EdgeInfo list): VisEdgeRelationshipMetrics =
   let forwardEdges =
     edgeInfos |> List.filter (fun (_, _, edge) -> not edge.IsBackEdge)
   let backEdges =
@@ -391,7 +410,7 @@ let private dumpSummary
   let mutable dummyCount = 0
   g.IterVertex(fun v ->
     vertexCount <- vertexCount + 1
-    if v.VData.IsDummy then dummyCount <- dummyCount + 1)
+    if v.VData.IsDummy then dummyCount <- dummyCount + 1 else ())
   appendLine sb "==== Summary ===="
   appendLine sb $"Vertices            : {vertexCount}"
   appendLine sb $"Dummy vertices      : {dummyCount}"
@@ -479,10 +498,8 @@ let private dumpDummyVerticesOnly
   appendLine sb "==== Dummy Vertices Only ===="
   g.IterVertex(fun v ->
     if v.VData.IsDummy then
-      let inEdges =
-        edgeInfos |> List.filter (fun (_, dst, _) -> dst = v)
-      let outEdges =
-        edgeInfos |> List.filter (fun (src, _, _) -> src = v)
+      let inEdges = edgeInfos |> List.filter (fun (_, dst, _) -> dst = v)
+      let outEdges = edgeInfos |> List.filter (fun (src, _, _) -> src = v)
       appendLine sb $"[Dummy] {fmtVertexShort v}"
       appendLine sb $"  Geom: {fmtVertexGeom v}"
       if List.isEmpty inEdges then
@@ -501,7 +518,8 @@ let private dumpDummyVerticesOnly
           appendLine sb
             ($"    -> {fmtVertexShort dst}, type={e.Type}, " +
              $"back={e.IsBackEdge}, points={fmtPoints e.Points}"))
-      appendLine sb "")
+      appendLine sb ""
+    else ())
 
 let dumpToFile (path: string) (title: string) (g: VisGraph) =
   let edgeInfos = getEdgeInfos g
@@ -517,6 +535,8 @@ let dumpToFile (path: string) (title: string) (g: VisGraph) =
   let dir = Path.GetDirectoryName path
   if String.IsNullOrWhiteSpace dir |> not then
     Directory.CreateDirectory dir |> ignore
+  else
+    ()
   File.WriteAllText(path, sb.ToString())
 
 let dumpWithAutoName (dir: string) (tag: string) (g: VisGraph) =

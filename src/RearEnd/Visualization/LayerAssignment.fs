@@ -26,7 +26,6 @@
 module internal B2R2.RearEnd.Visualization.LayerAssignment
 
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.ControlFlowGraph
 
 let assignLayerFromPred (vGraph: VisGraph) vData =
   let v = vGraph.FindVertexByData vData
@@ -47,8 +46,7 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k parWidth src dst e cnt =
     edge.IsBackEdge <- e.IsBackEdge
     g.AddEdge(src, dst, edge) |> ignore
     let backEdges =
-      if edge.IsBackEdge then (dst, src, edge) :: backEdges
-      else backEdges
+      if edge.IsBackEdge then (dst, src, edge) :: backEdges else backEdges
     backEdges, dummies
   else
     let vNode = VisBBlock(src.VData, true)
@@ -59,48 +57,61 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k parWidth src dst e cnt =
     edge.IsBackEdge <- e.IsBackEdge
     g.AddEdge(src, dummy, edge) |> ignore
     let backEdges =
-      if edge.IsBackEdge then (dummy, src, edge) :: backEdges
-      else backEdges
+      if edge.IsBackEdge then (dummy, src, edge) :: backEdges else backEdges
     let eData, vertices = Map.find k dummies
     let dummies = Map.add k (eData, dummy :: vertices) dummies
     addDummy g (backEdges, dummies) k parWidth dummy dst e (cnt - 1)
 
-let siftBackEdgesAndPickLongEdges (backEdges, longEdges) edge =
-  let src, dst = (edge: Edge<_, VisEdge>).First, edge.Second
+let collectLongEdges (backEdges, longEdges) (edge: Edge<_, VisEdge>) =
+  let src, dst = edge.First, edge.Second
   let delta = VisGraph.getLayer dst - VisGraph.getLayer src
   if delta > 1 then
-    (* Backedge in forward direction = Extra edge added in the cycle removal. *)
     let backEdges =
-      if edge.Label.IsBackEdge then
-        List.filter (fun (_, _, e) -> e <> edge.Label) backEdges
+      if edge.Label.IsBackEdge
+      then List.filter (fun (_, _, e) -> e <> edge.Label) backEdges
       else backEdges
     let longEdges = (src, dst, edge, delta) :: longEdges
     backEdges, longEdges
-  else backEdges, longEdges
+  else
+    backEdges, longEdges
 
-let addDummyNodes vGraph (backEdges, dummies) (src, dst, edge, delta) =
-  (vGraph: VisGraph).RemoveEdge(src, dst) |> ignore
-  let k =
-    if (edge: Edge<_, VisEdge>).Label.IsBackEdge then dst, src
-    else src, dst
+let addDummyNodesLongEdge (vGraph: VisGraph) (backEdges, dummies)
+  (src, dst, edge: Edge<VisBBlock, VisEdge>, delta) =
+  vGraph.RemoveEdge(src, dst) |> ignore
+  let k = if edge.Label.IsBackEdge then dst, src else src, dst
   let dummies = Map.add k (edge.Label, []) dummies
   let backEdges, dummies =
     addDummy vGraph (backEdges, dummies) k src.VData.Width src dst edge.Label
       (delta - 1)
   let dummies =
-    if not edge.Label.IsBackEdge then
+    if edge.Label.IsBackEdge then
+      dummies
+    else
       let eData, vertices = Map.find k dummies
       Map.add k (eData, List.rev vertices) dummies
-    else dummies
   backEdges, dummies
 
-let assignDummyNodes (vGraph: VisGraph) backEdges =
-  let backEdges, longEdges =
-    vGraph.FoldEdge(siftBackEdgesAndPickLongEdges, (backEdges, []))
-  longEdges
-  |> List.fold (addDummyNodes vGraph) (backEdges, Map.empty)
+let addDummyNodesRemovedBackEdge (vGraph: VisGraph) (backEdges, dummies)
+                                 (src, dst, edge) =
+  let dagSrc = dst
+  let dagDst = src
+  let delta = VisGraph.getLayer dagDst - VisGraph.getLayer dagSrc
+  let k = src, dst
+  let dummies = Map.add k (edge, []) dummies
+  addDummy vGraph (backEdges, dummies) k dagSrc.VData.Width dagSrc dagDst edge
+    (delta - 1)
 
-/// Assign layers to each node. The root node should be layer zero (0).
+let assignDummyNodes (vGraph: VisGraph) (backEdges: (IVertex<VisBBlock> *
+  IVertex<VisBBlock> * VisEdge) list) =
+  let backEdges, longEdges = vGraph.FoldEdge(collectLongEdges, (backEdges, []))
+  let removedLongBackEdges, backEdges =
+    backEdges |> List.partition (fun (src, dst, edge) ->
+      edge.IsBackEdge && src.VData.Layer - dst.VData.Layer > 1)
+  let backEdges, dummies =
+    longEdges |> List.fold (addDummyNodesLongEdge vGraph) (backEdges, Map.empty)
+  removedLongBackEdges
+  |> List.fold (addDummyNodesRemovedBackEdge vGraph) (backEdges, dummies)
+
 let run vGraph backEdges =
   kahnAssignLayers vGraph
   assignDummyNodes vGraph backEdges

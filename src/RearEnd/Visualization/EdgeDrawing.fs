@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -520,6 +520,8 @@ let private computeForwardArrivalTopY (edgeSet: EdgeSet)
         let isLeft = dPortX < getCXPos dst
         let barrierY = if isLeft then leftBarrierY else rightBarrierY
         fwdArrivalTopY[edge] <- barrierY - EdgeOffset)
+    else
+      ()
   fwdArrivalTopY
 
 let private computeRailXForEdgeArriving (edgeSet: EdgeSet)
@@ -624,13 +626,14 @@ let private routeBackwardEdges (edgeSet: EdgeSet) layout portMap dIdx aIdx
             else
               VisGraph.getXPos src + VisGraph.getWidth src + StubMargin
               + float depIdx * EdgeOffset
-          let dstCx, _, dBotY = vertexGeometryWithDummyHeight layerYMap dst
+          let dstCx, dTopY, dBotY = vertexGeometryWithDummyHeight layerYMap dst
           edge.Points <-
             [| pos sPortX srcBotY
                pos sPortX stubY
                pos srcSafeX stubY
                pos srcSafeX (srcTopY - StubMargin)
-               pos dstCx (dBotY + StubMargin) |]
+               pos dstCx (dBotY + StubMargin)
+               pos dstCx dTopY |]
         | false, false ->
           let bp = portMap.BwdEdgeBendPoints[edge]
           let srcIsLeft = getSrcIsLeft bp
@@ -695,10 +698,10 @@ let private routeSelfCycleEdge (edgeSet: EdgeSet) layout portMap =
         let sPortX = getPortX portMap.SelfOutPort edge v srcCx
         let dPortX = getPortX portMap.SelfInPort edge v srcCx
         addPoint pts sPortX botY
-        addPoint pts sPortX (botY + 20.0)
-        addPoint pts (leftX - 20.0) (botY + 20.0)
-        addPoint pts (leftX - 20.0) (topY - 20.0)
-        addPoint pts dPortX (topY - 20.0)
+        addPoint pts sPortX (botY + 5.0)
+        addPoint pts (leftX - 5.0) (botY + 5.0)
+        addPoint pts (leftX - 5.0) (topY - 5.0)
+        addPoint pts dPortX (topY - 5.0)
         addPoint pts dPortX topY
         edge.Points <- pts |> Seq.toArray)
     else

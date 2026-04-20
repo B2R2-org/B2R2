@@ -43,7 +43,7 @@ type FloatMap = Dictionary<IVertex<VisBBlock>, float>
 
 /// The horizontal interval of two consecutive blocks.
 [<Literal>]
-let private BlockIntervalX = 60.0
+let private BlockIntervalX = 100.0
 
 /// The vertical interval of two consecutive blocks.
 [<Literal>]
