@@ -325,17 +325,21 @@ let private routeForwardEdges (edgeSet: EdgeSet) layout portMap fwdArrivalTopY =
         getDefault fwdArrivalTopY edge (dTopY - StubMargin)
       edge.Points <- addFwdEdgePoint sPortX sBotY dPortX arrivalTopY dTopY)))
 
+let private findRealBwdDst (edgeSet: EdgeSet) (dst: IVertex<VisBBlock>) =
+  let rec loop (v: IVertex<VisBBlock>) =
+    if not v.VData.IsDummy then v
+    else
+      match edgeSet.GetBwdOutEdges v with
+      | (next, _) :: _ -> loop next
+      | [] -> v
+  loop dst
+
 /// Compute the layer distance between src and the ultimate real destination.
 let private computeEdgeDistance (edgeSet: EdgeSet) (src: IVertex<VisBBlock>)
                                 (dst: IVertex<VisBBlock>) =
   let srcLayer = src.VData.Layer
-  let rec findRealDstLayer (v: IVertex<VisBBlock>) =
-    if not v.VData.IsDummy then v.VData.Layer
-    else
-      match edgeSet.GetBwdOutEdges v with
-      | (next, _) :: _ -> findRealDstLayer next
-      | [] -> v.VData.Layer
-  srcLayer - findRealDstLayer dst
+  let realDst = findRealBwdDst edgeSet dst
+  srcLayer - realDst.VData.Layer
 
 /// Extract the destination-side direction from a BendPoint.
 let private getDstIsLeft = function
@@ -421,7 +425,7 @@ let private allocateBwdOutPorts (edgeSet: EdgeSet) (portMap: PortMap)
       | [] -> cx
       | xs -> List.max xs
   let cross, same =
-    edges |> List.partition (fun (_, _, dstIsLeft, _) -> dstIsLeft <> srcIsLeft)
+    edges |> List.partition (fun (_, _, isCross, _) -> isCross)
   let crossSorted =
     cross |> List.sortByDescending (fun (_, _, _, dist) -> dist)
   let sameSorted =
@@ -441,6 +445,13 @@ let private getRealVertices layout =
   |> Array.collect id
   |> Array.filter (fun (v: IVertex<VisBBlock>) -> not v.VData.IsDummy)
 
+let private isCrossAtDstSafeX dst dstIsLeft src =
+  let dstSafeX =
+    if dstIsLeft then VisGraph.getXPos dst - StubMargin
+    else VisGraph.getXPos dst + VisGraph.getWidth dst + StubMargin
+  let srcCx = getCXPos src
+  if dstIsLeft then srcCx > dstSafeX else srcCx < dstSafeX
+
 let private assignBwdOutPorts (edgeSet: EdgeSet) portMap depIdx rSrcs =
   for src in rSrcs do
     let outEdges = edgeSet.GetBwdOutEdges src
@@ -450,33 +461,28 @@ let private assignBwdOutPorts (edgeSet: EdgeSet) portMap depIdx rSrcs =
           match portMap.BwdEdgeBendPoints.TryGetValue edge with
           | true, bp ->
             let srcIsLeft = getSrcIsLeft bp
+            let realDst = findRealBwdDst edgeSet dst
             let dstIsLeft =
               match bp with
               | FromSourceToDest(_, d) -> d
               | FromSourceToDummy _ -> srcIsLeft
               | FromDummyToDest _ -> Terminator.impossible ()
+            let isCross = isCrossAtDstSafeX realDst dstIsLeft src
             let dist = computeEdgeDistance edgeSet src dst
-            Some(dst, edge, srcIsLeft, dstIsLeft, dist)
+            Some(dst, edge, srcIsLeft, isCross, dist)
           | _ -> None)
       let leftEdges =
         edgesWithInfo
         |> List.filter (fun (_, _, srcIsLeft, _, _) -> srcIsLeft)
-        |> List.map (fun (d, e, _, dstIsLeft, dist) -> d, e, dstIsLeft, dist)
+        |> List.map (fun (d, e, _, isCross, dist) -> d, e, isCross, dist)
       allocateBwdOutPorts edgeSet portMap depIdx src true leftEdges
       let rightEdges =
         edgesWithInfo
         |> List.filter (fun (_, _, srcIsLeft, _, _) -> not srcIsLeft)
-        |> List.map (fun (d, e, _, dstIsLeft, dist) -> d, e, dstIsLeft, dist)
+        |> List.map (fun (d, e, _, isCross, dist) -> d, e, isCross, dist)
       allocateBwdOutPorts edgeSet portMap depIdx src false rightEdges
     else
       ()
-
-let private isCrossAtDstSafeX dst dstIsLeft src =
-  let dstSafeX =
-    if dstIsLeft then VisGraph.getXPos dst - StubMargin
-    else VisGraph.getXPos dst + VisGraph.getWidth dst + StubMargin
-  let srcCx = getCXPos src
-  if dstIsLeft then srcCx > dstSafeX else srcCx < dstSafeX
 
 let private assignCrossMidYOffset (dst: IVertex<VisBBlock>)
                                   crossEdges
