@@ -212,6 +212,7 @@ let inline newInstruction (phlp: ParsingHelper) opcode oprs =
               oprs,
               phlp.OperationSize,
               phlp.MemEffAddrSize,
+              phlp.IsFar,
               phlp.Lifter)
 
 (* Table A-7/15 of Volume 2
@@ -6158,13 +6159,14 @@ let grp4Op = function
   | 1 -> DEC
   | _ -> raise ParsingFailureException
 
-let grp5 b = function
+let grp5 (phlp: ParsingHelper) b = function
   | 0 -> struct (INC, OD.Mem, SZ.Def, SzCond.Normal)
   | 1 -> struct (DEC, OD.Mem, SZ.Def, SzCond.Normal)
   | 2 -> struct (CALL, OD.Mem, SZ.Def, SzCond.F64)
-  | 3 -> struct (CALL, OD.Mem, SZ.P, SzCond.Normal)
+  | 3 -> phlp.IsFar <- true; struct (CALL, OD.Mem, SZ.P, SzCond.Normal)
   | 4 -> struct (JMP, OD.Mem, SZ.Def, SzCond.F64)
   | 5 -> if Operands.modIsMemory b then
+           phlp.IsFar <- true
            struct (JMP, OD.Mem, SZ.P, SzCond.Normal)
          else raise ParsingFailureException
   | 6 -> struct (PUSH, OD.Mem, SZ.Def, SzCond.D64)
@@ -6459,7 +6461,7 @@ let parseGrpOpKind span (phlp: ParsingHelper) oidx sidx oprGrp =
   | OpGroup.G2 -> struct (grp2Op r, oidx, sidx, SzCond.Normal)
   | OpGroup.G3A | OpGroup.G3B -> getGrp3OpKind oidx sidx oprGrp r
   | OpGroup.G4 -> struct (grp4Op r, OD.Mem, SZ.Byte, SzCond.Normal)
-  | OpGroup.G5 -> grp5 b r
+  | OpGroup.G5 -> grp5 phlp b r
   | OpGroup.G6 -> getGrp6OpKind b r
   | OpGroup.G7 -> parseGrp7OpKind phlp b r
   | OpGroup.G8 -> struct (grp8Op r, oidx, sidx, SzCond.Normal)

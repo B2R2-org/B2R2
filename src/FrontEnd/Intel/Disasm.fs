@@ -55,7 +55,7 @@ let inline private buildPref (prefs: Prefix) (builder: IDisasmBuilder) =
   else ()
 
 let inline private buildOpcode opcode (builder: IDisasmBuilder) =
-  builder.Accumulate(AsmWordKind.Mnemonic, Opcode.opcodeToString opcode)
+  builder.Accumulate(AsmWordKind.Mnemonic, Opcode.toString opcode)
 
 let private buildDisplacement showSign (disp: Displacement) wordSize builder =
   let mask = WordSize.toRegType wordSize |> RegType.getMask |> uint64
@@ -125,10 +125,9 @@ module IntelSyntax = begin
       builder.Accumulate(AsmWordKind.Variable, Register.toString b)
       memScaleDispToStr false si disp wordSize builder
 
-  let inline isFar (ins: Instruction) =
-    match ins.Opcode, ins.Operands with
-    | Opcode.JMP, OneOperand(OprDirAddr(Absolute _))
-    | Opcode.CALL, OneOperand(OprDirAddr(Absolute _)) -> true
+  let inline private isFar (ins: Instruction) =
+    match ins.Opcode with
+    | Opcode.JMP | Opcode.CALL -> ins.IsFar
     | _ -> false
 
   let private ptrDirectiveString isFar = function
@@ -563,10 +562,10 @@ module ATTSyntax = begin
     | Opcode.VPBROADCASTQ ->
       buildOpcode ins.Opcode builder
     (* Far jmp/call *)
-    | Opcode.JMP when IntelSyntax.isFar ins ->
+    | Opcode.JMP when ins.IsFar ->
       builder.Accumulate(AsmWordKind.Mnemonic, "ljmp")
       buildOpSuffix ins.Operands builder
-    | Opcode.CALL when IntelSyntax.isFar ins ->
+    | Opcode.CALL when ins.IsFar ->
       builder.Accumulate(AsmWordKind.Mnemonic, "lcall")
       buildOpSuffix ins.Operands builder
     | opcode ->

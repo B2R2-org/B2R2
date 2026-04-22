@@ -54,6 +54,8 @@ let translate (ins: Instruction) insLen bld =
   | OP.BTR -> GeneralLifter.btr ins insLen bld
   | OP.BTS -> GeneralLifter.bts ins insLen bld
   | OP.BZHI -> GeneralLifter.bzhi ins insLen bld
+  | OP.CALL when ins.IsFar ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedFAR
   | OP.CALL -> GeneralLifter.call ins insLen bld
   | OP.CBW | OP.CWDE | OP.CDQE ->
     GeneralLifter.convBWQ ins insLen bld
@@ -145,6 +147,8 @@ let translate (ins: Instruction) insLen bld =
   | OP.RDSSPD | OP.RDSSPQ -> GeneralLifter.nop ins.Address insLen bld
   | OP.RDTSC -> LiftingUtils.sideEffects bld ins insLen ClockCounter
   | OP.RDTSCP -> LiftingUtils.sideEffects bld ins insLen ClockCounter
+  | OP.RET when ins.IsFar ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedFAR
   | OP.RET -> GeneralLifter.ret ins insLen bld
   | OP.ROL -> GeneralLifter.rol ins insLen bld
   | OP.ROR -> GeneralLifter.ror ins insLen bld
@@ -702,6 +706,6 @@ let translate (ins: Instruction) insLen bld =
   | OP.FXRSTOR | OP.FXRSTOR64 -> X87Lifter.fxrstor ins insLen bld
   | o ->
 #if DEBUG
-         eprintfn $"Unsupported: {Opcode.opcodeToString o}"
+         eprintfn $"Unsupported: {Opcode.toString o}"
 #endif
          LiftingUtils.sideEffects bld ins insLen UnsupportedExtension

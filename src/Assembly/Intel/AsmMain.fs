@@ -154,7 +154,7 @@ let encodeInstruction ins ctx =
   | Opcode.JNO -> jno ctx ins
   | Opcode.JNP -> jnp ctx ins
   | Opcode.JNS -> jns ctx ins
-  | Opcode.JNZ | Opcode.JNE -> jnz ctx ins
+  | Opcode.JNZ -> jnz ctx ins
   | Opcode.JO -> jo ctx ins
   | Opcode.JP -> jp ctx ins
   | Opcode.JS -> js ctx ins
@@ -244,7 +244,7 @@ let computeIncompMaxLen = function
   | Opcode.CALL | Opcode.JMP -> 5
   | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JG | Opcode.JL | Opcode.JLE
   | Opcode.JNB | Opcode.JNL | Opcode.JNO | Opcode.JNP | Opcode.JNS | Opcode.JNZ
-  | Opcode.JNE  | Opcode.JO | Opcode.JP | Opcode.JS | Opcode.JZ
+  | Opcode.JO | Opcode.JP | Opcode.JS | Opcode.JZ
   | Opcode.XBEGIN -> 6
   | o -> printfn "%A" o; Terminator.futureFeature ()
 

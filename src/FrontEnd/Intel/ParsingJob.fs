@@ -1244,6 +1244,7 @@ type internal OneOp9A() =
     addBND phlp
     phlp.SzComputers[int SZ.P].Render(phlp, SzCond.Normal)
     let oprs = phlp.OprParsers[int OD.Dir].Render(span, phlp)
+    phlp.IsFar <- true
     newInstruction phlp Opcode.CALL oprs
 
 type internal OneOp9B() =
@@ -1625,6 +1626,7 @@ type internal OneOpCA() =
     addBND phlp
     phlp.SzComputers[int SZ.Def].Render(phlp, SzCond.Normal)
     let oprs = phlp.OprParsers[int OD.Imm16].Render(span, phlp)
+    phlp.IsFar <- true
     newInstruction phlp Opcode.RET oprs
 
 type internal OneOpCB() =
@@ -1633,6 +1635,7 @@ type internal OneOpCB() =
     addBND phlp
     phlp.SzComputers[int SZ.Def].Render(phlp, SzCond.Normal)
     let oprs = phlp.OprParsers[int OD.No].Render(span, phlp)
+    phlp.IsFar <- true
     newInstruction phlp Opcode.RET oprs
 
 type internal OneOpCC() =
@@ -1942,6 +1945,7 @@ type internal OneOpEA() =
     addBND phlp
     phlp.SzComputers[int SZ.P].Render(phlp, SzCond.Normal)
     let oprs = phlp.OprParsers[int OD.Dir].Render(span, phlp)
+    phlp.IsFar <- true
     newInstruction phlp Opcode.JMP oprs
 
 type internal OneOpEB() =

@@ -568,6 +568,7 @@ type IntelParser(wordSz, reader) =
       let prefEndPos = this.ParsePrefix span
       let nextPos = this.ParseREX(span, prefEndPos, &rex)
       phlp.VEXInfo <- None
+      phlp.IsFar <- false
       phlp.InsAddr <- addr
       phlp.REXPrefix <- rex
       phlp.CurrPos <- nextPos

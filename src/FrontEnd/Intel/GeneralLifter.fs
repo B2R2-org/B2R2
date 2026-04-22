@@ -711,27 +711,23 @@ let bzhi (ins: Instruction) insLen bld =
   bld --!> insLen
 
 let call (ins: Instruction) insLen bld =
-  match ins.Operands with
-  | OneOperand(OprDirAddr(Absolute _)) ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedFAR
-  | _ ->
-    bld <!-- (ins.Address, insLen)
-    let pc = numU64 (ins: Instruction).Address bld.RegType
-    let oprSize = getOperationSize ins
+  bld <!-- (ins.Address, insLen)
+  let pc = numU64 (ins: Instruction).Address bld.RegType
+  let oprSize = getOperationSize ins
 #if EMULATION
-    setCCOp bld
-    bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
+  setCCOp bld
+  bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #endif
-    let struct (target, ispcrel) = transJumpTargetOpr bld false ins pc insLen
-    if ispcrel || not (hasStackPtr ins) then
-      auxPush oprSize bld (pc .+ numInsLen insLen bld)
-      bld <+ (AST.interjmp target InterJmpKind.IsCall)
-    else
-      let t = tmpVar bld oprSize (* Use tmpvar because the target can use RSP *)
-      bld <+ (t := target)
-      auxPush oprSize bld (pc .+ numInsLen insLen bld)
-      bld <+ (AST.interjmp t InterJmpKind.IsCall)
-    bld
+  let struct (target, ispcrel) = transJumpTargetOpr bld false ins pc insLen
+  if ispcrel || not (hasStackPtr ins) then
+    auxPush oprSize bld (pc .+ numInsLen insLen bld)
+    bld <+ (AST.interjmp target InterJmpKind.IsCall)
+  else
+    let t = tmpVar bld oprSize (* Use tmpvar because the target can use RSP *)
+    bld <+ (t := target)
+    auxPush oprSize bld (pc .+ numInsLen insLen bld)
+    bld <+ (AST.interjmp t InterJmpKind.IsCall)
+  bld
 
 let convBWQ (ins: Instruction) insLen bld =
   let opr = regVar bld (if is64bit bld then R.RAX else R.EAX)
@@ -1657,23 +1653,22 @@ let private getCondOfJcc (ins: Instruction) (bld: ILowUIRBuilder) =
   match ins.Opcode with
   | Opcode.JO -> regVar bld R.OF
   | Opcode.JNO -> regVar bld R.OF == AST.b0
-  | Opcode.JB | Opcode.JC | Opcode.JNAE -> regVar bld R.CF
-  | Opcode.JAE | Opcode.JNB | Opcode.JNC -> regVar bld R.CF == AST.b0
-  | Opcode.JE | Opcode.JZ -> regVar bld R.ZF
-  | Opcode.JNZ | Opcode.JNE -> regVar bld R.ZF == AST.b0
-  | Opcode.JBE | Opcode.JNA -> (regVar bld R.CF) .| (regVar bld R.ZF)
-  | Opcode.JA | Opcode.JNBE ->
-    ((regVar bld R.CF) .| (regVar bld R.ZF)) == AST.b0
+  | Opcode.JB -> regVar bld R.CF
+  | Opcode.JNB -> regVar bld R.CF == AST.b0
+  | Opcode.JZ -> regVar bld R.ZF
+  | Opcode.JNZ -> regVar bld R.ZF == AST.b0
+  | Opcode.JBE -> (regVar bld R.CF) .| (regVar bld R.ZF)
+  | Opcode.JA -> ((regVar bld R.CF) .| (regVar bld R.ZF)) == AST.b0
   | Opcode.JS -> regVar bld R.SF
   | Opcode.JNS -> regVar bld R.SF == AST.b0
-  | Opcode.JP | Opcode.JPE -> regVar bld R.PF
-  | Opcode.JNP | Opcode.JPO -> regVar bld R.PF == AST.b0
-  | Opcode.JL | Opcode.JNGE -> regVar bld R.SF != regVar bld R.OF
-  | Opcode.JNL | Opcode.JGE -> regVar bld R.SF == regVar bld R.OF
-  | Opcode.JLE | Opcode.JNG ->
-    (regVar bld R.ZF) .| (regVar bld R.SF != regVar bld R.OF)
-  | Opcode.JG | Opcode.JNLE ->
-    (regVar bld R.ZF == AST.b0) .& (regVar bld R.SF == regVar bld R.OF)
+  | Opcode.JP -> regVar bld R.PF
+  | Opcode.JNP -> regVar bld R.PF == AST.b0
+  | Opcode.JL -> regVar bld R.SF != regVar bld R.OF
+  | Opcode.JNL -> regVar bld R.SF == regVar bld R.OF
+  | Opcode.JLE -> (regVar bld R.ZF) .|
+                  (regVar bld R.SF != regVar bld R.OF)
+  | Opcode.JG -> (regVar bld R.ZF == AST.b0) .&
+                 (regVar bld R.SF == regVar bld R.OF)
   | Opcode.JCXZ -> (regVar bld R.CX) == (AST.num0 bld.RegType)
   | Opcode.JECXZ ->
     let sz = bld.RegType

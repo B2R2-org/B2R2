@@ -3513,7 +3513,7 @@ module internal Opcode =
       true
     | _ -> false
 
-  let opcodeToString = function
+  let toString = function
     | Opcode.AAA -> "aaa"
     | Opcode.AAD -> "aad"
     | Opcode.AAM -> "aam"
