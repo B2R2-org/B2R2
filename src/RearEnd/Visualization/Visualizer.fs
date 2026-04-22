@@ -34,11 +34,7 @@ let private convert iGraph roots charWidth charHeight =
     let vLayout = CrossMinimization.run vGraph
     CoordAssignment.run vGraph vLayout
     EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
-    let metrics =
-      vGraph
-      |> EdgeDebug.evaluate
-      |> EdgeDebug.ofDebugMetrics
-    Some(roots, vGraph, metrics)
+    Some(roots, vGraph, None)
   with e ->
     eprintfn "%s" <| e.ToString()
     None
