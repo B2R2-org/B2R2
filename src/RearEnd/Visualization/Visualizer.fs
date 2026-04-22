@@ -24,6 +24,9 @@
 
 module B2R2.RearEnd.Visualization.Visualizer
 
+#if DEBUG
+open B2R2
+#endif
 open B2R2.MiddleEnd.BinGraph
 
 let private convert iGraph roots charWidth charHeight =
@@ -34,7 +37,7 @@ let private convert iGraph roots charWidth charHeight =
     let vLayout = CrossMinimization.run vGraph
     CoordAssignment.run vGraph vLayout
     EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
-    Some(roots, vGraph, None)
+    Some(roots, vGraph)
   with e ->
     eprintfn "%s" <| e.ToString()
     None
@@ -45,7 +48,7 @@ let toJSON (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
     "{}"
   else
     match convert iGraph roots charWidth charHeight with
-    | Some(roots, vGraph, _) -> JSONExport.toStr roots vGraph
+    | Some(roots, vGraph) -> JSONExport.toStr roots vGraph
     | None -> "{}"
 
 /// Converts the given graph to a VisGraph for visualization.
@@ -53,9 +56,18 @@ let toVisGraph (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
   if iGraph.Size = 0 then
     VisGraph.init ()
   else
+#if DEBUG
+    let sw = System.Diagnostics.Stopwatch.StartNew()
+#endif
     convert iGraph roots charWidth charHeight
-    |> Option.map (fun (_, vGraph, _) -> vGraph)
+    |> Option.map snd
     |> Option.defaultValue (VisGraph.init ())
+#if DEBUG
+    |> fun g ->
+      sw.Stop()
+      printsn $"[*] Visualization took {sw.Elapsed.TotalSeconds} sec."
+      g
+#endif
 
 /// Default character width used for layout calculations.
 let [<Literal>] CharWidth = 7.5

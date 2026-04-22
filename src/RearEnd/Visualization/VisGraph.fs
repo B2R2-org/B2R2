@@ -24,8 +24,8 @@
 
 namespace B2R2.RearEnd.Visualization
 
-open B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
+open B2R2.MiddleEnd.BinGraph
 
 /// The main graph type for visualization.
 type VisGraph = IDiGraph<VisBBlock, VisEdge>
@@ -42,7 +42,7 @@ module VisGraph =
     for v in g.Vertices do
       if vblocks.ContainsKey v.ID then ()
       else
-        let blk = VisBBlock(v.VData, charWidth, charHeight, false, None)
+        let blk = VisBBlock(v.VData, charWidth, charHeight, false)
         let v', _ = newGraph.AddVertex blk
         vblocks[v.ID] <- v'
     let roots = roots |> List.map (fun (root: IVertex<_>) -> vblocks[root.ID])
