@@ -93,23 +93,11 @@ let translate (ins: Instruction) insLen bld =
   | OP.INT | OP.INTO -> GeneralLifter.interrupt ins insLen bld
   | OP.INT3 -> LiftingUtils.sideEffects bld ins insLen Breakpoint
   | OP.JMP -> GeneralLifter.jmp ins insLen bld
-  | OP.JO
-  | OP.JNO
-  | OP.JB | OP.JC | OP.JNAE
-  | OP.JAE | OP.JNB | OP.JNC
-  | OP.JE | OP.JZ
-  | OP.JNE | OP.JNZ
-  | OP.JBE | OP.JNA
-  | OP.JA | OP.JNBE
-  | OP.JNS
-  | OP.JP | OP.JPE
-  | OP.JNP | OP.JPO
-  | OP.JL | OP.JNGE
-  | OP.JGE | OP.JNL
-  | OP.JLE | OP.JNG
-  | OP.JG | OP.JNLE
-  | OP.JS
-  | OP.JCXZ | OP.JECXZ | OP.JRCXZ -> GeneralLifter.jcc ins insLen bld
+  | OP.JO | OP.JNO | OP.JB | OP.JNB
+  | OP.JZ | OP.JNZ | OP.JBE | OP.JA
+  | OP.JS | OP.JNS | OP.JP | OP.JNP
+  | OP.JL | OP.JNL | OP.JLE | OP.JG
+  | OP.JECXZ | OP.JRCXZ -> GeneralLifter.jcc ins insLen bld
   | OP.LAHF -> GeneralLifter.lahf ins insLen bld
   | OP.LEA -> GeneralLifter.lea ins insLen bld
   | OP.LEAVE -> GeneralLifter.leave ins insLen bld

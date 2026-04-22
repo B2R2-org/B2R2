@@ -93,23 +93,10 @@ type Instruction
 
     member _.IsCondBranch =
       match opcode with
-      | Opcode.JO
-      | Opcode.JNO
-      | Opcode.JB | Opcode.JC | Opcode.JNAE
-      | Opcode.JAE | Opcode.JNB | Opcode.JNC
-      | Opcode.JE | Opcode.JZ
-      | Opcode.JNE | Opcode.JNZ
-      | Opcode.JBE | Opcode.JNA
-      | Opcode.JA | Opcode.JNBE
-      | Opcode.JNS
-      | Opcode.JP | Opcode.JPE
-      | Opcode.JNP | Opcode.JPO
-      | Opcode.JL | Opcode.JNGE
-      | Opcode.JGE | Opcode.JNL
-      | Opcode.JLE | Opcode.JNG
-      | Opcode.JG | Opcode.JNLE
-      | Opcode.JS
-      | Opcode.JCXZ | Opcode.JECXZ | Opcode.JRCXZ
+      | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
+      | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL
+      | Opcode.JNO | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO
+      | Opcode.JP | Opcode.JRCXZ | Opcode.JS | Opcode.JZ
       | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> true
       | _ -> false
 
