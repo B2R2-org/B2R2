@@ -50,6 +50,7 @@ type private EdgePlan =
     ChainInfos: (IVertex<VisBBlock> * IVertex<VisBBlock> * VisEdge) list
     ChainEdges: VisEdge list
     Merged: VisPosition array
+    Stage1Points: VisPosition array
     FinalPoints: VisPosition array }
 
 let private sameX (a: VisPosition) (b: VisPosition) =
@@ -380,6 +381,17 @@ let private tryAcceptShortcut
     if countCrossings cache ignoredEdges isBackEdge dst segs <= oldCross
     then Some cand
     else None
+let private tryIntersectXOnSegment dstX (a: VisPosition) (b: VisPosition) =
+  let minX = min a.X b.X
+  let maxX = max a.X b.X
+  if dstX < minX - CoordEpsilon || dstX > maxX + CoordEpsilon then
+    None
+  elif sameX a b then
+    if abs (a.X - dstX) <= CoordEpsilon then Some a.Y else None
+  else
+    let t = (dstX - a.X) / (b.X - a.X)
+    if t < -CoordEpsilon || t > 1.0 + CoordEpsilon then None
+    else Some(a.Y + t * (b.Y - a.Y))
 
 let private tryIntersectYOnSegment targetY (a: VisPosition) (b: VisPosition) =
   let minY = min a.Y b.Y
@@ -392,6 +404,20 @@ let private tryIntersectYOnSegment targetY (a: VisPosition) (b: VisPosition) =
     let t = (targetY - a.Y) / (b.Y - a.Y)
     if t < -CoordEpsilon || t > 1.0 + CoordEpsilon then None
     else Some(a.X + t * (b.X - a.X))
+
+let private tryFindPointAtX targetX segStart segEnd pickFirst
+  (pts: VisPosition array) =
+  let mutable best: (int * VisPosition) option = None
+  let mutable i = segStart
+  let mutable stop = false
+  while not stop && i <= segEnd do
+    match tryIntersectXOnSegment targetX pts[i] pts[i + 1] with
+    | Some y ->
+      best <- Some(i, pos targetX y)
+      if pickFirst then stop <- true else ()
+    | None -> ()
+    i <- i + 1
+  best
 
 let private tryFindPointAtY targetY segStart segEnd pickFirst
                             (pts: VisPosition array) =
@@ -480,6 +506,42 @@ let private tryBackwardInsertPointAtAdjustedY cache safeBoxes src dst
         if neC > old then None else Some cand
     | _ -> None
 
+/// After stage-1 dummy shortcut, try to further straighten the departure and
+/// arrival legs by aligning them with the source/destination port x-coordinates
+/// searches for the first occurrence of sPortX (and last of inPortX) in the
+/// interior segments, then shortcuts prefix→alignPt→alignPt→suffix.
+/// falls back to src-side-only when no dst intersection is found.
+let private tryBackwardAlignPortX cache safeBox src dst ignoredEdges
+  (pts: VisPosition array) =
+  if pts.Length < 8 then
+    None
+  else
+    let n = pts.Length
+    let sPortX = pts[0].X
+    let inPortX = pts[n - 2].X
+    let prefix = pts[0..3]
+    let oldC = countCrossings cache ignoredEdges true dst (polySegments pts)
+    let tryShortcut cand =
+      let ob = countBends pts
+      let nb = countBends cand
+      if nb >= ob then None
+      else tryAcceptShortcut cache safeBox src dst ignoredEdges true oldC cand
+    match tryFindPointAtX sPortX 4 (n - 3) true pts,
+          tryFindPointAtX inPortX 4 (n - 3) false pts with
+    | Some(si, sp), Some(di, dp)
+      when si < di || (si = di && not (samePos sp dp)) ->
+      let cand = buildShortcutCandidate prefix [| sp; dp |] pts[di + 1..]
+      match tryShortcut cand with
+      | Some _ as result -> result
+      | None ->
+        match tryFindPointAtX sPortX 4 (n - 3) true pts with
+        | Some(si2, sp2) ->
+          buildShortcutCandidate prefix [| sp2 |] pts[si2 + 1..] |> tryShortcut
+        | None -> None
+    | Some(si, sp), None ->
+      buildShortcutCandidate prefix [| sp |] pts[si + 1..] |> tryShortcut
+    | _ -> None
+
 let private optimizeBackwardStage1 cache layerTopMap safeBoxes src dst
   ignoredEdges dummies (merged: VisPosition array) =
   match tryExtractBackwardPrefix merged with
@@ -522,6 +584,15 @@ let private approachSegsCross ptsA ptsB =
       || aMaxY < bMinY - CoordEpsilon || bMaxY < aMinY - CoordEpsilon)
       && segmentsProperlyIntersect a0 a1 b0 b1))
 
+/// True when any approach segment penetrates the destination box before the
+/// final port-offset segment enters the destination.
+let private approachSegsHitDstBox (dst: IVertex<VisBBlock>)
+  (pts: VisPosition array) =
+  let dstBox = vertexBox dst
+  approachSegs pts
+  |> Array.exists (fun (p0, p1) ->
+    segIntersectsRect dstBox (p0.X, p0.Y) (p1.X, p1.Y))
+
 let private buildRawPlans (g: VisGraph) dummyMap =
   dummyMap
   |> Map.toList
@@ -540,6 +611,7 @@ let private buildRawPlans (g: VisGraph) dummyMap =
           ChainInfos = chainInfos
           ChainEdges = chainEdges
           Merged = merged
+          Stage1Points = merged
           FinalPoints = merged })
 
 let private runStage1 cache layerTopMap safeBoxes plans =
@@ -552,7 +624,8 @@ let private runStage1 cache layerTopMap safeBoxes plans =
           ignoredEdges plan.Dummies plan.Merged
       else
         plan.Merged
-    { plan with FinalPoints = pts })
+    { plan with Stage1Points = pts
+                FinalPoints = pts })
 
 let private runStage2 cache safeBoxes plans =
   let backGroups =
@@ -596,7 +669,12 @@ let private runStage3 plans =
           groupPlans |> List.exists (fun other ->
             not (obj.ReferenceEquals(other.Edge, plan.Edge)) &&
             approachSegsCross plan.FinalPoints other.FinalPoints)
-        if hasCrossing then { plan with FinalPoints = plan.Merged } else plan)
+        let hitsDstBox =
+          approachSegsHitDstBox plan.Dst plan.FinalPoints
+        if hasCrossing || hitsDstBox then
+          { plan with FinalPoints = plan.Stage1Points }
+        else
+          plan)
 
 let private applyEdgePlan (g: VisGraph) (plan: EdgePlan) =
   plan.ChainInfos
