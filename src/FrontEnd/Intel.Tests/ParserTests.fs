@@ -201,25 +201,25 @@ type ParserTests() =
   [<TestMethod>]
   member _.``5.1.7 Control Transfer Instructions (1)``() =
     "ffe4"
-    ++ JMPNear ** [ O.Reg R.ESP ]
+    ++ JMP ** [ O.Reg R.ESP ]
     ||> testX86NoPrefixNoSeg
 
   [<TestMethod>]
   member _.``5.1.7 Control Transfer Instructions (2)``() =
     "ea123456789000"
-    ++ JMPFar ** [ O.Addr(0x90s, 0x78563412UL, 32<rt>) ]
+    ++ JMP ** [ O.Addr(0x90s, 0x78563412UL, 32<rt>) ]
     ||> testX86NoPrefixNoSeg
 
   [<TestMethod>]
   member _.``5.1.7 Control Transfer Instructions (3)``() =
     "65ff1510000000"
-    ++ CALLNear ** [ O.Mem(16L, 32<rt>) ]
+    ++ CALL ** [ O.Mem(16L, 32<rt>) ]
     ||> testX86 (Prefix.GS) R.GS
 
   [<TestMethod>]
   member _.``5.1.7 Control Transfer Instructions (4)``() =
     "9a987654321000"
-    ++ CALLFar ** [ O.Addr(0x10s, 0x32547698UL, 32<rt>) ]
+    ++ CALL ** [ O.Addr(0x10s, 0x32547698UL, 32<rt>) ]
     ||> testX86NoPrefixNoSeg
 
   [<TestMethod>]
@@ -1858,13 +1858,13 @@ type ParserTests() =
   [<TestMethod>]
   member _.``Size cond ParsingFailure Test (3)``() =
     "ea123456789000"
-    ++ JMPFar ** [ O.Addr(0x90s, 0x78563412UL, 32<rt>) ]
+    ++ JMP ** [ O.Addr(0x90s, 0x78563412UL, 32<rt>) ]
     ||> testException testX64NoPrefixNoSeg
 
   [<TestMethod>]
   member _.``Size cond ParsingFailure Test (4)``() =
     "9a987654321000"
-    ++ CALLFar ** [ O.Addr(0x10s, 0x32547698UL, 32<rt>) ]
+    ++ CALL ** [ O.Addr(0x10s, 0x32547698UL, 32<rt>) ]
     ||> testException testX64NoPrefixNoSeg
 
   [<TestMethod>]

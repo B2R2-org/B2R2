@@ -49,6 +49,7 @@ type internal ParsingHelper(reader: IBinReader,
   let mutable regSz = 0<rt>
   let mutable operationSz = 0<rt>
   let mutable tupleType = TupleType.NA
+  let mutable isFar = false
 
   new(reader, wordSz, oparsers, szcomputers, lifter) =
     ParsingHelper(reader, 0UL, 0, Prefix.None, REXPrefix.NOREX, None,
@@ -70,6 +71,7 @@ type internal ParsingHelper(reader: IBinReader,
   member _.TupleType
     with get(): TupleType = tupleType and set t = tupleType <- t
   member _.Lifter with get(): ILiftable = lifter
+  member _.IsFar with get() = isFar and set f = isFar <- f
 
   static member inline Is64bit(phlp: ParsingHelper) =
     phlp.WordSize = WordSize.Bit64

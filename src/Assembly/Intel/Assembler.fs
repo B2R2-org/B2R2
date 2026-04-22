@@ -93,9 +93,9 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     )
     |> choice
     (* Since far calls, jmps, and rets are unnatural they are ignored *)
-    <|> (pstringCI "jmp" >>. preturn Opcode.JMPNear)
-    <|> (pstringCI "call" >>. preturn Opcode.CALLNear)
-    <|> (pstringCI "ret" >>. preturn Opcode.RETNearImm)
+    <|> (pstringCI "jmp" >>. preturn Opcode.JMP)
+    <|> (pstringCI "call" >>. preturn Opcode.CALL)
+    <|> (pstringCI "ret" >>. preturn Opcode.RET)
     <?> "opcode"
 
   let numberFormat =
@@ -211,7 +211,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     sepBy (operand opc) operandSeps |>> extractOperands
     |>> (fun operands ->
           match opc, operands with
-          | Opcode.RETNearImm, NoOperand -> Opcode.RETNear, operands
+          | Opcode.RET, NoOperand -> Opcode.RET, operands
           | _ -> opc, operands)
     |> skipWhitespaces
 

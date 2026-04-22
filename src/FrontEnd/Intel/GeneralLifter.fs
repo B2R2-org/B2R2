@@ -2485,30 +2485,26 @@ let rdpkru ins insLen bld =
   bld <+ (edx := AST.num0 bld.RegType)
   bld --!> insLen
 
-let retWithImm (ins: Instruction) insLen bld =
-  bld <!-- (ins.Address, insLen)
-  let oprSize = getOperationSize ins
-  let t = tmpVar bld oprSize
-  let sp = getStackPtr bld
-  let src = transOneOpr bld ins insLen
-#if EMULATION
-  setCCOp bld
-  bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
-#endif
-  auxPop oprSize bld t
-  bld <+ (sp := sp .+ (AST.zext oprSize src))
-  bld <+ (AST.interjmp t InterJmpKind.IsRet)
-  bld
-
-let ret ins insLen bld =
+let ret (ins: Instruction) insLen bld =
   let oprSize = getOperationSize ins
   let t = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
+  match ins.Operands with
+  | NoOperand ->
 #if EMULATION
-  setCCOp bld
-  bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
+    setCCOp bld
+    bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #endif
-  auxPop oprSize bld t
+    auxPop oprSize bld t
+  | _ (* OneOperand *) ->
+    let sp = getStackPtr bld
+    let src = transOneOpr bld ins insLen
+#if EMULATION
+    setCCOp bld
+    bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
+#endif
+    auxPop oprSize bld t
+    bld <+ (sp := sp .+ (AST.zext oprSize src))
   bld <+ (AST.interjmp t InterJmpKind.IsRet)
   bld
 

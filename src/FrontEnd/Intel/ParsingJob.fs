@@ -1244,7 +1244,8 @@ type internal OneOp9A() =
     addBND phlp
     phlp.SzComputers[int SZ.P].Render(phlp, SzCond.Normal)
     let oprs = phlp.OprParsers[int OD.Dir].Render(span, phlp)
-    newInstruction phlp Opcode.CALLFar oprs
+    phlp.IsFar <- true
+    newInstruction phlp Opcode.CALL oprs
 
 type internal OneOp9B() =
   inherit ParsingJob()
@@ -1548,7 +1549,7 @@ type internal OneOpC2() =
     addBND phlp
     phlp.SzComputers[int SZ.Def].Render(phlp, SzCond.F64)
     let oprs = phlp.OprParsers[int OD.Imm16].Render(span, phlp)
-    newInstruction phlp Opcode.RETNearImm oprs
+    newInstruction phlp Opcode.RET oprs
 
 type internal OneOpC3() =
   inherit ParsingJob()
@@ -1556,7 +1557,7 @@ type internal OneOpC3() =
     addBND phlp
     phlp.SzComputers[int SZ.Def].Render(phlp, SzCond.F64)
     let oprs = phlp.OprParsers[int OD.No].Render(span, phlp)
-    newInstruction phlp Opcode.RETNear oprs
+    newInstruction phlp Opcode.RET oprs
 
 type internal OneOpC4() =
   inherit ParsingJob()
@@ -1625,7 +1626,8 @@ type internal OneOpCA() =
     addBND phlp
     phlp.SzComputers[int SZ.Def].Render(phlp, SzCond.Normal)
     let oprs = phlp.OprParsers[int OD.Imm16].Render(span, phlp)
-    newInstruction phlp Opcode.RETFarImm oprs
+    phlp.IsFar <- true
+    newInstruction phlp Opcode.RET oprs
 
 type internal OneOpCB() =
   inherit ParsingJob()
@@ -1633,7 +1635,8 @@ type internal OneOpCB() =
     addBND phlp
     phlp.SzComputers[int SZ.Def].Render(phlp, SzCond.Normal)
     let oprs = phlp.OprParsers[int OD.No].Render(span, phlp)
-    newInstruction phlp Opcode.RETFar oprs
+    phlp.IsFar <- true
+    newInstruction phlp Opcode.RET oprs
 
 type internal OneOpCC() =
   inherit ParsingJob()
@@ -1923,7 +1926,7 @@ type internal OneOpE8() =
     addBND phlp
     phlp.SzComputers[int SZ.D64].Render(phlp, SzCond.F64)
     let oprs = phlp.OprParsers[int OD.Rel].Render(span, phlp)
-    newInstruction phlp Opcode.CALLNear oprs
+    newInstruction phlp Opcode.CALL oprs
 
 type internal OneOpE9() =
   inherit ParsingJob()
@@ -1931,7 +1934,7 @@ type internal OneOpE9() =
     addBND phlp
     phlp.SzComputers[int SZ.D64].Render(phlp, SzCond.F64)
     let oprs = phlp.OprParsers[int OD.Rel].Render(span, phlp)
-    newInstruction phlp Opcode.JMPNear oprs
+    newInstruction phlp Opcode.JMP oprs
 
 type internal OneOpEA() =
   inherit ParsingJob()
@@ -1942,7 +1945,8 @@ type internal OneOpEA() =
     addBND phlp
     phlp.SzComputers[int SZ.P].Render(phlp, SzCond.Normal)
     let oprs = phlp.OprParsers[int OD.Dir].Render(span, phlp)
-    newInstruction phlp Opcode.JMPFar oprs
+    phlp.IsFar <- true
+    newInstruction phlp Opcode.JMP oprs
 
 type internal OneOpEB() =
   inherit ParsingJob()
@@ -1950,7 +1954,7 @@ type internal OneOpEB() =
     addBND phlp
     phlp.SzComputers[int SZ.Byte].Render(phlp, SzCond.F64)
     let oprs = phlp.OprParsers[int OD.Rel8].Render(span, phlp)
-    newInstruction phlp Opcode.JMPNear oprs
+    newInstruction phlp Opcode.JMP oprs
 
 type internal OneOpEC() =
   inherit ParsingJob()

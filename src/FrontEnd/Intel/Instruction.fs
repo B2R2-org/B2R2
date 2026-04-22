@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for Intel x86 and x86-64 architectures.
 type Instruction
-  internal(addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz,
+  internal(addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz, isFar,
            lifter: ILiftable) =
 
   let hasConcJmpTarget () =
@@ -71,6 +71,8 @@ type Instruction
   /// along with the MainOperationSize.
   member _.PointerSize with get(): RegType = psz
 
+  member _.IsFar with get(): bool = isFar
+
   member private this.AddBranchTargetIfExist addrs =
     match (this :> IInstruction).DirectBranchTarget() with
     | false, _ -> addrs
@@ -110,14 +112,12 @@ type Instruction
 
     member _.IsCall =
       match opcode with
-      | Opcode.CALLFar | Opcode.CALLNear -> true
+      | Opcode.CALL -> true
       | _ -> false
 
     member _.IsRET =
       match opcode with
-      | Opcode.RETFar | Opcode.RETFarImm
-      | Opcode.RETNear | Opcode.RETNearImm ->
-        true
+      | Opcode.RET -> true
       | _ -> false
 
     member _.IsPush =
