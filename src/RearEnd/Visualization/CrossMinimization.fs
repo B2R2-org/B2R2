@@ -92,66 +92,40 @@ let private phase1 g layout isDown from maxLayer =
       changed <- reorderLayerByBarycenter g layout isDown layer || changed
   changed
 
-let rec private findLeastPoweredUpperBound value minimum =
-  if value >= minimum then value
-  else findLeastPoweredUpperBound (value <<< 1) minimum
-
-let rec private climbUpTree (tree: int[]) cnt treeIndex =
-  if treeIndex <= 0 then
-    struct (cnt, tree)
-  else
-    let cnt =
-      if treeIndex % 2 = 0 then (* Right child. *)
-        cnt
-      else (* Left child. *)
-        cnt + tree[treeIndex + 1]
-    let parentTreeIndex = (treeIndex - 1) / 2
-    tree[parentTreeIndex] <- tree[parentTreeIndex] + 1
-    climbUpTree tree cnt parentTreeIndex
-
-let private allocateCompleteBinaryTree size =
-  let v = findLeastPoweredUpperBound 1 size
-  let treeSize = 2 * v - 1
-  let leafStartingIndex = v - 1
-  let tree = Array.zeroCreate treeSize
-  tree, leafStartingIndex
-
-let private countInversion (indices: int[]) layerSize =
-  let tree, leafStartingIndex = allocateCompleteBinaryTree layerSize
-  let mutable cnt = 0
-  for i = 0 to indices.Length - 1 do
-    let treeIndex = leafStartingIndex + indices[i]
-    tree[treeIndex] <- tree[treeIndex] + 1
-    let struct (cnt', _) = climbUpTree tree cnt treeIndex
-    cnt <- cnt'
-  cnt
-
-let private collectOrderedEndpoints (layout: _[]) fnGetNeighbors layoutNum =
-  let vertices: _[] = layout[layoutNum]
-  let endpoints = ResizeArray<int>()
-  for i = 0 to vertices.Length - 1 do
-    let neighbors: _[] = fnGetNeighbors vertices[i]
+/// Checks if there is an edge crossing between two adjacent layers in the
+/// layout. We only need a boolean answer in phase2, so tracking the running
+/// maximum target index is enough.
+let private hasBilayerEdgeCrossing (g: IDiGraph<_, _>) layout isDown layerNum =
+  let vertices =
+    if isDown then
+      (layout: _[][])[layerNum - 1]
+    else
+      layout[layerNum + 1]
+  let fnGetNeighbors =
+    if isDown then (g: IDiGraph<_, _>).GetSuccs
+    else g.GetPreds
+  let mutable found = false
+  let mutable prefixMax = -1
+  let mutable i = 0
+  while not found && i < vertices.Length do
+    let neighbors = fnGetNeighbors vertices[i]
     if neighbors.Length > 0 then
-      let indices = Array.zeroCreate neighbors.Length
+      let mutable localMin = System.Int32.MaxValue
+      let mutable localMax = System.Int32.MinValue
       for j = 0 to neighbors.Length - 1 do
-        indices[j] <- getIndex neighbors[j]
-      Array.sortInPlace indices
-      for j = 0 to indices.Length - 1 do
-        endpoints.Add indices[j]
+        let idx = getIndex neighbors[j]
+        if idx < localMin then localMin <- idx else ()
+        if idx > localMax then localMax <- idx else ()
+      if localMin < prefixMax then
+        found <- true
+      elif localMax > prefixMax then
+        prefixMax <- localMax
+      else
+        ()
     else
       ()
-  endpoints.ToArray()
-
-/// Counts the number of edge crossings between two adjacent layers in the
-/// layout. We are interested in the indices of endpoints who are located in the
-/// current layer.
-let private countBilayerEdgeCrossings (g: IDiGraph<_, _>) layout isDown
-                                      layerNum =
-  let layer = (layout: _[])[layerNum]
-  let endpoints =
-    if isDown then collectOrderedEndpoints layout g.GetSuccs (layerNum - 1)
-    else collectOrderedEndpoints layout g.GetPreds (layerNum + 1)
-  countInversion endpoints (Array.length layer)
+    i <- i + 1
+  found
 
 let private writeSortedBarycentersToLayer (layer: _[]) (baryCenters: _[]) =
   let mutable isReversed = false
@@ -178,7 +152,7 @@ let private writeSortedBarycentersToLayer (layer: _[]) (baryCenters: _[]) =
   isReversed
 
 let private reverseOneLayer g layout isDown maxLayer layerNum =
-  if countBilayerEdgeCrossings g layout isDown layerNum = 0 then
+  if not (hasBilayerEdgeCrossing g layout isDown layerNum) then
     false
   else
     let layer = layout[layerNum]
