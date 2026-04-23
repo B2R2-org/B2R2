@@ -328,6 +328,9 @@ type IntelParser(wordSz, reader) =
     | Imm sz ->
       OperandParsers.parseOprImm span phlp (oprSizeToRegType sz)
     | Rel sz ->
+      let effAddrSz = ParsingHelper.GetEffAddrSize phlp
+      let effOprSz = ParsingHelper.GetEffOprSize(phlp, SzCond.F64)
+      setMemoryOperandContext phlp effAddrSz effOprSz effOprSz
       OperandParsers.parseOprForRelJmp span phlp (oprSizeToRegType sz)
     | FixedReg(reg, _) ->
       let sz = Register.toRegType phlp.WordSize reg
