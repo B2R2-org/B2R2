@@ -24,8 +24,8 @@
 
 namespace B2R2.RearEnd.Visualization
 
-open B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
+open B2R2.MiddleEnd.BinGraph
 
 /// The main graph type for visualization.
 type VisGraph = IDiGraph<VisBBlock, VisEdge>

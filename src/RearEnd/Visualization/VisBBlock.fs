@@ -29,11 +29,6 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main vertex type used for visualization.
 type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
-  let addressable =
-    match blk with
-    | :? IAddressable as a -> a
-    | _ -> invalidArg (nameof blk) "VisBBlock requires an IAddressable block."
-
   let mutable layer = -1
 
   let mutable index = -1
@@ -54,9 +49,11 @@ type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
   let lineWidth asmLine =
     asmLine |> Array.fold (fun width term -> width + AsmWord.Width term) 0
 
-  let maxLine = visualizableAsm |> Array.maxBy lineWidth
-
-  let maxNumChars = lineWidth maxLine |> float
+  let maxNumChars =
+    visualizableAsm
+    |> Array.maxBy lineWidth
+    |> lineWidth
+    |> float
 
   let mutable width =
     if isDummy then 0.0
@@ -67,6 +64,8 @@ type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
   let height =
     if isDummy then 0.0
     else float numLines * charHeight + Padding * 2.0 + Border * 2.0
+
+  let addressable = blk :?> IAddressable
 
   new(blk, isDummy) =
     (* These numbers (7.5 and 14) are empirically obtained with the current
@@ -90,6 +89,8 @@ type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
 
   /// X-Y coordinate in the visualized graph.
   member _.Coordinate with get() = pos
+
+  member _.BlockAddress with get() = blk.BlockAddress
 
   interface IVisualizable with
     member _.BlockAddress with get() = blk.BlockAddress

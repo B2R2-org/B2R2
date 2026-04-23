@@ -24,6 +24,9 @@
 
 module B2R2.RearEnd.Visualization.Visualizer
 
+#if DEBUG
+open B2R2
+#endif
 open B2R2.MiddleEnd.BinGraph
 
 let private convert iGraph roots charWidth charHeight =
@@ -53,9 +56,18 @@ let toVisGraph (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
   if iGraph.Size = 0 then
     VisGraph.init ()
   else
+#if DEBUG
+    let sw = System.Diagnostics.Stopwatch.StartNew()
+#endif
     convert iGraph roots charWidth charHeight
     |> Option.map snd
     |> Option.defaultValue (VisGraph.init ())
+#if DEBUG
+    |> fun g ->
+      sw.Stop()
+      printsn $"[*] Visualization took {sw.Elapsed.TotalSeconds} sec."
+      g
+#endif
 
 /// Default character width used for layout calculations.
 let [<Literal>] CharWidth = 7.5

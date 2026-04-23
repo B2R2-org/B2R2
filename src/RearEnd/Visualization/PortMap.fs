@@ -24,15 +24,34 @@
 
 namespace B2R2.RearEnd.Visualization
 
-open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.BinGraph
+open System.Collections.Generic
 
-/// The main edge data type for visualization.
-type VisEdge(ty) =
-  let mutable isBackEdge = false
-  let mutable points: VisPosition[] = [||]
+/// Maintains the port assignments for either forward or backward edges.
+/// TODO: This can be extended to support more information such as the actual
+/// routing points, etc. if necessary.
+type PortMap =
+  { FwdOutPorts: Dictionary<VisEdge, float>
+    FwdInPorts: Dictionary<VisEdge, float>
+    FwdEdgeSlot: Dictionary<VertexID * bool, int>
+    BwdOutPorts: Dictionary<VisEdge, float>
+    BwdInPorts: Dictionary<VisEdge, float>
+    SelfOutPort: Dictionary<VisEdge, float>
+    SelfInPort: Dictionary<VisEdge, float>
+    BwdEdgeBendPoints: Dictionary<VisEdge, BendPoint> }
 
-  member _.Type: CFGEdgeKind = ty
+with
+  static member Empty =
+    { FwdOutPorts = Dictionary()
+      FwdInPorts = Dictionary()
+      FwdEdgeSlot = Dictionary()
+      BwdOutPorts = Dictionary()
+      BwdInPorts = Dictionary()
+      SelfOutPort = Dictionary()
+      SelfInPort = Dictionary()
+      BwdEdgeBendPoints = Dictionary() }
 
-  member _.IsBackEdge with get() = isBackEdge and set(v) = isBackEdge <- v
-
-  member _.Points with get() = points and set(v) = points <- v
+and BendPoint =
+  | FromSourceToDest of isSrcLeft: bool * isDstLeft: bool
+  | FromSourceToDummy of isSrcLeft: bool
+  | FromDummyToDest of isDstLeft: bool
