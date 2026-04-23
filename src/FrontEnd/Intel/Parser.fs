@@ -147,8 +147,7 @@ type IntelParser(wordSz, reader) =
 
   let contains16BitOperandSize oprSz op =
     match oprSz with
-    | [| Some Sz16 |] when op = Opcode.RETNearImm || op = Opcode.RETFarImm ->
-      false
+    | [| Some Sz16 |] when op = Opcode.RET -> false
     | [| Some Sz16; _ |] when op = Opcode.ENTER -> false
     | [| None; Some Sz16 |] when op = Opcode.MOV -> false
     | [| Some Sz16 |]
@@ -329,6 +328,9 @@ type IntelParser(wordSz, reader) =
     | Imm sz ->
       OperandParsers.parseOprImm span phlp (oprSizeToRegType sz)
     | Rel sz ->
+      let effAddrSz = ParsingHelper.GetEffAddrSize phlp
+      let effOprSz = ParsingHelper.GetEffOprSize(phlp, SzCond.F64)
+      setMemoryOperandContext phlp effAddrSz effOprSz effOprSz
       OperandParsers.parseOprForRelJmp span phlp (oprSizeToRegType sz)
     | FixedReg(reg, _) ->
       let sz = Register.toRegType phlp.WordSize reg
