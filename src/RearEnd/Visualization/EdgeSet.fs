@@ -40,27 +40,27 @@ type EdgeSet =
 with
   member this.GetFwdInEdges(v: IVertex<VisBBlock>) =
     match this.FwdInEdges.TryGetValue v with
-    | true, edges -> List.rev edges
+    | true, edges -> edges
     | false, _ -> []
 
   member this.GetFwdOutEdges(v: IVertex<VisBBlock>) =
     match this.FwdOutEdges.TryGetValue v with
-    | true, edges -> List.rev edges
+    | true, edges -> edges
     | false, _ -> []
 
   member this.GetBwdInEdges(v: IVertex<VisBBlock>) =
     match this.BwdInEdges.TryGetValue v with
-    | true, edges -> List.rev edges
+    | true, edges -> edges
     | false, _ -> []
 
   member this.GetBwdOutEdges(v: IVertex<VisBBlock>) =
     match this.BwdOutEdges.TryGetValue v with
-    | true, edges -> List.rev edges
+    | true, edges -> edges
     | false, _ -> []
 
   member this.GetSelfCycleEdge(v: IVertex<VisBBlock>) =
     match this.SelfCycleEdge.TryGetValue v with
-    | true, edge -> List.rev edge
+    | true, edge -> edge
     | false, _ -> []
 
   member this.GetInEdges(v: IVertex<VisBBlock>) =
@@ -83,6 +83,11 @@ with
       | false, _ -> []
     dict[key] <- value :: existingEdges
 
+  static let reverseEdges (dict: Dictionary<_, VertexEdge list>) =
+    dict.Keys
+    |> Seq.toArray
+    |> Array.iter (fun key -> dict[key] <- List.rev dict[key])
+
   static member Create(edges: Edge<VisBBlock, VisEdge>[]) =
     let sets = EdgeSet.Empty
     for edge in edges do
@@ -96,6 +101,11 @@ with
           addEdge dst (src, kind) sets.FwdInEdges
       else
         addEdge src (src, kind) sets.SelfCycleEdge
+    reverseEdges sets.FwdInEdges
+    reverseEdges sets.FwdOutEdges
+    reverseEdges sets.BwdInEdges
+    reverseEdges sets.BwdOutEdges
+    reverseEdges sets.SelfCycleEdge
     sets
 
 and [<RequireQualifiedAccess>] EdgeFlow =
