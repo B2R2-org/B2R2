@@ -70,17 +70,23 @@ let private computeBarycenter g isDown v =
   let barycenter = computeBarycenterFromNeighbors neighbors
   barycenter, v
 
+let private barycenterSortKey (barycenter, v: IVertex<VisBBlock>) =
+  barycenter, getIndex v
+
+let private writeVerticesToLayer (layer: _[]) (vertices: _[]) =
+  let mutable changed = false
+  for i = 0 to vertices.Length - 1 do
+    let v: IVertex<VisBBlock> = vertices[i]
+    if layer[i] <> v then changed <- true else ()
+    layer[i] <- v
+    v.VData.Index <- i
+  changed
+
 let private reorderLayerByBarycenter g (layout: _[][]) isDown layer =
   let vertices = layout[layer]
   let barycenters = vertices |> Array.map (computeBarycenter g isDown)
-  barycenters |> Array.sortInPlaceBy fst
-  let mutable changed = false
-  for i = 0 to barycenters.Length - 1 do
-    let _, v = barycenters[i]
-    if vertices[i] <> v then changed <- true else ()
-    vertices[i] <- v
-    v.VData.Index <- i
-  changed
+  barycenters |> Array.sortInPlaceBy barycenterSortKey
+  barycenters |> Array.map snd |> writeVerticesToLayer vertices
 
 let private phase1 g layout isDown from maxLayer =
   let mutable changed = false
@@ -127,8 +133,46 @@ let private hasBilayerEdgeCrossing (g: IDiGraph<_, _>) layout isDown layerNum =
     i <- i + 1
   found
 
-let private writeSortedBarycentersToLayer (layer: _[]) (baryCenters: _[]) =
-  let mutable isReversed = false
+let private countBilayerEdgeCrossings g (layout: _[][]) isDown layerNum =
+  let vertices =
+    if isDown then
+      layout[layerNum - 1]
+    else
+      layout[layerNum + 1]
+  let fnGetNeighbors =
+    if isDown then (g: IDiGraph<_, _>).GetSuccs
+    else g.GetPreds
+  let targetCount = layout[layerNum].Length
+  let bit = Array.zeroCreate (targetCount + 1)
+  let inline add idx =
+    let mutable i = idx + 1
+    while i < bit.Length do
+      bit[i] <- bit[i] + 1
+      i <- i + (i &&& -i)
+  let inline sum idx =
+    let mutable acc = 0
+    let mutable i = idx + 1
+    while i > 0 do
+      acc <- acc + bit[i]
+      i <- i - (i &&& -i)
+    acc
+  let mutable seen = 0
+  let mutable crossings = 0L
+  for i = 0 to vertices.Length - 1 do
+    let neighbors =
+      fnGetNeighbors vertices[i]
+      |> Array.map getIndex
+    Array.sortInPlace neighbors
+    for j = 0 to neighbors.Length - 1 do
+      let idx = neighbors[j]
+      crossings <- crossings + int64 (seen - sum idx)
+      add idx
+      seen <- seen + 1
+  crossings
+
+let private buildReversedTieLayer (baryCenters: _[]) =
+  let reordered = Array.zeroCreate baryCenters.Length
+  let mutable hasTie = false
   let mutable dst = 0
   let mutable start = 0
   while start < baryCenters.Length do
@@ -137,19 +181,17 @@ let private writeSortedBarycentersToLayer (layer: _[]) (baryCenters: _[]) =
     while finish < baryCenters.Length && fst baryCenters[finish] = bc do
       finish <- finish + 1
     if finish - start > 1 then
-      isReversed <- true
+      hasTie <- true
       for i = finish - 1 downto start do
         let _, (v: IVertex<VisBBlock>) = baryCenters[i]
-        layer[dst] <- v
-        v.VData.Index <- dst
+        reordered[dst] <- v
         dst <- dst + 1
     else
       let _, v = baryCenters[start]
-      layer[dst] <- v
-      v.VData.Index <- dst
+      reordered[dst] <- v
       dst <- dst + 1
     start <- finish
-  isReversed
+  hasTie, reordered
 
 let private reverseOneLayer g layout isDown maxLayer layerNum =
   if not (hasBilayerEdgeCrossing g layout isDown layerNum) then
@@ -157,10 +199,21 @@ let private reverseOneLayer g layout isDown maxLayer layerNum =
   else
     let layer = layout[layerNum]
     let baryCenters = Array.map (computeBarycenter g isDown) layer
-    baryCenters |> Array.sortInPlaceBy fst
-    let isReversed = writeSortedBarycentersToLayer layer baryCenters
-    if not isReversed then false
-    else phase1 g layout isDown layerNum maxLayer
+    baryCenters |> Array.sortInPlaceBy barycenterSortKey
+    let hasTie, candidate = buildReversedTieLayer baryCenters
+    if not hasTie then false
+    else
+      let before = countBilayerEdgeCrossings g layout isDown layerNum
+      let original = Array.copy layer
+      let changed = writeVerticesToLayer layer candidate
+      if not changed then false
+      else
+        let after = countBilayerEdgeCrossings g layout isDown layerNum
+        if after >= before then
+          writeVerticesToLayer layer original |> ignore
+          false
+        else
+          phase1 g layout isDown layerNum maxLayer || changed
 
 let private phase2 g layout isDown maxLayer =
   let mutable changed = false
