@@ -42,21 +42,61 @@ type REXPrefixType =
 
 type OperandType =
   | NoOpr
+  /// Register or Memory.
   | RM of OprSize
+  /// Register or Memory operand with different sizes.
   | RMdiff of OprSize * OprSize
+  /// Register or Memory with embedded rounding {er} (only EVEX).
+  | RMEr of OprSize * OprSize
+  /// Register or Memory with suppress-all-exceptions {sae} (only EVEX).
+  | RMSae of OprSize * OprSize
+  /// Register or Memory with broadcast (only EVEX).
+  | RMBcst of OprSize * OprSize * OprSize
+  /// Register or Memory with broadcast and {er} (only EVEX).
+  | RMBcstEr of OprSize * OprSize * OprSize
+  /// Register or Memory with broadcast and {sae} (only EVEX).
+  | RMBcstSae of OprSize * OprSize * OprSize
+  /// Register with suppress-all-exceptions {sae} (only EVEX).
+  | RegSae of OprSize
+  /// Register.
   | Reg of OprSize
+  /// Address-size-dependent register operand.
+  | RegAddr
+  /// Opmask register.
+  | OpMaskReg
+  /// Opmask register or memory.
+  | KM of OprSize
+  /// Segment register.
   | Sreg
-  | FixedReg of Register * Visibility
+  /// Control register.
+  | CtrlReg
+  /// Debug register.
+  | DebugReg
+  /// Fixed register.
+  | FixedReg of Register
+  /// ST(i) register.
   | STReg of Register option
+  /// Bound register or memory.
   | BM of OprSize
+  /// Bound register.
   | BndReg
+  /// MMX register or memory.
   | MM of OprSize
+  /// MMX register.
   | MMXReg
+  /// Memory.
   | Mem of OprSize
+  /// Memory with VSIB addressing (eg. vm32x).
+  | MemVSIB of OprSize
+  /// Memory offset.
   | Moffs of OprSize
+  /// Far memory offset.
   | Far of OprSize
+  /// Immediate.
   | Imm of OprSize
+  /// Fixed immediate.
   | FixedImm of int
+  /// Relative offset.
   | Rel of OprSize
   | Unknown of string (* XXX: Temp *)
 
@@ -69,12 +109,10 @@ and OprSize =
   | Sz80
   | Sz128
   | Sz256
+  | Sz384
   | Sz512
+  | Sz1024
   | SzUnknown
-
-and Visibility =
-  | Explicit
-  | Implicit
 
 type ModRMType =
   | NoModRM
@@ -131,7 +169,8 @@ type OpEn =
   | S = 32
   | TD = 33
   | VM = 34
-  | ZO = 35
+  | VMI = 35
+  | ZO = 36
 
 type Mode64 =
   | None = 0
