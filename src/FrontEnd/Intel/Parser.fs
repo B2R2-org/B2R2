@@ -73,7 +73,7 @@ type IntelParser(wordSz, reader) =
     Array.map (fun o ->
       match o with
       | RM sz | Reg sz | Mem sz | Imm sz | Rel sz -> Some sz
-      | FixedReg(Register.AX, Explicit) -> Some Sz16
+      | FixedReg(Register.AX) -> Some Sz16
       | _ -> None) operands
     |> Array.distinct
 
@@ -145,11 +145,24 @@ type IntelParser(wordSz, reader) =
       insPref = Legacy NP || insPref = Mandatory NP
     else false
 
+  let isImplicit16BitOp = function
+    | Opcode.CBW
+    | Opcode.CWD
+    | Opcode.PUSHF
+    | Opcode.POPF
+    | Opcode.PUSHA
+    | Opcode.POPA
+    | Opcode.MOVSW | Opcode.CMPSW | Opcode.SCASW | Opcode.LODSW | Opcode.STOSW
+    | Opcode.INSW | Opcode.OUTSW
+    | Opcode.IRET -> true
+    | _ -> false
+
   let contains16BitOperandSize oprSz op =
     match oprSz with
     | [| Some Sz16 |] when op = Opcode.RET -> false
     | [| Some Sz16; _ |] when op = Opcode.ENTER -> false
     | [| None; Some Sz16 |] when op = Opcode.MOV -> false
+    | [| None |] when isImplicit16BitOp op -> true
     | [| Some Sz16 |]
     | [| Some Sz16; _ |]
     | [| None; Some Sz16 |] (* Temp *) -> true
@@ -161,7 +174,7 @@ type IntelParser(wordSz, reader) =
       let oprSz = getOperandSize insCore.Operands
       if contains16BitOperandSize oprSz insCore.Opcode then
         // FIXME: 16-bit operands do not always require a 66h prefix.
-        pref = Prefix.OPSIZE
+        pref &&& Prefix.OPSIZE = Prefix.OPSIZE
       else true
 
   let matchesCPUMode wordSize mode64 compat =
@@ -267,7 +280,9 @@ type IntelParser(wordSz, reader) =
     | OprSize.Sz80 -> 80<rt>
     | OprSize.Sz128 -> 128<rt>
     | OprSize.Sz256 -> 256<rt>
+    | OprSize.Sz384 -> 384<rt>
     | OprSize.Sz512 -> 512<rt>
+    | OprSize.Sz1024 -> 1024<rt>
     | OprSize.SzUnknown -> 0<rt>
 
   let getImmediateSize = function
@@ -287,6 +302,10 @@ type IntelParser(wordSz, reader) =
   let setMemoryOperandContextWithCurrentAddr (phlp: ParsingHelper) regSz memSz =
     let effAddrSz = ParsingHelper.GetEffAddrSize phlp
     setMemoryOperandContext phlp effAddrSz regSz memSz
+
+  let getSizeCondForImmediate = function
+    | Opcode.POP | Opcode.PUSH -> SzCond.D64
+    | _ -> SzCond.Normal
 
   let parseOperand span (phlp: ParsingHelper) sz modRM (ic: InstructionCore) i =
     function
@@ -308,11 +327,19 @@ type IntelParser(wordSz, reader) =
       let regBit = Operands.getRM (uint8 ic.OpcodeByte)
       OperandParsers.getOprFromRegGrpREX regBit phlp
     | Reg sz ->
+      let sz = oprSizeToRegType sz
+      setMemoryOperandContextWithCurrentAddr phlp sz sz
       match ic.OpEn with
       | OpEn.RVM | OpEn.RVMI when i = 1 -> OperandParsers.parseVVVVReg phlp
+      | OpEn.VMI when i = 0 -> OperandParsers.parseVVVVReg phlp
+      | OpEn.RM when i = 1 ->
+        OperandParsers.findRegRmAndSIBBase phlp.MemEffRegSize phlp.REXPrefix
+          (Operands.getRM modRM) |> OprReg
+      | OpEn.MI ->
+        OperandParsers.findRegRmAndSIBBase phlp.MemEffRegSize phlp.REXPrefix
+          (Operands.getRM modRM) |> OprReg
       | _ ->
-        OperandParsers.findRegRBits (oprSizeToRegType sz) phlp.REXPrefix
-          (Operands.getReg modRM)
+        OperandParsers.findRegRBits sz phlp.REXPrefix (Operands.getReg modRM)
         |> OprReg
     | Mem SzUnknown ->
       // FIXME: need operand size determination logic
@@ -326,13 +353,17 @@ type IntelParser(wordSz, reader) =
       setMemoryOperandContextWithCurrentAddr phlp sz sz
       OperandParsers.parseMemory modRM span phlp
     | Imm sz ->
-      OperandParsers.parseOprImm span phlp (oprSizeToRegType sz)
+      //let szCond = getSizeCondForImmediate ic.Opcode
+      //let effAddrSz = ParsingHelper.GetEffAddrSize phlp
+      //let effOprSz = ParsingHelper.GetEffOprSize(phlp, szCond)
+      //setMemoryOperandContext phlp effAddrSz effOprSz effOprSz
+      OperandParsers.parseOprSImm span phlp (oprSizeToRegType sz)
     | Rel sz ->
       let effAddrSz = ParsingHelper.GetEffAddrSize phlp
       let effOprSz = ParsingHelper.GetEffOprSize(phlp, SzCond.F64)
       setMemoryOperandContext phlp effAddrSz effOprSz effOprSz
       OperandParsers.parseOprForRelJmp span phlp (oprSizeToRegType sz)
-    | FixedReg(reg, _) ->
+    | FixedReg reg ->
       let sz = Register.toRegType phlp.WordSize reg
       setMemoryOperandContextWithCurrentAddr phlp sz sz
       OprReg reg
@@ -492,7 +523,6 @@ type IntelParser(wordSz, reader) =
       let mutable rex = REXPrefix.NOREX
       let mutable vex = None
       let prefEndPos = this.ParsePrefix span
-      let nextPos = this.ParseREX(span, prefEndPos, &rex)
       let rexEndPos = this.ParseREX(span, prefEndPos, &rex)
       let nextPos = this.ParseVEX(span, rexEndPos, &rex, &vex)
       phlp.VEXInfo <- None
