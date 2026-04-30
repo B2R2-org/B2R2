@@ -1129,7 +1129,9 @@ let loadCFGCompleted arbiter (model: Model) tabID cfgKind cfg =
         Minimap = createMinimapCache model viewState cfg
         RenderCache = CFGRenderCache.create cfg }
     let tab = mapCFGTabState (Loaded loaded) tab
-    replaceTabReferences model tab |> syncOffsetSnapshotWithActiveTab arbiter,
+    replaceTabReferences model tab
+    |> syncOffsetSnapshotWithActiveTab arbiter
+    |> trySyncHexdumpWithActiveCFG arbiter,
     Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
