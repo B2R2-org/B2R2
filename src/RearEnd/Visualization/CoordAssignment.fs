@@ -171,56 +171,64 @@ let getPred (vertices: IVertex<VisBBlock>[]) idx = function
   | Leftmost -> vertices[idx - 1]
   | Rightmost -> vertices[idx + 1]
 
-let inline chooseMaxWidth (u: IVertex<VisBBlock>) (v: IVertex<VisBBlock>) =
-  max u.VData.Width v.VData.Width
+/// Compute the maximum width of blocks in the same block. Returns a map from
+/// the root block to the maximum width of nodes in the same block.
+let computeBlockMaxWidths (root: VertexMap) (align: VertexMap) =
+  let roots = root.Values |> Seq.distinct
+  let blockMaxWidths = FloatMap()
+  for root in roots do
+    let mutable w = root
+    let mutable maxWidth = root.VData.Width
+    w <- align[w]
+    while w <> root do
+      maxWidth <- max maxWidth w.VData.Width
+      w <- align[w]
+    blockMaxWidths[root] <- maxWidth
+  blockMaxWidths
 
-let fixShift (xs: FloatMap) (shift: FloatMap) (sink: VertexMap) u v = function
-  | Leftmost ->
-    shift[sink[u]] <-
-      min (shift[sink[u]])
-          (xs[v] - xs[u]
-                  - chooseMaxWidth u v
-                  - BlockIntervalX)
-  | Rightmost ->
-    shift[sink[u]] <-
-      max (shift[sink[u]])
-          (xs[v] - xs[u]
-                  + chooseMaxWidth u v
-                  + BlockIntervalX)
+let inline private getDelta (blockMaxWidths: FloatMap) u v = function
+  | Leftmost -> blockMaxWidths[u] + BlockIntervalX
+  | Rightmost -> blockMaxWidths[v] + BlockIntervalX
 
-let adjustX (xs: FloatMap) u v = function
-  | Leftmost ->
-    xs[v] <- max xs[v] (xs[u] + chooseMaxWidth u v + BlockIntervalX)
-  | Rightmost ->
-    xs[v] <- min xs[v] (xs[u] - chooseMaxWidth u v - BlockIntervalX)
+let fixShift (xs: FloatMap) (shift: FloatMap) (sink: VertexMap) u v delta =
+  function
+  | Leftmost -> shift[sink[u]] <- min (shift[sink[u]]) (xs[v] - xs[u] - delta)
+  | Rightmost -> shift[sink[u]] <- max (shift[sink[u]]) (xs[v] - xs[u] + delta)
 
-let rec placeBlock vLayout hDir root align sink shift (xs: FloatMap) v =
+let adjustX (xs: FloatMap) u v delta = function
+  | Leftmost -> xs[v] <- max xs[v] (xs[u] + delta)
+  | Rightmost -> xs[v] <- min xs[v] (xs[u] - delta)
+
+let rec placeBlock vLayout hDir root align sink shift (xs: FloatMap) maxW v =
   if not (Double.IsNaN xs[v]) then ()
   else
     let mutable w = v
     xs[v] <- 0.0
-    updateBlock vLayout hDir root align sink shift xs v w
+    updateBlock vLayout hDir root align sink shift xs maxW v w
     w <- align[w]
     while w <> v do
-      updateBlock vLayout hDir root align sink shift xs v w
+      updateBlock vLayout hDir root align sink shift xs maxW v w
       w <- align[w]
 
-and updateBlock vLayout hDir root (align: VertexMap) sink shift xs v w =
+and updateBlock vLayout hDir root (align: VertexMap) sink shift xs maxW v w =
   let vertices = (vLayout: IVertex<_>[][])[VisGraph.getLayer w]
   if inBound w vertices.Length hDir then
     let idx = Array.findIndex (fun v -> v = w) vertices
-    let u = (root: VertexMap)[getPred vertices idx hDir]
-    placeBlock vLayout hDir root align sink shift xs u
+    let pred = getPred vertices idx hDir
+    let u = (root: VertexMap)[pred]
+    let delta = getDelta maxW u v hDir
+    placeBlock vLayout hDir root align sink shift xs maxW u
     if (sink: VertexMap)[v] = v then sink[v] <- sink[u] else ()
-    if sink[v] <> sink[u] then fixShift xs shift sink u v hDir
-    else adjustX xs u v hDir
+    if sink[v] <> sink[u] then fixShift xs shift sink u v delta hDir
+    else adjustX xs u v delta hDir
   else ()
 
 /// Alg 3 of Brandes et al.
-let hCompact vGraph vLayout (root: VertexMap) (align: VertexMap) hDir =
+let hCompact vGraph vLayout root align hDir =
   let sink = VertexMap()
   let shift = FloatMap()
   let xs = FloatMap()
+  let blockMaxWidths = computeBlockMaxWidths root align
   (vGraph: VisGraph).IterVertex(fun v ->
     sink[v] <- v
     shift[v] <-
@@ -231,7 +239,8 @@ let hCompact vGraph vLayout (root: VertexMap) (align: VertexMap) hDir =
   (* The first iteration for (1) initializing the shift values and (2)
      x-coordinates of the root blocks. *)
   vGraph.IterVertex(fun v ->
-    if root[v] = v then placeBlock vLayout hDir root align sink shift xs v
+    if root[v] = v
+    then placeBlock vLayout hDir root align sink shift xs blockMaxWidths v
     else ()
   )
   (* The second iteration for assigning the x-coordinates to all blocks. *)
