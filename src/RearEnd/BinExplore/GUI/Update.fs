@@ -633,13 +633,16 @@ let private jumpHexdump (model: Model) byteIndex length =
   | _ ->
     model, Elmish.Cmd.none
 
+let private jumpHexdumpToOffset arbiter model (offset: uint64) =
+  updateHexdumpState arbiter model (fun hexdump ->
+    computeJumpedHexdump model.Theme hexdump (int64 offset) 1L
+    |> fun (nextHexdump, _, _) -> nextHexdump)
+
 let private jumpHexdumpToAddress arbiter model addr =
   match API.getFile arbiter with
   | Ok file when file.IsValidAddr addr ->
     let ptr = file.GetBoundedPointer addr
-    updateHexdumpState arbiter model (fun hexdump ->
-      computeJumpedHexdump model.Theme hexdump (int64 ptr.Offset) 1L
-      |> fun (nextHexdump, _, _) -> nextHexdump)
+    jumpHexdumpToOffset arbiter model (uint64 ptr.Offset)
   | _ ->
     model
 
@@ -674,6 +677,10 @@ let private setHexdumpSelectionFromAddrRange arbiter model (range: AddrRange) =
   | _ ->
     model
 
+let private setHexdumpSelectionFromOffsetRange arbiter model (r: AddrRange) =
+  let selection = Some { Anchor = int64 r.Min; Caret = int64 r.Max }
+  setHexdumpSelection arbiter model selection
+
 let private syncHexdumpWithActiveCFG (arbiter: Arbiter<_, _>) (model: Model) =
   match model.Hexdump, model.ActiveTab with
   | Some _, Some { Content = CFGContent(fn, Loaded st) } ->
@@ -683,8 +690,8 @@ let private syncHexdumpWithActiveCFG (arbiter: Arbiter<_, _>) (model: Model) =
       jumpHexdumpToAddress arbiter model range.Min
     | _ ->
       let offsetRange = fn.OffsetRange.Value
-      let model = setHexdumpSelectionFromAddrRange arbiter model offsetRange
-      jumpHexdumpToAddress arbiter model offsetRange.Min
+      let model = setHexdumpSelectionFromOffsetRange arbiter model offsetRange
+      jumpHexdumpToOffset arbiter model offsetRange.Min
   | _ ->
     model
 
