@@ -282,23 +282,27 @@ let private chooseBackwardEdgeBendPoints (edgeSet: EdgeSet) layout portMap =
             |> assignBackwardEdgeBendPoint portMap edge
 
 let private assignSelfCycleEdgePort (edgeSet: EdgeSet) layout portMap =
-  let minOrDefault def xs =
-    match xs with
-    | [] -> def
-    | _ -> List.min xs
+  let getPortXs ports edges cx =
+    edges |> List.map (fun (_, edge) -> getDefault ports edge cx)
   layout
   |> Array.iter (Array.iter (fun v ->
     let cx = getCXPos v
     let fwdOutXs =
       edgeSet.GetFwdOutEdges v
-      |> List.map (fun (_, edge) -> getDefault portMap.FwdOutPorts edge cx)
+      |> fun edges -> getPortXs portMap.FwdOutPorts edges cx
+    let bwdOutXs =
+      edgeSet.GetBwdOutEdges v
+      |> fun edges -> getPortXs portMap.BwdOutPorts edges cx
     let fwdInXs =
       edgeSet.GetFwdInEdges v
-      |> List.map (fun (_, edge) -> getDefault portMap.FwdInPorts edge cx)
+      |> fun edges -> getPortXs portMap.FwdInPorts edges cx
+    let bwdInXs =
+      edgeSet.GetBwdInEdges v
+      |> fun edges -> getPortXs portMap.BwdInPorts edges cx
     let outermostOut =
-      minOrDefault cx fwdOutXs
+      List.min (cx :: (fwdOutXs @ bwdOutXs))
     let outermostIn =
-      minOrDefault cx fwdInXs
+      List.min (cx :: (fwdInXs @ bwdInXs))
     edgeSet.GetSelfCycleEdge v
     |> List.iteri (fun i (_, edge) ->
       let step = float (i + 1) * EdgeOffset
@@ -310,7 +314,6 @@ let private assignPorts g layout =
   let edgeSet = (g: VisGraph).Edges |> EdgeSet.Create
   assignForwardEdgePorts edgeSet layout portMap
   chooseBackwardEdgeBendPoints edgeSet layout portMap
-  assignSelfCycleEdgePort edgeSet layout portMap
   edgeSet, portMap
 
 let private getPortX portMap (edge: VisEdge) (v: IVertex<VisBBlock>) cx =
@@ -701,24 +704,59 @@ let private routeBackwardEdges (edgeSet: EdgeSet) layout portMap dIdx aIdx
                pos inPortX topY
                pos inPortX dstTopY |])
 
-let private routeSelfCycleEdge (edgeSet: EdgeSet) layout portMap =
+let private getApproachIdx (aIdx: Dictionary<_, _>) dst edge =
+  match aIdx.TryGetValue dst with
+  | true, m -> getDefault m edge 0
+  | _ -> 0
+
+let private collectBwdArrivalMargins edgeSet portMap aIdx crossYOffset v =
+  let leftX = VisGraph.getXPos v
+  let rightX = leftX + VisGraph.getWidth v
+  let topY = VisGraph.getYPos v
+  let botY = topY + VisGraph.getHeight v
+  (edgeSet: EdgeSet).GetBwdInEdges v
+  |> List.collect (fun (_, edge) ->
+    match (portMap: PortMap).BwdEdgeBendPoints.TryGetValue edge with
+    | true, bp ->
+      let dstIsLeft = getDstIsLeft bp
+      let idx = getApproachIdx aIdx v edge
+      let railX, railTopY, _ = computeArrivalGeometry v dstIsLeft idx
+      let sideMargin =
+        if dstIsLeft then leftX - railX else railX - rightX
+      let topMargin = topY - railTopY
+      let bottomMargins =
+        match (crossYOffset: Dictionary<_, _>).TryGetValue edge with
+        | true, y when y > botY -> [ y - botY ]
+        | _ -> []
+      sideMargin :: topMargin :: bottomMargins
+    | _ -> [])
+
+let private computeSelfCycleMargin edgeSet portMap aIdx crossYOffset v =
+  match collectBwdArrivalMargins edgeSet portMap aIdx crossYOffset v with
+  | [] -> StubMargin
+  | margins -> max EdgeOffset (List.min margins - EdgeOffset)
+
+let private routeSelfCycleEdge (edgeSet: EdgeSet) layout portMap aIdx
+                               crossYOffset =
   layout
   |> Array.iter (Array.iter (fun v ->
-    let pts = ResizeArray<VisPosition>()
     if List.isEmpty (edgeSet.GetSelfCycleEdge v) |> not then
       let srcCx = getCXPos v
       let topY = VisGraph.getYPos v
       let leftX = srcCx - VisGraph.getWidth v / 2.0
       let botY = topY + VisGraph.getHeight v
+      let margin =
+        computeSelfCycleMargin edgeSet portMap aIdx crossYOffset v
       edgeSet.GetSelfCycleEdge v
       |> List.iter (fun (_, edge: VisEdge) ->
+        let pts = ResizeArray<VisPosition>()
         let sPortX = getPortX portMap.SelfOutPort edge v srcCx
         let dPortX = getPortX portMap.SelfInPort edge v srcCx
         addPoint pts sPortX botY
-        addPoint pts sPortX (botY + 5.0)
-        addPoint pts (leftX - 5.0) (botY + 5.0)
-        addPoint pts (leftX - 5.0) (topY - 5.0)
-        addPoint pts dPortX (topY - 5.0)
+        addPoint pts sPortX (botY + margin)
+        addPoint pts (leftX - margin) (botY + margin)
+        addPoint pts (leftX - margin) (topY - margin)
+        addPoint pts dPortX (topY - margin)
         addPoint pts dPortX topY
         edge.Points <- pts |> Seq.toArray)
     else
@@ -737,10 +775,11 @@ let private routeEdges layout (edgeSet, portMap) =
   expandLayerGap edgeSet layout
   let depIdx, approachIdx, crossYOffset, realVertices =
     preprocessBackwardRouting edgeSet layout portMap
+  assignSelfCycleEdgePort edgeSet layout portMap
   let fwdArrivalTopY = computeForwardArrivalTopY edgeSet portMap realVertices
   routeForwardEdges edgeSet layout portMap fwdArrivalTopY
   routeBackwardEdges edgeSet layout portMap depIdx approachIdx crossYOffset
-  routeSelfCycleEdge edgeSet layout portMap
+  routeSelfCycleEdge edgeSet layout portMap approachIdx crossYOffset
 
 let drawEdges g vLayout backEdgeList dummyMap =
   restoreBackEdges g backEdgeList
