@@ -86,9 +86,8 @@ let private buildComment (builder: IDisasmBuilder) targetAddr =
   builder.AccumulateSymbol(targetAddr, prefix, suffix, mapNoSymbol)
 
 let inline private buildRelAddr offset (builder: IDisasmBuilder) addr =
-  if offset < 0L then builder.Accumulate(AsmWordKind.String, "-")
-  else builder.Accumulate(AsmWordKind.String, "+")
-  iToHexStr (abs offset) builder
+  let prefix = if offset < 0L then "-" else "+"
+  builder.Accumulate(AsmWordKind.Value, prefix + HexString.ofInt64 (abs offset))
   buildComment builder (addr + uint64 offset)
 
 /// Zeroing/Merging (EVEX.z)
@@ -203,7 +202,8 @@ module IntelSyntax = begin
       mToString ins builder b si disp oprSz
     | OprImm(imm, _) ->
       iToHexStr (imm &&& getMask ins.MainOperationSize) builder
-    | OprDirAddr(Absolute(sel, offset, _)) -> buildAbsAddr sel offset builder
+    | OprDirAddr(Absolute(sel, offset, _)) ->
+      buildAbsAddr sel offset builder
     | OprDirAddr(Relative(offset)) ->
       buildRelAddr offset builder ins.Address
     | Label _ -> Terminator.impossible ()
