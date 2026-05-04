@@ -73,16 +73,16 @@ let inline private buildAbsAddr selector (offset: Addr) builder =
   builder.Accumulate(AsmWordKind.String, ":")
   uToHexStr offset builder
 
-let private prefix = { AsmWordKind = AsmWordKind.String; AsmWordValue = " ; <" }
+let private prefix = { AsmWordKind = AsmWordKind.String; AsmWordValue = "<" }
 
 let private suffix = { AsmWordKind = AsmWordKind.String; AsmWordValue = ">" }
 
 let private mapNoSymbol addr =
-  [| { AsmWordKind = AsmWordKind.String; AsmWordValue = " ; " }
-     { AsmWordKind = AsmWordKind.Value
+  [| { AsmWordKind = AsmWordKind.Value
        AsmWordValue = HexString.ofUInt64 addr } |]
 
 let private buildComment (builder: IDisasmBuilder) targetAddr =
+  builder.Accumulate(AsmWordKind.CommentDelimiter, " ; ")
   builder.AccumulateSymbol(targetAddr, prefix, suffix, mapNoSymbol)
 
 let inline private buildRelAddr offset (builder: IDisasmBuilder) addr =

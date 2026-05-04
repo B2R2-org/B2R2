@@ -823,7 +823,7 @@ let calculateRelativePC (ins: Instruction) lbl addr =
   let addr = if ins.IsAdd then addr + uint64 lbl else addr - uint64 lbl
   addr |> uint32 |> uint64
 
-let prefix = { AsmWordKind = AsmWordKind.String; AsmWordValue = " ; <" }
+let prefix = { AsmWordKind = AsmWordKind.String; AsmWordValue = "<" }
 
 let suffix = { AsmWordKind = AsmWordKind.String; AsmWordValue = ">" }
 
@@ -853,6 +853,7 @@ let memToString ins addr addrMode (builder: IDisasmBuilder) =
     let addrStr = "0x" + addr.ToString "x"
     if (ins :> IInstruction).IsBranch then
       builder.Accumulate(AsmWordKind.Value, addrStr)
+      builder.Accumulate(AsmWordKind.CommentDelimiter, " ; ")
       builder.AccumulateSymbol(addr, prefix, suffix, mapNoSymbol)
     else
       builder.Accumulate(AsmWordKind.String, "[")
