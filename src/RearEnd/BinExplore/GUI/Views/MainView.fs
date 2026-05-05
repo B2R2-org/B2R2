@@ -143,10 +143,10 @@ let private onContentSizeChanged paneID dispatch (e: SizeChangedEventArgs) =
 
 let [<Literal>] private MinSidePanelWidth = 190.0
 
-let private tabContentView pane model dispatch =
+let private tabContentView tokenContextProvider pane model dispatch =
   match pane.ActiveTab with
   | Some { Content = CFGContent _ } ->
-    CFGContent.view pane model dispatch
+    CFGContent.view tokenContextProvider pane model dispatch
   | Some { Content = HexContent } ->
     HexContent.view pane model dispatch
   | Some { Content = SectionContent } ->
@@ -163,9 +163,9 @@ let private tabContentView pane model dispatch =
       )
     ]
   | None ->
-    CFGContent.view pane model dispatch
+    CFGContent.view tokenContextProvider pane model dispatch
 
-let rec private paneView pane model dispatch =
+let rec private paneView tokenContextProvider pane model dispatch =
   match pane with
   | Leaf(paneID, paneState) ->
     Border.create [
@@ -184,7 +184,9 @@ let rec private paneView pane model dispatch =
               Border.margin 0.0
               Border.borderThickness 0.0
               Control.onSizeChanged (onContentSizeChanged paneID dispatch)
-              Border.child (tabContentView paneState model dispatch)
+              Border.child (
+                tabContentView tokenContextProvider paneState model dispatch
+              )
             ]
           ]
         ]
@@ -194,7 +196,7 @@ let rec private paneView pane model dispatch =
     Grid.create [
       Grid.columnDefinitions (ColumnDefinitions.Parse "*,5,*")
       Grid.children [
-        paneView first model dispatch
+        paneView tokenContextProvider first model dispatch
         GridSplitter.create [
           GridSplitter.column 1
           GridSplitter.background model.Theme.Panel.Border
@@ -202,7 +204,7 @@ let rec private paneView pane model dispatch =
         ]
         Border.create [
           Grid.column 2
-          Border.child (paneView second model dispatch)
+          Border.child (paneView tokenContextProvider second model dispatch)
         ]
       ]
     ] :> IView
@@ -210,7 +212,7 @@ let rec private paneView pane model dispatch =
     Grid.create [
       Grid.rowDefinitions (RowDefinitions.Parse "*,5,*")
       Grid.children [
-        paneView first model dispatch
+        paneView tokenContextProvider first model dispatch
         GridSplitter.create [
           GridSplitter.row 1
           GridSplitter.background model.Theme.Panel.Border
@@ -218,12 +220,12 @@ let rec private paneView pane model dispatch =
         ]
         Border.create [
           Grid.row 2
-          Border.child (paneView second model dispatch)
+          Border.child (paneView tokenContextProvider second model dispatch)
         ]
       ]
     ] :> IView
 
-let private workspaceView model dispatch =
+let private workspaceView tokenContextProvider model dispatch =
   let columnDefs = ColumnDefinitions.Parse "52,250,5,*"
   columnDefs[1].MinWidth <- MinSidePanelWidth
   Grid.create [
@@ -245,22 +247,22 @@ let private workspaceView model dispatch =
         Grid.column 3
         DockPanel.children [
           Toolbar.view model dispatch
-          paneView model.RootPane model dispatch
+          paneView tokenContextProvider model.RootPane model dispatch
         ]
       ]
     ]
   ]
 
-let private mainArea (model: Model) dispatch =
+let private mainArea tokenContextProvider (model: Model) dispatch =
   match model.LoadedBinary with
   | None -> Welcome.view model dispatch
-  | Some _ -> workspaceView model dispatch
+  | Some _ -> workspaceView tokenContextProvider model dispatch
 
-let view (model: Model) (dispatch: Message -> unit) =
+let view tokenContextProvider (model: Model) (dispatch: Message -> unit) =
   DockPanel.create [
     DockPanel.children [
       MenuBar.view model dispatch
       StatusBar.view model
-      mainArea model dispatch
+      mainArea tokenContextProvider model dispatch
     ]
   ]

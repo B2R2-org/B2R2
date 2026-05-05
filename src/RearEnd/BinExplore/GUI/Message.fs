@@ -24,6 +24,7 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
+open B2R2
 open B2R2.RearEnd.Visualization
 open B2R2.RearEnd.BinExplore
 
@@ -105,7 +106,7 @@ and CFGPanSpace =
 /// information to update the corresponding CFG tab state.
 and CFGLoadMessage =
   /// Message emitted when CFG loading has completed.
-  | LoadCompleted of tabID: string * CFGKind * cfg: VisGraph
+  | LoadCompleted of tabID: string * addr: Addr * CFGKind * cfg: VisGraph
   /// Message emitted when CFG loading failed.
   | LoadFailed of tabID: string * reason: string
 

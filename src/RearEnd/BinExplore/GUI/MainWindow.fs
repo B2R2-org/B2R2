@@ -29,6 +29,8 @@ open Avalonia.FuncUI
 open Avalonia.FuncUI.Hosts
 open Avalonia.Controls
 open Avalonia.Platform
+open B2R2
+open B2R2.BinIR
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd.BinExplore
 
@@ -120,6 +122,44 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       this.Close()
       model, Elmish.Cmd.none
 
+  let tokenContextProvider =
+    { new ITokenContextProvider with
+        member _.GetInstructionInfo addr =
+          match arbiter.GetBinaryBrew() with
+          | Ok brew ->
+            let liftingUnit = brew.BinHandle.NewLiftingUnit()
+            let ins = liftingUnit.ParseInstruction addr
+            let stmts = liftingUnit.LiftInstruction ins
+            let facts = LowUIR.StaticValueFacts.ofStmts ins.Address stmts
+            let reads = facts.MemReadAddrs |> Array.map (fun a -> $"{a:X}")
+            let writes = facts.MemWriteAddrs |> Array.map (fun a -> $"{a:X}")
+            let defs =
+              facts.RegConstDefs
+              |> Array.map (fun (r, v) ->
+                brew.BinHandle.RegisterFactory.GetRegisterName r,
+                $"{BitVector.ValToString v:X}")
+            {| Stmts = stmts |> Array.map PrettyPrinter.ToString
+               ReadAddrs = reads
+               WriteAddrs = writes
+               ConstDefs = defs |}
+          | Error _ ->
+            {| Stmts = [||]
+               ReadAddrs = [||]
+               WriteAddrs = [||]
+               ConstDefs = [||] |}
+
+        member _.GetCallers funcAddr =
+          match arbiter.GetBinaryBrew() with
+          | Ok brew -> brew.Functions[funcAddr].Callers |> Seq.toArray
+          | Error _ -> [||]
+
+        member _.TryGetSectionName addr =
+          match arbiter.GetBinaryBrew() with
+          | Ok brew ->
+            brew.BinHandle.File.TryFindSectionName addr |> Result.toOption
+          | Error _ ->
+            None }
+
   do
     base.Title <- "BinExplore"
     let iconUri = Uri "avares://B2R2.RearEnd.BinExplore/Assets/b2r2.ico"
@@ -134,6 +174,6 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       base.WindowStartupLocation <- WindowStartupLocation.CenterScreen
     else
       ()
-    Elmish.Program.mkProgram init update MainView.view
+    Elmish.Program.mkProgram init update (MainView.view tokenContextProvider)
     |> Elmish.Program.withHost this
     |> Elmish.Program.run

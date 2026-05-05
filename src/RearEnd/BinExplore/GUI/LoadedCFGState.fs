@@ -25,10 +25,12 @@
 namespace B2R2.RearEnd.BinExplore.GUI
 
 open Avalonia
+open B2R2
 open B2R2.RearEnd.Visualization
 
 type LoadedCFGState =
   { Graph: VisGraph
+    FunctionAddress: Addr
     ViewState: CFGViewState
     RenderCache: CFGRenderCache
     Minimap: MinimapStaticCache }

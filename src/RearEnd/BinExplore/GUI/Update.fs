@@ -822,16 +822,17 @@ let private getCFG (arbiter: Arbiter<_, _>) (model: Model) cfgKind addr =
     API.getCallCFG arbiter
 
 let private loadCFGCmd arbiter model (fn: FunctionItem) kind (tab: Tab) =
+  let id, addr = tab.ID, fn.Address
   cmdOfSub (fun dispatch ->
     Async.Start(async {
       try
-        match getCFG arbiter model kind fn.Address with
+        match getCFG arbiter model kind addr with
         | Ok cfg ->
-          dispatchOnUi dispatch (CFGLoadMsg(LoadCompleted(tab.ID, kind, cfg)))
+          dispatchOnUi dispatch (CFGLoadMsg(LoadCompleted(id, addr, kind, cfg)))
         | Error e ->
-          dispatchOnUi dispatch (CFGLoadMsg(LoadFailed(tab.ID, e)))
+          dispatchOnUi dispatch (CFGLoadMsg(LoadFailed(id, e)))
       with ex ->
-        dispatchOnUi dispatch (CFGLoadMsg(LoadFailed(tab.ID, ex.Message)))
+        dispatchOnUi dispatch (CFGLoadMsg(LoadFailed(id, ex.Message)))
     }))
 
 let private startLoadIfNeeded arbiter tab (model: Model) =
@@ -1126,12 +1127,13 @@ let private computeInitialCFGViewState cfgKind (cfg: VisGraph) (model: Model) =
         GraphMaxX = maxX
         GraphMaxY = maxY }
 
-let loadCFGCompleted arbiter (model: Model) tabID cfgKind cfg =
+let loadCFGCompleted arbiter (model: Model) tabID addr cfgKind cfg =
   match Model.tryFindTab model tabID with
   | Some(_, _, tab, _) ->
     let viewState = computeInitialCFGViewState cfgKind cfg model
     let loaded =
       { Graph = cfg
+        FunctionAddress = addr
         ViewState = viewState
         Minimap = createMinimapCache model viewState cfg
         RenderCache = CFGRenderCache.create cfg }
@@ -1542,8 +1544,8 @@ let updateViewportSize arbiter (model: Model) paneID width height =
 
 let updateCFGLoad arbiter (model: Model) msg =
   match msg with
-  | LoadCompleted(tabID, cfgKind, cfg) ->
-    loadCFGCompleted arbiter model tabID cfgKind cfg
+  | LoadCompleted(tabID, addr, cfgKind, cfg) ->
+    loadCFGCompleted arbiter model tabID addr cfgKind cfg
   | LoadFailed(tabID, reason) ->
     loadCFGFailed model tabID reason
 

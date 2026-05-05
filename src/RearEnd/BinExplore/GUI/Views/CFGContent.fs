@@ -26,10 +26,12 @@
 module B2R2.RearEnd.BinExplore.GUI.CFGContent
 
 open System
+open System.Globalization
 open System.Collections.Generic
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.Shapes
+open Avalonia.Controls.Primitives
 open Avalonia.FuncUI.Builder
 open Avalonia.Layout
 open Avalonia.Media
@@ -264,9 +266,6 @@ let private tokenForeground model word =
   | AsmWordKind.Value -> model.Theme.Text.Value
   | _ -> model.Theme.Text.Primary
 
-let inline private isSelectableToken word =
-  word.AsmWordKind <> AsmWordKind.String
-
 let private tokenTextView model word =
   TextBlock.create [
     TextBlock.text word.AsmWordValue
@@ -277,48 +276,220 @@ let private tokenTextView model word =
     TextBlock.textWrapping TextWrapping.NoWrap
   ]
 
-let private tokenView model dispatch selected nID lineIdx wordIdx word range =
+let private tokenTextViewUnselectable model txt =
+  TextBlock.create [
+    TextBlock.text txt
+    TextBlock.foreground model.Theme.Text.Secondary
+    TextBlock.fontSize 12.0
+  ]
+
+let private makeDisasmLine words =
+  words
+  |> Array.filter (fun word ->
+    word.AsmWordKind <> AsmWordKind.Address &&
+    word.AsmWordKind <> AsmWordKind.InstructionDelimiter)
+  |> Array.map (fun word -> word.AsmWordValue)
+  |> String.concat ""
+
+let private compactMenuItemPadding =
+  AttrBuilder<MenuItem>.CreateProperty<Thickness>(
+    TemplatedControl.PaddingProperty,
+    Thickness(12.0, 1.0, 12.0, 1.0),
+    ValueNone
+  )
+
+let private compactMenuItemMinHeight =
+  AttrBuilder<MenuItem>.CreateProperty<float>(
+    Layoutable.MinHeightProperty,
+    0.0,
+    ValueNone
+  )
+
+let private compactTitleMenuItem model dispatch txt txtToCopy =
+  MenuItem.create [
+    compactMenuItemPadding
+    compactMenuItemMinHeight
+    MenuItem.header (tokenTextViewUnselectable model txt)
+    MenuItem.onClick (fun e ->
+      Clipboard.setText
+        (fun msg -> dispatch (UpdateStatusMsg msg))
+        e.Source
+        txtToCopy
+    )
+  ]
+
+let private monoTextBlock model (txt: string) =
+  TextBlock.create [
+    TextBlock.text txt
+    TextBlock.fontSize model.Theme.Font.Monospace.FontSize
+    TextBlock.padding 0.0
+    TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
+  ]
+
+let private compactMonoMenuItem dispatch (header: IView) txtToCopy =
+  MenuItem.create [
+    compactMenuItemPadding
+    compactMenuItemMinHeight
+    MenuItem.header header
+    MenuItem.onClick (fun e ->
+      Clipboard.setText
+        (fun msg -> dispatch (UpdateStatusMsg msg))
+        e.Source
+        txtToCopy
+    )
+  ]
+
+let private compactMonoMenuItemWithString model dispatch txt txtToCopy =
+  match txtToCopy with
+  | Some copy -> compactMonoMenuItem dispatch (monoTextBlock model txt) copy
+  | None -> compactMonoMenuItem dispatch (monoTextBlock model txt) txt
+
+let private compactMonoActionMenuItem model onClick txt =
+  MenuItem.create [
+    compactMenuItemPadding
+    compactMenuItemMinHeight
+    MenuItem.header (monoTextBlock model txt)
+    MenuItem.onClick (fun _ -> onClick ())
+  ]
+
+let private addressTokenMenuItems fnAddr provider model dispatch word =
+  let callers = (provider: ITokenContextProvider).GetCallers fnAddr
+  [ compactTitleMenuItem model dispatch "Address" word.AsmWordValue :> IView
+    compactMonoMenuItemWithString model dispatch word.AsmWordValue None
+    if callers.Length > 0 then
+      Separator.create []
+      compactTitleMenuItem model dispatch "Caller(s) of this function" ""
+      for caller in callers do
+        let callerText = $"0x{caller:X}"
+        model.Functions
+        |> List.tryFind (fun fn -> fn.Address = caller)
+        |> function
+          | Some fnItem ->
+            compactMonoActionMenuItem
+              model
+              (fun () -> dispatch (OpenCFGTab fnItem))
+              $"Jump to {callerText}"
+          | None ->
+            compactMonoMenuItemWithString model dispatch callerText None
+    else
+      () ]
+
+let private appendMenuSection title items model dispatch =
+  if Array.isEmpty items then []
+  else
+    [ Separator.create [] :> IView
+      compactTitleMenuItem model dispatch title ""
+      for item in items do
+        compactMonoMenuItemWithString model dispatch item None ]
+
+let private mnemonicTokenMenuItems provider model dispatch addr words =
+  let disasmLine = makeDisasmLine words
+  let info = (provider: ITokenContextProvider).GetInstructionInfo addr
+  let irBlock = info.Stmts |> String.concat Environment.NewLine
+  let readAddrs = info.ReadAddrs |> Array.map (fun addr -> $"0x{addr}")
+  let writeAddrs = info.WriteAddrs |> Array.map (fun addr -> $"0x{addr}")
+  [ compactTitleMenuItem model dispatch "Instruction" disasmLine :> IView
+    compactMonoMenuItemWithString model dispatch disasmLine None
+    Separator.create []
+    compactTitleMenuItem model dispatch "Semantics" irBlock
+    compactMonoMenuItemWithString model dispatch irBlock None
+    yield! appendMenuSection "Address(es) to Read" readAddrs model dispatch
+    yield! appendMenuSection "Address(es) to Write" writeAddrs model dispatch
+    if info.ConstDefs.Length > 0 then
+      Separator.create []
+      compactTitleMenuItem model dispatch "Register Constant Definitions" ""
+      for r, v in info.ConstDefs do
+        compactMonoMenuItemWithString model dispatch $"{r} = {v}" (Some v)
+    else
+      () ]
+
+let private valueTokenMenuItems provider model dispatch word =
+  let value = word.AsmWordValue
+  let normalized = if value.StartsWith "0x" then value.Substring 2 else value
+  [ compactTitleMenuItem model dispatch "Value" value :> IView
+    match UInt64.TryParse(normalized, NumberStyles.HexNumber, null) with
+    | true, num ->
+      let sectionSuffix =
+        (provider: ITokenContextProvider).TryGetSectionName num
+        |> Option.map (fun name -> $" ({name})")
+        |> Option.defaultValue ""
+      let menuText = $"{value}{sectionSuffix}"
+      compactMonoMenuItemWithString model dispatch menuText (Some value)
+    | false, _ ->
+      compactMonoMenuItemWithString model dispatch value None ]
+
+let private tokenContextMenu fnAddr provider model dispatch word token words =
+  ContextMenu.create [
+    ContextMenu.viewItems [
+      match word.AsmWordKind, (token: SelectedToken).Range with
+      | AsmWordKind.Address, _ ->
+        yield! addressTokenMenuItems fnAddr provider model dispatch word
+      | AsmWordKind.Mnemonic, Some range ->
+        yield! mnemonicTokenMenuItems provider model dispatch range.Min words
+      | AsmWordKind.Value, _ ->
+        yield! valueTokenMenuItems provider model dispatch word
+      | _ ->
+        compactTitleMenuItem model dispatch "Copy" word.AsmWordValue
+    ]
+  ]
+
+let private onTokenPressed dispatch token e =
+  let props = (e: PointerPressedEventArgs).GetCurrentPoint(null).Properties
+  if props.IsRightButtonPressed then
+    Some token
+    |> SetSelectedToken
+    |> CFGPaneMsg
+    |> dispatch
+    e.Handled <- true
+  else
+    ()
+
+let inline private isSelectableToken word =
+  match word.AsmWordKind with
+  | AsmWordKind.String
+  | AsmWordKind.CommentDelimiter
+  | AsmWordKind.InstructionDelimiter -> false
+  | _ -> true
+
+let private tokenView fnAddr provider model dispatch selected word token words =
   if not (isSelectableToken word) then
     tokenTextView model word :> IView
   else
-    let isSelected =
-      match selected with
-      | Some sel ->
-        sel.NodeID = nID &&
-        sel.LineIndex = lineIdx &&
-        sel.WordIndex = wordIdx
-      | None ->
-        false
     Border.create [
       Border.background (
-        if isSelected then model.Theme.Search.SelectedBackground
+        if selected then model.Theme.Search.SelectedBackground
         else model.Theme.Common.Transparent
       )
       Border.cornerRadius 2.0
-      Control.onTapped (fun e ->
-        let token =
-          { NodeID = nID
-            LineIndex = lineIdx
-            WordIndex = wordIdx
-            Range = range }
-        dispatch (CFGPaneMsg(SetSelectedToken(Some token)))
-        e.Handled <- true
+      Control.contextMenu (
+        tokenContextMenu fnAddr provider model dispatch word token words
       )
+      Control.onPointerPressed (onTokenPressed dispatch token)
       Border.child (tokenTextView model word)
-    ] |> View.withKey $"token-{nID}-{lineIdx}-{wordIdx}" :> IView
+    ]
 
-let private disasmLineView model dispatch selected nodeID lineIdx words range =
+let private disasmLnView fnAddr provider model dispatch tokenAt selected words =
   StackPanel.create [
     StackPanel.orientation Orientation.Horizontal
     StackPanel.children [
       for wordIdx, word in Array.indexed words do
-        tokenView model dispatch selected nodeID lineIdx wordIdx word range
+        let token = tokenAt wordIdx
+        let isSelected = selected wordIdx
+        tokenView fnAddr provider model dispatch isSelected word token words
     ]
-  ] |> View.withKey $"line-{nodeID}-{lineIdx}" :> IView
+  ]
 
-let private disasmView model dispatch selected nodeID zoom n =
+let private selectedTokenOf nID lineIdx wordIdx range =
+  { NodeID = nID
+    LineIndex = lineIdx
+    WordIndex = wordIdx
+    Range = range }
+
+let private disasmView provider model dispatch loaded nID n =
+  let viewState = loaded.ViewState
+  let fnAddr = loaded.FunctionAddress
   let lines =
-    if model.Theme.Font.Monospace.FontSize * zoom < 6.0 then [||]
+    if model.Theme.Font.Monospace.FontSize * viewState.Zoom < 6.0 then [||]
     else ((n: IVertex<_>).VData :> IVisualizable).Visualize()
   let ranges = (n.VData :> IVisualizable).LineAddrRanges
   StackPanel.create [
@@ -326,14 +497,22 @@ let private disasmView model dispatch selected nodeID zoom n =
     StackPanel.horizontalAlignment HorizontalAlignment.Left
     StackPanel.verticalAlignment VerticalAlignment.Top
     StackPanel.children [
-      for lineIdx, words in Array.indexed lines do
-        let range =
-          if lineIdx < ranges.Length then Some ranges[lineIdx] else None
-        disasmLineView model dispatch selected nodeID lineIdx words range
+      for lnIdx, words in Array.indexed lines do
+        let range = if lnIdx < ranges.Length then Some ranges[lnIdx] else None
+        let tokenAt wordIdx = selectedTokenOf nID lnIdx wordIdx range
+        let selected wordIdx =
+          match viewState.SelectedToken with
+          | Some sel ->
+            sel.NodeID = nID && sel.LineIndex = lnIdx && sel.WordIndex = wordIdx
+          | None ->
+            false
+        disasmLnView fnAddr provider model dispatch tokenAt selected words
     ]
   ]
 
-let private nodeView model dispatch selected nID zoom panX panY x y w h n =
+let private nodeView provider model dispatch nID loaded x y w h n =
+  let viewState = loaded.ViewState
+  let zoom, panX, panY = viewState.Zoom, viewState.PanX, viewState.PanY
   Border.create [
     Canvas.left (x * zoom + panX)
     Canvas.top (y * zoom + panY)
@@ -353,15 +532,16 @@ let private nodeView model dispatch selected nID zoom panX panY x y w h n =
             Viewbox.stretch Stretch.Uniform
             Viewbox.horizontalAlignment HorizontalAlignment.Left
             Viewbox.verticalAlignment VerticalAlignment.Top
-            Viewbox.child (disasmView model dispatch selected nID zoom n)
+            Viewbox.child (disasmView provider model dispatch loaded nID n)
           ]
         )
       ]
     )
   ] |> View.withKey $"node-{nID}" :> IView
 
-let private graphNodes model dispatch selected cfg zoom panX panY isVisible =
-  [ for nodeID, n in Array.indexed (cfg: VisGraph).Vertices do
+let private graphNodes provider model dispatch loaded isVisible =
+  let zoom = loaded.ViewState.Zoom
+  [ for nodeID, n in Array.indexed loaded.Graph.Vertices do
       let x, y = n.VData.Coordinate.X, n.VData.Coordinate.Y
       let w, h = n.VData.Width, n.VData.Height
       if not (isVisible x y w h) then
@@ -369,7 +549,7 @@ let private graphNodes model dispatch selected cfg zoom panX panY isVisible =
       else
         let w = ceil (w * zoom) + 1.1 (* margin to avoid clipping *)
         let h = ceil (h * zoom) + 1.1
-        nodeView model dispatch selected nodeID zoom panX panY x y w h n ]
+        nodeView provider model dispatch nodeID loaded x y w h n ]
 
 let [<Literal>] private ZoomDelta = 0.05
 let [<Literal>] private CFGPanStartThresholdSquared = 16.0
@@ -454,16 +634,17 @@ let private onReleased model dispatch (e: PointerReleasedEventArgs) =
   if model.CFGIsPanning || model.CFGPressedPointer.IsSome then e.Handled <- true
   else ()
 
-let private graphCanvasView model vpSize dispatch cfg renderCache viewState =
-  let zoom = viewState.Zoom
-  let panX, panY = viewState.PanX, viewState.PanY
+let private graphCanvasView provider model vpSize dispatch loaded =
+  let cfg = loaded.Graph
+  let viewState = loaded.ViewState
+  let cache = loaded.RenderCache
+  let zoom, panX, panY = viewState.Zoom, viewState.PanX, viewState.PanY
   let hovered = viewState.HoveredEdge
-  let selected = viewState.SelectedToken
   let viewportWidth, viewportHeight = vpSize
   let vpLeft, vpRight = -panX / zoom, (viewportWidth - panX) / zoom
   let vpTop, vpBottom = -panY / zoom, (viewportHeight - panY) / zoom
   let isEdgeVisible eID =
-    CFGRenderCache.isEdgeVisible renderCache eID vpLeft vpRight vpTop vpBottom
+    CFGRenderCache.isEdgeVisible cache eID vpLeft vpRight vpTop vpBottom
   let isNodeVisible x y w h =
     x < vpRight && x + w > vpLeft && y < vpBottom && y + h > vpTop
   GraphCanvas.create [
@@ -475,7 +656,7 @@ let private graphCanvasView model vpSize dispatch cfg renderCache viewState =
     Control.onPointerReleased (onReleased model dispatch)
     Canvas.children [
       yield! graphEdges model dispatch hovered cfg zoom panX panY isEdgeVisible
-      yield! graphNodes model dispatch selected cfg zoom panX panY isNodeVisible
+      yield! graphNodes provider model dispatch loaded isNodeVisible
     ]
   ]
 
@@ -588,7 +769,8 @@ let private minimapViewport model vpSize dispatch minimap viewState =
     )
   ]
 
-let private minimapOverlayView model vpSize dispatch minimap viewState =
+let private minimapOverlayView model vpSize dispatch loaded =
+  let viewState, minimap = loaded.ViewState, loaded.Minimap
   if viewState.ShowMinimap then
     [ Border.create [
         Border.horizontalAlignment HorizontalAlignment.Right
@@ -600,24 +782,21 @@ let private minimapOverlayView model vpSize dispatch minimap viewState =
   else
     []
 
-let private loadedView model vpSize dispatch (loaded: LoadedCFGState) =
-  let cfg = loaded.Graph
-  let viewState = loaded.ViewState
-  let minimap = loaded.Minimap
+let private loadedView provider model vpSize dispatch loaded =
   Border.create [
     Border.background model.Theme.Window.Background
     Border.clipToBounds true
     Border.child (
       Grid.create [
         Grid.children [
-          graphCanvasView model vpSize dispatch cfg loaded.RenderCache viewState
-          yield! minimapOverlayView model vpSize dispatch minimap viewState
+          graphCanvasView provider model vpSize dispatch loaded
+          yield! minimapOverlayView model vpSize dispatch loaded
         ]
       ]
     )
   ]
 
-let view pane (model: Model) dispatch =
+let view tokenContextProvider pane (model: Model) dispatch =
   let viewKey =
     match pane.ActiveTab with
     | Some tab -> $"cfg-{tab.ID}"
@@ -632,7 +811,8 @@ let view pane (model: Model) dispatch =
       | Some { Content = CFGContent(_, Loading) } ->
         unloadedView model "CFG is now loading ..."
       | Some { Content = CFGContent(_, Loaded loaded) } ->
-        loadedView model pane.ContentViewportSize dispatch loaded
+        let viewportSize = pane.ContentViewportSize
+        loadedView tokenContextProvider model viewportSize dispatch loaded
       | _ ->
         unloadedView model "Select a function to view its CFG."
     )

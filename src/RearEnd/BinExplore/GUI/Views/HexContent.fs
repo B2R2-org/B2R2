@@ -29,7 +29,6 @@ open System
 open System.Collections.Generic
 open Avalonia
 open Avalonia.Controls
-open Avalonia.Controls.Primitives
 open Avalonia.FuncUI.Builder
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
@@ -122,17 +121,6 @@ let private formatEscapedHexString bytes =
 let private formatAsciiString bytes =
   bytes |> Array.map byteToAscii |> String
 
-let private tryGetHostTopLevel (source: obj) =
-  match source with
-  | :? Control as control ->
-    match TopLevel.GetTopLevel control with
-    | :? PopupRoot as popup when not (isNull popup.ParentTopLevel) ->
-      popup.ParentTopLevel
-    | topLevel ->
-      topLevel
-  | _ ->
-    null
-
 let private tryGetSelectionBytes (state: HexdumpState) =
   match state.Selection with
   | Some selection ->
@@ -151,17 +139,8 @@ let private tryGetSelectionBytes (state: HexdumpState) =
 let private copySelection formatBytes dispatch source (state: HexdumpState) =
   match tryGetSelectionBytes state with
   | Some bytes ->
-    let topLevel = tryGetHostTopLevel source
-    if isNull topLevel then
-      dispatch (UpdateStatusMsg "Clipboard is unavailable.")
-    else
-      Async.StartImmediate(async {
-        try
-          let text = formatBytes bytes
-          do! topLevel.Clipboard.SetTextAsync text |> Async.AwaitTask
-        with ex ->
-          dispatch (UpdateStatusMsg $"Failed to copy bytes: {ex.Message}")
-      })
+    let reportError msg = dispatch (UpdateStatusMsg msg)
+    Clipboard.setText reportError source (formatBytes bytes)
   | None ->
     ()
 
