@@ -1,5 +1,7 @@
 namespace B2R2.FrontEnd.Intel
 
+open B2R2
+
 [<RequireQualifiedAccess>]
 type OpcodeClass =
   | Normal of OpcodeMap
@@ -43,29 +45,29 @@ type REXPrefixType =
 type OperandType =
   | NoOpr
   /// Register or Memory.
-  | RM of OprSize
+  | RM of RegType
   /// Register or Memory operand with different sizes.
-  | RMdiff of OprSize * OprSize
+  | RMdiff of RegType * RegType
   /// Register or Memory with embedded rounding {er} (only EVEX).
-  | RMEr of OprSize * OprSize
+  | RMEr of RegType * RegType
   /// Register or Memory with suppress-all-exceptions {sae} (only EVEX).
-  | RMSae of OprSize * OprSize
+  | RMSae of RegType * RegType
   /// Register or Memory with broadcast (only EVEX).
-  | RMBcst of OprSize * OprSize * OprSize
+  | RMBcst of RegType * RegType * RegType
   /// Register or Memory with broadcast and {er} (only EVEX).
-  | RMBcstEr of OprSize * OprSize * OprSize
+  | RMBcstEr of RegType * RegType * RegType
   /// Register or Memory with broadcast and {sae} (only EVEX).
-  | RMBcstSae of OprSize * OprSize * OprSize
+  | RMBcstSae of RegType * RegType * RegType
   /// Register with suppress-all-exceptions {sae} (only EVEX).
-  | RegSae of OprSize
+  | RegSae of RegType
   /// Register.
-  | Reg of OprSize * OprRegType
+  | Reg of RegType * OprRegType
   /// Address-size-dependent register operand.
   | RegAddr
   /// Opmask register.
   | OpMaskReg
   /// Opmask register or memory.
-  | KM of OprSize
+  | KM of RegType
   /// Segment register.
   | Sreg
   /// Control register.
@@ -77,42 +79,28 @@ type OperandType =
   /// ST(i) register.
   | STReg of Register option
   /// Bound register or memory.
-  | BM of OprSize
+  | BM of RegType
   /// Bound register.
   | BndReg
   /// MMX register or memory.
-  | MM of OprSize
+  | MM of RegType
   /// MMX register.
   | MMXReg
   /// Memory.
-  | Mem of OprSize
+  | Mem of RegType
   /// Memory with VSIB addressing (eg. vm32x).
-  | MemVSIB of OprSize
+  | MemVSIB of RegType
   /// Memory offset.
-  | Moffs of OprSize
+  | Moffs of RegType
   /// Far memory offset.
-  | Far of OprSize
+  | Far of RegType
   /// Immediate.
-  | Imm of OprSize
+  | Imm of RegType
   /// Fixed immediate.
   | FixedImm of int
   /// Relative offset.
-  | Rel of OprSize
+  | Rel of RegType
   | Unknown of string (* XXX: Temp *)
-
-and OprSize =
-  | Sz8
-  | Sz16
-  | Sz32
-  | Sz48
-  | Sz64
-  | Sz80
-  | Sz128
-  | Sz256
-  | Sz384
-  | Sz512
-  | Sz1024
-  | SzUnknown
 
 and OprRegType =
   | RegBit (* ModRM:reg *)
