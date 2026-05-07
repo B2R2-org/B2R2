@@ -72,7 +72,7 @@ type IntelParser(wordSz, reader) =
   let getOperandSize operands =
     Array.map (fun o ->
       match o with
-      | RM sz | Reg sz | Mem sz | Imm sz | Rel sz -> Some sz
+      | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz -> Some sz
       | FixedReg(Register.AX) -> Some Sz16
       | _ -> None) operands
     |> Array.distinct
@@ -307,40 +307,42 @@ type IntelParser(wordSz, reader) =
     | Opcode.POP | Opcode.PUSH -> SzCond.D64
     | _ -> SzCond.Normal
 
-  let parseOperand span (phlp: ParsingHelper) sz modRM (ic: InstructionCore) i =
-    function
+  let parseOperand span (phlp: ParsingHelper) sz modRM (ic: InstructionCore) opr
+    =
+    // FIXME: need operand size determination logic
+    match opr with
     | RM sz ->
       let sz = oprSizeToRegType sz
-      // FIXME: need operand size determination logic
       setMemoryOperandContextWithCurrentAddr phlp sz sz
       OperandParsers.parseMemOrReg modRM span phlp
     | RMdiff(regSz, memSz) ->
       let regSz = oprSizeToRegType regSz
       let memSz = oprSizeToRegType memSz
-      // FIXME: need operand size determination logic
       setMemoryOperandContextWithCurrentAddr phlp regSz memSz
       OperandParsers.parseMemOrReg modRM span phlp
-    | Reg sz when ic.OpEn = OpEn.O || ic.OpEn = OpEn.OI ->
-      // Opcode[2:0] contains the operand.
+    | Reg(sz, OprRegType.OpRd) -> (* Opcode[2:0] contains the operand. *)
       let sz = oprSizeToRegType sz
       setMemoryOperandContextWithCurrentAddr phlp sz sz
       let regBit = Operands.getRM (uint8 ic.OpcodeByte)
       OperandParsers.getOprFromRegGrpREX regBit phlp
-    | Reg sz ->
+    | Reg(sz, oprRegType) ->
       let sz = oprSizeToRegType sz
       setMemoryOperandContextWithCurrentAddr phlp sz sz
-      match ic.OpEn with
-      | OpEn.RVM | OpEn.RVMI when i = 1 -> OperandParsers.parseVVVVReg phlp
-      | OpEn.VMI when i = 0 -> OperandParsers.parseVVVVReg phlp
-      | OpEn.RM when i = 1 ->
+      match oprRegType with
+      | OprRegType.OpRd ->
+        let regBit = Operands.getRM (uint8 ic.OpcodeByte)
+        OperandParsers.getOprFromRegGrpREX regBit phlp
+      | OprRegType.VVVV -> OperandParsers.parseVVVVReg phlp
+      | OprRegType.RMBit ->
         OperandParsers.findRegRmAndSIBBase phlp.MemEffRegSize phlp.REXPrefix
           (Operands.getRM modRM) |> OprReg
-      | OpEn.MI ->
-        OperandParsers.findRegRmAndSIBBase phlp.MemEffRegSize phlp.REXPrefix
-          (Operands.getRM modRM) |> OprReg
-      | _ ->
+      | OprRegType.RegBit ->
         OperandParsers.findRegRBits sz phlp.REXPrefix (Operands.getReg modRM)
         |> OprReg
+      | OprRegType.IS4 ->
+        let regBit = phlp.ReadByte span >>> 4 &&& 0b1111uy |> int
+        OperandParsers.findRegRBits sz phlp.REXPrefix regBit |> OprReg
+      | OprRegType.Unused -> failwith "Unused OprRegType." (* FixedReg *)
     | Mem SzUnknown ->
       // FIXME: need operand size determination logic
       let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -437,7 +439,7 @@ type IntelParser(wordSz, reader) =
       let sz = getOperandSize ic.Operands
       for i = 0 to ic.Operands.Length - 1 do
         let opr = ic.Operands[i]
-        operands[i] <- parseOperand span phlp sz modRM ic i opr
+        operands[i] <- parseOperand span phlp sz modRM ic opr
       operands |> operandsArrayToOperands
 
   let applyMandatoryPrefixFilter (phlp: ParsingHelper) prefixType =

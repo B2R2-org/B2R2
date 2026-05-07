@@ -59,7 +59,7 @@ type OperandType =
   /// Register with suppress-all-exceptions {sae} (only EVEX).
   | RegSae of OprSize
   /// Register.
-  | Reg of OprSize
+  | Reg of OprSize * OprRegType
   /// Address-size-dependent register operand.
   | RegAddr
   /// Opmask register.
@@ -113,6 +113,14 @@ and OprSize =
   | Sz512
   | Sz1024
   | SzUnknown
+
+and OprRegType =
+  | RegBit (* ModRM:reg *)
+  | RMBit (* ModRM:r/m *)
+  | VVVV (* (E)VEX.vvvv *)
+  | IS4 (* imm8[7:4] *)
+  | OpRd (* opcode + rd *)
+  | Unused
 
 type ModRMType =
   | NoModRM
