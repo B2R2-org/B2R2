@@ -141,17 +141,29 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
             {| Stmts = stmts |> Array.map PrettyPrinter.ToString
                ReadAddrs = reads
                WriteAddrs = writes
-               ConstDefs = defs |}
+               ConstDefs = defs
+               PCTargets = facts.PCDefs |}
           | Error _ ->
             {| Stmts = [||]
                ReadAddrs = [||]
                WriteAddrs = [||]
-               ConstDefs = [||] |}
+               ConstDefs = [||]
+               PCTargets = [||] |}
 
         member _.GetCallers funcAddr =
           match arbiter.GetBinaryBrew() with
           | Ok brew -> brew.Functions[funcAddr].Callers |> Seq.toArray
           | Error _ -> [||]
+
+        member _.IsAddressInFunction(fnAddr, queryAddr) =
+          match arbiter.GetBinaryBrew() with
+          | Ok brew ->
+            brew.Functions[fnAddr].CFG.Vertices
+            |> Array.exists (fun v ->
+              not v.VData.Internals.IsAbstract &&
+              v.VData.Internals.Range.IsIncluding queryAddr)
+          | Error _ ->
+            false
 
         member _.TryGetSectionName addr =
           match arbiter.GetBinaryBrew() with

@@ -382,7 +382,24 @@ let private appendMenuSection title items model dispatch =
       for item in items do
         compactMonoMenuItemWithString model dispatch item None ]
 
-let private mnemonicTokenMenuItems provider model dispatch addr words =
+let private openPCTarget provider model dispatch fnAddr target =
+  if (provider: ITokenContextProvider).IsAddressInFunction(fnAddr, target) then
+    dispatch (CFGPaneMsg(JumpPanToAddr target))
+  else
+    model.Functions
+    |> List.tryFind (fun fn -> fn.Address = target)
+    |> function
+      | Some fnItem -> dispatch (OpenCFGTab fnItem)
+      | None -> ()
+
+let private pcTargetMenuItem provider model dispatch fnAddr target =
+  let targetText = $"0x{target:X}"
+  compactMonoActionMenuItem
+    model
+    (fun () -> openPCTarget provider model dispatch fnAddr target)
+    $"Jump to {targetText}"
+
+let private mnemonicTokenMenuItems provider model dispatch fnAddr addr words =
   let disasmLine = makeDisasmLine words
   let info = (provider: ITokenContextProvider).GetInstructionInfo addr
   let irBlock = info.Stmts |> String.concat Environment.NewLine
@@ -400,6 +417,13 @@ let private mnemonicTokenMenuItems provider model dispatch addr words =
       compactTitleMenuItem model dispatch "Register Constant Definitions" ""
       for r, v in info.ConstDefs do
         compactMonoMenuItemWithString model dispatch $"{r} = {v}" (Some v)
+    else
+      ()
+    if info.PCTargets.Length > 0 then
+      Separator.create []
+      compactTitleMenuItem model dispatch "PC Target(s)" ""
+      for target in info.PCTargets do
+        pcTargetMenuItem provider model dispatch fnAddr target
     else
       () ]
 
@@ -425,7 +449,8 @@ let private tokenContextMenu fnAddr provider model dispatch word token words =
       | AsmWordKind.Address, _ ->
         yield! addressTokenMenuItems fnAddr provider model dispatch word
       | AsmWordKind.Mnemonic, Some range ->
-        yield! mnemonicTokenMenuItems provider model dispatch range.Min words
+        let addr = range.Min
+        yield! mnemonicTokenMenuItems provider model dispatch fnAddr addr words
       | AsmWordKind.Value, _ ->
         yield! valueTokenMenuItems provider model dispatch word
       | _ ->

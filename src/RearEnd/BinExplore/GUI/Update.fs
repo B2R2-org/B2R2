@@ -1265,6 +1265,25 @@ let jumpCFGPan (model: Model) gx gy =
   | None ->
     model, Elmish.Cmd.none
 
+let private tryFindCFGNodeCenterByAddr loaded addr =
+  loaded.Graph.Vertices
+  |> Array.tryPick (fun n ->
+    if n.VData.BlockAddress = addr then
+      let x = n.VData.Coordinate.X + n.VData.Width / 2.0
+      let y = n.VData.Coordinate.Y + n.VData.Height / 2.0
+      Some(x, y)
+    else
+      None)
+
+let jumpCFGPanToAddr (model: Model) addr =
+  match model.ActiveTab with
+  | Some { Content = CFGContent(_, Loaded loaded) } ->
+    match tryFindCFGNodeCenterByAddr loaded addr with
+    | Some(gx, gy) -> jumpCFGPan model gx gy
+    | None -> model, Elmish.Cmd.none
+  | _ ->
+    model, Elmish.Cmd.none
+
 let setCFGSelectedToken arbiter (model: Model) selectedToken =
   match model.ActiveTab with
   | Some tab ->
@@ -1561,6 +1580,8 @@ let updateCFG arbiter (model: Model) msg =
     endCFGPan model
   | JumpPan(gx, gy) ->
     jumpCFGPan model gx gy
+  | JumpPanToAddr addr ->
+    jumpCFGPanToAddr model addr
   | SetSelectedToken token ->
     setCFGSelectedToken arbiter model token
   | SetHoveredEdge edgeID ->

@@ -36,10 +36,15 @@ type ITokenContextProvider =
     -> {| Stmts: string[]
           ReadAddrs: string[]
           WriteAddrs: string[]
-          ConstDefs: (string * string)[] |}
+          ConstDefs: (string * string)[]
+          PCTargets: Addr[] |}
 
   /// Returns the addresses of callers of the function at the given address.
   abstract GetCallers: Addr -> Addr[]
+
+  /// Returns true if the given address is part of the function at the given
+  /// address, and false otherwise.
+  abstract IsAddressInFunction: fnAddr: Addr * queryAddr: Addr -> bool
 
   /// Returns the name of the section containing the given address, if any.
   abstract TryGetSectionName: Addr -> string option

@@ -126,6 +126,8 @@ and CFGPaneMessage =
   | EndPan
   /// Message to jump the CFG view to a specific graph coordinate.
   | JumpPan of gx: float * gy: float
+  /// Message to jump the CFG view to the node containing the given address.
+  | JumpPanToAddr of addr: Addr
   /// Message to update the currently selected disassembly token in the CFG.
   | SetSelectedToken of token: SelectedToken option
   /// Message to set the currently hovered edge in the CFG, carrying the edge
