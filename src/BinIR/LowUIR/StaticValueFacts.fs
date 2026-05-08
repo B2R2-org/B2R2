@@ -35,7 +35,8 @@ open B2R2.BinIR
 type StaticValueFacts =
   { MemReadAddrs: Addr[]
     MemWriteAddrs: Addr[]
-    RegConstDefs: (RegisterID * BitVector)[] }
+    RegConstDefs: (RegisterID * BitVector)[]
+    PCDefs: Addr[] }
 
 /// <summary>
 /// Provides functions for extracting statically resolvable memory access
@@ -172,33 +173,47 @@ module StaticValueFacts =
     | Extract(e, _, _, _) ->
       collectReadsFromExpr ctx reads writes e
 
-  let private collectFromStmt ctx reads writes = function
-    | ISMark(_, _) | IEMark(_, _) | LMark(_, _) ->
-      ctx, reads, writes
+  let private collectFromStmt addr ctx reads writes = function
+    | ISMark(_, _) | LMark(_, _) ->
+      ctx, reads, writes, Set.empty
+    | IEMark(len, _) ->
+      ctx, reads, writes, Set.singleton (addr + uint64 len)
     | Put(dst, src, _) ->
       let reads, writes = collectReadsFromExpr ctx reads writes src
-      updateContextAtDef ctx dst src, reads, writes
+      updateContextAtDef ctx dst src, reads, writes, Set.empty
     | Store(_, addrExpr, src, _) ->
       let reads, writes = collectReadsFromExpr ctx reads writes addrExpr
       let reads, writes = collectReadsFromExpr ctx reads writes src
       match evalAddr ctx addrExpr with
-      | Some addr -> ctx, reads, Set.add addr writes
-      | None -> ctx, reads, writes
+      | Some addr -> ctx, reads, Set.add addr writes, Set.empty
+      | None -> ctx, reads, writes, Set.empty
     | Jmp(target, _)
     | InterJmp(target, _, _) ->
       let reads, writes = collectReadsFromExpr ctx reads writes target
-      ctx, reads, writes
+      match evalAddr ctx target with
+      | Some addr ->
+        ctx, reads, writes, Set.singleton addr
+      | None ->
+        ctx, reads, writes, Set.empty
     | CJmp(cond, target1, target2, _)
     | InterCJmp(cond, target1, target2, _) ->
       let reads, writes = collectReadsFromExpr ctx reads writes cond
       let reads, writes = collectReadsFromExpr ctx reads writes target1
       let reads, writes = collectReadsFromExpr ctx reads writes target2
-      ctx, reads, writes
+      match evalAddr ctx target1, evalAddr ctx target2 with
+      | Some addr1, Some addr2 ->
+        ctx, reads, writes, Set.ofList [ addr1; addr2 ]
+      | Some addr1, None ->
+        ctx, reads, writes, Set.singleton addr1
+      | None, Some addr2 ->
+        ctx, reads, writes, Set.singleton addr2
+      | None, None ->
+        ctx, reads, writes, Set.empty
     | ExternalCall(args, _) ->
       let reads, writes = collectReadsFromExpr ctx reads writes args
-      clearContext ctx, reads, writes
+      clearContext ctx, reads, writes, Set.empty
     | SideEffect _ ->
-      clearContext ctx, reads, writes
+      clearContext ctx, reads, writes, Set.empty
 
   let private buildLabelMap (stmts: Stmt[]) =
     let labelMap = Dictionary<Label, int>()
@@ -264,12 +279,12 @@ module StaticValueFacts =
     | None -> Some ctx.Regs
     | Some regs -> Some(intersectEqual regs ctx.Regs)
 
-  let rec private traverse (stmts: Stmt[]) visited worklist reads writes defs =
+  let rec private traverse addr stmts visited worklist reads writes defs pcs =
     match worklist with
-    | [] -> reads, writes, Option.defaultValue Map.empty defs
+    | [] -> reads, writes, Option.defaultValue Map.empty defs, pcs
     | (idx, ctx) :: worklist ->
-      let stmt = stmts[idx]
-      let ctx, reads, writes = collectFromStmt ctx reads writes stmt
+      let stmt = (stmts: Stmt[])[idx]
+      let ctx, reads, writes, pcs = collectFromStmt addr ctx reads writes stmt
       let succs = getSuccs (Array.length stmts) idx ctx stmt
       let defs =
         if List.isEmpty succs then mergeExitDefs ctx defs
@@ -277,26 +292,28 @@ module StaticValueFacts =
       let visited, worklist =
         succs
         |> List.fold (enqueue (Array.length stmts)) (visited, worklist)
-      traverse stmts visited worklist reads writes defs
+      traverse addr stmts visited worklist reads writes defs pcs
 
   /// Extracts statically resolvable memory read/write addresses from statements
   /// given that the initial context is known.
-  let private ofStmtsWithContext ctx (stmts: Stmt[]) =
-    let reads, writes, defs =
+  let private ofStmtsWithContext ctx addr (stmts: Stmt[]) =
+    let reads, writes, defs, pcs =
       match Array.length stmts with
-      | 0 -> Set.empty, Set.empty, Map.empty
+      | 0 -> Set.empty, Set.empty, Map.empty, Set.empty
       | _ ->
         let visited = Map.empty |> Map.add 0 ctx
-        traverse stmts visited [ 0, ctx ] Set.empty Set.empty None
+        let worklist = [ 0, ctx ]
+        traverse addr stmts visited worklist Set.empty Set.empty None Set.empty
     { MemReadAddrs = Set.toArray reads
       MemWriteAddrs = Set.toArray writes
-      RegConstDefs = Map.toArray defs }
+      RegConstDefs = Map.toArray defs
+      PCDefs = Set.toArray pcs }
 
-  /// Extracts statically resolvable memory read/write addresses from statements
-  /// given that the base address is known. This function assumes that the
-  /// statements are from a single instruction located at the given address, so
-  /// we do not follow inter-instruction branches (i.e., InterJmp and
-  /// InterCJmp).
+  /// Extracts statically resolvable memory read/write addresses and constant
+  /// register definitions from statements given that the base address is known.
+  /// This function assumes that the statements are from a single instruction
+  /// located at the given address, so we do not follow inter-instruction
+  /// branches (i.e., InterJmp and InterCJmp).
   let ofStmts (addr: Addr) (stmts: Stmt[]) =
     let labelMap = buildLabelMap stmts
-    ofStmtsWithContext (emptyContext addr labelMap) stmts
+    ofStmtsWithContext (emptyContext addr labelMap) addr stmts
