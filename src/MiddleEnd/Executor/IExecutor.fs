@@ -25,9 +25,10 @@
 namespace B2R2.MiddleEnd.Executor
 
 open B2R2
+open B2R2.BinIR
 
-/// Represents an execution point observed by a user-defined stop predicate.
-type ExecutionPoint<'State> =
+/// Represents a stop point observed by a user-defined stop predicate.
+type StopPoint<'State> =
   { /// Current instruction address.
     Address: Addr
     /// Number of executed machine instructions.
@@ -43,12 +44,14 @@ type StopCondition<'State> =
   | StopAtReturn
   /// Stop when a call instruction is observed.
   | StopAtCall
+  /// Stop when a side-effect statement is observed.
+  | StopAtSideEffect
   /// Stop after executing the given number of machine instructions.
   | StopAfterInstructionCount of count: int
   /// Stop when expression or statement evaluation fails.
   | StopOnEvaluationError
   /// Stop when a user-provided predicate holds.
-  | StopWhen of predicate: (ExecutionPoint<'State> -> bool)
+  | StopWhen of predicate: (StopPoint<'State> -> bool)
 
 /// Represents the reason why execution stopped.
 type StopReason =
@@ -58,6 +61,8 @@ type StopReason =
   | Returned of addr: Addr
   /// Execution reached a call instruction. The target may be unknown.
   | StoppedAtCall of callSite: Addr * target: Addr option
+  /// Execution reached a side-effect statement.
+  | StoppedAtSideEffect of addr: Addr * sideEffect: SideEffect
   /// Execution reached the configured instruction limit.
   | InstructionLimitReached of addr: Addr * limit: int
   /// Evaluation failed with a B2R2 error case.
@@ -73,8 +78,8 @@ type InitialMemory<'Memory> =
   | EmptyMemory
   /// Use the given executor-specific memory.
   | PreinitializedMemory of memory: 'Memory
-  /// Back memory reads by the BinFile associated with a BinHandle.
-  | BinFileBackedMemory
+  /// Use binary file sections (e.g., .rodata, .data) for memory reads.
+  | BinSectionBackedMemory
 
 /// Represents options for creating an execution state.
 type StateCreationOptions<'Memory, 'Value> =
@@ -107,7 +112,7 @@ type ExecutionOptions<'State> =
     Calls: CallPolicy
     /// Undefined-value handling policy.
     UndefinedValues: UndefinedValuePolicy
-    /// Default stop conditions used by Run.
+    /// Stop conditions used by Run.
     StopConditions: StopCondition<'State> list }
 
 /// Represents the result of an execution run.
@@ -133,4 +138,4 @@ type IExecutor<'State, 'Memory, 'Value> =
   abstract Run:
     start: Addr *
     state: 'State *
-    stopConditions: StopCondition<'State> list -> ExecutionResult<'State>
+    options: ExecutionOptions<'State> -> ExecutionResult<'State>
