@@ -56,8 +56,13 @@ type Model =
     CFGPressedPointer: (float * float) option
     /// Last pointer position used for CFG panning.
     CFGPanPointer: (float * float) option
-    /// Flag indicating whether the hex view is synchronized with the CFG view.
-    HexSyncEnabled: bool
+    /// Shared linear document for the loaded binary.
+    LinearDocument: LinearDocument option
+    /// Shared linear view state for the loaded binary.
+    LinearViewState: LinearViewState option
+    /// Flag indicating whether the hex/linear view is synchronized with the CFG
+    /// view.
+    SyncEnabled: bool
     /// Shared hexdump state for the loaded binary.
     Hexdump: HexdumpState option
     /// Shared file-offset snapshot consumed by the status bar and overview.

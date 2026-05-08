@@ -159,26 +159,24 @@ let private getTabFontStyle pane tab =
   if pane.PreviewTab = Some tab then FontStyle.Italic
   else FontStyle.Normal
 
+let private themedTabIconView model tab iconSource =
+  Image.create [
+    Image.source (iconSource model)
+    Image.width 14.0
+    Image.height 14.0
+    Image.stretch Stretch.Uniform
+    Image.verticalAlignment VerticalAlignment.Center
+    Image.margin (0.0, 0.0, 4.0, 0.0)
+  ] |> View.withKey $"{tab.ID}-icon" :> IView
+
 let private tabIconView model pane (tab: Tab) =
   match tab.Content with
   | CFGContent _ ->
-    Image.create [
-      Image.source (IconAssets.cfgIcon model)
-      Image.width 14.0
-      Image.height 14.0
-      Image.stretch Stretch.Uniform
-      Image.verticalAlignment VerticalAlignment.Center
-      Image.margin (0.0, 0.0, 4.0, 0.0)
-    ] |> View.withKey $"{tab.ID}-icon" :> IView
+    themedTabIconView model tab IconAssets.cfgIcon
+  | LinearContent ->
+    themedTabIconView model tab IconAssets.linearIcon
   | HexContent ->
-    Image.create [
-      Image.source (IconAssets.binaryIcon model)
-      Image.width 14.0
-      Image.height 14.0
-      Image.stretch Stretch.Uniform
-      Image.verticalAlignment VerticalAlignment.Center
-      Image.margin (0.0, 0.0, 4.0, 0.0)
-    ] |> View.withKey $"{tab.ID}-icon" :> IView
+    themedTabIconView model tab IconAssets.binaryIcon
   | _ ->
     TextBlock.create [
       TextBlock.text ""

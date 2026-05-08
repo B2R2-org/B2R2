@@ -37,6 +37,8 @@ type Tab =
 and TabContent =
   /// A tab displaying the control flow graph of a function.
   | CFGContent of FunctionItem * TabContentState<LoadedCFGState>
+  /// A tab displaying the linear view of a binary.
+  | LinearContent
   /// A tab displaying the shared hexadecimal view.
   | HexContent
   /// A tab displaying sections of the binary.
@@ -51,6 +53,7 @@ and TabContentState<'T> =
 
 [<RequireQualifiedAccess>]
 module Tab =
+  let [<Literal>] LinearViewTabID = "linearview"
 
   let [<Literal>] HexdumpTabID = "hexdump"
 
@@ -60,6 +63,11 @@ module Tab =
     { ID = $"fn-{func.FuncID}"
       Title = func.Name
       Content = CFGContent(func, NotLoaded) }
+
+  let ofLinearView () =
+    { ID = LinearViewTabID
+      Title = "Linear View"
+      Content = LinearContent }
 
   let ofHexdump () =
     { ID = HexdumpTabID

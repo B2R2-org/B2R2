@@ -33,6 +33,9 @@
     <Compile Include="GUI\CFGViewState.fs" />
     <Compile Include="GUI\CFGRenderCache.fs" />
     <Compile Include="GUI\LoadedCFGState.fs" />
+    <Compile Include="GUI\LinearDocument.fs" />
+    <Compile Include="GUI\LinearViewState.fs" />
+    <Compile Include="GUI\LinearProjection.fs" />
     <Compile Include="GUI\HexdumpState.fs" />
     <Compile Include="GUI\WorkspacePanel.fs" />
     <Compile Include="GUI\Tab.fs" />
@@ -54,6 +57,7 @@
     <Compile Include="GUI\Views\Toolbar.fs" />
     <Compile Include="GUI\Views\WorkspaceTabs.fs" />
     <Compile Include="GUI\Views\CFGContent.fs" />
+    <Compile Include="GUI\Views\LinearContent.fs" />
     <Compile Include="GUI\Views\HexContent.fs" />
     <Compile Include="GUI\Views\MainView.fs" />
     <Compile Include="GUI\Update.fs" />

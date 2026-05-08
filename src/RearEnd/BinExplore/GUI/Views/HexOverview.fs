@@ -328,9 +328,7 @@ type private HexOverviewLayer() =
         |> min (max 0.0 (height - overlayRect.Height))
       let targetStartOffset =
         int64 (floor (targetTop / height * float state.Document.Length))
-      let targetRow =
-        targetStartOffset / int64 (max 1 state.View.BytesPerRow)
-      this.Dispatcher(HexdumpPaneMsg(SetScrollRow targetRow))
+      this.Dispatcher(SetTopFileOffset targetStartOffset)
     else
       ()
 

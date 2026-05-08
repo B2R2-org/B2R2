@@ -47,37 +47,25 @@ let private navButton model isSelected (icon: IView) (tooltip: string) onClick =
     ToolTip.tip tooltip
   ]
 
-let private cfgMenuIconView model =
+let private menuIconView iconSource model =
   Image.create [
-    Image.source (IconAssets.cfgIcon model)
+    Image.source (iconSource model)
     Image.width 16.0
     Image.height 16.0
     Image.stretch Stretch.Uniform
   ]
 
-let private binaryMenuIconView model =
-  Image.create [
-    Image.source (IconAssets.binaryIcon model)
-    Image.width 16.0
-    Image.height 16.0
-    Image.stretch Stretch.Uniform
-  ]
+let private cfgMenuIconView model =
+  menuIconView IconAssets.cfgIcon model
+
+let private linearMenuIconView model =
+  menuIconView IconAssets.linearIcon model
+
+let private hexdumpMenuIconView model =
+  menuIconView IconAssets.binaryIcon model
 
 let private sectionMenuIconView model =
-  Image.create [
-    Image.source (IconAssets.listIcon model)
-    Image.width 16.0
-    Image.height 16.0
-    Image.stretch Stretch.Uniform
-  ]
-
-let private hexdumpNavButtonView model dispatch =
-  navButton
-    model
-    (fun _ -> false)
-    (binaryMenuIconView model)
-    "Hexdump"
-    (fun _ -> dispatch OpenHexdumpTab)
+  menuIconView IconAssets.listIcon model
 
 let private functionNavButtonView model dispatch =
   navButton
@@ -86,6 +74,22 @@ let private functionNavButtonView model dispatch =
     (cfgMenuIconView model)
     "Functions and CFGs"
     (fun _ -> dispatch (SelectWorkspacePanel FunctionPanel))
+
+let private linearNavButtonView model dispatch =
+  navButton
+    model
+    (fun wp -> false)
+    (linearMenuIconView model)
+    "Linear view"
+    (fun _ -> dispatch OpenLinearViewTab)
+
+let private hexdumpNavButtonView model dispatch =
+  navButton
+    model
+    (fun _ -> false)
+    (hexdumpMenuIconView model)
+    "Hexdump"
+    (fun _ -> dispatch OpenHexdumpTab)
 
 let private sectionNavButtonView model dispatch =
   navButton
@@ -117,8 +121,9 @@ let private sideMenuView model dispatch =
             StackPanel.orientation Orientation.Vertical
             StackPanel.horizontalAlignment HorizontalAlignment.Center
             StackPanel.children [
-              hexdumpNavButtonView model dispatch
               functionNavButtonView model dispatch
+              linearNavButtonView model dispatch
+              hexdumpNavButtonView model dispatch
               sectionNavButtonView model dispatch
               sideMenuSeparatorView model
             ]
@@ -147,6 +152,8 @@ let private tabContentView tokenContextProvider pane model dispatch =
   match pane.ActiveTab with
   | Some { Content = CFGContent _ } ->
     CFGContent.view tokenContextProvider pane model dispatch
+  | Some { Content = LinearContent } ->
+    LinearContent.view pane model dispatch
   | Some { Content = HexContent } ->
     HexContent.view pane model dispatch
   | Some { Content = SectionContent } ->

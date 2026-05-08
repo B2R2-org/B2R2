@@ -45,6 +45,9 @@ type Message =
   /// Message to open the shared hexdump in a tab, or activate it if already
   /// open.
   | OpenHexdumpTab
+  /// Message to open the shared linear view in a tab, or activate it if already
+  /// open.
+  | OpenLinearViewTab
   /// Message to pin a tab, making it persist.
   | PinCFGTab of fn: FunctionItem
   /// Message to close a specific tab.
@@ -72,8 +75,13 @@ type Message =
   /// Message to route CFG view updates (e.g., zoom, pan, token selection) to
   /// the current active CFG tab.
   | CFGPaneMsg of CFGPaneMessage
+  /// Message to route linear-view-specific updates to the shared linear state.
+  | LinearPaneMsg of LinearPaneMessage
   /// Message to route hexdump-specific updates to the shared hexdump state.
   | HexdumpPaneMsg of HexdumpPaneMessage
+  /// Message to set the top visible file offset for synchronized view
+  /// navigation.
+  | SetTopFileOffset of offset: int64
   /// Message to register a custom theme.
   | RegisterCustomTheme of ThemeId * Theme
   /// Message to set the current UI theme mode.
@@ -82,8 +90,8 @@ type Message =
   | UpdateFunctionFilter of string
   /// Message to switch the visible workspace panel.
   | SelectWorkspacePanel of WorkspacePanel
-  /// Message to enable or disable CFG-to-hexdump synchronization.
-  | SetHexSyncEnabled of bool
+  /// Message to enable or disable CFG-to-views synchronization.
+  | SetSyncEnabled of bool
   /// Message to update the status message in the status bar.
   | UpdateStatusMsg of string
   /// Message to update the file offset context (range and section) shown in the
@@ -140,6 +148,16 @@ and CFGPaneMessage =
   /// ID and the desired activation state.
   | ToggleMinimap of tabID: string * activate: bool
 
+/// Represents messages that affect the active linear view tab.
+and LinearPaneMessage =
+  /// Handles a scroll change emitted by the UI scroll viewer, carrying the
+  /// current absolute offset and the raw delta.
+  | HandleScrollChanged of offsetY: float * deltaY: float
+  /// Sets the vertical scroll offset of the linear view in pixels.
+  | SetScrollOffset of offsetY: float
+  /// Updates the measured font metrics of the linear view.
+  | UpdateFontMetrics of charWidth: float * rowHeight: float
+
 /// Represents messages that affect the active hexdump tab.
 and HexdumpPaneMessage =
   /// Replaces the current hexdump highlight spans.
@@ -156,8 +174,6 @@ and HexdumpPaneMessage =
   /// Sets the vertical scroll offset of a specific hexdump view in pixels.
   /// Use this for programmatic jumps such as "go to address".
   | SetScrollOffset of offsetY: float
-  /// Sets the vertical scroll row of a specific hexdump view.
-  | SetScrollRow of row: int64
   /// Scrolls a specific hexdump view by a row delta.
   | ScrollRows of delta: int64
   /// Sets whether the address column is shown for a specific hexdump view.

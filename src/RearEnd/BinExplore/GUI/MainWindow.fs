@@ -59,7 +59,9 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       CFGIsPanning = false
       CFGPressedPointer = None
       CFGPanPointer = None
-      HexSyncEnabled = true
+      LinearDocument = None
+      LinearViewState = None
+      SyncEnabled = true
       Hexdump = None
       OffsetSnapshot = OffsetSnapshot.empty
       StatusBarState = EmptyStatus }, Elmish.Cmd.none
@@ -78,6 +80,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Update.openCFGTab arbiter model fnItem
     | OpenHexdumpTab ->
       Update.openHexdumpTab arbiter model
+    | OpenLinearViewTab ->
+      Update.openLinearViewTab arbiter model
     | PinCFGTab fnItem ->
       Update.pinCFGTab arbiter model fnItem
     | FocusPane paneID ->
@@ -102,8 +106,12 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Update.updateCFGLoad arbiter model cfgMsg
     | CFGPaneMsg cfgMsg ->
       Update.updateCFG arbiter model cfgMsg
+    | LinearPaneMsg msg ->
+      Update.updateLinear arbiter model msg
     | HexdumpPaneMsg msg ->
       Update.updateHexdump arbiter model msg
+    | SetTopFileOffset offset ->
+      Update.setTopFileOffset arbiter model offset
     | RegisterCustomTheme(themeId, theme) ->
       Update.registerCustomTheme model themeId theme
     | SetThemeMode mode ->
@@ -112,8 +120,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Update.updateFunctionFilter model text
     | SelectWorkspacePanel panel ->
       Update.selectWorkspacePanel arbiter model panel
-    | SetHexSyncEnabled enabled ->
-      Update.setHexSyncEnabled arbiter model enabled
+    | SetSyncEnabled enabled ->
+      Update.setSyncEnabled arbiter model enabled
     | UpdateStatusMsg msg ->
       Update.updateStatusMsg model msg
     | UpdateStatusOffsetCtx(sOff, eOff, sects) ->

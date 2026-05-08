@@ -535,7 +535,7 @@ module private MinimapToggle = begin
 
 end
 
-module private HexSyncToggle = begin
+module private SyncToggle = begin
 
   let view model dispatch =
     let isEnabled = Model.tryGetFocusedActiveTab model |> Option.isSome
@@ -543,17 +543,17 @@ module private HexSyncToggle = begin
       [ ToggleButton.width 26.0
         ToggleButton.height ToolbarHeight
         ToggleButton.padding (4.0, 0.0)
-        ToggleButton.isChecked model.HexSyncEnabled
+        ToggleButton.isChecked model.SyncEnabled
         ToggleButton.isEnabled isEnabled
         ToggleButton.background model.Theme.Panel.Background
         ToggleButton.foreground model.Theme.Text.Primary
         ToggleButton.borderBrush model.Theme.Panel.Border
         ToggleButton.borderThickness 1.0
         ToggleButton.cornerRadius 4.0
-        ToggleButton.onChecked (fun _ -> dispatch (SetHexSyncEnabled true))
-        ToggleButton.onUnchecked (fun _ -> dispatch (SetHexSyncEnabled false))
+        ToggleButton.onChecked (fun _ -> dispatch (SetSyncEnabled true))
+        ToggleButton.onUnchecked (fun _ -> dispatch (SetSyncEnabled false))
         ToggleButton.content (mkIcon (IconAssets.syncIcon model) 20.0) ]
-      |> View.withKey "hex-sync-toggle"
+      |> View.withKey "sync-toggle"
 
 end
 
@@ -573,7 +573,7 @@ let view (model: Model) (dispatch: Message -> unit) =
           SearchBox.view model dispatch
           CFGKindSelect.view model dispatch
           MinimapToggle.view model dispatch
-          HexSyncToggle.view model dispatch
+          SyncToggle.view model dispatch
         ]
       ]
     )
