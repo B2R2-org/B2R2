@@ -368,7 +368,7 @@ let private addressTokenMenuItems fnAddr provider model dispatch word =
             compactMonoActionMenuItem
               model
               (fun () -> dispatch (OpenCFGTab fnItem))
-              $"Jump to {callerText}"
+              $"Call from {callerText}"
           | None ->
             compactMonoMenuItemWithString model dispatch callerText None
     else
@@ -458,16 +458,12 @@ let private tokenContextMenu fnAddr provider model dispatch word token words =
     ]
   ]
 
-let private onTokenPressed dispatch token e =
-  let props = (e: PointerPressedEventArgs).GetCurrentPoint(null).Properties
-  if props.IsRightButtonPressed then
-    Some token
-    |> SetSelectedToken
-    |> CFGPaneMsg
-    |> dispatch
-    e.Handled <- true
-  else
-    ()
+let private onTokenPressed dispatch token (e: TappedEventArgs) =
+  Some token
+  |> SetSelectedToken
+  |> CFGPaneMsg
+  |> dispatch
+  e.Handled <- true
 
 let inline private isSelectableToken word =
   match word.AsmWordKind with
@@ -489,7 +485,7 @@ let private tokenView fnAddr provider model dispatch selected word token words =
       Control.contextMenu (
         tokenContextMenu fnAddr provider model dispatch word token words
       )
-      Control.onPointerPressed (onTokenPressed dispatch token)
+      Control.onTapped (onTokenPressed dispatch token)
       Border.child (tokenTextView model word)
     ]
 
