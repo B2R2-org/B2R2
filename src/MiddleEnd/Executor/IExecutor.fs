@@ -24,6 +24,113 @@
 
 namespace B2R2.MiddleEnd.Executor
 
-/// Represents an executor that executes a given IR function.
-type IExecutor =
-  abstract Run: unit -> unit
+open B2R2
+
+/// Represents an execution point observed by a user-defined stop predicate.
+type ExecutionPoint<'State> =
+  { /// Current instruction address.
+    Address: Addr
+    /// Number of executed machine instructions.
+    InstructionCount: int
+    /// Executor-specific state.
+    State: 'State }
+
+/// Represents a condition for stopping execution.
+type StopCondition<'State> =
+  /// Stop before executing the instruction at the given address.
+  | StopAtAddress of addr: Addr
+  /// Stop when a function return is observed.
+  | StopAtReturn
+  /// Stop when a call instruction is observed.
+  | StopAtCall
+  /// Stop after executing the given number of machine instructions.
+  | StopAfterInstructionCount of count: int
+  /// Stop when expression or statement evaluation fails.
+  | StopOnEvaluationError
+  /// Stop when a user-provided predicate holds.
+  | StopWhen of predicate: (ExecutionPoint<'State> -> bool)
+
+/// Represents the reason why execution stopped.
+type StopReason =
+  /// Execution reached an address requested by a stop condition.
+  | StoppedAtAddress of addr: Addr
+  /// Execution reached a function return.
+  | Returned of addr: Addr
+  /// Execution reached a call instruction. The target may be unknown.
+  | StoppedAtCall of callSite: Addr * target: Addr option
+  /// Execution reached the configured instruction limit.
+  | InstructionLimitReached of addr: Addr * limit: int
+  /// Evaluation failed with a B2R2 error case.
+  | EvaluationError of addr: Addr * error: ErrorCase
+  /// A user-defined stop predicate requested termination.
+  | UserStopConditionMet of addr: Addr
+  /// No instruction could be fetched or lifted at the given address.
+  | InvalidInstructionAddress of addr: Addr
+
+/// Represents the initial memory used for creating an execution state.
+type InitialMemory<'Memory> =
+  /// Start with an empty memory.
+  | EmptyMemory
+  /// Use the given executor-specific memory.
+  | PreinitializedMemory of memory: 'Memory
+  /// Back memory reads by the BinFile associated with a BinHandle.
+  | BinFileBackedMemory
+
+/// Represents options for creating an execution state.
+type StateCreationOptions<'Memory, 'Value> =
+  { /// Initial memory.
+    Memory: InitialMemory<'Memory>
+    /// Initial registers.
+    Registers: (RegisterID * 'Value)[] }
+
+/// Represents how the executor should handle call instructions.
+type CallPolicy =
+  /// Stop when any call instruction is observed.
+  | StopAtCalls
+  /// Follow direct calls whose target is inside the current binary.
+  | FollowDirectInternalCalls
+  /// Invoke registered call hooks when a matching target is observed.
+  | UseCallHooks
+
+/// Represents how the executor should handle undefined values produced by IR.
+type UndefinedValuePolicy =
+  /// Treat undefined values as evaluation failures.
+  | StopOnUndefinedValue
+  /// Ignore writes whose right-hand side is undefined.
+  | IgnoreUndefinedWrites
+  /// Let each concrete or symbolic executor preserve its own undefined value.
+  | PreserveUndefinedValues
+
+/// Represents common executor configuration.
+type ExecutionOptions<'State> =
+  { /// Call-handling policy.
+    Calls: CallPolicy
+    /// Undefined-value handling policy.
+    UndefinedValues: UndefinedValuePolicy
+    /// Default stop conditions used by Run.
+    StopConditions: StopCondition<'State> list }
+
+/// Represents the result of an execution run.
+type ExecutionResult<'State> =
+  { /// Reason why execution stopped.
+    StopReason: StopReason
+    /// Final instruction address or program counter.
+    FinalAddress: Addr
+    /// Number of executed machine instructions.
+    InstructionCount: int
+    /// Final executor-specific state.
+    State: 'State }
+
+/// Represents an executor that executes binary code from a given address.
+type IExecutor<'State, 'Memory, 'Value> =
+  /// Create an executor-specific initial state with default options.
+  abstract CreateState: unit -> 'State
+
+  /// Create an executor-specific initial state with the given options.
+  abstract CreateState: options: StateCreationOptions<'Memory, 'Value> -> 'State
+
+  /// Execute from the given start address with the provided state.
+  abstract Run:
+    start: Addr *
+    state: 'State *
+    stopConditions: StopCondition<'State> list -> ExecutionResult<'State>
