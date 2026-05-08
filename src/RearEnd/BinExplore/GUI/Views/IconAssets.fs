@@ -88,6 +88,18 @@ let private binaryIconLightSource: IImage =
     SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/binary-light.svg"
   svgImage :> IImage
 
+let private disasmIconDarkSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/disasm-dark.svg"
+  svgImage :> IImage
+
+let private disasmIconLightSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/disasm-light.svg"
+  svgImage :> IImage
+
 let private popoutIconDarkSource: IImage =
   let svgImage = SvgImage()
   svgImage.Source <-
@@ -110,6 +122,18 @@ let private syncIconLightSource: IImage =
   let svgImage = SvgImage()
   svgImage.Source <-
     SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/sync-light.svg"
+  svgImage :> IImage
+
+let private linearIconDarkSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/linear-dark.svg"
+  svgImage :> IImage
+
+let private linearIconLightSource: IImage =
+  let svgImage = SvgImage()
+  svgImage.Source <-
+    SvgSource.Load "avares://B2R2.RearEnd.BinExplore/Assets/linear-light.svg"
   svgImage :> IImage
 
 let private isBrightPrimaryText model =
@@ -154,6 +178,12 @@ let binaryIcon model =
   if isBrightPrimaryText model then binaryIconDarkSource
   else binaryIconLightSource
 
+/// Returns the appropriate disassembly icon based on the current theme mode
+/// and text color.
+let disasmIcon model =
+  if isBrightPrimaryText model then disasmIconDarkSource
+  else disasmIconLightSource
+
 /// Returns the appropriate popout icon based on the current theme mode and text
 /// color.
 let popoutIcon model =
@@ -165,3 +195,9 @@ let popoutIcon model =
 let syncIcon model =
   if isBrightPrimaryText model then syncIconDarkSource
   else syncIconLightSource
+
+/// Returns the appropriate linear icon based on the current theme mode and text
+/// color.
+let linearIcon model =
+  if isBrightPrimaryText model then linearIconDarkSource
+  else linearIconLightSource
