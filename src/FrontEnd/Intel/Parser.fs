@@ -234,12 +234,26 @@ type IntelParser(wordSz, reader) =
       v <= modRM && modRM <= v + 7uy
     | _ -> true
 
+  let tryFindSpecialCaseIndex (phlp: ParsingHelper) (ins: InstructionCore[]) =
+    let isPauseCase =
+      phlp.VEXInfo.IsNone
+      && phlp.OpcodeClass = OpcodeClass.Normal OneByte
+      && Prefix.hasREPZ phlp.Prefixes
+      && uint8 ins[0].OpcodeByte = 0x90uy
+    if isPauseCase then
+      ins
+      |> Array.tryFindIndex (fun insCore ->
+        insCore.Opcode = Opcode.PAUSE
+        && insCore.PrefixType = Mandatory F3)
+    else None
+
   let findMatchingSubIndex (span: ByteSpan) (phlp: ParsingHelper)
     (ins: InstructionCore[]) =
     let insLen = ins.Length
     if insLen = 0 then failwith "Error: Instruction core array is empty."
     else
-      let mutable idx = -1
+      let mutable idx =
+        tryFindSpecialCaseIndex phlp ins |> Option.defaultValue -1
       let mutable i = 0
       while i < insLen && idx = -1 do
         let insCore = ins[i]
