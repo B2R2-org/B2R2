@@ -5,6 +5,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>B2R2 graph library.</Description>
   </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="IVertex.fs" />
     <Compile Include="Edge.fs" />
@@ -37,6 +38,7 @@
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
   </ItemGroup>

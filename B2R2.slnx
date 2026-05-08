@@ -47,6 +47,7 @@
   <Project Path="src/MiddleEnd/API/B2R2.MiddleEnd.API.fsproj" />
   <Project Path="src/MiddleEnd/BinGraph.Tests/B2R2.MiddleEnd.BinGraph.Tests.fsproj" />
   <Project Path="src/MiddleEnd/BinGraph/B2R2.MiddleEnd.BinGraph.fsproj" />
+  <Project Path="src/MiddleEnd/Executor/B2R2.MiddleEnd.Executor.fsproj" />
   <Project Path="src/MiddleEnd/ConcEval/B2R2.MiddleEnd.ConcEval.fsproj" />
   <Project Path="src/MiddleEnd/ControlFlowAnalysis/B2R2.MiddleEnd.ControlFlowAnalysis.fsproj" />
   <Project Path="src/MiddleEnd/ControlFlowGraph/B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
