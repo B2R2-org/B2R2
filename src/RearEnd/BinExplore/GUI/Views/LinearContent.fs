@@ -80,11 +80,14 @@ type private CachedRowVisual =
   | FullWidthHeaderVisual of title: FormattedText
 
 let private addressDigits (doc: LinearDocument) =
-  let maxAddr =
-    if doc.LinearTotalLength <= 0L then
-      doc.LinearBaseAddress
-    else
-      doc.LinearBaseAddress + uint64 (doc.LinearTotalLength - 1L)
+  let mutable maxAddr = doc.LinearBaseAddress
+  for item in doc.LinearItems do
+    let loc = LinearItem.location item
+    let lastAddr =
+      if loc.ItemLength <= 0 then loc.Address
+      else loc.Address + uint64 (loc.ItemLength - 1)
+    if lastAddr > maxAddr then maxAddr <- lastAddr
+    else ()
   max 1 (maxAddr.ToString("X").Length)
 
 let private offsetDigits (doc: LinearDocument) =
@@ -140,6 +143,21 @@ let private toRowVisualModel = function
       { Kind = AsciiCell
         Text = asciiOfByte value
         Role = SecondaryText }
+    ]
+  | Disassembly(loc, disasm) ->
+    Cells [
+      { Kind = OffsetCell
+        Text = $"off+0x{loc.Offset:X}"
+        Role = SecondaryText }
+      { Kind = AddressCell
+        Text = $"0x{loc.Address:X}"
+        Role = PrimaryText }
+      { Kind = KindCell
+        Text = "(i)"
+        Role = SecondaryText }
+      { Kind = ValueCell
+        Text = disasm
+        Role = PrimaryText }
     ]
   | SectionHeader(_, name, _) ->
     FullWidthHeader $"Section {name}"
@@ -325,10 +343,13 @@ type private LinearRenderLayer() =
 
   override this.OnPropertyChanged change =
     base.OnPropertyChanged change
-    if change.Property = stateProperty
+    if change.Property = docProperty
+       || change.Property = stateProperty
        || change.Property = themeProperty
        || change.Property = startIndexProperty
        || change.Property = endIndexProperty then
+      if change.Property = docProperty then clearCache ()
+      else ()
       this.InvalidateVisual()
     else
       ()

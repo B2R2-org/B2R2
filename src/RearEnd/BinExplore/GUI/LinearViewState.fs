@@ -51,7 +51,8 @@ module LinearViewState =
     fontSize * SectionHeaderFontScale
 
   let private measureItemHeight defaultItemHeight = function
-    | RawByte _ ->
+    | RawByte _
+    | Disassembly _ ->
       max defaultItemHeight 1.0
     | SectionHeader _ ->
       max 1.0

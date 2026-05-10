@@ -74,7 +74,9 @@ let tryGetVisibleFileOffsetRange doc state =
     | Some startItem, Some endItem ->
       let startLoc = LinearItem.location startItem
       let endLoc = LinearItem.location endItem
-      Some(startLoc.Offset, endLoc.Offset)
+      let endOffset =
+        endLoc.Offset + max 0 (endLoc.ItemLength - 1)
+      Some(startLoc.Offset, endOffset)
     | _ ->
       None
   | _ ->

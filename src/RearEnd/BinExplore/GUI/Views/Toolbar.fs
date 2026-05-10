@@ -201,6 +201,9 @@ module private SearchBox = begin
   let formatSectionLabel addr (matched: string) =
     $"[section] 0x{addr:X}: {matched}"
 
+  let formatDisasmLabel addr (matched: string) =
+    $"[disasm] 0x{addr:X}: {matched}"
+
   let appendLinearItemResults results input (items: ResizeArray<LinearItem>) =
     let inputByte = (input: string)[0] |> byte
     for item in items do
@@ -217,6 +220,14 @@ module private SearchBox = begin
           let result =
             { Label = formatSectionLabel idx secName
               Target = FileRange(idx, 1L) }
+          appendResult results result
+        else
+          ()
+      | Disassembly(loc, disasm) ->
+        if disasm.Contains(input, StringComparison.OrdinalIgnoreCase) then
+          let result =
+            { Label = formatDisasmLabel loc.Address disasm
+              Target = FileRange(int64 loc.Offset, int64 loc.ItemLength) }
           appendResult results result
         else
           ()
@@ -476,10 +487,24 @@ module private SearchBox = begin
     | Builtin Light -> "light"
     | _ -> "custom"
 
+  let getSearchSourceKey model =
+    match Model.tryGetFocusedActiveTab model with
+    | Some { Content = LinearContent } ->
+      if Option.isSome model.LinearDocument then "linear-ready"
+      else "linear-none"
+    | Some { Content = HexContent } ->
+      if Option.isSome model.Hexdump then "hex-ready"
+      else "hex-none"
+    | Some { Content = CFGContent(_, Loaded _) } -> "cfg-ready"
+    | Some { Content = CFGContent _ } -> "cfg-loading"
+    | Some { Content = SectionContent } -> "section"
+    | None -> "none"
+
   let view model dispatch =
     let tabID = getTabID model
     let themeKey = getThemeKey model
-    Component.create ($"search-view-{tabID}-{themeKey}", fun ctx ->
+    let sourceKey = getSearchSourceKey model
+    Component.create ($"search-view-{tabID}-{themeKey}-{sourceKey}", fun ctx ->
       let localState =
         { SearchText = ctx.useState ""
           IsOpen = ctx.useState false

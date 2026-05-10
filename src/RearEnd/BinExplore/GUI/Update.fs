@@ -91,12 +91,10 @@ let private startLinearAnalysisCmd arbiter filePath sections fontSize =
   cmdOfSub (fun dispatch ->
     Async.Start(async {
       try
-        match API.getFile arbiter with
-        | Ok file ->
-          let doc =
-            LinearDocument.ofBytes file.BaseAddress file.RawBytes sections
-          let state =
-            LinearViewState.ofDocument doc fontSize
+        match (arbiter: Arbiter<_, _>).GetBinaryBrew() with
+        | Ok brew ->
+          let doc = LinearDocument.load brew sections
+          let state = LinearViewState.ofDocument doc fontSize
           dispatchOnUi dispatch (LinearAnalysisCompleted(filePath, doc, state))
         | _ ->
           dispatchOnUi dispatch
@@ -336,7 +334,7 @@ let private buildLoadedBinaryState (arbiter: Arbiter<_, _>) model filePath =
   | _ ->
     [], [], None, EmptyStatus, None
 
-let openBinaryCompleted (arbiter: Arbiter<_, _>) (model: Model) filePath =
+let openBinaryCompleted arbiter (model: Model) filePath =
   if model.LoadingBinaryPath = Some filePath then
     let fns, sections, hexdump, statusBar, initialTab =
       buildLoadedBinaryState arbiter model filePath
