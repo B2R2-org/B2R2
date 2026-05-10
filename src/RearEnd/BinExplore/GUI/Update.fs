@@ -297,53 +297,58 @@ let private buildHexAnnotations
   | _ ->
     state
 
+let private buildLoadedBinaryState (arbiter: Arbiter<_, _>) model filePath =
+  match API.getFunctions arbiter true,
+        API.getSections arbiter,
+        API.getFile arbiter with
+  | Ok fns, Ok secs, Ok file ->
+    let sections =
+      secs |> Array.map SectionItem.make |> List.ofArray
+    let numDigits = (file.ISA.WordSize |> WordSize.toByteWidth) * 2
+    let doc =
+      LinearDocument.ofBytes file.BaseAddress file.RawBytes sections
+    let linearState =
+      LinearViewState.ofDocument doc model.Theme.Font.Monospace.FontSize
+      |> initializeLinearView model doc
+    let hexdump =
+      HexdumpState.ofBytes
+        file.BaseAddress
+        file.RawBytes
+        numDigits
+        model.Theme.Font.Monospace.FontSize
+      |> buildHexAnnotations model.Theme file
+      |> initializeHexdumpTabView model
+    let initialTab = Some(Tab.ofLinearView ())
+    fns |> Array.map (FunctionItem.ofFunction file) |> List.ofArray,
+    sections,
+    Some doc,
+    Some linearState,
+    Some hexdump,
+    FileLoaded(filePath, FileFormat.toString file.Format),
+    initialTab
+  | _ ->
+    [], [], None, None, None, EmptyStatus, None
+
 let openBinaryCompleted (arbiter: Arbiter<_, _>) (model: Model) filePath =
   if model.LoadingBinaryPath = Some filePath then
-    let functions, sections, linearDoc, linearViewState, hexdump, statusBar =
-      match API.getFunctions arbiter true,
-            API.getSections arbiter,
-            API.getFile arbiter with
-      | Ok fns, Ok secs, Ok file ->
-        let sections =
-          secs |> Array.map SectionItem.make |> List.ofArray
-        let numDigits = (file.ISA.WordSize |> WordSize.toByteWidth) * 2
-        let doc =
-          LinearDocument.ofBytes file.BaseAddress file.RawBytes sections
-        let linearViewState =
-          LinearViewState.ofDocument doc model.Theme.Font.Monospace.FontSize
-          |> initializeLinearView model doc
-        let hexdump =
-          HexdumpState.ofBytes
-            file.BaseAddress
-            file.RawBytes
-            numDigits
-            model.Theme.Font.Monospace.FontSize
-          |> buildHexAnnotations model.Theme file
-          |> initializeHexdumpTabView model
-        fns |> Array.map (FunctionItem.ofFunction file) |> List.ofArray,
-        sections,
-        Some doc,
-        Some linearViewState,
-        Some hexdump,
-        FileLoaded(filePath, FileFormat.toString file.Format)
-      | _ ->
-        [], [], None, None, None, EmptyStatus
+    let fns, sections, linearDoc, linearState, hexdump, statusBar, initialTab =
+      buildLoadedBinaryState arbiter model filePath
     Model.mapFocusedPane
       (fun pane ->
         { pane with
-            ActiveTab = None
-            OpenTabs = []
+            ActiveTab = initialTab
+            OpenTabs = [ match initialTab with Some tab -> tab | None -> () ]
             PreviewTab = None })
       { model with
           LoadedBinary = Some filePath
           LoadingBinaryPath = None
-          Functions = functions
+          Functions = fns
           Sections = sections
           FunctionFilter = ""
           DraggingTab = None
           WorkspacePanel = FunctionPanel
           LinearDocument = linearDoc
-          LinearViewState = linearViewState
+          LinearViewState = linearState
           Hexdump = hexdump
           OffsetSnapshot = OffsetSnapshot.empty
           StatusBarState = statusBar },
