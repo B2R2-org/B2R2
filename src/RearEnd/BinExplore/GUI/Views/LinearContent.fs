@@ -50,11 +50,13 @@ let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
 type private LinearLayoutMetrics =
   { PaddingX: float
     AddressX: float
+    KindX: float
     HexX: float
     AsciiX: float }
 
 type private CachedRowVisual =
   | RawByteVisual of address: FormattedText
+                   * kind: FormattedText
                    * hex: FormattedText
                    * ascii: FormattedText
   | SectionHeaderVisual of title: FormattedText
@@ -72,10 +74,13 @@ let private computeLayoutMetrics doc (state: LinearViewState) =
   let paddingX = 10.0
   let addrWidth = charWidth * float (addressDigits doc + 2)
   let addressX = paddingX
-  let hexX = addressX + addrWidth + charWidth * 2.0
+  let kindX = addressX + addrWidth + charWidth * 2.0
+  let kindWidth = charWidth * 4.0
+  let hexX = kindX + kindWidth + charWidth * 2.0
   let asciiX = hexX + charWidth * 4.0
   { PaddingX = paddingX
     AddressX = addressX
+    KindX = kindX
     HexX = hexX
     AsciiX = asciiX }
 
@@ -137,12 +142,17 @@ type private LinearRenderLayer() =
             else "."
           RawByteVisual(
             makeFormattedText fontFamily fontSize secondary addr,
+            makeFormattedText fontFamily fontSize secondary "byte",
             makeFormattedText fontFamily fontSize foreground hex,
             makeFormattedText fontFamily fontSize secondary ascii
           )
         | SectionHeader(_, name) ->
           SectionHeaderVisual(
-            makeFormattedText fontFamily fontSize foreground $"section {name}"
+            makeFormattedText
+              fontFamily
+              (LinearViewState.sectionHeaderFontSize fontSize)
+              foreground
+              $"Section {name}"
           )
       textCache[index] <- txt
       txt
@@ -247,16 +257,28 @@ type private LinearRenderLayer() =
         let rowHeight = LinearViewState.itemHeight state i
         let txt = getOrCreateText doc state theme i
         match txt with
-        | RawByteVisual(addressTxt, hexTxt, asciiTxt) ->
+        | RawByteVisual(addressTxt, kindTxt, hexTxt, asciiTxt) ->
           let textY = rowTop + max 0.0 ((rowHeight - addressTxt.Height) / 2.0)
           ctx.DrawText(addressTxt, Point(layout.AddressX, textY))
+          ctx.DrawText(kindTxt, Point(layout.KindX, textY))
           ctx.DrawText(hexTxt, Point(layout.HexX, textY))
           ctx.DrawText(asciiTxt, Point(layout.AsciiX, textY))
         | SectionHeaderVisual titleTxt ->
           let titleY = rowTop + max 0.0 ((rowHeight - titleTxt.Height) / 2.0)
-          let brush = Brush.Parse theme.Panel.Border
+          let headerBg = Brush.Parse theme.Panel.AltBackground
+          let borderBrush = Brush.Parse theme.Panel.Border
+          let borderPen = Pen(borderBrush, 1.0)
+          ctx.FillRectangle(
+            headerBg,
+            Rect(0.0, rowTop, this.Bounds.Width, rowHeight)
+          )
           ctx.DrawLine(
-            Pen(brush, 1.0),
+            borderPen,
+            Point(layout.PaddingX, rowTop),
+            Point(this.Bounds.Width - layout.PaddingX, rowTop)
+          )
+          ctx.DrawLine(
+            borderPen,
             Point(layout.PaddingX, rowTop + rowHeight - 1.0),
             Point(this.Bounds.Width - layout.PaddingX, rowTop + rowHeight - 1.0)
           )

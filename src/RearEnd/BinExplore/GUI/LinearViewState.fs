@@ -44,16 +44,23 @@ and LinearLayoutIndex =
 
 [<RequireQualifiedAccess>]
 module LinearViewState =
+  let [<Literal>] private SectionHeaderFontScale = 1.1
+  let [<Literal>] private SectionHeaderVerticalPadding = 8.0
+
+  let sectionHeaderFontSize fontSize =
+    fontSize * SectionHeaderFontScale
+
   let private measureItemHeight defaultItemHeight = function
     | RawByte _ ->
       max defaultItemHeight 1.0
     | SectionHeader _ ->
-      max (defaultItemHeight * 2.0) (defaultItemHeight + 10.0)
+      max 1.0
+        (defaultItemHeight * SectionHeaderFontScale
+         + SectionHeaderVerticalPadding)
 
-  let private buildLayoutIndex
-      (items: ResizeArray<LinearItem>) defaultItemHeight =
-    let heights = ResizeArray<float>(items.Count)
-    let tops = ResizeArray<float>(items.Count)
+  let private buildLayoutIndex (items: ResizeArray<_>) defaultItemHeight =
+    let heights = ResizeArray<float> items.Count
+    let tops = ResizeArray<float> items.Count
     let mutable top = 0.0
     for i = 0 to items.Count - 1 do
       let itemHeight = measureItemHeight defaultItemHeight items[i]
