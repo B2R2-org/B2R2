@@ -59,7 +59,7 @@ module private SearchBox = begin
 
   type SearchTarget =
     | CFGPoint of gx: float * gy: float
-    | HexRange of byteIndex: int64 * length: int64
+    | FileRange of byteIndex: int64 * length: int64
 
   type SearchResult =
     { Label: string
@@ -71,25 +71,25 @@ module private SearchBox = begin
       SelectedIdx: IWritable<int>
       ScrollViewer: IWritable<ScrollViewer option> }
 
-  let getTabID model =
-    match Model.tryGetFocusedActiveTab model with
-    | Some { ID = id; Content = CFGContent(_, Loaded _) } -> $"{id}-loaded"
-    | Some { ID = id } -> $"{id}"
-    | None -> "none"
-
-  let getThemeKey model =
-    match model.ThemeMode with
-    | Builtin Dark -> "dark"
-    | Builtin Light -> "light"
-    | _ -> "custom"
-
   let inline asmLineToString (asmLine: AsmWord[]) =
     asmLine
     |> Array.fold (fun acc word -> acc + word.AsmWordValue) ""
 
-  let appendResult acc item =
-    if List.length acc < MaxSearchResults then item :: acc
-    else acc
+  let searchCFGTab (g: VisGraph) (input: string) =
+    [| for v in g.Vertices do
+         let cx = v.VData.Coordinate.X + v.VData.Width / 2.0
+         let cy = v.VData.Coordinate.Y + v.VData.Height / 2.0
+         for line in (v.VData :> IVisualizable).Visualize() do
+           let s = asmLineToString line
+           if s.Contains(input, StringComparison.OrdinalIgnoreCase) then
+             { Label = s
+               Target = CFGPoint(cx, cy) }
+           else
+             () |]
+
+  let appendResult (acc: ResizeArray<SearchResult>) item =
+    if acc.Count < MaxSearchResults then acc.Add item
+    else ()
 
   let normalizeHexDigits (input: string) =
     input
@@ -146,6 +146,17 @@ module private SearchBox = begin
   let formatAddressLabel addr =
     $"[addr] 0x{addr:X}"
 
+  let appendAddressResult results input baseAddress totalLength =
+    match tryParseHexAddress input with
+    | Some addr when totalLength > 0L
+                     && addr >= baseAddress
+                     && addr < baseAddress + uint64 totalLength ->
+      let byteIndex = int64 (addr - baseAddress)
+      appendResult results
+      <| { Label = formatAddressLabel addr
+           Target = FileRange(byteIndex, 1L) }
+    | _ -> ()
+
   let formatHexLabel addr (matched: byte[]) =
     let hexText =
       matched
@@ -156,52 +167,68 @@ module private SearchBox = begin
   let formatAsciiLabel addr (matched: string) =
     $"[ascii] 0x{addr:X}: {matched}"
 
-  let searchHexdump doc (input: string) =
-    let input = input.Trim()
-    let mutable results = []
-    match tryParseHexAddress input with
-    | Some addr when addr >= doc.BaseAddress
-                     && addr < doc.BaseAddress + uint64 doc.Length ->
-      let byteIndex = int64 (addr - doc.BaseAddress)
-      results <-
-        appendResult results
-          { Label = formatAddressLabel addr
-            Target = HexRange(byteIndex, 1L) }
-    | _ -> ()
+  let appendHexPatternResults results input baseAddress bytes =
     match tryParseHexBytes input with
     | Some needle ->
-      for idx in findBytePattern doc.Bytes needle do
-        let addr = doc.BaseAddress + uint64 idx
+      for idx in findBytePattern bytes needle do
+        let addr = baseAddress + uint64 idx
         let result =
           { Label = formatHexLabel addr needle
-            Target = HexRange(idx, int64 needle.Length) }
-        results <- appendResult results result
+            Target = FileRange(idx, int64 needle.Length) }
+        appendResult results result
     | None -> ()
+
+  let appendAsciiPatternResults results input baseAddress bytes =
     match tryGetAsciiBytes input with
     | Some asciiBytes when asciiBytes.Length > 0 ->
-      for idx in findBytePattern doc.Bytes asciiBytes do
-        let addr = doc.BaseAddress + uint64 idx
+      for idx in findBytePattern bytes asciiBytes do
+        let addr = baseAddress + uint64 idx
         let result =
           { Label = formatAsciiLabel addr input
-            Target = HexRange(idx, int64 asciiBytes.Length) }
-        results <- appendResult results result
+            Target = FileRange(idx, int64 asciiBytes.Length) }
+        appendResult results result
     | _ -> ()
-    results |> List.rev |> List.truncate MaxSearchResults |> List.toArray
 
-  let searchCFGTab (g: VisGraph) (input: string) =
-    [| for v in g.Vertices do
-         let cx = v.VData.Coordinate.X + v.VData.Width / 2.0
-         let cy = v.VData.Coordinate.Y + v.VData.Height / 2.0
-         for line in (v.VData :> IVisualizable).Visualize() do
-           let s = asmLineToString line
-           if s.Contains(input, StringComparison.OrdinalIgnoreCase) then
-             { Label = s
-               Target = CFGPoint(cx, cy) }
-           else
-             () |]
+  let searchHexdump doc (input: string) =
+    let input = input.Trim()
+    let results = ResizeArray<SearchResult>()
+    appendAddressResult results input doc.BaseAddress doc.Length
+    appendHexPatternResults results input doc.BaseAddress doc.Bytes
+    appendAsciiPatternResults results input doc.BaseAddress doc.Bytes
+    results
+    |> Seq.toArray
 
-  let searchHexTab state (input: string) =
-    searchHexdump state.Document input
+  let formatSectionLabel addr (matched: string) =
+    $"[section] 0x{addr:X}: {matched}"
+
+  let appendLinearItemResults results input (items: ResizeArray<LinearItem>) =
+    let inputByte = (input: string)[0] |> byte
+    for item in items do
+      match item with
+      | RawByte(loc, b) when String.length input = 1 && b = inputByte ->
+        let idx = loc.Offset
+        let result =
+          { Label = formatHexLabel idx [| b |]
+            Target = FileRange(idx, 1L) }
+        appendResult results result
+      | SectionHeader(loc, secName) ->
+        if secName.Contains(input, StringComparison.OrdinalIgnoreCase) then
+          let idx = loc.Offset
+          let result =
+            { Label = formatSectionLabel idx secName
+              Target = FileRange(idx, 1L) }
+          appendResult results result
+        else
+          ()
+      | _ -> ()
+
+  let searchLinearView (doc: LinearDocument) (input: string) =
+    let input = input.Trim()
+    let res = ResizeArray<SearchResult>()
+    appendAddressResult res input doc.LinearBaseAddress doc.LinearTotalLength
+    appendLinearItemResults res input doc.LinearItems
+    res
+    |> Seq.toArray
 
   let search model (input: string) =
     if String.IsNullOrWhiteSpace input then
@@ -212,7 +239,11 @@ module private SearchBox = begin
         searchCFGTab loaded.Graph input
       | Some { Content = HexContent } ->
         model.Hexdump
-        |> Option.map (fun state -> searchHexTab state input)
+        |> Option.map (fun state -> searchHexdump state.Document input)
+        |> Option.defaultValue [||]
+      | Some { Content = LinearContent } ->
+        model.LinearDocument
+        |> Option.map (fun doc -> searchLinearView doc input)
         |> Option.defaultValue [||]
       | _ ->
         [||]
@@ -237,7 +268,7 @@ module private SearchBox = begin
     match target with
     | CFGPoint(cx, cy) ->
       dispatch (CFGPaneMsg(JumpPan(cx, cy)))
-    | HexRange(byteIndex, length) ->
+    | FileRange(byteIndex, length) ->
       dispatch (HexdumpPaneMsg(JumpToRange(byteIndex, length)))
     localState.IsOpen.Set false
     localState.SelectedIdx.Set -1
@@ -352,10 +383,10 @@ module private SearchBox = begin
       StackPanel.horizontalAlignment HorizontalAlignment.Right
       StackPanel.children [
         if hasSearchText then
-          yield searchClearView model dispatch localState :> IView
+          yield searchClearView model dispatch localState
         else
           ()
-        yield searchIconView model :> IView
+        yield searchIconView model
       ]
     ]
 
@@ -432,6 +463,18 @@ module private SearchBox = begin
       Popup.onClosed (fun _ -> localState.IsOpen.Set false)
       Popup.child (searchResultListView model dispatch localState results)
     ]
+
+  let getTabID model =
+    match Model.tryGetFocusedActiveTab model with
+    | Some { ID = id; Content = CFGContent(_, Loaded _) } -> $"{id}-loaded"
+    | Some { ID = id } -> $"{id}"
+    | None -> "none"
+
+  let getThemeKey model =
+    match model.ThemeMode with
+    | Builtin Dark -> "dark"
+    | Builtin Light -> "light"
+    | _ -> "custom"
 
   let view model dispatch =
     let tabID = getTabID model

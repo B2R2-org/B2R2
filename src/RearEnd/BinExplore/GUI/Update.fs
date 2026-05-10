@@ -936,6 +936,7 @@ let updateHexdump arbiter (model: Model) msg =
           ScrollOffsetY = float nextScrollRow * nextView.RowHeight })
   | JumpToRange(byteIndex, length) ->
     let model = setHexdumpSelection arbiter model None
+    let model = syncLinearWithFileOffset model (int byteIndex)
     jumpHexdump model byteIndex length
   | HandleScrollChanged(offsetY, deltaY) ->
     let currentGuard = getActiveHexScrollGuard model
