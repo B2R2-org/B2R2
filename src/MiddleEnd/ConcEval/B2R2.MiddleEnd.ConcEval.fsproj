@@ -19,6 +19,7 @@
     <Compile Include="EvalUtils.fs" />
     <Compile Include="SafeEvaluator.fs" />
     <Compile Include="Evaluator.fs" />
+    <Compile Include="ConcStateHelper.fs" />
     <Compile Include="ConcExecutor.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
