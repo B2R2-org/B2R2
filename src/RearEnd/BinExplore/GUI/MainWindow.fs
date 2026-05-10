@@ -74,6 +74,10 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
       Update.openBinaryCompleted arbiter model filePath
     | OpenBinaryFailed(filePath, reason) ->
       Update.openBinaryFailed model filePath reason
+    | LinearAnalysisCompleted(filePath, doc, state) ->
+      Update.linearAnalysisCompleted arbiter model filePath doc state
+    | LinearAnalysisFailed(filePath, reason) ->
+      Update.linearAnalysisFailed model filePath reason
     | CloseWorkspace ->
       Update.closeWorkspace arbiter model
     | OpenCFGTab fnItem ->

@@ -36,6 +36,10 @@ type Message =
   | OpenBinaryCompleted of string
   /// Message emitted when binary loading failed.
   | OpenBinaryFailed of path: string * reason: string
+  /// Message emitted when linear-view analysis has finished.
+  | LinearAnalysisCompleted of path: string * LinearDocument * LinearViewState
+  /// Message emitted when linear-view analysis failed.
+  | LinearAnalysisFailed of path: string * reason: string
   /// Message to close the current workspace.
   | CloseWorkspace
   /// Message to focus a specific pane by its ID.

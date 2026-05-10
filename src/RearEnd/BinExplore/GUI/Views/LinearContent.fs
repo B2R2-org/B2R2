@@ -399,13 +399,13 @@ let private bodyView model dispatch doc (state: LinearViewState) =
     ScrollViewer.content (visibleItemsView model doc state)
   ] :> IView
 
-let private emptyStateView model =
+let private emptyStateView model text =
   Border.create [
     Border.background model.Theme.Window.Background
     Border.borderThickness 0.0
     Border.child (
       TextBlock.create [
-        TextBlock.text "No linear items loaded."
+        TextBlock.text text
         TextBlock.foreground model.Theme.Text.Muted
         TextBlock.fontSize 13.0
         TextBlock.margin 10.0
@@ -417,5 +417,7 @@ let view pane model dispatch =
   match pane.ActiveTab, model.LinearDocument, model.LinearViewState with
   | Some { Content = LinearContent }, Some doc, Some state ->
     bodyView model dispatch doc state
+  | Some { Content = LinearContent }, _, _ when model.LoadedBinary.IsSome ->
+    emptyStateView model "Analyzing linear view..."
   | _ ->
-    emptyStateView model
+    emptyStateView model "No linear items loaded."

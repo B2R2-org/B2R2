@@ -87,6 +87,24 @@ let private startLoadWorkflowCmd (arbiter: Arbiter<_, _>) (filePath: string) =
         dispatchOnUi dispatch (OpenBinaryFailed(filePath, ex.Message))
     }))
 
+let private startLinearAnalysisCmd arbiter filePath sections fontSize =
+  cmdOfSub (fun dispatch ->
+    Async.Start(async {
+      try
+        match API.getFile arbiter with
+        | Ok file ->
+          let doc =
+            LinearDocument.ofBytes file.BaseAddress file.RawBytes sections
+          let state =
+            LinearViewState.ofDocument doc fontSize
+          dispatchOnUi dispatch (LinearAnalysisCompleted(filePath, doc, state))
+        | _ ->
+          dispatchOnUi dispatch
+          <| LinearAnalysisFailed(filePath, "Failed to get loaded file.")
+      with ex ->
+        dispatchOnUi dispatch (LinearAnalysisFailed(filePath, ex.Message))
+    }))
+
 let openBinary (arbiter: Arbiter<_, _>) model filePath =
   if String.IsNullOrWhiteSpace filePath then
     model, Elmish.Cmd.none
@@ -133,8 +151,7 @@ let private clampLinearScrollState linearViewState =
 let private initializeLinearView model linearDoc (state: LinearViewState) =
   let viewportWidth, viewportHeight = (model: Model).ContentViewportSize
   let fontSize =
-    if state.FontSize > 0.0 then
-      state.FontSize
+    if state.FontSize > 0.0 then state.FontSize
     else model.Theme.Font.Monospace.FontSize
   let charWidth, rowHeight =
     if state.CharWidth > 0.0 && state.RowHeight > 0.0 then
@@ -305,54 +322,57 @@ let private buildLoadedBinaryState (arbiter: Arbiter<_, _>) model filePath =
     let sections =
       secs |> Array.map SectionItem.make |> List.ofArray
     let numDigits = (file.ISA.WordSize |> WordSize.toByteWidth) * 2
-    let doc =
-      LinearDocument.ofBytes file.BaseAddress file.RawBytes sections
-    let linearState =
-      LinearViewState.ofDocument doc model.Theme.Font.Monospace.FontSize
-      |> initializeLinearView model doc
+    let fontSize = model.Theme.Font.Monospace.FontSize
     let hexdump =
-      HexdumpState.ofBytes
-        file.BaseAddress
-        file.RawBytes
-        numDigits
-        model.Theme.Font.Monospace.FontSize
+      HexdumpState.ofBytes file.BaseAddress file.RawBytes numDigits fontSize
       |> buildHexAnnotations model.Theme file
       |> initializeHexdumpTabView model
     let initialTab = Some(Tab.ofLinearView ())
     fns |> Array.map (FunctionItem.ofFunction file) |> List.ofArray,
     sections,
-    Some doc,
-    Some linearState,
     Some hexdump,
     FileLoaded(filePath, FileFormat.toString file.Format),
     initialTab
   | _ ->
-    [], [], None, None, None, EmptyStatus, None
+    [], [], None, EmptyStatus, None
 
 let openBinaryCompleted (arbiter: Arbiter<_, _>) (model: Model) filePath =
   if model.LoadingBinaryPath = Some filePath then
-    let fns, sections, linearDoc, linearState, hexdump, statusBar, initialTab =
+    let fns, sections, hexdump, statusBar, initialTab =
       buildLoadedBinaryState arbiter model filePath
-    Model.mapFocusedPane
-      (fun pane ->
-        { pane with
-            ActiveTab = initialTab
-            OpenTabs = [ match initialTab with Some tab -> tab | None -> () ]
-            PreviewTab = None })
-      { model with
-          LoadedBinary = Some filePath
-          LoadingBinaryPath = None
-          Functions = fns
-          Sections = sections
-          FunctionFilter = ""
-          DraggingTab = None
-          WorkspacePanel = FunctionPanel
-          LinearDocument = linearDoc
-          LinearViewState = linearState
-          Hexdump = hexdump
-          OffsetSnapshot = OffsetSnapshot.empty
-          StatusBarState = statusBar },
-      Elmish.Cmd.none
+    let nextModel =
+      Model.mapFocusedPane
+        (fun pane ->
+          { pane with
+              ActiveTab = initialTab
+              OpenTabs = [ match initialTab with
+                           | Some tab -> tab
+                           | None -> () ]
+              PreviewTab = None })
+        { model with
+            LoadedBinary = Some filePath
+            LoadingBinaryPath = None
+            Functions = fns
+            Sections = sections
+            FunctionFilter = ""
+            DraggingTab = None
+            WorkspacePanel = FunctionPanel
+            LinearDocument = None
+            LinearViewState = None
+            Hexdump = hexdump
+            OffsetSnapshot = OffsetSnapshot.empty
+            StatusBarState = statusBar }
+    let cmd =
+      match initialTab with
+      | Some _ ->
+        startLinearAnalysisCmd
+          arbiter
+          filePath
+          sections
+          model.Theme.Font.Monospace.FontSize
+      | None ->
+        Elmish.Cmd.none
+    nextModel, cmd
   else
     model, Elmish.Cmd.none
 
@@ -474,6 +494,26 @@ let private syncOffsetSnapshotWithActiveTab arbiter (model: Model) =
     { Selection = tryGetSelectionOffsetRangeInfo arbiter model
       Viewport = tryGetViewportOffsetRangeInfo arbiter model }
   { model with OffsetSnapshot = snapshot }
+
+let linearAnalysisCompleted arbiter model filePath doc state =
+  if model.LoadedBinary = Some filePath then
+    let state = initializeLinearView model doc state
+    { model with
+        LinearDocument = Some doc
+        LinearViewState = Some state }
+    |> syncOffsetSnapshotWithActiveTab arbiter,
+    Elmish.Cmd.none
+  else
+    model, Elmish.Cmd.none
+
+let linearAnalysisFailed model filePath reason =
+  if model.LoadedBinary = Some filePath then
+    { model with
+        StatusBarState =
+          MessageOnly $"Failed to analyze linear view: {reason}" },
+    Elmish.Cmd.none
+  else
+    model, Elmish.Cmd.none
 
 let private replaceTabByID tabID newTab oldTab =
   if oldTab.ID = tabID then newTab
