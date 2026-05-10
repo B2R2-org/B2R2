@@ -52,8 +52,8 @@ type ConcExecutor(hdl: BinHandle) =
     st.InitializeContext(start, opts.Registers)
     st
 
-  let mkResult reason addr n st =
-    { StopReason = reason
+  let mkResult reasons addr n st =
+    { StopReasons = reasons
       FinalAddress = addr
       InstructionCount = n
       State = st }
@@ -166,11 +166,11 @@ type ConcExecutor(hdl: BinHandle) =
     try lifter.LiftInstruction ins |> Ok
     with _ -> Error ErrorCase.ParsingFailure
 
-  let checkStopConditions (st: EvalState) addr n
-                          (opts: ExecutionOptions<EvalState>) =
+  let collectPreInstrStopReasons (st: EvalState) addr n
+                               (opts: ExecutionOptions<EvalState>) =
     let point = { Address = addr; InstructionCount = n; State = st }
     opts.StopConditions
-    |> List.tryPick (function
+    |> List.choose (function
       | StopAtAddress stopAddr when stopAddr = addr ->
         Some(StoppedAtAddress addr)
       | StopAfterInstructionCount limit when n >= limit ->
@@ -179,6 +179,12 @@ type ConcExecutor(hdl: BinHandle) =
         Some(UserStopConditionMet addr)
       | _ -> None)
 
+  let collectInstrStopReasons opts addr (ins: IInstruction) =
+    [ if stopAtRet opts ins then Returned addr
+      if stopAtCall opts ins then
+        let target = tryGetDirectTarget ins
+        StoppedAtCall(addr, target) ]
+
   let evalInstr opts (st: EvalState) stmts =
     st.PrepareInstrEval stmts
     evalStmts opts st stmts
@@ -186,30 +192,27 @@ type ConcExecutor(hdl: BinHandle) =
   let run start (st: EvalState) (opts: ExecutionOptions<EvalState>) =
     let rec loop n =
       let addr = st.PC
-      match checkStopConditions st addr n opts with
-      | Some reason -> mkResult reason addr n st
-      | None ->
-        match tryParseInstruction addr with
-        | Error _ -> mkResult (InvalidInstructionAddress addr) addr n st
-        | Ok ins ->
-          if stopAtRet opts ins then mkResult (Returned addr) addr n st
-          elif stopAtCall opts ins then
-            let target = tryGetDirectTarget ins
-            mkResult (StoppedAtCall(addr, target)) addr n st
-          else
-            handleCallHooks opts ins
-            match tryLiftInstruction ins with
-            | Error _ -> mkResult (InvalidInstructionAddress addr) addr n st
-            | Ok stmts ->
-              match evalInstr opts st stmts with
-              | EvalOk -> loop (n + 1)
-              | EvalError e ->
-                let reason = EvaluationError(addr, e)
-                mkResult reason st.PC n st
-              | EvalUndef -> mkResult (UndefinedValue addr) st.PC n st
-              | EvalSideEffect eff ->
-                let reason = StoppedAtSideEffect(addr, eff)
-                mkResult reason st.PC n st
+      let reasons = collectPreInstrStopReasons st addr n opts
+      match tryParseInstruction addr with
+      | Error _ ->
+        mkResult (reasons @ [ InvalidInstructionAddress addr ]) addr n st
+      | Ok ins ->
+        let reasons = reasons @ collectInstrStopReasons opts addr ins
+        if List.isEmpty reasons then
+          handleCallHooks opts ins
+          match tryLiftInstruction ins with
+          | Error _ ->
+            mkResult [ InvalidInstructionAddress addr ] addr n st
+          | Ok stmts ->
+            match evalInstr opts st stmts with
+            | EvalOk -> loop (n + 1)
+            | EvalError e ->
+              mkResult [ EvaluationError(addr, e) ] st.PC n st
+            | EvalUndef -> mkResult [ UndefinedValue addr ] st.PC n st
+            | EvalSideEffect eff ->
+              mkResult [ StoppedAtSideEffect(addr, eff) ] st.PC n st
+        else
+          mkResult reasons addr n st
     st.PC <- start
     loop 0
 

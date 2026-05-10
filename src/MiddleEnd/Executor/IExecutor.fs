@@ -119,8 +119,8 @@ type ExecutionOptions<'State> =
 
 /// Represents the result of an execution run.
 type ExecutionResult<'State> =
-  { /// Reason why execution stopped.
-    StopReason: StopReason
+  { /// Reasons why execution stopped.
+    StopReasons: StopReason list
     /// Final instruction address or program counter.
     FinalAddress: Addr
     /// Number of executed machine instructions.
