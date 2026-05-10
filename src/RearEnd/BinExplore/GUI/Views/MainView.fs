@@ -58,12 +58,6 @@ let private menuIconView iconSource model =
 let private cfgMenuIconView model =
   menuIconView IconAssets.cfgIcon model
 
-let private linearMenuIconView model =
-  menuIconView IconAssets.linearIcon model
-
-let private hexdumpMenuIconView model =
-  menuIconView IconAssets.binaryIcon model
-
 let private sectionMenuIconView model =
   menuIconView IconAssets.listIcon model
 
@@ -74,22 +68,6 @@ let private functionNavButtonView model dispatch =
     (cfgMenuIconView model)
     "Functions and CFGs"
     (fun _ -> dispatch (SelectWorkspacePanel FunctionPanel))
-
-let private linearNavButtonView model dispatch =
-  navButton
-    model
-    (fun wp -> false)
-    (linearMenuIconView model)
-    "Linear view"
-    (fun _ -> dispatch OpenLinearViewTab)
-
-let private hexdumpNavButtonView model dispatch =
-  navButton
-    model
-    (fun _ -> false)
-    (hexdumpMenuIconView model)
-    "Hexdump"
-    (fun _ -> dispatch OpenHexdumpTab)
 
 let private sectionNavButtonView model dispatch =
   navButton
@@ -122,8 +100,6 @@ let private sideMenuView model dispatch =
             StackPanel.horizontalAlignment HorizontalAlignment.Center
             StackPanel.children [
               functionNavButtonView model dispatch
-              linearNavButtonView model dispatch
-              hexdumpNavButtonView model dispatch
               sectionNavButtonView model dispatch
               sideMenuSeparatorView model
             ]

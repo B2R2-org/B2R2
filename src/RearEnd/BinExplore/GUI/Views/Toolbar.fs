@@ -499,6 +499,39 @@ module private SearchBox = begin
 
 end
 
+module private ViewTabActions = begin
+
+  let actionButton model icon (tooltip: string) onClick =
+    Button.create [
+      Button.width 26.0
+      Button.height ToolbarHeight
+      Button.padding (4.0, 0.0)
+      Button.background model.Theme.Panel.Background
+      Button.foreground model.Theme.Text.Primary
+      Button.borderBrush model.Theme.Panel.Border
+      Button.borderThickness 1.0
+      Button.cornerRadius 4.0
+      Button.content (mkIcon icon 20.0)
+      Button.onClick onClick
+      ToolTip.tip tooltip
+    ]
+
+  let linearView model dispatch =
+    actionButton
+      model
+      (IconAssets.linearIcon model)
+      "Open linear view"
+      (fun _ -> dispatch OpenLinearViewTab)
+
+  let hexdumpView model dispatch =
+    actionButton
+      model
+      (IconAssets.binaryIcon model)
+      "Open hexdump view"
+      (fun _ -> dispatch OpenHexdumpTab)
+
+end
+
 module private CFGKindSelect = begin
 
   let getState model =
@@ -600,6 +633,14 @@ module private SyncToggle = begin
 
 end
 
+let private verticalSeparator model =
+  Separator.create [
+    Separator.width 1.0
+    Separator.height (ToolbarHeight - 6.0)
+    Separator.margin (4.0, 3.0, 4.0, 3.0)
+    Separator.background model.Theme.Panel.Border
+  ]
+
 /// The main toolbar view, which contains the search box and other controls.
 let view (model: Model) (dispatch: Message -> unit) =
   Border.create [
@@ -617,6 +658,9 @@ let view (model: Model) (dispatch: Message -> unit) =
           CFGKindSelect.view model dispatch
           MinimapToggle.view model dispatch
           SyncToggle.view model dispatch
+          verticalSeparator model
+          ViewTabActions.linearView model dispatch
+          ViewTabActions.hexdumpView model dispatch
         ]
       ]
     )
