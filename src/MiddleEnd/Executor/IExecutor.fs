@@ -63,6 +63,8 @@ type StopReason =
   | StoppedAtCall of callSite: Addr * target: Addr option
   /// Execution reached a side-effect statement.
   | StoppedAtSideEffect of addr: Addr * sideEffect: SideEffect
+  /// Execution stopped because an undefined value was observed.
+  | UndefinedValue of addr: Addr
   /// Execution reached the configured instruction limit.
   | InstructionLimitReached of addr: Addr * limit: int
   /// Evaluation failed with a B2R2 error case.
