@@ -211,7 +211,7 @@ module private SearchBox = begin
           { Label = formatHexLabel idx [| b |]
             Target = FileRange(idx, 1L) }
         appendResult results result
-      | SectionHeader(loc, secName) ->
+      | SectionHeader(loc, secName, false) ->
         if secName.Contains(input, StringComparison.OrdinalIgnoreCase) then
           let idx = loc.Offset
           let result =

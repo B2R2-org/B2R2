@@ -49,17 +49,35 @@ let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
 
 type private LinearLayoutMetrics =
   { PaddingX: float
+    OffsetX: float
     AddressX: float
     KindX: float
     HexX: float
     AsciiX: float }
 
+type private LinearCellKind =
+  | OffsetCell
+  | AddressCell
+  | KindCell
+  | ValueCell
+  | AsciiCell
+
+type private LinearTextRole =
+  | PrimaryText
+  | SecondaryText
+
+type private LinearCell =
+  { Kind: LinearCellKind
+    Text: string
+    Role: LinearTextRole }
+
+type private LinearRowVisualModel =
+  | Cells of LinearCell list
+  | FullWidthHeader of title: string
+
 type private CachedRowVisual =
-  | RawByteVisual of address: FormattedText
-                   * kind: FormattedText
-                   * hex: FormattedText
-                   * ascii: FormattedText
-  | SectionHeaderVisual of title: FormattedText
+  | CellRowVisual of cells: (LinearCellKind * FormattedText) list
+  | FullWidthHeaderVisual of title: FormattedText
 
 let private addressDigits (doc: LinearDocument) =
   let maxAddr =
@@ -69,20 +87,62 @@ let private addressDigits (doc: LinearDocument) =
       doc.LinearBaseAddress + uint64 (doc.LinearTotalLength - 1L)
   max 1 (maxAddr.ToString("X").Length)
 
+let private offsetDigits (doc: LinearDocument) =
+  let maxOffset =
+    if doc.LinearTotalLength <= 0L then 0L
+    else doc.LinearTotalLength - 1L
+  max 1 (maxOffset.ToString("X").Length)
+
 let private computeLayoutMetrics doc (state: LinearViewState) =
   let charWidth = max state.CharWidth 1.0
   let paddingX = 10.0
+  let offsetWidth = charWidth * float (offsetDigits doc + 6)
   let addrWidth = charWidth * float (addressDigits doc + 2)
-  let addressX = paddingX
+  let offsetX = paddingX
+  let addressX = offsetX + offsetWidth + charWidth * 2.0
   let kindX = addressX + addrWidth + charWidth * 2.0
-  let kindWidth = charWidth * 4.0
+  let kindWidth = charWidth * 3.0
   let hexX = kindX + kindWidth + charWidth * 2.0
   let asciiX = hexX + charWidth * 4.0
   { PaddingX = paddingX
+    OffsetX = offsetX
     AddressX = addressX
     KindX = kindX
     HexX = hexX
     AsciiX = asciiX }
+
+let private cellX layout = function
+  | OffsetCell -> layout.OffsetX
+  | AddressCell -> layout.AddressX
+  | KindCell -> layout.KindX
+  | ValueCell -> layout.HexX
+  | AsciiCell -> layout.AsciiX
+
+let private asciiOfByte value =
+  if value >= 0x20uy && value <= 0x7Euy then string (char value)
+  else "."
+
+let private toRowVisualModel = function
+  | RawByte(loc, value) ->
+    Cells [
+      { Kind = OffsetCell
+        Text = $"off+0x{loc.Offset:X}"
+        Role = SecondaryText }
+      { Kind = AddressCell
+        Text = $"0x{loc.Address:X}"
+        Role = PrimaryText }
+      { Kind = KindCell
+        Text = "(b)"
+        Role = SecondaryText }
+      { Kind = ValueCell
+        Text = $"{value:X2}"
+        Role = PrimaryText }
+      { Kind = AsciiCell
+        Text = asciiOfByte value
+        Role = SecondaryText }
+    ]
+  | SectionHeader(_, name, _) ->
+    FullWidthHeader $"Section {name}"
 
 type private LinearRenderLayer() =
   inherit Control()
@@ -124,6 +184,10 @@ type private LinearRenderLayer() =
       ()
     fontFamily, fontSize, foreground, secondary
 
+  let textColor foreground secondary = function
+    | PrimaryText -> foreground
+    | SecondaryText -> secondary
+
   let getOrCreateText doc state theme index =
     match textCache.TryGetValue index with
     | true, txt -> txt
@@ -132,27 +196,21 @@ type private LinearRenderLayer() =
       let fontFamily, fontSize, foreground, secondary =
         ensureCacheSignature state theme
       let txt =
-        match item with
-        | RawByte(loc, value) ->
-          let addrHex = loc.Address.ToString("X")
-          let addr = $"0x{addrHex}"
-          let hex = $"{value:X2}"
-          let ascii =
-            if value >= 0x20uy && value <= 0x7Euy then string (char value)
-            else "."
-          RawByteVisual(
-            makeFormattedText fontFamily fontSize secondary addr,
-            makeFormattedText fontFamily fontSize secondary "byte",
-            makeFormattedText fontFamily fontSize foreground hex,
-            makeFormattedText fontFamily fontSize secondary ascii
-          )
-        | SectionHeader(_, name) ->
-          SectionHeaderVisual(
+        match toRowVisualModel item with
+        | Cells cells ->
+          cells
+          |> List.map (fun cell ->
+            let color = textColor foreground secondary cell.Role
+            cell.Kind,
+            makeFormattedText fontFamily fontSize color cell.Text)
+          |> CellRowVisual
+        | FullWidthHeader title ->
+          FullWidthHeaderVisual(
             makeFormattedText
               fontFamily
               (LinearViewState.sectionHeaderFontSize fontSize)
               foreground
-              $"Section {name}"
+              title
           )
       textCache[index] <- txt
       txt
@@ -234,6 +292,37 @@ type private LinearRenderLayer() =
       LinearRenderLayer.EndIndexProperty, value, ValueNone
     )
 
+  member _.DrawCellRow(ctx: DrawingContext, layout, rowTop, rowHeight, cells) =
+    let textHeight =
+      cells
+      |> List.map (fun (_, txt: FormattedText) -> txt.Height)
+      |> List.fold max 0.0
+    let textY = rowTop + max 0.0 ((rowHeight - textHeight) / 2.0)
+    for kind, txt in cells do
+      ctx.DrawText(txt, Point(cellX layout kind, textY))
+
+  member this.DrawFullWidthHeader(ctx, theme, layout, rowTop, rowHeight, txt) =
+    let titleHeight = (txt: FormattedText).Height
+    let titleY = rowTop + max 0.0 ((rowHeight - titleHeight) / 2.0)
+    let headerBg = Brush.Parse theme.Panel.AltBackground
+    let borderBrush = Brush.Parse theme.Panel.Border
+    let borderPen = Pen(borderBrush, 1.0)
+    (ctx: DrawingContext).FillRectangle(
+      headerBg,
+      Rect(0.0, rowTop, this.Bounds.Width, rowHeight)
+    )
+    ctx.DrawLine(
+      borderPen,
+      Point(layout.PaddingX, rowTop),
+      Point(this.Bounds.Width - layout.PaddingX, rowTop)
+    )
+    ctx.DrawLine(
+      borderPen,
+      Point(layout.PaddingX, rowTop + rowHeight - 1.0),
+      Point(this.Bounds.Width - layout.PaddingX, rowTop + rowHeight - 1.0)
+    )
+    ctx.DrawText(txt, Point(layout.PaddingX, titleY))
+
   override this.OnPropertyChanged change =
     base.OnPropertyChanged change
     if change.Property = stateProperty
@@ -257,32 +346,10 @@ type private LinearRenderLayer() =
         let rowHeight = LinearViewState.itemHeight state i
         let txt = getOrCreateText doc state theme i
         match txt with
-        | RawByteVisual(addressTxt, kindTxt, hexTxt, asciiTxt) ->
-          let textY = rowTop + max 0.0 ((rowHeight - addressTxt.Height) / 2.0)
-          ctx.DrawText(addressTxt, Point(layout.AddressX, textY))
-          ctx.DrawText(kindTxt, Point(layout.KindX, textY))
-          ctx.DrawText(hexTxt, Point(layout.HexX, textY))
-          ctx.DrawText(asciiTxt, Point(layout.AsciiX, textY))
-        | SectionHeaderVisual titleTxt ->
-          let titleY = rowTop + max 0.0 ((rowHeight - titleTxt.Height) / 2.0)
-          let headerBg = Brush.Parse theme.Panel.AltBackground
-          let borderBrush = Brush.Parse theme.Panel.Border
-          let borderPen = Pen(borderBrush, 1.0)
-          ctx.FillRectangle(
-            headerBg,
-            Rect(0.0, rowTop, this.Bounds.Width, rowHeight)
-          )
-          ctx.DrawLine(
-            borderPen,
-            Point(layout.PaddingX, rowTop),
-            Point(this.Bounds.Width - layout.PaddingX, rowTop)
-          )
-          ctx.DrawLine(
-            borderPen,
-            Point(layout.PaddingX, rowTop + rowHeight - 1.0),
-            Point(this.Bounds.Width - layout.PaddingX, rowTop + rowHeight - 1.0)
-          )
-          ctx.DrawText(titleTxt, Point(layout.PaddingX, titleY))
+        | CellRowVisual cells ->
+          this.DrawCellRow(ctx, layout, rowTop, rowHeight, cells)
+        | FullWidthHeaderVisual txt ->
+          this.DrawFullWidthHeader(ctx, theme, layout, rowTop, rowHeight, txt)
     | _ ->
       ()
 

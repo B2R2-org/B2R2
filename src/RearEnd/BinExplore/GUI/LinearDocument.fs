@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.BinExplore.GUI
 
 open B2R2
+open B2R2.FrontEnd.BinFile
 
 /// Represents the shared linear-view document data.
 type LinearDocument =
@@ -60,46 +61,53 @@ and LinearItem =
   /// semantic form.
   | RawByte of ILinearItemLocation * byte
   /// Represents a synthetic listing row marking the start of a section.
-  | SectionHeader of ILinearItemLocation * string
+  | SectionHeader of ILinearItemLocation * string * isNoBit: bool
 
 [<RequireQualifiedAccess>]
 module LinearDocument =
-  let private tryGetSectionLocation baseAddress (section: SectionItem) =
+  let private tryGetSectionLocAndNoBitInfo (section: SectionItem) =
     match section.Content with
     | ELF sh ->
-      Some { Address = section.Address
-             Offset = int sh.SecOffset
-             ItemLength = int sh.SecSize }
-    | Empty when section.Address >= baseAddress ->
-      Some { Address = section.Address
-             Offset = int (section.Address - baseAddress)
-             ItemLength = 0 }
+      Some(
+        { Address = section.Address
+          Offset = int sh.SecOffset
+          ItemLength = int sh.SecSize },
+        sh.SecType = ELF.SectionType.SHT_NOBITS
+      )
     | _ ->
       None
 
-  let private buildSectionHeaders baseAddress sections =
+  let private buildSectionHeadersByOffset sections =
     sections
-    |> Seq.choose (fun section ->
-      tryGetSectionLocation baseAddress section
-      |> Option.map (fun loc ->
-        let iloc: ILinearItemLocation = loc :> ILinearItemLocation
-        loc.Offset, SectionHeader(iloc, section.Name)))
-    |> Seq.groupBy fst
-    |> Seq.map (fun (offset, items) ->
-      offset, items |> Seq.map snd |> Seq.toList)
+    |> List.choose (fun section ->
+      tryGetSectionLocAndNoBitInfo section
+      |> Option.map (fun (loc, isNoBit) ->
+        let iloc = loc :> ILinearItemLocation
+        loc.Offset, SectionHeader(iloc, section.Name, isNoBit)))
+    |> List.groupBy fst
+    |> List.map (fun (offset, items) -> offset, items |> List.map snd)
     |> dict
 
-  let private buildItems baseAddress (bytes: byte[]) sections =
-    let headers = buildSectionHeaders baseAddress sections
-    let items = ResizeArray<LinearItem>(bytes.Length + headers.Count)
+  let private buildItems (bytes: byte[]) sections =
+    let secHeaders = buildSectionHeadersByOffset sections
+    let items = ResizeArray<LinearItem>(bytes.Length + secHeaders.Count)
+    let mutable baseAddress = 0UL
+    let mutable baseOffset = 0
     for i = 0 to bytes.Length - 1 do
-      match headers.TryGetValue i with
+      match secHeaders.TryGetValue i with
       | true, sectionHeaders ->
-        for header in sectionHeaders do items.Add header
+        for header in sectionHeaders do
+          items.Add header
+          match header with
+          | SectionHeader(loc, _, false) ->
+            baseAddress <- loc.Address
+            baseOffset <- loc.Offset
+          | _ ->
+            ()
       | _ ->
         ()
-      let location: ILinearItemLocation =
-        { Address = baseAddress + uint64 i
+      let location =
+        { Address = baseAddress + uint64 (i - baseOffset)
           Offset = i
           ItemLength = 1 }
       items.Add(RawByte(location, bytes[i]))
@@ -108,7 +116,7 @@ module LinearDocument =
   let ofBytes baseAddress (bytes: byte[]) sections =
     { LinearBaseAddress = baseAddress
       LinearTotalLength = bytes.LongLength
-      LinearItems = buildItems baseAddress bytes sections }
+      LinearItems = buildItems bytes sections }
 
   let tryGetItem doc index =
     if index < 0 || index >= doc.LinearItems.Count then
@@ -119,27 +127,13 @@ module LinearDocument =
   let itemOffset doc index =
     match tryGetItem doc index with
     | Some(RawByte(loc, _))
-    | Some(SectionHeader(loc, _)) ->
+    | Some(SectionHeader(loc, _, _)) ->
       Some loc.Offset
     | None ->
       None
 
 [<RequireQualifiedAccess>]
 module LinearItem =
-  let rawByte address offset byteValue =
-    let location: ILinearItemLocation =
-      { Address = address
-        Offset = offset
-        ItemLength = 1 }
-    RawByte(location, byteValue)
-
-  let sectionHeader address offset length name =
-    let location: ILinearItemLocation =
-      { Address = address
-        Offset = offset
-        ItemLength = length }
-    SectionHeader(location, name)
-
   let location = function
     | RawByte(loc, _) -> loc
-    | SectionHeader(loc, _) -> loc
+    | SectionHeader(loc, _, _) -> loc
