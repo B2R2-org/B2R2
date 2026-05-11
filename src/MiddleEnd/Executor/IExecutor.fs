@@ -40,8 +40,12 @@ type StopPoint<'State> =
 type StopCondition<'State> =
   /// Stop before executing the instruction at the given address.
   | StopAtAddress of addr: Addr
+  /// Stop after executing the instruction at the given address.
+  | StopAfterAddress of addr: Addr
   /// Stop when a function return is observed.
   | StopAtReturn
+  /// Stop after executing a function return.
+  | StopAfterReturn
   /// Stop when a call instruction is observed.
   | StopAtCall
   /// Stop when a side-effect statement is observed.
@@ -57,8 +61,12 @@ type StopCondition<'State> =
 type StopReason =
   /// Execution reached an address requested by a stop condition.
   | StoppedAtAddress of addr: Addr
+  /// Execution completed an instruction at the requested address.
+  | StoppedAfterAddress of addr: Addr
   /// Execution reached a function return.
-  | Returned of addr: Addr
+  | StoppedAtReturn of addr: Addr
+  /// Execution completed a function return.
+  | StoppedAfterReturn of addr: Addr
   /// Execution reached a call instruction. The target may be unknown.
   | StoppedAtCall of callSite: Addr * target: Addr option
   /// Execution reached a side-effect statement.

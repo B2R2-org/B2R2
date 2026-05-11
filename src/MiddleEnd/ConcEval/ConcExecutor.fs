@@ -85,10 +85,29 @@ type ConcExecutor(hdl: BinHandle) =
     opts.StopConditions
     |> List.exists (function StopAtSideEffect -> true | _ -> false)
 
-  let stopAtRet (opts: ExecutionOptions<EvalState>) (ins: IInstruction) =
-    ins.IsRET &&
+  let hasStopAtReturn (opts: ExecutionOptions<EvalState>) =
     opts.StopConditions
     |> List.exists (function StopAtReturn -> true | _ -> false)
+
+  let hasStopAfterReturn (opts: ExecutionOptions<EvalState>) =
+    opts.StopConditions
+    |> List.exists (function StopAfterReturn -> true | _ -> false)
+
+  let tryEvalBranchCondition (st: EvalState) = function
+    | CJmp(cond, _, _, _)
+    | InterCJmp(cond, _, _, _) ->
+      match SafeEvaluator.evalExpr st cond with
+      | Ok(Def v) -> Some(v = EvalUtils.tr)
+      | _ -> Some false
+    | _ -> None
+
+  let isConditionalBranchTaken st stmts =
+    Array.tryPick (tryEvalBranchCondition st) stmts
+    |> Option.defaultValue false
+
+  let isReturnTaken (st: EvalState) (ins: IInstruction) stmts =
+    ins.IsRET
+    && (not ins.IsCondBranch || isConditionalBranchTaken st stmts)
 
   let hasStopAtCall (opts: ExecutionOptions<EvalState>) =
     opts.StopConditions
@@ -179,11 +198,23 @@ type ConcExecutor(hdl: BinHandle) =
         Some(UserStopConditionMet addr)
       | _ -> None)
 
-  let collectInstrStopReasons opts addr (ins: IInstruction) =
-    [ if stopAtRet opts ins then Returned addr
+  let collectInstrStopReasons opts st addr (ins: IInstruction) stmts =
+    [ if hasStopAtReturn opts && isReturnTaken st ins stmts then
+        StoppedAtReturn addr
       if stopAtCall opts ins then
         let target = tryGetDirectTarget ins
         StoppedAtCall(addr, target) ]
+
+  let collectPostInstrStopReasons opts st addr (ins: IInstruction) stmts =
+    let reasons =
+      opts.StopConditions
+      |> List.choose (function
+        | StopAfterAddress stopAddr when stopAddr = addr ->
+          Some(StoppedAfterAddress addr)
+        | _ -> None)
+    if hasStopAfterReturn opts && isReturnTaken st ins stmts then
+      reasons @ [ StoppedAfterReturn addr ]
+    else reasons
 
   let evalInstr opts (st: EvalState) stmts =
     st.PrepareInstrEval stmts
@@ -197,22 +228,25 @@ type ConcExecutor(hdl: BinHandle) =
       | Error _ ->
         mkResult (reasons @ [ InvalidInstructionAddress addr ]) addr n st
       | Ok ins ->
-        let reasons = reasons @ collectInstrStopReasons opts addr ins
-        if List.isEmpty reasons then
-          handleCallHooks opts ins
-          match tryLiftInstruction ins with
-          | Error _ ->
-            mkResult [ InvalidInstructionAddress addr ] addr n st
-          | Ok stmts ->
+        match tryLiftInstruction ins with
+        | Error _ ->
+          mkResult (reasons @ [ InvalidInstructionAddress addr ]) addr n st
+        | Ok stmts ->
+          let reasons = reasons @ collectInstrStopReasons opts st addr ins stmts
+          let postReasons = collectPostInstrStopReasons opts st addr ins stmts
+          if List.isEmpty reasons then
+            handleCallHooks opts ins
             match evalInstr opts st stmts with
-            | EvalOk -> loop (n + 1)
+            | EvalOk ->
+              if List.isEmpty postReasons then loop (n + 1)
+              else mkResult postReasons st.PC (n + 1) st
             | EvalError e ->
               mkResult [ EvaluationError(addr, e) ] st.PC n st
             | EvalUndef -> mkResult [ UndefinedValue addr ] st.PC n st
             | EvalSideEffect eff ->
               mkResult [ StoppedAtSideEffect(addr, eff) ] st.PC n st
-        else
-          mkResult reasons addr n st
+          else
+            mkResult reasons addr n st
     st.PC <- start
     loop 0
 
