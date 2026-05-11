@@ -29,6 +29,7 @@ open System.Text
 open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.ConcEval.EvalUtils
+open B2R2.MiddleEnd.Executor
 
 /// Provides convenience helpers for a concrete EvalState.
 type ConcStateHelper(hdl: BinHandle, state: EvalState, ?os: OS) =
@@ -69,80 +70,77 @@ type ConcStateHelper(hdl: BinHandle, state: EvalState, ?os: OS) =
       raise (InvalidOperationException
         "Frame pointer register is unavailable.")
 
-  /// Exposes the underlying concrete evaluation state.
-  member _.RawState with get() = state
-
-  /// Target word-sized register type.
-  member _.WordType with get() = wordType
-
-  /// Target word size in bytes.
-  member _.WordBytes with get() = wordBytes
-
-  /// Current concrete stack pointer value.
-  member _.StackPointer with get() =
+  let getStackPointer () =
     getStackPointerRegister ()
     |> getDefinedReg
     |> BitVector.ToUInt64
 
-  /// Set the current concrete stack pointer value.
-  member _.SetStackPointer addr =
+  let setStackPointer addr =
     let sp = getStackPointerRegister ()
     state.SetReg(sp, wordValue addr)
 
-  /// Initialize the stack pointer with the given stack top.
-  member this.InitializeStack(stackTop: Addr) = this.SetStackPointer stackTop
+  let pushToStack value =
+    let addr = getStackPointer () - uint64 wordBytes
+    setStackPointer addr
+    state.Memory.Write(addr, value, endian)
+    addr
 
-  /// Initialize the frame pointer with the current stack pointer.
-  member this.InitializeFramePointer() =
+  let popFromStack () =
+    let addr = getStackPointer ()
+    let value =
+      match state.Memory.Read(addr, endian, wordType) with
+      | Ok v -> v
+      | Error _ -> raise (InvalidMemException addr)
+    setStackPointer (addr + uint64 wordBytes)
+    value
+
+  let initializeFramePointer () =
     let fp = getFramePointerRegister ()
-    state.SetReg(fp, wordValue this.StackPointer)
+    state.SetReg(fp, wordValue (getStackPointer ()))
 
-  /// Set a register value by name.
-  member _.SetRegister(name: string, value: BitVector) =
+  let setRegisterByName name value =
     state.SetReg(registerByName name, value)
 
-  /// Set a register value by register ID.
-  member _.SetRegister(rid: RegisterID, value: BitVector) =
+  let setRegister rid value =
     state.SetReg(rid, value)
 
-  /// Get a register value by name.
-  member _.GetRegister(name: string) = registerByName name |> getDefinedReg
+  let getRegisterByName name =
+    registerByName name |> getDefinedReg
 
-  /// Get a register value by register ID.
-  member _.GetRegister(rid: RegisterID) = getDefinedReg rid
+  let getRegister rid =
+    getDefinedReg rid
 
-  /// Set an integer or pointer argument for the supported concrete ABI.
-  member _.SetArgument(idx, value: BitVector) =
+  let zeroRegistersByName names =
+    let zero = BitVector.Zero wordType
+    names |> Array.iter (fun name -> setRegisterByName name zero)
+
+  let zeroRegisters rids =
+    let zero = BitVector.Zero wordType
+    rids |> Array.iter (fun rid -> setRegister rid zero)
+
+  let setArgument idx value =
     if idx < 0 then
       raise (ArgumentOutOfRangeException(nameof idx))
     let rid = CallingConvention.FunctionArgRegister(hdl, os, idx + 1)
     state.SetReg(rid, value)
 
-  /// Get the return value for the supported concrete ABI.
-  member _.GetReturnValue() =
+  let getReturnValue () =
     CallingConvention.ReturnRegister hdl |> getDefinedReg
 
-  /// Allocate a buffer from the current stack and return its address.
-  member this.AllocateStackBuffer size =
+  let allocateStackBuffer size =
     if size < 0 then
       raise (ArgumentOutOfRangeException(nameof size))
-    let addr = this.StackPointer - uint64 size
-    this.SetStackPointer addr
+    let addr = getStackPointer () - uint64 size
+    setStackPointer addr
     addr
 
   /// Push a word-sized pointer value to the stack and return its address.
-  member this.PushPointer(value: Addr) =
-    let addr = this.StackPointer - uint64 wordBytes
-    this.SetStackPointer addr
-    this.WritePointer(addr, value)
-    addr
+  member _.PushPointer(value: Addr) =
+    wordValue value |> pushToStack
 
   /// Pop a word-sized pointer value from the stack.
-  member this.PopPointer() =
-    let addr = this.StackPointer
-    let value = this.ReadPointer addr
-    this.SetStackPointer(addr + uint64 wordBytes)
-    value
+  member _.PopPointer() =
+    popFromStack () |> BitVector.ToUInt64
 
   /// Write a word-sized pointer value to memory.
   member _.WritePointer(addr: Addr, value: Addr) =
@@ -184,12 +182,40 @@ type ConcStateHelper(hdl: BinHandle, state: EvalState, ?os: OS) =
         idx <- idx + 1
     Encoding.ASCII.GetString(bytes.ToArray())
 
-  /// Clear selected registers to concrete zero.
-  member this.ZeroRegisters(names: string[]) =
-    let zero = BitVector.Zero wordType
-    names |> Array.iter (fun name -> this.SetRegister(name, zero))
+  interface IStateHelper<EvalState, BitVector> with
 
-  /// Clear selected registers to concrete zero.
-  member this.ZeroRegisters(rids: RegisterID[]) =
-    let zero = BitVector.Zero wordType
-    rids |> Array.iter (fun rid -> this.SetRegister(rid, zero))
+    member _.RawState = state
+
+    member _.WordType = wordType
+
+    member _.WordBytes = wordBytes
+
+    member _.StackPointer = getStackPointer ()
+
+    member _.SetStackPointer addr = setStackPointer addr
+
+    member _.InitializeStack stackTop = setStackPointer stackTop
+
+    member _.InitializeFramePointer() = initializeFramePointer ()
+
+    member _.SetRegister(name, value) = setRegisterByName name value
+
+    member _.SetRegister(rid, value) = setRegister rid value
+
+    member _.GetRegister name = getRegisterByName name
+
+    member _.GetRegister rid = getRegister rid
+
+    member _.ZeroRegisters names = zeroRegistersByName names
+
+    member _.ZeroRegisters rids = zeroRegisters rids
+
+    member _.SetArgument(idx, value) = setArgument idx value
+
+    member _.GetReturnValue() = getReturnValue ()
+
+    member _.AllocateStackBuffer size = allocateStackBuffer size
+
+    member _.PushToStack value = pushToStack value
+
+    member _.PopFromStack() = popFromStack ()
