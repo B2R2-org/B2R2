@@ -208,7 +208,10 @@ module API =
         |> Array.map (fun sh ->
           {| Addr = sh.SecAddr
              Name = sh.SecName
-             ELFSectionHeader = Some sh |})
+             IsLinkage = elf.IsPLT sh
+             ELFSectionHeader = Some sh
+             PESectionHeader = None
+             MachSectionHeader = None |})
         |> Ok
       | FileFormat.PEBinary ->
         let pe = brew.BinHandle.File :?> PEBinFile
@@ -216,7 +219,10 @@ module API =
         |> Array.map (fun sh ->
           {| Addr = uint64 sh.VirtualAddress
              Name = sh.Name
-             ELFSectionHeader = None |})
+             IsLinkage = false
+             ELFSectionHeader = None
+             PESectionHeader = Some sh
+             MachSectionHeader = None |})
         |> Ok
       | FileFormat.MachBinary ->
         let macho = brew.BinHandle.File :?> MachBinFile
@@ -224,7 +230,10 @@ module API =
         |> Array.map (fun sh ->
           {| Addr = sh.SecAddr
              Name = sh.SecName
-             ELFSectionHeader = None |})
+             IsLinkage = false
+             ELFSectionHeader = None
+             PESectionHeader = None
+             MachSectionHeader = Some sh |})
         |> Ok
       | _ ->
         Ok [||]

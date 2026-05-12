@@ -35,7 +35,7 @@ type SectionItem =
     Content: SectionContent }
 
 and SectionContent =
-  | ELF of ELF.SectionHeader
+  | ELF of ELF.SectionHeader * isLinkage: bool
   | Empty
 
 [<RequireQualifiedAccess>]
@@ -43,12 +43,15 @@ module SectionItem =
   /// Creates a SectionItem from address and name.
   let make (item: {| Addr: Addr
                      Name: string
-                     ELFSectionHeader: ELF.SectionHeader option |}) =
+                     IsLinkage: bool
+                     ELFSectionHeader: ELF.SectionHeader option
+                     PESectionHeader: PE.SectionHeader option
+                     MachSectionHeader: Mach.Section option |}) =
     match item.ELFSectionHeader with
     | Some sh ->
       { Address = item.Addr
         Name = if String.IsNullOrEmpty item.Name then "(null)" else item.Name
-        Content = ELF sh }
+        Content = ELF(sh, item.IsLinkage) }
     | None ->
       { Address = item.Addr
         Name = if String.IsNullOrEmpty item.Name then "(n/a)" else item.Name

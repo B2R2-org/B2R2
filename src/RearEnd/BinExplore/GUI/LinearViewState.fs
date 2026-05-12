@@ -45,19 +45,30 @@ and LinearLayoutIndex =
 [<RequireQualifiedAccess>]
 module LinearViewState =
   let [<Literal>] private SectionHeaderFontScale = 1.1
-  let [<Literal>] private SectionHeaderVerticalPadding = 8.0
+  let [<Literal>] private HeaderVerticalPadding = 8.0
+  let [<Literal>] ValueColumnByteCapacity = 8
 
   let sectionHeaderFontSize fontSize =
     fontSize * SectionHeaderFontScale
 
-  let private measureItemHeight defaultItemHeight = function
+  let private itemLineCount = function
+    | Disassembly(loc, _) when loc.ItemLength > ValueColumnByteCapacity ->
+      2.0
+    | _ ->
+      1.0
+
+  let private measureItemHeight defaultItemHeight item =
+    match item with
     | RawByte _
-    | Disassembly _ ->
-      max defaultItemHeight 1.0
+    | Disassembly _
+    | LinkageTableEntry _ ->
+      max defaultItemHeight 1.0 * itemLineCount item
     | SectionHeader _ ->
       max 1.0
         (defaultItemHeight * SectionHeaderFontScale
-         + SectionHeaderVerticalPadding)
+         + HeaderVerticalPadding)
+    | LinkageTableHeader _ ->
+      max 1.0 (defaultItemHeight + HeaderVerticalPadding)
 
   let private buildLayoutIndex (items: ResizeArray<_>) defaultItemHeight =
     let heights = ResizeArray<float> items.Count

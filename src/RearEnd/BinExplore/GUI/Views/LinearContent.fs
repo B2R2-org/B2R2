@@ -33,8 +33,10 @@ open Avalonia.FuncUI.Builder
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Media
+open B2R2.FrontEnd
 
 let [<Literal>] private OverscanPixels = 240.0
+let [<Literal>] private HeaderTopGap = 8.0
 
 let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
   let currentOffsetY =
@@ -47,20 +49,33 @@ let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
     ))
   )
 
-type private LinearLayoutMetrics =
+type private LinearCommonLayout =
   { PaddingX: float
     OffsetX: float
     AddressX: float
     KindX: float
-    HexX: float
-    AsciiX: float }
+    ValueX: float
+    DisasmX: float
+    CharWidth: float }
+
+type private LinearRowKind =
+  | RawByteRow
+  | DisassemblyRow
+  | LinkageRow
+
+type private LinearRowLayout =
+  | RawByteLayout of asciiX: float
+  | DisassemblyLayout of disasmX: float
+  | LinkageLayout of disasmX: float * symbolX: float
 
 type private LinearCellKind =
   | OffsetCell
   | AddressCell
   | KindCell
   | ValueCell
-  | AsciiCell
+  | DisasmCell
+  | RawAsciiCell
+  | LinkageNameCell
 
 type private LinearTextRole =
   | PrimaryText
@@ -69,15 +84,21 @@ type private LinearTextRole =
 type private LinearCell =
   { Kind: LinearCellKind
     Text: string
-    Role: LinearTextRole }
+    Role: LinearTextRole
+    Line: int }
+
+type private LinearHeaderKind =
+  | SectionHeaderVisual
+  | LinkageTableHeaderVisual
 
 type private LinearRowVisualModel =
-  | Cells of LinearCell list
-  | FullWidthHeader of title: string
+  | Cells of LinearRowKind * LinearCell list
+  | FullWidthHeader of LinearHeaderKind * title: string
 
 type private CachedRowVisual =
-  | CellRowVisual of cells: (LinearCellKind * FormattedText) list
-  | FullWidthHeaderVisual of title: FormattedText
+  | CellRowVisual of
+      LinearRowKind * cells: (LinearCellKind * int * FormattedText) list
+  | FullWidthHeaderVisual of LinearHeaderKind * title: FormattedText
 
 let private addressDigits (doc: LinearDocument) =
   let mutable maxAddr = doc.LinearBaseAddress
@@ -96,7 +117,10 @@ let private offsetDigits (doc: LinearDocument) =
     else doc.LinearTotalLength - 1L
   max 1 (maxOffset.ToString("X").Length)
 
-let private computeLayoutMetrics doc (state: LinearViewState) =
+let private valueColumnChars () =
+  max 2 (LinearViewState.ValueColumnByteCapacity * 3 - 1)
+
+let private computeCommonLayout doc (state: LinearViewState) =
   let charWidth = max state.CharWidth 1.0
   let paddingX = 10.0
   let offsetWidth = charWidth * float (offsetDigits doc + 6)
@@ -105,62 +129,125 @@ let private computeLayoutMetrics doc (state: LinearViewState) =
   let addressX = offsetX + offsetWidth + charWidth * 2.0
   let kindX = addressX + addrWidth + charWidth * 2.0
   let kindWidth = charWidth * 3.0
-  let hexX = kindX + kindWidth + charWidth * 2.0
-  let asciiX = hexX + charWidth * 4.0
+  let valueX = kindX + kindWidth + charWidth * 2.0
+  let valueWidth = charWidth * float (valueColumnChars ())
+  let disasmX = valueX + valueWidth + charWidth * 4.0
   { PaddingX = paddingX
     OffsetX = offsetX
     AddressX = addressX
     KindX = kindX
-    HexX = hexX
-    AsciiX = asciiX }
+    ValueX = valueX
+    DisasmX = disasmX
+    CharWidth = charWidth }
 
-let private cellX layout = function
-  | OffsetCell -> layout.OffsetX
-  | AddressCell -> layout.AddressX
-  | KindCell -> layout.KindX
-  | ValueCell -> layout.HexX
-  | AsciiCell -> layout.AsciiX
+let private formattedTextWidthOf kind cells =
+  cells
+  |> List.choose (fun (cellKind, _, txt: FormattedText) ->
+    if cellKind = kind then Some txt.Width else None)
+  |> List.fold max 0.0
+
+let private rowLayoutOf common rowKind cells =
+  let valueWidth = formattedTextWidthOf ValueCell cells
+  let disasmWidth = formattedTextWidthOf DisasmCell cells
+  match rowKind with
+  | RawByteRow ->
+    RawByteLayout(common.ValueX + valueWidth + common.CharWidth * 2.0)
+  | DisassemblyRow ->
+    DisassemblyLayout common.DisasmX
+  | LinkageRow ->
+    let disasmX = common.DisasmX
+    let fixedSymbolX = common.DisasmX + common.CharWidth * 32.0
+    let symbolX = disasmX + disasmWidth + common.CharWidth * 4.0
+    LinkageLayout(disasmX, max fixedSymbolX symbolX)
+
+let private cellX common rowLayout = function
+  | OffsetCell -> common.OffsetX
+  | AddressCell -> common.AddressX
+  | KindCell -> common.KindX
+  | ValueCell -> common.ValueX
+  | DisasmCell ->
+    match rowLayout with
+    | DisassemblyLayout disasmX -> disasmX
+    | LinkageLayout(disasmX, _) -> disasmX
+    | _ -> common.ValueX
+  | RawAsciiCell ->
+    match rowLayout with
+    | RawByteLayout asciiX -> asciiX
+    | _ -> common.ValueX
+  | LinkageNameCell ->
+    match rowLayout with
+    | LinkageLayout(_, symbolX) -> symbolX
+    | _ -> common.ValueX
 
 let private asciiOfByte value =
   if value >= 0x20uy && value <= 0x7Euy then string (char value)
   else "."
 
-let private toRowVisualModel = function
+let private linearCell kind text role =
+  { Kind = kind
+    Text = text
+    Role = role
+    Line = 0 }
+
+let private linearCellAt line kind text role =
+  { Kind = kind
+    Text = text
+    Role = role
+    Line = line }
+
+let private bytesText (bytes: byte[]) =
+  bytes |> Array.map (fun b -> $"{b:X2}") |> String.concat " "
+
+let private readItemBytes (hdl: BinHandle) (loc: ILinearItemLocation) =
+  let rawBytes = hdl.File.RawBytes
+  if loc.Offset < 0 || loc.Offset >= rawBytes.Length || loc.ItemLength <= 0 then
+    [||]
+  else
+    let length = min loc.ItemLength (rawBytes.Length - loc.Offset)
+    Array.sub rawBytes loc.Offset length
+
+let private valueCellsOfBytes (bytes: byte[]) =
+  let capacity = LinearViewState.ValueColumnByteCapacity
+  if bytes.Length <= capacity then
+    [ linearCell ValueCell (bytesText bytes) PrimaryText ]
+  else
+    [ linearCell ValueCell
+        (bytes |> Array.take capacity |> bytesText) PrimaryText
+      linearCellAt 1 ValueCell
+        (bytes |> Array.skip capacity |> bytesText) PrimaryText ]
+
+let private toRowVisualModel (hdl: BinHandle) = function
   | RawByte(loc, value) ->
-    Cells [
-      { Kind = OffsetCell
-        Text = $"off+0x{loc.Offset:X}"
-        Role = SecondaryText }
-      { Kind = AddressCell
-        Text = $"0x{loc.Address:X}"
-        Role = PrimaryText }
-      { Kind = KindCell
-        Text = "(b)"
-        Role = SecondaryText }
-      { Kind = ValueCell
-        Text = $"{value:X2}"
-        Role = PrimaryText }
-      { Kind = AsciiCell
-        Text = asciiOfByte value
-        Role = SecondaryText }
-    ]
+    Cells(RawByteRow, [
+      linearCell OffsetCell $"off+0x{loc.Offset:X}" SecondaryText
+      linearCell AddressCell $"0x{loc.Address:X}" PrimaryText
+      linearCell KindCell "(b)" SecondaryText
+      linearCell ValueCell $"{value:X2}" PrimaryText
+      linearCell RawAsciiCell (asciiOfByte value) SecondaryText
+    ])
+  | SectionHeader(_, name, _, _) ->
+    FullWidthHeader(SectionHeaderVisual, $"Section {name}")
   | Disassembly(loc, disasm) ->
-    Cells [
-      { Kind = OffsetCell
-        Text = $"off+0x{loc.Offset:X}"
-        Role = SecondaryText }
-      { Kind = AddressCell
-        Text = $"0x{loc.Address:X}"
-        Role = PrimaryText }
-      { Kind = KindCell
-        Text = "(i)"
-        Role = SecondaryText }
-      { Kind = ValueCell
-        Text = disasm
-        Role = PrimaryText }
-    ]
-  | SectionHeader(_, name, _) ->
-    FullWidthHeader $"Section {name}"
+    let bytes = readItemBytes hdl loc
+    Cells(
+      DisassemblyRow,
+      [ linearCell OffsetCell $"off+0x{loc.Offset:X}" SecondaryText
+        linearCell AddressCell $"0x{loc.Address:X}" PrimaryText
+        linearCell KindCell "(i)" SecondaryText
+        yield! valueCellsOfBytes bytes
+        linearCell DisasmCell disasm PrimaryText ]
+    )
+  | LinkageTableHeader(_, name) ->
+    FullWidthHeader(LinkageTableHeaderVisual, name)
+  | LinkageTableEntry(loc, disasm) ->
+    let bytes = readItemBytes hdl loc
+    Cells(LinkageRow, [
+      linearCell OffsetCell $"off+0x{loc.Offset:X}" SecondaryText
+      linearCell AddressCell $"0x{loc.Address:X}" PrimaryText
+      linearCell KindCell "(l)" SecondaryText
+      yield! valueCellsOfBytes bytes
+      linearCell DisasmCell disasm PrimaryText
+    ])
 
 type private LinearRenderLayer() =
   inherit Control()
@@ -214,19 +301,27 @@ type private LinearRenderLayer() =
       let fontFamily, fontSize, foreground, secondary =
         ensureCacheSignature state theme
       let txt =
-        match toRowVisualModel item with
-        | Cells cells ->
+        match toRowVisualModel doc.BinHandle item with
+        | Cells(rowKind, cells) ->
           cells
           |> List.map (fun cell ->
             let color = textColor foreground secondary cell.Role
             cell.Kind,
+            cell.Line,
             makeFormattedText fontFamily fontSize color cell.Text)
-          |> CellRowVisual
-        | FullWidthHeader title ->
+          |> fun cells -> CellRowVisual(rowKind, cells)
+        | FullWidthHeader(headerKind, title) ->
+          let headerFontSize =
+            match headerKind with
+            | SectionHeaderVisual ->
+              LinearViewState.sectionHeaderFontSize fontSize
+            | LinkageTableHeaderVisual ->
+              fontSize
           FullWidthHeaderVisual(
+            headerKind,
             makeFormattedText
               fontFamily
-              (LinearViewState.sectionHeaderFontSize fontSize)
+              headerFontSize
               foreground
               title
           )
@@ -310,36 +405,66 @@ type private LinearRenderLayer() =
       LinearRenderLayer.EndIndexProperty, value, ValueNone
     )
 
-  member _.DrawCellRow(ctx: DrawingContext, layout, rowTop, rowHeight, cells) =
+  member _.DrawCellRow(ctx, common, rowKind, rowTop, rowHeight, cells) =
     let textHeight =
       cells
-      |> List.map (fun (_, txt: FormattedText) -> txt.Height)
+      |> List.map (fun (_, _, txt: FormattedText) -> txt.Height)
       |> List.fold max 0.0
-    let textY = rowTop + max 0.0 ((rowHeight - textHeight) / 2.0)
-    for kind, txt in cells do
-      ctx.DrawText(txt, Point(cellX layout kind, textY))
+    let lineCount =
+      cells
+      |> List.map (fun (_, line, _) -> line)
+      |> List.fold max 0
+      |> (+) 1
+    let lineStep =
+      if lineCount <= 1 then 0.0 else rowHeight / float lineCount
+    let blockHeight =
+      if lineCount <= 1 then textHeight
+      else lineStep * float (lineCount - 1) + textHeight
+    let firstTextY = rowTop + max 0.0 ((rowHeight - blockHeight) / 2.0)
+    let rowLayout = rowLayoutOf common rowKind cells
+    for kind, line, txt in cells do
+      let textY = firstTextY + lineStep * float line
+      let pt = Point(cellX common rowLayout kind, textY)
+      (ctx: DrawingContext).DrawText(txt, pt)
 
-  member this.DrawFullWidthHeader(ctx, theme, layout, rowTop, rowHeight, txt) =
+  member this.DrawHeader(ctx, common, rowTop, rowHeight, headerKind, txt) =
+    let theme = this.CurrentTheme
+    let topGap = min HeaderTopGap (max 0.0 rowHeight)
+    let headerTop = rowTop + topGap
+    let headerHeight = max 0.0 (rowHeight - topGap)
     let titleHeight = (txt: FormattedText).Height
-    let titleY = rowTop + max 0.0 ((rowHeight - titleHeight) / 2.0)
-    let headerBg = Brush.Parse theme.Panel.AltBackground
+    let titleY = headerTop + max 0.0 ((headerHeight - titleHeight) / 2.0)
+    let bounds = this.Bounds
+    let headerBg =
+      match headerKind with
+      | SectionHeaderVisual -> Brush.Parse theme.Panel.AltBackground
+      | LinkageTableHeaderVisual -> Brush.Parse theme.Window.Background
     let borderBrush = Brush.Parse theme.Panel.Border
     let borderPen = Pen(borderBrush, 1.0)
     (ctx: DrawingContext).FillRectangle(
       headerBg,
-      Rect(0.0, rowTop, this.Bounds.Width, rowHeight)
+      Rect(0.0, headerTop, bounds.Width, headerHeight)
     )
-    ctx.DrawLine(
-      borderPen,
-      Point(layout.PaddingX, rowTop),
-      Point(this.Bounds.Width - layout.PaddingX, rowTop)
-    )
-    ctx.DrawLine(
-      borderPen,
-      Point(layout.PaddingX, rowTop + rowHeight - 1.0),
-      Point(this.Bounds.Width - layout.PaddingX, rowTop + rowHeight - 1.0)
-    )
-    ctx.DrawText(txt, Point(layout.PaddingX, titleY))
+    match headerKind with
+    | SectionHeaderVisual ->
+      ctx.DrawLine(
+        borderPen,
+        Point(common.PaddingX, headerTop),
+        Point(bounds.Width - common.PaddingX, headerTop)
+      )
+      ctx.DrawLine(
+        borderPen,
+        Point(common.PaddingX, headerTop + headerHeight - 1.0),
+        Point(bounds.Width - common.PaddingX, headerTop + headerHeight - 1.0)
+      )
+      ctx.DrawText(txt, Point(common.PaddingX, titleY))
+    | LinkageTableHeaderVisual ->
+      ctx.DrawLine(
+        borderPen,
+        Point(common.PaddingX, headerTop + headerHeight - 1.0),
+        Point(bounds.Width - common.PaddingX, headerTop + headerHeight - 1.0)
+      )
+      ctx.DrawText(txt, Point(common.PaddingX, titleY))
 
   override this.OnPropertyChanged change =
     base.OnPropertyChanged change
@@ -360,17 +485,17 @@ type private LinearRenderLayer() =
     | Some doc, Some state when not (isNull (box this.CurrentTheme))
                              && this.RenderEndIndex > this.RenderStartIndex ->
       let theme = this.CurrentTheme
-      let layout = computeLayoutMetrics doc state
+      let common = computeCommonLayout doc state
       let renderTop = LinearViewState.itemTop state this.RenderStartIndex
       for i in this.RenderStartIndex .. this.RenderEndIndex - 1 do
         let rowTop = LinearViewState.itemTop state i - renderTop
         let rowHeight = LinearViewState.itemHeight state i
         let txt = getOrCreateText doc state theme i
         match txt with
-        | CellRowVisual cells ->
-          this.DrawCellRow(ctx, layout, rowTop, rowHeight, cells)
-        | FullWidthHeaderVisual txt ->
-          this.DrawFullWidthHeader(ctx, theme, layout, rowTop, rowHeight, txt)
+        | CellRowVisual(rowKind, cells) ->
+          this.DrawCellRow(ctx, common, rowKind, rowTop, rowHeight, cells)
+        | FullWidthHeaderVisual(headerKind, txt) ->
+          this.DrawHeader(ctx, common, rowTop, rowHeight, headerKind, txt)
     | _ ->
       ()
 

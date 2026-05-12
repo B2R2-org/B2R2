@@ -146,7 +146,7 @@ let private detailRow model label value =
 
 let private detailContent model (content: SectionContent) =
   match content with
-  | ELF sh ->
+  | ELF(sh, _) ->
     let flags = ELF.SectionFlags.toList sh.SecFlags |> String.concat ", "
     let offset = $"0x{sh.SecOffset:x}"
     let size = $"0x{sh.SecSize:x}"
