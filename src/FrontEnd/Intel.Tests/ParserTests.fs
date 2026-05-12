@@ -199,6 +199,18 @@ type ParserTests() =
     ||> testX86NoPrefixNoSeg
 
   [<TestMethod>]
+  member _.``5.1.6 Bit and Byte Instructions (2)``() =
+    "f30fbcf6"
+    ++ TZCNT ** [ O.Reg R.ESI; O.Reg R.ESI ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.1.6 Bit and Byte Instructions (3)``() =
+    "660fbcf6"
+    ++ BSF ** [ O.Reg R.SI; O.Reg R.SI ]
+    ||> testX86Prefix Prefix.OPSIZE
+
+  [<TestMethod>]
   member _.``5.1.7 Control Transfer Instructions (1)``() =
     "ffe4"
     ++ JMP ** [ O.Reg R.ESP ]

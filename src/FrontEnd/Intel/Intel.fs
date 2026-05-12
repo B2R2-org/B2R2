@@ -16597,7 +16597,7 @@ let (norTwo: InstructionCore[][]) =
     [| // index 188(0xBC)
       { OpcodeByte = 188u
         Opcode = Opcode.BSF
-        PrefixType = Legacy NP
+        PrefixType = Mandatory NP
         REXPrefixType = REXPrefixType.NOREX
         VectorLength = VectorLength.None
         ModRM = ModRMType.ModRM OpRegMem
@@ -16608,7 +16608,7 @@ let (norTwo: InstructionCore[][]) =
         TupleType = TupleType.NA }
       { OpcodeByte = 188u
         Opcode = Opcode.BSF
-        PrefixType = Legacy NP
+        PrefixType = Mandatory NP
         REXPrefixType = REXPrefixType.NOREX
         VectorLength = VectorLength.None
         ModRM = ModRMType.ModRM OpRegMem

@@ -123,7 +123,7 @@ type IntelParser(wordSz, reader) =
                          // mandatory. Need more precise handling logic.
       toPrefixType baseType pref
 
-  let matchesPrefixType pref insPref =
+  let matchesExactPrefixType pref insPref =
     match pref with
     | Mandatory NP -> insPref = Mandatory NP || insPref = Legacy NP
     | Mandatory _ ->
@@ -131,7 +131,7 @@ type IntelParser(wordSz, reader) =
       else pref = insPref
     | _ -> true
 
-  let matchesInstructionPrefix (phlp: ParsingHelper) insPref =
+  let matchesPrefixWithLegacyFallback (phlp: ParsingHelper) insPref =
     let pref =
       match phlp.VEXInfo with
       | Some v -> v.VPrefixes
@@ -144,6 +144,42 @@ type IntelParser(wordSz, reader) =
     elif mPref = Prefix.None then
       insPref = Legacy NP || insPref = Mandatory NP
     else false
+
+  let tryGetSpecialCasePrefixRule (phlp: ParsingHelper) opByte =
+    if phlp.VEXInfo.IsSome then None
+    else
+      match phlp.OpcodeClass with
+      | OpcodeClass.Normal OneByte
+        when opByte = 0x90uy && Prefix.hasREPZ phlp.Prefixes ->
+        Some(Mandatory F3) // F3 90 = PAUSE
+      | OpcodeClass.Normal TwoBytes when opByte = 0xBCuy || opByte = 0xBDuy ->
+        // 0F BC/BD use F3 as an opcode selector (TZCNT/LZCNT), while 66 still
+        // acts as the ordinary operand-size prefix for BSF/BSR.
+        if Prefix.hasREPZ phlp.Prefixes then Some(Mandatory F3)
+        else Some(Mandatory NP)
+      | _ -> None
+
+  let matchesInstructionPrefix (phlp: ParsingHelper) opByte insPref =
+    match tryGetSpecialCasePrefixRule phlp opByte with
+    | Some pref -> matchesExactPrefixType pref insPref
+    | None -> matchesPrefixWithLegacyFallback phlp insPref
+
+  let shouldConsumePrefixForSpecialCase pref =
+    match pref with
+    | Mandatory NP -> false
+    | Mandatory _ -> true
+    | _ -> false
+
+  let shouldConsumePrefix (phlp: ParsingHelper) (insCore: InstructionCore) =
+    match phlp.VEXInfo with
+    | Some _ -> true
+    | None ->
+      match tryGetSpecialCasePrefixRule phlp (uint8 insCore.OpcodeByte) with
+      | Some pref -> shouldConsumePrefixForSpecialCase pref
+      | None ->
+        match insCore.PrefixType with
+        | Mandatory _ -> true
+        | _ -> false
 
   let isImplicit16BitOp = function
     | Opcode.CBW
@@ -234,30 +270,18 @@ type IntelParser(wordSz, reader) =
       v <= modRM && modRM <= v + 7uy
     | _ -> true
 
-  let tryFindSpecialCaseIndex (phlp: ParsingHelper) (ins: InstructionCore[]) =
-    let isPauseCase =
-      phlp.VEXInfo.IsNone
-      && phlp.OpcodeClass = OpcodeClass.Normal OneByte
-      && Prefix.hasREPZ phlp.Prefixes
-      && uint8 ins[0].OpcodeByte = 0x90uy
-    if isPauseCase then
-      ins
-      |> Array.tryFindIndex (fun insCore ->
-        insCore.Opcode = Opcode.PAUSE
-        && insCore.PrefixType = Mandatory F3)
-    else None
-
   let findMatchingSubIndex (span: ByteSpan) (phlp: ParsingHelper)
     (ins: InstructionCore[]) =
     let insLen = ins.Length
     if insLen = 0 then failwith "Error: Instruction core array is empty."
     else
-      let mutable idx =
-        tryFindSpecialCaseIndex phlp ins |> Option.defaultValue -1
+      let mutable idx = -1
       let mutable i = 0
       while i < insLen && idx = -1 do
         let insCore = ins[i]
-        let p = matchesInstructionPrefix phlp insCore.PrefixType
+        let p =
+          matchesInstructionPrefix phlp (uint8 insCore.OpcodeByte)
+            insCore.PrefixType
         let s = matchesOperandSize phlp.Prefixes insCore
         let c = matchesCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
         let r = matchesREXPrefix phlp insCore
@@ -433,10 +457,10 @@ type IntelParser(wordSz, reader) =
         operands[i] <- parseOperand span phlp sz modRM ic opr
       operands |> operandsArrayToOperands
 
-  let applyMandatoryPrefixFilter (phlp: ParsingHelper) prefixType =
-    match prefixType with
-    | Mandatory _ -> phlp.Prefixes <- filterPrefs phlp.Prefixes
-    | _ -> ()
+  let applyMandatoryPrefixFilter phlp insCore =
+    if shouldConsumePrefix phlp insCore then
+      phlp.Prefixes <- filterPrefs phlp.Prefixes
+    else ()
 
   member _.SetDisassemblySyntax syntax =
     match syntax with
@@ -570,5 +594,5 @@ type IntelParser(wordSz, reader) =
       let insCore = insCores[subIdx]
       phlp.TupleType <- insCore.TupleType
       let operands = parseOperands span phlp insCore
-      applyMandatoryPrefixFilter phlp insCore.PrefixType
+      applyMandatoryPrefixFilter phlp insCore
       newInstruction phlp insCore.Opcode operands :> IInstruction
