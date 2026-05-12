@@ -204,8 +204,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         | Ok name -> Ok name
         | Error e ->
           match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
-          | Some entry -> Ok entry.FuncName
-          | None -> Error e
+          | Some entry when entry.TableAddress = addr -> Ok entry.FuncName
+          | _ -> Error e
 
     member _.GetTextSectionPointer() =
       shdrs.Value
