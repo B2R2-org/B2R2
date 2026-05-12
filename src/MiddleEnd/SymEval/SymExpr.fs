@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.SymEval
 
 open B2R2
+open B2R2.BinIR
 
 /// Represents a symbolic bit-vector value.
 type SymExpr =
@@ -32,6 +33,22 @@ type SymExpr =
   | Const of BitVector
   /// A named symbolic bit-vector variable.
   | Var of name: string * typ: RegType
+  /// A unary operation over a symbolic expression.
+  | UnOp of UnOpType * SymExpr
+  /// A binary operation over symbolic expressions.
+  | BinOp of BinOpType * typ: RegType * SymExpr * SymExpr
+  /// A relational operation over symbolic expressions.
+  | RelOp of RelOpType * SymExpr * SymExpr
+  /// A symbolic memory load.
+  | Load of Endian * typ: RegType * addr: SymExpr
+  /// An if-then-else expression.
+  | Ite of cond: SymExpr * thenExpr: SymExpr * elseExpr: SymExpr
+  /// A type conversion.
+  | Cast of CastKind * typ: RegType * SymExpr
+  /// A bit extraction.
+  | Extract of SymExpr * typ: RegType * startPos: int
+  /// An uninterpreted function application.
+  | FuncApp of name: string * typ: RegType * args: SymExpr list
   /// A value that exists in the source IR but has undefined semantics.
   | Undef of typ: RegType * reason: string
 with
@@ -40,7 +57,36 @@ with
     match this with
     | Const bv -> bv.Length
     | Var(_, typ) -> typ
+    | UnOp(_, expr) -> expr.Type
+    | BinOp(_, typ, _, _) -> typ
+    | RelOp _ -> 1<rt>
+    | Load(_, typ, _) -> typ
+    | Ite(_, thenExpr, _) -> thenExpr.Type
+    | Cast(_, typ, _) -> typ
+    | Extract(_, typ, _) -> typ
+    | FuncApp(_, typ, _) -> typ
     | Undef(typ, _) -> typ
+
+  override this.ToString() =
+    match this with
+    | Const bv -> BitVector.ToString bv
+    | Var(name, typ) -> $"{name}:{RegType.toString typ}"
+    | UnOp(op, expr) -> $"({UnOpType.toString op} {expr})"
+    | BinOp(op, typ, lhs, rhs) ->
+      $"({lhs} {BinOpType.toString op} {rhs}):{RegType.toString typ}"
+    | RelOp(op, lhs, rhs) -> $"({lhs} {RelOpType.toString op} {rhs})"
+    | Load(_endian, typ, addr) -> $"[{addr}]:{RegType.toString typ}"
+    | Ite(cond, thenExpr, elseExpr) ->
+      $"(({cond}) ? ({thenExpr}) : ({elseExpr}))"
+    | Cast(kind, typ, expr) ->
+      $"{CastKind.toString kind}:{RegType.toString typ}({expr})"
+    | Extract(expr, typ, startPos) ->
+      let lastPos = int typ + startPos - 1
+      $"({expr}[{lastPos}:{startPos}])"
+    | FuncApp(name, typ, args) ->
+      let args = args |> List.map string |> String.concat ", "
+      $"{name}({args}):{RegType.toString typ}"
+    | Undef(_, reason) -> $"?? ({reason})"
 
 /// Represents an error encountered during symbolic evaluation.
 type SymEvalError =
@@ -62,6 +108,24 @@ module SymExpr =
   let trueExpr = Const BitVector.T
 
   let falseExpr = Const BitVector.F
+
+  let undef typ reason = Undef(typ, reason)
+
+  let unop op expr = UnOp(op, expr)
+
+  let binop op typ lhs rhs = BinOp(op, typ, lhs, rhs)
+
+  let relop op lhs rhs = RelOp(op, lhs, rhs)
+
+  let load endian typ addr = Load(endian, typ, addr)
+
+  let ite cond thenExpr elseExpr = Ite(cond, thenExpr, elseExpr)
+
+  let cast kind typ expr = Cast(kind, typ, expr)
+
+  let extract expr typ startPos = Extract(expr, typ, startPos)
+
+  let funcApp name typ args = FuncApp(name, typ, args)
 
   let tryGetConcrete = function
     | Const bv -> Some bv
