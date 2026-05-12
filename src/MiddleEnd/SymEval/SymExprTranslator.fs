@@ -24,10 +24,15 @@
 
 namespace B2R2.MiddleEnd.SymEval
 
-open B2R2
+open B2R2.BinIR.LowUIR
 
-/// Translates B2R2 IR expressions into symbolic expressions.
+/// Translates LowUIR expressions into symbolic expressions.
 [<RequireQualifiedAccess>]
 module SymExprTranslator =
-  let translate _state (_expr: SymExpr) =
-    Terminator.futureFeature ()
+  let private unsupported expr =
+    Expr.ToString expr |> UnsupportedExpression |> Error
+
+  /// Translates a LowUIR expression in the context of the provided symbolic
+  /// state.
+  let translate (_state: SymState) (expr: Expr): Result<SymExpr, SymEvalError> =
+    unsupported expr

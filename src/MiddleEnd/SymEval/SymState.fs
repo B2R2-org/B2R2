@@ -95,6 +95,7 @@ type SymState(regs, temps, lbls, mem: ISymMemory, pathCond) =
 
   member _.UnsetTmp idx = temps.Unset idx
 
+  /// Adds a 1-bit bit-vector condition that must evaluate to true.
   member _.AddPathCondition cond = pathCond <- cond :: pathCond
 
   member inline this.AdvancePC(amount: uint32) =

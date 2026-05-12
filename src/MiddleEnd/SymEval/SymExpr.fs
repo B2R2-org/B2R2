@@ -28,6 +28,9 @@ open B2R2
 open B2R2.BinIR
 
 /// Represents a symbolic bit-vector value.
+///
+/// SymEval keeps LowUIR condition values as 1-bit bit-vectors. Path
+/// conditions contain expressions that are interpreted as the 1-bit true value.
 type SymExpr =
   /// A concrete bit-vector constant.
   | Const of BitVector
@@ -105,9 +108,14 @@ module SymExpr =
 
   let one typ = Const(BitVector.One typ)
 
+  /// The 1-bit bit-vector true value used for LowUIR conditions.
   let trueExpr = Const BitVector.T
 
+  /// The 1-bit bit-vector false value used for LowUIR conditions.
   let falseExpr = Const BitVector.F
+
+  /// Returns true when the expression has the 1-bit condition type.
+  let isCondition (expr: SymExpr) = expr.Type = 1<rt>
 
   let undef typ reason = Undef(typ, reason)
 
