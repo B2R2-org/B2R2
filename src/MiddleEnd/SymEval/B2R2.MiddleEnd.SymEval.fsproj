@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 symbolic evaluation engine.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="SymExpr.fs" />
+    <Compile Include="ISymMemory.fs" />
+    <Compile Include="SymMemory.fs" />
+    <Compile Include="BinSectionSymMemory.fs" />
+    <Compile Include="SymVariables.fs" />
+    <Compile Include="Labels.fs" />
+    <Compile Include="SymState.fs" />
+    <Compile Include="SymStateHelper.fs" />
+    <Compile Include="SymExprTranslator.fs" />
+    <Compile Include="SMTLibSerializer.fs" />
+    <Compile Include="Solver.fs" />
+    <Compile Include="SymExecutor.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
+    <ProjectReference Include="..\Executor\B2R2.MiddleEnd.Executor.fsproj" />
+  </ItemGroup>
+
+</Project>
