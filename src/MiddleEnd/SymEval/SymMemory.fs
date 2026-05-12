@@ -36,12 +36,18 @@ type SymMemory(?mem: IDictionary<Addr, SymExpr>) =
 
   interface ISymMemory with
 
-    member _.Store(addr, value) = mem[addr] <- value
-
-    member _.TryLoad addr =
+    member _.ByteRead addr =
       match mem.TryGetValue addr with
-      | true, value -> Some value
-      | false, _ -> None
+      | true, value -> Ok value
+      | false, _ -> Error(InvalidMemoryRead addr)
+
+    member _.ByteWrite(addr, value) = mem[addr] <- value
+
+    member this.Load(addr, endian, typ) =
+      SymMemoryOperation.load addr endian typ this
+
+    member this.Store(addr, value, endian) =
+      SymMemoryOperation.store addr value endian this
 
     member _.Clone() = SymMemory(Dictionary<Addr, SymExpr>(mem)) :> ISymMemory
 

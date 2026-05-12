@@ -34,16 +34,22 @@ type BinSectionSymMemory(hdl: BinHandle, ?mem: ISymMemory, ?isBacked: bool) =
 
   interface ISymMemory with
 
-    member _.Store(addr, value) = mem.Store(addr, value)
-
-    member _.TryLoad addr =
-      match mem.TryLoad addr with
-      | Some value -> Some value
-      | None when isBacked && hdl.File.IsValidAddr addr ->
+    member _.ByteRead addr =
+      match mem.ByteRead addr with
+      | Ok value -> Ok value
+      | Error _ when isBacked && hdl.File.IsValidAddr addr ->
         match hdl.TryReadBytes(addr, 1) with
-        | Ok bs -> Some(SymExpr.Const(BitVector(uint32 bs[0], 8<rt>)))
-        | Error _ -> None
-      | None -> None
+        | Ok bs -> Ok(SymExpr.Const(BitVector(uint32 bs[0], 8<rt>)))
+        | Error _ -> Error(InvalidMemoryRead addr)
+      | Error e -> Error e
+
+    member _.ByteWrite(addr, value) = mem.ByteWrite(addr, value)
+
+    member this.Load(addr, endian, typ) =
+      SymMemoryOperation.load addr endian typ this
+
+    member this.Store(addr, value, endian) =
+      SymMemoryOperation.store addr value endian this
 
     member _.Clone() =
       BinSectionSymMemory(hdl, mem.Clone(), isBacked) :> ISymMemory

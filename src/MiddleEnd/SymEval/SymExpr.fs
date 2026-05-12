@@ -97,6 +97,7 @@ type SymEvalError =
   | UnsupportedStatement of string
   | UnsupportedOperation of string
   | UnsupportedSymbolicAddress of SymExpr
+  | InvalidMemoryRead of Addr
   | UninitializedRegister of RegisterID
   | UninitializedTemporary of int
   | SolverFailure of string

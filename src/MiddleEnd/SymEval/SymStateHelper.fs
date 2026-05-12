@@ -33,6 +33,7 @@ open B2R2.MiddleEnd.Executor
 type SymStateHelper(hdl: BinHandle, state: SymState, ?os: OS) =
   let regFactory = hdl.RegisterFactory
   let os = defaultArg os OS.Linux
+  let endian = hdl.File.ISA.Endian
   let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
 
@@ -66,16 +67,16 @@ type SymStateHelper(hdl: BinHandle, state: SymState, ?os: OS) =
   let pushToStack value =
     let addr = getStackPointer () - uint64 wordBytes
     setStackPointer addr
-    state.Memory.Store(addr, value)
+    state.Memory.Store(addr, value, endian)
     addr
 
   let popFromStack () =
     let addr = getStackPointer ()
-    match state.Memory.TryLoad addr with
-    | Some value ->
+    match state.Memory.Load(addr, endian, wordType) with
+    | Ok value ->
       setStackPointer (addr + uint64 wordBytes)
       value
-    | None -> Terminator.futureFeature ()
+    | Error _ -> Terminator.futureFeature ()
 
   interface IStateHelper<SymState, SymExpr> with
 
