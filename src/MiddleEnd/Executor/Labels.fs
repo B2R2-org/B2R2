@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.Executor
 
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR

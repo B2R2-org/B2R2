@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Compile Include="IStateHelper.fs" />
+    <Compile Include="Labels.fs" />
     <Compile Include="IExecutor.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
@@ -15,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
   </ItemGroup>
 </Project>

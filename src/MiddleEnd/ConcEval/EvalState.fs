@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ConcEval
 open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinIR
+open B2R2.MiddleEnd.Executor
 
 /// Represents the main evaluation state that will be updated by evaluating
 /// every LowUIR statement encountered during the course of execution. This can

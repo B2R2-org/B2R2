@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.SymEval
 
 open System.Runtime.InteropServices
 open B2R2
+open B2R2.MiddleEnd.Executor
 
 /// Represents the main symbolic evaluation state.
 type SymState(regs, temps, lbls, mem: ISymMemory, pathCond) =
