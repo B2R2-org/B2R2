@@ -24,15 +24,148 @@
 
 namespace B2R2.MiddleEnd.SymEval
 
+open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 /// Translates LowUIR expressions into symbolic expressions.
 [<RequireQualifiedAccess>]
 module SymExprTranslator =
-  let private unsupported expr =
+  let private unsupportedExpr expr =
     Expr.ToString expr |> UnsupportedExpression |> Error
+
+  let private unsupportedOp op = UnsupportedOperation op |> Error
+
+  let private evalUnOp = function
+    | UnOpType.NEG -> Some BitVector.Neg
+    | UnOpType.NOT -> Some BitVector.Not
+    | _ -> None
+
+  let private evalBinOp = function
+    | BinOpType.ADD -> Some(fun lhs rhs -> BitVector.Add(lhs, rhs))
+    | BinOpType.SUB -> Some(fun lhs rhs -> BitVector.Sub(lhs, rhs))
+    | BinOpType.MUL -> Some(fun lhs rhs -> BitVector.Mul(lhs, rhs))
+    | BinOpType.DIV -> Some(fun lhs rhs -> BitVector.Div(lhs, rhs))
+    | BinOpType.SDIV -> Some(fun lhs rhs -> BitVector.SDiv(lhs, rhs))
+    | BinOpType.MOD -> Some(fun lhs rhs -> BitVector.Modulo(lhs, rhs))
+    | BinOpType.SMOD -> Some(fun lhs rhs -> BitVector.SModulo(lhs, rhs))
+    | BinOpType.SHL -> Some(fun lhs rhs -> BitVector.Shl(lhs, rhs))
+    | BinOpType.SAR -> Some(fun lhs rhs -> BitVector.Sar(lhs, rhs))
+    | BinOpType.SHR -> Some(fun lhs rhs -> BitVector.Shr(lhs, rhs))
+    | BinOpType.AND -> Some(fun lhs rhs -> BitVector.And(lhs, rhs))
+    | BinOpType.OR -> Some(fun lhs rhs -> BitVector.Or(lhs, rhs))
+    | BinOpType.XOR -> Some(fun lhs rhs -> BitVector.Xor(lhs, rhs))
+    | BinOpType.CONCAT -> Some(fun lhs rhs -> BitVector.Concat(lhs, rhs))
+    | _ -> None
+
+  let private evalRelOp = function
+    | RelOpType.EQ -> Some(fun lhs rhs -> BitVector.Eq(lhs, rhs))
+    | RelOpType.NEQ -> Some(fun lhs rhs -> BitVector.Neq(lhs, rhs))
+    | RelOpType.GT -> Some(fun lhs rhs -> BitVector.Gt(lhs, rhs))
+    | RelOpType.GE -> Some(fun lhs rhs -> BitVector.Ge(lhs, rhs))
+    | RelOpType.SGT -> Some(fun lhs rhs -> BitVector.SGt(lhs, rhs))
+    | RelOpType.SGE -> Some(fun lhs rhs -> BitVector.SGe(lhs, rhs))
+    | RelOpType.LT -> Some(fun lhs rhs -> BitVector.Lt(lhs, rhs))
+    | RelOpType.LE -> Some(fun lhs rhs -> BitVector.Le(lhs, rhs))
+    | RelOpType.SLT -> Some(fun lhs rhs -> BitVector.SLt(lhs, rhs))
+    | RelOpType.SLE -> Some(fun lhs rhs -> BitVector.SLe(lhs, rhs))
+    | _ -> None
+
+  let private evalCast typ kind value =
+    match kind with
+    | CastKind.SignExt -> Some(BitVector.SExt(value, typ))
+    | CastKind.ZeroExt -> Some(BitVector.ZExt(value, typ))
+    | _ -> None
+
+  let private foldUnOp op expr =
+    match evalUnOp op with
+    | Some fn ->
+      match expr with
+      | Const bv -> SymExpr.Const(fn bv) |> Ok
+      | _ -> SymExpr.unop op expr |> Ok
+    | None -> UnOpType.toString op |> unsupportedOp
+
+  let private foldBinOp op typ lhs rhs =
+    match evalBinOp op with
+    | Some fn ->
+      match lhs, rhs with
+      | Const lhs, Const rhs -> SymExpr.Const(fn lhs rhs) |> Ok
+      | _ -> SymExpr.binop op typ lhs rhs |> Ok
+    | None -> BinOpType.toString op |> unsupportedOp
+
+  let private foldRelOp op lhs rhs =
+    match evalRelOp op with
+    | Some fn ->
+      match lhs, rhs with
+      | Const lhs, Const rhs -> SymExpr.Const(fn lhs rhs) |> Ok
+      | _ -> SymExpr.relop op lhs rhs |> Ok
+    | None -> RelOpType.toString op |> unsupportedOp
+
+  let private foldCast kind typ expr =
+    match expr with
+    | Const bv ->
+      match evalCast typ kind bv with
+      | Some bv -> SymExpr.Const bv |> Ok
+      | None -> CastKind.toString kind |> unsupportedOp
+    | _ ->
+      match kind with
+      | CastKind.SignExt
+      | CastKind.ZeroExt -> SymExpr.cast kind typ expr |> Ok
+      | _ -> CastKind.toString kind |> unsupportedOp
+
+  let private foldExtract typ pos = function
+    | Const bv -> SymExpr.Const(BitVector.Extract(bv, typ, pos)) |> Ok
+    | expr -> SymExpr.extract expr typ pos |> Ok
+
+  let private bind2 fn lhs rhs =
+    match lhs, rhs with
+    | Ok lhs, Ok rhs -> fn lhs rhs
+    | Error e, _ | _, Error e -> Error e
+
+  let private evalRegister (state: SymState) rid =
+    match state.TryGetReg rid with
+    | Ok value -> Ok value
+    | Error _ -> Error(UninitializedRegister rid)
+
+  let private evalTemporary (state: SymState) idx =
+    match state.TryGetTmp idx with
+    | Ok value -> Ok value
+    | Error _ -> Error(UninitializedTemporary idx)
 
   /// Translates a LowUIR expression in the context of the provided symbolic
   /// state.
-  let translate (_state: SymState) (expr: Expr): Result<SymExpr, SymEvalError> =
-    unsupported expr
+  let rec translate (state: SymState) (expr: Expr) =
+    match expr with
+    | Num(n, _) -> SymExpr.Const n |> Ok
+    | Var(_, rid, _, _) -> evalRegister state rid
+    | PCVar(typ, _, _) -> SymExpr.Const(BitVector(state.PC, typ)) |> Ok
+    | TempVar(_, idx, _) -> evalTemporary state idx
+    | UnOp(op, expr, _) ->
+      translate state expr |> Result.bind (foldUnOp op)
+    | BinOp(op, typ, lhs, rhs, _) ->
+      bind2 (foldBinOp op typ) (translate state lhs) (translate state rhs)
+    | RelOp(op, lhs, rhs, _) ->
+      bind2 (foldRelOp op) (translate state lhs) (translate state rhs)
+    | Load(endian, typ, addr, _) ->
+      match translate state addr with
+      | Ok(Const bv) -> state.Memory.Load(BitVector.ToUInt64 bv, endian, typ)
+      | Ok addr -> Error(UnsupportedSymbolicAddress addr)
+      | Error e -> Error e
+    | Ite(cond, thenExpr, elseExpr, _) ->
+      match translate state cond with
+      | Ok(Const bv) when bv.IsTrue -> translate state thenExpr
+      | Ok(Const bv) when bv.IsFalse -> translate state elseExpr
+      | Ok cond when SymExpr.isCondition cond ->
+        match translate state thenExpr, translate state elseExpr with
+        | Ok thenExpr, Ok elseExpr -> SymExpr.ite cond thenExpr elseExpr |> Ok
+        | Error e, _ | _, Error e -> Error e
+      | Ok cond ->
+        $"Invalid Ite condition type: {RegType.toString cond.Type}"
+        |> unsupportedOp
+      | Error e -> Error e
+    | Cast(kind, typ, expr, _) ->
+      translate state expr |> Result.bind (foldCast kind typ)
+    | Extract(expr, typ, pos, _) ->
+      translate state expr |> Result.bind (foldExtract typ pos)
+    | Undefined(typ, reason, _) -> SymExpr.undef typ reason |> Ok
+    | _ -> unsupportedExpr expr
