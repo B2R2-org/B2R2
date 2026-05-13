@@ -125,16 +125,16 @@ module Register =
     | "r30" -> Register.R29
     | "r31" -> Register.R30
     | "r32" -> Register.R31
-    | "IF" -> Register.IF
-    | "TF" -> Register.TF
-    | "HF" -> Register.HF
-    | "SF" -> Register.SF
-    | "VF" -> Register.VF
-    | "NF" -> Register.NF
-    | "ZF" -> Register.ZF
-    | "CF" -> Register.CF
-    | "PC" -> Register.PC
-    | "SP" -> Register.SP
+    | "if" -> Register.IF
+    | "tf" -> Register.TF
+    | "hf" -> Register.HF
+    | "sf" -> Register.SF
+    | "vf" -> Register.VF
+    | "nf" -> Register.NF
+    | "zf" -> Register.ZF
+    | "cf" -> Register.CF
+    | "pc" -> Register.PC
+    | "sp" -> Register.SP
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an AVR register.

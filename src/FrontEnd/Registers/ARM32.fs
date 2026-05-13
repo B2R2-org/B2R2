@@ -464,13 +464,13 @@ module Register =
     | "r6" -> Register.R6
     | "r7" -> Register.R7
     | "r8" -> Register.R8
-    | "sB" -> Register.SB
-    | "sL" -> Register.SL
-    | "fP" -> Register.FP
-    | "iP" -> Register.IP
-    | "sP" -> Register.SP
-    | "lR" -> Register.LR
-    | "pC" -> Register.PC
+    | "sb" -> Register.SB
+    | "sl" -> Register.SL
+    | "fp" -> Register.FP
+    | "ip" -> Register.IP
+    | "sp" -> Register.SP
+    | "lr" -> Register.LR
+    | "pc" -> Register.PC
     | "s0" -> Register.S0
     | "s1" -> Register.S1
     | "s2" -> Register.S2

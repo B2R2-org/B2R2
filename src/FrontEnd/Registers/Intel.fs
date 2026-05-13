@@ -918,12 +918,12 @@ module Register =
     | "ds" -> Register.DS
     | "fs" -> Register.FS
     | "gs" -> Register.GS
-    | "esbASE" -> Register.ESBase
-    | "csbASE" -> Register.CSBase
-    | "ssbASE" -> Register.SSBase
-    | "dsbASE" -> Register.DSBase
-    | "fsbASE" -> Register.FSBase
-    | "gsbASE" -> Register.GSBase
+    | "esbase" -> Register.ESBase
+    | "csbase" -> Register.CSBase
+    | "ssbase" -> Register.SSBase
+    | "dsbase" -> Register.DSBase
+    | "fsbase" -> Register.FSBase
+    | "gsbase" -> Register.GSBase
     | "cr0" -> Register.CR0
     | "cr2" -> Register.CR2
     | "cr3" -> Register.CR3
