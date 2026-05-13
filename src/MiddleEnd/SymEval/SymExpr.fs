@@ -91,6 +91,17 @@ with
       $"{name}({args}):{RegType.toString typ}"
     | Undef(_, reason) -> $"?? ({reason})"
 
+/// Represents an error encountered while communicating with an SMT solver.
+type SolverFailure =
+  | SolverNotFound of executable: string
+  | SolverStartFailure of executable: string * message: string
+  | SolverNonZeroExit of exitCode: int * stdout: string * stderr: string
+  | SolverTimeout of timeout: int
+  | SolverCommunicationFailure of message: string
+  | SolverOutputParseFailure of message: string * stdout: string
+  | SolverSerializationFailure of message: string
+  | SolverReturnedUnknown
+
 /// Represents an error encountered during symbolic evaluation.
 type SymEvalError =
   | UnsupportedExpression of string
@@ -100,7 +111,7 @@ type SymEvalError =
   | InvalidMemoryRead of Addr
   | UninitializedRegister of RegisterID
   | UninitializedTemporary of int
-  | SolverFailure of string
+  | SolverFailure of SolverFailure
 
 /// Symbolic expression helpers.
 [<RequireQualifiedAccess>]

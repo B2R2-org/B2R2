@@ -38,6 +38,8 @@ module SMTLibSerializer =
     $"(_ bv{BitVector.GetValue bv} {RegType.toBitWidth bv.Length})"
 
   let private symbol (name: string) =
+    // FIXME: This escaping is not bijective. It is acceptable for generated
+    // SymEval variable names, but user-provided names may collide.
     let name = name.Replace("\\", "_").Replace("|", "_")
     $"|{name}|"
 
@@ -166,20 +168,35 @@ module SMTLibSerializer =
       sb.AppendLine($"(assert {serializeBool expr})") |> ignore)
     sb
 
-  let serializePathCondition (pathCondition: SymExpr list): string =
+  let serializePathCondition pathCondition =
     let sb = serializeScriptPrefix pathCondition []
     sb.AppendLine("(check-sat)") |> ignore
     sb.AppendLine("(get-model)") |> ignore
     sb.ToString()
 
-  let serializeValueQuery (pathCondition: SymExpr list)
-                          (values: SymExpr list): string =
+  let serializeSatQuery pathCondition =
+    let sb = serializeScriptPrefix pathCondition []
+    sb.AppendLine("(check-sat)") |> ignore
+    sb.ToString()
+
+  let serializeValueQueryPrefix pathCondition values =
     if List.isEmpty values then invalidArg "values" "Empty get-value query."
     let sb = serializeScriptPrefix pathCondition values
     sb.AppendLine("(check-sat)") |> ignore
+    sb.ToString()
+
+  let serializeGetValueCommand values =
+    if List.isEmpty values then invalidArg "values" "Empty get-value query."
     values
-    |> List.map serializeExpr
+    |> List.map (function
+      | Var(name, _) -> symbol name
+      | _ ->
+        invalidArg "values" "Only variable get-value queries are supported.")
     |> String.concat " "
-    |> fun query ->
-      sb.AppendLine($"(get-value ({query}))") |> ignore
+    |> fun query -> $"(get-value ({query}))"
+
+  let serializeValueQuery pathCondition values =
+    let sb = StringBuilder()
+    sb.Append(serializeValueQueryPrefix pathCondition values) |> ignore
+    sb.AppendLine(serializeGetValueCommand values) |> ignore
     sb.ToString()

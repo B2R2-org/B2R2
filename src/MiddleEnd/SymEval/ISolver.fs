@@ -26,8 +26,29 @@ namespace B2R2.MiddleEnd.SymEval
 
 open B2R2
 
-/// Solver integration for symbolic path conditions.
-[<RequireQualifiedAccess>]
-module Solver =
-  let isSatisfiable (_pathCondition: SymExpr list): bool =
-    Terminator.futureFeature ()
+/// Represents the result of a solver satisfiability query.
+type SolverStatus =
+  | Sat
+  | Unsat
+  | Unknown
+
+/// Represents a single value returned by a solver's value query.
+type SolverValue =
+  { Name: string
+    Value: BitVector }
+
+/// Represents a parsed solver response.
+type SolverOutput =
+  { Status: SolverStatus
+    Values: SolverValue list }
+
+/// Represents an SMT solver for symbolic path conditions.
+type ISolver =
+  /// Check whether a path condition is satisfiable.
+  abstract CheckSat: pathCondition: SymExpr list ->
+    Result<SolverStatus, SymEvalError>
+
+  /// Get concrete values for symbolic variables under a path condition.
+  abstract GetValues:
+    pathCondition: SymExpr list *
+    values: SymExpr list -> Result<SolverOutput, SymEvalError>

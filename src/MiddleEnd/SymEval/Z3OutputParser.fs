@@ -28,22 +28,6 @@ open System
 open System.Text
 open B2R2
 
-/// Represents the result of a solver satisfiability query.
-type SolverStatus =
-  | Sat
-  | Unsat
-  | Unknown
-
-/// Represents a single value returned by Z3's get-value command.
-type SolverValue =
-  { Name: string
-    Value: BitVector }
-
-/// Represents a parsed Z3 response.
-type SolverOutput =
-  { Status: SolverStatus
-    Values: SolverValue list }
-
 /// Parses the small subset of Z3 output used by the SymEval solver backend.
 [<RequireQualifiedAccess>]
 module Z3OutputParser =
@@ -56,7 +40,8 @@ module Z3OutputParser =
     | SAtom of string
     | SList of SExpr list
 
-  let private parseFailure msg = SolverFailure msg |> Error
+  let private parseFailure msg =
+    SolverFailure(SolverOutputParseFailure(msg, "")) |> Error
 
   let private isAtomEnd c = Char.IsWhiteSpace c || c = '(' || c = ')'
 
