@@ -257,13 +257,19 @@ type Z3Solver(?options: Z3CliOptions) =
     |> Result.map (fun output -> output.Status)
 
   let getValues pathCondition values =
-    match trySerialize (fun () ->
-            SMTLibSerializer.serializeValueQueryPrefix pathCondition values),
-          trySerialize (fun () ->
-            SMTLibSerializer.serializeGetValueCommand values) with
-    | Ok prefix, Ok getValueCommand ->
-      runZ3ValueQuery prefix getValueCommand
-    | Error e, _ | _, Error e -> Error e
+    if List.isEmpty values then
+      checkSat pathCondition
+      |> Result.map (fun status ->
+        { Status = status
+          Values = [] })
+    else
+      match trySerialize (fun () ->
+              SMTLibSerializer.serializeValueQueryPrefix pathCondition values),
+            trySerialize (fun () ->
+              SMTLibSerializer.serializeGetValueCommand values) with
+      | Ok prefix, Ok getValueCommand ->
+        runZ3ValueQuery prefix getValueCommand
+      | Error e, _ | _, Error e -> Error e
 
   static member DefaultTimeout = defaultTimeout
 

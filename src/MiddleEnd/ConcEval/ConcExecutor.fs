@@ -31,6 +31,99 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.Executor
 
+/// Represents a concrete stop point observed by a user-defined predicate.
+type ConcStopPoint<'State> =
+  { /// Current instruction address.
+    Address: Addr
+    /// Number of executed machine instructions.
+    InstructionCount: int
+    /// Concrete executor state.
+    State: 'State }
+
+/// Represents a concrete execution stop condition.
+type ConcStopCondition<'State> =
+  /// Stop before executing the instruction at the given address.
+  | StopAtAddress of addr: Addr
+  /// Stop after executing the instruction at the given address.
+  | StopAfterAddress of addr: Addr
+  /// Stop when a function return is observed.
+  | StopAtReturn
+  /// Stop after executing a function return.
+  | StopAfterReturn
+  /// Stop when a call instruction is observed.
+  | StopAtCall
+  /// Stop when a side-effect statement is observed.
+  | StopAtSideEffect
+  /// Stop after executing the given number of machine instructions.
+  | StopAfterInstructionCount of count: int
+  /// Stop when expression or statement evaluation fails.
+  | StopOnEvaluationError
+  /// Stop when a user-provided predicate holds.
+  | StopWhen of predicate: (ConcStopPoint<'State> -> bool)
+
+/// Represents the reason why concrete execution stopped.
+type ConcStopReason =
+  /// Execution reached an address requested by a stop condition.
+  | StoppedAtAddress of addr: Addr
+  /// Execution completed an instruction at the requested address.
+  | StoppedAfterAddress of addr: Addr
+  /// Execution reached a function return.
+  | StoppedAtReturn of addr: Addr
+  /// Execution completed a function return.
+  | StoppedAfterReturn of addr: Addr
+  /// Execution reached a call instruction. The target may be unknown.
+  | StoppedAtCall of callSite: Addr * target: Addr option
+  /// Execution reached a side-effect statement.
+  | StoppedAtSideEffect of addr: Addr * sideEffect: SideEffect
+  /// Execution stopped because an undefined value was observed.
+  | UndefinedValue of addr: Addr
+  /// Execution reached the configured instruction limit.
+  | InstructionLimitReached of addr: Addr * limit: int
+  /// Evaluation failed with a B2R2 error case.
+  | EvaluationError of addr: Addr * error: ErrorCase
+  /// A user-defined stop predicate requested termination.
+  | UserStopConditionMet of addr: Addr
+  /// No instruction could be fetched or lifted at the given address.
+  | InvalidInstructionAddress of addr: Addr
+
+/// Represents how the concrete executor should handle call instructions.
+type ConcCallPolicy =
+  /// Stop when any call instruction is observed.
+  | StopAtCalls
+  /// Follow direct calls whose target is inside the current binary.
+  | FollowDirectInternalCalls
+  /// Invoke registered call hooks when a matching target is observed.
+  | UseCallHooks
+
+/// Represents how concrete execution should handle undefined values.
+type ConcUndefinedValuePolicy =
+  /// Treat undefined values as evaluation failures.
+  | StopOnUndefinedValue
+  /// Ignore writes whose right-hand side is undefined.
+  | IgnoreUndefinedWrites
+  /// Preserve undefined values in the concrete evaluator state.
+  | PreserveUndefinedValues
+
+/// Represents concrete execution configuration.
+type ConcRunOptions<'State> =
+  { /// Call-handling policy.
+    Calls: ConcCallPolicy
+    /// Undefined-value handling policy.
+    UndefinedValues: ConcUndefinedValuePolicy
+    /// Stop conditions used by Run.
+    StopConditions: ConcStopCondition<'State> list }
+
+/// Represents the result of a concrete execution run.
+type ConcRunResult<'State> =
+  { /// Reasons why execution stopped.
+    StopReasons: ConcStopReason list
+    /// Final instruction address or program counter.
+    FinalAddress: Addr
+    /// Number of executed machine instructions.
+    InstructionCount: int
+    /// Final concrete executor state.
+    State: 'State }
+
 type private InstructionEvalResult =
   | EvalOk
   | EvalError of ErrorCase
@@ -81,15 +174,15 @@ type ConcExecutor(hdl: BinHandle) =
     | Store(_, _, value, _) -> hasUndefExpr value
     | _ -> false
 
-  let stopAtSideEffect (opts: ExecutionOptions<EvalState>) =
+  let stopAtSideEffect (opts: ConcRunOptions<EvalState>) =
     opts.StopConditions
     |> List.exists (function StopAtSideEffect -> true | _ -> false)
 
-  let hasStopAtReturn (opts: ExecutionOptions<EvalState>) =
+  let hasStopAtReturn (opts: ConcRunOptions<EvalState>) =
     opts.StopConditions
     |> List.exists (function StopAtReturn -> true | _ -> false)
 
-  let hasStopAfterReturn (opts: ExecutionOptions<EvalState>) =
+  let hasStopAfterReturn (opts: ConcRunOptions<EvalState>) =
     opts.StopConditions
     |> List.exists (function StopAfterReturn -> true | _ -> false)
 
@@ -109,7 +202,7 @@ type ConcExecutor(hdl: BinHandle) =
     ins.IsRET
     && (not ins.IsCondBranch || isConditionalBranchTaken st stmts)
 
-  let hasStopAtCall (opts: ExecutionOptions<EvalState>) =
+  let hasStopAtCall (opts: ConcRunOptions<EvalState>) =
     opts.StopConditions
     |> List.exists (function StopAtCall -> true | _ -> false)
 
@@ -118,7 +211,7 @@ type ConcExecutor(hdl: BinHandle) =
     | true, target -> Some target
     | false, _ -> None
 
-  let stopAtCall (opts: ExecutionOptions<EvalState>) (ins: IInstruction) =
+  let stopAtCall (opts: ConcRunOptions<EvalState>) (ins: IInstruction) =
     if ins.IsCall then
       hasStopAtCall opts
       || match opts.Calls with
@@ -127,7 +220,7 @@ type ConcExecutor(hdl: BinHandle) =
          | UseCallHooks -> false
     else false
 
-  let handleCallHooks (opts: ExecutionOptions<EvalState>) (ins: IInstruction) =
+  let handleCallHooks (opts: ConcRunOptions<EvalState>) (ins: IInstruction) =
     if ins.IsCall then
       match opts.Calls with
       (*
@@ -139,7 +232,7 @@ type ConcExecutor(hdl: BinHandle) =
       | _ -> ()
     else ()
 
-  let evalStmt (opts: ExecutionOptions<EvalState>) (st: EvalState) stmt =
+  let evalStmt (opts: ConcRunOptions<EvalState>) (st: EvalState) stmt =
     match opts.UndefinedValues with
     | StopOnUndefinedValue when isUndefWrite stmt -> EvalUndef
     | IgnoreUndefinedWrites when isUndefWrite stmt ->
@@ -186,7 +279,7 @@ type ConcExecutor(hdl: BinHandle) =
     with _ -> Error ErrorCase.ParsingFailure
 
   let collectPreInstrStopReasons (st: EvalState) addr n
-                               (opts: ExecutionOptions<EvalState>) =
+                               (opts: ConcRunOptions<EvalState>) =
     let point = { Address = addr; InstructionCount = n; State = st }
     opts.StopConditions
     |> List.choose (function
@@ -220,7 +313,7 @@ type ConcExecutor(hdl: BinHandle) =
     st.PrepareInstrEval stmts
     evalStmts opts st stmts
 
-  let run start (st: EvalState) (opts: ExecutionOptions<EvalState>) =
+  let run start (st: EvalState) (opts: ConcRunOptions<EvalState>) =
     let rec loop n =
       let addr = st.PC
       let reasons = collectPreInstrStopReasons st addr n opts
@@ -250,7 +343,11 @@ type ConcExecutor(hdl: BinHandle) =
     st.PC <- start
     loop 0
 
-  interface IExecutor<EvalState, IMemory, BitVector> with
+  interface IExecutor<EvalState,
+                      IMemory,
+                      BitVector,
+                      ConcRunOptions<EvalState>,
+                      ConcRunResult<EvalState>> with
     /// Create a fresh concrete evaluation state.
     member _.CreateState() = EvalState()
 
