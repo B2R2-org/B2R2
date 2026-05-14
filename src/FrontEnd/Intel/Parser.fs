@@ -182,12 +182,9 @@ type IntelParser(wordSz, reader) =
         | _ -> false
 
   let isImplicit16BitOp = function
-    | Opcode.CBW
-    | Opcode.CWD
-    | Opcode.PUSHF
-    | Opcode.POPF
-    | Opcode.PUSHA
-    | Opcode.POPA
+    | Opcode.CBW | Opcode.CWD
+    | Opcode.PUSHF | Opcode.PUSHA
+    | Opcode.POPF | Opcode.POPA
     | Opcode.MOVSW | Opcode.CMPSW | Opcode.SCASW | Opcode.LODSW | Opcode.STOSW
     | Opcode.INSW | Opcode.OUTSW
     | Opcode.IRET -> true
@@ -331,10 +328,32 @@ type IntelParser(wordSz, reader) =
     | Opcode.POP | Opcode.PUSH -> SzCond.D64
     | _ -> SzCond.Normal
 
-  let parseOperand span (phlp: ParsingHelper) sz modRM (ic: InstructionCore) opr
+  /// Returns true when the given opcode has an encoding that uses a sign-
+  /// extended immediate operand.
+  let supportsSignExtendedImmediate = function
+    | Opcode.ADC | Opcode.ADD | Opcode.AND | Opcode.CMP | Opcode.IMUL
+    | Opcode.MOV | Opcode.OR | Opcode.SBB | Opcode.SUB | Opcode.TEST
+    | Opcode.XOR | Opcode.PUSH -> true
+    | _ -> false
+
+  /// Returns true when an immediate operand should be parsed as a sign-
+  /// extended immediate because its encoded width is smaller than the
+  /// effective operand width. PUSH is also treated as such because PUSH imm8
+  /// is sign-extended to the stack operand width.
+  let hasSignExtendedImmediateSizeMismatch opcode szs =
+    match szs with
+    (* Implicit accumulator + imm8; no widening. *)
+    | [| None; Some 8<rt> |] -> false
+    (* PUSH imm8 is sign-extended to the stack operand width. *)
+    | [| Some _ |] when opcode = Opcode.PUSH -> true
+    (* Single-size operand shape; no sign-extension case. *)
+    | [| None |] | [| Some _ |] -> false
+    | _ -> true
+
+  let parseOperand span (phlp: ParsingHelper) szs modRM (ic: InstructionCore) o
     =
     // FIXME: need operand size determination logic
-    match opr with
+    match o with
     | RM sz ->
       setMemoryOperandContextWithCurrentAddr phlp sz sz
       OperandParsers.parseMemOrReg modRM span phlp
@@ -362,6 +381,9 @@ type IntelParser(wordSz, reader) =
         let regBit = phlp.ReadByte span >>> 4 &&& 0b1111uy |> int
         OperandParsers.findRegRBits sz phlp.REXPrefix regBit |> OprReg
       | OprRegType.Unused -> failwith "Unused OprRegType." (* FixedReg *)
+    | Mem 0<rt> when ic.Opcode = Opcode.LDDQU ->
+      setMemoryOperandContextWithCurrentAddr phlp 128<rt> 128<rt>
+      OperandParsers.parseMemory modRM span phlp
     | Mem 0<rt> ->
       // FIXME: need operand size determination logic
       let effAddrSz = ParsingHelper.GetEffAddrSize phlp
@@ -373,11 +395,14 @@ type IntelParser(wordSz, reader) =
       setMemoryOperandContextWithCurrentAddr phlp sz sz
       OperandParsers.parseMemory modRM span phlp
     | Imm sz ->
-      //let szCond = getSizeCondForImmediate ic.Opcode
-      //let effAddrSz = ParsingHelper.GetEffAddrSize phlp
-      //let effOprSz = ParsingHelper.GetEffOprSize(phlp, szCond)
-      //setMemoryOperandContext phlp effAddrSz effOprSz effOprSz
-      OperandParsers.parseOprSImm span phlp sz
+      let szCond = getSizeCondForImmediate ic.Opcode
+      let effAddrSz = ParsingHelper.GetEffAddrSize phlp
+      let effOprSz = ParsingHelper.GetEffOprSize(phlp, szCond)
+      setMemoryOperandContext phlp effAddrSz effOprSz effOprSz
+      if supportsSignExtendedImmediate ic.Opcode
+         && hasSignExtendedImmediateSizeMismatch ic.Opcode szs then
+        OperandParsers.parseOprSImm span phlp sz
+      else OperandParsers.parseOprImm span phlp sz
     | Rel sz ->
       let effAddrSz = ParsingHelper.GetEffAddrSize phlp
       let effOprSz = ParsingHelper.GetEffOprSize(phlp, SzCond.F64)
@@ -403,7 +428,7 @@ type IntelParser(wordSz, reader) =
       else
         setMemoryOperandContextWithCurrentAddr phlp sz sz
         OperandParsers.parseMemory modRM span phlp
-    | FixedImm imm -> OprImm(int64 imm, getImmediateSize sz)
+    | FixedImm imm -> OprImm(int64 imm, getImmediateSize szs)
     | Moffs sz ->
       setMemoryOperandContextWithCurrentAddr phlp sz sz
       OperandParsers.parseOprOnlyDisp span phlp
@@ -451,10 +476,10 @@ type IntelParser(wordSz, reader) =
     | [| NoOpr |] -> Operands.NoOperand
     | _ ->
       let operands = Array.zeroCreate ic.Operands.Length
-      let sz = getOperandSize ic.Operands
+      let szs = getOperandSize ic.Operands
       for i = 0 to ic.Operands.Length - 1 do
         let opr = ic.Operands[i]
-        operands[i] <- parseOperand span phlp sz modRM ic opr
+        operands[i] <- parseOperand span phlp szs modRM ic opr
       operands |> operandsArrayToOperands
 
   let applyMandatoryPrefixFilter phlp insCore =
