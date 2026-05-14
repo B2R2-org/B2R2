@@ -16,6 +16,7 @@
     <Compile Include="SymState.fs" />
     <Compile Include="SymStateHelper.fs" />
     <Compile Include="SymExprTranslator.fs" />
+    <Compile Include="SymEvaluator.fs" />
     <Compile Include="SMTLibSerializer.fs" />
     <Compile Include="ISolver.fs" />
     <Compile Include="Z3OutputParser.fs" />
