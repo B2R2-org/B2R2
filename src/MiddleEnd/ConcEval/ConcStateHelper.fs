@@ -32,9 +32,8 @@ open B2R2.MiddleEnd.ConcEval.EvalUtils
 open B2R2.MiddleEnd.Executor
 
 /// Provides convenience helpers for a concrete EvalState.
-type ConcStateHelper(hdl: BinHandle, state: EvalState, ?os: OS) =
+type ConcStateHelper(hdl: BinHandle, state: EvalState, os: OS) as this =
   let regFactory = hdl.RegisterFactory
-  let os = defaultArg os OS.Linux
   let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
   let endian = hdl.File.ISA.Endian
@@ -134,6 +133,63 @@ type ConcStateHelper(hdl: BinHandle, state: EvalState, ?os: OS) =
     setStackPointer addr
     addr
 
+  new(hdl, state) = ConcStateHelper(hdl, state, OS.Linux)
+
+  /// The underlying concrete state.
+  member _.RawState = state
+
+  /// Target word-sized register type.
+  member _.WordType = wordType
+
+  /// Target word size in bytes.
+  member _.WordBytes = wordBytes
+
+  /// Current stack pointer value.
+  member _.StackPointer = getStackPointer ()
+
+  /// Set the current stack pointer value.
+  member _.SetStackPointer addr = setStackPointer addr
+
+  /// Initialize the stack pointer with the given stack top.
+  member _.InitializeStack stackTop = setStackPointer stackTop
+
+  /// Initialize the frame pointer with the current stack pointer.
+  member _.InitializeFramePointer() = initializeFramePointer ()
+
+  /// Set a register value by name.
+  member _.SetRegister(name: string, value) =
+    setRegisterByName name value
+
+  /// Set a register value by register ID.
+  member _.SetRegister(rid: RegisterID, value) = setRegister rid value
+
+  /// Get a register value by name.
+  member _.GetRegister(name: string) = getRegisterByName name
+
+  /// Get a register value by register ID.
+  member _.GetRegister(rid: RegisterID) = getRegister rid
+
+  /// Clear selected registers to zero.
+  member _.ZeroRegisters(names: string[]) = zeroRegistersByName names
+
+  /// Clear selected registers to zero.
+  member _.ZeroRegisters(rids: RegisterID[]) = zeroRegisters rids
+
+  /// Set an integer or pointer argument for the supported ABI.
+  member _.SetArgument(idx, value) = setArgument idx value
+
+  /// Get the return value for the supported ABI.
+  member _.GetReturnValue() = getReturnValue ()
+
+  /// Allocate a buffer from the current stack and return its address.
+  member _.AllocateStackBuffer size = allocateStackBuffer size
+
+  /// Push a word-sized value to the stack and return its address.
+  member _.PushToStack value = pushToStack value
+
+  /// Pop a word-sized value from the stack.
+  member _.PopFromStack() = popFromStack ()
+
   /// Push a word-sized pointer value to the stack and return its address.
   member _.PushPointer(value: Addr) =
     wordValue value |> pushToStack
@@ -184,38 +240,40 @@ type ConcStateHelper(hdl: BinHandle, state: EvalState, ?os: OS) =
 
   interface IStateHelper<EvalState, BitVector> with
 
-    member _.RawState = state
+    member _.RawState = this.RawState
 
-    member _.WordType = wordType
+    member _.WordType = this.WordType
 
-    member _.WordBytes = wordBytes
+    member _.WordBytes = this.WordBytes
 
-    member _.StackPointer = getStackPointer ()
+    member _.StackPointer = this.StackPointer
 
-    member _.SetStackPointer addr = setStackPointer addr
+    member _.SetStackPointer addr = this.SetStackPointer addr
 
-    member _.InitializeStack stackTop = setStackPointer stackTop
+    member _.InitializeStack stackTop = this.InitializeStack stackTop
 
-    member _.InitializeFramePointer() = initializeFramePointer ()
+    member _.InitializeFramePointer() = this.InitializeFramePointer()
 
-    member _.SetRegister(name, value) = setRegisterByName name value
+    member _.SetRegister(name: string, value) =
+      this.SetRegister(name, value)
 
-    member _.SetRegister(rid, value) = setRegister rid value
+    member _.SetRegister(rid: RegisterID, value) =
+      this.SetRegister(rid, value)
 
-    member _.GetRegister name = getRegisterByName name
+    member _.GetRegister(name: string) = this.GetRegister name
 
-    member _.GetRegister rid = getRegister rid
+    member _.GetRegister(rid: RegisterID) = this.GetRegister rid
 
-    member _.ZeroRegisters names = zeroRegistersByName names
+    member _.ZeroRegisters(names: string[]) = this.ZeroRegisters names
 
-    member _.ZeroRegisters rids = zeroRegisters rids
+    member _.ZeroRegisters(rids: RegisterID[]) = this.ZeroRegisters rids
 
-    member _.SetArgument(idx, value) = setArgument idx value
+    member _.SetArgument(idx, value) = this.SetArgument(idx, value)
 
-    member _.GetReturnValue() = getReturnValue ()
+    member _.GetReturnValue() = this.GetReturnValue()
 
-    member _.AllocateStackBuffer size = allocateStackBuffer size
+    member _.AllocateStackBuffer size = this.AllocateStackBuffer size
 
-    member _.PushToStack value = pushToStack value
+    member _.PushToStack value = this.PushToStack value
 
-    member _.PopFromStack() = popFromStack ()
+    member _.PopFromStack() = this.PopFromStack()

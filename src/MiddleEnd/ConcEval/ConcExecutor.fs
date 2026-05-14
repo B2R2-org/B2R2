@@ -343,18 +343,30 @@ type ConcExecutor(hdl: BinHandle) =
     st.PC <- start
     loop 0
 
+  /// Create a fresh concrete evaluation state.
+  member _.CreateState() = EvalState()
+
+  /// Create a concrete evaluation state with the given initial memory and
+  /// register values. Since the start address is not known yet, initialize
+  /// PC to zero here; Run will set it to the actual start address.
+  member _.CreateState options = initializeState 0UL options
+
+  /// Run concrete execution from the given address.
+  member _.Run(start, state, options) = run start state options
+
   interface IExecutor<EvalState,
                       IMemory,
                       BitVector,
                       ConcRunOptions<EvalState>,
                       ConcRunResult<EvalState>> with
     /// Create a fresh concrete evaluation state.
-    member _.CreateState() = EvalState()
+    member this.CreateState() = this.CreateState()
 
     /// Create a concrete evaluation state with the given initial memory and
     /// register values. Since the start address is not known yet, initialize
     /// PC to zero here; Run will set it to the actual start address.
-    member _.CreateState options = initializeState 0UL options
+    member this.CreateState options = this.CreateState options
 
     /// Run concrete execution from the given address.
-    member _.Run(start, state, options) = run start state options
+    member this.Run(start, state, options) =
+      this.Run(start, state, options)
