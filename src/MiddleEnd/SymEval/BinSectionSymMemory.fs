@@ -28,9 +28,15 @@ open B2R2
 open B2R2.FrontEnd
 
 /// Represents symbolic memory backed by binary file sections.
-type BinSectionSymMemory(hdl: BinHandle, ?mem: ISymMemory, ?isBacked: bool) =
-  let mem = defaultArg mem (SymMemory() :> ISymMemory)
-  let mutable isBacked = defaultArg isBacked true
+type BinSectionSymMemory(hdl: BinHandle, mem: ISymMemory, isBacked: bool) =
+  let mutable isBacked = isBacked
+
+  new(hdl) = BinSectionSymMemory(hdl, SymMemory() :> ISymMemory, true)
+
+  new(hdl, mem) = BinSectionSymMemory(hdl, mem, true)
+
+  new(hdl, isBacked) =
+    BinSectionSymMemory(hdl, SymMemory() :> ISymMemory, isBacked)
 
   interface ISymMemory with
 

@@ -62,12 +62,25 @@ type SymSolver =
   /// Use a caller-provided solver implementation.
   | CustomSolver of solver: ISolver
 
+/// Represents how the symbolic executor should handle call instructions.
+type SymCallPolicy =
+  /// Stop before evaluating any call instruction.
+  | StopAtCalls
+  /// Follow direct calls whose target belongs to the current binary.
+  | FollowDirectInternalCalls
+  /// Dispatch matching call hooks, and follow direct internal calls otherwise.
+  | UseCallHooks
+
 /// Represents options for bounded symbolic execution.
 type SymRunOptions =
-  { /// Query to answer.
+  { /// Call-handling policy.
+    Calls: SymCallPolicy
+    /// Target-address-based external-call hooks.
+    CallHooks: SymCallHookRegistry
+    /// Query to answer.
     Query: SymQuery
     /// Symbolic values to extract for satisfiability queries.
-    Values: SymExpr list
+    QueryValues: SymExpr list
     /// Instruction addresses to discard before execution.
     Avoid: Set<Addr>
     /// Maximum instructions to execute per path. Zero means unlimited.
@@ -84,9 +97,84 @@ type SymRunOptions =
     RunTimeout: int
     /// Enable solver-backed infeasible path pruning.
     PruneInfeasiblePaths: bool }
+with
+  /// Adds one symbolic value to solver value extraction.
+  member opts.AddQueryValue value =
+    { opts with QueryValues = opts.QueryValues @ [ value ] }
+
+  /// Adds symbolic values to solver value extraction.
+  member opts.AddQueryValues values =
+    { opts with QueryValues = opts.QueryValues @ values }
+
+  /// Uses the given symbolic values for solver value extraction.
+  member opts.WithQueryValues values =
+    { opts with QueryValues = values }
+
+  /// Adds all symbolic bytes of the given buffer to value extraction.
+  member opts.AddQueryBuffer(buffer: SymByteBuffer) =
+    opts.AddQueryValues buffer.Values
+
+  /// Adds all symbolic bytes of the given buffers to value extraction.
+  member opts.AddQueryBuffers(buffers: seq<SymByteBuffer>) =
+    buffers
+    |> Seq.collect (fun buffer -> buffer.Values)
+    |> Seq.toList
+    |> opts.AddQueryValues
+
+  /// Adds one address to the avoid set.
+  member opts.AddAvoidAddress addr =
+    { opts with Avoid = Set.add addr opts.Avoid }
+
+  /// Adds addresses to the avoid set.
+  member opts.AddAvoidAddresses addrs =
+    { opts with Avoid = Set.union opts.Avoid (Set.ofSeq addrs) }
+
+  /// Replaces the avoid set.
+  member opts.WithAvoidAddresses addrs =
+    { opts with Avoid = Set.ofSeq addrs }
+
+  /// Stops before evaluating call instructions.
+  member opts.StopAtCalls() =
+    { opts with Calls = StopAtCalls }
+
+  /// Follows direct internal calls without using external-call hooks.
+  member opts.FollowDirectInternalCalls() =
+    { opts with Calls = FollowDirectInternalCalls }
+
+  /// Uses a prepared call hook registry for external-call dispatch.
+  member opts.WithCallHooks hooks =
+    { opts with
+        Calls = UseCallHooks
+        CallHooks = hooks }
+
+  /// Registers a call hook and enables hook-based call handling.
+  member opts.RegisterCallHook(target, hook) =
+    { opts with
+        Calls = UseCallHooks
+        CallHooks = opts.CallHooks.Register(target, hook) }
+
+  /// Registers call hooks and enables hook-based call handling.
+  member opts.RegisterCallHooks hooks =
+    { opts with
+        Calls = UseCallHooks
+        CallHooks = opts.CallHooks.RegisterMany hooks }
+
+  /// Uses the given solver backend.
+  member opts.WithSolver solver =
+    { opts with Solver = solver }
+
+  /// Enables solver-backed infeasible path pruning.
+  member opts.EnablePathPruning() =
+    { opts with PruneInfeasiblePaths = true }
+
+  /// Disables solver-backed infeasible path pruning.
+  member opts.DisablePathPruning() =
+    { opts with PruneInfeasiblePaths = false }
 
 /// Represents a non-target state where exploration stopped.
 type SymRunStopReason =
+  /// Exploration reached a call according to the configured call policy.
+  | StoppedAtCall of callSite: Addr * target: Addr option
   /// Exploration reached the configured maximum path depth.
   | DepthLimitReached of addr: Addr * limit: int
   /// Exploration reached the configured maximum expanded-state count.
@@ -130,6 +218,9 @@ type SymSatisfiabilityAnswer =
     State: SymState
     /// Concrete assignments for requested symbolic values.
     Values: SolverValue list }
+with
+  /// Concrete solver model for this satisfiability answer.
+  member this.Model = SymModel this.Values
 
 /// Represents why a symbolic query could not be fully answered.
 type SymRunFailure =
@@ -152,6 +243,17 @@ type SymRunResult =
   | Unknown of SymRunFailure list
   /// Execution timed out and produced the given partial result.
   | TimedOut of timeout: int * result: SymRunResult
+with
+  /// Returns the first satisfiability answer, or raises when unavailable.
+  member this.GetSatisfiabilityAnswer() =
+    let rec loop = function
+      | Satisfiable(answer :: _) -> answer
+      | TimedOut(_, result) -> loop result
+      | result ->
+        raise
+          (System.InvalidOperationException
+            $"Satisfiability answer is unavailable: {result}.")
+    loop this
 
 type private SymRunWorkItem =
   { State: SymState
@@ -164,9 +266,17 @@ type private SymQueryEvalResult =
   | QueryUnsat of SymRunPruneReason
   | QueryUnknown of SymRunStopReason
 
+type private SymValueQuery =
+  SymExpr list * SymExpr list -> Result<SolverOutput, SymEvalError>
+
 type private SymSolverRunner =
   { CheckSat: SymExpr list -> Result<SolverStatus, SymEvalError>
-    GetValues: SymExpr list * SymExpr list -> Result<SolverOutput, SymEvalError> }
+    GetValues: SymValueQuery }
+
+type private SymInstructionAction =
+  | EvaluateInstruction
+  | SkipInstruction of SymEvaluator.SymEvalSuccessor list
+  | StopBeforeInstruction of SymRunStopReason
 
 /// Represents a symbolic executor over SymEval's evaluation state.
 type SymExecutor(hdl: BinHandle) =
@@ -189,6 +299,99 @@ type SymExecutor(hdl: BinHandle) =
   let tryLiftInstruction (ins: IInstruction) =
     try lifter.LiftInstruction ins |> Ok
     with _ -> Error ErrorCase.ParsingFailure
+
+  let tryGetDirectTarget (ins: IInstruction) =
+    match ins.DirectBranchTarget() with
+    | true, target -> Some target
+    | false, _ -> None
+
+  let isInternalTarget target = hdl.File.IsValidAddr target
+
+  let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
+
+  let endian = hdl.File.ISA.Endian
+
+  let getArgumentRegisters os =
+    [| 1 .. 6 |]
+    |> Array.map (fun idx ->
+      CallingConvention.FunctionArgRegister(hdl, os, idx))
+
+  let mkCallContext callSite target returnAddress =
+    { CallSite = callSite
+      Target = target
+      ReturnAddress = returnAddress
+      WordType = wordType
+      Endian = endian
+      ArgumentRegisters = getArgumentRegisters OS.Linux
+      ReturnRegister = CallingConvention.ReturnRegister hdl }
+
+  let pushReturnAddress returnAddress (st: SymState) =
+    let helper = SymStateHelper(hdl, st, OS.Linux)
+    helper.TryPushToStack(helper.WordValue returnAddress)
+    |> Result.map ignore
+
+  let popReturnAddress (st: SymState) =
+    let helper = SymStateHelper(hdl, st, OS.Linux)
+    match helper.TryPopFromStack() with
+    | Ok(Const ret) -> Ok(BitVector.ToUInt64 ret)
+    | Ok expr -> Error(UnsupportedSymbolicAddress expr)
+    | Error e -> Error e
+
+  let finishHookState returnAddress (st: SymState) =
+    match popReturnAddress st with
+    | Ok retAddr when retAddr = returnAddress ->
+      st.PC <- returnAddress
+      SymEvaluator.Continue st
+    | Ok retAddr ->
+      let msg = $"Hook returned to unexpected address {retAddr:x}."
+      SymEvaluator.EvalError(UnsupportedOperation msg)
+    | Error e -> SymEvaluator.EvalError e
+
+  let dispatchCallHook callSite target returnAddress hook (st: SymState) =
+    let hookState = st.Clone()
+    let ctx = mkCallContext callSite target returnAddress
+    match pushReturnAddress returnAddress hookState with
+    | Error e -> [ SymEvaluator.EvalError e ]
+    | Ok() ->
+      match hook ctx hookState with
+      | Error e -> [ SymEvaluator.EvalError e ]
+      | Ok states ->
+        states |> List.map (finishHookState returnAddress)
+
+  let handleCallInstruction addr (ins: IInstruction)
+                            (opts: SymRunOptions) (st: SymState) =
+    if not ins.IsCall then EvaluateInstruction
+    else
+      let target = tryGetDirectTarget ins
+      match opts.Calls with
+      | StopAtCalls -> StopBeforeInstruction(StoppedAtCall(addr, target))
+      | FollowDirectInternalCalls ->
+        match target with
+        | Some target when isInternalTarget target -> EvaluateInstruction
+        | _ ->
+          let msg = "Cannot follow call without a direct internal target."
+          SymEvaluator.EvalError(UnsupportedOperation msg)
+          |> List.singleton
+          |> SkipInstruction
+      | UseCallHooks ->
+        match target with
+        | Some target ->
+          match opts.CallHooks.TryFind target with
+          | Some hook ->
+            let returnAddress = addr + uint64 ins.Length
+            dispatchCallHook addr target returnAddress hook st
+            |> SkipInstruction
+          | None when isInternalTarget target -> EvaluateInstruction
+          | None ->
+            let msg = $"No symbolic call hook for target {target:x}."
+            SymEvaluator.EvalError(UnsupportedOperation msg)
+            |> List.singleton
+            |> SkipInstruction
+        | None ->
+          let msg = "Cannot dispatch call hook without a direct target."
+          SymEvaluator.EvalError(UnsupportedOperation msg)
+          |> List.singleton
+          |> SkipInstruction
 
   let getSolverTimeout (opts: SymRunOptions) =
     if opts.SolverTimeout > 0 then opts.SolverTimeout
@@ -264,6 +467,7 @@ type SymExecutor(hdl: BinHandle) =
     else Ok()
 
   let isUnknownStop = function
+    | StoppedAtCall _
     | DepthLimitReached _
     | StateLimitReached _
     | InvalidInstructionStopped _
@@ -361,10 +565,10 @@ type SymExecutor(hdl: BinHandle) =
       Some(solveReachabilityQuery solver addr st.PathCondition)
     | ReachState _ -> None
     | SatisfyAddress target when addr = target ->
-      Some(solveInputQuery solver addr st.PathCondition opts.Values)
+      Some(solveInputQuery solver addr st.PathCondition opts.QueryValues)
     | SatisfyAddress _ -> None
     | SatisfyState pred when pred point ->
-      Some(solveInputQuery solver addr st.PathCondition opts.Values)
+      Some(solveInputQuery solver addr st.PathCondition opts.QueryValues)
     | SatisfyState _ -> None
 
   let rec evalStmtsFrom (st: SymState) (stmts: Stmt[]) =
@@ -475,10 +679,18 @@ type SymExecutor(hdl: BinHandle) =
                     | Error _ ->
                       addStopped st (InvalidInstructionStopped addr)
                     | Ok stmts ->
-                      exploredStates <- exploredStates + 1
-                      evalInstr st stmts
-                      |> List.iter (handleSuccessor addr item.Depth visits)
-    let result = finishRun opts reachAnswers satAnswers stoppedStates prunedStates
+                      match handleCallInstruction addr ins opts st with
+                      | StopBeforeInstruction reason -> addStopped st reason
+                      | SkipInstruction successors ->
+                        successors
+                        |> List.iter
+                          (handleSuccessor addr item.Depth visits)
+                      | EvaluateInstruction ->
+                        exploredStates <- exploredStates + 1
+                        evalInstr st stmts
+                        |> List.iter (handleSuccessor addr item.Depth visits)
+    let result =
+      finishRun opts reachAnswers satAnswers stoppedStates prunedStates
     match runTimeout with
     | Some timeout -> SymRunResult.TimedOut(timeout, result)
     | None -> result

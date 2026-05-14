@@ -28,11 +28,10 @@ open System.Collections.Generic
 open B2R2
 
 /// Represents symbolic memory indexed by concrete addresses.
-type SymMemory(?mem: IDictionary<Addr, SymExpr>) =
-  let mem =
-    match mem with
-    | Some mem -> Dictionary<Addr, SymExpr>(mem)
-    | None -> Dictionary<Addr, SymExpr>()
+type SymMemory(mem: IDictionary<Addr, SymExpr>) =
+  let mem = Dictionary<Addr, SymExpr>(mem)
+
+  new() = SymMemory(Dictionary<Addr, SymExpr>() :> IDictionary<Addr, SymExpr>)
 
   interface ISymMemory with
 

@@ -41,14 +41,12 @@ type private Z3ProcessOutput =
     Stderr: string }
 
 /// Represents an SMT solver that communicates with Z3 through its CLI.
-type Z3Solver(?options: Z3CliOptions) =
+type Z3Solver(options: Z3CliOptions) =
   static let defaultTimeout = 5000
 
   static let defaultOptions =
     { Executable = None
       Timeout = defaultTimeout }
-
-  let options = defaultArg options defaultOptions
 
   let solverFailure failure = SolverFailure failure |> Error
 
@@ -274,6 +272,8 @@ type Z3Solver(?options: Z3CliOptions) =
   static member DefaultTimeout = defaultTimeout
 
   static member DefaultOptions = defaultOptions
+
+  new() = Z3Solver(defaultOptions)
 
   member _.CheckSat pathCondition = checkSat pathCondition
 

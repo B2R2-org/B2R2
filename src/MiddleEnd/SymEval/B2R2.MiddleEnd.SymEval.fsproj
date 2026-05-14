@@ -19,8 +19,10 @@
     <Compile Include="SymEvaluator.fs" />
     <Compile Include="SMTLibSerializer.fs" />
     <Compile Include="ISolver.fs" />
+    <Compile Include="SymModel.fs" />
     <Compile Include="Z3OutputParser.fs" />
     <Compile Include="Z3Solver.fs" />
+    <Compile Include="SymCallHook.fs" />
     <Compile Include="SymExecutor.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
