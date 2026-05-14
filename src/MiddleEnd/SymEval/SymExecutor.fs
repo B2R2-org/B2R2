@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.SymEval
 
 open System.Collections.Generic
+open System.Diagnostics
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -77,6 +78,10 @@ type SymRunOptions =
     LoopBound: int
     /// Solver backend used for path queries and optional pruning.
     Solver: SymSolver
+    /// Maximum milliseconds for each solver query. Zero uses solver default.
+    SolverTimeout: int
+    /// Maximum milliseconds to spend in Run. Zero means unlimited.
+    RunTimeout: int
     /// Enable solver-backed infeasible path pruning.
     PruneInfeasiblePaths: bool }
 
@@ -96,6 +101,8 @@ type SymRunStopReason =
   | MissingSolverForQuery of addr: Addr
   /// Solver query failed at a matching state.
   | SolverQueryFailed of addr: Addr * error: SymEvalError
+  /// Exploration reached the configured run timeout.
+  | RunTimeoutReached of timeout: int
 
 /// Represents a state that was discarded before further exploration.
 type SymRunPruneReason =
@@ -143,6 +150,8 @@ type SymRunResult =
   | Unsatisfiable
   /// Execution could not prove satisfiability or unsatisfiability.
   | Unknown of SymRunFailure list
+  /// Execution timed out and produced the given partial result.
+  | TimedOut of timeout: int * result: SymRunResult
 
 type private SymRunWorkItem =
   { State: SymState
@@ -154,6 +163,10 @@ type private SymQueryEvalResult =
   | QuerySatisfiable of SolverValue list
   | QueryUnsat of SymRunPruneReason
   | QueryUnknown of SymRunStopReason
+
+type private SymSolverRunner =
+  { CheckSat: SymExpr list -> Result<SolverStatus, SymEvalError>
+    GetValues: SymExpr list * SymExpr list -> Result<SolverOutput, SymEvalError> }
 
 /// Represents a symbolic executor over SymEval's evaluation state.
 type SymExecutor(hdl: BinHandle) =
@@ -177,10 +190,47 @@ type SymExecutor(hdl: BinHandle) =
     try lifter.LiftInstruction ins |> Ok
     with _ -> Error ErrorCase.ParsingFailure
 
-  let createSolver = function
+  let getSolverTimeout (opts: SymRunOptions) =
+    if opts.SolverTimeout > 0 then opts.SolverTimeout
+    else Z3Solver.DefaultTimeout
+
+  let getRemainingRunTimeout (stopwatch: Stopwatch) (opts: SymRunOptions) =
+    match opts.RunTimeout with
+    | timeout when timeout > 0 ->
+      Some(max 0 (timeout - int stopwatch.ElapsedMilliseconds))
+    | _ -> None
+
+  let getZ3Timeout stopwatch opts =
+    match getRemainingRunTimeout stopwatch opts with
+    | Some remaining -> min (getSolverTimeout opts) remaining |> max 1
+    | None -> getSolverTimeout opts
+
+  let createZ3Runner stopwatch opts =
+    { CheckSat = fun pathCond ->
+        let timeout = getZ3Timeout stopwatch opts
+        let solver = Z3Solver { Z3Solver.DefaultOptions with Timeout = timeout }
+        solver.CheckSat pathCond
+      GetValues = fun (pathCond, values) ->
+        let timeout = getZ3Timeout stopwatch opts
+        let solver = Z3Solver { Z3Solver.DefaultOptions with Timeout = timeout }
+        solver.GetValues(pathCond, values) }
+
+  let createSolver (stopwatch: Stopwatch) (opts: SymRunOptions) =
+    match opts.Solver with
     | NoSolver -> None
-    | Z3 -> Some(Z3Solver() :> ISolver)
-    | CustomSolver solver -> Some solver
+    | Z3 -> createZ3Runner stopwatch opts |> Some
+    | CustomSolver solver ->
+      Some
+        { CheckSat = fun pathCond -> solver.CheckSat pathCond
+          GetValues = fun (pathCond, values) ->
+            solver.GetValues(pathCond, values) }
+
+  let isRunTimeoutReached (stopwatch: Stopwatch) (opts: SymRunOptions) =
+    match opts.RunTimeout with
+    | timeout when timeout > 0
+                && stopwatch.ElapsedMilliseconds >= int64 timeout ->
+      Some timeout
+    | _ -> None
 
   let isMaxDepthReached depth (opts: SymRunOptions) =
     match opts.MaxDepth with
@@ -201,7 +251,7 @@ type SymExecutor(hdl: BinHandle) =
     | limit when limit > 0 && count >= limit -> Error limit
     | _ -> Ok(Map.add addr (count + 1) visits)
 
-  let checkPathFeasibility (solver: ISolver option) addr
+  let checkPathFeasibility (solver: SymSolverRunner option) addr
                            (opts: SymRunOptions) (st: SymState) =
     if opts.PruneInfeasiblePaths then
       match solver with
@@ -220,7 +270,8 @@ type SymExecutor(hdl: BinHandle) =
     | SideEffectStopped _
     | EvaluationFailed _
     | MissingSolverForQuery _
-    | SolverQueryFailed _ -> true
+    | SolverQueryFailed _
+    | RunTimeoutReached _ -> true
 
   let isUnknownPrune = function
     | AvoidedAddress _
@@ -265,7 +316,7 @@ type SymExecutor(hdl: BinHandle) =
     | SatisfyAddress _
     | SatisfyState _ -> finishSatisfiabilityRun satAnswers stopped pruned
 
-  let solveReachabilityQuery (solver: ISolver option) addr pathCond =
+  let solveReachabilityQuery (solver: SymSolverRunner option) addr pathCond =
     match solver, pathCond with
     | None, [] -> QueryReachable
     | None, _ -> QueryUnknown(MissingSolverForQuery addr)
@@ -278,7 +329,7 @@ type SymExecutor(hdl: BinHandle) =
         |> fun err -> QueryUnknown(SolverQueryFailed(addr, err))
       | Error e -> QueryUnknown(SolverQueryFailed(addr, e))
 
-  let solveInputQuery (solver: ISolver option) addr pathCond values =
+  let solveInputQuery (solver: SymSolverRunner option) addr pathCond values =
     match solver, pathCond, values with
     | None, [], [] -> QuerySatisfiable []
     | None, _, _ -> QueryUnknown(MissingSolverForQuery addr)
@@ -298,7 +349,7 @@ type SymExecutor(hdl: BinHandle) =
       InstructionCount = depth
       State = st }
 
-  let trySolveAtState (solver: ISolver option) (opts: SymRunOptions)
+  let trySolveAtState (solver: SymSolverRunner option) (opts: SymRunOptions)
                       depth (st: SymState) =
     let point = makeStopPoint depth st
     let addr = point.Address
@@ -341,7 +392,8 @@ type SymExecutor(hdl: BinHandle) =
 
   let run start (st: SymState) (opts: SymRunOptions) =
     let worklist = Queue<SymRunWorkItem>()
-    let solver = createSolver opts.Solver
+    let stopwatch = Stopwatch.StartNew()
+    let solver = createSolver stopwatch opts
     let initialState = st.Clone()
     initialState.PC <- start
     worklist.Enqueue
@@ -354,6 +406,7 @@ type SymExecutor(hdl: BinHandle) =
     let mutable prunedStates: (SymState * SymRunPruneReason) list = []
     let mutable exploredStates = 0
     let mutable stopExploration = false
+    let mutable runTimeout = None
     let addStopped (st: SymState) reason =
       stoppedStates <- (st, reason) :: stoppedStates
     let addPruned (st: SymState) reason =
@@ -387,38 +440,48 @@ type SymExecutor(hdl: BinHandle) =
       | SymEvaluator.EvalError e ->
         addStopped st (EvaluationFailed(addr, e))
     while worklist.Count > 0 && not stopExploration do
-      let item = worklist.Dequeue()
-      let st = item.State
-      let addr = st.PC
-      if Set.contains addr opts.Avoid then addPruned st (AvoidedAddress addr)
-      else
-        match trySolveAtState solver opts item.Depth st with
-        | Some result -> handleQuery addr st result
-        | None ->
-          match isStateLimitReached exploredStates opts with
-          | Some limit ->
-            addStopped st (StateLimitReached limit)
-            stopExploration <- true
+      match isRunTimeoutReached stopwatch opts with
+      | Some timeout ->
+        let item = worklist.Peek()
+        addStopped item.State (RunTimeoutReached timeout)
+        runTimeout <- Some timeout
+        stopExploration <- true
+      | None ->
+        let item = worklist.Dequeue()
+        let st = item.State
+        let addr = st.PC
+        if Set.contains addr opts.Avoid then addPruned st (AvoidedAddress addr)
+        else
+          match trySolveAtState solver opts item.Depth st with
+          | Some result -> handleQuery addr st result
           | None ->
-            match isMaxDepthReached item.Depth opts with
+            match isStateLimitReached exploredStates opts with
             | Some limit ->
-              addStopped st (DepthLimitReached(addr, limit))
+              addStopped st (StateLimitReached limit)
+              stopExploration <- true
             | None ->
-              match tryEnterAddress addr item.Visits opts with
-              | Error limit -> addPruned st (LoopBoundReached(addr, limit))
-              | Ok visits ->
-                match tryParseInstruction addr with
-                | Error _ ->
-                  addStopped st (InvalidInstructionStopped addr)
-                | Ok ins ->
-                  match tryLiftInstruction ins with
+              match isMaxDepthReached item.Depth opts with
+              | Some limit ->
+                addStopped st (DepthLimitReached(addr, limit))
+              | None ->
+                match tryEnterAddress addr item.Visits opts with
+                | Error limit -> addPruned st (LoopBoundReached(addr, limit))
+                | Ok visits ->
+                  match tryParseInstruction addr with
                   | Error _ ->
                     addStopped st (InvalidInstructionStopped addr)
-                  | Ok stmts ->
-                    exploredStates <- exploredStates + 1
-                    evalInstr st stmts
-                    |> List.iter (handleSuccessor addr item.Depth visits)
-    finishRun opts reachAnswers satAnswers stoppedStates prunedStates
+                  | Ok ins ->
+                    match tryLiftInstruction ins with
+                    | Error _ ->
+                      addStopped st (InvalidInstructionStopped addr)
+                    | Ok stmts ->
+                      exploredStates <- exploredStates + 1
+                      evalInstr st stmts
+                      |> List.iter (handleSuccessor addr item.Depth visits)
+    let result = finishRun opts reachAnswers satAnswers stoppedStates prunedStates
+    match runTimeout with
+    | Some timeout -> SymRunResult.TimedOut(timeout, result)
+    | None -> result
 
   member _.CreateState() = SymState()
 
