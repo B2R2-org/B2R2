@@ -101,7 +101,10 @@ type SymRunOptions =
     /// Maximum milliseconds to spend in Run. Zero means unlimited.
     RunTimeout: int
     /// Enable solver-backed infeasible path pruning.
-    PruneInfeasiblePaths: bool }
+    PruneInfeasiblePaths: bool
+    /// Half-open address ranges [start, finish) to pre-lift before Run.
+    /// Empty means no pre-lifting.
+    WarmUpRanges: (Addr * Addr) list }
 with
   static member private MatchesAvoid(avoid, point) =
     match avoid with
@@ -209,6 +212,10 @@ with
   /// Disables solver-backed infeasible path pruning.
   member opts.DisablePathPruning() =
     { opts with PruneInfeasiblePaths = false }
+
+  /// Uses the given half-open address ranges for pre-lifting.
+  member opts.WithWarmUpRanges ranges =
+    { opts with WarmUpRanges = ranges }
 
 /// Represents a non-target state where exploration stopped.
 type SymRunStopReason =
@@ -365,9 +372,14 @@ type private SymInstructionAction =
   | SkipInstruction of SymEvaluator.SymEvalSuccessor list
   | StopBeforeInstruction of SymRunStopReason
 
+type private SymLiftedInstruction =
+  { Instruction: IInstruction
+    Stmts: Stmt[] }
+
 /// Represents a symbolic executor over SymEval's evaluation state.
 type SymExecutor(hdl: BinHandle) =
   let lifter = hdl.NewLiftingUnit()
+  let liftCache = Dictionary<Addr, Result<SymLiftedInstruction, ErrorCase>>()
 
   let createState = function
     | EmptyMemory -> SymState()
@@ -386,6 +398,67 @@ type SymExecutor(hdl: BinHandle) =
   let tryLiftInstruction (ins: IInstruction) =
     try lifter.LiftInstruction ins |> Ok
     with _ -> Error ErrorCase.ParsingFailure
+
+  let cacheLiftResult addr result =
+    liftCache[addr] <- result
+    result
+
+  let tryLiftParsedInstruction (ins: IInstruction) =
+    tryLiftInstruction ins
+    |> Result.map (fun stmts -> { Instruction = ins; Stmts = stmts })
+
+  let tryParseAndLiftInstruction addr =
+    match tryParseInstruction addr with
+    | Error e -> Error e
+    | Ok ins -> tryLiftParsedInstruction ins
+
+  let tryGetLiftedInstruction addr =
+    match liftCache.TryGetValue addr with
+    | true, result -> result
+    | false, _ ->
+      tryParseAndLiftInstruction addr
+      |> cacheLiftResult addr
+
+  let advanceAddress addr amount finishAddr =
+    let nextAddr = addr + amount
+    if nextAddr <= addr then finishAddr else nextAddr
+
+  let instructionAlignment () = uint64 lifter.InstructionAlignment
+
+  let rec warmUpLiftCacheRange addr finishAddr =
+    if addr >= finishAddr then ()
+    else
+      match liftCache.TryGetValue addr with
+      | true, Ok lifted ->
+        warmUpLiftCacheRange
+          (advanceAddress addr (uint64 lifted.Instruction.Length) finishAddr)
+          finishAddr
+      | true, Error _ ->
+        warmUpLiftCacheRange
+          (advanceAddress addr (instructionAlignment ()) finishAddr)
+          finishAddr
+      | false, _ ->
+        match tryParseInstruction addr with
+        | Ok ins ->
+          tryLiftParsedInstruction ins
+          |> cacheLiftResult addr
+          |> ignore
+          warmUpLiftCacheRange
+            (advanceAddress addr (uint64 ins.Length) finishAddr)
+            finishAddr
+        | Error e ->
+          Error e
+          |> cacheLiftResult addr
+          |> ignore
+          warmUpLiftCacheRange
+            (advanceAddress addr (instructionAlignment ()) finishAddr)
+            finishAddr
+
+  let warmUpLiftCache (ranges: (Addr * Addr) list) =
+    ranges
+    |> List.iter (fun (startAddr, finishAddr) ->
+      if startAddr >= finishAddr then ()
+      else warmUpLiftCacheRange startAddr finishAddr)
 
   let tryGetDirectTarget (ins: IInstruction) =
     match ins.DirectBranchTarget() with
@@ -651,8 +724,8 @@ type SymExecutor(hdl: BinHandle) =
 
   let makeStopPoint depth (st: SymState) =
     let instruction =
-      match tryParseInstruction st.PC with
-      | Ok ins -> Some ins
+      match tryGetLiftedInstruction st.PC with
+      | Ok lifted -> Some lifted.Instruction
       | Error _ -> None
     { Address = st.PC
       InstructionCount = depth
@@ -710,12 +783,8 @@ type SymExecutor(hdl: BinHandle) =
     | Ok visits -> Ok visits
 
   let tryGetInstructionAndStmts addr =
-    match tryParseInstruction addr with
-    | Error e -> Error e
-    | Ok ins ->
-      match tryLiftInstruction ins with
-      | Error e -> Error e
-      | Ok stmts -> Ok(ins, stmts)
+    tryGetLiftedInstruction addr
+    |> Result.map (fun lifted -> lifted.Instruction, lifted.Stmts)
 
   let rec evalStmtsFrom (st: SymState) (stmts: Stmt[]) =
     let numStmts = Array.length stmts
@@ -798,6 +867,7 @@ type SymExecutor(hdl: BinHandle) =
     | Pruned(st, reason) -> addPruned st reason
 
   let run start (st: SymState) (opts: SymRunOptions) =
+    warmUpLiftCache opts.WarmUpRanges
     let worklist = Queue<SymRunWorkItem>()
     let stopwatch = Stopwatch.StartNew()
     let solver = createSolver opts
