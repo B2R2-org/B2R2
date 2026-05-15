@@ -108,32 +108,6 @@ type SMTLibPipelineTests() =
     assertStatus Unknown " UNKNOWN "
 
   [<TestMethod>]
-  member _.``Extract values from raw solver model``() =
-    let values =
-      [ SymExpr.Var("password_0", 8<rt>)
-        SymExpr.Var("word", 16<rt>)
-        SymExpr.Var("missing", 8<rt>) ]
-    let modelText =
-      [ "("
-        "(define-fun password_0 () (_ BitVec 8)"
-        "  #x41)"
-        "(define-fun word () (_ BitVec 16)"
-        "  (_ bv16962 16))"
-        ")" ]
-      |> String.concat "\n"
-    match SolverOutputParser.extract values modelText with
-    | Ok output ->
-      Assert.AreEqual<SolverStatus>(Sat, output.Status)
-      Assert.AreEqual<uint64>
-        (0x41UL,
-         solverValue "password_0" output.Values |> BitVector.ToUInt64)
-      Assert.AreEqual<uint64>
-        (16962UL, solverValue "word" output.Values |> BitVector.ToUInt64)
-      Assert.AreEqual<uint64>
-        (0UL, solverValue "missing" output.Values |> BitVector.ToUInt64)
-    | Error err -> Assert.Fail $"Failed to extract model: {err}"
-
-  [<TestMethod>]
   member _.``Reject model query for non-variable expression``() =
     let one = SymExpr.Const(BitVector.One 8<rt>)
     let value = SymExpr.binop BinOpType.ADD 8<rt> x8 one

@@ -300,13 +300,58 @@ type private SymRunWorkItem =
   { State: SymState
     Depth: int
     Visits: Map<Addr, int>
-    PrunedPathConditionLength: int }
+    CheckedPathCondLen: int }
+
+type private SymRunContext =
+  { mutable ReachAnswers: SymReachabilityAnswer list
+    mutable SatAnswers: SymSatisfiabilityAnswer list
+    mutable StoppedStates: (SymState * SymRunStopReason) list
+    mutable PrunedStates: (SymState * SymRunPruneReason) list
+    mutable GeneratedStates: int
+    mutable StopExploration: bool
+    mutable RunTimeout: int option }
+with
+  static member Init() =
+    { ReachAnswers = []
+      SatAnswers = []
+      StoppedStates = []
+      PrunedStates = []
+      GeneratedStates = 0
+      StopExploration = false
+      RunTimeout = None }
+
+  member ctx.AddStopped st reason =
+    ctx.StoppedStates <- (st, reason) :: ctx.StoppedStates
+
+  member ctx.AddPruned st reason =
+    ctx.PrunedStates <- (st, reason) :: ctx.PrunedStates
+
+  member ctx.AddReachAnswer target st =
+    ctx.ReachAnswers <- { Target = target; State = st } :: ctx.ReachAnswers
+
+  member ctx.AddSatAnswer target st values =
+    ctx.SatAnswers <- { Target = target; State = st; Values = values }
+                      :: ctx.SatAnswers
+
+  member ctx.MarkStateGenerated() =
+    ctx.GeneratedStates <- ctx.GeneratedStates + 1
+
+  member ctx.Stop() =
+    ctx.StopExploration <- true
+
+  member ctx.MarkTimeout timeout =
+    ctx.RunTimeout <- Some timeout
+    ctx.Stop()
 
 type private SymQueryEvalResult =
   | QueryReachable
   | QuerySatisfiable of SolverValue list
   | QueryUnsat of SymRunPruneReason
   | QueryUnknown of SymRunStopReason
+
+type private SymMatchedQuery =
+  | MatchedReachabilityQuery
+  | MatchedSatisfiabilityQuery
 
 type private SymValueQuery =
   SymExpr list * SymExpr list -> Result<SolverOutput, SymEvalError>
@@ -503,7 +548,7 @@ type SymExecutor(hdl: BinHandle) =
   let tryGetVisitCount addr visits =
     Map.tryFind addr visits |> Option.defaultValue 0
 
-  let tryEnterAddress addr visits (opts: SymRunOptions) =
+  let tryUpdateVisitCount addr visits (opts: SymRunOptions) =
     let count = tryGetVisitCount addr visits
     match opts.LoopBound with
     | limit when limit > 0 && count >= limit -> Error limit
@@ -623,23 +668,54 @@ type SymExecutor(hdl: BinHandle) =
     | AvoidState pred when pred point -> Some(AvoidedState point.Address)
     | AvoidState _ -> None
 
-  let trySolveAtState (solver: SymSolverRunner option) (opts: SymRunOptions)
-                      depth (st: SymState) =
+  let tryMatchUserQuery (query: SymQuery) (point: SymStopPoint) =
+    match query with
+    | ReachAddress target when point.Address = target ->
+      Some MatchedReachabilityQuery
+    | ReachAddress _ -> None
+    | ReachState pred when pred point -> Some MatchedReachabilityQuery
+    | ReachState _ -> None
+    | SatisfyAddress target when point.Address = target ->
+      Some MatchedSatisfiabilityQuery
+    | SatisfyAddress _ -> None
+    | SatisfyState pred when pred point -> Some MatchedSatisfiabilityQuery
+    | SatisfyState _ -> None
+
+  let solveMatchedUserQuery solver opts addr (st: SymState) = function
+    | MatchedReachabilityQuery ->
+      solveReachabilityQuery solver addr st.PathCondition
+    | MatchedSatisfiabilityQuery ->
+      solveInputQuery solver addr st.PathCondition opts.QueryValues
+
+  let trySolveUserQueryAtState solver opts depth (st: SymState) =
     let point = makeStopPoint depth st
     let addr = point.Address
-    match opts.Query with
-    | ReachAddress target when addr = target ->
-      Some(solveReachabilityQuery solver addr st.PathCondition)
-    | ReachAddress _ -> None
-    | ReachState pred when pred point ->
-      Some(solveReachabilityQuery solver addr st.PathCondition)
-    | ReachState _ -> None
-    | SatisfyAddress target when addr = target ->
-      Some(solveInputQuery solver addr st.PathCondition opts.QueryValues)
-    | SatisfyAddress _ -> None
-    | SatisfyState pred when pred point ->
-      Some(solveInputQuery solver addr st.PathCondition opts.QueryValues)
-    | SatisfyState _ -> None
+    tryMatchUserQuery opts.Query point
+    |> Option.map (solveMatchedUserQuery solver opts addr st)
+
+  let tryCheckDepthLimit opts item =
+    let addr = item.State.PC
+    match isMaxDepthReached item.Depth opts with
+    | Some limit ->
+      Stopped(item.State, DepthLimitReached(addr, limit))
+      |> Error
+    | None -> Ok item
+
+  let tryUpdateVisitCountForItem opts item =
+    let addr = item.State.PC
+    match tryUpdateVisitCount addr item.Visits opts with
+    | Error limit ->
+      Pruned(item.State, LoopBoundReached(addr, limit))
+      |> Error
+    | Ok visits -> Ok visits
+
+  let tryGetInstructionAndStmts addr =
+    match tryParseInstruction addr with
+    | Error e -> Error e
+    | Ok ins ->
+      match tryLiftInstruction ins with
+      | Error e -> Error e
+      | Ok stmts -> Ok(ins, stmts)
 
   let rec evalStmtsFrom (st: SymState) (stmts: Stmt[]) =
     let numStmts = Array.length stmts
@@ -664,117 +740,146 @@ type SymExecutor(hdl: BinHandle) =
     st.PrepareInstrEval stmts
     evalStmtsFrom st stmts
 
+  let evaluateInstruction (opts: SymRunOptions) addr (st: SymState) =
+    match tryGetInstructionAndStmts addr with
+    | Error _ -> Error(InvalidInstructionStopped addr)
+    | Ok(ins, stmts) ->
+      match handleCallInstruction addr ins opts st with
+      | StopBeforeInstruction reason -> Error reason
+      | SkipInstruction successors -> Ok(false, successors)
+      | EvaluateInstruction -> Ok(true, evalInstr st stmts)
+
+  let tryStopOnRunTimeout stopwatch opts (worklist: Queue<_>) onTimeout () =
+    match isRunTimeoutReached stopwatch opts with
+    | Some timeout ->
+      let item = worklist.Peek()
+      onTimeout item timeout
+      None
+    | None -> Some()
+
+  let tryDequeueNextItem (worklist: Queue<_>) = function
+    | Some() -> worklist.Dequeue() |> Some
+    | None -> None
+
+  let tryAnswerUserQuery solver opts onQuery = function
+    | Some item ->
+      let st = item.State
+      let addr = st.PC
+      match trySolveUserQueryAtState solver opts item.Depth st with
+      | Some result ->
+        onQuery addr st result
+        None
+      | None -> Some item
+    | None -> None
+
+  let tryStopOnDepthLimit opts onFailure = function
+    | Some item ->
+      match tryCheckDepthLimit opts item with
+      | Ok item -> Some item
+      | Error failure ->
+        onFailure failure
+        None
+    | None -> None
+
+  let tryStopOnLoopLimit opts onFailure = function
+    | Some item ->
+      match tryUpdateVisitCountForItem opts item with
+      | Ok visits -> Some(item, visits)
+      | Error failure ->
+        onFailure failure
+        None
+    | None -> None
+
+  let handleRunFailure addStopped addPruned stopExploration = function
+    | Stopped(st, (StateLimitReached _ as reason)) ->
+      addStopped st reason
+      stopExploration ()
+    | Stopped(st, reason) -> addStopped st reason
+    | Pruned(st, reason) -> addPruned st reason
+
   let run start (st: SymState) (opts: SymRunOptions) =
     let worklist = Queue<SymRunWorkItem>()
     let stopwatch = Stopwatch.StartNew()
     let solver = createSolver opts
+    let ctx = SymRunContext.Init()
     let initialState = st.Clone()
     initialState.PC <- start
-    let mutable reachAnswers: SymReachabilityAnswer list = []
-    let mutable satAnswers: SymSatisfiabilityAnswer list = []
-    let mutable stoppedStates: (SymState * SymRunStopReason) list = []
-    let mutable prunedStates: (SymState * SymRunPruneReason) list = []
-    let mutable exploredStates = 0
-    let mutable stopExploration = false
-    let mutable runTimeout = None
-    let addStopped (st: SymState) reason =
-      stoppedStates <- (st, reason) :: stoppedStates
-    let addPruned (st: SymState) reason =
-      prunedStates <- (st, reason) :: prunedStates
-    let addReachAnswer target (st: SymState) =
-      reachAnswers <- { Target = target; State = st } :: reachAnswers
-    let addSatAnswer target (st: SymState) values =
-      satAnswers <- { Target = target; State = st; Values = values }
-                    :: satAnswers
     let handleQuery addr (st: SymState) = function
-      | QueryReachable -> addReachAnswer addr st
-      | QuerySatisfiable values -> addSatAnswer addr st values
-      | QueryUnsat reason -> addPruned st reason
-      | QueryUnknown reason -> addStopped st reason
-    let enqueue checkedPathConditionLength depth visits (st: SymState) =
+      | QueryReachable -> ctx.AddReachAnswer addr st
+      | QuerySatisfiable values -> ctx.AddSatAnswer addr st values
+      | QueryUnsat reason -> ctx.AddPruned st reason
+      | QueryUnknown reason -> ctx.AddStopped st reason
+    let enqueue checkedPathCondLen depth visits (st: SymState) =
       let addr = st.PC
-      match tryFindAvoid depth opts.Avoid st with
-      | Some reason -> addPruned st reason
-      | None ->
-        let pathConditionLength = List.length st.PathCondition
-        let shouldCheckFeasibility =
-          opts.PruneInfeasiblePaths
-          && pathConditionLength > checkedPathConditionLength
-        let feasibility =
-          if shouldCheckFeasibility then
-            checkPathFeasibility solver addr opts st
-          else Ok()
-        match feasibility with
-        | Ok() ->
-          worklist.Enqueue
-            { State = st
-              Depth = depth
-              Visits = visits
-              PrunedPathConditionLength =
-                if shouldCheckFeasibility then pathConditionLength
-                else checkedPathConditionLength }
-        | Error reason -> addPruned st reason
-    let handleSuccessor addr checkedPathConditionLength depth visits = function
+      if ctx.StopExploration then ()
+      else
+        match tryFindAvoid depth opts.Avoid st with
+        | Some reason -> ctx.AddPruned st reason
+        | None ->
+          let pathCondLen = List.length st.PathCondition
+          let shouldCheck =
+            opts.PruneInfeasiblePaths
+            && pathCondLen > checkedPathCondLen
+          let pruning =
+            if shouldCheck then
+              checkPathFeasibility solver addr opts st
+            else Ok()
+          match pruning with
+          | Error reason -> ctx.AddPruned st reason
+          | Ok() ->
+            match isStateLimitReached ctx.GeneratedStates opts with
+            | Some limit ->
+              ctx.AddStopped st (StateLimitReached limit)
+              ctx.Stop()
+            | None ->
+              worklist.Enqueue
+                { State = st
+                  Depth = depth
+                  Visits = visits
+                  CheckedPathCondLen =
+                    if shouldCheck then pathCondLen else checkedPathCondLen }
+              ctx.MarkStateGenerated()
+    let handleSuccessor addr checkedPathCondLen depth visits = function
       | SymEvaluator.Continue st ->
-        enqueue checkedPathConditionLength (depth + 1) visits st
+        enqueue checkedPathCondLen (depth + 1) visits st
       | SymEvaluator.Fork(trueState, falseState) ->
-        enqueue checkedPathConditionLength (depth + 1) visits trueState
-        enqueue checkedPathConditionLength (depth + 1) visits falseState
+        enqueue checkedPathCondLen (depth + 1) visits trueState
+        enqueue checkedPathCondLen (depth + 1) visits falseState
       | SymEvaluator.Stopped(st, SymEvaluator.SideEffectStop eff) ->
-        addStopped st (SideEffectStopped(addr, eff))
+        ctx.AddStopped st (SideEffectStopped(addr, eff))
       | SymEvaluator.EvalError e ->
-        addStopped st (EvaluationFailed(addr, e))
-    enqueue 0 0 Map.empty initialState
-    while worklist.Count > 0 && not stopExploration do
-      match isRunTimeoutReached stopwatch opts with
-      | Some timeout ->
-        let item = worklist.Peek()
-        addStopped item.State (RunTimeoutReached timeout)
-        runTimeout <- Some timeout
-        stopExploration <- true
-      | None ->
-        let item = worklist.Dequeue()
+        ctx.AddStopped st (EvaluationFailed(addr, e))
+    let handleSuccessors item addr visits successors =
+      successors
+      |> List.iter
+           (handleSuccessor addr item.CheckedPathCondLen item.Depth visits)
+    let handleInstruction = function
+      | None -> ()
+      | Some(item, visits) ->
         let st = item.State
         let addr = st.PC
-        match trySolveAtState solver opts item.Depth st with
-        | Some result -> handleQuery addr st result
-        | None ->
-          match isStateLimitReached exploredStates opts with
-          | Some limit ->
-            addStopped st (StateLimitReached limit)
-            stopExploration <- true
-          | None ->
-            match isMaxDepthReached item.Depth opts with
-            | Some limit ->
-              addStopped st (DepthLimitReached(addr, limit))
-            | None ->
-              match tryEnterAddress addr item.Visits opts with
-              | Error limit -> addPruned st (LoopBoundReached(addr, limit))
-              | Ok visits ->
-                match tryParseInstruction addr with
-                | Error _ ->
-                  addStopped st (InvalidInstructionStopped addr)
-                | Ok ins ->
-                  match tryLiftInstruction ins with
-                  | Error _ ->
-                    addStopped st (InvalidInstructionStopped addr)
-                  | Ok stmts ->
-                    match handleCallInstruction addr ins opts st with
-                    | StopBeforeInstruction reason -> addStopped st reason
-                    | SkipInstruction successors ->
-                      successors
-                      |> List.iter
-                           (handleSuccessor addr
-                              item.PrunedPathConditionLength item.Depth visits)
-                    | EvaluateInstruction ->
-                      exploredStates <- exploredStates + 1
-                      evalInstr st stmts
-                      |> List.iter
-                           (handleSuccessor addr
-                              item.PrunedPathConditionLength item.Depth visits)
+        match evaluateInstruction opts addr st with
+        | Error reason -> ctx.AddStopped st reason
+        | Ok(_, successors) ->
+          handleSuccessors item addr visits successors
+    let handleRunTimeout item timeout =
+      ctx.AddStopped item.State (RunTimeoutReached timeout)
+      ctx.MarkTimeout timeout
+    let handleFailure =
+      handleRunFailure ctx.AddStopped ctx.AddPruned ctx.Stop
+    enqueue 0 0 Map.empty initialState
+    while worklist.Count > 0 && not ctx.StopExploration do
+      ()
+      |> tryStopOnRunTimeout stopwatch opts worklist handleRunTimeout
+      |> tryDequeueNextItem worklist
+      |> tryAnswerUserQuery solver opts handleQuery
+      |> tryStopOnDepthLimit opts handleFailure
+      |> tryStopOnLoopLimit opts handleFailure
+      |> handleInstruction
     let result =
-      finishRun opts reachAnswers satAnswers stoppedStates prunedStates
-    match runTimeout with
+      finishRun opts ctx.ReachAnswers ctx.SatAnswers
+                ctx.StoppedStates ctx.PrunedStates
+    match ctx.RunTimeout with
     | Some timeout -> SymRunResult.TimedOut(timeout, result)
     | None -> result
 
