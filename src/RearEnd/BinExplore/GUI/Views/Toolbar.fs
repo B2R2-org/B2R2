@@ -220,6 +220,9 @@ module internal SearchBox = begin
   let formatSectionLabel addr (matched: string) =
     $"[section] 0x{addr:X}: {matched}"
 
+  let formatExternalLabel addr (matched: string) =
+    $"[ext] 0x{addr:X}: {matched}"
+
   let formatDisasmLabel addr (matched: string) =
     $"[disasm] 0x{addr:X}: {matched}"
 
@@ -248,6 +251,15 @@ module internal SearchBox = begin
           let result =
             { Label = formatDisasmLabel loc.Address disasm
               Target = FileRange(int64 loc.Offset, int64 loc.ItemLength) }
+          appendResult results result
+        else
+          ()
+      | LinkageTableHeader(loc, name) ->
+        if name.Contains(input, StringComparison.OrdinalIgnoreCase) then
+          let idx = loc.Offset
+          let result =
+            { Label = formatExternalLabel idx name
+              Target = FileRange(idx, 1L) }
           appendResult results result
         else
           ()

@@ -34,7 +34,8 @@ type LinearDocument =
   { LinearBaseAddress: Addr
     LinearTotalLength: int64
     LinearItems: ResizeArray<LinearItem>
-    BinHandle: BinHandle }
+    BinHandle: BinHandle
+    LiftingUnit: LiftingUnit }
 
 /// Describes the location of a linear-view item within the loaded binary.
 /// Different item kinds can share this contract while keeping their payloads
@@ -171,10 +172,13 @@ module LinearDocument =
   let load (brew: BinaryBrew<_, _>) sections =
     let hdl = brew.BinHandle
     let bytes = hdl.File.RawBytes
+    let lifter = hdl.NewLiftingUnit()
+    lifter.ConfigureDisassembly(showAddr = false)
     { LinearBaseAddress = hdl.File.BaseAddress
       LinearTotalLength = bytes.LongLength
       LinearItems = buildItems brew bytes sections
-      BinHandle = hdl }
+      BinHandle = hdl
+      LiftingUnit = lifter }
 
   let tryGetItem doc index =
     if index < 0 || index >= doc.LinearItems.Count then

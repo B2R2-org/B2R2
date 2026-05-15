@@ -244,7 +244,7 @@ let private mainArea tokenContextProvider (model: Model) dispatch =
 
 let private onMainViewKeyDown (e: KeyEventArgs) =
   if e.Key = Key.F && e.KeyModifiers.HasFlag KeyModifiers.Control then
-    Toolbar.SearchBox.focus()
+    Toolbar.SearchBox.focus ()
     e.Handled <- true
   else
     ()

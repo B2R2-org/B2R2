@@ -35,6 +35,7 @@ open Avalonia.FuncUI.Types
 open Avalonia.Input
 open Avalonia.Media
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinLifter
 
 let [<Literal>] private OverscanPixels = 240.0
 let [<Literal>] private HeaderTopGap = 8.0
@@ -112,11 +113,15 @@ type private LinearCellKind =
 type private LinearTextRole =
   | PrimaryText
   | SecondaryText
+  | TokenText of AsmWordKind
+
+type private LinearTextSegment =
+  { Text: string
+    Role: LinearTextRole }
 
 type private LinearCell =
   { Kind: LinearCellKind
-    Text: string
-    Role: LinearTextRole
+    Segments: LinearTextSegment list
     Line: int }
 
 type private LinearHeaderKind =
@@ -129,7 +134,7 @@ type private LinearRowVisualModel =
 
 type private CachedRowVisual =
   | CellRowVisual of
-      LinearRowKind * cells: (LinearCellKind * int * FormattedText) list
+      LinearRowKind * cells: (LinearCellKind * int * FormattedText list) list
   | FullWidthHeaderVisual of LinearHeaderKind * title: FormattedText
 
 let private addressDigits (doc: LinearDocument) =
@@ -174,8 +179,13 @@ let private computeCommonLayout doc (state: LinearViewState) =
 
 let private formattedTextWidthOf kind cells =
   cells
-  |> List.choose (fun (cellKind, _, txt: FormattedText) ->
-    if cellKind = kind then Some txt.Width else None)
+  |> List.choose (fun (cellKind, _, texts: FormattedText list) ->
+    if cellKind = kind then
+      texts
+      |> List.sumBy (fun txt -> txt.WidthIncludingTrailingWhitespace)
+      |> Some
+    else
+      None)
   |> List.fold max 0.0
 
 let private rowLayoutOf common rowKind cells =
@@ -217,15 +227,34 @@ let private asciiOfByte value =
 
 let private linearCell kind text role =
   { Kind = kind
-    Text = text
-    Role = role
+    Segments = [ { Text = text; Role = role } ]
     Line = 0 }
 
 let private linearCellAt line kind text role =
   { Kind = kind
-    Text = text
-    Role = role
+    Segments = [ { Text = text; Role = role } ]
     Line = line }
+
+let private disasmCellFromWords fallback words =
+  let segments =
+    words
+    |> Array.toList
+    |> List.map (fun word ->
+      { Text = word.AsmWordValue
+        Role = TokenText word.AsmWordKind })
+  if List.isEmpty segments then
+    linearCell DisasmCell fallback PrimaryText
+  else
+    { Kind = DisasmCell
+      Segments = segments
+      Line = 0 }
+
+let private disasmCellFromAddress (lifter: LiftingUnit) address fallback =
+  try
+    lifter.DecomposeInstruction(addr = address)
+    |> disasmCellFromWords fallback
+  with _ ->
+    linearCell DisasmCell fallback PrimaryText
 
 let private bytesText (bytes: byte[]) =
   bytes |> Array.map (fun b -> $"{b:X2}") |> String.concat " "
@@ -248,7 +277,7 @@ let private valueCellsOfBytes (bytes: byte[]) =
       linearCellAt 1 ValueCell
         (bytes |> Array.skip capacity |> bytesText) PrimaryText ]
 
-let private toRowVisualModel (hdl: BinHandle) = function
+let private toRowVisualModel (hdl: BinHandle) (lifter: LiftingUnit) = function
   | RawByte(loc, value) ->
     Cells(RawByteRow, [
       linearCell OffsetCell $"off+0x{loc.Offset:X}" SecondaryText
@@ -267,7 +296,7 @@ let private toRowVisualModel (hdl: BinHandle) = function
         linearCell AddressCell $"0x{loc.Address:X}" PrimaryText
         linearCell KindCell "(i)" SecondaryText
         yield! valueCellsOfBytes bytes
-        linearCell DisasmCell disasm PrimaryText ]
+        disasmCellFromAddress lifter loc.Address disasm ]
     )
   | LinkageTableHeader(_, name) ->
     FullWidthHeader(LinkageTableHeaderVisual, name)
@@ -278,7 +307,7 @@ let private toRowVisualModel (hdl: BinHandle) = function
       linearCell AddressCell $"0x{loc.Address:X}" PrimaryText
       linearCell KindCell "(l)" SecondaryText
       yield! valueCellsOfBytes bytes
-      linearCell DisasmCell disasm PrimaryText
+      disasmCellFromAddress lifter loc.Address disasm
     ])
 
 type private LinearRenderLayer() =
@@ -289,6 +318,10 @@ type private LinearRenderLayer() =
   let mutable lastFontSize = 0.0
   let mutable lastForeground = ""
   let mutable lastSecondary = ""
+  let mutable lastAddress = ""
+  let mutable lastMnemonic = ""
+  let mutable lastVariable = ""
+  let mutable lastValue = ""
 
   let clearCache () =
     textCache.Clear()
@@ -303,7 +336,7 @@ type private LinearRenderLayer() =
       Brush.Parse foreground
     )
 
-  let ensureCacheSignature (state: LinearViewState) theme =
+  let ensureCacheSignature (state: LinearViewState) (theme: Theme) =
     let fontFamily = theme.Font.Monospace.FontFamily
     let fontSize = state.FontSize
     let foreground = theme.Text.Primary
@@ -311,19 +344,32 @@ type private LinearRenderLayer() =
     if lastFontFamily <> fontFamily
        || lastFontSize <> fontSize
        || lastForeground <> foreground
-       || lastSecondary <> secondary then
+       || lastSecondary <> secondary
+       || lastAddress <> theme.Text.Address
+       || lastMnemonic <> theme.Text.Mnemonic
+       || lastVariable <> theme.Text.Variable
+       || lastValue <> theme.Text.Value then
       clearCache ()
       lastFontFamily <- fontFamily
       lastFontSize <- fontSize
       lastForeground <- foreground
       lastSecondary <- secondary
+      lastAddress <- theme.Text.Address
+      lastMnemonic <- theme.Text.Mnemonic
+      lastVariable <- theme.Text.Variable
+      lastValue <- theme.Text.Value
     else
       ()
     fontFamily, fontSize, foreground, secondary
 
-  let textColor foreground secondary = function
+  let textColor (theme: Theme) foreground secondary = function
     | PrimaryText -> foreground
     | SecondaryText -> secondary
+    | TokenText AsmWordKind.Address -> theme.Text.Address
+    | TokenText AsmWordKind.Mnemonic -> theme.Text.Mnemonic
+    | TokenText AsmWordKind.Variable -> theme.Text.Variable
+    | TokenText AsmWordKind.Value -> theme.Text.Value
+    | TokenText _ -> foreground
 
   let getOrCreateText doc state theme index =
     match textCache.TryGetValue index with
@@ -333,14 +379,18 @@ type private LinearRenderLayer() =
       let fontFamily, fontSize, foreground, secondary =
         ensureCacheSignature state theme
       let txt =
-        match toRowVisualModel doc.BinHandle item with
+        match toRowVisualModel doc.BinHandle doc.LiftingUnit item with
         | Cells(rowKind, cells) ->
           cells
           |> List.map (fun cell ->
-            let color = textColor foreground secondary cell.Role
+            let texts =
+              cell.Segments
+              |> List.map (fun segment ->
+                let color = textColor theme foreground secondary segment.Role
+                makeFormattedText fontFamily fontSize color segment.Text)
             cell.Kind,
             cell.Line,
-            makeFormattedText fontFamily fontSize color cell.Text)
+            texts)
           |> fun cells -> CellRowVisual(rowKind, cells)
         | FullWidthHeader(headerKind, title) ->
           let headerFontSize =
@@ -440,7 +490,8 @@ type private LinearRenderLayer() =
   member _.DrawCellRow(ctx, common, rowKind, rowTop, rowHeight, cells) =
     let textHeight =
       cells
-      |> List.map (fun (_, _, txt: FormattedText) -> txt.Height)
+      |> List.collect (fun (_, _, texts: FormattedText list) -> texts)
+      |> List.map (fun txt -> txt.Height)
       |> List.fold max 0.0
     let lineCount =
       cells
@@ -454,10 +505,12 @@ type private LinearRenderLayer() =
       else lineStep * float (lineCount - 1) + textHeight
     let firstTextY = rowTop + max 0.0 ((rowHeight - blockHeight) / 2.0)
     let rowLayout = rowLayoutOf common rowKind cells
-    for kind, line, txt in cells do
+    for kind, line, texts in cells do
       let textY = firstTextY + lineStep * float line
-      let pt = Point(cellX common rowLayout kind, textY)
-      (ctx: DrawingContext).DrawText(txt, pt)
+      let mutable textX = cellX common rowLayout kind
+      for txt in texts do
+        (ctx: DrawingContext).DrawText(txt, Point(textX, textY))
+        textX <- textX + txt.WidthIncludingTrailingWhitespace
 
   member this.DrawHeader(ctx, common, rowTop, rowHeight, headerKind, txt) =
     let theme = this.CurrentTheme
