@@ -39,8 +39,17 @@ type SymStopPoint =
     Address: Addr
     /// Number of instructions executed before reaching the state.
     InstructionCount: int
+    /// Instruction about to execute at the stop point, if parsable.
+    Instruction: IInstruction option
     /// Symbolic state at the stop point.
     State: SymState }
+
+/// Represents an avoid condition used by SymExecutor.Run.
+type SymAvoid =
+  /// Discard states whose PC reaches one of the given addresses.
+  | AvoidAddresses of addrs: Set<Addr>
+  /// Discard states satisfying the given predicate.
+  | AvoidState of predicate: (SymStopPoint -> bool)
 
 /// Represents a symbolic query evaluated by SymExecutor.Run.
 type SymQuery =
@@ -81,8 +90,8 @@ type SymRunOptions =
     Query: SymQuery
     /// Symbolic values to extract for satisfiability queries.
     QueryValues: SymExpr list
-    /// Instruction addresses to discard before execution.
-    Avoid: Set<Addr>
+    /// Address or state predicates to discard before further exploration.
+    Avoid: SymAvoid
     /// Maximum instructions to execute per path. Zero means unlimited.
     MaxDepth: int
     /// Maximum number of states to expand. Zero means unlimited.
@@ -98,6 +107,22 @@ type SymRunOptions =
     /// Enable solver-backed infeasible path pruning.
     PruneInfeasiblePaths: bool }
 with
+  static member private MatchesAvoid(avoid, point) =
+    match avoid with
+    | AvoidAddresses addrs -> Set.contains point.Address addrs
+    | AvoidState pred -> pred point
+
+  static member private CombineAvoid(lhs, rhs) =
+    match lhs, rhs with
+    | AvoidAddresses addrs1, AvoidAddresses addrs2 ->
+      AvoidAddresses(Set.union addrs1 addrs2)
+    | AvoidAddresses addrs, avoid when Set.isEmpty addrs -> avoid
+    | avoid, AvoidAddresses addrs when Set.isEmpty addrs -> avoid
+    | avoid1, avoid2 ->
+      AvoidState(fun point ->
+        SymRunOptions.MatchesAvoid(avoid1, point)
+        || SymRunOptions.MatchesAvoid(avoid2, point))
+
   /// Adds one symbolic value to solver value extraction.
   member opts.AddQueryValue value =
     { opts with QueryValues = opts.QueryValues @ [ value ] }
@@ -123,15 +148,33 @@ with
 
   /// Adds one address to the avoid set.
   member opts.AddAvoidAddress addr =
-    { opts with Avoid = Set.add addr opts.Avoid }
+    { opts with
+        Avoid =
+          SymRunOptions.CombineAvoid(opts.Avoid,
+                                     AvoidAddresses(Set.singleton addr)) }
 
   /// Adds addresses to the avoid set.
   member opts.AddAvoidAddresses addrs =
-    { opts with Avoid = Set.union opts.Avoid (Set.ofSeq addrs) }
+    { opts with
+        Avoid =
+          SymRunOptions.CombineAvoid(opts.Avoid,
+                                     AvoidAddresses(Set.ofSeq addrs)) }
 
   /// Replaces the avoid set.
   member opts.WithAvoidAddresses addrs =
-    { opts with Avoid = Set.ofSeq addrs }
+    { opts with Avoid = AvoidAddresses(Set.ofSeq addrs) }
+
+  /// Uses the given avoid condition.
+  member opts.WithAvoid avoid =
+    { opts with Avoid = avoid }
+
+  /// Adds one avoid condition.
+  member opts.AddAvoid avoid =
+    { opts with Avoid = SymRunOptions.CombineAvoid(opts.Avoid, avoid) }
+
+  /// Adds one state predicate to the avoid conditions.
+  member opts.AddAvoidState predicate =
+    opts.AddAvoid(AvoidState predicate)
 
   /// Stops before evaluating call instructions.
   member opts.StopAtCalls() =
@@ -196,6 +239,8 @@ type SymRunStopReason =
 type SymRunPruneReason =
   /// The state reached an avoided instruction address.
   | AvoidedAddress of addr: Addr
+  /// The state matched an avoided state predicate.
+  | AvoidedState of addr: Addr
   /// The state exceeded the per-path loop bound.
   | LoopBoundReached of addr: Addr * limit: int
   /// The solver proved the state's path condition unsatisfiable.
@@ -479,6 +524,7 @@ type SymExecutor(hdl: BinHandle) =
 
   let isUnknownPrune = function
     | AvoidedAddress _
+    | AvoidedState _
     | InfeasiblePath _ -> false
     | LoopBoundReached _
     | SolverPruningFailed _ -> true
@@ -549,9 +595,23 @@ type SymExecutor(hdl: BinHandle) =
       | Error e -> QueryUnknown(SolverQueryFailed(addr, e))
 
   let makeStopPoint depth (st: SymState) =
+    let instruction =
+      match tryParseInstruction st.PC with
+      | Ok ins -> Some ins
+      | Error _ -> None
     { Address = st.PC
       InstructionCount = depth
+      Instruction = instruction
       State = st }
+
+  let tryFindAvoid depth (avoid: SymAvoid) (st: SymState) =
+    let point = makeStopPoint depth st
+    match avoid with
+    | AvoidAddresses addrs when Set.contains point.Address addrs ->
+      Some(AvoidedAddress point.Address)
+    | AvoidAddresses _ -> None
+    | AvoidState pred when pred point -> Some(AvoidedState point.Address)
+    | AvoidState _ -> None
 
   let trySolveAtState (solver: SymSolverRunner option) (opts: SymRunOptions)
                       depth (st: SymState) =
@@ -600,10 +660,6 @@ type SymExecutor(hdl: BinHandle) =
     let solver = createSolver stopwatch opts
     let initialState = st.Clone()
     initialState.PC <- start
-    worklist.Enqueue
-      { State = initialState
-        Depth = 0
-        Visits = Map.empty }
     let mutable reachAnswers: SymReachabilityAnswer list = []
     let mutable satAnswers: SymSatisfiabilityAnswer list = []
     let mutable stoppedStates: (SymState * SymRunStopReason) list = []
@@ -627,13 +683,16 @@ type SymExecutor(hdl: BinHandle) =
       | QueryUnknown reason -> addStopped st reason
     let enqueue depth visits (st: SymState) =
       let addr = st.PC
-      match checkPathFeasibility solver addr opts st with
-      | Ok() ->
-        worklist.Enqueue
-          { State = st
-            Depth = depth
-            Visits = visits }
-      | Error reason -> addPruned st reason
+      match tryFindAvoid depth opts.Avoid st with
+      | Some reason -> addPruned st reason
+      | None ->
+        match checkPathFeasibility solver addr opts st with
+        | Ok() ->
+          worklist.Enqueue
+            { State = st
+              Depth = depth
+              Visits = visits }
+        | Error reason -> addPruned st reason
     let handleSuccessor addr depth visits = function
       | SymEvaluator.Continue st -> enqueue (depth + 1) visits st
       | SymEvaluator.Fork(trueState, falseState) ->
@@ -643,6 +702,7 @@ type SymExecutor(hdl: BinHandle) =
         addStopped st (SideEffectStopped(addr, eff))
       | SymEvaluator.EvalError e ->
         addStopped st (EvaluationFailed(addr, e))
+    enqueue 0 Map.empty initialState
     while worklist.Count > 0 && not stopExploration do
       match isRunTimeoutReached stopwatch opts with
       | Some timeout ->
@@ -654,41 +714,38 @@ type SymExecutor(hdl: BinHandle) =
         let item = worklist.Dequeue()
         let st = item.State
         let addr = st.PC
-        if Set.contains addr opts.Avoid then addPruned st (AvoidedAddress addr)
-        else
-          match trySolveAtState solver opts item.Depth st with
-          | Some result -> handleQuery addr st result
+        match trySolveAtState solver opts item.Depth st with
+        | Some result -> handleQuery addr st result
+        | None ->
+          match isStateLimitReached exploredStates opts with
+          | Some limit ->
+            addStopped st (StateLimitReached limit)
+            stopExploration <- true
           | None ->
-            match isStateLimitReached exploredStates opts with
+            match isMaxDepthReached item.Depth opts with
             | Some limit ->
-              addStopped st (StateLimitReached limit)
-              stopExploration <- true
+              addStopped st (DepthLimitReached(addr, limit))
             | None ->
-              match isMaxDepthReached item.Depth opts with
-              | Some limit ->
-                addStopped st (DepthLimitReached(addr, limit))
-              | None ->
-                match tryEnterAddress addr item.Visits opts with
-                | Error limit -> addPruned st (LoopBoundReached(addr, limit))
-                | Ok visits ->
-                  match tryParseInstruction addr with
+              match tryEnterAddress addr item.Visits opts with
+              | Error limit -> addPruned st (LoopBoundReached(addr, limit))
+              | Ok visits ->
+                match tryParseInstruction addr with
+                | Error _ ->
+                  addStopped st (InvalidInstructionStopped addr)
+                | Ok ins ->
+                  match tryLiftInstruction ins with
                   | Error _ ->
                     addStopped st (InvalidInstructionStopped addr)
-                  | Ok ins ->
-                    match tryLiftInstruction ins with
-                    | Error _ ->
-                      addStopped st (InvalidInstructionStopped addr)
-                    | Ok stmts ->
-                      match handleCallInstruction addr ins opts st with
-                      | StopBeforeInstruction reason -> addStopped st reason
-                      | SkipInstruction successors ->
-                        successors
-                        |> List.iter
-                          (handleSuccessor addr item.Depth visits)
-                      | EvaluateInstruction ->
-                        exploredStates <- exploredStates + 1
-                        evalInstr st stmts
-                        |> List.iter (handleSuccessor addr item.Depth visits)
+                  | Ok stmts ->
+                    match handleCallInstruction addr ins opts st with
+                    | StopBeforeInstruction reason -> addStopped st reason
+                    | SkipInstruction successors ->
+                      successors
+                      |> List.iter (handleSuccessor addr item.Depth visits)
+                    | EvaluateInstruction ->
+                      exploredStates <- exploredStates + 1
+                      evalInstr st stmts
+                      |> List.iter (handleSuccessor addr item.Depth visits)
     let result =
       finishRun opts reachAnswers satAnswers stoppedStates prunedStates
     match runTimeout with
