@@ -267,6 +267,19 @@ type IntelParser(wordSz, reader) =
       v <= modRM && modRM <= v + 7uy
     | _ -> true
 
+  /// JCXZ/JECXZ/JRCXZ share opcode 0xE3 and are selected by the effective
+  /// address size determined by the current mode and the 67h prefix:
+  /// 32-bit mode  -> JECXZ, 67h -> JCXZ
+  /// 64-bit mode  -> JRCXZ, 67h -> JECXZ
+  let matchesJcxzFamilyAddressSize phlp (insCore: InstructionCore) =
+    if uint8 insCore.OpcodeByte <> 0xE3uy then true
+    else
+      match ParsingHelper.GetEffAddrSize phlp, insCore.Opcode with
+      | 16<rt>, Opcode.JCXZ
+      | 32<rt>, Opcode.JECXZ
+      | 64<rt>, Opcode.JRCXZ -> true
+      | _ -> false
+
   let findMatchingSubIndex (span: ByteSpan) (phlp: ParsingHelper)
     (ins: InstructionCore[]) =
     let insLen = ins.Length
@@ -284,11 +297,12 @@ type IntelParser(wordSz, reader) =
         let r = matchesREXPrefix phlp insCore
         let v = matchesVectorLength phlp.VEXInfo insCore.VectorLength
         let x = matchesInstructionModRM span phlp insCore
+        let a = matchesJcxzFamilyAddressSize phlp insCore
 #if DEBUG
-        printfn "Checking %d: p=%b, s=%b, c=%b, r=%b, v=%b, x=%b"
-          i p s c r v x
+        printfn "Checking %d: p=%b, s=%b, c=%b, r=%b, v=%b, x=%b, a=%b"
+          i p s c r v x a
 #endif
-        if p && c && s && r && v && x then
+        if p && c && s && r && v && x && a then
 #if DEBUG
           printfn "[Success] maps: %A, pref: %A, rex: %A, vex: %A\nIdx:%d\n%A"
             phlp.OpcodeClass phlp.Prefixes phlp.REXPrefix phlp.VEXInfo i insCore
