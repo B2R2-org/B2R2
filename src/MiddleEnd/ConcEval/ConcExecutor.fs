@@ -104,12 +104,24 @@ type ConcUndefinedValuePolicy =
   /// Preserve undefined values in the concrete evaluator state.
   | PreserveUndefinedValues
 
+/// Represents how concrete execution should handle uninitialized register
+/// reads.
+type UninitializedRegisterPolicy =
+  /// Treat uninitialized register reads as evaluation failures.
+  | StopOnUninitializedRegister
+  /// Materialize caller-provided context registers as zero on first read.
+  | ZeroCallerContext
+  /// Materialize any uninitialized register as zero on first read.
+  | ZeroAnyRegister
+
 /// Represents concrete execution configuration.
 type ConcRunOptions<'State> =
   { /// Call-handling policy.
     Calls: ConcCallPolicy
     /// Undefined-value handling policy.
     UndefinedValues: ConcUndefinedValuePolicy
+    /// Uninitialized register read handling policy.
+    UninitializedRegisters: UninitializedRegisterPolicy
     /// Stop conditions used by Run.
     StopConditions: ConcStopCondition<'State> list }
 
@@ -133,6 +145,7 @@ type private InstructionEvalResult =
 /// Represents a concrete executor over ConcEval's evaluation state.
 type ConcExecutor(hdl: BinHandle) =
   let lifter = hdl.NewLiftingUnit()
+  let regFactory = hdl.RegisterFactory
 
   let createState (memory: InitialMemory<IMemory>) =
     match memory with
@@ -145,11 +158,96 @@ type ConcExecutor(hdl: BinHandle) =
     st.InitializeContext(start, opts.Registers)
     st
 
+  let isRegisterNamed names rid =
+    let name = regFactory.GetRegisterName rid
+    names |> Array.exists ((=) name)
+
+  let isControlRegister rid =
+    regFactory.IsProgramCounter rid
+    || regFactory.IsStackPointer rid
+    || isRegisterNamed [| "PC"; "NPC"; "SP"; "RSP"; "ESP" |] rid
+
+  let isReturnAddressRegister rid =
+    isRegisterNamed [| "LR"; "RA" |] rid
+
+  let isGlobalPointerRegister rid =
+    isRegisterNamed [| "GP" |] rid
+
+  let isCallerContextRegister rid =
+    not (isControlRegister rid)
+    && not (isReturnAddressRegister rid)
+    && not (isGlobalPointerRegister rid)
+
+  let zeroRegister rid =
+    regFactory.GetRegType rid
+    |> BitVector.Zero
+
+  let tryGetDefaultRegisterValue opts rid =
+    match opts.UninitializedRegisters with
+    | StopOnUninitializedRegister -> None
+    | ZeroCallerContext when isCallerContextRegister rid ->
+      Some(zeroRegister rid)
+    | ZeroCallerContext -> None
+    | ZeroAnyRegister -> Some(zeroRegister rid)
+
   let mkResult reasons addr n st =
     { StopReasons = reasons
       FinalAddress = addr
       InstructionCount = n
       State = st }
+
+  let rec collectReadRegisters = function
+    | Var(_, rid, _, _) -> [ rid ]
+    | ExprList(exprs, _) -> List.collect collectReadRegisters exprs
+    | UnOp(_, e, _) -> collectReadRegisters e
+    | BinOp(_, _, e1, e2, _)
+    | RelOp(_, e1, e2, _) ->
+      collectReadRegisters e1 @ collectReadRegisters e2
+    | Load(_, _, addr, _) -> collectReadRegisters addr
+    | Ite(cond, e1, e2, _) ->
+      collectReadRegisters cond
+      @ collectReadRegisters e1
+      @ collectReadRegisters e2
+    | Cast(_, _, e, _)
+    | Extract(e, _, _, _) -> collectReadRegisters e
+    | Num _
+    | PCVar _
+    | TempVar _
+    | JmpDest _
+    | FuncName _
+    | Undefined _ -> []
+
+  let collectStmtReadRegisters = function
+    | Put(_, rhs, _) -> collectReadRegisters rhs
+    | Store(_, addr, value, _) ->
+      collectReadRegisters addr @ collectReadRegisters value
+    | CJmp(cond, _, _, _) -> collectReadRegisters cond
+    | InterJmp(target, _, _) -> collectReadRegisters target
+    | InterCJmp(cond, target1, target2, _) ->
+      collectReadRegisters cond
+      @ collectReadRegisters target1
+      @ collectReadRegisters target2
+    | ExternalCall(args, _) -> collectReadRegisters args
+    | ISMark _
+    | IEMark _
+    | LMark _
+    | Jmp _
+    | SideEffect _ -> []
+
+  let isUninitializedRegister (st: EvalState) rid =
+    match st.TryGetReg rid with
+    | Undef -> true
+    | Def _ -> false
+
+  let materializeRegister opts (st: EvalState) rid =
+    match tryGetDefaultRegisterValue opts rid with
+    | Some v when isUninitializedRegister st rid -> st.SetReg(rid, v)
+    | _ -> ()
+
+  let materializeReadRegisters opts st stmt =
+    collectStmtReadRegisters stmt
+    |> List.distinct
+    |> List.iter (materializeRegister opts st)
 
   let rec hasUndefExpr = function
     | Undefined _ -> true
@@ -186,21 +284,24 @@ type ConcExecutor(hdl: BinHandle) =
     opts.StopConditions
     |> List.exists (function StopAfterReturn -> true | _ -> false)
 
-  let tryEvalBranchCondition (st: EvalState) = function
+  let tryEvalBranchCondition opts (st: EvalState) = function
     | CJmp(cond, _, _, _)
     | InterCJmp(cond, _, _, _) ->
+      collectReadRegisters cond
+      |> List.distinct
+      |> List.iter (materializeRegister opts st)
       match SafeEvaluator.evalExpr st cond with
       | Ok(Def v) -> Some(v = EvalUtils.tr)
       | _ -> Some false
     | _ -> None
 
-  let isConditionalBranchTaken st stmts =
-    Array.tryPick (tryEvalBranchCondition st) stmts
+  let isConditionalBranchTaken opts st stmts =
+    Array.tryPick (tryEvalBranchCondition opts st) stmts
     |> Option.defaultValue false
 
-  let isReturnTaken (st: EvalState) (ins: IInstruction) stmts =
+  let isReturnTaken opts (st: EvalState) (ins: IInstruction) stmts =
     ins.IsRET
-    && (not ins.IsCondBranch || isConditionalBranchTaken st stmts)
+    && (not ins.IsCondBranch || isConditionalBranchTaken opts st stmts)
 
   let hasStopAtCall (opts: ConcRunOptions<EvalState>) =
     opts.StopConditions
@@ -233,6 +334,7 @@ type ConcExecutor(hdl: BinHandle) =
     else ()
 
   let evalStmt (opts: ConcRunOptions<EvalState>) (st: EvalState) stmt =
+    materializeReadRegisters opts st stmt
     match opts.UndefinedValues with
     | StopOnUndefinedValue when isUndefWrite stmt -> EvalUndef
     | IgnoreUndefinedWrites when isUndefWrite stmt ->
@@ -249,7 +351,7 @@ type ConcExecutor(hdl: BinHandle) =
     | _ ->
       match SafeEvaluator.evalStmt st stmt with
       | Ok() -> EvalOk
-      | Error e -> EvalError e
+      | Result.Error e -> EvalError e
 
   let rec evalStmts opts (st: EvalState) (stmts: Stmt[]) =
     let numStmts = Array.length stmts
@@ -272,11 +374,11 @@ type ConcExecutor(hdl: BinHandle) =
 
   let tryParseInstruction addr =
     if hdl.File.IsValidAddr addr then lifter.TryParseInstruction addr
-    else Error ErrorCase.ParsingFailure
+    else Result.Error ErrorCase.ParsingFailure
 
   let tryLiftInstruction (ins: IInstruction) =
     try lifter.LiftInstruction ins |> Ok
-    with _ -> Error ErrorCase.ParsingFailure
+    with _ -> Result.Error ErrorCase.ParsingFailure
 
   let collectPreInstrStopReasons (st: EvalState) addr n
                                (opts: ConcRunOptions<EvalState>) =
@@ -292,7 +394,7 @@ type ConcExecutor(hdl: BinHandle) =
       | _ -> None)
 
   let collectInstrStopReasons opts st addr (ins: IInstruction) stmts =
-    [ if hasStopAtReturn opts && isReturnTaken st ins stmts then
+    [ if hasStopAtReturn opts && isReturnTaken opts st ins stmts then
         StoppedAtReturn addr
       if stopAtCall opts ins then
         let target = tryGetDirectTarget ins
@@ -305,7 +407,7 @@ type ConcExecutor(hdl: BinHandle) =
         | StopAfterAddress stopAddr when stopAddr = addr ->
           Some(StoppedAfterAddress addr)
         | _ -> None)
-    if hasStopAfterReturn opts && isReturnTaken st ins stmts then
+    if hasStopAfterReturn opts && isReturnTaken opts st ins stmts then
       reasons @ [ StoppedAfterReturn addr ]
     else reasons
 
@@ -318,11 +420,11 @@ type ConcExecutor(hdl: BinHandle) =
       let addr = st.PC
       let reasons = collectPreInstrStopReasons st addr n opts
       match tryParseInstruction addr with
-      | Error _ ->
+      | Result.Error _ ->
         mkResult (reasons @ [ InvalidInstructionAddress addr ]) addr n st
       | Ok ins ->
         match tryLiftInstruction ins with
-        | Error _ ->
+        | Result.Error _ ->
           mkResult (reasons @ [ InvalidInstructionAddress addr ]) addr n st
         | Ok stmts ->
           let reasons = reasons @ collectInstrStopReasons opts st addr ins stmts
