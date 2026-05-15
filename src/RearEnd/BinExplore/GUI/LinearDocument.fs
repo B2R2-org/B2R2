@@ -90,7 +90,7 @@ module LinearDocument =
       Some(
         { Address = section.Address
           Offset = int sh.SecOffset
-          ItemLength = int sh.SecSize },
+          ItemLength = 0 }, (* header itself in LinearView has no length*)
         isLinkage,
         sh.SecType = ELF.SectionType.SHT_NOBITS
       )
