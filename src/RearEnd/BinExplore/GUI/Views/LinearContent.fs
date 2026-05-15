@@ -32,6 +32,7 @@ open Avalonia.Controls
 open Avalonia.FuncUI.Builder
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
+open Avalonia.Input
 open Avalonia.Media
 open B2R2.FrontEnd
 
@@ -48,6 +49,37 @@ let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
       currentOffsetY, args.OffsetDelta.Y
     ))
   )
+
+let private scrollLinearTo dispatch offsetY =
+  dispatch (LinearPaneMsg(LinearPaneMessage.SetScrollOffset offsetY))
+
+let private pageScrollDelta (state: LinearViewState) =
+  let lineHeight = max state.RowHeight 1.0
+  max lineHeight (state.ViewportHeight - lineHeight)
+
+let private onNavigationKeyDown dispatch (state: LinearViewState) e =
+  let lineHeight = max state.RowHeight 1.0
+  let targetOffset =
+    match (e: KeyEventArgs).Key with
+    | Key.Home -> Some 0.0
+    | Key.End ->
+      Some(max 0.0 (LinearViewState.totalHeight state - state.ViewportHeight))
+    | Key.Up -> Some(state.ScrollOffsetY - lineHeight)
+    | Key.Down -> Some(state.ScrollOffsetY + lineHeight)
+    | Key.PageUp -> Some(state.ScrollOffsetY - pageScrollDelta state)
+    | Key.PageDown -> Some(state.ScrollOffsetY + pageScrollDelta state)
+    | _ -> None
+  match targetOffset with
+  | Some offsetY ->
+    scrollLinearTo dispatch offsetY
+    e.Handled <- true
+  | None ->
+    ()
+
+let private focusPointerSource (e: PointerPressedEventArgs) =
+  match e.Source with
+  | :? Control as ctrl -> ctrl.Focus() |> ignore
+  | _ -> ()
 
 type private LinearCommonLayout =
   { PaddingX: float
@@ -504,7 +536,7 @@ module private LinearRenderLayer =
   let create (attrs: IAttr<LinearRenderLayer> list) =
     View.createGeneric<LinearRenderLayer> attrs
 
-let private visibleItemsView model doc (state: LinearViewState) =
+let private visibleItemsView model dispatch doc (state: LinearViewState) =
   let startIdx, endIdxExclusive =
     LinearProjection.findVisibleRange OverscanPixels doc state
   let renderTop =
@@ -522,6 +554,12 @@ let private visibleItemsView model doc (state: LinearViewState) =
     Canvas.width (max state.ViewportWidth 0.0)
     Canvas.height (LinearViewState.totalHeight state)
     Canvas.background model.Theme.Window.Background
+    Control.focusable true
+    Control.onPointerPressed focusPointerSource
+    Control.onKeyDown (
+      onNavigationKeyDown dispatch state,
+      OnChangeOf state.ScrollOffsetY
+    )
     Canvas.children [
       LinearRenderLayer.create [
         Canvas.left 0.0
@@ -540,9 +578,14 @@ let private visibleItemsView model doc (state: LinearViewState) =
 
 let private bodyView model dispatch doc (state: LinearViewState) =
   ScrollViewer.create [
+    Control.focusable true
+    Control.onKeyDown (
+      onNavigationKeyDown dispatch state,
+      OnChangeOf state.ScrollOffsetY
+    )
     ScrollViewer.onScrollChanged (onScrollChanged dispatch)
     ScrollViewer.offset (Vector(0.0, state.ScrollOffsetY))
-    ScrollViewer.content (visibleItemsView model doc state)
+    ScrollViewer.content (visibleItemsView model dispatch doc state)
   ] :> IView
 
 let private emptyStateView model text =
