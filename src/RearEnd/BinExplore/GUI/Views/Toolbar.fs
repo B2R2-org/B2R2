@@ -198,6 +198,16 @@ module private SearchBox = begin
     results
     |> Seq.toArray
 
+  let appendLinearAddressResult results (input: string) item =
+    let loc = LinearItem.location item
+    let s = $"{loc.Address:x}"
+    if s.Contains(input, StringComparison.OrdinalIgnoreCase) then
+      appendResult results
+      <| { Label = formatAddressLabel loc.Address
+           Target = FileRange(loc.Offset, loc.ItemLength) }
+    else
+      ()
+
   let formatSectionLabel addr (matched: string) =
     $"[section] 0x{addr:X}: {matched}"
 
@@ -207,6 +217,7 @@ module private SearchBox = begin
   let appendLinearItemResults results input (items: ResizeArray<LinearItem>) =
     let inputByte = (input: string)[0] |> byte
     for item in items do
+      appendLinearAddressResult results input item
       match item with
       | RawByte(loc, b) when String.length input = 1 && b = inputByte ->
         let idx = loc.Offset
@@ -231,12 +242,12 @@ module private SearchBox = begin
           appendResult results result
         else
           ()
-      | _ -> ()
+      | _ ->
+        ()
 
   let searchLinearView (doc: LinearDocument) (input: string) =
     let input = input.Trim()
     let res = ResizeArray<SearchResult>()
-    appendAddressResult res input doc.LinearBaseAddress doc.LinearTotalLength
     appendLinearItemResults res input doc.LinearItems
     res
     |> Seq.toArray
