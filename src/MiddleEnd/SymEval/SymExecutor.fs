@@ -303,7 +303,8 @@ with
 type private SymRunWorkItem =
   { State: SymState
     Depth: int
-    Visits: Map<Addr, int> }
+    Visits: Map<Addr, int>
+    PrunedPathConditionLength: int }
 
 type private SymQueryEvalResult =
   | QueryReachable
@@ -681,28 +682,40 @@ type SymExecutor(hdl: BinHandle) =
       | QuerySatisfiable values -> addSatAnswer addr st values
       | QueryUnsat reason -> addPruned st reason
       | QueryUnknown reason -> addStopped st reason
-    let enqueue depth visits (st: SymState) =
+    let enqueue checkedPathConditionLength depth visits (st: SymState) =
       let addr = st.PC
       match tryFindAvoid depth opts.Avoid st with
       | Some reason -> addPruned st reason
       | None ->
-        match checkPathFeasibility solver addr opts st with
+        let pathConditionLength = List.length st.PathCondition
+        let shouldCheckFeasibility =
+          opts.PruneInfeasiblePaths
+          && pathConditionLength > checkedPathConditionLength
+        let feasibility =
+          if shouldCheckFeasibility then
+            checkPathFeasibility solver addr opts st
+          else Ok()
+        match feasibility with
         | Ok() ->
           worklist.Enqueue
             { State = st
               Depth = depth
-              Visits = visits }
+              Visits = visits
+              PrunedPathConditionLength =
+                if shouldCheckFeasibility then pathConditionLength
+                else checkedPathConditionLength }
         | Error reason -> addPruned st reason
-    let handleSuccessor addr depth visits = function
-      | SymEvaluator.Continue st -> enqueue (depth + 1) visits st
+    let handleSuccessor addr checkedPathConditionLength depth visits = function
+      | SymEvaluator.Continue st ->
+        enqueue checkedPathConditionLength (depth + 1) visits st
       | SymEvaluator.Fork(trueState, falseState) ->
-        enqueue (depth + 1) visits trueState
-        enqueue (depth + 1) visits falseState
+        enqueue checkedPathConditionLength (depth + 1) visits trueState
+        enqueue checkedPathConditionLength (depth + 1) visits falseState
       | SymEvaluator.Stopped(st, SymEvaluator.SideEffectStop eff) ->
         addStopped st (SideEffectStopped(addr, eff))
       | SymEvaluator.EvalError e ->
         addStopped st (EvaluationFailed(addr, e))
-    enqueue 0 Map.empty initialState
+    enqueue 0 0 Map.empty initialState
     while worklist.Count > 0 && not stopExploration do
       match isRunTimeoutReached stopwatch opts with
       | Some timeout ->
@@ -741,11 +754,15 @@ type SymExecutor(hdl: BinHandle) =
                     | StopBeforeInstruction reason -> addStopped st reason
                     | SkipInstruction successors ->
                       successors
-                      |> List.iter (handleSuccessor addr item.Depth visits)
+                      |> List.iter
+                           (handleSuccessor addr
+                              item.PrunedPathConditionLength item.Depth visits)
                     | EvaluateInstruction ->
                       exploredStates <- exploredStates + 1
                       evalInstr st stmts
-                      |> List.iter (handleSuccessor addr item.Depth visits)
+                      |> List.iter
+                           (handleSuccessor addr
+                              item.PrunedPathConditionLength item.Depth visits)
     let result =
       finishRun opts reachAnswers satAnswers stoppedStates prunedStates
     match runTimeout with
