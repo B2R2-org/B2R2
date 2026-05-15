@@ -52,10 +52,19 @@ let private mkIcon (img: IImage) size =
   ]
 
 /// The search box component of the toolbar.
-module private SearchBox = begin
+module internal SearchBox = begin
 
   let [<Literal>] SearchItemHeight = 28.0
   let [<Literal>] MaxSearchResults = 50
+
+  let mutable private searchInput: TextBox option = None
+
+  let focus () =
+    match searchInput with
+    | Some tb ->
+      tb.Focus() |> ignore
+      tb.SelectAll()
+    | None -> ()
 
   type SearchTarget =
     | CFGPoint of gx: float * gy: float
@@ -355,7 +364,9 @@ module private SearchBox = begin
       TextBox.onKeyDown (
         onSearchKeyDown model dispatch localState results, OnChangeOf results
       )
-    ] :> IView
+    ]
+    |> View.withOutlet (fun tb -> searchInput <- Some tb)
+    :> IView
 
   let searchClearView model dispatch localState =
     Button.create [

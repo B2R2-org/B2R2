@@ -25,6 +25,7 @@
 module B2R2.RearEnd.BinExplore.GUI.MainView
 
 open Avalonia.Controls
+open Avalonia.Input
 open Avalonia.Layout
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
@@ -241,8 +242,16 @@ let private mainArea tokenContextProvider (model: Model) dispatch =
   | None -> Welcome.view model dispatch
   | Some _ -> workspaceView tokenContextProvider model dispatch
 
+let private onMainViewKeyDown (e: KeyEventArgs) =
+  if e.Key = Key.F && e.KeyModifiers.HasFlag KeyModifiers.Control then
+    Toolbar.SearchBox.focus()
+    e.Handled <- true
+  else
+    ()
+
 let view tokenContextProvider (model: Model) (dispatch: Message -> unit) =
   DockPanel.create [
+    Control.onKeyDown onMainViewKeyDown
     DockPanel.children [
       MenuBar.view model dispatch
       StatusBar.view model
