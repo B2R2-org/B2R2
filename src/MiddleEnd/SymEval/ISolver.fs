@@ -44,11 +44,8 @@ type SolverOutput =
 
 /// Represents an SMT solver for symbolic path conditions.
 type ISolver =
-  /// Check whether a path condition is satisfiable.
-  abstract CheckSat: pathCondition: SymExpr list ->
-    Result<SolverStatus, SymEvalError>
+  /// Check whether the given SMT-LIB2 assertion script is satisfiable.
+  abstract CheckSat: smt2: string -> Result<string, SymEvalError>
 
-  /// Get concrete values for symbolic variables under a path condition.
-  abstract GetValues:
-    pathCondition: SymExpr list *
-    values: SymExpr list -> Result<SolverOutput, SymEvalError>
+  /// Get a raw model for the given SMT-LIB2 assertion script.
+  abstract GetModels: smt2: string -> Result<string, SymEvalError>

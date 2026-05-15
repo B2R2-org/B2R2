@@ -168,35 +168,6 @@ module SMTLibSerializer =
       sb.AppendLine($"(assert {serializeBool expr})") |> ignore)
     sb
 
-  let serializePathCondition pathCondition =
-    let sb = serializeScriptPrefix pathCondition []
-    sb.AppendLine("(check-sat)") |> ignore
-    sb.AppendLine("(get-model)") |> ignore
-    sb.ToString()
-
-  let serializeSatQuery pathCondition =
-    let sb = serializeScriptPrefix pathCondition []
-    sb.AppendLine("(check-sat)") |> ignore
-    sb.ToString()
-
-  let serializeValueQueryPrefix pathCondition values =
-    if List.isEmpty values then invalidArg "values" "Empty get-value query."
-    let sb = serializeScriptPrefix pathCondition values
-    sb.AppendLine("(check-sat)") |> ignore
-    sb.ToString()
-
-  let serializeGetValueCommand values =
-    if List.isEmpty values then invalidArg "values" "Empty get-value query."
-    values
-    |> List.map (function
-      | Var(name, _) -> symbol name
-      | _ ->
-        invalidArg "values" "Only variable get-value queries are supported.")
-    |> String.concat " "
-    |> fun query -> $"(get-value ({query}))"
-
-  let serializeValueQuery pathCondition values =
-    let sb = StringBuilder()
-    sb.Append(serializeValueQueryPrefix pathCondition values) |> ignore
-    sb.AppendLine(serializeGetValueCommand values) |> ignore
-    sb.ToString()
+  let serializeAssertions pathCondition additionalDeclExprs =
+    serializeScriptPrefix pathCondition additionalDeclExprs
+    |> fun sb -> sb.ToString()

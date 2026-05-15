@@ -27,13 +27,12 @@ namespace B2R2.MiddleEnd.SymEval.Tests
 open System
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.SymEval
 
 [<TestClass>]
 type SMTLibPipelineTests() =
-  let solver = Z3Solver()
-
   let x8 = SymExpr.Var("x", 8<rt>)
 
   let tmp8 = AST.tmpvar 8<rt> 0
@@ -53,11 +52,6 @@ type SMTLibPipelineTests() =
     |> List.find (fun v -> v.Name = name)
     |> fun v -> v.Value
 
-  let isMissingSolver = function
-    | SolverFailure(SolverNotFound _)
-    | SolverFailure(SolverStartFailure _) -> true
-    | _ -> false
-
   let translateLowUIR state expr =
     match SymExprTranslator.translate state expr with
     | Ok expr -> expr
@@ -67,64 +61,26 @@ type SMTLibPipelineTests() =
     let state = newState ()
     exprs |> List.map (translateLowUIR state)
 
-  let checkSatOrInconclusive pathCondition =
-    match solver.CheckSat pathCondition with
-    | Ok status -> status
-    | Error err when isMissingSolver err ->
-      Assert.Inconclusive "z3 was not found. Set Z3_PATH or add z3 to PATH."
-      failwith ""
-    | Error err -> Assert.Fail $"Failed to run z3: {err}"; failwith ""
-
-  let getValuesOrInconclusive pathCondition values =
-    match solver.GetValues(pathCondition, values) with
-    | Ok output -> output
-    | Error err when isMissingSolver err ->
-      Assert.Inconclusive "z3 was not found. Set Z3_PATH or add z3 to PATH."
-      failwith ""
-    | Error err -> Assert.Fail $"Failed to run z3: {err}"; failwith ""
+  let assertStatus expected text =
+    match SolverOutputParser.parseStatus text with
+    | Ok status -> Assert.AreEqual<SolverStatus>(expected, status)
+    | Error err -> Assert.Fail $"Failed to parse status: {err}"
 
   [<TestMethod>]
-  member _.``Serialize LowUIR path condition``() =
-    let lowuirCond = AST.eq (AST.add tmp8 (num8 3)) (num8 10)
-    let pathCondition = translateAllLowUIR [ lowuirCond ]
-    let actual =
-      SMTLibSerializer.serializePathCondition pathCondition |> normalize
-    let expected =
-      [ "(set-logic QF_BV)"
-        "(declare-fun |x| () (_ BitVec 8))"
-        "(assert (= (bvadd |x| (_ bv3 8)) (_ bv10 8)))"
-        "(check-sat)"
-        "(get-model)"
-        "" ]
-      |> String.concat "\n"
-    Assert.AreEqual<string>(expected, actual)
-
-  [<TestMethod>]
-  member _.``Serialize LowUIR get-value query``() =
+  member _.``Serialize command-free assertion script``() =
     let state = newState ()
     let lowuirCond = AST.eq (AST.add tmp8 (num8 3)) (num8 10)
     let pathCondition = [ translateLowUIR state lowuirCond ]
     let values = [ translateLowUIR state tmp8 ]
     let actual =
-      SMTLibSerializer.serializeValueQuery pathCondition values |> normalize
+      SMTLibSerializer.serializeAssertions pathCondition values |> normalize
     let expected =
       [ "(set-logic QF_BV)"
         "(declare-fun |x| () (_ BitVec 8))"
         "(assert (= (bvadd |x| (_ bv3 8)) (_ bv10 8)))"
-        "(check-sat)"
-        "(get-value (|x|))"
         "" ]
       |> String.concat "\n"
     Assert.AreEqual<string>(expected, actual)
-
-  [<TestMethod>]
-  member _.``Reject get-value query for non-variable expression``() =
-    let state = newState ()
-    let value = translateLowUIR state (AST.add tmp8 (num8 1))
-    match solver.GetValues([], [ value ]) with
-    | Error(SolverFailure(SolverSerializationFailure _)) -> ()
-    | Ok output -> Assert.Fail $"Unexpected solver success: {output}"
-    | Error err -> Assert.Fail $"Unexpected error kind: {err}"
 
   [<TestMethod>]
   member _.``Serialize LowUIR bit-vector expression operators``() =
@@ -143,42 +99,45 @@ type SMTLibPipelineTests() =
                             SMTLibSerializer.serializeExpr ite)
 
   [<TestMethod>]
-  member _.``Z3 returns sat for LowUIR path condition``() =
-    let state = newState ()
-    let lowuirCond = AST.eq (AST.add tmp8 (num8 3)) (num8 10)
-    let pathCondition = [ translateLowUIR state lowuirCond ]
-    let values = [ translateLowUIR state tmp8 ]
-    let output = getValuesOrInconclusive pathCondition values
-    Assert.AreEqual<SolverStatus>(Sat, output.Status)
-    Assert.AreEqual<uint64>(7UL,
-                            solverValue "x" output.Values
-                            |> BitVector.ToUInt64)
+  member _.``Parse raw solver status text``() =
+    assertStatus Sat "sat\n"
+    assertStatus Unsat " unsat \r\n"
+    assertStatus Unknown "unknown"
+    assertStatus Sat "SATISFIABLE"
+    assertStatus Unsat "UNSATISFIABLE\n"
+    assertStatus Unknown " UNKNOWN "
 
   [<TestMethod>]
-  member _.``Z3 returns unsat for contradictory LowUIR path condition``() =
-    let state = newState ()
-    let pathCondition =
-      [ AST.eq tmp8 (num8 7)
-        AST.eq tmp8 (num8 8) ]
-      |> List.map (translateLowUIR state)
-    let values = [ translateLowUIR state tmp8 ]
-    let output = getValuesOrInconclusive pathCondition values
-    Assert.AreEqual<SolverStatus>(Unsat, output.Status)
-    Assert.AreEqual<int>(0, output.Values.Length)
+  member _.``Extract values from raw solver model``() =
+    let values =
+      [ SymExpr.Var("password_0", 8<rt>)
+        SymExpr.Var("word", 16<rt>)
+        SymExpr.Var("missing", 8<rt>) ]
+    let modelText =
+      [ "("
+        "(define-fun password_0 () (_ BitVec 8)"
+        "  #x41)"
+        "(define-fun word () (_ BitVec 16)"
+        "  (_ bv16962 16))"
+        ")" ]
+      |> String.concat "\n"
+    match SolverOutputParser.extract values modelText with
+    | Ok output ->
+      Assert.AreEqual<SolverStatus>(Sat, output.Status)
+      Assert.AreEqual<uint64>
+        (0x41UL,
+         solverValue "password_0" output.Values |> BitVector.ToUInt64)
+      Assert.AreEqual<uint64>
+        (16962UL, solverValue "word" output.Values |> BitVector.ToUInt64)
+      Assert.AreEqual<uint64>
+        (0UL, solverValue "missing" output.Values |> BitVector.ToUInt64)
+    | Error err -> Assert.Fail $"Failed to extract model: {err}"
 
   [<TestMethod>]
-  member _.``Z3 accepts serialized LowUIR path condition``() =
-    let pathCondition =
-      [ AST.eq (AST.add tmp8 (num8 3)) (num8 10)
-        AST.lt tmp8 (num8 20)
-        AST.eq (AST.extract (AST.zext 16<rt> tmp8) 8<rt> 0) tmp8 ]
-      |> translateAllLowUIR
-    let status = checkSatOrInconclusive pathCondition
-    Assert.AreEqual<SolverStatus>(Sat, status)
-
-  [<TestMethod>]
-  member _.``Reject malformed get-value output``() =
-    match Z3OutputParser.parse "sat\n((|x| true))\n" with
-    | Ok output -> Assert.Fail $"Unexpected parse success: {output}"
-    | Error(SolverFailure(SolverOutputParseFailure _)) -> ()
+  member _.``Reject model query for non-variable expression``() =
+    let one = SymExpr.Const(BitVector.One 8<rt>)
+    let value = SymExpr.binop BinOpType.ADD 8<rt> x8 one
+    match SolverOutputParser.extract [ value ] "" with
+    | Error(SolverFailure(SolverSerializationFailure _)) -> ()
+    | Ok output -> Assert.Fail $"Unexpected model extraction: {output}"
     | Error err -> Assert.Fail $"Unexpected error kind: {err}"

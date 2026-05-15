@@ -28,9 +28,9 @@ open System
 open System.Text
 open B2R2
 
-/// Parses the small subset of Z3 output used by the SymEval solver backend.
+/// Parses the small subset of solver output used by SymEval.
 [<RequireQualifiedAccess>]
-module Z3OutputParser =
+module SolverOutputParser =
   type private Token =
     | LParen
     | RParen
@@ -74,7 +74,7 @@ module Z3OutputParser =
     loop 0 []
 
   let rec private parseOne = function
-    | [] -> parseFailure "Unexpected end of Z3 output."
+    | [] -> parseFailure "Unexpected end of solver output."
     | TokAtom atom :: rest -> Ok(SAtom atom, rest)
     | RParen :: _ -> parseFailure "Unexpected closing parenthesis."
     | LParen :: rest -> parseList [] rest
@@ -144,37 +144,99 @@ module Z3OutputParser =
     | SList [ SAtom "_"; SAtom value; SAtom width ]
       when value.StartsWith("bv", StringComparison.Ordinal) ->
       parseDecimalBitVecLiteral value width
-    | expr -> parseFailure $"Unsupported get-value expression: {expr}"
+    | expr -> parseFailure $"Unsupported bit-vector expression: {expr}"
 
-  let private parseValuePair = function
-    | SList [ SAtom name; value ] ->
-      parseBitVector value
-      |> Result.map (fun value -> { Name = name; Value = value })
-    | expr -> parseFailure $"Invalid get-value pair: {expr}"
+  let private parseStatusAtom = function
+    | "sat" | "SATISFIABLE" -> Ok Sat
+    | "unsat" | "UNSATISFIABLE" -> Ok Unsat
+    | "unknown" | "UNKNOWN" -> Ok Unknown
+    | status -> parseFailure $"Unexpected solver status: {status}"
 
-  let private parseValues = function
-    | [] -> Ok []
-    | [ SList pairs ] ->
-      pairs
-      |> List.fold (fun acc pair ->
-        match acc, parseValuePair pair with
-        | Ok values, Ok value -> Ok(value :: values)
-        | Error e, _ | _, Error e -> Error e) (Ok [])
-      |> Result.map List.rev
-    | _ -> parseFailure "Expected a single get-value result list."
+  let private parseStatusOutput = function
+    | SAtom status :: _ -> parseStatusAtom status
+    | [] -> parseFailure "Empty solver status."
+    | expr :: _ -> parseFailure $"Unexpected solver status: {expr}"
 
-  let private parseOutput sexprs =
-    match sexprs with
-    | SAtom "sat" :: rest ->
-      parseValues rest
-      |> Result.map (fun values -> { Status = Sat; Values = values })
-    | SAtom "unsat" :: _ -> Ok { Status = Unsat; Values = [] }
-    | SAtom "unknown" :: _ -> Ok { Status = Unknown; Values = [] }
-    | [] -> parseFailure "Empty Z3 output."
-    | expr :: _ -> parseFailure $"Unexpected Z3 status: {expr}"
+  let private parseModelValue = function
+    | SList [ SAtom "define-fun"; SAtom name; SList []
+              SList [ SAtom "_"; SAtom "BitVec"; SAtom _ ]; value ] ->
+      parseBitVector value |> Result.map (fun value -> Some(name, value))
+    | SList(SAtom "define-fun" :: _) ->
+      parseFailure "Unsupported define-fun model entry."
+    | _ -> Ok None
 
-  /// Parse Z3 stdout produced by check-sat and, optionally, get-value.
-  let parse (stdout: string) =
+  let private collectModelValues sexprs =
+    let rec collect acc sexpr =
+      match parseModelValue sexpr with
+      | Ok(Some value) -> Ok(value :: acc)
+      | Ok None ->
+        match sexpr with
+        | SList sexprs -> List.fold folder (Ok acc) sexprs
+        | SAtom _ -> Ok acc
+      | Error e -> Error e
+    and folder acc sexpr =
+      match acc with
+      | Ok values -> collect values sexpr
+      | Error e -> Error e
+    sexprs
+    |> List.fold folder (Ok [])
+    |> Result.map (List.rev >> Map.ofList)
+
+  /// Parse a raw solver status string.
+  let parseStatus (stdout: string) =
     tokenize stdout
     |> Result.bind parseAll
-    |> Result.bind parseOutput
+    |> Result.bind parseStatusOutput
+
+  /// Parse zero-arity bit-vector definitions in a raw solver model.
+  let parseModel (modelText: string) =
+    tokenize modelText
+    |> Result.bind parseAll
+    |> Result.bind collectModelValues
+
+  let private serializationFailure msg =
+    SolverFailure(SolverSerializationFailure msg) |> Error
+
+  let private validateQueryValue = function
+    | Var(name, typ) -> Ok(name, typ)
+    | _ -> serializationFailure "Only variable model queries are supported."
+
+  let private foldResult folder state values =
+    let rec loop state = function
+      | [] -> Ok(List.rev state)
+      | value :: rest ->
+        match folder state value with
+        | Ok state -> loop state rest
+        | Error e -> Error e
+    loop state values
+
+  let private requestedValues values =
+    foldResult
+      (fun acc value ->
+        validateQueryValue value
+        |> Result.map (fun value -> value :: acc))
+      [] values
+
+  let private zeroValue typ = BitVector.Zero typ
+
+  /// Extract requested SymEval values from raw solver model text.
+  let extract values modelText =
+    match requestedValues values with
+    | Error e -> Error e
+    | Ok requested ->
+      match parseModel modelText with
+      | Error e -> Error e
+      | Ok model ->
+        requested
+        |> List.map (fun (name, typ) ->
+          { Name = name
+            Value =
+              model
+              |> Map.tryFind name
+              |> Option.defaultWith (fun () -> zeroValue typ) })
+        |> fun values -> { Status = Sat; Values = values }
+        |> Ok
+
+  /// Validate requested SymEval values before asking for a model.
+  let validate values =
+    requestedValues values |> Result.map ignore

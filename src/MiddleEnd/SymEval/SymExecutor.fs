@@ -66,8 +66,6 @@ type SymQuery =
 type SymSolver =
   /// Do not use a solver.
   | NoSolver
-  /// Use the default Z3 command-line solver.
-  | Z3
   /// Use a caller-provided solver implementation.
   | CustomSolver of solver: ISolver
 
@@ -100,8 +98,6 @@ type SymRunOptions =
     LoopBound: int
     /// Solver backend used for path queries and optional pruning.
     Solver: SymSolver
-    /// Maximum milliseconds for each solver query. Zero uses solver default.
-    SolverTimeout: int
     /// Maximum milliseconds to spend in Run. Zero means unlimited.
     RunTimeout: int
     /// Enable solver-backed infeasible path pruning.
@@ -317,7 +313,7 @@ type private SymValueQuery =
 
 type private SymSolverRunner =
   { CheckSat: SymExpr list -> Result<SolverStatus, SymEvalError>
-    GetValues: SymValueQuery }
+    GetModels: SymValueQuery }
 
 type private SymInstructionAction =
   | EvaluateInstruction
@@ -439,40 +435,53 @@ type SymExecutor(hdl: BinHandle) =
           |> List.singleton
           |> SkipInstruction
 
-  let getSolverTimeout (opts: SymRunOptions) =
-    if opts.SolverTimeout > 0 then opts.SolverTimeout
-    else Z3Solver.DefaultTimeout
+  let solverFailure failure = SolverFailure failure |> Error
 
-  let getRemainingRunTimeout (stopwatch: Stopwatch) (opts: SymRunOptions) =
-    match opts.RunTimeout with
-    | timeout when timeout > 0 ->
-      Some(max 0 (timeout - int stopwatch.ElapsedMilliseconds))
-    | _ -> None
+  let trySerialize fn =
+    try fn () |> Ok with
+    | :? System.ArgumentException as ex ->
+      SolverSerializationFailure ex.Message |> solverFailure
+    | :? System.InvalidOperationException as ex ->
+      SolverSerializationFailure ex.Message |> solverFailure
 
-  let getZ3Timeout stopwatch opts =
-    match getRemainingRunTimeout stopwatch opts with
-    | Some remaining -> min (getSolverTimeout opts) remaining |> max 1
-    | None -> getSolverTimeout opts
+  let parseSolverStatus stdout =
+    match SolverOutputParser.parseStatus stdout with
+    | Ok status -> Ok status
+    | Error(SolverFailure(SolverOutputParseFailure(msg, _))) ->
+      SolverOutputParseFailure(msg, stdout) |> solverFailure
+    | Error err -> Error err
 
-  let createZ3Runner stopwatch opts =
-    { CheckSat = fun pathCond ->
-        let timeout = getZ3Timeout stopwatch opts
-        let solver = Z3Solver { Z3Solver.DefaultOptions with Timeout = timeout }
-        solver.CheckSat pathCond
-      GetValues = fun (pathCond, values) ->
-        let timeout = getZ3Timeout stopwatch opts
-        let solver = Z3Solver { Z3Solver.DefaultOptions with Timeout = timeout }
-        solver.GetValues(pathCond, values) }
+  let checkSmt2 (solver: ISolver) pathCond =
+    trySerialize (fun () -> SMTLibSerializer.serializeAssertions pathCond [])
+    |> Result.bind solver.CheckSat
+    |> Result.bind parseSolverStatus
 
-  let createSolver (stopwatch: Stopwatch) (opts: SymRunOptions) =
+  let getModelsSmt2 (solver: ISolver) (pathCond, values) =
+    SolverOutputParser.validate values
+    |> Result.bind (fun () ->
+      trySerialize (fun () ->
+        SMTLibSerializer.serializeAssertions pathCond values))
+    |> Result.bind (fun smt2 ->
+      solver.CheckSat smt2
+      |> Result.bind parseSolverStatus
+      |> Result.bind (function
+        | SolverStatus.Sat when List.isEmpty values ->
+          Ok { Status = SolverStatus.Sat; Values = [] }
+        | SolverStatus.Sat ->
+          solver.GetModels smt2
+          |> Result.bind (SolverOutputParser.extract values)
+        | SolverStatus.Unsat ->
+          Ok { Status = SolverStatus.Unsat; Values = [] }
+        | SolverStatus.Unknown ->
+          Ok { Status = SolverStatus.Unknown; Values = [] }))
+
+  let createSolver (opts: SymRunOptions) =
     match opts.Solver with
     | NoSolver -> None
-    | Z3 -> createZ3Runner stopwatch opts |> Some
     | CustomSolver solver ->
       Some
-        { CheckSat = fun pathCond -> solver.CheckSat pathCond
-          GetValues = fun (pathCond, values) ->
-            solver.GetValues(pathCond, values) }
+        { CheckSat = fun pathCond -> checkSmt2 solver pathCond
+          GetModels = fun query -> getModelsSmt2 solver query }
 
   let isRunTimeoutReached (stopwatch: Stopwatch) (opts: SymRunOptions) =
     match opts.RunTimeout with
@@ -585,7 +594,7 @@ type SymExecutor(hdl: BinHandle) =
     | None, [], [] -> QuerySatisfiable []
     | None, _, _ -> QueryUnknown(MissingSolverForQuery addr)
     | Some solver, _, _ ->
-      match solver.GetValues(pathCond, values) with
+      match solver.GetModels(pathCond, values) with
       | Ok output when output.Status = SolverStatus.Sat ->
         QuerySatisfiable output.Values
       | Ok output when output.Status = SolverStatus.Unsat ->
@@ -658,7 +667,7 @@ type SymExecutor(hdl: BinHandle) =
   let run start (st: SymState) (opts: SymRunOptions) =
     let worklist = Queue<SymRunWorkItem>()
     let stopwatch = Stopwatch.StartNew()
-    let solver = createSolver stopwatch opts
+    let solver = createSolver opts
     let initialState = st.Clone()
     initialState.PC <- start
     let mutable reachAnswers: SymReachabilityAnswer list = []
