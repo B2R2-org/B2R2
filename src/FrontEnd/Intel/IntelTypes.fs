@@ -85,7 +85,7 @@ type OperandType =
   /// MMX register or memory.
   | MM of RegType
   /// MMX register.
-  | MMXReg
+  | MMXReg of OprRegType
   /// Memory.
   | Mem of RegType
   /// Memory with VSIB addressing (eg. vm32x).
