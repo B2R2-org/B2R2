@@ -72,7 +72,7 @@ type IntelParser(wordSz, reader) =
   let getOperandSize operands =
     Array.map (fun o ->
       match o with
-      | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz -> Some sz
+      | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz | Moffs sz -> Some sz
       | FixedReg(Register.AX) -> Some 16<rt>
       | _ -> None) operands
     |> Array.distinct
@@ -195,6 +195,7 @@ type IntelParser(wordSz, reader) =
     | [| Some 16<rt> |] when op = Opcode.RET -> false
     | [| Some 16<rt>; _ |] when op = Opcode.ENTER -> false
     | [| None; Some 16<rt> |] when op = Opcode.MOV -> false
+    | [| Some 8<rt>; Some 16<rt> |] when op = Opcode.OUT -> true
     | [| None |] when isImplicit16BitOp op -> true
     | [| Some 16<rt> |]
     | [| Some 16<rt>; _ |]
@@ -435,7 +436,13 @@ type IntelParser(wordSz, reader) =
         setMemoryOperandContextWithCurrentAddr phlp sz sz
         OperandParsers.parseMemory modRM span phlp
     | BndReg -> OperandParsers.parseBoundRegister (Operands.getReg modRM)
-    | MMXReg -> OperandParsers.parseMMXReg (Operands.getReg modRM)
+    | MMXReg oprRegType ->
+      let regBit =
+        match oprRegType with
+        | RegBit -> Operands.getReg modRM
+        | RMBit -> Operands.getRM modRM
+        | _ -> failwith "Invalid OprRegType for MMXReg."
+      OperandParsers.parseMMXReg regBit
     | MM sz ->
       if Operands.modIsReg modRM then
         OperandParsers.parseMMXReg (Operands.getRM modRM)
