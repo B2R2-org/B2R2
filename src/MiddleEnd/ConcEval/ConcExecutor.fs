@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ConcEval
 
 open B2R2
+open B2R2.Collections
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
@@ -196,58 +197,39 @@ type ConcExecutor(hdl: BinHandle) =
       InstructionCount = n
       State = st }
 
-  let rec collectReadRegisters = function
-    | Var(_, rid, _, _) -> [ rid ]
-    | ExprList(exprs, _) -> List.collect collectReadRegisters exprs
-    | UnOp(_, e, _) -> collectReadRegisters e
-    | BinOp(_, _, e1, e2, _)
-    | RelOp(_, e1, e2, _) ->
-      collectReadRegisters e1 @ collectReadRegisters e2
-    | Load(_, _, addr, _) -> collectReadRegisters addr
-    | Ite(cond, e1, e2, _) ->
-      collectReadRegisters cond
-      @ collectReadRegisters e1
-      @ collectReadRegisters e2
-    | Cast(_, _, e, _)
-    | Extract(e, _, _, _) -> collectReadRegisters e
-    | Num _
-    | PCVar _
-    | TempVar _
-    | JmpDest _
-    | FuncName _
-    | Undefined _ -> []
-
-  let collectStmtReadRegisters = function
-    | Put(_, rhs, _) -> collectReadRegisters rhs
+  let collectStmtReadRegisters rset = function
+    | Put(_, rhs, _) -> AST.updateRegsUses rset rhs
     | Store(_, addr, value, _) ->
-      collectReadRegisters addr @ collectReadRegisters value
-    | CJmp(cond, _, _, _) -> collectReadRegisters cond
-    | InterJmp(target, _, _) -> collectReadRegisters target
+      AST.updateRegsUses rset addr
+      AST.updateRegsUses rset value
+    | CJmp(cond, _, _, _) -> AST.updateRegsUses rset cond
+    | InterJmp(target, _, _) -> AST.updateRegsUses rset target
     | InterCJmp(cond, target1, target2, _) ->
-      collectReadRegisters cond
-      @ collectReadRegisters target1
-      @ collectReadRegisters target2
-    | ExternalCall(args, _) -> collectReadRegisters args
+      AST.updateRegsUses rset cond
+      AST.updateRegsUses rset target1
+      AST.updateRegsUses rset target2
+    | ExternalCall(args, _) -> AST.updateRegsUses rset args
     | ISMark _
     | IEMark _
     | LMark _
     | Jmp _
-    | SideEffect _ -> []
+    | SideEffect _ -> ()
 
   let isUninitializedRegister (st: EvalState) rid =
     match st.TryGetReg rid with
     | Undef -> true
     | Def _ -> false
 
-  let materializeRegister opts (st: EvalState) rid =
+  let materializeRegister opts (st: EvalState) ridx =
+    let rid = RegisterID.create ridx
     match tryGetDefaultRegisterValue opts rid with
     | Some v when isUninitializedRegister st rid -> st.SetReg(rid, v)
     | _ -> ()
 
   let materializeReadRegisters opts st stmt =
-    collectStmtReadRegisters stmt
-    |> List.distinct
-    |> List.iter (materializeRegister opts st)
+    let rset = RegisterSet()
+    collectStmtReadRegisters rset stmt
+    rset.Iterate(materializeRegister opts st)
 
   let rec hasUndefExpr = function
     | Undefined _ -> true
@@ -287,9 +269,9 @@ type ConcExecutor(hdl: BinHandle) =
   let tryEvalBranchCondition opts (st: EvalState) = function
     | CJmp(cond, _, _, _)
     | InterCJmp(cond, _, _, _) ->
-      collectReadRegisters cond
-      |> List.distinct
-      |> List.iter (materializeRegister opts st)
+      let rset = RegisterSet()
+      AST.updateRegsUses rset cond
+      rset.Iterate(materializeRegister opts st)
       match SafeEvaluator.evalExpr st cond with
       | Ok(Def v) -> Some(v = EvalUtils.tr)
       | _ -> Some false
