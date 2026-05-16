@@ -126,6 +126,7 @@ type private LinearCell =
 
 type private LinearHeaderKind =
   | SectionHeaderVisual
+  | FunctionHeaderVisual
   | LinkageTableHeaderVisual
 
 type private LinearRowVisualModel =
@@ -288,6 +289,8 @@ let private toRowVisualModel (hdl: BinHandle) (lifter: LiftingUnit) = function
     ])
   | SectionHeader(_, name, _, _) ->
     FullWidthHeader(SectionHeaderVisual, $"Section {name}")
+  | FunctionHeader(_, name) ->
+    FullWidthHeader(FunctionHeaderVisual, $"Function {name}")
   | Disassembly(loc, disasm) ->
     let bytes = readItemBytes hdl loc
     Cells(
@@ -397,6 +400,8 @@ type private LinearRenderLayer() =
             match headerKind with
             | SectionHeaderVisual ->
               LinearViewState.sectionHeaderFontSize fontSize
+            | FunctionHeaderVisual ->
+              fontSize
             | LinkageTableHeaderVisual ->
               fontSize
           FullWidthHeaderVisual(
@@ -523,6 +528,7 @@ type private LinearRenderLayer() =
     let headerBg =
       match headerKind with
       | SectionHeaderVisual -> Brush.Parse theme.Panel.AltBackground
+      | FunctionHeaderVisual -> Brush.Parse theme.Panel.Background
       | LinkageTableHeaderVisual -> Brush.Parse theme.Window.Background
     let borderBrush = Brush.Parse theme.Panel.Border
     let borderPen = Pen(borderBrush, 1.0)
@@ -537,6 +543,13 @@ type private LinearRenderLayer() =
         Point(common.PaddingX, headerTop),
         Point(bounds.Width - common.PaddingX, headerTop)
       )
+      ctx.DrawLine(
+        borderPen,
+        Point(common.PaddingX, headerTop + headerHeight - 1.0),
+        Point(bounds.Width - common.PaddingX, headerTop + headerHeight - 1.0)
+      )
+      ctx.DrawText(txt, Point(common.PaddingX, titleY))
+    | FunctionHeaderVisual ->
       ctx.DrawLine(
         borderPen,
         Point(common.PaddingX, headerTop + headerHeight - 1.0),

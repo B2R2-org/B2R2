@@ -63,7 +63,8 @@ module LinearViewState =
     | Disassembly _
     | LinkageTableEntry _ ->
       max defaultItemHeight 1.0 * itemLineCount item
-    | SectionHeader _ ->
+    | SectionHeader _
+    | FunctionHeader _ ->
       max 1.0
         (defaultItemHeight * SectionHeaderFontScale
          + HeaderVerticalPadding)

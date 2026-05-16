@@ -229,9 +229,9 @@ module internal SearchBox = begin
   let appendLinearItemResults results input (items: ResizeArray<LinearItem>) =
     let inputByte = (input: string)[0] |> byte
     for item in items do
-      appendLinearAddressResult results input item
       match item with
       | RawByte(loc, b) when String.length input = 1 && b = inputByte ->
+        appendLinearAddressResult results input item
         let idx = loc.Offset
         let result =
           { Label = formatHexLabel idx [| b |]
@@ -247,6 +247,7 @@ module internal SearchBox = begin
         else
           ()
       | Disassembly(loc, disasm) ->
+        appendLinearAddressResult results input item
         if disasm.Contains(input, StringComparison.OrdinalIgnoreCase) then
           let result =
             { Label = formatDisasmLabel loc.Address disasm

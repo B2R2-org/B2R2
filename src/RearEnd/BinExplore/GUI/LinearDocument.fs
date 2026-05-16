@@ -68,6 +68,9 @@ and LinearItem =
   | SectionHeader of ILinearItemLocation * string * linkage: bool * nobit: bool
   /// Represents a disassembled instruction.
   | Disassembly of ILinearItemLocation * disasm: string
+  /// Represents a function header, which is a synthetic listing row marking the
+  /// start of a function.
+  | FunctionHeader of ILinearItemLocation * name: string
   /// Represents a linkage table entry header.
   | LinkageTableHeader of ILinearItemLocation * name: string
   /// Represents an entry in the PLT or other linkage table.
@@ -110,11 +113,28 @@ module LinearDocument =
     |> List.map (fun (offset, items) -> offset, items |> List.map snd)
     |> dict
 
+  let private buildFunctionNameMap (brew: BinaryBrew<_, _>) =
+    brew.Functions.Sequence
+    |> Seq.map (fun fn -> fn.EntryPoint, fn.Name)
+    |> dict
+
+  let private appendFunctionHeaderIfExists items funcNames addr offset =
+    match (funcNames: IDictionary<_, _>).TryGetValue addr with
+    | true, name ->
+      let location =
+        { Address = addr
+          Offset = offset
+          ItemLength = 0 } (* header itself has no length in LinearView *)
+      (items: ResizeArray<_>).Add(FunctionHeader(location, name))
+    | false, _ ->
+      ()
+
   let private buildItems (brew: BinaryBrew<_, _>) (bytes: byte[]) sections =
     let lifter = brew.BinHandle.NewLiftingUnit()
     lifter.ConfigureDisassembly(showAddr = false)
     let disasms = buildInstructionInfo brew lifter
     let secHeaders = buildSectionHeadersByOffset sections
+    let funcNames = buildFunctionNameMap brew
     let items = ResizeArray<LinearItem>(bytes.Length + secHeaders.Count)
     let mutable baseAddress = 0UL
     let mutable baseOffset = 0
@@ -136,6 +156,7 @@ module LinearDocument =
       | _ ->
         ()
       let addr = baseAddress + uint64 (i - baseOffset)
+      appendFunctionHeaderIfExists items funcNames addr i
       match disasms.TryGetValue addr with
       | true, (disasm, insLen) ->
         let location =
@@ -191,6 +212,7 @@ module LinearDocument =
     | Some(RawByte(loc, _))
     | Some(SectionHeader(loc, _, _, _))
     | Some(Disassembly(loc, _))
+    | Some(FunctionHeader(loc, _))
     | Some(LinkageTableHeader(loc, _))
     | Some(LinkageTableEntry(loc, _)) ->
       Some loc.Offset
@@ -203,5 +225,6 @@ module LinearItem =
     | RawByte(loc, _)
     | SectionHeader(loc, _, _, _)
     | Disassembly(loc, _)
+    | FunctionHeader(loc, _)
     | LinkageTableHeader(loc, _)
     | LinkageTableEntry(loc, _) -> loc
