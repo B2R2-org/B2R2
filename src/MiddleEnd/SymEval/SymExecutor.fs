@@ -102,6 +102,8 @@ type SymRunOptions =
     RunTimeout: int
     /// Enable solver-backed infeasible path pruning.
     PruneInfeasiblePaths: bool
+    /// Stop exploration as soon as the first query answer is found.
+    StopAtFirstAnswer: bool
     /// Half-open address ranges [start, finish) to pre-lift before Run.
     /// Empty means no pre-lifting.
     WarmUpRanges: (Addr * Addr) list }
@@ -212,6 +214,14 @@ with
   /// Disables solver-backed infeasible path pruning.
   member opts.DisablePathPruning() =
     { opts with PruneInfeasiblePaths = false }
+
+  /// Stops exploration as soon as the first query answer is found.
+  member opts.EnableStopAtFirstAnswer() =
+    { opts with StopAtFirstAnswer = true }
+
+  /// Continues exploration after finding a query answer.
+  member opts.DisableStopAtFirstAnswer() =
+    { opts with StopAtFirstAnswer = false }
 
   /// Uses the given half-open address ranges for pre-lifting.
   member opts.WithWarmUpRanges ranges =
@@ -460,16 +470,44 @@ type SymExecutor(hdl: BinHandle) =
       if startAddr >= finishAddr then ()
       else warmUpLiftCacheRange startAddr finishAddr)
 
-  let tryGetDirectTarget (ins: IInstruction) =
+  let tryGetDirectTargetAddr (ins: IInstruction) =
     match ins.DirectBranchTarget() with
     | true, target -> Some target
     | false, _ -> None
+
+  let tryGetConcreteReg rid (st: SymState) =
+    match st.TryGetReg rid with
+    | Ok(Const bv) -> Some(BitVector.ToUInt64 bv)
+    | _ -> None
+
+  let tryGetCallTargetAddr (ins: IInstruction) (st: SymState) =
+    match tryGetDirectTargetAddr ins with
+    | Some target -> Some target
+    | None ->
+      match hdl.File.ISA with
+      | MIPS ->
+        let rid = MIPS.Register.R25 |> MIPS.Register.toRegID
+        tryGetConcreteReg rid st
+      | _ -> None
+
+  let getCallFallThroughAddr addr (ins: IInstruction) =
+    match hdl.File.ISA with
+    | MIPS ->
+      let delaySlotAddr = addr + uint64 ins.Length
+      match tryParseInstruction delaySlotAddr with
+      | Ok delaySlot -> delaySlotAddr + uint64 delaySlot.Length
+      | Error _ -> delaySlotAddr + uint64 ins.Length
+    | _ -> addr + uint64 ins.Length
 
   let isInternalTarget target = hdl.File.IsValidAddr target
 
   let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
 
   let endian = hdl.File.ISA.Endian
+
+  let syncPC (addr: Addr) (st: SymState) =
+    st.SetReg(hdl.RegisterFactory.ProgramCounter,
+              SymExpr.Const(BitVector(addr, wordType)))
 
   let getArgumentRegisters os =
     [| 1 .. 6 |]
@@ -522,14 +560,14 @@ type SymExecutor(hdl: BinHandle) =
                             (opts: SymRunOptions) (st: SymState) =
     if not ins.IsCall then EvaluateInstruction
     else
-      let target = tryGetDirectTarget ins
+      let target = tryGetCallTargetAddr ins st
       match opts.Calls with
       | StopAtCalls -> StopBeforeInstruction(StoppedAtCall(addr, target))
       | FollowDirectInternalCalls ->
         match target with
         | Some target when isInternalTarget target -> EvaluateInstruction
         | _ ->
-          let msg = "Cannot follow call without a direct internal target."
+          let msg = "Cannot follow call without a concrete internal target."
           SymEvaluator.EvalError(UnsupportedOperation msg)
           |> List.singleton
           |> SkipInstruction
@@ -538,7 +576,7 @@ type SymExecutor(hdl: BinHandle) =
         | Some target ->
           match opts.CallHooks.TryFind target with
           | Some hook ->
-            let returnAddress = addr + uint64 ins.Length
+            let returnAddress = getCallFallThroughAddr addr ins
             dispatchCallHook addr target returnAddress hook st
             |> SkipInstruction
           | None when isInternalTarget target -> EvaluateInstruction
@@ -548,7 +586,7 @@ type SymExecutor(hdl: BinHandle) =
             |> List.singleton
             |> SkipInstruction
         | None ->
-          let msg = "Cannot dispatch call hook without a direct target."
+          let msg = "Cannot dispatch call hook without a concrete target."
           SymEvaluator.EvalError(UnsupportedOperation msg)
           |> List.singleton
           |> SkipInstruction
@@ -782,9 +820,14 @@ type SymExecutor(hdl: BinHandle) =
       |> Error
     | Ok visits -> Ok visits
 
-  let tryGetInstructionAndStmts addr =
-    tryGetLiftedInstruction addr
-    |> Result.map (fun lifted -> lifted.Instruction, lifted.Stmts)
+  let tryGetInstructionStmts addr ins =
+    match liftCache.TryGetValue addr with
+    | true, Ok lifted -> Ok lifted.Stmts
+    | true, Error e -> Error e
+    | false, _ ->
+      tryLiftParsedInstruction ins
+      |> cacheLiftResult addr
+      |> Result.map (fun lifted -> lifted.Stmts)
 
   let rec evalStmtsFrom (st: SymState) (stmts: Stmt[]) =
     let numStmts = Array.length stmts
@@ -805,18 +848,22 @@ type SymExecutor(hdl: BinHandle) =
     | SymEvaluator.Stopped _ as stopped -> [ stopped ]
     | SymEvaluator.EvalError _ as error -> [ error ]
 
-  let evalInstr (st: SymState) stmts =
+  let evalInstr addr (st: SymState) stmts =
+    syncPC addr st
     st.PrepareInstrEval stmts
     evalStmtsFrom st stmts
 
   let evaluateInstruction (opts: SymRunOptions) addr (st: SymState) =
-    match tryGetInstructionAndStmts addr with
+    match tryParseInstruction addr with
     | Error _ -> Error(InvalidInstructionStopped addr)
-    | Ok(ins, stmts) ->
+    | Ok ins ->
       match handleCallInstruction addr ins opts st with
       | StopBeforeInstruction reason -> Error reason
       | SkipInstruction successors -> Ok(false, successors)
-      | EvaluateInstruction -> Ok(true, evalInstr st stmts)
+      | EvaluateInstruction ->
+        match tryGetInstructionStmts addr ins with
+        | Error _ -> Error(InvalidInstructionStopped addr)
+        | Ok stmts -> Ok(true, evalInstr addr st stmts)
 
   let tryStopOnRunTimeout stopwatch opts (worklist: Queue<_>) onTimeout () =
     match isRunTimeoutReached stopwatch opts with
@@ -875,8 +922,12 @@ type SymExecutor(hdl: BinHandle) =
     let initialState = st.Clone()
     initialState.PC <- start
     let handleQuery addr (st: SymState) = function
-      | QueryReachable -> ctx.AddReachAnswer addr st
-      | QuerySatisfiable values -> ctx.AddSatAnswer addr st values
+      | QueryReachable ->
+        ctx.AddReachAnswer addr st
+        if opts.StopAtFirstAnswer then ctx.Stop()
+      | QuerySatisfiable values ->
+        ctx.AddSatAnswer addr st values
+        if opts.StopAtFirstAnswer then ctx.Stop()
       | QueryUnsat reason -> ctx.AddPruned st reason
       | QueryUnknown reason -> ctx.AddStopped st reason
     let enqueue checkedPathCondLen depth visits (st: SymState) =

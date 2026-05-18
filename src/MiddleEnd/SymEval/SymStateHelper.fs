@@ -59,7 +59,7 @@ type SymStateHelper(hdl: BinHandle, state: SymState, os: OS) as this =
   let byteType = 8<rt>
 
   let registerByName (name: string) =
-    regFactory.GetRegisterID(name = name.ToUpperInvariant())
+    regFactory.GetRegisterID(name = name)
 
   let getStackPointerRegister () =
     match regFactory.StackPointer with

@@ -77,6 +77,56 @@ module SymExprTranslator =
     | CastKind.ZeroExt -> Some(BitVector.ZExt(value, typ))
     | _ -> None
 
+  let private bitMask typ =
+    (1I <<< int typ) - 1I
+
+  let private valueMask (bv: BitVector) =
+    BitVector.GetValue bv &&& bitMask bv.Length
+
+  let private constZero typ = SymExpr.Const(BitVector.Zero typ)
+
+  let rec private getMayOneBits expr =
+    match expr with
+    | SymExpr.Const bv -> valueMask bv
+    | SymExpr.Var(_, typ)
+    | SymExpr.Load(_, typ, _)
+    | SymExpr.FuncApp(_, typ, _)
+    | SymExpr.Undef(typ, _) -> bitMask typ
+    | SymExpr.UnOp(UnOpType.NOT, expr) -> bitMask expr.Type
+    | SymExpr.UnOp(_, expr) -> bitMask expr.Type
+    | SymExpr.BinOp(BinOpType.AND, typ, lhs, rhs) ->
+        getMayOneBits lhs &&& getMayOneBits rhs &&& bitMask typ
+    | SymExpr.BinOp(BinOpType.OR, typ, lhs, rhs)
+    | SymExpr.BinOp(BinOpType.XOR, typ, lhs, rhs) ->
+        getMayOneBits lhs ||| getMayOneBits rhs &&& bitMask typ
+    | SymExpr.BinOp(BinOpType.SHL, typ, lhs, SymExpr.Const rhs) ->
+      let shift = BitVector.ToUInt64 rhs
+      if shift >= uint64 (int typ) then 0I
+      else getMayOneBits lhs <<< int shift &&& bitMask typ
+    | SymExpr.BinOp(BinOpType.SHR, typ, lhs, SymExpr.Const rhs) ->
+      let shift = BitVector.ToUInt64 rhs
+      if shift >= uint64 (int typ) then 0I
+      else getMayOneBits lhs >>> int shift &&& bitMask typ
+    | SymExpr.BinOp(_, typ, _, _) -> bitMask typ
+    | SymExpr.RelOp _ -> bitMask 1<rt>
+    | SymExpr.Ite(_, thenExpr, elseExpr) ->
+      getMayOneBits thenExpr ||| getMayOneBits elseExpr
+      &&& bitMask thenExpr.Type
+    | SymExpr.Cast(CastKind.ZeroExt, typ, expr) ->
+      getMayOneBits expr &&& bitMask typ
+    | SymExpr.Cast(_, typ, _) -> bitMask typ
+    | SymExpr.Extract(expr, typ, pos) ->
+      getMayOneBits expr >>> pos &&& bitMask typ
+
+  let private tryFoldMaskedAndToZero typ lhs rhs =
+    match lhs, rhs with
+    | expr, SymExpr.Const mask
+    | SymExpr.Const mask, expr ->
+      let mask = valueMask mask
+      if getMayOneBits expr &&& mask = 0I then Some(constZero typ)
+      else None
+    | _ -> None
+
   let private foldUnOp op expr =
     match evalUnOp op with
     | Some fn ->
@@ -90,6 +140,10 @@ module SymExprTranslator =
     | Some fn ->
       match lhs, rhs with
       | Const lhs, Const rhs -> SymExpr.Const(fn lhs rhs) |> Ok
+      | _ when op = BinOpType.AND ->
+        match tryFoldMaskedAndToZero typ lhs rhs with
+        | Some expr -> Ok expr
+        | None -> SymExpr.binop op typ lhs rhs |> Ok
       | _ -> SymExpr.binop op typ lhs rhs |> Ok
     | None -> BinOpType.toString op |> unsupportedOp
 
