@@ -375,12 +375,12 @@ type private LinearRenderLayer() =
     | TokenText _ -> foreground
 
   let getOrCreateText doc state theme index =
+    let fontFamily, fontSize, foreground, secondary =
+      ensureCacheSignature state theme
     match textCache.TryGetValue index with
     | true, txt -> txt
     | _ ->
       let item = doc.LinearItems[index]
-      let fontFamily, fontSize, foreground, secondary =
-        ensureCacheSignature state theme
       let txt =
         match toRowVisualModel doc.BinHandle doc.LiftingUnit item with
         | Cells(rowKind, cells) ->

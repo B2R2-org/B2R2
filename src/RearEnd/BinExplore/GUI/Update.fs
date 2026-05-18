@@ -302,8 +302,7 @@ let private buildSpansForELF (theme: Theme) (elf: ELFBinFile) =
       else
         () ]
 
-let private buildHexAnnotations
-    (theme: Theme) (file: IBinFile) (state: HexdumpState) =
+let private buildHexAnnotations theme (file: IBinFile) (state: HexdumpState) =
   match file.Format with
   | FileFormat.ELFBinary ->
     let elf = file :?> ELFBinFile
