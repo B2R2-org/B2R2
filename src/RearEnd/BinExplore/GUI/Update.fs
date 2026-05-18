@@ -1314,12 +1314,17 @@ let private applyThemeVariant (window: Window) mode =
   | Builtin Dark -> window.RequestedThemeVariant <- ThemeVariant.Dark
   | Custom _ -> ()
 
-let setThemeMode window model mode =
+let setThemeMode window arbiter model mode =
   applyThemeVariant window mode
   let theme = Theme.resolve mode model.CustomThemes
+  let hexdump =
+    match model.Hexdump, API.getFile arbiter with
+    | Some hexdump, Ok file -> Some(buildHexAnnotations theme file hexdump)
+    | _ -> model.Hexdump
   { model with
       ThemeMode = mode
-      Theme = theme },
+      Theme = theme
+      Hexdump = hexdump },
   Elmish.Cmd.none
 
 let updateFunctionFilter model text =

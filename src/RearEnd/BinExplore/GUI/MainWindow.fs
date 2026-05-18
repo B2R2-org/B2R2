@@ -119,7 +119,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     | RegisterCustomTheme(themeId, theme) ->
       Update.registerCustomTheme model themeId theme
     | SetThemeMode mode ->
-      Update.setThemeMode this model mode
+      Update.setThemeMode this arbiter model mode
     | UpdateFunctionFilter text ->
       Update.updateFunctionFilter model text
     | SelectWorkspacePanel panel ->
