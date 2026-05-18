@@ -125,6 +125,18 @@ type ConcRunOptions<'State> =
     UninitializedRegisters: UninitializedRegisterPolicy
     /// Stop conditions used by Run.
     StopConditions: ConcStopCondition<'State> list }
+with
+  static member Default(stopConditions: ConcStopCondition<'State> list) =
+    { Calls = FollowDirectInternalCalls
+      UndefinedValues = IgnoreUndefinedWrites
+      UninitializedRegisters = ZeroCallerContext
+      StopConditions =
+        stopConditions
+        @ [ StopAfterInstructionCount 50000
+            StopOnEvaluationError ] }
+
+  static member Default(stopCondition: ConcStopCondition<'State>) =
+    ConcRunOptions.Default [ stopCondition ]
 
 /// Represents the result of a concrete execution run.
 type ConcRunResult<'State> =
@@ -136,6 +148,13 @@ type ConcRunResult<'State> =
     InstructionCount: int
     /// Final concrete executor state.
     State: 'State }
+with
+  /// Returns true when execution stopped before the given address.
+  member this.IsStoppedAtAddress addr =
+    this.StopReasons
+    |> List.exists (function
+      | StoppedAtAddress stoppedAddr when stoppedAddr = addr -> true
+      | _ -> false)
 
 type private InstructionEvalResult =
   | EvalOk
@@ -147,6 +166,9 @@ type private InstructionEvalResult =
 type ConcExecutor(hdl: BinHandle) =
   let lifter = hdl.NewLiftingUnit()
   let regFactory = hdl.RegisterFactory
+  let defaultStateCreationOptions =
+    { Memory = BinSectionBackedMemory
+      Registers = [||] }
 
   let createState (memory: InitialMemory<IMemory>) =
     match memory with
@@ -428,7 +450,7 @@ type ConcExecutor(hdl: BinHandle) =
     loop 0
 
   /// Create a fresh concrete evaluation state.
-  member _.CreateState() = EvalState()
+  member _.CreateState() = initializeState 0UL defaultStateCreationOptions
 
   /// Create a concrete evaluation state with the given initial memory and
   /// register values. Since the start address is not known yet, initialize
@@ -437,6 +459,11 @@ type ConcExecutor(hdl: BinHandle) =
 
   /// Run concrete execution from the given address.
   member _.Run(start, state, options) = run start state options
+
+  /// Run concrete execution from the given address.
+  member _.Run(start, state, stopCondition: ConcStopCondition<EvalState>) =
+    ConcRunOptions.Default stopCondition
+    |> run start state
 
   interface IExecutor<EvalState,
                       IMemory,

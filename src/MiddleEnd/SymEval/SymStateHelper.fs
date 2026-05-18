@@ -43,6 +43,9 @@ with
   /// Symbolic values suitable for SymRunOptions.QueryValues.
   member this.Values = this.Bytes
 
+  interface IQueryExpr with
+    member this.QueryValues = this.Bytes
+
 /// Provides convenience helpers for a symbolic state.
 type SymStateHelper(hdl: BinHandle, state: SymState, os: OS) as this =
   static let defaultStringBound = 64
@@ -251,7 +254,7 @@ type SymStateHelper(hdl: BinHandle, state: SymState, os: OS) as this =
   /// Default maximum symbolic C-string payload size.
   static member DefaultStringBound = defaultStringBound
 
-  /// Default stack top used by tutorial-style symbolic states.
+  /// Default stack top used by symbolic states.
   static member DefaultStackTop = defaultStackTop
 
   /// Creates symbolic byte variables without writing them to memory.

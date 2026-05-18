@@ -33,6 +33,8 @@ open B2R2.MiddleEnd.Executor
 
 /// Provides convenience helpers for a concrete EvalState.
 type ConcStateHelper(hdl: BinHandle, state: EvalState, os: OS) as this =
+  static let defaultStackTop = 0x7fffffffe000UL
+
   let regFactory = hdl.RegisterFactory
   let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
@@ -147,14 +149,23 @@ type ConcStateHelper(hdl: BinHandle, state: EvalState, os: OS) as this =
   /// Current stack pointer value.
   member _.StackPointer = getStackPointer ()
 
+  /// Creates a word-sized concrete value.
+  member _.WordValue value = wordValue value
+
   /// Set the current stack pointer value.
   member _.SetStackPointer addr = setStackPointer addr
 
   /// Initialize the stack pointer with the given stack top.
   member _.InitializeStack stackTop = setStackPointer stackTop
 
+  /// Initialize the stack pointer with the default stack top.
+  member _.InitializeDefaultStack() = setStackPointer defaultStackTop
+
   /// Initialize the frame pointer with the current stack pointer.
   member _.InitializeFramePointer() = initializeFramePointer ()
+
+  /// Default stack top used by concrete states.
+  static member DefaultStackTop = defaultStackTop
 
   /// Set a register value by name.
   member _.SetRegister(name: string, value) =

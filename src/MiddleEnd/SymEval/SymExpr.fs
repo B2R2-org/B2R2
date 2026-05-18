@@ -109,6 +109,28 @@ type SymEvalError =
   | UninitializedTemporary of int
   | SolverFailure of SolverFailure
 
+/// Represents values that can be requested from a solver model.
+type IQueryExpr =
+  /// Symbolic expressions to include in solver value extraction.
+  abstract QueryValues: SymExpr list
+
+/// Represents one or more solver-model query expressions.
+type QueryExpr =
+  /// Request no values.
+  | Empty
+  /// Request one symbolic expression value.
+  | Value of SymExpr
+  /// Request a nested sequence of query expressions.
+  | Values of IQueryExpr list
+with
+  interface IQueryExpr with
+    member this.QueryValues =
+      match this with
+      | Empty -> []
+      | Value expr -> [ expr ]
+      | Values exprs ->
+        exprs |> List.collect (fun expr -> expr.QueryValues)
+
 /// Symbolic expression helpers.
 [<RequireQualifiedAccess>]
 module SymExpr =

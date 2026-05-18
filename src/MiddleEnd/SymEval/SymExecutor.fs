@@ -62,6 +62,13 @@ type SymQuery =
   /// Ask for concrete symbolic-input values reaching a matching state.
   | SatisfyState of predicate: (SymStopPoint -> bool)
 
+/// Represents a symbolic query and the values to extract for model queries.
+type SymQueryRequest =
+  { /// Query to answer.
+    Query: SymQuery
+    /// Symbolic values to extract for satisfiability queries.
+    QueryValues: IQueryExpr }
+
 /// Represents a solver backend used by SymExecutor.
 type SymSolver =
   /// Do not use a solver.
@@ -76,18 +83,16 @@ type SymCallPolicy =
   /// Follow direct calls whose target belongs to the current binary.
   | FollowDirectInternalCalls
   /// Dispatch matching call hooks, and follow direct internal calls otherwise.
-  | UseCallHooks
+  | UseCallHooks of hooks: SymCallHookRegistry
 
 /// Represents options for bounded symbolic execution.
 type SymRunOptions =
   { /// Call-handling policy.
     Calls: SymCallPolicy
-    /// Target-address-based external-call hooks.
-    CallHooks: SymCallHookRegistry
     /// Query to answer.
     Query: SymQuery
     /// Symbolic values to extract for satisfiability queries.
-    QueryValues: SymExpr list
+    QueryValues: IQueryExpr
     /// Address or state predicates to discard before further exploration.
     Avoid: SymAvoid
     /// Maximum instructions to execute per path. Zero means unlimited.
@@ -108,6 +113,30 @@ type SymRunOptions =
     /// Empty means no pre-lifting.
     WarmUpRanges: (Addr * Addr) list }
 with
+  static member Default(query: SymQuery, solver: SymSolver) =
+    { Calls = FollowDirectInternalCalls
+      Query = query
+      QueryValues = (QueryExpr.Empty :> IQueryExpr)
+      Avoid = AvoidAddresses Set.empty
+      MaxDepth = 500
+      MaxStates = 4096
+      LoopBound = 1
+      Solver = solver
+      RunTimeout = 30000
+      PruneInfeasiblePaths = false
+      StopAtFirstAnswer = true
+      WarmUpRanges = [] }
+
+  static member Default(query: SymQuery) =
+    SymRunOptions.Default(query, NoSolver)
+
+  static member Default(query: SymQueryRequest, solver: SymSolver) =
+    { SymRunOptions.Default(query.Query, solver) with
+        QueryValues = query.QueryValues }
+
+  static member Default(query: SymQueryRequest) =
+    SymRunOptions.Default(query, NoSolver)
+
   static member private MatchesAvoid(avoid, point) =
     match avoid with
     | AvoidAddresses addrs -> Set.contains point.Address addrs
@@ -126,26 +155,51 @@ with
 
   /// Adds one symbolic value to solver value extraction.
   member opts.AddQueryValue value =
-    { opts with QueryValues = opts.QueryValues @ [ value ] }
+    { opts with
+        QueryValues =
+          QueryExpr.Values
+            [ opts.QueryValues
+              QueryExpr.Value value :> IQueryExpr ] }
 
   /// Adds symbolic values to solver value extraction.
   member opts.AddQueryValues values =
-    { opts with QueryValues = opts.QueryValues @ values }
+    let values =
+      values
+      |> Seq.map (fun value -> QueryExpr.Value value :> IQueryExpr)
+      |> Seq.toList
+    { opts with
+        QueryValues =
+          QueryExpr.Values(opts.QueryValues :: values) }
 
   /// Uses the given symbolic values for solver value extraction.
   member opts.WithQueryValues values =
+    let values =
+      values
+      |> Seq.map (fun value -> QueryExpr.Value value :> IQueryExpr)
+      |> Seq.toList
+    { opts with QueryValues = QueryExpr.Values values }
+
+  /// Uses the given query expression for solver value extraction.
+  member opts.WithQueryValues(values: IQueryExpr) =
     { opts with QueryValues = values }
 
   /// Adds all symbolic bytes of the given buffer to value extraction.
   member opts.AddQueryBuffer(buffer: SymByteBuffer) =
-    opts.AddQueryValues buffer.Values
+    { opts with
+        QueryValues =
+          QueryExpr.Values
+            [ opts.QueryValues
+              buffer :> IQueryExpr ] }
 
   /// Adds all symbolic bytes of the given buffers to value extraction.
   member opts.AddQueryBuffers(buffers: seq<SymByteBuffer>) =
-    buffers
-    |> Seq.collect (fun buffer -> buffer.Values)
-    |> Seq.toList
-    |> opts.AddQueryValues
+    let buffers =
+      buffers
+      |> Seq.map (fun buffer -> buffer :> IQueryExpr)
+      |> Seq.toList
+    { opts with
+        QueryValues =
+          QueryExpr.Values(opts.QueryValues :: buffers) }
 
   /// Adds one address to the avoid set.
   member opts.AddAvoidAddress addr =
@@ -187,21 +241,27 @@ with
 
   /// Uses a prepared call hook registry for external-call dispatch.
   member opts.WithCallHooks hooks =
-    { opts with
-        Calls = UseCallHooks
-        CallHooks = hooks }
+    { opts with Calls = UseCallHooks hooks }
 
   /// Registers a call hook and enables hook-based call handling.
   member opts.RegisterCallHook(target, hook) =
+    let hooks =
+      match opts.Calls with
+      | UseCallHooks hooks -> hooks
+      | StopAtCalls
+      | FollowDirectInternalCalls -> SymCallHookRegistry()
     { opts with
-        Calls = UseCallHooks
-        CallHooks = opts.CallHooks.Register(target, hook) }
+        Calls = UseCallHooks(hooks.Register(target, hook)) }
 
   /// Registers call hooks and enables hook-based call handling.
   member opts.RegisterCallHooks hooks =
+    let registry =
+      match opts.Calls with
+      | UseCallHooks registry -> registry
+      | StopAtCalls
+      | FollowDirectInternalCalls -> SymCallHookRegistry()
     { opts with
-        Calls = UseCallHooks
-        CallHooks = opts.CallHooks.RegisterMany hooks }
+        Calls = UseCallHooks(registry.RegisterMany hooks) }
 
   /// Uses the given solver backend.
   member opts.WithSolver solver =
@@ -390,6 +450,9 @@ type private SymLiftedInstruction =
 type SymExecutor(hdl: BinHandle) =
   let lifter = hdl.NewLiftingUnit()
   let liftCache = Dictionary<Addr, Result<SymLiftedInstruction, ErrorCase>>()
+  let defaultStateCreationOptions =
+    { Memory = BinSectionBackedMemory
+      Registers = [||] }
 
   let createState = function
     | EmptyMemory -> SymState()
@@ -571,10 +634,10 @@ type SymExecutor(hdl: BinHandle) =
           SymEvaluator.EvalError(UnsupportedOperation msg)
           |> List.singleton
           |> SkipInstruction
-      | UseCallHooks ->
+      | UseCallHooks hooks ->
         match target with
         | Some target ->
-          match opts.CallHooks.TryFind target with
+          match hooks.TryFind target with
           | Some hook ->
             let returnAddress = getCallFallThroughAddr addr ins
             dispatchCallHook addr target returnAddress hook st
@@ -796,7 +859,7 @@ type SymExecutor(hdl: BinHandle) =
     | MatchedReachabilityQuery ->
       solveReachabilityQuery solver addr st.PathCondition
     | MatchedSatisfiabilityQuery ->
-      solveInputQuery solver addr st.PathCondition opts.QueryValues
+      solveInputQuery solver addr st.PathCondition opts.QueryValues.QueryValues
 
   let trySolveUserQueryAtState solver opts depth (st: SymState) =
     let point = makeStopPoint depth st
@@ -1004,11 +1067,17 @@ type SymExecutor(hdl: BinHandle) =
     | Some timeout -> SymRunResult.TimedOut(timeout, result)
     | None -> result
 
-  member _.CreateState() = SymState()
+  member _.CreateState() = initializeState 0UL defaultStateCreationOptions
 
   member _.CreateState options = initializeState 0UL options
 
   member _.Run(start, state, options) = run start state options
+
+  member _.Run(start, state, calls, query: SymQueryRequest, solver) =
+    let options =
+      { SymRunOptions.Default(query, solver) with
+          Calls = calls }
+    run start state options
 
   interface IExecutor<SymState,
                       ISymMemory,
