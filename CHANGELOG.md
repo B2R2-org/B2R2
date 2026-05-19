@@ -1,5 +1,40 @@
 # B2R2 Change Log
 
+## 10.0.0 (2026-05-19)
+
+### Added
+
+- Add a new Avalonia-based GUI for BinExplore.
+- Add publishing scripts and platform assets for BinExplore.
+- Add the MiddleEnd.Executor module with common executor and state accessor
+  interfaces.
+- Add a concrete executor with a revised ConcEval public API.
+- Add the MiddleEnd.SymbEval module with symbolic expressions, symbolic memory,
+  SMT-LIB serialization, solver integration, Z3 support, call hooks, and run
+  timeout handling.
+- Add static value fact extraction for LowUIR.
+- Add PE section header access and section-name lookup helpers in BinFile.
+- Add improved edge routing and post-processing support to the visualization
+  module.
+
+### Changed
+
+- Replace the old BinExplore WebUI with the new native GUI.
+- Refactor BinExplore sessions, tabs, toolbar, status bar, and rendering state.
+- Improve BinExplore CFG, hexdump, minimap, and linear view rendering,
+  navigation, caching, and synchronization.
+- Refactor ConcEval around the new executor and state accessor abstractions.
+- Improve FrontEnd disassembly delimiters and Intel disassembly grouping.
+- Fix unmatchable register patterns caused by case mismatches.
+- Make ELF symbol search stricter.
+- Refactor and optimize visualization modules, including layer assignment,
+  barycenter handling, edge crossing detection, and edge drawing.
+- Fix visualization bugs in coordinate assignment, self-cycle edge margins, and
+  edge post-processing.
+- Improve visualization algorithms.
+- Improve MiddleEnd error handling in basic blocks.
+- Update documentation, package descriptions, and author information.
+
 ## 0.9.1 (2025-09-05)
 
 ### Added
