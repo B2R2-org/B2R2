@@ -47,7 +47,7 @@ with
     member this.QueryValues = this.Bytes
 
 /// Provides convenience helpers for a symbolic state.
-type SymStateHelper(hdl: BinHandle, state: SymState, os: OS) as this =
+type SymStateAccessor(hdl: BinHandle, state: SymState, os: OS) as this =
   static let defaultStringBound = 64
 
   static let defaultStackTop = 0x7fffffffe000UL
@@ -112,11 +112,13 @@ type SymStateHelper(hdl: BinHandle, state: SymState, os: OS) as this =
 
   let setArgument idx value =
     if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx))
+    else ()
     let rid = CallingConvention.FunctionArgRegister(hdl, os, idx + 1)
     state.SetReg(rid, value)
 
   let allocateStackBuffer size =
     if size < 0 then raise (ArgumentOutOfRangeException(nameof size))
+    else ()
     let addr = getStackPointer () - uint64 size
     setStackPointer addr
     addr
@@ -158,10 +160,13 @@ type SymStateHelper(hdl: BinHandle, state: SymState, os: OS) as this =
 
   let checkBufferLength length =
     if length < 0 then raise (ArgumentOutOfRangeException(nameof length))
+    else ()
 
   let checkBufferName name =
     if String.IsNullOrWhiteSpace name then
       raise (ArgumentException("Buffer name cannot be empty.", nameof name))
+    else
+      ()
 
   let symbolicByte name idx =
     SymExpr.Var($"{name}_{idx}", byteType)
@@ -179,15 +184,22 @@ type SymStateHelper(hdl: BinHandle, state: SymState, os: OS) as this =
     |> List.iteri (fun idx byte ->
       state.Memory.ByteWrite(addr + uint64 idx, byte))
     if nullTerminate then writeNullTerminator addr length
+    else ()
     { Name = name
       Address = addr
       Bytes = bytes
       NullTerminated = nullTerminate }
 
-  new(hdl, state) = SymStateHelper(hdl, state, OS.Linux)
+  new(hdl, state) = SymStateAccessor(hdl, state, OS.Linux)
+
+  /// Default maximum symbolic C-string payload size.
+  static member DefaultStringBound = defaultStringBound
+
+  /// Default stack top used by symbolic states.
+  static member DefaultStackTop = defaultStackTop
 
   /// The underlying symbolic state.
-  member _.RawState = state
+  member _.State = state
 
   /// Target word-sized register type.
   member _.WordType = wordType
@@ -250,12 +262,6 @@ type SymStateHelper(hdl: BinHandle, state: SymState, os: OS) as this =
 
   /// Pop a word-sized value from the stack.
   member _.PopFromStack() = popFromStack ()
-
-  /// Default maximum symbolic C-string payload size.
-  static member DefaultStringBound = defaultStringBound
-
-  /// Default stack top used by symbolic states.
-  static member DefaultStackTop = defaultStackTop
 
   /// Creates symbolic byte variables without writing them to memory.
   member _.CreateSymbolicBytes(name, length) =
@@ -323,9 +329,9 @@ type SymStateHelper(hdl: BinHandle, state: SymState, os: OS) as this =
     this.SetArgumentBuffer(idx, buffer)
     buffer
 
-  interface IStateHelper<SymState, SymExpr> with
+  interface IStateAccessor<SymState, SymExpr> with
 
-    member _.RawState = this.RawState
+    member _.State = this.State
 
     member _.WordType = this.WordType
 

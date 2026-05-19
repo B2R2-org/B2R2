@@ -587,13 +587,13 @@ type SymExecutor(hdl: BinHandle) =
       ReturnRegister = CallingConvention.ReturnRegister hdl }
 
   let pushReturnAddress returnAddress (st: SymState) =
-    let helper = SymStateHelper(hdl, st, OS.Linux)
-    helper.TryPushToStack(helper.WordValue returnAddress)
+    let accessor = SymStateAccessor(hdl, st, OS.Linux)
+    accessor.TryPushToStack(accessor.WordValue returnAddress)
     |> Result.map ignore
 
   let popReturnAddress (st: SymState) =
-    let helper = SymStateHelper(hdl, st, OS.Linux)
-    match helper.TryPopFromStack() with
+    let accessor = SymStateAccessor(hdl, st, OS.Linux)
+    match accessor.TryPopFromStack() with
     | Ok(Const ret) -> Ok(BitVector.ToUInt64 ret)
     | Ok expr -> Error(UnsupportedSymbolicAddress expr)
     | Error e -> Error e
@@ -988,9 +988,11 @@ type SymExecutor(hdl: BinHandle) =
       | QueryReachable ->
         ctx.AddReachAnswer addr st
         if opts.StopAtFirstAnswer then ctx.Stop()
+        else ()
       | QuerySatisfiable values ->
         ctx.AddSatAnswer addr st values
         if opts.StopAtFirstAnswer then ctx.Stop()
+        else ()
       | QueryUnsat reason -> ctx.AddPruned st reason
       | QueryUnknown reason -> ctx.AddStopped st reason
     let enqueue checkedPathCondLen depth visits (st: SymState) =

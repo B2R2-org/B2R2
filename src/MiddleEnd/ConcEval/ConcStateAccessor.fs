@@ -31,8 +31,8 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.ConcEval.EvalUtils
 open B2R2.MiddleEnd.Executor
 
-/// Provides convenience helpers for a concrete EvalState.
-type ConcStateHelper(hdl: BinHandle, state: EvalState, os: OS) as this =
+/// Provides structured access to a concrete EvalState.
+type ConcStateAccessor(hdl: BinHandle, state: EvalState, os: OS) as this =
   static let defaultStackTop = 0x7fffffffe000UL
 
   let regFactory = hdl.RegisterFactory
@@ -120,8 +120,8 @@ type ConcStateHelper(hdl: BinHandle, state: EvalState, os: OS) as this =
     rids |> Array.iter (fun rid -> setRegister rid zero)
 
   let setArgument idx value =
-    if idx < 0 then
-      raise (ArgumentOutOfRangeException(nameof idx))
+    if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx))
+    else ()
     let rid = CallingConvention.FunctionArgRegister(hdl, os, idx + 1)
     state.SetReg(rid, value)
 
@@ -129,16 +129,19 @@ type ConcStateHelper(hdl: BinHandle, state: EvalState, os: OS) as this =
     CallingConvention.ReturnRegister hdl |> getDefinedReg
 
   let allocateStackBuffer size =
-    if size < 0 then
-      raise (ArgumentOutOfRangeException(nameof size))
+    if size < 0 then raise (ArgumentOutOfRangeException(nameof size))
+    else ()
     let addr = getStackPointer () - uint64 size
     setStackPointer addr
     addr
 
-  new(hdl, state) = ConcStateHelper(hdl, state, OS.Linux)
+  new(hdl, state) = ConcStateAccessor(hdl, state, OS.Linux)
+
+  /// Default stack top used by concrete states.
+  static member DefaultStackTop = defaultStackTop
 
   /// The underlying concrete state.
-  member _.RawState = state
+  member _.State = state
 
   /// Target word-sized register type.
   member _.WordType = wordType
@@ -163,9 +166,6 @@ type ConcStateHelper(hdl: BinHandle, state: EvalState, os: OS) as this =
 
   /// Initialize the frame pointer with the current stack pointer.
   member _.InitializeFramePointer() = initializeFramePointer ()
-
-  /// Default stack top used by concrete states.
-  static member DefaultStackTop = defaultStackTop
 
   /// Set a register value by name.
   member _.SetRegister(name: string, value) =
@@ -230,14 +230,14 @@ type ConcStateHelper(hdl: BinHandle, state: EvalState, os: OS) as this =
 
   /// Read concrete bytes from memory.
   member _.ReadBytes(addr: Addr, length: int) =
-    if length < 0 then
-      raise (ArgumentOutOfRangeException(nameof length))
+    if length < 0 then raise (ArgumentOutOfRangeException(nameof length))
+    else ()
     Array.init length (fun idx -> readByte (addr + uint64 idx))
 
   /// Read a null-terminated ASCII string from memory.
   member _.ReadCString(addr: Addr, maxLength: int) =
-    if maxLength < 0 then
-      raise (ArgumentOutOfRangeException(nameof maxLength))
+    if maxLength < 0 then raise (ArgumentOutOfRangeException(nameof maxLength))
+    else ()
     let bytes = ResizeArray<byte>()
     let mutable idx = 0
     let mutable finished = false
@@ -249,9 +249,9 @@ type ConcStateHelper(hdl: BinHandle, state: EvalState, os: OS) as this =
         idx <- idx + 1
     Encoding.ASCII.GetString(bytes.ToArray())
 
-  interface IStateHelper<EvalState, BitVector> with
+  interface IStateAccessor<EvalState, BitVector> with
 
-    member _.RawState = this.RawState
+    member _.State = this.State
 
     member _.WordType = this.WordType
 

@@ -26,10 +26,18 @@ namespace B2R2.MiddleEnd.Executor
 
 open B2R2
 
-/// Represents convenience helpers for manipulating an executor-specific state.
-type IStateHelper<'State, 'Value> =
+/// <namespacedoc>
+///   <summary>
+///   Contains functions and types related to IR execution.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Provides structured access to an executor-specific state.
+/// </summary>
+type IStateAccessor<'State, 'Value> =
   /// The underlying executor-specific state.
-  abstract RawState: 'State
+  abstract State: 'State
 
   /// Target word-sized register type.
   abstract WordType: RegType
@@ -61,10 +69,10 @@ type IStateHelper<'State, 'Value> =
   /// Get a register value by register ID.
   abstract GetRegister: rid: RegisterID -> 'Value
 
-  /// Clear selected registers to zero.
+  /// Set the selected registers to zero by name.
   abstract ZeroRegisters: names: string[] -> unit
 
-  /// Clear selected registers to zero.
+  /// Set the selected registers to zero by register ID.
   abstract ZeroRegisters: rids: RegisterID[] -> unit
 
   /// Set an integer or pointer argument for the supported ABI.

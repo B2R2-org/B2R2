@@ -71,7 +71,7 @@ type SymCallHookRegistry(hooks: Map<Addr, SymCallHook>) =
 
 /// Built-in symbolic call hook models.
 module SymCallHooks =
-  let defaultStringBound = SymStateHelper.DefaultStringBound
+  let defaultStringBound = SymStateAccessor.DefaultStringBound
 
   let private byteZero = SymExpr.zero 8<rt>
 

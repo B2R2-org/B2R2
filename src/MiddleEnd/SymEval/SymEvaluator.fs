@@ -62,9 +62,11 @@ let private falseCond cond =
 
 let private addTrueCond (st: SymState) cond =
   if cond <> SymExpr.trueExpr then st.AddPathCondition cond
+  else ()
 
 let private addFalseCond (st: SymState) cond =
   if cond <> SymExpr.falseExpr then st.AddPathCondition(falseCond cond)
+  else ()
 
 let private updatePC (st: SymState) target =
   match target with

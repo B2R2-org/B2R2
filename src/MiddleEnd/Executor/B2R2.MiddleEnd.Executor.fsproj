@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="IStateHelper.fs" />
+    <Compile Include="IStateAccessor.fs" />
     <Compile Include="Labels.fs" />
     <Compile Include="IExecutor.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

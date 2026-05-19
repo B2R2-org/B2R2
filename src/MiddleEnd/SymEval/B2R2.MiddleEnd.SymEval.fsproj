@@ -14,7 +14,7 @@
     <Compile Include="BinSectionSymMemory.fs" />
     <Compile Include="SymVariables.fs" />
     <Compile Include="SymState.fs" />
-    <Compile Include="SymStateHelper.fs" />
+    <Compile Include="SymStateAccessor.fs" />
     <Compile Include="SymExprTranslator.fs" />
     <Compile Include="SymEvaluator.fs" />
     <Compile Include="SMTLibSerializer.fs" />

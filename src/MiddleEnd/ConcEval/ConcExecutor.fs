@@ -400,9 +400,13 @@ type ConcExecutor(hdl: BinHandle) =
   let collectInstrStopReasons opts st addr (ins: IInstruction) stmts =
     [ if hasStopAtReturn opts && isReturnTaken opts st ins stmts then
         StoppedAtReturn addr
+      else
+        ()
       if stopAtCall opts ins then
         let target = tryGetDirectTarget ins
-        StoppedAtCall(addr, target) ]
+        StoppedAtCall(addr, target)
+      else
+        () ]
 
   let collectPostInstrStopReasons opts st addr (ins: IInstruction) stmts =
     let reasons =
