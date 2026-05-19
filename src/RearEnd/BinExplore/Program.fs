@@ -39,12 +39,18 @@ let private loadAllFiles (arbiter: Arbiter<_, _>) files =
   |> List.forall (fun file -> arbiter.AddBinary file |> Result.isOk)
   |> fun ok -> assert ok
 
-let private startServerAndCLI files (opts: BinExploreOpts) loader =
+let private startServerAndUI files (opts: BinExploreOpts) loader =
   let arbiter = Arbiter(loader, opts.LogFile)
-  let cmdStore = CLI.spec |> CmdStore
   loadAllFiles arbiter files
-  HTTPServer.start arbiter opts.IP opts.Port opts.Verbose cmdStore
-  CLI.start arbiter cmdStore
+  if opts.UseGUI then
+    GUI.start arbiter opts.UseDarkTheme
+    |> ignore
+  else
+    let cmdStore = CLI.spec |> CmdStore
+    HTTPServer.start arbiter opts.IP opts.Port opts.Verbose
+    String.replicate System.Console.WindowHeight System.Environment.NewLine
+    |> System.Console.Write
+    CLI.start arbiter cmdStore
 
 let private runWithBrewLoader files (opts: BinExploreOpts) =
   match opts.ISA with
@@ -54,7 +60,7 @@ let private runWithBrewLoader files (opts: BinExploreOpts) =
           let hdl = BinHandle(file, opts.ISA, None)
           let cfgRecovery = Strategies.EVMCFGRecovery()
           EVMBinaryBrew(hdl, [| cfgRecovery |]) }
-    |> startServerAndCLI files opts
+    |> startServerAndUI files opts
   | _ ->
     { new IBrewLoadable<_, _> with
         member _.LoadBrew file =
@@ -65,15 +71,13 @@ let private runWithBrewLoader files (opts: BinExploreOpts) =
           let strategies =
             [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
           BinaryBrew(hdl, exnInfo, strategies) }
-    |> startServerAndCLI files opts
+    |> startServerAndUI files opts
 
 let private explore files opts =
   CmdOpts.sanitizeRestArgs files
-  String.replicate System.Console.WindowHeight System.Environment.NewLine
-  |> System.Console.Write
   runWithBrewLoader files opts
 
-[<EntryPoint>]
+[<EntryPoint; System.STAThread>]
 let main args =
   let isa = ISA Architecture.Intel (* default ISA *)
   let opts = BinExploreOpts.Default isa

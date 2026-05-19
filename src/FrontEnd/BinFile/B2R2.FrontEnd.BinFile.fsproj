@@ -93,6 +93,7 @@
     <Compile Include="Mach\Helper.fs" />
     <Compile Include="Python\Types.fs" />
     <Compile Include="Python\Helper.fs" />
+    <Compile Include="PE\PETypes.fs" />
     <Compile Include="PE\PEUtils.fs" />
     <Compile Include="PE\BaseRelocationBlock.fs" />
     <Compile Include="PE\BaseRelocationTable.fs" />

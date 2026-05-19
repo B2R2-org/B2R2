@@ -12,12 +12,14 @@
     <Compile Include="IMemory.fs" />
     <Compile Include="NonsharableMemory.fs" />
     <Compile Include="SharableMemory.fs" />
+    <Compile Include="BinSectionMemory.fs" />
     <Compile Include="Variables.fs" />
-    <Compile Include="Labels.fs" />
     <Compile Include="EvalState.fs" />
     <Compile Include="EvalUtils.fs" />
     <Compile Include="SafeEvaluator.fs" />
     <Compile Include="Evaluator.fs" />
+    <Compile Include="ConcStateAccessor.fs" />
+    <Compile Include="ConcExecutor.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
@@ -25,6 +27,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
+    <ProjectReference Include="..\Executor\B2R2.MiddleEnd.Executor.fsproj" />
   </ItemGroup>
 
 </Project>

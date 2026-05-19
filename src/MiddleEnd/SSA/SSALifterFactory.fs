@@ -111,7 +111,11 @@ module private SSALifterFactory =
   let convertToSSA stmtProcessor (cfg: LowUIRCFG) (ssaCFG: SSACFG) =
     let vMap = SSAVMap()
     let avMap = AbstractVMap()
+#if DEBUG
     getVertex stmtProcessor vMap ssaCFG cfg.SingleRoot |> ignore
+#else
+    getVertex stmtProcessor vMap ssaCFG cfg.Roots[0] |> ignore
+#endif
     cfg.IterEdge(fun e ->
       let src, dst = e.First, e.Second
       (* If a node is abstract, then it is a call target. *)
@@ -319,7 +323,11 @@ module private SSALifterFactory =
     for variable in (defSites: DefSites).Keys do
       count[variable] <- 0
       stack[variable] <- [0]
+#if DEBUG
     rename g domTree count stack g.SingleRoot
+#else
+    rename g domTree count stack (g.GetRoots()[0])
+#endif
 
   /// Add phis and rename all the variables in the SSACFG.
   let updatePhis ssaCFG dom =

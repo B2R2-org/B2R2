@@ -147,11 +147,6 @@ type CallingConvention =
   /// and the file format.
   static member FunctionArgRegister(hdl: BinHandle, os, num) =
     match os, hdl.File.ISA with
-    | OS.Windows, X86 -> (* fast call *)
-      match num with
-      | 1 -> Intel.Register.ECX |> Intel.Register.toRegID
-      | 2 -> Intel.Register.EDX |> Intel.Register.toRegID
-      | _ -> Terminator.impossible ()
     | OS.Linux, X64 -> (* System V *)
       match num with
       | 1 -> Intel.Register.RDI |> Intel.Register.toRegID
@@ -160,6 +155,38 @@ type CallingConvention =
       | 4 -> Intel.Register.RCX |> Intel.Register.toRegID
       | 5 -> Intel.Register.R8 |> Intel.Register.toRegID
       | 6 -> Intel.Register.R9 |> Intel.Register.toRegID
+      | _ -> Terminator.impossible ()
+    | OS.Linux, ARM32 -> (* EABI *)
+      match num with
+      | 1 -> ARM32.Register.R0 |> ARM32.Register.toRegID
+      | 2 -> ARM32.Register.R1 |> ARM32.Register.toRegID
+      | 3 -> ARM32.Register.R2 |> ARM32.Register.toRegID
+      | 4 -> ARM32.Register.R3 |> ARM32.Register.toRegID
+      | 5 -> ARM32.Register.R4 |> ARM32.Register.toRegID
+      | 6 -> ARM32.Register.R5 |> ARM32.Register.toRegID
+      | _ -> Terminator.impossible ()
+    | OS.Linux, AArch64 -> (* AAPCS64 *)
+      match num with
+      | 1 -> ARM64.Register.X0 |> ARM64.Register.toRegID
+      | 2 -> ARM64.Register.X1 |> ARM64.Register.toRegID
+      | 3 -> ARM64.Register.X2 |> ARM64.Register.toRegID
+      | 4 -> ARM64.Register.X3 |> ARM64.Register.toRegID
+      | 5 -> ARM64.Register.X4 |> ARM64.Register.toRegID
+      | 6 -> ARM64.Register.X5 |> ARM64.Register.toRegID
+      | _ -> Terminator.impossible ()
+    | OS.Linux, MIPS ->
+      match num with
+      | 1 -> MIPS.Register.R4 |> MIPS.Register.toRegID
+      | 2 -> MIPS.Register.R5 |> MIPS.Register.toRegID
+      | 3 -> MIPS.Register.R6 |> MIPS.Register.toRegID
+      | 4 -> MIPS.Register.R7 |> MIPS.Register.toRegID
+      | 5 -> MIPS.Register.R8 |> MIPS.Register.toRegID
+      | 6 -> MIPS.Register.R9 |> MIPS.Register.toRegID
+      | _ -> Terminator.impossible ()
+    | OS.Windows, X86 -> (* fast call *)
+      match num with
+      | 1 -> Intel.Register.ECX |> Intel.Register.toRegID
+      | 2 -> Intel.Register.EDX |> Intel.Register.toRegID
       | _ -> Terminator.impossible ()
     | OS.Windows, X64 ->
       match num with

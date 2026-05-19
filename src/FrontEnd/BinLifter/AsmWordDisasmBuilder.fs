@@ -61,7 +61,7 @@ type AsmWordDisasmBuilder(showAddr,
       if showAddr then
         lst.Add { AsmWordKind = AsmWordKind.Address
                   AsmWordValue = Addr.toString wordSz addr }
-        lst.Add { AsmWordKind = AsmWordKind.String
+        lst.Add { AsmWordKind = AsmWordKind.InstructionDelimiter
                   AsmWordValue = ": " }
       else ()
 

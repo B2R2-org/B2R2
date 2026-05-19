@@ -32,6 +32,9 @@ type IVisualizable =
   /// Basic block address.
   abstract BlockAddress: Addr
 
+  /// Address ranges of the lines in this basic block.
+  abstract LineAddrRanges: AddrRange[]
+
   /// Convert this basic block to a visual representation. The first dimension
   /// of the array represents the line number, and the second dimension
   /// represents the words in each line.

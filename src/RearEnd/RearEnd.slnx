@@ -27,6 +27,7 @@
   <Project Path="../FrontEnd/WASM/B2R2.FrontEnd.WASM.fsproj" />
   <Project Path="../MiddleEnd/API/B2R2.MiddleEnd.API.fsproj" />
   <Project Path="../MiddleEnd/BinGraph/B2R2.MiddleEnd.BinGraph.fsproj" />
+  <Project Path="../MiddleEnd/Executor/B2R2.MiddleEnd.Executor.fsproj" />
   <Project Path="../MiddleEnd/ConcEval/B2R2.MiddleEnd.ConcEval.fsproj" />
   <Project Path="../MiddleEnd/ControlFlowAnalysis/B2R2.MiddleEnd.ControlFlowAnalysis.fsproj" />
   <Project Path="../MiddleEnd/ControlFlowGraph/B2R2.MiddleEnd.ControlFlowGraph.fsproj" />

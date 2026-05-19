@@ -42,7 +42,7 @@ type AddrRange =
     /// Initialize an instance of AddrRange from a given interval.
     /// </summary>
     /// <param name="min">The start address.</param>
-    /// <param name="max">The end address + 1.</param>
+    /// <param name="max">The end address.</param>
     /// <returns>
     /// An instance of AddrRange.
     /// </returns>

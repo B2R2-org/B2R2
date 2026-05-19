@@ -35,6 +35,13 @@ type FuncInfo =
     FuncName: string }
 
 [<CLIMutable>]
+type SectionInfo =
+  { [<JsonPropertyName("addr")>]
+    SectionAddr: Addr
+    [<JsonPropertyName("name")>]
+    SectionName: string }
+
+[<CLIMutable>]
 type DataColoredHexAscii =
   { [<JsonPropertyName("color")>]
     Color: string

@@ -55,7 +55,7 @@ type BinInfo() =
 
     member _.CallBack(arbiter, _args) =
       match arbiter.GetBinaryBrew() with
-      | Some brew ->
+      | Ok brew ->
         let file = brew.BinHandle.File
         let isa = brew.BinHandle.File.ISA
         let fmt = brew.BinHandle.File.Format |> FileFormat.toString
@@ -68,5 +68,5 @@ type BinInfo() =
            sprintf "- Entry Point Address: %s" entry
            sprintf "- NX bit: %s" nx |]
         |> Array.map OutputNormal
-      | None ->
-        ICmd.buildErrorOutput "Binary is not loaded."
+      | Error e ->
+        ICmd.buildErrorOutput e

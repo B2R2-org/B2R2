@@ -24,31 +24,53 @@
 
 module B2R2.RearEnd.Visualization.Visualizer
 
+#if DEBUG
+open B2R2
+#endif
 open B2R2.MiddleEnd.BinGraph
 
-let private convertToJSON iGraph roots =
+let private convert iGraph roots charWidth charHeight =
   try
-    let vGraph, roots = VisGraph.ofCFG iGraph roots
-  #if DEBUG
-    VisDebug.logn "# Original"
-    VisDebug.pp vGraph
-  #endif
-    let backEdgeList = CycleRemoval.removeCycles vGraph
-  #if DEBUG
-    VisDebug.logn "# After cycle removal"
-    VisDebug.pp vGraph
-  #endif
-    let backEdgeList, dummyMap =
-      LayerAssignment.assignLayers vGraph backEdgeList
-    let vLayout = CrossMinimization.minimizeCrosses vGraph
-    CoordAssignment.assignCoordinates vGraph vLayout
+    let vGraph, roots = VisGraph.ofCFG iGraph roots charWidth charHeight
+    let backEdgeList = CycleRemoval.run vGraph
+    let backEdgeList, dummyMap = LayerAssignment.run vGraph backEdgeList
+    let vLayout = CrossMinimization.run vGraph
+    CoordAssignment.run vGraph vLayout
     EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
-    JSONExport.toStr roots vGraph
+    Some(roots, vGraph)
   with e ->
     eprintfn "%s" <| e.ToString()
-    "{}"
+    None
 
 /// Converts the given graph to JSON format.
-let toJSON (iGraph: IDiGraphAccessible<_, _>) roots =
-  if iGraph.Size = 0 then "{}"
-  else convertToJSON iGraph roots
+let toJSON (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
+  if iGraph.Size = 0 then
+    "{}"
+  else
+    match convert iGraph roots charWidth charHeight with
+    | Some(roots, vGraph) -> JSONExport.toStr roots vGraph
+    | None -> "{}"
+
+/// Converts the given graph to a VisGraph for visualization.
+let toVisGraph (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
+  if iGraph.Size = 0 then
+    VisGraph.init ()
+  else
+#if DEBUG
+    let sw = System.Diagnostics.Stopwatch.StartNew()
+#endif
+    convert iGraph roots charWidth charHeight
+    |> Option.map snd
+    |> Option.defaultValue (VisGraph.init ())
+#if DEBUG
+    |> fun g ->
+      sw.Stop()
+      printsn $"[*] Visualization took {sw.Elapsed.TotalSeconds} sec."
+      g
+#endif
+
+/// Default character width used for layout calculations.
+let [<Literal>] CharWidth = 7.5
+
+/// Default character height used for layout calculations.
+let [<Literal>] CharHeight = 14.0

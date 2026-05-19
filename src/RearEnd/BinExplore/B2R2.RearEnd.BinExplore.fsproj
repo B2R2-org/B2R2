@@ -2,20 +2,22 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <ApplicationIcon>Assets\b2r2.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Config.fs" />
-    <Compile Include="Workspace.fs" />
+    <Compile Include="AnalysisSession.fs" />
     <Compile Include="Arbiter.fs" />
-    <Compile Include="Payloads.fs" />
     <Compile Include="API.fs" />
+    <Compile Include="Payloads.fs" />
+    <Compile Include="JsonAPI.fs" />
     <Compile Include="ICmd.fs" />
     <Compile Include="Commands\BinInfo.fs" />
     <Compile Include="Commands\Credits.fs" />
     <Compile Include="Commands\Demangle.fs" />
     <Compile Include="Commands\Disasm.fs" />
     <Compile Include="Commands\EvalExpr.fs" />
-    <Compile Include="Commands\HexDump.fs" />
+    <Compile Include="Commands\Hexdump.fs" />
     <Compile Include="Commands\Load.fs" />
     <Compile Include="Commands\List.fs" />
     <Compile Include="Commands\Print.fs" />
@@ -24,10 +26,47 @@
     <Compile Include="Commands\ROP.fs" />
     <Compile Include="CmdStore.fs" />
     <Compile Include="CLI.fs" />
+    <Compile Include="GUI\ThemeMode.fs" />
+    <Compile Include="GUI\Theme.fs" />
+    <Compile Include="GUI\FunctionItem.fs" />
+    <Compile Include="GUI\SectionItem.fs" />
+    <Compile Include="GUI\CFGViewState.fs" />
+    <Compile Include="GUI\CFGRenderCache.fs" />
+    <Compile Include="GUI\LoadedCFGState.fs" />
+    <Compile Include="GUI\LinearDocument.fs" />
+    <Compile Include="GUI\LinearViewState.fs" />
+    <Compile Include="GUI\LinearProjection.fs" />
+    <Compile Include="GUI\HexdumpState.fs" />
+    <Compile Include="GUI\WorkspacePanel.fs" />
+    <Compile Include="GUI\Tab.fs" />
+    <Compile Include="GUI\Pane.fs" />
+    <Compile Include="GUI\OffsetSnapshot.fs" />
+    <Compile Include="GUI\StatusBarState.fs" />
+    <Compile Include="GUI\ITokenContextProvider.fs" />
+    <Compile Include="GUI\Clipboard.fs" />
+    <Compile Include="GUI\Model.fs" />
+    <Compile Include="GUI\Message.fs" />
+    <Compile Include="GUI\Views\IconAssets.fs" />
+    <Compile Include="GUI\Views\StringUtils.fs" />
+    <Compile Include="GUI\Views\Welcome.fs" />
+    <Compile Include="GUI\Views\MenuBar.fs" />
+    <Compile Include="GUI\Views\StatusBar.fs" />
+    <Compile Include="GUI\Views\FunctionList.fs" />
+    <Compile Include="GUI\Views\HexOverview.fs" />
+    <Compile Include="GUI\Views\SectionList.fs" />
+    <Compile Include="GUI\Views\Toolbar.fs" />
+    <Compile Include="GUI\Views\WorkspaceTabs.fs" />
+    <Compile Include="GUI\Views\CFGContent.fs" />
+    <Compile Include="GUI\Views\LinearContent.fs" />
+    <Compile Include="GUI\Views\HexContent.fs" />
+    <Compile Include="GUI\Views\MainView.fs" />
+    <Compile Include="GUI\Update.fs" />
+    <Compile Include="GUI\MainWindow.fs" />
+    <Compile Include="GUI\App.fs" />
+    <Compile Include="GUI.fs" />
     <Compile Include="HTTPServer.fs" />
     <Compile Include="BinExploreOpts.fs" />
     <Compile Include="Program.fs" />
-    <None Include="WebUI\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\FrontEnd\API\B2R2.FrontEnd.API.fsproj" />
@@ -39,6 +78,13 @@
     <ProjectReference Include="..\BinQL\B2R2.RearEnd.BinQL.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
     <PackageReference Include="B2R2.FsReadLine" Version="0.3.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
+    <PackageReference Include="Avalonia.FuncUI" Version="1.5.2" />
+    <PackageReference Include="Avalonia.FuncUI.Elmish" Version="1.5.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+    <PackageReference Include="Svg.Controls.Skia.Avalonia" Version="11.3.9.2" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
   </ItemGroup>
 </Project>

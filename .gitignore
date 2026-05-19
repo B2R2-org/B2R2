@@ -22,6 +22,7 @@
 **/AssemblyInfo.fs
 
 build/
+artifacts/
 .fsdocs/
 
 b2r2.log

@@ -1,4 +1,5 @@
 # Project Leader
+
 - Sang Kil Cha <sangkilc@kaist.ac.kr>
 
 # Current Developers (alphabetical order)
@@ -6,7 +7,7 @@
 - Seung Il Jung <sijung@kaist.ac.kr>
 - Jun Tae Kim <gnrkr789@kaist.ac.kr>
 - Jung Hyun Kim <jhkim@softsec.kaist.ac.kr>
-- Soomin Kim <soomink@kaist.ac.kr>
+- Sehoon Kim <slatfatf@kaist.ac.kr>
 
 # Contributors
 
@@ -32,7 +33,7 @@ a list of the contributors in alphabetic order.
 - Hyungseok Kim
 - Jaemin Kim
 - Kangsu Kim
-- Sehoon Kim
+- Soomin Kim
 - Yeonghun Kim
 - JeongWoo Lee
 - Junoh Lee

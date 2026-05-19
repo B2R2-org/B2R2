@@ -73,7 +73,7 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
 
     member _.Range with get() =
       if Option.isNone funcAbs then AddrRange(ppoint.Address, lastAddr)
-      else raise AbstractBlockAccessException
+      else AddrRange(ppoint.Address, ppoint.Address)
 
     member _.IsAbstract with get() = Option.isSome funcAbs
 
@@ -86,6 +86,9 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
     member _.LastStmt with get() = snd stmts[stmts.Length - 1]
 
     member _.BlockAddress with get() = ppoint.Address
+
+    member _.LineAddrRanges with get() =
+      [| AddrRange(ppoint.Address, ppoint.Address) |]
 
     member _.PrependPhi(varKind, count) =
       let var = { Kind = varKind; Identifier = -1 }

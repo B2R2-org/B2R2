@@ -51,7 +51,9 @@ with
     | AsmWordKind.Variable -> [| s; "variable" |]
     | AsmWordKind.Value -> [| s; "value" |]
     | AsmWordKind.String -> [| s; "string" |]
-    | _ -> failwith "Impossible"
+    | AsmWordKind.InstructionDelimiter -> [| s; "ins_delim" |]
+    | AsmWordKind.CommentDelimiter -> [| s; "comment_delim" |]
+    | _ -> B2R2.Terminator.impossible ()
 
 /// Represents a kind of a assembly word.
 and AsmWordKind =
@@ -63,6 +65,10 @@ and AsmWordKind =
   | Variable = 3
   /// A value (such as an immediate).
   | Value = 4
+  /// A delimiter introducing an instruction text after an address, e.g., ": ".
+  | InstructionDelimiter = 5
+  /// A delimiter introducing a comment or annotation, such as " ; ".
+  | CommentDelimiter = 6
   /// A simple string that can be ignored.
   | String = 0
 

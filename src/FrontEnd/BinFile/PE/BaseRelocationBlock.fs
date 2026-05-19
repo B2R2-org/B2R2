@@ -24,12 +24,6 @@
 
 namespace B2R2.FrontEnd.BinFile.PE
 
-/// <namespacedoc>
-///   <summary>
-///   Contains types and functions for working with PE file types.
-///   </summary>
-/// </namespacedoc>
-///
 /// <summary>
 /// Represents a base relocation block in a PE file. The .reloc section
 /// contains a series of base relocation blocks, each of which describes a

@@ -96,7 +96,8 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
       let sndLabelMap = ImmutableDictionary.CreateRange(Seq.toArray lblMap)
       LowUIRBasicBlock.CreateRegular(fstInstrs, pp, fstLabelMap),
       LowUIRBasicBlock.CreateRegular(sndInstrs, cutPPoint, sndLabelMap)
-    else raise AbstractBlockAccessException
+    else
+      raise AbstractBlockAccessException
 
   override _.ToString() = $"{nameof LowUIRBasicBlock}({pp})"
 
@@ -108,7 +109,8 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
         let lastIns = liftedInss[liftedInss.Length - 1].Original
         let lastAddr = lastIns.Address + uint64 lastIns.Length
         AddrRange(pp.Address, lastAddr - 1UL)
-      else raise AbstractBlockAccessException
+      else
+        AddrRange(pp.Address, pp.Address)
 
     member _.IsAbstract with get() = Option.isSome funcAbs
 
@@ -149,6 +151,13 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
       |> Array.map (fun liftedIns -> liftedIns.Original.Disasm())
 
     member _.BlockAddress with get() = pp.Address
+
+    member _.LineAddrRanges with get() =
+      liftedInss
+      |> Array.map (fun liftedIns ->
+        let insAddr = liftedIns.Original.Address
+        let insEndAddr = insAddr + uint64 liftedIns.Original.Length - 1UL
+        AddrRange(insAddr, insEndAddr))
 
     member _.Visualize() =
       if Option.isNone funcAbs then

@@ -8,55 +8,56 @@
 B2R2
 ====
 
-B2R2 is a collection of useful algorithms, functions, and tools for **binary
-analysis**, written purely in F# (in .NET lingo, it is purely managed code).
-B2R2 has been named after [R2-D2](https://en.wikipedia.org/wiki/R2-D2), a famous
-fictional robot appeared in the Star Wars. In fact, B2R2's original name was
-*B2-R2*, but we decided to use the name *B2R2* instead, because .NET does not
-allow dash (-) characters in identifiers (or namespaces). The name essentially
-represents "binary" or "two": "binary" itself means "two" states anyways. "B"
-and "2" mean "binary", and "R" indicates *reversing*.
+B2R2 is a fully managed binary analysis framework written in F#. It provides a
+rich set of algorithms, functions, and tools for reverse engineering, program
+analysis, and binary-level inspection.
+
+The name B2R2 takes inspiration from [R2-D2](https://en.wikipedia.org/wiki/R2-D2),
+the iconic robot from Star Wars. Originally named *B2-R2*, the project later
+adopted the dash-free form *B2R2* because .NET identifiers and namespaces do not
+allow hyphens. The name reflects the project's purpose: "B" and "2" suggest
+binary and two-state computation, while "R" stands for reversing. In short,
+B2R2 is built for binary reversing.
 
 B2R2?
 -----
 
-1. B2R2 is *analysis-friendly*: it is written in F#, which provides all the
-   syntactic goodies for writing program analyzers, such as pattern matching,
-   algebraic data types, and etc.
+1. B2R2 is *analysis-friendly*: it is written in F#, a language well suited for
+   building program analyzers thanks to features such as pattern matching,
+   algebraic data types, and expressive functional abstractions.
 
-1. B2R2 is *fast*: it has a fast and efficient front-end engine for binary
-   analysis, which is written in a
+1. B2R2 is *fast*: its core binary analysis engine is designed for efficiency and
+   written in a
    [functional-first](https://en.wikipedia.org/wiki/F_Sharp_(programming_language))
-   way. Therefore, it naturally supports *pure parallelism* for various binary
-   analysis tasks, such as instruction lifting, CFG recovery, and etc.
+   style. This makes it a natural fit for *pure parallelism* across common
+   analysis tasks such as instruction lifting and CFG recovery.
 
-1. B2R2 is *easy* to play with: there is absolutely no dependency hell for B2R2
-   because it is a fully-managed library.  All you need to do is to install
-   [.NET SDK](https://dotnet.microsoft.com/download), and you are ready to
-   go! Native
+1. B2R2 is *easy* to use: as a fully managed library, it avoids complicated
+   native dependency setup. Install the
+   [.NET SDK](https://dotnet.microsoft.com/download), and you are ready to go.
+   Native
    [IntelliSense](https://docs.microsoft.com/en-us/visualstudio/ide/using-intellisense)
-   support is another plus!
+   support also makes the APIs easier to explore.
 
-1. B2R2 is *OS-Independent*: it works on Linux, Mac, Windows, and etc. as long
-   as .NET core supports it.
+1. B2R2 is *OS-independent*: it works on Linux, macOS, and Windows, as well as
+   any other platform supported by .NET.
 
-1. B2R2 is *interoperable*: it is not bound to a specific
-   language. Theoretically, you can use B2R2 APIs with any [CLI supported
-   languages](https://en.wikipedia.org/wiki/List_of_CLI_languages).
+1. B2R2 is *interoperable*: it is not tied to a single programming language.
+   In principle, B2R2 APIs can be used from any
+   [CLI-supported language](https://en.wikipedia.org/wiki/List_of_CLI_languages).
 
 Features?
 ---------
 
 B2R2 supports instruction parsing, binary disassembly, assembly, control-flow
-recovery, and many more. B2R2 also comes with several user-level command-line
-tools that are similar to readelf and objdump, although our tools are
-platform-agnostic. B2R2 currently supports four binary file formats: ELF, PE,
-Mach-O, and WebAssembly.
+recovery, and other core building blocks for binary analysis. It also includes
+several user-facing command-line tools comparable to readelf and objdump, while
+remaining platform-agnostic. B2R2 currently supports four binary file formats:
+ELF, PE, Mach-O, and WebAssembly.
 
-Below is a list of features that we currently support. Some of them are work in
-progress, but we look forward to your contributions! Feel free to write a PR
-(Pull Request) while making sure that you have read our [contribution
-guideline](CONTRIBUTING.md).
+The table below summarizes the features currently supported by B2R2. Some areas
+are still in progress, and contributions are welcome. Before opening a pull
+request, please make sure to read our [contribution guideline](CONTRIBUTING.md).
 
 <table>
   <tr>
@@ -208,40 +209,44 @@ guideline](CONTRIBUTING.md).
 Dependencies?
 -------------
 
-B2R2 relies on a tiny set of external .NET libraries, and our design principle
-is to use a minimum number of libraries. Below is a list of libraries that we
-leverage.
+B2R2 keeps its dependency footprint intentionally small to make builds simple
+and to keep the core focused on efficient algorithms and data structures for
+binary analysis. The core library has no external dependencies, and most
+external libraries are optional and used only by specific components or tools.
+Below is the list of external libraries used by the project.
 
 - [System.IO.Hashing](https://www.nuget.org/packages/System.IO.Hashing)
 - [FSharp.Compiler.Service](https://www.nuget.org/packages/FSharp.Compiler.Service)
 - [FParsec](https://www.nuget.org/packages/FParsec)
-- [BenchmarkDotNet](https://www.nuget.org/packages/BenchmarkDotNet/)
+- [BenchmarkDotNet](https://www.nuget.org/packages/BenchmarkDotNet)
+- [Avalonia.FuncUI](https://www.nuget.org/packages/Avalonia.FuncUI)
 
 API Documentation
 -----------------
 
-We currently use [fsdocs](https://github.com/fsprojects/FSharp.Formatting/) to
-generate our documentation: https://b2r2.org/B2R2/.
+Our documentation is generated with
+[fsdocs](https://github.com/fsprojects/FSharp.Formatting/) and available at
+https://b2r2.org/B2R2/.
 
 Example
 -------
 
-Let's try to use B2R2 APIs.
+Let's try using the B2R2 APIs.
 
-1. First we create an empty directory `DIRNAME`:
+1. First, create an empty directory named `DIRNAME`:
 
     ```
     mkdir DIRNAME
     cd DIRNAME
     ```
 
-1. We then create an empty console project with `dotnet` command line:
+1. Then, create an empty console project with the `dotnet` command-line tool:
 
     ```
     $ dotnet new console -lang F#
     ```
 
-1. Add our nuget package *B2R2.FrontEnd* to the project:
+1. Add the NuGet package *B2R2.FrontEnd.API* to the project:
 
     ```
     $ dotnet add package B2R2.FrontEnd.API
@@ -264,35 +269,35 @@ Let's try to use B2R2 APIs.
       0
     ```
 
-1. We then just run it by typing: `dotnet run`. You will be able see lifted IR
-   statements from your console. That's it! You just lifted an Intel instruction
-   with only few lines of F# code!
+1. Run it by typing `dotnet run`. You should see lifted IR statements in your
+   console. That's it! You just lifted an Intel instruction with only a few
+   lines of F# code.
 
 Build
 -----
 
-Building B2R2 is fun and easy. All you need to do is to install .NET 9 SDK or
-above. Yea, that's it!
+Building B2R2 is straightforward. Install the .NET 10 SDK or later, and you are
+ready to build from the source root.
 
-- To build B2R2 in release mode, type ```dotnet build -c Release``` in the
-  source root.
+- To build B2R2 in release mode, run `dotnet build -c Release`.
 
-- To build B2R2 in debug mode, type ```dotnet build``` in the source root.
+- To build B2R2 in debug mode, run `dotnet build`.
 
-For your information, please visit the official web site of F# to get more tips
-about installing the development environment for F#: http://fsharp.org/.
+For more information about setting up an F# development environment, visit the
+official F# website: http://fsharp.org/.
 
 Credits
 -------
 
-Members in [SoftSec Lab](https://softsec.kaist.ac.kr/). @ KAIST developed B2R2
-in collaboration with [Cyber Security Research Center](http://csrc.kaist.ac.kr/)
-(CSRC) at KAIST. See [Authors](AUTHORS.md) for the full list.
+B2R2 was developed by members of the
+[SoftSec Lab](https://softsec.kaist.ac.kr/) at KAIST in collaboration with the
+[Cyber Security Research Center](http://csrc.kaist.ac.kr/) (CSRC) at KAIST. See
+[AUTHORS.md](AUTHORS.md) for the full list of contributors.
 
 Citation
 --------
 
-If you plan to use B2R2 in your own research. Please consider citing our
+If you use B2R2 in your research, please consider citing our
 [paper](https://softsec.kaist.ac.kr/~sangkilc/papers/jung-bar19.pdf):
 
 ```bibtex
@@ -307,7 +312,8 @@ If you plan to use B2R2 in your own research. Please consider citing our
 Publications
 ------------
 
-Here are papers using our work. Please create a PR if you want to add yours.
+Below are papers that use or build on B2R2. If your work should be included,
+please open a pull request.
 
 - EVMpress: Precise Type Inference for Next-Generation EVM Decompilation, CBT 2025 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-cbt25.pdf)
 - Towards Sound Reassembly of Modern x86-64 Binaries, ASPLOS 2025 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-asplos25.pdf)

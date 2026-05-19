@@ -33,7 +33,7 @@ let spec =
     Commands.Credits()
     Commands.Demangle()
     Commands.Disasm()
-    Commands.HexDump()
+    Commands.Hexdump()
     Commands.List()
     Commands.Load()
     Commands.Print()

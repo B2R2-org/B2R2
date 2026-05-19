@@ -71,9 +71,8 @@ type SectionFlags =
 /// Provides functions to convert section flags to string.
 [<RequireQualifiedAccess>]
 module SectionFlags =
-  /// Returns the string representation of the section flags.
-  [<CompiledName "ToString">]
-  let toString (flags: SectionFlags) =
+  /// Returns the list of string representation of the section flags.
+  let toList (flags: SectionFlags) =
     [ if flags.HasFlag SectionFlags.SHF_WRITE then "WRITE" else ()
       if flags.HasFlag SectionFlags.SHF_ALLOC then "ALLOC" else ()
       if flags.HasFlag SectionFlags.SHF_EXECINSTR then "EXECINSTR" else ()
@@ -92,4 +91,10 @@ module SectionFlags =
       if flags.HasFlag SectionFlags.SHF_EXCLUDE then "EXCLUDE" else ()
       if flags.HasFlag SectionFlags.SHF_X86_64_LARGE then "X86_64_LARGE"
       else () ]
+
+  /// Returns the string representation of the section flags.
+  [<CompiledName "ToString">]
+  let toString (flags: SectionFlags) =
+    flags
+    |> toList
     |> String.concat ","

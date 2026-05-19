@@ -89,10 +89,10 @@ type Disasm() =
 
     member this.CallBack(arbiter, args) =
       match args, arbiter.GetBinaryBrew() with
-      | cnt :: addr :: _, Some brew ->
+      | cnt :: addr :: _, Ok brew ->
         disasm brew.BinHandle brew.Instructions cnt addr
         |> Array.map OutputNormal
-      | addr :: _, Some brew ->
+      | addr :: _, Ok brew ->
         disasm brew.BinHandle brew.Instructions "1" addr
         |> Array.map OutputNormal
       | _ ->

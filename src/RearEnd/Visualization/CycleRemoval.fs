@@ -22,6 +22,7 @@
   SOFTWARE.
 *)
 
+[<RequireQualifiedAccess>]
 module internal B2R2.RearEnd.Visualization.CycleRemoval
 
 open B2R2.MiddleEnd.BinGraph
@@ -48,11 +49,11 @@ let private collectSelfCycle backEdgeList (edge: Edge<_, VisEdge>) =
     (src, dst, edge, false) :: backEdgeList
   else backEdgeList
 
-let removeBackEdge (vGraph: VisGraph) src dst edge needToAddReverse =
+let private removeBackEdge (vGraph: VisGraph) src dst edge needToAddReverse =
   vGraph.RemoveEdge(src, dst) |> ignore
   if needToAddReverse then vGraph.AddEdge(dst, src, edge) |> ignore else ()
 
-let removeCycles (vGraph: VisGraph) =
+let run (vGraph: VisGraph) =
   vGraph.FoldEdge(collectSelfCycle, [])
   |> dfsCollectBackEdges vGraph
   |> List.map (fun (src, dst, edge, needToAddReverse) ->

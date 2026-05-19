@@ -179,6 +179,22 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       | -1 -> false
       | idx -> pe.SectionHeaders[idx].Name = SecText
 
+    member _.TryFindSectionName addr =
+      let rva = int (addr - pe.BaseAddr)
+      match pe.FindSectionIdxFromRVA rva with
+      | -1 -> Error ErrorCase.ItemNotFound
+      | idx -> Ok pe.SectionHeaders[idx].Name
+
+    member _.TryFindSectionName(offset: uint32) =
+      pe.SectionHeaders
+      |> Array.tryFind (fun sec ->
+        let secStart = uint32 sec.PointerToRawData
+        let secEnd = secStart + uint32 sec.SizeOfRawData
+        offset >= secStart && offset < secEnd)
+      |> function
+        | Some sec -> Ok sec.Name
+        | None -> Error ErrorCase.ItemNotFound
+
     member _.GetFunctionAddresses() =
       let staticAddrs =
         [| for s in pe.Symbols.SymbolArray do

@@ -51,13 +51,13 @@ type GadgetSearch() =
 
     member _.CallBack(arbiter, _args) =
       match arbiter.GetBinaryBrew() with
-      | Some brew ->
+      | Ok brew ->
         let hdl = brew.BinHandle
         let liftingUnit = hdl.NewLiftingUnit()
         [| Galileo.findGadgets hdl |> GadgetMap.toString liftingUnit |]
         |> Array.map OutputNormal
-      | None ->
-        [| OutputNormal "[*] No binary loaded." |]
+      | Error e ->
+        [| OutputNormal $"[*] {e}" |]
 
 type ROP() =
   let [<Literal>] CmdName = "rop"
@@ -110,7 +110,7 @@ type ROP() =
 
     member this.CallBack(arbiter, args) =
       match arbiter.GetBinaryBrew() with
-      | Some brew ->
+      | Ok brew ->
         let hdl = brew.BinHandle
         match hdl.File.ISA with
         | X86 ->
@@ -120,5 +120,5 @@ type ROP() =
         | isa ->
           [| $"[*] We currently do not support {isa}" |]
           |> Array.map OutputNormal
-      | None ->
-        [| OutputNormal "[*] No binary loaded." |]
+      | Error e ->
+        [| OutputNormal $"[*] {e}" |]

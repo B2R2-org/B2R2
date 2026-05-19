@@ -24,33 +24,33 @@
 
 namespace B2R2.RearEnd.Visualization
 
-open B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
+open B2R2.MiddleEnd.BinGraph
 
 /// The main graph type for visualization.
 type VisGraph = IDiGraph<VisBBlock, VisEdge>
 
+[<RequireQualifiedAccess>]
 module VisGraph =
   let init () =
     ImperativeDiGraph<VisBBlock, VisEdge>()
     :> VisGraph
 
-  let ofCFG g roots =
+  let ofCFG (g: IDiGraphAccessible<_, _>) roots charWidth charHeight =
     let newGraph = init ()
-    let visited = Dictionary<VertexID, IVertex<VisBBlock>>()
-    (g: IDiGraphAccessible<_, _>).IterVertex(fun v ->
-      if visited.ContainsKey v.ID then ()
+    let vblocks = Dictionary<VertexID, IVertex<VisBBlock>>()
+    for v in g.Vertices do
+      if vblocks.ContainsKey v.ID then ()
       else
-        let blk = VisBBlock(v.VData, false)
+        let blk = VisBBlock(v.VData, charWidth, charHeight, false)
         let v', _ = newGraph.AddVertex blk
-        visited[v.ID] <- v'
-    )
-    let roots = roots |> List.map (fun (root: IVertex<_>) -> visited[root.ID])
-    (g: IDiGraphAccessible<_, _>).IterEdge(fun e ->
-      let srcV = visited[e.First.ID]
-      let dstV = visited[e.Second.ID]
+        vblocks[v.ID] <- v'
+    let roots = roots |> List.map (fun (root: IVertex<_>) -> vblocks[root.ID])
+    for e in g.Edges do
+      let srcV = vblocks[e.First.ID]
+      let dstV = vblocks[e.Second.ID]
       let edge = VisEdge e.Label
-      newGraph.AddEdge(srcV, dstV, edge) |> ignore)
+      newGraph.AddEdge(srcV, dstV, edge) |> ignore
     newGraph, roots
 
   let getID (v: IVertex<_>) = v.ID

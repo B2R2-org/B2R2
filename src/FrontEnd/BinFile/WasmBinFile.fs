@@ -110,6 +110,12 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.IsInTextOrDataOnlySection _ = Terminator.futureFeature ()
 
+    member _.TryFindSectionName(_: Addr): Result<string, ErrorCase> =
+      Terminator.futureFeature ()
+
+    member _.TryFindSectionName(_: uint32): Result<string, ErrorCase> =
+      Terminator.futureFeature ()
+
     member _.GetFunctionAddresses() = Terminator.futureFeature ()
 
     member _.HasRelocationInfo _addr = false

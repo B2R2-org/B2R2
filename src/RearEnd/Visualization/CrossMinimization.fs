@@ -22,143 +22,222 @@
   SOFTWARE.
 *)
 
+[<RequireQualifiedAccess>]
 module internal B2R2.RearEnd.Visualization.CrossMinimization
 
 open B2R2.MiddleEnd.BinGraph
 
-type VLayout = IVertex<VisBBlock>[][]
-
 /// The maximum number of iterations.
-let [<Literal>] private MaxCnt = 128
+let [<Literal>] private MaxTrials = 128
 
-let private computeMaxLayer (vGraph: VisGraph) =
-  vGraph.FoldVertex((fun layer v ->
-    let l = VisGraph.getLayer v
-    if layer < l then l else layer
-  ), 0)
+let private computeMaxLayer (g: VisGraph) =
+  g.FoldVertex((fun maxLayer v -> max (VisGraph.getLayer v) maxLayer), 0)
 
-let private generateVPerLayer vGraph =
-  let maxLayer = computeMaxLayer vGraph
-  let vPerLayer = Array.create (maxLayer + 1) []
-  let folder (vPerLayer: IVertex<VisBBlock> list[]) v =
-    let layer = VisGraph.getLayer v
-    vPerLayer[layer] <- v :: vPerLayer[layer]
-    vPerLayer
-  vGraph.FoldVertex(folder, vPerLayer)
+let private addVertexToLayer (layout: ResizeArray<_>[]) v =
+  layout[VisGraph.getLayer v].Add(v)
 
-let private alignVertices vertices =
-  let arr = Array.zeroCreate (List.length vertices)
-  List.fold (fun i (v: IVertex<VisBBlock>) ->
-    Array.set arr i v; v.VData.Index <- i; i + 1) 0 vertices
-  |> ignore
-  arr
+/// Generates the initial layout of vertices based on their assigned layers.
+/// A layout is an array of layers, where each layer is an array of vertices.
+let private createInitialLayout g =
+  let maxLayer = computeMaxLayer g
+  let layerCount = maxLayer + 1
+  let layout = Array.init layerCount (fun _ -> ResizeArray())
+  g.IterVertex(addVertexToLayer layout)
+  layout
+  |> Array.map (fun layer ->
+    Array.init layer.Count (fun i ->
+      let v = layer[i]
+      v.VData.Index <- i
+      v
+    )
+  )
 
-let private generateVLayout vPerLayer = Array.map alignVertices vPerLayer
+let private getIndex v = (v: IVertex<VisBBlock>).VData.Index
 
-let private baryCenter (vGraph: IDiGraph<_, _>) isDown (v: IVertex<VisBBlock>) =
-  let neighbor =
-    if isDown then vGraph.GetPreds v
-    else vGraph.GetSuccs v
-  if neighbor.Length = 0 then System.Double.MaxValue, v
+let private computeBarycenterFromNeighbors neighbors =
+  if Array.isEmpty neighbors then
+    System.Double.MaxValue
   else
-    let xs = neighbor |> Seq.fold (fun acc v -> acc + v.VData.Index) 0
-    float xs / float neighbor.Length, v
+    let sum = Array.sumBy getIndex neighbors
+    let neighborCount = neighbors.Length
+    float sum / float neighborCount
 
-let private bcReorderOneLayer vGraph (vLayout: VLayout) isDown layer =
-  let vertices = vLayout[layer]
-  vertices
-  |> Array.map (baryCenter vGraph isDown)
-  |> Array.sortBy fst
-  |> Array.iteri (fun i (_, v) ->
+let private computeBarycenter g isDown v =
+  let fnGetNeighbors =
+    if isDown then (g: IDiGraph<_, _>).GetPreds
+    else g.GetSuccs
+  let neighbors = fnGetNeighbors v
+  let barycenter = computeBarycenterFromNeighbors neighbors
+  barycenter, v
+
+let private barycenterSortKey (barycenter, v: IVertex<VisBBlock>) =
+  barycenter, getIndex v
+
+let private writeVerticesToLayer (layer: _[]) (vertices: _[]) =
+  let mutable changed = false
+  for i = 0 to vertices.Length - 1 do
+    let v: IVertex<VisBBlock> = vertices[i]
+    if layer[i] <> v then changed <- true else ()
+    layer[i] <- v
     v.VData.Index <- i
-    vertices[i] <- v)
+  changed
 
-let private phase1 vGraph vLayout isDown from maxLayer =
-  let layers = if isDown then [ from .. maxLayer ] else [ from .. -1 .. 0 ]
-  List.iter (bcReorderOneLayer vGraph vLayout isDown) layers
+let private reorderLayerByBarycenter g (layout: _[][]) isDown layer =
+  let vertices = layout[layer]
+  let barycenters = vertices |> Array.map (computeBarycenter g isDown)
+  barycenters |> Array.sortInPlaceBy barycenterSortKey
+  barycenters |> Array.map snd |> writeVerticesToLayer vertices
 
-let rec private calcFirstIndex idx wlen =
-  if idx < wlen then calcFirstIndex (idx * 2) wlen else idx
+let private phase1 g layout isDown from maxLayer =
+  let mutable changed = false
+  if isDown then
+    for layer = from to maxLayer do
+      changed <- reorderLayerByBarycenter g layout isDown layer || changed
+  else
+    for layer = from downto 0 do
+      changed <- reorderLayerByBarycenter g layout isDown layer || changed
+  changed
 
-let rec private countLoop (tree: int[]) southseq cnt index =
-  if index > 0 then
-    let cnt = if index % 2 <> 0 then cnt + tree[index + 1] else cnt
-    let index = (index - 1) / 2
-    tree[index] <- tree[index] + 1
-    countLoop tree southseq cnt index
-  else cnt, tree
-
-let private countCross southseq wlen =
-  let firstIndex = calcFirstIndex 1 wlen
-  let treeSize = 2 * firstIndex - 1
-  let firstIndex = firstIndex - 1
-  let tree = Array.zeroCreate (treeSize)
-  let cnt, _ =
-    List.fold (fun (cnt, (tree: int[])) item ->
-      let index = firstIndex + item
-      tree[index] <- tree[index] + 1
-      countLoop tree southseq cnt index) (0, tree) southseq
-  cnt
-
-let private bilayerCount vGraph (vLayout: VLayout) isDown layer =
-  let myLayer = vLayout[layer]
-  let pairs, _ =
+/// Checks if there is an edge crossing between two adjacent layers in the
+/// layout. We only need a boolean answer in phase2, so tracking the running
+/// maximum target index is enough.
+let private hasBilayerEdgeCrossing (g: IDiGraph<_, _>) layout isDown layerNum =
+  let vertices =
     if isDown then
-      Array.fold (fun (acc, i) (v: IVertex<VisBBlock>) ->
-        (vGraph: IDiGraph<_, _>).GetSuccs v
-        |> Seq.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
-        i + 1) ([], 0) vLayout[layer - 1]
+      (layout: _[][])[layerNum - 1]
     else
-      Array.fold (fun (acc, i) (v: IVertex<VisBBlock>) ->
-        vGraph.GetPreds v
-        |> Seq.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
-        i + 1) ([], 0) vLayout[layer + 1]
-  let pairs = List.sort pairs
-  let southseq = List.map snd pairs
-  countCross southseq (Array.length myLayer)
-
-let private collectBaryCenters bcByValues (bc, v) =
-  match Map.tryFind bc bcByValues with
-  | Some(vs) -> Map.add bc (v :: vs) bcByValues
-  | None -> Map.add bc [ v ] bcByValues
-
-let private reorderVertices (vertices: IVertex<VisBBlock>[]) idx (_, vs) =
-  List.fold (fun i v ->
-    vertices[i] <- v; v.VData.Index <- i; i + 1) idx vs
-
-let private reverseOneLayer vGraph vLayout isDown maxLayer layer =
-  let count = bilayerCount vGraph vLayout isDown layer
-  if count <> 0 then
-    let vertices = vLayout[layer]
-    let baryCenters = Array.map (baryCenter vGraph isDown) vertices
-    let bcByValues = Array.fold collectBaryCenters Map.empty baryCenters
-    let isReversed = Map.exists (fun _ vs -> List.length vs > 1) bcByValues
-    let bcByValues = Map.toList bcByValues
-    let bcByValues = List.sortBy fst bcByValues
-    List.fold (reorderVertices vertices) 0 bcByValues |> ignore
-    if isReversed then phase1 vGraph vLayout isDown layer maxLayer else ()
-  else
-    ()
-
-let private phase2 vGraph vLayout isDown maxLayer =
-  let layers = if isDown then [ 1 .. maxLayer ] else [ maxLayer - 1 .. -1 .. 0 ]
-  List.iter (reverseOneLayer vGraph vLayout isDown maxLayer) layers
-
-let rec private sugiyamaReorder vGraph vLayout cnt hashSet =
-  if cnt = MaxCnt then ()
-  else
-    let maxLayer = Array.length vLayout - 1
-    phase1 vGraph vLayout true 1 maxLayer
-    phase1 vGraph vLayout false (maxLayer - 1) maxLayer
-    phase2 vGraph vLayout false maxLayer
-    phase2 vGraph vLayout true maxLayer
-    let hashCode = vLayout.GetHashCode()
-    if not (Set.contains hashCode hashSet) then
-      sugiyamaReorder vGraph vLayout (cnt + 1) (Set.add hashCode hashSet)
+      layout[layerNum + 1]
+  let fnGetNeighbors =
+    if isDown then (g: IDiGraph<_, _>).GetSuccs
+    else g.GetPreds
+  let mutable found = false
+  let mutable prefixMax = -1
+  let mutable i = 0
+  while not found && i < vertices.Length do
+    let neighbors = fnGetNeighbors vertices[i]
+    if neighbors.Length > 0 then
+      let mutable localMin = System.Int32.MaxValue
+      let mutable localMax = System.Int32.MinValue
+      for j = 0 to neighbors.Length - 1 do
+        let idx = getIndex neighbors[j]
+        if idx < localMin then localMin <- idx else ()
+        if idx > localMax then localMax <- idx else ()
+      if localMin < prefixMax then
+        found <- true
+      elif localMax > prefixMax then
+        prefixMax <- localMax
+      else
+        ()
     else
       ()
+    i <- i + 1
+  found
 
-let minimizeCrosses vGraph =
-  let vLayout = generateVPerLayer vGraph |> generateVLayout
-  sugiyamaReorder vGraph vLayout 0 (Set.add (vLayout.GetHashCode()) Set.empty)
-  vLayout
+let private countBilayerEdgeCrossings g (layout: _[][]) isDown layerNum =
+  let vertices =
+    if isDown then
+      layout[layerNum - 1]
+    else
+      layout[layerNum + 1]
+  let fnGetNeighbors =
+    if isDown then (g: IDiGraph<_, _>).GetSuccs
+    else g.GetPreds
+  let targetCount = layout[layerNum].Length
+  let bit = Array.zeroCreate (targetCount + 1)
+  let inline add idx =
+    let mutable i = idx + 1
+    while i < bit.Length do
+      bit[i] <- bit[i] + 1
+      i <- i + (i &&& -i)
+  let inline sum idx =
+    let mutable acc = 0
+    let mutable i = idx + 1
+    while i > 0 do
+      acc <- acc + bit[i]
+      i <- i - (i &&& -i)
+    acc
+  let mutable seen = 0
+  let mutable crossings = 0L
+  for i = 0 to vertices.Length - 1 do
+    let neighbors =
+      fnGetNeighbors vertices[i]
+      |> Array.map getIndex
+    Array.sortInPlace neighbors
+    for j = 0 to neighbors.Length - 1 do
+      let idx = neighbors[j]
+      crossings <- crossings + int64 (seen - sum idx)
+      add idx
+      seen <- seen + 1
+  crossings
+
+let private buildReversedTieLayer (baryCenters: _[]) =
+  let reordered = Array.zeroCreate baryCenters.Length
+  let mutable hasTie = false
+  let mutable dst = 0
+  let mutable start = 0
+  while start < baryCenters.Length do
+    let bc, _ = baryCenters[start]
+    let mutable finish = start + 1
+    while finish < baryCenters.Length && fst baryCenters[finish] = bc do
+      finish <- finish + 1
+    if finish - start > 1 then
+      hasTie <- true
+      for i = finish - 1 downto start do
+        let _, (v: IVertex<VisBBlock>) = baryCenters[i]
+        reordered[dst] <- v
+        dst <- dst + 1
+    else
+      let _, v = baryCenters[start]
+      reordered[dst] <- v
+      dst <- dst + 1
+    start <- finish
+  hasTie, reordered
+
+let private reverseOneLayer g layout isDown maxLayer layerNum =
+  if not (hasBilayerEdgeCrossing g layout isDown layerNum) then
+    false
+  else
+    let layer = layout[layerNum]
+    let baryCenters = Array.map (computeBarycenter g isDown) layer
+    baryCenters |> Array.sortInPlaceBy barycenterSortKey
+    let hasTie, candidate = buildReversedTieLayer baryCenters
+    if not hasTie then false
+    else
+      let before = countBilayerEdgeCrossings g layout isDown layerNum
+      let original = Array.copy layer
+      let changed = writeVerticesToLayer layer candidate
+      if not changed then false
+      else
+        let after = countBilayerEdgeCrossings g layout isDown layerNum
+        if after >= before then
+          writeVerticesToLayer layer original |> ignore
+          false
+        else
+          phase1 g layout isDown layerNum maxLayer || changed
+
+let private phase2 g layout isDown maxLayer =
+  let mutable changed = false
+  if isDown then
+    for layer = 1 to maxLayer do
+      changed <- reverseOneLayer g layout isDown maxLayer layer || changed
+  else
+    for layer = maxLayer - 1 downto 0 do
+      changed <- reverseOneLayer g layout isDown maxLayer layer || changed
+  changed
+
+let rec private performSugiyamaReorder g trials layout =
+  if trials = MaxTrials then
+    layout
+  else
+    let maxLayer = Array.length layout - 1
+    let changed1 = phase1 g layout true 1 maxLayer
+    let changed2 = phase1 g layout false (maxLayer - 1) maxLayer
+    let changed3 = phase2 g layout false maxLayer
+    let changed4 = phase2 g layout true maxLayer
+    let changed = changed1 || changed2 || changed3 || changed4
+    if not changed then layout
+    else performSugiyamaReorder g (trials + 1) layout
+
+let run g =
+  createInitialLayout g
+  |> performSugiyamaReorder g 0
