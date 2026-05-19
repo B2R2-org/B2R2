@@ -4,22 +4,25 @@
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Description>B2R2 concrete evaluation engine.</Description>
+    <Description>B2R2 symbolic evaluation engine.</Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ConcEvalValue.fs" />
-    <Compile Include="IMemory.fs" />
-    <Compile Include="NonsharableMemory.fs" />
-    <Compile Include="SharableMemory.fs" />
-    <Compile Include="BinSectionMemory.fs" />
-    <Compile Include="Variables.fs" />
-    <Compile Include="EvalState.fs" />
-    <Compile Include="EvalUtils.fs" />
-    <Compile Include="SafeEvaluator.fs" />
-    <Compile Include="Evaluator.fs" />
-    <Compile Include="ConcStateAccessor.fs" />
-    <Compile Include="ConcExecutor.fs" />
+    <Compile Include="SymbExpr.fs" />
+    <Compile Include="ISymbMemory.fs" />
+    <Compile Include="SymbMemory.fs" />
+    <Compile Include="BinSectionSymbMemory.fs" />
+    <Compile Include="SymbVariables.fs" />
+    <Compile Include="SymbState.fs" />
+    <Compile Include="SymbStateAccessor.fs" />
+    <Compile Include="SymbExprTranslator.fs" />
+    <Compile Include="SymbEvaluator.fs" />
+    <Compile Include="SMTLibSerializer.fs" />
+    <Compile Include="ISolver.fs" />
+    <Compile Include="SymbModel.fs" />
+    <Compile Include="SolverOutputParser.fs" />
+    <Compile Include="SymbCallHook.fs" />
+    <Compile Include="SymbExecutor.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
