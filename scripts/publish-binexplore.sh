@@ -18,6 +18,7 @@ CONFIGURATION="${CONFIGURATION:-Release}"
 BUNDLE_ID="${BUNDLE_ID:-org.b2r2.binexplore}"
 NO_RESTORE="${NO_RESTORE:-false}"
 PUBLISH_ARCHIVES="${PUBLISH_ARCHIVES:-true}"
+ARCHIVE_ROOT="$REPO_ROOT/artifacts"
 OUTPUT_ROOT="$REPO_ROOT/artifacts/binexplore"
 SUPPORTED_RIDS=(
   osx-arm64
@@ -41,9 +42,9 @@ usage() {
 Usage: $(basename "$0") [all|RID...]
 
 Examples:
-  $(basename "$0")
+  $(basename "$0") all
   $(basename "$0") osx-arm64 linux-x64 win-x64
-  NO_RESTORE=true $(basename "$0") all
+  NO_RESTORE=true $(basename "$0")
 EOF
 }
 
@@ -75,21 +76,6 @@ read_version() {
   else
     echo "$version"
   fi
-}
-
-detect_default_rid() {
-  local os arch
-  os="$(uname -s)"
-  arch="$(uname -m)"
-
-  case "$os:$arch" in
-    Darwin:arm64) echo "osx-arm64" ;;
-    Darwin:x86_64) echo "osx-x64" ;;
-    Linux:arm64|Linux:aarch64) echo "linux-arm64" ;;
-    Linux:x86_64) echo "linux-x64" ;;
-    MINGW*:x86_64|MSYS*:x86_64|CYGWIN*:x86_64) echo "win-x64" ;;
-    *) echo "osx-arm64" ;;
-  esac
 }
 
 publish_project() {
@@ -130,7 +116,7 @@ package_macos() {
   local contents_dir="$app_dir/Contents"
   local macos_dir="$contents_dir/MacOS"
   local resources_dir="$contents_dir/Resources"
-  local archive_path="$package_root/$APP_NAME-$rid.zip"
+  local archive_path="$ARCHIVE_ROOT/$APP_NAME-$rid.zip"
 
   if [[ ! -f "$publish_dir/$EXECUTABLE_NAME" ]]; then
     echo "Published executable not found: $publish_dir/$EXECUTABLE_NAME" >&2
@@ -150,6 +136,7 @@ package_macos() {
   fi
 
   if [[ "$PUBLISH_ARCHIVES" == "true" ]] && command -v ditto >/dev/null 2>&1; then
+    mkdir -p "$ARCHIVE_ROOT"
     rm -f "$archive_path"
     ditto -c -k --keepParent "$app_dir" "$archive_path"
   fi
@@ -162,7 +149,7 @@ package_linux() {
   local publish_dir="$OUTPUT_ROOT/publish/$rid"
   local package_root="$OUTPUT_ROOT/$rid"
   local dist_dir="$package_root/$APP_NAME"
-  local archive_path="$package_root/$APP_NAME-$rid.tar.gz"
+  local archive_path="$ARCHIVE_ROOT/$APP_NAME-$rid.tar.gz"
 
   if [[ ! -f "$publish_dir/$EXECUTABLE_NAME" ]]; then
     echo "Published executable not found: $publish_dir/$EXECUTABLE_NAME" >&2
@@ -175,6 +162,7 @@ package_linux() {
   chmod +x "$dist_dir/$EXECUTABLE_NAME"
 
   if [[ "$PUBLISH_ARCHIVES" == "true" ]]; then
+    mkdir -p "$ARCHIVE_ROOT"
     rm -f "$archive_path"
     tar -C "$package_root" -czf "$archive_path" "$APP_NAME"
   fi
@@ -187,7 +175,7 @@ package_windows() {
   local publish_dir="$OUTPUT_ROOT/publish/$rid"
   local package_root="$OUTPUT_ROOT/$rid"
   local dist_dir="$package_root/$APP_NAME"
-  local archive_path="$package_root/$APP_NAME-$rid.zip"
+  local archive_path="$ARCHIVE_ROOT/$APP_NAME-$rid.zip"
 
   if [[ ! -f "$publish_dir/$WINDOWS_EXECUTABLE_NAME" ]]; then
     echo "Published executable not found: $publish_dir/$WINDOWS_EXECUTABLE_NAME" >&2
@@ -199,6 +187,7 @@ package_windows() {
   cp -R "$publish_dir"/. "$dist_dir"/
 
   if [[ "$PUBLISH_ARCHIVES" == "true" ]]; then
+    mkdir -p "$ARCHIVE_ROOT"
     rm -f "$archive_path"
     (
       cd "$package_root"
@@ -237,7 +226,7 @@ APP_VERSION="$(read_version)"
 
 target_rids=()
 if [[ $# -eq 0 ]]; then
-  target_rids=("$(detect_default_rid)")
+  target_rids=("${ALL_RIDS[@]}")
 else
   while [[ $# -gt 0 ]]; do
     case "$1" in
