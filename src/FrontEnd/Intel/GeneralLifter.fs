@@ -1033,6 +1033,7 @@ let convWDQ ins insLen bld =
 let private bitReflect bld src =
   let oprSize = Expr.TypeOf src
   let struct (res, tmp) = tmpVars2 bld oprSize
+  bld <+ (res := AST.num0 oprSize)
   bld <+ (tmp := src)
   let oSz = int oprSize
   for i in 0 .. oSz - 1 do
