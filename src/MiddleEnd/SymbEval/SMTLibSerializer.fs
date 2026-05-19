@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
 open System.Collections.Generic
 open System.Text
@@ -39,7 +39,7 @@ module SMTLibSerializer =
 
   let private symbol (name: string) =
     // FIXME: This escaping is not bijective. It is acceptable for generated
-    // SymEval variable names, but user-provided names may collide.
+    // SymbEval variable names, but user-provided names may collide.
     let name = name.Replace("\\", "_").Replace("|", "_")
     $"|{name}|"
 
@@ -113,7 +113,7 @@ module SMTLibSerializer =
       $"(not (= {serializeExpr lhs} {serializeExpr rhs}))"
     | RelOp(op, lhs, rhs) ->
       $"({relOp op} {serializeExpr lhs} {serializeExpr rhs})"
-    | expr when SymExpr.isCondition expr ->
+    | expr when SymbExpr.isCondition expr ->
       $"(= {serializeExpr expr} {bvConst BitVector.T})"
     | expr ->
       invalidOp $"Invalid SMT-LIB boolean expression type: {expr.Type}"

@@ -22,43 +22,43 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
 open B2R2
 open B2R2.FrontEnd
 
 /// Represents symbolic memory backed by binary file sections.
-type BinSectionSymMemory(hdl: BinHandle, mem: ISymMemory, isBacked: bool) =
+type BinSectionSymbMemory(hdl: BinHandle, mem: ISymbMemory, isBacked: bool) =
   let mutable isBacked = isBacked
 
-  new(hdl) = BinSectionSymMemory(hdl, SymMemory() :> ISymMemory, true)
+  new(hdl) = BinSectionSymbMemory(hdl, SymbMemory() :> ISymbMemory, true)
 
-  new(hdl, mem) = BinSectionSymMemory(hdl, mem, true)
+  new(hdl, mem) = BinSectionSymbMemory(hdl, mem, true)
 
   new(hdl, isBacked) =
-    BinSectionSymMemory(hdl, SymMemory() :> ISymMemory, isBacked)
+    BinSectionSymbMemory(hdl, SymbMemory() :> ISymbMemory, isBacked)
 
-  interface ISymMemory with
+  interface ISymbMemory with
 
     member _.ByteRead addr =
       match mem.ByteRead addr with
       | Ok value -> Ok value
       | Error _ when isBacked && hdl.File.IsValidAddr addr ->
         match hdl.TryReadBytes(addr, 1) with
-        | Ok bs -> Ok(SymExpr.Const(BitVector(uint32 bs[0], 8<rt>)))
+        | Ok bs -> Ok(SymbExpr.Const(BitVector(uint32 bs[0], 8<rt>)))
         | Error _ -> Error(InvalidMemoryRead addr)
       | Error e -> Error e
 
     member _.ByteWrite(addr, value) = mem.ByteWrite(addr, value)
 
     member this.Load(addr, endian, typ) =
-      SymMemoryOperation.load addr endian typ this
+      SymbMemoryOperation.load addr endian typ this
 
     member this.Store(addr, value, endian) =
-      SymMemoryOperation.store addr value endian this
+      SymbMemoryOperation.store addr value endian this
 
     member _.Clone() =
-      BinSectionSymMemory(hdl, mem.Clone(), isBacked) :> ISymMemory
+      BinSectionSymbMemory(hdl, mem.Clone(), isBacked) :> ISymbMemory
 
     member _.Clear() =
       isBacked <- false

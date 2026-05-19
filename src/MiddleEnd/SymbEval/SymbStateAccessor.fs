@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
 open System
 open B2R2
@@ -30,24 +30,24 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.Executor
 
 /// Represents a symbolic byte buffer laid out at a concrete address.
-type SymByteBuffer =
+type SymbByteBuffer =
   { /// Logical name used as the symbolic byte variable prefix.
     Name: string
     /// Concrete start address of the buffer.
     Address: Addr
     /// Symbolic bytes in address order.
-    Bytes: SymExpr list
+    Bytes: SymbExpr list
     /// True when a null terminator was written after the symbolic bytes.
     NullTerminated: bool }
 with
-  /// Symbolic values suitable for SymRunOptions.QueryValues.
+  /// Symbolic values suitable for SymbRunOptions.QueryValues.
   member this.Values = this.Bytes
 
   interface IQueryExpr with
     member this.QueryValues = this.Bytes
 
 /// Provides convenience helpers for a symbolic state.
-type SymStateAccessor(hdl: BinHandle, state: SymState, os: OS) as this =
+type SymbStateAccessor(hdl: BinHandle, state: SymbState, os: OS) as this =
   static let defaultStringBound = 64
 
   static let defaultStackTop = 0x7fffffffe000UL
@@ -57,7 +57,7 @@ type SymStateAccessor(hdl: BinHandle, state: SymState, os: OS) as this =
   let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
 
-  let wordValue (addr: Addr) = SymExpr.Const(BitVector(addr, wordType))
+  let wordValue (addr: Addr) = SymbExpr.Const(BitVector(addr, wordType))
 
   let byteType = 8<rt>
 
@@ -79,12 +79,12 @@ type SymStateAccessor(hdl: BinHandle, state: SymState, os: OS) as this =
         "Frame pointer register is unavailable.")
 
   let getConcreteAddr = function
-    | SymExpr.Const bv -> BitVector.ToUInt64 bv
+    | SymbExpr.Const bv -> BitVector.ToUInt64 bv
     | expr ->
       raise (InvalidOperationException $"Expected concrete address: {expr}.")
 
   let tryGetConcreteAddr = function
-    | SymExpr.Const bv -> Ok(BitVector.ToUInt64 bv)
+    | SymbExpr.Const bv -> Ok(BitVector.ToUInt64 bv)
     | expr -> Error(UnsupportedSymbolicAddress expr)
 
   let tryGetConcreteReg rid =
@@ -169,10 +169,10 @@ type SymStateAccessor(hdl: BinHandle, state: SymState, os: OS) as this =
       ()
 
   let symbolicByte name idx =
-    SymExpr.Var($"{name}_{idx}", byteType)
+    SymbExpr.Var($"{name}_{idx}", byteType)
 
   let writeNullTerminator addr length =
-    state.Memory.ByteWrite(addr + uint64 length, SymExpr.zero byteType)
+    state.Memory.ByteWrite(addr + uint64 length, SymbExpr.zero byteType)
 
   let writeSymbolicBuffer name addr length nullTerminate =
     checkBufferName name
@@ -190,7 +190,7 @@ type SymStateAccessor(hdl: BinHandle, state: SymState, os: OS) as this =
       Bytes = bytes
       NullTerminated = nullTerminate }
 
-  new(hdl, state) = SymStateAccessor(hdl, state, OS.Linux)
+  new(hdl, state) = SymbStateAccessor(hdl, state, OS.Linux)
 
   /// Default maximum symbolic C-string payload size.
   static member DefaultStringBound = defaultStringBound
@@ -240,12 +240,12 @@ type SymStateAccessor(hdl: BinHandle, state: SymState, os: OS) as this =
   member _.ZeroRegisters(names: string[]) =
     names
     |> Array.iter (fun name ->
-      state.SetReg(registerByName name, SymExpr.zero wordType))
+      state.SetReg(registerByName name, SymbExpr.zero wordType))
 
   /// Clear selected registers to zero.
   member _.ZeroRegisters(rids: RegisterID[]) =
     rids
-    |> Array.iter (fun rid -> state.SetReg(rid, SymExpr.zero wordType))
+    |> Array.iter (fun rid -> state.SetReg(rid, SymbExpr.zero wordType))
 
   /// Set an integer or pointer argument for the supported ABI.
   member _.SetArgument(idx, value) = setArgument idx value
@@ -307,7 +307,7 @@ type SymStateAccessor(hdl: BinHandle, state: SymState, os: OS) as this =
     |> fun addr -> writeSymbolicBuffer name addr length nullTerminate
 
   /// Sets an argument register to point to a symbolic byte buffer.
-  member _.SetArgumentBuffer(idx, buffer: SymByteBuffer) =
+  member _.SetArgumentBuffer(idx, buffer: SymbByteBuffer) =
     this.SetArgument(idx, wordValue buffer.Address)
 
   /// Allocates a null-terminated symbolic C-string buffer on the stack.
@@ -329,7 +329,7 @@ type SymStateAccessor(hdl: BinHandle, state: SymState, os: OS) as this =
     this.SetArgumentBuffer(idx, buffer)
     buffer
 
-  interface IStateAccessor<SymState, SymExpr> with
+  interface IStateAccessor<SymbState, SymbExpr> with
 
     member _.State = this.State
 

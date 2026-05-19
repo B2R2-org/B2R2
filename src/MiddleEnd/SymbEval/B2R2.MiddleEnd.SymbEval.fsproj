@@ -8,21 +8,21 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="SymExpr.fs" />
-    <Compile Include="ISymMemory.fs" />
-    <Compile Include="SymMemory.fs" />
-    <Compile Include="BinSectionSymMemory.fs" />
-    <Compile Include="SymVariables.fs" />
-    <Compile Include="SymState.fs" />
-    <Compile Include="SymStateAccessor.fs" />
-    <Compile Include="SymExprTranslator.fs" />
-    <Compile Include="SymEvaluator.fs" />
+    <Compile Include="SymbExpr.fs" />
+    <Compile Include="ISymbMemory.fs" />
+    <Compile Include="SymbMemory.fs" />
+    <Compile Include="BinSectionSymbMemory.fs" />
+    <Compile Include="SymbVariables.fs" />
+    <Compile Include="SymbState.fs" />
+    <Compile Include="SymbStateAccessor.fs" />
+    <Compile Include="SymbExprTranslator.fs" />
+    <Compile Include="SymbEvaluator.fs" />
     <Compile Include="SMTLibSerializer.fs" />
     <Compile Include="ISolver.fs" />
-    <Compile Include="SymModel.fs" />
+    <Compile Include="SymbModel.fs" />
     <Compile Include="SolverOutputParser.fs" />
-    <Compile Include="SymCallHook.fs" />
-    <Compile Include="SymExecutor.fs" />
+    <Compile Include="SymbCallHook.fs" />
+    <Compile Include="SymbExecutor.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />

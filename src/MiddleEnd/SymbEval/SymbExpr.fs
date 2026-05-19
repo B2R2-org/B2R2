@@ -22,36 +22,36 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
 open B2R2
 open B2R2.BinIR
 
 /// Represents a symbolic bit-vector value.
 ///
-/// SymEval keeps LowUIR condition values as 1-bit bit-vectors. Path
+/// SymbEval keeps LowUIR condition values as 1-bit bit-vectors. Path
 /// conditions contain expressions that are interpreted as the 1-bit true value.
-type SymExpr =
+type SymbExpr =
   /// A concrete bit-vector constant.
   | Const of BitVector
   /// A named symbolic bit-vector variable.
   | Var of name: string * typ: RegType
   /// A unary operation over a symbolic expression.
-  | UnOp of UnOpType * SymExpr
+  | UnOp of UnOpType * SymbExpr
   /// A binary operation over symbolic expressions.
-  | BinOp of BinOpType * typ: RegType * SymExpr * SymExpr
+  | BinOp of BinOpType * typ: RegType * SymbExpr * SymbExpr
   /// A relational operation over symbolic expressions.
-  | RelOp of RelOpType * SymExpr * SymExpr
+  | RelOp of RelOpType * SymbExpr * SymbExpr
   /// A symbolic memory load.
-  | Load of Endian * typ: RegType * addr: SymExpr
+  | Load of Endian * typ: RegType * addr: SymbExpr
   /// An if-then-else expression.
-  | Ite of cond: SymExpr * thenExpr: SymExpr * elseExpr: SymExpr
+  | Ite of cond: SymbExpr * thenExpr: SymbExpr * elseExpr: SymbExpr
   /// A type conversion.
-  | Cast of CastKind * typ: RegType * SymExpr
+  | Cast of CastKind * typ: RegType * SymbExpr
   /// A bit extraction.
-  | Extract of SymExpr * typ: RegType * startPos: int
+  | Extract of SymbExpr * typ: RegType * startPos: int
   /// An uninterpreted function application.
-  | FuncApp of name: string * typ: RegType * args: SymExpr list
+  | FuncApp of name: string * typ: RegType * args: SymbExpr list
   /// A value that exists in the source IR but has undefined semantics.
   | Undef of typ: RegType * reason: string
 with
@@ -99,11 +99,11 @@ type SolverFailure =
   | SolverReturnedUnknown
 
 /// Represents an error encountered during symbolic evaluation.
-type SymEvalError =
+type SymbEvalError =
   | UnsupportedExpression of string
   | UnsupportedStatement of string
   | UnsupportedOperation of string
-  | UnsupportedSymbolicAddress of SymExpr
+  | UnsupportedSymbolicAddress of SymbExpr
   | InvalidMemoryRead of Addr
   | UninitializedRegister of RegisterID
   | UninitializedTemporary of int
@@ -112,14 +112,14 @@ type SymEvalError =
 /// Represents values that can be requested from a solver model.
 type IQueryExpr =
   /// Symbolic expressions to include in solver value extraction.
-  abstract QueryValues: SymExpr list
+  abstract QueryValues: SymbExpr list
 
 /// Represents one or more solver-model query expressions.
 type QueryExpr =
   /// Request no values.
   | Empty
   /// Request one symbolic expression value.
-  | Value of SymExpr
+  | Value of SymbExpr
   /// Request a nested sequence of query expressions.
   | Values of IQueryExpr list
 with
@@ -133,7 +133,7 @@ with
 
 /// Symbolic expression helpers.
 [<RequireQualifiedAccess>]
-module SymExpr =
+module SymbExpr =
   let zero typ = Const(BitVector.Zero typ)
 
   let one typ = Const(BitVector.One typ)
@@ -145,7 +145,7 @@ module SymExpr =
   let falseExpr = Const BitVector.F
 
   /// Returns true when the expression has the 1-bit condition type.
-  let isCondition (expr: SymExpr) = expr.Type = 1<rt>
+  let isCondition (expr: SymbExpr) = expr.Type = 1<rt>
 
   let undef typ reason = Undef(typ, reason)
 

@@ -23,27 +23,27 @@
 *)
 
 /// Represents a symbolic evaluation module for LowUIR.
-module B2R2.MiddleEnd.SymEval.SymEvaluator
+module B2R2.MiddleEnd.SymbEval.SymbEvaluator
 
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 /// Represents a symbolic evaluation stop reason.
-type SymEvalStopReason =
+type SymbEvalStopReason =
   /// Evaluation reached a LowUIR statement with architectural side effects.
   | SideEffectStop of SideEffect
 
 /// Represents the successor relation produced by symbolic evaluation.
-type SymEvalSuccessor =
+type SymbEvalSuccessor =
   /// Evaluation can continue from the given state.
-  | Continue of SymState
+  | Continue of SymbState
   /// Evaluation forked on a symbolic condition.
-  | Fork of trueState: SymState * falseState: SymState
+  | Fork of trueState: SymbState * falseState: SymbState
   /// Evaluation stopped before completing the current run.
-  | Stopped of SymState * SymEvalStopReason
+  | Stopped of SymbState * SymbEvalStopReason
   /// Evaluation failed.
-  | EvalError of SymEvalError
+  | EvalError of SymbEvalError
 
 let private unsupportedStmt stmt =
   Stmt.ToString stmt |> UnsupportedStatement |> Error
@@ -53,31 +53,31 @@ let private unsupportedOp op = UnsupportedOperation op |> Error
 let private unsupportedSymbolicAddress expr =
   UnsupportedSymbolicAddress expr |> Error
 
-let private conditionTypeError (expr: SymExpr) =
+let private conditionTypeError (expr: SymbExpr) =
   $"Invalid branch condition type: {RegType.toString expr.Type}"
   |> unsupportedOp
 
 let private falseCond cond =
-  SymExpr.relop RelOpType.EQ cond SymExpr.falseExpr
+  SymbExpr.relop RelOpType.EQ cond SymbExpr.falseExpr
 
-let private addTrueCond (st: SymState) cond =
-  if cond <> SymExpr.trueExpr then st.AddPathCondition cond
+let private addTrueCond (st: SymbState) cond =
+  if cond <> SymbExpr.trueExpr then st.AddPathCondition cond
   else ()
 
-let private addFalseCond (st: SymState) cond =
-  if cond <> SymExpr.falseExpr then st.AddPathCondition(falseCond cond)
+let private addFalseCond (st: SymbState) cond =
+  if cond <> SymbExpr.falseExpr then st.AddPathCondition(falseCond cond)
   else ()
 
-let private updatePC (st: SymState) target =
+let private updatePC (st: SymbState) target =
   match target with
   | Const bv -> st.PC <- BitVector.ToUInt64 bv; Ok()
   | target -> unsupportedSymbolicAddress target
 
-let private evalPCUpdate (st: SymState) target =
-  SymExprTranslator.translate st target |> Result.bind (updatePC st)
+let private evalPCUpdate (st: SymbState) target =
+  SymbExprTranslator.translate st target |> Result.bind (updatePC st)
 
-let private evalPut (st: SymState) lhs rhs =
-  match SymExprTranslator.translate st rhs with
+let private evalPut (st: SymbState) lhs rhs =
+  match SymbExprTranslator.translate st rhs with
   | Ok value ->
     match lhs with
     | Var(_, rid, _, _) -> st.SetReg(rid, value); Ok()
@@ -86,24 +86,24 @@ let private evalPut (st: SymState) lhs rhs =
     | _ -> UnsupportedExpression(Expr.ToString lhs) |> Error
   | Error e -> Error e
 
-let private evalStore (st: SymState) endian addr value =
-  match SymExprTranslator.translate st addr,
-        SymExprTranslator.translate st value with
+let private evalStore (st: SymbState) endian addr value =
+  match SymbExprTranslator.translate st addr,
+        SymbExprTranslator.translate st value with
   | Ok(Const addr), Ok value ->
     st.Memory.Store(BitVector.ToUInt64 addr, value, endian)
     Ok()
   | Ok addr, Ok _ -> unsupportedSymbolicAddress addr
   | Error e, _ | _, Error e -> Error e
 
-let private evalJmp (st: SymState) = function
+let private evalJmp (st: SymbState) = function
   | JmpDest(lbl, _) -> st.GoToLabel lbl; Ok()
   | target -> UnsupportedExpression(Expr.ToString target) |> Error
 
-let private evalConcreteCJmp (st: SymState) cond trueTarget falseTarget =
+let private evalConcreteCJmp (st: SymbState) cond trueTarget falseTarget =
   if cond then evalJmp st trueTarget else evalJmp st falseTarget
 
-let private evalSymbolicCJmp (st: SymState) cond trueTarget falseTarget =
-  if SymExpr.isCondition cond then
+let private evalSymbolicCJmp (st: SymbState) cond trueTarget falseTarget =
+  if SymbExpr.isCondition cond then
     let trueState = st
     let falseState = st.Clone()
     addTrueCond trueState cond
@@ -113,19 +113,19 @@ let private evalSymbolicCJmp (st: SymState) cond trueTarget falseTarget =
     | Error e, _ | _, Error e -> Error e
   else conditionTypeError cond
 
-let private evalCJmp (st: SymState) cond trueTarget falseTarget =
-  match SymExprTranslator.translate st cond with
+let private evalCJmp (st: SymbState) cond trueTarget falseTarget =
+  match SymbExprTranslator.translate st cond with
   | Ok(Const cond) ->
     evalConcreteCJmp st cond.IsTrue trueTarget falseTarget
     |> Result.map (fun () -> Continue st)
   | Ok cond -> evalSymbolicCJmp st cond trueTarget falseTarget
   | Error e -> Error e
 
-let private evalConcreteIntCJmp (st: SymState) cond trueTarget falseTarget =
+let private evalConcreteIntCJmp (st: SymbState) cond trueTarget falseTarget =
   if cond then evalPCUpdate st trueTarget else evalPCUpdate st falseTarget
 
-let private evalSymbolicIntCJmp (st: SymState) cond trueTarget falseTarget =
-  if SymExpr.isCondition cond then
+let private evalSymbolicIntCJmp (st: SymbState) cond trueTarget falseTarget =
+  if SymbExpr.isCondition cond then
     let trueState = st
     let falseState = st.Clone()
     addTrueCond trueState cond
@@ -140,8 +140,8 @@ let private evalSymbolicIntCJmp (st: SymState) cond trueTarget falseTarget =
     | Error e, _ | _, Error e -> Error e
   else conditionTypeError cond
 
-let private evalIntCJmp (st: SymState) cond trueTarget falseTarget =
-  match SymExprTranslator.translate st cond with
+let private evalIntCJmp (st: SymbState) cond trueTarget falseTarget =
+  match SymbExprTranslator.translate st cond with
   | Ok(Const cond) ->
     evalConcreteIntCJmp st cond.IsTrue trueTarget falseTarget
     |> Result.map (fun () ->
@@ -151,7 +151,7 @@ let private evalIntCJmp (st: SymState) cond trueTarget falseTarget =
   | Error e -> Error e
 
 /// Evaluates one LowUIR statement.
-let evalStmt (st: SymState) stmt =
+let evalStmt (st: SymbState) stmt =
   let result =
     match stmt with
     | ISMark(len, _) ->

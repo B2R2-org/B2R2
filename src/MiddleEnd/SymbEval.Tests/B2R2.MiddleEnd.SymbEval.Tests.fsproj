@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SymEval\B2R2.MiddleEnd.SymEval.fsproj" />
+    <ProjectReference Include="..\SymbEval\B2R2.MiddleEnd.SymbEval.fsproj" />
   </ItemGroup>
 
 </Project>

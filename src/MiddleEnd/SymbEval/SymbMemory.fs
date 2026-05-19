@@ -22,30 +22,32 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
+open System.Collections.Generic
 open B2R2
 
-/// Represents the result of a solver satisfiability query.
-type SolverStatus =
-  | Sat
-  | Unsat
-  | Unknown
+/// Represents symbolic memory indexed by concrete addresses.
+type SymbMemory(mem: IDictionary<Addr, SymbExpr>) =
+  let mem = Dictionary<Addr, SymbExpr>(mem)
 
-/// Represents a single value returned by a solver's value query.
-type SolverValue =
-  { Name: string
-    Value: BitVector }
+  new() = SymbMemory(Dictionary<_, _>() :> IDictionary<Addr, SymbExpr>)
 
-/// Represents a parsed solver response.
-type SolverOutput =
-  { Status: SolverStatus
-    Values: SolverValue list }
+  interface ISymbMemory with
 
-/// Represents an SMT solver for symbolic path conditions.
-type ISolver =
-  /// Check whether the given SMT-LIB2 assertion script is satisfiable.
-  abstract CheckSat: smt2: string -> Result<string, SymEvalError>
+    member _.ByteRead addr =
+      match mem.TryGetValue addr with
+      | true, value -> Ok value
+      | false, _ -> Error(InvalidMemoryRead addr)
 
-  /// Get a raw model for the given SMT-LIB2 assertion script.
-  abstract GetModels: smt2: string -> Result<string, SymEvalError>
+    member _.ByteWrite(addr, value) = mem[addr] <- value
+
+    member this.Load(addr, endian, typ) =
+      SymbMemoryOperation.load addr endian typ this
+
+    member this.Store(addr, value, endian) =
+      SymbMemoryOperation.store addr value endian this
+
+    member _.Clone() = SymbMemory(Dictionary<_, _>(mem)) :> ISymbMemory
+
+    member _.Clear() = mem.Clear()

@@ -22,13 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
 open System
 open System.Text
 open B2R2
 
-/// Parses the small subset of solver output used by SymEval.
+/// Parses the small subset of solver output used by SymbEval.
 [<RequireQualifiedAccess>]
 module SolverOutputParser =
   type private Token =
@@ -102,7 +102,7 @@ module SolverOutputParser =
     elif c >= 'A' && c <= 'F' then Some(int c - int 'A' + 10)
     else None
 
-  let private parseUnsigned radix (text: string): Result<bigint, SymEvalError> =
+  let private parseUnsigned radix (text: string) =
     if text.Length = 0 then parseFailure "Expected an unsigned integer."
     else
       let rec loop idx (value: bigint) =
@@ -219,7 +219,7 @@ module SolverOutputParser =
 
   let private zeroValue typ = BitVector.Zero typ
 
-  /// Extract requested SymEval values from raw solver model text.
+  /// Extract requested SymbEval values from raw solver model text.
   let extract values modelText =
     match requestedValues values with
     | Error e -> Error e
@@ -237,6 +237,6 @@ module SolverOutputParser =
         |> fun values -> { Status = Sat; Values = values }
         |> Ok
 
-  /// Validate requested SymEval values before asking for a model.
+  /// Validate requested SymbEval values before asking for a model.
   let validate values =
     requestedValues values |> Result.map ignore

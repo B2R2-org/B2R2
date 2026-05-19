@@ -22,32 +22,31 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
 open System.Collections.Generic
 open B2R2
 
-/// Represents symbolic memory indexed by concrete addresses.
-type SymMemory(mem: IDictionary<Addr, SymExpr>) =
-  let mem = Dictionary<Addr, SymExpr>(mem)
+/// Represents a collection of symbolic variables used in the evaluation state.
+type SymbVariables(vars) =
+  let vars: Dictionary<int, SymbExpr> = vars
 
-  new() = SymMemory(Dictionary<Addr, SymExpr>() :> IDictionary<Addr, SymExpr>)
+  new() = SymbVariables(Dictionary())
 
-  interface ISymMemory with
+  member _.TryGet k =
+    match vars.TryGetValue k with
+    | true, v -> Ok v
+    | false, _ -> Error ErrorCase.InvalidRegister
 
-    member _.ByteRead addr =
-      match mem.TryGetValue addr with
-      | true, value -> Ok value
-      | false, _ -> Error(InvalidMemoryRead addr)
+  member _.Get k = vars[k]
 
-    member _.ByteWrite(addr, value) = mem[addr] <- value
+  member _.Set(k, v) = vars[k] <- v
 
-    member this.Load(addr, endian, typ) =
-      SymMemoryOperation.load addr endian typ this
+  member _.Unset k = vars.Remove k |> ignore
 
-    member this.Store(addr, value, endian) =
-      SymMemoryOperation.store addr value endian this
+  member _.Count() = vars.Count
 
-    member _.Clone() = SymMemory(Dictionary<Addr, SymExpr>(mem)) :> ISymMemory
+  member _.ToArray() =
+    vars |> Seq.map (fun (KeyValue(k, v)) -> k, v) |> Seq.toArray
 
-    member _.Clear() = mem.Clear()
+  member _.Clone() = SymbVariables(Dictionary(vars))

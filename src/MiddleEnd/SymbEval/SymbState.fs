@@ -22,14 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
 open System.Runtime.InteropServices
 open B2R2
 open B2R2.MiddleEnd.Executor
 
 /// Represents the main symbolic evaluation state.
-type SymState(regs, temps, lbls, mem: ISymMemory, pathCond: SymExpr list) =
+type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
 
   let mutable pc = 0UL
   let mutable stmtIdx = 0
@@ -43,14 +43,14 @@ type SymState(regs, temps, lbls, mem: ISymMemory, pathCond: SymExpr list) =
   let mutable pathCond = pathCond
 
   new() =
-    SymState(SymVariables(),
-             SymVariables(),
+    SymbState(SymbVariables(),
+             SymbVariables(),
              Labels(),
-             SymMemory() :> ISymMemory,
+             SymbMemory() :> ISymbMemory,
              [])
 
   new(mem) =
-    SymState(SymVariables(), SymVariables(), Labels(), mem, [])
+    SymbState(SymbVariables(), SymbVariables(), Labels(), mem, [])
 
   member _.PC with get() = pc and set(addr) = pc <- addr
 
@@ -110,7 +110,7 @@ type SymState(regs, temps, lbls, mem: ISymMemory, pathCond: SymExpr list) =
     this.StmtIdx <- 0
 
   member _.Clone() =
-    SymState(regs.Clone(),
+    SymbState(regs.Clone(),
              temps.Clone(),
              lbls.Clone(),
              mem.Clone(),
@@ -121,6 +121,6 @@ type SymState(regs, temps, lbls, mem: ISymMemory, pathCond: SymExpr list) =
              IsInstrTerminated = isInstrTerminated,
              NeedToEvaluateIEMark = needToEvaluateIEMark)
 
-  member this.InitializeContext(pc, registers: (RegisterID * SymExpr)[]) =
+  member this.InitializeContext(pc, registers: (RegisterID * SymbExpr)[]) =
     this.PC <- pc
     registers |> Array.iter (fun (rid, value) -> this.SetReg(rid, value))

@@ -22,52 +22,52 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
 open B2R2
 open B2R2.BinIR
 
 /// Represents a symbolic memory used in the evaluation.
-type ISymMemory =
+type ISymbMemory =
   /// Reads a symbolic byte from a concrete address.
-  abstract ByteRead: Addr -> Result<SymExpr, SymEvalError>
+  abstract ByteRead: Addr -> Result<SymbExpr, SymbEvalError>
 
   /// Store a symbolic byte at a concrete address.
-  abstract ByteWrite: Addr * SymExpr -> unit
+  abstract ByteWrite: Addr * SymbExpr -> unit
 
   /// Loads a symbolic value from concrete addresses.
-  abstract Load: Addr * Endian * RegType -> Result<SymExpr, SymEvalError>
+  abstract Load: Addr * Endian * RegType -> Result<SymbExpr, SymbEvalError>
 
   /// Store a symbolic value at concrete addresses.
-  abstract Store: Addr * SymExpr * Endian -> unit
+  abstract Store: Addr * SymbExpr * Endian -> unit
 
   /// Return an independent copy of this memory object.
-  abstract Clone: unit -> ISymMemory
+  abstract Clone: unit -> ISymbMemory
 
   /// Clears up the memory contents; make the whole memory empty.
   abstract Clear: unit -> unit
 
 [<RequireQualifiedAccess>]
-module internal SymMemoryOperation =
+module internal SymbMemoryOperation =
   let private byteType = 8<rt>
 
-  let private concat (lhs: SymExpr) (rhs: SymExpr) =
+  let private concat (lhs: SymbExpr) (rhs: SymbExpr) =
     match lhs, rhs with
     | Const lhs, Const rhs ->
       Const(BitVector.Concat(lhs, rhs))
     | _ ->
       let typ = lhs.Type + rhs.Type
-      SymExpr.binop BinOpType.CONCAT typ lhs rhs
+      SymbExpr.binop BinOpType.CONCAT typ lhs rhs
 
   let private extractByte pos = function
     | Const bv -> Const(BitVector.Extract(bv, byteType, pos))
-    | expr -> SymExpr.extract expr byteType pos
+    | expr -> SymbExpr.extract expr byteType pos
 
   let private combineBytes = function
     | [] -> Error(UnsupportedOperation "Cannot load zero bytes from memory.")
     | byte :: bytes -> List.fold concat byte bytes |> Ok
 
-  let load addr endian typ (mem: ISymMemory) =
+  let load addr endian typ (mem: ISymbMemory) =
     let len = RegType.toByteWidth typ
     let bytes =
       [ 0 .. len - 1 ]
@@ -86,7 +86,7 @@ module internal SymMemoryOperation =
       combineBytes bytes
     | Error e -> Error e
 
-  let store addr (value: SymExpr) endian (mem: ISymMemory) =
+  let store addr (value: SymbExpr) endian (mem: ISymbMemory) =
     let len = RegType.toByteWidth value.Type
     for offset = 0 to len - 1 do
       let pos =

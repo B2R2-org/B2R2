@@ -22,31 +22,30 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
-open System.Collections.Generic
 open B2R2
 
-/// Represents a collection of symbolic variables used in the evaluation state.
-type SymVariables(vars) =
-  let vars: Dictionary<int, SymExpr> = vars
+/// Represents the result of a solver satisfiability query.
+type SolverStatus =
+  | Sat
+  | Unsat
+  | Unknown
 
-  new() = SymVariables(Dictionary())
+/// Represents a single value returned by a solver's value query.
+type SolverValue =
+  { Name: string
+    Value: BitVector }
 
-  member _.TryGet k =
-    match vars.TryGetValue k with
-    | true, v -> Ok v
-    | false, _ -> Error ErrorCase.InvalidRegister
+/// Represents a parsed solver response.
+type SolverOutput =
+  { Status: SolverStatus
+    Values: SolverValue list }
 
-  member _.Get k = vars[k]
+/// Represents an SMT solver for symbolic path conditions.
+type ISolver =
+  /// Check whether the given SMT-LIB2 assertion script is satisfiable.
+  abstract CheckSat: smt2: string -> Result<string, SymbEvalError>
 
-  member _.Set(k, v) = vars[k] <- v
-
-  member _.Unset k = vars.Remove k |> ignore
-
-  member _.Count() = vars.Count
-
-  member _.ToArray() =
-    vars |> Seq.map (fun (KeyValue(k, v)) -> k, v) |> Seq.toArray
-
-  member _.Clone() = SymVariables(Dictionary(vars))
+  /// Get a raw model for the given SMT-LIB2 assertion script.
+  abstract GetModels: smt2: string -> Result<string, SymbEvalError>

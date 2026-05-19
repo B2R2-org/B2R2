@@ -22,25 +22,25 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval.Tests
+namespace B2R2.MiddleEnd.SymbEval.Tests
 
 open System
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.MiddleEnd.SymEval
+open B2R2.MiddleEnd.SymbEval
 
 [<TestClass>]
 type SMTLibPipelineTests() =
-  let x8 = SymExpr.Var("x", 8<rt>)
+  let x8 = SymbExpr.Var("x", 8<rt>)
 
   let tmp8 = AST.tmpvar 8<rt> 0
 
   let num8 value = AST.num (BitVector(uint64 value, 8<rt>))
 
   let newState () =
-    let state = SymState()
+    let state = SymbState()
     state.SetTmp(0, x8)
     state
 
@@ -53,7 +53,7 @@ type SMTLibPipelineTests() =
     |> fun v -> v.Value
 
   let translateLowUIR state expr =
-    match SymExprTranslator.translate state expr with
+    match SymbExprTranslator.translate state expr with
     | Ok expr -> expr
     | Error err -> Assert.Fail $"Failed to translate LowUIR: {err}"; failwith ""
 
@@ -109,8 +109,8 @@ type SMTLibPipelineTests() =
 
   [<TestMethod>]
   member _.``Reject model query for non-variable expression``() =
-    let one = SymExpr.Const(BitVector.One 8<rt>)
-    let value = SymExpr.binop BinOpType.ADD 8<rt> x8 one
+    let one = SymbExpr.Const(BitVector.One 8<rt>)
+    let value = SymbExpr.binop BinOpType.ADD 8<rt> x8 one
     match SolverOutputParser.extract [ value ] "" with
     | Error(SolverFailure(SolverSerializationFailure _)) -> ()
     | Ok output -> Assert.Fail $"Unexpected model extraction: {output}"

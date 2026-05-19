@@ -22,13 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
 open B2R2
 open B2R2.BinIR
 
 /// Represents the calling-convention information passed to a call hook.
-type SymCallContext =
+type SymbCallContext =
   { /// Address of the call instruction.
     CallSite: Addr
     /// Concrete target address selected for hook dispatch.
@@ -45,88 +45,88 @@ type SymCallContext =
     ReturnRegister: RegisterID }
 
 /// Represents a symbolic external-call hook.
-type SymCallHook =
-  SymCallContext -> SymState -> Result<SymState list, SymEvalError>
+type SymbCallHook =
+  SymbCallContext -> SymbState -> Result<SymbState list, SymbEvalError>
 
 /// Represents a target-address-based call hook registry.
-type SymCallHookRegistry(hooks: Map<Addr, SymCallHook>) =
+type SymbCallHookRegistry(hooks: Map<Addr, SymbCallHook>) =
   /// Creates an empty call hook registry.
-  new() = SymCallHookRegistry Map.empty
+  new() = SymbCallHookRegistry Map.empty
 
   /// Creates a call hook registry from target-hook pairs.
-  new(hooks: seq<Addr * SymCallHook>) =
-    SymCallHookRegistry(Map.ofSeq hooks)
+  new(hooks: seq<Addr * SymbCallHook>) =
+    SymbCallHookRegistry(Map.ofSeq hooks)
 
   /// Registers a hook for a concrete target address.
   member _.Register(target, hook) =
-    SymCallHookRegistry(Map.add target hook hooks)
+    SymbCallHookRegistry(Map.add target hook hooks)
 
   /// Registers hooks for concrete target addresses.
-  member this.RegisterMany(hooks: seq<Addr * SymCallHook>) =
-    Seq.fold (fun (registry: SymCallHookRegistry) (target, hook) ->
+  member this.RegisterMany(hooks: seq<Addr * SymbCallHook>) =
+    Seq.fold (fun (registry: SymbCallHookRegistry) (target, hook) ->
       registry.Register(target, hook)) this hooks
 
   /// Finds a hook for a concrete target address.
   member _.TryFind target = Map.tryFind target hooks
 
 /// Built-in symbolic call hook models.
-module SymCallHooks =
-  let defaultStringBound = SymStateAccessor.DefaultStringBound
+module SymbCallHooks =
+  let defaultStringBound = SymbStateAccessor.DefaultStringBound
 
-  let private byteZero = SymExpr.zero 8<rt>
+  let private byteZero = SymbExpr.zero 8<rt>
 
   let private wordConst typ value =
-    SymExpr.Const(BitVector(uint64 value, typ))
+    SymbExpr.Const(BitVector(uint64 value, typ))
 
   let private concreteAddr = function
-    | SymExpr.Const bv -> Ok(BitVector.ToUInt64 bv)
+    | SymbExpr.Const bv -> Ok(BitVector.ToUInt64 bv)
     | expr -> Error(UnsupportedSymbolicAddress expr)
 
   let private isConcreteZero = function
-    | SymExpr.Const bv when BitVector.ToUInt64 bv = 0UL -> true
+    | SymbExpr.Const bv when BitVector.ToUInt64 bv = 0UL -> true
     | _ -> false
 
   let private isConcreteNonZero = function
-    | SymExpr.Const bv when BitVector.ToUInt64 bv <> 0UL -> true
+    | SymbExpr.Const bv when BitVector.ToUInt64 bv <> 0UL -> true
     | _ -> false
 
-  let private addNonNullCondition (st: SymState) byte =
+  let private addNonNullCondition (st: SymbState) byte =
     if isConcreteNonZero byte then ()
-    else st.AddPathCondition(SymExpr.relop RelOpType.NEQ byte byteZero)
+    else st.AddPathCondition(SymbExpr.relop RelOpType.NEQ byte byteZero)
 
-  let private addNullCondition (st: SymState) byte =
+  let private addNullCondition (st: SymbState) byte =
     if isConcreteZero byte then ()
-    else st.AddPathCondition(SymExpr.relop RelOpType.EQ byte byteZero)
+    else st.AddPathCondition(SymbExpr.relop RelOpType.EQ byte byteZero)
 
-  let private setReturn (ctx: SymCallContext) length (st: SymState) =
+  let private setReturn (ctx: SymbCallContext) length (st: SymbState) =
     st.SetReg(ctx.ReturnRegister, wordConst ctx.WordType length)
     st.PC <- ctx.ReturnAddress
     st
 
-  let private getArgument (ctx: SymCallContext) (st: SymState) =
+  let private getArgument (ctx: SymbCallContext) (st: SymbState) =
     match st.TryGetReg ctx.ArgumentRegisters[0] with
     | Ok expr -> concreteAddr expr
     | Error _ -> Error(UninitializedRegister ctx.ArgumentRegisters[0])
 
   let private canBeNull = function
-    | SymExpr.Const bv -> BitVector.ToUInt64 bv = 0UL
+    | SymbExpr.Const bv -> BitVector.ToUInt64 bv = 0UL
     | _ -> true
 
   let private canBeNonNull = function
-    | SymExpr.Const bv -> BitVector.ToUInt64 bv <> 0UL
+    | SymbExpr.Const bv -> BitVector.ToUInt64 bv <> 0UL
     | _ -> true
 
   let private makeStrlenState ctx length bytes terminator
-                             (st: SymState) =
+                             (st: SymbState) =
     let st = st.Clone()
     bytes |> List.iter (addNonNullCondition st)
     addNullCondition st terminator
     setReturn ctx length st
 
-  let private readByte addr offset (st: SymState) =
+  let private readByte addr offset (st: SymbState) =
     st.Memory.ByteRead(addr + uint64 offset)
 
-  let private collectStrlenStates maxScan ctx addr (st: SymState) =
+  let private collectStrlenStates maxScan ctx addr (st: SymbState) =
     let rec loop offset prefix acc =
       if offset > maxScan then List.rev acc |> Ok
       else
@@ -143,7 +143,7 @@ module SymCallHooks =
 
   /// Default maximum symbolic C-string payload size.
   /// Models strlen by generating possible null-terminator positions.
-  let strlenBounded maxScan (ctx: SymCallContext) (st: SymState) =
+  let strlenBounded maxScan (ctx: SymbCallContext) (st: SymbState) =
     if maxScan < 0 then Error(UnsupportedOperation "Negative strlen bound.")
     elif Array.isEmpty ctx.ArgumentRegisters then
       Error(UnsupportedOperation "strlen requires one argument register.")

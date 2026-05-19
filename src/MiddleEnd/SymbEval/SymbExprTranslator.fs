@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
 open B2R2
 open B2R2.BinIR
@@ -30,7 +30,7 @@ open B2R2.BinIR.LowUIR
 
 /// Translates LowUIR expressions into symbolic expressions.
 [<RequireQualifiedAccess>]
-module SymExprTranslator =
+module SymbExprTranslator =
   let private unsupportedExpr expr =
     Expr.ToString expr |> UnsupportedExpression |> Error
 
@@ -83,45 +83,45 @@ module SymExprTranslator =
   let private valueMask (bv: BitVector) =
     BitVector.GetValue bv &&& bitMask bv.Length
 
-  let private constZero typ = SymExpr.Const(BitVector.Zero typ)
+  let private constZero typ = SymbExpr.Const(BitVector.Zero typ)
 
   let rec private getMayOneBits expr =
     match expr with
-    | SymExpr.Const bv -> valueMask bv
-    | SymExpr.Var(_, typ)
-    | SymExpr.Load(_, typ, _)
-    | SymExpr.FuncApp(_, typ, _)
-    | SymExpr.Undef(typ, _) -> bitMask typ
-    | SymExpr.UnOp(UnOpType.NOT, expr) -> bitMask expr.Type
-    | SymExpr.UnOp(_, expr) -> bitMask expr.Type
-    | SymExpr.BinOp(BinOpType.AND, typ, lhs, rhs) ->
+    | SymbExpr.Const bv -> valueMask bv
+    | SymbExpr.Var(_, typ)
+    | SymbExpr.Load(_, typ, _)
+    | SymbExpr.FuncApp(_, typ, _)
+    | SymbExpr.Undef(typ, _) -> bitMask typ
+    | SymbExpr.UnOp(UnOpType.NOT, expr) -> bitMask expr.Type
+    | SymbExpr.UnOp(_, expr) -> bitMask expr.Type
+    | SymbExpr.BinOp(BinOpType.AND, typ, lhs, rhs) ->
         getMayOneBits lhs &&& getMayOneBits rhs &&& bitMask typ
-    | SymExpr.BinOp(BinOpType.OR, typ, lhs, rhs)
-    | SymExpr.BinOp(BinOpType.XOR, typ, lhs, rhs) ->
+    | SymbExpr.BinOp(BinOpType.OR, typ, lhs, rhs)
+    | SymbExpr.BinOp(BinOpType.XOR, typ, lhs, rhs) ->
         getMayOneBits lhs ||| getMayOneBits rhs &&& bitMask typ
-    | SymExpr.BinOp(BinOpType.SHL, typ, lhs, SymExpr.Const rhs) ->
+    | SymbExpr.BinOp(BinOpType.SHL, typ, lhs, SymbExpr.Const rhs) ->
       let shift = BitVector.ToUInt64 rhs
       if shift >= uint64 (int typ) then 0I
       else getMayOneBits lhs <<< int shift &&& bitMask typ
-    | SymExpr.BinOp(BinOpType.SHR, typ, lhs, SymExpr.Const rhs) ->
+    | SymbExpr.BinOp(BinOpType.SHR, typ, lhs, SymbExpr.Const rhs) ->
       let shift = BitVector.ToUInt64 rhs
       if shift >= uint64 (int typ) then 0I
       else getMayOneBits lhs >>> int shift &&& bitMask typ
-    | SymExpr.BinOp(_, typ, _, _) -> bitMask typ
-    | SymExpr.RelOp _ -> bitMask 1<rt>
-    | SymExpr.Ite(_, thenExpr, elseExpr) ->
+    | SymbExpr.BinOp(_, typ, _, _) -> bitMask typ
+    | SymbExpr.RelOp _ -> bitMask 1<rt>
+    | SymbExpr.Ite(_, thenExpr, elseExpr) ->
       getMayOneBits thenExpr ||| getMayOneBits elseExpr
       &&& bitMask thenExpr.Type
-    | SymExpr.Cast(CastKind.ZeroExt, typ, expr) ->
+    | SymbExpr.Cast(CastKind.ZeroExt, typ, expr) ->
       getMayOneBits expr &&& bitMask typ
-    | SymExpr.Cast(_, typ, _) -> bitMask typ
-    | SymExpr.Extract(expr, typ, pos) ->
+    | SymbExpr.Cast(_, typ, _) -> bitMask typ
+    | SymbExpr.Extract(expr, typ, pos) ->
       getMayOneBits expr >>> pos &&& bitMask typ
 
   let private tryFoldMaskedAndToZero typ lhs rhs =
     match lhs, rhs with
-    | expr, SymExpr.Const mask
-    | SymExpr.Const mask, expr ->
+    | expr, SymbExpr.Const mask
+    | SymbExpr.Const mask, expr ->
       let mask = valueMask mask
       if getMayOneBits expr &&& mask = 0I then Some(constZero typ)
       else None
@@ -131,68 +131,68 @@ module SymExprTranslator =
     match evalUnOp op with
     | Some fn ->
       match expr with
-      | Const bv -> SymExpr.Const(fn bv) |> Ok
-      | _ -> SymExpr.unop op expr |> Ok
+      | Const bv -> SymbExpr.Const(fn bv) |> Ok
+      | _ -> SymbExpr.unop op expr |> Ok
     | None -> UnOpType.toString op |> unsupportedOp
 
   let private foldBinOp op typ lhs rhs =
     match evalBinOp op with
     | Some fn ->
       match lhs, rhs with
-      | Const lhs, Const rhs -> SymExpr.Const(fn lhs rhs) |> Ok
+      | Const lhs, Const rhs -> SymbExpr.Const(fn lhs rhs) |> Ok
       | _ when op = BinOpType.AND ->
         match tryFoldMaskedAndToZero typ lhs rhs with
         | Some expr -> Ok expr
-        | None -> SymExpr.binop op typ lhs rhs |> Ok
-      | _ -> SymExpr.binop op typ lhs rhs |> Ok
+        | None -> SymbExpr.binop op typ lhs rhs |> Ok
+      | _ -> SymbExpr.binop op typ lhs rhs |> Ok
     | None -> BinOpType.toString op |> unsupportedOp
 
   let private foldRelOp op lhs rhs =
     match evalRelOp op with
     | Some fn ->
       match lhs, rhs with
-      | Const lhs, Const rhs -> SymExpr.Const(fn lhs rhs) |> Ok
-      | _ -> SymExpr.relop op lhs rhs |> Ok
+      | Const lhs, Const rhs -> SymbExpr.Const(fn lhs rhs) |> Ok
+      | _ -> SymbExpr.relop op lhs rhs |> Ok
     | None -> RelOpType.toString op |> unsupportedOp
 
   let private foldCast kind typ expr =
     match expr with
     | Const bv ->
       match evalCast typ kind bv with
-      | Some bv -> SymExpr.Const bv |> Ok
+      | Some bv -> SymbExpr.Const bv |> Ok
       | None -> CastKind.toString kind |> unsupportedOp
     | _ ->
       match kind with
       | CastKind.SignExt
-      | CastKind.ZeroExt -> SymExpr.cast kind typ expr |> Ok
+      | CastKind.ZeroExt -> SymbExpr.cast kind typ expr |> Ok
       | _ -> CastKind.toString kind |> unsupportedOp
 
   let private foldExtract typ pos = function
-    | Const bv -> SymExpr.Const(BitVector.Extract(bv, typ, pos)) |> Ok
-    | expr -> SymExpr.extract expr typ pos |> Ok
+    | Const bv -> SymbExpr.Const(BitVector.Extract(bv, typ, pos)) |> Ok
+    | expr -> SymbExpr.extract expr typ pos |> Ok
 
   let private bind2 fn lhs rhs =
     match lhs, rhs with
     | Ok lhs, Ok rhs -> fn lhs rhs
     | Error e, _ | _, Error e -> Error e
 
-  let private evalRegister (state: SymState) rid =
+  let private evalRegister (state: SymbState) rid =
     match state.TryGetReg rid with
     | Ok value -> Ok value
     | Error _ -> Error(UninitializedRegister rid)
 
-  let private evalTemporary (state: SymState) idx =
+  let private evalTemporary (state: SymbState) idx =
     match state.TryGetTmp idx with
     | Ok value -> Ok value
     | Error _ -> Error(UninitializedTemporary idx)
 
   /// Translates a LowUIR expression in the context of the provided symbolic
   /// state.
-  let rec translate (state: SymState) (expr: Expr) =
+  let rec translate (state: SymbState) (expr: Expr) =
     match expr with
-    | Num(n, _) -> SymExpr.Const n |> Ok
+    | Num(n, _) -> SymbExpr.Const n |> Ok
     | Var(_, rid, _, _) -> evalRegister state rid
-    | PCVar(typ, _, _) -> SymExpr.Const(BitVector(state.PC, typ)) |> Ok
+    | PCVar(typ, _, _) -> SymbExpr.Const(BitVector(state.PC, typ)) |> Ok
     | TempVar(_, idx, _) -> evalTemporary state idx
     | UnOp(op, expr, _) ->
       translate state expr |> Result.bind (foldUnOp op)
@@ -209,9 +209,9 @@ module SymExprTranslator =
       match translate state cond with
       | Ok(Const bv) when bv.IsTrue -> translate state thenExpr
       | Ok(Const bv) when bv.IsFalse -> translate state elseExpr
-      | Ok cond when SymExpr.isCondition cond ->
+      | Ok cond when SymbExpr.isCondition cond ->
         match translate state thenExpr, translate state elseExpr with
-        | Ok thenExpr, Ok elseExpr -> SymExpr.ite cond thenExpr elseExpr |> Ok
+        | Ok thenExpr, Ok elseExpr -> SymbExpr.ite cond thenExpr elseExpr |> Ok
         | Error e, _ | _, Error e -> Error e
       | Ok cond ->
         $"Invalid Ite condition type: {RegType.toString cond.Type}"
@@ -221,5 +221,5 @@ module SymExprTranslator =
       translate state expr |> Result.bind (foldCast kind typ)
     | Extract(expr, typ, pos, _) ->
       translate state expr |> Result.bind (foldExtract typ pos)
-    | Undefined(typ, reason, _) -> SymExpr.undef typ reason |> Ok
+    | Undefined(typ, reason, _) -> SymbExpr.undef typ reason |> Ok
     | _ -> unsupportedExpr expr

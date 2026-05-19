@@ -25,8 +25,8 @@
   <Project Path="BinGraph/B2R2.MiddleEnd.BinGraph.fsproj" />
   <Project Path="Executor/B2R2.MiddleEnd.Executor.fsproj" />
   <Project Path="ConcEval/B2R2.MiddleEnd.ConcEval.fsproj" />
-  <Project Path="SymEval.Tests/B2R2.MiddleEnd.SymEval.Tests.fsproj" />
-  <Project Path="SymEval/B2R2.MiddleEnd.SymEval.fsproj" />
+  <Project Path="SymbEval.Tests/B2R2.MiddleEnd.SymbEval.Tests.fsproj" />
+  <Project Path="SymbEval/B2R2.MiddleEnd.SymbEval.fsproj" />
   <Project Path="ControlFlowAnalysis/B2R2.MiddleEnd.ControlFlowAnalysis.fsproj" />
   <Project Path="ControlFlowGraph/B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
   <Project Path="DataFlow.Tests/B2R2.MiddleEnd.DataFlow.Tests.fsproj" />

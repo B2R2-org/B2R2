@@ -22,14 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymEval
+namespace B2R2.MiddleEnd.SymbEval
 
 open System
 open System.Text
 open B2R2
 
 /// Provides typed accessors over solver-returned symbolic values.
-type SymModel(values: SolverValue list) =
+type SymbModel(values: SolverValue list) =
   /// Raw solver values.
   member _.Values = values
 
@@ -53,28 +53,28 @@ type SymModel(values: SolverValue list) =
   /// Gets an 8-bit solver value for a symbolic byte expression.
   member this.GetByte expr =
     match expr with
-    | SymExpr.Var(name, _) -> this.GetByte name
+    | SymbExpr.Var(name, _) -> this.GetByte name
     | expr ->
       raise (InvalidOperationException $"Unexpected query value: {expr}.")
 
   /// Reads bytes from symbolic byte expressions.
-  member this.ReadBytes(values: seq<SymExpr>) =
+  member this.ReadBytes(values: seq<SymbExpr>) =
     values
     |> Seq.map this.GetByte
     |> Seq.toArray
 
   /// Reads bytes from a symbolic byte buffer.
-  member this.ReadBytes(buffer: SymByteBuffer) =
+  member this.ReadBytes(buffer: SymbByteBuffer) =
     buffer.Values
     |> this.ReadBytes
 
   /// Reads a null-terminated ASCII string from symbolic byte expressions.
-  member this.ReadCString(values: seq<SymExpr>) =
+  member this.ReadCString(values: seq<SymbExpr>) =
     this.ReadBytes values
     |> Array.takeWhile ((<>) 0uy)
     |> Encoding.ASCII.GetString
 
   /// Reads a null-terminated ASCII string from a symbolic byte buffer.
-  member this.ReadCString(buffer: SymByteBuffer) =
+  member this.ReadCString(buffer: SymbByteBuffer) =
     buffer.Values
     |> this.ReadCString
