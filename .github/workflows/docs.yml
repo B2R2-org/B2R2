@@ -16,9 +16,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
     - name: Restore tools
       run: dotnet tool restore
     - name: Restore project
@@ -28,7 +28,7 @@ jobs:
     - name: Generate documentation
       run: dotnet fsdocs build --properties Configuration=Release
     - name: Upload documentation
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@v4
       with:
         path: ./output
 

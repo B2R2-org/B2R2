@@ -12,10 +12,10 @@ jobs:
             echo "Pushing commit to main: ${{ github.event.head_commit.id }}"
             echo "Pushed by: ${{ github.event.pusher.name }}"
 
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v5
 
         - name: Setup .NET
-          uses: actions/setup-dotnet@v4
+          uses: actions/setup-dotnet@v5
 
         - name: Push Notification to Google Chat
           working-directory: .github
