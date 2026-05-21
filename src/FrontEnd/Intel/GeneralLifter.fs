@@ -968,6 +968,9 @@ let compareExchangeBytes ins insLen bld =
   bld <!-- (ins.Address, insLen)
   match oprSize with
   | 64<rt> ->
+    let lblEq = label bld "Equal"
+    let lblNeq = label bld "NotEqual"
+    let lblEnd = label bld "End"
     let dst = transOneOpr bld ins insLen
     let orgDstMem = saveOprMem bld dst
     let eax = regVar bld R.EAX
@@ -977,10 +980,17 @@ let compareExchangeBytes ins insLen bld =
     let t = tmpVar bld oprSize
     bld <+ (t := dst)
     bld <+ (cond := AST.concat edx eax == t)
-    bld <+ (zf := cond)
-    bld <+ (dstAssign 32<rt> eax (AST.ite cond eax (AST.xtlo 32<rt> t)))
-    bld <+ (dstAssign 32<rt> edx (AST.ite cond edx (AST.xthi 32<rt> t)))
-    bld <+ (orgDstMem := AST.ite cond (AST.concat ecx ebx) t)
+    bld <+ (AST.cjmp cond (AST.jmpDest lblEq) (AST.jmpDest lblNeq))
+    bld <+ (AST.lmark lblEq)
+    bld <+ (zf := AST.b1)
+    bld <+ (orgDstMem := AST.concat ecx ebx)
+    bld <+ (AST.jmp (AST.jmpDest lblEnd))
+    bld <+ (AST.lmark lblNeq)
+    bld <+ (zf := AST.b0)
+    bld <+ (dstAssign 32<rt> eax (AST.xtlo 32<rt> t))
+    bld <+ (dstAssign 32<rt> edx (AST.xthi 32<rt> t))
+    bld <+ (orgDstMem := t)
+    bld <+ (AST.lmark lblEnd)
   | 128<rt> ->
     let struct (dstB, dstA) =
       match ins.Operands with
