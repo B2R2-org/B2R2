@@ -1272,7 +1272,7 @@ let divideWithoutConcat opcode oprSize divisor lblAssign lblErr bld =
   let n32 = numI32 32 64<rt>
   let zero = AST.num0 64<rt>
   let one = AST.num1 64<rt>
-  let numF = numI64 0xffffffff oprSize
+  let numF = numI64 0xffffffffL oprSize
   let struct (nrmDvsrShl32, nrmDvsrShr32) = tmpVars2 bld oprSize
   let condGE = (remHi >> n32) .>= nrmDvsrShr32
   let updateSign = tmpVar bld 1<rt>
