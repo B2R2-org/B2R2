@@ -230,18 +230,18 @@ let private dumpHexString (opts: BinDisasmOpts) =
 
 let private disasm files (opts: BinDisasmOpts) =
   CmdOpts.sanitizeRestArgs files
-#if DEBUG
+//#if DEBUG
   let sw = Diagnostics.Stopwatch.StartNew()
-#endif
+//#endif
   try
     if Array.isEmpty opts.InputHexStr then dumpFiles files opts
     else dumpHexString opts
   finally
     Log.Out.Flush()
-#if DEBUG
+//#if DEBUG
   sw.Stop()
   Console.Error.WriteLine $"Total dump time: {sw.Elapsed.TotalSeconds} sec."
-#endif
+//#endif
 
 [<EntryPoint>]
 let main args =
