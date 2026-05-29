@@ -135,7 +135,6 @@ let private tabContentView tokenContextProvider pane model dispatch =
     HexContent.view pane model dispatch
   | Some { Content = SectionContent } ->
     Border.create [
-      Border.background model.Theme.Window.Background
       Border.borderThickness 0.0
       Border.child (
         TextBlock.create [

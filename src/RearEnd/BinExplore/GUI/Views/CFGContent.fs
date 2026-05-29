@@ -53,7 +53,7 @@ module private GraphCanvas =
 
 let private unloadedView model text =
   Border.create [
-    Border.background model.Theme.Window.Background
+    Border.background model.Theme.Graph.Background
     Border.child (
       TextBlock.create [
         TextBlock.text text
@@ -669,7 +669,7 @@ let private graphCanvasView provider model vpSize dispatch loaded =
   let isNodeVisible x y w h =
     x < vpRight && x + w > vpLeft && y < vpBottom && y + h > vpTop
   GraphCanvas.create [
-    Canvas.background model.Theme.Window.Background
+    Canvas.background model.Theme.Graph.Background
     Control.onPointerWheelChanged (onWheel dispatch)
     Control.onPointerPressed (onPressed dispatch)
     Control.onTapped (onTapped dispatch)
@@ -805,7 +805,7 @@ let private minimapOverlayView model vpSize dispatch loaded =
 
 let private loadedView provider model vpSize dispatch loaded =
   Border.create [
-    Border.background model.Theme.Window.Background
+    Border.background model.Theme.Graph.Background
     Border.clipToBounds true
     Border.child (
       Grid.create [
@@ -823,7 +823,7 @@ let view tokenContextProvider pane (model: Model) dispatch =
     | Some tab -> $"cfg-{tab.ID}"
     | None -> "cfg-none"
   Border.create [
-    Border.background model.Theme.Window.Background
+    Border.background model.Theme.Graph.Background
     Border.borderThickness 0.0
     Border.child (
       match pane.ActiveTab with

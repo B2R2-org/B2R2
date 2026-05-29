@@ -62,31 +62,31 @@ let private openBinaryDialog dispatch (source: obj) =
 let private menuFile model dispatch =
   MenuItem.create [
     MenuItem.header "File"
-    MenuItem.background model.Theme.Panel.AltBackground
-    MenuItem.foreground model.Theme.Text.Primary
+    MenuItem.background model.Theme.Menu.ItemBackground
+    MenuItem.foreground model.Theme.Menu.ItemForeground
     MenuItem.viewItems [
       MenuItem.create [
         MenuItem.header "Open Binary..."
-        MenuItem.background model.Theme.Panel.AltBackground
-        MenuItem.foreground model.Theme.Text.Primary
+        MenuItem.background model.Theme.Menu.ItemBackground
+        MenuItem.foreground model.Theme.Menu.ItemForeground
         MenuItem.onClick (fun e -> openBinaryDialog dispatch e.Source)
       ]
       MenuItem.create [
         MenuItem.header "Close Session"
-        MenuItem.background model.Theme.Panel.AltBackground
-        MenuItem.foreground model.Theme.Text.Primary
+        MenuItem.background model.Theme.Menu.ItemBackground
+        MenuItem.foreground model.Theme.Menu.ItemForeground
         MenuItem.isEnabled model.LoadedBinary.IsSome
         MenuItem.onClick (fun _ -> dispatch CloseWorkspace)
       ]
       MenuItem.create [
         MenuItem.header "-"
-        MenuItem.background model.Theme.Panel.AltBackground
-        MenuItem.foreground model.Theme.Text.Primary
+        MenuItem.background model.Theme.Menu.ItemBackground
+        MenuItem.foreground model.Theme.Menu.ItemForeground
       ]
       MenuItem.create [
         MenuItem.header "Exit"
-        MenuItem.background model.Theme.Panel.AltBackground
-        MenuItem.foreground model.Theme.Text.Primary
+        MenuItem.background model.Theme.Menu.ItemBackground
+        MenuItem.foreground model.Theme.Menu.ItemForeground
         MenuItem.onClick (fun _ -> dispatch ExitApplication)
       ]
     ]
@@ -110,34 +110,34 @@ let private isCustomSelected model =
 let private menuView model dispatch =
   MenuItem.create [
     MenuItem.header "View"
-    MenuItem.background model.Theme.Panel.AltBackground
-    MenuItem.foreground model.Theme.Text.Primary
+    MenuItem.background model.Theme.Menu.ItemBackground
+    MenuItem.foreground model.Theme.Menu.ItemForeground
     MenuItem.viewItems [
       MenuItem.create [
         MenuItem.header "Themes"
-        MenuItem.background model.Theme.Panel.AltBackground
-        MenuItem.foreground model.Theme.Text.Primary
+        MenuItem.background model.Theme.Menu.ItemBackground
+        MenuItem.foreground model.Theme.Menu.ItemForeground
         MenuItem.viewItems [
           MenuItem.create [
             MenuItem.header "Dark"
-            MenuItem.background model.Theme.Panel.AltBackground
-            MenuItem.foreground model.Theme.Text.Primary
+            MenuItem.background model.Theme.Menu.ItemBackground
+            MenuItem.foreground model.Theme.Menu.ItemForeground
             MenuItem.toggleType MenuItemToggleType.Radio
             MenuItem.isChecked (isDarkSelected model)
             MenuItem.onClick (fun _ -> dispatch (SetThemeMode(Builtin Dark)))
           ]
           MenuItem.create [
             MenuItem.header "Light"
-            MenuItem.background model.Theme.Panel.AltBackground
-            MenuItem.foreground model.Theme.Text.Primary
+            MenuItem.background model.Theme.Menu.ItemBackground
+            MenuItem.foreground model.Theme.Menu.ItemForeground
             MenuItem.toggleType MenuItemToggleType.Radio
             MenuItem.isChecked (isLightSelected model)
             MenuItem.onClick (fun _ -> dispatch (SetThemeMode(Builtin Light)))
           ]
           MenuItem.create [
             MenuItem.header "Custom..."
-            MenuItem.background model.Theme.Panel.AltBackground
-            MenuItem.foreground model.Theme.Text.Primary
+            MenuItem.background model.Theme.Menu.ItemBackground
+            MenuItem.foreground model.Theme.Menu.ItemForeground
             MenuItem.toggleType MenuItemToggleType.Radio
             MenuItem.isChecked (isCustomSelected model)
             MenuItem.onClick (fun _ ->
@@ -151,8 +151,8 @@ let private menuView model dispatch =
 let view model dispatch =
   Menu.create [
     Menu.dock Dock.Top
-    Menu.background model.Theme.Panel.AltBackground
-    Menu.foreground model.Theme.Text.Primary
+    Menu.background model.Theme.Menu.Background
+    Menu.foreground model.Theme.Menu.Foreground
     Menu.viewItems [
       menuFile model dispatch
       menuView model dispatch

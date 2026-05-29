@@ -147,13 +147,13 @@ let private onPaneDrop paneID dispatch e =
   dispatch EndTabDrag
   e.Handled <- true
 
-let private getTabBorderColor model pane tab =
+let private getTabBackground model pane tab =
   if pane.ActiveTab = Some tab then model.Theme.Tab.ActiveBackground
   else model.Theme.Tab.InactiveBackground
 
 let private getTabTextColor model pane tab =
-  if pane.ActiveTab = Some tab then model.Theme.Text.Primary
-  else model.Theme.Text.Secondary
+  if pane.ActiveTab = Some tab then model.Theme.Tab.ActiveForeground
+  else model.Theme.Tab.InactiveForeground
 
 let private getTabFontStyle pane tab =
   if pane.PreviewTab = Some tab then FontStyle.Italic
@@ -243,10 +243,10 @@ let private tabStripView paneID pane model dispatch =
       getVisibleTabs pane
       |> List.map (fun tab ->
         Border.create [
-          Border.background (getTabBorderColor model pane tab)
+          Border.background (getTabBackground model pane tab)
           Border.maxWidth TabMaxWidth
           Border.borderThickness (0.0, 0.0, 0.0, 0.0)
-          Border.borderBrush model.Theme.Panel.Border
+          Border.borderBrush model.Theme.Tab.Border
           Border.padding (10.0, 5.0, 5.0, 5.0)
           Control.contextMenu (tabContextMenu paneID pane dispatch tab)
           Control.allowDrop true
@@ -265,7 +265,7 @@ let view paneID model dispatch =
   | Some pane ->
     Border.create [
       Border.dock Dock.Top
-      Border.background model.Theme.Panel.AltBackground
+      Border.background model.Theme.Tab.StripBackground
       Border.borderThickness 0.0
       Border.child (
         ScrollViewer.create [

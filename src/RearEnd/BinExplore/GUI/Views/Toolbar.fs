@@ -364,9 +364,9 @@ module internal SearchBox = begin
       TextBox.fontSize 12.0
       TextBox.watermark "Search..."
       TextBox.verticalContentAlignment VerticalAlignment.Center
-      TextBox.background model.Theme.Panel.Background
-      TextBox.foreground model.Theme.Text.Primary
-      TextBox.borderBrush model.Theme.Panel.Border
+      TextBox.background model.Theme.Toolbar.ControlBackground
+      TextBox.foreground model.Theme.Toolbar.ControlForeground
+      TextBox.borderBrush model.Theme.Toolbar.ControlBorder
       TextBox.borderThickness (1.0, 1.0, 1.0, 1.0)
       TextBox.cornerRadius (CornerRadius(4.0, 0.0, 0.0, 4.0))
       TextBox.padding (
@@ -413,8 +413,8 @@ module internal SearchBox = begin
       Button.isHitTestVisible false
       Button.focusable false
       Button.horizontalAlignment HorizontalAlignment.Right
-      Button.background model.Theme.Panel.Background
-      Button.borderBrush model.Theme.Panel.Border
+      Button.background model.Theme.Toolbar.ControlBackground
+      Button.borderBrush model.Theme.Toolbar.ControlBorder
       Button.borderThickness (1.0, 1.0, 1.0, 1.0)
       Button.padding (4.0, 0.0)
       Button.margin (0.0, 0.0, 2.0, 0.0)
@@ -566,9 +566,9 @@ module private ViewTabActions = begin
       Button.width 26.0
       Button.height ToolbarHeight
       Button.padding (4.0, 0.0)
-      Button.background model.Theme.Panel.Background
-      Button.foreground model.Theme.Text.Primary
-      Button.borderBrush model.Theme.Panel.Border
+      Button.background model.Theme.Toolbar.ControlBackground
+      Button.foreground model.Theme.Toolbar.ControlForeground
+      Button.borderBrush model.Theme.Toolbar.ControlBorder
       Button.borderThickness 1.0
       Button.cornerRadius 4.0
       Button.content (mkIcon icon 20.0)
@@ -610,7 +610,7 @@ module private CFGKindSelect = begin
     DataTemplateView<string>.create (fun txt ->
       TextBlock.create [
         TextBlock.text txt
-        TextBlock.foreground model.Theme.Text.Primary
+        TextBlock.foreground model.Theme.Toolbar.ControlForeground
         TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
         TextBlock.fontSize 12.0
         TextBlock.padding (4.0, 2.0)
@@ -623,9 +623,9 @@ module private CFGKindSelect = begin
       ComboBox.width 100.0
       ComboBox.height ToolbarHeight
       ComboBox.maxHeight 200.0
-      ComboBox.background model.Theme.Panel.Background
-      ComboBox.foreground model.Theme.Text.Primary
-      ComboBox.borderBrush model.Theme.Panel.Border
+      ComboBox.background model.Theme.Toolbar.ControlBackground
+      ComboBox.foreground model.Theme.Toolbar.ControlForeground
+      ComboBox.borderBrush model.Theme.Toolbar.ControlBorder
       ComboBox.borderThickness 1.0
       ComboBox.dataItems [ CFGKind.Disasm; CFGKind.LowUIR; CFGKind.SSA ]
       ComboBox.selectedItem (box currentCFGKind)
@@ -646,8 +646,8 @@ module private MinimapToggle = begin
       false, false, "none"
 
   let background model isActive =
-    if isActive then model.Theme.Tab.ActiveBackground
-    else model.Theme.Panel.Background
+    if isActive then model.Theme.Toolbar.ActiveControlBackground
+    else model.Theme.Toolbar.ControlBackground
 
   let view model dispatch =
     let isEnabled, isActive, tabKey = getState model
@@ -658,8 +658,8 @@ module private MinimapToggle = begin
         ToggleButton.isChecked isActive
         ToggleButton.isEnabled isEnabled
         ToggleButton.background (background model isActive)
-        ToggleButton.foreground model.Theme.Text.Primary
-        ToggleButton.borderBrush model.Theme.Panel.Border
+        ToggleButton.foreground model.Theme.Toolbar.ControlForeground
+        ToggleButton.borderBrush model.Theme.Toolbar.ControlBorder
         ToggleButton.borderThickness 1.0
         ToggleButton.cornerRadius 4.0
         ToggleButton.onChecked (fun _ ->
@@ -681,9 +681,9 @@ module private SyncToggle = begin
         ToggleButton.padding (4.0, 0.0)
         ToggleButton.isChecked model.SyncEnabled
         ToggleButton.isEnabled isEnabled
-        ToggleButton.background model.Theme.Panel.Background
-        ToggleButton.foreground model.Theme.Text.Primary
-        ToggleButton.borderBrush model.Theme.Panel.Border
+        ToggleButton.background model.Theme.Toolbar.ControlBackground
+        ToggleButton.foreground model.Theme.Toolbar.ControlForeground
+        ToggleButton.borderBrush model.Theme.Toolbar.ControlBorder
         ToggleButton.borderThickness 1.0
         ToggleButton.cornerRadius 4.0
         ToggleButton.onChecked (fun _ -> dispatch (SetSyncEnabled true))
@@ -698,16 +698,16 @@ let private verticalSeparator model =
     Separator.width 1.0
     Separator.height (ToolbarHeight - 6.0)
     Separator.margin (4.0, 3.0, 4.0, 3.0)
-    Separator.background model.Theme.Panel.Border
+    Separator.background model.Theme.Toolbar.Separator
   ]
 
 /// The main toolbar view, which contains the search box and other controls.
 let view (model: Model) (dispatch: Message -> unit) =
   Border.create [
     Border.dock Dock.Top
-    Border.background model.Theme.Panel.AltBackground
+    Border.background model.Theme.Toolbar.Background
     Border.borderThickness (0.0, 0.0, 0.0, 1.0)
-    Border.borderBrush model.Theme.Panel.Border
+    Border.borderBrush model.Theme.Toolbar.Border
     Border.padding (8.0, 4.0, 8.0, 4.0)
     Border.child (
       StackPanel.create [

@@ -36,7 +36,7 @@ let private messageView model msg =
     TextBlock.margin (8.0, 0.0)
     TextBlock.text msg
     TextBlock.fontSize 12.0
-    TextBlock.foreground model.Theme.Text.Secondary
+    TextBlock.foreground model.Theme.StatusBar.Foreground
     TextBlock.verticalAlignment VerticalAlignment.Center
   ]
 
@@ -45,7 +45,7 @@ let private separator model =
     Border.dock Dock.Left
     Border.width 1.0
     Border.margin (5.0, 2.0, 5.0, 2.0)
-    Border.background model.Theme.Text.Secondary
+    Border.background model.Theme.StatusBar.Separator
   ]
 
 let private filePathView model path =
@@ -56,7 +56,7 @@ let private filePathView model path =
     TextBlock.clipToBounds true
     TextBlock.text path
     TextBlock.fontSize 12.0
-    TextBlock.foreground model.Theme.Text.Secondary
+    TextBlock.foreground model.Theme.StatusBar.Foreground
     TextBlock.verticalAlignment VerticalAlignment.Center
     ToolTip.tip (
       TextBlock.create [
@@ -72,7 +72,7 @@ let private fileFormatView model fmt =
     TextBlock.margin (8.0, 0.0)
     TextBlock.text fmt
     TextBlock.fontSize 12.0
-    TextBlock.foreground model.Theme.Text.Secondary
+    TextBlock.foreground model.Theme.StatusBar.Foreground
     TextBlock.verticalAlignment VerticalAlignment.Center
     TextBlock.textAlignment TextAlignment.Center
   ]
@@ -87,32 +87,32 @@ let private offsetTextView model (foreground: string) text =
   ] :> IView
 
 let private rangeSeparatorView model =
-  offsetTextView model model.Theme.Text.Muted " - "
+  offsetTextView model model.Theme.StatusBar.MutedForeground " - "
 
 let private addressRangeViews model range =
   if range.Start = range.End then
-    [ offsetTextView model model.Theme.Text.Highlight
+    [ offsetTextView model model.Theme.StatusBar.HighlightForeground
         $"0x{range.Start:X8}" ]
   else
-    [ offsetTextView model model.Theme.Text.Highlight
+    [ offsetTextView model model.Theme.StatusBar.HighlightForeground
         $"0x{range.Start:X8}"
       rangeSeparatorView model
-      offsetTextView model model.Theme.Text.Highlight
+      offsetTextView model model.Theme.StatusBar.HighlightForeground
         $"0x{range.End:X8}" ]
 
 let private sectionRangeViews model sectionRange =
   match sectionRange with
   | NoSection -> []
   | SingleSection name ->
-    [ offsetTextView model model.Theme.Text.Muted " ("
-      offsetTextView model model.Theme.Text.Primary name
-      offsetTextView model model.Theme.Text.Muted ")" ]
+    [ offsetTextView model model.Theme.StatusBar.MutedForeground " ("
+      offsetTextView model model.Theme.StatusBar.PrimaryForeground name
+      offsetTextView model model.Theme.StatusBar.MutedForeground ")" ]
   | MultipleSections(s1, s2) ->
-    [ offsetTextView model model.Theme.Text.Muted " ("
-      offsetTextView model model.Theme.Text.Primary s1
+    [ offsetTextView model model.Theme.StatusBar.MutedForeground " ("
+      offsetTextView model model.Theme.StatusBar.PrimaryForeground s1
       rangeSeparatorView model
-      offsetTextView model model.Theme.Text.Primary s2
-      offsetTextView model model.Theme.Text.Muted ")" ]
+      offsetTextView model model.Theme.StatusBar.PrimaryForeground s2
+      offsetTextView model model.Theme.StatusBar.MutedForeground ")" ]
 
 let private fileOffsetCtxView model offsetCtx =
   match offsetCtx with
@@ -138,7 +138,7 @@ let private getDisplayedOffsetRangeInfo model =
 let view (model: Model) =
   Border.create [
     Border.dock Dock.Bottom
-    Border.background model.Theme.Panel.AltBackground
+    Border.background model.Theme.StatusBar.Background
     Border.padding 4.0
     Border.child (
       DockPanel.create [

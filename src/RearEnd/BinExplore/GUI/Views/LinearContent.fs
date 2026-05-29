@@ -527,10 +527,13 @@ type private LinearRenderLayer() =
     let bounds = this.Bounds
     let headerBg =
       match headerKind with
-      | SectionHeaderVisual -> Brush.Parse theme.Panel.AltBackground
-      | FunctionHeaderVisual -> Brush.Parse theme.Panel.Background
-      | LinkageTableHeaderVisual -> Brush.Parse theme.Window.Background
-    let borderBrush = Brush.Parse theme.Panel.Border
+      | SectionHeaderVisual ->
+        Brush.Parse theme.Linear.SectionHeaderBackground
+      | FunctionHeaderVisual ->
+        Brush.Parse theme.Linear.FunctionHeaderBackground
+      | LinkageTableHeaderVisual ->
+        Brush.Parse theme.Linear.LinkageTableHeaderBackground
+    let borderBrush = Brush.Parse theme.Linear.HeaderBorder
     let borderPen = Pen(borderBrush, 1.0)
     (ctx: DrawingContext).FillRectangle(
       headerBg,
@@ -619,7 +622,7 @@ let private visibleItemsView model dispatch doc (state: LinearViewState) =
   Canvas.create [
     Canvas.width (max state.ViewportWidth 0.0)
     Canvas.height (LinearViewState.totalHeight state)
-    Canvas.background model.Theme.Window.Background
+    Canvas.background model.Theme.Linear.Background
     Control.focusable true
     Control.onPointerPressed focusPointerSource
     Control.onKeyDown (
@@ -656,7 +659,7 @@ let private bodyView model dispatch doc (state: LinearViewState) =
 
 let private emptyStateView model text =
   Border.create [
-    Border.background model.Theme.Window.Background
+    Border.background model.Theme.Linear.Background
     Border.borderThickness 0.0
     Border.child (
       TextBlock.create [

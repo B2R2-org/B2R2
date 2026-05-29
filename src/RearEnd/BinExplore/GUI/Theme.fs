@@ -28,19 +28,18 @@ namespace B2R2.RearEnd.BinExplore.GUI
 /// various UI elements.
 type Theme =
   { Name: string
-    Window: WindowTheme
     Panel: PanelTheme
     Text: TextTheme
     Font: FontTheme
     Tab: TabTheme
     Graph: GraphTheme
+    Linear: LinearTheme
     Hex: HexTheme
     Common: CommonTheme
-    Search: SearchTheme }
-
-/// Represents the theme settings for the main window.
-and WindowTheme =
-  { Background: string }
+    Menu: MenuTheme
+    Toolbar: ToolbarTheme
+    Search: SearchTheme
+    StatusBar: StatusBarTheme }
 
 /// Represents the theme settings for panels within the application.
 and PanelTheme =
@@ -70,13 +69,18 @@ and FontStyle =
 
 /// Represents the theme settings for tabs within the application.
 and TabTheme =
-  { ActiveBackground: string
+  { StripBackground: string
+    ActiveBackground: string
     InactiveBackground: string
+    ActiveForeground: string
+    InactiveForeground: string
+    Border: string
     CloseForeground: string }
 
 /// Represents the theme settings for graph elements within the application.
 and GraphTheme =
-  { MinimapNode: string
+  { Background: string
+    MinimapNode: string
     MinimapEdge: string
     ViewportRect: string
     InterJmpEdge: string
@@ -89,6 +93,14 @@ and GraphTheme =
     CallEdge: string
     ReturnEdge: string
     HoveredEdge: string }
+
+/// Represents the theme settings for the linear view.
+and LinearTheme =
+  { Background: string
+    SectionHeaderBackground: string
+    FunctionHeaderBackground: string
+    LinkageTableHeaderBackground: string
+    HeaderBorder: string }
 
 /// Represents the theme settings for the hexdump view.
 and HexTheme =
@@ -104,6 +116,23 @@ and HexTheme =
 and CommonTheme =
   { Transparent: string }
 
+/// Represents the theme settings for the menu bar.
+and MenuTheme =
+  { Background: string
+    Foreground: string
+    ItemBackground: string
+    ItemForeground: string }
+
+/// Represents the theme settings for the toolbar.
+and ToolbarTheme =
+  { Background: string
+    Border: string
+    ControlBackground: string
+    ControlForeground: string
+    ControlBorder: string
+    ActiveControlBackground: string
+    Separator: string }
+
 /// Represents the theme settings for the search dropdown in the toolbar.
 and SearchTheme =
   { /// Background color of the dropdown panel.
@@ -114,6 +143,15 @@ and SearchTheme =
     Foreground: string
     /// Foreground color of the clear-search button.
     ClearForeground: string }
+
+/// Represents the theme settings for the status bar.
+and StatusBarTheme =
+  { Background: string
+    Foreground: string
+    PrimaryForeground: string
+    MutedForeground: string
+    HighlightForeground: string
+    Separator: string }
 
 [<RequireQualifiedAccess>]
 module Theme =
@@ -126,7 +164,6 @@ module Theme =
 
   let darkTheme =
     { Name = "Dark"
-      Window = { Background = "#1E1E1E" }
       Panel =
         { Background = "#252526"
           AltBackground = "#2D2D30"
@@ -143,11 +180,16 @@ module Theme =
       Font =
         { Monospace = defaultTTFont }
       Tab =
-        { ActiveBackground = "#1E1E1E"
+        { StripBackground = "#2D2D30"
+          ActiveBackground = "#1E1E1E"
           InactiveBackground = "#2D2D30"
+          ActiveForeground = "#FFFFFF"
+          InactiveForeground = "#AAAAAA"
+          Border = "#3E3E42"
           CloseForeground = "#AAAAAA" }
       Graph =
-        { MinimapNode = "#888888"
+        { Background = "#1E1E1E"
+          MinimapNode = "#888888"
           MinimapEdge = "#AAAAAA"
           ViewportRect = "#FFFFFF"
           InterJmpEdge = "#FFB86C"
@@ -160,6 +202,12 @@ module Theme =
           CallEdge = "#8BE9FD"
           ReturnEdge = "#FF79C6"
           HoveredEdge = "#55CCFF" }
+      Linear =
+        { Background = "#1E1E1E"
+          SectionHeaderBackground = "#2D2D30"
+          FunctionHeaderBackground = "#252526"
+          LinkageTableHeaderBackground = "#1E1E1E"
+          HeaderBorder = "#3E3E42" }
       Hex =
         { CodeArea = "#001155"
           LinkageArea = "#770055"
@@ -167,16 +215,36 @@ module Theme =
           WritableDataArea = "#117777"
           ExceptionArea = "#997711"
           MetadataArea = "#555555" }
-      Common = { Transparent = "Transparent" }
+      Common =
+        { Transparent = "Transparent" }
+      Menu =
+        { Background = "#2D2D30"
+          Foreground = "#FFFFFF"
+          ItemBackground = "#2D2D30"
+          ItemForeground = "#FFFFFF" }
+      Toolbar =
+        { Background = "#2D2D30"
+          Border = "#3E3E42"
+          ControlBackground = "#252526"
+          ControlForeground = "#FFFFFF"
+          ControlBorder = "#3E3E42"
+          ActiveControlBackground = "#1E1E1E"
+          Separator = "#3E3E42" }
       Search =
         { Background = "#080C12"
           SelectedBackground = "#3366AA"
           Foreground = "#FFFFFF"
-          ClearForeground = "#E05A5A" } }
+          ClearForeground = "#E05A5A" }
+      StatusBar =
+        { Background = "#2D2D30"
+          Foreground = "#AAAAAA"
+          PrimaryForeground = "#FFFFFF"
+          MutedForeground = "#A0A0A0"
+          HighlightForeground = "#55CCFF"
+          Separator = "#AAAAAA" } }
 
   let lightTheme =
     { Name = "Light"
-      Window = { Background = "#F3F3F3" }
       Panel =
         { Background = "#FFFFFF"
           AltBackground = "#ECECEC"
@@ -193,11 +261,16 @@ module Theme =
       Font =
         { Monospace = defaultTTFont }
       Tab =
-        { ActiveBackground = "#FFFFFF"
+        { StripBackground = "#ECECEC"
+          ActiveBackground = "#FFFFFF"
           InactiveBackground = "#E6E6E6"
+          ActiveForeground = "#111111"
+          InactiveForeground = "#555555"
+          Border = "#CFCFCF"
           CloseForeground = "#666666" }
       Graph =
-        { MinimapNode = "#AAAAAA"
+        { Background = "#F3F3F3"
+          MinimapNode = "#AAAAAA"
           MinimapEdge = "#777777"
           ViewportRect = "#8A6A00"
           InterJmpEdge = "#C87020"
@@ -210,6 +283,12 @@ module Theme =
           CallEdge = "#0A6080"
           ReturnEdge = "#8B2880"
           HoveredEdge = "#0078FF" }
+      Linear =
+        { Background = "#F3F3F3"
+          SectionHeaderBackground = "#ECECEC"
+          FunctionHeaderBackground = "#FFFFFF"
+          LinkageTableHeaderBackground = "#F3F3F3"
+          HeaderBorder = "#CFCFCF" }
       Hex =
         { CodeArea = "#A9CCFF"
           LinkageArea = "#E2C8FF"
@@ -217,12 +296,33 @@ module Theme =
           WritableDataArea = "#9EEAF9"
           ExceptionArea = "#FFB347"
           MetadataArea = "#DDDDDD" }
-      Common = { Transparent = "Transparent" }
+      Common =
+        { Transparent = "Transparent" }
+      Menu =
+        { Background = "#ECECEC"
+          Foreground = "#111111"
+          ItemBackground = "#ECECEC"
+          ItemForeground = "#111111" }
+      Toolbar =
+        { Background = "#ECECEC"
+          Border = "#CFCFCF"
+          ControlBackground = "#FFFFFF"
+          ControlForeground = "#111111"
+          ControlBorder = "#CFCFCF"
+          ActiveControlBackground = "#FFFFFF"
+          Separator = "#CFCFCF" }
       Search =
         { Background = "#FFFFFF"
           SelectedBackground = "#BEE3FF"
           Foreground = "#111111"
-          ClearForeground = "#C42B1C" } }
+          ClearForeground = "#C42B1C" }
+      StatusBar =
+        { Background = "#ECECEC"
+          Foreground = "#555555"
+          PrimaryForeground = "#111111"
+          MutedForeground = "#707070"
+          HighlightForeground = "#EE0055"
+          Separator = "#555555" } }
 
   let ofBuiltin = function
     | Dark -> darkTheme

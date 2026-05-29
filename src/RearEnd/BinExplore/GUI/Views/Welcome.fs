@@ -87,7 +87,7 @@ let private textPanelView model =
 let view model dispatch =
   let imageUri = Uri "avares://B2R2.RearEnd.BinExplore/Assets/b2r2.png"
   Grid.create [
-    Grid.background model.Theme.Window.Background
+    Grid.background model.Theme.Panel.Background
     Control.allowDrop true
     Control.onDragOver onDragOver
     Control.onDrop (onDrop dispatch)
