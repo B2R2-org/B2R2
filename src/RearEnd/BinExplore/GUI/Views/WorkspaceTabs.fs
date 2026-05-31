@@ -180,7 +180,7 @@ let private tabIconView model pane (tab: Tab) =
   | _ ->
     TextBlock.create [
       TextBlock.text ""
-      TextBlock.fontSize 10.0
+      TextBlock.fontSize model.Theme.Font.Scale.XSmall
       TextBlock.fontWeight FontWeight.Bold
       TextBlock.foreground (getTabTextColor model pane tab)
       TextBlock.verticalAlignment VerticalAlignment.Center
@@ -195,7 +195,7 @@ let private tabLabelView model pane tab =
     TextBlock.background model.Theme.Common.Transparent
     TextBlock.foreground (getTabTextColor model pane tab)
     TextBlock.padding (5.0, 0.0, 5.0, 0.0)
-    TextBlock.fontSize 14.0
+    TextBlock.fontSize model.Theme.Font.Scale.Medium
     TextBlock.fontStyle (getTabFontStyle pane tab)
     TextBlock.maxWidth TabTextMaxWidth
     TextBlock.textWrapping TextWrapping.NoWrap
@@ -210,7 +210,7 @@ let private tabButtonView paneID model dispatch tab =
     Button.foreground model.Theme.Tab.CloseForeground
     Button.borderThickness 0.0
     Button.padding (5.0, 0.0, 5.0, 0.0)
-    Button.fontSize 16.0
+    Button.fontSize model.Theme.Font.Scale.Large
     Button.onClick (fun _ -> dispatch (CloseTab(paneID, tab.ID)))
   ] |> View.withKey $"{tab.ID}-close"
 

@@ -361,7 +361,7 @@ module internal SearchBox = begin
       TextBox.width 240.0
       TextBox.height ToolbarHeight
       TextBox.text localState.SearchText.Current
-      TextBox.fontSize 12.0
+      TextBox.fontSize model.Theme.Font.Scale.Small
       TextBox.watermark "Search..."
       TextBox.verticalContentAlignment VerticalAlignment.Center
       TextBox.background model.Theme.Toolbar.ControlBackground
@@ -397,7 +397,7 @@ module internal SearchBox = begin
         TextBlock.create [
           TextBlock.text "x"
           TextBlock.foreground model.Theme.Search.ClearForeground
-          TextBlock.fontSize 14.0
+          TextBlock.fontSize model.Theme.Font.Scale.Medium
           TextBlock.fontWeight FontWeight.Bold
           TextBlock.verticalAlignment VerticalAlignment.Center
           TextBlock.horizontalAlignment HorizontalAlignment.Center
@@ -612,7 +612,7 @@ module private CFGKindSelect = begin
         TextBlock.text txt
         TextBlock.foreground model.Theme.Toolbar.ControlForeground
         TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-        TextBlock.fontSize 12.0
+        TextBlock.fontSize model.Theme.Font.Scale.Small
         TextBlock.padding (4.0, 2.0)
       ]
     )

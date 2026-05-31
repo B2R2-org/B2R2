@@ -44,13 +44,13 @@ let private panelHeaderView model =
         Grid.children [
           TextBlock.create [
             TextBlock.text "Sections"
-            TextBlock.fontSize 13.0
+            TextBlock.fontSize model.Theme.Font.Scale.Normal
             TextBlock.foreground model.Theme.Text.Secondary
           ]
           TextBlock.create [
             Grid.column 1
             TextBlock.text $"({List.length model.Sections})"
-            TextBlock.fontSize 12.0
+            TextBlock.fontSize model.Theme.Font.Scale.Small
             TextBlock.foreground model.Theme.Text.Muted
             TextBlock.verticalAlignment VerticalAlignment.Center
           ]
@@ -64,7 +64,7 @@ let private emptyStateView model =
     TextBlock.text "No sections loaded."
     TextBlock.margin 10.0
     TextBlock.foreground model.Theme.Text.Muted
-    TextBlock.fontSize 13.0
+    TextBlock.fontSize model.Theme.Font.Scale.Normal
   ]
 
 let private sectionAddressText (section: SectionItem) =
@@ -79,7 +79,7 @@ let private sectionItemHeaderText model (section: SectionItem) =
         TextBlock.text section.Name
         TextBlock.foreground model.Theme.Text.Primary
         TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-        TextBlock.fontSize 13.0
+        TextBlock.fontSize model.Theme.Font.Scale.Normal
         TextBlock.fontWeight FontWeight.SemiBold
       ]
       TextBlock.create [
@@ -88,7 +88,7 @@ let private sectionItemHeaderText model (section: SectionItem) =
         TextBlock.text (sectionAddressText section)
         TextBlock.foreground model.Theme.Text.Muted
         TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-        TextBlock.fontSize 12.0
+        TextBlock.fontSize model.Theme.Font.Scale.Small
         TextBlock.verticalAlignment VerticalAlignment.Center
       ]
     ]
@@ -109,7 +109,7 @@ let private sectionItemHeaderView model section (isExpanded: IWritable<bool>) =
             TextBlock.text (if isExpanded.Current then "▼" else "▶")
             TextBlock.margin (0.0, 0.0, 8.0, 0.0)
             TextBlock.foreground model.Theme.Text.Muted
-            TextBlock.fontSize 11.0
+            TextBlock.fontSize model.Theme.Font.Scale.XSmall
             TextBlock.verticalAlignment VerticalAlignment.Center
           ]
           Grid.create [
@@ -133,13 +133,13 @@ let private detailRow model label value =
             TextBlock.width 72.0
             TextBlock.text label
             TextBlock.foreground model.Theme.Text.Secondary
-            TextBlock.fontSize 12.0
+            TextBlock.fontSize model.Theme.Font.Scale.Small
           ]
           TextBlock.create [
             TextBlock.text value
             TextBlock.foreground model.Theme.Text.Primary
             TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
-            TextBlock.fontSize 12.0
+            TextBlock.fontSize model.Theme.Font.Scale.Small
           ]
         ]
     ]

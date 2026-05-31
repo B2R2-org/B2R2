@@ -839,14 +839,16 @@ type private HexdumpRenderLayer() =
       | _ ->
         ()
     with ex ->
+      let theme =
+        if isNull (box this.CurrentTheme) then Theme.defaultTheme
+        else this.CurrentTheme
       let fallback =
         FormattedText(
           $"Hexdump render failed: {ex.Message}",
           Globalization.CultureInfo.CurrentCulture,
           FlowDirection.LeftToRight,
-          Typeface("Consolas", FontStyle.Normal, FontWeight.Normal,
-                   FontStretch.Normal),
-          12.0,
+          Typeface(FontFamily theme.Font.Monospace.FontFamily),
+          theme.Font.Scale.Small,
           Brushes.Red
         )
       ctx.DrawText(fallback, Point(8.0, 8.0))
@@ -903,7 +905,7 @@ let private emptyStateView model =
     TextBlock.text "No bytes loaded."
     TextBlock.margin 10.0
     TextBlock.foreground model.Theme.Text.Muted
-    TextBlock.fontSize 13.0
+    TextBlock.fontSize model.Theme.Font.Scale.Normal
   ]
 
 let view pane model dispatch =

@@ -41,10 +41,10 @@ let private userInputView model dispatch =
     Border.background model.Theme.Panel.AltBackground
     Border.padding 5.0
     Border.child (
-      TextBox.create [
+        TextBox.create [
         TextBox.text model.FunctionFilter
         TextBox.watermark "Filter functions..."
-        TextBox.fontSize 13.0
+        TextBox.fontSize model.Theme.Font.Scale.Normal
         TextBox.foreground model.Theme.Text.Primary
         TextBox.onTextChanged (fun text -> dispatch (UpdateFunctionFilter text))
       ]
@@ -90,6 +90,7 @@ let private mkText model (color: string) isBold txt =
     [ TextBlock.text txt
       TextBlock.foreground color
       TextBlock.fontFamily model.Theme.Font.Monospace.FontFamily
+      TextBlock.fontSize model.Theme.Font.Scale.Small
       TextBlock.fontWeight
         (if isBold then FontWeight.Bold else FontWeight.Regular) ] :> IView
 

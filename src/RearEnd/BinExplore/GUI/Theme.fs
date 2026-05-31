@@ -60,12 +60,21 @@ and TextTheme =
 
 /// Represents the font settings used in the application.
 and FontTheme =
-  { Monospace: FontStyle }
+  { Monospace: FontStyle
+    Scale: FontScale }
 
 /// Represents a font style.
 and FontStyle =
   { FontFamily: string
     FontSize: float }
+
+/// Represents reusable font sizes for non-content UI elements.
+and FontScale =
+  { XSmall: float
+    Small: float
+    Normal: float
+    Medium: float
+    Large: float }
 
 /// Represents the theme settings for tabs within the application.
 and TabTheme =
@@ -162,6 +171,13 @@ module Theme =
     { FontFamily = DefaultTTFamily
       FontSize = 12.0 }
 
+  let private defaultFontScale =
+    { XSmall = 10.0
+      Small = 12.0
+      Normal = 13.0
+      Medium = 14.0
+      Large = 16.0 }
+
   let darkTheme =
     { Name = "Dark"
       Panel =
@@ -178,7 +194,8 @@ module Theme =
           Variable = "#9CDCFE"
           Value = "#CE9178" }
       Font =
-        { Monospace = defaultTTFont }
+        { Monospace = defaultTTFont
+          Scale = defaultFontScale }
       Tab =
         { StripBackground = "#2D2D30"
           ActiveBackground = "#1E1E1E"
@@ -259,7 +276,8 @@ module Theme =
           Variable = "#0000CC"
           Value = "#1A5090" }
       Font =
-        { Monospace = defaultTTFont }
+        { Monospace = defaultTTFont
+          Scale = defaultFontScale }
       Tab =
         { StripBackground = "#ECECEC"
           ActiveBackground = "#FFFFFF"

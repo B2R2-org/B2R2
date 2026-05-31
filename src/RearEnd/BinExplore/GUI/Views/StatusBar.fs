@@ -35,7 +35,7 @@ let private messageView model msg =
     TextBlock.dock Dock.Left
     TextBlock.margin (8.0, 0.0)
     TextBlock.text msg
-    TextBlock.fontSize 12.0
+    TextBlock.fontSize model.Theme.Font.Scale.Small
     TextBlock.foreground model.Theme.StatusBar.Foreground
     TextBlock.verticalAlignment VerticalAlignment.Center
   ]
@@ -55,7 +55,7 @@ let private filePathView model path =
     TextBlock.width 300.0
     TextBlock.clipToBounds true
     TextBlock.text path
-    TextBlock.fontSize 12.0
+    TextBlock.fontSize model.Theme.Font.Scale.Small
     TextBlock.foreground model.Theme.StatusBar.Foreground
     TextBlock.verticalAlignment VerticalAlignment.Center
     ToolTip.tip (
@@ -71,7 +71,7 @@ let private fileFormatView model fmt =
     TextBlock.dock Dock.Left
     TextBlock.margin (8.0, 0.0)
     TextBlock.text fmt
-    TextBlock.fontSize 12.0
+    TextBlock.fontSize model.Theme.Font.Scale.Small
     TextBlock.foreground model.Theme.StatusBar.Foreground
     TextBlock.verticalAlignment VerticalAlignment.Center
     TextBlock.textAlignment TextAlignment.Center

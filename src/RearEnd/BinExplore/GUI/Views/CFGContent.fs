@@ -58,7 +58,7 @@ let private unloadedView model text =
       TextBlock.create [
         TextBlock.text text
         TextBlock.foreground model.Theme.Text.Primary
-        TextBlock.fontSize 14.0
+        TextBlock.fontSize model.Theme.Font.Scale.Medium
         TextBlock.margin 12.0
       ]
     )
@@ -280,7 +280,7 @@ let private tokenTextViewUnselectable model txt =
   TextBlock.create [
     TextBlock.text txt
     TextBlock.foreground model.Theme.Text.Secondary
-    TextBlock.fontSize 12.0
+    TextBlock.fontSize model.Theme.Font.Scale.Small
   ]
 
 let private makeDisasmLine words =

@@ -665,7 +665,7 @@ let private emptyStateView model text =
       TextBlock.create [
         TextBlock.text text
         TextBlock.foreground model.Theme.Text.Muted
-        TextBlock.fontSize 13.0
+        TextBlock.fontSize model.Theme.Font.Scale.Normal
         TextBlock.margin 10.0
       ]
     )

@@ -137,10 +137,10 @@ let private tabContentView tokenContextProvider pane model dispatch =
     Border.create [
       Border.borderThickness 0.0
       Border.child (
-        TextBlock.create [
+          TextBlock.create [
           TextBlock.text "Section tab view placeholder."
           TextBlock.foreground model.Theme.Text.Primary
-          TextBlock.fontSize 14.0
+          TextBlock.fontSize model.Theme.Font.Scale.Medium
           TextBlock.margin 10.0
         ]
       )
