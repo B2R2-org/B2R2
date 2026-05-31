@@ -22,9 +22,10 @@
   SOFTWARE.
 *)
 
-/// Lengauer-Tarjan dominance algorithm for dominator computation. A fast
-/// algorithm for finding dominators in a flow graph, TOPLAS 1979.
-/// This sofisticated version balances when constructing the ancestor forest.
+/// Provides the original (balanced) Lengauer-Tarjan dominance algorithm for
+/// dominator computation presented in "A fast algorithm for finding dominators
+/// in a flow graph", TOPLAS 1979. This sophisticated version balances when
+/// constructing the ancestor forest.
 module B2R2.MiddleEnd.BinGraph.Dominance.LengauerTarjanDominance
 
 open System.Collections.Generic

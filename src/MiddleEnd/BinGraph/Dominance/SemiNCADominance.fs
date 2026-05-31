@@ -22,8 +22,8 @@
   SOFTWARE.
 *)
 
-/// Semi-NCA algorithm for dominator computation. Finding dominators in
-/// practice, ESA 2004.
+/// Provides the Semi-NCA algorithm for dominator computation presented in
+/// "Finding dominators in practice", ESA 2004.
 module B2R2.MiddleEnd.BinGraph.Dominance.SemiNCADominance
 
 open System.Collections.Generic

@@ -27,7 +27,16 @@ namespace B2R2.MiddleEnd.BinGraph.Traversal
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-/// Depth-first traversal functions.
+/// <namespacedoc>
+///   <summary>
+///   Contains graph traversal algorithms used throughout B2R2's middle-end
+///   analyses.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Provides depth-first traversal functions.
+/// </summary>
 module DFS =
   let rec private reversePrependTo lst (arr: _[]) idx =
     if idx >= 0 then reversePrependTo (arr[idx] :: lst) arr (idx - 1)
@@ -63,13 +72,13 @@ module DFS =
       if allSuccsVisited then consume visited g fn (fn acc v) rest
       else struct (acc, v :: rest)
 
-  /// Fold vertices of the graph in a depth-first manner with the preorder
+  /// Folds vertices of the graph in a depth-first manner with the preorder
   /// traversal, starting from the given root vertices.
   let foldPreorderWithRoots (g: IDiGraphAccessible<_, _>) roots fn acc =
     let visited = HashSet<VertexID>()
     foldPreorderLoop visited g fn acc roots
 
-  /// Fold vertices of the graph in a depth-first manner with the preorder
+  /// Folds vertices of the graph in a depth-first manner with the preorder
   /// traversal. This function visits every vertex in the graph including
   /// unreachable ones. For those unreachable vertices, the order is random.
   let foldPreorder (g: IDiGraphAccessible<_, _>) fn acc =
@@ -80,96 +89,27 @@ module DFS =
     |> Array.toList
     |> foldPreorderLoop visited g fn acc
 
-  /// Iterate vertices of the graph in a depth-first manner with the preorder
+  /// Iterates vertices of the graph in a depth-first manner with the preorder
   /// traversal, starting from the given root vertices.
   let iterPreorderWithRoots g roots fn =
     foldPreorderWithRoots g roots (fun () v -> fn v) ()
 
-  /// Iterate vertices of the graph in a depth-first manner with the preorder
+  /// Iterates vertices of the graph in a depth-first manner with the preorder
   /// traversal. This function visits every vertex in the graph including
   /// unreachable ones. For those unreachable vertices, the order is random.
   let iterPreorder g fn = foldPreorder g (fun () v -> fn v) ()
 
-  /// Fold vertices of the graph in a depth-first manner with the postorder
+  /// Folds vertices of the graph in a depth-first manner with the postorder
   /// traversal, starting from the given root vertices.
   let foldPostorderWithRoots (g: IDiGraphAccessible<_, _>) roots fn acc =
     let visited = HashSet<VertexID>()
-    foldPostorderLoop visited g fn acc [] roots
-
-  /// Fold vertices of the graph in a depth-first manner with the postorder
-  /// traversal. This function visits every vertex in the graph including
-  /// unreachable ones. For those unreachable vertices, the order is random.
-  let foldPostorder (g: IDiGraphAccessible<_, _>) fn acc =
-    let visited = HashSet<VertexID>()
-    let roots = g.GetRoots() |> Array.toList
-    let acc = foldPostorderLoop visited g fn acc [] roots
-    g.Vertices
-    |> Array.toList
-    |> foldPostorderLoop visited g fn acc []
-
-  /// Iterate vertices of the graph in a depth-first manner with the postorder
-  /// traversal, starting from the given root vertices.
-  let iterPostorderWithRoots g roots fn =
-    foldPostorderWithRoots g roots (fun () v -> fn v) ()
-
-  /// Iterate vertices of the graph in a depth-first manner with the postorder
-  /// traversal. This function visits every vertex in the graph including
-  /// unreachable ones. For those unreachable vertices, the order is random.
-  let iterPostorder g fn = foldPostorder g (fun () v -> fn v) ()
-
-  /// Fold vertices of the graph in a depth-first manner with the reverse
-  /// postorder traversal, starting from the given root vertices.
-  let foldRevPostorderWithRoots g roots fn acc =
-    foldPostorderWithRoots g roots (fun acc v -> v :: acc) []
-    |> List.fold fn acc
-
-  /// Fold vertices of the graph in a depth-first manner with the reverse
-  /// postorder traversal. This function visits every vertex in the graph
-  /// including unreachable ones. For those unreachable vertices, the order is
-  /// random.
-  let foldRevPostorder (g: IDiGraphAccessible<_, _>) fn acc =
-    foldPostorder g (fun acc v -> v :: acc) []
-    |> List.fold fn acc
-
-  /// Iterate vertices of the graph in a depth-first manner with the reverse
-  /// postorder traversal, starting from the given root vertices.
-  let iterRevPostorderWithRoots g roots fn =
-    foldPostorderWithRoots g roots (fun acc v -> v :: acc) []
-    |> List.iter fn
-
-  /// Iterate vertices of the graph in a depth-first manner with the reverse
-  /// postorder traversal. This function visits every vertex in the graph
-  /// including unreachable ones. For those unreachable vertices, the order is
-  /// random.
-  let iterRevPostorder g fn =
-    foldPostorder g (fun acc v -> v :: acc) []
-    |> List.iter fn
-
-  /// Fold vertices of the graph in a depth-first postorder manner.
-  let foldPostorderWithRoots2 (g: IDiGraphAccessible<_, _>) roots fn acc =
-    let visited = HashSet<VertexID>()
     let mutable acc = acc
-    let rec visit (v: IVertex<_>) =
-      if visited.Add v.ID then
-        for s in g.GetSuccs v do
-          visit s
-        acc <- fn acc v
-      else
-        ()
-    for r in roots do
-      if not (visited.Contains((r: IVertex<_>).ID)) then visit r else ()
-    acc
-
-  /// Fold vertices of the graph in a depth-first postorder manner.
-  let foldPostorderWithRoots3 (g: IDiGraphAccessible<_, _>) roots fn acc =
-    let visited = HashSet<VertexID>()
-    let mutable acc = acc
-    let stack = Stack<IVertex<_> * bool>()
+    let stack = Stack<struct (IVertex<_> * bool)>()
     for root: IVertex<_> in roots do
       if visited.Add root.ID then
         stack.Push(root, false)
         while stack.Count > 0 do
-          let v, visitedChildren = stack.Pop()
+          let struct (v, visitedChildren) = stack.Pop()
           if visitedChildren then
             acc <- fn acc v
           else
@@ -180,9 +120,58 @@ module DFS =
         ()
     acc
 
-/// Breadth-first traversal functions.
+  /// Folds vertices of the graph in a depth-first manner with the postorder
+  /// traversal. This function visits every vertex in the graph including
+  /// unreachable ones. For those unreachable vertices, the order is random.
+  let foldPostorder (g: IDiGraphAccessible<_, _>) fn acc =
+    let visited = HashSet<VertexID>()
+    let roots = g.GetRoots() |> Array.toList
+    let acc = foldPostorderLoop visited g fn acc [] roots
+    g.Vertices
+    |> Array.toList
+    |> foldPostorderLoop visited g fn acc []
+
+  /// Iterates vertices of the graph in a depth-first manner with the postorder
+  /// traversal, starting from the given root vertices.
+  let iterPostorderWithRoots g roots fn =
+    foldPostorderWithRoots g roots (fun () v -> fn v) ()
+
+  /// Iterates vertices of the graph in a depth-first manner with the postorder
+  /// traversal. This function visits every vertex in the graph including
+  /// unreachable ones. For those unreachable vertices, the order is random.
+  let iterPostorder g fn = foldPostorder g (fun () v -> fn v) ()
+
+  /// Folds vertices of the graph in a depth-first manner with the reverse
+  /// postorder traversal, starting from the given root vertices.
+  let foldRevPostorderWithRoots g roots fn acc =
+    foldPostorderWithRoots g roots (fun acc v -> v :: acc) []
+    |> List.fold fn acc
+
+  /// Folds vertices of the graph in a depth-first manner with the reverse
+  /// postorder traversal. This function visits every vertex in the graph
+  /// including unreachable ones. For those unreachable vertices, the order is
+  /// random.
+  let foldRevPostorder (g: IDiGraphAccessible<_, _>) fn acc =
+    foldPostorder g (fun acc v -> v :: acc) []
+    |> List.fold fn acc
+
+  /// Iterates vertices of the graph in a depth-first manner with the reverse
+  /// postorder traversal, starting from the given root vertices.
+  let iterRevPostorderWithRoots g roots fn =
+    foldPostorderWithRoots g roots (fun acc v -> v :: acc) []
+    |> List.iter fn
+
+  /// Iterates vertices of the graph in a depth-first manner with the reverse
+  /// postorder traversal. This function visits every vertex in the graph
+  /// including unreachable ones. For those unreachable vertices, the order is
+  /// random.
+  let iterRevPostorder g fn =
+    foldPostorder g (fun acc v -> v :: acc) []
+    |> List.iter fn
+
+/// Provides breadth-first traversal functions.
 module BFS =
-  /// Fold vertices of the graph in a reverse breadth-first traversal manner.
+  /// Folds vertices of the graph in a reverse breadth-first traversal manner.
   let reverseFoldWithRoots (g: IDiGraphAccessible<_, _>) roots fn acc =
     let visited = HashSet<VertexID>()
     let queue = Queue<IVertex<_>>()

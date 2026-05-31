@@ -24,7 +24,15 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
+/// <namespacedoc>
+///   <summary>
+///   Contains graph data structures and algorithms used throughout B2R2's
+///   middle-end analyses.
+///   </summary>
+/// </namespacedoc>
+/// <summary>
 /// Raised when a vertex is not found in the graph.
+/// </summary>
 exception VertexNotFoundException
 
 /// Raised when trying to access data from a dummy vertex that has no data.

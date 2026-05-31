@@ -22,11 +22,20 @@
   SOFTWARE.
 *)
 
-module B2R2.MiddleEnd.BinGraph.SCC
+namespace B2R2.MiddleEnd.BinGraph.SCC
 
 open System.Collections.Generic
+open B2R2.MiddleEnd.BinGraph
 
-/// Tarjan's strongly connected components algorithm.
+/// <namespacedoc>
+///   <summary>
+///   Contains strongly connected components algorithms.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Represents the Tarjan's strongly connected components algorithm.
+/// </summary>
 module Tarjan =
   type private SCCStatus<'V when 'V: equality> =
     { mutable CurrentDFNum: int
@@ -86,6 +95,7 @@ module Tarjan =
       status.LowLinks[vNum] <- min status.LowLinks[vNum] status.DFNums[w]
     else ()
 
+  /// Computes strongly connected components of the given directed graph.
   let compute (g: IDiGraphAccessible<_, _>) =
     let status = initSCCStatus g
     for v in g.Vertices do

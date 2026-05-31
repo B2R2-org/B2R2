@@ -22,8 +22,8 @@
   SOFTWARE.
 *)
 
-/// Cooper et al.'s algorithm for dominance computation. A Simple, Fast
-/// Dominance Algorithm, SPE 2001.
+/// Provides the Cooper et al.'s algorithm for dominance computation presented
+/// in "A Simple, Fast Dominance Algorithm", SPE 2001.
 module B2R2.MiddleEnd.BinGraph.Dominance.CooperDominance
 
 open System.Collections.Generic
@@ -57,7 +57,7 @@ let private prepareWithDummyRoot g info =
   let realRoots = info.Roots
   let n =
 #if COOPER_USE_DFS
-    Traversal.DFS.foldPostorderWithRoots3 g
+    Traversal.DFS.foldPostorderWithRoots g
 #else
     Traversal.BFS.reverseFoldWithRoots g
 #endif

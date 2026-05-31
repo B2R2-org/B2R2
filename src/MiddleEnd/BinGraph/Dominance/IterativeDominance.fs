@@ -22,7 +22,15 @@
   SOFTWARE.
 *)
 
-/// Simplisitic iterative dominance algorithm.
+/// <namespacedoc>
+///   <summary>
+///   Contains implementations of dominance algorithms for directed graphs.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Provides a simplistic iterative dominance algorithm.
+/// </summary>
 module B2R2.MiddleEnd.BinGraph.Dominance.IterativeDominance
 
 open System.Collections.Generic
@@ -139,6 +147,8 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
       else ()
       pdfProvider.DominanceFrontier v
 
+/// Creates an IDominance instance that computes dominance information using a
+/// simplistic iterative algorithm.
 [<CompiledName "Create">]
 let create g (dfp: IDominanceFrontierProvider<_, _>) =
   IterativeDominance(g, dfp) :> IDominance<'V, 'E>

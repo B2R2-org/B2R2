@@ -26,27 +26,46 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Collections.Generic
 
-/// Interface for computing dominance relationships of nodes in digraphs.
+/// Represents an interface for computing dominance relationships of nodes in
+/// digraphs.
 type IDominance<'V, 'E when 'V: equality and 'E: equality> =
+  /// Gets the dominators of the given vertex.
   abstract Dominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
+
+  /// Gets the immediate dominator of the given vertex, or null if it does not
+  /// exist.
   abstract ImmediateDominator: IVertex<'V> -> IVertex<'V> | null
+
+  /// Gets the dominator tree.
   abstract DominatorTree: DominatorTree<'V, 'E>
+
+  /// Gets the dominance frontier of the given vertex.
   abstract DominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
+
+  /// Gets the post-dominators of the given vertex.
   abstract PostDominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
+
+  /// Gets the immediate post-dominator of the given vertex, or null if it does
+  /// not exist.
   abstract ImmediatePostDominator: IVertex<'V> -> IVertex<'V> | null
+
+  /// Gets the post-dominator tree.
   abstract PostDominatorTree: DominatorTree<'V, 'E>
+
+  /// Gets the post-dominance frontier of the given vertex.
   abstract PostDominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
-/// Interface for computing dominance frontier of nodes in digraphs.
+/// Represents an interface for computing dominance frontier of nodes in
+/// digraphs.
 and IDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> =
-  /// Get the dominance frontier of a vertex, which is the set of all vertices
+  /// Gets the dominance frontier of a vertex, which is the set of all vertices
   /// that are not strictly dominated by the vertex but are reachable from the
   /// vertex.
   abstract DominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
-/// Interface for providing dominance frontier instances.
+/// Represents an interface for providing dominance frontier instances.
 and IDominanceFrontierProvider<'V, 'E when 'V: equality and 'E: equality> =
-  /// Return IDominanceFrontier instance using the given graph and the
+  /// Returns an IDominanceFrontier instance using the given graph and the
   /// IDominance instance. The third argument `isPostDominance` is a boolean
   /// flag indicating whether the dominance frontier is for post-dominance.
   abstract CreateIDominanceFrontier:
@@ -55,8 +74,8 @@ and IDominanceFrontierProvider<'V, 'E when 'V: equality and 'E: equality> =
     * isPostDominance: bool
    -> IDominanceFrontier<'V, 'E>
 
-/// Dominator tree interface. A dominator tree is a tree where each node's
-/// children are those nodes it immediately dominates.
+/// Represents a dominator tree interface. A dominator tree is a tree where each
+/// node's children are those nodes it immediately dominates.
 and DominatorTree<'V, 'E when 'V: equality
                           and 'E: equality>
   public(g: IDiGraphAccessible<'V, 'E>,
@@ -73,11 +92,11 @@ and DominatorTree<'V, 'E when 'V: equality
       elif domTree.ContainsKey idom then domTree[idom].Add v
       else domTree[idom] <- List [ v ])
 
-  /// Get the dummy root. Dummy root points to all the roots of the dominator
+  /// Gets the dummy root. Dummy root points to all the roots of the dominator
   /// tree.
   member _.GetRoot() = dummyRoot
 
-  /// Get the children of a vertex in the dominator tree.
+  /// Gets the children of a vertex in the dominator tree.
   member _.GetChildren(v: IVertex<'V>) =
     match domTree.TryGetValue v with
     | true, children -> children

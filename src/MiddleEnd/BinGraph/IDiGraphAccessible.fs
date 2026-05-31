@@ -26,34 +26,35 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Collections.Generic
 
-/// Read-only directed graph information accessor. This interface provides a way
-/// to access the information of a directed graph without modifying it.
+/// Represents a read-only directed graph information accessor. This interface
+/// provides a way to access the information of a directed graph without
+/// modifying it.
 type IDiGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   inherit IGraphAccessible<'V, 'E>
 
-  /// Get an array of exit vertices in the graph.
+  /// Gets an array of exit vertices in the graph.
   abstract Exits: IVertex<'V>[]
 
-  /// Get the predecessors of the given vertex. This is only meaningful for
+  /// Gets the predecessors of the given vertex. This is only meaningful for
   /// directed graphs.
   abstract GetPreds: IVertex<'V> -> IVertex<'V>[]
 
-  /// Get the predecessor edges of the given vertex. This is only meaningful for
-  /// directed graphs.
+  /// Gets the predecessor edges of the given vertex. This is only meaningful
+  /// for directed graphs.
   abstract GetPredEdges: IVertex<'V> -> Edge<'V, 'E>[]
 
-  /// Get the successors of the given vertex. This is only meaningful for
+  /// Gets the successors of the given vertex. This is only meaningful for
   /// directed graphs.
   abstract GetSuccs: IVertex<'V> -> IVertex<'V>[]
 
-  /// Get the successor edges of the given vertex. This is only meaningful for
+  /// Gets the successor edges of the given vertex. This is only meaningful for
   /// directed graphs.
   abstract GetSuccEdges: IVertex<'V> -> Edge<'V, 'E>[]
 
-  /// Get the root vertices of this graph. When there's no root, this will
+  /// Gets the root vertices of this graph. When there's no root, this will
   /// return an empty collection.
   abstract GetRoots: unit -> IVertex<'V>[]
 
-  /// Return a new transposed (i.e., reversed) graph. The given set of vertices
+  /// Returns a new transposed (i.e., reversed) graph. The given set of vertices
   /// will be used to set the root vertices of the transposed graph.
   abstract Reverse: IEnumerable<IVertex<'V>> -> IDiGraphAccessible<'V, 'E>

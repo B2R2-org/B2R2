@@ -22,6 +22,7 @@
   SOFTWARE.
 *)
 
+/// Provides algorithms for loop detection in directed graphs.
 module B2R2.MiddleEnd.BinGraph.Loop
 
 open System.Collections.Generic
@@ -48,6 +49,7 @@ let private findNaturalLoopBody g (edge: Edge<_, _>) =
     else ()
   body
 
+/// Gets the natural loops in the given directed graph.
 let getNaturalLoops (g: IDiGraph<_, _>) =
   let dict = Dictionary()
   for edge in getBackEdges g do

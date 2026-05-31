@@ -28,7 +28,7 @@ open System.Text
 open System.Text.Json
 open System.Collections.Generic
 
-/// The serializer of a graph.
+/// Represents a serializer of a graph.
 type Serializer =
   static member private NewGraph<'V, 'E when 'V: equality
                                          and 'E: equality>(g) =
@@ -58,14 +58,19 @@ type Serializer =
     { Roots = roots; Vertices = vertices; Edges = edges }
 
   static member private ToJson(g: SerializableGraph) =
-    JsonSerializer.Serialize(g)
+    JsonSerializer.Serialize g
 
-  /// Export the given graph to a string in the JSON format.
-  static member ToJson(g) =
+  /// Exports the given graph to a string in the JSON format using the default
+  /// string representations of vertices and edges as labels.
+  static member ToJson g =
     Serializer.ToJson(Serializer.NewGraph g)
 
-  /// Export the given graph to a string in the JSON format with the given
-  /// vertex and edge label functions.
+  /// <summary>
+  /// Exports the given graph to a string in the JSON format.
+  /// </summary>
+  /// <param name="g">The graph to export.</param>
+  /// <param name="vertexFn">Converts each vertex to a label.</param>
+  /// <param name="edgeFn">Converts each edge to a label.</param>
   static member ToJson(g, vertexFn, edgeFn) =
     Serializer.ToJson(Serializer.NewGraph(g, vertexFn, edgeFn))
 
@@ -93,8 +98,16 @@ type Serializer =
         |> Array.map (fun id -> vMap[id])
         |> outGraph.SetRoots
 
-  /// Import the graph from the given JSON string using the graph, vertex, and
-  /// edge constructors.
+  /// <summary>
+  /// Imports the graph from the given JSON string.
+  /// </summary>
+  /// <param name="json">The JSON string that contains a serialized
+  /// graph.</param>
+  /// <param name="gConstructor">Constructs an empty graph.</param>
+  /// <param name="vConstructor">Constructs vertex data from a vertex
+  /// label.</param>
+  /// <param name="eConstructor">Constructs edge data from an edge
+  /// label.</param>
   static member FromJson<'V, 'E when 'V: equality
                                  and 'E: equality>(json: string,
                                                    gConstructor,
@@ -104,13 +117,13 @@ type Serializer =
     let g: IDiGraph<'V, 'E> = gConstructor ()
     Serializer.CopyGraph(sg, g, vConstructor, eConstructor)
 
-  /// Export the given graph to a string in the DOT format.
+  /// Exports the given graph to a string in the DOT format.
   static member ToDOT(g: IDiGraphAccessible<_, _>, name) =
     let vertexFn v = v.ToString()
     let edgeFn e = e.ToString()
     Serializer.ToDOT(g, name, vertexFn, edgeFn)
 
-  /// Export the given graph to a string in the DOT format using the given
+  /// Exports the given graph to a string in the DOT format using the given
   /// vertex and edge label functions.
   static member ToDOT(g: IDiGraphAccessible<_, _>, name, vertexFn, edgeFn) =
     let (!!) (sb: StringBuilder) (s: string) = sb.Append s |> ignore

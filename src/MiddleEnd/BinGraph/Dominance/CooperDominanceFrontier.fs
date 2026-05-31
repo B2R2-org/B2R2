@@ -27,8 +27,8 @@ namespace B2R2.MiddleEnd.BinGraph.Dominance
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-/// Dominance frontier algorithm presented by Cooper et al. in their paper
-/// "A Simple, Fast Dominance Algorithm", SPE 2001.
+/// Represents the Cooper et al.'s dominance frontier algorithm presented in
+/// their paper "A Simple, Fast Dominance Algorithm", SPE 2001.
 type CooperDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
   let computeDF (g: IDiGraphAccessible<_, _>) dom isPostDominance =
     let idom =

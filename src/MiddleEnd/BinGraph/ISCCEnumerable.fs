@@ -26,8 +26,8 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Collections.Generic
 
-/// Strongly connected components enumerable. A graph is strongly connected if
-/// there is a path between every pair of vertices in the graph.
+/// Represents a strongly connected components enumerable. A graph is strongly
+/// connected if there is a path between every pair of vertices in the graph.
 type ISCCEnumerable<'V when 'V: equality> =
-  /// Get an enumerator for strongly connected components.
+  /// Gets an enumerator for strongly connected components.
   abstract GetSCCEnumerator: unit -> IEnumerable<HashSet<IVertex<'V>>>

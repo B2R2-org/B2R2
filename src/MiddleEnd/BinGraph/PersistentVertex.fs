@@ -27,11 +27,11 @@ namespace B2R2.MiddleEnd.BinGraph
 open System.Globalization
 open B2R2
 
-/// Persistent vertex.
+/// Represents a persistent vertex.
 type PersistentVertex<'V when 'V: equality>
   internal(id, vData: VertexData<'V> | null) =
 
-  /// Unique identifier of this vertex.
+  /// Gets the unique identifier of this vertex.
   member _.ID with get(): VertexID = id
 
   interface IVertex<'V> with

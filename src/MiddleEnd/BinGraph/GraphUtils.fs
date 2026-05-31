@@ -35,8 +35,8 @@ let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
   else raise VertexNotFoundException
 #endif
 
-/// Make a dummy vertex for an analysis without having to use `AddVertex` method
-/// of a graph. With this, we don't have to modify the graph itself.
+/// Makes a dummy vertex for an analysis without having to use `AddVertex`
+/// method of a graph. With this, we don't have to modify the graph itself.
 let makeDummyVertex<'V when 'V: equality> () =
   { new IVertex<'V> with
       member _.ID = -1
@@ -97,7 +97,7 @@ let findExitsAfterRemovingBackEdges (g: IDiGraphAccessible<_, _>) =
       | false -> v :: exits
   ) []
 
-/// Find exit nodes of a digraph. An exit node is a node that has no outgoing
+/// Finds exit nodes of a digraph. An exit node is a node that has no outgoing
 /// edges. In case the given graph has no such exit nodes (e.g., infinite
 /// loops), we remove back edges and find exit nodes again, in which case we
 /// consider loop tails as exit nodes.

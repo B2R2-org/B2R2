@@ -28,19 +28,20 @@ open System.Globalization
 open System.Collections.Generic
 open B2R2
 
-/// Imperative vertex.
+/// Represents an imperative vertex with mutable predecessor and successor
+/// lists.
 type ImperativeVertex<'V when 'V: equality>
   internal(id, vData: VertexData<'V> | null) =
   let preds = List<ImperativeVertex<'V>>()
   let succs = List<ImperativeVertex<'V>>()
 
-  /// Unique identifier of this vertex.
+  /// Gets the unique identifier of this vertex.
   member _.ID with get() = id
 
-  /// List of predecessors.
+  /// Gets the mutable list of predecessors.
   member _.Preds with get() = preds
 
-  /// List of successors.
+  /// Gets the mutable list of successors.
   member _.Succs with get() = succs
 
   interface IVertex<'V> with

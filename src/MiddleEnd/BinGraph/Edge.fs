@@ -24,29 +24,30 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-/// Missing edge.
+/// Raised when an edge is not found in the graph.
 exception EdgeNotFoundException
 
-/// Edge of a graph.
+/// Represents an edge of a graph.
 type Edge<'V, 'E when 'V: equality
                   and 'E: equality>
   internal(fst, snd, label: EdgeLabel<'E> | null) =
 
-  /// Source vertex of the edge. For undirected graphs, this is the first vertex
-  /// that was added to the edge.
+  /// Returns source vertex of the edge. For undirected graphs, this is the
+  /// first vertex that was added to the edge.
   member _.First with get(): IVertex<'V> = fst
 
-  /// Target vertex of the edge. For undirected graphs, this is the second
-  /// vertex that was added to the edge.
+  /// Returns target vertex of the edge. For undirected graphs, this is the
+  /// second vertex that was added to the edge.
   member _.Second with get(): IVertex<'V> = snd
 
-  /// Label of the edge. This can raise `DummyDataAccessException` when the
-  /// edge has no label.
+  /// Returns the label of the edge. This can raise `DummyDataAccessException`
+  /// when the edge has no label.
   member _.Label with get(): 'E =
     if isNull label then raise DummyDataAccessException
     else label.Value
 
-  /// Check if the edge has a label.
+  /// Returns true if the edge has a label. When this is true, `Label` should
+  /// not raise `DummyDataAccessException`.
   member _.HasLabel with get() = not (isNull label)
 
   override _.ToString() =

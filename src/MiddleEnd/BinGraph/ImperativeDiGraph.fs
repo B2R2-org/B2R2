@@ -26,7 +26,7 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Collections.Generic
 
-/// Imperative directed graph.
+/// Represents an imperative directed graph.
 type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
   let vertices = Dictionary<VertexID, ImperativeVertex<'V>>()
 
@@ -50,7 +50,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     vertices.Add(vid, v) |> ignore
     unreachables.Add v |> ignore
     exits.Add v |> ignore
-    (v :> IVertex<'V>)
+    v :> IVertex<'V>
 
   let addVertexWithData (data: VertexData<'V>) =
     id <- id + 1

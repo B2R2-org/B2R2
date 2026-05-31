@@ -27,9 +27,9 @@ namespace B2R2.MiddleEnd.BinGraph.Dominance
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-/// Dominance frontier algorithm presented by Cytron et al. in their paper
-/// "Efficiently Computing Static Single Assignment Form and the Control
-/// Dependence Graph", TOPLAS 1991.
+/// Represents the Cytron et al.'s dominance frontier algorithm presented in
+/// their paper "Efficiently Computing Static Single Assignment Form and the
+/// Control Dependence Graph", TOPLAS 1991.
 type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
   let traverseBottomUp (domTree: DominatorTree<_, _>) root =
     let stack1, stack2 = Stack(), Stack()

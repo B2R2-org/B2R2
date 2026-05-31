@@ -24,7 +24,8 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-/// Graph implementation type.
+/// Represents a graph implementation type, which can be either imperative or
+/// persistent.
 [<Struct>]
 type ImplementationType =
   /// Imperative graph.

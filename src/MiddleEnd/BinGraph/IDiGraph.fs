@@ -26,53 +26,53 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Collections.Generic
 
-/// Directed graph interface.
+/// Represents a directed graph (digraph) interface.
 type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   inherit IDiGraphAccessible<'V, 'E>
 
-  /// Add a vertex to the graph using a data value, and return a reference to
+  /// Adds a vertex to the graph using a data value, and returns a reference to
   /// the added vertex.
   abstract AddVertex: data: 'V -> IVertex<'V> * IDiGraph<'V, 'E>
 
-  /// Add a vertex to the graph using a data value and a vertex ID, and return a
-  /// reference to the added vertex. This function assumes that the vertex ID is
-  /// unique in the graph, thus it needs to be used with caution.
+  /// Adds a vertex to the graph using a data value and a vertex ID, and returns
+  /// a reference to the added vertex. This function assumes that the vertex ID
+  /// is unique in the graph, thus it needs to be used with caution.
   abstract AddVertex: data: 'V * vid: VertexID -> IVertex<'V> * IDiGraph<'V, 'E>
 
-  /// Add a vertex to the grpah without any data attached to it.
+  /// Adds a vertex to the graph without any data attached to it.
   abstract AddVertex: unit -> IVertex<'V> * IDiGraph<'V, 'E>
 
-  /// Remove the given vertex from the graph.
+  /// Removes the given vertex from the graph.
   abstract RemoveVertex: IVertex<'V> -> IDiGraph<'V, 'E>
 
-  /// Add an edge from src to dst.
+  /// Adds an edge from src to dst.
   abstract AddEdge: src: IVertex<'V> * dst: IVertex<'V> -> IDiGraph<'V, 'E>
 
-  /// Add an edge from src to dst with the given label.
+  /// Adds an edge from src to dst with the given label.
   abstract AddEdge:
     src: IVertex<'V> * dst: IVertex<'V> * label: 'E -> IDiGraph<'V, 'E>
 
-  /// Remove the edge that spans from src to dst.
+  /// Removes the edge that spans from src to dst.
   abstract RemoveEdge: src: IVertex<'V> * dst: IVertex<'V> -> IDiGraph<'V, 'E>
 
-  /// Remove the given edge from the graph. The input edge does not need to have
-  /// the same label as the one in the graph; we only check the source and
+  /// Removes the given edge from the graph. The input edge does not need to
+  /// have the same label as the one in the graph; we only check the source and
   /// destination vertices to perform this operation.
   abstract RemoveEdge: edge: Edge<'V, 'E> -> IDiGraph<'V, 'E>
 
-  /// Explicitly add a root vertex to this graph. `AddVertex` will automatically
-  /// set the root vertex to the first vertex added to the graph, but this
-  /// function allows the user to add root vertices explicitly.
+  /// Adds a root vertex to this graph explicitly. `AddVertex` will
+  /// automatically set the root vertex to the first vertex added to the graph,
+  /// but this function allows the user to add root vertices explicitly.
   abstract AddRoot: IVertex<'V> -> IDiGraph<'V, 'E>
 
-  /// Set root vertices for this graph. `AddVertex` will automatically set the
+  /// Sets root vertices for this graph. `AddVertex` will automatically set the
   /// root vertex to the first vertex added to the graph, but this function
   /// allows the user to set root vertices explicitly.
   abstract SetRoots: IEnumerable<IVertex<'V>> -> IDiGraph<'V, 'E>
 
-  /// Return a new transposed (i.e., reversed) graph. The given set of vertices
+  /// Returns a new transposed (i.e., reversed) graph. The given set of vertices
   /// will be used to set the root vertices of the transposed graph.
   abstract Reverse: IEnumerable<IVertex<'V>> -> IDiGraph<'V, 'E>
 
-  /// Return a cloned copy of this graph.
+  /// Returns a cloned copy of this graph.
   abstract Clone: unit -> IDiGraph<'V, 'E>
