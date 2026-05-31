@@ -126,8 +126,15 @@ let [<Literal>] private MinHexdumpFontSize = 8.0
 
 let [<Literal>] private MaxHexdumpFontSize = 32.0
 
+let [<Literal>] private MinLinearFontSize = 8.0
+
+let [<Literal>] private MaxLinearFontSize = 32.0
+
 let private clampHexdumpFontSize fontSize =
   max MinHexdumpFontSize (min MaxHexdumpFontSize fontSize)
+
+let private clampLinearFontSize fontSize =
+  max MinLinearFontSize (min MaxLinearFontSize fontSize)
 
 let private measureMaxCharSizeWithFontSize model fontSize =
   let fontFamily = FontFamily model.Theme.Font.Monospace.FontFamily
@@ -1062,6 +1069,27 @@ let updateLinear arbiter (model: Model) msg =
   | LinearPaneMessage.SetScrollOffset offsetY ->
     updateLinearViewState arbiter model (fun _ viewState ->
       { viewState with ScrollOffsetY = offsetY }),
+    Elmish.Cmd.none
+  | LinearPaneMessage.ChangeFontSize delta when abs delta > 0.0 ->
+    updateLinearViewState arbiter model (fun doc linearViewState ->
+      let topIndex, _ = LinearViewState.findVisibleRange 0.0 linearViewState
+      let topItemOffset =
+        linearViewState.ScrollOffsetY
+        - LinearViewState.itemTop linearViewState topIndex
+      let fontSize =
+        clampLinearFontSize (linearViewState.FontSize + delta)
+      let charWidth, rowHeight =
+        measureMaxCharSizeWithFontSize model fontSize
+      let nextState =
+        { linearViewState with
+            FontSize = fontSize
+            CharWidth = charWidth
+            RowHeight = rowHeight }
+        |> LinearViewState.rebuildUniformLayout rowHeight doc
+      { nextState with
+          ScrollOffsetY =
+            LinearViewState.itemTop nextState topIndex
+            + max 0.0 topItemOffset }),
     Elmish.Cmd.none
   | LinearPaneMessage.UpdateFontMetrics(charWidth, rowHeight)
     when charWidth > 0.0 && rowHeight > 0.0 ->

@@ -29,6 +29,7 @@ open System.Collections.Generic
 open System.Globalization
 open Avalonia
 open Avalonia.Controls
+open Avalonia.Controls.Primitives
 open Avalonia.FuncUI.Builder
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
@@ -45,11 +46,15 @@ let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
     match args.Source with
     | :? ScrollViewer as scrollViewer -> scrollViewer.Offset.Y
     | _ -> System.Double.NaN
-  dispatch (
-    LinearPaneMsg(LinearPaneMessage.HandleScrollChanged(
-      currentOffsetY, args.OffsetDelta.Y
-    ))
-  )
+  if not (System.Double.IsNaN currentOffsetY)
+     && abs args.OffsetDelta.Y > 0.0 then
+    dispatch (
+      LinearPaneMsg(LinearPaneMessage.HandleScrollChanged(
+        currentOffsetY, args.OffsetDelta.Y
+      ))
+    )
+  else
+    ()
 
 let private scrollLinearTo dispatch offsetY =
   dispatch (LinearPaneMsg(LinearPaneMessage.SetScrollOffset offsetY))
@@ -77,6 +82,20 @@ let private onNavigationKeyDown dispatch (state: LinearViewState) e =
   | None ->
     ()
 
+let private onPointerWheelChanged dispatch (e: PointerWheelEventArgs) =
+  if e.KeyModifiers.HasFlag KeyModifiers.Control then
+    let delta =
+      if e.Delta.Y > 0.0 then 1.0
+      elif e.Delta.Y < 0.0 then -1.0
+      else 0.0
+    if abs delta > 0.0 then
+      dispatch (LinearPaneMsg(LinearPaneMessage.ChangeFontSize delta))
+      e.Handled <- true
+    else
+      ()
+  else
+    ()
+
 let private focusPointerSource (e: PointerPressedEventArgs) =
   match e.Source with
   | :? Control as ctrl -> ctrl.Focus() |> ignore
@@ -89,6 +108,7 @@ type private LinearCommonLayout =
     KindX: float
     ValueX: float
     DisasmX: float
+    ContentWidth: float
     CharWidth: float }
 
 type private LinearRowKind =
@@ -138,17 +158,6 @@ type private CachedRowVisual =
       LinearRowKind * cells: (LinearCellKind * int * FormattedText list) list
   | FullWidthHeaderVisual of LinearHeaderKind * title: FormattedText
 
-let private addressDigits (doc: LinearDocument) =
-  let mutable maxAddr = doc.LinearBaseAddress
-  for item in doc.LinearItems do
-    let loc = LinearItem.location item
-    let lastAddr =
-      if loc.ItemLength <= 0 then loc.Address
-      else loc.Address + uint64 (loc.ItemLength - 1)
-    if lastAddr > maxAddr then maxAddr <- lastAddr
-    else ()
-  max 1 (maxAddr.ToString("X").Length)
-
 let private offsetDigits (doc: LinearDocument) =
   let maxOffset =
     if doc.LinearTotalLength <= 0L then 0L
@@ -162,7 +171,7 @@ let private computeCommonLayout doc (state: LinearViewState) =
   let charWidth = max state.CharWidth 1.0
   let paddingX = 10.0
   let offsetWidth = charWidth * float (offsetDigits doc + 6)
-  let addrWidth = charWidth * float (addressDigits doc + 2)
+  let addrWidth = charWidth * float (doc.Metrics.AddressDigits + 2)
   let offsetX = paddingX
   let addressX = offsetX + offsetWidth + charWidth * 2.0
   let kindX = addressX + addrWidth + charWidth * 2.0
@@ -170,12 +179,15 @@ let private computeCommonLayout doc (state: LinearViewState) =
   let valueX = kindX + kindWidth + charWidth * 2.0
   let valueWidth = charWidth * float (valueColumnChars ())
   let disasmX = valueX + valueWidth + charWidth * 4.0
+  let contentWidth =
+    disasmX + float doc.Metrics.MaxTextChars * charWidth + paddingX
   { PaddingX = paddingX
     OffsetX = offsetX
     AddressX = addressX
     KindX = kindX
     ValueX = valueX
     DisasmX = disasmX
+    ContentWidth = max state.ViewportWidth contentWidth
     CharWidth = charWidth }
 
 let private formattedTextWidthOf kind cells =
@@ -606,6 +618,7 @@ module private LinearRenderLayer =
     View.createGeneric<LinearRenderLayer> attrs
 
 let private visibleItemsView model dispatch doc (state: LinearViewState) =
+  let common = computeCommonLayout doc state
   let startIdx, endIdxExclusive =
     LinearProjection.findVisibleRange OverscanPixels doc state
   let renderTop =
@@ -620,7 +633,7 @@ let private visibleItemsView model dispatch doc (state: LinearViewState) =
       0.0
   let renderHeight = max 0.0 (renderBottom - renderTop)
   Canvas.create [
-    Canvas.width (max state.ViewportWidth 0.0)
+    Canvas.width common.ContentWidth
     Canvas.height (LinearViewState.totalHeight state)
     Canvas.background model.Theme.Linear.Background
     Control.focusable true
@@ -633,7 +646,7 @@ let private visibleItemsView model dispatch doc (state: LinearViewState) =
       LinearRenderLayer.create [
         Canvas.left 0.0
         Canvas.top renderTop
-        Control.width (max state.ViewportWidth 0.0)
+        Control.width common.ContentWidth
         Control.height renderHeight
         Control.isHitTestVisible false
         LinearRenderLayer.Document(Some doc)
@@ -652,6 +665,8 @@ let private bodyView model dispatch doc (state: LinearViewState) =
       onNavigationKeyDown dispatch state,
       OnChangeOf state.ScrollOffsetY
     )
+    Control.onPointerWheelChanged (onPointerWheelChanged dispatch)
+    ScrollViewer.horizontalScrollBarVisibility ScrollBarVisibility.Auto
     ScrollViewer.onScrollChanged (onScrollChanged dispatch)
     ScrollViewer.offset (Vector(0.0, state.ScrollOffsetY))
     ScrollViewer.content (visibleItemsView model dispatch doc state)

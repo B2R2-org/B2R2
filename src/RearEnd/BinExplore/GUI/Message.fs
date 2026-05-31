@@ -159,6 +159,8 @@ and LinearPaneMessage =
   | HandleScrollChanged of offsetY: float * deltaY: float
   /// Sets the vertical scroll offset of the linear view in pixels.
   | SetScrollOffset of offsetY: float
+  /// Changes the linear view font size by the given delta.
+  | ChangeFontSize of delta: float
   /// Updates the measured font metrics of the linear view.
   | UpdateFontMetrics of charWidth: float * rowHeight: float
 

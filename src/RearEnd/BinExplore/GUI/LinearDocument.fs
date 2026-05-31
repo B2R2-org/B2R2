@@ -34,8 +34,15 @@ type LinearDocument =
   { LinearBaseAddress: Addr
     LinearTotalLength: int64
     LinearItems: ResizeArray<LinearItem>
+    Metrics: LinearDocumentMetrics
     BinHandle: BinHandle
     LiftingUnit: LiftingUnit }
+
+/// Stores layout-oriented metrics computed once when the linear document is
+/// built.
+and LinearDocumentMetrics =
+  { AddressDigits: int
+    MaxTextChars: int }
 
 /// Describes the location of a linear-view item within the loaded binary.
 /// Different item kinds can share this contract while keeping their payloads
@@ -190,14 +197,47 @@ module LinearDocument =
           ()
     items
 
+  let private addressDigits baseAddress (items: ResizeArray<LinearItem>) =
+    let mutable maxAddr = baseAddress
+    for item in items do
+      let loc =
+        match item with
+        | RawByte(loc, _)
+        | SectionHeader(loc, _, _, _)
+        | Disassembly(loc, _)
+        | FunctionHeader(loc, _)
+        | LinkageTableHeader(loc, _)
+        | LinkageTableEntry(loc, _) -> loc
+      let lastAddr =
+        if loc.ItemLength <= 0 then loc.Address
+        else loc.Address + uint64 (loc.ItemLength - 1)
+      if lastAddr > maxAddr then maxAddr <- lastAddr
+      else ()
+    max 1 (maxAddr.ToString("X").Length)
+
+  let private renderedTextChars = function
+    | Disassembly(_, disasm)
+    | LinkageTableEntry(_, disasm) -> disasm.Length
+    | LinkageTableHeader(_, name) -> name.Length
+    | _ -> 1 (* other cases will be short anyways *)
+
+  let private computeMetrics baseAddress (items: ResizeArray<LinearItem>) =
+    { AddressDigits = addressDigits baseAddress items
+      MaxTextChars =
+        items
+        |> Seq.map renderedTextChars
+        |> Seq.fold max 1 }
+
   let load (brew: BinaryBrew<_, _>) sections =
     let hdl = brew.BinHandle
     let bytes = hdl.File.RawBytes
     let lifter = hdl.NewLiftingUnit()
     lifter.ConfigureDisassembly(showAddr = false)
+    let items = buildItems brew bytes sections
     { LinearBaseAddress = hdl.File.BaseAddress
       LinearTotalLength = bytes.LongLength
-      LinearItems = buildItems brew bytes sections
+      LinearItems = items
+      Metrics = computeMetrics hdl.File.BaseAddress items
       BinHandle = hdl
       LiftingUnit = lifter }
 
