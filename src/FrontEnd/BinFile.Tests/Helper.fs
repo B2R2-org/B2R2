@@ -40,7 +40,4 @@ module Helper =
     ptr.Addr
 
   let assertExistenceOfPair pair pairSequence =
-    pairSequence
-    |> Seq.tryFind ((=) pair)
-    |> Option.isSome
-    |> Assert.IsTrue
+    Assert.AreEqual(true, Seq.exists ((=) pair) pairSequence)

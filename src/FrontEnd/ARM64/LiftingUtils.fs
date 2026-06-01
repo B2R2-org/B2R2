@@ -276,13 +276,16 @@ let transOprToExpr ins bld addr = function
   | OprFPImm float ->
     if ins.OprSize = 64<rt> then
       numI64 (BitConverter.DoubleToInt64Bits float) ins.OprSize
-    else numI64 (BitConverter.SingleToInt32Bits(float32 float)) ins.OprSize
+    else
+      BitConverter.SingleToInt32Bits(float32 float)
+      |> int64
+      |> fun bits -> numI64 bits ins.OprSize
   | _ -> raise <| NotImplementedIRException "transOprToExpr"
 
 let transOprToExprFPImm (ins: Instruction) eSize src =
   match eSize, src with
   | 32<rt>, OprFPImm float ->
-    numI64 (BitConverter.SingleToInt32Bits(float32 float)) ins.OprSize
+    numI64 (int64 (BitConverter.SingleToInt32Bits(float32 float))) ins.OprSize
   | 64<rt>, OprFPImm float ->
     numI64 (BitConverter.DoubleToInt64Bits float) ins.OprSize
   | _ -> raise InvalidOperandException
@@ -766,7 +769,7 @@ let advSIMDExpandImm bld eSize src =
 
 let getIntMax eSize isUnsigned =
   let shfAmt = int eSize - 1
-  let signBit = AST.num1 eSize << numI64 shfAmt eSize
+  let signBit = AST.num1 eSize << numI64 (int64 shfAmt) eSize
   let maskBit = signBit .- AST.num1 eSize
   if isUnsigned then signBit .| maskBit else maskBit
 

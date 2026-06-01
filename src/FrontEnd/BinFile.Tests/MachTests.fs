@@ -39,8 +39,8 @@ type MachTests() =
     MachBinFile(fileName, bytes, isa, None)
 
   let assertExistenceOfFlag (file: IBinFile) flags =
-    (file :?> MachBinFile).Header.Flags.ToString() = flags
-    |> Assert.IsTrue
+    Assert.AreEqual
+      (true, (file :?> MachBinFile).Header.Flags.ToString() = flags)
 
   let assertExistenceOfSectionHeader (file: IBinFile) address sectionName =
     (file :?> MachBinFile).Sections
@@ -65,11 +65,11 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped IsStripped test``() =
-    Assert.AreEqual<bool>(true, (x86File :> IBinFile).IsStripped)
+    Assert.AreEqual(true, (x86File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped IsNXEnabled test``() =
-    Assert.AreEqual<bool>(true, (x86File :> IBinFile).IsNXEnabled)
+    Assert.AreEqual(true, (x86File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped sections length test``() =
@@ -128,11 +128,11 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X64 IsStripped test``() =
-    Assert.AreEqual<bool>(false, (x64File :> IBinFile).IsStripped)
+    Assert.AreEqual(false, (x64File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[Mach] X64 IsNXEnabled test``() =
-    Assert.AreEqual<bool>(true, (x64File :> IBinFile).IsNXEnabled)
+    Assert.AreEqual(true, (x64File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[Mach] X64 sections length test``() =
@@ -190,11 +190,11 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped IsStripped test``() =
-    Assert.AreEqual<bool>(true, (x64SFile :> IBinFile).IsStripped)
+    Assert.AreEqual(true, (x64SFile :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped IsNXEnabled test``() =
-    Assert.AreEqual<bool>(true, (x64SFile :> IBinFile).IsNXEnabled)
+    Assert.AreEqual(true, (x64SFile :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped sections length test``() =
@@ -241,4 +241,3 @@ type MachTests() =
   member _.``[Mach] X64_Stripped flags test``() =
     let flags = "MH_NOUNDEFS, MH_DYLDLINK, MH_TWOLEVEL, MH_PIE"
     assertExistenceOfFlag x64SFile flags
-

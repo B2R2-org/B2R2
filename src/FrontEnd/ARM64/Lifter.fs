@@ -227,7 +227,7 @@ let bfm (ins: Instruction) insLen bld addr dst src immr imms =
 
 let bfi ins insLen bld addr =
   let struct (dst, src, lsb, width) = getFourOprs ins
-  let immr = ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> OprImm
+  let immr = ((getImmValue lsb * -1L) &&& 0x3FL) % int64 ins.OprSize |> OprImm
   let imms = getImmValue width - 1L |> OprImm
   bfm ins insLen bld addr dst src immr imms
 
@@ -580,7 +580,7 @@ let private cmpHigher (ins: Instruction) insLen bld addr cond =
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
   let struct (ones, zeros) = tmpVars2 bld eSize
-  bld <+ (ones := numI64 -1 eSize)
+  bld <+ (ones := numI64 -1L eSize)
   bld <+ (zeros := AST.num0 eSize)
   match dst with
   | OprSIMD(ScalarReg _) ->
@@ -605,7 +605,7 @@ let cmlt (ins: Instruction) insLen bld addr =
   let struct (dst, src1, _) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
   let struct (ones, zeros) = tmpVars2 bld eSize
-  bld <+ (ones := numI64 -1 eSize)
+  bld <+ (ones := numI64 -1L eSize)
   bld <+ (zeros := AST.num0 eSize)
   match dst with
   | OprSIMD(ScalarReg _) ->
@@ -624,7 +624,7 @@ let cmtst (ins: Instruction) insLen bld addr =
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
   let struct (ones, zeros) = tmpVars2 bld eSize
-  bld <+ (ones := numI64 -1 eSize)
+  bld <+ (ones := numI64 -1L eSize)
   bld <+ (zeros := AST.num0 eSize)
   match dst with
   | OprSIMD(ScalarReg _) ->
@@ -730,7 +730,7 @@ let eor (ins: Instruction) insLen bld addr =
     let struct (src2B, src2A) = transOprToExpr128 ins bld addr o3
     let struct (opr2, opr3) = tmpVars2 bld 64<rt>
     bld <+ (opr2 := AST.num0 64<rt>)
-    bld <+ (opr3 := numI64 -1 64<rt>)
+    bld <+ (opr3 := numI64 -1L 64<rt>)
     bld <+ (dstA := src2A <+> ((opr2 <+> src1A) .& opr3))
     if ins.OprSize = 64<rt> then bld <+ (dstB := AST.num0 ins.OprSize)
     else bld <+ (dstB := src2B <+> ((opr2 <+> src1B) .& opr3))
@@ -881,7 +881,7 @@ let private checkZero bld dataSize fpVal =
     bld <+ (exp := (fpVal >> numI32 23 32<rt>) .& numI32 0xff 32<rt>)
     bld <+ (frac := fpVal .& numU32 0x7fffffu 32<rt>)
   | 64<rt> ->
-    bld <+ (exp := (fpVal >> numI64 52 64<rt>) .& numI64 0x7ff 64<rt>)
+    bld <+ (exp := (fpVal >> numI64 52L 64<rt>) .& numI64 0x7ffL 64<rt>)
     bld <+ (frac := fpVal .& numU64 0xfffffffffffffUL 64<rt>)
   | _ -> raise InvalidOperandSizeException
   AST.ite ((exp == n0) .& (frac == n0 .| isFZ)) f0
@@ -944,7 +944,7 @@ let fcmgt (ins: Instruction) insLen bld addr =
   let struct (ones, zeros) = tmpVars2 bld eSize
   let chkNan e1 e2 = (isNaN eSize e1) .| (isNaN eSize e2)
   let fpgt e1 e2 = AST.fgt (checkZero bld eSize e1) (checkZero bld eSize e2)
-  bld <+ (ones := numI64 -1 eSize)
+  bld <+ (ones := numI64 -1L eSize)
   bld <+ (zeros := AST.num0 eSize)
   match dst, src2 with
   | OprSIMD(ScalarReg _) as o1, _ ->
@@ -2306,7 +2306,7 @@ let sbfiz ins insLen bld addr =
   let struct (dst, src, lsb, width) = getFourOprs ins
   let dst = transOprToExpr ins bld addr dst
   let src = transOprToExpr ins bld addr src
-  let immr = ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> OprImm
+  let immr = ((getImmValue lsb * -1L) &&& 0x3FL) % int64 ins.OprSize |> OprImm
   let imms = getImmValue width - 1L |> OprImm
   sbfm ins insLen bld addr dst src immr imms
 
@@ -3152,7 +3152,7 @@ let ubfm (ins: Instruction) insLen bld addr dst src immr imms =
 
 let ubfiz ins insLen bld addr =
   let struct (dst, src, lsb, width) = getFourOprs ins
-  let immr = ((getImmValue lsb * -1L) &&& 0x3F) % (int64 ins.OprSize) |> OprImm
+  let immr = ((getImmValue lsb * -1L) &&& 0x3FL) % int64 ins.OprSize |> OprImm
   let imms = getImmValue width - 1L |> OprImm
   ubfm ins insLen bld addr dst src immr imms
 

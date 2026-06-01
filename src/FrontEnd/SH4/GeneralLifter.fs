@@ -184,11 +184,11 @@ let resinst bld =
 let fpuCheck fps n = bv1Check (AST.extract fps 1<rt> n)
 
 let signedSaturate r =
-  AST.ite ((r ?< numI32 (int ((-2.0) ** 32)))
-            .| (r ?> numI32 (int ((2.0) ** 32))))
-          (AST.ite ((r ?< numI32 (int ((-2.0) ** 32))))
-                   (numI32 (int ((-2.0) ** 32)))
-                   (numI32 (int ((2.0) ** 32))))
+  AST.ite ((r ?< numI32 (int ((-2.0) ** 32.0)))
+            .| (r ?> numI32 (int ((2.0) ** 32.0))))
+          (AST.ite ((r ?< numI32 (int ((-2.0) ** 32.0))))
+                   (numI32 (int ((-2.0) ** 32.0)))
+                   (numI32 (int ((2.0) ** 32.0))))
           r
 
 /// Carry Forward check
@@ -1498,7 +1498,8 @@ let macl ins len bld =
   bld <+ (result := AST.ite (s == AST.b1)
     (AST.ite ((((result <+> mac) .& (result <+> mul)) >> numI32 63) == AST.b1)
     (AST.ite ((mac >> numI32 62) == AST.b0)
-             (numI64 (int (2.0 ** 47 - 1.0))) (numI64 (int (-2.0 ** 47))))
+             (numI64 (int64 (2.0 ** 47.0 - 1.0)))
+             (numI64 (int64 (-2.0 ** 47.0))))
     (signedSaturate result))
     (result))
   bld <+ (macl := result)

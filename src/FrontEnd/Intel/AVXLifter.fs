@@ -1254,7 +1254,7 @@ let vpinsrb (ins: Instruction) insLen bld =
   let t = tmpVar bld 64<rt>
   let expAmt = numI64 (amount % 64L) 64<rt>
   bld <+ (t := ((AST.zext 64<rt> src2) << expAmt) .& mask)
-  if amount < 64 then
+  if amount < 64L then
     bld <+ (dstA := (src1A .& (AST.not mask)) .| t)
     bld <+ (dstB := src1B)
   else
@@ -1369,7 +1369,7 @@ let vpinsrd (ins: Instruction) insLen bld =
   let t = tmpVar bld 64<rt>
   let expAmt = numI64 (amount % 64L) 64<rt>
   bld <+ (t := ((AST.zext 64<rt> src2) << expAmt) .& mask)
-  if amount < 64 then bld <+ (dstA := (src1A .& (AST.not mask)) .| t)
+  if amount < 64L then bld <+ (dstA := (src1A .& (AST.not mask)) .| t)
   else bld <+ (dstB := (src1B .& (AST.not mask)) .| t)
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
@@ -1386,7 +1386,7 @@ let vpinsrq (ins: Instruction) insLen bld =
   let t = tmpVar bld 64<rt>
   let expAmt = numI64 (amount % 64L) 64<rt>
   bld <+ (t := ((AST.zext 64<rt> src2) << expAmt) .& mask)
-  if amount < 64 then bld <+ (dstA := (src1A .& (AST.not mask)) .| t)
+  if amount < 64L then bld <+ (dstA := (src1A .& (AST.not mask)) .| t)
   else bld <+ (dstB := (src1B .& (AST.not mask)) .| t)
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
@@ -1399,7 +1399,7 @@ let vpinsrw (ins: Instruction) insLen bld =
   let src1 = transOprToArr bld true ins insLen packSz packNum 128<rt> src1
   let src2 = transOprToExpr bld false ins insLen src2 |> AST.xtlo packSz
   let tmps = Array.init 8 (fun _ -> tmpVar bld packSz)
-  let index = (getImmValue imm8 &&& 0b111) |> int
+  let index = (getImmValue imm8 &&& 0b111L) |> int
   Array.iter2 (fun t e -> bld <+ (t := e)) tmps src1
   bld <+ (tmps[index] := src2)
   assignPackedInstr bld false ins insLen packNum 128<rt> dst tmps
@@ -1619,10 +1619,10 @@ let vpslldq (ins: Instruction) insLen bld =
     let struct (tSrcB, tSrcA) = tmpVars2 bld 64<rt>
     bld <+ (tSrcA := srcA)
     bld <+ (tSrcB := srcB)
-    if amount < 64 then
+    if amount < 64L then
       bld <+ (dstA := tSrcA << leftAmt)
       bld <+ (dstB := (tSrcB << leftAmt) .| (tSrcA >> rightAmt))
-    elif amount < 128 then
+    elif amount < 128L then
       bld <+ (dstA := AST.num0 64<rt>)
       bld <+ (dstB := tSrcA << leftAmt)
     else
@@ -1638,12 +1638,12 @@ let vpslldq (ins: Instruction) insLen bld =
     bld <+ (tSrcB := srcB)
     bld <+ (tSrcC := srcC)
     bld <+ (tSrcD := srcD)
-    if amount < 64 then
+    if amount < 64L then
       bld <+ (dstA := tSrcA << leftAmt)
       bld <+ (dstB := (tSrcB << leftAmt) .| (tSrcA >> rightAmt))
       bld <+ (dstC := tSrcC << leftAmt)
       bld <+ (dstD := (tSrcD << leftAmt) .| (tSrcC >> rightAmt))
-    elif amount < 128 then
+    elif amount < 128L then
       bld <+ (dstA := AST.num0 64<rt>)
       bld <+ (dstB := tSrcA << leftAmt)
       bld <+ (dstC := AST.num0 64<rt>)
@@ -1748,12 +1748,12 @@ let vpsrldq (ins: Instruction) insLen bld =
     bld <+ (tSrcB := srcB)
     bld <+ (tSrcC := srcC)
     bld <+ (tSrcD := srcD)
-    if amount < 64 then
+    if amount < 64L then
       bld <+ (dstA := (tSrcB << leftAmt) .| (tSrcA >> rightAmt))
       bld <+ (dstB := tSrcB >> rightAmt)
       bld <+ (dstC := (tSrcD << leftAmt) .| (tSrcC >> rightAmt))
       bld <+ (dstD := tSrcD >> rightAmt)
-    elif amount < 128 then
+    elif amount < 128L then
       bld <+ (dstA := (tSrcB >> rightAmt))
       bld <+ (dstB := AST.num0 64<rt>)
       bld <+ (dstC := tSrcD >> rightAmt)

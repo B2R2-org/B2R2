@@ -52,17 +52,17 @@ type IntervalTreeTests() =
     let set = IntervalSet.add range1 IntervalSet.empty
     let set = IntervalSet.add range2 set
     let set = IntervalSet.add range3 set
-    Assert.IsTrue(IntervalSet.contains range1 set)
-    Assert.IsTrue(IntervalSet.contains range2 set)
-    Assert.IsTrue(IntervalSet.contains range3 set)
+    Assert.AreEqual(true, IntervalSet.contains range1 set)
+    Assert.AreEqual(true, IntervalSet.contains range2 set)
+    Assert.AreEqual(true, IntervalSet.contains range3 set)
     let range4 = AddrRange(0x100UL, 0x199UL)
     let range5 = AddrRange(0x99UL, 0x199UL)
     let range6 = AddrRange(0x199UL, 0x301UL)
     let range7 = AddrRange(0x199UL, 0x299UL)
-    Assert.IsFalse(IntervalSet.contains range4 set)
-    Assert.IsFalse(IntervalSet.contains range5 set)
-    Assert.IsFalse(IntervalSet.contains range6 set)
-    Assert.IsFalse(IntervalSet.contains range7 set)
+    Assert.AreEqual(false, IntervalSet.contains range4 set)
+    Assert.AreEqual(false, IntervalSet.contains range5 set)
+    Assert.AreEqual(false, IntervalSet.contains range6 set)
+    Assert.AreEqual(false, IntervalSet.contains range7 set)
 
   [<TestMethod>]
   member _.``IntervalSet Test Overlaps``() =
@@ -78,8 +78,8 @@ type IntervalTreeTests() =
     let overlap1 = [| range4; range1; range2 |]
     let result1 = IntervalSet.findAll range5 set |> List.toArray
     CollectionAssert.AreEqual(overlap1, result1)
-    Assert.IsTrue(IntervalSet.contains range1 set)
-    Assert.IsFalse(IntervalSet.contains range5 set)
+    Assert.AreEqual(true, IntervalSet.contains range1 set)
+    Assert.AreEqual(false, IntervalSet.contains range5 set)
     Assert.AreEqual(Some range2, IntervalSet.tryFindByAddr 0x99UL set)
 
   [<TestMethod>]
@@ -98,26 +98,26 @@ type IntervalTreeTests() =
     let range3 = AddrRange(4UL, 5UL)
     let set = IntervalSet.add range1 IntervalSet.empty
     let set = IntervalSet.add range2 set |> IntervalSet.add range3
-    Assert.IsTrue(IntervalSet.tryFindByAddr 0UL set |> Option.isSome)
-    Assert.IsTrue(IntervalSet.tryFindByAddr 1UL set |> Option.isSome)
-    Assert.IsTrue(IntervalSet.tryFindByAddr 2UL set |> Option.isSome)
-    Assert.IsTrue(IntervalSet.tryFindByAddr 3UL set |> Option.isSome)
-    Assert.IsTrue(IntervalSet.tryFindByAddr 4UL set |> Option.isSome)
-    Assert.IsTrue(IntervalSet.tryFindByAddr 5UL set |> Option.isSome)
-    Assert.IsTrue(IntervalSet.tryFindByAddr 6UL set |> Option.isNone)
-    Assert.IsTrue(IntervalSet.containsAddr 0UL set)
-    Assert.IsTrue(IntervalSet.containsAddr 1UL set)
-    Assert.IsTrue(IntervalSet.containsAddr 2UL set)
-    Assert.IsTrue(IntervalSet.containsAddr 3UL set)
-    Assert.IsTrue(IntervalSet.containsAddr 4UL set)
-    Assert.IsTrue(IntervalSet.containsAddr 5UL set)
-    Assert.IsFalse(IntervalSet.containsAddr 6UL set)
-    Assert.IsTrue(IntervalSet.contains (AddrRange(0UL, 1UL)) set)
-    Assert.IsTrue(IntervalSet.contains (AddrRange(2UL, 3UL)) set)
-    Assert.IsTrue(IntervalSet.contains (AddrRange(4UL, 5UL)) set)
-    Assert.IsFalse(IntervalSet.contains (AddrRange(3UL, 4UL)) set)
-    Assert.IsFalse(IntervalSet.contains (AddrRange(5UL, 6UL)) set)
-    Assert.IsFalse(IntervalSet.contains (AddrRange(1UL, 6UL)) set)
+    Assert.AreEqual(true, IntervalSet.tryFindByAddr 0UL set |> Option.isSome)
+    Assert.AreEqual(true, IntervalSet.tryFindByAddr 1UL set |> Option.isSome)
+    Assert.AreEqual(true, IntervalSet.tryFindByAddr 2UL set |> Option.isSome)
+    Assert.AreEqual(true, IntervalSet.tryFindByAddr 3UL set |> Option.isSome)
+    Assert.AreEqual(true, IntervalSet.tryFindByAddr 4UL set |> Option.isSome)
+    Assert.AreEqual(true, IntervalSet.tryFindByAddr 5UL set |> Option.isSome)
+    Assert.AreEqual(true, IntervalSet.tryFindByAddr 6UL set |> Option.isNone)
+    Assert.AreEqual(true, IntervalSet.containsAddr 0UL set)
+    Assert.AreEqual(true, IntervalSet.containsAddr 1UL set)
+    Assert.AreEqual(true, IntervalSet.containsAddr 2UL set)
+    Assert.AreEqual(true, IntervalSet.containsAddr 3UL set)
+    Assert.AreEqual(true, IntervalSet.containsAddr 4UL set)
+    Assert.AreEqual(true, IntervalSet.containsAddr 5UL set)
+    Assert.AreEqual(false, IntervalSet.containsAddr 6UL set)
+    Assert.AreEqual(true, IntervalSet.contains (AddrRange(0UL, 1UL)) set)
+    Assert.AreEqual(true, IntervalSet.contains (AddrRange(2UL, 3UL)) set)
+    Assert.AreEqual(true, IntervalSet.contains (AddrRange(4UL, 5UL)) set)
+    Assert.AreEqual(false, IntervalSet.contains (AddrRange(3UL, 4UL)) set)
+    Assert.AreEqual(false, IntervalSet.contains (AddrRange(5UL, 6UL)) set)
+    Assert.AreEqual(false, IntervalSet.contains (AddrRange(1UL, 6UL)) set)
 
   [<TestMethod>]
   member _.``IntervalSet Test Non-Overlapping Intervals 2``() =
@@ -139,7 +139,7 @@ type IntervalTreeTests() =
     let actual = IntervalSet.findAll (AddrRange(1UL, 9UL)) set |> List.toArray
     CollectionAssert.AreEqual(expected, actual)
     let actual = IntervalSet.findAll (AddrRange(6UL, 7UL)) set
-    Assert.IsTrue(List.isEmpty actual)
+    Assert.AreEqual(true, List.isEmpty actual)
 
   [<TestMethod>]
   member _.``IntervalSet Test Removal``() =
@@ -152,13 +152,13 @@ type IntervalTreeTests() =
     let actual = IntervalSet.findAll (AddrRange(2UL, 3UL)) set |> List.toArray
     CollectionAssert.AreEqual(expected, actual)
     let removed = IntervalSet.remove range2 set
-    Assert.IsFalse(IntervalSet.containsAddr 0UL removed)
-    Assert.IsTrue(IntervalSet.containsAddr 1UL removed)
-    Assert.IsTrue(IntervalSet.containsAddr 2UL removed)
-    Assert.IsTrue(IntervalSet.containsAddr 3UL removed)
-    Assert.IsTrue(IntervalSet.containsAddr 4UL removed)
-    Assert.IsTrue(IntervalSet.contains (AddrRange(1UL, 2UL)) removed)
-    Assert.IsTrue(IntervalSet.contains (AddrRange(3UL, 4UL)) removed)
+    Assert.AreEqual(false, IntervalSet.containsAddr 0UL removed)
+    Assert.AreEqual(true, IntervalSet.containsAddr 1UL removed)
+    Assert.AreEqual(true, IntervalSet.containsAddr 2UL removed)
+    Assert.AreEqual(true, IntervalSet.containsAddr 3UL removed)
+    Assert.AreEqual(true, IntervalSet.containsAddr 4UL removed)
+    Assert.AreEqual(true, IntervalSet.contains (AddrRange(1UL, 2UL)) removed)
+    Assert.AreEqual(true, IntervalSet.contains (AddrRange(3UL, 4UL)) removed)
     Assert.AreEqual<int>(2, IntervalSet.fold (fun cnt _ -> cnt + 1) 0 removed)
 
   [<TestMethod>]
@@ -169,12 +169,12 @@ type IntervalTreeTests() =
     let set = IntervalSet.add range1 IntervalSet.empty
     let set = IntervalSet.add range2 set |> IntervalSet.add range3
     let removed = IntervalSet.remove (AddrRange(1UL, 2UL)) set
-    Assert.IsFalse(IntervalSet.containsAddr 1UL removed)
-    Assert.IsTrue(IntervalSet.containsAddr 2UL removed)
-    Assert.IsTrue(IntervalSet.containsAddr 3UL removed)
-    Assert.IsTrue(IntervalSet.containsAddr 4UL removed)
-    Assert.IsTrue(IntervalSet.contains (AddrRange(2UL, 3UL)) removed)
-    Assert.IsTrue(IntervalSet.contains (AddrRange(3UL, 4UL)) removed)
+    Assert.AreEqual(false, IntervalSet.containsAddr 1UL removed)
+    Assert.AreEqual(true, IntervalSet.containsAddr 2UL removed)
+    Assert.AreEqual(true, IntervalSet.containsAddr 3UL removed)
+    Assert.AreEqual(true, IntervalSet.containsAddr 4UL removed)
+    Assert.AreEqual(true, IntervalSet.contains (AddrRange(2UL, 3UL)) removed)
+    Assert.AreEqual(true, IntervalSet.contains (AddrRange(3UL, 4UL)) removed)
     Assert.AreEqual<int>(2, IntervalSet.fold (fun cnt _ -> cnt + 1) 0 removed)
 
   [<TestMethod>]

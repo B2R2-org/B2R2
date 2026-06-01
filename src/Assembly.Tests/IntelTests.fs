@@ -60,5 +60,4 @@ done:
         [| 0x8buy; 0x05uy; 0x0fuy; 0x00uy; 0x00uy; 0x00uy |]
         [| 0x43uy |]
         [| 0xc3uy |] ]
-    List.forall2 (=) result expectation
-    |> Assert.IsTrue
+    Assert.AreEqual(true, List.forall2 (=) result expectation)

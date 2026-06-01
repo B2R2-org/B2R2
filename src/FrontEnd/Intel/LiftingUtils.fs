@@ -204,9 +204,9 @@ let private numOfAddrSz (ins: Instruction) (bld: ILowUIRBuilder) n =
 let inline private sIdx ins bld (r, s: Scale) =
   match s with
   | Scale.X1 -> regVar bld r
-  | Scale.X2 -> regVar bld r << numOfAddrSz ins bld 1
-  | Scale.X4 -> regVar bld r << numOfAddrSz ins bld 2
-  | Scale.X8 -> regVar bld r << numOfAddrSz ins bld 3
+  | Scale.X2 -> regVar bld r << numOfAddrSz ins bld 1L
+  | Scale.X4 -> regVar bld r << numOfAddrSz ins bld 2L
+  | Scale.X8 -> regVar bld r << numOfAddrSz ins bld 3L
   | _ -> Terminator.impossible ()
 
 let private transMem bld useTmpVar ins insLen b index disp oprSize =

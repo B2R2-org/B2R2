@@ -213,7 +213,7 @@ module internal SearchBox = begin
     if s.Contains(input, StringComparison.OrdinalIgnoreCase) then
       appendResult results
       <| { Label = formatAddressLabel loc.Address
-           Target = FileRange(loc.Offset, loc.ItemLength) }
+           Target = FileRange(int64 loc.Offset, int64 loc.ItemLength) }
     else
       ()
 
@@ -235,14 +235,14 @@ module internal SearchBox = begin
         let idx = loc.Offset
         let result =
           { Label = formatHexLabel idx [| b |]
-            Target = FileRange(idx, 1L) }
+            Target = FileRange(int64 idx, 1L) }
         appendResult results result
       | SectionHeader(loc, secName, _, false) ->
         if secName.Contains(input, StringComparison.OrdinalIgnoreCase) then
           let idx = loc.Offset
           let result =
             { Label = formatSectionLabel idx secName
-              Target = FileRange(idx, 1L) }
+              Target = FileRange(int64 idx, 1L) }
           appendResult results result
         else
           ()
@@ -260,7 +260,7 @@ module internal SearchBox = begin
           let idx = loc.Offset
           let result =
             { Label = formatExternalLabel idx name
-              Target = FileRange(idx, 1L) }
+              Target = FileRange(int64 idx, 1L) }
           appendResult results result
         else
           ()

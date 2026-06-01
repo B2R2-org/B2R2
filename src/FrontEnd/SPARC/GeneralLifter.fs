@@ -2603,7 +2603,7 @@ let ldf ins insLen bld =
     let op0 = tmpVar bld oprSize
     let op1 = tmpVar bld oprSize
     bld <+ (op0 := (AST.loadBE oprSize addr))
-    bld <+ (op1 := (AST.loadBE oprSize (addr .+ numI64 8 64<rt>)))
+    bld <+ (op1 := (AST.loadBE oprSize (addr .+ numI64 8L 64<rt>)))
     setQFloatOp bld dst op0 op1
   | Opcode.LDFSR -> bld <+ ((AST.extract dst 32<rt> 0) :=
     (AST.loadBE 32<rt> addr))
@@ -2625,7 +2625,7 @@ let ldfa ins insLen bld =
     let op0 = tmpVar bld oprSize
     let op1 = tmpVar bld oprSize
     bld <+ (op0 := (AST.loadBE oprSize (addr .+ asi)))
-    bld <+ (op1 := (AST.loadBE oprSize ((addr .+ asi) .+ numI64 8 64<rt>)))
+    bld <+ (op1 := (AST.loadBE oprSize ((addr .+ asi) .+ numI64 8L 64<rt>)))
     setQFloatOp bld dst op0 op1
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
@@ -3513,7 +3513,7 @@ let st ins insLen bld =
     else
       let nxt = regVar bld (getNextReg bld src)
       bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
-      bld <+ ((AST.loadBE 32<rt> (addr .+ numI64 4 64<rt>)) :=
+      bld <+ ((AST.loadBE 32<rt> (addr .+ numI64 4L 64<rt>)) :=
         (AST.extract nxt 32<rt> 0))
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
@@ -3537,7 +3537,7 @@ let sta ins insLen bld =
     else
       let nxt = regVar bld (getNextReg bld src)
       bld <+ ((AST.loadBE 32<rt> (addr .+ asi)) := (AST.extract src 32<rt> 0))
-      bld <+ ((AST.loadBE 32<rt> ((addr .+ asi) .+ numI64 4 64<rt>)) :=
+      bld <+ ((AST.loadBE 32<rt> ((addr .+ asi) .+ numI64 4L 64<rt>)) :=
         (AST.extract nxt 32<rt> 0))
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
@@ -3558,7 +3558,7 @@ let stf ins insLen bld =
     let op1 = tmpVar bld oprSize
     getQFloatOp bld src op0 op1
     bld <+ ((AST.loadBE 64<rt> addr) := (AST.extract op0 64<rt> 0))
-    bld <+ ((AST.loadBE 64<rt> (addr .+ numI64 8 64<rt>)) :=
+    bld <+ ((AST.loadBE 64<rt> (addr .+ numI64 8L 64<rt>)) :=
       (AST.extract op1 64<rt> 0))
   | Opcode.STFSR ->
     bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
@@ -3585,7 +3585,7 @@ let stfa ins insLen bld =
     let op1 = tmpVar bld oprSize
     getQFloatOp bld src op0 op1
     bld <+ ((AST.loadBE 64<rt> (addr)) := (AST.extract op0 64<rt> 0))
-    bld <+ ((AST.loadBE 64<rt> ((addr) .+ numI64 8 64<rt>)) :=
+    bld <+ ((AST.loadBE 64<rt> ((addr) .+ numI64 8L 64<rt>)) :=
       (AST.extract op1 64<rt> 0))
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
