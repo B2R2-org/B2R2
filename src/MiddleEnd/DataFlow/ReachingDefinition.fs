@@ -38,7 +38,7 @@ type InsAndOuts =
     /// The set of variable points that are defined at the current vertex.
     Outs: Set<VarPoint> }
 
-/// Traditional reaching definition analysis.
+/// Computes reaching definitions for each vertex in a CFG.
 type ReachingDefinitionAnalysis() =
   let gens = Dictionary<VertexID, Set<VarPoint>>()
 

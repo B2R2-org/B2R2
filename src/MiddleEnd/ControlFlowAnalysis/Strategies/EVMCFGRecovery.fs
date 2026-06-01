@@ -33,8 +33,8 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
-open B2R2.MiddleEnd.DataFlow.SensitiveDFHelper
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.CFGRecoveryCommon
+open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.EVMCFGHelper
 
 [<AutoOpen>]
 module private EVMCFGRecovery =

@@ -26,9 +26,12 @@ namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
 
-/// A domain for untouched value analysis.
+/// Defines the untouched value domain and its operations for untouched value
+/// analysis.
 [<RequireQualifiedAccess>]
 module UntouchedValueDomain =
+
+  /// Represents a lattice element in the untouched value domain.
   type Lattice =
     /// Touched means the value is redefined.
     | Touched
@@ -36,6 +39,8 @@ module UntouchedValueDomain =
     | Untouched of UntouchedTag
     | Undef
 
+  /// Identifies the origin of an untouched value as a register or a memory
+  /// location.
   and UntouchedTag =
     | RegisterTag of VarKind
     | MemoryTag of Addr

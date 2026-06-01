@@ -31,7 +31,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow.Constants
 open B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
 
-/// Stack pointer propagation analysis on SSACFG.
+/// Performs stack pointer propagation analysis over an SSA CFG.
 type SSAStackPointerPropagation(hdl: BinHandle) =
   let rec evalExpr (state: State<_>) = function
     | Num bv -> StackPointerDomain.ConstSP bv

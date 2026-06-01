@@ -31,7 +31,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow.Constants
 open B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
 
-/// Sparse conditional constant propagation analysis on SSACFG.
+/// Performs sparse conditional constant propagation over an SSA CFG.
 type SSAConstantPropagation(hdl: BinHandle) =
   let evalLoad (state: State<_>) m rt addr =
     match addr with

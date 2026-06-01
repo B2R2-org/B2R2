@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.MiddleEnd.DataFlow.SensitiveDFHelper
+module internal B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.EVMCFGHelper
 
 open B2R2
 open B2R2.BinIR
@@ -224,7 +224,7 @@ let tryOverApproximateTerminator (state: State<_, _>) v =
         let tDst = tryJoinExprs tDst1 tDst2
         let fDst = tryJoinExprs fDst1 fDst2
         match cond, tDst, fDst with
-        (* Currently, we allow the condtion to be None, as we do not care if
+        (* Currently, we allow the condition to be None as we do not care if
            conditions can be joined or not. *)
         | _, None, _
         | _, _, None -> None

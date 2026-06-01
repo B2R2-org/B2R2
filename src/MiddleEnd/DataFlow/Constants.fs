@@ -22,7 +22,8 @@
   SOFTWARE.
 *)
 
+/// Provides constants used in data flow analyses.
 module B2R2.MiddleEnd.DataFlow.Constants
 
-/// Default stack pointer value we use in our analyses.
+/// Defines the default stack pointer value used in data flow analyses.
 let [<Literal>] InitialStackPointer = 0x80000000UL

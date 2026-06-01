@@ -177,7 +177,7 @@ module API =
   let private getEncodedDataflow fnAddr insAddr reg (brew: BinaryBrew<_, _>) =
     try
       let cfg = brew.Functions[fnAddr].CFG
-      let chain = DataFlowChain.init cfg true
+      let chain = DataFlowChain.compute cfg true
       let rid = brew.BinHandle.RegisterFactory.GetRegisterID(name = reg)
       let v = { ProgramPoint = ProgramPoint(insAddr, 0); VarKind = Regular rid }
       computeConnectedVars chain v

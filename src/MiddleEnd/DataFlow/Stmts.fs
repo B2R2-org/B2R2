@@ -29,8 +29,9 @@ open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// A Low-UIR statement and its corresponding program point.
+/// Represents a Low-UIR statement and its corresponding program point.
 type StmtInfo = Stmt * ProgramPoint
 
-/// A Low-UIR statement and its corresponding vertex in the Low-UIR CFG.
+/// Represents a Low-UIR statement and its corresponding vertex in the Low-UIR
+/// CFG.
 type StmtOfBBL = Stmt * IVertex<LowUIRBasicBlock>

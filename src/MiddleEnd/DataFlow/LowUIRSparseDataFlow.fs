@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-/// Provides types and functions for LowUIR-based sparse data-flow analysis.
+/// Implements sparse data-flow analysis over the LowUIR representation.
 module B2R2.MiddleEnd.DataFlow.LowUIRSparseDataFlow
 
 open System.Collections.Generic
@@ -34,8 +34,8 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 
-/// Translate the given stack pointer address to a local frame offset.
-let inline toFrameOffset stackAddr =
+/// Translates the given stack pointer address to a local frame offset.
+let inline internal toFrameOffset stackAddr =
   int (stackAddr - Constants.InitialStackPointer)
 
 /// Represents a state used in LowUIR-based sparse dataflow analysis.

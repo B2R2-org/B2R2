@@ -31,6 +31,8 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
 
+/// Performs sparse data-flow analysis to identify untouched values in a
+/// function.
 type UntouchedValueAnalysis(hdl: BinHandle, vs) =
   let isStackPointer rid =
     match hdl.RegisterFactory.StackPointer with
@@ -50,7 +52,7 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
   let evaluateVarPoint (state: UntouchedValueState) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
-    | true, defVp when ProgramPoint.IsFake(defVp.ProgramPoint) ->
+    | true, defVp when ProgramPoint.IsFake defVp.ProgramPoint ->
       getBaseCase varKind
     | true, defVp ->
       state.DomainSubState.GetAbsValue defVp

@@ -27,14 +27,14 @@ namespace B2R2.MiddleEnd.DataFlow
 open B2R2
 open B2R2.BinIR
 
-/// Variable at a specific program point.
+/// Represents a variable at a specific program point.
 type VarPoint =
   { /// Program point of the variable.
     ProgramPoint: ProgramPoint
     /// Kind of the variable.
     VarKind: VarKind }
 
-/// Variable kinds of our interest.
+/// Represents the kind of a variable.
 and VarKind =
   /// Regular variable that represents a register.
   | Regular of RegisterID
@@ -46,13 +46,16 @@ and VarKind =
   /// Stack local variable at a specific offset.
   | StackLocal of int
 
+/// Provides utility functions for VarKind.
 module VarKind =
+  /// Converts a LowUIR expression to a VarKind.
   let ofIRExpr (e: LowUIR.Expr) =
     match e with
     | LowUIR.Var(_, rid, _, _) -> Regular rid
     | LowUIR.TempVar(_, n, _) -> Temporary n
     | _ -> Terminator.impossible ()
 
+  /// Converts an SSA variable kind to a VarKind.
   let ofSSAVarKind (kind: SSA.VariableKind) =
     match kind with
     | SSA.RegVar(_, rid, _) -> Regular rid
@@ -60,6 +63,7 @@ module VarKind =
     | SSA.StackVar(_, offset) -> StackLocal offset
     | _ -> Terminator.impossible ()
 
+  /// Returns true if the given VarKind is a temporary variable.
   let isTemporary (kind: VarKind) =
     match kind with
     | Temporary _ -> true

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-/// Provides types and functions for worklist-based dataflow analysis.
+/// Implements worklist-based dataflow analysis.
 module B2R2.MiddleEnd.DataFlow.WorklistDataFlow
 
 open System.Collections.Generic
@@ -71,11 +71,11 @@ type State<'WorkUnit,
 /// analysis should be performed.
 type IScheme<'WorkUnit, 'AbsVal when 'WorkUnit: equality
                                  and 'AbsVal: equality> =
-  /// Get the next set of works to perform.
+  /// Gets the next set of works to perform.
   abstract GetNextWorks: 'WorkUnit -> IReadOnlyCollection<'WorkUnit>
 
-  /// The transfer function, which computes the next abstract value from the
-  /// current abstract value by executing the given 'WorkUnit.
+  /// Computes the next abstract value from the current abstract value by
+  /// executing the given 'WorkUnit.
   abstract Transfer: 'WorkUnit -> 'AbsVal
 
 /// Runs the worklist-based dataflow analysis on the given initial work list.

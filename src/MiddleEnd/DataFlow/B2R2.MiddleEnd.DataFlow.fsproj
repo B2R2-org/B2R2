@@ -24,7 +24,6 @@
     <Compile Include="StackPointerPropagation.fs" />
     <Compile Include="UntouchedValueAnalysis.fs" />
     <Compile Include="LowUIRSensitiveDataFlow.fs" />
-    <Compile Include="LowUIRSensitiveDataFlowHelper.fs" />
     <Compile Include="LowUIRSensitiveConstantPropagation.fs" />
     <Compile Include="SSAEdges.fs" />
     <Compile Include="SSASparseDataFlow.fs" />

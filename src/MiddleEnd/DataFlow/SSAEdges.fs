@@ -78,7 +78,7 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
       computeUses loc e
     | _ -> ()
 
-  /// Compute SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
+  /// Computes SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
   /// given ssa var, this function returns a set of SSA-edge destination.
   let compute (ssaCFG: IDiGraphAccessible<SSABasicBlock, _>) =
     ssaCFG.IterVertex(fun v ->
@@ -116,8 +116,8 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
 
   do compute ssaCFG
 
-  /// A mapping from an SSA var to a set of use locations.
+  /// Gets a mapping from an SSA var to a set of use locations.
   member _.Uses with get() = uses
 
-  /// A mapping from an SSA var to its def stmt.
+  /// Gets a mapping from an SSA var to its def stmt.
   member _.Defs with get() = defs

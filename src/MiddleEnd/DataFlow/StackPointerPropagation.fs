@@ -39,6 +39,7 @@ module internal StackPointerPropagation =
     | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
     | _ -> StackPointerDomain.NotConstSP
 
+/// Performs sparse stack pointer propagation over the LowUIR representation.
 type StackPointerPropagation(hdl: BinHandle, vs) =
   let initialStackPointerValue =
     hdl.RegisterFactory.StackPointer

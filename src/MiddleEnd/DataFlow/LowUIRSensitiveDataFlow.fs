@@ -566,6 +566,7 @@ type State<'L, 'ExeCtx when 'L: equality
   interface IAbsValProvider<SensitiveVarPoint<'ExeCtx>, 'L> with
     member _.GetAbsValue absLoc = domainGetAbsValue absLoc
 
+/// Represents a sub-state for the context-sensitive data-flow analysis.
 and SubState<'L, 'ExeCtx when 'L: equality
                           and 'ExeCtx: equality
                           and 'ExeCtx: comparison> =
@@ -592,7 +593,7 @@ and SubState<'L, 'ExeCtx when 'L: equality
   /// Get the abstract value at the given location.
   abstract SetAbsValue: vp: SensitiveVarPoint<'ExeCtx> * 'L -> unit
 
-/// The main interface for a sensitive data-flow analysis.
+/// Represents the main interface for a sensitive data-flow analysis.
 and IScheme<'L, 'ExeCtx when 'L: equality
                          and 'ExeCtx: equality
                          and 'ExeCtx: comparison> =

@@ -75,7 +75,7 @@ module internal ConstantPropagation =
     | CastKind.ZeroExt -> ConstantDomain.zeroExt rt c
     | _ -> ConstantDomain.NotAConst
 
-/// Represents a constant propagation analysis.
+/// Performs sparse constant propagation over the LowUIR representation.
 type ConstantPropagation(hdl, vs) =
   let evaluateVarPoint (state: ConstantPropagationState) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }

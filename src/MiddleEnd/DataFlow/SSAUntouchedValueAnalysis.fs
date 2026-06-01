@@ -32,6 +32,8 @@ open B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
 open type UntouchedValueDomain.UntouchedTag
 
+/// Performs sparse data-flow analysis over SSA to identify untouched values in
+/// a function.
 type SSAUntouchedValueAnalysis(hdl: BinHandle) =
   let initRegisters (state: State<_>) =
     hdl.RegisterFactory.GetGeneralRegVars()

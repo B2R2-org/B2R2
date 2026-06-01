@@ -30,13 +30,15 @@ open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Data-flow chain that contains both Use-Def and Def-Use chains.
+/// Represents a data-flow chain containing both Use-Def and Def-Use chains.
 type DataFlowChain =
   { /// Use-def chain.
     UseDefChain: Map<VarPoint, Set<VarPoint>>
     /// Def-use chain.
     DefUseChain: Map<VarPoint, Set<VarPoint>> }
 
+/// Builds Use-Def and Def-Use chains from reaching definition analysis.
+[<RequireQualifiedAccess>]
 module DataFlowChain =
   let private computeInBlockDefs pp u (outset: Set<VarPoint>) =
     outset
@@ -140,8 +142,10 @@ module DataFlowChain =
         | None -> Map.add vp newSet map
         | Some old -> Map.add vp (Set.union old newSet) map) Map.empty
 
-  [<CompiledName("Init")>]
-  let init cfg isDisasmLevel =
+  /// Computes Use-Def and Def-Use chains for the given CFG using reaching
+  /// definition analysis.
+  [<CompiledName("Compute")>]
+  let compute cfg isDisasmLevel =
     let rd = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _, _>
     let provider = rd.Compute cfg
     let udchain = initUDChain cfg provider |> filterDisasm isDisasmLevel

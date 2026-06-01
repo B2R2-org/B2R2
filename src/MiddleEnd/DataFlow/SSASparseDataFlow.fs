@@ -35,7 +35,7 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// SSA-variable-based data flow state.
+/// Represents an SSA-variable-based data flow state.
 type State<'Lattice when 'Lattice: equality>
   public(hdl: BinHandle,
          lattice: ILattice<'Lattice>,
@@ -43,13 +43,13 @@ type State<'Lattice when 'Lattice: equality>
 
   let mutable ssaEdges: SSAEdges | null = null
 
-  /// Register values per SSA variable.
+  /// Represents register values per SSA variable.
   let regValues = Dictionary<Variable, 'Lattice>()
 
-  /// Memory values for constant cells. Each SSA memory instance has its own
-  /// mapping because SSA expressions do not track data dependencies between
-  /// memory cells. That is, memory cells (even though their addresses are
-  /// constant) do not have an SSA edge to its dependent memory cells.
+  /// Represents memory values for constant cells. Each SSA memory instance has
+  /// its own mapping because SSA expressions do not track data dependencies
+  /// between memory cells. That is, memory cells (even though their addresses
+  /// are constant) do not have an SSA edge to its dependent memory cells.
   let memValues = Dictionary<SSAMemID, Map<Addr, 'Lattice>>()
 
   /// Executable edges from a vertex to another. If there is no element in this
@@ -62,8 +62,8 @@ type State<'Lattice when 'Lattice: equality>
   /// Worklist for blocks.
   let flowWorkList = Queue<VertexID * VertexID>()
 
-  /// Worklist for SSA stmt, this stack stores a list of def variables, and we
-  /// will use SSAEdges to find all related SSA statements.
+  /// Represents a worklist for SSA statements, this stack stores a list of def
+  /// variables, and we will use SSAEdges to find all related SSA statements.
   let ssaWorkList = UniqueQueue<Variable>()
 
   let markExecutable src dst =
@@ -91,20 +91,20 @@ type State<'Lattice when 'Lattice: equality>
 
   member _.ExecutedEdges with get() = executedEdges
 
-  /// Get register value.
+  /// Gets register value.
   member _.GetRegValue(var: Variable) =
     match regValues.TryGetValue var with
     | true, v -> v
     | false, _ -> lattice.Bottom
 
-  /// Set register value without adding it to the worklist.
+  /// Sets register value without adding it to the worklist.
   member _.SetRegValueWithoutAdding(var: Variable, value: 'Lattice) =
     regValues[var] <- value
 
-  /// Check if the register has been initialized.
+  /// Checks if the register has been initialized.
   member _.IsRegSet(var: Variable) = regValues.ContainsKey var
 
-  /// Set register value.
+  /// Sets register value.
   member _.SetRegValue(var: Variable, value: 'Lattice) =
     if not (regValues.ContainsKey var) then
       regValues[var] <- value
@@ -114,7 +114,7 @@ type State<'Lattice when 'Lattice: equality>
       regValues[var] <- lattice.Join(regValues[var], value)
       ssaWorkList.Enqueue var
 
-  /// Try to get memory value. Unaligned access will always return Bottom.
+  /// Tries to get memory value. Unaligned access will always return Bottom.
   member _.GetMemValue(var: Variable, rt: RegType, addr: Addr) =
     assert (isMemVar var)
     if isAligned rt addr then
@@ -124,7 +124,7 @@ type State<'Lattice when 'Lattice: equality>
       |> Option.defaultWith (fun () -> scheme.UpdateMemFromBinaryFile(rt, addr))
     else lattice.Bottom
 
-  /// Get the list of executed source vertices.
+  /// Gets the list of executed source vertices.
   member _.GetExecutedSources(ssaCFG, blk: IVertex<_>, srcIDs) =
     let preds = (ssaCFG: IDiGraph<_, _>).GetPreds blk |> Seq.toArray
     srcIDs
@@ -157,7 +157,7 @@ type State<'Lattice when 'Lattice: equality>
         | true, map -> Map.find addr map
         | false, _ -> lattice.Bottom
 
-/// The core interface for SSA-based data flow analysis.
+/// Represents the core interface for SSA-based data flow analysis.
 and IScheme<'Lattice when 'Lattice: equality> =
   /// The transfer function, which computes the next abstract value from the
   /// current abstract value by executing the given 'WorkUnit.
@@ -174,7 +174,7 @@ and IScheme<'Lattice when 'Lattice: equality> =
   /// Evaluate the given expression based on the current abstract state.
   abstract EvalExpr: Expr -> 'Lattice
 
-/// SSA variable point.
+/// Represents an SSA variable point.
 and SSAVarPoint =
   /// Everything except memory variable, i.e., register, temporary, stack var,
   /// etc.
@@ -223,13 +223,3 @@ let compute cfg (state: State<_>) =
     processFlow state cfg
     processSSA state cfg
   state
-
-//interface IDataFlowComputable<SSAVarPoint,
-//                            'Lattice,
-//                            SSAVarBasedDataFlowState<'Lattice>,
-//                            SSABasicBlock> with
-//  member _.InitializeState _vs =
-//    SSAVarBasedDataFlowState<'Lattice> (hdl, analysis)
-//    |> analysis.OnInitialize
-
-//  member _.Compute cfg (state: SSAVarBasedDataFlowState<'Lattice>) =

@@ -24,9 +24,12 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
-/// A domain for tracking variable definitions.
+/// Defines the variable definition domain and its operations for variable
+/// definition analysis.
 [<RequireQualifiedAccess>]
 module VarDefDomain =
+
+  /// Represents a lattice element in the variable definition domain.
   type Lattice = Map<VarKind, Set<VarPoint>>
 
   let empty = Map.empty

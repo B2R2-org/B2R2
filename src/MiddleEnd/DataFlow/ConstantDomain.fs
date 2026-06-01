@@ -26,15 +26,18 @@ namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
 
-/// A domain for constant propagation analysis.
+/// Defines the constant domain and its operations for constant propagation
+/// analysis.
 [<RequireQualifiedAccess>]
 module ConstantDomain =
+
+  /// Represents a lattice element in the constant propagation domain.
   type Lattice =
     | NotAConst
     | Const of BitVector
     | Undef
 
-  /// Check if the transition from the old domain to the new domain is
+  /// Checks if the transition from the old domain to the new domain is
   /// non-monotonic or the same.
   let subsume oldDomain newDomain =
     match oldDomain, newDomain with

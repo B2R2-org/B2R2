@@ -26,9 +26,12 @@ namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
 
-/// A domain for stack pointer propagation.
+/// Defines the stack pointer domain and its operations for stack pointer
+/// propagation analysis.
 [<RequireQualifiedAccess>]
 module StackPointerDomain =
+
+  /// Represents a lattice element in the stack pointer propagation domain.
   type Lattice =
     | NotConstSP
     | ConstSP of BitVector
