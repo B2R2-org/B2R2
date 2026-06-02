@@ -4995,7 +4995,7 @@ let vext (ins: Instruction) insLen bld =
     bld <+ (tSrc1B := src1B)
     bld <+ (tSrc2A := src2A)
     bld <+ (tSrc2B := src2B)
-    if 8L * imm < 64 then
+    if 8L * imm < 64L then
       bld <+ (dstA := (tSrc1B << leftAmt) .| (tSrc1A >> rightAmt))
       bld <+ (dstB := (tSrc2A << leftAmt) .| (tSrc1B >> rightAmt))
     else

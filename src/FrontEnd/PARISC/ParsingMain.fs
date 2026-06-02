@@ -188,14 +188,14 @@ let parseLoadStoreOffset bin wordSz =
   | 0b010010u -> Op.LDW, None, getMemSpaceOffRs1 bin (sr bin) offset wordSz
   | 0b010011u ->
     let cmplt =
-      if getImmAssemble16 bin < 0 then Some [| MB |] else Some [| MA |]
+      if getImmAssemble16 bin < 0L then Some [| MB |] else Some [| MA |]
     Op.LDW, cmplt, getMemSpaceOffRs1 bin (sr bin) offset wordSz
   | 0b011000u -> Op.STB, None, getRs1MemSpaceOff bin (sr bin) offset wordSz
   | 0b011001u -> Op.STH, None, getRs1MemSpaceOff bin (sr bin) offset wordSz
   | 0b011010u -> Op.STW, None, getRs1MemSpaceOff bin (sr bin) offset wordSz
   | 0b011011u ->
     let cmplt =
-      if getImmAssemble16 bin < 0 then Some [| MB |] else Some [| MA |]
+      if getImmAssemble16 bin < 0L then Some [| MB |] else Some [| MA |]
     Op.STW, cmplt, getRs1MemSpaceOff bin (sr bin) offset wordSz
   | _ -> raise ParsingFailureException
 
@@ -275,14 +275,14 @@ let parseIndexShortLoadStoreInstruction bin wordSz =
 
 let parseLoadStoreWordInstruction bin wordSz =
   let bit1to2 = Bits.extract bin 2u 1u
-  let imm = getImmAssemble16 bin &&& -4
+  let imm = getImmAssemble16 bin &&& -4L
   if bit1to2 <> 0b010u then
     match Bits.extract bin 31u 26u with
     | 0b010111u -> Op.FLDW, None, getMemSpaceOffFrs1 bin (sr bin) imm wordSz
     | 0b011111u -> Op.FSTW, None, getFrs1MemSpaceOff bin (sr bin) imm wordSz
     | _ -> raise ParsingFailureException
   else
-    let cmplt = Some [| if int64 imm >= 0 then MB else MA |]
+    let cmplt = Some [| if int64 imm >= 0L then MB else MA |]
     match Bits.extract bin 31u 26u with
     | 0b010111u -> Op.LDW, cmplt, getMemSpaceOffRs1 bin (sr bin) imm wordSz
     | 0b011111u -> Op.STW, cmplt, getRs1MemSpaceOff bin (sr bin) imm wordSz
@@ -292,7 +292,7 @@ let parseLoadStoreDoublewordInstruction bin wordSz =
   let bit30 = Bits.pick bin 1u
   let a = Bits.pick bin 2u
   let m = Bits.pick bin 3u
-  let imm = getImmAssemble16 bin &&& -8
+  let imm = getImmAssemble16 bin &&& -8L
   let cmplt = getShortLoadStoreCmplt a m (uint32 imm)
   if bit30 <> 0u then
     match Bits.extract bin 31u 26u with
@@ -663,7 +663,7 @@ let parseFloatingPointFusedOperationInstruction bin =
 
 let parseFloatingPointLoadStoreInstruction bin wordSz =
   let cmplt = Some [| if Bits.pick bin 2u = 0u then MA else MB |]
-  let imm = getImmAssemble16 bin &&& -4
+  let imm = getImmAssemble16 bin &&& -4L
   if Bits.extract bin 31u 26u = 0b010110u then
     Op.FLDW, cmplt, getMemSpaceOffFrs1 bin (sr bin) imm wordSz
   else Op.FSTW, cmplt, getFrs1MemSpaceOff bin (sr bin) imm wordSz

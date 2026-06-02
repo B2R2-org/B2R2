@@ -984,11 +984,12 @@ let pextrb (ins: Instruction) insLen bld =
   let count = getImmValue count
   let dExpr = transOprToExpr bld false ins insLen dst
   let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
-  let count = (count &&& 0b1111 (* COUNT[3:0] *)) * 8L
+  let count = (count &&& 0b1111L (* COUNT[3:0] *)) * 8L
   let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
   let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
   let result =
-    if count < 64 then ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFu 64<rt>
+    if count < 64L then
+      ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFu 64<rt>
     else (srcB >> rAmt) .& numU32 0xFFu 64<rt>
     |> AST.xtlo 8<rt>
   match dst with
@@ -1006,11 +1007,11 @@ let pextrd (ins: Instruction) insLen bld =
   match src with
   | OprReg reg ->
     let struct (srcB, srcA) = pseudoRegVar128 bld reg
-    let count = (count &&& 0b11 (* COUNT[1:0] *)) * 32L
+    let count = (count &&& 0b11L (* COUNT[1:0] *)) * 32L
     let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
     let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
     let result =
-      if count < 64 then
+      if count < 64L then
         ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFFFFFFFu 64<rt>
       else (srcB >> rAmt) .& numU32 0xFFFFFFFFu 64<rt>
     bld <+ (dstAssign oprSize dst (AST.xtlo oprSize result))
@@ -1026,11 +1027,11 @@ let pextrq (ins: Instruction) insLen bld =
   match src with
   | OprReg reg ->
     let struct (srcB, srcA) = pseudoRegVar128 bld reg
-    let count = (count &&& 0b1 (* COUNT[0] *)) * 64L
+    let count = (count &&& 0b1L (* COUNT[0] *)) * 64L
     let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
     let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
     let result =
-      if count < 64 then
+      if count < 64L then
         ((srcB << lAmt) .| (srcA >> rAmt))
       else (srcB >> rAmt)
     bld <+ (dstAssign oprSize dst (AST.xtlo oprSize result))
@@ -1068,12 +1069,12 @@ let pinsrw (ins: Instruction) insLen bld =
   | OprReg reg ->
     match Register.getKind reg with
     | Register.Kind.MMX ->
-      let index = getImmValue imm8 &&& 0b11 |> int
+      let index = getImmValue imm8 &&& 0b11L |> int
       let dst = transOprToArr bld false ins insLen packSz pNum 64<rt> dst
       bld <+ (dst[index] := src)
       fillOnesToMMXHigh16 bld ins
     | Register.Kind.XMM ->
-      let index = getImmValue imm8 &&& 0b111 |> int
+      let index = getImmValue imm8 &&& 0b111L |> int
       let dst = transOprToArr bld false ins insLen packSz pNum 128<rt> dst
       bld <+ (dst[index] := src)
     | _ -> raise InvalidOperandException
@@ -1302,7 +1303,7 @@ let pshufd (ins: Instruction) insLen bld =
     let leftAmt = numI64 (64L - (amount % 64L)) 64<rt>
     if amount < 64L then
       AST.xtlo 32<rt> ((hiExpr << leftAmt) .| (lowExpr >> rightAmt))
-    elif amount < 128 then AST.xtlo 32<rt> (hiExpr >> rightAmt)
+    elif amount < 128L then AST.xtlo 32<rt> (hiExpr >> rightAmt)
     else AST.num0 32<rt>
   let amount idx = ((ord >>> (idx * 2)) &&& 0b11L) * 32L
   let struct (tSrcB, tSrcA) = tmpVars2 bld 64<rt>
@@ -1430,10 +1431,10 @@ let pslldq (ins: Instruction) insLen bld =
   let struct (tDstB, tDstA) = tmpVars2 bld 64<rt>
   bld <+ (tDstA := dstA)
   bld <+ (tDstB := dstB)
-  if amount < 64 then
+  if amount < 64L then
     bld <+ (dstA := tDstA << leftAmt)
     bld <+ (dstB := (tDstB << leftAmt) .| (tDstA >> rightAmt))
-  elif amount < 128 then
+  elif amount < 128L then
     bld <+ (dstA := AST.num0 64<rt>)
     bld <+ (dstB := tDstA << leftAmt)
   else
@@ -1452,10 +1453,10 @@ let psrldq (ins: Instruction) insLen bld =
   let struct (tDstB, tDstA) = tmpVars2 bld 64<rt>
   bld <+ (tDstA := dstA)
   bld <+ (tDstB := dstB)
-  if amount < 64 then
+  if amount < 64L then
     bld <+ (dstA := (tDstB << leftAmt) .| (tDstA >> rightAmt))
     bld <+ (dstB := tDstB >> rightAmt)
-  elif amount < 128 then
+  elif amount < 128L then
     bld <+ (dstA := tDstB >> rightAmt)
     bld <+ (dstB := AST.num0 64<rt>)
   else
@@ -1556,8 +1557,8 @@ let palignr (ins: Instruction) insLen bld =
     let struct (tDst, tSrc) = tmpVars2 bld 64<rt>
     bld <+ (tDst := dst)
     bld <+ (tSrc := src)
-    if amount < 64 then bld <+ (dst := (tDst << leftAmt) .| (tSrc >> rightAmt))
-    elif amount < 128 then bld <+ (dst := tDst >> rightAmt)
+    if amount < 64L then bld <+ (dst := (tDst << leftAmt) .| (tSrc >> rightAmt))
+    elif amount < 128L then bld <+ (dst := tDst >> rightAmt)
     else bld <+ (dst := AST.num0 64<rt>)
     fillOnesToMMXHigh16 bld ins
   | 128<rt> ->
@@ -1568,16 +1569,16 @@ let palignr (ins: Instruction) insLen bld =
     bld <+ (tDstB := dstB)
     bld <+ (tSrcA := srcA)
     bld <+ (tSrcB := srcB)
-    if amount < 64 then
+    if amount < 64L then
       bld <+ (dstA := (tSrcB << leftAmt) .| (tSrcA >> rightAmt))
       bld <+ (dstB := (tDstA << leftAmt) .| (tSrcB >> rightAmt))
-    elif amount < 128 then
+    elif amount < 128L then
       bld <+ (dstA := (tDstA << leftAmt) .| (tSrcB >> rightAmt))
       bld <+ (dstB := (tDstB << leftAmt) .| (tDstA >> rightAmt))
-    elif amount < 192 then
+    elif amount < 192L then
       bld <+ (dstA := (tDstB << leftAmt) .| (tDstA >> rightAmt))
       bld <+ (dstB := tDstB >> rightAmt)
-    elif amount < 256 then
+    elif amount < 256L then
       bld <+ (dstA := tDstB >> rightAmt)
       bld <+ (dstB := AST.num0 64<rt>)
     else
@@ -1614,7 +1615,7 @@ let pinsrb (ins: Instruction) insLen bld =
   let t = tmpVar bld 64<rt>
   let expAmt = numI64 (amount % 64L) 64<rt>
   bld <+ (t := ((AST.zext 64<rt> (AST.xtlo 8<rt> src)) << expAmt) .& mask)
-  if amount < 64 then bld <+ (dstA := (dstA .& (AST.not mask)) .| t)
+  if amount < 64L then bld <+ (dstA := (dstA .& (AST.not mask)) .| t)
   else bld <+ (dstB := (dstB .& (AST.not mask)) .| t)
   bld --!> insLen
 

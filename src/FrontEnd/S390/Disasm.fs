@@ -1318,7 +1318,7 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
     | ImmS16 value ->
       builder.Accumulate(AsmWordKind.String, delim)
       let offset = 2L * int64 value
-      if offset < 0 then
+      if offset < 0L then
         builder.Accumulate(AsmWordKind.String, "-")
         builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 -offset)
       else
@@ -1329,7 +1329,7 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
     | ImmS32 value ->
       builder.Accumulate(AsmWordKind.String, delim)
       let offset = 2L * int64 value
-      if offset < 0 then
+      if offset < 0L then
         builder.Accumulate(AsmWordKind.String, "-")
         builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 -offset)
       else

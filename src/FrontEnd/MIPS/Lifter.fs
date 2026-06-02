@@ -977,7 +977,7 @@ let dclz ins insLen bld =
                  (AST.jmpDest lblEnd) (AST.jmpDest lblContinue))
   bld <+ (AST.lmark lblContinue)
   bld <+ (t := t .- AST.num1 wordSz)
-  bld <+ (AST.cjmp (t == numI64 -1 wordSz)
+  bld <+ (AST.cjmp (t == numI64 -1L wordSz)
                  (AST.jmpDest lblEnd) (AST.jmpDest lblLoop))
   bld <+ (AST.lmark lblEnd)
   bld <+ (rd := n63 .- t)
@@ -989,7 +989,7 @@ let ddiv ins insLen bld =
   let hi = regVar bld R.HI
   let lo = regVar bld R.LO
   bld <!-- (ins.Address, insLen)
-  bld <+ (rt := AST.ite (rt == numI64 0 bld.RegType)
+  bld <+ (rt := AST.ite (rt == numI64 0L bld.RegType)
                 (AST.undef bld.RegType "UNPREDICTABLE") rt)
   bld <+ (q := AST.sdiv rs rt)
   bld <+ (r := AST.smod rs rt)
@@ -1138,7 +1138,7 @@ let div (ins: Instruction) insLen bld =
     let rs, rt = getTwoOprs ins |> transTwoOprs ins bld
     let hi = regVar bld R.HI
     let lo = regVar bld R.LO
-    bld <+ (rt := AST.ite (rt == numI64 0 bld.RegType)
+    bld <+ (rt := AST.ite (rt == numI64 0L bld.RegType)
                   (AST.undef bld.RegType "UNPREDICTABLE") rt)
     if is32Bit bld then
       bld <+ (lo :=
@@ -1175,7 +1175,7 @@ let divu ins insLen bld =
   let hi = regVar bld R.HI
   let lo = regVar bld R.LO
   bld <!-- (ins.Address, insLen)
-  bld <+ (rt := AST.ite (rt == numI64 0 bld.RegType)
+  bld <+ (rt := AST.ite (rt == numI64 0L bld.RegType)
                 (AST.undef bld.RegType "UNPREDICTABLE") rt)
   if is32Bit bld then
     let struct (extendRs, extendRt) = tmpVars2 bld 64<rt>

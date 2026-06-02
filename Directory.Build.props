@@ -14,6 +14,9 @@
     <PackageTags>Binary;Disassembly;Assembly;CFG;Reversing;Binary Analysis;x86;AARCH64;ARM;MIPS;AVR;PPC;EVM;ELF;Mach-O;PE</PackageTags>
     <FsDocsLogoSource>https://b2r2.org/images/b2r2-240x240.png</FsDocsLogoSource>
     <FsDocsReleaseNotesLink>https://github.com/B2R2-org/B2R2/blob/main/CHANGELOG.md</FsDocsReleaseNotesLink>
+
+    <WarnOn>$(WarnOn);3389</WarnOn>
+
     <CustomPropTarget>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</CustomPropTarget>
   </PropertyGroup>
   <Import Project="$(CustomPropTarget)" Condition="Exists('$(CustomPropTarget)')" />

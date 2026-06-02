@@ -40,7 +40,7 @@ type LoopTests() =
                  (src: VertexID, dst: VertexID, expectedVS: HashSet<_>) =
     Assert.AreEqual<VertexID>(edge.First.ID, src) (* backedge src *)
     Assert.AreEqual<VertexID>(edge.Second.ID, dst) (* backedge dst *)
-    Assert.IsTrue(expectedVS.SetEquals vertices)
+    Assert.AreEqual(true, expectedVS.SetEquals vertices)
 
   static member GraphTypes = [| [| box Persistent |]; [| box Imperative |] |]
 

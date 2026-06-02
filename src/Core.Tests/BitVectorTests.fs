@@ -42,11 +42,14 @@ type BitVectorTests() =
   [<TestMethod>]
   member _.``Comparison``() =
     let tr = One 1<rt>
-    Assert.IsTrue(Lt(BitVector(5l, 16<rt>), BitVector(10l, 16<rt>)) = tr)
-    Assert.IsTrue(Gt(BitVector(21l, 128<rt>), BitVector(20l, 128<rt>)) = tr)
-    Assert.IsTrue(Ge(BitVector(5l, 32<rt>), BitVector(5l, 32<rt>)) = tr)
-    Assert.IsTrue(BitVector(1l, 32<rt>) <> BitVector(-1l, 32<rt>))
-    Assert.IsTrue(BitVector(1l, 64<rt>) <> BitVector(1l, 8<rt>))
+    let lt = Lt(BitVector(5l, 16<rt>), BitVector(10l, 16<rt>))
+    let gt = Gt(BitVector(21l, 128<rt>), BitVector(20l, 128<rt>))
+    let ge = Ge(BitVector(5l, 32<rt>), BitVector(5l, 32<rt>))
+    Assert.AreEqual<BitVector>(tr, lt)
+    Assert.AreEqual<BitVector>(tr, gt)
+    Assert.AreEqual<BitVector>(tr, ge)
+    Assert.AreNotEqual<BitVector>(BitVector(1l, 32<rt>), BitVector(-1l, 32<rt>))
+    Assert.AreNotEqual<BitVector>(BitVector(1l, 64<rt>), BitVector(1l, 8<rt>))
 
   [<TestMethod>]
   member _.``Basic Arithmetic 1``() =

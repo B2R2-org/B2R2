@@ -43,7 +43,8 @@ type WasmTests() =
     Assert.AreEqual(Some 0x15AUL, file.EntryPoint)
 
   [<TestMethod>]
-  member _.``[Wasm] IsStripped test``() = Assert.IsFalse(file.IsStripped)
+  member _.``[Wasm] IsStripped test``() =
+    Assert.AreEqual(false, file.IsStripped)
 
   [<TestMethod>]
   member _.``[Wasm] text section address test``() =

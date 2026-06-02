@@ -63,15 +63,16 @@ type PETests() =
   [<TestMethod>]
   member _.``[PE] X86 file type test``() =
     let flg = Characteristics.ExecutableImage
-    Assert.IsTrue(x86File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
+    Assert.AreEqual
+      (true, x86File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
 
   [<TestMethod>]
   member _.``[PE] X86 IsStripped test``() =
-    Assert.AreEqual<bool>(false, (x86File :> IBinFile).IsStripped)
+    Assert.AreEqual(false, (x86File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[PE] X86 IsNXEnabled test``() =
-    Assert.AreEqual<bool>(true, (x86File :> IBinFile).IsNXEnabled)
+    Assert.AreEqual(true, (x86File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[PE] X86 sections length test``() =
@@ -141,15 +142,16 @@ type PETests() =
   [<TestMethod>]
   member _.``[PE] X64 file type test``() =
     let flg = Characteristics.ExecutableImage
-    Assert.IsTrue(x64File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
+    Assert.AreEqual
+      (true, x64File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
 
   [<TestMethod>]
   member _.``[PE] X64 IsStripped test``() =
-    Assert.AreEqual<bool>(false, (x64File :> IBinFile).IsStripped)
+    Assert.AreEqual(false, (x64File :> IBinFile).IsStripped)
 
   [<TestMethod>]
   member _.``[PE] X64 IsNXEnabled test``() =
-    Assert.AreEqual<bool>(true, (x64File :> IBinFile).IsNXEnabled)
+    Assert.AreEqual(true, (x64File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
   member _.``[PE] X64 sections length test``() =

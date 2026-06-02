@@ -176,7 +176,7 @@ type BinReaderTests() =
         | :? LEB128DecodeException -> true
         | _ -> false
     let r = BinReader.Init()
-    toBool (fun () -> r.ReadUInt64LEB128(testcase, 0)) |> Assert.IsTrue
-    toBool (fun () -> r.ReadUInt32LEB128(testcase, 0)) |> Assert.IsTrue
-    toBool (fun () -> r.ReadInt64LEB128(testcase, 0)) |> Assert.IsTrue
-    toBool (fun () -> r.ReadInt32LEB128(testcase, 0)) |> Assert.IsTrue
+    Assert.AreEqual(true, toBool (fun () -> r.ReadUInt64LEB128(testcase, 0)))
+    Assert.AreEqual(true, toBool (fun () -> r.ReadUInt32LEB128(testcase, 0)))
+    Assert.AreEqual(true, toBool (fun () -> r.ReadInt64LEB128(testcase, 0)))
+    Assert.AreEqual(true, toBool (fun () -> r.ReadInt32LEB128(testcase, 0)))

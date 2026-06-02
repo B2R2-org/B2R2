@@ -49,11 +49,11 @@ type SCCTests() =
     let sccs = SCC.Tarjan.compute g
     Assert.AreEqual<int>(3, sccs.Count)
     let scc1 = HashSet [ n1 ]
-    sccs |> Seq.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
+    Assert.AreEqual(true, sccs |> Seq.exists (fun scc -> scc.SetEquals scc1))
     let scc2 = HashSet [ n8 ]
-    sccs |> Seq.exists (fun scc -> scc.SetEquals scc2) |> Assert.IsTrue
+    Assert.AreEqual(true, sccs |> Seq.exists (fun scc -> scc.SetEquals scc2))
     let scc3 = HashSet s
-    sccs |> Seq.exists (fun scc -> scc.SetEquals scc3) |> Assert.IsTrue
+    Assert.AreEqual(true, sccs |> Seq.exists (fun scc -> scc.SetEquals scc3))
 
   [<TestMethod>]
   [<DynamicData(nameof SCCTests.GraphTypes)>]
@@ -65,11 +65,11 @@ type SCCTests() =
     let sccs = SCC.Tarjan.compute g
     Assert.AreEqual<int>(3, sccs.Count)
     let scc1 = HashSet s1
-    sccs |> Seq.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
+    Assert.AreEqual(true, sccs |> Seq.exists (fun scc -> scc.SetEquals scc1))
     let scc2 = HashSet s2
-    sccs |> Seq.exists (fun scc -> scc.SetEquals scc2) |> Assert.IsTrue
+    Assert.AreEqual(true, sccs |> Seq.exists (fun scc -> scc.SetEquals scc2))
     let scc3 = HashSet s3
-    sccs |> Seq.exists (fun scc -> scc.SetEquals scc3) |> Assert.IsTrue
+    Assert.AreEqual(true, sccs |> Seq.exists (fun scc -> scc.SetEquals scc3))
 
   [<TestMethod>]
   [<DynamicData(nameof SCCTests.GraphTypes)>]
@@ -80,6 +80,6 @@ type SCCTests() =
     let sccs = SCC.Tarjan.compute g
     Assert.AreEqual<int>(2, sccs.Count)
     let scc1 = HashSet s1
-    sccs |> Seq.exists (fun scc -> scc.SetEquals scc1) |> Assert.IsTrue
+    Assert.AreEqual(true, sccs |> Seq.exists (fun scc -> scc.SetEquals scc1))
     let scc2 = HashSet s2
-    sccs |> Seq.exists (fun scc -> scc.SetEquals scc2) |> Assert.IsTrue
+    Assert.AreEqual(true, sccs |> Seq.exists (fun scc -> scc.SetEquals scc2))
