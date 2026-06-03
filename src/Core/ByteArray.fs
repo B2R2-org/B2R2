@@ -75,7 +75,8 @@ module ByteArray =
     if bytes.Length = 0 || bytes.Length <= offset then ""
     else extractCStringFromSpanAux (ReadOnlySpan bytes) (StringBuilder()) offset
 
-  /// Extracts a C-string (string that ends with a NULL char) from a byte array.
+  /// Extracts a C-string (string that ends with a NULL char) from a
+  /// ReadOnlySpan.
   [<CompiledName "ExtractCStringFromSpan">]
   let extractCStringFromSpan (span: ReadOnlySpan<byte>) offset =
     if span.Length = 0 || span.Length <= offset then ""

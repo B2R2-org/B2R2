@@ -24,7 +24,15 @@
 
 namespace B2R2
 
+/// <summary>
 /// Represents the Instruction Set Architecture (ISA).
+/// </summary>
+/// <param name="arch">CPU architecture. Must not be <see
+/// cref='F:B2R2.Architecture.UnknownISA'/>.</param>
+/// <param name="endian">Endianness.</param>
+/// <param name="wordSize">Word size in bits.</param>
+/// <param name="flags">Architecture-specific flags (e.g., CIL kind, Python
+/// version). Use 0 if not applicable.</param>
 type ISA(arch, endian, wordSize, flags) =
   do assert (arch <> Architecture.UnknownISA)
 
@@ -126,14 +134,18 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.CIL -> ISA(arch, Endian.Little, wordSize)
     | _ -> ISA(Architecture.UnknownISA, Endian.Little, wordSize)
 
+  /// Constructs an ISA object for the given CIL kind.
   new(cilKind: CILKind) =
     let flag = int cilKind
     ISA(Architecture.CIL, Endian.Little, WordSize.Bit64, flag)
 
+  /// Constructs an ISA object for the given Python version.
   new(pythonVer: PythonVersion) =
     let flag = int pythonVer
     ISA(Architecture.Python, Endian.Little, WordSize.Bit64, flag)
 
+  /// Constructs an ISA object from a canonical ISA name string such as "x86",
+  /// "x86-64", "aarch64", "mips32le", etc.
   new(isaName: string) =
     match isaName.ToLowerInvariant() with
     | "x86" | "i386" ->

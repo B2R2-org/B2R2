@@ -54,7 +54,7 @@ type ErrorCase =
   | NotExecutableAddress = 12
   /// Invalid function address is encountered during a CFG analysis.
   | InvalidFunctionAddress = 13
-  /// Encountered an instruction address at the middle of an exisitng
+  /// Encountered an instruction address at the middle of an existing
   /// instruction while parsing binaries.
   | IntrudingInstruction = 14
   /// Encountered fatal error while recovering CFG.
@@ -73,7 +73,7 @@ module ErrorCase =
     match errCase with
     | ErrorCase.ParsingFailure -> "Failed to parse."
     | ErrorCase.InvalidMemoryRead -> "Read invalid memory."
-    | ErrorCase.InvalidExprEvaluation -> "Attempted to evalute invalid expr."
+    | ErrorCase.InvalidExprEvaluation -> "Attempted to evaluate invalid expr."
     | ErrorCase.SymbolNotFound -> "Symbol not found."
     | ErrorCase.ItemNotFound -> "Item not found."
     | ErrorCase.InvalidFormat -> "Given invalid format."

@@ -39,7 +39,7 @@ exception InvalidAddrRangeException
 type AddrRange =
   class
     /// <summary>
-    /// Initialize an instance of AddrRange from a given interval.
+    /// Initializes an instance of AddrRange from a given interval.
     /// </summary>
     /// <param name="min">The start address.</param>
     /// <param name="max">The end address.</param>
@@ -49,7 +49,7 @@ type AddrRange =
     new : min: Addr * max: Addr -> AddrRange
 
     /// <summary>
-    /// Initialize an instance of AddrRange of size 1 has a single addr, i.e.,
+    /// Initializes an instance of AddrRange of size 1 has a single addr, i.e.,
     /// (addr - addr).
     /// </summary>
     /// <param name="addr">The start address.</param>
@@ -58,17 +58,17 @@ type AddrRange =
     /// </returns>
     new : addr: Addr -> AddrRange
 
-    /// Minimum value (lower bound) of the interval.
+    /// Gets the minimum value (lower bound) of the interval.
     val Min: Addr
 
-    /// Maximum value (upper bound) of the interval.
+    /// Gets the maximum value (upper bound) of the interval.
     val Max: Addr
 
-    /// The number of addresses in this range.
+    /// Gets the number of addresses in this range.
     member Count: uint64
 
     /// <summary>
-    /// Get the corresponding tuple (Addr, Addr) from the AddrRange.
+    /// Gets the corresponding tuple (Addr, Addr) from the AddrRange.
     /// </summary>
     /// <returns>
     /// A tuple of min (inclusive) and max (exclusive).
@@ -76,15 +76,16 @@ type AddrRange =
     member ToTuple: unit -> Addr * Addr
 
     /// <summary>
-    /// Slice the given AddrRange (target) based on my range, in such a way that
-    /// the resulting range is always included in my range.
+    /// Slices the given AddrRange (target) based on my range, in such a way
+    /// that the resulting range is always included in my range.
     /// </summary>
     /// <returns>
+    /// The sliced AddrRange.
     /// </returns>
     member Slice: target: AddrRange -> AddrRange
 
     /// <summary>
-    /// Check if the address range is including the given address.
+    /// Checks if the address range is including the given address.
     /// </summary>
     /// <returns>
     /// True if the address is included in the range. False otherwise.
@@ -92,7 +93,7 @@ type AddrRange =
     member inline IsIncluding: Addr -> bool
 
     /// <summary>
-    /// Get the min value (inclusive) of the AddrRange.
+    /// Gets the min value (inclusive) of the AddrRange.
     /// </summary>
     /// <returns>
     /// The min value.
@@ -100,7 +101,7 @@ type AddrRange =
     static member inline GetMin: AddrRange -> Addr
 
     /// <summary>
-    /// Get the max value (exclusive) of the AddrRange.
+    /// Gets the max value (exclusive) of the AddrRange.
     /// </summary>
     /// <returns>
     /// The max value.

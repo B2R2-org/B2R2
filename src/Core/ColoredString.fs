@@ -79,13 +79,13 @@ type ColoredString internal(inputSegs: IEnumerable<ColoredSegment>) =
       fn (ColoredSegment(NoColor, padding))
 
   /// Adds a padded string to the colored string. The string is padded with
-  /// spaces to the right if it is shorter than the given width.
+  /// spaces to the left if it is shorter than the given width.
   member this.PadLeft(width) =
     this.Pad(width, fun seg -> segments.AddFirst seg |> ignore)
     this
 
   /// Adds a padded string to the colored string. The string is padded with
-  /// spaces to the left if it is shorter than the given width.
+  /// spaces to the right if it is shorter than the given width.
   member this.PadRight(width) =
     this.Pad(width, fun seg -> segments.AddLast seg |> ignore)
     this

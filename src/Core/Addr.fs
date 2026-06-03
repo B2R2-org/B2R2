@@ -39,7 +39,7 @@ module Addr =
   let [<Literal>] private FunctionPrefix = "func_"
 
   /// <summary>
-  /// Convert an address (<see cref='T:B2R2.Addr'/>) of a given word size (<see
+  /// Converts an address (<see cref='T:B2R2.Addr'/>) of a given word size (<see
   /// cref='T:B2R2.WordSize'/>) to a string.
   /// </summary>
   [<CompiledName "ToString">]
@@ -48,7 +48,7 @@ module Addr =
     else addr.ToString "x16"
 
   /// <summary>
-  /// Convert an address (<see cref='T:B2R2.Addr'/>) to a function name, which
+  /// Converts an address (<see cref='T:B2R2.Addr'/>) to a function name, which
   /// starts with the <value>func_</value> prefix. This is used to provide
   /// consistent names for functions when symbols are not available.
   /// </summary>
@@ -56,7 +56,7 @@ module Addr =
   let toFuncName (addr: Addr) = FunctionPrefix + addr.ToString "x"
 
   /// <summary>
-  /// Convert a function name used in B2R2 to an address (<see
+  /// Converts a function name used in B2R2 to an address (<see
   /// cref='T:B2R2.Addr'/>). This function assumes that the given string follows
   /// our function naming convention.
   /// </summary>

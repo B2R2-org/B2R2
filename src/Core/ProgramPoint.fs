@@ -32,18 +32,21 @@ namespace B2R2
 /// </summary>
 type ProgramPoint private(addr, pos, callsite) =
 
+  /// Constructs a program point at the given address and IR statement index,
+  /// with no call site.
   new(addr, pos: int) = ProgramPoint(addr, pos, None)
 
+  /// Constructs an abstract program point at the given address and IR statement
+  /// index, associated with the given call site information.
   new(callsite, addr, pos: int) = ProgramPoint(addr, pos, Some callsite)
 
-  /// Address of the instruction.
+  /// Gets the address of the instruction.
   member _.Address with get(): Addr = addr
 
-  /// Index of the IR statement within the instruction.
+  /// Gets the index of the IR statement within the instruction.
   member _.Position with get(): int = pos
 
-  /// Address of the callsite if this program point refers to an abstract
-  /// vertex.
+  /// Gets the call site if this program point refers to an abstract vertex.
   member _.CallSite with get(): CallSite option = callsite
 
   /// Gets a fake program point to represent a fake vertex, which does not exist
@@ -54,6 +57,8 @@ type ProgramPoint private(addr, pos, callsite) =
   /// Checks if the given program point is a fake one.
   static member IsFake(p: ProgramPoint) = p.Address = 0UL && p.Position = -1
 
+  /// Returns the next program point by incrementing the position by one. If the
+  /// given program point is a fake one, it is returned as-is.
   static member Next(p: ProgramPoint) =
     if ProgramPoint.IsFake p then p else ProgramPoint(p.Address, p.Position + 1)
 
@@ -93,10 +98,11 @@ type ProgramPoint private(addr, pos, callsite) =
   interface System.IComparable<ProgramPoint> with
     member this.CompareTo(rhs) = this.CompareTo rhs
 
-/// Call site information of an abstract vertex in a control flow graph.
-/// Typically, there is a single concrete caller vertex that calls an abstract
-/// vertex. But in some cases, such as Continuation-Passing Style (CPS) patterns
-/// found in EVM binaries, an abstract vertex can have a chain of callers.
+/// Represents call site information of an abstract vertex in a control flow
+/// graph.  Typically, there is a single concrete caller vertex that calls an
+/// abstract vertex. But in some cases, such as Continuation-Passing Style (CPS)
+/// patterns found in EVM binaries, an abstract vertex can have a chain of
+/// callers.
 and CallSite =
   /// Call site address of a concrete vertex. This serves as an end point of a
   /// call site chain.

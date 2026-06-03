@@ -32,7 +32,7 @@ open B2R2
 /// numbers.
 type CallingConvention =
 
-  /// Obtain the list of volatile register IDs
+  /// Obtains the list of volatile register IDs
   static member VolatileRegisters(hdl: BinHandle) =
     match hdl.File.ISA with
     | X86 ->
@@ -71,7 +71,7 @@ type CallingConvention =
          MIPS.Register.toRegID MIPS.Register.R15 |]
     | _ -> Terminator.futureFeature ()
 
-  /// Obtain the register ID used for storing syscall return values.
+  /// Obtains the register ID used for storing syscall return values.
   static member ReturnRegister(hdl: BinHandle) =
     match hdl.File.ISA with
     | X86 -> Intel.Register.EAX |> Intel.Register.toRegID
@@ -81,7 +81,7 @@ type CallingConvention =
     | MIPS -> MIPS.Register.R2 |> MIPS.Register.toRegID
     | _ -> Terminator.futureFeature ()
 
-  /// Obtain the register ID used for storing a syscall number.
+  /// Obtains the register ID used for storing a syscall number.
   static member SyscallNumRegister(hdl: BinHandle) =
     match hdl.File.ISA with
     | X86 -> Intel.Register.EAX |> Intel.Register.toRegID
@@ -91,7 +91,7 @@ type CallingConvention =
     | MIPS -> MIPS.Register.R2 |> MIPS.Register.toRegID
     | _ -> Terminator.futureFeature ()
 
-  /// Obtain the register ID used for the nth syscall parameter.
+  /// Obtains the register ID used for the nth syscall parameter.
   static member SyscallArgRegister(hdl: BinHandle, os, num) =
     match os, hdl.File.ISA with
     | OS.Linux, X86 ->
@@ -141,7 +141,7 @@ type CallingConvention =
       | _ -> Terminator.impossible ()
     | _ -> Terminator.futureFeature ()
 
-  /// Obtain the register ID used for the nth function call parameter. Since
+  /// Obtains the register ID used for the nth function call parameter. Since
   /// actual calling convention may vary depending on the binaries, this
   /// function only returns a generally used register for the given architecture
   /// and the file format.
@@ -197,7 +197,7 @@ type CallingConvention =
       | _ -> Terminator.impossible ()
     | _ -> Terminator.futureFeature ()
 
-  /// Check if the given register is non-volatile register in the given binary.
+  /// Checks if the given register is non-volatile register in the given binary.
   /// Non-volatile registers are preserved by callee, i.e., callee-saved
   /// registers.
   static member IsNonVolatile(hdl: BinHandle, os, rid) =
