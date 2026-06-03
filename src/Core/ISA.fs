@@ -237,13 +237,77 @@ type ISA(arch, endian, wordSize, flags) =
   /// Architecture-specific flags. Not every architecture has this.
   member _.Flags with get(): int = flags
 
-  /// True if this ISA is Intel x86.
+  /// Returns true if this ISA is Intel x86.
   member _.IsX86 with get() =
     arch = Architecture.Intel && wordSize = WordSize.Bit32
 
-  /// True if this ISA is Intel x86-64.
+  /// Returns true if this ISA is Intel x86-64.
   member _.IsX64 with get() =
     arch = Architecture.Intel && wordSize = WordSize.Bit64
+
+  /// Returns true if this ISA is ARMv7 (any endianness).
+  member _.IsARMv7 with get() = arch = Architecture.ARMv7
+
+  /// Returns true if this ISA is 32-bit ARM (ARMv7 or AArch32).
+  member _.IsARM32 with get() =
+    arch = Architecture.ARMv7
+    || (arch = Architecture.ARMv8 && wordSize = WordSize.Bit32)
+
+  /// Returns true if this ISA is AArch64.
+  member _.IsAArch64 with get() =
+    arch = Architecture.ARMv8 && wordSize = WordSize.Bit64
+
+  /// Returns true if this ISA is MIPS (any word size or endianness).
+  member _.IsMIPS with get() = arch = Architecture.MIPS
+
+  /// Returns true if this ISA is 32-bit MIPS.
+  member _.IsMIPS32 with get() =
+    arch = Architecture.MIPS && wordSize = WordSize.Bit32
+
+  /// Returns true if this ISA is 64-bit MIPS.
+  member _.IsMIPS64 with get() =
+    arch = Architecture.MIPS && wordSize = WordSize.Bit64
+
+  /// Returns true if this ISA is PowerPC (any word size or endianness).
+  member _.IsPPC with get() = arch = Architecture.PPC
+
+  /// Returns true if this ISA is 32-bit PowerPC.
+  member _.IsPPC32 with get() =
+    arch = Architecture.PPC && wordSize = WordSize.Bit32
+
+  /// Returns true if this ISA is RISC-V 64-bit.
+  member _.IsRISCV64 with get() =
+    arch = Architecture.RISCV && wordSize = WordSize.Bit64
+
+  /// Returns true if this ISA is SPARC (any word size).
+  member _.IsSPARC with get() = arch = Architecture.SPARC
+
+  /// Returns true if this ISA is IBM System/390 (any word size).
+  member _.IsS390 with get() = arch = Architecture.S390
+
+  /// Returns true if this ISA is SH4.
+  member _.IsSH4 with get() = arch = Architecture.SH4
+
+  /// Returns true if this ISA is PA-RISC (any word size).
+  member _.IsPARISC with get() = arch = Architecture.PARISC
+
+  /// Returns true if this ISA is AVR.
+  member _.IsAVR with get() = arch = Architecture.AVR
+
+  /// Returns true if this ISA is TMS320C6000.
+  member _.IsTMS320C6000 with get() = arch = Architecture.TMS320C6000
+
+  /// Returns true if this ISA is Ethereum Virtual Machine (EVM).
+  member _.IsEVM with get() = arch = Architecture.EVM
+
+  /// Returns true if this ISA is WebAssembly (WASM).
+  member _.IsWASM with get() = arch = Architecture.WASM
+
+  /// Returns true if this ISA is Python bytecode.
+  member _.IsPython with get() = arch = Architecture.Python
+
+  /// Returns true if this ISA is Common Intermediate Language (CIL).
+  member _.IsCIL with get() = arch = Architecture.CIL
 
   override _.ToString() =
     match arch, endian, wordSize with
