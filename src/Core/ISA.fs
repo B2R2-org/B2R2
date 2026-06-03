@@ -152,7 +152,7 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(Architecture.Intel, WordSize.Bit32)
     | "x64" | "x86-64" | "amd64" ->
       ISA(Architecture.Intel, WordSize.Bit64)
-    | "armv7" | "armv7le" | "armel" | "armhf" ->
+    | "armv7" | "armv7le" | "armel" | "armhf" | "arm32" ->
       ISA Architecture.ARMv7
     | "armv7be" ->
       ISA(Architecture.ARMv7, Endian.Big)
@@ -160,11 +160,11 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(Architecture.ARMv8, WordSize.Bit32)
     | "armv8a32be" | "aarch32be" ->
       ISA(Architecture.ARMv8, Endian.Big, WordSize.Bit32)
-    | "armv8a64" | "aarch64" ->
+    | "armv8a64" | "aarch64" | "arm64" ->
       ISA Architecture.ARMv8
     | "armv8a64be" | "aarch64be" ->
       ISA(Architecture.ARMv8, Endian.Big)
-    | "mipsel" | "mips32" | "mips32le" ->
+    | "mipsel" | "mips32le" ->
       ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32)
     | "mips32" | "mips32be" ->
       ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
