@@ -146,7 +146,7 @@ module ByteArray =
   /// final byte positions are adjusted by the given offset.
   [<CompiledName "FindIdxs">]
   let findIdxs offset pattern buf =
-    bmSearch pattern buf |> List.map (fun x -> (uint64 x) + offset)
+    bmSearch pattern buf |> List.map (fun x -> uint64 x + offset)
 
   /// Finds a matching byte position. If there is no match, this function will
   /// return None.
@@ -163,8 +163,8 @@ module ByteArray =
   /// array.
   [<CompiledName "ToHexString">]
   let toHexString (bs: ByteArray) =
-    let span = ReadOnlySpan(bs).Slice(min 32 bs.Length)
+    let span = ReadOnlySpan(bs).Slice(0, min 32 bs.Length)
     let sb = StringBuilder()
-    for b in span do sb.Append($"{b:x2}") |> ignore
-    if bs.Length > 32 then sb.Append("...") |> ignore else ()
+    for b in span do sb.Append $"{b:x2}" |> ignore
+    if bs.Length > 32 then sb.Append "..." |> ignore else ()
     sb.ToString().TrimEnd()
