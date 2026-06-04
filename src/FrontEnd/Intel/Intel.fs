@@ -21609,7 +21609,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21620,7 +21620,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21631,7 +21631,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21642,7 +21642,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21655,7 +21655,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21666,7 +21666,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21677,7 +21677,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21688,7 +21688,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21703,7 +21703,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21714,7 +21714,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21725,7 +21725,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21736,7 +21736,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21749,7 +21749,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21760,7 +21760,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21771,7 +21771,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21782,7 +21782,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21795,7 +21795,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21806,7 +21806,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21817,7 +21817,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21828,7 +21828,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21841,7 +21841,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21852,7 +21852,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21863,7 +21863,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21874,7 +21874,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21891,7 +21891,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21902,7 +21902,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21913,7 +21913,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21924,7 +21924,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21937,7 +21937,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21948,7 +21948,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21959,7 +21959,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
         OpEn = OpEn.RVR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -23937,7 +23937,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; KM 16<rt> |]
+        Operands = [| OpMaskReg(RegBit); KM 16<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -23948,7 +23948,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; KM 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); KM 8<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -23959,7 +23959,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; KM 64<rt> |]
+        Operands = [| OpMaskReg(RegBit); KM 64<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -23970,7 +23970,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; KM 32<rt> |]
+        Operands = [| OpMaskReg(RegBit); KM 32<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -23983,7 +23983,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Mem 16<rt>; OpMaskReg |]
+        Operands = [| Mem 16<rt>; OpMaskReg(RegBit) |]
         OpEn = OpEn.MR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -23994,7 +23994,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Mem 8<rt>; OpMaskReg |]
+        Operands = [| Mem 8<rt>; OpMaskReg(RegBit) |]
         OpEn = OpEn.MR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24005,7 +24005,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Mem 64<rt>; OpMaskReg |]
+        Operands = [| Mem 64<rt>; OpMaskReg(RegBit) |]
         OpEn = OpEn.MR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24016,7 +24016,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Mem 32<rt>; OpMaskReg |]
+        Operands = [| Mem 32<rt>; OpMaskReg(RegBit) |]
         OpEn = OpEn.MR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24029,7 +24029,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(32<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(32<rt>, RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24040,7 +24040,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(32<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(32<rt>, RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24051,7 +24051,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(64<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(64<rt>, RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Invalid
@@ -24062,7 +24062,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(32<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(32<rt>, RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24075,7 +24075,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(32<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(32<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24086,7 +24086,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(32<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(32<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24097,7 +24097,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(64<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(64<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Invalid
@@ -24108,7 +24108,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(32<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(32<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24129,7 +24129,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24140,7 +24140,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24151,7 +24151,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24162,7 +24162,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24175,7 +24175,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24186,7 +24186,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24197,7 +24197,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -24208,7 +24208,7 @@ let (vexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RR
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -31142,7 +31142,7 @@ let (vexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit); Imm 8<rt> |]
         OpEn = OpEn.RRI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -31153,7 +31153,7 @@ let (vexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit); Imm 8<rt> |]
         OpEn = OpEn.RRI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -31166,7 +31166,7 @@ let (vexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit); Imm 8<rt> |]
         OpEn = OpEn.RRI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -31177,7 +31177,7 @@ let (vexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit); Imm 8<rt> |]
         OpEn = OpEn.RRI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -31190,7 +31190,7 @@ let (vexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit); Imm 8<rt> |]
         OpEn = OpEn.RRI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -31201,7 +31201,7 @@ let (vexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit); Imm 8<rt> |]
         OpEn = OpEn.RRI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -31214,7 +31214,7 @@ let (vexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit); Imm 8<rt> |]
         OpEn = OpEn.RRI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -31225,7 +31225,7 @@ let (vexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; OpMaskReg; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); OpMaskReg(RMBit); Imm 8<rt> |]
         OpEn = OpEn.RRI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -34593,7 +34593,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, VVVV); RM 128<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -34604,7 +34604,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, VVVV); RM 256<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -34615,7 +34615,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, VVVV); RM 512<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -34628,7 +34628,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, VVVV); RM 128<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -34639,7 +34639,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, VVVV); RM 256<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -34650,7 +34650,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, VVVV); RM 512<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -34663,7 +34663,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -34676,7 +34676,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -34689,7 +34689,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -35865,7 +35865,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, VVVV); RM 128<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -35876,7 +35876,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, VVVV); RM 256<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -35887,7 +35887,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, VVVV); RM 512<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -35900,7 +35900,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, VVVV); RM 128<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -35911,7 +35911,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, VVVV); RM 256<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -35922,7 +35922,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.WIG
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, VVVV); RM 512<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -35935,7 +35935,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -35948,7 +35948,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -35961,7 +35961,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -37038,7 +37038,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 64<rt>)
                       Imm 8<rt> |]
@@ -37052,7 +37052,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 64<rt>)
                       Imm 8<rt> |]
@@ -37066,7 +37066,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcstSae(512<rt>, 512<rt>, 64<rt>)
                       Imm 8<rt> |]
@@ -37080,7 +37080,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 32<rt>)
                       Imm 8<rt> |]
@@ -37094,7 +37094,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 32<rt>)
                       Imm 8<rt> |]
@@ -37108,7 +37108,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcstSae(512<rt>, 512<rt>, 32<rt>)
                       Imm 8<rt> |]
@@ -37122,7 +37122,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMSae(128<rt>, 64<rt>)
                       Imm 8<rt> |]
@@ -37136,7 +37136,7 @@ let (evexTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMSae(128<rt>, 32<rt>)
                       Imm 8<rt> |]
@@ -40591,7 +40591,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, VVVV); RM 128<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40602,7 +40602,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, VVVV); RM 256<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40613,7 +40613,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, VVVV); RM 512<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40624,7 +40624,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, VVVV); RM 128<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40635,7 +40635,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, VVVV); RM 256<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40646,7 +40646,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, VVVV); RM 512<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40657,7 +40657,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, VVVV); RM 128<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40668,7 +40668,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, VVVV); RM 256<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40679,7 +40679,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, VVVV); RM 512<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40690,7 +40690,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, VVVV); RM 128<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40701,7 +40701,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, VVVV); RM 256<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40712,7 +40712,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, VVVV); RM 512<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40725,7 +40725,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -40738,7 +40738,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -40751,7 +40751,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -40764,7 +40764,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -40777,7 +40777,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -40790,7 +40790,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -40803,7 +40803,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -40816,7 +40816,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -40829,7 +40829,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -40842,7 +40842,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -40855,7 +40855,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -40868,7 +40868,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -40922,7 +40922,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(128<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(128<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40933,7 +40933,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(256<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(256<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40944,7 +40944,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(512<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(512<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40955,7 +40955,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(128<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(128<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40966,7 +40966,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(256<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(256<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40977,7 +40977,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(512<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(512<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -40990,7 +40990,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -41003,7 +41003,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -41016,7 +41016,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -41029,7 +41029,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41040,7 +41040,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41051,7 +41051,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41062,7 +41062,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41073,7 +41073,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41084,7 +41084,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41130,7 +41130,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(128<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(128<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41141,7 +41141,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(256<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(256<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41152,7 +41152,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(512<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(512<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41780,7 +41780,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -41793,7 +41793,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -41806,7 +41806,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -41854,7 +41854,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(128<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(128<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41865,7 +41865,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(256<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(256<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41876,7 +41876,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(512<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(512<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41887,7 +41887,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(128<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(128<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41898,7 +41898,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(256<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(256<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -41909,7 +41909,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(512<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(512<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -42000,7 +42000,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -42011,7 +42011,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -42022,7 +42022,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -42033,7 +42033,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -42044,7 +42044,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -42055,7 +42055,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, RMBit) |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -42101,7 +42101,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(128<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(128<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -42112,7 +42112,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(256<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(256<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -42123,7 +42123,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(512<rt>, RegBit); OpMaskReg |]
+        Operands = [| Reg(512<rt>, RegBit); OpMaskReg(RMBit) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -44182,7 +44182,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -44195,7 +44195,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -44208,7 +44208,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 32<rt>) |]
         OpEn = OpEn.RVM
@@ -44221,7 +44221,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -44234,7 +44234,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -44247,7 +44247,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 64<rt>) |]
         OpEn = OpEn.RVM
@@ -45643,7 +45643,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(128<rt>, VVVV); RM 128<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -45654,7 +45654,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(256<rt>, VVVV); RM 256<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -45665,7 +45665,7 @@ let (evexThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt> |]
+        Operands = [| OpMaskReg(RegBit); Reg(512<rt>, VVVV); RM 512<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -49518,7 +49518,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 32<rt>)
                       Imm 8<rt> |]
@@ -49532,7 +49532,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 32<rt>)
                       Imm 8<rt> |]
@@ -49546,7 +49546,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 32<rt>)
                       Imm 8<rt> |]
@@ -49560,7 +49560,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 64<rt>)
                       Imm 8<rt> |]
@@ -49574,7 +49574,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 64<rt>)
                       Imm 8<rt> |]
@@ -49588,7 +49588,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 64<rt>)
                       Imm 8<rt> |]
@@ -49604,7 +49604,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 32<rt>)
                       Imm 8<rt> |]
@@ -49618,7 +49618,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 32<rt>)
                       Imm 8<rt> |]
@@ -49632,7 +49632,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 32<rt>)
                       Imm 8<rt> |]
@@ -49646,7 +49646,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 64<rt>)
                       Imm 8<rt> |]
@@ -49660,7 +49660,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 64<rt>)
                       Imm 8<rt> |]
@@ -49674,7 +49674,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcst(512<rt>, 512<rt>, 64<rt>)
                       Imm 8<rt> |]
@@ -50255,7 +50255,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(128<rt>, VVVV)
+                      RM 128<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50266,7 +50269,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(256<rt>, VVVV)
+                      RM 256<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50277,7 +50283,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(512<rt>, VVVV)
+                      RM 512<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50288,7 +50297,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(128<rt>, VVVV)
+                      RM 128<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50299,7 +50311,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(256<rt>, VVVV)
+                      RM 256<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50310,7 +50325,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(512<rt>, VVVV)
+                      RM 512<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50323,7 +50341,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(128<rt>, VVVV)
+                      RM 128<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50334,7 +50355,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(256<rt>, VVVV)
+                      RM 256<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50345,7 +50369,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(512<rt>, VVVV)
+                      RM 512<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50356,7 +50383,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(128<rt>, VVVV); RM 128<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(128<rt>, VVVV)
+                      RM 128<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50367,7 +50397,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(256<rt>, VVVV); RM 256<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(256<rt>, VVVV)
+                      RM 256<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50378,7 +50411,10 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; Reg(512<rt>, VVVV); RM 512<rt>; Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      Reg(512<rt>, VVVV)
+                      RM 512<rt>
+                      Imm 8<rt> |]
         OpEn = OpEn.RVM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -50990,7 +51026,9 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMBcst(128<rt>, 128<rt>, 64<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      RMBcst(128<rt>, 128<rt>, 64<rt>)
+                      Imm 8<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51001,7 +51039,9 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMBcst(256<rt>, 256<rt>, 64<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      RMBcst(256<rt>, 256<rt>, 64<rt>)
+                      Imm 8<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51012,7 +51052,9 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMBcst(512<rt>, 512<rt>, 64<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      RMBcst(512<rt>, 512<rt>, 64<rt>)
+                      Imm 8<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51023,7 +51065,9 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMBcst(128<rt>, 128<rt>, 16<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      RMBcst(128<rt>, 128<rt>, 16<rt>)
+                      Imm 8<rt> |]
         OpEn = OpEn.RMI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51034,7 +51078,9 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMBcst(256<rt>, 256<rt>, 16<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      RMBcst(256<rt>, 256<rt>, 16<rt>)
+                      Imm 8<rt> |]
         OpEn = OpEn.RMI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51045,7 +51091,9 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMBcst(512<rt>, 512<rt>, 16<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      RMBcst(512<rt>, 512<rt>, 16<rt>)
+                      Imm 8<rt> |]
         OpEn = OpEn.RMI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51056,7 +51104,9 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMBcst(128<rt>, 128<rt>, 32<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      RMBcst(128<rt>, 128<rt>, 32<rt>)
+                      Imm 8<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51067,7 +51117,9 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMBcst(256<rt>, 256<rt>, 32<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      RMBcst(256<rt>, 256<rt>, 32<rt>)
+                      Imm 8<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51078,7 +51130,9 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMBcst(512<rt>, 512<rt>, 32<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit)
+                      RMBcst(512<rt>, 512<rt>, 32<rt>)
+                      Imm 8<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51091,7 +51145,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W1
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMdiff(128<rt>, 64<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); RMdiff(128<rt>, 64<rt>); Imm 8<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51102,7 +51156,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMdiff(128<rt>, 16<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); RMdiff(128<rt>, 16<rt>); Imm 8<rt> |]
         OpEn = OpEn.RMI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51113,7 +51167,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg; RMdiff(128<rt>, 32<rt>); Imm 8<rt> |]
+        Operands = [| OpMaskReg(RegBit); RMdiff(128<rt>, 32<rt>); Imm 8<rt> |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -51558,7 +51612,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMBcst(128<rt>, 128<rt>, 16<rt>)
                       Imm 8<rt> |]
@@ -51572,7 +51626,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V256
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(256<rt>, VVVV)
                       RMBcst(256<rt>, 256<rt>, 16<rt>)
                       Imm 8<rt> |]
@@ -51586,7 +51640,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V512
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(512<rt>, VVVV)
                       RMBcstSae(512<rt>, 512<rt>, 16<rt>)
                       Imm 8<rt> |]
@@ -51600,7 +51654,7 @@ let (evexThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.W0
         VectorLength = VectorLength.V128
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| OpMaskReg
+        Operands = [| OpMaskReg(RegBit)
                       Reg(128<rt>, VVVV)
                       RMSae(128<rt>, 16<rt>)
                       Imm 8<rt> |]

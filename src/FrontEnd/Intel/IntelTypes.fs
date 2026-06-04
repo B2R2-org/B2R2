@@ -65,7 +65,7 @@ type OperandType =
   /// Address-size-dependent register operand.
   | RegAddr
   /// Opmask register.
-  | OpMaskReg
+  | OpMaskReg of OprRegType
   /// Opmask register or memory.
   | KM of RegType
   /// Segment register.

@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -381,16 +381,24 @@ type IntelParser(wordSz, reader) =
     | [| None |] | [| Some _ |] -> false
     | _ -> true
 
+  let getVVVVBit vexInfo =
+    match vexInfo with
+    | Some v -> int v.VVVV
+    | None -> failwith "VEXInfo is required to get VVVV bits."
+
   /// Parses one operand descriptor into a concrete Operand value and updates
   /// the context so subsequent operands derive the correct width.
-  let parseOperand span (phlp: ParsingHelper) szs modRM
-    (ic: InstructionCore) o =
+  let parseOperand span (phlp: ParsingHelper) szs modRM (ic: InstructionCore) o
+    =
     // FIXME: need operand size determination logic
     match o with
     | RM sz ->
       setupOprContextWithEffAddr phlp sz sz
       OperandParsers.parseMemOrReg modRM span phlp
     | RMdiff(regSz, memSz) ->
+      setupOprContextWithEffAddr phlp regSz memSz
+      OperandParsers.parseMemOrReg modRM span phlp
+    | RMBcst(regSz, memSz, bcstSz) ->
       setupOprContextWithEffAddr phlp regSz memSz
       OperandParsers.parseMemOrReg modRM span phlp
     | Reg(sz, OprRegType.OpRd) -> (* Opcode[2:0] contains the operand. *)
@@ -452,6 +460,20 @@ type IntelParser(wordSz, reader) =
         setupOprContextWithEffAddr phlp sz sz
         OperandParsers.parseMemory modRM span phlp
     | BndReg -> OperandParsers.parseBoundRegister (Operands.getReg modRM)
+    | OpMaskReg oprRegType ->
+      let regBit =
+        match oprRegType with
+        | RegBit -> Operands.getReg modRM
+        | RMBit -> Operands.getRM modRM
+        | VVVV -> getVVVVBit phlp.VEXInfo
+        | _ -> failwith "Invalid OprRegType for OpMaskReg."
+      OperandParsers.parseOpMaskReg regBit
+    | KM sz ->
+      setupOprContextWithEffAddr phlp sz sz
+      if Operands.modIsReg modRM then
+        OperandParsers.parseOpMaskReg (Operands.getRM modRM)
+      else
+        OperandParsers.parseMemory modRM span phlp
     | MMXReg oprRegType ->
       let regBit =
         match oprRegType with
@@ -481,7 +503,8 @@ type IntelParser(wordSz, reader) =
       phlp.MemEffAddrSize <- effAddrSz
       phlp.MemEffRegSize <- regSz
       phlp.RegSize <- effOprSz
-      phlp.OperationSize <- oprSz (* Far ptr: OperationSize holds total ptr size *)
+      (* Far ptr: OperationSize holds total ptr size *)
+      phlp.OperationSize <- oprSz
       let addrSz = RegType.toByteWidth phlp.MemEffAddrSize
       let addrValue = OperandParsers.parseUnsignedImm span phlp addrSz
       let selector = phlp.ReadInt16 span
