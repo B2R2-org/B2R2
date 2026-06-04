@@ -24,12 +24,8 @@
 
 namespace B2R2
 
-/// Raised when two address ranges overlap in an ARMap, which does not allow
-/// overlapping intervals.
 exception RangeOverlapException
 
-/// Raised when creating/handling AddrRange that has wrong interval, i.e., Min
-/// value is larger than Max value.
 exception InvalidAddrRangeException
 
 type AddrRange =
@@ -53,7 +49,7 @@ type AddrRange =
   override this.Equals(rhs: obj) =
     match rhs with
     | :? AddrRange as r -> this.Min = r.Min && this.Max = r.Max
-    | _ -> raise InvalidAddrRangeException
+    | _ -> false
 
   override this.GetHashCode() = hash (this.Min, this.Max)
 
@@ -64,8 +60,5 @@ type AddrRange =
     let h = min this.Max target.Max
     AddrRange(l, h)
 
-  /// Check if the address range is including the given address.
   member inline this.IsIncluding(addr: Addr) =
     this.Min <= addr && addr <= this.Max
-
-// vim: set tw=80 sts=2 sw=2:
