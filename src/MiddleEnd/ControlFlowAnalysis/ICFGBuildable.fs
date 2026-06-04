@@ -55,6 +55,11 @@ type ICFGBuildable<'FnCtx,
   /// Return whether the function has a jump table or not.
   abstract HasJumpTable: bool
 
+  /// The current activation status of the function builder. The default value
+  /// is Activated, and it can be initially set to Deactivated when the builder
+  /// is created but not scheduled yet.
+  abstract Activation: CFGBuilderActivation with get, set
+
   /// Authorize the function builder to start building the function. This will
   /// change the state of the function builder to `InProgress`, meaning that the
   /// same function will not be scheduled again, and a single worker will soon
@@ -123,6 +128,14 @@ and CFGBuilderState =
   /// Finished building and everything has been valid.
   | Finished
 
+and CFGBuilderActivation =
+   /// The builder has been once scheduled (i.e., activated).
+   | Activated
+   /// The builder has not been scheduled and built; it is waiting to be
+   /// scheduled but may remain deactivated until then (e.g., when we are not
+   /// interested in building this function at all).
+   | Deactivated
+
 /// A strategy that defines how CFGActions are handled to build a function. This
 /// interface will be accessed in parallel by multiple threads, so every
 /// operation should be thread-safe. Note that CFGBuildingContext as well as
@@ -137,11 +150,8 @@ and ICFGBuildingStrategy<'FnCtx,
   /// Whether to allow basic block overlap or not while building a CFG.
   abstract AllowBBLOverlap: bool
 
-  /// This is a callback that is called when a recovery mission starts. It finds
-  /// a list of candidate functions to analyze based on the given list of
-  /// function builders.
-  abstract FindCandidates:
-    ICFGBuildable<'FnCtx, 'GlCtx>[] -> Addr[]
+  /// Return the recovery targets to build.
+  abstract RecoveryTargets: RecoveryTargets
 
   /// This is a callback that is called for every CFGAction generated for a
   /// function. Each action may discover a new basic block, add a new edge, etc.
@@ -180,3 +190,10 @@ and ICFGBuildingStrategy<'FnCtx,
   /// process is done.
   abstract FindCandidatesForPostProcessing:
     ICFGBuildable<'FnCtx, 'GlCtx>[] -> Addr[]
+
+/// Represents the recovery targets to build. This is used for filtering the
+/// candidates to build, and it is defined as part of the strategy because some
+/// strategies may want to build only a subset of the candidates.
+and RecoveryTargets =
+  | All
+  | Specific of Addr[]

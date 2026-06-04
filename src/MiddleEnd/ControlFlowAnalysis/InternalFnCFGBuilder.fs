@@ -50,6 +50,8 @@ type InternalFnCFGBuilder<'FnCtx,
 
   let mutable hasJumpTable = false
 
+  let mutable activation = Activated
+
   let managerChannel =
     { new IManagerAccessible<'FnCtx, 'GlCtx> with
         member _.StartBuilding(addr) = manager.Post <| StartBuilding addr
@@ -107,7 +109,12 @@ type InternalFnCFGBuilder<'FnCtx,
 
   do ctx.ManagerChannel <- managerChannel
 
-  new(hdl: BinHandle, exnInfo, instrs, entryPoint, manager, irBlkOptimizer) =
+  new(hdl: BinHandle,
+      exnInfo,
+      instrs,
+      entryPoint,
+      manager,
+      irBlkOptimizer) =
     let name =
       match hdl.File.TryFindName entryPoint with
       | Ok name -> name
@@ -157,6 +164,8 @@ type InternalFnCFGBuilder<'FnCtx,
     member _.DelayedBuilderRequests with get() = delayedBuilderRequests
 
     member _.HasJumpTable with get() = hasJumpTable
+
+    member _.Activation with get() = activation and set(v) = activation <- v
 
     member _.IsExternal with get() = false
 

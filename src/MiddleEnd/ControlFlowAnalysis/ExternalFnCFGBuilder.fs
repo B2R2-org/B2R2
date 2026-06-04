@@ -76,6 +76,10 @@ type ExternalFnCFGBuilder<'FnCtx,
 
     member _.HasJumpTable with get() = false
 
+    member _.Activation
+      with get() = Deactivated
+       and set(_) = Terminator.impossible ()
+
     member _.IsExternal with get() = true
 
     member _.Authorize() = ()

@@ -16,6 +16,7 @@
     <Compile Include="BBLFactory.fs" />
     <Compile Include="IResettable.fs" />
     <Compile Include="ILinkage.fs" />
+    <Compile Include="IFunctionIdentifiable.fs" />
     <Compile Include="IntraCallTable.fs" />
     <Compile Include="CFGEvaluator.fs" />
     <Compile Include="CFGBuildingContext.fs" />
@@ -34,7 +35,7 @@
     <Compile Include="TaskWorkerCommand.fs" />
     <Compile Include="TaskWorkerCommandStream.fs" />
     <Compile Include="TaskScheduler.fs" />
-    <Compile Include="RecoveryMission.fs" />
+    <Compile Include="TaskManager.fs" />
     <Compile Include="Strategies\DummyContext.fs" />
     <Compile Include="Strategies\ICFGAnalysis.fs" />
     <Compile Include="Strategies\IJmpTableAnalyzable.fs" />

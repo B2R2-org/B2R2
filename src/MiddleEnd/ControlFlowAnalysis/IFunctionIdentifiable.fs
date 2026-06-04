@@ -22,28 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
+namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-open System.Collections.Generic
-open B2R2.FrontEnd
-open B2R2.FrontEnd.BinFile
-open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2
 
-/// Represents the base strategy for identifying function entry points.
-type FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
-  /// This function returns an initial sequence of entry points obtained from
-  /// the binary itself (e.g., from its symbol information). Therefore, if the
-  /// binary is stripped, the returned sequence will be incomplete, and we need
-  /// to expand it during the main recovery phase.
-  let getInitialEntryPoints () =
-    let file = hdl.File
-    let addrs = HashSet(file.GetFunctionAddresses())
-    for addr in exnInfo.FunctionEntryPoints do addrs.Add addr |> ignore
-    file.EntryPoint
-    |> Option.iter (fun addr ->
-      if file.Format <> FileFormat.RawBinary && addr = 0UL then ()
-      else addrs.Add addr |> ignore)
-    addrs |> Seq.toArray
-
-  interface IFunctionIdentifiable with
-    member _.Identify() = getInitialEntryPoints ()
+/// Represents a function identification startegy. This is used to find
+/// candidate functions to analyze.
+type IFunctionIdentifiable =
+  /// Finds a list of candidate functions to analyze. It returns a list of
+  /// addresses of the candidate functions.
+  abstract Identify: unit -> Addr[]

@@ -311,12 +311,6 @@ module internal CFGRecoveryCommon =
       MoveOn
     else FailStop ErrorCase.FailedToRecoverCFG
 
-  let findCandidates (builders: ICFGBuildable<_, _>[]) =
-    builders
-    |> Array.choose (fun b ->
-      if not b.Context.IsExternal then Some <| b.EntryPoint
-      else None)
-
   /// Try to get a vertex (which is either cached or newly created).
   let tryGetVertex ctx cfgRec ppoint =
     match ctx.Vertices.TryGetValue ppoint with
@@ -400,7 +394,8 @@ module internal CFGRecoveryCommon =
           let target = n.ToUInt64()
           if useTailcallHeuristic then
             match ctx.ManagerChannel.GetBuildingContext target with
-            | FailedBuilding -> (* function does not exist *)
+            (* function does not exist *)
+            | FailedBuilding ->
               jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
             | _ ->
               let lastInsAddr = srcData.LastInstruction.Address

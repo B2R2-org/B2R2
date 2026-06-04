@@ -160,7 +160,8 @@ type CFGRecovery<'FnCtx,
          postAnalysis: ICFGAnalysis<_>,
          useTailcallHeuristic,
          allowBBLOverlap,
-         useSSA) as this =
+         useSSA,
+         recoveryTargets) as this =
 
   interface ICFGRecovery<'FnCtx, 'GlCtx> with
     member _.Summarizer with get() = summarizer
@@ -168,6 +169,8 @@ type CFGRecovery<'FnCtx,
     member _.ActionPrioritizer with get() = prioritizer
 
     member _.AllowBBLOverlap with get() = allowBBLOverlap
+
+    member _.RecoveryTargets with get() = recoveryTargets
 
     member _.AnalyzeIndirectJump(ctx, _ppQueue, pp, srcVertex) =
       let insAddr = srcVertex.VData.Internals.LastInstruction.Address
@@ -177,8 +180,6 @@ type CFGRecovery<'FnCtx,
       None
 
     member _.AnalyzeIndirectCondJump(_, _, _, _) = None
-
-    member _.FindCandidates(builders) = findCandidates builders
 
     member _.OnAction(ctx, queue, action) =
       onAction ctx this queue syscallAnalysis jmptblAnalysis
@@ -203,7 +204,13 @@ type CFGRecovery<'FnCtx,
 
     member _.FindCandidatesForPostProcessing _ = [||]
 
+  new(recoveryTargets) =
+    CFGRecovery(false, false, recoveryTargets)
+
   new(allowBBLOverlap, useSSA) =
+    CFGRecovery(allowBBLOverlap, useSSA, All)
+
+  new(allowBBLOverlap, useSSA, recoveryTargets) =
     let summarizer = FunctionSummarizer()
     let syscallAnalysis = SyscallAnalysis()
     let jmptblAnalysis, postAnalysis =
@@ -220,7 +227,8 @@ type CFGRecovery<'FnCtx,
                 postAnalysis,
                 true,
                 allowBBLOverlap,
-                useSSA)
+                useSSA,
+                recoveryTargets)
 
 /// Base strategy for building a CFG without any customizable context.
 type CFGRecovery =
@@ -230,6 +238,11 @@ type CFGRecovery =
 
   new(allowBBLOverlap) =
     { inherit CFGRecovery<DummyContext, DummyContext>(allowBBLOverlap, false) }
+
+  new(allowBBLOverlap, recoveryTargets) =
+    { inherit CFGRecovery<DummyContext, DummyContext>(allowBBLOverlap,
+                                                      false,
+                                                      recoveryTargets) }
 
   new(summarizer,
       jmptblAnalysis,
@@ -243,4 +256,21 @@ type CFGRecovery =
                                                       postAnalysis,
                                                       useTailcallHeuristic,
                                                       allowBBLOverlap,
-                                                      false) }
+                                                      false,
+                                                      All) }
+
+  new(summarizer,
+      jmptblAnalysis,
+      syscallAnalysis,
+      postAnalysis,
+      useTailcallHeuristic,
+      allowBBLOverlap,
+      recoveryTargets) =
+    { inherit CFGRecovery<DummyContext, DummyContext>(summarizer,
+                                                      jmptblAnalysis,
+                                                      syscallAnalysis,
+                                                      postAnalysis,
+                                                      useTailcallHeuristic,
+                                                      allowBBLOverlap,
+                                                      false,
+                                                      recoveryTargets) }

@@ -920,7 +920,7 @@ type EVMCFGRecovery(fnCallback) as this =
 
     member _.AllowBBLOverlap with get() = false
 
-    member _.FindCandidates _ = [| 0x0UL |]
+    member _.RecoveryTargets with get() = All
 
     member _.OnAction(ctx, queue, action) =
       onAction ctx this queue syscallAnalysis false action
