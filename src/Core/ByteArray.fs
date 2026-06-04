@@ -41,6 +41,7 @@ type ByteArray = byte[]
 /// Provides several useful functions to deal with byte arrays (i.e., <see
 /// cref='T:B2R2.ByteArray'/>).
 /// </summary>
+[<RequireQualifiedAccess>]
 module ByteArray =
 
   /// Converts a hex string to a byte array.
