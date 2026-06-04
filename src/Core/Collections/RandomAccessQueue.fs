@@ -26,15 +26,15 @@ namespace B2R2.Collections
 
 open B2R2.Collections.FingerTree
 
-/// An element for our random access queue.
+/// Represents an element for our random access queue.
 type private RandomAccessQueueElem<'T>(v) =
   member val Val: 'T = v
   override this.ToString() = this.Val.ToString()
   interface IMeasured<Size> with
     member _.Measurement = Size(1u)
 
-/// Represents an interval-tree-based map: an interval of type (Addr) -> a
-/// RandomAccessQueueElement ('a).
+/// Represents a random access queue: a sequence of elements that can be
+/// accessed by index.
 type RandomAccessQueue<'T> =
   private
     RandomAccessQueue of FingerTree<Size, RandomAccessQueueElem<'T>>
@@ -43,7 +43,7 @@ type RandomAccessQueue<'T> =
 [<RequireQualifiedAccess>]
 module RandomAccessQueue =
 
-  /// Empty interval tree.
+  /// Returns an empty random access queue.
   [<CompiledName ("Empty")>]
   let empty: RandomAccessQueue<_> = RandomAccessQueue Empty
 
@@ -56,8 +56,10 @@ module RandomAccessQueue =
   let length (RandomAccessQueue q) =
     ((q :> IMeasured<_>).Measurement).Value |> int
 
+  /// <summary>
   /// Splits the queue based on the given index into two (left and right). The
-  /// left queue will contain the entry at the given index.
+  /// left queue contains the first <c>i</c> elements.
+  /// </summary>
   [<CompiledName ("SplitAt")>]
   let splitAt i (RandomAccessQueue q) =
     let l, r = Op.Split((fun (elt: Size) -> i < elt.Value), q)
@@ -67,7 +69,7 @@ module RandomAccessQueue =
 
   /// Adds an item to the queue.
   [<CompiledName ("Enqueue")>]
-  let enqueue v (RandomAccessQueue q) = snoc q v |> RandomAccessQueue
+  let enqueue (RandomAccessQueue q) v = snoc q v |> RandomAccessQueue
 
   /// Removes an item from the queue.
   [<CompiledName ("Dequeue")>]

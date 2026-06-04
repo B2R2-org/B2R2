@@ -30,9 +30,9 @@ open B2R2
 /// redirecting outputs to /dev/null.
 type ConsoleNullPrinter() =
   interface IPrinter with
-    member _.TableConfig with get() = Terminator.impossible ()
+    member _.TableConfig with get() = TableConfig.DefaultTwoColumn()
 
-    member _.LogLevel with get() = Terminator.impossible ()
+    member _.LogLevel with get() = LogLevel.L2
 
     member _.Dispose() = ()
 

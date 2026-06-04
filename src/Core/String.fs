@@ -42,6 +42,6 @@ let wrapParen s = "(" + s + ")"
 [<CompiledName "WrapSqrdBracket">]
 let wrapSqrdBracket s = "[" + s + "]"
 
-/// Wraps a string with a pair of curly brackets.
-[<CompiledName "WrapCurlyBracket">]
+/// Wraps a string with a pair of angle brackets.
+[<CompiledName "WrapAngleBracket">]
 let wrapAngleBracket s = "<" + s + ">"

@@ -71,7 +71,7 @@ type AddrRange =
     /// Gets the corresponding tuple (Addr, Addr) from the AddrRange.
     /// </summary>
     /// <returns>
-    /// A tuple of min (inclusive) and max (exclusive).
+    /// A tuple of min (inclusive) and max (inclusive).
     /// </returns>
     member ToTuple: unit -> Addr * Addr
 
@@ -101,7 +101,7 @@ type AddrRange =
     static member inline GetMin: AddrRange -> Addr
 
     /// <summary>
-    /// Gets the max value (exclusive) of the AddrRange.
+    /// Gets the max value (inclusive) of the AddrRange.
     /// </summary>
     /// <returns>
     /// The max value.

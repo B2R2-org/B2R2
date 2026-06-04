@@ -46,7 +46,7 @@ type BytePattern = ByteValue[]
 /// which matches any byte, or OneByte, which matches a specific byte value.
 /// </summary>
 and ByteValue =
-  /// This matches any byte, i.e., it is like a Kleene star.
+  /// This matches exactly one byte of any value.
   | AnyByte
   /// This matches only one single byte value.
   | OneByte of byte

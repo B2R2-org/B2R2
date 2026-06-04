@@ -27,14 +27,14 @@ namespace B2R2
 /// <summary>
 /// Represents the Instruction Set Architecture (ISA).
 /// </summary>
-/// <param name="arch">CPU architecture. Must not be <see
-/// cref='F:B2R2.Architecture.UnknownISA'/>.</param>
+/// <param name="arch">CPU architecture. <see
+/// cref='F:B2R2.Architecture.UnknownISA'/> is used to represent an unsupported
+/// or unknown ISA.</param>
 /// <param name="endian">Endianness.</param>
 /// <param name="wordSize">Word size in bits.</param>
 /// <param name="flags">Architecture-specific flags (e.g., CIL kind, Python
 /// version). Use 0 if not applicable.</param>
 type ISA(arch, endian, wordSize, flags) =
-  do assert (arch <> Architecture.UnknownISA)
 
   /// Constructs an ISA object with the given architecture, endianness, and
   /// word size. The flags are set to 0.

@@ -29,7 +29,7 @@ exception EmptyTreeException
 exception InvalidDigitException
 exception InvalidNodeException
 
-/// Monoid with an identity, and an associative operation.
+/// Represents a monoid with an identity, and an associative operation.
 type IMonoid<'A> =
   abstract member Zero: 'A
   abstract member Assoc: 'A -> 'A
@@ -51,7 +51,7 @@ type Prio<'A when 'A: comparison> =
   | MInfty (* Minus infinity. *)
   | Prio of 'A
 
-/// A monoid that represents a priority.
+/// Represents a priority monoid.
 type Priority<'A when 'A: comparison>(p) =
   new() = Priority(MInfty)
   member inline _.Value: Prio<'A> = p
@@ -71,7 +71,7 @@ type Key<'A when 'A: comparison> =
   | NoKey
   | Key of 'A
 
-/// A monoid that represents ordering.
+/// Represents an ordered monoid.
 type Ordered<'A when 'A: comparison>(k) =
   new() = Ordered(NoKey)
   member inline _.Key: Key<'A> = k
@@ -86,7 +86,7 @@ type Ordered<'A when 'A: comparison>(k) =
       | NoKey -> Ordered(k)
       | b -> Ordered(b)
 
-/// A monoid that represents an interval (uint64 * uint64).
+/// Represents an interval monoid.
 type InterMonoid<'A when 'A: comparison>(o, p) =
   let v = o, p
   new() = InterMonoid<'A>(Ordered<'A>(), Priority<'A>())
@@ -101,7 +101,7 @@ type InterMonoid<'A when 'A: comparison>(o, p) =
       let a2, b2 = rhs.Value
       InterMonoid(a1 ++ a2, b1 ++ b2)
 
-/// A size monoid for random access.
+/// Represents a size monoid for random access.
 type Size(s) =
   new() = Size(0u)
   member _.Value = s
@@ -110,7 +110,7 @@ type Size(s) =
     member _.Zero = Size(0u)
     member _.Assoc(rhs: Size) = Size(s + rhs.Value)
 
-/// 2-3 tree node.
+/// Represents a 2-3 tree node.
 type Node<'V, 'A when 'V :> IMonoid<'V>> =
   | Node2 of 'V * 'A * 'A
   | Node3 of 'V * 'A * 'A * 'A

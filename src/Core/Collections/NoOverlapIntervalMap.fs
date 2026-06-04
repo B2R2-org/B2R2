@@ -209,7 +209,7 @@ module NoOverlapIntervalMap =
   [<CompiledName("Count")>]
   let count tree = sizeAux 0 tree
 
-  [<CompiledName("Iterate")>]
+  [<CompiledName("Iter")>]
   let rec iter fn tree =
     match tree with
     | Leaf _ -> ()

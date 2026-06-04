@@ -45,7 +45,7 @@ type Architecture =
   | RISCV = 5
   /// SPARC.
   | SPARC = 6
-  ///// IBM System/390.
+  /// IBM System/390.
   | S390 = 7
   /// SuperH (SH-4).
   | SH4 = 8
@@ -53,7 +53,7 @@ type Architecture =
   | PARISC = 9
   /// Atmel AVR 8-bit microcontroller.
   | AVR = 20
-  ///// TMS320C64x, TMS320C67x, etc.
+  /// TMS320C64x, TMS320C67x, etc.
   | TMS320C6000 = 21
   /// EVM.
   | EVM = 30
