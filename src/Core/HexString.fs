@@ -25,31 +25,37 @@
 namespace B2R2
 
 /// Provides helper functions to construct hexadecimal strings from integers.
-/// The hexadecimal string is prefixed with "0x" and is in lowercase. We use
-/// these functions to consistently format integer values in hexadecimal
-/// representation.
+/// Each string is prefixed with "0x", lowercase, and not zero-padded. Signed
+/// values are formatted as their two's complement bit pattern.
 [<RequireQualifiedAccess>]
 module HexString =
-  /// Convert an int16 value to a hex string.
+  /// <summary>
+  /// Converts an int16 value to a hex string (e.g., <c>0xffff</c> for -1).
+  /// </summary>
   [<CompiledName "OfInt16">]
-  let inline ofInt16 (v: int16) = $"0x{v:x}"
+  let inline ofInt16 (v: int16) = $"0x{uint16 v:x}"
 
-  /// Convert a uint16 value to a hex string.
+  /// Converts a uint16 value to a hex string.
   [<CompiledName "OfUInt16">]
   let inline ofUInt16 (v: uint16) = $"0x{v:x}"
 
-  /// Convert an int32 value to a hex string.
+  /// <summary>
+  /// Converts an int32 value to a hex string (e.g., <c>0xffffffff</c> for -1).
+  /// </summary>
   [<CompiledName "OfInt32">]
-  let inline ofInt32 (v: int) = $"0x{v:x}"
+  let inline ofInt32 (v: int) = $"0x{uint32 v:x}"
 
-  /// Convert a uint32 value to a hex string.
+  /// Converts a uint32 value to a hex string.
   [<CompiledName "OfUInt32">]
   let inline ofUInt32 (v: uint32) = $"0x{v:x}"
 
-  /// Convert an int64 value to a hex string.
+  /// <summary>
+  /// Converts an int64 value to a hex string (e.g.,
+  /// <c>0xffffffffffffffff</c> for -1).
+  /// </summary>
   [<CompiledName "OfInt64">]
-  let inline ofInt64 (v: int64) = $"0x{v:x}"
+  let inline ofInt64 (v: int64) = $"0x{uint64 v:x}"
 
-  /// Convert a uint64 value to a hex string.
+  /// Converts a uint64 value to a hex string.
   [<CompiledName "OfUInt64">]
   let inline ofUInt64 (v: uint64) = $"0x{v:x}"
