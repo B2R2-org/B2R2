@@ -39,7 +39,7 @@ open System.Diagnostics
 
 /// Terminates the program with a message indicating that the program is
 /// not implemented yet and will be implemented in the future.
-[<StackTraceHidden>]
+[<StackTraceHidden; CompiledName("FutureFeature")>]
 let futureFeature () =
   let trace = StackTrace(true)
   Console.Error.WriteLine "FATAL ERROR: NOT IMPLEMENTED FEATURE"
@@ -48,7 +48,7 @@ let futureFeature () =
 
 /// Terminates the program with a message indicating this should never happen.
 /// This is a bug and should be reported.
-[<StackTraceHidden>]
+[<StackTraceHidden; CompiledName("Impossible")>]
 let impossible () =
   let trace = StackTrace(true)
   Console.Error.WriteLine "FATAL ERROR: THIS IS INVALID AND SHOULD NEVER HAPPEN"
@@ -58,6 +58,7 @@ let impossible () =
 /// Exits the whole program including any child processes with a fatal error
 /// message. This function does not raise an exception, but directly exits the
 /// program.
+[<CompiledName("FatalExit")>]
 let fatalExit (msg: string) =
   Console.Error.WriteLine msg
   exit 1
