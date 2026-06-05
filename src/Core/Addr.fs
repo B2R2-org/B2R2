@@ -42,6 +42,12 @@ module Addr =
   /// Converts an address (<see cref='T:B2R2.Addr'/>) of a given word size (<see
   /// cref='T:B2R2.WordSize'/>) to a string.
   /// </summary>
+  /// <param name="wordSize">The word size of the target architecture.</param>
+  /// <param name="addr">The address to convert.</param>
+  /// <returns>
+  /// A zero-padded lowercase hex string without a "0x" prefix. 8 digits for
+  /// 32-bit word size, 16 digits for 64-bit.
+  /// </returns>
   [<CompiledName "ToString">]
   let toString wordSize (addr: Addr) =
     if wordSize = WordSize.Bit32 then (uint32 addr).ToString "x8"
@@ -49,11 +55,12 @@ module Addr =
 
   /// <summary>
   /// Converts an address (<see cref='T:B2R2.Addr'/>) to a function name, which
-  /// starts with the <value>func_</value> prefix. This is used to provide
-  /// consistent names for functions when symbols are not available.
+  /// starts with the <c>func_</c> prefix. This is used to provide consistent
+  /// names for functions when symbols are not available. The address part is
+  /// zero-padded to at least 8 hex digits, e.g., <c>func_00401000</c>.
   /// </summary>
   [<CompiledName "ToFuncName">]
-  let toFuncName (addr: Addr) = FunctionPrefix + addr.ToString "x"
+  let toFuncName (addr: Addr) = FunctionPrefix + addr.ToString "x8"
 
   /// <summary>
   /// Converts a function name used in B2R2 to an address (<see
