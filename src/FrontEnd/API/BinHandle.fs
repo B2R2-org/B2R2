@@ -53,7 +53,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
     | 4 -> reader.ReadInt32(span, 0) |> int64
     | 8 -> reader.ReadInt64(span, 0)
     | _ ->
-      invalidArg (nameof size) (ErrorCase.toString ErrorCase.InvalidMemoryRead)
+      invalidArg (nameof size) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
 
   let tryReadUIntBySize size (span: ByteSpan) =
     match size with
@@ -70,7 +70,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
     | 4 -> reader.ReadUInt32(span, 0) |> uint64
     | 8 -> reader.ReadUInt64(span, 0)
     | _ ->
-      invalidArg (nameof size) (ErrorCase.toString ErrorCase.InvalidMemoryRead)
+      invalidArg (nameof size) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
 
   let rec readAscii acc (ptr: BinFilePointer) =
     if ptr.IsValid && not ptr.IsVirtual then
@@ -110,7 +110,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
         let nextPtr = binFile.GetBoundedPointer(ptr.MaxAddr + 1UL)
         Array.append bs (readBytes nextPtr rest)
     else
-      invalidArg (nameof ptr) (ErrorCase.toString ErrorCase.InvalidMemoryRead)
+      invalidArg (nameof ptr) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
 
   new(path, isa, baseAddrOpt) =
     let bytes = File.ReadAllBytes path

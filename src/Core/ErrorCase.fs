@@ -67,9 +67,9 @@ type ErrorCase =
 /// </summary>
 [<RequireQualifiedAccess>]
 module ErrorCase =
-  /// Convert an error case type to a string.
-  [<CompiledName "ToString">]
-  let toString errCase =
+  /// Converts an error case type to a human-readable message.
+  [<CompiledName "ToMessage">]
+  let toMessage errCase =
     match errCase with
     | ErrorCase.ParsingFailure -> "Failed to parse."
     | ErrorCase.InvalidMemoryRead -> "Read invalid memory."

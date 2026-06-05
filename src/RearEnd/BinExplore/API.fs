@@ -159,7 +159,7 @@ module API =
     >>= fun brew ->
       let ptr = brew.BinHandle.File.GetBoundedPointer(addr)
       brew.BinHandle.TryReadBytes(ptr, size)
-      |> Result.mapError (fun e -> ErrorCase.toString e)
+      |> Result.mapError ErrorCase.toMessage
 
   let private computeConnectedVars chain v =
     match Map.tryFind v chain.UseDefChain with

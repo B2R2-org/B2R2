@@ -429,7 +429,7 @@ type TaskScheduler<'FnCtx,
     | FailStop e ->
 #if CFGDEBUG
       dbglog ManagerTid (nameof FailStop)
-      <| $"{entryPoint:x}: {ErrorCase.toString e}"
+      <| $"{entryPoint:x}: {ErrorCase.toMessage e}"
 #endif
       (* invalid builder will be auto-reloaded later *)
       if builder.BuilderState = Invalid then ()
