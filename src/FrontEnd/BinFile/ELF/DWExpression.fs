@@ -52,7 +52,7 @@ let regPlusNum isa registerFactory reg n =
   AST.binop BinOpType.ADD regexp (num isa n)
 
 let parseOpBReg isa registerFactory exprs (span: ByteSpan) idx reg =
-  let offset, cnt = LEB128.DecodeUInt64(span.Slice(idx))
+  let offset, cnt = LEB128.decodeUInt64 (span.Slice(idx))
   let exprs = regPlusNum isa registerFactory reg offset :: exprs
   struct (exprs, idx + cnt)
 
@@ -76,7 +76,7 @@ let parseBinop op exprs =
   AST.binop op snd fst :: exprs
 
 let parsePlusUconst isa exprs (span: ByteSpan) idx =
-  let n, cnt = LEB128.DecodeUInt64(span.Slice(idx))
+  let n, cnt = LEB128.decodeUInt64 (span.Slice(idx))
   let n = num isa n
   let struct (fst, exprs) = pop exprs
   let exprs = AST.binop BinOpType.ADD fst n :: exprs
@@ -210,7 +210,7 @@ let rec parse isa regs exprs (span: ByteSpan) i maxIdx =
       let sp = cfaRegister regs regs.StackPointer
       parse isa regs (sp :: exprs) span (i + 1) maxIdx
     | DWOperation.DW_OP_fbreg ->
-      let offset, cnt = LEB128.DecodeUInt64(span.Slice(i + 1))
+      let offset, cnt = LEB128.decodeUInt64 (span.Slice(i + 1))
       let fp = cfaRegister regs regs.FramePointer
       let exp = AST.binop BinOpType.ADD fp (num isa offset)
       parse isa regs (exp :: exprs) span (i + 1 + cnt) maxIdx

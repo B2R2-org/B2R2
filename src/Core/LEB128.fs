@@ -22,20 +22,26 @@
   SOFTWARE.
 *)
 
-namespace B2R2
+/// Provides functions for encoding/decoding LEB128 integers. LEB128 is a
+/// variable-length encoding scheme that is designed to compactly represent
+/// integers.
+[<RequireQualifiedAccess>]
+module B2R2.LEB128
 
 open System
 
-/// Raised when LEB128 decoding failed, e.g., when the given input bytes has
-/// incorrect encoding.
-exception LEB128DecodeException
+/// Raised when LEB128 decoding fails. This occurs when the continuation bit
+/// (MSB) is still set on the last permitted byte, meaning the encoded value
+/// exceeds the maximum byte length for the target type (5 bytes for 32-bit,
+/// 10 bytes for 64-bit).
+exception DecodeException
 
 [<AutoOpen>]
 module private LEB128Helper =
   let rec decodeLoop acc (bs: ReadOnlySpan<byte>) offset b len =
     let offset' = offset + 1
     let acc = b :: acc
-    if b &&& 0x80uy <> 0uy && offset = len - 1 then raise LEB128DecodeException
+    if b &&& 0x80uy <> 0uy && offset = len - 1 then raise DecodeException
     elif b &&& 0x80uy = 0uy then List.rev acc, offset'
     else decodeLoop acc bs offset' bs[offset'] len
 
@@ -58,53 +64,53 @@ module private LEB128Helper =
     else
       currentValue
 
-/// <summary>
-/// Provides functions for encoding/decoding LEB128 integers. LEB128 is a
-/// variable-length encoding scheme that is designed to compactly represent
-/// integers.
-/// </summary>
-type LEB128 =
-  static member Max32 = 5
-  static member Max64 = 10
+let [<Literal>] private Max32 = 5
+let [<Literal>] private Max64 = 10
 
-  /// Decode a LEB128-encoded integer into uint64. This function returns a tuple
-  /// of (the decoded uint64, and the count of how many bytes were read).
-  static member DecodeUInt64 span = decode span uint64 LEB128.Max64
+/// Decodes a LEB128-encoded unsigned integer into uint64. Returns a tuple of
+/// (the decoded value, the number of bytes consumed).
+[<CompiledName "DecodeUInt64">]
+let decodeUInt64 span = decode span uint64 Max64
 
-  /// Decode a LEB128-encoded integer into uint64. This function returns a tuple
-  /// of (the decoded uint64, and the count of how many bytes were read).
-  static member DecodeUInt64(bytes: byte[]) =
-    LEB128.DecodeUInt64(ReadOnlySpan<byte> bytes)
+/// Decodes a LEB128-encoded unsigned integer into uint64 from a byte array.
+/// Returns a tuple of (the decoded value, the number of bytes consumed).
+[<CompiledName "DecodeUInt64Bytes">]
+let decodeUInt64Bytes (bytes: byte[]) =
+  decodeUInt64 (ReadOnlySpan<byte> bytes)
 
-  /// Decode a LEB128-encoded integer into uint32. This function returns a tuple
-  /// of (the decoded uint32, and the count of how many bytes were read).
-  static member DecodeUInt32 span = decode span uint32 LEB128.Max32
+/// Decodes a LEB128-encoded unsigned integer into uint32. Returns a tuple of
+/// (the decoded value, the number of bytes consumed).
+[<CompiledName "DecodeUInt32">]
+let decodeUInt32 span = decode span uint32 Max32
 
-  /// Decode a LEB128-encoded integer into uint32. This function returns a tuple
-  /// of (the decoded uint32, and the count of how many bytes were read).
-  static member DecodeUInt32(bytes: byte[]) =
-    LEB128.DecodeUInt32(ReadOnlySpan<byte> bytes)
+/// Decodes a LEB128-encoded unsigned integer into uint32 from a byte array.
+/// Returns a tuple of (the decoded value, the number of bytes consumed).
+[<CompiledName "DecodeUInt32Bytes">]
+let decodeUInt32Bytes (bytes: byte[]) =
+  decodeUInt32 (ReadOnlySpan<byte> bytes)
 
-  /// Decode a LEB128-encoded integer into int64. This function returns a tuple
-  /// of (the decoded int64, and the count of how many bytes were read).
-  static member DecodeSInt64 span =
-    let v, len = decode span int64 LEB128.Max64
-    let offset = len - 1
-    extendSign span[offset] offset v 0xFFFFFFFFFFFFFFFFL LEB128.Max64, len
+/// Decodes a LEB128-encoded signed integer into int64. Returns a tuple of
+/// (the decoded value, the number of bytes consumed).
+[<CompiledName "DecodeSInt64">]
+let decodeSInt64 (span: ReadOnlySpan<byte>) =
+  let v, len = decode span int64 Max64
+  extendSign span[len - 1] (len - 1) v 0xFFFFFFFFFFFFFFFFL Max64, len
 
-  /// Decode a LEB128-encoded integer into int64. This function returns a tuple
-  /// of (the decoded int64, and the count of how many bytes were read).
-  static member DecodeSInt64(bytes: byte[]) =
-    LEB128.DecodeSInt64(ReadOnlySpan<byte> bytes)
+/// Decodes a LEB128-encoded signed integer into int64 from a byte array.
+/// Returns a tuple of (the decoded value, the number of bytes consumed).
+[<CompiledName "DecodeSInt64Bytes">]
+let decodeSInt64Bytes (bytes: byte[]) =
+  decodeSInt64 (ReadOnlySpan<byte> bytes)
 
-  /// Decode a LEB128-encoded integer into int32. This function returns a tuple
-  /// of (the decoded int32, and the count of how many bytes were read).
-  static member DecodeSInt32 span =
-    let v, len = decode span int32 LEB128.Max32
-    let offset = len - 1
-    extendSign span[offset] offset v 0xFFFFFFFF LEB128.Max32, len
+/// Decodes a LEB128-encoded signed integer into int32. Returns a tuple of
+/// (the decoded value, the number of bytes consumed).
+[<CompiledName "DecodeSInt32">]
+let decodeSInt32 (span: ReadOnlySpan<byte>) =
+  let v, len = decode span int32 Max32
+  extendSign span[len - 1] (len - 1) v 0xFFFFFFFF Max32, len
 
-  /// Decode a LEB128-encoded integer into int32. This function returns a tuple
-  /// of (the decoded int32, and the count of how many bytes were read).
-  static member DecodeSInt32(bytes: byte[]) =
-    LEB128.DecodeSInt32(ReadOnlySpan<byte> bytes)
+/// Decodes a LEB128-encoded signed integer into int32 from a byte array.
+/// Returns a tuple of (the decoded value, the number of bytes consumed).
+[<CompiledName "DecodeSInt32Bytes">]
+let decodeSInt32Bytes (bytes: byte[]) =
+  decodeSInt32 (ReadOnlySpan<byte> bytes)

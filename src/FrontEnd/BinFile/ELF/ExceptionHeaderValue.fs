@@ -62,10 +62,10 @@ module internal ExceptionHeaderValue =
       let cv = FileHelper.readUIntByWordSize span reader cls offset
       struct (cv, if cls = WordSize.Bit32 then offset + 4 else offset + 8)
     | ExceptionHeaderValue.DW_EH_PE_uleb128 ->
-      let v, cnt = LEB128.DecodeUInt64(span.Slice offset)
+      let v, cnt = LEB128.decodeUInt64 (span.Slice offset)
       struct (v, offset + cnt)
     | ExceptionHeaderValue.DW_EH_PE_sleb128 ->
-      let v, cnt = LEB128.DecodeSInt64(span.Slice offset)
+      let v, cnt = LEB128.decodeSInt64 (span.Slice offset)
       struct (uint64 v, offset + cnt)
     | ExceptionHeaderValue.DW_EH_PE_udata2 ->
       let cv = reader.ReadUInt16(span, offset)

@@ -59,13 +59,13 @@ let readCString (span: ByteSpan) offset =
 /// Reads LEB128 unsigned integer from the given byte span starting at the
 /// given offset.
 let readULEB128 (span: ByteSpan) offset =
-  let v, cnt = LEB128.DecodeUInt64(span.Slice offset)
+  let v, cnt = LEB128.decodeUInt64 (span.Slice offset)
   v, offset + cnt
 
 /// Reads LEB128 signed integer from the given byte span starting at the given
 /// offset.
 let readSLEB128 (span: ByteSpan) offset =
-  let v, cnt = LEB128.DecodeSInt64(span.Slice offset)
+  let v, cnt = LEB128.decodeSInt64 (span.Slice offset)
   v, offset + cnt
 
 let addInvalidRange set saddr eaddr =

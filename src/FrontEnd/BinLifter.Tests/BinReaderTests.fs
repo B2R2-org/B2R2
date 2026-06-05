@@ -173,7 +173,7 @@ type BinReaderTests() =
         decode () |> ignore
         false
       with
-        | :? LEB128DecodeException -> true
+        | :? LEB128.DecodeException -> true
         | _ -> false
     let r = BinReader.Init()
     Assert.AreEqual(true, toBool (fun () -> r.ReadUInt64LEB128(testcase, 0)))
