@@ -100,9 +100,10 @@ let parseCond = function
 /// The function SignExtend() in the manual.
 let signExtend bitSize extSize (imm: uint64) =
   assert (bitSize <= extSize)
-  if imm >>> (bitSize - 1) = 0b0UL then imm
+  if imm >>> (bitSize - 1) = 0b0UL then
+    imm
   else
-    BigInteger.getMask extSize - BigInteger.getMask bitSize ||| (bigint imm)
+    BigInteger.makeMask extSize - BigInteger.makeMask bitSize ||| (bigint imm)
     |> uint64
 
 let isUnconditional cond =

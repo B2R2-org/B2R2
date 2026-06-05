@@ -265,7 +265,7 @@ let setPSR bld reg psrType expr =
 let getCarryFlag bld = getPSR bld R.CPSR PSR.C >> (numI32 29 32<rt>)
 
 let getZeroMask maskSize regType =
-  BitVector(BigInteger.getMask maskSize, regType)
+  BitVector(BigInteger.makeMask maskSize, regType)
   |> BitVector.Not
   |> AST.num
 
@@ -645,7 +645,7 @@ let currentModeIsNotUser bld =
 /// Bitstring replication, on page AppxP-2652.
 /// function : Replicate()
 let replicate expr regType lsb width value =
-  let v = BitVector(BigInteger.getMask width <<< lsb, regType)
+  let v = BitVector(BigInteger.makeMask width <<< lsb, regType)
   if value = 0 then expr .& (v |> BitVector.Not |> AST.num)
   else expr .| (v |> AST.num)
 
@@ -2712,7 +2712,7 @@ let parseOprOfRdRnLsbWidth (ins: Instruction) insLen bld =
 let bfi ins insLen bld =
   let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins insLen bld
   let struct (t0, t1) = tmpVars2 bld 32<rt>
-  let n = rn .& (BitVector(BigInteger.getMask width, 32<rt>) |> AST.num)
+  let n = rn .& (BitVector(BigInteger.makeMask width, 32<rt>) |> AST.num)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
@@ -2729,7 +2729,7 @@ let bfx ins insLen bld signExtend =
   let lblIgnore = checkCondition ins bld isUnconditional
   if lsb + width - 1 > 31 || width < 0 then raise InvalidOperandException
   else ()
-  let v = BitVector(BigInteger.getMask width, 32<rt>) |> AST.num
+  let v = BitVector(BigInteger.makeMask width, 32<rt>) |> AST.num
   bld <+ (rd := (rn >> (numI32 lsb 32<rt>)) .& v)
   if signExtend && width > 1 then
     let struct (msb, mask) = tmpVars2 bld 32<rt>
@@ -3182,7 +3182,7 @@ let private elem vector e size =
 
 let elemForIR vector vSize index size =
   let index = AST.zext vSize index
-  let mask = AST.num <| BitVector(BigInteger.getMask size, vSize)
+  let mask = AST.num <| BitVector(BigInteger.makeMask size, vSize)
   let eSize = numI32 size vSize
   (vector >> (index .* eSize)) .& mask |> AST.xtlo (RegType.fromBitWidth size)
 

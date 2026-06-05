@@ -34,7 +34,7 @@ module internal ColoredSegment =
   let hexOfByte b = Color.FromByte b, b.ToString "X2"
 
   /// Returns a colored ASCII representation of a byte.
-  let asciiOfByte b = Color.FromByte b, Byte.getRepresentation b
+  let asciiOfByte b = Color.FromByte b, Byte.toDisplayChar b
 
   /// Appends a string (of the same color) to a colored segment.
   let appendString tail (segment: ColoredSegment) =
