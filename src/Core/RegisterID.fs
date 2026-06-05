@@ -36,7 +36,13 @@ module RegisterID =
   /// A unit for register IDs.
   [<Measure>] type private T
 
-  /// Create a platform-independent register ID representation.
+  /// <summary>
+  /// Creates a platform-independent register ID representation.
+  /// </summary>
+  /// <param name="n">The integer register number.</param>
+  /// <returns>
+  /// A <see cref='T:B2R2.RegisterID'/> wrapping <paramref name="n"/>.
+  /// </returns>
   [<CompiledName "Create">]
   let inline create n: int<T> = LanguagePrimitives.Int32WithMeasure(n)
 

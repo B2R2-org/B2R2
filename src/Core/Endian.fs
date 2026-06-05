@@ -29,33 +29,43 @@ exception InvalidEndianException
 
 /// Represents the endianness used in a binary.
 type Endian =
-  /// Little endian
+  /// Little endian.
   | Little = 1
-  /// Big endian
+  /// Big endian.
   | Big = 2
 
 /// Provides functions to work with Endian.
 [<RequireQualifiedAccess>]
 module Endian =
   /// <summary>
-  /// Get Endian from a string.
+  /// Gets an <see cref='T:B2R2.Endian'/> value from a string. Accepts "l",
+  /// "le", or "little" for little endian, and "b", "be", or "big" for big
+  /// endian (case-insensitive). Raises <see
+  /// cref='T:B2R2.InvalidEndianException'/> if the string is not recognized.
   /// </summary>
-  /// <param name="str">The given string.</param>
+  /// <param name="str">A string representing endianness.</param>
   /// <returns>
-  /// Endian.
+  /// An <see cref='T:B2R2.Endian'/> value corresponding to
+  /// <paramref name="str"/>.
   /// </returns>
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant() with
     | "l" | "le" | "little" -> Endian.Little
     | "b" | "be" | "big" -> Endian.Big
-    | _ -> failwith "Wrong endian specified."
+    | _ -> raise InvalidEndianException
 
   /// <summary>
-  /// Get the string representation from an Endian.
+  /// Gets the string representation of an <see cref='T:B2R2.Endian'/> value.
+  /// Raises <see cref='T:B2R2.InvalidEndianException'/> for invalid values.
   /// </summary>
+  /// <param name="endian">The Endian value to convert.</param>
+  /// <returns>
+  /// "Little Endian" or "Big Endian".
+  /// </returns>
   [<CompiledName "ToString">]
-  let toString = function
+  let toString (endian: Endian) =
+    match endian with
     | Endian.Little -> "Little Endian"
     | Endian.Big -> "Big Endian"
     | _ -> raise InvalidEndianException

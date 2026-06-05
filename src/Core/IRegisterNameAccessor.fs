@@ -31,9 +31,16 @@ type IRegisterNameAccessor =
   /// <summary>
   /// Returns a register name from a given RegisterID.
   /// </summary>
-  abstract GetRegisterName: RegisterID -> string
+  /// <param name="id">The register ID to look up.</param>
+  /// <returns>
+  /// A string name of the register corresponding to <paramref name="id"/>.
+  /// </returns>
+  abstract GetRegisterName: id: RegisterID -> string
 
   /// <summary>
   /// Returns all register names used in the current architecture.
   /// </summary>
+  /// <returns>
+  /// An array of all register name strings defined in the architecture.
+  /// </returns>
   abstract GetAllRegisterNames: unit -> string[]

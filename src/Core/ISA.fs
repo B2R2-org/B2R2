@@ -24,73 +24,115 @@
 
 namespace B2R2
 
+/// Raised when an invalid ISA is given as a parameter.
+exception InvalidISAException
+
 /// <summary>
 /// Represents the Instruction Set Architecture (ISA).
 /// </summary>
-/// <param name="arch">CPU architecture. <see
-/// cref='F:B2R2.Architecture.UnknownISA'/> is used to represent an unsupported
-/// or unknown ISA.</param>
+/// <param name="arch">CPU architecture. Raises <see
+/// cref='T:B2R2.InvalidISAException'/> if <see
+/// cref='F:B2R2.Architecture.UnknownISA'/> is given.</param>
 /// <param name="endian">Endianness.</param>
 /// <param name="wordSize">Word size in bits.</param>
 /// <param name="flags">Architecture-specific flags (e.g., CIL kind, Python
 /// version). Use 0 if not applicable.</param>
 type ISA(arch, endian, wordSize, flags) =
+  do
+    if arch = Architecture.UnknownISA then raise InvalidISAException
+    else ()
 
   /// Constructs an ISA object with the given architecture, endianness, and
   /// word size. The flags are set to 0.
-  new(arch, endian, wordSize) = ISA(arch, endian, wordSize, 0)
+  new(arch, endian, wordSize) =
+    ISA(arch, endian, wordSize, 0)
 
   /// Constructs an ISA object with the given architecture. The endianness and
-  /// word size are set to the default values for the given architecture.
+  /// word size are set to the default values for the given architecture. Raises
+  /// <see cref='T:B2R2.InvalidISAException'/> if the architecture is not
+  /// recognized.
   new(arch) =
     match arch with
-    | Architecture.Intel -> ISA(arch, Endian.Little, WordSize.Bit64)
-    | Architecture.ARMv7 -> ISA(arch, Endian.Little, WordSize.Bit32)
-    | Architecture.ARMv8 -> ISA(arch, Endian.Little, WordSize.Bit64)
-    | Architecture.MIPS -> ISA(arch, Endian.Big, WordSize.Bit32)
-    | Architecture.PPC -> ISA(arch, Endian.Big, WordSize.Bit32)
-    | Architecture.RISCV -> ISA(arch, Endian.Little, WordSize.Bit64)
-    | Architecture.SPARC -> ISA(arch, Endian.Big, WordSize.Bit64)
-    | Architecture.S390 -> ISA(arch, Endian.Big, WordSize.Bit32)
-    | Architecture.SH4 -> ISA(arch, Endian.Little, WordSize.Bit32)
-    | Architecture.PARISC -> ISA(arch, Endian.Big, WordSize.Bit32)
-    | Architecture.AVR -> ISA(arch, Endian.Little, WordSize.Bit8)
-    | Architecture.TMS320C6000 -> ISA(arch, Endian.Little, WordSize.Bit32)
-    | Architecture.EVM -> ISA(arch, Endian.Big, WordSize.Bit256)
+    | Architecture.Intel ->
+      ISA(arch, Endian.Little, WordSize.Bit64)
+    | Architecture.ARMv7 ->
+      ISA(arch, Endian.Little, WordSize.Bit32)
+    | Architecture.ARMv8 ->
+      ISA(arch, Endian.Little, WordSize.Bit64)
+    | Architecture.MIPS ->
+      ISA(arch, Endian.Big, WordSize.Bit32)
+    | Architecture.PPC ->
+      ISA(arch, Endian.Big, WordSize.Bit32)
+    | Architecture.RISCV ->
+      ISA(arch, Endian.Little, WordSize.Bit64)
+    | Architecture.SPARC ->
+      ISA(arch, Endian.Big, WordSize.Bit64)
+    | Architecture.S390 ->
+      ISA(arch, Endian.Big, WordSize.Bit32)
+    | Architecture.SH4 ->
+      ISA(arch, Endian.Little, WordSize.Bit32)
+    | Architecture.PARISC ->
+      ISA(arch, Endian.Big, WordSize.Bit32)
+    | Architecture.AVR ->
+      ISA(arch, Endian.Little, WordSize.Bit8)
+    | Architecture.TMS320C6000 ->
+      ISA(arch, Endian.Little, WordSize.Bit32)
+    | Architecture.EVM ->
+      ISA(arch, Endian.Big, WordSize.Bit256)
     | Architecture.Python ->
-      ISA(arch, Endian.Little, WordSize.Bit32, int PythonVersion.Python312)
-    | Architecture.WASM -> ISA(arch, Endian.Little, WordSize.Bit32)
-    | Architecture.CIL -> ISA(arch, Endian.Little, WordSize.Bit64)
-    | _ -> ISA(Architecture.UnknownISA, Endian.Little, WordSize.Bit64)
+      ISA(arch, Endian.Little, WordSize.Bit64, int PythonVersion.Python312)
+    | Architecture.WASM ->
+      ISA(arch, Endian.Little, WordSize.Bit32)
+    | Architecture.CIL ->
+      ISA(arch, Endian.Little, WordSize.Bit64)
+    | _ ->
+      ISA(Architecture.UnknownISA, Endian.Little, WordSize.Bit64)
 
   /// Constructs an ISA object with the given architecture and endianness. The
   /// word size is set to the default value for the given architecture and
-  /// endianness.
+  /// endianness. Raises <see cref='T:B2R2.InvalidISAException'/> if the
+  /// combination is not recognized.
   new(arch, endian) =
     match arch with
     | Architecture.Intel when endian = Endian.Little ->
       ISA(arch, endian, WordSize.Bit64)
-    | Architecture.ARMv7 -> ISA(arch, endian, WordSize.Bit32)
-    | Architecture.ARMv8 -> ISA(arch, endian, WordSize.Bit64)
-    | Architecture.MIPS -> ISA(arch, endian, WordSize.Bit32)
+    | Architecture.ARMv7 ->
+      ISA(arch, endian, WordSize.Bit32)
+    | Architecture.ARMv8 ->
+      ISA(arch, endian, WordSize.Bit64)
+    | Architecture.MIPS ->
+      ISA(arch, endian, WordSize.Bit32)
     | Architecture.PPC when endian = Endian.Little ->
       ISA(arch, endian, WordSize.Bit32)
-    | Architecture.RISCV -> ISA(arch, endian, WordSize.Bit64)
-    | Architecture.SPARC -> ISA(arch, endian, WordSize.Bit64)
-    | Architecture.S390 -> ISA(arch, endian, WordSize.Bit32)
-    | Architecture.SH4 -> ISA(arch, endian, WordSize.Bit32)
+    | Architecture.RISCV ->
+      ISA(arch, endian, WordSize.Bit64)
+    | Architecture.SPARC ->
+      ISA(arch, endian, WordSize.Bit64)
+    | Architecture.S390 ->
+      ISA(arch, endian, WordSize.Bit32)
+    | Architecture.SH4 ->
+      ISA(arch, endian, WordSize.Bit32)
     | Architecture.PARISC when endian = Endian.Big ->
       ISA(arch, endian, WordSize.Bit32)
-    | Architecture.AVR -> ISA(arch, endian, WordSize.Bit8)
-    | Architecture.TMS320C6000 -> ISA(arch, endian, WordSize.Bit32)
-    | Architecture.EVM -> ISA(arch, endian, WordSize.Bit256)
-    | Architecture.Python -> ISA(arch, endian, WordSize.Bit32)
-    | Architecture.WASM -> ISA(arch, endian, WordSize.Bit32)
-    | Architecture.CIL -> ISA(arch, endian, WordSize.Bit64)
-    | _ -> ISA(Architecture.UnknownISA, endian, WordSize.Bit64)
+    | Architecture.AVR ->
+      ISA(arch, endian, WordSize.Bit8)
+    | Architecture.TMS320C6000 ->
+      ISA(arch, endian, WordSize.Bit32)
+    | Architecture.EVM ->
+      ISA(arch, endian, WordSize.Bit256)
+    | Architecture.Python ->
+      ISA(arch, endian, WordSize.Bit64)
+    | Architecture.WASM ->
+      ISA(arch, endian, WordSize.Bit32)
+    | Architecture.CIL ->
+      ISA(arch, endian, WordSize.Bit64)
+    | _ ->
+      ISA(Architecture.UnknownISA, endian, WordSize.Bit64)
 
   /// Constructs an ISA object with the given architecture and word size. The
-  /// endianness is set to the default value for the given architecture.
+  /// endianness is set to the default value for the given architecture. Raises
+  /// <see cref='T:B2R2.InvalidISAException'/> if the combination is not
+  /// recognized.
   new(arch, wordSize) =
     match arch with
     | Architecture.Intel when wordSize = WordSize.Bit32
@@ -129,10 +171,14 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(arch, Endian.Little, wordSize)
     | Architecture.EVM when wordSize = WordSize.Bit256 ->
       ISA(arch, Endian.Big, wordSize)
-    | Architecture.Python -> ISA(arch, Endian.Little, wordSize)
-    | Architecture.WASM -> ISA(arch, Endian.Little, wordSize)
-    | Architecture.CIL -> ISA(arch, Endian.Little, wordSize)
-    | _ -> ISA(Architecture.UnknownISA, Endian.Little, wordSize)
+    | Architecture.Python ->
+      ISA(arch, Endian.Little, wordSize)
+    | Architecture.WASM ->
+      ISA(arch, Endian.Little, wordSize)
+    | Architecture.CIL ->
+      ISA(arch, Endian.Little, wordSize)
+    | _ ->
+      ISA(Architecture.UnknownISA, Endian.Little, wordSize)
 
   /// Constructs an ISA object for the given CIL kind.
   new(cilKind: CILKind) =
@@ -145,7 +191,8 @@ type ISA(arch, endian, wordSize, flags) =
     ISA(Architecture.Python, Endian.Little, WordSize.Bit64, flag)
 
   /// Constructs an ISA object from a canonical ISA name string such as "x86",
-  /// "x86-64", "aarch64", "mips32le", etc.
+  /// "x86-64", "aarch64", "mips32le", etc. Raises <see
+  /// cref='T:B2R2.InvalidISAException'/> if the string is not recognized.
   new(isaName: string) =
     match isaName.ToLowerInvariant() with
     | "x86" | "i386" ->

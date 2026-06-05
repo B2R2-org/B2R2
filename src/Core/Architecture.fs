@@ -24,9 +24,6 @@
 
 namespace B2R2
 
-/// Raised when an invalid ISA is given as a parameter.
-exception InvalidISAException
-
 /// <summary>
 /// Represents CPU architecture types that are supported by B2R2.
 /// </summary>
@@ -35,7 +32,7 @@ type Architecture =
   | Intel = 0
   /// ARMv7.
   | ARMv7 = 1
-  /// ARMv8 (aarch32 and aarch64)
+  /// ARMv8 (aarch32 and aarch64).
   | ARMv8 = 2
   /// MIPS.
   | MIPS = 3
@@ -59,9 +56,10 @@ type Architecture =
   | EVM = 30
   /// Python bytecode.
   | Python = 31
-  /// WASM
+  /// WASM.
   | WASM = 32
   /// Common Intermediate Language (CIL), aka MSIL.
   | CIL = 33
-  /// Unknown ISA.
+  /// Used internally to signal an unrecognized ISA combination. Passing this
+  /// value to any ISA constructor raises InvalidISAException.
   | UnknownISA = 42

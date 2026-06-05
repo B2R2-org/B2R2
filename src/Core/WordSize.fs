@@ -52,8 +52,10 @@ type WordSize =
 [<RequireQualifiedAccess>]
 module WordSize =
   /// <summary>
-  /// Transforms a <c>string</c> into a word size (<see
-  /// cref='T:B2R2.WordSize'/>).
+  /// Converts a <c>string</c> into a word size (<see
+  /// cref='T:B2R2.WordSize'/>). Raises <see
+  /// cref='T:B2R2.InvalidWordSizeException'/> if the string does not represent
+  /// a valid word size.
   /// </summary>
   [<CompiledName "OfString">]
   let ofString = function
@@ -65,14 +67,27 @@ module WordSize =
     | "256" -> WordSize.Bit256
     | _ -> raise InvalidWordSizeException
 
-  /// <summary>
-  /// Transforms a word size (<see cref='T:B2R2.WordSize'/>) into a byte length.
-  /// </summary>
-  [<CompiledName "ToByteWidth">]
-  let toByteWidth (wordSize: WordSize) = int32 wordSize / 8
+  let private assertValidWordSize = function
+    | WordSize.Bit8
+    | WordSize.Bit16
+    | WordSize.Bit32
+    | WordSize.Bit64
+    | WordSize.Bit128
+    | WordSize.Bit256 -> ()
+    | _ -> raise InvalidWordSizeException
 
   /// <summary>
-  /// Transforms a word size (<see cref='T:B2R2.WordSize'/>) into a RegType.
+  /// Converts a word size (<see cref='T:B2R2.WordSize'/>) into a byte length.
+  /// </summary>
+  [<CompiledName "ToByteWidth">]
+  let toByteWidth (wordSize: WordSize) =
+#if DEBUG
+    assertValidWordSize wordSize
+#endif
+    int32 wordSize / 8
+
+  /// <summary>
+  /// Converts a word size (<see cref='T:B2R2.WordSize'/>) into a RegType.
   /// </summary>
   [<CompiledName "ToRegType">]
   let toRegType = function
@@ -85,24 +100,28 @@ module WordSize =
     | _ -> raise InvalidWordSizeException
 
   /// <summary>
-  /// Transforms a word size (<see cref='T:B2R2.WordSize'/>) into a
+  /// Converts a word size (<see cref='T:B2R2.WordSize'/>) into a
   /// <c>string</c>.
   /// </summary>
   [<CompiledName "ToString">]
-  let toString wordSz = (toRegType wordSz).ToString()
+  let toString (wordSize: WordSize) =
+#if DEBUG
+    assertValidWordSize wordSize
+#endif
+    string (int wordSize)
 
   /// Checks if the given word size is 32 bit.
   [<CompiledName "Is32">]
-  let is32 wordSz = wordSz = WordSize.Bit32
+  let is32 wordSize = wordSize = WordSize.Bit32
 
   /// Checks if the given word size is 64 bit.
   [<CompiledName "Is64">]
-  let is64 wordSz = wordSz = WordSize.Bit64
+  let is64 wordSize = wordSize = WordSize.Bit64
 
   /// Checks if the given word size is 128 bit.
   [<CompiledName "Is128">]
-  let is128 wordSz = wordSz = WordSize.Bit128
+  let is128 wordSize = wordSize = WordSize.Bit128
 
   /// Checks if the given word size is 256 bit.
   [<CompiledName "Is256">]
-  let is256 wordSz = wordSz = WordSize.Bit256
+  let is256 wordSize = wordSize = WordSize.Bit256
