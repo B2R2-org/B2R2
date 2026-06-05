@@ -253,10 +253,10 @@ module Summary =
       match read ptr with
       | Some bytes when Array.contains 0uy bytes ->
         let str = Array.findIndex (fun x -> x = 0uy) bytes
-                  |> Array.sub bytes 0 |> String.fromBytes
+                  |> Array.sub bytes 0 |> String.fromAsciiBytes
         acc + str
       | Some bytes ->
-        let str = String.fromBytes bytes
+        let str = String.fromAsciiBytes bytes
         readStr (addNum32 ptr (String.length str)) (acc + str)
       | _ -> ""
     readStr ptr ""

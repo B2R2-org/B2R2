@@ -204,7 +204,7 @@ module ROPHandle =
     dst
 
   let private getOrWriteStr rop str =
-    let bytes = String.toBytes str
+    let bytes = String.toAsciiBytes str
     match findBytes rop bytes with
     | None ->
       let addr = getWritableAddr rop

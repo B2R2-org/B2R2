@@ -99,7 +99,7 @@ let dumpSectionHeadersVerbose (pe: PEBinFile) wordSize addrColumn =
     let startAddr = pe.BaseAddress + uint64 s.VirtualAddress
     let size = uint64 (selectSize s)
     let characteristics = uint64 s.SectionCharacteristics |> HexString.ofUInt64
-    printsr [| String.wrapSqrdBracket (i.ToString())
+    printsr [| String.wrapSquareBracket (i.ToString())
                Addr.toString wordSize startAddr
                Addr.toString wordSize (startAddr + size - uint64 1)
                normalizeEmpty s.Name
@@ -127,7 +127,7 @@ let dumpSectionHeadersSimple (pe: PEBinFile) wordSize addrColumn =
   for i in 0 .. pe.SectionHeaders.Length - 1 do
     let s = pe.SectionHeaders[i]
     let addr = uint64 s.VirtualAddress + (pe :> IBinFile).BaseAddress
-    printsr [| String.wrapSqrdBracket (i.ToString())
+    printsr [| String.wrapSquareBracket (i.ToString())
                Addr.toString wordSize addr
                Addr.toString wordSize (addr + uint64 s.VirtualSize - 1UL)
                normalizeEmpty s.Name |]
@@ -153,7 +153,7 @@ let dumpSectionDetails (secName: string) (pe: PEBinFile) =
     let ptrToLineNums = uint64 sec.PointerToLineNumbers |> HexString.ofUInt64
     let characteristics = uint64 sec.SectionCharacteristics
     resetToDefaultTwoColumnConfig ()
-    printsr [| "Section number:"; String.wrapSqrdBracket (idx.ToString()) |]
+    printsr [| "Section number:"; String.wrapSquareBracket (idx.ToString()) |]
     printsr [| "Section name:"; sec.Name |]
     printsr [| "Virtual size:"; virtualSize |]
     printsr [| "Virtual address:"; virtualAddr |]
@@ -173,7 +173,7 @@ let dumpSectionDetails (secName: string) (pe: PEBinFile) =
 
 let dumpSymbol wordSize (symb: PE.Symbol) =
   printsr [| Addr.toString wordSize symb.Address
-             String.wrapSqrdBracket $"{symb.Segment}"
+             String.wrapSquareBracket $"{symb.Segment}"
              normalizeEmpty symb.Name |]
 
 let dumpSymbols _ (pe: PEBinFile) =
@@ -236,7 +236,7 @@ let dumpImports _ (pe: PEBinFile) =
     let addr = pe.BaseAddress + uint64 rva
     match imp with
     | PE.ByOrdinal(ord, dllname) ->
-      let name = String.wrapSqrdBracket $"{ord}"
+      let name = String.wrapSquareBracket $"{ord}"
       dumpImportedSymbol pe addr name ord dllname
     | PE.ByName(hint, fn, dllname) ->
       dumpImportedSymbol pe addr fn hint dllname)

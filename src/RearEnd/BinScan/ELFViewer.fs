@@ -106,7 +106,7 @@ let dumpSectionHeadersVerbose (elf: ELFBinFile) wordSize addrColumn =
   for i in 0 .. elf.SectionHeaders.Length - 1 do
     let s = elf.SectionHeaders[i]
     printsr
-      [| String.wrapSqrdBracket (i.ToString())
+      [| String.wrapSquareBracket (i.ToString())
          Addr.toString wordSize s.SecAddr
          Addr.toString wordSize (computeSectionEndAddr s)
          normalizeEmpty s.SecName
@@ -135,7 +135,7 @@ let dumpSectionHeadersSimple (elf: ELFBinFile) wordSize addrColumn =
   for i in 0 .. elf.SectionHeaders.Length - 1 do
     let s = elf.SectionHeaders[i]
     printsr
-      [| String.wrapSqrdBracket (i.ToString())
+      [| String.wrapSquareBracket (i.ToString())
          Addr.toString wordSize s.SecAddr
          Addr.toString wordSize (computeSectionEndAddr s)
          normalizeEmpty s.SecName |]
@@ -368,7 +368,7 @@ let dumpSegmentsVerbose (elf: ELFBinFile) wordSize addrColumn =
   printSingleHorizontalRule ()
   for i in 0 .. elf.ProgramHeaders.Length - 1 do
     let p = elf.ProgramHeaders[i]
-    printsr [| String.wrapSqrdBracket (i.ToString())
+    printsr [| String.wrapSquareBracket (i.ToString())
                Addr.toString wordSize p.PHAddr
                Addr.toString wordSize (p.PHAddr + p.PHMemSize - uint64 1)
                Permission.toString (ProgramHeader.FlagsToPerm p.PHFlags)
@@ -390,7 +390,7 @@ let dumpSegmentsSimple (elf: ELFBinFile) wordSize addrColumn =
   printSingleHorizontalRule ()
   for i in 0 .. elf.ProgramHeaders.Length - 1 do
     let p = elf.ProgramHeaders[i]
-    printsr [| String.wrapSqrdBracket (i.ToString())
+    printsr [| String.wrapSquareBracket (i.ToString())
                Addr.toString wordSize p.PHAddr
                Addr.toString wordSize (p.PHAddr + p.PHMemSize - 1UL)
                Permission.toString (ProgramHeader.FlagsToPerm p.PHFlags) |]

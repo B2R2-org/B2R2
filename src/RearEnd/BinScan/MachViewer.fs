@@ -87,7 +87,7 @@ let dumpSectionHeadersVerbose (mach: MachBinFile) wordSize addrColumn =
   printSingleHorizontalRule ()
   for i in 0 .. mach.Sections.Length - 1 do
     let s = mach.Sections[i]
-    printsr [| String.wrapSqrdBracket (i.ToString())
+    printsr [| String.wrapSquareBracket (i.ToString())
                Addr.toString wordSize s.SecAddr
                Addr.toString wordSize (s.SecAddr + s.SecSize - uint64 1)
                normalizeEmpty s.SecName
@@ -115,7 +115,7 @@ let dumpSectionHeadersSimple (mach: MachBinFile) wordSize addrColumn =
   printSingleHorizontalRule ()
   for i in 0 .. mach.Sections.Length - 1 do
     let s = mach.Sections[i]
-    printsr [| String.wrapSqrdBracket (i.ToString())
+    printsr [| String.wrapSquareBracket (i.ToString())
                Addr.toString wordSize s.SecAddr
                Addr.toString wordSize (s.SecAddr + uint64 s.SecSize - 1UL)
                normalizeEmpty s.SecName |]
@@ -158,7 +158,7 @@ let dumpSymbolVerbose wordSize vis (symb: Mach.Symbol) =
              symb.SymDesc.ToString()
              symb.IsExternal.ToString()
              getLibName symb
-             String.wrapSqrdBracket (symb.SecNum.ToString()) |]
+             String.wrapSquareBracket (symb.SecNum.ToString()) |]
 
 let makeSymbolsFormatVerbose addrColumn =
   [| LeftAligned 3

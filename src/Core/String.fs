@@ -22,26 +22,48 @@
   SOFTWARE.
 *)
 
+/// <summary>
 /// Provides useful functions for handling <c>string</c> values.
+/// </summary>
 [<RequireQualifiedAccess>]
 module B2R2.String
 
-/// Converts a string to a byte array.
-[<CompiledName "ToBytes">]
-let toBytes (str: string) = str.ToCharArray() |> Array.map byte
+/// Encodes a string to a UTF-8 byte array.
+[<CompiledName "ToUtf8Bytes">]
+let toUtf8Bytes (str: string) =
+  System.Text.Encoding.UTF8.GetBytes str
 
-/// Converts a byte array to a string.
-[<CompiledName "FromBytes">]
-let fromBytes (bs: byte[]) = Array.map char bs |> System.String
+/// Decodes a UTF-8 byte array to a string.
+[<CompiledName "FromUtf8Bytes">]
+let fromUtf8Bytes (bs: byte[]) =
+  System.Text.Encoding.UTF8.GetString bs
+
+/// Encodes a string to an ASCII byte array. Throws an exception if the string
+/// contains non-ASCII characters.
+[<CompiledName "ToAsciiBytes">]
+let toAsciiBytes (str: string) =
+  if str |> Seq.exists (fun c -> int c > 127) then
+    invalidArg (nameof str) "String contains non-ASCII characters."
+  else
+    System.Text.Encoding.ASCII.GetBytes str
+
+/// Decodes an ASCII byte array to a string. Bytes outside the ASCII range
+/// (0–127) are replaced with '?'.
+[<CompiledName "FromAsciiBytes">]
+let fromAsciiBytes (bs: byte[]) =
+  System.Text.Encoding.ASCII.GetString bs
 
 /// Wraps a string with a pair of parentheses.
 [<CompiledName "WrapParen">]
-let wrapParen s = "(" + s + ")"
+let wrapParen s =
+  "(" + s + ")"
 
 /// Wraps a string with a pair of square brackets.
-[<CompiledName "WrapSqrdBracket">]
-let wrapSqrdBracket s = "[" + s + "]"
+[<CompiledName "WrapSquareBracket">]
+let wrapSquareBracket s =
+  "[" + s + "]"
 
 /// Wraps a string with a pair of angle brackets.
 [<CompiledName "WrapAngleBracket">]
-let wrapAngleBracket s = "<" + s + ">"
+let wrapAngleBracket s =
+  "<" + s + ">"

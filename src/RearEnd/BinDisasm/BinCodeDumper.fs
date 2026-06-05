@@ -70,7 +70,7 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
       else s + " " + b.ToString("X2")) ""
 
   let printLowUIR (lowUIRStr: string) bytes =
-    let hexStr = convertToHexStr bytes |> String.wrapSqrdBracket
+    let hexStr = convertToHexStr bytes |> String.wrapSquareBracket
     printsr [| hexStr |]
     printsr [| lowUIRStr |]
 

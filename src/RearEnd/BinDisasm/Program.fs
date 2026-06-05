@@ -37,7 +37,7 @@ let [<Literal>] private ToolName = "disasm"
 let [<Literal>] private UsageTail = "<binary file(s) | -s hexstring>"
 
 let private printFileName (filepath: string) =
-  printsn <| String.wrapSqrdBracket filepath
+  printsn <| String.wrapSquareBracket filepath
   printsn ""
 
 let private computeBinaryWidth isa =
