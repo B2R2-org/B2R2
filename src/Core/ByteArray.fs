@@ -44,15 +44,13 @@ type ByteArray = byte[]
 [<RequireQualifiedAccess>]
 module ByteArray =
 
-  /// Converts a hex string to a byte array.
+  /// Converts a hex string to a byte array. The input must not have a "0x"
+  /// prefix and must contain an even number of hex characters. If the length
+  /// is odd, the last character is silently ignored.
   [<CompiledName "OfHexString">]
   let ofHexString (s: string) =
-    Seq.windowed 2 s
-    |> Seq.mapi (fun i j -> i, j)
-    |> Seq.filter (fun (i, _) -> i % 2 = 0)
-    |> Seq.map (fun (_, j) ->
-      Byte.Parse(String(j), NumberStyles.AllowHexSpecifier))
-    |> Array.ofSeq
+    Array.init (s.Length / 2) (fun i ->
+      Byte.Parse(s.AsSpan(i * 2, 2), NumberStyles.AllowHexSpecifier))
 
   /// Reads int32 from the given byte array at the given offset.
   [<CompiledName "ReadInt32">]
@@ -60,7 +58,7 @@ module ByteArray =
     try
       let span = ReadOnlySpan(bs, offset, 4)
       MemoryMarshal.Read<int> span |> Ok
-    with _ ->
+    with :? ArgumentOutOfRangeException ->
       Error ErrorCase.InvalidMemoryRead
 
   let rec private extractCStringFromSpanAux span (acc: StringBuilder) offset =
@@ -73,14 +71,14 @@ module ByteArray =
   /// Extracts a C-string (string that ends with a NULL char) from a byte array.
   [<CompiledName "ExtractCString">]
   let extractCString (bytes: ByteArray) offset =
-    if bytes.Length = 0 || bytes.Length <= offset then ""
+    if bytes.Length <= offset then ""
     else extractCStringFromSpanAux (ReadOnlySpan bytes) (StringBuilder()) offset
 
   /// Extracts a C-string (string that ends with a NULL char) from a
   /// ReadOnlySpan.
   [<CompiledName "ExtractCStringFromSpan">]
   let extractCStringFromSpan (span: ReadOnlySpan<byte>) offset =
-    if span.Length = 0 || span.Length <= offset then ""
+    if span.Length <= offset then ""
     else extractCStringFromSpanAux span (StringBuilder()) offset
 
   let private makeDelta1 pattern patlen =
@@ -133,18 +131,24 @@ module ByteArray =
       else searchOne (i + max d1[int buf[i]] d2[j]) buf pattern d1 d2
     else None
 
-  let private bmSearch pattern buf =
+  let private makeDeltas pattern =
     let patlen = Array.length pattern
-    let delta1 = makeDelta1 pattern patlen
-    let delta2 = makeDelta2 pattern patlen
+    struct (patlen, makeDelta1 pattern patlen, makeDelta2 pattern patlen)
+
+  let private bmSearch pattern buf =
+    let struct (patlen, delta1, delta2) = makeDeltas pattern
     let rec searchAll idx ret =
       match searchOne idx buf pattern delta1 delta2 with
       | Some j -> searchAll (j + patlen) (j :: ret)
       | None -> ret
     searchAll (patlen - 1) []
 
-  /// Finds and returns the offsets of all the matching byte positions. The
-  /// final byte positions are adjusted by the given offset.
+  /// <summary>
+  /// Finds and returns the absolute offsets of all positions in <c>buf</c>
+  /// where <c>pattern</c> occurs. The <c>offset</c> parameter is added to each
+  /// result to convert a buffer-relative index to an absolute address, which is
+  /// useful when <c>buf</c> is a slice of a larger address space.
+  /// </summary>
   [<CompiledName "FindIdxs">]
   let findIdxs offset pattern buf =
     bmSearch pattern buf |> List.map (fun x -> uint64 x + offset)
@@ -153,9 +157,7 @@ module ByteArray =
   /// return None.
   [<CompiledName "TryFindIdx">]
   let tryFindIdx offset pattern buf =
-    let patlen = Array.length pattern
-    let delta1 = makeDelta1 pattern patlen
-    let delta2 = makeDelta2 pattern patlen
+    let struct (patlen, delta1, delta2) = makeDeltas pattern
     searchOne (patlen - 1) buf pattern delta1 delta2
     |> Option.map (fun idx -> uint64 idx + offset)
 
@@ -168,4 +170,4 @@ module ByteArray =
     let sb = StringBuilder()
     for b in span do sb.Append $"{b:x2}" |> ignore
     if bs.Length > 32 then sb.Append "..." |> ignore else ()
-    sb.ToString().TrimEnd()
+    sb.ToString()
