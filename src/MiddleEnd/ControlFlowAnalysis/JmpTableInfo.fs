@@ -43,4 +43,7 @@ type JmpTableInfo =
     /// information when the jump table is accessed via a constant address
     /// without any index computation (e.g., jmp qword ptr [constant_address]).
     /// If so, we do not expand the entries during jump table analysis.
-    IsSingleEntry: bool }
+    IsSingleEntry: bool
+    /// Indicates whether the jump table is accessed via a function pointer
+    /// table.
+    mutable IsFunctionPointerTable: bool }

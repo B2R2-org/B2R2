@@ -110,7 +110,7 @@ module private CFGRecovery =
 #endif
         assert (if not jmptbl.IsSingleEntry then true else idx = 0)
         ctx.JumpTableRecoveryStatus.Push(jmptbl.TableAddress, idx)
-        recoverJumpTableEntry ctx cfgRec queue jmptbl.InsAddr srcAddr dstAddr
+        recoverJumpTableEntry ctx cfgRec idx jmptbl srcAddr dstAddr
       | EndTblRec(jmptbl, idx) ->
 #if CFGDEBUG
         dbglog ctx.ThreadID (nameof EndTblRec)

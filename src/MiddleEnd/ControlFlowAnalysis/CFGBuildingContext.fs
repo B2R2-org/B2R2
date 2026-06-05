@@ -308,6 +308,7 @@ and IManagerAccessible<'FnCtx,
      * tblAddr: Addr
      * idx: int
      * potentialNextTarget: Addr
+     * isFunctionPointerTable: bool
     -> bool
 
   /// Get the current user-defined global state of the TaskManager.

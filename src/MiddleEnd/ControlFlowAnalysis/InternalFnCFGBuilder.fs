@@ -80,10 +80,14 @@ type InternalFnCFGBuilder<'FnCtx,
         member _.CancelJumpTableRecovery(fnAddr, insAddr, tblAddr) =
           manager.Post <| CancelJumpTableRecovery(fnAddr, insAddr, tblAddr)
 
-        member _.ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextAddr) =
+        member _.ReportJumpTableSuccess(fnAddr,
+                                        tblAddr,
+                                        idx,
+                                        nextAddr,
+                                        isFPTab) =
           hasJumpTable <- true
           manager.PostAndReply(fun _ ch ->
-            ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextAddr, ch))
+            ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextAddr, isFPTab, ch))
 
         member _.GetGlobalContext accessor =
           let mutable v = Unchecked.defaultof<_>

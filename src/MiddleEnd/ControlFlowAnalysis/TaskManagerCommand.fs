@@ -50,10 +50,9 @@ type TaskManagerCommand<'FnCtx,
   | GetNextFunctionAddress of Addr * AgentReplyChannel<Addr option>
   /// Notify the manager that a new jump table entry is about to be recovered.
   /// The manager returns the decision about the next action.
-  | NotifyJumpTableRecovery of
-      fn: Addr
-    * tbl: JmpTableInfo
-    * AgentReplyChannel<JumpTableRecoveryDecision>
+  | NotifyJumpTableRecovery of fn: Addr
+                             * tbl: JmpTableInfo
+                             * AgentReplyChannel<JumpTableRecoveryDecision>
   /// Notify the manager that we found a bogus jump table entry. The manager
   /// returns whether the recovery should continue or not.
   | NotifyBogusJumpTableEntry of
@@ -63,8 +62,12 @@ type TaskManagerCommand<'FnCtx,
   | CancelJumpTableRecovery of fn: Addr * ins: Addr * tbl: Addr
   /// Report jump entry recovery result (success only) to the manager. The
   /// manager will then decide whether to continue the analysis or not.
-  | ReportJumpTableSuccess of
-    fn: Addr * tbl: Addr * idx: int * next: Addr * AgentReplyChannel<bool>
+  | ReportJumpTableSuccess of fn: Addr
+                            * tbl: Addr
+                            * idx: int
+                            * next: Addr
+                            * isFunctionPointerTable: bool
+                            * AgentReplyChannel<bool>
   /// Access the global context with the accessor, which has a side effect.
   | AccessGlobalContext of accessor: ('GlCtx -> unit) * AgentReplyChannel<unit>
   /// Update global context.
