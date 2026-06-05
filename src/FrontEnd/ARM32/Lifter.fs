@@ -650,7 +650,7 @@ let replicate expr regType lsb width value =
   else expr .| (v |> AST.num)
 
 /// All-ones bitstring, on page AppxP-2652.
-let ones rt = BitVector(RegType.getMask rt, rt) |> AST.num
+let ones rt = BitVector(RegType.makeMask rt, rt) |> AST.num
 
 let writeModeBits bld value isExcptReturn =
   let lblL8 = label bld "L8"

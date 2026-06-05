@@ -918,14 +918,14 @@ let private assignForExtractDst e1 e2 =
   match e1 with
   | Extract(Var(t, _, _, _) as e1, eTyp, 0, _)
   | Extract(TempVar(t, _, _) as e1, eTyp, 0, _) ->
-    let nMask = RegType.getMask t - RegType.getMask eTyp
+    let nMask = RegType.makeMask t - RegType.makeMask eTyp
     let mask = BitVector(nMask, t) |> num
     let src = cast CastKind.ZeroExt t e2
     put e1 (binopWithType BinOpType.OR t
               (binopWithType BinOpType.AND t e1 mask) src)
   | Extract(Var(t, _, _, _) as e1, eTyp, pos, _)
   | Extract(TempVar(t, _, _) as e1, eTyp, pos, _) ->
-    let nMask = RegType.getMask t - (RegType.getMask eTyp <<< pos)
+    let nMask = RegType.makeMask t - (RegType.makeMask eTyp <<< pos)
     let mask = BitVector(nMask, t) |> num
     let src = cast CastKind.ZeroExt t e2
     let shift = BitVector(pos, t) |> num

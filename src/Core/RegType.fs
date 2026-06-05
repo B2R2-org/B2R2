@@ -52,7 +52,7 @@ module RegType =
 #endif
 
   /// <summary>
-  /// Convert <see cref="T:B2R2.RegType"/> to string.
+  /// Converts <see cref="T:B2R2.RegType"/> to string.
   /// </summary>
   /// <param name="t">RegType.</param>
   /// <returns>
@@ -67,7 +67,7 @@ module RegType =
     "I" + t.ToString()
 
   /// <summary>
-  /// Convert a <see cref="T:B2R2.RegType"/> to an integer of bit width.
+  /// Converts a <see cref="T:B2R2.RegType"/> to an integer of bit width.
   /// </summary>
   /// <param name="t">RegType.</param>
   /// <returns>
@@ -81,7 +81,7 @@ module RegType =
     int t
 
   /// <summary>
-  /// Get a byte width from a RegType.
+  /// Gets a byte width from a RegType.
   /// </summary>
   /// <param name="t">RegType.</param>
   /// <returns>
@@ -94,7 +94,7 @@ module RegType =
     else raise InvalidRegTypeException
 
   /// <summary>
-  /// Get the corresponding integer RegType from the given bit width.
+  /// Gets the corresponding integer RegType from the given bit width.
   /// </summary>
   /// <param name="n">Bit width in integer.</param>
   /// <returns>
@@ -109,7 +109,7 @@ module RegType =
     t
 
   /// <summary>
-  /// Get the corresponding integer RegType from the given byte width.
+  /// Gets the corresponding integer RegType from the given byte width.
   /// </summary>
   /// <param name="n">Byte width in integer.</param>
   /// <returns>
@@ -119,12 +119,12 @@ module RegType =
   let fromByteWidth n = fromBitWidth (n * 8)
 
   /// <summary>
-  /// Get a bitmask (in integer) from the given RegType.
+  /// Makes a bitmask (in integer) from the given RegType.
   /// </summary>
   /// <returns>
   /// A bit mask in big integer.
   /// </returns>
-  [<CompiledName "GetMask">]
-  let getMask t =
+  [<CompiledName "MakeMask">]
+  let makeMask t =
     if t <= 64<rt> then System.UInt64.MaxValue >>> (64 - int t) |> bigint
     else (bigint.One <<< (int t)) - bigint.One
