@@ -42,11 +42,11 @@ type CallBasicBlock(addr, name, isExternal) =
   interface ICallBasicBlock with
     member _.PPoint with get() = ProgramPoint(addr, 0)
 
-    member _.Range = AddrRange addr
+    member _.Range = AddrRange.singleton addr
 
     member _.BlockAddress with get() = addr
 
-    member _.LineAddrRanges with get() = [| AddrRange addr |]
+    member _.LineAddrRanges with get() = [| AddrRange.singleton addr |]
 
     member _.Visualize() =
       [| [| { AsmWordKind = AsmWordKind.Address

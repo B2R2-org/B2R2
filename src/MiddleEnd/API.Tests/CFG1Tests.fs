@@ -433,12 +433,12 @@ type CFG1Tests() =
     let actual =
       leaders |> Array.map (fun l -> (Map.find l vMap).VData.Internals.Range)
     let expected =
-      [| AddrRange(0x00UL, 0x18UL)
-         AddrRange(0x19UL, 0x3EUL)
-         AddrRange(0x3FUL, 0x47UL)
-         AddrRange(0x48UL, 0x51UL)
-         AddrRange(0x52UL, 0x54UL)
-         AddrRange(0x55UL, 0x5EUL) |]
+      [| AddrRange.create 0x00UL 0x18UL
+         AddrRange.create 0x19UL 0x3EUL
+         AddrRange.create 0x3FUL 0x47UL
+         AddrRange.create 0x48UL 0x51UL
+         AddrRange.create 0x52UL 0x54UL
+         AddrRange.create 0x55UL 0x5EUL |]
     CollectionAssert.AreEqual(expected, actual)
 
   [<TestMethod>]
@@ -476,7 +476,7 @@ type CFG1Tests() =
     let leaders = [| ProgramPoint(0x62UL, 0) |]
     let actual =
       leaders |> Array.map (fun l -> (Map.find l vMap).VData.Internals.Range)
-    let expected = [| AddrRange(0x62UL, 0x70UL) |]
+    let expected = [| AddrRange.create 0x62UL 0x70UL |]
     CollectionAssert.AreEqual(expected, actual)
 
   [<TestMethod>]
@@ -495,7 +495,7 @@ type CFG1Tests() =
     let leaders = [| ProgramPoint(0x71UL, 0) |]
     let actual =
       leaders |> Array.map (fun l -> (Map.find l vMap).VData.Internals.Range)
-    let expected = [| AddrRange(0x71UL, 0x80UL) |]
+    let expected = [| AddrRange.create 0x71UL 0x80UL |]
     CollectionAssert.AreEqual(expected, actual)
 
   [<TestMethod>]

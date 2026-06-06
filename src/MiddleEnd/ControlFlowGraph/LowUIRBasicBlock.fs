@@ -108,9 +108,9 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
       if Option.isNone funcAbs then
         let lastIns = liftedInss[liftedInss.Length - 1].Original
         let lastAddr = lastIns.Address + uint64 lastIns.Length
-        AddrRange(pp.Address, lastAddr - 1UL)
+        AddrRange.create pp.Address (lastAddr - 1UL)
       else
-        AddrRange(pp.Address, pp.Address)
+        AddrRange.singleton pp.Address
 
     member _.IsAbstract with get() = Option.isSome funcAbs
 
@@ -157,7 +157,7 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
       |> Array.map (fun liftedIns ->
         let insAddr = liftedIns.Original.Address
         let insEndAddr = insAddr + uint64 liftedIns.Original.Length - 1UL
-        AddrRange(insAddr, insEndAddr))
+        AddrRange.create insAddr insEndAddr)
 
     member _.Visualize() =
       if Option.isNone funcAbs then

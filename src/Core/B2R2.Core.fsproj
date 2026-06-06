@@ -25,7 +25,6 @@
     <Compile Include="Architecture.fs" />
     <Compile Include="ISA.fs" />
     <Compile Include="Addr.fs" />
-    <Compile Include="AddrRange.fsi" />
     <Compile Include="AddrRange.fs" />
     <Compile Include="BitVector.fs" />
     <Compile Include="ProgramPoint.fs" />

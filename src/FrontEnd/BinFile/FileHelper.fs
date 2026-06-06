@@ -70,9 +70,9 @@ let readSLEB128 (span: ByteSpan) offset =
 
 let addInvalidRange set saddr eaddr =
   if saddr = eaddr then set
-  else IntervalSet.add (AddrRange(saddr, eaddr - 1UL)) set
+  else IntervalSet.add (AddrRange.create saddr (eaddr - 1UL)) set
 
 let addLastInvalidRange wordSize (set, saddr) =
   let laddr =
     if wordSize = WordSize.Bit32 then 0xFFFFFFFFUL else 0xFFFFFFFFFFFFFFFFUL
-  IntervalSet.add (AddrRange(saddr, laddr)) set
+  IntervalSet.add (AddrRange.create saddr laddr) set

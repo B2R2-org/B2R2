@@ -185,7 +185,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Array.choose (fun ph ->
         let isLoadable = ph.PHType.HasFlag ProgramHeaderType.PT_LOAD
         if isLoadable && ph.PHMemSize > 0UL then
-          Some <| AddrRange(ph.PHAddr, ph.PHAddr + ph.PHMemSize - 1UL)
+          Some <| AddrRange.create ph.PHAddr (ph.PHAddr + ph.PHMemSize - 1UL)
         else None)
 
     member _.GetVMMappedRegions(perm) =
@@ -194,7 +194,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         let isLoadable = ph.PHType.HasFlag ProgramHeaderType.PT_LOAD
         let phPerm = ProgramHeader.FlagsToPerm ph.PHFlags
         if isLoadable && phPerm.HasFlag perm && ph.PHMemSize > 0UL then
-          Some <| AddrRange(ph.PHAddr, ph.PHAddr + ph.PHMemSize - 1UL)
+          Some <| AddrRange.create ph.PHAddr (ph.PHAddr + ph.PHMemSize - 1UL)
         else None)
 
     member _.TryFindName(addr) =

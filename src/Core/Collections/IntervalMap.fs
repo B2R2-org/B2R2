@@ -122,7 +122,8 @@ module IntervalMap =
 
   /// Checks whether the given address exists in the interval tree.
   [<CompiledName("ContainsAddr")>]
-  let containsAddr addr m = includeRange (AddrRange(addr, addr)) m
+  let containsAddr addr m =
+    includeRange (AddrRange.singleton addr) m
 
   /// Checks whether the exact range exists in the interval tree.
   [<CompiledName("Contains")>]

@@ -87,10 +87,10 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
       else BinFilePointer.Null
 
     member _.GetVMMappedRegions() =
-      [| AddrRange(baseAddr, baseAddr + uint64 size - 1UL) |]
+      [| AddrRange.create baseAddr (baseAddr + uint64 size - 1UL) |]
 
     member _.GetVMMappedRegions _permission =
-      [| AddrRange(baseAddr, baseAddr + uint64 size - 1UL) |]
+      [| AddrRange.create baseAddr (baseAddr + uint64 size - 1UL) |]
 
     member _.TryFindName(_addr) = Error ErrorCase.SymbolNotFound
 

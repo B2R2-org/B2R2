@@ -172,7 +172,7 @@ let rec parseEntryLoop p sec rdr span desc symbs rel map idx eAddr addr =
     match (rel: RelocationInfo).TryFind entry.EntryRelocAddr with
     | Ok r ->
       let entry = makePLTEntry symbs addr entry.EntryRelocAddr r
-      let ar = AddrRange(addr, nextAddr - 1UL)
+      let ar = AddrRange.create addr (nextAddr - 1UL)
       let map = NoOverlapIntervalMap.add ar entry map
       parseEntryLoop p sec rdr span desc symbs rel map (idx + 1) eAddr nextAddr
     | Error _ ->
@@ -695,7 +695,7 @@ type MIPSParser(shdrs, relocInfo, symbs: SymbolStore) =
             LibraryName = symbol.LibName
             TrampolineAddress = symbol.Addr
             TableAddress = 0UL }
-        let ar = AddrRange(symbol.Addr, symbol.Addr + 15UL)
+        let ar = AddrRange.create symbol.Addr (symbol.Addr + 15UL)
         let map = NoOverlapIntervalMap.add ar entry map
         parseMIPSStubEntries map (offset + 16) maxOffset tbl reader span
       else map
@@ -801,7 +801,7 @@ type PPCParser(shdrs, relocInfo: RelocationInfo, symbs) =
   let rec readEntryLoop relocs delta idx map addr =
     if idx >= 0 then
       let reloc = (relocs: RelocationEntry[])[idx]
-      let ar = AddrRange(addr, addr + delta - 1UL)
+      let ar = AddrRange.create addr (addr + delta - 1UL)
       let entry = makePLTEntry symbs addr addr reloc
       let map = NoOverlapIntervalMap.add ar entry map
       readEntryLoop relocs delta (idx - 1) map (addr - delta)

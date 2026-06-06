@@ -72,8 +72,8 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
     member _.PPoint with get() = ppoint
 
     member _.Range with get() =
-      if Option.isNone funcAbs then AddrRange(ppoint.Address, lastAddr)
-      else AddrRange(ppoint.Address, ppoint.Address)
+      if Option.isNone funcAbs then AddrRange.create ppoint.Address lastAddr
+      else AddrRange.singleton ppoint.Address
 
     member _.IsAbstract with get() = Option.isSome funcAbs
 
@@ -88,7 +88,7 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
     member _.BlockAddress with get() = ppoint.Address
 
     member _.LineAddrRanges with get() =
-      [| AddrRange(ppoint.Address, ppoint.Address) |]
+      [| AddrRange.singleton ppoint.Address |]
 
     member _.PrependPhi(varKind, count) =
       let var = { Kind = varKind; Identifier = -1 }

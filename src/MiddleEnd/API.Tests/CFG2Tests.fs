@@ -253,12 +253,12 @@ type CFG2Tests() =
     let actual =
       leaders |> Array.map (fun l -> (Map.find l vMap).VData.Internals.Range)
     let expected =
-      [| AddrRange(0x00UL, 0x0bUL)
-         AddrRange(0x0cUL, 0x1bUL)
-         AddrRange(0x1cUL, 0x1dUL)
-         AddrRange(0x1cUL, 0x1dUL)
-         AddrRange(0x1cUL, 0x1dUL)
-         AddrRange(0x1eUL, 0x23UL) |]
+      [| AddrRange.create 0x00UL 0x0bUL
+         AddrRange.create 0x0cUL 0x1bUL
+         AddrRange.create 0x1cUL 0x1dUL
+         AddrRange.create 0x1cUL 0x1dUL
+         AddrRange.create 0x1cUL 0x1dUL
+         AddrRange.create 0x1eUL 0x23UL |]
     CollectionAssert.AreEqual(expected, actual)
 
   [<TestMethod>]

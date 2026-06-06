@@ -209,7 +209,7 @@ with
     | Ok _dividedEdges ->
       let bbl = this.BBLFactory.Find <| ProgramPoint(gapStart, 0)
       if bbl.Internals.Range.Max > gapEnd then acc
-      else (AddrRange(gapStart, gapEnd)) :: acc
+      else (AddrRange.create gapStart gapEnd) :: acc
     | Error _ -> acc
 
   [<TailCall>]

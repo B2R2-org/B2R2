@@ -132,7 +132,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         let secSize = getVirtualSectionSize sec
         if secSize > 0 then
           let addr = uint64 sec.VirtualAddress + pe.BaseAddr
-          Some <| AddrRange(addr, addr + uint64 secSize - 1UL)
+          Some <| AddrRange.create addr (addr + uint64 secSize - 1UL)
         else None)
 
     member _.GetVMMappedRegions perm =
@@ -142,7 +142,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         let secSize = getVirtualSectionSize sec
         if (secPerm &&& perm = perm) && secSize > 0 then
           let addr = uint64 sec.VirtualAddress + pe.BaseAddr
-          Some <| AddrRange(addr, addr + uint64 secSize - 1UL)
+          Some <| AddrRange.create addr (addr + uint64 secSize - 1UL)
         else None)
 
     member _.TryFindName(addr) =

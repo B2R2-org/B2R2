@@ -98,10 +98,12 @@ module NoOverlapIntervalMap =
     ins tree |> toBlack
 
   [<CompiledName("Add")>]
-  let add k v tree = fnAdd k v tree false
+  let add k v tree =
+    fnAdd k v tree false
 
   [<CompiledName("AddRange")>]
-  let addRange min max v tree = add (AddrRange(min, max)) v tree
+  let addRange min max v tree =
+    add (AddrRange.create min max) v tree
 
   [<CompiledName("Replace")>]
   let replace k v tree = fnAdd k v tree true
@@ -153,7 +155,8 @@ module NoOverlapIntervalMap =
   let remove k tree = del true k tree |> toBlack
 
   [<CompiledName("RemoveAddr")>]
-  let removeAddr addr tree = del false (AddrRange addr) tree
+  let removeAddr addr tree =
+    del false (AddrRange.singleton addr) tree
 
   [<CompiledName("Empty")>]
   let empty = Leaf B
@@ -166,7 +169,7 @@ module NoOverlapIntervalMap =
 
   [<CompiledName("ContainsAddr")>]
   let containsAddr addr tree =
-    findLoop false (AddrRange addr) tree |> Result.isOk
+    findLoop false (AddrRange.singleton addr) tree |> Result.isOk
 
   [<CompiledName("ContainsRange")>]
   let containsRange range tree = findLoop true range tree |> Result.isOk
@@ -179,7 +182,7 @@ module NoOverlapIntervalMap =
 
   [<CompiledName("TryFindKey")>]
   let tryFindKey addr tree =
-    match findLoop false (AddrRange addr) tree with
+    match findLoop false (AddrRange.singleton addr) tree with
     | Ok(k, _) -> Some k
     | _ -> None
 
@@ -191,13 +194,13 @@ module NoOverlapIntervalMap =
 
   [<CompiledName("TryFindByAddr")>]
   let tryFindByAddr addr tree =
-    match findLoop false (AddrRange addr) tree with
+    match findLoop false (AddrRange.singleton addr) tree with
     | Ok(_, v) -> Some v
     | _ -> None
 
   [<CompiledName("FindByAddr")>]
   let findByAddr addr tree =
-    match findLoop false (AddrRange addr) tree with
+    match findLoop false (AddrRange.singleton addr) tree with
     | Ok(_, v) -> v
     | _ -> raise KeyNotFoundException
 

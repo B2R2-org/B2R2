@@ -163,17 +163,19 @@ let private computeExecutableRangesFromSections shdrs =
     then
       let offset = sec.SecOffset - txtOffset
       let addr = sec.SecAddr + offset
-      let range = AddrRange(addr, addr + sec.SecSize - 1UL)
+      let range = AddrRange.create addr (addr + sec.SecSize - 1UL)
       IntervalSet.add range set
     else set
   ) IntervalSet.empty
 
 let private addIntervalWithoutSection secS secE s e set =
   let set =
-    if s < secS && secS < e then IntervalSet.add (AddrRange(s, secS - 1UL)) set
-    else set
+    if s < secS && secS < e then
+      IntervalSet.add (AddrRange.create s (secS - 1UL)) set
+    else
+      set
   let set =
-    if secE < e then IntervalSet.add (AddrRange(secE + 1UL, e)) set
+    if secE < e then IntervalSet.add (AddrRange.create (secE + 1UL) e) set
     else set
   set
 
@@ -183,14 +185,16 @@ let private addIntervalWithoutROSection rodata seg set =
   let segS = seg.PHAddr
   let segE = segS + seg.PHMemSize - 1UL
   if roE < segS || segE < roS then
-    IntervalSet.add (AddrRange(segS, segE)) set
+    IntervalSet.add (AddrRange.create segS segE) set
   else addIntervalWithoutSection roS roE segS segE set
 
 let private addExecutableInterval excludingSection s set =
   match excludingSection with
-  | Some sec -> addIntervalWithoutROSection sec s set
+  | Some sec ->
+    addIntervalWithoutROSection sec s set
   | None ->
-    IntervalSet.add (AddrRange(s.PHAddr, s.PHAddr + s.PHMemSize - 1UL)) set
+    let endAddr = s.PHAddr + s.PHMemSize - 1UL
+    IntervalSet.add (AddrRange.create s.PHAddr endAddr) set
 
 let executableRanges shdrs loadables =
   (* Exclude .rodata even though it is included within an executable segment. *)

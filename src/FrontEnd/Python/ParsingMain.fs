@@ -41,8 +41,8 @@ let private parseOperand opcode (span: ReadOnlySpan<byte>) (reader: IBinReader)
   let tbl = getTable binFile opcode
   let idx = reader.ReadUInt8(span, 1) |> int
   let cons =
-    Array.tryFind (fun (ar, _) ->
-      AddrRange.GetMin ar <= addr && AddrRange.GetMax ar >= addr) tbl
+    tbl
+    |> Array.tryFind (fun (ar, _) -> ar.Min <= addr && ar.Max >= addr)
   let opr =
     match cons with
     | Some(_, c) -> OneOperand(idx, Some <| c[idx])

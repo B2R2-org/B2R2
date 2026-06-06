@@ -33,8 +33,8 @@ type NoOverlapIntervalMapTests() =
 
   [<TestMethod>]
   member _.``Overlap Test 1``() =
-    let r1 = AddrRange(100UL, 199UL)
-    let r2 = AddrRange(200UL, 299UL)
+    let r1 = AddrRange.create 100UL 199UL
+    let r2 = AddrRange.create 200UL 299UL
     let m = NoOverlapIntervalMap.empty
     let m = NoOverlapIntervalMap.add r1 1 m
     let m = NoOverlapIntervalMap.add r2 2 m
@@ -44,8 +44,8 @@ type NoOverlapIntervalMapTests() =
 
   [<TestMethod>]
   member _.``Overlap Test 2``() =
-    let r1 = AddrRange(100UL, 199UL)
-    let r2 = AddrRange(200UL, 299UL)
+    let r1 = AddrRange.create 100UL 199UL
+    let r2 = AddrRange.create 200UL 299UL
     let m = NoOverlapIntervalMap.empty
     let m = NoOverlapIntervalMap.add r1 1 m
     let m = NoOverlapIntervalMap.add r2 2 m
@@ -58,9 +58,9 @@ type NoOverlapIntervalMapTests() =
     let size = 0x10UL
     let num = 0x100UL
     let sprayRange m i =
-      let r = AddrRange(size * i, size * (i + 1UL) - 1UL)
+      let r = AddrRange.create (size * i) (size * (i + 1UL) - 1UL)
       NoOverlapIntervalMap.add r None m
-    let r = AddrRange(0x150UL, 0x17FUL)
+    let r = AddrRange.create 0x150UL 0x17FUL
     let l =
       [ 0UL .. num - 1UL ]
       |> List.fold sprayRange NoOverlapIntervalMap.empty
@@ -71,15 +71,15 @@ type NoOverlapIntervalMapTests() =
 
   [<TestMethod>]
   member _.``Count Test ``() =
-    let r = AddrRange(100UL, 200UL)
+    let r = AddrRange.create 100UL 200UL
     let m = NoOverlapIntervalMap.empty
     let m = NoOverlapIntervalMap.add r 1 m
     Assert.AreEqual<int>(1, NoOverlapIntervalMap.count m)
 
   [<TestMethod>]
   member _.``Count Test2 ``() =
-    let r1 = AddrRange(100UL, 199UL)
-    let r2 = AddrRange(50UL, 99UL)
+    let r1 = AddrRange.create 100UL 199UL
+    let r2 = AddrRange.create 50UL 99UL
     let m = NoOverlapIntervalMap.empty
     let m = NoOverlapIntervalMap.add r1 1 m
     let m = NoOverlapIntervalMap.add r2 2 m
@@ -87,8 +87,8 @@ type NoOverlapIntervalMapTests() =
 
   [<TestMethod>]
   member _.``Count Test3 ``() =
-    let r1 = AddrRange(100UL, 199UL)
-    let r2 = AddrRange(200UL, 299UL)
+    let r1 = AddrRange.create 100UL 199UL
+    let r2 = AddrRange.create 200UL 299UL
     let m = NoOverlapIntervalMap.empty
     let m = NoOverlapIntervalMap.add r1 1 m
     let m = NoOverlapIntervalMap.add r2 2 m
@@ -96,9 +96,9 @@ type NoOverlapIntervalMapTests() =
 
   [<TestMethod>]
   member _.``Count Test4 ``() =
-    let r1 = AddrRange(100UL, 199UL)
-    let r2 = AddrRange(200UL, 299UL)
-    let r3 = AddrRange(50UL, 99UL)
+    let r1 = AddrRange.create 100UL 199UL
+    let r2 = AddrRange.create 200UL 299UL
+    let r3 = AddrRange.create 50UL 99UL
     let m = NoOverlapIntervalMap.empty
     let m = NoOverlapIntervalMap.add r1 1 m
     let m = NoOverlapIntervalMap.add r2 2 m
@@ -107,9 +107,9 @@ type NoOverlapIntervalMapTests() =
 
   [<TestMethod>]
   member _.``Singleton Test1``() =
-    let r1 = AddrRange(0UL)
-    let r2 = AddrRange(1UL)
-    let r3 = AddrRange(2UL)
+    let r1 = AddrRange.singleton 0UL
+    let r2 = AddrRange.singleton 1UL
+    let r3 = AddrRange.singleton 2UL
     let m = NoOverlapIntervalMap.empty
     let m = NoOverlapIntervalMap.add r1 1 m
     let m = NoOverlapIntervalMap.add r2 2 m

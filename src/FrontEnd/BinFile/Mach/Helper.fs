@@ -101,7 +101,7 @@ let executableRanges segCmds =
     let perm: Permission = seg.MaxProt |> LanguagePrimitives.EnumOfValue
     perm &&& Permission.Executable = Permission.Executable)
   |> Array.fold (fun set s ->
-    IntervalSet.add (AddrRange(s.VMAddr, s.VMAddr + s.VMSize - 1UL)) set
+    IntervalSet.add (AddrRange.create s.VMAddr (s.VMAddr + s.VMSize - 1UL)) set
     ) IntervalSet.empty
 
 let getPLT symInfo =

@@ -152,7 +152,7 @@ let extractConsts pyObj =
     | PyCode code ->
       let addr, codeObj = code.Code
       let len = getCodeLen codeObj
-      let addrRange = AddrRange(addr, addr + len)
+      let addrRange = AddrRange.create addr (addr + len)
       match code.Consts with
       | PyTuple t -> Array.fold collect ((addrRange, t) :: acc) t
       | c -> collect acc c
@@ -164,7 +164,7 @@ let extractVarNames pyObj =
     | PyCode code ->
       let addr, codeObj = code.Code
       let len = getCodeLen codeObj
-      let addrRange = AddrRange(addr, addr + len)
+      let addrRange = AddrRange.create addr (addr + len)
       let acc =
         match code.LocalPlusNames with
         | PyTuple t -> (addrRange, t) :: acc
@@ -182,7 +182,7 @@ let extractNames pyObj =
     | PyCode code ->
       let addr, codeObj = code.Code
       let len = getCodeLen codeObj
-      let addrRange = AddrRange(addr, addr + len)
+      let addrRange = AddrRange.create addr (addr + len)
       let acc =
         match code.Names with
         | PyTuple t -> (addrRange, t) :: acc

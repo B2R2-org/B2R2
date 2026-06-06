@@ -41,7 +41,7 @@ type DisasmBasicBlock(disasmBuilder: IDisasmBuilder,
 
     member _.Range with get() =
       let last = instrs[instrs.Length - 1]
-      AddrRange(ppoint.Address, last.Address + uint64 last.Length - 1UL)
+      AddrRange.create ppoint.Address (last.Address + uint64 last.Length - 1UL)
 
     member _.Instructions with get(): IInstruction[] = instrs
 
@@ -57,7 +57,7 @@ type DisasmBasicBlock(disasmBuilder: IDisasmBuilder,
       |> Array.map (fun ins ->
         let insAddr = ins.Address
         let insEndAddr = insAddr + uint64 ins.Length - 1UL
-        AddrRange(insAddr, insEndAddr))
+        AddrRange.create insAddr insEndAddr)
 
     member _.Visualize() =
       instrs

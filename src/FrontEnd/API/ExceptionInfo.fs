@@ -61,7 +61,7 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
         if csrec.LandingPad = 0UL then 0UL else fde.PCBegin + csrec.LandingPad
       if landingPad = 0UL then loopCallSiteTable fde isFDEFunc acc rest
       else
-        let range = AddrRange(blockStart, blockEnd)
+        let range = AddrRange.create blockStart blockEnd
         let acc = NoOverlapIntervalMap.add range landingPad acc
         let isFDEFunc = checkIfFDEIsFunction fde landingPad
         loopCallSiteTable fde isFDEFunc acc rest

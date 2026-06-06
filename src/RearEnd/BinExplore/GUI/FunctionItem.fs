@@ -53,7 +53,7 @@ module FunctionItem =
     let ptr = file.GetBoundedPointer fn.EntryPoint
     let maxAddr = computeMaxAddr fn.CFG
     let maxPtr = file.GetBoundedPointer maxAddr
-    AddrRange(uint64 ptr.Offset, uint64 maxPtr.Offset)
+    AddrRange.create (uint64 ptr.Offset) (uint64 maxPtr.Offset)
 
   /// Converts from a Function into a FunctionItem for display in the UI.
   let ofFunction (file: IBinFile) (func: Function) =
