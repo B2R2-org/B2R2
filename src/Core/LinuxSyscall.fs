@@ -6200,7 +6200,7 @@ module LinuxSyscall =
     | 441 -> LinuxSyscall.EpollPwait
     | _ -> raise UnhandledSyscallException
 
-  /// Return a LinuxSyscall from a given number and architecture.
+  /// Returns a LinuxSyscall from a given number and architecture.
   [<CompiledName "OfNumber">]
   let ofNumber arch num =
     match arch with
@@ -6214,7 +6214,7 @@ module LinuxSyscall =
     | RISCV64 -> getRISCV64Syscall num
     | _ -> raise UnhandledSyscallException
 
-  /// Transform a LinuxSyscall to a string.
+  /// Converts a LinuxSyscall to a string.
   [<CompiledName "ToString">]
   let toString = function
     | LinuxSyscall.Accept -> "accept"
@@ -6645,8 +6645,8 @@ module LinuxSyscall =
     | LinuxSyscall.Statx -> "statx"
     | LinuxSyscall.Stime -> "stime"
     | LinuxSyscall.SubpageProt -> "subpage_prot"
-    | LinuxSyscall.SwitchEndian -> "swapcontext"
-    | LinuxSyscall.Swapcontext -> "switch_endian"
+    | LinuxSyscall.SwitchEndian -> "switch_endian"
+    | LinuxSyscall.Swapcontext -> "swapcontext"
     | LinuxSyscall.Swapoff -> "swapoff"
     | LinuxSyscall.Swapon -> "swapon"
     | LinuxSyscall.Symlink -> "symlink"
@@ -6714,7 +6714,7 @@ module LinuxSyscall =
     | LinuxSyscall.Xtensa -> "xtensa"
     | _ -> raise UnhandledSyscallException
 
-  /// Convert a string to a LinuxSyscall.
+  /// Converts a string to a LinuxSyscall.
   [<CompiledName "OfString">]
   let ofString = function
     | "accept" -> LinuxSyscall.Accept
@@ -7145,8 +7145,8 @@ module LinuxSyscall =
     | "statx" -> LinuxSyscall.Statx
     | "stime" -> LinuxSyscall.Stime
     | "subpage_prot" -> LinuxSyscall.SubpageProt
-    | "swapcontext" -> LinuxSyscall.SwitchEndian
-    | "switch_endian" -> LinuxSyscall.Swapcontext
+    | "swapcontext" -> LinuxSyscall.Swapcontext
+    | "switch_endian" -> LinuxSyscall.SwitchEndian
     | "swapoff" -> LinuxSyscall.Swapoff
     | "swapon" -> LinuxSyscall.Swapon
     | "symlink" -> LinuxSyscall.Symlink
