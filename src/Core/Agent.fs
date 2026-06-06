@@ -35,10 +35,10 @@ open System.Threading.Tasks.Dataflow
 /// </summary>
 type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
 
-  /// Agent's task.
+  /// Gets the task associated with this agent.
   member _.Task with get() = task
 
-  /// Start a new agent with a given task function and a cancellation token.
+  /// Starts a new agent with a given task function and a cancellation token.
   static member Start(taskFn: IAgentMessageReceivable<'Msg> -> unit, token) =
     let ch = BufferBlock<'Msg>()
     let receivable =
@@ -51,7 +51,7 @@ type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
                 | true, msg -> return msg
                 | false, _ -> return raise <| InvalidOperationException()
               else return raise <| OperationCanceledException()
-            } |> fun task -> task.Wait(); task.Result
+            } |> fun task -> task.Result
           member _.Complete() = ch.Complete()
           member _.IsCancelled with get() = token.IsCancellationRequested
           member _.Count with get() = ch.Count }
@@ -60,10 +60,10 @@ type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
       with e -> e.ToString() |> Terminator.fatalExit
     Agent(ch, Task.Run(fn, cancellationToken = token))
 
-  /// Post a message to the agent.
+  /// Posts a message to the agent.
   member _.Post(msg: 'Msg) = ch.Post msg |> ignore
 
-  /// Post a message and get a reply from the agent.
+  /// Posts a message and returns a reply from the agent.
   member _.PostAndReply callback =
     use cts = new CancellationTokenSource()
     let replyChan = BufferBlock<_>()
@@ -81,14 +81,14 @@ and AgentReplyChannel<'Reply>(replyf: 'Reply -> unit) =
 
 /// Interface for receiving agent messages.
 and IAgentMessageReceivable<'Msg> =
-  /// Receive a message from the agent.
+  /// Receives a message from the agent.
   abstract Receive: unit -> 'Msg
 
-  /// Notify the agent that no more messages will be sent.
+  /// Notifies the agent that no more messages will be sent.
   abstract Complete: unit -> unit
 
-  /// Is the agent cancelled?
+  /// Returns true if the agent has been cancelled; otherwise, false.
   abstract IsCancelled: bool
 
-  /// How many messages are left in the agent?
+  /// Gets the number of messages remaining in the agent's buffer.
   abstract Count: int
