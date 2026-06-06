@@ -59,18 +59,16 @@ let private runWithBrewLoader files (opts: BinExploreOpts) =
         member _.LoadBrew file =
           let hdl = BinHandle(file, opts.ISA, None)
           let cfgRecovery = Strategies.EVMCFGRecovery()
-          EVMBinaryBrew(hdl, [| cfgRecovery |]) }
+          EVMBinaryBrew(hdl, cfgRecovery) }
     |> startServerAndUI files opts
   | _ ->
     { new IBrewLoadable<_, _> with
         member _.LoadBrew file =
           let hdl = BinHandle(file, opts.ISA, None)
           let exnInfo = ExceptionInfo hdl
-          let funcId = Strategies.FunctionIdentification(hdl, exnInfo)
           let cfgRecovery = Strategies.CFGRecovery()
-          let strategies =
-            [| funcId :> ICFGBuildingStrategy<_, _>; cfgRecovery |]
-          BinaryBrew(hdl, exnInfo, strategies) }
+          let strategy = cfgRecovery :> ICFGBuildingStrategy<_, _>
+          BinaryBrew(hdl, exnInfo, strategy) }
     |> startServerAndUI files opts
 
 let private explore files opts =

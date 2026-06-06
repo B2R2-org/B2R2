@@ -260,7 +260,8 @@ type JmpTableAnalysis<'FnCtx,
            TableAddress = tblAddr
            EntrySize = RegType.toByteWidth rt
            NumEntries = 0
-           IsSingleEntry = singleEntry })
+           IsSingleEntry = singleEntry
+           IsFunctionPointerTable = false })
     | _ -> Error ErrorCase.ItemNotFound
 
   let detect expandPhi findConst findDef iAddr = function

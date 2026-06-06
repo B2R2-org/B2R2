@@ -50,14 +50,15 @@ type BinaryBrew<'FnCtx,
                         and 'GlCtx: (new: unit -> 'GlCtx)>
   public(hdl: BinHandle,
          exnInfo: ExceptionInfo,
-         strategies: ICFGBuildingStrategy<_, _>[],
+         funcID: IFunctionIdentifiable,
+         cfgBuilder: ICFGBuildingStrategy<_, _>,
          irBlkOptimizer: IIRBlockOptimizable) =
+
+  let numThreads = Environment.ProcessorCount / 2
 
   let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
 
   let builders = CFGBuilderTable(hdl, exnInfo, instrs, irBlkOptimizer)
-
-  let missions = strategies |> Array.map RecoveryMission<'FnCtx, 'GlCtx>
 
   let buildersToFunctions (builders: CFGBuilderTable<_, _>) =
     builders.Values
@@ -68,27 +69,26 @@ type BinaryBrew<'FnCtx,
     let sw = Stopwatch()
     Console.WriteLine "[*] CFG recovery started."
     sw.Start()
-    let funcs =
-      missions
-      |> Array.fold (fun builders mission -> mission.Execute builders) builders
-      |> buildersToFunctions
+    let candidates = funcID.Identify()
+    let manager = TaskManager<'FnCtx, 'GlCtx>(builders, cfgBuilder, numThreads)
+    manager.StartAndWait candidates
     sw.Stop()
     let ts = sw.Elapsed
     Console.WriteLine $"[*] Total {ts.TotalSeconds}s elapsed."
-    funcs
+    buildersToFunctions builders
 
   let funcs = recoverFunctions ()
 
-  new(hdl: BinHandle, strategies) =
-    let exnInfo = ExceptionInfo(hdl)
-    BinaryBrew(hdl, exnInfo, strategies, null)
+  new(hdl: BinHandle, funcId, cfgRecovery) =
+    let exnInfo = ExceptionInfo hdl
+    BinaryBrew(hdl, exnInfo, funcId, cfgRecovery, null)
 
-  new(hdl: BinHandle, strategies, irBlkOptimizer) =
-    let exnInfo = ExceptionInfo(hdl)
-    BinaryBrew(hdl, exnInfo, strategies, irBlkOptimizer)
+  new(hdl: BinHandle, funcId, cfgBuilder, irBlkOptimizer) =
+    let exnInfo = ExceptionInfo hdl
+    BinaryBrew(hdl, exnInfo, funcId, cfgBuilder, irBlkOptimizer)
 
-  new(hdl: BinHandle, exnInfo, strategies) =
-    BinaryBrew(hdl, exnInfo, strategies, null)
+  new(hdl: BinHandle, exnInfo, funcId, cfgBuilder) =
+    BinaryBrew(hdl, exnInfo, funcId, cfgBuilder, null)
 
   /// Low-level access to binary code and data.
   member _.BinHandle with get(): BinHandle = hdl
@@ -108,31 +108,45 @@ type BinaryBrew<'FnCtx,
 type BinaryBrew =
   inherit BinaryBrew<DummyContext, DummyContext>
 
-  new(hdl: BinHandle, exnInfo: ExceptionInfo, strategies) =
-    { inherit BinaryBrew<DummyContext, DummyContext>(hdl, exnInfo, strategies) }
+  new(hdl: BinHandle, exnInfo: ExceptionInfo, cfgBuilder) =
+    let funcId = FunctionIdentification(hdl, exnInfo)
+    { inherit BinaryBrew<DummyContext, DummyContext>(hdl, exnInfo, funcId,
+                                                     cfgBuilder) }
 
-  new(hdl: BinHandle, strategies) =
-    { inherit BinaryBrew<DummyContext, DummyContext>(hdl, strategies) }
+  new(hdl: BinHandle, funcId, cfgBuilder) =
+    { inherit BinaryBrew<DummyContext, DummyContext>(hdl, funcId, cfgBuilder) }
 
   new(hdl: BinHandle,
       [<Optional; DefaultParameterValue(false)>] allowBBLOverlap) =
     let exnInfo = ExceptionInfo hdl
     let funcId = FunctionIdentification(hdl, exnInfo)
-    let strategies =
-      [| funcId :> ICFGBuildingStrategy<_, _>
-         CFGRecovery(allowBBLOverlap) |]
-    { inherit BinaryBrew<DummyContext, DummyContext>(hdl, exnInfo, strategies) }
+    let cfgBuilder = CFGRecovery(allowBBLOverlap) :> ICFGBuildingStrategy<_, _>
+    { inherit BinaryBrew<DummyContext, DummyContext>(hdl,
+                                                     exnInfo,
+                                                     funcId,
+                                                     cfgBuilder) }
+
+  new(hdl: BinHandle, targets) =
+    let exnInfo = ExceptionInfo hdl
+    let funcId = FunctionIdentification(hdl, exnInfo)
+    let cfgBuilder = CFGRecovery(false, targets) :> ICFGBuildingStrategy<_, _>
+    BinaryBrew(hdl, funcId, cfgBuilder)
 
 /// Default BinaryBrew type that uses EVM-specific user context.
 type EVMBinaryBrew =
   inherit BinaryBrew<EVMFuncUserContext, DummyContext>
 
-  new(hdl: BinHandle, strategies) =
+  new(hdl: BinHandle, cfgBuilder) =
     let optimizer =
       { new IIRBlockOptimizable with
           (* Dead Code Analysis can disturb the data-flow analysis in
              an inter-procedural level, so we disable it. *)
           member _.Optimize stmts =
             LocalOptimizer.Optimize(stmts, ConstantFolding.optimize) }
-    { inherit BinaryBrew<EVMFuncUserContext, DummyContext>(hdl, strategies,
+    let funcId =
+      { new IFunctionIdentifiable with
+          member _.Identify() = [| 0x0UL |] }
+    { inherit BinaryBrew<EVMFuncUserContext, DummyContext>(hdl,
+                                                           funcId,
+                                                           cfgBuilder,
                                                            optimizer) }

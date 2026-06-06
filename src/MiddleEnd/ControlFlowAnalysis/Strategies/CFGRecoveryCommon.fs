@@ -311,12 +311,6 @@ module internal CFGRecoveryCommon =
       MoveOn
     else FailStop ErrorCase.FailedToRecoverCFG
 
-  let findCandidates (builders: ICFGBuildable<_, _>[]) =
-    builders
-    |> Array.choose (fun b ->
-      if not b.Context.IsExternal then Some <| b.EntryPoint
-      else None)
-
   /// Try to get a vertex (which is either cached or newly created).
   let tryGetVertex ctx cfgRec ppoint =
     match ctx.Vertices.TryGetValue ppoint with
@@ -353,6 +347,11 @@ module internal CFGRecoveryCommon =
       let dstVertex = getVertex ctx cfgRec nextPPoint
       connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
     | false, _ -> ()
+
+  let isFuncEntryPoint ctx addr =
+    match ctx.ManagerChannel.GetBuildingContext addr with
+    | StillBuilding _ | FinalCtx _ -> true
+    | FailedBuilding -> false
 
   /// Build a CFG starting from the given program points.
   let buildCFG ctx cfgRec (syscallAnalysis: ISyscallAnalyzable)
@@ -399,10 +398,9 @@ module internal CFGRecoveryCommon =
         | InterJmp(Num(n, _), InterJmpKind.Base, _) ->
           let target = n.ToUInt64()
           if useTailcallHeuristic then
-            match ctx.ManagerChannel.GetBuildingContext target with
-            | FailedBuilding -> (* function does not exist *)
+            if not <| isFuncEntryPoint ctx target then (* No function exists. *)
               jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
-            | _ ->
+            else
               let lastInsAddr = srcData.LastInstruction.Address
               let callSite = LeafCallSite lastInsAddr
               let act = MakeTlCall(callSite, target, (UnknownNoRet, 0))
@@ -648,9 +646,14 @@ module internal CFGRecoveryCommon =
     | EndTblRec _ -> ()
     | _ -> assert false
 
-  let recoverJumpTableEntry ctx cfgRec queue insAddr srcAddr dstAddr =
+  let recoverJumpTableEntry ctx cfgRec idx jmptbl srcAddr dstAddr =
     let srcVertex = getVertex ctx cfgRec (ProgramPoint(srcAddr, 0))
     let fnAddr = ctx.FunctionAddress
+    let isDstFuncEntry = isFuncEntryPoint ctx dstAddr
+    if idx = 0 && isDstFuncEntry then
+      jmptbl.IsFunctionPointerTable <- true
+    else
+      ()
     if not (isExecutableAddr ctx dstAddr) then
       match ctx.JumpTableRecoveryStatus.TryPeek() with
       | true, (tblAddr, 0) ->
@@ -658,12 +661,27 @@ module internal CFGRecoveryCommon =
            not executable. In this case, we conclude that the indirect jump is
            not using a jump table, and thus, we simply ignore the indirect
            branch. *)
+        let insAddr = (jmptbl: JmpTableInfo).InsAddr
         ctx.ManagerChannel.CancelJumpTableRecovery(fnAddr, insAddr, tblAddr)
         popOffJmpTblRecoveryAction ctx
         ctx.JumpTableRecoveryStatus.Pop() |> ignore
         MoveOn
       | _ ->
         FailStop ErrorCase.FailedToRecoverCFG
+    elif jmptbl.IsFunctionPointerTable then
+      if not isDstFuncEntry then (* End of the table. *)
+        let tblAddr = jmptbl.TableAddress
+        let success =
+          ctx.ManagerChannel.NotifyBogusJumpTableEntry(fnAddr, tblAddr, idx)
+        assert success
+        popOffJmpTblRecoveryAction ctx
+        ctx.JumpTableRecoveryStatus.Pop() |> ignore
+        MoveOn
+      else
+        let lastInsAddr = srcVertex.VData.Internals.LastInstruction.Address
+        let callsite = LeafCallSite lastInsAddr
+        let act = MakeTlCall(callsite, dstAddr, (UnknownNoRet, 0))
+        handleCall ctx cfgRec srcVertex callsite dstAddr act
     else
       scanBBLsAndConnect ctx cfgRec srcVertex dstAddr IndirectJmpEdge
       |> toCFGResult
@@ -672,7 +690,9 @@ module internal CFGRecoveryCommon =
     let fnAddr = ctx.FunctionAddress
     let tblAddr = jmptbl.TableAddress
     let nextTarget = readJumpTable ctx jmptbl (idx + 1)
-    ctx.ManagerChannel.ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextTarget)
+    let isFnPointerTbl = jmptbl.IsFunctionPointerTable
+    let ch = ctx.ManagerChannel
+    ch.ReportJumpTableSuccess(fnAddr, tblAddr, idx, nextTarget, isFnPointerTbl)
     |> function
       | true ->
         let callsiteAddr = jmptbl.InsAddr

@@ -26,24 +26,9 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
 
-/// Jump table information.
-type JmpTableInfo =
-  { /// The address of the indirect branch instruction corresponding to the jump
-    /// table.
-    InsAddr: Addr
-    /// The base address to be added to compute the final jump target.
-    JumpBase: Addr
-    /// The address of the jump table.
-    TableAddress: Addr
-    /// The size of each entry in the jump table (in bytes).
-    EntrySize: int
-    /// The number of entries in the jump table.
-    mutable NumEntries: int
-    /// Indicates whether the jump table has only a single entry. We use this
-    /// information when the jump table is accessed via a constant address
-    /// without any index computation (e.g., jmp qword ptr [constant_address]).
-    /// If so, we do not expand the entries during jump table analysis.
-    IsSingleEntry: bool
-    /// Indicates whether the jump table is accessed via a function pointer
-    /// table.
-    mutable IsFunctionPointerTable: bool }
+/// Represents a function identification startegy. This is used to find
+/// candidate functions to analyze.
+type IFunctionIdentifiable =
+  /// Finds a list of candidate functions to analyze. It returns a list of
+  /// addresses of the candidate functions.
+  abstract Identify: unit -> Addr[]

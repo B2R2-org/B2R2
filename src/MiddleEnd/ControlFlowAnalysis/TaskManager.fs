@@ -29,25 +29,10 @@ open System.Threading
 open System.Threading.Tasks
 open B2R2
 
-type RecoveryMission<'FnCtx,
-                     'GlCtx when 'FnCtx :> IResettable
-                             and 'FnCtx: (new: unit -> 'FnCtx)
-                             and 'GlCtx: (new: unit -> 'GlCtx)>
-  public(strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>) =
-
-  member _.Execute(builders: CFGBuilderTable<_, _>) =
-    let numThreads = Environment.ProcessorCount / 2
-    let manager = TaskManager<'FnCtx, 'GlCtx>(builders, strategy, numThreads)
-#if CFGDEBUG
-    initLogger numThreads
-#endif
-    manager.Start()
-
 /// Task manager for control flow analysis.
-and private TaskManager<'FnCtx,
-                        'GlCtx when 'FnCtx :> IResettable
-                                and 'FnCtx: (new: unit -> 'FnCtx)
-                                and 'GlCtx: (new: unit -> 'GlCtx)>
+type TaskManager<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
+                                 and 'FnCtx: (new: unit -> 'FnCtx)
+                                 and 'GlCtx: (new: unit -> 'GlCtx)>
   public(builders: CFGBuilderTable<'FnCtx, 'GlCtx>,
          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
          numThreads) =
@@ -71,24 +56,52 @@ and private TaskManager<'FnCtx,
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
-  member _.Start() =
-    match strategy.FindCandidates builders.Values with
-    | [||] -> scheduler.Terminate()
-    | candidates ->
-      for addr in candidates do
-        let builder = builders.GetOrCreateBuilder(managerMsgbox, addr)
-        if builder.IsExternal then ()
-        else builders.Reload(builder, managerMsgbox)
-      (* Tasks should be added at last to avoid a race for builders. *)
-      for addr in candidates do scheduler.StartBuilding addr done
-    waitForWorkers ()
-    for builder in builders.Values do (* Update callers of each builder. *)
+  /// Update callers of each builder.
+  let updateCallers () =
+    for builder in builders.Values do
       depMap.GetConfirmedCallers builder.EntryPoint
       |> builder.Context.Callers.UnionWith
+
+  /// Create builders for the given addresses.
+  let createBuilders candidates targetAddrs =
+    let targetAddrSet = Set.ofArray targetAddrs
+    for candidate in candidates do
+      let builder = builders.GetOrCreateBuilder(managerMsgbox, candidate)
+      if not builder.IsExternal &&
+         not <| Set.contains candidate targetAddrSet then
+        (* For candidates that are not in the initial recovery targets, we
+           create their builders but set them to deactivated. This is because
+           they might be added as recovery targets later when their callers are
+           being built. *)
+        builder.Activation <- Deactivated
+        builder.Authorize()
+        builder.StartVerifying()
+        builder.Finalize() (* Initially make them finished without building. *)
+      else
+        ()
+
+  let startBuildingCFGs recoveryTargets =
+    for targetAddr in recoveryTargets do
+      scheduler.StartBuilding targetAddr
+
+  let getInitialRecoveryAddrs candidates =
+    match strategy.RecoveryTargets with
+    | All -> candidates
+    | Specific addrs -> addrs
+
+#if CFGDEBUG
+  do initLogger numThreads
+#endif
+
+  member _.StartAndWait candidates =
+    let targetAddrs = getInitialRecoveryAddrs candidates
+    createBuilders candidates targetAddrs
+    startBuildingCFGs targetAddrs
+    waitForWorkers ()
+    updateCallers ()
 #if CFGDEBUG
     for tid in 0 .. numThreads do flushLog tid
 #endif
-    builders
 
 /// Task worker for control flow recovery.
 and private TaskWorker<'FnCtx,
