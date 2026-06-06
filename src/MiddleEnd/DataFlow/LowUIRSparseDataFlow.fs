@@ -125,7 +125,7 @@ type State<'Lattice when 'Lattice: equality>
     | Load(_, _, addr, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
-        let offset = BitVector.ToUInt64 bv |> toFrameOffset
+        let offset = bv.ToUInt64() |> toFrameOffset
         spEvaluateVar (StackLocal offset) pp
       | c -> c
     | BinOp(binOpType, _, e1, e2, _) ->
@@ -227,7 +227,7 @@ type State<'Lattice when 'Lattice: equality>
     | Load(_, rt, addr, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
-        let offset = BitVector.ToUInt64 bv |> toFrameOffset
+        let offset = bv.ToUInt64() |> toFrameOffset
         let vk = StackLocal offset
         let ssaVar = getSSAVarFromUse pp vk
         SSA.Var ssaVar
@@ -282,7 +282,7 @@ type State<'Lattice when 'Lattice: equality>
     | Store(_, addr, value, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
-        let offset = BitVector.ToUInt64 bv |> toFrameOffset
+        let offset = bv.ToUInt64() |> toFrameOffset
         let vk = StackLocal offset
         let vp = { ProgramPoint = pp; VarKind = vk }
         let v = getSSAVar vp
@@ -543,7 +543,7 @@ module internal AnalysisCore = begin
 
   let getStackValue (state: State<_>) pp e =
     match state.EvaluateStackPointerExpr(pp, e) with
-    | StackPointerDomain.ConstSP bv -> Ok <| BitVector.ToUInt64 bv
+    | StackPointerDomain.ConstSP bv -> Ok <| bv.ToUInt64()
     | _ -> Error ErrorCase.InvalidExprEvaluation
 
   /// Linear time algorithm to compute the inverse dominance frontier.
@@ -889,7 +889,7 @@ module internal AnalysisCore = begin
     | Store(_, addr, value, _) ->
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
-        let loc = BitVector.ToUInt64 bv
+        let loc = bv.ToUInt64()
         let offset = toFrameOffset loc
         let varKind = StackLocal offset
         let vp = { ProgramPoint = pp; VarKind = varKind }

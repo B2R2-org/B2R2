@@ -120,7 +120,7 @@ module StaticValueFacts =
   and private evalAddr ctx expr =
     evalExpr ctx expr
     |> Option.bind (fun bv ->
-      if bv.Length <= 64<rt> then Some(BitVector.ToUInt64 bv)
+      if bv.Length <= 64<rt> then Some(bv.ToUInt64())
       else None)
 
   and private evalUnOp ctx e fn =

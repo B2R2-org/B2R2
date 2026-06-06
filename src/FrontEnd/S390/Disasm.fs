@@ -1291,24 +1291,24 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
     match imm with
     | ImmU4 value ->
       builder.Accumulate(AsmWordKind.Value,
-        HexString.ofUInt32 (BitVector.ToUInt32 value))
+        HexString.ofUInt32 (value.ToUInt32()))
     | ImmU8 value ->
       builder.Accumulate(AsmWordKind.Value, HexString.ofUInt16 (uint16 value))
     | ImmS8 value ->
       builder.Accumulate(AsmWordKind.Value, HexString.ofInt16 (int16 value))
     | ImmU12 value ->
       builder.Accumulate(AsmWordKind.Value,
-        HexString.ofUInt32 (BitVector.ToUInt32 value))
+        HexString.ofUInt32 (value.ToUInt32()))
     | ImmS12 value ->
       builder.Accumulate(AsmWordKind.Value,
-        HexString.ofInt32 (BitVector.ToInt32 value))
+        HexString.ofInt32 (value.ToInt32()))
     | ImmU16 value ->
       builder.Accumulate(AsmWordKind.Value, HexString.ofUInt16 value)
     | ImmS16 value ->
       builder.Accumulate(AsmWordKind.Value, HexString.ofInt16 value)
     | ImmS24 value ->
       builder.Accumulate(AsmWordKind.Value,
-        HexString.ofInt32 (BitVector.ToInt32 value))
+        HexString.ofInt32 (value.ToInt32()))
     | ImmU32 value ->
       builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 value)
     | ImmS32 value ->

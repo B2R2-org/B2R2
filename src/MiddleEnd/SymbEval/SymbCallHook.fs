@@ -79,15 +79,15 @@ module SymbCallHooks =
     SymbExpr.Const(BitVector(uint64 value, typ))
 
   let private concreteAddr = function
-    | SymbExpr.Const bv -> Ok(BitVector.ToUInt64 bv)
+    | SymbExpr.Const bv -> Ok(bv.ToUInt64())
     | expr -> Error(UnsupportedSymbolicAddress expr)
 
   let private isConcreteZero = function
-    | SymbExpr.Const bv when BitVector.ToUInt64 bv = 0UL -> true
+    | SymbExpr.Const bv when bv.ToUInt64() = 0UL -> true
     | _ -> false
 
   let private isConcreteNonZero = function
-    | SymbExpr.Const bv when BitVector.ToUInt64 bv <> 0UL -> true
+    | SymbExpr.Const bv when bv.ToUInt64() <> 0UL -> true
     | _ -> false
 
   let private addNonNullCondition (st: SymbState) byte =
@@ -109,11 +109,11 @@ module SymbCallHooks =
     | Error _ -> Error(UninitializedRegister ctx.ArgumentRegisters[0])
 
   let private canBeNull = function
-    | SymbExpr.Const bv -> BitVector.ToUInt64 bv = 0UL
+    | SymbExpr.Const bv -> bv.ToUInt64() = 0UL
     | _ -> true
 
   let private canBeNonNull = function
-    | SymbExpr.Const bv -> BitVector.ToUInt64 bv <> 0UL
+    | SymbExpr.Const bv -> bv.ToUInt64() <> 0UL
     | _ -> true
 
   let private makeStrlenState ctx length bytes terminator

@@ -540,7 +540,7 @@ type SymbExecutor(hdl: BinHandle) =
 
   let tryGetConcreteReg rid (st: SymbState) =
     match st.TryGetReg rid with
-    | Ok(Const bv) -> Some(BitVector.ToUInt64 bv)
+    | Ok(Const bv) -> Some(bv.ToUInt64())
     | _ -> None
 
   let tryGetCallTargetAddr (ins: IInstruction) (st: SymbState) =
@@ -594,7 +594,7 @@ type SymbExecutor(hdl: BinHandle) =
   let popReturnAddress (st: SymbState) =
     let accessor = SymbStateAccessor(hdl, st, OS.Linux)
     match accessor.TryPopFromStack() with
-    | Ok(Const ret) -> Ok(BitVector.ToUInt64 ret)
+    | Ok(Const ret) -> Ok(ret.ToUInt64())
     | Ok expr -> Error(UnsupportedSymbolicAddress expr)
     | Error e -> Error e
 

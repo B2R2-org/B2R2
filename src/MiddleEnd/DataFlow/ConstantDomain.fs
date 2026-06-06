@@ -97,7 +97,7 @@ module ConstantDomain =
   let private adjustShiftOperand c =
     match c with
     | Const bv ->
-      let rt = BitVector.GetType bv
+      let rt = bv.Length
       let upperBound = BitVector(0xFFFFFFFFUL, rt)
       let isOkay = BitVector.Le(bv, upperBound).IsTrue
       if isOkay then c

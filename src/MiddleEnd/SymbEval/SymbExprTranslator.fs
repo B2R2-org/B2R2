@@ -81,9 +81,9 @@ module SymbExprTranslator =
     (1I <<< int typ) - 1I
 
   let private valueMask (bv: BitVector) =
-    BitVector.GetValue bv &&& bitMask bv.Length
+    bv.ToBigInt() &&& bitMask bv.Length
 
-  let private constZero typ = SymbExpr.Const(BitVector.Zero typ)
+  let private constZero typ = Const(BitVector.Zero typ)
 
   let rec private getMayOneBits expr =
     match expr with
@@ -100,11 +100,11 @@ module SymbExprTranslator =
     | SymbExpr.BinOp(BinOpType.XOR, typ, lhs, rhs) ->
         getMayOneBits lhs ||| getMayOneBits rhs &&& bitMask typ
     | SymbExpr.BinOp(BinOpType.SHL, typ, lhs, SymbExpr.Const rhs) ->
-      let shift = BitVector.ToUInt64 rhs
+      let shift = rhs.ToUInt64()
       if shift >= uint64 (int typ) then 0I
       else getMayOneBits lhs <<< int shift &&& bitMask typ
     | SymbExpr.BinOp(BinOpType.SHR, typ, lhs, SymbExpr.Const rhs) ->
-      let shift = BitVector.ToUInt64 rhs
+      let shift = rhs.ToUInt64()
       if shift >= uint64 (int typ) then 0I
       else getMayOneBits lhs >>> int shift &&& bitMask typ
     | SymbExpr.BinOp(_, typ, _, _) -> bitMask typ
@@ -120,8 +120,8 @@ module SymbExprTranslator =
 
   let private tryFoldMaskedAndToZero typ lhs rhs =
     match lhs, rhs with
-    | expr, SymbExpr.Const mask
-    | SymbExpr.Const mask, expr ->
+    | expr, Const mask
+    | Const mask, expr ->
       let mask = valueMask mask
       if getMayOneBits expr &&& mask = 0I then Some(constZero typ)
       else None
@@ -202,7 +202,7 @@ module SymbExprTranslator =
       bind2 (foldRelOp op) (translate state lhs) (translate state rhs)
     | Load(endian, typ, addr, _) ->
       match translate state addr with
-      | Ok(Const bv) -> state.Memory.Load(BitVector.ToUInt64 bv, endian, typ)
+      | Ok(Const bv) -> state.Memory.Load(bv.ToUInt64(), endian, typ)
       | Ok addr -> Error(UnsupportedSymbolicAddress addr)
       | Error e -> Error e
     | Ite(cond, thenExpr, elseExpr, _) ->

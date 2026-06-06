@@ -35,7 +35,7 @@ module SMTLibSerializer =
   let private bvSort (typ: RegType) = $"(_ BitVec {RegType.toBitWidth typ})"
 
   let private bvConst (bv: BitVector) =
-    $"(_ bv{BitVector.GetValue bv} {RegType.toBitWidth bv.Length})"
+    $"(_ bv{bv.ToBigInt()} {RegType.toBitWidth bv.Length})"
 
   let private symbol (name: string) =
     // FIXME: This escaping is not bijective. It is acceptable for generated

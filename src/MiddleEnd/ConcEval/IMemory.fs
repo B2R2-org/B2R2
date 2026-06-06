@@ -69,9 +69,9 @@ module private Memory =
       | Error e -> Error e
 
   /// Writes a bitvector value to the memory.
-  let write addr v endian (mem: IMemory) =
-    let len = BitVector.GetType v |> RegType.toByteWidth |> int
-    let v = BitVector.GetValue v
+  let write addr (v: BitVector) endian (mem: IMemory) =
+    let len = v.Length |> RegType.toByteWidth |> int
+    let v = v.ToBigInt()
     if endian = Endian.Big then
       for i = 1 to len do
         let offset = i - 1

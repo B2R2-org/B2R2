@@ -65,7 +65,7 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
     | Load(_, _, addr, _) ->
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
-        let addr = BitVector.ToUInt64 bv
+        let addr = bv.ToUInt64()
         let offset = LowUIRSparseDataFlow.toFrameOffset addr
         evaluateVarPoint state pp (StackLocal offset)
       | _ -> UntouchedValueDomain.Touched

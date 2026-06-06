@@ -92,9 +92,9 @@ module Summary =
     | _ when e = esp -> Some 0
     | BinOp(BinOpType.ADD, 32<rt>, var, Num(n, _), _)
     | BinOp(BinOpType.ADD, 32<rt>, Num(n, _), var, _) when var = esp ->
-      calcOffset (BitVector.ToInt32 n)
+      calcOffset (n.ToInt32())
     | BinOp(BinOpType.SUB, 32<rt>, var, Num(n, _), _) when var = esp ->
-      calcOffset (-(BitVector.ToInt32 n))
+      calcOffset (-n.ToInt32())
     | _ -> None
 
   let private getStackOff (v: Value) =
@@ -126,10 +126,10 @@ module Summary =
     | Var(32<rt>, _, reg, _) -> Some(reg, 0u)
     | BinOp(BinOpType.ADD, _, Var(32<rt>, _, reg, _), Num(n, _), _)
     | BinOp(BinOpType.ADD, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
-      Some(reg, BitVector.ToUInt32 n)
+      Some(reg, n.ToUInt32())
     | BinOp(BinOpType.SUB, _, Var(32<rt>, _, reg, _), Num(n, _), _)
     | BinOp(BinOpType.SUB, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
-      Some(reg, BitVector.Neg n |> BitVector.ToUInt32)
+      Some(reg, (BitVector.Neg n).ToUInt32())
     | _ -> None
 
   let private isLinear (value: Value) = value.GetExpr() |> isLinearExpr
@@ -240,7 +240,7 @@ module Summary =
 
   let private toBytes (value: Value) =
     match value.GetExpr() with
-    | Num(n, _) -> BitVector.GetValue(n).ToByteArray() |> Some
+    | Num(n, _) -> n.ToBigInt().ToByteArray() |> Some
     | _ -> None
 
   let private readMemStr (sum: Summary) ptr =

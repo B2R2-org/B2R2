@@ -72,7 +72,7 @@ with
 
   override this.ToString() =
     match this with
-    | Const bv -> BitVector.ToString bv
+    | Const bv -> bv.ToString()
     | Var(name, typ) -> $"{name}:{RegType.toString typ}"
     | UnOp(op, expr) -> $"({UnOpType.toString op} {expr})"
     | BinOp(op, typ, lhs, rhs) ->
@@ -170,4 +170,4 @@ module SymbExpr =
     | _ -> None
 
   let tryGetConcreteAddr expr =
-    tryGetConcrete expr |> Option.map BitVector.ToUInt64
+    tryGetConcrete expr |> Option.map (fun bv -> bv.ToUInt64())

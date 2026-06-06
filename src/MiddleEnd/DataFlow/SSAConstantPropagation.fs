@@ -36,7 +36,7 @@ type SSAConstantPropagation(hdl: BinHandle) =
   let evalLoad (state: State<_>) m rt addr =
     match addr with
     | ConstantDomain.Const addr ->
-      let addr = BitVector.ToUInt64 addr
+      let addr = addr.ToUInt64()
       state.GetMemValue(m, rt, addr)
     | _ -> ConstantDomain.NotAConst
 

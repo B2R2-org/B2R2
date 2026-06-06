@@ -1347,10 +1347,8 @@ let parseByFmt (span: ByteSpan) (reader: IBinReader) bin =
   | 0b00us -> parseInstLenOne (reader.ReadUInt16(span, 0)), 2u
   | 0b01us | 0b10us -> parseInstLenTwo (reader.ReadUInt32(span, 0)), 4u
   | 0b11us ->
-    span.Slice(0, 6).ToArray()
-    |> Array.rev
-    |> BitVector
-    |> BitVector.ToUInt64
+    let bv = span.Slice(0, 6).ToArray() |> Array.rev |> BitVector
+    bv.ToUInt64()
     |> parseInstLenThree, 6u
   | _ -> Terminator.impossible ()
 

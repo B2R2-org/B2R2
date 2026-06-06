@@ -576,8 +576,8 @@ module private EVMCFGRecovery =
               false)))
 
   /// Handles a jump with a bitvector, which is the target address of the jump.
-  let handleJmpWithBV ctx cfgRec srcV dstBv edgeKind =
-    let dstAddr = BitVector.ToUInt64 dstBv
+  let handleJmpWithBV ctx cfgRec srcV (dstBv: BitVector) edgeKind =
+    let dstAddr = dstBv.ToUInt64()
     match ctx.ManagerChannel.GetBuildingContext dstAddr with
     | FailedBuilding -> (* Ignore when the target is not a function. *)
       if UseCallFallthroughHeuristic
@@ -677,8 +677,8 @@ module private EVMCFGRecovery =
         let isEntryFunction = ctx.FunctionAddress = 0x0UL
         let cond = expandExpr state cond
         if isEntryFunction && tryDetectPubFunc ctx state cond then
-          let tJmpAddr = BitVector.ToUInt64 tBv
-          let fJmpAddr = BitVector.ToUInt64 fBv
+          let tJmpAddr = tBv.ToUInt64()
+          let fJmpAddr = fBv.ToUInt64()
           match scanBBLsAndConnect ctx cfgRec v fJmpAddr InterCJmpFalseEdge with
           | Ok() ->
             let callee = tJmpAddr

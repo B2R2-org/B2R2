@@ -1651,7 +1651,7 @@ let inc (ins: Instruction) insLen bld =
 let interrupt ins insLen bld =
   match transOneOpr bld ins insLen with
   | Num(n, _) ->
-    Interrupt(BitVector.ToInt32 n)
+    Interrupt(n.ToInt32())
     |> sideEffects bld ins insLen
   | _ -> raise InvalidOperandException
 

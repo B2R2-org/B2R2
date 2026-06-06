@@ -94,7 +94,7 @@ type ConstantPropagation(hdl, vs) =
     | Load(_m, rt, addr, _) ->
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
-        let addr = BitVector.ToUInt64 bv
+        let addr = bv.ToUInt64()
         let offset = LowUIRSparseDataFlow.toFrameOffset addr
         let c = evaluateVarPoint state pp (StackLocal offset)
         match c with

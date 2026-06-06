@@ -467,7 +467,7 @@ let private cmppCond bld ins insLen op3 isDbl c expr1 expr2 =
     .& numI32 0x7 8<rt>
   match imm with
   | Num(bv, _) ->
-    match bv.SmallValue with
+    match bv.ToUInt64() with
     | 0UL -> bld <+ (c := expr1 == expr2)
     | 1UL -> bld <+ (c := AST.flt expr1 expr2)
     | 2UL -> bld <+ (c := AST.fle expr1 expr2)
@@ -1789,7 +1789,7 @@ and Return =
 let private getPcmpstrInfo opCode (imm: Expr) =
   let immByte =
     match imm with
-    | Num(n, _) -> BitVector.GetValue n
+    | Num(n, _) -> n.ToBigInt()
     | _ -> raise InvalidExprException
   let agg =
     match (immByte >>> 2) &&& 3I with

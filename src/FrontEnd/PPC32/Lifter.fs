@@ -51,7 +51,7 @@ let getThreeOprs (ins: Instruction) =
 let getExtMask mb me =
   let struct (mb, me) =
     match mb, me with
-    | Num(b, _), Num(m, _) -> struct (int b.SmallValue, int m.SmallValue)
+    | Num(b, _), Num(m, _) -> struct (int (b.ToUInt64()), int (m.ToUInt64()))
     | _ -> raise InvalidExprException
   let allOnes = System.UInt32.MaxValue
   let mask =

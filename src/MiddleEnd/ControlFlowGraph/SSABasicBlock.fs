@@ -44,7 +44,7 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
   let computeNextPPoint (ppoint: ProgramPoint) = function
     | Def(v, Num bv) ->
       match v.Kind with
-      | PCVar _ -> ProgramPoint(BitVector.ToUInt64 bv, 0)
+      | PCVar _ -> ProgramPoint(bv.ToUInt64(), 0)
       | _ -> ProgramPoint.Next ppoint
     | _ -> ProgramPoint.Next ppoint
 

@@ -84,7 +84,7 @@ with
   /// Returns the type of an SSA expression.
   static member TypeOf expr =
     match expr with
-    | Num bv -> BitVector.GetType bv
+    | Num bv -> bv.Length
     | Var { Kind = RegVar(rt, _, _) }
     | Var { Kind = PCVar rt }
     | Var { Kind = TempVar(rt, _) }
@@ -103,8 +103,8 @@ with
 
   static member internal AppendToString(expr, sb: StringBuilder) =
     match expr with
-    | Num n -> sb.Append(BitVector.ToString n) |> ignore
-    | Var(v) -> sb.Append(Variable.ToString v) |> ignore
+    | Num n -> sb.Append(n.ToString()) |> ignore
+    | Var v -> sb.Append(Variable.ToString v) |> ignore
     | ExprList [] ->
       ()
     | ExprList(e :: []) ->

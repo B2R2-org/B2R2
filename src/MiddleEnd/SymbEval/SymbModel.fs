@@ -48,7 +48,7 @@ type SymbModel(values: SolverValue list) =
 
   /// Gets an 8-bit solver value by symbolic variable name.
   member this.GetByte name =
-    this.GetValue name |> BitVector.ToUInt64 |> byte
+    this.GetValue name |> fun bv -> bv.ToUInt64() |> byte
 
   /// Gets an 8-bit solver value for a symbolic byte expression.
   member this.GetByte expr =

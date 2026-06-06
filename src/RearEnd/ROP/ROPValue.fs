@@ -54,7 +54,7 @@ module ROPExpr =
 
   let rec toString = function
     | Num vec ->
-      sprintf "[ %08x ]" (BitVector.ToUInt32 vec) + Environment.NewLine
+      sprintf "[ %08x ]" (vec.ToUInt32()) + Environment.NewLine
     | expr -> // XXX FIXME
       sprintf "[ %A ]" expr + Environment.NewLine
 

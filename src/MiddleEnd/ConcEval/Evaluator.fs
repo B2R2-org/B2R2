@@ -51,7 +51,8 @@ let rec evalExpr (st: EvalState) e =
   | _ -> raise InvalidExprException
 
 and private evalLoad st endian t addr =
-  let addr = evalExpr st addr |> BitVector.ToUInt64
+  let bv = evalExpr st addr
+  let addr = bv.ToUInt64()
   match st.Memory.Read(addr, endian, t) with
   | Ok v -> v
   | Error e ->
@@ -131,7 +132,7 @@ and private evalRelOp st e1 e2 typ =
 
 let private evalPCUpdate st rhs =
   let v = evalExpr st rhs
-  st.PC <- BitVector.ToUInt64 v
+  st.PC <- v.ToUInt64()
 
 let private evalPut st lhs rhs =
   try
@@ -139,14 +140,15 @@ let private evalPut st lhs rhs =
     match lhs with
     | Var(_, n, _, _) -> st.SetReg(n, v)
     | TempVar(_, n, _) -> st.SetTmp(n, v)
-    | PCVar _ -> st.PC <- BitVector.ToUInt64 v
+    | PCVar _ -> st.PC <- v.ToUInt64()
     | _ -> raise InvalidExprException
   with
     | UndefExpException
     | :? System.Collections.Generic.KeyNotFoundException -> ()
 
 let private evalStore st endian addr v =
-  let addr = evalExpr st addr |> BitVector.ToUInt64
+  let bv = evalExpr st addr
+  let addr = bv.ToUInt64()
   let v = evalExpr st v
   st.Memory.Write(addr, v, endian)
 

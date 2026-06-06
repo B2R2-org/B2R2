@@ -149,7 +149,7 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
               facts.RegConstDefs
               |> Array.map (fun (r, v) ->
                 brew.BinHandle.RegisterFactory.GetRegisterName r,
-                $"{BitVector.ValToString v:X}")
+                $"{v.ToValueString():X}")
             {| Stmts = stmts |> Array.map PrettyPrinter.ToString
                ReadAddrs = reads
                WriteAddrs = writes

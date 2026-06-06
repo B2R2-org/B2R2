@@ -79,12 +79,12 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState, os: OS) as this =
         "Frame pointer register is unavailable.")
 
   let getConcreteAddr = function
-    | SymbExpr.Const bv -> BitVector.ToUInt64 bv
+    | SymbExpr.Const bv -> bv.ToUInt64()
     | expr ->
       raise (InvalidOperationException $"Expected concrete address: {expr}.")
 
   let tryGetConcreteAddr = function
-    | SymbExpr.Const bv -> Ok(BitVector.ToUInt64 bv)
+    | SymbExpr.Const bv -> Ok(bv.ToUInt64())
     | expr -> Error(UnsupportedSymbolicAddress expr)
 
   let tryGetConcreteReg rid =

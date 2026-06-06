@@ -336,7 +336,7 @@ module internal CFGRecoveryCommon =
 
   let maskedPPoint ctx targetAddr =
     let rt = ctx.BinHandle.File.ISA.WordSize |> WordSize.toRegType
-    let mask = BitVector.UnsignedMax rt |> BitVector.ToUInt64
+    let mask = (BitVector.UnsignedMax rt).ToUInt64()
     ProgramPoint(targetAddr &&& mask, 0)
 
   let jmpToDstAddr ctx cfgRec (ppQueue: Queue<_>) srcVertex dstAddr jmpKind =
@@ -394,10 +394,10 @@ module internal CFGRecoveryCommon =
           connectEdge ctx cfgRec srcVertex dstVertex InterJmpEdge
         | InterJmp(BinOp(BinOpType.ADD, _, PCVar _, Num(n, _), _),
                     InterJmpKind.Base, _) ->
-          let target = srcData.LastInstruction.Address + BitVector.ToUInt64 n
+          let target = srcData.LastInstruction.Address + n.ToUInt64()
           jmpToDstAddr ctx cfgRec queue srcVertex target InterJmpEdge
         | InterJmp(Num(n, _), InterJmpKind.Base, _) ->
-          let target = BitVector.ToUInt64 n
+          let target = n.ToUInt64()
           if useTailcallHeuristic then
             match ctx.ManagerChannel.GetBuildingContext target with
             | FailedBuilding -> (* function does not exist *)
@@ -413,26 +413,26 @@ module internal CFGRecoveryCommon =
                    InterJmpKind.IsCall, _) ->
           let lastInsAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite lastInsAddr
-          let target = lastInsAddr + BitVector.ToUInt64 n
+          let target = lastInsAddr + n.ToUInt64()
           let act = MakeCall(callsite, target, (UnknownNoRet, 0))
           result <- handleCall ctx cfgRec srcVertex callsite target act
         | InterJmp(Num(n, _), InterJmpKind.IsCall, _) ->
           let lastInsAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite lastInsAddr
-          let target = BitVector.ToUInt64 n
+          let target = n.ToUInt64()
           let act = MakeCall(callsite, target, (UnknownNoRet, 0))
           result <- handleCall ctx cfgRec srcVertex callsite target act
         | InterCJmp(_, BinOp(BinOpType.ADD, _, PCVar _, Num(tv, _), _),
                     BinOp(BinOpType.ADD, _, PCVar _, Num(fv, _), _), _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
-          let tpp = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 tv)
-          let fpp = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 fv)
+          let tpp = maskedPPoint ctx (lastAddr + tv.ToUInt64())
+          let fpp = maskedPPoint ctx (lastAddr + fv.ToUInt64())
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpFalseEdge fpp
         | InterCJmp(_, BinOp(BinOpType.ADD, _, PCVar _, Num(tv, _), _),
                     PCVar _, _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
-          let tpp = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 tv)
+          let tpp = maskedPPoint ctx (lastAddr + tv.ToUInt64())
           let fPPoint = maskedPPoint ctx lastAddr
           let fVertex = getVertex ctx cfgRec fPPoint
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
@@ -441,13 +441,13 @@ module internal CFGRecoveryCommon =
                     BinOp(BinOpType.ADD, _, PCVar _, Num(fv, _), _), _) ->
           let lastAddr = (srcBBL :> ILowUIRBasicBlock).LastInstruction.Address
           let tpp = maskedPPoint ctx lastAddr
-          let fpp = maskedPPoint ctx (lastAddr + BitVector.ToUInt64 fv)
+          let fpp = maskedPPoint ctx (lastAddr + fv.ToUInt64())
           let tVertex = getVertex ctx cfgRec tpp
           connectEdge ctx cfgRec srcVertex tVertex InterCJmpTrueEdge
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpFalseEdge fpp
         | InterCJmp(_, Num(tv, _), Num(fv, _), _) ->
-          let tpp = maskedPPoint ctx (BitVector.ToUInt64 tv)
-          let fpp = maskedPPoint ctx (BitVector.ToUInt64 fv)
+          let tpp = maskedPPoint ctx (tv.ToUInt64())
+          let fpp = maskedPPoint ctx (fv.ToUInt64())
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpFalseEdge fpp
         | InterJmp(_, InterJmpKind.Base, _) -> (* Indirect jumps *)

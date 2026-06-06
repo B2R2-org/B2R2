@@ -339,7 +339,7 @@ module private SSALifterFactory =
   let memStore ((pp, _) as stmtInfo) rt addr src =
     match addr with
     | StackPointerDomain.ConstSP addr ->
-      let addr = BitVector.ToUInt64 addr
+      let addr = addr.ToUInt64()
       let offset = int (int64 Constants.InitialStackPointer - int64 addr)
       let v = { Kind = StackVar(rt, offset); Identifier = 0 }
       Some(pp, Def(v, src))
@@ -348,7 +348,7 @@ module private SSALifterFactory =
   let loadToVar rt addr =
     match addr with
     | StackPointerDomain.ConstSP addr ->
-      let addr = BitVector.ToUInt64 addr
+      let addr = addr.ToUInt64()
       let offset = int (int64 Constants.InitialStackPointer - int64 addr)
       let v = { Kind = StackVar(rt, offset); Identifier = 0 }
       Some(Var v)

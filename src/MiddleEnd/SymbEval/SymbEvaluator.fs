@@ -70,7 +70,7 @@ let private addFalseCond (st: SymbState) cond =
 
 let private updatePC (st: SymbState) target =
   match target with
-  | Const bv -> st.PC <- BitVector.ToUInt64 bv; Ok()
+  | Const bv -> st.PC <- bv.ToUInt64(); Ok()
   | target -> unsupportedSymbolicAddress target
 
 let private evalPCUpdate (st: SymbState) target =
@@ -90,7 +90,7 @@ let private evalStore (st: SymbState) endian addr value =
   match SymbExprTranslator.translate st addr,
         SymbExprTranslator.translate st value with
   | Ok(Const addr), Ok value ->
-    st.Memory.Store(BitVector.ToUInt64 addr, value, endian)
+    st.Memory.Store(addr.ToUInt64(), value, endian)
     Ok()
   | Ok addr, Ok _ -> unsupportedSymbolicAddress addr
   | Error e, _ | _, Error e -> Error e

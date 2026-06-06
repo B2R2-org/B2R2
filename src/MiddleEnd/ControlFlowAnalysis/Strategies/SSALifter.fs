@@ -48,7 +48,7 @@ type SSALifter() =
   let updateIfStackValueIsConstant ctx (ssaCFG: SSACFG) state v sp =
     match (state: SSASparseDataFlow.State<_>).GetRegValue sp with
     | StackPointerDomain.ConstSP bv ->
-      let spValue = BitVector.ToUInt64 bv
+      let spValue = bv.ToUInt64()
       let offset = Constants.InitialStackPointer - spValue |> int
       let intraCallTable = (ctx: CFGBuildingContext<_, _>).IntraCallTable
       let pred = ssaCFG.GetPreds v |> Seq.exactlyOne

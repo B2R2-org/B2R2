@@ -49,7 +49,7 @@ type SyscallAnalysis() =
         let reg = CallingConvention.ReturnRegister hdl
         match st.TryGetReg reg with
         | Def v ->
-          let n = BitVector.ToInt32 v
+          let n = v.ToInt32()
           n = exitSyscall || n = exitGrpSyscall || n = sigretSyscall
         | Undef -> false
       | _ -> false

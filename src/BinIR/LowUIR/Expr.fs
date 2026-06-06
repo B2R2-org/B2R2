@@ -206,87 +206,94 @@ with
 
   static member internal AppendToString(expr, sb: StringBuilder) =
     match expr with
-    | Num(n, _) -> sb.Append(BitVector.ToString n) |> ignore
-    | Var(_typ, _, n, _) -> sb.Append(n) |> ignore
-    | PCVar(_typ, n, _) -> sb.Append(n) |> ignore
+    | Num(n, _) ->
+      sb.Append(n.ToString()) |> ignore
+    | Var(_typ, _, n, _) ->
+      sb.Append n |> ignore
+    | PCVar(_typ, n, _) ->
+      sb.Append n |> ignore
     | TempVar(typ, n, _) ->
-      sb.Append("T_") |> ignore
-      sb.Append(n) |> ignore
-      sb.Append(":") |> ignore
+      sb.Append "T_" |> ignore
+      sb.Append n |> ignore
+      sb.Append ":" |> ignore
       sb.Append(RegType.toString typ) |> ignore
-    | ExprList([], _) -> ()
-    | ExprList(e :: [], _) -> Expr.AppendToString(e, sb)
+    | ExprList([], _) ->
+      ()
+    | ExprList(e :: [], _) ->
+      Expr.AppendToString(e, sb)
     | ExprList(e :: more, hc) ->
       Expr.AppendToString(e, sb) |> ignore
-      sb.Append(", ") |> ignore
+      sb.Append ", " |> ignore
       Expr.AppendToString(ExprList(more, hc), sb)
-    | JmpDest(lbl, _) -> sb.Append lbl.Name |> ignore
-    | FuncName(n, _) -> sb.Append n |> ignore
+    | JmpDest(lbl, _) ->
+      sb.Append lbl.Name |> ignore
+    | FuncName(n, _) ->
+      sb.Append n |> ignore
     | UnOp(op, e, _) ->
-      sb.Append("(") |> ignore
+      sb.Append "(" |> ignore
       sb.Append(UnOpType.toString op) |> ignore
-      sb.Append(" ") |> ignore
+      sb.Append " " |> ignore
       Expr.AppendToString(e, sb)
-      sb.Append(")") |> ignore
+      sb.Append ")" |> ignore
     | BinOp(BinOpType.FLOG, _typ, e1, e2, _) -> (* The only prefix operator *)
-      sb.Append("(lg (") |> ignore
+      sb.Append "(lg (" |> ignore
       Expr.AppendToString(e1, sb)
-      sb.Append(", ") |> ignore
+      sb.Append ", " |> ignore
       Expr.AppendToString(e2, sb)
-      sb.Append("))") |> ignore
+      sb.Append "))" |> ignore
     | BinOp(BinOpType.APP, typ, e1, e2, _) ->
       Expr.AppendToString(e1, sb)
-      sb.Append("(") |> ignore
+      sb.Append "(" |> ignore
       Expr.AppendToString(e2, sb)
-      sb.Append("):") |> ignore
+      sb.Append "):" |> ignore
       sb.Append(RegType.toString typ) |> ignore
     | BinOp(op, _typ, e1, e2, _) ->
-      sb.Append("(") |> ignore
+      sb.Append "(" |> ignore
       Expr.AppendToString(e1, sb)
-      sb.Append(" ") |> ignore
+      sb.Append " " |> ignore
       sb.Append(BinOpType.toString op) |> ignore
-      sb.Append(" ") |> ignore
+      sb.Append " " |> ignore
       Expr.AppendToString(e2, sb)
-      sb.Append(")") |> ignore
+      sb.Append ")" |> ignore
     | RelOp(op, e1, e2, _) ->
-      sb.Append("(") |> ignore
+      sb.Append "(" |> ignore
       Expr.AppendToString(e1, sb)
-      sb.Append(" ") |> ignore
+      sb.Append " " |> ignore
       sb.Append(RelOpType.toString op) |> ignore
-      sb.Append(" ") |> ignore
+      sb.Append " " |> ignore
       Expr.AppendToString(e2, sb)
-      sb.Append(")") |> ignore
+      sb.Append ")" |> ignore
     | Load(_endian, typ, e, _) ->
-      sb.Append("[") |> ignore
+      sb.Append "[" |> ignore
       Expr.AppendToString(e, sb)
-      sb.Append("]:") |> ignore
+      sb.Append "]:" |> ignore
       sb.Append(RegType.toString typ) |> ignore
     | Ite(cond, e1, e2, _) ->
-      sb.Append("((") |> ignore
+      sb.Append "((" |> ignore
       Expr.AppendToString(cond, sb)
-      sb.Append(") ? (") |> ignore
+      sb.Append ") ? (" |> ignore
       Expr.AppendToString(e1, sb)
-      sb.Append(") : (") |> ignore
+      sb.Append ") : (" |> ignore
       Expr.AppendToString(e2, sb)
-      sb.Append("))") |> ignore
+      sb.Append "))" |> ignore
     | Cast(cast, typ, e, _) ->
       sb.Append(CastKind.toString cast) |> ignore
-      sb.Append(":") |> ignore
+      sb.Append ":" |> ignore
       sb.Append(RegType.toString typ) |> ignore
-      sb.Append("(") |> ignore
+      sb.Append "(" |> ignore
       Expr.AppendToString(e, sb)
-      sb.Append(")") |> ignore
+      sb.Append ")" |> ignore
     | Extract(e, typ, p, _) ->
-      sb.Append("(") |> ignore
+      sb.Append "(" |> ignore
       Expr.AppendToString(e, sb)
-      sb.Append("[") |> ignore
+      sb.Append "[" |> ignore
       sb.Append((int typ + p - 1).ToString() + ":" + p.ToString()) |> ignore
-      sb.Append("]") |> ignore
-      sb.Append(")") |> ignore
+      sb.Append "]" |> ignore
+      sb.Append ")" |> ignore
     | Undefined(_, reason, _) ->
-      sb.Append("?? (") |> ignore
+      sb.Append "?? (" |> ignore
       sb.Append(reason) |> ignore
-      sb.Append(")") |> ignore
+      sb.Append ")" |> ignore
 
   static member ToString expr =
     let sb = StringBuilder()

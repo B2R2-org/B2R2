@@ -145,7 +145,7 @@ type State<'L, 'ExeCtx when 'L: equality
     | Load(_, _, addr, _) ->
       match spEvaluateExpr myPp addr with
       | StackPointerDomain.ConstSP bv ->
-        let offset = BitVector.ToUInt64 bv |> toFrameOffset
+        let offset = bv.ToUInt64() |> toFrameOffset
         spEvaluateVar (StackLocal offset) myPp
       | c -> c
     | BinOp(binOpType, _, e1, e2, _) ->
@@ -289,7 +289,7 @@ type State<'L, 'ExeCtx when 'L: equality
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       match spEvaluateExpr spp e with
       | StackPointerDomain.ConstSP bv ->
-        let varKind = BitVector.ToUInt64 bv |> toFrameOffset |> StackLocal
+        let varKind = bv.ToUInt64() |> toFrameOffset |> StackLocal
         let useSvp = { SensitiveProgramPoint = spp; VarKind = varKind }
         convertUseToReachingDefSSAExpr useSvp exeCtx varKind
       | _ ->
@@ -322,7 +322,7 @@ type State<'L, 'ExeCtx when 'L: equality
       let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       match spEvaluateExpr tpp dstExpr with
       | StackPointerDomain.ConstSP bv ->
-        let offset = BitVector.ToUInt64 bv |> toFrameOffset
+        let offset = bv.ToUInt64() |> toFrameOffset
         let varKind = StackLocal offset
         let svp = { SensitiveProgramPoint = tpp; VarKind = varKind }
         let var = getSSAVarFromDefSvp svp
@@ -643,7 +643,7 @@ module internal AnalysisCore = begin
 
   let getStackValue state pp e =
     match (state: SubState<_, _>).EvalExpr(pp, e) with
-    | StackPointerDomain.ConstSP bv -> Ok <| BitVector.ToUInt64 bv
+    | StackPointerDomain.ConstSP bv -> Ok <| bv.ToUInt64()
     | _ -> Error ErrorCase.InvalidExprEvaluation
 
   /// When a use is removed, we need to remove all the old chains.
@@ -763,7 +763,7 @@ module internal AnalysisCore = begin
 
   let stackPointerToFrameOffset sp =
     match sp with
-    | StackPointerDomain.ConstSP bv -> BitVector.ToUInt64 bv |> toFrameOffset
+    | StackPointerDomain.ConstSP bv -> bv.ToUInt64() |> toFrameOffset
     | _ -> Terminator.impossible ()
 
   /// Join the two reaching definition maps. We filter out temporary variables
@@ -823,7 +823,7 @@ module internal AnalysisCore = begin
         updateWithExpr state outDefs tpp value
         match state.StackPointerSubState.EvalExpr(tpp, addr) with
         | StackPointerDomain.ConstSP bv ->
-          let loc = BitVector.ToUInt64 bv
+          let loc = bv.ToUInt64()
           let offset = toFrameOffset loc
           let varKind = StackLocal offset
           let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
@@ -986,7 +986,7 @@ module internal AnalysisCore = begin
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       match state.StackPointerSubState.EvalExpr(spp, addr) with
       | StackPointerDomain.ConstSP bv ->
-        let loc = BitVector.ToUInt64 bv
+        let loc = bv.ToUInt64()
         let offset = toFrameOffset loc
         let varKind = StackLocal offset
         let svp = { SensitiveProgramPoint = spp; VarKind = varKind }

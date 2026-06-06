@@ -62,7 +62,7 @@ let rec evalExpr (st: EvalState) e =
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 and private evalLoad st endian t addr =
-  match evalExpr st addr |> unwrap |> Result.map BitVector.ToUInt64 with
+  match evalExpr st addr |> unwrap |> Result.map (fun bv -> bv.ToUInt64()) with
   | Ok addr ->
     match st.Memory.Read(addr, endian, t) with
     | Ok v -> Ok(Def v)
@@ -158,7 +158,7 @@ let private markUndefAfterFailure (st: EvalState) lhs =
 let private evalPCUpdate st rhs =
   match evalExpr st rhs with
   | Ok(Def v) ->
-    st.PC <- BitVector.ToUInt64 v
+    st.PC <- v.ToUInt64()
     Ok()
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
@@ -168,14 +168,14 @@ let private evalPut st lhs rhs =
     match lhs with
     | Var(_, n, _, _) -> st.SetReg(n, v) |> Ok
     | TempVar(_, n, _) -> st.SetTmp(n, v) |> Ok
-    | PCVar _ -> st.PC <- BitVector.ToUInt64 v; Ok()
+    | PCVar _ -> st.PC <- v.ToUInt64(); Ok()
     | _ -> Error ErrorCase.InvalidExprEvaluation
   | _ ->
     markUndefAfterFailure st lhs
     Error ErrorCase.InvalidExprEvaluation
 
 let private evalStore st endian addr v =
-  let addr = evalExpr st addr |> unwrap |> Result.map BitVector.ToUInt64
+  let addr = evalExpr st addr |> unwrap |> Result.map (fun bv -> bv.ToUInt64())
   let v = evalExpr st v |> unwrap
   match addr, v with
   | Ok addr, Ok v ->

@@ -42,20 +42,20 @@ let inline maxNum ty =
 
 let inline isZero e =
   match e with
-  | Num(n, _) -> (BitVector.GetValue n).IsZero
+  | Num(n, _) -> n.IsZero
   | _ -> false
 
 let inline isOne e =
   match e with
-  | Num(n, _) -> (BitVector.GetValue n).IsOne
+  | Num(n, _) -> n.IsOne
   | _ -> false
 
-let isFlippable x = (BitVector.IsNegative x) && not (BitVector.IsSignedMin x)
+let isFlippable (x: BitVector) =
+  x.IsNegative && not x.IsSignedMin
 
 let inline isMax ty e =
   match e with
-  | Num(n, _) ->
-    (BitVector.Add(n, BitVector.One ty) |> BitVector.GetValue).IsZero
+  | Num(n, _) -> BitVector.Add(n, BitVector.One ty).IsZero
   | _ -> false
 
 let inline binADD e1 e2 = AST.binop BinOpType.ADD e1 e2

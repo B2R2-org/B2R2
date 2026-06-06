@@ -183,7 +183,7 @@ type JmpTableAnalysis<'FnCtx,
       match e1, e2 with
       | e1, BinOp(BinOpType.SHL, _, e2, Num(n))
       | BinOp(BinOpType.SHL, _, e2, Num(n)), e1 when e1 = e2 ->
-        let coeff = 1 + 1 <<< BitVector.ToInt32(n)
+        let coeff = 1 + 1 <<< n.ToInt32()
         BinOp(BinOpType.MUL, rt, e1, Num(BitVector(coeff, rt)))
       | _ -> BinOp(BinOpType.ADD, rt, e1, e2)
     | BinOp(BinOpType.SHL, rt, e1, e2) ->
@@ -210,10 +210,10 @@ type JmpTableAnalysis<'FnCtx,
     | BinOp(BinOpType.MUL, _, idx, Num n)
     | BinOp(BinOpType.MUL, _, Num n, idx)
       when isProperIndex expandPhi findConst findDef idx ->
-      (RegType.toByteWidth t = BitVector.ToInt32 n)
+      RegType.toByteWidth t = n.ToInt32()
     | BinOp(BinOpType.SHL, _, idx, Num n)
       when isProperIndex expandPhi findConst findDef idx ->
-      (RegType.toByteWidth t = (1 <<< BitVector.ToInt32 n))
+      RegType.toByteWidth t = (1 <<< n.ToInt32())
     | BinOp(BinOpType.ADD, _, e1, e2) ->
       isJmpTable expandPhi findConst findDef t e1
       || isJmpTable expandPhi findConst findDef t e2
@@ -239,7 +239,7 @@ type JmpTableAnalysis<'FnCtx,
     constantFold findConst findDef expr
     |> simplify
     |> function
-      | Num b -> Ok <| BitVector.ToUInt64 b
+      | Num b -> Ok <| b.ToUInt64()
       | _ -> Error ErrorCase.ItemNotFound
 
   let extractTableAddr findConst findDef memExpr =
@@ -247,7 +247,7 @@ type JmpTableAnalysis<'FnCtx,
     |> extractTableExpr
     |> constantFold findConst findDef
     |> function
-      | Num t -> Ok <| BitVector.ToUInt64 t
+      | Num t -> Ok <| t.ToUInt64()
       | _ -> Error ErrorCase.ItemNotFound
 
   let extractTblInfo findConst findDef insAddr baseExpr tblExpr rt singleEntry =

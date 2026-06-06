@@ -57,7 +57,7 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
     | Load(_m, rt, addr, _) ->
       match state.StackPointerSubState.EvalExpr(spp, addr) with
       | StackPointerDomain.ConstSP bv ->
-        let addr = BitVector.ToUInt64 bv
+        let addr = bv.ToUInt64()
         let offset = LowUIRSparseDataFlow.toFrameOffset addr
         let c = evaluateVarPoint state spp (StackLocal offset)
         match c with

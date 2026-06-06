@@ -72,9 +72,8 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState, os: OS) as this =
         "Frame pointer register is unavailable.")
 
   let getStackPointer () =
-    getStackPointerRegister ()
-    |> getDefinedReg
-    |> BitVector.ToUInt64
+    let bv = getStackPointerRegister () |> getDefinedReg
+    bv.ToUInt64()
 
   let setStackPointer addr =
     let sp = getStackPointerRegister ()
@@ -207,7 +206,8 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState, os: OS) as this =
 
   /// Pop a word-sized pointer value from the stack.
   member _.PopPointer() =
-    popFromStack () |> BitVector.ToUInt64
+    let bv = popFromStack ()
+    bv.ToUInt64()
 
   /// Write a word-sized pointer value to memory.
   member _.WritePointer(addr: Addr, value: Addr) =
@@ -216,7 +216,7 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState, os: OS) as this =
   /// Read a word-sized pointer value from memory.
   member _.ReadPointer(addr: Addr) =
     match state.Memory.Read(addr, endian, wordType) with
-    | Ok v -> BitVector.ToUInt64 v
+    | Ok v -> v.ToUInt64()
     | Error _ -> raise (InvalidMemException addr)
 
   /// Write a concrete integer value to memory.

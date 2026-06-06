@@ -120,10 +120,10 @@ let rec findRootVarsFromJumpDstVar (state: State<_, _>) acc worklist =
         match expandExpr state (SSA.Var var1),
               expandExpr state (SSA.Var var2) with
         | SSA.Num bv_bitmask, SSA.Num _bv_dst
-          when bv_bitmask.BigValue = bigint 0xffffffffUL ->
+          when bv_bitmask.ToBigInt() = bigint 0xffffffffUL ->
           findRootVarsFromJumpDstVar state acc (var2 :: rest)
         | SSA.Num _bv_dst, SSA.Num bv_bitmask
-          when bv_bitmask.BigValue = bigint 0xffffffffUL ->
+          when bv_bitmask.ToBigInt() = bigint 0xffffffffUL ->
           findRootVarsFromJumpDstVar state acc (var1 :: rest)
         | _ -> acc
       | SSA.ExprList exprs ->

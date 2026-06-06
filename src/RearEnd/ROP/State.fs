@@ -52,10 +52,10 @@ module Value =
     | Var(32<rt>, _, reg, _) -> Some(reg, 0u)
     | BinOp(BinOpType.ADD, _, Var(32<rt>, _, reg, _), Num(n, _), _)
     | BinOp(BinOpType.ADD, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
-      Some(reg, BitVector.ToUInt32 n)
+      Some(reg, n.ToUInt32())
     | BinOp(BinOpType.SUB, _, Var(32<rt>, _, reg, _), Num(n, _), _)
     | BinOp(BinOpType.SUB, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
-      Some(reg, BitVector.Neg n |> BitVector.ToUInt32)
+      Some(reg, (BitVector.Neg n).ToUInt32())
     | _ -> None
 
 type State =
