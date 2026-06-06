@@ -97,7 +97,7 @@ type State<'Lattice when 'Lattice: equality>
   let domainGetAbsValue vp =
     match domainAbsValues.TryGetValue vp with
     | true, v -> v
-    | false, _ when ProgramPoint.IsFake(vp.ProgramPoint) -> lattice.Bottom
+    | false, _ when vp.ProgramPoint.IsFake -> lattice.Bottom
     | false, _ -> lattice.Bottom
 
   let spGetInitialAbsValue varKind =
@@ -108,7 +108,7 @@ type State<'Lattice when 'Lattice: equality>
   let spGetAbsValue vp =
     match spAbsValues.TryGetValue vp with
     | true, c -> c
-    | false, _ when ProgramPoint.IsFake(vp.ProgramPoint) ->
+    | false, _ when vp.ProgramPoint.IsFake ->
       spGetInitialAbsValue vp.VarKind
     | false, _ -> StackPointerDomain.Undef
 
@@ -193,7 +193,7 @@ type State<'Lattice when 'Lattice: equality>
   let getSSAVar vp =
     match vpToSSAVar.TryGetValue vp with
     | true, v -> v
-    | false, _ when ProgramPoint.IsFake(vp.ProgramPoint) ->
+    | false, _ when vp.ProgramPoint.IsFake ->
       mkEmptySSAVar vp.VarKind
     | false, _ ->
       let ssaVarId = getNewVarId ()
@@ -642,7 +642,7 @@ module internal AnalysisCore = begin
   /// there is no definition for the given variable kind (e.g., function
   /// arguments).
   let getFakeVarPoint vk =
-    { ProgramPoint = ProgramPoint.GetFake(); VarKind = vk }
+    { ProgramPoint = ProgramPoint.Fake; VarKind = vk }
 
   let updateChains state vk defs pp =
     let defVp = Map.tryFind vk defs |> Option.defaultValue (getFakeVarPoint vk)

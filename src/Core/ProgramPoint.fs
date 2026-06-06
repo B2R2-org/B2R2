@@ -24,12 +24,10 @@
 
 namespace B2R2
 
-/// <summary>
 /// Represents a specific location in a lifted program. We represent this as a
 /// three-tuple: (address of the instruction, index of the IR stmt for the
 /// instruction, call site information). The third element (call site) is
 /// optional and only meaningful for abstract vertices.
-/// </summary>
 type ProgramPoint private(addr, pos, callsite) =
 
   /// Constructs a program point at the given address and IR statement index,
@@ -40,6 +38,11 @@ type ProgramPoint private(addr, pos, callsite) =
   /// index, associated with the given call site information.
   new(callsite, addr, pos: int) = ProgramPoint(addr, pos, Some callsite)
 
+  /// Returns a fake program point to represent a fake vertex, which does not
+  /// exist in a CFG. Fake vertices are useful for representing external
+  /// function calls and their nodes in the SCFG.
+  static member Fake = ProgramPoint(0UL, -1)
+
   /// Gets the address of the instruction.
   member _.Address with get(): Addr = addr
 
@@ -49,18 +52,14 @@ type ProgramPoint private(addr, pos, callsite) =
   /// Gets the call site if this program point refers to an abstract vertex.
   member _.CallSite with get(): CallSite option = callsite
 
-  /// Gets a fake program point to represent a fake vertex, which does not exist
-  /// in a CFG. Fake vertices are useful for representing external function
-  /// calls and their nodes in the SCFG.
-  static member GetFake() = ProgramPoint(0UL, -1)
+  /// Checks if this is a fake program point.
+  member this.IsFake with get() = this.Address = 0UL && this.Position = -1
 
-  /// Checks if the given program point is a fake one.
-  static member IsFake(p: ProgramPoint) = p.Address = 0UL && p.Position = -1
-
-  /// Returns the next program point by incrementing the position by one. If the
-  /// given program point is a fake one, it is returned as-is.
-  static member Next(p: ProgramPoint) =
-    if ProgramPoint.IsFake p then p else ProgramPoint(p.Address, p.Position + 1)
+  /// Returns the next program point by incrementing the position by one. If
+  /// this is a fake program point, it is returned as-is.
+  member this.Next() =
+    if this.IsFake then this
+    else ProgramPoint(this.Address, this.Position + 1)
 
   /// Compares against another program point.
   member this.CompareTo(rhs: ProgramPoint) =
@@ -69,7 +68,7 @@ type ProgramPoint private(addr, pos, callsite) =
     elif this.Position = rhs.Position then compare this.CallSite rhs.CallSite
     else compare this.Position rhs.Position
 
-  override this.Equals(o) =
+  override this.Equals o =
     match o with
     | :? ProgramPoint as o ->
       o.Address = this.Address
@@ -82,11 +81,11 @@ type ProgramPoint private(addr, pos, callsite) =
     let posHash = this.Position <<< 16
     match this.CallSite with
     | None -> addrHash ^^^ posHash
-    | Some callSite -> addrHash ^^^ posHash + callSite.GetHashCode()
+    | Some callSite -> (addrHash ^^^ posHash) + callSite.GetHashCode()
 
   override this.ToString() =
     match this.CallSite with
-    | Some callsite -> $"{callsite:x}-{addr:x}"
+    | Some callsite -> $"{callsite.CallSiteAddress:x}-{addr:x}"
     | None -> $"{addr:x}:{pos}"
 
   interface System.IComparable with
@@ -99,7 +98,7 @@ type ProgramPoint private(addr, pos, callsite) =
     member this.CompareTo(rhs) = this.CompareTo rhs
 
 /// Represents call site information of an abstract vertex in a control flow
-/// graph.  Typically, there is a single concrete caller vertex that calls an
+/// graph. Typically, there is a single concrete caller vertex that calls an
 /// abstract vertex. But in some cases, such as Continuation-Passing Style (CPS)
 /// patterns found in EVM binaries, an abstract vertex can have a chain of
 /// callers.

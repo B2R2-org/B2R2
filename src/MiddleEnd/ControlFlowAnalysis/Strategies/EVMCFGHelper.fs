@@ -158,7 +158,7 @@ let getDefSiteVertex (g: IDiGraph<_, _>) (state: State<_, _>) var =
   let svp = state.SSAVarToDefSVP var
   let spp = svp.SensitiveProgramPoint
   let pp = spp.ProgramPoint
-  if ProgramPoint.IsFake pp then
+  if pp.IsFake then
     g.SingleRoot
   else
     assert state.StmtOfBBLs.ContainsKey pp

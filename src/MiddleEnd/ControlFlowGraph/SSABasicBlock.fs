@@ -45,8 +45,8 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
     | Def(v, Num bv) ->
       match v.Kind with
       | PCVar _ -> ProgramPoint(bv.ToUInt64(), 0)
-      | _ -> ProgramPoint.Next ppoint
-    | _ -> ProgramPoint.Next ppoint
+      | _ -> ppoint.Next()
+    | _ -> ppoint.Next()
 
   /// Return the `ISSABasicBlock` interface to access the internal
   /// representation of the basic block.
@@ -63,7 +63,7 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
 
   /// Create an abstract basic block located at `ppoint`.
   static member CreateAbstract(ppoint, abs: FunctionAbstraction<SSA.Stmt>) =
-    let rundown = abs.Rundown |> Array.map (fun s -> ProgramPoint.GetFake(), s)
+    let rundown = abs.Rundown |> Array.map (fun s -> ProgramPoint.Fake, s)
     SSABasicBlock(ppoint, 0UL, rundown, Some abs)
 
   override _.ToString() = $"{nameof SSABasicBlock}({ppoint})"
@@ -92,7 +92,7 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
 
     member _.PrependPhi(varKind, count) =
       let var = { Kind = varKind; Identifier = -1 }
-      let pp = ProgramPoint.GetFake()
+      let pp = ProgramPoint.Fake
       stmts <- Array.append [| pp, Phi(var, Array.zeroCreate count) |] stmts
 
     member _.UpdateStatements stmts' = stmts <- stmts'

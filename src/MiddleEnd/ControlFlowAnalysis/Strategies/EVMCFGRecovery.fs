@@ -404,7 +404,7 @@ module private EVMCFGRecovery =
     assert isConditionalEdge kind
     match lastSStmt with
     | SSA.Jmp(SSA.InterCJmp(cond, _, _)) ->
-      let fakePP = ProgramPoint.GetFake()
+      let fakePP = ProgramPoint.Fake
       let dummyExeCtx = { StackOffset = 0; Conditions = Map.empty }
       let fakeSPP = { ProgramPoint = fakePP; ExecutionContext = dummyExeCtx }
       let dummyVarKind = Temporary -1

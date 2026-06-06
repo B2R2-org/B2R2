@@ -52,7 +52,7 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
   let evaluateVarPoint (state: UntouchedValueState) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
-    | true, defVp when ProgramPoint.IsFake defVp.ProgramPoint ->
+    | true, defVp when defVp.ProgramPoint.IsFake ->
       getBaseCase varKind
     | true, defVp ->
       state.DomainSubState.GetAbsValue defVp

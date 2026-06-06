@@ -64,7 +64,7 @@ module private SSALifterFactory =
       let stmts = liftedIns.Stmts
       let address = liftedIns.Original.Address
       AST.translateStmts wordSize address stmtProcessor stmts)
-    |> Array.map (fun s -> ProgramPoint.GetFake(), s)
+    |> Array.map (fun s -> ProgramPoint.Fake, s)
 
   let getVertex stmtProcessor vMap g (src: IVertex<LowUIRBasicBlock>) =
     let bbl = src.VData :> ILowUIRBasicBlock

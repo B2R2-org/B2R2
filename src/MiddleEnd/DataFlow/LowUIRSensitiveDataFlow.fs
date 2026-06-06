@@ -131,12 +131,11 @@ type State<'L, 'ExeCtx when 'L: equality
     | true, defs ->
       defs
       |> Seq.fold (fun acc defSvp ->
-        let pp = defSvp.SensitiveProgramPoint.ProgramPoint
-        if ProgramPoint.IsFake pp then
+        if defSvp.SensitiveProgramPoint.ProgramPoint.IsFake then
           spGetInitialAbsValue varKind
         else
-        let defAbsValue = spGetAbsValue defSvp
-        StackPointerDomain.join acc defAbsValue) StackPointerDomain.Undef
+          let defAbsValue = spGetAbsValue defSvp
+          StackPointerDomain.join acc defAbsValue) StackPointerDomain.Undef
 
   let rec spEvaluateExpr myPp (e: Expr) =
     match e with
@@ -213,7 +212,7 @@ type State<'L, 'ExeCtx when 'L: equality
         SSA.TempVar(rt, n)
       | _ -> Terminator.futureFeature ()
     let ssaVarId =
-      if ProgramPoint.IsFake spp.ProgramPoint then 0 (* Unreachable variable. *)
+      if spp.ProgramPoint.IsFake then 0 (* Unreachable variable. *)
       else generateFreshSSAVarId ()
     { SSA.Kind = ssaVarKind; SSA.Identifier = ssaVarId }
 
@@ -245,7 +244,7 @@ type State<'L, 'ExeCtx when 'L: equality
         |> List.map (getSSAVarFromDefSvp >> SSA.Var)
         |> SSA.ExprList
       | None -> (* Reading a value coming out of a function. *)
-        let fakePp = ProgramPoint.GetFake()
+        let fakePp = ProgramPoint.Fake
         let fakeSpp = { ProgramPoint = fakePp; ExecutionContext = exeCtx }
         let fakeSvp = { SensitiveProgramPoint = fakeSpp; VarKind = varKind }
         let fakeSSAVar = getSSAVarFromDefSvp fakeSvp
@@ -360,7 +359,7 @@ type State<'L, 'ExeCtx when 'L: equality
     match perPointSSAStmtCache.TryGetValue tpp with
     | true, sstmts -> sstmts
     | false, _ ->
-      assert (not << ProgramPoint.IsFake) pp
+      assert (not pp.IsFake)
       assert (stmtOfBBLs.ContainsKey pp)
       let stmt, _ = stmtOfBBLs[pp]
       let sstmt = computeSSAStmt stmt pp exeCtx
@@ -543,7 +542,7 @@ type State<'L, 'ExeCtx when 'L: equality
     let svp = getDefSvpFromSSAVar var
     let spp = svp.SensitiveProgramPoint
     let pp = spp.ProgramPoint
-    if ProgramPoint.IsFake pp then
+    if pp.IsFake then
       None
     else
       Some <| getSSAStmt pp spp.ExecutionContext
@@ -671,7 +670,7 @@ module internal AnalysisCore = begin
     state.UseDefMap[id] <- defs
 
   let makeFakeDefSvp exeCtx vk =
-    let fakePp = ProgramPoint.GetFake()
+    let fakePp = ProgramPoint.Fake
     let fakeSpp = { ProgramPoint = fakePp; ExecutionContext = exeCtx }
     { SensitiveProgramPoint = fakeSpp; VarKind = vk }
 
@@ -908,7 +907,7 @@ module internal AnalysisCore = begin
     | Some defs ->
       let def = defs |> Seq.head
       let defPP = def.SensitiveProgramPoint.ProgramPoint
-      if ProgramPoint.IsFake defPP then getInitialStackPointer state
+      if defPP.IsFake then getInitialStackPointer state
       else state.StackPointerSubState.GetAbsValue def
 
   let executeAndPropagateRDs (state: State<_, _>)
