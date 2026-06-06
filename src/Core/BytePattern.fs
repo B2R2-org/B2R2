@@ -57,32 +57,23 @@ and ByteValue =
 /// </summary>
 [<RequireQualifiedAccess>]
 module BytePattern =
-  let private isEqual bv v =
-    match bv with
-    | AnyByte -> true
-    | OneByte b -> b = v
-
-  /// Check if the given byte array (bs) matches the pattern. The comparison
-  /// starts at the very first byte of the arrays.
-  [<CompiledName "Match">]
-  let ``match`` (pattern: BytePattern) (bs: byte[]) =
-    let patternLen = Array.length pattern
-    if patternLen > bs.Length then false
-    else
-      let bs = Array.sub bs 0 patternLen
-      Array.forall2 isEqual pattern bs
-
-  /// Check if the given span matches the pattern. The comparison starts at the
+  /// Checks if the given span matches the pattern. The comparison starts at the
   /// offset zero.
-  [<CompiledName "MatchSpan">]
-  let matchSpan pattern (span: ReadOnlySpan<byte>) =
+  [<CompiledName "IsMatchSpan">]
+  let isMatchSpan pattern (span: ReadOnlySpan<byte>) =
     let mutable matched = true
     let patternLen = Array.length pattern
-    if patternLen > span.Length then false
+    if patternLen > span.Length then
+      false
     else
-      for i in [ 0 .. patternLen - 1 ] do
+      for i in 0 .. patternLen - 1 do
         match pattern[i] with
         | AnyByte -> ()
         | OneByte b -> if span[i] = b then () else matched <- false
-      done
       matched
+
+  /// Checks if the given byte array (bs) matches the pattern. The comparison
+  /// starts at the very first byte of the arrays.
+  [<CompiledName "IsMatch">]
+  let isMatch (pattern: BytePattern) (bs: byte[]) =
+    isMatchSpan pattern (ReadOnlySpan bs)

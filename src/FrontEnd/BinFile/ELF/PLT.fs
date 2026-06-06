@@ -361,21 +361,21 @@ type X86Parser(shdrs, relocInfo, symbs) =
        AnyByte |]
 
   let findX86PLTType (plt: ByteSpan) =
-    if BytePattern.matchSpan picLazyZeroEntry plt then
-      let isIBT = BytePattern.matchSpan picLazyIbtEntry (plt.Slice 16)
+    if BytePattern.isMatchSpan picLazyZeroEntry plt then
+      let isIBT = BytePattern.isMatchSpan picLazyIbtEntry (plt.Slice 16)
       let gotoff = if isIBT then 6UL else 2UL
       newPLT PIC LazyBinding isIBT 16UL gotoff 0UL
-    elif BytePattern.matchSpan nonPicZeroEntry plt then
-      let isIBT = BytePattern.matchSpan nonPicIbtEntry (plt.Slice 16)
+    elif BytePattern.isMatchSpan nonPicZeroEntry plt then
+      let isIBT = BytePattern.isMatchSpan nonPicIbtEntry (plt.Slice 16)
       let gotoff = if isIBT then 6UL else 2UL
       newPLT NonPIC LazyBinding isIBT 16UL gotoff 0UL
-    elif BytePattern.matchSpan picNonLazyEntry plt then
+    elif BytePattern.isMatchSpan picNonLazyEntry plt then
       newPLT PIC EagerBinding false 8UL 2UL 0UL
-    elif BytePattern.matchSpan picNonLazyIbtEntry plt then
+    elif BytePattern.isMatchSpan picNonLazyIbtEntry plt then
       newPLT PIC EagerBinding true 16UL 6UL 0UL
-    elif BytePattern.matchSpan nonPicNonLazyEntry plt then
+    elif BytePattern.isMatchSpan nonPicNonLazyEntry plt then
       newPLT NonPIC EagerBinding false 8UL 2UL 0UL
-    elif BytePattern.matchSpan nonPicNonLazyIbtEntry plt then
+    elif BytePattern.isMatchSpan nonPicNonLazyIbtEntry plt then
       newPLT NonPIC EagerBinding true 16UL 6UL 0UL
     else UnknownPLT
 
@@ -523,20 +523,20 @@ type X64Parser(shdrs, relocInfo, symbs) =
        AnyByte |]
 
   let findX64PLTType (plt: ByteSpan) =
-    if BytePattern.matchSpan lazyZeroEntry plt then
+    if BytePattern.isMatchSpan lazyZeroEntry plt then
       newPLT DontCare LazyBinding false 16UL 2UL 6UL
-    elif BytePattern.matchSpan lazyIbtZeroEntry plt then
+    elif BytePattern.isMatchSpan lazyIbtZeroEntry plt then
       let off, inssz =
-        if BytePattern.matchSpan lazyIbtEntry (plt.Slice 16) then 7UL, 11UL
+        if BytePattern.isMatchSpan lazyIbtEntry (plt.Slice 16) then 7UL, 11UL
         else 3UL, 7UL (* bnd *)
       newPLT DontCare LazyBinding true 16UL off inssz
-    elif BytePattern.matchSpan nonLazyEntry plt then
+    elif BytePattern.isMatchSpan nonLazyEntry plt then
       newPLT DontCare EagerBinding false 8UL 2UL 6UL
-    elif BytePattern.matchSpan eagerBndEntry plt then
+    elif BytePattern.isMatchSpan eagerBndEntry plt then
       newPLT DontCare EagerBinding true 16UL 3UL 7UL
-    elif BytePattern.matchSpan eagerIbtEntry plt then
+    elif BytePattern.isMatchSpan eagerIbtEntry plt then
       newPLT DontCare EagerBinding true 16UL 7UL 11UL
-    elif BytePattern.matchSpan nonLazyX32IbtEntry plt then
+    elif BytePattern.isMatchSpan nonLazyX32IbtEntry plt then
       newPLT DontCare EagerBinding false 16UL 6UL 10UL
     else UnknownPLT
 
