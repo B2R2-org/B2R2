@@ -193,7 +193,7 @@ let private dumpFile (opts: BinDisasmOpts) filePath =
 let private dumpFiles files opts =
   match List.partition IO.File.Exists files with
   | [], [] ->
-    eprintsn "File(s) must be given."
+    eprintsn $"File(s) must be given.{Environment.NewLine}"
     CmdOpts.printUsage ToolName UsageTail BinDisasmOpts.Spec
   | files, [] ->
     Log.EnableCaching()

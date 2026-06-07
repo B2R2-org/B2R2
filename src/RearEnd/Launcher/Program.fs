@@ -48,16 +48,16 @@ on .NET. This is the B2R2 launcher, which is a .NET CLI tool that can
 invoke various tools provided by our framework. To know more about
 B2R2, please visit our official website: https://b2r2.org/."""
   printcn
-  <| ColoredString().Add(NoColor, Environment.NewLine + "Usage: ")
-                    .Add(DarkCyan, "b2r2")
-                    .Add(DarkYellow, " [app name]")
+  <| ColoredString().Append(NoColor, Environment.NewLine + "Usage: ")
+                    .Append(DarkCyan, "b2r2")
+                    .Append(DarkYellow, " [app name]")
   printsn """
 [Available Apps]
 """
   printcn
-  <| ColoredString().Add(NoColor, "- ")
-                    .Add(DarkYellow, "scan")
-                    .Add(NoColor, " (a.k.a. binscan)")
+  <| ColoredString().Append(NoColor, "- ")
+                    .Append(DarkYellow, "scan")
+                    .Append(NoColor, " (a.k.a. binscan)")
   printsn """
   This is a file format scanner that is similar to readelf or otool.
   You can read various file format information using this app. To
@@ -66,9 +66,9 @@ B2R2, please visit our official website: https://b2r2.org/."""
   $ b2r2 scan --help
 """
   printcn
-  <| ColoredString().Add(NoColor, "- ")
-                    .Add(DarkYellow, "disasm")
-                    .Add(NoColor, " (a.k.a. bindisasm)")
+  <| ColoredString().Append(NoColor, "- ")
+                    .Append(DarkYellow, "disasm")
+                    .Append(NoColor, " (a.k.a. bindisasm)")
   printsn """
   This is a linear-sweep disassembler similar to objdump, although
   this app is more powerful and versatile. To learn more about the
@@ -77,9 +77,9 @@ B2R2, please visit our official website: https://b2r2.org/."""
   $ b2r2 disasm --help
 """
   printcn
-  <| ColoredString().Add(NoColor, "- ")
-                    .Add(DarkYellow, "explore")
-                    .Add(NoColor, " (a.k.a. binexplore)")
+  <| ColoredString().Append(NoColor, "- ")
+                    .Append(DarkYellow, "explore")
+                    .Append(NoColor, " (a.k.a. binexplore)")
   printsn """
   This is a recursive-descent disassembler that provides a web-based
   GUI as well as its own CLI terminal. To learn more about the tool,
@@ -88,8 +88,8 @@ B2R2, please visit our official website: https://b2r2.org/."""
   $ b2r2 explore --help
 """
   printcn
-  <| ColoredString().Add(NoColor, "- ")
-                    .Add(DarkYellow, "repl")
+  <| ColoredString().Append(NoColor, "- ")
+                    .Append(DarkYellow, "repl")
   printsn """
   This is a REPL (Read Evaluate Print Loop) for our binary IR as well
   as binary assembly languages. To learn more about the tool type the
@@ -98,9 +98,9 @@ B2R2, please visit our official website: https://b2r2.org/."""
   $ b2r2 repl --help
 """
   printcn
-  <| ColoredString().Add(NoColor, "- ")
-                    .Add(DarkYellow, "asm")
-                     .Add(NoColor, " (a.k.a. assembler)")
+  <| ColoredString().Append(NoColor, "- ")
+                    .Append(DarkYellow, "asm")
+                    .Append(NoColor, " (a.k.a. assembler)")
   printsn """
   This is a simple cross-platform assembler. To learn more about the
   tool, type the following command:

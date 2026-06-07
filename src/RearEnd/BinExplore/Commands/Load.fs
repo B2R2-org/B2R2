@@ -42,10 +42,10 @@ type Load() =
 
     member _.CmdHelp =
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " <path>\n\n")
-        .Add(NoColor, $"{Desc}")
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}")
+        .Append(NoColor, " <path>\n\n")
+        .Append(NoColor, $"{Desc}")
 
     member _.SubCommands = []
 

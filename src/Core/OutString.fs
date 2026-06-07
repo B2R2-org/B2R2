@@ -37,7 +37,7 @@ with
     match this with
     | OutputNormal s -> s
     | OutputColored cs -> cs.ToString()
-    | OutputNewLine -> "\n"
+    | OutputNewLine -> System.Environment.NewLine
 
   /// Pads the output string to the left with spaces up to the specified width.
   member this.PadLeft(width) =
@@ -53,7 +53,8 @@ with
     | OutputColored cs -> OutputColored(cs.PadRight width)
     | OutputNewLine -> this
 
-  /// Renders the output string using the provided function.
+  /// Renders the output string by applying the given function to each
+  /// color-string pair.
   member this.Render fn =
     match this with
     | OutputNormal s -> fn NoColor s

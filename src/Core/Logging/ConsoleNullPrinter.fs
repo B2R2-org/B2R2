@@ -26,7 +26,7 @@ namespace B2R2.Logging
 
 open B2R2
 
-/// Represents a printer that does *not* print anything. This is the same as
+/// Represents a printer that never prints anything. This is the same as
 /// redirecting outputs to /dev/null.
 type ConsoleNullPrinter() =
   interface IPrinter with

@@ -27,7 +27,7 @@ namespace B2R2.Logging
 open System
 open B2R2
 
-/// Represents a table-like output configuration of a table. This is useful for
+/// Represents the output configuration for a table. This is useful for
 /// formatting the output of console applications as we often align texts in a
 /// table-like shape.
 type TableConfig =
@@ -81,7 +81,7 @@ with
       colfmt.Pad(s, isLast)
     this.Render(converter, padder, renderer, oss)
 
-/// Represents a column of a table with a specified width in bytes (# of chars).
+/// Represents a column of a table with a specified width in characters.
 and TableColumnFormat =
   | RightAligned of width: int
   | LeftAligned of width: int
@@ -98,7 +98,7 @@ with
     | RightAligned width -> cs.PadLeft width
     | LeftAligned width -> if isLast then cs else cs.PadRight width
 
-  /// Pads the given ColoredString according to the column format.
+  /// Pads the given OutString according to the column format.
   member this.Pad(os: OutString, isLast) =
     match this with
     | RightAligned width -> os.PadLeft width

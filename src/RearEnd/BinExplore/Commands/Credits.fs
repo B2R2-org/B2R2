@@ -42,9 +42,9 @@ type Credits() =
 
     member _.CmdHelp =
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}\n\n")
-        .Add(NoColor, Desc)
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}\n\n")
+        .Append(NoColor, Desc)
 
     member _.SubCommands = []
 

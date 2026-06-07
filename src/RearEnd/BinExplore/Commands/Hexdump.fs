@@ -56,10 +56,10 @@ type Hexdump() =
 
     member _.CmdHelp =
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " <addr> <bytes>\n\n")
-        .Add(NoColor, $"{Desc}")
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}")
+        .Append(NoColor, " <addr> <bytes>\n\n")
+        .Append(NoColor, $"{Desc}")
 
     member _.SubCommands = []
 

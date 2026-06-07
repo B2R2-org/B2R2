@@ -32,7 +32,7 @@ module PrintingUtils =
 
   /// Prints a section title.
   let printSectionTitle (title: string) =
-    let cs = ColoredString().Add(Red, "# ").Add(NoColor, title)
+    let cs = ColoredString().Append(Red, "# ").Append(NoColor, title)
     Log.Out.PrintLine(cs)
     Log.Out.PrintLine()
 

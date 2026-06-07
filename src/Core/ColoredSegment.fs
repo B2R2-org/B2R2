@@ -31,12 +31,12 @@ type internal ColoredSegment = Color * string
 [<RequireQualifiedAccess>]
 module internal ColoredSegment =
   /// Returns a colored hexadecimal representation of a byte.
-  let hexOfByte b = Color.FromByte b, b.ToString "X2"
+  let hexOfByte b = Color.ofByte b, b.ToString "X2"
 
   /// Returns a colored ASCII representation of a byte.
-  let asciiOfByte b = Color.FromByte b, Byte.toDisplayChar b
+  let asciiOfByte b = Color.ofByte b, Byte.toDisplayChar b
 
   /// Appends a string (of the same color) to a colored segment.
   let appendString tail (segment: ColoredSegment) =
-    let color, string = segment
-    ColoredSegment(color, string + tail)
+    let color, s = segment
+    ColoredSegment(color, s + tail)

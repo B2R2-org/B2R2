@@ -114,9 +114,7 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
       else
         ()
 
-    member _.Flush() =
-      cache.ToString() |> Console.Write
-      cache.Clear() |> ignore
+    member _.Flush() = flush ()
 
     member _.SetLogLevel(lvl) =
       myLevel <- lvl

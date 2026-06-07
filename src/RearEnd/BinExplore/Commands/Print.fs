@@ -182,10 +182,10 @@ type Print() =
          - w (word) or 4\n\
          - g (giant) or 8"
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " <format> <addr>\n\n")
-        .Add(NoColor, extra)
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}")
+        .Append(NoColor, " <format> <addr>\n\n")
+        .Append(NoColor, extra)
 
     member _.SubCommands = []
 

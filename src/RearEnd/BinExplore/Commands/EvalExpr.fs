@@ -56,10 +56,10 @@ type EvalExpr(name, alias) =
         "Evaluate the given BinQL expression and print out the value. This\n\
         command supports basic arithmetic expressions."
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{name}")
-        .Add(NoColor, " <expression>\n\n")
-        .Add(NoColor, $"{extra}")
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{name}")
+        .Append(NoColor, " <expression>\n\n")
+        .Append(NoColor, $"{extra}")
 
     member _.SubCommands = []
 

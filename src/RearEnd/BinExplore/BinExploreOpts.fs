@@ -68,9 +68,9 @@ with
       Verbose = false }
 
   static member Spec =
-    [ Opt(descr = ColoredString().Add(NoColor, "[")
-                                 .Add(DarkCyan, "General Options")
-                                 .Add(NoColor, "]"),
+    [ Opt(descr = ColoredString().Append(NoColor, "[")
+                                 .Append(DarkCyan, "General Options")
+                                 .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
       Opt(descr = noCol "",
@@ -95,9 +95,9 @@ with
           callback = fun opts _-> { opts with UseDarkTheme = false })
       Opt(descr = noCol "",
           dummy = true)
-      Opt(descr = ColoredString().Add(NoColor, "[")
-                                 .Add(DarkCyan, "Host Configuration")
-                                 .Add(NoColor, "]"),
+      Opt(descr = ColoredString().Append(NoColor, "[")
+                                 .Append(DarkCyan, "Host Configuration")
+                                 .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
       Opt(descr = noCol "",

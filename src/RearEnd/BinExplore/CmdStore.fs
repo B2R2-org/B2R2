@@ -42,20 +42,20 @@ type CmdStore(spec) as this =
   let warnUnknown (cmd: string) =
     let msg =
       ColoredString()
-        .Add(NoColor, "[")
-        .Add(Red, "*")
-        .Add(NoColor, "] Unknown command: '")
-        .Add(Red, cmd)
-        .Add(NoColor, "'")
+        .Append(NoColor, "[")
+        .Append(Red, "*")
+        .Append(NoColor, "] Unknown command: '")
+        .Append(Red, cmd)
+        .Append(NoColor, "'")
     [| msg |]
 
   let generalHelpStr =
     ColoredString()
-      .Add(NoColor, "[")
-      .Add(DarkCyan, "*")
-      .Add(NoColor, "] Current B2R2 commands (type '")
-      .Add(DarkCyan, "help")
-      .Add(NoColor, " <command>' for more info):")
+      .Append(NoColor, "[")
+      .Append(DarkCyan, "*")
+      .Append(NoColor, "] Current B2R2 commands (type '")
+      .Append(DarkCyan, "help")
+      .Append(NoColor, " <command>' for more info):")
 
   let generalHelp () =
     [| yield generalHelpStr
@@ -63,9 +63,9 @@ type CmdStore(spec) as this =
          if cmd.CmdName = name then
            let item =
              ColoredString()
-               .Add(NoColor, "- ")
-               .Add(DarkCyan, name)
-               .Add(NoColor, ": " + cmd.CmdDescr)
+               .Append(NoColor, "- ")
+               .Append(DarkCyan, name)
+               .Append(NoColor, ": " + cmd.CmdDescr)
            yield item
          else () |]
 
@@ -74,11 +74,11 @@ type CmdStore(spec) as this =
     | true, cmd ->
       let head =
         ColoredString()
-          .Add(NoColor, "[")
-          .Add(DarkCyan, "*")
-          .Add(NoColor, "] Usage of the command '")
-          .Add(DarkCyan, cmd.CmdName)
-          .Add(NoColor, "':\n")
+          .Append(NoColor, "[")
+          .Append(DarkCyan, "*")
+          .Append(NoColor, "] Usage of the command '")
+          .Append(DarkCyan, cmd.CmdName)
+          .Append(NoColor, "':\n")
       [| yield head
          if cmd.CmdHelp.Length > 0 then yield cmd.CmdHelp
          else () |]
@@ -129,10 +129,10 @@ and private CmdHelp(cmdStore: CmdStore) =
          command will show. For example, type `help bininfo` to see the usage\n\
          of the command `bininfo`."
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " [cmd]\n\n")
-        .Add(NoColor, extra)
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}")
+        .Append(NoColor, " [cmd]\n\n")
+        .Append(NoColor, extra)
 
     member _.SubCommands = []
 
@@ -160,9 +160,9 @@ and private CmdExit() =
 
     member _.CmdHelp =
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}\n\n")
-        .Add(NoColor, $"{Desc}")
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}\n\n")
+        .Append(NoColor, $"{Desc}")
 
     member _.SubCommands = []
 

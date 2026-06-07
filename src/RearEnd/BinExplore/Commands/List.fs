@@ -68,14 +68,14 @@ type List() =
 
     member _.CmdHelp =
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " <cmds> [options]\n\n")
-        .Add(NoColor, $"{Desc}\n\n")
-        .Add(NoColor, $"Currently available commands are:\n")
-        .Add(NoColor, $"- functions: List functions in the binary.\n")
-        .Add(NoColor, $"- segments: List segments in the binary.\n")
-        .Add(NoColor, $"- sections: List sections in the binary.")
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}")
+        .Append(NoColor, " <cmds> [options]\n\n")
+        .Append(NoColor, $"{Desc}\n\n")
+        .Append(NoColor, $"Currently available commands are:\n")
+        .Append(NoColor, $"- functions: List functions in the binary.\n")
+        .Append(NoColor, $"- segments: List segments in the binary.\n")
+        .Append(NoColor, $"- sections: List sections in the binary.")
 
     member _.SubCommands = [ "functions"; "segments" ]
 

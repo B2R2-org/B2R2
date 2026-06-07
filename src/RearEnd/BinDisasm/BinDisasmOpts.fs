@@ -102,9 +102,9 @@ with
     { opts with InputSecName = Some arg[0] }
 
   static member Spec =
-    [ Opt(descr = ColoredString().Add(NoColor, "[")
-                                 .Add(DarkCyan, "General Options")
-                                 .Add(NoColor, "]"),
+    [ Opt(descr = ColoredString().Append(NoColor, "[")
+                                 .Append(DarkCyan, "General Options")
+                                 .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
       Opt(descr = noCol "",
@@ -123,9 +123,9 @@ with
           callback = cbBaseAddress)
       Opt(descr = noCol "",
           dummy = true)
-      Opt(descr = ColoredString().Add(NoColor, "[")
-                                 .Add(DarkCyan, "Input Configuration")
-                                 .Add(NoColor, "]"),
+      Opt(descr = ColoredString().Append(NoColor, "[")
+                                 .Append(DarkCyan, "Input Configuration")
+                                 .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
       Opt(descr = noCol "",
@@ -141,9 +141,9 @@ with
           callback = fun opts _ -> { opts with AutoDetect = false })
       Opt(descr = noCol "",
           dummy = true)
-      Opt(descr = ColoredString().Add(NoColor, "[")
-                                 .Add(DarkCyan, "Output Configuration")
-                                 .Add(NoColor, "]"),
+      Opt(descr = ColoredString().Append(NoColor, "[")
+                                 .Append(DarkCyan, "Output Configuration")
+                                 .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
       Opt(descr = noCol "",
@@ -174,9 +174,9 @@ with
           callback = fun opts _ -> { opts with ShowLowUIR = true })
       Opt(descr = noCol "",
           dummy = true)
-      Opt(descr = ColoredString().Add(NoColor, "[")
-                                 .Add(DarkCyan, "Optional Configuration")
-                                 .Add(NoColor, "]"),
+      Opt(descr = ColoredString().Append(NoColor, "[")
+                                 .Append(DarkCyan, "Optional Configuration")
+                                 .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
       Opt(descr = noCol "",

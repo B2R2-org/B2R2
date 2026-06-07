@@ -50,7 +50,7 @@ module String =
 
   /// Converts a string to a ColoredString with the specified color.
   let inline toColoredString (s: string) col =
-    ColoredString().Add(col, s)
+    ColoredString().Append(col, s)
 
 [<AutoOpen>]
 module StringUtils =

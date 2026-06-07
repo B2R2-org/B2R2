@@ -47,10 +47,10 @@ type Show() =
          - caller <instruction addr in hex>\n\
          - callee/function <callee name or addr in hex>"
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " <component> [option(s)]\n\n")
-        .Add(NoColor, $"{Desc}\n\n{extra}")
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}")
+        .Append(NoColor, " <component> [option(s)]\n\n")
+        .Append(NoColor, $"{Desc}\n\n{extra}")
 
     member _.SubCommands = []
 

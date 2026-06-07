@@ -85,13 +85,13 @@ let showBasicInfo (opts: AssemblerOpts) =
   match opts.Mode with
   | GeneralMode(isa) ->
     ColoredString()
-      .Add(Blue, isa.ToString())
-      .Add(Green, " General Mode")
+      .Append(Blue, isa.ToString())
+      .Append(Green, " General Mode")
     |> printcn
   | LowUIRMode(isa) ->
     ColoredString()
-      .Add(Blue, isa.ToString())
-      .Add(Green, " LowUIR Mode")
+      .Append(Blue, isa.ToString())
+      .Append(Green, " LowUIR Mode")
     |> printcn
 
 let private asmFromFiles files printer =

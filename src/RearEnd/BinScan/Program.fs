@@ -31,9 +31,9 @@ open B2R2.RearEnd.Utils
 
 let private printFileName filepath =
   ColoredString()
-    .Add(Green, "[")
-    .Add(Yellow, filepath)
-    .Add(Green, "]")
+    .Append(Green, "[")
+    .Append(Yellow, filepath)
+    .Append(Green, "]")
   |> printcn
   printsn ""
 

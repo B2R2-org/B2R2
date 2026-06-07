@@ -52,7 +52,7 @@ module internal ICmd =
   /// Builds an output for an error message.
   let buildErrorOutput msg =
     [| ColoredString()
-         .Add(NoColor, "[")
-         .Add(Red, "*")
-         .Add(NoColor, $"] {msg}") |]
+         .Append(NoColor, "[")
+         .Append(Red, "*")
+         .Append(NoColor, $"] {msg}") |]
     |> Array.map OutputColored

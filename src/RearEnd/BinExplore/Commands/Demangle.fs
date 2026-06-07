@@ -47,10 +47,10 @@ type Demangle() =
 
     member _.CmdHelp =
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " <string>\n\n")
-        .Add(NoColor, Desc)
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}")
+        .Append(NoColor, " <string>\n\n")
+        .Append(NoColor, Desc)
 
     member _.SubCommands = []
 

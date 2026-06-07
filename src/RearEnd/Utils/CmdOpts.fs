@@ -32,13 +32,13 @@ open B2R2.FsOptParse
 /// Creates a colored intro string for B2R2.
 let makeIntroString () =
   ColoredString()
-    .Add(DarkCyan, "B")
-    .Add(DarkYellow, "2")
-    .Add(DarkCyan, "R")
-    .Add(DarkYellow, "2")
-    .Add(NoColor, ", the Next-Generation Reversing Platform")
-    .Add(NoColor, Environment.NewLine)
-    .Add(NoColor, Attribution.Copyright + Environment.NewLine)
+    .Append(DarkCyan, "B")
+    .Append(DarkYellow, "2")
+    .Append(DarkCyan, "R")
+    .Append(DarkYellow, "2")
+    .Append(NoColor, ", the Next-Generation Reversing Platform")
+    .Append(NoColor, Environment.NewLine)
+    .Append(NoColor, Attribution.Copyright + Environment.NewLine)
 
 /// Writes introduction message to console.
 let writeIntro () =
@@ -53,9 +53,9 @@ let private createUsageFormatter tool usageTail =
       member _.UsageForm with get() = createUsage tool usageTail
       member _.UsagePreCallback() =
         ColoredString()
-          .Add(NoColor, "[")
-          .Add(DarkCyan, "Usage")
-          .Add(NoColor, "]")
+          .Append(NoColor, "[")
+          .Append(DarkCyan, "Usage")
+          .Append(NoColor, "]")
         |> printcn
         printsn "" }
 
@@ -90,7 +90,7 @@ let parseAndRun mainFn tool usageTail spec (opts: #IVerboseOption) args =
     mainFn rest opts
     0
   with e ->
-    eprintsn $"{e.Message}"
+    eprintsn $"{e.Message}{Environment.NewLine}"
     if opts.IsVerbose then eprintsn e.StackTrace else ()
     1
 

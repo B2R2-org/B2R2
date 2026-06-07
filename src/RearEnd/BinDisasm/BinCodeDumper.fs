@@ -95,10 +95,10 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
     for word in words do
       match word.AsmWordKind with
       | AsmWordKind.Address -> ()
-      | AsmWordKind.Mnemonic -> cs.Add(Green, word.AsmWordValue) |> ignore
-      | AsmWordKind.Variable -> cs.Add(Blue, word.AsmWordValue) |> ignore
-      | AsmWordKind.Value -> cs.Add(Red, word.AsmWordValue) |> ignore
-      | _ -> cs.Add(NoColor, word.AsmWordValue) |> ignore
+      | AsmWordKind.Mnemonic -> cs.Append(Green, word.AsmWordValue) |> ignore
+      | AsmWordKind.Variable -> cs.Append(Blue, word.AsmWordValue) |> ignore
+      | AsmWordKind.Value -> cs.Append(Red, word.AsmWordValue) |> ignore
+      | _ -> cs.Append(NoColor, word.AsmWordValue) |> ignore
     cs
 
   let printColorDisasm words addr bytes =

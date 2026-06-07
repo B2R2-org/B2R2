@@ -47,9 +47,9 @@ type BinInfo() =
         "This command will show some basic information such as the entry\n\
          point address, binary file format, symbol numbers, etc."
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}\n\n")
-        .Add(NoColor, $"{Desc}\n\n{extra}")
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}\n\n")
+        .Append(NoColor, $"{Desc}\n\n{extra}")
 
     member _.SubCommands = []
 

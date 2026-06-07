@@ -27,32 +27,16 @@ namespace B2R2
 /// Represents colors to print out in the console. When printing to a file,
 /// colors are ignored.
 type Color =
-  /// Red color.
   | Red
-  /// Green color.
   | Green
-  /// Yellow color.
   | Yellow
-  /// Blue color.
   | Blue
-  /// Dark cyan color.
   | DarkCyan
-  /// Dark yellow color.
   | DarkYellow
-  /// No color.
   | NoColor
-  /// Red highlight color.
   | RedHighlight
-  /// Green highlight color.
   | GreenHighlight
 with
-  static member FromByte(b: byte) =
-    if Byte.isNull b then NoColor
-    elif Byte.isPrintable b then Green
-    elif Byte.isWhitespace b then Blue
-    elif Byte.isControl b then Red
-    else Yellow
-
   override this.ToString() =
     match this with
     | NoColor -> "nocolor"
@@ -64,3 +48,17 @@ with
     | DarkYellow -> "darkyellow"
     | RedHighlight -> "redhighlight"
     | GreenHighlight -> "greenhighlight"
+
+/// Provides functions for working with Color values.
+[<RequireQualifiedAccess>]
+module Color =
+  /// Returns a Color based on the byte's character class: printable bytes map
+  /// to green, whitespace to blue, control characters to red, null bytes to no
+  /// color, and all other bytes to yellow.
+  [<CompiledName "OfByte">]
+  let ofByte (b: byte) =
+    if Byte.isNull b then NoColor
+    elif Byte.isPrintable b then Green
+    elif Byte.isWhitespace b then Blue
+    elif Byte.isControl b then Red
+    else Yellow

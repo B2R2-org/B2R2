@@ -63,9 +63,9 @@ with
     { opts with BaseAddress = Some(Convert.ToUInt64(args[0], 16)) }
 
   static member Spec =
-    [ CmdOpt(descr = ColoredString().Add(NoColor, "[")
-                                    .Add(DarkCyan, "General Options")
-                                    .Add(NoColor, "]"),
+    [ CmdOpt(descr = ColoredString().Append(NoColor, "[")
+                                    .Append(DarkCyan, "General Options")
+                                    .Append(NoColor, "]"),
              descrPrinter = printcn,
              dummy = true)
       CmdOpt(descr = noCol "",
@@ -105,9 +105,9 @@ with
              callback = fun opts _ -> opts.Add DisplayExceptionTable)
       CmdOpt(descr = noCol "",
              dummy = true)
-      CmdOpt(descr = ColoredString().Add(NoColor, "[")
-                                    .Add(DarkCyan, "ELF options")
-                                    .Add(NoColor, "]"),
+      CmdOpt(descr = ColoredString().Append(NoColor, "[")
+                                    .Append(DarkCyan, "ELF options")
+                                    .Append(NoColor, "]"),
              descrPrinter = printcn,
              dummy = true)
       CmdOpt(descr = noCol "",
@@ -132,9 +132,9 @@ with
              callback = fun opts _ -> opts.Add(DisplayELF ELFDebugInfo))
       CmdOpt(descr = noCol "",
              dummy = true)
-      CmdOpt(descr = ColoredString().Add(NoColor, "[")
-                                    .Add(DarkCyan, "PE options")
-                                    .Add(NoColor, "]"),
+      CmdOpt(descr = ColoredString().Append(NoColor, "[")
+                                    .Append(DarkCyan, "PE options")
+                                    .Append(NoColor, "]"),
              descrPrinter = printcn,
              dummy = true)
       CmdOpt(descr = noCol "",
@@ -156,9 +156,9 @@ with
              callback = fun opts _ -> opts.Add(DisplayPE PEDependencies))
       CmdOpt(descr = noCol "",
              dummy = true)
-      CmdOpt(descr = ColoredString().Add(NoColor, "[")
-                                    .Add(DarkCyan, "Mach-O options")
-                                    .Add(NoColor, "]"),
+      CmdOpt(descr = ColoredString().Append(NoColor, "[")
+                                    .Append(DarkCyan, "Mach-O options")
+                                    .Append(NoColor, "]"),
              descrPrinter = printcn,
              dummy = true)
       CmdOpt(descr = noCol "",

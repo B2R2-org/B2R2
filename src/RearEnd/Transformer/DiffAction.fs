@@ -300,7 +300,7 @@ type DiffAction() =
                       [| (NoColor, Environment.NewLine) |] |]) res1 res2
     |> Array.concat
     |> Array.fold (fun (cs: ColoredString) (col, str) ->
-      cs.Add(col, str)
+      cs.Append(col, str)
     ) (ColoredString())
     |> OutputColored
 

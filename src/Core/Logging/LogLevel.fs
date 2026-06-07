@@ -46,14 +46,17 @@ type LogLevel =
 /// Provides functions to convert between LogLevel and string.
 [<RequireQualifiedAccess>]
 module LogLevel =
-  /// Gets LogLevel from a given string. Higher the log level, more verbose
-  /// the logging output.
+  /// <summary>
+  /// Returns a <see cref='T:B2R2.Logging.LogLevel'/> corresponding to the
+  /// given string. The higher the log level, the more verbose the logging
+  /// output. Unrecognized strings default to <c>L2</c>.
+  /// </summary>
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant() with
     | "1" | "l1" | "quiet" | "q" -> LogLevel.L1
     | "3" | "l3" | "verbose" | "v" -> LogLevel.L3
-    | "4" | "l4" -> LogLevel.L4
+    | "4" | "l4" | "debug" | "d" -> LogLevel.L4
     | _ -> LogLevel.L2
 
   /// Returns a string representing the given LogLevel.

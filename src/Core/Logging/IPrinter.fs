@@ -44,9 +44,10 @@ type IPrinter =
   abstract LogLevel: LogLevel
 
   /// <summary>
-  /// Prints out the given string. If the optional log level `lvl` is
-  /// provided, the string is printed only if the current log level is equal to
-  /// or higher than `lvl`. By default, `lvl` is set to <c>LogLevel.L2</c>.
+  /// Prints out the given string. If the optional log level <paramref
+  /// name="lvl"/> is provided, the string is printed only if the current log
+  /// level is equal to or higher than <paramref name="lvl"/>. By default,
+  /// <paramref name="lvl"/> is set to <c>LogLevel.L2</c>.
   /// </summary>
   abstract Print:
       s: string
@@ -54,9 +55,10 @@ type IPrinter =
     -> unit
 
   /// <summary>
-  /// Prints out the given ColoredString. If the optional log level `lvl` is
-  /// provided, the string is printed only if the current log level is equal to
-  /// or higher than `lvl`. By default, `lvl` is set to <c>LogLevel.L2</c>.
+  /// Prints out the given ColoredString. If the optional log level <paramref
+  /// name="lvl"/> is provided, the string is printed only if the current log
+  /// level is equal to or higher than <paramref name="lvl"/>. By default,
+  /// <paramref name="lvl"/> is set to <c>LogLevel.L2</c>.
   /// </summary>
   abstract Print:
        cs: ColoredString
@@ -64,9 +66,10 @@ type IPrinter =
     -> unit
 
   /// <summary>
-  /// Prints out the given OutString. If the optional log level `lvl` is
-  /// provided, the string is printed only if the current log level is equal to
-  /// or higher than `lvl`. By default, `lvl` is set to <c>LogLevel.L2</c>.
+  /// Prints out the given OutString. If the optional log level <paramref
+  /// name="lvl"/> is provided, the string is printed only if the current log
+  /// level is equal to or higher than <paramref name="lvl"/>. By default,
+  /// <paramref name="lvl"/> is set to <c>LogLevel.L2</c>.
   /// </summary>
   abstract Print:
        os: OutString
@@ -74,9 +77,10 @@ type IPrinter =
     -> unit
 
   /// <summary>
-  /// Prints out the given string with newline. If the optional log level `lvl`
-  /// is provided, the string is printed only if the current log level is equal
-  /// to or higher than `lvl`. By default, `lvl` is set to <c>LogLevel.L2</c>.
+  /// Prints out the given string with newline. If the optional log level
+  /// <paramref name="lvl"/> is provided, the string is printed only if the
+  /// current log level is equal to or higher than <paramref name="lvl"/>. By
+  /// default, <paramref name="lvl"/> is set to <c>LogLevel.L2</c>.
   /// </summary>
   abstract PrintLine:
        s: string
@@ -85,9 +89,9 @@ type IPrinter =
 
   /// <summary>
   /// Prints out the given ColoredString with newline. If the optional log level
-  /// `lvl` is provided, the string is printed only if the current log level is
-  /// equal to or higher than `lvl`. By default, `lvl` is set to
-  /// <c>LogLevel.L2</c>.
+  /// <paramref name="lvl"/> is provided, the string is printed only if the
+  /// current log level is equal to or higher than <paramref name="lvl"/>. By
+  /// default, <paramref name="lvl"/> is set to <c>LogLevel.L2</c>.
   /// </summary>
   abstract PrintLine:
        cs: ColoredString
@@ -96,9 +100,9 @@ type IPrinter =
 
   /// <summary>
   /// Prints out the given OutString with newline. If the optional log level
-  /// `lvl` is provided, the string is printed only if the current log level is
-  /// equal to or higher than `lvl`. By default, `lvl` is set to
-  /// <c>LogLevel.L2</c>.
+  /// <paramref name="lvl"/> is provided, the string is printed only if the
+  /// current log level is equal to or higher than <paramref name="lvl"/>. By
+  /// default, <paramref name="lvl"/> is set to <c>LogLevel.L2</c>.
   /// </summary>
   abstract PrintLine:
        os: OutString
@@ -106,9 +110,10 @@ type IPrinter =
     -> unit
 
   /// <summary>
-  /// Prints out a newline. If the optional log level `lvl` is provided, the
-  /// newline is printed only if the current log level is equal to or higher
-  /// than `lvl`. By default, `lvl` is set to <c>LogLevel.L2</c>.
+  /// Prints out a newline. If the optional log level <paramref name="lvl"/> is
+  /// provided, the newline is printed only if the current log level is equal to
+  /// or higher than <paramref name="lvl"/>. By default, <paramref name="lvl"/>
+  /// is set to <c>LogLevel.L2</c>.
   /// </summary>
   abstract PrintLine:
        [<Optional; DefaultParameterValue(LogLevel.L2)>] lvl: LogLevel
@@ -119,14 +124,14 @@ type IPrinter =
   /// of columns as the length of the given string array.
   abstract PrintRow: string[] -> unit
 
-  /// Prints out table row for the given ColoredString array of column values.
-  /// This function only works if the current table configuration  has the same
+  /// Prints out a table row for the given ColoredString array of column values.
+  /// This function only works if the current table configuration has the same
   /// number of columns as the length of the given ColoredString array.
   abstract PrintRow: ColoredString[] -> unit
 
-  /// Prints out table row for the given string array of column values. This
-  /// function only works if the current table configuration has the same number
-  /// of columns as the length of the given OutString array.
+  /// Prints out a table row for the given OutString array of column values.
+  /// This function only works if the current table configuration has the same
+  /// number of columns as the length of the given OutString array.
   abstract PrintRow: OutString[] -> unit
 
   /// Flushes out everything.

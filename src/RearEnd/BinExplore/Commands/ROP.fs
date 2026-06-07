@@ -43,9 +43,9 @@ type GadgetSearch() =
 
     member _.CmdHelp =
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}\n\n")
-        .Add(NoColor, $"{Desc}")
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}\n\n")
+        .Append(NoColor, $"{Desc}")
 
     member _.SubCommands = []
 
@@ -101,10 +101,10 @@ type ROP() =
          - write: a ROP payload for writing a value to a target memory.\n\
          - pivot: a ROP payload for stack pivoting."
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " <cmd> [options]\n\n")
-        .Add(NoColor, $"{Desc}\n\n{extra}")
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}")
+        .Append(NoColor, " <cmd> [options]\n\n")
+        .Append(NoColor, $"{Desc}\n\n{extra}")
 
     member _.SubCommands = []
 

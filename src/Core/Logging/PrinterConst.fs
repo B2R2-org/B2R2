@@ -31,5 +31,5 @@ let [<Literal>] Indentation = 2
 /// Default column width for printing.
 let [<Literal>] ColWidth = 24
 
-/// Default cache limit for cached printers.
+/// Default cache limit for cached printers in bytes (16 MB).
 let [<Literal>] CacheLimit = 16777216

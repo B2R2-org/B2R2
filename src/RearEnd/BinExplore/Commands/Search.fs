@@ -75,11 +75,11 @@ type Search() =
          - s (string)\n\
          - h (hex string)"
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " <type> [expr]\n\n")
-        .Add(NoColor, $"{Desc}\n\n")
-        .Add(NoColor, $"{extra}\n\n")
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}")
+        .Append(NoColor, " <type> [expr]\n\n")
+        .Append(NoColor, $"{Desc}\n\n")
+        .Append(NoColor, $"{extra}\n\n")
 
     member _.SubCommands = []
 

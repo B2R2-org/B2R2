@@ -77,13 +77,13 @@ type Disasm() =
          address. When the <cnt> argument is not given, it will print one\n\
          instruction."
       ColoredString()
-        .Add(NoColor, "Usage: ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " <addr>\n")
-        .Add(NoColor, "       ")
-        .Add(DarkCyan, $"{CmdName}")
-        .Add(NoColor, " <cnt> <addr>\n\n")
-        .Add(NoColor, $"{extra}")
+        .Append(NoColor, "Usage: ")
+        .Append(DarkCyan, $"{CmdName}")
+        .Append(NoColor, " <addr>\n")
+        .Append(NoColor, "       ")
+        .Append(DarkCyan, $"{CmdName}")
+        .Append(NoColor, " <cnt> <addr>\n\n")
+        .Append(NoColor, $"{extra}")
 
     member _.SubCommands = []
 
