@@ -27,33 +27,37 @@ namespace B2R2.Collections
 open System.Collections.Generic
 open System.Runtime.InteropServices
 
-/// Represents a queue that only stores unique elements.
+/// Represents a queue that stores each element at most once.
 type UniqueQueue<'T>() =
   let queue = Queue<'T>()
   let set = HashSet<'T>()
 
-  /// Get the number of elements in the queue.
+  /// Gets the number of elements in the queue.
   member _.Count = queue.Count
 
-  /// Check if the queue is empty.
+  /// Checks whether the queue is empty.
   member _.IsEmpty with get() = queue.Count = 0
 
-  /// Enqueue an element only if it is not already in the queue.
+  /// Enqueues the given element only when it is not already present in the
+  /// queue.
   member _.Enqueue(x: 'T) =
     if set.Add x |> not then ()
     else queue.Enqueue x
 
-  /// Dequeue an element. If the element is not in the queue, it raises an
-  /// exception.
+  /// Dequeues the oldest element. Raises an exception when the queue is empty.
   member _.Dequeue() =
     let x = queue.Dequeue()
     if set.Remove x then x
     else B2R2.Terminator.impossible ()
 
-  /// Try to dequeue an element.
+  /// Tries to dequeue the oldest element. Returns false when the queue is
+  /// empty.
   member _.TryDequeue([<Out>] result: byref<'T>) =
     if not <| queue.TryDequeue(&result) then false
-    else set.Remove result
+    elif set.Remove result then true
+    else B2R2.Terminator.impossible ()
 
-  /// Clear the queue.
-  member _.Clear() = queue.Clear()
+  /// Clears all elements from the queue.
+  member _.Clear() =
+    queue.Clear()
+    set.Clear()
