@@ -36,13 +36,13 @@ type RegisterSetTests() =
   member _.``Size Test 1``() =
     let s = RegisterSet(64)
     Assert.AreEqual<int>(64, s.MaxNumElems)
-    Assert.AreEqual<int>(1, s.BitArray.Length)
+    Assert.AreEqual<int>(1, s.BucketCount)
 
   [<TestMethod>]
   member _.``Size Test 2``() =
     let s = RegisterSet(65)
     Assert.AreEqual<int>(65, s.MaxNumElems)
-    Assert.AreEqual<int>(2, s.BitArray.Length)
+    Assert.AreEqual<int>(2, s.BucketCount)
 
   [<TestMethod>]
   member _.``Add Test 1``() =
@@ -58,7 +58,7 @@ type RegisterSetTests() =
   [<TestMethod>]
   member _.``Add Test 2``() =
     let s = RegisterSet(65)
-    Assert.Throws<IndexOutOfRangeException>(fun () -> s.Add 65)
+    Assert.Throws<ArgumentOutOfRangeException>(fun () -> s.Add 65)
     |> ignore
 
   [<TestMethod>]
