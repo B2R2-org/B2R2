@@ -39,13 +39,13 @@ type SortedListTests() =
 
   [<TestMethod>]
   member _.``GLB``() =
-    let actual = SortedList.findGreatestLowerBoundKey 250 lst |> Option.get
+    let actual = SortedList.tryFindPreviousKey 250 lst |> Option.get
     Assert.AreEqual<int>(200, actual)
-    let actual = SortedList.findGreatestLowerBoundKey 101 lst |> Option.get
+    let actual = SortedList.tryFindPreviousKey 101 lst |> Option.get
     Assert.AreEqual<int>(100, actual)
-    let actual = SortedList.findGreatestLowerBoundKey 450 lst |> Option.get
+    let actual = SortedList.tryFindPreviousKey 450 lst |> Option.get
     Assert.AreEqual<int>(400, actual)
-    let actual = SortedList.findGreatestLowerBoundKey 200 lst |> Option.get
+    let actual = SortedList.tryFindPreviousKey 200 lst |> Option.get
     Assert.AreEqual<int>(100, actual)
 
   [<TestMethod>]
@@ -53,18 +53,18 @@ type SortedListTests() =
     let lst = SortedList<uint64, int>()
     lst[0x63a0UL] <- 1
     lst[0x6b04UL] <- 2
-    let actual = SortedList.findGreatestLowerBoundKey 0x6b04UL lst |> Option.get
+    let actual = SortedList.tryFindPreviousKey 0x6b04UL lst |> Option.get
     Assert.AreEqual<uint64>(0x63a0UL, actual)
 
   [<TestMethod>]
   member _.``LUB``() =
-    let actual = SortedList.findLeastUpperBoundKey 250 lst |> Option.get
+    let actual = SortedList.tryFindNextKey 250 lst |> Option.get
     Assert.AreEqual<int>(300, actual)
-    let actual = SortedList.findLeastUpperBoundKey 350 lst |> Option.get
+    let actual = SortedList.tryFindNextKey 350 lst |> Option.get
     Assert.AreEqual<int>(400, actual)
-    let actual = SortedList.findLeastUpperBoundKey 99 lst |> Option.get
+    let actual = SortedList.tryFindNextKey 99 lst |> Option.get
     Assert.AreEqual<int>(100, actual)
-    let actual = SortedList.findLeastUpperBoundKey 100 lst |> Option.get
+    let actual = SortedList.tryFindNextKey 100 lst |> Option.get
     Assert.AreEqual<int>(200, actual)
 
   [<TestMethod>]
@@ -74,12 +74,12 @@ type SortedListTests() =
     lst[0x64ecUL] <- 2
     lst[0x6c24UL] <- 3
     lst[0x6cf0UL] <- 4
-    let actual = SortedList.findLeastUpperBoundKey 0x64ecUL lst |> Option.get
+    let actual = SortedList.tryFindNextKey 0x64ecUL lst |> Option.get
     Assert.AreEqual<uint64>(0x6c24UL, actual)
 
   [<TestMethod>]
   member _.``Boundary Conditions``() =
-    Assert.AreEqual(None, SortedList.findGreatestLowerBoundKey 0 lst)
-    Assert.AreEqual(None, SortedList.findGreatestLowerBoundKey 100 lst)
-    Assert.AreEqual(None, SortedList.findLeastUpperBoundKey 400 lst)
-    Assert.AreEqual(None, SortedList.findLeastUpperBoundKey 500 lst)
+    Assert.AreEqual(None, SortedList.tryFindPreviousKey 0 lst)
+    Assert.AreEqual(None, SortedList.tryFindPreviousKey 100 lst)
+    Assert.AreEqual(None, SortedList.tryFindNextKey 400 lst)
+    Assert.AreEqual(None, SortedList.tryFindNextKey 500 lst)

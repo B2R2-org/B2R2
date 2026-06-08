@@ -49,10 +49,10 @@ type JmpTableRecoveryNotebook() =
 
   let syncAfterRegistration tblAddr note =
     let sz = uint64 note.EntrySize
-    match SortedList.findGreatestLowerBoundKey tblAddr notes with
+    match SortedList.tryFindPreviousKey tblAddr notes with
     | Some lb -> updatePotentialEndPoint notes[lb] (note.StartingPoint - sz)
     | None -> ()
-    match SortedList.findLeastUpperBoundKey tblAddr notes with
+    match SortedList.tryFindNextKey tblAddr notes with
     | Some ub -> updatePotentialEndPoint note (ub - sz)
     | None -> ()
 

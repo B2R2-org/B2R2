@@ -41,10 +41,11 @@ let rec private binSearch value lo hi (keys: IList<_>) (comp: IComparer<_>) =
       else binSearch value lo (mid - 1) keys comp
   else lo
 
-/// Finds the greatest key that is strictly less than the given key according to
-/// the comparer of the given SortedList. If there is no such key, this function
-/// returns None.
-let findGreatestLowerBoundKey (key: 'T) (list: SortedList<'T, _>) =
+/// Finds the previous key of the given key according to the comparer of the
+/// given SortedList. If there is no strictly smaller key, this function returns
+/// None.
+[<CompiledName "TryFindPreviousKey">]
+let tryFindPreviousKey (key: 'T) (list: SortedList<'T, _>) =
   let comp = list.Comparer
   let keys = list.Keys
   if keys.Count = 0 || comp.Compare(key, keys[0]) <= 0 then None
@@ -53,10 +54,10 @@ let findGreatestLowerBoundKey (key: 'T) (list: SortedList<'T, _>) =
     if comp.Compare(keys[idx], key) < 0 then keys[idx] else keys[idx - 1]
     |> Some
 
-/// Finds the least key that is strictly greater than the given key according to
-/// the comparer of the given SortedList. If there is no such key, this function
-/// returns None.
-let findLeastUpperBoundKey (key: 'T) (list: SortedList<'T, _>) =
+/// Finds the next key of the given key according to the comparer of the given
+/// SortedList. If there is no strictly greater key, this function returns None.
+[<CompiledName "TryFindNextKey">]
+let tryFindNextKey (key: 'T) (list: SortedList<'T, _>) =
   let comp = list.Comparer
   let keys = list.Keys
   let lastIdx = list.Count - 1
