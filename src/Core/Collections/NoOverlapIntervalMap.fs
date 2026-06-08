@@ -51,20 +51,21 @@ type NoOverlapIntervalMap<'V> =
 [<RequireQualifiedAccess>]
 module NoOverlapIntervalMap =
 
-  let (++) col1 col2 =
+  let private (++) col1 col2 =
     match col1, col2 with
     | R, B
     | B, R -> B
     | B, B -> DB
     | _, _ -> R
 
-  let whiten = function
+  let private whiten = function
     | DB -> B
     | B -> R
     | R -> NB
     | NB -> raise InvalidWhiteningException
 
-  let toBlack = function
+  let private toBlack = function
+    | Leaf DB -> Leaf B
     | Node(R, k, v, l, r)
     | Node(DB, k, v, l, r) -> Node(B, k, v, l, r)
     | n -> n
@@ -118,7 +119,8 @@ module NoOverlapIntervalMap =
       else Error ErrorCase.ItemNotFound
 
   let rec private del isExact k = function
-    | Leaf _ -> raise KeyNotFoundException
+    | Leaf _ ->
+      raise KeyNotFoundException
     | Node(c, k', v', l, r) ->
       if k = k' then delAndBalance isExact (c, l, r)
       elif k.Min < k'.Min && k.Max < k'.Min then
@@ -152,14 +154,16 @@ module NoOverlapIntervalMap =
     | node -> Node node
 
   [<CompiledName("Remove")>]
-  let remove k tree = del true k tree |> toBlack
+  let remove k tree =
+    del true k tree |> toBlack
 
   [<CompiledName("RemoveAddr")>]
   let removeAddr addr tree =
-    del false (AddrRange.singleton addr) tree
+    del false (AddrRange.singleton addr) tree |> toBlack
 
   [<CompiledName("Empty")>]
-  let empty = Leaf B
+  let empty =
+    Leaf B
 
   [<CompiledName("IsEmpty")>]
   let isEmpty tree =

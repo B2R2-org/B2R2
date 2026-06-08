@@ -116,3 +116,23 @@ type NoOverlapIntervalMapTests() =
     let m = NoOverlapIntervalMap.add r3 3 m
     Assert.AreEqual<int>(3, NoOverlapIntervalMap.count m)
     Assert.AreEqual<int>(2, NoOverlapIntervalMap.findByAddr 1UL m)
+
+  [<TestMethod>]
+  member _.``Remove Last Binding``() =
+    let r = AddrRange.create 100UL 199UL
+    let m =
+      NoOverlapIntervalMap.empty
+      |> NoOverlapIntervalMap.add r 1
+      |> NoOverlapIntervalMap.remove r
+    Assert.AreEqual<bool>(true, NoOverlapIntervalMap.isEmpty m)
+    Assert.AreEqual<int>(0, NoOverlapIntervalMap.count m)
+
+  [<TestMethod>]
+  member _.``Remove Last Binding By Address``() =
+    let r = AddrRange.create 100UL 199UL
+    let m =
+      NoOverlapIntervalMap.empty
+      |> NoOverlapIntervalMap.add r 1
+      |> NoOverlapIntervalMap.removeAddr 150UL
+    Assert.AreEqual<bool>(true, NoOverlapIntervalMap.isEmpty m)
+    Assert.AreEqual<int>(0, NoOverlapIntervalMap.count m)
