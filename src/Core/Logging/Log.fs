@@ -25,12 +25,12 @@
 namespace B2R2.Logging
 
 /// Represents the main logging facility, shared by all B2R2 components.
-type Log =
+type Log private() =
   static let mutable out = new ConsolePrinter() :> IPrinter
 
   static let mutable isCached = false
 
-  /// Represents the main console printer.
+  /// Gets the main console printer.
   static member Out = out
 
   /// Enables caching for the main console printer.

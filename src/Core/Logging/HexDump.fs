@@ -71,18 +71,23 @@ module HexDump =
     else dumpPlainLine addrStr numBytes bytes |> OutputNormal
 
   /// <summary>
-  /// Converts a byte array into an array of hex dump lines (OutString[]), where
-  /// each line displays the address, hexadecimal values, and ASCII
-  /// representation. Supports both colored and plain text output.
+  /// Renders the given byte array as hex dump lines. Each line contains the
+  /// current address, hexadecimal byte values padded to <paramref
+  /// name="bytesPerLine"/>, and the ASCII representation of the bytes.
   /// </summary>
-  /// <param name="bytesPerLine">Number of bytes to display per line.</param>
-  /// <param name="wordSize">Word size used for address formatting.</param>
-  /// <param name="useColor">Whether to use colored output.</param>
+  /// <param name="bytesPerLine">Number of bytes to display per line. Must be
+  /// positive.</param>
+  /// <param name="wordSize">Word size used to format each line address.</param>
+  /// <param name="useColor">Whether to emit colored output segments.</param>
   /// <param name="addr">Starting address for the dump.</param>
   /// <param name="bytes">The byte array to render.</param>
   /// <returns>
-  /// An array of hex dump lines in either colored or plain text format.
+  /// One <see cref="OutString"/> per rendered line. Each element is either
+  /// colored or plain depending on <paramref name="useColor"/>.
   /// </returns>
   let makeLines bytesPerLine wordSize useColor addr bytes =
-    Array.chunkBySize bytesPerLine bytes
-    |> Array.mapi (dumpLine bytesPerLine wordSize useColor addr)
+    if bytesPerLine <= 0 then
+      invalidArg (nameof bytesPerLine) "bytesPerLine must be positive."
+    else
+      Array.chunkBySize bytesPerLine bytes
+      |> Array.mapi (dumpLine bytesPerLine wordSize useColor addr)
