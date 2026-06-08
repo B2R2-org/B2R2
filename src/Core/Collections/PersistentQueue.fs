@@ -24,7 +24,11 @@
 
 namespace B2R2.Collections
 
-/// Represents a persistent queue. We internally use two lists to represent the
+/// Represents an error raised when an operation requires a non-empty
+/// persistent queue.
+exception EmptyPersistentQueueException
+
+/// Represents a persistent queue. Uses two lists internally to represent the
 /// queue.
 type PersistentQueue<'T> =
   private PQ of 'T list * 'T list
@@ -33,34 +37,34 @@ type PersistentQueue<'T> =
 [<RequireQualifiedAccess>]
 module PersistentQueue =
 
-  /// An empty queue.
+  /// Represents an empty queue.
   [<CompiledName ("Empty")>]
   let empty = PQ([], [])
 
-  /// Check if the given queue is empty.
+  /// Checks whether the given queue is empty.
   [<CompiledName ("IsEmpty")>]
   let isEmpty q =
     match q with
     | PQ([], []) -> true
     | _ -> false
 
-  /// Enqueue an element to the queue.
+  /// Enqueues an element to the queue.
   [<CompiledName ("Enqueue")>]
-  let enqueue q elt =
+  let enqueue elt q =
     match q with
     | PQ(front, back) -> PQ(elt :: front, back)
 
-  /// Dequeue an element from the queue.
+  /// Dequeues the oldest element from the queue.
   [<CompiledName ("Dequeue")>]
   let dequeue q =
     match q with
-    | PQ([], []) -> raise (System.InvalidOperationException())
+    | PQ([], []) -> raise EmptyPersistentQueueException
     | PQ(front, elt :: back) -> elt, PQ(front, back)
     | PQ(front, []) ->
       let back = List.rev front
       back.Head, PQ([], back.Tail)
 
-  /// Filter elements based on the given predicate.
+  /// Filters elements based on the given predicate.
   [<CompiledName ("Filter")>]
   let filter pred q =
     match q with

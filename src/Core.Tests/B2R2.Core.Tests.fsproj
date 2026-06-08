@@ -13,6 +13,7 @@
     <Compile Include="ByteArrayTests.fs" />
     <Compile Include="LEB128Tests.fs" />
     <Compile Include="SortedListTests.fs" />
+    <Compile Include="PersistentQueueTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
