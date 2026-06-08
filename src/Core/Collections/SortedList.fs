@@ -23,17 +23,17 @@
 *)
 
 /// <summary>
-/// Provides extended functionality for the <see
-/// cref='T:System.Collections.SortedList'/> collection.
+/// Provides extended functionality for the generic <see
+/// cref='T:System.Collections.Generic.SortedList`2'/> collection.
 /// </summary>
 [<RequireQualifiedAccess>]
 module B2R2.Collections.SortedList
 
 open System.Collections.Generic
 
-let rec private binSearch value lo hi (keys: IList<_>) (comp: Comparer<_>) =
+let rec private binSearch value lo hi (keys: IList<_>) (comp: IComparer<_>) =
   if lo < hi then
-    let mid = (lo + hi) / 2
+    let mid = lo + (hi - lo) / 2
     match comp.Compare(keys[mid], value) with
     | 0 -> mid
     | n ->
@@ -41,10 +41,11 @@ let rec private binSearch value lo hi (keys: IList<_>) (comp: Comparer<_>) =
       else binSearch value lo (mid - 1) keys comp
   else lo
 
-/// Find the greatest key that is less than the given key from the SortedList.
-/// If there's no such key, this function returns None.
+/// Finds the greatest key that is strictly less than the given key according to
+/// the comparer of the given SortedList. If there is no such key, this function
+/// returns None.
 let findGreatestLowerBoundKey (key: 'T) (list: SortedList<'T, _>) =
-  let comp = Comparer<'T>.Default
+  let comp = list.Comparer
   let keys = list.Keys
   if keys.Count = 0 || comp.Compare(key, keys[0]) <= 0 then None
   else
@@ -52,10 +53,11 @@ let findGreatestLowerBoundKey (key: 'T) (list: SortedList<'T, _>) =
     if comp.Compare(keys[idx], key) < 0 then keys[idx] else keys[idx - 1]
     |> Some
 
-/// Find the least key that is greater than the given key from the SortedList.
-/// If there's no such key, this function returns None.
+/// Finds the least key that is strictly greater than the given key according to
+/// the comparer of the given SortedList. If there is no such key, this function
+/// returns None.
 let findLeastUpperBoundKey (key: 'T) (list: SortedList<'T, _>) =
-  let comp = Comparer<'T>.Default
+  let comp = list.Comparer
   let keys = list.Keys
   let lastIdx = list.Count - 1
   if keys.Count = 0 || comp.Compare(keys[lastIdx], key) <= 0 then None
