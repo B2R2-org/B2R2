@@ -39,7 +39,7 @@ type NoOverlapIntervalMapTests() =
     let m = NoOverlapIntervalMap.add r1 1 m
     let m = NoOverlapIntervalMap.add r2 2 m
     Assert.Throws<RangeOverlapException>(fun () ->
-      NoOverlapIntervalMap.addRange 99UL 100UL 3 m |> ignore)
+      NoOverlapIntervalMap.addByBounds 99UL 100UL 3 m |> ignore)
     |> ignore
 
   [<TestMethod>]
@@ -50,11 +50,11 @@ type NoOverlapIntervalMapTests() =
     let m = NoOverlapIntervalMap.add r1 1 m
     let m = NoOverlapIntervalMap.add r2 2 m
     Assert.Throws<RangeOverlapException>(fun () ->
-      NoOverlapIntervalMap.addRange 0UL 400UL 3 m |> ignore)
+      NoOverlapIntervalMap.addByBounds 0UL 400UL 3 m |> ignore)
     |> ignore
 
   [<TestMethod>]
-  member _.``NoOverlapIntervalMap.getOverlaps Test``() =
+  member _.``NoOverlapIntervalMap.findOverlaps Test``() =
     let size = 0x10UL
     let num = 0x100UL
     let sprayRange m i =
@@ -64,7 +64,7 @@ type NoOverlapIntervalMapTests() =
     let l =
       [ 0UL .. num - 1UL ]
       |> List.fold sprayRange NoOverlapIntervalMap.empty
-      |> NoOverlapIntervalMap.getOverlaps r
+      |> NoOverlapIntervalMap.findOverlaps r
     let n1 = r.Count / size
     let n2 = uint64 <| List.length l
     Assert.AreEqual<uint64>(n1, n2)
@@ -116,6 +116,7 @@ type NoOverlapIntervalMapTests() =
     let m = NoOverlapIntervalMap.add r3 3 m
     Assert.AreEqual<int>(3, NoOverlapIntervalMap.count m)
     Assert.AreEqual<int>(2, NoOverlapIntervalMap.findByAddr 1UL m)
+    Assert.AreEqual<AddrRange>(r2, NoOverlapIntervalMap.findRangeByAddr 1UL m)
 
   [<TestMethod>]
   member _.``Remove Last Binding``() =
@@ -133,6 +134,6 @@ type NoOverlapIntervalMapTests() =
     let m =
       NoOverlapIntervalMap.empty
       |> NoOverlapIntervalMap.add r 1
-      |> NoOverlapIntervalMap.removeAddr 150UL
+      |> NoOverlapIntervalMap.removeByAddr 150UL
     Assert.AreEqual<bool>(true, NoOverlapIntervalMap.isEmpty m)
     Assert.AreEqual<int>(0, NoOverlapIntervalMap.count m)

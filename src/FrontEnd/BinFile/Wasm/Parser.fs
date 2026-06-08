@@ -177,7 +177,7 @@ let addSecSummToAddrMap (secSumm: SectionSummary) map =
   let startAddr = uint64 secSumm.Offset
   let endAddr =
     startAddr + uint64 (secSumm.HeaderSize + secSumm.ContentsSize) - 1UL
-  NoOverlapIntervalMap.addRange startAddr endAddr secSumm map
+  NoOverlapIntervalMap.addByBounds startAddr endAddr secSumm map
 
 let addSecSummToSecsInfo (secSumm: SectionSummary) (info: SectionsInfo) =
   { info with

@@ -24,11 +24,10 @@
 
 namespace B2R2.Collections
 
+open System.Collections.Generic
 open B2R2
 
 exception InvalidWhiteningException
-
-exception KeyNotFoundException
 
 type internal RBColor =
   /// Red
@@ -102,8 +101,8 @@ module NoOverlapIntervalMap =
   let add k v tree =
     fnAdd k v tree false
 
-  [<CompiledName("AddRange")>]
-  let addRange min max v tree =
+  [<CompiledName("AddByBounds")>]
+  let addByBounds min max v tree =
     add (AddrRange.create min max) v tree
 
   [<CompiledName("Replace")>]
@@ -120,7 +119,7 @@ module NoOverlapIntervalMap =
 
   let rec private del isExact k = function
     | Leaf _ ->
-      raise KeyNotFoundException
+      raise (KeyNotFoundException())
     | Node(c, k', v', l, r) ->
       if k = k' then delAndBalance isExact (c, l, r)
       elif k.Min < k'.Min && k.Max < k'.Min then
@@ -157,8 +156,8 @@ module NoOverlapIntervalMap =
   let remove k tree =
     del true k tree |> toBlack
 
-  [<CompiledName("RemoveAddr")>]
-  let removeAddr addr tree =
+  [<CompiledName("RemoveByAddr")>]
+  let removeByAddr addr tree =
     del false (AddrRange.singleton addr) tree |> toBlack
 
   [<CompiledName("Empty")>]
@@ -182,10 +181,16 @@ module NoOverlapIntervalMap =
   let find range tree =
     match findLoop true range tree with
     | Ok(_, v) -> v
-    | _ -> raise KeyNotFoundException
+    | _ -> raise (KeyNotFoundException())
 
-  [<CompiledName("TryFindKey")>]
-  let tryFindKey addr tree =
+  [<CompiledName("FindRangeByAddr")>]
+  let findRangeByAddr addr tree =
+    match findLoop false (AddrRange.singleton addr) tree with
+    | Ok(k, _) -> k
+    | _ -> raise (KeyNotFoundException())
+
+  [<CompiledName("TryFindRangeByAddr")>]
+  let tryFindRangeByAddr addr tree =
     match findLoop false (AddrRange.singleton addr) tree with
     | Ok(k, _) -> Some k
     | _ -> None
@@ -206,7 +211,7 @@ module NoOverlapIntervalMap =
   let findByAddr addr tree =
     match findLoop false (AddrRange.singleton addr) tree with
     | Ok(_, v) -> v
-    | _ -> raise KeyNotFoundException
+    | _ -> raise (KeyNotFoundException())
 
   let rec private sizeAux acc tree =
     match tree with
@@ -231,8 +236,8 @@ module NoOverlapIntervalMap =
       let acc = fn acc k v
       fold fn acc r
 
-  [<CompiledName("GetOverlaps")>]
-  let getOverlaps (k: AddrRange) tree =
+  [<CompiledName("FindOverlaps")>]
+  let findOverlaps (k: AddrRange) tree =
     let rec loop acc = function
       | Leaf _ -> acc
       | Node(_, k', v', l, r) ->

@@ -87,8 +87,8 @@ module NoOverlapIntervalMap =
   /// <exception cref="T:B2R2.RangeOverlapException">
   ///   Thrown when there is an existing (overlapping) interval in the tree.
   /// </exception>
-  [<CompiledName("AddRange")>]
-  val addRange:
+  [<CompiledName("AddByBounds")>]
+  val addByBounds:
        min: Addr
     -> max: Addr
     -> v: 'V
@@ -115,7 +115,7 @@ module NoOverlapIntervalMap =
 
   /// <summary>
   ///   Removes a mapping that matches exactly with the given range. To remove a
-  ///   mapping that covers the given address, use removeAddr.
+  ///   mapping that covers the given address, use removeByAddr.
   /// </summary>
   /// <param name="k">The interval to find.</param>
   /// <param name="tree">The interval tree.</param>
@@ -137,8 +137,8 @@ module NoOverlapIntervalMap =
   /// <returns>
   ///   A new interval tree.
   /// </returns>
-  [<CompiledName("RemoveAddr")>]
-  val removeAddr:
+  [<CompiledName("RemoveByAddr")>]
+  val removeByAddr:
        addr: Addr
     -> tree: NoOverlapIntervalMap<'V>
     -> NoOverlapIntervalMap<'V>
@@ -202,10 +202,25 @@ module NoOverlapIntervalMap =
   /// <param name="addr">The address.</param>
   /// <param name="tree">The interval tree.</param>
   /// <returns>
+  ///   The found interval.
+  /// </returns>
+  [<CompiledName("FindRangeByAddr")>]
+  val findRangeByAddr:
+       addr: Addr
+    -> tree: NoOverlapIntervalMap<'V>
+    -> AddrRange
+
+  /// <summary>
+  ///   Finds an interval stored in the interval tree map, which includes the
+  ///   given address.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
   ///   The found interval wrapped with option.
   /// </returns>
-  [<CompiledName("TryFindKey")>]
-  val tryFindKey:
+  [<CompiledName("TryFindRangeByAddr")>]
+  val tryFindRangeByAddr:
        addr: Addr
     -> tree: NoOverlapIntervalMap<'V>
     -> AddrRange option
@@ -285,8 +300,8 @@ module NoOverlapIntervalMap =
   /// <returns>
   ///   A sequence of mappings.
   /// </returns>
-  [<CompiledName("GetOverlaps")>]
-  val getOverlaps:
+  [<CompiledName("FindOverlaps")>]
+  val findOverlaps:
        k: AddrRange
     -> tree: NoOverlapIntervalMap<'V>
     -> (AddrRange * 'V) list

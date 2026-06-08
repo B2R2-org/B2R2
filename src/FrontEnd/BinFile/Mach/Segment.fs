@@ -35,7 +35,7 @@ let extract cmds = Array.choose chooser cmds
 let buildMap segs =
   segs
   |> Array.fold (fun map s ->
-       NoOverlapIntervalMap.addRange s.VMAddr (s.VMAddr + s.VMSize - 1UL) s map
+    NoOverlapIntervalMap.addByBounds s.VMAddr (s.VMAddr + s.VMSize - 1UL) s map
   ) NoOverlapIntervalMap.empty
 
 let [<Literal>] Text = "__TEXT"
