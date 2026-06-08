@@ -25,31 +25,29 @@
 namespace B2R2.Collections
 
 /// <summary>
-/// Represents a doubly-linked key-value node that is used in the
-/// <see cref='T:B2R2.Collections.LRUCache`2'/>.
+/// Represents a mutable doubly-linked key-value node used by LRU cache
+/// implementations.
 /// </summary>
 [<AllowNullLiteral>]
-type DoublyLinkedKeyValue<'K, 'V when 'K: equality and 'V: equality>
+type internal DoublyLinkedKeyValue<'K, 'V when 'K: equality and 'V: equality>
   (prev, next, key, value) =
   let mutable prev = prev
   let mutable next = next
   let mutable refCount = 0
 
+  /// Gets or sets the previous node in the linked list.
   member _.Prev
     with get(): DoublyLinkedKeyValue<'K, 'V> = prev and set(n) = prev <- n
 
+  /// Gets or sets the next node in the linked list.
   member _.Next
     with get(): DoublyLinkedKeyValue<'K, 'V> = next and set(n) = next <- n
 
+  /// Gets the key stored in this node.
   member _.Key with get(): 'K = key
 
+  /// Gets the value stored in this node.
   member _.Value with get(): 'V = value
 
+  /// Gets or sets the reference count maintained by cache implementations.
   member _.RefCount with get() = refCount and set(n) = refCount <- n
-
-  override _.GetHashCode() = value.GetHashCode()
-
-  override this.Equals rhs =
-    match rhs with
-    | :? DoublyLinkedKeyValue<'K, 'V> as rhs -> this.Value = rhs.Value
-    | _ -> false

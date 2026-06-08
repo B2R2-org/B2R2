@@ -31,8 +31,8 @@ open B2R2.Collections
 type TestOp() =
   let cnt = ref 0
   member _.Count with get() = cnt.Value
-  interface ICacheableOperation<int, int> with
-    member _.Perform v =
+  interface ICacheValueFactory<int, int> with
+    member _.Create v =
       Interlocked.Increment cnt |> ignore
       v
 

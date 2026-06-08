@@ -49,6 +49,7 @@
     <Compile Include="Collections\SortedList.fs" />
     <Compile Include="Collections\DoublyLinkedKeyValue.fs" />
     <Compile Include="Collections\LRUCache.fs" />
+    <Compile Include="Collections\ConcurrentLRUCache.fs" />
     <Compile Include="Collections\UniqueQueue.fs" />
     <Compile Include="Collections\PersistentQueue.fs" />
     <Compile Include="Collections\RegisterSet.fs" />

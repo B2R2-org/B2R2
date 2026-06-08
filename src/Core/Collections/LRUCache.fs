@@ -24,20 +24,25 @@
 
 namespace B2R2.Collections
 
-open System
 open System.Collections.Generic
-open System.Threading
 open System.Runtime.InteropServices
 open B2R2
 
 /// Represents a Least Recently Used (LRU) cache that does not support
-/// concurrency.
+/// concurrency. The capacity must be positive.
 type LRUCache<'K, 'V when 'K: equality and 'V: equality>(capacity: int) =
   let dict = Dictionary<'K, DoublyLinkedKeyValue<'K, 'V>>()
   let mutable head: DoublyLinkedKeyValue<'K, 'V> = null
   let mutable tail: DoublyLinkedKeyValue<'K, 'V> = null
   let mutable size = 0
 
+  do
+    if capacity <= 0 then
+      invalidArg (nameof capacity) "capacity must be positive"
+    else
+      ()
+
+  /// Gets the number of entries currently stored in the cache.
   member _.Count with get() = size
 
   member inline private _.InsertBack v =
@@ -53,6 +58,8 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality>(capacity: int) =
     if isNull v.Next then tail <- v.Prev else v.Next.Prev <- v.Prev
     size <- size - 1
 
+  /// Tries to retrieve the value for the given key. When the key exists, the
+  /// entry is promoted to the most recently used position.
   member this.TryGet(key: 'K) =
     match dict.TryGetValue key with
     | true, v ->
@@ -61,7 +68,8 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality>(capacity: int) =
       Ok v.Value
     | false, _ -> Error ErrorCase.ItemNotFound
 
-  /// Try to retrieve a value as well as its ref count.
+  /// Tries to retrieve the value and reference count for the given key. When
+  /// the key exists, the entry is promoted to the most recently used position.
   member this.TryGet(key: 'K, [<Out>] refCount: int byref) =
     match dict.TryGetValue key with
     | true, v ->
@@ -71,80 +79,24 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality>(capacity: int) =
       Ok v.Value
     | false, _ -> Error ErrorCase.ItemNotFound
 
+  /// Adds or replaces a value in the cache. Replacing an existing key removes
+  /// the old entry and inserts the new value as the most recently used entry.
   member this.Add(key: 'K, value: 'V) =
+    match dict.TryGetValue key with
+    | true, old -> this.Remove old
+    | false, _ -> ()
     let v = DoublyLinkedKeyValue(null, null, key, value)
     dict[key] <- v
     this.InsertBack v
     if size > capacity then
       dict.Remove head.Key |> ignore
       this.Remove head
-    else ()
+    else
+      ()
 
+  /// Removes all entries from the cache.
   member _.Clear() =
     dict.Clear()
     head <- null
     tail <- null
     size <- 0
-
-/// Represents a cacheable operation, which will be executed when there's no
-/// already cached item.
-type ICacheableOperation<'Arg, 'V when 'V: equality> =
-  abstract Perform: 'Arg -> 'V
-
-/// Represents Least Recently Used (LRU) cache supporting concurrency. The
-/// capacity decides how many entries to store.
-type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
-  (capacity: int) =
-  let dict = Dictionary<'K, DoublyLinkedKeyValue<'K, 'V>>()
-  let lock = Object()
-  let mutable head: DoublyLinkedKeyValue<'K, 'V> = null
-  let mutable tail: DoublyLinkedKeyValue<'K, 'V> = null
-  let mutable size = 0
-
-  member _.Count with get() = size
-
-  member inline private _.AcquireLock() =
-    try Monitor.Enter(lock)
-    finally ()
-
-  member inline private _.ReleaseLock() = Monitor.Exit(lock)
-
-  member private _.InsertBack v =
-    if isNull head then head <- v else tail.Next <- v
-    v.Prev <- tail
-    v.Next <- null
-    tail <- v
-    size <- size + 1
-    v
-
-  member private _.Remove(v: DoublyLinkedKeyValue<'K, 'V>) =
-    if isNull v.Prev then head <- v.Next else v.Prev.Next <- v.Next
-    if isNull v.Next then tail <- v.Prev else v.Next.Prev <- v.Prev
-    size <- size - 1
-
-  member this.GetOrAdd(key: 'K, op: ICacheableOperation<_, 'V>, arg) =
-    this.AcquireLock()
-    let v =
-      match dict.TryGetValue key with
-      | true, v ->
-        this.Remove v
-        this.InsertBack v
-      | _ ->
-        if size >= capacity then
-          dict.Remove head.Key |> ignore
-          this.Remove head
-        else
-          ()
-        let v = DoublyLinkedKeyValue(null, null, key, op.Perform arg)
-        dict.Add(key, v)
-        this.InsertBack v
-    this.ReleaseLock()
-    v.Value
-
-  member this.Clear() =
-    this.AcquireLock()
-    dict.Clear()
-    head <- null
-    tail <- null
-    size <- 0
-    this.ReleaseLock()
