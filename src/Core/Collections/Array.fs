@@ -35,7 +35,9 @@
 [<RequireQualifiedAccess>]
 module B2R2.Collections.Array
 
-/// Applies a function to each element of the array with its index.
+/// Applies a function to each element of the array with its index and returns
+/// the final accumulator.
 let inline foldi ([<InlineIfLambda>] folder) acc arr =
   Array.fold (fun (acc, idx) elt ->
-    (folder acc idx elt, idx + 1)) (acc, 0) arr
+    folder acc idx elt, idx + 1) (acc, 0) arr
+  |> fst

@@ -1128,7 +1128,6 @@ let private concatBits (bitExprs: Expr[]) =
     let e = AST.zext rt bitExpr
     acc .| (e << (numI32 (i + 1) rt))
   ) (AST.zext rt head)
-  |> fst
 
 let pmovmskb (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)

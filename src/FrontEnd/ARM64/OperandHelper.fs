@@ -1230,7 +1230,8 @@ let imm64 bin =
   |> List.rev
   |> List.toArray
   |> Array.foldi (fun acc i e -> ((extBitToBytes e) <<< (i * 8)) + acc) 0UL
-  |> fst |> int64 |> OprImm
+  |> int64
+  |> OprImm
 
 let pimm12 bin scale = valImm12 bin * scale
 

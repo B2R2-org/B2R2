@@ -56,8 +56,9 @@ type ReachingDefinitionAnalysis() =
         | LowUIR.Put(LowUIR.Var(_, id, _, _), _, _) ->
           let pp = ProgramPoint(lifted.Original.Address, idx)
           { ProgramPoint = pp; VarKind = Regular id } :: list
-        | _ -> list) list
-      |> fst) []
+        | _ -> list
+      ) list
+    ) []
 
   let initGensAndKills (g: IDiGraphAccessible<LowUIRBasicBlock, _>) =
     let vpPerVar = Dictionary<VarKind, Set<VarPoint>>()

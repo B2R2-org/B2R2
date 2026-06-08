@@ -115,7 +115,7 @@ module DataFlowChain =
               | None -> set
             Map.add usepoint set map
           ) map
-        ) map |> fst
+        ) map
       ) map), Map.empty)
 
   let private initDUChain udchain =

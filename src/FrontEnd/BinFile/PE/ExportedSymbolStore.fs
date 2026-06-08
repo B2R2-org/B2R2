@@ -117,7 +117,7 @@ module private ExportedSymbolStore =
         let forwardInfo = decodeForwardInfo forwardStr
         let forwMap = Map.add name forwardInfo forwMap
         expMap, forwMap
-    Array.foldi folder (Map.empty, Map.empty) addrTbl |> fst
+    Array.foldi folder (Map.empty, Map.empty) addrTbl
 
   let parse baseAddr bytes reader (headers: PEHeaders) secs =
     match headers.PEHeader.ExportTableDirectory.RelativeVirtualAddress with
