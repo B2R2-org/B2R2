@@ -26,6 +26,10 @@ namespace B2R2.Collections
 
 open B2R2.Collections.FingerTree
 
+/// Represents an error raised when an operation requires a non-empty random
+/// access queue.
+exception EmptyRandomAccessQueueException
+
 /// Represents an element for our random access queue.
 type private RandomAccessQueueElem<'T>(v) =
   member val Val: 'T = v
@@ -58,57 +62,99 @@ module RandomAccessQueue =
 
   /// <summary>
   /// Splits the queue based on the given index into two (left and right). The
-  /// left queue contains the first <c>i</c> elements.
+  /// left queue contains the first <c>i</c> elements. If <c>i</c> is less than
+  /// or equal to zero, the left queue is empty. If <c>i</c> is greater than or
+  /// equal to the queue length, the right queue is empty.
   /// </summary>
   [<CompiledName ("SplitAt")>]
-  let splitAt i (RandomAccessQueue q) =
-    let l, r = Op.Split((fun (elt: Size) -> i < elt.Value), q)
-    RandomAccessQueue l, RandomAccessQueue r
+  let splitAt i ((RandomAccessQueue q) as queue) =
+    if i <= 0 then empty, queue
+    elif i >= length queue then queue, empty
+    else
+      let i = uint32 i
+      let l, r = Op.Split((fun (elt: Size) -> i < elt.Value), q)
+      RandomAccessQueue l, RandomAccessQueue r
 
   let private snoc q v = Op.Snoc(q, RandomAccessQueueElem v)
 
-  /// Adds an item to the queue.
-  [<CompiledName ("Enqueue")>]
-  let enqueue (RandomAccessQueue q) v = snoc q v |> RandomAccessQueue
+  let private viewHead (RandomAccessQueue q) =
+    match Op.ViewL q with
+    | Nil -> raise EmptyRandomAccessQueueException
+    | Cons(elm, tl) -> elm, RandomAccessQueue tl
 
-  /// Removes an item from the queue.
+  let private viewLast (RandomAccessQueue q) =
+    match Op.ViewR q with
+    | Nil -> raise EmptyRandomAccessQueueException
+    | Cons(elm, rest) -> elm, RandomAccessQueue rest
+
+  /// Enqueues an element to the queue.
+  [<CompiledName ("Enqueue")>]
+  let enqueue v (RandomAccessQueue q) = snoc q v |> RandomAccessQueue
+
+  /// Dequeues the oldest element from the queue.
   [<CompiledName ("Dequeue")>]
   let dequeue q =
-    splitAt 1u q
-    |> fun (RandomAccessQueue hd, tl) ->
-      let elm = Op.HeadL hd
-      elm.Val, tl
+    let elm, tl = viewHead q
+    elm.Val, tl
 
-  /// Returns the first element of the queue.
+  /// Returns the first element of the queue. Raises
+  /// EmptyRandomAccessQueueException if the queue is empty.
   [<CompiledName ("Head")>]
-  let head (RandomAccessQueue q) =
-    let elm = Op.HeadL q
+  let head q =
+    let elm, _ = viewHead q
     elm.Val
 
-  /// Returns the last element of the queue.
+  /// Returns the last element of the queue. Raises
+  /// EmptyRandomAccessQueueException if the queue is empty.
   [<CompiledName ("HeadR")>]
-  let headr (RandomAccessQueue q) =
-    let elm = Op.HeadR q
+  let headr q =
+    let elm, _ = viewLast q
     elm.Val
 
-  /// Returns the tail of the queue.
+  /// Returns the queue without its first element. Raises
+  /// EmptyRandomAccessQueueException if the queue is empty.
   [<CompiledName ("Tail")>]
-  let tail (RandomAccessQueue q) = Op.TailL q |> RandomAccessQueue
+  let tail q =
+    let _, tl = viewHead q
+    tl
 
-  /// Returns the tail of the queue in reverse order.
+  /// Returns the queue without its last element. Raises
+  /// EmptyRandomAccessQueueException if the queue is empty.
   [<CompiledName ("TailR")>]
-  let tailr (RandomAccessQueue q) = Op.TailR q |> RandomAccessQueue
+  let tailr q =
+    let _, rest = viewLast q
+    rest
 
-  /// Inserts an element at the given index.
+  /// Inserts an element at the given index. If the index is less than or equal
+  /// to zero, the element is inserted at the front. If the index is greater
+  /// than or equal to the queue length, the element is appended at the end.
   [<CompiledName ("InsertAt")>]
   let insertAt i v q =
     splitAt i q
     |> fun (RandomAccessQueue hd, RandomAccessQueue tl) ->
       Op.Concat(snoc hd v, tl) |> RandomAccessQueue
 
-  /// Finds the first element that satisfies the given predicate.
-  [<CompiledName ("Find")>]
-  let find pred (RandomAccessQueue q) =
+  /// Returns the element at the given index, or None if the index is out of
+  /// range.
+  [<CompiledName ("TryGetAt")>]
+  let tryGetAt i q =
+    if i < 0 || i >= length q then None
+    else
+      let _, rest = splitAt i q
+      let elm, _ = viewHead rest
+      Some elm.Val
+
+  /// Returns the element at the given index. Raises IndexOutOfRangeException if
+  /// the index is out of range.
+  [<CompiledName ("GetAt")>]
+  let getAt i q =
+    match tryGetAt i q with
+    | Some v -> v
+    | None -> raise (System.IndexOutOfRangeException())
+
+  /// Finds the index of the first element that satisfies the given predicate.
+  [<CompiledName ("TryFindIndex")>]
+  let tryFindIndex pred (RandomAccessQueue q) =
     let rec loop cnt q =
       match Op.ViewL q with
       | Nil -> None
@@ -116,14 +162,14 @@ module RandomAccessQueue =
         if pred hd.Val then Some cnt else loop (cnt + 1) tl
     loop 0 q
 
-  /// Finds the last element that satisfies the given predicate.
-  [<CompiledName ("FindBack")>]
-  let rec findBack pred (RandomAccessQueue q) =
+  /// Finds the index of the last element that satisfies the given predicate.
+  [<CompiledName ("TryFindIndexBack")>]
+  let rec tryFindIndexBack pred (RandomAccessQueue q) =
     match Op.ViewR q with
     | Nil -> None
     | Cons(hd: RandomAccessQueueElem<_>, tl) ->
       let tl = RandomAccessQueue tl
-      if pred hd.Val then length tl |> Some else findBack pred tl
+      if pred hd.Val then length tl |> Some else tryFindIndexBack pred tl
 
   /// Concatenates two queues.
   [<CompiledName ("Concat")>]

@@ -24,6 +24,7 @@
 
 namespace B2R2.Collections
 
+open System.Collections.Generic
 open B2R2
 open B2R2.Collections.FingerTree
 
@@ -64,17 +65,35 @@ module IntervalMap =
   [<CompiledName("IsEmpty")>]
   let isEmpty (m: IntervalMap<'V>) = m = IntervalMap Empty
 
-  /// Adds an item to the interval tree.
+  /// Returns the number of mappings in the interval map.
+  [<CompiledName("Count")>]
+  let count (IntervalMap m) =
+    foldl (fun acc (_: IntervalMapElem<'V>) -> acc + 1) 0 m
+
+  let private rangeExists i tree =
+    let rec loop tree =
+      match Op.ViewL tree with
+      | Nil -> false
+      | Cons(x: IntervalMapElem<_>, xs) ->
+        if x.Min = i.Min then
+          if x.Max = i.Max then true
+          else loop xs
+        else false
+    loop tree
+
+  /// Adds a mapping to the interval map. Overlapping intervals are allowed, but
+  /// an exact duplicate range is not.
   [<CompiledName("Add")>]
   let add (i: AddrRange) v (IntervalMap m) =
     let l, r =
-      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin()), m)
-    IntervalMap <| Op.Concat(l, Op.Cons(IntervalMapElem(i, v), r))
+      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
+    if rangeExists i r then raise InvalidAddrRangeException
+    else IntervalMap <| Op.Concat(l, Op.Cons(IntervalMapElem(i, v), r))
 
   let private findAllwithPredicate (range: AddrRange) (IntervalMap m) pred =
     let il = range.Min
     let ih = range.Max
-    let dropMatcher (e: InterMonoid<Addr>) = Prio il <= e.GetMax()
+    let dropMatcher (e: InterMonoid<Addr>) = Prio il <= e.Max
     let rec matches xs =
       let v = Op.DropUntil(dropMatcher, xs)
       match Op.ViewL v with
@@ -82,40 +101,97 @@ module IntervalMap =
       | Cons(x: IntervalMapElem<_>, xs) ->
         if pred x.Key then x.Val :: matches xs
         else matches xs
-    Op.TakeUntil((fun (elt: InterMonoid<Addr>) -> Key ih < elt.GetMin()), m)
+    Op.TakeUntil((fun (elt: InterMonoid<Addr>) -> Key ih < elt.Min), m)
     |> matches
 
-  /// Finds all overlapping intervals in the given range.
+  /// Finds all values whose intervals overlap with the given range.
   [<CompiledName("FindAll")>]
   let findAll range m = findAllwithPredicate range m (fun _ -> true)
 
-  /// Finds the first interval that exactly matches the given range.
-  [<CompiledName("TryFind")>]
-  let tryFind range (m: IntervalMap<'V>) =
+  /// Finds the value whose interval exactly matches the given range only when
+  /// there is exactly one matching interval.
+  [<CompiledName("TryFindExactlyOne")>]
+  let tryFindExactlyOne range (m: IntervalMap<'V>) =
     findAllwithPredicate range m (fun k -> k = range)
-    |> List.tryHead
+    |> function
+      | [ v ] -> Some v
+      | _ -> None
 
-  /// Finds an interval that has the same low bound (Min) as the given address.
-  /// If there is no such interval, this function returns None.
-  [<CompiledName("TryFindByMin")>]
-  let tryFindByMin (addr: Addr) (IntervalMap m) =
-    let comp (elt: InterMonoid<Addr>) = Key addr <= elt.GetMin()
-    if Prio addr <= ((m :> IMeasured<_>).Measurement).GetMax() then
-      let z = (m.Monoid :> IMonoid<InterMonoid<Addr>>).Zero
-      let _, x, _ = Op.SplitTree(comp, z, m)
-      if x.Min = addr then Some(x.Val) else None
-    else None
+  /// Finds the value whose interval exactly matches the given range when there
+  /// is exactly one matching interval; raises KeyNotFoundException otherwise.
+  [<CompiledName("FindExactlyOne")>]
+  let findExactlyOne range m =
+    match tryFindExactlyOne range m with
+    | Some v -> v
+    | None -> raise (KeyNotFoundException())
 
-  /// Checks whether the given address interval is included in any of the
+  /// Finds the value whose interval has the same low bound (Min) as the given
+  /// address only when there is exactly one matching interval.
+  [<CompiledName("TryFindExactlyOneByMin")>]
+  let tryFindExactlyOneByMin (addr: Addr) (IntervalMap m) =
+    let _, r =
+      Op.Split((fun (e: InterMonoid<Addr>) -> Key addr <= e.Min), m)
+    let rec loop found xs =
+      match Op.ViewL xs with
+      | Nil -> found
+      | Cons(x: IntervalMapElem<'V>, xs) ->
+        if x.Min = addr then
+          match found with
+          | None -> loop (Some x.Val) xs
+          | Some _ -> None
+        else found
+    loop None r
+
+  /// Finds the value whose interval has the same low bound (Min) as the given
+  /// address when there is exactly one such interval; raises
+  /// KeyNotFoundException otherwise.
+  [<CompiledName("FindExactlyOneByMin")>]
+  let findExactlyOneByMin addr m =
+    match tryFindExactlyOneByMin addr m with
+    | Some v -> v
+    | None -> raise (KeyNotFoundException())
+
+  /// Finds the value whose interval overlaps with the given range only when
+  /// there is exactly one such interval.
+  [<CompiledName("TryFindOverlappingOne")>]
+  let tryFindOverlappingOne range m =
+    findAll range m
+    |> function
+      | [ v ] -> Some v
+      | _ -> None
+
+  /// Finds the value whose interval overlaps with the given range when there is
+  /// exactly one such interval; raises KeyNotFoundException otherwise.
+  [<CompiledName("FindOverlappingOne")>]
+  let findOverlappingOne range m =
+    match tryFindOverlappingOne range m with
+    | Some v -> v
+    | None -> raise (KeyNotFoundException())
+
+  /// Finds the value whose interval contains the given address only when there
+  /// is exactly one such interval.
+  [<CompiledName("TryFindOverlappingOneByAddr")>]
+  let tryFindOverlappingOneByAddr addr m =
+    tryFindOverlappingOne (AddrRange.singleton addr) m
+
+  /// Finds the value whose interval contains the given address when there is
+  /// exactly one such interval; raises KeyNotFoundException otherwise.
+  [<CompiledName("FindOverlappingOneByAddr")>]
+  let findOverlappingOneByAddr addr m =
+    match tryFindOverlappingOneByAddr addr m with
+    | Some v -> v
+    | None -> raise (KeyNotFoundException())
+
+  /// Checks whether the given address interval overlaps with any of the
   /// intervals in the interval map.
-  [<CompiledName("IncludeRange")>]
-  let includeRange (range: AddrRange) (IntervalMap m) =
+  [<CompiledName("OverlapsRange")>]
+  let overlapsRange (range: AddrRange) (IntervalMap m) =
     let il = range.Min
     let ih = range.Max
-    if Prio il <= ((m :> IMeasured<_>).Measurement).GetMax() then
+    if Prio il <= ((m :> IMeasured<_>).Measurement).Max then
       let z = (m.Monoid :> IMonoid<InterMonoid<Addr>>).Zero
       let _, x, _ =
-        Op.SplitTree((fun (e: InterMonoid<Addr>) -> Prio il <= e.GetMax()),
+        Op.SplitTree((fun (e: InterMonoid<Addr>) -> Prio il <= e.Max),
           z, m)
       x.Min <= ih
     else false
@@ -123,22 +199,21 @@ module IntervalMap =
   /// Checks whether the given address exists in the interval tree.
   [<CompiledName("ContainsAddr")>]
   let containsAddr addr m =
-    includeRange (AddrRange.singleton addr) m
+    overlapsRange (AddrRange.singleton addr) m
 
   /// Checks whether the exact range exists in the interval tree.
-  [<CompiledName("Contains")>]
-  let contains (range: AddrRange) (m: IntervalMap<'V>) =
-    match tryFind range m with
+  [<CompiledName("ContainsRange")>]
+  let containsRange (range: AddrRange) (m: IntervalMap<'V>) =
+    match tryFindExactlyOne range m with
     | None -> false
     | _ -> true
 
-  /// Replaces the item in the interval tree that exactly matches the given
-  /// range with the new value. This function will raise an exception if there
-  /// is no exactly matching interval.
+  /// Replaces the value for the interval that exactly matches the given range.
+  /// Raises InvalidAddrRangeException if there is no such interval.
   [<CompiledName("Replace")>]
   let replace (i: AddrRange) (v: 'V) (IntervalMap m) =
     let l, r =
-      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin()), m)
+      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
     let rec replaceLoop l r =
       match Op.ViewL r with
       | Nil -> raise InvalidAddrRangeException
@@ -155,14 +230,15 @@ module IntervalMap =
   /// existing mapping with the new one.
   [<CompiledName("AddOrReplace")>]
   let addOrReplace (i: AddrRange) (v: 'V) m =
-    if contains i m then replace i v m
+    if containsRange i m then replace i v m
     else add i v m
 
-  /// Removes the exactly matched interval from the map.
+  /// Removes the interval that exactly matches the given range. Raises
+  /// InvalidAddrRangeException if there is no such interval.
   [<CompiledName("Remove")>]
   let remove (i: AddrRange) (IntervalMap m) =
     let l, r =
-      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin()), m)
+      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
     let rec rmLoop l r =
       match Op.ViewL r with
       | Nil -> raise InvalidAddrRangeException
