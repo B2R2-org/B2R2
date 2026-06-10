@@ -26,20 +26,20 @@ namespace B2R2.BinIR
 
 /// Represents a unary operator.
 type UnOpType =
-  /// Make it negative (Two's complement)
+  /// Negation (two's complement).
   | NEG = 0
-  /// Bitwise not (One's complement)
+  /// Bitwise not (one's complement).
   | NOT = 1
-  /// Square root
+  /// Square root.
   | FSQRT = 2
-  /// Cosine
-  | FCOS = 5
-  /// Sine
-  | FSIN = 6
-  /// Tangent
-  | FTAN = 7
-  /// Arc Tangent
-  | FATAN = 8
+  /// Cosine.
+  | FCOS = 3
+  /// Sine.
+  | FSIN = 4
+  /// Tangent.
+  | FTAN = 5
+  /// Arc tangent.
+  | FATAN = 6
 
 /// <summary>
 /// Provides functions to access <see cref='T:B2R2.BinIR.UnOpType'/>.

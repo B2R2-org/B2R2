@@ -32,37 +32,49 @@ open B2R2
 /// represent the location of the label in the binary, i.e., the address of the
 /// instruction that the label belongs to.
 /// </summary>
+[<Sealed>]
 type Label(name: string, id: int, addr: Addr) =
   /// <summary>
-  /// Retrives the symbolic name of the label.
+  /// Retrieves the symbolic name of the label.
   /// </summary>
   member _.Name with get() = name
 
   /// <summary>
-  /// Retrives the ID of the label. The ID is unique for each label and is used
+  /// Retrieves the ID of the label. The ID is unique for each label and is used
   /// to distinguish between different labels.
   /// </summary>
   member _.Id with get() = id
 
   /// <summary>
-  /// Retrives the instruction address that this label belongs to.
+  /// Retrieves the instruction address that this label belongs to.
   /// </summary>
   member _.Address with get() = addr
 
   /// <summary>
-  /// Compares two labels for equality.
+  /// Checks whether this label equals the given label.
   /// </summary>
-  override _.Equals(obj) =
+  member _.Equals(other: Label) =
+    id = other.Id && addr = other.Address && name = other.Name
+
+  /// <summary>
+  /// Checks whether this label equals the given object.
+  /// </summary>
+  override this.Equals obj =
     match obj with
-    | :? Label as lbl -> lbl.Name = name && lbl.Id = id && lbl.Address = addr
+    | :? Label as lbl -> this.Equals lbl
     | _ -> false
 
   /// <summary>
   /// Computes the hash code for the label.
   /// </summary>
-  override _.GetHashCode() = name.GetHashCode() ^^^ id ^^^ addr.GetHashCode()
+  override _.GetHashCode() =
+    System.HashCode.Combine(name, id, addr)
 
   /// <summary>
-  /// Retrives a stirng representation of the symbol.
+  /// Returns a string representation of the label.
   /// </summary>
-  override _.ToString() = name + "_" + id.ToString() + "@" + addr.ToString "x"
+  override _.ToString() =
+    name + "_" + id.ToString() + "@" + addr.ToString "x"
+
+  interface System.IEquatable<Label> with
+    member this.Equals other = this.Equals other

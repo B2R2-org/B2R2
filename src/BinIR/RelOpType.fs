@@ -26,37 +26,37 @@ namespace B2R2.BinIR
 
 /// Represents a relational operator.
 type RelOpType =
-  /// Equal
+  /// Equal.
   | EQ = 0
-  /// Not equal
+  /// Not equal.
   | NEQ = 1
-  /// Unsigned greater than
+  /// Unsigned greater than.
   | GT = 2
-  /// Unsigned greater than or equal
+  /// Unsigned greater than or equal.
   | GE = 3
-  /// Signed greater than
+  /// Signed greater than.
   | SGT = 4
-  /// Signed greater than or equal
+  /// Signed greater than or equal.
   | SGE = 5
-  /// Unsigned less than
+  /// Unsigned less than.
   | LT = 6
-  /// Unsigned less than or equal
+  /// Unsigned less than or equal.
   | LE = 7
-  /// Signed less than
+  /// Signed less than.
   | SLT = 8
-  /// Signed less than or equal
+  /// Signed less than or equal.
   | SLE = 9
-  /// Floating point equal
+  /// Floating point equal.
   | FEQ = 10
-  /// Floating point not equal
+  /// Floating point not equal.
   | FNEQ = 11
-  /// Floating point greater than
+  /// Floating point greater than.
   | FGT = 12
-  /// Floating point greater than or equal
+  /// Floating point greater than or equal.
   | FGE = 13
-  /// Floating point less than
+  /// Floating point less than.
   | FLT = 14
-  /// Floating point less than or equal
+  /// Floating point less than or equal.
   | FLE = 15
 
 /// <summary>

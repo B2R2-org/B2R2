@@ -26,95 +26,106 @@ namespace B2R2.BinIR
 
 /// Represents a binary operator.
 type BinOpType =
-  /// Addition
+  /// Addition.
   | ADD = 0
-  /// Subtraction
+  /// Subtraction.
   | SUB = 1
-  /// Multiplication
+  /// Multiplication.
   | MUL = 2
-  /// Unsigned division
+  /// Unsigned division.
   | DIV = 3
-  /// Signed division
+  /// Signed division.
   | SDIV = 4
-  /// Unsigned modulo
+  /// Unsigned modulo.
   | MOD = 5
-  /// Signed modulo
+  /// Signed modulo.
   | SMOD = 6
-  /// Shift left
+  /// Shift left.
   | SHL = 7
-  /// Shift right
+  /// Shift right.
   | SHR = 8
-  /// Sign-extended shift right
+  /// Sign-extended shift right.
   | SAR = 9
-  /// Bitwise and
+  /// Bitwise and.
   | AND = 10
-  /// Bitwise or
+  /// Bitwise or.
   | OR = 11
-  /// Bitwise xor
+  /// Bitwise xor.
   | XOR = 12
-  /// Concat two reg values
+  /// Concatenation of two register values.
   | CONCAT = 13
-  /// Apply a function
+  /// Function application.
   | APP = 14
-  /// Floating point addition
-  | FADD = 16
-  /// Floating point subtraction
-  | FSUB = 17
-  /// Floating point multiplication
-  | FMUL = 18
-  /// Floating point division
-  | FDIV = 19
-  /// Power (x1^x2)
-  | FPOW = 20
-  /// Log (log of x2 in base x1)
-  | FLOG = 21
+  /// Floating point addition.
+  | FADD = 15
+  /// Floating point subtraction.
+  | FSUB = 16
+  /// Floating point multiplication.
+  | FMUL = 17
+  /// Floating point division.
+  | FDIV = 18
+  /// Power (x1^x2).
+  | FPOW = 19
+  /// Log (log of x2 in base x1).
+  | FLOG = 20
 
 /// <summary>
 /// Provides functions to access <see cref='T:B2R2.BinIR.BinOpType'/>.
 /// </summary>
 [<RequireQualifiedAccess>]
 module BinOpType =
-  let private symbols =
-    [ (BinOpType.ADD, "+")
-      (BinOpType.SUB, "-")
-      (BinOpType.MUL, "*")
-      (BinOpType.DIV, "/")
-      (BinOpType.SDIV, "?/")
-      (BinOpType.MOD, "%")
-      (BinOpType.SMOD, "?%")
-      (BinOpType.SHL, "<<")
-      (BinOpType.SHR, ">>")
-      (BinOpType.SAR, "?>>")
-      (BinOpType.AND, "&")
-      (BinOpType.OR, "|")
-      (BinOpType.XOR, "^")
-      (BinOpType.CONCAT, "++")
-      (BinOpType.APP, "@")
-      (BinOpType.FADD, "+.")
-      (BinOpType.FSUB, "-.")
-      (BinOpType.FMUL, "*.")
-      (BinOpType.FDIV, "/.")
-      (BinOpType.FPOW, "^^")
-      (BinOpType.FLOG, "lg") ]
-
-  let private opToStr = symbols |> Map.ofList
-
-  let private strToOp =
-    symbols
-    |> List.map (fun (k, v) -> (v, k))
-    |> Map.ofList
-
-  let private findOrRaise key map exc =
-    Map.tryFind key map |> Option.defaultWith (fun _ -> raise exc)
-
   /// <summary>
   /// Retrieves the string representation of the binary operator.
   /// </summary>
   [<CompiledName "ToString">]
-  let toString opType = findOrRaise opType opToStr IllegalASTTypeException
+  let toString = function
+    | BinOpType.ADD -> "+"
+    | BinOpType.SUB -> "-"
+    | BinOpType.MUL -> "*"
+    | BinOpType.DIV -> "/"
+    | BinOpType.SDIV -> "?/"
+    | BinOpType.MOD -> "%"
+    | BinOpType.SMOD -> "?%"
+    | BinOpType.SHL -> "<<"
+    | BinOpType.SHR -> ">>"
+    | BinOpType.SAR -> "?>>"
+    | BinOpType.AND -> "&"
+    | BinOpType.OR -> "|"
+    | BinOpType.XOR -> "^"
+    | BinOpType.CONCAT -> "++"
+    | BinOpType.APP -> "@"
+    | BinOpType.FADD -> "+."
+    | BinOpType.FSUB -> "-."
+    | BinOpType.FMUL -> "*."
+    | BinOpType.FDIV -> "/."
+    | BinOpType.FPOW -> "^^"
+    | BinOpType.FLOG -> "lg"
+    | _ -> raise IllegalASTTypeException
 
   /// <summary>
   /// Retrieves the binary operator from a string.
   /// </summary>
   [<CompiledName "OfString">]
-  let ofString opStr = findOrRaise opStr strToOp IllegalASTTypeException
+  let ofString = function
+    | "+" -> BinOpType.ADD
+    | "-" -> BinOpType.SUB
+    | "*" -> BinOpType.MUL
+    | "/" -> BinOpType.DIV
+    | "?/" -> BinOpType.SDIV
+    | "%" -> BinOpType.MOD
+    | "?%" -> BinOpType.SMOD
+    | "<<" -> BinOpType.SHL
+    | ">>" -> BinOpType.SHR
+    | "?>>" -> BinOpType.SAR
+    | "&" -> BinOpType.AND
+    | "|" -> BinOpType.OR
+    | "^" -> BinOpType.XOR
+    | "++" -> BinOpType.CONCAT
+    | "@" -> BinOpType.APP
+    | "+." -> BinOpType.FADD
+    | "-." -> BinOpType.FSUB
+    | "*." -> BinOpType.FMUL
+    | "/." -> BinOpType.FDIV
+    | "^^" -> BinOpType.FPOW
+    | "lg" -> BinOpType.FLOG
+    | _ -> raise IllegalASTTypeException
