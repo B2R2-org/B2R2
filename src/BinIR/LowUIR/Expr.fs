@@ -168,7 +168,7 @@ with
     19 * (19 * int op + e.Hash) + 4
 
   static member inline HashJmpDest(lbl: Label) =
-    19 * (19 * lbl.GetHashCode()) + 5
+    (19 * lbl.GetHashCode()) + 5
 
   static member inline HashFuncName(s: string) =
     (19 * s.GetHashCode()) + 6
@@ -277,14 +277,10 @@ with
       sb.Append n |> ignore
       sb.Append ":" |> ignore
       sb.Append(RegType.toString typ) |> ignore
-    | ExprList([], _) ->
-      ()
-    | ExprList(e :: [], _) ->
-      Expr.AppendToString(e, sb)
-    | ExprList(e :: more, hc) ->
-      Expr.AppendToString(e, sb) |> ignore
-      sb.Append ", " |> ignore
-      Expr.AppendToString(ExprList(more, hc), sb)
+    | ExprList(exprs, _) ->
+      exprs |> List.iteri (fun i e ->
+        if i > 0 then sb.Append ", " |> ignore else ()
+        Expr.AppendToString(e, sb))
     | JmpDest(lbl, _) ->
       sb.Append lbl.Name |> ignore
     | FuncName(n, _) ->

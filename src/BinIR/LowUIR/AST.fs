@@ -199,9 +199,9 @@ let exprList lst =
 #if ! HASHCONS
   ExprList(lst, null)
 #else
-    let hc = HashConsingInfo()
-    let e = ExprList(lst, hc)
-    internExpr e hc (Expr.HashExprList lst)
+  let hc = HashConsingInfo()
+  let e = ExprList(lst, hc)
+  internExpr e hc (Expr.HashExprList lst)
 #endif
 
 /// Function name.
@@ -507,7 +507,7 @@ let eq e1 e2 =
 [<CompiledName("Neq")>]
 let neq e1 e2 =
 #if ! HASHCONS
-  relop RelOpType.NEQ e2 e1
+  relop RelOpType.NEQ e1 e2
 #else
   if e1 < e2 then relop RelOpType.NEQ e1 e2
   else relop RelOpType.NEQ e2 e1
@@ -566,7 +566,7 @@ let ``or`` e1 e2 =
     Expr.typeOf e1
 #endif
 #if ! HASHCONS
-  binopWithType BinOpType.OR t e2 e1
+  binopWithType BinOpType.OR t e1 e2
 #else
   if e1 < e2 then binopWithType BinOpType.OR t e1 e2
   else binopWithType BinOpType.OR t e2 e1
@@ -582,7 +582,7 @@ let xor e1 e2 =
     Expr.typeOf e1
 #endif
 #if ! HASHCONS
-  binopWithType BinOpType.XOR t e2 e1
+  binopWithType BinOpType.XOR t e1 e2
 #else
   if e1 < e2 then binopWithType BinOpType.XOR t e1 e2
   else binopWithType BinOpType.XOR t e2 e1
@@ -807,7 +807,11 @@ let private assignForExtractDst e1 e2 =
     let src = binopWithType BinOpType.SHL t src shift
     put e1 (binopWithType BinOpType.OR t
               (binopWithType BinOpType.AND t e1 mask) src)
-  | e -> eprintfn "%A" e; raise InvalidAssignmentException
+  | e ->
+#if DEBUG
+    eprintfn $"{e.ToString()}"
+#endif
+    raise InvalidAssignmentException
 
 /// A Store statement.
 [<CompiledName("Store")>]
