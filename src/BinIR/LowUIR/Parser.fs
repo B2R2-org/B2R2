@@ -337,6 +337,7 @@ type Parser(isa: ISA,
     <|> attempt (pstringCI "int" >>. pint32 |>> Interrupt)
     <|> attempt pException
     <|> attempt (pstringCI "lock" >>% Lock)
+    <|> attempt (pstringCI "unlock" >>% Unlock)
     <|> attempt (pstringCI "pid" >>% ProcessorID)
     <|> attempt (pstringCI "syscall" >>% SysCall)
     <|> attempt (pstringCI "undef" >>% UndefinedInstr)
