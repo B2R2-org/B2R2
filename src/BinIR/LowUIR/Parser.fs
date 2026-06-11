@@ -325,7 +325,7 @@ type Parser(isa: ISA,
 
   let pException =
     pstringCI "Exception"
-    >>. ws >>. pchar '(' >>. ws >>. pIdentifier .>> ws .>> pchar ')'
+    >>. ws >>. pchar '(' >>. manyCharsTill anyChar (pchar ')')
     |>> Exception
 
   let pSideEffectKind =

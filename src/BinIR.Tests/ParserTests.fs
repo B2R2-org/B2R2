@@ -26,6 +26,7 @@ namespace B2R2.BinIR.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 [<TestClass>]
@@ -71,4 +72,10 @@ type ParserTests() =
     let answer =
       AST.put (AST.var 64<rt> regID "R")
               (AST.num (BitVector.Cast(BitVector.F, 64<rt>)))
+    Assert.AreEqual<Stmt>(answer, result)
+
+  [<TestMethod>]
+  member _.``[LowUIRParser] Test Exception SideEffect``() =
+    let result = p.Parse "!!Exception(int overflow)" |> get |> Array.head
+    let answer = AST.sideEffect (SideEffect.Exception "int overflow")
     Assert.AreEqual<Stmt>(answer, result)
