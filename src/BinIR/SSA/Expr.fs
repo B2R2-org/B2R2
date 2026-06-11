@@ -81,30 +81,10 @@ type Expr =
   /// case).
   | Undefined of RegType * string
 with
-  /// Returns the type of an SSA expression.
-  static member TypeOf expr =
-    match expr with
-    | Num bv -> bv.Length
-    | Var { Kind = RegVar(rt, _, _) }
-    | Var { Kind = PCVar rt }
-    | Var { Kind = TempVar(rt, _) }
-    | Var { Kind = StackVar(rt, _) }
-    | Var { Kind = GlobalVar(rt, _) } -> rt
-    | Load(_, rt, _) -> rt
-    | Store(_, rt, _, _) -> rt
-    | UnOp(_, rt, _) -> rt
-    | BinOp(_, rt, _, _) -> rt
-    | RelOp(_, rt, _, _) -> rt
-    | Ite(_, rt, _, _) -> rt
-    | Cast(_, rt, _) -> rt
-    | Extract(_, rt, _) -> rt
-    | Undefined(rt, _) -> rt
-    | _ -> raise InvalidExprException
-
   static member internal AppendToString(expr, sb: StringBuilder) =
     match expr with
     | Num n -> sb.Append(n.ToString()) |> ignore
-    | Var v -> sb.Append(Variable.ToString v) |> ignore
+    | Var v -> sb.Append(v.ToString()) |> ignore
     | ExprList [] ->
       ()
     | ExprList(e :: []) ->
@@ -137,13 +117,13 @@ with
       Expr.AppendToString(e2, sb)
       sb.Append ")" |> ignore
     | Load(v, typ, e) ->
-      sb.Append(Variable.ToString v) |> ignore
+      sb.Append(v.ToString()) |> ignore
       sb.Append "[" |> ignore
       Expr.AppendToString(e, sb)
       sb.Append "]:" |> ignore
       sb.Append(RegType.toString typ) |> ignore
     | Store(v, _, addr, e) ->
-      sb.Append(Variable.ToString v) |> ignore
+      sb.Append(v.ToString()) |> ignore
       sb.Append "[" |> ignore
       Expr.AppendToString(addr, sb)
       sb.Append " <- " |> ignore
@@ -177,7 +157,36 @@ with
       sb.Append ")" |> ignore
 
   /// Pretty-prints an SSA expression to a string.
-  static member ToString expr =
+  override this.ToString() =
     let sb = StringBuilder()
-    Expr.AppendToString(expr, sb)
+    Expr.AppendToString(this, sb)
     sb.ToString()
+
+/// Provides utility functions for SSA expressions.
+[<RequireQualifiedAccess>]
+module Expr =
+  /// Converts an SSA expression to a string.
+  [<CompiledName "ToString">]
+  let toString (expr: Expr) =
+    expr.ToString()
+
+  /// Gets the type of an SSA expression.
+  [<CompiledName "TypeOf">]
+  let typeOf expr =
+    match expr with
+    | Num bv -> bv.Length
+    | Var { Kind = RegVar(rt, _, _) }
+    | Var { Kind = PCVar rt }
+    | Var { Kind = TempVar(rt, _) }
+    | Var { Kind = StackVar(rt, _) }
+    | Var { Kind = GlobalVar(rt, _) } -> rt
+    | Load(_, rt, _) -> rt
+    | Store(_, rt, _, _) -> rt
+    | UnOp(_, rt, _) -> rt
+    | BinOp(_, rt, _, _) -> rt
+    | RelOp(_, rt, _, _) -> rt
+    | Ite(_, rt, _, _) -> rt
+    | Cast(_, rt, _) -> rt
+    | Extract(_, rt, _) -> rt
+    | Undefined(rt, _) -> rt
+    | _ -> raise InvalidExprException

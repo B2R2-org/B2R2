@@ -56,7 +56,7 @@ with
     sb.Append(kind: string) |> ignore
     sb.Append("(") |> ignore
     vars |> List.iter (fun v ->
-      sb.Append(Variable.ToString v) |> ignore
+      sb.Append(v.ToString()) |> ignore
       sb.Append(";") |> ignore)
     sb.Append(")") |> ignore
 
@@ -67,7 +67,7 @@ with
       Stmt.LabelToString(lbl, sb)
       sb.Append(")") |> ignore
     | Def(v, e) ->
-      sb.Append(Variable.ToString v) |> ignore
+      sb.Append(v.ToString()) |> ignore
       sb.Append(" := ") |> ignore
       Expr.AppendToString(e, sb)
     | Jmp(IntraJmp(lbl)) ->
@@ -91,7 +91,7 @@ with
       sb.Append(" else Jmp ") |> ignore
       Expr.AppendToString(dst2, sb)
     | Phi(def, indices) ->
-      sb.Append(Variable.ToString def) |> ignore
+      sb.Append(def.ToString()) |> ignore
       sb.Append(" := phi(") |> ignore
       indices |> Array.iter (fun i ->
         sb.Append(i.ToString()) |> ignore
@@ -106,9 +106,9 @@ with
       sb.Append("SideEffect " + SideEffect.toString eff) |> ignore
 
   /// Pretty-prints an SSA statement to a string.
-  static member ToString stmt =
+  override this.ToString() =
     let sb = StringBuilder()
-    Stmt.AppendToString(stmt, sb)
+    Stmt.AppendToString(this, sb)
     sb.ToString()
 
 /// Represents a jump kind of SSA's Jmp statement.
@@ -122,3 +122,11 @@ and JmpType =
   /// Conditional jump. The first Expr is the condition, and the second and the
   /// third Expr refer to true and false branch addresses, respectively.
   | InterCJmp of Expr * Expr * Expr
+
+/// Provides utility functions for SSA statements.
+[<RequireQualifiedAccess>]
+module Stmt =
+  /// Converts an SSA statement to a string.
+  [<CompiledName "ToString">]
+  let toString (stmt: Stmt) =
+    stmt.ToString()

@@ -26,6 +26,7 @@
     <Compile Include="LowUIR\AST.fs" />
     <Compile Include="LowUIR\Parser.fs" />
     <Compile Include="LowUIR\StaticValueFacts.fs" />
+    <Compile Include="SSA\VariableKind.fs" />
     <Compile Include="SSA\Variable.fs" />
     <Compile Include="SSA\Expr.fs" />
     <Compile Include="SSA\Stmt.fs" />

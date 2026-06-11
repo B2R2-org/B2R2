@@ -26,12 +26,6 @@ namespace B2R2.BinIR.SSA
 
 open B2R2
 
-/// <namespacedoc>
-///   <summary>
-///   Contains the definition of the SSA (Static Single Assignment) IR used in
-///   B2R2, which can be translated from LowUIR.
-///   </summary>
-/// </namespacedoc>
 /// <summary>
 /// Represents SSA variables that always have their own identifier.
 /// </summary>
@@ -39,36 +33,23 @@ type Variable =
   { Kind: VariableKind
     mutable Identifier: int }
 with
-  static member ToString({ Kind = k; Identifier = i }) =
-    VariableKind.ToString k + "_" + i.ToString()
+  override this.ToString() =
+    this.Kind.ToString() + "_" + this.Identifier.ToString()
 
   static member IsPC({ Kind = k }) =
     match k with
     | PCVar(_) -> true
     | _ -> false
 
-/// Represents the destination of an assignment statement.
-and VariableKind =
-  /// Register.
-  | RegVar of RegType * RegisterID * string
-  /// PC.
-  | PCVar of RegType
-  /// Temporary variables.
-  | TempVar of RegType * int
-  /// The whole memory as a var (an over-approximated instance). Whenever there
-  /// is a memory store op, we update MemVar.
-  | MemVar
-  /// Stack variables. This variable is available only after the SSA promotion,
-  /// which basically translates every memory load/store expression with a
-  /// concrete address into either a StackVar or a GlobalVar.
-  | StackVar of RegType * offset: int
-  /// Global variables. This variable is available only after the SSA promotion.
-  | GlobalVar of RegType * Addr
-with
-  static member ToString = function
-    | RegVar(_, _, n) -> n
-    | PCVar(_) -> "PC"
-    | TempVar(_, n) -> "T_" + n.ToString()
-    | MemVar -> "MEM"
-    | StackVar(_, offset) -> "V_" + offset.ToString()
-    | GlobalVar(_, addr) -> "G_" + addr.ToString()
+/// Provides utility functions for SSA variables.
+[<RequireQualifiedAccess>]
+module Variable =
+  /// Converts an SSA variable to a string.
+  [<CompiledName "ToString">]
+  let toString (var: Variable) =
+    var.ToString()
+
+  /// Checks if an SSA variable represents a program counter.
+  [<CompiledName "IsPC">]
+  let isPC (var: Variable) =
+    Variable.IsPC var

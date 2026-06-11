@@ -1,0 +1,71 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+namespace B2R2.BinIR.SSA
+
+open B2R2
+
+/// <namespacedoc>
+///   <summary>
+///   Contains the definition of the SSA (Static Single Assignment) IR used in
+///   B2R2, which can be translated from LowUIR.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Represents the destination of an assignment statement.
+/// </summary>
+type VariableKind =
+  /// Register.
+  | RegVar of RegType * RegisterID * string
+  /// PC.
+  | PCVar of RegType
+  /// Temporary variables.
+  | TempVar of RegType * int
+  /// The whole memory as a var (an over-approximated instance). Whenever there
+  /// is a memory store op, we update MemVar.
+  | MemVar
+  /// Stack variables. This variable is available only after the SSA promotion,
+  /// which basically translates every memory load/store expression with a
+  /// concrete address into either a StackVar or a GlobalVar.
+  | StackVar of RegType * offset: int
+  /// Global variables. This variable is available only after the SSA promotion.
+  | GlobalVar of RegType * Addr
+with
+  override this.ToString() =
+    match this with
+    | RegVar(_, _, n) -> n
+    | PCVar(_) -> "PC"
+    | TempVar(_, n) -> "T_" + n.ToString()
+    | MemVar -> "MEM"
+    | StackVar(_, offset) -> "V_" + offset.ToString()
+    | GlobalVar(_, addr) -> "G_" + addr.ToString()
+
+/// Provides utility functions for SSA variable kinds.
+[<RequireQualifiedAccess>]
+module VariableKind =
+  /// Converts an SSA variable kind to a string.
+  [<CompiledName "ToString">]
+  let toString (kind: VariableKind) =
+    kind.ToString()
