@@ -83,7 +83,8 @@ type Parser(isa: ISA,
   let pCastType =
     [ "sext"
       "zext"
-      "float"
+      "sfloat"
+      "ufloat"
       "round"
       "ceil"
       "floor"
