@@ -44,4 +44,4 @@ type InterJmpKind =
   /// This is not a jump instruction. This is only useful in special cases such
   /// as when representing a delay slot of MIPS, and should never be used in
   /// other cases.
-  | NotAJmp = -1
+  | NotAJmp = 32
