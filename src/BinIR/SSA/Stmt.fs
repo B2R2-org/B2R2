@@ -103,7 +103,7 @@ with
       Stmt.VariablesToString("OutVars", outVars, sb)
       Stmt.VariablesToString("InVars", inVars, sb)
     | SideEffect eff ->
-      sb.Append("SideEffect " + SideEffect.ToString eff) |> ignore
+      sb.Append("SideEffect " + SideEffect.toString eff) |> ignore
 
   /// Pretty-prints an SSA statement to a string.
   static member ToString stmt =
@@ -122,4 +122,3 @@ and JmpType =
   /// Conditional jump. The first Expr is the condition, and the second and the
   /// third Expr refer to true and false branch addresses, respectively.
   | InterCJmp of Expr * Expr * Expr
-

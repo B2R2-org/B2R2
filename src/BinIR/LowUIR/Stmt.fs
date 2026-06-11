@@ -198,7 +198,7 @@ with
       sb.Append("call ") |> ignore
       Expr.AppendToString(args, sb)
     | SideEffect(eff, _) ->
-      sb.Append("!!" + SideEffect.ToString eff) |> ignore
+      sb.Append("!!" + SideEffect.toString eff) |> ignore
 
   static member ToString stmt =
     let sb = StringBuilder()

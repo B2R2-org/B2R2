@@ -25,8 +25,8 @@
 namespace B2R2.BinIR
 
 /// Represents the kind of an InterJmp (inter-instruction jump) statement, such
-/// as a call, return, etc. A jump statement can have a combination of these
-/// kinds.
+/// as a call, return, etc. A jump statement can combine these flags when it has
+/// multiple properties.
 [<System.Flags>]
 type InterJmpKind =
   /// The base case, i.e., a simple jump instruction.
@@ -41,7 +41,27 @@ type InterJmpKind =
   | SwitchToARM = 8
   /// A branch instruction that modifies the operation mode from ARM to Thumb.
   | SwitchToThumb = 16
-  /// This is not a jump instruction. This is only useful in special cases such
-  /// as when representing a delay slot of MIPS, and should never be used in
-  /// other cases.
+  /// Sentinel for a statement that is not a jump instruction. This is only
+  /// useful in special cases such as when representing a delay slot of MIPS,
+  /// and should never be used in other cases.
   | NotAJmp = 32
+
+/// <summary>
+/// Provides functions to access <see cref='T:B2R2.BinIR.InterJmpKind'/>.
+/// </summary>
+[<RequireQualifiedAccess>]
+module InterJmpKind =
+
+  /// <summary>
+  /// Retrieves the string representation of the inter-jump kind.
+  /// </summary>
+  [<CompiledName "ToString">]
+  let toString = function
+    | InterJmpKind.Base -> "Base"
+    | InterJmpKind.IsCall -> "IsCall"
+    | InterJmpKind.IsRet -> "IsRet"
+    | InterJmpKind.IsExit -> "IsExit"
+    | InterJmpKind.SwitchToARM -> "SwitchToARM"
+    | InterJmpKind.SwitchToThumb -> "SwitchToThumb"
+    | InterJmpKind.NotAJmp -> "NotAJmp"
+    | _ -> raise IllegalASTTypeException

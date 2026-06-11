@@ -38,7 +38,9 @@ type SideEffect =
   | Terminate
   /// Asynchronous event triggered by software (e.g. INT on x86) or hardware.
   | Interrupt of int
-  /// Synchronous event generated when the execution encounters error condition.
+  /// Synchronous event generated when the execution encounters an error
+  /// condition. The string describes the exception reason as reported by the
+  /// lifter.
   | Exception of string
   /// Acquire the lock. `Lock` and `Unlock` is used to mark a sequence of IR
   /// statements that need to be evaluated atomically.
@@ -65,10 +67,17 @@ type SideEffect =
   | FlagsUpdate
 #endif
 
+/// <summary>
+/// Provides functions to access <see cref='T:B2R2.BinIR.SideEffect'/>.
+/// </summary>
+[<RequireQualifiedAccess>]
+module SideEffect =
+
   /// <summary>
-  /// Retrieves the string representation of the side effect.
+  /// Retrieves the LowUIR string representation of the side effect.
   /// </summary>
-  static member ToString sideEffect =
+  [<CompiledName "ToString">]
+  let toString sideEffect =
     match sideEffect with
     | Breakpoint -> "Breakpoint"
     | ClockCounter -> "CLK"

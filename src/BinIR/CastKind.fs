@@ -55,18 +55,18 @@ type CastKind =
   /// is too large to be represented as an integer, the result is MIN_INT, i.e.,
   /// 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit integers.
   | FtoITrunc = 7
-  /// Float to Float conversion with different precisions
+  /// Float-to-float conversion between different precisions.
   | FloatCast = 8
-  /// Float to Float conversion while rounding to nearest integer.. Ties to
+  /// Float-to-float conversion while rounding to the nearest integer. Ties to
   /// even.
   | FtoFRound = 9
-  /// Float to Float conversion while rounding toward +inf. E.g., 23.2 -> 24.0,
+  /// Float-to-float conversion while rounding toward +inf. E.g., 23.2 -> 24.0,
   /// and -23.7 -> -23.
   | FtoFCeil = 10
-  /// Float to Float conversion while rounding toward -inf. E.g., 23.7 -> 23.0,
+  /// Float-to-float conversion while rounding toward -inf. E.g., 23.7 -> 23.0,
   /// and -23.2 -> -24.
   | FtoFFloor = 11
-  /// Float to Float conversion while rounding toward zero. E.g. 23.7 -> 23.0,
+  /// Float-to-float conversion while rounding toward zero. E.g. 23.7 -> 23.0,
   /// and -23.7 -> -23.
   | FtoFTrunc = 12
 
