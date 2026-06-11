@@ -41,7 +41,7 @@ let dstAssign oprSize dst src =
   | 8<rt> | 16<rt> -> dst := src (* No extension for 8- and 16-bit operands *)
   | _ ->
     let dst = AST.unwrap dst
-    let dstOrigSz = dst |> Expr.TypeOf
+    let dstOrigSz = dst |> Expr.typeOf
     let oprBitSize = RegType.toBitWidth oprSize
     let dstBitSize = RegType.toBitWidth dstOrigSz
     if dstBitSize > oprBitSize then dst := AST.zext dstOrigSz src

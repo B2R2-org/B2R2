@@ -24,23 +24,27 @@
 
 namespace B2R2.BinIR
 
-/// Represents the hash consing information of an object, which includes a
-/// unique ID (tag) and a hash value.
+/// Represents the hash-consing metadata of an object, which includes a unique
+/// ID (tag) and a precomputed hash value. This value is attached to LowUIR
+/// expressions and statements only when hash consing is enabled; otherwise the
+/// metadata field is null.
 [<AllowNullLiteral>]
 type HashConsingInfo(id, hash) =
   let mutable id = id
   let mutable hash = hash
 
   /// <summary>
-  /// Creates a new instance of HashConsingInfo with default values.
+  /// Creates a new instance of HashConsingInfo with placeholder values. The
+  /// AST constructor assigns the actual ID and hash before using it.
   /// </summary>
   new() = HashConsingInfo(0u, 0)
 
-  /// Unique ID of the hash consed object.
-  member _.ID with get(): uint32 = id and set(v) = id <- v
-  /// Hash value of the hash consed object.
-  member _.Hash with get(): int = hash and set(v) = hash <- v
+  /// Unique ID of the hash-consed object.
+  member _.ID with get(): uint32 = id and internal set(v) = id <- v
+  /// Precomputed hash value of the hash-consed object.
+  member _.Hash with get(): int = hash and internal set(v) = hash <- v
 
 [<AutoOpen>]
 module internal HashConsingInfo =
+  /// Checks if two references are physically identical.
   let inline (===) a b = LanguagePrimitives.PhysicalEquality a b

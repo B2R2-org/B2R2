@@ -109,7 +109,7 @@ module State =
     match Map.tryFind addr state.Mems with
     | Some v ->
       let expr = v.GetExpr()
-      let vType = Expr.TypeOf expr
+      let vType = Expr.typeOf expr
       if vType = ty then v
       elif vType > ty then AST.extract (v.GetExpr()) ty 0 |> Value
       else AST.load endian ty (addr.GetExpr()) |> Value

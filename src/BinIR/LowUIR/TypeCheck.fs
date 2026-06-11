@@ -33,9 +33,9 @@ open B2R2.BinIR
 
 #if DEBUG
 let internal bool e =
-  let t = Expr.TypeOf e
+  let t = Expr.typeOf e
   if t <> 1<rt> then
-    raise <| TypeCheckException(Expr.ToString e + "must be boolean.")
+    raise <| TypeCheckException(Expr.toString e + "must be boolean.")
   else ()
 #endif
 
@@ -43,11 +43,11 @@ let inline internal checkEquivalence t1 t2 =
   if t1 = t2 then ()
   else raise <| TypeCheckException "Inconsistent types."
 
-let internal concat e1 e2 = Expr.TypeOf e1 + Expr.TypeOf e2
+let internal concat e1 e2 = Expr.typeOf e1 + Expr.typeOf e2
 
 let internal binop e1 e2 =
-  let t1 = Expr.TypeOf e1
-  let t2 = Expr.TypeOf e2
+  let t1 = Expr.typeOf e1
+  let t2 = Expr.typeOf e2
   checkEquivalence t1 t2
   t1
 
@@ -61,7 +61,7 @@ let private isValidFloatType = function
   | _ -> false
 
 let internal canCast kind newType e =
-  let oldType = Expr.TypeOf e
+  let oldType = Expr.typeOf e
   match kind with
   | CastKind.SignExt
   | CastKind.ZeroExt ->
@@ -88,21 +88,21 @@ let rec expr e =
     expr e1 && expr e2 && concat e1 e2 = t
   | BinOp(_, t, e1, e2, _) -> expr e1 && expr e2 && binop e1 e2 = t
   | RelOp(_, e1, e2, _) ->
-    expr e1 && expr e2 && Expr.TypeOf e1 = Expr.TypeOf e2
+    expr e1 && expr e2 && Expr.typeOf e1 = Expr.typeOf e2
   | Load(_, _, addr, _) -> expr addr
   | Ite(cond, e1, e2, _) ->
-    Expr.TypeOf cond = 1<rt> && expr e1 && expr e2
-    && Expr.TypeOf e1 = Expr.TypeOf e2
+    Expr.typeOf cond = 1<rt> && expr e1 && expr e2
+    && Expr.typeOf e1 = Expr.typeOf e2
   | Cast(CastKind.SignExt, t, e, _)
-  | Cast(CastKind.ZeroExt, t, e, _) -> expr e && t >= Expr.TypeOf e
+  | Cast(CastKind.ZeroExt, t, e, _) -> expr e && t >= Expr.typeOf e
   | Extract(e, t, p, _) ->
-    expr e && ((t + LanguagePrimitives.Int32WithMeasure p) <= Expr.TypeOf e)
+    expr e && ((t + LanguagePrimitives.Int32WithMeasure p) <= Expr.typeOf e)
   | _ -> true
 
 /// Type-checks a LowUIR statement.
 let stmt s =
   match s with
-  | Put(v, e, _) -> (Expr.TypeOf v) = (Expr.TypeOf e)
+  | Put(v, e, _) -> (Expr.typeOf v) = (Expr.typeOf e)
   | Store(_, a, v, _) -> expr a && expr v
   | Jmp(a, _) -> expr a
   | CJmp(cond, e1, e2, _) -> expr cond && expr e1 && expr e2

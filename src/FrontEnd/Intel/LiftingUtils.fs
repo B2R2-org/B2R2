@@ -71,7 +71,7 @@ let private getMemExpr128 expr =
     struct (AST.load e 64<rt> (b .+ off2),
             AST.load e 64<rt> (b .+ off1))
   | Load(e, 128<rt>, expr, _) ->
-    struct (AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr)),
+    struct (AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)),
             AST.load e 64<rt> expr)
   | _ -> raise InvalidOperandException
 
@@ -88,9 +88,9 @@ let private getMemExpr256 expr =
             AST.load e 64<rt> (b .+ off2),
             AST.load e 64<rt> (b .+ off1))
   | Load(e, 256<rt>, expr, _) ->
-    struct (AST.load e 64<rt> (expr .+ numI32 24 (Expr.TypeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 16 (Expr.TypeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr)),
+    struct (AST.load e 64<rt> (expr .+ numI32 24 (Expr.typeOf expr)),
+            AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr)),
+            AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)),
             AST.load e 64<rt> expr)
   | _ -> raise InvalidOperandException
 
@@ -115,13 +115,13 @@ let private getMemExpr512 expr =
             AST.load e 64<rt> (b .+ off2),
             AST.load e 64<rt> (b .+ off1))
   | Load(e, 512<rt>, expr, _) ->
-    struct (AST.load e 64<rt> (expr .+ numI32 56 (Expr.TypeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 48 (Expr.TypeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 40 (Expr.TypeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 32 (Expr.TypeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 24 (Expr.TypeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 16 (Expr.TypeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr)),
+    struct (AST.load e 64<rt> (expr .+ numI32 56 (Expr.typeOf expr)),
+            AST.load e 64<rt> (expr .+ numI32 48 (Expr.typeOf expr)),
+            AST.load e 64<rt> (expr .+ numI32 40 (Expr.typeOf expr)),
+            AST.load e 64<rt> (expr .+ numI32 32 (Expr.typeOf expr)),
+            AST.load e 64<rt> (expr .+ numI32 24 (Expr.typeOf expr)),
+            AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr)),
+            AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)),
             AST.load e 64<rt> expr)
   | _ -> raise InvalidOperandException
 
@@ -129,21 +129,21 @@ let private getMemExprs expr =
   match expr with
   | Load(e, 128<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
-      AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr)) ]
+      AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)) ]
   | Load(e, 256<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
-      AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 16 (Expr.TypeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 24 (Expr.TypeOf expr)) ]
+      AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 24 (Expr.typeOf expr)) ]
   | Load(e, 512<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
-      AST.load e 64<rt> (expr .+ numI32 8 (Expr.TypeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 16 (Expr.TypeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 24 (Expr.TypeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 32 (Expr.TypeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 40 (Expr.TypeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 48 (Expr.TypeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 56 (Expr.TypeOf expr)) ]
+      AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 24 (Expr.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 32 (Expr.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 40 (Expr.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 48 (Expr.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 56 (Expr.typeOf expr)) ]
   | _ -> raise InvalidOperandException
 
 let private pseudoRegVars bld r =
@@ -546,7 +546,7 @@ let dstAssign oprSize dst src =
   match oprSize with
   | 8<rt> | 16<rt> -> dst := src (* No extension for 8- and 16-bit operands *)
   | _ -> let dst = AST.unwrap dst
-         let dstOrigSz = dst |> Expr.TypeOf
+         let dstOrigSz = dst |> Expr.typeOf
          let oprBitSize = RegType.toBitWidth oprSize
          let dstBitSize = RegType.toBitWidth dstOrigSz
          if dstBitSize > oprBitSize then dst := AST.zext dstOrigSz src

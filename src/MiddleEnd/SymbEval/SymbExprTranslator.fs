@@ -32,7 +32,7 @@ open B2R2.BinIR.LowUIR
 [<RequireQualifiedAccess>]
 module SymbExprTranslator =
   let private unsupportedExpr expr =
-    Expr.ToString expr |> UnsupportedExpression |> Error
+    Expr.toString expr |> UnsupportedExpression |> Error
 
   let private unsupportedOp op = UnsupportedOperation op |> Error
 

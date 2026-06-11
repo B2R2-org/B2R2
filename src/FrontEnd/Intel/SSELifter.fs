@@ -1140,14 +1140,14 @@ let pmovmskb (ins: Instruction) insLen bld =
   match Register.getKind r with
   | Register.Kind.MMX ->
     let struct (dst, src) = transTwoOprs bld false ins insLen
-    let srcSize = Expr.TypeOf src
+    let srcSize = Expr.typeOf src
     let cnt = RegType.toByteWidth srcSize
     let tmps = mskArrayInit cnt src
     bld <+ (dstAssign oprSize dst <| AST.zext oprSize (concatBits tmps))
   | Register.Kind.XMM ->
     let dst = transOprToExpr bld false ins insLen dst
     let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
-    let srcSize = Expr.TypeOf srcA
+    let srcSize = Expr.typeOf srcA
     let cnt = RegType.toByteWidth srcSize
     let tmpsA = mskArrayInit cnt srcA
     let tmpsB = mskArrayInit cnt srcB
@@ -1157,7 +1157,7 @@ let pmovmskb (ins: Instruction) insLen bld =
     let dst = transOprToExpr bld false ins insLen dst
     let struct (srcD, srcC, srcB, srcA) =
       transOprToExpr256 bld false ins insLen src
-    let srcSize = Expr.TypeOf srcA
+    let srcSize = Expr.typeOf srcA
     let cnt = RegType.toByteWidth srcSize
     let tmpsA = mskArrayInit cnt srcA
     let tmpsB = mskArrayInit cnt srcB

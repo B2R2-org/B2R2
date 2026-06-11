@@ -47,14 +47,14 @@ type PrettyPrinter =
   /// </summary>
   /// <param name="lowuirStmt">LowUIR statement.</param>
   static member inline ToString(lowuirStmt: LowUIR.Stmt) =
-    LowUIR.Stmt.ToString lowuirStmt
+    LowUIR.Stmt.toString lowuirStmt
 
   /// <summary>
   ///   Given a LowUIR expression, return a well-formated string.
   /// </summary>
   /// <param name="lowuirExpr">LowUIR expression.</param>
   static member inline ToString(lowuirExpr: LowUIR.Expr) =
-    LowUIR.Expr.ToString lowuirExpr
+    LowUIR.Expr.toString lowuirExpr
 
   /// <summary>
   ///   Given a list of SSA statements, return a well-formated string.

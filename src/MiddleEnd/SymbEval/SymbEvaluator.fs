@@ -46,7 +46,7 @@ type SymbEvalSuccessor =
   | EvalError of SymbEvalError
 
 let private unsupportedStmt stmt =
-  Stmt.ToString stmt |> UnsupportedStatement |> Error
+  Stmt.toString stmt |> UnsupportedStatement |> Error
 
 let private unsupportedOp op = UnsupportedOperation op |> Error
 
@@ -83,7 +83,7 @@ let private evalPut (st: SymbState) lhs rhs =
     | Var(_, rid, _, _) -> st.SetReg(rid, value); Ok()
     | TempVar(_, idx, _) -> st.SetTmp(idx, value); Ok()
     | PCVar _ -> updatePC st value
-    | _ -> UnsupportedExpression(Expr.ToString lhs) |> Error
+    | _ -> UnsupportedExpression(Expr.toString lhs) |> Error
   | Error e -> Error e
 
 let private evalStore (st: SymbState) endian addr value =
@@ -97,7 +97,7 @@ let private evalStore (st: SymbState) endian addr value =
 
 let private evalJmp (st: SymbState) = function
   | JmpDest(lbl, _) -> st.GoToLabel lbl; Ok()
-  | target -> UnsupportedExpression(Expr.ToString target) |> Error
+  | target -> UnsupportedExpression(Expr.toString target) |> Error
 
 let private evalConcreteCJmp (st: SymbState) cond trueTarget falseTarget =
   if cond then evalJmp st trueTarget else evalJmp st falseTarget

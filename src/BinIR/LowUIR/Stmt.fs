@@ -35,7 +35,9 @@ open B2R2.BinIR
 /// directly construct Expr nor Stmt unless you know what you are doing.
 /// </remarks>
 /// </summary>
+#if HASHCONS
 [<CustomEquality; NoComparison>]
+#endif
 type Stmt =
   /// Metadata representing the start of a machine instruction. More
   /// specifically, it contains the length of the instruction. There must be a
@@ -95,6 +97,7 @@ type Stmt =
   /// This represents an instruction with side effects such as a system call.
   | SideEffect of SideEffect * HashConsingInfo
 with
+#if HASHCONS
   /// Unique ID of the hash consed statement.
   member inline this.ID with get() =
     match this with
@@ -125,9 +128,11 @@ with
     | ExternalCall(_, hc)
     | SideEffect(_, hc) -> hc.Hash
 
-  static member inline HashISMark(len: uint32) = len.GetHashCode() + 1
+  static member inline HashISMark(len: uint32) =
+    len.GetHashCode() + 1
 
-  static member inline HashIEMark(len: uint32) = 19 * len.GetHashCode() + 2
+  static member inline HashIEMark(len: uint32) =
+    19 * len.GetHashCode() + 2
 
   static member inline HashLMark(label: Label) =
     19 * (19 * label.GetHashCode()) + 3
@@ -138,7 +143,8 @@ with
   static member inline HashStore(n: Endian, addr: Expr, e: Expr) =
     19 * (19 * (19 * int n + addr.Hash) + e.Hash) + 5
 
-  static member inline HashJmp(e: Expr) = 19 * (19 * e.Hash + 1) + 6
+  static member inline HashJmp(e: Expr) =
+    19 * (19 * e.Hash + 1) + 6
 
   static member inline HashCJmp(cond: Expr, t: Expr, f: Expr) =
     19 * (19 * (19 * cond.Hash + t.Hash) + f.Hash) + 7
@@ -149,11 +155,59 @@ with
   static member inline HashInterCJmp(cond: Expr, t: Expr, f: Expr) =
     19 * (19 * (19 * cond.Hash + t.Hash) + f.Hash) + 9
 
-  static member inline HashExtCall(e: Expr) = (19 * e.Hash) + 10
+  static member inline HashExtCall(e: Expr) =
+    (19 * e.Hash) + 10
 
-  static member inline HashSideEffect(e: SideEffect) = (19 * hash e) + 11
+  static member inline HashSideEffect(e: SideEffect) =
+    (19 * hash e) + 11
 
-  static member AppendToString(stmt, sb: StringBuilder) =
+  override this.GetHashCode() =
+    match this with
+    | ISMark(len, _) -> Stmt.HashISMark len
+    | IEMark(len, _) -> Stmt.HashIEMark len
+    | LMark(s, _) -> Stmt.HashLMark s
+    | Put(dst, src, _) -> Stmt.HashPut(dst, src)
+    | Store(n, addr, e, _) -> Stmt.HashStore(n, addr, e)
+    | Jmp(e, _) -> Stmt.HashJmp e
+    | CJmp(cond, t, f, _) -> Stmt.HashCJmp(cond, t, f)
+    | InterJmp(e, k, _) -> Stmt.HashInterJmp(e, k)
+    | InterCJmp(cond, t, f, _) -> Stmt.HashInterCJmp(cond, t, f)
+    | ExternalCall(e, _) -> Stmt.HashExtCall e
+    | SideEffect(e, _) -> Stmt.HashSideEffect e
+
+  override this.Equals rhs =
+    match rhs with
+    | :? Stmt as rhs ->
+      match this, rhs with
+      | ISMark(len1, _), ISMark(len2, _) ->
+        len1 = len2
+      | IEMark(len1, _), IEMark(len2, _) ->
+        len1 = len2
+      | LMark(lbl1, _), LMark(lbl2, _) ->
+        lbl1 = lbl2
+      | Put(dst1, src1, _), Put(dst2, src2, _) ->
+        dst1.ID = dst2.ID && src1.ID = src2.ID
+      | Store(n1, addr1, e1, _), Store(n2, addr2, e2, _) ->
+        n1 = n2 && addr1.ID = addr2.ID && e1.ID = e2.ID
+      | Jmp(e1, _), Jmp(e2, _) ->
+        e1.ID = e2.ID
+      | CJmp(c1, t1, f1, _), CJmp(c2, t2, f2, _) ->
+        c1.ID = c2.ID && t1.ID = t2.ID && f1.ID = f2.ID
+      | InterJmp(e1, k1, _), InterJmp(e2, k2, _) ->
+        e1.ID = e2.ID && k1 = k2
+      | InterCJmp(c1, t1, f1, _), InterCJmp(c2, t2, f2, _) ->
+        c1.ID = c2.ID && t1.ID = t2.ID && f1.ID = f2.ID
+      | ExternalCall(e1, _), ExternalCall(e2, _) ->
+        e1.ID = e2.ID
+      | SideEffect(e1, _), SideEffect(e2, _) ->
+        e1 = e2
+      | _ ->
+        false
+    | _ ->
+      false
+#endif
+
+  static member internal AppendToString(stmt, sb: StringBuilder) =
     match stmt with
     | ISMark(len, _) ->
       sb.Append("(") |> ignore
@@ -200,54 +254,16 @@ with
     | SideEffect(eff, _) ->
       sb.Append("!!" + SideEffect.toString eff) |> ignore
 
-  static member ToString stmt =
+  override this.ToString() =
     let sb = StringBuilder()
-    Stmt.AppendToString(stmt, sb)
+    Stmt.AppendToString(this, sb)
     sb.ToString()
 
-  override this.GetHashCode() =
-    match this with
-    | ISMark(len, _) -> Stmt.HashISMark len
-    | IEMark(len, _) -> Stmt.HashIEMark len
-    | LMark(s, _) -> Stmt.HashLMark s
-    | Put(dst, src, _) -> Stmt.HashPut(dst, src)
-    | Store(n, addr, e, _) -> Stmt.HashStore(n, addr, e)
-    | Jmp(e, _) -> Stmt.HashJmp e
-    | CJmp(cond, t, f, _) -> Stmt.HashCJmp(cond, t, f)
-    | InterJmp(e, k, _) -> Stmt.HashInterJmp(e, k)
-    | InterCJmp(cond, t, f, _) -> Stmt.HashInterCJmp(cond, t, f)
-    | ExternalCall(e, _) -> Stmt.HashExtCall e
-    | SideEffect(e, _) -> Stmt.HashSideEffect e
+/// Provides utility functions for statements.
+[<RequireQualifiedAccess>]
+module Stmt =
 
-  override this.Equals rhs =
-    match rhs with
-    | :? Stmt as rhs ->
-      match this, rhs with
-      | ISMark(len1, _), ISMark(len2, _) -> len1 = len2
-      | IEMark(len1, _), IEMark(len2, _) -> len1 = len2
-      | LMark(lbl1, _), LMark(lbl2, _) -> lbl1 = lbl2
-      | Put(dst1, src1, null), Put(dst2, src2, null) ->
-        dst1 = dst2 && src1 = src2
-      | Put(dst1, src1, _), Put(dst2, src2, _) ->
-        dst1.ID = dst2.ID && src1.ID = src2.ID
-      | Store(n1, addr1, e1, null), Store(n2, addr2, e2, null) ->
-        n1 = n2 && addr1 = addr2 && e1 = e2
-      | Store(n1, addr1, e1, _), Store(n2, addr2, e2, _) ->
-        n1 = n2 && addr1 = addr2 && e1.ID = e2.ID
-      | Jmp(e1, null), Jmp(e2, null) -> e1 = e2
-      | Jmp(e1, _), Jmp(e2, _) -> e1.ID = e2.ID
-      | CJmp(c1, t1, f1, null), CJmp(c2, t2, f2, null) ->
-        c1 = c2 && t1 = t2 && f1 = f2
-      | CJmp(c1, t1, f1, _), CJmp(c2, t2, f2, _) ->
-        c1.ID = c2.ID && t1.ID = t2.ID && f1.ID = f2.ID
-      | InterJmp(e1, k1, null), InterJmp(e2, k2, null) -> e1 = e2 && k1 = k2
-      | InterJmp(e1, k1, _), InterJmp(e2, k2, _) -> e1.ID = e2.ID && k1 = k2
-      | InterCJmp(c1, t1, f1, null), InterCJmp(c2, t2, f2, null) ->
-        c1 = c2 && t1 = t2 && f1 = f2
-      | InterCJmp(c1, t1, f1, _), InterCJmp(c2, t2, f2, _) ->
-        c1.ID = c2.ID && t1.ID = t2.ID && f1.ID = f2.ID
-      | SideEffect(e1, _), SideEffect(e2, _) -> e1 = e2
-      | _ -> false
-    | _ -> false
-
-  override this.ToString() = Stmt.ToString this
+  /// Converts a statement to a string.
+  [<CompiledName "ToString">]
+  let toString (stmt: Stmt) =
+    stmt.ToString()

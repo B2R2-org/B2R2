@@ -261,7 +261,7 @@ type Parser(isa: ISA,
     |>> (fun name -> AST.label name 0 0UL |> AST.lmark)
 
   let updateExpectedType e =
-    updateUserState (fun _ -> Expr.TypeOf e)
+    updateUserState (fun _ -> Expr.typeOf e)
     >>. preturn e
 
   let pPut =

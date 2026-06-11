@@ -48,13 +48,13 @@ let rec private translateExpr (builder: LLVMIRBuilder) tempMap expr =
   | BinOp(op, typ, lhs, rhs, _) ->
     translateBinOp builder tempMap op typ lhs rhs
   | RelOp(op, lhs, rhs, _) ->
-    let etyp = Expr.TypeOf lhs
+    let etyp = Expr.typeOf lhs
     translateRelOp builder tempMap op etyp lhs rhs
   | Cast(kind, rt, e, _) ->
-    let etyp = Expr.TypeOf e
+    let etyp = Expr.typeOf e
     translateCast builder tempMap e kind etyp rt
   | Extract(e, len, pos, _) ->
-    let etyp = Expr.TypeOf e
+    let etyp = Expr.typeOf e
     let e = translateExpr builder tempMap e
     builder.EmitExtract(e, etyp, len, pos)
   | e -> printfn "%A" e; Terminator.futureFeature ()
@@ -62,7 +62,7 @@ let rec private translateExpr (builder: LLVMIRBuilder) tempMap expr =
 and private translateUnOp builder tempMap op exp =
   match op with
   | UnOpType.NOT ->
-    let etyp = Expr.TypeOf exp
+    let etyp = Expr.typeOf exp
     let exp = translateExpr builder tempMap exp
     builder.EmitUnOp("not", exp, etyp)
   | _ -> Terminator.futureFeature ()
@@ -213,14 +213,14 @@ let private translateStmts (builder: LLVMIRBuilder) addr succs (stmts: Stmt[]) =
       tempMap[n] <- r
     | Store(_, addr, v, _) ->
       let addr = translateExpr builder tempMap addr
-      let t = Expr.TypeOf v
+      let t = Expr.typeOf v
       let v = translateExpr builder tempMap v
       builder.EmitMemStore(addr, t, v)
     | InterJmp(target, _, _) ->
       let target = translateExpr builder tempMap target
       builder.EmitInterJmp(target, succs)
     | InterCJmp(c, t, f, _) ->
-      let typ = Expr.TypeOf t
+      let typ = Expr.typeOf t
       let c = translateExpr builder tempMap c
       let t = translateExpr builder tempMap t
       let f = translateExpr builder tempMap f

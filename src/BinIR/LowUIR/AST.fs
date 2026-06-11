@@ -54,21 +54,43 @@ let private stmts = ConcurrentDictionary<Stmt, WeakReference<Stmt>>()
 let private newEID () = Threading.Interlocked.Increment eTagCnt
 let private newSID () = Threading.Interlocked.Increment sTagCnt
 
-let inline private tryGetExpr (k: Expr) =
-  match exprs.TryGetValue k with
-  | true, e ->
-    match e.TryGetTarget() with
-    | true, e -> Ok e
-    | false, _ -> Error true
-  | _ -> Error false
+let inline private reviveExpr (wr: WeakReference<Expr>) e hc =
+  lock wr (fun () ->
+    match wr.TryGetTarget() with
+    | true, e -> e
+    | false, _ ->
+      (hc: HashConsingInfo).ID <- newEID ()
+      wr.SetTarget e
+      e)
 
-let inline private tryGetStmt (k: Stmt) =
-  match stmts.TryGetValue k with
-  | true, s ->
-    match s.TryGetTarget() with
-    | true, s -> Ok s
-    | false, _ -> Error true
-  | _ -> Error false
+let inline private reviveStmt (wr: WeakReference<Stmt>) s hc =
+  lock wr (fun () ->
+    match wr.TryGetTarget() with
+    | true, s -> s
+    | false, _ ->
+      (hc: HashConsingInfo).ID <- newSID ()
+      wr.SetTarget s
+      s)
+
+let inline private internExpr e (hc: HashConsingInfo) (hash: int) =
+  hc.Hash <- hash
+  let wr =
+    exprs.GetOrAdd(e, fun _ ->
+      hc.ID <- newEID ()
+      WeakReference<Expr> e)
+  match wr.TryGetTarget() with
+  | true, e -> e
+  | false, _ -> reviveExpr wr e hc
+
+let inline private internStmt s (hc: HashConsingInfo) (hash: int) =
+  hc.Hash <- hash
+  let wr =
+    stmts.GetOrAdd(s, fun _ ->
+      hc.ID <- newSID ()
+      WeakReference<Stmt> s)
+  match wr.TryGetTarget() with
+  | true, s -> s
+  | false, _ -> reviveStmt wr s hc
 #endif
 
 /// Construct a number (Num).
@@ -79,14 +101,7 @@ let num bv =
 #else
   let hc = HashConsingInfo()
   let e = Num(bv, hc)
-  match tryGetExpr e with
-  | Ok e -> e
-  | Error isReclaimed ->
-    hc.ID <- newEID ()
-    hc.Hash <- bv.GetHashCode()
-    if isReclaimed then exprs[e].SetTarget e
-    else exprs[e] <- WeakReference<Expr> e
-    e
+  internExpr e hc (bv.GetHashCode())
 #endif
 
 /// Construct a variable (Var).
@@ -97,14 +112,7 @@ let var t id name =
 #else
   let hc = HashConsingInfo()
   let e = Var(t, id, name, hc)
-  match tryGetExpr e with
-  | Ok e -> e
-  | Error isReclaimed ->
-    hc.ID <- newEID ()
-    hc.Hash <- Expr.HashVar t id
-    if isReclaimed then exprs[e].SetTarget e
-    else exprs[e] <- WeakReference<Expr> e
-    e
+  internExpr e hc (Expr.HashVar(t, id))
 #endif
 
 /// Construct a pc variable (PCVar).
@@ -115,14 +123,7 @@ let pcvar t name =
 #else
   let hc = HashConsingInfo()
   let e = PCVar(t, name, hc)
-  match tryGetExpr e with
-  | Ok e -> e
-  | Error isReclaimed ->
-    hc.ID <- newEID ()
-    hc.Hash <- Expr.HashPCVar t
-    if isReclaimed then exprs[e].SetTarget e
-    else exprs[e] <- WeakReference<Expr> e
-    e
+  internExpr e hc (Expr.HashPCVar t)
 #endif
 
 /// Construct a temporary variable (TempVar) with the given ID.
@@ -133,14 +134,7 @@ let tmpvar t id =
 #else
   let hc = HashConsingInfo()
   let e = TempVar(t, id, hc)
-  match tryGetExpr e with
-  | Ok e -> e
-  | Error isReclaimed ->
-    hc.ID <- newEID ()
-    hc.Hash <- Expr.HashTempVar t id
-    if isReclaimed then exprs[e].SetTarget e
-    else exprs[e] <- WeakReference<Expr> e
-    e
+  internExpr e hc (Expr.HashTempVar(t, id))
 #endif
 
 /// Construct a symbol (for a label) from a string and a IDCounter.
@@ -158,14 +152,7 @@ let unop op e =
   | _ ->
     let hc = HashConsingInfo()
     let e = UnOp(op, e, hc)
-    match tryGetExpr e with
-    | Ok e -> e
-    | Error isReclaimed ->
-      hc.ID <- newEID ()
-      hc.Hash <- Expr.HashUnOp op e true
-      if isReclaimed then exprs[e].SetTarget e
-      else exprs[e] <- WeakReference<Expr> e
-      e
+    internExpr e hc (Expr.HashUnOp(op, e))
 #endif
 
 /// Construct a jump target (JmpDest).
@@ -176,14 +163,7 @@ let jmpDest symb =
 #else
   let hc = HashConsingInfo()
   let e = JmpDest(symb, hc)
-  match tryGetExpr e with
-  | Ok e -> e
-  | Error isReclaimed ->
-    hc.ID <- newEID ()
-    hc.Hash <- Expr.HashJmpDest symb
-    if isReclaimed then exprs[e].SetTarget e
-    else exprs[e] <- WeakReference<Expr> e
-    e
+  internExpr e hc (Expr.HashJmpDest symb)
 #endif
 
 let private binopWithType op t e1 e2 =
@@ -196,14 +176,7 @@ let private binopWithType op t e1 e2 =
   | _ ->
     let hc = HashConsingInfo()
     let e = BinOp(op, t, e1, e2, hc)
-    match tryGetExpr e with
-    | Ok e -> e
-    | Error isReclaimed ->
-      hc.ID <- newEID ()
-      hc.Hash <- Expr.HashBinOp op t e1 e2 true
-      if isReclaimed then exprs[e].SetTarget e
-      else exprs[e] <- WeakReference<Expr> e
-      e
+    internExpr e hc (Expr.HashBinOp(op, t, e1, e2))
 #endif
 
 /// Construct a binary operator (BinOp).
@@ -216,7 +189,7 @@ let binop op e1 e2 =
 #if DEBUG
       TypeCheck.binop e1 e2
 #else
-      Expr.TypeOf e1
+      Expr.typeOf e1
 #endif
   binopWithType op t e1 e2
 
@@ -228,14 +201,7 @@ let exprList lst =
 #else
     let hc = HashConsingInfo()
     let e = ExprList(lst, hc)
-    match tryGetExpr e with
-    | Ok e -> e
-    | Error isReclaimed ->
-      hc.ID <- newEID ()
-      hc.Hash <- Expr.HashExprList lst true
-      if isReclaimed then exprs[e].SetTarget e
-      else exprs[e] <- WeakReference<Expr> e
-      e
+    internExpr e hc (Expr.HashExprList lst)
 #endif
 
 /// Function name.
@@ -246,14 +212,7 @@ let funcName name =
 #else
   let hc = HashConsingInfo()
   let e = FuncName(name, hc)
-  match tryGetExpr e with
-  | Ok e -> e
-  | Error isReclaimed ->
-    hc.ID <- newEID ()
-    hc.Hash <- Expr.HashFuncName name
-    if isReclaimed then exprs[e].SetTarget e
-    else exprs[e] <- WeakReference<Expr> e
-    e
+  internExpr e hc (Expr.HashFuncName name)
 #endif
 
 /// Construct a function application.
@@ -268,14 +227,7 @@ let app name args retType =
   |> fun cons ->
     let hc = HashConsingInfo()
     let e = BinOp(BinOpType.APP, retType, fnName, cons, hc)
-    match tryGetExpr e with
-    | Ok e -> e
-    | Error isReclaimed ->
-      hc.ID <- newEID ()
-      hc.Hash <- Expr.HashBinOp BinOpType.APP retType fnName cons true
-      if isReclaimed then exprs[e].SetTarget e
-      else exprs[e] <- WeakReference<Expr> e
-      e
+    internExpr e hc (Expr.HashBinOp(BinOpType.APP, retType, fnName, cons))
 #endif
 
 /// Construct a relative operator (RelOp).
@@ -293,14 +245,7 @@ let relop op e1 e2 =
   | _ ->
     let hc = HashConsingInfo()
     let e = RelOp(op, e1, e2, hc)
-    match tryGetExpr e with
-    | Ok e -> e
-    | Error isReclaimed ->
-      hc.ID <- newEID ()
-      hc.Hash <- Expr.HashRelOp op e1 e2 true
-      if isReclaimed then exprs[e].SetTarget e
-      else exprs[e] <- WeakReference<Expr> e
-      e
+    internExpr e hc (Expr.HashRelOp(op, e1, e2))
 #endif
 
 /// Construct a load expression (Load).
@@ -316,14 +261,7 @@ let load endian rt addr =
 #else
     let hc = HashConsingInfo()
     let e = Load(endian, rt, addr, hc)
-    match tryGetExpr e with
-    | Ok e -> e
-    | Error isReclaimed ->
-      hc.ID <- newEID ()
-      hc.Hash <- Expr.HashLoad endian rt addr true
-      if isReclaimed then exprs[e].SetTarget e
-      else exprs[e] <- WeakReference<Expr> e
-      e
+    internExpr e hc (Expr.HashLoad(endian, rt, addr))
 #endif
 
 /// Construct a load expression in little-endian.
@@ -339,7 +277,7 @@ let loadBE t expr = load Endian.Big t expr
 let ite cond e1 e2 =
 #if DEBUG
   TypeCheck.bool cond
-  TypeCheck.checkEquivalence (Expr.TypeOf e1) (Expr.TypeOf e2)
+  TypeCheck.checkEquivalence (Expr.typeOf e1) (Expr.typeOf e2)
 #endif
   match cond with
   | Num(n, _) -> if n.IsZero then e2 else e1
@@ -349,14 +287,7 @@ let ite cond e1 e2 =
 #else
     let hc = HashConsingInfo()
     let e = Ite(cond, e1, e2, hc)
-    match tryGetExpr e with
-    | Ok e -> e
-    | Error isReclaimed ->
-      hc.ID <- newEID ()
-      hc.Hash <- Expr.HashIte cond e1 e2 true
-      if isReclaimed then exprs[e].SetTarget e
-      else exprs[e] <- WeakReference<Expr> e
-      e
+    internExpr e hc (Expr.HashIte(cond, e1, e2))
 #endif
 
 /// Construct a cast expression (Cast).
@@ -371,14 +302,7 @@ let cast kind rt e =
 #else
       let hc = HashConsingInfo()
       let e = Cast(kind, rt, e, hc)
-      match tryGetExpr e with
-      | Ok e -> e
-      | Error isReclaimed ->
-        hc.ID <- newEID ()
-        hc.Hash <- Expr.HashCast kind rt e true
-        if isReclaimed then exprs[e].SetTarget e
-        else exprs[e] <- WeakReference<Expr> e
-        e
+      internExpr e hc (Expr.HashCast(kind, rt, e))
 #endif
     else e (* Remove unnecessary casting . *)
 
@@ -388,7 +312,7 @@ let cast kind rt e =
 /// </summary>
 [<CompiledName("Extract")>]
 let extract expr rt pos =
-  TypeCheck.extract rt pos (Expr.TypeOf expr)
+  TypeCheck.extract rt pos (Expr.typeOf expr)
   match expr with
   | Num(n, _) -> ValueOptimizer.extract n rt pos |> num
   | Extract(e, _, p, _) ->
@@ -398,14 +322,7 @@ let extract expr rt pos =
 #else
     let hc = HashConsingInfo()
     let e = Extract(e, rt, pos, hc)
-    match tryGetExpr e with
-    | Ok e -> e
-    | Error isReclaimed ->
-      hc.ID <- newEID ()
-      hc.Hash <- Expr.HashExtract e rt pos true
-      if isReclaimed then exprs[e].SetTarget e
-      else exprs[e] <- WeakReference<Expr> e
-      e
+    internExpr e hc (Expr.HashExtract(e, rt, pos))
 #endif
   | _ ->
 #if ! HASHCONS
@@ -413,14 +330,7 @@ let extract expr rt pos =
 #else
     let hc = HashConsingInfo()
     let e = Extract(expr, rt, pos, hc)
-    match tryGetExpr e with
-    | Ok e -> e
-    | Error isReclaimed ->
-      hc.ID <- newEID ()
-      hc.Hash <- Expr.HashExtract expr rt pos true
-      if isReclaimed then exprs[e].SetTarget e
-      else exprs[e] <- WeakReference<Expr> e
-      e
+    internExpr e hc (Expr.HashExtract(expr, rt, pos))
 #endif
 
 /// Undefined expression.
@@ -431,14 +341,7 @@ let undef rt s =
 #else
   let hc = HashConsingInfo()
   let e = Undefined(rt, s, hc)
-  match tryGetExpr e with
-  | Ok e -> e
-  | Error isReclaimed ->
-    hc.ID <- newEID ()
-    hc.Hash <- Expr.HashUndef rt s
-    if isReclaimed then exprs[e].SetTarget e
-    else exprs[e] <- WeakReference<Expr> e
-    e
+  internExpr e hc (Expr.HashUndef(rt, s))
 #endif
 
 /// Construct a (Num 0) of size t.
@@ -501,7 +404,7 @@ let xtlo addrSize expr = extract expr addrSize 0
 /// Take the high half bits of an expression.
 [<CompiledName("XtHi")>]
 let xthi addrSize expr =
-  extract expr addrSize (int (Expr.TypeOf expr - addrSize))
+  extract expr addrSize (int (Expr.typeOf expr - addrSize))
 
 /// Add two expressions.
 [<CompiledName("Add")>]
@@ -510,7 +413,7 @@ let add e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.ADD t e1 e2
@@ -526,7 +429,7 @@ let sub e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.SUB t e1 e2
 
@@ -537,7 +440,7 @@ let mul e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.MUL t e1 e2
@@ -553,7 +456,7 @@ let div e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.DIV t e1 e2
 
@@ -564,7 +467,7 @@ let sdiv e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.SDIV t e1 e2
 
@@ -575,7 +478,7 @@ let ``mod`` e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.MOD t e1 e2
 
@@ -586,7 +489,7 @@ let smod e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.SMOD t e1 e2
 
@@ -649,7 +552,7 @@ let ``and`` e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.AND t e1 e2
 
@@ -660,7 +563,7 @@ let ``or`` e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.OR t e2 e1
@@ -676,7 +579,7 @@ let xor e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.XOR t e2 e1
@@ -692,7 +595,7 @@ let sar e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.SAR t e1 e2
 
@@ -703,7 +606,7 @@ let shr e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.SHR t e1 e2
 
@@ -714,7 +617,7 @@ let shl e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.SHL t e1 e2
 
@@ -733,7 +636,7 @@ let fadd e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.FADD t e1 e2
@@ -749,7 +652,7 @@ let fsub e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.FSUB t e1 e2
 
@@ -760,7 +663,7 @@ let fmul e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
 #if ! HASHCONS
   binopWithType BinOpType.FMUL t e1 e2
@@ -776,7 +679,7 @@ let fdiv e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.FDIV t e1 e2
 
@@ -807,7 +710,7 @@ let fpow e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.FPOW t e1 e2
 
@@ -818,7 +721,7 @@ let flog e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2
 #else
-    Expr.TypeOf e1
+    Expr.typeOf e1
 #endif
   binopWithType BinOpType.FLOG t e1 e2
 
@@ -850,14 +753,7 @@ let ismark nBytes =
 #else
   let hc = HashConsingInfo()
   let s = ISMark(nBytes, hc)
-  match tryGetStmt s with
-  | Ok s -> s
-  | Error isReclaimed ->
-    hc.ID <- newSID ()
-    hc.Hash <- Stmt.HashISMark nBytes
-    if isReclaimed then stmts[s].SetTarget s
-    else stmts[s] <- WeakReference<Stmt> s
-    s
+  internStmt s hc (Stmt.HashISMark nBytes)
 #endif
 
 /// An IEMark statement.
@@ -868,14 +764,7 @@ let iemark nBytes =
 #else
   let hc = HashConsingInfo()
   let s = IEMark(nBytes, hc)
-  match tryGetStmt s with
-  | Ok s -> s
-  | Error isReclaimed ->
-    hc.ID <- newSID ()
-    hc.Hash <- Stmt.HashIEMark nBytes
-    if isReclaimed then stmts[s].SetTarget s
-    else stmts[s] <- WeakReference<Stmt> s
-    s
+  internStmt s hc (Stmt.HashIEMark nBytes)
 #endif
 
 /// An LMark statement.
@@ -886,14 +775,7 @@ let lmark label =
 #else
   let hc = HashConsingInfo()
   let s = LMark(label, hc)
-  match tryGetStmt s with
-  | Ok s -> s
-  | Error isReclaimed ->
-    hc.ID <- newSID ()
-    hc.Hash <- Stmt.HashLMark label
-    if isReclaimed then stmts[s].SetTarget s
-    else stmts[s] <- WeakReference<Stmt> s
-    s
+  internStmt s hc (Stmt.HashLMark label)
 #endif
 
 /// A Put statement.
@@ -904,14 +786,7 @@ let put dst src =
 #else
   let hc = HashConsingInfo()
   let s = Put(dst, src, hc)
-  match tryGetStmt s with
-  | Ok s -> s
-  | Error isReclaimed ->
-    hc.ID <- newSID ()
-    hc.Hash <- Stmt.HashPut dst src
-    if isReclaimed then stmts[s].SetTarget s
-    else stmts[s] <- WeakReference<Stmt> s
-    s
+  internStmt s hc (Stmt.HashPut(dst, src))
 #endif
 
 let private assignForExtractDst e1 e2 =
@@ -942,21 +817,14 @@ let store endian addr v =
 #else
   let hc = HashConsingInfo()
   let s = Store(endian, addr, v, hc)
-  match tryGetStmt s with
-  | Ok s -> s
-  | Error isReclaimed ->
-    hc.ID <- newSID ()
-    hc.Hash <- Stmt.HashStore endian addr v
-    if isReclaimed then stmts[s].SetTarget s
-    else stmts[s] <- WeakReference<Stmt> s
-    s
+  internStmt s hc (Stmt.HashStore(endian, addr, v))
 #endif
 
 /// An assignment statement.
 [<CompiledName("Assign")>]
 let assign dst src =
 #if DEBUG
-  TypeCheck.checkEquivalence (Expr.TypeOf dst) (Expr.TypeOf src)
+  TypeCheck.checkEquivalence (Expr.typeOf dst) (Expr.typeOf src)
 #endif
   match dst with
   | Var _ | TempVar _ | PCVar _ -> put dst src
@@ -972,14 +840,7 @@ let jmp target =
 #else
   let hc = HashConsingInfo()
   let s = Jmp(target, hc)
-  match tryGetStmt s with
-  | Ok s -> s
-  | Error isReclaimed ->
-    hc.ID <- newSID ()
-    hc.Hash <- Stmt.HashJmp target
-    if isReclaimed then stmts[s].SetTarget s
-    else stmts[s] <- WeakReference<Stmt> s
-    s
+  internStmt s hc (Stmt.HashJmp target)
 #endif
 
 /// A CJmp statement.
@@ -990,14 +851,7 @@ let cjmp cond dst1 dst2 =
 #else
   let hc = HashConsingInfo()
   let s = CJmp(cond, dst1, dst2, hc)
-  match tryGetStmt s with
-  | Ok s -> s
-  | Error isReclaimed ->
-    hc.ID <- newSID ()
-    hc.Hash <- Stmt.HashCJmp cond dst1 dst2
-    if isReclaimed then stmts[s].SetTarget s
-    else stmts[s] <- WeakReference<Stmt> s
-    s
+  internStmt s hc (Stmt.HashCJmp(cond, dst1, dst2))
 #endif
 
 /// An InterJmp statement.
@@ -1008,14 +862,7 @@ let interjmp dst kind =
 #else
   let hc = HashConsingInfo()
   let s = InterJmp(dst, kind, hc)
-  match tryGetStmt s with
-  | Ok s -> s
-  | Error isReclaimed ->
-    hc.ID <- newSID ()
-    hc.Hash <- Stmt.HashInterJmp dst kind
-    if isReclaimed then stmts[s].SetTarget s
-    else stmts[s] <- WeakReference<Stmt> s
-    s
+  internStmt s hc (Stmt.HashInterJmp(dst, kind))
 #endif
 
 /// A InterCJmp statement.
@@ -1026,14 +873,7 @@ let intercjmp cond d1 d2 =
 #else
   let hc = HashConsingInfo()
   let s = InterCJmp(cond, d1, d2, hc)
-  match tryGetStmt s with
-  | Ok s -> s
-  | Error isReclaimed ->
-    hc.ID <- newSID ()
-    hc.Hash <- Stmt.HashInterCJmp cond d1 d2
-    if isReclaimed then stmts[s].SetTarget s
-    else stmts[s] <- WeakReference<Stmt> s
-    s
+  internStmt s hc (Stmt.HashInterCJmp(cond, d1, d2))
 #endif
 
 /// External call.
@@ -1044,14 +884,7 @@ let extCall appExpr =
 #else
   let hc = HashConsingInfo()
   let s = ExternalCall(appExpr, hc)
-  match tryGetStmt s with
-  | Ok s -> s
-  | Error isReclaimed ->
-    hc.ID <- newSID ()
-    hc.Hash <- Stmt.HashExtCall appExpr
-    if isReclaimed then stmts[s].SetTarget s
-    else stmts[s] <- WeakReference<Stmt> s
-    s
+  internStmt s hc (Stmt.HashExtCall appExpr)
 #endif
 
 /// A SideEffect statement.
@@ -1062,14 +895,7 @@ let sideEffect eff =
 #else
   let hc = HashConsingInfo()
   let s = SideEffect(eff, hc)
-  match tryGetStmt s with
-  | Ok s -> s
-  | Error isReclaimed ->
-    hc.ID <- newSID ()
-    hc.Hash <- Stmt.HashSideEffect eff
-    if isReclaimed then stmts[s].SetTarget s
-    else stmts[s] <- WeakReference<Stmt> s
-    s
+  internStmt s hc (Stmt.HashSideEffect eff)
 #endif
 
 /// Record the use of vars and tempvars from the given expression.

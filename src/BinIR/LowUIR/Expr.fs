@@ -42,7 +42,9 @@ open B2R2.BinIR
 /// directly construct Expr nor Stmt unless you know what you are doing.
 /// </remarks>
 /// </summary>
+#if HASHCONS
 [<CustomComparison; CustomEquality>]
+#endif
 type Expr =
   /// A number. For example, (0x42:I32) is a 32-bit number 0x42
   | Num of BitVector * HashConsingInfo
@@ -105,9 +107,9 @@ type Expr =
   /// operation. We model such cases with this expression.
   | Undefined of RegType * string * HashConsingInfo
 with
+#if HASHCONS
   /// <summary>
-  /// Retrives the unique ID of the expression. If hash consing is not used,
-  /// this will raise an exception.
+  /// Retrieves the unique ID of the hash-consed expression.
   /// </summary>
   member inline this.ID with get() =
     match this with
@@ -128,8 +130,7 @@ with
     | Undefined(_, _, hc) -> hc.ID
 
   /// <summary>
-  /// Retrives the hash value of the expression. If hash consing is not used,
-  /// this will raise an exception.
+  /// Retrieves the cached hash value of the hash-consed expression.
   /// </summary>
   member inline this.Hash with get() =
     match this with
@@ -152,57 +153,116 @@ with
   static member inline HashVar(rt: RegType, rid: RegisterID) =
     19 * (19 * int rt + int rid) + 1
 
-  static member inline HashPCVar(rt: RegType) = 19 * int rt + 2
+  static member inline HashPCVar(rt: RegType) =
+    19 * int rt + 2
 
-  static member inline HashTempVar(rt: RegType, n) = 19 * (19 * int rt + n) + 3
+  static member inline HashTempVar(rt: RegType, n) =
+    19 * (19 * int rt + n) + 3
 
-  static member inline HashExprList(exprs: Expr list, hasCache) =
+  static member inline HashExprList(exprs: Expr list) =
     exprs
     |> List.fold (fun acc expr ->
-      let hash = if hasCache then expr.Hash else expr.GetHashCode()
-      19 * acc + hash) 0
+      19 * acc + expr.Hash) 0
 
-  static member inline HashUnOp(op: UnOpType, e: Expr, hasCache) =
-    if hasCache then 19 * (19 * int op + e.Hash) + 4
-    else 19 * (19 * int op + e.GetHashCode()) + 4
+  static member inline HashUnOp(op: UnOpType, e: Expr) =
+    19 * (19 * int op + e.Hash) + 4
 
   static member inline HashJmpDest(lbl: Label) =
     19 * (19 * lbl.GetHashCode()) + 5
 
-  static member inline HashFuncName(s: string) = (19 * s.GetHashCode()) + 6
+  static member inline HashFuncName(s: string) =
+    (19 * s.GetHashCode()) + 6
 
-  static member inline HashBinOp(op, rt, e1: Expr, e2: Expr, hasCache) =
-    if hasCache then
-      19 * (19 * (19 * (19 * int op + int rt) + e1.Hash) + e2.Hash) + 7
-    else
-      19 * (19 * (19 * (19 * int op + int rt) + e1.GetHashCode())
-            + e2.GetHashCode()) + 7
+  static member inline HashBinOp(op, rt, e1: Expr, e2: Expr) =
+    19 * (19 * (19 * (19 * int op + int rt) + e1.Hash) + e2.Hash) + 7
 
-  static member inline HashRelOp(op, e1: Expr, e2: Expr, hasCache) =
-    if hasCache then 19 * (19 * (19 * int op + e1.Hash) + e2.Hash) + 8
-    else 19 * (19 * (19 * int op + e1.GetHashCode()) + e2.GetHashCode()) + 8
+  static member inline HashRelOp(op, e1: Expr, e2: Expr) =
+    19 * (19 * (19 * int op + e1.Hash) + e2.Hash) + 8
 
-  static member inline HashLoad(endian, rt: RegType, e: Expr, hasCache) =
-    if hasCache then 19 * (19 * (19 * int endian + int rt) + e.Hash) + 9
-    else 19 * (19 * (19 * int endian + int rt) + e.GetHashCode()) + 9
+  static member inline HashLoad(endian, rt: RegType, e: Expr) =
+    19 * (19 * (19 * int endian + int rt) + e.Hash) + 9
 
-  static member inline HashIte(cond: Expr, t: Expr, f: Expr, hasCache) =
-    if hasCache then
-      19 * (19 * (19 * cond.Hash + t.Hash) + f.Hash) + 10
-    else
-      19 * (19 * (19 * cond.GetHashCode() + t.GetHashCode())
-            + f.GetHashCode()) + 10
+  static member inline HashIte(cond: Expr, t: Expr, f: Expr) =
+    19 * (19 * (19 * cond.Hash + t.Hash) + f.Hash) + 10
 
-  static member inline HashCast(kind, rt: RegType, e: Expr, hasCache) =
-    if hasCache then 19 * (19 * (19 * int kind + int rt) + e.Hash) + 11
-    else 19 * (19 * (19 * int kind + int rt) + e.GetHashCode()) + 11
+  static member inline HashCast(kind, rt: RegType, e: Expr) =
+    19 * (19 * (19 * int kind + int rt) + e.Hash) + 11
 
-  static member inline HashExtract(e: Expr, rt: RegType, pos, hasCache) =
-    if hasCache then 19 * (19 * (19 * e.Hash + int rt) + pos) + 12
-    else 19 * (19 * (19 * e.GetHashCode() + int rt) + pos) + 12
+  static member inline HashExtract(e: Expr, rt: RegType, pos) =
+    19 * (19 * (19 * e.Hash + int rt) + pos) + 12
 
   static member inline HashUndef(rt: RegType, s: string) =
     19 * (19 * int rt + s.GetHashCode()) + 13
+
+  static member private ExprListEquals(lhs: Expr list, rhs: Expr list) =
+    match lhs, rhs with
+    | [], [] -> true
+    | e1 :: lhs, e2 :: rhs -> e1.ID = e2.ID && Expr.ExprListEquals(lhs, rhs)
+    | _ -> false
+
+  interface System.IComparable with
+    member this.CompareTo rhs =
+      match rhs with
+      | :? Expr as rhs -> this.ID.CompareTo rhs.ID
+      | _ -> Terminator.impossible ()
+
+  override this.GetHashCode() =
+    match this with
+    | Num(n, _) -> n.GetHashCode()
+    | Var(rt, rid, _, _) -> Expr.HashVar(rt, rid)
+    | PCVar(rt, _, _) -> Expr.HashPCVar rt
+    | TempVar(rt, n, _) -> Expr.HashTempVar(rt, n)
+    | ExprList(exprs, _) -> Expr.HashExprList exprs
+    | UnOp(op, e, _) -> Expr.HashUnOp(op, e)
+    | JmpDest(s, _) -> Expr.HashJmpDest s
+    | FuncName(s, _) -> Expr.HashFuncName s
+    | BinOp(op, rt, e1, e2, _) -> Expr.HashBinOp(op, rt, e1, e2)
+    | RelOp(op, e1, e2, _) -> Expr.HashRelOp(op, e1, e2)
+    | Load(endian, rt, e, _) -> Expr.HashLoad(endian, rt, e)
+    | Ite(cond, t, f, _) -> Expr.HashIte(cond, t, f)
+    | Cast(k, rt, e, _) -> Expr.HashCast(k, rt, e)
+    | Extract(e, rt, pos, _) -> Expr.HashExtract(e, rt, pos)
+    | Undefined(rt, s, _) -> Expr.HashUndef(rt, s)
+
+  override this.Equals rhs =
+    match rhs with
+    | :? Expr as rhs ->
+      match this, rhs with
+      | Num(n1, _), Num(n2, _) ->
+        n1 = n2
+      | Var(t1, r1, _, _), Var(t2, r2, _, _) ->
+        t1 = t2 && r1 = r2
+      | PCVar(t1, _, _), PCVar(t2, _, _) ->
+        t1 = t2
+      | TempVar(t1, n1, _), TempVar(t2, n2, _) ->
+        t1 = t2 && n1 = n2
+      | ExprList(lhs, _), ExprList(rhs, _) ->
+        Expr.ExprListEquals(lhs, rhs)
+      | UnOp(t1, e1, _), UnOp(t2, e2, _) ->
+        t1 = t2 && e1 === e2
+      | JmpDest(s1, _), JmpDest(s2, _) ->
+        s1 = s2
+      | FuncName(n1, _), FuncName(n2, _) ->
+        n1 = n2
+      | BinOp(o1, t1, lhs1, rhs1, _), BinOp(o2, t2, lhs2, rhs2, _) ->
+        o1 = o2 && t1 = t2 && lhs1 === lhs2 && rhs1 === rhs2
+      | RelOp(o1, lhs1, rhs1, _), RelOp(o2, lhs2, rhs2, _) ->
+        o1 = o2 && lhs1 === lhs2 && rhs1 === rhs2
+      | Load(n1, t1, e1, _), Load(n2, t2, e2, _) ->
+        n1 = n2 && t1 = t2 && e1 === e2
+      | Ite(c1, t1, f1, _), Ite(c2, t2, f2, _) ->
+        c1 === c2 && t1 === t2 && f1 === f2
+      | Cast(k1, t1, e1, _), Cast(k2, t2, e2, _) ->
+        k1 = k2 && t1 = t2 && e1 === e2
+      | Extract(e1, t1, p1, _), Extract(e2, t2, p2, _) ->
+        e1 === e2 && t1 = t2 && p1 = p2
+      | Undefined(t1, s1, _), Undefined(t2, s2, _) ->
+        t1 = t2 && s1 = s2
+      | _ ->
+        false
+    | _ ->
+      false
+#endif
 
   static member internal AppendToString(expr, sb: StringBuilder) =
     match expr with
@@ -295,101 +355,33 @@ with
       sb.Append(reason) |> ignore
       sb.Append ")" |> ignore
 
-  static member ToString expr =
+  override this.ToString() =
     let sb = StringBuilder()
-    Expr.AppendToString(expr, sb)
+    Expr.AppendToString(this, sb)
     sb.ToString()
 
+/// Provides utility functions for expressions.
+[<RequireQualifiedAccess>]
+module Expr =
+  /// Converts an expression to a string.
+  [<CompiledName "ToString">]
+  let toString (expr: Expr) =
+    expr.ToString()
+
   /// Gets the type of an expression.
-  static member TypeOf expr =
+  [<CompiledName "TypeOf">]
+  let rec typeOf expr =
     match expr with
     | Num(n, _) -> n.Length
     | Var(t, _, _, _)
     | PCVar(t, _, _)
     | TempVar(t, _, _) -> t
-    | UnOp(_, e, _) -> Expr.TypeOf e
+    | UnOp(_, e, _) -> typeOf e
     | BinOp(_, t, _, _, _) -> t
     | RelOp _ -> 1<rt>
     | Load(_, t, _, _) -> t
-    | Ite(_, e1, _, _) -> Expr.TypeOf e1
+    | Ite(_, e1, _, _) -> typeOf e1
     | Cast(_, t, _, _) -> t
     | Extract(_, t, _, _) -> t
     | Undefined(t, _, _) -> t
     | FuncName _ | JmpDest _ | ExprList _ -> raise InvalidExprException
-
-  interface System.IComparable with
-    member this.CompareTo rhs =
-      match rhs with
-      | :? Expr as rhs -> this.ID.CompareTo rhs.ID
-      | _ -> Terminator.impossible ()
-
-  override this.GetHashCode() =
-    match this with
-    | Num(n, _) -> n.GetHashCode()
-    | Var(rt, rid, _, _) -> Expr.HashVar(rt, rid)
-    | PCVar(rt, _, _) -> Expr.HashPCVar rt
-    | TempVar(rt, n, _) -> Expr.HashTempVar(rt, n)
-    | ExprList(exprs, null) -> Expr.HashExprList(exprs, false)
-    | ExprList(exprs, _) -> Expr.HashExprList(exprs, true)
-    | UnOp(op, e, null) -> Expr.HashUnOp(op, e, false)
-    | UnOp(op, e, _) -> Expr.HashUnOp(op, e, true)
-    | JmpDest(s, _) -> Expr.HashJmpDest s
-    | FuncName(s, _) -> Expr.HashFuncName s
-    | BinOp(op, rt, e1, e2, null) -> Expr.HashBinOp(op, rt, e1, e2, false)
-    | BinOp(op, rt, e1, e2, _) -> Expr.HashBinOp(op, rt, e1, e2, true)
-    | RelOp(op, e1, e2, null) -> Expr.HashRelOp(op, e1, e2, false)
-    | RelOp(op, e1, e2, _) -> Expr.HashRelOp(op, e1, e2, true)
-    | Load(endian, rt, e, null) -> Expr.HashLoad(endian, rt, e, false)
-    | Load(endian, rt, e, _) -> Expr.HashLoad(endian, rt, e, true)
-    | Ite(cond, t, f, null) -> Expr.HashIte(cond, t, f, false)
-    | Ite(cond, t, f, _) -> Expr.HashIte(cond, t, f, true)
-    | Cast(k, rt, e, null) -> Expr.HashCast(k, rt, e, false)
-    | Cast(k, rt, e, _) -> Expr.HashCast(k, rt, e, true)
-    | Extract(e, rt, pos, null) -> Expr.HashExtract(e, rt, pos, false)
-    | Extract(e, rt, pos, _) -> Expr.HashExtract(e, rt, pos, true)
-    | Undefined(rt, s, _) -> Expr.HashUndef(rt, s)
-
-  override this.Equals rhs =
-    match rhs with
-    | :? Expr as rhs ->
-      match this, rhs with
-      | Num(n1, _), Num(n2, _) -> n1 = n2
-      | Var(t1, r1, _, _), Var(t2, r2, _, _) -> t1 = t2 && r1 = r2
-      | PCVar(t1, _, _), PCVar(t2, _, _) -> t1 = t2
-      | TempVar(t1, n1, _), TempVar(t2, n2, _) -> t1 = t2 && n1 = n2
-      | ExprList(lhs, null), ExprList(rhs, null) ->
-        List.forall2 (fun e1 e2 -> e1.Equals e2) lhs rhs
-      | ExprList(lhs, _), ExprList(rhs, _) -> lhs === rhs
-      | UnOp(t1, e1, null), UnOp(t2, e2, null) -> t1 = t2 && e1.Equals e2
-      | UnOp(t1, e1, _), UnOp(t2, e2, _) -> t1 = t2 && e1 === e2
-      | JmpDest(s1, _), JmpDest(s2, _) -> s1 = s2
-      | FuncName(n1, _), FuncName(n2, _) -> n1 = n2
-      | BinOp(o1, t1, lhs1, rhs1, null), BinOp(o2, t2, lhs2, rhs2, null) ->
-        o1 = o2 && t1 = t2 && lhs1.Equals lhs2 && rhs1.Equals rhs2
-      | BinOp(o1, t1, lhs1, rhs1, _), BinOp(o2, t2, lhs2, rhs2, _) ->
-        o1 = o2 && t1 = t2 && lhs1 === lhs2 && rhs1 === rhs2
-      | RelOp(o1, lhs1, rhs1, null), RelOp(o2, lhs2, rhs2, null) ->
-        o1 = o2 && lhs1.Equals lhs2 && rhs1.Equals rhs2
-      | RelOp(o1, lhs1, rhs1, _), RelOp(o2, lhs2, rhs2, _) ->
-        o1 = o2 && lhs1 === lhs2 && rhs1 === rhs2
-      | Load(n1, t1, e1, null), Load(n2, t2, e2, null) ->
-        n1 = n2 && t1 = t2 && e1.Equals e2
-      | Load(n1, t1, e1, _), Load(n2, t2, e2, _) ->
-        n1 = n2 && t1 = t2 && e1 === e2
-      | Ite(c1, t1, f1, null), Ite(c2, t2, f2, null) ->
-        c1.Equals c2 && t1.Equals t2 && f1.Equals f2
-      | Ite(c1, t1, f1, _), Ite(c2, t2, f2, _) ->
-        c1 === c2 && t1 === t2 && f1 === f2
-      | Cast(k1, t1, e1, null), Cast(k2, t2, e2, null) ->
-        k1 = k2 && t1 = t2 && e1.Equals e2
-      | Cast(k1, t1, e1, _), Cast(k2, t2, e2, _) ->
-        k1 = k2 && t1 = t2 && e1 === e2
-      | Extract(e1, t1, p1, null), Extract(e2, t2, p2, null) ->
-        e1.Equals e2 && t1 = t2 && p1 = p2
-      | Extract(e1, t1, p1, _), Extract(e2, t2, p2, _) ->
-        e1 === e2 && t1 = t2 && p1 = p2
-      | Undefined(t1, s1, _), Undefined(t2, s2, _) -> t1 = t2 && s1 = s2
-      | _ -> false
-    | _ -> false
-
-  override this.ToString() = Expr.ToString this

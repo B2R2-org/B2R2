@@ -259,7 +259,7 @@ type State<'L, 'ExeCtx when 'L: equality
     | ExprList(l, _) -> List.map (computeSSAExpr pp exeCtx) l |> SSA.ExprList
     | UnOp(op, e, _) ->
       let sexpr = computeSSAExpr pp exeCtx e
-      let rt = Expr.TypeOf e
+      let rt = Expr.typeOf e
       SSA.UnOp(op, rt, sexpr)
     | BinOp(op, rt, e1, e2, _) ->
       let sexpr1 = computeSSAExpr pp exeCtx e1
@@ -268,21 +268,21 @@ type State<'L, 'ExeCtx when 'L: equality
     | RelOp(op, e1, e2, _) ->
       let sexpr1 = computeSSAExpr pp exeCtx e1
       let sexpr2 = computeSSAExpr pp exeCtx e2
-      let rt = Expr.TypeOf e1
+      let rt = Expr.typeOf e1
       SSA.RelOp(op, rt, sexpr1, sexpr2)
     | Extract(e, _, pos, _) ->
       let sexpr = computeSSAExpr pp exeCtx e
-      let rt = Expr.TypeOf e
+      let rt = Expr.typeOf e
       SSA.Extract(sexpr, rt, pos)
     | Cast(op, _, e, _) ->
       let sexpr = computeSSAExpr pp exeCtx e
-      let rt = Expr.TypeOf e
+      let rt = Expr.typeOf e
       SSA.Cast(op, rt, sexpr)
     | Ite(e1, e2, e3, _) ->
       let sexpr1 = computeSSAExpr pp exeCtx e1
       let sexpr2 = computeSSAExpr pp exeCtx e2
       let sexpr3 = computeSSAExpr pp exeCtx e3
-      let rt = Expr.TypeOf e2
+      let rt = Expr.typeOf e2
       SSA.Ite(sexpr1, rt, sexpr2, sexpr3)
     | Load(_, rt, e, _) ->
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
@@ -328,7 +328,7 @@ type State<'L, 'ExeCtx when 'L: equality
         let srcExpr = computeSSAExpr pp exeCtx srcExpr
         SSA.Def(var, srcExpr)
       | _ ->
-        let rt = Expr.TypeOf srcExpr
+        let rt = Expr.typeOf srcExpr
         let dstExpr = computeSSAExpr pp exeCtx dstExpr
         let srcExpr = computeSSAExpr pp exeCtx srcExpr
         let fakeInMemoryVar = { SSA.Kind = SSA.MemVar; SSA.Identifier = -1 }

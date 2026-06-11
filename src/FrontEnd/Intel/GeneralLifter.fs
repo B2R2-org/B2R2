@@ -1041,7 +1041,7 @@ let convWDQ ins insLen bld =
   bld --!> insLen
 
 let private bitReflect bld src =
-  let oprSize = Expr.TypeOf src
+  let oprSize = Expr.typeOf src
   let struct (res, tmp) = tmpVars2 bld oprSize
   bld <+ (res := AST.num0 oprSize)
   bld <+ (tmp := src)
@@ -1071,7 +1071,7 @@ let crc32 (ins: Instruction) insLen bld =
   let struct (dst, src) = transTwoOprs bld true ins insLen
   let divisor = tmpVar bld 64<rt>
   bld <+ (divisor := numI64 0x11EDC6F41L 64<rt>)
-  let srcSz = Expr.TypeOf src
+  let srcSz = Expr.typeOf src
   match srcSz with
   | 32<rt> | 16<rt> | 8<rt> ->
     let struct (t1, t2, t3) = tmpVars3 bld 64<rt>
@@ -1403,7 +1403,7 @@ let private checkQuotientIDIV oprSize sz lblAssign lblErr q =
 
 let divideWithConcat opcode oprSize divisor lblAssign lblErr bld =
   let dividend = getDividend bld oprSize
-  let sz = Expr.TypeOf dividend
+  let sz = Expr.typeOf dividend
   let quotient = tmpVar bld sz
   let remainder = tmpVar bld sz
   match opcode with

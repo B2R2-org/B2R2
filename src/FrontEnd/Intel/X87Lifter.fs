@@ -133,11 +133,11 @@ let private popFPUStack bld =
 
 let inline private getLoadAddressExpr (src: Expr) =
   match src with
-  | Load(_, _, addr, _) -> struct (addr, Expr.TypeOf addr)
+  | Load(_, _, addr, _) -> struct (addr, Expr.typeOf addr)
   | _ -> Terminator.impossible ()
 
 let private castTo80Bit bld tmpB tmpA srcExpr =
-  let oprSize = Expr.TypeOf srcExpr
+  let oprSize = Expr.typeOf srcExpr
   let zero = AST.num0 oprSize
   match oprSize with
   | 32<rt> ->
@@ -193,7 +193,7 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
   | 80<rt> ->
     match srcExpr with
     | Load(_, _, addrExpr, _) ->
-      let addrSize = Expr.TypeOf addrExpr
+      let addrSize = Expr.typeOf addrExpr
       bld <+ (tmpB := AST.loadLE 16<rt> (addrExpr .+ numI32 8 addrSize))
       bld <+ (tmpA := AST.loadLE 64<rt> addrExpr)
     | BinOp(_, _, Var(_, r, _, _), Var _, _) ->
@@ -298,7 +298,7 @@ let ffst (ins: Instruction) insLen bld doPop =
     bld <+ (dstA := st0a)
   | OneOperand(opr) ->
     let oprExpr = transOprToExpr bld false ins insLen opr
-    let oprSize = Expr.TypeOf oprExpr
+    let oprSize = Expr.typeOf oprExpr
     castFrom80Bit oprExpr oprSize st0b st0a bld
   | _ -> raise InvalidOperandException
   if doPop then popFPUStack bld else ()
@@ -320,7 +320,7 @@ let fild (ins: Instruction) insLen bld =
 let fist (ins: Instruction) insLen bld doPop =
   bld <!-- (ins.Address, insLen)
   let oprExpr = transOneOpr bld ins insLen
-  let oprSize = Expr.TypeOf oprExpr
+  let oprSize = Expr.typeOf oprExpr
   let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
   let tmp0 = tmpVar bld oprSize
   let rcField = tmpVar bld 8<rt> (* Rounding Control *)
@@ -345,7 +345,7 @@ let fist (ins: Instruction) insLen bld doPop =
 let fisttp (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprExpr = transOneOpr bld ins insLen
-  let oprSize = Expr.TypeOf oprExpr
+  let oprSize = Expr.typeOf oprExpr
   let tmp1 = tmpVar bld 64<rt>
   let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
   castFrom80Bit tmp1 64<rt> st0b st0a bld
@@ -588,7 +588,7 @@ let private fpuFBinOp (ins: Instruction) insLen bld binOp doPop leftToRight =
     castTo80Bit bld st1b st1a res
   | OneOperand _ ->
     let oprExpr = transOneOpr bld ins insLen
-    let oprSize = Expr.TypeOf oprExpr
+    let oprSize = Expr.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (tmp0, tmp1) = tmpVars2 bld 64<rt>
     let res = tmpVar bld 64<rt>
@@ -670,7 +670,7 @@ let fdivr (ins: Instruction) insLen bld doPop =
     castTo80Bit bld st1b st1a res
   | OneOperand _ ->
     let oprExpr = transOneOpr bld ins insLen
-    let oprSize = Expr.TypeOf oprExpr
+    let oprSize = Expr.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     bld <+ (AST.cjmp (isZero st0b st0a)
                      (AST.jmpDest lblErr) (AST.jmpDest lblChk))
@@ -1361,7 +1361,7 @@ let fnstenv (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let dst = transOneOpr bld ins insLen
   let struct (addrExpr, addrSize) = getLoadAddressExpr dst
-  match Expr.TypeOf dst with
+  match Expr.typeOf dst with
   | 112<rt> -> m14fstenv addrExpr addrSize bld
   | 224<rt> -> m28fstenv addrExpr addrSize bld
   | _ -> raise InvalidOperandSizeException
@@ -1389,7 +1389,7 @@ let fldenv (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let src = transOneOpr bld ins insLen
   let struct (addrExpr, addrSize) = getLoadAddressExpr src
-  match Expr.TypeOf src with
+  match Expr.typeOf src with
   | 112<rt> -> m14fldenv addrExpr addrSize bld
   | 224<rt> -> m28fldenv addrExpr addrSize bld
   | _ -> raise InvalidOperandSizeException
@@ -1425,7 +1425,7 @@ let fnsave (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let dst = transOneOpr bld ins insLen
   let struct (addrExpr, addrSize) = getLoadAddressExpr dst
-  match Expr.TypeOf dst with
+  match Expr.typeOf dst with
   | 752<rt> ->
     m14fstenv addrExpr addrSize bld
     stSts addrExpr addrSize 14 bld
@@ -1471,7 +1471,7 @@ let frstor (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let src = transOneOpr bld ins insLen
   let struct (addrExpr, addrSize) = getLoadAddressExpr src
-  match Expr.TypeOf src with
+  match Expr.typeOf src with
   | 752<rt> ->
     m14fldenv addrExpr addrSize bld
     ldSts addrExpr addrSize 14 bld
