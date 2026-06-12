@@ -22,8 +22,17 @@
   SOFTWARE.
 *)
 
-/// B2R2 project attribution.
-module B2R2.Attribution
+/// Provides B2R2 project metadata.
+module B2R2.Meta
 
-/// Copyright by SoftSec Lab. @ KAIST.
+open System.Reflection
+
+/// Holds the copyright notice of the B2R2 project.
 let [<Literal>] Copyright = "Copyright (c) SoftSec Lab. @ KAIST, since 2016"
+
+/// Returns the version string of the B2R2 assembly.
+[<CompiledName "GetVersion">]
+let getVersion () =
+  let asm = Assembly.GetEntryAssembly()
+  let attr = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+  attr.InformationalVersion.ToString()

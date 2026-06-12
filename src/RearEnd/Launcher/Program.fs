@@ -109,9 +109,7 @@ B2R2, please visit our official website: https://b2r2.org/."""
 """
 
 let printMyVersion () =
-  let asm = Assembly.GetEntryAssembly()
-  let attr = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-  printsn <| "v" + attr.InformationalVersion.ToString()
+  printsn <| "v" + (Meta.getVersion ())
 
 let handleCommands (cmd: string) (rest: string[]) =
   match cmd.ToLowerInvariant() with

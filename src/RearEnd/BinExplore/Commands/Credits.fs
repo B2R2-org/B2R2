@@ -49,5 +49,5 @@ type Credits() =
     member _.SubCommands = []
 
     member _.CallBack(_, _args) =
-      [| Attribution.Copyright |]
+      [| Meta.Copyright |]
       |> Array.map OutputNormal

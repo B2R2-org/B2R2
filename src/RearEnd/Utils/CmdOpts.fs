@@ -38,7 +38,7 @@ let makeIntroString () =
     .Append(DarkYellow, "2")
     .Append(NoColor, ", the Next-Generation Reversing Platform")
     .Append(NoColor, Environment.NewLine)
-    .Append(NoColor, Attribution.Copyright + Environment.NewLine)
+    .Append(NoColor, Meta.Copyright + Environment.NewLine)
 
 /// Writes introduction message to console.
 let writeIntro () =
