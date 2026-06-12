@@ -67,7 +67,7 @@ type LiftingUnit(binFile: IBinFile,
   let rec parseBBLByPtr prevIns (ptr: BinFilePointer) cnt acc =
     let parsed =
       try
-        let len = ptr.MaxOffset - ptr.Offset + 1
+        let len = ptr.ReadableAmount
         let span = ReadOnlySpan(binFile.RawBytes, ptr.Offset, len)
         Ok <| parser.Parse(span, ptr.Addr)
       with _ -> Error ErrorCase.ParsingFailure
@@ -107,7 +107,7 @@ type LiftingUnit(binFile: IBinFile,
   /// </returns>
   member _.ParseInstruction(addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
-    let len = ptr.MaxOffset - ptr.Offset + 1
+    let len = ptr.ReadableAmount
     parser.Parse(ReadOnlySpan(binFile.RawBytes, ptr.Offset, len), addr)
 
   /// <summary>
@@ -120,7 +120,7 @@ type LiftingUnit(binFile: IBinFile,
   /// Parsed instruction.
   /// </returns>
   member _.ParseInstruction(ptr: BinFilePointer) =
-    let len = ptr.MaxOffset - ptr.Offset + 1
+    let len = ptr.ReadableAmount
     parser.Parse(ReadOnlySpan(binFile.RawBytes, ptr.Offset, len), ptr.Addr)
 
   /// <summary>
@@ -206,7 +206,7 @@ type LiftingUnit(binFile: IBinFile,
   /// </returns>
   member _.LiftInstruction(addr: Addr, optimize) =
     let ptr = binFile.GetBoundedPointer addr
-    let len = ptr.MaxOffset - ptr.Offset + 1
+    let len = ptr.ReadableAmount
     let span = ReadOnlySpan(binFile.RawBytes, ptr.Offset, len)
     let ins = parser.Parse(span, addr)
     if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
@@ -221,7 +221,7 @@ type LiftingUnit(binFile: IBinFile,
   /// Lifted IR statements.
   /// </returns>
   member _.LiftInstruction(ptr: BinFilePointer) =
-    let len = ptr.MaxOffset - ptr.Offset + 1
+    let len = ptr.ReadableAmount
     let span = ReadOnlySpan(binFile.RawBytes, ptr.Offset, len)
     let ins = parser.Parse(span, ptr.Addr)
     ins.Translate irBuilder
@@ -238,7 +238,7 @@ type LiftingUnit(binFile: IBinFile,
   /// Lifted IR statements.
   /// </returns>
   member _.LiftInstruction(ptr: BinFilePointer, optimize) =
-    let len = ptr.MaxOffset - ptr.Offset + 1
+    let len = ptr.ReadableAmount
     let span = ReadOnlySpan(binFile.RawBytes, ptr.Offset, len)
     let ins = parser.Parse(span, ptr.Addr)
     if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
@@ -334,7 +334,7 @@ type LiftingUnit(binFile: IBinFile,
   /// </returns>
   member _.DisasmInstruction(addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
-    let len = ptr.MaxOffset - ptr.Offset + 1
+    let len = ptr.ReadableAmount
     let span = ReadOnlySpan(binFile.RawBytes, ptr.Offset, len)
     let ins = parser.Parse(span, addr)
     ins.Disasm()
@@ -349,7 +349,7 @@ type LiftingUnit(binFile: IBinFile,
   /// Disassembled string.
   /// </returns>
   member _.DisasmInstruction(ptr: BinFilePointer) =
-    let len = ptr.MaxOffset - ptr.Offset + 1
+    let len = ptr.ReadableAmount
     let span = ReadOnlySpan(binFile.RawBytes, ptr.Offset, len)
     let ins = parser.Parse(span, ptr.Addr)
     ins.Disasm()
@@ -374,7 +374,7 @@ type LiftingUnit(binFile: IBinFile,
   /// </returns>
   member _.DecomposeInstruction(addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
-    let len = ptr.MaxOffset - ptr.Offset + 1
+    let len = ptr.ReadableAmount
     let span = ReadOnlySpan(binFile.RawBytes, ptr.Offset, len)
     let ins = parser.Parse(span, addr)
     ins.Decompose asmwordDisasm
@@ -388,7 +388,7 @@ type LiftingUnit(binFile: IBinFile,
   /// Decomposed AsmWords.
   /// </returns>
   member _.DecomposeInstruction(ptr: BinFilePointer) =
-    let len = ptr.MaxOffset - ptr.Offset + 1
+    let len = ptr.ReadableAmount
     let span = ReadOnlySpan(binFile.RawBytes, ptr.Offset, len)
     let ins = parser.Parse(span, ptr.Addr)
     ins.Decompose asmwordDisasm

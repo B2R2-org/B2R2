@@ -83,7 +83,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
     let arr =
       if ptr.IsVirtual then Array.zeroCreate nBytes
       else
-        let len = ptr.MaxOffset - ptr.Offset + 1
+        let len = ptr.ReadableAmount
         let span = ReadOnlySpan(binFile.RawBytes, ptr.Offset, len)
         span.Slice(0, nBytes).ToArray()
     if ptr.CanRead nBytes then Ok arr (* full result *)

@@ -33,16 +33,35 @@ open B2R2
 /// the virtual addresses and the file offsets.
 type BinFilePointer =
   struct
-    /// Virtual address.
+    /// The first (inclusive) virtual address of the pointed region.
     val Addr: Addr
-    /// Max virtual address.
+    /// The last (inclusive) virtual address of the pointed region.
     val MaxAddr: Addr
-    /// File offset.
+    /// <summary>
+    /// The first (inclusive) file offset corresponding to <see cref="Addr"/>.
+    /// This is -1 for a null pointer.
+    /// </summary>
     val Offset: int
-    /// Max offset that this pointer can point to.
+    /// <summary>
+    /// The last (inclusive) file offset corresponding to <see cref="MaxAddr"/>.
+    /// For a virtual (VM-only) region this is less than <see cref="Offset"/>,
+    /// and it is -1 for a null pointer.
+    /// </summary>
     val MaxOffset: int
 
-    /// Initializer
+    /// <summary>
+    /// Creates a binary pointer over the inclusive virtual-address range
+    /// [<paramref name="addr"/> .. <paramref name="maxAddr"/>] and the
+    /// inclusive file-offset range [<paramref name="offset"/> .. <paramref
+    /// name="maxOffset"/>].  To represent a virtual (VM-only) region with no
+    /// file backing, pass an <paramref name="offset"/> greater than <paramref
+    /// name="maxOffset"/>.
+    /// </summary>
+    /// <param name="addr">First virtual address of the region.</param> <param
+    /// name="maxAddr">Last (inclusive) virtual address of the region.</param>
+    /// <param name="offset">First file offset mapped to <paramref
+    /// name="addr"/>.</param> <param name="maxOffset">Last (inclusive) file
+    /// offset mapped to <paramref name="maxAddr"/>.</param>
     new(addr, maxAddr, offset, maxOffset) =
       { Addr = addr
         MaxAddr = maxAddr
@@ -52,7 +71,9 @@ type BinFilePointer =
 with
   /// Checks if the pointer is valid.
   member inline this.IsValid with get() =
-    this.Addr <= this.MaxAddr && this.Offset <= this.MaxOffset
+    this.Offset >= 0
+    && this.Addr <= this.MaxAddr
+    && this.Offset <= this.MaxOffset
 
   /// Checks if the pointer is null.
   member inline this.IsNull with get() =
@@ -65,15 +86,34 @@ with
   /// region that is mapped to VM but not to the file.
   member inline this.IsVirtual with get() = this.Offset > this.MaxOffset
 
-  /// Returns the amount of bytes that can be read from the pointer.
+  /// <summary>
+  /// Returns the number of file bytes available from the current offset up to
+  /// (and including) the max offset. This is zero or negative when the pointer
+  /// is virtual (i.e., not backed by the file), so callers should guard with
+  /// <see cref="IsVirtual"/> before using this to slice file contents.
+  /// </summary>
   member inline this.ReadableAmount with get() =
-    int (this.MaxAddr - this.Addr + 1UL)
+    this.MaxOffset - this.Offset + 1
 
-  /// Checks if the pointer can read the given size of bytes.
+  /// <summary>
+  /// Checks if the pointer can read the given number of bytes within its
+  /// virtual address range. The check is purely address-based (it does not
+  /// consider the file offset), so a virtual pointer can still report
+  /// <c>true</c>. Returns <c>false</c> for a non-positive size.
+  /// </summary>
   member inline this.CanRead(size: int) =
-    this.Addr + uint64 size - 1UL <= this.MaxAddr
+    size > 0
+    && this.Addr <= this.MaxAddr
+    && uint64 (size - 1) <= this.MaxAddr - this.Addr
 
-  /// Advances the pointer by a given amount.
+  /// <summary>
+  /// Advances the pointer forward by the given (non-negative) amount of bytes.
+  /// The address moves forward unconditionally, while the file offset is
+  /// clamped to one past the max offset, marking the pointer as virtual once it
+  /// leaves the file-backed region. The amount is assumed to be non-negative
+  /// and small enough not to overflow the address; callers must validate the
+  /// result (e.g., with <see cref="IsValid"/>) before dereferencing.
+  /// </summary>
   member inline this.Advance(amount: int) =
     BinFilePointer(
       this.Addr + uint64 amount,
@@ -81,7 +121,10 @@ with
       min (this.MaxOffset + 1) (this.Offset + amount),
       this.MaxOffset)
 
-  /// Advances the pointer by a given amount.
+  /// <summary>
+  /// Advances the pointer forward by the given amount of bytes. See the
+  /// <c>int</c> overload for the offset-clamping and validity semantics.
+  /// </summary>
   member inline this.Advance(amount: uint32) =
     BinFilePointer(
       this.Addr + uint64 amount,
@@ -90,10 +133,13 @@ with
       this.MaxOffset)
 
   /// Returns a null pointer.
-  static member Null = BinFilePointer(0UL, 0UL, -1, -1)
+  static member inline Null = BinFilePointer(0UL, 0UL, -1, -1)
 
-  /// Advances the pointer by a given amount.
-  static member Advance(p: BinFilePointer, amount: int) = p.Advance amount
+  /// Advances the given pointer forward by the given amount of bytes. This is a
+  /// static counterpart of the instance `Advance` method, provided for piping
+  /// and interop convenience.
+  static member Advance(p: BinFilePointer, amount: int) =
+    p.Advance amount
 
   override this.ToString() =
     $"{this.Addr:x}-{this.MaxAddr:x} ({this.Offset:x} of {this.MaxOffset:x})"
