@@ -118,7 +118,7 @@ let private dumpOneSection (dumper: IBinDumper) name ptr =
 let private dumpELFSection hdl opts elf tableprn codeprn sec =
   if (sec: ELF.SectionHeader).SecSize > 0UL then
     let name = sec.SecName
-    let ptr = (hdl: BinHandle).File.GetSectionPointer name
+    let ptr = BinFileOps.getSectionPointer (hdl: BinHandle).File name
     if (elf: ELFBinFile).IsPLT sec then dumpOneSection tableprn name ptr
     elif elf.HasCode sec then dumpOneSection codeprn name ptr
     elif (opts: BinDisasmOpts).OnlyDisasm then dumpOneSection codeprn name ptr
@@ -127,14 +127,14 @@ let private dumpELFSection hdl opts elf tableprn codeprn sec =
 
 let private dumpPESection (hdl: BinHandle) opts pe _tableprn codeprn sec =
   let name = (sec: Reflection.PortableExecutable.SectionHeader).Name
-  let ptr = (hdl: BinHandle).File.GetSectionPointer name
+  let ptr = BinFileOps.getSectionPointer hdl.File name
   if (pe: PEBinFile).HasCode sec then dumpOneSection codeprn name ptr
   elif (opts: BinDisasmOpts).OnlyDisasm then dumpOneSection codeprn name ptr
   else dumpData hdl opts ptr name
 
 let private dumpMachSection (hdl: BinHandle) opts mach tableprn codeprn sec =
   let name = (sec: Mach.Section).SecName
-  let ptr = (hdl: BinHandle).File.GetSectionPointer name
+  let ptr = BinFileOps.getSectionPointer hdl.File name
   if (mach: MachBinFile).IsPLT sec then dumpOneSection tableprn name ptr
   elif mach.HasCode sec then dumpOneSection codeprn name ptr
   elif (opts: BinDisasmOpts).OnlyDisasm then dumpOneSection codeprn name ptr

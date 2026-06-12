@@ -180,7 +180,7 @@ module LinearDocument =
               { Address = addr
                 Offset = i
                 ItemLength = int ins.Length }
-            match brew.BinHandle.File.TryFindName addr with
+            match BinFileOps.tryFindName brew.BinHandle.File addr with
             | Ok name ->
               items.Add(LinkageTableHeader(location, name))
             | _ -> ()

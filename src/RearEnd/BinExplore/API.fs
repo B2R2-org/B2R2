@@ -56,6 +56,11 @@ module API =
     arbiter.GetBinaryBrew()
     >>= fun brew -> Ok brew.BinHandle.File.Path
 
+  let private getDisasmBuilder (file: IBinFile) =
+    match file.Names with
+    | Some names -> AsmWordDisasmBuilder(true, names, file.ISA.WordSize)
+    | None -> AsmWordDisasmBuilder(true, null, file.ISA.WordSize)
+
   let private getCFG fnAddr cw ch cfgType (brew: BinaryBrew<_, _>) =
     try
       let func = brew.Functions.Find(addr = fnAddr)
@@ -67,7 +72,7 @@ module API =
         |> Ok
       | CFGKind.Disasm ->
         let file = brew.BinHandle.File
-        let disasmBuilder = AsmWordDisasmBuilder(true, file, file.ISA.WordSize)
+        let disasmBuilder = getDisasmBuilder file
         let g = DisasmCFG(disasmBuilder, g)
         let roots = g.Roots |> Seq.toList
         Visualizer.toVisGraph g roots cw ch

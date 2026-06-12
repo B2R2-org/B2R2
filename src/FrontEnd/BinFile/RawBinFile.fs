@@ -59,6 +59,14 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.IsRelocatable with get() = false
 
+    member _.Names with get() = None
+
+    member _.Organization with get() = None
+
+    member _.Relocations with get() = None
+
+    member _.Linkage with get() = None
+
     member _.Slice(addr, len) =
       let offset = System.Convert.ToInt32(addr - baseAddr)
       System.ReadOnlySpan(bytes, offset, len)
@@ -91,28 +99,3 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.GetVMMappedRegions _permission =
       [| AddrRange.create baseAddr (baseAddr + uint64 size - 1UL) |]
-
-    member _.TryFindName(_addr) = Error ErrorCase.SymbolNotFound
-
-    member _.GetTextSectionPointer() =
-      BinFilePointer(baseAddr, baseAddr + uint64 size - 1UL, 0, size - 1)
-
-    member _.GetSectionPointer _ = BinFilePointer.Null
-
-    member _.IsInTextOrDataOnlySection _ = true
-
-    member _.TryFindSectionName(_: Addr): Result<string, ErrorCase> =
-      Error ErrorCase.ItemNotFound
-
-    member _.TryFindSectionName(_: uint32): Result<string, ErrorCase> =
-      Error ErrorCase.ItemNotFound
-
-    member _.GetFunctionAddresses() = [||]
-
-    member _.HasRelocationInfo _ = false
-
-    member _.GetRelocatedAddr _relocAddr = Terminator.impossible ()
-
-    member _.GetLinkageTableEntries() = [||]
-
-    member _.IsLinkageTable _ = false

@@ -56,4 +56,4 @@ type WasmTests() =
 
   [<TestMethod>]
   member _.``[Wasm] linkageTableEntries length test``() =
-    Assert.AreEqual<int>(4, file.GetLinkageTableEntries() |> Seq.length)
+    Assert.AreEqual<int>(4, getLinkageTableEntries file |> Seq.length)

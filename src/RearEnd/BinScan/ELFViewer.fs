@@ -289,7 +289,7 @@ let dumpFunctions _ (elf: ELFBinFile) =
   printDoubleHorizontalRule ()
   printsr [| "Address"; "Name" |]
   printSingleHorizontalRule ()
-  for addr in (elf :> IBinFile).GetFunctionAddresses() do
+  for addr in BinFileOps.getFunctionAddresses elf do
     match elf.Symbols.TryFindSymbol addr with
     | Ok symb ->
       printsr
@@ -426,7 +426,7 @@ let dumpLinkageTableVerbose (elf: ELFBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsr <| makeLinkageTableHeaderVerbose ()
   printSingleHorizontalRule ()
-  for e in (elf :> IBinFile).GetLinkageTableEntries() do
+  for e in BinFileOps.getLinkageTableEntries elf do
     match elf.RelocationInfo.TryFind e.TableAddress with
     | Ok reloc ->
       printsr [| Addr.toString wordSize e.TrampolineAddress
@@ -453,7 +453,7 @@ let dumpLinkageTableSimple (elf: ELFBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsr [| "PLT"; "GOT"; "FunctionName"; "Lib Name" |]
   printSingleHorizontalRule ()
-  for e in (elf :> IBinFile).GetLinkageTableEntries() do
+  for e in BinFileOps.getLinkageTableEntries elf do
     printsr [| Addr.toString wordSize e.TrampolineAddress
                Addr.toString wordSize e.TableAddress
                normalizeEmpty e.FuncName

@@ -91,7 +91,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] X86 linkageTableEntries length test``() =
     let f = x86File :> IBinFile
-    Assert.AreEqual<int>(114, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(114, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] X86 text section address test``() =
@@ -165,7 +165,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] X86_Stripped linkageTableEntries length test``() =
     let f = x86SFile :> IBinFile
-    Assert.AreEqual<int>(114, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(114, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped text section address test``() =
@@ -238,7 +238,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] X64 linkageTableEntries length test``() =
     let f = x64File :> IBinFile
-    Assert.AreEqual<int>(110, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(110, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] X64 text section address test``() =
@@ -311,7 +311,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] X64_Stripped linkageTableEntries length test``() =
     let f = x64SFile :> IBinFile
-    Assert.AreEqual<int>(110, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(110, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped text section address test``() =
@@ -384,7 +384,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] arm32 linkageTableEntries length test``() =
     let f = arm32File :> IBinFile
-    Assert.AreEqual<int>(121, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(121, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32 text section address test``() =
@@ -457,7 +457,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped linkageTableEntries length test``() =
     let f = arm32SFile :> IBinFile
-    Assert.AreEqual<int>(121, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(121, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped text section address test``() =
@@ -530,7 +530,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] thumb linkageTableEntries length test``() =
     let f = thumbFile :> IBinFile
-    Assert.AreEqual<int>(121, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(121, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb text section address test``() =
@@ -603,7 +603,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped linkageTableEntries length test``() =
     let f = thumbSFile :> IBinFile
-    Assert.AreEqual<int>(121, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(121, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped text section address test``() =
@@ -676,7 +676,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] aarch64 linkageTableEntries length test``() =
     let f = aarch64File :> IBinFile
-    Assert.AreEqual<int>(121, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(121, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64 text section address test``() =
@@ -749,7 +749,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped linkageTableEntries length test``() =
     let f = aarch64SFile :> IBinFile
-    Assert.AreEqual<int>(121, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(121, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped text section address test``() =
@@ -822,7 +822,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped linkageTableEntries length test``() =
     let f = mips32File :> IBinFile
-    Assert.AreEqual<int>(106, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(106, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped text section address test``() =
@@ -887,7 +887,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le linkageTableEntries length test``() =
     let f = mips32leFile :> IBinFile
-    Assert.AreEqual<int>(106, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(106, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le text section address test``() =
@@ -952,7 +952,7 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped linkageTableEntries length test``() =
     let f = mips64File :> IBinFile
-    Assert.AreEqual<int>(106, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(106, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped text section address test``() =

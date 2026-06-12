@@ -37,7 +37,7 @@ type FunctionIdentification(hdl: BinHandle, exnInfo: ExceptionInfo) =
   /// to expand it during the main recovery phase.
   let getInitialEntryPoints () =
     let file = hdl.File
-    let addrs = HashSet(file.GetFunctionAddresses())
+    let addrs = HashSet(BinFileOps.getFunctionAddresses file)
     for addr in exnInfo.FunctionEntryPoints do addrs.Add addr |> ignore
     file.EntryPoint
     |> Option.iter (fun addr ->

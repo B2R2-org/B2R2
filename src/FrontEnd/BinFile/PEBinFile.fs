@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile
 
 open System.Reflection.PortableExecutable
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.PE
 open B2R2.FrontEnd.BinFile.PE.Helper
 
@@ -33,6 +34,88 @@ open B2R2.FrontEnd.BinFile.PE.Helper
 type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   let pe = Parser.parse path bytes baseAddrOpt rawpdb
   let isa = peHeadersToISA pe.PEHeaders
+
+  let names =
+    Some { new INameReadable with
+      member _.TryFindName(addr) =
+        if pe.Symbols.SymbolArray.Length = 0 then
+          tryFindSymbolFromBinary pe addr
+        else tryFindSymbolFromPDB pe addr
+    }
+
+  let organization =
+    Some { new IBinOrganization with
+      member _.GetTextSectionPointer() =
+        pe.SectionHeaders
+        |> Array.tryFind (fun sec -> sec.Name = SecText)
+        |> function
+          | Some sec ->
+            let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
+            let size = sec.SizeOfRawData
+            BinFilePointer(addr, addr + uint64 size - 1UL,
+                           sec.PointerToRawData,
+                           sec.PointerToRawData + size - 1)
+          | None -> BinFilePointer.Null
+
+      member _.GetSectionPointer name =
+        pe.SectionHeaders
+        |> Array.tryFind (fun sec -> sec.Name = name)
+        |> function
+          | Some sec ->
+            let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
+            let size = sec.SizeOfRawData
+            BinFilePointer(addr, addr + uint64 size - 1UL,
+                           sec.PointerToRawData,
+                           sec.PointerToRawData + size - 1)
+          | None -> BinFilePointer.Null
+
+      member _.IsInTextOrDataOnlySection addr =
+        let rva = int (addr - pe.BaseAddr)
+        match pe.FindSectionIdxFromRVA rva with
+        | -1 -> false
+        | idx -> pe.SectionHeaders[idx].Name = SecText
+
+      member _.TryFindSectionName(addr: Addr) =
+        let rva = int (addr - pe.BaseAddr)
+        match pe.FindSectionIdxFromRVA rva with
+        | -1 -> Error ErrorCase.ItemNotFound
+        | idx -> Ok pe.SectionHeaders[idx].Name
+
+      member _.TryFindSectionName(offset: uint32) =
+        pe.SectionHeaders
+        |> Array.tryFind (fun sec ->
+          let secStart = uint32 sec.PointerToRawData
+          let secEnd = secStart + uint32 sec.SizeOfRawData
+          offset >= secStart && offset < secEnd)
+        |> function
+          | Some sec -> Ok sec.Name
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.GetFunctionAddresses() =
+        let staticAddrs =
+          [| for s in pe.Symbols.SymbolArray do
+               if s.IsFunction then s.Address else () |]
+        let dynamicAddrs =
+          [| for addr in pe.ExportedSymbols.Addresses do
+               let idx = pe.FindSectionIdxFromRVA(int (addr - pe.BaseAddr))
+               if idx <> -1 && isSectionExecutableByIndex pe idx then addr
+               else () |]
+        Array.concat [| staticAddrs; dynamicAddrs |]
+    }
+
+  let relocations =
+    Some { new IRelocationTable with
+      member _.HasRelocationInfo addr = hasRelocationSymbols pe addr
+
+      member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
+    }
+
+  let linkage =
+    Some { new ILinkageTable with
+      member _.GetLinkageTableEntries() = getImportTable pe
+
+      member _.IsLinkageTable addr = isImportTable pe addr
+    }
 
   new(path, bytes) = PEBinFile(path, bytes, None, [||])
 
@@ -90,6 +173,14 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.IsRelocatable = isRelocatable pe
 
+    member _.Names with get() = names
+
+    member _.Organization with get() = organization
+
+    member _.Relocations with get() = relocations
+
+    member _.Linkage with get() = linkage
+
     member _.Slice(addr, len) =
       System.ReadOnlySpan(bytes, translateAddr pe addr, len)
 
@@ -144,72 +235,3 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
           let addr = uint64 sec.VirtualAddress + pe.BaseAddr
           Some <| AddrRange.create addr (addr + uint64 secSize - 1UL)
         else None)
-
-    member _.TryFindName(addr) =
-      if pe.Symbols.SymbolArray.Length = 0 then tryFindSymbolFromBinary pe addr
-      else tryFindSymbolFromPDB pe addr
-
-    member _.GetTextSectionPointer() =
-      pe.SectionHeaders
-      |> Array.tryFind (fun sec -> sec.Name = SecText)
-      |> function
-        | Some sec ->
-          let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
-          let size = sec.SizeOfRawData
-          BinFilePointer(addr, addr + uint64 size - 1UL,
-                         sec.PointerToRawData,
-                         sec.PointerToRawData + size - 1)
-        | None -> BinFilePointer.Null
-
-    member _.GetSectionPointer name =
-      pe.SectionHeaders
-      |> Array.tryFind (fun sec -> sec.Name = name)
-      |> function
-        | Some sec ->
-          let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
-          let size = sec.SizeOfRawData
-          BinFilePointer(addr, addr + uint64 size - 1UL,
-                         sec.PointerToRawData,
-                         sec.PointerToRawData + size - 1)
-        | None -> BinFilePointer.Null
-
-    member _.IsInTextOrDataOnlySection addr =
-      let rva = int (addr - pe.BaseAddr)
-      match pe.FindSectionIdxFromRVA rva with
-      | -1 -> false
-      | idx -> pe.SectionHeaders[idx].Name = SecText
-
-    member _.TryFindSectionName addr =
-      let rva = int (addr - pe.BaseAddr)
-      match pe.FindSectionIdxFromRVA rva with
-      | -1 -> Error ErrorCase.ItemNotFound
-      | idx -> Ok pe.SectionHeaders[idx].Name
-
-    member _.TryFindSectionName(offset: uint32) =
-      pe.SectionHeaders
-      |> Array.tryFind (fun sec ->
-        let secStart = uint32 sec.PointerToRawData
-        let secEnd = secStart + uint32 sec.SizeOfRawData
-        offset >= secStart && offset < secEnd)
-      |> function
-        | Some sec -> Ok sec.Name
-        | None -> Error ErrorCase.ItemNotFound
-
-    member _.GetFunctionAddresses() =
-      let staticAddrs =
-        [| for s in pe.Symbols.SymbolArray do
-             if s.IsFunction then s.Address else () |]
-      let dynamicAddrs =
-        [| for addr in pe.ExportedSymbols.Addresses do
-             let idx = pe.FindSectionIdxFromRVA(int (addr - pe.BaseAddr))
-             if idx <> -1 && isSectionExecutableByIndex pe idx then addr
-             else () |]
-      Array.concat [| staticAddrs; dynamicAddrs |]
-
-    member _.HasRelocationInfo addr = hasRelocationSymbols pe addr
-
-    member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
-
-    member _.GetLinkageTableEntries() = getImportTable pe
-
-    member _.IsLinkageTable addr = isImportTable pe addr

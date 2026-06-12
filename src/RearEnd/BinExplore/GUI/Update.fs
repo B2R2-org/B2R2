@@ -424,7 +424,8 @@ let private tryGetSelectedFileOffsetRange selection =
     Some(uint32 startOffset, uint32 endOffset)
 
 let private findSectionRange (f: IBinFile) (sOff: uint32) (eOff: uint32) =
-  match f.TryFindSectionName sOff, f.TryFindSectionName eOff with
+  match BinFileOps.tryFindSectionNameByOffset f sOff,
+        BinFileOps.tryFindSectionNameByOffset f eOff with
   | Ok secStart, Ok secEnd when secStart = secEnd -> [ secStart ]
   | Ok secStart, Ok secEnd -> [ secStart; secEnd ]
   | _ -> []

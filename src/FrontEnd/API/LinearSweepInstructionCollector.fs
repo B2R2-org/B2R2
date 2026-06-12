@@ -46,7 +46,7 @@ type LinearSweepInstructionCollector(hdl: BinHandle, liftingUnit: LiftingUnit) =
 
   interface IInstructionCollectable with
     member _.Collect updateFn =
-      let ptr = liftingUnit.File.GetTextSectionPointer()
+      let ptr = BinFileOps.getDefaultCodePointer liftingUnit.File
       update updateFn ptr
 
     member _.ParseInstructionCandidate addr =

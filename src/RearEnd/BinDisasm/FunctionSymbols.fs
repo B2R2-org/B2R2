@@ -27,21 +27,22 @@ module B2R2.RearEnd.BinDisasm.FunctionSymbols
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 
 let ofLinkageTable (hdl: BinHandle) =
   let funcs = Dictionary()
-  for entry in hdl.File.GetLinkageTableEntries() do
+  for entry in BinFileOps.getLinkageTableEntries hdl.File do
     if entry.TrampolineAddress = 0UL then ()
     else funcs.TryAdd(entry.TrampolineAddress, entry.FuncName) |> ignore
   funcs
 
 let ofText (hdl: BinHandle) =
   let funcs = Dictionary()
-  for addr in hdl.File.GetFunctionAddresses() do
-    match hdl.File.TryFindName addr with
+  for addr in BinFileOps.getFunctionAddresses hdl.File do
+    match BinFileOps.tryFindName hdl.File addr with
     | Ok name -> funcs.TryAdd(addr, name) |> ignore
     | Error _ -> funcs.TryAdd(addr, Addr.toFuncName addr) |> ignore
-  for entry in hdl.File.GetLinkageTableEntries() do
+  for entry in BinFileOps.getLinkageTableEntries hdl.File do
     if entry.TrampolineAddress = 0UL then ()
     else funcs.TryAdd(entry.TrampolineAddress, entry.FuncName) |> ignore
   funcs

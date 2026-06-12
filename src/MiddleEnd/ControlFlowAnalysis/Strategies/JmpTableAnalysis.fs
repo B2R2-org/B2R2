@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.SSA
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -378,9 +379,10 @@ type JmpTableAnalysis<'FnCtx,
 
   let checkValidity (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) result =
     match result with
-    | Ok(info) ->
+    | Ok info ->
+      let file = ctx.BinHandle.File
       let tblAddr = info.TableAddress
-      if ctx.BinHandle.File.IsInTextOrDataOnlySection tblAddr then result
+      if BinFileOps.isInTextOrDataOnlySection file tblAddr then result
       else Error ErrorCase.InvalidMemoryRead
     | Error e -> Error e
 

@@ -37,6 +37,41 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
   let reader = BinReader.Init Endian.Little
   let isa = ISA Architecture.WASM
 
+  let organization =
+    Some { new IBinOrganization with
+      member _.GetTextSectionPointer() =
+        match wm.CodeSection with
+        | Some sec ->
+          BinFilePointer(uint64 sec.Offset,
+                         uint64 sec.Offset + uint64 sec.Size - 1UL,
+                         int sec.Offset,
+                         int sec.Offset + int sec.Size - 1)
+        | None ->
+          BinFilePointer.Null
+
+      member _.GetSectionPointer _ =
+        Terminator.futureFeature ()
+
+      member _.IsInTextOrDataOnlySection _ =
+        Terminator.futureFeature ()
+
+      member _.TryFindSectionName(_: Addr): Result<string, ErrorCase> =
+        Terminator.futureFeature ()
+
+      member _.TryFindSectionName(_: uint32): Result<string, ErrorCase> =
+        Terminator.futureFeature ()
+
+      member _.GetFunctionAddresses() =
+        Terminator.futureFeature ()
+    }
+
+  let linkage =
+    Some { new ILinkageTable with
+      member _.GetLinkageTableEntries() = getImports wm
+
+      member _.IsLinkageTable _addr = Terminator.futureFeature ()
+    }
+
   new(path, bytes) = WasmBinFile(path, bytes, None)
 
   member _.WASM with get() = wm
@@ -66,6 +101,14 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.IsRelocatable = false
 
+    member _.Names with get() = None
+
+    member _.Organization with get() = organization
+
+    member _.Relocations with get() = None
+
+    member _.Linkage with get() = linkage
+
     member _.Slice(addr, len) = System.ReadOnlySpan(bytes, int addr, len)
 
     member _.IsValidAddr(addr) = addr >= 0UL && addr < (uint64 bytes.LongLength)
@@ -94,34 +137,3 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
     member _.GetVMMappedRegions() = [||]
 
     member _.GetVMMappedRegions _permission = [||]
-
-    member _.TryFindName _addr = Terminator.futureFeature ()
-
-    member _.GetTextSectionPointer() =
-      match wm.CodeSection with
-      | Some sec ->
-        BinFilePointer(uint64 sec.Offset,
-                       uint64 sec.Offset + uint64 sec.Size - 1UL,
-                       int sec.Offset,
-                       int sec.Offset + int sec.Size - 1)
-      | None -> BinFilePointer.Null
-
-    member _.GetSectionPointer _addr = Terminator.futureFeature ()
-
-    member _.IsInTextOrDataOnlySection _ = Terminator.futureFeature ()
-
-    member _.TryFindSectionName(_: Addr): Result<string, ErrorCase> =
-      Terminator.futureFeature ()
-
-    member _.TryFindSectionName(_: uint32): Result<string, ErrorCase> =
-      Terminator.futureFeature ()
-
-    member _.GetFunctionAddresses() = Terminator.futureFeature ()
-
-    member _.HasRelocationInfo _addr = false
-
-    member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
-
-    member _.GetLinkageTableEntries() = getImports wm
-
-    member _.IsLinkageTable _addr = Terminator.futureFeature ()

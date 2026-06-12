@@ -31,6 +31,7 @@ open Avalonia.Controls
 open Avalonia.Platform
 open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd.BinExplore
 
@@ -180,7 +181,8 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
         member _.TryGetSectionName addr =
           match arbiter.GetBinaryBrew() with
           | Ok brew ->
-            brew.BinHandle.File.TryFindSectionName addr |> Result.toOption
+            BinFileOps.tryFindSectionNameByAddr brew.BinHandle.File addr
+            |> Result.toOption
           | Error _ ->
             None }
 

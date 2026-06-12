@@ -27,6 +27,7 @@ namespace B2R2.RearEnd.BinExplore.Commands
 open System
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.RearEnd.BinExplore
 
@@ -57,8 +58,13 @@ type Disasm() =
     | Ok(count, addr: uint64) -> disasmLoop [] bld instrs addr count
     | Error str -> [| str |]
 
+  let getBuilder (file: IBinFile) =
+    match file.Names with
+    | Some names -> StringDisasmBuilder(true, names, file.ISA.WordSize)
+    | None -> StringDisasmBuilder(true, null, file.ISA.WordSize)
+
   let disasm (hdl: BinHandle) instrs count addr =
-    let bld = StringDisasmBuilder(true, hdl.File, hdl.File.ISA.WordSize)
+    let bld = getBuilder hdl.File
     convertCount count
     |> Result.bind (convertAddr addr)
     |> render bld instrs

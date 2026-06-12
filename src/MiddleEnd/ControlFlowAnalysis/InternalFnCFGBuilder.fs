@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
@@ -120,7 +121,7 @@ type InternalFnCFGBuilder<'FnCtx,
       manager,
       irBlkOptimizer) =
     let name =
-      match hdl.File.TryFindName entryPoint with
+      match BinFileOps.tryFindName hdl.File entryPoint with
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
     let cfg = LowUIRCFG Imperative

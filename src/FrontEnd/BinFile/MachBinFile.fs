@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 open B2R2.Collections
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.Mach
 open B2R2.FrontEnd.BinFile.Mach.Helper
 
@@ -42,6 +43,85 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   let notInMemRanges = lazy invalidRangesByVM toolBox segCmds.Value
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
   let executableRanges = lazy executableRanges segCmds.Value
+
+  let names =
+    Some { new INameReadable with
+      member _.TryFindName(addr) =
+        match Map.tryFind addr syms.Value.SymbolMap with
+        | Some s -> Ok s.SymName
+        | None -> Error ErrorCase.SymbolNotFound
+    }
+
+  let organization =
+    Some { new IBinOrganization with
+      member _.GetTextSectionPointer() =
+        let secs = secs.Value
+        let secText = Section.getTextSectionIndex secs
+        let sec = secs[secText]
+        BinFilePointer(sec.SecAddr,
+                       sec.SecAddr + sec.SecSize - 1UL,
+                       int sec.SecOffset,
+                       int sec.SecOffset + int sec.SecSize - 1)
+
+      member _.GetSectionPointer name =
+        secs.Value
+        |> Array.tryFind (fun sec -> sec.SecName = name)
+        |> function
+          | Some sec ->
+            BinFilePointer(sec.SecAddr,
+                           sec.SecAddr + sec.SecSize - 1UL,
+                           int sec.SecOffset,
+                           int sec.SecOffset + int sec.SecSize - 1)
+          | None -> BinFilePointer.Null
+
+      member _.IsInTextOrDataOnlySection addr =
+        secs.Value
+        |> Array.tryFind (fun sec ->
+          addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+        |> function
+          | Some sec -> sec.SecName = Section.SecText
+          | None -> false
+
+      member _.TryFindSectionName(addr: Addr) =
+        secs.Value
+        |> Array.tryFind (fun sec ->
+          addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+        |> function
+          | Some sec -> Ok sec.SecName
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionName(offset: uint32) =
+        secs.Value
+        |> Array.tryFind (fun sec ->
+          offset >= sec.SecOffset
+          && offset < sec.SecOffset + uint32 sec.SecSize)
+        |> function
+          | Some sec -> Ok sec.SecName
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.GetFunctionAddresses() =
+        let secText = Section.getTextSectionIndex secs.Value
+        [| for s in syms.Value.Values do
+             if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr
+             else () |]
+    }
+
+  let relocations =
+    Some { new IRelocationTable with
+      member _.HasRelocationInfo addr =
+        relocs.Value
+        |> Array.exists (fun r ->
+          (r.RelocSection.SecAddr + uint64 r.RelocAddr) = addr)
+
+      member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
+    }
+
+  let linkage =
+    Some { new ILinkageTable with
+      member _.GetLinkageTableEntries() = getPLT syms.Value
+
+      member _.IsLinkageTable addr = isPLT syms.Value addr
+    }
 
   member _.Header with get() = toolBox.Header
 
@@ -102,6 +182,14 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.IsRelocatable = toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
 
+    member _.Names with get() = names
+
+    member _.Organization with get() = organization
+
+    member _.Relocations with get() = relocations
+
+    member _.Linkage with get() = linkage
+
     member _.Slice(addr, len) =
       let offset = translateAddr segMap.Value addr
       System.ReadOnlySpan(bytes, offset, len)
@@ -156,69 +244,3 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
         if (segPerm &&& perm = perm) && seg.VMSize > 0UL then
           Some <| AddrRange.create seg.VMAddr (seg.VMAddr + seg.VMSize - 1UL)
         else None)
-
-    member _.TryFindName(addr) =
-      match Map.tryFind addr syms.Value.SymbolMap with
-      | Some s -> Ok s.SymName
-      | None -> Error ErrorCase.SymbolNotFound
-
-    member _.GetTextSectionPointer() =
-      let secs = secs.Value
-      let secText = Section.getTextSectionIndex secs
-      let sec = secs[secText]
-      BinFilePointer(sec.SecAddr,
-                     sec.SecAddr + sec.SecSize - 1UL,
-                     int sec.SecOffset,
-                     int sec.SecOffset + int sec.SecSize - 1)
-
-    member _.GetSectionPointer name =
-      secs.Value
-      |> Array.tryFind (fun sec -> sec.SecName = name)
-      |> function
-        | Some sec ->
-          BinFilePointer(sec.SecAddr,
-                         sec.SecAddr + sec.SecSize - 1UL,
-                         int sec.SecOffset,
-                         int sec.SecOffset + int sec.SecSize - 1)
-        | None -> BinFilePointer.Null
-
-    member _.IsInTextOrDataOnlySection addr =
-      secs.Value
-      |> Array.tryFind (fun sec ->
-        addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
-      |> function
-        | Some sec -> sec.SecName = Section.SecText
-        | None -> false
-
-    member _.TryFindSectionName addr =
-      secs.Value
-      |> Array.tryFind (fun sec ->
-        addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
-      |> function
-        | Some sec -> Ok sec.SecName
-        | None -> Error ErrorCase.ItemNotFound
-
-    member _.TryFindSectionName offset =
-      secs.Value
-      |> Array.tryFind (fun sec ->
-        offset >= sec.SecOffset && offset < sec.SecOffset + uint32 sec.SecSize)
-      |> function
-        | Some sec -> Ok sec.SecName
-        | None -> Error ErrorCase.ItemNotFound
-
-    member _.GetFunctionAddresses() =
-      let secText = Section.getTextSectionIndex secs.Value
-      [| for s in syms.Value.Values do
-           if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr
-           else () |]
-
-    member _.HasRelocationInfo addr =
-      relocs.Value
-      |> Array.exists (fun r ->
-        (r.RelocSection.SecAddr + uint64 r.RelocAddr) = addr)
-
-    member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
-
-    member _.GetLinkageTableEntries() = getPLT syms.Value
-
-    member _.IsLinkageTable addr = isPLT syms.Value addr

@@ -51,10 +51,18 @@ type LiftingUnit(binFile: IBinFile,
     | _ -> Terminator.futureFeature ()
 
   let strDisasm =
-    StringDisasmBuilder(true, binFile, binFile.ISA.WordSize) :> IDisasmBuilder
+    match binFile.Names with
+    | Some names ->
+      StringDisasmBuilder(true, names, binFile.ISA.WordSize) :> IDisasmBuilder
+    | None ->
+      StringDisasmBuilder(true, null, binFile.ISA.WordSize) :> IDisasmBuilder
 
   let asmwordDisasm =
-    AsmWordDisasmBuilder(false, binFile, binFile.ISA.WordSize) :> IDisasmBuilder
+    match binFile.Names with
+    | Some names ->
+      AsmWordDisasmBuilder(false, names, binFile.ISA.WordSize) :> IDisasmBuilder
+    | None ->
+      AsmWordDisasmBuilder(false, null, binFile.ISA.WordSize) :> IDisasmBuilder
 
   let toReversedArray cnt lst =
     let arr = Array.zeroCreate cnt

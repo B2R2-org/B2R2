@@ -31,13 +31,16 @@ open type FileFormat
 [<AutoOpen>]
 module Helper =
   let assertFuncSymbolExistence (file: IBinFile) address (symbolName: string) =
-    match file.TryFindName address with
+    match BinFileOps.tryFindName file address with
     | Ok n -> Assert.AreEqual<string>(n, symbolName)
     | Error _ -> Assert.Fail()
 
   let getTextSectionAddr (file: IBinFile) =
-    let ptr = file.GetTextSectionPointer()
+    let ptr = BinFileOps.getTextSectionPointer file
     ptr.Addr
+
+  let getLinkageTableEntries (file: IBinFile) =
+    BinFileOps.getLinkageTableEntries file
 
   let assertExistenceOfPair pair pairSequence =
     Assert.AreEqual(true, Seq.exists ((=) pair) pairSequence)

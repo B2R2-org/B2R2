@@ -86,7 +86,7 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X86_Stripped linkageTableEntries length test``() =
     let f = x86File :> IBinFile
-    Assert.AreEqual<int>(45, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(45, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped text section address test``() =
@@ -149,7 +149,7 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X64 linkageTableEntries length test``() =
     let f = x64File :> IBinFile
-    Assert.AreEqual<int>(72, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(72, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[Mach] X64 text section address test``() =
@@ -211,7 +211,7 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X64_Stripped linkageTableEntries length test``() =
     let f = x64SFile :> IBinFile
-    Assert.AreEqual<int>(72, f.GetLinkageTableEntries().Length)
+    Assert.AreEqual<int>(72, (getLinkageTableEntries f).Length)
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped text section address test``() =

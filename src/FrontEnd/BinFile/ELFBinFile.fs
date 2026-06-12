@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.BinFile
 open System
 open B2R2
 open B2R2.Collections
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinFile.ELF.Helper
 
@@ -45,6 +46,110 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let notInFileRanges = lazy invalidRangesByFileBounds hdr loadables.Value
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
   let dbginfo = lazy DebugInformation.parse toolBox rfOpt shdrs.Value
+
+  let names =
+    Some { new INameReadable with
+      member _.TryFindName addr =
+        symbs.Value.TryFindSymbol addr
+        |> Result.map (fun s -> s.SymName)
+        |> function
+          | Ok name -> Ok name
+          | Error e ->
+            match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
+            | Some entry when entry.TableAddress = addr -> Ok entry.FuncName
+            | _ -> Error e
+    }
+
+  let organization =
+    Some { new IBinOrganization with
+      member _.GetTextSectionPointer() =
+        shdrs.Value
+        |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
+        |> function
+          | Some s ->
+            BinFilePointer(s.SecAddr, s.SecAddr + s.SecSize - 1UL,
+                           int s.SecOffset,
+                           int s.SecOffset + int s.SecSize - 1)
+          | None ->
+            BinFilePointer.Null
+
+      member _.GetSectionPointer name =
+        shdrs.Value
+        |> Array.tryFind (fun sec -> sec.SecName = name)
+        |> function
+          | Some sec ->
+            BinFilePointer(sec.SecAddr,
+                           sec.SecAddr + sec.SecSize - 1UL,
+                           int sec.SecOffset,
+                           int sec.SecOffset + int sec.SecSize - 1)
+          | None ->
+            BinFilePointer.Null
+
+      member _.IsInTextOrDataOnlySection addr =
+        shdrs.Value
+        |> Array.tryFind (fun sec ->
+          addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+        |> function
+          | Some sec ->
+            sec.SecName = Section.Text || sec.SecName = Section.ROData
+          | None ->
+            false
+
+      member _.TryFindSectionName addr =
+        shdrs.Value
+        |> Array.tryFind (fun sec ->
+          addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+        |> function
+          | Some sec -> Ok sec.SecName
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionName(offset: uint32) =
+        let offset = uint64 offset
+        shdrs.Value
+        |> Array.tryFind (fun sec ->
+          sec.SecType <> SectionType.SHT_NOBITS
+          && offset >= sec.SecOffset
+          && offset < sec.SecOffset + sec.SecSize)
+        |> function
+          | Some sec -> Ok sec.SecName
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.GetFunctionAddresses() =
+        let staticFuncs =
+          [| for s in symbs.Value.StaticSymbols do
+               if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr
+               else () |]
+        let dynamicFuncs =
+          [| for s in symbs.Value.DynamicSymbols do
+               if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr
+               else () |]
+        let extraFuncs =
+          findExtraFnAddrs toolBox shdrs.Value loadables.Value relocs.Value
+        Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
+        |> Set.ofArray
+        |> Set.toArray
+    }
+
+  let relocations =
+    Some { new IRelocationTable with
+      member _.HasRelocationInfo addr =
+        relocs.Value.Contains addr
+
+      member _.GetRelocatedAddr relocAddr =
+        getRelocatedAddr relocs.Value relocAddr
+    }
+
+  let linkage =
+    Some { new ILinkageTable with
+      member _.GetLinkageTableEntries() =
+        plt.Value
+        |> NoOverlapIntervalMap.fold (fun acc _ entry -> entry :: acc) []
+        |> List.sortBy (fun entry -> entry.TrampolineAddress)
+        |> List.toArray
+
+      member _.IsLinkageTable addr =
+        NoOverlapIntervalMap.containsAddr addr plt.Value
+    }
 
   /// ELF Header information.
   member _.Header with get() = hdr
@@ -122,10 +227,10 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.BaseAddress with get() = toolBox.BaseAddress
 
-    member _.IsStripped =
+    member _.IsStripped with get() =
       shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
 
-    member _.IsNXEnabled =
+    member _.IsNXEnabled with get() =
       let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK
       match Array.tryFind predicate phdrs.Value with
       | Some s ->
@@ -133,10 +238,18 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         perm.HasFlag Permission.Executable |> not
       | _ -> false
 
-    member _.IsRelocatable =
+    member _.IsRelocatable with get() =
       let pred e = e.DTag = DTag.DT_DEBUG
       toolBox.Header.ELFType = ELFType.ET_DYN
       && DynamicArray.parse toolBox shdrs.Value |> Array.exists pred
+
+    member _.Names with get() = names
+
+    member _.Organization with get() = organization
+
+    member _.Relocations with get() = relocations
+
+    member _.Linkage with get() = linkage
 
     member _.Slice(addr, len) =
       let offset =
@@ -196,87 +309,3 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         if isLoadable && phPerm.HasFlag perm && ph.PHMemSize > 0UL then
           Some <| AddrRange.create ph.PHAddr (ph.PHAddr + ph.PHMemSize - 1UL)
         else None)
-
-    member _.TryFindName(addr) =
-      symbs.Value.TryFindSymbol addr
-      |> Result.map (fun s -> s.SymName)
-      |> function
-        | Ok name -> Ok name
-        | Error e ->
-          match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
-          | Some entry when entry.TableAddress = addr -> Ok entry.FuncName
-          | _ -> Error e
-
-    member _.GetTextSectionPointer() =
-      shdrs.Value
-      |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
-      |> function
-        | Some s ->
-          BinFilePointer(s.SecAddr, s.SecAddr + s.SecSize - 1UL,
-                         int s.SecOffset, int s.SecOffset + int s.SecSize - 1)
-        | None -> BinFilePointer.Null
-
-    member _.GetSectionPointer name =
-      shdrs.Value
-      |> Array.tryFind (fun sec -> sec.SecName = name)
-      |> function
-        | Some sec ->
-          BinFilePointer(sec.SecAddr,
-                         sec.SecAddr + sec.SecSize - 1UL,
-                         int sec.SecOffset,
-                         int sec.SecOffset + int sec.SecSize - 1)
-        | None -> BinFilePointer.Null
-
-    member _.IsInTextOrDataOnlySection addr =
-      shdrs.Value
-      |> Array.tryFind (fun sec ->
-        addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
-      |> function
-        | Some sec -> sec.SecName = Section.Text || sec.SecName = Section.ROData
-        | None -> false
-
-    member _.TryFindSectionName addr =
-      shdrs.Value
-      |> Array.tryFind (fun sec ->
-        addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
-      |> function
-        | Some sec -> Ok sec.SecName
-        | None -> Error ErrorCase.ItemNotFound
-
-    member _.TryFindSectionName(offset: uint32) =
-      let offset = uint64 offset
-      shdrs.Value
-      |> Array.tryFind (fun sec ->
-        sec.SecType <> SectionType.SHT_NOBITS
-        && offset >= sec.SecOffset
-        && offset < sec.SecOffset + sec.SecSize)
-      |> function
-        | Some sec -> Ok sec.SecName
-        | None -> Error ErrorCase.ItemNotFound
-
-    member _.GetFunctionAddresses() =
-      let staticFuncs =
-        [| for s in symbs.Value.StaticSymbols do
-             if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr else () |]
-      let dynamicFuncs =
-        [| for s in symbs.Value.DynamicSymbols do
-             if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr else () |]
-      let extraFuncs =
-        findExtraFnAddrs toolBox shdrs.Value loadables.Value relocs.Value
-      Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
-      |> Set.ofArray
-      |> Set.toArray
-
-    member _.HasRelocationInfo addr = relocs.Value.Contains addr
-
-    member _.GetRelocatedAddr relocAddr =
-      getRelocatedAddr relocs.Value relocAddr
-
-    member _.GetLinkageTableEntries() =
-      plt.Value
-      |> NoOverlapIntervalMap.fold (fun acc _ entry -> entry :: acc) []
-      |> List.sortBy (fun entry -> entry.TrampolineAddress)
-      |> List.toArray
-
-    member _.IsLinkageTable addr =
-      NoOverlapIntervalMap.containsAddr addr plt.Value

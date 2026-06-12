@@ -1,0 +1,116 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+/// Provides convenience operations over optional capabilities of IBinFile.
+[<RequireQualifiedAccess>]
+module B2R2.FrontEnd.BinFile.BinFileOps
+
+open B2R2
+
+/// Tries to find the symbolic name associated with the given address.
+[<CompiledName "TryFindName">]
+let tryFindName (file: IBinFile) addr =
+  match file.Names with
+  | Some names -> names.TryFindName addr
+  | None -> Error ErrorCase.SymbolNotFound
+
+/// Returns a pointer to the text section of the given binary file.
+[<CompiledName "GetTextSectionPointer">]
+let getTextSectionPointer (file: IBinFile) =
+  match file.Organization with
+  | Some org -> org.GetTextSectionPointer()
+  | None -> BinFilePointer.Null
+
+/// Returns the default code pointer for disassembling the given binary file.
+[<CompiledName "GetDefaultCodePointer">]
+let getDefaultCodePointer (file: IBinFile) =
+  match file.Organization with
+  | Some org -> org.GetTextSectionPointer()
+  | None ->
+    match file.EntryPoint with
+    | Some entry -> file.GetBoundedPointer entry
+    | None -> BinFilePointer.Null
+
+/// Returns a pointer to the section with the given name.
+[<CompiledName "GetSectionPointer">]
+let getSectionPointer (file: IBinFile) name =
+  match file.Organization with
+  | Some org -> org.GetSectionPointer name
+  | None -> BinFilePointer.Null
+
+/// Checks if the given address belongs to a text or data-only section.
+[<CompiledName "IsInTextOrDataOnlySection">]
+let isInTextOrDataOnlySection (file: IBinFile) addr =
+  match file.Organization with
+  | Some org -> org.IsInTextOrDataOnlySection addr
+  | None -> false
+
+/// Tries to find the section name containing the given address.
+[<CompiledName "TryFindSectionNameByAddr">]
+let tryFindSectionNameByAddr (file: IBinFile) addr =
+  match file.Organization with
+  | Some org -> org.TryFindSectionName(addr: Addr)
+  | None -> Error ErrorCase.ItemNotFound
+
+/// Tries to find the section name containing the given file offset.
+[<CompiledName "TryFindSectionNameByOffset">]
+let tryFindSectionNameByOffset (file: IBinFile) offset =
+  match file.Organization with
+  | Some org -> org.TryFindSectionName(offset: uint32)
+  | None -> Error ErrorCase.ItemNotFound
+
+/// Returns known function entry addresses from the given binary file.
+[<CompiledName "GetFunctionAddresses">]
+let getFunctionAddresses (file: IBinFile) =
+  match file.Organization with
+  | Some org -> org.GetFunctionAddresses()
+  | None -> [||]
+
+/// Checks if the given address has relocation information.
+[<CompiledName "HasRelocationInfo">]
+let hasRelocationInfo (file: IBinFile) addr =
+  match file.Relocations with
+  | Some relocs -> relocs.HasRelocationInfo addr
+  | None -> false
+
+/// Tries to find the relocated target address of the given address.
+[<CompiledName "GetRelocatedAddr">]
+let getRelocatedAddr (file: IBinFile) relocAddr =
+  match file.Relocations with
+  | Some relocs -> relocs.GetRelocatedAddr relocAddr
+  | None -> Error ErrorCase.ItemNotFound
+
+/// Returns all linkage table entries from the given binary file.
+[<CompiledName "GetLinkageTableEntries">]
+let getLinkageTableEntries (file: IBinFile) =
+  match file.Linkage with
+  | Some linkage -> linkage.GetLinkageTableEntries()
+  | None -> [||]
+
+/// Checks if the given address is a linkage table entry.
+[<CompiledName "IsLinkageTable">]
+let isLinkageTable (file: IBinFile) addr =
+  match file.Linkage with
+  | Some linkage -> linkage.IsLinkageTable addr
+  | None -> false

@@ -35,10 +35,6 @@ type IBinFile =
   inherit IBinMetadata
   inherit IBinProperty
   inherit IContentAddressable
-  inherit INameReadable
-  inherit IBinOrganization
-  inherit IRelocationTable
-  inherit ILinkageTable
 
   /// Returns a reader for this binary file.
   abstract Reader: IBinReader
@@ -48,6 +44,18 @@ type IBinFile =
 
   /// Returns the size of the associated binary file.
   abstract Length: int
+
+  /// Returns a name reader if this binary format provides names.
+  abstract Names: INameReadable option
+
+  /// Returns an organization view if this binary format has one.
+  abstract Organization: IBinOrganization option
+
+  /// Returns a relocation table if this binary format has relocations.
+  abstract Relocations: IRelocationTable option
+
+  /// Returns a linkage table if this binary format has linkage entries.
+  abstract Linkage: ILinkageTable option
 
   /// Slices the given binary file into a span of bytes of the specified length
   /// starting from the specified file offset.
