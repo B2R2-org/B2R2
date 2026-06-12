@@ -215,7 +215,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
             offset <- maxOffset + 1
             maxAddr <- vma + uint64 vmaSize - 1UL
         else idx <- idx + 1
-      BinFilePointer(addr, maxAddr, offset, maxOffset)
+      if found then BinFilePointer(addr, maxAddr, offset, maxOffset)
+      else BinFilePointer.Null
 
     member _.GetVMMappedRegions() =
       pe.SectionHeaders

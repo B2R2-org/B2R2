@@ -291,7 +291,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
             offset <- maxOffset + 1
             maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
         else idx <- idx + 1
-      BinFilePointer(addr, maxAddr, offset, maxOffset)
+      if found then BinFilePointer(addr, maxAddr, offset, maxOffset)
+      else BinFilePointer.Null
 
     member _.GetVMMappedRegions() =
       phdrs.Value

@@ -228,7 +228,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
             offset <- maxOffset + 1
             maxAddr <- seg.VMAddr + seg.VMSize - 1UL
         else idx <- idx + 1
-      BinFilePointer(addr, maxAddr, offset, maxOffset)
+      if found then BinFilePointer(addr, maxAddr, offset, maxOffset)
+      else BinFilePointer.Null
 
     member _.GetVMMappedRegions() =
       segCmds.Value
