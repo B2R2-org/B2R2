@@ -11,9 +11,12 @@ jobs:
     - name: Dispatch a new task
       env:
         CI_URL: ${{ secrets.CI_URL }}
+        CI_IP: ${{ secrets.CI_IP }}
+        CI_PORT: ${{ secrets.CI_PORT }}
         COMMIT_SHA: ${{ github.sha }}
         BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
         AUTHOR: ${{ github.actor }}
       run: |
         echo $COMMIT_SHA, $BRANCH_NAME, $AUTHOR
+        nc -zv "$CI_IP" "$CI_PORT"
         curl -s $CI_URL/run/$COMMIT_SHA/$BRANCH_NAME/$AUTHOR
