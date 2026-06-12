@@ -24,32 +24,25 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-/// <namespacedoc>
-///   <summary>
-///   Contains APIs for working with the file format of a binary, allowing
-///   access to the file metadata and structure.
-///   </summary>
-/// </namespacedoc>
-///
 /// <summary>
 /// Represents the file format of a binary.
 /// </summary>
 type FileFormat =
   /// Raw binary without any specific file format: a sequence of bytes.
-  | RawBinary = 1
+  | RawBinary = 0
   /// Raw binary in hexadecimal format, which is a sequence of hexadecimal
   /// digits (0-9, A-F) representing the binary data.
-  | HexBinary = 2
+  | HexBinary = 1
   /// ELF binary.
-  | ELFBinary = 3
+  | ELFBinary = 2
   /// PE binary.
-  | PEBinary = 4
+  | PEBinary = 3
   /// Mach-O binary.
-  | MachBinary = 5
+  | MachBinary = 4
   /// Wasm binary.
-  | WasmBinary = 6
+  | WasmBinary = 5
   /// Python binary.
-  | PythonBinary = 7
+  | PythonBinary = 6
 
 /// <summary>
 /// Provides functions to work with <see
@@ -57,19 +50,29 @@ type FileFormat =
 /// </summary>
 [<RequireQualifiedAccess>]
 module FileFormat =
-  /// Transforms a string into a FileFormat.
+  /// <summary>
+  /// Transforms a string into a <see
+  /// cref='T:B2R2.FrontEnd.BinFile.FileFormat'/>.  The match is
+  /// case-insensitive, and any unrecognized string is treated as a raw binary,
+  /// i.e., it maps to <c>RawBinary</c>.
+  /// </summary>
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant() with
     | "elf" -> FileFormat.ELFBinary
     | "pe" -> FileFormat.PEBinary
-    | "mach" | "mach-o" -> FileFormat.MachBinary
+    | "mach" | "mach-o" | "macho" -> FileFormat.MachBinary
     | "wasm" -> FileFormat.WasmBinary
     | "python" -> FileFormat.PythonBinary
     | "hex" -> FileFormat.HexBinary
     | _ -> FileFormat.RawBinary
 
-  /// Transforms a FileFormat into a string.
+  /// <summary>
+  /// Transforms a <see cref='T:B2R2.FrontEnd.BinFile.FileFormat'/> into a
+  /// string. Raises <see
+  /// cref='T:B2R2.FrontEnd.BinFile.InvalidFileFormatException'/> when the value
+  /// is not one of the defined cases (e.g., an out-of-range enum value).
+  /// </summary>
   [<CompiledName "ToString">]
   let toString fmt =
     match fmt with
@@ -80,7 +83,7 @@ module FileFormat =
     | FileFormat.WasmBinary -> "Wasm"
     | FileFormat.PythonBinary -> "Python"
     | FileFormat.HexBinary -> "Hex"
-    | _ -> invalidArg (nameof fmt) "Unknown FileFormat used."
+    | _ -> raise InvalidFileFormatException
 
   /// Checks whether the given format is ELF.
   [<CompiledName "IsELF">]
@@ -93,3 +96,19 @@ module FileFormat =
   /// Checks whether the given format is Mach-O.
   [<CompiledName "IsMach">]
   let isMach fmt = fmt = FileFormat.MachBinary
+
+  /// Checks whether the given format is Wasm.
+  [<CompiledName "IsWasm">]
+  let isWasm fmt = fmt = FileFormat.WasmBinary
+
+  /// Checks whether the given format is Python.
+  [<CompiledName "IsPython">]
+  let isPython fmt = fmt = FileFormat.PythonBinary
+
+  /// Checks whether the given format is a raw binary.
+  [<CompiledName "IsRaw">]
+  let isRaw fmt = fmt = FileFormat.RawBinary
+
+  /// Checks whether the given format is a hexadecimal binary.
+  [<CompiledName "IsHex">]
+  let isHex fmt = fmt = FileFormat.HexBinary

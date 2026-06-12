@@ -8,8 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="FileFormat.fs" />
     <Compile Include="Exceptions.fs" />
+    <Compile Include="FileFormat.fs" />
     <Compile Include="Permission.fs" />
     <Compile Include="LinkageTable.fs" />
     <Compile Include="BinFilePointer.fs" />
