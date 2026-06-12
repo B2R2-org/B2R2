@@ -43,7 +43,11 @@ type Permission =
 /// </summary>
 [<RequireQualifiedAccess>]
 module Permission =
-  /// Permission to string.
+  /// <summary>
+  /// Converts a <see cref='T:B2R2.FrontEnd.BinFile.Permission'/> into a string
+  /// of the form "rwx", where each absent permission is shown as a dash, e.g.,
+  /// "r-x" for a readable and executable permission.
+  /// </summary>
   [<CompiledName ("ToString")>]
   let toString (p: Permission) =
     let r = if p.HasFlag Permission.Readable then "r" else "-"

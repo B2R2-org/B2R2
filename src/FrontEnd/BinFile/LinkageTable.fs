@@ -33,10 +33,10 @@ type LinkageTable = LinkageTableEntry[]
 and LinkageTableEntry =
   { /// Target function name for dynamic linking.
     FuncName: string
-    /// Corresponding library name.
+    /// Name of the library that provides the function.
     LibraryName: string
     /// Trampoline code address, e.g., PLT.
     TrampolineAddress: Addr
-    /// The address of the table that stores the actual target address
-    /// e.g., GOT.
+    /// The address of the table that stores the actual target address (e.g.,
+    /// GOT).
     TableAddress: Addr }

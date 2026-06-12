@@ -33,10 +33,11 @@ open B2R2
 type IContentAddressable =
   /// <summary>
   /// Slices the raw binary content into a read-only span of bytes of the
-  /// specified length starting from the specified address.
+  /// specified length starting from the specified virtual address.
   /// </summary>
   /// <returns>
-  /// Returns a read-only span of bytes starting from the specified address.
+  /// Returns a read-only span of bytes starting from the specified virtual
+  /// address.
   /// </returns>
   abstract Slice: addr: Addr * len: int -> System.ReadOnlySpan<byte>
 
@@ -52,7 +53,7 @@ type IContentAddressable =
 
   /// <summary>
   /// Checks if the given address range is valid. This function returns true
-  /// only if the whole range of the addressess are valid (for every address in
+  /// only if the whole range of the addresses are valid (for every address in
   /// the range, IsValidAddr should return true).
   /// </summary>
   /// <returns>
@@ -80,7 +81,7 @@ type IContentAddressable =
   /// <summary>
   /// Checks if the given address range is valid and there exists a
   /// corresponding region in the actual binary file. This function returns true
-  /// only if the whole range of the addressess are valid (for every address in
+  /// only if the whole range of the addresses are valid (for every address in
   /// the range, IsAddrMappedToFile should return true).
   /// </summary>
   /// <returns>
@@ -105,18 +106,18 @@ type IContentAddressable =
   /// <summary>
   /// Retrieves a file pointer that has its boundary aligned to the regions
   /// defined by file structures. Specifically, we split four types of regions
-  /// in a binary file: (1) VM and file-mapped regions, (2) VM-only regions, and
+  /// in a binary file: (1) VM and file-mapped regions, (2) VM-only regions,
   /// (3) file-only regions, and (4) unmapped regions. A returned pointer will
   /// exclusively point to one of the first two regions, or it will be a null
-  /// pointer for the rest cases. To retrieve a pointer for (3), use
+  /// pointer for the remaining cases. To retrieve a pointer for (3), use
   /// format-specific member functions.
-  /// <remark>
+  /// </summary>
+  /// <remarks>
   /// Case (1) is the most common case, where the address is mapped to a file
   /// offset. Case (2) is a region that has its virtual address but not mapped
   /// to the file. For example, segments in ELF files often have such a region
   /// that is only available in the VMA.
-  /// </remark>
-  /// </summary>
+  /// </remarks>
   abstract GetBoundedPointer: addr: Addr -> BinFilePointer
 
   /// <summary>

@@ -45,6 +45,6 @@ type IBinMetadata =
   /// entry point, and EntryPoint will return None in such a case.
   abstract EntryPoint: Addr option
 
-  /// The base address of the associated binary at which it is prefered to be
+  /// The base address of the associated binary at which it is preferred to be
   /// loaded in memory.
   abstract BaseAddress: Addr
