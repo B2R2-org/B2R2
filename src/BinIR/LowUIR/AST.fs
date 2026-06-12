@@ -39,58 +39,56 @@ open B2R2.Collections
 open B2R2.BinIR
 
 #if HASHCONS
-open System
-open System.Collections.Concurrent
-
 let private eTagCnt = ref 0u
 let private sTagCnt = ref 0u
 
-(* As we use a dictionary with WeakReference values, only the "values" will be
-   collected in the end. This will produce some garbage entries (with a null
-   value). We could use MemoryCache to handle the problem, but the memory leak
-   is not severe enough to trade-off the performance. *)
-let private exprs = ConcurrentDictionary<Expr, WeakReference<Expr>>()
-let private stmts = ConcurrentDictionary<Stmt, WeakReference<Stmt>>()
-let private newEID () = Threading.Interlocked.Increment eTagCnt
-let private newSID () = Threading.Interlocked.Increment sTagCnt
+let private newEID () = System.Threading.Interlocked.Increment eTagCnt
+let private newSID () = System.Threading.Interlocked.Increment sTagCnt
 
-let inline private reviveExpr (wr: WeakReference<Expr>) e hc =
-  lock wr (fun () ->
-    match wr.TryGetTarget() with
-    | true, e -> e
-    | false, _ ->
-      (hc: HashConsingInfo).ID <- newEID ()
-      wr.SetTarget e
-      e)
+let inline private initExpr e hash =
+  match e with
+  | Num(_, hc)
+  | Var(_, _, _, hc)
+  | PCVar(_, _, hc)
+  | TempVar(_, _, hc)
+  | ExprList(_, hc)
+  | UnOp(_, _, hc)
+  | JmpDest(_, hc)
+  | FuncName(_, hc)
+  | BinOp(_, _, _, _, hc)
+  | RelOp(_, _, _, hc)
+  | Load(_, _, _, hc)
+  | Ite(_, _, _, hc)
+  | Cast(_, _, _, hc)
+  | Extract(_, _, _, hc)
+  | Undefined(_, _, hc) ->
+    hc.ID <- newEID ()
+    hc.Hash <- hash
 
-let inline private reviveStmt (wr: WeakReference<Stmt>) s hc =
-  lock wr (fun () ->
-    match wr.TryGetTarget() with
-    | true, s -> s
-    | false, _ ->
-      (hc: HashConsingInfo).ID <- newSID ()
-      wr.SetTarget s
-      s)
+let inline private initStmt s hash =
+  match s with
+  | ISMark(_, hc)
+  | IEMark(_, hc)
+  | LMark(_, hc)
+  | Put(_, _, hc)
+  | Store(_, _, _, hc)
+  | Jmp(_, hc)
+  | CJmp(_, _, _, hc)
+  | InterJmp(_, _, hc)
+  | InterCJmp(_, _, _, hc)
+  | ExternalCall(_, hc)
+  | SideEffect(_, hc) ->
+    hc.ID <- newSID ()
+    hc.Hash <- hash
 
-let inline private internExpr e (hc: HashConsingInfo) (hash: int) =
-  hc.Hash <- hash
-  let wr =
-    exprs.GetOrAdd(e, fun _ ->
-      hc.ID <- newEID ()
-      WeakReference<Expr> e)
-  match wr.TryGetTarget() with
-  | true, e -> e
-  | false, _ -> reviveExpr wr e hc
+let private exprs = WeakBucketTable<Expr>((fun l r -> l.Equals r), initExpr)
+let private stmts = WeakBucketTable<Stmt>((fun l r -> l.Equals r), initStmt)
 
-let inline private internStmt s (hc: HashConsingInfo) (hash: int) =
-  hc.Hash <- hash
-  let wr =
-    stmts.GetOrAdd(s, fun _ ->
-      hc.ID <- newSID ()
-      WeakReference<Stmt> s)
-  match wr.TryGetTarget() with
-  | true, s -> s
-  | false, _ -> reviveStmt wr s hc
+let inline private internExpr e (_: HashConsingInfo) (hash: int) =
+  exprs.Intern(e, hash)
+
+let inline private internStmt s (_: HashConsingInfo) (hash: int) =
+  stmts.Intern(s, hash)
 #endif
 
 /// Construct a number (Num).
