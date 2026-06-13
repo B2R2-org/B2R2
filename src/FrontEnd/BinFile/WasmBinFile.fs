@@ -40,7 +40,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
   let structure =
     Some { new IBinStructure with
-      member _.GetTextSectionPointer() =
+      member _.GetCodeSectionPointer() =
         match wm.CodeSection with
         | Some sec ->
           BinFilePointer(uint64 sec.Offset,
@@ -65,7 +65,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
   let linkage =
     Some { new ILinkageTable with
-      member _.GetLinkageTableEntries() = getImports wm
+      member _.GetLinkageEntries() = getImports wm
 
       member _.IsInLinkageTable _addr = Terminator.futureFeature ()
     }

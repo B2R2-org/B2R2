@@ -36,11 +36,11 @@ module Helper =
     | Error _ -> Assert.Fail()
 
   let getTextSectionAddr (file: IBinFile) =
-    let ptr = BinFileOps.getTextSectionPointer file
+    let ptr = BinFileOps.getCodeSectionPointer file
     ptr.Addr
 
   let getLinkageTableEntries (file: IBinFile) =
-    BinFileOps.getLinkageTableEntries file
+    BinFileOps.getLinkageEntries file
 
   let assertExistenceOfPair pair pairSequence =
     Assert.AreEqual(true, Seq.exists ((=) pair) pairSequence)

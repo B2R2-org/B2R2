@@ -55,5 +55,5 @@ type IBinFile =
   /// Returns a linkage table if this binary format has linkage entries.
   abstract Linkage: ILinkageTable option
 
-  /// Returns a memory layout view if this binary format has a VM mapping.
+  /// Returns a memory layout view if this binary format is memory-mapped.
   abstract MemoryLayout: IMemoryLayout option

@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinFile
 
 let ofLinkageTable (hdl: BinHandle) =
   let funcs = Dictionary()
-  for entry in BinFileOps.getLinkageTableEntries hdl.File do
+  for entry in BinFileOps.getLinkageEntries hdl.File do
     if entry.TrampolineAddress = 0UL then ()
     else funcs.TryAdd(entry.TrampolineAddress, entry.FuncName) |> ignore
   funcs
@@ -42,7 +42,7 @@ let ofText (hdl: BinHandle) =
     match BinFileOps.tryFindName hdl.File addr with
     | Ok name -> funcs.TryAdd(addr, name) |> ignore
     | Error _ -> funcs.TryAdd(addr, Addr.toFuncName addr) |> ignore
-  for entry in BinFileOps.getLinkageTableEntries hdl.File do
+  for entry in BinFileOps.getLinkageEntries hdl.File do
     if entry.TrampolineAddress = 0UL then ()
     else funcs.TryAdd(entry.TrampolineAddress, entry.FuncName) |> ignore
   funcs

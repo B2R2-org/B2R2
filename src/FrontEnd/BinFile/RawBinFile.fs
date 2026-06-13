@@ -42,8 +42,8 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
   let memoryLayout =
     let region = [| AddrRange.create baseAddr (baseAddr + uint64 size - 1UL) |]
     Some { new IMemoryLayout with
-      member _.GetVMMappedRegions() = region
-      member _.GetVMMappedRegions _perm = region }
+      member _.GetMemoryMappedRegions() = region
+      member _.GetMemoryMappedRegions _perm = region }
 
   interface IBinFile with
     member _.Reader with get() = reader

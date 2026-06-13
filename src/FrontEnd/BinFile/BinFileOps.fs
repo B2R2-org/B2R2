@@ -48,18 +48,18 @@ let tryFindName (file: IBinFile) addr =
   | Some names -> names.TryFindName addr
   | None -> Error ErrorCase.SymbolNotFound
 
-/// Returns a pointer to the text section of the given binary file.
-[<CompiledName "GetTextSectionPointer">]
-let getTextSectionPointer (file: IBinFile) =
+/// Returns a pointer to the code section of the given binary file.
+[<CompiledName "GetCodeSectionPointer">]
+let getCodeSectionPointer (file: IBinFile) =
   match file.Structure with
-  | Some org -> org.GetTextSectionPointer()
+  | Some org -> org.GetCodeSectionPointer()
   | None -> BinFilePointer.Null
 
 /// Returns the default code pointer for disassembling the given binary file.
 [<CompiledName "GetDefaultCodePointer">]
 let getDefaultCodePointer (file: IBinFile) =
   match file.Structure with
-  | Some org -> org.GetTextSectionPointer()
+  | Some org -> org.GetCodeSectionPointer()
   | None ->
     match file.EntryPoint with
     | Some entry -> file.GetBoundedPointer entry
@@ -94,24 +94,24 @@ let getFunctionAddresses (file: IBinFile) =
   | None -> [||]
 
 /// Checks if the given address has relocation information.
-[<CompiledName "HasRelocationInfo">]
-let hasRelocationInfo (file: IBinFile) addr =
+[<CompiledName "ContainsRelocation">]
+let containsRelocation (file: IBinFile) addr =
   match file.Relocations with
-  | Some relocs -> relocs.HasRelocationInfo addr
+  | Some relocs -> relocs.ContainsRelocation addr
   | None -> false
 
 /// Tries to find the relocated target address of the given address.
-[<CompiledName "GetRelocatedAddr">]
-let getRelocatedAddr (file: IBinFile) relocAddr =
+[<CompiledName "TryGetRelocatedAddr">]
+let tryGetRelocatedAddr (file: IBinFile) relocAddr =
   match file.Relocations with
-  | Some relocs -> relocs.GetRelocatedAddr relocAddr
+  | Some relocs -> relocs.TryGetRelocatedAddr relocAddr
   | None -> Error ErrorCase.ItemNotFound
 
 /// Returns all linkage table entries from the given binary file.
-[<CompiledName "GetLinkageTableEntries">]
-let getLinkageTableEntries (file: IBinFile) =
+[<CompiledName "GetLinkageEntries">]
+let getLinkageEntries (file: IBinFile) =
   match file.Linkage with
-  | Some linkage -> linkage.GetLinkageTableEntries()
+  | Some linkage -> linkage.GetLinkageEntries()
   | None -> [||]
 
 /// Checks if the given address falls within the linkage table.
@@ -121,16 +121,16 @@ let isInLinkageTable (file: IBinFile) addr =
   | Some linkage -> linkage.IsInLinkageTable addr
   | None -> false
 
-/// Returns all VM-mapped regions of the given binary file.
-[<CompiledName "GetVMMappedRegions">]
-let getVMMappedRegions (file: IBinFile) =
+/// Returns all memory-mapped regions of the given binary file.
+[<CompiledName "GetMemoryMappedRegions">]
+let getMemoryMappedRegions (file: IBinFile) =
   match file.MemoryLayout with
-  | Some layout -> layout.GetVMMappedRegions()
+  | Some layout -> layout.GetMemoryMappedRegions()
   | None -> [||]
 
-/// Returns the VM-mapped regions that carry the given permission.
-[<CompiledName "GetVMMappedRegionsByPermission">]
-let getVMMappedRegionsByPermission (file: IBinFile) perm =
+/// Returns the memory-mapped regions that carry the given permission.
+[<CompiledName "GetMemoryMappedRegionsByPermission">]
+let getMemoryMappedRegionsByPermission (file: IBinFile) perm =
   match file.MemoryLayout with
-  | Some layout -> layout.GetVMMappedRegions perm
+  | Some layout -> layout.GetMemoryMappedRegions perm
   | None -> [||]

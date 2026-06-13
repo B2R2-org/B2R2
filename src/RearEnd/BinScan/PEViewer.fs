@@ -388,7 +388,7 @@ let dumpCLRHeader _ (pe: PEBinFile) =
     printsn ""
 
 let dumpDependencies _ (file: IBinFile) =
-  BinFileOps.getLinkageTableEntries file
+  BinFileOps.getLinkageEntries file
   |> Array.map (fun e -> e.LibraryName)
   |> Set.ofArray
   |> Set.iter (fun s -> printsn $"- {s}")

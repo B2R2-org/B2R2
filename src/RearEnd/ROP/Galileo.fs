@@ -57,10 +57,10 @@ let getTailPatterns (liftingUnit: LiftingUnit) =
 let private getExecutableRanges (liftingUnit: LiftingUnit) =
   let file = liftingUnit.File
   let rxRanges =
-    BinFileOps.getVMMappedRegionsByPermission file
+    BinFileOps.getMemoryMappedRegionsByPermission file
       (Permission.Readable ||| Permission.Executable)
   if not file.IsNXEnabled then
-    BinFileOps.getVMMappedRegionsByPermission file Permission.Readable
+    BinFileOps.getMemoryMappedRegionsByPermission file Permission.Readable
     |> Seq.append rxRanges
     |> Seq.distinct
   else

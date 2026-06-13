@@ -34,7 +34,7 @@ type IRelocationTable =
   /// <returns>
   /// True if the address has relocation information, false otherwise.
   /// </returns>
-  abstract HasRelocationInfo: Addr -> bool
+  abstract ContainsRelocation: Addr -> bool
 
   /// <summary>
   /// Returns a relocation target address of the given virtual address if there
@@ -44,4 +44,4 @@ type IRelocationTable =
   /// <returns>
   /// Returns a relocated address for a given virtual address.
   /// </returns>
-  abstract GetRelocatedAddr: relocAddr: Addr -> Result<Addr, ErrorCase>
+  abstract TryGetRelocatedAddr: relocAddr: Addr -> Result<Addr, ErrorCase>

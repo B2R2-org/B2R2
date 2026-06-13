@@ -41,7 +41,7 @@ module ROPHandle =
   let inline getFileInfo rop = rop.LiftingUnit.File
 
   let inline tryFindPlt rop name =
-    BinFileOps.getLinkageTableEntries rop.LiftingUnit.File
+    BinFileOps.getLinkageEntries rop.LiftingUnit.File
     |> Seq.tryFind (fun entry -> entry.FuncName = name)
 
   let inline getKeys map = Map.fold (fun acc k _ -> Set.add k acc) Set.empty map
@@ -179,8 +179,8 @@ module ROPHandle =
       |> Some
     | None -> None
 
-  let private vmMappedRegions rop perm =
-    BinFileOps.getVMMappedRegionsByPermission (getFileInfo rop) perm
+  let private memoryMappedRegions rop perm =
+    BinFileOps.getMemoryMappedRegionsByPermission (getFileInfo rop) perm
 
   let private findBytes rop bytes =
     let chooser (vmRange: AddrRange) =
@@ -188,12 +188,12 @@ module ROPHandle =
       let size = vmRange.Max - vmRange.Min + 1UL
       rop.BinHdl.ReadBytes(min, int size)
       |> ByteArray.tryFindIdx min bytes
-    vmMappedRegions rop Permission.Readable
+    memoryMappedRegions rop Permission.Readable
     |> Seq.tryPick chooser
 
   let private getWritableAddr rop =
     let vmRange =
-      vmMappedRegions rop Permission.Writable
+      memoryMappedRegions rop Permission.Writable
       |> Array.maxBy (fun range -> range.Max - range.Min + 1UL)
     vmRange.Min + rop.BinBase
 

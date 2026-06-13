@@ -426,7 +426,7 @@ let dumpLinkageTableVerbose (elf: ELFBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsr <| makeLinkageTableHeaderVerbose ()
   printSingleHorizontalRule ()
-  for e in BinFileOps.getLinkageTableEntries elf do
+  for e in BinFileOps.getLinkageEntries elf do
     match elf.RelocationInfo.TryFind e.TableAddress with
     | Ok reloc ->
       printsr [| Addr.toString wordSize e.TrampolineAddress
@@ -453,7 +453,7 @@ let dumpLinkageTableSimple (elf: ELFBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsr [| "PLT"; "GOT"; "FunctionName"; "Lib Name" |]
   printSingleHorizontalRule ()
-  for e in BinFileOps.getLinkageTableEntries elf do
+  for e in BinFileOps.getLinkageEntries elf do
     printsr [| Addr.toString wordSize e.TrampolineAddress
                Addr.toString wordSize e.TableAddress
                normalizeEmpty e.FuncName

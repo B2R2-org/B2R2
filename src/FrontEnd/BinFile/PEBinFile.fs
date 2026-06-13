@@ -58,7 +58,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let structure =
     Some { new IBinStructure with
-      member _.GetTextSectionPointer() =
+      member _.GetCodeSectionPointer() =
         pe.SectionHeaders
         |> Array.tryFind (fun sec -> sec.Name = SecText)
         |> function
@@ -104,9 +104,9 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let relocations =
     Some { new IRelocationTable with
-      member _.HasRelocationInfo addr = hasRelocationSymbols pe addr
+      member _.ContainsRelocation addr = hasRelocationSymbols pe addr
 
-      member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
+      member _.TryGetRelocatedAddr _relocAddr = Terminator.futureFeature ()
     }
 
   let linkageEntries =
@@ -114,12 +114,12 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let linkage =
     Some { new ILinkageTable with
-      member _.GetLinkageTableEntries() = linkageEntries.Value
+      member _.GetLinkageEntries() = linkageEntries.Value
 
       member _.IsInLinkageTable addr = isImportTable pe addr
     }
 
-  let vmRegions =
+  let memoryMappedRegions =
     lazy
       pe.SectionHeaders
       |> Array.choose (fun sec ->
@@ -132,10 +132,11 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetVMMappedRegions() = vmRegions.Value |> Array.map fst
+      member _.GetMemoryMappedRegions() =
+        memoryMappedRegions.Value |> Array.map fst
 
-      member _.GetVMMappedRegions(perm) =
-        vmRegions.Value
+      member _.GetMemoryMappedRegions(perm) =
+        memoryMappedRegions.Value
         |> Array.choose (fun (range, secPerm) ->
           if secPerm &&& perm = perm then Some range else None) }
 

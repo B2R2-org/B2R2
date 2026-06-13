@@ -108,7 +108,7 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
   /// Returns the coverage of the exception table, which is the ratio of
   /// addresses in the .text section that are covered by the exception table.
   member _.ExceptionCoverage with get() =
-    let ptr = BinFileOps.getTextSectionPointer liftingUnit.File
+    let ptr = BinFileOps.getCodeSectionPointer liftingUnit.File
     let txtSize = float (ptr.MaxAddr - ptr.Addr)
     let mutable covered = 0.0
     for KeyValue(startAddr, endAddr) in fnRanges do

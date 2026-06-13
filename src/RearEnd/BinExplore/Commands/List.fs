@@ -55,7 +55,7 @@ type List() =
 
   let listSegments (hdl: BinHandle) =
     let wordSize = hdl.File.ISA.WordSize
-    BinFileOps.getVMMappedRegions hdl.File
+    BinFileOps.getMemoryMappedRegions hdl.File
     |> Seq.map (createRegionString wordSize)
     |> Seq.toArray
 

@@ -30,10 +30,10 @@ open B2R2
 /// functions.
 type IBinStructure =
   /// <summary>
-  /// Returns a binary file pointer that points to the beginning of the text
+  /// Returns a binary file pointer that points to the beginning of the code
   /// section, e.g., ".text" section of ELF.
   /// </summary>
-  abstract GetTextSectionPointer: unit -> BinFilePointer
+  abstract GetCodeSectionPointer: unit -> BinFilePointer
 
   /// <summary>
   /// Returns a binary file pointer of the given section whose name is given as

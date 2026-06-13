@@ -38,7 +38,7 @@ type Search() =
   let toResult (idx: uint64) = $"Found @ {idx:x}"
 
   let search (hdl: BinHandle) pattern =
-    BinFileOps.getVMMappedRegionsByPermission hdl.File Permission.Readable
+    BinFileOps.getMemoryMappedRegionsByPermission hdl.File Permission.Readable
     |> Seq.collect (fun reg ->
       let size = reg.Max - reg.Min + 1UL
       hdl.ReadBytes(reg.Min, int size)

@@ -79,7 +79,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let structure =
     Some { new IBinStructure with
-      member _.GetTextSectionPointer() =
+      member _.GetCodeSectionPointer() =
         shdrs.Value
         |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
         |> function
@@ -127,10 +127,10 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let relocations =
     Some { new IRelocationTable with
-      member _.HasRelocationInfo addr =
+      member _.ContainsRelocation addr =
         relocs.Value.Contains addr
 
-      member _.GetRelocatedAddr relocAddr =
+      member _.TryGetRelocatedAddr relocAddr =
         getRelocatedAddr relocs.Value relocAddr
     }
 
@@ -143,14 +143,14 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let linkage =
     Some { new ILinkageTable with
-      member _.GetLinkageTableEntries() =
+      member _.GetLinkageEntries() =
         linkageEntries.Value
 
       member _.IsInLinkageTable addr =
         NoOverlapIntervalMap.containsAddr addr plt.Value
     }
 
-  let vmRegions =
+  let memoryMappedRegions =
     lazy
       phdrs.Value
       |> Array.filter (fun ph ->
@@ -161,10 +161,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetVMMappedRegions() = vmRegions.Value |> Array.map fst
+      member _.GetMemoryMappedRegions() =
+        memoryMappedRegions.Value |> Array.map fst
 
-      member _.GetVMMappedRegions(perm) =
-        vmRegions.Value
+      member _.GetMemoryMappedRegions(perm) =
+        memoryMappedRegions.Value
         |> Array.choose (fun (range, p) ->
           if p.HasFlag perm then Some range else None) }
 

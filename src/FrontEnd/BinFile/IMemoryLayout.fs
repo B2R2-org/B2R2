@@ -34,17 +34,18 @@ open B2R2
 /// </summary>
 type IMemoryLayout =
   /// <summary>
-  /// Returns an array of VM-mapped regions. By a VM-mapped region, we mean a
-  /// consecutive region that has a corresponding mapping in the virtual memory.
-  /// For example, an entire segment with PT_LOAD type of a program header in
-  /// ELF files is considered a VM-mapped region.
+  /// Returns an array of memory-mapped regions. By a memory-mapped region, we
+  /// mean a consecutive region that has a corresponding mapping in the virtual
+  /// memory. For example, an entire segment with PT_LOAD type of a program
+  /// header in ELF files is considered a memory-mapped region.
   /// </summary>
-  abstract GetVMMappedRegions: unit -> AddrRange[]
+  abstract GetMemoryMappedRegions: unit -> AddrRange[]
 
   /// <summary>
-  /// Returns an array of VM-mapped regions that have the given permission. By
-  /// a VM-mapped region, we mean a region that has a corresponding mapping in
-  /// the virtual memory. For example, an entire segment with PT_LOAD type of a
-  /// program header in ELF files is considered a VM-mapped region.
+  /// Returns an array of memory-mapped regions that have the given permission.
+  /// By a memory-mapped region, we mean a region that has a corresponding
+  /// mapping in the virtual memory. For example, an entire segment with PT_LOAD
+  /// type of a program header in ELF files is considered a memory-mapped
+  /// region.
   /// </summary>
-  abstract GetVMMappedRegions: perm: Permission -> AddrRange[]
+  abstract GetMemoryMappedRegions: perm: Permission -> AddrRange[]

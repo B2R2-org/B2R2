@@ -36,7 +36,7 @@ type ILinkageTable =
   /// <returns>
   /// An array of linkage table entries, e.g., PLT entries for ELF files.
   /// </returns>
-  abstract GetLinkageTableEntries: unit -> LinkageTableEntry[]
+  abstract GetLinkageEntries: unit -> LinkageTableEntry[]
 
   /// <summary>
   /// Returns whether the given address falls within the linkage table.

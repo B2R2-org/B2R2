@@ -62,7 +62,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
   let structure =
     Some { new IBinStructure with
-      member _.GetTextSectionPointer() =
+      member _.GetCodeSectionPointer() =
         let secs = secs.Value
         let secText = Section.getTextSectionIndex secs
         let sec = secs[secText]
@@ -105,12 +105,12 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
   let relocations =
     Some { new IRelocationTable with
-      member _.HasRelocationInfo addr =
+      member _.ContainsRelocation addr =
         relocs.Value
         |> Array.exists (fun r ->
           (r.RelocSection.SecAddr + uint64 r.RelocAddr) = addr)
 
-      member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
+      member _.TryGetRelocatedAddr _relocAddr = Terminator.futureFeature ()
     }
 
   let linkageEntries =
@@ -118,12 +118,12 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
   let linkage =
     Some { new ILinkageTable with
-      member _.GetLinkageTableEntries() = linkageEntries.Value
+      member _.GetLinkageEntries() = linkageEntries.Value
 
       member _.IsInLinkageTable addr = isPLT syms.Value addr
     }
 
-  let vmRegions =
+  let memoryMappedRegions =
     lazy
       segCmds.Value
       |> Array.filter (fun seg -> seg.VMSize > 0UL)
@@ -134,10 +134,11 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetVMMappedRegions() = vmRegions.Value |> Array.map fst
+      member _.GetMemoryMappedRegions() =
+        memoryMappedRegions.Value |> Array.map fst
 
-      member _.GetVMMappedRegions(perm) =
-        vmRegions.Value
+      member _.GetMemoryMappedRegions(perm) =
+        memoryMappedRegions.Value
         |> Array.choose (fun (range, p) ->
           if p.HasFlag perm then Some range else None) }
 
