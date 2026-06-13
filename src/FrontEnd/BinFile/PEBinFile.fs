@@ -161,9 +161,9 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   interface IBinFile with
     member _.Reader with get() = pe.BinReader
 
-    member _.RawBytes = System.ReadOnlyMemory bytes
+    member _.RawBytes with get() = System.ReadOnlyMemory bytes
 
-    member _.Length = bytes.Length
+    member _.Length with get() = bytes.Length
 
     member _.Path with get() = path
 
@@ -171,15 +171,15 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.ISA with get() = isa
 
-    member _.EntryPoint = getEntryPoint pe
+    member _.EntryPoint with get() = getEntryPoint pe
 
     member _.BaseAddress with get() = pe.BaseAddr
 
-    member _.IsStripped = Array.isEmpty pe.Symbols.SymbolArray
+    member _.IsStripped with get() = Array.isEmpty pe.Symbols.SymbolArray
 
-    member _.IsNXEnabled = isNXEnabled pe
+    member _.IsNXEnabled with get() = isNXEnabled pe
 
-    member _.IsRelocatable = isRelocatable pe
+    member _.IsRelocatable with get() = isRelocatable pe
 
     member _.NameResolver with get() = nameResolver
 

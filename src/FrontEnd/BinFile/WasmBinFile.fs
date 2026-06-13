@@ -82,9 +82,9 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
   interface IBinFile with
     member _.Reader with get() = reader
 
-    member _.RawBytes = System.ReadOnlyMemory bytes
+    member _.RawBytes with get() = System.ReadOnlyMemory bytes
 
-    member _.Length = bytes.Length
+    member _.Length with get() = bytes.Length
 
     member _.Path with get() = path
 
@@ -92,15 +92,15 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.ISA with get() = isa
 
-    member _.EntryPoint = entryPointOf wm
+    member _.EntryPoint with get() = entryPointOf wm
 
     member _.BaseAddress with get() = baseAddr
 
-    member _.IsStripped = List.isEmpty wm.CustomSections
+    member _.IsStripped with get() = List.isEmpty wm.CustomSections
 
-    member _.IsNXEnabled = true
+    member _.IsNXEnabled with get() = true
 
-    member _.IsRelocatable = false
+    member _.IsRelocatable with get() = false
 
     member _.NameResolver with get() = None
 

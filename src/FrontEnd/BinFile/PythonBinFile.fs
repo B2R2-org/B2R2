@@ -62,9 +62,9 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
   interface IBinFile with
     member _.Reader with get() = reader
 
-    member _.RawBytes = System.ReadOnlyMemory bytes
+    member _.RawBytes with get() = System.ReadOnlyMemory bytes
 
-    member _.Length = bytes.Length
+    member _.Length with get() = bytes.Length
 
     member _.Path with get() = path
 
@@ -72,15 +72,15 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.ISA with get() = ISA(Architecture.Python, Endian.Little)
 
-    member _.EntryPoint = Some 0UL
+    member _.EntryPoint with get() = Some 0UL
 
     member _.BaseAddress with get() = 0UL
 
-    member _.IsStripped = false
+    member _.IsStripped with get() = false
 
-    member _.IsNXEnabled = false
+    member _.IsNXEnabled with get() = false
 
-    member _.IsRelocatable = false
+    member _.IsRelocatable with get() = false
 
     member _.NameResolver with get() = None
 

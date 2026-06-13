@@ -221,9 +221,9 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
 
-    member _.RawBytes = System.ReadOnlyMemory bytes
+    member _.RawBytes with get() = System.ReadOnlyMemory bytes
 
-    member _.Length = bytes.Length
+    member _.Length with get() = bytes.Length
 
     member _.Path with get() = path
 
@@ -231,7 +231,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.ISA with get() = toolBox.ISA
 
-    member _.EntryPoint = Some hdr.EntryPoint
+    member _.EntryPoint with get() = Some hdr.EntryPoint
 
     member _.BaseAddress with get() = toolBox.BaseAddress
 

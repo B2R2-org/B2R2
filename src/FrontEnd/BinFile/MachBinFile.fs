@@ -170,9 +170,9 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
 
-    member _.RawBytes = System.ReadOnlyMemory bytes
+    member _.RawBytes with get() = System.ReadOnlyMemory bytes
 
-    member _.Length = bytes.Length
+    member _.Length with get() = bytes.Length
 
     member _.Path with get() = path
 
@@ -180,15 +180,16 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.ISA with get() = toolBox.ISA
 
-    member _.EntryPoint = computeEntryPoint segCmds.Value cmds.Value
+    member _.EntryPoint with get() = computeEntryPoint segCmds.Value cmds.Value
 
     member _.BaseAddress with get() = toolBox.BaseAddress
 
-    member _.IsStripped = isStripped secs.Value syms.Value
+    member _.IsStripped with get() = isStripped secs.Value syms.Value
 
-    member _.IsNXEnabled = isNXEnabled toolBox.Header
+    member _.IsNXEnabled with get() = isNXEnabled toolBox.Header
 
-    member _.IsRelocatable = toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
+    member _.IsRelocatable with get() =
+      toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
 
     member _.NameResolver with get() = nameResolver
 
