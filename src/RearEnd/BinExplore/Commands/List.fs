@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.BinExplore.Commands
 
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd
 open B2R2.RearEnd.BinExplore
 
@@ -54,7 +55,7 @@ type List() =
 
   let listSegments (hdl: BinHandle) =
     let wordSize = hdl.File.ISA.WordSize
-    hdl.File.GetVMMappedRegions()
+    BinFileOps.getVMMappedRegions hdl.File
     |> Seq.map (createRegionString wordSize)
     |> Seq.toArray
 

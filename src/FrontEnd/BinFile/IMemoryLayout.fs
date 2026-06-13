@@ -24,36 +24,27 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open B2R2.FrontEnd.BinLifter
+open B2R2
 
 /// <summary>
-/// Represents a format-agnostic binary file interface.
+/// Represents the virtual-memory layout of a binary: the set of regions that
+/// are mapped into the virtual memory when the binary is loaded. Binary formats
+/// without a native VM layout (e.g., bytecode containers) do not provide this
+/// interface.
 /// </summary>
-type IBinFile =
-  inherit IBinMetadata
-  inherit IBinProperty
-  inherit IAddressSpace
+type IMemoryLayout =
+  /// <summary>
+  /// Returns an array of VM-mapped regions. By a VM-mapped region, we mean a
+  /// consecutive region that has a corresponding mapping in the virtual memory.
+  /// For example, an entire segment with PT_LOAD type of a program header in
+  /// ELF files is considered a VM-mapped region.
+  /// </summary>
+  abstract GetVMMappedRegions: unit -> AddrRange[]
 
-  /// Returns a reader for this binary file.
-  abstract Reader: IBinReader
-
-  /// Returns the raw file content as a read-only memory block.
-  abstract RawBytes: System.ReadOnlyMemory<byte>
-
-  /// Returns the size of the associated binary file.
-  abstract Length: int
-
-  /// Returns a name resolver if this binary format provides names.
-  abstract NameResolver: INameResolvable option
-
-  /// Returns a structural view if this binary format has one.
-  abstract Structure: IBinStructure option
-
-  /// Returns a relocation table if this binary format has relocations.
-  abstract Relocations: IRelocationTable option
-
-  /// Returns a linkage table if this binary format has linkage entries.
-  abstract Linkage: ILinkageTable option
-
-  /// Returns a memory layout view if this binary format has a VM mapping.
-  abstract MemoryLayout: IMemoryLayout option
+  /// <summary>
+  /// Returns an array of VM-mapped regions that have the given permission. By
+  /// a VM-mapped region, we mean a region that has a corresponding mapping in
+  /// the virtual memory. For example, an entire segment with PT_LOAD type of a
+  /// program header in ELF files is considered a VM-mapped region.
+  /// </summary>
+  abstract GetVMMappedRegions: perm: Permission -> AddrRange[]

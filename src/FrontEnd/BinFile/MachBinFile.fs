@@ -60,8 +60,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
            if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr
            else () |]
 
-  let organization =
-    Some { new IBinOrganization with
+  let structure =
+    Some { new IBinStructure with
       member _.GetTextSectionPointer() =
         let secs = secs.Value
         let secText = Section.getTextSectionIndex secs
@@ -131,6 +131,24 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
       member _.IsLinkageTable addr = isPLT syms.Value addr
     }
 
+  let vmRegions =
+    lazy
+      segCmds.Value
+      |> Array.filter (fun seg -> seg.VMSize > 0UL)
+      |> Array.map (fun seg ->
+        let range = AddrRange.create seg.VMAddr (seg.VMAddr + seg.VMSize - 1UL)
+        let perm: Permission = LanguagePrimitives.EnumOfValue seg.InitProt
+        range, perm)
+
+  let memoryLayout =
+    Some { new IMemoryLayout with
+      member _.GetVMMappedRegions() = vmRegions.Value |> Array.map fst
+
+      member _.GetVMMappedRegions(perm) =
+        vmRegions.Value
+        |> Array.choose (fun (range, p) ->
+          if p.HasFlag perm then Some range else None) }
+
   member _.Header with get() = toolBox.Header
 
   member _.Commands with get() = cmds.Value
@@ -193,14 +211,16 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.NameResolver with get() = nameResolver
 
-    member _.Organization with get() = organization
+    member _.Structure with get() = structure
 
     member _.Relocations with get() = relocations
 
     member _.Linkage with get() = linkage
 
+    member _.MemoryLayout with get() = memoryLayout
+
     member this.Slice(addr, len) =
-      let ptr = (this :> IContentAddressable).GetBoundedPointer addr
+      let ptr = (this :> IAddressSpace).GetBoundedPointer addr
       sliceByPointer bytes ptr len
 
     member _.IsValidAddr addr =
@@ -239,19 +259,3 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
         else idx <- idx + 1
       if found then BinFilePointer(addr, maxAddr, offset, maxOffset)
       else BinFilePointer.Null
-
-    member _.GetVMMappedRegions() =
-      segCmds.Value
-      |> Array.choose (fun seg ->
-        if seg.VMSize > 0UL then
-          Some <| AddrRange.create seg.VMAddr (seg.VMAddr + seg.VMSize - 1UL)
-        else None)
-
-    member _.GetVMMappedRegions perm =
-      segCmds.Value
-      |> Array.choose (fun seg ->
-        let segPerm: Permission = LanguagePrimitives.EnumOfValue seg.InitProt
-        if segPerm.HasFlag perm && seg.VMSize > 0UL then
-          Some <| AddrRange.create seg.VMAddr (seg.VMAddr + seg.VMSize - 1UL)
-        else
-          None)

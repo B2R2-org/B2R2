@@ -84,34 +84,33 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.NameResolver with get() = None
 
-    member _.Organization with get() = None
+    member _.Structure with get() = None
 
     member _.Relocations with get() = None
 
     member _.Linkage with get() = None
+
+    member _.MemoryLayout with get() = None
 
     member _.Slice(addr, len) = sliceBySafeOffset bytes addr len
 
     member _.IsValidAddr(addr) = addr >= 0UL && addr < (uint64 bytes.LongLength)
 
     member this.IsValidRange range =
-      (this :> IContentAddressable).IsValidAddr range.Min
-      && (this :> IContentAddressable).IsValidAddr range.Max
+      (this :> IAddressSpace).IsValidAddr range.Min
+      && (this :> IAddressSpace).IsValidAddr range.Max
 
     member this.IsAddrMappedToFile addr =
-      (this :> IContentAddressable).IsValidAddr addr
+      (this :> IAddressSpace).IsValidAddr addr
 
     member this.IsRangeMappedToFile range =
-      (this :> IContentAddressable).IsValidRange range
+      (this :> IAddressSpace).IsValidRange range
 
-    member _.IsExecutableAddr _addr = Terminator.futureFeature ()
+    member this.IsExecutableAddr addr =
+      (this :> IAddressSpace).IsValidAddr addr
 
     member _.GetBoundedPointer(addr) =
       if addr < uint64 size then
         BinFilePointer(addr, uint64 size - 1UL, int addr, size - 1)
       else
         BinFilePointer.Null
-
-    member _.GetVMMappedRegions() = [||]
-
-    member _.GetVMMappedRegions _permission = [||]

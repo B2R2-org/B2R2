@@ -26,9 +26,9 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// Represents an interface for accessing the binary file organization, such as
-/// sections and functions.
-type IBinOrganization =
+/// Represents the structural view of a binary file, such as its sections and
+/// functions.
+type IBinStructure =
   /// <summary>
   /// Returns a binary file pointer that points to the beginning of the text
   /// section, e.g., ".text" section of ELF.

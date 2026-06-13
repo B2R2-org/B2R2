@@ -26,7 +26,6 @@
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.BinFileOps
 
-open System
 open B2R2
 
 /// <summary>
@@ -52,14 +51,14 @@ let tryFindName (file: IBinFile) addr =
 /// Returns a pointer to the text section of the given binary file.
 [<CompiledName "GetTextSectionPointer">]
 let getTextSectionPointer (file: IBinFile) =
-  match file.Organization with
+  match file.Structure with
   | Some org -> org.GetTextSectionPointer()
   | None -> BinFilePointer.Null
 
 /// Returns the default code pointer for disassembling the given binary file.
 [<CompiledName "GetDefaultCodePointer">]
 let getDefaultCodePointer (file: IBinFile) =
-  match file.Organization with
+  match file.Structure with
   | Some org -> org.GetTextSectionPointer()
   | None ->
     match file.EntryPoint with
@@ -69,35 +68,35 @@ let getDefaultCodePointer (file: IBinFile) =
 /// Returns a pointer to the section with the given name.
 [<CompiledName "GetSectionPointer">]
 let getSectionPointer (file: IBinFile) name =
-  match file.Organization with
+  match file.Structure with
   | Some org -> org.GetSectionPointer name
   | None -> BinFilePointer.Null
 
 /// Checks if the given address belongs to a text or data-only section.
 [<CompiledName "IsInTextOrDataOnlySection">]
 let isInTextOrDataOnlySection (file: IBinFile) addr =
-  match file.Organization with
+  match file.Structure with
   | Some org -> org.IsInTextOrDataOnlySection addr
   | None -> false
 
 /// Tries to find the section name containing the given address.
 [<CompiledName "TryFindSectionNameByAddr">]
 let tryFindSectionNameByAddr (file: IBinFile) addr =
-  match file.Organization with
+  match file.Structure with
   | Some org -> org.TryFindSectionNameByAddr addr
   | None -> Error ErrorCase.ItemNotFound
 
 /// Tries to find the section name containing the given file offset.
 [<CompiledName "TryFindSectionNameByOffset">]
 let tryFindSectionNameByOffset (file: IBinFile) offset =
-  match file.Organization with
+  match file.Structure with
   | Some org -> org.TryFindSectionNameByOffset offset
   | None -> Error ErrorCase.ItemNotFound
 
 /// Returns known function entry addresses from the given binary file.
 [<CompiledName "GetFunctionAddresses">]
 let getFunctionAddresses (file: IBinFile) =
-  match file.Organization with
+  match file.Structure with
   | Some org -> org.GetFunctionAddresses()
   | None -> [||]
 
@@ -128,3 +127,17 @@ let isLinkageTable (file: IBinFile) addr =
   match file.Linkage with
   | Some linkage -> linkage.IsLinkageTable addr
   | None -> false
+
+/// Returns all VM-mapped regions of the given binary file.
+[<CompiledName "GetVMMappedRegions">]
+let getVMMappedRegions (file: IBinFile) =
+  match file.MemoryLayout with
+  | Some layout -> layout.GetVMMappedRegions()
+  | None -> [||]
+
+/// Returns the VM-mapped regions that carry the given permission.
+[<CompiledName "GetVMMappedRegionsByPermission">]
+let getVMMappedRegionsByPermission (file: IBinFile) perm =
+  match file.MemoryLayout with
+  | Some layout -> layout.GetVMMappedRegions perm
+  | None -> [||]

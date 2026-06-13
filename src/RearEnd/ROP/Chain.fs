@@ -179,18 +179,21 @@ module ROPHandle =
       |> Some
     | None -> None
 
+  let private vmMappedRegions rop perm =
+    BinFileOps.getVMMappedRegionsByPermission (getFileInfo rop) perm
+
   let private findBytes rop bytes =
     let chooser (vmRange: AddrRange) =
       let min = vmRange.Min
       let size = vmRange.Max - vmRange.Min + 1UL
       rop.BinHdl.ReadBytes(min, int size)
       |> ByteArray.tryFindIdx min bytes
-    (getFileInfo rop).GetVMMappedRegions Permission.Readable
+    vmMappedRegions rop Permission.Readable
     |> Seq.tryPick chooser
 
   let private getWritableAddr rop =
     let vmRange =
-      (getFileInfo rop).GetVMMappedRegions Permission.Writable
+      vmMappedRegions rop Permission.Writable
       |> Array.maxBy (fun range -> range.Max - range.Min + 1UL)
     vmRange.Min + rop.BinBase
 

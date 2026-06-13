@@ -46,6 +46,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let notInFileRanges = lazy invalidRangesByFileBounds hdr loadables.Value
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
   let dbginfo = lazy DebugInformation.parse toolBox rfOpt shdrs.Value
+  let dynamicArray = lazy DynamicArray.parse toolBox shdrs.Value
 
   let nameResolver =
     Some { new INameResolvable with
@@ -76,8 +77,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Set.ofArray
       |> Set.toArray
 
-  let organization =
-    Some { new IBinOrganization with
+  let structure =
+    Some { new IBinStructure with
       member _.GetTextSectionPointer() =
         shdrs.Value
         |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
@@ -159,12 +160,29 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         NoOverlapIntervalMap.containsAddr addr plt.Value
     }
 
+  let vmRegions =
+    lazy
+      phdrs.Value
+      |> Array.filter (fun ph ->
+        ph.PHType.HasFlag ProgramHeaderType.PT_LOAD && ph.PHMemSize > 0UL)
+      |> Array.map (fun ph ->
+        let range = AddrRange.create ph.PHAddr (ph.PHAddr + ph.PHMemSize - 1UL)
+        range, ProgramHeader.FlagsToPerm ph.PHFlags)
+
+  let memoryLayout =
+    Some { new IMemoryLayout with
+      member _.GetVMMappedRegions() = vmRegions.Value |> Array.map fst
+
+      member _.GetVMMappedRegions(perm) =
+        vmRegions.Value
+        |> Array.choose (fun (range, p) ->
+          if p.HasFlag perm then Some range else None) }
+
   /// ELF Header information.
   member _.Header with get() = hdr
 
   /// List of dynamic section entries.
-  member _.DynamicArrayEntries with get() =
-    DynamicArray.parse toolBox shdrs.Value
+  member _.DynamicArrayEntries with get() = dynamicArray.Value
 
   /// ELF program headers.
   member _.ProgramHeaders with get() = phdrs.Value
@@ -249,18 +267,20 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.IsRelocatable with get() =
       let pred e = e.DTag = DTag.DT_DEBUG
       toolBox.Header.ELFType = ELFType.ET_DYN
-      && DynamicArray.parse toolBox shdrs.Value |> Array.exists pred
+      && dynamicArray.Value |> Array.exists pred
 
     member _.NameResolver with get() = nameResolver
 
-    member _.Organization with get() = organization
+    member _.Structure with get() = structure
 
     member _.Relocations with get() = relocations
 
     member _.Linkage with get() = linkage
 
+    member _.MemoryLayout with get() = memoryLayout
+
     member this.Slice(addr, len) =
-      let ptr = (this :> IContentAddressable).GetBoundedPointer addr
+      let ptr = (this :> IAddressSpace).GetBoundedPointer addr
       sliceByPointer bytes ptr len
 
     member _.IsValidAddr addr =
@@ -302,20 +322,3 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           else idx <- idx + 1
         if found then BinFilePointer(addr, maxAddr, offset, maxOffset)
         else BinFilePointer.Null
-
-    member _.GetVMMappedRegions() =
-      phdrs.Value
-      |> Array.choose (fun ph ->
-        let isLoadable = ph.PHType.HasFlag ProgramHeaderType.PT_LOAD
-        if isLoadable && ph.PHMemSize > 0UL then
-          Some <| AddrRange.create ph.PHAddr (ph.PHAddr + ph.PHMemSize - 1UL)
-        else None)
-
-    member _.GetVMMappedRegions(perm) =
-      phdrs.Value
-      |> Array.choose (fun ph ->
-        let isLoadable = ph.PHType.HasFlag ProgramHeaderType.PT_LOAD
-        let phPerm = ProgramHeader.FlagsToPerm ph.PHFlags
-        if isLoadable && phPerm.HasFlag perm && ph.PHMemSize > 0UL then
-          Some <| AddrRange.create ph.PHAddr (ph.PHAddr + ph.PHMemSize - 1UL)
-        else None)

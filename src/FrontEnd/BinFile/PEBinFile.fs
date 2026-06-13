@@ -56,8 +56,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
              else () |]
       Array.concat [| staticAddrs; dynamicAddrs |]
 
-  let organization =
-    Some { new IBinOrganization with
+  let structure =
+    Some { new IBinStructure with
       member _.GetTextSectionPointer() =
         pe.SectionHeaders
         |> Array.tryFind (fun sec -> sec.Name = SecText)
@@ -125,6 +125,26 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       member _.IsLinkageTable addr = isImportTable pe addr
     }
 
+  let vmRegions =
+    lazy
+      pe.SectionHeaders
+      |> Array.choose (fun sec ->
+        let secSize = getVirtualSectionSize sec
+        if secSize > 0 then
+          let addr = uint64 sec.VirtualAddress + pe.BaseAddr
+          let range = AddrRange.create addr (addr + uint64 secSize - 1UL)
+          Some(range, getSecPermission sec.SectionCharacteristics)
+        else None)
+
+  let memoryLayout =
+    Some { new IMemoryLayout with
+      member _.GetVMMappedRegions() = vmRegions.Value |> Array.map fst
+
+      member _.GetVMMappedRegions(perm) =
+        vmRegions.Value
+        |> Array.choose (fun (range, secPerm) ->
+          if secPerm &&& perm = perm then Some range else None) }
+
   new(path, bytes) = PEBinFile(path, bytes, None, [||])
 
   new(path, bytes, rawpdb) = PEBinFile(path, bytes, None, rawpdb)
@@ -183,14 +203,16 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.NameResolver with get() = nameResolver
 
-    member _.Organization with get() = organization
+    member _.Structure with get() = structure
 
     member _.Relocations with get() = relocations
 
     member _.Linkage with get() = linkage
 
+    member _.MemoryLayout with get() = memoryLayout
+
     member this.Slice(addr, len) =
-      let ptr = (this :> IContentAddressable).GetBoundedPointer addr
+      let ptr = (this :> IAddressSpace).GetBoundedPointer addr
       sliceByPointer bytes ptr len
 
     member _.IsValidAddr addr = isValidAddr pe addr
@@ -226,22 +248,3 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         else idx <- idx + 1
       if found then BinFilePointer(addr, maxAddr, offset, maxOffset)
       else BinFilePointer.Null
-
-    member _.GetVMMappedRegions() =
-      pe.SectionHeaders
-      |> Array.choose (fun sec ->
-        let secSize = getVirtualSectionSize sec
-        if secSize > 0 then
-          let addr = uint64 sec.VirtualAddress + pe.BaseAddr
-          Some <| AddrRange.create addr (addr + uint64 secSize - 1UL)
-        else None)
-
-    member _.GetVMMappedRegions perm =
-      pe.SectionHeaders
-      |> Array.choose (fun sec ->
-        let secPerm = getSecPermission sec.SectionCharacteristics
-        let secSize = getVirtualSectionSize sec
-        if (secPerm &&& perm = perm) && secSize > 0 then
-          let addr = uint64 sec.VirtualAddress + pe.BaseAddr
-          Some <| AddrRange.create addr (addr + uint64 secSize - 1UL)
-        else None)

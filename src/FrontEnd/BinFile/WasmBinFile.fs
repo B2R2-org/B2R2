@@ -38,8 +38,8 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
   let reader = BinReader.Init Endian.Little
   let isa = ISA Architecture.WASM
 
-  let organization =
-    Some { new IBinOrganization with
+  let structure =
+    Some { new IBinStructure with
       member _.GetTextSectionPointer() =
         match wm.CodeSection with
         | Some sec ->
@@ -104,27 +104,30 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.NameResolver with get() = None
 
-    member _.Organization with get() = organization
+    member _.Structure with get() = structure
 
     member _.Relocations with get() = None
 
     member _.Linkage with get() = linkage
+
+    member _.MemoryLayout with get() = None
 
     member _.Slice(addr, len) = sliceBySafeOffset bytes addr len
 
     member _.IsValidAddr(addr) = addr >= 0UL && addr < (uint64 bytes.LongLength)
 
     member this.IsValidRange range =
-      (this :> IContentAddressable).IsValidAddr range.Min
-      && (this :> IContentAddressable).IsValidAddr range.Max
+      (this :> IAddressSpace).IsValidAddr range.Min
+      && (this :> IAddressSpace).IsValidAddr range.Max
 
     member this.IsAddrMappedToFile addr =
-      (this :> IContentAddressable).IsValidAddr addr
+      (this :> IAddressSpace).IsValidAddr addr
 
     member this.IsRangeMappedToFile range =
-      (this :> IContentAddressable).IsValidRange range
+      (this :> IAddressSpace).IsValidRange range
 
-    member _.IsExecutableAddr _addr = Terminator.futureFeature ()
+    member this.IsExecutableAddr addr =
+      (this :> IAddressSpace).IsValidAddr addr
 
     member _.GetBoundedPointer addr =
       NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr
@@ -134,7 +137,3 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
           let maxAddr = uint64 s.Offset + uint64 size - 1UL
           BinFilePointer(addr, maxAddr, int addr, int maxAddr)
         | None -> BinFilePointer.Null
-
-    member _.GetVMMappedRegions() = [||]
-
-    member _.GetVMMappedRegions _permission = [||]

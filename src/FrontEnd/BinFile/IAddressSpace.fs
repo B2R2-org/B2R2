@@ -27,10 +27,10 @@ namespace B2R2.FrontEnd.BinFile
 open B2R2
 
 /// <summary>
-/// Represents an interface for accessing the raw binary content of a file via a
-/// virtual address.
+/// Represents the address space of a binary file: it maps an address to the raw
+/// content, and answers validity and file-mapping queries for addresses.
 /// </summary>
-type IContentAddressable =
+type IAddressSpace =
   /// <summary>
   /// Slices the raw binary content into a read-only span of bytes of the
   /// specified length starting from the specified virtual address. The address
@@ -125,19 +125,3 @@ type IContentAddressable =
   /// that is only available in the VMA.
   /// </remarks>
   abstract GetBoundedPointer: addr: Addr -> BinFilePointer
-
-  /// <summary>
-  /// Returns an array of VM-mapped regions. By a VM-mapped region, we mean a
-  /// consecutive region that has a corresponding mapping in the virtual memory.
-  /// For example, an entire segment with PT_LOAD type of a program header in
-  /// ELF files is considered a VM-mapped region.
-  /// </summary>
-  abstract GetVMMappedRegions: unit -> AddrRange[]
-
-  /// <summary>
-  /// Returns an array of VM-mapped regions that have the given permission. By
-  /// a VM-mapped region, we mean a region that has a corresponding mapping in
-  /// the virtual memory. For example, an entire segment with PT_LOAD type of a
-  /// program header in ELF files is considered a VM-mapped region.
-  /// </summary>
-  abstract GetVMMappedRegions: perm: Permission -> AddrRange[]
