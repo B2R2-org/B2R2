@@ -111,7 +111,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | None ->
             false
 
-      member _.TryFindSectionName addr =
+      member _.TryFindSectionNameByAddr addr =
         shdrs.Value
         |> Array.tryFind (fun sec ->
           addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
@@ -119,7 +119,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.TryFindSectionName(offset: uint32) =
+      member _.TryFindSectionNameByOffset(offset: uint32) =
         let offset = uint64 offset
         shdrs.Value
         |> Array.tryFind (fun sec ->

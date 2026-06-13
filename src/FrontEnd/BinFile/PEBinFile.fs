@@ -88,13 +88,13 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         | -1 -> false
         | idx -> pe.SectionHeaders[idx].Name = SecText
 
-      member _.TryFindSectionName(addr: Addr) =
+      member _.TryFindSectionNameByAddr(addr: Addr) =
         let rva = int (addr - pe.BaseAddr)
         match pe.FindSectionIdxFromRVA rva with
         | -1 -> Error ErrorCase.ItemNotFound
         | idx -> Ok pe.SectionHeaders[idx].Name
 
-      member _.TryFindSectionName(offset: uint32) =
+      member _.TryFindSectionNameByOffset(offset: uint32) =
         pe.SectionHeaders
         |> Array.tryFind (fun sec ->
           let secStart = uint32 sec.PointerToRawData

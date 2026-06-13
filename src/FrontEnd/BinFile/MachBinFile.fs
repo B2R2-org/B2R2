@@ -90,7 +90,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
           | Some sec -> sec.SecName = Section.SecText
           | None -> false
 
-      member _.TryFindSectionName(addr: Addr) =
+      member _.TryFindSectionNameByAddr(addr: Addr) =
         secs.Value
         |> Array.tryFind (fun sec ->
           addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
@@ -98,7 +98,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.TryFindSectionName(offset: uint32) =
+      member _.TryFindSectionNameByOffset(offset: uint32) =
         secs.Value
         |> Array.tryFind (fun sec ->
           offset >= sec.SecOffset

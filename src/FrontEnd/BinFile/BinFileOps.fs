@@ -84,14 +84,14 @@ let isInTextOrDataOnlySection (file: IBinFile) addr =
 [<CompiledName "TryFindSectionNameByAddr">]
 let tryFindSectionNameByAddr (file: IBinFile) addr =
   match file.Organization with
-  | Some org -> org.TryFindSectionName(addr: Addr)
+  | Some org -> org.TryFindSectionNameByAddr addr
   | None -> Error ErrorCase.ItemNotFound
 
 /// Tries to find the section name containing the given file offset.
 [<CompiledName "TryFindSectionNameByOffset">]
 let tryFindSectionNameByOffset (file: IBinFile) offset =
   match file.Organization with
-  | Some org -> org.TryFindSectionName(offset: uint32)
+  | Some org -> org.TryFindSectionNameByOffset offset
   | None -> Error ErrorCase.ItemNotFound
 
 /// Returns known function entry addresses from the given binary file.

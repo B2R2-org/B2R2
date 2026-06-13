@@ -54,13 +54,14 @@ type IBinOrganization =
   /// Returns the name of the section that contains the given address. If the
   /// address is not in any section, then this function returns an error.
   /// </summary>
-  abstract TryFindSectionName: addr: Addr -> Result<string, ErrorCase>
+  abstract TryFindSectionNameByAddr: addr: Addr -> Result<string, ErrorCase>
 
   /// <summary>
   /// Returns the name of the section that contains the given file offset. If
   /// the offset is not in any section, then this function returns an error.
   /// </summary>
-  abstract TryFindSectionName: offset: uint32 -> Result<string, ErrorCase>
+  abstract TryFindSectionNameByOffset:
+    offset: uint32 -> Result<string, ErrorCase>
 
   /// <summary>
   /// Returns an array of local function addresses (excluding external
