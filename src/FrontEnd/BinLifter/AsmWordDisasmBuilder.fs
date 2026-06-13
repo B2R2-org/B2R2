@@ -30,11 +30,11 @@ open B2R2
 /// Represents a disassembly builder that accumulates <see
 /// cref='T:B2R2.FrontEnd.BinLifter.AsmWord'/>.
 type AsmWordDisasmBuilder(showAddr,
-                          symbolReader: INameReadable | null,
+                          symbolResolver: INameResolvable | null,
                           wordSz) =
   let lst = List<AsmWord>()
-  let hasSymbolReader = isNull symbolReader |> not
-  let mutable showSymb = hasSymbolReader
+  let hasSymbolResolver = isNull symbolResolver |> not
+  let mutable showSymb = hasSymbolResolver
   let mutable showAddr = showAddr
 
   interface IDisasmBuilder with
@@ -48,8 +48,8 @@ type AsmWordDisasmBuilder(showAddr,
       lst.Add { AsmWordKind = kind; AsmWordValue = value }
 
     member _.AccumulateSymbol(addr, prefix, suffix, noSymbolMapper) =
-      if hasSymbolReader && showSymb then
-        match symbolReader.TryFindName addr with
+      if hasSymbolResolver && showSymb then
+        match symbolResolver.TryFindName addr with
         | Ok name when name.Length > 0 ->
           lst.Add prefix
           lst.Add { AsmWordKind = AsmWordKind.Value; AsmWordValue = name }

@@ -36,8 +36,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   let pe = Parser.parse path bytes baseAddrOpt rawpdb
   let isa = peHeadersToISA pe.PEHeaders
 
-  let names =
-    Some { new INameReadable with
+  let nameResolver =
+    Some { new INameResolvable with
       member _.TryFindName(addr) =
         if pe.Symbols.SymbolArray.Length = 0 then
           tryFindSymbolFromBinary pe addr
@@ -181,7 +181,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.IsRelocatable = isRelocatable pe
 
-    member _.Names with get() = names
+    member _.NameResolver with get() = nameResolver
 
     member _.Organization with get() = organization
 

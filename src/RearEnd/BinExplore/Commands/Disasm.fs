@@ -59,7 +59,7 @@ type Disasm() =
     | Error str -> [| str |]
 
   let getBuilder (file: IBinFile) =
-    match file.Names with
+    match file.NameResolver with
     | Some names -> StringDisasmBuilder(true, names, file.ISA.WordSize)
     | None -> StringDisasmBuilder(true, null, file.ISA.WordSize)
 

@@ -102,7 +102,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.IsRelocatable = false
 
-    member _.Names with get() = None
+    member _.NameResolver with get() = None
 
     member _.Organization with get() = organization
 

@@ -45,7 +45,7 @@ let sliceByOffset (file: IBinFile) offset len =
 /// Tries to find the symbolic name associated with the given address.
 [<CompiledName "TryFindName">]
 let tryFindName (file: IBinFile) addr =
-  match file.Names with
+  match file.NameResolver with
   | Some names -> names.TryFindName addr
   | None -> Error ErrorCase.SymbolNotFound
 

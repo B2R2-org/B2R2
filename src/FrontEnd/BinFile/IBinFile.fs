@@ -43,8 +43,8 @@ type IBinFile =
   /// Returns the size of the associated binary file.
   abstract Length: int
 
-  /// Returns a name reader if this binary format provides names.
-  abstract Names: INameReadable option
+  /// Returns a name resolver if this binary format provides names.
+  abstract NameResolver: INameResolvable option
 
   /// Returns an organization view if this binary format has one.
   abstract Organization: IBinOrganization option

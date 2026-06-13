@@ -57,7 +57,7 @@ module API =
     >>= fun brew -> Ok brew.BinHandle.File.Path
 
   let private getDisasmBuilder (file: IBinFile) =
-    match file.Names with
+    match file.NameResolver with
     | Some names -> AsmWordDisasmBuilder(true, names, file.ISA.WordSize)
     | None -> AsmWordDisasmBuilder(true, null, file.ISA.WordSize)
 

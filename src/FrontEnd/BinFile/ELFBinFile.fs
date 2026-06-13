@@ -47,8 +47,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
   let dbginfo = lazy DebugInformation.parse toolBox rfOpt shdrs.Value
 
-  let names =
-    Some { new INameReadable with
+  let nameResolver =
+    Some { new INameResolvable with
       member _.TryFindName addr =
         symbs.Value.TryFindSymbol addr
         |> Result.map (fun s -> s.SymName)
@@ -251,7 +251,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       toolBox.Header.ELFType = ELFType.ET_DYN
       && DynamicArray.parse toolBox shdrs.Value |> Array.exists pred
 
-    member _.Names with get() = names
+    member _.NameResolver with get() = nameResolver
 
     member _.Organization with get() = organization
 

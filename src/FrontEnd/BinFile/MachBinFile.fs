@@ -45,8 +45,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
   let executableRanges = lazy executableRanges segCmds.Value
 
-  let names =
-    Some { new INameReadable with
+  let nameResolver =
+    Some { new INameResolvable with
       member _.TryFindName(addr) =
         match Map.tryFind addr syms.Value.SymbolMap with
         | Some s -> Ok s.SymName
@@ -190,7 +190,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.IsRelocatable = toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
 
-    member _.Names with get() = names
+    member _.NameResolver with get() = nameResolver
 
     member _.Organization with get() = organization
 

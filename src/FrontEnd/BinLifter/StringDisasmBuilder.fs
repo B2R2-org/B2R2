@@ -30,11 +30,11 @@ open B2R2
 /// Represents a disassembly builder that simply accumulates strings without any
 /// type annotation.
 type StringDisasmBuilder(showAddr,
-                         symbolReader: INameReadable | null,
+                         symbolResolver: INameResolvable | null,
                          wordSz) =
   let sb = StringBuilder()
-  let hasSymbolReader = isNull symbolReader |> not
-  let mutable showSymb = hasSymbolReader
+  let hasSymbolResolver = isNull symbolResolver |> not
+  let mutable showSymb = hasSymbolResolver
   let mutable showAddr = showAddr
 
   interface IDisasmBuilder with
@@ -47,8 +47,8 @@ type StringDisasmBuilder(showAddr,
     member _.Accumulate(_, value: string) = sb.Append value |> ignore
 
     member _.AccumulateSymbol(addr, prefix, suffix, noSymbolMapper) =
-      if hasSymbolReader && showSymb then
-        match symbolReader.TryFindName addr with
+      if hasSymbolResolver && showSymb then
+        match symbolResolver.TryFindName addr with
         | Ok name when name.Length > 0 ->
           sb.Append prefix.AsmWordValue |> ignore
           sb.Append name |> ignore

@@ -51,14 +51,14 @@ type LiftingUnit(binFile: IBinFile,
     | _ -> Terminator.futureFeature ()
 
   let strDisasm =
-    match binFile.Names with
+    match binFile.NameResolver with
     | Some names ->
       StringDisasmBuilder(true, names, binFile.ISA.WordSize) :> IDisasmBuilder
     | None ->
       StringDisasmBuilder(true, null, binFile.ISA.WordSize) :> IDisasmBuilder
 
   let asmwordDisasm =
-    match binFile.Names with
+    match binFile.NameResolver with
     | Some names ->
       AsmWordDisasmBuilder(false, names, binFile.ISA.WordSize) :> IDisasmBuilder
     | None ->

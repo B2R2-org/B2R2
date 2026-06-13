@@ -12,7 +12,7 @@
     <Compile Include="BinReader.fs" />
     <Compile Include="ConditionCodeOp.fs" />
     <Compile Include="IRegisterFactory.fs" />
-    <Compile Include="INameReadable.fs" />
+    <Compile Include="INameResolvable.fs" />
     <Compile Include="LowUIRStream.fs" />
     <Compile Include="ILowUIRBuilder.fs" />
     <Compile Include="AsmWord.fs" />

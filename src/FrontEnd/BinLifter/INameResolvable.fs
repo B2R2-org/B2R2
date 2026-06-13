@@ -26,8 +26,8 @@ namespace B2R2.FrontEnd.BinLifter
 
 open B2R2
 
-/// Represents an interface for reading symbolic names in a binary.
-type INameReadable =
+/// Represents an interface for resolving symbolic names in a binary.
+type INameResolvable =
   /// <summary>
   ///   Finds the corresponding symbol name for a given address.
   /// </summary>

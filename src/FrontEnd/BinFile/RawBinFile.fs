@@ -60,7 +60,7 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.IsRelocatable with get() = false
 
-    member _.Names with get() = None
+    member _.NameResolver with get() = None
 
     member _.Organization with get() = None
 
