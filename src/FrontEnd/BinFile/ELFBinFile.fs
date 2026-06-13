@@ -156,7 +156,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       member _.GetLinkageTableEntries() =
         linkageEntries.Value
 
-      member _.IsLinkageTable addr =
+      member _.IsInLinkageTable addr =
         NoOverlapIntervalMap.containsAddr addr plt.Value
     }
 

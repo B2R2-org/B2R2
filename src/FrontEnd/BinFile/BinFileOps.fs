@@ -121,11 +121,11 @@ let getLinkageTableEntries (file: IBinFile) =
   | Some linkage -> linkage.GetLinkageTableEntries()
   | None -> [||]
 
-/// Checks if the given address is a linkage table entry.
-[<CompiledName "IsLinkageTable">]
-let isLinkageTable (file: IBinFile) addr =
+/// Checks if the given address falls within the linkage table.
+[<CompiledName "IsInLinkageTable">]
+let isInLinkageTable (file: IBinFile) addr =
   match file.Linkage with
-  | Some linkage -> linkage.IsLinkageTable addr
+  | Some linkage -> linkage.IsInLinkageTable addr
   | None -> false
 
 /// Returns all VM-mapped regions of the given binary file.

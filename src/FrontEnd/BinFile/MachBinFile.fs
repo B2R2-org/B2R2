@@ -128,7 +128,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
     Some { new ILinkageTable with
       member _.GetLinkageTableEntries() = linkageEntries.Value
 
-      member _.IsLinkageTable addr = isPLT syms.Value addr
+      member _.IsInLinkageTable addr = isPLT syms.Value addr
     }
 
   let vmRegions =

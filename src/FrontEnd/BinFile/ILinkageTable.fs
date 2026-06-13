@@ -39,9 +39,9 @@ type ILinkageTable =
   abstract GetLinkageTableEntries: unit -> LinkageTableEntry[]
 
   /// <summary>
-  /// Returns whether a given address is an address of a linkage table entry.
+  /// Returns whether the given address falls within the linkage table.
   /// </summary>
   /// <returns>
   /// True if the address is a linkage table address, false otherwise.
   /// </returns>
-  abstract IsLinkageTable: Addr -> bool
+  abstract IsInLinkageTable: Addr -> bool

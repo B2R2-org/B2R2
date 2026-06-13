@@ -70,7 +70,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
     Some { new ILinkageTable with
       member _.GetLinkageTableEntries() = getImports wm
 
-      member _.IsLinkageTable _addr = Terminator.futureFeature ()
+      member _.IsInLinkageTable _addr = Terminator.futureFeature ()
     }
 
   new(path, bytes) = WasmBinFile(path, bytes, None)

@@ -122,7 +122,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
     Some { new ILinkageTable with
       member _.GetLinkageTableEntries() = linkageEntries.Value
 
-      member _.IsLinkageTable addr = isImportTable pe addr
+      member _.IsInLinkageTable addr = isImportTable pe addr
     }
 
   let vmRegions =
