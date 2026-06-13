@@ -44,6 +44,10 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   let notInMemRanges = lazy invalidRangesByVM toolBox segCmds.Value
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
   let executableRanges = lazy executableRanges segCmds.Value
+  let staticSymbols = lazy (syms.Value.Values |> Array.filter Symbol.IsStatic)
+  let dynamicSymbols =
+    lazy (syms.Value.Values |> Array.filter (Symbol.IsStatic >> not))
+  let entryPoint = lazy computeEntryPoint segCmds.Value cmds.Value
 
   let nameResolver =
     Some { new INameResolvable with
@@ -150,13 +154,9 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
   member _.Symbols with get() = syms.Value
 
-  member _.StaticSymbols with get() =
-    syms.Value.Values
-    |> Array.filter Symbol.IsStatic
+  member _.StaticSymbols with get() = staticSymbols.Value
 
-  member _.DynamicSymbols with get() =
-    syms.Value.Values
-    |> Array.filter (Symbol.IsStatic >> not)
+  member _.DynamicSymbols with get() = dynamicSymbols.Value
 
   member _.ExportedSymbols with get() = exports.Value
 
@@ -191,7 +191,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.ISA with get() = toolBox.ISA
 
-    member _.EntryPoint with get() = computeEntryPoint segCmds.Value cmds.Value
+    member _.EntryPoint with get() = entryPoint.Value
 
     member _.BaseAddress with get() = toolBox.BaseAddress
 
