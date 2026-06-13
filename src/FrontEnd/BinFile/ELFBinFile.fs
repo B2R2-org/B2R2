@@ -71,7 +71,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
               if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr
               else () |]
       let extraFuncs =
-        findExtraFnAddrs toolBox shdrs.Value loadables.Value relocs.Value
+        findExtraFnAddrs toolBox shdrs.Value relocs.Value
       Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
       |> Set.ofArray
       |> Set.toArray

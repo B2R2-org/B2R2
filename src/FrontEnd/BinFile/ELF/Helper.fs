@@ -31,32 +31,6 @@ open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let private offsetToAddrInSecs sections offset =
-  let txtOffset =
-    match Array.tryFind (fun s -> s.SecName = Section.Text) sections with
-    | Some text -> text.SecOffset
-    | None -> 0UL
-  sections
-  |> Array.tryFind (fun s ->
-    s.SecType = SectionType.SHT_PROGBITS
-    && s.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
-    && s.SecOffset <= offset && offset < s.SecOffset + s.SecSize)
-  |> function
-    | Some s -> offset + (s.SecAddr - txtOffset)
-    | None -> raise InvalidAddrReadException
-
-let private offsetToAddrInSegs loadableSegs offset =
-  loadableSegs
-  |> Array.tryFind (fun seg ->
-    seg.PHOffset <= offset && offset < seg.PHOffset + seg.PHFileSize)
-  |> function
-    | Some seg -> offset + (seg.PHAddr - seg.PHOffset)
-    | None -> raise InvalidAddrReadException
-
-let translateOffsetToAddr loadableSegs sections offset =
-  if Array.isEmpty loadableSegs then offsetToAddrInSecs sections offset
-  else offsetToAddrInSegs loadableSegs offset
-
 /// Returns a bounded pointer for the given address using section information.
 /// This is used for ELF object files (ET_REL), which have no loadable segments;
 /// only sections that carry file content (SHT_PROGBITS) are addressable, so
@@ -97,12 +71,12 @@ let getRelocatedAddr (relocInfo: RelocationInfo) relocAddr =
     | _ -> Error ErrorCase.ItemNotFound
   | _ -> Error ErrorCase.ItemNotFound
 
-let getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo section =
+let getFuncAddrsFromLibcArr span toolBox relocInfo section =
   let readType = toolBox.Header.Class
   let entrySize = WordSize.toByteWidth readType
   let secSize = int section.SecSize
   let lst = List<Addr>()
-  let addr = translateOffsetToAddr loadables shdrs section.SecOffset
+  let addr = section.SecAddr
   for ofs in [| 0 .. entrySize .. secSize - entrySize |] do
     readUIntByWordSize span toolBox.Reader readType ofs
     |> (fun fnAddr ->
@@ -113,18 +87,18 @@ let getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo section =
       else lst.Add fnAddr)
   lst.ToArray()
 
-let getAddrsFromInitArray toolBox shdrs loadables relocInfo =
+let getAddrsFromInitArray toolBox shdrs relocInfo =
   match Array.tryFind (fun s -> s.SecName = Section.InitArray) shdrs with
   | Some s ->
     let span = ReadOnlySpan(toolBox.Bytes, int s.SecOffset, int s.SecSize)
-    getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
+    getFuncAddrsFromLibcArr span toolBox relocInfo s
   | None -> [||]
 
-let getAddrsFromFiniArray toolBox shdrs loadables relocInfo =
+let getAddrsFromFiniArray toolBox shdrs relocInfo =
   match Array.tryFind (fun s -> s.SecName = Section.FiniArray) shdrs with
   | Some s ->
     let span = ReadOnlySpan(toolBox.Bytes, int s.SecOffset, int s.SecSize)
-    getFuncAddrsFromLibcArr span toolBox loadables shdrs relocInfo s
+    getFuncAddrsFromLibcArr span toolBox relocInfo s
   | None -> [||]
 
 let getAddrsFromSpecialSections shdrs =
@@ -134,9 +108,9 @@ let getAddrsFromSpecialSections shdrs =
     | Some sec -> Some sec.SecAddr
     | None -> None)
 
-let findExtraFnAddrs toolBox shdrs loadables relocInfo =
-  [ getAddrsFromInitArray toolBox shdrs loadables relocInfo
-    getAddrsFromFiniArray toolBox shdrs loadables relocInfo
+let findExtraFnAddrs toolBox shdrs relocInfo =
+  [ getAddrsFromInitArray toolBox shdrs relocInfo
+    getAddrsFromFiniArray toolBox shdrs relocInfo
     getAddrsFromSpecialSections shdrs ]
   |> Array.concat
 
