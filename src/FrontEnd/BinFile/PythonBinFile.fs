@@ -67,7 +67,7 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.Path with get() = path
 
-    member _.Format with get() = FileFormat.WasmBinary
+    member _.Format with get() = FileFormat.PythonBinary
 
     member _.ISA with get() = ISA(Architecture.Python, Endian.Little)
 
