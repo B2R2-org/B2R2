@@ -72,13 +72,6 @@ let getSectionPointer (file: IBinFile) name =
   | Some org -> org.GetSectionPointer name
   | None -> BinFilePointer.Null
 
-/// Checks if the given address belongs to a text or data-only section.
-[<CompiledName "IsInTextOrDataOnlySection">]
-let isInTextOrDataOnlySection (file: IBinFile) addr =
-  match file.Structure with
-  | Some org -> org.IsInTextOrDataOnlySection addr
-  | None -> false
-
 /// Tries to find the section name containing the given address.
 [<CompiledName "TryFindSectionNameByAddr">]
 let tryFindSectionNameByAddr (file: IBinFile) addr =

@@ -53,9 +53,6 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
       member _.GetSectionPointer _ =
         Terminator.futureFeature ()
 
-      member _.IsInTextOrDataOnlySection _ =
-        Terminator.futureFeature ()
-
       member _.TryFindSectionNameByAddr(_: Addr) =
         Terminator.futureFeature ()
 

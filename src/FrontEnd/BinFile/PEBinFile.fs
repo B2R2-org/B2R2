@@ -82,12 +82,6 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
                            sec.PointerToRawData + size - 1)
           | None -> BinFilePointer.Null
 
-      member _.IsInTextOrDataOnlySection addr =
-        let rva = int (addr - pe.BaseAddr)
-        match pe.FindSectionIdxFromRVA rva with
-        | -1 -> false
-        | idx -> pe.SectionHeaders[idx].Name = SecText
-
       member _.TryFindSectionNameByAddr(addr: Addr) =
         let rva = int (addr - pe.BaseAddr)
         match pe.FindSectionIdxFromRVA rva with

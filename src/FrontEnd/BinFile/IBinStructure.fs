@@ -44,13 +44,6 @@ type IBinStructure =
   abstract GetSectionPointer: name: string -> BinFilePointer
 
   /// <summary>
-  /// Checks if the given address is within the text or data-only section of the
-  /// binary. This function is useful for checking jump tables, which are
-  /// usually located in a text or a data-only section.
-  /// </summary>
-  abstract IsInTextOrDataOnlySection: addr: Addr -> bool
-
-  /// <summary>
   /// Returns the name of the section that contains the given address. If the
   /// address is not in any section, then this function returns an error.
   /// </summary>

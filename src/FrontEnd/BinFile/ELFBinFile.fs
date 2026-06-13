@@ -102,16 +102,6 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | None ->
             BinFilePointer.Null
 
-      member _.IsInTextOrDataOnlySection addr =
-        shdrs.Value
-        |> Array.tryFind (fun sec ->
-          addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
-        |> function
-          | Some sec ->
-            sec.SecName = Section.Text || sec.SecName = Section.ROData
-          | None ->
-            false
-
       member _.TryFindSectionNameByAddr addr =
         shdrs.Value
         |> Array.tryFind (fun sec ->

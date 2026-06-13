@@ -108,6 +108,7 @@
     <Compile Include="PE\PDB.fs" />
     <Compile Include="PE\SymbolStore.fs" />
     <Compile Include="PE\Coff.fs" />
+    <Compile Include="PE\Section.fs" />
     <Compile Include="PE\Helper.fs" />
     <Compile Include="PE\Parser.fs" />
     <Compile Include="RawBinFile.fs" />

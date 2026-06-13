@@ -61,7 +61,7 @@ type PE =
     /// BinReader
     BinReader: IBinReader }
 
-let [<Literal>] SecText = ".text"
+let [<Literal>] SecText = Section.Text
 
 let isNXEnabled pe =
   let hdrs = pe.PEHeaders

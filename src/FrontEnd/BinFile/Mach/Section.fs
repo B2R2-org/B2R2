@@ -56,8 +56,10 @@ type Section =
     /// Reserved field 2.
     SecReserved2: int }
 
-module internal Section =
-  let [<Literal>] SecText = "__text"
+module Section =
+  let [<Literal>] Text = "__text"
+
+  let [<Literal>] Const = "__const"
 
   let private parseSection toolBox (span: ByteSpan) offset =
     let cls = toolBox.Header.Class
@@ -81,7 +83,7 @@ module internal Section =
     segCmds
     |> Array.fold (fun cnt seg -> cnt + int seg.NumSecs) 0
 
-  let parse ({ Bytes = bytes; Header = hdr } as toolBox) segCmds =
+  let internal parse ({ Bytes = bytes; Header = hdr } as toolBox) segCmds =
     let numSections = countSections segCmds
     let sections = Array.zeroCreate numSections
     let mutable idx = 0
@@ -96,5 +98,5 @@ module internal Section =
         idx <- idx + 1
     sections
 
-  let getTextSectionIndex secs =
-    secs |> Array.findIndex (fun s -> s.SecName = SecText)
+  let internal getTextSectionIndex secs =
+    secs |> Array.findIndex (fun s -> s.SecName = Text)

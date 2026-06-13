@@ -377,12 +377,29 @@ type JmpTableAnalysis<'FnCtx,
       findSymbPattern expandPhiFromSSACFG findConst findDef fnAddr insAddr 0 exp
     | Error e -> Error e
 
+  /// Returns the section names that may host a jump table per file format.
+  let jumpTableSectionNames = function
+    | FileFormat.ELFBinary -> [| ELF.Section.Text; ELF.Section.ROData |]
+    | FileFormat.PEBinary -> [| PE.Section.Text; PE.Section.RData |]
+    | FileFormat.MachBinary -> [| Mach.Section.Text; Mach.Section.Const |]
+    | _ -> [||]
+
+  /// Checks if the address is in a section that may host a jump table,
+  /// according to the file format's heuristic.
+  let isInJumpTableSection (file: IBinFile) addr =
+    match jumpTableSectionNames file.Format with
+    | [||] -> false
+    | sections ->
+      match BinFileOps.tryFindSectionNameByAddr file addr with
+      | Ok name -> Array.contains name sections
+      | Error _ -> false
+
   let checkValidity (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) result =
     match result with
     | Ok info ->
       let file = ctx.BinHandle.File
       let tblAddr = info.TableAddress
-      if BinFileOps.isInTextOrDataOnlySection file tblAddr then result
+      if isInJumpTableSection file tblAddr then result
       else Error ErrorCase.InvalidMemoryRead
     | Error e -> Error e
 
