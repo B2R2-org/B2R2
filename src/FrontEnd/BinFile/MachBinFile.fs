@@ -250,7 +250,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
     member _.GetVMMappedRegions perm =
       segCmds.Value
       |> Array.choose (fun seg ->
-        let segPerm: Permission = LanguagePrimitives.EnumOfValue seg.MaxProt
-        if (segPerm &&& perm = perm) && seg.VMSize > 0UL then
+        let segPerm: Permission = LanguagePrimitives.EnumOfValue seg.InitProt
+        if segPerm.HasFlag perm && seg.VMSize > 0UL then
           Some <| AddrRange.create seg.VMAddr (seg.VMAddr + seg.VMSize - 1UL)
-        else None)
+        else
+          None)

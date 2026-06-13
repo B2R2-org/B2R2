@@ -93,8 +93,8 @@ let invalidRangesByFileBounds toolBox segCmds =
 let executableRanges segCmds =
   segCmds
   |> Array.filter (fun seg ->
-    let perm: Permission = seg.MaxProt |> LanguagePrimitives.EnumOfValue
-    perm &&& Permission.Executable = Permission.Executable)
+    let perm: Permission = seg.InitProt |> LanguagePrimitives.EnumOfValue
+    perm.HasFlag Permission.Executable)
   |> Array.fold (fun set s ->
     IntervalSet.add (AddrRange.create s.VMAddr (s.VMAddr + s.VMSize - 1UL)) set
     ) IntervalSet.empty
