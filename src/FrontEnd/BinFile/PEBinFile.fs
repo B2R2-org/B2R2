@@ -55,6 +55,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
              if idx <> -1 && isSectionExecutableByIndex pe idx then addr
              else () |]
       Array.concat [| staticAddrs; dynamicAddrs |]
+      |> Set.ofArray
+      |> Set.toArray
 
   let structure =
     Some { new IBinStructure with
