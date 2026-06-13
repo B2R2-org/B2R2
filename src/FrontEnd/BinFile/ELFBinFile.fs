@@ -60,6 +60,22 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
             | _ -> Error e
     }
 
+  let functionAddrs =
+    lazy
+      let staticFuncs =
+        [| for s in symbs.Value.StaticSymbols do
+              if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr
+              else () |]
+      let dynamicFuncs =
+        [| for s in symbs.Value.DynamicSymbols do
+              if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr
+              else () |]
+      let extraFuncs =
+        findExtraFnAddrs toolBox shdrs.Value loadables.Value relocs.Value
+      Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
+      |> Set.ofArray
+      |> Set.toArray
+
   let organization =
     Some { new IBinOrganization with
       member _.GetTextSectionPointer() =
@@ -115,19 +131,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | None -> Error ErrorCase.ItemNotFound
 
       member _.GetFunctionAddresses() =
-        let staticFuncs =
-          [| for s in symbs.Value.StaticSymbols do
-               if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr
-               else () |]
-        let dynamicFuncs =
-          [| for s in symbs.Value.DynamicSymbols do
-               if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr
-               else () |]
-        let extraFuncs =
-          findExtraFnAddrs toolBox shdrs.Value loadables.Value relocs.Value
-        Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
-        |> Set.ofArray
-        |> Set.toArray
+        functionAddrs.Value
     }
 
   let relocations =
@@ -139,13 +143,17 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         getRelocatedAddr relocs.Value relocAddr
     }
 
+  let linkageEntries =
+    lazy
+      plt.Value
+      |> NoOverlapIntervalMap.fold (fun acc _ entry -> entry :: acc) []
+      |> List.sortBy (fun entry -> entry.TrampolineAddress)
+      |> List.toArray
+
   let linkage =
     Some { new ILinkageTable with
       member _.GetLinkageTableEntries() =
-        plt.Value
-        |> NoOverlapIntervalMap.fold (fun acc _ entry -> entry :: acc) []
-        |> List.sortBy (fun entry -> entry.TrampolineAddress)
-        |> List.toArray
+        linkageEntries.Value
 
       member _.IsLinkageTable addr =
         NoOverlapIntervalMap.containsAddr addr plt.Value

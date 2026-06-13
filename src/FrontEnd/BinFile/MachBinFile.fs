@@ -52,6 +52,13 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
         | None -> Error ErrorCase.SymbolNotFound
     }
 
+  let functionAddrs =
+    lazy
+      let secText = Section.getTextSectionIndex secs.Value
+      [| for s in syms.Value.Values do
+           if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr
+           else () |]
+
   let organization =
     Some { new IBinOrganization with
       member _.GetTextSectionPointer() =
@@ -100,10 +107,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
           | None -> Error ErrorCase.ItemNotFound
 
       member _.GetFunctionAddresses() =
-        let secText = Section.getTextSectionIndex secs.Value
-        [| for s in syms.Value.Values do
-             if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr
-             else () |]
+        functionAddrs.Value
     }
 
   let relocations =
@@ -116,9 +120,12 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
       member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
     }
 
+  let linkageEntries =
+    lazy getPLT syms.Value
+
   let linkage =
     Some { new ILinkageTable with
-      member _.GetLinkageTableEntries() = getPLT syms.Value
+      member _.GetLinkageTableEntries() = linkageEntries.Value
 
       member _.IsLinkageTable addr = isPLT syms.Value addr
     }

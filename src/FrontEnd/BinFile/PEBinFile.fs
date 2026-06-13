@@ -43,6 +43,18 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         else tryFindSymbolFromPDB pe addr
     }
 
+  let functionAddrs =
+    lazy
+      let staticAddrs =
+        [| for s in pe.Symbols.SymbolArray do
+             if s.IsFunction then s.Address else () |]
+      let dynamicAddrs =
+        [| for addr in pe.ExportedSymbols.Addresses do
+             let idx = pe.FindSectionIdxFromRVA(int (addr - pe.BaseAddr))
+             if idx <> -1 && isSectionExecutableByIndex pe idx then addr
+             else () |]
+      Array.concat [| staticAddrs; dynamicAddrs |]
+
   let organization =
     Some { new IBinOrganization with
       member _.GetTextSectionPointer() =
@@ -92,15 +104,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
           | None -> Error ErrorCase.ItemNotFound
 
       member _.GetFunctionAddresses() =
-        let staticAddrs =
-          [| for s in pe.Symbols.SymbolArray do
-               if s.IsFunction then s.Address else () |]
-        let dynamicAddrs =
-          [| for addr in pe.ExportedSymbols.Addresses do
-               let idx = pe.FindSectionIdxFromRVA(int (addr - pe.BaseAddr))
-               if idx <> -1 && isSectionExecutableByIndex pe idx then addr
-               else () |]
-        Array.concat [| staticAddrs; dynamicAddrs |]
+        functionAddrs.Value
     }
 
   let relocations =
@@ -110,9 +114,12 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       member _.GetRelocatedAddr _relocAddr = Terminator.futureFeature ()
     }
 
+  let linkageEntries =
+    lazy getImportTable pe
+
   let linkage =
     Some { new ILinkageTable with
-      member _.GetLinkageTableEntries() = getImportTable pe
+      member _.GetLinkageTableEntries() = linkageEntries.Value
 
       member _.IsLinkageTable addr = isImportTable pe addr
     }
