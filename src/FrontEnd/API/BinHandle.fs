@@ -73,7 +73,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
       invalidArg (nameof size) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
 
   let rec readAscii acc (ptr: BinFilePointer) =
-    if ptr.IsValid && not ptr.IsVirtual then
+    if ptr.CanReadFileBytes && not ptr.IsVirtual then
       let b = binFile.RawBytes.Span[ptr.Offset]
       if b = 0uy then List.rev (b :: acc) |> List.toArray
       else readAscii (b :: acc) (ptr.Advance 1)
@@ -102,7 +102,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
     else Error ErrorCase.InvalidMemoryRead
 
   let rec readBytes (ptr: BinFilePointer) nBytes =
-    if ptr.IsValid then
+    if ptr.CanReadFileBytes then
       match readOrPartialReadBytes ptr nBytes with
       | Ok bs -> bs
       | Error bs ->

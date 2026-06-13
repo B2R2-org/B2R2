@@ -78,16 +78,20 @@ type LiftingUnit(binFile: IBinFile,
         let len = ptr.ReadableAmount
         let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
         Ok <| parser.Parse(span, ptr.Addr)
-      with _ -> Error ErrorCase.ParsingFailure
+      with _ ->
+        Error ErrorCase.ParsingFailure
     match parsed with
     | Ok ins ->
       if ins.IsTerminator prevIns then
         Ok <| toReversedArray (cnt + 1) (ins :: acc)
       else
-        let ptr = ptr.Advance(ins.Length)
-        if ptr.IsValid then parseBBLByPtr ins ptr (cnt + 1) (ins :: acc)
-        else Error <| toReversedArray (cnt + 1) (ins :: acc)
-    | Error _ -> Error <| toReversedArray cnt acc
+        let ptr = ptr.Advance ins.Length
+        if ptr.CanReadFileBytes then
+          parseBBLByPtr ins ptr (cnt + 1) (ins :: acc)
+        else
+          Error <| toReversedArray (cnt + 1) (ins :: acc)
+    | Error _ ->
+      Error <| toReversedArray cnt acc
 
   /// Binary file to be lifted.
   member _.File with get() = binFile

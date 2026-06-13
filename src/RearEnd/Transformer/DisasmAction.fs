@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinFile
 /// The `disasm` action.
 type DisasmAction() =
   let rec disasm acc (lifter: LiftingUnit) (ptr: BinFilePointer) =
-    if ptr.IsValid then
+    if ptr.CanReadFileBytes then
       match lifter.TryParseInstruction ptr with
       | Ok instr ->
         let insLen = int instr.Length

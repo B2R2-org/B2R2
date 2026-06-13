@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinFile
 /// instruction collector performing linear sweep disassembly.
 type LinearSweepInstructionCollector(hdl: BinHandle, liftingUnit: LiftingUnit) =
   let rec update updateFn (ptr: BinFilePointer) =
-    if ptr.IsValid then
+    if ptr.CanReadFileBytes then
       match liftingUnit.TryParseInstruction(ptr = ptr) with
       | Ok ins ->
         updateFn (ptr.Addr, OnlyOne ins) |> ignore

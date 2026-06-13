@@ -32,7 +32,7 @@ open B2R2.FrontEnd.BinFile
 /// The `lift` action.
 type LiftAction() =
   let rec lift (sb: StringBuilder) (lifter: LiftingUnit) (ptr: BinFilePointer) =
-    if ptr.IsValid then
+    if ptr.CanReadFileBytes then
       match lifter.TryParseInstruction ptr with
       | Ok instr ->
         let s = lifter.LiftInstruction instr |> PrettyPrinter.ToString

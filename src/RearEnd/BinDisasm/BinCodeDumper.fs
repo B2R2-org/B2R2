@@ -150,7 +150,7 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
     ptr.Advance align
 
   let rec binDump isFirst (ptr: BinFilePointer) =
-    if ptr.IsValid then
+    if ptr.CanReadFileBytes then
       printFuncSymbol isFirst ptr.Addr
       checkAndUpdateArchMode ptr.Addr
       match liftingUnit.TryParseInstruction(ptr = ptr) with

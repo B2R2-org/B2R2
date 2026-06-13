@@ -69,8 +69,8 @@ type BinFilePointer =
         MaxOffset = maxOffset }
   end
 with
-  /// Checks if the pointer is valid.
-  member inline this.IsValid with get() =
+  /// Checks if the pointer currently points to file-backed bytes.
+  member inline this.CanReadFileBytes with get() =
     this.Offset >= 0
     && this.Addr <= this.MaxAddr
     && this.Offset <= this.MaxOffset
@@ -111,8 +111,8 @@ with
   /// The address moves forward unconditionally, while the file offset is
   /// clamped to one past the max offset, marking the pointer as virtual once it
   /// leaves the file-backed region. The amount is assumed to be non-negative
-  /// and small enough not to overflow the address; callers must validate the
-  /// result (e.g., with <see cref="IsValid"/>) before dereferencing.
+  /// and small enough not to overflow the address; callers must check whether
+  /// the result can read file bytes before dereferencing.
   /// </summary>
   member inline this.Advance(amount: int) =
     BinFilePointer(

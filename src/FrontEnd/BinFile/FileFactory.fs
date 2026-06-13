@@ -32,7 +32,7 @@ namespace B2R2.FrontEnd.BinFile
 /// </summary>
 [<RequireQualifiedAccess>]
 module FileFactory =
-  open B2R2
+  open B2R2.FrontEnd.BinFile.FileHelper
 
   /// <summary>
   /// Creates a binary file object from the given path and byte array
@@ -55,19 +55,30 @@ module FileFactory =
     | FileFormat.MachBinary ->
       MachBinFile(path, bytes, isa, baseAddrOpt) :> IBinFile
     | FileFormat.WasmBinary ->
-      WasmBinFile(path, bytes) :> IBinFile
+      WasmBinFile(path, bytes, baseAddrOpt) :> IBinFile
     | FileFormat.PythonBinary ->
       PythonBinFile(path, bytes, baseAddrOpt) :> IBinFile
     | FileFormat.HexBinary ->
-      let str = System.Text.Encoding.ASCII.GetString bytes
-      let str = if str.StartsWith "0x" then str[2..] else str
-      let str = str.TrimEnd()
-      RawBinFile(path, ByteArray.ofHexString str, isa, baseAddrOpt) :> IBinFile
-    | _ ->
+      RawBinFile(path, parseHexBytes bytes, isa, baseAddrOpt) :> IBinFile
+    | FileFormat.RawBinary ->
       RawBinFile(path, bytes, isa, baseAddrOpt) :> IBinFile
+    | _ ->
+      raise InvalidFileFormatException
 
   /// <summary>
   /// Creates an ELF binary file object.
   /// </summary>
   let loadELF path bytes regFactory baseAddrOpt =
     ELFBinFile(path, bytes, baseAddrOpt, Some regFactory)
+
+  /// <summary>
+  /// Creates a PE binary file object.
+  /// </summary>
+  let loadPE path bytes baseAddrOpt rawpdb =
+    PEBinFile(path, bytes, baseAddrOpt, rawpdb)
+
+  /// <summary>
+  /// Creates a Mach-O binary file object.
+  /// </summary>
+  let loadMach path bytes isa baseAddrOpt =
+    MachBinFile(path, bytes, isa, baseAddrOpt)

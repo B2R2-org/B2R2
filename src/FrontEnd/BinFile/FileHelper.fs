@@ -27,10 +27,32 @@ module internal B2R2.FrontEnd.BinFile.FileHelper
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
+open System
 
 /// Selects a number based on the word size.
 let inline selectByWordSize wordSize v32 v64 =
   if wordSize = WordSize.Bit32 then v32 else v64
+
+let private normalizeHexString (bytes: byte[]) =
+  let str = Text.Encoding.ASCII.GetString bytes
+  let str = if str.StartsWith "0x" then str[2..] else str
+  str.TrimEnd()
+
+let private isHexChar c =
+  c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f'
+
+let private isHexString (str: string) =
+  str.Length > 0 && str.Length % 2 = 0 && String.forall isHexChar str
+
+/// Converts a byte array containing an ASCII hex string into raw bytes.
+let parseHexBytes bytes =
+  normalizeHexString bytes |> ByteArray.ofHexString
+
+/// Tries to parse a byte array containing an ASCII hex string into raw bytes.
+let tryParseHexBytes bytes =
+  let str = normalizeHexString bytes
+  if isHexString str then Some <| ByteArray.ofHexString str
+  else None
 
 /// Reads either 32-bit or 64-bit value based on the word size from the given
 /// offset of the given byte span. This function always returns a 64-bit value.
@@ -83,7 +105,7 @@ let sliceBySafeOffset (bytes: byte[]) (offset: uint64) len =
 /// the pointer is not file-backed (null or virtual) or when len exceeds the
 /// readable extent of the pointed region.
 let sliceByPointer (bytes: byte[]) (ptr: BinFilePointer) len =
-  if len >= 0 && ptr.IsValid && len <= ptr.ReadableAmount then ()
+  if len >= 0 && ptr.CanReadFileBytes && len <= ptr.ReadableAmount then ()
   else raise InvalidAddrReadException
   sliceBySafeOffset bytes (uint64 ptr.Offset) len
 
