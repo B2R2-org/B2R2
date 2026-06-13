@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.BinFile
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.Mach
 open B2R2.FrontEnd.BinFile.Mach.Helper
 
@@ -199,7 +200,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.Slice(addr, len) =
       let offset = translateAddr segMap.Value addr
-      System.ReadOnlySpan(bytes, offset, len)
+      sliceBySafeOffset bytes offset len
 
     member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not

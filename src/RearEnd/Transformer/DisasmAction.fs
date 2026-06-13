@@ -35,7 +35,8 @@ type DisasmAction() =
       match lifter.TryParseInstruction ptr with
       | Ok instr ->
         let insLen = int instr.Length
-        let insBytes = IBinFile.Slice(lifter.File, ptr.Offset, insLen).ToArray()
+        let insBytes =
+          (BinFileOps.sliceByOffset lifter.File ptr.Offset insLen).ToArray()
         let ptr = ptr.Advance insLen
         let acc = ValidInstruction(instr, insBytes) :: acc
         disasm acc lifter ptr

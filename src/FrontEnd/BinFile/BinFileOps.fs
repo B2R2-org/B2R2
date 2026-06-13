@@ -26,7 +26,21 @@
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.BinFileOps
 
+open System
 open B2R2
+
+/// <summary>
+/// Slices the given binary file into a span of bytes of the specified length
+/// starting from the specified file offset. Raises <see
+/// cref='T:B2R2.FrontEnd.BinFile.InvalidAddrReadException'/> when the requested
+/// region falls outside the file content.
+/// </summary>
+[<CompiledName "SliceByOffset">]
+let sliceByOffset (file: IBinFile) offset len =
+  let bytes = file.RawBytes
+  if offset >= 0 && len >= 0 && offset <= bytes.Length - len then ()
+  else raise InvalidAddrReadException
+  ReadOnlySpan(bytes).Slice(offset, len)
 
 /// Tries to find the symbolic name associated with the given address.
 [<CompiledName "TryFindName">]

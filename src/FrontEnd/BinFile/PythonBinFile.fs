@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.Python.Helper
 
 /// Represents a Python binary file.
@@ -89,7 +90,7 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.Linkage with get() = None
 
-    member _.Slice(addr, len) = System.ReadOnlySpan(bytes, int addr, len)
+    member _.Slice(addr, len) = sliceBySafeOffset bytes addr len
 
     member _.IsValidAddr(addr) = addr >= 0UL && addr < (uint64 bytes.LongLength)
 

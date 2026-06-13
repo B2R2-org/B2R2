@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile.FileHelper
 
 /// <summary>
 /// Represents a raw binary file (containing only binary code and data without
@@ -68,8 +69,7 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
     member _.Linkage with get() = None
 
     member _.Slice(addr, len) =
-      let offset = System.Convert.ToInt32(addr - baseAddr)
-      System.ReadOnlySpan(bytes, offset, len)
+      sliceBySafeOffset bytes (addr - baseAddr) len
 
     member _.IsValidAddr addr =
       addr >= baseAddr && addr < (baseAddr + uint64 size)

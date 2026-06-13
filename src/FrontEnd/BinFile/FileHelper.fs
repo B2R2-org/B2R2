@@ -68,6 +68,16 @@ let readSLEB128 (span: ByteSpan) offset =
   let v, cnt = LEB128.decodeSInt64 (span.Slice offset)
   v, offset + cnt
 
+/// Slices the given byte array into a read-only span of the specified length
+/// starting at the given (already address-translated) file offset. Raises
+/// InvalidAddrReadException when the requested region falls outside the array,
+/// so that out-of-range reads surface a single, predictable exception.
+let sliceBySafeOffset (bytes: byte[]) (offset: uint64) len =
+  let bytesLen = uint64 bytes.Length
+  if len >= 0 && offset <= bytesLen && uint64 len <= bytesLen - offset then ()
+  else raise InvalidAddrReadException
+  System.ReadOnlySpan(bytes, int offset, len)
+
 let addInvalidRange set saddr eaddr =
   if saddr = eaddr then set
   else IntervalSet.add (AddrRange.create saddr (eaddr - 1UL)) set

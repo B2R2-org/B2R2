@@ -24,13 +24,11 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open System
 open B2R2.FrontEnd.BinLifter
 
 /// <summary>
 /// Represents a format-agnostic binary file interface.
 /// </summary>
-[<Interface>]
 type IBinFile =
   inherit IBinMetadata
   inherit IBinProperty
@@ -56,8 +54,3 @@ type IBinFile =
 
   /// Returns a linkage table if this binary format has linkage entries.
   abstract Linkage: ILinkageTable option
-
-  /// Slices the given binary file into a span of bytes of the specified length
-  /// starting from the specified file offset.
-  static member Slice(file: IBinFile, offset, len) =
-    ReadOnlySpan(file.RawBytes).Slice(offset, len)

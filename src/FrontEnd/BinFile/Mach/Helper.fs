@@ -77,7 +77,7 @@ let isNXEnabled hdr =
 
 let translateAddr segMap addr =
   match NoOverlapIntervalMap.tryFindByAddr addr segMap with
-  | Some s -> Convert.ToInt32(addr - s.VMAddr + s.FileOff)
+  | Some s -> addr - s.VMAddr + s.FileOff
   | None -> raise InvalidAddrReadException
 
 let private computeInvalidRanges toolBox segCmds getNextStartAddr =

@@ -33,7 +33,13 @@ open B2R2
 type IContentAddressable =
   /// <summary>
   /// Slices the raw binary content into a read-only span of bytes of the
-  /// specified length starting from the specified virtual address.
+  /// specified length starting from the specified virtual address. The address
+  /// must be backed by the file content for the whole requested length; callers
+  /// should ensure this with <see cref="IsRangeMappedToFile"/> beforehand.
+  /// Raises <see
+  /// cref='T:B2R2.FrontEnd.BinFile.InvalidAddrReadException'/> when the
+  /// requested region falls outside the file content (e.g., an unmapped address
+  /// or a length that runs past the end of the file).
   /// </summary>
   /// <returns>
   /// Returns a read-only span of bytes starting from the specified virtual

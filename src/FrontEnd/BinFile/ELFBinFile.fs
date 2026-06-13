@@ -24,10 +24,10 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open System
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinFile.ELF.Helper
 
@@ -260,10 +260,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.Linkage with get() = linkage
 
     member _.Slice(addr, len) =
-      let offset =
-        translateAddrToOffset loadables.Value shdrs.Value addr
-        |> Convert.ToInt32
-      ReadOnlySpan(bytes, offset, len)
+      let offset = translateAddrToOffset loadables.Value shdrs.Value addr
+      sliceBySafeOffset bytes offset len
 
     member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not

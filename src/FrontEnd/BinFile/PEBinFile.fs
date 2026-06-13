@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.BinFile
 open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.PE
 open B2R2.FrontEnd.BinFile.PE.Helper
 
@@ -189,7 +190,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
     member _.Linkage with get() = linkage
 
     member _.Slice(addr, len) =
-      System.ReadOnlySpan(bytes, translateAddr pe addr, len)
+      sliceBySafeOffset bytes (uint64 (translateAddr pe addr)) len
 
     member _.IsValidAddr addr = isValidAddr pe addr
 

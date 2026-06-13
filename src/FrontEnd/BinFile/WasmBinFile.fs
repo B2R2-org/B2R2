@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.BinFile
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.Wasm
 open B2R2.FrontEnd.BinFile.Wasm.Helper
 
@@ -109,7 +110,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.Linkage with get() = linkage
 
-    member _.Slice(addr, len) = System.ReadOnlySpan(bytes, int addr, len)
+    member _.Slice(addr, len) = sliceBySafeOffset bytes addr len
 
     member _.IsValidAddr(addr) = addr >= 0UL && addr < (uint64 bytes.LongLength)
 
