@@ -40,7 +40,7 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
   interface IBinFile with
     member _.Reader with get() = reader
 
-    member _.RawBytes with get() = bytes
+    member _.RawBytes with get() = System.ReadOnlyMemory bytes
 
     member _.Length with get() = bytes.Length
 

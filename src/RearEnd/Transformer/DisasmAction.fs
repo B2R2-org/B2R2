@@ -41,7 +41,7 @@ type DisasmAction() =
         let acc = ValidInstruction(instr, insBytes) :: acc
         disasm acc lifter ptr
       | Error _ ->
-        let badbyte = [| lifter.File.RawBytes[ptr.Offset] |]
+        let badbyte = [| lifter.File.RawBytes.Span[ptr.Offset] |]
         let acc = BadInstruction(ptr.Addr, badbyte) :: acc
         let ptr = ptr.Advance 1
         disasm acc lifter ptr

@@ -82,7 +82,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
   interface IBinFile with
     member _.Reader with get() = reader
 
-    member _.RawBytes = bytes
+    member _.RawBytes = System.ReadOnlyMemory bytes
 
     member _.Length = bytes.Length
 

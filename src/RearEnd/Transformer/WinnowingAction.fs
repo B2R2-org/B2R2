@@ -56,7 +56,7 @@ type WinnowingAction() =
     let bin = unbox<Binary> input
     let hdl = Binary.Handle bin
     let annot = Binary.MakeAnnotation("Winnowing from ", bin)
-    let span = ReadOnlySpan hdl.File.RawBytes
+    let span = hdl.File.RawBytes.Span
     if span.Length < n + wsz then
       invalidArg (nameof input) "The input binary is too small."
     else

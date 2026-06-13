@@ -59,7 +59,7 @@ with
     match this with
     | Binary(hdl, annot) when hdl.Value.File.Format = RawBinary ->
       let hdl = hdl.Value
-      let s = Utils.makeByteArraySummary hdl.File.RawBytes
+      let s = Utils.makeByteArraySummary (hdl.File.RawBytes.ToArray())
       if String.IsNullOrEmpty annot then
         $"Binary(Raw) | 0x{hdl.File.BaseAddress:x8} | {s}"
       else
@@ -67,7 +67,7 @@ with
     | Binary(hdl, annot) ->
       let hdl = hdl.Value
       let file = hdl.File
-      let s = Utils.makeByteArraySummary file.RawBytes
+      let s = Utils.makeByteArraySummary (file.RawBytes.ToArray())
       let fmt = FileFormat.toString hdl.File.Format
       let path = file.Path
       let finfo = if String.IsNullOrEmpty path then "" else $", {path}"

@@ -161,7 +161,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   interface IBinFile with
     member _.Reader with get() = pe.BinReader
 
-    member _.RawBytes = bytes
+    member _.RawBytes = System.ReadOnlyMemory bytes
 
     member _.Length = bytes.Length
 

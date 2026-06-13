@@ -221,7 +221,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
 
-    member _.RawBytes = bytes
+    member _.RawBytes = System.ReadOnlyMemory bytes
 
     member _.Length = bytes.Length
 

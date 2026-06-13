@@ -281,7 +281,7 @@ let dumpArchiveHeader (_: BinScanOpts) (_: MachBinFile) =
   Terminator.futureFeature ()
 
 let dumpUniversalHeader (_opts: BinScanOpts) (mach: MachBinFile) =
-  let bytes = (mach :> IBinFile).RawBytes
+  let bytes = (mach :> IBinFile).RawBytes.ToArray()
   if Mach.Header.IsFat bytes then
     let archs = Mach.Fat.parseArchs bytes
     for i in 0 .. archs.Length - 1 do

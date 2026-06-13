@@ -170,7 +170,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
 
-    member _.RawBytes = bytes
+    member _.RawBytes = System.ReadOnlyMemory bytes
 
     member _.Length = bytes.Length
 

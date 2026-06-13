@@ -230,7 +230,7 @@ module LinearDocument =
 
   let load (brew: BinaryBrew<_, _>) sections =
     let hdl = brew.BinHandle
-    let bytes = hdl.File.RawBytes
+    let bytes = hdl.File.RawBytes.ToArray()
     let lifter = hdl.NewLiftingUnit()
     lifter.ConfigureDisassembly(showAddr = false)
     let items = buildItems brew bytes sections

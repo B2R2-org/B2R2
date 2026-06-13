@@ -34,7 +34,7 @@ open B2R2.FrontEnd.BinFile.ELF
 open B2R2.RearEnd.Utils
 
 let computeMagicBytes (file: IBinFile) =
-  let span = ReadOnlySpan(file.RawBytes, 0, 16)
+  let span = file.RawBytes.Span.Slice(0, 16)
   span.ToArray()
   |> ColoredString
   |> OutputColored

@@ -37,8 +37,8 @@ type IBinFile =
   /// Returns a reader for this binary file.
   abstract Reader: IBinReader
 
-  /// Returns the raw file content as a byte array.
-  abstract RawBytes: byte[]
+  /// Returns the raw file content as a read-only memory block.
+  abstract RawBytes: System.ReadOnlyMemory<byte>
 
   /// Returns the size of the associated binary file.
   abstract Length: int

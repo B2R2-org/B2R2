@@ -40,7 +40,7 @@ let sliceByOffset (file: IBinFile) offset len =
   let bytes = file.RawBytes
   if offset >= 0 && len >= 0 && offset <= bytes.Length - len then ()
   else raise InvalidAddrReadException
-  ReadOnlySpan(bytes).Slice(offset, len)
+  bytes.Span.Slice(offset, len)
 
 /// Tries to find the symbolic name associated with the given address.
 [<CompiledName "TryFindName">]

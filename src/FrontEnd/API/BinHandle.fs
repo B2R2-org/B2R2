@@ -74,7 +74,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
 
   let rec readAscii acc (ptr: BinFilePointer) =
     if ptr.IsValid && not ptr.IsVirtual then
-      let b = binFile.RawBytes[ptr.Offset]
+      let b = binFile.RawBytes.Span[ptr.Offset]
       if b = 0uy then List.rev (b :: acc) |> List.toArray
       else readAscii (b :: acc) (ptr.Advance 1)
     else List.rev acc |> List.toArray
@@ -84,7 +84,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
       if ptr.IsVirtual then Array.zeroCreate nBytes
       else
         let len = ptr.ReadableAmount
-        let span = ReadOnlySpan(binFile.RawBytes, ptr.Offset, len)
+        let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
         span.Slice(0, nBytes).ToArray()
     if ptr.CanRead nBytes then Ok arr (* full result *)
     else Error arr (* partial result *)

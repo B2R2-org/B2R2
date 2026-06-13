@@ -273,7 +273,7 @@ let private bytesText (bytes: byte[]) =
   bytes |> Array.map (fun b -> $"{b:X2}") |> String.concat " "
 
 let private readItemBytes (hdl: BinHandle) (loc: ILinearItemLocation) =
-  let rawBytes = hdl.File.RawBytes
+  let rawBytes = hdl.File.RawBytes.ToArray()
   if loc.Offset < 0 || loc.Offset >= rawBytes.Length || loc.ItemLength <= 0 then
     [||]
   else
