@@ -259,9 +259,9 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.Linkage with get() = linkage
 
-    member _.Slice(addr, len) =
-      let offset = translateAddrToOffset loadables.Value shdrs.Value addr
-      sliceBySafeOffset bytes offset len
+    member this.Slice(addr, len) =
+      let ptr = (this :> IContentAddressable).GetBoundedPointer addr
+      sliceByPointer bytes ptr len
 
     member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not
@@ -279,26 +279,29 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       IntervalSet.containsAddr addr executableRanges.Value
 
     member _.GetBoundedPointer addr =
-      let phdrs = phdrs.Value
-      let mutable found = false
-      let mutable idx = 0
-      let mutable maxAddr = 0UL
-      let mutable offset = 0
-      let mutable maxOffset = 0
-      while not found && idx < phdrs.Length do
-        let ph = phdrs[idx]
-        if addr >= ph.PHAddr && addr < ph.PHAddr + ph.PHMemSize then
-          found <- true
-          maxOffset <- int ph.PHOffset + int ph.PHFileSize - 1
-          if addr < ph.PHAddr + ph.PHFileSize then
-            offset <- int ph.PHOffset + int (addr - ph.PHAddr)
-            maxAddr <- ph.PHAddr + ph.PHFileSize - 1UL
-          else
-            offset <- maxOffset + 1
-            maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
-        else idx <- idx + 1
-      if found then BinFilePointer(addr, maxAddr, offset, maxOffset)
-      else BinFilePointer.Null
+      if Array.isEmpty loadables.Value then
+        getBoundedPtrBySections shdrs.Value addr
+      else
+        let phdrs = phdrs.Value
+        let mutable found = false
+        let mutable idx = 0
+        let mutable maxAddr = 0UL
+        let mutable offset = 0
+        let mutable maxOffset = 0
+        while not found && idx < phdrs.Length do
+          let ph = phdrs[idx]
+          if addr >= ph.PHAddr && addr < ph.PHAddr + ph.PHMemSize then
+            found <- true
+            maxOffset <- int ph.PHOffset + int ph.PHFileSize - 1
+            if addr < ph.PHAddr + ph.PHFileSize then
+              offset <- int ph.PHOffset + int (addr - ph.PHAddr)
+              maxAddr <- ph.PHAddr + ph.PHFileSize - 1UL
+            else
+              offset <- maxOffset + 1
+              maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
+          else idx <- idx + 1
+        if found then BinFilePointer(addr, maxAddr, offset, maxOffset)
+        else BinFilePointer.Null
 
     member _.GetVMMappedRegions() =
       phdrs.Value

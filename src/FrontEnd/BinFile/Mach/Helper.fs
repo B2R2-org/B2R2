@@ -75,11 +75,6 @@ let isNXEnabled hdr =
   not (hdr.Flags.HasFlag MachFlag.MH_ALLOW_STACK_EXECUTION)
   || hdr.Flags.HasFlag MachFlag.MH_NO_HEAP_EXECUTION
 
-let translateAddr segMap addr =
-  match NoOverlapIntervalMap.tryFindByAddr addr segMap with
-  | Some s -> addr - s.VMAddr + s.FileOff
-  | None -> raise InvalidAddrReadException
-
 let private computeInvalidRanges toolBox segCmds getNextStartAddr =
   segCmds
   |> Array.filter (fun seg -> seg.SegCmdName <> "__PAGEZERO")

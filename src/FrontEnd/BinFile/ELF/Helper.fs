@@ -31,48 +31,51 @@ open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let inline private computeSubstitute offsetToAddr delta (ptr: Addr) =
-  if offsetToAddr then ptr + delta
-  else ptr - delta (* Addr to offset *)
-
-let translateWithSecs offsetToAddr ptr sections =
+let private offsetToAddrInSecs sections offset =
   let txtOffset =
     match Array.tryFind (fun s -> s.SecName = Section.Text) sections with
     | Some text -> text.SecOffset
     | None -> 0UL
   sections
   |> Array.tryFind (fun s ->
-    let secBase =
-      if offsetToAddr then s.SecOffset
-      else s.SecOffset - txtOffset + s.SecAddr
     s.SecType = SectionType.SHT_PROGBITS
     && s.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
-    && secBase <= ptr && (secBase + s.SecSize) > ptr)
+    && s.SecOffset <= offset && offset < s.SecOffset + s.SecSize)
   |> function
+    | Some s -> offset + (s.SecAddr - txtOffset)
     | None -> raise InvalidAddrReadException
-    | Some s -> computeSubstitute offsetToAddr (s.SecAddr - txtOffset) ptr
 
-let translateWithSegs offsetToAddr ptr segments =
-  segments
+let private offsetToAddrInSegs loadableSegs offset =
+  loadableSegs
   |> Array.tryFind (fun seg ->
-    let segBase, segSize =
-      if offsetToAddr then seg.PHOffset, seg.PHFileSize
-      else seg.PHAddr, seg.PHMemSize
-    ptr >= segBase && ptr < segBase + segSize)
+    seg.PHOffset <= offset && offset < seg.PHOffset + seg.PHFileSize)
   |> function
-    | Some seg -> computeSubstitute offsetToAddr (seg.PHAddr - seg.PHOffset) ptr
+    | Some seg -> offset + (seg.PHAddr - seg.PHOffset)
     | None -> raise InvalidAddrReadException
-
-let translate loadableSegments sections offsetToAddr ptr =
-  if Array.isEmpty loadableSegments then
-    translateWithSecs offsetToAddr ptr sections
-  else translateWithSegs offsetToAddr ptr loadableSegments
-
-let translateAddrToOffset loadableSegs sections addr =
-  translate loadableSegs sections false addr
 
 let translateOffsetToAddr loadableSegs sections offset =
-  translate loadableSegs sections true offset
+  if Array.isEmpty loadableSegs then offsetToAddrInSecs sections offset
+  else offsetToAddrInSegs loadableSegs offset
+
+/// Returns a bounded pointer for the given address using section information.
+/// This is used for ELF object files (ET_REL), which have no loadable segments;
+/// only sections that carry file content (SHT_PROGBITS) are addressable, so
+/// NOBITS sections such as .bss are excluded.
+let getBoundedPtrBySections (shdrs: SectionHeader[]) addr =
+  let txtOffset =
+    match Array.tryFind (fun s -> s.SecName = Section.Text) shdrs with
+    | Some text -> text.SecOffset
+    | None -> 0UL
+  shdrs
+  |> Array.tryPick (fun s ->
+    let secBase = s.SecOffset - txtOffset + s.SecAddr
+    if s.SecType = SectionType.SHT_PROGBITS
+       && secBase <= addr && addr < secBase + s.SecSize then
+      let offset = int (s.SecOffset + (addr - secBase))
+      let maxOffset = int s.SecOffset + int s.SecSize - 1
+      Some(BinFilePointer(addr, secBase + s.SecSize - 1UL, offset, maxOffset))
+    else None)
+  |> Option.defaultValue BinFilePointer.Null
 
 let getRelocatedAddr (relocInfo: RelocationInfo) relocAddr =
   match relocInfo.TryFind relocAddr with

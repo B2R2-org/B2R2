@@ -198,9 +198,9 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.Linkage with get() = linkage
 
-    member _.Slice(addr, len) =
-      let offset = translateAddr segMap.Value addr
-      sliceBySafeOffset bytes offset len
+    member this.Slice(addr, len) =
+      let ptr = (this :> IContentAddressable).GetBoundedPointer addr
+      sliceByPointer bytes ptr len
 
     member _.IsValidAddr addr =
       IntervalSet.containsAddr addr notInMemRanges.Value |> not

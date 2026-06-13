@@ -189,8 +189,9 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.Linkage with get() = linkage
 
-    member _.Slice(addr, len) =
-      sliceBySafeOffset bytes (uint64 (translateAddr pe addr)) len
+    member this.Slice(addr, len) =
+      let ptr = (this :> IContentAddressable).GetBoundedPointer addr
+      sliceByPointer bytes ptr len
 
     member _.IsValidAddr addr = isValidAddr pe addr
 

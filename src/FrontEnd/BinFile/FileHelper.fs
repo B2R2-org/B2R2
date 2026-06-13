@@ -78,6 +78,15 @@ let sliceBySafeOffset (bytes: byte[]) (offset: uint64) len =
   else raise InvalidAddrReadException
   System.ReadOnlySpan(bytes, int offset, len)
 
+/// Slices the given byte array using the given bounded pointer, reading len
+/// bytes from the pointer's file offset. Raises InvalidAddrReadException when
+/// the pointer is not file-backed (null or virtual) or when len exceeds the
+/// readable extent of the pointed region.
+let sliceByPointer (bytes: byte[]) (ptr: BinFilePointer) len =
+  if len >= 0 && ptr.IsValid && len <= ptr.ReadableAmount then ()
+  else raise InvalidAddrReadException
+  sliceBySafeOffset bytes (uint64 ptr.Offset) len
+
 let addInvalidRange set saddr eaddr =
   if saddr = eaddr then set
   else IntervalSet.add (AddrRange.create saddr (eaddr - 1UL)) set

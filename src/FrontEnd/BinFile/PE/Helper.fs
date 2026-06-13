@@ -88,15 +88,6 @@ let getVirtualSectionSize (sec: SectionHeader) =
   let virtualSize = sec.VirtualSize
   if virtualSize = 0 then sec.SizeOfRawData else virtualSize
 
-let inline translateAddr pe addr =
-  if addr < pe.BaseAddr then raise InvalidAddrReadException else ()
-  let rva = int (addr - pe.BaseAddr)
-  match pe.FindSectionIdxFromRVA rva with
-  | -1 -> raise InvalidAddrReadException
-  | idx ->
-    let sHdr = pe.SectionHeaders[idx]
-    rva + sHdr.PointerToRawData - sHdr.VirtualAddress
-
 let inline isSectionExecutableByIndex pe idx =
   pe.SectionHeaders[idx].SectionCharacteristics.HasFlag
   <| SectionCharacteristics.MemExecute

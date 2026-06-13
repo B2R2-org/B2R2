@@ -106,7 +106,11 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.IsExecutableAddr _addr = Terminator.futureFeature ()
 
-    member _.GetBoundedPointer(_addr: Addr) = BinFilePointer.Null
+    member _.GetBoundedPointer(addr) =
+      if addr < uint64 size then
+        BinFilePointer(addr, uint64 size - 1UL, int addr, size - 1)
+      else
+        BinFilePointer.Null
 
     member _.GetVMMappedRegions() = [||]
 
