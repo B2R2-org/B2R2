@@ -34,5 +34,17 @@ type IBinProperty =
   /// Is NX enabled for this binary? (DEP enabled or not)
   abstract IsNXEnabled: bool
 
-  /// Is this binary relocatable (i.e., position-independent)?
-  abstract IsRelocatable: bool
+  /// <summary>
+  /// Is this a position-independent executable (PIE)? Unlike <see
+  /// cref="IsBaseRelative"/>, this covers only executables, excluding shared
+  /// libraries.
+  /// </summary>
+  abstract IsPIE: bool
+
+  /// <summary>
+  /// Is this binary loaded at a non-fixed base, i.e., are its addresses
+  /// base-relative rather than absolute? Unlike <see cref="IsPIE"/>, this is
+  /// true for every format except fixed-base executables, covering shared
+  /// libraries and relocatable objects.
+  /// </summary>
+  abstract IsBaseRelative: bool

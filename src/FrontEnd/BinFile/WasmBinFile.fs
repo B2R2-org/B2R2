@@ -97,7 +97,9 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.IsNXEnabled with get() = true
 
-    member _.IsRelocatable with get() = false
+    member _.IsPIE with get() = false
+
+    member _.IsBaseRelative with get() = false
 
     member _.NameResolver with get() = None
 

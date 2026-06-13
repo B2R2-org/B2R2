@@ -51,7 +51,7 @@ let private dumpSecurity (file: IBinFile) =
   printSectionTitle "Security Information"
   printsr [| "Stripped binary:"; file.IsStripped.ToString() |]
   printsr [| "DEP (NX) enabled:"; file.IsNXEnabled.ToString() |]
-  printsr [| "Relocatable (PIE):"; file.IsRelocatable.ToString() |]
+  printsr [| "PIE:"; file.IsPIE.ToString() |]
   printsn ""
 
 let private printBasic file =

@@ -198,8 +198,13 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.IsNXEnabled with get() = isNXEnabled toolBox.Header
 
-    member _.IsRelocatable with get() =
+    member _.IsPIE with get() =
       toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
+
+    member _.IsBaseRelative with get() =
+      let hdr = toolBox.Header
+      hdr.Flags.HasFlag MachFlag.MH_PIE
+      || hdr.FileType <> FileType.MH_EXECUTE
 
     member _.NameResolver with get() = nameResolver
 

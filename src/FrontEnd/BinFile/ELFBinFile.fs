@@ -254,10 +254,14 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         perm.HasFlag Permission.Executable |> not
       | _ -> false
 
-    member _.IsRelocatable with get() =
+    member _.IsPIE with get() =
       let pred e = e.DTag = DTag.DT_DEBUG
       toolBox.Header.ELFType = ELFType.ET_DYN
       && dynamicArray.Value |> Array.exists pred
+
+    member _.IsBaseRelative with get() =
+      let ty = toolBox.Header.ELFType
+      ty = ELFType.ET_DYN || ty = ELFType.ET_REL
 
     member _.NameResolver with get() = nameResolver
 

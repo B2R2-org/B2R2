@@ -80,7 +80,9 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.IsNXEnabled with get() = false
 
-    member _.IsRelocatable with get() = false
+    member _.IsPIE with get() = false
+
+    member _.IsBaseRelative with get() = false
 
     member _.NameResolver with get() = None
 

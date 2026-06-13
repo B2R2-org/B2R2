@@ -193,7 +193,9 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.IsNXEnabled with get() = isNXEnabled pe
 
-    member _.IsRelocatable with get() = isRelocatable pe
+    member _.IsPIE with get() = isPIE pe
+
+    member _.IsBaseRelative with get() = isBaseRelative pe
 
     member _.NameResolver with get() = nameResolver
 

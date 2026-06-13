@@ -68,7 +68,13 @@ let isNXEnabled pe =
   if hdrs.IsCoffOnly then false
   else hdrs.PEHeader.DllCharacteristics.HasFlag DllCharacteristics.NxCompatible
 
-let isRelocatable pe =
+let isPIE pe =
+  let hdrs = pe.PEHeaders
+  not hdrs.IsCoffOnly
+  && not (hdrs.CoffHeader.Characteristics.HasFlag Characteristics.Dll)
+  && hdrs.PEHeader.DllCharacteristics.HasFlag DllCharacteristics.DynamicBase
+
+let isBaseRelative pe =
   let hdrs = pe.PEHeaders
   if hdrs.IsCoffOnly then true
   else hdrs.PEHeader.DllCharacteristics.HasFlag DllCharacteristics.DynamicBase
