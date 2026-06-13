@@ -24,6 +24,7 @@
 
 namespace B2R2.RearEnd.BinExplore.GUI
 
+open System
 open B2R2
 
 /// Represents the full hexdump state, including the shared document and all
@@ -39,7 +40,7 @@ type HexdumpState =
 and HexDocument =
   { BaseAddress: Addr
     Length: int64
-    Bytes: byte[] }
+    Bytes: ReadOnlyMemory<byte> }
 
 /// Represents style information applied to a byte span.
 and HexSpanStyle =
@@ -93,9 +94,9 @@ module HexViewState =
 
 [<RequireQualifiedAccess>]
 module HexDocument =
-  let ofBytes baseAddress (bytes: byte[]) =
+  let ofBytes baseAddress (bytes: ReadOnlyMemory<byte>) =
     { BaseAddress = baseAddress
-      Length = bytes.LongLength
+      Length = int64 bytes.Length
       Bytes = bytes }
 
 [<RequireQualifiedAccess>]

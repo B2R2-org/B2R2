@@ -139,18 +139,21 @@ module internal SearchBox = begin
       Some(input |> Seq.map byte |> Array.ofSeq)
     else None
 
-  let findBytePattern (haystack: byte[]) (needle: byte[]) =
+  let findBytePattern (haystack: ReadOnlyMemory<byte>) (needle: byte[]) =
+    let haystack = haystack.Span
     if needle.Length = 0 || haystack.Length < needle.Length then
       [||]
     else
-      [| for startIdx in 0 .. haystack.Length - needle.Length do
-           let mutable matched = true
-           let mutable i = 0
-           while matched && i < needle.Length do
-             if haystack[startIdx + i] <> needle[i] then matched <- false
-             else ()
-             i <- i + 1
-           if matched then int64 startIdx else () |]
+      let results = ResizeArray<int64>()
+      for startIdx in 0 .. haystack.Length - needle.Length do
+        let mutable matched = true
+        let mutable i = 0
+        while matched && i < needle.Length do
+          if haystack[startIdx + i] <> needle[i] then matched <- false
+          else ()
+          i <- i + 1
+        if matched then results.Add(int64 startIdx) else ()
+      results.ToArray()
 
   let formatAddressLabel addr =
     $"[addr] 0x{addr:X}"

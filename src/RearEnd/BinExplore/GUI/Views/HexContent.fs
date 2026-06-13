@@ -50,7 +50,7 @@ type private CachedRowVisual =
     Ascii: FormattedText }
 
 type private RenderSignature =
-  { BytesRef: byte[]
+  { BytesRef: ReadOnlyMemory<byte>
     AnnotationSpansRef: HexSpanStyle list
     HighlightSpansRef: HexSpanStyle list
     BaseAddress: Addr
@@ -130,7 +130,7 @@ let private tryGetSelectionBytes (state: HexdumpState) =
     let count = int (endByte - startByte + 1L)
     let docLength = state.Document.Bytes.Length
     if count > 0 && offset >= 0 && offset + count <= docLength then
-      Some(Array.sub state.Document.Bytes offset count)
+      Some(state.Document.Bytes.Slice(offset, count).ToArray())
     else
       None
   | None ->
@@ -434,17 +434,18 @@ let private hexDigit value =
 
 let private formatRowTexts (doc: HexDocument) bytesPerRow rowIdx =
   let offset = rowIdx * bytesPerRow
-  let remaining = doc.Bytes.Length - offset
+  let bytes = doc.Bytes.Span
+  let remaining = bytes.Length - offset
   let count = min bytesPerRow remaining
   let hexChars =
     if count > 0 then Array.create (count * 3 - 1) ' ' else Array.empty
   let asciiChars = Array.create count '.'
   for i = 0 to count - 1 do
-    let byteValue = int doc.Bytes[offset + i]
+    let byteValue = int bytes[offset + i]
     let hexPos = i * 3
     hexChars[hexPos] <- hexDigit (byteValue >>> 4)
     hexChars[hexPos + 1] <- hexDigit (byteValue &&& 0xF)
-    asciiChars[i] <- byteToAscii doc.Bytes[offset + i]
+    asciiChars[i] <- byteToAscii bytes[offset + i]
   String hexChars, String asciiChars
 
 let private selectionRange selection =
@@ -559,7 +560,7 @@ let private computeRenderSignature state theme startRow endRow =
     SelectionBackground = theme.Search.SelectedBackground }
 
 let private sameRenderSignature left right =
-  obj.ReferenceEquals(left.BytesRef, right.BytesRef)
+  left.BytesRef.Equals right.BytesRef
   && obj.ReferenceEquals(left.AnnotationSpansRef, right.AnnotationSpansRef)
   && obj.ReferenceEquals(left.HighlightSpansRef, right.HighlightSpansRef)
   && left.BaseAddress = right.BaseAddress
@@ -581,7 +582,7 @@ type private HexdumpRenderLayer() =
 
   let rowCache = Dictionary<int, CachedRowVisual>()
   let mutable lastRenderSignature: RenderSignature option = None
-  let mutable cachedBytes: byte[] = null
+  let mutable cachedBytes = ReadOnlyMemory<byte>.Empty
   let mutable cachedBytesPerRow = 0
   let mutable cachedAddressDigits = 0
   let mutable cachedFontFamily = ""
@@ -589,7 +590,7 @@ type private HexdumpRenderLayer() =
   let mutable cachedAddressColor = ""
   let mutable cachedPrimaryColor = ""
   let mutable cachedSecondaryColor = ""
-  let mutable cachedAnnotationBytes: byte[] = null
+  let mutable cachedAnnotationBytes = ReadOnlyMemory<byte>.Empty
   let mutable cachedAnnotationSpans: HexSpanStyle list = []
   let mutable cachedAnnotationBytesPerRow = 0
   let mutable cachedAnnotationFallback = ""
@@ -612,7 +613,7 @@ type private HexdumpRenderLayer() =
     let view = state.View
     let fontFamily = theme.Font.Monospace.FontFamily
     let fontSize = view.FontSize
-    let bytesRefEqual = obj.ReferenceEquals(cachedBytes, state.Document.Bytes)
+    let bytesRefEqual = cachedBytes.Equals state.Document.Bytes
     let cacheInvalid =
       not bytesRefEqual
       || cachedBytesPerRow <> view.BytesPerRow
@@ -638,7 +639,7 @@ type private HexdumpRenderLayer() =
 
   let ensureAnnotationCache (state: HexdumpState) theme layout =
     let bytesRefEqual =
-      obj.ReferenceEquals(cachedAnnotationBytes, state.Document.Bytes)
+      cachedAnnotationBytes.Equals state.Document.Bytes
     let spansRefEqual =
       obj.ReferenceEquals(box cachedAnnotationSpans, box state.AnnotationSpans)
     let cacheInvalid =

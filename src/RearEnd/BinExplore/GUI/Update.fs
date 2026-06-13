@@ -328,8 +328,7 @@ let private buildLoadedBinaryState (arbiter: Arbiter<_, _>) model filePath =
     let numDigits = (file.ISA.WordSize |> WordSize.toByteWidth) * 2
     let fontSize = model.Theme.Font.Monospace.FontSize
     let hexdump =
-      HexdumpState.ofBytes file.BaseAddress (file.RawBytes.ToArray()) numDigits
-        fontSize
+      HexdumpState.ofBytes file.BaseAddress file.RawBytes numDigits fontSize
       |> buildHexAnnotations model.Theme file
       |> initializeHexdumpTabView model
     let initialTab = Some(Tab.ofLinearView ())
