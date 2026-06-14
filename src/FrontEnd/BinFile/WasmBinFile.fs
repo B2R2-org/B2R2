@@ -38,36 +38,78 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
   let reader = BinReader.Init Endian.Little
   let isa = ISA Architecture.WASM
 
+  let sectionSummaryToPointer (sec: SectionSummary) =
+    let addr = uint64 sec.Offset
+    let size = sec.HeaderSize + sec.ContentsSize
+    BinFilePointer(addr, addr + uint64 size - 1UL,
+                   sec.Offset, sec.Offset + int size - 1)
+
+  let tryFindSectionByOffset offset =
+    wm.SectionsInfo.SecArray
+    |> Array.tryFind (fun sec ->
+      offset >= uint32 sec.Offset
+      && offset < uint32 sec.Offset + sec.HeaderSize + sec.ContentsSize)
+
+  let functionAddrs =
+    lazy
+      wm.IndexMap
+      |> Array.choose (fun idx ->
+        if idx.Kind = IndexKind.Function
+           && NoOverlapIntervalMap.containsAddr
+                (uint64 idx.ElemOffset) wm.SectionsInfo.SecByAddr then
+          match NoOverlapIntervalMap.findByAddr
+                  (uint64 idx.ElemOffset) wm.SectionsInfo.SecByAddr with
+          | sec when sec.Id = SectionId.Code -> Some(uint64 idx.ElemOffset)
+          | _ -> None
+        else None)
+
+  let linkageEntries =
+    lazy getImports wm
+
   let structure =
     Some { new IBinStructure with
       member _.GetCodeSectionPointer() =
         match wm.CodeSection with
         | Some sec ->
-          BinFilePointer(uint64 sec.Offset,
-                         uint64 sec.Offset + uint64 sec.Size - 1UL,
-                         int sec.Offset,
-                         int sec.Offset + int sec.Size - 1)
+          let headerSize =
+            wm.SectionsInfo.SecArray
+            |> Array.tryFind (fun sm -> sm.Id = SectionId.Code)
+            |> Option.map (fun sm -> sm.HeaderSize)
+            |> Option.defaultValue 0u
+          let addr = uint64 sec.Offset
+          let size = headerSize + sec.Size
+          BinFilePointer(addr, addr + uint64 size - 1UL,
+                         sec.Offset, sec.Offset + int size - 1)
         | None ->
           BinFilePointer.Null
 
-      member _.GetSectionPointer _ =
-        Terminator.futureFeature ()
+      member _.GetSectionPointer name =
+        match Map.tryFind name wm.SectionsInfo.SecByName with
+        | Some sec -> sectionSummaryToPointer sec
+        | None -> BinFilePointer.Null
 
-      member _.TryFindSectionNameByAddr(_: Addr) =
-        Terminator.futureFeature ()
+      member _.TryFindSectionNameByAddr addr =
+        NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr
+        |> function
+          | Some sec -> Ok sec.Name
+          | None -> Error ErrorCase.ItemNotFound
 
-      member _.TryFindSectionNameByOffset(_: uint32) =
-        Terminator.futureFeature ()
+      member _.TryFindSectionNameByOffset offset =
+        match tryFindSectionByOffset offset with
+        | Some sec -> Ok sec.Name
+        | None -> Error ErrorCase.ItemNotFound
 
       member _.GetFunctionAddresses() =
-        Terminator.futureFeature ()
+        functionAddrs.Value
     }
 
   let linkage =
     Some { new ILinkageTable with
-      member _.GetLinkageEntries() = getImports wm
+      member _.GetLinkageEntries() = linkageEntries.Value
 
-      member _.IsInLinkageTable _addr = Terminator.futureFeature ()
+      member _.IsInLinkageTable addr =
+        linkageEntries.Value
+        |> Array.exists (fun entry -> entry.TableAddress = addr)
     }
 
   new(path, bytes) = WasmBinFile(path, bytes, None)

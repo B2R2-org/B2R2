@@ -58,12 +58,13 @@ let private printBasic file =
   dumpBasic file
   dumpSecurity file
 
-let private dumpSpecific opts (file: IBinFile) title elf pe mach =
+let private dumpSpecific opts (file: IBinFile) title elf pe mach wasm =
   printSectionTitle title
   match file with
   | :? ELFBinFile as file -> elf opts file
   | :? PEBinFile as file -> pe opts file
   | :? MachBinFile as file -> mach opts file
+  | :? WasmBinFile as file -> wasm opts file
   | _ -> Terminator.futureFeature ()
 
 let private dumpFileHeader (opts: BinScanOpts) (file: IBinFile) =
@@ -71,106 +72,113 @@ let private dumpFileHeader (opts: BinScanOpts) (file: IBinFile) =
     ELFViewer.dumpFileHeader
     PEViewer.dumpFileHeader
     MachViewer.dumpFileHeader
+    WasmViewer.dumpFileHeader
 
 let private dumpSectionHeaders (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Section Header Information"
     ELFViewer.dumpSectionHeaders
     PEViewer.dumpSectionHeaders
     MachViewer.dumpSectionHeaders
+    WasmViewer.dumpSectionHeaders
 
 let private dumpSectionDetails (secname: string) (file: IBinFile) =
   dumpSpecific secname file "Section Details"
     ELFViewer.dumpSectionDetails
     PEViewer.dumpSectionDetails
     MachViewer.dumpSectionDetails
+    WasmViewer.dumpSectionDetails
 
 let private dumpSymbols (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Symbol Information"
     ELFViewer.dumpSymbols
     PEViewer.dumpSymbols
     MachViewer.dumpSymbols
+    WasmViewer.dumpSymbols
 
 let private dumpRelocs (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Relocation Information"
     ELFViewer.dumpRelocs
     PEViewer.dumpRelocs
     MachViewer.dumpRelocs
+    WasmViewer.dumpRelocs
 
 let private dumpFunctions (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Function Information"
     ELFViewer.dumpFunctions
     PEViewer.dumpFunctions
     MachViewer.dumpFunctions
+    WasmViewer.dumpFunctions
 
 let private dumpExceptionTable hdl (file: IBinFile) =
   dumpSpecific hdl file "Exception Table"
     ELFViewer.dumpExceptionTable
     PEViewer.dumpExceptionTable
     MachViewer.dumpExceptionTable
+    WasmViewer.dumpExceptionTable
 
 let private dumpDynamicSection (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Dynamic Section Information"
-    ELFViewer.dumpDynamicSection badAccess badAccess
+    ELFViewer.dumpDynamicSection badAccess badAccess badAccess
 
 let private dumpSegments (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Segment Information"
-    ELFViewer.dumpSegments badAccess badAccess
+    ELFViewer.dumpSegments badAccess badAccess badAccess
 
 let private dumpLinkageTable (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Linkage Table Information"
-    ELFViewer.dumpLinkageTable badAccess badAccess
+    ELFViewer.dumpLinkageTable badAccess badAccess badAccess
 
 let private dumpEHFrame hdl (file: IBinFile) =
   dumpSpecific hdl file ".eh_frame Information"
-    ELFViewer.dumpEHFrame badAccess badAccess
+    ELFViewer.dumpEHFrame badAccess badAccess badAccess
 
 let private dumpGccExceptTable hdl (file: IBinFile) =
   dumpSpecific hdl file ".gcc_except_table Information"
-    ELFViewer.dumpGccExceptTable badAccess badAccess
+    ELFViewer.dumpGccExceptTable badAccess badAccess badAccess
 
 let private dumpNotes hdl (file: IBinFile) =
   dumpSpecific hdl file ".notes Information"
-    ELFViewer.dumpNotes badAccess badAccess
+    ELFViewer.dumpNotes badAccess badAccess badAccess
 
 let private dumpDebugInfo hdl (file: IBinFile) =
   dumpSpecific hdl file ".debug_info Information"
-    ELFViewer.dumpDebugInfo badAccess badAccess
+    ELFViewer.dumpDebugInfo badAccess badAccess badAccess
 
 let private dumpImports (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Import table Information"
-    badAccess PEViewer.dumpImports badAccess
+    badAccess PEViewer.dumpImports badAccess badAccess
 
 let private dumpExports (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Export table Information"
-    badAccess PEViewer.dumpExports badAccess
+    badAccess PEViewer.dumpExports badAccess badAccess
 
 let private dumpOptionalHeader (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Optional Header Information"
-    badAccess PEViewer.dumpOptionalHeader badAccess
+    badAccess PEViewer.dumpOptionalHeader badAccess badAccess
 
 let private dumpCLRHeader (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "CLR Header Information"
-    badAccess PEViewer.dumpCLRHeader badAccess
+    badAccess PEViewer.dumpCLRHeader badAccess badAccess
 
 let private dumpDependencies (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Dependencies Information"
-    badAccess PEViewer.dumpDependencies badAccess
+    badAccess PEViewer.dumpDependencies badAccess badAccess
 
 let private dumpArchiveHeader (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Archive Header Information"
-    badAccess badAccess MachViewer.dumpArchiveHeader
+    badAccess badAccess MachViewer.dumpArchiveHeader badAccess
 
 let private dumpUnivHeader (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Universal Header Information"
-    badAccess badAccess MachViewer.dumpUniversalHeader
+    badAccess badAccess MachViewer.dumpUniversalHeader badAccess
 
 let private dumpLoadCommands (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Load Commands Information"
-    badAccess badAccess MachViewer.dumpLoadCommands
+    badAccess badAccess MachViewer.dumpLoadCommands badAccess
 
 let private dumpSharedLibs (opts: BinScanOpts) (file: IBinFile) =
   dumpSpecific opts file "Shared Libs Information"
-    badAccess badAccess MachViewer.dumpSharedLibs
+    badAccess badAccess MachViewer.dumpSharedLibs badAccess
 
 let private printCommon opts file =
   dumpBasic file
@@ -201,6 +209,7 @@ let private printAll opts hdl (file: IBinFile) =
   | :? MachBinFile as file ->
     dumpLoadCommands opts file
     dumpSharedLibs opts file
+  | :? WasmBinFile -> ()
   | _ -> Terminator.futureFeature ()
 
 let private printSelectively hdl opts file = function
