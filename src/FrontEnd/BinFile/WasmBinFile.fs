@@ -146,8 +146,6 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.BaseAddress with get() = baseAddr
 
-    member _.IsStripped with get() = List.isEmpty wm.CustomSections
-
     member _.IsNXEnabled with get() = true
 
     member _.IsPIE with get() = false
@@ -155,6 +153,8 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
     member _.IsBaseRelative with get() = false
 
     member _.NameResolver with get() = nameResolver
+
+    member _.SymbolMetadata with get() = None
 
     member _.Structure with get() = structure
 

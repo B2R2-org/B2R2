@@ -15,6 +15,7 @@
     <Compile Include="BinFilePointer.fs" />
     <Compile Include="IBinMetadata.fs" />
     <Compile Include="IBinProperty.fs" />
+    <Compile Include="ISymbolMetadata.fs" />
     <Compile Include="IAddressSpace.fs" />
     <Compile Include="IMemoryLayout.fs" />
     <Compile Include="IBinStructure.fs" />

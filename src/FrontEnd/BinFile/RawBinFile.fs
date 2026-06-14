@@ -62,8 +62,6 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.BaseAddress with get() = baseAddr
 
-    member _.IsStripped with get() = false
-
     member _.IsNXEnabled with get() = false
 
     member _.IsPIE with get() = false
@@ -71,6 +69,8 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
     member _.IsBaseRelative with get() = false
 
     member _.NameResolver with get() = None
+
+    member _.SymbolMetadata with get() = None
 
     member _.Structure with get() = None
 

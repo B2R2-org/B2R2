@@ -61,6 +61,12 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
             | _ -> Error e
     }
 
+  let symbolMetadata =
+    Some { new ISymbolMetadata with
+      member _.IsStripped with get() =
+        shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
+    }
+
   let functionAddrs =
     lazy
       let staticFuncs =
@@ -244,9 +250,6 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.BaseAddress with get() = toolBox.BaseAddress
 
-    member _.IsStripped with get() =
-      shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
-
     member _.IsNXEnabled with get() =
       let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK
       match Array.tryFind predicate phdrs.Value with
@@ -265,6 +268,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       ty = ELFType.ET_DYN || ty = ELFType.ET_REL
 
     member _.NameResolver with get() = nameResolver
+
+    member _.SymbolMetadata with get() = symbolMetadata
 
     member _.Structure with get() = structure
 

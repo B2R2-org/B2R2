@@ -43,8 +43,10 @@ type WasmTests() =
     Assert.AreEqual(Some 0x15AUL, file.EntryPoint)
 
   [<TestMethod>]
-  member _.``[Wasm] IsStripped test``() =
-    Assert.AreEqual(false, file.IsStripped)
+  member _.``[Wasm] SymbolMetadata test``() =
+    match file.SymbolMetadata with
+    | None -> ()
+    | Some _ -> Assert.Fail "Wasm should not provide symbol metadata."
 
   [<TestMethod>]
   member _.``[Wasm] text section address test``() =

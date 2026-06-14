@@ -31,6 +31,9 @@ open type FileFormat
 
 [<TestClass>]
 type ELFTests() =
+  static let isStripped (file: IBinFile) =
+    file.SymbolMetadata.Value.IsStripped
+
   static let parseFile fileName =
     let zipFile = fileName + ".zip"
     let bytes = ZIPReader.readBytes ELFBinary zipFile fileName
@@ -70,7 +73,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] X86 IsStripped test``() =
-    Assert.AreEqual<bool>(false, (x86File :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(false, isStripped (x86File :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] X86 IsNXEnabled test``() =
@@ -144,7 +147,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped IsStripped test``() =
-    Assert.AreEqual<bool>(true, (x86SFile :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(true, isStripped (x86SFile :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] X86_Stripped IsNXEnabled test``() =
@@ -217,7 +220,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] X64 IsStripped test``() =
-    Assert.AreEqual<bool>(false, (x64File :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(false, isStripped (x64File :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] X64 IsNXEnabled test``() =
@@ -290,7 +293,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped IsStripped test``() =
-    Assert.AreEqual<bool>(true, (x64SFile :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(true, isStripped (x64SFile :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] X64_Stripped IsNXEnabled test``() =
@@ -363,7 +366,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] arm32 IsStripped test``() =
-    Assert.AreEqual<bool>(false, (arm32File :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(false, isStripped (arm32File :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] arm32 IsNXEnabled test``() =
@@ -436,7 +439,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped IsStripped test``() =
-    Assert.AreEqual<bool>(true, (arm32SFile :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(true, isStripped (arm32SFile :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] arm32_Stripped IsNXEnabled test``() =
@@ -509,7 +512,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] thumb IsStripped test``() =
-    Assert.AreEqual<bool>(false, (thumbFile :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(false, isStripped (thumbFile :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] thumb IsNXEnabled test``() =
@@ -582,7 +585,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped IsStripped test``() =
-    Assert.AreEqual<bool>(true, (thumbSFile :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(true, isStripped (thumbSFile :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] thumb_Stripped IsNXEnabled test``() =
@@ -655,7 +658,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] aarch64 IsStripped test``() =
-    Assert.AreEqual<bool>(false, (aarch64File :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(false, isStripped (aarch64File :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] aarch64 IsNXEnabled test``() =
@@ -728,7 +731,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped IsStripped test``() =
-    Assert.AreEqual<bool>(true, (aarch64SFile :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(true, isStripped (aarch64SFile :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] aarch64_Stripped IsNXEnabled test``() =
@@ -801,7 +804,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped IsStripped test``() =
-    Assert.AreEqual<bool>(true, (mips32File :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(true, isStripped (mips32File :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped IsNXEnabled test``() =
@@ -866,7 +869,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le IsStripped test``() =
-    Assert.AreEqual<bool>(true, (mips32leFile :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(true, isStripped (mips32leFile :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] mips32_Stripped_le IsNXEnabled test``() =
@@ -931,7 +934,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped IsStripped test``() =
-    Assert.AreEqual<bool>(true, (mips64File :> IBinFile).IsStripped)
+    Assert.AreEqual<bool>(true, isStripped (mips64File :> IBinFile))
 
   [<TestMethod>]
   member _.``[ELF] mips64_Stripped IsNXEnabled test``() =

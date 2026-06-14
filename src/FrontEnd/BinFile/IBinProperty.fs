@@ -28,9 +28,6 @@ namespace B2R2.FrontEnd.BinFile
 /// Represents an interface for accessing the basic properties of a binary file.
 /// </summary>
 type IBinProperty =
-  /// Is this binary stripped?
-  abstract IsStripped: bool
-
   /// Is NX enabled for this binary? (DEP enabled or not)
   abstract IsNXEnabled: bool
 

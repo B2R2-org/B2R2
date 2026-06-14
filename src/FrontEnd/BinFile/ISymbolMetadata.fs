@@ -24,39 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open B2R2.FrontEnd.BinLifter
-
-/// <summary>
-/// Represents a format-agnostic binary file interface.
-/// </summary>
-type IBinFile =
-  inherit IBinMetadata
-  inherit IBinProperty
-  inherit IAddressSpace
-
-  /// Returns a reader for this binary file.
-  abstract Reader: IBinReader
-
-  /// Returns the raw file content as a read-only memory block.
-  abstract RawBytes: System.ReadOnlyMemory<byte>
-
-  /// Returns the size of the associated binary file.
-  abstract Length: int
-
-  /// Returns a name resolver if this binary format provides names.
-  abstract NameResolver: INameResolvable option
-
-  /// Returns symbol-table metadata if this binary format provides it.
-  abstract SymbolMetadata: ISymbolMetadata option
-
-  /// Returns a structural view if this binary format has one.
-  abstract Structure: IBinStructure option
-
-  /// Returns a relocation table if this binary format has relocations.
-  abstract Relocations: IRelocationTable option
-
-  /// Returns a linkage table if this binary format has linkage entries.
-  abstract Linkage: ILinkageTable option
-
-  /// Returns a memory layout view if this binary format is memory-mapped.
-  abstract MemoryLayout: IMemoryLayout option
+/// Represents symbol-table metadata of a binary file.
+type ISymbolMetadata =
+  /// Returns true if the binary lacks its non-essential symbol table.
+  abstract IsStripped: bool

@@ -32,6 +32,9 @@ open type FileFormat
 
 [<TestClass>]
 type MachTests() =
+  static let isStripped (file: IBinFile) =
+    file.SymbolMetadata.Value.IsStripped
+
   static let parseFile fileName arch wsz =
     let zipFile = fileName + ".zip"
     let bytes = ZIPReader.readBytes MachBinary zipFile fileName
@@ -65,7 +68,7 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped IsStripped test``() =
-    Assert.AreEqual(true, (x86File :> IBinFile).IsStripped)
+    Assert.AreEqual(true, isStripped (x86File :> IBinFile))
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped IsNXEnabled test``() =
@@ -128,7 +131,7 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X64 IsStripped test``() =
-    Assert.AreEqual(false, (x64File :> IBinFile).IsStripped)
+    Assert.AreEqual(false, isStripped (x64File :> IBinFile))
 
   [<TestMethod>]
   member _.``[Mach] X64 IsNXEnabled test``() =
@@ -190,7 +193,7 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped IsStripped test``() =
-    Assert.AreEqual(true, (x64SFile :> IBinFile).IsStripped)
+    Assert.AreEqual(true, isStripped (x64SFile :> IBinFile))
 
   [<TestMethod>]
   member _.``[Mach] X64_Stripped IsNXEnabled test``() =

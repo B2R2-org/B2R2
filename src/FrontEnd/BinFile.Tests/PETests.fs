@@ -32,6 +32,9 @@ open type FileFormat
 
 [<TestClass>]
 type PETests() =
+  static let isStripped (file: IBinFile) =
+    file.SymbolMetadata.Value.IsStripped
+
   static let parseFile fileName (pdbFileName: string) =
     let zipFile = fileName + ".zip"
     let fileNameInZip = fileName + ".exe"
@@ -68,7 +71,7 @@ type PETests() =
 
   [<TestMethod>]
   member _.``[PE] X86 IsStripped test``() =
-    Assert.AreEqual(false, (x86File :> IBinFile).IsStripped)
+    Assert.AreEqual(false, isStripped (x86File :> IBinFile))
 
   [<TestMethod>]
   member _.``[PE] X86 IsNXEnabled test``() =
@@ -147,7 +150,7 @@ type PETests() =
 
   [<TestMethod>]
   member _.``[PE] X64 IsStripped test``() =
-    Assert.AreEqual(false, (x64File :> IBinFile).IsStripped)
+    Assert.AreEqual(false, isStripped (x64File :> IBinFile))
 
   [<TestMethod>]
   member _.``[PE] X64 IsNXEnabled test``() =

@@ -44,6 +44,11 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         else tryFindSymbolFromPDB pe addr
     }
 
+  let symbolMetadata =
+    Some { new ISymbolMetadata with
+      member _.IsStripped with get() = Array.isEmpty pe.Symbols.SymbolArray
+    }
+
   let functionAddrs =
     lazy
       let staticAddrs =
@@ -192,8 +197,6 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.BaseAddress with get() = pe.BaseAddr
 
-    member _.IsStripped with get() = Array.isEmpty pe.Symbols.SymbolArray
-
     member _.IsNXEnabled with get() = isNXEnabled pe
 
     member _.IsPIE with get() = isPIE pe
@@ -201,6 +204,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
     member _.IsBaseRelative with get() = isBaseRelative pe
 
     member _.NameResolver with get() = nameResolver
+
+    member _.SymbolMetadata with get() = symbolMetadata
 
     member _.Structure with get() = structure
 

@@ -57,6 +57,11 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
         | None -> Error ErrorCase.SymbolNotFound
     }
 
+  let symbolMetadata =
+    Some { new ISymbolMetadata with
+      member _.IsStripped with get() = isStripped secs.Value syms.Value
+    }
+
   let functionAddrs =
     lazy
       let secText = Section.getTextSectionIndex secs.Value
@@ -195,8 +200,6 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.BaseAddress with get() = toolBox.BaseAddress
 
-    member _.IsStripped with get() = isStripped secs.Value syms.Value
-
     member _.IsNXEnabled with get() = isNXEnabled toolBox.Header
 
     member _.IsPIE with get() =
@@ -208,6 +211,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
       || hdr.FileType <> FileType.MH_EXECUTE
 
     member _.NameResolver with get() = nameResolver
+
+    member _.SymbolMetadata with get() = symbolMetadata
 
     member _.Structure with get() = structure
 

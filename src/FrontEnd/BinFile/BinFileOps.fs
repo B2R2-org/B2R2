@@ -48,6 +48,13 @@ let tryFindName (file: IBinFile) addr =
   | Some names -> names.TryFindName addr
   | None -> Error ErrorCase.SymbolNotFound
 
+/// Checks whether the given binary lacks its non-essential symbol table.
+[<CompiledName "IsStripped">]
+let isStripped (file: IBinFile) =
+  file.SymbolMetadata
+  |> Option.map (fun metadata -> metadata.IsStripped)
+  |> Option.defaultValue false
+
 /// Returns a pointer to the code section of the given binary file.
 [<CompiledName "GetCodeSectionPointer">]
 let getCodeSectionPointer (file: IBinFile) =
