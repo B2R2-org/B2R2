@@ -41,11 +41,12 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   let syms = lazy SymbolStore.parse toolBox cmds.Value secs.Value
   let exports = lazy ExportedSymbols.parse toolBox cmds.Value
   let relocs = lazy Reloc.parse toolBox secs.Value
+  let relocMap = lazy Reloc.buildMap relocs.Value
   let notInMemRanges = lazy invalidRangesByVM toolBox segCmds.Value
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
   let executableRanges = lazy executableRanges segCmds.Value
   let enumSymbols =
-    lazy (syms.Value.Values
+    lazy (syms.Value.SymbolArray
           |> Array.filter (fun s -> s.SymType <> SymbolType.N_OPT))
   let staticSymbols = lazy (enumSymbols.Value |> Array.filter Symbol.IsStatic)
   let dynamicSymbols =
@@ -68,7 +69,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   let functionAddrs =
     lazy
       let secText = Section.getTextSectionIndex secs.Value
-      [| for s in syms.Value.Values do
+      [| for s in syms.Value.SymbolArray do
            if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr
            else () |]
 
@@ -120,11 +121,10 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   let relocations =
     Some { new IRelocationTable with
       member _.ContainsRelocation addr =
-        relocs.Value
-        |> Array.exists (fun r ->
-          (r.RelocSection.SecAddr + uint64 r.RelocAddr) = addr)
+        relocMap.Value |> Map.containsKey addr
 
-      member _.TryGetRelocatedAddr _relocAddr = Terminator.futureFeature ()
+      member _.TryGetRelocatedAddr relocAddr =
+        Reloc.getRelocatedAddr toolBox relocMap.Value syms.Value relocAddr
     }
 
   let linkageEntries =

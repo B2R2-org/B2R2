@@ -62,7 +62,7 @@ let computeEntryPoint segs cmds =
   else Some(mainOffset + getTextSegOffset segs)
 
 let getStaticSymbols symInfo =
-  symInfo.Values
+  symInfo.SymbolArray
   |> Array.filter Symbol.IsStatic
 
 let isStripped secs symInfo =

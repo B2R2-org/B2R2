@@ -32,8 +32,8 @@ open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents symbol info.
 type SymbolStore =
-  { /// All symbols.
-    Values: Symbol[]
+  { /// All symbols in symbol-table order (indexable by relocation symbolnum).
+    SymbolArray: Symbol[]
     /// Address to symbol mapping.
     SymbolMap: Map<Addr, Symbol>
     /// Linkage table.
@@ -233,6 +233,6 @@ module internal SymbolStore =
     let stubs = parseSymbolStubs secs symbs dynsymIndices
     let ptrtbls = parseSymbolPtrs toolBox.Header secs symbs dynsymIndices
     let linkage = createLinkageTable stubs ptrtbls
-    { Values = symbs
+    { SymbolArray = symbs
       SymbolMap = buildSymbolMap stubs ptrtbls staticsymbs
       LinkageTable = linkage }

@@ -62,7 +62,8 @@ module internal Reloc =
     match (data >>> 25) &&& 3 with
     | 0 -> 8<rt>
     | 1 -> 16<rt>
-    | _ -> 32<rt>
+    | 2 -> 32<rt>
+    | _ -> 64<rt>
 
   let private countRelocs secs =
     secs |> Array.fold (fun cnt sec -> cnt + sec.SecNumOfReloc) 0
@@ -91,3 +92,37 @@ module internal Reloc =
         relocs[i] <- parseReloc (relSpan.Slice offset) reader sec
         i <- i + 1
     relocs
+
+  /// Builds a map from a relocated virtual address to its relocation entry.
+  let buildMap (relocs: RelocationInfo[]) =
+    relocs
+    |> Array.fold (fun map reloc ->
+      Map.add (reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr) reloc map)
+      Map.empty
+
+  /// Reads the signed in-place addend stored at the relocation site. Mach-O,
+  /// unlike ELF RELA, keeps the addend inside the relocated field itself.
+  let private readAddend (bytes: byte[]) (reader: IBinReader) reloc =
+    let offset = int reloc.RelocSection.SecOffset + reloc.RelocAddr
+    match reloc.RelocLength with
+    | 8<rt> -> int64 (reader.ReadInt8(bytes, offset))
+    | 16<rt> -> int64 (reader.ReadInt16(bytes, offset))
+    | 32<rt> -> int64 (reader.ReadInt32(bytes, offset))
+    | _ -> reader.ReadInt64(bytes, offset)
+
+  /// Computes the relocated target address for the given virtual address. The
+  /// semantics follow relocatable object files (MH_OBJECT): an external entry
+  /// resolves to (symbol address + addend), while a local (section) entry keeps
+  /// the absolute target value in place, so the addend is the target itself.
+  /// TODO: linked images bind through LC_DYLD_INFO bind opcodes or chained
+  /// fixups (LC_DYLD_CHAINED_FIXUPS) instead of classic relocations. Those are
+  /// not parsed yet, so this resolver returns ItemNotFound for them.
+  let getRelocatedAddr toolBox relocMap (symbolStore: SymbolStore) relocAddr =
+    let symbols = symbolStore.SymbolArray
+    match Map.tryFind relocAddr relocMap with
+    | Some reloc ->
+      let addend = readAddend toolBox.Bytes toolBox.Reader reloc
+      match reloc.RelocSymbol with
+      | SymIndex n -> int64 symbols[n].SymAddr + addend |> uint64 |> Ok
+      | SecOrdinal _ -> uint64 addend |> Ok
+    | None -> Error ErrorCase.ItemNotFound

@@ -58,6 +58,9 @@ type MachTests() =
   static let x64SFile =
     parseFile "mach_x64_wc_stripped" Architecture.Intel WordSize.Bit64
 
+  static let x64RelocFile =
+    parseFile "mach_x64_reloc" Architecture.Intel WordSize.Bit64
+
   [<TestMethod>]
   member _.``[Mach] X86_Stripped EntryPoint test``() =
     Assert.AreEqual(Some 0x00002050UL, (x86File :> IBinFile).EntryPoint)
@@ -85,6 +88,31 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X86_Stripped dynamic symbols length test``() =
     Assert.AreEqual<int>(59, x86File.DynamicSymbols.Length)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 ContainsRelocation test``() =
+    let reloc = (x64RelocFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x0UL)
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x8UL)
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x10UL)
+    Assert.AreEqual(false, reloc.ContainsRelocation 0x4UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 TryGetRelocatedAddr external symbol test``() =
+    let reloc = (x64RelocFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x10UL, reloc.TryGetRelocatedAddr 0x0UL)
+    Assert.AreEqual(Ok 0x38UL, reloc.TryGetRelocatedAddr 0x8UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 TryGetRelocatedAddr section test``() =
+    let reloc = (x64RelocFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x18UL, reloc.TryGetRelocatedAddr 0x10UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 TryGetRelocatedAddr not found test``() =
+    let reloc = (x64RelocFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Error ErrorCase.ItemNotFound,
+                    reloc.TryGetRelocatedAddr 0x4UL)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped linkageTableEntries length test``() =
