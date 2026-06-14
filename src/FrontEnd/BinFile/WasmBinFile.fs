@@ -41,8 +41,11 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
   let sectionSummaryToPointer (sec: SectionSummary) =
     let addr = uint64 sec.Offset
     let size = sec.HeaderSize + sec.ContentsSize
-    BinFilePointer(addr, addr + uint64 size - 1UL,
-                   sec.Offset, sec.Offset + int size - 1)
+    BinFilePointer.CreateFileBacked(
+      addr,
+      addr + uint64 size - 1UL,
+      sec.Offset,
+      sec.Offset + int size - 1)
 
   let tryFindSectionByOffset offset =
     wm.SectionsInfo.SecArray
@@ -89,8 +92,11 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
             |> Option.defaultValue 0u
           let addr = uint64 sec.Offset
           let size = headerSize + sec.Size
-          BinFilePointer(addr, addr + uint64 size - 1UL,
-                         sec.Offset, sec.Offset + int size - 1)
+          BinFilePointer.CreateFileBacked(
+            addr,
+            addr + uint64 size - 1UL,
+            sec.Offset,
+            sec.Offset + int size - 1)
         | None ->
           BinFilePointer.Null
 
@@ -187,5 +193,5 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
         | Some s ->
           let size = s.HeaderSize + s.ContentsSize
           let maxAddr = uint64 s.Offset + uint64 size - 1UL
-          BinFilePointer(addr, maxAddr, int addr, int maxAddr)
+          BinFilePointer.CreateFileBacked(addr, maxAddr, int addr, int maxAddr)
         | None -> BinFilePointer.Null

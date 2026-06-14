@@ -223,7 +223,9 @@ let private dumpHexString (opts: BinDisasmOpts) =
   let dumper = makeCodeDumper hdl { opts with ShowColor = true }
   let baseAddr = defaultArg opts.BaseAddress 0UL
   let len = opts.InputHexStr.Length
-  let ptr = BinFilePointer(baseAddr, baseAddr + uint64 len - 1UL, 0, len - 1)
+  let ptr =
+    BinFilePointer.CreateFileBacked(
+      baseAddr, baseAddr + uint64 len - 1UL, 0, len - 1)
   dumper.ModeSwitch.IsThumb <- opts.ThumbMode
   dumper.Dump ptr
   printsn ""

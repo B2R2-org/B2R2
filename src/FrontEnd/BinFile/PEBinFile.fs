@@ -72,9 +72,11 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
           | Some sec ->
             let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
             let size = sec.SizeOfRawData
-            BinFilePointer(addr, addr + uint64 size - 1UL,
-                           sec.PointerToRawData,
-                           sec.PointerToRawData + size - 1)
+            BinFilePointer.CreateFileBacked(
+              addr,
+              addr + uint64 size - 1UL,
+              sec.PointerToRawData,
+              sec.PointerToRawData + size - 1)
           | None -> BinFilePointer.Null
 
       member _.GetSectionPointer name =
@@ -84,9 +86,11 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
           | Some sec ->
             let addr = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
             let size = sec.SizeOfRawData
-            BinFilePointer(addr, addr + uint64 size - 1UL,
-                           sec.PointerToRawData,
-                           sec.PointerToRawData + size - 1)
+            BinFilePointer.CreateFileBacked(
+              addr,
+              addr + uint64 size - 1UL,
+              sec.PointerToRawData,
+              sec.PointerToRawData + size - 1)
           | None -> BinFilePointer.Null
 
       member _.TryFindSectionNameByAddr(addr: Addr) =
@@ -250,5 +254,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
             offset <- maxOffset + 1
             maxAddr <- vma + uint64 vmaSize - 1UL
         else idx <- idx + 1
-      if found then BinFilePointer(addr, maxAddr, offset, maxOffset)
-      else BinFilePointer.Null
+      if found then
+        if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
+        else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
+      else
+        BinFilePointer.Null

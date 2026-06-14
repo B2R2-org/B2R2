@@ -75,20 +75,22 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
         let secs = secs.Value
         let secText = Section.getTextSectionIndex secs
         let sec = secs[secText]
-        BinFilePointer(sec.SecAddr,
-                       sec.SecAddr + sec.SecSize - 1UL,
-                       int sec.SecOffset,
-                       int sec.SecOffset + int sec.SecSize - 1)
+        BinFilePointer.CreateFileBacked(
+          sec.SecAddr,
+          sec.SecAddr + sec.SecSize - 1UL,
+          int sec.SecOffset,
+          int sec.SecOffset + int sec.SecSize - 1)
 
       member _.GetSectionPointer name =
         secs.Value
         |> Array.tryFind (fun sec -> sec.SecName = name)
         |> function
           | Some sec ->
-            BinFilePointer(sec.SecAddr,
-                           sec.SecAddr + sec.SecSize - 1UL,
-                           int sec.SecOffset,
-                           int sec.SecOffset + int sec.SecSize - 1)
+            BinFilePointer.CreateFileBacked(
+              sec.SecAddr,
+              sec.SecAddr + sec.SecSize - 1UL,
+              int sec.SecOffset,
+              int sec.SecOffset + int sec.SecSize - 1)
           | None -> BinFilePointer.Null
 
       member _.TryFindSectionNameByAddr(addr: Addr) =
@@ -260,5 +262,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
             offset <- maxOffset + 1
             maxAddr <- seg.VMAddr + seg.VMSize - 1UL
         else idx <- idx + 1
-      if found then BinFilePointer(addr, maxAddr, offset, maxOffset)
-      else BinFilePointer.Null
+      if found then
+        if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
+        else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
+      else
+        BinFilePointer.Null

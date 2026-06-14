@@ -47,7 +47,9 @@ let getBoundedPtrBySections (shdrs: SectionHeader[]) addr =
        && secBase <= addr && addr < secBase + s.SecSize then
       let offset = int (s.SecOffset + (addr - secBase))
       let maxOffset = int s.SecOffset + int s.SecSize - 1
-      Some(BinFilePointer(addr, secBase + s.SecSize - 1UL, offset, maxOffset))
+      BinFilePointer.CreateFileBacked(
+        addr, secBase + s.SecSize - 1UL, offset, maxOffset)
+      |> Some
     else None)
   |> Option.defaultValue BinFilePointer.Null
 

@@ -113,6 +113,7 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.GetBoundedPointer(addr) =
       if addr < uint64 size then
-        BinFilePointer(addr, uint64 size - 1UL, int addr, size - 1)
+        BinFilePointer.CreateFileBacked(addr, uint64 size - 1UL, int addr,
+                                        size - 1)
       else
         BinFilePointer.Null

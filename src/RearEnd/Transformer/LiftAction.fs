@@ -48,7 +48,9 @@ type LiftAction() =
     let lifter = hdl.NewLiftingUnit()
     let baddr = hdl.File.BaseAddress
     let len = hdl.File.Length
-    let ptr = BinFilePointer(baddr, baddr + uint64 len - 1UL, 0, len - 1)
+    let ptr =
+      BinFilePointer.CreateFileBacked(
+        baddr, baddr + uint64 len - 1UL, 0, len - 1)
     let sb = StringBuilder()
     lift sb lifter ptr
     |> box

@@ -90,9 +90,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
         |> function
           | Some s ->
-            BinFilePointer(s.SecAddr, s.SecAddr + s.SecSize - 1UL,
-                           int s.SecOffset,
-                           int s.SecOffset + int s.SecSize - 1)
+            BinFilePointer.CreateFileBacked(
+              s.SecAddr,
+              s.SecAddr + s.SecSize - 1UL,
+              int s.SecOffset,
+              int s.SecOffset + int s.SecSize - 1)
           | None ->
             BinFilePointer.Null
 
@@ -101,10 +103,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         |> Array.tryFind (fun sec -> sec.SecName = name)
         |> function
           | Some sec ->
-            BinFilePointer(sec.SecAddr,
-                           sec.SecAddr + sec.SecSize - 1UL,
-                           int sec.SecOffset,
-                           int sec.SecOffset + int sec.SecSize - 1)
+            BinFilePointer.CreateFileBacked(
+              sec.SecAddr,
+              sec.SecAddr + sec.SecSize - 1UL,
+              int sec.SecOffset,
+              int sec.SecOffset + int sec.SecSize - 1)
           | None ->
             BinFilePointer.Null
 
@@ -320,5 +323,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
               offset <- maxOffset + 1
               maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
           else idx <- idx + 1
-        if found then BinFilePointer(addr, maxAddr, offset, maxOffset)
-        else BinFilePointer.Null
+        if found then
+          if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
+          else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)
+        else
+          BinFilePointer.Null

@@ -62,7 +62,7 @@ type BinFilePointer =
     /// <param name="offset">First file offset mapped to <paramref
     /// name="addr"/>.</param> <param name="maxOffset">Last (inclusive) file
     /// offset mapped to <paramref name="maxAddr"/>.</param>
-    new(addr, maxAddr, offset, maxOffset) =
+    private new(addr, maxAddr, offset, maxOffset) =
       { Addr = addr
         MaxAddr = maxAddr
         Offset = offset
@@ -114,7 +114,7 @@ with
   /// and small enough not to overflow the address; callers must check whether
   /// the result can read file bytes before dereferencing.
   /// </summary>
-  member inline this.Advance(amount: int) =
+  member this.Advance(amount: int) =
     BinFilePointer(
       this.Addr + uint64 amount,
       this.MaxAddr,
@@ -125,7 +125,7 @@ with
   /// Advances the pointer forward by the given amount of bytes. See the
   /// <c>int</c> overload for the offset-clamping and validity semantics.
   /// </summary>
-  member inline this.Advance(amount: uint32) =
+  member this.Advance(amount: uint32) =
     BinFilePointer(
       this.Addr + uint64 amount,
       this.MaxAddr,
@@ -133,7 +133,40 @@ with
       this.MaxOffset)
 
   /// Returns a null pointer.
-  static member inline Null = BinFilePointer(0UL, 0UL, -1, -1)
+  static member Null = BinFilePointer(0UL, 0UL, -1, -1)
+
+  /// <summary>
+  /// Creates a pointer to a region backed by file bytes. Both address and file
+  /// offset ranges are inclusive, and the two ranges are expected to have the
+  /// same length.
+  /// </summary>
+  /// <exception cref='T:B2R2.InvalidAddrRangeException'>
+  /// Raised when <paramref name="addr"/> is greater than <paramref
+  /// name="maxAddr"/>.
+  /// </exception>
+  /// <exception cref='T:System.ArgumentException'>
+  /// Raised when <paramref name="offset"/> is negative or greater than
+  /// <paramref name="maxOffset"/>.
+  /// </exception>
+  static member CreateFileBacked(addr, maxAddr, offset, maxOffset) =
+    if addr > maxAddr then
+      raise InvalidAddrRangeException
+    elif offset < 0 || offset > maxOffset then
+      invalidArg (nameof maxOffset) "Invalid file offset range."
+    else
+      BinFilePointer(addr, maxAddr, offset, maxOffset)
+
+  /// <summary>
+  /// Creates a pointer to a virtual-memory region that is not backed by file
+  /// bytes. The resulting pointer has no readable file offset range.
+  /// </summary>
+  /// <exception cref='T:B2R2.InvalidAddrRangeException'>
+  /// Raised when <paramref name="addr"/> is greater than <paramref
+  /// name="maxAddr"/>.
+  /// </exception>
+  static member CreateVirtual(addr, maxAddr) =
+    if addr > maxAddr then raise InvalidAddrRangeException
+    else BinFilePointer(addr, maxAddr, 0, -1)
 
   /// Advances the given pointer forward by the given amount of bytes. This is a
   /// static counterpart of the instance `Advance` method, provided for piping
