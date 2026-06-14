@@ -233,6 +233,6 @@ module internal SymbolStore =
     let stubs = parseSymbolStubs secs symbs dynsymIndices
     let ptrtbls = parseSymbolPtrs toolBox.Header secs symbs dynsymIndices
     let linkage = createLinkageTable stubs ptrtbls
-    { Values = symbs |> Array.filter (fun s -> s.SymType <> SymbolType.N_OPT)
+    { Values = symbs
       SymbolMap = buildSymbolMap stubs ptrtbls staticsymbs
       LinkageTable = linkage }

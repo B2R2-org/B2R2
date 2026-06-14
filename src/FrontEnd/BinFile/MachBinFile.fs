@@ -44,9 +44,12 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   let notInMemRanges = lazy invalidRangesByVM toolBox segCmds.Value
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
   let executableRanges = lazy executableRanges segCmds.Value
-  let staticSymbols = lazy (syms.Value.Values |> Array.filter Symbol.IsStatic)
+  let enumSymbols =
+    lazy (syms.Value.Values
+          |> Array.filter (fun s -> s.SymType <> SymbolType.N_OPT))
+  let staticSymbols = lazy (enumSymbols.Value |> Array.filter Symbol.IsStatic)
   let dynamicSymbols =
-    lazy (syms.Value.Values |> Array.filter (Symbol.IsStatic >> not))
+    lazy (enumSymbols.Value |> Array.filter (Symbol.IsStatic >> not))
   let entryPoint = lazy computeEntryPoint segCmds.Value cmds.Value
 
   let nameResolver =
