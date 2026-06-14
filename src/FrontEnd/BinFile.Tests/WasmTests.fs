@@ -57,3 +57,21 @@ type WasmTests() =
   [<TestMethod>]
   member _.``[Wasm] linkageTableEntries length test``() =
     Assert.AreEqual<int>(4, getLinkageTableEntries file |> Seq.length)
+
+  [<TestMethod>]
+  member _.``[Wasm] name section resolves the entry point name``() =
+    let resolver = Option.get file.NameResolver
+    Assert.AreEqual<Result<string, _>>(
+      Ok "__wasm_call_ctors", resolver.TryFindName file.EntryPoint.Value)
+
+  [<TestMethod>]
+  member _.``[Wasm] name section resolves an imported function name``() =
+    let resolver = Option.get file.NameResolver
+    Assert.AreEqual<Result<string, _>>(
+      Ok "putc_js", resolver.TryFindName 0x7AUL)
+
+  [<TestMethod>]
+  member _.``[Wasm] name section resolves a local function name``() =
+    let resolver = Option.get file.NameResolver
+    Assert.AreEqual<Result<string, _>>(
+      Ok "main", resolver.TryFindName 0x15EUL)

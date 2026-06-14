@@ -66,6 +66,17 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
   let linkageEntries =
     lazy getImports wm
 
+  let symbolMap =
+    lazy getFunctionNameMap wm
+
+  let nameResolver =
+    Some { new INameResolvable with
+      member _.TryFindName addr =
+        match Map.tryFind addr symbolMap.Value with
+        | Some name -> Ok name
+        | None -> Error ErrorCase.SymbolNotFound
+    }
+
   let structure =
     Some { new IBinStructure with
       member _.GetCodeSectionPointer() =
@@ -143,7 +154,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.IsBaseRelative with get() = false
 
-    member _.NameResolver with get() = None
+    member _.NameResolver with get() = nameResolver
 
     member _.Structure with get() = structure
 

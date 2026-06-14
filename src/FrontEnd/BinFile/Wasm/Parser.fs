@@ -305,15 +305,86 @@ let buildFuncIndexMap (wm: Module) =
     | None -> [||]
   Array.append impFuncsIdxMap localFuncsIdxMap
 
-(*
-  Only function index maps are supported for now,
-  other index maps maybe added in the future as needed.
-*)
-let buildModuleIndexMap wm = { wm with IndexMap = buildFuncIndexMap wm }
+let private importSecOffset (wm: Module) =
+  match wm.ImportSection with
+  | Some sec -> sec.Offset
+  | None -> 0
+
+let private importedEntriesOf (wm: Module) pred =
+  match wm.ImportSection with
+  | Some sec ->
+    match sec.Contents with
+    | Some conts -> conts.Elements |> Array.filter (fun ie -> pred ie.Desc)
+    | None -> [||]
+  | None -> [||]
+
+/// Re-walks a section's vector to recover the file offset of each locally
+/// defined element, using the element parser to advance over each entry.
+let private localElemOffsets bs reader (sec: Section<Vector<'TElem>>) peekElem =
+  let _, _, len = peekSectionHeader bs reader sec.Offset
+  let contOff = sec.Offset + len + 1
+  let vecLen, lenLen = peekVectorLen bs reader contOff
+  let rec loop acc count off =
+    if count = 0u then List.rev acc
+    else
+      let _, nextOff = (peekElem: _ -> _ -> int -> 'TElem * int) bs reader off
+      loop (off :: acc) (count - 1u) nextOff
+  loop [] vecLen (contOff + lenLen)
+
+let private makeIdxInfo kind secOff idx elemOff =
+  { SecOffset = secOff
+    Index = idx
+    Kind = kind
+    ElemOffset = elemOff }
+
+/// Builds the index map for one index space, concatenating the imported
+/// entries (which carry their own offsets) with the locally defined ones.
+let private buildKindIndexMap bs reader wm kind importPred localSec peekElem =
+  let imported = importedEntriesOf wm importPred
+  let impSecOff = importSecOffset wm
+  let impEntries =
+    imported
+    |> Array.mapi (fun i ie -> makeIdxInfo kind impSecOff (uint32 i) ie.Offset)
+  let baseIdx = uint32 imported.Length
+  let localEntries =
+    match localSec with
+    | Some sec ->
+      localElemOffsets bs reader sec peekElem
+      |> List.mapi (fun i off ->
+        makeIdxInfo kind sec.Offset (baseIdx + uint32 i) off)
+      |> List.toArray
+    | None -> [||]
+  Array.append impEntries localEntries
+
+let private isImpTable = function ImpTable _ -> true | _ -> false
+
+let private isImpMem = function ImpMem _ -> true | _ -> false
+
+let private isImpGlobal = function ImpGlobal _ -> true | _ -> false
+
+let private neverImported _ = false
+
+let buildModuleIndexMap bs reader (wm: Module) =
+  let typeMap =
+    buildKindIndexMap bs reader wm IndexKind.Type
+      neverImported wm.TypeSection peekFuncType
+  let tableMap =
+    buildKindIndexMap bs reader wm IndexKind.Table
+      isImpTable wm.TableSection peekTableType
+  let memMap =
+    buildKindIndexMap bs reader wm IndexKind.Memory
+      isImpMem wm.MemorySection peekLimits
+  let globalMap =
+    buildKindIndexMap bs reader wm IndexKind.Global
+      isImpGlobal wm.GlobalSection peekGlobalVar
+  let indexMap =
+    [| buildFuncIndexMap wm; typeMap; tableMap; memMap; globalMap |]
+    |> Array.concat
+  { wm with IndexMap = indexMap }
 
 let parse (bs: byte[]) =
   let reader = BinReader.Init Endian.Little
   if Header.isWasm bs reader then ()
   else raise InvalidFileFormatException
   parseWasmModule bs reader 0
-  |> buildModuleIndexMap
+  |> buildModuleIndexMap bs reader

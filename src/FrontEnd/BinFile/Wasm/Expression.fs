@@ -34,6 +34,9 @@ let peekConstExpr (span: ByteSpan) (reader: IBinReader) offset =
     |> LanguagePrimitives.EnumOfValue
   let offset' = offset + 1
   match evt with
+  | ConstExprValueType.GlobalGet ->
+    let v, len = reader.ReadUInt32LEB128(span, offset')
+    GlobalGet(v), offset' + len + 1
   | ConstExprValueType.I32 ->
     let v, len = reader.ReadUInt32LEB128(span, offset')
     I32(v), offset' + len + 1
@@ -41,11 +44,9 @@ let peekConstExpr (span: ByteSpan) (reader: IBinReader) offset =
     let v, len = reader.ReadUInt64LEB128(span, offset')
     I64(v), offset' + len + 1
   | ConstExprValueType.F32 ->
-    let b = span.Slice(offset', 4).ToArray()
-    let v = BitConverter.ToSingle(b, 0)
-    F32(v), offset' + 4 + 1
+    let bits = reader.ReadUInt32(span, offset')
+    F32(BitConverter.UInt32BitsToSingle bits), offset' + 4 + 1
   | ConstExprValueType.F64 ->
-    let b = span.Slice(offset', 8).ToArray()
-    let v = BitConverter.ToDouble(b, 0)
-    F64(v), offset' + 8 + 1
+    let bits = reader.ReadUInt64(span, offset')
+    F64(BitConverter.UInt64BitsToDouble bits), offset' + 8 + 1
   | _ -> raise InvalidFileFormatException

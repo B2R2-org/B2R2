@@ -50,6 +50,7 @@ type ValueType =
   | F64 = 0x7Cuy
 
 type ConstExprValueType =
+  | GlobalGet = 0x23uy
   | I32 = 0x41uy
   | I64 = 0x42uy
   | F32 = 0x43uy
@@ -60,6 +61,8 @@ type ConstExpr =
   | I64 of uint64
   | F32 of single
   | F64 of double
+  /// A reference to an immutable global through the global.get instruction.
+  | GlobalGet of uint32
 
 type FuncTypeStart =
   | FunctionType = 0x60uy
@@ -167,11 +170,33 @@ type Section<'TContents> =
     /// The actual contents of the section
     Contents: 'TContents option }
 
+/// Represents the subsection identifiers of the "name" custom section.
+type NameSubsectionId =
+  | Module = 0x00uy
+  | Function = 0x01uy
+  | Local = 0x02uy
+
+/// Represents an index-to-name association in a name map.
+type NameAssoc =
+  { /// The associated index (e.g., a function index).
+    Index: uint32
+    /// The name bound to the index.
+    Name: string }
+
+/// Represents the parsed contents of the "name" custom section.
+type NameSection =
+  { /// The module name, if the module-name subsection is present.
+    ModuleName: string option
+    /// The function names, from the function-name subsection.
+    FunctionNames: NameAssoc[] }
+
 type CustomContents =
   { /// Name of the custom section
     Name: string
     /// Size of the contents in bytes
-    Size: uint32 }
+    Size: uint32
+    /// Parsed "name" custom section, present only for the "name" section.
+    NameSection: NameSection option }
 
 type CustomSection = Section<CustomContents>
 

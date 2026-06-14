@@ -76,18 +76,48 @@ let parseSection bs reader offset (pc: byte[] -> IBinReader -> int -> 'TC) =
     Offset = offset
     Contents = contents }
 
-let peekCustomSecContents bs reader offset =
-  let name, rawLen = peekName bs reader offset
-  { Name = name; Size = rawLen }
+let peekNameAssoc (bs: byte[]) (reader: IBinReader) offset =
+  let idx, len = reader.ReadUInt32LEB128(bs, offset)
+  let name, nameLen = peekName bs reader (offset + len)
+  { Index = idx; Name = name }, offset + len + int nameLen
 
-let parseCustomSec bs reader offset =
-  let sec = parseSection bs reader offset peekCustomSecContents
-  let conts' =
-    match sec.Contents with
-    | Some conts ->
-      Some { conts with Size = sec.Size }
-    | None -> sec.Contents
-  { sec with Contents = conts' }
+let parseNameSection (bs: byte[]) (reader: IBinReader) startOff endOff =
+  let rec loop funcNames modName off =
+    if off >= endOff then { ModuleName = modName; FunctionNames = funcNames }
+    else
+      let subId: NameSubsectionId =
+        reader.ReadUInt8(bs, off) |> LanguagePrimitives.EnumOfValue
+      let subSize, lenLen = reader.ReadUInt32LEB128(bs, off + 1)
+      let payloadOff = off + 1 + lenLen
+      let next = payloadOff + int subSize
+      match subId with
+      | NameSubsectionId.Module ->
+        let name, _ = peekName bs reader payloadOff
+        loop funcNames (Some name) next
+      | NameSubsectionId.Function ->
+        let vec = peekVector bs reader payloadOff peekNameAssoc
+        loop vec.Elements modName next
+      | _ -> loop funcNames modName next
+  loop [||] None startOff
+
+let parseCustomSec bs (reader: IBinReader) offset =
+  let _, contSize, len = peekSectionHeader bs reader offset
+  let contOff = offset + len + 1
+  let contents =
+    if contSize = 0u then None
+    else
+      let name, rawLen = peekName bs reader contOff
+      let payloadOff = contOff + int rawLen
+      let payloadEnd = contOff + int contSize
+      let nameSec =
+        if name = "name" then
+          Some(parseNameSection bs reader payloadOff payloadEnd)
+        else None
+      Some { Name = name; Size = contSize; NameSection = nameSec }
+  { Id = SectionId.Custom
+    Size = contSize
+    Offset = offset
+    Contents = contents }
 
 let peekValTypeVec bs reader offset =
   let pvt (bs: byte[]) (r: IBinReader) (o: int) =

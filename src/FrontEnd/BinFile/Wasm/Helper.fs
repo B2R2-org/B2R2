@@ -46,6 +46,32 @@ let importToLinkageTableEntry (entry: Import) =
     TrampolineAddress = 0UL
     TableAddress = uint64 entry.Offset }
 
+let private tryFindNameSection wm =
+  wm.CustomSections
+  |> List.tryPick (fun cs ->
+    match cs.Contents with
+    | Some conts -> conts.NameSection
+    | None -> None)
+
+/// Maps each function's element offset (its address) to the name recorded in
+/// the "name" custom section, when present.
+let getFunctionNameMap wm =
+  match tryFindNameSection wm with
+  | Some ns when not (Array.isEmpty ns.FunctionNames) ->
+    let nameByIdx =
+      ns.FunctionNames
+      |> Array.map (fun assoc -> assoc.Index, assoc.Name)
+      |> Map.ofArray
+    wm.IndexMap
+    |> Array.choose (fun ii ->
+      if ii.Kind = IndexKind.Function then
+        match Map.tryFind ii.Index nameByIdx with
+        | Some name -> Some(uint64 ii.ElemOffset, name)
+        | None -> None
+      else None)
+    |> Map.ofArray
+  | _ -> Map.empty
+
 let getImports wm =
   match wm.ImportSection with
   | Some sec ->
