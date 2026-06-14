@@ -51,21 +51,24 @@ type FileFormat =
 [<RequireQualifiedAccess>]
 module FileFormat =
   /// <summary>
-  /// Transforms a string into a <see
-  /// cref='T:B2R2.FrontEnd.BinFile.FileFormat'/>.  The match is
-  /// case-insensitive, and any unrecognized string is treated as a raw binary,
-  /// i.e., it maps to <c>RawBinary</c>.
+  /// Tries to transform a string into a <see
+  /// cref='T:B2R2.FrontEnd.BinFile.FileFormat'/>. The match is
+  /// case-insensitive.
   /// </summary>
-  [<CompiledName "OfString">]
-  let ofString (str: string) =
-    match str.ToLowerInvariant() with
-    | "elf" -> FileFormat.ELFBinary
-    | "pe" -> FileFormat.PEBinary
-    | "mach" | "mach-o" | "macho" -> FileFormat.MachBinary
-    | "wasm" -> FileFormat.WasmBinary
-    | "python" -> FileFormat.PythonBinary
-    | "hex" -> FileFormat.HexBinary
-    | _ -> FileFormat.RawBinary
+  [<CompiledName "TryParse">]
+  let tryParse (str: string) =
+    if isNull str then
+      None
+    else
+      match str.ToLowerInvariant() with
+      | "raw" -> Some FileFormat.RawBinary
+      | "elf" -> Some FileFormat.ELFBinary
+      | "pe" -> Some FileFormat.PEBinary
+      | "mach" | "mach-o" | "macho" -> Some FileFormat.MachBinary
+      | "wasm" -> Some FileFormat.WasmBinary
+      | "python" -> Some FileFormat.PythonBinary
+      | "hex" -> Some FileFormat.HexBinary
+      | _ -> None
 
   /// <summary>
   /// Transforms a <see cref='T:B2R2.FrontEnd.BinFile.FileFormat'/> into a
