@@ -281,26 +281,20 @@ let buildFuncIndexMap (wm: Module) =
         ), sec.Offset
       | None -> [||], 0
     | None -> [||], 0
-  let lastIdx =
-    let len = Array.length importedFuncs
-    if len = 0 then 0u
-    else uint32 (len - 1)
+  let importedCount = uint32 (Array.length importedFuncs)
   let impFuncsIdxMap =
-    if Array.isEmpty importedFuncs then [||]
-    else
-      importedFuncs
-      |> Array.map2 (fun idx ifun ->
-        makeFuncIdxInfo impSecOff idx ifun.Offset) [| 0u .. lastIdx |]
+    importedFuncs
+    |> Array.mapi (fun i ifun ->
+      makeFuncIdxInfo impSecOff (uint32 i) ifun.Offset)
   let localFuncsIdxMap =
     match wm.CodeSection with
     | Some sec ->
       match sec.Contents with
       | Some conts ->
-        let idxSeq = [| (lastIdx + 1u) .. (lastIdx + conts.Length) |]
         conts.Elements
-        |> Array.map2 (fun idx lfun ->
-          let funBodyOff = (lfun.Offset + lfun.LenFieldSize)
-          makeFuncIdxInfo sec.Offset idx funBodyOff) idxSeq
+        |> Array.mapi (fun i lfun ->
+          let funBodyOff = lfun.Offset + lfun.LenFieldSize
+          makeFuncIdxInfo sec.Offset (importedCount + uint32 i) funBodyOff)
       | None -> [||]
     | None -> [||]
   Array.append impFuncsIdxMap localFuncsIdxMap

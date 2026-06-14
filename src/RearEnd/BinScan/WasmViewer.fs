@@ -111,14 +111,48 @@ let dumpSectionDetails (secName: string) (file: WasmBinFile) =
       printsn "Not found."
       printsn ""
 
-let dumpSymbols _ (_: WasmBinFile) =
-  Terminator.futureFeature ()
+let private resolvedName (file: IBinFile) addr =
+  match BinFileOps.tryFindName file addr with
+  | Ok name -> name
+  | Error _ -> ""
+
+let dumpSymbols _ (file: WasmBinFile) =
+  let file = file :> IBinFile
+  let addrColumn = columnWidthOfAddr file |> LeftAligned
+  setTableColumnFormats
+    [| LeftAligned 8; addrColumn; LeftAligned 50; LeftAligned 20 |]
+  printDoubleHorizontalRule ()
+  printsr [| "Kind"; "Address"; "Name"; "Lib Name" |]
+  printSingleHorizontalRule ()
+  for entry in BinFileOps.getLinkageEntries file do
+    printsr [| "import"
+               Addr.toString file.ISA.WordSize entry.TableAddress
+               normalizeEmpty entry.FuncName
+               normalizeEmpty entry.LibraryName |]
+  printSingleHorizontalRule ()
+  for addr in BinFileOps.getFunctionAddresses file do
+    printsr [| "func"
+               Addr.toString file.ISA.WordSize addr
+               normalizeEmpty (resolvedName file addr)
+               "(n/a)" |]
+  printDoubleHorizontalRule ()
+  printsn ""
 
 let dumpRelocs _ (_: WasmBinFile) =
   Terminator.futureFeature ()
 
-let dumpFunctions _ (_: WasmBinFile) =
-  Terminator.futureFeature ()
+let dumpFunctions _ (file: WasmBinFile) =
+  let file = file :> IBinFile
+  let addrColumn = columnWidthOfAddr file |> LeftAligned
+  setTableColumnFormats [| addrColumn; LeftAligned 75 |]
+  printDoubleHorizontalRule ()
+  printsr [| "Address"; "Name" |]
+  printSingleHorizontalRule ()
+  for addr in BinFileOps.getFunctionAddresses file do
+    printsr [| Addr.toString file.ISA.WordSize addr
+               normalizeEmpty (resolvedName file addr) |]
+  printDoubleHorizontalRule ()
+  printsn ""
 
 let dumpExceptionTable _ (_: WasmBinFile) =
   Terminator.futureFeature ()

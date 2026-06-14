@@ -53,15 +53,32 @@ let private tryFindNameSection wm =
     | Some conts -> conts.NameSection
     | None -> None)
 
-/// Maps each function's element offset (its address) to the name recorded in
-/// the "name" custom section, when present.
-let getFunctionNameMap wm =
+let private exportFuncNames wm =
+  match wm.ExportSection with
+  | Some sec ->
+    match sec.Contents with
+    | Some conts ->
+      conts.Elements
+      |> Array.choose (fun e ->
+        match e.Desc with
+        | ExpFunc idx -> Some(idx, e.Name)
+        | _ -> None)
+    | None -> [||]
+  | None -> [||]
+
+let private nameSecFuncNames wm =
   match tryFindNameSection wm with
-  | Some ns when not (Array.isEmpty ns.FunctionNames) ->
-    let nameByIdx =
-      ns.FunctionNames
-      |> Array.map (fun assoc -> assoc.Index, assoc.Name)
-      |> Map.ofArray
+  | Some ns ->
+    ns.FunctionNames |> Array.map (fun assoc -> assoc.Index, assoc.Name)
+  | None -> [||]
+
+/// Maps each function's element offset (its address) to its name, preferring
+/// the "name" custom section and falling back to the export name.
+let getFunctionNameMap wm =
+  let nameByIdx =
+    Array.append (exportFuncNames wm) (nameSecFuncNames wm) |> Map.ofArray
+  if Map.isEmpty nameByIdx then Map.empty
+  else
     wm.IndexMap
     |> Array.choose (fun ii ->
       if ii.Kind = IndexKind.Function then
@@ -70,7 +87,6 @@ let getFunctionNameMap wm =
         | None -> None
       else None)
     |> Map.ofArray
-  | _ -> Map.empty
 
 let getImports wm =
   match wm.ImportSection with
