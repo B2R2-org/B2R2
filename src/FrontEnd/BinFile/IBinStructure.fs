@@ -30,6 +30,11 @@ open B2R2
 /// functions.
 type IBinStructure =
   /// <summary>
+  /// Returns an array of binary sections in the associated binary file.
+  /// </summary>
+  abstract Sections: BinSection[]
+
+  /// <summary>
   /// Returns a binary file pointer that points to the beginning of the code
   /// section, e.g., ".text" section of ELF.
   /// </summary>
@@ -44,14 +49,39 @@ type IBinStructure =
   abstract GetSectionPointer: name: string -> BinFilePointer
 
   /// <summary>
+  /// Finds the section whose name matches the given name. If no such section
+  /// exists, then this function returns an error.
+  /// </summary>
+  abstract TryFindSectionByName:
+    name: string -> Result<BinSection, ErrorCase>
+
+  /// <summary>
+  /// Finds the section that contains the given address. If the address is not
+  /// in any section, then this function returns an error.
+  /// </summary>
+  abstract TryFindSectionByAddr: addr: Addr -> Result<BinSection, ErrorCase>
+
+  /// <summary>
+  /// Finds the section that contains the given file offset. Sections without
+  /// file-backed contents are not considered. If the offset is not in any
+  /// section, then this function returns an error.
+  /// </summary>
+  abstract TryFindSectionByOffset:
+    offset: uint64 -> Result<BinSection, ErrorCase>
+
+  /// <summary>
   /// Returns the name of the section that contains the given address. If the
-  /// address is not in any section, then this function returns an error.
+  /// address is not in any section, then this function returns an error. This
+  /// is a lightweight name-only query that does not require creating a section
+  /// record.
   /// </summary>
   abstract TryFindSectionNameByAddr: addr: Addr -> Result<string, ErrorCase>
 
   /// <summary>
   /// Returns the name of the section that contains the given file offset. If
   /// the offset is not in any section, then this function returns an error.
+  /// This is a lightweight name-only query that does not require creating a
+  /// section record.
   /// </summary>
   abstract TryFindSectionNameByOffset:
     offset: uint32 -> Result<string, ErrorCase>

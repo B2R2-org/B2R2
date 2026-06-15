@@ -79,8 +79,71 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
            if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr
            else () |]
 
+  let isZeroFillSection (sec: Section) =
+    sec.SecType = SectionType.S_ZEROFILL
+    || sec.SecType = SectionType.S_GB_ZEROFILL
+    || sec.SecType = SectionType.S_THREAD_LOCAL_ZEROFILL
+
+  let isTLSSection (sec: Section) =
+    sec.SecType = SectionType.S_THREAD_LOCAL_REGULAR
+    || sec.SecType = SectionType.S_THREAD_LOCAL_ZEROFILL
+    || sec.SecType = SectionType.S_THREAD_LOCAL_VARIABLES
+    || sec.SecType = SectionType.S_THREAD_LOCAL_VARIABLE_POINTERS
+    || sec.SecType = SectionType.S_THREAD_LOCAL_INIT_FUNCTION_POINTERS
+
+  let isMetadataSection (sec: Section) =
+    sec.SecType = SectionType.S_NON_LAZY_SYMBOL_POINTERS
+    || sec.SecType = SectionType.S_LAZY_SYMBOL_POINTERS
+    || sec.SecType = SectionType.S_MOD_INIT_FUNC_POINTERS
+    || sec.SecType = SectionType.S_MOD_TERM_FUNC_POINTERS
+    || sec.SecType = SectionType.S_INTERPOSING
+    || sec.SecType = SectionType.S_LAZY_DYLIB_SYMBOL_POINTERS
+
+  let secPermission (sec: Section) =
+    match NoOverlapIntervalMap.tryFindByAddr sec.SecAddr segMap.Value with
+    | Some seg -> LanguagePrimitives.EnumOfValue seg.InitProt
+    | None -> LanguagePrimitives.EnumOfValue 0
+
+  let secKind (sec: Section) =
+    if sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_DEBUG then
+      BinSectionKind.Debug
+    elif isTLSSection sec then BinSectionKind.ThreadLocalStorage
+    elif isZeroFillSection sec then BinSectionKind.UninitializedData
+    elif sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_PURE_INSTRUCTIONS then
+      BinSectionKind.Code
+    elif sec.SecName = Section.Text then BinSectionKind.Code
+    elif isMetadataSection sec then BinSectionKind.Metadata
+    elif sec.SecType = SectionType.S_REGULAR then BinSectionKind.Data
+    else BinSectionKind.Unknown
+
+  let toBinSection (sec: Section) =
+    { Name = sec.SecName
+      Address = sec.SecAddr
+      Size = sec.SecSize
+      Offset =
+        if isZeroFillSection sec then None
+        else Some(uint64 sec.SecOffset)
+      FileSize = if isZeroFillSection sec then 0UL else sec.SecSize
+      Permission = secPermission sec
+      Kind = secKind sec }
+
+  let tryFindSectionByAddr addr =
+    secs.Value
+    |> Array.tryFind (fun sec ->
+      addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+
+  let tryFindSectionByOffset offset =
+    secs.Value
+    |> Array.tryFind (fun sec ->
+      let fileSize = if isZeroFillSection sec then 0UL else sec.SecSize
+      let secOffset = uint64 sec.SecOffset
+      fileSize > 0UL && offset >= secOffset && offset < secOffset + fileSize)
+
   let structure =
     Some { new IBinStructure with
+      member _.Sections with get() =
+        secs.Value |> Array.map toBinSection
+
       member _.GetCodeSectionPointer() =
         let secs = secs.Value
         let secText = Section.getTextSectionIndex secs
@@ -103,19 +166,31 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
               int sec.SecOffset + int sec.SecSize - 1)
           | None -> BinFilePointer.Null
 
-      member _.TryFindSectionNameByAddr(addr: Addr) =
+      member _.TryFindSectionByName name =
         secs.Value
-        |> Array.tryFind (fun sec ->
-          addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+        |> Array.tryFind (fun sec -> sec.SecName = name)
+        |> function
+          | Some sec -> Ok(toBinSection sec)
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByAddr addr =
+        match tryFindSectionByAddr addr with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByOffset offset =
+        match tryFindSectionByOffset offset with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionNameByAddr(addr: Addr) =
+        tryFindSectionByAddr addr
         |> function
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
       member _.TryFindSectionNameByOffset(offset: uint32) =
-        secs.Value
-        |> Array.tryFind (fun sec ->
-          offset >= sec.SecOffset
-          && offset < sec.SecOffset + uint32 sec.SecSize)
+        tryFindSectionByOffset (uint64 offset)
         |> function
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound

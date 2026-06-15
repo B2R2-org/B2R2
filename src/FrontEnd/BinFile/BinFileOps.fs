@@ -59,14 +59,14 @@ let isStripped (file: IBinFile) =
 [<CompiledName "GetCodeSectionPointer">]
 let getCodeSectionPointer (file: IBinFile) =
   match file.Structure with
-  | Some org -> org.GetCodeSectionPointer()
+  | Some structure -> structure.GetCodeSectionPointer()
   | None -> BinFilePointer.Null
 
 /// Returns the default code pointer for disassembling the given binary file.
 [<CompiledName "GetDefaultCodePointer">]
 let getDefaultCodePointer (file: IBinFile) =
   match file.Structure with
-  | Some org -> org.GetCodeSectionPointer()
+  | Some structure -> structure.GetCodeSectionPointer()
   | None ->
     match file.EntryPoint with
     | Some entry -> file.GetBoundedPointer entry
@@ -76,28 +76,56 @@ let getDefaultCodePointer (file: IBinFile) =
 [<CompiledName "GetSectionPointer">]
 let getSectionPointer (file: IBinFile) name =
   match file.Structure with
-  | Some org -> org.GetSectionPointer name
+  | Some structure -> structure.GetSectionPointer name
   | None -> BinFilePointer.Null
+
+/// Returns all binary sections in the given binary file.
+[<CompiledName "GetSections">]
+let getSections (file: IBinFile) =
+  match file.Structure with
+  | Some structure -> structure.Sections
+  | None -> [||]
+
+/// Tries to find the section whose name matches the given name.
+[<CompiledName "TryFindSectionByName">]
+let tryFindSectionByName (file: IBinFile) name =
+  match file.Structure with
+  | Some structure -> structure.TryFindSectionByName name
+  | None -> Error ErrorCase.ItemNotFound
+
+/// Tries to find the section containing the given address.
+[<CompiledName "TryFindSectionByAddr">]
+let tryFindSectionByAddr (file: IBinFile) addr =
+  match file.Structure with
+  | Some structure -> structure.TryFindSectionByAddr addr
+  | None -> Error ErrorCase.ItemNotFound
+
+/// Tries to find the section containing the given file offset.
+[<CompiledName "TryFindSectionByOffset">]
+let tryFindSectionByOffset (file: IBinFile) offset =
+  match file.Structure with
+  | Some structure -> structure.TryFindSectionByOffset offset
+  | None -> Error ErrorCase.ItemNotFound
 
 /// Tries to find the section name containing the given address.
 [<CompiledName "TryFindSectionNameByAddr">]
 let tryFindSectionNameByAddr (file: IBinFile) addr =
   match file.Structure with
-  | Some org -> org.TryFindSectionNameByAddr addr
+  | Some structure -> structure.TryFindSectionNameByAddr addr
   | None -> Error ErrorCase.ItemNotFound
 
 /// Tries to find the section name containing the given file offset.
 [<CompiledName "TryFindSectionNameByOffset">]
 let tryFindSectionNameByOffset (file: IBinFile) offset =
   match file.Structure with
-  | Some org -> org.TryFindSectionNameByOffset offset
+  | Some structure -> structure.TryFindSectionNameByOffset offset
   | None -> Error ErrorCase.ItemNotFound
 
 /// Returns known function entry addresses from the given binary file.
 [<CompiledName "GetFunctionAddresses">]
 let getFunctionAddresses (file: IBinFile) =
   match file.Structure with
-  | Some org -> org.GetFunctionAddresses()
+  | Some structure -> structure.GetFunctionAddresses()
   | None -> [||]
 
 /// Checks if the given address has relocation information.

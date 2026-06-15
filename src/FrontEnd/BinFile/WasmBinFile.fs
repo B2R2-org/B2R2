@@ -53,6 +53,36 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
       offset >= uint32 sec.Offset
       && offset < uint32 sec.Offset + sec.HeaderSize + sec.ContentsSize)
 
+  let secKind (sec: SectionSummary) =
+    match sec.Id with
+    | SectionId.Code -> BinSectionKind.Code
+    | SectionId.Data -> BinSectionKind.Data
+    | SectionId.Custom when sec.Name = Section.CustomName ->
+      BinSectionKind.Debug
+    | SectionId.Custom -> BinSectionKind.Unknown
+    | _ -> BinSectionKind.Metadata
+
+  let secPermission sec =
+    match secKind sec with
+    | BinSectionKind.Code ->
+      int Permission.Readable ||| int Permission.Executable
+    | BinSectionKind.Data ->
+      int Permission.Readable ||| int Permission.Writable
+    | BinSectionKind.Debug
+    | BinSectionKind.Metadata
+    | BinSectionKind.Unknown -> int Permission.Readable
+    | _ -> 0
+    |> LanguagePrimitives.EnumOfValue
+
+  let toBinSection (sec: SectionSummary) =
+    { Name = sec.Name
+      Address = uint64 sec.Offset
+      Size = uint64 (sec.HeaderSize + sec.ContentsSize)
+      Offset = Some(uint64 sec.Offset)
+      FileSize = uint64 (sec.HeaderSize + sec.ContentsSize)
+      Permission = secPermission sec
+      Kind = secKind sec }
+
   let functionAddrs =
     lazy
       wm.IndexMap
@@ -82,6 +112,9 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
   let structure =
     Some { new IBinStructure with
+      member _.Sections with get() =
+        wm.SectionsInfo.SecArray |> Array.map toBinSection
+
       member _.GetCodeSectionPointer() =
         match wm.CodeSection with
         | Some sec ->
@@ -104,6 +137,25 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
         match Map.tryFind name wm.SectionsInfo.SecByName with
         | Some sec -> sectionSummaryToPointer sec
         | None -> BinFilePointer.Null
+
+      member _.TryFindSectionByName name =
+        Map.tryFind name wm.SectionsInfo.SecByName
+        |> function
+          | Some sec -> Ok(toBinSection sec)
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByAddr addr =
+        NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr
+        |> function
+          | Some sec -> Ok(toBinSection sec)
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByOffset offset =
+        if offset > 0xffffffffUL then Error ErrorCase.ItemNotFound
+        else
+          match tryFindSectionByOffset (uint32 offset) with
+          | Some sec -> Ok(toBinSection sec)
+          | None -> Error ErrorCase.ItemNotFound
 
       member _.TryFindSectionNameByAddr addr =
         NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr

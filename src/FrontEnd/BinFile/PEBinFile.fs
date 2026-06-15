@@ -63,8 +63,62 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       |> Set.ofArray
       |> Set.toArray
 
+  let isPEMetadataSection name =
+    name = Section.Reloc || name = Section.IData || name = Section.EData
+    || name = Section.PData || name = Section.XData
+    || name = Section.ResourceData
+
+  let secKind (sec: SectionHeader) =
+    let ch = sec.SectionCharacteristics
+    if sec.Name = Section.Resource then
+      BinSectionKind.Resource
+    elif sec.Name.StartsWith Section.DebugPrefix then
+      BinSectionKind.Debug
+    elif sec.Name = Section.TLS then
+      BinSectionKind.ThreadLocalStorage
+    elif ch.HasFlag SectionCharacteristics.MemExecute
+      || ch.HasFlag SectionCharacteristics.ContainsCode then
+      BinSectionKind.Code
+    elif ch.HasFlag SectionCharacteristics.ContainsUninitializedData then
+      BinSectionKind.UninitializedData
+    elif ch.HasFlag SectionCharacteristics.ContainsInitializedData then
+      BinSectionKind.Data
+    elif isPEMetadataSection sec.Name then
+      BinSectionKind.Metadata
+    else
+      BinSectionKind.Unknown
+
+  let secFileOffset (sec: SectionHeader) =
+    if sec.SizeOfRawData = 0 then None
+    else Some(uint64 sec.PointerToRawData)
+
+  let toBinSection (sec: SectionHeader) =
+    { Name = sec.Name
+      Address = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
+      Size = uint64 (getVirtualSectionSize sec)
+      Offset = secFileOffset sec
+      FileSize = uint64 sec.SizeOfRawData
+      Permission = getSecPermission sec.SectionCharacteristics
+      Kind = secKind sec }
+
+  let tryFindSectionByAddr addr =
+    let rva = int (addr - pe.BaseAddr)
+    match pe.FindSectionIdxFromRVA rva with
+    | -1 -> None
+    | idx -> Some pe.SectionHeaders[idx]
+
+  let tryFindSectionByOffset offset =
+    pe.SectionHeaders
+    |> Array.tryFind (fun sec ->
+      let secStart = uint64 sec.PointerToRawData
+      let secEnd = secStart + uint64 sec.SizeOfRawData
+      sec.SizeOfRawData > 0 && offset >= secStart && offset < secEnd)
+
   let structure =
     Some { new IBinStructure with
+      member _.Sections with get() =
+        pe.SectionHeaders |> Array.map toBinSection
+
       member _.GetCodeSectionPointer() =
         pe.SectionHeaders
         |> Array.tryFind (fun sec -> sec.Name = SecText)
@@ -93,18 +147,30 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
               sec.PointerToRawData + size - 1)
           | None -> BinFilePointer.Null
 
+      member _.TryFindSectionByName name =
+        pe.SectionHeaders
+        |> Array.tryFind (fun sec -> sec.Name = name)
+        |> function
+          | Some sec -> Ok(toBinSection sec)
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByAddr addr =
+        match tryFindSectionByAddr addr with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByOffset offset =
+        match tryFindSectionByOffset offset with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
       member _.TryFindSectionNameByAddr(addr: Addr) =
-        let rva = int (addr - pe.BaseAddr)
-        match pe.FindSectionIdxFromRVA rva with
-        | -1 -> Error ErrorCase.ItemNotFound
-        | idx -> Ok pe.SectionHeaders[idx].Name
+        match tryFindSectionByAddr addr with
+        | Some sec -> Ok sec.Name
+        | None -> Error ErrorCase.ItemNotFound
 
       member _.TryFindSectionNameByOffset(offset: uint32) =
-        pe.SectionHeaders
-        |> Array.tryFind (fun sec ->
-          let secStart = uint32 sec.PointerToRawData
-          let secEnd = secStart + uint32 sec.SizeOfRawData
-          offset >= secStart && offset < secEnd)
+        tryFindSectionByOffset (uint64 offset)
         |> function
           | Some sec -> Ok sec.Name
           | None -> Error ErrorCase.ItemNotFound

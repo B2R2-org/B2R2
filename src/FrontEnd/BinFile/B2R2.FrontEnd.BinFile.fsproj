@@ -13,6 +13,7 @@
     <Compile Include="Permission.fs" />
     <Compile Include="LinkageTable.fs" />
     <Compile Include="BinFilePointer.fs" />
+    <Compile Include="BinSection.fs" />
     <Compile Include="IBinMetadata.fs" />
     <Compile Include="IBinProperty.fs" />
     <Compile Include="ISymbolMetadata.fs" />

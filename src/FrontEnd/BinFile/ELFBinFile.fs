@@ -83,8 +83,79 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Set.ofArray
       |> Set.toArray
 
+  let secFileSize (sec: SectionHeader) =
+    if sec.SecType = SectionType.SHT_NOBITS then 0UL else sec.SecSize
+
+  let isDebugSection (sec: SectionHeader) =
+    sec.SecName.StartsWith Section.Debug
+    || sec.SecName.StartsWith Section.ZDebug
+
+  let secKind (sec: SectionHeader) =
+    if sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR then
+      BinSectionKind.Code
+    elif sec.SecFlags.HasFlag SectionFlags.SHF_TLS then
+      BinSectionKind.ThreadLocalStorage
+    elif sec.SecType = SectionType.SHT_NOBITS then
+      BinSectionKind.UninitializedData
+    elif isDebugSection sec then
+      BinSectionKind.Debug
+    else
+      match sec.SecType with
+      | SectionType.SHT_PROGBITS
+      | SectionType.SHT_INIT_ARRAY
+      | SectionType.SHT_FINI_ARRAY
+      | SectionType.SHT_PREINIT_ARRAY -> BinSectionKind.Data
+      | SectionType.SHT_SYMTAB
+      | SectionType.SHT_STRTAB
+      | SectionType.SHT_RELA
+      | SectionType.SHT_REL
+      | SectionType.SHT_HASH
+      | SectionType.SHT_DYNAMIC
+      | SectionType.SHT_DYNSYM
+      | SectionType.SHT_GROUP
+      | SectionType.SHT_SYMTAB_SHNDX
+      | SectionType.SHT_GNU_ATTRIBUTES
+      | SectionType.SHT_GNU_HASH
+      | SectionType.SHT_GNU_LIBLIST
+      | SectionType.SHT_GNU_verdef
+      | SectionType.SHT_GNU_verneed
+      | SectionType.SHT_GNU_versym -> BinSectionKind.Metadata
+      | _ -> BinSectionKind.Unknown
+
+  let secPermission (sec: SectionHeader) =
+    let r = if sec.SecFlags.HasFlag SectionFlags.SHF_ALLOC then 4 else 0
+    let w = if sec.SecFlags.HasFlag SectionFlags.SHF_WRITE then 2 else 0
+    let x = if sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR then 1 else 0
+    r ||| w ||| x |> LanguagePrimitives.EnumOfValue
+
+  let toBinSection (sec: SectionHeader) =
+    { Name = sec.SecName
+      Address = sec.SecAddr
+      Size = sec.SecSize
+      Offset =
+        if sec.SecType = SectionType.SHT_NOBITS then None
+        else Some sec.SecOffset
+      FileSize = secFileSize sec
+      Permission = secPermission sec
+      Kind = secKind sec }
+
+  let tryFindSectionByAddr addr =
+    shdrs.Value
+    |> Array.tryFind (fun sec ->
+      addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+
+  let tryFindSectionByOffset offset =
+    shdrs.Value
+    |> Array.tryFind (fun sec ->
+      let fileSize = secFileSize sec
+      fileSize > 0UL && offset >= sec.SecOffset
+      && offset < sec.SecOffset + fileSize)
+
   let structure =
     Some { new IBinStructure with
+      member _.Sections with get() =
+        shdrs.Value |> Array.map toBinSection
+
       member _.GetCodeSectionPointer() =
         shdrs.Value
         |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
@@ -111,21 +182,31 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | None ->
             BinFilePointer.Null
 
-      member _.TryFindSectionNameByAddr addr =
+      member _.TryFindSectionByName name =
         shdrs.Value
-        |> Array.tryFind (fun sec ->
-          addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+        |> Array.tryFind (fun sec -> sec.SecName = name)
+        |> function
+          | Some sec -> Ok(toBinSection sec)
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByAddr addr =
+        match tryFindSectionByAddr addr with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByOffset offset =
+        match tryFindSectionByOffset offset with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionNameByAddr addr =
+        tryFindSectionByAddr addr
         |> function
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
       member _.TryFindSectionNameByOffset(offset: uint32) =
-        let offset = uint64 offset
-        shdrs.Value
-        |> Array.tryFind (fun sec ->
-          sec.SecType <> SectionType.SHT_NOBITS
-          && offset >= sec.SecOffset
-          && offset < sec.SecOffset + sec.SecSize)
+        tryFindSectionByOffset (uint64 offset)
         |> function
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound

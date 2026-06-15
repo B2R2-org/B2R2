@@ -31,3 +31,30 @@ let [<Literal>] Text = ".text"
 
 /// The name of the section that contains initialized read-only data: ".rdata".
 let [<Literal>] RData = ".rdata"
+
+/// The name of the section that contains resources: ".rsrc".
+let [<Literal>] Resource = ".rsrc"
+
+/// The name prefix of sections that contain debug information: ".debug".
+let [<Literal>] DebugPrefix = ".debug"
+
+/// The name of the section that contains thread-local storage: ".tls".
+let [<Literal>] TLS = ".tls"
+
+/// The name of the section that contains base relocations: ".reloc".
+let [<Literal>] Reloc = ".reloc"
+
+/// The name of the section that contains the import directory: ".idata".
+let [<Literal>] IData = ".idata"
+
+/// The name of the section that contains the export directory: ".edata".
+let [<Literal>] EData = ".edata"
+
+/// The name of the section that contains exception information: ".pdata".
+let [<Literal>] PData = ".pdata"
+
+/// The name of the section that contains unwind information: ".xdata".
+let [<Literal>] XData = ".xdata"
+
+/// The name of the section that contains resource data: ".rsrc$01".
+let [<Literal>] ResourceData = ".rsrc$01"

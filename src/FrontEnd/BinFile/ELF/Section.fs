@@ -26,60 +26,71 @@
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.ELF.Section
 
-/// The name of the section that contains executable code: ".text".
+/// Represents the name of the section that contains executable code: ".text".
 let [<Literal>] Text = ".text"
 
-/// The name of the section that contains staticly allocated, but not
+/// Represents the name of the section that contains staticly allocated, but not
 /// initialized data: ".bss".
 let [<Literal>] BSS = ".bss"
 
-/// The name of the section that contains initialized read-only data: ".rodata".
+/// Represents the name of the section that contains initialized read-only data:
+/// ".rodata".
 let [<Literal>] ROData = ".rodata"
 
-/// The name of the section that contains function addresses that are executed
-/// when a program starts: ".init_array".
+/// Represents the name of the section that contains function addresses that are
+/// executed when a program starts: ".init_array".
 let [<Literal>] InitArray = ".init_array"
 
-/// The name of the section that contains function addresses that are executed
-/// when a program exits: ".fini_array".
+/// Represents the name of the section that contains function addresses that are
+/// executed when a program exits: ".fini_array".
 let [<Literal>] FiniArray = ".fini_array"
 
-/// The name of the section holding executable instructions that contribute to
-/// the process initialization code: ".init".
+/// Represents the name of the section holding executable instructions that
+/// contribute to the process initialization code: ".init".
 let [<Literal>] Init = ".init"
 
-/// The name of the section holding executtable instructions that contribute to
-/// the process termination code: ".fini".
+/// Represents the name of the section holding executable instructions that
+/// contribute to the process termination code: ".fini".
 let [<Literal>] Fini = ".fini"
 
-/// The name of the section that contains REL type relocation entries:
-/// ".rel.plt".
+/// Represents the name of the section that contains REL type relocation
+/// entries: ".rel.plt".
 let [<Literal>] RelPLT = ".rel.plt"
 
-/// The name of the section that contains RELA type relocation entries:
-/// ".rela.plt".
+/// Represents the name of the section that contains RELA type relocation
+/// entries: ".rela.plt".
 let [<Literal>] RelaPLT = ".rela.plt"
 
-/// The name of the section that contains Procedure Linkage Table (PLT): ".plt".
+/// Represents the name of the section that contains Procedure Linkage Table
+/// (PLT): ".plt".
 let [<Literal>] PLT = ".plt"
 
-/// The name of the section that contains Global Offset Table (GOT): ".got".
+/// Represents the name of the section that contains Global Offset Table (GOT):
+/// ".got".
 let [<Literal>] GOT = ".got"
 
-/// The name of the section that contains debugging information: ".debug_info".
+/// Represents the name of the section that contains debugging information:
+/// ".debug_info".
 let [<Literal>] DebugInfo = ".debug_info"
 
-/// The name of the section that contains debugging information about types:
-/// ".debug_types".
+/// Represents the name of the section that contains debugging information about
+/// types: ".debug_types".
 let [<Literal>] DebugTypes = ".debug_types"
 
-/// The name of the section that contains debugging information about
+/// Represents the name of the section that contains debugging information about
 /// abbreviations: ".debug_abbrev".
 let [<Literal>] DebugAbbrev = ".debug_abbrev"
 
-/// The name of the section that contains DWARF debug strings: ".debug_str".
+/// Represents the name of the section that contains DWARF debug strings:
+/// ".debug_str".
 let [<Literal>] DebugStr = ".debug_str"
 
-/// The name of the section that contains DWARF line strings:
+/// Represents the name of the section that contains DWARF line strings:
 /// ".debug_line_str".
 let [<Literal>] DebugLineStr = ".debug_line_str"
+
+/// Represents the prefix of regular DWARF debug sections: ".debug".
+let [<Literal>] Debug = ".debug"
+
+/// Represents the prefix of compressed DWARF debug sections: ".zdebug".
+let [<Literal>] ZDebug = ".zdebug"
