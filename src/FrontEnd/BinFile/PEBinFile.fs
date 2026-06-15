@@ -197,26 +197,23 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       member _.IsInLinkageTable addr = isImportTable pe addr
     }
 
-  let memoryMappedRegions =
+  let segments =
     lazy
       pe.SectionHeaders
       |> Array.choose (fun sec ->
         let secSize = getVirtualSectionSize sec
         if secSize > 0 then
-          let addr = uint64 sec.VirtualAddress + pe.BaseAddr
-          let range = AddrRange.create addr (addr + uint64 secSize - 1UL)
-          Some(range, getSecPermission sec.SectionCharacteristics)
+          Some { Name = Some sec.Name
+                 Address = uint64 sec.VirtualAddress + pe.BaseAddr
+                 Size = uint64 secSize
+                 Offset = uint64 sec.PointerToRawData
+                 FileSize = uint64 sec.SizeOfRawData
+                 Permission = getSecPermission sec.SectionCharacteristics }
         else None)
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetMemoryMappedRegions() =
-        memoryMappedRegions.Value |> Array.map fst
-
-      member _.GetMemoryMappedRegions(perm) =
-        memoryMappedRegions.Value
-        |> Array.choose (fun (range, secPerm) ->
-          if secPerm &&& perm = perm then Some range else None) }
+      member _.GetSegments() = segments.Value }
 
   new(path, bytes) = PEBinFile(path, bytes, None, [||])
 

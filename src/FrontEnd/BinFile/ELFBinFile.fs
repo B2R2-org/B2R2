@@ -240,24 +240,22 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         NoOverlapIntervalMap.containsAddr addr plt.Value
     }
 
-  let memoryMappedRegions =
+  let segments =
     lazy
       phdrs.Value
       |> Array.filter (fun ph ->
         ph.PHType.HasFlag ProgramHeaderType.PT_LOAD && ph.PHMemSize > 0UL)
       |> Array.map (fun ph ->
-        let range = AddrRange.create ph.PHAddr (ph.PHAddr + ph.PHMemSize - 1UL)
-        range, ProgramHeader.FlagsToPerm ph.PHFlags)
+        { Name = None
+          Address = ph.PHAddr
+          Size = ph.PHMemSize
+          Offset = ph.PHOffset
+          FileSize = ph.PHFileSize
+          Permission = ProgramHeader.FlagsToPerm ph.PHFlags })
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetMemoryMappedRegions() =
-        memoryMappedRegions.Value |> Array.map fst
-
-      member _.GetMemoryMappedRegions(perm) =
-        memoryMappedRegions.Value
-        |> Array.choose (fun (range, p) ->
-          if p.HasFlag perm then Some range else None) }
+      member _.GetSegments() = segments.Value }
 
   /// ELF Header information.
   member _.Header with get() = hdr

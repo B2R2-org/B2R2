@@ -37,13 +37,19 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
   let baseAddr = defaultArg baseAddrOpt 0UL
   let reader = BinReader.Init isa.Endian
 
-  (* Raw files expose the whole image as a single rwx region, so we ignore the
-     requested permission. *)
+  (* Raw files expose the whole image as a single rwx segment. *)
   let memoryLayout =
-    let region = [| AddrRange.create baseAddr (baseAddr + uint64 size - 1UL) |]
+    let segments =
+      [| { Name = None
+           Address = baseAddr
+           Size = uint64 size
+           Offset = 0UL
+           FileSize = uint64 size
+           Permission =
+             Permission.Readable ||| Permission.Writable
+             ||| Permission.Executable } |]
     Some { new IMemoryLayout with
-      member _.GetMemoryMappedRegions() = region
-      member _.GetMemoryMappedRegions _perm = region }
+      member _.GetSegments() = segments }
 
   interface IBinFile with
     member _.Reader with get() = reader

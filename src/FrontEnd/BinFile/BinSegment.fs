@@ -26,17 +26,23 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// <summary>
-/// Represents the virtual-memory layout of a binary: the set of segments that
-/// are mapped into the virtual memory when the binary is loaded. Binary formats
-/// without a native VM layout (e.g., bytecode containers) do not provide this
-/// interface.
-/// </summary>
-type IMemoryLayout =
-  /// <summary>
-  /// Returns an array of memory-mapped segments. By a memory-mapped segment, we
-  /// mean a consecutive region that has a corresponding mapping in the virtual
-  /// memory. For example, an entire segment with PT_LOAD type of a program
-  /// header in ELF files is considered a memory-mapped segment.
-  /// </summary>
-  abstract GetSegments: unit -> BinSegment[]
+/// Represents a format-agnostic, memory-mapped segment of a binary, i.e., a
+/// consecutive region that is mapped into the virtual memory when the binary
+/// is loaded.
+type BinSegment =
+  { /// Segment name, if the format names its segments. ELF program headers
+    /// (segments) are unnamed, so this is None for ELF; Mach-O segments carry
+    /// a name (e.g., "__TEXT", "__DATA"), and PE has no real segments so a
+    /// synthesized segment borrows its backing section name.
+    Name: string option
+    /// Virtual address at which the segment is mapped.
+    Address: Addr
+    /// Size of the segment in the virtual memory.
+    Size: uint64
+    /// File offset of the segment's contents.
+    Offset: uint64
+    /// Size of the segment's contents in the file. This can be smaller than
+    /// Size when the segment has memory-only contents (e.g., .bss).
+    FileSize: uint64
+    /// Access permission of the mapped segment.
+    Permission: Permission }

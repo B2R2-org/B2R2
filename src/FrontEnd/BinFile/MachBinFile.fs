@@ -245,24 +245,21 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
             && Fixup.isBindAt fixupMap.Value addr)
     }
 
-  let memoryMappedRegions =
+  let segments =
     lazy
       segCmds.Value
       |> Array.filter (fun seg -> seg.VMSize > 0UL)
       |> Array.map (fun seg ->
-        let range = AddrRange.create seg.VMAddr (seg.VMAddr + seg.VMSize - 1UL)
-        let perm: Permission = LanguagePrimitives.EnumOfValue seg.InitProt
-        range, perm)
+        { Name = Some seg.SegCmdName
+          Address = seg.VMAddr
+          Size = seg.VMSize
+          Offset = seg.FileOff
+          FileSize = seg.FileSize
+          Permission = LanguagePrimitives.EnumOfValue seg.InitProt })
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetMemoryMappedRegions() =
-        memoryMappedRegions.Value |> Array.map fst
-
-      member _.GetMemoryMappedRegions(perm) =
-        memoryMappedRegions.Value
-        |> Array.choose (fun (range, p) ->
-          if p.HasFlag perm then Some range else None) }
+      member _.GetSegments() = segments.Value }
 
   member _.Header with get() = toolBox.Header
 

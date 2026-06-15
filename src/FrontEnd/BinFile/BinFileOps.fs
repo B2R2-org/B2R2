@@ -156,16 +156,25 @@ let isInLinkageTable (file: IBinFile) addr =
   | Some linkage -> linkage.IsInLinkageTable addr
   | None -> false
 
+/// Returns all memory-mapped segments of the given binary file.
+[<CompiledName "GetSegments">]
+let getSegments (file: IBinFile) =
+  match file.MemoryLayout with
+  | Some layout -> layout.GetSegments()
+  | None -> [||]
+
 /// Returns all memory-mapped regions of the given binary file.
 [<CompiledName "GetMemoryMappedRegions">]
 let getMemoryMappedRegions (file: IBinFile) =
-  match file.MemoryLayout with
-  | Some layout -> layout.GetMemoryMappedRegions()
-  | None -> [||]
+  getSegments file
+  |> Array.map (fun seg ->
+    AddrRange.create seg.Address (seg.Address + seg.Size - 1UL))
 
 /// Returns the memory-mapped regions that carry the given permission.
 [<CompiledName "GetMemoryMappedRegionsByPermission">]
 let getMemoryMappedRegionsByPermission (file: IBinFile) perm =
-  match file.MemoryLayout with
-  | Some layout -> layout.GetMemoryMappedRegions perm
-  | None -> [||]
+  getSegments file
+  |> Array.choose (fun seg ->
+    if seg.Permission.HasFlag perm then
+      AddrRange.create seg.Address (seg.Address + seg.Size - 1UL) |> Some
+    else None)
