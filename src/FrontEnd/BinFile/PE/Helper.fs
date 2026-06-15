@@ -98,14 +98,6 @@ let inline isSectionExecutableByIndex pe idx =
   pe.SectionHeaders[idx].SectionCharacteristics.HasFlag
   <| SectionCharacteristics.MemExecute
 
-let hasRelocationSymbols pe addr = (* FIXME: linear lookup is bad *)
-  pe.RelocBlocks
-  |> List.exists (fun block ->
-    block.Entries
-    |> Array.exists (fun entry ->
-      uint64 (block.PageRVA + uint32 entry.Offset) = addr)
-  )
-
 let getImportTable pe =
   pe.ImportedSymbols
   |> Map.fold (fun acc addr info ->

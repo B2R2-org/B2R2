@@ -115,9 +115,10 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let relocations =
     Some { new IRelocationTable with
-      member _.ContainsRelocation addr = hasRelocationSymbols pe addr
+      member _.ContainsRelocation addr = Relocation.contains pe addr
 
-      member _.TryGetRelocatedAddr _relocAddr = Terminator.futureFeature ()
+      member _.TryGetRelocatedAddr relocAddr =
+        Relocation.tryGetRelocatedAddr bytes pe relocAddr
     }
 
   let linkageEntries =

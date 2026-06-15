@@ -114,6 +114,7 @@
     <Compile Include="PE\Coff.fs" />
     <Compile Include="PE\Section.fs" />
     <Compile Include="PE\Helper.fs" />
+    <Compile Include="PE\Relocation.fs" />
     <Compile Include="PE\Parser.fs" />
     <Compile Include="RawBinFile.fs" />
     <Compile Include="WasmBinFile.fs" />

@@ -119,6 +119,20 @@ type PETests() =
     assertExistenceOfRelocBlock x86File 4096u 320
 
   [<TestMethod>]
+  member _.``[PE] X86 ContainsRelocation test``() =
+    let relocs = (x86File :> IBinFile).Relocations.Value
+    Assert.AreEqual(true, relocs.ContainsRelocation 0x00401001UL)
+    Assert.AreEqual(false, relocs.ContainsRelocation 0x00401000UL)
+
+  [<TestMethod>]
+  member _.``[PE] X86 TryGetRelocatedAddr test``() =
+    let relocs = (x86File :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x00403380UL,
+                    relocs.TryGetRelocatedAddr 0x00401001UL)
+    Assert.AreEqual(Error ErrorCase.ItemNotFound,
+                    relocs.TryGetRelocatedAddr 0x00401000UL)
+
+  [<TestMethod>]
   member _.``[PE] X86 section header test (1)``() =
     assertExistenceOfSectionHeader x86File 4096 ".text"
 
@@ -192,6 +206,20 @@ type PETests() =
   [<TestMethod>]
   member _.``[PE] X64 Reloc section test``() =
     assertExistenceOfRelocBlock x64File 8192u 28
+
+  [<TestMethod>]
+  member _.``[PE] X64 ContainsRelocation test``() =
+    let relocs = (x64File :> IBinFile).Relocations.Value
+    Assert.AreEqual(true, relocs.ContainsRelocation 0x140002190UL)
+    Assert.AreEqual(false, relocs.ContainsRelocation 0x140002194UL)
+
+  [<TestMethod>]
+  member _.``[PE] X64 TryGetRelocatedAddr test``() =
+    let relocs = (x64File :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x1400019ccUL,
+                    relocs.TryGetRelocatedAddr 0x140002190UL)
+    Assert.AreEqual(Error ErrorCase.ItemNotFound,
+                    relocs.TryGetRelocatedAddr 0x140002194UL)
 
   [<TestMethod>]
   member _.``[PE] X64 section header test (1)``() =
