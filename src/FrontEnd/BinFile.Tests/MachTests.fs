@@ -70,6 +70,9 @@ type MachTests() =
   static let x64WeakBindFile =
     parseFile "mach_x64_weakbind" Architecture.Intel WordSize.Bit64
 
+  static let x64TwoLevelFile =
+    parseFile "mach_x64_twolevel" Architecture.Intel WordSize.Bit64
+
   [<TestMethod>]
   member _.``[Mach] X86_Stripped EntryPoint test``() =
     Assert.AreEqual(Some 0x00002050UL, (x86File :> IBinFile).EntryPoint)
@@ -190,6 +193,15 @@ type MachTests() =
     let reloc = (x64WeakBindFile :> IBinFile).Relocations.Value
     Assert.AreEqual(true, reloc.ContainsRelocation 0x1008UL)
     Assert.AreEqual(false, reloc.ContainsRelocation 0x1000UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 two-level bind library name test``() =
+    let linkage = (x64TwoLevelFile :> IBinFile).Linkage.Value
+    let entries = linkage.GetLinkageEntries()
+    Assert.AreEqual<int>(1, entries.Length)
+    Assert.AreEqual<string>("_foo_data", entries[0].FuncName)
+    Assert.AreEqual<string>("/usr/lib/libfoo.dylib", entries[0].LibraryName)
+    Assert.AreEqual(0x1000UL, entries[0].TableAddress)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped linkageTableEntries length test``() =

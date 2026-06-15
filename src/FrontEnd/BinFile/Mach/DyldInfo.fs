@@ -160,20 +160,22 @@ module internal DyldInfo =
           segOff <- segOff + uint64 PtrSize + skip
       | _ -> () (* DONE, SET_TYPE_IMM, or unknown: no effect *)
 
-  /// Decodes a bind opcode stream, accumulating Bind fixups. Library ordinal
-  /// and type are consumed but not retained.
-  let private parseBind toolBox (segCmds: _[]) off size acc =
+  /// Decodes a bind opcode stream, accumulating Bind fixups. The bind type is
+  /// consumed but not retained.
+  let private parseBind toolBox (segCmds: _[]) dylibs off (size: uint32) acc =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
+    let size = int size
     let endOff = off + size
     let mutable cur = off
     let mutable segIdx = 0
     let mutable segOff = 0UL
     let mutable name = ""
     let mutable addend = 0L
+    let mutable libOrd = 0
     let emit () =
       let seg = segCmds[segIdx]
       { FixupAddr = seg.VMAddr + segOff
-        FixupTarget = Bind(name, addend) }
+        FixupTarget = Bind(name, Fixup.resolveLibrary dylibs libOrd, addend) }
       |> appendToList acc
       segOff <- segOff + uint64 PtrSize
     while cur < endOff do
@@ -181,9 +183,13 @@ module internal DyldInfo =
       let imm = int bytes[cur] &&& 0x0F
       cur <- cur + 1
       match enum<BindOpcode> opcode with
+      | BindOpcode.SET_DYLIB_ORDINAL_IMM -> libOrd <- imm
       | BindOpcode.SET_DYLIB_ORDINAL_ULEB ->
-        let _, n = reader.ReadUInt64LEB128(bytes, cur)
+        let v, n = reader.ReadUInt64LEB128(bytes, cur)
+        libOrd <- int v
         cur <- cur + n
+      | BindOpcode.SET_DYLIB_SPECIAL_IMM ->
+        libOrd <- if imm = 0 then 0 else imm - 16
       | BindOpcode.SET_SYMBOL_TRAILING_FLAGS_IMM ->
         let span = ReadOnlySpan(bytes, cur, endOff - cur)
         name <- ByteArray.extractCStringFromSpan span 0
@@ -218,7 +224,8 @@ module internal DyldInfo =
         for _ = 1 to int count do
           let seg = segCmds[segIdx]
           { FixupAddr = seg.VMAddr + segOff
-            FixupTarget = Bind(name, addend) }
+            FixupTarget =
+              Bind(name, Fixup.resolveLibrary dylibs libOrd, addend) }
           |> appendToList acc
           segOff <- segOff + uint64 PtrSize + skip
       | _ -> () (* DONE and IMM-only setters need no operand handling *)
@@ -228,8 +235,9 @@ module internal DyldInfo =
     | None -> [||]
     | Some info ->
       let acc = ResizeArray()
+      let dylibs = Fixup.dylibNames cmds
       parseRebase toolBox segCmds info.RebaseOff (int info.RebaseSize) acc
-      parseBind toolBox segCmds info.BindOff (int info.BindSize) acc
-      parseBind toolBox segCmds info.WeakBindOff (int info.WeakBindSize) acc
-      parseBind toolBox segCmds info.LazyBindOff (int info.LazyBindSize) acc
+      parseBind toolBox segCmds dylibs info.BindOff info.BindSize acc
+      parseBind toolBox segCmds dylibs info.WeakBindOff info.WeakBindSize acc
+      parseBind toolBox segCmds dylibs info.LazyBindOff info.LazyBindSize acc
       acc.ToArray()

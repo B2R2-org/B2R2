@@ -44,26 +44,30 @@ module internal ChainedFixup =
     | ChainedFixups(_, _, c) -> Some c
     | _ -> None
 
-  /// Reads the import symbol names (DYLD_CHAINED_IMPORT format) into an array
-  /// indexable by the ordinal stored in a bind entry.
-  let private parseImports toolBox importsOff symbolsOff count =
+  /// Reads the imports (DYLD_CHAINED_IMPORT format) into an array of (symbol
+  /// name, library name) pairs, indexable by the ordinal in a bind entry.
+  let private parseImports toolBox dylibs importsOff symbolsOff count =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
     let strLen = bytes.Length - symbolsOff
-    let names = Array.zeroCreate count
+    let imports = Array.zeroCreate count
     for i = 0 to count - 1 do
       let import = reader.ReadUInt32(bytes, importsOff + i * 4)
       let nameOff = int ((import >>> 9) &&& 0x7FFFFFu)
+      let lo = int (import &&& 0xFFu)
+      let libOrd = if lo >= 0x80 then lo - 0x100 else lo
       let span = ReadOnlySpan(bytes, symbolsOff, strLen)
-      names[i] <- ByteArray.extractCStringFromSpan span nameOff
-    names
+      let name = ByteArray.extractCStringFromSpan span nameOff
+      imports[i] <- name, Fixup.resolveLibrary dylibs libOrd
+    imports
 
   /// Decodes a single 64-bit chained entry into a fixup.
-  let private decodeEntry baseAddr (imports: string[]) slotAddr entry =
+  let private decodeEntry baseAddr (imports: _[]) slotAddr entry =
     if (entry >>> 63) &&& 1UL = 1UL then
       let ordinal = int (entry &&& 0xFFFFFFUL)
       let addend = int64 ((entry >>> 24) &&& 0xFFUL)
-      let name = if ordinal < imports.Length then imports[ordinal] else ""
-      { FixupAddr = slotAddr; FixupTarget = Bind(name, addend) }
+      let name, lib =
+        if ordinal < imports.Length then imports[ordinal] else ("", "")
+      { FixupAddr = slotAddr; FixupTarget = Bind(name, lib, addend) }
     else
       let low36 = entry &&& 0xFFFFFFFFFUL
       let high8 = (entry >>> 36) &&& 0xFFUL
@@ -111,7 +115,8 @@ module internal ChainedFixup =
       let importsOff = dataOff + int (reader.ReadUInt32(bytes, dataOff + 8))
       let symbolsOff = dataOff + int (reader.ReadUInt32(bytes, dataOff + 12))
       let count = int (reader.ReadUInt32(bytes, dataOff + 16))
-      let imports = parseImports toolBox importsOff symbolsOff count
+      let dylibs = Fixup.dylibNames cmds
+      let imports = parseImports toolBox dylibs importsOff symbolsOff count
       let segCount = int (reader.ReadUInt32(bytes, startsOff))
       let baseAddr = toolBox.BaseAddress
       let mutable acc = []

@@ -145,9 +145,9 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
       fixups.Value
       |> Array.choose (fun fixup ->
         match fixup.FixupTarget with
-        | Bind(name, _) ->
+        | Bind(name, library, _) ->
           Some { FuncName = name
-                 LibraryName = ""
+                 LibraryName = library
                  TrampolineAddress = 0UL
                  TableAddress = fixup.FixupAddr }
         | Rebase _ -> None)

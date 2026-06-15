@@ -31,8 +31,9 @@ open B2R2
 type FixupTarget =
   /// An internal pointer rebased to the given (unslid + base) address.
   | Rebase of target: Addr
-  /// An imported symbol bound from another image, with an addend.
-  | Bind of symbol: string * addend: int64
+  /// An imported symbol bound from another image, with its providing library
+  /// and an addend.
+  | Bind of symbol: string * library: string * addend: int64
 
 /// Represents a single dyld fixup located at a virtual address.
 type Fixup =
@@ -51,3 +52,17 @@ module Fixup =
     match Map.tryFind addr map with
     | Some { FixupTarget = Bind _ } -> true
     | _ -> false
+
+  /// Collects the names of the loaded dylibs in load-command order, so a bind
+  /// library ordinal can be used as a 1-based index into the result.
+  let dylibNames cmds =
+    cmds
+    |> Array.choose (function
+      | DyLib(_, _, c) -> Some c.DyLibName
+      | _ -> None)
+
+  /// Resolves a dyld library ordinal to a library name. Non-positive ordinals
+  /// denote special lookups (self, main executable, flat, or weak) that have
+  /// no specific library name.
+  let resolveLibrary (dylibs: string[]) ordinal =
+    if ordinal > 0 && ordinal <= dylibs.Length then dylibs[ordinal - 1] else ""
