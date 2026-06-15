@@ -41,6 +41,8 @@ type LoadCommand =
   | DyLdInfo of cmd: CmdType * size: uint32 * DyLdInfoCmd
   /// Function starts command (LC_FUNCTION_STARTS).
   | FuncStarts of cmd: CmdType * size: uint32 * FuncStartsCmd
+  /// Chained fixups command (LC_DYLD_CHAINED_FIXUPS).
+  | ChainedFixups of cmd: CmdType * size: uint32 * ChainedFixupsCmd
   /// Main command (LC_MAIN).
   | Main of cmd: CmdType * size: uint32 * MainCmd
   /// Unhandled command.
@@ -166,6 +168,14 @@ and DyLdInfoCmd =
 and FuncStartsCmd =
   { DataOffset: int
     DataSize: uint32 }
+
+/// Represents a chained fixups command (LC_DYLD_CHAINED_FIXUPS). It points to
+/// the dyld_chained_fixups_header located in the __LINKEDIT segment.
+and ChainedFixupsCmd =
+  { /// File offset to the chained fixups data.
+    FixupsDataOffset: int
+    /// Size of the chained fixups data.
+    FixupsDataSize: uint32 }
 
 /// Represents a main command.
 and MainCmd =

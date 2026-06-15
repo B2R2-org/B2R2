@@ -61,6 +61,15 @@ type MachTests() =
   static let x64RelocFile =
     parseFile "mach_x64_reloc" Architecture.Intel WordSize.Bit64
 
+  static let x64ChainedFile =
+    parseFile "mach_x64_chained" Architecture.Intel WordSize.Bit64
+
+  static let x64DyldInfoFile =
+    parseFile "mach_x64_dyldinfo" Architecture.Intel WordSize.Bit64
+
+  static let x64WeakBindFile =
+    parseFile "mach_x64_weakbind" Architecture.Intel WordSize.Bit64
+
   [<TestMethod>]
   member _.``[Mach] X86_Stripped EntryPoint test``() =
     Assert.AreEqual(Some 0x00002050UL, (x86File :> IBinFile).EntryPoint)
@@ -113,6 +122,74 @@ type MachTests() =
     let reloc = (x64RelocFile :> IBinFile).Relocations.Value
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
                     reloc.TryGetRelocatedAddr 0x4UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 chained fixups ContainsRelocation test``() =
+    let reloc = (x64ChainedFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x1000UL)
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x1010UL)
+    Assert.AreEqual(false, reloc.ContainsRelocation 0x1008UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 chained fixups rebase test``() =
+    let reloc = (x64ChainedFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x1008UL, reloc.TryGetRelocatedAddr 0x1010UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 chained fixups bind test``() =
+    let reloc = (x64ChainedFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Error ErrorCase.ItemNotFound,
+                    reloc.TryGetRelocatedAddr 0x1000UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 chained fixups linkage entries test``() =
+    let linkage = (x64ChainedFile :> IBinFile).Linkage.Value
+    let entries = linkage.GetLinkageEntries()
+    Assert.AreEqual<int>(1, entries.Length)
+    Assert.AreEqual<string>("_ext_symbol", entries[0].FuncName)
+    Assert.AreEqual(0x1000UL, entries[0].TableAddress)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 chained fixups IsInLinkageTable test``() =
+    let linkage = (x64ChainedFile :> IBinFile).Linkage.Value
+    Assert.AreEqual(true, linkage.IsInLinkageTable 0x1000UL)
+    Assert.AreEqual(false, linkage.IsInLinkageTable 0x1010UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 dyld info ContainsRelocation test``() =
+    let reloc = (x64DyldInfoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x1000UL)
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x1010UL)
+    Assert.AreEqual(false, reloc.ContainsRelocation 0x1008UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 dyld info rebase test``() =
+    let reloc = (x64DyldInfoFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x1008UL, reloc.TryGetRelocatedAddr 0x1010UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 dyld info bind linkage test``() =
+    let linkage = (x64DyldInfoFile :> IBinFile).Linkage.Value
+    let entries = linkage.GetLinkageEntries()
+    Assert.AreEqual<int>(1, entries.Length)
+    Assert.AreEqual<string>("_ext_symbol", entries[0].FuncName)
+    Assert.AreEqual(0x1000UL, entries[0].TableAddress)
+    Assert.AreEqual(true, linkage.IsInLinkageTable 0x1000UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 weak bind linkage test``() =
+    let linkage = (x64WeakBindFile :> IBinFile).Linkage.Value
+    let entries = linkage.GetLinkageEntries()
+    Assert.AreEqual<int>(1, entries.Length)
+    Assert.AreEqual<string>("_weak_sym", entries[0].FuncName)
+    Assert.AreEqual(0x1008UL, entries[0].TableAddress)
+    Assert.AreEqual(true, linkage.IsInLinkageTable 0x1008UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 weak bind ContainsRelocation test``() =
+    let reloc = (x64WeakBindFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x1008UL)
+    Assert.AreEqual(false, reloc.ContainsRelocation 0x1000UL)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped linkageTableEntries length test``() =

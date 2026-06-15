@@ -42,6 +42,12 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   let exports = lazy ExportedSymbols.parse toolBox cmds.Value
   let relocs = lazy Reloc.parse toolBox secs.Value
   let relocMap = lazy Reloc.buildMap relocs.Value
+  let fixups =
+    lazy
+      Array.append
+        (ChainedFixup.parse toolBox cmds.Value segCmds.Value)
+        (DyldInfo.parse toolBox cmds.Value segCmds.Value)
+  let fixupMap = lazy Fixup.buildMap fixups.Value
   let notInMemRanges = lazy invalidRangesByVM toolBox segCmds.Value
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
   let executableRanges = lazy executableRanges segCmds.Value
@@ -121,20 +127,47 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   let relocations =
     Some { new IRelocationTable with
       member _.ContainsRelocation addr =
-        relocMap.Value |> Map.containsKey addr
+        Map.containsKey addr relocMap.Value
+        || Map.containsKey addr fixupMap.Value
 
       member _.TryGetRelocatedAddr relocAddr =
-        Reloc.getRelocatedAddr toolBox relocMap.Value syms.Value relocAddr
+        match Map.tryFind relocAddr fixupMap.Value with
+        | Some fixup ->
+          match fixup.FixupTarget with
+          | Rebase target -> Ok target
+          | Bind _ -> Error ErrorCase.ItemNotFound
+        | None ->
+          Reloc.getRelocatedAddr toolBox relocMap.Value syms.Value relocAddr
     }
 
+  let fixupLinkage =
+    lazy
+      fixups.Value
+      |> Array.choose (fun fixup ->
+        match fixup.FixupTarget with
+        | Bind(name, _) ->
+          Some { FuncName = name
+                 LibraryName = ""
+                 TrampolineAddress = 0UL
+                 TableAddress = fixup.FixupAddr }
+        | Rebase _ -> None)
+
+  (* Stub-based binaries already describe imports via the symbol store; only
+     fall back to dyld fixup binds when there is no classic linkage table (e.g.
+     chained-fixups or dyld-info dylibs without __stubs). *)
   let linkageEntries =
-    lazy getPLT syms.Value
+    lazy
+      let classic = getPLT syms.Value
+      if Array.isEmpty classic then fixupLinkage.Value else classic
 
   let linkage =
     Some { new ILinkageTable with
       member _.GetLinkageEntries() = linkageEntries.Value
 
-      member _.IsInLinkageTable addr = isPLT syms.Value addr
+      member _.IsInLinkageTable addr =
+        isPLT syms.Value addr
+        || (List.isEmpty syms.Value.LinkageTable
+            && Fixup.isBindAt fixupMap.Value addr)
     }
 
   let memoryMappedRegions =

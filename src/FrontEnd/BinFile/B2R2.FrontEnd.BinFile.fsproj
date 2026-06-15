@@ -93,6 +93,9 @@
     <Compile Include="Mach\SymbolStore.fs" />
     <Compile Include="Mach\ExportedSymbols.fs" />
     <Compile Include="Mach\Reloc.fs" />
+    <Compile Include="Mach\Fixup.fs" />
+    <Compile Include="Mach\ChainedFixup.fs" />
+    <Compile Include="Mach\DyldInfo.fs" />
     <Compile Include="Mach\Helper.fs" />
     <Compile Include="Python\Types.fs" />
     <Compile Include="Python\Helper.fs" />

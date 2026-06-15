@@ -129,3 +129,7 @@ type CmdType =
   | LC_VERSION_MIN_TVOS = 0x2F
   /// Build for Watch min OS version
   | LC_VERSION_MIN_WATCHOS = 0x30
+  /// Used with linkedit_data_command, payload is a trie of exported symbols.
+  | LC_DYLD_EXPORTS_TRIE = 0x80000033
+  /// Used with linkedit_data_command, payload is dyld chained fixups.
+  | LC_DYLD_CHAINED_FIXUPS = 0x80000034

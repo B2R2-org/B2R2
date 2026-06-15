@@ -114,9 +114,6 @@ module internal Reloc =
   /// semantics follow relocatable object files (MH_OBJECT): an external entry
   /// resolves to (symbol address + addend), while a local (section) entry keeps
   /// the absolute target value in place, so the addend is the target itself.
-  /// TODO: linked images bind through LC_DYLD_INFO bind opcodes or chained
-  /// fixups (LC_DYLD_CHAINED_FIXUPS) instead of classic relocations. Those are
-  /// not parsed yet, so this resolver returns ItemNotFound for them.
   let getRelocatedAddr toolBox relocMap (symbolStore: SymbolStore) relocAddr =
     let symbols = symbolStore.SymbolArray
     match Map.tryFind relocAddr relocMap with
