@@ -27,15 +27,25 @@ namespace B2R2.FrontEnd.BinFile.Mach
 open System
 open B2R2
 
-/// Parses the LC_DYLD_CHAINED_FIXUPS payload. Only the DYLD_CHAINED_PTR_64 and
-/// DYLD_CHAINED_PTR_64_OFFSET pointer formats are handled; other formats (e.g.
-/// the arm64e formats carrying pointer-authentication bits) are skipped.
+/// Parses the LC_DYLD_CHAINED_FIXUPS payload. The DYLD_CHAINED_PTR_64 and
+/// DYLD_CHAINED_PTR_64_OFFSET (x86_64 / plain arm64) formats are handled, as
+/// are the arm64e formats; pointer-authentication bits in arm64e entries are
+/// discarded, keeping only the target/ordinal. Unknown formats are skipped.
 module internal ChainedFixup =
   /// DYLD_CHAINED_PTR_64: absolute target in the rebase entry.
   let [<Literal>] private PtrFormat64 = 2us
 
   /// DYLD_CHAINED_PTR_64_OFFSET: target is an offset from the image base.
   let [<Literal>] private PtrFormat64Offset = 6us
+
+  /// DYLD_CHAINED_PTR_ARM64E: arm64e with 16-bit bind ordinals.
+  let [<Literal>] private PtrFormatArm64e = 1us
+
+  /// DYLD_CHAINED_PTR_ARM64E_USERLAND: arm64e with 16-bit bind ordinals.
+  let [<Literal>] private PtrFormatArm64eUserland = 9us
+
+  /// DYLD_CHAINED_PTR_ARM64E_USERLAND24: arm64e with 24-bit bind ordinals.
+  let [<Literal>] private PtrFormatArm64eUserland24 = 12us
 
   /// page_start value marking a page with no fixups.
   let [<Literal>] private PageStartNone = 0xFFFFus
@@ -60,8 +70,8 @@ module internal ChainedFixup =
       imports[i] <- name, Fixup.resolveLibrary dylibs libOrd
     imports
 
-  /// Decodes a single 64-bit chained entry into a fixup.
-  let private decodeEntry baseAddr (imports: _[]) slotAddr entry =
+  /// Decodes a DYLD_CHAINED_PTR_64 entry into a fixup.
+  let private decodePtr64 baseAddr (imports: _[]) slotAddr entry =
     if (entry >>> 63) &&& 1UL = 1UL then
       let ordinal = int (entry &&& 0xFFFFFFUL)
       let addend = int64 ((entry >>> 24) &&& 0xFFUL)
@@ -74,8 +84,45 @@ module internal ChainedFixup =
       let target = baseAddr + ((high8 <<< 56) ||| low36)
       { FixupAddr = slotAddr; FixupTarget = Rebase target }
 
+  /// next field of a DYLD_CHAINED_PTR_64 entry (12 bits; 4-byte stride).
+  let private nextPtr64 entry = int ((entry >>> 51) &&& 0xFFFUL)
+
+  /// Decodes an arm64e entry into a fixup. The bind ordinal width depends on
+  /// the format (ordinalMask); pointer-authentication bits are discarded.
+  let private decodeArm64e baseAddr (imports: _[]) ordinalMask slotAddr entry =
+    let bind = (entry >>> 62) &&& 1UL = 1UL
+    let auth = (entry >>> 63) &&& 1UL = 1UL
+    if bind then
+      let ordinal = int (entry &&& ordinalMask)
+      let addend = if auth then 0L else int64 ((entry >>> 32) &&& 0x7FFFFUL)
+      let name, lib =
+        if ordinal < imports.Length then imports[ordinal] else ("", "")
+      { FixupAddr = slotAddr; FixupTarget = Bind(name, lib, addend) }
+    else
+      let target =
+        if auth then entry &&& 0xFFFFFFFFUL
+        else
+          let low43 = entry &&& 0x7FFFFFFFFFFUL
+          let high8 = (entry >>> 43) &&& 0xFFUL
+          (high8 <<< 56) ||| low43
+      { FixupAddr = slotAddr; FixupTarget = Rebase(baseAddr + target) }
+
+  /// next field of an arm64e entry (11 bits; 8-byte stride).
+  let private nextArm64e entry = int ((entry >>> 51) &&& 0x7FFUL)
+
+  /// Selects the (decoder, next-extractor, stride) for a pointer format.
+  let private selectDecoder baseAddr imports ptrFormat =
+    match ptrFormat with
+    | PtrFormat64 | PtrFormat64Offset ->
+      Some(decodePtr64 baseAddr imports, nextPtr64, 4)
+    | PtrFormatArm64e | PtrFormatArm64eUserland ->
+      Some(decodeArm64e baseAddr imports 0xFFFFUL, nextArm64e, 8)
+    | PtrFormatArm64eUserland24 ->
+      Some(decodeArm64e baseAddr imports 0xFFFFFFUL, nextArm64e, 8)
+    | _ -> None
+
   /// Walks a single page chain, accumulating fixups until next is zero.
-  let private walkChain toolBox baseAddr imports seg pageOff start acc =
+  let private walkChain toolBox seg pageOff start decode nextOf stride acc =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
     let mutable off = start
     let mutable go = true
@@ -83,26 +130,28 @@ module internal ChainedFixup =
     while go do
       let slotAddr = seg.VMAddr + uint64 (pageOff + off)
       let entry = reader.ReadUInt64(bytes, int seg.FileOff + pageOff + off)
-      acc <- decodeEntry baseAddr imports slotAddr entry :: acc
-      let next = int ((entry >>> 51) &&& 0xFFFUL)
-      if next = 0 then go <- false else off <- off + next * 4
+      acc <- decode slotAddr entry :: acc
+      let next = nextOf entry
+      if next = 0 then go <- false else off <- off + next * stride
     acc
 
   /// Parses the dyld_chained_starts_in_segment and walks each page chain.
   let private parseSegment toolBox baseAddr imports seg infoOff acc =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
     let ptrFormat = reader.ReadUInt16(bytes, infoOff + 6)
-    if ptrFormat <> PtrFormat64 && ptrFormat <> PtrFormat64Offset then acc
-    else
+    match selectDecoder baseAddr imports ptrFormat with
+    | None -> acc
+    | Some(decode, nextOf, stride) ->
       let pageSize = int (reader.ReadUInt16(bytes, infoOff + 4))
       let pageCount = int (reader.ReadUInt16(bytes, infoOff + 20))
       let mutable acc = acc
       for p = 0 to pageCount - 1 do
-        let start = reader.ReadUInt16(bytes, infoOff + 22 + p * 2)
-        if start <> PageStartNone then
-          acc <- walkChain toolBox baseAddr imports seg (p * pageSize)
-                           (int start) acc
-        else ()
+        let pageOff = p * pageSize
+        let start = int (reader.ReadUInt16(bytes, infoOff + 22 + p * 2))
+        if start <> int PageStartNone then
+          acc <- walkChain toolBox seg pageOff start decode nextOf stride acc
+        else
+          ()
       acc
 
   let parse toolBox cmds (segCmds: SegCmd[]) =
@@ -123,7 +172,8 @@ module internal ChainedFixup =
       for i = 0 to segCount - 1 do
         let segInfoOff = reader.ReadUInt32(bytes, startsOff + 4 + i * 4)
         if segInfoOff <> 0u && i < segCmds.Length then
-          acc <- parseSegment toolBox baseAddr imports segCmds[i]
-                              (startsOff + int segInfoOff) acc
-        else ()
+          let offset = startsOff + int segInfoOff
+          acc <- parseSegment toolBox baseAddr imports segCmds[i] offset acc
+        else
+          ()
       acc |> List.rev |> List.toArray

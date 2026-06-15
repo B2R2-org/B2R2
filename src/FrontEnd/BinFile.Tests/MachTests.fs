@@ -73,6 +73,9 @@ type MachTests() =
   static let x64TwoLevelFile =
     parseFile "mach_x64_twolevel" Architecture.Intel WordSize.Bit64
 
+  static let arm64eChainedFile =
+    parseFile "mach_arm64e_chained" Architecture.ARMv8 WordSize.Bit64
+
   [<TestMethod>]
   member _.``[Mach] X86_Stripped EntryPoint test``() =
     Assert.AreEqual(Some 0x00002050UL, (x86File :> IBinFile).EntryPoint)
@@ -202,6 +205,31 @@ type MachTests() =
     Assert.AreEqual<string>("_foo_data", entries[0].FuncName)
     Assert.AreEqual<string>("/usr/lib/libfoo.dylib", entries[0].LibraryName)
     Assert.AreEqual(0x1000UL, entries[0].TableAddress)
+
+  [<TestMethod>]
+  member _.``[Mach] arm64e chained fixups ContainsRelocation test``() =
+    let reloc = (arm64eChainedFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x4000UL)
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x4008UL)
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x4018UL)
+    Assert.AreEqual(true, reloc.ContainsRelocation 0x4020UL)
+    Assert.AreEqual(false, reloc.ContainsRelocation 0x4010UL)
+
+  [<TestMethod>]
+  member _.``[Mach] arm64e chained fixups rebase test``() =
+    let reloc = (arm64eChainedFile :> IBinFile).Relocations.Value
+    Assert.AreEqual(Ok 0x4010UL, reloc.TryGetRelocatedAddr 0x4018UL)
+    Assert.AreEqual(Ok 0x370UL, reloc.TryGetRelocatedAddr 0x4020UL)
+
+  [<TestMethod>]
+  member _.``[Mach] arm64e chained fixups bind linkage test``() =
+    let linkage = (arm64eChainedFile :> IBinFile).Linkage.Value
+    let entries = linkage.GetLinkageEntries()
+    Assert.AreEqual<int>(2, entries.Length)
+    Assert.AreEqual<string>("_ext_func", entries[0].FuncName)
+    Assert.AreEqual(0x4000UL, entries[0].TableAddress)
+    Assert.AreEqual<string>("_ext_data", entries[1].FuncName)
+    Assert.AreEqual(0x4008UL, entries[1].TableAddress)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped linkageTableEntries length test``() =
