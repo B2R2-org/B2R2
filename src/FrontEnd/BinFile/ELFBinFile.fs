@@ -75,6 +75,16 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       Size = Some s.Size
       LibraryName = s.VerInfo |> Option.map (fun v -> v.VerName) }
 
+  let codeModeMarkers =
+    lazy
+      symbs.Value.StaticSymbols
+      |> Array.choose (fun s ->
+        match s.ARMLinkerSymbol with
+        | ARMLinkerSymbol.ARM -> Some { Address = s.Addr; Mode = ArmMode }
+        | ARMLinkerSymbol.Thumb -> Some { Address = s.Addr; Mode = ThumbMode }
+        | ARMLinkerSymbol.Data -> Some { Address = s.Addr; Mode = DataMode }
+        | _ -> None)
+
   let symbolTableObj =
     { new ISymbolTable with
         member _.IsStripped with get() =
@@ -85,7 +95,9 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           |> Array.map toBinSymbol
 
         member _.TryFindSymbolByAddr addr =
-          symbs.Value.TryFindSymbol addr |> Result.map toBinSymbol }
+          symbs.Value.TryFindSymbol addr |> Result.map toBinSymbol
+
+        member _.CodeModeMarkers = codeModeMarkers.Value }
 
   let symbolTable = Some symbolTableObj
 
@@ -124,7 +136,9 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     || sec.SecName.StartsWith Section.ZDebug
 
   let secKind (sec: SectionHeader) =
-    if sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR then
+    if PLT.isPLTSectionName sec.SecName then
+      BinSectionKind.DynamicLinkage
+    elif sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR then
       BinSectionKind.Code
     elif sec.SecFlags.HasFlag SectionFlags.SHF_TLS then
       BinSectionKind.ThreadLocalStorage
@@ -382,14 +396,6 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   /// Find a section by its index.
   member _.FindSection(idx: int) = shdrs.Value[idx]
-
-  /// Is this a PLT section?
-  member _.IsPLT sec = PLT.isPLTSectionName sec.SecName
-
-  /// Is this section contains executable code?
-  member _.HasCode sec =
-    sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
-    && not (PLT.isPLTSectionName sec.SecName)
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader

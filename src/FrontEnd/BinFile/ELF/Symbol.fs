@@ -114,3 +114,4 @@ and ARMLinkerSymbol =
   | ARM = 1
   | Thumb = 2
   | None = 3
+  | Data = 4

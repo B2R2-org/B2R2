@@ -69,6 +69,13 @@ let tryFindSymbolByAddr (file: IBinFile) addr =
   | Some symbolTable -> symbolTable.TryFindSymbolByAddr addr
   | None -> Error ErrorCase.ItemNotFound
 
+/// Returns the instruction-set mode markers of the given binary file.
+[<CompiledName "GetCodeModeMarkers">]
+let getCodeModeMarkers (file: IBinFile) =
+  match file.SymbolTable with
+  | Some symbolTable -> symbolTable.CodeModeMarkers
+  | None -> [||]
+
 /// Returns a pointer to the code section of the given binary file.
 [<CompiledName "GetCodeSectionPointer">]
 let getCodeSectionPointer (file: IBinFile) =

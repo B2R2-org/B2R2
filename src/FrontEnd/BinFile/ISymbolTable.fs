@@ -39,3 +39,10 @@ type ISymbolTable =
   /// address, then this function returns an error.
   /// </summary>
   abstract TryFindSymbolByAddr: addr: Addr -> Result<BinSymbol, ErrorCase>
+
+  /// <summary>
+  /// Returns instruction-set mode markers derived from the symbol table (e.g.,
+  /// ELF ARM $a/$t/$d mapping symbols). Empty for architectures that do not
+  /// interleave encodings.
+  /// </summary>
+  abstract CodeModeMarkers: BinCodeModeMarker[]

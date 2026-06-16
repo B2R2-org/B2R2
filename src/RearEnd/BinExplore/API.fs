@@ -209,11 +209,12 @@ module API =
       match brew.BinHandle.File.Format with
       | FileFormat.ELFBinary ->
         let elf = brew.BinHandle.File :?> ELFBinFile
-        elf.SectionHeaders
-        |> Array.map (fun sh ->
+        let sections = BinFileOps.getSections brew.BinHandle.File
+        Array.zip elf.SectionHeaders sections
+        |> Array.map (fun (sh, sec) ->
           {| Addr = sh.SecAddr
              Name = sh.SecName
-             IsLinkage = elf.IsPLT sh
+             IsLinkage = sec.Kind = DynamicLinkage
              ELFSectionHeader = Some sh
              PESectionHeader = None
              MachSectionHeader = None |})

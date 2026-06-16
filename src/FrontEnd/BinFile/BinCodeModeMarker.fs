@@ -26,42 +26,22 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// Represents a format-agnostic binary section.
-type BinSection =
-  { /// Section name.
-    Name: string
-    /// Virtual address of the section.
+/// Represents a marker indicating the instruction-set encoding (or data) that
+/// takes effect at a given address, for architectures that interleave
+/// encodings within a section (notably ARM and Thumb, marked by the ELF
+/// $a/$t/$d mapping symbols).
+type BinCodeModeMarker =
+  { /// Address at which the marked region begins.
     Address: Addr
-    /// Section size in memory.
-    Size: uint64
-    /// File offset of the section data.
-    Offset: uint64 option
-    /// Section size in the file.
-    FileSize: uint64
-    /// Section permission.
-    Permission: Permission
-    /// Section kind.
-    Kind: BinSectionKind }
+    /// Encoding mode effective from this address onward.
+    Mode: BinCodeMode }
 
-/// Represents the kind of a binary section.
-and BinSectionKind =
-  /// The section contains executable code.
-  | Code
-  /// The section contains initialized data.
-  | Data
-  /// The section occupies memory but has no file-backed contents.
-  | UninitializedData
-  /// The section contains thread-local storage data.
-  | ThreadLocalStorage
-  /// The section contains resources.
-  | Resource
-  /// The section contains debug information.
-  | Debug
-  /// The section contains linker, loader, symbol, relocation, or other
-  /// structural metadata.
-  | Metadata
-  /// The section implements dynamic linkage, such as a PLT, stubs, or
-  /// symbol-pointer tables.
-  | DynamicLinkage
-  /// The section kind is unknown or not classified.
-  | Unknown
+/// Represents an instruction-set encoding mode, or a data region embedded in
+/// code.
+and BinCodeMode =
+  /// ARM (A32) instruction encoding.
+  | ArmMode
+  /// Thumb (T32) instruction encoding.
+  | ThumbMode
+  /// A data region embedded in code (not to be disassembled).
+  | DataMode

@@ -115,6 +115,7 @@ module private SymbolTables =
     if hdr.MachineType = MachineType.EM_ARM then
       if symbolName = "$a" then ARMLinkerSymbol.ARM
       elif symbolName = "$t" then ARMLinkerSymbol.Thumb
+      elif symbolName = "$d" then ARMLinkerSymbol.Data
       else ARMLinkerSymbol.None
     else ARMLinkerSymbol.None
 

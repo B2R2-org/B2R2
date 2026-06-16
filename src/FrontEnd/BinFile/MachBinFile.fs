@@ -91,7 +91,9 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
           | Some s ->
             let secText = Section.getTextSectionIndex secs.Value
             Ok(toBinSymbol secText s)
-          | None -> Error ErrorCase.SymbolNotFound }
+          | None -> Error ErrorCase.SymbolNotFound
+
+        member _.CodeModeMarkers = [||] }
 
   let symbolTable = Some symbolTableObj
 
@@ -116,10 +118,13 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
     || sec.SecType = SectionType.S_THREAD_LOCAL_VARIABLE_POINTERS
     || sec.SecType = SectionType.S_THREAD_LOCAL_INIT_FUNCTION_POINTERS
 
-  let isMetadataSection (sec: Section) =
+  let isDynamicLinkageSection (sec: Section) =
     sec.SecType = SectionType.S_NON_LAZY_SYMBOL_POINTERS
     || sec.SecType = SectionType.S_LAZY_SYMBOL_POINTERS
-    || sec.SecType = SectionType.S_MOD_INIT_FUNC_POINTERS
+    || sec.SecType = SectionType.S_SYMBOL_STUBS
+
+  let isMetadataSection (sec: Section) =
+    sec.SecType = SectionType.S_MOD_INIT_FUNC_POINTERS
     || sec.SecType = SectionType.S_MOD_TERM_FUNC_POINTERS
     || sec.SecType = SectionType.S_INTERPOSING
     || sec.SecType = SectionType.S_LAZY_DYLIB_SYMBOL_POINTERS
@@ -134,6 +139,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
       BinSectionKind.Debug
     elif isTLSSection sec then BinSectionKind.ThreadLocalStorage
     elif isZeroFillSection sec then BinSectionKind.UninitializedData
+    elif isDynamicLinkageSection sec then BinSectionKind.DynamicLinkage
     elif sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_PURE_INSTRUCTIONS then
       BinSectionKind.Code
     elif sec.SecName = Section.Text then BinSectionKind.Code
@@ -320,22 +326,6 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   member _.ExportedSymbols with get() = exports.Value
 
   member _.Relocations with get() = relocs.Value
-
-  member _.IsPLT(sec: Section) =
-    match sec.SecType with
-    | SectionType.S_NON_LAZY_SYMBOL_POINTERS
-    | SectionType.S_LAZY_SYMBOL_POINTERS
-    | SectionType.S_SYMBOL_STUBS -> true
-    | _ -> false
-
-  member _.HasCode(sec: Section) =
-    match sec.SecType with
-    | SectionType.S_NON_LAZY_SYMBOL_POINTERS
-    | SectionType.S_LAZY_SYMBOL_POINTERS
-    | SectionType.S_SYMBOL_STUBS -> false
-    | _ ->
-      let seg = NoOverlapIntervalMap.findByAddr sec.SecAddr segMap.Value
-      seg.InitProt &&& int MachVMProt.Executable > 0
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader

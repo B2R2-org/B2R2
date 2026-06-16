@@ -64,6 +64,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         match Map.tryFind addr pe.Symbols.SymbolByAddr with
         | Some s -> Ok(toBinSymbol s)
         | None -> Error ErrorCase.SymbolNotFound
+
+      member _.CodeModeMarkers = [||]
     }
 
   let functionAddrs =
@@ -81,7 +83,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       |> Set.toArray
 
   let isPEMetadataSection name =
-    name = Section.Reloc || name = Section.IData || name = Section.EData
+    name = Section.Reloc || name = Section.EData
     || name = Section.PData || name = Section.XData
     || name = Section.ResourceData
 
@@ -93,6 +95,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       BinSectionKind.Debug
     elif sec.Name = Section.TLS then
       BinSectionKind.ThreadLocalStorage
+    elif sec.Name = Section.IData then
+      BinSectionKind.DynamicLinkage
     elif ch.HasFlag SectionCharacteristics.MemExecute
       || ch.HasFlag SectionCharacteristics.ContainsCode then
       BinSectionKind.Code
@@ -266,9 +270,6 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   /// Finds the section index from the given RVA.
   member _.FindSectionIdxFromRVA rva = pe.FindSectionIdxFromRVA rva
-
-  member _.HasCode(sec: SectionHeader) =
-    sec.SectionCharacteristics.HasFlag SectionCharacteristics.MemExecute
 
   interface IBinFile with
     member _.Reader with get() = pe.BinReader
