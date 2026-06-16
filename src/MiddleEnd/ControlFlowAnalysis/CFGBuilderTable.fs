@@ -26,7 +26,6 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 open B2R2
-open B2R2.Collections
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
@@ -68,10 +67,8 @@ type CFGBuilderTable<'FnCtx,
       updateNextFunctionAddrs builder addr
       builder
 
-  let loadFromPLT (elf: ELFBinFile) =
-    let file = elf :> IBinFile
-    elf.PLT
-    |> NoOverlapIntervalMap.iter (fun range entry ->
+  let loadFromImportTable (file: IBinFile) (tbl: IImportTable) =
+    for entry in tbl.GetImports() do
       match BinFileOps.tryGetInternalFunctionAddr file entry.TableAddress with
       | Ok fnAddr ->
         (* We create a mapping from a PLT address to an internal function
@@ -85,10 +82,9 @@ type CFGBuilderTable<'FnCtx,
           let name = entry.Name
           let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
           let builder = ExternalFnCFGBuilder(hdl, exnInfo, addr, name, isNoRet)
-          builders[range.Min] <- builder
+          builders[addr] <- builder
         | None ->
           ()
-    )
 
   let rec getTerminationStatus (builders: IList<ICFGBuildable<_, _>>) acc idx =
     if idx < 0 then
@@ -101,9 +97,9 @@ type CFGBuilderTable<'FnCtx,
       | ForceFinished -> getTerminationStatus builders (b :: acc) (idx - 1)
       | _ -> YetDone
 
-  (* Load external function builders by parsing the PLT. *)
-  do match hdl.File.Format with
-     | FileFormat.ELFBinary -> hdl.File :?> ELFBinFile |> loadFromPLT
+  (* Load external function builders from the import (PLT/linkage) table. *)
+  do match hdl.File.ImportTable with
+     | Some tbl -> loadFromImportTable hdl.File tbl
      | _ -> ()
 
   /// Retrieve a function builder by its address.

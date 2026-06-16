@@ -359,9 +359,6 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   /// ELF section headers.
   member _.SectionHeaders with get() = shdrs.Value
 
-  /// PLT.
-  member _.PLT with get() = plt.Value
-
   /// Exception information.
   member _.ExceptionFrame with get() = exn.Value.ExceptionFrame
 
