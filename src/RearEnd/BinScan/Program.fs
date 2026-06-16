@@ -49,8 +49,8 @@ let private dumpBasic (file: IBinFile) =
 
 let private dumpSecurity (file: IBinFile) =
   let stripped =
-    file.SymbolMetadata
-    |> Option.map (fun metadata -> metadata.IsStripped.ToString())
+    file.SymbolTable
+    |> Option.map (fun symbolTable -> symbolTable.IsStripped.ToString())
     |> Option.defaultValue "N/A"
   printSectionTitle "Security Information"
   printsr [| "Stripped binary:"; stripped |]

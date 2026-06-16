@@ -67,9 +67,39 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
         | None -> Error ErrorCase.SymbolNotFound
     }
 
-  let symbolMetadata =
-    Some { new ISymbolMetadata with
+  let machSymKind secText (s: Symbol) =
+    if Symbol.IsFunc(secText, s) then FunctionSymbol
+    elif s.SymType.HasFlag SymbolType.N_SECT then DataSymbol
+    else OtherSymbol
+
+  let machBinding (s: Symbol) =
+    if s.SymDesc &&& 0xC0s <> 0s then WeakBinding (* N_WEAK_REF|N_WEAK_DEF *)
+    elif s.IsExternal then GlobalBinding
+    else LocalBinding
+
+  let toBinSymbol secText (s: Symbol) =
+    { Name = s.SymName
+      Address = s.SymAddr
+      Kind = machSymKind secText s
+      Binding = machBinding s
+      IsDefined = s.SymType <> SymbolType.N_UNDF
+      Size = None
+      LibraryName = s.VerInfo |> Option.map (fun d -> d.DyLibName) }
+
+  let symbolTable =
+    Some { new ISymbolTable with
       member _.IsStripped with get() = isStripped secs.Value syms.Value
+
+      member _.Symbols with get() =
+        let secText = Section.getTextSectionIndex secs.Value
+        syms.Value.SymbolArray |> Array.map (toBinSymbol secText)
+
+      member _.TryFindSymbolByAddr addr =
+        match Map.tryFind addr syms.Value.SymbolMap with
+        | Some s ->
+          let secText = Section.getTextSectionIndex secs.Value
+          Ok(toBinSymbol secText s)
+        | None -> Error ErrorCase.SymbolNotFound
     }
 
   let functionAddrs =
@@ -341,7 +371,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.NameResolver with get() = nameResolver
 
-    member _.SymbolMetadata with get() = symbolMetadata
+    member _.SymbolTable with get() = symbolTable
 
     member _.Structure with get() = structure
 

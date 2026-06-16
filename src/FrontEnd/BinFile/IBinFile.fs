@@ -46,8 +46,8 @@ type IBinFile =
   /// Returns a name resolver if this binary format provides names.
   abstract NameResolver: INameResolvable option
 
-  /// Returns symbol-table metadata if this binary format provides it.
-  abstract SymbolMetadata: ISymbolMetadata option
+  /// Returns the symbol table if this binary format provides one.
+  abstract SymbolTable: ISymbolTable option
 
   /// Returns a structural view if this binary format has one.
   abstract Structure: IBinStructure option

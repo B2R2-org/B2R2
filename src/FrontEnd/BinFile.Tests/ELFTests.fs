@@ -32,7 +32,7 @@ open type FileFormat
 [<TestClass>]
 type ELFTests() =
   static let isStripped (file: IBinFile) =
-    file.SymbolMetadata.Value.IsStripped
+    file.SymbolTable.Value.IsStripped
 
   static let parseFile fileName =
     let zipFile = fileName + ".zip"

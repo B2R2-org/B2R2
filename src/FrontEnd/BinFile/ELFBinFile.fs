@@ -61,10 +61,44 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
             | _ -> Error e
     }
 
-  let symbolMetadata =
-    Some { new ISymbolMetadata with
+  let symKindOf (s: Symbol) =
+    match s.SymType with
+    | SymbolType.STT_FUNC
+    | SymbolType.STT_GNU_IFUNC -> FunctionSymbol
+    | SymbolType.STT_OBJECT
+    | SymbolType.STT_COMMON
+    | SymbolType.STT_TLS -> DataSymbol
+    | SymbolType.STT_SECTION -> SectionSymbol
+    | SymbolType.STT_FILE -> FileSymbol
+    | _ -> OtherSymbol
+
+  let symBindingOf (s: Symbol) =
+    match s.Bind with
+    | SymbolBind.STB_LOCAL -> LocalBinding
+    | SymbolBind.STB_GLOBAL -> GlobalBinding
+    | SymbolBind.STB_WEAK -> WeakBinding
+    | _ -> UnknownBinding
+
+  let toBinSymbol (s: Symbol) =
+    { Name = s.SymName
+      Address = s.Addr
+      Kind = symKindOf s
+      Binding = symBindingOf s
+      IsDefined = Symbol.IsDefined s
+      Size = Some s.Size
+      LibraryName = s.VerInfo |> Option.map (fun v -> v.VerName) }
+
+  let symbolTable =
+    Some { new ISymbolTable with
       member _.IsStripped with get() =
         shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
+
+      member _.Symbols with get() =
+        Array.append symbs.Value.StaticSymbols symbs.Value.DynamicSymbols
+        |> Array.map toBinSymbol
+
+      member _.TryFindSymbolByAddr addr =
+        symbs.Value.TryFindSymbol addr |> Result.map toBinSymbol
     }
 
   let functionAddrs =
@@ -364,7 +398,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.NameResolver with get() = nameResolver
 
-    member _.SymbolMetadata with get() = symbolMetadata
+    member _.SymbolTable with get() = symbolTable
 
     member _.Structure with get() = structure
 

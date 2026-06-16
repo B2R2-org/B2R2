@@ -43,10 +43,10 @@ type WasmTests() =
     Assert.AreEqual(Some 0x15AUL, file.EntryPoint)
 
   [<TestMethod>]
-  member _.``[Wasm] SymbolMetadata test``() =
-    match file.SymbolMetadata with
+  member _.``[Wasm] SymbolTable test``() =
+    match file.SymbolTable with
     | None -> ()
-    | Some _ -> Assert.Fail "Wasm should not provide symbol metadata."
+    | Some _ -> Assert.Fail "Wasm should not provide a symbol table."
 
   [<TestMethod>]
   member _.``[Wasm] text section address test``() =

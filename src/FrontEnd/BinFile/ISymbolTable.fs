@@ -24,7 +24,18 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-/// Represents symbol-table metadata of a binary file.
-type ISymbolMetadata =
+open B2R2
+
+/// Represents the symbol table of a binary file.
+type ISymbolTable =
   /// Returns true if the binary lacks its non-essential symbol table.
   abstract IsStripped: bool
+
+  /// Returns an array of all the symbols in the binary.
+  abstract Symbols: BinSymbol[]
+
+  /// <summary>
+  /// Finds the symbol located at the given address. If no symbol exists at the
+  /// address, then this function returns an error.
+  /// </summary>
+  abstract TryFindSymbolByAddr: addr: Addr -> Result<BinSymbol, ErrorCase>

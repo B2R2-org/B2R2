@@ -16,9 +16,10 @@
     <Compile Include="BinSegment.fs" />
     <Compile Include="BinImport.fs" />
     <Compile Include="BinRelocation.fs" />
+    <Compile Include="BinSymbol.fs" />
     <Compile Include="IBinMetadata.fs" />
     <Compile Include="IBinProperty.fs" />
-    <Compile Include="ISymbolMetadata.fs" />
+    <Compile Include="ISymbolTable.fs" />
     <Compile Include="IAddressSpace.fs" />
     <Compile Include="IMemoryLayout.fs" />
     <Compile Include="IBinStructure.fs" />

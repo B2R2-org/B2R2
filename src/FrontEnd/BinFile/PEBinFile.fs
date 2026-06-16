@@ -44,9 +44,26 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         else tryFindSymbolFromPDB pe addr
     }
 
-  let symbolMetadata =
-    Some { new ISymbolMetadata with
+  let toBinSymbol (s: Symbol) =
+    { Name = s.Name
+      Address = s.Address
+      Kind = if s.IsFunction then FunctionSymbol else OtherSymbol
+      Binding = UnknownBinding
+      IsDefined = true
+      Size = None
+      LibraryName = None }
+
+  let symbolTable =
+    Some { new ISymbolTable with
       member _.IsStripped with get() = Array.isEmpty pe.Symbols.SymbolArray
+
+      member _.Symbols with get() =
+        pe.Symbols.SymbolArray |> Array.map toBinSymbol
+
+      member _.TryFindSymbolByAddr addr =
+        match Map.tryFind addr pe.Symbols.SymbolByAddr with
+        | Some s -> Ok(toBinSymbol s)
+        | None -> Error ErrorCase.SymbolNotFound
     }
 
   let functionAddrs =
@@ -278,7 +295,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.NameResolver with get() = nameResolver
 
-    member _.SymbolMetadata with get() = symbolMetadata
+    member _.SymbolTable with get() = symbolTable
 
     member _.Structure with get() = structure
 

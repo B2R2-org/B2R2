@@ -212,7 +212,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.NameResolver with get() = nameResolver
 
-    member _.SymbolMetadata with get() = None
+    member _.SymbolTable with get() = None
 
     member _.Structure with get() = structure
 

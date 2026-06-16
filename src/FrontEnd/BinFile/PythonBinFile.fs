@@ -84,7 +84,7 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.NameResolver with get() = None
 
-    member _.SymbolMetadata with get() = None
+    member _.SymbolTable with get() = None
 
     member _.Structure with get() = None
 
