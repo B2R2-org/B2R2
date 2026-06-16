@@ -110,6 +110,19 @@ module internal Reloc =
     | 32<rt> -> int64 (reader.ReadInt32(bytes, offset))
     | _ -> reader.ReadInt64(bytes, offset)
 
+  /// Converts a Mach-O relocation entry into a format-agnostic BinRelocation.
+  let toBinRelocation toolBox (symbols: Symbol[]) reloc =
+    let addend = readAddend toolBox.Bytes toolBox.Reader reloc
+    let symName =
+      match reloc.RelocSymbol with
+      | SymIndex n -> Some symbols[n].SymName
+      | SecOrdinal _ -> None
+    let result: FrontEnd.BinFile.BinRelocation =
+      { Address = reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
+        SymbolName = symName
+        Addend = Some addend }
+    result
+
   /// Computes the relocated target address for the given virtual address. The
   /// semantics follow relocatable object files (MH_OBJECT): an external entry
   /// resolves to (symbol address + addend), while a local (section) entry keeps

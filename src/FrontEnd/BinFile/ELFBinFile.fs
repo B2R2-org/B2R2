@@ -217,11 +217,24 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let relocations =
     Some { new IRelocationTable with
+      member _.GetRelocations() =
+        relocs.Value.Entries
+        |> Seq.map (fun r ->
+          { Address = r.RelOffset
+            SymbolName = r.RelSymbol |> Option.map (fun s -> s.SymName)
+            Addend = Some(int64 r.RelAddend) })
+        |> Seq.toArray
+
       member _.ContainsRelocation addr =
         relocs.Value.Contains addr
 
       member _.TryGetRelocatedAddr relocAddr =
         getRelocatedAddr relocs.Value relocAddr
+
+      member _.TryGetInternalFunctionAddr relocAddr =
+        match relocs.Value.TryFind relocAddr with
+        | Ok reloc -> tryGetInternalFuncAddr reloc
+        | Error e -> Error e
     }
 
   let importEntries =

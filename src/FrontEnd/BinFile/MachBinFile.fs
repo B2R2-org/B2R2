@@ -201,6 +201,22 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
   let relocations =
     Some { new IRelocationTable with
+      member _.GetRelocations() =
+        let classic =
+          relocMap.Value
+          |> Map.toArray
+          |> Array.map (fun (_, reloc) ->
+            Reloc.toBinRelocation toolBox syms.Value.SymbolArray reloc)
+        let fixupRelocs =
+          fixupMap.Value
+          |> Map.toArray
+          |> Array.map (fun (addr, fixup) ->
+            match fixup.FixupTarget with
+            | Rebase _ -> { Address = addr; SymbolName = None; Addend = None }
+            | Bind(sym, _, addend) ->
+              { Address = addr; SymbolName = Some sym; Addend = Some addend })
+        Array.append classic fixupRelocs
+
       member _.ContainsRelocation addr =
         Map.containsKey addr relocMap.Value
         || Map.containsKey addr fixupMap.Value
@@ -213,6 +229,9 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
           | Bind _ -> Error ErrorCase.ItemNotFound
         | None ->
           Reloc.getRelocatedAddr toolBox relocMap.Value syms.Value relocAddr
+
+      member _.TryGetInternalFunctionAddr _relocAddr =
+        Error ErrorCase.SymbolNotFound
     }
 
   let fixupImports =

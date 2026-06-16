@@ -52,6 +52,21 @@ let private tryGetRawOffset pe relocAddr size =
       Some offset
     else None
 
+let getRelocations pe =
+  pe.RelocBlocks
+  |> List.collect (fun block ->
+    block.Entries
+    |> Array.choose (fun entry ->
+      if isValidEntry entry then
+        let reloc: FrontEnd.BinFile.BinRelocation =
+          { Address = getRelocAddr pe block entry
+            SymbolName = None
+            Addend = None }
+        Some reloc
+      else None)
+    |> Array.toList)
+  |> List.toArray
+
 let contains pe addr =
   tryFindEntry pe addr |> Option.isSome
 

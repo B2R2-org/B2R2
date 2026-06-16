@@ -128,6 +128,13 @@ let getFunctionAddresses (file: IBinFile) =
   | Some structure -> structure.GetFunctionAddresses()
   | None -> [||]
 
+/// Returns all relocations in the given binary file.
+[<CompiledName "GetRelocations">]
+let getRelocations (file: IBinFile) =
+  match file.Relocations with
+  | Some relocs -> relocs.GetRelocations()
+  | None -> [||]
+
 /// Checks if the given address has relocation information.
 [<CompiledName "ContainsRelocation">]
 let containsRelocation (file: IBinFile) addr =
@@ -140,6 +147,14 @@ let containsRelocation (file: IBinFile) addr =
 let tryGetRelocatedAddr (file: IBinFile) relocAddr =
   match file.Relocations with
   | Some relocs -> relocs.TryGetRelocatedAddr relocAddr
+  | None -> Error ErrorCase.ItemNotFound
+
+/// Tries to resolve the relocation at the given address to an internal
+/// function defined within the given binary file itself.
+[<CompiledName "TryGetInternalFunctionAddr">]
+let tryGetInternalFunctionAddr (file: IBinFile) relocAddr =
+  match file.Relocations with
+  | Some relocs -> relocs.TryGetInternalFunctionAddr relocAddr
   | None -> Error ErrorCase.ItemNotFound
 
 /// Returns all imported symbols from the given binary file.

@@ -69,9 +69,10 @@ type CFGBuilderTable<'FnCtx,
       builder
 
   let loadFromPLT (elf: ELFBinFile) =
+    let file = elf :> IBinFile
     elf.PLT
     |> NoOverlapIntervalMap.iter (fun range entry ->
-      match ELF.findInternalFuncReloc elf entry with
+      match BinFileOps.tryGetInternalFunctionAddr file entry.TableAddress with
       | Ok fnAddr ->
         (* We create a mapping from a PLT address to an internal function
            address because some static binaries have a PLT entry for an internal

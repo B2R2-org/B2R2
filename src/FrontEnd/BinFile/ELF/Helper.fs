@@ -73,6 +73,21 @@ let getRelocatedAddr (relocInfo: RelocationInfo) relocAddr =
     | _ -> Error ErrorCase.ItemNotFound
   | _ -> Error ErrorCase.ItemNotFound
 
+let tryGetInternalFuncAddr (reloc: RelocationEntry) =
+  match reloc.RelSymbol with
+  | Some relSym ->
+    if relSym.SymType = SymbolType.STT_FUNC then
+      match relSym.ParentSection with
+      | Some parent ->
+        if parent.SecName = Section.Text then Ok relSym.Addr
+        else Error ErrorCase.SymbolNotFound
+      | _ -> Error ErrorCase.SymbolNotFound
+    else Error ErrorCase.SymbolNotFound
+  | None ->
+    match reloc.RelKind with
+    | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE -> Ok reloc.RelAddend
+    | _ -> Error ErrorCase.SymbolNotFound
+
 let getFuncAddrsFromLibcArr span toolBox relocInfo section =
   let readType = toolBox.Header.Class
   let entrySize = WordSize.toByteWidth readType

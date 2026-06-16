@@ -15,6 +15,7 @@
     <Compile Include="BinSection.fs" />
     <Compile Include="BinSegment.fs" />
     <Compile Include="BinImport.fs" />
+    <Compile Include="BinRelocation.fs" />
     <Compile Include="IBinMetadata.fs" />
     <Compile Include="IBinProperty.fs" />
     <Compile Include="ISymbolMetadata.fs" />

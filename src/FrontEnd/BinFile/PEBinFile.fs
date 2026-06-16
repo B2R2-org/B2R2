@@ -181,10 +181,15 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let relocations =
     Some { new IRelocationTable with
+      member _.GetRelocations() = Relocation.getRelocations pe
+
       member _.ContainsRelocation addr = Relocation.contains pe addr
 
       member _.TryGetRelocatedAddr relocAddr =
         Relocation.tryGetRelocatedAddr bytes pe relocAddr
+
+      member _.TryGetInternalFunctionAddr _relocAddr =
+        Error ErrorCase.SymbolNotFound
     }
 
   let importEntries =
