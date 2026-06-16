@@ -34,67 +34,41 @@ open B2R2.FrontEnd.BinFile
 /// support ELF binaries.
 /// </summary>
 type ExceptionInfo(liftingUnit: LiftingUnit) =
-  let loadCallSiteTable lsdaPointer lsdaTbl =
-    let lsda: ELF.LSDA = Map.find lsdaPointer lsdaTbl
-    lsda.CallSiteTable
-
-  /// If a landing pad has a direct branch to another function, then we consider
-  /// the frame containing the lading pad as a non-function FDE.
-  let checkIfFDEIsFunction (fde: ELF.FDE) landingPad =
-    match liftingUnit.ParseBBlock(addr = landingPad) with
+  /// If a handler has a direct branch to another function, then we consider the
+  /// frame containing the handler as a non-function frame.
+  let checkIfFrameIsFunction (frame: BinExceptionFrame) handler =
+    match liftingUnit.ParseBBlock(addr = handler) with
     | Ok(blk) ->
       let last = blk[blk.Length - 1]
       if not last.IsCall then
         match last.DirectBranchTarget() with
-        | true, jmpTarget -> fde.PCBegin <= jmpTarget && jmpTarget < fde.PCEnd
+        | true, jmpTarget ->
+          frame.FunctionStart <= jmpTarget && jmpTarget < frame.FunctionEnd
         | _ -> true
       else true
     | _ -> true
 
-  let rec loopCallSiteTable (fde: ELF.FDE) isFDEFunc acc rs =
-    match rs with
-    | [] -> acc, isFDEFunc
-    | (csrec: ELF.CallSiteRecord) :: rest ->
-      let blockStart = fde.PCBegin + csrec.Position
-      let blockEnd = fde.PCBegin + csrec.Position + csrec.Length - 1UL
-      let landingPad =
-        if csrec.LandingPad = 0UL then 0UL else fde.PCBegin + csrec.LandingPad
-      if landingPad = 0UL then loopCallSiteTable fde isFDEFunc acc rest
-      else
-        let range = AddrRange.create blockStart blockEnd
-        let acc = NoOverlapIntervalMap.add range landingPad acc
-        let isFDEFunc = checkIfFDEIsFunction fde landingPad
-        loopCallSiteTable fde isFDEFunc acc rest
-
-  let buildExceptionTable (fde: ELF.FDE) lsdaTbl tbl =
-    match fde.LSDAPointer with
-    | None -> tbl, true
-    | Some lsdaPointer ->
-      loopCallSiteTable fde true tbl (loadCallSiteTable lsdaPointer lsdaTbl)
+  let loopHandlers (frame: BinExceptionFrame) acc =
+    frame.Handlers
+    |> Array.fold (fun (tbl, isFunc) handler ->
+      match handler.Handler with
+      | Some landingPad ->
+        let range = AddrRange.create handler.BlockStart handler.BlockEnd
+        let tbl = NoOverlapIntervalMap.add range landingPad tbl
+        tbl, checkIfFrameIsFunction frame landingPad
+      | None -> tbl, isFunc) (acc, true)
 
   let fnRanges = Dictionary<Addr, Addr>()
 
-  let accumulateExceptionTableInfo acc fdes lsdaTbl =
-    fdes
-    |> Array.fold (fun exnTbl fde ->
-       let exnTbl, isFDEFunction = buildExceptionTable fde lsdaTbl exnTbl
-       if isFDEFunction then
-        fnRanges[fde.PCBegin] <- fde.PCEnd - 1UL
-       else ()
-       exnTbl) acc
-
-  let computeExceptionTable excframes lsdaTbl =
-    excframes
-    |> List.fold (fun acc (cfi: ELF.CFI) ->
-      accumulateExceptionTableInfo acc cfi.FDEs lsdaTbl
-    ) NoOverlapIntervalMap.empty
+  let buildExceptionTable acc (frame: BinExceptionFrame) =
+    let tbl, isFunc = loopHandlers frame acc
+    if isFunc then fnRanges[frame.FunctionStart] <- frame.FunctionEnd - 1UL
+    else ()
+    tbl
 
   let exnTbl =
-    match liftingUnit.File.Format with
-    | FileFormat.ELFBinary ->
-      let elf = liftingUnit.File :?> ELFBinFile
-      computeExceptionTable elf.ExceptionFrame elf.LSDATable
-    | _ -> NoOverlapIntervalMap.empty
+    BinFileOps.getExceptionFrames liftingUnit.File
+    |> Array.fold buildExceptionTable NoOverlapIntervalMap.empty
 
   new(hdl: BinHandle) = ExceptionInfo(hdl.NewLiftingUnit())
 

@@ -17,6 +17,7 @@
     <Compile Include="BinImport.fs" />
     <Compile Include="BinRelocation.fs" />
     <Compile Include="BinSymbol.fs" />
+    <Compile Include="BinExceptionFrame.fs" />
     <Compile Include="IBinMetadata.fs" />
     <Compile Include="IBinProperty.fs" />
     <Compile Include="ISymbolTable.fs" />
@@ -25,6 +26,7 @@
     <Compile Include="IBinStructure.fs" />
     <Compile Include="IImportTable.fs" />
     <Compile Include="IRelocationTable.fs" />
+    <Compile Include="IExceptionTable.fs" />
     <Compile Include="IBinFile.fs" />
     <Compile Include="BinFileOps.fs" />
     <Compile Include="NameResolver.fs" />

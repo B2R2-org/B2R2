@@ -301,6 +301,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.Relocations with get() = relocations
 
+    member _.ExceptionTable with get() = None
+
     member _.ImportTable with get() = importTable
 
     member _.MemoryLayout with get() = memoryLayout

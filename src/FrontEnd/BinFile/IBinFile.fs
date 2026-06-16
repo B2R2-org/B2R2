@@ -55,6 +55,10 @@ type IBinFile =
   /// Returns a relocation table if this binary format has relocations.
   abstract Relocations: IRelocationTable option
 
+  /// Returns an exception table if this binary format provides exception
+  /// (unwinding) information.
+  abstract ExceptionTable: IExceptionTable option
+
   /// Returns an import table if this binary format has imported symbols.
   abstract ImportTable: IImportTable option
 

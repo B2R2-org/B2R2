@@ -171,6 +171,13 @@ let tryGetInternalFunctionAddr (file: IBinFile) relocAddr =
   | Some relocs -> relocs.TryGetInternalFunctionAddr relocAddr
   | None -> Error ErrorCase.ItemNotFound
 
+/// Returns all per-function exception frames of the given binary file.
+[<CompiledName "GetExceptionFrames">]
+let getExceptionFrames (file: IBinFile) =
+  match file.ExceptionTable with
+  | Some exnTable -> exnTable.Frames
+  | None -> [||]
+
 /// Returns all imported symbols from the given binary file.
 [<CompiledName "GetImports">]
 let getImports (file: IBinFile) =

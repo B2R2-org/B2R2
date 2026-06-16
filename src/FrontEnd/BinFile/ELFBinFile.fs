@@ -270,6 +270,36 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         | Error e -> Error e
     }
 
+  let toExceptionHandlers (fde: FDE) =
+    match fde.LSDAPointer with
+    | None -> [||]
+    | Some p ->
+      match Map.tryFind p exn.Value.LSDATable with
+      | None -> [||]
+      | Some lsda ->
+        lsda.CallSiteTable
+        |> List.map (fun cs ->
+          { BlockStart = fde.PCBegin + cs.Position
+            BlockEnd = fde.PCBegin + cs.Position + cs.Length - 1UL
+            Handler =
+              if cs.LandingPad = 0UL then None
+              else Some(fde.PCBegin + cs.LandingPad) })
+        |> List.toArray
+
+  let exceptionFrames =
+    lazy
+      [| for cfi in exn.Value.ExceptionFrame do
+           for fde in cfi.FDEs do
+             { FunctionStart = fde.PCBegin
+               FunctionEnd = fde.PCEnd
+               PersonalityRoutine = None
+               Handlers = toExceptionHandlers fde } |]
+
+  let exceptionTable =
+    Some { new IExceptionTable with
+      member _.Frames = exceptionFrames.Value
+    }
+
   let importEntries =
     lazy
       plt.Value
@@ -402,6 +432,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.Structure with get() = structure
 
     member _.Relocations with get() = relocations
+
+    member _.ExceptionTable with get() = exceptionTable
 
     member _.ImportTable with get() = importTable
 

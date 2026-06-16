@@ -82,6 +82,8 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.Relocations with get() = None
 
+    member _.ExceptionTable with get() = None
+
     member _.ImportTable with get() = None
 
     member _.MemoryLayout with get() = memoryLayout

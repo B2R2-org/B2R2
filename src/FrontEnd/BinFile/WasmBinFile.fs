@@ -218,6 +218,8 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.Relocations with get() = None
 
+    member _.ExceptionTable with get() = None
+
     member _.ImportTable with get() = importTable
 
     member _.MemoryLayout with get() = None
