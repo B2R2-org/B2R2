@@ -78,6 +78,8 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.BaseAddress with get() = 0UL
 
+    member _.InterpreterPath with get() = None
+
     member _.IsNXEnabled with get() = false
 
     member _.IsPIE with get() = false

@@ -347,6 +347,13 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     Some { new IMemoryLayout with
       member _.GetSegments() = segments.Value }
 
+  let interpreterPath =
+    lazy
+      phdrs.Value
+      |> Array.tryFind (fun ph -> ph.PHType = ProgramHeaderType.PT_INTERP)
+      |> Option.map (fun ph ->
+        readCString (System.ReadOnlySpan bytes) (int ph.PHOffset))
+
   /// ELF Header information.
   member internal _.Header with get() = hdr
 
@@ -421,6 +428,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.EntryPoint with get() = Some hdr.EntryPoint
 
     member _.BaseAddress with get() = toolBox.BaseAddress
+
+    member _.InterpreterPath with get() = interpreterPath.Value
 
     member _.IsNXEnabled with get() =
       let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK

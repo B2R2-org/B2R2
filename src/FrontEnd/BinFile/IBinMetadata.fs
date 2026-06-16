@@ -52,3 +52,9 @@ type IBinMetadata =
   /// The base address of the associated binary at which it is preferred to be
   /// loaded in memory.
   abstract BaseAddress: Addr
+
+  /// The path to the dynamic loader/interpreter requested by this binary, if
+  /// any. ELF exposes it via the PT_INTERP program header and Mach-O via the
+  /// LC_LOAD_DYLINKER load command; formats that record no loader path (e.g.,
+  /// PE) return None.
+  abstract InterpreterPath: string option

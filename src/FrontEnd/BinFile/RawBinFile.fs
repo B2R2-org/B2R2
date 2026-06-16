@@ -70,6 +70,8 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.BaseAddress with get() = baseAddr
 
+    member _.InterpreterPath with get() = None
+
     member _.IsNXEnabled with get() = false
 
     member _.IsPIE with get() = false

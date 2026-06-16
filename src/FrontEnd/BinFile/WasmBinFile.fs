@@ -206,6 +206,8 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.BaseAddress with get() = baseAddr
 
+    member _.InterpreterPath with get() = None
+
     member _.IsNXEnabled with get() = true
 
     member _.IsPIE with get() = false

@@ -283,6 +283,11 @@ type MachTests() =
     Assert.AreEqual(true, (x64File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
+  member _.``[Mach] X64 InterpreterPath test``() =
+    let actual = (x64File :> IBinFile).InterpreterPath
+    Assert.AreEqual<string option>(Some "/usr/lib/dyld", actual)
+
+  [<TestMethod>]
   member _.``[Mach] X64 sections length test``() =
     Assert.AreEqual<int>(13, x64File.Sections.Length)
 

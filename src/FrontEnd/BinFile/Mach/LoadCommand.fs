@@ -37,6 +37,9 @@ type internal LoadCommand =
   | DySymTab of cmd: CmdType * size: uint32 * DySymTabCmd
   /// Dynamic shared library command (LC_LOAD_DYLIB).
   | DyLib of cmd: CmdType * size: uint32 * DyLibCmd
+  /// Dynamic linker command (LC_LOAD_DYLINKER), carrying the path to the
+  /// dynamic linker requested by this binary.
+  | DyLinker of cmd: CmdType * size: uint32 * path: string
   /// Dynamic linker information command (LC_DYLD_INFO or LC_DYLD_INFO_ONLY).
   | DyLdInfo of cmd: CmdType * size: uint32 * DyLdInfoCmd
   /// Function starts command (LC_FUNCTION_STARTS).

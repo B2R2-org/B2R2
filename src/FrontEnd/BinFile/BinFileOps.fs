@@ -59,6 +59,11 @@ let isStripped (file: IBinFile) =
 [<CompiledName "GetFileKind">]
 let getFileKind (file: IBinFile) = file.Kind
 
+/// Returns the path to the dynamic loader/interpreter requested by the given
+/// binary file, if any.
+[<CompiledName "GetInterpreterPath">]
+let getInterpreterPath (file: IBinFile) = file.InterpreterPath
+
 /// Checks whether the given binary file is an executable program.
 [<CompiledName "IsExecutable">]
 let isExecutable (file: IBinFile) = file.Kind = BinFileKind.Executable

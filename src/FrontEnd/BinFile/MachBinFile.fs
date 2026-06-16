@@ -58,6 +58,11 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   let dynamicSymbols =
     lazy (enumSymbols.Value |> Array.filter (Symbol.IsStatic >> not))
   let entryPoint = lazy computeEntryPoint segCmds.Value cmds.Value
+  let interpreterPath =
+    lazy (cmds.Value
+          |> Array.tryPick (function
+            | DyLinker(_, _, path) -> Some path
+            | _ -> None))
 
   let machSymKind secText (s: Symbol) =
     if Symbol.IsFunc(secText, s) then FunctionSymbol
@@ -352,6 +357,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
     member _.EntryPoint with get() = entryPoint.Value
 
     member _.BaseAddress with get() = toolBox.BaseAddress
+
+    member _.InterpreterPath with get() = interpreterPath.Value
 
     member _.IsNXEnabled with get() = isNXEnabled toolBox.Header
 

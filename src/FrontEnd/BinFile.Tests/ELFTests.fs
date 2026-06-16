@@ -80,6 +80,11 @@ type ELFTests() =
     Assert.AreEqual<bool>(true, (x86File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
+  member _.``[ELF] X86 InterpreterPath test``() =
+    let actual = (x86File :> IBinFile).InterpreterPath
+    Assert.AreEqual<string option>(Some "/lib/ld-linux.so.2", actual)
+
+  [<TestMethod>]
   member _.``[ELF] X86 sections length test``() =
     Assert.AreEqual<int>(31, x86File.SectionHeaders.Length)
 
@@ -225,6 +230,11 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] X64 IsNXEnabled test``() =
     Assert.AreEqual<bool>(true, (x64File :> IBinFile).IsNXEnabled)
+
+  [<TestMethod>]
+  member _.``[ELF] X64 InterpreterPath test``() =
+    let actual = (x64File :> IBinFile).InterpreterPath
+    Assert.AreEqual<string option>(Some "/lib64/ld-linux-x86-64.so.2", actual)
 
   [<TestMethod>]
   member _.``[ELF] X64 sections length test``() =
