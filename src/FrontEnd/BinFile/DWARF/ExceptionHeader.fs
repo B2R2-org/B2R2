@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
+namespace B2R2.FrontEnd.BinFile.DWARF
 
 /// Represents the application type of the value in the DWARF exception header
 /// encoded as the upper 4 bits of a byte.

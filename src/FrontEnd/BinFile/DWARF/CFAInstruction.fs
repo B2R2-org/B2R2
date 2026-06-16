@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
+namespace B2R2.FrontEnd.BinFile.DWARF
 
 /// Represents call frame instructions used for virtually unwinding stack.
 type internal CFAInstruction =

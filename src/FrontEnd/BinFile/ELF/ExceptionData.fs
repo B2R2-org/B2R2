@@ -24,7 +24,9 @@
 
 namespace B2R2.FrontEnd.BinFile.ELF
 
+open System
 open B2R2
+open B2R2.FrontEnd.BinFile.DWARF
 
 /// Represents exception information.
 type internal ExceptionData =
@@ -36,6 +38,10 @@ type internal ExceptionData =
     UnwindingTbl: Map<Addr, UnwindingEntry> }
 
 module internal ExceptionData =
+  let [<Literal>] private EHFrameSection = ".eh_frame"
+
+  let [<Literal>] private GccExceptTableSection = ".gcc_except_table"
+
   let private computeUnwindingTable exns =
     exns
     |> List.fold (fun tbl (f: CFI) ->
@@ -44,13 +50,44 @@ module internal ExceptionData =
           Map.add i.Location i tbl) tbl
         ) tbl) Map.empty
 
+  /// Builds a relocation resolver for FDE begin addresses. Only relocatable
+  /// objects (ET_REL) carry such relocations; other files resolve to None.
+  let private makeResolver hdr (reloc: RelocationInfo) =
+    if hdr.ELFType = ELFType.ET_REL then
+      fun addr ->
+        match reloc.TryFind addr with
+        | Ok rentry -> Some rentry.RelAddend
+        | Error _ -> None
+    else fun _ -> None
+
+  let private parseFrames toolBox cls isa shdrs regFactory resolveReloc =
+    match Array.tryFind (fun s -> s.SecName = EHFrameSection) shdrs,
+          regFactory with
+    | Some sec, Some rf ->
+      let dwSec: DWARFSection =
+        { Image = toolBox.Bytes
+          Offset = int sec.SecOffset
+          Size = int sec.SecSize
+          Address = sec.SecAddr }
+      ExceptionFrame.parseFromSection
+        toolBox.Reader cls isa rf resolveReloc dwSec
+    | _ -> []
+
+  let private parseLSDAs toolBox cls shdrs =
+    match Array.tryFind (fun s -> s.SecName = GccExceptTableSection) shdrs with
+    | Some sec ->
+      let offset, size = int sec.SecOffset, int sec.SecSize
+      let span = ReadOnlySpan(toolBox.Bytes, offset, size)
+      LSDATable.parseFromSection cls span toolBox.Reader sec.SecAddr 0 Map.empty
+    | None -> Map.empty
+
   let parse toolBox shdrs regFactory reloc =
     let hdr = toolBox.Header
     let cls = hdr.Class
     let isa = toolBox.ISA
-    let relocInfo = if hdr.ELFType = ELFType.ET_REL then Some reloc else None
-    let exns = ExceptionFrame.parse toolBox cls shdrs isa regFactory relocInfo
-    let lsdas = LSDATable.parse toolBox cls shdrs
+    let resolveReloc = makeResolver hdr reloc
+    let exns = parseFrames toolBox cls isa shdrs regFactory resolveReloc
+    let lsdas = parseLSDAs toolBox cls shdrs
     match exns with
     | [] when isa.Arch = Architecture.ARMv7 ->
       let struct (exns, lsdas) = ARMExceptionData.parse toolBox cls shdrs

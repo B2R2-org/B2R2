@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
+namespace B2R2.FrontEnd.BinFile.DWARF
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
@@ -34,6 +34,12 @@ type internal FDE =
     PCEnd: Addr
     LSDAPointer: Addr option
     UnwindingInfo: UnwindingEntry list }
+
+/// Resolves the relocation addend to apply at the given (pc-relative-adjusted)
+/// FDE begin address, if a relocation exists there. This is needed for
+/// relocatable objects (e.g., ELF ET_REL); formats or files without such
+/// relocations can supply a resolver that always returns None.
+type internal RelocationResolver = Addr -> uint64 option
 
 [<RequireQualifiedAccess>]
 module internal FDE =
@@ -48,7 +54,7 @@ module internal FDE =
     | ExceptionHeaderApplication.DW_EH_PE_pcrel -> addr + myAddr
     | _ -> addr
 
-  let parsePCInfo cls span reader sAddr relOpt venc aenc offset =
+  let parsePCInfo cls span reader sAddr resolveReloc venc aenc offset =
     let myAddr = sAddr + uint64 offset
     let struct (addr, offset) =
       ExceptionHeaderValue.read cls span reader venc offset
@@ -56,13 +62,10 @@ module internal FDE =
       ExceptionHeaderValue.read cls span reader venc offset
     let beginAddr = adjustAddr aenc myAddr addr
     let endAddr = beginAddr + range
-    match (relOpt: RelocationInfo option) with
-    | Some relInfo ->
-      match relInfo.TryFind beginAddr with
-      | Ok rentry ->
-        let beginAddr = addr + rentry.RelAddend
-        struct (beginAddr, beginAddr + range, offset)
-      | Error _ -> struct (beginAddr, endAddr, offset)
+    match (resolveReloc: RelocationResolver) beginAddr with
+    | Some addend ->
+      let beginAddr = addr + addend
+      struct (beginAddr, beginAddr + range, offset)
     | None -> struct (beginAddr, endAddr, offset)
 
   let parseLSDA cls span reader sAddr aug offset =
@@ -87,7 +90,7 @@ module internal FDE =
         CIE.getUnwind [] cfa r [] r isa registerFactory ir cf df rr span 0 loc
       info
 
-  let parse cls isa regs span reader sAddr offset nextOffset reloc cie =
+  let parse cls isa regs span reader sAddr offset nextOffset resolveReloc cie =
     match cie with
     | Some cie ->
       let venc, aenc =
@@ -96,7 +99,7 @@ module internal FDE =
         | None -> ExceptionHeaderValue.DW_EH_PE_absptr,
                   ExceptionHeaderApplication.DW_EH_PE_omit
       let struct (b, e, offset) =
-        parsePCInfo cls span reader sAddr reloc venc aenc offset
+        parsePCInfo cls span reader sAddr resolveReloc venc aenc offset
       let lsdaPointer, offset =
         match tryFindAugmentation cie 'L' with
         | Some aug -> parseLSDA cls span reader sAddr aug offset

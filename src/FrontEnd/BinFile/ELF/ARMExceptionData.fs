@@ -28,6 +28,7 @@ module internal B2R2.FrontEnd.BinFile.ELF.ARMExceptionData
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile.DWARF
 
 /// This is a value that the index table can have.
 type ExceptionIndexValue =

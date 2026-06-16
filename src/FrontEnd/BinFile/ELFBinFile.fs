@@ -28,6 +28,7 @@ open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
+open B2R2.FrontEnd.BinFile.DWARF
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinFile.ELF.Helper
 
