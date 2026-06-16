@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents a Mach-O section.
-type Section =
+type internal Section =
   { /// Section name.
     SecName: string
     /// The name of the segment that should eventually contain this section.

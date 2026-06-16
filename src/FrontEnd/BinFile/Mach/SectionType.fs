@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.Mach
 
 /// Represents the type of a Mach-O section.
-type SectionType =
+type internal SectionType =
   /// Regular section.
   | S_REGULAR = 0x0
   /// Zero fill on demand section.

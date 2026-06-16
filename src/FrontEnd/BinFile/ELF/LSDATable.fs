@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 /// Represents a map from the address of the LSDA to the LSDA itself. LSDATable
 /// is used to store the parsed LSDA entries from the `.gcc_except_table`
 /// section of the ELF file.
-type LSDATable = Map<Addr, LSDA>
+type internal LSDATable = Map<Addr, LSDA>
 
 [<RequireQualifiedAccess>]
 module internal LSDATable =

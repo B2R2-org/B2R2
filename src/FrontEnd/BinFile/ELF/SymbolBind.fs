@@ -26,7 +26,7 @@ namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents a symbol's binding, which determines the linkage visibility and
 /// behavior.
-type SymbolBind =
+type internal SymbolBind =
   /// Local symbols are not visible outside. Local symbols of the same name may
   /// exist in multiple files without interfering with each other.
   | STB_LOCAL = 0uy
@@ -46,7 +46,7 @@ type SymbolBind =
 
 /// Provides functions to convert a SymbolBind to a string and vice versa.
 [<RequireQualifiedAccess>]
-module SymbolBind =
+module internal SymbolBind =
   open B2R2
 
   [<CompiledName "ToString">]

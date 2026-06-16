@@ -32,7 +32,7 @@ open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents a program header in ELF. A program header describes a segment of
 /// the program.
-type ProgramHeader =
+type internal ProgramHeader =
   { /// Program header type.
     PHType: ProgramHeaderType
     /// Flags relevant to the segment.
@@ -56,7 +56,7 @@ type ProgramHeader =
     PHAlignment: uint64 }
 with
   /// Converts the PHFlags field of a program header to a Permission value.
-  static member inline FlagsToPerm(flag: int): Permission =
+  static member FlagsToPerm(flag: int): Permission =
     flag &&& 7 |> LanguagePrimitives.EnumOfValue
 
 [<RequireQualifiedAccess>]

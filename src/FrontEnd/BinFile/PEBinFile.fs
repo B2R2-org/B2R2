@@ -246,30 +246,30 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   new(path, bytes, rawpdb) = PEBinFile(path, bytes, None, rawpdb)
 
   /// Returns the base address.
-  member _.BaseAddress with get() = pe.BaseAddr
+  member internal _.BaseAddress with get() = pe.BaseAddr
 
   /// Returns the PEHeaders.
-  member _.PEHeaders with get() = pe.PEHeaders
+  member internal _.PEHeaders with get() = pe.PEHeaders
 
   /// Returns the section headers.
-  member _.SectionHeaders with get() = pe.SectionHeaders
+  member internal _.SectionHeaders with get() = pe.SectionHeaders
 
   /// Returns the list of relocation blocks.
-  member _.RelocBlocks with get() = pe.RelocBlocks
+  member internal _.RelocBlocks with get() = pe.RelocBlocks
 
   /// Returns the symbol store.
-  member _.Symbols with get() = pe.Symbols
+  member internal _.Symbols with get() = pe.Symbols
 
   /// Returns the imported symbols.
-  member _.ImportedSymbols with get() = pe.ImportedSymbols
+  member internal _.ImportedSymbols with get() = pe.ImportedSymbols
 
   /// Returns the exported symbols.
-  member _.ExportedSymbols with get() = pe.ExportedSymbols
+  member internal _.ExportedSymbols with get() = pe.ExportedSymbols
 
-  member _.RawPDB with get() = rawpdb
+  member internal _.RawPDB with get() = rawpdb
 
   /// Finds the section index from the given RVA.
-  member _.FindSectionIdxFromRVA rva = pe.FindSectionIdxFromRVA rva
+  member internal _.FindSectionIdxFromRVA rva = pe.FindSectionIdxFromRVA rva
 
   interface IBinFile with
     member _.Reader with get() = pe.BinReader

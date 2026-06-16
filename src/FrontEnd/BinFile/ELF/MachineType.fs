@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents the target machine architecture of the ELF file.
-type MachineType =
+type internal MachineType =
   /// No machine
   | EM_NONE = 0x0s
   /// AT&T WE 32100

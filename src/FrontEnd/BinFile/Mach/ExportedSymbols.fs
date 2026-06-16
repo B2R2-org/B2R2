@@ -29,10 +29,10 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents an array of exported symbols.
-type ExportedSymbols = ExportedSymbol[]
+type internal ExportedSymbols = ExportedSymbol[]
 
 /// Represents an exported symbol.
-and ExportedSymbol =
+and internal ExportedSymbol =
   { /// Symbol name.
     ExportSymName: string
     /// Exported symbol address.

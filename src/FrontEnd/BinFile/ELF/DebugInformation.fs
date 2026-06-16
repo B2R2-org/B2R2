@@ -59,7 +59,7 @@ and internal DWAbbrevAttributeSpec =
     ImplicitConst: int64 option }
 
 /// Represents the main DWARF sections needed for parsing debug information.
-and DebugSections =
+and internal DebugSections =
   { InfoSection: SectionHeader option
     AbbrevSection: SectionHeader option
     StringSection: SectionHeader option

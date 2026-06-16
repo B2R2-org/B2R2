@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents a symbol's visibility
-type SymbolVisibility =
+type internal SymbolVisibility =
   /// Use the visibility specified by the symbol's binding type (SymbolBind).
   | STV_DEFAULT = 0x0uy
   /// This visibility attribute is currently reserved.
@@ -45,7 +45,7 @@ type SymbolVisibility =
 
 /// Provides functions to convert a SymbolVisibility to a string and vice versa.
 [<RequireQualifiedAccess>]
-module SymbolVisibility =
+module internal SymbolVisibility =
   open B2R2
 
   [<CompiledName "ToString">]

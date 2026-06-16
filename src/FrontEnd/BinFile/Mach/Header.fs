@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 
 /// Represents the header of Mach-O file format.
-type Header =
+type internal Header =
   { /// Magic number.
     Magic: Magic
     /// Word size.

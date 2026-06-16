@@ -33,10 +33,10 @@ open B2R2.FrontEnd.BinFile.PE.PEUtils
 
 /// Represents a collection of imported symbols in a PE file, which is located
 /// at the .idata section.
-type ImportedSymbolStore = Map<Addr, ImportedSymbol>
+type internal ImportedSymbolStore = Map<Addr, ImportedSymbol>
 
 /// Represents an imported symbol.
-and ImportedSymbol =
+and internal ImportedSymbol =
   /// Import by ordinal.
   | ByOrdinal of ordinal: int16 * dllname: string
   /// Import by name.

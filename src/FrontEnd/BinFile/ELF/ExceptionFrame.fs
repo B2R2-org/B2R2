@@ -28,13 +28,13 @@ open System
 open B2R2.FrontEnd.BinLifter
 
 /// Represents the exception frame, which is a list of CFI records.
-type ExceptionFrame = CFI list
+type internal ExceptionFrame = CFI list
 
 /// Represents the Call Frame Information (CFI), which is the main information
 /// block of .eh_frame. This exists roughly for every object file, although one
 /// object file may have multiple CFIs. Each CFI record contains a CIE record
 /// followed by 1 or more FDE records.
-and CFI =
+and internal CFI =
   { /// CIE record.
     CIE: CIE
     /// FDE records.

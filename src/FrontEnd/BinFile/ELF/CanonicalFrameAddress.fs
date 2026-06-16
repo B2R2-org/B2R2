@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents the CFA, machine-independent representation of the current frame
 /// address. For example, (esp+8) on x86.
-type CanonicalFrameAddress =
+type internal CanonicalFrameAddress =
   | RegPlusOffset of RegisterID * int
   | Expression of LowUIR.Expr
   | UnknownCFA

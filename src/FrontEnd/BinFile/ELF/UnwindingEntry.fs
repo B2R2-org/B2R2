@@ -29,7 +29,7 @@ open B2R2.BinIR
 
 /// Represents an entry (a row) of the call frame information table (i.e.,
 /// unwinding table).
-type UnwindingEntry =
+type internal UnwindingEntry =
   { /// Instruction location.
     Location: Addr
     /// CFA.
@@ -40,18 +40,18 @@ type UnwindingEntry =
 /// Represents a rule describing how a register or return address is saved on
 /// the stack frame. We can use the rule to find the value for the register in
 /// the previous frame.
-and UnwindingRule = Map<UnwindingTarget, UnwindingAction>
+and internal UnwindingRule = Map<UnwindingTarget, UnwindingAction>
 
 /// Represents a unwinding target, which can be either a return address or a
 /// normal register.
-and UnwindingTarget =
+and internal UnwindingTarget =
   | ReturnAddress
   | NormalReg of RegisterID
 
 /// Represents unwinding action that can be performed to restore a register
 /// value during stack unwinding. This is referred to as "register rules" in
 /// the DWARF specification.
-and UnwindingAction =
+and internal UnwindingAction =
   /// Has no recoverable value in the previous frame.
   | Undefined
   /// The register has not been modified from the previous frame.

@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 
 /// Represents the Frame Description Entry (FDE).
-type FDE =
+type internal FDE =
   { PCBegin: Addr
     PCEnd: Addr
     LSDAPointer: Addr option

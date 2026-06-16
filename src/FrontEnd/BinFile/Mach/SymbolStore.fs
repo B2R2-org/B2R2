@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents symbol info.
-type SymbolStore =
+type internal SymbolStore =
   { /// All symbols in symbol-table order (indexable by relocation symbolnum).
     SymbolArray: Symbol[]
     /// Address to symbol mapping.

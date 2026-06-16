@@ -28,7 +28,7 @@ open B2R2
 
 /// Represents the LSDA (Language Specific Data Area), which consists of a list
 /// of callsite records.
-type LSDA =
+type internal LSDA =
   { /// This is the value encoding of the landing pad pointer.
     LPValueEncoding: ExceptionHeaderValue
     /// This is the application encoding of the landing pad pointer.
@@ -53,7 +53,7 @@ type LSDA =
 /// Represents a callsite record in the LSDA. Each callsite record contains
 /// information about a callsite, including its position, length, landing pad,
 /// etc.
-and CallSiteRecord =
+and internal CallSiteRecord =
   { /// Offset of the callsite relative to the previous call site.
     Position: uint64
     /// Size of the callsite instruction(s).

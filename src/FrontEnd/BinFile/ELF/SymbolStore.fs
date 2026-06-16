@@ -211,7 +211,7 @@ module private SymbolTables =
     map
 
 /// Represents the main data structure for storing ELF symbol information.
-type SymbolStore internal(toolBox, shdrs) =
+type internal SymbolStore internal(toolBox, shdrs) =
   let staticSymbSecs =
     shdrs |> Array.filter (fun s -> s.SecType = SectionType.SHT_SYMTAB)
 

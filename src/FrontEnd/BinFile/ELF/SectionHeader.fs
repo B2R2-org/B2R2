@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents a section header in ELF.
-type SectionHeader =
+type internal SectionHeader =
   { /// Unique section number.
     SecNum: int
     /// The name of the section (sh_name).

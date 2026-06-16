@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents the form of a DWARF attribute value.
-type DWForm =
+type internal DWForm =
   | DW_FORM_addr = 0x01us
   | DW_FORM_block2 = 0x03us
   | DW_FORM_block4 = 0x04us

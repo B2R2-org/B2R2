@@ -28,7 +28,7 @@ namespace B2R2.FrontEnd.BinFile.PE
 /// information (typically located at the .idata section) begins with the import
 /// directory table, which describes the remainder of the import information.
 /// This type includes both delay IDT and normal IDT.
-type IDTEntry =
+type internal IDTEntry =
   { /// The RVA of the import lookup table.
     ImportLookupTableRVA: int
     /// The index of the first forwarder reference.

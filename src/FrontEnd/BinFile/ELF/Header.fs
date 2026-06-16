@@ -32,7 +32,7 @@ open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents the ELF header. This type corresponds to "struct ElfN_Ehdr" in
 /// the ELF specification.
-type Header =
+type internal Header =
   { /// 32-bit or 64-bit.
     Class: WordSize
     /// Little or big endian.

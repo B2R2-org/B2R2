@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// SuperBlock forms the header of a PDB file.
-type SuperBlock =
+type internal SuperBlock =
   { /// The block size of the internal file system. PDB can be considered as a
     /// file system within the file.
     BlockSize: int
@@ -49,7 +49,7 @@ type SuperBlock =
 /// The Stream Directory contains information about the other streams in an MSF
 /// file. MSF is a file system internally used in a PDB file, and a file in MSF
 /// is often called as a stream.
-type StreamDirectory =
+type internal StreamDirectory =
   { /// Number of streams.
     NumStreams: int
     /// The sizes of streams.
@@ -58,7 +58,7 @@ type StreamDirectory =
     StreamBlocks: int[][] }
 
 /// DBI stream version.
-type DBIStreamVersion =
+type internal DBIStreamVersion =
   | VC41 = 930803
   | V50 = 19960307
   | V60 = 19970606
@@ -66,7 +66,7 @@ type DBIStreamVersion =
   | V110 = 20091201
 
 /// DBI stream header.
-type DBIStreamHeader =
+type internal DBIStreamHeader =
   { /// Compiler version
     DBIVersion: DBIStreamVersion
     /// The index to the global stream.
@@ -81,7 +81,7 @@ type DBIStreamHeader =
 
 /// Module information follows immediately after the DBI stream header (struct
 /// ModInfo).
-type ModuleInfo =
+type internal ModuleInfo =
   { /// The section in the binary which contains the code/data from this module.
     SectionIndex: int
     /// The index of the stream that contains symbol information for
@@ -93,14 +93,14 @@ type ModuleInfo =
     ObjFileName: string }
 
 /// GSI (Global Symbol Information) hash header.
-type GSIHashHeader =
+type internal GSIHashHeader =
   { VersionSignature: uint32
     VersionHeader: uint32
     HashRecordSize: uint32
     NumBuckets: uint32 }
 
 /// GSI (Global Symbol Information) hash record.
-type GSIHashRecord =
+type internal GSIHashRecord =
   { /// An offset.
     HROffset: int
     /// A cross reference.

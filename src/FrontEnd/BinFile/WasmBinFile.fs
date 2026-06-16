@@ -183,9 +183,9 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
   new(path, bytes) = WasmBinFile(path, bytes, None)
 
-  member _.WASM with get() = wm
+  member internal _.WASM with get() = wm
 
-  member _.Sections with get() = wm.SectionsInfo.SecArray
+  member internal _.Sections with get() = wm.SectionsInfo.SecArray
 
   interface IBinFile with
     member _.Reader with get() = reader

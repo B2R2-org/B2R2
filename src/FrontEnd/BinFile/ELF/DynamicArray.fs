@@ -28,7 +28,7 @@ open System
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents a dynamic array entry in the .dynamic section of ELF binaries.
-type DynamicArrayEntry =
+type internal DynamicArrayEntry =
   { /// Kind of entry, which is defined by the d_tag field in the ELF
     /// specification.
     DTag: DTag
@@ -38,7 +38,7 @@ type DynamicArrayEntry =
     DVal: uint64 }
 
 /// Represents the dyanmic array entry kinds.
-and DTag =
+and internal DTag =
   /// Marks the end of the dynamic array.
   | DT_NULL = 0UL
   /// Holds the string table offset of a string that contains the name of a

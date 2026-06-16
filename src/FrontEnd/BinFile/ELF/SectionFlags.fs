@@ -28,7 +28,7 @@ open System
 
 /// Represents miscellaneous attributes of a section.
 [<FlagsAttribute>]
-type SectionFlags =
+type internal SectionFlags =
   /// This section contains data that should be writable during process
   /// execution.
   | SHF_WRITE = 0x1UL
@@ -70,7 +70,7 @@ type SectionFlags =
 
 /// Provides functions to convert section flags to string.
 [<RequireQualifiedAccess>]
-module SectionFlags =
+module internal SectionFlags =
   /// Returns the list of string representation of the section flags.
   let toList (flags: SectionFlags) =
     [ if flags.HasFlag SectionFlags.SHF_WRITE then "WRITE" else ()

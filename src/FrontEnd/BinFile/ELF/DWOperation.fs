@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents DWARF operation expressions.
-type DWOperation =
+type internal DWOperation =
   | DW_OP_lit0 = 0x30uy
   | DW_OP_lit1 = 0x31uy
   | DW_OP_lit2 = 0x32uy

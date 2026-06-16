@@ -33,4 +33,4 @@ namespace B2R2.FrontEnd.BinFile.PE
 /// <summary>
 /// Represents a section header in a PE file.
 /// </summary>
-type SectionHeader = System.Reflection.PortableExecutable.SectionHeader
+type internal SectionHeader = System.Reflection.PortableExecutable.SectionHeader

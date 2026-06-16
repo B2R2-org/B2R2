@@ -29,7 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents the Common Information Entry (CIE).
-type CIE =
+type internal CIE =
   { /// Version assigned to the call frame information structure.
     Version: uint8
     /// This value is a NUL terminated string that identifies the augmentation
@@ -53,7 +53,7 @@ type CIE =
     Augmentations: Augmentation list }
 
 /// Represents the CIE augmetation data.
-and Augmentation =
+and internal Augmentation =
   { Format: char
     ValueEncoding: ExceptionHeaderValue
     ApplicationEncoding: ExceptionHeaderApplication

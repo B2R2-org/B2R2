@@ -33,7 +33,7 @@ open B2R2.FrontEnd.BinFile.PE.PEUtils
 open B2R2.FrontEnd.BinLifter
 
 /// Main PE format representation.
-type PE =
+type internal PE =
   { /// PE headers.
     PEHeaders: PEHeaders
     /// Image base address.

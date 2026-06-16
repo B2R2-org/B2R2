@@ -28,7 +28,7 @@ open System
 
 /// Represents the attributes of Mach-O section.
 [<FlagsAttribute>]
-type SectionAttribute =
+type internal SectionAttribute =
   /// Section contains only true machine instructions.
   | S_ATTR_PURE_INSTRUCTIONS = 0x80000000
   /// Section contains coalesced symbols that are not to be in a ranlib table of

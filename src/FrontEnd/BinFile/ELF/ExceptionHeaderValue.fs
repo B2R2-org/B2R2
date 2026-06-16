@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinFile
 
 /// Represents the format of a value in the DWARF exception header encoded as
 /// the lower 4 bits of a byte.
-type ExceptionHeaderValue =
+type internal ExceptionHeaderValue =
   /// No value is present.
   | DW_EH_PE_omit = 0xff
   /// A literal pointer whose size is determined by the architecture.

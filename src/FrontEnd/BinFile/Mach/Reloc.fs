@@ -30,12 +30,12 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents a relocation symbol, which can either be a symbol index or a
 /// section ordinal.
-type RelocSymbol =
+type internal RelocSymbol =
   | SymIndex of idx: int (* Symbol table index *)
   | SecOrdinal of num: int (* Section number *)
 
 /// Represents relocation information in a Mach-O binary file.
-type RelocationInfo =
+type internal RelocationInfo =
   { /// Offset in the section to what is being relocated.
     RelocAddr: int
     /// RelocSymbol

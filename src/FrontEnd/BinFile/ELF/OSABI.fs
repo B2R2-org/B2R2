@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents the operating system or ABI used by the ELF file.
-type OSABI =
+type internal OSABI =
   /// UNIX System V ABI.
   | ELFOSABI_SYSV = 0uy
   /// HP-UX ABI.
@@ -62,7 +62,7 @@ type OSABI =
 /// cref='T:B2R2.FrontEnd.BinFile.ELF.OSABI'/>
 /// </summary>
 [<RequireQualifiedAccess>]
-module OSABI =
+module internal OSABI =
   /// <summary>
   /// Converts the OSABI to a string representation.
   /// </summary>

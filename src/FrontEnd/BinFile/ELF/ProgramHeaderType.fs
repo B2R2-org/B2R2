@@ -26,7 +26,7 @@ namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents what kind of segment this array element describes or how to
 /// interpret the array element's information.
-type ProgramHeaderType =
+type internal ProgramHeaderType =
   /// This program header is not used.
   | PT_NULL = 0x00u
   /// This is a loadable segment.
@@ -77,7 +77,7 @@ type ProgramHeaderType =
 
 /// Provides functions to convert program header type to a string
 [<RequireQualifiedAccess>]
-module ProgramHeaderType =
+module internal ProgramHeaderType =
   open B2R2
 
   /// Converts the program header type to a string.

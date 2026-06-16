@@ -131,7 +131,7 @@ module private ExportedSymbolStore =
       |> buildExportTable bytes reader baseAddr secs range
 
 /// Represents the exported symbols in a PE file.
-type ExportedSymbolStore private(exportMap, forwardMap) =
+type internal ExportedSymbolStore private(exportMap, forwardMap) =
 
   new() = ExportedSymbolStore(Map.empty, Map.empty)
 

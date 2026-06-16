@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.PE
 
 /// Represents the PDB symbol type (enum SYM_ENUM_e).
-type PDBSymbolKind =
+type internal PDBSymbolKind =
   /// Compile flags symbol.
   | S_COMPILE = 0x0001us
   /// Address of virtual function table.

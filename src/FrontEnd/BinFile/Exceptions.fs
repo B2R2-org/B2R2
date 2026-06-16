@@ -24,6 +24,12 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Runtime.CompilerServices
+
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinFile.Tests")>]
+[<assembly: InternalsVisibleTo("B2R2.RearEnd.BinScan")>]
+do ()
+
 /// <namespacedoc>
 ///   <summary>
 ///   Contains APIs for working with the file format of a binary, allowing

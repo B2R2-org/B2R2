@@ -28,7 +28,7 @@ open B2R2
 
 /// Represents a load command in a Mach-O file. Load commands are used to
 /// specify the logical structure and the layout of the Mach-O file.
-type LoadCommand =
+type internal LoadCommand =
   /// Segment command (LC_SEGMENT or LC_SEGMENT_64).
   | Segment of cmd: CmdType * size: uint32 * SegCmd
   /// Symbol table command (LC_SYMTAB).
@@ -49,7 +49,7 @@ type LoadCommand =
   | Unhandled of cmd: CmdType * size: uint32
 
 /// Represents a segment command.
-and SegCmd =
+and internal SegCmd =
   { /// The offset of the sections in the segment. If the segment has sections
     /// then the section structures directly follow the segment command
     ///  and their size is in the size of the command.
@@ -74,7 +74,7 @@ and SegCmd =
     SegFlag: uint32 }
 
 /// Represents a symbol table command.
-and SymTabCmd =
+and internal SymTabCmd =
   { /// An integer containing the byte offset from the start of the file to the
     /// location of the symbol table entries.
     SymOff: int
@@ -87,7 +87,7 @@ and SymTabCmd =
     StrSize: uint32 }
 
 /// Represents a dynamic symbol table command.
-and DySymTabCmd =
+and internal DySymTabCmd =
   { /// An integer indicating the index of the first symbol in the group
     /// of local symbols.
     IdxLocalSym: uint32
@@ -142,7 +142,7 @@ and DySymTabCmd =
     NumLocalRel: uint32 }
 
 /// Represents a DYLD information command (dyld_info_command).
-and DyLdInfoCmd =
+and internal DyLdInfoCmd =
   { /// File offset to rebase info.
     RebaseOff: int
     /// The size of rebase info.
@@ -165,20 +165,20 @@ and DyLdInfoCmd =
     ExportSize: uint32 }
 
 /// Represents a function starts command (LC_FUNCTION_STARTS).
-and FuncStartsCmd =
+and internal FuncStartsCmd =
   { DataOffset: int
     DataSize: uint32 }
 
 /// Represents a chained fixups command (LC_DYLD_CHAINED_FIXUPS). It points to
 /// the dyld_chained_fixups_header located in the __LINKEDIT segment.
-and ChainedFixupsCmd =
+and internal ChainedFixupsCmd =
   { /// File offset to the chained fixups data.
     FixupsDataOffset: int
     /// Size of the chained fixups data.
     FixupsDataSize: uint32 }
 
 /// Represents a main command.
-and MainCmd =
+and internal MainCmd =
   { /// Offset of main().
     EntryOff: Addr
     /// Initial stack size, if not zero.
@@ -186,7 +186,7 @@ and MainCmd =
 
 /// Represents a dynamic library command: the data used by the dynamic linker to
 /// match a shared library against the files that have linked to it.
-and DyLibCmd =
+and internal DyLibCmd =
   { /// Library's path name.
     DyLibName: string
     /// Library's build time stamp.

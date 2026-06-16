@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.Mach
 
 /// Represents the usage of the Mach-O file.
-type FileType =
+type internal FileType =
   /// Intermediate object files.
   | MH_OBJECT = 0x1
   /// Standard executable programs.

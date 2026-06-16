@@ -348,38 +348,38 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       member _.GetSegments() = segments.Value }
 
   /// ELF Header information.
-  member _.Header with get() = hdr
+  member internal _.Header with get() = hdr
 
   /// List of dynamic section entries.
-  member _.DynamicArrayEntries with get() = dynamicArray.Value
+  member internal _.DynamicArrayEntries with get() = dynamicArray.Value
 
   /// ELF program headers.
-  member _.ProgramHeaders with get() = phdrs.Value
+  member internal _.ProgramHeaders with get() = phdrs.Value
 
   /// ELF section headers.
-  member _.SectionHeaders with get() = shdrs.Value
+  member internal _.SectionHeaders with get() = shdrs.Value
 
   /// Exception information.
-  member _.ExceptionFrame with get() = exn.Value.ExceptionFrame
+  member internal _.ExceptionFrame with get() = exn.Value.ExceptionFrame
 
   /// LSDA table.
-  member _.LSDATable with get() = exn.Value.LSDATable
+  member internal _.LSDATable with get() = exn.Value.LSDATable
 
   /// Unwinding table.
-  member _.UnwindingTable with get() = exn.Value.UnwindingTbl
+  member internal _.UnwindingTable with get() = exn.Value.UnwindingTbl
 
   /// ELF symbol information.
-  member _.Symbols with get() = symbs.Value
+  member internal _.Symbols with get() = symbs.Value
 
   /// Relocation information.
-  member _.RelocationInfo with get() = relocs.Value
+  member internal _.RelocationInfo with get() = relocs.Value
 
   /// Debug information.
-  member _.DebugInfo with get() = dbginfo.Value
+  member internal _.DebugInfo with get() = dbginfo.Value
 
   /// Returns Global Pointer (GP) value when it is known. This is only available
   /// in MIPS binaries.
-  member _.GlobalPointer with get() =
+  member internal _.GlobalPointer with get() =
     match hdr.MachineType with
     | MachineType.EM_MIPS ->
       shdrs.Value
@@ -388,11 +388,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     | _ -> None
 
   /// Try to find a section by its name.
-  member _.TryFindSection(name: string) =
+  member internal _.TryFindSection(name: string) =
     shdrs.Value |> Array.tryFind (fun s -> s.SecName = name)
 
   /// Find a section by its index.
-  member _.FindSection(idx: int) = shdrs.Value[idx]
+  member internal _.FindSection(idx: int) = shdrs.Value[idx]
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader

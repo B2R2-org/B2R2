@@ -32,7 +32,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
-type CoffSymbolTypeLSB =
+type internal CoffSymbolTypeLSB =
   | ImageSymTypeNull = 0uy
   | ImageSymTypeVoid = 1uy
   | ImageSymTypeChar = 2uy
@@ -50,13 +50,13 @@ type CoffSymbolTypeLSB =
   | ImageSymTypeUInt = 14uy
   | ImageSymTypeDWord = 15uy
 
-type CoffSymbolTypeMSB =
+type internal CoffSymbolTypeMSB =
   | ImageSymDTypeNull = 0uy
   | ImageSymDTypePointer = 1uy
   | ImageSymDTypeFunction = 2uy
   | ImageSymDTypeArray = 3uy
 
-type StorageClass =
+type internal StorageClass =
   | ImageSymClassEndOfFunction = 0xffuy
   | ImageSymClassNull = 0uy
   | ImageSymClassAutomatic = 1uy
@@ -85,7 +85,7 @@ type StorageClass =
   | ImageSymClassWeakExternal = 105uy
   | ImageSymClassCLRToken = 107uy
 
-type CoffSymbol =
+type internal CoffSymbol =
   { SymbName: string
     SymbValue: int
     SecNumber: int

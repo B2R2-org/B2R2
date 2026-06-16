@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents a DWARF attribute.
-type DWAttribute =
+type internal DWAttribute =
   | DW_AT_sibling = 0x01us
   | DW_AT_location = 0x02us
   | DW_AT_name = 0x03us

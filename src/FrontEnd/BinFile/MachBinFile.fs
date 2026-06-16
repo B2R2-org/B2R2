@@ -311,21 +311,21 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
     Some { new IMemoryLayout with
       member _.GetSegments() = segments.Value }
 
-  member _.Header with get() = toolBox.Header
+  member internal _.Header with get() = toolBox.Header
 
-  member _.Commands with get() = cmds.Value
+  member internal _.Commands with get() = cmds.Value
 
-  member _.Sections with get() = secs.Value
+  member internal _.Sections with get() = secs.Value
 
-  member _.Symbols with get() = syms.Value
+  member internal _.Symbols with get() = syms.Value
 
-  member _.StaticSymbols with get() = staticSymbols.Value
+  member internal _.StaticSymbols with get() = staticSymbols.Value
 
-  member _.DynamicSymbols with get() = dynamicSymbols.Value
+  member internal _.DynamicSymbols with get() = dynamicSymbols.Value
 
-  member _.ExportedSymbols with get() = exports.Value
+  member internal _.ExportedSymbols with get() = exports.Value
 
-  member _.Relocations with get() = relocs.Value
+  member internal _.Relocations with get() = relocs.Value
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader

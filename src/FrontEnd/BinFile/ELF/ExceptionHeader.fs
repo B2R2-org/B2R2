@@ -26,7 +26,7 @@ namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents the application type of the value in the DWARF exception header
 /// encoded as the upper 4 bits of a byte.
-type ExceptionHeaderApplication =
+type internal ExceptionHeaderApplication =
   /// Value is relative to the current program counter.
   | DW_EH_PE_pcrel = 0x10
   /// Value is relative to the beginning of the .text section.

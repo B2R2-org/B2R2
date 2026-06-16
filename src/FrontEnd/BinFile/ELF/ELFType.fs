@@ -33,7 +33,7 @@ namespace B2R2.FrontEnd.BinFile.ELF
 /// <summary>
 /// Represents the ELF file type, such as ET_REL, ET_EXEC, etc.
 /// </summary>
-type ELFType =
+type internal ELFType =
   /// No file type.
   | ET_NONE = 0x0us
   /// Relocatable file.
@@ -50,7 +50,7 @@ type ELFType =
 /// cref='T:B2R2.FrontEnd.BinFile.ELF.ELFType'/>
 /// </summary>
 [<RequireQualifiedAccess>]
-module ELFType =
+module internal ELFType =
   /// <summary>
   /// Converts the ELF type to a string representation.
   /// </summary>

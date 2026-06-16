@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents call frame instructions used for virtually unwinding stack.
-type CFAInstruction =
+type internal CFAInstruction =
   /// Takes a single operand that represents a target address, and creates a
   /// new table row using the specified address as the location.
   | DW_CFA_set_loc = 0x01uy
