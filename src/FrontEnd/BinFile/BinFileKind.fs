@@ -24,31 +24,20 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open B2R2
-
-/// <summary>
-/// Represents an interface for accessing binary file metadata, such as its
-/// path, and file format.
-/// </summary>
-type IBinMetadata =
-  /// The file path where this file is located.
-  abstract Path: string
-
-  /// The format of this file: ELF, PE, Mach-O, or etc.
-  abstract Format: FileFormat
-
-  /// The high-level kind of this file: an executable, a shared library, an
-  /// object file, etc.
-  abstract Kind: BinFileKind
-
-  /// The ISA that this file expects to run on.
-  abstract ISA: ISA
-
-  /// The entry point of this binary (the start address that this binary runs
-  /// at). Note that some binaries (e.g., PE DLL files) do not have a specific
-  /// entry point, and EntryPoint will return None in such a case.
-  abstract EntryPoint: Addr option
-
-  /// The base address of the associated binary at which it is preferred to be
-  /// loaded in memory.
-  abstract BaseAddress: Addr
+/// Represents the high-level kind of a binary file, i.e., what the file is
+/// meant to be (a runnable program, a shared library, etc.), independent of the
+/// underlying file format.
+type BinFileKind =
+  /// A runnable program, covering both fixed-base and position-independent
+  /// (PIE) executables.
+  | Executable
+  /// A shared library, such as an ELF shared object (.so), a Mach-O dynamic
+  /// library (.dylib), or a PE DLL.
+  | SharedLibrary
+  /// A relocatable object file, such as an ELF or COFF object (.o).
+  | Object
+  /// A core dump.
+  | Core
+  /// The kind is unknown or not applicable, e.g., a raw byte blob or a bytecode
+  /// container.
+  | Unknown

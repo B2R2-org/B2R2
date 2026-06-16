@@ -198,6 +198,8 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.Format with get() = FileFormat.WasmBinary
 
+    member _.Kind with get() = BinFileKind.Unknown
+
     member _.ISA with get() = isa
 
     member _.EntryPoint with get() = entryPointOf wm

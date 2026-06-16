@@ -405,6 +405,17 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.Format with get() = FileFormat.ELFBinary
 
+    member _.Kind with get() =
+      match hdr.ELFType with
+      | ELFType.ET_REL -> BinFileKind.Object
+      | ELFType.ET_EXEC -> BinFileKind.Executable
+      | ELFType.ET_CORE -> BinFileKind.Core
+      | ELFType.ET_DYN ->
+        let pred e = e.DTag = DTag.DT_DEBUG
+        if Array.exists pred dynamicArray.Value then BinFileKind.Executable
+        else BinFileKind.SharedLibrary
+      | _ -> BinFileKind.Unknown
+
     member _.ISA with get() = toolBox.ISA
 
     member _.EntryPoint with get() = Some hdr.EntryPoint

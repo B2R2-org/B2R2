@@ -55,6 +55,26 @@ let isStripped (file: IBinFile) =
   |> Option.map (fun symbolTable -> symbolTable.IsStripped)
   |> Option.defaultValue false
 
+/// Returns the high-level kind of the given binary file.
+[<CompiledName "GetFileKind">]
+let getFileKind (file: IBinFile) = file.Kind
+
+/// Checks whether the given binary file is an executable program.
+[<CompiledName "IsExecutable">]
+let isExecutable (file: IBinFile) = file.Kind = BinFileKind.Executable
+
+/// Checks whether the given binary file is a shared library.
+[<CompiledName "IsSharedLibrary">]
+let isSharedLibrary (file: IBinFile) = file.Kind = BinFileKind.SharedLibrary
+
+/// Checks whether the given binary file is a relocatable object file.
+[<CompiledName "IsObjectFile">]
+let isObjectFile (file: IBinFile) = file.Kind = BinFileKind.Object
+
+/// Checks whether the given binary file is a core dump.
+[<CompiledName "IsCoreDump">]
+let isCoreDump (file: IBinFile) = file.Kind = BinFileKind.Core
+
 /// Returns all symbols in the given binary file.
 [<CompiledName "GetSymbols">]
 let getSymbols (file: IBinFile) =

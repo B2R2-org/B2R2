@@ -70,6 +70,8 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.Format with get() = FileFormat.PythonBinary
 
+    member _.Kind with get() = BinFileKind.Unknown
+
     member _.ISA with get() = ISA(Architecture.Python, Endian.Little)
 
     member _.EntryPoint with get() = Some 0UL

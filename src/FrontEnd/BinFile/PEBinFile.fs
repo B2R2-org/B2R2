@@ -282,6 +282,13 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.Format with get() = FileFormat.PEBinary
 
+    member _.Kind with get() =
+      let chr = pe.PEHeaders.CoffHeader.Characteristics
+      if chr.HasFlag Characteristics.Dll then BinFileKind.SharedLibrary
+      elif chr.HasFlag Characteristics.ExecutableImage then
+        BinFileKind.Executable
+      else BinFileKind.Object
+
     member _.ISA with get() = isa
 
     member _.EntryPoint with get() = getEntryPoint pe

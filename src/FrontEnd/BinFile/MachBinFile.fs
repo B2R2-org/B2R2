@@ -338,6 +338,15 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.Format with get() = FileFormat.MachBinary
 
+    member _.Kind with get() =
+      match toolBox.Header.FileType with
+      | FileType.MH_OBJECT -> BinFileKind.Object
+      | FileType.MH_EXECUTE | FileType.MH_PRELOAD -> BinFileKind.Executable
+      | FileType.MH_DYLIB | FileType.MH_FVMLIB
+      | FileType.MH_BUNDLE | FileType.MH_DYLIB_STUB -> BinFileKind.SharedLibrary
+      | FileType.MH_CORE -> BinFileKind.Core
+      | _ -> BinFileKind.Unknown
+
     member _.ISA with get() = toolBox.ISA
 
     member _.EntryPoint with get() = entryPoint.Value

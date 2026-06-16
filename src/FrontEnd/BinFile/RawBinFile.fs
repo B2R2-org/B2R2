@@ -62,6 +62,8 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.Format with get() = FileFormat.RawBinary
 
+    member _.Kind with get() = BinFileKind.Unknown
+
     member _.ISA with get() = isa
 
     member _.EntryPoint with get() = Some baseAddr
