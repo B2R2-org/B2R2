@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Mach
 open type FileFormat
@@ -39,7 +40,7 @@ type MachTests() =
     let zipFile = fileName + ".zip"
     let bytes = ZIPReader.readBytes MachBinary zipFile fileName
     let isa = ISA(arch, Endian.Little, wsz)
-    MachBinFile(fileName, bytes, isa, None)
+    MachBinFile(fileName, bytes, isa, None, None)
 
   let assertExistenceOfFlag (file: IBinFile) flags =
     Assert.AreEqual
@@ -75,6 +76,14 @@ type MachTests() =
 
   static let arm64eChainedFile =
     parseFile "mach_arm64e_chained" Architecture.ARMv8 WordSize.Bit64
+
+  /// A C++ binary with try/catch, so it carries DWARF CFI in __eh_frame and an
+  /// LSDA table in __gcc_except_tab. Exception parsing needs a register factory.
+  static let x64ExcFile =
+    let bytes = ZIPReader.readBytes MachBinary "mach_x64_exc.zip" "mach_x64_exc"
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let regFactory = B2R2.FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
+    MachBinFile("mach_x64_exc", bytes, isa, None, Some regFactory)
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped EntryPoint test``() =
@@ -394,3 +403,22 @@ type MachTests() =
   member _.``[Mach] X64_Stripped flags test``() =
     let flags = "MH_NOUNDEFS, MH_DYLDLINK, MH_TWOLEVEL, MH_PIE"
     assertExistenceOfFlag x64SFile flags
+
+  [<TestMethod>]
+  member _.``[Mach] X64 exception table is parsed``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    Assert.AreEqual<bool>(true, frames.Length > 0)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 exception frames have sane ranges``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let sane = frames |> Array.forall (fun f -> f.FunctionEnd > f.FunctionStart)
+    Assert.AreEqual<bool>(true, sane)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 exception handler landing pad is resolved``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let hasHandler =
+      frames |> Array.exists (fun f ->
+        f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
+    Assert.AreEqual<bool>(true, hasHandler)

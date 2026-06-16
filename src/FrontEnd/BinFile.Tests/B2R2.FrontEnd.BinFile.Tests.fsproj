@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
+    <ProjectReference Include="..\Intel\B2R2.FrontEnd.Intel.fsproj" />
   </ItemGroup>
 
 </Project>

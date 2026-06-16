@@ -28,11 +28,12 @@ open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
+open B2R2.FrontEnd.BinFile.DWARF
 open B2R2.FrontEnd.BinFile.Mach
 open B2R2.FrontEnd.BinFile.Mach.Helper
 
 /// Represents a Mach-O binary file.
-type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
+type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   let toolBox = Toolbox.Init(bytes, Header.parse bytes baseAddrOpt isa)
   let cmds = lazy LoadCommands.parse toolBox
   let segCmds = lazy Segment.extract cmds.Value
@@ -316,6 +317,38 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
     Some { new IMemoryLayout with
       member _.GetSegments() = segments.Value }
 
+  let exn = lazy ExceptionData.parse toolBox secs.Value regFactoryOpt
+
+  let toExceptionHandlers (fde: FDE) =
+    match fde.LSDAPointer with
+    | None -> [||]
+    | Some p ->
+      match Map.tryFind p exn.Value.LSDATable with
+      | None -> [||]
+      | Some lsda ->
+        lsda.CallSiteTable
+        |> List.map (fun cs ->
+          { BlockStart = fde.PCBegin + cs.Position
+            BlockEnd = fde.PCBegin + cs.Position + cs.Length - 1UL
+            Handler =
+              if cs.LandingPad = 0UL then None
+              else Some(fde.PCBegin + cs.LandingPad) })
+        |> List.toArray
+
+  let exceptionFrames =
+    lazy
+      [| for cfi in exn.Value.ExceptionFrame do
+           for fde in cfi.FDEs do
+             { FunctionStart = fde.PCBegin
+               FunctionEnd = fde.PCEnd
+               PersonalityRoutine = None
+               Handlers = toExceptionHandlers fde } |]
+
+  let exceptionTable =
+    Some { new IExceptionTable with
+      member _.Frames = exceptionFrames.Value
+    }
+
   member internal _.Header with get() = toolBox.Header
 
   member internal _.Commands with get() = cmds.Value
@@ -378,7 +411,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.Relocations with get() = relocations
 
-    member _.ExceptionTable with get() = None
+    member _.ExceptionTable with get() = exceptionTable
 
     member _.ImportTable with get() = importTable
 
