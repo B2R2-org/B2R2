@@ -48,19 +48,6 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let dbginfo = lazy DebugInformation.parse toolBox rfOpt shdrs.Value
   let dynamicArray = lazy DynamicArray.parse toolBox shdrs.Value
 
-  let nameResolver =
-    Some { new INameResolvable with
-      member _.TryFindName addr =
-        symbs.Value.TryFindSymbol addr
-        |> Result.map (fun s -> s.SymName)
-        |> function
-          | Ok name -> Ok name
-          | Error e ->
-            match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
-            | Some entry when entry.TableAddress = addr -> Ok entry.Name
-            | _ -> Error e
-    }
-
   let symKindOf (s: Symbol) =
     match s.SymType with
     | SymbolType.STT_FUNC
@@ -88,18 +75,30 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       Size = Some s.Size
       LibraryName = s.VerInfo |> Option.map (fun v -> v.VerName) }
 
-  let symbolTable =
-    Some { new ISymbolTable with
-      member _.IsStripped with get() =
-        shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
+  let symbolTableObj =
+    { new ISymbolTable with
+        member _.IsStripped with get() =
+          shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
 
-      member _.Symbols with get() =
-        Array.append symbs.Value.StaticSymbols symbs.Value.DynamicSymbols
-        |> Array.map toBinSymbol
+        member _.Symbols with get() =
+          Array.append symbs.Value.StaticSymbols symbs.Value.DynamicSymbols
+          |> Array.map toBinSymbol
 
-      member _.TryFindSymbolByAddr addr =
-        symbs.Value.TryFindSymbol addr |> Result.map toBinSymbol
-    }
+        member _.TryFindSymbolByAddr addr =
+          symbs.Value.TryFindSymbol addr |> Result.map toBinSymbol }
+
+  let symbolTable = Some symbolTableObj
+
+  let nameResolver =
+    let onSymbols = NameResolver.ofSymbolTable symbolTableObj
+    Some { new INameResolvable with
+      member _.TryResolveName addr =
+        match onSymbols.TryResolveName addr with
+        | Ok name -> Ok name
+        | Error e ->
+          match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
+          | Some entry when entry.TableAddress = addr -> Ok entry.Name
+          | _ -> Error e }
 
   let functionAddrs =
     lazy

@@ -22,25 +22,16 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.Tests
+/// Provides helpers for building name resolvers on top of binary-file tables.
+[<RequireQualifiedAccess>]
+module B2R2.FrontEnd.BinFile.NameResolver
 
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
-open Microsoft.VisualStudio.TestTools.UnitTesting
-open type FileFormat
 
-[<AutoOpen>]
-module Helper =
-  let assertFuncSymbolExistence (file: IBinFile) address (symbolName: string) =
-    match BinFileOps.tryResolveName file address with
-    | Ok n -> Assert.AreEqual<string>(n, symbolName)
-    | Error _ -> Assert.Fail()
-
-  let getTextSectionAddr (file: IBinFile) =
-    let ptr = BinFileOps.getCodeSectionPointer file
-    ptr.Addr
-
-  let getLinkageTableEntries (file: IBinFile) =
-    BinFileOps.getImports file
-
-  let assertExistenceOfPair pair pairSequence =
-    Assert.AreEqual(true, Seq.exists ((=) pair) pairSequence)
+/// Builds a name resolver backed by the given symbol table: it resolves an
+/// address to the name of the symbol located at that address.
+let ofSymbolTable (symbolTable: ISymbolTable) =
+  { new INameResolvable with
+      member _.TryResolveName addr =
+        symbolTable.TryFindSymbolByAddr addr |> Result.map (fun s -> s.Name) }

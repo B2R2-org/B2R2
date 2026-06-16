@@ -40,7 +40,7 @@ let ofLinkageTable (hdl: BinHandle) =
 let ofText (hdl: BinHandle) =
   let funcs = Dictionary()
   for addr in BinFileOps.getFunctionAddresses hdl.File do
-    match BinFileOps.tryFindName hdl.File addr with
+    match BinFileOps.tryResolveName hdl.File addr with
     | Ok name -> funcs.TryAdd(addr, name) |> ignore
     | Error _ -> funcs.TryAdd(addr, Addr.toFuncName addr) |> ignore
   for entry in BinFileOps.getImports hdl.File do

@@ -38,7 +38,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let nameResolver =
     Some { new INameResolvable with
-      member _.TryFindName(addr) =
+      member _.TryResolveName(addr) =
         if pe.Symbols.SymbolArray.Length = 0 then
           tryFindSymbolFromBinary pe addr
         else tryFindSymbolFromPDB pe addr

@@ -104,7 +104,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
   let nameResolver =
     Some { new INameResolvable with
-      member _.TryFindName addr =
+      member _.TryResolveName addr =
         match Map.tryFind addr symbolMap.Value with
         | Some name -> Ok name
         | None -> Error ErrorCase.SymbolNotFound

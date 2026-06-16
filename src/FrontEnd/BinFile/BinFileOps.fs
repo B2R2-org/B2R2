@@ -41,11 +41,11 @@ let sliceByOffset (file: IBinFile) offset len =
   else raise InvalidAddrReadException
   bytes.Span.Slice(offset, len)
 
-/// Tries to find the symbolic name associated with the given address.
-[<CompiledName "TryFindName">]
-let tryFindName (file: IBinFile) addr =
+/// Tries to resolve the symbolic name associated with the given address.
+[<CompiledName "TryResolveName">]
+let tryResolveName (file: IBinFile) addr =
   match file.NameResolver with
-  | Some names -> names.TryFindName addr
+  | Some resolver -> resolver.TryResolveName addr
   | None -> Error ErrorCase.SymbolNotFound
 
 /// Checks whether the given binary lacks its non-essential symbol table.

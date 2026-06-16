@@ -121,7 +121,7 @@ type InternalFnCFGBuilder<'FnCtx,
       manager,
       irBlkOptimizer) =
     let name =
-      match BinFileOps.tryFindName hdl.File entryPoint with
+      match BinFileOps.tryResolveName hdl.File entryPoint with
       | Ok name -> name
       | Error _ -> Addr.toFuncName entryPoint
     let cfg = LowUIRCFG Imperative

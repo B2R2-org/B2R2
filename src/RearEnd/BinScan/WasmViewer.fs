@@ -112,7 +112,7 @@ let dumpSectionDetails (secName: string) (file: WasmBinFile) =
       printsn ""
 
 let private resolvedName (file: IBinFile) addr =
-  match BinFileOps.tryFindName file addr with
+  match BinFileOps.tryResolveName file addr with
   | Ok name -> name
   | Error _ -> ""
 

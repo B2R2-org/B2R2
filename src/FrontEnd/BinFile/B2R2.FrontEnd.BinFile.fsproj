@@ -27,6 +27,7 @@
     <Compile Include="IRelocationTable.fs" />
     <Compile Include="IBinFile.fs" />
     <Compile Include="BinFileOps.fs" />
+    <Compile Include="NameResolver.fs" />
     <Compile Include="FileHelper.fs" />
     <Compile Include="Wasm\Types.fs" />
     <Compile Include="Wasm\Header.fs" />

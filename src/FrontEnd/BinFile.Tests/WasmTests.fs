@@ -64,16 +64,16 @@ type WasmTests() =
   member _.``[Wasm] name section resolves the entry point name``() =
     let resolver = Option.get file.NameResolver
     Assert.AreEqual<Result<string, _>>(
-      Ok "__wasm_call_ctors", resolver.TryFindName file.EntryPoint.Value)
+      Ok "__wasm_call_ctors", resolver.TryResolveName file.EntryPoint.Value)
 
   [<TestMethod>]
   member _.``[Wasm] name section resolves an imported function name``() =
     let resolver = Option.get file.NameResolver
     Assert.AreEqual<Result<string, _>>(
-      Ok "putc_js", resolver.TryFindName 0x7AUL)
+      Ok "putc_js", resolver.TryResolveName 0x7AUL)
 
   [<TestMethod>]
   member _.``[Wasm] name section resolves a local function name``() =
     let resolver = Option.get file.NameResolver
     Assert.AreEqual<Result<string, _>>(
-      Ok "main", resolver.TryFindName 0x15EUL)
+      Ok "main", resolver.TryResolveName 0x15EUL)

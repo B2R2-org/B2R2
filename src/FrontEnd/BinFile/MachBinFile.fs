@@ -59,14 +59,6 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
     lazy (enumSymbols.Value |> Array.filter (Symbol.IsStatic >> not))
   let entryPoint = lazy computeEntryPoint segCmds.Value cmds.Value
 
-  let nameResolver =
-    Some { new INameResolvable with
-      member _.TryFindName(addr) =
-        match Map.tryFind addr syms.Value.SymbolMap with
-        | Some s -> Ok s.SymName
-        | None -> Error ErrorCase.SymbolNotFound
-    }
-
   let machSymKind secText (s: Symbol) =
     if Symbol.IsFunc(secText, s) then FunctionSymbol
     elif s.SymType.HasFlag SymbolType.N_SECT then DataSymbol
@@ -86,21 +78,24 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
       Size = None
       LibraryName = s.VerInfo |> Option.map (fun d -> d.DyLibName) }
 
-  let symbolTable =
-    Some { new ISymbolTable with
-      member _.IsStripped with get() = isStripped secs.Value syms.Value
+  let symbolTableObj =
+    { new ISymbolTable with
+        member _.IsStripped with get() = isStripped secs.Value syms.Value
 
-      member _.Symbols with get() =
-        let secText = Section.getTextSectionIndex secs.Value
-        syms.Value.SymbolArray |> Array.map (toBinSymbol secText)
-
-      member _.TryFindSymbolByAddr addr =
-        match Map.tryFind addr syms.Value.SymbolMap with
-        | Some s ->
+        member _.Symbols with get() =
           let secText = Section.getTextSectionIndex secs.Value
-          Ok(toBinSymbol secText s)
-        | None -> Error ErrorCase.SymbolNotFound
-    }
+          syms.Value.SymbolArray |> Array.map (toBinSymbol secText)
+
+        member _.TryFindSymbolByAddr addr =
+          match Map.tryFind addr syms.Value.SymbolMap with
+          | Some s ->
+            let secText = Section.getTextSectionIndex secs.Value
+            Ok(toBinSymbol secText s)
+          | None -> Error ErrorCase.SymbolNotFound }
+
+  let symbolTable = Some symbolTableObj
+
+  let nameResolver = Some(NameResolver.ofSymbolTable symbolTableObj)
 
   let functionAddrs =
     lazy
