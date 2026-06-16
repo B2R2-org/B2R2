@@ -354,6 +354,22 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Option.map (fun ph ->
         readCString (System.ReadOnlySpan bytes) (int ph.PHOffset))
 
+  let programHeaderTableAddr =
+    lazy
+      let phs = phdrs.Value
+      let isPhdr p = p.PHType = ProgramHeaderType.PT_PHDR
+      match Array.tryFind isPhdr phs with
+      | Some p ->
+        Some p.PHAddr
+      | None ->
+        let phoff = hdr.PHdrTblOffset
+        let covers p =
+          p.PHType = ProgramHeaderType.PT_LOAD
+          && phoff >= p.PHOffset && phoff < p.PHOffset + p.PHFileSize
+        Array.tryFind covers phs
+        |> Option.map (fun p -> p.PHAddr + (phoff - p.PHOffset))
+        |> Option.orElse (Some(toolBox.BaseAddress + phoff))
+
   /// ELF Header information.
   member internal _.Header with get() = hdr
 
@@ -362,6 +378,17 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   /// ELF program headers.
   member internal _.ProgramHeaders with get() = phdrs.Value
+
+  /// Virtual address of the program header table, i.e., the AT_PHDR value that
+  /// the kernel passes through the auxiliary vector. Taken from PT_PHDR when
+  /// present, otherwise derived from e_phoff and the enclosing PT_LOAD segment;
+  /// None when it maps into no loadable segment.
+  member _.ProgramHeaderTableAddress with get() =
+    programHeaderTableAddr.Value
+
+  /// Number of entries in the program header table (e_phnum), i.e., the
+  /// AT_PHNUM value passed through the auxiliary vector.
+  member _.ProgramHeaderCount with get() = int hdr.PHdrNum
 
   /// ELF section headers.
   member internal _.SectionHeaders with get() = shdrs.Value
