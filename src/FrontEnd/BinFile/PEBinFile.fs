@@ -187,14 +187,14 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         Relocation.tryGetRelocatedAddr bytes pe relocAddr
     }
 
-  let linkageEntries =
+  let importEntries =
     lazy getImportTable pe
 
-  let linkage =
-    Some { new ILinkageTable with
-      member _.GetLinkageEntries() = linkageEntries.Value
+  let importTable =
+    Some { new IImportTable with
+      member _.GetImports() = importEntries.Value
 
-      member _.IsInLinkageTable addr = isImportTable pe addr
+      member _.IsInImportTable addr = isImportTable pe addr
     }
 
   let segments =
@@ -279,7 +279,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.Relocations with get() = relocations
 
-    member _.Linkage with get() = linkage
+    member _.ImportTable with get() = importTable
 
     member _.MemoryLayout with get() = memoryLayout
 

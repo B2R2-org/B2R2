@@ -79,10 +79,14 @@ type CFGBuilderTable<'FnCtx,
         let builder = getOrCreateInternalBuilder null fnAddr
         builders[fnAddr] <- builder
       | Error _ ->
-        let addr, name = entry.TrampolineAddress, entry.FuncName
-        let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
-        let builder = ExternalFnCFGBuilder(hdl, exnInfo, addr, name, isNoRet)
-        builders[range.Min] <- builder
+        match entry.TrampolineAddress with
+        | Some addr ->
+          let name = entry.Name
+          let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
+          let builder = ExternalFnCFGBuilder(hdl, exnInfo, addr, name, isNoRet)
+          builders[range.Min] <- builder
+        | None ->
+          ()
     )
 
   let rec getTerminationStatus (builders: IList<ICFGBuildable<_, _>>) acc idx =

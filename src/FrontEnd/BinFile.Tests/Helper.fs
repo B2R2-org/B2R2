@@ -40,7 +40,7 @@ module Helper =
     ptr.Addr
 
   let getLinkageTableEntries (file: IBinFile) =
-    BinFileOps.getLinkageEntries file
+    BinFileOps.getImports file
 
   let assertExistenceOfPair pair pairSequence =
     Assert.AreEqual(true, Seq.exists ((=) pair) pairSequence)

@@ -33,7 +33,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 module internal ELF = begin
   open B2R2.FrontEnd.BinFile.ELF
 
-  let findInternalFuncReloc (elf: ELFBinFile) (entry: LinkageTableEntry) =
+  let findInternalFuncReloc (elf: ELFBinFile) (entry: BinImport) =
     let reloc = elf.RelocationInfo.Find entry.TableAddress
     match reloc.RelSymbol with
     | Some relSym ->

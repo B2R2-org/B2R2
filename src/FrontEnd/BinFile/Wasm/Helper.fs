@@ -40,10 +40,10 @@ let entryPointOf wm =
     | None -> None
   | None -> None
 
-let importToLinkageTableEntry (entry: Import) =
-  { FuncName = entry.Name
+let importToBinImport (entry: Import) =
+  { Name = entry.Name
     LibraryName = entry.ModuleName
-    TrampolineAddress = 0UL
+    TrampolineAddress = None
     TableAddress = uint64 entry.Offset }
 
 let private tryFindNameSection wm =
@@ -98,6 +98,6 @@ let getImports wm =
           match ie.Desc with
           | ImpFunc _ -> true
           | _ -> false)
-      |> Array.map importToLinkageTableEntry
+      |> Array.map importToBinImport
     | None -> [||]
   | None -> [||]

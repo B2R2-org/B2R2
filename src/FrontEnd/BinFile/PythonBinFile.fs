@@ -90,7 +90,7 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.Relocations with get() = None
 
-    member _.Linkage with get() = None
+    member _.ImportTable with get() = None
 
     member _.MemoryLayout with get() = None
 

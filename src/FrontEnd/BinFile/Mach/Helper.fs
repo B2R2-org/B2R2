@@ -100,10 +100,10 @@ let executableRanges segCmds =
     ) IntervalSet.empty
 
 let getPLT symInfo =
-  symInfo.LinkageTable
+  symInfo.Imports
   |> List.sortBy (fun entry -> entry.TrampolineAddress)
   |> List.toArray
 
 let isPLT symInfo addr =
-  symInfo.LinkageTable
-  |> List.exists (fun entry -> entry.TrampolineAddress = addr)
+  symInfo.Imports
+  |> List.exists (fun entry -> entry.TrampolineAddress = Some addr)

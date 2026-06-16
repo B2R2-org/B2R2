@@ -41,8 +41,8 @@ module ROPHandle =
   let inline getFileInfo rop = rop.LiftingUnit.File
 
   let inline tryFindPlt rop name =
-    BinFileOps.getLinkageEntries rop.LiftingUnit.File
-    |> Seq.tryFind (fun entry -> entry.FuncName = name)
+    BinFileOps.getImports rop.LiftingUnit.File
+    |> Seq.tryFind (fun entry -> entry.Name = name)
 
   let inline getKeys map = Map.fold (fun acc k _ -> Set.add k acc) Set.empty map
 

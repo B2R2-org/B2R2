@@ -74,13 +74,13 @@ type PLTSectionType =
 
 type IPLTParsable =
   /// Parse PLT entries. This function returns a mapping from a PLT entry
-  /// address range to LinkageTableEntry.
-  abstract Parse: Toolbox -> NoOverlapIntervalMap<LinkageTableEntry>
+  /// address range to BinImport.
+  abstract Parse: Toolbox -> NoOverlapIntervalMap<BinImport>
 
   /// Parse the given PLT section.
   abstract ParseSection:
-    Toolbox * SectionHeader * NoOverlapIntervalMap<LinkageTableEntry>
-    -> NoOverlapIntervalMap<LinkageTableEntry>
+    Toolbox * SectionHeader * NoOverlapIntervalMap<BinImport>
+    -> NoOverlapIntervalMap<BinImport>
 
   /// Parse the given PLT section.
   abstract ParseEntry:
@@ -154,14 +154,14 @@ let private makePLTEntry symbs addr relocAddr (r: RelocationEntry) =
   match r.RelSymbol with
   | Some symb ->
     (symbs: SymbolStore).AddSymbol(addr, symb) (* Update the symbol table. *)
-    { FuncName = symb.SymName
+    { Name = symb.SymName
       LibraryName = symb.LibName
-      TrampolineAddress = addr
+      TrampolineAddress = Some addr
       TableAddress = r.RelOffset }
   | None ->
-    { FuncName = ""
+    { Name = ""
       LibraryName = ""
-      TrampolineAddress = addr
+      TrampolineAddress = Some addr
       TableAddress = relocAddr }
 
 let rec parseEntryLoop p sec rdr span desc symbs rel map idx eAddr addr =
@@ -171,8 +171,8 @@ let rec parseEntryLoop p sec rdr span desc symbs rel map idx eAddr addr =
     let nextAddr = entry.NextEntryAddr
     match (rel: RelocationInfo).TryFind entry.EntryRelocAddr with
     | Ok r ->
-      let entry = makePLTEntry symbs addr entry.EntryRelocAddr r
       let ar = AddrRange.create addr (nextAddr - 1UL)
+      let entry = makePLTEntry symbs addr entry.EntryRelocAddr r
       let map = NoOverlapIntervalMap.add ar entry map
       parseEntryLoop p sec rdr span desc symbs rel map (idx + 1) eAddr nextAddr
     | Error _ ->
@@ -691,9 +691,9 @@ type MIPSParser(shdrs, relocInfo, symbs: SymbolStore) =
         let index = int (insBytes &&& 0xffffu)
         let symbol = (tbl: Symbol[])[index]
         let entry =
-          { FuncName = symbol.SymName
+          { Name = symbol.SymName
             LibraryName = symbol.LibName
-            TrampolineAddress = symbol.Addr
+            TrampolineAddress = Some symbol.Addr
             TableAddress = 0UL }
         let ar = AddrRange.create symbol.Addr (symbol.Addr + 15UL)
         let map = NoOverlapIntervalMap.add ar entry map

@@ -36,8 +36,8 @@ type SymbolStore =
     SymbolArray: Symbol[]
     /// Address to symbol mapping.
     SymbolMap: Map<Addr, Symbol>
-    /// Linkage table.
-    LinkageTable: LinkageTableEntry list }
+    /// Imported symbols.
+    Imports: BinImport list }
 
 module internal SymbolStore =
   let [<Literal>] private IndirectSymbolLocal = 0x80000000
@@ -208,12 +208,12 @@ module internal SymbolStore =
     | None -> lst
     | Some stubAddr ->
       let lib = getSymbolLibName symbol
-      { FuncName = symbol.SymName
+      { Name = symbol.SymName
         LibraryName = lib
-        TrampolineAddress = stubAddr
+        TrampolineAddress = Some stubAddr
         TableAddress = addr } :: lst
 
-  let private createLinkageTable stubs ptrtbls =
+  let private createImports stubs ptrtbls =
     let nameMap = Map.fold (fun m a s -> Map.add s.SymName a m) Map.empty stubs
     ptrtbls |> Map.fold (accumulateLinkageInfo nameMap) []
 
@@ -232,7 +232,7 @@ module internal SymbolStore =
     let dynsymIndices = parseDynSymTable toolBox dyntabs
     let stubs = parseSymbolStubs secs symbs dynsymIndices
     let ptrtbls = parseSymbolPtrs toolBox.Header secs symbs dynsymIndices
-    let linkage = createLinkageTable stubs ptrtbls
+    let imports = createImports stubs ptrtbls
     { SymbolArray = symbs
       SymbolMap = buildSymbolMap stubs ptrtbls staticsymbs
-      LinkageTable = linkage }
+      Imports = imports }

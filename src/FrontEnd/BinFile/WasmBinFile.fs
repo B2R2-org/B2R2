@@ -96,7 +96,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
           | _ -> None
         else None)
 
-  let linkageEntries =
+  let importEntries =
     lazy getImports wm
 
   let symbolMap =
@@ -172,12 +172,12 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
         functionAddrs.Value
     }
 
-  let linkage =
-    Some { new ILinkageTable with
-      member _.GetLinkageEntries() = linkageEntries.Value
+  let importTable =
+    Some { new IImportTable with
+      member _.GetImports() = importEntries.Value
 
-      member _.IsInLinkageTable addr =
-        linkageEntries.Value
+      member _.IsInImportTable addr =
+        importEntries.Value
         |> Array.exists (fun entry -> entry.TableAddress = addr)
     }
 
@@ -218,7 +218,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.Relocations with get() = None
 
-    member _.Linkage with get() = linkage
+    member _.ImportTable with get() = importTable
 
     member _.MemoryLayout with get() = None
 

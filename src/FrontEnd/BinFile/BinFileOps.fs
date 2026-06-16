@@ -142,18 +142,18 @@ let tryGetRelocatedAddr (file: IBinFile) relocAddr =
   | Some relocs -> relocs.TryGetRelocatedAddr relocAddr
   | None -> Error ErrorCase.ItemNotFound
 
-/// Returns all linkage table entries from the given binary file.
-[<CompiledName "GetLinkageEntries">]
-let getLinkageEntries (file: IBinFile) =
-  match file.Linkage with
-  | Some linkage -> linkage.GetLinkageEntries()
+/// Returns all imported symbols from the given binary file.
+[<CompiledName "GetImports">]
+let getImports (file: IBinFile) =
+  match file.ImportTable with
+  | Some importTable -> importTable.GetImports()
   | None -> [||]
 
-/// Checks if the given address falls within the linkage table.
-[<CompiledName "IsInLinkageTable">]
-let isInLinkageTable (file: IBinFile) addr =
-  match file.Linkage with
-  | Some linkage -> linkage.IsInLinkageTable addr
+/// Checks if the given address falls within the import table.
+[<CompiledName "IsInImportTable">]
+let isInImportTable (file: IBinFile) addr =
+  match file.ImportTable with
+  | Some importTable -> importTable.IsInImportTable addr
   | None -> false
 
 /// Returns all memory-mapped segments of the given binary file.

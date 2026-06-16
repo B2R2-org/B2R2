@@ -124,10 +124,10 @@ let dumpSymbols _ (file: WasmBinFile) =
   printDoubleHorizontalRule ()
   printsr [| "Kind"; "Address"; "Name"; "Lib Name" |]
   printSingleHorizontalRule ()
-  for entry in BinFileOps.getLinkageEntries file do
+  for entry in BinFileOps.getImports file do
     printsr [| "import"
                Addr.toString file.ISA.WordSize entry.TableAddress
-               normalizeEmpty entry.FuncName
+               normalizeEmpty entry.Name
                normalizeEmpty entry.LibraryName |]
   printSingleHorizontalRule ()
   for addr in BinFileOps.getFunctionAddresses file do

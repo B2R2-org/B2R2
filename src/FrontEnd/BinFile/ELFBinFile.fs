@@ -57,7 +57,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | Ok name -> Ok name
           | Error e ->
             match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
-            | Some entry when entry.TableAddress = addr -> Ok entry.FuncName
+            | Some entry when entry.TableAddress = addr -> Ok entry.Name
             | _ -> Error e
     }
 
@@ -224,19 +224,19 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         getRelocatedAddr relocs.Value relocAddr
     }
 
-  let linkageEntries =
+  let importEntries =
     lazy
       plt.Value
       |> NoOverlapIntervalMap.fold (fun acc _ entry -> entry :: acc) []
       |> List.sortBy (fun entry -> entry.TrampolineAddress)
       |> List.toArray
 
-  let linkage =
-    Some { new ILinkageTable with
-      member _.GetLinkageEntries() =
-        linkageEntries.Value
+  let importTable =
+    Some { new IImportTable with
+      member _.GetImports() =
+        importEntries.Value
 
-      member _.IsInLinkageTable addr =
+      member _.IsInImportTable addr =
         NoOverlapIntervalMap.containsAddr addr plt.Value
     }
 
@@ -357,7 +357,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.Relocations with get() = relocations
 
-    member _.Linkage with get() = linkage
+    member _.ImportTable with get() = importTable
 
     member _.MemoryLayout with get() = memoryLayout
 

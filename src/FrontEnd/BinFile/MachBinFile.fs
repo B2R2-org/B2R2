@@ -215,33 +215,33 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
           Reloc.getRelocatedAddr toolBox relocMap.Value syms.Value relocAddr
     }
 
-  let fixupLinkage =
+  let fixupImports =
     lazy
       fixups.Value
       |> Array.choose (fun fixup ->
         match fixup.FixupTarget with
         | Bind(name, library, _) ->
-          Some { FuncName = name
+          Some { Name = name
                  LibraryName = library
-                 TrampolineAddress = 0UL
+                 TrampolineAddress = None
                  TableAddress = fixup.FixupAddr }
         | Rebase _ -> None)
 
   (* Stub-based binaries already describe imports via the symbol store; only
-     fall back to dyld fixup binds when there is no classic linkage table (e.g.
+     fall back to dyld fixup binds when there is no classic import table (e.g.
      chained-fixups or dyld-info dylibs without __stubs). *)
-  let linkageEntries =
+  let importEntries =
     lazy
       let classic = getPLT syms.Value
-      if Array.isEmpty classic then fixupLinkage.Value else classic
+      if Array.isEmpty classic then fixupImports.Value else classic
 
-  let linkage =
-    Some { new ILinkageTable with
-      member _.GetLinkageEntries() = linkageEntries.Value
+  let importTable =
+    Some { new IImportTable with
+      member _.GetImports() = importEntries.Value
 
-      member _.IsInLinkageTable addr =
+      member _.IsInImportTable addr =
         isPLT syms.Value addr
-        || (List.isEmpty syms.Value.LinkageTable
+        || (List.isEmpty syms.Value.Imports
             && Fixup.isBindAt fixupMap.Value addr)
     }
 
@@ -328,7 +328,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.Relocations with get() = relocations
 
-    member _.Linkage with get() = linkage
+    member _.ImportTable with get() = importTable
 
     member _.MemoryLayout with get() = memoryLayout
 

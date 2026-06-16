@@ -149,17 +149,17 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X64 chained fixups linkage entries test``() =
-    let linkage = (x64ChainedFile :> IBinFile).Linkage.Value
-    let entries = linkage.GetLinkageEntries()
+    let linkage = (x64ChainedFile :> IBinFile).ImportTable.Value
+    let entries = linkage.GetImports()
     Assert.AreEqual<int>(1, entries.Length)
-    Assert.AreEqual<string>("_ext_symbol", entries[0].FuncName)
+    Assert.AreEqual<string>("_ext_symbol", entries[0].Name)
     Assert.AreEqual(0x1000UL, entries[0].TableAddress)
 
   [<TestMethod>]
-  member _.``[Mach] X64 chained fixups IsInLinkageTable test``() =
-    let linkage = (x64ChainedFile :> IBinFile).Linkage.Value
-    Assert.AreEqual(true, linkage.IsInLinkageTable 0x1000UL)
-    Assert.AreEqual(false, linkage.IsInLinkageTable 0x1010UL)
+  member _.``[Mach] X64 chained fixups IsInImportTable test``() =
+    let linkage = (x64ChainedFile :> IBinFile).ImportTable.Value
+    Assert.AreEqual(true, linkage.IsInImportTable 0x1000UL)
+    Assert.AreEqual(false, linkage.IsInImportTable 0x1010UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 dyld info ContainsRelocation test``() =
@@ -175,21 +175,21 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X64 dyld info bind linkage test``() =
-    let linkage = (x64DyldInfoFile :> IBinFile).Linkage.Value
-    let entries = linkage.GetLinkageEntries()
+    let linkage = (x64DyldInfoFile :> IBinFile).ImportTable.Value
+    let entries = linkage.GetImports()
     Assert.AreEqual<int>(1, entries.Length)
-    Assert.AreEqual<string>("_ext_symbol", entries[0].FuncName)
+    Assert.AreEqual<string>("_ext_symbol", entries[0].Name)
     Assert.AreEqual(0x1000UL, entries[0].TableAddress)
-    Assert.AreEqual(true, linkage.IsInLinkageTable 0x1000UL)
+    Assert.AreEqual(true, linkage.IsInImportTable 0x1000UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 weak bind linkage test``() =
-    let linkage = (x64WeakBindFile :> IBinFile).Linkage.Value
-    let entries = linkage.GetLinkageEntries()
+    let linkage = (x64WeakBindFile :> IBinFile).ImportTable.Value
+    let entries = linkage.GetImports()
     Assert.AreEqual<int>(1, entries.Length)
-    Assert.AreEqual<string>("_weak_sym", entries[0].FuncName)
+    Assert.AreEqual<string>("_weak_sym", entries[0].Name)
     Assert.AreEqual(0x1008UL, entries[0].TableAddress)
-    Assert.AreEqual(true, linkage.IsInLinkageTable 0x1008UL)
+    Assert.AreEqual(true, linkage.IsInImportTable 0x1008UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 weak bind ContainsRelocation test``() =
@@ -199,10 +199,10 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X64 two-level bind library name test``() =
-    let linkage = (x64TwoLevelFile :> IBinFile).Linkage.Value
-    let entries = linkage.GetLinkageEntries()
+    let linkage = (x64TwoLevelFile :> IBinFile).ImportTable.Value
+    let entries = linkage.GetImports()
     Assert.AreEqual<int>(1, entries.Length)
-    Assert.AreEqual<string>("_foo_data", entries[0].FuncName)
+    Assert.AreEqual<string>("_foo_data", entries[0].Name)
     Assert.AreEqual<string>("/usr/lib/libfoo.dylib", entries[0].LibraryName)
     Assert.AreEqual(0x1000UL, entries[0].TableAddress)
 
@@ -223,12 +223,12 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] arm64e chained fixups bind linkage test``() =
-    let linkage = (arm64eChainedFile :> IBinFile).Linkage.Value
-    let entries = linkage.GetLinkageEntries()
+    let linkage = (arm64eChainedFile :> IBinFile).ImportTable.Value
+    let entries = linkage.GetImports()
     Assert.AreEqual<int>(2, entries.Length)
-    Assert.AreEqual<string>("_ext_func", entries[0].FuncName)
+    Assert.AreEqual<string>("_ext_func", entries[0].Name)
     Assert.AreEqual(0x4000UL, entries[0].TableAddress)
-    Assert.AreEqual<string>("_ext_data", entries[1].FuncName)
+    Assert.AreEqual<string>("_ext_data", entries[1].Name)
     Assert.AreEqual(0x4008UL, entries[1].TableAddress)
 
   [<TestMethod>]

@@ -55,8 +55,8 @@ type IBinFile =
   /// Returns a relocation table if this binary format has relocations.
   abstract Relocations: IRelocationTable option
 
-  /// Returns a linkage table if this binary format has linkage entries.
-  abstract Linkage: ILinkageTable option
+  /// Returns an import table if this binary format has imported symbols.
+  abstract ImportTable: IImportTable option
 
   /// Returns a memory layout view if this binary format is memory-mapped.
   abstract MemoryLayout: IMemoryLayout option

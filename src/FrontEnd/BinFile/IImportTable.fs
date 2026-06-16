@@ -27,21 +27,23 @@ namespace B2R2.FrontEnd.BinFile
 open B2R2
 
 /// <summary>
-/// Represents an interface for accessing the linkage table of a binary file.
+/// Represents an interface for accessing the import table of a binary file,
+/// i.e., the linkage table (PLT/GOT, IAT, etc.) that resolves dynamically
+/// linked symbols.
 /// </summary>
-type ILinkageTable =
+type IImportTable =
   /// <summary>
-  /// Returns an array of all the linkage table entries from the binary.
+  /// Returns an array of all the imported symbols from the binary.
   /// </summary>
   /// <returns>
-  /// An array of linkage table entries, e.g., PLT entries for ELF files.
+  /// An array of imports, e.g., PLT entries for ELF files.
   /// </returns>
-  abstract GetLinkageEntries: unit -> LinkageTableEntry[]
+  abstract GetImports: unit -> BinImport[]
 
   /// <summary>
-  /// Returns whether the given address falls within the linkage table.
+  /// Returns whether the given address falls within the import table.
   /// </summary>
   /// <returns>
-  /// True if the address is a linkage table address, false otherwise.
+  /// True if the address is an import table address, false otherwise.
   /// </returns>
-  abstract IsInLinkageTable: Addr -> bool
+  abstract IsInImportTable: Addr -> bool
