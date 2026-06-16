@@ -179,9 +179,9 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     { Name = sec.SecName
       Address = sec.SecAddr
       Size = sec.SecSize
-      Offset =
-        if sec.SecType = SectionType.SHT_NOBITS then None
-        else Some sec.SecOffset
+      (* ELF records a nominal file offset even for SHT_NOBITS sections, so we
+         keep it; FileSize = 0 indicates the section has no file-backed data. *)
+      Offset = Some sec.SecOffset
       FileSize = secFileSize sec
       Permission = secPermission sec
       Kind = secKind sec }

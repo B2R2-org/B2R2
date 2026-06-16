@@ -140,5 +140,5 @@ let getSections arbiter =
   API.getSections arbiter
   |> Result.map (fun sections ->
     sections
-    |> Array.map (fun s -> { SectionName = s.Name; SectionAddr = s.Addr }))
+    |> Array.map (fun s -> { SectionName = s.Name; SectionAddr = s.Address }))
   |> toJson

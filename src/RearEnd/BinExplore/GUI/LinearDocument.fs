@@ -95,18 +95,18 @@ module LinearDocument =
           disasms[ins.Address] <- lifter.DisasmInstruction ins, ins.Length
     disasms
 
-  let private tryGetSectionInfo section =
-    match section.Content with
-    | ELF(sh, isLinkage) ->
+  let private tryGetSectionInfo (section: SectionItem) =
+    let sec = section.Section
+    match sec.Offset with
+    | Some offset ->
       Some(
         { Address = section.Address
-          Offset = int sh.SecOffset
+          Offset = int offset
           ItemLength = 0 }, (* header itself in LinearView has no length*)
-        isLinkage,
-        sh.SecType = ELF.SectionType.SHT_NOBITS
-      )
-    | _ ->
-      None
+        sec.Kind = DynamicLinkage,
+        sec.Kind = UninitializedData)
+    | None ->
+      None (* The section has no file position; not placed in LinearView. *)
 
   let private buildSectionHeadersByOffset sections =
     sections

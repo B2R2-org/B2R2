@@ -34,9 +34,12 @@ type BinSection =
     Address: Addr
     /// Section size in memory.
     Size: uint64
-    /// File offset of the section data.
+    /// File offset of the section. None when the format records no meaningful
+    /// file position for the section. A section can have an offset yet hold no
+    /// file-backed data (e.g., ELF .bss), in which case FileSize is 0.
     Offset: uint64 option
-    /// Section size in the file.
+    /// Size of the section's file-backed data. 0 when the section occupies no
+    /// space in the file (e.g., uninitialized data).
     FileSize: uint64
     /// Section permission.
     Permission: Permission

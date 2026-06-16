@@ -202,44 +202,8 @@ module API =
     arbiter.GetBinaryBrew()
     >>= getEncodedDataflow fnAddr insAddr reg
 
-  /// Returns an array of section infos in the binary.
+  /// Returns an array of sections in the binary.
   let getSections (arbiter: Arbiter<_, _>) =
     arbiter.GetBinaryBrew()
     >>= fun brew ->
-      match brew.BinHandle.File.Format with
-      | FileFormat.ELFBinary ->
-        let elf = brew.BinHandle.File :?> ELFBinFile
-        let sections = BinFileOps.getSections brew.BinHandle.File
-        Array.zip elf.SectionHeaders sections
-        |> Array.map (fun (sh, sec) ->
-          {| Addr = sh.SecAddr
-             Name = sh.SecName
-             IsLinkage = sec.Kind = DynamicLinkage
-             ELFSectionHeader = Some sh
-             PESectionHeader = None
-             MachSectionHeader = None |})
-        |> Ok
-      | FileFormat.PEBinary ->
-        let pe = brew.BinHandle.File :?> PEBinFile
-        pe.SectionHeaders
-        |> Array.map (fun sh ->
-          {| Addr = uint64 sh.VirtualAddress
-             Name = sh.Name
-             IsLinkage = false
-             ELFSectionHeader = None
-             PESectionHeader = Some sh
-             MachSectionHeader = None |})
-        |> Ok
-      | FileFormat.MachBinary ->
-        let macho = brew.BinHandle.File :?> MachBinFile
-        macho.Sections
-        |> Array.map (fun sh ->
-          {| Addr = sh.SecAddr
-             Name = sh.SecName
-             IsLinkage = false
-             ELFSectionHeader = None
-             PESectionHeader = None
-             MachSectionHeader = Some sh |})
-        |> Ok
-      | _ ->
-        Ok [||]
+      BinFileOps.getSections brew.BinHandle.File |> Ok
