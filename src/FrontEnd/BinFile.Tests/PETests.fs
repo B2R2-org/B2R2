@@ -59,6 +59,14 @@ type PETests() =
 
   static let x64File = parseFile "pe_x64" "pe_x64.pdb"
 
+  /// A C++/SEH binary (try/catch plus __try/__except), so its UNWIND_INFO
+  /// carries exception handlers and the SEH frames carry a C scope table.
+  static let x64ExcFile = parseFile "pe_x64_exc" ""
+
+  /// Same source built with /d2FH4- so the C++ try/catch uses the classic
+  /// (FH3) FuncInfo format rather than the compressed FH4 one.
+  static let x64ExcFh3File = parseFile "pe_x64_exc_fh3" ""
+
   [<TestMethod>]
   member _.``[PE] X86 EntryPoint test``() =
     Assert.AreEqual(Some 0x0040140cUL, (x86File :> IBinFile).EntryPoint)
@@ -260,3 +268,32 @@ type PETests() =
   member _.``[PE] X86 has no exception table entries``() =
     let frames = (x86File :> IBinFile).ExceptionTable.Value.Frames
     Assert.AreEqual<int>(0, frames.Length)
+
+  [<TestMethod>]
+  member _.``[PE] X64 exception frame has a personality routine``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let hasPersonality =
+      frames |> Array.exists (fun f -> f.PersonalityRoutine.IsSome)
+    Assert.AreEqual<bool>(true, hasPersonality)
+
+  [<TestMethod>]
+  member _.``[PE] X64 SEH scope table handler is resolved``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let hasHandler =
+      frames |> Array.exists (fun f ->
+        f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
+    Assert.AreEqual<bool>(true, hasHandler)
+
+  [<TestMethod>]
+  member _.``[PE] X64 FH3 C++ catch handlers are parsed``() =
+    let frames = (x64ExcFh3File :> IBinFile).ExceptionTable.Value.Frames
+    // A C++ try with multiple catch clauses yields several handlers sharing the
+    // same guarded range; SEH scope records never do, so this pins the FH3
+    // path.
+    let multiCatch =
+      frames
+      |> Array.collect (fun f -> f.Handlers)
+      |> Array.filter (fun h -> h.Handler.IsSome)
+      |> Array.groupBy (fun h -> h.BlockStart, h.BlockEnd)
+      |> Array.exists (fun (_, hs) -> hs.Length >= 2)
+    Assert.AreEqual<bool>(true, multiCatch)
