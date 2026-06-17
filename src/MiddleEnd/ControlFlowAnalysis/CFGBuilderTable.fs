@@ -68,7 +68,7 @@ type CFGBuilderTable<'FnCtx,
       builder
 
   let loadFromImportTable (file: IBinFile) (tbl: IImportTable) =
-    for entry in tbl.GetImports() do
+    for entry in tbl.Imports do
       match BinFileOps.tryGetInternalFunctionAddr file entry.TableAddress with
       | Ok fnAddr ->
         (* We create a mapping from a PLT address to an internal function

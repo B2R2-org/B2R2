@@ -38,7 +38,7 @@ type IBinStructure =
   /// Returns a binary file pointer that points to the beginning of the code
   /// section, e.g., ".text" section of ELF.
   /// </summary>
-  abstract GetCodeSectionPointer: unit -> BinFilePointer
+  abstract CodeSectionPointer: BinFilePointer
 
   /// <summary>
   /// Returns a binary file pointer of the given section whose name is given as
@@ -96,4 +96,4 @@ type IBinStructure =
   /// <returns>
   /// An array of function addresses.
   /// </returns>
-  abstract GetFunctionAddresses: unit -> Addr[]
+  abstract FunctionAddresses: Addr[]

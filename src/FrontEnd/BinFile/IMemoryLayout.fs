@@ -39,4 +39,4 @@ type IMemoryLayout =
   /// memory. For example, an entire segment with PT_LOAD type of a program
   /// header in ELF files is considered a memory-mapped segment.
   /// </summary>
-  abstract GetSegments: unit -> BinSegment[]
+  abstract Segments: BinSegment[]

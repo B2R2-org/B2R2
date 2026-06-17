@@ -105,14 +105,14 @@ let getCodeModeMarkers (file: IBinFile) =
 [<CompiledName "GetCodeSectionPointer">]
 let getCodeSectionPointer (file: IBinFile) =
   match file.Structure with
-  | Some structure -> structure.GetCodeSectionPointer()
+  | Some structure -> structure.CodeSectionPointer
   | None -> BinFilePointer.Null
 
 /// Returns the default code pointer for disassembling the given binary file.
 [<CompiledName "GetDefaultCodePointer">]
 let getDefaultCodePointer (file: IBinFile) =
   match file.Structure with
-  | Some structure -> structure.GetCodeSectionPointer()
+  | Some structure -> structure.CodeSectionPointer
   | None ->
     match file.EntryPoint with
     | Some entry -> file.GetBoundedPointer entry
@@ -171,14 +171,14 @@ let tryFindSectionNameByOffset (file: IBinFile) offset =
 [<CompiledName "GetFunctionAddresses">]
 let getFunctionAddresses (file: IBinFile) =
   match file.Structure with
-  | Some structure -> structure.GetFunctionAddresses()
+  | Some structure -> structure.FunctionAddresses
   | None -> [||]
 
 /// Returns all relocations in the given binary file.
 [<CompiledName "GetRelocations">]
 let getRelocations (file: IBinFile) =
   match file.Relocations with
-  | Some relocs -> relocs.GetRelocations()
+  | Some relocs -> relocs.Relocations
   | None -> [||]
 
 /// Checks if the given address has relocation information.
@@ -214,7 +214,7 @@ let getExceptionFrames (file: IBinFile) =
 [<CompiledName "GetImports">]
 let getImports (file: IBinFile) =
   match file.ImportTable with
-  | Some importTable -> importTable.GetImports()
+  | Some importTable -> importTable.Imports
   | None -> [||]
 
 /// Checks if the given address falls within the import table.
@@ -228,7 +228,7 @@ let isInImportTable (file: IBinFile) addr =
 [<CompiledName "GetSegments">]
 let getSegments (file: IBinFile) =
   match file.MemoryLayout with
-  | Some layout -> layout.GetSegments()
+  | Some layout -> layout.Segments
   | None -> [||]
 
 /// Returns all memory-mapped regions of the given binary file.

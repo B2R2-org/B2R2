@@ -38,7 +38,7 @@ type IImportTable =
   /// <returns>
   /// An array of imports, e.g., PLT entries for ELF files.
   /// </returns>
-  abstract GetImports: unit -> BinImport[]
+  abstract Imports: BinImport[]
 
   /// <summary>
   /// Returns whether the given address falls within the import table.

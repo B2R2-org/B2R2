@@ -140,7 +140,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       member _.Sections with get() =
         pe.SectionHeaders |> Array.map toBinSection
 
-      member _.GetCodeSectionPointer() =
+      member _.CodeSectionPointer =
         pe.SectionHeaders
         |> Array.tryFind (fun sec -> sec.Name = SecText)
         |> function
@@ -196,13 +196,13 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
           | Some sec -> Ok sec.Name
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.GetFunctionAddresses() =
+      member _.FunctionAddresses =
         functionAddrs.Value
     }
 
   let relocations =
     Some { new IRelocationTable with
-      member _.GetRelocations() = Relocation.getRelocations pe
+      member _.Relocations = Relocation.getRelocations pe
 
       member _.ContainsRelocation addr = Relocation.contains pe addr
 
@@ -218,7 +218,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let importTable =
     Some { new IImportTable with
-      member _.GetImports() = importEntries.Value
+      member _.Imports = importEntries.Value
 
       member _.IsInImportTable addr = isImportTable pe addr
     }
@@ -239,7 +239,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetSegments() = segments.Value }
+      member _.Segments = segments.Value }
 
   let exceptionFrames =
     lazy

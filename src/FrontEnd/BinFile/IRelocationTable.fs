@@ -31,7 +31,7 @@ type IRelocationTable =
   /// <summary>
   /// Returns an array of all the relocations in the binary.
   /// </summary>
-  abstract GetRelocations: unit -> BinRelocation[]
+  abstract Relocations: BinRelocation[]
 
   /// <summary>
   /// Checks if the given address has relocation information.

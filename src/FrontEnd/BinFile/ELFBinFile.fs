@@ -204,7 +204,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       member _.Sections with get() =
         shdrs.Value |> Array.map toBinSection
 
-      member _.GetCodeSectionPointer() =
+      member _.CodeSectionPointer =
         shdrs.Value
         |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
         |> function
@@ -259,13 +259,13 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.GetFunctionAddresses() =
+      member _.FunctionAddresses =
         functionAddrs.Value
     }
 
   let relocations =
     Some { new IRelocationTable with
-      member _.GetRelocations() =
+      member _.Relocations =
         relocs.Value.Entries
         |> Seq.map (fun r ->
           { Address = r.RelOffset
@@ -324,7 +324,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let importTable =
     Some { new IImportTable with
-      member _.GetImports() =
+      member _.Imports =
         importEntries.Value
 
       member _.IsInImportTable addr =
@@ -346,7 +346,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetSegments() = segments.Value }
+      member _.Segments = segments.Value }
 
   let interpreterPath =
     lazy

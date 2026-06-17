@@ -115,7 +115,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
       member _.Sections with get() =
         wm.SectionsInfo.SecArray |> Array.map toBinSection
 
-      member _.GetCodeSectionPointer() =
+      member _.CodeSectionPointer =
         match wm.CodeSection with
         | Some sec ->
           let headerSize =
@@ -168,13 +168,13 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
         | Some sec -> Ok sec.Name
         | None -> Error ErrorCase.ItemNotFound
 
-      member _.GetFunctionAddresses() =
+      member _.FunctionAddresses =
         functionAddrs.Value
     }
 
   let importTable =
     Some { new IImportTable with
-      member _.GetImports() = importEntries.Value
+      member _.Imports = importEntries.Value
 
       member _.IsInImportTable addr =
         importEntries.Value

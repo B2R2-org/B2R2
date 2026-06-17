@@ -181,7 +181,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
       member _.Sections with get() =
         secs.Value |> Array.map toBinSection
 
-      member _.GetCodeSectionPointer() =
+      member _.CodeSectionPointer =
         let secs = secs.Value
         let secText = Section.getTextSectionIndex secs
         let sec = secs[secText]
@@ -232,13 +232,13 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.GetFunctionAddresses() =
+      member _.FunctionAddresses =
         functionAddrs.Value
     }
 
   let relocations =
     Some { new IRelocationTable with
-      member _.GetRelocations() =
+      member _.Relocations =
         let classic =
           relocMap.Value
           |> Map.toArray
@@ -293,7 +293,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   let importTable =
     Some { new IImportTable with
-      member _.GetImports() = importEntries.Value
+      member _.Imports = importEntries.Value
 
       member _.IsInImportTable addr =
         isPLT syms.Value addr
@@ -315,7 +315,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetSegments() = segments.Value }
+      member _.Segments = segments.Value }
 
   let exn =
     lazy ExceptionData.parse toolBox segCmds.Value secs.Value regFactoryOpt

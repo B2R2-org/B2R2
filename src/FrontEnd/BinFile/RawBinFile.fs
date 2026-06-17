@@ -49,7 +49,7 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
              Permission.Readable ||| Permission.Writable
              ||| Permission.Executable } |]
     Some { new IMemoryLayout with
-      member _.GetSegments() = segments }
+      member _.Segments = segments }
 
   interface IBinFile with
     member _.Reader with get() = reader
