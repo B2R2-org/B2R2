@@ -1,6 +1,60 @@
 # B2R2 Change Log
 
-## 10.0.0 (2026-05-19)
+## 0.10.1 (2026-06-17)
+
+### Added
+
+- Add a stable, format-agnostic BinFile API with format-agnostic section,
+  segment, symbol, relocation, and exception types (#376).
+- Add a format-agnostic DWARF module extracted from format-specific code (#376).
+- Add IsPIE and IsBaseRelative properties to BinFile (#371).
+- Add InterpreterPath and BinFileKind to the stable BinFile API (#376).
+- Expose the ELF PHDR table address and size (#376).
+- Add a code-mode and linkage section API to BinFile (#376).
+- Parse x64 exception frames from PE .pdata/.xdata sections (#378).
+- Parse classic (FH3) and compressed (FH4) C++ catch handlers in PE (#378).
+- Parse Mach-O exception info from __eh_frame/__gcc_except_tab and compact
+  unwind (#377).
+- Parse Mach-O dyld fixups, resolve dyld bind library names, and support ARM64E
+  fixups (#374).
+- Implement basic functions and expand parser coverage for WASM (#372).
+- Implement PE relocated address lookup (#375).
+- Add support for recovering the CFG of a single target function (#345).
+- Support function pointers in jump tables.
+- Add a weak bucket table to Core and use weak buckets for LowUIR hash-consing
+  (#367).
+- Add getVersion to Core.
+- Enable changing the font size in the GUI linear view.
+
+### Changed
+
+- Internalize format-specific types and build symbol, name resolver, and
+  relocation lookups on the stable API (#376).
+- Decouple the MiddleEnd CFG builder and BinExplore section views from
+  format-specific types (#376).
+- Split optional capabilities out of the IBinFile interface (#368).
+- Rename the linkage table to the import table (#376).
+- Suffix BinSectionKind cases with "Section" and rename several BinFile
+  interfaces and predicates for clarity (#376).
+- Harden BinFilePointer construction and fix the GetBoundedPointer contract
+  (#373, #369).
+- Refactor SSA types and refine LowUIR hash-consing APIs and AST construction
+  (#367).
+- Fix LowUIR parser support for SideEffect Unlock and CastKind (#366, #365).
+- Refactor and clean up Core modules: BitVector, ProgramPoint, AddrRange,
+  BytePattern, LEB128, SortedList helpers, UniqueQueue, and NoOverlapIntervalMap
+  (#357, #358, #356, #359, #354, #360, #361, #362).
+- Fix Core bugs in HexString/ByteArray.toHexString formatting, Addr zero-padding,
+  AddrRange equality, and the ISA string constructor (#353, #347, #355, #346,
+  #348).
+- Use Mach-O initprot instead of maxprot for VM-mapped region permissions (#370).
+- Remove RecoveryMission from the MiddleEnd.
+- Fix Intel x64 DIV, CMPXCHG8B, and crc32 (including bitReflect temp value)
+  (#340, #337, #338, #339).
+- Fix FS3389 warnings (#343).
+- Refactor GUI theme settings and font scaling for UI consistency.
+
+## 0.10.0 (2026-05-19)
 
 ### Added
 
