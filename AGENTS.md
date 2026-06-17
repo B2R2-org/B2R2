@@ -13,6 +13,9 @@ dotnet tool restore
 dotnet fslint src --strict
 ```
 
+Always run the linter against the whole `src` directory, never against
+individual modified files — the tool takes a directory as input.
+
 ## Coding style (strict — CI enforces it)
 
 The full rules are in [CONTRIBUTING.md](CONTRIBUTING.md); the non-negotiables:
@@ -26,7 +29,6 @@ F# specifics (see CONTRIBUTING.md for the complete list with examples):
 
 - Documentation comments use `///` and go above the code; other comments use
   `(* ... *)`.
-- Nouns for variables, verbs for function names.
 - Spacing around `=`, in tuples (`1, 2, 3`), and in list/array literals
   (`[ 1; 2; 3 ]`, `[| 1; 2; 3 |]`); `[]` not `[ ]`.
 - Indexing has no inner spaces: `src[0]`, `src[1..3]`.
@@ -36,6 +38,12 @@ F# specifics (see CONTRIBUTING.md for the complete list with examples):
 - One blank line between top-level bindings; no blank lines inside a function
   body (if you want one, the function is too long — split it).
 - Use `_` for unused self-identifiers, `this` only when needed; never `__`.
+- Avoid parameter lists so long they must wrap onto a continuation line; if a
+  signature does not fit on one line, the function has too many parameters —
+  try to split it into smaller functions. Often the length comes from type
+  annotations: drop them, and if it still compiles you are done; if not, add a
+  single annotation at the first use site inside the function body instead, so
+  the definition line stays short.
 
 ## Commit messages
 
