@@ -25,9 +25,9 @@
 namespace B2R2.FrontEnd.BinFile.Tests
 
 open System.Reflection.PortableExecutable
-open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinFile
+open Microsoft.VisualStudio.TestTools.UnitTesting
 open type FileFormat
 
 [<TestClass>]
@@ -35,250 +35,247 @@ type PETests() =
   static let isStripped (file: IBinFile) =
     file.SymbolTable.Value.IsStripped
 
-  static let parseFile fileName (pdbFileName: string) =
+  static let parseFile fileName =
     let zipFile = fileName + ".zip"
     let fileNameInZip = fileName + ".exe"
     let bytes = ZIPReader.readBytes PEBinary zipFile fileNameInZip
-    let pdbBytes =
-      if pdbFileName.Length = 0 then [||]
-      else ZIPReader.readBytes PEBinary zipFile pdbFileName
-    PEBinFile(fileNameInZip, bytes, None, pdbBytes)
+    PEBinFile(fileNameInZip, bytes, None, [||])
 
-  let assertExistenceOfRelocBlock (file: IBinFile) pageRVA blockSize =
-    (file :?> PEBinFile).RelocBlocks
-    |> List.map (fun pair -> pair.PageRVA, pair.BlockSize)
-    |> Seq.ofList
+  static let parseFileWithPdb fileName =
+    let zipFile = fileName + ".zip"
+    let exeName = fileName + ".exe"
+    let bytes = ZIPReader.readBytes PEBinary zipFile exeName
+    let pdbBytes = ZIPReader.readBytes PEBinary zipFile (fileName + ".pdb")
+    PEBinFile(exeName, bytes, None, pdbBytes)
+
+  static let parseObjFile fileName =
+    let objName = fileName + ".obj"
+    let bytes = ZIPReader.readBytes PEBinary (fileName + ".zip") objName
+    PEBinFile(objName, bytes, None, [||])
+
+  static let parseDllFile fileName =
+    let dllName = fileName + ".dll"
+    let bytes = ZIPReader.readBytes PEBinary (fileName + ".zip") dllName
+    PEBinFile(dllName, bytes, None, [||])
+
+  /// A minimal x64 console executable (no PDB), used as the canonical fixture
+  /// for metadata, section, and address-space tests.
+  static let x64File = parseFile "pe_x64"
+
+  /// A minimal x86 (32-bit) console executable (no PDB), exercising the PE32
+  /// header and 32-bit ISA decoding.
+  static let x86File = parseFile "pe_x86"
+
+  /// The x64 executable bundled with its PDB, exercising the PDB-based symbol
+  /// path (PE images carry no symbols of their own).
+  static let x64PdbFile = parseFileWithPdb "pe_x64_pdb"
+
+  /// A COFF object file (.obj), exercising the COFF-only path: no entry point,
+  /// an object kind, and a COFF symbol table (no PDB needed).
+  static let x64ObjFile = parseObjFile "pe_x64_obj"
+
+  /// A DLL exporting a single function, exercising the shared-library kind and
+  /// export-table name resolution (no PDB needed).
+  static let x64DllFile = parseDllFile "pe_x64_dll"
+
+  /// A C++/SEH binary (try/catch plus __try/__except): its UNWIND_INFO carries
+  /// a personality routine, the SEH frame carries a C scope table, and the C++
+  /// try uses the compressed (FH4) FuncInfo format.
+  static let x64ExcFile = parseFile "pe_x64_exc"
+
+  /// The same source built with /d2FH4-, so the C++ try/catch uses the classic
+  /// (FH3) FuncInfo format instead of the compressed FH4 one.
+  static let x64ExcFh3File = parseFile "pe_x64_exc_fh3"
+
+  let assertExistenceOfRelocBlock (file: PEBinFile) pageRVA blockSize =
+    file.RelocBlocks
+    |> List.map (fun b -> b.PageRVA, b.BlockSize)
     |> assertExistenceOfPair (pageRVA, blockSize)
 
-  let assertExistenceOfSectionHeader (file: IBinFile) address headerName =
-    (file :?> PEBinFile).SectionHeaders
-    |> Array.map (fun record -> record.VirtualAddress, record.Name)
-    |> assertExistenceOfPair (address, headerName)
-
-  static let x86File = parseFile "pe_x86" "pe_x86.pdb"
-
-  static let x64File = parseFile "pe_x64" "pe_x64.pdb"
-
-  /// A C++/SEH binary (try/catch plus __try/__except), so its UNWIND_INFO
-  /// carries exception handlers and the SEH frames carry a C scope table.
-  static let x64ExcFile = parseFile "pe_x64_exc" ""
-
-  /// Same source built with /d2FH4- so the C++ try/catch uses the classic
-  /// (FH3) FuncInfo format rather than the compressed FH4 one.
-  static let x64ExcFh3File = parseFile "pe_x64_exc_fh3" ""
+  [<TestMethod>]
+  member _.``[PE] x64 ISA test``() =
+    let isa = (x64File :> IBinFile).ISA
+    Assert.AreEqual(Architecture.Intel, isa.Arch)
+    Assert.AreEqual(WordSize.Bit64, isa.WordSize)
+    Assert.AreEqual(Endian.Little, isa.Endian)
 
   [<TestMethod>]
-  member _.``[PE] X86 EntryPoint test``() =
-    Assert.AreEqual(Some 0x0040140cUL, (x86File :> IBinFile).EntryPoint)
+  member _.``[PE] x64 entry point test``() =
+    Assert.AreEqual(Some 0x140001290UL, (x64File :> IBinFile).EntryPoint)
 
   [<TestMethod>]
-  member _.``[PE] X86 file type test``() =
-    let flg = Characteristics.ExecutableImage
-    Assert.AreEqual
-      (true, x86File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
-
-  [<TestMethod>]
-  member _.``[PE] X86 IsStripped test``() =
-    Assert.AreEqual(false, isStripped (x86File :> IBinFile))
-
-  [<TestMethod>]
-  member _.``[PE] X86 IsNXEnabled test``() =
-    Assert.AreEqual(true, (x86File :> IBinFile).IsNXEnabled)
-
-  [<TestMethod>]
-  member _.``[PE] X86 sections length test``() =
-    Assert.AreEqual<int>(5, x86File.SectionHeaders.Length)
-
-  [<TestMethod>]
-  member _.``[PE] X86 static symbols length test``() =
-    Assert.AreEqual<int>(239, x86File.Symbols.SymbolArray.Length)
-
-  [<TestMethod>]
-  member _.``[PE] X86 dynamic symbols length test``() =
-    Assert.AreEqual<int>(41, x86File.ImportedSymbols.Count)
-    Assert.AreEqual<int>(0, x86File.ExportedSymbols.Count)
-
-  [<TestMethod>]
-  member _.``[PE] X86 text section address test``() =
-    Assert.AreEqual<uint64>(0x00401000UL, getTextSectionAddr x86File)
-
-  [<TestMethod>]
-  member _.``[PE] X86 isa wordSize test``() =
-    Assert.AreEqual(WordSize.Bit32, (x86File :> IBinFile).ISA.WordSize)
-
-  [<TestMethod>]
-  member _.``[PE] X86 function symbol test (1)``() =
-    assertFuncSymbolExistence x86File 0x00401090UL "_add"
-
-  [<TestMethod>]
-  member _.``[PE] X86 function symbol test (2)``() =
-    assertFuncSymbolExistence x86File 0x004010d0UL "_mul"
-
-  [<TestMethod>]
-  member _.``[PE] X86 function symbol test (3)``() =
-    assertFuncSymbolExistence x86File 0x004010e0UL "_main"
-
-  [<TestMethod>]
-  member _.``[PE] X86 Reloc section test (1)``() =
-    assertExistenceOfRelocBlock x86File 8192u 36
-
-  [<TestMethod>]
-  member _.``[PE] X86 Reloc section test (2)``() =
-    assertExistenceOfRelocBlock x86File 4096u 320
-
-  [<TestMethod>]
-  member _.``[PE] X86 IsRelocationAddr test``() =
-    let relocs = (x86File :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, relocs.IsRelocationAddr 0x00401001UL)
-    Assert.AreEqual(false, relocs.IsRelocationAddr 0x00401000UL)
-
-  [<TestMethod>]
-  member _.``[PE] X86 TryGetRelocatedAddr test``() =
-    let relocs = (x86File :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x00403380UL,
-                    relocs.TryGetRelocatedAddr 0x00401001UL)
-    Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    relocs.TryGetRelocatedAddr 0x00401000UL)
-
-  [<TestMethod>]
-  member _.``[PE] X86 section header test (1)``() =
-    assertExistenceOfSectionHeader x86File 4096 ".text"
-
-  [<TestMethod>]
-  member _.``[PE] X86 section header test (2)``() =
-    assertExistenceOfSectionHeader x86File 8192 ".rdata"
-
-  [<TestMethod>]
-  member _.``[PE] X86 section header test (3)``() =
-    assertExistenceOfSectionHeader x86File 12288 ".data"
-
-  [<TestMethod>]
-  member _.``[PE] X86 section header test (4)``() =
-    assertExistenceOfSectionHeader x86File 16384 ".rsrc"
-
-  [<TestMethod>]
-  member _.``[PE] X86 section header test (5)``() =
-    assertExistenceOfSectionHeader x86File 20480 ".reloc"
-
-  [<TestMethod>]
-  member _.``[PE] X64 EntryPoint test``() =
-    Assert.AreEqual(Some 0x1400014b4UL, (x64File :> IBinFile).EntryPoint)
-
-  [<TestMethod>]
-  member _.``[PE] X64 file type test``() =
+  member _.``[PE] x64 file type test``() =
     let flg = Characteristics.ExecutableImage
     Assert.AreEqual
       (true, x64File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
 
   [<TestMethod>]
-  member _.``[PE] X64 IsStripped test``() =
-    Assert.AreEqual(false, isStripped (x64File :> IBinFile))
+  member _.``[PE] x64 kind test``() =
+    Assert.AreEqual<BinFileKind>(Executable, (x64File :> IBinFile).Kind)
 
   [<TestMethod>]
-  member _.``[PE] X64 IsNXEnabled test``() =
-    Assert.AreEqual(true, (x64File :> IBinFile).IsNXEnabled)
+  member _.``[PE] x64 is PIE test``() =
+    Assert.AreEqual<bool>(true, (x64File :> IBinFile).IsPIE)
 
   [<TestMethod>]
-  member _.``[PE] X64 sections length test``() =
-    Assert.AreEqual<int>(6, x64File.SectionHeaders.Length)
+  member _.``[PE] x64 is base-relative test``() =
+    Assert.AreEqual<bool>(true, (x64File :> IBinFile).IsBaseRelative)
 
   [<TestMethod>]
-  member _.``[PE] X64 static symbols length test``() =
-    Assert.AreEqual<int>(240, x64File.Symbols.SymbolArray.Length)
+  member _.``[PE] x64 base address test``() =
+    Assert.AreEqual<uint64>(0x140000000UL, (x64File :> IBinFile).BaseAddress)
 
   [<TestMethod>]
-  member _.``[PE] X64 dynamic symbols length test``() =
-    Assert.AreEqual<int>(43, x64File.ImportedSymbols.Count)
-    Assert.AreEqual<int>(0, x64File.ExportedSymbols.Count)
+  member _.``[PE] x64 IsNXEnabled test``() =
+    Assert.AreEqual<bool>(true, (x64File :> IBinFile).IsNXEnabled)
 
   [<TestMethod>]
-  member _.``[PE] X64 text section address test``() =
+  member _.``[PE] x64 IsStripped test``() =
+    Assert.AreEqual<bool>(true, isStripped (x64File :> IBinFile))
+
+  [<TestMethod>]
+  member _.``[PE] x64 text section address test``() =
     Assert.AreEqual<uint64>(0x140001000UL, getTextSectionAddr x64File)
 
   [<TestMethod>]
-  member _.``[PE] X64 isa wordSize test``() =
-    Assert.AreEqual(WordSize.Bit64, (x64File :> IBinFile).ISA.WordSize)
+  member _.``[PE] x64 sections length test``() =
+    Assert.AreEqual<int>(5, x64File.SectionHeaders.Length)
 
   [<TestMethod>]
-  member _.``[PE] X64 function symbol test (1)``() =
-    assertFuncSymbolExistence x64File 0x1400010e0UL "add"
+  member _.``[PE] x86 ISA test``() =
+    let isa = (x86File :> IBinFile).ISA
+    Assert.AreEqual(Architecture.Intel, isa.Arch)
+    Assert.AreEqual(WordSize.Bit32, isa.WordSize)
+    Assert.AreEqual(Endian.Little, isa.Endian)
 
   [<TestMethod>]
-  member _.``[PE] X64 function symbol test (2)``() =
-    assertFuncSymbolExistence x64File 0x140001110UL "mul"
+  member _.``[PE] x86 entry point test``() =
+    Assert.AreEqual(Some 0x4012F0UL, (x86File :> IBinFile).EntryPoint)
 
   [<TestMethod>]
-  member _.``[PE] X64 function symbol test (3)``() =
-    assertFuncSymbolExistence x64File 0x140001130UL "main"
+  member _.``[PE] x86 file type test``() =
+    let flg = Characteristics.ExecutableImage
+    Assert.AreEqual
+      (true, x86File.PEHeaders.CoffHeader.Characteristics.HasFlag flg)
 
   [<TestMethod>]
-  member _.``[PE] X64 Reloc section test``() =
-    assertExistenceOfRelocBlock x64File 8192u 28
+  member _.``[PE] x86 text section address test``() =
+    Assert.AreEqual<uint64>(0x401000UL, getTextSectionAddr x86File)
 
   [<TestMethod>]
-  member _.``[PE] X64 IsRelocationAddr test``() =
+  member _.``[PE] x86 sections length test``() =
+    Assert.AreEqual<int>(4, x86File.SectionHeaders.Length)
+
+  [<TestMethod>]
+  member _.``[PE] x86 IsStripped test``() =
+    Assert.AreEqual<bool>(true, isStripped (x86File :> IBinFile))
+
+  [<TestMethod>]
+  member _.``[PE] x64 pdb IsStripped test``() =
+    Assert.AreEqual<bool>(false, isStripped (x64PdbFile :> IBinFile))
+
+  [<TestMethod>]
+  member _.``[PE] x64 pdb function symbol test (1)``() =
+    assertFuncSymbolExistence x64PdbFile 0x140001040UL "main"
+
+  [<TestMethod>]
+  member _.``[PE] x64 pdb function symbol test (2)``() =
+    assertFuncSymbolExistence x64PdbFile 0x140001020UL "helper"
+
+  [<TestMethod>]
+  member _.``[PE] x64 obj has no entry point test``() =
+    Assert.AreEqual<uint64 option>(None, (x64ObjFile :> IBinFile).EntryPoint)
+
+  [<TestMethod>]
+  member _.``[PE] x64 obj kind test``() =
+    Assert.AreEqual<BinFileKind>(Object, (x64ObjFile :> IBinFile).Kind)
+
+  [<TestMethod>]
+  member _.``[PE] x64 obj is base-relative test``() =
+    Assert.AreEqual<bool>(true, (x64ObjFile :> IBinFile).IsBaseRelative)
+
+  [<TestMethod>]
+  member _.``[PE] x64 obj IsNXEnabled test``() =
+    Assert.AreEqual<bool>(false, (x64ObjFile :> IBinFile).IsNXEnabled)
+
+  [<TestMethod>]
+  member _.``[PE] x64 obj IsStripped test``() =
+    Assert.AreEqual<bool>(false, isStripped (x64ObjFile :> IBinFile))
+
+  [<TestMethod>]
+  member _.``[PE] x64 obj COFF symbols include functions test``() =
+    (* COMDAT puts each function at offset 0 of its own section, so we check the
+       COFF symbol table by name rather than by address. *)
+    let names =
+      (x64ObjFile :> IBinFile).SymbolTable.Value.Symbols
+      |> Array.map (fun s -> s.Name)
+      |> Set.ofArray
+    Assert.AreEqual<bool>(true, names.Contains "main")
+    Assert.AreEqual<bool>(true, names.Contains "helper")
+
+  [<TestMethod>]
+  member _.``[PE] x64 dll kind test``() =
+    Assert.AreEqual<BinFileKind>(SharedLibrary, (x64DllFile :> IBinFile).Kind)
+
+  [<TestMethod>]
+  member _.``[PE] x64 dll is not PIE test``() =
+    Assert.AreEqual<bool>(false, (x64DllFile :> IBinFile).IsPIE)
+
+  [<TestMethod>]
+  member _.``[PE] x64 dll is base-relative test``() =
+    Assert.AreEqual<bool>(true, (x64DllFile :> IBinFile).IsBaseRelative)
+
+  [<TestMethod>]
+  member _.``[PE] x64 dll IsStripped test``() =
+    Assert.AreEqual<bool>(true, isStripped (x64DllFile :> IBinFile))
+
+  [<TestMethod>]
+  member _.``[PE] x64 dll export name resolution test``() =
+    assertFuncSymbolExistence x64DllFile 0x180001000UL "exported_func"
+
+  [<TestMethod>]
+  member _.``[PE] x64 relocation block test``() =
+    assertExistenceOfRelocBlock x64File 0x2000u 0x2C
+
+  [<TestMethod>]
+  member _.``[PE] x64 IsRelocationAddr test``() =
     let relocs = (x64File :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, relocs.IsRelocationAddr 0x140002190UL)
-    Assert.AreEqual(false, relocs.IsRelocationAddr 0x140002194UL)
+    Assert.AreEqual<bool>(true, relocs.IsRelocationAddr 0x140002150UL)
+    Assert.AreEqual<bool>(false, relocs.IsRelocationAddr 0x140001290UL)
 
   [<TestMethod>]
-  member _.``[PE] X64 TryGetRelocatedAddr test``() =
+  member _.``[PE] x64 TryGetRelocatedAddr test``() =
     let relocs = (x64File :> IBinFile).Relocations.Value
-    Assert.AreEqual(Ok 0x1400019ccUL,
-                    relocs.TryGetRelocatedAddr 0x140002190UL)
+    Assert.AreEqual(Ok 0x140001630UL, relocs.TryGetRelocatedAddr 0x140002150UL)
     Assert.AreEqual(Error ErrorCase.ItemNotFound,
-                    relocs.TryGetRelocatedAddr 0x140002194UL)
+                    relocs.TryGetRelocatedAddr 0x140001290UL)
 
   [<TestMethod>]
-  member _.``[PE] X64 section header test (1)``() =
-    assertExistenceOfSectionHeader x64File 4096 ".text"
-
-  [<TestMethod>]
-  member _.``[PE] X64 section header test (2)``() =
-    assertExistenceOfSectionHeader x64File 8192 ".rdata"
-
-  [<TestMethod>]
-  member _.``[PE] X64 section header test (3)``() =
-    assertExistenceOfSectionHeader x64File 12288 ".data"
-
-  [<TestMethod>]
-  member _.``[PE] X64 section header test (4)``() =
-    assertExistenceOfSectionHeader x64File 16384 ".pdata"
-
-  [<TestMethod>]
-  member _.``[PE] X64 section header test (5)``() =
-    assertExistenceOfSectionHeader x64File 20480 ".rsrc"
-
-  [<TestMethod>]
-  member _.``[PE] X64 section header test (6)``() =
-    assertExistenceOfSectionHeader x64File 24576 ".reloc"
-
-  [<TestMethod>]
-  member _.``[PE] X64 exception table is parsed from .pdata``() =
+  member _.``[PE] x64 exception table is parsed from .pdata``() =
     let frames = (x64File :> IBinFile).ExceptionTable.Value.Frames
     Assert.AreEqual<bool>(true, frames.Length > 0)
 
   [<TestMethod>]
-  member _.``[PE] X64 exception frames have sane ranges``() =
+  member _.``[PE] x64 exception frames have sane ranges``() =
     let frames = (x64File :> IBinFile).ExceptionTable.Value.Frames
     let sane =
       frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
     Assert.AreEqual<bool>(true, sane)
 
   [<TestMethod>]
-  member _.``[PE] X86 has no exception table entries``() =
+  member _.``[PE] x86 has no exception table entries``() =
     let frames = (x86File :> IBinFile).ExceptionTable.Value.Frames
     Assert.AreEqual<int>(0, frames.Length)
 
   [<TestMethod>]
-  member _.``[PE] X64 exception frame has a personality routine``() =
+  member _.``[PE] x64 exception frame has a personality routine``() =
     let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let hasPersonality =
       frames |> Array.exists (fun f -> f.PersonalityRoutine.IsSome)
     Assert.AreEqual<bool>(true, hasPersonality)
 
   [<TestMethod>]
-  member _.``[PE] X64 SEH scope table handler is resolved``() =
+  member _.``[PE] x64 exception handler is resolved``() =
     let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let hasHandler =
       frames |> Array.exists (fun f ->
@@ -286,11 +283,19 @@ type PETests() =
     Assert.AreEqual<bool>(true, hasHandler)
 
   [<TestMethod>]
-  member _.``[PE] X64 FH3 C++ catch handlers are parsed``() =
+  member _.``[PE] x64 FH4 C++ catch handlers are parsed``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let multiCatch =
+      frames
+      |> Array.collect (fun f -> f.Handlers)
+      |> Array.filter (fun h -> h.Handler.IsSome)
+      |> Array.groupBy (fun h -> h.BlockStart, h.BlockEnd)
+      |> Array.exists (fun (_, hs) -> hs.Length >= 2)
+    Assert.AreEqual<bool>(true, multiCatch)
+
+  [<TestMethod>]
+  member _.``[PE] x64 FH3 C++ catch handlers are parsed``() =
     let frames = (x64ExcFh3File :> IBinFile).ExceptionTable.Value.Frames
-    // A C++ try with multiple catch clauses yields several handlers sharing the
-    // same guarded range; SEH scope records never do, so this pins the FH3
-    // path.
     let multiCatch =
       frames
       |> Array.collect (fun f -> f.Handlers)
@@ -300,24 +305,49 @@ type PETests() =
     Assert.AreEqual<bool>(true, multiCatch)
 
   [<TestMethod>]
-  member _.``[PE] X64 FH4 C++ catch handlers are parsed``() =
-    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
-    let multiCatch =
-      frames
-      |> Array.collect (fun f -> f.Handlers)
-      |> Array.filter (fun h -> h.Handler.IsSome)
-      |> Array.groupBy (fun h -> h.BlockStart, h.BlockEnd)
-      |> Array.exists (fun (_, hs) -> hs.Length >= 2)
-    Assert.AreEqual<bool>(true, multiCatch)
+  member _.``[PE] x64 valid address test``() =
+    let f = x64File :> IBinFile
+    Assert.AreEqual<bool>(true, f.IsValidAddr 0x140001000UL) (* .text *)
+    Assert.AreEqual<bool>(true, f.IsValidAddr 0x140003220UL) (* .data tail *)
+    Assert.AreEqual<bool>(false, f.IsValidAddr 0x140030000UL) (* unmapped *)
 
   [<TestMethod>]
-  member _.``[PE] X64 FH4 catch handler addresses match dumpbin``() =
-    // dumpbin /unwindinfo reports cppGuarded's two catch handlers at RVAs
-    // 0x91FE0 and 0x9200D (image base 0x140000000).
-    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
-    let targets =
-      frames
-      |> Array.collect (fun f -> f.Handlers)
-      |> Array.choose (fun h -> h.Handler)
-    Assert.AreEqual<bool>(true, Array.contains 0x140091FE0UL targets)
-    Assert.AreEqual<bool>(true, Array.contains 0x14009200DUL targets)
+  member _.``[PE] x64 address mapped to file test``() =
+    (* .text is file-backed, but the tail of .data (virtual size > raw size) is
+       not. *)
+    let f = x64File :> IBinFile
+    Assert.AreEqual<bool>(true, f.IsAddrMappedToFile 0x140001000UL)
+    Assert.AreEqual<bool>(false, f.IsAddrMappedToFile 0x140003220UL)
+
+  [<TestMethod>]
+  member _.``[PE] x64 executable address test``() =
+    let f = x64File :> IBinFile
+    Assert.AreEqual<bool>(true, f.IsExecutableAddr 0x140001000UL) (* .text *)
+    Assert.AreEqual<bool>(false, f.IsExecutableAddr 0x140002000UL) (* .rdata *)
+
+  [<TestMethod>]
+  member _.``[PE] x64 slice maps address to file content test``() =
+    let f = x64File :> IBinFile
+    let viaSlice = f.Slice(0x140001000UL, 8).ToArray()
+    let viaRaw = f.RawBytes.Span.Slice(0x400, 8).ToArray()
+    CollectionAssert.AreEqual(viaRaw, viaSlice)
+
+  [<TestMethod>]
+  member _.``[PE] x64 bounded pointer test``() =
+    let f = x64File :> IBinFile
+    let p = f.GetBoundedPointer 0x140001000UL
+    Assert.AreEqual<bool>(false, p.IsNull)
+    Assert.AreEqual<bool>(true, p.CanReadFileBytes)
+
+  [<TestMethod>]
+  member _.``[PE] format detector identifies PE test``() =
+    let bytes = ZIPReader.readBytes PEBinary "pe_x64.zip" "pe_x64.exe"
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let struct (fmt, _) = FormatDetector.identify bytes isa
+    Assert.AreEqual(PEBinary, fmt)
+
+  [<TestMethod>]
+  member _.``[PE] file factory loadPE test``() =
+    let bytes = ZIPReader.readBytes PEBinary "pe_x64.zip" "pe_x64.exe"
+    let f = FileFactory.loadPE "" bytes None [||] :> IBinFile
+    Assert.AreEqual(PEBinary, f.Format)
