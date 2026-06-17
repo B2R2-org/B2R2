@@ -78,12 +78,19 @@ type MachTests() =
     parseFile "mach_arm64e_chained" Architecture.ARMv8 WordSize.Bit64
 
   /// A C++ binary with try/catch, so it carries DWARF CFI in __eh_frame and an
-  /// LSDA table in __gcc_except_tab. Exception parsing needs a register factory.
+  /// LSDA table in __gcc_except_tab. Exception parsing needs a register
+  /// factory.
   static let x64ExcFile =
     let bytes = ZIPReader.readBytes MachBinary "mach_x64_exc.zip" "mach_x64_exc"
     let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
-    let regFactory = B2R2.FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
+    let regFactory = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
     MachBinFile("mach_x64_exc", bytes, isa, None, Some regFactory)
+
+  /// An arm64 C++ binary built normally, so unwinding lives in Apple compact
+  /// unwind (__unwind_info) rather than __eh_frame, with the LSDA still in
+  /// __gcc_except_tab. Compact unwind needs no register factory.
+  static let arm64ExcFile =
+    parseFile "mach_arm64_exc" Architecture.ARMv8 WordSize.Bit64
 
   [<TestMethod>]
   member _.``[Mach] X86_Stripped EntryPoint test``() =
@@ -418,6 +425,25 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X64 exception handler landing pad is resolved``() =
     let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let hasHandler =
+      frames |> Array.exists (fun f ->
+        f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
+    Assert.AreEqual<bool>(true, hasHandler)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 compact unwind table is parsed``() =
+    let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    Assert.AreEqual<bool>(true, frames.Length > 0)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 compact unwind frames have sane ranges``() =
+    let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let sane = frames |> Array.forall (fun f -> f.FunctionEnd > f.FunctionStart)
+    Assert.AreEqual<bool>(true, sane)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 compact unwind handler landing pad is resolved``() =
+    let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     let hasHandler =
       frames |> Array.exists (fun f ->
         f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))

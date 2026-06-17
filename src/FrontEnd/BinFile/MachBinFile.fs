@@ -317,10 +317,11 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
     Some { new IMemoryLayout with
       member _.GetSegments() = segments.Value }
 
-  let exn = lazy ExceptionData.parse toolBox secs.Value regFactoryOpt
+  let exn =
+    lazy ExceptionData.parse toolBox segCmds.Value secs.Value regFactoryOpt
 
-  let toExceptionHandlers (fde: FDE) =
-    match fde.LSDAPointer with
+  let toExceptionHandlers (frame: FrameInfo) =
+    match frame.LSDAPointer with
     | None -> [||]
     | Some p ->
       match Map.tryFind p exn.Value.LSDATable with
@@ -328,21 +329,20 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
       | Some lsda ->
         lsda.CallSiteTable
         |> List.map (fun cs ->
-          { BlockStart = fde.PCBegin + cs.Position
-            BlockEnd = fde.PCBegin + cs.Position + cs.Length - 1UL
+          { BlockStart = frame.FuncStart + cs.Position
+            BlockEnd = frame.FuncStart + cs.Position + cs.Length - 1UL
             Handler =
               if cs.LandingPad = 0UL then None
-              else Some(fde.PCBegin + cs.LandingPad) })
+              else Some(frame.FuncStart + cs.LandingPad) })
         |> List.toArray
 
   let exceptionFrames =
     lazy
-      [| for cfi in exn.Value.ExceptionFrame do
-           for fde in cfi.FDEs do
-             { FunctionStart = fde.PCBegin
-               FunctionEnd = fde.PCEnd
-               PersonalityRoutine = None
-               Handlers = toExceptionHandlers fde } |]
+      [| for frame in exn.Value.Frames do
+           { FunctionStart = frame.FuncStart
+             FunctionEnd = frame.FuncEnd
+             PersonalityRoutine = None
+             Handlers = toExceptionHandlers frame } |]
 
   let exceptionTable =
     Some { new IExceptionTable with

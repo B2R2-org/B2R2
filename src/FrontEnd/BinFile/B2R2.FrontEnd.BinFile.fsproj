@@ -106,6 +106,7 @@
     <Compile Include="Mach\ChainedFixup.fs" />
     <Compile Include="Mach\DyldInfo.fs" />
     <Compile Include="Mach\Helper.fs" />
+    <Compile Include="Mach\CompactUnwind.fs" />
     <Compile Include="Mach\ExceptionData.fs" />
     <Compile Include="Python\Types.fs" />
     <Compile Include="Python\Helper.fs" />

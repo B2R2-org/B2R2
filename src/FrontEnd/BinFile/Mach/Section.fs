@@ -56,10 +56,13 @@ type internal Section =
     /// Reserved field 2.
     SecReserved2: int }
 
+[<RequireQualifiedAccess>]
 module Section =
   let [<Literal>] Text = "__text"
 
   let [<Literal>] Const = "__const"
+
+  let [<Literal>] UnwindInfo = "__unwind_info"
 
   let private parseSection toolBox (span: ByteSpan) offset =
     let cls = toolBox.Header.Class

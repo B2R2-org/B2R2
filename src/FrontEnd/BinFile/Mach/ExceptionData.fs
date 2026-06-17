@@ -25,14 +25,23 @@
 namespace B2R2.FrontEnd.BinFile.Mach
 
 open System
+open B2R2
 open B2R2.FrontEnd.BinFile.DWARF
 
-/// Represents Mach-O exception information parsed from the DWARF CFI records in
-/// `__TEXT,__eh_frame` and the LSDA table in `__TEXT,__gcc_except_tab`.
-type internal ExceptionData =
-  { /// Exception frames (CFI records).
-    ExceptionFrame: ExceptionFrame
-    /// LSDA table mapping each LSDA address to its parsed LSDA.
+/// Represents a per-function exception frame descriptor, independent of whether
+/// it came from DWARF CFI (`__eh_frame`) or compact unwind (`__unwind_info`).
+type internal FrameInfo =
+  { /// Start address of the function (inclusive).
+    FuncStart: Addr
+    /// End address of the function (exclusive).
+    FuncEnd: Addr
+    /// Address of the LSDA governing this frame, if any.
+    LSDAPointer: Addr option }
+
+/// Represents Mach-O exception information: per-function frames plus the LSDA
+/// table (in `__TEXT,__gcc_except_tab`) that resolves their handlers.
+and internal ExceptionData =
+  { Frames: FrameInfo list
     LSDATable: LSDATable }
 
 module internal ExceptionData =
@@ -40,21 +49,9 @@ module internal ExceptionData =
 
   let [<Literal>] private GccExceptTableSection = "__gcc_except_tab"
 
-  /// Mach-O executables and dylibs carry no FDE begin-address relocations, so
-  /// the resolver always yields None.
+  /// Mach-O carries no FDE begin-address relocations, so the resolver always
+  /// yields None.
   let private noReloc: RelocationResolver = fun _ -> None
-
-  let private parseFrames toolBox cls isa (secs: Section[]) regFactory =
-    match Array.tryFind (fun s -> s.SecName = EHFrameSection) secs,
-          regFactory with
-    | Some sec, Some rf ->
-      let dwSec: DWARFSection =
-        { Image = toolBox.Bytes
-          Offset = int sec.SecOffset
-          Size = int sec.SecSize
-          Address = sec.SecAddr }
-      ExceptionFrame.parseFromSection toolBox.Reader cls isa rf noReloc dwSec
-    | _ -> []
 
   let private parseLSDAs toolBox cls (secs: Section[]) =
     match Array.tryFind (fun s -> s.SecName = GccExceptTableSection) secs with
@@ -64,8 +61,43 @@ module internal ExceptionData =
       LSDATable.parseFromSection cls span toolBox.Reader sec.SecAddr 0 Map.empty
     | None -> Map.empty
 
-  let parse toolBox secs regFactory =
+  /// Parses frames from DWARF CFI in `__eh_frame`. Requires a register factory
+  /// (for CIE decoding); returns [] when either is absent.
+  let private parseEHFrames toolBox cls isa (secs: Section[]) regFactory =
+    match Array.tryFind (fun s -> s.SecName = EHFrameSection) secs,
+          regFactory with
+    | Some sec, Some rf ->
+      let dwSec: DWARFSection =
+        { Image = toolBox.Bytes
+          Offset = int sec.SecOffset
+          Size = int sec.SecSize
+          Address = sec.SecAddr }
+      ExceptionFrame.parseFromSection toolBox.Reader cls isa rf noReloc dwSec
+      |> List.collect (fun cfi ->
+        [ for fde in cfi.FDEs ->
+            { FuncStart = fde.PCBegin
+              FuncEnd = fde.PCEnd
+              LSDAPointer = fde.LSDAPointer } ])
+    | _ -> []
+
+  /// Parses frames from Apple compact unwind in `__unwind_info` (the common
+  /// case on modern macOS, especially arm64). No register factory is needed.
+  let private parseCompactUnwind toolBox (segCmds: SegCmd[]) (secs: Section[]) =
+    match Array.tryFind (fun s -> s.SecName = Section.UnwindInfo) secs with
+    | Some sec ->
+      let imageBase = Helper.getTextSegOffset segCmds
+      CompactUnwind.parse
+        toolBox.Bytes toolBox.Reader (int sec.SecOffset) (int sec.SecSize)
+        imageBase
+      |> List.map (fun (s, e, l) ->
+        { FuncStart = s; FuncEnd = e; LSDAPointer = l })
+    | None -> []
+
+  let parse toolBox segCmds secs regFactory =
     let cls = toolBox.Header.Class
     let isa = toolBox.ISA
-    { ExceptionFrame = parseFrames toolBox cls isa secs regFactory
-      LSDATable = parseLSDAs toolBox cls secs }
+    let ehFrames = parseEHFrames toolBox cls isa secs regFactory
+    let frames =
+      if List.isEmpty ehFrames then parseCompactUnwind toolBox segCmds secs
+      else ehFrames
+    { Frames = frames; LSDATable = parseLSDAs toolBox cls secs }
