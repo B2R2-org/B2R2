@@ -182,10 +182,10 @@ let getRelocations (file: IBinFile) =
   | None -> [||]
 
 /// Checks if the given address has relocation information.
-[<CompiledName "ContainsRelocation">]
-let containsRelocation (file: IBinFile) addr =
+[<CompiledName "IsRelocationAddr">]
+let isRelocationAddr (file: IBinFile) addr =
   match file.Relocations with
-  | Some relocs -> relocs.ContainsRelocation addr
+  | Some relocs -> relocs.IsRelocationAddr addr
   | None -> false
 
 /// Tries to find the relocated target address of the given address.

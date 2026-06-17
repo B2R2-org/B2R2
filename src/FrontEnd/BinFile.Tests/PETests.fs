@@ -127,10 +127,10 @@ type PETests() =
     assertExistenceOfRelocBlock x86File 4096u 320
 
   [<TestMethod>]
-  member _.``[PE] X86 ContainsRelocation test``() =
+  member _.``[PE] X86 IsRelocationAddr test``() =
     let relocs = (x86File :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, relocs.ContainsRelocation 0x00401001UL)
-    Assert.AreEqual(false, relocs.ContainsRelocation 0x00401000UL)
+    Assert.AreEqual(true, relocs.IsRelocationAddr 0x00401001UL)
+    Assert.AreEqual(false, relocs.IsRelocationAddr 0x00401000UL)
 
   [<TestMethod>]
   member _.``[PE] X86 TryGetRelocatedAddr test``() =
@@ -216,10 +216,10 @@ type PETests() =
     assertExistenceOfRelocBlock x64File 8192u 28
 
   [<TestMethod>]
-  member _.``[PE] X64 ContainsRelocation test``() =
+  member _.``[PE] X64 IsRelocationAddr test``() =
     let relocs = (x64File :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, relocs.ContainsRelocation 0x140002190UL)
-    Assert.AreEqual(false, relocs.ContainsRelocation 0x140002194UL)
+    Assert.AreEqual(true, relocs.IsRelocationAddr 0x140002190UL)
+    Assert.AreEqual(false, relocs.IsRelocationAddr 0x140002194UL)
 
   [<TestMethod>]
   member _.``[PE] X64 TryGetRelocatedAddr test``() =

@@ -256,7 +256,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
               { Address = addr; SymbolName = Some sym; Addend = Some addend })
         Array.append classic fixupRelocs
 
-      member _.ContainsRelocation addr =
+      member _.IsRelocationAddr addr =
         Map.containsKey addr relocMap.Value
         || Map.containsKey addr fixupMap.Value
 

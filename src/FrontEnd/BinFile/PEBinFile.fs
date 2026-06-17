@@ -206,7 +206,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
     Some { new IRelocationTable with
       member _.Relocations = Relocation.getRelocations pe
 
-      member _.ContainsRelocation addr = Relocation.contains pe addr
+      member _.IsRelocationAddr addr = Relocation.contains pe addr
 
       member _.TryGetRelocatedAddr relocAddr =
         Relocation.tryGetRelocatedAddr bytes pe relocAddr

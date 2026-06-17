@@ -39,7 +39,7 @@ type IRelocationTable =
   /// <returns>
   /// True if the address has relocation information, false otherwise.
   /// </returns>
-  abstract ContainsRelocation: Addr -> bool
+  abstract IsRelocationAddr: Addr -> bool
 
   /// <summary>
   /// Returns a relocation target address of the given virtual address if there

@@ -273,7 +273,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
             Addend = Some(int64 r.RelAddend) })
         |> Seq.toArray
 
-      member _.ContainsRelocation addr =
+      member _.IsRelocationAddr addr =
         relocs.Value.Contains addr
 
       member _.TryGetRelocatedAddr relocAddr =

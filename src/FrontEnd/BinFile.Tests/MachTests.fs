@@ -121,12 +121,12 @@ type MachTests() =
     Assert.AreEqual<int>(59, x86File.DynamicSymbols.Length)
 
   [<TestMethod>]
-  member _.``[Mach] X64 ContainsRelocation test``() =
+  member _.``[Mach] X64 IsRelocationAddr test``() =
     let reloc = (x64RelocFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x0UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x8UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x10UL)
-    Assert.AreEqual(false, reloc.ContainsRelocation 0x4UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x0UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x8UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x10UL)
+    Assert.AreEqual(false, reloc.IsRelocationAddr 0x4UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 TryGetRelocatedAddr external symbol test``() =
@@ -146,11 +146,11 @@ type MachTests() =
                     reloc.TryGetRelocatedAddr 0x4UL)
 
   [<TestMethod>]
-  member _.``[Mach] X64 chained fixups ContainsRelocation test``() =
+  member _.``[Mach] X64 chained fixups IsRelocationAddr test``() =
     let reloc = (x64ChainedFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x1000UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x1010UL)
-    Assert.AreEqual(false, reloc.ContainsRelocation 0x1008UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x1000UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x1010UL)
+    Assert.AreEqual(false, reloc.IsRelocationAddr 0x1008UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 chained fixups rebase test``() =
@@ -178,11 +178,11 @@ type MachTests() =
     Assert.AreEqual(false, linkage.IsInImportTable 0x1010UL)
 
   [<TestMethod>]
-  member _.``[Mach] X64 dyld info ContainsRelocation test``() =
+  member _.``[Mach] X64 dyld info IsRelocationAddr test``() =
     let reloc = (x64DyldInfoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x1000UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x1010UL)
-    Assert.AreEqual(false, reloc.ContainsRelocation 0x1008UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x1000UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x1010UL)
+    Assert.AreEqual(false, reloc.IsRelocationAddr 0x1008UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 dyld info rebase test``() =
@@ -208,10 +208,10 @@ type MachTests() =
     Assert.AreEqual(true, linkage.IsInImportTable 0x1008UL)
 
   [<TestMethod>]
-  member _.``[Mach] X64 weak bind ContainsRelocation test``() =
+  member _.``[Mach] X64 weak bind IsRelocationAddr test``() =
     let reloc = (x64WeakBindFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x1008UL)
-    Assert.AreEqual(false, reloc.ContainsRelocation 0x1000UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x1008UL)
+    Assert.AreEqual(false, reloc.IsRelocationAddr 0x1000UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 two-level bind library name test``() =
@@ -223,13 +223,13 @@ type MachTests() =
     Assert.AreEqual(0x1000UL, entries[0].TableAddress)
 
   [<TestMethod>]
-  member _.``[Mach] arm64e chained fixups ContainsRelocation test``() =
+  member _.``[Mach] arm64e chained fixups IsRelocationAddr test``() =
     let reloc = (arm64eChainedFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x4000UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x4008UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x4018UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x4020UL)
-    Assert.AreEqual(false, reloc.ContainsRelocation 0x4010UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x4000UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x4008UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x4018UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x4020UL)
+    Assert.AreEqual(false, reloc.IsRelocationAddr 0x4010UL)
 
   [<TestMethod>]
   member _.``[Mach] arm64e chained fixups rebase test``() =
