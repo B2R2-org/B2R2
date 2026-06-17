@@ -100,9 +100,16 @@ let rec private readExnTableEntry (fdes, lsdas) reader cls span sAddr = function
     | PointerToExceptionEntry(addr) ->
       match readLSDAFromCustom reader cls span sAddr addr with
       | Some(lsda, lsdaAddr) ->
+        (* .ARM.exidx stores no function size; the function runs until the next
+           (sorted) index entry, so we take that as the exclusive end. The final
+           entry has no successor, so its extent stays unknown. *)
+        let pcEnd =
+          match tl with
+          | next :: _ -> next.FuncAddr
+          | [] -> entry.FuncAddr
         let fde =
           { PCBegin = entry.FuncAddr
-            PCEnd = entry.FuncAddr
+            PCEnd = pcEnd
             LSDAPointer = Some lsdaAddr
             UnwindingInfo = [] }
         let acc = (fde :: fdes, Map.add lsdaAddr lsda lsdas)
