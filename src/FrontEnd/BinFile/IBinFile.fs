@@ -40,7 +40,7 @@ type IBinFile =
   /// Returns the raw file content as a read-only memory block.
   abstract RawBytes: System.ReadOnlyMemory<byte>
 
-  /// Returns the size of the associated binary file.
+  /// Returns the size of the associated binary file in bytes.
   abstract Length: int
 
   /// Returns a name resolver if this binary format provides names.

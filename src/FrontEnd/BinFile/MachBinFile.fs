@@ -142,16 +142,16 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   let secKind (sec: Section) =
     if sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_DEBUG then
-      BinSectionKind.Debug
-    elif isTLSSection sec then BinSectionKind.ThreadLocalStorage
-    elif isZeroFillSection sec then BinSectionKind.UninitializedData
-    elif isDynamicLinkageSection sec then BinSectionKind.DynamicLinkage
+      DebugSection
+    elif isTLSSection sec then ThreadLocalStorageSection
+    elif isZeroFillSection sec then UninitializedDataSection
+    elif isDynamicLinkageSection sec then DynamicLinkageSection
     elif sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_PURE_INSTRUCTIONS then
-      BinSectionKind.Code
-    elif sec.SecName = Section.Text then BinSectionKind.Code
-    elif isMetadataSection sec then BinSectionKind.Metadata
-    elif sec.SecType = SectionType.S_REGULAR then BinSectionKind.Data
-    else BinSectionKind.Unknown
+      CodeSection
+    elif sec.SecName = Section.Text then CodeSection
+    elif isMetadataSection sec then MetadataSection
+    elif sec.SecType = SectionType.S_REGULAR then DataSection
+    else UnknownSection
 
   let toBinSection (sec: Section) =
     { Name = sec.SecName

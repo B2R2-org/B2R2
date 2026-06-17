@@ -55,22 +55,22 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
   let secKind (sec: SectionSummary) =
     match sec.Id with
-    | SectionId.Code -> BinSectionKind.Code
-    | SectionId.Data -> BinSectionKind.Data
+    | SectionId.Code -> CodeSection
+    | SectionId.Data -> DataSection
     | SectionId.Custom when sec.Name = Section.CustomName ->
-      BinSectionKind.Debug
-    | SectionId.Custom -> BinSectionKind.Unknown
-    | _ -> BinSectionKind.Metadata
+      DebugSection
+    | SectionId.Custom -> UnknownSection
+    | _ -> MetadataSection
 
   let secPermission sec =
     match secKind sec with
-    | BinSectionKind.Code ->
+    | CodeSection ->
       int Permission.Readable ||| int Permission.Executable
-    | BinSectionKind.Data ->
+    | DataSection ->
       int Permission.Readable ||| int Permission.Writable
-    | BinSectionKind.Debug
-    | BinSectionKind.Metadata
-    | BinSectionKind.Unknown -> int Permission.Readable
+    | DebugSection
+    | MetadataSection
+    | UnknownSection -> int Permission.Readable
     | _ -> 0
     |> LanguagePrimitives.EnumOfValue
 

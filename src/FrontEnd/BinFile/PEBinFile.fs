@@ -90,24 +90,24 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   let secKind (sec: SectionHeader) =
     let ch = sec.SectionCharacteristics
     if sec.Name = Section.Resource then
-      BinSectionKind.Resource
+      ResourceSection
     elif sec.Name.StartsWith Section.DebugPrefix then
-      BinSectionKind.Debug
+      DebugSection
     elif sec.Name = Section.TLS then
-      BinSectionKind.ThreadLocalStorage
+      ThreadLocalStorageSection
     elif sec.Name = Section.IData then
-      BinSectionKind.DynamicLinkage
+      DynamicLinkageSection
     elif ch.HasFlag SectionCharacteristics.MemExecute
       || ch.HasFlag SectionCharacteristics.ContainsCode then
-      BinSectionKind.Code
+      CodeSection
     elif ch.HasFlag SectionCharacteristics.ContainsUninitializedData then
-      BinSectionKind.UninitializedData
+      UninitializedDataSection
     elif ch.HasFlag SectionCharacteristics.ContainsInitializedData then
-      BinSectionKind.Data
+      DataSection
     elif isPEMetadataSection sec.Name then
-      BinSectionKind.Metadata
+      MetadataSection
     else
-      BinSectionKind.Unknown
+      UnknownSection
 
   let secFileOffset (sec: SectionHeader) =
     if sec.SizeOfRawData = 0 then None

@@ -86,7 +86,7 @@ let private dumpHex (opts: BinDisasmOpts) (hdl: BinHandle) ptr =
 
 let private dumpData hdl (opts: BinDisasmOpts) ptr (sec: BinSection) =
   printSectionTitle <| String.wrapParen sec.Name
-  if sec.Kind = UninitializedData then
+  if sec.Kind = UninitializedDataSection then
     resetToDefaultTwoColumnConfig ()
     printsr [| ""; "NOBITS section." |]
   else
@@ -112,7 +112,7 @@ let private dumpSection hdl (opts: BinDisasmOpts) codeprn tableprn
   if sec.Size > 0UL then
     let ptr = BinFileOps.getSectionPointer (hdl: BinHandle).File sec.Name
     match sec.Kind with
-    | DynamicLinkage -> dumpOneSection tableprn sec.Name ptr
+    | DynamicLinkageSection -> dumpOneSection tableprn sec.Name ptr
     | _ when sec.Permission.HasFlag Permission.Executable ->
       dumpOneSection codeprn sec.Name ptr
     | _ when opts.OnlyDisasm -> dumpOneSection codeprn sec.Name ptr

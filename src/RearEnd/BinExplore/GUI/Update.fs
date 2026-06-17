@@ -262,7 +262,8 @@ let private selectionHighlightSpec (theme: Theme) (sec: BinSection) =
     struct (theme.Hex.LinkageArea, 9)
   elif sec.Permission.HasFlag Permission.Executable then
     struct (theme.Hex.CodeArea, 10)
-  elif sec.Permission.HasFlag Permission.Readable && sec.Kind <> Metadata then
+  elif sec.Permission.HasFlag Permission.Readable
+       && sec.Kind <> MetadataSection then
     if sec.Permission.HasFlag Permission.Writable then
       struct (theme.Hex.WritableDataArea, 7)
     else

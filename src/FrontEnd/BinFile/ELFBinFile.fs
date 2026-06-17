@@ -138,21 +138,21 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let secKind (sec: SectionHeader) =
     if PLT.isPLTSectionName sec.SecName then
-      BinSectionKind.DynamicLinkage
+      DynamicLinkageSection
     elif sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR then
-      BinSectionKind.Code
+      CodeSection
     elif sec.SecFlags.HasFlag SectionFlags.SHF_TLS then
-      BinSectionKind.ThreadLocalStorage
+      ThreadLocalStorageSection
     elif sec.SecType = SectionType.SHT_NOBITS then
-      BinSectionKind.UninitializedData
+      UninitializedDataSection
     elif isDebugSection sec then
-      BinSectionKind.Debug
+      DebugSection
     else
       match sec.SecType with
       | SectionType.SHT_PROGBITS
       | SectionType.SHT_INIT_ARRAY
       | SectionType.SHT_FINI_ARRAY
-      | SectionType.SHT_PREINIT_ARRAY -> BinSectionKind.Data
+      | SectionType.SHT_PREINIT_ARRAY -> DataSection
       | SectionType.SHT_SYMTAB
       | SectionType.SHT_STRTAB
       | SectionType.SHT_RELA
@@ -167,8 +167,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       | SectionType.SHT_GNU_LIBLIST
       | SectionType.SHT_GNU_verdef
       | SectionType.SHT_GNU_verneed
-      | SectionType.SHT_GNU_versym -> BinSectionKind.Metadata
-      | _ -> BinSectionKind.Unknown
+      | SectionType.SHT_GNU_versym -> MetadataSection
+      | _ -> UnknownSection
 
   let secPermission (sec: SectionHeader) =
     let r = if sec.SecFlags.HasFlag SectionFlags.SHF_ALLOC then 4 else 0

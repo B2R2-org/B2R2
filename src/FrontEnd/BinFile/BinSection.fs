@@ -49,22 +49,22 @@ type BinSection =
 /// Represents the kind of a binary section.
 and BinSectionKind =
   /// The section contains executable code.
-  | Code
+  | CodeSection
   /// The section contains initialized data.
-  | Data
+  | DataSection
   /// The section occupies memory but has no file-backed contents.
-  | UninitializedData
+  | UninitializedDataSection
   /// The section contains thread-local storage data.
-  | ThreadLocalStorage
+  | ThreadLocalStorageSection
   /// The section contains resources.
-  | Resource
+  | ResourceSection
   /// The section contains debug information.
-  | Debug
+  | DebugSection
   /// The section contains linker, loader, symbol, relocation, or other
   /// structural metadata.
-  | Metadata
+  | MetadataSection
   /// The section implements dynamic linkage, such as a PLT, stubs, or
   /// symbol-pointer tables.
-  | DynamicLinkage
+  | DynamicLinkageSection
   /// The section kind is unknown or not classified.
-  | Unknown
+  | UnknownSection

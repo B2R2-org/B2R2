@@ -103,8 +103,8 @@ module LinearDocument =
         { Address = section.Address
           Offset = int offset
           ItemLength = 0 }, (* header itself in LinearView has no length*)
-        sec.Kind = DynamicLinkage,
-        sec.Kind = UninitializedData)
+        sec.Kind = DynamicLinkageSection,
+        sec.Kind = UninitializedDataSection)
     | None ->
       None (* The section has no file position; not placed in LinearView. *)
 
