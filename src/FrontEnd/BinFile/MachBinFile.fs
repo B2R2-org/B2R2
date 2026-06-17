@@ -342,7 +342,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
     lazy
       [| for frame in exn.Value.Frames do
            { FunctionStart = frame.FuncStart
-             FunctionEnd = frame.FuncEnd
+             FunctionEnd = frame.FuncEnd - 1UL
              PersonalityRoutine = None
              Handlers = toExceptionHandlers frame } |]
 

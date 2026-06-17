@@ -43,7 +43,7 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
       if not last.IsCall then
         match last.DirectBranchTarget() with
         | true, jmpTarget ->
-          frame.FunctionStart <= jmpTarget && jmpTarget < frame.FunctionEnd
+          frame.FunctionStart <= jmpTarget && jmpTarget <= frame.FunctionEnd
         | _ -> true
       else true
     | _ -> true
@@ -62,7 +62,7 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
 
   let buildExceptionTable acc (frame: BinExceptionFrame) =
     let tbl, isFunc = loopHandlers frame acc
-    if isFunc then fnRanges[frame.FunctionStart] <- frame.FunctionEnd - 1UL
+    if isFunc then fnRanges[frame.FunctionStart] <- frame.FunctionEnd
     else ()
     tbl
 

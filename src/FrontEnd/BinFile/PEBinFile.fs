@@ -247,7 +247,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
     lazy
       [| for f in ExceptionData.parse pe bytes do
            { FunctionStart = f.FuncStart
-             FunctionEnd = f.FuncEnd
+             FunctionEnd = f.FuncEnd - 1UL
              PersonalityRoutine = f.Personality
              Handlers =
                f.Handlers

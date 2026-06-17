@@ -261,7 +261,8 @@ type PETests() =
   [<TestMethod>]
   member _.``[PE] X64 exception frames have sane ranges``() =
     let frames = (x64File :> IBinFile).ExceptionTable.Value.Frames
-    let sane = frames |> Array.forall (fun f -> f.FunctionEnd > f.FunctionStart)
+    let sane =
+      frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
     Assert.AreEqual<bool>(true, sane)
 
   [<TestMethod>]

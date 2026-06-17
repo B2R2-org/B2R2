@@ -419,7 +419,8 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X64 exception frames have sane ranges``() =
     let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
-    let sane = frames |> Array.forall (fun f -> f.FunctionEnd > f.FunctionStart)
+    let sane =
+      frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
     Assert.AreEqual<bool>(true, sane)
 
   [<TestMethod>]
@@ -438,7 +439,8 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] ARM64 compact unwind frames have sane ranges``() =
     let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
-    let sane = frames |> Array.forall (fun f -> f.FunctionEnd > f.FunctionStart)
+    let sane =
+      frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
     Assert.AreEqual<bool>(true, sane)
 
   [<TestMethod>]

@@ -306,7 +306,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       [| for cfi in exn.Value.ExceptionFrame do
            for fde in cfi.FDEs do
              { FunctionStart = fde.PCBegin
-               FunctionEnd = fde.PCEnd
+               FunctionEnd = fde.PCEnd - 1UL
                PersonalityRoutine = None
                Handlers = toExceptionHandlers fde } |]
 

@@ -31,7 +31,7 @@ open B2R2
 type BinExceptionFrame =
   { /// Start address of the function (inclusive).
     FunctionStart: Addr
-    /// End address of the function (exclusive).
+    /// End address of the function (inclusive).
     FunctionEnd: Addr
     /// Address of the personality/handler routine that governs this frame, if
     /// any (e.g., an ELF CIE personality or a PE UNWIND_INFO handler). None
