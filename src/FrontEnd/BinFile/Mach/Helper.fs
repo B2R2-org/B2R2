@@ -90,11 +90,21 @@ let invalidRangesByVM toolBox segCmds =
 let invalidRangesByFileBounds toolBox segCmds =
   computeInvalidRanges toolBox segCmds (fun seg -> seg.VMAddr + seg.FileSize)
 
+/// Converts a Mach VM protection value (initprot/maxprot) to a B2R2 Permission.
+/// The two use different bit layouts, so a direct cast would be wrong (e.g.,
+/// Mach READ = 1 collides with B2R2 Permission.Executable = 1).
+let machVMProtToPermission (prot: int) =
+  let mp: MachVMProt = LanguagePrimitives.EnumOfValue prot
+  (if mp.HasFlag MachVMProt.Readable then Permission.Readable else enum 0)
+  ||| (if mp.HasFlag MachVMProt.Writable then Permission.Writable else enum 0)
+  ||| (if mp.HasFlag MachVMProt.Executable then Permission.Executable
+       else enum 0)
+
 let executableRanges segCmds =
   segCmds
   |> Array.filter (fun seg ->
-    let perm: Permission = seg.InitProt |> LanguagePrimitives.EnumOfValue
-    perm.HasFlag Permission.Executable)
+    let prot: MachVMProt = LanguagePrimitives.EnumOfValue seg.InitProt
+    prot.HasFlag MachVMProt.Executable)
   |> Array.fold (fun set s ->
     IntervalSet.add (AddrRange.create s.VMAddr (s.VMAddr + s.VMSize - 1UL)) set
     ) IntervalSet.empty

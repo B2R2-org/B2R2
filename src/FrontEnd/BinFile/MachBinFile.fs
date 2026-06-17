@@ -137,8 +137,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   let secPermission (sec: Section) =
     match NoOverlapIntervalMap.tryFindByAddr sec.SecAddr segMap.Value with
-    | Some seg -> LanguagePrimitives.EnumOfValue seg.InitProt
-    | None -> LanguagePrimitives.EnumOfValue 0
+    | Some seg -> machVMProtToPermission seg.InitProt
+    | None -> enum 0
 
   let secKind (sec: Section) =
     if sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_DEBUG then
@@ -313,7 +313,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
           Size = seg.VMSize
           Offset = seg.FileOff
           FileSize = seg.FileSize
-          Permission = LanguagePrimitives.EnumOfValue seg.InitProt })
+          Permission = machVMProtToPermission seg.InitProt })
 
   let memoryLayout =
     Some { new IMemoryLayout with
