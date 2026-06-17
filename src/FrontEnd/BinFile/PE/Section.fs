@@ -22,6 +22,12 @@
   SOFTWARE.
 *)
 
+/// <namespacedoc>
+///   <summary>
+///   Provides PE section name constants through the Section module.
+///   </summary>
+/// </namespacedoc>
+///
 /// Provides constants for PE section names.
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.PE.Section

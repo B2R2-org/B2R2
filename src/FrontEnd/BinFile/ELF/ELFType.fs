@@ -24,12 +24,6 @@
 
 namespace B2R2.FrontEnd.BinFile.ELF
 
-/// <namespacedoc>
-///   <summary>
-///   Contains types and functions for working with ELF file types.
-///   </summary>
-/// </namespacedoc>
-///
 /// <summary>
 /// Represents the ELF file type, such as ET_REL, ET_EXEC, etc.
 /// </summary>

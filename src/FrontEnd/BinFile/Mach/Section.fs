@@ -56,6 +56,15 @@ type internal Section =
     /// Reserved field 2.
     SecReserved2: int }
 
+/// <namespacedoc>
+///   <summary>
+///   Provides Mach-O section name constants through the Section module.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Provides constants for Mach-O section names.
+/// </summary>
 [<RequireQualifiedAccess>]
 module Section =
   let [<Literal>] Text = "__text"

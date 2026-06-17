@@ -24,12 +24,6 @@
 
 namespace B2R2.FrontEnd.BinFile.PE
 
-/// <namespacedoc>
-///   <summary>
-///   Contains types and functions for working with PE file types.
-///   </summary>
-/// </namespacedoc>
-///
 /// <summary>
 /// Represents a section header in a PE file.
 /// </summary>

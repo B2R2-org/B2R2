@@ -22,7 +22,15 @@
   SOFTWARE.
 *)
 
+/// <namespacedoc>
+///   <summary>
+///   Provides ELF section name constants through the Section module.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
 /// Provides constants for ELF section names.
+/// </summary>
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.ELF.Section
 

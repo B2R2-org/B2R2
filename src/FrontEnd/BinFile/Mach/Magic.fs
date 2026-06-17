@@ -26,12 +26,6 @@ namespace B2R2.FrontEnd.BinFile.Mach
 
 open B2R2.FrontEnd.BinLifter
 
-/// <namespacedoc>
-///   <summary>
-///   Contains types and functions for working with Mach-O file types.
-///   </summary>
-/// </namespacedoc>
-///
 /// <summary>
 /// Represents the magic number for Mach-O binaries.
 /// </summary>
