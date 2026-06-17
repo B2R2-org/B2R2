@@ -200,6 +200,138 @@ let private parseFuncInfo ctx span funcBeginRva funcEndRva funcInfoRva =
           t <- t + 1
         List.ofSeq records
 
+/// Reads an FH4 compressed unsigned integer at pos, advancing pos past it. The
+/// run of low set bits in the first byte gives the encoded length (1-5 bytes).
+let private readUnsigned (span: ByteSpan) (pos: byref<int>) =
+  if pos < 0 || pos + 5 > span.Length then
+    pos <- span.Length
+    0
+  elif (int span[pos] &&& 0b1) = 0 then
+    let v = int span[pos] >>> 1
+    pos <- pos + 1
+    v
+  elif (int span[pos] &&& 0b11) = 0b01 then
+    let v = (int span[pos] ||| (int span[pos + 1] <<< 8)) >>> 2
+    pos <- pos + 2
+    v
+  elif (int span[pos] &&& 0b111) = 0b011 then
+    let v =
+      (int span[pos]
+       ||| (int span[pos + 1] <<< 8)
+       ||| (int span[pos + 2] <<< 16)) >>> 3
+    pos <- pos + 3
+    v
+  elif (int span[pos] &&& 0b1111) = 0b0111 then
+    let v =
+      uint32 span[pos] ||| (uint32 span[pos + 1] <<< 8)
+      ||| (uint32 span[pos + 2] <<< 16) ||| (uint32 span[pos + 3] <<< 24)
+    pos <- pos + 4
+    int (v >>> 4)
+  else
+    let v =
+      uint32 span[pos + 1] ||| (uint32 span[pos + 2] <<< 8)
+      ||| (uint32 span[pos + 3] <<< 16) ||| (uint32 span[pos + 4] <<< 24)
+    pos <- pos + 5
+    int v
+
+/// Computes the guarded RVA range [begin, end) covering states in [low, high]
+/// from a decoded IP-to-state map (falls back to the whole function).
+let private rangeFromIp2State entries funcBeginRva funcEndRva low high =
+  let mutable b = Int32.MaxValue
+  let mutable e = 0
+  for j in 0 .. (entries: ResizeArray<int * int>).Count - 1 do
+    let ip, state = entries[j]
+    if state >= low && state <= high then
+      let next =
+        if j + 1 < entries.Count then fst entries[j + 1] else funcEndRva
+      if ip < b then b <- ip else ()
+      if next > e then e <- next else ()
+    else ()
+  if b = Int32.MaxValue then funcBeginRva, funcEndRva else b, e
+
+/// Decodes the FH4 IP-to-state map into (IP RVA, state) pairs. IPs are
+/// delta-encoded from the function start; states are stored as state + 1.
+let private decodeIP2State ctx (span: ByteSpan) funcBeginRva mapRva =
+  let entries = ResizeArray<int * int>()
+  if isValidRva ctx mapRva then
+    let mutable p = getRawOffset ctx.Secs mapRva
+    let count = readUnsigned span &p
+    let mutable ip = 0
+    let mutable j = 0
+    while j < count && j < 0x10000 do
+      ip <- ip + readUnsigned span &p
+      let state = readUnsigned span &p
+      entries.Add(funcBeginRva + ip, state)
+      j <- j + 1
+  else ()
+  entries
+
+/// Reads the catch-handler code addresses of an FH4 HandlerMap4 (a compressed
+/// count followed by variable-length HandlerType4 records).
+let private parseHandlerMap4 ctx (span: ByteSpan) handlerArrayRva =
+  let handlers = ResizeArray<Addr option>()
+  if isValidRva ctx handlerArrayRva then
+    let mutable p = getRawOffset ctx.Secs handlerArrayRva
+    let count = readUnsigned span &p
+    let mutable k = 0
+    while k < count && k < 0x10000 do
+      let header = int span[p]
+      p <- p + 1
+      if (header &&& 0b1) <> 0 then readUnsigned span &p |> ignore else ()
+      if (header &&& 0b10) <> 0 then p <- p + 4 else ()
+      if (header &&& 0b100) <> 0 then readUnsigned span &p |> ignore else ()
+      let disp = ctx.Reader.ReadInt32(span, p)
+      p <- p + 4
+      handlers.Add(
+        if disp = 0 || not (isValidRva ctx disp) then None
+        else Some(addrFromRVA ctx.BaseAddr disp))
+      let nCont = (header >>> 4) &&& 0b11
+      let contIsRva = (header &&& 0b1000) <> 0
+      let mutable c = 0
+      while c < nCont do
+        if contIsRva then p <- p + 4 else readUnsigned span &p |> ignore
+        c <- c + 1
+      k <- k + 1
+  else ()
+  handlers
+
+/// Parses a compressed (FH4) C++ FuncInfo4, yielding one handler record per
+/// catch clause. Returns [] when the data is not a usable FH4 FuncInfo.
+let private parseFuncInfo4 ctx span funcBeginRva funcEndRva funcInfoRva =
+  if not (isValidRva ctx funcInfoRva) then []
+  else
+    let mutable p = getRawOffset ctx.Secs funcInfoRva
+    let header = (span: ByteSpan)[p] |> int
+    p <- p + 1
+    if (header &&& 0b10000000) <> 0 || (header &&& 0b10000) = 0 then []
+    else
+      if (header &&& 0b100) <> 0 then readUnsigned span &p |> ignore else ()
+      if (header &&& 0b1000) <> 0 then p <- p + 4 else ()
+      let dispTryMap = ctx.Reader.ReadInt32(span, p)
+      p <- p + 4
+      let dispIP2State = ctx.Reader.ReadInt32(span, p)
+      if not (isValidRva ctx dispTryMap) then []
+      else
+        let ip2state = decodeIP2State ctx span funcBeginRva dispIP2State
+        let records = ResizeArray<Addr * Addr * Addr option>()
+        let mutable tp = getRawOffset ctx.Secs dispTryMap
+        let nTry = readUnsigned span &tp
+        let mutable t = 0
+        while t < nTry && t < 0x10000 do
+          let tryLow = readUnsigned span &tp
+          let tryHigh = readUnsigned span &tp
+          readUnsigned span &tp |> ignore (* catchHigh, unused *)
+          let dispHandler = ctx.Reader.ReadInt32(span, tp)
+          tp <- tp + 4
+          let b, e =
+            rangeFromIp2State ip2state funcBeginRva funcEndRva tryLow tryHigh
+          let bStart, bEnd = addrFromRVA ctx.BaseAddr b,
+                             addrFromRVA ctx.BaseAddr e - 1UL
+          for handler in parseHandlerMap4 ctx span dispHandler do
+            records.Add(bStart, bEnd, handler)
+          t <- t + 1
+        List.ofSeq records
+
 let parse (pe: PE) (bytes: byte[]) =
   let frames = ResizeArray<FrameInfo>()
   let hdrs = pe.PEHeaders
@@ -228,10 +360,12 @@ let parse (pe: PE) (bytes: byte[]) =
               addrFromRVA ctx.BaseAddr (ctx.Reader.ReadInt32(span, dataOff))
             let scope = parseScopeTable ctx span (dataOff + 4) beginRva endRva
             let h =
-              if List.isEmpty scope then
-                parseFuncInfo ctx span beginRva endRva
-                  (ctx.Reader.ReadInt32(span, dataOff + 4))
-              else scope
+              if not (List.isEmpty scope) then scope
+              else
+                let fiRva = ctx.Reader.ReadInt32(span, dataOff + 4)
+                match parseFuncInfo ctx span beginRva endRva fiRva with
+                | [] -> parseFuncInfo4 ctx span beginRva endRva fiRva
+                | fh3 -> fh3
             Some p, h
           | None -> None, []
         frames.Add

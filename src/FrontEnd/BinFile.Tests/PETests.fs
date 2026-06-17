@@ -297,3 +297,26 @@ type PETests() =
       |> Array.groupBy (fun h -> h.BlockStart, h.BlockEnd)
       |> Array.exists (fun (_, hs) -> hs.Length >= 2)
     Assert.AreEqual<bool>(true, multiCatch)
+
+  [<TestMethod>]
+  member _.``[PE] X64 FH4 C++ catch handlers are parsed``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let multiCatch =
+      frames
+      |> Array.collect (fun f -> f.Handlers)
+      |> Array.filter (fun h -> h.Handler.IsSome)
+      |> Array.groupBy (fun h -> h.BlockStart, h.BlockEnd)
+      |> Array.exists (fun (_, hs) -> hs.Length >= 2)
+    Assert.AreEqual<bool>(true, multiCatch)
+
+  [<TestMethod>]
+  member _.``[PE] X64 FH4 catch handler addresses match dumpbin``() =
+    // dumpbin /unwindinfo reports cppGuarded's two catch handlers at RVAs
+    // 0x91FE0 and 0x9200D (image base 0x140000000).
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let targets =
+      frames
+      |> Array.collect (fun f -> f.Handlers)
+      |> Array.choose (fun h -> h.Handler)
+    Assert.AreEqual<bool>(true, Array.contains 0x140091FE0UL targets)
+    Assert.AreEqual<bool>(true, Array.contains 0x14009200DUL targets)
