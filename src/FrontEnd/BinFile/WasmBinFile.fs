@@ -151,11 +151,9 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
           | None -> Error ErrorCase.ItemNotFound
 
       member _.TryFindSectionByOffset offset =
-        if offset > 0xffffffffUL then Error ErrorCase.ItemNotFound
-        else
-          match tryFindSectionByOffset (uint32 offset) with
-          | Some sec -> Ok(toBinSection sec)
-          | None -> Error ErrorCase.ItemNotFound
+        match tryFindSectionByOffset offset with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
 
       member _.TryFindSectionNameByAddr addr =
         NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr

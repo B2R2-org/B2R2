@@ -67,7 +67,7 @@ type IBinStructure =
   /// section, then this function returns an error.
   /// </summary>
   abstract TryFindSectionByOffset:
-    offset: uint64 -> Result<BinSection, ErrorCase>
+    offset: uint32 -> Result<BinSection, ErrorCase>
 
   /// <summary>
   /// Returns the name of the section that contains the given address. If the

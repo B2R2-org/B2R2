@@ -169,12 +169,14 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
     |> Array.tryFind (fun sec ->
       addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
 
-  let tryFindSectionByOffset offset =
+  let tryFindSectionByOffset (offset: uint32) =
     secs.Value
     |> Array.tryFind (fun sec ->
       let fileSize = if isZeroFillSection sec then 0UL else sec.SecSize
       let secOffset = uint64 sec.SecOffset
-      fileSize > 0UL && offset >= secOffset && offset < secOffset + fileSize)
+      fileSize > 0UL
+      && uint64 offset >= secOffset
+      && uint64 offset < secOffset + fileSize)
 
   let structure =
     Some { new IBinStructure with
@@ -226,8 +228,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.TryFindSectionNameByOffset(offset: uint32) =
-        tryFindSectionByOffset (uint64 offset)
+      member _.TryFindSectionNameByOffset offset =
+        tryFindSectionByOffset offset
         |> function
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound

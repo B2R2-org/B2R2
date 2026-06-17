@@ -128,12 +128,14 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
     | -1 -> None
     | idx -> Some pe.SectionHeaders[idx]
 
-  let tryFindSectionByOffset offset =
+  let tryFindSectionByOffset (offset: uint32) =
     pe.SectionHeaders
     |> Array.tryFind (fun sec ->
       let secStart = uint64 sec.PointerToRawData
       let secEnd = secStart + uint64 sec.SizeOfRawData
-      sec.SizeOfRawData > 0 && offset >= secStart && offset < secEnd)
+      sec.SizeOfRawData > 0
+      && uint64 offset >= secStart
+      && uint64 offset < secEnd)
 
   let structure =
     Some { new IBinStructure with
@@ -190,8 +192,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         | Some sec -> Ok sec.Name
         | None -> Error ErrorCase.ItemNotFound
 
-      member _.TryFindSectionNameByOffset(offset: uint32) =
-        tryFindSectionByOffset (uint64 offset)
+      member _.TryFindSectionNameByOffset offset =
+        tryFindSectionByOffset offset
         |> function
           | Some sec -> Ok sec.Name
           | None -> Error ErrorCase.ItemNotFound

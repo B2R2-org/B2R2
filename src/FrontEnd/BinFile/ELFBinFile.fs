@@ -192,12 +192,12 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     |> Array.tryFind (fun sec ->
       addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
 
-  let tryFindSectionByOffset offset =
+  let tryFindSectionByOffset (offset: uint32) =
     shdrs.Value
     |> Array.tryFind (fun sec ->
       let fileSize = secFileSize sec
-      fileSize > 0UL && offset >= sec.SecOffset
-      && offset < sec.SecOffset + fileSize)
+      fileSize > 0UL && uint64 offset >= sec.SecOffset
+      && uint64 offset < sec.SecOffset + fileSize)
 
   let structure =
     Some { new IBinStructure with
@@ -253,8 +253,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.TryFindSectionNameByOffset(offset: uint32) =
-        tryFindSectionByOffset (uint64 offset)
+      member _.TryFindSectionNameByOffset offset =
+        tryFindSectionByOffset offset
         |> function
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
