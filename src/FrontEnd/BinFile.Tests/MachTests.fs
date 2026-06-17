@@ -51,13 +51,17 @@ type MachTests() =
     |> Seq.map (fun record -> record.SecAddr, record.SecName)
     |> assertExistenceOfPair (address, sectionName)
 
-  static let x86File =
-    parseFile "mach_x86_rm_stripped" Architecture.Intel WordSize.Bit32
+  /// A minimal x86-64 Mach-O executable; the canonical x64 fixture used for
+  /// metadata, section, and address-space tests.
+  static let x64File = parseFile "mach_x64" Architecture.Intel WordSize.Bit64
 
-  static let x64File = parseFile "mach_x64_wc" Architecture.Intel WordSize.Bit64
-
+  /// mach_x64 with its symbols stripped: the defined function symbols are gone.
   static let x64SFile =
-    parseFile "mach_x64_wc_stripped" Architecture.Intel WordSize.Bit64
+    parseFile "mach_x64_stripped" Architecture.Intel WordSize.Bit64
+
+  /// A minimal arm64 Mach-O executable, exercising the ARM64 cpu type.
+  static let arm64File =
+    parseFile "mach_arm64" Architecture.ARMv8 WordSize.Bit64
 
   static let x64RelocFile =
     parseFile "mach_x64_reloc" Architecture.Intel WordSize.Bit64
@@ -93,32 +97,111 @@ type MachTests() =
     parseFile "mach_arm64_exc" Architecture.ARMv8 WordSize.Bit64
 
   [<TestMethod>]
-  member _.``[Mach] X86_Stripped EntryPoint test``() =
-    Assert.AreEqual(Some 0x00002050UL, (x86File :> IBinFile).EntryPoint)
+  member _.``[Mach] X64 ISA test``() =
+    let isa = (x64File :> IBinFile).ISA
+    Assert.AreEqual(Architecture.Intel, isa.Arch)
+    Assert.AreEqual(WordSize.Bit64, isa.WordSize)
+    Assert.AreEqual(Endian.Little, isa.Endian)
 
   [<TestMethod>]
-  member _.``[Mach] X86_Stripped file type test``() =
-    Assert.AreEqual(FileType.MH_EXECUTE, x86File.Header.FileType)
+  member _.``[Mach] X64 EntryPoint test``() =
+    Assert.AreEqual(Some 0x100000480UL, (x64File :> IBinFile).EntryPoint)
 
   [<TestMethod>]
-  member _.``[Mach] X86_Stripped IsStripped test``() =
-    Assert.AreEqual(true, isStripped (x86File :> IBinFile))
+  member _.``[Mach] X64 file type test``() =
+    Assert.AreEqual(FileType.MH_EXECUTE, x64File.Header.FileType)
 
   [<TestMethod>]
-  member _.``[Mach] X86_Stripped IsNXEnabled test``() =
-    Assert.AreEqual(true, (x86File :> IBinFile).IsNXEnabled)
+  member _.``[Mach] X64 kind test``() =
+    Assert.AreEqual<BinFileKind>(Executable, (x64File :> IBinFile).Kind)
 
   [<TestMethod>]
-  member _.``[Mach] X86_Stripped sections length test``() =
-    Assert.AreEqual<int>(9, x86File.Sections.Length)
+  member _.``[Mach] X64 is PIE test``() =
+    Assert.AreEqual<bool>(true, (x64File :> IBinFile).IsPIE)
 
   [<TestMethod>]
-  member _.``[Mach] X86_Stripped static symbols length test``() =
-    Assert.AreEqual<int>(0, x86File.StaticSymbols.Length)
+  member _.``[Mach] X64 is base-relative test``() =
+    Assert.AreEqual<bool>(true, (x64File :> IBinFile).IsBaseRelative)
 
   [<TestMethod>]
-  member _.``[Mach] X86_Stripped dynamic symbols length test``() =
-    Assert.AreEqual<int>(59, x86File.DynamicSymbols.Length)
+  member _.``[Mach] X64 base address test``() =
+    Assert.AreEqual<uint64>(0UL, (x64File :> IBinFile).BaseAddress)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 IsStripped test``() =
+    Assert.AreEqual(false, isStripped (x64File :> IBinFile))
+
+  [<TestMethod>]
+  member _.``[Mach] X64 IsNXEnabled test``() =
+    Assert.AreEqual(true, (x64File :> IBinFile).IsNXEnabled)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 InterpreterPath test``() =
+    let actual = (x64File :> IBinFile).InterpreterPath
+    Assert.AreEqual<string option>(Some "/usr/lib/dyld", actual)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 text section address test``() =
+    Assert.AreEqual<uint64>(0x100000470UL, getTextSectionAddr x64File)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 isa wordSize test``() =
+    Assert.AreEqual(WordSize.Bit64, (x64File :> IBinFile).ISA.WordSize)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 function symbol test (1)``() =
+    assertFuncSymbolExistence x64File 0x100000480UL "_main"
+
+  [<TestMethod>]
+  member _.``[Mach] X64 function symbol test (2)``() =
+    assertFuncSymbolExistence x64File 0x100000470UL "_helper"
+
+  [<TestMethod>]
+  member _.``[Mach] X64 section header test``() =
+    assertExistenceOfSectionHeader x64File 0x100000470UL "__text"
+
+  [<TestMethod>]
+  member _.``[Mach] X64 flags test``() =
+    let flags = "MH_NOUNDEFS, MH_DYLDLINK, MH_TWOLEVEL, MH_PIE"
+    assertExistenceOfFlag x64File flags
+
+  [<TestMethod>]
+  member _.``[Mach] X64_Stripped IsStripped test``() =
+    Assert.AreEqual(true, isStripped (x64SFile :> IBinFile))
+
+  [<TestMethod>]
+  member _.``[Mach] X64_Stripped function symbol removed test``() =
+    match BinFileOps.tryResolveName x64SFile 0x100000480UL with
+    | Error _ -> ()
+    | Ok _ -> Assert.Fail "_main should not resolve after stripping"
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 ISA test``() =
+    let isa = (arm64File :> IBinFile).ISA
+    Assert.AreEqual(Architecture.ARMv8, isa.Arch)
+    Assert.AreEqual(WordSize.Bit64, isa.WordSize)
+    Assert.AreEqual(Endian.Little, isa.Endian)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 EntryPoint test``() =
+    Assert.AreEqual(Some 0x100000478UL, (arm64File :> IBinFile).EntryPoint)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 file type test``() =
+    Assert.AreEqual(FileType.MH_EXECUTE, arm64File.Header.FileType)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 text section address test``() =
+    Assert.AreEqual<uint64>(0x100000460UL, getTextSectionAddr arm64File)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 function symbol test``() =
+    assertFuncSymbolExistence arm64File 0x100000478UL "_main"
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 flags test``() =
+    let flags = "MH_NOUNDEFS, MH_DYLDLINK, MH_TWOLEVEL, MH_PIE"
+    assertExistenceOfFlag arm64File flags
 
   [<TestMethod>]
   member _.``[Mach] X64 IsRelocationAddr test``() =
@@ -248,170 +331,6 @@ type MachTests() =
     Assert.AreEqual(0x4008UL, entries[1].TableAddress)
 
   [<TestMethod>]
-  member _.``[Mach] X86_Stripped linkageTableEntries length test``() =
-    let f = x86File :> IBinFile
-    Assert.AreEqual<int>(45, (getLinkageTableEntries f).Length)
-
-  [<TestMethod>]
-  member _.``[Mach] X86_Stripped text section address test``() =
-    Assert.AreEqual<uint64>(0x00002050UL, getTextSectionAddr x86File)
-
-  [<TestMethod>]
-  member _.``[Mach] X86_Stripped isa wordSize test``() =
-    Assert.AreEqual(WordSize.Bit32, (x86File :> IBinFile).ISA.WordSize)
-
-  [<TestMethod>]
-  member _.``[Mach] X86_Stripped function symbol test (1)``() =
-    assertFuncSymbolExistence x86File 0x00003b28UL "___error"
-
-  [<TestMethod>]
-  member _.``[Mach] X86_Stripped function symbol test (2)``() =
-    assertFuncSymbolExistence x86File 0x00003b70UL "_fflush"
-
-  [<TestMethod>]
-  member _.``[Mach] X86_Stripped section header test (1)``() =
-    assertExistenceOfSectionHeader x86File 8272UL "__text"
-
-  [<TestMethod>]
-  member _.``[Mach] X86_Stripped section header test (2)``() =
-    assertExistenceOfSectionHeader x86File 16620UL "__common"
-
-  [<TestMethod>]
-  member _.``[Mach] X86_Stripped flags test``() =
-    let flags =
-      "MH_NOUNDEFS, MH_DYLDLINK, MH_TWOLEVEL, MH_PIE, MH_NO_HEAP_EXECUTION"
-    assertExistenceOfFlag x86File flags
-
-  [<TestMethod>]
-  member _.``[Mach] X64 EntryPoint test``() =
-    Assert.AreEqual(Some 0x100000E90UL, (x64File :> IBinFile).EntryPoint)
-
-  [<TestMethod>]
-  member _.``[Mach] X64 file type test``() =
-    Assert.AreEqual(FileType.MH_EXECUTE, x64File.Header.FileType)
-
-  [<TestMethod>]
-  member _.``[Mach] X64 IsStripped test``() =
-    Assert.AreEqual(false, isStripped (x64File :> IBinFile))
-
-  [<TestMethod>]
-  member _.``[Mach] X64 IsNXEnabled test``() =
-    Assert.AreEqual(true, (x64File :> IBinFile).IsNXEnabled)
-
-  [<TestMethod>]
-  member _.``[Mach] X64 InterpreterPath test``() =
-    let actual = (x64File :> IBinFile).InterpreterPath
-    Assert.AreEqual<string option>(Some "/usr/lib/dyld", actual)
-
-  [<TestMethod>]
-  member _.``[Mach] X64 sections length test``() =
-    Assert.AreEqual<int>(13, x64File.Sections.Length)
-
-  [<TestMethod>]
-  member _.``[Mach] X64 static symbols length test``() =
-    Assert.AreEqual<int>(885, x64File.StaticSymbols.Length)
-
-  [<TestMethod>]
-  member _.``[Mach] X64 dynamic symbols length test``() =
-    Assert.AreEqual<int>(190, x64File.DynamicSymbols.Length)
-
-  [<TestMethod>]
-  member _.``[Mach] X64 linkageTableEntries length test``() =
-    let f = x64File :> IBinFile
-    Assert.AreEqual<int>(72, (getLinkageTableEntries f).Length)
-
-  [<TestMethod>]
-  member _.``[Mach] X64 text section address test``() =
-    Assert.AreEqual<uint64>(0x100000D30UL, getTextSectionAddr x64File)
-
-  [<TestMethod>]
-  member _.``[Mach] X64 isa wordSize test``() =
-    Assert.AreEqual(WordSize.Bit64, (x64File :> IBinFile).ISA.WordSize)
-
-  [<TestMethod>]
-  member _.``[Mach] X64 function symbol test (1)``() =
-    assertFuncSymbolExistence x64File 0x100000D30UL "_usage"
-
-  [<TestMethod>]
-  member _.``[Mach] X64 function symbol test (2)``() =
-    assertFuncSymbolExistence x64File 0x100005F90UL "_error"
-
-  [<TestMethod>]
-  member _.``[Mach] X64 section header test (1)``() =
-    assertExistenceOfSectionHeader x64File 0x100000D30UL "__text"
-
-  [<TestMethod>]
-  member _.``[Mach] X64 section header test (2)``() =
-    assertExistenceOfSectionHeader x64File 0x10000d680UL "__common"
-
-  [<TestMethod>]
-  member _.``[Mach] X64 flags test``() =
-    let flags = "MH_NOUNDEFS, MH_DYLDLINK, MH_TWOLEVEL, MH_PIE"
-    assertExistenceOfFlag x64File flags
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped EntryPoint test``() =
-    Assert.AreEqual(Some 0x100000E90UL, (x64SFile :> IBinFile).EntryPoint)
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped file type test``() =
-    Assert.AreEqual(FileType.MH_EXECUTE, x64SFile.Header.FileType)
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped IsStripped test``() =
-    Assert.AreEqual(true, isStripped (x64SFile :> IBinFile))
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped IsNXEnabled test``() =
-    Assert.AreEqual(true, (x64SFile :> IBinFile).IsNXEnabled)
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped sections length test``() =
-    Assert.AreEqual<int>(13, x64SFile.Sections.Length)
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped static symbols length test``() =
-    Assert.AreEqual<int>(0, x64SFile.StaticSymbols.Length)
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped dynamic symbols length test``() =
-    Assert.AreEqual<int>(190, x64SFile.DynamicSymbols.Length)
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped linkageTableEntries length test``() =
-    let f = x64SFile :> IBinFile
-    Assert.AreEqual<int>(72, (getLinkageTableEntries f).Length)
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped text section address test``() =
-    Assert.AreEqual<uint64>(0x100000D30UL, getTextSectionAddr x64SFile)
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped isa wordSize test``() =
-    Assert.AreEqual(WordSize.Bit64, (x64SFile :> IBinFile).ISA.WordSize)
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped function symbol test (1)``() =
-    assertFuncSymbolExistence x64SFile 0x10000B076UL "___error"
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped function symbol test (2)``() =
-    assertFuncSymbolExistence x64SFile 0x10000B0D0UL "_fflush"
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped section header test (1)``() =
-    assertExistenceOfSectionHeader x64SFile 0x100000D30UL "__text"
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped section header test (2)``() =
-    assertExistenceOfSectionHeader x64SFile 0x10000d680UL "__common"
-
-  [<TestMethod>]
-  member _.``[Mach] X64_Stripped flags test``() =
-    let flags = "MH_NOUNDEFS, MH_DYLDLINK, MH_TWOLEVEL, MH_PIE"
-    assertExistenceOfFlag x64SFile flags
-
-  [<TestMethod>]
   member _.``[Mach] X64 exception table is parsed``() =
     let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
     Assert.AreEqual<bool>(true, frames.Length > 0)
@@ -450,3 +369,53 @@ type MachTests() =
       frames |> Array.exists (fun f ->
         f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
     Assert.AreEqual<bool>(true, hasHandler)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 valid address test``() =
+    let f = x64File :> IBinFile
+    Assert.AreEqual<bool>(true, f.IsValidAddr 0x100000470UL) (* __text *)
+    Assert.AreEqual<bool>(true, f.IsValidAddr 0x100002200UL) (* __LINKEDIT *)
+    Assert.AreEqual<bool>(false, f.IsValidAddr 0x200000000UL) (* unmapped *)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 address mapped to file test``() =
+    (* __text is file-backed, but the tail of __LINKEDIT (vmsize > filesize) is
+       not. *)
+    let f = x64File :> IBinFile
+    Assert.AreEqual<bool>(true, f.IsAddrMappedToFile 0x100000470UL)
+    Assert.AreEqual<bool>(false, f.IsAddrMappedToFile 0x100002200UL)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 executable address test``() =
+    let f = x64File :> IBinFile
+    Assert.AreEqual<bool>(true, f.IsExecutableAddr 0x100000470UL) (* __text *)
+    Assert.AreEqual<bool>(false, f.IsExecutableAddr 0x100001000UL) (* __DATA *)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 slice maps address to file content test``() =
+    let f = x64File :> IBinFile
+    let viaSlice = f.Slice(0x100000470UL, 8).ToArray()
+    let viaRaw = f.RawBytes.Span.Slice(0x470, 8).ToArray()
+    CollectionAssert.AreEqual(viaRaw, viaSlice)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 bounded pointer test``() =
+    let f = x64File :> IBinFile
+    let p = f.GetBoundedPointer 0x100000470UL
+    Assert.AreEqual<bool>(false, p.IsNull)
+    Assert.AreEqual<bool>(true, p.CanReadFileBytes)
+
+  [<TestMethod>]
+  member _.``[Mach] format detector identifies Mach test``() =
+    let bytes = ZIPReader.readBytes MachBinary "mach_x64.zip" "mach_x64"
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let struct (fmt, _) = FormatDetector.identify bytes isa
+    Assert.AreEqual(MachBinary, fmt)
+
+  [<TestMethod>]
+  member _.``[Mach] file factory loadMach test``() =
+    let bytes = ZIPReader.readBytes MachBinary "mach_x64.zip" "mach_x64"
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let rf = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
+    let f = FileFactory.loadMach "" bytes isa rf None :> IBinFile
+    Assert.AreEqual(MachBinary, f.Format)
